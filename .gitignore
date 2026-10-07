@@ -1,0 +1,14 @@
+# OS
+.DS_Store
+# 依存部品・ビルド
+node_modules/
+target/
+dist/
+# 秘密情報（絶対にコミットしない）
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.p8
+*.mobileprovision
