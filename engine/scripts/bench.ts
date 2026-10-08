@@ -1,7 +1,7 @@
 // 0005 の「速さの回帰」: 100年分のモデル世帯の5案×4想定（scripts/bench-requests.ts）で、Node（V8）・JavaScriptCore（Bun）・
 // Rust 組込みの quickjs-ng の計算の時間を測り、dist/bench/result.json に記録する。bench/baseline.json（前に測った値）と比べ、
-// 大きく遅くなったら知らせる（GitHub Actions では警告の注記と、3倍を超えたら失敗）。
-// 使い方: node scripts/bench.ts [--engine dist/engine.js] [--repeat N] [--no-quickjs] [--no-jsc] [--check]
+// 大きく遅くなったら知らせる（GitHub Actions では警告の注記と、3倍を超えたら失敗）。目標（0005）に届いたかも表にする。
+// 使い方: node scripts/bench.ts [--engine dist/engine.js] [--repeat N] [--no-quickjs] [--no-jsc] [--check] [--update-baseline]
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -121,21 +121,45 @@ const table = rows.join("\n");
 console.log(table);
 if (process.env.GITHUB_STEP_SUMMARY !== undefined) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### 速さ（lifetime100、5案×4想定）\n\n${table}\n`);
 
-// 前に測った値（bench/baseline.json）と比べる。1.5倍を超えたら警告、3倍を超えたら失敗
+// 目標（0005）と比べて表に出し、前に測った値（bench/baseline.json の同じ OS・CPU の欄）と比べる。
+// 1.5倍を超えたら警告、3倍を超えたら失敗（--check）。--update-baseline で今の値を前の値として書く
+const basePath = join(ENGINE_DIR, "bench", "baseline.json");
+const machine = `${process.platform}-${process.arch}`;
+const file = JSON.parse(readFileSync(basePath, "utf8")) as {
+  targets: Record<string, { ms: number; note: string }>;
+  baseline: Record<string, Record<string, Record<string, Stat>>>;
+};
+const valueOf = (key: string): number | undefined => {
+  const [eng, k] = key.split(".") as [string, string];
+  return ((result[eng] as Record<string, Stat> | undefined) ?? {})[k]?.median;
+};
+const targetRows = ["| 目標 | 中身 | 目標（ミリ秒） | 今回 | |", "|---|---|---|---|---|"];
+for (const [key, t] of Object.entries(file.targets)) {
+  const v = valueOf(key);
+  targetRows.push(`| ${key} | ${t.note} | ${t.ms} | ${v ?? "—"} | ${v === undefined ? "" : v <= t.ms ? "達成" : "未達"} |`);
+}
+console.log(targetRows.join("\n"));
+if (process.env.GITHUB_STEP_SUMMARY !== undefined) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n### 目標（${machine}）\n\n${targetRows.join("\n")}\n`);
+if (args.includes("--update-baseline")) {
+  const keep: Record<string, Record<string, Stat>> = {};
+  for (const [eng, r] of Object.entries(result)) if (eng !== "machine") keep[eng] = Object.fromEntries(Object.entries(r as Record<string, unknown>).filter(([, v]) => typeof v === "object")) as Record<string, Stat>;
+  file.baseline[machine] = keep;
+  writeFileSync(basePath, `${JSON.stringify(file, null, 2)}\n`);
+  console.log(`bench/baseline.json の ${machine} を書き換えました`);
+}
 if (args.includes("--check")) {
-  const basePath = join(ENGINE_DIR, "bench", "baseline.json");
-  const baseline = JSON.parse(readFileSync(basePath, "utf8")) as Record<string, Record<string, Stat>>;
+  const baseline = file.baseline[machine];
   let failed = false;
-  for (const [eng, r] of Object.entries(baseline)) {
-    if (eng === "note") continue;
+  if (baseline === undefined) console.log(`::notice::速さ: ${machine} の前の値が bench/baseline.json に無いので、比べませんでした`);
+  for (const [eng, r] of Object.entries(baseline ?? {})) {
     for (const [k, b] of Object.entries(r)) {
-      const now = ((result[eng] as Record<string, Stat> | undefined) ?? {})[k];
+      const now = valueOf(`${eng}.${k}`);
       if (now === undefined) continue;
-      const ratio = now.median / b.median;
+      const ratio = now / b.median;
       if (ratio > 3) {
         failed = true;
-        console.log(`::error::速さ: ${eng} ${k} が前の値の ${ratio.toFixed(1)} 倍（${b.median} → ${now.median} ミリ秒）`);
-      } else if (ratio > 1.5) console.log(`::warning::速さ: ${eng} ${k} が前の値の ${ratio.toFixed(1)} 倍（${b.median} → ${now.median} ミリ秒）`);
+        console.log(`::error::速さ: ${eng} ${k} が前の値の ${ratio.toFixed(1)} 倍（${b.median} → ${now} ミリ秒）`);
+      } else if (ratio > 1.5) console.log(`::warning::速さ: ${eng} ${k} が前の値の ${ratio.toFixed(1)} 倍（${b.median} → ${now} ミリ秒）`);
     }
   }
   if (failed) process.exit(1);

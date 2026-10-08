@@ -80,6 +80,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: plan.flows
+    status: active
+    label: "お金の動き（集める）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: residentTax.annual
     status: active
     label: "住民税・森林環境税"

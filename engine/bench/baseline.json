@@ -1,0 +1,130 @@
+{
+  "targets": {
+    "node.preview20": {
+      "ms": 100,
+      "note": "0005: 100年分×5案×4想定（20回）を画面側（V8）で先出し"
+    },
+    "jsc.preview20": {
+      "ms": 100,
+      "note": "同じく JavaScriptCore"
+    },
+    "node.sliderReturn": {
+      "ms": 100,
+      "note": "スライダーの1刻み（変わった1案×4想定。案の前提だけが変わる）を V8 で"
+    },
+    "jsc.sliderReturn": {
+      "ms": 100,
+      "note": "同じく JavaScriptCore"
+    },
+    "node.sliderSalary": {
+      "ms": 100,
+      "note": "スライダーの1刻み（構成員の年収が変わる）を V8 で"
+    },
+    "jsc.sliderSalary": {
+      "ms": 100,
+      "note": "同じく JavaScriptCore"
+    },
+    "quickjs.par4": {
+      "ms": 500,
+      "note": "手を離した後の正の計算（1案×4想定を並列）。目安は Apple シリコンで 0.5 秒"
+    }
+  },
+  "baseline": {
+    "linux-x64": {
+      "node": {
+        "single": {
+          "median": 159.4,
+          "min": 141.5
+        },
+        "seq20": {
+          "median": 3152.7,
+          "min": 3075.8
+        },
+        "batch4": {
+          "median": 568.3,
+          "min": 566.9
+        },
+        "batch20": {
+          "median": 2028.7,
+          "min": 1928.3
+        },
+        "preview20": {
+          "median": 1816.4,
+          "min": 1735.5
+        },
+        "sliderReturn": {
+          "median": 17.3,
+          "min": 12.3
+        },
+        "sliderSalary": {
+          "median": 604.2,
+          "min": 528.5
+        }
+      },
+      "jsc": {
+        "single": {
+          "median": 243.6,
+          "min": 237.8
+        },
+        "seq20": {
+          "median": 4084.2,
+          "min": 3845
+        },
+        "batch4": {
+          "median": 733.5,
+          "min": 662
+        },
+        "batch20": {
+          "median": 2937.9,
+          "min": 2725
+        },
+        "preview20": {
+          "median": 2246.9,
+          "min": 1989.4
+        },
+        "sliderReturn": {
+          "median": 12.9,
+          "min": 11.6
+        },
+        "sliderSalary": {
+          "median": 501.2,
+          "min": 496
+        }
+      },
+      "quickjs": {
+        "batch20": {
+          "median": 25159.8,
+          "min": 23928.4
+        },
+        "batch4": {
+          "median": 6935.6,
+          "min": 6798.6
+        },
+        "load": {
+          "median": 75.2,
+          "min": 63.5
+        },
+        "par20": {
+          "median": 13187.9,
+          "min": 12393.8
+        },
+        "par20batch": {
+          "median": 14082.2,
+          "min": 13371.9
+        },
+        "par4": {
+          "median": 2059.8,
+          "min": 2006.9
+        },
+        "seq20": {
+          "median": 33632.1,
+          "min": 33632.1
+        },
+        "single": {
+          "median": 1949,
+          "min": 1667
+        }
+      }
+    }
+  }
+}

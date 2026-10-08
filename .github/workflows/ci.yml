@@ -84,6 +84,40 @@ jobs:
           path: engine/dist/parity-hashes.json
           if-no-files-found: error
 
+  # 速さの計測（0005 の「速さの回帰」）: 100年分の5案×4想定を Node（V8）・JavaScriptCore（Bun）・quickjs-ng で測り、
+  # 目標と前の値（engine/bench/baseline.json）を表にする。前の値の1.5倍を超えたら警告、3倍を超えたら失敗。
+  # 結果（result.json）は成果物として残す。macOS の実行環境は Apple シリコン
+  bench:
+    needs: engine
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: engine-dist
+          path: engine/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: dtolnay/rust-toolchain@stable
+      - name: ビルド（engine-bench）
+        run: cargo build --locked --release
+      - name: 速さを測る
+        run: node --disable-warning=ExperimentalWarning engine/scripts/bench.ts --repeat 3 --check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-${{ matrix.os }}
+          path: engine/dist/bench/result.json
+          if-no-files-found: warn
+
   # OS をまたいでも同じハッシュになること
   parity-across-os:
     needs: host

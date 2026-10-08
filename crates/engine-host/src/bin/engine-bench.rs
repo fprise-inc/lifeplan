@@ -24,16 +24,24 @@ fn ms(t: Instant) -> f64 {
 fn one(engine: &str, request: &str, packs: &str) {
     let limits = Limits::for_trace(&trace_mode(request));
     let out = run_engine(engine, request, packs, "{}", &limits).expect("run");
-    assert!(!out.starts_with("{\"error\":"), "{}", &out[..out.len().min(300)]);
+    assert!(
+        !out.starts_with("{\"error\":"),
+        "{}",
+        &out[..out.len().min(300)]
+    );
 }
 
 /// まとめて計算（1つの実行環境で runBatch）
 fn batch(engine: &str, requests: &[String], packs: &str) {
-    let sandbox = Sandbox::new(&Limits::FULL_TRACE).expect("sandbox");
+    let sandbox = Sandbox::new(&Limits::for_batch(requests.len(), false)).expect("sandbox");
     sandbox.load_engine(engine).expect("load");
     let arr = format!("[{}]", requests.join(","));
     let out = sandbox.run_batch(&arr, packs, "{}").expect("batch");
-    assert!(!out.contains("{\"error\":"), "{}", &out[..out.len().min(300)]);
+    assert!(
+        !out.contains("{\"error\":"),
+        "{}",
+        &out[..out.len().min(300)]
+    );
 }
 
 fn parallel(engine: &str, requests: &[String], packs: &str, threads: usize, use_batch: bool) {
@@ -61,7 +69,11 @@ fn main() {
     let mut packs_path = None;
     let mut requests_path = None;
     let mut repeat = 5usize;
-    let mut threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(2).saturating_sub(1).clamp(1, 8);
+    let mut threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(2)
+        .saturating_sub(1)
+        .clamp(1, 8);
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
@@ -75,14 +87,19 @@ fn main() {
     }
     let engine = std::fs::read_to_string(engine_path.expect("--engine")).expect("engine");
     let packs = std::fs::read_to_string(packs_path.expect("--packs")).expect("packs");
-    let list: Vec<serde_json::Value> = serde_json::from_str(&std::fs::read_to_string(requests_path.expect("--requests")).expect("requests")).expect("json");
+    let list: Vec<serde_json::Value> = serde_json::from_str(
+        &std::fs::read_to_string(requests_path.expect("--requests")).expect("requests"),
+    )
+    .expect("json");
     let requests: Vec<String> = list.iter().map(|v| v.to_string()).collect();
     let four = &requests[..4.min(requests.len())];
     // まとめて計算できるエンジンか
     let has_batch = {
         let s = Sandbox::new(&Limits::DEFAULT).expect("sandbox");
         s.load_engine(&engine).expect("load");
-        s.eval_string("typeof FinanciaEngine.runBatch").expect("eval") == "function"
+        s.eval_string("typeof FinanciaEngine.runBatch")
+            .expect("eval")
+            == "function"
     };
     let mut load = Vec::new();
     let mut single = Vec::new();
@@ -121,8 +138,8 @@ fn main() {
             par20batch.push(ms(t));
         }
     }
-    // 20件を順番に（1回だけ。重いので）
-    for _ in 0..repeat.min(2) {
+    // 20件を順番に（重いので1回だけ）
+    {
         let t = Instant::now();
         for r in &requests {
             one(&engine, r, &packs);

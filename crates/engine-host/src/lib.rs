@@ -33,6 +33,21 @@ impl Limits {
         time: Duration::from_secs(30),
     };
 
+    /// まとめて計算（runBatch）: 要求の間で結果を使い回すのでメモリは「全部」と同じ上限、時間は要求の数に比例（最大 120 秒）
+    pub fn for_batch(requests: usize, any_full: bool) -> Limits {
+        let per = if any_full {
+            Limits::FULL_TRACE.time
+        } else {
+            Limits::DEFAULT.time
+        };
+        let n = u32::try_from(requests.max(1)).unwrap_or(u32::MAX);
+        Limits {
+            memory_bytes: Limits::FULL_TRACE.memory_bytes,
+            stack_bytes: Limits::DEFAULT.stack_bytes,
+            time: per.saturating_mul(n).min(Duration::from_secs(120)),
+        }
+    }
+
     pub fn for_trace(trace: &str) -> Limits {
         if trace == "full" {
             Limits::FULL_TRACE
@@ -168,7 +183,12 @@ impl Sandbox {
     }
 
     /// FinanciaEngine.runBatch(requests, packs, options) を呼ぶ（requests は要求の JSON の配列。案×想定をまとめて計算し、同じになる部分を使い回す）
-    pub fn run_batch(&self, requests: &str, packs: &str, options: &str) -> Result<String, HostError> {
+    pub fn run_batch(
+        &self,
+        requests: &str,
+        packs: &str,
+        options: &str,
+    ) -> Result<String, HostError> {
         self.call("runBatch", requests, packs, options)
     }
 
