@@ -48,7 +48,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.lateElderly",
   title: "後期高齢者医療の保険料",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -66,6 +66,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     SPECIAL,
   ],
   reads: ["member.kind", "premiumAssessment.member", "premiumAssessment.kind", "premiumAssessment.fiscalYear", "premiumAssessment.amount", "premiumRate.kind", "premiumRate.fromFiscalYear", "premiumRate.parts"],
+  memberScope: ["premiumAssessment"],
   input: "residentTax.annual.input",
   output: "flows.output",
   compute(input, ctx) {

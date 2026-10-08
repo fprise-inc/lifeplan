@@ -4,7 +4,10 @@
   "title": "キャッシュフロー表の部品の出力",
   "type": "object",
   "additionalProperties": false,
-  "required": ["flows", "annual"],
+  "required": [
+    "flows",
+    "annual"
+  ],
   "properties": {
     "flows": {
       "type": "array",
@@ -16,6 +19,16 @@
       "type": "array",
       "items": {
         "$ref": "urn:financia:schema:common#/$defs/annualRow"
+      }
+    },
+    "parts": {
+      "description": "flows を、出した部品の出力ごとの配列に分けたもの（任意。つなげると flows と同じ中身）。エンジンが表の集計を部品ごとに使い回すため（0005 の追記）",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "urn:financia:schema:common#/$defs/flow"
+        }
       }
     }
   }

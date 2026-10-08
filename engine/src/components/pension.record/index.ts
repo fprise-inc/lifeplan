@@ -38,7 +38,7 @@ export default defineComponent<{ member: string }, RecordOutput>({
   id: "pension.record",
   title: "公的年金の加入の記録",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "pension.category": ">=1 <2", "socialInsurance.coverage": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2" },
   params: [UNTIL60, FROM20, PRE, POST, ROUND],
   reads: [
@@ -51,6 +51,7 @@ export default defineComponent<{ member: string }, RecordOutput>({
     "employment.salary.annual",
     "employment.salary.bonus",
   ],
+  memberScope: ["pensionRecord", "employment"],
   input: "member.input",
   output: "pension.record.output",
   compute(input, ctx) {

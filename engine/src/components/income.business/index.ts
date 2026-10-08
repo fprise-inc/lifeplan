@@ -18,10 +18,11 @@ export default defineComponent<{ member: string }, { flows: Flow[]; byYear: { ye
   id: "income.business",
   title: "事業所得",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {},
   params: [],
   reads: ["employment.member", "employment.from", "employment.to", "employment.type", "employment.business.income", "assumptions.wageGrowth"],
+  memberScope: ["employment"],
   input: "member.input",
   output: "income.business.output",
   compute(input, ctx) {

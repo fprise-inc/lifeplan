@@ -9,12 +9,15 @@ import incomeTaxAnnual from "./incomeTax.annual/index.ts";
 import insurancePremium from "./insurance.premiumPayment/index.ts";
 import planCashflow from "./plan.cashflow/index.ts";
 import planFlows from "./plan.flows/index.ts";
+import planMemberFlows from "./plan.memberFlows/index.ts";
 import residentTaxAnnual from "./residentTax.annual/index.ts";
 import socialInsuranceCoverage from "./socialInsurance.coverage/index.ts";
 import socialInsuranceEmployment from "./socialInsurance.employment/index.ts";
 import socialInsuranceHealth from "./socialInsurance.health/index.ts";
 import socialInsurancePension from "./socialInsurance.pension/index.ts";
 import taxDeductions from "./tax.deductions/index.ts";
+import taxDependentDeduction from "./tax.dependentDeduction/index.ts";
+import taxSpouseDeduction from "./tax.spouseDeduction/index.ts";
 import taxEmploymentIncome from "./tax.employmentIncome/index.ts";
 import taxTotalIncome from "./tax.totalIncome/index.ts";
 import benefitEmployment from "./benefit.employment/index.ts";
@@ -49,12 +52,15 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   insurancePremium,
   planCashflow,
   planFlows,
+  planMemberFlows,
   residentTaxAnnual,
   socialInsuranceCoverage,
   socialInsuranceEmployment,
   socialInsuranceHealth,
   socialInsurancePension,
   taxDeductions,
+  taxDependentDeduction,
+  taxSpouseDeduction,
   taxEmploymentIncome,
   taxTotalIncome,
   benefitEmployment,

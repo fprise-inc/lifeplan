@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.spouseDeduction.output",
+  "title": "配偶者控除・配偶者特別控除（personalDiff は住民税の調整控除の人的控除額の差。所得税では 0）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["spouse", "spouseSpecial", "personalDiff"],
+  "properties": {
+    "spouse": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "spouseSpecial": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "personalDiff": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+  }
+}

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:financia:schema:engine.input",
   "title": "エンジン全体の入力（世帯のデータモデル 0008 のうち、税・社会保険料の部品が使う最小の部分）",
-  "description": "0004 の7・0006 の5: 知らない欄（参照値を含む）は拒む。x-item は入力項目ID（0004）、x-collection は物の集まりの名前。登録簿 registry/items.yaml はここから作る",
+  "description": "0004 の7・0006 の5: 知らない欄（参照値を含む）は拒む。x-item は入力項目ID（0004）、x-collection は物の集まりの名前、x-owner はその物がどの構成員の物かを表す欄（0006 の追記: 構成員ごとの依存）。登録簿 registry/items.yaml はここから作る",
   "type": "object",
   "additionalProperties": false,
   "required": ["baseMonth", "endYear", "calcConventions", "household", "assumptions"],
@@ -56,28 +56,28 @@
       "additionalProperties": false,
       "required": ["members", "relations", "events", "employmentPeriods", "accounts", "insuranceContracts"],
       "properties": {
-        "members": { "type": "array", "x-collection": "member", "items": { "$ref": "#/$defs/member" } },
-        "relations": { "type": "array", "x-collection": "relation", "items": { "$ref": "#/$defs/relation" } },
-        "events": { "type": "array", "x-collection": "event", "items": { "$ref": "#/$defs/event" } },
-        "employmentPeriods": { "type": "array", "x-collection": "employment", "items": { "$ref": "#/$defs/employmentPeriod" } },
-        "accounts": { "type": "array", "x-collection": "account", "items": { "$ref": "#/$defs/account" } },
-        "insuranceContracts": { "type": "array", "x-collection": "insurance", "items": { "$ref": "#/$defs/insuranceContract" } },
+        "members": { "type": "array", "x-collection": "member", "x-owner": ["id"], "items": { "$ref": "#/$defs/member" } },
+        "relations": { "type": "array", "x-collection": "relation", "x-owner": ["a", "b", "parent", "child"], "items": { "$ref": "#/$defs/relation" } },
+        "events": { "type": "array", "x-collection": "event", "x-owner": ["member"], "items": { "$ref": "#/$defs/event" } },
+        "employmentPeriods": { "type": "array", "x-collection": "employment", "x-owner": ["member"], "items": { "$ref": "#/$defs/employmentPeriod" } },
+        "accounts": { "type": "array", "x-collection": "account", "x-owner": ["owner"], "items": { "$ref": "#/$defs/account" } },
+        "insuranceContracts": { "type": "array", "x-collection": "insurance", "x-owner": ["policyholder", "insured"], "items": { "$ref": "#/$defs/insuranceContract" } },
         "residentTaxAssessments": {
           "description": "置き換え口（0006 の5）: 住民税の決定通知書の年税額。与えられた年度はこの額を使う",
           "type": "array",
-          "x-collection": "residentTaxAssessment",
+          "x-collection": "residentTaxAssessment", "x-owner": ["member"],
           "items": { "$ref": "#/$defs/residentTaxAssessment" }
         },
         "pensionRecords": {
           "description": "公的年金の加入の記録（構成員ごとに1件まで）。ねんきん定期便・年金額の通知・加入歴・見込額のどれかの型で入れる",
           "type": "array",
-          "x-collection": "pensionRecord",
+          "x-collection": "pensionRecord", "x-owner": ["member"],
           "items": { "$ref": "#/$defs/pensionRecord" }
         },
         "premiumAssessments": {
           "description": "置き換え口（0006 の5）: 国民健康保険（世帯主に世帯の合計）・後期高齢者医療・介護保険（第1号）の決定通知書の年額。与えられた年度はこの額を使う",
           "type": "array",
-          "x-collection": "premiumAssessment",
+          "x-collection": "premiumAssessment", "x-owner": ["member"],
           "items": { "$ref": "#/$defs/premiumAssessment" }
         },
         "premiumRates": {

@@ -86,7 +86,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
   id: "residentTax.annual",
   title: "住民税・森林環境税",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "tax.deductions": ">=1 <2",
@@ -114,6 +114,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
     SPECIAL,
   ],
   reads: ["residentTaxAssessment.member", "residentTaxAssessment.fiscalYear", "residentTaxAssessment.amount", "residentTaxAssessment.collection"],
+  memberScope: ["residentTaxAssessment"],
   input: "residentTax.annual.input",
   output: "residentTax.annual.output",
   compute(input, ctx) {

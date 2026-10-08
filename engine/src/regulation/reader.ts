@@ -7,6 +7,7 @@ import { yen, type Yen } from "../money/yen.ts";
 import type { Birth } from "../time/ageSwitch.ts";
 import type { Basis } from "../time/basis.ts";
 import { dateKey, daysInMonth, formatDate, parseDate, previousDay, type CivilDate } from "../time/civil.ts";
+import { deepFreeze } from "../engine/freeze.ts";
 import { isReadableFormat } from "./format.ts";
 import { comparePackVersion } from "./versions.ts";
 
@@ -86,6 +87,8 @@ export type Jurisdiction = "national" | { readonly level: string; readonly code:
 export interface Selected {
   readonly def: ValueDef;
   readonly entry: Entry;
+  /** 値の1行（<制度の値ID>@<rev>。0009 の追記）。引くたびに作らないよう選んだときに作る */
+  readonly ref: string;
   readonly packVersion: string;
   readonly effectiveTo: string | null;
   /**
@@ -121,12 +124,13 @@ const jurisdictionKey = (j: Json | Jurisdiction | undefined): string =>
   j === undefined || j === "national" ? "national" : JSON.stringify([(j as { level: string }).level, (j as { code: string }).code]);
 
 export class RegulationStore {
-  private readonly defs = new Map<string, { def: ValueDef; pack: PackHeader }>();
+  private readonly defs = new Map<string, { def: ValueDef; pack: PackHeader; asOf: string }>();
   private readonly visible = new Map<string, readonly Visible[]>();
   private readonly infos: PackInfo[] = [];
   private readonly later = new Set<string>();
   /** 引いた結果（同じ値ID・引く日・条件なら同じ行。部品が同じ値を何度も引くので使い回す） */
   private readonly selected = new Map<string, Map<number, Selected | null>>();
+  private readonly hints = new Map<string, { readonly keys: readonly number[]; readonly extendFrom: number | null }>();
 
   constructor(packs: readonly PackJson[], dataSet: Readonly<Record<string, string>> = {}) {
     for (const p of packs) {
@@ -150,19 +154,32 @@ export class RegulationStore {
         // 架空のパックの test.<値ID> は、代わりをする製品のパックの <値ID> として引く
         const def = h.fictional === true && h.fictionalOf !== undefined ? { ...raw, id: raw.id.replace(/^test\./, "") } : raw;
         if (this.defs.has(def.id)) throw new EngineError("E_PACK_DUPLICATE", [def.id]);
-        this.defs.set(def.id, { def, pack: h });
-        let vis = visibleEntries(def, asOf);
-        // dataSet の版のときにはまだ無かった値ID（後の版で足した値）は、最新の版の行を使い、見出しで知らせる
-        if (vis.length === 0 && asOf !== h.version) {
-          vis = visibleEntries(def, h.version);
-          if (vis.length > 0) this.later.add(def.id);
-        }
-        this.visible.set(def.id, vis);
+        this.defs.set(def.id, { def, pack: h, asOf });
       }
     }
     for (const id of Object.keys(dataSet)) {
       if (!this.infos.some((i) => i.packId === id)) throw new EngineError("E_PACK_UNKNOWN", [id]);
     }
+  }
+
+  /**
+   * その値の、パックの版 asOf の時点で知っていた行（初めて使うときに作る。計算ごとに全部の値の行を作らないため）。
+   * dataSet の版のときにはまだ無かった値ID（後の版で足した値）は、最新の版の行を使い、見出しで知らせる
+   */
+  private visibleOf(id: string): readonly Visible[] {
+    const hit = this.visible.get(id);
+    if (hit !== undefined) return hit;
+    const d = this.defs.get(id);
+    if (d === undefined) return [];
+    // 部品は ctx.param の結果から値の行（entry・def）に触れられるので、書き換えられないように凍結する（カスタム部品が他の部品の値を変えないため）
+    deepFreeze(d.def);
+    let vis = visibleEntries(d.def, d.asOf);
+    if (vis.length === 0 && d.asOf !== d.pack.version) {
+      vis = visibleEntries(d.def, d.pack.version);
+      if (vis.length > 0) this.later.add(id);
+    }
+    this.visible.set(id, vis);
+    return vis;
   }
 
   packs(): readonly PackInfo[] {
@@ -184,6 +201,30 @@ export class RegulationStore {
   /** 値の ID が制度データにあるか */
   knows(id: string): boolean {
     return this.defs.has(id);
+  }
+
+  /**
+   * 区間ごとの計算（ctx.segments）のための、値の行が変わりうる日の鍵（行の適用開始と、適用終了の翌日。条件・管轄を問わず全部）と、
+   * 延長の仮定が始まりうる日の鍵（同じ条件・管轄の組の最後の行がどれも終わる組のうち、最も早く終わる組の終わりの翌日。無ければ null）
+   */
+  boundaryHints(id: string): { readonly keys: readonly number[]; readonly extendFrom: number | null } {
+    const hit = this.hints.get(id);
+    if (hit !== undefined) return hit;
+    const keys = new Set<number>();
+    const lastOf = new Map<string, number | null>();
+    for (const v of this.visibleOf(id)) {
+      keys.add(v.fromKey);
+      if (v.toKey !== null) keys.add(v.toKey + 1);
+      const g = `${JSON.stringify(v.entry.conditions)}|${v.jurisdiction}`;
+      const cur = lastOf.get(g);
+      if (cur === null) continue;
+      lastOf.set(g, v.toKey === null ? null : cur === undefined || v.toKey > cur ? v.toKey : cur);
+    }
+    let extendFrom: number | null = null;
+    for (const last of lastOf.values()) if (last !== null && (extendFrom === null || last + 1 < extendFrom)) extendFrom = last + 1;
+    const out = { keys: [...keys].sort((a, b) => a - b), extendFrom };
+    this.hints.set(id, out);
+    return out;
   }
 
   /** 引く日（basis から決めたもの）の行を1つだけ選ぶ */
@@ -219,7 +260,7 @@ export class RegulationStore {
   private selectUncached(id: string, date: CivilDate, key: number, want: string, mc: MatchContext): Selected | null {
     const def = this.definition(id);
     const hits: Visible[] = [];
-    for (const v of this.visible.get(id) ?? []) {
+    for (const v of this.visibleOf(id)) {
       if (v.fromKey > key || (v.toKey !== null && v.toKey < key)) continue;
       if (v.jurisdiction !== want) continue;
       if (!matchConditions(v.entry.conditions, mc, id)) continue;
@@ -233,6 +274,7 @@ export class RegulationStore {
       return {
         def,
         entry: ext.entry,
+        ref: `${id}@${ext.entry.rev}`,
         packVersion: ext.entry.recordedIn,
         effectiveTo: ext.effectiveTo,
         extendedYear: date.year,
@@ -241,13 +283,13 @@ export class RegulationStore {
     }
     if (hits.length > 1) throw new EngineError("E_PARAM_AMBIGUOUS", [id]);
     const hit = hits[0] as Visible;
-    return { def, entry: hit.entry, packVersion: hit.entry.recordedIn, effectiveTo: hit.effectiveTo, ...(this.later.has(id) ? { recordedLater: true as const } : {}) };
+    return { def, entry: hit.entry, ref: `${id}@${hit.entry.rev}`, packVersion: hit.entry.recordedIn, effectiveTo: hit.effectiveTo, ...(this.later.has(id) ? { recordedLater: true as const } : {}) };
   }
 
   /** 引く日より前に終わる行のうち最後のもの（その後に始まる行が無いときだけ）。同じ条件の組で1つに決まらなければエラー */
   private extension(id: string, key: number, want: string, mc: MatchContext): Visible | null {
     const groups = new Map<string, Visible>();
-    for (const v of this.visible.get(id) ?? []) {
+    for (const v of this.visibleOf(id)) {
       if (v.jurisdiction !== want) continue;
       if (!matchConditions(v.entry.conditions, mc, id)) continue;
       if (v.fromKey > key) return null;
@@ -328,11 +370,13 @@ function matchBirthDate(birth: Birth, c: Condition): boolean | "ambiguous" {
 }
 
 // 値の種類ごとの取り出し（constant・rounding・bracketTable・gradeTable）。選んだ行（Selected）は使い回すので、取り出した形も行ごとに使い回す
-const CONVERTED = new WeakMap<Selected, unknown>();
+// 取り出した形は値の行（entry）ごとに同じなので、行で使い回す（取り出した形は undefined にならない）
+const CONVERTED = new WeakMap<Entry, unknown>();
 function converted<T>(s: Selected, make: () => T): T {
-  if (CONVERTED.has(s)) return CONVERTED.get(s) as T;
+  const hit = CONVERTED.get(s.entry);
+  if (hit !== undefined) return hit as T;
   const v = make();
-  CONVERTED.set(s, v);
+  CONVERTED.set(s.entry, v);
   return v;
 }
 

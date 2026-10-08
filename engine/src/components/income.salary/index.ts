@@ -34,7 +34,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
   id: "income.salary",
   title: "給与・賞与",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {},
   params: [CURVE],
   reads: [
@@ -50,6 +50,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
     "employment.salary.growth",
     "assumptions.wageGrowth",
   ],
+  memberScope: ["employment"],
   input: "income.salary.input",
   output: "income.salary.output",
   compute(input, ctx) {

@@ -46,7 +46,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "benefit.employment",
   title: "雇用保険の育児の給付",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -66,6 +66,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
     "employment.childcareShortHours",
     "employment.salary.annual",
   ],
+  memberScope: ["employment"],
   input: "member.input",
   output: "flows.output",
   compute(input, ctx) {

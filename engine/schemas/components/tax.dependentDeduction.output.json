@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.dependentDeduction.output",
+  "title": "扶養控除・特定親族特別控除（youngDependent は23歳未満の扶養親族がいるか。personalDiff は住民税の調整控除の人的控除額の差。所得税では 0）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["dependents", "specifiedRelative", "youngDependent", "personalDiff"],
+  "properties": {
+    "dependents": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "specifiedRelative": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "youngDependent": { "type": "boolean" },
+    "personalDiff": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+  }
+}

@@ -22,6 +22,8 @@ import {
   type CoverageOutput,
   type Ctx,
   type Flow,
+  type MonthCtx,
+  type SegmentOptions,
   type MemberInput,
   type MonthIndex,
   type PensionMonth,
@@ -115,7 +117,7 @@ export default defineComponent<{ member: string }, Out>({
   id: "pension.oldAge",
   title: "老齢年金",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "pension.record": ">=1 <2", "pension.revision": ">=1 <2", "socialInsurance.coverage": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -133,6 +135,7 @@ export default defineComponent<{ member: string }, Out>({
     "pensionRecord.member",
     "pensionRecord.claim",
   ],
+  memberScope: ["pensionRecord"],
   input: "member.input",
   output: "pension.oldAge.output",
   compute(input, ctx) {
@@ -221,18 +224,6 @@ export default defineComponent<{ member: string }, Out>({
       for (let k = 0; k < 12; k++) s += bonusOf.get(m - k) ?? 0;
       return yen(s);
     };
-    // 在職停止（年額）。basicAnnual は報酬比例（繰上げの減額の後・繰下げの増額の前）
-    const suspension = (m: MonthIndex, basicAnnual: Yen): Yen => {
-      const std = stdOf.get(m);
-      if (std === undefined || basicAnnual <= 0) return yen(0);
-      const limit = ctx.at(m).paramYen(P.work);
-      if (limit === null) return yen(0);
-      const times12 = (a: Yen) => ctx.money.mulRatio(a, 12, 1, "conv.exact");
-      const excess = basicAnnual + times12(std) + bonus12(m) - times12(limit);
-      if (excess <= 0) return yen(0);
-      const stop = ctx.money.mulRatio(yen(excess), 1, 2, "conv.pension.suspension");
-      return stop < basicAnnual ? stop : basicAnnual;
-    };
     // その月の年金額の計算に入る記録の後の月の終わり（その月より前）。退職改定・在職定時改定
     const cutoff = (m: MonthIndex, b0: MonthIndex, periodic: boolean): MonthIndex => {
       if (!insuredAt.has(m)) return m;
@@ -241,11 +232,10 @@ export default defineComponent<{ member: string }, Out>({
       const c = addMonths(aug, 1);
       return c > b0 ? c : b0;
     };
-    // 金額×率を、同じ金額・同じ率・同じ端数処理の行なら使い回す（月ごとに同じ計算をしない。率は小数12桁で、内蔵の実行環境では
+    // 金額×率を、同じ金額・同じ率・同じ端数処理の行なら使い回す（同じ計算をしない。率は小数12桁で、内蔵の実行環境では
     // BigInt の計算が重いため）。端数処理の値は、丸めるときと同じ順に先に読む（根拠の記録の順も変わらない）
     const rateMemo = new WeakMap<Rate, Map<string, { entry: object; v: Yen }>>();
-    const mulRateM = (m: MonthIndex, a: Yen, r: Rate, roundingId: string): Yen => {
-      const at = ctx.at(m);
+    const mulRateM = (at: MonthCtx, a: Yen, r: Rate, roundingId: string): Yen => {
       const entry = at.param(roundingId).entry;
       let byKey = rateMemo.get(r);
       if (byKey === undefined) {
@@ -259,38 +249,49 @@ export default defineComponent<{ member: string }, Out>({
       byKey.set(k, { entry, v });
       return v;
     };
-    const round1 = (at: MonthIndex, a: Yen, r: Rate) => mulRateM(at, a, r, P.round);
-    const proportional = (m: MonthIndex, cut: MonthIndex): Yen => {
+    const round1 = (at: MonthCtx, a: Yen, r: Rate) => mulRateM(at, a, r, P.round);
+    // 同じ積み上げ（cut より前の記録の月の数）・同じ年度・同じ端数処理の行なら同じ額
+    const propMemo = new Map<string, { entry: object; v: Yen }>();
+    const proportional = (at: MonthCtx, fy: number, cut: MonthIndex): Yen => {
+      const k = `${countBelow(accrualMonths, cut)}|${fy}`;
       const sum = employeeInitialNum + upTo(cut).cum;
-      const r = ctx.rate.fraction(ratioE(fiscalYearOf(m)));
-      // 同じ積み上げ（cut）・同じ年度・同じ端数処理の行なら同じ額
-      const entry = ctx.at(m).param(P.round).entry;
-      const k = `${cut}|${fiscalYearOf(m)}`;
+      const r = ctx.rate.fraction(ratioE(fy));
+      const entry = at.param(P.round).entry;
       const hit = propMemo.get(k);
       if (hit !== undefined && hit.entry === entry) return hit.v;
-      const v = ctx.at(m).money.mulRatio(yen(1), sum * r.num, DEN * r.den, P.round);
+      const v = at.money.mulRatio(yen(1), sum * r.num, DEN * r.den, P.round);
       propMemo.set(k, { entry, v });
       return v;
     };
-    const propMemo = new Map<string, { entry: object; v: Yen }>();
-    const fullBasic = memo((m: MonthIndex): Yen => mulRateM(m, ctx.at(m).paramYen(P.base) ?? yen(0), R(fiscalYearOf(m)), P.fullRound));
-    const transitional = (m: MonthIndex, cut: MonthIndex): Yen => {
-      const at = ctx.at(m);
-      if (!fromMonths) return rec.amounts.transitional === null ? yen(0) : round1(m, rec.amounts.transitional, ratioTo(fiscalYearOf(m)));
+    const fullBasic = (at: MonthCtx, fy: number): Yen => mulRateM(at, at.paramYen(P.base) ?? yen(0), R(fy), P.fullRound);
+    const transitional = (at: MonthCtx, fy: number, cut: MonthIndex): Yen => {
+      if (!fromMonths) return rec.amounts.transitional === null ? yen(0) : round1(at, rec.amounts.transitional, ratioTo(fy));
       const a = upTo(cut);
       const months = Math.min(at.paramCount(P.flatMax) ?? 0, rec.employeeMonths + a.emp);
-      const unit = mulRateM(m, at.paramYen(P.flat) ?? yen(0), R(fiscalYearOf(m)), P.round);
+      const unit = mulRateM(at, at.paramYen(P.flat) ?? yen(0), R(fy), P.round);
       const max = at.paramCount(P.maxMonths) ?? 480;
-      const basicPart = at.money.mulRatio(fullBasic(m), rec.employee2059Months + a.e2059, max, P.round);
+      const basicPart = at.money.mulRatio(fullBasic(at, fy), rec.employee2059Months + a.e2059, max, P.round);
       const v = ctx.money.mulRatio(unit, months, 1, "conv.exact") - basicPart;
       return yen(v > 0 ? v : 0);
     };
-    const basicAmount = (m: MonthIndex): Yen => {
-      const ratio = ratioTo(fiscalYearOf(m));
-      if (rec.amounts.basic !== null) return round1(m, rec.amounts.basic, ratio);
-      const max = ctx.at(m).paramCount(P.maxMonths) ?? 480;
+    const basicAmount = (at: MonthCtx, fy: number): Yen => {
+      const ratio = ratioTo(fy);
+      if (rec.amounts.basic !== null) return round1(at, rec.amounts.basic, ratio);
+      const max = at.paramCount(P.maxMonths) ?? 480;
       const n = Math.min(max, rec.basicMonths + upTo(CB).basic);
-      return ctx.at(m).money.mulRatio(fullBasic(m), n, max, P.round);
+      return at.money.mulRatio(fullBasic(at, fy), n, max, P.round);
+    };
+    // 在職停止（年額）。basicAnnual は報酬比例（繰上げの減額の後・繰下げの増額の前）。標準報酬のある月は1か月ずつの区間
+    const suspension = (at: MonthCtx, m: MonthIndex, basicAnnual: Yen): Yen => {
+      const std = stdOf.get(m);
+      if (std === undefined || basicAnnual <= 0) return yen(0);
+      const limit = at.paramYen(P.work);
+      if (limit === null) return yen(0);
+      const times12 = (a: Yen) => ctx.money.mulRatio(a, 12, 1, "conv.exact");
+      const excess = basicAnnual + times12(std) + bonus12(m) - times12(limit);
+      if (excess <= 0) return yen(0);
+      const stop = ctx.money.mulRatio(yen(excess), 1, 2, "conv.pension.suspension");
+      return stop < basicAnnual ? stop : basicAnnual;
     };
 
     // 構成員と家族
@@ -321,33 +322,31 @@ export default defineComponent<{ member: string }, Out>({
     };
     const spouseUntil = memo((id: string) => ageMonth(ctx, base, P.spouseAge, id));
     const childUntil = memo((id: string) => ageMonth(ctx, base, P.childAge, id));
-    const supplementOf = (m: MonthIndex, cut: MonthIndex): Yen => {
+    const supplementOf = (at: MonthCtx, fy: number, m: MonthIndex, cut: MonthIndex): Yen => {
       if (employeeMonthsOf(rec, cut, monthCache) < supMonths) return yen(0);
-      const at = ctx.at(m);
-      const r = R(fiscalYearOf(m));
+      const r = R(fy);
       let total = 0;
       for (const sp of spouseAt(m)) {
         if (parseYm((members.find((x) => x.id === sp) as MemberInput).birth.birthYearMonth) > m) continue;
         if (m >= spouseUntil(sp)) continue;
         if (employeeMonthsOf(otherRecord(sp), null, monthCache) >= supMonths) continue;
-        total += mulRateM(m, at.paramYen(P.supBase) ?? yen(0), r, P.fullRound);
+        total += mulRateM(at, at.paramYen(P.supBase) ?? yen(0), r, P.fullRound);
         const special = at.paramYen(P.supSpecial, { member });
-        if (special !== null) total += mulRateM(m, special, r, P.fullRound);
+        if (special !== null) total += mulRateM(at, special, r, P.fullRound);
         break;
       }
       let k = 0;
       for (const c of children) {
         if (parseYm(c.birth.birthYearMonth) > m || m > childUntil(c.id)) continue;
-        total += mulRateM(m, at.paramYen(k < 2 ? P.child12 : P.child3) ?? yen(0), r, P.fullRound);
+        total += mulRateM(at, at.paramYen(k < 2 ? P.child12 : P.child3) ?? yen(0), r, P.fullRound);
         k++;
       }
       return yen(total);
     };
     // 振替加算: 本人の厚生年金が240月未満で、配偶者の厚生年金が240月以上（配偶者の加給年金の対象だった）
-    const transferOf = (m: MonthIndex): Yen => {
+    const transferOf = (at: MonthCtx, fy: number): Yen => {
       if (employeeMonthsOf(rec, null, monthCache) >= supMonths) return yen(0);
       if (!spouseAt(N).some((sp) => employeeMonthsOf(otherRecord(sp), null, monthCache) >= supMonths)) return yen(0);
-      const at = ctx.at(m);
       if (!at.has(P.transfer, { member })) {
         // 制度データに率の無い生年月日（原本で確かめる前の区分）は計算せずに知らせる
         ctx.notice("N_PARAM_MISSING", [P.transfer, member]);
@@ -355,8 +354,8 @@ export default defineComponent<{ member: string }, Out>({
       }
       const coef = at.paramRate(P.transfer, { member });
       if (coef === null) return yen(0);
-      const amount = mulRateM(m, at.paramYen(P.transferBase) ?? yen(0), R(fiscalYearOf(m)), P.fullRound);
-      return mulRateM(m, amount, coef, P.round);
+      const amount = mulRateM(at, at.paramYen(P.transferBase) ?? yen(0), R(fy), P.fullRound);
+      return mulRateM(at, amount, coef, P.round);
     };
     // 特別支給の老齢厚生年金（生年月日・性別で開始年齢。対象でない生年月日は notApplicable）
     let SA: MonthIndex | null = null;
@@ -374,45 +373,75 @@ export default defineComponent<{ member: string }, Out>({
     let avgStop = yen(0);
     if (CE > N) {
       let sum = 0;
-      for (let m = N; m < CE; m = addMonths(m, 1)) sum += suspension(m, proportional(m, cutoff(m, N, true)));
+      for (let m = N; m < CE; m = addMonths(m, 1)) {
+        const at = ctx.at(m);
+        sum += suspension(at, m, proportional(at, fiscalYearOf(m), cutoff(m, N, true)));
+      }
       avgStop = ctx.money.divInt(yen(sum), CE - N, "conv.pension.average");
     }
 
+    // 区間ごとの計算（0006 の追記）: 年度・制度の値の行・受給の開始・加給年金の対象の年齢・在職の月などが変わらない区間ごとに1回だけ計算し、
+    // 区間の月に同じ額を並べる。区間の境目は、計算に使う月ごとの条件が変わる月（下の breaks）
+    const start = Math.min(CB, CE, SA ?? CE) as MonthIndex;
+    const first = (start > S0 ? start : S0) as MonthIndex;
+    const breaks: MonthIndex[] = [CB, CE, N];
+    if (SA !== null) breaks.push(SA);
+    // 記録の後の積み上げ（cut より前の月）が変わる月と、在職（標準報酬のある月・記録の厚生年金の月）の月は1か月ずつ
+    for (const am of accrualMonths) breaks.push(addMonths(am as MonthIndex, 1));
+    for (const im of insuredAt) breaks.push(im as MonthIndex, addMonths(im as MonthIndex, 1));
+    for (const sm of stdOf.keys()) breaks.push(sm as MonthIndex, addMonths(sm as MonthIndex, 1));
+    for (const r of relations) {
+      if (r.type !== "spouse" || (r.a !== member && r.b !== member)) continue;
+      if (r.from !== null) breaks.push(ctx.time.resolve(r.from));
+      if (r.to !== null) breaks.push(addMonths(ctx.time.resolve(r.to), 1));
+      const sp = r.a === member ? r.b : r.a;
+      breaks.push(parseYm((members.find((x) => x.id === sp) as MemberInput).birth.birthYearMonth), spouseUntil(sp));
+    }
+    for (const c of children) breaks.push(parseYm(c.birth.birthYearMonth), addMonths(childUntil(c.id), 1));
+    const segParams: SegmentOptions["params"] = [
+      P.base, P.fullRound, P.round, P.maxMonths, P.flat, P.flatMax, P.supBase, [P.supSpecial, { member }], P.child12, P.child3,
+      [P.transfer, { member }], P.transferBase, P.work,
+    ];
     const months: PensionMonth[] = [];
-    for (let m = S0; m <= end; m = addMonths(m, 1)) {
+    for (const seg of ctx.segments(first, end, { params: segParams, breaks, every: "fiscalYear" })) {
+      const m = seg.from;
+      const at = seg.at;
+      const fy = fiscalYearOf(m);
       let basic = yen(0);
       let employee = yen(0);
       let special = yen(0);
       let suspended = yen(0);
       if (m >= CB) {
-        basic = ctx.at(m).money.mulRate(basicAmount(m), fb, P.round);
-        if (m >= N || receiving) basic = yen(basic + transferOf(m));
+        basic = at.money.mulRate(basicAmount(at, fy), fb, P.round);
+        if (m >= N || receiving) basic = yen(basic + transferOf(at, fy));
       }
       if (m >= CE) {
         const cut = cutoff(m, receiving ? addMonths(parseYm(rec.asOf ?? formatYm(S0)), 1) : N, true);
-        const prop = proportional(m, cut);
-        const trans = transitional(m, cut);
+        const prop = proportional(at, fy, cut);
+        const trans = transitional(at, fy, cut);
         const early = ctx.rate.compare(fe, RATE_ONE) < 0;
-        const propPaid = early ? round1(m, prop, fe) : prop;
-        const transPaid = early ? round1(m, trans, fe) : trans;
+        const propPaid = early ? round1(at, prop, fe) : prop;
+        const transPaid = early ? round1(at, trans, fe) : trans;
         let increase = yen(0);
         if (CE > N) {
           const atN = cutoff(N, N, false);
-          const baseInc = proportional(m, atN) + transitional(m, atN) - avgStop;
-          increase = baseInc > 0 ? round1(m, yen(baseInc), ctx.rate.sub(fe, RATE_ONE)) : yen(0);
+          const baseInc = proportional(at, fy, atN) + transitional(at, fy, atN) - avgStop;
+          increase = baseInc > 0 ? round1(at, yen(baseInc), ctx.rate.sub(fe, RATE_ONE)) : yen(0);
         }
-        const stop = suspension(m, propPaid);
+        const stop = suspension(at, m, propPaid);
         suspended = stop;
         const full = stop >= propPaid && propPaid > 0;
-        const supplement = full || (m < N && !receiving) ? yen(0) : supplementOf(m, cut);
+        const supplement = full || (m < N && !receiving) ? yen(0) : supplementOf(at, fy, m, cut);
         employee = yen(propPaid - stop + transPaid + increase + supplement);
       } else if (SA !== null && m >= SA && m < N) {
-        const prop = rec.amounts.special !== null ? round1(m, rec.amounts.special, ratioE(fiscalYearOf(m))) : proportional(m, cutoff(m, SA, false));
-        const stop = suspension(m, prop);
+        const prop = rec.amounts.special !== null ? round1(at, rec.amounts.special, ratioE(fy)) : proportional(at, fy, cutoff(m, SA, false));
+        const stop = suspension(at, m, prop);
         suspended = stop;
         special = yen(prop - stop);
       }
-      if (basic > 0 || employee > 0 || special > 0 || suspended > 0) months.push({ month: formatYm(m), basic, employee, special, suspended });
+      if (basic > 0 || employee > 0 || special > 0 || suspended > 0) {
+        for (let k = seg.from; k <= seg.to; k = addMonths(k, 1)) months.push({ month: formatYm(k), basic, employee, special, suspended });
+      }
     }
 
     // 支払い: 偶数月に前2か月分。各支払いは1円未満を切り捨て、3月から翌年2月までの支払いの切り捨ての合計（1円未満は切り捨て）を

@@ -68,7 +68,7 @@ export default defineComponent<{ member: string }, { months: EmployeeStatusMonth
   id: "socialInsurance.employeeStatus",
   title: "勤め先の保険に入るか（働き方の期間から導く）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {},
   params: [P.ratio, P.hours, P.wage, P.size, P.eiHours],
   reads: [
@@ -90,6 +90,7 @@ export default defineComponent<{ member: string }, { months: EmployeeStatusMonth
     "employment.salary.contractualMonthly",
     "employment.endsOnMonthEnd",
   ],
+  memberScope: ["employment"],
   input: "member.input",
   output: "socialInsurance.employeeStatus.output",
   compute(input, ctx) {

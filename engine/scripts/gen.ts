@@ -1,7 +1,7 @@
 // ビルドの前に作るもの（src/generated/。コミットしない）
 // 1. 科目の木の登録簿（YAML）→ JSON
 // 2. JSON Schema → 検査器のコード（Ajv の standalone。実行環境ではコードを作らない。0006 の5）
-// 2b. 入力項目ID（engine.input.json の x-item・x-collection）→ items.json
+// 2b. 入力項目ID（engine.input.json の x-item・x-collection・x-owner）→ items.json
 // 3. 版と、ソース・部品の指紋
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
@@ -37,6 +37,7 @@ const ajv = new Ajv2020({ ...AJV_OPTIONS, inlineRefs: true, code: { source: true
 ajv.addKeyword({ keyword: "x-unit", schemaType: "string" });
 ajv.addKeyword({ keyword: "x-item", schemaType: "string" });
 ajv.addKeyword({ keyword: "x-collection", schemaType: "string" });
+ajv.addKeyword({ keyword: "x-owner", schemaType: "array" });
 const mapping: Record<string, string> = {};
 const keys: Record<string, string> = {};
 for (const f of schemaFiles) {
@@ -67,6 +68,8 @@ type SchemaNode = Record<string, unknown>;
 const inputSchema = readJson(join(ENGINE_DIR, "schemas", "engine.input.json")) as SchemaNode;
 const items: Record<string, { collection: string | null; path: string[]; title: string }> = {};
 const collections: Record<string, string[]> = {};
+// 集まりの物がどの構成員の物か（x-owner。0006 の追記: 構成員ごとの依存）
+const owners: Record<string, string[]> = {};
 const resolveLocal = (ref: string): SchemaNode => {
   if (!ref.startsWith("#/$defs/")) throw new Error(`engine.input.json: 外の $ref の中は x-item を探しません ${ref}`);
   return (inputSchema.$defs as Record<string, SchemaNode>)[ref.slice("#/$defs/".length)] as SchemaNode;
@@ -95,6 +98,7 @@ const walkSchema = (node: SchemaNode, collection: string | null, path: string[],
   if (typeof node["x-collection"] === "string") {
     const c = node["x-collection"];
     collections[c] = path;
+    if (Array.isArray(node["x-owner"])) owners[c] = node["x-owner"] as string[];
     walkSchema(node.items as SchemaNode, c, [], seen);
   }
   for (const k of ["oneOf", "anyOf", "allOf"]) for (const sub of (node[k] as SchemaNode[] | undefined) ?? []) walkSchema(sub, collection, path, seen);
@@ -102,7 +106,7 @@ const walkSchema = (node: SchemaNode, collection: string | null, path: string[],
 walkSchema(inputSchema, null, [], []);
 for (const [id, it] of Object.entries(items)) if (it.title === "") throw new Error(`engine.input.json: ${id} に title がありません`);
 const sortedItems = Object.fromEntries(Object.entries(items).sort(([a], [b]) => (a < b ? -1 : 1)));
-writeFileSync(join(OUT, "items.json"), `${JSON.stringify({ collections, items: sortedItems }, null, 2)}\n`);
+writeFileSync(join(OUT, "items.json"), `${JSON.stringify({ collections, owners, items: sortedItems }, null, 2)}\n`);
 
 
 // 3. 版と指紋（ソースの指紋は src と schemas と登録簿。部品の指紋は部品のフォルダの中身）

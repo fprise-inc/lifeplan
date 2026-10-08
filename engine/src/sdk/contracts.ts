@@ -94,6 +94,21 @@ export interface DeductionsOutput {
   readonly personalDiff: Yen;
 }
 
+/** tax.spouseDeduction: 配偶者控除・配偶者特別控除。personalDiff は住民税の調整控除の人的控除額の差（所得税では 0） */
+export interface SpouseDeductionOutput {
+  readonly spouse: Yen;
+  readonly spouseSpecial: Yen;
+  readonly personalDiff: Yen;
+}
+
+/** tax.dependentDeduction: 扶養控除・特定親族特別控除と、23歳未満の扶養親族がいるか */
+export interface DependentDeductionOutput {
+  readonly dependents: Yen;
+  readonly specifiedRelative: Yen;
+  readonly youngDependent: boolean;
+  readonly personalDiff: Yen;
+}
+
 /** insurance.premium・account.contribution: 支払い1件 */
 export interface PremiumPayment {
   readonly ym: string;

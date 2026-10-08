@@ -28,6 +28,7 @@ function schemaAjv() {
   ajv.addKeyword({ keyword: "x-unit", schemaType: "string" });
   ajv.addKeyword({ keyword: "x-item", schemaType: "string" });
   ajv.addKeyword({ keyword: "x-collection", schemaType: "string" });
+  ajv.addKeyword({ keyword: "x-owner", schemaType: "array" });
   for (const f of ["common.json", "regulation.value.json", "regulation.packHeader.json", "regulation.pack.json"]) {
     ajv.addSchema(readJson(join(ENGINE_DIR, "schemas", f)) as object);
   }

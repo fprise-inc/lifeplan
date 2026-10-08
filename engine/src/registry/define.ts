@@ -2,6 +2,7 @@
 import { EngineError } from "../errors.ts";
 import { checkId, isDottedId } from "../ids/ids.ts";
 import { isRange } from "../regulation/versions.ts";
+import { ITEMS } from "./items.ts";
 import type { Ctx } from "./ctx.ts";
 
 export interface ComponentDefinition<I = unknown, O = unknown> {
@@ -19,6 +20,11 @@ export interface ComponentDefinition<I = unknown, O = unknown> {
   readonly params: readonly string[];
   /** 読む入力項目ID */
   readonly reads: readonly string[];
+  /**
+   * 入力の member の構成員の物だけを読む集まり（0006 の追記: 構成員ごとの依存）。ctx.list・ctx.get はその構成員の物（x-owner）だけを返し、
+   * 依存もその構成員の分だけになる（配偶者の入力を変えても、本人のこの部品は計算し直さない）。入力に member（構成員のID）が要る
+   */
+  readonly memberScope?: readonly string[];
   /** 呼ぶ差し込み口 */
   readonly slots?: readonly string[];
   /** 公式部品だけが持つ。差し替えを許すか */
@@ -45,6 +51,9 @@ export function defineComponent<I, O>(def: ComponentDefinition<I, O>): Component
   for (const p of def.params) if (!isDottedId(p)) bad("params");
   for (const r of def.reads) if (!isDottedId(r)) bad("reads");
   for (const s of def.slots ?? []) if (!s.startsWith("slot.")) bad("slots");
+  for (const c of def.memberScope ?? []) {
+    if (ITEMS.owners[c] === undefined || !def.reads.some((r) => ITEMS.items[r]?.collection === c)) bad("memberScope");
+  }
   if (typeof def.compute !== "function") bad("compute");
   return Object.freeze({ ...def });
 }
