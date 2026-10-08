@@ -128,3 +128,37 @@ describe("再評価率の表（B-3。【架空の見本】の値で形だけを�
     expect(() => runEngine(req, fictionalPacks(), { checkInternal: true })).toThrow("E_INPUT_SCHEMA");
   });
 });
+
+describe("補足的老齢年金生活者支援給付金（B-4。【架空の見本】の値: 所得基準額 80万円・補足的所得基準額 90万円・給付基準額 5,000円）", () => {
+  const benefit = (revenue: number, packs = fictionalPacks()) => {
+    const req = household({ baseMonth: "2026-10", endYear: 2027, members: [member("pt.a", "self", "1958-01", { sex: "male" })] });
+    const months = ["2026-10", "2026-11", "2026-12"].map((month) => ({ month, basic: 800000, employee: 0, special: 0, suspended: 0 }));
+    const r = runEngine(req, packs, {
+      checkInternal: true,
+      entry: { component: "pension.supplementaryBenefit", input: { member: A } },
+      stubs: {
+        "pension.oldAge": () => ({ flows: [], payments: [], months }),
+        "pension.record": () => ({ kind: "projection", fiscalYear: 2026, asOf: "2026-04", basicMonths: 480, employeeMonths: 0, employee2059Months: 0, qualifyingMonths: 480, amounts: { basic: null, employee: null, transitional: null, special: null }, months: [] }),
+        "residentTax.exemption": () => ({ perCapitaExempt: true, incomeLevyExempt: true, persons: 1 }),
+        "tax.totalIncome": () => ({ total: 0, employment: 0, publicPension: 0 }),
+        "tax.publicPensionIncome": () => ({ revenue, deduction: revenue, income: 0 }),
+      },
+    });
+    const flows = (r.entryOutput as { flows: { ym: string; amount: number }[] }).flows;
+    return { dec: flows.find((f) => f.ym === "2026-12")?.amount ?? 0, notices: (r.header as { notices: { code: string; ids: string[] }[] }).notices };
+  };
+
+  it("所得基準額以下は本来の給付金、超えて補足的所得基準額以下は調整支給率（(90万−所得)÷(90万−80万)）を掛ける、超えれば無し", () => {
+    expect(benefit(780000).dec).toBe(2 * 5000);
+    expect(benefit(850000).dec).toBe(2 * 2500);
+    expect(benefit(880000).dec).toBe(2 * 1000);
+    expect(benefit(950000).dec).toBe(0);
+  });
+
+  it("補足的所得基準額が制度データに無ければ、所得基準額を超える年は計算せずに知らせる", () => {
+    const packs = fictionalPacks().map((p) => ({ ...p, values: (p as unknown as { values: { id: string }[] }).values.filter((v) => !v.id.endsWith("supplementaryIncomeLimit")) })) as never;
+    const r = benefit(850000, packs);
+    expect(r.dec).toBe(0);
+    expect(r.notices.some((n) => n.code === "N_PARAM_MISSING" && n.ids.includes("pension.supplementaryBenefit.supplementaryIncomeLimit"))).toBe(true);
+  });
+});

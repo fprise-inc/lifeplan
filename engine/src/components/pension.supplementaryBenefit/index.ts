@@ -1,6 +1,9 @@
 // 年金生活者支援給付金（老齢）。65歳以上で老齢基礎年金を受け、世帯全員の住民税（均等割）が非課税で、前年の公的年金等の収入と
 // その他の所得の合計が所得基準額以下のとき、給付基準額×保険料納付済の月数/480 を年金と同じ偶数月に払う（非課税の給付）。
-// 10月から翌年9月までを、前年の所得（その年度の住民税の非課税）で判定する。免除期間の分は入れていない（免除は記録で入れない）
+// 10月から翌年9月までを、前年の所得（その年度の住民税の非課税）で判定する。免除期間の分は入れていない（免除は記録で入れない）。
+// 補足的老齢年金生活者支援給付金: 所得が所得基準額を超え補足的所得基準額以下なら、給付基準額×納付済の月数/480×調整支給率
+// （（補足的所得基準額−所得）÷（補足的所得基準額−所得基準額））。補足的所得基準額が制度データに無いときは計算せず、
+// 対象かもしれない年（世帯全員が非課税で、所得が所得基準額を超える）を見出しの notices（N_PARAM_MISSING）で知らせる
 import {
   addMonths,
   ageMonth,
@@ -30,6 +33,7 @@ import {
 const P = {
   base: "pension.supplementaryBenefit.baseMonthly",
   limit: "pension.supplementaryBenefit.incomeLimit",
+  supLimit: "pension.supplementaryBenefit.supplementaryIncomeLimit",
   start: "pension.normalStartAge",
   maxMonths: "pension.basic.maxMonths",
   round: "pension.amount.rounding",
@@ -79,7 +83,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "pension.supplementaryBenefit",
   title: "年金生活者支援給付金",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {
     "pension.oldAge": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -105,11 +109,12 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
     const n65 = ageMonth(ctx, base, P.start, member);
     const paid = rec.basicMonths + rec.months.filter((x) => x.basic).length;
     const others = ctx.list<MemberInput>("member").filter((m) => m.leaves === null || ctx.time.resolve(m.leaves) > base);
-    const cache = new Map<number, boolean>();
+    // 判定の年ごと: null は支給なし、ratio は調整支給率（分子・分母。本来の給付金は 1/1）
+    const cache = new Map<number, { num: number; den: number } | null>();
     const projected = new Map<string, number[]>();
     const backs = new Map<string, number | null>();
     // 10月から翌年9月は、その年（判定の年度）の住民税と前年の所得で決める
-    const eligible = (y: number): boolean => {
+    const eligible = (y: number): { num: number; den: number } | null => {
       let v = cache.get(y);
       if (v !== undefined) return v;
       const exemptAll = others.every((o) => ctx.call<ExemptionOutput>("residentTax.exemption", { member: o.id, fiscalYear: y }).perCapitaExempt);
@@ -118,9 +123,23 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
       const measure = pensionIncome.revenue + (total - pensionIncome.income);
       const oct = monthIndex(y, 10);
       const limit = indexed(ctx, ctx.at(oct), fiscalYearOf(oct), P.limit, member, R, projected, backs);
-      v = exemptAll && limit !== null && measure <= limit;
+      v = null;
+      if (exemptAll && limit !== null) {
+        if (measure <= limit) v = { num: 1, den: 1 };
+        else {
+          const at = ctx.at(oct);
+          const sup = at.has(P.supLimit, { member }) || hasEarlier(P.supLimit, fiscalYearOf(oct)) ? indexed(ctx, at, fiscalYearOf(oct), P.supLimit, member, R, projected, backs) : null;
+          if (sup === null) ctx.notice("N_PARAM_MISSING", [P.supLimit, member]);
+          else if (measure <= sup && sup > limit) v = { num: sup - measure, den: sup - limit };
+        }
+      }
       cache.set(y, v);
       return v;
+    };
+    // 値のある年度がそれより前にあるか（延ばせるか）
+    const hasEarlier = (id: string, fy: number): boolean => {
+      for (let back = fy - 1; back >= fy - 100; back--) if (ctx.at(fiscalYearStart(back)).has(id, { member })) return true;
+      return false;
     };
     const monthly = new Map<string, Yen>();
     // 計算基準月から（それより前の月の判定には前の年度の制度の値が要るため）。
@@ -139,11 +158,12 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
         const m = seg.from;
         if (!basicMonths.has(formatYm(m))) continue;
         const judge = monthOf(m) >= 10 ? yearOf(m) : yearOf(m) - 1;
-        if (!eligible(judge)) continue;
+        const ratio = eligible(judge);
+        if (ratio === null) continue;
         const b = indexed(ctx, seg.at, fiscalYearOf(m), P.base, member, R, projected, backs);
         if (b === null) continue;
         const max = seg.at.paramCount(P.maxMonths) ?? 480;
-        const v = seg.at.money.mulRatio(b, Math.min(paid, max), max, P.round);
+        const v = seg.at.money.mulRatio(b, Math.min(paid, max) * ratio.num, max * ratio.den, P.round);
         for (let k = seg.from; k <= seg.to; k = addMonths(k, 1)) monthly.set(formatYm(k), v);
       }
     }
