@@ -58,6 +58,8 @@ const P = {
   child12: "pension.childSupplement.firstTwoBaseAmount",
   child3: "pension.childSupplement.thirdBaseAmount",
   childAge: "pension.childSupplement.childUntilAge",
+  childMonths: "pension.childSupplement.requiredMonths",
+  basicChild: "pension.basic.childAddition.baseAmount",
   transfer: "pension.transferAddition.coefficient",
   transferBase: "pension.transferAddition.baseAmount",
   specialAge: "pension.specialOldAge.startAge",
@@ -70,9 +72,9 @@ const DEN = 1000000000000n;
 
 type Out = { flows: Flow[]; payments: PensionPayment[]; months: PensionMonth[] };
 
-/** 改定率（年度ごと）を引く。範囲の外は端の年度の値。employee は報酬比例の系列 */
-function revisionTable(rv: RevisionOutput, employee: boolean): (fy: number) => Rate {
-  const map = new Map(rv.byFiscalYear.map((x) => [x.fiscalYear, rate(employee ? x.employee : x.rate)]));
+/** 改定率（年度ごと）を引く。範囲の外は端の年度の値。employee は報酬比例の系列、newAward は新規裁定者の改定率（無ければ本人の率） */
+function revisionTable(rv: RevisionOutput, series: "rate" | "employee" | "newAward"): (fy: number) => Rate {
+  const map = new Map(rv.byFiscalYear.map((x) => [x.fiscalYear, rate(series === "employee" ? x.employee : series === "newAward" ? (x.newAward ?? x.rate) : x.rate)]));
   const first = rv.byFiscalYear[0]?.fiscalYear ?? 0;
   const last = rv.byFiscalYear[rv.byFiscalYear.length - 1]?.fiscalYear ?? 0;
   return (fy) => map.get(fy < first ? first : fy > last ? last : fy) ?? RATE_ONE;
@@ -117,7 +119,7 @@ export default defineComponent<{ member: string }, Out>({
   id: "pension.oldAge",
   title: "老齢年金",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "pension.record": ">=1 <2", "pension.revision": ">=1 <2", "socialInsurance.coverage": ">=1 <2", "pension.employeeMonths": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -149,8 +151,10 @@ export default defineComponent<{ member: string }, Out>({
     if (addMonths(N, -60) > end && input0?.kind !== "receiving") return empty;
     const rec = ctx.call<RecordOutput>("pension.record", { member });
     const rv = ctx.call<RevisionOutput>("pension.revision", { member });
-    const R = revisionTable(rv, false);
-    const E = revisionTable(rv, true);
+    const R = revisionTable(rv, "rate");
+    const E = revisionTable(rv, "employee");
+    // 加給年金額・配偶者の特別加算（子の加算を含む）は新規裁定者の改定率（厚生年金保険法44条2項・昭和60年改正法附則60条2項）
+    const NA = revisionTable(rv, "newAward");
     const K = rec.fiscalYear;
     const RK = R(K);
     const EK = E(K);
@@ -315,11 +319,18 @@ export default defineComponent<{ member: string }, Out>({
     const otherMonths = (id: string) => ctx.call<{ months: number }>("pension.employeeMonths", { member: id }).months;
     const spouseUntil = memo((id: string) => ageMonth(ctx, base, P.spouseAge, id));
     const childUntil = memo((id: string) => ageMonth(ctx, base, P.childAge, id));
+    // 加給年金の対象の子（その月に生まれていて、18歳に達した年度の末まで）
+    const childrenAt = (m: MonthIndex) => children.filter((c) => parseYm(c.birth.birthYearMonth) <= m && m <= childUntil(c.id));
+    // 子の加給年金の要件の月数（令和10年4月から120月。それより前は配偶者と同じ240月）。値が無ければ配偶者と同じ
+    const childMonthsAt = (at: MonthCtx) => (at.has(P.childMonths) ? (at.paramCount(P.childMonths) ?? supMonths) : supMonths);
+    // 加給年金額: 配偶者（240月）と子（childMonthsAt）。新規裁定者の改定率を掛ける
     const supplementOf = (at: MonthCtx, fy: number, m: MonthIndex, cut: MonthIndex): Yen => {
-      if (employeeMonthsOf(rec, cut, monthCache) < supMonths) return yen(0);
-      const r = R(fy);
+      const months = employeeMonthsOf(rec, cut, monthCache);
+      const childOk = months >= childMonthsAt(at);
+      if (months < supMonths && !childOk) return yen(0);
+      const r = NA(fy);
       let total = 0;
-      for (const sp of spouseAt(m)) {
+      for (const sp of months >= supMonths ? spouseAt(m) : []) {
         if (parseYm((members.find((x) => x.id === sp) as MemberInput).birth.birthYearMonth) > m) continue;
         if (m >= spouseUntil(sp)) continue;
         if (otherMonths(sp) >= supMonths) continue;
@@ -328,12 +339,23 @@ export default defineComponent<{ member: string }, Out>({
         if (special !== null) total += mulRateM(at, special, r, P.fullRound);
         break;
       }
-      let k = 0;
-      for (const c of children) {
-        if (parseYm(c.birth.birthYearMonth) > m || m > childUntil(c.id)) continue;
-        total += mulRateM(at, at.paramYen(k < 2 ? P.child12 : P.child3) ?? yen(0), r, P.fullRound);
-        k++;
+      if (childOk) {
+        let k = 0;
+        for (const _c of childrenAt(m)) {
+          total += mulRateM(at, at.paramYen(k < 2 ? P.child12 : P.child3) ?? yen(0), r, P.fullRound);
+          k++;
+        }
       }
+      return yen(total);
+    };
+    // 老齢基礎年金の子の加算（令和10年4月から。値の行がある月だけ）: 子の加給年金を受けない子の分（同じ子の加算を両方では受けないとみなす）。
+    // 振替加算と同じく繰上げ・繰下げで増減しない
+    const basicChildOf = (at: MonthCtx, fy: number, m: MonthIndex, coveredByEmployee: boolean): Yen => {
+      if (coveredByEmployee || !at.has(P.basicChild)) return yen(0);
+      const amount = at.paramYen(P.basicChild);
+      if (amount === null) return yen(0);
+      let total = 0;
+      for (const _c of childrenAt(m)) total += mulRateM(at, amount, NA(fy), P.fullRound);
       return yen(total);
     };
     // 振替加算: 本人の厚生年金が240月未満で、配偶者の厚生年金が240月以上（配偶者の加給年金の対象だった）
@@ -392,7 +414,7 @@ export default defineComponent<{ member: string }, Out>({
     }
     for (const c of children) breaks.push(parseYm(c.birth.birthYearMonth), addMonths(childUntil(c.id), 1));
     const segParams: SegmentOptions["params"] = [
-      P.base, P.fullRound, P.round, P.maxMonths, P.flat, P.flatMax, P.supBase, [P.supSpecial, { member }], P.child12, P.child3,
+      P.base, P.fullRound, P.round, P.maxMonths, P.flat, P.flatMax, P.supBase, [P.supSpecial, { member }], P.child12, P.child3, P.childMonths, P.basicChild,
       [P.transfer, { member }], P.transferBase, P.work,
     ];
     const months: PensionMonth[] = [];
@@ -404,10 +426,8 @@ export default defineComponent<{ member: string }, Out>({
       let employee = yen(0);
       let special = yen(0);
       let suspended = yen(0);
-      if (m >= CB) {
-        basic = at.money.mulRate(basicAmount(at, fy), fb, P.round);
-        if (m >= N || receiving) basic = yen(basic + transferOf(at, fy));
-      }
+      // 子の加給年金を厚生年金で受ける月か（受けない子の分は老齢基礎年金の子の加算）
+      let childByEmployee = false;
       if (m >= CE) {
         const cut = cutoff(m, receiving ? addMonths(parseYm(rec.asOf ?? formatYm(S0)), 1) : N, true);
         const prop = proportional(at, fy, cut);
@@ -424,13 +444,19 @@ export default defineComponent<{ member: string }, Out>({
         const stop = suspension(at, m, propPaid);
         suspended = stop;
         const full = stop >= propPaid && propPaid > 0;
-        const supplement = full || (m < N && !receiving) ? yen(0) : supplementOf(at, fy, m, cut);
+        const supplementPaid = !(full || (m < N && !receiving));
+        const supplement = supplementPaid ? supplementOf(at, fy, m, cut) : yen(0);
+        childByEmployee = supplementPaid && employeeMonthsOf(rec, cut, monthCache) >= childMonthsAt(at);
         employee = yen(propPaid - stop + transPaid + increase + supplement);
       } else if (SA !== null && m >= SA && m < N) {
         const prop = rec.amounts.special !== null ? round1(at, rec.amounts.special, ratioE(fy)) : proportional(at, fy, cutoff(m, SA, false));
         const stop = suspension(at, m, prop);
         suspended = stop;
         special = yen(prop - stop);
+      }
+      if (m >= CB) {
+        basic = at.money.mulRate(basicAmount(at, fy), fb, P.round);
+        if (m >= N || receiving) basic = yen(basic + transferOf(at, fy) + basicChildOf(at, fy, m, childByEmployee));
       }
       if (basic > 0 || employee > 0 || special > 0 || suspended > 0) {
         for (let k = seg.from; k <= seg.to; k = addMonths(k, 1)) months.push({ month: formatYm(k), basic, employee, special, suspended });

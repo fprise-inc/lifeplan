@@ -27,7 +27,8 @@ export interface Segment {
 /** 区間の at で読める値の鍵（値ID・構成員・管轄） */
 export function segmentKey(id: string, o: ParamOptions | undefined): string {
   const j = o?.jurisdiction;
-  return `${id}${o?.member === undefined ? "" : `|${o.member}`}${j === undefined || j === "national" ? "" : `|${j.level}:${j.code}`}`;
+  const who = o?.member ?? (o?.birth === undefined ? undefined : `@${o.birth.birthYearMonth}${o.birth.bornOnFirst ? "+" : ""}`);
+  return `${id}${who === undefined ? "" : `|${who}`}${j === undefined || j === "national" ? "" : `|${j.level}:${j.code}`}`;
 }
 
 /** 月の昇順の区間から、月 m を含む区間の番号（無ければ -1。二分探索） */

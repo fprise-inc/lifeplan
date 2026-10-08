@@ -37,7 +37,7 @@ import {
   type Selected,
 } from "../regulation/reader.ts";
 import { projectCollection, type ItemTable } from "./items.ts";
-import { resolveAgeSwitch, type Age, type AgeSwitch } from "../time/ageSwitch.ts";
+import { resolveAgeSwitch, type Age, type AgeSwitch, type Birth } from "../time/ageSwitch.ts";
 import { lookupFor, type LookupContext } from "../time/basis.ts";
 import { formatYm, monthIndex, yearOf, type MonthIndex } from "../time/month.ts";
 import type { Timepoint, TimeResolver } from "../time/timepoint.ts";
@@ -71,6 +71,11 @@ export interface RateApi {
 export interface ParamOptions {
   /** 条件 birthDate・basis birthDate の値を選ぶ構成員 */
   readonly member?: string;
+  /**
+   * 構成員ではなく生年月日で条件 birthDate の値を選ぶ（例: 新規裁定者の改定率を、その年度に新規裁定者になる生年月日で引く）。
+   * member と一緒には使わない
+   */
+  readonly birth?: Birth;
   /** basis anchor の値を選ぶ出来事（名前つきイベントのID） */
   readonly anchorEvent?: string;
   /** 全国以外の管轄の値（協会けんぽの支部など。0007 の6） */
@@ -889,6 +894,10 @@ abstract class ParamReader {
   }
 }
 
+/** 値を選ぶ人の鍵（構成員の ID、または生年月日） */
+export const whoKey = (opts: ParamOptions | undefined): string =>
+  opts?.member ?? (opts?.birth === undefined ? "" : `@${opts.birth.birthYearMonth}${opts.birth.bornOnFirst ? "+" : ""}`);
+
 const simpleOpts = (opts: ParamOptions | undefined): boolean =>
   opts === undefined || (opts.anchorEvent === undefined && (opts.jurisdiction === undefined || opts.jurisdiction === "national"));
 
@@ -911,7 +920,8 @@ class MonthCtxImpl extends ParamReader implements MonthCtx {
   }
   param(id: string, opts?: ParamOptions): Selected {
     if (!simpleOpts(opts)) return this.#ctx.param(id, this.month, opts ?? {}, this.month);
-    const key = opts?.member === undefined ? id : `${id}|${opts.member}`;
+    const who = whoKey(opts);
+    const key = who === "" ? id : `${id}|${who}`;
     const hit = this.#local.get(key);
     if (hit !== undefined) return hit;
     const s = this.#ctx.param(id, this.month, opts ?? {}, this.month);
@@ -920,7 +930,8 @@ class MonthCtxImpl extends ParamReader implements MonthCtx {
   }
   has(id: string, opts?: ParamOptions): boolean {
     if (!simpleOpts(opts)) return this.#ctx.has(id, this.month, opts ?? {});
-    const key = opts?.member === undefined ? id : `${id}|${opts.member}`;
+    const who = whoKey(opts);
+    const key = who === "" ? id : `${id}|${who}`;
     this.#hasLocal ??= new Map();
     const hit = this.#hasLocal.get(key);
     if (hit !== undefined) return hit;
@@ -934,7 +945,7 @@ class MonthCtxImpl extends ParamReader implements MonthCtx {
 const optsKey = (id: string, opts: ParamOptions | undefined): string => {
   if (opts === undefined) return id;
   const j = opts.jurisdiction;
-  return `${id}|${opts.member ?? ""}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
+  return `${id}|${whoKey(opts)}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
 };
 
 /**
@@ -1366,7 +1377,8 @@ class CtxImpl implements Ctx {
 
   #matchOf(_id: string, opts: ParamOptions): { birth?: ReturnType<TimeResolver["birthOf"]>; sex?: "female" | "male"; jurisdiction?: Jurisdiction } {
     const time = this.#state.time;
-    const birth = opts.member !== undefined ? time.birthOf(opts.member) : undefined;
+    if (opts.member !== undefined && opts.birth !== undefined) throw new EngineError("E_ARGUMENT", [_id, "birth"]);
+    const birth = opts.member !== undefined ? time.birthOf(opts.member) : opts.birth;
     const sex = opts.member !== undefined ? time.sexOf(opts.member) : undefined;
     return {
       ...(birth !== undefined ? { birth } : {}),
@@ -1401,9 +1413,9 @@ class CtxImpl implements Ctx {
     // 鍵: 値ID →（構成員・出来事・管轄）→ 月（param と同じ形）
     const j = opts.jurisdiction;
     const sub =
-      opts.member === undefined && opts.anchorEvent === undefined && (j === undefined || j === "national")
+      opts.member === undefined && opts.birth === undefined && opts.anchorEvent === undefined && (j === undefined || j === "national")
         ? id
-        : `${id}|${opts.member ?? ""}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
+        : `${id}|${whoKey(opts)}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
     let byMonth = state.paramCache.has.get(sub);
     if (byMonth === undefined) {
       byMonth = new Map();
@@ -1433,9 +1445,9 @@ class CtxImpl implements Ctx {
     // 鍵: 値ID →（構成員・出来事・管轄）→ 月。数の鍵で引けるように入れ子の Map にする
     const j = opts.jurisdiction;
     const sub =
-      opts.member === undefined && opts.anchorEvent === undefined && (j === undefined || j === "national")
+      opts.member === undefined && opts.birth === undefined && opts.anchorEvent === undefined && (j === undefined || j === "national")
         ? id
-        : `${id}|${opts.member ?? ""}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
+        : `${id}|${whoKey(opts)}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
     const cache = state.paramCache.params;
     let byMonth = cache.get(sub);
     if (byMonth === undefined) {

@@ -27,6 +27,7 @@ export { yen, addYen, subYen, negYen, sumYen, YEN_ZERO, type Yen, type Money } f
 export { rate, RATE_ZERO, RATE_ONE, type Rate } from "../money/rate.ts";
 export { addMonths, formatYm, monthIndex, monthOf, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
 export type { Timepoint } from "../time/timepoint.ts";
+export type { Birth } from "../time/ageSwitch.ts";
 export { bracketFor, gradeFor, type Bracket, type Grade } from "../regulation/reader.ts";
 export { isUnder } from "../ids/cfTree.ts";
 export { netByYear, tableYear } from "../engine/aggregate.ts";

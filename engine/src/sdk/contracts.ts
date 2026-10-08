@@ -232,8 +232,17 @@ export interface PensionOutput {
 
 /** pension.revision: 構成員の年金額の改定率（年度ごと。projected は前提で延ばした年度） */
 export interface RevisionOutput {
-  /** rate は基礎年金の改定率、employee は報酬比例（厚生年金）の改定の系列 */
-  readonly byFiscalYear: readonly { readonly fiscalYear: number; readonly rate: string; readonly employee: string; readonly projected: boolean }[];
+  /**
+   * rate は基礎年金の改定率（受給者本人の率。68歳に達した年度からは既裁定者の率）、employee は報酬比例（厚生年金）の改定の系列、
+   * newAward は新規裁定者の改定率（加給年金額・配偶者の特別加算に掛ける。約束の版 1.1 で足した任意の欄）
+   */
+  readonly byFiscalYear: readonly {
+    readonly fiscalYear: number;
+    readonly rate: string;
+    readonly employee: string;
+    readonly newAward?: string;
+    readonly projected: boolean;
+  }[];
 }
 
 /** pension.record: 加入の記録（入力の型ごとの初めの値と、記録の後に働き方の期間から足す月） */

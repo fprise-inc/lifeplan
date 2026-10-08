@@ -31,6 +31,10 @@
           },
           "projected": {
             "type": "boolean"
+          },
+          "newAward": {
+            "$ref": "urn:financia:schema:common#/$defs/rate",
+            "description": "新規裁定者の改定率（約束の版 1.1 で足した任意の欄。加給年金額・配偶者の特別加算に掛ける。厚生年金保険法44条2項・昭和60年改正法附則60条2項）"
           }
         }
       }
