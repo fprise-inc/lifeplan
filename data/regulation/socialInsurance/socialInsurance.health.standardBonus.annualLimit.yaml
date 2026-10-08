@@ -19,4 +19,4 @@ entries:
       - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "年度（4月〜翌3月）の累計の上限。施行日は540万円から573万円への引上げ（平成28年4月。日本年金機構の案内）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "年度（4月〜翌3月）の累計の上限。施行日は540万円から573万円への引上げ（平成28年4月。日本年金機構の案内）"}

@@ -1,0 +1,227 @@
+{
+  "note": "baseline は CI（GitHub Actions の ubuntu-latest と macos-latest）で測った値。--update-baseline で書き換える（同じ OS・CPU の欄だけ比べる）",
+  "targets": {
+    "node.preview20": {
+      "ms": 100,
+      "note": "0005: 100年分×5案×4想定（20回）を画面側（V8）で先出し"
+    },
+    "jsc.preview20": {
+      "ms": 100,
+      "note": "同じく JavaScriptCore"
+    },
+    "node.sliderReturn": {
+      "ms": 100,
+      "note": "スライダーの1刻み（変わった1案×4想定。案の前提だけが変わる）を V8 で"
+    },
+    "jsc.sliderReturn": {
+      "ms": 100,
+      "note": "同じく JavaScriptCore"
+    },
+    "node.sliderSalary": {
+      "ms": 100,
+      "note": "スライダーの1刻み（構成員の年収が変わる）を V8 で"
+    },
+    "jsc.sliderSalary": {
+      "ms": 100,
+      "note": "同じく JavaScriptCore"
+    },
+    "quickjs.par4": {
+      "ms": 500,
+      "note": "手を離した後の正の計算（1案×4想定を並列）。目安は Apple シリコンで 0.5 秒"
+    }
+  },
+  "baseline": {
+    "linux-x64": {
+      "node": {
+        "single": {
+          "median": 218.8,
+          "min": 197.8
+        },
+        "seq20": {
+          "median": 2459,
+          "min": 2375.1
+        },
+        "batch4": {
+          "median": 515.8,
+          "min": 436.9
+        },
+        "batch20": {
+          "median": 1574.6,
+          "min": 1547.7
+        },
+        "preview20": {
+          "median": 1259.7,
+          "min": 1245.3
+        },
+        "sliderReturn": {
+          "median": 10.1,
+          "min": 8.5
+        },
+        "sliderSalary": {
+          "median": 345.7,
+          "min": 342.1
+        }
+      },
+      "jsc": {
+        "single": {
+          "median": 200.1,
+          "min": 193.1
+        },
+        "seq20": {
+          "median": 2980.9,
+          "min": 2944.7
+        },
+        "batch4": {
+          "median": 515.8,
+          "min": 483.6
+        },
+        "batch20": {
+          "median": 1834.1,
+          "min": 1705.2
+        },
+        "preview20": {
+          "median": 1455.3,
+          "min": 1394.1
+        },
+        "sliderReturn": {
+          "median": 8.2,
+          "min": 8.2
+        },
+        "sliderSalary": {
+          "median": 374.4,
+          "min": 356.9
+        }
+      },
+      "quickjs": {
+        "single": {
+          "median": 1544.3,
+          "min": 1500.2
+        },
+        "par4": {
+          "median": 4508.2,
+          "min": 4493.9
+        },
+        "par20": {
+          "median": 27147.6,
+          "min": 26988.9
+        },
+        "seq20": {
+          "median": 27832.6,
+          "min": 27832.6
+        },
+        "batch4": {
+          "median": 5549.1,
+          "min": 5433.4
+        },
+        "batch20": {
+          "median": 19859.9,
+          "min": 19857.9
+        },
+        "par20batch": {
+          "median": 19592.1,
+          "min": 19360.6
+        },
+        "load": {
+          "median": 67.1,
+          "min": 59.3
+        }
+      }
+    },
+    "darwin-arm64": {
+      "node": {
+        "single": {
+          "median": 86.4,
+          "min": 77.2
+        },
+        "seq20": {
+          "median": 1440.1,
+          "min": 1422.5
+        },
+        "batch4": {
+          "median": 267,
+          "min": 255.4
+        },
+        "batch20": {
+          "median": 993.3,
+          "min": 974.3
+        },
+        "preview20": {
+          "median": 819,
+          "min": 799.1
+        },
+        "sliderReturn": {
+          "median": 5.8,
+          "min": 5.4
+        },
+        "sliderSalary": {
+          "median": 219.9,
+          "min": 214.1
+        }
+      },
+      "jsc": {
+        "single": {
+          "median": 105.1,
+          "min": 75.3
+        },
+        "seq20": {
+          "median": 1713.4,
+          "min": 1685.5
+        },
+        "batch4": {
+          "median": 277.2,
+          "min": 243.3
+        },
+        "batch20": {
+          "median": 920.2,
+          "min": 856.3
+        },
+        "preview20": {
+          "median": 822.7,
+          "min": 804
+        },
+        "sliderReturn": {
+          "median": 5.9,
+          "min": 4.6
+        },
+        "sliderSalary": {
+          "median": 224.9,
+          "min": 199.7
+        }
+      },
+      "quickjs": {
+        "single": {
+          "median": 796.2,
+          "min": 787.6
+        },
+        "par4": {
+          "median": 847,
+          "min": 795.9
+        },
+        "par20": {
+          "median": 4125.6,
+          "min": 3996.7
+        },
+        "seq20": {
+          "median": 15467.1,
+          "min": 15467.1
+        },
+        "batch4": {
+          "median": 2835,
+          "min": 2742
+        },
+        "batch20": {
+          "median": 11564.7,
+          "min": 10412.5
+        },
+        "par20batch": {
+          "median": 3617.9,
+          "min": 3561.1
+        },
+        "load": {
+          "median": 41.5,
+          "min": 40.9
+        }
+      }
+    }
+  }
+}

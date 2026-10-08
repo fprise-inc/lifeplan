@@ -56,6 +56,12 @@ export interface FlowsResult {
   readonly flows: readonly Flow[];
 }
 
+/** socialInsurance.health・pension・employment・nationalPension: 保険料の支払いと、支払月の暦年ごとの合計（約束の版 1.1 で足した任意の欄） */
+export interface PremiumOutput {
+  readonly flows: readonly Flow[];
+  readonly paidByYear?: readonly { readonly year: number; readonly amount: Yen }[];
+}
+
 /** tax.employmentIncome: 給与収入・給与所得控除額・給与所得 */
 export interface EmploymentIncomeOutput {
   readonly revenue: Yen;

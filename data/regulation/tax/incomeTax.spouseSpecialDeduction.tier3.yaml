@@ -28,4 +28,4 @@ entries:
       - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "83条の2の式から計算した表（本人950万円超1,000万円以下）と、タックスアンサー1195の令和7年分・令和8年分以降の表が全段一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "83条の2の式から計算した表（本人950万円超1,000万円以下）と、タックスアンサー1195の令和7年分・令和8年分以降の表が全段一致"}

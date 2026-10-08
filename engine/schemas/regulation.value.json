@@ -160,8 +160,17 @@
         "appliesFrom": { "$ref": "urn:financia:schema:common#/$defs/date" },
         "appliesTo": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/date" }] },
         "enforcedOn": {
-          "description": "施行日。原本で確かめる前（approval.method が pendingReview）で施行日が分からない行だけ null（PR の提案）",
-          "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/date" }]
+          "description": "施行日。原本で確かめる前（approval.method が pendingReview）で施行日が分からない行だけ null（PR の提案）。施行日そのものは分からないが「遅くともこの日には施行済み」と分かる行は {notAfter: 日付}（0007 の追記。例: e-Gov の改正履歴が始まる 2017-04-01 の版に、値を定める文言が既にある規定）",
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "urn:financia:schema:common#/$defs/date" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["notAfter"],
+              "properties": { "notAfter": { "$ref": "urn:financia:schema:common#/$defs/date" } }
+            }
+          ]
         },
         "milestones": {
           "type": "array",
@@ -197,7 +206,7 @@
         "recordedIn": { "$ref": "#/$defs/packVersion" },
         "supersededIn": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/packVersion" }] },
         "approval": {
-          "description": "0007 の9。pendingReview は原本で人が確かめる前（原本を取れずに検索の抜粋で読んだ値など。PR の提案）。paths は読み取って一致を確かめた経路の数",
+          "description": "0007 の9・追記。reviewed は「公式の原本と、2つ以上の読み方（paths）で照らし合わせて一致した」こと（人の目による確認は要件にしない）。誰が（comparedBy。人なら役割、個人名は書かない）・どの道具で（tools）・いつ（comparedOn）照らし合わせたかを残す（3つの欄で書くか、note に「照合: …」と書く）。pendingReview は原本と照らし合わせる前。paths は読み取って一致を確かめた経路の数",
           "type": "object",
           "additionalProperties": false,
           "required": ["method"],
@@ -206,10 +215,22 @@
             "keyId": { "type": "string" },
             "recordId": { "type": "string" },
             "paths": { "type": "integer", "minimum": 1, "maximum": 9 },
+            "comparedBy": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9.-]*$" },
+            "tools": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+            "comparedOn": { "$ref": "urn:financia:schema:common#/$defs/date" },
             "note": { "type": "string", "minLength": 1 }
           },
-          "if": { "properties": { "method": { "const": "pendingReview" } } },
-          "then": { "required": ["paths"] }
+          "allOf": [
+            { "if": { "properties": { "method": { "const": "pendingReview" } } }, "then": { "required": ["paths"] } },
+            {
+              "if": { "properties": { "method": { "const": "reviewed" } } },
+              "then": {
+                "required": ["paths"],
+                "properties": { "paths": { "minimum": 2 } },
+                "anyOf": [{ "required": ["comparedBy", "tools", "comparedOn"] }, { "required": ["note"] }]
+              }
+            }
+          ]
         }
       },
       "if": { "properties": { "status": { "const": "proposed" } } },

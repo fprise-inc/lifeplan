@@ -30,7 +30,7 @@ entries:
       - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261001_508AC0000000012"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "所得税法86条（58万円）＋措置法41条の16の2の加算（37万・30万・10万・5万円）の条文と、タックスアンサー1199の令和7年分の列が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "所得税法86条（58万円）＋措置法41条の16の2の加算（37万・30万・10万・5万円）の条文と、タックスアンサー1199の令和7年分の列が一致"}
   - rev: 2
     appliesFrom: "2026-01-01"
     appliesTo: "2027-12-31"
@@ -55,7 +55,7 @@ entries:
       - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261201_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "所得税法86条（62万円）＋措置法41条の16の2第1項1号の加算（42万・5万円）の条文と、国税庁の改正のあらまし・タックスアンサー1199が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "所得税法86条（62万円）＋措置法41条の16の2第1項1号の加算（42万・5万円）の条文と、国税庁の改正のあらまし・タックスアンサー1199が一致"}
   - rev: 3
     appliesFrom: "2028-01-01"
     appliesTo: null
@@ -79,4 +79,4 @@ entries:
       - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20280101_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和10年分以後は132万円以下に37万円を加算（99万円）、それより上は本則62万円。措置法41条の16の2第1項2号と、国税庁の改正のあらまし・タックスアンサー1199で一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和10年分以後は132万円以下に37万円を加算（99万円）、それより上は本則62万円。措置法41条の16の2第1項2号と、国税庁の改正のあらまし・タックスアンサー1199で一致"}

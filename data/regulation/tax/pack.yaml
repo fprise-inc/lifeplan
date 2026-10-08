@@ -3,9 +3,12 @@
 # 所得税・住民税（森林環境税を含む）の制度データ。令和7年分・令和8年分（住民税は令和8年度・令和9年度）を中心に入れた
 # 2026.4.0: 公的年金等控除・所得金額調整控除・確定申告不要制度・住民税の非課税限度額・年金からの特別徴収の値を新しいファイルで足した（2026.3.0 までの行は変えていない）
 # 2026.4.0 で足した行は、原本（PDF・Excel）を取得できず公式のドメインに限った検索の抜粋で読んだ値なので、原本での確認待ち（approval.method: pendingReview）
+# 2026.5.0: 「確認済み（reviewed）」を「公式の原本と2つの読み方で照らし合わせて一致した」と定め（0007 の追記）、reviewed の行に照らし合わせた者・道具・日（comparedBy・tools・comparedOn）を足した。
+#   値は原本の2経路で一致し施行日だけが分からなかった41行を、施行日「遅くとも2017年4月1日」（enforcedOn の notAfter）と reviewed にした（値は変えていない）。
+#   給与所得の表の区分の幅（incomeTax.employmentIncome.tableSteps）と住民税の分割金額の端数（residentTax.installment.*.rounding）を新しいファイルで足した（原本での確認待ち）
 packId: regulation.tax
 formatVersion: "0.1"
-version: "2026.4.0"
+version: "2026.5.0"
 features: []
 title: 所得税・住民税
 requires:

@@ -38,7 +38,8 @@ export interface Entry {
   readonly rev: number;
   readonly appliesFrom: string;
   readonly appliesTo: string | null;
-  readonly enforcedOn: string | null;
+  /** 施行日。分からない行は null、「遅くともこの日には施行済み」だけが分かる行は {notAfter}（0007 の追記） */
+  readonly enforcedOn: string | { readonly notAfter: string } | null;
   readonly status: "proposed" | "enacted";
   readonly scenarioId?: string;
   readonly jurisdiction: Json;
@@ -98,6 +99,8 @@ export interface Selected {
 
 interface Visible {
   readonly entry: Entry;
+  /** 管轄の比べ方の鍵（jurisdictionKey）。引くたびに作らないよう前もって作る */
+  readonly jurisdiction: string;
   readonly fromKey: number;
   readonly toKey: number | null;
   readonly effectiveTo: string | null;
@@ -122,6 +125,8 @@ export class RegulationStore {
   private readonly visible = new Map<string, readonly Visible[]>();
   private readonly infos: PackInfo[] = [];
   private readonly later = new Set<string>();
+  /** 引いた結果（同じ値ID・引く日・条件なら同じ行。部品が同じ値を何度も引くので使い回す） */
+  private readonly selected = new Map<string, Map<number, Selected | null>>();
 
   constructor(packs: readonly PackJson[], dataSet: Readonly<Record<string, string>> = {}) {
     for (const p of packs) {
@@ -190,13 +195,33 @@ export class RegulationStore {
 
   /** select と同じ。値が無いときはエラーにせず null を返す（有無だけを見るときに、エラーを作る手間を省くため） */
   trySelect(id: string, date: CivilDate, mc: MatchContext = {}): Selected | null {
-    const def = this.definition(id);
     const key = dateKey(date);
+    const j = mc.jurisdiction;
+    const want = j === undefined || j === "national" ? "national" : jurisdictionKey(j);
+    // 鍵: 値ID と条件（管轄・生年月・性別・延長の有無）→ 引く日
+    const memo =
+      want === "national" && mc.birth === undefined && mc.sex === undefined && mc.noExtension !== true
+        ? id
+        : `${id}|${want}|${mc.birth === undefined ? "" : `${mc.birth.birthYearMonth}${mc.birth.bornOnFirst ? "+" : ""}`}|${mc.sex ?? ""}|${mc.noExtension === true ? "x" : ""}`;
+    let byDate = this.selected.get(memo);
+    if (byDate === undefined) {
+      byDate = new Map();
+      this.selected.set(memo, byDate);
+    }
+    const hit = byDate.get(key);
+    if (hit !== undefined) return hit;
+    const sel = this.selectUncached(id, date, key, want, mc);
+    const s = sel === null ? null : Object.freeze(sel);
+    byDate.set(key, s);
+    return s;
+  }
+
+  private selectUncached(id: string, date: CivilDate, key: number, want: string, mc: MatchContext): Selected | null {
+    const def = this.definition(id);
     const hits: Visible[] = [];
-    const want = jurisdictionKey(mc.jurisdiction);
     for (const v of this.visible.get(id) ?? []) {
       if (v.fromKey > key || (v.toKey !== null && v.toKey < key)) continue;
-      if (jurisdictionKey(v.entry.jurisdiction) !== want) continue;
+      if (v.jurisdiction !== want) continue;
       if (!matchConditions(v.entry.conditions, mc, id)) continue;
       hits.push(v);
     }
@@ -223,7 +248,7 @@ export class RegulationStore {
   private extension(id: string, key: number, want: string, mc: MatchContext): Visible | null {
     const groups = new Map<string, Visible>();
     for (const v of this.visible.get(id) ?? []) {
-      if (jurisdictionKey(v.entry.jurisdiction) !== want) continue;
+      if (v.jurisdiction !== want) continue;
       if (!matchConditions(v.entry.conditions, mc, id)) continue;
       if (v.fromKey > key) return null;
       if (v.toKey === null) continue;
@@ -263,6 +288,7 @@ function visibleEntries(def: ValueDef, asOf: string): Visible[] {
     }
     out.push({
       entry: e,
+      jurisdiction: jurisdictionKey(e.jurisdiction),
       fromKey: dateKey(parseDate(e.appliesFrom)),
       toKey: effectiveTo === null ? null : dateKey(parseDate(effectiveTo)),
       effectiveTo,
@@ -301,7 +327,14 @@ function matchBirthDate(birth: Birth, c: Condition): boolean | "ambiguous" {
   return "ambiguous";
 }
 
-// 値の種類ごとの取り出し（constant・rounding・bracketTable・gradeTable）
+// 値の種類ごとの取り出し（constant・rounding・bracketTable・gradeTable）。選んだ行（Selected）は使い回すので、取り出した形も行ごとに使い回す
+const CONVERTED = new WeakMap<Selected, unknown>();
+function converted<T>(s: Selected, make: () => T): T {
+  if (CONVERTED.has(s)) return CONVERTED.get(s) as T;
+  const v = make();
+  CONVERTED.set(s, v);
+  return v;
+}
 
 export function asYen(s: Selected): Yen | null {
   if (s.def.kind !== "constant" || s.def.unit !== "JPY") throw new EngineError("E_PARAM_KIND", [s.def.id]);
@@ -310,7 +343,7 @@ export function asYen(s: Selected): Yen | null {
 
 export function asRate(s: Selected): Rate | null {
   if (s.def.kind !== "constant" || s.def.unit !== "rate") throw new EngineError("E_PARAM_KIND", [s.def.id]);
-  return s.entry.value === "notApplicable" ? null : rate(s.entry.value as string);
+  return s.entry.value === "notApplicable" ? null : converted(s, () => rate(s.entry.value as string));
 }
 
 /** 回数・年齢などの整数（unit: count・years・months） */
@@ -321,8 +354,10 @@ export function asCount(s: Selected): number | null {
 
 export function asRoundingRule(s: Selected): RoundingRule {
   if (s.def.kind !== "rounding") throw new EngineError("E_PARAM_KIND", [s.def.id]);
-  const v = s.entry.value as { mode: RoundingMode; unit: number };
-  return { mode: v.mode, unit: v.unit };
+  return converted(s, () => {
+    const v = s.entry.value as { mode: RoundingMode; unit: number };
+    return Object.freeze({ mode: v.mode, unit: v.unit });
+  });
 }
 
 export interface Bracket {
@@ -334,11 +369,17 @@ export interface Bracket {
 export function asBrackets(s: Selected): readonly Bracket[] | null {
   if (s.def.kind !== "bracketTable") throw new EngineError("E_PARAM_KIND", [s.def.id]);
   if (s.entry.value === "notApplicable") return null;
-  return (s.entry.value as readonly { upTo: number | null; amount?: number; rate?: string }[]).map((b) => ({
-    upTo: b.upTo === null ? null : yen(b.upTo),
-    ...(b.amount !== undefined ? { amount: yen(b.amount) } : {}),
-    ...(b.rate !== undefined ? { rate: rate(b.rate) } : {}),
-  }));
+  return converted(s, () =>
+    Object.freeze(
+      (s.entry.value as readonly { upTo: number | null; amount?: number; rate?: string }[]).map((b) =>
+        Object.freeze({
+          upTo: b.upTo === null ? null : yen(b.upTo),
+          ...(b.amount !== undefined ? { amount: yen(b.amount) } : {}),
+          ...(b.rate !== undefined ? { rate: rate(b.rate) } : {}),
+        }),
+      ),
+    ),
+  );
 }
 
 /** 段階表で x が当たる段（upTo 以下の最初の段） */
@@ -358,12 +399,18 @@ export interface Grade {
 export function asGrades(s: Selected): readonly Grade[] | null {
   if (s.def.kind !== "gradeTable") throw new EngineError("E_PARAM_KIND", [s.def.id]);
   if (s.entry.value === "notApplicable") return null;
-  return (s.entry.value as readonly { grade: number; amount: number; from: number; below: number | null }[]).map((g) => ({
-    grade: g.grade,
-    amount: yen(g.amount),
-    from: yen(g.from),
-    below: g.below === null ? null : yen(g.below),
-  }));
+  return converted(s, () =>
+    Object.freeze(
+      (s.entry.value as readonly { grade: number; amount: number; from: number; below: number | null }[]).map((g) =>
+        Object.freeze({
+          grade: g.grade,
+          amount: yen(g.amount),
+          from: yen(g.from),
+          below: g.below === null ? null : yen(g.below),
+        }),
+      ),
+    ),
+  );
 }
 
 /** 等級表で x が当たる行 */

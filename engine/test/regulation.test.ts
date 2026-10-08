@@ -149,8 +149,23 @@ describe("パックの組み立て", () => {
     expect(() => buildPack(makePack({ "demo.a.yaml": valueFile("demo.a", body) }, real))).toThrow("approval");
     const pending = body + "    approval: {method: pendingReview, paths: 2}\n";
     expect(buildPack(makePack({ "demo.a.yaml": valueFile("demo.a", pending.replace('enforcedOn: "2020-01-01"', "enforcedOn: null")) }, real)).values).toHaveLength(1);
-    const reviewed = body.replace('enforcedOn: "2020-01-01"', "enforcedOn: null") + "    approval: {method: reviewed}\n";
-    expect(() => buildPack(makePack({ "demo.a.yaml": valueFile("demo.a", reviewed) }, real))).toThrow("施行日");
+    // 0007 の追記: reviewed は原本（指紋つき）と2つ以上の読み方で照らし合わせたことで、照らし合わせた者・道具・日を持つ
+    const original = '    sources: [{type: web, url: "https://www.nta.go.jp/x.htm", retrievedAt: "2026-10-08", sha256: "' + "0".repeat(64) + '"}]\n';
+    const ok = 'comparedBy: claude, comparedOn: "2026-10-08", tools: [e-Gov法令API]';
+    const reviewedBody = (enforcedOn: string, approval: string, sources = original) =>
+      body.replace('enforcedOn: "2020-01-01"', `enforcedOn: ${enforcedOn}`).replace(web, sources) + `    approval: ${approval}\n`;
+    const build = (b: string) => buildPack(makePack({ "demo.a.yaml": valueFile("demo.a", b) }, real));
+    expect(build(reviewedBody('"2020-01-01"', `{method: reviewed, paths: 2, ${ok}}`)).values).toHaveLength(1);
+    expect(() => build(reviewedBody("null", `{method: reviewed, paths: 2, ${ok}}`))).toThrow("施行日");
+    expect(() => build(reviewedBody('"2020-01-01"', "{method: reviewed, paths: 2}"))).toThrow("comparedBy");
+    // 3つの欄の代わりに note に照らし合わせた者・道具を書いてもよい（PR #6 の行の書き方）
+    expect(build(reviewedBody('"2020-01-01"', '{method: reviewed, paths: 2, note: "照合: Claude（原本の本文・sha256 を機械で照合）"}')).values).toHaveLength(1);
+    expect(() => build(reviewedBody('"2020-01-01"', `{method: reviewed, paths: 1, ${ok}}`))).toThrow("形式の誤り");
+    expect(() => build(reviewedBody('"2020-01-01"', `{method: reviewed, paths: 2, ${ok}}`, web))).toThrow("sha256");
+    // 施行日が分からず「遅くともこの日には施行済み」だけが分かる行（0007 の追記）
+    expect(build(reviewedBody('{notAfter: "2017-04-01"}', `{method: reviewed, paths: 2, ${ok}}`)).values).toHaveLength(1);
+    expect(() => build(reviewedBody('{notAfter: "2017-02-30"}', `{method: reviewed, paths: 2, ${ok}}`))).toThrow("notAfter");
+    expect(() => build(reviewedBody('{before: "2017-04-01"}', `{method: reviewed, paths: 2, ${ok}}`))).toThrow("形式の誤り");
     // 原本の指紋の無い web の出典は、検索の抜粋（retrievedVia: searchExcerpt）としてだけ書ける
     const noDigest = pending.replace(", retrievedVia: searchExcerpt", "");
     expect(() => buildPack(makePack({ "demo.a.yaml": valueFile("demo.a", noDigest) }, real))).toThrow("形式の誤り");

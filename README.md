@@ -14,4 +14,5 @@ FP（ファイナンシャルプランナー）向けの無料ライフプラン
 - `data/modelHouseholds/` … 架空のモデル世帯（CC0）。`engine/` で `npm run models` を流すと制度改正の差分を表にする
 - `registry/` … ID の登録簿（科目の木・入力項目・計算部品・制度の値）。入力項目・計算部品・制度の値は `npm run gen` が正本から作る
 - 答え合わせ（検証 L2）: `engine/` で `npm run l2`（公式の計算例との一致の合格率）
-- 一致テスト: `cargo build --release` の後、`engine/` で `npm run parity`（Node・quickjs-ng・JavaScriptCore（Bun があれば）で同じ入力から同じ結果になることを SHA-256 で確かめる。`-- --jsc` で Bun を必須にする）
+- 一致テスト: `cargo build --release` の後、`engine/` で `npm run parity`（Node・quickjs-ng・JavaScriptCore（Bun があれば）で同じ入力から同じ結果になることを SHA-256 で確かめる。`-- --jsc` で Bun を必須にする）。まとめて計算（`runBatch`）の結果も比べる
+- 速さの計測: `cargo build --release` の後、`engine/` で `npm run bench`（100年分のモデル世帯の5案×4想定を Node・JavaScriptCore・quickjs-ng で測り、目標と `engine/bench/baseline.json` の前の値を表にする。CI でも毎回測る。0005 の追記）

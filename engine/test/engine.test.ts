@@ -3,7 +3,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { OFFICIAL_COMPONENTS } from "../src/components/index.ts";
-import { runEngine, runJson, type EngineResult } from "../src/engine/run.ts";
+import { createSession, runBatchJson, runEngine, runJson, type EngineResult } from "../src/engine/run.ts";
 import { defineComponent, type ComponentDefinition } from "../src/registry/define.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { check } from "../src/io/validate.ts";
@@ -259,5 +259,71 @@ describe("部品は純粋な関数", () => {
     }) as ComponentDefinition;
     const replacement = { type: "replace" as const, target: official.id, contract: "1", component: mutating, hash: `sha256:${"0".repeat(64)}` };
     expect(() => runEngine(modelHousehold("single25"), realPacks(), { replacements: [replacement] })).toThrow(TypeError);
+  });
+});
+
+describe("まとめて計算とセッション（0005 の7・追記: 案×想定のあいだの使い回し）", () => {
+  const packsJson = JSON.stringify(realPacks());
+  const one = (r: unknown) => runJson(JSON.stringify(r), packsJson);
+  // 案の前提だけを変えた要求（ほぼすべての部品を使い回す）・構成員の入力を変えた要求（一部を使い回す）
+  const variants = (base: EngineRequest): EngineRequest[] => {
+    const setAssumption = (r: EngineRequest, name: string, value: string) => {
+      const input = r.input as unknown as { assumptions: Record<string, unknown> };
+      input.assumptions = { ...input.assumptions, [name]: { default: value } };
+    };
+    const a = clone(base);
+    setAssumption(a, "investmentReturn", "0.031");
+    const b = clone(base);
+    const p = b.input.household.employmentPeriods[0] as { salary?: { annual?: { value: number } } } | undefined;
+    if (p?.salary?.annual !== undefined) p.salary.annual.value += 120000;
+    const c = clone(base);
+    setAssumption(c, "wageGrowth", "0.017");
+    return [base, a, b, c, clone(base)];
+  };
+
+  it("runBatch の結果は、1件ずつ run したときと文字列として同じ（根拠の記録の3つの細かさ・エラーの要求を含む）", () => {
+    for (const trace of ["none", "summary", "full"] as const) {
+      const reqs = MODELS.map((m) => ({ ...modelHousehold(m), trace }));
+      const first = reqs[0] as EngineRequest;
+      reqs.push({ ...first, input: { ...first.input, endYear: 1900 } } as EngineRequest);
+      const batch = JSON.parse(runBatchJson(JSON.stringify(reqs), packsJson)) as unknown[];
+      reqs.forEach((r, i) => expect(JSON.stringify(batch[i])).toBe(one(r)));
+    }
+  });
+
+  it("使い回した部品が残す知らせ（延長の仮定・未対応・入力が要る など）も、1件ずつのときと同じに出る", () => {
+    for (const m of ["jobLeaver", "pensionCouple", "selfEmployed", "parentalLeave"]) {
+      const reqs = variants(modelHousehold(m));
+      const batch = JSON.parse(runBatchJson(JSON.stringify(reqs), packsJson)) as { header: { notices: unknown[] } }[];
+      reqs.forEach((r, i) => {
+        expect(JSON.stringify(batch[i])).toBe(one(r));
+        expect((batch[i] as { header: { notices: unknown[] } }).header.notices.length).toBeGreaterThan(0);
+      });
+    }
+  });
+
+  it("セッションで呼び出しをまたいで使い回しても、先出し（preview）と全部の結果は1件ずつのときと同じ", () => {
+    const session = createSession(packsJson);
+    for (const m of ["dualHighTwoKids", "workingSixties", "pensionCouple"]) {
+      for (const r of variants(modelHousehold(m))) {
+        for (const preview of [true, false]) {
+          const [got] = JSON.parse(session.runBatch(JSON.stringify([r]), JSON.stringify({ preview }))) as unknown[];
+          const full = JSON.parse(one(r)) as { header: unknown; annual: unknown; table: unknown };
+          expect(JSON.stringify(got)).toBe(JSON.stringify(preview ? { header: full.header, annual: full.annual, table: full.table } : full));
+        }
+      }
+    }
+  });
+
+  it("先出しの出力は engine.preview の形（お金の動き・根拠の記録を含まない）", () => {
+    const [p] = JSON.parse(runBatchJson(JSON.stringify([modelHousehold("single25")]), packsJson, '{"preview":true}')) as Record<string, unknown>[];
+    expect(Object.keys(p as object).sort()).toEqual(["annual", "header", "table"]);
+    expect(() => check("engine.preview", p, "E_OUTPUT_SCHEMA")).not.toThrow();
+  });
+
+  it("要求の配列でない入力・壊れた JSON は ID だけのエラー", () => {
+    expect(JSON.parse(runBatchJson("{}", packsJson))).toEqual({ error: { code: "E_INPUT_SCHEMA", ids: ["/:type"] } });
+    expect(JSON.parse(runBatchJson("[", packsJson))).toEqual({ error: { code: "E_INPUT_SCHEMA", ids: ["json"] } });
+    expect(JSON.parse(createSession("[").runBatch("[]"))).toEqual({ error: { code: "E_INPUT_SCHEMA", ids: ["json"] } });
   });
 });

@@ -1,5 +1,5 @@
 // 雇用保険料の被保険者負担分: 支払う賃金（給与・通勤手当・賞与）×被保険者負担の率を、支払いごとに丸める
-import { defineComponent, parseYm, yearOf, type CoverageOutput, type EmploymentPeriodInput, type Flow } from "../../sdk/index.ts";
+import { defineComponent, paidByYear, parseYm, yearOf, type CoverageOutput, type EmploymentPeriodInput, type Flow, type PremiumOutput } from "../../sdk/index.ts";
 
 const ROUNDING = "employmentInsurance.employeeShare.rounding";
 const RATE_IDS = {
@@ -8,17 +8,17 @@ const RATE_IDS = {
   construction: "employmentInsurance.employeeRate.construction",
 } as const;
 
-export default defineComponent<{ member: string; fromYear: number }, { flows: Flow[] }>({
+export default defineComponent<{ member: string; fromYear: number }, PremiumOutput>({
   id: "socialInsurance.employment",
   title: "雇用保険料",
-  contract: "1.0",
-  revision: 1,
+  contract: "1.1",
+  revision: 2,
   requires: { "socialInsurance.coverage": ">=1 <2" },
   params: [RATE_IDS.general, RATE_IDS.agricultureEtc, RATE_IDS.construction, ROUNDING],
   reads: ["employment.employer.industry"],
   replaceable: true,
   input: "socialInsurance.premium.input",
-  output: "flows.output",
+  output: "socialInsurance.premium.output",
   compute(input, ctx) {
     const cov = ctx.call<CoverageOutput>("socialInsurance.coverage", input);
     const flows: Flow[] = [];
@@ -41,6 +41,6 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
         });
       }
     }
-    return { flows };
+    return { flows, paidByYear: paidByYear(flows) };
   },
 });

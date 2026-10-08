@@ -33,6 +33,23 @@ impl Limits {
         time: Duration::from_secs(30),
     };
 
+    /// まとめて計算（runBatch）: 要求の間で使い回す部品の結果をすべて持つので、メモリは要求の数に比例（1件 48 MB＋64 MB、最大 1 GB）、
+    /// 時間も要求の数に比例（最大 120 秒）
+    pub fn for_batch(requests: usize, any_full: bool) -> Limits {
+        let per = if any_full {
+            Limits::FULL_TRACE.time
+        } else {
+            Limits::DEFAULT.time
+        };
+        let n = u32::try_from(requests.max(1)).unwrap_or(u32::MAX);
+        let memory = (64 + 48 * requests.max(1)).min(1024) * 1024 * 1024;
+        Limits {
+            memory_bytes: memory.max(Limits::FULL_TRACE.memory_bytes),
+            stack_bytes: Limits::DEFAULT.stack_bytes,
+            time: per.saturating_mul(n).min(Duration::from_secs(120)),
+        }
+    }
+
     pub fn for_trace(trace: &str) -> Limits {
         if trace == "full" {
             Limits::FULL_TRACE
@@ -164,11 +181,25 @@ impl Sandbox {
 
     /// FinanciaEngine.run(request, packs, options) を呼ぶ
     pub fn run(&self, request: &str, packs: &str, options: &str) -> Result<String, HostError> {
+        self.call("run", request, packs, options)
+    }
+
+    /// FinanciaEngine.runBatch(requests, packs, options) を呼ぶ（requests は要求の JSON の配列。案×想定をまとめて計算し、同じになる部分を使い回す）
+    pub fn run_batch(
+        &self,
+        requests: &str,
+        packs: &str,
+        options: &str,
+    ) -> Result<String, HostError> {
+        self.call("runBatch", requests, packs, options)
+    }
+
+    fn call(&self, name: &str, a: &str, packs: &str, options: &str) -> Result<String, HostError> {
         self.context.with(|ctx| {
             let call = || -> rquickjs::Result<String> {
                 let engine: Object = ctx.globals().get("FinanciaEngine")?;
-                let run: Function = engine.get("run")?;
-                run.call((request, packs, options))
+                let f: Function = engine.get(name)?;
+                f.call((a, packs, options))
             };
             call().catch(&ctx).map_err(|e| self.classify(e))
         })

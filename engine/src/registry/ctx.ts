@@ -113,6 +113,15 @@ export interface Ctx {
   readonly time: TimeApi;
 }
 
+/** 部品の呼び出し（とその内側の呼び出し）が状態に残したこと。案×想定のあいだで結果を使い回すとき、同じことを残し直す */
+export interface Effects {
+  readonly notices: Map<string, { readonly code: string; readonly ids: readonly string[] }>;
+  readonly extended: Map<string, { first: number; last: number }>;
+}
+
+/** 複数の要求（案×想定）のあいだで使い回す部品の結果（0005 の7・追記）。鍵は「部品が読む入力の指紋」→ 部品ID → 入力の JSON */
+export type SharedCache = Map<string, Map<string, Map<string, { readonly output: unknown; readonly effects: Effects }>>>;
+
 export interface RunState {
   readonly assembly: Assembly;
   readonly store: RegulationStore;
@@ -128,10 +137,22 @@ export interface RunState {
   readonly checkInternal: boolean;
   readonly base: MonthIndex;
   readonly end: MonthIndex;
-  readonly cache: Map<string, { readonly output: unknown; readonly node: number }>;
+  /** 部品ID → 入力の JSON → 結果 */
+  readonly cache: Map<string, Map<string, { readonly output: unknown; readonly node: number; readonly effects?: Effects }>>;
+  /** 要求のあいだで使い回す結果（根拠の記録なしのときだけ）と、部品が（内側の呼び出しを含めて）読む入力の指紋 */
+  readonly shared?: SharedCache;
+  readonly fingerprint?: (component: string) => string;
+  /** 部品ID → その要求で使う使い回しの表（指紋を引くのは部品ごとに1回だけ） */
+  readonly sharedByComponent?: Map<string, Map<string, { readonly output: unknown; readonly effects: Effects }>>;
+  /** 呼び出しごとに残したことを集める（shared のときだけ） */
+  readonly effects?: Effects[];
   /** お金の動き（オブジェクト）→ それを作った call の記録の番号（full のとき） */
   readonly provenance: Map<object, number>;
   readonly stack: string[];
+  /** 制度の値を引いた結果（値ID・計算している月・構成員・出来事・管轄ごと）。1回の計算の中で使い回す */
+  readonly params?: Map<string, Map<number, Selected>>;
+  /** 値の有無（延長の仮定を使わない）を見た結果 */
+  readonly hasParams?: Map<string, boolean>;
 }
 
 const RATE_API: RateApi = Object.freeze({
@@ -147,6 +168,44 @@ const RATE_API: RateApi = Object.freeze({
   fraction: rateFraction,
 });
 
+const newEffects = (): Effects => ({ notices: new Map(), extended: new Map() });
+
+function mergeExtended(to: Map<string, { first: number; last: number }>, ref: string, first: number, last: number): void {
+  const r = to.get(ref);
+  if (r === undefined) to.set(ref, { first, last });
+  else {
+    if (first < r.first) r.first = first;
+    if (last > r.last) r.last = last;
+  }
+}
+
+/** 知らせを残す（同じものは1回）。使い回しのために、呼び出し中の集めにも残す */
+function addNotice(state: RunState, key: string, value: { readonly code: string; readonly ids: readonly string[] }): void {
+  if (!state.notices.has(key)) state.notices.set(key, value);
+  const top = state.effects?.[state.effects.length - 1];
+  if (top !== undefined && !top.notices.has(key)) top.notices.set(key, value);
+}
+
+/** 延長の仮定で使った値の行と年 */
+function addExtended(state: RunState, ref: string, year: number): void {
+  mergeExtended(state.extended, ref, year, year);
+  const top = state.effects?.[state.effects.length - 1];
+  if (top !== undefined) mergeExtended(top.extended, ref, year, year);
+}
+
+/** 使い回した結果が残したことを、状態と呼び出し中の集めに残し直す */
+function replay(state: RunState, e: Effects, toState: boolean): void {
+  const top = state.effects?.[state.effects.length - 1];
+  for (const [k, v] of e.notices) {
+    if (toState && !state.notices.has(k)) state.notices.set(k, v);
+    if (top !== undefined && !top.notices.has(k)) top.notices.set(k, v);
+  }
+  for (const [ref, r] of e.extended) {
+    if (toState) mergeExtended(state.extended, ref, r.first, r.last);
+    if (top !== undefined) mergeExtended(top.extended, ref, r.first, r.last);
+  }
+}
+
 function outputsOf(output: unknown): { flows: readonly Flow[]; annual: readonly AnnualRow[] } {
   const o = output as { flows?: readonly Flow[]; annual?: readonly AnnualRow[] } | null;
   return { flows: o?.flows ?? [], annual: o?.annual ?? [] };
@@ -155,41 +214,199 @@ function outputsOf(output: unknown): { flows: readonly Flow[]; annual: readonly 
 /** 部品を1回呼ぶ。1回の計算の中では「部品ID＋入力」で結果を使い回す（部品は純粋な関数） */
 export function invoke(state: RunState, impl: Impl, input: unknown): { output: unknown; node: number } {
   const id = impl.def.id;
-  const key = `${id}\u0000${JSON.stringify(input)}`;
-  const hit = state.cache.get(key);
-  if (hit !== undefined) return hit;
+  // 部品ごとの表を引いてから入力の JSON で引く（鍵の文字列を短くする）
+  let byInput = state.cache.get(id);
+  if (byInput === undefined) {
+    byInput = new Map();
+    state.cache.set(id, byInput);
+  }
+  const key = JSON.stringify(input);
+  const hit = byInput.get(key);
+  if (hit !== undefined) {
+    if (hit.effects !== undefined) replay(state, hit.effects, false);
+    return hit;
+  }
   if (state.stack.includes(id)) throw new EngineError("E_COMPONENT_CYCLE", [...state.stack, id]);
+  // 案×想定のあいだの使い回し: この部品が（内側の呼び出しを含めて）読む入力が同じ要求で、同じ入力の呼び出しを計算済みなら、その結果を使う
+  let sharedTable: Map<string, { readonly output: unknown; readonly effects: Effects }> | undefined;
+  if (state.shared !== undefined && state.fingerprint !== undefined && state.sharedByComponent !== undefined) {
+    sharedTable = state.sharedByComponent.get(id);
+    if (sharedTable === undefined) {
+      const fp = state.fingerprint(id);
+      let byId = state.shared.get(fp);
+      if (byId === undefined) {
+        byId = new Map();
+        state.shared.set(fp, byId);
+      }
+      sharedTable = byId.get(id);
+      if (sharedTable === undefined) {
+        sharedTable = new Map();
+        byId.set(id, sharedTable);
+      }
+      state.sharedByComponent.set(id, sharedTable);
+    }
+    const s = sharedTable.get(key);
+    if (s !== undefined) {
+      replay(state, s.effects, true);
+      const r = { output: s.output, node: -1, effects: s.effects };
+      byInput.set(key, r);
+      return r;
+    }
+  }
   // 0006 の5: 公式部品どうしは CI とテストでだけ、差し替え・追加は常に検査する
   const validate = state.checkInternal || impl.origin !== "official";
   if (validate && hasSchema(impl.def.input)) check(impl.def.input, input, "E_COMPONENT_SCHEMA", [id, "input"]);
   if (validate && !hasSchema(impl.def.input)) throw new EngineError("E_COMPONENT_SCHEMA", [id, "input.schema"]);
   const frame = new Frame(id);
   state.stack.push(id);
+  const collected = state.effects === undefined ? undefined : newEffects();
+  if (collected !== undefined) state.effects?.push(collected);
   let output: unknown;
   try {
     output = impl.def.compute(input, makeCtx(state, impl, frame));
   } finally {
     state.stack.pop();
+    if (collected !== undefined) state.effects?.pop();
   }
-  deepFreeze(output);
+  // 内側で残したことは、呼び出し元の集めにも入れる
+  if (collected !== undefined) replay(state, collected, false);
+  // 出力は使い回すので、書き換えられないように凍結する。公式部品どうしは CI とテスト（checkInternal）でだけ凍結し
+  // （書き換える部品があればそこで例外になる）、製品では速さのため省く（入出力の検査と同じ扱い。0006 の5・追記）
+  if (validate) deepFreeze(output);
   if (validate) check(impl.def.output, output, "E_COMPONENT_SCHEMA", [id, "output"]);
   const { flows, annual } = outputsOf(output);
-  for (const f of [...flows, ...annual]) if (typeof f.formula !== "string") throw new EngineError("E_FORMULA_MISSING", [id]);
+  for (const f of flows) if (typeof f.formula !== "string") throw new EngineError("E_FORMULA_MISSING", [id]);
+  for (const f of annual) if (typeof f.formula !== "string") throw new EngineError("E_FORMULA_MISSING", [id]);
   if (state.tracer.on) state.tracer.formulas(id, [...flows, ...annual].map((f) => f.formula));
   const node = state.tracer.finishCall(frame);
   if (state.tracer.mode === "full") {
     // 最も内側で作った部品を、そのお金の動きの出どころにする
     for (const f of [...flows, ...annual]) if (!state.provenance.has(f)) state.provenance.set(f, node);
   }
-  const result = { output, node };
-  state.cache.set(key, result);
+  const result = { output, node, ...(collected !== undefined ? { effects: collected } : {}) };
+  byInput.set(key, result);
+  if (sharedTable !== undefined && collected !== undefined) sharedTable.set(key, { output, effects: collected });
   return result;
+}
+
+/** 1回の部品の呼び出しの中で、月の文脈と金額の関数が使う内側の関数（部品からは見えない） */
+interface Core {
+  param(id: string, month: MonthIndex, opts?: ParamOptions): Selected;
+  has(id: string, month: MonthIndex, opts?: ParamOptions): boolean;
+  readonly tracer: Tracer;
+  readonly frame: Frame;
+}
+
+/** 金額の関数（0002）。month が null なら規約（conv.*）の丸めだけを使える。速さのため月ごとに関数を作らずクラスにする（中身は # で隠す） */
+class MoneyImpl implements MoneyApi {
+  readonly #core: Core;
+  readonly #month: MonthIndex | null;
+  readonly #mc: MonthCtxImpl | null;
+  constructor(core: Core, month: MonthIndex | null, mc: MonthCtxImpl | null) {
+    this.#core = core;
+    this.#month = month;
+    this.#mc = mc;
+    Object.freeze(this);
+  }
+  #rule(id: string): R.RoundingRule {
+    if (id.startsWith("conv.")) {
+      const r = CONVENTIONS[id];
+      if (r === undefined) throw new EngineError("E_ROUNDING_UNKNOWN", [id]);
+      return r;
+    }
+    // 制度の端数処理は制度の値なので、計算している月が要る
+    if (this.#month === null || this.#mc === null) throw new EngineError("E_ROUNDING_UNKNOWN", [id, "month"]);
+    return asRoundingRule(this.#mc.param(id));
+  }
+  #done(id: string, op: string, r: R.Rounded): Yen {
+    const tracer = this.#core.tracer;
+    if (tracer.on) tracer.rounding(this.#core.frame, id, op, () => `${intToString(r.num)}/${intToString(r.den)}`, r.value);
+    return r.value;
+  }
+  mulRate(a: Yen, r: Rate, id: string): Yen {
+    return this.#done(id, "mulRate", R.mulRate(a, r, this.#rule(id)));
+  }
+  mulRatio(a: Yen, n: Int, d: Int, id: string): Yen {
+    return this.#done(id, "mulRatio", R.mulRatio(a, n, d, this.#rule(id)));
+  }
+  divInt(a: Yen, k: number, id: string): Yen {
+    return this.#done(id, "divInt", R.divInt(a, k, this.#rule(id)));
+  }
+  round(a: Yen, id: string): Yen {
+    return this.#done(id, "round", R.round(a, this.#rule(id)));
+  }
+  convert(m: Money, fx: Rate, id: string): Yen {
+    return this.#done(id, "convert", R.convert(m, fx, this.#rule(id)));
+  }
+  allocate(total: Yen, weights: readonly number[], id: string, to: R.RemainderTo): Yen[] {
+    const out = R.allocate(total, weights, this.#rule(id), to);
+    const tracer = this.#core.tracer;
+    if (tracer.on) tracer.rounding(this.#core.frame, id, "allocate", () => `${total}|${weights.join(",")}|${String(to)}`, out);
+    return out;
+  }
+}
+
+/**
+ * 「いま計算している月」に結び付けた制度の値と丸め（0003 の9）。この呼び出しのこの月の中では、同じ値（条件なし・構成員だけの条件）を
+ * 引いた結果を使い回す。2回目以後の読み取りは根拠の記録・知らせ・延長の仮定の記録に何も足さない（同じ記録・同じ年）ので、引き直さなくても結果は同じ
+ */
+class MonthCtxImpl implements MonthCtx {
+  readonly month: MonthIndex;
+  readonly money: MoneyApi;
+  readonly #core: Core;
+  readonly #local = new Map<string, Selected>();
+  constructor(core: Core, month: MonthIndex) {
+    this.#core = core;
+    this.month = month;
+    this.money = new MoneyImpl(core, month, this);
+    Object.freeze(this);
+  }
+  param(id: string, opts?: ParamOptions): Selected {
+    if (opts !== undefined && (opts.anchorEvent !== undefined || (opts.jurisdiction !== undefined && opts.jurisdiction !== "national"))) {
+      return this.#core.param(id, this.month, opts);
+    }
+    const key = opts?.member === undefined ? id : `${id}|${opts.member}`;
+    const hit = this.#local.get(key);
+    if (hit !== undefined) return hit;
+    const s = this.#core.param(id, this.month, opts);
+    this.#local.set(key, s);
+    return s;
+  }
+  paramYen(id: string, opts?: ParamOptions): Yen | null {
+    return asYen(this.param(id, opts));
+  }
+  paramRate(id: string, opts?: ParamOptions): Rate | null {
+    return asRate(this.param(id, opts));
+  }
+  paramBrackets(id: string, opts?: ParamOptions): readonly Bracket[] | null {
+    return asBrackets(this.param(id, opts));
+  }
+  paramGrades(id: string, opts?: ParamOptions): readonly Grade[] | null {
+    return asGrades(this.param(id, opts));
+  }
+  paramCount(id: string, opts?: ParamOptions): number | null {
+    return asCount(this.param(id, opts));
+  }
+  has(id: string, opts?: ParamOptions): boolean {
+    return this.#core.has(id, this.month, opts);
+  }
+}
+
+// マニフェストの params・reads の集合は部品ごとに1回だけ作る
+const MANIFEST_SETS = new WeakMap<object, { readonly params: ReadonlySet<string>; readonly reads: ReadonlySet<string> }>();
+
+function manifestSets(def: Impl["def"]): { readonly params: ReadonlySet<string>; readonly reads: ReadonlySet<string> } {
+  let s = MANIFEST_SETS.get(def);
+  if (s === undefined) {
+    s = { params: new Set(def.params), reads: new Set(def.reads) };
+    MANIFEST_SETS.set(def, s);
+  }
+  return s;
 }
 
 function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
   const def = impl.def;
-  const params = new Set(def.params);
-  const reads = new Set(def.reads);
+  const { params, reads } = manifestSets(def);
   const tracer = state.tracer;
 
   const matchOf = (opts: ParamOptions) => {
@@ -213,11 +430,17 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
   const has = (id: string, month: MonthIndex, opts: ParamOptions = {}): boolean => {
     if (!params.has(id)) throw new EngineError("E_PARAM_UNDECLARED", [def.id, id]);
     if (!state.store.knows(id)) return false;
-    return state.store.trySelect(id, lookupOf(id, month, opts).date, { ...matchOf(opts), noExtension: true }) !== null;
+    const cache = state.hasParams;
+    const j = opts.jurisdiction;
+    const key = cache === undefined ? "" : `${id}|${month}|${opts.member ?? ""}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
+    const hit = cache?.get(key);
+    if (hit !== undefined) return hit;
+    const v = state.store.trySelect(id, lookupOf(id, month, opts).date, { ...matchOf(opts), noExtension: true }) !== null;
+    cache?.set(key, v);
+    return v;
   };
 
-  const param = (id: string, month: MonthIndex, opts: ParamOptions = {}): Selected => {
-    if (!params.has(id)) throw new EngineError("E_PARAM_UNDECLARED", [def.id, id]);
+  const selectParam = (id: string, month: MonthIndex, opts: ParamOptions): Selected => {
     const vdef = state.store.definition(id);
     const lc: { anchorMonth?: MonthIndex } = {};
     if (vdef.basis.type === "anchor") {
@@ -226,20 +449,35 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
       lc.anchorMonth = state.time.resolveEvent(opts.anchorEvent, []);
     }
     const lookup = lookupFor(vdef.basis, month, lc as LookupContext);
-    const sel = state.store.select(id, lookup.date, matchOf(opts));
-    // 0009 の追記: 値の1行は <制度の値ID>@<rev>
-    const ref = `${id}@${sel.entry.rev}`;
-    if (sel.recordedLater === true && !state.notices.has(`N_PARAM_RECORDED_LATER|${id}`)) {
-      state.notices.set(`N_PARAM_RECORDED_LATER|${id}`, { code: "N_PARAM_RECORDED_LATER", ids: [`${id}@${sel.entry.rev}`, sel.entry.recordedIn] });
-    }
-    if (sel.extendedYear !== undefined) {
-      const r = state.extended.get(ref);
-      if (r === undefined) state.extended.set(ref, { first: sel.extendedYear, last: sel.extendedYear });
+    return state.store.select(id, lookup.date, matchOf(opts));
+  };
+  const param = (id: string, month: MonthIndex, opts: ParamOptions = {}): Selected => {
+    if (!params.has(id)) throw new EngineError("E_PARAM_UNDECLARED", [def.id, id]);
+    let sel: Selected;
+    const cache = state.params;
+    if (cache === undefined) sel = selectParam(id, month, opts);
+    else {
+      // 鍵: 値ID → (構成員・出来事・管轄) → 月。数の鍵で引けるように入れ子の Map にする
+      const j = opts.jurisdiction;
+      const sub = opts.member === undefined && opts.anchorEvent === undefined && (j === undefined || j === "national") ? id : `${id}|${opts.member ?? ""}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
+      let byMonth = cache.get(sub);
+      if (byMonth === undefined) {
+        byMonth = new Map();
+        cache.set(sub, byMonth);
+      }
+      const hit = byMonth.get(month);
+      if (hit !== undefined) sel = hit;
       else {
-        if (sel.extendedYear < r.first) r.first = sel.extendedYear;
-        if (sel.extendedYear > r.last) r.last = sel.extendedYear;
+        sel = selectParam(id, month, opts);
+        byMonth.set(month, sel);
       }
     }
+    // 0009 の追記: 値の1行は <制度の値ID>@<rev>
+    const ref = `${id}@${sel.entry.rev}`;
+    if (sel.recordedLater === true) {
+      addNotice(state, `N_PARAM_RECORDED_LATER|${id}`, { code: "N_PARAM_RECORDED_LATER", ids: [`${id}@${sel.entry.rev}`, sel.entry.recordedIn] });
+    }
+    if (sel.extendedYear !== undefined) addExtended(state, ref, sel.extendedYear);
     if (tracer.on) {
       tracer.param(frame, {
         type: "param",
@@ -256,34 +494,11 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
     return sel;
   };
 
-  const moneyApi = (month: MonthIndex | null): MoneyApi => {
-    const rule = (id: string): R.RoundingRule => {
-      if (id.startsWith("conv.")) {
-        const r = CONVENTIONS[id];
-        if (r === undefined) throw new EngineError("E_ROUNDING_UNKNOWN", [id]);
-        return r;
-      }
-      // 制度の端数処理は制度の値なので、計算している月が要る
-      if (month === null) throw new EngineError("E_ROUNDING_UNKNOWN", [id, "month"]);
-      return asRoundingRule(param(id, month));
-    };
-    const done = (id: string, op: string, r: R.Rounded): Yen => {
-      if (tracer.on) tracer.rounding(frame, id, op, () => `${intToString(r.num)}/${intToString(r.den)}`, r.value);
-      return r.value;
-    };
-    return {
-      mulRate: (a, r, id) => done(id, "mulRate", R.mulRate(a, r, rule(id))),
-      mulRatio: (a, n, d, id) => done(id, "mulRatio", R.mulRatio(a, n, d, rule(id))),
-      divInt: (a, k, id) => done(id, "divInt", R.divInt(a, k, rule(id))),
-      round: (a, id) => done(id, "round", R.round(a, rule(id))),
-      convert: (m, fx, id) => done(id, "convert", R.convert(m, fx, rule(id))),
-      allocate: (total, weights, id, to) => {
-        const out = R.allocate(total, weights, rule(id), to);
-        if (tracer.on) tracer.rounding(frame, id, "allocate", () => `${total}|${weights.join(",")}|${String(to)}`, out);
-        return out;
-      },
-    };
-  };
+  const core: Core = { param, has, tracer, frame };
+  const plainMoney = new MoneyImpl(core, null, null);
+
+  // 同じ月の MonthCtx は使い回す（部品は月ごとに何度も ctx.at を呼ぶ）
+  const monthCtxs = new Map<MonthIndex, MonthCtx>();
 
   const listOf = (collection: string): readonly Record<string, unknown>[] => {
     const key = `${def.id}\u0000${collection}`;
@@ -344,23 +559,17 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
     notice(code: string, ids: readonly string[]): void {
       if (!/^N_[A-Z_]+$/.test(code)) throw new EngineError("E_ARGUMENT", ["notice.code"]);
       const key = `${code}|${ids.join(",")}`;
-      if (!state.notices.has(key)) state.notices.set(key, { code, ids: [def.id, ...ids] });
+      addNotice(state, key, { code, ids: [def.id, ...ids] });
     },
     at(month: MonthIndex): MonthCtx {
-      return {
-        month,
-        param: (id, opts) => param(id, month, opts),
-        paramYen: (id, opts) => asYen(param(id, month, opts)),
-        paramRate: (id, opts) => asRate(param(id, month, opts)),
-        paramBrackets: (id, opts) => asBrackets(param(id, month, opts)),
-        paramGrades: (id, opts) => asGrades(param(id, month, opts)),
-        paramCount: (id, opts) => asCount(param(id, month, opts)),
-        has: (id, opts) => has(id, month, opts),
-        money: moneyApi(month),
-      };
+      const hit = monthCtxs.get(month);
+      if (hit !== undefined) return hit;
+      const mc = new MonthCtxImpl(core, month);
+      monthCtxs.set(month, mc);
+      return mc;
     },
     conventions: state.input.calcConventions,
-    money: moneyApi(null),
+    money: plainMoney,
     rate: RATE_API,
     time: {
       base: state.base,

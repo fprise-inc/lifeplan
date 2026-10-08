@@ -54,7 +54,7 @@ entries:
       - {type: "law", lawNumber: "令和二年政令第二百四十六号", egovRevisionId: "502CO0000000246_20200901_000000000000000"}
     recordedIn: "2026.3.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "32等級（8.8万〜65万円）。条文の31等級に政令で第32級（65万円）を加えた表と、日本年金機構の保険料額表が全等級一致（照合は機械で行った）。施行日は第32級を加えた政令の適用開始（令和2年9月）。適用開始はデータの起点（2025年1月）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "32等級（8.8万〜65万円）。条文の31等級に政令で第32級（65万円）を加えた表と、日本年金機構の保険料額表が全等級一致（照合は機械で行った）。施行日は第32級を加えた政令の適用開始（令和2年9月）。適用開始はデータの起点（2025年1月）"}
   - rev: 2
     appliesFrom: "2027-09-01"
     appliesTo: null
@@ -103,7 +103,7 @@ entries:
       - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20270901_507AC0000000074"}
     recordedIn: "2026.3.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和9年9月から33等級（上限68万円）。令和7年法律第74号による改正後の条文と、厚生労働省の説明（上限と時期）が一致。新しい等級の区分（66.5万円以上）は健康保険の第36級と同じ"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和9年9月から33等級（上限68万円）。令和7年法律第74号による改正後の条文と、厚生労働省の説明（上限と時期）が一致。新しい等級の区分（66.5万円以上）は健康保険の第36級と同じ"}
   - rev: 3
     appliesFrom: "2028-09-01"
     appliesTo: null
@@ -153,7 +153,7 @@ entries:
       - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20280901_507AC0000000074"}
     recordedIn: "2026.3.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和10年9月から34等級（上限71万円）。改正後の条文と厚生労働省の説明が一致。区分は健康保険の第37級と同じ"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和10年9月から34等級（上限71万円）。改正後の条文と厚生労働省の説明が一致。区分は健康保険の第37級と同じ"}
   - rev: 4
     appliesFrom: "2029-09-01"
     appliesTo: null
@@ -204,4 +204,4 @@ entries:
       - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20290901_507AC0000000074"}
     recordedIn: "2026.3.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和11年9月から35等級（上限75万円）。改正後の条文と厚生労働省の説明が一致。最高等級の下限73万円は健康保険の第38級と同じ"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和11年9月から35等級（上限75万円）。改正後の条文と厚生労働省の説明が一致。最高等級の下限73万円は健康保険の第38級と同じ"}

@@ -33,7 +33,7 @@ writeFileSync(join(OUT, "rows.json"), `${JSON.stringify(rows, null, 2)}\n`);
 
 // 2. 検査器
 const schemaFiles = listFiles(join(ENGINE_DIR, "schemas"), (p) => p.endsWith(".json"));
-const ajv = new Ajv2020({ ...AJV_OPTIONS, inlineRefs: false, code: { source: true, esm: true, lines: false } });
+const ajv = new Ajv2020({ ...AJV_OPTIONS, inlineRefs: true, code: { source: true, esm: true, lines: false } });
 ajv.addKeyword({ keyword: "x-unit", schemaType: "string" });
 ajv.addKeyword({ keyword: "x-item", schemaType: "string" });
 ajv.addKeyword({ keyword: "x-collection", schemaType: "string" });

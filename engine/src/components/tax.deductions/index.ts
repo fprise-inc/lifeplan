@@ -1,6 +1,7 @@
 // 所得控除（所得税・住民税）。その年の12月31日の現況で判定する
 // 基礎控除・配偶者控除・配偶者特別控除・扶養控除・特定親族特別控除・社会保険料控除・生命保険料控除・地震保険料控除・小規模企業共済等掛金控除
 import {
+  amountInYear,
   bracketFor,
   defineComponent,
   fail,
@@ -19,6 +20,7 @@ import {
   type MonthCtx,
   type MonthIndex,
   type PaymentsOutput,
+  type PremiumOutput,
   type RelationInput,
   type TotalIncomeOutput,
   type Yen,
@@ -49,6 +51,8 @@ const ids = (p: Regime) => ({
   quakeLongTerm: `${p}.earthquakeDeduction.longTerm`,
   quakeTotalLimit: `${p}.earthquakeDeduction.totalLimit`,
 });
+
+const IDS = { incomeTax: ids("incomeTax"), residentTax: ids("residentTax") } as const;
 
 // 年齢の区分（所得税法の定義。住民税も同じ区分を使う）
 const AGE = {
@@ -100,7 +104,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
   id: "tax.deductions",
   title: "所得控除",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "socialInsurance.health": ">=1 <2",
@@ -135,14 +139,23 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
   output: "tax.deductions.output",
   compute(input, ctx) {
     const { member, year, regime } = input;
-    const P = ids(regime);
+    const P = IDS[regime];
     const resident = regime === "residentTax";
     // 所得税はその年分の値、住民税は翌年度（6月から）の値。判定はどちらもその年の12月31日の現況
     const at = ctx.at(resident ? monthIndex(year + 1, 6) : monthIndex(year, 1));
     const ageAt = ctx.at(monthIndex(year, 1));
     const dec: MonthIndex = monthIndex(year, 12);
     const baseYear = yearOf(ctx.time.base);
-    const totalOf = (id: string) => ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year }).total;
+    // 同じ構成員の合計所得金額は1回だけ引く（比べるたびに呼ばない）
+    const totals = new Map<string, Yen>();
+    const totalOf = (id: string): Yen => {
+      let t = totals.get(id);
+      if (t === undefined) {
+        t = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year }).total;
+        totals.set(id, t);
+      }
+      return t;
+    };
     const own = totalOf(member);
     const members = ctx.list<MemberInput>("member");
     const present = (m: MemberInput) =>
@@ -253,8 +266,13 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     const addPaid = (flows: readonly { ym: string; amount: number; member?: string }[]) => {
       for (const f of flows) if (f.ym.startsWith(yearPrefix) && (f.member === undefined || f.member === member)) socialInsurance = yen(socialInsurance + f.amount);
     };
-    for (const c of SI_COMPONENTS) addPaid(ctx.call<FlowsResult>(c, { member, fromYear }).flows);
-    addPaid(ctx.call<FlowsResult>("socialInsurance.nationalPension", { member, fromYear }).flows);
+    // 被用者保険・国民年金は、部品が添える暦年ごとの合計を引く（無い古い約束の版の差し替えなら flows から数える）
+    const addPremium = (out: PremiumOutput) => {
+      if (out.paidByYear === undefined) addPaid(out.flows);
+      else socialInsurance = yen(socialInsurance + amountInYear(out.paidByYear, year));
+    };
+    for (const c of SI_COMPONENTS) addPremium(ctx.call<PremiumOutput>(c, { member, fromYear }));
+    addPremium(ctx.call<PremiumOutput>("socialInsurance.nationalPension", { member, fromYear }));
     for (const fy of [year - 1, year]) {
       addPaid(ctx.call<FlowsResult>("socialInsurance.lateElderly", { member, fiscalYear: fy }).flows);
       addPaid(ctx.call<FlowsResult>("socialInsurance.careFirst", { member, fiscalYear: fy }).flows);

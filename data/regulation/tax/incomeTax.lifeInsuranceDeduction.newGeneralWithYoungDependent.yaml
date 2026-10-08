@@ -19,7 +19,7 @@ entries:
       - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261201_508AC0000000012"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和7年分は特例なし"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和7年分は特例なし"}
   - rev: 2
     appliesFrom: "2026-01-01"
     appliesTo: "2027-12-31"
@@ -39,7 +39,7 @@ entries:
       - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261201_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和8年分・令和9年分。措置法の読替え（2万→3万、4万→6万、8万→12万、3万→4.5万、4万→6万）と国税庁の表が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和8年分・令和9年分。措置法の読替え（2万→3万、4万→6万、8万→12万、3万→4.5万、4万→6万）と国税庁の表が一致"}
   - rev: 3
     appliesFrom: "2028-01-01"
     appliesTo: null
@@ -54,4 +54,4 @@ entries:
       - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20280101_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "期限（令和9年分）の後は特例なし。本則の表に戻る"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "期限（令和9年分）の後は特例なし。本則の表に戻る"}

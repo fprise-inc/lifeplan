@@ -18,7 +18,7 @@ entries:
       - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和7年分"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和7年分"}
   - rev: 2
     appliesFrom: "2026-01-01"
     appliesTo: null
@@ -34,4 +34,4 @@ entries:
       - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261201_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和8年分以後。1180の本文の58万円は令和7年分の記載で、注で62万円と明記"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和8年分以後。1180の本文の58万円は令和7年分の記載で、注で62万円と明記"}

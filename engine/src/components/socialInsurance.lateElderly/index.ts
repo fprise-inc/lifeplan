@@ -15,6 +15,7 @@ import {
   pensionSpecial,
   PENSION_SPECIAL_MINIMUM,
   monthIndex,
+  paymentsInYear,
   rate,
   rateOverride,
   reductionRatio,
@@ -106,7 +107,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       const elderly = ageMonth(ctx, fiscalYearStart(fy), ELDERLY_AGE, id) <= monthIndex(jy - 1, 12);
       const special = elderly ? yen(Math.min(elderlyDeduction, inc.publicPension ?? 0)) : yen(0);
       judged = addYen(judged, yen(inc.total - special));
-      const salary = ctx.call<SalaryOutput>("income.salary", { member: id }).payments.some((p) => p.ym.startsWith(`${jy - 1}-`) && p.salary > 0);
+      const salary = paymentsInYear(ctx.call<SalaryOutput>("income.salary", { member: id }).payments, jy - 1).some((p) => p.salary > 0);
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
       if (salary || pension) earners++;
     }

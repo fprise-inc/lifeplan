@@ -5,7 +5,7 @@ import type { Flow } from "../engine/types.ts";
 import { RATE_ZERO, type Rate } from "../money/rate.ts";
 import { yen, type Yen } from "../money/yen.ts";
 import type { AgeSwitch } from "../time/ageSwitch.ts";
-import { formatYm, monthIndex, monthOf, yearOf, type MonthIndex } from "../time/month.ts";
+import { formatYm, monthIndex, monthOf, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
 
 /** 年齢の値（unit: years）と、その値の ageSwitch（0003 の4）で決まる月。値は at の月の値を使う */
 export function ageMonth(ctx: Ctx, at: MonthIndex, id: string, member: string): MonthIndex {
@@ -115,8 +115,56 @@ export function pensionSpecial(ctx: Ctx, member: string, fy: number): boolean {
   const from = formatYm(fiscalYearStart(fy));
   const to = formatYm(fiscalYearEnd(fy));
   let s = 0;
-  for (const p of ctx.call<{ payments: readonly { ym: string; amount: Yen }[] }>("pension.oldAge", { member }).payments) if (p.ym >= from && p.ym <= to) s += p.amount;
+  for (const p of paymentsIn(ctx.call<{ payments: readonly { ym: string; amount: Yen }[] }>("pension.oldAge", { member }).payments, from, to)) s += p.amount;
   return s >= min;
+}
+
+/**
+ * 支払月（ym）の昇順に並んだ配列から、from〜to（"YYYY-MM"。両端を含む）の支払いだけを取り出す（二分探索）。
+ * 全期間の配列を年ごと・年度ごとに何度も見る部品が、そのたびに全体をなめないようにする
+ */
+export function paymentsIn<T extends { readonly ym: string }>(xs: readonly T[], from: string, to: string): readonly T[] {
+  const bound = (key: string, strict: boolean): number => {
+    let lo = 0;
+    let hi = xs.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      const m = (xs[mid] as T).ym;
+      if (strict ? m <= key : m < key) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  return xs.slice(bound(from, false), bound(to, true));
+}
+
+/** その年（1〜12月）の支払い（paymentsIn の暦年の形） */
+export function paymentsInYear<T extends { readonly ym: string }>(xs: readonly T[], year: number): readonly T[] {
+  return paymentsIn(xs, formatYm(monthIndex(year, 1)), formatYm(monthIndex(year, 12)));
+}
+
+/** お金の動きを、支払月の暦年ごとに足した額（年の昇順）。被用者保険・国民年金の保険料の部品が出力に添える（社会保険料控除のため） */
+export function paidByYear(flows: readonly Flow[]): { year: number; amount: Yen }[] {
+  const sums = new Map<number, number>();
+  for (const f of flows) {
+    const y = yearOf(parseYm(f.ym));
+    sums.set(y, (sums.get(y) ?? 0) + f.amount);
+  }
+  return [...sums.entries()].sort((a, b) => a[0] - b[0]).map(([year, amount]) => ({ year, amount: yen(amount) }));
+}
+
+/** paidByYear の形の列から、その年の額（無ければ 0。年の昇順なので二分探索） */
+export function amountInYear(rows: readonly { readonly year: number; readonly amount: Yen }[], year: number): Yen {
+  let lo = 0;
+  let hi = rows.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    const r = rows[mid] as { year: number; amount: Yen };
+    if (r.year === year) return r.amount;
+    if (r.year < year) lo = mid + 1;
+    else hi = mid;
+  }
+  return yen(0);
 }
 
 /** 月の昇順に並んだ配列から、from〜to（"YYYY-MM"。両端を含む）の月だけを取り出す（二分探索） */

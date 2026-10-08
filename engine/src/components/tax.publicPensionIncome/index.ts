@@ -6,6 +6,7 @@ import {
   bracketFor,
   defineComponent,
   monthIndex,
+  paymentsInYear,
   RATE_ZERO,
   subYen,
   yen,
@@ -36,7 +37,7 @@ export default defineComponent<{ member: string; year: number }, { revenue: Yen;
   compute(input, ctx) {
     const { member, year } = input;
     let revenue = yen(0);
-    for (const p of ctx.call<PensionOutput>("pension.oldAge", { member }).payments) if (p.ym.startsWith(`${year}-`)) revenue = yen(revenue + p.amount);
+    for (const p of paymentsInYear(ctx.call<PensionOutput>("pension.oldAge", { member }).payments, year)) revenue = yen(revenue + p.amount);
     if (revenue === 0) return { revenue, deduction: yen(0), income: yen(0) };
     const at = ctx.at(monthIndex(year, 1));
     const elderly = ageMonth(ctx, monthIndex(year, 1), P.age, member) <= monthIndex(year, 12);
