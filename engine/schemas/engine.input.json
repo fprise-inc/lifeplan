@@ -420,8 +420,13 @@
               "averageRemuneration": {
                 "title": "平均標準報酬額（2003年3月以前は平均標準報酬月額。いまの賃金の水準に直した額とみなす）",
                 "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+              },
+              "averageRemunerationAtTime": {
+                "title": "当時の平均標準報酬額（2003年3月以前は平均標準報酬月額）。記録の年度の再評価率（生年月日・報酬の月）でいまの水準に直す",
+                "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
               }
-            }
+            },
+            "not": { "required": ["averageRemuneration", "averageRemunerationAtTime"] }
           }
         },
         "claim": {

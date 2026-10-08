@@ -7,6 +7,7 @@ import { yen, type Yen } from "../money/yen.ts";
 import type { Birth } from "../time/ageSwitch.ts";
 import type { Basis } from "../time/basis.ts";
 import { dateKey, daysInMonth, formatDate, parseDate, previousDay, type CivilDate } from "../time/civil.ts";
+import { parseYm, type MonthIndex } from "../time/month.ts";
 import { deepFreeze } from "../engine/freeze.ts";
 import { isReadableFormat } from "./format.ts";
 import { comparePackVersion } from "./versions.ts";
@@ -455,6 +456,38 @@ export function asGrades(s: Selected): readonly Grade[] | null {
       ),
     ),
   );
+}
+
+/** 0007 の追記（2回目の見直し）: 期間の表の1行。月が from〜to（両端を含む。to が null は上限なし）なら率 rate */
+export interface PeriodRate {
+  readonly from: MonthIndex;
+  readonly to: MonthIndex | null;
+  readonly rate: Rate;
+}
+
+export function asPeriodRates(s: Selected): readonly PeriodRate[] | null {
+  if (s.def.kind !== "periodTable") throw new EngineError("E_PARAM_KIND", [s.def.id]);
+  if (s.entry.value === "notApplicable") return null;
+  return converted(s, () =>
+    Object.freeze(
+      (s.entry.value as readonly { from: string; to: string | null; rate: string }[]).map((p) =>
+        Object.freeze({ from: parseYm(p.from), to: p.to === null ? null : parseYm(p.to), rate: rate(p.rate) }),
+      ),
+    ),
+  );
+}
+
+/** 期間の表で月 m が当たる行（無ければ null。二分探索） */
+export function periodRateFor(rows: readonly PeriodRate[], m: MonthIndex): PeriodRate | null {
+  let lo = 0;
+  let hi = rows.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if ((rows[mid] as PeriodRate).from <= m) lo = mid + 1;
+    else hi = mid;
+  }
+  const r = rows[lo - 1];
+  return r !== undefined && (r.to === null || m <= r.to) ? r : null;
 }
 
 /** 等級表で x が当たる行 */

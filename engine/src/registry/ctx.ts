@@ -26,11 +26,13 @@ import {
   asBrackets,
   asCount,
   asGrades,
+  asPeriodRates,
   asRate,
   asRoundingRule,
   asYen,
   type Bracket,
   type Grade,
+  type PeriodRate,
   type Json,
   type Jurisdiction,
   type RegulationStore,
@@ -90,6 +92,8 @@ export interface MonthCtx {
   paramRate(id: string, opts?: ParamOptions): Rate | null;
   paramBrackets(id: string, opts?: ParamOptions): readonly Bracket[] | null;
   paramGrades(id: string, opts?: ParamOptions): readonly Grade[] | null;
+  /** 期間の表（再評価率など。0007 の追記） */
+  paramPeriods(id: string, opts?: ParamOptions): readonly PeriodRate[] | null;
   paramCount(id: string, opts?: ParamOptions): number | null;
   /** 延長の仮定を使わずに、その月の値（行）があるか。根拠の記録には残さない（改定率のように前提で延ばす値のため） */
   has(id: string, opts?: ParamOptions): boolean;
@@ -888,6 +892,9 @@ abstract class ParamReader {
   }
   paramGrades(id: string, opts?: ParamOptions): readonly Grade[] | null {
     return asGrades(this.param(id, opts));
+  }
+  paramPeriods(id: string, opts?: ParamOptions): readonly PeriodRate[] | null {
+    return asPeriodRates(this.param(id, opts));
   }
   paramCount(id: string, opts?: ParamOptions): number | null {
     return asCount(this.param(id, opts));

@@ -1,8 +1,8 @@
 // 公的年金の部品の修正（PR #6 の「計算部品について気づいたこと」1・2）: 加給年金額の改定率、令和10年4月からの子の加給年金と老齢基礎年金の子の加算
 import { describe, expect, it } from "vitest";
 import { runEngine } from "../src/engine/run.ts";
-import type { PensionOutput, RevisionOutput } from "../src/sdk/contracts.ts";
-import { box, household, member, realPacks, uid } from "./helpers.ts";
+import type { PensionOutput, RecordOutput, RevisionOutput } from "../src/sdk/contracts.ts";
+import { box, fictionalPacks, household, member, realPacks, uid } from "./helpers.ts";
 
 const A = uid("pt.a");
 const B = uid("pt.b");
@@ -88,5 +88,43 @@ describe("令和10年4月からの子の加給年金と、老齢基礎年金の�
     expect(before?.employee).toBe(1000000 + 243800 * 2 + 81300);
     expect(after?.employee).toBe(1000000 + CHILD * 3);
     expect(C).toBeTypeOf("string");
+  });
+});
+
+describe("再評価率の表（B-3。【架空の見本】の値で形だけを確かめる。実在の値は制度データに入れていない）", () => {
+  const record = (birth: string, history: Record<string, unknown>[]) => {
+    const req = household({ baseMonth: "2026-06", endYear: 2027, members: [member("pt.a", "self", birth, { sex: "male" })] });
+    (req.input.household as unknown as Record<string, unknown>).pensionRecords = [{ id: uid("pt.r"), member: A, kind: "history", asOf: "2026-06", history }];
+    const r = runEngine(req, fictionalPacks(), { checkInternal: true, entry: { component: "pension.record", input: { member: A } } });
+    return { out: r.entryOutput as RecordOutput, notices: (r.header as { notices: { code: string; ids: string[] }[] }).notices };
+  };
+  const hist = (key: "averageRemuneration" | "averageRemunerationAtTime") => [
+    { from: "1995-01", to: "1995-12", category: "employee", [key]: 300000 },
+    { from: "2005-01", to: "2005-12", category: "employee", [key]: 400000 },
+  ];
+
+  it("当時の額は、記録の年度の再評価率（生年月日の区分×報酬の月）でいまの水準に直してから乗率を掛ける", () => {
+    // 架空の乗率: 2003年3月以前 7/1000、4月以後 5/1000。架空の再評価率: 昭和35年4月2日以後生まれは 1990年代 1.2・2000年代 1.1
+    expect(record("1965-05", hist("averageRemunerationAtTime")).out.amounts.employee).toBe(30240 + 26400);
+    // それより前に生まれた区分は別の行（1.3・1.05）
+    expect(record("1958-05", hist("averageRemunerationAtTime")).out.amounts.employee).toBe(32760 + 25200);
+    // いまの水準の額（これまでの入力）は再評価率を掛けない
+    expect(record("1965-05", hist("averageRemuneration")).out.amounts.employee).toBe(25200 + 24000);
+  });
+
+  it("表に無い期間は、いまの水準の額とみなして知らせる（N_PARAM_MISSING）", () => {
+    const r = record("1965-05", [{ from: "1985-01", to: "1985-12", category: "employee", averageRemunerationAtTime: 300000 }]);
+    expect(r.out.amounts.employee).toBe(25200);
+    expect(r.notices.some((n) => n.code === "N_PARAM_MISSING" && n.ids.includes("pension.revaluationRate"))).toBe(true);
+  });
+
+  it("当時の額といまの水準の額は、同じ期間に両方は書けない", () => {
+    const r = record("1965-05", hist("averageRemuneration"));
+    expect(r.out.amounts.employee).toBeGreaterThan(0);
+    const req = household({ baseMonth: "2026-06", endYear: 2027, members: [member("pt.a", "self", "1965-05", { sex: "male" })] });
+    (req.input.household as unknown as Record<string, unknown>).pensionRecords = [
+      { id: uid("pt.r"), member: A, kind: "history", asOf: "2026-06", history: [{ from: "1995-01", to: "1995-12", category: "employee", averageRemuneration: 1, averageRemunerationAtTime: 1 }] },
+    ];
+    expect(() => runEngine(req, fictionalPacks(), { checkInternal: true })).toThrow("E_INPUT_SCHEMA");
   });
 });

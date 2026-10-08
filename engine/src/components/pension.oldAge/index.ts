@@ -340,11 +340,8 @@ export default defineComponent<{ member: string }, Out>({
         break;
       }
       if (childOk) {
-        let k = 0;
-        for (const _c of childrenAt(m)) {
-          total += mulRateM(at, at.paramYen(k < 2 ? P.child12 : P.child3) ?? yen(0), r, P.fullRound);
-          k++;
-        }
+        const n = childrenAt(m).length;
+        for (let k = 0; k < n; k++) total += mulRateM(at, at.paramYen(k < 2 ? P.child12 : P.child3) ?? yen(0), r, P.fullRound);
       }
       return yen(total);
     };
@@ -355,7 +352,8 @@ export default defineComponent<{ member: string }, Out>({
       const amount = at.paramYen(P.basicChild);
       if (amount === null) return yen(0);
       let total = 0;
-      for (const _c of childrenAt(m)) total += mulRateM(at, amount, NA(fy), P.fullRound);
+      const each = mulRateM(at, amount, NA(fy), P.fullRound);
+      for (let k = childrenAt(m).length; k > 0; k--) total += each;
       return yen(total);
     };
     // 振替加算: 本人の厚生年金が240月未満で、配偶者の厚生年金が240月以上（配偶者の加給年金の対象だった）
