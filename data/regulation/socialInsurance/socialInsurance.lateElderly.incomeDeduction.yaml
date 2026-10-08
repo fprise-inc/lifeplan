@@ -13,8 +13,9 @@ entries:
     conditions: []
     value: 430000
     sources:
-      - {type: "web", url: "https://www.city.shinjuku.lg.jp/hoken/hoken01_001004.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "算定基礎額（前年中の総所得金額等から基礎控除額43万円（合計所得金額2,400万円以下の場合）を差し引いた額）を基に計算します。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.fukuoka.lg.jp/hofuku/kokuho/hp/seido/06-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の2第2項第1号（基礎控除。施行令の「基礎控除後の総所得金額等」が引く額）", quote: "四十三万円"}
+      - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", sha256: "6b52119fe2be72ed8f3737a6bde6844fe1cdb2b56b0e0bf232818a33e8bacf3e", locator: "東京都保健医療局「後期高齢者医療制度の保険料の軽減」", quote: "43万円＋(年金または給与所得者の合計数－1)×10万円以下7割"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する。合計所得金額2,400万円超の段は入れていない"}
+    approval: {method: "pendingReview", paths: 1, note: "所得割の基礎は地方税法の基礎控除43万円（合計所得金額2,400万円以下）を引いた額。自治体の説明は軽減の判定の43万円で、所得割の算定基礎の明示は見つけていない。合計所得金額2,400万円超の段は入れていない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

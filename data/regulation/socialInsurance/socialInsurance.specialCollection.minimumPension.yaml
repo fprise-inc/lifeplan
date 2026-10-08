@@ -13,8 +13,9 @@ entries:
     conditions: []
     value: 180000
     sources:
-      - {type: "web", url: "https://www.city.bunkyo.lg.jp/b020/p000537.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.ota.tokyo.jp/seikatsu/kokunen/kokuho/hokenryou/osamekata/tenbiki.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "国民健康保険料と介護保険料の合算が老齢基礎年金等の年金受給額の2分の1を超えないこと", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.bunkyo.lg.jp/b020/p000537.html", retrievedAt: "2026-10-08", sha256: "ee754990401dd1ac02241b26b1e6ed982de469eff55f19f4232ca5d637722e65", locator: "文京区「介護保険料の納め方」", quote: "年金が年額18万円以上の方"}
+      - {type: "web", url: "https://www.city.ota.tokyo.jp/seikatsu/kokunen/kokuho/hokenryou/osamekata/tenbiki.html", retrievedAt: "2026-10-08", sha256: "19635b287ee53613b5aa2902b42fd2074ed8d1b6ef87d4f8a3492492e287af2b", locator: "大田区「国民健康保険料の年金からの天引き（特別徴収）」", quote: "世帯主の年金受給額が年間18万円以上である"}
+      - {type: "law", lawNumber: "平成十年政令第四百十二号", egovRevisionId: "410CO0000000412_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 3, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する。2分の1の基準・年金の種類ごとの判定は見ていない"}
+    approval: {method: "pendingReview", paths: 2, note: "二つの区の説明（介護保険料・国民健康保険料）が一致。条文（介護保険法134条・国民健康保険法76条の3・地方税法321条の7の2と各政令・省令）の18万円の文言はまだ確かめていないため確認待ち。2分の1の基準・年金の種類ごとの判定は見ていない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

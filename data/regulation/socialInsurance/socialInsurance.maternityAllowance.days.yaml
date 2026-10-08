@@ -13,8 +13,10 @@ entries:
     conditions: []
     value: 98
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/benefit/childbirth/001/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "出産の日(実際の出産が予定日後のときは出産予定日)以前42日(多胎妊娠の場合98日)から出産の翌日以後56日目までの範囲内で、会社を休んだ期間を対象として出産手当金が支給されます。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.bosei-navi.mhlw.go.jp/glossary/provide02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", locator: "健康保険法 第102条第1項", quote: "以前四十二日（多胎妊娠の場合においては、九十八日）から出産の日後五十六日までの間において労務に服さなかった期間"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/benefit/childbirth/001/index.html", retrievedAt: "2026-10-08", sha256: "729ba8525aa8207ccd1ab2a64eee40569c2d0f1977003d0fe5d864e1847dad81", locator: "協会けんぽ「出産手当金」", quote: "以前42日（多胎妊娠の場合98日）から出産の翌日以後56日目までの範囲内"}
+      - {type: "web", url: "https://www.bosei-navi.mhlw.go.jp/glossary/provide02.html", retrievedAt: "2026-10-08", sha256: "c701106b7eaaa0d5c3efbed31e890e3f1f36c97368d1368d9e4e3553c2ba2afc", locator: "厚生労働省「妊娠・出産をサポートする女性にやさしい職場づくりナビ」用語辞典", quote: "以前42日（多胎妊娠の場合98日）から出産の翌日以後56日目までの範囲内"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "42日＋56日。予定日どおりの出産で全期間休むとみなす。多胎は入れていない"}
+    approval: {method: "pendingReview", paths: 2, note: "42日＋56日。条文と協会けんぽ・厚生労働省の説明が一致。予定日どおりの出産で全期間休むとみなす。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

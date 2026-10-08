@@ -13,11 +13,12 @@ entries:
     conditions: []
     value: 20
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/11601000/001159861.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "① １週間の所定労働時間が２０時間未満である者 ② 同一の事業主に継続して３１日以上雇用されることが見込まれない者", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001255172.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", retrievedAt: "2026-10-08", sha256: "69db3a60873d47999b6f5d4ad13e0b804eb87792ee84b5c0a89bda9b1f48dfdc", locator: "雇用保険法 第6条第1号", quote: "一週間の所定労働時間が二十時間未満である者"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11601000/001159861.pdf", retrievedAt: "2026-10-08", sha256: "f5982571fcc24b1c2e01238fb67d0db0e88a8422feb35045b13ca713eb8e0347", locator: "厚生労働省「雇用保険制度の概要」", quote: "「１週間の所定労働時間が２０時間未満である者」"}
+      - {type: "law", lawNumber: "昭和四十九年法律第百十六号", egovRevisionId: "349AC0000000116_20260513_507AC0000000032"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}
+    approval: {method: "pendingReview", paths: 2, note: "条文と厚生労働省の資料が一致。令和10年9月まで。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2028-10-01"
     appliesTo: null
@@ -27,8 +28,9 @@ entries:
     conditions: []
     value: 10
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001255172.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "2028（令和10）年10月１日", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/content/11601000/001542937.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和６年雇用保険制度改正（令和10年10月１日施行分）について", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20281001_506AC0000000026?response_format=xml", retrievedAt: "2026-10-08", sha256: "8a7f50187ec920853646e2d60e9a22bcdbc679a92a6d52f2d7ab161c9c8d4f76", locator: "雇用保険法 第6条第1号（令和10年10月1日の版）", quote: "一週間の所定労働時間が十時間未満である者"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11601000/001542937.pdf", retrievedAt: "2026-10-08", sha256: "d7e270ee73be4cc053ebabeb731bd0096e05fe72f02a48ccc1366f6d760016f4", locator: "厚生労働省「令和６年雇用保険制度改正（令和10年10月１日施行分）について」", quote: "雇用保険の適用拡大（週所定労働時間「20時間以上」→「10時間以上」）令和10年10月１日"}
+      - {type: "law", lawNumber: "昭和四十九年法律第百十六号", egovRevisionId: "349AC0000000116_20281001_506AC0000000026"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和6年法律第26号"}
+    approval: {method: "reviewed", paths: 2, note: "令和6年法律第26号による改正後の条文（e-Gov の令和10年10月1日の版）と厚生労働省の資料が一致。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

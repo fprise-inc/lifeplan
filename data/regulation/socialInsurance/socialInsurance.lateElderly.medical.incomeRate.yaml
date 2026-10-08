@@ -13,11 +13,12 @@ entries:
     conditions: []
     value: "0.1021"
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_39349.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "所得割率 10.21%(令和4・5年度 9.34%)", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_72371.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_39349.html", retrievedAt: "2026-10-08", sha256: "9bfd05cc92299a19cb1fdc5c361973e7a5b46ceb75f2ccb3a0f69f7e52811ca2", locator: "厚生労働省「後期高齢者医療制度の令和６・７年度の保険料率について」", quote: "所得割率：10.21％（令和４・５年度9.34％）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_72371.html", retrievedAt: "2026-10-08", sha256: "75e155a6b119b6433cc7bfa43e6b3172d2e4531c814732f350c40bc569031ae4", locator: "厚生労働省「後期高齢者医療制度の令和８・９年度の保険料率について」", quote: "所得割率：10.17％（令和６・７年度10.21％）"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 1, note: "全国平均（既定の値）。厚生労働省の公表（令和6・7年度と令和8・9年度の発表で前の期間の値も一致）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2026-04-01"
     appliesTo: "2028-03-31"
@@ -27,8 +28,8 @@ entries:
     conditions: []
     value: "0.1017"
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_72371.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "被保険者一人当たり平均保険料額は、全国平均で月額7,989円となる見込みです", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kaiketsu-j.com/?p=21702", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_72371.html", retrievedAt: "2026-10-08", sha256: "75e155a6b119b6433cc7bfa43e6b3172d2e4531c814732f350c40bc569031ae4", locator: "厚生労働省「後期高齢者医療制度の令和８・９年度の保険料率について」", quote: "所得割率：10.17％（令和６・７年度10.21％）"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "広域連合ごとの料率は世帯の入力（premiumRates）で上書きする"}
+    approval: {method: "pendingReview", paths: 1, note: "全国平均（既定の値）。厚生労働省の公表だけ。広域連合ごとの料率は世帯の入力で上書きする。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

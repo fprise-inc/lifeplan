@@ -7,28 +7,30 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: "2026-03-31"
-    enforcedOn: null
+    enforcedOn: "2025-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 305000
     sources:
-      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.pref.miyagi.jp/soshiki/kkh-iryou/kokuho25.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "43万円+30.5万円×被保険者数+10万円×(給与所得者等の数-1)", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20250801_507CO0000000203?response_format=xml", retrievedAt: "2026-10-08", sha256: "537d504945628c773138ae2289508c9d1fa8a4f8d59bf0f79eb80003685ef154", locator: "高齢者の医療の確保に関する法律施行令 第18条第4項", quote: "被保険者の数に三十万五千円を乗じて得た金額"}
+      - {type: "web", url: "https://www.pref.miyagi.jp/soshiki/kkh-iryou/kokuho25.html", retrievedAt: "2026-10-08", sha256: "a5752c2de4b4a5b38ee84a6970bce2f1bef1b79ab0b9f9ef39f4eda590016b39", locator: "宮城県「国民健康保険の保険料（税）の軽減」（後期高齢者医療と同じ基準）", quote: "43万円＋30.5万円×被保険者数＋10万円×（給与所得者等の数-1）"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20250801_507CO0000000203"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "施行令と自治体の説明（30.5万円）が一致。施行日はその額が最初に現れた施行令の版（e-Gov の改正履歴）。宮城県の資料は国民健康保険の基準（後期高齢者医療の施行令と同じ額）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2026-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 310000
     sources:
-      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "5割 43万円+30.5万円×(被保険者数および特定同一世帯所属者数)＋10万円×（給与所得者等の数－1）以下の世帯 → 43万円+31万円×(…)", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.hiroshima.lg.jp/living/hoken-nenkin/1021143/1025566/1022691.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "f611fa60cc026aae772a0d355de661717586d417697a940c6fd57ec3180da973", locator: "高齢者の医療の確保に関する法律施行令 第18条第4項", quote: "被保険者の数に三十一万円を乗じて得た金額"}
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", sha256: "59a0c29a1f64b19ab4f18e420fcb77affa516bfde6ed838e178582d9c1a94794", locator: "西宮市「後期高齢者医療保険料の軽減」", quote: "基礎控除額（43万円）+31万円×被保険者数＋10万円×（年金・給与所得者数（※1）-1）5割"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "施行令と自治体の説明（31万円）が一致。施行日はその額が最初に現れた施行令の版（e-Gov の改正履歴）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

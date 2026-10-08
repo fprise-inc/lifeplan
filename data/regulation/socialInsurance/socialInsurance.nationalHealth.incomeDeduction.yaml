@@ -13,8 +13,10 @@ entries:
     conditions: []
     value: 430000
     sources:
-      - {type: "web", url: "https://www.city.shinjuku.lg.jp/hoken/hoken01_001004.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "算定基礎額（前年中の総所得金額等から基礎控除額43万円（合計所得金額2,400万円以下の場合）を差し引いた額）を基に計算します。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.fukuoka.lg.jp/hofuku/kokuho/hp/seido/06-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の2第2項第1号（基礎控除）", quote: "四十三万円"}
+      - {type: "web", url: "https://www.city.shinjuku.lg.jp/hoken/hoken01_001004.html", retrievedAt: "2026-10-08", sha256: "3827b5c1082ef786e9c398a40aa55766bbd0a843c39af92f3025b135b72cd38f", locator: "新宿区「国民健康保険料の算定基礎額」", quote: "算定基礎額（前年中の総所得金額等から基礎控除額43万円（合計所得金額2,400万円以下の場合）を差し引いた額）"}
+      - {type: "web", url: "https://www.city.fukuoka.lg.jp/hofuku/kokuho/hp/seido/06-02.html", retrievedAt: "2026-10-08", sha256: "f34528fc567a258ec792287e7fc675528caf6c51b3f64254d7d68fbdc8554e09", locator: "福岡市「国民健康保険料の計算方法」", quote: "基礎控除額は、合計所得金額が2,400万円以下の場合は43万円"}
+      - {type: "law", lawNumber: "昭和三十三年政令第三百六十二号", egovRevisionId: "333CO0000000362_20260801_508CO0000000240"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する。合計所得金額2,400万円超の段は入れていない"}
+    approval: {method: "pendingReview", paths: 2, note: "施行令の「基礎控除後の総所得金額等」（地方税法の基礎控除43万円）と新宿区・福岡市の説明が一致。合計所得金額2,400万円超の段は入れていない。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

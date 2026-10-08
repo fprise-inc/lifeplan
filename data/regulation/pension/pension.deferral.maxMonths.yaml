@@ -7,29 +7,34 @@ entries:
   - rev: 1
     appliesFrom: "2022-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2022-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions:
       - {key: "birthDate", from: "1952-04-02", to: null}
     value: 120
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kuriage-kurisage/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "75歳まで繰り下げると最大84％", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/topics/2022/0401.files/01_0401kurisage.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334CO0000000184_20261001_508CO0000000226?response_format=xml", retrievedAt: "2026-10-08", sha256: "b0c8521ace6c5fbdd7840f34ec0e30e976c993509343ccd13bdc7c9c2a71b299", locator: "国民年金法施行令 第4条の5第1項", quote: "当該月数が百二十を超えるときは、百二十"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334CO0000000184_20261001_508CO0000000226?response_format=xml", retrievedAt: "2026-10-08", sha256: "b0c8521ace6c5fbdd7840f34ec0e30e976c993509343ccd13bdc7c9c2a71b299", locator: "国民年金法施行令 附則（令和3年政令第229号）第2条第1項", quote: "施行日」という。）の前日において、七十歳に達していない者"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kuriage-kurisage/20140421-02.html", retrievedAt: "2026-10-08", sha256: "d6c785fc042e4ae59465d8d94784b7adb514ee11746f6f4bccebb21db0b8c131", locator: "日本年金機構「年金の繰下げ受給」", quote: "75歳84.0%"}
+      - {type: "law", lawNumber: "昭和三十四年政令第百八十四号", egovRevisionId: "334CO0000000184_20261001_508CO0000000226"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "施行令4条の5（120月）と改正政令附則2条（令和4年3月31日に70歳に達していない人＝昭和27年4月2日以後生まれ）、日本年金機構の早見表が一致。施行日は令和3年政令第229号の施行日（附則1条）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2022-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2022-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions:
       - {key: "birthDate", from: null, to: "1952-04-01"}
     value: 60
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kuriage-kurisage/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "75歳まで繰り下げると最大84％", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334CO0000000184_20220101_503CO0000000303?response_format=xml", retrievedAt: "2026-10-08", sha256: "da79ab5a12df2d84144dc05197ccb4ddd0e00fb9bd766d6a2061afbe30f455e7", locator: "国民年金法施行令 第4条の5第1項（令和4年1月1日の版。改正前）", quote: "当該月数が六十を超えるときは、六十"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334CO0000000184_20261001_508CO0000000226?response_format=xml", retrievedAt: "2026-10-08", sha256: "b0c8521ace6c5fbdd7840f34ec0e30e976c993509343ccd13bdc7c9c2a71b299", locator: "国民年金法施行令 附則（令和3年政令第229号）第2条第1項", quote: "施行日」という。）の前日において、七十歳に達していない者"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kuriage-kurisage/20140421-02.html", retrievedAt: "2026-10-08", sha256: "d6c785fc042e4ae59465d8d94784b7adb514ee11746f6f4bccebb21db0b8c131", locator: "日本年金機構「年金の繰下げ受給」", quote: "昭和27年4月1日以前生まれの方（または平成29年3月31日以前に老齢基礎（厚生）年金を受け取る権利が発生している方）は、繰下げの上限年齢が70歳"}
+      - {type: "law", lawNumber: "昭和三十四年政令第百八十四号", egovRevisionId: "334CO0000000184_20261001_508CO0000000226"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "昭和27年4月1日以前生まれは上限70歳（最大42%）"}
+    approval: {method: "reviewed", paths: 2, note: "改正前の施行令（上限60月）と、新しい上限を令和4年3月31日に70歳に達していない人だけに適用する改正政令附則2条、日本年金機構の説明が一致。施行日はその附則の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

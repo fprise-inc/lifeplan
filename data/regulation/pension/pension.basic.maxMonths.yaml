@@ -13,8 +13,9 @@ entries:
     conditions: []
     value: 480
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/keisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "（１）5,620円 × 480 / 480月 = 5,620円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 第27条ただし書", quote: "保険料納付済期間の月数が四百八十に満たない者に支給する場合"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」老齢基礎年金の計算式", quote: "40年（加入可能年数）×12月"}
+      - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "昭和16年4月1日以前生まれの短縮は入れていない"}
+    approval: {method: "pendingReview", paths: 2, note: "条文と日本年金機構の資料が一致。昭和16年4月1日以前生まれの短縮は入れていない。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

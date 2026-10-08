@@ -13,8 +13,9 @@ entries:
     conditions: []
     value: 200000
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/shinkoku/tebiki/2025/01/1_06.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1600.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 第121条第3項", quote: "公的年金等に係る雑所得以外の雑所得の金額の合計額をいう。）が二十万円以下であるとき"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1600.htm", retrievedAt: "2026-10-08", sha256: "b1462536b3908406ac41af713c78cd69032b56ddad75bfeb26ff00afe2bca850", locator: "国税庁 タックスアンサー No.1600 公的年金等の課税関係", quote: "その年分の公的年金等に係る雑所得以外の所得金額が20万円以下である場合には確定申告の必要はありません"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和7年分の手引きで確認"}
+    approval: {method: "pendingReview", paths: 2, note: "条文とタックスアンサーが一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

@@ -14,8 +14,9 @@ entries:
     conditions: []
     value: 65
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/205.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "65歳以上の人とは、昭和36年1月1日以前に生まれた人をいいます。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "日本年金機構の令和8年分の扶養親族等申告書の資料の要約（URLの細部と原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", locator: "租税特別措置法 第41条の15の3第1項", quote: "年齢が六十五歳以上である個人が"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2026/pdf/205.pdf", retrievedAt: "2026-10-08", sha256: "ed0674cc782534e351f5570c33563dc2c4f3674602f3cab13a9069a34dbcb38d", locator: "国税庁「年末調整のしかた（令和8年分）」雑所得", quote: "※65歳以上の人とは、昭和37年1月1日以前に生まれた人をいいます"}
+      - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261001_508AC0000000012"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和2年分以後の表として置いた（それより前は原本で確認する）"}
+    approval: {method: "pendingReview", paths: 2, note: "条文と国税庁の資料が一致（年齢はその年12月31日で判定。措置法41条の15の3第3項）。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

@@ -13,8 +13,9 @@ entries:
     conditions: []
     value: "0.1"
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001395102.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/content/001394791.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", retrievedAt: "2026-10-08", sha256: "69db3a60873d47999b6f5d4ad13e0b804eb87792ee84b5c0a89bda9b1f48dfdc", locator: "雇用保険法 第61条の12第6項第1号", quote: "百分の九十に相当する額未満であるとき百分の十"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001395102.pdf", retrievedAt: "2026-10-08", sha256: "e6bbeaaac2b3e4fb2d0a8f089fb330c6c4b616d433d6c98f3c31508943c21de0", locator: "厚生労働省 パンフレット「育児時短就業給付の内容と支給申請手続」", quote: "賃金給付（賃金×10％）"}
+      - {type: "law", lawNumber: "昭和四十九年法律第百十六号", egovRevisionId: "349AC0000000116_20260513_507AC0000000032"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "賃金が時短の前の90%を超えるときの逓減は入れていない（計算しない）"}
+    approval: {method: "reviewed", paths: 2, note: "条文と厚生労働省のパンフレットが一致。施行日は給付の創設。賃金が時短の前の90%以上のときの逓減は入れていない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

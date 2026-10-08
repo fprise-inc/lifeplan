@@ -14,7 +14,8 @@ entries:
     conditions: []
     value: 65
     sources:
-      - {type: "law", lawNumber: "昭和34年法律第141号"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 附則（制定時）第3条", quote: "六十五歳以上の者にあつては、厚生年金保険法附則第四条の三第一項に規定する政令で定める給付の受給権を有しない被保険者に限る"}
+      - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "国民年金法7条1項2号。条文は未取得。受給権があるとみなす"}
+    approval: {method: "pendingReview", paths: 1, note: "国民年金法附則3条（65歳以上で老齢給付の受給権がある人は第2号被保険者としない）。別の経路は見つけていない（日本年金機構の資料は引用の対象外）。受給権があるとみなす。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

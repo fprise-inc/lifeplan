@@ -7,13 +7,15 @@ entries:
   - rev: 1
     appliesFrom: "2019-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2019-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 1
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/kokunen/menjo/20180810.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "出産予定日または出産日が属する月の前月から4カ月間(以下「産前産後期間」といいます。)の国民年金保険料が免除されます。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 第88条の2", quote: "出産予定月」という。）の前月（多胎妊娠の場合においては、三月前）から出産予定月の翌々月までの期間に係る保険料は、納付することを要しない"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kokunen/menjo/20180810.html", retrievedAt: "2026-10-08", sha256: "de0cb754ac1dabe5ccdae0a5f1d307f5a8118b275ceab9c83e585e67c23b6793", locator: "日本年金機構「国民年金保険料の産前産後期間の免除制度」", quote: "制度が平成31年（2019年）4月から始まりました"}
+      - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "多胎は入れていない"}
+    approval: {method: "reviewed", paths: 2, note: "条文と日本年金機構の説明が一致。施行日は日本年金機構の説明（平成31年4月から）。多胎は入れていない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

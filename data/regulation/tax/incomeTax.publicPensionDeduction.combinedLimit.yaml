@@ -7,27 +7,30 @@ entries:
   - rev: 1
     appliesFrom: "2020-01-01"
     appliesTo: "2026-12-31"
-    enforcedOn: null
+    enforcedOn: "2027-01-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "上記の改正は、令和９年分以後の所得税について適用する。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", retrievedAt: "2026-10-08", sha256: "45735bbea194e067b4ebdd7efa114b508d4eff009ed4a49a344c3296013bd544", locator: "財務省「令和8年度税制改正の大綱」", quote: "（注）上記の改正は、令和９年分以後の所得税について適用する"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20270101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "00cf8aee912faf86d7b56fd939b8ac76bde3731d10341e66ce60a5aebe01b262", locator: "所得税法 第35条第5項（令和9年1月1日の版）", quote: "公的年金等控除額との合計額が二百八十万円を超える場合には"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20270101_508AC0000000012"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和8年分までは上限なし。大綱（令和9年分以後に適用）と改正後の条文（e-Gov の令和9年1月1日の版から）が一致。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2027-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2027-01-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 2800000
     sources:
-      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "給与等の収入金額及び公的年金等の収入金額を有する者について、その年分の給与所得控除額と公的年金等控除額の合計額が280万円を超える場合には、その超える部分の金額をその公的年金等控除額から控除する", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/kojin/2026/202606/0617.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20270101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "00cf8aee912faf86d7b56fd939b8ac76bde3731d10341e66ce60a5aebe01b262", locator: "所得税法 第35条第5項（令和9年1月1日の版）", quote: "第二十八条第一項（給与所得）に規定する給与等に係る同条第二項に規定する給与所得控除額とその年中の第三項に規定する公的年金等に係る前項に規定する公的年金等控除額との合計額が二百八十万円を超える場合には"}
+      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", retrievedAt: "2026-10-08", sha256: "45735bbea194e067b4ebdd7efa114b508d4eff009ed4a49a344c3296013bd544", locator: "財務省「令和8年度税制改正の大綱」", quote: "その年分の給与所得控除額と公的年金等控除額の合計額が280万円を超える場合には、その超える部分の金額をその公的年金等控除額から控除することとする"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20270101_508AC0000000012"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和8年度税制改正の大綱と日本年金機構の説明。成立した法律の条文は未確認（住民税は令和10年度分から＝令和9年の所得から）"}
+    approval: {method: "reviewed", paths: 2, note: "成立した法律の条文（令和8年法律第12号による改正後。e-Gov の令和9年1月1日の版）と財務省の大綱が一致。住民税は令和10年度分から。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

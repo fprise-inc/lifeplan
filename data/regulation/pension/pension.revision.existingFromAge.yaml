@@ -14,7 +14,9 @@ entries:
     conditions: []
     value: 68
     sources:
-      - {type: "web", url: "https://www.kkr.or.jp/nenkin/zenpan/kaitei/r8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "既裁定者（68歳到達年度以後）は1.062(令和7年度の改定率)×1.019 =1.082", note: "半公的な解説の抜粋（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 第27条の3第1項", quote: "受給権者が六十五歳に達した日の属する年度の初日の属する年の三年後の年の四月一日の属する年度"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/kyotsu/gakukaitei/201906031.html", retrievedAt: "2026-10-08", sha256: "269b267ceabb42b1ce993ca378a9f68ea2000ecf965f18167dbe7d29a7b475c5", locator: "日本年金機構 年金Q&A（年金額の改定）", quote: "令和5年度において67歳以下（昭和31年4月2日以後生まれ）の方と68歳以上（昭和31年4月1日以前生まれ）の方で改定率が分岐した"}
+      - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "制度データの年度は生年月日の区分（昭和31年4月1日）を使う"}
+    approval: {method: "pendingReview", paths: 2, note: "条文（65歳に達した年度の3年後の年度＝基準年度）と日本年金機構の説明（68歳以上）が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

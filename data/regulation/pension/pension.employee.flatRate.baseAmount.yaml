@@ -13,8 +13,10 @@ entries:
     conditions: []
     value: 1628
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0704.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "平成16年改正後の額1,628円に…改定率を乗じた額", note: "経過措置一覧の注記の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/yougo/tagyo/teigakububun.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和31年4月2日以後生まれの方は1,766円、昭和31年4月1日以前生まれの方は1,761円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則（昭和60年法律第34号）第59条第2項第1号", quote: "千六百二十八円に改定率を乗じて得た額（その額に五十銭未満の端数が生じたときは"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0704.pdf", retrievedAt: "2026-10-08", sha256: "53d5044928bb605d6d9d5b12b33c3213890c2a44799888f505fdc4da9cf10a90", locator: "日本年金機構「年金額の計算に用いる数値（令和7年度）」注3", quote: "平成16年改正後の額1,628円に昭和31年4月2日以後生まれの改定率（令和7年度は1.065）を乗じた額"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/yougo/tagyo/teigakububun.html", retrievedAt: "2026-10-08", sha256: "a8dc6aa89380c30ad0957db81019b40c6fb541c0d6b714ee1b4392dd2bc13e84", locator: "日本年金機構 年金用語集「定額部分」", quote: "昭和31年4月2日以後生まれの方1,766円"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "1,628×1.085→1,766円、×1.082→1,761円と一致"}
+    approval: {method: "pendingReview", paths: 2, note: "条文と日本年金機構の資料が一致（1,628円×1.085→1,766円）。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

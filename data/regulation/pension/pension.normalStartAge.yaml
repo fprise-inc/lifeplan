@@ -14,7 +14,10 @@ entries:
     conditions: []
     value: 65
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kuriage-kurisage/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "0.7% × 65歳になった月から繰下げ申出月の前月までの月数", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 第26条", quote: "保険料納付済期間又は保険料免除期間（第九十条の三第一項の規定により納付することを要しないものとされた保険料に係るものを除く。）を有する者が六十五歳に達したときに"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第42条第1号", quote: "六十五歳以上であること"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kuriage-kurisage/20140421-01.html", retrievedAt: "2026-10-08", sha256: "6bec26764457e30546a47dce79c3dc9178934f188515e8ce8a8f7603b9e9ed9a", locator: "日本年金機構「年金の繰上げ受給」", quote: "老齢基礎・厚生年金は、原則として65歳から受け取ることができます"}
+      - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "繰上げ・繰下げの月数の数え方から"}
+    approval: {method: "pendingReview", paths: 2, note: "条文と日本年金機構の説明が一致（受給は65歳に達した月の翌月から: 国民年金法18条1項）。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

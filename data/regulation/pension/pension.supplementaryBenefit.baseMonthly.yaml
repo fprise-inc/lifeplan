@@ -8,28 +8,30 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: "2026-03-31"
-    enforcedOn: null
+    enforcedOn: "2025-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 5450
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/keisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "納付済期間240月、全額免除期間60月の場合、令和7年度は4,169円から令和8年度は4,281円", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/nenkinkyuufukin/system.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/430CO0000000364_20251001_507CO0000000253?response_format=xml", retrievedAt: "2026-10-08", sha256: "ac58b84174714d3ba468b05269599fea481a21faf565911d7d356075e2d0f219", locator: "年金生活者支援給付金の支給に関する法律施行令 第4条の2", quote: "令和七年四月以降の月分の給付基準額（法第三条第一号に規定する給付基準額をいう。）については、法第四条第一項中「五千円」とあるのは、「五千四百五十円」と読み替えて"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/keisan.html", retrievedAt: "2026-10-08", sha256: "96c54a4c7228e30e83f39e6b6abff90958e9ab0718e12ef058034888de7b4622", locator: "日本年金機構 年金Q&A（年金生活者支援給付金の支給金額）", quote: "令和7年度基準額（5,450円）から令和8年度基準額（5,620円）へ変更になります"}
+      - {type: "law", lawNumber: "平成三十年政令第三百六十四号", egovRevisionId: "430CO0000000364_20251001_507CO0000000253"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "施行令の読替えと日本年金機構の説明が一致。施行日はその額が最初に現れた施行令の版の施行日（e-Gov の改正履歴）。免除期間に基づく額（老齢基礎年金の満額の6分の1）は入れていない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2026-04-01"
     appliesTo: "2027-03-31"
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 5620
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/keisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "（１）5,620円 × 480 / 480月 = 5,620円", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/kingaku.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年4月分からの年金生活者支援給付金の給付基準額は、物価変動率を用いて改定されるため、令和7年度と比べて3.2％の引上げ", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/430CO0000000364_20261001_508CO0000000225?response_format=xml", retrievedAt: "2026-10-08", sha256: "f8db076b5be3367566f82015a8b190c814310441d8953e7668cff6f08540fe85", locator: "年金生活者支援給付金の支給に関する法律施行令 第4条の2", quote: "令和八年四月以降の月分の給付基準額（法第三条第一号に規定する給付基準額をいう。）については、法第四条第一項中「五千円」とあるのは、「五千六百二十円」と読み替えて"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/keisan.html", retrievedAt: "2026-10-08", sha256: "96c54a4c7228e30e83f39e6b6abff90958e9ab0718e12ef058034888de7b4622", locator: "日本年金機構 年金Q&A（年金生活者支援給付金の支給金額）", quote: "令和7年度基準額（5,450円）から令和8年度基準額（5,620円）へ変更になります"}
+      - {type: "law", lawNumber: "平成三十年政令第三百六十四号", egovRevisionId: "430CO0000000364_20261001_508CO0000000225"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和9年度以後は改定率の比で延ばす（そのため適用終了を年度の終わりにする）。免除期間の単価は入れていない"}
+    approval: {method: "reviewed", paths: 2, note: "施行令の読替えと日本年金機構の説明が一致。施行日はその額が最初に現れた施行令の版の施行日（e-Gov の改正履歴）。免除期間に基づく額（老齢基礎年金の満額の6分の1）は入れていない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

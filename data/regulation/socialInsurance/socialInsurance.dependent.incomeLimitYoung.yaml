@@ -7,27 +7,30 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: "2025-09-30"
-    enforcedOn: null
+    enforcedOn: "2025-10-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html", retrievedAt: "2026-10-08", sha256: "0648891b98f6a9993110357e0a594443c4328480eee598ba7ee78d3fddd56f55", locator: "日本年金機構「19歳以上23歳未満の方の被扶養者認定における年間収入要件の取扱いが変わります」", quote: "扶養認定日が令和7年10月1日以降で、扶養認定を受ける方が19歳以上23歳未満の場合（被保険者の配偶者を除く。）は、現行の「年間収入130万円未満」が「年間収入150万円未満」に変わります"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/osaka/news/r07_sep/557.html", retrievedAt: "2026-10-08", sha256: "7cc4e23e84787dfaec7cde495996157ba1618cfd24f3b754468b7aeb47f33b4d", locator: "協会けんぽ大阪支部「19歳以上23歳未満の被扶養者の収入要件が変わります」", quote: "現行の「年間収入130万円未満」が「年間収入150万円未満」に変わります"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和7年9月までは別の基準なし（一般の130万円）。日本年金機構と協会けんぽの説明が一致。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2025-10-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-10-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 1500000
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "扶養認定日が令和7年10月1日以降で、19歳以上23歳未満の場合（被保険者の配偶者を除く。）は、現行の「年間収入130万円未満」が「年間収入150万円未満」に変わります。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/osaka/news/r07_sep/557.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html", retrievedAt: "2026-10-08", sha256: "0648891b98f6a9993110357e0a594443c4328480eee598ba7ee78d3fddd56f55", locator: "日本年金機構「19歳以上23歳未満の方の被扶養者認定における年間収入要件の取扱いが変わります」", quote: "扶養認定日が令和7年10月1日以降で、扶養認定を受ける方が19歳以上23歳未満の場合（被保険者の配偶者を除く。）は、現行の「年間収入130万円未満」が「年間収入150万円未満」に変わります"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/osaka/news/r07_sep/557.html", retrievedAt: "2026-10-08", sha256: "7cc4e23e84787dfaec7cde495996157ba1618cfd24f3b754468b7aeb47f33b4d", locator: "協会けんぽ大阪支部「19歳以上23歳未満の被扶養者の収入要件が変わります」", quote: "現行の「年間収入130万円未満」が「年間収入150万円未満」に変わります"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "年齢は扶養認定日の属する年の12月31日で判定するが、エンジンは月ごとの年齢で近似する"}
+    approval: {method: "reviewed", paths: 2, note: "日本年金機構と協会けんぽの説明（扶養認定日が令和7年10月1日以降）が一致。年齢は扶養認定日の属する年の12月31日で判定するが、エンジンは月ごとの年齢で近似する。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
