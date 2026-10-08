@@ -34,4 +34,26 @@ if (typeof engine.runBatch === "function") {
   time("batch20", () => engine.runBatch(all, packs, "{}"));
   time("preview20", () => engine.runBatch(all, packs, '{"preview":true}'));
 }
+// scripts/bench.ts と同じスライダーの計測
+if (typeof engine.createSession === "function") {
+  const session = engine.createSession(packs);
+  const four = JSON.parse(readFileSync(requestsPath, "utf8")).slice(0, 4);
+  session.runBatch(JSON.stringify(four), '{"preview":true}');
+  let tick = 0;
+  const slide = (change) => () => {
+    tick++;
+    const reqs = four.map((r) => {
+      const c = JSON.parse(JSON.stringify(r));
+      change(c, tick);
+      return c;
+    });
+    session.runBatch(JSON.stringify(reqs), '{"preview":true}');
+  };
+  time("sliderReturn", slide((r, k) => {
+    r.input.assumptions.investmentReturn = { default: `0.0${100 + k}` };
+  }));
+  time("sliderSalary", slide((r, k) => {
+    r.input.household.employmentPeriods[1].salary.annual.value = 3800000 + k * 10000;
+  }));
+}
 process.stdout.write(JSON.stringify(out));

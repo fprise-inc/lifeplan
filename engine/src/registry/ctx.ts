@@ -119,8 +119,8 @@ export interface Effects {
   readonly extended: Map<string, { first: number; last: number }>;
 }
 
-/** 複数の要求（案×想定）のあいだで使い回す部品の結果（0005 の7・追記）。鍵は「部品が読む入力の指紋＋部品ID」→ 入力の JSON */
-export type SharedCache = Map<string, Map<string, { readonly output: unknown; readonly effects: Effects }>>;
+/** 複数の要求（案×想定）のあいだで使い回す部品の結果（0005 の7・追記）。鍵は「部品が読む入力の指紋」→ 部品ID → 入力の JSON */
+export type SharedCache = Map<string, Map<string, Map<string, { readonly output: unknown; readonly effects: Effects }>>>;
 
 export interface RunState {
   readonly assembly: Assembly;
@@ -142,6 +142,8 @@ export interface RunState {
   /** 要求のあいだで使い回す結果（根拠の記録なしのときだけ）と、部品が（内側の呼び出しを含めて）読む入力の指紋 */
   readonly shared?: SharedCache;
   readonly fingerprint?: (component: string) => string;
+  /** 部品ID → その要求で使う使い回しの表（指紋を引くのは部品ごとに1回だけ） */
+  readonly sharedByComponent?: Map<string, Map<string, { readonly output: unknown; readonly effects: Effects }>>;
   /** 呼び出しごとに残したことを集める（shared のときだけ） */
   readonly effects?: Effects[];
   /** お金の動き（オブジェクト）→ それを作った call の記録の番号（full のとき） */
@@ -226,10 +228,24 @@ export function invoke(state: RunState, impl: Impl, input: unknown): { output: u
   }
   if (state.stack.includes(id)) throw new EngineError("E_COMPONENT_CYCLE", [...state.stack, id]);
   // 案×想定のあいだの使い回し: この部品が（内側の呼び出しを含めて）読む入力が同じ要求で、同じ入力の呼び出しを計算済みなら、その結果を使う
-  let sharedKey: string | undefined;
-  if (state.shared !== undefined && state.fingerprint !== undefined) {
-    sharedKey = `${state.fingerprint(id)}\u0000${id}`;
-    const s = state.shared.get(sharedKey)?.get(key);
+  let sharedTable: Map<string, { readonly output: unknown; readonly effects: Effects }> | undefined;
+  if (state.shared !== undefined && state.fingerprint !== undefined && state.sharedByComponent !== undefined) {
+    sharedTable = state.sharedByComponent.get(id);
+    if (sharedTable === undefined) {
+      const fp = state.fingerprint(id);
+      let byId = state.shared.get(fp);
+      if (byId === undefined) {
+        byId = new Map();
+        state.shared.set(fp, byId);
+      }
+      sharedTable = byId.get(id);
+      if (sharedTable === undefined) {
+        sharedTable = new Map();
+        byId.set(id, sharedTable);
+      }
+      state.sharedByComponent.set(id, sharedTable);
+    }
+    const s = sharedTable.get(key);
     if (s !== undefined) {
       replay(state, s.effects, true);
       const r = { output: s.output, node: -1, effects: s.effects };
@@ -269,14 +285,7 @@ export function invoke(state: RunState, impl: Impl, input: unknown): { output: u
   }
   const result = { output, node, ...(collected !== undefined ? { effects: collected } : {}) };
   byInput.set(key, result);
-  if (sharedKey !== undefined && collected !== undefined) {
-    let m = state.shared?.get(sharedKey);
-    if (m === undefined) {
-      m = new Map();
-      state.shared?.set(sharedKey, m);
-    }
-    m.set(key, { output, effects: collected });
-  }
+  if (sharedTable !== undefined && collected !== undefined) sharedTable.set(key, { output, effects: collected });
   return result;
 }
 

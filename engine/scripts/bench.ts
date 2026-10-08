@@ -36,7 +36,12 @@ const stat = (xs: number[]): Stat => {
 
 // Node（V8）: 同じまとめた JS を読み込む
 vm.runInThisContext(readFileSync(enginePath, "utf8"), { filename: "engine.js" });
-const engine = (globalThis as unknown as { FinanciaEngine: { run(a: string, b: string, c: string): string; runBatch?(a: string, b: string, c: string): string } }).FinanciaEngine;
+interface EngineApi {
+  run(a: string, b: string, c: string): string;
+  runBatch?(a: string, b: string, c: string): string;
+  createSession?(packs: string, options?: string): { runBatch(requests: string, options?: string): string };
+}
+const engine = (globalThis as unknown as { FinanciaEngine: EngineApi }).FinanciaEngine;
 for (const r of reqJson) {
   const out = engine.run(r, packsJson, "{}");
   if (out.startsWith('{"error":')) throw new Error(`計測の要求がエラーになりました: ${out}`);
@@ -62,6 +67,30 @@ if (typeof engine.runBatch === "function") {
   time("batch4", () => runBatch(four, packsJson, "{}"));
   time("batch20", () => runBatch(all, packsJson, "{}"));
   time("preview20", () => runBatch(all, packsJson, '{"preview":true}'));
+}
+// スライダーを動かしている間（0005 の5・7）: 変わった1案×4想定を、セッション（呼び出しをまたいで部品の結果を使い回す）で先出しする1回の時間。
+// sliderReturn は運用利回り（案の前提だけが変わる）、sliderSalary は配偶者の年収（その構成員に関わる部品が変わる）を1刻みずつ動かす
+if (typeof engine.createSession === "function") {
+  const session = engine.createSession(packsJson);
+  const four = requests.slice(0, 4);
+  session.runBatch(JSON.stringify(four), '{"preview":true}');
+  let tick = 0;
+  const slide = (change: (r: Record<string, unknown>, k: number) => void) => () => {
+    tick++;
+    const reqs = four.map((r) => {
+      const c = JSON.parse(JSON.stringify(r)) as Record<string, unknown>;
+      change(c, tick);
+      return c;
+    });
+    session.runBatch(JSON.stringify(reqs), '{"preview":true}');
+  };
+  const input = (r: Record<string, unknown>) => r.input as { assumptions: Record<string, unknown>; household: { employmentPeriods: { salary: { annual: { value: number } } }[] } };
+  time("sliderReturn", slide((r, k) => {
+    input(r).assumptions.investmentReturn = { default: `0.0${100 + k}` };
+  }));
+  time("sliderSalary", slide((r, k) => {
+    (input(r).household.employmentPeriods[1] as { salary: { annual: { value: number } } }).salary.annual.value = 3800000 + k * 10000;
+  }));
 }
 
 const result: Record<string, unknown> = { node };

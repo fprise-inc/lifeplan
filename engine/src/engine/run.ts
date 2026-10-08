@@ -15,7 +15,7 @@ import { decemberOf, formatYm, parseYm, yearOf } from "../time/month.ts";
 import { TimeResolver } from "../time/timepoint.ts";
 import { tableYear } from "./aggregate.ts";
 import { deepFreeze } from "./freeze.ts";
-import type { AnnualRow, EngineRequest, Flow } from "./types.ts";
+import type { AnnualRow, CalcConventions, EngineRequest, Flow } from "./types.ts";
 
 export interface RunOptions {
   /** 公式部品どうしの呼び出しの入出力も検査する（CI とテスト。0006 の5） */
@@ -34,12 +34,14 @@ export interface RunOptions {
 }
 
 /** 複数の要求をまとめて計算するときに1回だけ用意するもの */
-interface BatchContext {
+export interface BatchContext {
   readonly stores: Map<string, RegulationStore>;
   readonly assembly: Assembly;
   readonly shared: SharedCache;
   /** 部品ID → その部品と内側で呼ぶ部品（差し込み口の追加を含む）が読む入力項目ID */
   readonly closures: Map<string, readonly string[]>;
+  /** お金の動きの配列（使い回した部品の結果）→ 表に載せるお金の動きとその集計 */
+  readonly aggregates: WeakMap<readonly Flow[], Map<string, FlowAggregate>>;
 }
 
 export interface EngineResult {
@@ -101,6 +103,44 @@ function stripUndefined<T>(v: T): T {
 }
 
 const baseYearOf = (m: number) => yearOf(m as never);
+
+type Cell = { row: string; year: number; amount: number; member?: string; object?: string };
+
+function addCell(index: Map<string, Cell>, cells: Cell[], row: string, year: number, amount: number, member?: string, object?: string): void {
+  const key = `${row}|${year}|${member ?? ""}|${object ?? ""}`;
+  const c = index.get(key);
+  if (c !== undefined) c.amount += amount;
+  else {
+    const cell: Cell = { row, year, amount, ...(member !== undefined ? { member } : {}), ...(object !== undefined ? { object } : {}) };
+    index.set(key, cell);
+    cells.push(cell);
+  }
+}
+
+/** 表に載せるお金の動き（計算基準月から表の最後まで。sorted なら compareFlow の順）と、それを年に集めた表の行 */
+interface FlowAggregate {
+  readonly flows: Flow[];
+  readonly cells: readonly { readonly key: string; readonly cell: Readonly<Cell> }[];
+}
+
+function aggregateFlows(raw: readonly Flow[], base: number, end: number, aggregation: CalcConventions["aggregation"], baseYear: number, rootId: string, sorted: boolean): FlowAggregate {
+  const flows: Flow[] = [];
+  for (const f of raw) {
+    const m = parseYm(f.ym);
+    if (m >= base && m <= end) flows.push(f);
+  }
+  for (const f of flows) {
+    if (typeof f.formula !== "string") throw new EngineError("E_FORMULA_MISSING", [rootId]);
+    checkRow(f.row);
+  }
+  // 先出しでは flows を返さないので並べない（表は年ごとに足すだけなので順番に依らない）
+  if (sorted) sortFlows(flows);
+  const index = new Map<string, Cell>();
+  const cells: Cell[] = [];
+  for (const f of flows) addCell(index, cells, f.row, tableYear(f, aggregation, baseYear), f.amount, f.member, f.object);
+  const keyed = [...index.entries()].map(([key, cell]) => ({ key, cell: Object.freeze(cell) }));
+  return { flows, cells: keyed };
+}
 
 /**
  * compareFlow の順に並べる。まず支払月で分け（月は「年×12＋月」の整数）、月の中だけを比べて並べる。
@@ -244,7 +284,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     params: new Map(),
     hasParams: new Map(),
     // 案×想定のあいだの使い回しは、根拠の記録なしのときだけ（記録は計算した要求の記録にしか残らないため）
-    ...(batch !== undefined && req.trace === "none" ? { shared: batch.shared, fingerprint: fingerprinter(batch, input, dataSetKey), effects: [] } : {}),
+    ...(batch !== undefined && req.trace === "none" ? { shared: batch.shared, fingerprint: fingerprinter(batch, input, dataSetKey), sharedByComponent: new Map(), effects: [] } : {}),
   };
   const rootId = options.entry?.component ?? ROOT_COMPONENT;
   const root = assembly.impls.get(rootId);
@@ -252,43 +292,41 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   const { output, node: rootNode } = invoke(state, root, options.entry?.input ?? {});
   const out = output as { flows?: readonly Flow[]; annual?: readonly AnnualRow[] };
 
-  // 0003 の5: 計算基準月より前・表の最後より後のお金の動きは載せない
-  const flows: Flow[] = [];
-  for (const f of out.flows ?? []) {
-    const m = parseYm(f.ym);
-    if (m >= base && m <= end) flows.push(f);
+  // 0003 の5: 計算基準月より前・表の最後より後のお金の動きは載せない。表のうちお金の動きを年に集めた部分も作る。
+  // まとめて計算するときは、同じお金の動きの配列（使い回した部品の結果）について1回だけ行う
+  const aggregation = input.calcConventions.aggregation;
+  const baseYear = yearOf(base);
+  const rawFlows = out.flows ?? [];
+  const aggKey = `${base}|${end}|${aggregation}|${options.preview === true ? "p" : ""}`;
+  let agg = batch?.aggregates.get(rawFlows)?.get(aggKey);
+  if (agg === undefined) {
+    agg = aggregateFlows(rawFlows, base, end, aggregation, baseYear, rootId, options.preview !== true);
+    if (batch !== undefined) {
+      let m = batch.aggregates.get(rawFlows);
+      if (m === undefined) {
+        m = new Map();
+        batch.aggregates.set(rawFlows, m);
+      }
+      m.set(aggKey, agg);
+    }
   }
-  for (const f of flows) {
-    if (typeof f.formula !== "string") throw new EngineError("E_FORMULA_MISSING", [rootId]);
-    checkRow(f.row);
-  }
+  const flows = agg.flows;
   const annual = (out.annual ?? []).filter((a) => a.year >= baseYearOf(base) && a.year <= input.endYear);
   for (const f of annual) {
     if (typeof f.formula !== "string") throw new EngineError("E_FORMULA_MISSING", [rootId]);
     checkRow(f.row);
   }
-  // 先出しでは flows を返さないので並べない（表は年ごとに足すだけなので順番に依らない）
-  if (options.preview !== true) sortFlows(flows);
   annual.sort(compareAnnual);
 
-  // キャッシュフロー表: お金の動きを年に集め、年ごとの行を足す
-  const aggregation = input.calcConventions.aggregation;
-  const baseYear = yearOf(base);
-  type Cell = { row: string; year: number; amount: number; member?: string; object?: string };
+  // キャッシュフロー表: お金の動きを年に集めたもの（agg）に、年ごとの行を足す
   const cells: Cell[] = [];
   const index = new Map<string, Cell>();
-  const add = (row: string, year: number, amount: number, member?: string, object?: string) => {
-    const key = `${row}|${year}|${member ?? ""}|${object ?? ""}`;
-    const c = index.get(key);
-    if (c !== undefined) c.amount += amount;
-    else {
-      const cell: Cell = { row, year, amount, ...(member !== undefined ? { member } : {}), ...(object !== undefined ? { object } : {}) };
-      index.set(key, cell);
-      cells.push(cell);
-    }
-  };
-  for (const f of flows) add(f.row, tableYear(f, aggregation, baseYear), f.amount, f.member, f.object);
-  for (const a of annual) add(a.row, a.year, a.amount, a.member, a.object);
+  for (const c of agg.cells) {
+    const cell = { ...c.cell };
+    index.set(c.key, cell);
+    cells.push(cell);
+  }
+  for (const a of annual) addCell(index, cells, a.row, a.year, a.amount, a.member, a.object);
   const table = cells.sort(
     (a, b) => cmp(a.row, b.row) || cmp(a.year, b.year) || cmp(a.member ?? "", b.member ?? "") || cmp(a.object ?? "", b.object ?? ""),
   );
@@ -374,10 +412,13 @@ function fingerprinter(batch: BatchContext, input: EngineRequest["input"], dataS
  * あいだでは、読む入力が同じ部品の結果を使い回す。結果は1件ずつ計算したときと同じ（一致テストで確かめる）。
  * preview は表示の先出し用で、お金の動きと根拠の記録を除いた見出し・年ごとの行・表だけを返す
  */
-export function runBatch(requests: readonly unknown[], packs: readonly unknown[], options: RunOptions = {}): (EngineResult | { readonly error: { readonly code: string; readonly ids: readonly string[] } })[] {
-  const assembly = assemble(OFFICIAL_COMPONENTS, options);
-  checkPacks(packs, assembly);
-  const batch: BatchContext = { stores: new Map(), assembly, shared: new Map(), closures: new Map() };
+export function runBatch(
+  requests: readonly unknown[],
+  packs: readonly unknown[],
+  options: RunOptions = {},
+  context?: BatchContext,
+): (EngineResult | { readonly error: { readonly code: string; readonly ids: readonly string[] } })[] {
+  const batch = context ?? createBatchContext(packs, options);
   return requests.map((r) => {
     try {
       return runEngine(r, packs, { ...options, batch });
@@ -385,6 +426,53 @@ export function runBatch(requests: readonly unknown[], packs: readonly unknown[]
       if (e instanceof EngineError) return { error: { code: e.code, ids: e.ids } };
       throw e;
     }
+  });
+}
+
+/** パックの検査と部品表の組み立て（まとめて計算するときと、セッションで1回だけ行う） */
+export function createBatchContext(packs: readonly unknown[], options: RunOptions = {}): BatchContext {
+  const assembly = assemble(OFFICIAL_COMPONENTS, options);
+  checkPacks(packs, assembly);
+  return { stores: new Map(), assembly, shared: new Map(), closures: new Map(), aggregates: new WeakMap() };
+}
+
+/** 使い回しの表の大きさの上限（部品の結果の件数）。超えたら空にする（結果は同じで、計算し直すだけ） */
+const SESSION_CACHE_LIMIT = 50000;
+
+/**
+ * 画面側のエンジン（0005 の5: 表示の先出し）のためのセッション。パックの検査と部品表の組み立てを1回だけ行い、
+ * 呼び出しをまたいで、読む入力が同じ部品の結果を使い回す（スライダーを動かすたびに、変わった入力に関係する部品だけを計算し直す）。
+ * 結果は1件ずつ計算したときと同じ。本体の計算（正）は計算ごとに新しい実行環境で run・runBatch を使う（0005 の3）
+ */
+export interface Session {
+  runBatch(requestsJson: string, optionsJson?: string): string;
+  clear(): void;
+}
+
+export function createSession(packsJson: string, optionsJson = "{}"): Session {
+  let packs: unknown[] | null = null;
+  let batch: BatchContext | null = null;
+  let failure: string | null = null;
+  try {
+    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean };
+    packs = JSON.parse(packsJson) as unknown[];
+    batch = createBatchContext(packs, { checkInternal: opts.checkInternal === true });
+  } catch (e) {
+    if (e instanceof EngineError) failure = JSON.stringify({ error: { code: e.code, ids: e.ids } });
+    else if (e instanceof SyntaxError) failure = JSON.stringify({ error: { code: "E_INPUT_SCHEMA", ids: ["json"] } });
+    else throw e;
+  }
+  return Object.freeze({
+    runBatch(requestsJson: string, runOptionsJson = "{}"): string {
+      if (failure !== null || batch === null || packs === null) return failure ?? "";
+      let size = 0;
+      for (const byId of batch.shared.values()) for (const m of byId.values()) size += m.size;
+      if (size > SESSION_CACHE_LIMIT) batch.shared.clear();
+      return runBatchJson(requestsJson, packs, runOptionsJson, batch);
+    },
+    clear(): void {
+      batch?.shared.clear();
+    },
   });
 }
 
@@ -410,22 +498,28 @@ function mergeProjected(notices: readonly { code: string; ids: readonly string[]
 }
 
 /** runBatch の文字列の入口。requestsJson は要求の配列。結果も配列（1件ずつ結果か {error}） */
-export function runBatchJson(requestsJson: string, packsJson: string, optionsJson = "{}"): string {
+export function runBatchJson(requestsJson: string, packsJson: string | readonly unknown[], optionsJson = "{}", context?: BatchContext): string {
   try {
     const opts = JSON.parse(optionsJson) as { checkInternal?: boolean; preview?: boolean };
     const requests = JSON.parse(requestsJson) as unknown;
     if (!Array.isArray(requests)) throw new EngineError("E_INPUT_SCHEMA", ["/:type"]);
     const preview = opts.preview === true;
-    const results = runBatch(requests, JSON.parse(packsJson) as unknown[], { checkInternal: opts.checkInternal === true, preview });
+    const packs = typeof packsJson === "string" ? (JSON.parse(packsJson) as unknown[]) : packsJson;
+    const results = runBatch(requests, packs, { checkInternal: opts.checkInternal === true, preview }, context);
     const out = results.map((r) => {
       if ("error" in r) return r;
-      if (!preview) {
-        check("engine.output", r, "E_OUTPUT_SCHEMA");
-        return r;
+      try {
+        if (!preview) {
+          check("engine.output", r, "E_OUTPUT_SCHEMA");
+          return r;
+        }
+        const p = { header: r.header, annual: r.annual, table: r.table };
+        check("engine.preview", p, "E_OUTPUT_SCHEMA");
+        return p;
+      } catch (e) {
+        if (e instanceof EngineError) return { error: { code: e.code, ids: e.ids } };
+        throw e;
       }
-      const p = { header: r.header, annual: r.annual, table: r.table };
-      check("engine.preview", p, "E_OUTPUT_SCHEMA");
-      return p;
     });
     return JSON.stringify(out);
   } catch (e) {

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:plan.flows.output",
+  "title": "お金の動きを集める部品の出力（お金の動きと、年ごとの年間収支）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "net"],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": { "$ref": "urn:financia:schema:common#/$defs/flow" }
+    },
+    "net": {
+      "description": "年間収支（収入−税・社会保険料−支出。器の間の移動は含めない）。お金の動きのある年だけ、年の昇順",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["year", "amount"],
+        "properties": {
+          "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+        }
+      }
+    }
+  }
+}

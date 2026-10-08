@@ -8,6 +8,7 @@ import incomeSalary from "./income.salary/index.ts";
 import incomeTaxAnnual from "./incomeTax.annual/index.ts";
 import insurancePremium from "./insurance.premiumPayment/index.ts";
 import planCashflow from "./plan.cashflow/index.ts";
+import planFlows from "./plan.flows/index.ts";
 import residentTaxAnnual from "./residentTax.annual/index.ts";
 import socialInsuranceCoverage from "./socialInsurance.coverage/index.ts";
 import socialInsuranceEmployment from "./socialInsurance.employment/index.ts";
@@ -47,6 +48,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   incomeTaxAnnual,
   insurancePremium,
   planCashflow,
+  planFlows,
   residentTaxAnnual,
   socialInsuranceCoverage,
   socialInsuranceEmployment,
