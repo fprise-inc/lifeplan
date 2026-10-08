@@ -16,7 +16,9 @@ entries:
       - {upTo: 50000, rate: "1"}
       - {upTo: null, amount: 50000}
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1145.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 第77条第1項", quote: "その金額が五万円を超える場合には五万円とする"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1145.htm", retrievedAt: "2026-10-08", sha256: "13e2dd00c0165c025f4269aaa712cf9cbac025695082e389e3746fff015e3bd2", locator: "地震保険料控除の金額の表 (1)", quote: "50,000円超一律50,000円"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "pendingReview", paths: 2, note: "地震保険料は全額（5万円まで）。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま"}

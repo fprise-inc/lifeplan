@@ -7,14 +7,15 @@ entries:
   - rev: 1
     appliesFrom: "2025-06-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2018-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: 50000
     sources:
-      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370599.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の6第1号イ（基本の5万円）", quote: "五万円に、当該納税義務者が次の表の上欄に掲げる者に該当する場合には"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", sha256: "1c747b3916abba6d8ae22bb4f22ef05b42b6a19f2b3b0ef5373aa0a6740f72b8", locator: "基礎控除の所得税との人的控除額の差額", quote: "5万円（前年の合計所得金額が2,500万円超の場合は0円）"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "基礎控除の人的控除額の差は条文では「5万円に…加算」の基本額。横浜市の表と一致"}

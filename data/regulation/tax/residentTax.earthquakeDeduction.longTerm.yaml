@@ -16,8 +16,8 @@ entries:
       - {upTo: 15000, rate: "0.5", amount: 2500}
       - {upTo: null, amount: 10000}
     sources:
-      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370588.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.nagoya.jp/kurashi/zeikin/1037356/1011880/1011883/1011892.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", sha256: "1c747b3916abba6d8ae22bb4f22ef05b42b6a19f2b3b0ef5373aa0a6740f72b8", locator: "地震保険料控除（2）旧長期損害保険料", quote: "5,000円を超え15,000円まで"}
+      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370588.html", retrievedAt: "2026-10-08", sha256: "f78172c76e0a6f826e60b0b0d2b583acd04ad0be907dd7d0ddf3213889d73711", locator: "4 地震保険料控除 B", quote: "5,001円以上 15,000円以下の場合・・・支払った保険料 × 1/2  +  2,500円"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "pendingReview", paths: 2, note: "平成18年改正の経過措置。横浜市と大阪市の表が一致（条文は附則の経過措置で、本則には無い）。値は原本の2経路で一致。施行日を原本で特定できていないため確認待ちのまま"}

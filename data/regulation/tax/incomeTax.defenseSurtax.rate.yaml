@@ -7,28 +7,31 @@ entries:
   - rev: 1
     appliesFrom: "2025-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2027-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/pdf/0026005-024_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "防衛特別所得税及び復興特別所得税の源泉徴収のあらまし （令和９年１月以後の源泉徴収）", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/08taikou_06.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/505AC0000000069_20270101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "a78a7f1c491a5e43a0e4c7b891f842fe02e1646876dce84652b21b3550a7958b", locator: "我が国の防衛力の抜本的な強化等のために必要な財源の確保に関する特別措置法 第5条の5第1項", quote: "令和九年分以後の各年分の所得税に係る基準所得税額には、この法律により、当分の間、防衛特別所得税を課する"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "8ページ 防衛特別所得税及び復興特別所得税の源泉徴収のあらまし", quote: "これらの改正は、令和９年１月１日以後に生ずる所得に対する所得税について適用されます"}
+      - {type: "law", lawNumber: "令和五年法律第六十九号", egovRevisionId: "505AC0000000069_20270101_508AC0000000012"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "防衛特別所得税は令和9年分から。令和8年分までは課されない（制度なしの行）。施行日は課税の対象を定めた規定の施行日"}
   - rev: 2
     appliesFrom: "2027-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2027-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "0.01"
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/pdf/0026005-024_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "防衛特別所得税及び復興特別所得税の源泉徴収のあらまし （令和９年１月以後の源泉徴収）", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/08taikou_06.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/505AC0000000069_20270101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "a78a7f1c491a5e43a0e4c7b891f842fe02e1646876dce84652b21b3550a7958b", locator: "同法 第5条の9", quote: "その個人のその年分の基準所得税額に百分の一の税率を乗じて計算した金額とする"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "8ページ", quote: "防衛特別所得税（源泉徴収すべき所得税の額の１％相当額）"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm", retrievedAt: "2026-10-08", sha256: "df00bbd87d20914e8e082d9a1ea5e9ab8d0ad732ffd8d9f81ed1f50aed4d2408", locator: "計算方法・計算式の※", quote: "防衛特別所得税（源泉徴収すべき所得税の額の1パーセント相当額）"}
+      - {type: "law", lawNumber: "令和五年法律第六十九号", egovRevisionId: "505AC0000000069_20270101_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和9年分から当分の間"}
+    approval: {method: "reviewed", paths: 2, note: "基準所得税額の1%。令和9年分から当分の間（同法5条の5）"}

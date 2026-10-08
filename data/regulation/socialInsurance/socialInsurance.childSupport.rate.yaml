@@ -7,29 +7,29 @@ entries:
   - rev: 1
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.cfa.go.jp/policies/kodomokosodateshienkinseido", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "子ども・子育て支援金制度について｜こども家庭庁", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/003/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "協会けんぽの子ども・子育て支援金率について", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の料率のページ", quote: "令和8年4月分（5月納付分）からは、これに全国一律の子ども・子育て支援金（0.23％）が加わります"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", sha256: "1c5abc10951aeb941267ce128cf802253498a52042ff35629a65f3cc7012328a", locator: "令和8年3月分からの保険料額表（東京支部）", quote: "子ども・子育て支援金率：令和8年4月分（5月納付分）～適用"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和8年4月分より前は徴収なし"}
+    approval: {method: "reviewed", paths: 2, note: "令和8年3月分までは徴収なし（制度なしの行）。施行日は支援金の徴収が始まる日"}
   - rev: 2
     appliesFrom: "2026-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "0.0023"
     sources:
-      - {type: "web", url: "https://www.cfa.go.jp/policies/kodomokosodateshienkinseido", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "子ども・子育て支援金制度について｜こども家庭庁", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/003/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "協会けんぽの子ども・子育て支援金率について", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の料率のページ", quote: "令和8年4月分（5月納付分）からは、これに全国一律の子ども・子育て支援金（0.23％）が加わります"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）の支援金の率 0.23%（47シートすべて）", quote: "子ども・子育て支援金率：令和8年4月分（5月納付分）～適用"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", sha256: "1c5abc10951aeb941267ce128cf802253498a52042ff35629a65f3cc7012328a", locator: "令和8年3月分からの保険料額表（東京支部）", quote: "子ども・子育て支援金率：令和8年4月分（5月納付分）～適用"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和8年度の率。令和9年度以後の率は未公表。労使折半、賞与にもかかる、健康保険料と合算した率で計算してから丸める（厚労省・こども家庭庁のQ&A 2026-02-12）"}
+    approval: {method: "reviewed", paths: 2, note: "令和8年度の率0.23%（協会けんぽ）。令和9年度以後の率は未公表"}

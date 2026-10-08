@@ -13,7 +13,7 @@ entries:
     conditions: []
     value: {mode: "DOWN", unit: 1}
     sources:
-      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/kojinkeisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "県民税 49,349円（1円未満切捨て）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/kojinkeisan.html", retrievedAt: "2026-10-08", sha256: "0413c6472b3ea43da0aa3b7439de32b2c84db3e46766fe768bc2f6fc1c89e544", locator: "令和8年度の計算例 県民税算出所得割額", quote: "49,349.25円→49,349円（1円未満切捨）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "pendingReview", paths: 1, note: "横浜市の計算例（1経路）。法令の根拠（条文）は見つけていない。原本で読んだが確認の経路が足りない（施行日を原本で特定できていない）ため確認待ちのまま"}

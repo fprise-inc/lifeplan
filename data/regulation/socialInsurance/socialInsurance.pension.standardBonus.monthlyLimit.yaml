@@ -7,14 +7,17 @@ entries:
   - rev: 1
     appliesFrom: "2025-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2020-09-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: 1500000
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/kounen/hyoujunhoushu/20120903.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第24条の4第1項", quote: "当該標準賞与額が百五十万円"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/502CO0000000246_20200901_000000000000000?response_format=xml", retrievedAt: "2026-10-08", sha256: "2c9f93b4abaa8467856db9c43075018ee0646e507611f17f41d3da58902031c3", locator: "厚生年金保険法の標準報酬月額の等級区分の改定等に関する政令 第2条", quote: "令和二年九月以後の法第二十四条の四第一項の政令で定める額は、百五十万円とする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/ryogaku/ryogakuhyo/20200825.files/R08ryougaku.pdf", retrievedAt: "2026-10-08", sha256: "17cb4adcce3e25646fd48c73ae6fc79dc25a372276a47e31364ae08e7bfa1d5c", locator: "日本年金機構 厚生年金保険料額表（令和8年度版）の注", quote: "１５０万円が上限となります"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
+      - {type: "law", lawNumber: "令和二年政令第二百四十六号", egovRevisionId: "502CO0000000246_20200901_000000000000000"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "1回（1か月）ごとの上限150万円"}

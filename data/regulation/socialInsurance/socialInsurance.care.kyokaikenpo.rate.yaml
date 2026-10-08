@@ -7,29 +7,28 @@ entries:
   - rev: 1
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "0.0159"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/002/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）。各シートの「介護保険第2号被保険者に該当する場合」の率−健康保険料率＝1.59%（47シートすべて）", quote: "介護保険料率：令和7年3月分～"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の料率のページ", quote: "全国一律の介護保険料率（1.59％）が加わります"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "全国一律の介護保険料率1.59%（令和7年3月分から）"}
   - rev: 2
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "0.0162"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/002/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/chiba/assets/20260115_shiryou2-3.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "標準報酬月額34万円の折半額 2,703円→2,754円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の料率のページ", quote: "全国一律の介護保険料率（1.62％）が加わります"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）。各シートの介護保険第2号被保険者の率−健康保険料率＝1.62%（47シートすべて）", quote: "介護保険料率：令和8年3月分～適用"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "全国一律の介護保険料率1.62%（令和8年3月分から）"}

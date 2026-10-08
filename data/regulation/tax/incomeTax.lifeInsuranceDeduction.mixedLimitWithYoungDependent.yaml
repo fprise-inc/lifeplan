@@ -7,40 +7,46 @@ entries:
   - rev: 1
     appliesFrom: "2025-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261201_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "44a748db9b74bc69b283f9eedbfc1079a20fb8f74b5902759ee565573fbeebad", locator: "租税特別措置法 第41条の15の5第1項（対象は令和8年分・令和9年分だけ）", quote: "令和八年分又は令和九年分の同法第七十六条第十一項に規定する生命保険料控除"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "7ページ 2（令和7年度改正。令和8年分から）", quote: "この改正は、令和８年分の所得税について適用されます"}
+      - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261201_508AC0000000012"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "reviewed", paths: 2, note: "令和7年分は特例なし"}
   - rev: 2
     appliesFrom: "2026-01-01"
     appliesTo: "2027-12-31"
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: 60000
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年分以降・23歳未満の扶養親族がいる場合", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/koho/kurashi/html/04_2.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261201_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "44a748db9b74bc69b283f9eedbfc1079a20fb8f74b5902759ee565573fbeebad", locator: "租税特別措置法 第41条の15の5第1項", quote: "同項第三号中「四万円」とあるのは「六万円」とする"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "7ページ 2⑵", quote: "一般生命保険料控除の適用限度額が６万円（改正前：４万円）とされました"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", sha256: "20cf3d89f75dc48a636117235a463a96eb4e3ed8f7eb5cafb96ba9876ca040e5", locator: "新契約と旧契約の双方に加入している場合の控除額", quote: "23歳未満の扶養親族を有する新生命保険料を支払った場合は最高60,000円"}
+      - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261201_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和8年分・令和9年分（令和8年度改正で令和9年分まで延長。改正のあらまし6ページ9⑵）"}
   - rev: 3
     appliesFrom: "2028-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20280101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "19839773a1d17de59191f9249162d09a949d81a8519282cd1cf84ab80f2c8b47", locator: "租税特別措置法 第41条の15の5第1項（令和10年1月1日の版でも対象は令和8年分・令和9年分だけ）", quote: "令和八年分又は令和九年分の同法第七十六条第十一項に規定する生命保険料控除"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "6ページ 9⑵", quote: "適用期限が令和９年分（改正前：令和８年分）まで延長されました"}
+      - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20280101_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "reviewed", paths: 2, note: "期限（令和9年分）の後は特例なし"}

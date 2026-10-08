@@ -41,36 +41,40 @@ entries:
     conditions: []
     value: "0.021"
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "平成25年から令和19年までの各年分 2.1パーセント", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/shinkoku/tebiki/2025/03/order4/3-4_45.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/423AC0000000117_20260401_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "30a77bc6bee59ca7ee48476512f5c47d9d1223e700702a1ab8c338dd9652f580", locator: "東日本大震災からの復興のための施策を実施するために必要な財源の確保に関する特別措置法 第13条", quote: "基準所得税額に百分の二・一の税率を乗じて計算した金額とする"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm", retrievedAt: "2026-10-08", sha256: "df00bbd87d20914e8e082d9a1ea5e9ab8d0ad732ffd8d9f81ed1f50aed4d2408", locator: "計算方法・計算式の※2", quote: "復興特別所得税（原則としてその年分の基準所得税額の2.1パーセント）"}
+      - {type: "law", lawNumber: "平成二十三年法律第百十七号", egovRevisionId: "423AC0000000117_20260401_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "令和8年分まで2.1%。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま"}
   - rev: 4
     appliesFrom: "2027-01-01"
     appliesTo: "2047-12-31"
-    enforcedOn: null
+    enforcedOn: "2027-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "0.011"
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/pdf/0026005-024_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "防衛特別所得税及び復興特別所得税の源泉徴収のあらまし （令和９年１月以後の源泉徴収）", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/08taikou_06.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/423AC0000000117_20270101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "c3ce19eb660cd4255d6627503aa49284e8554ddc9c83e3854a163ec2b64d0e5c", locator: "同法 第13条（令和9年1月1日の版）", quote: "基準所得税額に百分の一・一の税率を乗じて計算した金額とする"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/423AC0000000117_20270101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "c3ce19eb660cd4255d6627503aa49284e8554ddc9c83e3854a163ec2b64d0e5c", locator: "同法 第9条第1項", quote: "平成二十五年から令和二十九年までの各年分の所得税"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "8ページ", quote: "復興特別所得税について、その税率が１.１％（改正前 ：２.１％）に引き下げられ"}
+      - {type: "law", lawNumber: "平成二十三年法律第百十七号", egovRevisionId: "423AC0000000117_20270101_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和8年度改正で令和9年分から1.1%、令和29年分まで"}
+    approval: {method: "reviewed", paths: 2, note: "令和9年分から令和29年分まで1.1%"}
   - rev: 5
     appliesFrom: "2048-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2027-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/pdf/0026005-024_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "防衛特別所得税及び復興特別所得税の源泉徴収のあらまし （令和９年１月以後の源泉徴収）", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/08taikou_06.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/423AC0000000117_20270101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "c3ce19eb660cd4255d6627503aa49284e8554ddc9c83e3854a163ec2b64d0e5c", locator: "同法 第9条第1項", quote: "平成二十五年から令和二十九年までの各年分の所得税"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "8ページ", quote: "課税期間が令和29年12月31日まで（改正前：令和19年12月31日まで）10年間延長されました"}
+      - {type: "law", lawNumber: "平成二十三年法律第百十七号", egovRevisionId: "423AC0000000117_20270101_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和30年分以後は課されない"}

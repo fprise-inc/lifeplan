@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2025-06-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2019-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
@@ -17,9 +17,9 @@ entries:
       - {upTo: 10000000, amount: 110000}
       - {upTo: null, amount: 0}
     sources:
-      - {type: "web", url: "https://www.soumu.go.jp/main_content/000767350.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370599.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "人的控除額の差（配偶者控除 5万・4万・2万円）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の2第1項第10号", quote: "九百万円以下である場合三十三万円（その控除対象配偶者が老人控除対象配偶者"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", sha256: "1c747b3916abba6d8ae22bb4f22ef05b42b6a19f2b3b0ef5373aa0a6740f72b8", locator: "配偶者控除の表（一般の控除対象配偶者）", quote: "33万円５万円22万円４万円11万円２万円"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "900万円超の段（22万・11万円）は、所得税の額（26万・13万円）−人的控除額の差（4万・2万円）と、横浜市の配偶者特別控除の先頭の段（22万・11万円）で確かめた"}
+    approval: {method: "reviewed", paths: 2, note: "33万・22万・11万円"}

@@ -7,29 +7,30 @@ entries:
   - rev: 2
     appliesFrom: "2026-06-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: 580000
     sources:
-      - {type: "web", url: "https://www.soumu.go.jp/main_content/000988698.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第292条第1項第7号の2・第9号（同一生計配偶者・扶養親族）", quote: "合計所得金額が五十八万円以下である者をいう"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", sha256: "1c747b3916abba6d8ae22bb4f22ef05b42b6a19f2b3b0ef5373aa0a6740f72b8", locator: "扶養控除の要件", quote: "前年の合計所得金額が58万円（給与所得者の場合は給与収入金額が123万円）以下の人"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和8年度（令和7年の所得）"}
   - rev: 3
     appliesFrom: "2027-06-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2027-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: 620000
     sources:
-      - {type: "web", url: "https://www.soumu.go.jp/main_content/001063630.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.nagoya.jp/kurashi/zeikin/1037356/1011880/1011899/1045304.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000678587.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20270101_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "1f2a8980c0a22b200b0a531a9643cbd6beca08c451b7236041ecc8c393af3ff1", locator: "地方税法 第292条第1項（令和9年1月1日の版）", quote: "合計所得金額が六十二万円以下である者をいう"}
+      - {type: "web", url: "https://www.soumu.go.jp/main_content/001075462.pdf", retrievedAt: "2026-10-08", sha256: "4bd3b61597ca9b7310a2b899f7fc026e55e92a8f8139eca69bea83d127d2758d", locator: "10ページ 世帯毎の非課税ライン（令和9年度分）の注", quote: "子は本人と生計を一にする合計所得金額62万円以下の親族"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20270101_508AC0000000002"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和9年度（令和8年の所得）から62万円"}

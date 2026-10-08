@@ -23,11 +23,14 @@ entries:
       - {upTo: 25000000, amount: 160000}
       - {upTo: null, amount: 0}
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1199.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/users/gensen/2025kiso/index.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度税制改正（基礎控除・給与所得控除・特定親族特別控除）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 第86条第1項", quote: "二千三百五十万円以下である場合五十八万円"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", locator: "租税特別措置法 第41条の16の2第1項第1号（令和7年分の加算）", quote: "百三十二万円以下である場合三十七万円"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1199.htm", retrievedAt: "2026-10-08", sha256: "21507083e62c8014201736c5122cdf184515695aaaeb9c3fbb414b105a8ab5ac", locator: "基礎控除の金額の表（令和7年分の列）", quote: "132万円超336万円以下"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
+      - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261001_508AC0000000012"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "2,350万円超の段は1199の1経路。加算（30万・10万・5万円）の当初の期間は未確認"}
+    approval: {method: "reviewed", paths: 2, note: "所得税法86条（58万円）＋措置法41条の16の2の加算（37万・30万・10万・5万円）の条文と、タックスアンサー1199の令和7年分の列が一致"}
   - rev: 2
     appliesFrom: "2026-01-01"
     appliesTo: "2027-12-31"
@@ -44,12 +47,15 @@ entries:
       - {upTo: 25000000, amount: 160000}
       - {upTo: null, amount: 0}
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1199.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/users/gensen/nencho/index/kyuyosyotokusya.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度税制改正の大綱", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261201_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "0ee4d9aa4fd7bb5550597ed08665588639a9473e6bd9f6387126de41603a0020", locator: "所得税法 第86条第1項（令和8年12月1日施行の版）", quote: "二千三百五十万円以下である場合六十二万円"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261201_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "44a748db9b74bc69b283f9eedbfc1079a20fb8f74b5902759ee565573fbeebad", locator: "租税特別措置法 第41条の16の2第1項第1号（令和8年分・令和9年分の加算）", quote: "四百八十九万円以下である場合四十二万円"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "1ページ 基礎控除額の表（注2）", quote: "62万円にそれぞれ、42万円、５万円、37万円を加算した金額"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1199.htm", retrievedAt: "2026-10-08", sha256: "21507083e62c8014201736c5122cdf184515695aaaeb9c3fbb414b105a8ab5ac", locator: "基礎控除の金額の表（令和8年分・令和9年分の列）", quote: "令和8年分の上記規定は、令和8年12月1日に施行されます"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261201_508AC0000000012"}
+      - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261201_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "本則62万円に令和8年分・令和9年分の加算（489万円以下42万円、655万円以下5万円）"}
+    approval: {method: "reviewed", paths: 2, note: "所得税法86条（62万円）＋措置法41条の16の2第1項1号の加算（42万・5万円）の条文と、国税庁の改正のあらまし・タックスアンサー1199が一致"}
   - rev: 3
     appliesFrom: "2028-01-01"
     appliesTo: null
@@ -65,7 +71,12 @@ entries:
       - {upTo: 25000000, amount: 160000}
       - {upTo: null, amount: 0}
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1199.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和10年分以後", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20280101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "19839773a1d17de59191f9249162d09a949d81a8519282cd1cf84ab80f2c8b47", locator: "租税特別措置法 第41条の16の2第1項第2号（令和10年分以後）", quote: "令和十年分以後の各年分三十七万円"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20280101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "425e8edd055820cb1f9e96c65204c26728b6a0ddac9c457b90c7e802d2fc728f", locator: "所得税法 第86条第1項（令和10年1月1日の版）", quote: "二千三百五十万円以下である場合六十二万円"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "1ページ 基礎控除額の表（令和10年分以後の列）", quote: "62万円にそれぞれ、42万円、５万円、37万円を加算した金額"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1199.htm", retrievedAt: "2026-10-08", sha256: "21507083e62c8014201736c5122cdf184515695aaaeb9c3fbb414b105a8ab5ac", locator: "基礎控除の金額の表（令和10年分以後の列）", quote: "令和10年分以後"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20280101_508AC0000000012"}
+      - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20280101_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "132万円以下の加算37万円（99万円）は1経路。それより上は本則62万円"}
+    approval: {method: "reviewed", paths: 2, note: "令和10年分以後は132万円以下に37万円を加算（99万円）、それより上は本則62万円。措置法41条の16の2第1項2号と、国税庁の改正のあらまし・タックスアンサー1199で一致"}

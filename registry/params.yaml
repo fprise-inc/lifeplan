@@ -500,6 +500,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: residentTax.spouseSpecialDeduction.tier2
+    status: active
+    label: "住民税の配偶者特別控除（納税者の合計所得金額900万円超950万円以下。配偶者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.spouseSpecialDeduction.tier3
+    status: active
+    label: "住民税の配偶者特別控除（納税者の合計所得金額950万円超1,000万円以下。配偶者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: residentTax.taxableIncome.rounding
     status: active
     label: "住民税の課税総所得金額などの1,000円未満の端数（切り捨て）"
@@ -542,9 +554,21 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.health.lateElderlyAge
+    status: active
+    label: "後期高齢者医療に移る年齢（健康保険の資格を失う年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.health.standardBonus.annualLimit
     status: active
     label: "健康保険（介護保険・支援金も）の標準賞与額の年度の累計の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.health.standardMonthlyRemuneration
+    status: active
+    label: "健康保険の標準報酬月額（報酬月額の等級表）"
     since: draft
     aliases: []
     replacedBy: null
@@ -563,6 +587,12 @@ entries:
   - id: socialInsurance.pension.standardBonus.monthlyLimit
     status: active
     label: "厚生年金の標準賞与額の上限（支給1回。同じ月は合算）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.pension.standardMonthlyRemuneration
+    status: active
+    label: "厚生年金保険の標準報酬月額（報酬月額の等級表）"
     since: draft
     aliases: []
     replacedBy: null

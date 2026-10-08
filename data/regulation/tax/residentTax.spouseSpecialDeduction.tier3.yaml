@@ -1,0 +1,55 @@
+id: residentTax.spouseSpecialDeduction.tier3
+title: 住民税の配偶者特別控除（納税者の合計所得金額950万円超1,000万円以下。配偶者の合計所得金額の段階）
+unit: JPY
+kind: bracketTable
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2026-06-01"
+    appliesTo: "2027-05-31"
+    enforcedOn: "2021-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 950000, amount: 110000}
+      - {upTo: 1000000, amount: 110000}
+      - {upTo: 1050000, amount: 110000}
+      - {upTo: 1100000, amount: 90000}
+      - {upTo: 1150000, amount: 70000}
+      - {upTo: 1200000, amount: 60000}
+      - {upTo: 1250000, amount: 40000}
+      - {upTo: 1300000, amount: 20000}
+      - {upTo: 1330000, amount: 10000}
+      - {upTo: null, amount: 0}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の2第1項第10号の2ハ", quote: "それぞれイ（１）から（３）までに定める金額の三分の一に相当する金額（当該金額に一万円未満の端数がある場合には、これを切り上げた金額）"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", sha256: "1c747b3916abba6d8ae22bb4f22ef05b42b6a19f2b3b0ef5373aa0a6740f72b8", locator: "配偶者特別控除の控除額の表（本人950万円超1,000万円以下の列）", quote: "105万円超110万円以下26万円18万円９万円"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, note: "令和8年度。条文（本人900万円以下の表の3分の1、1万円未満切り上げ）から計算した表と、横浜市の表が全段一致。施行日は第10号の2イ（本人900万円以下の表）の現行の文言の施行日"}
+  - rev: 2
+    appliesFrom: "2027-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 950000, amount: 110000}
+      - {upTo: 1000000, amount: 110000}
+      - {upTo: 1050000, amount: 110000}
+      - {upTo: 1100000, amount: 90000}
+      - {upTo: 1150000, amount: 70000}
+      - {upTo: 1200000, amount: 60000}
+      - {upTo: 1250000, amount: 40000}
+      - {upTo: 1300000, amount: 20000}
+      - {upTo: 1330000, amount: 10000}
+      - {upTo: null, amount: 0}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20270101_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "1f2a8980c0a22b200b0a531a9643cbd6beca08c451b7236041ecc8c393af3ff1", locator: "地方税法 第314条の2第1項（令和9年1月1日の版。令和9年度分から）", quote: "それぞれイ（１）から（３）までに定める金額の三分の一に相当する金額（当該金額に一万円未満の端数がある場合には、これを切り上げた金額）"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20270101_508AC0000000002"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "令和9年度分。条文（令和9年1月1日の版）の表は令和8年度と同じ（変わるのは配偶者の所得の下限で、residentTax.dependentIncomeLimit の62万円超）。別の経路（自治体・総務省の令和9年度分の表）は未確認"}

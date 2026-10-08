@@ -14,7 +14,9 @@ entries:
     conditions: []
     value: 65
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/ibaraki/public_relations/009/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/409AC0000000123_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "c1886fd7bfbc2ec713d20799508f5dc9a0e4b6ddc4a5c0969c188f6304fbe552", locator: "介護保険法 第9条第2号", quote: "四十歳以上六十五歳未満の医療保険加入者"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/ibaraki/public_relations/009/index.html", retrievedAt: "2026-10-08", sha256: "bd76faa746c9a6906743119e6bb1b6da7a7e67dceb5609933e538a67dd835a70", locator: "協会けんぽ茨城支部 介護保険料の徴収", quote: "介護保険料は「満65歳に達したとき」より徴収されなくなります"}
+      - {type: "law", lawNumber: "平成九年法律第百二十三号", egovRevisionId: "409AC0000000123_20261001_507AC0000000087"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "pendingReview", paths: 2, note: "65歳に達した日（誕生日の前日）の属する月から第2号でなくなる。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま"}

@@ -8,1309 +8,1363 @@ entries:
   - rev: 1
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.01"}
     conditions: []
     value: "0.1031"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（北海道）", quote: "北海道10.31%↑10.21%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（北海道）", quote: "北海道１０．３１％↓１０．２８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「北海道」の健康保険料率 10.31%", quote: "（北海道支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "北海道支部"}
+    approval: {method: "reviewed", paths: 2, note: "北海道支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 2
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.02"}
     conditions: []
     value: "0.0985"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（青森）", quote: "青森県9.85%↑9.49%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（青森）", quote: "青森県９．８５％→９．８５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「青森」の健康保険料率 9.85%", quote: "（青森支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "青森支部"}
+    approval: {method: "reviewed", paths: 2, note: "青森支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 3
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.03"}
     conditions: []
     value: "0.0962"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（岩手）", quote: "岩手県9.62%↓9.63%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（岩手）", quote: "岩手県９．６２％↓９．５１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「岩手」の健康保険料率 9.62%", quote: "（岩手支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "岩手支部"}
+    approval: {method: "reviewed", paths: 2, note: "岩手支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 4
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.04"}
     conditions: []
     value: "0.1011"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（宮城）", quote: "宮城県10.11%↑10.01%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（宮城）", quote: "宮城県１０．１１％↓１０．１０％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「宮城」の健康保険料率 10.11%", quote: "（宮城支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "宮城支部"}
+    approval: {method: "reviewed", paths: 2, note: "宮城支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 5
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.05"}
     conditions: []
     value: "0.1001"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（秋田）", quote: "秋田県10.01%↑9.85%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（秋田）", quote: "秋田県１０．０１％→１０．０１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「秋田」の健康保険料率 10.01%", quote: "（秋田支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "秋田支部"}
+    approval: {method: "reviewed", paths: 2, note: "秋田支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 6
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.06"}
     conditions: []
     value: "0.0975"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（山形）", quote: "山形県9.75%↓9.84%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（山形）", quote: "山形県９．７５％→９．７５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「山形」の健康保険料率 9.75%", quote: "（山形支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "山形支部"}
+    approval: {method: "reviewed", paths: 2, note: "山形支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 7
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.07"}
     conditions: []
     value: "0.0962"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（福島）", quote: "福島県9.62%↑9.59%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（福島）", quote: "福島県９．６２％↓９．５０％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「福島」の健康保険料率 9.62%", quote: "（福島支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "福島支部"}
+    approval: {method: "reviewed", paths: 2, note: "福島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 8
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.08"}
     conditions: []
     value: "0.0967"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（茨城）", quote: "茨城県9.67%↑9.66%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（茨城）", quote: "茨城県９．６７％↓９．５２％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「茨城」の健康保険料率 9.67%", quote: "（茨城支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "茨城支部"}
+    approval: {method: "reviewed", paths: 2, note: "茨城支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 9
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.09"}
     conditions: []
     value: "0.0982"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（栃木）", quote: "栃木県9.82%↑9.79%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（栃木）", quote: "栃木県９．８２％→９．８２％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「栃木」の健康保険料率 9.82%", quote: "（栃木支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "栃木支部"}
+    approval: {method: "reviewed", paths: 2, note: "栃木支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 10
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.10"}
     conditions: []
     value: "0.0977"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（群馬）", quote: "群馬県9.77%↓9.81%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（群馬）", quote: "群馬県９．７７％↓９．６８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「群馬」の健康保険料率 9.77%", quote: "（群馬支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "群馬支部"}
+    approval: {method: "reviewed", paths: 2, note: "群馬支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 11
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.11"}
     conditions: []
     value: "0.0976"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（埼玉）", quote: "埼玉県9.76%↓9.78%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（埼玉）", quote: "埼玉県９．７６％↓９．６７％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「埼玉」の健康保険料率 9.76%", quote: "（埼玉支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "埼玉支部"}
+    approval: {method: "reviewed", paths: 2, note: "埼玉支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 12
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.12"}
     conditions: []
     value: "0.0979"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（千葉）", quote: "千葉県9.79%↑9.77%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（千葉）", quote: "千葉県９．７９％↓９．７３％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「千葉」の健康保険料率 9.79%", quote: "（千葉支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "千葉支部"}
+    approval: {method: "reviewed", paths: 2, note: "千葉支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 13
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.13"}
     conditions: []
     value: "0.0991"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（東京）", quote: "東京都9.91%↓9.98%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（東京）", quote: "東京都９．９１％↓９．８５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「東京」の健康保険料率 9.91%", quote: "（東京支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "東京支部"}
+    approval: {method: "reviewed", paths: 2, note: "東京支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 14
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.14"}
     conditions: []
     value: "0.0992"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（神奈川）", quote: "神奈川県9.92%↓10.02%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（神奈川）", quote: "神奈川県９．９２％→９．９２％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「神奈川」の健康保険料率 9.92%", quote: "（神奈川支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "神奈川支部"}
+    approval: {method: "reviewed", paths: 2, note: "神奈川支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 15
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.15"}
     conditions: []
     value: "0.0955"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（新潟）", quote: "新潟県9.55%↑9.35%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（新潟）", quote: "新潟県９．５５％↓９．２１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「新潟」の健康保険料率 9.55%", quote: "（新潟支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "新潟支部"}
+    approval: {method: "reviewed", paths: 2, note: "新潟支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 16
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.16"}
     conditions: []
     value: "0.0965"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（富山）", quote: "富山県9.65%↑9.62%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（富山）", quote: "富山県９．６５％↓９．５９％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「富山」の健康保険料率 9.65%", quote: "（富山支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "富山支部"}
+    approval: {method: "reviewed", paths: 2, note: "富山支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 17
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.17"}
     conditions: []
     value: "0.0988"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（石川）", quote: "石川県9.88%↓9.94%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（石川）", quote: "石川県９．８８％↓９．７０％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「石川」の健康保険料率 9.88%", quote: "（石川支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "石川支部"}
+    approval: {method: "reviewed", paths: 2, note: "石川支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 18
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.18"}
     conditions: []
     value: "0.0994"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（福井）", quote: "福井県9.94%↓10.07%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（福井）", quote: "福井県９．９４％↓９．７１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「福井」の健康保険料率 9.94%", quote: "（福井支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "福井支部"}
+    approval: {method: "reviewed", paths: 2, note: "福井支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 19
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.19"}
     conditions: []
     value: "0.0989"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（山梨）", quote: "山梨県9.89%↓9.94%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（山梨）", quote: "山梨県９．８９％↓９．５５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「山梨」の健康保険料率 9.89%", quote: "（山梨支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "山梨支部"}
+    approval: {method: "reviewed", paths: 2, note: "山梨支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 20
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.20"}
     conditions: []
     value: "0.0969"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（長野）", quote: "長野県9.69%↑9.55%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（長野）", quote: "長野県９．６９％↓９．６３％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「長野」の健康保険料率 9.69%", quote: "（長野支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "長野支部"}
+    approval: {method: "reviewed", paths: 2, note: "長野支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 21
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.21"}
     conditions: []
     value: "0.0993"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（岐阜）", quote: "岐阜県9.93%↑9.91%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（岐阜）", quote: "岐阜県９．９３％↓９．８０％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「岐阜」の健康保険料率 9.93%", quote: "（岐阜支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "岐阜支部"}
+    approval: {method: "reviewed", paths: 2, note: "岐阜支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 22
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.22"}
     conditions: []
     value: "0.098"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（静岡）", quote: "静岡県9.80%↓9.85%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（静岡）", quote: "静岡県９．８０％↓９．６１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「静岡」の健康保険料率 9.80%", quote: "（静岡支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "静岡支部"}
+    approval: {method: "reviewed", paths: 2, note: "静岡支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 23
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.23"}
     conditions: []
     value: "0.1003"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（愛知）", quote: "愛知県10.03%↑10.02%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（愛知）", quote: "愛知県１０．０３％↓９．９３％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「愛知」の健康保険料率 10.03%", quote: "（愛知支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "愛知支部"}
+    approval: {method: "reviewed", paths: 2, note: "愛知支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 24
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.24"}
     conditions: []
     value: "0.0999"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（三重）", quote: "三重県9.99%↑9.94%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（三重）", quote: "三重県９．９９％↓９．７７％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「三重」の健康保険料率 9.99%", quote: "（三重支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "三重支部"}
+    approval: {method: "reviewed", paths: 2, note: "三重支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 25
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.25"}
     conditions: []
     value: "0.0997"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（滋賀）", quote: "滋賀県9.97%↑9.89%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（滋賀）", quote: "滋賀県９．９７％↓９．８８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「滋賀」の健康保険料率 9.97%", quote: "（滋賀支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "滋賀支部"}
+    approval: {method: "reviewed", paths: 2, note: "滋賀支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 26
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.26"}
     conditions: []
     value: "0.1003"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（京都）", quote: "京都府10.03%↓10.13%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（京都）", quote: "京都府１０．０３％↓９．８９％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「京都」の健康保険料率 10.03%", quote: "（京都支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "京都支部"}
+    approval: {method: "reviewed", paths: 2, note: "京都支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 27
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.27"}
     conditions: []
     value: "0.1024"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（大阪）", quote: "大阪府10.24%↓10.34%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（大阪）", quote: "大阪府１０．２４％↓１０．１３％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「大阪」の健康保険料率 10.24%", quote: "（大阪支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "大阪支部"}
+    approval: {method: "reviewed", paths: 2, note: "大阪支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 28
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.28"}
     conditions: []
     value: "0.1016"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（兵庫）", quote: "兵庫県10.16%↓10.18%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（兵庫）", quote: "兵庫県１０．１６％↓１０．１２％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「兵庫」の健康保険料率 10.16%", quote: "（兵庫支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "兵庫支部"}
+    approval: {method: "reviewed", paths: 2, note: "兵庫支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 29
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.29"}
     conditions: []
     value: "0.1002"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（奈良）", quote: "奈良県10.02%↓10.22%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（奈良）", quote: "奈良県１０．０２％↓９．９１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「奈良」の健康保険料率 10.02%", quote: "（奈良支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "奈良支部"}
+    approval: {method: "reviewed", paths: 2, note: "奈良支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 30
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.30"}
     conditions: []
     value: "0.1019"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（和歌山）", quote: "和歌山県10.19%↑10.00%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（和歌山）", quote: "和歌山県１０．１９％↓１０．０６％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「和歌山」の健康保険料率 10.19%", quote: "（和歌山支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "和歌山支部"}
+    approval: {method: "reviewed", paths: 2, note: "和歌山支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 31
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.31"}
     conditions: []
     value: "0.0993"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（鳥取）", quote: "鳥取県9.93%↑9.68%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（鳥取）", quote: "鳥取県９．９３％↓９．８６％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「鳥取」の健康保険料率 9.93%", quote: "（鳥取支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "鳥取支部"}
+    approval: {method: "reviewed", paths: 2, note: "鳥取支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 32
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.32"}
     conditions: []
     value: "0.0994"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（島根）", quote: "島根県9.94%↑9.92%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（島根）", quote: "島根県９．９４％→９．９４％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「島根」の健康保険料率 9.94%", quote: "（島根支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "島根支部"}
+    approval: {method: "reviewed", paths: 2, note: "島根支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 33
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.33"}
     conditions: []
     value: "0.1017"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（岡山）", quote: "岡山県10.17%↑10.02%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（岡山）", quote: "岡山県１０．１７％↓１０．０５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「岡山」の健康保険料率 10.17%", quote: "（岡山支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "岡山支部"}
+    approval: {method: "reviewed", paths: 2, note: "岡山支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 34
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.34"}
     conditions: []
     value: "0.0997"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（広島）", quote: "広島県9.97%↑9.95%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（広島）", quote: "広島県９．９７％↓９．７８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「広島」の健康保険料率 9.97%", quote: "（広島支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "広島支部"}
+    approval: {method: "reviewed", paths: 2, note: "広島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 35
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.35"}
     conditions: []
     value: "0.1036"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（山口）", quote: "山口県10.36%↑10.20%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（山口）", quote: "山口県１０．３６％↓１０．１５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「山口」の健康保険料率 10.36%", quote: "（山口支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "山口支部"}
+    approval: {method: "reviewed", paths: 2, note: "山口支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 36
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.36"}
     conditions: []
     value: "0.1047"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（徳島）", quote: "徳島県10.47%↑10.19%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（徳島）", quote: "徳島県１０．４７％↓１０．２４％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「徳島」の健康保険料率 10.47%", quote: "（徳島支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "徳島支部"}
+    approval: {method: "reviewed", paths: 2, note: "徳島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 37
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.37"}
     conditions: []
     value: "0.1021"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（香川）", quote: "香川県10.21%↓10.33%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（香川）", quote: "香川県１０．２１％↓１０．０２％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「香川」の健康保険料率 10.21%", quote: "（香川支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "香川支部"}
+    approval: {method: "reviewed", paths: 2, note: "香川支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 38
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.38"}
     conditions: []
     value: "0.1018"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（愛媛）", quote: "愛媛県10.18%↑10.03%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（愛媛）", quote: "愛媛県１０．１８％↓９．９８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「愛媛」の健康保険料率 10.18%", quote: "（愛媛支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "愛媛支部"}
+    approval: {method: "reviewed", paths: 2, note: "愛媛支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 39
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.39"}
     conditions: []
     value: "0.1013"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（高知）", quote: "高知県10.13%↑9.89%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（高知）", quote: "高知県１０．１３％↓１０．０５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「高知」の健康保険料率 10.13%", quote: "（高知支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "高知支部"}
+    approval: {method: "reviewed", paths: 2, note: "高知支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 40
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.40"}
     conditions: []
     value: "0.1031"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（福岡）", quote: "福岡県10.31%↓10.35%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（福岡）", quote: "福岡県１０．３１％↓１０．１１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「福岡」の健康保険料率 10.31%", quote: "（福岡支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "福岡支部"}
+    approval: {method: "reviewed", paths: 2, note: "福岡支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 41
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.41"}
     conditions: []
     value: "0.1078"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（佐賀）", quote: "佐賀県10.78%↑10.42%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（佐賀）", quote: "佐賀県１０．７８％↓１０．５５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「佐賀」の健康保険料率 10.78%", quote: "（佐賀支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "佐賀支部"}
+    approval: {method: "reviewed", paths: 2, note: "佐賀支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 42
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.42"}
     conditions: []
     value: "0.1041"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（長崎）", quote: "長崎県10.41%↑10.17%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（長崎）", quote: "長崎県１０．４１％↓１０．０６％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「長崎」の健康保険料率 10.41%", quote: "（長崎支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "長崎支部"}
+    approval: {method: "reviewed", paths: 2, note: "長崎支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 43
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.43"}
     conditions: []
     value: "0.1012"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（熊本）", quote: "熊本県10.12%↓10.30%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（熊本）", quote: "熊本県１０．１２％↓１０．０８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「熊本」の健康保険料率 10.12%", quote: "（熊本支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "熊本支部"}
+    approval: {method: "reviewed", paths: 2, note: "熊本支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 44
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.44"}
     conditions: []
     value: "0.1025"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（大分）", quote: "大分県10.25%→10.25%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（大分）", quote: "大分県１０．２５％↓１０．０８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「大分」の健康保険料率 10.25%", quote: "（大分支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "大分支部"}
+    approval: {method: "reviewed", paths: 2, note: "大分支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 45
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.45"}
     conditions: []
     value: "0.1009"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（宮崎）", quote: "宮崎県10.09%↑9.85%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（宮崎）", quote: "宮崎県１０．０９％↓９．７７％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「宮崎」の健康保険料率 10.09%", quote: "（宮崎支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "宮崎支部"}
+    approval: {method: "reviewed", paths: 2, note: "宮崎支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 46
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.46"}
     conditions: []
     value: "0.1031"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（鹿児島）", quote: "鹿児島県10.31%↑10.13%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（鹿児島）", quote: "鹿児島県１０．３１％↓１０．１３％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「鹿児島」の健康保険料率 10.31%", quote: "（鹿児島支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "鹿児島支部"}
+    approval: {method: "reviewed", paths: 2, note: "鹿児島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 47
     appliesFrom: "2025-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.47"}
     conditions: []
     value: "0.0944"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度の列", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度 都道府県単位保険料率の表（沖縄）", quote: "沖縄県9.44%↓9.52%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の表の令和7年度の列（沖縄）", quote: "沖縄県９．４４％→９．４４％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「沖縄」の健康保険料率 9.44%", quote: "（沖縄支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "沖縄支部"}
+    approval: {method: "reviewed", paths: 2, note: "沖縄支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 48
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.01"}
     conditions: []
     value: "0.1028"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/hokkaido/assets/01hokkaido.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率10.28%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（北海道）", quote: "北海道１０．３１％↓１０．２８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「北海道」の健康保険料率 10.28%", quote: "（北海道支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "北海道支部"}
+    approval: {method: "reviewed", paths: 2, note: "北海道支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 49
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.02"}
     conditions: []
     value: "0.0985"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（青森）", quote: "青森県９．８５％→９．８５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「青森」の健康保険料率 9.85%", quote: "（青森支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "青森支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "青森支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 50
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.03"}
     conditions: []
     value: "0.0951"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/~/media/Files/shared/direction/dai140kai/2026012902.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（岩手）", quote: "岩手県９．６２％↓９．５１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「岩手」の健康保険料率 9.51%", quote: "（岩手支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "岩手支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "岩手支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 51
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.04"}
     conditions: []
     value: "0.101"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（宮城）", quote: "宮城県１０．１１％↓１０．１０％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「宮城」の健康保険料率 10.10%", quote: "（宮城支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "宮城支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "宮城支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 52
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.05"}
     conditions: []
     value: "0.1001"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_05akita.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度の保険料額表（料率の据え置き）", quote: "健康保険料率：令和7年3月分～適用", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（秋田）", quote: "秋田県１０．０１％→１０．０１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「秋田」の健康保険料率 10.01%", quote: "（秋田支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "秋田支部"}
+    approval: {method: "reviewed", paths: 2, note: "秋田支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 53
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.06"}
     conditions: []
     value: "0.0975"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/yamagata/assets/06yamagata.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.75%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（山形）", quote: "山形県９．７５％→９．７５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「山形」の健康保険料率 9.75%", quote: "（山形支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "山形支部"}
+    approval: {method: "reviewed", paths: 2, note: "山形支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 54
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.07"}
     conditions: []
     value: "0.095"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/fukushima/assets/07fukushima.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.50%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（福島）", quote: "福島県９．６２％↓９．５０％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「福島」の健康保険料率 9.50%", quote: "（福島支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "福島支部"}
+    approval: {method: "reviewed", paths: 2, note: "福島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 55
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.08"}
     conditions: []
     value: "0.0952"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/ibaraki/assets/noukoku_202602.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.52%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（茨城）", quote: "茨城県９．６７％↓９．５２％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「茨城」の健康保険料率 9.52%", quote: "（茨城支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "茨城支部"}
+    approval: {method: "reviewed", paths: 2, note: "茨城支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 56
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.09"}
     conditions: []
     value: "0.0982"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_09tochigi.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度の保険料額表（料率の据え置き）", quote: "健康保険料率：令和7年3月分～適用", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（栃木）", quote: "栃木県９．８２％→９．８２％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「栃木」の健康保険料率 9.82%", quote: "（栃木支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "栃木支部"}
+    approval: {method: "reviewed", paths: 2, note: "栃木支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 57
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.10"}
     conditions: []
     value: "0.0968"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/gunma/assets/10gunma.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.68%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（群馬）", quote: "群馬県９．７７％↓９．６８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「群馬」の健康保険料率 9.68%", quote: "（群馬支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "群馬支部"}
+    approval: {method: "reviewed", paths: 2, note: "群馬支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 58
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.11"}
     conditions: []
     value: "0.0967"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/saitama/assets/11saitama.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.67%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（埼玉）", quote: "埼玉県９．７６％↓９．６７％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「埼玉」の健康保険料率 9.67%", quote: "（埼玉支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "埼玉支部"}
+    approval: {method: "reviewed", paths: 2, note: "埼玉支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 59
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.12"}
     conditions: []
     value: "0.0973"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/chiba/public_relations/002/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（千葉）", quote: "千葉県９．７９％↓９．７３％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「千葉」の健康保険料率 9.73%", quote: "（千葉支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "千葉支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "千葉支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 60
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.13"}
     conditions: []
     value: "0.0985"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/tokyo/assets/R0802.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.85%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（東京）", quote: "東京都９．９１％↓９．８５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「東京」の健康保険料率 9.85%", quote: "（東京支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "東京支部"}
+    approval: {method: "reviewed", paths: 2, note: "東京支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 61
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.14"}
     conditions: []
     value: "0.0992"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/kanagawa/assets/14kanagawa_1.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.92%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（神奈川）", quote: "神奈川県９．９２％→９．９２％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「神奈川」の健康保険料率 9.92%", quote: "（神奈川支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "神奈川支部"}
+    approval: {method: "reviewed", paths: 2, note: "神奈川支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 62
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.15"}
     conditions: []
     value: "0.0921"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_15niigata.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（新潟）", quote: "新潟県９．５５％↓９．２１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「新潟」の健康保険料率 9.21%", quote: "（新潟支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "新潟支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "新潟支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 63
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.16"}
     conditions: []
     value: "0.0959"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（富山）", quote: "富山県９．６５％↓９．５９％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「富山」の健康保険料率 9.59%", quote: "（富山支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "富山支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "富山支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 64
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.17"}
     conditions: []
     value: "0.097"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（石川）", quote: "石川県９．８８％↓９．７０％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「石川」の健康保険料率 9.70%", quote: "（石川支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "石川支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "石川支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 65
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.18"}
     conditions: []
     value: "0.0971"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/~/media/Files/shared/hokenryouritu/r8/noukoku/18fukui.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.71%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（福井）", quote: "福井県９．９４％↓９．７１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「福井」の健康保険料率 9.71%", quote: "（福井支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "福井支部"}
+    approval: {method: "reviewed", paths: 2, note: "福井支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 66
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.19"}
     conditions: []
     value: "0.0955"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（山梨）", quote: "山梨県９．８９％↓９．５５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「山梨」の健康保険料率 9.55%", quote: "（山梨支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "山梨支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "山梨支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 67
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.20"}
     conditions: []
     value: "0.0963"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/~/media/Files/shared/hokenryouritu/r8/noukoku/20nagano.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.63%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（長野）", quote: "長野県９．６９％↓９．６３％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「長野」の健康保険料率 9.63%", quote: "（長野支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "長野支部"}
+    approval: {method: "reviewed", paths: 2, note: "長野支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 68
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.21"}
     conditions: []
     value: "0.098"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/gifu/assets/21gifu.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.80%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（岐阜）", quote: "岐阜県９．９３％↓９．８０％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「岐阜」の健康保険料率 9.80%", quote: "（岐阜支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "岐阜支部"}
+    approval: {method: "reviewed", paths: 2, note: "岐阜支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 69
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.22"}
     conditions: []
     value: "0.0961"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/shizuoka/assets/22shizuoka.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.61%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（静岡）", quote: "静岡県９．８０％↓９．６１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「静岡」の健康保険料率 9.61%", quote: "（静岡支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "静岡支部"}
+    approval: {method: "reviewed", paths: 2, note: "静岡支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 70
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.23"}
     conditions: []
     value: "0.0993"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/~/media/Files/shared/hokenryouritu/r8/noukoku/23aichi.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.93%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（愛知）", quote: "愛知県１０．０３％↓９．９３％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「愛知」の健康保険料率 9.93%", quote: "（愛知支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "愛知支部"}
+    approval: {method: "reviewed", paths: 2, note: "愛知支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 71
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.24"}
     conditions: []
     value: "0.0977"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（三重）", quote: "三重県９．９９％↓９．７７％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「三重」の健康保険料率 9.77%", quote: "（三重支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "三重支部。支部の資料による2つ目の経路が無い"}
+    approval: {method: "reviewed", paths: 2, note: "三重支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 72
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.25"}
     conditions: []
     value: "0.0988"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_25shiga.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（滋賀）", quote: "滋賀県９．９７％↓９．８８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「滋賀」の健康保険料率 9.88%", quote: "（滋賀支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "滋賀支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "滋賀支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 73
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.26"}
     conditions: []
     value: "0.0989"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/kyoto/assets/26kyoto.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.89%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（京都）", quote: "京都府１０．０３％↓９．８９％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「京都」の健康保険料率 9.89%", quote: "（京都支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "京都支部"}
+    approval: {method: "reviewed", paths: 2, note: "京都支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 74
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.27"}
     conditions: []
     value: "0.1013"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/osaka/assets/r8.2nokoku.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率10.13%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（大阪）", quote: "大阪府１０．２４％↓１０．１３％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「大阪」の健康保険料率 10.13%", quote: "（大阪支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "大阪支部"}
+    approval: {method: "reviewed", paths: 2, note: "大阪支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 75
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.28"}
     conditions: []
     value: "0.1012"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/hyogo/assets/28hyogo.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率10.12%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（兵庫）", quote: "兵庫県１０．１６％↓１０．１２％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「兵庫」の健康保険料率 10.12%", quote: "（兵庫支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "兵庫支部"}
+    approval: {method: "reviewed", paths: 2, note: "兵庫支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 76
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.29"}
     conditions: []
     value: "0.0991"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_29nara.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（奈良）", quote: "奈良県１０．０２％↓９．９１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「奈良」の健康保険料率 9.91%", quote: "（奈良支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "奈良支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "奈良支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 77
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.30"}
     conditions: []
     value: "0.1006"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/wakayama/assets/r7hyougikai_02_080119_siryou1.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（和歌山）", quote: "和歌山県１０．１９％↓１０．０６％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「和歌山」の健康保険料率 10.06%", quote: "（和歌山支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "和歌山支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "和歌山支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 78
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.31"}
     conditions: []
     value: "0.0986"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（鳥取）", quote: "鳥取県９．９３％↓９．８６％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「鳥取」の健康保険料率 9.86%", quote: "（鳥取支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "鳥取支部。支部の資料による2つ目の経路が無い"}
+    approval: {method: "reviewed", paths: 2, note: "鳥取支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 79
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.32"}
     conditions: []
     value: "0.0994"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/shimane/assets/32shimane.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.94%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（島根）", quote: "島根県９．９４％→９．９４％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「島根」の健康保険料率 9.94%", quote: "（島根支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "島根支部"}
+    approval: {method: "reviewed", paths: 2, note: "島根支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 80
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.33"}
     conditions: []
     value: "0.1005"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/okayama/assets/33okayama.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率10.05%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（岡山）", quote: "岡山県１０．１７％↓１０．０５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「岡山」の健康保険料率 10.05%", quote: "（岡山支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "岡山支部"}
+    approval: {method: "reviewed", paths: 2, note: "岡山支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 81
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.34"}
     conditions: []
     value: "0.0978"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/hiroshima/assets/2026021301.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率9.78%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（広島）", quote: "広島県９．９７％↓９．７８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「広島」の健康保険料率 9.78%", quote: "（広島支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "広島支部"}
+    approval: {method: "reviewed", paths: 2, note: "広島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 82
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.35"}
     conditions: []
     value: "0.1015"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_35yamaguchi.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（山口）", quote: "山口県１０．３６％↓１０．１５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「山口」の健康保険料率 10.15%", quote: "（山口支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "山口支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "山口支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 83
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.36"}
     conditions: []
     value: "0.1024"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/tokushima/public_relations/e-mail_magazine/692.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（徳島）", quote: "徳島県１０．４７％↓１０．２４％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「徳島」の健康保険料率 10.24%", quote: "（徳島支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "徳島支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "徳島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 84
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.37"}
     conditions: []
     value: "0.1002"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/kagawa/assets/37kagawa.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率10.02%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（香川）", quote: "香川県１０．２１％↓１０．０２％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「香川」の健康保険料率 10.02%", quote: "（香川支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "香川支部"}
+    approval: {method: "reviewed", paths: 2, note: "香川支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 85
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.38"}
     conditions: []
     value: "0.0998"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（愛媛）", quote: "愛媛県１０．１８％↓９．９８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「愛媛」の健康保険料率 9.98%", quote: "（愛媛支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "愛媛支部。支部の資料による2つ目の経路が無い"}
+    approval: {method: "reviewed", paths: 2, note: "愛媛支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 86
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.39"}
     conditions: []
     value: "0.1005"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（高知）", quote: "高知県１０．１３％↓１０．０５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「高知」の健康保険料率 10.05%", quote: "（高知支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "高知支部。支部の資料による2つ目の経路が無い"}
+    approval: {method: "reviewed", paths: 2, note: "高知支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 87
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.40"}
     conditions: []
     value: "0.1011"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_40fukuoka.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（福岡）", quote: "福岡県１０．３１％↓１０．１１％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「福岡」の健康保険料率 10.11%", quote: "（福岡支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "福岡支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "福岡支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 88
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.41"}
     conditions: []
     value: "0.1055"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/saga/assets/41saga_1.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率10.55%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（佐賀）", quote: "佐賀県１０．７８％↓１０．５５％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「佐賀」の健康保険料率 10.55%", quote: "（佐賀支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "佐賀支部"}
+    approval: {method: "reviewed", paths: 2, note: "佐賀支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 89
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.42"}
     conditions: []
     value: "0.1006"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/nagasaki/assets/42nagasaki_1.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "健康保険料率10.06%のうち", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（長崎）", quote: "長崎県１０．４１％↓１０．０６％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「長崎」の健康保険料率 10.06%", quote: "（長崎支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "長崎支部"}
+    approval: {method: "reviewed", paths: 2, note: "長崎支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 90
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.43"}
     conditions: []
     value: "0.1008"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（熊本）", quote: "熊本県１０．１２％↓１０．０８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「熊本」の健康保険料率 10.08%", quote: "（熊本支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "熊本支部。支部の資料による2つ目の経路が無い"}
+    approval: {method: "reviewed", paths: 2, note: "熊本支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 91
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.44"}
     conditions: []
     value: "0.1008"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（大分）", quote: "大分県１０．２５％↓１０．０８％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「大分」の健康保険料率 10.08%", quote: "（大分支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "大分支部。支部の資料による2つ目の経路が無い"}
+    approval: {method: "reviewed", paths: 2, note: "大分支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 92
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.45"}
     conditions: []
     value: "0.0977"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（宮崎）", quote: "宮崎県１０．０９％↓９．７７％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「宮崎」の健康保険料率 9.77%", quote: "（宮崎支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "宮崎支部。支部の資料による2つ目の経路が無い"}
+    approval: {method: "reviewed", paths: 2, note: "宮崎支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 93
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.46"}
     conditions: []
     value: "0.1013"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_46kagoshima.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（鹿児島）", quote: "鹿児島県１０．３１％↓１０．１３％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「鹿児島」の健康保険料率 10.13%", quote: "（鹿児島支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "鹿児島支部。2つ目の経路は検索の要約だけ"}
+    approval: {method: "reviewed", paths: 2, note: "鹿児島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 94
     appliesFrom: "2026-03-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-03-01"
     status: enacted
     jurisdiction: {level: "insurer", code: "kyokaikenpo.47"}
     conditions: []
     value: "0.0944"
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_47okinawa.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度の保険料額表（料率の据え置き）", quote: "健康保険料率：令和7年3月分～適用", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度 都道府県単位保険料率の表（沖縄）", quote: "沖縄県９．４４％→９．４４％"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「沖縄」の健康保険料率 9.44%", quote: "（沖縄支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "沖縄支部"}
+    approval: {method: "reviewed", paths: 2, note: "沖縄支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}

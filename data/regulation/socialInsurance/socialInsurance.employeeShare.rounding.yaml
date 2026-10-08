@@ -13,8 +13,8 @@ entries:
     conditions: []
     value: {mode: "HALF_DOWN", unit: 1}
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/nofu/20121026.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "注記", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/ryogaku/ryogakuhyo/20200825.files/R08ryougaku.pdf", retrievedAt: "2026-10-08", sha256: "17cb4adcce3e25646fd48c73ae6fc79dc25a372276a47e31364ae08e7bfa1d5c", locator: "日本年金機構 厚生年金保険料額表（令和8年度版）の注", quote: "被保険者負担分の端数が５０銭以下の場合は切り捨て"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", sha256: "1c5abc10951aeb941267ce128cf802253498a52042ff35629a65f3cc7012328a", locator: "協会けんぽ 保険料額表（東京支部）の注", quote: "被保険者負担分の端数が50銭以下の場合は切り捨て、50銭を超える場合は切り上げて1円となります"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "被保険者が現金で払う場合（50銭未満切り捨て）と事業主との特約は扱わない"}
+    approval: {method: "pendingReview", paths: 2, note: "給与から控除する場合。被保険者が現金で払う場合（50銭未満切り捨て）と特約は扱わない。値は原本の2経路で一致。施行日を原本で特定できていないため確認待ちのまま"}
