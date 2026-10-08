@@ -14,6 +14,6 @@ entries:
     value: {mode: "DOWN", unit: 100}
     sources:
       - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "子ども分の計算の説明の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 1, note: "子ども分を医療分と別に100円未満を切り捨てるという説明から。医療分の端数処理は広域連合の条例で確認する"}

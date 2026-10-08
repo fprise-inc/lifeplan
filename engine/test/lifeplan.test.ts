@@ -34,7 +34,9 @@ describe("延長の仮定（決定1）", () => {
       periods: [period("p", { member: "h", from: "2010-04", annual: 6000000, std: [500000, 500000] })],
       residentTaxAssessments: [{ id: uid("rta"), member: H, fiscalYear: 2026, amount: box(300000) }],
     });
-    const r = run(req, realPacks());
+    // 最新の版は令和10年分以後の給与所得控除（rev 3）を知っているので延長しない。rev 3 を知らない版 2026.2.0 の時点で延長の仮定を確かめる
+    expect(notices(run(req, realPacks())).some((n) => n.code === "N_PARAM_EXTENDED")).toBe(false);
+    const r = run({ ...req, input: { ...req.input, dataSet: { "regulation.tax": "2026.2.0" } } } as typeof req, realPacks());
     expect(notices(r)).toContainEqual({ code: "N_PARAM_EXTENDED", ids: ["incomeTax.employmentIncomeDeduction@2", "2028", "2030"] });
     expect(r.flows.some((f) => f.row === "cf.taxSi.incomeTax" && f.ym.startsWith("2030"))).toBe(true);
   });

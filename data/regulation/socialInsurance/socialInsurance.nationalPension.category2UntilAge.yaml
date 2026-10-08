@@ -15,6 +15,6 @@ entries:
     value: 65
     sources:
       - {type: "law", lawNumber: "昭和34年法律第141号"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 1, note: "国民年金法7条1項2号。条文は未取得。受給権があるとみなす"}

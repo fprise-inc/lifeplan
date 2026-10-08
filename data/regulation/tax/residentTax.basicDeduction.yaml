@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2025-06-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2021-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
@@ -17,9 +17,9 @@ entries:
       - {upTo: 25000000, amount: 150000}
       - {upTo: null, amount: 0}
     sources:
-      - {type: "web", url: "https://www.soumu.go.jp/main_content/000767350.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.soumu.go.jp/main_content/001075462.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和9年度 改正なし（最高43万円）", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/kojinkeisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の2第2項（道府県民税は第34条第2項）", quote: "二千四百万円以下である場合四十三万円"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", sha256: "1c747b3916abba6d8ae22bb4f22ef05b42b6a19f2b3b0ef5373aa0a6740f72b8", locator: "基礎控除", quote: "2,400万円超2,450万円以下・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・29万円"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "43万・29万・15万円"}

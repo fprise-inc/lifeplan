@@ -7,29 +7,28 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-04-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "0.0055"
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/001401966.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和７（2025）年４月１日から令和８（2026）年３月31日までの雇用保険料率は以下 のとおりです。 事業主・被保険者の皆さまへ", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://jsite.mhlw.go.jp/kumamoto-roudoukyoku/content/contents/002198981.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/001401966.pdf", retrievedAt: "2026-10-08", sha256: "eda8a16a77c762247b7e7412c86f9f6accc33830620e2d8de047308cfca4022b", locator: "令和7年度 雇用保険料率のご案内（一般の事業・労働者負担）", quote: "一般の事業 5.5/1,000 9/1,000 5.5/1,000 3.5/1,000 14.5/1,000"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/001692566.pdf", retrievedAt: "2026-10-08", sha256: "69ca914736d051ffa067464756500c2a8cf597186e9cf091b54512a68d3b1be9", locator: "令和8年度のご案内の（令和７年度）の行", quote: "（令和７年度） 5.5/1,000 9/1,000 5.5/1,000 3.5/1,000 14.5/1,000"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和7年4月〜令和8年3月。労働者負担5.5/1,000"}
   - rev: 2
     appliesFrom: "2026-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: "0.005"
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/001692566.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和８（202６）年４月１日から令和９（202７）年３月31日までの雇用保険料率は以下 のとおりです。", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://jsite.mhlw.go.jp/ehime-roudoukyoku/content/contents/002602395.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://jsite.mhlw.go.jp/tokyo-hellowork/list/tachikawa/kyushokusha/koyouhokenryouritu08.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/001692566.pdf", retrievedAt: "2026-10-08", sha256: "69ca914736d051ffa067464756500c2a8cf597186e9cf091b54512a68d3b1be9", locator: "令和8年度 雇用保険料率のご案内（一般の事業・労働者負担）", quote: "一般の事業 5/1,000 8.5/1,000 5/1,000 3.5/1,000 13.5/1,000"}
+      - {type: "web", url: "https://jsite.mhlw.go.jp/tokyo-hellowork/list/tachikawa/kyushokusha/koyouhokenryouritu08.html", retrievedAt: "2026-10-08", sha256: "767cccab50857330c1ee527365057519f8d7949210de26a31142f9fe1b60f7d3", locator: "ハローワーク立川 令和8年度の雇用保険料率", quote: "労働者負担・事業主負担ともに5/1,000に変更になります"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和8年4月から。労働者負担5/1,000"}

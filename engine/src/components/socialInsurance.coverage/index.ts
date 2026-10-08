@@ -117,9 +117,11 @@ export default defineComponent<
       const m = parseYm(s.month);
       if (m < firstMonth || m > end) {
         // 計算より前の月も、標準報酬の引き継ぎのため順に見る
+        // 等級表の行が無い月（制度データの最初の行より前）は見ない（推測で埋めない）
         if (m < firstMonth && m >= monthIndex(yearOf(firstMonth) - 1, 9)) {
-          if (s.pension && m < pensionEnd) stdOf("pension", s.employer as string, m);
-          if (s.health) stdOf("health", s.employer as string, m);
+          const known = (kind: "health" | "pension") => ctx.at(m).has(`socialInsurance.${kind}.standardMonthlyRemuneration`);
+          if (s.pension && m < pensionEnd && known("pension")) stdOf("pension", s.employer as string, m);
+          if (s.health && known("health")) stdOf("health", s.employer as string, m);
         }
         continue;
       }

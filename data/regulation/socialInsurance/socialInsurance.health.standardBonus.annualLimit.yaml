@@ -7,13 +7,16 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2016-04-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: 5730000
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "年間573万円（毎年4月1日から翌年3月31日までの累計額）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", locator: "健康保険法 第45条第1項", quote: "累計額が五百七十三万円"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", sha256: "1c5abc10951aeb941267ce128cf802253498a52042ff35629a65f3cc7012328a", locator: "協会けんぽ 保険料額表（東京支部）の注", quote: "年間573万円"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/kyokaikenpo/0208.html", retrievedAt: "2026-10-08", sha256: "59820f467ca0e6d6d4db4b9457fef312e25b53c7d14b652242ccc2857d1d2a86", locator: "日本年金機構 健康保険・船員保険の標準報酬月額の上限改定及び累計標準賞与額の上限変更（施行の時期）", quote: "平成28年4月から健康保険及び船員保険の標準報酬月額の上限及び累計標準賞与額の上限が変更になります"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "reviewed", paths: 2, note: "年度（4月〜翌3月）の累計の上限。施行日は540万円から573万円への引上げ（平成28年4月。日本年金機構の案内）"}

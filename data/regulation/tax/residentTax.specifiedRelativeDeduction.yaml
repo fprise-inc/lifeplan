@@ -7,6 +7,29 @@ entries:
   - rev: 1
     appliesFrom: "2026-06-01"
     appliesTo: "2027-05-31"
+    enforcedOn: "2026-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 950000, amount: 450000}
+      - {upTo: 1000000, amount: 410000}
+      - {upTo: 1050000, amount: 310000}
+      - {upTo: 1100000, amount: 210000}
+      - {upTo: 1150000, amount: 110000}
+      - {upTo: 1200000, amount: 60000}
+      - {upTo: 1230000, amount: 30000}
+      - {upTo: null, amount: 0}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の2第1項第12号", quote: "前年の合計所得金額が九十五万円以下である特定親族四十五万円"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", sha256: "1c747b3916abba6d8ae22bb4f22ef05b42b6a19f2b3b0ef5373aa0a6740f72b8", locator: "特定親族特別控除の表", quote: "115万円超120万円以下６万円"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, note: "令和8年度。条文の式（95万〜115万円は所得税と同じ式）から計算した表と横浜市の表が全段一致"}
+  - rev: 2
+    appliesFrom: "2027-06-01"
+    appliesTo: null
     enforcedOn: null
     status: enacted
     jurisdiction: "national"
@@ -21,8 +44,8 @@ entries:
       - {upTo: 1230000, amount: 30000}
       - {upTo: null, amount: 0}
     sources:
-      - {type: "web", url: "https://www.soumu.go.jp/main_content/001004707.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.1.0"
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20270101_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "1f2a8980c0a22b200b0a531a9643cbd6beca08c451b7236041ecc8c393af3ff1", locator: "地方税法 第314条の2第1項（令和9年1月1日の版。令和9年度分から）", quote: "前年の合計所得金額が九十五万円以下である特定親族四十五万円"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20270101_508AC0000000002"}
+    recordedIn: "2026.3.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和8年度の表。115万〜120万円の6万円の段は横浜市の1経路。令和9年度の表は未確認のため行を置かない"}
+    approval: {method: "pendingReview", paths: 1, note: "令和9年度分。条文（令和9年1月1日の版）の表は令和8年度と同じ（変わるのは対象の下限で、扶養親族の所得の上限62万円超）。別の経路は未確認"}

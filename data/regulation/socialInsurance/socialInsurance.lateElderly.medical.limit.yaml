@@ -14,7 +14,7 @@ entries:
     value: 800000
     sources:
       - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001610193.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "年額80万円（令和６・７年度）に設定", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2, note: "令和6年度の一部の人の激変緩和（73万円）は入れていない"}
   - rev: 2
@@ -28,6 +28,6 @@ entries:
     sources:
       - {type: "web", url: "https://www.kaiketsu-j.com/?p=20323", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "基礎賦課額:85万円(80万円から5万円引き上げ)+子ども・子育て支援納付金賦課額:2万1千円=87万1千円", note: "民間の記事の要約（令和8年政令第4号）"}
       - {type: "web", url: "https://www.psrn.jp/topics/detail.php?id=39581", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 3}

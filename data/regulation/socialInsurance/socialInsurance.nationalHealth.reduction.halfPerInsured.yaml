@@ -15,7 +15,7 @@ entries:
     sources:
       - {type: "web", url: "https://www.nishi.or.jp/kurashi/kokuminkenkohoken/hokenryo/keigen/kokuho-keigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
       - {type: "web", url: "https://www.pref.miyagi.jp/soshiki/kkh-iryou/kokuho25.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "43万円+30.5万円×被保険者数+10万円×(給与所得者等の数-1)", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2}
   - rev: 2
@@ -29,6 +29,6 @@ entries:
     sources:
       - {type: "web", url: "https://www.nishi.or.jp/kurashi/kokuminkenkohoken/hokenryo/keigen/kokuho-keigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "5割 43万円+30.5万円×(被保険者数および特定同一世帯所属者数)＋10万円×（給与所得者等の数－1）以下の世帯 → 43万円+31万円×(…)", note: "検索の要約（原本は未取得）"}
       - {type: "web", url: "https://www.city.hiroshima.lg.jp/living/hoken-nenkin/1021143/1025566/1022691.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2}

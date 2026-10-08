@@ -15,7 +15,7 @@ entries:
     value: 16980
     sources:
       - {type: "web", url: "https://www.mhlw.go.jp/stf/houdou/0000190457_00019.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和7年度 17,510円（＋530円）", note: "報道発表の要約（令和6年度16,980円との比較。原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 1}
   - rev: 2
@@ -29,7 +29,7 @@ entries:
     sources:
       - {type: "web", url: "https://www.mhlw.go.jp/stf/houdou/0000190457_00019.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
       - {type: "web", url: "https://www.city.hiroshima.lg.jp/living/hoken-nenkin/1021145/1006017/1025571/1038157.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和7年度 国民年金保険料額 定額保険料 17,510円(月額)", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2}
   - rev: 3
@@ -43,7 +43,7 @@ entries:
     sources:
       - {type: "web", url: "https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryo.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "国民年金保険料の金額は、1カ月あたり17,920円です（令和8年度）。", note: "検索の要約（原本は未取得）"}
       - {type: "web", url: "https://www.nenkin.go.jp/section/faq/kokunen/seido/hokenryo/seidosetsumei/20150331.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年度(令和8年4月~令和9年3月まで)は月額17,920円です。", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2}
   - rev: 4
@@ -57,6 +57,6 @@ entries:
     sources:
       - {type: "web", url: "https://www.city.ichinomiya.aichi.jp/shiminkenkou/hokennenkin/hoken/1000031/1000852.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "保険料水準 (月あたり): 17,000円. 改定率: 1.076. 保険料額 (月あたり): 18,290円.", note: "検索の要約（原本は未取得）"}
       - {type: "web", url: "https://faq.city.kobe.lg.jp/faq/show/165", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "2027年4月～2028年3月までは月額18,290円", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2, note: "令和10年度以後は賃金上昇率（前提）で延ばす（linkage: indexed。そのため適用終了を年度の終わりにする）"}

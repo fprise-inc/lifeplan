@@ -15,6 +15,6 @@ entries:
     sources:
       - {type: "web", url: "https://www.mhlw.go.jp/content/11900000/001599643.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "被保険者の配偶者が、出生の日から起算して８週間を経過する日の翌日までの期間内に同一の子について出生時育児休業（産後パパ育休）または育児休業を通算14日以上取得していること", note: "検索の要約（原本は未取得）"}
       - {type: "web", url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000158500.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2, note: "8週間（産後休業をした人は16週間）を2か月とした近似。14日以上の要件は休業の期間があれば満たすとみなす"}

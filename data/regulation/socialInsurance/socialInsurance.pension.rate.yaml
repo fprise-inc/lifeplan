@@ -13,9 +13,9 @@ entries:
     conditions: []
     value: "0.183"
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/ryogaku/ryogakuhyo/20200825.files/R08ryougaku.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "全 額 折 半 額 等級 月 額 18.300％ 9.150％ 円以上 円未満 1 88,000 ～ 93,000 16,104.00 8,052.00 2", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和８年３月分（４月納付分）からの 健康保険・厚生年金保険の保険料額表 ・健康保険料率：令和8年3月分～適用 ・厚生年金保険料率：平成29年9月分～適用", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/hoshu/20150515-01.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第81条第4項", quote: "平成二十九年九月以後の月分千分の百八十三・〇〇"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/ryogaku/ryogakuhyo/20200825.files/R08ryougaku.pdf", retrievedAt: "2026-10-08", sha256: "17cb4adcce3e25646fd48c73ae6fc79dc25a372276a47e31364ae08e7bfa1d5c", locator: "日本年金機構 厚生年金保険料額表（令和8年度版）", quote: "厚生年金保険料率（平成29年9月1日～　適用）"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "平成29年9月分から固定"}
+    approval: {method: "pendingReview", paths: 2, note: "18.3%（平成29年9月分から固定）。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま"}

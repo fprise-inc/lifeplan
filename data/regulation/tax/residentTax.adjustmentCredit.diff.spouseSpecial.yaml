@@ -7,14 +7,16 @@ entries:
   - rev: 1
     appliesFrom: "2026-06-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2021-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: 0
     sources:
-      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370599.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の6第1号イの表（7）（配偶者特別控除の差は配偶者の合計所得金額55万円未満の場合だけ）", quote: "前年の合計所得金額が五十五万円未満である者に限る"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", sha256: "1c747b3916abba6d8ae22bb4f22ef05b42b6a19f2b3b0ef5373aa0a6740f72b8", locator: "配偶者特別控除の表（※2・※3）", quote: "住民税と所得税の配偶者特別控除額が同額のため人的控除額の差額はありません"}
+      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370599.html", retrievedAt: "2026-10-08", sha256: "d97a23b8c13d97922309d22259950d790c7906bb9a1c4a2fe854c26c39ff6200", locator: "調整控除の（注1）", quote: "配偶者特別控除および特定親族特別控除は人的控除の差はないものとして計算します"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和8年度から配偶者特別控除の対象は配偶者の合計所得金額58万円超なので、55万円未満の場合の差（5万・3万円）は生じず0円"}

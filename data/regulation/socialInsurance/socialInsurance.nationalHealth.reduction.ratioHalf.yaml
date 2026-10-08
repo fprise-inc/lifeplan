@@ -14,6 +14,6 @@ entries:
     value: "0.5"
     sources:
       - {type: "web", url: "https://www.nishi.or.jp/kurashi/kokuminkenkohoken/hokenryo/keigen/kokuho-keigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}

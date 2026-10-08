@@ -14,6 +14,6 @@ entries:
     value: {mode: "HALF_UP", unit: 10}
     sources:
       - {type: "web", url: "https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryogaku.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "保険料の表の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 1, note: "17,000×1.054＝17,918→17,920、×1.076＝18,292→18,290 と合う。四捨五入かは原本で確認する"}

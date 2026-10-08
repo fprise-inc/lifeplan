@@ -15,6 +15,6 @@ entries:
     sources:
       - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_40211.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
       - {type: "web", url: "https://www.kaiketsu-j.com/?p=10570", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "全国の介護保険料基準額（月額・全国加重平均）は6,225円（第8期は6,014円）", note: "民間の記事の要約"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 3, note: "第10期（令和9年度から）は未定。市町村の基準額は世帯の入力（premiumRates）で上書きする"}

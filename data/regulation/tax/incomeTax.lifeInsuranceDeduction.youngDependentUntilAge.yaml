@@ -8,14 +8,15 @@ entries:
   - rev: 1
     appliesFrom: "2025-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: 23
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年分以降・23歳未満の扶養親族がいる場合", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/koho/kurashi/html/04_2.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261201_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "44a748db9b74bc69b283f9eedbfc1079a20fb8f74b5902759ee565573fbeebad", locator: "租税特別措置法 第41条の15の5第1項", quote: "居住者が年齢二十三歳未満の扶養親族"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "7ページ 2⑴", quote: "年齢23歳未満の扶養親族を有する場合の一般生命保険料"}
+      - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261201_508AC0000000012"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "判定はその年12月31日の現況（同条2項）"}

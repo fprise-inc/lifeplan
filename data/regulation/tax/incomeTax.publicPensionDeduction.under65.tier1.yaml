@@ -20,6 +20,6 @@ entries:
     sources:
       - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/205.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "A × 25％＋27万5,000円、A × 25％＋17万5,000円、A × 25％＋7万5,000円", note: "検索の要約（原本は未取得）"}
       - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2026/pdf/205.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "410万円超 770万円以下 ... A × 15％＋68万5,000円 A × 15％＋58万5,000円 A × 15％＋48万5,000円", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2, note: "令和7年分・令和8年分の国税庁の表で同じ式。境目で式の値がつながること、1,000万円超・2,000万円超の列が一律10万円・20万円少ないことも算術で確かめた。令和2年分以後の表として置いた"}

@@ -14,8 +14,9 @@ entries:
     conditions: []
     value: 70
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/shinsei/kounen/tekiyo/hihokensha/20140218.files/70toutatushousaisetumei.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/topics/2019/2019031501.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第9条", quote: "七十歳未満の者は、厚生年金保険の被保険者とする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/shinsei/kounen/tekiyo/hihokensha/20140218.files/70toutatushousaisetumei.pdf", retrievedAt: "2026-10-08", sha256: "216ecbede85fa84b70b65cdc8263eb34b5f409144c86e44572d20321ce6566a4", locator: "日本年金機構 70歳到達届の説明", quote: "70歳到達日（誕生日の前日）"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "70歳に達した日（誕生日の前日）に資格を失う（ageSwitch: reachMonth）。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま"}

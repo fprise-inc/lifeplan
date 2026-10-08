@@ -15,6 +15,6 @@ entries:
     sources:
       - {type: "web", url: "https://www.mhlw.go.jp/content/11900000/001599643.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "休業開始時賃金日額（※２）×支給日数（28日が上限）×13％により算出", note: "検索の要約（原本は未取得）"}
       - {type: "web", url: "https://jsite.mhlw.go.jp/ishikawa-roudoukyoku/content/contents/002180799.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2, note: "28日の休業をとるとみなす"}

@@ -14,7 +14,7 @@ entries:
     value: "notApplicable"
     sources:
       - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_72371.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2}
   - rev: 2
@@ -28,6 +28,6 @@ entries:
     sources:
       - {type: "web", url: "https://www.kaiketsu-j.com/?p=21702", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "全国平均は一人当たり月額194円、年額2333円です。内訳は被保険者均等割額が年額1351円（月額112円）、所得割率が0.25％", note: "民間の記事の要約"}
       - {type: "web", url: "https://www.psrn.jp/topics/detail.php?id=40646", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2, note: "令和9年度の率は令和8年度中に改めて算定される"}

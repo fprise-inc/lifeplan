@@ -15,6 +15,6 @@ entries:
     sources:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/benefit/childbirth/002/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "産科医療補償制度加入機関で在胎週数22週以降の出産 1児につき50万円", note: "検索の要約（原本は未取得）"}
       - {type: "web", url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/shussan/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "出産育児一時金の支給額は、令和５年４月から、それまでの原則42万円から原則50万円に13年ぶりに引き上げられました", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2, note: "出産費用の保険適用（令和8年法律第31号）は施行日が未定のため入れていない"}

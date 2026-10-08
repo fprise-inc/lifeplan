@@ -15,7 +15,7 @@ entries:
     sources:
       - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/tekiyo/jigyosho/tanjikan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
       - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}
   - rev: 2
@@ -29,6 +29,6 @@ entries:
     sources:
       - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/jigyosho/2026/202610/100104.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "2026（令和8）年10月に社会保険の短時間労働者に係る賃金要件が撤廃されました", note: "ページの題名（原本は未取得）"}
       - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2, note: "最低賃金の減額特例の対象者（原則は加入しない）は扱わない"}

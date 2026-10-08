@@ -14,6 +14,6 @@ entries:
     value: "0.7"
     sources:
       - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "医療分7割軽減対象者は、令和8・9年度のみ特例措置により7.2割軽減となり、子ども分は、特例措置がないため7割軽減", note: "検索の要約（原本は未取得）"}
-    recordedIn: "2026.3.0"
+    recordedIn: "2026.4.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2}
