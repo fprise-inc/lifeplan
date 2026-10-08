@@ -7,28 +7,30 @@ import {
   fiscalYearStart,
   formatYm,
   monthIndex,
+  paidByYear,
   parseYm,
   RATE_ONE,
   RATE_ZERO,
   yearOf,
   type CategoryOutput,
   type Flow,
+  type PremiumOutput,
   type Yen,
 } from "../../sdk/index.ts";
 
 const PREMIUM = "socialInsurance.nationalPension.premium";
 const ROUND = "socialInsurance.nationalPension.premium.rounding";
 
-export default defineComponent<{ member: string; fromYear: number }, { flows: Flow[] }>({
+export default defineComponent<{ member: string; fromYear: number }, PremiumOutput>({
   id: "socialInsurance.nationalPension",
   title: "国民年金保険料",
-  contract: "1.0",
-  revision: 1,
+  contract: "1.1",
+  revision: 2,
   requires: { "pension.category": ">=1 <2" },
   params: [PREMIUM, ROUND],
   reads: ["assumptions.wageGrowth"],
   input: "socialInsurance.premium.input",
-  output: "flows.output",
+  output: "socialInsurance.premium.output",
   compute(input, ctx) {
     const months = ctx.call<CategoryOutput>("pension.category", { member: input.member }).months;
     const first = monthIndex(input.fromYear - 1, 12);
@@ -69,6 +71,6 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
       }
     }
     if (projected.length > 0) ctx.notice("N_PARAM_PROJECTED", [PREMIUM, String(Math.min(...projected)), String(Math.max(...projected))]);
-    return { flows };
+    return { flows, paidByYear: paidByYear(flows) };
   },
 });

@@ -1,19 +1,19 @@
 // 厚生年金保険料の被保険者負担分: 標準報酬月額（賞与は標準賞与額）×保険料率÷2 を丸める
-import { defineComponent, parseYm, rate, yearOf, type CoverageOutput, type Flow, type Yen } from "../../sdk/index.ts";
+import { defineComponent, paidByYear, parseYm, rate, yearOf, type CoverageOutput, type Flow, type PremiumOutput, type Yen } from "../../sdk/index.ts";
 
 const ROUNDING = "socialInsurance.employeeShare.rounding";
 
-export default defineComponent<{ member: string; fromYear: number }, { flows: Flow[] }>({
+export default defineComponent<{ member: string; fromYear: number }, PremiumOutput>({
   id: "socialInsurance.pension",
   title: "厚生年金保険料",
-  contract: "1.0",
-  revision: 2,
+  contract: "1.1",
+  revision: 3,
   requires: { "socialInsurance.coverage": ">=1 <2" },
   params: ["socialInsurance.pension.rate", ROUNDING],
   reads: [],
   replaceable: true,
   input: "socialInsurance.premium.input",
-  output: "flows.output",
+  output: "socialInsurance.premium.output",
   compute(input, ctx) {
     const cov = ctx.call<CoverageOutput>("socialInsurance.coverage", input);
     const flows: Flow[] = [];
@@ -27,6 +27,6 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
     };
     for (const c of cov.months) if (c.pensionStd !== null && c.exempt !== true) one(c.month, c.paidIn, c.pensionStd, c.period, "socialInsurance.pension.monthly");
     for (const b of cov.bonuses) if (b.pensionStdBonus !== null && b.exempt !== true) one(b.month, b.month, b.pensionStdBonus, b.period, "socialInsurance.pension.bonus");
-    return { flows };
+    return { flows, paidByYear: paidByYear(flows) };
   },
 });

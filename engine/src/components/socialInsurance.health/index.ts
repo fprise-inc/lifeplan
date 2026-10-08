@@ -3,6 +3,7 @@
 // 表の行は、介護・支援金をそれぞれ同じ規則で丸めた額とし、残りを健康保険に寄せる
 import {
   boxValue,
+  paidByYear,
   defineComponent,
   parseYm,
   rate,
@@ -14,6 +15,7 @@ import {
   type Ctx,
   type EmploymentPeriodInput,
   type Flow,
+  type PremiumOutput,
   type MonthIndex,
   type Rate,
   type ValueBox,
@@ -65,11 +67,11 @@ function split(ctx: Ctx, m: MonthIndex, base: Yen, r: Rates): [Yen, Yen, Yen] {
   return [subYen(subYen(total, care), cs), care, cs];
 }
 
-export default defineComponent<{ member: string; fromYear: number }, { flows: Flow[] }>({
+export default defineComponent<{ member: string; fromYear: number }, PremiumOutput>({
   id: "socialInsurance.health",
   title: "健康保険料・介護保険料・子ども・子育て支援金",
-  contract: "1.0",
-  revision: 2,
+  contract: "1.1",
+  revision: 3,
   requires: { "socialInsurance.coverage": ">=1 <2" },
   params: [
     "socialInsurance.health.kyokaikenpo.rate",
@@ -86,7 +88,7 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
   ],
   replaceable: true,
   input: "socialInsurance.premium.input",
-  output: "flows.output",
+  output: "socialInsurance.premium.output",
   compute(input, ctx) {
     const cov = ctx.call<CoverageOutput>("socialInsurance.coverage", input);
     const flows: Flow[] = [];
@@ -111,6 +113,6 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
       push("cf.taxSi.care", b.month, care, yearOf(m), b.period, "socialInsurance.care.bonus");
       push("cf.taxSi.childSupport", b.month, cs, yearOf(m), b.period, "socialInsurance.childSupport.bonus");
     }
-    return { flows };
+    return { flows, paidByYear: paidByYear(flows) };
   },
 });

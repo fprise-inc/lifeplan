@@ -24,7 +24,16 @@ export function pow10(k: number): Int {
   return b;
 }
 
+const POW10_BIG: bigint[] = [];
+
 export function pow10Big(k: number): bigint {
+  if (Number.isInteger(k) && k >= 0 && k < 64) {
+    const hit = POW10_BIG[k];
+    if (hit !== undefined) return hit;
+    const v = BigInt(pow10(k));
+    POW10_BIG[k] = v;
+    return v;
+  }
   return BigInt(pow10(k));
 }
 

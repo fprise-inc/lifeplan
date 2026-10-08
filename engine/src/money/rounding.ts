@@ -25,7 +25,7 @@ function apply(num: Int, den: Int, rule: RoundingRule): Rounded {
 
 /** 金額×率 */
 export function mulRate(amount: Yen, r: Rate, rule: RoundingRule): Rounded {
-  return apply(mulInt(amount, r.units), pow10(r.scale), rule);
+  return apply(mulInt(amount, r.n ?? r.units), pow10(r.scale), rule);
 }
 
 /** 金額×num÷den（按分・日割り・持分） */
@@ -47,7 +47,7 @@ export function round(amount: Yen, rule: RoundingRule): Rounded {
 /** 外貨を円に換える。fxRate は「外貨1単位あたりの円」 */
 export function convert(m: Money, fxRate: Rate, rule: RoundingRule): Rounded {
   // 円 = amount ÷ 10^minor × fx = amount × fx.units ÷ (10^minor × 10^fx.scale)
-  return apply(mulInt(m.amount, fxRate.units), mulInt(pow10(minorUnit(m.currency)), pow10(fxRate.scale)), rule);
+  return apply(mulInt(m.amount, fxRate.n ?? fxRate.units), mulInt(pow10(minorUnit(m.currency)), pow10(fxRate.scale)), rule);
 }
 
 export type RemainderTo = "first" | "last" | number;

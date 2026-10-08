@@ -34,20 +34,39 @@ const P = {
   round: "pension.amount.rounding",
 };
 
-/** 制度データに無い年度は、最後の値に改定率の比を掛けて延ばす（0007 の7: 連動する値） */
-function indexed(ctx: Ctx, m: MonthIndex, id: string, member: string, R: (fy: number) => string, projected: Map<string, number[]>): Yen | null {
+/** 制度データに無い年度は、最後の値に改定率の比を掛けて延ばす（0007 の7: 連動する値）。back は「fy より前で値のある最後の年度」を探した結果の使い回し */
+function indexed(
+  ctx: Ctx,
+  m: MonthIndex,
+  id: string,
+  member: string,
+  R: (fy: number) => string,
+  projected: Map<string, number[]>,
+  backs: Map<string, number | null>,
+): Yen | null {
   const fy = fiscalYearOf(m);
   if (ctx.at(m).has(id, { member })) {
     const v = ctx.at(m).paramYen(id, { member });
     if (v !== null) return v;
   }
-  for (let back = fy - 1; back >= fy - 100; back--) {
-    const at = ctx.at(fiscalYearStart(back));
-    if (!at.has(id, { member })) continue;
-    const v = at.paramYen(id, { member });
-    if (v === null) continue;
+  const key = `${id}|${fy}`;
+  let found = backs.get(key);
+  if (found === undefined) {
+    found = null;
+    for (let back = fy - 1; back >= fy - 100; back--) {
+      const at = ctx.at(fiscalYearStart(back));
+      if (!at.has(id, { member })) continue;
+      if (at.paramYen(id, { member }) === null) continue;
+      found = back;
+      break;
+    }
+    backs.set(key, found);
+  }
+  if (found !== null) {
+    const at = ctx.at(fiscalYearStart(found));
+    const v = at.paramYen(id, { member }) as Yen;
     projected.set(id, [...(projected.get(id) ?? []), fy]);
-    return at.money.mulRate(v, ctx.rate.div(ctx.rate.of(R(fy)), ctx.rate.of(R(back))), P.round);
+    return at.money.mulRate(v, ctx.rate.div(ctx.rate.of(R(fy)), ctx.rate.of(R(found))), P.round);
   }
   return ctx.at(m).paramYen(id, { member });
 }
@@ -84,6 +103,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
     const others = ctx.list<MemberInput>("member").filter((m) => m.leaves === null || ctx.time.resolve(m.leaves) > base);
     const cache = new Map<number, boolean>();
     const projected = new Map<string, number[]>();
+    const backs = new Map<string, number | null>();
     // 10月から翌年9月は、その年（判定の年度）の住民税と前年の所得で決める
     const eligible = (y: number): boolean => {
       let v = cache.get(y);
@@ -92,7 +112,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
       const pensionIncome = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member, year: y - 1 });
       const total = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: y - 1 }).total;
       const measure = pensionIncome.revenue + (total - pensionIncome.income);
-      const limit = indexed(ctx, monthIndex(y, 10), P.limit, member, R, projected);
+      const limit = indexed(ctx, monthIndex(y, 10), P.limit, member, R, projected, backs);
       v = exemptAll && limit !== null && measure <= limit;
       cache.set(y, v);
       return v;
@@ -103,7 +123,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
       if (!basicMonths.has(formatYm(m))) continue;
       const judge = monthOf(m) >= 10 ? yearOf(m) : yearOf(m) - 1;
       if (!eligible(judge)) continue;
-      const b = indexed(ctx, m, P.base, member, R, projected);
+      const b = indexed(ctx, m, P.base, member, R, projected, backs);
       if (b === null) continue;
       const max = ctx.at(m).paramCount(P.maxMonths) ?? 480;
       monthly.set(formatYm(m), ctx.at(m).money.mulRatio(b, Math.min(paid, max), max, P.round));

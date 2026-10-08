@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:socialInsurance.premium.output",
+  "title": "保険料（被用者保険・国民年金）の部品の出力",
+  "description": "flows は保険料の支払い。paidByYear（約束の版 MINOR で足した任意の欄）は flows を支払月の暦年ごとに足した額で、社会保険料控除が年ごとに全体をなめずに引くためのもの。無いときは flows から数える",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "paidByYear": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["year", "amount"],
+        "properties": {
+          "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+        }
+      }
+    }
+  }
+}

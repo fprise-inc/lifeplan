@@ -5,10 +5,9 @@ import {
   bracketFor,
   defineComponent,
   monthIndex,
-  parseYm,
+  paymentsInYear,
   RATE_ZERO,
   subYen,
-  yearOf,
   yen,
   type Bracket,
   type Ctx,
@@ -42,7 +41,7 @@ export default defineComponent<{ member: string; year: number; revenue?: number 
     if (input.revenue !== undefined) revenue = yen(input.revenue);
     else {
       const { payments } = ctx.call<SalaryOutput>("income.salary", { member: input.member });
-      for (const p of payments) if (yearOf(parseYm(p.ym)) === input.year) revenue = yen(revenue + p.salary + p.bonus);
+      for (const p of paymentsInYear(payments, input.year)) revenue = yen(revenue + p.salary + p.bonus);
     }
     if (revenue === 0) return { revenue, deduction: yen(0), income: yen(0) };
     const at = ctx.at(monthIndex(input.year, 1));

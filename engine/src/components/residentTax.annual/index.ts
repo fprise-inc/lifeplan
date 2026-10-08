@@ -15,6 +15,7 @@ import {
   defineComponent,
   formatYm,
   monthIndex,
+  paymentsIn,
   subYen,
   yen,
   type Ctx,
@@ -114,12 +115,9 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
     const { member, fiscalYear } = input;
     const incomeYear = fiscalYear - 1;
     const given = ctx.list<ResidentTaxAssessmentInput>("residentTaxAssessment").find((a) => a.member === member && a.fiscalYear === fiscalYear);
-    const paid = new Set(
-      ctx
-        .call<SalaryOutput>("income.salary", { member })
-        .payments.filter((p) => p.salary > 0)
-        .map((p) => p.ym),
-    );
+    // 給与を受ける月か（支払いは月の昇順なので、その月の支払いだけを二分探索で見る）
+    const payments = ctx.call<SalaryOutput>("income.salary", { member }).payments;
+    const paid = { has: (ym: string) => paymentsIn(payments, ym, ym).some((p) => p.salary > 0) };
     const salarySpecial = (fy: number, g: ResidentTaxAssessmentInput | undefined) =>
       g?.collection !== undefined ? g.collection === "special" : paid.has(formatYm(monthIndex(fy, 6)));
     // 年度の税額と、そのうち年金から差し引く額

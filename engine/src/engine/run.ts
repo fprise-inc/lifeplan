@@ -57,8 +57,34 @@ function compareAnnual(a: AnnualRow, b: AnnualRow): number {
   return cmp(a.year, b.year) || cmp(a.row, b.row) || cmp(a.member ?? "", b.member ?? "") || cmp(a.object ?? "", b.object ?? "");
 }
 
-function stripUndefined<T extends object>(o: T): T {
-  return JSON.parse(JSON.stringify(o)) as T;
+/** 値が undefined の欄を除いた写し（JSON にしたときと同じ形。undefined の無い物はそのまま使う） */
+function stripUndefined<T>(v: T): T {
+  if (v === null || typeof v !== "object") return v;
+  if (Array.isArray(v)) {
+    let out: unknown[] | null = null;
+    for (let i = 0; i < v.length; i++) {
+      const x = v[i] as unknown;
+      const y = x === undefined ? null : stripUndefined(x);
+      if (y !== x && out === null) out = v.slice(0, i);
+      if (out !== null) out.push(y);
+    }
+    return (out ?? v) as T;
+  }
+  let out: Record<string, unknown> | null = null;
+  const keys = Object.keys(v);
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i] as string;
+    const x = (v as Record<string, unknown>)[k];
+    const y = x === undefined ? undefined : stripUndefined(x);
+    if (y !== x || x === undefined) {
+      if (out === null) {
+        out = {};
+        for (let j = 0; j < i; j++) out[keys[j] as string] = (v as Record<string, unknown>)[keys[j] as string];
+      }
+    }
+    if (out !== null && y !== undefined) out[k] = y;
+  }
+  return (out ?? v) as T;
 }
 
 const baseYearOf = (m: number) => yearOf(m as never);
@@ -151,6 +177,8 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     cache: new Map(),
     provenance: new Map(),
     stack: [],
+    params: new Map(),
+    hasParams: new Map(),
   };
   const rootId = options.entry?.component ?? ROOT_COMPONENT;
   const root = assembly.impls.get(rootId);

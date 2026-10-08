@@ -9,6 +9,7 @@ import {
   defineComponent,
   formatYm,
   monthIndex,
+  paymentsInYear,
   subYen,
   yearOf,
   yen,
@@ -99,14 +100,10 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
     const t = taxOf(ctx, at, total, ded.total);
     const annual = t.annual;
     const detail = { taxable: t.taxable, computedTax: t.computedTax, reconstructionSurtax: t.reconstructionSurtax, defenseSurtax: t.defenseSurtax };
-    const salaryPays = ctx
-      .call<SalaryOutput>("income.salary", { member })
-      .payments.filter((p) => p.ym.startsWith(`${year}-`) && p.salary + p.bonus > 0)
+    const salaryPays = paymentsInYear(ctx.call<SalaryOutput>("income.salary", { member }).payments, year)
+      .filter((p) => p.salary + p.bonus > 0)
       .map((p) => ({ ym: p.ym, weight: p.salary + p.bonus }));
-    const pensionPays = ctx
-      .call<PensionOutput>("pension.oldAge", { member })
-      .payments.filter((p) => p.ym.startsWith(`${year}-`))
-      .map((p) => ({ ym: p.ym, weight: p.amount as number }));
+    const pensionPays = paymentsInYear(ctx.call<PensionOutput>("pension.oldAge", { member }).payments, year).map((p) => ({ ym: p.ym, weight: p.amount as number }));
     const yearEnd = salaryPays.some((p) => p.ym === formatYm(monthIndex(year, 12)));
     const pensionIncome = inc.publicPension ?? yen(0);
     const other = inc.other ?? yen(0);

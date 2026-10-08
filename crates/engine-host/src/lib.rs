@@ -164,11 +164,20 @@ impl Sandbox {
 
     /// FinanciaEngine.run(request, packs, options) を呼ぶ
     pub fn run(&self, request: &str, packs: &str, options: &str) -> Result<String, HostError> {
+        self.call("run", request, packs, options)
+    }
+
+    /// FinanciaEngine.runBatch(requests, packs, options) を呼ぶ（requests は要求の JSON の配列。案×想定をまとめて計算し、同じになる部分を使い回す）
+    pub fn run_batch(&self, requests: &str, packs: &str, options: &str) -> Result<String, HostError> {
+        self.call("runBatch", requests, packs, options)
+    }
+
+    fn call(&self, name: &str, a: &str, packs: &str, options: &str) -> Result<String, HostError> {
         self.context.with(|ctx| {
             let call = || -> rquickjs::Result<String> {
                 let engine: Object = ctx.globals().get("FinanciaEngine")?;
-                let run: Function = engine.get("run")?;
-                run.call((request, packs, options))
+                let f: Function = engine.get(name)?;
+                f.call((a, packs, options))
             };
             call().catch(&ctx).map_err(|e| self.classify(e))
         })
