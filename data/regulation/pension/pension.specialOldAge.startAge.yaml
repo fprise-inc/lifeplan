@@ -16,11 +16,12 @@ entries:
       - {key: "birthDate", from: null, to: "1953-04-01"}
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条第1号", quote: "六十歳以上であること"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和28年4月2日～昭和30年4月1日に生まれた方"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "それより前に生まれた人（すでに65歳を過ぎた人）の区分と定額部分は置いていない（notApplicable）"}
+    approval: {method: "pendingReview", paths: 1, note: "この生年月日（すでに65歳を過ぎた人）は原本では開始年齢60歳（附則8条。表の前の区分）だが、データでは置いていない（notApplicable）。モデルの選択なので確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2013-04-01"
     appliesTo: null
@@ -32,11 +33,12 @@ entries:
       - {key: "birthDate", from: "1953-04-02", to: "1955-04-01"}
     value: 61
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条の2第1項（男子）", quote: "昭和二十八年四月二日から昭和三十年四月一日までの間に生まれた者六十一歳"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和28年4月2日～昭和30年4月1日に生まれた方"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "条文の表と日本年金機構の図（男性と女性は5年ずれ）が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 3
     appliesFrom: "2013-04-01"
     appliesTo: null
@@ -48,11 +50,12 @@ entries:
       - {key: "birthDate", from: "1955-04-02", to: "1957-04-01"}
     value: 62
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条の2第1項（男子）", quote: "昭和三十年四月二日から昭和三十二年四月一日までの間に生まれた者六十二歳"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和30年4月2日～昭和32年4月1日に生まれた方"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "条文の表と日本年金機構の図（男性と女性は5年ずれ）が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 4
     appliesFrom: "2013-04-01"
     appliesTo: null
@@ -64,11 +67,12 @@ entries:
       - {key: "birthDate", from: "1957-04-02", to: "1959-04-01"}
     value: 63
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条の2第1項（男子）", quote: "昭和三十二年四月二日から昭和三十四年四月一日までの間に生まれた者六十三歳"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和32年4月2日～昭和34年4月1日に生まれた方"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "条文の表と日本年金機構の図（男性と女性は5年ずれ）が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 5
     appliesFrom: "2013-04-01"
     appliesTo: null
@@ -80,11 +84,12 @@ entries:
       - {key: "birthDate", from: "1959-04-02", to: "1961-04-01"}
     value: 64
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条の2第1項（男子）", quote: "昭和三十四年四月二日から昭和三十六年四月一日までの間に生まれた者六十四歳"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和34年4月2日～昭和36年4月1日に生まれた方"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "条文の表と日本年金機構の図（男性と女性は5年ずれ）が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 6
     appliesFrom: "2013-04-01"
     appliesTo: null
@@ -96,11 +101,13 @@ entries:
       - {key: "birthDate", from: "1961-04-02", to: null}
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", sha256: "0bb0d1a36d66d19a5bc35efde51c20ec47dc3ca8509805cd4e46bdcc36b893d1", locator: "日本年金機構「特別支給の老齢厚生年金」", quote: "男性の場合、昭和36年4月1日以前に生まれたこと"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条の2第1項（男子）", quote: "昭和三十四年四月二日から昭和三十六年四月一日までの間に生まれた者六十四歳"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和36年4月2日以降に生まれた方"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "支給の対象外（男性は昭和36年4月2日以後、女性は昭和41年4月2日以後生まれ）。条文の表の終わりと日本年金機構の説明が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 7
     appliesFrom: "2013-04-01"
     appliesTo: null
@@ -112,11 +119,12 @@ entries:
       - {key: "birthDate", from: null, to: "1958-04-01"}
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条第1号", quote: "六十歳以上であること"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和33年4月2日～昭和35年4月1日に生まれた方"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "それより前に生まれた人（すでに65歳を過ぎた人）の区分と定額部分は置いていない（notApplicable）"}
+    approval: {method: "pendingReview", paths: 1, note: "この生年月日（すでに65歳を過ぎた人）は原本では開始年齢60歳（附則8条。表の前の区分）だが、データでは置いていない（notApplicable）。モデルの選択なので確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 8
     appliesFrom: "2013-04-01"
     appliesTo: null
@@ -128,11 +136,12 @@ entries:
       - {key: "birthDate", from: "1958-04-02", to: "1960-04-01"}
     value: 61
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条の2第2項（女子・第1号厚生年金被保険者期間）", quote: "昭和三十三年四月二日から昭和三十五年四月一日までの間に生まれた者六十一歳"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和33年4月2日～昭和35年4月1日に生まれた方"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "pendingReview", paths: 2, note: "条文の表と日本年金機構の図（男性と女性は5年ずれ）が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 9
     appliesFrom: "2013-04-01"
     appliesTo: null
@@ -144,11 +153,12 @@ entries:
       - {key: "birthDate", from: "1960-04-02", to: "1962-04-01"}
     value: 62
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条の2第2項（女子・第1号厚生年金被保険者期間）", quote: "昭和三十五年四月二日から昭和三十七年四月一日までの間に生まれた者六十二歳"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和35年4月2日～昭和37年4月1日に生まれた方"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "pendingReview", paths: 2, note: "条文の表と日本年金機構の図（男性と女性は5年ずれ）が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 10
     appliesFrom: "2013-04-01"
     appliesTo: null
@@ -160,11 +170,13 @@ entries:
       - {key: "birthDate", from: "1962-04-02", to: "1964-04-01"}
     value: 63
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条の2第2項（女子・第1号厚生年金被保険者期間）", quote: "昭和三十七年四月二日から昭和三十九年四月一日までの間に生まれた者六十三歳"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和37年4月2日～昭和39年4月1日に生まれた方"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", sha256: "21bab66384cfbc5a5ea87e18e8497455cd569e6466976620828e329cf66f8d81", locator: "日本年金機構「年金請求書（事前送付用）」", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "条文の表と日本年金機構の図（男性と女性は5年ずれ）が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 11
     appliesFrom: "2013-04-01"
     appliesTo: null
@@ -176,11 +188,12 @@ entries:
       - {key: "birthDate", from: "1964-04-02", to: "1966-04-01"}
     value: 64
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条の2第2項（女子・第1号厚生年金被保険者期間）", quote: "昭和三十九年四月二日から昭和四十一年四月一日までの間に生まれた者六十四歳"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和39年4月2日～昭和41年4月1日に生まれた方"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "pendingReview", paths: 2, note: "条文の表と日本年金機構の図（男性と女性は5年ずれ）が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 12
     appliesFrom: "2013-04-01"
     appliesTo: null
@@ -192,8 +205,10 @@ entries:
       - {key: "birthDate", from: "1966-04-02", to: null}
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", sha256: "0bb0d1a36d66d19a5bc35efde51c20ec47dc3ca8509805cd4e46bdcc36b893d1", locator: "日本年金機構「特別支給の老齢厚生年金」", quote: "女性の場合、昭和41年4月1日以前に生まれたこと"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則第8条の2第2項（女子・第1号厚生年金被保険者期間）", quote: "昭和三十九年四月二日から昭和四十一年四月一日までの間に生まれた者六十四歳"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」特別支給の老齢厚生年金の図", quote: "昭和41年4月2日以降に生まれた方"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "pendingReview", paths: 2, note: "支給の対象外（男性は昭和36年4月2日以後、女性は昭和41年4月2日以後生まれ）。条文の表の終わりと日本年金機構の説明が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

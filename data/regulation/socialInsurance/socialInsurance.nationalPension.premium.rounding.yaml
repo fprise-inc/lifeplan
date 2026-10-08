@@ -13,7 +13,9 @@ entries:
     conditions: []
     value: {mode: "HALF_UP", unit: 10}
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryogaku.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "保険料の表の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 第87条第3項", quote: "その額に五円未満の端数が生じたときは、これを切り捨て、五円以上十円未満の端数が生じたときは、これを十円に切り上げるものとする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryogaku.html", retrievedAt: "2026-10-08", sha256: "dd9fb2acadc787c06e398888806afcf5bfdfe189bc20878312a4a05cea595440", locator: "日本年金機構「国民年金保険料の変遷」（保険料改定率と保険料額）", quote: "1.05417,00017,920"}
+      - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "17,000×1.054＝17,918→17,920、×1.076＝18,292→18,290 と合う。四捨五入かは原本で確認する"}
+    approval: {method: "pendingReview", paths: 2, note: "条文（5円未満切り捨て・5円以上切り上げ＝10円単位の四捨五入）と日本年金機構の表（17,000円×1.054＝17,918→17,920円）が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

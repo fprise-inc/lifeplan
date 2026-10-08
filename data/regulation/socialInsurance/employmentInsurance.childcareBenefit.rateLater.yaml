@@ -7,14 +7,15 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2020-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: "0.5"
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000158500.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "181日目以降「月額15万円程度」", note: "Q&A の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001551858.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", retrievedAt: "2026-10-08", sha256: "69db3a60873d47999b6f5d4ad13e0b804eb87792ee84b5c0a89bda9b1f48dfdc", locator: "雇用保険法 第61条の7第6項", quote: "支給日数」という。）を乗じて得た額の百分の五十"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000158500.html", retrievedAt: "2026-10-08", sha256: "91117cde9667bb1ea4b898406df25308081bd81eb3857055bc8dc327b9a70dd1", locator: "厚生労働省「育児休業等給付について」Q&A", quote: "平均して月額20万円程度の場合、育児休業開始から180日目までの支給額は月額13.4万円程度、181日目以降の支給額は月額10万円程度"}
+      - {type: "law", lawNumber: "昭和四十九年法律第百十六号", egovRevisionId: "349AC0000000116_20260513_507AC0000000032"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}
+    approval: {method: "reviewed", paths: 2, note: "条文と厚生労働省の説明（月額20万円→181日目以降10万円）が一致。施行日は現行の文言が最初に現れた版（e-Gov の改正履歴）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

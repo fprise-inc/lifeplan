@@ -13,7 +13,9 @@ entries:
     conditions: []
     value: 150000
     sources:
-      - {type: "web", url: "https://www.city.nagoya.jp/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "名古屋市の説明の要約（原本は未取得）。ページのURLの細部は未取得"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/333CO0000000362_20260801_508CO0000000240?response_format=xml", retrievedAt: "2026-10-08", sha256: "41e7dffd51eedd191464031e1e88e71ec62744e32f50ecabdd72ee4d503d0cfa", locator: "国民健康保険法施行令 附則（公的年金等に係る所得の特例）", quote: "同条第二項第一号の規定によつて計算した金額から十五万円を控除した金額"}
+      - {type: "web", url: "https://www.pref.miyagi.jp/soshiki/kkh-iryou/kokuho25.html", retrievedAt: "2026-10-08", sha256: "a5752c2de4b4a5b38ee84a6970bce2f1bef1b79ab0b9f9ef39f4eda590016b39", locator: "宮城県「国民健康保険の保険料（税）の軽減」", quote: "減額割合と対象者の要件の表減額割合対象者の要件（令和7年度）"}
+      - {type: "law", lawNumber: "昭和三十三年政令第三百六十二号", egovRevisionId: "333CO0000000362_20260801_508CO0000000240"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}
+    approval: {method: "pendingReview", paths: 1, note: "施行令の附則（65歳以上の公的年金の所得から15万円を引く）。自治体の説明で15万円を明示するものは取得した資料に無い。施行日も含め確認待ち。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

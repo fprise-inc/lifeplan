@@ -13,9 +13,9 @@ entries:
     conditions: []
     value: 100000
     sources:
-      - {type: "web", url: "https://www.city.edogawa.tokyo.jp/e013/kurashi/zeikin/juminzei/zei_gaiyo/hikazei.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "同一生計配偶者、扶養親族がいない場合 45万円、同一生計配偶者、扶養親族がいる場合 35万円×(同一生計配偶者+扶養親族+1)+31万円", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.nerima.tokyo.jp/kurashi/zei/jyuminzei/hikazeikijun/juuminzei-hikazei.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nishi.or.jp/kurashi/shizei/kojinshiminzei/zeisei/zeiseikaisei2026.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "変更ありません。", note: "令和8年度の FAQ「住民税の非課税基準は変更されますか。」への答えの要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325CO0000000245_20260822_508CO0000000251?response_format=xml", retrievedAt: "2026-10-08", sha256: "dcad6b9cf9fe8ec5eb3e505486e5739b00e6471101ad3e1787418ef686d58ebe", locator: "地方税法施行令 第47条の3第1項（均等割の非課税の基準）", quote: "の数に一を加えた数を乗じて得た金額に、十万円を加算した金額"}
+      - {type: "web", url: "https://www.city.edogawa.tokyo.jp/e013/kurashi/zeikin/juminzei/zei_gaiyo/hikazei.html", retrievedAt: "2026-10-08", sha256: "abdb7c0b98d0a4d8ddf4c702667c020f29316b0b65370a1ba964e64d11090cd3", locator: "江戸川区「住民税が課税されない人」", quote: "同一生計配偶者、扶養親族がいない場合45万円"}
+      - {type: "law", lawNumber: "昭和二十五年政令第二百四十五号", egovRevisionId: "325CO0000000245_20260822_508CO0000000251"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和8年度・令和9年度で変わらないことを確認した。均等割の額は生活保護の級地で市町村ごとに違う（1級地の値。2級地 31.5万円・18.9万円、3級地 28万円・16.8万円）"}
+    approval: {method: "pendingReview", paths: 2, note: "施行令（上限の額）と1級地の江戸川区の説明が一致（10万円）。級地ごとの率は総務省令で、1級地の値を既定にする。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

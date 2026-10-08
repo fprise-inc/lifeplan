@@ -7,14 +7,16 @@ entries:
   - rev: 1
     appliesFrom: "2023-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2023-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 500000
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/benefit/childbirth/002/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "産科医療補償制度加入機関で在胎週数22週以降の出産 1児につき50万円", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/shussan/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "出産育児一時金の支給額は、令和５年４月から、それまでの原則42万円から原則50万円に13年ぶりに引き上げられました", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "76414ba1bf16291870f2efaa7d7edd9f1ed274ce108b88b31be6bb58d8f44ccb", locator: "健康保険法施行令 第36条", quote: "法第百一条の政令で定める金額は、四十八万八千円とする"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/benefit/childbirth/002/index.html", retrievedAt: "2026-10-08", sha256: "51926089a6b08fa683364f24aacf27bb94679c160aaaa568d4588c8166665957", locator: "協会けんぽ「出産で会社を休んだとき（出産育児一時金）」", quote: "1児につき50万円"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/shussan/index.html", retrievedAt: "2026-10-08", sha256: "0437953687151c58378d790bc616c76386beab5f375d2eface06740bf893a227", locator: "厚生労働省「出産育児一時金について」", quote: "お子さん１人につき原則50万円がご加入の保険者から支給される制度です"}
+      - {type: "law", lawNumber: "大正十五年勅令第二百四十三号", egovRevisionId: "215IO0000000243_20261001_508CO0000000276"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "出産費用の保険適用（令和8年法律第31号）は施行日が未定のため入れていない"}
+    approval: {method: "reviewed", paths: 2, note: "施行令36条（48.8万円＋産科医療補償制度の加算）と協会けんぽ・厚生労働省の説明（50万円）が一致。施行日は48.8万円の文言が最初に現れた版（e-Gov の改正履歴）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

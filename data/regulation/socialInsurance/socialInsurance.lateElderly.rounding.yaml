@@ -13,7 +13,8 @@ entries:
     conditions: []
     value: {mode: "DOWN", unit: 100}
     sources:
-      - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "子ども分の計算の説明の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", sha256: "6b52119fe2be72ed8f3737a6bde6844fe1cdb2b56b0e0bf232818a33e8bacf3e", locator: "東京都保健医療局「後期高齢者医療制度の保険料の軽減」", quote: "7.2割"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "子ども分を医療分と別に100円未満を切り捨てるという説明から。医療分の端数処理は広域連合の条例で確認する"}
+    approval: {method: "pendingReview", paths: 1, note: "東京都の説明だけ（子ども分を医療分と別に100円未満切り捨て）。端数処理は広域連合の条例で定めるため条例で確かめる。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

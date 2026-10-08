@@ -8,14 +8,15 @@ entries:
   - rev: 1
     appliesFrom: "2026-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 18
     sources:
-      - {type: "web", url: "https://www.city.hiroshima.lg.jp/soshiki/71/3086.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "18歳未満の加入者（18歳に達する日以後の最初の3月31日以前である被保険者）については、被保険者均等割が全額軽減されます。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.kasumigaura.lg.jp/data/doc/1774242228_doc_106_0.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/333CO0000000362_20260801_508CO0000000240?response_format=xml", retrievedAt: "2026-10-08", sha256: "41e7dffd51eedd191464031e1e88e71ec62744e32f50ecabdd72ee4d503d0cfa", locator: "国民健康保険法施行令 第29条の7第5項第3号", quote: "十八歳に達する日以後の最初の三月三十一日の翌日以後である被保険者"}
+      - {type: "web", url: "https://www.city.hiroshima.lg.jp/soshiki/71/3086.html", retrievedAt: "2026-10-08", sha256: "858cd73f825bd121c2f14cd1ef8ce62b1b307bc41b98f7bf136645a13f19e9cc", locator: "広島市「国民健康保険料」", quote: "18歳未満の加入者（18歳に達する日以後の最初の3月31日以前である被保険者）については、被保険者均等割が全額軽減されます"}
+      - {type: "law", lawNumber: "昭和三十三年政令第三百六十二号", egovRevisionId: "333CO0000000362_20260801_508CO0000000240"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "施行令と広島市の説明が一致。施行日は子ども・子育て支援納付金賦課額の規定の施行（e-Gov の改正履歴）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

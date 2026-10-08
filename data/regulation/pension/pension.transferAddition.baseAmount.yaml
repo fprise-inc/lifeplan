@@ -13,8 +13,9 @@ entries:
     conditions: []
     value: 224700
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.sroffice-ishikawa.com/index_68.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "(224,700円×改定率)×(老齢基礎年金の受給権者の生年月日に応じた一定の率)", note: "社労士の資料の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 附則（昭和60年法律第34号）第14条第1項", quote: "二十二万四千七百円に同法第二十七条に規定する改定率（以下「改定率」という。）を乗じて得た額"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "大正15年4月2日から昭和2年4月1日生まれ）の方については243,100円"}
+      - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和8年度の基準額243,100円（昭和31年4月1日以前生まれ）×0.067…の検算が公表値と一致"}
+    approval: {method: "pendingReview", paths: 2, note: "条文と日本年金機構の表が一致（224,700円×1.082→243,100円。昭和31年4月2日以後生まれの行は243,800円×率。改定率は受給する人の率）。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

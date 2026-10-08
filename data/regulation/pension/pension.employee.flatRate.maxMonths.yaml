@@ -13,7 +13,9 @@ entries:
     conditions: []
     value: 480
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/yougo/tagyo/teigakububun.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和21年4月2日以後生まれは480月を上限", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則（昭和60年法律第34号）第59条第2項第1号", quote: "当該月数が四百八十を超えるときは、四百八十とする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/yougo/tagyo/teigakububun.html", retrievedAt: "2026-10-08", sha256: "a8dc6aa89380c30ad0957db81019b40c6fb541c0d6b714ee1b4392dd2bc13e84", locator: "日本年金機構 年金用語集「定額部分」", quote: "昭和21年4月2日以後生まれは480月を上限とします"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "昭和21年4月1日以前生まれの上限は入れていない"}
+    approval: {method: "pendingReview", paths: 2, note: "条文と日本年金機構の説明が一致。昭和21年4月1日以前生まれの上限は入れていない。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

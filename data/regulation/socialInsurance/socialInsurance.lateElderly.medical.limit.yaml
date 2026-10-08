@@ -7,27 +7,30 @@ entries:
   - rev: 1
     appliesFrom: "2024-04-01"
     appliesTo: "2026-03-31"
-    enforcedOn: null
+    enforcedOn: "2024-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 800000
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001610193.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "年額80万円（令和６・７年度）に設定", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20250801_507CO0000000203?response_format=xml", retrievedAt: "2026-10-08", sha256: "537d504945628c773138ae2289508c9d1fa8a4f8d59bf0f79eb80003685ef154", locator: "高齢者の医療の確保に関する法律施行令 第18条第1項第6号（令和7年8月1日の版）", quote: "賦課額は、八十万円を超えることができないものであること"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001610193.pdf", retrievedAt: "2026-10-08", sha256: "3b5395e38c6cc517879d971f8228ab5f81787cf7f6371a755f2ec7d1f1853223", locator: "厚生労働省 社会保障審議会医療保険部会資料（後期高齢者医療の賦課限度額）", quote: "年額80万円（令和６・７年度）に設定"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20250801_507CO0000000203"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和6年度の一部の人の激変緩和（73万円）は入れていない"}
+    approval: {method: "reviewed", paths: 2, note: "施行令と厚生労働省の資料が一致。施行日は80万円の文言が最初に現れた版（e-Gov の改正履歴）。令和6年度の一部の人の激変緩和（73万円）は入れていない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2026-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 850000
     sources:
-      - {type: "web", url: "https://www.kaiketsu-j.com/?p=20323", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "基礎賦課額:85万円(80万円から5万円引き上げ)+子ども・子育て支援納付金賦課額:2万1千円=87万1千円", note: "民間の記事の要約（令和8年政令第4号）"}
-      - {type: "web", url: "https://www.psrn.jp/topics/detail.php?id=39581", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "f611fa60cc026aae772a0d355de661717586d417697a940c6fd57ec3180da973", locator: "高齢者の医療の確保に関する法律施行令 第18条第1項第7号", quote: "第一号イの基礎賦課額は、八十五万円を超えることができないものであること"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001610193.pdf", retrievedAt: "2026-10-08", sha256: "3b5395e38c6cc517879d971f8228ab5f81787cf7f6371a755f2ec7d1f1853223", locator: "厚生労働省 社会保障審議会医療保険部会資料（後期高齢者医療の賦課限度額）", quote: "年額80万円（令和６・７年度）に設定"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 3}
+    approval: {method: "pendingReview", paths: 1, note: "施行令（85万円。e-Gov の改正履歴で令和8年4月1日の版から）。85万円を明示する別の公式資料は取得していない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

@@ -14,11 +14,12 @@ entries:
       - {key: "birthDate", from: null, to: "1934-04-01"}
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "配偶者の加給年金の額には、老齢厚生年金を受けている方の生年月日に応じて、36,000円から179,900円が特別加算されます。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://limo.media/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和18.4.2以後 179,900円", note: "民間の記事の要約（原本は未取得）。記事のURLの細部は未取得"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則（昭和60年法律第34号）第60条第2項の表", quote: "昭和九年四月二日から昭和十五年四月一日までの間に生まれた者三万三千二百円に改定率"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」配偶者加給年金額の特別加算額（令和8年4月から）", quote: "昭和9年4月2日から昭和15年4月1日36,000円"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "基準額の公式の引用は無い（民間の記事の額を100円単位の検算で戻した値）"}
+    approval: {method: "pendingReview", paths: 2, note: "昭和9年4月1日以前生まれは特別加算の対象外（条文の表の前の区分）。条文と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2004-04-01"
     appliesTo: null
@@ -29,11 +30,12 @@ entries:
       - {key: "birthDate", from: "1934-04-02", to: "1940-04-01"}
     value: 33200
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "配偶者の加給年金の額には、老齢厚生年金を受けている方の生年月日に応じて、36,000円から179,900円が特別加算されます。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://limo.media/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和18.4.2以後 179,900円", note: "民間の記事の要約（原本は未取得）。記事のURLの細部は未取得"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則（昭和60年法律第34号）第60条第2項の表", quote: "昭和九年四月二日から昭和十五年四月一日までの間に生まれた者三万三千二百円に改定率"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」配偶者加給年金額の特別加算額（令和8年4月から）", quote: "昭和9年4月2日から昭和15年4月1日36,000円"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "基準額の公式の引用は無い（民間の記事の額を100円単位の検算で戻した値）"}
+    approval: {method: "pendingReview", paths: 2, note: "条文の基準額と日本年金機構の令和8年度の額が一致（33,200円×1.085→36,000円。改定率は新規裁定者の率）。令和10年4月以後に受給権を得た人は一律149,200円×改定率（令和7年法律第74号）だが、受給権の時期の条件をエンジンが扱わないため入れていない。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 3
     appliesFrom: "2004-04-01"
     appliesTo: null
@@ -44,11 +46,12 @@ entries:
       - {key: "birthDate", from: "1940-04-02", to: "1941-04-01"}
     value: 66300
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "配偶者の加給年金の額には、老齢厚生年金を受けている方の生年月日に応じて、36,000円から179,900円が特別加算されます。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://limo.media/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和18.4.2以後 179,900円", note: "民間の記事の要約（原本は未取得）。記事のURLの細部は未取得"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則（昭和60年法律第34号）第60条第2項の表", quote: "昭和十五年四月二日から昭和十六年四月一日までの間に生まれた者六万六千三百円に改定率"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」配偶者加給年金額の特別加算額（令和8年4月から）", quote: "昭和15年4月2日から昭和16年4月1日71,900円"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "基準額の公式の引用は無い（民間の記事の額を100円単位の検算で戻した値）"}
+    approval: {method: "pendingReview", paths: 2, note: "条文の基準額と日本年金機構の令和8年度の額が一致（66,300円×1.085→71,900円。改定率は新規裁定者の率）。令和10年4月以後に受給権を得た人は一律149,200円×改定率（令和7年法律第74号）だが、受給権の時期の条件をエンジンが扱わないため入れていない。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 4
     appliesFrom: "2004-04-01"
     appliesTo: null
@@ -59,11 +62,12 @@ entries:
       - {key: "birthDate", from: "1941-04-02", to: "1942-04-01"}
     value: 99500
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "配偶者の加給年金の額には、老齢厚生年金を受けている方の生年月日に応じて、36,000円から179,900円が特別加算されます。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://limo.media/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和18.4.2以後 179,900円", note: "民間の記事の要約（原本は未取得）。記事のURLの細部は未取得"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則（昭和60年法律第34号）第60条第2項の表", quote: "昭和十六年四月二日から昭和十七年四月一日までの間に生まれた者九万九千五百円に改定率"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」配偶者加給年金額の特別加算額（令和8年4月から）", quote: "昭和16年4月2日から昭和17年4月1日108,000円"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "基準額の公式の引用は無い（民間の記事の額を100円単位の検算で戻した値）"}
+    approval: {method: "pendingReview", paths: 2, note: "条文の基準額と日本年金機構の令和8年度の額が一致（99,500円×1.085→108,000円。改定率は新規裁定者の率）。令和10年4月以後に受給権を得た人は一律149,200円×改定率（令和7年法律第74号）だが、受給権の時期の条件をエンジンが扱わないため入れていない。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 5
     appliesFrom: "2004-04-01"
     appliesTo: null
@@ -74,11 +78,12 @@ entries:
       - {key: "birthDate", from: "1942-04-02", to: "1943-04-01"}
     value: 132600
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "配偶者の加給年金の額には、老齢厚生年金を受けている方の生年月日に応じて、36,000円から179,900円が特別加算されます。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://limo.media/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和18.4.2以後 179,900円", note: "民間の記事の要約（原本は未取得）。記事のURLの細部は未取得"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則（昭和60年法律第34号）第60条第2項の表", quote: "昭和十七年四月二日から昭和十八年四月一日までの間に生まれた者十三万二千六百円に改定率"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」配偶者加給年金額の特別加算額（令和8年4月から）", quote: "昭和17年4月2日から昭和18年4月1日143,900円"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "基準額の公式の引用は無い（民間の記事の額を100円単位の検算で戻した値）"}
+    approval: {method: "pendingReview", paths: 2, note: "条文の基準額と日本年金機構の令和8年度の額が一致（132,600円×1.085→143,900円。改定率は新規裁定者の率）。令和10年4月以後に受給権を得た人は一律149,200円×改定率（令和7年法律第74号）だが、受給権の時期の条件をエンジンが扱わないため入れていない。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 6
     appliesFrom: "2004-04-01"
     appliesTo: null
@@ -89,8 +94,9 @@ entries:
       - {key: "birthDate", from: "1943-04-02", to: null}
     value: 165800
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "配偶者の加給年金の額には、老齢厚生年金を受けている方の生年月日に応じて、36,000円から179,900円が特別加算されます。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://limo.media/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和18.4.2以後 179,900円", note: "民間の記事の要約（原本は未取得）。記事のURLの細部は未取得"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則（昭和60年法律第34号）第60条第2項の表", quote: "昭和十八年四月二日以後に生まれた者十六万五千八百円に改定率"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」配偶者加給年金額の特別加算額（令和8年4月から）", quote: "昭和18年4月2日以後179,900円"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "165,800×1.085→179,900円、×1.065→176,600円と一致。中間の区分の基準額は算術検算だけで、公式の引用は無い"}
+    approval: {method: "pendingReview", paths: 2, note: "条文の基準額と日本年金機構の令和8年度の額が一致（165,800円×1.085→179,900円。改定率は新規裁定者の率）。令和10年4月以後に受給権を得た人は一律149,200円×改定率（令和7年法律第74号）だが、受給権の時期の条件をエンジンが扱わないため入れていない。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

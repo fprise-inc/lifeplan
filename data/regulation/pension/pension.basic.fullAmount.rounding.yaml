@@ -13,7 +13,10 @@ entries:
     conditions: []
     value: {mode: "HALF_UP", unit: 100}
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/file/06-Seisakujouhou-12500000-Nenkinkyoku/0000086600.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "満額の老齢基礎年金の年金額は780,900円×改定率で、100円未満の端数は四捨五入", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 第27条", quote: "その額に五十円未満の端数が生じたときは、これを切り捨て、五十円以上百円未満の端数が生じたときは、これを百円に切り上げるものとする"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第44条第2項", quote: "二十二万四千七百円に国民年金法第二十七条に規定する改定率であつて同法第二十七条の三及び第二十七条の五の規定の適用がないものとして改定したもの"}
+      - {type: "web", url: "https://www.mhlw.go.jp/file/06-Seisakujouhou-12500000-Nenkinkyoku/0000086600.pdf", retrievedAt: "2026-10-08", sha256: "e0ade998831bb4f9e388c9b728f27d898e12773360930cfea2a46dc494475edb", locator: "厚生労働省 年金の講義資料（老齢基礎年金の基本年金額）", quote: "780,900円に改定率を乗じて得た額の100円未満の端数を四捨五入した額となります"}
+      - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "加給年金・振替加算の基準額も算術検算で100円単位と一致（条文は未確認）"}
+    approval: {method: "pendingReview", paths: 2, note: "条文（国民年金法27条・厚生年金保険法44条2項・昭和60年改正法附則14条・60条も同じ端数処理）と厚生労働省の資料が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

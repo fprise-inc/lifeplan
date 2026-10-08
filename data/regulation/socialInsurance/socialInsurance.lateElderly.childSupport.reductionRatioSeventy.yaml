@@ -13,7 +13,9 @@ entries:
     conditions: []
     value: "0.7"
     sources:
-      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "医療分7割軽減対象者は、令和8・9年度のみ特例措置により7.2割軽減となり、子ども分は、特例措置がないため7割軽減", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", sha256: "59a0c29a1f64b19ab4f18e420fcb77affa516bfde6ed838e178582d9c1a94794", locator: "西宮市「後期高齢者医療保険料の軽減」", quote: "医療分7割軽減対象者は、令和8・9年度のみ特例措置により7.2割軽減となります。（子ども分は、特例措置がないため7割軽減となります。）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "f611fa60cc026aae772a0d355de661717586d417697a940c6fd57ec3180da973", locator: "高齢者の医療の確保に関する法律施行令 第18条第4項第3号", quote: "を超えない世帯十分の七ロイに掲げる世帯以外の世帯十分の五"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "子ども分は特例なしの7割。施行令と西宮市の説明が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

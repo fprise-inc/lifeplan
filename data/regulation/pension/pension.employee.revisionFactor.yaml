@@ -8,14 +8,16 @@ entries:
   - rev: 1
     appliesFrom: "2026-04-01"
     appliesTo: "2027-03-31"
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: "1.02"
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/12600000/001672868.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年度のマクロ経済スライドによるスライド調整（国民年金（基礎年金）がマイナス0.2％、厚生年金（報酬比例部分）がマイナス0.1％）が行われます。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/kyotsu/gakukaitei/201906031.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年4月分からの年金額は、物価変動率（プラス3.2％）が名目手取り賃金変動率（プラス2.1％）を上回るため、名目手取り賃金変動率を用いて改定されます。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12600000/001672868.pdf", retrievedAt: "2026-10-08", sha256: "b3682a45109a862446d931ececab8f4964cafca2a404be64d449d6b8c87f18a2", locator: "厚生労働省 報道発表「令和８年度の年金額改定について」", quote: "厚生年金（報酬比例部分）が2.0％の引上げです"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/kyotsu/gakukaitei/201906031.html", retrievedAt: "2026-10-08", sha256: "269b267ceabb42b1ce993ca378a9f68ea2000ecf965f18167dbe7d29a7b475c5", locator: "日本年金機構 年金Q&A（年金額の改定）", quote: "マクロ経済スライドによるスライド調整率・・・国民年金（基礎年金）がマイナス0.2％、厚生年金（報酬比例部分）がマイナス0.1％"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20260401_508CO0000000075?response_format=xml", retrievedAt: "2026-10-08", sha256: "5434dc732c04790db8a6fa473dcdebbe60c2db87105f1cf1a487f9a49f5383dc", locator: "国民年金法による改定率の改定等に関する政令 第4条（令和8年度の再評価率）", quote: "令和八年度における厚生年金保険法第四十三条第一項に規定する再評価率については、同法別表を別表第一のとおり読み替えて"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20260401_508CO0000000075"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "名目手取り賃金変動率2.1%−調整0.1%＝2.0%。基礎年金は1.9%。その年度だけの比なので適用終了を年度の終わりにする"}
+    approval: {method: "reviewed", paths: 2, note: "厚生労働省の発表（報酬比例2.0%）と日本年金機構の説明（名目手取り賃金変動率2.1%−調整0.1%）が一致。施行日は令和8年度の再評価率を定めた政令の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

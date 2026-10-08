@@ -7,17 +7,18 @@ entries:
   - rev: 1
     appliesFrom: "2024-10-01"
     appliesTo: "2027-09-30"
-    enforcedOn: null
+    enforcedOn: "2024-10-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 51
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/tekiyo/jigyosho/tanjikan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", locator: "健康保険法 附則（平成24年法律第62号）第46条第12項", quote: "特定労働者の総数が常時五十人を超えるものの各適用事業所をいう"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/tekiyo/jigyosho/tanjikan.html", retrievedAt: "2026-10-08", sha256: "3942af38a7825e9f78e62654f2f7c1c4cb9d3a2bd290219e708d94921007373f", locator: "日本年金機構「短時間労働者に対する健康保険・厚生年金保険の適用拡大」", quote: "総数が51人以上となることが見込まれる企業等のことです"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和6年10月〜令和9年9月。条文（常時50人を超える）と日本年金機構の説明（51人以上）が一致。施行日は50人超への拡大の施行日（厚生労働省の資料「50人超2024年10月」）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2027-10-01"
     appliesTo: "2029-09-30"
@@ -27,11 +28,13 @@ entries:
     conditions: []
     value: 36
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "500人超 2016年10月、100人超 2022年10月、50人超 2024年10月、35人超 2027年10月、20人超 2029年10月、10人超 2032年10月、10人以下 2035年10月", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "2027年10月からは常時36～50人の従業員を使用する事業所（現在は51人以上の事業所）に勤めている…短時間労働者", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", locator: "健康保険法 附則（令和7年法律第74号）の表（特定適用事業所となる時期）", quote: "令和九年十月一日から令和十一年九月三十日まで十人以下三十六人以上五十人以下"}
+      - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", sha256: "21b56fbc929970fa1988a85f16d928e76d0bb399384f89c90651ca1d3a39f85d", locator: "厚生労働省「社会保険適用拡大特設サイト」Q&A", quote: "2027年10月からは常時36～50人の従業員を使用する事業所（現在は51人以上の事業所）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/hokenryochosei/jigyosho.html", retrievedAt: "2026-10-08", sha256: "4e691bb7397526aa7c881af2286381239c0a34222120bd2b3930fa80aa76a1a9", locator: "日本年金機構「保険料調整制度」", quote: "対象時期2027年10月～2029年10月～2032年10月～2035年10月1日対象事業所厚生年金保険の被保険者数36～50人の事業所"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和9年10月〜令和11年9月。令和7年法律第74号の附則の表（時期と人数）と厚生労働省・日本年金機構の説明が一致。施行日はその段階の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 3
     appliesFrom: "2029-10-01"
     appliesTo: "2032-09-30"
@@ -41,11 +44,13 @@ entries:
     conditions: []
     value: 21
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "20人超 2029年10月", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/hokenryochosei/jigyosho.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", locator: "健康保険法 附則（令和7年法律第74号）の表（特定適用事業所となる時期）", quote: "令和十一年十月一日から令和十四年九月三十日まで十人以下二十一人以上三十五人以下"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", sha256: "bbc9d8f7963479fb3f3785948d8ae0cb002687d08847ac8c4385d2f5f4793838", locator: "厚生労働省「年金制度改正法の概要」適用拡大", quote: "20人超2029年10月"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/hokenryochosei/jigyosho.html", retrievedAt: "2026-10-08", sha256: "4e691bb7397526aa7c881af2286381239c0a34222120bd2b3930fa80aa76a1a9", locator: "日本年金機構「保険料調整制度」", quote: "厚生年金保険の被保険者数21～35人の事業所"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和11年10月〜令和14年9月。令和7年法律第74号の附則の表（時期と人数）と厚生労働省・日本年金機構の説明が一致。施行日はその段階の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 4
     appliesFrom: "2032-10-01"
     appliesTo: "2035-09-30"
@@ -55,11 +60,13 @@ entries:
     conditions: []
     value: 11
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "10人超 2032年10月", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/hokenryochosei/jigyosho.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", locator: "健康保険法 附則（令和7年法律第74号）の表（特定適用事業所となる時期）", quote: "令和十四年十月一日から令和十七年九月三十日まで十人以下十一人以上二十人以下"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", sha256: "bbc9d8f7963479fb3f3785948d8ae0cb002687d08847ac8c4385d2f5f4793838", locator: "厚生労働省「年金制度改正法の概要」適用拡大", quote: "10人超2032年10月"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/hokenryochosei/jigyosho.html", retrievedAt: "2026-10-08", sha256: "4e691bb7397526aa7c881af2286381239c0a34222120bd2b3930fa80aa76a1a9", locator: "日本年金機構「保険料調整制度」", quote: "厚生年金保険の被保険者数11～20人の事業所"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和14年10月〜令和17年9月。令和7年法律第74号の附則の表（時期と人数）と厚生労働省・日本年金機構の説明が一致。施行日はその段階の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 5
     appliesFrom: "2035-10-01"
     appliesTo: null
@@ -69,8 +76,10 @@ entries:
     conditions: []
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "10人以下 2035年10月", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000147284_00021.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "企業規模要件を令和9年10月1日から令和17年10月1日までの間に段階的に撤廃", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", locator: "健康保険法 附則（令和7年法律第74号）", quote: "常時十人以下の適用事業所（前号及び次号に掲げる適用事業所を除く。）令和十七年十月一日"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", sha256: "bbc9d8f7963479fb3f3785948d8ae0cb002687d08847ac8c4385d2f5f4793838", locator: "厚生労働省「年金制度改正法の概要」適用拡大", quote: "10人以下2035年10月"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000147284_00021.html", retrievedAt: "2026-10-08", sha256: "d887dd8dd14a5e7c651120f9d2bb6578ac1ff550e36739892ac50a5fbbffce8a", locator: "厚生労働省「社会保険の加入対象の拡大について」", quote: "10年かけて段階的に縮小・撤廃することとしており"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "企業規模の要件の撤廃"}
+    approval: {method: "reviewed", paths: 2, note: "令和17年10月から企業規模の要件を撤廃。令和7年法律第74号の附則の表（時期と人数）と厚生労働省・日本年金機構の説明が一致。施行日はその段階の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

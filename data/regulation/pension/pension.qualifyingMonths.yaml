@@ -7,13 +7,16 @@ entries:
   - rev: 1
     appliesFrom: "2017-08-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2017-08-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 120
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "老齢年金ガイドの要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 第26条ただし書", quote: "その者の保険料納付済期間と保険料免除期間とを合算した期間が十年に満たないときは、この限りでない"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第42条第2号", quote: "保険料納付済期間と保険料免除期間とを合算した期間が十年以上であること"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」", quote: "老齢基礎年金・老齢厚生年金を受け取るためには、10年以上の資格期間が必要です"}
+      - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "平成29年8月から10年。値の引用は取れていない"}
+    approval: {method: "reviewed", paths: 2, note: "条文と日本年金機構の資料が一致。施行日は「十年」の文言が最初に現れた版（平成24年法律第62号。e-Gov の改正履歴で国民年金法26条・厚生年金保険法42条とも2017-08-01）。合算対象期間は扱わない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
