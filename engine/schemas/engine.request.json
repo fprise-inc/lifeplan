@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:engine.request",
+  "title": "エンジンへの要求",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trace", "input"],
+  "properties": {
+    "trace": { "description": "0006 の7: 根拠の記録の細かさ", "enum": ["none", "summary", "full"] },
+    "input": { "$ref": "urn:financia:schema:engine.input" }
+  }
+}

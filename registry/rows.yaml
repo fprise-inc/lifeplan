@@ -1,0 +1,251 @@
+# 0004: キャッシュフロー表の科目の木（出力の行IDの登録簿）。上2段は 0004 で固定
+# 明細（第3段以下）は足していく。消さない・意味を変えない（deprecated / removed と aliases で扱う）
+# since は公開の約束の版の初期値（0001 の未確定）が決まるまで draft とする
+kind: row
+entries:
+  - id: cf.income
+    status: active
+    label: 収入
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.salary
+    status: active
+    label: 給与
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.business
+    status: active
+    label: 事業
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.pension
+    status: active
+    label: 公的年金
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.corporatePension
+    status: active
+    label: 企業年金・個人年金
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum
+    status: active
+    label: 一時金（退職金・保険金・満期金）
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.benefit
+    status: active
+    label: 給付・手当
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.other
+    status: active
+    label: その他の収入
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi
+    status: active
+    label: 税・社会保険料
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.incomeTax
+    status: active
+    label: 所得税（復興特別所得税を含む）
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.residentTax
+    status: active
+    label: 住民税
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.businessTax
+    status: active
+    label: 個人事業税
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.health
+    status: active
+    label: 健康保険・国保・後期高齢者医療
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.care
+    status: active
+    label: 介護保険
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.pension
+    status: active
+    label: 厚生年金・国民年金
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.employment
+    status: active
+    label: 雇用保険
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.childSupport
+    status: active
+    label: 子ども・子育て支援金
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense
+    status: active
+    label: 支出
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living
+    status: active
+    label: 基本生活費
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.housing
+    status: active
+    label: 住居関連費
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.housing.rent
+    status: active
+    label: 家賃
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.housing.loan
+    status: active
+    label: 住宅ローン
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.housing.propertyTax
+    status: active
+    label: 固定資産税
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.housing.maintenance
+    status: active
+    label: 修繕・管理費
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.education
+    status: active
+    label: 教育費
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.insurance
+    status: active
+    label: 保険料
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.debt
+    status: active
+    label: 住宅ローン以外の負債の返済
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.lumpSum
+    status: active
+    label: 一時的支出
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.care
+    status: active
+    label: 介護・医療
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.other
+    status: active
+    label: その他の支出
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer
+    status: active
+    label: 器の間の移動
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.nisa
+    status: active
+    label: NISAへの積立
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.ideco
+    status: active
+    label: iDeCo・DCの掛金
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.savings
+    status: active
+    label: 財形・積立預金
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.withdrawal
+    status: active
+    label: 取り崩し
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.net
+    status: active
+    label: 年間収支
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance
+    status: active
+    label: 残高
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.financial
+    status: active
+    label: 金融資産の合計
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account
+    status: active
+    label: 器ごとの残高
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.return
+    status: active
+    label: 運用益
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.debt
+    status: active
+    label: 負債残高
+    since: draft
+    aliases: []
+    replacedBy: null

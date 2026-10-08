@@ -1,0 +1,45 @@
+# 【架空の見本】一時金から差し引く率（実在の制度ではない）
+# 知った時点の時間軸（0007 の8）の見本: r2 は版 2026.2.0 で r3 に訂正した
+id: test.sample.lumpSum.withholdingRate
+title: 【架空の見本】一時金から差し引く率
+unit: rate
+kind: constant
+basis: incomeYear
+rounding: test.sample.lumpSum.rounding
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: "2027-12-31"
+    enforcedOn: "2020-01-01"
+    status: enacted
+    jurisdiction: national
+    conditions: []
+    value: "0.1"
+    sources:
+      - {type: fictional, note: 架空の見本データ（実在の制度ではない）}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 2
+    appliesFrom: "2028-01-01"
+    appliesTo: null
+    enforcedOn: "2027-12-01"
+    status: enacted
+    jurisdiction: national
+    conditions: []
+    value: "0.08"
+    sources:
+      - {type: fictional, note: 架空の見本データ（実在の制度ではない）}
+    recordedIn: "2026.1.0"
+    supersededIn: "2026.2.0"
+  - rev: 3
+    appliesFrom: "2028-01-01"
+    appliesTo: null
+    enforcedOn: "2027-12-01"
+    status: enacted
+    jurisdiction: national
+    conditions: []
+    value: "0.05"
+    sources:
+      - {type: fictional, note: 架空の見本データ（実在の制度ではない）}
+    recordedIn: "2026.2.0"
+    supersededIn: null

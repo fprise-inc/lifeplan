@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:regulation.value",
+  "title": "制度の値の定義（0007 の4。YAML の1ファイル）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "unit", "kind", "basis", "entries"],
+  "properties": {
+    "id": { "$ref": "urn:financia:schema:common#/$defs/dottedId" },
+    "title": { "type": "string", "minLength": 1 },
+    "unit": { "enum": ["JPY", "rate", "months", "count", "yearMonth", "rounding"] },
+    "kind": { "enum": ["constant", "bracketTable", "gradeTable", "formula", "indexed", "rounding", "componentSwitch"] },
+    "basis": { "$ref": "#/$defs/basis" },
+    "ageSwitch": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/ageSwitch" }] },
+    "rounding": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/dottedId" }] },
+    "linkage": { "enum": ["none", "scheduled", "indexed", "cpiLinked"] },
+    "entries": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/entry" } }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "rounding" } } },
+      "then": {
+        "properties": {
+          "unit": { "const": "rounding" },
+          "entries": { "items": { "properties": { "value": { "$ref": "#/$defs/roundingValue" } } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "constant" }, "unit": { "const": "JPY" } } },
+      "then": {
+        "properties": {
+          "entries": {
+            "items": {
+              "properties": {
+                "value": { "oneOf": [{ "$ref": "urn:financia:schema:common#/$defs/yen" }, { "const": "notApplicable" }] }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "constant" }, "unit": { "const": "rate" } } },
+      "then": {
+        "properties": {
+          "entries": {
+            "items": {
+              "properties": {
+                "value": { "oneOf": [{ "$ref": "urn:financia:schema:common#/$defs/rate" }, { "const": "notApplicable" }] }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "bracketTable" } } },
+      "then": {
+        "properties": {
+          "entries": {
+            "items": {
+              "properties": {
+                "value": { "oneOf": [{ "$ref": "#/$defs/bracketValue" }, { "const": "notApplicable" }] }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "basis": {
+      "description": "0003 の9: 値を選ぶ基準。引数のない型は文字列で書いてよい",
+      "oneOf": [
+        { "enum": ["incomeYear", "month", "birthDate", "priorYearIncome", "fiscalYear"] },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": { "type": { "enum": ["incomeYear", "month", "birthDate"] } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "priorYearIncome" },
+            "switchMonth": { "type": "integer", "minimum": 1, "maximum": 12 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "fiscalYear" },
+            "startMonth": { "type": "integer", "minimum": 1, "maximum": 12 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "anchor"],
+          "properties": {
+            "type": { "const": "anchor" },
+            "anchor": { "enum": ["moveIn", "contract", "acquisition", "enrollment", "benefitStart"] }
+          }
+        }
+      ]
+    },
+    "packVersion": { "type": "string", "pattern": "^[0-9]{4}\\.[0-9]+\\.[0-9]+$" },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rev",
+        "appliesFrom",
+        "appliesTo",
+        "enforcedOn",
+        "status",
+        "jurisdiction",
+        "conditions",
+        "value",
+        "sources",
+        "recordedIn",
+        "supersededIn"
+      ],
+      "properties": {
+        "rev": { "type": "integer", "minimum": 1 },
+        "appliesFrom": { "$ref": "urn:financia:schema:common#/$defs/date" },
+        "appliesTo": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/date" }] },
+        "enforcedOn": { "$ref": "urn:financia:schema:common#/$defs/date" },
+        "milestones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "date"],
+            "properties": {
+              "kind": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" },
+              "date": { "$ref": "urn:financia:schema:common#/$defs/date" }
+            }
+          }
+        },
+        "status": { "enum": ["proposed", "enacted"] },
+        "scenarioId": { "$ref": "urn:financia:schema:common#/$defs/dottedId" },
+        "jurisdiction": {
+          "oneOf": [
+            { "const": "national" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["level", "code"],
+              "properties": {
+                "level": { "enum": ["prefecture", "municipality", "insurer", "wideAreaUnion"] },
+                "code": { "type": "string", "minLength": 1 }
+              }
+            }
+          ]
+        },
+        "conditions": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+        "value": true,
+        "sources": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/source" } },
+        "recordedIn": { "$ref": "#/$defs/packVersion" },
+        "supersededIn": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/packVersion" }] },
+        "approval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method"],
+          "properties": {
+            "method": { "enum": ["reviewed", "automated"] },
+            "keyId": { "type": "string" },
+            "recordId": { "type": "string" }
+          }
+        }
+      },
+      "if": { "properties": { "status": { "const": "proposed" } } },
+      "then": { "required": ["scenarioId"] }
+    },
+    "condition": {
+      "description": "0007 の6: 決まったキーに対する範囲・一致（AND だけ）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key"],
+      "properties": {
+        "key": { "enum": ["birthDate", "sex", "entitlementDate", "residenceStartYear", "contractDate", "giftDate"] },
+        "from": { "oneOf": [{ "type": "null" }, { "type": "string" }, { "type": "integer" }] },
+        "to": { "oneOf": [{ "type": "null" }, { "type": "string" }, { "type": "integer" }] },
+        "equals": { "type": "string" }
+      }
+    },
+    "roundingValue": {
+      "description": "0002: 制度の端数処理（方式と単位）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "unit"],
+      "properties": {
+        "mode": { "enum": ["DOWN", "UP", "HALF_UP", "HALF_DOWN", "HALF_EVEN"] },
+        "unit": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+      }
+    },
+    "bracketValue": {
+      "description": "段階表。upTo（以下）の昇順、最後は null",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["upTo"],
+        "properties": {
+          "upTo": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yen" }] },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+        }
+      }
+    },
+    "source": {
+      "description": "0007 の9: 出典。fictional は架空の見本データ（test. の値）だけに使う",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "url", "retrievedAt", "sha256"],
+          "properties": {
+            "type": { "const": "web" },
+            "url": { "type": "string", "pattern": "^https://" },
+            "retrievedAt": { "$ref": "urn:financia:schema:common#/$defs/date" },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "locator": { "type": "string" },
+            "quote": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "lawNumber"],
+          "properties": {
+            "type": { "const": "law" },
+            "lawNumber": { "type": "string", "minLength": 1 },
+            "egovRevisionId": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "title", "publisher", "publishedOn", "sha256"],
+          "properties": {
+            "type": { "const": "document" },
+            "title": { "type": "string", "minLength": 1 },
+            "publisher": { "type": "string", "minLength": 1 },
+            "publishedOn": { "$ref": "urn:financia:schema:common#/$defs/date" },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "locator": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "note"],
+          "properties": {
+            "type": { "const": "fictional" },
+            "note": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "trace": "none",
+  "input": {
+    "baseMonth": "2027-04",
+    "endYear": 2036,
+    "calcConventions": {
+      "aggregation": "cash",
+      "investmentTiming": "midYear",
+      "compatibility": null
+    },
+    "members": [
+      {
+        "id": "35e5035f-61a4-412a-9671-486b3c8f6924",
+        "kind": "self",
+        "birth": {
+          "birthYearMonth": "1971-04",
+          "bornOnFirst": false
+        }
+      },
+      {
+        "id": "65e8aad8-3783-4363-9783-d053f24c0c2b",
+        "kind": "spouse",
+        "birth": {
+          "birthYearMonth": "1973-09",
+          "bornOnFirst": true
+        }
+      }
+    ],
+    "events": [
+      {
+        "id": "f14de8b8-75fc-45d6-844d-63dcfb20618e",
+        "kind": "retirement",
+        "member": "35e5035f-61a4-412a-9671-486b3c8f6924",
+        "at": {
+          "memberAge": {
+            "member": "35e5035f-61a4-412a-9671-486b3c8f6924",
+            "years": 60
+          }
+        }
+      }
+    ],
+    "assumptions": {
+      "investmentReturn": {
+        "default": "0.02",
+        "byYear": {
+          "2030": "0.005"
+        }
+      }
+    },
+    "flows": [
+      {
+        "id": "19626d19-e132-41c7-9714-73b61007167d",
+        "row": "cf.income.other",
+        "amount": 1.5,
+        "from": {
+          "at": "2020-01"
+        },
+        "to": {
+          "event": "f14de8b8-75fc-45d6-844d-63dcfb20618e",
+          "offset": {
+            "months": -1
+          }
+        },
+        "member": "35e5035f-61a4-412a-9671-486b3c8f6924"
+      },
+      {
+        "id": "c6e2eb09-78c2-469f-982f-b43504815ac0",
+        "row": "cf.income.other",
+        "amount": 80000,
+        "from": {
+          "at": "2027-04"
+        },
+        "to": {
+          "memberAge": {
+            "member": "65e8aad8-3783-4363-9783-d053f24c0c2b",
+            "years": 60,
+            "ageSwitch": "reachMonth"
+          }
+        },
+        "member": "65e8aad8-3783-4363-9783-d053f24c0c2b"
+      },
+      {
+        "id": "f53d0787-8ee6-4349-801e-fb2c001dd651",
+        "row": "cf.expense.living",
+        "amount": 280000,
+        "from": {
+          "at": "2027-04"
+        },
+        "to": null
+      },
+      {
+        "id": "7b7d456d-9a3a-402e-a0d4-e49dc1cb7691",
+        "row": "cf.expense.housing.rent",
+        "amount": 95000,
+        "from": {
+          "at": "2027-04"
+        },
+        "to": {
+          "at": "2033-03"
+        }
+      }
+    ],
+    "annualLumpSums": [
+      {
+        "id": "05895064-e293-4e7b-ac2f-6bbdaace267c",
+        "amount": 600000,
+        "month": 12,
+        "from": {
+          "at": "2027-01"
+        },
+        "to": {
+          "event": "f14de8b8-75fc-45d6-844d-63dcfb20618e"
+        },
+        "paidNextYear": false,
+        "member": "35e5035f-61a4-412a-9671-486b3c8f6924"
+      },
+      {
+        "id": "03c60796-59ea-4ead-98b7-9cb79e09ff4a",
+        "amount": 123456,
+        "month": 3,
+        "from": {
+          "at": "2026-01"
+        },
+        "to": null,
+        "paidNextYear": true,
+        "member": "65e8aad8-3783-4363-9783-d053f24c0c2b"
+      }
+    ],
+    "openingBalance": 8000000
+  }
+}

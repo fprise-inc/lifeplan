@@ -1,0 +1,12 @@
+# 【架空の見本】土台が動くことを示すための架空のパック。実在の制度の値ではない
+packId: regulation.sample
+formatVersion: "1.0"
+version: "2026.2.0"
+features: []
+title: 【架空の見本】土台の確認用（実在の制度ではない）
+fictional: true
+requires:
+  test.sample.lumpSum: ">=1 <2"
+license:
+  values: CC0-1.0
+  sources: 架空の値のため出典なし

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:flows.output",
+  "title": "お金の動きの列を返す部品の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } }
+  }
+}
