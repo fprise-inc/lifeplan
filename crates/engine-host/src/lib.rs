@@ -33,7 +33,8 @@ impl Limits {
         time: Duration::from_secs(30),
     };
 
-    /// まとめて計算（runBatch）: 要求の間で結果を使い回すのでメモリは「全部」と同じ上限、時間は要求の数に比例（最大 120 秒）
+    /// まとめて計算（runBatch）: 要求の間で使い回す部品の結果をすべて持つので、メモリは要求の数に比例（1件 48 MB＋64 MB、最大 1 GB）、
+    /// 時間も要求の数に比例（最大 120 秒）
     pub fn for_batch(requests: usize, any_full: bool) -> Limits {
         let per = if any_full {
             Limits::FULL_TRACE.time
@@ -41,8 +42,9 @@ impl Limits {
             Limits::DEFAULT.time
         };
         let n = u32::try_from(requests.max(1)).unwrap_or(u32::MAX);
+        let memory = (64 + 48 * requests.max(1)).min(1024) * 1024 * 1024;
         Limits {
-            memory_bytes: Limits::FULL_TRACE.memory_bytes,
+            memory_bytes: memory.max(Limits::FULL_TRACE.memory_bytes),
             stack_bytes: Limits::DEFAULT.stack_bytes,
             time: per.saturating_mul(n).min(Duration::from_secs(120)),
         }

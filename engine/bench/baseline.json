@@ -1,4 +1,5 @@
 {
+  "note": "baseline は CI（GitHub Actions の ubuntu-latest と macos-latest）で測った値。--update-baseline で書き換える（同じ OS・CPU の欄だけ比べる）",
   "targets": {
     "node.preview20": {
       "ms": 100,
@@ -33,96 +34,192 @@
     "linux-x64": {
       "node": {
         "single": {
-          "median": 159.4,
-          "min": 141.5
+          "median": 218.8,
+          "min": 197.8
         },
         "seq20": {
-          "median": 3152.7,
-          "min": 3075.8
+          "median": 2459,
+          "min": 2375.1
         },
         "batch4": {
-          "median": 568.3,
-          "min": 566.9
+          "median": 515.8,
+          "min": 436.9
         },
         "batch20": {
-          "median": 2028.7,
-          "min": 1928.3
+          "median": 1574.6,
+          "min": 1547.7
         },
         "preview20": {
-          "median": 1816.4,
-          "min": 1735.5
+          "median": 1259.7,
+          "min": 1245.3
         },
         "sliderReturn": {
-          "median": 17.3,
-          "min": 12.3
+          "median": 10.1,
+          "min": 8.5
         },
         "sliderSalary": {
-          "median": 604.2,
-          "min": 528.5
+          "median": 345.7,
+          "min": 342.1
         }
       },
       "jsc": {
         "single": {
-          "median": 243.6,
-          "min": 237.8
+          "median": 200.1,
+          "min": 193.1
         },
         "seq20": {
-          "median": 4084.2,
-          "min": 3845
+          "median": 2980.9,
+          "min": 2944.7
         },
         "batch4": {
-          "median": 733.5,
-          "min": 662
+          "median": 515.8,
+          "min": 483.6
         },
         "batch20": {
-          "median": 2937.9,
-          "min": 2725
+          "median": 1834.1,
+          "min": 1705.2
         },
         "preview20": {
-          "median": 2246.9,
-          "min": 1989.4
+          "median": 1455.3,
+          "min": 1394.1
         },
         "sliderReturn": {
-          "median": 12.9,
-          "min": 11.6
+          "median": 8.2,
+          "min": 8.2
         },
         "sliderSalary": {
-          "median": 501.2,
-          "min": 496
+          "median": 374.4,
+          "min": 356.9
         }
       },
       "quickjs": {
-        "batch20": {
-          "median": 25159.8,
-          "min": 23928.4
-        },
-        "batch4": {
-          "median": 6935.6,
-          "min": 6798.6
-        },
-        "load": {
-          "median": 75.2,
-          "min": 63.5
-        },
-        "par20": {
-          "median": 13187.9,
-          "min": 12393.8
-        },
-        "par20batch": {
-          "median": 14082.2,
-          "min": 13371.9
+        "single": {
+          "median": 1544.3,
+          "min": 1500.2
         },
         "par4": {
-          "median": 2059.8,
-          "min": 2006.9
+          "median": 4508.2,
+          "min": 4493.9
+        },
+        "par20": {
+          "median": 27147.6,
+          "min": 26988.9
         },
         "seq20": {
-          "median": 33632.1,
-          "min": 33632.1
+          "median": 27832.6,
+          "min": 27832.6
         },
+        "batch4": {
+          "median": 5549.1,
+          "min": 5433.4
+        },
+        "batch20": {
+          "median": 19859.9,
+          "min": 19857.9
+        },
+        "par20batch": {
+          "median": 19592.1,
+          "min": 19360.6
+        },
+        "load": {
+          "median": 67.1,
+          "min": 59.3
+        }
+      }
+    },
+    "darwin-arm64": {
+      "node": {
         "single": {
-          "median": 1949,
-          "min": 1667
+          "median": 86.4,
+          "min": 77.2
+        },
+        "seq20": {
+          "median": 1440.1,
+          "min": 1422.5
+        },
+        "batch4": {
+          "median": 267,
+          "min": 255.4
+        },
+        "batch20": {
+          "median": 993.3,
+          "min": 974.3
+        },
+        "preview20": {
+          "median": 819,
+          "min": 799.1
+        },
+        "sliderReturn": {
+          "median": 5.8,
+          "min": 5.4
+        },
+        "sliderSalary": {
+          "median": 219.9,
+          "min": 214.1
+        }
+      },
+      "jsc": {
+        "single": {
+          "median": 105.1,
+          "min": 75.3
+        },
+        "seq20": {
+          "median": 1713.4,
+          "min": 1685.5
+        },
+        "batch4": {
+          "median": 277.2,
+          "min": 243.3
+        },
+        "batch20": {
+          "median": 920.2,
+          "min": 856.3
+        },
+        "preview20": {
+          "median": 822.7,
+          "min": 804
+        },
+        "sliderReturn": {
+          "median": 5.9,
+          "min": 4.6
+        },
+        "sliderSalary": {
+          "median": 224.9,
+          "min": 199.7
+        }
+      },
+      "quickjs": {
+        "single": {
+          "median": 796.2,
+          "min": 787.6
+        },
+        "par4": {
+          "median": 847,
+          "min": 795.9
+        },
+        "par20": {
+          "median": 4125.6,
+          "min": 3996.7
+        },
+        "seq20": {
+          "median": 15467.1,
+          "min": 15467.1
+        },
+        "batch4": {
+          "median": 2835,
+          "min": 2742
+        },
+        "batch20": {
+          "median": 11564.7,
+          "min": 10412.5
+        },
+        "par20batch": {
+          "median": 3617.9,
+          "min": 3561.1
+        },
+        "load": {
+          "median": 41.5,
+          "min": 40.9
         }
       }
     }
