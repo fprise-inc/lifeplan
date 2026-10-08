@@ -400,10 +400,6 @@ export function collectEffects(state: RunState, root: Res): void {
   gather({ notices: state.notices, extended: state.extended }, root.variant, new Set());
 }
 
-function outputsOf(output: unknown): { flows: readonly Flow[]; annual: readonly AnnualRow[] } {
-  const o = output as { flows?: readonly Flow[]; annual?: readonly AnnualRow[] } | null;
-  return { flows: o?.flows ?? [], annual: o?.annual ?? [] };
-}
 
 /** JSON として同じ値か（部品の出力の比べ方。早い打ち切り） */
 function sameJson(a: unknown, b: unknown): boolean {

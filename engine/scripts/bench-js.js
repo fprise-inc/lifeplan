@@ -6,6 +6,8 @@
 // 使い方: measure(engine, packsJson, data, repeat) → { 名前: { median, min } }
 //   data = { requests: [20件], sliders: { 名前: [[20件]（刻み0）, [20件]（刻み1）, …] } }
 
+import { performance } from "node:perf_hooks";
+
 const now = () => performance.now();
 
 function stat(xs) {

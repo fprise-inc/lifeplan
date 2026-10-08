@@ -367,7 +367,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     for (const f of rawFlows) sum0 += f.amount;
     if (n !== rawFlows.length || sum !== sum0) throw new EngineError("E_ARGUMENT", [rootId, "parts"]);
   }
-  let flows: Flow[] = [];
+  const flows: Flow[] = [];
   if (options.preview !== true) {
     for (const g of aggs) for (const f of g.flows) flows.push(f);
     sortFlows(flows);
