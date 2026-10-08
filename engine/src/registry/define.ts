@@ -5,6 +5,13 @@ import { isRange } from "../regulation/versions.ts";
 import { ITEMS } from "./items.ts";
 import type { Ctx } from "./ctx.ts";
 
+/**
+ * 部品の書き方の約束（ctx の API とマニフェスト）の版。0006 の追記（2回目の見直し）で 1.0 → 1.1:
+ * ctx.segments・ctx.callMonths・ParamOptions.birth・マニフェストの memberScope を足し、依存の記録の決まり（部品は ctx を通して読んだものだけで
+ * 結果を決める・同じ依存なら同じ順に同じものを読む）を明文にした。今の部品の書き方はそのまま使える
+ */
+export const COMPONENT_API_VERSION = "1.1";
+
 export interface ComponentDefinition<I = unknown, O = unknown> {
   /** 計算部品ID（0004） */
   readonly id: string;

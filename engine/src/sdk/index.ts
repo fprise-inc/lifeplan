@@ -1,5 +1,5 @@
 // 計算部品が import してよい公式SDK（0006 の2）。丸め関数はここに置かず ctx.money だけで使う（0002・0006 の7）
-export { defineComponent, type ComponentDefinition } from "../registry/define.ts";
+export { COMPONENT_API_VERSION, defineComponent, type ComponentDefinition } from "../registry/define.ts";
 export type { Ctx, MonthCtx, MoneyApi, RateApi, TimeApi, ParamOptions } from "../registry/ctx.ts";
 export type { Segment, SegmentOptions } from "../registry/segments.ts";
 export { segmentIndex } from "../registry/segments.ts";
