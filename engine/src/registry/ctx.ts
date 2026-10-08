@@ -39,12 +39,12 @@ import {
 import { projectCollection, type ItemTable } from "./items.ts";
 import { resolveAgeSwitch, type Age, type AgeSwitch } from "../time/ageSwitch.ts";
 import { lookupFor, type LookupContext } from "../time/basis.ts";
-import { formatYm, type MonthIndex } from "../time/month.ts";
+import { formatYm, monthIndex, yearOf, type MonthIndex } from "../time/month.ts";
 import type { Timepoint, TimeResolver } from "../time/timepoint.ts";
 import type { Assembly, Impl } from "./assemble.ts";
 import { rowAllowedInSlot, SLOTS } from "./slots.ts";
 import { Frame, type Tracer } from "./trace.ts";
-import { segmentsOf, type Segment, type SegmentOptions } from "./segments.ts";
+import { autoStarts, segmentKey, segmentsOf, type Segment, type SegmentOptions } from "./segments.ts";
 
 export interface MoneyApi {
   mulRate(amount: Yen, r: Rate, roundingId: string): Yen;
@@ -290,7 +290,7 @@ const VARIANTS_PER_KEY = 24;
 /** 読んだ入力の集まりで速く確かめる候補の数（同じ枠の前の候補のほかに、新しいものから） */
 const FAST = 6;
 /** 速い確かめで当たらなかったとき、依存をたどって確かめる候補の数（同じ枠の前の候補のほかに、新しいものから） */
-const WALKS = 2;
+const WALKS = 1;
 
 /** 制度の値を引いた結果の使い回し（計算基準月・データの組・構成員の生年月などが同じ要求のあいだで共有） */
 export interface ParamCache {
@@ -850,6 +850,103 @@ class MonthCtxImpl extends ParamReader implements MonthCtx {
   }
 }
 
+/** 値の読み取りの鍵（値ID・構成員・出来事・管轄） */
+const optsKey = (id: string, opts: ParamOptions | undefined): string => {
+  if (opts === undefined) return id;
+  const j = opts.jurisdiction;
+  return `${id}|${opts.member ?? ""}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
+};
+
+/**
+ * 区間の自動の使い回し（0006 の追記）: 部品のマニフェストの値すべての行が変わらない区間（from〜to）の中では、どの月で読んでも同じ行が選ばれ、
+ * 延長の仮定の記録も同じ年になる。そこで ctx.at(m) は、同じ区間の月どうしで値の読み取りを共有する（読み取りは区間の最初の月で行い、
+ * 延長の記録は区間の月の分を残す）。月ごとの文脈（MonthView）は月を持ち、読み取りだけをここに任せる
+ */
+class AutoAt {
+  readonly #ctx: CtxImpl;
+  readonly #from: MonthIndex;
+  readonly #to: MonthIndex;
+  readonly #local = new Map<string, Selected>();
+  #hasLocal: Map<string, boolean> | null = null;
+  constructor(ctx: CtxImpl, from: MonthIndex, to: MonthIndex) {
+    this.#ctx = ctx;
+    this.#from = from;
+    this.#to = to;
+  }
+  param(id: string, opts: ParamOptions | undefined, month: MonthIndex): Selected {
+    const key = optsKey(id, opts);
+    let s = this.#local.get(key);
+    if (s === undefined) {
+      s = this.#ctx.param(id, this.#from, opts ?? {}, this.#to);
+      this.#local.set(key, s);
+    }
+    this.#ctx.checkSame(id, opts ?? {}, month, s);
+    return s;
+  }
+  has(id: string, opts: ParamOptions | undefined, month: MonthIndex): boolean {
+    const key = optsKey(id, opts);
+    this.#hasLocal ??= new Map();
+    let v = this.#hasLocal.get(key);
+    if (v === undefined) {
+      v = this.#ctx.has(id, this.#from, opts ?? {});
+      this.#hasLocal.set(key, v);
+    }
+    if (this.#ctx.checking && this.#ctx.has(id, month, opts ?? {}) !== v) throw new EngineError("E_ARGUMENT", [id, "segments.notConstant"]);
+    return v;
+  }
+}
+
+/** ctx.at(m) の月の文脈（区間の自動の使い回しの中の1か月） */
+class MonthView extends ParamReader implements MonthCtx {
+  readonly month: MonthIndex;
+  readonly money: MoneyApi;
+  readonly #shared: AutoAt;
+  constructor(ctx: CtxImpl, month: MonthIndex, shared: AutoAt) {
+    super();
+    this.month = month;
+    this.#shared = shared;
+    this.money = new MoneyImpl(ctx, this);
+  }
+  param(id: string, opts?: ParamOptions): Selected {
+    return this.#shared.param(id, opts, this.month);
+  }
+  has(id: string, opts?: ParamOptions): boolean {
+    return this.#shared.has(id, opts, this.month);
+  }
+}
+
+/** 部品ごとの、区間の自動の使い回しの区切り（データの組・計算の範囲ごとに1回だけ作る） */
+interface AutoSegments {
+  readonly from: MonthIndex;
+  readonly to: MonthIndex;
+  readonly starts: readonly number[];
+}
+const AUTO = new WeakMap<RegulationStore, Map<string, Map<Impl, AutoSegments>>>();
+/** 1回の呼び出しで読んだ月がこの数を超えたら、区間の自動の使い回しにする */
+const AUTO_AFTER = 24;
+
+function autoSegmentsOf(state: RunState, impl: Impl): AutoSegments {
+  let byRange = AUTO.get(state.store);
+  if (byRange === undefined) {
+    byRange = new Map();
+    AUTO.set(state.store, byRange);
+  }
+  const from = monthIndex(yearOf(state.base) - 3, 1);
+  const to = monthIndex(yearOf(state.end) + 3, 12);
+  const rk = `${from}|${to}`;
+  let byImpl = byRange.get(rk);
+  if (byImpl === undefined) {
+    byImpl = new Map();
+    byRange.set(rk, byImpl);
+  }
+  let a = byImpl.get(impl);
+  if (a === undefined) {
+    a = { from, to, starts: autoStarts(state.store, impl.def.params, from, to) };
+    byImpl.set(impl, a);
+  }
+  return a;
+}
+
 /**
  * 区間（from〜to）の値。区間のどの月でも同じ行が選ばれる値（segments の params）だけを読める。読み取りは区間の最初の月で行い、
  * 延長の仮定の記録は区間のすべての月の分（引く日の年の範囲）を残す（月ごとに読んだときと同じ記録）
@@ -871,8 +968,8 @@ export class SegmentAt extends ParamReader implements MonthCtx {
 
   }
   param(id: string, opts?: ParamOptions): Selected {
-    const key = opts?.member === undefined ? id : `${id}|${opts.member}`;
-    if (!simpleOpts(opts) || !this.#allowed.has(key)) throw new EngineError("E_PARAM_UNDECLARED", [this.#ctx.id, id, "segment"]);
+    const key = segmentKey(id, opts);
+    if (opts?.anchorEvent !== undefined || !this.#allowed.has(key)) throw new EngineError("E_PARAM_UNDECLARED", [this.#ctx.id, id, "segment"]);
     const hit = this.#local.get(key);
     if (hit !== undefined) return hit;
     const s = this.#ctx.param(id, this.month, opts ?? {}, this.#to);
@@ -880,8 +977,8 @@ export class SegmentAt extends ParamReader implements MonthCtx {
     return s;
   }
   has(id: string, opts?: ParamOptions): boolean {
-    const key = opts?.member === undefined ? id : `${id}|${opts.member}`;
-    if (!simpleOpts(opts) || !this.#allowed.has(key)) throw new EngineError("E_PARAM_UNDECLARED", [this.#ctx.id, id, "segment"]);
+    const key = segmentKey(id, opts);
+    if (opts?.anchorEvent !== undefined || !this.#allowed.has(key)) throw new EngineError("E_PARAM_UNDECLARED", [this.#ctx.id, id, "segment"]);
     return this.#ctx.has(id, this.month, opts ?? {});
   }
 }
@@ -920,7 +1017,8 @@ class CtxImpl implements Ctx {
   readonly #sets: ManifestSets;
   #closure: Closure | null;
   #own: Own | null = null;
-  #months: Map<MonthIndex, MonthCtxImpl> | null = null;
+  #months: Map<MonthIndex, MonthCtx> | null = null;
+  #autoAts: Map<number, AutoAt> | null = null;
   #money: MoneyImpl | null = null;
   #time: TimeImpl | null = null;
 
@@ -1095,9 +1193,44 @@ class CtxImpl implements Ctx {
     this.#months ??= new Map();
     const hit = this.#months.get(month);
     if (hit !== undefined) return hit;
-    const mc = new MonthCtxImpl(this, month);
+    let mc: MonthCtx;
+    // 1回の呼び出しで多くの月を読む部品（月ごとの計算）だけ、区間の自動の使い回しを使う（年ごとの部品は準備のほうが重い）
+    const auto = this.#months.size >= AUTO_AFTER ? autoSegmentsOf(this.#state, this.#impl) : null;
+    if (auto !== null && Number.isInteger(month) && month >= auto.from && month <= auto.to) {
+      // 区間の自動の使い回し: m を含む区間（starts の中で m 以下の最後）
+      const starts = auto.starts;
+      let lo = 0;
+      let hi = starts.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >>> 1;
+        if ((starts[mid] as number) <= month) lo = mid;
+        else hi = mid - 1;
+      }
+      this.#autoAts ??= new Map();
+      let shared = this.#autoAts.get(lo);
+      if (shared === undefined) {
+        const next = starts[lo + 1];
+        shared = new AutoAt(this, starts[lo] as MonthIndex, (next === undefined ? auto.to : next - 1) as MonthIndex);
+        this.#autoAts.set(lo, shared);
+      }
+      mc = new MonthView(this, month, shared);
+    } else mc = new MonthCtxImpl(this, month);
     this.#months.set(month, mc);
     return mc;
+  }
+
+  /** CI とテスト（checkInternal）で確かめる */
+  get checking(): boolean {
+    return this.#state.checkInternal;
+  }
+
+  /** CI とテスト（checkInternal）: 区間の自動の使い回しで読んだ行が、その月で読んだときと同じ行（延長の有無も同じ）か */
+  checkSame(id: string, opts: ParamOptions, month: MonthIndex, s: Selected): void {
+    if (!this.#state.checkInternal) return;
+    const direct = this.#selectAt(id, month, opts);
+    if (direct.entry !== s.entry || (direct.extendedYear === undefined) !== (s.extendedYear === undefined) || direct.extendedYear !== s.extendedYear) {
+      throw new EngineError("E_ARGUMENT", [id, "segments.notConstant"]);
+    }
   }
 
   segments(from: MonthIndex, to: MonthIndex, opts: SegmentOptions): readonly Segment[] {
@@ -1272,4 +1405,4 @@ class CtxImpl implements Ctx {
 }
 
 // カスタム部品が ctx の作りを書き換えて他の部品に影響しないように、クラスの prototype を凍結する（0005 の3・0016）
-for (const c of [CtxImpl, MonthCtxImpl, SegmentAt, MoneyImpl, TimeImpl, ParamReader]) Object.freeze(c.prototype);
+for (const c of [CtxImpl, MonthCtxImpl, SegmentAt, MonthView, AutoAt, MoneyImpl, TimeImpl, ParamReader]) Object.freeze(c.prototype);

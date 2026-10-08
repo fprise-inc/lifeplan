@@ -1,33 +1,79 @@
 {
-  "note": "baseline は CI（GitHub Actions の ubuntu-latest と macos-latest）で測った値。--update-baseline で書き換える（同じ OS・CPU の欄だけ比べる）",
+  "note": "baseline は CI（GitHub Actions の ubuntu-latest と macos-latest）で測った値。--update-baseline で書き換える（同じ OS・CPU の欄だけ比べる）。targets は 0005 の追記（2回目の見直し）の目標で、機械（OS-CPU）ごとのミリ秒",
   "targets": {
-    "node.preview20": {
-      "ms": 100,
-      "note": "0005: 100年分×5案×4想定（20回）を画面側（V8）で先出し"
+    "node.sliderSalary": {
+      "ms": {
+        "linux-x64": 100,
+        "darwin-arm64": 100
+      },
+      "note": "目標1: スライダーの1刻み（配偶者の年収）。見ている1案×4想定の先出しを V8 で（ubuntu-latest を下限の目安。Apple シリコンはその半分程度の見込み）"
     },
-    "jsc.preview20": {
-      "ms": 100,
-      "note": "同じく JavaScriptCore"
+    "node.sliderSelfSalary": {
+      "ms": {
+        "linux-x64": 100,
+        "darwin-arm64": 100
+      },
+      "note": "同じく本人の年収"
+    },
+    "node.sliderRetire": {
+      "ms": {
+        "linux-x64": 100,
+        "darwin-arm64": 100
+      },
+      "note": "同じく本人の退職の年齢"
     },
     "node.sliderReturn": {
-      "ms": 100,
-      "note": "スライダーの1刻み（変わった1案×4想定。案の前提だけが変わる）を V8 で"
-    },
-    "jsc.sliderReturn": {
-      "ms": 100,
-      "note": "同じく JavaScriptCore"
-    },
-    "node.sliderSalary": {
-      "ms": 100,
-      "note": "スライダーの1刻み（構成員の年収が変わる）を V8 で"
+      "ms": {
+        "linux-x64": 100,
+        "darwin-arm64": 100
+      },
+      "note": "同じく案の前提（運用利回り）"
     },
     "jsc.sliderSalary": {
-      "ms": 100,
-      "note": "同じく JavaScriptCore"
+      "ms": {
+        "linux-x64": 100,
+        "darwin-arm64": 100
+      },
+      "note": "目標1を JavaScriptCore で（配偶者の年収）"
+    },
+    "jsc.sliderSelfSalary": {
+      "ms": {
+        "linux-x64": 100,
+        "darwin-arm64": 100
+      },
+      "note": "同じく本人の年収"
+    },
+    "jsc.sliderRetire": {
+      "ms": {
+        "linux-x64": 100,
+        "darwin-arm64": 100
+      },
+      "note": "同じく本人の退職の年齢"
+    },
+    "jsc.sliderReturn": {
+      "ms": {
+        "linux-x64": 100,
+        "darwin-arm64": 100
+      },
+      "note": "同じく案の前提（運用利回り）"
     },
     "quickjs.par4": {
-      "ms": 500,
-      "note": "手を離した後の正の計算（1案×4想定を並列）。目安は Apple シリコンで 0.5 秒"
+      "ms": {
+        "darwin-arm64": 500
+      },
+      "note": "目標2: 手を離した後の正の計算 1案×4想定（4つの実行環境で並列。目安は Apple シリコン）"
+    },
+    "quickjs.par20": {
+      "ms": {
+        "darwin-arm64": 3000
+      },
+      "note": "目標2: 正の計算 5案×4想定（論理コア数−1 のスレッドで1件ずつ）"
+    },
+    "quickjs.plans5": {
+      "ms": {
+        "darwin-arm64": 3000
+      },
+      "note": "目標2: 正の計算 5案×4想定（案ごとのスレッドで4想定をまとめて）。par20 とどちらか速い方を使う"
     }
   },
   "baseline": {

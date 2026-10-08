@@ -2,6 +2,7 @@
 export { defineComponent, type ComponentDefinition } from "../registry/define.ts";
 export type { Ctx, MonthCtx, MoneyApi, RateApi, TimeApi, ParamOptions } from "../registry/ctx.ts";
 export type { Segment, SegmentOptions } from "../registry/segments.ts";
+export { segmentIndex } from "../registry/segments.ts";
 export type {
   AccountInput,
   AnnualRow,

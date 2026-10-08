@@ -15,6 +15,7 @@ import {
   yen,
   type Ctx,
   type ExemptionOutput,
+  type MonthCtx,
   type Flow,
   type MemberInput,
   type MonthIndex,
@@ -34,19 +35,22 @@ const P = {
   round: "pension.amount.rounding",
 };
 
-/** 制度データに無い年度は、最後の値に改定率の比を掛けて延ばす（0007 の7: 連動する値）。back は「fy より前で値のある最後の年度」を探した結果の使い回し */
+/**
+ * 制度データに無い年度は、最後の値に改定率の比を掛けて延ばす（0007 の7: 連動する値）。at はその月（または区間）の値、fy はその年度。
+ * back は「fy より前で値のある最後の年度」を探した結果の使い回し
+ */
 function indexed(
   ctx: Ctx,
-  m: MonthIndex,
+  at0: MonthCtx,
+  fy: number,
   id: string,
   member: string,
   R: (fy: number) => string,
   projected: Map<string, number[]>,
   backs: Map<string, number | null>,
 ): Yen | null {
-  const fy = fiscalYearOf(m);
-  if (ctx.at(m).has(id, { member })) {
-    const v = ctx.at(m).paramYen(id, { member });
+  if (at0.has(id, { member })) {
+    const v = at0.paramYen(id, { member });
     if (v !== null) return v;
   }
   const key = `${id}|${fy}`;
@@ -68,14 +72,14 @@ function indexed(
     projected.set(id, [...(projected.get(id) ?? []), fy]);
     return at.money.mulRate(v, ctx.rate.div(ctx.rate.of(R(fy)), ctx.rate.of(R(found))), P.round);
   }
-  return ctx.at(m).paramYen(id, { member });
+  return at0.paramYen(id, { member });
 }
 
 export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "pension.supplementaryBenefit",
   title: "年金生活者支援給付金",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "pension.oldAge": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -112,21 +116,36 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
       const pensionIncome = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member, year: y - 1 });
       const total = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: y - 1 }).total;
       const measure = pensionIncome.revenue + (total - pensionIncome.income);
-      const limit = indexed(ctx, monthIndex(y, 10), P.limit, member, R, projected, backs);
+      const oct = monthIndex(y, 10);
+      const limit = indexed(ctx, ctx.at(oct), fiscalYearOf(oct), P.limit, member, R, projected, backs);
       v = exemptAll && limit !== null && measure <= limit;
       cache.set(y, v);
       return v;
     };
     const monthly = new Map<string, Yen>();
-    // 計算基準月から（それより前の月の判定には前の年度の制度の値が要るため）
-    for (let m = n65 > base ? n65 : base; m <= end; m = addMonths(m, 1)) {
-      if (!basicMonths.has(formatYm(m))) continue;
-      const judge = monthOf(m) >= 10 ? yearOf(m) : yearOf(m) - 1;
-      if (!eligible(judge)) continue;
-      const b = indexed(ctx, m, P.base, member, R, projected, backs);
-      if (b === null) continue;
-      const max = ctx.at(m).paramCount(P.maxMonths) ?? 480;
-      monthly.set(formatYm(m), ctx.at(m).money.mulRatio(b, Math.min(paid, max), max, P.round));
+    // 計算基準月から（それより前の月の判定には前の年度の制度の値が要るため）。
+    // 区間ごとの計算（0006 の追記）: 年度・判定の年（10月で替わる）・制度の値の行・老齢基礎年金を受ける月かが変わらない区間ごとに1回だけ計算する
+    const start = n65 > base ? n65 : base;
+    if (start <= end) {
+      const breaks: MonthIndex[] = [];
+      let wasIn: boolean | null = null;
+      for (let m = start; m <= end; m = addMonths(m, 1)) {
+        const now = basicMonths.has(formatYm(m));
+        if (wasIn !== null && now !== wasIn) breaks.push(m);
+        wasIn = now;
+      }
+      for (let y = yearOf(start); y <= yearOf(end); y++) breaks.push(monthIndex(y, 10));
+      for (const seg of ctx.segments(start, end, { params: [[P.base, { member }], P.maxMonths, P.round], breaks, every: "fiscalYear" })) {
+        const m = seg.from;
+        if (!basicMonths.has(formatYm(m))) continue;
+        const judge = monthOf(m) >= 10 ? yearOf(m) : yearOf(m) - 1;
+        if (!eligible(judge)) continue;
+        const b = indexed(ctx, seg.at, fiscalYearOf(m), P.base, member, R, projected, backs);
+        if (b === null) continue;
+        const max = seg.at.paramCount(P.maxMonths) ?? 480;
+        const v = seg.at.money.mulRatio(b, Math.min(paid, max), max, P.round);
+        for (let k = seg.from; k <= seg.to; k = addMonths(k, 1)) monthly.set(formatYm(k), v);
+      }
     }
     for (const [id, ys] of projected) ctx.notice("N_PARAM_PROJECTED", [id, String(Math.min(...ys)), String(Math.max(...ys))]);
     // 偶数月に前2か月分

@@ -31,6 +31,8 @@ export interface RunOptions {
   readonly batch?: BatchContext;
   /** 表示の先出し用（0005 の5）: お金の動き（flows）と根拠の記録を返さず、見出し・年ごとの行・表だけを返す */
   readonly preview?: boolean;
+  /** 本体が形を確かめたパックの指紋（checkPacksJson の結果）。このパックは計算ごとには確かめない（0005・0017 の追記） */
+  readonly packsChecked?: readonly string[];
 }
 
 /** 複数の要求をまとめて計算するときに1回だけ用意するもの */
@@ -170,10 +172,39 @@ function sortFlows(flows: Flow[]): void {
   }
 }
 
+/**
+ * パックの形（スキーマ）を確かめる。checked にある指紋（digest）のパックは、本体（署名を確かめ、checkPacks で形を確かめたもの）が
+ * 検査済みと渡したものなので、計算ごとには確かめない（0005・0017 の追記: パックの検査は本体で1回）
+ */
+function checkPackSchemas(packs: readonly unknown[], checked: readonly string[] | undefined): void {
+  packs.forEach((p, i) => {
+    const digest = (p as { digest?: unknown } | null)?.digest;
+    if (checked !== undefined && typeof digest === "string" && checked.includes(digest)) return;
+    check("regulation.pack", p, "E_PACK_SCHEMA", [`packs[${i}]`]);
+  });
+}
+
 /** パックの形と、パックが必要とする計算部品の約束の版（0007 の3）を確かめる */
-function checkPacks(packs: readonly unknown[], assembly: Assembly): void {
-  packs.forEach((p, i) => check("regulation.pack", p, "E_PACK_SCHEMA", [`packs[${i}]`]));
+function checkPacks(packs: readonly unknown[], assembly: Assembly, checked: readonly string[] | undefined): void {
+  checkPackSchemas(packs, checked);
   checkPackRequires(packs, assembly);
+}
+
+/**
+ * 本体がパックを読み込んだとき（署名を確かめた後）に1回だけ流す入口: パックの形と、公式部品の約束の版を確かめ、
+ * 検査済みのパックの指紋を返す（計算のときに packsChecked として渡す。0005・0017 の追記）
+ */
+export function checkPacksJson(packsJson: string): string {
+  try {
+    const packs = JSON.parse(packsJson) as unknown;
+    if (!Array.isArray(packs)) throw new EngineError("E_PACK_SCHEMA", ["/:type"]);
+    checkPacks(packs, assemble(OFFICIAL_COMPONENTS, {}), undefined);
+    return JSON.stringify({ ok: true, digests: packs.map((p) => (p as { digest: string }).digest) });
+  } catch (e) {
+    if (e instanceof EngineError) return JSON.stringify({ error: { code: e.code, ids: e.ids } });
+    if (e instanceof SyntaxError) return JSON.stringify({ error: { code: "E_INPUT_SCHEMA", ids: ["json"] } });
+    throw e;
+  }
 }
 
 function checkPackRequires(packs: readonly unknown[], assembly: Assembly): void {
@@ -192,7 +223,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   const req = deepFreeze(request as EngineRequest);
   const input = req.input;
   const batch = options.batch;
-  if (batch === undefined) packs.forEach((p, i) => check("regulation.pack", p, "E_PACK_SCHEMA", [`packs[${i}]`]));
+  if (batch === undefined) checkPackSchemas(packs, options.packsChecked);
 
   const dataSetKey = JSON.stringify(input.dataSet ?? {});
   let store = batch?.stores.get(dataSetKey);
@@ -425,7 +456,7 @@ export function runBatch(
 /** パックの検査と部品表の組み立て（まとめて計算するときと、セッションで1回だけ行う） */
 export function createBatchContext(packs: readonly unknown[], options: RunOptions = {}): BatchContext {
   const assembly = assemble(OFFICIAL_COMPONENTS, options);
-  checkPacks(packs, assembly);
+  checkPacks(packs, assembly, options.packsChecked);
   return { stores: new Map(), assembly, partitions: new Map(), aggregates: new WeakMap(), lastUsed: null, lastCache: null, prev: null };
 }
 
@@ -476,10 +507,10 @@ export function createSession(packsJson: string, optionsJson = "{}"): Session {
   let failure: string | null = null;
   let checkInternal = false;
   try {
-    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean };
+    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean; packsChecked?: string[] };
     checkInternal = opts.checkInternal === true;
     packs = JSON.parse(packsJson) as unknown[];
-    batch = createBatchContext(packs, { checkInternal });
+    batch = createBatchContext(packs, { checkInternal, ...packsCheckedOf(opts) });
   } catch (e) {
     if (e instanceof EngineError) failure = JSON.stringify({ error: { code: e.code, ids: e.ids } });
     else if (e instanceof SyntaxError) failure = JSON.stringify({ error: { code: "E_INPUT_SCHEMA", ids: ["json"] } });
@@ -627,6 +658,12 @@ function mergeProjected(notices: readonly { code: string; ids: readonly string[]
   return [...out, ...merged.values()];
 }
 
+/** 入口の options の packsChecked（文字列の配列のときだけ使う） */
+function packsCheckedOf(opts: { packsChecked?: unknown }): { packsChecked?: readonly string[] } {
+  const c = opts.packsChecked;
+  return Array.isArray(c) && c.every((x) => typeof x === "string") ? { packsChecked: c as string[] } : {};
+}
+
 /** 1件を計算し、出力を検査した形（先出しは見出し・年ごとの行・表だけ）。エンジンのエラーは {error} */
 function runChecked(request: unknown, packs: readonly unknown[], opts: { checkInternal: boolean; preview: boolean; batch: BatchContext }): unknown {
   try {
@@ -647,13 +684,13 @@ function runChecked(request: unknown, packs: readonly unknown[], opts: { checkIn
 /** runBatch の文字列の入口。requestsJson は要求の配列。結果も配列（1件ずつ結果か {error}） */
 export function runBatchJson(requestsJson: string, packsJson: string | readonly unknown[], optionsJson = "{}", context?: BatchContext): string {
   try {
-    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean; preview?: boolean };
+    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean; preview?: boolean; packsChecked?: string[] };
     const requests = JSON.parse(requestsJson) as unknown;
     if (!Array.isArray(requests)) throw new EngineError("E_INPUT_SCHEMA", ["/:type"]);
     const preview = opts.preview === true;
     const checkInternal = opts.checkInternal === true;
     const packs = typeof packsJson === "string" ? (JSON.parse(packsJson) as unknown[]) : packsJson;
-    const batch = context ?? createBatchContext(packs, { checkInternal });
+    const batch = context ?? createBatchContext(packs, { checkInternal, ...packsCheckedOf(opts) });
     return JSON.stringify(
       requests.map((r) => {
         const out = runChecked(r, packs, { checkInternal, preview, batch });
@@ -671,8 +708,8 @@ export function runBatchJson(requestsJson: string, packsJson: string | readonly 
 /** 文字列で受けて文字列で返す入口（Rust のホストと Node の両方がこれを呼ぶ） */
 export function runJson(requestJson: string, packsJson: string, optionsJson = "{}"): string {
   try {
-    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean };
-    const result = runEngine(JSON.parse(requestJson), JSON.parse(packsJson) as unknown[], { checkInternal: opts.checkInternal === true });
+    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean; packsChecked?: string[] };
+    const result = runEngine(JSON.parse(requestJson), JSON.parse(packsJson) as unknown[], { checkInternal: opts.checkInternal === true, ...packsCheckedOf(opts) });
     check("engine.output", result, "E_OUTPUT_SCHEMA");
     return JSON.stringify(result);
   } catch (e) {

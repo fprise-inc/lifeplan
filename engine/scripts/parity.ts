@@ -1,4 +1,5 @@
-// 0005 の6: 一致テスト。同じ入力を Node（V8）・Rust 組込みの quickjs-ng・JavaScriptCore（Bun）で計算し、出力の SHA-256 を比べる
+// 0005 の6: 一致テスト。同じ入力を Node（V8）・Rust 組込みの quickjs-ng・JavaScriptCore（Bun）で計算し、出力の SHA-256 を比べる。
+// quickjs-ng は製品と同じ形（まとめた JS を engine-host --compile でバイトコードにして読み込み、パックの形は先に1回だけ確かめる）で動かす
 // 使い方: node scripts/parity.ts [engine-host のパス] [--jsc]（--jsc は Bun が無ければ失敗にする。無指定なら Bun があるときだけ比べる）
 // 入力は、モデル世帯（data/modelHouseholds）すべてと test/fixtures/parity（エラーになる入力）× 根拠の記録3種。
 // まとめて計算（runBatch。0005 の7・追記）も、モデル世帯すべての1回と、100年分の1案×4想定の先出し（preview）の1回を比べる
@@ -21,6 +22,11 @@ const hasBun = bun.status === 0;
 if (requireJsc && !hasBun) throw new Error("bun がありません（--jsc）");
 
 const enginePath = join(ENGINE_DIR, "dist", "engine.js");
+// 0005 の1: 製品と同じくバイトコードから読み込む（毎回のビルドで作り直す）
+const bytecodePath = join(ENGINE_DIR, "dist", "engine.qbc");
+const compiled = spawnSync(host, ["--compile", enginePath, "--out", bytecodePath, "--debug"], { encoding: "utf8" });
+if (compiled.status !== 0) throw new Error(`バイトコードを作れませんでした: ${compiled.stderr.slice(0, 500)}`);
+const hostEngine = ["--engine", bytecodePath, "--packs-checked"];
 const packDir = join(ENGINE_DIR, "dist", "regulation");
 const packFiles = readdirSync(packDir).filter((f) => f.endsWith(".json")).sort().map((f) => join(packDir, f));
 const packsJson = `[${packFiles.map((f) => readFileSync(f, "utf8").trim()).join(",")}]`;
@@ -51,7 +57,7 @@ for (const [name, file] of inputs) {
     req.trace = trace;
     const reqJson = JSON.stringify(req);
     const nodeOut = engine.run(reqJson, packsJson, options);
-    const q = spawnSync(host, ["--engine", enginePath, ...packFiles.flatMap((p) => ["--pack", p]), "--check-internal"], { input: reqJson, encoding: "utf8", maxBuffer: 1 << 30 });
+    const q = spawnSync(host, [...hostEngine, ...packFiles.flatMap((p) => ["--pack", p]), "--check-internal"], { input: reqJson, encoding: "utf8", maxBuffer: 1 << 30 });
     const qjsOut = (expectError ? q.stderr : q.stdout).trim();
     const hn = sha256(nodeOut);
     const hq = sha256(qjsOut);
@@ -88,7 +94,7 @@ for (const [key, opts, reqs] of batches) {
   const reqJson = JSON.stringify(reqs);
   const nodeOut = engine.runBatch(reqJson, packsJson, opts);
   const flags = JSON.parse(opts) as { preview?: boolean };
-  const q = spawnSync(host, ["--engine", enginePath, ...packFiles.flatMap((p) => ["--pack", p]), "--check-internal", "--batch", ...(flags.preview === true ? ["--preview"] : [])], {
+  const q = spawnSync(host, [...hostEngine, ...packFiles.flatMap((p) => ["--pack", p]), "--check-internal", "--batch", ...(flags.preview === true ? ["--preview"] : [])], {
     input: reqJson,
     encoding: "utf8",
     maxBuffer: 1 << 30,

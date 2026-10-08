@@ -14,13 +14,16 @@ import {
   monthIndex,
   parseYm,
   rate,
+  segmentIndex,
   yearOf,
   yen,
   type Ctx,
   type EmployeeStatusMonth,
   type EmploymentPeriodInput,
   type MemberInput,
+  type MonthCtx,
   type MonthIndex,
+  type Segment,
 } from "../../sdk/index.ts";
 
 const P = {
@@ -39,8 +42,7 @@ interface Resolved {
 }
 
 /** 契約・パートが勤め先の保険に入るか（4分の3の基準、または短時間労働者の要件） */
-function shortTimeCovered(ctx: Ctx, at: MonthIndex, p: EmploymentPeriodInput): boolean {
-  const m = ctx.at(at);
+function shortTimeCovered(ctx: Ctx, m: MonthCtx, p: EmploymentPeriodInput): boolean {
   const hours = rate(p.employer?.weeklyHours ?? "0");
   const full = rate(p.employer?.fullTimeWeeklyHours ?? FULL_TIME_DEFAULT);
   const ratio = m.paramRate(P.ratio);
@@ -57,10 +59,10 @@ function shortTimeCovered(ctx: Ctx, at: MonthIndex, p: EmploymentPeriodInput): b
   return minSize === null || (p.employer?.size ?? 0) >= minSize;
 }
 
-function employmentCovered(ctx: Ctx, at: MonthIndex, p: EmploymentPeriodInput): boolean {
+function employmentCovered(ctx: Ctx, at: MonthCtx, p: EmploymentPeriodInput): boolean {
   if (p.employmentInsuranceCovered !== undefined) return p.employmentInsuranceCovered;
   if (p.type === "civilServant" || p.student === true) return false;
-  const min = ctx.at(at).paramCount(P.eiHours);
+  const min = at.paramCount(P.eiHours);
   return min !== null && ctx.rate.compare(rate(p.employer?.weeklyHours ?? "0"), rate(String(min))) >= 0;
 }
 
@@ -118,12 +120,33 @@ export default defineComponent<{ member: string }, { months: EmployeeStatusMonth
       }
       return best;
     };
-    const coveredCache = new Map<string, boolean>();
+    // 区間ごとの計算（0006 の追記）: 働き方の期間・計算基準月・要件の値の行が変わらない区間ごとに1回だけ判定し、区間の月に並べる
+    const breaks: MonthIndex[] = [base];
+    for (const r of periods) {
+      breaks.push(r.from);
+      if (r.to !== null) breaks.push(r.to, addMonths(r.to, 1));
+    }
     const months: EmployeeStatusMonth[] = [];
-    for (let m = start; m <= end; m = addMonths(m, 1)) {
+    const segs = ctx.segments(base > start ? base : start, end, { params: [P.ratio, P.hours, P.wage, P.size, P.eiHours], breaks });
+    // 計算基準月より前の月は、計算基準月の要件で判定する（区間は計算基準月の区間をそのまま使う）
+    const atOf = (m: MonthIndex) => (m < base ? (segs[0] as Segment).at : (segs[segmentIndex(segs, m)] as Segment).at);
+    const pre: Segment[] = [];
+    if (start < base) {
+      // 計算基準月より前を、働き方の期間の境目で区切る
+      const cuts = [...new Set(breaks.filter((b) => b > start && b < base))].sort((x, y) => x - y);
+      let from = start;
+      for (const c of [...cuts, base]) {
+        pre.push({ from, to: addMonths(c, -1), at: (segs[0] as Segment).at });
+        from = c;
+      }
+    }
+    for (const seg of [...pre, ...segs]) {
+      const m = seg.from;
       const r = periods.find((x) => inPeriod(x, m));
       if (r === undefined) {
-        months.push({ month: formatYm(m), period: null, employer: null, type: "none", health: false, pension: false, employment: false });
+        for (let k = seg.from; k <= seg.to; k = addMonths(k, 1)) {
+          months.push({ month: formatYm(k), period: null, employer: null, type: "none", health: false, pension: false, employment: false });
+        }
         continue;
       }
       const emp = employerOf(r);
@@ -133,31 +156,27 @@ export default defineComponent<{ member: string }, { months: EmployeeStatusMonth
       let employment = false;
       if (emp !== null) {
         const ep = emp.p;
-        const at = m < base ? base : m;
-        // 規則の値は年月で変わるので、月ごとに判定する（同じ月の値は使い回す）
-        const key = `${ep.id}|${at}`;
-        let covered = coveredCache.get(key);
-        if (covered === undefined) {
-          const override = boxValue(ep.employeeInsurance);
-          covered = override ?? (ep.type === "regular" || ep.type === "civilServant" ? true : shortTimeCovered(ctx, at, ep));
-          coveredCache.set(key, covered);
-        }
+        const at = atOf(m);
+        const override = boxValue(ep.employeeInsurance);
+        const covered = override ?? (ep.type === "regular" || ep.type === "civilServant" ? true : shortTimeCovered(ctx, at, ep));
         // 月の途中で辞めると、最後の月は資格を失っている（月末に辞めればその月まで）
         const lastMonthLost = r === emp && ep.endsOnMonthEnd === false && emp.to !== null && m === emp.to;
         health = covered && !lastMonthLost && EMPLOYER_HEALTH_KINDS.has(ep.healthInsurance?.kind ?? "");
         pension = covered && !lastMonthLost && EMPLOYEE_PENSION_KINDS.has(ep.pensionCategory ?? "none");
         employment = employmentCovered(ctx, at, ep);
       }
-      months.push({
-        month: formatYm(m),
-        period: r.p.id,
-        employer: emp?.p.id ?? null,
-        type: r.p.type,
-        ...(leave !== undefined ? { leave } : {}),
-        health,
-        pension,
-        employment,
-      });
+      for (let k = seg.from; k <= seg.to; k = addMonths(k, 1)) {
+        months.push({
+          month: formatYm(k),
+          period: r.p.id,
+          employer: emp?.p.id ?? null,
+          type: r.p.type,
+          ...(leave !== undefined ? { leave } : {}),
+          health,
+          pension,
+          employment,
+        });
+      }
     }
     return { months };
   },

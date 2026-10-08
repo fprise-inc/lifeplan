@@ -57,6 +57,14 @@ code += `\nexport const byKey = {${Object.entries(keys)
   .map(([k, v]) => `${JSON.stringify(k)}: ${v}`)
   .join(", ")}};\n`;
 if (/require\(/.test(code)) throw new Error("検査器のコードに require が残っています");
+// 0005 の追記（速さ）: お金の動きの行・月・構成員の ID など、同じ文字列を何度も同じ正規表現で確かめるので、正規表現ごとに結果を覚える
+// （正規表現は g・y の印を持たないので、同じ文字列なら同じ結果）
+if (/new RegExp\([^)]*"[^"]*[gy][^"]*"\)/.test(code)) throw new Error("検査器の正規表現に g・y の印があります（結果を覚えられません）");
+code = code.replace(/\b(pattern\d+)\.test\(/g, "__memoTest($1, ");
+code =
+  "const __memo = new Map();\n" +
+  "function __memoTest(re, s) { if (typeof s !== \"string\") return re.test(s); let m = __memo.get(re); if (m === undefined) { m = new Map(); __memo.set(re, m); } let v = m.get(s); if (v === undefined) { v = re.test(s); if (m.size < 50000) m.set(s, v); } return v; }\n" +
+  code;
 writeFileSync(join(OUT, "validators.js"), `// 自動生成（scripts/gen.ts）。編集しない\n${code}`);
 writeFileSync(
   join(OUT, "validators.d.ts"),

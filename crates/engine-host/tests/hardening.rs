@@ -2,7 +2,10 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use engine_host::{run_engine, HostError, Limits, Sandbox};
+use engine_host::{
+    check_packs, compile_engine, run_engine, run_engine_bytecode, EngineBytecode, HostError,
+    Limits, Sandbox,
+};
 
 fn sandbox() -> Sandbox {
     Sandbox::new(&Limits::DEFAULT).expect("sandbox")
@@ -309,4 +312,61 @@ fn engine_errors_carry_ids_only() {
         out.starts_with("{\"error\":{\"code\":\"E_INPUT_SCHEMA\""),
         "{out}"
     );
+}
+
+#[test]
+fn engine_runs_from_bytecode_with_the_same_result() {
+    // 0005 の1: 製品はバイトコードから読み込む。ソースから読み込んだときと同じ結果になること
+    let js = engine_bundle();
+    let bytecode = compile_engine(&js).unwrap();
+    // ファイルに書いて読み戻した形でも動く（先頭の印を確かめる）
+    let bytecode = EngineBytecode::from_trusted_bytes(&bytecode.to_bytes()).unwrap();
+    let req = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../data/modelHouseholds/singleEarnerTwoKids.json"),
+    )
+    .unwrap();
+    let packs = regulation_packs();
+    let from_source = run_engine(&js, &req, &packs, "{}", &Limits::DEFAULT).unwrap();
+    let from_bytecode =
+        run_engine_bytecode(&bytecode, &req, &packs, "{}", &Limits::DEFAULT).unwrap();
+    assert_eq!(from_source, from_bytecode);
+    // 凍結もソースのときと同じ
+    let sb = sandbox();
+    sb.load_engine_bytecode(&bytecode).unwrap();
+    assert_eq!(
+        sb.eval_string("String(Object.isFrozen(globalThis))")
+            .unwrap(),
+        "true"
+    );
+}
+
+#[test]
+fn bytecode_without_the_header_is_rejected() {
+    assert!(matches!(
+        EngineBytecode::from_trusted_bytes(b"not bytecode"),
+        Err(HostError::Setup(_))
+    ));
+}
+
+#[test]
+fn packs_are_checked_once_and_the_digests_skip_the_check() {
+    // 0005・0017 の追記: パックの形は本体が1回だけ確かめ、計算では指紋を渡す（結果は同じ）
+    let bytecode = compile_engine(&engine_bundle()).unwrap();
+    let packs = regulation_packs();
+    let digests = check_packs(&bytecode, &packs).unwrap();
+    assert!(digests.starts_with("[\"sha256:"), "{digests}");
+    let req = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data/modelHouseholds/single25.json"),
+    )
+    .unwrap();
+    let checked = format!("{{\"packsChecked\":{digests}}}");
+    let a = run_engine_bytecode(&bytecode, &req, &packs, "{}", &Limits::DEFAULT).unwrap();
+    let b = run_engine_bytecode(&bytecode, &req, &packs, &checked, &Limits::DEFAULT).unwrap();
+    assert_eq!(a, b);
+    // 形の誤ったパックは、1回の検査でエラーになる
+    assert!(matches!(
+        check_packs(&bytecode, "[{\"format\":\"x\"}]"),
+        Err(HostError::Js(_))
+    ));
 }

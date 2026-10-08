@@ -24,21 +24,103 @@ export interface Segment {
   readonly at: MonthCtx;
 }
 
+/** 区間の at で読める値の鍵（値ID・構成員・管轄） */
+export function segmentKey(id: string, o: ParamOptions | undefined): string {
+  const j = o?.jurisdiction;
+  return `${id}${o?.member === undefined ? "" : `|${o.member}`}${j === undefined || j === "national" ? "" : `|${j.level}:${j.code}`}`;
+}
+
+/** 月の昇順の区間から、月 m を含む区間の番号（無ければ -1。二分探索） */
+export function segmentIndex(segments: readonly Segment[], m: MonthIndex): number {
+  let lo = 0;
+  let hi = segments.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >>> 1;
+    const s = segments[mid] as Segment;
+    if (m < s.from) hi = mid - 1;
+    else if (m > s.to) lo = mid + 1;
+    else return mid;
+  }
+  return -1;
+}
+
 type LookupOf = (id: string, opts: ParamOptions) => { basis: Basis; lc: LookupContext };
 type MatchOf = (id: string, opts: ParamOptions) => MatchContext;
 type MakeAt = (from: MonthIndex, to: MonthIndex, allowed: ReadonlySet<string>) => MonthCtx;
 type Check = ((id: string, opts: ParamOptions, m: MonthIndex) => Selected | null) | null;
 
-/** 値を引く日の鍵が threshold 以上になる最初の月（from〜to。無ければ null）。引く日は月について単調に増える */
+/**
+ * 値を引く日の鍵が threshold 以上になる最初の月（from〜to。無ければ null）。引く日は月について単調に増える。
+ * 値を引く日の決め方（basis）ごとに式で求める（threshold は「日付の鍵」か「日付の鍵＋1」で、月は1〜12）
+ */
 function firstAtOrAfter(basis: Basis, lc: LookupContext, from: MonthIndex, to: MonthIndex, threshold: number): MonthIndex | null {
-  let lo = from as number;
-  let hi = (to as number) + 1;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (dateKey(lookupFor(basis, mid as MonthIndex, lc).date) >= threshold) hi = mid;
-    else lo = mid + 1;
+  const y = Math.floor(threshold / 10000);
+  const mo = Math.floor(threshold / 100) % 100;
+  const d = threshold % 100;
+  let m: number;
+  switch (basis.type) {
+    case "month":
+    case "birthDate":
+      // その月の1日
+      m = (monthIndex(y, mo) as number) + (d <= 1 ? 0 : 1);
+      break;
+    case "incomeYear":
+      m = monthIndex(threshold <= y * 10000 + 101 ? y : y + 1, 1);
+      break;
+    case "fiscalYear":
+    case "priorYearIncome": {
+      const s = basis.type === "fiscalYear" ? basis.startMonth : basis.switchMonth;
+      m = monthIndex(threshold <= y * 10000 + s * 100 + 1 ? y : y + 1, s);
+      break;
+    }
+    default: {
+      // 決まった日（anchor）など: 二分探索
+      let lo = from as number;
+      let hi = (to as number) + 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (dateKey(lookupFor(basis, mid as MonthIndex, lc).date) >= threshold) hi = mid;
+        else lo = mid + 1;
+      }
+      return lo > to ? null : (lo as MonthIndex);
+    }
   }
-  return lo > to ? null : (lo as MonthIndex);
+  if (m < from) return from;
+  return m > to ? null : (m as MonthIndex);
+}
+
+/** 1つの値の行が変わりうる月（from より後〜to）を cuts に足す */
+function addCuts(store: RegulationStore, id: string, basis: Basis, lc: LookupContext, from: MonthIndex, to: MonthIndex, cuts: Set<number>): void {
+  if (basis.type === "anchor") return;
+  const hints = store.boundaryHints(id);
+  for (const k of hints.keys) {
+    const m = firstAtOrAfter(basis, lc, from, to, k);
+    if (m !== null && m > from) cuts.add(m);
+  }
+  if (hints.extendFrom !== null) {
+    // 延長の仮定の行は、値を引く日の年ごとに別の記録（延長した年）になるので、年の変わり目でも区切る
+    const y0 = lookupFor(basis, from, lc).date.year;
+    const y1 = lookupFor(basis, to, lc).date.year;
+    for (let y = y0 + 1; y <= y1; y++) {
+      const k = dateKey({ year: y, month: 1, day: 1 });
+      if (k <= hints.extendFrom) continue;
+      const m = firstAtOrAfter(basis, lc, from, to, k);
+      if (m !== null && m > from) cuts.add(m);
+    }
+  }
+}
+
+/**
+ * 部品のマニフェストの値（params）すべてについて、行が変わりうる月で from〜to を区切った区間の始まり（昇順）。
+ * ctx.at(m) が、同じ区間の月では同じ値の読み取りを使い回すために使う（0006 の追記: 区間の自動の使い回し）
+ */
+export function autoStarts(store: RegulationStore, ids: readonly string[], from: MonthIndex, to: MonthIndex): number[] {
+  const cuts = new Set<number>();
+  for (const id of ids) {
+    if (!store.knows(id)) continue;
+    addCuts(store, id, store.definition(id).basis, {}, from, to, cuts);
+  }
+  return [from as number, ...[...cuts].sort((a, b) => a - b)];
 }
 
 export function segmentsOf(
@@ -58,28 +140,12 @@ export function segmentsOf(
   const params: [string, ParamOptions][] = [];
   for (const p of opts.params) {
     const [id, o] = typeof p === "string" ? [p, {} as ParamOptions] : [p[0], p[1]];
-    if (o.anchorEvent !== undefined || (o.jurisdiction !== undefined && o.jurisdiction !== "national")) throw new EngineError("E_ARGUMENT", [id, "segments.options"]);
+    if (o.anchorEvent !== undefined) throw new EngineError("E_ARGUMENT", [id, "segments.options"]);
     params.push([id, o]);
-    allowed.add(o.member === undefined ? id : `${id}|${o.member}`);
+    allowed.add(segmentKey(id, o));
     if (!store.knows(id)) continue;
     const { basis, lc } = lookupOf(id, o);
-    if (basis.type === "anchor") continue;
-    const hints = store.boundaryHints(id);
-    for (const k of hints.keys) {
-      const m = firstAtOrAfter(basis, lc, from, to, k);
-      if (m !== null && m > from) cuts.add(m);
-    }
-    if (hints.extendFrom !== null) {
-      // 延長の仮定の行は、値を引く日の年ごとに別の記録（延長した年）になるので、年の変わり目でも区切る
-      const y0 = lookupFor(basis, from, lc).date.year;
-      const y1 = lookupFor(basis, to, lc).date.year;
-      for (let y = y0 + 1; y <= y1; y++) {
-        const k = dateKey({ year: y, month: 1, day: 1 });
-        if (k <= hints.extendFrom) continue;
-        const m = firstAtOrAfter(basis, lc, from, to, k);
-        if (m !== null && m > from) cuts.add(m);
-      }
-    }
+    addCuts(store, id, basis, lc, from, to, cuts);
   }
   for (const b of opts.breaks ?? []) if (b > from && b <= to) cuts.add(b);
   if (opts.every !== undefined) {
