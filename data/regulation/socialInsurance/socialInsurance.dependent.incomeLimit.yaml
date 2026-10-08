@@ -13,8 +13,10 @@ entries:
     conditions: []
     value: 1300000
     sources:
-      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/dependent_status/001/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/tekiyo/hihokensha1/20141202.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "厚生年金に加入している第2号被保険者に扶養されている20歳以上60歳未満の配偶者(年収が130万円未満であり、かつ配偶者の年収の2分の1未満の方)を第3号被保険者といいます。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html", retrievedAt: "2026-10-08", sha256: "0648891b98f6a9993110357e0a594443c4328480eee598ba7ee78d3fddd56f55", locator: "日本年金機構「19歳以上23歳未満の方の被扶養者認定における年間収入要件の取扱いが変わります」", quote: "年間収入130万円未満（60歳以上または障害者の場合は、年間収入180万円未満）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/tekiyo/hihokensha1/20141202.html", retrievedAt: "2026-10-08", sha256: "18ce48d7a69134fe26391be2586f1777fd0376beba4a22ba7165200b2fb8ad17", locator: "日本年金機構「従業員の配偶者を扶養に入れるときの手続き」", quote: "年間収入（※1）130万円未満（60歳以上または障害者の場合は、年間収入180万円未満）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/dependent_status/001/index.html", retrievedAt: "2026-10-08", sha256: "f2aa1a087bef59926ff639ad12ee80a3eae10b52c128baa488892da91f5b7174", locator: "協会けんぽ「被扶養者資格の再確認」", quote: "130万円（60歳以上の場合は180万円、19歳以上23歳未満かつ配偶者でない場合は150万円）"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する。被保険者の収入の2分の1未満の基準は見ていない"}
+    approval: {method: "pendingReview", paths: 2, note: "日本年金機構と協会けんぽの説明が一致。基準は通知で、通知の原本は未取得のため施行日も含め確認待ち。被保険者の収入の2分の1未満の基準は見ていない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

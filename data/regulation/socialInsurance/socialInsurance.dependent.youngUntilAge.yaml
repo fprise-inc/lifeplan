@@ -8,14 +8,16 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-10-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 23
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/kounen/dependents/aged19to22/timing.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html", retrievedAt: "2026-10-08", sha256: "0648891b98f6a9993110357e0a594443c4328480eee598ba7ee78d3fddd56f55", locator: "日本年金機構「19歳以上23歳未満の方の被扶養者認定における年間収入要件の取扱いが変わります」", quote: "扶養認定を受ける方が19歳以上23歳未満の場合（被保険者の配偶者を除く。）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/kounen/dependents/aged19to22/timing.html", retrievedAt: "2026-10-08", sha256: "5d175d65900bf6d12f2ca9332d70bc7641ac782b2ff8e767a1478114234ced42", locator: "日本年金機構 Q&A（年齢要件の判定時点）", quote: "年齢要件（19歳以上23歳未満）は、扶養認定日が属する年の12月31日時点の年齢で判定します"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/osaka/news/r07_sep/557.html", retrievedAt: "2026-10-08", sha256: "7cc4e23e84787dfaec7cde495996157ba1618cfd24f3b754468b7aeb47f33b4d", locator: "協会けんぽ大阪支部「19歳以上23歳未満の被扶養者の収入要件が変わります」", quote: "扶養認定日が属する年の12月31日時点の年齢で判"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "日本年金機構と協会けんぽの説明が一致（この年齢の区分は令和7年10月1日から）。適用開始（2025-04-01）より後の施行だが、令和7年9月までは150万円の行が「なし」なので結果は同じ。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

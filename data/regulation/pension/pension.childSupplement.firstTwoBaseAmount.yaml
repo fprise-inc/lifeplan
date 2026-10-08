@@ -13,8 +13,24 @@ entries:
     conditions: []
     value: 224700
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第44条第2項", quote: "そのうち二人までについては、それぞれ二十二万四千七百円に改定率を乗じて得た額"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」加給年金額（令和8年4月から）", quote: "各243,800円"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和8年度243,800円と一致。令和10年4月の子の加算の引上げ（281,700円・令和6年度価格）は区分の対応が未確認のため入れていない"}
+    approval: {method: "pendingReview", paths: 2, note: "条文の基準額と日本年金機構の令和8年度の額が一致（224,700円×1.085→243,800円。加給年金額の改定率は新規裁定者の率）。令和10年3月まで（4月からの額は rev 2）。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+  - rev: 2
+    appliesFrom: "2028-04-01"
+    appliesTo: null
+    enforcedOn: "2028-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 269600
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20280401_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "6c3ea71940fa20510429d46664ac5e2d53ce3b4381bef01f07965d260e509060", locator: "厚生年金保険法 第44条第2項（令和10年4月1日の版）", quote: "前項に規定する子については一人につき二十六万九千六百円に改定率を乗じて得た額とする"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001592624.pdf", retrievedAt: "2026-10-08", sha256: "f29fcf6ed7169ffb3a4ac5dc495a6f42a076450c60a8d18e2b7a5f976ce09f2e", locator: "厚生労働省「年金制度改正法の概要」子の加算の見直し", quote: "一律281,700円※いずれも2024年度価格の年額"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20280401_507AC0000000074"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, note: "令和7年法律第74号による改正後の44条2項（令和10年4月1日施行の版）で、子は人数にかかわらず一人につき269,600円×改定率。厚生労働省の概要の281,700円（2024年度価格）は269,600円×1.045を100円単位にした額と一致。同法附則で令和10年4月以後の月分から適用（受給中の人も含む）。子の加算の要件（被保険者期間120月以上）と基礎年金の子の加算はエンジンが扱わない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

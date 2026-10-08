@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2020-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2020-01-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -18,8 +18,11 @@ entries:
       - {upTo: 10000000, rate: "0.05", amount: 1455000}
       - {upTo: null, amount: 1955000}
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/205.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "330万円以下 110万円 100万円 90万円", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2026/pdf/205.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "410万円超 770万円以下 ... A × 15％＋68万5,000円 A × 15％＋58万5,000円 A × 15％＋48万5,000円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 第35条第4項", quote: "当該合計額が六十万円に満たない場合には、六十万円"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", locator: "租税特別措置法 第41条の15の3第1項", quote: "同法第三十五条第四項第一号中「六十万円に」とあるのは「百十万円に」と、「六十万円）」とあるのは「百十万円）」と、同項第二号中「五十万円」とあるのは「百万円」と、同項第三号中「四十万円」とあるのは「九十万円」とする"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2026/pdf/205.pdf", retrievedAt: "2026-10-08", sha256: "ed0674cc782534e351f5570c33563dc2c4f3674602f3cab13a9069a34dbcb38d", locator: "国税庁「年末調整のしかた（令和8年分）」公的年金等控除額の表", quote: "330万円以下110万円100万円90万円"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/205.pdf", retrievedAt: "2026-10-08", sha256: "a2c13cb83ae8a3cb86a8f41b8b2a9e563064594cf5f2c3300eb85964f0d8b6e7", locator: "国税庁「年末調整のしかた（令和7年分）」公的年金等控除額の表", quote: "330万円以下110万円100万円90万円"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和7年分・令和8年分の国税庁の表で同じ式。境目で式の値がつながること、1,000万円超・2,000万円超の列が一律10万円・20万円少ないことも算術で確かめた。令和2年分以後の表として置いた"}
+    approval: {method: "reviewed", paths: 2, note: "条文（35条4項1号に措置法41条の15の3（最低110万円））から計算した表（40万円＋（収入−50万円）の25%・15%・5%の段を収入×率＋額に直したもの）と、国税庁の表（令和7年分・令和8年分）が全段一致。施行日は現行の文言が最初に現れた版（e-Gov の改正履歴）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

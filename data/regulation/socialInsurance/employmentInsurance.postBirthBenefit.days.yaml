@@ -13,8 +13,9 @@ entries:
     conditions: []
     value: 28
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/11900000/001599643.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "休業開始時賃金日額（※２）×支給日数（28日が上限）×13％により算出", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://jsite.mhlw.go.jp/ishikawa-roudoukyoku/content/contents/002180799.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", retrievedAt: "2026-10-08", sha256: "69db3a60873d47999b6f5d4ad13e0b804eb87792ee84b5c0a89bda9b1f48dfdc", locator: "雇用保険法 第61条の10第6項", quote: "（その日数が二十八日を超えるときは、二十八日）を乗じて得た額の百分の十三"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001461102.pdf", retrievedAt: "2026-10-08", sha256: "29168d4266474d958492ca8eb1795a8196086b5c2dd0473cd792aac32e9580dd", locator: "厚生労働省 パンフレット（2026年8月1日改訂版）", quote: "出生後休業支援給付金の支給上限額（休業28日）：16,540円×28日×13％＝60,205円"}
+      - {type: "law", lawNumber: "昭和四十九年法律第百十六号", egovRevisionId: "349AC0000000116_20260513_507AC0000000032"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "28日の休業をとるとみなす"}
+    approval: {method: "reviewed", paths: 2, note: "条文と厚生労働省のパンフレットが一致。施行日は令和6年法律第47号による給付の創設（e-Gov の改正履歴）。28日の休業をとるとみなす。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

@@ -7,40 +7,47 @@ entries:
   - rev: 1
     appliesFrom: "2024-04-01"
     appliesTo: "2025-03-31"
-    enforcedOn: null
+    enforcedOn: "2024-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 500000
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001592624.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "支給停止となる収入基準額を50万円（令和６年度価格）から62万円に引き上げ", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20240401_506CO0000000127?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d7fa5b1dbd97aad9ffbde38a1140ab9c6c1b1e14fd4d68b8bcde20df7d5a620", locator: "国民年金法による改定率の改定等に関する政令 第5条", quote: "同条第三項本文中「四十八万円」とあるのは、「五十万円」と読み替えて"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001592624.pdf", retrievedAt: "2026-10-08", sha256: "f29fcf6ed7169ffb3a4ac5dc495a6f42a076450c60a8d18e2b7a5f976ce09f2e", locator: "厚生労働省「年金制度改正法の概要」在職老齢年金制度の見直し", quote: "支給停止となる収入基準額を50万円（令和６年度価格）から62万円に引き上げる"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20240401_506CO0000000127"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "令和6年度の額として置いた（令和6年度の公表資料は未取得）"}
+    approval: {method: "reviewed", paths: 2, note: "令和6年度の支給停止調整額。政令の読替えと厚生労働省・日本年金機構の資料が一致。施行日はその年度の政令の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2025-04-01"
     appliesTo: "2026-03-31"
-    enforcedOn: null
+    enforcedOn: "2025-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 510000
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/tokusetsu/zairoukaisei.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和８年４月から、年金が減額になる基準額（賃金と老齢厚生年金の合計）が月51万円から65万円に引き上げられます。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20250401_507CO0000000106?response_format=xml", retrievedAt: "2026-10-08", sha256: "4aa126f52a0d0ab81c8c6eeac5c986e30cd15a4f8bbe2cbc4ee77d13aef7ce64", locator: "国民年金法による改定率の改定等に関する政令 第5条", quote: "同条第三項本文中「四十八万円」とあるのは、「五十一万円」と読み替えて"}
+      - {type: "web", url: "https://www.nenkin.go.jp/tokusetsu/zairoukaisei.html", retrievedAt: "2026-10-08", sha256: "30fa7bfc11e8e7560e8405fc3119aa2df828b22f2b5407201099257ab1ce702e", locator: "日本年金機構「在職老齢年金制度が改正されました」", quote: "年金が減額になる基準額（賃金と老齢厚生年金の合計）が月51万円から65万円に引き上げられました"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20250401_507CO0000000106"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和7年度の支給停止調整額。政令の読替えと厚生労働省・日本年金機構の資料が一致。施行日はその年度の政令の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 3
     appliesFrom: "2026-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 650000
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/tokusetsu/zairoukaisei.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和８年４月から、年金が減額になる基準額（賃金と老齢厚生年金の合計）が月51万円から65万円に引き上げられます。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/zaishoku/20150401-01.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "基本月額と総報酬月額相当額との合計が65万円※を超える場合 基本月額－（基本月額＋総報酬月額相当額－65万円※）÷2", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20260401_508CO0000000075?response_format=xml", retrievedAt: "2026-10-08", sha256: "5434dc732c04790db8a6fa473dcdebbe60c2db87105f1cf1a487f9a49f5383dc", locator: "国民年金法による改定率の改定等に関する政令 第5条", quote: "同条第三項本文中「六十二万円」とあるのは、「六十五万円」と読み替えて"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第46条第3項", quote: "第一項の支給停止調整額は、六十二万円とする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/zaishoku/20150401-01.html", retrievedAt: "2026-10-08", sha256: "3a93e2f0e0b59c0b0af0f4626c81b402efa0aa1ab155bc749d17870d0ec0ac8f", locator: "日本年金機構「在職老齢年金の計算方法」", quote: "基本月額と総報酬月額相当額との合計が65万円※を超える場合基本月額－（基本月額＋総報酬月額相当額－65万円※）÷2※令和8年度の支給停止調整額"}
+      - {type: "web", url: "https://www.nenkin.go.jp/tokusetsu/zairoukaisei.html", retrievedAt: "2026-10-08", sha256: "30fa7bfc11e8e7560e8405fc3119aa2df828b22f2b5407201099257ab1ce702e", locator: "日本年金機構「在職老齢年金制度が改正されました」", quote: "年金が減額になる基準額（賃金と老齢厚生年金の合計）が月51万円から65万円に引き上げられました"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20260401_508CO0000000075"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 3, note: "法律上の62万円（令和6年度価格）を賃金で改定した令和8年度の額。毎年度改定されるが、令和9年度以後は延長の仮定（最後の値が続く）"}
+    approval: {method: "reviewed", paths: 2, note: "令和8年度の支給停止調整額。政令の読替えと厚生労働省・日本年金機構の資料が一致。施行日はその年度の政令の施行日。法律の額は62万円（令和7年法律第74号。令和8年4月施行）で毎年度改定。令和9年度以後は延長の仮定。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

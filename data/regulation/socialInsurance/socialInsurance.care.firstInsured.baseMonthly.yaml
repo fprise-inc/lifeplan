@@ -13,8 +13,8 @@ entries:
     conditions: []
     value: 6225
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_40211.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.kaiketsu-j.com/?p=10570", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "全国の介護保険料基準額（月額・全国加重平均）は6,225円（第8期は6,014円）", note: "民間の記事の要約"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_40211.html", retrievedAt: "2026-10-08", sha256: "9f2470bf3d296408694bf34bb0c46f25a704e40330fd10854a4a19ac9ec3ced7", locator: "厚生労働省「第９期計画期間における介護保険の第１号保険料及びサービス見込み量等について」", quote: "全国の介護保険料基準額（月額・全国加重平均）は6,225円（第８期は6,014円）"}
+      - {type: "law", lawNumber: "平成十年政令第四百十二号", egovRevisionId: "410CO0000000412_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 3, note: "第10期（令和9年度から）は未定。市町村の基準額は世帯の入力（premiumRates）で上書きする"}
+    approval: {method: "pendingReview", paths: 1, note: "厚生労働省の公表（第9期の全国加重平均）だけ。既定の値で、市町村の基準額は世帯の入力で上書きする。第10期（令和9年度から）の値は未公表（公式の値はまだ無い）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

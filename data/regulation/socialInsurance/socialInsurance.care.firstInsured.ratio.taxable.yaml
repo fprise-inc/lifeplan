@@ -21,8 +21,9 @@ entries:
       - {upTo: 7199999, rate: "2.3"}
       - {upTo: null, rate: "2.4"}
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/12300000/001576452.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "0.285 0.485 0.685 0.9 1.0 1.2 1.3 1.5 1.7 1.9 2.1 2.3 2.4", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.moriguchi.osaka.jp/material/files/group/78/kaigohokennryou0229.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "666ede0602c34022f4580976538c0f9ff0bf973c41cb852ff334303f6a5d6ec3", locator: "介護保険法施行令 第38条第1項第6号〜第13号（標準割合）", quote: "十三前各号のいずれにも該当しない者十分の二十四"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12300000/001576452.pdf", retrievedAt: "2026-10-08", sha256: "b69da88e5ff78925e33337ef69aee400fc33b5435a72dd15c23619172bfe96f4", locator: "厚生労働省 社会保障審議会介護保険部会資料「介護保険料等における基準額の調整」", quote: "720万円620万円520万円420万円320万円210万円120万円"}
+      - {type: "law", lawNumber: "平成十年政令第四百十二号", egovRevisionId: "410CO0000000412_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 3, note: "境目は「未満」なので upTo は1円少ない額。市町村の段階の数・割合は条例で違う"}
+    approval: {method: "pendingReview", paths: 2, note: "割合（1.2〜2.4）は施行令の標準割合と厚生労働省の資料が一致。合計所得金額の境目（120万〜720万円）は厚生労働大臣が定める基準所得金額（告示）で、告示の原本は未取得。境目は「未満」なので upTo は1円少ない額。市町村の段階・割合は条例で違う。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

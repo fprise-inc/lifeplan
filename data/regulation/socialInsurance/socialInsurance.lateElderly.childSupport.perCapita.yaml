@@ -13,10 +13,11 @@ entries:
     conditions: []
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_72371.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_72371.html", retrievedAt: "2026-10-08", sha256: "75e155a6b119b6433cc7bfa43e6b3172d2e4531c814732f350c40bc569031ae4", locator: "厚生労働省「後期高齢者医療制度の令和８・９年度の保険料率について」", quote: "【子ども分】（令和８年度）"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 1, note: "子ども・子育て支援金分は令和8年度から（それより前は制度なし）。厚生労働省の公表だけで確かめた。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2026-04-01"
     appliesTo: "2027-03-31"
@@ -26,8 +27,8 @@ entries:
     conditions: []
     value: 1351
     sources:
-      - {type: "web", url: "https://www.kaiketsu-j.com/?p=21702", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "内訳は被保険者均等割額が年額1351円（月額112円）", note: "民間の記事の要約"}
-      - {type: "web", url: "https://www.psrn.jp/topics/detail.php?id=40646", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_72371.html", retrievedAt: "2026-10-08", sha256: "75e155a6b119b6433cc7bfa43e6b3172d2e4531c814732f350c40bc569031ae4", locator: "厚生労働省「後期高齢者医療制度の令和８・９年度の保険料率について」", quote: "被保険者均等割額（年額）：1,351円（月額）：112円"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 1, note: "全国平均（既定の値）。厚生労働省の公表だけ。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

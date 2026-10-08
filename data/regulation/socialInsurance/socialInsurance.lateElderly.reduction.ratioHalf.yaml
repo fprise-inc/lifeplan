@@ -13,7 +13,9 @@ entries:
     conditions: []
     value: "0.5"
     sources:
-      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "f611fa60cc026aae772a0d355de661717586d417697a940c6fd57ec3180da973", locator: "高齢者の医療の確保に関する法律施行令 第18条第4項", quote: "を超えない世帯十分の七ロイに掲げる世帯以外の世帯十分の五"}
+      - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", sha256: "6b52119fe2be72ed8f3737a6bde6844fe1cdb2b56b0e0bf232818a33e8bacf3e", locator: "東京都保健医療局「後期高齢者医療制度の保険料の軽減」", quote: "＋31万円×(被保険者数)以下5割"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}
+    approval: {method: "pendingReview", paths: 2, note: "施行令と東京都の説明が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

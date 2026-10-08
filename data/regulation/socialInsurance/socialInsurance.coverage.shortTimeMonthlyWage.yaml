@@ -13,22 +13,25 @@ entries:
     conditions: []
     value: 88000
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/tekiyo/jigyosho/tanjikan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20260801_508AC0000000031?response_format=xml", retrievedAt: "2026-10-08", sha256: "81a201117fddc396088fbfda5046cc99b0f5445be4658b3aa0e7ba83dcd6ac7b", locator: "健康保険法 第3条第1項第9号（令和8年8月1日の版。撤廃前）", quote: "八万八千円未満であること"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", sha256: "bbc9d8f7963479fb3f3785948d8ae0cb002687d08847ac8c4385d2f5f4793838", locator: "厚生労働省「年金制度改正法の概要」適用拡大", quote: "①賃金が月額8.8万円（年収106万円相当）以上"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20260801_508AC0000000031"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}
+    approval: {method: "pendingReview", paths: 2, note: "撤廃前の条文と厚生労働省の資料が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2026-10-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-10-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/jigyosho/2026/202610/100104.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "2026（令和8）年10月に社会保険の短時間労働者に係る賃金要件が撤廃されました", note: "ページの題名（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/jigyosho/2026/202610/100104.html", retrievedAt: "2026-10-08", sha256: "45046a1614ba51b69b11a4b13437685c061de5298838505ce5481b0b69cc6f73", locator: "日本年金機構「2026（令和8）年10月に社会保険の短時間労働者に係る賃金要件が撤廃されました」", quote: "2026（令和8）年10月に社会保険の短時間労働者に係る賃金要件が撤廃されました"}
+      - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", sha256: "21b56fbc929970fa1988a85f16d928e76d0bb399384f89c90651ca1d3a39f85d", locator: "厚生労働省「社会保険適用拡大特設サイト」Q&A", quote: "賃金要件（所定内賃金の月額が8.8万円以上）については、令和７年年金制度改正により、2026年10月に撤廃されました"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", locator: "健康保険法 第3条第1項第9号（令和8年10月1日の版）", quote: "イ一週間の所定労働時間が二十時間未満であること。ロ学校教育法"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "最低賃金の減額特例の対象者（原則は加入しない）は扱わない"}
+    approval: {method: "reviewed", paths: 2, note: "令和8年10月の版の条文から賃金の要件が消えていること（e-Gov の改正履歴で8月1日の版まで存在）と、日本年金機構・厚生労働省の説明が一致。最低賃金の減額特例の対象者（原則は加入しない）は扱わない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

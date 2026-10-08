@@ -13,7 +13,9 @@ entries:
     conditions: []
     value: 150000
     sources:
-      - {type: "web", url: "https://www.city.nagoya.jp/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "名古屋市の説明の要約（原本は未取得）。ページのURLの細部は未取得"}
+      - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", sha256: "6b52119fe2be72ed8f3737a6bde6844fe1cdb2b56b0e0bf232818a33e8bacf3e", locator: "東京都保健医療局「後期高齢者医療制度の保険料の軽減」", quote: "65歳以上（その年の1月1日時点）の公的年金所得については、年金所得からさらに15万円（高齢者特別控除額）を差し引いた額で判定します"}
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", sha256: "59a0c29a1f64b19ab4f18e420fcb77affa516bfde6ed838e178582d9c1a94794", locator: "西宮市「後期高齢者医療保険料の軽減」", quote: "65歳以上の公的年金受給者は、総所得金額等（収入額-控除額）から年金所得の範囲内で最大15万円を控除し"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}
+    approval: {method: "pendingReview", paths: 2, note: "東京都と西宮市の説明が一致。施行令の附則の文言は確かめていないため、施行日も含め確認待ち。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

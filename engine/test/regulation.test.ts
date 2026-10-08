@@ -158,6 +158,8 @@ describe("パックの組み立て", () => {
     expect(build(reviewedBody('"2020-01-01"', `{method: reviewed, paths: 2, ${ok}}`)).values).toHaveLength(1);
     expect(() => build(reviewedBody("null", `{method: reviewed, paths: 2, ${ok}}`))).toThrow("施行日");
     expect(() => build(reviewedBody('"2020-01-01"', "{method: reviewed, paths: 2}"))).toThrow("comparedBy");
+    // 3つの欄の代わりに note に照らし合わせた者・道具を書いてもよい（PR #6 の行の書き方）
+    expect(build(reviewedBody('"2020-01-01"', '{method: reviewed, paths: 2, note: "照合: Claude（原本の本文・sha256 を機械で照合）"}')).values).toHaveLength(1);
     expect(() => build(reviewedBody('"2020-01-01"', `{method: reviewed, paths: 1, ${ok}}`))).toThrow("形式の誤り");
     expect(() => build(reviewedBody('"2020-01-01"', `{method: reviewed, paths: 2, ${ok}}`, web))).toThrow("sha256");
     // 施行日が分からず「遅くともこの日には施行済み」だけが分かる行（0007 の追記）

@@ -13,8 +13,10 @@ entries:
     conditions: []
     value: 430000
     sources:
-      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.pref.miyagi.jp/soshiki/kkh-iryou/kokuho25.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "43万円+30.5万円×被保険者数+10万円×(給与所得者等の数-1)", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "f611fa60cc026aae772a0d355de661717586d417697a940c6fd57ec3180da973", locator: "高齢者の医療の確保に関する法律施行令 第18条第4項", quote: "地方税法第三百十四条の二第二項第一号に定める金額"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の2第2項第1号", quote: "四十三万円"}
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", sha256: "59a0c29a1f64b19ab4f18e420fcb77affa516bfde6ed838e178582d9c1a94794", locator: "西宮市「後期高齢者医療保険料の軽減」", quote: "基礎控除額（43万円）＋10万円×（年金・給与所得者数（※1）-1）7.2割"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}
+    approval: {method: "pendingReview", paths: 2, note: "施行令の「地方税法314条の2第2項第1号に定める金額」（43万円）と西宮市の説明が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま（基礎控除43万円の地方税法の文言の施行日も別）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

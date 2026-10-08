@@ -206,7 +206,7 @@
         "recordedIn": { "$ref": "#/$defs/packVersion" },
         "supersededIn": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/packVersion" }] },
         "approval": {
-          "description": "0007 の9・追記。reviewed は「公式の原本と、2つ以上の読み方（paths）で照らし合わせて一致した」こと（人の目による確認は要件にしない）。誰が（comparedBy。人なら役割、個人名は書かない）・どの道具で（tools）・いつ（comparedOn）照らし合わせたかを残す。pendingReview は原本と照らし合わせる前。paths は読み取って一致を確かめた経路の数",
+          "description": "0007 の9・追記。reviewed は「公式の原本と、2つ以上の読み方（paths）で照らし合わせて一致した」こと（人の目による確認は要件にしない）。誰が（comparedBy。人なら役割、個人名は書かない）・どの道具で（tools）・いつ（comparedOn）照らし合わせたかを残す（3つの欄で書くか、note に「照合: …」と書く）。pendingReview は原本と照らし合わせる前。paths は読み取って一致を確かめた経路の数",
           "type": "object",
           "additionalProperties": false,
           "required": ["method"],
@@ -224,7 +224,11 @@
             { "if": { "properties": { "method": { "const": "pendingReview" } } }, "then": { "required": ["paths"] } },
             {
               "if": { "properties": { "method": { "const": "reviewed" } } },
-              "then": { "required": ["paths", "comparedBy", "tools", "comparedOn"], "properties": { "paths": { "minimum": 2 } } }
+              "then": {
+                "required": ["paths"],
+                "properties": { "paths": { "minimum": 2 } },
+                "anyOf": [{ "required": ["comparedBy", "tools", "comparedOn"] }, { "required": ["note"] }]
+              }
             }
           ]
         }

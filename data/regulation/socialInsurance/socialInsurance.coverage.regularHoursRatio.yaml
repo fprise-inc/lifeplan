@@ -7,14 +7,15 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2020-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: "0.75"
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/kounen/tekiyoukakudai/tanjikan/shutokuyouken.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "「1週の所定労働時間」および「1月の所定労働日数」が、同一の事業所に使用される通常の労働者の所定労働時間および所定労働日数の4分の3以上である労働者は、厚生年金保険・健康保険の被保険者となります。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", locator: "健康保険法 第3条第1項第9号", quote: "一週間の所定労働時間の四分の三未満である短時間労働者"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/kounen/tekiyoukakudai/tanjikan/shutokuyouken.html", retrievedAt: "2026-10-08", sha256: "0eb8ff66407eeac573d5b6d4e2c70292ec0ef0948d5c32104c9d118d1382c064", locator: "日本年金機構 Q&A（短時間労働者の適用要件）", quote: "同一の事業所に使用される通常の労働者の所定労働時間および所定労働日数の4分の3以上（以下「4分の3基準」という）"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する。月の所定労働日数の4分の3は見ていない"}
+    approval: {method: "reviewed", paths: 2, note: "条文と日本年金機構の説明が一致。施行日は現行の文言が最初に現れた版（e-Gov の改正履歴）。4分の3の基準は平成28年10月から法定（日本年金機構の説明）。月の所定労働日数の4分の3は見ていない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

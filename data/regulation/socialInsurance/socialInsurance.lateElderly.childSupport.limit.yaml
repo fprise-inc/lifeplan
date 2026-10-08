@@ -7,27 +7,30 @@ entries:
   - rev: 1
     appliesFrom: "2024-04-01"
     appliesTo: "2026-03-31"
-    enforcedOn: null
+    enforcedOn: "2024-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: "notApplicable"
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_72371.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20250801_507CO0000000203?response_format=xml", retrievedAt: "2026-10-08", sha256: "537d504945628c773138ae2289508c9d1fa8a4f8d59bf0f79eb80003685ef154", locator: "高齢者の医療の確保に関する法律施行令 第18条第1項（令和7年8月1日の版）", quote: "賦課額は、八十万円を超えることができないものであること"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_72371.html", retrievedAt: "2026-10-08", sha256: "75e155a6b119b6433cc7bfa43e6b3172d2e4531c814732f350c40bc569031ae4", locator: "厚生労働省「後期高齢者医療制度の令和８・９年度の保険料率について」", quote: "【子ども分】（令和８年度）"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20250801_507CO0000000203"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和7年度までは子ども・子育て支援納付金賦課額が無い（施行令は医療分の限度額だけ）。厚生労働省の公表（子ども分は令和8年度から）と一致。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2026-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 21000
     sources:
-      - {type: "web", url: "https://www.kaiketsu-j.com/?p=20323", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "子ども・子育て支援納付金賦課額:2万1千円", note: "民間の記事の要約"}
-      - {type: "web", url: "https://www.psrn.jp/topics/detail.php?id=39581", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "f611fa60cc026aae772a0d355de661717586d417697a940c6fd57ec3180da973", locator: "高齢者の医療の確保に関する法律施行令 第18条第1項第13号", quote: "子ども・子育て支援納付金賦課額は、二万千円を超えることができないものであること"}
+      - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", sha256: "6b52119fe2be72ed8f3737a6bde6844fe1cdb2b56b0e0bf232818a33e8bacf3e", locator: "東京都保健医療局「後期高齢者医療制度の保険料の軽減」", quote: "令和8・9年度の均等割額については、「医療分」に限り、均等割額が「7.2割」となります"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 3}
+    approval: {method: "pendingReview", paths: 1, note: "施行令（2.1万円。e-Gov の改正履歴で令和8年4月1日の版から）。別の経路（自治体・厚生労働省の限度額の説明）は取得した資料に無い。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

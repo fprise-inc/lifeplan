@@ -13,8 +13,9 @@ entries:
     conditions: []
     value: 320000
     sources:
-      - {type: "web", url: "https://www.soumu.go.jp/main_content/001007020.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "３５万円にその者の同一生計配偶者及び扶養親族（年齢１６歳未満の者及び控除対象扶養親族に限る。）の数に１を加えた数を乗じて得た金額に１０万円を加算した金額（その者が同一生計配偶者又は扶養親族を有する場合には、当該金額に３２万円を加算した金額）以下", note: "総務省の取扱通知の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nishi.or.jp/kurashi/shizei/kojinshiminzei/zeisei/zeiseikaisei2026.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "変更ありません。", note: "令和8年度の FAQ「住民税の非課税基準は変更されますか。」への答えの要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 附則第3条の3第1項（所得割の非課税）", quote: "当該金額に三十二万円を加算した金額"}
+      - {type: "web", url: "https://www.soumu.go.jp/main_content/001007020.pdf", retrievedAt: "2026-10-08", sha256: "e1d94493ebf7706d7dc10a00d17eae73c30a8f94b3ba8148e48449ad4a5482c2", locator: "総務省資料（個人住民税の非課税限度額）", quote: "３２万円を加算した金額"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "級地による違いは無い（地方税法附則）。令和8年度・令和9年度で変わらないことを確認した"}
+    approval: {method: "pendingReview", paths: 2, note: "条文と総務省の資料が一致（32万円。級地による違いは無い）。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

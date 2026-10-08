@@ -8,55 +8,61 @@ entries:
   - rev: 1
     appliesFrom: "2024-04-01"
     appliesTo: "2025-03-31"
-    enforcedOn: null
+    enforcedOn: "2024-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 16980
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/stf/houdou/0000190457_00019.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和7年度 17,510円（＋530円）", note: "報道発表の要約（令和6年度16,980円との比較。原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20240401_506CO0000000127?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d7fa5b1dbd97aad9ffbde38a1140ab9c6c1b1e14fd4d68b8bcde20df7d5a620", locator: "国民年金法による改定率の改定等に関する政令 第2条", quote: "令和六年度における国民年金法第八十七条第三項の保険料改定率は、〇・九九九とする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryogaku.html", retrievedAt: "2026-10-08", sha256: "dd9fb2acadc787c06e398888806afcf5bfdfe189bc20878312a4a05cea595440", locator: "日本年金機構「国民年金保険料の変遷」", quote: "0.99917,00016,980"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20240401_506CO0000000127"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 1}
+    approval: {method: "reviewed", paths: 2, note: "政令の保険料改定率から計算した額（17,000円×0.999＝16,983→16,980円）と公表の保険料額が一致。施行日はその保険料改定率を定めた政令の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2025-04-01"
     appliesTo: "2026-03-31"
-    enforcedOn: null
+    enforcedOn: "2025-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 17510
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/stf/houdou/0000190457_00019.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.city.hiroshima.lg.jp/living/hoken-nenkin/1021145/1006017/1025571/1038157.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和7年度 国民年金保険料額 定額保険料 17,510円(月額)", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20250401_507CO0000000106?response_format=xml", retrievedAt: "2026-10-08", sha256: "4aa126f52a0d0ab81c8c6eeac5c986e30cd15a4f8bbe2cbc4ee77d13aef7ce64", locator: "国民年金法による改定率の改定等に関する政令 第2条", quote: "令和七年度における国民年金法第八十七条第三項の保険料改定率は、一・〇三〇とする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryogaku.html", retrievedAt: "2026-10-08", sha256: "dd9fb2acadc787c06e398888806afcf5bfdfe189bc20878312a4a05cea595440", locator: "日本年金機構「国民年金保険料の変遷」", quote: "1.03017,00017,510"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20250401_507CO0000000106"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "政令の保険料改定率から計算した額（17,000円×1.030＝17,510円）と公表の保険料額が一致。施行日はその保険料改定率を定めた政令の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 3
     appliesFrom: "2026-04-01"
     appliesTo: "2027-03-31"
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 17920
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryo.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "国民年金保険料の金額は、1カ月あたり17,920円です（令和8年度）。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/kokunen/seido/hokenryo/seidosetsumei/20150331.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年度(令和8年4月~令和9年3月まで)は月額17,920円です。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20260401_508CO0000000075?response_format=xml", retrievedAt: "2026-10-08", sha256: "5434dc732c04790db8a6fa473dcdebbe60c2db87105f1cf1a487f9a49f5383dc", locator: "国民年金法による改定率の改定等に関する政令 第2条", quote: "令和八年度における国民年金法第八十七条第三項の保険料改定率は、一・〇五四とする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryo.html", retrievedAt: "2026-10-08", sha256: "e1f86aef2aa89ed0905efd2dca64655dc521f100d0264528df6e7c085e049a6d", locator: "日本年金機構「国民年金保険料」", quote: "国民年金保険料の金額は、1カ月あたり17,920円です（令和8年度）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12600000/001672868.pdf", retrievedAt: "2026-10-08", sha256: "b3682a45109a862446d931ececab8f4964cafca2a404be64d449d6b8c87f18a2", locator: "厚生労働省 報道発表「令和８年度の年金額改定について」", quote: "17,920円（＋410円）※令和７年度は17,510円"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20260401_508CO0000000075"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "政令の保険料改定率から計算した額（17,000円×1.054＝17,918→17,920円）と公表の保険料額が一致。施行日はその保険料改定率を定めた政令の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 4
     appliesFrom: "2027-04-01"
     appliesTo: "2028-03-31"
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 18290
     sources:
-      - {type: "web", url: "https://www.city.ichinomiya.aichi.jp/shiminkenkou/hokennenkin/hoken/1000031/1000852.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "保険料水準 (月あたり): 17,000円. 改定率: 1.076. 保険料額 (月あたり): 18,290円.", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://faq.city.kobe.lg.jp/faq/show/165", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "2027年4月～2028年3月までは月額18,290円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20260401_508CO0000000075?response_format=xml", retrievedAt: "2026-10-08", sha256: "5434dc732c04790db8a6fa473dcdebbe60c2db87105f1cf1a487f9a49f5383dc", locator: "国民年金法による改定率の改定等に関する政令 第2条", quote: "令和九年度における国民年金法第八十七条第三項の保険料改定率は、一・〇七六とする"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12600000/001672868.pdf", retrievedAt: "2026-10-08", sha256: "b3682a45109a862446d931ececab8f4964cafca2a404be64d449d6b8c87f18a2", locator: "厚生労働省 報道発表「令和８年度の年金額改定について」", quote: "17,920円（＋410円）※令和７年度は17,510円18,290円（＋370円）"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20260401_508CO0000000075"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和10年度以後は賃金上昇率（前提）で延ばす（linkage: indexed。そのため適用終了を年度の終わりにする）"}
+    approval: {method: "reviewed", paths: 2, note: "政令の保険料改定率から計算した額（17,000円×1.076＝18,292→18,290円）と公表の保険料額が一致。施行日はその保険料改定率を定めた政令の施行日（令和9年度分は令和8年度の政令で前もって定めた）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

@@ -13,34 +13,39 @@ entries:
     conditions: []
     value: "0.7"
     sources:
-      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "f611fa60cc026aae772a0d355de661717586d417697a940c6fd57ec3180da973", locator: "高齢者の医療の確保に関する法律施行令 第18条第4項", quote: "を超えない世帯十分の七ロイに掲げる世帯以外の世帯十分の五"}
+      - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", sha256: "6b52119fe2be72ed8f3737a6bde6844fe1cdb2b56b0e0bf232818a33e8bacf3e", locator: "東京都保健医療局「後期高齢者医療制度の保険料の軽減」", quote: "43万円＋(年金または給与所得者の合計数－1)×10万円以下7割"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "施行令と東京都の説明が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2026-04-01"
     appliesTo: "2028-03-31"
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: "0.72"
     sources:
-      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "医療分7割軽減対象者は、令和8・9年度のみ特例措置により7.2割軽減となり、子ども分は、特例措置がないため7割軽減", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", sha256: "59a0c29a1f64b19ab4f18e420fcb77affa516bfde6ed838e178582d9c1a94794", locator: "西宮市「後期高齢者医療保険料の軽減」", quote: "医療分7割軽減対象者は、令和8・9年度のみ特例措置により7.2割軽減となります"}
+      - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", sha256: "6b52119fe2be72ed8f3737a6bde6844fe1cdb2b56b0e0bf232818a33e8bacf3e", locator: "東京都保健医療局「後期高齢者医療制度の保険料の軽減」", quote: "令和8・9年度の均等割額については、「医療分」に限り、均等割額が「7.2割」となります"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和8・9年度の特例。医療分だけ"}
+    approval: {method: "reviewed", paths: 2, note: "令和8・9年度の特例（医療分だけ）。西宮市と東京都の説明が一致（施行令には特例の文言が無く、国の措置による）。施行日は特例の始まり。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 3
     appliesFrom: "2028-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2028-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: "0.7"
     sources:
-      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "医療分7割軽減対象者は、令和8・9年度のみ特例措置により7.2割軽減", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/419CO0000000318_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "f611fa60cc026aae772a0d355de661717586d417697a940c6fd57ec3180da973", locator: "高齢者の医療の確保に関する法律施行令 第18条第4項", quote: "を超えない世帯十分の七ロイに掲げる世帯以外の世帯十分の五"}
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", sha256: "59a0c29a1f64b19ab4f18e420fcb77affa516bfde6ed838e178582d9c1a94794", locator: "西宮市「後期高齢者医療保険料の軽減」", quote: "医療分7割軽減対象者は、令和8・9年度のみ特例措置により7.2割軽減となります"}
+      - {type: "law", lawNumber: "平成十九年政令第三百十八号", egovRevisionId: "419CO0000000318_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "特例の後は7割に戻ると読んだ"}
+    approval: {method: "pendingReview", paths: 2, note: "特例（令和8・9年度のみ）の後は施行令の7割に戻ると読んだ。令和10年度の扱いを明示する公式の資料は無いため確認待ち。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

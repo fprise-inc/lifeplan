@@ -9,60 +9,64 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: "2026-03-31"
-    enforcedOn: null
+    enforcedOn: "2025-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions:
       - {key: "birthDate", from: "1956-04-02", to: null}
     value: "1.065"
     sources:
-      - {type: "web", url: "https://www.kkr.or.jp/nenkin/zenpan/kaitei/r8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "新規裁定者（68歳到達年度前）は1.065(令和7年度の改定率)×1.019 =1.085", note: "半公的な解説の抜粋（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202504/040102.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和31年4月2日以後生まれ 831,700円、昭和31年4月1日以前生まれ 829,300円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20250401_507CO0000000106?response_format=xml", retrievedAt: "2026-10-08", sha256: "4aa126f52a0d0ab81c8c6eeac5c986e30cd15a4f8bbe2cbc4ee77d13aef7ce64", locator: "国民年金法による改定率の改定等に関する政令 第1条", quote: "令和七年度における国民年金法第二十七条に規定する改定率は、昭和三十一年四月一日以前に生まれた者については一・〇六二とし、同月二日以後に生まれた者については一・〇六五とする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202504/040102.html", retrievedAt: "2026-10-08", sha256: "7ebac2a1b3623a633d733beed40f65537ebe94df7c035cfb7ac741537b6f426d", locator: "日本年金機構「令和7年4月分からの年金額等について」", quote: "69,308円"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20250401_507CO0000000106"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の条文は未取得。780,900円×1.065を100円単位で四捨五入すると公式の満額831,700円と一致"}
+    approval: {method: "reviewed", paths: 2, note: "政令の率と公表の満額が一致（780,900円×1.065→831,700円（月額69,308円））。施行日はその年度の改定率を定めた政令の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2025-04-01"
     appliesTo: "2026-03-31"
-    enforcedOn: null
+    enforcedOn: "2025-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions:
       - {key: "birthDate", from: null, to: "1956-04-01"}
     value: "1.062"
     sources:
-      - {type: "web", url: "https://www.kkr.or.jp/nenkin/zenpan/kaitei/r8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "既裁定者（68歳到達年度以後）は1.062(令和7年度の改定率)×1.019 =1.082", note: "半公的な解説の抜粋（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202504/040102.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和31年4月2日以後生まれ 831,700円、昭和31年4月1日以前生まれ 829,300円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20250401_507CO0000000106?response_format=xml", retrievedAt: "2026-10-08", sha256: "4aa126f52a0d0ab81c8c6eeac5c986e30cd15a4f8bbe2cbc4ee77d13aef7ce64", locator: "国民年金法による改定率の改定等に関する政令 第1条", quote: "令和七年度における国民年金法第二十七条に規定する改定率は、昭和三十一年四月一日以前に生まれた者については一・〇六二とし、同月二日以後に生まれた者については一・〇六五とする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202504/040102.html", retrievedAt: "2026-10-08", sha256: "7ebac2a1b3623a633d733beed40f65537ebe94df7c035cfb7ac741537b6f426d", locator: "日本年金機構「令和7年4月分からの年金額等について」", quote: "令和7年度の昭和31年4月1日以前生まれの方の老齢基礎年金（満額）は、月額69,108円です"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20250401_507CO0000000106"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "780,900円×1.062→829,300円と一致"}
+    approval: {method: "reviewed", paths: 2, note: "政令の率と公表の満額が一致（780,900円×1.062→829,300円（月額69,108円））。施行日はその年度の改定率を定めた政令の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 3
     appliesFrom: "2026-04-01"
     appliesTo: "2027-03-31"
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions:
       - {key: "birthDate", from: "1956-04-02", to: null}
     value: "1.085"
     sources:
-      - {type: "web", url: "https://www.kkr.or.jp/nenkin/zenpan/kaitei/r8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "新規裁定者（68歳到達年度前）は1.065(令和7年度の改定率)×1.019 =1.085", note: "半公的な解説の抜粋（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "年金額（満額）＝ 年額847,300円（月額70,608円）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20260401_508CO0000000075?response_format=xml", retrievedAt: "2026-10-08", sha256: "5434dc732c04790db8a6fa473dcdebbe60c2db87105f1cf1a487f9a49f5383dc", locator: "国民年金法による改定率の改定等に関する政令 第1条", quote: "令和八年度における国民年金法第二十七条に規定する改定率は、昭和三十一年四月一日以前に生まれた者については一・〇八二とし、同月二日以後に生まれた者については一・〇八五とする"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12600000/001672868.pdf", retrievedAt: "2026-10-08", sha256: "b3682a45109a862446d931ececab8f4964cafca2a404be64d449d6b8c87f18a2", locator: "厚生労働省 報道発表「令和８年度の年金額改定について」", quote: "70,608円"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20260401_508CO0000000075"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "780,900円×1.085→847,300円と一致。令和9年度以後は前提で延ばす（linkage: indexed。そのため適用終了を年度の終わりにする）"}
+    approval: {method: "reviewed", paths: 2, note: "政令の率と公表の満額が一致（780,900円×1.085→847,300円（月額70,608円））。施行日はその年度の改定率を定めた政令の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 4
     appliesFrom: "2026-04-01"
     appliesTo: "2027-03-31"
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions:
       - {key: "birthDate", from: null, to: "1956-04-01"}
     value: "1.082"
     sources:
-      - {type: "web", url: "https://www.kkr.or.jp/nenkin/zenpan/kaitei/r8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "既裁定者（68歳到達年度以後）は1.062(令和7年度の改定率)×1.019 =1.082", note: "半公的な解説の抜粋（原本は未取得）"}
-      - {type: "web", url: "https://www.mhlw.go.jp/content/12600000/001672868.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年度の昭和31年4月1日以前生まれの方の老齢基礎年金(満額)は、月額70,408円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20260401_508CO0000000075?response_format=xml", retrievedAt: "2026-10-08", sha256: "5434dc732c04790db8a6fa473dcdebbe60c2db87105f1cf1a487f9a49f5383dc", locator: "国民年金法による改定率の改定等に関する政令 第1条", quote: "令和八年度における国民年金法第二十七条に規定する改定率は、昭和三十一年四月一日以前に生まれた者については一・〇八二とし、同月二日以後に生まれた者については一・〇八五とする"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12600000/001672868.pdf", retrievedAt: "2026-10-08", sha256: "b3682a45109a862446d931ececab8f4964cafca2a404be64d449d6b8c87f18a2", locator: "厚生労働省 報道発表「令和８年度の年金額改定について」", quote: "昭和31年４月１日以前生まれの方の老齢基礎年金（満額１人分）は、月額70,408円"}
+      - {type: "law", lawNumber: "平成十七年政令第九十二号", egovRevisionId: "417CO0000000092_20260401_508CO0000000075"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "780,900円×1.082→844,900円と一致"}
+    approval: {method: "reviewed", paths: 2, note: "政令の率と公表の満額が一致（780,900円×1.082→844,900円（月額70,408円））。施行日はその年度の改定率を定めた政令の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

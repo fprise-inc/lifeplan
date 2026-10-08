@@ -13,8 +13,9 @@ entries:
     conditions: []
     value: "0.007125"
     sources:
-      - {type: "web", url: "https://www.nenkin.go.jp/service/yougo/hagyo/hoshuhirei.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "平均標準報酬月額 × 7.125/1000 × 平成15年3月までの加入期間の月数", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "※4 昭和21年4月1日以前に生まれた方については、給付乗率が異なります。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則（平成12年法律第18号）第20条第1項第1号", quote: "平成十五年四月一日前の被保険者であった期間の平均標準報酬月額（第六条の規定による改正前の厚生年金保険法第四十三条第一項に規定する平均標準報酬月額をいう。以下同じ。）の千分の七・一二五"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", sha256: "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", locator: "日本年金機構「老齢年金ガイド」報酬比例部分", quote: "平成15年3月までの加入期間の月数"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "昭和21年4月1日以前生まれの経過措置・従前額保障は入れていない"}
+    approval: {method: "pendingReview", paths: 2, note: "条文（平成12年改正法附則20条）と日本年金機構の資料（7.125/1000）が一致。昭和21年4月1日以前生まれの経過措置（附則別表第七）・従前額保障（同附則21条）は入れていない。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

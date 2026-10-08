@@ -7,28 +7,30 @@ entries:
   - rev: 1
     appliesFrom: "2025-08-01"
     appliesTo: "2026-07-31"
-    enforcedOn: null
+    enforcedOn: "2025-08-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 3014
     sources:
-      - {type: "web", url: "https://jsite.mhlw.go.jp/tokyo-roudoukyoku/content/contents/002371859.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://bestcalendar.jp/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約。記事のURLの細部は未取得"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11607000/001729233.pdf", retrievedAt: "2026-10-08", sha256: "5ddac1004083ec109c587bb9a04833359546ae724554611b9a40aa11ec74878f", locator: "厚生労働省 報道発表「雇用保険の基本手当日額の変更」（令和8年8月1日）別添 給付率の新旧比較図", quote: "給付率3,014円2,411円3,203円"}
+      - {type: "web", url: "https://jsite.mhlw.go.jp/osaka-roudoukyoku/content/contents/002231248.pdf", retrievedAt: "2026-10-08", sha256: "5634fdb59f67bcbb3e015a1205fc6ff65d0c1ea23e89a6afbe4591525dea4222", locator: "大阪労働局 リーフレット「育児時短就業給付」（2026年7月31日までの額）", quote: "育児時短就業開始時賃金日額上限額：16,110円下限額：3,014円"}
+      - {type: "law", lawNumber: "昭和四十九年法律第百十六号", egovRevisionId: "349AC0000000116_20260513_507AC0000000032"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和7年8月〜令和8年7月の額。厚生労働省の報道発表（下限額の新旧）と労働局のリーフレットが一致。施行日は改定の適用日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2026-08-01"
     appliesTo: "2027-07-31"
-    enforcedOn: null
+    enforcedOn: "2026-08-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
     value: 3203
     sources:
-      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001551858.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "休業開始時賃金日額の上限額は16,540円、下限額は3,203円となります。", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://jsite.mhlw.go.jp/okinawa-roudoukyoku/content/contents/002575050.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11607000/001729233.pdf", retrievedAt: "2026-10-08", sha256: "5ddac1004083ec109c587bb9a04833359546ae724554611b9a40aa11ec74878f", locator: "厚生労働省 報道発表「雇用保険の基本手当日額の変更」（令和8年8月1日）別添 給付率の新旧比較図", quote: "給付率3,014円2,411円3,203円"}
+      - {type: "web", url: "https://jsite.mhlw.go.jp/kagoshima-roudoukyoku/content/contents/2026-0817-1_20260801.pdf", retrievedAt: "2026-10-08", sha256: "e6bbeaaac2b3e4fb2d0a8f089fb330c6c4b616d433d6c98f3c31508943c21de0", locator: "鹿児島労働局 リーフレット「育児時短就業給付」（2027年7月31日までの額）", quote: "育児時短就業開始時賃金日額上限額：16,540円下限額：3,203円"}
+      - {type: "law", lawNumber: "昭和四十九年法律第百十六号", egovRevisionId: "349AC0000000116_20260513_507AC0000000032"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和8年8月〜令和9年7月の額。厚生労働省の報道発表（下限額の新旧）と労働局のリーフレットが一致。施行日は改定の適用日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
