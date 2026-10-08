@@ -1,16 +1,26 @@
 # 被用者保険（健康保険・介護保険・子ども・子育て支援金・厚生年金・雇用保険）の制度データ。令和7年度・令和8年度
+# パックの版 2026.3.0 で、適用拡大・被扶養者・国民年金・国民健康保険・後期高齢者医療・介護保険（第1号）・休業の給付の値を新しいファイルで足した（既存の行は変えていない）。
+# 国民健康保険の全国の標準的な料率は公式の値が見つからず、置いていない（世帯の入力が要る）
 # 原本（PDF・Excel）を取得できず、公式のドメインに限った検索の抜粋で読んだ値なので、すべての行が原本での確認待ち（approval.method: pendingReview）
 # 標準報酬月額表（gradeTable）は全部の等級を確かめられなかったので入れていない（PR の「確かめられなかった値」を参照）
 packId: regulation.socialInsurance
 formatVersion: "0.1"
-version: "2026.2.0"
+version: "2026.3.0"
 features: []
-title: 被用者保険の保険料
+title: 社会保険（被用者保険・国民年金・国民健康保険・後期高齢者医療・介護保険・休業の給付）
 requires:
   socialInsurance.coverage: ">=1 <2"
   socialInsurance.health: ">=1 <2"
   socialInsurance.pension: ">=1 <2"
   socialInsurance.employment: ">=1 <2"
+  socialInsurance.employeeStatus: ">=1 <2"
+  socialInsurance.healthStatus: ">=1 <2"
+  socialInsurance.nationalPension: ">=1 <2"
+  socialInsurance.nationalHealth: ">=1 <2"
+  socialInsurance.lateElderly: ">=1 <2"
+  socialInsurance.careFirst: ">=1 <2"
+  benefit.health: ">=1 <2"
+  benefit.employment: ">=1 <2"
 license:
   values: CC0-1.0
   sources: 出典ごとの条件（各値の sources に記載。協会けんぽ・日本年金機構・厚生労働省・こども家庭庁の公表資料）

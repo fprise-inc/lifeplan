@@ -63,10 +63,13 @@ export interface EmploymentIncomeOutput {
   readonly income: Yen;
 }
 
-/** tax.totalIncome: 合計所得金額（いまは給与所得だけ） */
+/** tax.totalIncome: 合計所得金額と所得の区分（給与・公的年金等・その他。0008 の追記）。employment は所得金額調整控除の後 */
 export interface TotalIncomeOutput {
   readonly total: Yen;
   readonly employment: Yen;
+  readonly publicPension?: Yen;
+  readonly other?: Yen;
+  readonly adjustment?: Yen;
 }
 
 /** tax.deductions: 所得控除（所得税か住民税か） */
@@ -208,7 +211,8 @@ export interface PensionOutput {
 
 /** pension.revision: 構成員の年金額の改定率（年度ごと。projected は前提で延ばした年度） */
 export interface RevisionOutput {
-  readonly byFiscalYear: readonly { readonly fiscalYear: number; readonly rate: string; readonly projected: boolean }[];
+  /** rate は基礎年金の改定率、employee は報酬比例（厚生年金）の改定の系列 */
+  readonly byFiscalYear: readonly { readonly fiscalYear: number; readonly rate: string; readonly employee: string; readonly projected: boolean }[];
 }
 
 /** pension.record: 加入の記録（入力の型ごとの初めの値と、記録の後に働き方の期間から足す月） */

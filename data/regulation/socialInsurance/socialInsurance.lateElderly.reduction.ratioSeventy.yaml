@@ -1,0 +1,46 @@
+id: socialInsurance.lateElderly.reduction.ratioSeventy
+title: 後期高齢者医療の7割軽減の割合
+unit: rate
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: "2026-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.7"
+    sources:
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2026-04-01"
+    appliesTo: "2028-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.72"
+    sources:
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "医療分7割軽減対象者は、令和8・9年度のみ特例措置により7.2割軽減となり、子ども分は、特例措置がないため7割軽減", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和8・9年度の特例。医療分だけ"}
+  - rev: 3
+    appliesFrom: "2028-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.7"
+    sources:
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "医療分7割軽減対象者は、令和8・9年度のみ特例措置により7.2割軽減", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "特例の後は7割に戻ると読んだ"}

@@ -28,4 +28,10 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.pension.average": DOWN1,
   // 整数倍など、端数の出ない計算
   "conv.exact": DOWN1,
+  // 市町村・広域連合の保険料（国民健康保険・後期高齢者医療・介護保険の第1号）の年額（条例で違うので円未満切り捨てを既定にする）
+  "conv.premium.local": DOWN1,
+  // 年額を納期に分ける（端数は最初の納期）
+  "conv.premium.installment": DOWN1,
+  // 雇用保険の給付の賃金日額・給付額（法令の端数の扱いは原本で確かめる前の仮の規約）
+  "conv.benefit.daily": DOWN1,
 });

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.publicPensionIncome.output",
+  "title": "公的年金等の収入・公的年金等控除額・雑所得",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revenue",
+    "deduction",
+    "income"
+  ],
+  "properties": {
+    "revenue": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "deduction": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "income": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    }
+  }
+}

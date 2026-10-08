@@ -1,6 +1,6 @@
 // 公的年金の加入の記録。入力の型（ねんきん定期便 50歳未満・50歳以上、受給中の年金額、加入歴、見込額だけ）ごとの初めの値と、
 // 記録の時点（asOf）の後に働き方の期間から足す月（国民年金の種別・厚生年金の標準報酬）を返す。
-// 記録が無い構成員は、働き方の期間から加入歴を推計する（見出しの notices に N_ESTIMATED）。計算基準月の2年前より前の月の標準報酬は、
+// 記録が無い構成員は、働き方の期間から加入歴を推計する（見出しの notices に N_ESTIMATED）。計算基準年の前の年の11月より前の月の標準報酬は、
 // その勤め先の期間の給与の入力（いまの賃金の水準）から近似する
 import {
   addMonths,
@@ -65,7 +65,7 @@ export default defineComponent<{ member: string }, RecordOutput>({
     // 記録の後の月
     const cats = new Map(ctx.call<CategoryOutput>("pension.category", { member }).months.map((c) => [c.month, c]));
     const status = ctx.call<EmployeeStatusOutput>("socialInsurance.employeeStatus", { member }).months;
-    const cov = ctx.call<CoverageOutput>("socialInsurance.coverage", { member, fromYear: yearOf(base) - 1 });
+    const cov = ctx.call<CoverageOutput>("socialInsurance.coverage", { member, fromYear: yearOf(base) });
     const covStart = cov.months.length > 0 ? parseYm((cov.months[0] as { month: string }).month) : null;
     const covered = new Map(cov.months.map((c) => [c.month, c]));
     const bonusOf = new Map<string, Yen>();
@@ -87,7 +87,7 @@ export default defineComponent<{ member: string }, RecordOutput>({
           remuneration = m < SPLIT_2003 ? cv.pensionStd : addYen(cv.pensionStd, bonusOf.get(s.month) ?? yen(0));
         }
       } else if (s.pension && s.employer !== null) {
-        // 計算基準月の2年前より前: 勤め先の期間の給与の入力（いまの水準）から（2003年4月以後は賞与を含めた月の平均）
+        // 保険料を計算する月より前: 勤め先の期間の給与の入力（いまの水準）から（2003年4月以後は賞与を含めた月の平均）
         employee = true;
         const p = periods.get(s.employer);
         const annual = boxValue(p?.salary?.annual) ?? yen(0);

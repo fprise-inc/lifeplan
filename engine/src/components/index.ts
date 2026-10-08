@@ -16,6 +16,22 @@ import socialInsurancePension from "./socialInsurance.pension/index.ts";
 import taxDeductions from "./tax.deductions/index.ts";
 import taxEmploymentIncome from "./tax.employmentIncome/index.ts";
 import taxTotalIncome from "./tax.totalIncome/index.ts";
+import benefitEmployment from "./benefit.employment/index.ts";
+import benefitHealth from "./benefit.health/index.ts";
+import incomeBusiness from "./income.business/index.ts";
+import pensionCategory from "./pension.category/index.ts";
+import pensionOldAge from "./pension.oldAge/index.ts";
+import pensionRecord from "./pension.record/index.ts";
+import pensionRevision from "./pension.revision/index.ts";
+import pensionSupplementaryBenefit from "./pension.supplementaryBenefit/index.ts";
+import residentTaxExemption from "./residentTax.exemption/index.ts";
+import socialInsuranceCareFirst from "./socialInsurance.careFirst/index.ts";
+import socialInsuranceEmployeeStatus from "./socialInsurance.employeeStatus/index.ts";
+import socialInsuranceHealthStatus from "./socialInsurance.healthStatus/index.ts";
+import socialInsuranceLateElderly from "./socialInsurance.lateElderly/index.ts";
+import socialInsuranceNationalHealth from "./socialInsurance.nationalHealth/index.ts";
+import socialInsuranceNationalPension from "./socialInsurance.nationalPension/index.ts";
+import taxPublicPensionIncome from "./tax.publicPensionIncome/index.ts";
 
 const HASHES = buildInfo.components as Readonly<Record<string, string>>;
 
@@ -39,6 +55,22 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   taxDeductions,
   taxEmploymentIncome,
   taxTotalIncome,
+  benefitEmployment,
+  benefitHealth,
+  incomeBusiness,
+  pensionCategory,
+  pensionOldAge,
+  pensionRecord,
+  pensionRevision,
+  pensionSupplementaryBenefit,
+  residentTaxExemption,
+  socialInsuranceCareFirst,
+  socialInsuranceEmployeeStatus,
+  socialInsuranceHealthStatus,
+  socialInsuranceLateElderly,
+  socialInsuranceNationalHealth,
+  socialInsuranceNationalPension,
+  taxPublicPensionIncome,
 ] as never;
 
 export const OFFICIAL_COMPONENTS: readonly OfficialComponent[] = OFFICIAL_DEFINITIONS.map(official);

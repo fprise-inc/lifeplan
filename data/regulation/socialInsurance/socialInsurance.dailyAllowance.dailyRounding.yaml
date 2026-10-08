@@ -1,0 +1,20 @@
+id: socialInsurance.dailyAllowance.dailyRounding
+title: 出産手当金・傷病手当金の標準報酬日額（平均÷30）の端数処理（10円未満四捨五入）
+unit: rounding
+kind: rounding
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "HALF_UP", unit: 10}
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/benefit/childbirth/001/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "17万円÷30≒5,670円（10円未満四捨五入）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/benefit/injury_and_sickness_allowance/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "5,670円×2/3＝3,780円（１円未満四捨五入）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する。協会けんぽの扱い（健保組合は違うことがある）"}

@@ -1,0 +1,34 @@
+id: employmentInsurance.coverage.weeklyHours
+title: 雇用保険の被保険者になる週の所定労働時間（以上）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: "2028-09-30"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 20
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11601000/001159861.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "① １週間の所定労働時間が２０時間未満である者 ② 同一の事業主に継続して３１日以上雇用されることが見込まれない者", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001255172.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}
+  - rev: 2
+    appliesFrom: "2028-10-01"
+    appliesTo: null
+    enforcedOn: "2028-10-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 10
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001255172.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "2028（令和10）年10月１日", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11601000/001542937.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和６年雇用保険制度改正（令和10年10月１日施行分）について", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和6年法律第26号"}

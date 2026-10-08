@@ -236,7 +236,10 @@ export function buildPack(dir: string): PackJson {
   if (!ajv.validate("urn:financia:schema:regulation.packHeader", pack)) {
     throw new DataError(`${folder}/pack.yaml: 形式の誤り ${ajv.errorsText()}`);
   }
-  if (pack.packId !== `regulation.${folder}`) throw new DataError(`${folder}/pack.yaml: packId はフォルダ名と同じ regulation.${folder}`);
+  // 制度データは regulation.<フォルダ名>、マスタデータは master.<フォルダ名>（0007 の1・追記）
+  if (pack.packId !== `regulation.${folder}` && pack.packId !== `master.${folder}`) {
+    throw new DataError(`${folder}/pack.yaml: packId はフォルダ名と同じ regulation.${folder}（マスタデータは master.${folder}）`);
+  }
   if (!isReadableFormat(pack.formatVersion as string)) throw new DataError(`${folder}/pack.yaml: このエンジンが読めない形式の版です`);
   const fictional = pack.fictional === true;
 

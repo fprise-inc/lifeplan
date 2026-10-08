@@ -1,0 +1,34 @@
+id: socialInsurance.lateElderly.reduction.twentyPerInsured
+title: 後期高齢者医療の2割軽減の判定の被保険者1人あたりの額
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: "2026-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 560000
+    sources:
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.pref.miyagi.jp/soshiki/kkh-iryou/kokuho25.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 570000
+    sources:
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "2割 43万円+56万円×(…) → 43万円+57万円×(…)", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.koto.lg.jp/250102/keigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

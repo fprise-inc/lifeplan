@@ -1,0 +1,34 @@
+id: socialInsurance.nationalHealth.elderlySupport.limit
+title: 国民健康保険の賦課限度額（後期高齢者支援金等賦課額。政令の基準）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: "2026-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 260000
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001599957.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和７年度賦課限度額：109万円（医療分：92万円（基礎賦課額：66万円、後期高齢者支援金賦課額：26万円）、介護分：17万円）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kaiketsu-j.com/?p=14288", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約（令和7年政令第32号）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 3, note: "市町村の条例の額は政令の額より低いことがある"}
+  - rev: 2
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 260000
+    sources:
+      - {type: "web", url: "https://www.kaiketsu-j.com/procedure/20255/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "基礎賦課額に係る賦課限度額を66万円から67万円に引き上げる", note: "民間の記事の要約（令和8年政令第2号）"}
+      - {type: "web", url: "https://www.city.okayama.jp/kurashi/0000011518.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

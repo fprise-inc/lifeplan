@@ -1,0 +1,76 @@
+id: socialInsurance.coverage.shortTimeEmployerSize
+title: 短時間労働者が被用者保険に入る勤め先の規模（厚生年金の被保険者数。以上）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2024-10-01"
+    appliesTo: "2027-09-30"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 51
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/tekiyo/jigyosho/tanjikan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2027-10-01"
+    appliesTo: "2029-09-30"
+    enforcedOn: "2027-10-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 36
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "500人超 2016年10月、100人超 2022年10月、50人超 2024年10月、35人超 2027年10月、20人超 2029年10月、10人超 2032年10月、10人以下 2035年10月", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "2027年10月からは常時36～50人の従業員を使用する事業所（現在は51人以上の事業所）に勤めている…短時間労働者", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 3
+    appliesFrom: "2029-10-01"
+    appliesTo: "2032-09-30"
+    enforcedOn: "2029-10-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 21
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "20人超 2029年10月", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/hokenryochosei/jigyosho.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 4
+    appliesFrom: "2032-10-01"
+    appliesTo: "2035-09-30"
+    enforcedOn: "2032-10-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 11
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "10人超 2032年10月", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/hokenryochosei/jigyosho.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 5
+    appliesFrom: "2035-10-01"
+    appliesTo: null
+    enforcedOn: "2035-10-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "10人以下 2035年10月", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000147284_00021.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "企業規模要件を令和9年10月1日から令和17年10月1日までの間に段階的に撤廃", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "企業規模の要件の撤廃"}

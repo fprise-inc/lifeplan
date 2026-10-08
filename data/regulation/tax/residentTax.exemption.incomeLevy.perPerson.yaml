@@ -1,0 +1,20 @@
+id: residentTax.exemption.incomeLevy.perPerson
+title: 住民税の所得割の非課税限度額の1人あたりの額（本人・同一生計配偶者・扶養親族の数を掛ける）
+unit: JPY
+kind: constant
+basis: "priorYearIncome"
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 350000
+    sources:
+      - {type: "web", url: "https://www.soumu.go.jp/main_content/001007020.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "３５万円にその者の同一生計配偶者及び扶養親族（年齢１６歳未満の者及び控除対象扶養親族に限る。）の数に１を加えた数を乗じて得た金額に１０万円を加算した金額（その者が同一生計配偶者又は扶養親族を有する場合には、当該金額に３２万円を加算した金額）以下", note: "総務省の取扱通知の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/shizei/kojinshiminzei/zeisei/zeiseikaisei2026.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "変更ありません。", note: "令和8年度の FAQ「住民税の非課税基準は変更されますか。」への答えの要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "級地による違いは無い（地方税法附則）。令和8年度・令和9年度で変わらないことを確認した"}

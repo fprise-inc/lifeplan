@@ -1,0 +1,16 @@
+# 公的年金（老齢年金・年金生活者支援給付金）の制度データ。令和7年度・令和8年度
+# 原本（PDF・Excel）を取得できず、公式のドメインに限った検索の抜粋で読んだ値なので、すべての行が原本での確認待ち（approval.method: pendingReview）
+# 改定率の将来の値は持たず、プランの前提（物価・賃金・マクロ経済スライドの調整率）で延ばす（0007 の7: linkage indexed）
+packId: regulation.pension
+formatVersion: "0.1"
+version: "2026.1.0"
+features: []
+title: 公的年金
+requires:
+  pension.revision: ">=1 <2"
+  pension.record: ">=1 <2"
+  pension.oldAge: ">=1 <2"
+  pension.supplementaryBenefit: ">=1 <2"
+license:
+  values: CC0-1.0
+  sources: 出典ごとの条件（各値の sources に記載。日本年金機構・厚生労働省などの公表資料）

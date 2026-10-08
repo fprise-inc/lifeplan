@@ -1,0 +1,68 @@
+# 公的年金（老齢年金・年金生活者支援給付金）の制度データ。原本を取得できず、公式のドメインに限った検索の抜粋で読んだ値なので原本での確認待ち（pendingReview）
+id: pension.revisionRate
+title: 年金額の改定率（平成16年改正法の額に掛ける率。昭和31年4月1日以前生まれは既裁定者の率）
+unit: rate
+kind: constant
+basis: "fiscalYear"
+linkage: indexed
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: "2026-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1956-04-02", to: null}
+    value: "1.065"
+    sources:
+      - {type: "web", url: "https://www.kkr.or.jp/nenkin/zenpan/kaitei/r8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "新規裁定者（68歳到達年度前）は1.065(令和7年度の改定率)×1.019 =1.085", note: "半公的な解説の抜粋（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202504/040102.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和31年4月2日以後生まれ 831,700円、昭和31年4月1日以前生まれ 829,300円", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "政令の条文は未取得。780,900円×1.065を100円単位で四捨五入すると公式の満額831,700円と一致"}
+  - rev: 2
+    appliesFrom: "2025-04-01"
+    appliesTo: "2026-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: null, to: "1956-04-01"}
+    value: "1.062"
+    sources:
+      - {type: "web", url: "https://www.kkr.or.jp/nenkin/zenpan/kaitei/r8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "既裁定者（68歳到達年度以後）は1.062(令和7年度の改定率)×1.019 =1.082", note: "半公的な解説の抜粋（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202504/040102.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和31年4月2日以後生まれ 831,700円、昭和31年4月1日以前生まれ 829,300円", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "780,900円×1.062→829,300円と一致"}
+  - rev: 3
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1956-04-02", to: null}
+    value: "1.085"
+    sources:
+      - {type: "web", url: "https://www.kkr.or.jp/nenkin/zenpan/kaitei/r8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "新規裁定者（68歳到達年度前）は1.065(令和7年度の改定率)×1.019 =1.085", note: "半公的な解説の抜粋（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "年金額（満額）＝ 年額847,300円（月額70,608円）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "780,900円×1.085→847,300円と一致。令和9年度以後は前提で延ばす（linkage: indexed）"}
+  - rev: 4
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: null, to: "1956-04-01"}
+    value: "1.082"
+    sources:
+      - {type: "web", url: "https://www.kkr.or.jp/nenkin/zenpan/kaitei/r8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "既裁定者（68歳到達年度以後）は1.062(令和7年度の改定率)×1.019 =1.082", note: "半公的な解説の抜粋（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12600000/001672868.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年度の昭和31年4月1日以前生まれの方の老齢基礎年金(満額)は、月額70,408円", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "780,900円×1.082→844,900円と一致"}

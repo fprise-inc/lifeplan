@@ -1,0 +1,35 @@
+id: pension.supplementaryBenefit.baseMonthly
+title: 年金生活者支援給付金（老齢）の給付基準額（月額）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+linkage: indexed
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: "2026-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 5450
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/keisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "納付済期間240月、全額免除期間60月の場合、令和7年度は4,169円から令和8年度は4,281円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/nenkinkyuufukin/system.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 5620
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/keisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "（１）5,620円 × 480 / 480月 = 5,620円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/kingaku.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年4月分からの年金生活者支援給付金の給付基準額は、物価変動率を用いて改定されるため、令和7年度と比べて3.2％の引上げ", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和9年度以後は改定率の比で延ばす。免除期間の単価は入れていない"}

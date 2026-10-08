@@ -1,0 +1,21 @@
+id: socialInsurance.dependent.youngFromAge
+title: 被扶養者の基準が150万円になる年齢（19歳以上）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 19
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/kounen/dependents/aged19to22/timing.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "年齢要件（19歳以上23歳未満）は、扶養認定日が属する年の12月31日時点の年齢で判定します。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

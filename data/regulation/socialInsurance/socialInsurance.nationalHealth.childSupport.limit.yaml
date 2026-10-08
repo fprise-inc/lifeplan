@@ -1,0 +1,33 @@
+id: socialInsurance.nationalHealth.childSupport.limit
+title: 国民健康保険の賦課限度額（子ども・子育て支援納付金賦課額）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: "2026-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001599957.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 30000
+    sources:
+      - {type: "web", url: "https://www.psrn.jp/topics/detail.php?id=39581", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "合計額が110万円+3万円=最大で113万円", note: "民間の記事の要約"}
+      - {type: "web", url: "https://www.city.ishinomaki.lg.jp/cont/10181000/0070/R7tyougi/21/21-siryou11.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "政令の条文は未取得"}

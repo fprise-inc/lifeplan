@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:fiscalYear.input",
+  "title": "年度",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fiscalYear"
+  ],
+  "properties": {
+    "fiscalYear": {
+      "$ref": "urn:financia:schema:common#/$defs/year"
+    }
+  }
+}

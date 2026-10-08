@@ -1,0 +1,20 @@
+id: socialInsurance.coverage.regularHoursRatio
+title: 被用者保険に入る労働時間の基準（通常の労働者の週の所定労働時間の4分の3）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.75"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/kounen/tekiyoukakudai/tanjikan/shutokuyouken.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "「1週の所定労働時間」および「1月の所定労働日数」が、同一の事業所に使用される通常の労働者の所定労働時間および所定労働日数の4分の3以上である労働者は、厚生年金保険・健康保険の被保険者となります。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/tekiyoukakudai/qa/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する。月の所定労働日数の4分の3は見ていない"}

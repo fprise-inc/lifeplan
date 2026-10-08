@@ -1,0 +1,20 @@
+id: socialInsurance.health.lateElderlyAge
+title: 後期高齢者医療の被保険者になる年齢（75歳の誕生日から）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: birthdayMonth
+entries:
+  - rev: 1
+    appliesFrom: "2008-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 75
+    sources:
+      - {type: "law", lawNumber: "昭和57年法律第80号"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "高齢者の医療の確保に関する法律50条。条文は未取得（0003 の背景の「後期高齢者医療は誕生日当日」と一致）"}

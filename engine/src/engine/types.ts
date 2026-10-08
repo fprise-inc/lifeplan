@@ -197,6 +197,7 @@ export interface EngineInput {
     readonly wageGrowth?: YearSeries;
     readonly inflation?: YearSeries;
     readonly pensionMacroSlide?: YearSeries;
+    readonly pensionMacroSlideEmployee?: YearSeries;
   };
 }
 

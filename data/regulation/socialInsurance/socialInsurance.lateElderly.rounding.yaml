@@ -1,0 +1,19 @@
+id: socialInsurance.lateElderly.rounding
+title: 後期高齢者医療の保険料の区分ごとの年額の端数処理（100円未満切り捨て）
+unit: rounding
+kind: rounding
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 100}
+    sources:
+      - {type: "web", url: "https://www.hokeniryo.metro.tokyo.lg.jp/kenkou/kokuho/kouki/keigennsaku", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "子ども分の計算の説明の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "子ども分を医療分と別に100円未満を切り捨てるという説明から。医療分の端数処理は広域連合の条例で確認する"}

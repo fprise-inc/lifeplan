@@ -103,10 +103,10 @@ export class Tracer {
   input(frame: Frame, source: { readonly item: string } | { readonly collection: string }, object: string | undefined, value: () => Json): void {
     if (this.mode !== "full") return;
     const name = "item" in source ? `i:${source.item}` : `c:${source.collection}`;
-    const key = `i|${name}|${frame.component}|${object ?? ""}`;
-    frame.uses.add(
-      this.intern(key, () => ({ type: "input", ...source, ...(object === undefined ? {} : { object }), value: value() })),
-    );
+    // 部品ごとに reads で絞った写しが同じ中身なら、同じ記録にする（重複を除く）
+    const v = value();
+    const key = `i|${name}|${object ?? ""}|${JSON.stringify(v)}`;
+    frame.uses.add(this.intern(key, () => ({ type: "input", ...source, ...(object === undefined ? {} : { object }), value: v })));
   }
 
   timepoint(frame: Frame | null, node: Extract<TraceNode, { type: "timepoint" }>): void {

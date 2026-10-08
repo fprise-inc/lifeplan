@@ -1,0 +1,25 @@
+id: incomeTax.publicPensionDeduction.under65.tier3
+title: 公的年金等控除額（65歳未満・公的年金等に係る雑所得以外の合計所得金額が2,000万円超。控除額＝収入×率＋額）
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1300000, amount: 400000}
+      - {upTo: 4100000, rate: "0.25", amount: 75000}
+      - {upTo: 7700000, rate: "0.15", amount: 485000}
+      - {upTo: 10000000, rate: "0.05", amount: 1255000}
+      - {upTo: null, amount: 1755000}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/205.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "A × 25％＋27万5,000円、A × 25％＋17万5,000円、A × 25％＋7万5,000円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2026/pdf/205.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "410万円超 770万円以下 ... A × 15％＋68万5,000円 A × 15％＋58万5,000円 A × 15％＋48万5,000円", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和7年分・令和8年分の国税庁の表で同じ式。境目で式の値がつながること、1,000万円超・2,000万円超の列が一律10万円・20万円少ないことも算術で確かめた。令和2年分以後の表として置いた"}

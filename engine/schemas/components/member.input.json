@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:member.input",
+  "title": "構成員",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "member"
+  ],
+  "properties": {
+    "member": {
+      "$ref": "urn:financia:schema:common#/$defs/uuid"
+    }
+  }
+}

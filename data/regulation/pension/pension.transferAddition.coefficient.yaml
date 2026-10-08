@@ -1,0 +1,530 @@
+id: pension.transferAddition.coefficient
+title: 振替加算の率（振替加算を受ける人の生年月日。昭和9年4月2日〜昭和12年4月1日生まれの3区分は未確認のため置いていない）
+unit: rate
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: null, to: "1926-04-01"}
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "大正15年4月1日以前生まれは振替加算の対象外として置いた（原本で確認する）"}
+  - rev: 2
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1926-04-02", to: "1927-04-01"}
+    value: "1"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 3
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1927-04-02", to: "1928-04-01"}
+    value: "0.973"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 4
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1928-04-02", to: "1929-04-01"}
+    value: "0.947"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 5
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1929-04-02", to: "1930-04-01"}
+    value: "0.92"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 6
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1930-04-02", to: "1931-04-01"}
+    value: "0.893"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 7
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1931-04-02", to: "1932-04-01"}
+    value: "0.867"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 8
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1932-04-02", to: "1933-04-01"}
+    value: "0.84"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 9
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1933-04-02", to: "1934-04-01"}
+    value: "0.813"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 10
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1937-04-02", to: "1938-04-01"}
+    value: "0.707"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 11
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1938-04-02", to: "1939-04-01"}
+    value: "0.68"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 12
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1939-04-02", to: "1940-04-01"}
+    value: "0.653"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 13
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1940-04-02", to: "1941-04-01"}
+    value: "0.627"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 14
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1941-04-02", to: "1942-04-01"}
+    value: "0.6"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 15
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1942-04-02", to: "1943-04-01"}
+    value: "0.573"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 16
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1943-04-02", to: "1944-04-01"}
+    value: "0.547"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 17
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1944-04-02", to: "1945-04-01"}
+    value: "0.52"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 18
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1945-04-02", to: "1946-04-01"}
+    value: "0.493"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 19
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1946-04-02", to: "1947-04-01"}
+    value: "0.467"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 20
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1947-04-02", to: "1948-04-01"}
+    value: "0.44"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 21
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1948-04-02", to: "1949-04-01"}
+    value: "0.413"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 22
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1949-04-02", to: "1950-04-01"}
+    value: "0.387"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 23
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1950-04-02", to: "1951-04-01"}
+    value: "0.36"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 24
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1951-04-02", to: "1952-04-01"}
+    value: "0.333"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 25
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1952-04-02", to: "1953-04-01"}
+    value: "0.307"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 26
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1953-04-02", to: "1954-04-01"}
+    value: "0.28"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 27
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1954-04-02", to: "1955-04-01"}
+    value: "0.253"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 28
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1955-04-02", to: "1956-04-01"}
+    value: "0.227"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 29
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1956-04-02", to: "1957-04-01"}
+    value: "0.2"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 30
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1957-04-02", to: "1958-04-01"}
+    value: "0.173"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 31
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1958-04-02", to: "1959-04-01"}
+    value: "0.147"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 32
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1959-04-02", to: "1960-04-01"}
+    value: "0.12"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 33
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1960-04-02", to: "1961-04-01"}
+    value: "0.093"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 34
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1961-04-02", to: "1966-04-01"}
+    value: "0.067"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 35
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1966-04-02", to: null}
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "令和7年度の表の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

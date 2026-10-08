@@ -31,4 +31,4 @@ export { netByYear, tableYear } from "../engine/aggregate.ts";
 export { boxValue } from "./box.ts";
 export type * from "./contracts.ts";
 export { fail } from "./fail.ts";
-export { ageMonth, fiscalYearOf, fiscalYearStart, fiscalYearEnd, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS } from "./helpers.ts";
+export { ageMonth, fiscalYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS } from "./helpers.ts";

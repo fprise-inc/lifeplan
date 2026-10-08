@@ -2,6 +2,42 @@
 # since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
 kind: param
 entries:
+  - id: employmentInsurance.childcareBenefit.dailyWageMax
+    status: active
+    label: "育児休業給付の休業開始時賃金日額の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.childcareBenefit.dailyWageMin
+    status: active
+    label: "育児休業給付の休業開始時賃金日額の下限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.childcareBenefit.initialMonths
+    status: active
+    label: "育児休業給付金の67%の期間（180日を月数にした近似）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.childcareBenefit.rateInitial
+    status: active
+    label: "育児休業給付金の給付率（休業開始から180日まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.childcareBenefit.rateLater
+    status: active
+    label: "育児休業給付金の給付率（181日目から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.coverage.weeklyHours
+    status: active
+    label: "雇用保険の被保険者になる週の所定労働時間（以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: employmentInsurance.employeeRate.agricultureEtc
     status: active
     label: "雇用保険料率の被保険者負担分（農林水産・清酒製造の事業）"
@@ -23,6 +59,42 @@ entries:
   - id: employmentInsurance.employeeShare.rounding
     status: active
     label: "雇用保険料の被保険者負担分を賃金から控除するときの端数（50銭以下切り捨て、50銭超切り上げ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.postBirthBenefit.days
+    status: active
+    label: "出生後休業支援給付の支給日数の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.postBirthBenefit.rate
+    status: active
+    label: "出生後休業支援給付の給付率"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.postBirthBenefit.withinMonths
+    status: active
+    label: "出生後休業支援給付の対象の育児休業（子の出生後8週間以内）を月数にした近似"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.shortHoursBenefit.childUntilAge
+    status: active
+    label: "育児時短就業給付の子の年齢（2歳に達する日の前日の属する月まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.shortHoursBenefit.monthlyLimit
+    status: active
+    label: "育児時短就業給付の支給限度額（賃金＋給付の上限。月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.shortHoursBenefit.rate
+    status: active
+    label: "育児時短就業給付の給付率（時短中の賃金に対して）"
     since: draft
     aliases: []
     replacedBy: null
@@ -134,6 +206,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.incomeAdjustment.salaryAndPension.limit
+    status: active
+    label: "所得金額調整控除（給与所得と公的年金等に係る雑所得がある場合）の各所得の限度額と差し引く額"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.insuranceDeduction.rounding
     status: active
     label: "生命保険料控除・地震保険料控除の1円未満の端数（切り上げ）"
@@ -179,6 +257,78 @@ entries:
   - id: incomeTax.lifeInsuranceDeduction.youngDependentUntilAge
     status: active
     label: "生命保険料控除の特例の扶養親族の年齢（23歳未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.pensionFilingExemption.otherIncomeLimit
+    status: active
+    label: "確定申告不要制度の公的年金等に係る雑所得以外の所得金額（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.pensionFilingExemption.revenueLimit
+    status: active
+    label: "確定申告不要制度の公的年金等の収入金額（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.publicPensionDeduction.combinedLimit
+    status: active
+    label: "給与所得控除額と公的年金等控除額の合計の上限（超える分を公的年金等控除額から引く。令和9年分から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.publicPensionDeduction.elderlyAge
+    status: active
+    label: "公的年金等控除額の年齢の区分（その年の12月31日に65歳以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.publicPensionDeduction.otherIncomeLimit1
+    status: active
+    label: "公的年金等控除額の列の境目（公的年金等に係る雑所得以外の合計所得金額。1,000万円以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.publicPensionDeduction.otherIncomeLimit2
+    status: active
+    label: "公的年金等控除額の列の境目（同。2,000万円以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.publicPensionDeduction.over65.tier1
+    status: active
+    label: "公的年金等控除額（65歳以上・公的年金等に係る雑所得以外の合計所得金額が1,000万円以下。控除額＝収入×率＋額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.publicPensionDeduction.over65.tier2
+    status: active
+    label: "公的年金等控除額（65歳以上・公的年金等に係る雑所得以外の合計所得金額が1,000万円超2,000万円以下。控除額＝収入×率＋額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.publicPensionDeduction.over65.tier3
+    status: active
+    label: "公的年金等控除額（65歳以上・公的年金等に係る雑所得以外の合計所得金額が2,000万円超。控除額＝収入×率＋額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.publicPensionDeduction.under65.tier1
+    status: active
+    label: "公的年金等控除額（65歳未満・公的年金等に係る雑所得以外の合計所得金額が1,000万円以下。控除額＝収入×率＋額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.publicPensionDeduction.under65.tier2
+    status: active
+    label: "公的年金等控除額（65歳未満・公的年金等に係る雑所得以外の合計所得金額が1,000万円超2,000万円以下。控除額＝収入×率＋額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.publicPensionDeduction.under65.tier3
+    status: active
+    label: "公的年金等控除額（65歳未満・公的年金等に係る雑所得以外の合計所得金額が2,000万円超。控除額＝収入×率＋額）"
     since: draft
     aliases: []
     replacedBy: null
@@ -263,6 +413,198 @@ entries:
   - id: incomeTax.taxableIncome.rounding
     status: active
     label: "課税される所得金額の1,000円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.amount.rounding
+    status: active
+    label: "年金額（年額）の端数処理（1円未満四捨五入）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.basic.baseAmount
+    status: active
+    label: "老齢基礎年金の満額の基準額（平成16年改正法の額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.basic.fullAmount.rounding
+    status: active
+    label: "満額・加給年金額などの基準額×改定率の端数処理（100円未満四捨五入）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.basic.maxMonths
+    status: active
+    label: "老齢基礎年金の満額の月数（加入可能年数40年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.childSupplement.childUntilAge
+    status: active
+    label: "加給年金額の対象の子の年齢（18歳に達した日以後の最初の3月31日まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.childSupplement.firstTwoBaseAmount
+    status: active
+    label: "加給年金額（1人目・2人目の子）の基準額（224,700円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.childSupplement.thirdBaseAmount
+    status: active
+    label: "加給年金額（3人目以降の子）の基準額（74,900円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.deferral.increaseRate
+    status: active
+    label: "繰下げの増額率（1か月あたり）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.deferral.maxMonths
+    status: active
+    label: "繰下げの増額の上限の月数（昭和27年4月2日以後生まれは75歳まで、それ以前は70歳まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.earlyClaim.maxMonths
+    status: active
+    label: "繰上げの上限の月数（60歳から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.earlyClaim.reductionRate
+    status: active
+    label: "繰上げの減額率（1か月あたり。昭和37年4月2日以後生まれは0.4%、それ以前は0.5%）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.employee.accrualRate.post2003
+    status: active
+    label: "報酬比例の給付乗率（平成15年4月以後の期間。昭和21年4月2日以後生まれ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.employee.accrualRate.pre2003
+    status: active
+    label: "報酬比例の給付乗率（平成15年3月以前の期間。昭和21年4月2日以後生まれ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.employee.flatRate.baseAmount
+    status: active
+    label: "定額部分（経過的加算）の単価の基準額（平成16年改正法の額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.employee.flatRate.maxMonths
+    status: active
+    label: "定額部分（経過的加算）の上限の月数（昭和21年4月2日以後生まれ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.employee.revisionFactor
+    status: active
+    label: "報酬比例（厚生年金）の年度の改定の比（スライド調整の率が基礎年金と違う年度だけ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.normalStartAge
+    status: active
+    label: "老齢基礎年金・老齢厚生年金の受給を始める年齢（65歳に達した月の翌月から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.payment.rounding
+    status: active
+    label: "支払期ごとの支払額の端数処理（1円未満切り捨て。切り捨てた合計は2月の支払期に加算）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.qualifyingMonths
+    status: active
+    label: "老齢年金の受給資格期間（10年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.revision.existingFromAge
+    status: active
+    label: "既裁定者になる年齢（この年齢に達した年度から物価で改定する。前提で延ばす年度だけに使う）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.revisionRate
+    status: active
+    label: "年金額の改定率（平成16年改正法の額に掛ける率。昭和31年4月1日以前生まれは既裁定者の率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.specialOldAge.requiredMonths
+    status: active
+    label: "特別支給の老齢厚生年金の厚生年金の加入期間（1年以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.specialOldAge.startAge
+    status: active
+    label: "特別支給の老齢厚生年金（報酬比例部分）の支給開始年齢（生年月日・性別。第1号厚生年金の期間）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.spouseSupplement.baseAmount
+    status: active
+    label: "加給年金額（配偶者）の基準額（224,700円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.spouseSupplement.requiredMonths
+    status: active
+    label: "加給年金額が加算される厚生年金の加入期間（20年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.spouseSupplement.specialAddition
+    status: active
+    label: "配偶者の加給年金額の特別加算の基準額（受給権者の生年月日で決まる。×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.spouseSupplement.spouseUntilAge
+    status: active
+    label: "配偶者の加給年金額が加算される配偶者の年齢の上限（65歳に達した月まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.supplementaryBenefit.baseMonthly
+    status: active
+    label: "年金生活者支援給付金（老齢）の給付基準額（月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.supplementaryBenefit.incomeLimit
+    status: active
+    label: "年金生活者支援給付金（老齢）の所得基準額（前年の公的年金等の収入金額＋その他の所得。10月から翌年9月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.transferAddition.baseAmount
+    status: active
+    label: "振替加算の基準額（224,700円×改定率。受給する人の改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.transferAddition.coefficient
+    status: active
+    label: "振替加算の率（振替加算を受ける人の生年月日。昭和9年4月2日〜昭和12年4月1日生まれの3区分は未確認のため置いていない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.workingAdjustment.threshold
+    status: active
+    label: "在職老齢年金の支給停止調整額（月額）"
     since: draft
     aliases: []
     replacedBy: null
@@ -404,6 +746,42 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: residentTax.exemption.incomeLevy.addition
+    status: active
+    label: "住民税の所得割の非課税限度額の加算額（10万円）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.exemption.incomeLevy.dependentAddition
+    status: active
+    label: "住民税の所得割の非課税限度額の扶養がある場合の加算額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.exemption.incomeLevy.perPerson
+    status: active
+    label: "住民税の所得割の非課税限度額の1人あたりの額（本人・同一生計配偶者・扶養親族の数を掛ける）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.exemption.perCapita.addition
+    status: active
+    label: "住民税の均等割の非課税限度額の加算額（10万円）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.exemption.perCapita.dependentAddition
+    status: active
+    label: "住民税の均等割の非課税限度額の扶養がある場合の加算額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.exemption.perCapita.perPerson
+    status: active
+    label: "住民税の均等割の非課税限度額の1人あたりの額（本人・同一生計配偶者・扶養親族の数を掛ける）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: residentTax.incomeLevy.calc.rounding
     status: active
     label: "住民税の課税標準×税率・調整控除の額の1円未満の端数（切り捨て）"
@@ -449,6 +827,12 @@ entries:
   - id: residentTax.lifeInsuranceDeduction.totalLimit
     status: active
     label: "住民税の生命保険料控除（3区分の合計の上限）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.pensionSpecialCollection.age
+    status: active
+    label: "住民税を公的年金から差し引く（特別徴収）年齢（年度の初日に65歳以上）"
     since: draft
     aliases: []
     replacedBy: null
@@ -506,6 +890,30 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.care.firstInsured.baseMonthly
+    status: active
+    label: "介護保険の第1号被保険者の保険料の基準額（月額。第9期の全国加重平均。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.firstInsured.ratio.householdExempt
+    status: active
+    label: "介護保険の第1号被保険者の保険料の割合（世帯全員が住民税非課税。年金収入等の段階。第1〜3段階。公費による軽減の後）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.firstInsured.ratio.selfExempt
+    status: active
+    label: "介護保険の第1号被保険者の保険料の割合（本人は住民税非課税で世帯に課税の人がいる。年金収入等の段階。第4・5段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.firstInsured.ratio.taxable
+    status: active
+    label: "介護保険の第1号被保険者の保険料の割合（本人が住民税課税。合計所得金額の段階。国の標準段階の第6〜13段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.care.kyokaikenpo.rate
     status: active
     label: "協会けんぽの介護保険料率（全国一律。労使の合計）"
@@ -530,6 +938,96 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.childbirthLumpSum
+    status: active
+    label: "出産育児一時金（1児。産科医療補償制度に加入する医療機関・在胎22週以降）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.coverage.regularHoursRatio
+    status: active
+    label: "被用者保険に入る労働時間の基準（通常の労働者の週の所定労働時間の4分の3）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.coverage.shortTimeEmployerSize
+    status: active
+    label: "短時間労働者が被用者保険に入る勤め先の規模（厚生年金の被保険者数。以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.coverage.shortTimeMonthlyWage
+    status: active
+    label: "短時間労働者が被用者保険に入る所定内賃金の月額（以上。令和8年10月に撤廃）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.coverage.shortTimeWeeklyHours
+    status: active
+    label: "短時間労働者が被用者保険に入る週の所定労働時間（以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.dailyAllowance.dailyRounding
+    status: active
+    label: "出産手当金・傷病手当金の標準報酬日額（平均÷30）の端数処理（10円未満四捨五入）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.dailyAllowance.denominator
+    status: active
+    label: "出産手当金・傷病手当金の支給日額の割合（2/3）の分母"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.dailyAllowance.numerator
+    status: active
+    label: "出産手当金・傷病手当金の支給日額の割合（2/3）の分子"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.dailyAllowance.rounding
+    status: active
+    label: "出産手当金・傷病手当金の支給日額（×2/3）の端数処理（1円未満四捨五入）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.dependent.elderlyAge
+    status: active
+    label: "健康保険の被扶養者の年間収入の基準が上がる年齢"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.dependent.incomeLimit
+    status: active
+    label: "健康保険の被扶養者・国民年金の第3号被保険者の年間収入の基準（未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.dependent.incomeLimitElderly
+    status: active
+    label: "健康保険の被扶養者の年間収入の基準（60歳以上。未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.dependent.incomeLimitYoung
+    status: active
+    label: "健康保険の被扶養者の年間収入の基準（19歳以上23歳未満。配偶者を除く。未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.dependent.youngFromAge
+    status: active
+    label: "被扶養者の基準が150万円になる年齢（19歳以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.dependent.youngUntilAge
+    status: active
+    label: "被扶養者の基準が150万円の年齢の終わり（23歳未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.employeeShare.rounding
     status: active
     label: "健康保険料・介護保険料・支援金・厚生年金保険料の被保険者負担分を給与から控除するときの端数（50銭以下切り捨て、50銭超切り上げ）"
@@ -542,9 +1040,249 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.health.lateElderlyAge
+    status: active
+    label: "後期高齢者医療の被保険者になる年齢（75歳の誕生日から）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.health.standardBonus.annualLimit
     status: active
     label: "健康保険（介護保険・支援金も）の標準賞与額の年度の累計の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.childSupport.incomeRate
+    status: active
+    label: "後期高齢者医療の子ども・子育て支援金分の所得割率（全国平均。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.childSupport.limit
+    status: active
+    label: "後期高齢者医療の賦課限度額（子ども・子育て支援金分）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.childSupport.perCapita
+    status: active
+    label: "後期高齢者医療の子ども・子育て支援金分の均等割額（年額。全国平均。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.childSupport.reductionRatioSeventy
+    status: active
+    label: "後期高齢者医療の子ども・子育て支援金分の7割軽減の割合（医療分の特例の7.2割はかからない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.incomeDeduction
+    status: active
+    label: "後期高齢者医療の所得割の算定の基礎控除（総所得金額等から引く額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.medical.incomeRate
+    status: active
+    label: "後期高齢者医療の所得割率（全国平均。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.medical.limit
+    status: active
+    label: "後期高齢者医療の賦課限度額（医療分）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.medical.perCapita
+    status: active
+    label: "後期高齢者医療の被保険者均等割額（年額。全国平均。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.reduction.base
+    status: active
+    label: "後期高齢者医療の均等割（平等割）の軽減の判定の基準額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.reduction.elderlyPensionDeduction
+    status: active
+    label: "後期高齢者医療の軽減の判定で65歳以上の公的年金の所得から引く額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.reduction.halfPerInsured
+    status: active
+    label: "後期高齢者医療の5割軽減の判定の被保険者1人あたりの額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.reduction.perEarner
+    status: active
+    label: "後期高齢者医療の軽減の判定の給与所得者等の加算額（2人目から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.reduction.ratioHalf
+    status: active
+    label: "後期高齢者医療の5割軽減の割合"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.reduction.ratioSeventy
+    status: active
+    label: "後期高齢者医療の7割軽減の割合"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.reduction.ratioTwenty
+    status: active
+    label: "後期高齢者医療の2割軽減の割合"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.reduction.twentyPerInsured
+    status: active
+    label: "後期高齢者医療の2割軽減の判定の被保険者1人あたりの額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly.rounding
+    status: active
+    label: "後期高齢者医療の保険料の区分ごとの年額の端数処理（100円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.maternityAllowance.days
+    status: active
+    label: "出産手当金の日数（出産の日以前42日と出産の翌日以後56日。単胎）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.care.limit
+    status: active
+    label: "国民健康保険の賦課限度額（介護納付金賦課額。政令の基準）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.childSupport.limit
+    status: active
+    label: "国民健康保険の賦課限度額（子ども・子育て支援納付金賦課額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.childSupport.perCapitaFromAge
+    status: active
+    label: "国民健康保険の子ども・子育て支援金分の均等割がかかる年齢（18歳に達した日以後の最初の3月31日の後）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.elderlySupport.limit
+    status: active
+    label: "国民健康保険の賦課限度額（後期高齢者支援金等賦課額。政令の基準）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.incomeDeduction
+    status: active
+    label: "国民健康保険の所得割の算定の基礎控除（総所得金額等から引く額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.medical.limit
+    status: active
+    label: "国民健康保険の賦課限度額（基礎賦課額（医療分）。政令の基準）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.reduction.base
+    status: active
+    label: "国民健康保険の均等割（平等割）の軽減の判定の基準額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.reduction.elderlyPensionDeduction
+    status: active
+    label: "国民健康保険の軽減の判定で65歳以上の公的年金の所得から引く額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.reduction.halfPerInsured
+    status: active
+    label: "国民健康保険の5割軽減の判定の被保険者1人あたりの額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.reduction.perEarner
+    status: active
+    label: "国民健康保険の軽減の判定の給与所得者等の加算額（2人目から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.reduction.ratioHalf
+    status: active
+    label: "国民健康保険の5割軽減の割合"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.reduction.ratioSeventy
+    status: active
+    label: "国民健康保険の7割軽減の割合"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.reduction.ratioTwenty
+    status: active
+    label: "国民健康保険の2割軽減の割合"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.reduction.twentyPerInsured
+    status: active
+    label: "国民健康保険の2割軽減の判定の被保険者1人あたりの額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalPension.category2UntilAge
+    status: active
+    label: "第2号被保険者の年齢の終わり（65歳以上で老齢年金の受給権がある人は第2号でない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalPension.fromAge
+    status: active
+    label: "国民年金の第1号・第3号被保険者の年齢の始まり（20歳）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalPension.maternityExemption.months
+    status: active
+    label: "国民年金の産前産後期間の免除の月数"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalPension.maternityExemption.monthsBefore
+    status: active
+    label: "国民年金の産前産後期間の免除が始まる月（出産の月の何か月前から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalPension.premium
+    status: active
+    label: "国民年金保険料（月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalPension.premium.rounding
+    status: active
+    label: "国民年金保険料（17,000円×保険料改定率）の端数処理（10円単位）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalPension.untilAge
+    status: active
+    label: "国民年金の第1号・第3号被保険者の年齢の終わり（60歳未満）"
     since: draft
     aliases: []
     replacedBy: null
@@ -563,6 +1301,24 @@ entries:
   - id: socialInsurance.pension.standardBonus.monthlyLimit
     status: active
     label: "厚生年金の標準賞与額の上限（支給1回。同じ月は合算）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.sicknessAllowance.maxDays
+    status: active
+    label: "傷病手当金の支給期間（通算1年6か月を日数にした近似）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.sicknessAllowance.waitingDays
+    status: active
+    label: "傷病手当金の待期（連続した3日間）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.specialCollection.minimumPension
+    status: active
+    label: "保険料・住民税を年金から差し引く（特別徴収）年金の年額（以上）"
     since: draft
     aliases: []
     replacedBy: null

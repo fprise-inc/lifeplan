@@ -86,7 +86,7 @@ describe("パックの組み立て", () => {
   });
 
   it("basis を目的語つきの形に正規化する", () => {
-    const v = realPacks()[1]?.values.find((x) => x.id === "residentTax.basicDeduction");
+    const v = realPacks().find((p) => p.pack.packId === "regulation.tax")?.values.find((x) => x.id === "residentTax.basicDeduction");
     expect(v?.basis).toEqual({ type: "priorYearIncome", switchMonth: 6 });
     expect(v?.linkage).toBe("none");
   });

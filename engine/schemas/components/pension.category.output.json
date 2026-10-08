@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:pension.category.output",
+  "title": "pension.category の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "months"
+  ],
+  "properties": {
+    "months": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "month",
+          "category",
+          "basic",
+          "premiumExempt"
+        ],
+        "properties": {
+          "month": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "category": {
+            "enum": [
+              "1",
+              "2",
+              "3",
+              "none"
+            ]
+          },
+          "basic": {
+            "type": "boolean"
+          },
+          "premiumExempt": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

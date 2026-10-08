@@ -1,0 +1,20 @@
+id: socialInsurance.maternityAllowance.days
+title: 出産手当金の日数（出産の日以前42日と出産の翌日以後56日。単胎）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 98
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/benefit/childbirth/001/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "出産の日(実際の出産が予定日後のときは出産予定日)以前42日(多胎妊娠の場合98日)から出産の翌日以後56日目までの範囲内で、会社を休んだ期間を対象として出産手当金が支給されます。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.bosei-navi.mhlw.go.jp/glossary/provide02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "42日＋56日。予定日どおりの出産で全期間休むとみなす。多胎は入れていない"}

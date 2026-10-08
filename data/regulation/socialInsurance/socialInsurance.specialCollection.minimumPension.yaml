@@ -1,0 +1,20 @@
+id: socialInsurance.specialCollection.minimumPension
+title: 保険料・住民税を年金から差し引く（特別徴収）年金の年額（以上）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 180000
+    sources:
+      - {type: "web", url: "https://www.city.bunkyo.lg.jp/b020/p000537.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.ota.tokyo.jp/seikatsu/kokunen/kokuho/hokenryou/osamekata/tenbiki.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "国民健康保険料と介護保険料の合算が老齢基礎年金等の年金受給額の2分の1を超えないこと", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 3, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する。2分の1の基準・年金の種類ごとの判定は見ていない"}

@@ -1,0 +1,20 @@
+id: socialInsurance.lateElderly.reduction.base
+title: 後期高齢者医療の均等割（平等割）の軽減の判定の基準額
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 430000
+    sources:
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/iryoseido/hokenryo/koreikeigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.pref.miyagi.jp/soshiki/kkh-iryou/kokuho25.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "43万円+30.5万円×被保険者数+10万円×(給与所得者等の数-1)", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}

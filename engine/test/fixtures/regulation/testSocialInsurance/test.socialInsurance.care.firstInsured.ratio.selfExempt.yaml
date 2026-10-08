@@ -1,0 +1,21 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.socialInsurance.care.firstInsured.ratio.selfExempt
+title: 【架空の見本】socialInsurance.care.firstInsured.ratio.selfExempt
+unit: rate
+kind: bracketTable
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2000-04-01"
+    appliesTo: null
+    enforcedOn: "2000-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 800000, rate: "0.9"}
+      - {upTo: null, rate: "1"}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

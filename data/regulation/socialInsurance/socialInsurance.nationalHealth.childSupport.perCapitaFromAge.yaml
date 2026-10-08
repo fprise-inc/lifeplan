@@ -1,0 +1,21 @@
+id: socialInsurance.nationalHealth.childSupport.perCapitaFromAge
+title: 国民健康保険の子ども・子育て支援金分の均等割がかかる年齢（18歳に達した日以後の最初の3月31日の後）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: firstMarch31AfterReach
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 18
+    sources:
+      - {type: "web", url: "https://www.city.hiroshima.lg.jp/soshiki/71/3086.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "18歳未満の加入者（18歳に達する日以後の最初の3月31日以前である被保険者）については、被保険者均等割が全額軽減されます。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.kasumigaura.lg.jp/data/doc/1774242228_doc_106_0.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

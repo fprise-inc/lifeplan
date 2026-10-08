@@ -1,0 +1,20 @@
+id: employmentInsurance.childcareBenefit.rateInitial
+title: 育児休業給付金の給付率（休業開始から180日まで）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.67"
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001461102.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "10,000円×30日×67％＝201,000円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000158500.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}

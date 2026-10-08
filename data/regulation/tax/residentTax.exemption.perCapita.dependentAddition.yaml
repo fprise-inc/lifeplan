@@ -1,0 +1,21 @@
+id: residentTax.exemption.perCapita.dependentAddition
+title: 住民税の均等割の非課税限度額の扶養がある場合の加算額
+unit: JPY
+kind: constant
+basis: "priorYearIncome"
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 210000
+    sources:
+      - {type: "web", url: "https://www.city.edogawa.tokyo.jp/e013/kurashi/zeikin/juminzei/zei_gaiyo/hikazei.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "同一生計配偶者、扶養親族がいない場合 45万円、同一生計配偶者、扶養親族がいる場合 35万円×(同一生計配偶者+扶養親族+1)+31万円", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.nerima.tokyo.jp/kurashi/zei/jyuminzei/hikazeikijun/juuminzei-hikazei.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/shizei/kojinshiminzei/zeisei/zeiseikaisei2026.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "変更ありません。", note: "令和8年度の FAQ「住民税の非課税基準は変更されますか。」への答えの要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和8年度・令和9年度で変わらないことを確認した。均等割の額は生活保護の級地で市町村ごとに違う（1級地の値。2級地 31.5万円・18.9万円、3級地 28万円・16.8万円）"}

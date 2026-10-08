@@ -1,28 +1,82 @@
-// 所得税（復興特別所得税・防衛特別所得税を含む）。給与所得者は年末調整で年税額を精算するとみなし、
-// 年税額をその年の給与の支払いの月に、支払額の割合で分けて載せる（端数は最後の支払いの月）
+// 所得税（復興特別所得税・防衛特別所得税を含む）。年税額をどの月に払うかは次のとおり（0003 の追記）。
+// - 給与だけで、12月に給与を受ける年（年末調整を受ける年）: 年税額をその年の給与の支払いの月に支払額の割合で分ける（端数は最後の月）
+// - それ以外の年（年の途中で辞めた年・年金や事業の所得がある年）: 源泉徴収とみなす額を支払いの月に載せ、年税額との差を翌年3月に
+//   確定申告で精算する（還付は負の額）。給与の源泉徴収は、年末調整を受ける年は給与だけの年税額、受けない年はその年の給与を
+//   12か月分に換算した収入の年税額を、給与の月数の割合にした額（月額表の近似）。年金の源泉徴収は年金だけの年税額（近似）。
+//   公的年金等の収入が400万円以下でその他の所得が20万円以下なら、追加の納付は申告しない（確定申告不要制度）
 import {
   bracketFor,
   defineComponent,
+  formatYm,
   monthIndex,
   parseYm,
   subYen,
   yearOf,
   yen,
   type DeductionsOutput,
+  type EmploymentIncomeOutput,
   type Flow,
   type IncomeTaxOutput,
+  type MonthCtx,
+  type Ctx,
+  type PensionOutput,
   type SalaryOutput,
   type TotalIncomeOutput,
+  type Yen,
 } from "../../sdk/index.ts";
 
 const ZERO = { flows: [], total: yen(0), taxable: yen(0), computedTax: yen(0), reconstructionSurtax: yen(0), defenseSurtax: yen(0) };
+const FILING = { revenue: "incomeTax.pensionFilingExemption.revenueLimit", other: "incomeTax.pensionFilingExemption.otherIncomeLimit" };
+
+interface Tax {
+  readonly taxable: Yen;
+  readonly computedTax: Yen;
+  readonly reconstructionSurtax: Yen;
+  readonly defenseSurtax: Yen;
+  readonly annual: Yen;
+}
+
+/** 合計所得金額と所得控除の合計から年税額（課税所得金額×税率−控除額に、基準所得税額×率の付加税を足して100円未満を切り捨て） */
+function taxOf(ctx: Ctx, at: MonthCtx, total: Yen, deductions: Yen): Tax {
+  const taxable = at.money.round(total > deductions ? subYen(total, deductions) : yen(0), "incomeTax.taxableIncome.rounding");
+  const b = bracketFor(at.paramBrackets("incomeTax.taxRateTable") ?? [], taxable);
+  const computed = b.rate === undefined ? yen(0) : subYen(ctx.money.mulRate(taxable, b.rate, "conv.tax.exact"), b.amount ?? yen(0));
+  const base = computed > 0 ? computed : yen(0);
+  const surtax = (id: string) => {
+    const r = at.paramRate(id);
+    return r === null ? yen(0) : at.money.mulRate(base, r, "incomeTax.surtax.rounding");
+  };
+  const reconstructionSurtax = surtax("incomeTax.reconstructionSurtax.rate");
+  const defenseSurtax = surtax("incomeTax.defenseSurtax.rate");
+  const annual = at.money.round(yen(base + reconstructionSurtax + defenseSurtax), "incomeTax.taxAmount.rounding");
+  return { taxable, computedTax: base, reconstructionSurtax, defenseSurtax, annual };
+}
+
+/** 合計を重みで支払いの月に分ける（端数は最後の月） */
+function spread(ctx: Ctx, total: Yen, items: readonly { ym: string; weight: number }[], member: string, year: number, formula: string): Flow[] {
+  if (total === 0 || items.length === 0) return [];
+  const months = [...new Set(items.map((p) => p.ym))].sort();
+  const weights = months.map((ym) => items.filter((p) => p.ym === ym).reduce((s, p) => s + p.weight, 0));
+  if (weights.every((w) => w === 0)) return [];
+  const parts = ctx.money.allocate(total, weights, "conv.tax.allocate", "last");
+  return months.map((ym, i) => ({ row: "cf.taxSi.incomeTax", ym, amount: parts[i] as Yen, accrualYear: year, member, formula })).filter((f) => f.amount !== 0);
+}
 
 export default defineComponent<{ member: string; year: number }, IncomeTaxOutput>({
   id: "incomeTax.annual",
   title: "所得税",
   contract: "1.0",
-  revision: 1,
-  requires: { "tax.totalIncome": ">=1 <2", "tax.deductions": ">=1 <2", "income.salary": ">=1 <2" },
+  revision: 2,
+  requires: {
+    "tax.totalIncome": ">=1 <2",
+    "tax.deductions": ">=1 <2",
+    "tax.employmentIncome": ">=1 <2",
+    "income.salary": ">=1 <2",
+    "pension.oldAge": ">=1 <2",
+    "socialInsurance.health": ">=1 <2",
+    "socialInsurance.pension": ">=1 <2",
+    "socialInsurance.employment": ">=1 <2",
+  },
   params: [
     "incomeTax.taxRateTable",
     "incomeTax.taxableIncome.rounding",
@@ -30,47 +84,75 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
     "incomeTax.defenseSurtax.rate",
     "incomeTax.surtax.rounding",
     "incomeTax.taxAmount.rounding",
+    FILING.revenue,
+    FILING.other,
   ],
   reads: [],
   input: "tax.memberYear.input",
   output: "incomeTax.annual.output",
   compute(input, ctx) {
     const { member, year } = input;
-    const total = ctx.call<TotalIncomeOutput>("tax.totalIncome", input).total;
+    const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", input);
+    const total = inc.total;
     if (total <= 0) return ZERO;
     const ded = ctx.call<DeductionsOutput>("tax.deductions", { member, year, regime: "incomeTax" });
     const at = ctx.at(monthIndex(year, 1));
-    const taxable = at.money.round(total > ded.total ? subYen(total, ded.total) : yen(0), "incomeTax.taxableIncome.rounding");
-    // 算出税額＝課税所得金額×税率−控除額（速算表）
-    const b = bracketFor(at.paramBrackets("incomeTax.taxRateTable") ?? [], taxable);
-    const computed = b.rate === undefined ? yen(0) : subYen(ctx.money.mulRate(taxable, b.rate, "conv.tax.exact"), b.amount ?? yen(0));
-    const base = computed > 0 ? computed : yen(0);
-    // 基準所得税額×率（1円未満切り捨て）を足し、100円未満を切り捨てる
-    const surtax = (id: string) => {
-      const r = at.paramRate(id);
-      return r === null ? yen(0) : at.money.mulRate(base, r, "incomeTax.surtax.rounding");
-    };
-    const reconstructionSurtax = surtax("incomeTax.reconstructionSurtax.rate");
-    const defenseSurtax = surtax("incomeTax.defenseSurtax.rate");
-    const annual = at.money.round(yen(base + reconstructionSurtax + defenseSurtax), "incomeTax.taxAmount.rounding");
-    const detail = { taxable, computedTax: base, reconstructionSurtax, defenseSurtax };
-    if (annual <= 0) return { ...ZERO, ...detail };
-    const pays = ctx
+    const t = taxOf(ctx, at, total, ded.total);
+    const annual = t.annual;
+    const detail = { taxable: t.taxable, computedTax: t.computedTax, reconstructionSurtax: t.reconstructionSurtax, defenseSurtax: t.defenseSurtax };
+    const salaryPays = ctx
       .call<SalaryOutput>("income.salary", { member })
-      .payments.filter((p) => yearOf(parseYm(p.ym)) === year && p.salary + p.bonus > 0);
-    if (pays.length === 0) return { flows: [], total: annual, ...detail };
-    // 同じ月の支払い（期間をまたぐ月）はまとめる
-    const months = [...new Set(pays.map((p) => p.ym))];
-    const weights = months.map((ym) => pays.filter((p) => p.ym === ym).reduce((s, p) => s + p.salary + p.bonus, 0));
-    const parts = ctx.money.allocate(annual, weights, "conv.tax.allocate", "last");
-    const flows: Flow[] = months.map((ym, i) => ({
-      row: "cf.taxSi.incomeTax",
-      ym,
-      amount: parts[i] as never,
-      accrualYear: year,
-      member,
-      formula: "incomeTax.annual.withholding",
-    }));
-    return { flows: flows.filter((f) => f.amount > 0), total: annual, ...detail };
+      .payments.filter((p) => yearOf(parseYm(p.ym)) === year && p.salary + p.bonus > 0)
+      .map((p) => ({ ym: p.ym, weight: p.salary + p.bonus }));
+    const pensionPays = ctx
+      .call<PensionOutput>("pension.oldAge", { member })
+      .payments.filter((p) => p.ym.startsWith(`${year}-`))
+      .map((p) => ({ ym: p.ym, weight: p.amount as number }));
+    const yearEnd = salaryPays.some((p) => p.ym === formatYm(monthIndex(year, 12)));
+    const pensionIncome = inc.publicPension ?? yen(0);
+    const other = inc.other ?? yen(0);
+    // 給与だけで年末調整を受ける年（これまでどおり）
+    if (yearEnd && pensionIncome === 0 && other === 0) {
+      if (annual <= 0) return { ...ZERO, ...detail };
+      return { flows: spread(ctx, annual, salaryPays, member, year, "incomeTax.annual.withholding"), total: annual, ...detail };
+    }
+    // 源泉徴収とみなす額
+    let withheldSalary = yen(0);
+    if (salaryPays.length > 0) {
+      if (yearEnd) withheldSalary = taxOf(ctx, at, inc.employment, ded.total).annual;
+      else {
+        // 年の途中で辞めた年: その年の給与を12か月分に換算した収入の年税額×給与の月数/12（源泉徴収税額表の近似）
+        const months = new Set(salaryPays.map((p) => p.ym)).size;
+        const revenue = salaryPays.reduce((s, p) => s + p.weight, 0);
+        const annualized = ctx.money.mulRatio(yen(revenue), 12, months, "conv.tax.exact");
+        const e = ctx.call<EmploymentIncomeOutput>("tax.employmentIncome", { member, year, revenue: annualized });
+        // 社会保険料は給与から控除された分（被用者保険）を12か月分に換算する
+        let withheldSi = 0;
+        for (const c of ["socialInsurance.health", "socialInsurance.pension", "socialInsurance.employment"]) {
+          for (const f of ctx.call<{ flows: readonly Flow[] }>(c, { member, fromYear: year < yearOf(ctx.time.base) ? year : yearOf(ctx.time.base) }).flows) {
+            if (f.ym.startsWith(`${year}-`) && f.member === member) withheldSi += f.amount;
+          }
+        }
+        const si = ctx.money.mulRatio(yen(withheldSi), 12, months, "conv.tax.exact");
+        const personal = yen(ded.basic + ded.spouse + ded.spouseSpecial + ded.dependents + ded.specifiedRelative);
+        withheldSalary = ctx.money.mulRatio(taxOf(ctx, at, e.income, yen(personal + si)).annual, months, 12, "conv.tax.exact");
+      }
+    }
+    const withheldPension = pensionPays.length > 0 ? taxOf(ctx, at, pensionIncome, ded.total).annual : yen(0);
+    const flows: Flow[] = [
+      ...spread(ctx, withheldSalary, salaryPays, member, year, "incomeTax.annual.withholding"),
+      ...spread(ctx, withheldPension, pensionPays, member, year, "incomeTax.annual.pensionWithholding"),
+    ];
+    let settlement = yen(annual - withheldSalary - withheldPension);
+    // 確定申告不要制度: 年金の収入が400万円以下で、その他の所得が20万円以下なら、追加の納付は申告しない（還付は申告する）
+    const pensionRevenue = pensionPays.reduce((s, p) => s + p.weight, 0);
+    const revenueLimit = at.paramYen(FILING.revenue);
+    const otherLimit = at.paramYen(FILING.other);
+    const exempt = pensionPays.length > 0 && revenueLimit !== null && otherLimit !== null && pensionRevenue <= revenueLimit && inc.employment + other <= otherLimit;
+    if (exempt && settlement > 0) settlement = yen(0);
+    if (settlement !== 0) {
+      flows.push({ row: "cf.taxSi.incomeTax", ym: formatYm(monthIndex(year + 1, 3)), amount: settlement, accrualYear: year, member, formula: "incomeTax.annual.settlement" });
+    }
+    return { flows, total: exempt ? yen(withheldSalary + withheldPension + (settlement < 0 ? settlement : 0)) : annual, ...detail };
   },
 });

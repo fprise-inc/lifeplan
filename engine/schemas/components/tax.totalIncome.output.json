@@ -4,12 +4,24 @@
   "title": "合計所得金額",
   "type": "object",
   "additionalProperties": false,
-  "required": ["total", "employment"],
+  "required": [
+    "total",
+    "employment"
+  ],
   "properties": {
     "total": {
       "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
     },
     "employment": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "publicPension": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "other": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "adjustment": {
       "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
     }
   }

@@ -1,4 +1,5 @@
 // 給与所得＝給与収入−給与所得控除額（所得税法28条。住民税も同じ年分の計算による）
+// revenue を渡すと、その給与収入で計算する（年の途中で辞めた年の源泉徴収の近似に使う）
 // 給与収入が別表第五の範囲（660万円未満）で控除額が式の段にあるときは、収入金額を4,000円単位に切り下げてから計算する
 import {
   bracketFor,
@@ -26,20 +27,23 @@ function deductionOf(ctx: Ctx, b: Bracket, revenue: Yen): Yen {
   return yen(variable + (b.amount ?? 0));
 }
 
-export default defineComponent<{ member: string; year: number }, EmploymentIncomeOutput>({
+export default defineComponent<{ member: string; year: number; revenue?: number }, EmploymentIncomeOutput>({
   id: "tax.employmentIncome",
   title: "給与所得",
-  contract: "1.0",
-  revision: 1,
+  contract: "1.1",
+  revision: 2,
   requires: { "income.salary": ">=1 <2" },
   params: [TABLE, TABLE_BELOW, TABLE_ROUNDING],
   reads: [],
-  input: "tax.memberYear.input",
+  input: "tax.employmentIncome.input",
   output: "tax.employmentIncome.output",
   compute(input, ctx) {
-    const { payments } = ctx.call<SalaryOutput>("income.salary", { member: input.member });
     let revenue = yen(0);
-    for (const p of payments) if (yearOf(parseYm(p.ym)) === input.year) revenue = yen(revenue + p.salary + p.bonus);
+    if (input.revenue !== undefined) revenue = yen(input.revenue);
+    else {
+      const { payments } = ctx.call<SalaryOutput>("income.salary", { member: input.member });
+      for (const p of payments) if (yearOf(parseYm(p.ym)) === input.year) revenue = yen(revenue + p.salary + p.bonus);
+    }
     if (revenue === 0) return { revenue, deduction: yen(0), income: yen(0) };
     const at = ctx.at(monthIndex(input.year, 1));
     const table = at.paramBrackets(TABLE) ?? [];

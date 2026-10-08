@@ -1,0 +1,19 @@
+id: pension.employee.flatRate.maxMonths
+title: 定額部分（経過的加算）の上限の月数（昭和21年4月2日以後生まれ）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 480
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/yougo/tagyo/teigakububun.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和21年4月2日以後生まれは480月を上限", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "昭和21年4月1日以前生まれの上限は入れていない"}

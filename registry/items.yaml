@@ -56,6 +56,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: assumptions.pensionMacroSlideEmployee
+    status: active
+    label: "厚生年金（報酬比例）のマクロ経済スライドの調整率（省略は基礎年金と同じ）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: assumptions.wageGrowth
     status: active
     label: "賃金上昇率（年率。省略は0）"

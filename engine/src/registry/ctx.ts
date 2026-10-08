@@ -234,6 +234,9 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
     const sel = state.store.select(id, lookup.date, matchOf(opts));
     // 0009 の追記: 値の1行は <制度の値ID>@<rev>
     const ref = `${id}@${sel.entry.rev}`;
+    if (sel.recordedLater === true && !state.notices.has(`N_PARAM_RECORDED_LATER|${id}`)) {
+      state.notices.set(`N_PARAM_RECORDED_LATER|${id}`, { code: "N_PARAM_RECORDED_LATER", ids: [`${id}@${sel.entry.rev}`, sel.entry.recordedIn] });
+    }
     if (sel.extendedYear !== undefined) {
       const r = state.extended.get(ref);
       if (r === undefined) state.extended.set(ref, { first: sel.extendedYear, last: sel.extendedYear });

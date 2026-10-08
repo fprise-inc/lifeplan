@@ -68,9 +68,9 @@ const DEN = 1000000000000n;
 
 type Out = { flows: Flow[]; payments: PensionPayment[]; months: PensionMonth[] };
 
-/** 改定率（年度ごと）を引く。範囲の外は端の年度の値 */
-function revisionTable(rv: RevisionOutput): (fy: number) => Rate {
-  const map = new Map(rv.byFiscalYear.map((x) => [x.fiscalYear, rate(x.rate)]));
+/** 改定率（年度ごと）を引く。範囲の外は端の年度の値。employee は報酬比例の系列 */
+function revisionTable(rv: RevisionOutput, employee: boolean): (fy: number) => Rate {
+  const map = new Map(rv.byFiscalYear.map((x) => [x.fiscalYear, rate(employee ? x.employee : x.rate)]));
   const first = rv.byFiscalYear[0]?.fiscalYear ?? 0;
   const last = rv.byFiscalYear[rv.byFiscalYear.length - 1]?.fiscalYear ?? 0;
   return (fy) => map.get(fy < first ? first : fy > last ? last : fy) ?? RATE_ONE;
@@ -124,18 +124,24 @@ export default defineComponent<{ member: string }, Out>({
     const member = input.member;
     const { base, end } = ctx.time;
     const empty: Out = { flows: [], payments: [], months: [] };
+    // 表の最後までに繰上げの最も早い月（65歳の60か月前）も来ず、受給中の記録も無ければ計算しない
+    const input0 = ctx.list<PensionRecordInput>("pensionRecord").find((r) => r.member === member);
+    const N = ageMonth(ctx, base, P.start, member);
+    if (addMonths(N, -60) > end && input0?.kind !== "receiving") return empty;
     const rec = ctx.call<RecordOutput>("pension.record", { member });
-    const R = revisionTable(ctx.call<RevisionOutput>("pension.revision", { member }));
+    const rv = ctx.call<RevisionOutput>("pension.revision", { member });
+    const R = revisionTable(rv, false);
+    const E = revisionTable(rv, true);
     const K = rec.fiscalYear;
     const RK = R(K);
+    const EK = E(K);
     const ratioTo = (fy: number) => ctx.rate.div(R(fy), RK);
+    const ratioE = (fy: number) => ctx.rate.div(E(fy), EK);
     const at0 = ctx.at(base);
     if (rec.qualifyingMonths < (at0.paramCount(P.qual) ?? 0)) {
       ctx.notice("N_NOT_ENTITLED", ["pension.qualifyingMonths", member]);
       return empty;
     }
-    const N = ageMonth(ctx, base, P.start, member);
-    const input0 = ctx.list<PensionRecordInput>("pensionRecord").find((r) => r.member === member);
     const receiving = rec.kind === "receiving";
     const S0 = monthIndex(yearOf(base) - 2, 1);
     const CB = receiving ? S0 : input0?.claim?.basic !== undefined ? ctx.time.resolve(input0.claim.basic) : N;
@@ -154,7 +160,7 @@ export default defineComponent<{ member: string }, Out>({
       for (const { m, x } of recMonths) {
         if (x.accrues && x.remuneration > 0) {
           const r = at0.paramRate(m < SPLIT_2003 ? P.pre : P.post) ?? RATE_ZERO;
-          const deflate = m < base ? RATE_ONE : ctx.rate.div(RK, R(fiscalYearOf(m)));
+          const deflate = m < base ? RATE_ONE : ctx.rate.div(EK, E(fiscalYearOf(m)));
           const f = ctx.rate.fraction(ctx.rate.mul(r, deflate));
           cum += (BigInt(x.remuneration) * f.num * DEN) / f.den;
         }
@@ -175,7 +181,7 @@ export default defineComponent<{ member: string }, Out>({
     const fromMonths = rec.kind !== "projection" && !(receiving && rec.employeeMonths === 0);
     const employeeInitialNum = BigInt(rec.amounts.employee ?? 0) * DEN;
     const insuredAt = new Set(rec.months.filter((x) => x.employee).map((x) => x.month));
-    const cov = ctx.call<CoverageOutput>("socialInsurance.coverage", { member, fromYear: yearOf(base) - 1 });
+    const cov = ctx.call<CoverageOutput>("socialInsurance.coverage", { member, fromYear: yearOf(base) });
     const stdOf = new Map(cov.months.filter((c) => c.pensionStd !== null).map((c) => [c.month, c.pensionStd as Yen]));
     const bonusOf = new Map<string, Yen>();
     for (const b of cov.bonuses) if (b.pensionStdBonus !== null) bonusOf.set(b.month, yen((bonusOf.get(b.month) ?? 0) + b.pensionStdBonus));
@@ -207,7 +213,7 @@ export default defineComponent<{ member: string }, Out>({
     const round1 = (at: MonthIndex, a: Yen, r: Rate) => ctx.at(at).money.mulRate(a, r, P.round);
     const proportional = (m: MonthIndex, cut: MonthIndex): Yen => {
       const sum = employeeInitialNum + upTo(cut).cum;
-      const r = ctx.rate.fraction(ratioTo(fiscalYearOf(m)));
+      const r = ctx.rate.fraction(ratioE(fiscalYearOf(m)));
       return ctx.at(m).money.mulRatio(yen(1), sum * r.num, DEN * r.den, P.round);
     };
     const fullBasic = (m: MonthIndex): Yen => ctx.at(m).money.mulRate(ctx.at(m).paramYen(P.base) ?? yen(0), R(fiscalYearOf(m)), P.fullRound);
@@ -280,10 +286,16 @@ export default defineComponent<{ member: string }, Out>({
     };
     // 振替加算: 本人の厚生年金が240月未満で、配偶者の厚生年金が240月以上（配偶者の加給年金の対象だった）
     const transferOf = (m: MonthIndex): Yen => {
-      const at = ctx.at(m);
-      const coef = at.paramRate(P.transfer, { member });
-      if (coef === null || employeeMonthsOf(rec, null) >= supMonths) return yen(0);
+      if (employeeMonthsOf(rec, null) >= supMonths) return yen(0);
       if (!spouseAt(N).some((sp) => employeeMonthsOf(otherRecord(sp), null) >= supMonths)) return yen(0);
+      const at = ctx.at(m);
+      if (!at.has(P.transfer, { member })) {
+        // 制度データに率の無い生年月日（原本で確かめる前の区分）は計算せずに知らせる
+        ctx.notice("N_PARAM_MISSING", [P.transfer, member]);
+        return yen(0);
+      }
+      const coef = at.paramRate(P.transfer, { member });
+      if (coef === null) return yen(0);
       const amount = at.money.mulRate(at.paramYen(P.transferBase) ?? yen(0), R(fiscalYearOf(m)), P.fullRound);
       return at.money.mulRate(amount, coef, P.round);
     };
@@ -336,7 +348,7 @@ export default defineComponent<{ member: string }, Out>({
         const supplement = full || (m < N && !receiving) ? yen(0) : supplementOf(m, cut);
         employee = yen(propPaid - stop + transPaid + increase + supplement);
       } else if (SA !== null && m >= SA && m < N) {
-        const prop = rec.amounts.special !== null ? round1(m, rec.amounts.special, ratioTo(fiscalYearOf(m))) : proportional(m, cutoff(m, SA, false));
+        const prop = rec.amounts.special !== null ? round1(m, rec.amounts.special, ratioE(fiscalYearOf(m))) : proportional(m, cutoff(m, SA, false));
         const stop = suspension(m, prop);
         suspended = stop;
         special = yen(prop - stop);

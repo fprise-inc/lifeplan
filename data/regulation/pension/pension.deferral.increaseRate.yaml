@@ -1,0 +1,20 @@
+id: pension.deferral.increaseRate
+title: 繰下げの増額率（1か月あたり）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2022-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.007"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kuriage-kurisage/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "0.7% × 65歳になった月から繰下げ申出月の前月までの月数", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12500000/000961693.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

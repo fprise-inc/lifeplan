@@ -1,0 +1,34 @@
+id: employmentInsurance.childcareBenefit.dailyWageMin
+title: 育児休業給付の休業開始時賃金日額の下限
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-08-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 3014
+    sources:
+      - {type: "web", url: "https://jsite.mhlw.go.jp/tokyo-roudoukyoku/content/contents/002371859.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://bestcalendar.jp/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約。記事・ページのURLの細部は未取得"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2026-08-01"
+    appliesTo: "2027-07-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 3203
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001551858.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "休業開始時賃金日額の上限額は16,540円、下限額は3,203円となります。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://jsite.mhlw.go.jp/okinawa-roudoukyoku/content/contents/002575050.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

@@ -1,0 +1,33 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.pension.transferAddition.coefficient
+title: 【架空の見本】pension.transferAddition.coefficient
+unit: rate
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2000-04-01"
+    appliesTo: null
+    enforcedOn: "2000-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: null, to: "1966-04-01"}
+    value: "0.1"
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 2
+    appliesFrom: "2000-04-01"
+    appliesTo: null
+    enforcedOn: "2000-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1966-04-02", to: null}
+    value: "notApplicable"
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

@@ -1,0 +1,19 @@
+id: socialInsurance.nationalPension.maternityExemption.monthsBefore
+title: 国民年金の産前産後期間の免除が始まる月（出産の月の何か月前から）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2019-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 1
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kokunen/menjo/20180810.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "出産予定日または出産日が属する月の前月から4カ月間(以下「産前産後期間」といいます。)の国民年金保険料が免除されます。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "多胎は入れていない"}

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:socialInsurance.employeeStatus.output",
+  "title": "socialInsurance.employeeStatus の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "months"
+  ],
+  "properties": {
+    "months": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "month",
+          "period",
+          "employer",
+          "type",
+          "health",
+          "pension",
+          "employment"
+        ],
+        "properties": {
+          "month": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "period": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/uuid"
+              }
+            ]
+          },
+          "employer": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/uuid"
+              }
+            ]
+          },
+          "type": {
+            "enum": [
+              "regular",
+              "contract",
+              "partTime",
+              "selfEmployed",
+              "civilServant",
+              "leave",
+              "unemployed",
+              "none"
+            ]
+          },
+          "leave": {
+            "enum": [
+              "maternity",
+              "childcare",
+              "sick",
+              "other"
+            ]
+          },
+          "health": {
+            "type": "boolean"
+          },
+          "pension": {
+            "type": "boolean"
+          },
+          "employment": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+id: socialInsurance.care.firstInsured.ratio.householdExempt
+title: 介護保険の第1号被保険者の保険料の割合（世帯全員が住民税非課税。年金収入等の段階。第1〜3段階。公費による軽減の後）
+unit: rate
+kind: bracketTable
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2024-04-01"
+    appliesTo: "2025-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 800000, rate: "0.285"}
+      - {upTo: 1200000, rate: "0.485"}
+      - {upTo: null, rate: "0.685"}
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12300000/001576452.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "年金収入等826,500円を基準にすることとする。（令和８年４月施行予定）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.meguro.tokyo.jp/kaigohoken/kenkoufukushi/koureisha/65ijo.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年度から第1・2段階、第4・5段階を区分する所得の判定基準額が、80.9万円から82.65万円に変わります。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 3}
+  - rev: 2
+    appliesFrom: "2025-04-01"
+    appliesTo: "2026-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 809000, rate: "0.285"}
+      - {upTo: 1200000, rate: "0.485"}
+      - {upTo: null, rate: "0.685"}
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12300000/001576452.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "年金収入等826,500円を基準にすることとする。（令和８年４月施行予定）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.meguro.tokyo.jp/kaigohoken/kenkoufukushi/koureisha/65ijo.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年度から第1・2段階、第4・5段階を区分する所得の判定基準額が、80.9万円から82.65万円に変わります。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 3}
+  - rev: 3
+    appliesFrom: "2026-04-01"
+    appliesTo: "2027-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 826500, rate: "0.285"}
+      - {upTo: 1200000, rate: "0.485"}
+      - {upTo: null, rate: "0.685"}
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12300000/001576452.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "年金収入等826,500円を基準にすることとする。（令和８年４月施行予定）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.meguro.tokyo.jp/kaigohoken/kenkoufukushi/koureisha/65ijo.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年度から第1・2段階、第4・5段階を区分する所得の判定基準額が、80.9万円から82.65万円に変わります。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 3, note: "令和8年度は令和7年度の税制改正の前の方式で課税状況を判定するが、エンジンはその年度の住民税の判定を使う"}

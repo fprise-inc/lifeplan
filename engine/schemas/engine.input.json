@@ -40,6 +40,11 @@
           "title": "年金額のマクロ経済スライドの調整率（年度ごと。正の率で書き、改定率から引く。省略は0）",
           "x-item": "assumptions.pensionMacroSlide",
           "$ref": "urn:financia:schema:common#/$defs/yearSeries"
+        },
+        "pensionMacroSlideEmployee": {
+          "title": "厚生年金（報酬比例）のマクロ経済スライドの調整率（省略は基礎年金と同じ）",
+          "x-item": "assumptions.pensionMacroSlideEmployee",
+          "$ref": "urn:financia:schema:common#/$defs/yearSeries"
         }
       }
     }

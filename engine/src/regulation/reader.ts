@@ -92,6 +92,8 @@ export interface Selected {
    * 値を引いた日の年（見出しの notices に出す）
    */
   readonly extendedYear?: number;
+  /** プランの dataSet の版ではこの値IDの行を1つも知らなかったので、最新の版の行を使った（PR の提案） */
+  readonly recordedLater?: true;
 }
 
 interface Visible {
@@ -119,6 +121,7 @@ export class RegulationStore {
   private readonly defs = new Map<string, { def: ValueDef; pack: PackHeader }>();
   private readonly visible = new Map<string, readonly Visible[]>();
   private readonly infos: PackInfo[] = [];
+  private readonly later = new Set<string>();
 
   constructor(packs: readonly PackJson[], dataSet: Readonly<Record<string, string>> = {}) {
     for (const p of packs) {
@@ -143,7 +146,13 @@ export class RegulationStore {
         const def = h.fictional === true && h.fictionalOf !== undefined ? { ...raw, id: raw.id.replace(/^test\./, "") } : raw;
         if (this.defs.has(def.id)) throw new EngineError("E_PACK_DUPLICATE", [def.id]);
         this.defs.set(def.id, { def, pack: h });
-        this.visible.set(def.id, visibleEntries(def, asOf));
+        let vis = visibleEntries(def, asOf);
+        // dataSet の版のときにはまだ無かった値ID（後の版で足した値）は、最新の版の行を使い、見出しで知らせる
+        if (vis.length === 0 && asOf !== h.version) {
+          vis = visibleEntries(def, h.version);
+          if (vis.length > 0) this.later.add(def.id);
+        }
+        this.visible.set(def.id, vis);
       }
     }
     for (const id of Object.keys(dataSet)) {
@@ -184,11 +193,18 @@ export class RegulationStore {
       // 計算を止めずに最後の行が続くとみなす。最初の行より前の日は値が無いので止める
       const ext = mc.noExtension === true ? null : this.extension(id, key, want, mc);
       if (ext === null) throw new EngineError("E_PARAM_NO_VALUE", [id]);
-      return { def, entry: ext.entry, packVersion: ext.entry.recordedIn, effectiveTo: ext.effectiveTo, extendedYear: date.year };
+      return {
+        def,
+        entry: ext.entry,
+        packVersion: ext.entry.recordedIn,
+        effectiveTo: ext.effectiveTo,
+        extendedYear: date.year,
+        ...(this.later.has(id) ? { recordedLater: true as const } : {}),
+      };
     }
     if (hits.length > 1) throw new EngineError("E_PARAM_AMBIGUOUS", [id]);
     const hit = hits[0] as Visible;
-    return { def, entry: hit.entry, packVersion: hit.entry.recordedIn, effectiveTo: hit.effectiveTo };
+    return { def, entry: hit.entry, packVersion: hit.entry.recordedIn, effectiveTo: hit.effectiveTo, ...(this.later.has(id) ? { recordedLater: true as const } : {}) };
   }
 
   /** 引く日より前に終わる行のうち最後のもの（その後に始まる行が無いときだけ）。同じ条件の組で1つに決まらなければエラー */
