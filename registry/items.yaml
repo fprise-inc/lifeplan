@@ -1,0 +1,364 @@
+# 0004 の5: 入力項目IDの登録簿。正本は engine/schemas/engine.input.json の x-item（scripts/registry.ts が作る。手で書き換えない）
+# since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
+kind: item
+entries:
+  - id: account.asOf
+    status: active
+    label: "時価の時点"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.contributions
+    status: active
+    label: "積立・掛金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.costBasis
+    status: active
+    label: "取得価額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.kind
+    status: active
+    label: "器の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.marketValue
+    status: active
+    label: "時価"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.owner
+    status: active
+    label: "名義の構成員"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.investmentReturn
+    status: active
+    label: "運用利回り（年率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.wageGrowth
+    status: active
+    label: "賃金上昇率（年率。省略は0）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.employer.industry
+    status: active
+    label: "雇用保険の事業の種類（省略は一般）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.employer.size
+    status: active
+    label: "勤務先の従業員数"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.employer.weeklyHours
+    status: active
+    label: "週の所定労働時間"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.employmentInsuranceCovered
+    status: active
+    label: "雇用保険の被保険者か（会社員・契約は省略で真、パートは必須）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.endsOnMonthEnd
+    status: active
+    label: "期間の最後の月の末日に辞めるか（省略は真）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.endsWith
+    status: active
+    label: "期間の終わり方"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.from
+    status: active
+    label: "期間の始まり（その月を含む）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.healthInsurance.careEmployeeRate
+    status: active
+    label: "介護保険料率の被保険者負担分（健保組合・共済）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.healthInsurance.childSupportEmployeeRate
+    status: active
+    label: "子ども・子育て支援金率の被保険者負担分（健保組合・共済。省略は全国一律の率の半分）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.healthInsurance.employeeRate
+    status: active
+    label: "健康保険料率の被保険者負担分（健保組合・共済）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.healthInsurance.insurer
+    status: active
+    label: "保険者（協会けんぽの支部 kyokaikenpo.01〜47）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.healthInsurance.kind
+    status: active
+    label: "健康保険の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.leaveKind
+    status: active
+    label: "休業の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.member
+    status: active
+    label: "働く構成員"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.pensionCategory
+    status: active
+    label: "厚生年金の種別"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.retirementBenefit
+    status: active
+    label: "退職給付"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.salary.annual
+    status: active
+    label: "給与（賞与を除く年額。期間の最初の年の額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.salary.bonus
+    status: active
+    label: "賞与（年間の合計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.salary.bonusMonths
+    status: active
+    label: "賞与の支給月（省略は6月・12月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.salary.commutingMonthly
+    status: active
+    label: "非課税の通勤手当（月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.standardMonthlyRemuneration
+    status: active
+    label: "置き換え口: 標準報酬月額（健康保険・厚生年金。給与明細・決定通知の額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.to
+    status: active
+    label: "期間の終わり（その月を含む。null は最後まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.type
+    status: active
+    label: "働き方"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: event.at
+    status: active
+    label: "イベントの時点"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: event.kind
+    status: active
+    label: "イベントの種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: event.member
+    status: active
+    label: "イベントの構成員"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.contractDate
+    status: active
+    label: "契約の年月"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.currency
+    status: active
+    label: "契約の通貨"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.deductionCategory
+    status: active
+    label: "保険料控除の区分"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.insured
+    status: active
+    label: "被保険者"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.policyholder
+    status: active
+    label: "契約者"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.premium
+    status: active
+    label: "保険料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.template
+    status: active
+    label: "保険の種類のひな形"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: member.birth
+    status: active
+    label: "生年月と1日生まれか"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: member.expected
+    status: active
+    label: "まだいない家族か（出産予定・結婚予定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: member.joins
+    status: active
+    label: "世帯に加わる時点（null は最初から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: member.kind
+    status: active
+    label: "家族の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: member.leaves
+    status: active
+    label: "世帯から離れる時点（null は最後まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: member.sex
+    status: active
+    label: "性別"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: member.support
+    status: active
+    label: "親・祖父母の扶養と同居"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: relation.a
+    status: active
+    label: "配偶者の一方"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: relation.b
+    status: active
+    label: "配偶者の他方"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: relation.child
+    status: active
+    label: "子"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: relation.from
+    status: active
+    label: "関係の始まり（null は最初から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: relation.marriage
+    status: active
+    label: "法律婚か事実婚か"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: relation.parent
+    status: active
+    label: "親"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: relation.to
+    status: active
+    label: "関係の終わり（null は最後まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: relation.type
+    status: active
+    label: "関係の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTaxAssessment.amount
+    status: active
+    label: "住民税の年税額（森林環境税を含む）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTaxAssessment.collection
+    status: active
+    label: "徴収の方法（省略は働き方から決める）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTaxAssessment.fiscalYear
+    status: active
+    label: "年度"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTaxAssessment.member
+    status: active
+    label: "納税する構成員"
+    since: draft
+    aliases: []
+    replacedBy: null

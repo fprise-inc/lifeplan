@@ -1,0 +1,20 @@
+id: residentTax.adjustmentCredit.prefecturalRate
+title: 調整控除の率（道府県民税）
+unit: rate
+kind: constant
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.02"
+    sources:
+      - {type: "web", url: "https://www.soumu.go.jp/main_content/000379527.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "第一号様式", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.tax.metro.tokyo.lg.jp/kazei/life/kojin_ju", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

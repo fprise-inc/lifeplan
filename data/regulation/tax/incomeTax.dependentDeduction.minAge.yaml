@@ -1,0 +1,21 @@
+# 年齢はその年12月31日に達しているか
+id: incomeTax.dependentDeduction.minAge
+title: 控除対象扶養親族の年齢（16歳以上）
+unit: years
+kind: constant
+basis: "incomeYear"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 16
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1180.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "横浜市の計算例（16歳未満の子は扶養控除なし）から。所得税の資料では未確認"}

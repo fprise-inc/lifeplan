@@ -1,0 +1,12 @@
+# 【架空の見本】テスト用のパック。実在の制度の値ではない。値ID の test. を外した ID で regulation.tax の代わりに引く
+packId: regulation.testTax
+formatVersion: "0.1"
+version: "2026.2.0"
+features: []
+title: 【架空の見本】所得税・住民税のテスト用
+fictional: true
+fictionalOf: regulation.tax
+requires: {}
+license:
+  values: CC0-1.0
+  sources: 架空の値のため出典なし

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.deductions.input",
+  "title": "所得控除の入力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["member", "year", "regime"],
+  "properties": {
+    "member": {
+      "$ref": "urn:financia:schema:common#/$defs/uuid"
+    },
+    "year": {
+      "$ref": "urn:financia:schema:common#/$defs/year"
+    },
+    "regime": {
+      "enum": ["incomeTax", "residentTax"]
+    }
+  }
+}

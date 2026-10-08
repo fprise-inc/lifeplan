@@ -1,0 +1,15 @@
+# 所得税・住民税（森林環境税を含む）の制度データ。令和7年分・令和8年分（住民税は令和8年度・令和9年度）を中心に入れた
+# 原本（PDF・Excel）を取得できず、公式のドメインに限った検索の抜粋で読んだ値なので、すべての行が原本での確認待ち（approval.method: pendingReview）
+packId: regulation.tax
+formatVersion: "0.1"
+version: "2026.2.0"
+features: []
+title: 所得税・住民税
+requires:
+  tax.employmentIncome: ">=1 <2"
+  tax.deductions: ">=1 <2"
+  incomeTax.annual: ">=1 <2"
+  residentTax.annual: ">=1 <2"
+license:
+  values: CC0-1.0
+  sources: 出典ごとの条件（各値の sources に記載。国税庁・総務省・地方公共団体・財務省の公表資料）

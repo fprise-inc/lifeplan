@@ -1,0 +1,21 @@
+# 国税通則法119条1項
+id: incomeTax.taxAmount.rounding
+title: 所得税及び復興特別所得税の額（申告納税額・年調年税額）の100円未満の端数（切り捨て）
+unit: rounding
+kind: rounding
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 100}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/shinkoku/tebiki/2025/03/order4/3-4_39.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/law/tsutatsu/kihon/tsusoku/09/01/119.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "国税通則法119条1項", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "年末調整の年調年税額の100円未満切り捨ては1経路（年末調整のしかた）"}

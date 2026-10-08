@@ -21,7 +21,7 @@ export type TraceNode =
       readonly appliesTo: string | null;
       readonly sources: readonly Json[];
     }
-  | { readonly type: "input"; readonly item: string; readonly object?: string; readonly value: Json }
+  | { readonly type: "input"; readonly item?: string; readonly collection?: string; readonly object?: string; readonly value: Json }
   | { readonly type: "rounding"; readonly rule: string; readonly op: string; readonly input: string; readonly result: Json }
   | { readonly type: "timepoint"; readonly event?: string; readonly timepoint: Json; readonly ym: string; readonly rule?: string }
   | { readonly type: "call"; readonly component: string; readonly uses: readonly number[] };
@@ -93,11 +93,13 @@ export class Tracer {
     }
   }
 
-  input(frame: Frame, item: string, object: string | undefined, value: () => Json): void {
+  /** 入力を読んだ記録。前提条件は item（入力項目ID）、物の集まりは collection と object（reads に絞った写し） */
+  input(frame: Frame, source: { readonly item: string } | { readonly collection: string }, object: string | undefined, value: () => Json): void {
     if (this.mode !== "full") return;
-    const key = `i|${item}|${object ?? ""}`;
+    const name = "item" in source ? `i:${source.item}` : `c:${source.collection}`;
+    const key = `i|${name}|${frame.component}|${object ?? ""}`;
     frame.uses.add(
-      this.intern(key, () => (object === undefined ? { type: "input", item, value: value() } : { type: "input", item, object, value: value() })),
+      this.intern(key, () => ({ type: "input", ...source, ...(object === undefined ? {} : { object }), value: value() })),
     );
   }
 

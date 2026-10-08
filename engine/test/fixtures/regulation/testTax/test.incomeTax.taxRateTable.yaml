@@ -1,0 +1,22 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.incomeTax.taxRateTable
+title: 【架空の見本】incomeTax.taxRateTable
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 2000000, rate: "0.1", amount: 0}
+      - {upTo: 5000000, rate: "0.2", amount: 200000}
+      - {upTo: null, rate: "0.3", amount: 700000}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

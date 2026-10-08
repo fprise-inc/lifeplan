@@ -1,0 +1,21 @@
+id: residentTax.spouseSpecialDeduction.incomeLimit
+title: 住民税の配偶者特別控除を受けられる配偶者の合計所得金額の上限（以下）
+unit: JPY
+kind: constant
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2026-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1330000
+    sources:
+      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370588.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://faq.city.nagoya.jp/faq/detail.aspx?id=1890", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和9年度 62万円超133万円以下", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

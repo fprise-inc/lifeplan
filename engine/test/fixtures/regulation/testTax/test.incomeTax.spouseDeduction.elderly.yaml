@@ -1,0 +1,23 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.incomeTax.spouseDeduction.elderly
+title: 【架空の見本】incomeTax.spouseDeduction.elderly
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 9000000, amount: 500000}
+      - {upTo: 9500000, amount: 400000}
+      - {upTo: 10000000, amount: 300000}
+      - {upTo: null, amount: 0}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

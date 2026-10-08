@@ -1,0 +1,153 @@
+{
+  "trace": "none",
+  "input": {
+    "baseMonth": "2026-10",
+    "endYear": 2027,
+    "calcConventions": {
+      "aggregation": "cash",
+      "investmentTiming": "midYear",
+      "compatibility": null
+    },
+    "household": {
+      "members": [
+        {
+          "id": "0d7ff51e-1f1d-421b-9fc7-1bbcfd92fd2e",
+          "kind": "self",
+          "birth": {
+            "birthYearMonth": "1985-11",
+            "bornOnFirst": false
+          },
+          "sex": "male",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        },
+        {
+          "id": "5ab7c5f2-55b0-48e0-8bde-59b143838a18",
+          "kind": "child",
+          "birth": {
+            "birthYearMonth": "2009-06",
+            "bornOnFirst": false
+          },
+          "sex": "male",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        }
+      ],
+      "relations": [
+        {
+          "type": "parentOf",
+          "parent": "0d7ff51e-1f1d-421b-9fc7-1bbcfd92fd2e",
+          "child": "5ab7c5f2-55b0-48e0-8bde-59b143838a18"
+        }
+      ],
+      "events": [],
+      "employmentPeriods": [
+        {
+          "id": "4f9a3454-b901-4094-b100-41811c072be1",
+          "member": "0d7ff51e-1f1d-421b-9fc7-1bbcfd92fd2e",
+          "from": {
+            "at": "2007-04"
+          },
+          "to": null,
+          "type": "regular",
+          "healthInsurance": {
+            "kind": "union",
+            "employeeRate": {
+              "value": "0.045",
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "careEmployeeRate": {
+              "value": "0.009",
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "pensionCategory": "employee1",
+          "employer": {
+            "size": 300,
+            "weeklyHours": "40",
+            "industry": "construction"
+          },
+          "salary": {
+            "annual": {
+              "value": 5600000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "bonus": {
+              "value": 1200000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "standardMonthlyRemuneration": {
+            "health": {
+              "value": 470000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "pension": {
+              "value": 470000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        }
+      ],
+      "accounts": [
+        {
+          "id": "b52b5012-e5ea-487d-87d9-76461b3c9d94",
+          "kind": "deposit",
+          "owner": "0d7ff51e-1f1d-421b-9fc7-1bbcfd92fd2e",
+          "marketValue": {
+            "value": 2500000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "asOf": "2026-09",
+          "contributions": []
+        }
+      ],
+      "insuranceContracts": [],
+      "residentTaxAssessments": [
+        {
+          "id": "c191a41b-fa7a-45ae-b04d-c4b16d85a7f2",
+          "member": "0d7ff51e-1f1d-421b-9fc7-1bbcfd92fd2e",
+          "fiscalYear": 2026,
+          "amount": {
+            "value": 280000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          }
+        }
+      ]
+    },
+    "assumptions": {
+      "investmentReturn": {
+        "default": "0.01"
+      },
+      "wageGrowth": {
+        "default": "0.01"
+      }
+    }
+  }
+}

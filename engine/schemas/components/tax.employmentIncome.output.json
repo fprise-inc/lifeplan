@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.employmentIncome.output",
+  "title": "給与収入・給与所得控除額・給与所得",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["revenue", "deduction", "income"],
+  "properties": {
+    "revenue": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "deduction": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "income": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    }
+  }
+}

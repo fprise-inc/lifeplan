@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:incomeTax.annual.output",
+  "title": "所得税の年税額と途中の値",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "flows",
+    "total",
+    "taxable",
+    "computedTax",
+    "reconstructionSurtax",
+    "defenseSurtax"
+  ],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:financia:schema:common#/$defs/flow"
+      }
+    },
+    "total": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "taxable": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "computedTax": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "reconstructionSurtax": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "defenseSurtax": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    }
+  }
+}

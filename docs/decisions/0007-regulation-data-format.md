@@ -199,3 +199,11 @@ entries:
 ## 追記
 
 - 2026-10-08（全体の整合）: パックのIDは `regulation.<分野>`（マスタデータは `master.<…>`。例 `master.education.tuition`）に統一した（0017 の取り下げの一覧の例を直し、ここの未確定を閉じた）。`basis` の例を 0003 の型の名前 `incomeYear` に直した。端数処理の値の欄名を 0002 と同じ `mode` にし、単位の一覧に `rounding` を足した。自動配信用の鍵で受け付ける範囲の書き方を 0022 にそろえた。版の初期値の未確定を 0001・0011 と同じ書き方で足した。
+
+- 2026-10-08（版の初期値）: 公開の約束の版の初期値を決めた。β公開までは `0.x`（最初は `0.1`）とし、β公開のときに安定の約束（世帯ファイル・制度データ・マスタデータ・ヒアリングシートの形式）を `1.0` にする。試験版の約束（計算部品の入出力など）の版の付け方は変えない。0001・0007・0011 に同じ内容を書いた。「未確定」の該当の項目はこれで閉じる。土台の制度データの `formatVersion: "1.0"` は `"0.1"` に直した。
+- 2026-10-08（requires の書き方）: パックの `requires` と計算部品の `requires`（0006）を、範囲の書き方（例 `">=1 <2"`）にそろえる。数だけの `"1"` は `">=1 <2"` の省略形として認める。文法は「空白区切りの AND、演算子は `>=` `>` `<=` `<` `=`、数は約束の版の MAJOR。演算子のない数 `N` は `>=N <N+1` と同じ」。
+- 2026-10-08（架空のデータの印）: 架空の見本データは、パックの名札に `fictional: true`、出典に `type: fictional`（`note` に「架空」と書く）を付け、値IDは予約の接頭辞 `test.`（0004）で始める。「架空のパックには `test.` の値だけ、製品のパックには `test.` の値を置かない」と「`fictional` の出典は架空のパックだけ」を、制度データの道具（CI）で強制する。
+- 2026-10-08（生年月日の条件）: 条件 `birthDate` の境目が月の途中にあり、構成員の「生年月＋1日生まれか」（0012）でどちらの行か決まらないときは、黙ってどちらかを選ばず、エラー `E_PARAM_AMBIGUOUS` にする。
+- 2026-10-08（取り下げの指し方）: 値の1行を指す書き方を、計算部品と同じ `<制度の値ID>@<rev の整数>`（例 `incomeTax.basicDeduction@4`）に改めた（0009 の追記）。8 の `@r<rev>` はこの書き方に読み替える。
+- 2026-10-08（値IDの命名）: `regulation.tax` と `regulation.socialInsurance` の値IDを `<制度>.<対象>.<中身>` で付けた。制度の段は `incomeTax`（所得税。復興特別所得税・防衛特別所得税を含む）・`residentTax`（住民税）・`forestEnvironmentTax`（森林環境税）・`socialInsurance`（健康保険・介護保険・子ども・子育て支援金・厚生年金。対象の段で `health`・`care`・`childSupport`・`pension` に分ける）・`employmentInsurance`（雇用保険）。所得税と住民税で同じ種類の値は、制度の段だけを変えた同じ名前にする（例 `incomeTax.basicDeduction` と `residentTax.basicDeduction`）。端数処理は `.rounding`、上限は `…Limit`（`incomeLimit`・`totalLimit` など）、年齢は `…Age`、本人の所得の段ごとの表は `.tier1`〜。保険者ごとの値は保険者の名前を対象の段に入れる（`socialInsurance.health.kyokaikenpo.rate`）。協会けんぽの支部の管轄は `{level: insurer, code: kyokaikenpo.<都道府県コード2桁>}`。年齢の値は `unit: years`（単位に足した）で、切り替えの規則を `ageSwitch` に書く。
+- 2026-10-08（等級表の形）: `kind: gradeTable` の値は、行の配列 `{grade, amount, from, below}`。報酬月額が `from` 以上 `below` 未満なら等級 `grade`・額 `amount`。`grade` は1から1ずつ、最初の `from` は0、各行の `from` は前の行の `below` と同じ、最後の行だけ `below` が null、`amount` は昇順。これを道具（CI）で確かめる。健康保険と厚生年金は別の値ID（`socialInsurance.health.standardMonthlyRemuneration`・`socialInsurance.pension.standardMonthlyRemuneration`）にし、`basis: month` で持つ。

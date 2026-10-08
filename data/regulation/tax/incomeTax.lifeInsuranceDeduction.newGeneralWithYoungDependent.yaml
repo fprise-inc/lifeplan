@@ -1,0 +1,51 @@
+id: incomeTax.lifeInsuranceDeduction.newGeneralWithYoungDependent
+title: 生命保険料控除（23歳未満の扶養親族がいる場合の新契約の一般生命保険料）
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+rounding: incomeTax.insuranceDeduction.rounding
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年分には適用なし", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1}
+  - rev: 2
+    appliesFrom: "2026-01-01"
+    appliesTo: "2027-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 30000, rate: "1"}
+      - {upTo: 60000, rate: "0.5", amount: 15000}
+      - {upTo: 120000, rate: "0.25", amount: 30000}
+      - {upTo: null, amount: 60000}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年分以降・23歳未満の扶養親族がいる場合", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/koho/kurashi/html/04_2.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和9年分までの延長は1経路"}
+  - rev: 3
+    appliesFrom: "2028-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "期限の後は特例なし（本則の表に戻る）"}

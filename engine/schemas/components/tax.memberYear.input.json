@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.memberYear.input",
+  "title": "構成員と年分",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["member", "year"],
+  "properties": {
+    "member": {
+      "$ref": "urn:financia:schema:common#/$defs/uuid"
+    },
+    "year": {
+      "$ref": "urn:financia:schema:common#/$defs/year"
+    }
+  }
+}

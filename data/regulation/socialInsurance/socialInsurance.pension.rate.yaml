@@ -1,0 +1,21 @@
+id: socialInsurance.pension.rate
+title: 厚生年金保険料率（一般の被保険者。労使の合計）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.183"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/ryogaku/ryogakuhyo/20200825.files/R08ryougaku.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "全 額 折 半 額 等級 月 額 18.300％ 9.150％ 円以上 円未満 1 88,000 ～ 93,000 16,104.00 8,052.00 2", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和８年３月分（４月納付分）からの 健康保険・厚生年金保険の保険料額表 ・健康保険料率：令和8年3月分～適用 ・厚生年金保険料率：平成29年9月分～適用", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/hoshu/20150515-01.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "平成29年9月分から固定"}

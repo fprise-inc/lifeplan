@@ -6,10 +6,10 @@ import { isAlias, isMap, isScalar, parseDocument, visit } from "yaml";
 import { compareDate, daysInMonth, isValidDate, nextDay, parseDate, formatDate } from "../src/time/civil.ts";
 import { normalizeBasis } from "../src/time/basis.ts";
 import { checkId } from "../src/ids/ids.ts";
+import { isReadableFormat } from "../src/regulation/format.ts";
 import { AJV_OPTIONS, canonicalJson, ENGINE_DIR, readJson, REPO_DIR, sha256 } from "./lib.ts";
 
 export const REGULATION_DIR = join(REPO_DIR, "data", "regulation");
-export const SUPPORTED_FORMAT_MAJOR = 1;
 
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 type Obj = { [k: string]: Json };
@@ -26,6 +26,8 @@ export class DataError extends Error {}
 function schemaAjv() {
   const ajv = new Ajv2020({ ...AJV_OPTIONS, allErrors: true });
   ajv.addKeyword({ keyword: "x-unit", schemaType: "string" });
+  ajv.addKeyword({ keyword: "x-item", schemaType: "string" });
+  ajv.addKeyword({ keyword: "x-collection", schemaType: "string" });
   for (const f of ["common.json", "regulation.value.json", "regulation.packHeader.json", "regulation.pack.json"]) {
     ajv.addSchema(readJson(join(ENGINE_DIR, "schemas", f)) as object);
   }
@@ -172,6 +174,9 @@ function checkValue(v: Obj, packVersion: string, fictional: boolean, where: stri
     const fictionalSource = sources.some((s) => s.type === "fictional");
     if (fictionalSource !== fictional) throw new DataError(`${w}: 出典 fictional は架空の見本データだけに使います`);
     if (!fictional && e.approval === undefined) throw new DataError(`${w}: approval がありません`);
+    if (e.enforcedOn === null && (e.approval as Obj | undefined)?.method !== "pendingReview") {
+      throw new DataError(`${w}: 施行日（enforcedOn）を null にできるのは原本での確認待ち（pendingReview）の行だけです`);
+    }
     for (const c of e.conditions as Obj[]) {
       if (c.key === "birthDate") {
         for (const k of ["from", "to"]) {
@@ -180,6 +185,18 @@ function checkValue(v: Obj, packVersion: string, fictional: boolean, where: stri
           }
         }
       }
+    }
+    if (v.kind === "gradeTable" && Array.isArray(e.value)) {
+      // 0007 の追記: 等級は1から1ずつ、範囲は 0 から隙間なく続き、最後の行だけ上限なし
+      const rows = e.value as Obj[];
+      rows.forEach((r, i) => {
+        const last = i === rows.length - 1;
+        if (r.grade !== i + 1) throw new DataError(`${w}: 等級表の grade は1から1ずつ増やします`);
+        if (r.from !== (i === 0 ? 0 : (rows[i - 1] as Obj).below)) throw new DataError(`${w}: 等級表の from は前の行の below と同じにします（最初は 0）`);
+        if ((r.below === null) !== last) throw new DataError(`${w}: 等級表は最後の行だけ below が null です`);
+        if (!last && (r.below as number) <= (r.from as number)) throw new DataError(`${w}: 等級表の範囲が空です`);
+        if (i > 0 && (r.amount as number) <= ((rows[i - 1] as Obj).amount as number)) throw new DataError(`${w}: 等級表の額が昇順ではありません`);
+      });
     }
     if (v.kind === "bracketTable" && Array.isArray(e.value)) {
       const rows = e.value as Obj[];
@@ -196,6 +213,18 @@ function checkValue(v: Obj, packVersion: string, fictional: boolean, where: stri
   checkPeriods(v, where);
 }
 
+/** 原本で人が確かめる前の行（approval.method が pendingReview）の一覧。CI で数を出し、配布の前にゼロにする */
+export function pendingReviewEntries(p: PackJson): { id: string; rev: number; paths: number }[] {
+  const out: { id: string; rev: number; paths: number }[] = [];
+  for (const v of p.values) {
+    for (const e of v.entries as Obj[]) {
+      const a = e.approval as Obj | undefined;
+      if (a?.method === "pendingReview") out.push({ id: v.id as string, rev: e.rev as number, paths: a.paths as number });
+    }
+  }
+  return out;
+}
+
 /** 1つの分野のフォルダから、配る形のパックを作る */
 export function buildPack(dir: string): PackJson {
   const ajv = schemaAjv();
@@ -208,8 +237,7 @@ export function buildPack(dir: string): PackJson {
     throw new DataError(`${folder}/pack.yaml: 形式の誤り ${ajv.errorsText()}`);
   }
   if (pack.packId !== `regulation.${folder}`) throw new DataError(`${folder}/pack.yaml: packId はフォルダ名と同じ regulation.${folder}`);
-  const major = Number((pack.formatVersion as string).split(".")[0]);
-  if (major !== SUPPORTED_FORMAT_MAJOR) throw new DataError(`${folder}/pack.yaml: 形式の大の版が違います`);
+  if (!isReadableFormat(pack.formatVersion as string)) throw new DataError(`${folder}/pack.yaml: このエンジンが読めない形式の版です`);
   const fictional = pack.fictional === true;
 
   const values: Obj[] = [];

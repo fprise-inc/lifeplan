@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:residentTax.annual.output",
+  "title": "住民税の年税額と途中の値",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "flows",
+    "total",
+    "assessed",
+    "taxable",
+    "grossLevy",
+    "adjustmentCredit",
+    "incomeLevy",
+    "perCapita",
+    "forestEnvironmentTax"
+  ],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:financia:schema:common#/$defs/flow"
+      }
+    },
+    "total": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "assessed": {
+      "type": "boolean"
+    },
+    "taxable": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "grossLevy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "municipal",
+        "prefectural"
+      ],
+      "properties": {
+        "municipal": {
+          "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+        },
+        "prefectural": {
+          "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+        }
+      }
+    },
+    "adjustmentCredit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "municipal",
+        "prefectural"
+      ],
+      "properties": {
+        "municipal": {
+          "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+        },
+        "prefectural": {
+          "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+        }
+      }
+    },
+    "incomeLevy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "municipal",
+        "prefectural"
+      ],
+      "properties": {
+        "municipal": {
+          "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+        },
+        "prefectural": {
+          "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+        }
+      }
+    },
+    "perCapita": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "municipal",
+        "prefectural"
+      ],
+      "properties": {
+        "municipal": {
+          "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+        },
+        "prefectural": {
+          "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+        }
+      }
+    },
+    "forestEnvironmentTax": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    }
+  }
+}

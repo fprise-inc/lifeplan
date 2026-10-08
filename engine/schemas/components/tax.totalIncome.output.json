@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.totalIncome.output",
+  "title": "合計所得金額",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["total", "employment"],
+  "properties": {
+    "total": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "employment": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    }
+  }
+}

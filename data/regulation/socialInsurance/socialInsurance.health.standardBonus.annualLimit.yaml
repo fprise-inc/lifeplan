@@ -1,0 +1,19 @@
+id: socialInsurance.health.standardBonus.annualLimit
+title: 健康保険（介護保険・支援金も）の標準賞与額の年度の累計の上限
+unit: JPY
+kind: constant
+basis: {type: "fiscalYear", startMonth: 4}
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5730000
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "年間573万円（毎年4月1日から翌年3月31日までの累計額）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1}

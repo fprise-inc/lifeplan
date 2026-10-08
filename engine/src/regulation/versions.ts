@@ -17,19 +17,29 @@ export function contractMajor(contract: string): number {
   return Number(m[1]);
 }
 
+const RANGE_PART = /^(>=|<=|>|<|=)?(\d+)$/;
+
 /**
- * 0007 の3: パックの requires の範囲（例 ">=1 <3"）を MAJOR が満たすか。
- * 比較は空白区切りの AND。演算子は >= > <= < = のどれか、数は MAJOR
+ * 0006・0007 の追記: requires の範囲（例 ">=1 <2"）。空白区切りの AND、演算子は >= > <= < =、数は約束の版の MAJOR。
+ * 演算子のない数 "N" は ">=N <N+1" の省略形（MAJOR は整数なので N と一致するのと同じ）
  */
-export function satisfiesRange(major: number, range: string): boolean {
+export function isRange(range: string): boolean {
   const parts = range.trim().split(/\s+/);
-  if (parts.length === 0) throw new EngineError("E_ARGUMENT", ["range"]);
-  for (const p of parts) {
-    const m = /^(>=|<=|>|<|=)?(\d+)$/.exec(p);
-    if (m === null) throw new EngineError("E_ARGUMENT", ["range"]);
+  return range.trim() !== "" && parts.every((p) => RANGE_PART.test(p));
+}
+
+export function satisfiesRange(major: number, range: string): boolean {
+  if (!isRange(range)) throw new EngineError("E_ARGUMENT", ["range"]);
+  for (const p of range.trim().split(/\s+/)) {
+    const m = RANGE_PART.exec(p) as RegExpExecArray;
     const n = Number(m[2]);
     const ok =
-      m[1] === ">=" ? major >= n : m[1] === ">" ? major > n : m[1] === "<=" ? major <= n : m[1] === "<" ? major < n : major === n;
+      m[1] === ">=" ? major >= n
+      : m[1] === ">" ? major > n
+      : m[1] === "<=" ? major <= n
+      : m[1] === "<" ? major < n
+      : m[1] === "=" ? major === n
+      : major >= n && major < n + 1;
     if (!ok) return false;
   }
   return true;

@@ -3,10 +3,12 @@ import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildPack, parseStrictYaml, REGULATION_DIR, serializePack, type PackJson } from "../scripts/regulation.ts";
-import { asRate, asRoundingRule, RegulationStore, type PackJson as EnginePack } from "../src/regulation/reader.ts";
+import { buildPack, parseStrictYaml, pendingReviewEntries, serializePack, type PackJson } from "../scripts/regulation.ts";
+import { REPO_DIR } from "../scripts/lib.ts";
+import { asBrackets, asGrades, asRate, asRoundingRule, gradeFor, RegulationStore, type PackJson as EnginePack } from "../src/regulation/reader.ts";
+import { yen } from "../src/money/yen.ts";
 import { parseDate } from "../src/time/civil.ts";
-import { samplePack } from "./helpers.ts";
+import { fictionalPacks, realPacks } from "./helpers.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -14,7 +16,7 @@ afterEach(() => {
 });
 
 const HEADER = `packId: regulation.demo
-formatVersion: "1.0"
+formatVersion: "0.1"
 version: "2026.3.0"
 features: []
 title: 【架空】テスト
@@ -46,7 +48,7 @@ function makePack(files: Record<string, string>, header = HEADER): string {
   const dir = join(root, "demo");
   mkdirSync(dir);
   writeFileSync(join(dir, "pack.yaml"), header);
-  copyFileSync(join(REGULATION_DIR, "sample", "LICENSE"), join(dir, "LICENSE"));
+  copyFileSync(join(REPO_DIR, "registry", "LICENSE"), join(dir, "LICENSE"));
   for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text);
   return dir;
 }
@@ -63,18 +65,29 @@ describe("YAML の書き方の制限", () => {
 });
 
 describe("パックの組み立て", () => {
-  it("見本のパックは架空と分かる印を持ち、正規化した JSON は毎回同じ", () => {
-    const p = samplePack();
-    expect(p.pack.fictional).toBe(true);
-    expect(String(p.pack.title)).toContain("架空");
-    for (const v of p.values) expect(String(v.id).startsWith("test.")).toBe(true);
-    expect(serializePack(samplePack())).toBe(serializePack(p));
-    expect(p.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+  it("架空のパックは架空と分かる印を持ち、正規化した JSON は毎回同じ", () => {
+    for (const p of fictionalPacks()) {
+      expect(p.pack.fictional).toBe(true);
+      expect(String(p.pack.title)).toContain("架空");
+      for (const v of p.values) expect(String(v.id).startsWith("test.")).toBe(true);
+      expect(p.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+    }
+    expect(serializePack(fictionalPacks()[0] as PackJson)).toBe(serializePack(buildPack(join(REPO_DIR, "engine", "test", "fixtures", "regulation", "testTax"))));
+  });
+
+  it("製品のパックは test. の値を持たず、すべての行に承認の記録（いまは原本での確認待ち）がある", () => {
+    for (const p of realPacks()) {
+      expect(p.pack.fictional).toBeUndefined();
+      expect(p.pack.formatVersion).toBe("0.1");
+      for (const v of p.values) expect(String(v.id).startsWith("test.")).toBe(false);
+      const rows = p.values.reduce((n, v) => n + (v.entries as unknown[]).length, 0);
+      expect(pendingReviewEntries(p)).toHaveLength(rows);
+    }
   });
 
   it("basis を目的語つきの形に正規化する", () => {
-    const v = samplePack().values.find((x) => x.id === "test.sample.lumpSum.withholdingRate");
-    expect(v?.basis).toEqual({ type: "incomeYear" });
+    const v = realPacks()[1]?.values.find((x) => x.id === "residentTax.basicDeduction");
+    expect(v?.basis).toEqual({ type: "priorYearIncome", switchMonth: 6 });
     expect(v?.linkage).toBe("none");
   });
 
@@ -114,6 +127,29 @@ describe("パックの組み立て", () => {
     expect(() => buildPack(makePack({ "test.demo.a.yaml": valueFile("test.demo.a", sup) }))).toThrow("supersededIn");
   });
 
+  it("等級表は1から1ずつ・隙間なし・最後だけ上限なし", () => {
+    const g = (rows: string) => valueFile("test.demo.a", entry({ value: rows }), "unit: JPY\nkind: gradeTable\nbasis: month\n").replace('appliesFrom: "2020-01-01"', 'appliesFrom: "2020-01-01"');
+    const ok = "[{grade: 1, amount: 100, from: 0, below: 150}, {grade: 2, amount: 200, from: 150, below: null}]";
+    expect(buildPack(makePack({ "test.demo.a.yaml": g(ok) })).values).toHaveLength(1);
+    expect(() => buildPack(makePack({ "test.demo.a.yaml": g("[{grade: 1, amount: 100, from: 0, below: 150}, {grade: 2, amount: 200, from: 160, below: null}]") }))).toThrow("from");
+    expect(() => buildPack(makePack({ "test.demo.a.yaml": g("[{grade: 1, amount: 100, from: 0, below: 150}, {grade: 3, amount: 200, from: 150, below: null}]") }))).toThrow("grade");
+    expect(() => buildPack(makePack({ "test.demo.a.yaml": g("[{grade: 1, amount: 100, from: 0, below: null}, {grade: 2, amount: 200, from: 150, below: null}]") }))).toThrow();
+  });
+
+  it("製品のパックの行には承認の記録が要り、施行日を null にできるのは原本での確認待ちだけ", () => {
+    const real = HEADER.replace("fictional: true\n", "");
+    const web = '    sources: [{type: web, url: "https://www.nta.go.jp/x.htm", retrievedAt: "2026-10-08", retrievedVia: searchExcerpt, note: 検索の要約}]\n';
+    const body = entry({}).replace("    sources: [{type: fictional, note: 架空}]\n", web);
+    expect(() => buildPack(makePack({ "demo.a.yaml": valueFile("demo.a", body) }, real))).toThrow("approval");
+    const pending = body + "    approval: {method: pendingReview, paths: 2}\n";
+    expect(buildPack(makePack({ "demo.a.yaml": valueFile("demo.a", pending.replace('enforcedOn: "2020-01-01"', "enforcedOn: null")) }, real)).values).toHaveLength(1);
+    const reviewed = body.replace('enforcedOn: "2020-01-01"', "enforcedOn: null") + "    approval: {method: reviewed}\n";
+    expect(() => buildPack(makePack({ "demo.a.yaml": valueFile("demo.a", reviewed) }, real))).toThrow("施行日");
+    // 原本の指紋の無い web の出典は、検索の抜粋（retrievedVia: searchExcerpt）としてだけ書ける
+    const noDigest = pending.replace(", retrievedVia: searchExcerpt", "");
+    expect(() => buildPack(makePack({ "demo.a.yaml": valueFile("demo.a", noDigest) }, real))).toThrow("形式の誤り");
+  });
+
   it("rounding は同じパックの kind: rounding の値を指す", () => {
     const v = valueFile("test.demo.a", entry({}), "unit: rate\nkind: constant\nbasis: incomeYear\nrounding: test.demo.missing\n");
     expect(() => buildPack(makePack({ "test.demo.a.yaml": v }))).toThrow("rounding");
@@ -125,25 +161,63 @@ describe("エンジン側の読み取り", () => {
   const store = (p: PackJson, dataSet: Record<string, string> = {}) => new RegulationStore([p as unknown as EnginePack], dataSet);
 
   it("適用期間と 2本の時間軸（知った時点）で行を選ぶ", () => {
-    const p = samplePack();
-    const latest = store(p);
-    const id = "test.sample.lumpSum.withholdingRate";
-    expect(latest.select(id, d("2027-01-01")).entry.rev).toBe(1);
-    expect(latest.select(id, d("2028-01-01")).entry.rev).toBe(3);
-    // パックの版 2026.1.0 の時点では、訂正前の r2 を使う
-    const old = store(p, { "regulation.sample": "2026.1.0" });
-    expect(old.select(id, d("2028-01-01")).entry.rev).toBe(2);
-    expect(String(asRate(old.select(id, d("2030-01-01"))) && "ok")).toBe("ok");
-    expect(asRoundingRule(latest.select("test.sample.lumpSum.rounding", d("2030-01-01")))).toEqual({ mode: "DOWN", unit: 100 });
-    expect(() => latest.select(id, d("2019-12-31"))).toThrow("E_PARAM_NO_VALUE");
+    const [tax] = realPacks().filter((p) => p.pack.packId === "regulation.tax");
+    const latest = store(tax as PackJson);
+    const id = "incomeTax.reconstructionSurtax.rate";
+    expect(latest.select(id, d("2026-01-01")).entry.rev).toBe(3);
+    expect(String(asRate(latest.select(id, d("2027-01-01"))) && "ok")).toBe("ok");
+    expect(latest.select(id, d("2027-01-01")).entry.rev).toBe(4);
+    // パックの版 2026.1.0 の時点（令和8年度改正の前）では、訂正前の行を使う
+    const old = store(tax as PackJson, { "regulation.tax": "2026.1.0" });
+    expect(old.select(id, d("2027-01-01")).entry.rev).toBe(1);
+    expect(old.select(id, d("2040-01-01")).entry.rev).toBe(2);
+    expect(asRoundingRule(latest.select("incomeTax.taxAmount.rounding", d("2030-01-01")))).toEqual({ mode: "DOWN", unit: 100 });
+    expect(() => latest.select(id, d("2024-12-31"))).toThrow("E_PARAM_NO_VALUE");
+    // 期限つきの特例の後の区分が分からない値は、行を置かない（推測で埋めない）
+    expect(() => latest.select("incomeTax.employmentIncomeDeduction", d("2028-01-01"))).toThrow("E_PARAM_NO_VALUE");
   });
 
-  it("形式の大の版の違い・知らない機能・重複したパックは使わない", () => {
-    const p = samplePack();
+  it("全国以外の管轄（協会けんぽの支部）の値を選ぶ", () => {
+    const [si] = realPacks().filter((p) => p.pack.packId === "regulation.socialInsurance");
+    const s = store(si as PackJson);
+    const id = "socialInsurance.health.kyokaikenpo.rate";
+    const at = (code: string, date: string) => s.select(id, d(date), { jurisdiction: { level: "insurer", code } }).entry.value;
+    expect(at("kyokaikenpo.13", "2026-02-01")).toBe("0.0991");
+    expect(at("kyokaikenpo.13", "2026-03-01")).toBe("0.0985");
+    expect(at("kyokaikenpo.47", "2026-03-01")).toBe("0.0944");
+    expect(() => s.select(id, d("2026-03-01"))).toThrow("E_PARAM_NO_VALUE");
+    expect(() => s.select(id, d("2026-03-01"), { jurisdiction: { level: "insurer", code: "kyokaikenpo.48" } })).toThrow("E_PARAM_NO_VALUE");
+  });
+
+  it("架空のパックの test.<値ID> は、代わりをする製品のパックの <値ID> で引ける", () => {
+    const [t] = fictionalPacks();
+    const s = store(t as PackJson);
+    expect(asBrackets(s.select("incomeTax.basicDeduction", d("2027-01-01")))?.[0]?.amount).toBe(600000);
+    expect(asBrackets(new RegulationStore([t as unknown as EnginePack], { "regulation.testTax": "2026.1.0" }).select("incomeTax.basicDeduction", d("2027-01-01")))?.[0]?.amount).toBe(500000);
+    expect(() => s.select("test.incomeTax.basicDeduction", d("2027-01-01"))).toThrow("E_PARAM_UNKNOWN");
+    expect((s.packs()[0] as { fictional: boolean; fictionalOf?: string }).fictionalOf).toBe("regulation.tax");
+    // 製品のパックと一緒には読めない（同じ値IDになる）
+    expect(() => new RegulationStore([t, ...realPacks()] as unknown as EnginePack[])).toThrow("E_PACK_DUPLICATE");
+  });
+
+  it("等級表（gradeTable）で報酬月額の等級を引く", () => {
+    const [, si] = fictionalPacks();
+    const g = asGrades(store(si as PackJson).select("socialInsurance.health.standardMonthlyRemuneration", d("2026-05-01"))) ?? [];
+    expect(gradeFor(g, yen(0)).grade).toBe(1);
+    expect(gradeFor(g, yen(149999)).amount).toBe(100000);
+    expect(gradeFor(g, yen(150000)).amount).toBe(200000);
+    expect(gradeFor(g, yen(99999999)).amount).toBe(1000000);
+  });
+
+  it("形式の版の違い・知らない機能・重複したパックは使わない", () => {
+    const p = fictionalPacks()[0] as PackJson;
     const other = JSON.parse(JSON.stringify(p)) as PackJson;
-    other.pack.formatVersion = "2.0";
+    other.pack.formatVersion = "1.0";
     expect(() => store(other)).toThrow("E_PACK_FORMAT_VERSION");
-    other.pack.formatVersion = "1.1";
+    // 0.x の間は小の版の違いも読まない
+    other.pack.formatVersion = "0.2";
+    expect(() => store(other)).toThrow("E_PACK_FORMAT_VERSION");
+    other.pack.formatVersion = "0.1";
     other.pack.features = ["futureThing"];
     expect(() => store(other)).toThrow("E_PACK_FEATURE");
     expect(() => new RegulationStore([p, p] as unknown as EnginePack[])).toThrow("E_PACK_DUPLICATE");

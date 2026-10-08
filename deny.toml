@@ -3,7 +3,7 @@
 all-features = false
 
 [licenses]
-# 許可: MIT、Apache-2.0、BSD-2-Clause、BSD-3-Clause、ISC、Zlib、Unicode-3.0（Unicode-DFS-2016）、Unlicense、CC0-1.0、0BSD、BSL-1.0
+# 許可: MIT、Apache-2.0、BSD-2-Clause、BSD-3-Clause、ISC、Zlib、Unicode-3.0（Unicode-DFS-2016）、Unlicense、CC0-1.0、0BSD、BSL-1.0、BlueOak-1.0.0（0021 の追記）
 # GPL・LGPL・AGPL・SSPL・非商用の条件のもの・表示の無いものは一覧に無いので止まる
 allow = [
   "MIT",
@@ -19,8 +19,9 @@ allow = [
   "CC0-1.0",
   "0BSD",
   "BSL-1.0",
+  "BlueOak-1.0.0",
 ]
-# MPL-2.0 は部品の名前を一つずつ載せ、改変せずに使う場合だけ許す（今は無い）
+# Rust の依存は配布物（engine-host・アプリ本体）に入るので、MPL-2.0 は部品の名前を一つずつ載せ、改変せずに使う場合だけ許す（今は無い。0021）
 exceptions = []
 confidence-threshold = 0.9
 # 許可の一覧のうち、今は使っていないものがあっても警告しない

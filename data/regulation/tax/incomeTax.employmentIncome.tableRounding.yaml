@@ -1,0 +1,20 @@
+id: incomeTax.employmentIncome.tableRounding
+title: 別表第五の収入金額の刻み（4,000円未満切り捨て。収入÷4の千円未満切り捨てと同じ）
+unit: rounding
+kind: rounding
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 4000}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "収入金額÷4（千円未満切捨て）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/annai/shinkoku/pdf/r08/zeigakuhyo.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年分 所得税の税額表等（給与所得の計算例）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "大阪市の令和8年度の計算例（給与収入5,436,629円→給与所得3,908,800円）でも確かめた"}

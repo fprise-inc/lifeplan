@@ -1,0 +1,194 @@
+{
+  "trace": "none",
+  "input": {
+    "baseMonth": "2026-10",
+    "endYear": 2027,
+    "calcConventions": {
+      "aggregation": "cash",
+      "investmentTiming": "midYear",
+      "compatibility": null
+    },
+    "household": {
+      "members": [
+        {
+          "id": "f4157f2c-78fd-4714-a3db-3cf5d17a7f1e",
+          "kind": "self",
+          "birth": {
+            "birthYearMonth": "1967-03",
+            "bornOnFirst": false
+          },
+          "sex": "male",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        },
+        {
+          "id": "9729fb49-2062-4ca7-93d5-c56094095fd7",
+          "kind": "spouse",
+          "birth": {
+            "birthYearMonth": "1969-10",
+            "bornOnFirst": false
+          },
+          "sex": "female",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        }
+      ],
+      "relations": [
+        {
+          "type": "spouse",
+          "a": "f4157f2c-78fd-4714-a3db-3cf5d17a7f1e",
+          "b": "9729fb49-2062-4ca7-93d5-c56094095fd7",
+          "marriage": "legal",
+          "from": null,
+          "to": null
+        }
+      ],
+      "events": [],
+      "employmentPeriods": [
+        {
+          "id": "334ee36a-7a18-45da-8347-c66078d61a5a",
+          "member": "f4157f2c-78fd-4714-a3db-3cf5d17a7f1e",
+          "from": {
+            "at": "1990-04"
+          },
+          "to": {
+            "at": "2027-03"
+          },
+          "type": "regular",
+          "healthInsurance": {
+            "kind": "kyokaikenpo",
+            "insurer": "kyokaikenpo.28"
+          },
+          "pensionCategory": "employee1",
+          "employer": {
+            "size": 300,
+            "weeklyHours": "40"
+          },
+          "salary": {
+            "annual": {
+              "value": 6600000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "bonus": {
+              "value": 2000000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "standardMonthlyRemuneration": {
+            "health": {
+              "value": 590000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "pension": {
+              "value": 590000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        },
+        {
+          "id": "99eb82f0-3a96-470b-ba76-e07bf7049663",
+          "member": "f4157f2c-78fd-4714-a3db-3cf5d17a7f1e",
+          "from": {
+            "at": "2027-04"
+          },
+          "to": null,
+          "type": "contract",
+          "healthInsurance": {
+            "kind": "kyokaikenpo",
+            "insurer": "kyokaikenpo.28"
+          },
+          "pensionCategory": "employee1",
+          "employer": {
+            "size": 300,
+            "weeklyHours": "40"
+          },
+          "salary": {
+            "annual": {
+              "value": 3600000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "bonus": {
+              "value": 0,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "standardMonthlyRemuneration": {
+            "health": {
+              "value": 300000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "pension": {
+              "value": 300000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        }
+      ],
+      "accounts": [
+        {
+          "id": "6a3a2534-1327-49e5-afe4-0bd99ac8446f",
+          "kind": "deposit",
+          "owner": "f4157f2c-78fd-4714-a3db-3cf5d17a7f1e",
+          "marketValue": {
+            "value": 15000000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "asOf": "2026-09",
+          "contributions": []
+        }
+      ],
+      "insuranceContracts": [],
+      "residentTaxAssessments": [
+        {
+          "id": "4e86e6f0-40b0-4c1c-afa2-e9ad3cf97c11",
+          "member": "f4157f2c-78fd-4714-a3db-3cf5d17a7f1e",
+          "fiscalYear": 2026,
+          "amount": {
+            "value": 420000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          }
+        }
+      ]
+    },
+    "assumptions": {
+      "investmentReturn": {
+        "default": "0.01"
+      },
+      "wageGrowth": {
+        "default": "0.01"
+      }
+    }
+  }
+}

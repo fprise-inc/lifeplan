@@ -1,0 +1,20 @@
+id: incomeTax.spouseDeduction.elderlyAge
+title: 老人控除対象配偶者の年齢（その年12月31日に達しているか）
+unit: years
+kind: constant
+basis: "incomeYear"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 70
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1191.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "老人控除対象配偶者（70歳以上）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1}

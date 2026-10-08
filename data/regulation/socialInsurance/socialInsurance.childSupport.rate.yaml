@@ -1,0 +1,35 @@
+id: socialInsurance.childSupport.rate
+title: 子ども・子育て支援金率（被用者保険。労使の合計。標準報酬月額・標準賞与額に掛ける）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-03-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.cfa.go.jp/policies/kodomokosodateshienkinseido", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "子ども・子育て支援金制度について｜こども家庭庁", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/003/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "協会けんぽの子ども・子育て支援金率について", note: "検索結果の題名の原文（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和8年4月分より前は徴収なし"}
+  - rev: 2
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.0023"
+    sources:
+      - {type: "web", url: "https://www.cfa.go.jp/policies/kodomokosodateshienkinseido", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "子ども・子育て支援金制度について｜こども家庭庁", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/003/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "協会けんぽの子ども・子育て支援金率について", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和8年度の率。令和9年度以後の率は未公表。労使折半、賞与にもかかる、健康保険料と合算した率で計算してから丸める（厚労省・こども家庭庁のQ&A 2026-02-12）"}

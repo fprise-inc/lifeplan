@@ -1,0 +1,24 @@
+id: residentTax.lifeInsuranceDeduction.new
+title: 住民税の生命保険料控除（新契約。支払保険料等の段階）
+unit: JPY
+kind: bracketTable
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 12000, rate: "1"}
+      - {upTo: 32000, rate: "0.5", amount: 6000}
+      - {upTo: 56000, rate: "0.25", amount: 14000}
+      - {upTo: null, amount: 28000}
+    sources:
+      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370588.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.nagoya.jp/kurashi/zeikin/1037356/1011880/1011883/1011892.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "市のサイトの1経路（大阪市・名古屋市の同じ検索の要約）"}

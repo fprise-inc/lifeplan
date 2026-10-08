@@ -1,0 +1,283 @@
+{
+  "trace": "none",
+  "input": {
+    "baseMonth": "2026-10",
+    "endYear": 2027,
+    "calcConventions": {
+      "aggregation": "cash",
+      "investmentTiming": "midYear",
+      "compatibility": null
+    },
+    "household": {
+      "members": [
+        {
+          "id": "0f3caf06-5368-4173-a359-f55d1341d907",
+          "kind": "self",
+          "birth": {
+            "birthYearMonth": "1981-09",
+            "bornOnFirst": false
+          },
+          "sex": "female",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        },
+        {
+          "id": "63bf43bc-5b7a-430f-a0bd-19a109bd2d6f",
+          "kind": "spouse",
+          "birth": {
+            "birthYearMonth": "1983-04",
+            "bornOnFirst": false
+          },
+          "sex": "male",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        },
+        {
+          "id": "ba8c62fa-0c80-4ff6-84a3-9c18a07bc4b5",
+          "kind": "child",
+          "birth": {
+            "birthYearMonth": "2011-07",
+            "bornOnFirst": false
+          },
+          "sex": "male",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        },
+        {
+          "id": "64a4927d-f7ef-4f80-a738-85227ec84b81",
+          "kind": "child",
+          "birth": {
+            "birthYearMonth": "2014-12",
+            "bornOnFirst": false
+          },
+          "sex": "female",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        }
+      ],
+      "relations": [
+        {
+          "type": "spouse",
+          "a": "0f3caf06-5368-4173-a359-f55d1341d907",
+          "b": "63bf43bc-5b7a-430f-a0bd-19a109bd2d6f",
+          "marriage": "legal",
+          "from": null,
+          "to": null
+        },
+        {
+          "type": "parentOf",
+          "parent": "0f3caf06-5368-4173-a359-f55d1341d907",
+          "child": "ba8c62fa-0c80-4ff6-84a3-9c18a07bc4b5"
+        },
+        {
+          "type": "parentOf",
+          "parent": "63bf43bc-5b7a-430f-a0bd-19a109bd2d6f",
+          "child": "ba8c62fa-0c80-4ff6-84a3-9c18a07bc4b5"
+        },
+        {
+          "type": "parentOf",
+          "parent": "0f3caf06-5368-4173-a359-f55d1341d907",
+          "child": "64a4927d-f7ef-4f80-a738-85227ec84b81"
+        },
+        {
+          "type": "parentOf",
+          "parent": "63bf43bc-5b7a-430f-a0bd-19a109bd2d6f",
+          "child": "64a4927d-f7ef-4f80-a738-85227ec84b81"
+        }
+      ],
+      "events": [],
+      "employmentPeriods": [
+        {
+          "id": "4081ee71-4466-4319-8696-c7e9a5f45894",
+          "member": "0f3caf06-5368-4173-a359-f55d1341d907",
+          "from": {
+            "at": "2004-04"
+          },
+          "to": null,
+          "type": "regular",
+          "healthInsurance": {
+            "kind": "kyokaikenpo",
+            "insurer": "kyokaikenpo.13"
+          },
+          "pensionCategory": "employee1",
+          "employer": {
+            "size": 300,
+            "weeklyHours": "40"
+          },
+          "salary": {
+            "annual": {
+              "value": 7000000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "bonus": {
+              "value": 2000000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "standardMonthlyRemuneration": {
+            "health": {
+              "value": 590000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "pension": {
+              "value": 590000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        },
+        {
+          "id": "81864a03-2380-4677-b399-c27ae96b9f15",
+          "member": "63bf43bc-5b7a-430f-a0bd-19a109bd2d6f",
+          "from": {
+            "at": "2006-04"
+          },
+          "to": null,
+          "type": "regular",
+          "healthInsurance": {
+            "kind": "kyokaikenpo",
+            "insurer": "kyokaikenpo.13"
+          },
+          "pensionCategory": "employee1",
+          "employer": {
+            "size": 300,
+            "weeklyHours": "40"
+          },
+          "salary": {
+            "annual": {
+              "value": 6000000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "bonus": {
+              "value": 1500000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "standardMonthlyRemuneration": {
+            "health": {
+              "value": 500000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "pension": {
+              "value": 500000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        }
+      ],
+      "accounts": [
+        {
+          "id": "07e7eb82-9469-4d98-b4e3-7103b3f718a4",
+          "kind": "deposit",
+          "owner": "0f3caf06-5368-4173-a359-f55d1341d907",
+          "marketValue": {
+            "value": 12000000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "asOf": "2026-09",
+          "contributions": []
+        }
+      ],
+      "insuranceContracts": [
+        {
+          "id": "5b65c835-ce46-4914-822a-7b3ce2816bb2",
+          "template": "insurance.wholeLife",
+          "policyholder": "0f3caf06-5368-4173-a359-f55d1341d907",
+          "insured": "0f3caf06-5368-4173-a359-f55d1341d907",
+          "contractDate": "2015-06",
+          "currency": "JPY",
+          "premium": {
+            "amount": 6500,
+            "frequency": "monthly",
+            "payUntil": null
+          },
+          "deductionCategory": {
+            "type": "general",
+            "regime": "new"
+          }
+        },
+        {
+          "id": "9a835e47-dac3-4178-889b-0ee5bbc6689a",
+          "template": "insurance.wholeLife",
+          "policyholder": "63bf43bc-5b7a-430f-a0bd-19a109bd2d6f",
+          "insured": "63bf43bc-5b7a-430f-a0bd-19a109bd2d6f",
+          "contractDate": "2015-06",
+          "currency": "JPY",
+          "premium": {
+            "amount": 6500,
+            "frequency": "monthly",
+            "payUntil": null
+          },
+          "deductionCategory": {
+            "type": "general",
+            "regime": "new"
+          }
+        }
+      ],
+      "residentTaxAssessments": [
+        {
+          "id": "47d5bfdb-9403-4bad-ae17-24ccd76226b7",
+          "member": "0f3caf06-5368-4173-a359-f55d1341d907",
+          "fiscalYear": 2026,
+          "amount": {
+            "value": 520000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          }
+        },
+        {
+          "id": "c9b4a922-6d25-4d11-bb01-7a6fe2d60f9f",
+          "member": "63bf43bc-5b7a-430f-a0bd-19a109bd2d6f",
+          "fiscalYear": 2026,
+          "amount": {
+            "value": 420000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          }
+        }
+      ]
+    },
+    "assumptions": {
+      "investmentReturn": {
+        "default": "0.01"
+      },
+      "wageGrowth": {
+        "default": "0.01"
+      }
+    }
+  }
+}

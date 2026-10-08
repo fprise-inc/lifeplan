@@ -3,9 +3,19 @@ import buildInfo from "../generated/build-info.json" with { type: "json" };
 import { EngineError } from "../errors.ts";
 import type { ComponentDefinition } from "../registry/define.ts";
 import type { OfficialComponent } from "../registry/assemble.ts";
-import balance from "./test.sample.balance/index.ts";
-import lumpSum from "./test.sample.lumpSum/index.ts";
-import monthlyFlow from "./test.sample.monthlyFlow/index.ts";
+import accountContribution from "./account.contribution/index.ts";
+import incomeSalary from "./income.salary/index.ts";
+import incomeTaxAnnual from "./incomeTax.annual/index.ts";
+import insurancePremium from "./insurance.premiumPayment/index.ts";
+import planCashflow from "./plan.cashflow/index.ts";
+import residentTaxAnnual from "./residentTax.annual/index.ts";
+import socialInsuranceCoverage from "./socialInsurance.coverage/index.ts";
+import socialInsuranceEmployment from "./socialInsurance.employment/index.ts";
+import socialInsuranceHealth from "./socialInsurance.health/index.ts";
+import socialInsurancePension from "./socialInsurance.pension/index.ts";
+import taxDeductions from "./tax.deductions/index.ts";
+import taxEmploymentIncome from "./tax.employmentIncome/index.ts";
+import taxTotalIncome from "./tax.totalIncome/index.ts";
 
 const HASHES = buildInfo.components as Readonly<Record<string, string>>;
 
@@ -15,7 +25,23 @@ function official(def: ComponentDefinition<never, unknown>): OfficialComponent {
   return { def: def as ComponentDefinition, hash };
 }
 
-export const OFFICIAL_COMPONENTS: readonly OfficialComponent[] = [official(monthlyFlow), official(lumpSum), official(balance)];
+export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[] = [
+  accountContribution,
+  incomeSalary,
+  incomeTaxAnnual,
+  insurancePremium,
+  planCashflow,
+  residentTaxAnnual,
+  socialInsuranceCoverage,
+  socialInsuranceEmployment,
+  socialInsuranceHealth,
+  socialInsurancePension,
+  taxDeductions,
+  taxEmploymentIncome,
+  taxTotalIncome,
+] as never;
 
-/** 計算のはじめに呼ぶ部品（土台では見本の残高の積み上げ） */
-export const ROOT_COMPONENT = "test.sample.balance";
+export const OFFICIAL_COMPONENTS: readonly OfficialComponent[] = OFFICIAL_DEFINITIONS.map(official);
+
+/** 計算のはじめに呼ぶ部品 */
+export const ROOT_COMPONENT = "plan.cashflow";

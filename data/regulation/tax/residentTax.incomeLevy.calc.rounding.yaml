@@ -1,0 +1,19 @@
+id: residentTax.incomeLevy.calc.rounding
+title: 住民税の課税標準×税率・調整控除の額の1円未満の端数（切り捨て）
+unit: rounding
+kind: rounding
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 1}
+    sources:
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/kojinkeisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "県民税 49,349円（1円未満切捨て）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1}

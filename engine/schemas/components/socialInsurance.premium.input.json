@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:socialInsurance.premium.input",
+  "title": "被用者保険の保険料の部品の入力（fromYear の年に控除する分から）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["member", "fromYear"],
+  "properties": {
+    "member": {
+      "$ref": "urn:financia:schema:common#/$defs/uuid"
+    },
+    "fromYear": {
+      "$ref": "urn:financia:schema:common#/$defs/year"
+    }
+  }
+}

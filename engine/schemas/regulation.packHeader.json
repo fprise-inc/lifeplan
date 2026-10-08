@@ -5,6 +5,8 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["packId", "formatVersion", "version", "features", "title", "requires", "license"],
+  "if": { "required": ["fictionalOf"] },
+  "then": { "required": ["fictional"], "properties": { "fictional": { "const": true } } },
   "properties": {
     "packId": { "type": "string", "pattern": "^(regulation|master)(\\.[a-z][a-zA-Z0-9]*)+$" },
     "formatVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
@@ -12,8 +14,13 @@
     "features": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9.]*$" } },
     "title": { "type": "string", "minLength": 1 },
     "fictional": {
-      "description": "架空の見本データのパック。製品のデータには付けない（提案。PR の説明を参照）",
+      "description": "0007 の追記: 架空の見本データのパック。製品のデータには付けない",
       "type": "boolean"
+    },
+    "fictionalOf": {
+      "description": "架空のパックが代わりをする製品のパックのID（テスト用。値ID の test. を外した ID で引ける。PR の提案）",
+      "type": "string",
+      "pattern": "^regulation(\\.[a-z][a-zA-Z0-9]*)+$"
     },
     "requires": {
       "type": "object",

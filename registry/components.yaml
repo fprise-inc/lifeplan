@@ -1,0 +1,82 @@
+# 0004 の5: 計算部品IDの登録簿。正本は公式部品のマニフェスト（scripts/registry.ts が作る。手で書き換えない）
+# since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
+kind: component
+entries:
+  - id: account.contribution
+    status: active
+    label: "積立・掛金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: income.salary
+    status: active
+    label: "給与・賞与"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.annual
+    status: active
+    label: "所得税"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.premiumPayment
+    status: active
+    label: "保険料の支払い"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: plan.cashflow
+    status: active
+    label: "キャッシュフロー表"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.annual
+    status: active
+    label: "住民税・森林環境税"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.coverage
+    status: active
+    label: "被用者保険の資格と標準報酬"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.employment
+    status: active
+    label: "雇用保険料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.health
+    status: active
+    label: "健康保険料・介護保険料・子ども・子育て支援金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.pension
+    status: active
+    label: "厚生年金保険料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.deductions
+    status: active
+    label: "所得控除"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.employmentIncome
+    status: active
+    label: "給与所得"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.totalIncome
+    status: active
+    label: "合計所得金額"
+    since: draft
+    aliases: []
+    replacedBy: null

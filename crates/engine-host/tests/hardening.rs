@@ -248,15 +248,25 @@ fn engine_bundle() -> String {
     })
 }
 
-fn sample_pack() -> String {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../engine/dist/regulation/regulation.sample.json");
-    std::fs::read_to_string(&path).unwrap_or_else(|_| {
-        panic!(
-            "{} がありません。先に engine で npm run build を流してください",
-            path.display()
-        )
-    })
+/// 製品の制度データ（engine/dist/regulation の全パック）を JSON の配列にする
+fn regulation_packs() -> String {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../engine/dist/regulation");
+    let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|_| {
+            panic!(
+                "{} がありません。先に engine で npm run build を流してください",
+                dir.display()
+            )
+        })
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "json"))
+        .collect();
+    files.sort();
+    let packs: Vec<String> = files
+        .iter()
+        .map(|p| std::fs::read_to_string(p).unwrap().trim().to_string())
+        .collect();
+    format!("[{}]", packs.join(","))
 }
 
 #[test]
@@ -272,15 +282,11 @@ fn engine_runs_after_lockdown_and_global_is_frozen() {
     assert_eq!(sb.eval_string("(() => { 'use strict'; try { globalThis.x = 1; return 'ok'; } catch (e) { return e.name; } })()").unwrap(), "TypeError");
     let req = std::fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../engine/test/fixtures/households/basic.json"),
+            .join("../../data/modelHouseholds/singleEarnerTwoKids.json"),
     )
     .unwrap();
     let out = sb
-        .run(
-            &req,
-            &format!("[{}]", sample_pack().trim()),
-            "{\"checkInternal\":true}",
-        )
+        .run(&req, &regulation_packs(), "{\"checkInternal\":true}")
         .unwrap();
     assert!(
         out.starts_with("{\"header\":"),

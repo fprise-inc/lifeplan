@@ -1,0 +1,20 @@
+id: residentTax.adjustmentCredit.diff.dependentElderlyCohabiting
+title: 調整控除の人的控除額の差（扶養控除（同居老親等））
+unit: JPY
+kind: constant
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 130000
+    sources:
+      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370599.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

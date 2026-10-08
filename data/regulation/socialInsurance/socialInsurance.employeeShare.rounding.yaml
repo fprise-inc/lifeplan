@@ -1,0 +1,20 @@
+id: socialInsurance.employeeShare.rounding
+title: 健康保険料・介護保険料・支援金・厚生年金保険料の被保険者負担分を給与から控除するときの端数（50銭以下切り捨て、50銭超切り上げ）
+unit: rounding
+kind: rounding
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "HALF_DOWN", unit: 1}
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/nofu/20121026.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "注記", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "被保険者が現金で払う場合（50銭未満切り捨て）と事業主との特約は扱わない"}

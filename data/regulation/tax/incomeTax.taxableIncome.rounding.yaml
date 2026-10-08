@@ -1,0 +1,21 @@
+# 国税通則法118条1項
+id: incomeTax.taxableIncome.rounding
+title: 課税される所得金額の1,000円未満の端数（切り捨て）
+unit: rounding
+kind: rounding
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 1000}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/about/organization/ntc/kohon/tuusoku/pdf/all.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "国税通則法118条1項", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

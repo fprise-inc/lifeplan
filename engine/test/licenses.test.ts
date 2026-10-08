@@ -16,6 +16,11 @@ describe("ライセンスの検査", () => {
     expect(satisfied("LGPL-2.1")).toBe(false);
     expect(satisfied("AGPL-3.0")).toBe(false);
     expect(satisfied("CC-BY-NC-4.0")).toBe(false);
+    // 0021 の追記: BlueOak-1.0.0 は許可。MPL-2.0 は開発だけで使う道具の依存なら許す
+    expect(satisfied("BlueOak-1.0.0")).toBe(true);
+    expect(satisfied("MPL-2.0")).toBe(false);
+    expect(satisfied("MPL-2.0", true)).toBe(true);
+    expect(satisfied("LGPL-3.0", true)).toBe(false);
   });
 
   it("node_modules の中の禁止・表示なしの部品を見つける", () => {

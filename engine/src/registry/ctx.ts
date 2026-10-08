@@ -22,14 +22,19 @@ import * as R from "../money/rounding.ts";
 import type { Money, Yen } from "../money/yen.ts";
 import {
   asBrackets,
+  asCount,
+  asGrades,
   asRate,
   asRoundingRule,
   asYen,
   type Bracket,
+  type Grade,
   type Json,
+  type Jurisdiction,
   type RegulationStore,
   type Selected,
 } from "../regulation/reader.ts";
+import { projectCollection, type ItemTable } from "./items.ts";
 import { resolveAgeSwitch, type Age, type AgeSwitch } from "../time/ageSwitch.ts";
 import { lookupFor, type LookupContext } from "../time/basis.ts";
 import { formatYm, type MonthIndex } from "../time/month.ts";
@@ -65,6 +70,8 @@ export interface ParamOptions {
   readonly member?: string;
   /** basis anchor の値を選ぶ出来事（名前つきイベントのID） */
   readonly anchorEvent?: string;
+  /** 全国以外の管轄の値（協会けんぽの支部など。0007 の6） */
+  readonly jurisdiction?: Jurisdiction;
 }
 
 /** 「いま計算している月」に結び付けた制度の値と丸め（0003 の9） */
@@ -74,6 +81,8 @@ export interface MonthCtx {
   paramYen(id: string, opts?: ParamOptions): Yen | null;
   paramRate(id: string, opts?: ParamOptions): Rate | null;
   paramBrackets(id: string, opts?: ParamOptions): readonly Bracket[] | null;
+  paramGrades(id: string, opts?: ParamOptions): readonly Grade[] | null;
+  paramCount(id: string, opts?: ParamOptions): number | null;
   readonly money: MoneyApi;
 }
 
@@ -88,9 +97,13 @@ export interface TimeApi {
 export interface Ctx {
   call<O = unknown>(id: string, input: unknown): O;
   slot(id: string, input: unknown): FlowsOutput[];
-  read<T = unknown>(item: string): T;
-  readObject<T extends { readonly id: string }>(item: string, object: string): T;
-  assumption(name: string, year: number): Rate;
+  /** 物の集まり（member・employment など）を、マニフェストの reads に書いた入力項目だけに絞って返す（0016 の5） */
+  list<T = Record<string, unknown>>(collection: string): readonly T[];
+  get<T = Record<string, unknown>>(collection: string, object: string): T;
+  /** 前提条件の、その年の値。reads に assumptions.<名前> が要る。入力に無い前提は fallback（無ければエラー） */
+  assumption(name: string, year: number, fallback?: Rate): Rate;
+  /** 計算に反映していないこと（未対応の制度など）の知らせ。見出しの notices に ID だけで残す */
+  notice(code: string, ids: readonly string[]): void;
   at(month: MonthIndex): MonthCtx;
   readonly conventions: CalcConventions;
   readonly money: MoneyApi;
@@ -104,7 +117,10 @@ export interface RunState {
   readonly tracer: Tracer;
   readonly time: TimeResolver;
   readonly input: EngineInput;
-  readonly items: ReadonlyMap<string, unknown>;
+  readonly items: ItemTable;
+  /** 部品ごと・集まりごとの絞った写し（1回の計算の中で使い回す） */
+  readonly projections: Map<string, readonly Record<string, unknown>[]>;
+  readonly notices: Map<string, { readonly code: string; readonly ids: readonly string[] }>;
   readonly checkInternal: boolean;
   readonly base: MonthIndex;
   readonly end: MonthIndex;
@@ -183,12 +199,16 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
     }
     const lookup = lookupFor(vdef.basis, month, lc as LookupContext);
     const birth = opts.member !== undefined ? state.time.birthOf(opts.member) : undefined;
-    const sel = state.store.select(id, lookup.date, birth !== undefined ? { birth } : {});
+    const sel = state.store.select(id, lookup.date, {
+      ...(birth !== undefined ? { birth } : {}),
+      ...(opts.jurisdiction !== undefined ? { jurisdiction: opts.jurisdiction } : {}),
+    });
     if (tracer.on) {
       tracer.param(frame, {
         type: "param",
         id,
-        ref: `${id}@r${sel.entry.rev}`,
+        // 0009 の追記: 値の1行は <制度の値ID>@<rev>
+        ref: `${id}@${sel.entry.rev}`,
         value: sel.entry.value,
         packVersion: sel.entry.recordedIn,
         appliesFrom: sel.entry.appliesFrom,
@@ -228,10 +248,13 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
     };
   };
 
-  const readItem = (item: string): unknown => {
-    if (!reads.has(item)) throw new EngineError("E_READ_UNDECLARED", [def.id, item]);
-    if (!state.items.has(item)) throw new EngineError("E_ARGUMENT", [item]);
-    return state.items.get(item);
+  const listOf = (collection: string): readonly Record<string, unknown>[] => {
+    const key = `${def.id}\u0000${collection}`;
+    const hit = state.projections.get(key);
+    if (hit !== undefined) return hit;
+    const out = deepFreeze(projectCollection(state.items, state.input as unknown as Record<string, unknown>, collection, reads, def.id));
+    state.projections.set(key, out);
+    return out;
   };
 
   const ctx: Ctx = {
@@ -259,25 +282,32 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
       }
       return outs;
     },
-    read<T>(item: string): T {
-      const v = readItem(item);
-      tracer.input(frame, item, undefined, () => v as Json);
-      return v as T;
+    list<T>(collection: string): readonly T[] {
+      const out = listOf(collection);
+      if (tracer.mode === "full") for (const o of out) tracer.input(frame, { collection }, o.id as string | undefined, () => o as Json);
+      return out as unknown as readonly T[];
     },
-    readObject<T extends { readonly id: string }>(item: string, object: string): T {
-      const list = readItem(item);
-      const found = Array.isArray(list) ? (list as T[]).find((o) => o.id === object) : undefined;
-      if (found === undefined) throw new EngineError("E_ARGUMENT", [item, object]);
-      tracer.input(frame, item, object, () => found as unknown as Json);
-      return found;
+    get<T>(collection: string, object: string): T {
+      const found = listOf(collection).find((o) => o.id === object);
+      if (found === undefined) throw new EngineError("E_ARGUMENT", [collection, object]);
+      tracer.input(frame, { collection }, object, () => found as Json);
+      return found as unknown as T;
     },
-    assumption(name: string, year: number): Rate {
+    assumption(name: string, year: number, fallback?: Rate): Rate {
       const item = `assumptions.${name}`;
       if (!reads.has(item)) throw new EngineError("E_READ_UNDECLARED", [def.id, item]);
-      const series = (state.input.assumptions as Readonly<Record<string, { default: string; byYear?: Record<string, string> }>>)[name];
-      if (series === undefined) throw new EngineError("E_ARGUMENT", [item]);
-      tracer.input(frame, item, undefined, () => series as unknown as Json);
+      const series = (state.input.assumptions as Readonly<Record<string, { default: string; byYear?: Record<string, string> } | undefined>>)[name];
+      if (series === undefined) {
+        if (fallback !== undefined) return fallback;
+        throw new EngineError("E_ARGUMENT", [item]);
+      }
+      tracer.input(frame, { item }, undefined, () => series as unknown as Json);
       return rate(series.byYear?.[String(year)] ?? series.default);
+    },
+    notice(code: string, ids: readonly string[]): void {
+      if (!/^N_[A-Z_]+$/.test(code)) throw new EngineError("E_ARGUMENT", ["notice.code"]);
+      const key = `${code}|${ids.join(",")}`;
+      if (!state.notices.has(key)) state.notices.set(key, { code, ids: [def.id, ...ids] });
     },
     at(month: MonthIndex): MonthCtx {
       return {
@@ -286,6 +316,8 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
         paramYen: (id, opts) => asYen(param(id, month, opts)),
         paramRate: (id, opts) => asRate(param(id, month, opts)),
         paramBrackets: (id, opts) => asBrackets(param(id, month, opts)),
+        paramGrades: (id, opts) => asGrades(param(id, month, opts)),
+        paramCount: (id, opts) => asCount(param(id, month, opts)),
         money: moneyApi(month),
       };
     },

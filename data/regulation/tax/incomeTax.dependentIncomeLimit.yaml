@@ -1,0 +1,34 @@
+id: incomeTax.dependentIncomeLimit
+title: 同一生計配偶者・扶養親族の合計所得金額の上限（以下）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: "2025-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 580000
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1191.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1180.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2026-01-01"
+    appliesTo: null
+    enforcedOn: "2026-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 620000
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/users/gensen/2026kiso/index.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度税制改正", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/koho/kurashi/html/02_2.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "1180（令和8年4月1日現在）には58万円の記載しか出ず、資料の間で食い違いがある（施行日12月1日による更新時期の差の可能性）"}

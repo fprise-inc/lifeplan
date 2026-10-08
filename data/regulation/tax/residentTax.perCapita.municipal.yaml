@@ -1,0 +1,20 @@
+id: residentTax.perCapita.municipal
+title: 住民税の均等割の標準税率（市町村民税）
+unit: JPY
+kind: constant
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 3000
+    sources:
+      - {type: "web", url: "https://www.soumu.go.jp/main_content/001005155.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "所得割 標準税率（年額） 市町村民税 3,000円 道府県民税 1,000円 標準税率 市町村民税 ６％ 道府県民税 ４％ 均等割", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.tax.metro.tokyo.lg.jp/kazei/life/kojin_ju", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "自治体の超過課税は扱わない。平成26〜令和5年度の復興の加算は令和5年度で終わった（1経路）"}

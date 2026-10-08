@@ -1,0 +1,46 @@
+id: incomeTax.lifeInsuranceDeduction.mixedLimitWithYoungDependent
+title: 生命保険料控除（23歳未満の扶養親族がいる場合の一般生命保険料の新旧併用の上限）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1}
+  - rev: 2
+    appliesFrom: "2026-01-01"
+    appliesTo: "2027-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 60000
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年分以降・23歳未満の扶養親族がいる場合", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/koho/kurashi/html/04_2.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 3
+    appliesFrom: "2028-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1}

@@ -1,0 +1,23 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.incomeTax.employmentIncomeDeduction
+title: 【架空の見本】incomeTax.employmentIncomeDeduction
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 2000000, amount: 600000}
+      - {upTo: 4000000, rate: "0.3", amount: 0}
+      - {upTo: 8000000, rate: "0.1", amount: 800000}
+      - {upTo: null, amount: 1600000}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

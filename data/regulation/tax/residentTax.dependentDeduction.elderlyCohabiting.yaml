@@ -1,0 +1,20 @@
+id: residentTax.dependentDeduction.elderlyCohabiting
+title: 住民税の扶養控除（老人扶養親族のうち同居老親等）
+unit: JPY
+kind: constant
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 450000
+    sources:
+      - {type: "web", url: "https://www.soumu.go.jp/main_content/000767350.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370599.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "人的控除額の差からの逆算", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "総務省の年度のない様式の1経路（弱い確認）"}

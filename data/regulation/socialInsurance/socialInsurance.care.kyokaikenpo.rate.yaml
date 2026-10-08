@@ -1,0 +1,35 @@
+id: socialInsurance.care.kyokaikenpo.rate
+title: 協会けんぽの介護保険料率（全国一律。労使の合計）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-03-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.0159"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/002/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2026-03-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.0162"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/002/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度 都道府県単位保険料率", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/chiba/assets/20260115_shiryou2-3.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "標準報酬月額34万円の折半額 2,703円→2,754円", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
