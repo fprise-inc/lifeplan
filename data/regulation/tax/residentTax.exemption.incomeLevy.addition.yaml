@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2025-06-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2021-01-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -15,7 +15,8 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 附則第3条の3第1項（所得割の非課税）", quote: "一を加えた数を乗じて得た金額に十万円を加算した金額"}
       - {type: "web", url: "https://www.soumu.go.jp/main_content/001007020.pdf", retrievedAt: "2026-10-08", sha256: "e1d94493ebf7706d7dc10a00d17eae73c30a8f94b3ba8148e48449ad4a5482c2", locator: "総務省資料（個人住民税の非課税限度額）", quote: "１を加えた数を乗じて得た金額に１０万円を加算した金額"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20210101_430AC0000000003?response_format=xml", retrievedAt: "2026-10-09", sha256: "fbeb9905e45ae931bf91f45e29d95813c7cbfa7fc0a64cb6649a8c78d99962c0", locator: "地方税法 附則第3条の3第1項（所得割の非課税）（e-Gov の2021-01-01施行の版。この文言が最初に現れた版）", quote: "一を加えた数を乗じて得た金額に十万円を加算した金額"}
       - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "条文と総務省の資料が一致（10万円。級地による違いは無い）。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "条文と総務省の資料が一致（10万円。級地による違いは無い）。施行日は、値を定める現行の文言が最初に現れた e-Gov の版（325AC0000000226_20210101_430AC0000000003（前の版 325AC0000000226_20201228_502AC0000000068 には無い））の施行日 2021-01-01（PR #4 と同じ決め方。文言の書き直しのことがあり、同じ値はそれより前からありうる）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2025-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: enacted
     jurisdiction: "national"
     conditions: []
@@ -16,7 +16,8 @@ entries:
       - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1145.htm", retrievedAt: "2026-10-08", sha256: "13e2dd00c0165c025f4269aaa712cf9cbac025695082e389e3746fff015e3bd2", locator: "地震保険料控除の金額の表 (1)・(2)両方がある場合", quote: "(1)、(2)それぞれの方法で計算した金額の合計額（最高50,000円）"}
       - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/nencho_all.pdf", retrievedAt: "2026-10-08", sha256: "4977299123ef22d2775eb9bbbe50a38de81821306fade726560697e568f4e933", locator: "26ページ・59ページの計算例", quote: "５４，４００円→５０，０００円（最高５０，０００円）"}
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 第77条第1項（地震保険料は5万円まで）", quote: "その金額が五万円を超える場合には五万円とする"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20170401_428AC0000000039?response_format=xml", retrievedAt: "2026-10-09", sha256: "a0a457fc3cd248f9f2abaa2866f1218bdc8171c30fb7a05c37a4cf2d2cffa074", locator: "所得税法 第77条第1項（地震保険料は5万円まで）（e-Gov の2017年4月1日の版）", quote: "その金額が五万円を超える場合には五万円とする"}
       - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "地震保険料と旧長期損害保険料の合計の上限5万円。値は原本の2経路で一致。施行日を原本で特定できていないため確認待ちのまま"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "地震保険料と旧長期損害保険料の合計の上限5万円。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（340AC0000000033_20170401_428AC0000000039）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）"}

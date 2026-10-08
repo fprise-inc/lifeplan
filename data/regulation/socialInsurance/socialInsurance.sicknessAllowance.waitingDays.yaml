@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -15,7 +15,8 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", locator: "健康保険法 第99条第1項", quote: "その労務に服することができなくなった日から起算して三日を経過した日から"}
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/benefit/injury_and_sickness_allowance/index.html", retrievedAt: "2026-10-08", sha256: "a1fba1a070803704b1fe03602a8031112e397ef01043a7831c2f72d074aaa930", locator: "協会けんぽ「病気やケガで会社を休んだとき（傷病手当金）」", quote: "連続して3日間(待期)の後、4日目以降の仕事に就けなかった日に対して支給されます"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20170401_427AC0000000031?response_format=xml", retrievedAt: "2026-10-09", sha256: "ce633df7c49779d737573896f34039991d562edd7c152dab42d5de3da6d73327", locator: "健康保険法 第99条第1項（e-Gov の2017年4月1日の版）", quote: "その労務に服することができなくなった日から起算して三日を経過した日から"}
       - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "条文と協会けんぽの説明が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "条文と協会けんぽの説明が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（211AC0000000070_20170401_427AC0000000031）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

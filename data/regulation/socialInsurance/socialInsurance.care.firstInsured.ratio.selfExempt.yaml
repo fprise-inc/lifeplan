@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2024-04-01"
     appliesTo: "2025-03-31"
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -18,14 +18,15 @@ entries:
       - {type: "web", url: "https://www.mhlw.go.jp/content/12300000/001576452.pdf", retrievedAt: "2026-10-08", sha256: "b69da88e5ff78925e33337ef69aee400fc33b5435a72dd15c23619172bfe96f4", locator: "厚生労働省 社会保障審議会介護保険部会資料「介護保険料等における基準額の調整」", quote: "公費軽減後の最終乗率"}
       - {type: "web", url: "https://www.mhlw.go.jp/content/12300000/001576452.pdf", retrievedAt: "2026-10-08", sha256: "b69da88e5ff78925e33337ef69aee400fc33b5435a72dd15c23619172bfe96f4", locator: "厚生労働省 社会保障審議会介護保険部会資料「介護保険料等における基準額の調整」", quote: "令和７年４月から基準を見直し、年金収入等80.9万円を基準として設定している"}
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "666ede0602c34022f4580976538c0f9ff0bf973c41cb852ff334303f6a5d6ec3", locator: "介護保険法施行令 第38条第1項第4号・第5号（標準割合）", quote: "四次のいずれかに該当する者十分の九"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20170401_428CO0000000300?response_format=xml", retrievedAt: "2026-10-09", sha256: "0a7ff970730856460af716a93030a1128e702cc94e62b8d72816ad822481446f", locator: "介護保険法施行令 第38条第1項第4号・第5号（標準割合）（e-Gov の2017年4月1日の版）", quote: "四次のいずれかに該当する者十分の九"}
       - {type: "law", lawNumber: "平成十年政令第四百十二号", egovRevisionId: "410CO0000000412_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "年金収入等の境目800,000円。第4・5段階の割合（9/10・10/10）は施行令の標準割合と厚生労働省の資料が一致。境目の改定時期（令和7年4月・令和8年4月）は厚生労働省の資料による。市町村の段階・割合は条例で違う。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "年金収入等の境目800,000円。第4・5段階の割合（9/10・10/10）は施行令の標準割合と厚生労働省の資料が一致。境目の改定時期（令和7年4月・令和8年4月）は厚生労働省の資料による。市町村の段階・割合は条例で違う。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（410CO0000000412_20170401_428CO0000000300）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2025-04-01"
     appliesTo: "2026-03-31"
-    enforcedOn: null
+    enforcedOn: "2025-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -37,14 +38,16 @@ entries:
       - {type: "web", url: "https://www.mhlw.go.jp/content/12300000/001576452.pdf", retrievedAt: "2026-10-08", sha256: "b69da88e5ff78925e33337ef69aee400fc33b5435a72dd15c23619172bfe96f4", locator: "厚生労働省 社会保障審議会介護保険部会資料「介護保険料等における基準額の調整」", quote: "令和７年４月から基準を見直し、年金収入等80.9万円を基準として設定している"}
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "666ede0602c34022f4580976538c0f9ff0bf973c41cb852ff334303f6a5d6ec3", locator: "介護保険法施行令 第38条第1項第4号・第5号（標準割合）", quote: "四次のいずれかに該当する者十分の九"}
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20250801_507CO0000000203?response_format=xml", retrievedAt: "2026-10-08", sha256: "19e5ddf8e9d3cce15af425bb5d3b55380be28997be20476c2d80df7c7eae1ba2", locator: "介護保険法施行令 第38条第1項（令和7年8月1日の版）", quote: "合計額が八十万九千円以下であり"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20170401_428CO0000000300?response_format=xml", retrievedAt: "2026-10-09", sha256: "0a7ff970730856460af716a93030a1128e702cc94e62b8d72816ad822481446f", locator: "介護保険法施行令 第38条第1項第4号・第5号（標準割合）（e-Gov の2017年4月1日の版）", quote: "四次のいずれかに該当する者十分の九"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20250401_507CO0000000011?response_format=xml", retrievedAt: "2026-10-09", sha256: "7a379ac12db41319c2b829aa970bc851dda820b26db4ccaf158183650b4874a7", locator: "介護保険法施行令 第38条第1項（e-Gov の2025-04-01施行の版。この文言が最初に現れた版）", quote: "合計額が八十万九千円以下であり"}
       - {type: "law", lawNumber: "平成十年政令第四百十二号", egovRevisionId: "410CO0000000412_20250801_507CO0000000203"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "年金収入等の境目809,000円。第4・5段階の割合（9/10・10/10）は施行令の標準割合と厚生労働省の資料が一致。境目の改定時期（令和7年4月・令和8年4月）は厚生労働省の資料による。市町村の段階・割合は条例で違う。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "年金収入等の境目809,000円。第4・5段階の割合（9/10・10/10）は施行令の標準割合と厚生労働省の資料が一致。境目の改定時期（令和7年4月・令和8年4月）は厚生労働省の資料による。市町村の段階・割合は条例で違う。施行日は、値を定める現行の文言が最初に現れた e-Gov の版（410CO0000000412_20250401_507CO0000000011（前の版 410CO0000000412_20240601_506CO0000000151 には無い））の施行日 2025-04-01（PR #4 と同じ決め方。文言の書き直しのことがあり、同じ値はそれより前からありうる）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 3
     appliesFrom: "2026-04-01"
     appliesTo: "2027-03-31"
-    enforcedOn: null
+    enforcedOn: "2026-04-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -56,7 +59,9 @@ entries:
       - {type: "web", url: "https://www.mhlw.go.jp/content/12300000/001576452.pdf", retrievedAt: "2026-10-08", sha256: "b69da88e5ff78925e33337ef69aee400fc33b5435a72dd15c23619172bfe96f4", locator: "厚生労働省 社会保障審議会介護保険部会資料「介護保険料等における基準額の調整」", quote: "年金収入等826,500円を基準にすることとする。（令和８年４月施行予定）"}
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "666ede0602c34022f4580976538c0f9ff0bf973c41cb852ff334303f6a5d6ec3", locator: "介護保険法施行令 第38条第1項第4号・第5号（標準割合）", quote: "四次のいずれかに該当する者十分の九"}
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20261001_508CO0000000274?response_format=xml", retrievedAt: "2026-10-08", sha256: "666ede0602c34022f4580976538c0f9ff0bf973c41cb852ff334303f6a5d6ec3", locator: "介護保険法施行令 第38条第1項（令和8年10月1日の版）", quote: "合計額が八十二万六千五百円以下であり"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20170401_428CO0000000300?response_format=xml", retrievedAt: "2026-10-09", sha256: "0a7ff970730856460af716a93030a1128e702cc94e62b8d72816ad822481446f", locator: "介護保険法施行令 第38条第1項第4号・第5号（標準割合）（e-Gov の2017年4月1日の版）", quote: "四次のいずれかに該当する者十分の九"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20260401_507CO0000000394?response_format=xml", retrievedAt: "2026-10-09", sha256: "808d14fe2a5ea448104f17abe2b36e044e0212ac2cd30f0fc12a6d70feeb277a", locator: "介護保険法施行令 第38条第1項（e-Gov の2026-04-01施行の版。この文言が最初に現れた版）", quote: "合計額が八十二万六千五百円以下であり"}
       - {type: "law", lawNumber: "平成十年政令第四百十二号", egovRevisionId: "410CO0000000412_20261001_508CO0000000274"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "年金収入等の境目826,500円。第4・5段階の割合（9/10・10/10）は施行令の標準割合と厚生労働省の資料が一致。境目の改定時期（令和7年4月・令和8年4月）は厚生労働省の資料による。市町村の段階・割合は条例で違う。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "年金収入等の境目826,500円。第4・5段階の割合（9/10・10/10）は施行令の標準割合と厚生労働省の資料が一致。境目の改定時期（令和7年4月・令和8年4月）は厚生労働省の資料による。市町村の段階・割合は条例で違う。施行日は、値を定める現行の文言が最初に現れた e-Gov の版（410CO0000000412_20260401_507CO0000000394（前の版 410CO0000000412_20260325_508CO0000000060 には無い））の施行日 2026-04-01（PR #4 と同じ決め方。文言の書き直しのことがあり、同じ値はそれより前からありうる）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2025-06-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -15,7 +15,8 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325CO0000000245_20260822_508CO0000000251?response_format=xml", retrievedAt: "2026-10-08", sha256: "dcad6b9cf9fe8ec5eb3e505486e5739b00e6471101ad3e1787418ef686d58ebe", locator: "地方税法施行令 第47条の3第1項（均等割の非課税の基準）", quote: "第一号の加算額として定める一定金額は、二十一万円を超えない範囲において"}
       - {type: "web", url: "https://www.city.edogawa.tokyo.jp/e013/kurashi/zeikin/juminzei/zei_gaiyo/hikazei.html", retrievedAt: "2026-10-08", sha256: "abdb7c0b98d0a4d8ddf4c702667c020f29316b0b65370a1ba964e64d11090cd3", locator: "江戸川区「住民税が課税されない人」", quote: "35万円×（同一生計配偶者+扶養親族+1）+31万円"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325CO0000000245_20170401_429CO0000000118?response_format=xml", retrievedAt: "2026-10-09", sha256: "99b48d46b53f841450fc210ae268812db0a9415e5927c17f5d1c8d583df1a72a", locator: "地方税法施行令 第47条の3第1項（均等割の非課税の基準）（e-Gov の2017年4月1日の版）", quote: "第一号の加算額として定める一定金額は、二十一万円を超えない範囲において"}
       - {type: "law", lawNumber: "昭和二十五年政令第二百四十五号", egovRevisionId: "325CO0000000245_20260822_508CO0000000251"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "施行令（上限の額）と1級地の江戸川区の説明が一致（21万円（扶養がある場合の31万円＝21万円＋10万円））。級地ごとの率は総務省令で、1級地の値を既定にする。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "施行令（上限の額）と1級地の江戸川区の説明が一致（21万円（扶養がある場合の31万円＝21万円＋10万円））。級地ごとの率は総務省令で、1級地の値を既定にする。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（325CO0000000245_20170401_429CO0000000118）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

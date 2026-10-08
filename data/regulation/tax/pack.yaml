@@ -6,9 +6,11 @@
 # 2026.5.0: 「確認済み（reviewed）」を「公式の原本と2つの読み方で照らし合わせて一致した」と定め（0007 の追記）、reviewed の行に照らし合わせた者・道具・日（comparedBy・tools・comparedOn）を足した。
 #   値は原本の2経路で一致し施行日だけが分からなかった41行を、施行日「遅くとも2017年4月1日」（enforcedOn の notAfter）と reviewed にした（値は変えていない）。
 #   給与所得の表の区分の幅（incomeTax.employmentIncome.tableSteps）と住民税の分割金額の端数（residentTax.installment.*.rounding）を新しいファイルで足した（原本での確認待ち）
+# 2026.5.1: 値は原本の2経路で一致し施行日だけが分からなかった11行を reviewed にした（値は変えていない）。8行は notAfter（2017年4月1日の版に文言がある）、
+#   3行は値を定める現行の文言が最初に現れた版の施行日（2019-01-01・2021-01-01）。新しい値・期間は無いので訂正番号を上げた
 packId: regulation.tax
 formatVersion: "0.1"
-version: "2026.5.0"
+version: "2026.5.1"
 features: []
 title: 所得税・住民税
 requires:

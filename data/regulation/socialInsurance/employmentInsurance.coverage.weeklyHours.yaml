@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: "2028-09-30"
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -15,10 +15,11 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", retrievedAt: "2026-10-08", sha256: "69db3a60873d47999b6f5d4ad13e0b804eb87792ee84b5c0a89bda9b1f48dfdc", locator: "雇用保険法 第6条第1号", quote: "一週間の所定労働時間が二十時間未満である者"}
       - {type: "web", url: "https://www.mhlw.go.jp/content/11601000/001159861.pdf", retrievedAt: "2026-10-08", sha256: "f5982571fcc24b1c2e01238fb67d0db0e88a8422feb35045b13ca713eb8e0347", locator: "厚生労働省「雇用保険制度の概要」", quote: "「１週間の所定労働時間が２０時間未満である者」"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20170401_428AC0000000063?response_format=xml", retrievedAt: "2026-10-09", sha256: "6b8d12ec93da11852efe2ddb864bc61a7cd6637619348baf6fd5c8d67ec3d03a", locator: "雇用保険法 第6条第1号（e-Gov の2017年4月1日の版）", quote: "一週間の所定労働時間が二十時間未満である者"}
       - {type: "law", lawNumber: "昭和四十九年法律第百十六号", egovRevisionId: "349AC0000000116_20260513_507AC0000000032"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "条文と厚生労働省の資料が一致。令和10年9月まで。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "条文と厚生労働省の資料が一致。令和10年9月まで。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（349AC0000000116_20170401_428AC0000000063）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2028-10-01"
     appliesTo: null

@@ -8,7 +8,7 @@ entries:
   - rev: 1
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -16,7 +16,8 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第44条第1項", quote: "その者によつて生計を維持していたその者の六十五歳未満の配偶者"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」加給年金額の表", quote: "65歳未満であること"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 第44条第1項（e-Gov の2017年4月1日の版）", quote: "その者によつて生計を維持していたその者の六十五歳未満の配偶者"}
       - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "条文と日本年金機構の表が一致（加算しないのは65歳に達した月の翌月から: 44条4項4号）。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "条文と日本年金機構の表が一致（加算しないのは65歳に達した月の翌月から: 44条4項4号）。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（329AC0000000115_20170401_424AC0000000062）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

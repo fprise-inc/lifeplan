@@ -1,0 +1,71 @@
+id: pension.supplementaryBenefit.supplementaryIncomeLimit
+title: 補足的老齢年金生活者支援給付金の補足的所得基準額（前年の公的年金等の収入金額＋その他の所得。10月から翌年9月）
+unit: JPY
+kind: constant
+basis: {type: "fiscalYear", startMonth: 10}
+linkage: indexed
+entries:
+  - rev: 1
+    appliesFrom: "2025-10-01"
+    appliesTo: "2026-09-30"
+    enforcedOn: "2025-10-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1956-04-02", to: null}
+    value: 909000
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/430CO0000000364_20251001_507CO0000000253?response_format=xml", retrievedAt: "2026-10-08", sha256: "ac58b84174714d3ba468b05269599fea481a21faf565911d7d356075e2d0f219", locator: "年金生活者支援給付金の支給に関する法律施行令 第6条（補足的所得基準額）", quote: "同月二日以後に生まれた者については九十万九千円とする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/keisan.html", retrievedAt: "2026-10-08", sha256: "96c54a4c7228e30e83f39e6b6abff90958e9ab0718e12ef058034888de7b4622", locator: "日本年金機構「年金生活者支援給付金の改定通知書の計算」", quote: "809,000円を超え909,000円以下（昭和31年4月1日以前生まれの方は806,700円を超え906,700円以下）"}
+      - {type: "law", lawNumber: "平成三十年政令第三百六十四号", egovRevisionId: "430CO0000000364_20251001_507CO0000000253"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和31年4月2日以後生まれ。施行令6条（法10条1項の政令で定める額）と日本年金機構の資料（改定通知書の計算の説明）が一致。所得基準額（pension.supplementaryBenefit.incomeLimit）との差は10万円（調整支給率の分母）。施行日は、この額が最初に現れた施行令の版（430CO0000000364_20251001_507CO0000000235。前の版 430CO0000000364_20250401_507CO0000000086 には無い）の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+  - rev: 2
+    appliesFrom: "2025-10-01"
+    appliesTo: "2026-09-30"
+    enforcedOn: "2025-10-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: null, to: "1956-04-01"}
+    value: 906700
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/430CO0000000364_20251001_507CO0000000253?response_format=xml", retrievedAt: "2026-10-08", sha256: "ac58b84174714d3ba468b05269599fea481a21faf565911d7d356075e2d0f219", locator: "年金生活者支援給付金の支給に関する法律施行令 第6条（補足的所得基準額）", quote: "昭和三十一年四月一日以前に生まれた者については九十万六千七百円とし"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/keisan.html", retrievedAt: "2026-10-08", sha256: "96c54a4c7228e30e83f39e6b6abff90958e9ab0718e12ef058034888de7b4622", locator: "日本年金機構「年金生活者支援給付金の改定通知書の計算」", quote: "809,000円を超え909,000円以下（昭和31年4月1日以前生まれの方は806,700円を超え906,700円以下）"}
+      - {type: "law", lawNumber: "平成三十年政令第三百六十四号", egovRevisionId: "430CO0000000364_20251001_507CO0000000253"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和31年4月1日以前生まれ。施行令6条（法10条1項の政令で定める額）と日本年金機構の資料（改定通知書の計算の説明）が一致。所得基準額（pension.supplementaryBenefit.incomeLimit）との差は10万円（調整支給率の分母）。施行日は、この額が最初に現れた施行令の版（430CO0000000364_20251001_507CO0000000235。前の版 430CO0000000364_20250401_507CO0000000086 には無い）の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+  - rev: 3
+    appliesFrom: "2026-10-01"
+    appliesTo: "2027-09-30"
+    enforcedOn: "2026-10-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1956-04-02", to: null}
+    value: 926500
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/430CO0000000364_20261001_508CO0000000225?response_format=xml", retrievedAt: "2026-10-08", sha256: "f8db076b5be3367566f82015a8b190c814310441d8953e7668cff6f08540fe85", locator: "年金生活者支援給付金の支給に関する法律施行令 第6条（補足的所得基準額）", quote: "同月二日以後に生まれた者については九十二万六千五百円とする"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/sonota-kyufu/shienkyufukin/seikyu/roureikiso.files/leaflet1.pdf", retrievedAt: "2026-10-08", sha256: "f1e19f4a3031e30748e6c97dc7e0b03965b053365f2ac0903bf07d30e1eebe66", locator: "日本年金機構 リーフレット（老齢年金生活者支援給付金）", quote: "826,500円以下826,500円を超え926,500円以下824,100円以下824,100円を超え924,100円以下"}
+      - {type: "law", lawNumber: "平成三十年政令第三百六十四号", egovRevisionId: "430CO0000000364_20261001_508CO0000000225"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和31年4月2日以後生まれ。施行令6条（法10条1項の政令で定める額）と日本年金機構の資料（リーフレット）が一致。所得基準額（pension.supplementaryBenefit.incomeLimit）との差は10万円（調整支給率の分母）。施行日は、この額が最初に現れた施行令の版（430CO0000000364_20261001_508CO0000000225。前の版 430CO0000000364_20260401_508CO0000000057 には無い）の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+  - rev: 4
+    appliesFrom: "2026-10-01"
+    appliesTo: "2027-09-30"
+    enforcedOn: "2026-10-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: null, to: "1956-04-01"}
+    value: 924100
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/430CO0000000364_20261001_508CO0000000225?response_format=xml", retrievedAt: "2026-10-08", sha256: "f8db076b5be3367566f82015a8b190c814310441d8953e7668cff6f08540fe85", locator: "年金生活者支援給付金の支給に関する法律施行令 第6条（補足的所得基準額）", quote: "昭和三十一年四月一日以前に生まれた者については九十二万四千百円とし"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/sonota-kyufu/shienkyufukin/seikyu/roureikiso.files/leaflet1.pdf", retrievedAt: "2026-10-08", sha256: "f1e19f4a3031e30748e6c97dc7e0b03965b053365f2ac0903bf07d30e1eebe66", locator: "日本年金機構 リーフレット（老齢年金生活者支援給付金）", quote: "826,500円以下826,500円を超え926,500円以下824,100円以下824,100円を超え924,100円以下"}
+      - {type: "law", lawNumber: "平成三十年政令第三百六十四号", egovRevisionId: "430CO0000000364_20261001_508CO0000000225"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和31年4月1日以前生まれ。施行令6条（法10条1項の政令で定める額）と日本年金機構の資料（リーフレット）が一致。所得基準額（pension.supplementaryBenefit.incomeLimit）との差は10万円（調整支給率の分母）。施行日は、この額が最初に現れた施行令の版（430CO0000000364_20261001_508CO0000000225。前の版 430CO0000000364_20260401_508CO0000000057 には無い）の施行日。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

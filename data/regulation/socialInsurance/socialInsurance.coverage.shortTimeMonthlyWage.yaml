@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: "2026-09-30"
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -15,10 +15,11 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20260801_508AC0000000031?response_format=xml", retrievedAt: "2026-10-08", sha256: "81a201117fddc396088fbfda5046cc99b0f5445be4658b3aa0e7ba83dcd6ac7b", locator: "健康保険法 第3条第1項第9号（令和8年8月1日の版。撤廃前）", quote: "八万八千円未満であること"}
       - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001505993.pdf", retrievedAt: "2026-10-08", sha256: "bbc9d8f7963479fb3f3785948d8ae0cb002687d08847ac8c4385d2f5f4793838", locator: "厚生労働省「年金制度改正法の概要」適用拡大", quote: "①賃金が月額8.8万円（年収106万円相当）以上"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20170401_428AC0000000114?response_format=xml", retrievedAt: "2026-10-09", sha256: "f454e47a420ecdca187b132f233fc7a74e7e53f1a1418a2b4511072d5707c7a6", locator: "健康保険法 第3条第1項第9号（e-Gov の2017年4月1日の版）", quote: "八万八千円未満であること"}
       - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20260801_508AC0000000031"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "撤廃前の条文と厚生労働省の資料が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "撤廃前の条文と厚生労働省の資料が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（211AC0000000070_20170401_428AC0000000114）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2026-10-01"
     appliesTo: null

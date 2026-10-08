@@ -530,6 +530,30 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.formerAmount.accrualRate.post2003
+    status: active
+    label: "従前額保障の報酬比例の乗率（平成15年4月以後の期間。生年月日による）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.formerAmount.accrualRate.pre2003
+    status: active
+    label: "従前額保障の報酬比例の乗率（平成15年3月以前の期間。生年月日による）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.formerAmount.revaluationRate
+    status: active
+    label: "従前額保障の再評価率（平成12年改正法附則別表第一。報酬の期間ごと。生年月日の区分は無い）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.formerAmount.revisionRate
+    status: active
+    label: "従前額改定率（平成12年改正法附則21条1項・2項。昭和13年4月1日以前生まれと4月2日以後生まれ）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.normalStartAge
     status: active
     label: "老齢基礎年金・老齢厚生年金の受給を始める年齢（65歳に達した月の翌月から）"
@@ -545,6 +569,12 @@ entries:
   - id: pension.qualifyingMonths
     status: active
     label: "老齢年金の受給資格期間（10年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.revaluationRate
+    status: active
+    label: "再評価率（厚生年金の報酬の月を、その年度の水準に直す率。生年月日の区分×報酬の期間）"
     since: draft
     aliases: []
     replacedBy: null
@@ -605,6 +635,12 @@ entries:
   - id: pension.supplementaryBenefit.incomeLimit
     status: active
     label: "年金生活者支援給付金（老齢）の所得基準額（前年の公的年金等の収入金額＋その他の所得。10月から翌年9月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.supplementaryBenefit.supplementaryIncomeLimit
+    status: active
+    label: "補足的老齢年金生活者支援給付金の補足的所得基準額（前年の公的年金等の収入金額＋その他の所得。10月から翌年9月）"
     since: draft
     aliases: []
     replacedBy: null
