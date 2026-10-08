@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2025-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2021-01-01"
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -16,7 +16,9 @@ entries:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/333CO0000000362_20260801_508CO0000000240?response_format=xml", retrievedAt: "2026-10-08", sha256: "41e7dffd51eedd191464031e1e88e71ec62744e32f50ecabdd72ee4d503d0cfa", locator: "国民健康保険法施行令 第29条の7第6項", quote: "地方税法第三百十四条の二第二項第一号に定める金額"}
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の2第2項第1号", quote: "四十三万円"}
       - {type: "web", url: "https://www.city.koto.lg.jp/250102/keigen.html", retrievedAt: "2026-10-08", sha256: "c18d29e0df15fc2e997a8dad0b8b6270afba197d18d947c50fe48475987dcc0a", locator: "江東区「国民健康保険料の減額」", quote: "7割減額43万円（注）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/333CO0000000362_20210101_502CO0000000270?response_format=xml", retrievedAt: "2026-10-09", sha256: "d6e4ce72ff593be94b7ab0098d4cb241d1ecbba9f5776b6aeb74be6bda5c4bea", locator: "国民健康保険法施行令 第29条の7第6項（e-Gov の2021-01-01施行の版。この文言が最初に現れた版）", quote: "地方税法第三百十四条の二第二項第一号に定める金額"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20210101_430AC0000000003?response_format=xml", retrievedAt: "2026-10-09", sha256: "fbeb9905e45ae931bf91f45e29d95813c7cbfa7fc0a64cb6649a8c78d99962c0", locator: "地方税法 第314条の2第2項第1号（e-Gov の2021-01-01施行の版。この文言が最初に現れた版）", quote: "四十三万円"}
       - {type: "law", lawNumber: "昭和三十三年政令第三百六十二号", egovRevisionId: "333CO0000000362_20260801_508CO0000000240"}
     recordedIn: "2026.4.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "施行令の「地方税法314条の2第2項第1号に定める金額」（43万円）と江東区の説明が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "施行令の「地方税法314条の2第2項第1号に定める金額」（43万円）と江東区の説明が一致。施行日は、値を定める現行の文言が最初に現れた e-Gov の版（325AC0000000226_20210101_430AC0000000003（前の版 325AC0000000226_20201228_502AC0000000068 には無い）・333CO0000000362_20210101_502CO0000000270（前の版 333CO0000000362_20201001_502CO0000000299 には無い））の施行日 2021-01-01（PR #4 と同じ決め方。文言の書き直しのことがあり、同じ値はそれより前からありうる）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

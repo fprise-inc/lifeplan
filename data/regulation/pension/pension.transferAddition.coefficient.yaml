@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -16,14 +16,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 附則（昭和60年法律第34号）第14条第1項", quote: "大正十五年四月二日から昭和四十一年四月一日までの間に生まれた者であつて"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の対象者", quote: "大正15年4月2日から昭和41年4月1日までの間に生まれていること"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20170401_429AC0000000004?response_format=xml", retrievedAt: "2026-10-09", sha256: "5d079346916b55d497c4d776284742a3b1eb41302945fb1170271e9fcaee38dc", locator: "国民年金法 附則（昭和60年法律第34号）第14条第1項（e-Gov の2017年4月1日の版）", quote: "大正十五年四月二日から昭和四十一年四月一日までの間に生まれた者であつて"}
       - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "大正15年4月1日以前生まれは対象外。条文と日本年金機構の説明が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "大正15年4月1日以前生まれは対象外。条文と日本年金機構の説明が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（334AC0000000141_20170401_429AC0000000004）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 2
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -32,14 +33,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "大正十五年四月二日から昭和二年四月一日までの間に生まれた者一・〇〇〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和2年4月1日まで1.000"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "大正十五年四月二日から昭和二年四月一日までの間に生まれた者一・〇〇〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 3
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -48,14 +50,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和二年四月二日から昭和三年四月一日までの間に生まれた者〇・九七三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和2年4月2日から昭和3年4月1日0.973"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和二年四月二日から昭和三年四月一日までの間に生まれた者〇・九七三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 4
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -64,14 +67,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和三年四月二日から昭和四年四月一日までの間に生まれた者〇・九四七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和3年4月2日から昭和4年4月1日0.947"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和三年四月二日から昭和四年四月一日までの間に生まれた者〇・九四七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 5
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -80,14 +84,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和四年四月二日から昭和五年四月一日までの間に生まれた者〇・九二〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和4年4月2日から昭和5年4月1日0.920"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和四年四月二日から昭和五年四月一日までの間に生まれた者〇・九二〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 6
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -96,14 +101,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和五年四月二日から昭和六年四月一日までの間に生まれた者〇・八九三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和5年4月2日から昭和6年4月1日0.893"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和五年四月二日から昭和六年四月一日までの間に生まれた者〇・八九三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 7
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -112,14 +118,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和六年四月二日から昭和七年四月一日までの間に生まれた者〇・八六七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和6年4月2日から昭和7年4月1日0.867"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和六年四月二日から昭和七年四月一日までの間に生まれた者〇・八六七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 8
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -128,14 +135,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和七年四月二日から昭和八年四月一日までの間に生まれた者〇・八四〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和7年4月2日から昭和8年4月1日0.840"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和七年四月二日から昭和八年四月一日までの間に生まれた者〇・八四〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 9
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -144,14 +152,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和八年四月二日から昭和九年四月一日までの間に生まれた者〇・八一三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和8年4月2日から昭和9年4月1日0.813"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和八年四月二日から昭和九年四月一日までの間に生まれた者〇・八一三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 10
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -160,14 +169,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和十二年四月二日から昭和十三年四月一日までの間に生まれた者〇・七〇七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和12年4月2日から昭和13年4月1日0.707"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和十二年四月二日から昭和十三年四月一日までの間に生まれた者〇・七〇七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 11
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -176,14 +186,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和十三年四月二日から昭和十四年四月一日までの間に生まれた者〇・六八〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和13年4月2日から昭和14年4月1日0.680"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和十三年四月二日から昭和十四年四月一日までの間に生まれた者〇・六八〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 12
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -192,14 +203,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和十四年四月二日から昭和十五年四月一日までの間に生まれた者〇・六五三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和14年4月2日から昭和15年4月1日0.653"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和十四年四月二日から昭和十五年四月一日までの間に生まれた者〇・六五三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 13
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -208,14 +220,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和十五年四月二日から昭和十六年四月一日までの間に生まれた者〇・六二七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和15年4月2日から昭和16年4月1日0.627"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和十五年四月二日から昭和十六年四月一日までの間に生まれた者〇・六二七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 14
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -224,14 +237,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和十六年四月二日から昭和十七年四月一日までの間に生まれた者〇・六〇〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和16年4月2日から昭和17年4月1日0.600"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和十六年四月二日から昭和十七年四月一日までの間に生まれた者〇・六〇〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 15
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -240,14 +254,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和十七年四月二日から昭和十八年四月一日までの間に生まれた者〇・五七三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和17年4月2日から昭和18年4月1日0.573"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和十七年四月二日から昭和十八年四月一日までの間に生まれた者〇・五七三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 16
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -256,14 +271,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和十八年四月二日から昭和十九年四月一日までの間に生まれた者〇・五四七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和18年4月2日から昭和19年4月1日0.547"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和十八年四月二日から昭和十九年四月一日までの間に生まれた者〇・五四七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 17
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -272,14 +288,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和十九年四月二日から昭和二十年四月一日までの間に生まれた者〇・五二〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和19年4月2日から昭和20年4月1日0.520"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和十九年四月二日から昭和二十年四月一日までの間に生まれた者〇・五二〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 18
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -288,14 +305,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和二十年四月二日から昭和二十一年四月一日までの間に生まれた者〇・四九三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和20年4月2日から昭和21年4月1日0.493"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和二十年四月二日から昭和二十一年四月一日までの間に生まれた者〇・四九三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 19
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -304,14 +322,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和二十一年四月二日から昭和二十二年四月一日までの間に生まれた者〇・四六七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和21年4月2日から昭和22年4月1日0.467"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和二十一年四月二日から昭和二十二年四月一日までの間に生まれた者〇・四六七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 20
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -320,14 +339,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和二十二年四月二日から昭和二十三年四月一日までの間に生まれた者〇・四四〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和22年4月2日から昭和23年4月1日0.440"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和二十二年四月二日から昭和二十三年四月一日までの間に生まれた者〇・四四〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 21
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -336,14 +356,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和二十三年四月二日から昭和二十四年四月一日までの間に生まれた者〇・四一三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和23年4月2日から昭和24年4月1日0.413"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和二十三年四月二日から昭和二十四年四月一日までの間に生まれた者〇・四一三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 22
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -352,14 +373,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和二十四年四月二日から昭和二十五年四月一日までの間に生まれた者〇・三八七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和24年4月2日から昭和25年4月1日0.387"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和二十四年四月二日から昭和二十五年四月一日までの間に生まれた者〇・三八七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 23
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -368,14 +390,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和二十五年四月二日から昭和二十六年四月一日までの間に生まれた者〇・三六〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和25年4月2日から昭和26年4月1日0.360"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和二十五年四月二日から昭和二十六年四月一日までの間に生まれた者〇・三六〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 24
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -384,14 +407,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和二十六年四月二日から昭和二十七年四月一日までの間に生まれた者〇・三三三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和26年4月2日から昭和27年4月1日0.333"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和二十六年四月二日から昭和二十七年四月一日までの間に生まれた者〇・三三三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 25
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -400,14 +424,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和二十七年四月二日から昭和二十八年四月一日までの間に生まれた者〇・三〇七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和27年4月2日から昭和28年4月1日0.307"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和二十七年四月二日から昭和二十八年四月一日までの間に生まれた者〇・三〇七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 26
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -416,14 +441,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和二十八年四月二日から昭和二十九年四月一日までの間に生まれた者〇・二八〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和28年4月2日から昭和29年4月1日0.280"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和二十八年四月二日から昭和二十九年四月一日までの間に生まれた者〇・二八〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 27
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -432,14 +458,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和二十九年四月二日から昭和三十年四月一日までの間に生まれた者〇・二五三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和29年4月2日から昭和30年4月1日0.253"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和二十九年四月二日から昭和三十年四月一日までの間に生まれた者〇・二五三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 28
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -448,14 +475,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和三十年四月二日から昭和三十一年四月一日までの間に生まれた者〇・二二七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和30年4月2日から昭和31年4月1日0.227"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和三十年四月二日から昭和三十一年四月一日までの間に生まれた者〇・二二七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 29
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -464,14 +492,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和三十一年四月二日から昭和三十二年四月一日までの間に生まれた者〇・二〇〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和31年4月2日から昭和32年4月1日0.200"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和三十一年四月二日から昭和三十二年四月一日までの間に生まれた者〇・二〇〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 30
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -480,14 +509,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和三十二年四月二日から昭和三十三年四月一日までの間に生まれた者〇・一七三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和32年4月2日から昭和33年4月1日0.173"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和三十二年四月二日から昭和三十三年四月一日までの間に生まれた者〇・一七三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 31
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -496,14 +526,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和三十三年四月二日から昭和三十四年四月一日までの間に生まれた者〇・一四七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和33年4月2日から昭和34年4月1日0.147"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和三十三年四月二日から昭和三十四年四月一日までの間に生まれた者〇・一四七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 32
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -512,14 +543,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和三十四年四月二日から昭和三十五年四月一日までの間に生まれた者〇・一二〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和34年4月2日から昭和35年4月1日0.120"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和三十四年四月二日から昭和三十五年四月一日までの間に生まれた者〇・一二〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 33
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -528,14 +560,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和三十五年四月二日から昭和三十六年四月一日までの間に生まれた者〇・〇九三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和35年4月2日から昭和36年4月1日0.093"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和三十五年四月二日から昭和三十六年四月一日までの間に生まれた者〇・〇九三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 34
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -544,14 +577,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和三十六年四月二日から昭和四十一年四月一日までの間に生まれた者〇・〇六七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和40年4月2日から昭和41年4月1日0.067"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和三十六年四月二日から昭和四十一年四月一日までの間に生まれた者〇・〇六七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 35
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -560,14 +594,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 附則（昭和60年法律第34号）第14条第1項", quote: "大正十五年四月二日から昭和四十一年四月一日までの間に生まれた者であつて"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和41年4月2日から---"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20170401_429AC0000000004?response_format=xml", retrievedAt: "2026-10-09", sha256: "5d079346916b55d497c4d776284742a3b1eb41302945fb1170271e9fcaee38dc", locator: "国民年金法 附則（昭和60年法律第34号）第14条第1項（e-Gov の2017年4月1日の版）", quote: "大正十五年四月二日から昭和四十一年四月一日までの間に生まれた者であつて"}
       - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "昭和41年4月2日以後生まれは対象外。条文と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和41年4月2日以後生まれは対象外。条文と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（334AC0000000141_20170401_429AC0000000004）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 36
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -576,14 +611,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和九年四月二日から昭和十年四月一日までの間に生まれた者〇・七八七"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和9年4月2日から昭和10年4月1日0.787"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和九年四月二日から昭和十年四月一日までの間に生まれた者〇・七八七"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "PR #5 で欠けていた区分。政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "PR #5 で欠けていた区分。政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 37
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -592,14 +628,15 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和十年四月二日から昭和十一年四月一日までの間に生まれた者〇・七六〇"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和10年4月2日から昭和11年4月1日0.760"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和十年四月二日から昭和十一年四月一日までの間に生まれた者〇・七六〇"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "PR #5 で欠けていた区分。政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "PR #5 で欠けていた区分。政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
   - rev: 38
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions:
@@ -608,7 +645,8 @@ entries:
     sources:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20261001_508CO0000000276?response_format=xml", retrievedAt: "2026-10-08", sha256: "945eef47daf0cb2403f4392e6638741e5d2b6f397cc0fd8a25365a2c976fb4cd", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表", quote: "昭和十一年四月二日から昭和十二年四月一日までの間に生まれた者〇・七三三"}
       - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", sha256: "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", locator: "日本年金機構「加給年金額と振替加算」振替加算の額", quote: "昭和11年4月2日から昭和12年4月1日0.733"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/361CO0000000054_20170401_429CO0000000100?response_format=xml", retrievedAt: "2026-10-09", sha256: "3c4039720af51b3653a17928c6cf7789f83dfd93240d39b31c116f4f02c4973c", locator: "国民年金法等の一部を改正する法律の施行に伴う経過措置に関する政令 第24条の表（e-Gov の2017年4月1日の版）", quote: "昭和十一年四月二日から昭和十二年四月一日までの間に生まれた者〇・七三三"}
       - {type: "law", lawNumber: "昭和六十一年政令第五十四号", egovRevisionId: "361CO0000000054_20261001_508CO0000000276"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "PR #5 で欠けていた区分。政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "PR #5 で欠けていた区分。政令の表と日本年金機構の表が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（361CO0000000054_20170401_429CO0000000100）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

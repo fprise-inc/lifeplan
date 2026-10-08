@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2004-04-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: "enacted"
     jurisdiction: "national"
     conditions: []
@@ -16,7 +16,9 @@ entries:
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", locator: "国民年金法 第27条", quote: "その額に五十円未満の端数が生じたときは、これを切り捨て、五十円以上百円未満の端数が生じたときは、これを百円に切り上げるものとする"}
       - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第44条第2項", quote: "二十二万四千七百円に国民年金法第二十七条に規定する改定率であつて同法第二十七条の三及び第二十七条の五の規定の適用がないものとして改定したもの"}
       - {type: "web", url: "https://www.mhlw.go.jp/file/06-Seisakujouhou-12500000-Nenkinkyoku/0000086600.pdf", retrievedAt: "2026-10-08", sha256: "e0ade998831bb4f9e388c9b728f27d898e12773360930cfea2a46dc494475edb", locator: "厚生労働省 年金の講義資料（老齢基礎年金の基本年金額）", quote: "780,900円に改定率を乗じて得た額の100円未満の端数を四捨五入した額となります"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20170401_429AC0000000004?response_format=xml", retrievedAt: "2026-10-09", sha256: "5d079346916b55d497c4d776284742a3b1eb41302945fb1170271e9fcaee38dc", locator: "国民年金法 第27条（e-Gov の2017年4月1日の版）", quote: "その額に五十円未満の端数が生じたときは、これを切り捨て、五十円以上百円未満の端数が生じたときは、これを百円に切り上げるものとする"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 第44条第2項（e-Gov の2017年4月1日の版）", quote: "二十二万四千七百円に国民年金法第二十七条に規定する改定率であつて同法第二十七条の三及び第二十七条の五の規定の適用がないものとして改定したもの"}
       - {type: "law", lawNumber: "昭和三十四年法律第百四十一号", egovRevisionId: "334AC0000000141_20261001_507AC0000000074"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "条文（国民年金法27条・厚生年金保険法44条2項・昭和60年改正法附則14条・60条も同じ端数処理）と厚生労働省の資料が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "条文（国民年金法27条・厚生年金保険法44条2項・昭和60年改正法附則14条・60条も同じ端数処理）と厚生労働省の資料が一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、2017年4月1日の版（329AC0000000115_20170401_424AC0000000062・334AC0000000141_20170401_429AC0000000004）に値を定める文言（同じ引用）があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

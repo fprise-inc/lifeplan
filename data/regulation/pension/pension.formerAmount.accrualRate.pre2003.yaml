@@ -1,0 +1,406 @@
+# 従前額保障（平成12年改正法附則21条）に使う値。計算部品はまだ無い（値だけを入れた）
+id: pension.formerAmount.accrualRate.pre2003
+title: 従前額保障の報酬比例の乗率（平成15年3月以前の期間。生年月日による）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: null, to: "1927-04-01"}
+    value: "0.01"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "大正十五年四月二日から昭和二年四月一日までの間に生まれた者千分の十"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "平成十二年度、平成十四年度及び平成十五年度の国民年金制度及び厚生年金保険制度の改正に伴う経過措置に関する政令 第18条（旧厚生年金保険法による年金の額の規定の読替え）", quote: "平均標準報酬月額（旧厚生年金保険法第三十四条第一項第二号に規定する平均標準報酬月額をいう。）の千分の十"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和二年四月一日以前に生まれた者千分の七・六九二"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和2年4月1日以前生まれは千分の1E+1。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（1E+1÷1.3を小数3桁に四捨五入すると政令の7.692）。日本年金機構の表（画像）とも一致（目視）。制定法律の表は大正15年4月2日〜昭和2年4月1日生まれからで、大正15年4月1日以前生まれ（旧法の年金）は経過措置政令18条の読替えで千分の十（機構の表も「〜昭和2年4月1日」で10.000）なので、1つの行にした。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 2
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1927-04-02", to: "1928-04-01"}
+    value: "0.00986"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和二年四月二日から昭和三年四月一日までの間に生まれた者千分の九・八六"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和二年四月二日から昭和三年四月一日までの間に生まれた者千分の七・五八五"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和2年4月2日〜昭和3年4月1日生まれは千分の9.86。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（9.86÷1.3を小数3桁に四捨五入すると政令の7.585）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 3
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1928-04-02", to: "1929-04-01"}
+    value: "0.00972"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和三年四月二日から昭和四年四月一日までの間に生まれた者千分の九・七二"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和三年四月二日から昭和四年四月一日までの間に生まれた者千分の七・四七七"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和3年4月2日〜昭和4年4月1日生まれは千分の9.72。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（9.72÷1.3を小数3桁に四捨五入すると政令の7.477）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 4
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1929-04-02", to: "1930-04-01"}
+    value: "0.00958"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和四年四月二日から昭和五年四月一日までの間に生まれた者千分の九・五八"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和四年四月二日から昭和五年四月一日までの間に生まれた者千分の七・三六九"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和4年4月2日〜昭和5年4月1日生まれは千分の9.58。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（9.58÷1.3を小数3桁に四捨五入すると政令の7.369）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 5
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1930-04-02", to: "1931-04-01"}
+    value: "0.00944"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和五年四月二日から昭和六年四月一日までの間に生まれた者千分の九・四四"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和五年四月二日から昭和六年四月一日までの間に生まれた者千分の七・二六二"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和5年4月2日〜昭和6年4月1日生まれは千分の9.44。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（9.44÷1.3を小数3桁に四捨五入すると政令の7.262）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 6
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1931-04-02", to: "1932-04-01"}
+    value: "0.00931"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和六年四月二日から昭和七年四月一日までの間に生まれた者千分の九・三一"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和六年四月二日から昭和七年四月一日までの間に生まれた者千分の七・一六二"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和6年4月2日〜昭和7年4月1日生まれは千分の9.31。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（9.31÷1.3を小数3桁に四捨五入すると政令の7.162）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 7
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1932-04-02", to: "1933-04-01"}
+    value: "0.00917"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和七年四月二日から昭和八年四月一日までの間に生まれた者千分の九・一七"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和七年四月二日から昭和八年四月一日までの間に生まれた者千分の七・〇五四"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和7年4月2日〜昭和8年4月1日生まれは千分の9.17。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（9.17÷1.3を小数3桁に四捨五入すると政令の7.054）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 8
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1933-04-02", to: "1934-04-01"}
+    value: "0.00904"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和八年四月二日から昭和九年四月一日までの間に生まれた者千分の九・〇四"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和八年四月二日から昭和九年四月一日までの間に生まれた者千分の六・九五四"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和8年4月2日〜昭和9年4月1日生まれは千分の9.04。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（9.04÷1.3を小数3桁に四捨五入すると政令の6.954）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 9
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1934-04-02", to: "1935-04-01"}
+    value: "0.00891"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和九年四月二日から昭和十年四月一日までの間に生まれた者千分の八・九一"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和九年四月二日から昭和十年四月一日までの間に生まれた者千分の六・八五四"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和9年4月2日〜昭和10年4月1日生まれは千分の8.91。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（8.91÷1.3を小数3桁に四捨五入すると政令の6.854）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 10
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1935-04-02", to: "1936-04-01"}
+    value: "0.00879"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和十年四月二日から昭和十一年四月一日までの間に生まれた者千分の八・七九"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和十年四月二日から昭和十一年四月一日までの間に生まれた者千分の六・七六二"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和10年4月2日〜昭和11年4月1日生まれは千分の8.79。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（8.79÷1.3を小数3桁に四捨五入すると政令の6.762）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 11
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1936-04-02", to: "1937-04-01"}
+    value: "0.00866"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和十一年四月二日から昭和十二年四月一日までの間に生まれた者千分の八・六六"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和十一年四月二日から昭和十二年四月一日までの間に生まれた者千分の六・六六二"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和11年4月2日〜昭和12年4月1日生まれは千分の8.66。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（8.66÷1.3を小数3桁に四捨五入すると政令の6.662）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 12
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1937-04-02", to: "1938-04-01"}
+    value: "0.00854"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和十二年四月二日から昭和十三年四月一日までの間に生まれた者千分の八・五四"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和十二年四月二日から昭和十三年四月一日までの間に生まれた者千分の六・五六九"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和12年4月2日〜昭和13年4月1日生まれは千分の8.54。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（8.54÷1.3を小数3桁に四捨五入すると政令の6.569）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 13
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1938-04-02", to: "1939-04-01"}
+    value: "0.00841"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和十三年四月二日から昭和十四年四月一日までの間に生まれた者千分の八・四一"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和十三年四月二日から昭和十四年四月一日までの間に生まれた者千分の六・四六九"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和13年4月2日〜昭和14年4月1日生まれは千分の8.41。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（8.41÷1.3を小数3桁に四捨五入すると政令の6.469）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 14
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1939-04-02", to: "1940-04-01"}
+    value: "0.00829"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和十四年四月二日から昭和十五年四月一日までの間に生まれた者千分の八・二九"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和十四年四月二日から昭和十五年四月一日までの間に生まれた者千分の六・三七七"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和14年4月2日〜昭和15年4月1日生まれは千分の8.29。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（8.29÷1.3を小数3桁に四捨五入すると政令の6.377）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 15
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1940-04-02", to: "1941-04-01"}
+    value: "0.00818"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和十五年四月二日から昭和十六年四月一日までの間に生まれた者千分の八・一八"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和十五年四月二日から昭和十六年四月一日までの間に生まれた者千分の六・二九二"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和15年4月2日〜昭和16年4月1日生まれは千分の8.18。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（8.18÷1.3を小数3桁に四捨五入すると政令の6.292）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 16
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1941-04-02", to: "1942-04-01"}
+    value: "0.00806"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和十六年四月二日から昭和十七年四月一日までの間に生まれた者千分の八・〇六"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和十六年四月二日から昭和十七年四月一日までの間に生まれた者千分の六・二〇〇"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和16年4月2日〜昭和17年4月1日生まれは千分の8.06。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（8.06÷1.3を小数3桁に四捨五入すると政令の6.200）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 17
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1942-04-02", to: "1943-04-01"}
+    value: "0.00794"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和十七年四月二日から昭和十八年四月一日までの間に生まれた者千分の七・九四"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和十七年四月二日から昭和十八年四月一日までの間に生まれた者千分の六・一〇八"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和17年4月2日〜昭和18年4月1日生まれは千分の7.94。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（7.94÷1.3を小数3桁に四捨五入すると政令の6.108）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 18
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1943-04-02", to: "1944-04-01"}
+    value: "0.00783"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和十八年四月二日から昭和十九年四月一日までの間に生まれた者千分の七・八三"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和十八年四月二日から昭和十九年四月一日までの間に生まれた者千分の六・〇二三"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和18年4月2日〜昭和19年4月1日生まれは千分の7.83。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（7.83÷1.3を小数3桁に四捨五入すると政令の6.023）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 19
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1944-04-02", to: "1945-04-01"}
+    value: "0.00772"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和十九年四月二日から昭和二十年四月一日までの間に生まれた者千分の七・七二"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和十九年四月二日から昭和二十年四月一日までの間に生まれた者千分の五・九三八"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和19年4月2日〜昭和20年4月1日生まれは千分の7.72。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（7.72÷1.3を小数3桁に四捨五入すると政令の5.938）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 20
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1945-04-02", to: "1946-04-01"}
+    value: "0.00761"
+    sources:
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/10219850501034.htm", retrievedAt: "2026-10-09", sha256: "b42320de8aeb8c413c40a434daabd1242f41a412c87780b1a49ed1ae09233a14", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（昭和60年法律第34号）附則別表第七", quote: "昭和二十年四月二日から昭和二十一年四月一日までの間に生まれた者千分の七・六一"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/412CO0000000180_20151001_427CO0000000342?response_format=xml", retrievedAt: "2026-10-09", sha256: "1464617c62df4e61a6b49eacefb5f379c8354e80d8df0145ab883e58fc64e964", locator: "同政令 第21条（平成15年4月以後の期間の率。改正前の附則別表第七の率を1.3で除した率を基準とする）", quote: "昭和二十年四月二日から昭和二十一年四月一日までの間に生まれた者千分の五・八五四"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第7項（e-Gov の2017年4月1日の版）", quote: "附則別表第七の規定はなおその効力を有する"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "昭和六十年法律第三十四号"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和20年4月2日〜昭和21年4月1日生まれは千分の7.61。平成12年改正法附則21条7項で効力を残した改正前の昭和60年改正法附則別表第七の率で、衆議院の制定法律の本文（昭和60年法律第34号）の表と、経過措置政令（平成12年政令第180号）21条の平成15年4月以後の率（附則21条8項: 改正前の附則別表第七の率を1.3で除した率を基準）を1.3倍して戻した値が一致（7.61÷1.3を小数3桁に四捨五入すると政令の5.854）。日本年金機構の表（画像）とも一致（目視）。附則別表第七がその後（平成12年改正まで）に改正されていないことは、1.3で除した政令の率と全区分で一致することで確かめた。施行日は e-Gov の最初の版（2017年4月1日）の厚生年金保険法の附則21条7項に効力を残す文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
+  - rev: 21
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1946-04-02", to: null}
+    value: "0.0075"
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第1項第1号", quote: "一平成十五年四月一日前の被保険者であった期間の平均標準報酬月額の千分の七・五に相当する額に当該被保険者期間の月数を乗じて得た額"}
+      - {type: "web", url: "https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/housei/h147018.htm", retrievedAt: "2026-10-09", sha256: "cc1152e30b792a10999748b6cdbc31ec73fd7e44926b3bf8677e6a3e426714cd", locator: "衆議院 制定法律「国民年金法等の一部を改正する法律」（平成12年法律第18号）附則第21条第1項第1号", quote: "一平成十五年四月一日前の被保険者であった期間の平均標準報酬月額の千分の七・五に相当する額に当該被保険者期間の月数を乗じて得た額"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", retrievedAt: "2026-10-09", sha256: "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", locator: "厚生年金保険法 附則（平成12年法律第18号）第21条第1項第1号（e-Gov の2017年4月1日の版）", quote: "一平成十五年四月一日前の被保険者であった期間の平均標準報酬月額の千分の七・五に相当する額に当該被保険者期間の月数を乗じて得た額"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-01.files/hirei.pdf", retrievedAt: "2026-10-09", sha256: "1c50981e21f06b66393ed944236773e050615805b2903e874f4f0e00e760d58c", locator: "日本年金機構「報酬比例部分の乗率」（従前額保障の年金額計算に用いる報酬比例部分の乗率。画像の PDF で文字が無いため引用なし）"}
+      - {type: "law", lawNumber: "平成十二年法律第十八号"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-09", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の画像（公表資料。目視）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "昭和21年4月2日以後生まれは千分の7.5。e-Gov の厚生年金保険法の附則（平成12年改正法）21条1項1号と、衆議院の制定法律の本文（平成12年法律第18号）が一致。日本年金機構の表（画像）とも一致（目視）。施行日は e-Gov の最初の版（2017年4月1日）に同じ文言があるので遅くとも2017年4月1日（notAfter）。平成15年3月以前・4月以後の期間ごとの乗率で、従前額保障の額＝（平均標準報酬月額×従前の再評価率×この乗率×月数＋平均標準報酬額×従前の再評価率×4月以後の乗率×月数）×従前額改定率。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合。機構の表は画像なので目視）"}
