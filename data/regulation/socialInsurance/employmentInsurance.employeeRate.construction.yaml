@@ -17,7 +17,7 @@ entries:
       - {type: "web", url: "https://www.mhlw.go.jp/content/001692566.pdf", retrievedAt: "2026-10-08", sha256: "69ca914736d051ffa067464756500c2a8cf597186e9cf091b54512a68d3b1be9", locator: "令和8年度のご案内の（令和７年度）の行", quote: "（令和７年度） 6.5/1,000 11/1,000 6.5/1,000 4.5/1,000 17.5/1,000"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和7年度。労働者負担6.5/1,000"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和7年度。労働者負担6.5/1,000"}
   - rev: 2
     appliesFrom: "2026-04-01"
     appliesTo: null
@@ -31,4 +31,4 @@ entries:
       - {type: "web", url: "https://jsite.mhlw.go.jp/tokyo-hellowork/list/tachikawa/kyushokusha/koyouhokenryouritu08.html", retrievedAt: "2026-10-08", sha256: "767cccab50857330c1ee527365057519f8d7949210de26a31142f9fe1b60f7d3", locator: "ハローワーク立川 令和8年度の雇用保険料率", quote: "農林水産・清酒製造の事業及び建設の事業は6/1,000に変更になります"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和8年度。労働者負担6/1,000"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["PDF の本文（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和8年度。労働者負担6/1,000"}

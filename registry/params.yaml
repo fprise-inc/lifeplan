@@ -200,6 +200,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.employmentIncome.tableSteps
+    status: active
+    label: "給与所得の表（別表第五・措置法29条の4第2項）の区分の幅"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.employmentIncomeDeduction
     status: active
     label: "給与所得控除額（給与等の収入金額の段階。控除額＝収入×率＋額）"
@@ -803,6 +809,18 @@ entries:
   - id: residentTax.incomeLevy.rounding
     status: active
     label: "住民税の所得割額（市町村民税・道府県民税それぞれ）の100円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.installment.ordinary.rounding
+    status: active
+    label: "普通徴収の分割金額の1,000円未満の端数（最初の納期の分に合わせる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.installment.special.rounding
+    status: active
+    label: "特別徴収の分割金額の100円未満の端数（最初の納期の分に合わせる）"
     since: draft
     aliases: []
     replacedBy: null

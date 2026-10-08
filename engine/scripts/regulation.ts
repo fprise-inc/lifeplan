@@ -160,6 +160,9 @@ function checkValue(v: Obj, packVersion: string, fictional: boolean, where: stri
     for (const k of ["appliesFrom", "appliesTo", "enforcedOn"]) {
       if (typeof e[k] === "string" && !isValidDate(e[k] as string)) throw new DataError(`${w}: ${k} が暦にない日付です`);
     }
+    // 0007 の追記: 施行日が分からず「遅くともこの日には施行済み」だけが分かる行
+    const eo = e.enforcedOn;
+    if (eo !== null && typeof eo === "object" && !isValidDate((eo as Obj).notAfter as string)) throw new DataError(`${w}: enforcedOn.notAfter が暦にない日付です`);
     if (e.appliesTo !== null && compareDate(e.appliesFrom as string, e.appliesTo as string) > 0) {
       throw new DataError(`${w}: 適用開始が適用終了より後です`);
     }
@@ -176,6 +179,10 @@ function checkValue(v: Obj, packVersion: string, fictional: boolean, where: stri
     if (!fictional && e.approval === undefined) throw new DataError(`${w}: approval がありません`);
     if (e.enforcedOn === null && (e.approval as Obj | undefined)?.method !== "pendingReview") {
       throw new DataError(`${w}: 施行日（enforcedOn）を null にできるのは原本での確認待ち（pendingReview）の行だけです`);
+    }
+    // 0007 の追記: reviewed は公式の原本と照らし合わせたこと。原本の指紋（sha256）のある出典を持つ
+    if ((e.approval as Obj | undefined)?.method === "reviewed" && !sources.some((s) => typeof s.sha256 === "string")) {
+      throw new DataError(`${w}: reviewed の行は、原本の指紋（sha256）のある出典を持ちます`);
     }
     for (const c of e.conditions as Obj[]) {
       if (c.key === "birthDate") {

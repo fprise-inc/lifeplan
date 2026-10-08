@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2025-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: {notAfter: "2017-04-01"}
     status: enacted
     jurisdiction: "national"
     conditions: []
@@ -18,4 +18,4 @@ entries:
       - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "新旧の両方を払ったときの一般生命保険料控除の上限。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "新旧の両方を払ったときの一般生命保険料控除の上限。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、その最初の版に値を定める文言があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）"}

@@ -28,7 +28,7 @@ entries:
       - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "84条の2第1項の式（85万〜115万円は2倍した額を10万円刻み−8万円で切り捨て）から計算した表と、年末調整のしかた（令和7年分）の表が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "84条の2第1項の式（85万〜115万円は2倍した額を10万円刻み−8万円で切り捨て）から計算した表と、年末調整のしかた（令和7年分）の表が一致"}
   - rev: 2
     appliesFrom: "2026-01-01"
     appliesTo: null
@@ -54,4 +54,4 @@ entries:
       - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261201_508AC0000000012"}
     recordedIn: "2026.3.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和8年分以後。控除額の段は令和7年分と同じで、対象の下限が62万円超（扶養親族の所得の上限 incomeTax.dependentIncomeLimit）に変わっただけ。84条の2の式とタックスアンサー1177・改正のあらましの表が全段一致。施行日はタックスアンサー1177の注による"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和8年分以後。控除額の段は令和7年分と同じで、対象の下限が62万円超（扶養親族の所得の上限 incomeTax.dependentIncomeLimit）に変わっただけ。84条の2の式とタックスアンサー1177・改正のあらましの表が全段一致。施行日はタックスアンサー1177の注による"}

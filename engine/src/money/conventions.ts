@@ -16,12 +16,15 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.socialInsurance.remuneration": DOWN1,
   // 割り切れる計算（課税所得金額×税率など。端数は出ない）
   "conv.tax.exact": DOWN1,
+  // 給与所得の表（別表第五など）の区分の数（収入金額−段の下限）÷区分の幅（切り捨て。幅は制度データ）
+  "conv.tax.tableStep": DOWN1,
   // 年税額を支払月に分ける（端数は最後の月）
   "conv.tax.allocate": DOWN1,
   // 法令の端数処理を原本で確かめるまでの仮の規約（給与所得控除の10%の段・住民税の保険料控除の式。PR の一覧を参照）
   "conv.tax.fractionalDeduction": DOWN1,
-  // 住民税の年税額を納期に分ける仮の規約（端数は最初の納期。法令の端数の扱いは原本で確かめる前）
-  "conv.residentTax.installment": DOWN1,
+  // 住民税の所得割のうち公的年金等に係る分（所得の割合で分ける）と、年金から差し引く額の半分（最初の年度の普通徴収・仮徴収）。
+  // 納期ごとの分割の端数は制度の値（residentTax.installment.*.rounding。地方税法20条の4の2第6項）
+  "conv.residentTax.pensionShare": DOWN1,
   // 在職老齢年金の支給停止額の2分の1（円未満切り捨て。法令の端数の扱いは原本で確かめる前の仮の規約）
   "conv.pension.suspension": DOWN1,
   // 繰下げ待機中の在職停止額の平均（円未満切り捨て）

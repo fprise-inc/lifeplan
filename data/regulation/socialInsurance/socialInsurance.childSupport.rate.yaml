@@ -17,7 +17,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", sha256: "1c5abc10951aeb941267ce128cf802253498a52042ff35629a65f3cc7012328a", locator: "令和8年3月分からの保険料額表（東京支部）", quote: "子ども・子育て支援金率：令和8年4月分（5月納付分）～適用"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和8年3月分までは徴収なし（制度なしの行）。施行日は支援金の徴収が始まる日"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和8年3月分までは徴収なし（制度なしの行）。施行日は支援金の徴収が始まる日"}
   - rev: 2
     appliesFrom: "2026-04-01"
     appliesTo: null
@@ -32,4 +32,4 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", sha256: "1c5abc10951aeb941267ce128cf802253498a52042ff35629a65f3cc7012328a", locator: "令和8年3月分からの保険料額表（東京支部）", quote: "子ども・子育て支援金率：令和8年4月分（5月納付分）～適用"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "令和8年度の率0.23%（協会けんぽ）。令和9年度以後の率は未公表"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和8年度の率0.23%（協会けんぽ）。令和9年度以後の率は未公表"}

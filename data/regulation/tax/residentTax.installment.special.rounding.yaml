@@ -1,0 +1,21 @@
+# 地方税法20条の4の2第6項
+id: residentTax.installment.special.rounding
+title: 特別徴収の分割金額の100円未満の端数（最初の納期の分に合わせる）
+unit: rounding
+kind: rounding
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 100}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第20条の4の2第6項（分割して納付する金額の百円未満の端数は、最初の納期に係る分割金額に合算する）"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "PR #4 で原本から読んだ地方税法20条の4の2第6項（普通徴収は1,000円未満、特別徴収は100円未満の端数を最初の納期の分に合わせる）による。普通徴収で条例が100円未満とする市町村の扱いは入れていない。原本の条文と照らし合わせる前"}

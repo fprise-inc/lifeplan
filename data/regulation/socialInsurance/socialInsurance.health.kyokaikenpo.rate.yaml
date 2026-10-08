@@ -19,7 +19,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「北海道」の健康保険料率 10.31%", quote: "（北海道支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "北海道支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "北海道支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 2
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -34,7 +34,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「青森」の健康保険料率 9.85%", quote: "（青森支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "青森支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "青森支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 3
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -49,7 +49,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「岩手」の健康保険料率 9.62%", quote: "（岩手支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "岩手支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "岩手支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 4
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -64,7 +64,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「宮城」の健康保険料率 10.11%", quote: "（宮城支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "宮城支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "宮城支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 5
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -79,7 +79,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「秋田」の健康保険料率 10.01%", quote: "（秋田支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "秋田支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "秋田支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 6
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -94,7 +94,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「山形」の健康保険料率 9.75%", quote: "（山形支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "山形支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "山形支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 7
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -109,7 +109,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「福島」の健康保険料率 9.62%", quote: "（福島支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "福島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "福島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 8
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -124,7 +124,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「茨城」の健康保険料率 9.67%", quote: "（茨城支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "茨城支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "茨城支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 9
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -139,7 +139,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「栃木」の健康保険料率 9.82%", quote: "（栃木支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "栃木支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "栃木支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 10
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -154,7 +154,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「群馬」の健康保険料率 9.77%", quote: "（群馬支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "群馬支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "群馬支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 11
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -169,7 +169,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「埼玉」の健康保険料率 9.76%", quote: "（埼玉支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "埼玉支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "埼玉支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 12
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -184,7 +184,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「千葉」の健康保険料率 9.79%", quote: "（千葉支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "千葉支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "千葉支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 13
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -199,7 +199,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「東京」の健康保険料率 9.91%", quote: "（東京支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "東京支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "東京支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 14
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -214,7 +214,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「神奈川」の健康保険料率 9.92%", quote: "（神奈川支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "神奈川支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "神奈川支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 15
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -229,7 +229,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「新潟」の健康保険料率 9.55%", quote: "（新潟支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "新潟支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "新潟支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 16
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -244,7 +244,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「富山」の健康保険料率 9.65%", quote: "（富山支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "富山支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "富山支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 17
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -259,7 +259,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「石川」の健康保険料率 9.88%", quote: "（石川支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "石川支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "石川支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 18
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -274,7 +274,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「福井」の健康保険料率 9.94%", quote: "（福井支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "福井支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "福井支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 19
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -289,7 +289,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「山梨」の健康保険料率 9.89%", quote: "（山梨支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "山梨支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "山梨支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 20
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -304,7 +304,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「長野」の健康保険料率 9.69%", quote: "（長野支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "長野支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "長野支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 21
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -319,7 +319,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「岐阜」の健康保険料率 9.93%", quote: "（岐阜支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "岐阜支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "岐阜支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 22
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -334,7 +334,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「静岡」の健康保険料率 9.80%", quote: "（静岡支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "静岡支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "静岡支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 23
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -349,7 +349,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「愛知」の健康保険料率 10.03%", quote: "（愛知支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "愛知支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "愛知支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 24
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -364,7 +364,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「三重」の健康保険料率 9.99%", quote: "（三重支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "三重支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "三重支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 25
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -379,7 +379,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「滋賀」の健康保険料率 9.97%", quote: "（滋賀支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "滋賀支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "滋賀支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 26
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -394,7 +394,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「京都」の健康保険料率 10.03%", quote: "（京都支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "京都支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "京都支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 27
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -409,7 +409,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「大阪」の健康保険料率 10.24%", quote: "（大阪支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "大阪支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "大阪支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 28
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -424,7 +424,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「兵庫」の健康保険料率 10.16%", quote: "（兵庫支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "兵庫支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "兵庫支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 29
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -439,7 +439,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「奈良」の健康保険料率 10.02%", quote: "（奈良支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "奈良支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "奈良支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 30
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -454,7 +454,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「和歌山」の健康保険料率 10.19%", quote: "（和歌山支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "和歌山支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "和歌山支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 31
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -469,7 +469,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「鳥取」の健康保険料率 9.93%", quote: "（鳥取支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "鳥取支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "鳥取支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 32
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -484,7 +484,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「島根」の健康保険料率 9.94%", quote: "（島根支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "島根支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "島根支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 33
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -499,7 +499,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「岡山」の健康保険料率 10.17%", quote: "（岡山支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "岡山支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "岡山支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 34
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -514,7 +514,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「広島」の健康保険料率 9.97%", quote: "（広島支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "広島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "広島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 35
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -529,7 +529,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「山口」の健康保険料率 10.36%", quote: "（山口支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "山口支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "山口支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 36
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -544,7 +544,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「徳島」の健康保険料率 10.47%", quote: "（徳島支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "徳島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "徳島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 37
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -559,7 +559,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「香川」の健康保険料率 10.21%", quote: "（香川支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "香川支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "香川支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 38
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -574,7 +574,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「愛媛」の健康保険料率 10.18%", quote: "（愛媛支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "愛媛支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "愛媛支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 39
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -589,7 +589,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「高知」の健康保険料率 10.13%", quote: "（高知支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "高知支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "高知支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 40
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -604,7 +604,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「福岡」の健康保険料率 10.31%", quote: "（福岡支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "福岡支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "福岡支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 41
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -619,7 +619,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「佐賀」の健康保険料率 10.78%", quote: "（佐賀支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "佐賀支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "佐賀支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 42
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -634,7 +634,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「長崎」の健康保険料率 10.41%", quote: "（長崎支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "長崎支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "長崎支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 43
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -649,7 +649,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「熊本」の健康保険料率 10.12%", quote: "（熊本支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "熊本支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "熊本支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 44
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -664,7 +664,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「大分」の健康保険料率 10.25%", quote: "（大分支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "大分支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "大分支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 45
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -679,7 +679,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「宮崎」の健康保険料率 10.09%", quote: "（宮崎支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "宮崎支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "宮崎支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 46
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -694,7 +694,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「鹿児島」の健康保険料率 10.31%", quote: "（鹿児島支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "鹿児島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "鹿児島支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 47
     appliesFrom: "2025-03-01"
     appliesTo: null
@@ -709,7 +709,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r7ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "738000a0fd31dcfa45a3a78dcf3f38b5240960e79a28ad525fa8b70350318c4f", locator: "令和7年3月分からの保険料額表（全都道府県分）シート「沖縄」の健康保険料率 9.44%", quote: "（沖縄支部）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "沖縄支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "沖縄支部。令和7年度の料率のページ・令和8年度のページの前年度の列・令和7年度の保険料額表（Excel）が一致"}
   - rev: 48
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -723,7 +723,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「北海道」の健康保険料率 10.28%", quote: "（北海道支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "北海道支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "北海道支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 49
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -737,7 +737,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「青森」の健康保険料率 9.85%", quote: "（青森支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "青森支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "青森支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 50
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -751,7 +751,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「岩手」の健康保険料率 9.51%", quote: "（岩手支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "岩手支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "岩手支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 51
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -765,7 +765,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「宮城」の健康保険料率 10.10%", quote: "（宮城支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "宮城支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "宮城支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 52
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -779,7 +779,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「秋田」の健康保険料率 10.01%", quote: "（秋田支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "秋田支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "秋田支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 53
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -793,7 +793,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「山形」の健康保険料率 9.75%", quote: "（山形支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "山形支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "山形支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 54
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -807,7 +807,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「福島」の健康保険料率 9.50%", quote: "（福島支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "福島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "福島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 55
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -821,7 +821,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「茨城」の健康保険料率 9.52%", quote: "（茨城支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "茨城支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "茨城支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 56
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -835,7 +835,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「栃木」の健康保険料率 9.82%", quote: "（栃木支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "栃木支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "栃木支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 57
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -849,7 +849,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「群馬」の健康保険料率 9.68%", quote: "（群馬支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "群馬支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "群馬支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 58
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -863,7 +863,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「埼玉」の健康保険料率 9.67%", quote: "（埼玉支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "埼玉支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "埼玉支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 59
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -877,7 +877,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「千葉」の健康保険料率 9.73%", quote: "（千葉支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "千葉支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "千葉支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 60
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -891,7 +891,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「東京」の健康保険料率 9.85%", quote: "（東京支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "東京支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "東京支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 61
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -905,7 +905,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「神奈川」の健康保険料率 9.92%", quote: "（神奈川支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "神奈川支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "神奈川支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 62
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -919,7 +919,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「新潟」の健康保険料率 9.21%", quote: "（新潟支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "新潟支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "新潟支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 63
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -933,7 +933,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「富山」の健康保険料率 9.59%", quote: "（富山支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "富山支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "富山支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 64
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -947,7 +947,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「石川」の健康保険料率 9.70%", quote: "（石川支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "石川支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "石川支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 65
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -961,7 +961,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「福井」の健康保険料率 9.71%", quote: "（福井支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "福井支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "福井支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 66
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -975,7 +975,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「山梨」の健康保険料率 9.55%", quote: "（山梨支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "山梨支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "山梨支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 67
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -989,7 +989,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「長野」の健康保険料率 9.63%", quote: "（長野支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "長野支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "長野支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 68
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1003,7 +1003,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「岐阜」の健康保険料率 9.80%", quote: "（岐阜支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "岐阜支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "岐阜支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 69
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1017,7 +1017,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「静岡」の健康保険料率 9.61%", quote: "（静岡支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "静岡支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "静岡支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 70
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1031,7 +1031,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「愛知」の健康保険料率 9.93%", quote: "（愛知支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "愛知支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "愛知支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 71
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1045,7 +1045,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「三重」の健康保険料率 9.77%", quote: "（三重支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "三重支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "三重支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 72
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1059,7 +1059,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「滋賀」の健康保険料率 9.88%", quote: "（滋賀支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "滋賀支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "滋賀支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 73
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1073,7 +1073,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「京都」の健康保険料率 9.89%", quote: "（京都支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "京都支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "京都支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 74
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1087,7 +1087,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「大阪」の健康保険料率 10.13%", quote: "（大阪支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "大阪支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "大阪支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 75
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1101,7 +1101,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「兵庫」の健康保険料率 10.12%", quote: "（兵庫支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "兵庫支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "兵庫支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 76
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1115,7 +1115,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「奈良」の健康保険料率 9.91%", quote: "（奈良支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "奈良支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "奈良支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 77
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1129,7 +1129,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「和歌山」の健康保険料率 10.06%", quote: "（和歌山支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "和歌山支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "和歌山支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 78
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1143,7 +1143,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「鳥取」の健康保険料率 9.86%", quote: "（鳥取支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "鳥取支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "鳥取支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 79
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1157,7 +1157,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「島根」の健康保険料率 9.94%", quote: "（島根支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "島根支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "島根支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 80
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1171,7 +1171,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「岡山」の健康保険料率 10.05%", quote: "（岡山支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "岡山支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "岡山支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 81
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1185,7 +1185,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「広島」の健康保険料率 9.78%", quote: "（広島支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "広島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "広島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 82
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1199,7 +1199,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「山口」の健康保険料率 10.15%", quote: "（山口支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "山口支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "山口支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 83
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1213,7 +1213,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「徳島」の健康保険料率 10.24%", quote: "（徳島支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "徳島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "徳島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 84
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1227,7 +1227,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「香川」の健康保険料率 10.02%", quote: "（香川支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "香川支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "香川支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 85
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1241,7 +1241,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「愛媛」の健康保険料率 9.98%", quote: "（愛媛支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "愛媛支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "愛媛支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 86
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1255,7 +1255,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「高知」の健康保険料率 10.05%", quote: "（高知支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "高知支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "高知支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 87
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1269,7 +1269,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「福岡」の健康保険料率 10.11%", quote: "（福岡支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "福岡支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "福岡支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 88
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1283,7 +1283,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「佐賀」の健康保険料率 10.55%", quote: "（佐賀支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "佐賀支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "佐賀支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 89
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1297,7 +1297,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「長崎」の健康保険料率 10.06%", quote: "（長崎支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "長崎支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "長崎支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 90
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1311,7 +1311,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「熊本」の健康保険料率 10.08%", quote: "（熊本支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "熊本支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "熊本支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 91
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1325,7 +1325,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「大分」の健康保険料率 10.08%", quote: "（大分支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "大分支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "大分支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 92
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1339,7 +1339,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「宮崎」の健康保険料率 9.77%", quote: "（宮崎支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "宮崎支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "宮崎支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 93
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1353,7 +1353,7 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「鹿児島」の健康保険料率 10.13%", quote: "（鹿児島支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "鹿児島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "鹿児島支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
   - rev: 94
     appliesFrom: "2026-03-01"
     appliesTo: null
@@ -1367,4 +1367,4 @@ entries:
       - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "令和8年3月分からの保険料額表（全都道府県分）シート「沖縄」の健康保険料率 9.44%", quote: "（沖縄支部）"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "reviewed", paths: 2, note: "沖縄支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "沖縄支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}

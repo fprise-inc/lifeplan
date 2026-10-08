@@ -168,10 +168,11 @@ describe("所得税・住民税（手計算との突き合わせ）", () => {
     expect(total(flowsOf(r, "cf.taxSi.incomeTax", "2026-01", "2026-12"))).toBe(253900);
   });
 
-  it("住民税: 課税総所得 2,345,000、調整控除 2,500（5万円×5%）、所得割 市139,200・県92,800、均等割・森林環境税 5,000 → 6月〜翌5月の12回", () => {
+  it("住民税: 課税総所得 2,345,000、調整控除 2,500（5万円×5%）、所得割 市139,200・県92,800、均等割・森林環境税 5,000 → 6月〜翌5月の12回（100円未満の端数は6月）", () => {
     const fy2027 = r.flows.filter((f) => f.row === "cf.taxSi.residentTax" && f.accrualYear === 2026);
     expect(fy2027.map((f) => f.ym)).toEqual(["2027-06", "2027-07", "2027-08", "2027-09", "2027-10", "2027-11", "2027-12", "2028-01", "2028-02", "2028-03", "2028-04", "2028-05"]);
-    expect(fy2027.every((f) => f.amount === 19750)).toBe(true); // 237,000÷12
+    // 237,000÷12＝19,750。地方税法20条の4の2第6項: 特別徴収の分割金額の100円未満の端数（50円×12＝600円）は最初の納期（6月）の分に合わせる
+    expect(fy2027.map((f) => f.amount)).toEqual([20300, ...Array.from({ length: 11 }, () => 19700)]);
   });
 
   it("dataSet で古い版（2026.1.0）を選ぶと、版 2026.2.0 で足した2027年分の基礎控除の行を使わない", () => {
@@ -279,5 +280,23 @@ describe("住民税の徴収", () => {
     const fy = r.flows.filter((f) => f.row === "cf.taxSi.residentTax" && f.accrualYear === 2025);
     expect(fy).toHaveLength(12);
     expect(fy.every((f) => f.amount === 10000)).toBe(true);
+  });
+});
+
+describe("住民税の分割金額の端数（地方税法20条の4の2第6項）", () => {
+  it("普通徴収は1,000円未満、特別徴収は100円未満の端数を最初の納期の分に合わせる（全額が単位未満なら全額を最初の納期に）", () => {
+    const r = runEngine(
+      household({ baseMonth: "2026-01", endYear: 2027, members: [member("a", "self", "1980-01")], residentTaxAssessments: [
+        { id: uid("rta.o"), member: uid("a"), fiscalYear: 2026, amount: box(123456), collection: "ordinary" },
+        { id: uid("rta.s"), member: uid("a"), fiscalYear: 2027, amount: box(850), collection: "ordinary" },
+      ] }),
+      fictionalPacks(),
+      { checkInternal: true },
+    );
+    const of = (fy: number) => r.flows.filter((f) => f.row === "cf.taxSi.residentTax" && f.accrualYear === fy - 1).map((f) => [f.ym, f.amount]);
+    // 123,456÷4＝30,864 → 1,000円未満を切り捨てた30,000円ずつ、端数3,456円は6月へ
+    expect(of(2026)).toEqual([["2026-06", 33456], ["2026-08", 30000], ["2026-10", 30000], ["2027-01", 30000]]);
+    // 全額が1,000円未満なら全額を最初の納期に
+    expect(of(2027)).toEqual([["2027-06", 850]]);
   });
 });

@@ -33,6 +33,9 @@ import {
 const CALC = "residentTax.incomeLevy.calc.rounding";
 const LEVY = "residentTax.incomeLevy.rounding";
 const PENSION_AGE = "residentTax.pensionSpecialCollection.age";
+// 地方税法20条の4の2第6項: 分割して納める金額の端数（普通徴収は1,000円未満、特別徴収は100円未満）は最初の納期の分に合わせる
+const ORDINARY = "residentTax.installment.ordinary.rounding";
+const SPECIAL = "residentTax.installment.special.rounding";
 
 type Levy = Omit<ResidentTaxOutput, "flows" | "assessed">;
 const PAIR0: LevyPair = { municipal: yen(0), prefectural: yen(0) };
@@ -83,7 +86,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
   id: "residentTax.annual",
   title: "住民税・森林環境税",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "tax.deductions": ">=1 <2",
@@ -107,6 +110,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
     "forestEnvironmentTax.amount",
     PENSION_AGE,
     PENSION_SPECIAL_MINIMUM,
+    ORDINARY,
+    SPECIAL,
   ],
   reads: ["residentTaxAssessment.member", "residentTaxAssessment.fiscalYear", "residentTaxAssessment.amount", "residentTaxAssessment.collection"],
   input: "residentTax.annual.input",
@@ -145,7 +150,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
       if (eligible && detail.total > 0) {
         const share =
           inc !== null && inc.total > 0
-            ? ctx.money.mulRatio(yen(detail.incomeLevy.municipal + detail.incomeLevy.prefectural), inc.publicPension ?? 0, inc.total, "conv.residentTax.installment")
+            ? ctx.money.mulRatio(yen(detail.incomeLevy.municipal + detail.incomeLevy.prefectural), inc.publicPension ?? 0, inc.total, "conv.residentTax.pensionShare")
             : yen(0);
         const capita = salarySpecial(fy, g) ? yen(0) : yen(detail.perCapita.municipal + detail.perCapita.prefectural + detail.forestEnvironmentTax);
         pension = g !== undefined ? (salarySpecial(fy, g) ? yen(0) : detail.total) : yen(share + capita);
@@ -158,6 +163,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
     const total = detail.total;
     const assessed = now.assessed;
     if (total <= 0) return { flows: [], assessed, ...detail };
+    // 年度の納期の端数処理（6月から翌年5月の年度の値）
+    const at = ctx.at(monthIndex(fiscalYear, 6));
     const special = salarySpecial(fiscalYear, given);
     const flows: Flow[] = [];
     const push = (ym: string, amount: Yen, formula: string) => {
@@ -175,18 +182,23 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
         : assess(fiscalYear - 1).pension;
       const m = (y: number, mo: number) => formatYm(monthIndex(y, mo));
       if (prev <= 0) {
-        const parts = ctx.money.allocate(pensionPart, [3, 3, 2, 2, 2], "conv.residentTax.installment", "first");
-        push(m(fiscalYear, 6), parts[0] as Yen, "residentTax.pension.ordinary");
-        push(m(fiscalYear, 8), parts[1] as Yen, "residentTax.pension.ordinary");
-        push(m(fiscalYear, 10), parts[2] as Yen, "residentTax.pension.special");
-        push(m(fiscalYear, 12), parts[3] as Yen, "residentTax.pension.special");
-        push(m(fiscalYear + 1, 2), parts[4] as Yen, "residentTax.pension.special");
+        // 年金から差し引く最初の年度: 年額の半分（6月・8月）を普通徴収、残り（10月・12月・2月）を特別徴収。それぞれの分割の端数は最初の納期へ
+        const halves = ctx.money.allocate(pensionPart, [6, 6], "conv.residentTax.pensionShare", "first");
+        const o = at.money.allocate(halves[0] as Yen, [1, 1], ORDINARY, "first");
+        const s = at.money.allocate(halves[1] as Yen, [1, 1, 1], SPECIAL, "first");
+        push(m(fiscalYear, 6), o[0] as Yen, "residentTax.pension.ordinary");
+        push(m(fiscalYear, 8), o[1] as Yen, "residentTax.pension.ordinary");
+        push(m(fiscalYear, 10), s[0] as Yen, "residentTax.pension.special");
+        push(m(fiscalYear, 12), s[1] as Yen, "residentTax.pension.special");
+        push(m(fiscalYear + 1, 2), s[2] as Yen, "residentTax.pension.special");
       } else {
-        const provisional = ctx.money.divInt(prev, 6, "conv.residentTax.installment");
-        for (const mo of [4, 6, 8]) push(m(fiscalYear, mo), provisional, "residentTax.pension.provisional");
-        const rest = pensionPart - provisional - provisional - provisional;
+        // 仮徴収（4月・6月・8月）: 前の年度の年金の分の2分の1を3回に分ける。本徴収（10月・12月・2月）: 残りを3回に分ける
+        const provisionalTotal = ctx.money.mulRatio(prev, 1, 2, "conv.residentTax.pensionShare");
+        const provisional = at.money.allocate(provisionalTotal, [1, 1, 1], SPECIAL, "first");
+        [4, 6, 8].forEach((mo, i) => push(m(fiscalYear, mo), provisional[i] as Yen, "residentTax.pension.provisional"));
+        const rest = pensionPart - provisionalTotal;
         if (rest > 0) {
-          const parts = ctx.money.allocate(yen(rest), [1, 1, 1], "conv.residentTax.installment", "first");
+          const parts = at.money.allocate(yen(rest), [1, 1, 1], SPECIAL, "first");
           push(m(fiscalYear, 10), parts[0] as Yen, "residentTax.pension.special");
           push(m(fiscalYear, 12), parts[1] as Yen, "residentTax.pension.special");
           push(m(fiscalYear + 1, 2), parts[2] as Yen, "residentTax.pension.special");
@@ -199,7 +211,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
     // 特別徴収の最初の月に給与が無ければ普通徴収にする。表の最後より後の月は、給与が続くものとみなす
     const firstUnpaid = special ? installments.findIndex((mm) => mm <= ctx.time.end && !paid.has(formatYm(mm))) : 0;
     if (firstUnpaid !== 0) {
-      const parts = ctx.money.allocate(remaining, installments.map(() => 1), "conv.residentTax.installment", "first");
+      const parts = at.money.allocate(remaining, installments.map(() => 1), SPECIAL, "first");
       const stop = firstUnpaid < 0 ? 12 : firstUnpaid;
       // 給与が無くなった後の残りは、最後の給与の月にまとめて徴収する（一括徴収）
       let rest = yen(0);
@@ -211,7 +223,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
       }
     } else {
       const ms = [monthIndex(fiscalYear, 6), monthIndex(fiscalYear, 8), monthIndex(fiscalYear, 10), monthIndex(fiscalYear + 1, 1)];
-      const parts = ctx.money.allocate(remaining, ms.map(() => 1), "conv.residentTax.installment", "first");
+      const parts = at.money.allocate(remaining, ms.map(() => 1), ORDINARY, "first");
       ms.forEach((mm, i) => push(formatYm(mm), parts[i] as Yen, "residentTax.ordinary.installment"));
     }
     return { flows, assessed, ...detail };

@@ -38,7 +38,8 @@ export interface Entry {
   readonly rev: number;
   readonly appliesFrom: string;
   readonly appliesTo: string | null;
-  readonly enforcedOn: string | null;
+  /** 施行日。分からない行は null、「遅くともこの日には施行済み」だけが分かる行は {notAfter}（0007 の追記） */
+  readonly enforcedOn: string | { readonly notAfter: string } | null;
   readonly status: "proposed" | "enacted";
   readonly scenarioId?: string;
   readonly jurisdiction: Json;

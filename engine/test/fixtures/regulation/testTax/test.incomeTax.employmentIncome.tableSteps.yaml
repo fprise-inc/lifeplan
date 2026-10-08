@@ -1,0 +1,22 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.incomeTax.employmentIncome.tableSteps
+title: 【架空の見本】incomeTax.employmentIncome.tableSteps
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1999999, amount: 1}
+      - {upTo: 5999999, amount: 4000}
+      - {upTo: null, amount: 1}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
