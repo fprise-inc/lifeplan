@@ -138,7 +138,9 @@ export default defineComponent<{ member: string }, Out>({
     const ratioTo = (fy: number) => ctx.rate.div(R(fy), RK);
     const ratioE = (fy: number) => ctx.rate.div(E(fy), EK);
     const at0 = ctx.at(base);
-    if (rec.qualifyingMonths < (at0.paramCount(P.qual) ?? 0)) {
+    // 受給資格期間: 見込額だけ・受給中の記録で月数を入れていないときは、資格があるとみなす
+    const monthsGiven = input0?.months !== undefined || (rec.kind !== "projection" && rec.kind !== "receiving");
+    if (monthsGiven && rec.qualifyingMonths < (at0.paramCount(P.qual) ?? 0)) {
       ctx.notice("N_NOT_ENTITLED", ["pension.qualifyingMonths", member]);
       return empty;
     }
@@ -356,34 +358,37 @@ export default defineComponent<{ member: string }, Out>({
       if (basic > 0 || employee > 0 || special > 0 || suspended > 0) months.push({ month: formatYm(m), basic, employee, special, suspended });
     }
 
-    // 支払い: 偶数月に前2か月分。各支払いは1円未満を切り捨て、年度の切り捨ての合計を2月の支払い（無ければその年度の最後の支払い）に足す
+    // 支払い: 偶数月に前2か月分。各支払いは1円未満を切り捨て、3月から翌年2月までの支払いの切り捨ての合計（1円未満は切り捨て）を
+    // 2月の支払い（無ければその期間の最後の支払い）に足す（国民年金法18条の2）
     const payments: PensionPayment[] = [];
     const parts = ["basic", "employee", "special"] as const;
     for (const part of parts) {
-      const pays = new Map<string, { sum: number; fy: number; accrual: number }>();
+      const pays = new Map<string, { sum: number; accrual: number }>();
       for (const x of months) {
         const a = x[part];
         if (a <= 0) continue;
         const m = parseYm(x.month);
         const paid = formatYm(addMonths(m, monthOf(m) % 2 === 1 ? 1 : 2));
-        const cur = pays.get(paid) ?? { sum: 0, fy: fiscalYearOf(m), accrual: yearOf(m) };
+        const cur = pays.get(paid) ?? { sum: 0, accrual: yearOf(m) };
         cur.sum += a;
         pays.set(paid, cur);
       }
       const remainder = new Map<number, number>();
-      const lastOfFy = new Map<number, string>();
+      const lastOf = new Map<number, string>();
       const list: PensionPayment[] = [];
       for (const [ym, v] of [...pays.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
-        const amount = ctx.at(parseYm(ym)).money.divInt(yen(v.sum), 12, P.payRound);
-        remainder.set(v.fy, (remainder.get(v.fy) ?? 0) + (v.sum - ctx.money.mulRatio(amount, 12, 1, "conv.exact")));
-        lastOfFy.set(v.fy, ym);
+        const pm = parseYm(ym);
+        const period = monthOf(pm) >= 3 ? yearOf(pm) : yearOf(pm) - 1;
+        const amount = ctx.at(pm).money.divInt(yen(v.sum), 12, P.payRound);
+        remainder.set(period, (remainder.get(period) ?? 0) + (v.sum - ctx.money.mulRatio(amount, 12, 1, "conv.exact")));
+        lastOf.set(period, ym);
         list.push({ ym, part, amount, accrualYear: v.accrual });
       }
-      for (const [fy, rem] of remainder) {
-        const add = ctx.money.divInt(yen(rem), 12, "conv.flow.allocate");
+      for (const [period, rem] of remainder) {
+        const add = ctx.at(monthIndex(period + 1, 2)).money.divInt(yen(rem), 12, P.payRound);
         if (add <= 0) continue;
-        const feb = formatYm(monthIndex(fy + 1, 2));
-        const target = list.find((p) => p.ym === feb) ?? list.find((p) => p.ym === lastOfFy.get(fy));
+        const feb = formatYm(monthIndex(period + 1, 2));
+        const target = list.find((p) => p.ym === feb) ?? list.find((p) => p.ym === lastOf.get(period));
         if (target !== undefined) list[list.indexOf(target)] = { ...target, amount: yen(target.amount + add) };
       }
       payments.push(...list.filter((p) => p.amount > 0));

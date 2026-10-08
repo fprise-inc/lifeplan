@@ -37,12 +37,15 @@ const P = {
 /** 制度データに無い年度は、最後の値に改定率の比を掛けて延ばす（0007 の7: 連動する値） */
 function indexed(ctx: Ctx, m: MonthIndex, id: string, member: string, R: (fy: number) => string, projected: Map<string, number[]>): Yen | null {
   const fy = fiscalYearOf(m);
-  if (ctx.at(m).has(id, { member })) return ctx.at(m).paramYen(id, { member });
+  if (ctx.at(m).has(id, { member })) {
+    const v = ctx.at(m).paramYen(id, { member });
+    if (v !== null) return v;
+  }
   for (let back = fy - 1; back >= fy - 100; back--) {
     const at = ctx.at(fiscalYearStart(back));
     if (!at.has(id, { member })) continue;
     const v = at.paramYen(id, { member });
-    if (v === null) return null;
+    if (v === null) continue;
     projected.set(id, [...(projected.get(id) ?? []), fy]);
     return at.money.mulRate(v, ctx.rate.div(ctx.rate.of(R(fy)), ctx.rate.of(R(back))), P.round);
   }

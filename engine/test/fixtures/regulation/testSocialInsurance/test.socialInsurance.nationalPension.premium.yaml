@@ -30,3 +30,15 @@ entries:
       - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
     recordedIn: "2026.1.0"
     supersededIn: null
+  - rev: 3
+    appliesFrom: "2028-04-01"
+    appliesTo: null
+    enforcedOn: "2028-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

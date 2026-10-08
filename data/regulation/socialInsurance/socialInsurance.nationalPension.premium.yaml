@@ -48,7 +48,7 @@ entries:
     approval: {method: "pendingReview", paths: 2}
   - rev: 4
     appliesFrom: "2027-04-01"
-    appliesTo: null
+    appliesTo: "2028-03-31"
     enforcedOn: null
     status: "enacted"
     jurisdiction: "national"
@@ -59,4 +59,4 @@ entries:
       - {type: "web", url: "https://faq.city.kobe.lg.jp/faq/show/165", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "2027年4月～2028年3月までは月額18,290円", note: "検索の要約（原本は未取得）"}
     recordedIn: "2026.3.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "令和10年度以後は賃金上昇率（前提）で延ばす（linkage: indexed）"}
+    approval: {method: "pendingReview", paths: 2, note: "令和10年度以後は賃金上昇率（前提）で延ばす（linkage: indexed。そのため適用終了を年度の終わりにする）"}

@@ -66,7 +66,7 @@ export default defineComponent<{ member: string }, { byFiscalYear: Row[] }>({
     const known: { fy: number; r: Rate; e: Rate | null }[] = [];
     for (let fy = firstFy; fy <= lastFy; fy++) {
       const at = ctx.at(fiscalYearStart(fy));
-      if (at.has(RATE_ID, { member })) {
+      if (at.has(RATE_ID, { member }) && at.param(RATE_ID, { member }).entry.value !== "notApplicable") {
         const sel = at.param(RATE_ID, { member });
         const e = at.has(EMP_FACTOR, { member }) ? at.paramRate(EMP_FACTOR, { member }) : null;
         known.push({ fy, r: rate(sel.entry.value as string), e });

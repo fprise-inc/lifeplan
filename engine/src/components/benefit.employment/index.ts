@@ -1,7 +1,7 @@
 // 雇用保険の育児の給付（非課税）。
 // - 育児休業給付金: 休業開始時賃金日額（休業の前6か月の給与（賞与を除く）÷180。上限・下限）×30日×率（最初の6か月は67%、その後50%）。
 //   産前産後休業に続く母の育児休業は、産前産後休業の前6か月で計算する
-// - 出生後休業支援給付: 子の出生から2か月以内に始まる育児休業で、配偶者も同じく育児休業をとるか雇用保険に入っていないとき、
+// - 出生後休業支援給付: 子の出生から2か月以内に始まる育児休業で、配偶者も同じく育児休業をとるか、雇用保険に入っていないか、産後休業中のとき、
 //   最初の月に賃金日額×28日×13%
 // - 育児時短就業給付: 2歳未満の子のための短時間勤務の期間に、時短の前より下がった給与の月、その月の給与×10%（支給限度額まで）
 // 日数は月単位の近似で1か月を30日とみなす（PR の提案）。給付金は2か月分ずつ、その2か月の次の月に払う。時短の給付は翌月
@@ -100,6 +100,8 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
         const st = ctx.call<EmployeeStatusOutput>("socialInsurance.employeeStatus", { member: sp }).months;
         const insuredAtBirth = st.some((s) => s.month === child.birth.birthYearMonth && s.employment);
         if (!insuredAtBirth) return true;
+        // 配偶者が産後休業中（出生の月に産前産後休業）なら、配偶者の育児休業を要件としない
+        if (st.some((s) => s.month === child.birth.birthYearMonth && s.leave === "maternity")) return true;
         return st.some((s) => s.leave === "childcare" && parseYm(s.month) >= birth && parseYm(s.month) < addMonths(birth, within));
       });
     };

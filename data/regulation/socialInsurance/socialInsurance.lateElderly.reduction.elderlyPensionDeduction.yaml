@@ -13,7 +13,7 @@ entries:
     conditions: []
     value: 150000
     sources:
-      - {type: "web", url: "https://www.city.nagoya.jp/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "名古屋市の説明の要約（原本は未取得）。記事・ページのURLの細部は未取得"}
+      - {type: "web", url: "https://www.city.nagoya.jp/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "名古屋市の説明の要約（原本は未取得）。ページのURLの細部は未取得"}
     recordedIn: "2026.3.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 1, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する"}

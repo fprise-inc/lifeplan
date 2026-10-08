@@ -61,7 +61,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     // 判定に使う所得の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得で判定する（PR の提案）
     const jy = Math.max(fy, fiscalYearOf(ctx.time.base));
     const start = fiscalYearStart(fy);
-    const from = ageMonth(ctx, start, P.fromAge, member);
+    // 年齢の値は、計算基準月より前の年度では計算基準月の値を使う
+    const from = ageMonth(ctx, start < ctx.time.base ? ctx.time.base : start, P.fromAge, member);
     const me = ctx.get<MemberInput>("member", member);
     const leaves = me.leaves === null ? null : ctx.time.resolve(me.leaves);
     let months = 0;

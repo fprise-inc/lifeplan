@@ -81,6 +81,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     // 判定に使う所得の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得で判定する（PR の提案）
     const jy = Math.max(fy, fiscalYearOf(ctx.time.base));
     const start = fiscalYearStart(fy);
+    const ageAt = start < ctx.time.base ? ctx.time.base : start;
     const from = formatYm(start);
     const to = formatYm(fiscalYearEnd(fy));
     const members = ctx.list<MemberInput>("member");
@@ -141,8 +142,8 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       for (const x of insured) {
         let ms = x.months;
         if (part === "care") {
-          const f = ageMonth(ctx, start, AGE.careFrom, x.id);
-          const u = ageMonth(ctx, start, AGE.careUntil, x.id);
+          const f = ageMonth(ctx, ageAt, AGE.careFrom, x.id);
+          const u = ageMonth(ctx, ageAt, AGE.careUntil, x.id);
           ms = ms.filter((m) => m >= f && m < u);
         }
         if (ms.length === 0) continue;
@@ -150,7 +151,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
         const own = totalOf(x.id);
         const base = own > deduction ? subYen(own, deduction) : yen(0);
         let annual = incomeRate === null ? yen(0) : at.money.mulRate(base, incomeRate, "conv.premium.local");
-        const childFree = part === "childSupport" ? ageMonth(ctx, start, AGE.childUntil, x.id) : null;
+        const childFree = part === "childSupport" ? ageMonth(ctx, ageAt, AGE.childUntil, x.id) : null;
         const capitaMonths = childFree === null ? ms.length : ms.filter((m) => m >= childFree).length;
         if (perCapita !== null) {
           annual = addYen(at.money.mulRatio(annual, ms.length, 12, "conv.premium.local"), at.money.mulRatio(at.money.mulRate(perCapita, keep, "conv.premium.local"), capitaMonths, 12, "conv.premium.local"));

@@ -40,8 +40,9 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
       if (hit !== undefined) return hit;
       const at = ctx.at(fiscalYearStart(fy));
       let v: Yen;
-      if (at.has(PREMIUM)) {
-        v = at.paramYen(PREMIUM) as Yen;
+      const known = at.has(PREMIUM) ? at.paramYen(PREMIUM) : null;
+      if (known !== null) {
+        v = known;
         if (lastKnown === null || lastKnown.fy < fy) lastKnown = { fy, v };
       } else if (lastKnown !== null && fy > lastKnown.fy) {
         // 賃金の伸びで延ばす（保険料改定率の近似）
@@ -55,7 +56,7 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
     };
     // 既知の最後の年度を先に探す
     for (let fy = fiscalYearOf(ctx.time.base) - 2; fy <= fiscalYearOf(ctx.time.end); fy++) {
-      if (ctx.at(fiscalYearStart(fy)).has(PREMIUM)) premiumOf(fy);
+      if (ctx.at(fiscalYearStart(fy)).has(PREMIUM) && ctx.at(fiscalYearStart(fy)).paramYen(PREMIUM) !== null) premiumOf(fy);
     }
     const flows: Flow[] = [];
     for (const c of months) {

@@ -38,7 +38,7 @@ entries:
     approval: {method: "pendingReview", paths: 2, note: "780,900円×1.062→829,300円と一致"}
   - rev: 3
     appliesFrom: "2026-04-01"
-    appliesTo: null
+    appliesTo: "2027-03-31"
     enforcedOn: null
     status: "enacted"
     jurisdiction: "national"
@@ -50,10 +50,10 @@ entries:
       - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "年金額（満額）＝ 年額847,300円（月額70,608円）", note: "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "780,900円×1.085→847,300円と一致。令和9年度以後は前提で延ばす（linkage: indexed）"}
+    approval: {method: "pendingReview", paths: 2, note: "780,900円×1.085→847,300円と一致。令和9年度以後は前提で延ばす（linkage: indexed。そのため適用終了を年度の終わりにする）"}
   - rev: 4
     appliesFrom: "2026-04-01"
-    appliesTo: null
+    appliesTo: "2027-03-31"
     enforcedOn: null
     status: "enacted"
     jurisdiction: "national"

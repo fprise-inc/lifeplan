@@ -14,7 +14,7 @@ entries:
     value: 16110
     sources:
       - {type: "web", url: "https://jsite.mhlw.go.jp/tokyo-roudoukyoku/content/contents/002371859.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://bestcalendar.jp/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約。記事・ページのURLの細部は未取得"}
+      - {type: "web", url: "https://bestcalendar.jp/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約。記事のURLの細部は未取得"}
     recordedIn: "2026.3.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2}
