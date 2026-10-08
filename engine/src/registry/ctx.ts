@@ -212,13 +212,8 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
   };
   const has = (id: string, month: MonthIndex, opts: ParamOptions = {}): boolean => {
     if (!params.has(id)) throw new EngineError("E_PARAM_UNDECLARED", [def.id, id]);
-    try {
-      state.store.select(id, lookupOf(id, month, opts).date, { ...matchOf(opts), noExtension: true });
-      return true;
-    } catch (e) {
-      if (e instanceof EngineError && (e.code === "E_PARAM_NO_VALUE" || e.code === "E_PARAM_UNKNOWN")) return false;
-      throw e;
-    }
+    if (!state.store.knows(id)) return false;
+    return state.store.trySelect(id, lookupOf(id, month, opts).date, { ...matchOf(opts), noExtension: true }) !== null;
   };
 
   const param = (id: string, month: MonthIndex, opts: ParamOptions = {}): Selected => {

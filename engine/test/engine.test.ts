@@ -25,10 +25,11 @@ describe("モデル世帯（架空）", () => {
   it("10件以上あり、どれも計算でき、出力は JSON Schema に合い整数だけ", () => {
     expect(MODELS.length).toBeGreaterThanOrEqual(10);
     for (const m of MODELS) {
-      const r = run(modelHousehold(m));
+      const req = modelHousehold(m);
+      const r = run(req);
       expect(() => check("engine.output", r, "E_OUTPUT_SCHEMA")).not.toThrow();
       expect(nonIntegerPaths(r)).toEqual([]);
-      expect(r.flows.every((f) => f.ym >= "2026-10" && f.ym <= "2027-12")).toBe(true);
+      expect(r.flows.every((f) => f.ym >= req.input.baseMonth && f.ym <= `${req.input.endYear}-12`)).toBe(true);
     }
   });
 
@@ -65,6 +66,17 @@ describe("モデル世帯（架空）", () => {
     expect(notices).toContainEqual({ code: "N_INPUT_REQUIRED", ids: ["socialInsurance.nationalHealth", "socialInsurance.nationalHealth.rates"] });
     // 指定都市の配分・超過課税は扱わない（決定8）
     expect(notices).toContainEqual({ code: "N_NOT_SUPPORTED", ids: ["residentTax.annual", "residentTax.designatedCityAllocation", "residentTax.excessTaxation"] });
+  });
+});
+
+describe("100年分の表", () => {
+  it("計算でき、延ばした値の知らせ（N_PARAM_PROJECTED）は値の ID ごとに1つにまとまる", () => {
+    const r = run(modelHousehold("lifetime100"));
+    expect(r.table.some((c) => (c as unknown as Cell).year === 2125)).toBe(true);
+    const projected = (r.header as { notices: { code: string; ids: string[] }[] }).notices.filter((n) => n.code === "N_PARAM_PROJECTED");
+    const keys = projected.map((n) => `${n.ids[0]}|${n.ids[1]}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(projected).toContainEqual({ code: "N_PARAM_PROJECTED", ids: ["pension.supplementaryBenefit", "pension.supplementaryBenefit.incomeLimit", expect.any(String), "2125"] });
   });
 });
 

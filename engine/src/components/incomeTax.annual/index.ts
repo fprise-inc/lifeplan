@@ -9,7 +9,6 @@ import {
   defineComponent,
   formatYm,
   monthIndex,
-  parseYm,
   subYen,
   yearOf,
   yen,
@@ -102,7 +101,7 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
     const detail = { taxable: t.taxable, computedTax: t.computedTax, reconstructionSurtax: t.reconstructionSurtax, defenseSurtax: t.defenseSurtax };
     const salaryPays = ctx
       .call<SalaryOutput>("income.salary", { member })
-      .payments.filter((p) => yearOf(parseYm(p.ym)) === year && p.salary + p.bonus > 0)
+      .payments.filter((p) => p.ym.startsWith(`${year}-`) && p.salary + p.bonus > 0)
       .map((p) => ({ ym: p.ym, weight: p.salary + p.bonus }));
     const pensionPays = ctx
       .call<PensionOutput>("pension.oldAge", { member })

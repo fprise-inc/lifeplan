@@ -1,0 +1,169 @@
+{
+  "trace": "none",
+  "input": {
+    "baseMonth": "2026-10",
+    "endYear": 2050,
+    "calcConventions": {
+      "aggregation": "cash",
+      "investmentTiming": "midYear",
+      "compatibility": null
+    },
+    "household": {
+      "members": [
+        {
+          "id": "037bc8ea-641c-4080-8d0c-369e6f0f7205",
+          "kind": "self",
+          "birth": {
+            "birthYearMonth": "1962-09",
+            "bornOnFirst": false
+          },
+          "sex": "female",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        }
+      ],
+      "relations": [],
+      "events": [],
+      "employmentPeriods": [
+        {
+          "id": "32dc80d1-315d-4002-9efd-9da9c8cfc989",
+          "member": "037bc8ea-641c-4080-8d0c-369e6f0f7205",
+          "from": {
+            "at": "1985-04"
+          },
+          "to": {
+            "at": "2027-03"
+          },
+          "type": "regular",
+          "healthInsurance": {
+            "kind": "kyokaikenpo",
+            "insurer": "kyokaikenpo.23"
+          },
+          "pensionCategory": "employee1",
+          "employer": {
+            "size": 300,
+            "weeklyHours": "40"
+          },
+          "salary": {
+            "annual": {
+              "value": 4800000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "bonus": {
+              "value": 1000000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "standardMonthlyRemuneration": {
+            "health": {
+              "value": 400000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "pension": {
+              "value": 400000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        }
+      ],
+      "accounts": [
+        {
+          "id": "28a6b9d1-b856-40a7-a189-b8ca3bde5633",
+          "kind": "deposit",
+          "owner": "037bc8ea-641c-4080-8d0c-369e6f0f7205",
+          "marketValue": {
+            "value": 20000000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "asOf": "2026-09",
+          "contributions": []
+        }
+      ],
+      "insuranceContracts": [],
+      "residentTaxAssessments": [
+        {
+          "id": "f840a7ae-b477-4bc0-93ac-a91ffbad5103",
+          "member": "037bc8ea-641c-4080-8d0c-369e6f0f7205",
+          "fiscalYear": 2026,
+          "amount": {
+            "value": 280000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          }
+        }
+      ],
+      "pensionRecords": [
+        {
+          "id": "477f2c87-7bc0-48e7-9056-ce04361db1db",
+          "member": "037bc8ea-641c-4080-8d0c-369e6f0f7205",
+          "kind": "statementOver50",
+          "asOf": "2026-09",
+          "months": {
+            "basic": 480,
+            "employee": 498
+          },
+          "amounts": {
+            "basic": {
+              "value": 847300,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "employee": {
+              "value": 1050000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "special": {
+              "value": 1020000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "claim": {
+            "basic": {
+              "at": "2032-10"
+            }
+          }
+        }
+      ]
+    },
+    "assumptions": {
+      "investmentReturn": {
+        "default": "0.01"
+      },
+      "wageGrowth": {
+        "default": "0.01"
+      },
+      "inflation": {
+        "default": "0.01"
+      },
+      "pensionMacroSlide": {
+        "default": "0.004"
+      }
+    }
+  }
+}

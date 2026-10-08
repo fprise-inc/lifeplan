@@ -77,9 +77,14 @@ function revisionTable(rv: RevisionOutput, employee: boolean): (fy: number) => R
 }
 
 /** 記録の厚生年金の月数（初めの値＋記録の後の月。before より前だけ） */
-function employeeMonthsOf(rec: RecordOutput, before: MonthIndex | null): number {
+function employeeMonthsOf(rec: RecordOutput, before: MonthIndex | null, cache: Map<RecordOutput, MonthIndex[]>): number {
+  let months = cache.get(rec);
+  if (months === undefined) {
+    months = rec.months.filter((x) => x.employee).map((x) => parseYm(x.month));
+    cache.set(rec, months);
+  }
   let n = rec.employeeMonths;
-  for (const x of rec.months) if (x.employee && (before === null || parseYm(x.month) < before)) n++;
+  for (const m of months) if (before === null || m < before) n++;
   return n;
 }
 
@@ -123,6 +128,7 @@ export default defineComponent<{ member: string }, Out>({
   compute(input, ctx) {
     const member = input.member;
     const { base, end } = ctx.time;
+    const monthCache = new Map<RecordOutput, MonthIndex[]>();
     const empty: Out = { flows: [], payments: [], months: [] };
     // 表の最後までに繰上げの最も早い月（65歳の60か月前）も来ず、受給中の記録も無ければ計算しない
     const input0 = ctx.list<PensionRecordInput>("pensionRecord").find((r) => r.member === member);
@@ -265,14 +271,14 @@ export default defineComponent<{ member: string }, Out>({
       return r;
     };
     const supplementOf = (m: MonthIndex, cut: MonthIndex): Yen => {
-      if (employeeMonthsOf(rec, cut) < supMonths) return yen(0);
+      if (employeeMonthsOf(rec, cut, monthCache) < supMonths) return yen(0);
       const at = ctx.at(m);
       const r = R(fiscalYearOf(m));
       let total = 0;
       for (const sp of spouseAt(m)) {
         if (parseYm((members.find((x) => x.id === sp) as MemberInput).birth.birthYearMonth) > m) continue;
         if (m >= ageMonth(ctx, base, P.spouseAge, sp)) continue;
-        if (employeeMonthsOf(otherRecord(sp), null) >= supMonths) continue;
+        if (employeeMonthsOf(otherRecord(sp), null, monthCache) >= supMonths) continue;
         total += at.money.mulRate(at.paramYen(P.supBase) ?? yen(0), r, P.fullRound);
         const special = at.paramYen(P.supSpecial, { member });
         if (special !== null) total += at.money.mulRate(special, r, P.fullRound);
@@ -288,8 +294,8 @@ export default defineComponent<{ member: string }, Out>({
     };
     // 振替加算: 本人の厚生年金が240月未満で、配偶者の厚生年金が240月以上（配偶者の加給年金の対象だった）
     const transferOf = (m: MonthIndex): Yen => {
-      if (employeeMonthsOf(rec, null) >= supMonths) return yen(0);
-      if (!spouseAt(N).some((sp) => employeeMonthsOf(otherRecord(sp), null) >= supMonths)) return yen(0);
+      if (employeeMonthsOf(rec, null, monthCache) >= supMonths) return yen(0);
+      if (!spouseAt(N).some((sp) => employeeMonthsOf(otherRecord(sp), null, monthCache) >= supMonths)) return yen(0);
       const at = ctx.at(m);
       if (!at.has(P.transfer, { member })) {
         // 制度データに率の無い生年月日（原本で確かめる前の区分）は計算せずに知らせる
@@ -305,7 +311,7 @@ export default defineComponent<{ member: string }, Out>({
     let SA: MonthIndex | null = null;
     if (!receiving && rec.kind !== "projection") {
       const years = at0.paramCount(P.specialAge, { member });
-      const qual = (at0.paramCount(P.specialMonths) ?? 12) <= employeeMonthsOf(rec, N);
+      const qual = (at0.paramCount(P.specialMonths) ?? 12) <= employeeMonthsOf(rec, N, monthCache);
       if (years !== null && qual) {
         const sel = at0.param(P.specialAge, { member });
         SA = ctx.time.ageSwitch(member, { years }, (sel.def.ageSwitch ?? "monthAfterReach") as never);

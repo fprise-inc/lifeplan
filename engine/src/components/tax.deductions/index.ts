@@ -249,8 +249,9 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     // 世帯主として払う国民健康保険）
     const fromYear = year < baseYear ? year : baseYear;
     let socialInsurance = yen(0);
+    const yearPrefix = `${year}-`;
     const addPaid = (flows: readonly { ym: string; amount: number; member?: string }[]) => {
-      for (const f of flows) if (yearOf(parseYm(f.ym)) === year && (f.member === undefined || f.member === member)) socialInsurance = yen(socialInsurance + f.amount);
+      for (const f of flows) if (f.ym.startsWith(yearPrefix) && (f.member === undefined || f.member === member)) socialInsurance = yen(socialInsurance + f.amount);
     };
     for (const c of SI_COMPONENTS) addPaid(ctx.call<FlowsResult>(c, { member, fromYear }).flows);
     addPaid(ctx.call<FlowsResult>("socialInsurance.nationalPension", { member, fromYear }).flows);
@@ -263,7 +264,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     // 生命保険料控除・地震保険料控除: 契約者が本人の契約の、その年に払った保険料
     const rounding = resident ? "conv.tax.fractionalDeduction" : "incomeTax.insuranceDeduction.rounding";
     const premiums = ctx.call<PaymentsOutput>("insurance.premiumPayment", {}).payments.filter(
-      (p) => p.member === member && yearOf(parseYm(p.ym)) === year,
+      (p) => p.member === member && p.ym.startsWith(yearPrefix),
     );
     const contracts = ctx.list<InsuranceContractInput>("insurance");
     const paid = (type: string, regimeOf?: "new" | "old") => {
@@ -308,7 +309,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     const smallBusiness = sumYen(
       ctx
         .call<PaymentsOutput>("account.contribution", {})
-        .payments.filter((p) => p.member === member && yearOf(parseYm(p.ym)) === year && accounts.find((a) => a.id === p.object)?.kind === "ideco")
+        .payments.filter((p) => p.member === member && p.ym.startsWith(yearPrefix) && accounts.find((a) => a.id === p.object)?.kind === "ideco")
         .map((p) => p.amount),
     );
 

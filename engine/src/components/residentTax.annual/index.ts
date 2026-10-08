@@ -9,6 +9,7 @@
 import {
   ageMonth,
   boxValue,
+  fiscalYearOf,
   pensionSpecial,
   PENSION_SPECIAL_MINIMUM,
   defineComponent,
@@ -167,7 +168,13 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
     // 年金からの特別徴収の分
     const pensionPart = now.pension;
     if (pensionPart > 0) {
-      const prev = assess(fiscalYear - 1).pension;
+      // 前の年度が計算基準月より前で決定額の入力も無いときは、前の年度から同じ額の特別徴収が続いているとみなす（65歳の年度を除く）
+      const before = fiscalYear - 1 < fiscalYearOf(ctx.time.base) && !ctx.list<ResidentTaxAssessmentInput>("residentTaxAssessment").some((a) => a.member === member && a.fiscalYear === fiscalYear - 1);
+      const prev = before
+        ? ageMonth(ctx, monthIndex(fiscalYear - 1, 4), PENSION_AGE, member) <= monthIndex(fiscalYear - 1, 4)
+          ? pensionPart
+          : yen(0)
+        : assess(fiscalYear - 1).pension;
       const m = (y: number, mo: number) => formatYm(monthIndex(y, mo));
       if (prev <= 0) {
         const parts = ctx.money.allocate(pensionPart, [3, 3, 2, 2, 2], "conv.residentTax.installment", "first");

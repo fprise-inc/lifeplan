@@ -118,3 +118,19 @@ export function pensionSpecial(ctx: Ctx, member: string, fy: number): boolean {
   for (const p of ctx.call<{ payments: readonly { ym: string; amount: Yen }[] }>("pension.oldAge", { member }).payments) if (p.ym >= from && p.ym <= to) s += p.amount;
   return s >= min;
 }
+
+/** 月の昇順に並んだ配列から、from〜to（"YYYY-MM"。両端を含む）の月だけを取り出す（二分探索） */
+export function monthsIn<T extends { readonly month: string }>(xs: readonly T[], from: string, to: string): readonly T[] {
+  const bound = (key: string, strict: boolean): number => {
+    let lo = 0;
+    let hi = xs.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      const m = (xs[mid] as T).month;
+      if (strict ? m <= key : m < key) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  return xs.slice(bound(from, false), bound(to, true));
+}

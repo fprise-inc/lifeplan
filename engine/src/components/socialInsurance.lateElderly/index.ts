@@ -4,6 +4,7 @@
 // 年度の途中で75歳になる年は月数で按分する。年金が年18万円以上なら年金から差し引く（特別徴収）
 import {
   ageMonth,
+  monthsIn,
   addYen,
   boxValue,
   defineComponent,
@@ -70,9 +71,9 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     const { member, fiscalYear: fy } = input;
     // 判定に使う所得の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得で判定する（PR の提案）
     const jy = Math.max(fy, fiscalYearOf(ctx.time.base));
-    const months = ctx
-      .call<HealthStatusOutput>("socialInsurance.healthStatus", { member })
-      .months.filter((x) => x.kind === "lateElderly" && x.month >= formatYm(fiscalYearStart(fy)) && x.month <= formatYm(monthIndex(fy + 1, 3))).length;
+    const from = formatYm(fiscalYearStart(fy));
+    const to = formatYm(monthIndex(fy + 1, 3));
+    const months = monthsIn(ctx.call<HealthStatusOutput>("socialInsurance.healthStatus", { member }).months, from, to).filter((x) => x.kind === "lateElderly").length;
     if (months === 0) return { flows: [] };
     const special = pensionSpecial(ctx, member, fy);
     const given = assessedPremium(ctx.list<PremiumAssessmentInput>("premiumAssessment"), "lateElderly", member, fy);
@@ -93,7 +94,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     const insured = members.filter(
       (m) =>
         m.id === member ||
-        ctx.call<HealthStatusOutput>("socialInsurance.healthStatus", { member: m.id }).months.some((x) => x.kind === "lateElderly" && x.month >= formatYm(fiscalYearStart(fy)) && x.month <= formatYm(monthIndex(fy + 1, 3))),
+        monthsIn(ctx.call<HealthStatusOutput>("socialInsurance.healthStatus", { member: m.id }).months, from, to).some((x) => x.kind === "lateElderly"),
     );
     const judgedIds = new Set([head, ...insured.map((m) => m.id)]);
     // 軽減の判定: 65歳以上の公的年金の所得からは特別に引く（高齢者特別控除）
@@ -105,7 +106,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       const elderly = ageMonth(ctx, fiscalYearStart(fy), ELDERLY_AGE, id) <= monthIndex(jy - 1, 12);
       const special = elderly ? yen(Math.min(elderlyDeduction, inc.publicPension ?? 0)) : yen(0);
       judged = addYen(judged, yen(inc.total - special));
-      const salary = ctx.call<SalaryOutput>("income.salary", { member: id }).payments.some((p) => p.ym.startsWith(String(jy - 1)) && p.salary > 0);
+      const salary = ctx.call<SalaryOutput>("income.salary", { member: id }).payments.some((p) => p.ym.startsWith(`${jy - 1}-`) && p.salary > 0);
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
       if (salary || pension) earners++;
     }

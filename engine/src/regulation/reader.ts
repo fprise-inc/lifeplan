@@ -176,8 +176,20 @@ export class RegulationStore {
     return d.pack.version;
   }
 
+  /** 値の ID が制度データにあるか */
+  knows(id: string): boolean {
+    return this.defs.has(id);
+  }
+
   /** 引く日（basis から決めたもの）の行を1つだけ選ぶ */
   select(id: string, date: CivilDate, mc: MatchContext = {}): Selected {
+    const s = this.trySelect(id, date, mc);
+    if (s === null) throw new EngineError("E_PARAM_NO_VALUE", [id]);
+    return s;
+  }
+
+  /** select と同じ。値が無いときはエラーにせず null を返す（有無だけを見るときに、エラーを作る手間を省くため） */
+  trySelect(id: string, date: CivilDate, mc: MatchContext = {}): Selected | null {
     const def = this.definition(id);
     const key = dateKey(date);
     const hits: Visible[] = [];
@@ -192,7 +204,7 @@ export class RegulationStore {
       // 延長の仮定（0007 の追記）: 期限の後の値が分からない（同じ条件・管轄の最後の行が、引く日より前に終わる）ときは、
       // 計算を止めずに最後の行が続くとみなす。最初の行より前の日は値が無いので止める
       const ext = mc.noExtension === true ? null : this.extension(id, key, want, mc);
-      if (ext === null) throw new EngineError("E_PARAM_NO_VALUE", [id]);
+      if (ext === null) return null;
       return {
         def,
         entry: ext.entry,

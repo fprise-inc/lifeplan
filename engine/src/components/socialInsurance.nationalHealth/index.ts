@@ -6,6 +6,7 @@
 import {
   addYen,
   ageMonth,
+  monthsIn,
   assessedPremium,
   boxValue,
   defineComponent,
@@ -89,9 +90,8 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     const insured = members
       .map((m) => ({
         id: m.id,
-        months: ctx
-          .call<HealthStatusOutput>("socialInsurance.healthStatus", { member: m.id })
-          .months.filter((x) => x.kind === "national" && x.month >= from && x.month <= to)
+        months: monthsIn(ctx.call<HealthStatusOutput>("socialInsurance.healthStatus", { member: m.id }).months, from, to)
+          .filter((x) => x.kind === "national")
           .map((x) => parseYm(x.month)),
       }))
       .filter((x) => x.months.length > 0);
@@ -115,7 +115,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       const elderly = ageMonth(ctx, start, ELDERLY_AGE, id) <= monthIndex(jy - 1, 12);
       const special = elderly ? yen(Math.min(elderlyDeduction, inc.publicPension ?? 0)) : yen(0);
       judged = addYen(judged, yen(inc.total - special));
-      const salary = ctx.call<SalaryOutput>("income.salary", { member: id }).payments.some((p) => p.ym.startsWith(String(jy - 1)) && p.salary > 0);
+      const salary = ctx.call<SalaryOutput>("income.salary", { member: id }).payments.some((p) => p.ym.startsWith(`${jy - 1}-`) && p.salary > 0);
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
       if (salary || pension) earners++;
     }
