@@ -64,7 +64,8 @@ export function checkLicenses(nodeModules: string): { problems: string[]; seen: 
         const lic = licenseOf(pkg);
         const id = `${pkg.name}@${pkg.version}`;
         seen.set(id, lic ?? "(なし)");
-        const ex = EXCEPTIONS[pkg.name];
+        // lightningcss は OS・CPU ごとのバイナリの部品（-linux-x64-musl など）が増えるので、接頭辞でまとめて扱う
+        const ex = EXCEPTIONS[pkg.name] ?? (pkg.name.startsWith("lightningcss-") ? EXCEPTIONS["lightningcss"] : undefined);
         if (lic === null) problems.push(`${id}: ライセンスの表示が無い`);
         else if (ex !== undefined && ex.license === lic) {
           // 例外の一覧にある
