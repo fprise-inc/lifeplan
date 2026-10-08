@@ -100,7 +100,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
   id: "tax.deductions",
   title: "所得控除",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "socialInsurance.health": ">=1 <2",
@@ -108,6 +108,10 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     "socialInsurance.employment": ">=1 <2",
     "insurance.premiumPayment": ">=1 <2",
     "account.contribution": ">=1 <2",
+    "socialInsurance.nationalPension": ">=1 <2",
+    "socialInsurance.nationalHealth": ">=1 <2",
+    "socialInsurance.lateElderly": ">=1 <2",
+    "socialInsurance.careFirst": ">=1 <2",
   },
   params: ALL_PARAMS,
   reads: [
@@ -241,19 +245,26 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
       }
     }
 
-    // 社会保険料控除: その年に給与から控除された本人の保険料
+    // 社会保険料控除: その年に本人が払った保険料（給与から控除された被用者保険・国民年金・後期高齢者医療・介護保険（第1号）、
+    // 世帯主として払う国民健康保険）
     const fromYear = year < baseYear ? year : baseYear;
     let socialInsurance = yen(0);
-    for (const c of SI_COMPONENTS) {
-      for (const f of ctx.call<FlowsResult>(c, { member, fromYear }).flows) {
-        if (yearOf(parseYm(f.ym)) === year) socialInsurance = yen(socialInsurance + f.amount);
-      }
+    const yearPrefix = `${year}-`;
+    const addPaid = (flows: readonly { ym: string; amount: number; member?: string }[]) => {
+      for (const f of flows) if (f.ym.startsWith(yearPrefix) && (f.member === undefined || f.member === member)) socialInsurance = yen(socialInsurance + f.amount);
+    };
+    for (const c of SI_COMPONENTS) addPaid(ctx.call<FlowsResult>(c, { member, fromYear }).flows);
+    addPaid(ctx.call<FlowsResult>("socialInsurance.nationalPension", { member, fromYear }).flows);
+    for (const fy of [year - 1, year]) {
+      addPaid(ctx.call<FlowsResult>("socialInsurance.lateElderly", { member, fiscalYear: fy }).flows);
+      addPaid(ctx.call<FlowsResult>("socialInsurance.careFirst", { member, fiscalYear: fy }).flows);
+      addPaid(ctx.call<FlowsResult>("socialInsurance.nationalHealth", { fiscalYear: fy }).flows);
     }
 
     // 生命保険料控除・地震保険料控除: 契約者が本人の契約の、その年に払った保険料
     const rounding = resident ? "conv.tax.fractionalDeduction" : "incomeTax.insuranceDeduction.rounding";
     const premiums = ctx.call<PaymentsOutput>("insurance.premiumPayment", {}).payments.filter(
-      (p) => p.member === member && yearOf(parseYm(p.ym)) === year,
+      (p) => p.member === member && p.ym.startsWith(yearPrefix),
     );
     const contracts = ctx.list<InsuranceContractInput>("insurance");
     const paid = (type: string, regimeOf?: "new" | "old") => {
@@ -298,7 +309,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     const smallBusiness = sumYen(
       ctx
         .call<PaymentsOutput>("account.contribution", {})
-        .payments.filter((p) => p.member === member && yearOf(parseYm(p.ym)) === year && accounts.find((a) => a.id === p.object)?.kind === "ideco")
+        .payments.filter((p) => p.member === member && p.ym.startsWith(yearPrefix) && accounts.find((a) => a.id === p.object)?.kind === "ideco")
         .map((p) => p.amount),
     );
 

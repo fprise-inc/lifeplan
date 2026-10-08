@@ -1,0 +1,19 @@
+id: employmentInsurance.childcareBenefit.initialMonths
+title: 育児休業給付金の67%の期間（180日を月数にした近似）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 6
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000158500.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "180日を6か月とした（月単位の近似）"}

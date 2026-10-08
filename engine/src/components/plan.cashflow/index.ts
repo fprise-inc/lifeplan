@@ -1,4 +1,5 @@
-// 計算のはじめに呼ぶ部品: 構成員ごとに給与・社会保険料・所得税・住民税を、世帯で保険料・積立・差し込み口の支出を集め、
+// 計算のはじめに呼ぶ部品: 構成員ごとに給与・事業所得・公的年金・給付・社会保険料（被用者保険・国民年金・後期高齢者医療・介護保険の第1号）・
+// 所得税・住民税を、世帯で国民健康保険料・保険料・積立・差し込み口の支出を集め、
 // 年間収支（収入−税・社会保険料−支出。器の間の移動は含めない）・運用益・金融資産の残高を出す
 import {
   addYen,
@@ -27,9 +28,18 @@ export default defineComponent<Record<string, never>, { flows: Flow[]; annual: A
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "income.salary": ">=1 <2",
+    "income.business": ">=1 <2",
+    "pension.oldAge": ">=1 <2",
+    "pension.supplementaryBenefit": ">=1 <2",
+    "benefit.health": ">=1 <2",
+    "benefit.employment": ">=1 <2",
+    "socialInsurance.nationalPension": ">=1 <2",
+    "socialInsurance.nationalHealth": ">=1 <2",
+    "socialInsurance.lateElderly": ">=1 <2",
+    "socialInsurance.careFirst": ">=1 <2",
     "socialInsurance.health": ">=1 <2",
     "socialInsurance.pension": ">=1 <2",
     "socialInsurance.employment": ">=1 <2",
@@ -51,7 +61,10 @@ export default defineComponent<Record<string, never>, { flows: Flow[]; annual: A
     for (const m of ctx.list<MemberInput>("member")) {
       const member = m.id;
       flows.push(...ctx.call<SalaryOutput>("income.salary", { member }).flows);
-      for (const c of ["socialInsurance.health", "socialInsurance.pension", "socialInsurance.employment"]) {
+      for (const c of ["income.business", "pension.oldAge", "pension.supplementaryBenefit", "benefit.health", "benefit.employment"]) {
+        flows.push(...ctx.call<FlowsResult>(c, { member }).flows);
+      }
+      for (const c of ["socialInsurance.health", "socialInsurance.pension", "socialInsurance.employment", "socialInsurance.nationalPension"]) {
         flows.push(...ctx.call<FlowsResult>(c, { member, fromYear: baseYear }).flows);
       }
       for (let y = baseYear; y <= endYear; y++) flows.push(...ctx.call<TaxOutput>("incomeTax.annual", { member, year: y }).flows);
@@ -59,6 +72,13 @@ export default defineComponent<Record<string, never>, { flows: Flow[]; annual: A
       for (let fy = monthOf(base) <= 5 ? baseYear - 1 : baseYear; fy <= endYear; fy++) {
         flows.push(...ctx.call<TaxOutput>("residentTax.annual", { member, fiscalYear: fy }).flows);
       }
+      // 年度の保険料（計算基準月の年度から。4〜5月の分は前の年度）
+      for (let fy = monthOf(base) <= 3 ? baseYear - 1 : baseYear; fy <= endYear; fy++) {
+        for (const c of ["socialInsurance.lateElderly", "socialInsurance.careFirst"]) flows.push(...ctx.call<FlowsResult>(c, { member, fiscalYear: fy }).flows);
+      }
+    }
+    for (let fy = monthOf(base) <= 3 ? baseYear - 1 : baseYear; fy <= endYear; fy++) {
+      flows.push(...ctx.call<FlowsResult>("socialInsurance.nationalHealth", { fiscalYear: fy }).flows);
     }
     flows.push(...ctx.call<PaymentsOutput>("insurance.premiumPayment", {}).flows);
     flows.push(...ctx.call<PaymentsOutput>("account.contribution", {}).flows);

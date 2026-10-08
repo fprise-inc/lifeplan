@@ -1,0 +1,19 @@
+id: socialInsurance.nationalHealth.reduction.ratioSeventy
+title: 国民健康保険の7割軽減の割合
+unit: rate
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.7"
+    sources:
+      - {type: "web", url: "https://www.nishi.or.jp/kurashi/kokuminkenkohoken/hokenryo/keigen/kokuho-keigen.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

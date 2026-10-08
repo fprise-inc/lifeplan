@@ -1,0 +1,20 @@
+id: pension.employee.accrualRate.pre2003
+title: 報酬比例の給付乗率（平成15年3月以前の期間。昭和21年4月2日以後生まれ）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.007125"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/yougo/hagyo/hoshuhirei.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "平均標準報酬月額 × 7.125/1000 × 平成15年3月までの加入期間の月数", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "※4 昭和21年4月1日以前に生まれた方については、給付乗率が異なります。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "昭和21年4月1日以前生まれの経過措置・従前額保障は入れていない"}

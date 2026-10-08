@@ -94,7 +94,17 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   }
   const h = input.household;
   // 世帯内の物のIDは、その世帯の中で一意（0004 の4）
-  const objectIds = [h.members, h.events, h.employmentPeriods, h.accounts, h.insuranceContracts, h.residentTaxAssessments ?? []].flatMap((l) =>
+  const objectIds = [
+    h.members,
+    h.events,
+    h.employmentPeriods,
+    h.accounts,
+    h.insuranceContracts,
+    h.residentTaxAssessments ?? [],
+    h.pensionRecords ?? [],
+    h.premiumAssessments ?? [],
+    h.premiumRates ?? [],
+  ].flatMap((l) =>
     (l as readonly { id: string }[]).map((o) => o.id),
   );
   if (new Set(objectIds).size !== objectIds.length) throw new EngineError("E_ARGUMENT", ["household.id"]);
@@ -104,9 +114,15 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     ...h.accounts.map((a) => a.owner),
     ...h.insuranceContracts.flatMap((c) => [c.policyholder, c.insured]),
     ...(h.residentTaxAssessments ?? []).map((a) => a.member),
+    ...(h.pensionRecords ?? []).map((a) => a.member),
+    ...(h.premiumAssessments ?? []).map((a) => a.member),
+    ...h.employmentPeriods.flatMap((p) => [p.leaveChild, p.childcareShortHours?.child].filter((x): x is string => x !== undefined)),
     ...h.relations.flatMap((r) => (r.type === "spouse" ? [r.a, r.b] : [r.parent, r.child])),
   ];
   if (refs.some((id) => !memberIds.has(id))) throw new EngineError("E_ARGUMENT", ["household.member"]);
+  // 年金の加入の記録は構成員ごとに1件まで
+  const recordMembers = (h.pensionRecords ?? []).map((r) => r.member);
+  if (new Set(recordMembers).size !== recordMembers.length) throw new EngineError("E_ARGUMENT", ["household.pensionRecords.member"]);
 
   const tracer = new Tracer(req.trace);
   const time = new TimeResolver(h.members, h.events);
@@ -128,6 +144,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     items: ITEMS,
     projections: new Map(),
     notices: new Map(),
+    extended: new Map(),
     checkInternal: options.checkInternal === true,
     base,
     end,
@@ -191,11 +208,35 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     calcConventions: input.calcConventions as unknown as Json,
     components: assembly.refs as unknown as Json[],
     data: store.packs() as unknown as Json[],
-    // 計算に反映していないこと（未対応の制度など）。ID だけ
-    notices: [...state.notices.values()].sort((a, b) => cmp(`${a.code}|${a.ids.join(",")}`, `${b.code}|${b.ids.join(",")}`)) as unknown as Json[],
+    // 計算に反映していないこと（未対応の制度など）と、延長の仮定で使った値（値の行・最初の年・最後の年）。ID だけ
+    notices: [
+      ...mergeProjected([...state.notices.values()]),
+      ...[...state.extended.entries()].map(([ref, r]) => ({ code: "N_PARAM_EXTENDED", ids: [ref, String(r.first), String(r.last)] })),
+    ].sort((a, b) => cmp(`${a.code}|${a.ids.join(",")}`, `${b.code}|${b.ids.join(",")}`)) as unknown as Json[],
   };
   const result = stripUndefined({ header, flows, annual, table: table as unknown as Json[], trace });
   return options.entry === undefined ? result : { ...result, entryOutput: output };
+}
+
+/** 延ばした値の知らせ（N_PARAM_PROJECTED。部品・値の ID・最初の年・最後の年）は、構成員ごとに出たものを1つにまとめる */
+function mergeProjected(notices: readonly { code: string; ids: readonly string[] }[]): { code: string; ids: readonly string[] }[] {
+  const out: { code: string; ids: readonly string[] }[] = [];
+  const merged = new Map<string, { code: string; ids: string[] }>();
+  for (const n of notices) {
+    if (n.code !== "N_PARAM_PROJECTED" || n.ids.length !== 4) {
+      out.push(n);
+      continue;
+    }
+    const [component, id, first, last] = n.ids as [string, string, string, string];
+    const key = `${component}|${id}`;
+    const m = merged.get(key);
+    if (m === undefined) merged.set(key, { code: n.code, ids: [component, id, first, last] });
+    else {
+      if (Number(first) < Number(m.ids[2])) m.ids[2] = first;
+      if (Number(last) > Number(m.ids[3])) m.ids[3] = last;
+    }
+  }
+  return [...out, ...merged.values()];
 }
 
 /** 文字列で受けて文字列で返す入口（Rust のホストと Node の両方がこれを呼ぶ） */

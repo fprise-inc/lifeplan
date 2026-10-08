@@ -1,0 +1,12 @@
+# 【架空の見本】テスト用のパック。実在の制度の値ではない。値ID の test. を外した ID で regulation.pension の代わりに引く
+packId: regulation.testPension
+formatVersion: "0.1"
+version: "2026.2.0"
+features: []
+title: 【架空の見本】公的年金のテスト用
+fictional: true
+fictionalOf: regulation.pension
+requires: {}
+license:
+  values: CC0-1.0
+  sources: 架空の値のため出典なし

@@ -1,0 +1,20 @@
+id: incomeTax.pensionFilingExemption.otherIncomeLimit
+title: 確定申告不要制度の公的年金等に係る雑所得以外の所得金額（以下）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 200000
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/shinkoku/tebiki/2025/01/1_06.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1600.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和7年分の手引きで確認"}

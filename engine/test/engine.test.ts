@@ -25,10 +25,11 @@ describe("モデル世帯（架空）", () => {
   it("10件以上あり、どれも計算でき、出力は JSON Schema に合い整数だけ", () => {
     expect(MODELS.length).toBeGreaterThanOrEqual(10);
     for (const m of MODELS) {
-      const r = run(modelHousehold(m));
+      const req = modelHousehold(m);
+      const r = run(req);
       expect(() => check("engine.output", r, "E_OUTPUT_SCHEMA")).not.toThrow();
       expect(nonIntegerPaths(r)).toEqual([]);
-      expect(r.flows.every((f) => f.ym >= "2026-10" && f.ym <= "2027-12")).toBe(true);
+      expect(r.flows.every((f) => f.ym >= req.input.baseMonth && f.ym <= `${req.input.endYear}-12`)).toBe(true);
     }
   });
 
@@ -61,8 +62,21 @@ describe("モデル世帯（架空）", () => {
   it("未対応の制度は見出しの notices に ID だけで出す", () => {
     const r = run(modelHousehold("jobLeaver"));
     const notices = (r.header as { notices: { code: string; ids: string[] }[] }).notices;
-    expect(notices.some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("employment.unemployed"))).toBe(true);
-    expect(notices.some((n) => n.code === "N_NOT_IMPLEMENTED" && n.ids.includes("residentTax.exemptionThreshold"))).toBe(true);
+    // 国民健康保険の全国の標準的な料率がまだ無く、世帯の入力も無いので計算せずに知らせる
+    expect(notices).toContainEqual({ code: "N_INPUT_REQUIRED", ids: ["socialInsurance.nationalHealth", "socialInsurance.nationalHealth.rates"] });
+    // 指定都市の配分・超過課税は扱わない（決定8）
+    expect(notices).toContainEqual({ code: "N_NOT_SUPPORTED", ids: ["residentTax.annual", "residentTax.designatedCityAllocation", "residentTax.excessTaxation"] });
+  });
+});
+
+describe("100年分の表", () => {
+  it("計算でき、延ばした値の知らせ（N_PARAM_PROJECTED）は値の ID ごとに1つにまとまる", () => {
+    const r = run(modelHousehold("lifetime100"));
+    expect(r.table.some((c) => (c as unknown as Cell).year === 2125)).toBe(true);
+    const projected = (r.header as { notices: { code: string; ids: string[] }[] }).notices.filter((n) => n.code === "N_PARAM_PROJECTED");
+    const keys = projected.map((n) => `${n.ids[0]}|${n.ids[1]}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(projected).toContainEqual({ code: "N_PARAM_PROJECTED", ids: ["pension.supplementaryBenefit", "pension.supplementaryBenefit.incomeLimit", expect.any(String), "2125"] });
   });
 });
 
@@ -92,7 +106,10 @@ describe("計算方式の設定と2本の時間軸", () => {
     expect(cell(before, "cf.taxSi.childSupport", 2027)).toBe(0);
     expect(cell(latest, "cf.taxSi.childSupport", 2027)).toBeGreaterThan(0);
     const data = (before.header as { data: { packId: string; asOf: string }[] }).data;
-    expect(data.map((d) => d.asOf)).toEqual(["2026.1.0", "2026.1.0"]);
+    expect(data.filter((d) => d.packId !== "regulation.pension").map((d) => d.asOf)).toEqual(["2026.1.0", "2026.1.0"]);
+    // その版のときにはまだ無かった値ID（後の版で足した値）は最新の版の行を使い、見出しで知らせる
+    const notices = (before.header as { notices: { code: string; ids: string[] }[] }).notices;
+    expect(notices.some((n) => n.code === "N_PARAM_RECORDED_LATER" && n.ids[0]?.startsWith("socialInsurance.health.lateElderlyAge@"))).toBe(true);
   });
 
   it("dataSet に知らないパックを書くとエラー", () => {
@@ -130,7 +147,7 @@ describe("根拠の記録", () => {
     expect(health?.formulas).toContain("socialInsurance.health.monthly");
     expect(health?.params.map((p) => p.ref)).toContain("socialInsurance.health.kyokaikenpo.rate@70");
     expect(health?.roundings).toEqual(["socialInsurance.employeeShare.rounding"]);
-    for (const c of t.components) for (const p of c.params) expect(p.ref).toMatch(/^[a-zA-Z.]+@\d+$/);
+    for (const c of t.components) for (const p of c.params) expect(p.ref).toMatch(/^[a-zA-Z][a-zA-Z0-9.]*@\d+$/);
   });
 
   it("full は重複を除いた記録を番号で指し、お金の動きはそれを作った部品の呼び出しを指す（呼び出しごとの細かさ）", () => {

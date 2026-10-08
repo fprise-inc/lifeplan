@@ -1,0 +1,31 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.employmentInsurance.postBirthBenefit.rate
+title: 【架空の見本】employmentInsurance.postBirthBenefit.rate
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 2
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: "2025-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.13"
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

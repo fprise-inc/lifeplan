@@ -1,16 +1,27 @@
 # 2026.3.0: 公式の原本（e-Gov法令検索・国税庁・総務省・地方公共団体・協会けんぽ・日本年金機構・厚生労働省）で照合した。原本の写しは非公開のリポジトリに置き、出典には URL・取得日・sha256・位置・短い引用を書いた
 # 2つの経路で一致し施行日も分かった行は approval.method: reviewed。施行日は、値を定める現行の規定の文言が e-Gov の改正履歴で最初に現れた版の施行日（それより前から同じ値のことがある）。履歴（2017年4月1日の版から）より前で特定できない行と、経路が1つの行は pendingReview のまま
 # 被用者保険（健康保険・介護保険・子ども・子育て支援金・厚生年金・雇用保険）の制度データ。令和7年度・令和8年度
+# 2026.4.0: 適用拡大・被扶養者・国民年金・国民健康保険・後期高齢者医療・介護保険（第1号）・休業の給付の値を新しいファイルで足した（2026.3.0 までの行は変えていない）
+# 国民健康保険の全国の標準的な料率は公式の値が見つからず、置いていない（世帯の入力が要る）
+# 2026.4.0 で足した行は、原本（PDF・Excel）を取得できず公式のドメインに限った検索の抜粋で読んだ値なので、原本での確認待ち（approval.method: pendingReview）
 packId: regulation.socialInsurance
 formatVersion: "0.1"
-version: "2026.3.0"
+version: "2026.4.0"
 features: []
-title: 被用者保険の保険料
+title: 社会保険（被用者保険・国民年金・国民健康保険・後期高齢者医療・介護保険・休業の給付）
 requires:
   socialInsurance.coverage: ">=1 <2"
   socialInsurance.health: ">=1 <2"
   socialInsurance.pension: ">=1 <2"
   socialInsurance.employment: ">=1 <2"
+  socialInsurance.employeeStatus: ">=1 <2"
+  socialInsurance.healthStatus: ">=1 <2"
+  socialInsurance.nationalPension: ">=1 <2"
+  socialInsurance.nationalHealth: ">=1 <2"
+  socialInsurance.lateElderly: ">=1 <2"
+  socialInsurance.careFirst: ">=1 <2"
+  benefit.health: ">=1 <2"
+  benefit.employment: ">=1 <2"
 license:
   values: CC0-1.0
   sources: 出典ごとの条件（各値の sources に記載。協会けんぽ・日本年金機構・厚生労働省・こども家庭庁の公表資料）

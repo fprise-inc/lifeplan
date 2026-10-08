@@ -1,0 +1,46 @@
+id: pension.workingAdjustment.threshold
+title: 在職老齢年金の支給停止調整額（月額）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2024-04-01"
+    appliesTo: "2025-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 500000
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12401000/001592624.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "支給停止となる収入基準額を50万円（令和６年度価格）から62万円に引き上げ", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "令和6年度の額として置いた（令和6年度の公表資料は未取得）"}
+  - rev: 2
+    appliesFrom: "2025-04-01"
+    appliesTo: "2026-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 510000
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/tokusetsu/zairoukaisei.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和８年４月から、年金が減額になる基準額（賃金と老齢厚生年金の合計）が月51万円から65万円に引き上げられます。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 3
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 650000
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/tokusetsu/zairoukaisei.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和８年４月から、年金が減額になる基準額（賃金と老齢厚生年金の合計）が月51万円から65万円に引き上げられます。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/zaishoku/20150401-01.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "基本月額と総報酬月額相当額との合計が65万円※を超える場合 基本月額－（基本月額＋総報酬月額相当額－65万円※）÷2", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 3, note: "法律上の62万円（令和6年度価格）を賃金で改定した令和8年度の額。毎年度改定されるが、令和9年度以後は延長の仮定（最後の値が続く）"}

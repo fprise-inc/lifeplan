@@ -1,0 +1,20 @@
+id: socialInsurance.nationalHealth.incomeDeduction
+title: 国民健康保険の所得割の算定の基礎控除（総所得金額等から引く額）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 430000
+    sources:
+      - {type: "web", url: "https://www.city.shinjuku.lg.jp/hoken/hoken01_001004.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "算定基礎額（前年中の総所得金額等から基礎控除額43万円（合計所得金額2,400万円以下の場合）を差し引いた額）を基に計算します。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.fukuoka.lg.jp/hofuku/kokuho/hp/seido/06-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する。合計所得金額2,400万円超の段は入れていない"}

@@ -1,0 +1,21 @@
+id: pension.employee.revisionFactor
+title: 報酬比例（厚生年金）の年度の改定の比（スライド調整の率が基礎年金と違う年度だけ）
+unit: rate
+kind: constant
+basis: "fiscalYear"
+linkage: indexed
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: "2027-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "1.02"
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/12600000/001672868.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年度のマクロ経済スライドによるスライド調整（国民年金（基礎年金）がマイナス0.2％、厚生年金（報酬比例部分）がマイナス0.1％）が行われます。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/seido/kyotsu/gakukaitei/201906031.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和8年4月分からの年金額は、物価変動率（プラス3.2％）が名目手取り賃金変動率（プラス2.1％）を上回るため、名目手取り賃金変動率を用いて改定されます。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "名目手取り賃金変動率2.1%−調整0.1%＝2.0%。基礎年金は1.9%。その年度だけの比なので適用終了を年度の終わりにする"}

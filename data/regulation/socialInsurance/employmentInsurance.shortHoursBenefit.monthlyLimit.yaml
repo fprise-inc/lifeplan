@@ -1,0 +1,33 @@
+id: employmentInsurance.shortHoursBenefit.monthlyLimit
+title: 育児時短就業給付の支給限度額（賃金＋給付の上限。月額）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-08-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 471393
+    sources:
+      - {type: "web", url: "https://jsite.mhlw.go.jp/osaka-roudoukyoku/content/contents/002231248.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1}
+  - rev: 2
+    appliesFrom: "2026-08-01"
+    appliesTo: "2027-07-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 484121
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/11600000/001395102.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "（注４）なお、（注１）から（注３）までの金額は、2027（令和９）年７月31日までの額です。「毎月勤労統計」の平均定期給与額により毎年８月１日に改定されます。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://jsite.mhlw.go.jp/kagoshima-roudoukyoku/content/contents/2026-0817-1_20260801.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

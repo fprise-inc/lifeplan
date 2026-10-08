@@ -1,0 +1,33 @@
+id: socialInsurance.dependent.incomeLimitYoung
+title: 健康保険の被扶養者の年間収入の基準（19歳以上23歳未満。配偶者を除く。未満）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: "2025-09-30"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2025-10-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 1500000
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "扶養認定日が令和7年10月1日以降で、19歳以上23歳未満の場合（被保険者の配偶者を除く。）は、現行の「年間収入130万円未満」が「年間収入150万円未満」に変わります。", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/shibu/osaka/news/r07_sep/557.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "年齢は扶養認定日の属する年の12月31日で判定するが、エンジンは月ごとの年齢で近似する"}

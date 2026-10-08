@@ -1,0 +1,19 @@
+id: pension.payment.rounding
+title: 支払期ごとの支払額の端数処理（1円未満切り捨て。切り捨てた合計は2月の支払期に加算）
+unit: rounding
+kind: rounding
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 1}
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/jukyu/uketori/tsuchisho/furikomi/kingaku/20140421-04.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "国民年金（基礎年金）と厚生年金保険のそれぞれの制度ごとに、3月から翌年2月までの端数の合計が1円以上になった場合に、その額を2月の支払額に加算します。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "国民年金法第18条の2。適用開始の日は原本で確認する"}

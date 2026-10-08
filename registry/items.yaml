@@ -38,15 +38,57 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: assumptions.inflation
+    status: active
+    label: "物価上昇率（年率。省略は0。年金額の改定に使う）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: assumptions.investmentReturn
     status: active
     label: "運用利回り（年率）"
     since: draft
     aliases: []
     replacedBy: null
+  - id: assumptions.pensionMacroSlide
+    status: active
+    label: "年金額のマクロ経済スライドの調整率（年度ごと。正の率で書き、改定率から引く。省略は0）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.pensionMacroSlideEmployee
+    status: active
+    label: "厚生年金（報酬比例）のマクロ経済スライドの調整率（省略は基礎年金と同じ）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: assumptions.wageGrowth
     status: active
     label: "賃金上昇率（年率。省略は0）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.business.income
+    status: active
+    label: "事業所得（年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.childcareShortHours
+    status: active
+    label: "育児のための短時間勤務（2歳未満の子。育児時短就業給付）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.employeeInsurance
+    status: active
+    label: "上書き: 被用者保険（健康保険・厚生年金）に入るか（省略はエンジンが働き方から導く）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.employer.fullTimeWeeklyHours
+    status: active
+    label: "通常の労働者の週の所定労働時間（4分の3の基準。省略は40）"
     since: draft
     aliases: []
     replacedBy: null
@@ -58,7 +100,7 @@ entries:
     replacedBy: null
   - id: employment.employer.size
     status: active
-    label: "勤務先の従業員数"
+    label: "勤務先の従業員数（被保険者の数。適用拡大の企業規模の要件）"
     since: draft
     aliases: []
     replacedBy: null
@@ -70,7 +112,7 @@ entries:
     replacedBy: null
   - id: employment.employmentInsuranceCovered
     status: active
-    label: "雇用保険の被保険者か（会社員・契約は省略で真、パートは必須）"
+    label: "上書き: 雇用保険の被保険者か（省略はエンジンが週の所定労働時間などから導く）"
     since: draft
     aliases: []
     replacedBy: null
@@ -122,6 +164,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: employment.leaveChild
+    status: active
+    label: "産前産後休業・育児休業の対象の子（省略は休業の始まりに近い子から決める）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: employment.leaveKind
     status: active
     label: "休業の種類"
@@ -136,7 +184,7 @@ entries:
     replacedBy: null
   - id: employment.pensionCategory
     status: active
-    label: "厚生年金の種別"
+    label: "厚生年金の種別（none は厚生年金に入らない勤め先）"
     since: draft
     aliases: []
     replacedBy: null
@@ -170,9 +218,27 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: employment.salary.contractualMonthly
+    status: active
+    label: "所定内賃金の月額（適用拡大の賃金の要件。省略は給与の年額の12分の1）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.salary.growth
+    status: active
+    label: "昇給の仕方（省略は賃金上昇率だけ。curve は昇給カーブのマスタデータの値ID）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: employment.standardMonthlyRemuneration
     status: active
     label: "置き換え口: 標準報酬月額（健康保険・厚生年金。給与明細・決定通知の額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.student
+    status: active
+    label: "学生か（短時間労働者の適用拡大・雇用保険の対象から外れる）"
     since: draft
     aliases: []
     replacedBy: null
@@ -287,6 +353,96 @@ entries:
   - id: member.support
     status: active
     label: "親・祖父母の扶養と同居"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pensionRecord.amounts
+    status: active
+    label: "置き換え口: 記録の年金額（年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pensionRecord.asOf
+    status: active
+    label: "記録の時点（定期便の作成の月・通知の年月・加入歴の終わりの月）。この月より後はエンジンが働き方の期間から足す"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pensionRecord.claim
+    status: active
+    label: "受給を始める月（基礎と厚生を別々に。繰上げ・繰下げ。省略は65歳に達した月の翌月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pensionRecord.history
+    status: active
+    label: "加入歴（history の型）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pensionRecord.kind
+    status: active
+    label: "記録の型"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pensionRecord.member
+    status: active
+    label: "加入者"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pensionRecord.months
+    status: active
+    label: "加入期間の月数（定期便の加入期間の欄）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: premiumAssessment.amount
+    status: active
+    label: "年額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: premiumAssessment.fiscalYear
+    status: active
+    label: "年度"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: premiumAssessment.kind
+    status: active
+    label: "保険料の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: premiumAssessment.member
+    status: active
+    label: "納める構成員（国民健康保険は世帯主）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: premiumRate.baseMonthly
+    status: active
+    label: "介護保険（第1号）の基準額（月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: premiumRate.fromFiscalYear
+    status: active
+    label: "この年度から（省略は最初から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: premiumRate.kind
+    status: active
+    label: "保険料の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: premiumRate.parts
+    status: active
+    label: "賦課の区分ごとの料率（国民健康保険は medical・elderlySupport・care・childSupport、後期高齢者医療は medical・childSupport）"
     since: draft
     aliases: []
     replacedBy: null

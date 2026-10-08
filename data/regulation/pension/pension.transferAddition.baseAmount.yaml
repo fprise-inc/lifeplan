@@ -1,0 +1,20 @@
+id: pension.transferAddition.baseAmount
+title: 振替加算の基準額（224,700円×改定率。受給する人の改定率）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 224700
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.sroffice-ishikawa.com/index_68.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "(224,700円×改定率)×(老齢基礎年金の受給権者の生年月日に応じた一定の率)", note: "社労士の資料の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和8年度の基準額243,100円（昭和31年4月1日以前生まれ）×0.067…の検算が公表値と一致"}

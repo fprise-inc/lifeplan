@@ -1,0 +1,199 @@
+id: pension.specialOldAge.startAge
+title: 特別支給の老齢厚生年金（報酬比例部分）の支給開始年齢（生年月日・性別。第1号厚生年金の期間）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: monthAfterReach
+entries:
+  - rev: 1
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "male"}
+      - {key: "birthDate", from: null, to: "1953-04-01"}
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "それより前に生まれた人（すでに65歳を過ぎた人）の区分と定額部分は置いていない（notApplicable）"}
+  - rev: 2
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "male"}
+      - {key: "birthDate", from: "1953-04-02", to: "1955-04-01"}
+    value: 61
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 3
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "male"}
+      - {key: "birthDate", from: "1955-04-02", to: "1957-04-01"}
+    value: 62
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 4
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "male"}
+      - {key: "birthDate", from: "1957-04-02", to: "1959-04-01"}
+    value: 63
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 5
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "male"}
+      - {key: "birthDate", from: "1959-04-02", to: "1961-04-01"}
+    value: 64
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 6
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "male"}
+      - {key: "birthDate", from: "1961-04-02", to: null}
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 7
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "female"}
+      - {key: "birthDate", from: null, to: "1958-04-01"}
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "それより前に生まれた人（すでに65歳を過ぎた人）の区分と定額部分は置いていない（notApplicable）"}
+  - rev: 8
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "female"}
+      - {key: "birthDate", from: "1958-04-02", to: "1960-04-01"}
+    value: 61
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1}
+  - rev: 9
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "female"}
+      - {key: "birthDate", from: "1960-04-02", to: "1962-04-01"}
+    value: 62
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1}
+  - rev: 10
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "female"}
+      - {key: "birthDate", from: "1962-04-02", to: "1964-04-01"}
+    value: 63
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 11
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "female"}
+      - {key: "birthDate", from: "1964-04-02", to: "1966-04-01"}
+    value: 64
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1}
+  - rev: 12
+    appliesFrom: "2013-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "female"}
+      - {key: "birthDate", from: "1966-04-02", to: null}
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/jukyu-yoken/20140421-02.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和28年4月2日～昭和30年4月1日で、報酬比例部分の支給開始年齢は61歳", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/seikyu/jizensofu.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "63歳になる女性の方（昭和38年4月2日から昭和39年4月1日生まれ）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1}

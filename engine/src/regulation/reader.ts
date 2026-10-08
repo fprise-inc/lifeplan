@@ -87,6 +87,13 @@ export interface Selected {
   readonly entry: Entry;
   readonly packVersion: string;
   readonly effectiveTo: string | null;
+  /**
+   * 延長の仮定（0007 の4・追記）: 適用終了の後の値がまだ分からないので、最後の行が続くとみなして選んだ。
+   * 値を引いた日の年（見出しの notices に出す）
+   */
+  readonly extendedYear?: number;
+  /** プランの dataSet の版ではこの値IDの行を1つも知らなかったので、最新の版の行を使った（PR の提案） */
+  readonly recordedLater?: true;
 }
 
 interface Visible {
@@ -101,6 +108,10 @@ export interface MatchContext {
   readonly birth?: Birth;
   /** 全国以外の管轄の値を選ぶとき（協会けんぽの支部など）。省略は全国の値 */
   readonly jurisdiction?: Jurisdiction;
+  /** 条件 sex を使う値のための構成員の性別 */
+  readonly sex?: "female" | "male";
+  /** 延長の仮定を使わない（値が無ければ E_PARAM_NO_VALUE）。改定率のように前提で延ばす値の有無を確かめるため */
+  readonly noExtension?: boolean;
 }
 
 const jurisdictionKey = (j: Json | Jurisdiction | undefined): string =>
@@ -110,6 +121,7 @@ export class RegulationStore {
   private readonly defs = new Map<string, { def: ValueDef; pack: PackHeader }>();
   private readonly visible = new Map<string, readonly Visible[]>();
   private readonly infos: PackInfo[] = [];
+  private readonly later = new Set<string>();
 
   constructor(packs: readonly PackJson[], dataSet: Readonly<Record<string, string>> = {}) {
     for (const p of packs) {
@@ -134,7 +146,13 @@ export class RegulationStore {
         const def = h.fictional === true && h.fictionalOf !== undefined ? { ...raw, id: raw.id.replace(/^test\./, "") } : raw;
         if (this.defs.has(def.id)) throw new EngineError("E_PACK_DUPLICATE", [def.id]);
         this.defs.set(def.id, { def, pack: h });
-        this.visible.set(def.id, visibleEntries(def, asOf));
+        let vis = visibleEntries(def, asOf);
+        // dataSet の版のときにはまだ無かった値ID（後の版で足した値）は、最新の版の行を使い、見出しで知らせる
+        if (vis.length === 0 && asOf !== h.version) {
+          vis = visibleEntries(def, h.version);
+          if (vis.length > 0) this.later.add(def.id);
+        }
+        this.visible.set(def.id, vis);
       }
     }
     for (const id of Object.keys(dataSet)) {
@@ -158,8 +176,20 @@ export class RegulationStore {
     return d.pack.version;
   }
 
+  /** 値の ID が制度データにあるか */
+  knows(id: string): boolean {
+    return this.defs.has(id);
+  }
+
   /** 引く日（basis から決めたもの）の行を1つだけ選ぶ */
   select(id: string, date: CivilDate, mc: MatchContext = {}): Selected {
+    const s = this.trySelect(id, date, mc);
+    if (s === null) throw new EngineError("E_PARAM_NO_VALUE", [id]);
+    return s;
+  }
+
+  /** select と同じ。値が無いときはエラーにせず null を返す（有無だけを見るときに、エラーを作る手間を省くため） */
+  trySelect(id: string, date: CivilDate, mc: MatchContext = {}): Selected | null {
     const def = this.definition(id);
     const key = dateKey(date);
     const hits: Visible[] = [];
@@ -170,10 +200,39 @@ export class RegulationStore {
       if (!matchConditions(v.entry.conditions, mc, id)) continue;
       hits.push(v);
     }
-    if (hits.length === 0) throw new EngineError("E_PARAM_NO_VALUE", [id]);
+    if (hits.length === 0) {
+      // 延長の仮定（0007 の追記）: 期限の後の値が分からない（同じ条件・管轄の最後の行が、引く日より前に終わる）ときは、
+      // 計算を止めずに最後の行が続くとみなす。最初の行より前の日は値が無いので止める
+      const ext = mc.noExtension === true ? null : this.extension(id, key, want, mc);
+      if (ext === null) return null;
+      return {
+        def,
+        entry: ext.entry,
+        packVersion: ext.entry.recordedIn,
+        effectiveTo: ext.effectiveTo,
+        extendedYear: date.year,
+        ...(this.later.has(id) ? { recordedLater: true as const } : {}),
+      };
+    }
     if (hits.length > 1) throw new EngineError("E_PARAM_AMBIGUOUS", [id]);
     const hit = hits[0] as Visible;
-    return { def, entry: hit.entry, packVersion: hit.entry.recordedIn, effectiveTo: hit.effectiveTo };
+    return { def, entry: hit.entry, packVersion: hit.entry.recordedIn, effectiveTo: hit.effectiveTo, ...(this.later.has(id) ? { recordedLater: true as const } : {}) };
+  }
+
+  /** 引く日より前に終わる行のうち最後のもの（その後に始まる行が無いときだけ）。同じ条件の組で1つに決まらなければエラー */
+  private extension(id: string, key: number, want: string, mc: MatchContext): Visible | null {
+    const groups = new Map<string, Visible>();
+    for (const v of this.visible.get(id) ?? []) {
+      if (jurisdictionKey(v.entry.jurisdiction) !== want) continue;
+      if (!matchConditions(v.entry.conditions, mc, id)) continue;
+      if (v.fromKey > key) return null;
+      if (v.toKey === null) continue;
+      const g = JSON.stringify(v.entry.conditions);
+      const cur = groups.get(g);
+      if (cur === undefined || (cur.toKey as number) < v.toKey) groups.set(g, v);
+    }
+    if (groups.size > 1) throw new EngineError("E_PARAM_AMBIGUOUS", [id]);
+    return [...groups.values()][0] ?? null;
   }
 }
 
@@ -214,6 +273,11 @@ function visibleEntries(def: ValueDef, asOf: string): Visible[] {
 
 function matchConditions(conditions: readonly Condition[], mc: MatchContext, id: string): boolean {
   for (const c of conditions) {
+    if (c.key === "sex") {
+      if (mc.sex === undefined) throw new EngineError("E_ARGUMENT", [id, "sex"]);
+      if (c.equals !== mc.sex) return false;
+      continue;
+    }
     if (c.key !== "birthDate") throw new EngineError("E_PARAM_UNSUPPORTED", [id, `condition.${c.key}`]);
     if (mc.birth === undefined) throw new EngineError("E_ARGUMENT", [id, "birth"]);
     const r = matchBirthDate(mc.birth, c);

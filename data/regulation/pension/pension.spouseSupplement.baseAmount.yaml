@@ -1,0 +1,20 @@
+id: pension.spouseSupplement.baseAmount
+title: 加給年金額（配偶者）の基準額（224,700円×改定率）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 224700
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "加給年金額: 243,800円. 年齢制限: 65歳未満であること", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "例：昭和18年4月2日以降に生まれた方の場合、加給年金額は特別加算と合わせて423,700円となります。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "224,700×1.085→243,800円、×1.065→239,300円と一致。令和10年4月の見直し（配偶者の加算の減額）は額が未確認のため入れていない"}

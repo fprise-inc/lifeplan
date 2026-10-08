@@ -10,10 +10,11 @@ import { asRoundingRule, RegulationStore, type PackJson } from "../../src/regula
 import type { DeductionsOutput, EmploymentIncomeOutput, IncomeTaxOutput, ResidentTaxOutput } from "../../src/sdk/contracts.ts";
 import { parseDate } from "../../src/time/civil.ts";
 import { household, member, period, realPacks, uid } from "../helpers.ts";
+import { PENSION_CASES } from "./cases-pension.ts";
 
 export interface L2Case {
   readonly id: string;
-  readonly area: "所得税" | "住民税" | "社会保険";
+  readonly area: "所得税" | "住民税" | "社会保険" | "公的年金" | "給付";
   readonly title: string;
   readonly source: { readonly url: string; readonly note: string };
   readonly expected: number;
@@ -154,7 +155,7 @@ export const CASES: readonly L2Case[] = [
   { id: "rt.osaka.credit", area: "住民税", title: "大阪市 令和8年度: 調整控除（市・府の合計）", source: { url: `${OSAKA}0000384109.html`, note: SUM }, expected: 2500, actual: () => { const r = residentTax(2026, 3908800, 1737193, 150000); return r.adjustmentCredit.municipal + r.adjustmentCredit.prefectural; }, status: "pass" },
   { id: "rt.osaka.levy", area: "住民税", title: "大阪市 令和8年度: 差し引いた所得割の合計（市 83,800円＋府 20,900円）", source: { url: `${OSAKA}0000384109.html`, note: SUM }, expected: 104700, actual: () => { const r = residentTax(2026, 3908800, 1737193, 150000); return r.incomeLevy.municipal + r.incomeLevy.prefectural; }, status: "knownMismatch", cause: "例は住宅借入金等特別税額控除（97,500円）と寄附金税額控除（12,338円）を含む。この2つの税額控除はまだ作っていない" },
   { id: "rt.osaka.credit.small", area: "住民税", title: "大阪市: 課税標準 381,000円・人的控除額の差 15万円の調整控除（市民税）", source: { url: `${OSAKA}0000383147.html`, note: `${SUM}。どのページの例かを特定できず` }, expected: 6000, actual: () => residentTax(2026, 381000 + 430000, 430000, 150000).adjustmentCredit.municipal, status: "knownMismatch", cause: `${DESIGNATED}。この部品の市町村民税の分は 4,500円（合計は 7,500円）` },
-  { id: "rt.osaka.exemption", area: "住民税", title: "大阪市 令和8年度: 単身で給与収入 110万円以下は均等割・所得割とも非課税", source: { url: `${OSAKA}0000384084.html`, note: SUM }, expected: 0, actual: () => residentTax(2026, 1100000 - 650000, 430000, 50000).total, status: "knownMismatch", cause: "非課税限度額をまだ入れていない（級地による違いの扱いが資料の間で食い違い、値を確かめられなかった）" },
+  { id: "rt.osaka.exemption", area: "住民税", title: "大阪市 令和8年度: 単身で給与収入 110万円以下は均等割・所得割とも非課税", source: { url: `${OSAKA}0000384084.html`, note: SUM }, expected: 0, actual: () => residentTax(2026, 1100000 - 650000, 430000, 50000).total, status: "pass" },
   // 社会保険
   ...pensionCases.map(([std, half, note]): L2Case => ({
     id: `si.pension.${std}`, area: "社会保険", title: `厚生年金保険料 標準報酬月額 ${std.toLocaleString("ja-JP")}円の折半額（令和8年度の保険料額表）`,
@@ -176,6 +177,7 @@ export const CASES: readonly L2Case[] = [
     },
     status: "pass",
   },
+  ...PENSION_CASES,
 ];
 
 /** 合格率（pass の例のうち一致した数）と、扱いの違いが分かっている例 */

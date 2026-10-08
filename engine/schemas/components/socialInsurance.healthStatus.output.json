@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:socialInsurance.healthStatus.output",
+  "title": "socialInsurance.healthStatus の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "months"
+  ],
+  "properties": {
+    "months": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "month",
+          "kind"
+        ],
+        "properties": {
+          "month": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "kind": {
+            "enum": [
+              "kyokaikenpo",
+              "union",
+              "mutualAid",
+              "national",
+              "dependent",
+              "continuation",
+              "lateElderly",
+              "none"
+            ]
+          },
+          "supporter": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          }
+        }
+      }
+    }
+  }
+}

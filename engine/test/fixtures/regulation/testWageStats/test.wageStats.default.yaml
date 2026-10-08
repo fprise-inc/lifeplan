@@ -1,0 +1,25 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.wageStats.default
+title: 【架空の見本】wageStats.default
+unit: rate
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 24, rate: "1"}
+      - {upTo: 29, rate: "1.15"}
+      - {upTo: 39, rate: "1.4"}
+      - {upTo: 49, rate: "1.6"}
+      - {upTo: 59, rate: "1.7"}
+      - {upTo: null, rate: "1.2"}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

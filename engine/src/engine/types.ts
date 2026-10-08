@@ -56,6 +56,8 @@ export interface EventInput {
   readonly at: Timepoint;
 }
 
+export type HealthKind = "kyokaikenpo" | "union" | "mutualAid" | "national" | "dependent" | "continuation" | "lateElderly";
+
 export interface EmploymentPeriodInput {
   readonly id: string;
   readonly member: string;
@@ -63,26 +65,80 @@ export interface EmploymentPeriodInput {
   readonly to: Timepoint | null;
   readonly type: "regular" | "contract" | "partTime" | "selfEmployed" | "civilServant" | "leave" | "unemployed";
   readonly leaveKind?: "maternity" | "childcare" | "sick" | "other";
-  readonly healthInsurance: {
-    readonly kind: "kyokaikenpo" | "union" | "mutualAid" | "national" | "dependent" | "continuation" | "lateElderly";
+  readonly leaveChild?: string;
+  readonly healthInsurance?: {
+    readonly kind: HealthKind;
     readonly insurer?: string;
     readonly employeeRate?: ValueBox<string>;
     readonly careEmployeeRate?: ValueBox<string>;
     readonly childSupportEmployeeRate?: ValueBox<string>;
   };
-  readonly pensionCategory: "employee1" | "employee2" | "employee3" | "employee4" | "none";
-  readonly employer: { readonly size: number; readonly weeklyHours: string; readonly industry?: "general" | "agricultureEtc" | "construction" };
+  readonly pensionCategory?: "employee1" | "employee2" | "employee3" | "employee4" | "none";
+  readonly employer?: {
+    readonly size: number;
+    readonly weeklyHours: string;
+    readonly fullTimeWeeklyHours?: string;
+    readonly industry?: "general" | "agricultureEtc" | "construction";
+  };
+  readonly student?: boolean;
+  readonly employeeInsurance?: ValueBox<boolean>;
   readonly employmentInsuranceCovered?: boolean;
-  readonly salary: {
+  readonly salary?: {
     readonly annual: ValueBox<Yen>;
     readonly bonus: ValueBox<Yen>;
     readonly bonusMonths?: readonly number[];
     readonly commutingMonthly?: ValueBox<Yen>;
+    readonly contractualMonthly?: ValueBox<Yen>;
+    readonly growth?: { readonly curve: string };
   };
+  readonly business?: { readonly income: ValueBox<Yen> };
+  readonly childcareShortHours?: { readonly child: string; readonly wageBefore?: ValueBox<Yen> };
   readonly standardMonthlyRemuneration?: { readonly health: ValueBox<Yen>; readonly pension: ValueBox<Yen> };
   readonly endsOnMonthEnd?: boolean;
   readonly retirementBenefit?: string;
   readonly endsWith?: string;
+}
+
+export interface PensionRecordInput {
+  readonly id: string;
+  readonly member: string;
+  readonly kind: "statementUnder50" | "statementOver50" | "receiving" | "history" | "projection";
+  readonly asOf: string;
+  readonly months?: { readonly basic: number; readonly employee: number; readonly employee2059?: number; readonly qualifying?: number };
+  readonly amounts?: {
+    readonly basic?: ValueBox<Yen>;
+    readonly employee?: ValueBox<Yen>;
+    readonly transitional?: ValueBox<Yen>;
+    readonly special?: ValueBox<Yen>;
+  };
+  readonly history?: readonly {
+    readonly from: string;
+    readonly to: string;
+    readonly category: "national1" | "national1Unpaid" | "national3" | "employee";
+    readonly averageRemuneration?: Yen;
+  }[];
+  readonly claim?: { readonly basic?: Timepoint; readonly employee?: Timepoint };
+}
+
+export type PremiumKind = "nationalHealth" | "lateElderly" | "careFirst";
+export type PremiumPart = "medical" | "elderlySupport" | "care" | "childSupport";
+
+export interface PremiumAssessmentInput {
+  readonly id: string;
+  readonly member: string;
+  readonly kind: PremiumKind;
+  readonly fiscalYear: number;
+  readonly amount: ValueBox<Yen>;
+}
+
+export interface PremiumRateInput {
+  readonly id: string;
+  readonly kind: PremiumKind;
+  readonly fromFiscalYear?: number;
+  readonly parts?: Partial<
+    Record<PremiumPart, { readonly incomeRate?: ValueBox<string>; readonly perCapita?: ValueBox<Yen>; readonly perHousehold?: ValueBox<Yen> }>
+  >;
+  readonly baseMonthly?: ValueBox<Yen>;
 }
 
 export interface AccountInput {
@@ -125,6 +181,9 @@ export interface HouseholdInput {
   readonly accounts: readonly AccountInput[];
   readonly insuranceContracts: readonly InsuranceContractInput[];
   readonly residentTaxAssessments?: readonly ResidentTaxAssessmentInput[];
+  readonly pensionRecords?: readonly PensionRecordInput[];
+  readonly premiumAssessments?: readonly PremiumAssessmentInput[];
+  readonly premiumRates?: readonly PremiumRateInput[];
 }
 
 export interface EngineInput {
@@ -133,7 +192,13 @@ export interface EngineInput {
   readonly calcConventions: CalcConventions;
   readonly dataSet?: Readonly<Record<string, string>>;
   readonly household: HouseholdInput;
-  readonly assumptions: { readonly investmentReturn: YearSeries; readonly wageGrowth?: YearSeries };
+  readonly assumptions: {
+    readonly investmentReturn: YearSeries;
+    readonly wageGrowth?: YearSeries;
+    readonly inflation?: YearSeries;
+    readonly pensionMacroSlide?: YearSeries;
+    readonly pensionMacroSlideEmployee?: YearSeries;
+  };
 }
 
 export interface EngineRequest {

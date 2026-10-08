@@ -18,6 +18,7 @@ export type Timepoint =
 export interface MemberLike {
   readonly id: string;
   readonly birth: Birth;
+  readonly sex?: "female" | "male";
 }
 
 export interface EventLike {
@@ -59,6 +60,12 @@ export class TimeResolver {
     const m = this.members.get(memberId);
     if (m === undefined) throw new EngineError("E_TIMEPOINT_UNKNOWN", [memberId]);
     return m.birth;
+  }
+
+  sexOf(memberId: string): "female" | "male" | undefined {
+    const m = this.members.get(memberId);
+    if (m === undefined) throw new EngineError("E_TIMEPOINT_UNKNOWN", [memberId]);
+    return m.sex;
   }
 
   resolveEvent(id: string, stack: readonly string[]): MonthIndex {

@@ -1,0 +1,49 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.pension.specialOldAge.startAge
+title: 【架空の見本】pension.specialOldAge.startAge
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: monthAfterReach
+entries:
+  - rev: 1
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "female"}
+      - {key: "birthDate", from: null, to: "1966-04-01"}
+    value: 64
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 2
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "female"}
+      - {key: "birthDate", from: "1966-04-02", to: null}
+    value: "notApplicable"
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 3
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "sex", equals: "male"}
+    value: "notApplicable"
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

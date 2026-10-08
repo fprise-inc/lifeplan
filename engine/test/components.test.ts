@@ -90,11 +90,18 @@ describe("被用者保険の資格と標準報酬（socialInsurance.coverage）"
     expect(at("2026-06")?.pensionStdBonus).toBe(1000000);
   });
 
-  it("パートは雇用保険の被保険者かを入力で決める（省略はエラー）。公務員は雇用保険なし", () => {
-    const pt = (extra: Record<string, unknown>) =>
-      household({ members: [member("a", "self", "1990-01")], periods: [period("p", { member: "a", from: "2020-04", type: "partTime", annual: 1200000, pensionCategory: "none", healthInsurance: { kind: "dependent" }, extra })] });
-    expect(() => call(pt({}), "socialInsurance.coverage", { member: A, fromYear: 2026 })).toThrow("E_ARGUMENT");
-    expect(call<CoverageOutput>(pt({ employmentInsuranceCovered: true }), "socialInsurance.coverage", { member: A, fromYear: 2026 }).wages.length).toBeGreaterThan(0);
+  it("パートの雇用保険は週の所定労働時間から導く（20時間以上。入力で上書きできる）。公務員は雇用保険なし", () => {
+    const pt = (hours: string, extra: Record<string, unknown> = {}) =>
+      household({
+        members: [member("a", "self", "1990-01")],
+        periods: [period("p", { member: "a", from: "2020-04", type: "partTime", annual: 1200000, pensionCategory: "none", healthInsurance: { kind: "dependent" }, extra: { employer: { size: 300, weeklyHours: hours }, ...extra } })],
+      });
+    // 週15時間は、2028年10月（週10時間以上に広がる）から被保険者
+    const w15 = call<CoverageOutput>(pt("15"), "socialInsurance.coverage", { member: A, fromYear: 2026 }).wages;
+    expect(w15.filter((w) => w.month < "2028-10")).toEqual([]);
+    expect(w15.some((w) => w.month === "2028-10")).toBe(true);
+    expect(call<CoverageOutput>(pt("25"), "socialInsurance.coverage", { member: A, fromYear: 2026 }).wages.length).toBeGreaterThan(0);
+    expect(call<CoverageOutput>(pt("15", { employmentInsuranceCovered: true }), "socialInsurance.coverage", { member: A, fromYear: 2026 }).wages.some((w) => w.month === "2026-01")).toBe(true);
     const cs = household({ members: [member("a", "self", "1990-01")], periods: [period("p", { member: "a", from: "2020-04", type: "civilServant", annual: 4800000, std: [400000, 400000], healthInsurance: { kind: "mutualAid", employeeRate: box("0.05") } })] });
     expect(call<CoverageOutput>(cs, "socialInsurance.coverage", { member: A, fromYear: 2026 }).wages).toEqual([]);
   });
@@ -135,10 +142,17 @@ describe("保険料（健康保険・介護・支援金・厚生年金・雇用�
     expect(flowsOf(ru, "cf.taxSi.care", "2026-06")[0]?.amount).toBe(2700);
   });
 
-  it("国民健康保険などの未対応の期間は、見出しの notices で知らせる", () => {
-    const se = household({ members: [member("a", "self", "1986-05")], periods: [period("p", { member: "a", from: "2020-04", type: "selfEmployed", annual: 0, pensionCategory: "none", healthInsurance: { kind: "national" } })] });
-    const notices = (full(se).header as { notices: { code: string; ids: string[] }[] }).notices;
-    expect(notices).toContainEqual({ code: "N_NOT_SUPPORTED", ids: ["socialInsurance.coverage", uid("p"), "employment.selfEmployed"] });
+  it("自営の期間は国民健康保険・国民年金の保険料がかかり、被用者保険はかからない", () => {
+    const se = household({
+      members: [member("a", "self", "1986-05")],
+      periods: [{ id: uid("p"), member: uid("a"), from: { at: "2020-04" }, to: null, type: "selfEmployed", business: { income: box(3000000) } }],
+    });
+    const r = full(se);
+    const rows = new Set(r.flows.map((f) => f.row));
+    expect(rows.has("cf.taxSi.health")).toBe(true);
+    expect(rows.has("cf.taxSi.pension")).toBe(true);
+    expect(rows.has("cf.income.business")).toBe(true);
+    expect(r.flows.some((f) => f.formula.startsWith("socialInsurance.health."))).toBe(false);
   });
 });
 

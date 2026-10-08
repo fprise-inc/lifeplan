@@ -1,0 +1,19 @@
+id: pension.earlyClaim.maxMonths
+title: 繰上げの上限の月数（60歳から）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2022-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 60
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kuriage-kurisage/20140421-01.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "60月早めて60歳より受給開始した場合；24%（＝0.4%×60月）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

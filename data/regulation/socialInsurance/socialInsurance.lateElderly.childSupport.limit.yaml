@@ -1,0 +1,33 @@
+id: socialInsurance.lateElderly.childSupport.limit
+title: 後期高齢者医療の賦課限度額（子ども・子育て支援金分）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2024-04-01"
+    appliesTo: "2026-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/stf/newpage_72371.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 21000
+    sources:
+      - {type: "web", url: "https://www.kaiketsu-j.com/?p=20323", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "子ども・子育て支援納付金賦課額:2万1千円", note: "民間の記事の要約"}
+      - {type: "web", url: "https://www.psrn.jp/topics/detail.php?id=39581", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "民間の記事の要約"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 3}

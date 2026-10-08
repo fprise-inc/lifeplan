@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.employmentIncome.input",
+  "title": "構成員と年分（revenue を渡すとその給与収入で計算する）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "member",
+    "year"
+  ],
+  "properties": {
+    "member": {
+      "$ref": "urn:financia:schema:common#/$defs/uuid"
+    },
+    "year": {
+      "$ref": "urn:financia:schema:common#/$defs/year"
+    },
+    "revenue": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    }
+  }
+}

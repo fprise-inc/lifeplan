@@ -1,0 +1,23 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.socialInsurance.care.firstInsured.ratio.taxable
+title: 【架空の見本】socialInsurance.care.firstInsured.ratio.taxable
+unit: rate
+kind: bracketTable
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2000-04-01"
+    appliesTo: null
+    enforcedOn: "2000-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1199999, rate: "1.2"}
+      - {upTo: 2099999, rate: "1.3"}
+      - {upTo: 3199999, rate: "1.5"}
+      - {upTo: null, rate: "1.7"}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

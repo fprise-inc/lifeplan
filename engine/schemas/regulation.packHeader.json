@@ -20,7 +20,7 @@
     "fictionalOf": {
       "description": "架空のパックが代わりをする製品のパックのID（テスト用。値ID の test. を外した ID で引ける。PR の提案）",
       "type": "string",
-      "pattern": "^regulation(\\.[a-z][a-zA-Z0-9]*)+$"
+      "pattern": "^(regulation|master)(\\.[a-z][a-zA-Z0-9]*)+$"
     },
     "requires": {
       "type": "object",

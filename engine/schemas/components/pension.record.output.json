@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:pension.record.output",
+  "title": "pension.record の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "fiscalYear",
+    "asOf",
+    "basicMonths",
+    "employeeMonths",
+    "employee2059Months",
+    "qualifyingMonths",
+    "amounts",
+    "months"
+  ],
+  "properties": {
+    "kind": {
+      "enum": [
+        "statementUnder50",
+        "statementOver50",
+        "receiving",
+        "history",
+        "projection",
+        "estimated"
+      ]
+    },
+    "fiscalYear": {
+      "$ref": "urn:financia:schema:common#/$defs/year"
+    },
+    "asOf": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+        }
+      ]
+    },
+    "basicMonths": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "employeeMonths": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "employee2059Months": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "qualifyingMonths": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "amounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basic",
+        "employee",
+        "transitional",
+        "special"
+      ],
+      "properties": {
+        "basic": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+            }
+          ]
+        },
+        "employee": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+            }
+          ]
+        },
+        "transitional": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+            }
+          ]
+        },
+        "special": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+            }
+          ]
+        }
+      }
+    },
+    "months": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "month",
+          "basic",
+          "employee",
+          "employee2059",
+          "remuneration",
+          "accrues"
+        ],
+        "properties": {
+          "month": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "basic": {
+            "type": "boolean"
+          },
+          "employee": {
+            "type": "boolean"
+          },
+          "employee2059": {
+            "type": "boolean"
+          },
+          "remuneration": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "accrues": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

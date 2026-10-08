@@ -1,0 +1,20 @@
+id: socialInsurance.sicknessAllowance.maxDays
+title: 傷病手当金の支給期間（通算1年6か月を日数にした近似）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 548
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/benefit/injury_and_sickness_allowance/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "支給期間中に途中で就労するなど、傷病手当金が支給されない期間がある場合には、支給開始日から起算して１年６か月を超えても、支給の対象になります", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/g6/cat620/r307/", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "通算1年6か月を365日＋183日とした（日数への換算はエンジンの近似）"}

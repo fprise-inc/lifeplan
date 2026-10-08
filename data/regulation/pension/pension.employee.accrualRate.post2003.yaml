@@ -1,0 +1,20 @@
+id: pension.employee.accrualRate.post2003
+title: 報酬比例の給付乗率（平成15年4月以後の期間。昭和21年4月2日以後生まれ）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.005481"
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/yougo/hagyo/hoshuhirei.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "平均標準報酬額 × 5.481/1000 × 平成15年4月以降の加入期間の月数", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "再評価率は持たず、記録の後の報酬は改定率の系列で記録の年度の水準に直す（PR の提案）"}

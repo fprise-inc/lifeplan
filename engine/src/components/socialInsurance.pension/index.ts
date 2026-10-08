@@ -7,7 +7,7 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
   id: "socialInsurance.pension",
   title: "厚生年金保険料",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "socialInsurance.coverage": ">=1 <2" },
   params: ["socialInsurance.pension.rate", ROUNDING],
   reads: [],
@@ -25,8 +25,8 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
       const amount = at.money.mulRate(base, ctx.rate.div(r, rate("2")), ROUNDING);
       if (amount > 0) flows.push({ row: "cf.taxSi.pension", ym, amount, accrualYear: yearOf(m), member: input.member, object: period, formula });
     };
-    for (const c of cov.months) if (c.pensionStd !== null) one(c.month, c.paidIn, c.pensionStd, c.period, "socialInsurance.pension.monthly");
-    for (const b of cov.bonuses) if (b.pensionStdBonus !== null) one(b.month, b.month, b.pensionStdBonus, b.period, "socialInsurance.pension.bonus");
+    for (const c of cov.months) if (c.pensionStd !== null && c.exempt !== true) one(c.month, c.paidIn, c.pensionStd, c.period, "socialInsurance.pension.monthly");
+    for (const b of cov.bonuses) if (b.pensionStdBonus !== null && b.exempt !== true) one(b.month, b.month, b.pensionStdBonus, b.period, "socialInsurance.pension.bonus");
     return { flows };
   },
 });

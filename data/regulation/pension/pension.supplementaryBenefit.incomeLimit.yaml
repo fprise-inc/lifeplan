@@ -1,0 +1,65 @@
+id: pension.supplementaryBenefit.incomeLimit
+title: 年金生活者支援給付金（老齢）の所得基準額（前年の公的年金等の収入金額＋その他の所得。10月から翌年9月）
+unit: JPY
+kind: constant
+basis: {type: "fiscalYear", startMonth: 10}
+linkage: indexed
+entries:
+  - rev: 1
+    appliesFrom: "2025-10-01"
+    appliesTo: "2026-09-30"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1956-04-02", to: null}
+    value: 809000
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/sonota-kyufu/shienkyufukin/seikyu/roureikiso.files/leaflet1.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和７年10月からは、昭和31年４月２日以後生まれの方は809,000円、昭和31年４月１日以前生まれの方は806,700円", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2025-10-01"
+    appliesTo: "2026-09-30"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: null, to: "1956-04-01"}
+    value: 806700
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/sonota-kyufu/shienkyufukin/seikyu/roureikiso.files/leaflet1.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和７年10月からは、昭和31年４月２日以後生まれの方は809,000円、昭和31年４月１日以前生まれの方は806,700円", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 3
+    appliesFrom: "2026-10-01"
+    appliesTo: "2027-09-30"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1956-04-02", to: null}
+    value: 826500
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/sonota-kyufu/shienkyufukin/seikyu/roureikiso.files/leaflet1.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和31年4月2日以後生まれの方 老齢年金生活者支援給付金は826,500円以下である方", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mhlw.go.jp/nenkinkyuufukin/system.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和9年10月以後は改定率の比で延ばす"}
+  - rev: 4
+    appliesFrom: "2026-10-01"
+    appliesTo: "2027-09-30"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: null, to: "1956-04-01"}
+    value: 824100
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/hourei/doc/tsuchi/T260708T0010.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "806,700円から824,100円への改正通知の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/tetsuduki/sonota-kyufu/shienkyufukin/seikyu/roureikiso.files/leaflet1.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "（924,100円－前年の年金収入金額とその他の所得の合計）÷100,000円", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

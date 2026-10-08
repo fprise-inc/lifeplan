@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:pension.revision.output",
+  "title": "pension.revision の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "byFiscalYear"
+  ],
+  "properties": {
+    "byFiscalYear": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fiscalYear",
+          "rate",
+          "employee",
+          "projected"
+        ],
+        "properties": {
+          "fiscalYear": {
+            "$ref": "urn:financia:schema:common#/$defs/year"
+          },
+          "rate": {
+            "$ref": "urn:financia:schema:common#/$defs/rate"
+          },
+          "employee": {
+            "$ref": "urn:financia:schema:common#/$defs/rate"
+          },
+          "projected": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

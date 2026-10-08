@@ -1,0 +1,20 @@
+id: pension.employee.flatRate.baseAmount
+title: 定額部分（経過的加算）の単価の基準額（平成16年改正法の額）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2004-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 1628
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0704.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "平成16年改正後の額1,628円に…改定率を乗じた額", note: "経過措置一覧の注記の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/yougo/tagyo/teigakububun.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "昭和31年4月2日以後生まれの方は1,766円、昭和31年4月1日以前生まれの方は1,761円", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "1,628×1.085→1,766円、×1.082→1,761円と一致"}

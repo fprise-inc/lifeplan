@@ -1,0 +1,32 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.pension.employee.revisionFactor
+title: 【架空の見本】pension.employee.revisionFactor
+unit: rate
+kind: constant
+basis: "fiscalYear"
+linkage: indexed
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "1.01"
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 2
+    appliesFrom: "2027-04-01"
+    appliesTo: null
+    enforcedOn: "2027-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

@@ -1,0 +1,20 @@
+id: incomeTax.pensionFilingExemption.revenueLimit
+title: 確定申告不要制度の公的年金等の収入金額（以下）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 4000000
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/shinkoku/tebiki/2025/01/1_06.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "公的年金等の収入がある方で、次のいずれにも当てはまる場合、所得税及び復興特別所得税の確定申告は必要ありません（公的年金等の全部が源泉徴収の対象となる場合に限ります。）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1600.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和7年分の手引きで確認。公的年金等の全部が源泉徴収の対象とみなす"}

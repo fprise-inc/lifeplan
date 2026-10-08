@@ -1,0 +1,20 @@
+id: pension.revision.existingFromAge
+title: 既裁定者になる年齢（この年齢に達した年度から物価で改定する。前提で延ばす年度だけに使う）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 68
+    sources:
+      - {type: "web", url: "https://www.kkr.or.jp/nenkin/zenpan/kaitei/r8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "既裁定者（68歳到達年度以後）は1.062(令和7年度の改定率)×1.019 =1.082", note: "半公的な解説の抜粋（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "制度データの年度は生年月日の区分（昭和31年4月1日）を使う"}

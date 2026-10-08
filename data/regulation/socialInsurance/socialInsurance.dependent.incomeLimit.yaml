@@ -1,0 +1,20 @@
+id: socialInsurance.dependent.incomeLimit
+title: 健康保険の被扶養者・国民年金の第3号被保険者の年間収入の基準（未満）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 1300000
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/dependent_status/001/index.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/tekiyo/hihokensha1/20141202.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "厚生年金に加入している第2号被保険者に扶養されている20歳以上60歳未満の配偶者(年収が130万円未満であり、かつ配偶者の年収の2分の1未満の方)を第3号被保険者といいます。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和7年度の資料で確認した値。それより前の適用は原本で確認する。被保険者の収入の2分の1未満の基準は見ていない"}

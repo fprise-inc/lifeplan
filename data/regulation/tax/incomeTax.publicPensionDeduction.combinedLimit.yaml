@@ -1,0 +1,33 @@
+id: incomeTax.publicPensionDeduction.combinedLimit
+title: 給与所得控除額と公的年金等控除額の合計の上限（超える分を公的年金等控除額から引く。令和9年分から）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: "2026-12-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "上記の改正は、令和９年分以後の所得税について適用する。", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2027-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 2800000
+    sources:
+      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "給与等の収入金額及び公的年金等の収入金額を有する者について、その年分の給与所得控除額と公的年金等控除額の合計額が280万円を超える場合には、その超える部分の金額をその公的年金等控除額から控除する", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/oshirase/taisetu/kojin/2026/202606/0617.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和8年度税制改正の大綱と日本年金機構の説明。成立した法律の条文は未確認（住民税は令和10年度分から＝令和9年の所得から）"}

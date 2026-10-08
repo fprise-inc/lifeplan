@@ -4,14 +4,25 @@
   "title": "socialInsurance.coverage の出力",
   "type": "object",
   "additionalProperties": false,
-  "required": ["months", "bonuses", "wages"],
+  "required": [
+    "months",
+    "bonuses",
+    "wages"
+  ],
   "properties": {
     "months": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["month", "paidIn", "period", "healthStd", "pensionStd", "care"],
+        "required": [
+          "month",
+          "paidIn",
+          "period",
+          "healthStd",
+          "pensionStd",
+          "care"
+        ],
         "properties": {
           "month": {
             "$ref": "urn:financia:schema:common#/$defs/yearMonth"
@@ -44,6 +55,9 @@
           },
           "care": {
             "type": "boolean"
+          },
+          "exempt": {
+            "type": "boolean"
           }
         }
       }
@@ -53,7 +67,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["month", "period", "healthStdBonus", "pensionStdBonus", "care"],
+        "required": [
+          "month",
+          "period",
+          "healthStdBonus",
+          "pensionStdBonus",
+          "care"
+        ],
         "properties": {
           "month": {
             "$ref": "urn:financia:schema:common#/$defs/yearMonth"
@@ -83,6 +103,9 @@
           },
           "care": {
             "type": "boolean"
+          },
+          "exempt": {
+            "type": "boolean"
           }
         }
       }
@@ -92,7 +115,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["month", "period", "kind", "wage"],
+        "required": [
+          "month",
+          "period",
+          "kind",
+          "wage"
+        ],
         "properties": {
           "month": {
             "$ref": "urn:financia:schema:common#/$defs/yearMonth"
@@ -101,7 +129,10 @@
             "$ref": "urn:financia:schema:common#/$defs/uuid"
           },
           "kind": {
-            "enum": ["salary", "bonus"]
+            "enum": [
+              "salary",
+              "bonus"
+            ]
           },
           "wage": {
             "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"

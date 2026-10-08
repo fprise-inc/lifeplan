@@ -92,7 +92,7 @@ describe("パックの組み立て", () => {
   });
 
   it("basis を目的語つきの形に正規化する", () => {
-    const v = realPacks()[1]?.values.find((x) => x.id === "residentTax.basicDeduction");
+    const v = realPacks().find((p) => p.pack.packId === "regulation.tax")?.values.find((x) => x.id === "residentTax.basicDeduction");
     expect(v?.basis).toEqual({ type: "priorYearIncome", switchMonth: 6 });
     expect(v?.linkage).toBe("none");
   });
@@ -182,6 +182,13 @@ describe("エンジン側の読み取り", () => {
     // 期限つきの特例（令和8年分・令和9年分）の後は本則の行（原本で確かめた令和10年分以後の表）を使う
     expect(latest.select("incomeTax.employmentIncomeDeduction", d("2027-12-31")).entry.rev).toBe(2);
     expect(latest.select("incomeTax.employmentIncomeDeduction", d("2028-01-01")).entry.rev).toBe(3);
+    expect(latest.select("incomeTax.employmentIncomeDeduction", d("2028-01-01")).extendedYear).toBeUndefined();
+    // 期限つきの特例の後の区分が分からない値は、行を置かない（推測で埋めない）。延長の仮定で最後の行が続くとみなす（0007 の追記）
+    // 本則の行（rev 3）を知らない版 2026.2.0 の時点では、令和9年分の行が延長の仮定で続く
+    const before = store(tax as PackJson, { "regulation.tax": "2026.2.0" });
+    const ext = before.select("incomeTax.employmentIncomeDeduction", d("2028-01-01"));
+    expect([ext.entry.rev, ext.extendedYear]).toEqual([2, 2028]);
+    expect(before.select("incomeTax.employmentIncomeDeduction", d("2027-01-01")).extendedYear).toBeUndefined();
   });
 
   it("全国以外の管轄（協会けんぽの支部）の値を選ぶ", () => {

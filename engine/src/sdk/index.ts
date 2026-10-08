@@ -6,6 +6,12 @@ export type {
   AnnualRow,
   CalcConventions,
   EmploymentPeriodInput,
+  HealthKind,
+  PensionRecordInput,
+  PremiumAssessmentInput,
+  PremiumKind,
+  PremiumPart,
+  PremiumRateInput,
   Flow,
   FlowsOutput,
   HouseholdInput,
@@ -25,3 +31,4 @@ export { netByYear, tableYear } from "../engine/aggregate.ts";
 export { boxValue } from "./box.ts";
 export type * from "./contracts.ts";
 export { fail } from "./fail.ts";
+export { ageMonth, monthsIn, fiscalYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS } from "./helpers.ts";

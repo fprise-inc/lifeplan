@@ -8,6 +8,24 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: benefit.employment
+    status: active
+    label: "雇用保険の育児の給付"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: benefit.health
+    status: active
+    label: "健康保険の給付（出産育児一時金・出産手当金・傷病手当金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: income.business
+    status: active
+    label: "事業所得"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: income.salary
     status: active
     label: "給与・賞与"
@@ -26,6 +44,36 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.category
+    status: active
+    label: "国民年金の被保険者の種別"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.oldAge
+    status: active
+    label: "老齢年金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.record
+    status: active
+    label: "公的年金の加入の記録"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.revision
+    status: active
+    label: "年金額の改定率"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.supplementaryBenefit
+    status: active
+    label: "年金生活者支援給付金"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: plan.cashflow
     status: active
     label: "キャッシュフロー表"
@@ -38,9 +86,27 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: residentTax.exemption
+    status: active
+    label: "住民税の非課税の判定"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.careFirst
+    status: active
+    label: "介護保険料（第1号被保険者）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.coverage
     status: active
     label: "被用者保険の資格と標準報酬"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.employeeStatus
+    status: active
+    label: "勤め先の保険に入るか（働き方の期間から導く）"
     since: draft
     aliases: []
     replacedBy: null
@@ -53,6 +119,30 @@ entries:
   - id: socialInsurance.health
     status: active
     label: "健康保険料・介護保険料・子ども・子育て支援金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.healthStatus
+    status: active
+    label: "健康保険の種類（導く）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.lateElderly
+    status: active
+    label: "後期高齢者医療の保険料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth
+    status: active
+    label: "国民健康保険料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalPension
+    status: active
+    label: "国民年金保険料"
     since: draft
     aliases: []
     replacedBy: null
@@ -71,6 +161,12 @@ entries:
   - id: tax.employmentIncome
     status: active
     label: "給与所得"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.publicPensionIncome
+    status: active
+    label: "公的年金等に係る雑所得"
     since: draft
     aliases: []
     replacedBy: null

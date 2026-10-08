@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:pension.oldAge.output",
+  "title": "pension.oldAge の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "flows",
+    "payments",
+    "months"
+  ],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:financia:schema:common#/$defs/flow"
+      }
+    },
+    "payments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ym",
+          "part",
+          "amount",
+          "accrualYear"
+        ],
+        "properties": {
+          "ym": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "part": {
+            "enum": [
+              "basic",
+              "employee",
+              "special"
+            ]
+          },
+          "amount": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "accrualYear": {
+            "$ref": "urn:financia:schema:common#/$defs/year"
+          }
+        }
+      }
+    },
+    "months": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "month",
+          "basic",
+          "employee",
+          "special",
+          "suspended"
+        ],
+        "properties": {
+          "month": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "basic": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "employee": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "special": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "suspended": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          }
+        }
+      }
+    }
+  }
+}
