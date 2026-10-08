@@ -124,10 +124,11 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
     // 年度の税額と、そのうち年金から差し引く額
     const assess = (fy: number): { detail: Levy; assessed: boolean; pension: Yen } => {
       const g = ctx.list<ResidentTaxAssessmentInput>("residentTaxAssessment").find((a) => a.member === member && a.fiscalYear === fy);
-      const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: fy - 1 });
       let detail: Levy;
+      let inc: TotalIncomeOutput | null = null;
       if (g !== undefined) detail = { ...NONE, total: boxValue(g.amount) ?? yen(0) };
       else {
+        inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: fy - 1 });
         if (inc.total <= 0) return { detail: NONE, assessed: false, pension: yen(0) };
         ctx.notice("N_NOT_SUPPORTED", ["residentTax.designatedCityAllocation", "residentTax.excessTaxation"]);
         const ex = ctx.call<ExemptionOutput>("residentTax.exemption", { member, fiscalYear: fy });
@@ -143,7 +144,10 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
       const eligible = ageMonth(ctx, start, PENSION_AGE, member) <= start && pensionSpecial(ctx, member, fy);
       let pension = yen(0);
       if (eligible && detail.total > 0) {
-        const share = inc.total > 0 ? ctx.money.mulRatio(yen(detail.incomeLevy.municipal + detail.incomeLevy.prefectural), inc.publicPension ?? 0, inc.total, "conv.residentTax.installment") : yen(0);
+        const share =
+          inc !== null && inc.total > 0
+            ? ctx.money.mulRatio(yen(detail.incomeLevy.municipal + detail.incomeLevy.prefectural), inc.publicPension ?? 0, inc.total, "conv.residentTax.installment")
+            : yen(0);
         const capita = salarySpecial(fy, g) ? yen(0) : yen(detail.perCapita.municipal + detail.perCapita.prefectural + detail.forestEnvironmentTax);
         pension = g !== undefined ? (salarySpecial(fy, g) ? yen(0) : detail.total) : yen(share + capita);
         if (pension > detail.total) pension = detail.total;

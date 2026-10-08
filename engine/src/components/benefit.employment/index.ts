@@ -96,6 +96,8 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
     };
     const spouseCondition = (child: MemberInput, within: number): boolean => {
       const birth = parseYm(child.birth.birthYearMonth);
+      // 配偶者がいない（ひとり親）ときは、配偶者の育児休業を要件としない
+      if (spouses.length === 0) return true;
       return spouses.some((sp) => {
         const st = ctx.call<EmployeeStatusOutput>("socialInsurance.employeeStatus", { member: sp }).months;
         const insuredAtBirth = st.some((s) => s.month === child.birth.birthYearMonth && s.employment);
@@ -152,10 +154,10 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
       if (sh === undefined || !EMPLOYEE_TYPES.has(p.type)) continue;
       const child = children.find((c) => c.id === sh.child);
       if (child === undefined) continue;
-      const until = ageMonth(ctx, from, P.shortUntil, child.id);
+      const until = ageMonth(ctx, from < ctx.time.base ? ctx.time.base : from, P.shortUntil, child.id);
       const prevPeriod = [...periods.slice(0, i)].reverse().find((x) => EMPLOYEE_TYPES.has(x.p.type));
       const before = boxValue(sh.wageBefore) ?? (prevPeriod === undefined ? null : ctx.money.divInt(boxValue(prevPeriod.p.salary?.annual) ?? yen(0), 12, "conv.salary.monthly"));
-      for (let m = from; m <= to && m <= until; m = addMonths(m, 1)) {
+      for (let m = from < ctx.time.base ? ctx.time.base : from; m <= to && m <= until; m = addMonths(m, 1)) {
         const w = salary.get(formatYm(m)) ?? yen(0);
         if (!insured.has(formatYm(m)) || w <= 0 || before === null || w >= before) continue;
         const at = ctx.at(m);
