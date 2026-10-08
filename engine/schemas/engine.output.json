@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:engine.output",
+  "title": "エンジン全体の出力（値＋根拠の記録。0006 の7）",
+  "oneOf": [{ "$ref": "#/$defs/result" }, { "$ref": "#/$defs/error" }],
+  "$defs": {
+    "error": {
+      "description": "0005 の8: ID だけを入れ、値は入れない",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["error"],
+      "properties": {
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "ids"],
+          "properties": {
+            "code": { "type": "string", "pattern": "^E_[A-Z_]+$" },
+            "ids": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["header", "flows", "annual", "table", "trace"],
+      "properties": {
+        "header": { "$ref": "#/$defs/header" },
+        "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+        "annual": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/annualRow" } },
+        "table": {
+          "description": "キャッシュフロー表（行×年）。お金の動きは calcConventions.aggregation で年に集める",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["row", "year", "amount"],
+            "properties": {
+              "row": { "$ref": "urn:financia:schema:common#/$defs/rowId" },
+              "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+              "amount": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+              "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" }
+            }
+          }
+        },
+        "trace": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/traceSummary" }, { "$ref": "#/$defs/traceFull" }]
+        }
+      }
+    },
+    "componentRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "contract", "revision", "hash", "origin"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/dottedId" },
+        "contract": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "origin": { "enum": ["official", "replacement", "extension"] },
+        "slot": { "$ref": "urn:financia:schema:common#/$defs/dottedId" }
+      }
+    },
+    "header": {
+      "description": "どの細かさでも必ず付ける見出し",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "trace", "baseMonth", "endYear", "calcConventions", "components", "data"],
+      "properties": {
+        "engine": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "sourceDigest"],
+          "properties": {
+            "version": { "type": "string" },
+            "sourceDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "trace": { "enum": ["none", "summary", "full"] },
+        "baseMonth": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+        "endYear": { "$ref": "urn:financia:schema:common#/$defs/year" },
+        "calcConventions": { "$ref": "urn:financia:schema:engine.input#/properties/calcConventions" },
+        "components": { "type": "array", "items": { "$ref": "#/$defs/componentRef" } },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["packId", "formatVersion", "version", "asOf", "digest", "fictional"],
+            "properties": {
+              "packId": { "type": "string" },
+              "formatVersion": { "type": "string" },
+              "version": { "type": "string" },
+              "asOf": { "type": "string" },
+              "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+              "fictional": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "paramUse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ref", "value", "packVersion"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/dottedId" },
+        "ref": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9.]*@r[0-9]+$" },
+        "value": true,
+        "packVersion": { "type": "string" }
+      }
+    },
+    "traceSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "components", "timepoints"],
+      "properties": {
+        "mode": { "const": "summary" },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "formulas", "params", "roundings"],
+            "properties": {
+              "id": { "$ref": "urn:financia:schema:common#/$defs/dottedId" },
+              "formulas": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/dottedId" } },
+              "params": { "type": "array", "items": { "$ref": "#/$defs/paramUse" } },
+              "roundings": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/dottedId" } }
+            }
+          }
+        },
+        "timepoints": { "type": "array", "items": { "$ref": "#/$defs/timepointNode" } }
+      }
+    },
+    "timepointNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "timepoint", "ym"],
+      "properties": {
+        "type": { "const": "timepoint" },
+        "event": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "timepoint": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+        "rule": { "$ref": "urn:financia:schema:common#/$defs/ageSwitch" }
+      }
+    },
+    "traceFull": {
+      "description": "重複を除いた記録（nodes）を、お金の動きから番号で指す有向グラフ",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "nodes", "flows", "annual"],
+      "properties": {
+        "mode": { "const": "full" },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "id", "ref", "value", "packVersion", "appliesFrom", "appliesTo", "sources"],
+                "properties": {
+                  "type": { "const": "param" },
+                  "id": { "$ref": "urn:financia:schema:common#/$defs/dottedId" },
+                  "ref": { "type": "string" },
+                  "value": true,
+                  "packVersion": { "type": "string" },
+                  "appliesFrom": { "type": "string" },
+                  "appliesTo": { "type": ["string", "null"] },
+                  "sources": { "type": "array" }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "item", "value"],
+                "properties": {
+                  "type": { "const": "input" },
+                  "item": { "$ref": "urn:financia:schema:common#/$defs/dottedId" },
+                  "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                  "value": true
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "rule", "op", "input", "result"],
+                "properties": {
+                  "type": { "const": "rounding" },
+                  "rule": { "$ref": "urn:financia:schema:common#/$defs/dottedId" },
+                  "op": { "enum": ["mulRate", "mulRatio", "divInt", "round", "allocate", "convert"] },
+                  "input": { "type": "string" },
+                  "result": true
+                }
+              },
+              { "$ref": "#/$defs/timepointNode" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "component", "uses"],
+                "properties": {
+                  "type": { "const": "call" },
+                  "component": { "$ref": "urn:financia:schema:common#/$defs/dottedId" },
+                  "uses": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+                }
+              }
+            ]
+          }
+        },
+        "flows": { "description": "出力のお金の動きと同じ順の、call の記録の番号", "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "annual": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+      }
+    }
+  }
+}

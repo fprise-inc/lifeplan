@@ -1,0 +1,103 @@
+# 計算エンジンの土台の自動テスト（0002・0005・0006・0007・0021）
+name: ci
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+
+jobs:
+  # 型の検査・lint・単体テスト・まとめた JS と制度データの JSON の作成・npm の依存のライセンスの検査
+  engine:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: engine/package-lock.json
+      - run: npm ci
+      - name: 型の検査
+        run: npm run typecheck
+      - name: lint
+        run: npm run lint
+      - name: 単体テスト
+        run: npm test
+      - name: まとめた JS と制度データの JSON を作る
+        run: npm run build
+      - name: ライセンスの検査（npm）
+        run: npm run check:licenses
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-dist
+          path: engine/dist
+          if-no-files-found: error
+
+  # Rust のホスト（quickjs-ng）のテストと、Node との一致テスト。Windows・macOS・Linux それぞれでビルドする（0005 の6）
+  host:
+    needs: engine
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: engine-dist
+          path: engine/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: 書式
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: ビルド
+        run: cargo build --locked --release
+      - name: Rust のテスト（脱出テスト・上限・凍結の後にエンジンが動くこと）
+        run: cargo test --locked --release
+      - name: 一致テスト（Node と quickjs-ng の出力の SHA-256）
+        run: node --disable-warning=ExperimentalWarning engine/scripts/parity.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: parity-${{ matrix.os }}
+          path: engine/dist/parity-hashes.json
+          if-no-files-found: error
+
+  # OS をまたいでも同じハッシュになること
+  parity-across-os:
+    needs: host
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: parity-*
+          path: parity
+      - name: 3つの OS のハッシュを比べる
+        run: |
+          ls parity
+          first=$(ls parity | head -1)
+          for d in parity/*; do
+            diff "parity/$first/parity-hashes.json" "$d/parity-hashes.json"
+          done
+          echo "すべての OS で一致"
+
+  # Rust の依存のライセンスの検査（GPL・LGPL・AGPL を止める。0021）
+  licenses-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2
+      - run: cargo deny --locked check licenses bans sources

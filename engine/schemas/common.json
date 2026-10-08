@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:common",
+  "title": "共通の型（0002・0003・0004）",
+  "$defs": {
+    "yen": {
+      "description": "0002: 円の金額。最小単位（円）の整数",
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991,
+      "x-unit": "JPY"
+    },
+    "nonNegativeYen": {
+      "allOf": [{ "$ref": "#/$defs/yen" }, { "minimum": 0 }]
+    },
+    "money": {
+      "description": "0002: 外貨になりうる金額",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "currency"],
+      "properties": {
+        "amount": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+      }
+    },
+    "rate": {
+      "description": "0002: 率。10進の文字列、小数12桁まで、指数表記なし",
+      "type": "string",
+      "pattern": "^-?[0-9]+(\\.[0-9]{1,12})?$"
+    },
+    "yearMonth": {
+      "description": "0003: 年月",
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+    },
+    "date": {
+      "description": "暦の日付（制度データの適用期間など）",
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "year": { "type": "integer", "minimum": 1900, "maximum": 2200 },
+    "dottedId": {
+      "description": "0004: 点区切りのID",
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)+$"
+    },
+    "rowId": {
+      "allOf": [{ "$ref": "#/$defs/dottedId" }, { "pattern": "^cf\\." }]
+    },
+    "uuid": {
+      "description": "0004: 乱数ID（UUID 第4版、小文字・ハイフンつき）",
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "ageSwitch": {
+      "enum": ["reachMonth", "monthAfterReach", "birthdayMonth", "firstMarch31AfterReach", "schoolYear"]
+    },
+    "birth": {
+      "description": "0012: 生年月＋1日生まれか",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["birthYearMonth", "bornOnFirst"],
+      "properties": {
+        "birthYearMonth": { "$ref": "#/$defs/yearMonth" },
+        "bornOnFirst": { "type": "boolean" }
+      }
+    },
+    "timepoint": {
+      "description": "0003 の6: 時点の型",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at"],
+          "properties": { "at": { "$ref": "#/$defs/yearMonth" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["memberAge"],
+          "properties": {
+            "memberAge": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["member", "years"],
+              "properties": {
+                "member": { "$ref": "#/$defs/uuid" },
+                "years": { "type": "integer", "minimum": 0, "maximum": 130 },
+                "months": { "type": "integer", "minimum": 0, "maximum": 11 },
+                "ageSwitch": { "$ref": "#/$defs/ageSwitch" }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["event"],
+          "properties": {
+            "event": { "$ref": "#/$defs/uuid" },
+            "offset": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "years": { "type": "integer", "minimum": -130, "maximum": 130 },
+                "months": { "type": "integer", "minimum": -1560, "maximum": 1560 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "yearSeries": {
+      "description": "0006 の6: 年ごとの列（定数は全部の年が同じ値の特別な場合）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default"],
+      "properties": {
+        "default": { "$ref": "#/$defs/rate" },
+        "byYear": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[0-9]{4}$" },
+          "additionalProperties": { "$ref": "#/$defs/rate" }
+        }
+      }
+    },
+    "flow": {
+      "description": "0003 の2: 支払月ごとのお金の動き1件",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["row", "ym", "amount", "accrualYear", "formula"],
+      "properties": {
+        "row": { "$ref": "#/$defs/rowId" },
+        "ym": { "$ref": "#/$defs/yearMonth" },
+        "amount": { "$ref": "#/$defs/yen" },
+        "accrualYear": { "$ref": "#/$defs/year" },
+        "member": { "$ref": "#/$defs/uuid" },
+        "object": { "$ref": "#/$defs/uuid" },
+        "formula": { "$ref": "#/$defs/dottedId" }
+      }
+    },
+    "annualRow": {
+      "description": "年ごとの行（残高・運用益など、年に1回決まる値）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["row", "year", "amount", "formula"],
+      "properties": {
+        "row": { "$ref": "#/$defs/rowId" },
+        "year": { "$ref": "#/$defs/year" },
+        "amount": { "$ref": "#/$defs/yen" },
+        "member": { "$ref": "#/$defs/uuid" },
+        "object": { "$ref": "#/$defs/uuid" },
+        "formula": { "$ref": "#/$defs/dottedId" }
+      }
+    }
+  }
+}

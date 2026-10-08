@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:regulation.pack",
+  "title": "配る形のパック（YAML の正本を正規化した JSON。0007 の1）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "pack", "values", "digest"],
+  "properties": {
+    "format": { "const": "financia.regulationPack" },
+    "pack": { "$ref": "urn:financia:schema:regulation.packHeader" },
+    "values": {
+      "type": "array",
+      "items": { "$ref": "urn:financia:schema:regulation.value" }
+    },
+    "digest": {
+      "description": "pack と values を正規化した JSON の SHA-256",
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

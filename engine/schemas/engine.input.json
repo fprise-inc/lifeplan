@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:engine.input",
+  "title": "エンジン全体の入力（土台の最小限。世帯のデータモデル 0008 への対応は次の作業）",
+  "description": "0004 の7・0006 の5: 知らない欄（参照値を含む）は拒む",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["baseMonth", "endYear", "calcConventions", "members", "events", "assumptions", "flows", "annualLumpSums", "openingBalance"],
+  "properties": {
+    "baseMonth": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+    "endYear": { "$ref": "urn:financia:schema:common#/$defs/year" },
+    "calcConventions": {
+      "description": "0003 の7: 計算方式の設定",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aggregation", "investmentTiming", "compatibility"],
+      "properties": {
+        "aggregation": { "enum": ["cash", "accrual"] },
+        "investmentTiming": { "enum": ["midYear", "beginning", "end"] },
+        "compatibility": { "type": "null" }
+      }
+    },
+    "dataSet": {
+      "description": "0007 の8: 使うパックの版（知った時点）。省略したパックは渡された最新の版",
+      "type": "object",
+      "propertyNames": { "pattern": "^(regulation|master)(\\.[a-z][a-zA-Z0-9]*)+$" },
+      "additionalProperties": { "$ref": "urn:financia:schema:regulation.value#/$defs/packVersion" }
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "birth"],
+        "properties": {
+          "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "kind": { "enum": ["self", "spouse", "child", "parent", "grandparent", "other"] },
+          "birth": { "$ref": "urn:financia:schema:common#/$defs/birth" }
+        }
+      }
+    },
+    "events": {
+      "description": "0003 の6: 名前つきイベント",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "at"],
+        "properties": {
+          "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "kind": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" },
+          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }
+        }
+      }
+    },
+    "assumptions": {
+      "description": "0006 の6・0008 の8: 前提条件は年ごとの列",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["investmentReturn"],
+      "properties": {
+        "investmentReturn": { "$ref": "urn:financia:schema:common#/$defs/yearSeries" }
+      }
+    },
+    "flows": {
+      "description": "毎月の定額の収入・支出（見本の部品 test.sample.monthlyFlow が使う）",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "row", "amount", "from", "to"],
+        "properties": {
+          "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "row": { "$ref": "urn:financia:schema:common#/$defs/rowId" },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+          "to": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/timepoint" }] },
+          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" }
+        }
+      }
+    },
+    "annualLumpSums": {
+      "description": "年1回の一時金（見本の部品 test.sample.lumpSum が使う）",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "amount", "month", "from", "to", "paidNextYear"],
+        "properties": {
+          "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "month": { "type": "integer", "minimum": 1, "maximum": 12 },
+          "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+          "to": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/timepoint" }] },
+          "paidNextYear": { "type": "boolean" },
+          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" }
+        }
+      }
+    },
+    "openingBalance": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+  }
+}

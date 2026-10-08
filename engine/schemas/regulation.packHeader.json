@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:regulation.packHeader",
+  "title": "パックの名札（0007 の3。pack.yaml）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["packId", "formatVersion", "version", "features", "title", "requires", "license"],
+  "properties": {
+    "packId": { "type": "string", "pattern": "^(regulation|master)(\\.[a-z][a-zA-Z0-9]*)+$" },
+    "formatVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "version": { "$ref": "urn:financia:schema:regulation.value#/$defs/packVersion" },
+    "features": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9.]*$" } },
+    "title": { "type": "string", "minLength": 1 },
+    "fictional": {
+      "description": "架空の見本データのパック。製品のデータには付けない（提案。PR の説明を参照）",
+      "type": "boolean"
+    },
+    "requires": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)+$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["values", "sources"],
+      "properties": {
+        "values": { "type": "string", "minLength": 1 },
+        "sources": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

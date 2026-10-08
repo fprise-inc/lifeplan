@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:slot:slot.expense.flow.input",
+  "title": "差し込み口 slot.expense.flow の入力（原型。0006 の未確定）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["fromMonth", "toMonth"],
+  "properties": {
+    "fromMonth": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+    "toMonth": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }
+  }
+}
