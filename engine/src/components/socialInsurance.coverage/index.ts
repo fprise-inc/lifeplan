@@ -31,7 +31,7 @@ export default defineComponent<
   id: "socialInsurance.coverage",
   title: "被用者保険の資格と標準報酬",
   contract: "1.1",
-  revision: 2,
+  revision: 3,
   requires: { "income.salary": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2" },
   params: [
     "socialInsurance.care.secondaryInsuredFromAge",
@@ -45,6 +45,7 @@ export default defineComponent<
     "socialInsurance.pension.standardBonus.monthlyLimit",
   ],
   reads: ["employment.from", "employment.to", "employment.standardMonthlyRemuneration"],
+  memberScope: ["employment"],
   input: "socialInsurance.coverage.input",
   output: "socialInsurance.coverage.output",
   compute(input, ctx) {

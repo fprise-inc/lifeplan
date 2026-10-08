@@ -6,7 +6,9 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use rquickjs::context::intrinsic;
-use rquickjs::{CatchResultExt, CaughtError, Context, Function, Object, Runtime};
+use rquickjs::{
+    CatchResultExt, CaughtError, Context, Function, Module, Object, Runtime, Value, WriteOptions,
+};
 
 /// 0005 の3: 固めるための JS（エンジンより先に流す）
 pub const LOCKDOWN_JS: &str = include_str!("lockdown.js");
@@ -172,10 +174,29 @@ impl Sandbox {
         })
     }
 
-    /// エンジンのまとめた JS を読み込み、グローバルを凍結する
+    /// エンジンのまとめた JS を読み込み、グローバルを凍結する（ソースから。テストと開発用）
     pub fn load_engine(&self, engine_js: &str) -> Result<(), HostError> {
         self.eval_script(engine_js)?;
         // エンジンの後に読み込むもの（将来のカスタム部品）がグローバルを書き換えられないように
+        self.eval_script("Object.freeze(globalThis);")
+    }
+
+    /// エンジンをバイトコード（compile_engine で作ったもの）から読み込み、グローバルを凍結する（0005 の1: 製品はこちら）。
+    /// 読み込んでよいのは、自分たちがビルドして署名つきで配ったバイトコードだけ（外から来たバイトコードは読み込まない。
+    /// 署名の確かめは本体が行う。0017）
+    pub fn load_engine_bytecode(&self, bytecode: &EngineBytecode) -> Result<(), HostError> {
+        self.context.with(|ctx| {
+            let load = || -> rquickjs::Result<()> {
+                // SAFETY: EngineBytecode は compile_engine が同じ quickjs-ng で作ったものだけ（作り方を型で限っている）
+                let module = unsafe { Module::load(ctx.clone(), &bytecode.0)? };
+                let (module, promise) = module.eval()?;
+                promise.finish::<()>()?;
+                let engine: Value = module.get("FinanciaEngine")?;
+                ctx.globals().set("FinanciaEngine", engine)?;
+                Ok(())
+            };
+            load().catch(&ctx).map_err(|e| self.classify(e))
+        })?;
         self.eval_script("Object.freeze(globalThis);")
     }
 
@@ -206,6 +227,62 @@ impl Sandbox {
     }
 }
 
+/// エンジンのバイトコード（0005 の1）。compile_engine で作り、load_engine_bytecode で読み込む。
+/// 形式は quickjs-ng の版ごとに変わるので、毎回のビルドで作り直す（ファイルに書くのは to_bytes、読むのは from_trusted_bytes）
+#[derive(Clone)]
+pub struct EngineBytecode(Vec<u8>);
+
+/// バイトコードのファイルの先頭の印（形式の版）
+const BYTECODE_MAGIC: &[u8] = b"FINANCIA-QBC1\n";
+
+impl EngineBytecode {
+    /// ファイルに書く形（先頭に印）
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = BYTECODE_MAGIC.to_vec();
+        out.extend_from_slice(&self.0);
+        out
+    }
+
+    /// ファイルから読む。自分たちがビルドし、本体が署名を確かめたファイルだけを渡すこと（0005 の1・0017）
+    pub fn from_trusted_bytes(bytes: &[u8]) -> Result<EngineBytecode, HostError> {
+        match bytes.strip_prefix(BYTECODE_MAGIC) {
+            Some(body) => Ok(EngineBytecode(body.to_vec())),
+            None => Err(HostError::Setup("not an engine bytecode file".to_owned())),
+        }
+    }
+}
+
+/// まとめた JS をバイトコードにする（ビルドの時に1回。0005 の1）。モジュールとして読み、FinanciaEngine を書き出す
+pub fn compile_engine(engine_js: &str) -> Result<EngineBytecode, HostError> {
+    let runtime = Runtime::new().map_err(|e| HostError::Setup(e.to_string()))?;
+    // 実行環境と同じ組み込みで読む（正規表現のリテラルは読むときに組み立てる）
+    let context = Context::builder()
+        .with::<intrinsic::Eval>()
+        .with::<intrinsic::RegExpCompiler>()
+        .with::<intrinsic::RegExp>()
+        .with::<intrinsic::Json>()
+        .with::<intrinsic::MapSet>()
+        .with::<intrinsic::TypedArrays>()
+        .with::<intrinsic::Promise>()
+        .with::<intrinsic::Proxy>()
+        .build(&runtime)
+        .map_err(|e| HostError::Setup(e.to_string()))?;
+    context.with(|ctx| {
+        let source = format!("{engine_js}\nexport {{ FinanciaEngine }};\n");
+        let compile = || -> rquickjs::Result<Vec<u8>> {
+            let module = Module::declare(ctx.clone(), "engine.js", source)?;
+            module.write(WriteOptions {
+                strip_source: true,
+                ..Default::default()
+            })
+        };
+        compile()
+            .catch(&ctx)
+            .map(EngineBytecode)
+            .map_err(|e| HostError::Setup(e.to_string()))
+    })
+}
+
 /// 計算1回: 新しい実行環境 → 固める → エンジンを読み込む → 計算 → 捨てる
 pub fn run_engine(
     engine_js: &str,
@@ -217,6 +294,40 @@ pub fn run_engine(
     let sandbox = Sandbox::new(limits)?;
     sandbox.load_engine(engine_js)?;
     sandbox.run(request, packs, options)
+}
+
+/// 計算1回（製品の形）: 新しい実行環境 → 固める → エンジンをバイトコードから読み込む → 計算 → 捨てる
+pub fn run_engine_bytecode(
+    engine: &EngineBytecode,
+    request: &str,
+    packs: &str,
+    options: &str,
+    limits: &Limits,
+) -> Result<String, HostError> {
+    let sandbox = Sandbox::new(limits)?;
+    sandbox.load_engine_bytecode(engine)?;
+    sandbox.run(request, packs, options)
+}
+
+/// パックの形を1回だけ確かめ、検査済みの指紋の配列（JSON）を返す（0005・0017 の追記: 本体が署名を確かめた後に1回。
+/// 計算のときは options の packsChecked に渡し、計算ごとには確かめない）
+pub fn check_packs(engine: &EngineBytecode, packs: &str) -> Result<String, HostError> {
+    let sandbox = Sandbox::new(&Limits::DEFAULT)?;
+    sandbox.load_engine_bytecode(engine)?;
+    let out = sandbox.context.with(|ctx| {
+        let call = || -> rquickjs::Result<String> {
+            let engine: Object = ctx.globals().get("FinanciaEngine")?;
+            let f: Function = engine.get("checkPacks")?;
+            f.call((packs,))
+        };
+        call().catch(&ctx).map_err(|e| sandbox.classify(e))
+    })?;
+    let v: serde_json::Value =
+        serde_json::from_str(&out).map_err(|e| HostError::Setup(e.to_string()))?;
+    match v.get("digests") {
+        Some(d) if v.get("ok") == Some(&serde_json::Value::Bool(true)) => Ok(d.to_string()),
+        _ => Err(HostError::Js(out)),
+    }
 }
 
 /// 要求の JSON から根拠の記録の細かさを読む（上限の選択に使う）

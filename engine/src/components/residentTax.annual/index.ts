@@ -15,7 +15,6 @@ import {
   defineComponent,
   formatYm,
   monthIndex,
-  paymentsIn,
   subYen,
   yen,
   type Ctx,
@@ -86,7 +85,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
   id: "residentTax.annual",
   title: "住民税・森林環境税",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "tax.deductions": ">=1 <2",
@@ -114,6 +113,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
     SPECIAL,
   ],
   reads: ["residentTaxAssessment.member", "residentTaxAssessment.fiscalYear", "residentTaxAssessment.amount", "residentTaxAssessment.collection"],
+  memberScope: ["residentTaxAssessment"],
   input: "residentTax.annual.input",
   output: "residentTax.annual.output",
   compute(input, ctx) {
@@ -121,10 +121,12 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
     const incomeYear = fiscalYear - 1;
     const given = ctx.list<ResidentTaxAssessmentInput>("residentTaxAssessment").find((a) => a.member === member && a.fiscalYear === fiscalYear);
     // 給与を受ける月か（支払いは月の昇順なので、その月の支払いだけを二分探索で見る）
-    const payments = ctx.call<SalaryOutput>("income.salary", { member }).payments;
-    const paid = { has: (ym: string) => paymentsIn(payments, ym, ym).some((p) => p.salary > 0) };
+    // 給与を受ける月か（その年度の6月〜翌年5月の支払いだけを読む。ほかの年の給与が変わっても計算し直さない）
+    const salaryMonths = (fy: number) =>
+      new Set(ctx.callMonths<SalaryOutput["payments"][number]>("income.salary", { member }, "payments", monthIndex(fy, 6), monthIndex(fy + 1, 5)).filter((p) => p.salary > 0).map((p) => p.ym));
+    const paid = salaryMonths(fiscalYear);
     const salarySpecial = (fy: number, g: ResidentTaxAssessmentInput | undefined) =>
-      g?.collection !== undefined ? g.collection === "special" : paid.has(formatYm(monthIndex(fy, 6)));
+      g?.collection !== undefined ? g.collection === "special" : (fy === fiscalYear ? paid : salaryMonths(fy)).has(formatYm(monthIndex(fy, 6)));
     // 年度の税額と、そのうち年金から差し引く額
     const assess = (fy: number): { detail: Levy; assessed: boolean; pension: Yen } => {
       const g = ctx.list<ResidentTaxAssessmentInput>("residentTaxAssessment").find((a) => a.member === member && a.fiscalYear === fy);

@@ -7,7 +7,6 @@ import {
   bracketFor,
   defineComponent,
   monthIndex,
-  paymentsInYear,
   RATE_ZERO,
   subYen,
   yen,
@@ -47,7 +46,7 @@ export default defineComponent<{ member: string; year: number; revenue?: number 
   id: "tax.employmentIncome",
   title: "給与所得",
   contract: "1.1",
-  revision: 3,
+  revision: 4,
   requires: { "income.salary": ">=1 <2" },
   params: [TABLE, TABLE_BELOW, TABLE_STEPS],
   reads: [],
@@ -57,8 +56,9 @@ export default defineComponent<{ member: string; year: number; revenue?: number 
     let revenue = yen(0);
     if (input.revenue !== undefined) revenue = yen(input.revenue);
     else {
-      const { payments } = ctx.call<SalaryOutput>("income.salary", { member: input.member });
-      for (const p of paymentsInYear(payments, input.year)) revenue = yen(revenue + p.salary + p.bonus);
+      // その年の支払いだけを読む
+      const payments = ctx.callMonths<SalaryOutput["payments"][number]>("income.salary", { member: input.member }, "payments", monthIndex(input.year, 1), monthIndex(input.year, 12));
+      for (const p of payments) revenue = yen(revenue + p.salary + p.bonus);
     }
     if (revenue === 0) return { revenue, deduction: yen(0), income: yen(0) };
     const at = ctx.at(monthIndex(input.year, 1));

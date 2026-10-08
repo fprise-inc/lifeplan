@@ -1,0 +1,32 @@
+id: pension.childSupplement.requiredMonths
+title: 子の加給年金額が加算される厚生年金の加入期間（令和10年3月まで20年、令和10年4月から10年）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2004-04-01"
+    appliesTo: "2028-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 240
+    sources:
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "子の加給年金の要件の月数を配偶者（pension.spouseSupplement.requiredMonths）と分けるために足した行。令和10年3月までは配偶者と同じ44条1項の240月（同じ行の出典）。原本の本文はこの作業の環境から取れず、施行日も同じく確認待ち"}
+  - rev: 2
+    appliesFrom: "2028-04-01"
+    appliesTo: null
+    enforcedOn: "2028-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 120
+    sources:
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20280401_507AC0000000074"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "令和7年法律第74号による改正後の44条1項（令和10年4月1日施行の版）で、子の加算の要件が被保険者期間120月以上（PR #6 の照合の記録）。原本の本文はこの作業の環境から取れなかったため確認待ち"}

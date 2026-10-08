@@ -25,8 +25,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
   id: "residentTax.exemption",
   title: "住民税の非課税の判定",
   contract: "1.0",
-  revision: 1,
-  requires: { "tax.totalIncome": ">=1 <2" },
+  revision: 2,
+  requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2", "tax.incomeWithin": ">=1 <2" },
   params: Object.values(P),
   reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "relation.type", "relation.a", "relation.b", "relation.marriage"],
   input: "residentTax.annual.input",
@@ -35,17 +35,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
     const { member, fiscalYear } = input;
     const year = fiscalYear - 1;
     const at = ctx.at(monthIndex(fiscalYear, 6));
-    // 同じ構成員の合計所得金額は1回だけ引く（並べ替えの比較のたびに呼ばない）
-    const totals = new Map<string, number>();
-    const totalOf = (id: string): number => {
-      let t = totals.get(id);
-      if (t === undefined) {
-        t = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year }).total;
-        totals.set(id, t);
-      }
-      return t;
-    };
-    const own = totalOf(member);
+    const own = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year }).total;
     const dec = monthIndex(year, 12);
     const members = ctx.list<MemberInput>("member").filter(
       (m) =>
@@ -54,9 +44,20 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
         (m.leaves === null || ctx.time.resolve(m.leaves) > dec),
     );
     const limit = at.paramYen(P.depLimit) ?? 0;
-    // 扶養は夫婦のうち所得の多い方（同じなら本人）が持つとみなす
+    // 扶養は夫婦のうち所得の多い方（同じなら本人）が持つとみなす。ほかの人の所得は、額ではなく大小と上限以下かだけを読む
+    // （tax.incomeOrder・tax.incomeWithin。配偶者の年収が変わっても判定が同じなら、本人の判定を計算し直さない）
     const earners = members.filter((m) => m.kind === "self" || m.kind === "spouse");
-    const claimant = [...earners].sort((a, b) => totalOf(b.id) - totalOf(a.id) || (a.kind === "self" ? -1 : 1))[0]?.id;
+    let best: MemberInput | undefined;
+    for (const m of earners) {
+      if (best === undefined) {
+        best = m;
+        continue;
+      }
+      const order = ctx.call<{ order: -1 | 0 | 1 }>("tax.incomeOrder", { a: m.id, b: best.id, year }).order;
+      if (order > 0 || (order === 0 && m.kind === "self" && best.kind !== "self")) best = m;
+    }
+    const claimant = best?.id;
+    const withinLimit = (id: string) => ctx.call<{ within: boolean }>("tax.incomeWithin", { member: id, year, limit }).within;
     let persons = 1;
     let dependents = 0;
     const spouses = new Set(
@@ -65,7 +66,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
         .flatMap((r) => (r.type === "spouse" && r.marriage === "legal" && (r.a === member || r.b === member) ? [r.a === member ? r.b : r.a] : [])),
     );
     for (const m of members) {
-      if (m.id === member || totalOf(m.id) > limit) continue;
+      if (m.id === member || !withinLimit(m.id)) continue;
       if (spouses.has(m.id)) {
         persons++;
         dependents++;

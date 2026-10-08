@@ -198,3 +198,44 @@ export default defineComponent({
   - **公式部品どうしの出力の凍結は CI とテスト（`checkInternal`）でだけ行う**: 部品の出力は使い回すので書き換えてはならない（2）。公式部品どうしは、入出力の検査と同じく製品では凍結を省き、CI とテストで凍結して、書き換える部品があればそこで例外になるようにする。差し替え・追加の部品の出力はこれまでどおり常に凍結する。
   - 部品の中で同じ月の文脈（`ctx.at(month)`）は同じものを返し、その月の中で同じ制度の値を何度読んでも、根拠の記録・知らせは1回目と同じ（2回目以後は何も足さない）。部品の書き方は変わらない。
   - 根拠の記録: `plan.flows` を分けたので、「全部」の記録で `plan.cashflow` の呼び出しが `plan.flows` の呼び出しを指す形になった（制度の値・入力・丸めの記録と、お金の動きを作った部品の指し先は変わらない）。
+- 2026-10-08（速さの見直し・2回目: 部品の書き方の約束 1.0 → 1.1）: 0005 の追記（2回目）の目標のため、部品の書き方の約束（`ctx` の API とマニフェスト。`COMPONENT_API_VERSION`）を 1.1 にした。足しただけなので、今の部品の書き方はそのまま使える。β公開前なので試験版の予告は要らない。これから作る部品（NISA・住宅・教育・退職給付・万一）は、下の書き方で書くと、スライダーで世帯の入力を動かしたときに自然に速くなる。
+  - **依存の記録の決まり（明文にした）**: エンジンは、部品の呼び出しごとに、`ctx` を通して読んだもの（`list`・`get`・`assumption` で読んだ入力の値と、`call`・`callMonths`・`slot` で呼んだ部品の結果）を読んだ順に記録し、次の計算で同じものを読む呼び出しの結果を使い回す（0005 の追記）。そのため部品は、(1) `ctx` を通して読んだものと入力（`input`）だけで結果を決める（これまでの「純粋な関数」と同じ。モジュールの変数に前の呼び出しの値を持たない）、(2) 同じものを読んだら同じ順に次のものを読む（読むものの順は、それまでに読んだ値だけで決まる）、(3) 制度の値・時点の解決・構成員の生年月と性別は、要求の組（計算基準月・表の最後の年・計算方式・データの組・構成員の生年月と性別・名前つきイベント）が同じなら同じとみなし、依存に記録しない。結果が前と同じ値なら、それを読む部品は計算し直さない（早い打ち切り）ので、**結果は小さく、判定に要るものだけを返す部品に分ける**と速い。
+  - **`memberScope`（マニフェスト）**: `memberScope: ["employment"]` のように、入力の `member` の物だけを読む集まりを宣言する。`ctx.list` は入力の `member` の物だけを返し、依存もその分だけになる（配偶者の勤め先を変えても、本人の部品は計算し直さない）。書けるのは、構成員を指す欄（入力のスキーマの `x-owner`。例 `employment.member`・`account.owner`）のある集まりで、`reads` に書いたものだけ（`defineComponent` が確かめる）。
+  - **`ctx.callMonths(id, input, field, from, to)`**: 部品を呼び、出力の `field`（月の昇順の並び。要素は `ym` か `month` を持つ）のうち `from`〜`to` の月の分だけを返す。依存はその月の分だけになる（全期間の給与・年金の出力の1年分を読む年ごとの部品が、ほかの年の変化で計算し直さない）。並びが昇順でなければ、CI とテスト（`checkInternal`）で止まる。SDK の `paymentsIn`・`paymentsInYear`・`monthsIn` で全期間の出力を切り出す書き方は、`callMonths` に置き換えた（関数は残す）。
+  - **`ctx.segments(from, to, { params, breaks?, every? })`**: `from`〜`to` を、`params` に書いた制度の値（構成員の条件で選ぶ値は `[id, { member }]`）が同じ行で、`breaks` の月・`every`（`"year"`・`"fiscalYear"`）の変わり目をまたがない区間に分けて返す（`{ from, to, at }` の昇順。`segmentIndex` で月から引ける）。区間の `at` は区間のどの月で読んでも同じ値を返し（延長の仮定の記録は区間の月の分）、`params` に書いていない値は読めない（`E_PARAM_UNDECLARED`）。月ごとの計算を区間ごとに1回にする書き方で、入力で変わる月（就職・退職・受給の開始など）は `breaks` に書く。CI とテストでは、区間の中のすべての月で値が同じかを確かめる。
+  - **`ctx.at(month)` の区間の自動の使い回し**: 部品が24を超える月の `ctx.at` を使うと、エンジンは部品のマニフェストの値の行が変わらない区間ごとに読み取りを共有する（部品の書き方は変わらない。月ごとに書いた部品も速くなる）。
+  - **`ParamOptions.birth`**: 条件 `birthDate` の値を、構成員ではなく生年月日（`{ birthYearMonth, bornOnFirst }`）で選ぶ。法律が「受給者本人の率ではなく新規裁定者の率」と決めている値（加給年金額の改定率。厚生年金保険法44条2項）のため。上の追記の「`param` に渡せるのは `member` と `anchorEvent` だけ」に、これを足す（任意の日付ではなく生年月日だけ）。
+  - **判定の小さな部品**: 「夫婦のどちらが控除を受けるか」「所得が上限以下か」のように、ほかの構成員の所得の額ではなく判定だけを読む部品を分けた（`tax.incomeOrder`・`tax.incomeWithin`。所得控除は `tax.spouseDeduction`・`tax.dependentDeduction` と、社会保険料控除の基の `tax.socialInsurancePaid` に分けた。配偶者の厚生年金の月数だけを読む `pension.employeeMonths`）。
+  - **お金の動きを構成員ごとに集める**: 新しい公式部品 `plan.memberFlows`（構成員ごとのお金の動き）。`plan.flows`（約束の版 1.1）は構成員ごとの結果と世帯の分を、出力ごとの配列 `parts` でも返す（任意の欄）。`plan.cashflow`（約束の版 1.1）も `parts` を返し、エンジンは出力ごとに集計して使い回す。
+  - 約束の版を上げた部品: `pension.revision` 1.0 → 1.1（新規裁定者の改定率 `newAward` を足した。任意の欄）、`plan.flows`・`plan.cashflow` 1.0 → 1.1（`parts`）。改訂（`revision`）を上げた部品は、マニフェストに `memberScope` を足した部品と、`callMonths`・区間ごとの計算に書き換えた部品（結果は同じ）。
+  - **新しい部品の書き方の例**（架空の部品。NISA の積立を年ごとの上限で止める形）:
+
+    ```ts
+    export default defineComponent<{ member: string; fromYear: number }, { flows: Flow[] }>({
+      id: "nisa.contribution",
+      contract: "1.0",
+      revision: 1,
+      requires: { "income.salary": ">=1 <2" },
+      params: ["nisa.annualLimit"],
+      reads: ["account.owner", "account.kind", "account.contribution"],
+      memberScope: ["account"],                   // 本人の口座だけを読む（配偶者の口座を変えても計算し直さない）
+      input: "socialInsurance.premium.input",
+      output: "flows.output",
+      compute(input, ctx) {
+        const flows: Flow[] = [];
+        const from = monthIndex(input.fromYear, 1);
+        const to = ctx.time.end;
+        for (const a of ctx.list<AccountInput>("account")) {
+          if (a.kind !== "nisa") continue;
+          // 年ごとの上限の行が変わらない区間ごとに1回だけ読む（年の変わり目で区切る）
+          for (const seg of ctx.segments(from, to, { params: ["nisa.annualLimit"], every: "year" })) {
+            const limit = seg.at.paramYen("nisa.annualLimit") ?? yen(0);
+            // その年の給与の支払いだけを読む（ほかの年の給与が変わっても、この年は計算し直さない）
+            const paid = ctx.callMonths<SalaryPayment>("income.salary", { member: input.member }, "payments", seg.from, seg.to);
+            // … 区間の月ごとの積立の額を、上限と給与の有無から決めて flows に足す
+          }
+        }
+        return { flows };
+      },
+    });
+    ```

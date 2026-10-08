@@ -12,6 +12,8 @@ export interface ItemTable {
   /** 集まりの名前 → 入力の中の場所（例 member → household.members） */
   readonly collections: Readonly<Record<string, readonly string[]>>;
   readonly items: Readonly<Record<string, ItemDef>>;
+  /** 集まり → その物がどの構成員の物かを表す欄（x-owner。0006 の追記）。無い集まりは世帯の物 */
+  readonly owners: Readonly<Record<string, readonly string[]>>;
 }
 
 export const ITEMS: ItemTable = itemsJson as unknown as ItemTable;
@@ -43,9 +45,19 @@ function setAt(target: Record<string, unknown>, path: readonly string[], value: 
   cur[path[path.length - 1] as string] = value;
 }
 
+/** 物が構成員 member の物か（x-owner の欄のどれかが member） */
+export function ownedBy(table: ItemTable, collection: string, obj: unknown, member: string): boolean {
+  const fields = table.owners[collection];
+  if (fields === undefined) return false;
+  const o = obj as Record<string, unknown>;
+  for (const f of fields) if (o[f] === member) return true;
+  return false;
+}
+
 /**
  * 集まりの各物を、reads に書いた入力項目だけに絞った写しにする。物の ID（id）はいつも渡す。
- * 入力に無い任意の項目は写さない（部品は欠けていることを前提に書く）
+ * 入力に無い任意の項目は写さない（部品は欠けていることを前提に書く）。
+ * member を渡すと、その構成員の物（x-owner）だけにする（マニフェストの memberScope。0006 の追記）
  */
 export function projectCollection(
   table: ItemTable,
@@ -53,13 +65,15 @@ export function projectCollection(
   collection: string,
   reads: ReadonlySet<string>,
   component: string,
+  member: string | null = null,
 ): Record<string, unknown>[] {
   const where = table.collections[collection];
   if (where === undefined) throw new EngineError("E_ARGUMENT", [component, `collection.${collection}`]);
   const declared = [...reads].filter((r) => table.items[r]?.collection === collection);
   if (declared.length === 0) throw new EngineError("E_READ_UNDECLARED", [component, collection]);
-  const source = at(input, where);
-  if (!Array.isArray(source)) return [];
+  const all = at(input, where);
+  if (!Array.isArray(all)) return [];
+  const source = member === null ? all : all.filter((obj: unknown) => ownedBy(table, collection, obj, member));
   return source.map((obj: unknown) => {
     const o = obj as Record<string, unknown>;
     const out: Record<string, unknown> = {};

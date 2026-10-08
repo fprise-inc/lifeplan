@@ -28,6 +28,7 @@ function schemaAjv() {
   ajv.addKeyword({ keyword: "x-unit", schemaType: "string" });
   ajv.addKeyword({ keyword: "x-item", schemaType: "string" });
   ajv.addKeyword({ keyword: "x-collection", schemaType: "string" });
+  ajv.addKeyword({ keyword: "x-owner", schemaType: "array" });
   for (const f of ["common.json", "regulation.value.json", "regulation.packHeader.json", "regulation.pack.json"]) {
     ajv.addSchema(readJson(join(ENGINE_DIR, "schemas", f)) as object);
   }
@@ -203,6 +204,15 @@ function checkValue(v: Obj, packVersion: string, fictional: boolean, where: stri
         if ((r.below === null) !== last) throw new DataError(`${w}: 等級表は最後の行だけ below が null です`);
         if (!last && (r.below as number) <= (r.from as number)) throw new DataError(`${w}: 等級表の範囲が空です`);
         if (i > 0 && (r.amount as number) <= ((rows[i - 1] as Obj).amount as number)) throw new DataError(`${w}: 等級表の額が昇順ではありません`);
+      });
+    }
+    if (v.kind === "periodTable" && Array.isArray(e.value)) {
+      // 0007 の追記（2回目の見直し）: 期間の表は from の昇順で重ならず、to が null（上限なし）は最後の行だけ
+      const rows = e.value as Obj[];
+      rows.forEach((r, i) => {
+        if (r.to !== null && (r.to as string) < (r.from as string)) throw new DataError(`${w}: 期間の表の to が from より前です`);
+        if (r.to === null && i !== rows.length - 1) throw new DataError(`${w}: 期間の表は最後の行だけ to が null にできます`);
+        if (i > 0 && (r.from as string) <= ((rows[i - 1] as Obj).to as string)) throw new DataError(`${w}: 期間の表の行が昇順でないか、重なっています`);
       });
     }
     if (v.kind === "bracketTable" && Array.isArray(e.value)) {

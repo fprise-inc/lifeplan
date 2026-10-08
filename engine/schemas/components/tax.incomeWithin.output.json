@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.incomeWithin.output",
+  "title": "合計所得金額が上限以下か",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["within"],
+  "properties": {
+    "within": { "type": "boolean" }
+  }
+}

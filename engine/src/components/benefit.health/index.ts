@@ -38,10 +38,11 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "benefit.health",
   title: "健康保険の給付（出産育児一時金・出産手当金・傷病手当金）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "socialInsurance.employeeStatus": ">=1 <2", "socialInsurance.coverage": ">=1 <2", "socialInsurance.healthStatus": ">=1 <2" },
   params: Object.values(P),
   reads: ["member.kind", "member.sex", "member.birth", "relation.type", "relation.parent", "relation.child", "employment.member", "employment.from", "employment.to", "employment.type", "employment.leaveKind"],
+  memberScope: ["employment"],
   input: "member.input",
   output: "flows.output",
   compute(input, ctx) {

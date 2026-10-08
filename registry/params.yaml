@@ -434,6 +434,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.basic.childAddition.baseAmount
+    status: active
+    label: "老齢基礎年金の子の加算の基準額（令和10年4月から。一人につき269,600円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.basic.fullAmount.rounding
     status: active
     label: "満額・加給年金額などの基準額×改定率の端数処理（100円未満四捨五入）"
@@ -455,6 +461,12 @@ entries:
   - id: pension.childSupplement.firstTwoBaseAmount
     status: active
     label: "加給年金額（1人目・2人目の子）の基準額（224,700円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.childSupplement.requiredMonths
+    status: active
+    label: "子の加給年金額が加算される厚生年金の加入期間（令和10年3月まで20年、令和10年4月から10年）"
     since: draft
     aliases: []
     replacedBy: null

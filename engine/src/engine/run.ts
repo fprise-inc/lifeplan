@@ -8,8 +8,8 @@ import type { Json, PackJson } from "../regulation/reader.ts";
 import { RegulationStore } from "../regulation/reader.ts";
 import { contractMajor, satisfiesRange } from "../regulation/versions.ts";
 import { assemble, type Assembly, type Extension, type Replacement } from "../registry/assemble.ts";
-import { invoke, type RunState, type SharedCache } from "../registry/ctx.ts";
-import { ITEMS, projectCollection } from "../registry/items.ts";
+import { collectEffects, invoke, keepLane, newKeyTable, newPartition, nextEpoch, type ParamCache, type Partition, type RunState, type Variant } from "../registry/ctx.ts";
+import { ITEMS } from "../registry/items.ts";
 import { Tracer } from "../registry/trace.ts";
 import { decemberOf, formatYm, parseYm, yearOf } from "../time/month.ts";
 import { TimeResolver } from "../time/timepoint.ts";
@@ -31,18 +31,31 @@ export interface RunOptions {
   readonly batch?: BatchContext;
   /** 表示の先出し用（0005 の5）: お金の動き（flows）と根拠の記録を返さず、見出し・年ごとの行・表だけを返す */
   readonly preview?: boolean;
+  /** 本体が形を確かめたパックの指紋（checkPacksJson の結果）。このパックは計算ごとには確かめない（0005・0017 の追記） */
+  readonly packsChecked?: readonly string[];
 }
 
 /** 複数の要求をまとめて計算するときに1回だけ用意するもの */
 export interface BatchContext {
   readonly stores: Map<string, RegulationStore>;
   readonly assembly: Assembly;
-  readonly shared: SharedCache;
-  /** 部品ID → その部品と内側で呼ぶ部品（差し込み口の追加を含む）が読む入力項目ID */
-  readonly closures: Map<string, readonly string[]>;
+  /**
+   * 要求の組: 計算基準月・表の最後の年・計算方式・データの組・構成員の生年月と性別・名前つきイベントが同じ要求どうし。
+   * 部品はこれらを ctx を通して依存の記録なしに使う（制度の値・時点の解決）ので、使い回しはこの組の中だけで行う
+   */
+  readonly partitions: Map<string, Partition>;
   /** お金の動きの配列（使い回した部品の結果）→ 表に載せるお金の動きとその集計 */
   readonly aggregates: WeakMap<readonly Flow[], Map<string, FlowAggregate>>;
+  /** 最後に計算した要求の根の候補（セッションが持ち続ける候補を決めるため） */
+  lastUsed: Variant[] | null;
+  /**
+   * 次に計算する要求の枠の番号。計算した結果を鍵の prevs のこの位置に置き、同じ枠の次の計算でまず確かめる
+   * （セッションは枠ごとの番号、runBatch はすべて0で、1つ前の要求の結果）
+   */
+  lane: number;
 }
+
+const newParamCache = (): ParamCache => ({ params: new Map(), has: new Map() });
 
 export interface EngineResult {
   readonly header: Json;
@@ -117,28 +130,59 @@ function addCell(index: Map<string, Cell>, cells: Cell[], row: string, year: num
   }
 }
 
-/** 表に載せるお金の動き（計算基準月から表の最後まで。sorted なら compareFlow の順）と、それを年に集めた表の行 */
+/** 表に載せるお金の動き（計算基準月から表の最後まで）と、それを年に集めた表の行 */
 interface FlowAggregate {
   readonly flows: Flow[];
   readonly cells: readonly { readonly key: string; readonly cell: Readonly<Cell> }[];
 }
 
-function aggregateFlows(raw: readonly Flow[], base: number, end: number, aggregation: CalcConventions["aggregation"], baseYear: number, rootId: string, sorted: boolean): FlowAggregate {
+function aggregateFlows(raw: readonly Flow[], base: number, end: number, aggregation: CalcConventions["aggregation"], baseYear: number, rootId: string): FlowAggregate {
   const flows: Flow[] = [];
+  // 同じ月の文字列は何度も出るので、月の番号は文字列ごとに1回だけ求める
+  const months = new Map<string, number>();
   for (const f of raw) {
-    const m = parseYm(f.ym);
+    let m = months.get(f.ym);
+    if (m === undefined) {
+      m = parseYm(f.ym);
+      months.set(f.ym, m);
+    }
     if (m >= base && m <= end) flows.push(f);
   }
   for (const f of flows) {
     if (typeof f.formula !== "string") throw new EngineError("E_FORMULA_MISSING", [rootId]);
     checkRow(f.row);
   }
-  // 先出しでは flows を返さないので並べない（表は年ごとに足すだけなので順番に依らない）
-  if (sorted) sortFlows(flows);
-  const index = new Map<string, Cell>();
+  // 行 → 構成員 → 物 → 年 の表で足す（お金の動きごとに鍵の文字列を作らない）
+  const tree = new Map<string, Map<string, Map<string, Map<number, Cell>>>>();
   const cells: Cell[] = [];
-  for (const f of flows) addCell(index, cells, f.row, tableYear(f, aggregation, baseYear), f.amount, f.member, f.object);
-  const keyed = [...index.entries()].map(([key, cell]) => ({ key, cell: Object.freeze(cell) }));
+  for (const f of flows) {
+    const year = aggregation === "cash" ? Math.floor((months.get(f.ym) as number) / 12) : tableYear(f, aggregation, baseYear);
+    let byMember = tree.get(f.row);
+    if (byMember === undefined) {
+      byMember = new Map();
+      tree.set(f.row, byMember);
+    }
+    const mk = f.member ?? "";
+    let byObject = byMember.get(mk);
+    if (byObject === undefined) {
+      byObject = new Map();
+      byMember.set(mk, byObject);
+    }
+    const ok = f.object ?? "";
+    let byYear = byObject.get(ok);
+    if (byYear === undefined) {
+      byYear = new Map();
+      byObject.set(ok, byYear);
+    }
+    const c = byYear.get(year);
+    if (c !== undefined) c.amount += f.amount;
+    else {
+      const cell: Cell = { row: f.row, year, amount: f.amount, ...(f.member !== undefined ? { member: f.member } : {}), ...(f.object !== undefined ? { object: f.object } : {}) };
+      byYear.set(year, cell);
+      cells.push(cell);
+    }
+  }
+  const keyed = cells.map((cell) => ({ key: `${cell.row}|${cell.year}|${cell.member ?? ""}|${cell.object ?? ""}`, cell: Object.freeze(cell) }));
   return { flows, cells: keyed };
 }
 
@@ -163,10 +207,39 @@ function sortFlows(flows: Flow[]): void {
   }
 }
 
+/**
+ * パックの形（スキーマ）を確かめる。checked にある指紋（digest）のパックは、本体（署名を確かめ、checkPacks で形を確かめたもの）が
+ * 検査済みと渡したものなので、計算ごとには確かめない（0005・0017 の追記: パックの検査は本体で1回）
+ */
+function checkPackSchemas(packs: readonly unknown[], checked: readonly string[] | undefined): void {
+  packs.forEach((p, i) => {
+    const digest = (p as { digest?: unknown } | null)?.digest;
+    if (checked !== undefined && typeof digest === "string" && checked.includes(digest)) return;
+    check("regulation.pack", p, "E_PACK_SCHEMA", [`packs[${i}]`]);
+  });
+}
+
 /** パックの形と、パックが必要とする計算部品の約束の版（0007 の3）を確かめる */
-function checkPacks(packs: readonly unknown[], assembly: Assembly): void {
-  packs.forEach((p, i) => check("regulation.pack", p, "E_PACK_SCHEMA", [`packs[${i}]`]));
+function checkPacks(packs: readonly unknown[], assembly: Assembly, checked: readonly string[] | undefined): void {
+  checkPackSchemas(packs, checked);
   checkPackRequires(packs, assembly);
+}
+
+/**
+ * 本体がパックを読み込んだとき（署名を確かめた後）に1回だけ流す入口: パックの形と、公式部品の約束の版を確かめ、
+ * 検査済みのパックの指紋を返す（計算のときに packsChecked として渡す。0005・0017 の追記）
+ */
+export function checkPacksJson(packsJson: string): string {
+  try {
+    const packs = JSON.parse(packsJson) as unknown;
+    if (!Array.isArray(packs)) throw new EngineError("E_PACK_SCHEMA", ["/:type"]);
+    checkPacks(packs, assemble(OFFICIAL_COMPONENTS, {}), undefined);
+    return JSON.stringify({ ok: true, digests: packs.map((p) => (p as { digest: string }).digest) });
+  } catch (e) {
+    if (e instanceof EngineError) return JSON.stringify({ error: { code: e.code, ids: e.ids } });
+    if (e instanceof SyntaxError) return JSON.stringify({ error: { code: "E_INPUT_SCHEMA", ids: ["json"] } });
+    throw e;
+  }
 }
 
 function checkPackRequires(packs: readonly unknown[], assembly: Assembly): void {
@@ -180,26 +253,12 @@ function checkPackRequires(packs: readonly unknown[], assembly: Assembly): void 
   }
 }
 
-/** 部品と、それが内側で呼ぶ部品（requires をたどる）・差し込み口の追加が読む入力項目ID（重なりを除いて並べたもの） */
-function readsClosure(assembly: Assembly, id: string, memo: Map<string, ReadonlySet<string>>): ReadonlySet<string> {
-  const hit = memo.get(id);
-  if (hit !== undefined) return hit;
-  const out = new Set<string>();
-  memo.set(id, out);
-  const impl = assembly.impls.get(id);
-  if (impl === undefined) return out;
-  for (const r of impl.def.reads) out.add(r);
-  for (const dep of Object.keys(impl.def.requires)) for (const r of readsClosure(assembly, dep, memo)) out.add(r);
-  for (const slot of impl.def.slots ?? []) for (const ext of assembly.extensions.get(slot) ?? []) for (const r of ext.def.reads) out.add(r);
-  return out;
-}
-
 export function runEngine(request: unknown, packs: readonly unknown[], options: RunOptions = {}): EngineResult {
   check("engine.request", request, "E_INPUT_SCHEMA");
   const req = deepFreeze(request as EngineRequest);
   const input = req.input;
   const batch = options.batch;
-  if (batch === undefined) packs.forEach((p, i) => check("regulation.pack", p, "E_PACK_SCHEMA", [`packs[${i}]`]));
+  if (batch === undefined) checkPackSchemas(packs, options.packsChecked);
 
   const dataSetKey = JSON.stringify(input.dataSet ?? {});
   let store = batch?.stores.get(dataSetKey);
@@ -254,6 +313,15 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   const recordMembers = (h.pensionRecords ?? []).map((r) => r.member);
   if (new Set(recordMembers).size !== recordMembers.length) throw new EngineError("E_ARGUMENT", ["household.pensionRecords.member"]);
 
+  // 要求の組（Partition）の鍵
+  const partitionKey = JSON.stringify([input.baseMonth, input.endYear, input.calcConventions, dataSetKey, h.members.map((m) => [m.id, m.birth, m.sex ?? null]), h.events]);
+  let partition = batch?.partitions.get(partitionKey);
+  if (batch !== undefined && partition === undefined) {
+    partition = newPartition();
+    batch.partitions.set(partitionKey, partition);
+  }
+  // 要求のあいだの結果の使い回しは、根拠の記録なしのときだけ（記録は計算した要求の記録にしか残らないため）
+  const sharing = partition !== undefined && req.trace === "none";
   const tracer = new Tracer(req.trace);
   const time = new TimeResolver(h.members, h.events);
   // 0003 の6: 計算の前にすべてのイベントを絶対の年月へ解決する（循環はここでエラー）
@@ -278,39 +346,69 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     checkInternal: options.checkInternal === true,
     base,
     end,
-    cache: new Map(),
+    keys: sharing ? (partition as Partition).keys : newKeyTable(),
+    epoch: nextEpoch(),
+    resolved: [],
+    lane: sharing ? (batch as BatchContext).lane : -1,
     provenance: new Map(),
     stack: [],
-    params: new Map(),
-    hasParams: new Map(),
-    // 案×想定のあいだの使い回しは、根拠の記録なしのときだけ（記録は計算した要求の記録にしか残らないため）
-    ...(batch !== undefined && req.trace === "none" ? { shared: batch.shared, fingerprint: fingerprinter(batch, input, dataSetKey), sharedByComponent: new Map(), effects: [] } : {}),
+    paramCache: partition?.params ?? newParamCache(),
+    inputs: new Map(),
+    ...(sharing ? { partition, depCache: [new Map(), new Map(), new Map()] } : {}),
   };
   const rootId = options.entry?.component ?? ROOT_COMPONENT;
   const root = assembly.impls.get(rootId);
   if (root === undefined) throw new EngineError("E_COMPONENT_UNKNOWN", [rootId]);
-  const { output, node: rootNode } = invoke(state, root, options.entry?.input ?? {});
-  const out = output as { flows?: readonly Flow[]; annual?: readonly AnnualRow[] };
+  const rootRes = invoke(state, root, options.entry?.input ?? {});
+  const { output, node: rootNode } = rootRes;
+  if (sharing) collectEffects(state, rootRes);
+  if (batch !== undefined) {
+    batch.lastUsed = rootRes.variant === null ? null : [rootRes.variant];
+    if (sharing) keepLane(state);
+  }
+  const out = output as { flows?: readonly Flow[]; annual?: readonly AnnualRow[]; parts?: readonly (readonly Flow[])[] };
 
   // 0003 の5: 計算基準月より前・表の最後より後のお金の動きは載せない。表のうちお金の動きを年に集めた部分も作る。
-  // まとめて計算するときは、同じお金の動きの配列（使い回した部品の結果）について1回だけ行う
+  // 根の部品が parts（お金の動きを出した部品の出力ごとの配列）を返すときは、部品の出力ごとに集め、まとめて計算するときは
+  // 同じ配列（使い回した部品の結果）について1回だけ行う（0005 の追記）
   const aggregation = input.calcConventions.aggregation;
   const baseYear = yearOf(base);
   const rawFlows = out.flows ?? [];
-  const aggKey = `${base}|${end}|${aggregation}|${options.preview === true ? "p" : ""}`;
-  let agg = batch?.aggregates.get(rawFlows)?.get(aggKey);
-  if (agg === undefined) {
-    agg = aggregateFlows(rawFlows, base, end, aggregation, baseYear, rootId, options.preview !== true);
-    if (batch !== undefined) {
-      let m = batch.aggregates.get(rawFlows);
-      if (m === undefined) {
-        m = new Map();
-        batch.aggregates.set(rawFlows, m);
+  const parts = out.parts ?? [rawFlows];
+  const aggKey = `${base}|${end}|${aggregation}`;
+  const aggOf = (arr: readonly Flow[]): FlowAggregate => {
+    let agg = batch?.aggregates.get(arr)?.get(aggKey);
+    if (agg === undefined) {
+      agg = aggregateFlows(arr, base, end, aggregation, baseYear, rootId);
+      if (batch !== undefined) {
+        let m = batch.aggregates.get(arr);
+        if (m === undefined) {
+          m = new Map();
+          batch.aggregates.set(arr, m);
+        }
+        m.set(aggKey, agg);
       }
-      m.set(aggKey, agg);
     }
+    return agg;
+  };
+  const aggs = parts.map(aggOf);
+  if (out.parts !== undefined && state.checkInternal) {
+    // parts をつなげると flows と同じ中身（数と合計）
+    let n = 0;
+    let sum = 0;
+    for (const p of parts) for (const f of p) {
+      n++;
+      sum += f.amount;
+    }
+    let sum0 = 0;
+    for (const f of rawFlows) sum0 += f.amount;
+    if (n !== rawFlows.length || sum !== sum0) throw new EngineError("E_ARGUMENT", [rootId, "parts"]);
   }
-  const flows = agg.flows;
+  const flows: Flow[] = [];
+  if (options.preview !== true) {
+    for (const g of aggs) for (const f of g.flows) flows.push(f);
+    sortFlows(flows);
+  }
   const annual = (out.annual ?? []).filter((a) => a.year >= baseYearOf(base) && a.year <= input.endYear);
   for (const f of annual) {
     if (typeof f.formula !== "string") throw new EngineError("E_FORMULA_MISSING", [rootId]);
@@ -318,13 +416,19 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   }
   annual.sort(compareAnnual);
 
-  // キャッシュフロー表: お金の動きを年に集めたもの（agg）に、年ごとの行を足す
+  // キャッシュフロー表: お金の動きを年に集めたもの（部品の出力ごと）を足し合わせ、年ごとの行を足す
   const cells: Cell[] = [];
   const index = new Map<string, Cell>();
-  for (const c of agg.cells) {
-    const cell = { ...c.cell };
-    index.set(c.key, cell);
-    cells.push(cell);
+  for (const g of aggs) {
+    for (const c of g.cells) {
+      const cur = index.get(c.key);
+      if (cur !== undefined) cur.amount += c.cell.amount;
+      else {
+        const cell = { ...c.cell };
+        index.set(c.key, cell);
+        cells.push(cell);
+      }
+    }
   }
   for (const a of annual) addCell(index, cells, a.row, a.year, a.amount, a.member, a.object);
   const table = cells.sort(
@@ -364,50 +468,6 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
 }
 
 /**
- * 部品ごとの「読む入力の指紋」（0005・0006 の追記: 依存の追跡）。部品とその内側で呼ぶ部品が読む入力項目（reads をたどったもの）の値と、
- * どの部品も読める共通のもの（計算基準月・表の最後の年・計算方式・データの組・構成員の生年月と性別・名前つきイベント）をつなげた文字列。
- * 2つの要求でこれが同じなら、その部品の同じ入力の呼び出しは同じ結果になる（部品は ctx でしか入力に触れないため）
- */
-function fingerprinter(batch: BatchContext, input: EngineRequest["input"], dataSetKey: string): (component: string) => string {
-  const h = input.household;
-  const common = JSON.stringify([
-    input.baseMonth,
-    input.endYear,
-    input.calcConventions,
-    dataSetKey,
-    h.members.map((m) => [m.id, m.birth, m.sex ?? null]),
-    h.events,
-  ]);
-  const byClosure = new Map<string, string>();
-  const byComponent = new Map<string, string>();
-  const source = input as unknown as Record<string, unknown>;
-  const assumptions = (input.assumptions ?? {}) as Readonly<Record<string, unknown>>;
-  return (component) => {
-    const hit = byComponent.get(component);
-    if (hit !== undefined) return hit;
-    let reads = batch.closures.get(component);
-    if (reads === undefined) {
-      reads = [...readsClosure(batch.assembly, component, new Map())].sort();
-      batch.closures.set(component, reads);
-    }
-    const closureKey = reads.join(",");
-    let fp = byClosure.get(closureKey);
-    if (fp === undefined) {
-      const readSet = new Set(reads);
-      const parts: unknown[] = [];
-      for (const collection of Object.keys(ITEMS.collections).sort()) {
-        if (reads.some((r) => ITEMS.items[r]?.collection === collection)) parts.push(collection, projectCollection(ITEMS, source, collection, readSet, component));
-      }
-      for (const r of reads) if (r.startsWith("assumptions.")) parts.push(r, assumptions[r.slice("assumptions.".length)] ?? null);
-      fp = `${common}${JSON.stringify(parts)}`;
-      byClosure.set(closureKey, fp);
-    }
-    byComponent.set(component, fp);
-    return fp;
-  };
-}
-
-/**
  * 複数の要求（案×想定）をまとめて計算する（0005 の7・追記）。パックの検査と部品表の組み立ては1回だけ行い、根拠の記録なしの要求の
  * あいだでは、読む入力が同じ部品の結果を使い回す。結果は1件ずつ計算したときと同じ（一致テストで確かめる）。
  * preview は表示の先出し用で、お金の動きと根拠の記録を除いた見出し・年ごとの行・表だけを返す
@@ -432,19 +492,47 @@ export function runBatch(
 /** パックの検査と部品表の組み立て（まとめて計算するときと、セッションで1回だけ行う） */
 export function createBatchContext(packs: readonly unknown[], options: RunOptions = {}): BatchContext {
   const assembly = assemble(OFFICIAL_COMPONENTS, options);
-  checkPacks(packs, assembly);
-  return { stores: new Map(), assembly, shared: new Map(), closures: new Map(), aggregates: new WeakMap() };
+  checkPacks(packs, assembly, options.packsChecked);
+  return { stores: new Map(), assembly, partitions: new Map(), aggregates: new WeakMap(), lastUsed: null, lane: 0 };
 }
 
-/** 使い回しの表の大きさの上限（部品の結果の件数）。超えたら空にする（結果は同じで、計算し直すだけ） */
-const SESSION_CACHE_LIMIT = 50000;
+/** セッションが持つ候補の数がこれを超えたら、どの枠でも使っていない候補を捨てる（結果は同じで、計算し直すだけ） */
+const SESSION_GC_EVERY = 40;
+
+/** 枠の状態（0005 の追記: 計算し直しが終わっていない結果には「古い」と分かる印を付ける） */
+type SlotState = "fresh" | "stale" | "missing";
+
+interface Slot {
+  /** 今の要求（JSON）と、要求が変わるたびに1つ増える番号 */
+  request: string;
+  rev: number;
+  /** 最後に計算した結果（JSON）と、それを計算したときの番号・先出しか */
+  result: string | null;
+  resultRev: number;
+  preview: boolean;
+  /** 最後の計算で使った・作った候補（持ち続ける候補を決めるため）と、枠の番号（鍵の prevs の位置） */
+  used: Variant[];
+  lane: number;
+}
 
 /**
  * 画面側のエンジン（0005 の5: 表示の先出し）のためのセッション。パックの検査と部品表の組み立てを1回だけ行い、
- * 呼び出しをまたいで、読む入力が同じ部品の結果を使い回す（スライダーを動かすたびに、変わった入力に関係する部品だけを計算し直す）。
- * 結果は1件ずつ計算したときと同じ。本体の計算（正）は計算ごとに新しい実行環境で run・runBatch を使う（0005 の3）
+ * 呼び出しをまたいで、依存（読んだ入力と呼んだ部品の結果）が同じ部品の結果を使い回す（スライダーを動かすたびに、変わった入力に関係する
+ * 部品だけを計算し直す）。結果は1件ずつ計算したときと同じ。本体の計算（正）は計算ごとに新しい実行環境で run・runBatch を使う（0005 の3）。
+ *
+ * 枠（案×想定。ID は画面が決める文字列）ごとに要求を置き（set）、見ている案の枠だけを先に計算し（compute）、残りは古い印のまま返せる（results・status）。
+ * 枠の番号（rev）は要求が変わるたびに増え、結果にはそれを計算したときの番号が付く（本体の計算の結果を、どの要求のものか照らし合わせるのにも使える）
  */
 export interface Session {
+  /** 枠を置く: {"<枠ID>": 要求 | null}（null は枠を消す）。要求が変わった枠は古い（stale）になる。戻り値は status() */
+  set(slotsJson: string): string;
+  /** 枠を計算する（idsJson は枠IDの配列。省略は古い枠と、まだ計算していない枠すべて）。戻り値は {"<枠ID>": {"rev", "state": "fresh", "result"}} */
+  compute(idsJson?: string, optionsJson?: string): string;
+  /** 枠ごとの最後の結果と状態: {"<枠ID>": {"rev": 今の番号, "resultRev": 結果の番号, "state", "preview", "result": 結果 | null}} */
+  results(idsJson?: string): string;
+  /** 枠ごとの状態: {"<枠ID>": {"rev", "state": "fresh" | "stale" | "missing"}} */
+  status(): string;
+  /** 互換: 要求の配列を計算する（i 番目を枠 "#i" として置いて計算し、結果の配列を返す） */
   runBatch(requestsJson: string, optionsJson?: string): string;
   clear(): void;
 }
@@ -453,27 +541,162 @@ export function createSession(packsJson: string, optionsJson = "{}"): Session {
   let packs: unknown[] | null = null;
   let batch: BatchContext | null = null;
   let failure: string | null = null;
+  let checkInternal = false;
   try {
-    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean };
+    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean; packsChecked?: string[] };
+    checkInternal = opts.checkInternal === true;
     packs = JSON.parse(packsJson) as unknown[];
-    batch = createBatchContext(packs, { checkInternal: opts.checkInternal === true });
+    batch = createBatchContext(packs, { checkInternal, ...packsCheckedOf(opts) });
   } catch (e) {
     if (e instanceof EngineError) failure = JSON.stringify({ error: { code: e.code, ids: e.ids } });
     else if (e instanceof SyntaxError) failure = JSON.stringify({ error: { code: "E_INPUT_SCHEMA", ids: ["json"] } });
     else throw e;
   }
-  return Object.freeze({
+  const slots = new Map<string, Slot>();
+  // 枠の番号（消した枠の番号は使い回す）
+  const freeLanes: number[] = [];
+  let nextLane = 0;
+  const lanes = new Set<number>();
+  let sinceGc = 0;
+  const stateOf = (s: Slot): SlotState => (s.result === null ? "missing" : s.resultRev === s.rev ? "fresh" : "stale");
+  const statusJson = (): string => {
+    const out: Record<string, { rev: number; state: SlotState }> = {};
+    for (const [id, s] of slots) out[id] = { rev: s.rev, state: stateOf(s) };
+    return JSON.stringify(out);
+  };
+  const ids = (idsJson: string | undefined, all: boolean): string[] => {
+    if (idsJson === undefined) return [...slots.entries()].filter(([, s]) => all || stateOf(s) !== "fresh").map(([id]) => id);
+    const list = JSON.parse(idsJson) as unknown;
+    if (!Array.isArray(list) || list.some((x) => typeof x !== "string" || !slots.has(x))) throw new EngineError("E_ARGUMENT", ["session.ids"]);
+    return list as string[];
+  };
+  /** どの枠でも使っていない候補を捨てる */
+  const gc = (): void => {
+    if (batch === null) return;
+    // 枠が使った候補と、その依存（呼んだ部品の結果）の候補をたどって残す
+    const keep = new Set<Variant>();
+    const todo: Variant[] = [];
+    for (const s of slots.values()) for (const v of s.used) todo.push(v);
+    while (todo.length > 0) {
+      const v = todo.pop() as Variant;
+      if (keep.has(v)) continue;
+      keep.add(v);
+      for (const d of v.deps) {
+        if (!("t" in d)) {
+          if (d.variant !== null) todo.push(d.variant);
+        } else if (d.t === 4 && d.res.variant !== null) todo.push(d.res.variant);
+      }
+    }
+    for (const p of batch.partitions.values()) {
+      for (const ck of p.keys.all) {
+        if (ck.variants.length > 0) ck.variants = ck.variants.filter((v: Variant) => keep.has(v));
+        for (let i = 0; i < ck.prevs.length; i++) {
+          const v = ck.prevs[i];
+          if (v !== undefined && (!lanes.has(i) || !keep.has(v))) ck.prevs[i] = undefined;
+        }
+      }
+    }
+  };
+  const guard = (f: () => string): string => {
+    if (failure !== null || batch === null || packs === null) return failure ?? "";
+    try {
+      return f();
+    } catch (e) {
+      if (e instanceof EngineError) return JSON.stringify({ error: { code: e.code, ids: e.ids } });
+      if (e instanceof SyntaxError) return JSON.stringify({ error: { code: "E_INPUT_SCHEMA", ids: ["json"] } });
+      throw e;
+    }
+  };
+  const session: Session = {
+    set(slotsJson: string): string {
+      return guard(() => {
+        const given = JSON.parse(slotsJson) as unknown;
+        if (given === null || typeof given !== "object" || Array.isArray(given)) throw new EngineError("E_INPUT_SCHEMA", ["/:type"]);
+        for (const [id, req] of Object.entries(given as Record<string, unknown>)) {
+          if (req === null) {
+            const old = slots.get(id);
+            if (old !== undefined) {
+              slots.delete(id);
+              lanes.delete(old.lane);
+              freeLanes.push(old.lane);
+            }
+            continue;
+          }
+          const text = JSON.stringify(req);
+          const s = slots.get(id);
+          if (s === undefined) {
+            const lane = freeLanes.pop() ?? nextLane++;
+            lanes.add(lane);
+            // 前にこの番号を使った枠の候補は、確かめる前の候補にしない（結果は同じだが、無駄に確かめないため）
+            for (const p of (batch as BatchContext).partitions.values()) for (const ck of p.keys.all) if (ck.prevs.length > lane) ck.prevs[lane] = undefined;
+            slots.set(id, { request: text, rev: 1, result: null, resultRev: 0, preview: false, used: [], lane });
+          }
+          else if (s.request !== text) {
+            s.request = text;
+            s.rev++;
+          }
+        }
+        return statusJson();
+      });
+    },
+    compute(idsJson?: string, runOptionsJson = "{}"): string {
+      return guard(() => {
+        const opts = JSON.parse(runOptionsJson) as { preview?: boolean };
+        const preview = opts.preview === true;
+        const out: Record<string, { rev: number; state: SlotState; result: unknown }> = {};
+        const b = batch as BatchContext;
+        for (const id of ids(idsJson, false)) {
+          const s = slots.get(id) as Slot;
+          b.lane = s.lane;
+          const result = runChecked(JSON.parse(s.request) as unknown, packs as unknown[], { checkInternal, preview, batch: b });
+          s.result = JSON.stringify(result);
+          s.resultRev = s.rev;
+          s.preview = preview;
+          s.used = b.lastUsed ?? [];
+          b.lastUsed = null;
+          b.lane = 0;
+          sinceGc++;
+          out[id] = { rev: s.rev, state: "fresh", result };
+        }
+        if (sinceGc >= SESSION_GC_EVERY) {
+          sinceGc = 0;
+          gc();
+        }
+        return JSON.stringify(out);
+      });
+    },
+    results(idsJson?: string): string {
+      return guard(() => {
+        const parts: string[] = [];
+        for (const id of ids(idsJson, true)) {
+          const s = slots.get(id) as Slot;
+          parts.push(`${JSON.stringify(id)}:{"rev":${s.rev},"resultRev":${s.resultRev},"state":"${stateOf(s)}","preview":${s.preview},"result":${s.result ?? "null"}}`);
+        }
+        return `{${parts.join(",")}}`;
+      });
+    },
+    status(): string {
+      return guard(statusJson);
+    },
     runBatch(requestsJson: string, runOptionsJson = "{}"): string {
-      if (failure !== null || batch === null || packs === null) return failure ?? "";
-      let size = 0;
-      for (const byId of batch.shared.values()) for (const m of byId.values()) size += m.size;
-      if (size > SESSION_CACHE_LIMIT) batch.shared.clear();
-      return runBatchJson(requestsJson, packs, runOptionsJson, batch);
+      return guard(() => {
+        const requests = JSON.parse(requestsJson) as unknown;
+        if (!Array.isArray(requests)) throw new EngineError("E_INPUT_SCHEMA", ["/:type"]);
+        const names = requests.map((_, i) => `#${i}`);
+        session.set(JSON.stringify(Object.fromEntries(names.map((n, i) => [n, requests[i]]))));
+        const computed = JSON.parse(session.compute(JSON.stringify(names), runOptionsJson)) as Record<string, { result: unknown }>;
+        return JSON.stringify(names.map((n) => (computed[n] as { result: unknown }).result));
+      });
     },
     clear(): void {
-      batch?.shared.clear();
+      slots.clear();
+      lanes.clear();
+      freeLanes.length = 0;
+      nextLane = 0;
+      if (batch !== null) batch.partitions.clear();
     },
-  });
+  };
+  return Object.freeze(session);
 }
 
 /** 延ばした値の知らせ（N_PARAM_PROJECTED。部品・値の ID・最初の年・最後の年）は、構成員ごとに出たものを1つにまとめる */
@@ -497,31 +720,42 @@ function mergeProjected(notices: readonly { code: string; ids: readonly string[]
   return [...out, ...merged.values()];
 }
 
+/** 入口の options の packsChecked（文字列の配列のときだけ使う） */
+function packsCheckedOf(opts: { packsChecked?: unknown }): { packsChecked?: readonly string[] } {
+  const c = opts.packsChecked;
+  return Array.isArray(c) && c.every((x) => typeof x === "string") ? { packsChecked: c as string[] } : {};
+}
+
+/** 1件を計算し、出力を検査した形（先出しは見出し・年ごとの行・表だけ）。エンジンのエラーは {error} */
+function runChecked(request: unknown, packs: readonly unknown[], opts: { checkInternal: boolean; preview: boolean; batch: BatchContext }): unknown {
+  try {
+    const r = runEngine(request, packs, { checkInternal: opts.checkInternal, preview: opts.preview, batch: opts.batch });
+    if (!opts.preview) {
+      check("engine.output", r, "E_OUTPUT_SCHEMA");
+      return r;
+    }
+    const p = { header: r.header, annual: r.annual, table: r.table };
+    check("engine.preview", p, "E_OUTPUT_SCHEMA");
+    return p;
+  } catch (e) {
+    if (e instanceof EngineError) return { error: { code: e.code, ids: e.ids } };
+    throw e;
+  }
+}
+
 /** runBatch の文字列の入口。requestsJson は要求の配列。結果も配列（1件ずつ結果か {error}） */
 export function runBatchJson(requestsJson: string, packsJson: string | readonly unknown[], optionsJson = "{}", context?: BatchContext): string {
   try {
-    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean; preview?: boolean };
+    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean; preview?: boolean; packsChecked?: string[] };
     const requests = JSON.parse(requestsJson) as unknown;
     if (!Array.isArray(requests)) throw new EngineError("E_INPUT_SCHEMA", ["/:type"]);
     const preview = opts.preview === true;
+    const checkInternal = opts.checkInternal === true;
     const packs = typeof packsJson === "string" ? (JSON.parse(packsJson) as unknown[]) : packsJson;
-    const results = runBatch(requests, packs, { checkInternal: opts.checkInternal === true, preview }, context);
-    const out = results.map((r) => {
-      if ("error" in r) return r;
-      try {
-        if (!preview) {
-          check("engine.output", r, "E_OUTPUT_SCHEMA");
-          return r;
-        }
-        const p = { header: r.header, annual: r.annual, table: r.table };
-        check("engine.preview", p, "E_OUTPUT_SCHEMA");
-        return p;
-      } catch (e) {
-        if (e instanceof EngineError) return { error: { code: e.code, ids: e.ids } };
-        throw e;
-      }
-    });
-    return JSON.stringify(out);
+    const batch = context ?? createBatchContext(packs, { checkInternal, ...packsCheckedOf(opts) });
+    return JSON.stringify(
+      requests.map((r) => runChecked(r, packs, { checkInternal, preview, batch })),
+    );
   } catch (e) {
     if (e instanceof EngineError) return JSON.stringify({ error: { code: e.code, ids: e.ids } });
     if (e instanceof SyntaxError) return JSON.stringify({ error: { code: "E_INPUT_SCHEMA", ids: ["json"] } });
@@ -532,8 +766,8 @@ export function runBatchJson(requestsJson: string, packsJson: string | readonly 
 /** 文字列で受けて文字列で返す入口（Rust のホストと Node の両方がこれを呼ぶ） */
 export function runJson(requestJson: string, packsJson: string, optionsJson = "{}"): string {
   try {
-    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean };
-    const result = runEngine(JSON.parse(requestJson), JSON.parse(packsJson) as unknown[], { checkInternal: opts.checkInternal === true });
+    const opts = JSON.parse(optionsJson) as { checkInternal?: boolean; packsChecked?: string[] };
+    const result = runEngine(JSON.parse(requestJson), JSON.parse(packsJson) as unknown[], { checkInternal: opts.checkInternal === true, ...packsCheckedOf(opts) });
     check("engine.output", result, "E_OUTPUT_SCHEMA");
     return JSON.stringify(result);
   } catch (e) {

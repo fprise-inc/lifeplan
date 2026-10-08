@@ -1,0 +1,20 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.pension.supplementaryBenefit.supplementaryIncomeLimit
+title: 【架空の見本】pension.supplementaryBenefit.supplementaryIncomeLimit
+unit: JPY
+kind: constant
+basis: {type: "fiscalYear", startMonth: 10}
+linkage: indexed
+entries:
+  - rev: 1
+    appliesFrom: "2000-10-01"
+    appliesTo: null
+    enforcedOn: "2000-10-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 900000
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

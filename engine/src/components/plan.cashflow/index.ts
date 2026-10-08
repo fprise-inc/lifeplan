@@ -16,11 +16,11 @@ import {
 /** 残高に入れない器（不動産・保険の積立部分は別の部品で扱う） */
 const NOT_FINANCIAL: ReadonlySet<string> = new Set(["realEstate", "insurance"]);
 
-export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[] }>({
+export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[]; parts: readonly (readonly Flow[])[] }>({
   id: "plan.cashflow",
   title: "キャッシュフロー表",
-  contract: "1.0",
-  revision: 3,
+  contract: "1.1",
+  revision: 4,
   requires: { "plan.flows": ">=1 <2" },
   params: [],
   reads: ["account.kind", "account.marketValue", "assumptions.investmentReturn"],
@@ -30,7 +30,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     const { base, end } = ctx.time;
     const baseYear = yearOf(base);
     const endYear = yearOf(end);
-    const collected = ctx.call<{ flows: readonly Flow[]; net: readonly { year: number; amount: Yen }[] }>("plan.flows", {});
+    const collected = ctx.call<{ flows: readonly Flow[]; net: readonly { year: number; amount: Yen }[]; parts: readonly (readonly Flow[])[] }>("plan.flows", {});
     const net = new Map(collected.net.map((x) => [x.year, x.amount]));
 
     // 0003 の3・5: 運用益＝(期首残高×2＋その年の収支)×年利×月数/12÷2（midYear）を1回で丸める。初年度は残りの月数で按分
@@ -54,6 +54,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         { row: "cf.balance.financial", year: y, amount: balance, formula: "plan.cashflow.closing" },
       );
     }
-    return { flows: collected.flows, annual };
+    // parts は plan.flows のまま渡す（エンジンが表の集計を部品ごとに使い回す）
+    return { flows: collected.flows, annual, parts: collected.parts };
   },
 });

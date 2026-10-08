@@ -50,6 +50,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.employeeMonths
+    status: active
+    label: "厚生年金の被保険者期間の月数"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.oldAge
     status: active
     label: "老齢年金"
@@ -83,6 +89,12 @@ entries:
   - id: plan.flows
     status: active
     label: "お金の動き（集める）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: plan.memberFlows
+    status: active
+    label: "お金の動き（構成員ごとに集める）"
     since: draft
     aliases: []
     replacedBy: null
@@ -164,15 +176,45 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: tax.dependentDeduction
+    status: active
+    label: "扶養控除・特定親族特別控除"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: tax.employmentIncome
     status: active
     label: "給与所得"
     since: draft
     aliases: []
     replacedBy: null
+  - id: tax.incomeOrder
+    status: active
+    label: "合計所得金額の大小"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.incomeWithin
+    status: active
+    label: "合計所得金額が上限以下か"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: tax.publicPensionIncome
     status: active
     label: "公的年金等に係る雑所得"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.socialInsurancePaid
+    status: active
+    label: "その年に払った社会保険料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.spouseDeduction
+    status: active
+    label: "配偶者控除・配偶者特別控除"
     since: draft
     aliases: []
     replacedBy: null

@@ -1,0 +1,38 @@
+# 【架空の見本】テスト用。実在の制度の値ではない（再評価率の表の形を確かめるための架空の率）
+id: test.pension.revaluationRate
+title: 【架空の見本】pension.revaluationRate（生年月日の区分×報酬の期間）
+unit: rate
+kind: periodTable
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: "2027-03-31"
+    enforcedOn: "2026-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: "1960-04-02", to: null}
+    value:
+      - {from: "1990-01", to: "1999-12", rate: "1.2"}
+      - {from: "2000-01", to: "2009-12", rate: "1.1"}
+      - {from: "2010-01", to: null, rate: "1"}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 2
+    appliesFrom: "2026-04-01"
+    appliesTo: "2027-03-31"
+    enforcedOn: "2026-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions:
+      - {key: "birthDate", from: null, to: "1960-04-01"}
+    value:
+      - {from: "1980-01", to: "1999-12", rate: "1.3"}
+      - {from: "2000-01", to: null, rate: "1.05"}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

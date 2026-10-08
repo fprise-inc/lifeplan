@@ -6,7 +6,6 @@ import {
   bracketFor,
   defineComponent,
   monthIndex,
-  paymentsInYear,
   RATE_ZERO,
   subYen,
   yen,
@@ -28,7 +27,7 @@ export default defineComponent<{ member: string; year: number }, { revenue: Yen;
   id: "tax.publicPensionIncome",
   title: "公的年金等に係る雑所得",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "pension.oldAge": ">=1 <2", "tax.employmentIncome": ">=1 <2", "income.business": ">=1 <2" },
   params: [...Object.values(P), ...[false, true].flatMap((e) => [1, 2, 3].map((t) => table(e, t)))],
   reads: [],
@@ -37,7 +36,8 @@ export default defineComponent<{ member: string; year: number }, { revenue: Yen;
   compute(input, ctx) {
     const { member, year } = input;
     let revenue = yen(0);
-    for (const p of paymentsInYear(ctx.call<PensionOutput>("pension.oldAge", { member }).payments, year)) revenue = yen(revenue + p.amount);
+    // その年の支払いだけを読む
+    for (const p of ctx.callMonths<PensionOutput["payments"][number]>("pension.oldAge", { member }, "payments", monthIndex(year, 1), monthIndex(year, 12))) revenue = yen(revenue + p.amount);
     if (revenue === 0) return { revenue, deduction: yen(0), income: yen(0) };
     const at = ctx.at(monthIndex(year, 1));
     const elderly = ageMonth(ctx, monthIndex(year, 1), P.age, member) <= monthIndex(year, 12);

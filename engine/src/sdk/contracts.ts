@@ -94,6 +94,21 @@ export interface DeductionsOutput {
   readonly personalDiff: Yen;
 }
 
+/** tax.spouseDeduction: 配偶者控除・配偶者特別控除。personalDiff は住民税の調整控除の人的控除額の差（所得税では 0） */
+export interface SpouseDeductionOutput {
+  readonly spouse: Yen;
+  readonly spouseSpecial: Yen;
+  readonly personalDiff: Yen;
+}
+
+/** tax.dependentDeduction: 扶養控除・特定親族特別控除と、23歳未満の扶養親族がいるか */
+export interface DependentDeductionOutput {
+  readonly dependents: Yen;
+  readonly specifiedRelative: Yen;
+  readonly youngDependent: boolean;
+  readonly personalDiff: Yen;
+}
+
 /** insurance.premium・account.contribution: 支払い1件 */
 export interface PremiumPayment {
   readonly ym: string;
@@ -217,8 +232,17 @@ export interface PensionOutput {
 
 /** pension.revision: 構成員の年金額の改定率（年度ごと。projected は前提で延ばした年度） */
 export interface RevisionOutput {
-  /** rate は基礎年金の改定率、employee は報酬比例（厚生年金）の改定の系列 */
-  readonly byFiscalYear: readonly { readonly fiscalYear: number; readonly rate: string; readonly employee: string; readonly projected: boolean }[];
+  /**
+   * rate は基礎年金の改定率（受給者本人の率。68歳に達した年度からは既裁定者の率）、employee は報酬比例（厚生年金）の改定の系列、
+   * newAward は新規裁定者の改定率（加給年金額・配偶者の特別加算に掛ける。約束の版 1.1 で足した任意の欄）
+   */
+  readonly byFiscalYear: readonly {
+    readonly fiscalYear: number;
+    readonly rate: string;
+    readonly employee: string;
+    readonly newAward?: string;
+    readonly projected: boolean;
+  }[];
 }
 
 /** pension.record: 加入の記録（入力の型ごとの初めの値と、記録の後に働き方の期間から足す月） */

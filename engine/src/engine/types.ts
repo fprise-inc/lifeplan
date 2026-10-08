@@ -116,6 +116,8 @@ export interface PensionRecordInput {
     readonly to: string;
     readonly category: "national1" | "national1Unpaid" | "national3" | "employee";
     readonly averageRemuneration?: Yen;
+    /** 当時の平均標準報酬（月）額。再評価率（pension.revaluationRate）でいまの水準に直す。averageRemuneration と一緒には書かない */
+    readonly averageRemunerationAtTime?: Yen;
   }[];
   readonly claim?: { readonly basic?: Timepoint; readonly employee?: Timepoint };
 }

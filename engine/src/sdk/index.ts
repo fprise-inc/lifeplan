@@ -1,6 +1,8 @@
 // 計算部品が import してよい公式SDK（0006 の2）。丸め関数はここに置かず ctx.money だけで使う（0002・0006 の7）
-export { defineComponent, type ComponentDefinition } from "../registry/define.ts";
+export { COMPONENT_API_VERSION, defineComponent, type ComponentDefinition } from "../registry/define.ts";
 export type { Ctx, MonthCtx, MoneyApi, RateApi, TimeApi, ParamOptions } from "../registry/ctx.ts";
+export type { Segment, SegmentOptions } from "../registry/segments.ts";
+export { segmentIndex } from "../registry/segments.ts";
 export type {
   AccountInput,
   AnnualRow,
@@ -25,7 +27,8 @@ export { yen, addYen, subYen, negYen, sumYen, YEN_ZERO, type Yen, type Money } f
 export { rate, RATE_ZERO, RATE_ONE, type Rate } from "../money/rate.ts";
 export { addMonths, formatYm, monthIndex, monthOf, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
 export type { Timepoint } from "../time/timepoint.ts";
-export { bracketFor, gradeFor, type Bracket, type Grade } from "../regulation/reader.ts";
+export type { Birth } from "../time/ageSwitch.ts";
+export { bracketFor, gradeFor, periodRateFor, type Bracket, type Grade, type PeriodRate } from "../regulation/reader.ts";
 export { isUnder } from "../ids/cfTree.ts";
 export { netByYear, tableYear } from "../engine/aggregate.ts";
 export { boxValue } from "./box.ts";

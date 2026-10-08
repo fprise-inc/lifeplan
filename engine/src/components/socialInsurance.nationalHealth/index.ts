@@ -6,17 +6,14 @@
 import {
   addYen,
   ageMonth,
-  monthsIn,
   assessedPremium,
   boxValue,
   defineComponent,
   fiscalYearEnd,
   fiscalYearOf,
   fiscalYearStart,
-  formatYm,
   installmentFlows,
   monthIndex,
-  paymentsInYear,
   parseYm,
   rate,
   RATE_ONE,
@@ -57,7 +54,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.nationalHealth",
   title: "国民健康保険料",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -84,14 +81,12 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     const jy = Math.max(fy, fiscalYearOf(ctx.time.base));
     const start = fiscalYearStart(fy);
     const ageAt = start < ctx.time.base ? ctx.time.base : start;
-    const from = formatYm(start);
-    const to = formatYm(fiscalYearEnd(fy));
     const members = ctx.list<MemberInput>("member");
     const head = members.find((m) => m.kind === "self")?.id ?? (members[0] as MemberInput).id;
     const insured = members
       .map((m) => ({
         id: m.id,
-        months: monthsIn(ctx.call<HealthStatusOutput>("socialInsurance.healthStatus", { member: m.id }).months, from, to)
+        months: ctx.callMonths<HealthStatusOutput["months"][number]>("socialInsurance.healthStatus", { member: m.id }, "months", start, fiscalYearEnd(fy))
           .filter((x) => x.kind === "national")
           .map((x) => parseYm(x.month)),
       }))
@@ -116,7 +111,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       const elderly = ageMonth(ctx, start, ELDERLY_AGE, id) <= monthIndex(jy - 1, 12);
       const special = elderly ? yen(Math.min(elderlyDeduction, inc.publicPension ?? 0)) : yen(0);
       judged = addYen(judged, yen(inc.total - special));
-      const salary = paymentsInYear(ctx.call<SalaryOutput>("income.salary", { member: id }).payments, jy - 1).some((p) => p.salary > 0);
+      const salary = ctx.callMonths<SalaryOutput["payments"][number]>("income.salary", { member: id }, "payments", monthIndex(jy - 1, 1), monthIndex(jy - 1, 12)).some((p) => p.salary > 0);
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
       if (salary || pension) earners++;
     }

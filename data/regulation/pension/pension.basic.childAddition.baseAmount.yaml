@@ -1,0 +1,20 @@
+id: pension.basic.childAddition.baseAmount
+title: 老齢基礎年金の子の加算の基準額（令和10年4月から。一人につき269,600円×改定率）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2028-04-01"
+    appliesTo: null
+    enforcedOn: "2028-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 269600
+    sources:
+      - {type: "law", lawNumber: "昭和三十四年法律第百四十一号"}
+      - {type: "law", lawNumber: "令和七年法律第七十四号"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "令和7年法律第74号で新設された老齢基礎年金の子の加算（PR #6 の照合の記録）。額は PR #6 で確かめた厚生年金保険法44条2項（令和10年4月1日の版）の子の額（pension.childSupplement.firstTwoBaseAmount@2）と同じとした。国民年金法の条文の原本はこの作業の環境から取れず、額・要件・子の加給年金との調整は確認待ち"}

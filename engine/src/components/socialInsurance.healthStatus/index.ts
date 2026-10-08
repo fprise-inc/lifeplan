@@ -38,7 +38,7 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
   id: "socialInsurance.healthStatus",
   title: "健康保険の種類（導く）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "socialInsurance.employeeStatus": ">=1 <2",
     "income.salary": ">=1 <2",
@@ -47,6 +47,7 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
   },
   params: Object.values(P),
   reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "employment.healthInsurance.kind", "employment.type"],
+  memberScope: ["employment"],
   input: "member.input",
   output: "socialInsurance.healthStatus.output",
   compute(input, ctx) {

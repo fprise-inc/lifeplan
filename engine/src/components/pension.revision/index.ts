@@ -5,7 +5,9 @@
 // 繰り越す）。延ばした年度は見出しの notices（N_PARAM_PROJECTED）に出す。
 // 報酬比例（厚生年金）は、基礎年金とスライド調整の率が別になりうる（令和8年度は基礎 1.9%・厚生 2.0%）ので、年度ごとの改定の比
 // （pension.employee.revisionFactor。その年度の報酬比例の改定の比）で別の系列（employee）を持つ。最初の年度は基礎年金の改定率と同じ値から始め、
-// 比の値が無い年度は基礎年金と同じ比で動かす
+// 比の値が無い年度は基礎年金と同じ比で動かす。
+// 新規裁定者の改定率（newAward）も持つ: 加給年金額・配偶者の特別加算は、受給者本人の年齢によらず「27条の3・27条の5の適用がないものとした改定率」
+// （厚生年金保険法44条2項・昭和60年改正法附則60条2項）を掛ける。制度データにある年度は、その年度に65歳になる生年月日の行、無い年度は賃金で延ばす
 import {
   ageMonth,
   defineComponent,
@@ -13,6 +15,7 @@ import {
   fiscalYearStart,
   rate,
   RATE_ONE,
+  type Birth,
   RATE_ZERO,
   yearOf,
   type Ctx,
@@ -37,13 +40,16 @@ function step(ctx: Ctx, s: Step, carry: Rate): { factor: Rate; carry: Rate } {
   return { factor: RATE_ONE, carry: ctx.rate.sub(RATE_ZERO, adj) };
 }
 
-type Row = { fiscalYear: number; rate: string; employee: string; projected: boolean };
+type Row = { fiscalYear: number; rate: string; employee: string; newAward: string; projected: boolean };
+
+/** その年度に新規裁定者（65歳になる年度）である生年月日 */
+const newAwardBirth = (fy: number): Birth => ({ birthYearMonth: `${fy - 65}-06`, bornOnFirst: false });
 
 export default defineComponent<{ member: string }, { byFiscalYear: Row[] }>({
   id: "pension.revision",
   title: "年金額の改定率",
-  contract: "1.0",
-  revision: 1,
+  contract: "1.1",
+  revision: 2,
   requires: {},
   params: [RATE_ID, EXISTING_AGE, EMP_FACTOR],
   reads: ["assumptions.inflation", "assumptions.wageGrowth", "assumptions.pensionMacroSlide", "assumptions.pensionMacroSlideEmployee"],
@@ -60,16 +66,21 @@ export default defineComponent<{ member: string }, { byFiscalYear: Row[] }>({
     let prevE: Rate | null = null;
     let carry = RATE_ZERO;
     let carryE = RATE_ZERO;
+    let prevN: Rate | null = null;
+    let carryN = RATE_ZERO;
     let firstProjected: number | null = null;
     let lastKnownRef = "";
     // 制度データの最初の年度より前は、最初の年度の値とみなす（計算基準月より前の年金額の推計のため）
-    const known: { fy: number; r: Rate; e: Rate | null }[] = [];
+    const known: { fy: number; r: Rate; e: Rate | null; n: Rate }[] = [];
     for (let fy = firstFy; fy <= lastFy; fy++) {
       const at = ctx.at(fiscalYearStart(fy));
       if (at.has(RATE_ID, { member }) && at.param(RATE_ID, { member }).entry.value !== "notApplicable") {
         const sel = at.param(RATE_ID, { member });
         const e = at.has(EMP_FACTOR, { member }) ? at.paramRate(EMP_FACTOR, { member }) : null;
-        known.push({ fy, r: rate(sel.entry.value as string), e });
+        const birth = newAwardBirth(fy);
+        const nsel = at.has(RATE_ID, { birth }) ? at.param(RATE_ID, { birth }) : sel;
+        const nv = nsel.entry.value === "notApplicable" ? sel.entry.value : nsel.entry.value;
+        known.push({ fy, r: rate(sel.entry.value as string), e, n: rate(nv as string) });
         lastKnownRef = `${RATE_ID}@${sel.entry.rev}`;
       }
     }
@@ -77,20 +88,23 @@ export default defineComponent<{ member: string }, { byFiscalYear: Row[] }>({
       // 値が1つも無いときは延長の仮定のとおり読む（E_PARAM_NO_VALUE で止まる）
       ctx.at(fiscalYearStart(firstFy)).paramRate(RATE_ID, { member });
     }
-    const firstKnown = known[0] as { fy: number; r: Rate };
+    const firstKnown = known[0] as { fy: number; r: Rate; n: Rate };
     for (let fy = firstFy; fy <= lastFy; fy++) {
       const k = known.find((x) => x.fy === fy);
       let r: Rate;
       let e: Rate;
+      let n: Rate;
       let projected = false;
       if (k !== undefined) {
         r = k.r;
+        n = k.n;
         // 報酬比例の系列＝基礎年金の改定率×（報酬比例の改定の比÷基礎年金の改定の比）の累積。比の値が無い年度は基礎年金と同じ動き
         if (prevE === null || prev === null || fy <= firstKnown.fy) e = r;
         else e = k.e === null ? ctx.rate.mul(prevE, ctx.rate.div(r, prev)) : ctx.rate.mul(prevE, k.e);
       } else if (fy < firstKnown.fy) {
         r = firstKnown.r;
         e = r;
+        n = firstKnown.n;
       } else {
         projected = true;
         firstProjected ??= fy;
@@ -103,14 +117,19 @@ export default defineComponent<{ member: string }, { byFiscalYear: Row[] }>({
         const slideE = ctx.assumption("pensionMacroSlideEmployee", fy, slideB);
         const b = step(ctx, { idx, slide: slideB }, carry);
         const em = step(ctx, { idx, slide: slideE }, carryE);
+        // 新規裁定者は賃金で改定する
+        const nw = step(ctx, { idx: w, slide: slideB }, carryN);
         carry = b.carry;
         carryE = em.carry;
+        carryN = nw.carry;
         r = ctx.rate.mul(prev as Rate, b.factor);
         e = ctx.rate.mul(prevE as Rate, em.factor);
+        n = ctx.rate.mul(prevN as Rate, nw.factor);
       }
       prev = r;
       prevE = e;
-      out.push({ fiscalYear: fy, rate: ctx.rate.toString(r), employee: ctx.rate.toString(e), projected });
+      prevN = n;
+      out.push({ fiscalYear: fy, rate: ctx.rate.toString(r), employee: ctx.rate.toString(e), newAward: ctx.rate.toString(n), projected });
     }
     if (firstProjected !== null) ctx.notice("N_PARAM_PROJECTED", [lastKnownRef, String(firstProjected), String(lastFy)]);
     return { byFiscalYear: out };

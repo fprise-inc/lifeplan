@@ -4,18 +4,15 @@
 // 年度の途中で75歳になる年は月数で按分する。年金が年18万円以上なら年金から差し引く（特別徴収）
 import {
   ageMonth,
-  monthsIn,
   addYen,
   boxValue,
   defineComponent,
   fiscalYearOf,
   fiscalYearStart,
-  formatYm,
   installmentFlows,
   pensionSpecial,
   PENSION_SPECIAL_MINIMUM,
   monthIndex,
-  paymentsInYear,
   rate,
   rateOverride,
   reductionRatio,
@@ -48,7 +45,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.lateElderly",
   title: "後期高齢者医療の保険料",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -66,15 +63,16 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     SPECIAL,
   ],
   reads: ["member.kind", "premiumAssessment.member", "premiumAssessment.kind", "premiumAssessment.fiscalYear", "premiumAssessment.amount", "premiumRate.kind", "premiumRate.fromFiscalYear", "premiumRate.parts"],
+  memberScope: ["premiumAssessment"],
   input: "residentTax.annual.input",
   output: "flows.output",
   compute(input, ctx) {
     const { member, fiscalYear: fy } = input;
     // 判定に使う所得の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得で判定する（PR の提案）
     const jy = Math.max(fy, fiscalYearOf(ctx.time.base));
-    const from = formatYm(fiscalYearStart(fy));
-    const to = formatYm(monthIndex(fy + 1, 3));
-    const months = monthsIn(ctx.call<HealthStatusOutput>("socialInsurance.healthStatus", { member }).months, from, to).filter((x) => x.kind === "lateElderly").length;
+    // その年度の月だけを読む（ほかの月の状態が変わっても計算し直さない）
+    const statusIn = (id: string) => ctx.callMonths<HealthStatusOutput["months"][number]>("socialInsurance.healthStatus", { member: id }, "months", fiscalYearStart(fy), monthIndex(fy + 1, 3));
+    const months = statusIn(member).filter((x) => x.kind === "lateElderly").length;
     if (months === 0) return { flows: [] };
     const special = pensionSpecial(ctx, member, fy);
     const given = assessedPremium(ctx.list<PremiumAssessmentInput>("premiumAssessment"), "lateElderly", member, fy);
@@ -95,7 +93,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     const insured = members.filter(
       (m) =>
         m.id === member ||
-        monthsIn(ctx.call<HealthStatusOutput>("socialInsurance.healthStatus", { member: m.id }).months, from, to).some((x) => x.kind === "lateElderly"),
+        statusIn(m.id).some((x) => x.kind === "lateElderly"),
     );
     const judgedIds = new Set([head, ...insured.map((m) => m.id)]);
     // 軽減の判定: 65歳以上の公的年金の所得からは特別に引く（高齢者特別控除）
@@ -107,7 +105,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       const elderly = ageMonth(ctx, fiscalYearStart(fy), ELDERLY_AGE, id) <= monthIndex(jy - 1, 12);
       const special = elderly ? yen(Math.min(elderlyDeduction, inc.publicPension ?? 0)) : yen(0);
       judged = addYen(judged, yen(inc.total - special));
-      const salary = paymentsInYear(ctx.call<SalaryOutput>("income.salary", { member: id }).payments, jy - 1).some((p) => p.salary > 0);
+      const salary = ctx.callMonths<SalaryOutput["payments"][number]>("income.salary", { member: id }, "payments", monthIndex(jy - 1, 1), monthIndex(jy - 1, 12)).some((p) => p.salary > 0);
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
       if (salary || pension) earners++;
     }

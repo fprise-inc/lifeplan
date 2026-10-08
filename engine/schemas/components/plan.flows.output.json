@@ -1,14 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:financia:schema:component:plan.flows.output",
-  "title": "お金の動きを集める部品の出力（お金の動きと、年ごとの年間収支）",
+  "title": "お金の動きを集める部品の出力（お金の動きと、年ごとの年間収支。plan.flows・plan.memberFlows）",
   "type": "object",
   "additionalProperties": false,
-  "required": ["flows", "net"],
+  "required": [
+    "flows",
+    "net"
+  ],
   "properties": {
     "flows": {
       "type": "array",
-      "items": { "$ref": "urn:financia:schema:common#/$defs/flow" }
+      "items": {
+        "$ref": "urn:financia:schema:common#/$defs/flow"
+      }
     },
     "net": {
       "description": "年間収支（収入−税・社会保険料−支出。器の間の移動は含めない）。お金の動きのある年だけ、年の昇順",
@@ -16,10 +21,27 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["year", "amount"],
+        "required": [
+          "year",
+          "amount"
+        ],
         "properties": {
-          "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
-          "amount": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+          "year": {
+            "$ref": "urn:financia:schema:common#/$defs/year"
+          },
+          "amount": {
+            "$ref": "urn:financia:schema:common#/$defs/yen"
+          }
+        }
+      }
+    },
+    "parts": {
+      "description": "お金の動きを、出した部品の出力ごとの配列に分けたもの（つなげると flows と同じ中身）。エンジンが表の集計を部品ごとに使い回すため（0005 の追記）",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "urn:financia:schema:common#/$defs/flow"
         }
       }
     }

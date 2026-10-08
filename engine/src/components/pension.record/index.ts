@@ -9,9 +9,11 @@ import {
   boxValue,
   defineComponent,
   fiscalYearOf,
+  fiscalYearStart,
   formatYm,
   monthIndex,
   parseYm,
+  periodRateFor,
   rate,
   yearOf,
   yen,
@@ -31,6 +33,8 @@ const FROM20 = "socialInsurance.nationalPension.fromAge";
 const PRE = "pension.employee.accrualRate.pre2003";
 const POST = "pension.employee.accrualRate.post2003";
 const ROUND = "pension.amount.rounding";
+// 再評価率（生年月日の区分×報酬の期間の表。年度ごと）。加入歴の「当時の額」をその年度の水準に直す（0007 の追記）
+const REVAL = "pension.revaluationRate";
 const SPLIT_2003 = monthIndex(2003, 4);
 const SINCE_1961 = monthIndex(1961, 4);
 
@@ -38,9 +42,9 @@ export default defineComponent<{ member: string }, RecordOutput>({
   id: "pension.record",
   title: "公的年金の加入の記録",
   contract: "1.0",
-  revision: 1,
+  revision: 3,
   requires: { "pension.category": ">=1 <2", "socialInsurance.coverage": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2" },
-  params: [UNTIL60, FROM20, PRE, POST, ROUND],
+  params: [UNTIL60, FROM20, PRE, POST, ROUND, REVAL],
   reads: [
     "pensionRecord.member",
     "pensionRecord.kind",
@@ -51,6 +55,7 @@ export default defineComponent<{ member: string }, RecordOutput>({
     "employment.salary.annual",
     "employment.salary.bonus",
   ],
+  memberScope: ["pensionRecord", "employment"],
   input: "member.input",
   output: "pension.record.output",
   compute(input, ctx) {
@@ -108,10 +113,23 @@ export default defineComponent<{ member: string }, RecordOutput>({
     if (rec === undefined) {
       ctx.notice("N_ESTIMATED", ["pensionRecord", member]);
     } else if (rec.kind === "history") {
-      // 加入歴: 月数を数え、報酬比例を平均標準報酬額（いまの水準とみなす）から計算する
+      // 加入歴: 月数を数え、報酬比例を平均標準報酬額から計算する。額は、いまの水準とみなす額（averageRemuneration）か、
+      // 当時の額（averageRemunerationAtTime）に記録の年度の再評価率（生年月日の区分×報酬の月）を掛けた額
       // 率は小数12桁までなので、分母を 10^12 にそろえて足す（1回だけ丸める）
       const DEN = 1000000000000n;
       let num = 0n;
+      const atK = ctx.at(fiscalYearStart(fiscalYearOf(asOf ?? base)));
+      let reval: ReturnType<typeof atK.paramPeriods> | undefined;
+      const revalAt = (m: MonthIndex): { num: bigint; den: bigint } => {
+        reval ??= atK.has(REVAL, { member }) ? atK.paramPeriods(REVAL, { member }) : null;
+        const row = reval === null ? null : periodRateFor(reval, m);
+        if (row === null) {
+          // 再評価率の値が無い（制度データに無い年度・生年月日・期間）: いまの水準の額とみなし、知らせる
+          ctx.notice("N_PARAM_MISSING", [REVAL, member]);
+          return { num: 1n, den: 1n };
+        }
+        return ctx.rate.fraction(row.rate);
+      };
       for (const h of rec.history ?? []) {
         const f = parseYm(h.from);
         const t = parseYm(h.to);
@@ -124,7 +142,10 @@ export default defineComponent<{ member: string }, RecordOutput>({
             employeeMonths++;
             if (npAge && m >= SINCE_1961) employee2059Months++;
             const r = ctx.rate.fraction(at.paramRate(m < SPLIT_2003 ? PRE : POST) ?? rate("0"));
-            num += (BigInt(h.averageRemuneration ?? 0) * r.num * DEN) / r.den;
+            if (h.averageRemunerationAtTime !== undefined) {
+              const v = revalAt(m);
+              num += (BigInt(h.averageRemunerationAtTime) * v.num * r.num * DEN) / (v.den * r.den);
+            } else num += (BigInt(h.averageRemuneration ?? 0) * r.num * DEN) / r.den;
           }
         }
       }

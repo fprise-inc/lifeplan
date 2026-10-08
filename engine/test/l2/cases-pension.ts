@@ -190,6 +190,11 @@ export const PENSION_CASES: readonly L2Case[] = [
   { id: "pn.working.none", area: "公的年金", title: "在職老齢年金 令和8年度: 基本月額10万円＋総報酬月額相当額46万円は65万円以下 → 全額支給", source: { url: ZR, note: SUM }, expected: 1200000, actual: () => working(1200000, 460000, 0), status: "pass" },
   { id: "pn.working.stop", area: "公的年金", title: "在職老齢年金 令和8年度: 基本月額10万円・標準報酬月額47万円・標準賞与額132万円 → 支給月額8.5万円（年102万円）", source: { url: `${NENKIN}service/pamphlet/kyufu.html`, note: `${SUM}（在職老齢年金のパンフレット 2026年1月版）` }, expected: 1020000, actual: () => working(1200000, 470000, 1320000), status: "pass" },
   { id: "pn.supplement.r8", area: "公的年金", title: "加給年金額（配偶者）＋特別加算 令和8年度（受給権者が昭和18年4月2日以後生まれ）→ 423,700円", source: { url: KAKYU, note: SUM }, expected: 1000000 + 423700, actual: () => couple("2026-04", "1961-05", "1964-08", "h", "2026-06"), status: "pass" },
+  {
+    id: "pn.supplement.r8.existing", area: "公的年金", title: "加給年金額（配偶者）＋特別加算 令和8年度（受給権者が昭和31年4月1日以前生まれ。既裁定者でも新規裁定者の改定率）→ 423,700円",
+    source: { url: KAKYU, note: `${SUM}。表の額は受給権者の生年月日の区分（特別加算）だけで決まり、既裁定者の改定率は使わない（厚生年金保険法44条2項・昭和60年改正法附則60条2項）` },
+    expected: 1000000 + 423700, actual: () => couple("2026-04", "1955-05", "1963-08", "h", "2026-06"), status: "pass",
+  },
   { id: "pn.transfer.r8", area: "公的年金", title: "振替加算 令和8年度水準（配偶者が昭和36年4月2日〜昭和41年4月1日生まれ）→ 16,335円", source: { url: KAKYU, note: `${SUM}（地方職員共済の例と同額）。妻が65歳になる令和9年度は改定率を前提で延ばし、物価・賃金の前提を置かないので令和8年度と同じ` }, expected: 600000 + 16335, actual: () => couple("2026-04", "1961-05", "1962-08", "w", "2027-09"), status: "pass" },
   { id: "pn.transfer.r7", area: "公的年金", title: "振替加算 令和7年度（配偶者が昭和30年4月2日〜昭和31年4月1日生まれ）→ 54,162円", source: { url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", note: `${SUM}（令和7年度の表）` }, expected: 600000 + 54162, actual: () => couple("2025-10", "1953-05", "1955-10", "w", "2025-10"), status: "pass" },
   { id: "pn.supportBenefit.480", area: "公的年金", title: "年金生活者支援給付金 令和8年度: 納付済480月 → 月5,620円", source: { url: SB, note: SUM }, expected: 5620, actual: () => supportBenefit(480), status: "pass" },

@@ -39,7 +39,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.careFirst",
   title: "介護保険料（第1号被保険者）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "residentTax.exemption": ">=1 <2", "tax.totalIncome": ">=1 <2", "tax.publicPensionIncome": ">=1 <2", "pension.oldAge": ">=1 <2" },
   params: [...Object.values(P), PENSION_SPECIAL_MINIMUM],
   reads: [
@@ -54,6 +54,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     "premiumRate.fromFiscalYear",
     "premiumRate.baseMonthly",
   ],
+  memberScope: ["premiumAssessment"],
   input: "residentTax.annual.input",
   output: "flows.output",
   compute(input, ctx) {
