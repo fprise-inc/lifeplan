@@ -7,14 +7,15 @@ entries:
   - rev: 1
     appliesFrom: "2025-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2025-12-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: 1230000
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/nencho_all.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年分 年末調整のしかた", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1177.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 第84条の2第1項", quote: "合計所得金額が百二十三万円以下であるものに限る"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1177.htm", retrievedAt: "2026-10-08", sha256: "f75c20fcbf5ef8fb52946c9ee8a43812fde662367644324462a5f0a74c9ca32a", locator: "特定親族に該当する人の範囲（5）", quote: "年間の合計所得金額が123万円以下であること"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和8年分も同じ（同法の令和8年12月1日の版）"}

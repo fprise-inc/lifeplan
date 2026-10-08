@@ -1,5 +1,6 @@
-// 答え合わせ（検証 L2）: 公式の資料にある計算例を、製品の制度データ（原本での確認待ちの値）と公式部品で計算し直す。
-// 計算例は国税庁・地方公共団体・協会けんぽ・日本年金機構・厚生労働省の公表資料から、検索の抜粋で読んだもの（原本は未取得）。
+// 答え合わせ（検証 L2）: 公式の資料にある計算例を、製品の制度データと公式部品で計算し直す。
+// 計算例は国税庁・地方公共団体・協会けんぽ・日本年金機構・厚生労働省の公表資料から読んだもの。前半は検索の抜粋で読んだもの（原本は未取得）、
+// 「原本を取得して読んだ」と注記した例（2026-10-08）は原本（e-Gov法令検索の条文・公表資料）から読んだもの。
 // status: "pass" は一致するはずの例、"knownMismatch" は扱いの違いが分かっている例（cause に原因）
 import { runEngine } from "../../src/engine/run.ts";
 import { rate } from "../../src/money/rate.ts";
@@ -72,6 +73,16 @@ function premium(month: string, std: number, formula: string, insurer = "13", bi
   return flows.filter((f) => f.formula === formula && f.ym === paid).reduce((s, f) => s + f.amount, 0);
 }
 
+/** 月給（賞与なし）から決まる標準報酬月額（健康保険・厚生年金）。被用者保険の資格の部品だけを呼ぶ */
+function standardMonthly(month: string, monthlySalary: number, kind: "healthStd" | "pensionStd"): number {
+  const req = household({
+    baseMonth: "2026-01", endYear: 2030, members: [member("l2.a", "self", "1980-01")],
+    periods: [period("l2.p", { member: "l2.a", from: "2000-04", annual: monthlySalary * 12 })],
+  });
+  const months = entry<{ months: { month: string; healthStd: number | null; pensionStd: number | null }[] }>(req, "socialInsurance.coverage", { member: A, fromYear: 2026 }).months;
+  return months.find((m) => m.month === month)?.[kind] ?? -1;
+}
+
 /** 雇用保険料（月給・賞与の支払い1回分） */
 function employmentInsurance(month: string, salaryMonthly: number, bonus: number, kind: "monthly" | "bonus"): number {
   const req = household({
@@ -97,7 +108,28 @@ const pensionCases: [number, number, string][] = [
   [360000, 32940, SUM], [470000, 43005, SUM], [500000, 45750, SUM], [590000, 53985, SUM], [620000, 56730, SUM], [650000, 59475, SUM],
 ];
 
+const ORIG = "原本を取得して読んだ（2026-10-08。写しは非公開のリポジトリ）";
+const EGOV_SH10 = "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20280101_508AC0000000012?response_format=xml";
+const EGOV_SO8 = "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261201_508AC0000000012?response_format=xml";
+const EGOV_KH = "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml";
+const NENKIN_R8 = "https://www.nenkin.go.jp/service/kounen/hokenryo/ryogaku/ryogakuhyo/20200825.files/R08ryougaku.pdf";
+const MHLW_JOGEN = "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000147284_00024.html";
+
 export const CASES: readonly L2Case[] = [
+  // 以下は原本（e-Gov法令検索の条文、日本年金機構・協会けんぽ・厚生労働省の公表資料）を取得して読んだ例（2026-10-08）
+  { id: "it.salary.2028.1000000", area: "所得税", title: "令和10年分: 給与収入 1,000,000円の給与所得（別表第五の69.1万〜202.6万円未満は収入−69万円）", source: { url: EGOV_SH10, note: ORIG }, expected: 310000, actual: () => employmentIncome(2028, 1000000), status: "pass" },
+  { id: "it.salary.2028.2036000", area: "所得税", title: "令和10年分: 給与収入 2,036,000円の給与所得（別表第五の 2,036,000〜2,040,000円の区分）", source: { url: EGOV_SH10, note: ORIG }, expected: 1345200, actual: () => employmentIncome(2028, 2036000), status: "pass" },
+  { id: "it.salary.2028.3000000", area: "所得税", title: "令和10年分: 給与収入 3,000,000円の給与所得（別表第五の 3,000,000〜3,004,000円の区分）", source: { url: EGOV_SH10, note: ORIG }, expected: 2020000, actual: () => employmentIncome(2028, 3000000), status: "pass" },
+  { id: "it.salary.2028.2030000", area: "所得税", title: "令和10年分: 給与収入 2,030,000円の給与所得（別表第五の 2,028,000〜2,032,000円の区分）", source: { url: EGOV_SH10, note: ORIG }, expected: 1338000, actual: () => employmentIncome(2028, 2030000), status: "knownMismatch", cause: "別表第五は202.6万円から2,000円・4,000円の刻みになるが、この部品は控除額が定額（69万円）の段では収入を刻みで切り下げない。202.6万〜203.3万円で最大2,000円ほど多くなる（計算部品の扱い。データは条文どおり）" },
+  { id: "it.salary.2026.2192000", area: "所得税", title: "令和8年分: 給与収入 2,192,000円の給与所得（措置法29条の4第2項3号: 219.1万〜219.3万円は145.1万円）", source: { url: EGOV_SO8, note: ORIG }, expected: 1451000, actual: () => employmentIncome(2026, 2192000), status: "knownMismatch", cause: "措置法29条の4第2項の219.1万〜220万円の区分（145.1万・145.3万・145.6万円）をこの部品は扱わず、収入−74万円で計算する。最大2,000円ほど多くなる（計算部品の扱い）" },
+  { id: "si.std.health.650000", area: "社会保険", title: "月給 650,000円の健康保険の標準報酬月額（健康保険法40条の第35級）", source: { url: EGOV_KH, note: ORIG }, expected: 650000, actual: () => standardMonthly("2026-10", 650000, "healthStd"), status: "pass" },
+  { id: "si.std.health.1400000", area: "社会保険", title: "月給 1,400,000円の健康保険の標準報酬月額（第50級・139万円）", source: { url: EGOV_KH, note: ORIG }, expected: 1390000, actual: () => standardMonthly("2026-10", 1400000, "healthStd"), status: "pass" },
+  { id: "si.std.pension.2026", area: "社会保険", title: "月給 800,000円の厚生年金の標準報酬月額（2026年10月。第32級・65万円）", source: { url: NENKIN_R8, note: ORIG }, expected: 650000, actual: () => standardMonthly("2026-10", 800000, "pensionStd"), status: "pass" },
+  { id: "si.std.pension.2027", area: "社会保険", title: "月給 800,000円の厚生年金の標準報酬月額（2027年9月。第33級・68万円）", source: { url: MHLW_JOGEN, note: ORIG }, expected: 680000, actual: () => standardMonthly("2027-09", 800000, "pensionStd"), status: "pass" },
+  { id: "si.std.pension.2028", area: "社会保険", title: "月給 800,000円の厚生年金の標準報酬月額（2028年9月。第34級・71万円）", source: { url: MHLW_JOGEN, note: ORIG }, expected: 710000, actual: () => standardMonthly("2028-09", 800000, "pensionStd"), status: "pass" },
+  { id: "si.std.pension.2029", area: "社会保険", title: "月給 800,000円の厚生年金の標準報酬月額（2029年9月。第35級・75万円）", source: { url: MHLW_JOGEN, note: ORIG }, expected: 750000, actual: () => standardMonthly("2029-09", 800000, "pensionStd"), status: "pass" },
+  { id: "si.std.pension.2029.700000", area: "社会保険", title: "月給 700,000円の厚生年金の標準報酬月額（2029年9月。第34級・71万円）", source: { url: MHLW_JOGEN, note: ORIG }, expected: 710000, actual: () => standardMonthly("2029-09", 700000, "pensionStd"), status: "pass" },
+
   // 所得税
   { id: "it.rate.7000000", area: "所得税", title: "課税所得 7,000,000円の所得税（復興特別所得税の前）", source: { url: `${NTA}taxes/shiraberu/taxanswer/shotoku/2260.htm`, note: SUM }, expected: 974000, actual: () => incomeTax(2026, 7000000, 0).computedTax, status: "pass" },
   { id: "it.rate.3370000", area: "所得税", title: "課税所得 3,370,000円の所得税（確定申告の手引きの例）", source: { url: `${NTA}taxes/shiraberu/shinkoku/tebiki/2025/03/order4/3-4_45.htm`, note: `${SUM}。手引きの年分は特定できず` }, expected: 246500, actual: () => incomeTax(2025, 3370000, 0).computedTax, status: "pass" },

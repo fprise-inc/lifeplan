@@ -18,8 +18,9 @@ entries:
       - {upTo: 100000, rate: "0.25", amount: 25000}
       - {upTo: null, amount: 50000}
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/law/shitsugi/shotoku/05/74.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 第76条第1項第2号", quote: "五万円を超え十万円以下である場合三万七千五百円と当該合計額から五万円を控除した金額の四分の一に相当する金額との合計額"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", sha256: "20cf3d89f75dc48a636117235a463a96eb4e3ed8f7eb5cafb96ba9876ca040e5", locator: "旧契約に基づく場合の控除額の表", quote: "支払保険料等×1/4+25,000円"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "旧生命保険料・旧個人年金保険料。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま"}

@@ -75,13 +75,19 @@ describe("パックの組み立て", () => {
     expect(serializePack(fictionalPacks()[0] as PackJson)).toBe(serializePack(buildPack(join(REPO_DIR, "engine", "test", "fixtures", "regulation", "testTax"))));
   });
 
-  it("製品のパックは test. の値を持たず、すべての行に承認の記録（いまは原本での確認待ち）がある", () => {
+  it("製品のパックは test. の値を持たず、すべての行に承認の記録がある（原本で確かめた行は原本の指紋と施行日を持つ）", () => {
     for (const p of realPacks()) {
       expect(p.pack.fictional).toBeUndefined();
       expect(p.pack.formatVersion).toBe("0.1");
       for (const v of p.values) expect(String(v.id).startsWith("test.")).toBe(false);
-      const rows = p.values.reduce((n, v) => n + (v.entries as unknown[]).length, 0);
-      expect(pendingReviewEntries(p)).toHaveLength(rows);
+      type Row = { approval?: { method: string }; enforcedOn: string | null; sources: { type: string; sha256?: string }[] };
+      const rows = p.values.flatMap((v) => v.entries as Row[]);
+      const reviewed = rows.filter((e) => e.approval?.method === "reviewed");
+      expect(reviewed.length + pendingReviewEntries(p).length).toBe(rows.length);
+      for (const e of reviewed) {
+        expect(e.enforcedOn).not.toBeNull();
+        expect(e.sources.some((s) => s.type === "web" && typeof s.sha256 === "string")).toBe(true);
+      }
     }
   });
 
@@ -173,8 +179,9 @@ describe("エンジン側の読み取り", () => {
     expect(old.select(id, d("2040-01-01")).entry.rev).toBe(2);
     expect(asRoundingRule(latest.select("incomeTax.taxAmount.rounding", d("2030-01-01")))).toEqual({ mode: "DOWN", unit: 100 });
     expect(() => latest.select(id, d("2024-12-31"))).toThrow("E_PARAM_NO_VALUE");
-    // 期限つきの特例の後の区分が分からない値は、行を置かない（推測で埋めない）
-    expect(() => latest.select("incomeTax.employmentIncomeDeduction", d("2028-01-01"))).toThrow("E_PARAM_NO_VALUE");
+    // 期限つきの特例（令和8年分・令和9年分）の後は本則の行（原本で確かめた令和10年分以後の表）を使う
+    expect(latest.select("incomeTax.employmentIncomeDeduction", d("2027-12-31")).entry.rev).toBe(2);
+    expect(latest.select("incomeTax.employmentIncomeDeduction", d("2028-01-01")).entry.rev).toBe(3);
   });
 
   it("全国以外の管轄（協会けんぽの支部）の値を選ぶ", () => {

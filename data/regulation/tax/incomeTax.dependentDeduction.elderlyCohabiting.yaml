@@ -13,8 +13,11 @@ entries:
     conditions: []
     value: 580000
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1180.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/koho/kurashi/pdf/05.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "区 分 控 除 額 一般の控除対象扶養親族 特定扶養親族 同居老親等 同居老親等以外 老人扶養親族 38万円 63万円 58万円 48万円", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", locator: "租税特別措置法 第41条の16第1項（同居老親等の加算10万円）", quote: "同項の金額に十万円を加算した額とする"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 第84条第1項（老人扶養親族48万円）", quote: "その者が老人扶養親族である場合には四十八万円"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1180.htm", retrievedAt: "2026-10-08", sha256: "c92803d8c75aa5c7971b19a0803e0cf1279d272ed7d9c71d4595c94e11d1771a", locator: "扶養控除の金額の表", quote: "同居老親等58万円"}
+      - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261001_508AC0000000012"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "2経路とも令和8年分の資料。令和7年分は額が変わったという記述が無いことで確かめた"}
+    approval: {method: "pendingReview", paths: 2, note: "48万円＋10万円＝58万円（条文）と、タックスアンサー1180の表が一致。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま"}

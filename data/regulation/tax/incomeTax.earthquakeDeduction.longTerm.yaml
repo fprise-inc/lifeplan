@@ -17,8 +17,8 @@ entries:
       - {upTo: 20000, rate: "0.5", amount: 5000}
       - {upTo: null, amount: 15000}
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1145.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/law/shitsugi/shotoku/05/68.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "計算例（旧長期17,000円→13,500円）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1145.htm", retrievedAt: "2026-10-08", sha256: "13e2dd00c0165c025f4269aaa712cf9cbac025695082e389e3746fff015e3bd2", locator: "地震保険料控除の金額の表 (2)旧長期損害保険料", quote: "支払金額×1/2＋5,000円"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/nencho_all.pdf", retrievedAt: "2026-10-08", sha256: "4977299123ef22d2775eb9bbbe50a38de81821306fade726560697e568f4e933", locator: "26ページ 地震保険料控除の控除額の表", quote: "２０，０００円超一律に１５，０００円"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "平成18年改正の経過措置（旧長期損害保険料）。タックスアンサー1145と年末調整のしかた（令和7年分）が一致。値は原本の2経路で一致。施行日を原本で特定できていないため確認待ちのまま"}

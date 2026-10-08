@@ -21,11 +21,13 @@ entries:
       - {upTo: 8500000, rate: "0.1", amount: 1100000}
       - {upTo: null, amount: 1950000}
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/0025004-025.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和７年度税制改正により、所得税の「基礎控除」や「給与所得控除」に関する見直し、「特定親族特別控除」の創設が行われました。", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 第28条第3項", quote: "百九十万円以下である場合六十五万円"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm", retrievedAt: "2026-10-08", sha256: "0c3a789da653a6f8e95d4d7b406b72ecf0b982dbadb9506fe35dc81a5a08079e", locator: "概要の表（令和7年分）", quote: "1,900,000円まで"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 別表第五", quote: "給与等の金額から６５０，０００円を控除した金額"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "190万円超の段の式は1410の1経路（もう1経路は「190万円超は改正なし」の記述）"}
+    approval: {method: "reviewed", paths: 2, note: "28条3項の式と1410の令和7年分の表が一致。別表第五の4,000円刻みの全行もこの式で再計算して一致"}
   - rev: 2
     appliesFrom: "2026-01-01"
     appliesTo: "2027-12-31"
@@ -42,9 +44,33 @@ entries:
       - {upTo: 8500000, rate: "0.1", amount: 1100000}
       - {upTo: null, amount: 1950000}
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "租税特別措置法第29条の4の適用後", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/users/gensen/2026kiso/pdf/0026005-024.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和８年度税制改正により、所得税の基礎控除の引上げ、給与所得控除の最低保障額の引上", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度税制改正の大綱", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261201_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "44a748db9b74bc69b283f9eedbfc1079a20fb8f74b5902759ee565573fbeebad", locator: "租税特別措置法 第29条の4第1項", quote: "七十四万円（当該収入金額が七十四万円に満たない場合には、当該収入金額に相当する金額）とする"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261201_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "0ee4d9aa4fd7bb5550597ed08665588639a9473e6bd9f6387126de41603a0020", locator: "所得税法 第28条第3項（220万円超の段）", quote: "三百六十万円を超え六百六十万円以下である場合百十六万円"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm", retrievedAt: "2026-10-08", sha256: "0c3a789da653a6f8e95d4d7b406b72ecf0b982dbadb9506fe35dc81a5a08079e", locator: "概要の表（令和8年分・令和9年分）", quote: "2,200,000円まで"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "1ページ 給与所得控除額の表", quote: "74万円（注１）"}
+      - {type: "law", lawNumber: "昭和三十二年法律第二十六号", egovRevisionId: "332AC0000000026_20261201_508AC0000000012"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261201_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "最低保障額74万円は本則69万円と令和8年分・令和9年分の特例5万円。令和10年分以後の区分は未確認のため行を置かない。収入69.1万〜220万円未満の別表の値は未確認"}
+    approval: {method: "reviewed", paths: 2, note: "措置法29条の4（令和8年・令和9年、220万円以下は74万円）と所得税法28条3項（220万円超）、タックスアンサー1410・改正のあらましが一致。69.1万〜220万円未満の給与所得の金額は同条2項の表による（219.1万円以上は1,000〜3,000円の刻み）"}
+  - rev: 3
+    appliesFrom: "2028-01-01"
+    appliesTo: null
+    enforcedOn: "2026-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 2033333, amount: 690000}
+      - {upTo: 3600000, rate: "0.3", amount: 80000}
+      - {upTo: 6600000, rate: "0.2", amount: 440000}
+      - {upTo: 8500000, rate: "0.1", amount: 1100000}
+      - {upTo: null, amount: 1950000}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20280101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "425e8edd055820cb1f9e96c65204c26728b6a0ddac9c457b90c7e802d2fc728f", locator: "所得税法 第28条第3項第1号（令和10年1月1日の版）", quote: "三百六十万円以下である場合八万円と当該収入金額の百分の三十に相当する金額との合計額（当該合計額が六十九万円に満たない場合には、六十九万円）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20280101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "425e8edd055820cb1f9e96c65204c26728b6a0ddac9c457b90c7e802d2fc728f", locator: "所得税法 別表第五（令和10年1月1日の版）の69.1万円以上202.6万円未満の区分", quote: "給与等の金額から６９０，０００円を控除した金額"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "1ページ 給与所得控除額の表（令和10年分以後の列）", quote: "69 万円未満となる場合は、69 万円"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20280101_508AC0000000012"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, note: "令和10年分以後は本則（収入×30%＋8万円、69万円未満は69万円）。69万円の段の上限 2,033,333円は 0.3×収入＋80,000円＝690,000円となる収入（円未満は切り捨て）。所得税法28条3項（令和8年12月1日施行）と国税庁の改正のあらましが一致し、別表第五（令和10年の版）の4,000円刻みの全行もこの表で再計算して一致。施行日は69万円の規定の施行日"}

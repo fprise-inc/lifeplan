@@ -13,8 +13,9 @@ entries:
     conditions: []
     value: 50000
     sources:
-      - {type: "web", url: "https://www.soumu.go.jp/main_content/000379527.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "第一号様式", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.tax.metro.tokyo.lg.jp/kazei/life/kojin_ju", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の6第2号", quote: "当該金額が五万円を下回る場合には、五万円とする"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/kojinkeisan.html", retrievedAt: "2026-10-08", sha256: "0413c6472b3ea43da0aa3b7439de32b2c84db3e46766fe768bc2f6fc1c89e544", locator: "令和8年度の計算例 調整控除額", quote: "5万円を下回る場合には、5万円"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 2, note: "合計課税所得金額200万円超のときの最低額。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないため確認待ちのまま"}

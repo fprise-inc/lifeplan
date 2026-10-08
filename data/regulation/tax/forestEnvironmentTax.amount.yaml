@@ -8,14 +8,15 @@ entries:
   - rev: 1
     appliesFrom: "2025-06-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2024-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: 1000
     sources:
-      - {type: "web", url: "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/04000067.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "総務省｜地方税制度｜森林環境税及び森林環境譲与税について", note: "検索結果の題名の原文（原本は未取得）"}
-      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/kojinkeisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/431AC0000000003_20260401_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "2798bb750fd93717bfbba6766681efdc8ce3f17a75934508bba8cecd1fe4de48", locator: "森林環境税及び森林環境譲与税に関する法律 第5条", quote: "森林環境税の税率は、千円とする"}
+      - {type: "web", url: "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/150790_06.html", retrievedAt: "2026-10-08", sha256: "2a35217817d5c76fbe8ee393172916594f2974aaef1f54d5922b6294e4465fb8", locator: "均等割と所得割の※2", quote: "森林環境税（国税）が1,000円徴収されます"}
+      - {type: "law", lawNumber: "平成三十一年法律第三号", egovRevisionId: "431AC0000000003_20260401_508AC0000000002"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和6年度から"}

@@ -13,11 +13,12 @@ entries:
     conditions: []
     value: 580000
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1191.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1180.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 第2条第1項第33号・第34号", quote: "合計所得金額が五十八万円以下である者"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1180.htm", retrievedAt: "2026-10-08", sha256: "c92803d8c75aa5c7971b19a0803e0cf1279d272ed7d9c71d4595c94e11d1771a", locator: "扶養親族に該当する人の範囲（3）", quote: "年間の合計所得金額が58万円以下"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "令和7年分"}
   - rev: 2
     appliesFrom: "2026-01-01"
     appliesTo: null
@@ -27,8 +28,10 @@ entries:
     conditions: []
     value: 620000
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/users/gensen/2026kiso/index.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度税制改正", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/koho/kurashi/html/02_2.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261201_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "0ee4d9aa4fd7bb5550597ed08665588639a9473e6bd9f6387126de41603a0020", locator: "所得税法 第2条第1項第33号・第34号（令和8年12月1日の版）", quote: "合計所得金額が六十二万円以下である者"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "2ページ 所得要件の表", quote: "62万円以下"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1180.htm", retrievedAt: "2026-10-08", sha256: "c92803d8c75aa5c7971b19a0803e0cf1279d272ed7d9c71d4595c94e11d1771a", locator: "扶養親族に該当する人の範囲（注）", quote: "令和8年12月1日に施行され、令和8年分から適用される金額は「62万円以下」です"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261201_508AC0000000012"}
     recordedIn: "2026.2.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "1180（令和8年4月1日現在）には58万円の記載しか出ず、資料の間で食い違いがある（施行日12月1日による更新時期の差の可能性）"}
+    approval: {method: "reviewed", paths: 2, note: "令和8年分以後。1180の本文の58万円は令和7年分の記載で、注で62万円と明記"}

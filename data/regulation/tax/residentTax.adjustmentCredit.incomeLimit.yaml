@@ -7,15 +7,15 @@ entries:
   - rev: 1
     appliesFrom: "2025-06-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2021-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
     value: 25000000
     sources:
-      - {type: "web", url: "https://www.soumu.go.jp/main_content/000379527.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "第一号様式", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.tax.metro.tokyo.lg.jp/kazei/life/kojin_ju", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.soumu.go.jp/main_content/000767350.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の6本文", quote: "前年の合計所得金額が二千五百万円以下である所得割の納税義務者については、その者の第三百十四条の三の規定による所得割の額から"}
+      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370599.html", retrievedAt: "2026-10-08", sha256: "d97a23b8c13d97922309d22259950d790c7906bb9a1c4a2fe854c26c39ff6200", locator: "調整控除の（注2）", quote: "合計所得金額が2,500万円を超える場合は、調整控除の適用はありません"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "reviewed", paths: 2, note: "2,500万円以下"}

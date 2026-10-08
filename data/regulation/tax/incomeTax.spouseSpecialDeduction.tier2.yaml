@@ -7,7 +7,7 @@ entries:
   - rev: 1
     appliesFrom: "2025-01-01"
     appliesTo: null
-    enforcedOn: null
+    enforcedOn: "2020-01-01"
     status: enacted
     jurisdiction: "national"
     conditions: []
@@ -23,8 +23,9 @@ entries:
       - {upTo: 1330000, amount: 20000}
       - {upTo: null, amount: 0}
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1195.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/nencho_all.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年分 年末調整のしかた", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", retrievedAt: "2026-10-08", sha256: "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", locator: "所得税法 第83条の2第1項第2号", quote: "金額の三分の二に相当する金額（当該金額に一万円未満の端数がある場合には、これを切り上げた金額）"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1195.htm", retrievedAt: "2026-10-08", sha256: "ee1364c58db7f9e45d1f7adebd58b2c6dfe5c701b39b96d9567176c5649b3414", locator: "配偶者特別控除の金額の表（令和7年分・令和8年分以降）", quote: "130万円超133万円以下3万円2万円1万円"}
+      - {type: "law", lawNumber: "昭和四十年法律第三十三号", egovRevisionId: "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2, note: "最初の段の下限は同一生計配偶者の所得の上限（incomeTax.dependentIncomeLimit）。令和8年分の表は先頭・95万〜100万・130万〜133万の段を2経路、ほかの段は1経路で同じと確認"}
+    approval: {method: "reviewed", paths: 2, note: "83条の2の式から計算した表（本人900万円超950万円以下）と、タックスアンサー1195の令和7年分・令和8年分以降の表が全段一致"}

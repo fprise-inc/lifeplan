@@ -13,8 +13,7 @@ entries:
     conditions: []
     value: {mode: "UP", unit: 1}
     sources:
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
-      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1145.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/nencho_all.pdf", retrievedAt: "2026-10-08", sha256: "4977299123ef22d2775eb9bbbe50a38de81821306fade726560697e568f4e933", locator: "年末調整のしかた（令和7年分）の生命保険料控除・地震保険料控除の注", quote: "控除額の計算において算出した金額に１円未満の端数があるときは、その端数を切り上げます"}
     recordedIn: "2026.1.0"
     supersededIn: null
-    approval: {method: "pendingReview", paths: 2}
+    approval: {method: "pendingReview", paths: 1, note: "国税庁の年末調整のしかたの1つの資料（生命保険料控除と地震保険料控除の注）で確かめた。法令の根拠（条文）は見つけていない。原本で読んだが確認の経路が足りない（施行日を原本で特定できていない）ため確認待ちのまま"}
