@@ -61,6 +61,7 @@ if (typeof engine.runBatch === "function") {
   const all = `[${reqJson.join(",")}]`;
   time("batch4", () => runBatch(four, packsJson, "{}"));
   time("batch20", () => runBatch(all, packsJson, "{}"));
+  time("preview20", () => runBatch(all, packsJson, '{"preview":true}'));
 }
 
 const result: Record<string, unknown> = { node };

@@ -52,6 +52,8 @@ const ids = (p: Regime) => ({
   quakeTotalLimit: `${p}.earthquakeDeduction.totalLimit`,
 });
 
+const IDS = { incomeTax: ids("incomeTax"), residentTax: ids("residentTax") } as const;
+
 // 年齢の区分（所得税法の定義。住民税も同じ区分を使う）
 const AGE = {
   dependentMin: "incomeTax.dependentDeduction.minAge",
@@ -137,14 +139,23 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
   output: "tax.deductions.output",
   compute(input, ctx) {
     const { member, year, regime } = input;
-    const P = ids(regime);
+    const P = IDS[regime];
     const resident = regime === "residentTax";
     // 所得税はその年分の値、住民税は翌年度（6月から）の値。判定はどちらもその年の12月31日の現況
     const at = ctx.at(resident ? monthIndex(year + 1, 6) : monthIndex(year, 1));
     const ageAt = ctx.at(monthIndex(year, 1));
     const dec: MonthIndex = monthIndex(year, 12);
     const baseYear = yearOf(ctx.time.base);
-    const totalOf = (id: string) => ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year }).total;
+    // 同じ構成員の合計所得金額は1回だけ引く（比べるたびに呼ばない）
+    const totals = new Map<string, Yen>();
+    const totalOf = (id: string): Yen => {
+      let t = totals.get(id);
+      if (t === undefined) {
+        t = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year }).total;
+        totals.set(id, t);
+      }
+      return t;
+    };
     const own = totalOf(member);
     const members = ctx.list<MemberInput>("member");
     const present = (m: MemberInput) =>

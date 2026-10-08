@@ -41,8 +41,19 @@ export function isUnder(row: string, branch: string): boolean {
 
 const EXT_PATTERN = /^(cf(?:\.[a-z][a-zA-Z0-9]*)+)\.ext\.[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/;
 
+// 確かめた行ID（登録簿は変わらないので、同じ行IDの判定は同じ。お金の動きの行は同じ ID が何千回も出る）
+const CHECKED = new Map<string, string>();
+
 /** 登録簿にある有効な行か、登録簿の枝の下の拡張の行（…ext.<作成者>.<キー>）か */
 export function checkRow(id: string): string {
+  const hit = CHECKED.get(id);
+  if (hit !== undefined) return hit;
+  const row = checkRowUncached(id);
+  CHECKED.set(id, row);
+  return row;
+}
+
+function checkRowUncached(id: string): string {
   if (!isDottedId(id) || !id.startsWith("cf.")) throw new EngineError("E_ID_FORMAT", ["row", id]);
   const row = canonicalRow(id);
   const e = BY_ID.get(row);

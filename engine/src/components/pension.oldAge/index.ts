@@ -241,19 +241,45 @@ export default defineComponent<{ member: string }, Out>({
       const c = addMonths(aug, 1);
       return c > b0 ? c : b0;
     };
-    const round1 = (at: MonthIndex, a: Yen, r: Rate) => ctx.at(at).money.mulRate(a, r, P.round);
+    // 金額×率を、同じ金額・同じ率・同じ端数処理の行なら使い回す（月ごとに同じ計算をしない。率は小数12桁で、内蔵の実行環境では
+    // BigInt の計算が重いため）。端数処理の値は、丸めるときと同じ順に先に読む（根拠の記録の順も変わらない）
+    const rateMemo = new WeakMap<Rate, Map<string, { entry: object; v: Yen }>>();
+    const mulRateM = (m: MonthIndex, a: Yen, r: Rate, roundingId: string): Yen => {
+      const at = ctx.at(m);
+      const entry = at.param(roundingId).entry;
+      let byKey = rateMemo.get(r);
+      if (byKey === undefined) {
+        byKey = new Map();
+        rateMemo.set(r, byKey);
+      }
+      const k = `${roundingId}|${a}`;
+      const hit = byKey.get(k);
+      if (hit !== undefined && hit.entry === entry) return hit.v;
+      const v = at.money.mulRate(a, r, roundingId);
+      byKey.set(k, { entry, v });
+      return v;
+    };
+    const round1 = (at: MonthIndex, a: Yen, r: Rate) => mulRateM(at, a, r, P.round);
     const proportional = (m: MonthIndex, cut: MonthIndex): Yen => {
       const sum = employeeInitialNum + upTo(cut).cum;
       const r = ctx.rate.fraction(ratioE(fiscalYearOf(m)));
-      return ctx.at(m).money.mulRatio(yen(1), sum * r.num, DEN * r.den, P.round);
+      // 同じ積み上げ（cut）・同じ年度・同じ端数処理の行なら同じ額
+      const entry = ctx.at(m).param(P.round).entry;
+      const k = `${cut}|${fiscalYearOf(m)}`;
+      const hit = propMemo.get(k);
+      if (hit !== undefined && hit.entry === entry) return hit.v;
+      const v = ctx.at(m).money.mulRatio(yen(1), sum * r.num, DEN * r.den, P.round);
+      propMemo.set(k, { entry, v });
+      return v;
     };
-    const fullBasic = memo((m: MonthIndex): Yen => ctx.at(m).money.mulRate(ctx.at(m).paramYen(P.base) ?? yen(0), R(fiscalYearOf(m)), P.fullRound));
+    const propMemo = new Map<string, { entry: object; v: Yen }>();
+    const fullBasic = memo((m: MonthIndex): Yen => mulRateM(m, ctx.at(m).paramYen(P.base) ?? yen(0), R(fiscalYearOf(m)), P.fullRound));
     const transitional = (m: MonthIndex, cut: MonthIndex): Yen => {
       const at = ctx.at(m);
       if (!fromMonths) return rec.amounts.transitional === null ? yen(0) : round1(m, rec.amounts.transitional, ratioTo(fiscalYearOf(m)));
       const a = upTo(cut);
       const months = Math.min(at.paramCount(P.flatMax) ?? 0, rec.employeeMonths + a.emp);
-      const unit = at.money.mulRate(at.paramYen(P.flat) ?? yen(0), R(fiscalYearOf(m)), P.round);
+      const unit = mulRateM(m, at.paramYen(P.flat) ?? yen(0), R(fiscalYearOf(m)), P.round);
       const max = at.paramCount(P.maxMonths) ?? 480;
       const basicPart = at.money.mulRatio(fullBasic(m), rec.employee2059Months + a.e2059, max, P.round);
       const v = ctx.money.mulRatio(unit, months, 1, "conv.exact") - basicPart;
@@ -304,15 +330,15 @@ export default defineComponent<{ member: string }, Out>({
         if (parseYm((members.find((x) => x.id === sp) as MemberInput).birth.birthYearMonth) > m) continue;
         if (m >= spouseUntil(sp)) continue;
         if (employeeMonthsOf(otherRecord(sp), null, monthCache) >= supMonths) continue;
-        total += at.money.mulRate(at.paramYen(P.supBase) ?? yen(0), r, P.fullRound);
+        total += mulRateM(m, at.paramYen(P.supBase) ?? yen(0), r, P.fullRound);
         const special = at.paramYen(P.supSpecial, { member });
-        if (special !== null) total += at.money.mulRate(special, r, P.fullRound);
+        if (special !== null) total += mulRateM(m, special, r, P.fullRound);
         break;
       }
       let k = 0;
       for (const c of children) {
         if (parseYm(c.birth.birthYearMonth) > m || m > childUntil(c.id)) continue;
-        total += at.money.mulRate(at.paramYen(k < 2 ? P.child12 : P.child3) ?? yen(0), r, P.fullRound);
+        total += mulRateM(m, at.paramYen(k < 2 ? P.child12 : P.child3) ?? yen(0), r, P.fullRound);
         k++;
       }
       return yen(total);
@@ -329,8 +355,8 @@ export default defineComponent<{ member: string }, Out>({
       }
       const coef = at.paramRate(P.transfer, { member });
       if (coef === null) return yen(0);
-      const amount = at.money.mulRate(at.paramYen(P.transferBase) ?? yen(0), R(fiscalYearOf(m)), P.fullRound);
-      return at.money.mulRate(amount, coef, P.round);
+      const amount = mulRateM(m, at.paramYen(P.transferBase) ?? yen(0), R(fiscalYearOf(m)), P.fullRound);
+      return mulRateM(m, amount, coef, P.round);
     };
     // 特別支給の老齢厚生年金（生年月日・性別で開始年齢。対象でない生年月日は notApplicable）
     let SA: MonthIndex | null = null;

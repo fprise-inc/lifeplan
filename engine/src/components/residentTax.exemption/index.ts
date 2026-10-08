@@ -35,7 +35,16 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
     const { member, fiscalYear } = input;
     const year = fiscalYear - 1;
     const at = ctx.at(monthIndex(fiscalYear, 6));
-    const totalOf = (id: string) => ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year }).total;
+    // 同じ構成員の合計所得金額は1回だけ引く（並べ替えの比較のたびに呼ばない）
+    const totals = new Map<string, number>();
+    const totalOf = (id: string): number => {
+      let t = totals.get(id);
+      if (t === undefined) {
+        t = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year }).total;
+        totals.set(id, t);
+      }
+      return t;
+    };
     const own = totalOf(member);
     const dec = monthIndex(year, 12);
     const members = ctx.list<MemberInput>("member").filter(

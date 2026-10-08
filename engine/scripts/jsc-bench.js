@@ -32,5 +32,6 @@ if (typeof engine.runBatch === "function") {
   const all = `[${requests.join(",")}]`;
   time("batch4", () => engine.runBatch(four, packs, "{}"));
   time("batch20", () => engine.runBatch(all, packs, "{}"));
+  time("preview20", () => engine.runBatch(all, packs, '{"preview":true}'));
 }
 process.stdout.write(JSON.stringify(out));
