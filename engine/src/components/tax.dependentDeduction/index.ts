@@ -53,8 +53,8 @@ export default defineComponent<
   id: "tax.dependentDeduction",
   title: "扶養控除・特定親族特別控除",
   contract: "1.0",
-  revision: 1,
-  requires: { "tax.totalIncome": ">=1 <2" },
+  revision: 2,
+  requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2" },
   params: [
     ...(["incomeTax", "residentTax"] as const).flatMap((p) => Object.values(ids(p))),
     ...Object.values(AGE),
@@ -107,23 +107,23 @@ export default defineComponent<
       if (om === undefined || !present(om)) continue;
       spouses.add(other);
     }
-    // 夫婦のうち所得の多い方（同じなら本人、次に ID の小さい方）が受ける
+    // 夫婦のうち所得の多い方（同じなら本人、次に ID の小さい方）が受ける。所得の額ではなく大小だけを読む（tax.incomeOrder）
     const earners = members.filter((m) => (m.kind === "self" || m.kind === "spouse") && present(m));
-    const rank = (m: MemberInput) => [totalOf(m.id), m.kind === "self" ? 1 : 0] as const;
-    let claimant: string | undefined;
+    let claimant: MemberInput | undefined;
     for (const m of earners) {
       if (claimant === undefined) {
-        claimant = m.id;
+        claimant = m;
         continue;
       }
-      const [a, ak] = rank(m);
-      const [b, bk] = rank(earners.find((e) => e.id === claimant) as MemberInput);
-      if (a > b || (a === b && (ak > bk || (ak === bk && m.id < (claimant as string))))) claimant = m.id;
+      const order = ctx.call<{ order: -1 | 0 | 1 }>("tax.incomeOrder", { a: m.id, b: claimant.id, year }).order;
+      const ak = m.kind === "self" ? 1 : 0;
+      const bk = claimant.kind === "self" ? 1 : 0;
+      if (order > 0 || (order === 0 && (ak > bk || (ak === bk && m.id < claimant.id)))) claimant = m;
     }
     let dependents = yen(0);
     let specifiedRelative = yen(0);
     let youngDependent = false;
-    if (claimant === member) {
+    if (claimant?.id === member) {
       for (const d of members) {
         if (d.id === member || spouses.has(d.id) || !present(d)) continue;
         const isChild = d.kind === "child";

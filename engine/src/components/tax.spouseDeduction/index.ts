@@ -39,8 +39,8 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
   id: "tax.spouseDeduction",
   title: "配偶者控除・配偶者特別控除",
   contract: "1.0",
-  revision: 1,
-  requires: { "tax.totalIncome": ">=1 <2" },
+  revision: 2,
+  requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2" },
   params: [
     ...(["incomeTax", "residentTax"] as const).flatMap((p) => {
       const i = ids(p);
@@ -61,7 +61,6 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     const ageAt = ctx.at(monthIndex(year, 1));
     const dec: MonthIndex = monthIndex(year, 12);
     const totalOf = (id: string): Yen => ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year }).total;
-    const own = totalOf(member);
     const members = ctx.list<MemberInput>("member");
     const present = (m: MemberInput) =>
       parseYm(m.birth.birthYearMonth) <= dec &&
@@ -89,8 +88,11 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
       const other = r.a === member ? r.b : r.a;
       const om = members.find((m) => m.id === other);
       if (om === undefined || !present(om)) continue;
+      // 所得の少ない方は受けない（額ではなく大小だけを読む。tax.incomeOrder）
+      const order = ctx.call<{ order: -1 | 0 | 1 }>("tax.incomeOrder", { a: member, b: other, year }).order;
+      if (order < 0 || (order === 0 && r.a !== member)) continue;
+      const own = totalOf(member);
       const st = totalOf(other);
-      if (own < st || (own === st && r.a !== member)) continue;
       const general = at.paramBrackets(P.spouseGeneral);
       if (st <= limit) {
         const elderly = ageReached(other, SPOUSE_ELDERLY_AGE);

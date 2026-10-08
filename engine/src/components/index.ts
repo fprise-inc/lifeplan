@@ -16,6 +16,8 @@ import socialInsuranceEmployment from "./socialInsurance.employment/index.ts";
 import socialInsuranceHealth from "./socialInsurance.health/index.ts";
 import socialInsurancePension from "./socialInsurance.pension/index.ts";
 import taxDeductions from "./tax.deductions/index.ts";
+import taxIncomeOrder from "./tax.incomeOrder/index.ts";
+import taxIncomeWithin from "./tax.incomeWithin/index.ts";
 import taxDependentDeduction from "./tax.dependentDeduction/index.ts";
 import taxSocialInsurancePaid from "./tax.socialInsurancePaid/index.ts";
 import taxSpouseDeduction from "./tax.spouseDeduction/index.ts";
@@ -61,6 +63,8 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   socialInsuranceHealth,
   socialInsurancePension,
   taxDeductions,
+  taxIncomeOrder,
+  taxIncomeWithin,
   taxDependentDeduction,
   taxSocialInsurancePaid,
   taxSpouseDeduction,

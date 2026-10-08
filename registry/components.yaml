@@ -188,6 +188,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: tax.incomeOrder
+    status: active
+    label: "合計所得金額の大小"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.incomeWithin
+    status: active
+    label: "合計所得金額が上限以下か"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: tax.publicPensionIncome
     status: active
     label: "公的年金等に係る雑所得"

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.incomeOrder.input",
+  "title": "所得の大小を比べる2人と年分",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["a", "b", "year"],
+  "properties": {
+    "a": {
+      "$ref": "urn:financia:schema:common#/$defs/uuid"
+    },
+    "b": {
+      "$ref": "urn:financia:schema:common#/$defs/uuid"
+    },
+    "year": {
+      "$ref": "urn:financia:schema:common#/$defs/year"
+    }
+  }
+}

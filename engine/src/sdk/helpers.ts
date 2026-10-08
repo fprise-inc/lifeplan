@@ -112,10 +112,9 @@ export const PENSION_SPECIAL_MINIMUM = "socialInsurance.specialCollection.minimu
 export function pensionSpecial(ctx: Ctx, member: string, fy: number): boolean {
   const min = ctx.at(fiscalYearStart(fy)).paramYen(PENSION_SPECIAL_MINIMUM);
   if (min === null) return false;
-  const from = formatYm(fiscalYearStart(fy));
-  const to = formatYm(fiscalYearEnd(fy));
   let s = 0;
-  for (const p of paymentsIn(ctx.call<{ payments: readonly { ym: string; amount: Yen }[] }>("pension.oldAge", { member }).payments, from, to)) s += p.amount;
+  // その年度の支払いだけを読む（ほかの年度の年金が変わっても、呼んだ部品を計算し直さない）
+  for (const p of ctx.callMonths<{ ym: string; amount: Yen }>("pension.oldAge", { member }, "payments", fiscalYearStart(fy), fiscalYearEnd(fy))) s += p.amount;
   return s >= min;
 }
 

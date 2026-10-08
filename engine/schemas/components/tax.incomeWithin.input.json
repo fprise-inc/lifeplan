@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.incomeWithin.input",
+  "title": "構成員・年分と所得の上限",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["member", "year", "limit"],
+  "properties": {
+    "member": {
+      "$ref": "urn:financia:schema:common#/$defs/uuid"
+    },
+    "year": {
+      "$ref": "urn:financia:schema:common#/$defs/year"
+    },
+    "limit": {
+      "$ref": "urn:financia:schema:common#/$defs/yen"
+    }
+  }
+}

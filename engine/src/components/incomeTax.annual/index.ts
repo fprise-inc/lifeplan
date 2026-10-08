@@ -9,7 +9,6 @@ import {
   defineComponent,
   formatYm,
   monthIndex,
-  paymentsInYear,
   subYen,
   yearOf,
   yen,
@@ -66,7 +65,7 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
   id: "incomeTax.annual",
   title: "所得税",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "tax.deductions": ">=1 <2",
@@ -100,10 +99,13 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
     const t = taxOf(ctx, at, total, ded.total);
     const annual = t.annual;
     const detail = { taxable: t.taxable, computedTax: t.computedTax, reconstructionSurtax: t.reconstructionSurtax, defenseSurtax: t.defenseSurtax };
-    const salaryPays = paymentsInYear(ctx.call<SalaryOutput>("income.salary", { member }).payments, year)
+    // その年の支払いだけを読む（ほかの年の給与・年金が変わっても、この年の税は計算し直さない）
+    const jan = monthIndex(year, 1);
+    const dec = monthIndex(year, 12);
+    const salaryPays = ctx.callMonths<SalaryOutput["payments"][number]>("income.salary", { member }, "payments", jan, dec)
       .filter((p) => p.salary + p.bonus > 0)
       .map((p) => ({ ym: p.ym, weight: p.salary + p.bonus }));
-    const pensionPays = paymentsInYear(ctx.call<PensionOutput>("pension.oldAge", { member }).payments, year).map((p) => ({ ym: p.ym, weight: p.amount as number }));
+    const pensionPays = ctx.callMonths<PensionOutput["payments"][number]>("pension.oldAge", { member }, "payments", jan, dec).map((p) => ({ ym: p.ym, weight: p.amount as number }));
     const yearEnd = salaryPays.some((p) => p.ym === formatYm(monthIndex(year, 12)));
     const pensionIncome = inc.publicPension ?? yen(0);
     const other = inc.other ?? yen(0);

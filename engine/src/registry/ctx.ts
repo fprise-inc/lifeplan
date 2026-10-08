@@ -101,6 +101,11 @@ export interface TimeApi {
 
 export interface Ctx {
   call<O = unknown>(id: string, input: unknown): O;
+  /**
+   * 部品を呼び、出力の field（月の昇順の並び。要素は支払月 ym か月 month の欄を持つ）のうち from〜to の月の分だけを返す（0006 の追記）。
+   * 依存はその月の分だけになり、ほかの月の値が変わっても、この部品は計算し直さない（年ごとの部品が、全期間の出力の1年分を読むとき）
+   */
+  callMonths<T extends { readonly ym: string } | { readonly month: string }>(id: string, input: unknown, field: string, from: MonthIndex, to: MonthIndex): readonly T[];
   slot(id: string, input: unknown): FlowsOutput[];
   /** 物の集まり（member・employment など）を、マニフェストの reads に書いた入力項目だけに絞って返す（0016 の5）。memberScope の集まりは入力の member の物だけ */
   list<T = Record<string, unknown>>(collection: string): readonly T[];
@@ -141,6 +146,11 @@ export interface CallKey {
   /** 最初に見た入力（同じ鍵の入力は JSON として同じ値） */
   readonly input: unknown;
   variants: Variant[];
+  /** この要求（epoch）の結果。要求ごとの表を引かずに、鍵に置く */
+  epoch: number;
+  res: Res | null;
+  /** 枠（lane）ごとの、前の計算の候補（まず、その候補を確かめる） */
+  prevs: (Variant | undefined)[];
 }
 
 /** 呼び出しの鍵の表（部品の実体ごとの、入力の欄の木と JSON の表）と、作った鍵の一覧（使わない候補を捨てるため） */
@@ -183,6 +193,9 @@ export interface CanonDep extends InputDep {
   readonly n: number;
   /** この依存だけの集まり（作ったら覚えておく） */
   single?: Closure;
+  /** この要求（epoch）で確かめた結果 */
+  epoch: number;
+  ok: boolean;
 }
 
 /** ctx.notice の知らせ（依存の列の中で、出した順に持つ） */
@@ -192,7 +205,17 @@ export interface NoticeDep {
   readonly notice: { readonly code: string; readonly ids: readonly string[] };
 }
 
-export type Dep = CanonDep | NoticeDep | Res;
+/** 部品の出力の一部（月の範囲）への依存（ctx.callMonths）。呼んだ部品の結果が変わっても、その範囲が同じなら同じ */
+export interface PartDep {
+  readonly t: 4;
+  readonly res: Res;
+  readonly field: string;
+  readonly from: string;
+  readonly to: string;
+  readonly items: readonly unknown[];
+}
+
+export type Dep = CanonDep | NoticeDep | PartDep | Res;
 
 /**
  * 呼び出しが（内側の呼び出しを含めて）読んだ入力への依存の集まり。組の中で1つにする（同じ中身なら同じ物）。
@@ -202,6 +225,9 @@ export interface Closure {
   readonly ids: readonly number[];
   readonly deps: readonly CanonDep[];
   readonly unions: Map<Closure, Closure>;
+  /** この要求（epoch）で確かめた結果 */
+  epoch: number;
+  ok: boolean;
 }
 
 /** 使い回しの候補: その呼び出しの依存（読んだ順）、読んだ入力の集まり、値、自身が残したこと */
@@ -210,6 +236,8 @@ export interface Variant {
   readonly closure: Closure;
   readonly cell: Cell;
   readonly own: Own | null;
+  /** 知らせを集めるときにたどった印 */
+  mark: number;
 }
 
 /** 要求の組（計算基準月・データの組・構成員の生年月などが同じ要求）で共有するもの */
@@ -223,7 +251,7 @@ export interface Partition {
 }
 
 export function newPartition(): Partition {
-  const empty: Closure = { ids: [], deps: [], unions: new Map() };
+  const empty: Closure = { ids: [], deps: [], unions: new Map(), epoch: 0, ok: true };
   return { keys: newKeyTable(), params: { params: new Map(), has: new Map() }, canon: new Map(), closures: new Map([["", empty]]), empty, next: 0 };
 }
 
@@ -231,7 +259,7 @@ function internClosure(p: Partition, ids: readonly number[], deps: readonly Cano
   const key = ids.join(",");
   let c = p.closures.get(key);
   if (c === undefined) {
-    c = { ids, deps, unions: new Map() };
+    c = { ids, deps, unions: new Map(), epoch: 0, ok: false };
     p.closures.set(key, c);
   }
   return c;
@@ -279,7 +307,7 @@ function canonDep(p: Partition, d: InputDep): CanonDep {
   }
   let c = byValue.get(d.value);
   if (c === undefined) {
-    c = { ...d, n: p.next++ };
+    c = { ...d, n: p.next++, epoch: 0, ok: false };
     byValue.set(d.value, c);
   }
   return c;
@@ -291,6 +319,8 @@ const VARIANTS_PER_KEY = 24;
 const FAST = 6;
 /** 速い確かめで当たらなかったとき、依存をたどって確かめる候補の数（同じ枠の前の候補のほかに、新しいものから） */
 const WALKS = 1;
+/** 早い打ち切りで、同じ値か比べる前の結果の数（同じ鍵の候補が持つ、値の違う結果。新しいものから） */
+const CELLS = 6;
 
 /** 制度の値を引いた結果の使い回し（計算基準月・データの組・構成員の生年月などが同じ要求のあいだで共有） */
 export interface ParamCache {
@@ -315,20 +345,20 @@ export interface RunState {
   readonly end: MonthIndex;
   /** 呼び出しの鍵の表（組があれば組のもの）と、この要求の結果（1回の計算の中で使い回す） */
   readonly keys: KeyTable;
-  readonly results: Map<CallKey, Res>;
+  /** この要求の番号（鍵・集まり・依存に置いた、この要求の結果の印） */
+  readonly epoch: number;
+  /** この要求で求めた結果（鍵の順） */
+  readonly resolved: Res[];
   /** お金の動き（オブジェクト）→ それを作った call の記録の番号（full のとき） */
   readonly provenance: Map<object, number>;
   readonly stack: string[];
   readonly paramCache: ParamCache;
   /** 要求のあいだの使い回し（根拠の記録なしのときだけ）。候補は呼び出しの鍵に持つ */
   readonly partition?: Partition;
-  /** 読んだ入力の集まり・1つの依存が、この要求でも同じ値か（それぞれ1回だけ確かめる） */
-  readonly closureOk?: Map<Closure, boolean>;
-  readonly depOk?: Map<CanonDep, boolean>;
   /** 部品の入力への依存（t ごと: 集まり・物・前提）→ この要求の値で1つにしたもの */
   readonly depCache?: readonly [Map<Impl, Map<string, CanonDep>>, Map<Impl, Map<string, CanonDep>>, Map<Impl, Map<string, CanonDep>>];
-  /** 同じ枠（案×想定）の前の計算の結果（まず、その候補を確かめる） */
-  readonly prev?: Map<CallKey, Res>;
+  /** 枠（案×想定）の番号。同じ枠の前の計算の候補を、鍵の prevs のこの位置に置く（-1 は無し） */
+  readonly lane: number;
   /** 入力への依存の値（鍵 → JSON。1回の計算の中で使い回す） */
   readonly inputs: Map<string, string>;
 }
@@ -364,17 +394,19 @@ interface Summary {
 /** 依存の多い候補（構成員ごとのお金の動きを集める部品など）は、内側が残したことをまとめて覚えておく（要求のたびに内側をたどらない） */
 const BIG = 64;
 const SUMMARIES = new WeakMap<Variant, Summary>();
+/** たどった印の通し番号（たどるたびに新しくする） */
+let MARK = 0;
 
 /** v とその内側が残したことを、最初に残った順に to へ足す（seen はたどった候補） */
-function gather(to: Summary, v: Variant, seen: Set<Variant>): void {
-  if (seen.has(v)) return;
-  seen.add(v);
+function gather(to: Summary, v: Variant, mark: number): void {
+  if (v.mark === mark) return;
+  v.mark = mark;
   if (v.deps.length >= BIG && to !== SUMMARIES.get(v)) {
     let sum = SUMMARIES.get(v);
     if (sum === undefined) {
       sum = { notices: new Map(), extended: new Map() };
       SUMMARIES.set(v, sum);
-      gather(sum, v, new Set());
+      gather(sum, v, ++MARK);
     }
     for (const [k, n] of sum.notices) if (!to.notices.has(k)) to.notices.set(k, n);
     for (const [ref, r] of sum.extended) mergeExtended(to.extended, ref, r.first, r.last);
@@ -382,7 +414,9 @@ function gather(to: Summary, v: Variant, seen: Set<Variant>): void {
   }
   for (const d of v.deps) {
     if (!("t" in d)) {
-      if (d.variant !== null) gather(to, d.variant, seen);
+      if (d.variant !== null) gather(to, d.variant, mark);
+    } else if (d.t === 4) {
+      if (d.res.variant !== null) gather(to, d.res.variant, mark);
     } else if (d.t === 3 && !to.notices.has(d.key)) to.notices.set(d.key, d.notice);
   }
   if (v.own !== null) {
@@ -397,7 +431,7 @@ function gather(to: Summary, v: Variant, seen: Set<Variant>): void {
  */
 export function collectEffects(state: RunState, root: Res): void {
   if (root.variant === null) return;
-  gather({ notices: state.notices, extended: state.extended }, root.variant, new Set());
+  gather({ notices: state.notices, extended: state.extended }, root.variant, ++MARK);
 }
 
 
@@ -420,6 +454,29 @@ function sameJson(a: unknown, b: unknown): boolean {
     if (!sameJson((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k])) return false;
   }
   return true;
+}
+
+/** 月の並びの要素の月の欄（支払月 ym か、月 month） */
+type MonthItem = { readonly ym: string } | { readonly month: string };
+const monthKeyOf = (x: MonthItem): string => ("ym" in x ? x.ym : x.month);
+
+/** 出力の field（月の昇順の並び。要素は ym か month の欄を持つ）のうち from〜to（"YYYY-MM"。両端を含む）の月の分（二分探索） */
+function monthsOf(output: unknown, field: string, from: string, to: string): readonly MonthItem[] {
+  const xs = (output as Record<string, unknown> | null)?.[field];
+  if (!Array.isArray(xs)) throw new EngineError("E_ARGUMENT", ["callMonths", field]);
+  const list = xs as readonly MonthItem[];
+  const bound = (key: string, strict: boolean): number => {
+    let lo = 0;
+    let hi = list.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      const m = monthKeyOf(list[mid] as MonthItem);
+      if (strict ? m <= key : m < key) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  return list.slice(bound(from, false), bound(to, true));
 }
 
 /** 根拠の記録なしのときの Frame（記録には使わない） */
@@ -464,7 +521,7 @@ function callKeyOf(keys: KeyTable, impl: Impl, input: unknown): CallKey {
   if (node !== null) {
     let ck = node.get(LEAF) as CallKey | undefined;
     if (ck === undefined) {
-      ck = { impl, input, variants: [] };
+      ck = { impl, input, variants: [], epoch: 0, res: null, prevs: [] };
       node.set(LEAF, ck);
       keys.all.push(ck);
     }
@@ -478,7 +535,7 @@ function callKeyOf(keys: KeyTable, impl: Impl, input: unknown): CallKey {
   const key = JSON.stringify(input) ?? "undefined";
   let ck = byJson.get(key);
   if (ck === undefined) {
-    ck = { impl, input, variants: [] };
+    ck = { impl, input, variants: [], epoch: 0, res: null, prevs: [] };
     byJson.set(key, ck);
     keys.all.push(ck);
   }
@@ -493,12 +550,30 @@ function callKeyOf(keys: KeyTable, impl: Impl, input: unknown): CallKey {
  */
 export function invoke(state: RunState, impl: Impl, input: unknown): Res {
   const ck = callKeyOf(state.keys, impl, input);
-  return state.results.get(ck) ?? resolve(state, ck, input);
+  return ck.epoch === state.epoch ? (ck.res as Res) : resolve(state, ck, input);
+}
+
+let EPOCH = 0;
+/** 要求の番号を新しく取る */
+export function nextEpoch(): number {
+  return ++EPOCH;
+}
+
+/** 要求で求めた結果を、枠の前の計算の候補にする */
+export function keepLane(state: RunState): void {
+  if (state.lane < 0) return;
+  for (const r of state.resolved) if (r.variant !== null) r.ck.prevs[state.lane] = r.variant;
+}
+
+function setResult(state: RunState, ck: CallKey, r: Res): void {
+  ck.epoch = state.epoch;
+  ck.res = r;
+  state.resolved.push(r);
 }
 
 /** 呼び出しの鍵で、この要求の結果を引く（無ければ求める） */
 function lookup(state: RunState, ck: CallKey): Res {
-  return state.results.get(ck) ?? resolve(state, ck, ck.input);
+  return ck.epoch === state.epoch ? (ck.res as Res) : resolve(state, ck, ck.input);
 }
 
 function resolve(state: RunState, ck: CallKey, input: unknown): Res {
@@ -507,7 +582,7 @@ function resolve(state: RunState, ck: CallKey, input: unknown): Res {
   if (state.stack.includes(id)) throw new EngineError("E_COMPONENT_CYCLE", [...state.stack, id]);
   const sharing = state.partition !== undefined;
   const variants = ck.variants;
-  const prev = sharing ? (state.prev?.get(ck)?.variant ?? null) : null;
+  const prev = sharing && state.lane >= 0 ? (ck.prevs[state.lane] ?? null) : null;
   if (sharing) {
     let found: Variant | null = null;
     if (prev !== null && closureValid(state, prev.closure)) found = prev;
@@ -523,13 +598,13 @@ function resolve(state: RunState, ck: CallKey, input: unknown): Res {
         if (w === null) continue;
         // たどって同じとわかった候補は、この要求の依存と読んだ入力の集まりで作り直す（内側の結果は同じ値でも、読んだ入力が違うことがある。
         // 次からはこの要求の形の候補が速い確かめで当たる）
-        found = w.closure === v.closure ? v : { deps: w.deps, closure: w.closure, cell: v.cell, own: v.own };
+        found = w.closure === v.closure ? v : { deps: w.deps, closure: w.closure, cell: v.cell, own: v.own, mark: 0 };
         if (found !== v) addVariant(ck, found);
       }
     }
     if (found !== null) {
       const r: Res = { ck, impl, input, output: found.cell.output, node: -1, cell: found.cell, closure: found.closure, variant: found };
-      state.results.set(ck, r);
+      setResult(state, ck, r);
       return r;
     }
   }
@@ -568,19 +643,21 @@ function resolve(state: RunState, ck: CallKey, input: unknown): Res {
   const closure = deps === null ? null : ctx.closureOf();
   if (deps !== null && closure !== null) {
     // 早い打ち切り: 前の結果（同じ枠の前の結果と、新しい候補）と同じ値なら同じ物にする（この部品を呼ぶ部品は、依存が変わらないので計算し直さない）
+    // 値の同じ結果は鍵ごとに1つの物にする（ほかの想定・案で同じ値になった結果とも同じ物になり、下流が想定をまたいで使い回せる）
     if (prev !== null && sameJson(prev.cell.output, output)) cell = prev.cell;
-    for (let i = 0, n = 0; cell === null && i < variants.length && n < WALKS; i++) {
+    for (let i = 0, n = 0, last: Cell | null = prev?.cell ?? null; cell === null && i < variants.length && n < CELLS; i++) {
       const c = (variants[i] as Variant).cell;
-      if (prev !== null && c === prev.cell) continue;
+      if (c === last || (prev !== null && c === prev.cell)) continue;
+      last = c;
       n++;
       if (sameJson(c.output, output)) cell = c;
     }
     cell ??= { output };
-    variant = { deps, closure, cell, own: ctx.ownOf() };
+    variant = { deps, closure, cell, own: ctx.ownOf(), mark: 0 };
     addVariant(ck, variant);
   }
   const r: Res = { ck, impl, input, output: cell === null ? output : cell.output, node, cell, closure, variant };
-  state.results.set(ck, r);
+  setResult(state, ck, r);
   return r;
 }
 
@@ -592,9 +669,7 @@ function addVariant(ck: CallKey, v: Variant): void {
 
 /** 読んだ入力の集まりの値が、この要求でもすべて同じか（集まりごとに1回だけ確かめる） */
 function closureValid(state: RunState, c: Closure): boolean {
-  const memo = state.closureOk as Map<Closure, boolean>;
-  const hit = memo.get(c);
-  if (hit !== undefined) return hit;
+  if (c.epoch === state.epoch) return c.ok;
   let ok = true;
   for (const d of c.deps) {
     if (!depValid(state, d)) {
@@ -602,7 +677,8 @@ function closureValid(state: RunState, c: Closure): boolean {
       break;
     }
   }
-  memo.set(c, ok);
+  c.epoch = state.epoch;
+  c.ok = ok;
   return ok;
 }
 
@@ -617,7 +693,10 @@ function verify(state: RunState, v: Variant): { deps: Dep[]; closure: Closure } 
   for (let i = 0; i < deps.length; i++) {
     const d = deps[i] as Dep;
     if ("t" in d) {
-      if (d.t !== 3 && !depValid(state, d)) return null;
+      if (d.t === 4) {
+        const r = lookup(state, d.res.ck);
+        if (r.cell !== d.res.cell && !sameJson(monthsOf(r.output, d.field, d.from, d.to), d.items)) return null;
+      } else if (d.t !== 3 && !depValid(state, d)) return null;
       continue;
     }
     if (lookup(state, d.ck).cell !== d.cell) return null;
@@ -629,6 +708,12 @@ function verify(state: RunState, v: Variant): { deps: Dep[]; closure: Closure } 
   for (let i = 0; i < deps.length; i++) {
     const d = deps[i] as Dep;
     if ("t" in d) {
+      if (d.t === 4) {
+        const r = lookup(state, d.res.ck);
+        out.push(r === d.res ? d : { t: 4, res: r, field: d.field, from: d.from, to: d.to, items: d.items });
+        closure = unionClosure(p, closure, r.closure as Closure);
+        continue;
+      }
       if (d.t !== 3) closure = unionClosure(p, closure, singleClosure(p, d));
       out.push(d);
       continue;
@@ -642,11 +727,10 @@ function verify(state: RunState, v: Variant): { deps: Dep[]; closure: Closure } 
 
 /** 1つの入力への依存の値が、この要求でも同じか（依存ごとに1回だけ比べる） */
 function depValid(state: RunState, d: CanonDep): boolean {
-  const memo = state.depOk as Map<CanonDep, boolean>;
-  const hit = memo.get(d);
-  if (hit !== undefined) return hit;
+  if (d.epoch === state.epoch) return d.ok;
   const ok = inputValue(state, d) === d.value;
-  memo.set(d, ok);
+  d.epoch = state.epoch;
+  d.ok = ok;
   return ok;
 }
 
@@ -1122,6 +1206,29 @@ class CtxImpl implements Ctx {
     if (r.node >= 0) this.#frame.uses.add(r.node);
     this.#callDep(r);
     return r.output as O;
+  }
+
+  callMonths<T extends MonthItem>(id: string, input: unknown, field: string, from: MonthIndex, to: MonthIndex): readonly T[] {
+    const target = callees(this.#state.assembly, this.#impl).get(id);
+    if (target === undefined) {
+      const def = this.#impl.def;
+      if (def.requires[id] === undefined) throw new EngineError("E_CALL_UNDECLARED", [def.id, id]);
+      throw new EngineError("E_COMPONENT_UNKNOWN", [id]);
+    }
+    const r = invoke(this.#state, target, input);
+    if (r.node >= 0) this.#frame.uses.add(r.node);
+    const f = formatYm(from);
+    const t = formatYm(to);
+    if (this.#state.checkInternal) {
+      const xs = (r.output as Record<string, unknown> | null)?.[field];
+      if (Array.isArray(xs)) for (let i = 1; i < xs.length; i++) if (monthKeyOf(xs[i - 1] as MonthItem) > monthKeyOf(xs[i] as MonthItem)) throw new EngineError("E_ARGUMENT", [id, field, "order"]);
+    }
+    const items = monthsOf(r.output, field, f, t) as readonly T[];
+    if (this.#memo && this.#seen?.has(r) !== true) {
+      (this.#deps as Dep[]).push({ t: 4, res: r, field, from: f, to: t, items });
+      this.#closure = unionClosure(this.#state.partition as Partition, this.#closure as Closure, r.closure as Closure);
+    }
+    return items;
   }
 
   slot(id: string, input: unknown): FlowsOutput[] {

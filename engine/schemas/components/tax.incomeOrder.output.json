@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.incomeOrder.output",
+  "title": "合計所得金額の大小",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order"],
+  "properties": {
+    "order": { "enum": [-1, 0, 1] }
+  }
+}

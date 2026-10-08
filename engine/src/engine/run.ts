@@ -8,7 +8,7 @@ import type { Json, PackJson } from "../regulation/reader.ts";
 import { RegulationStore } from "../regulation/reader.ts";
 import { contractMajor, satisfiesRange } from "../regulation/versions.ts";
 import { assemble, type Assembly, type Extension, type Replacement } from "../registry/assemble.ts";
-import { collectEffects, invoke, newKeyTable, newPartition, type CallKey, type ParamCache, type Partition, type Res, type RunState, type Variant } from "../registry/ctx.ts";
+import { collectEffects, invoke, keepLane, newKeyTable, newPartition, nextEpoch, type ParamCache, type Partition, type RunState, type Variant } from "../registry/ctx.ts";
 import { ITEMS } from "../registry/items.ts";
 import { Tracer } from "../registry/trace.ts";
 import { decemberOf, formatYm, parseYm, yearOf } from "../time/month.ts";
@@ -46,11 +46,13 @@ export interface BatchContext {
   readonly partitions: Map<string, Partition>;
   /** お金の動きの配列（使い回した部品の結果）→ 表に載せるお金の動きとその集計 */
   readonly aggregates: WeakMap<readonly Flow[], Map<string, FlowAggregate>>;
-  /** 最後に計算した要求の根の候補と結果の表（セッションが持ち続ける候補を決め、同じ枠の次の計算でまず確かめるため） */
+  /** 最後に計算した要求の根の候補（セッションが持ち続ける候補を決めるため） */
   lastUsed: Variant[] | null;
-  lastCache: Map<CallKey, Res> | null;
-  /** 次に計算する要求で、まず確かめる前の結果（同じ枠の前の計算。runBatch では1つ前の要求） */
-  prev: Map<CallKey, Res> | null;
+  /**
+   * 次に計算する要求の枠の番号。計算した結果を鍵の prevs のこの位置に置き、同じ枠の次の計算でまず確かめる
+   * （セッションは枠ごとの番号、runBatch はすべて0で、1つ前の要求の結果）
+   */
+  lane: number;
 }
 
 const newParamCache = (): ParamCache => ({ params: new Map(), has: new Map() });
@@ -345,12 +347,14 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     base,
     end,
     keys: sharing ? (partition as Partition).keys : newKeyTable(),
-    results: new Map(),
+    epoch: nextEpoch(),
+    resolved: [],
+    lane: sharing ? (batch as BatchContext).lane : -1,
     provenance: new Map(),
     stack: [],
     paramCache: partition?.params ?? newParamCache(),
     inputs: new Map(),
-    ...(sharing ? { partition, closureOk: new Map(), depOk: new Map(), depCache: [new Map(), new Map(), new Map()], ...(batch?.prev ? { prev: batch.prev } : {}) } : {}),
+    ...(sharing ? { partition, depCache: [new Map(), new Map(), new Map()] } : {}),
   };
   const rootId = options.entry?.component ?? ROOT_COMPONENT;
   const root = assembly.impls.get(rootId);
@@ -360,7 +364,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   if (sharing) collectEffects(state, rootRes);
   if (batch !== undefined) {
     batch.lastUsed = rootRes.variant === null ? null : [rootRes.variant];
-    batch.lastCache = sharing ? state.results : null;
+    if (sharing) keepLane(state);
   }
   const out = output as { flows?: readonly Flow[]; annual?: readonly AnnualRow[]; parts?: readonly (readonly Flow[])[] };
 
@@ -477,7 +481,6 @@ export function runBatch(
   const batch = context ?? createBatchContext(packs, options);
   return requests.map((r) => {
     try {
-      batch.prev = batch.lastCache;
       return runEngine(r, packs, { ...options, batch });
     } catch (e) {
       if (e instanceof EngineError) return { error: { code: e.code, ids: e.ids } };
@@ -490,7 +493,7 @@ export function runBatch(
 export function createBatchContext(packs: readonly unknown[], options: RunOptions = {}): BatchContext {
   const assembly = assemble(OFFICIAL_COMPONENTS, options);
   checkPacks(packs, assembly, options.packsChecked);
-  return { stores: new Map(), assembly, partitions: new Map(), aggregates: new WeakMap(), lastUsed: null, lastCache: null, prev: null };
+  return { stores: new Map(), assembly, partitions: new Map(), aggregates: new WeakMap(), lastUsed: null, lane: 0 };
 }
 
 /** セッションが持つ候補の数がこれを超えたら、どの枠でも使っていない候補を捨てる（結果は同じで、計算し直すだけ） */
@@ -507,9 +510,9 @@ interface Slot {
   result: string | null;
   resultRev: number;
   preview: boolean;
-  /** 最後の計算で使った・作った候補（持ち続ける候補を決めるため）と、結果の表（次の計算でまず確かめる） */
+  /** 最後の計算で使った・作った候補（持ち続ける候補を決めるため）と、枠の番号（鍵の prevs の位置） */
   used: Variant[];
-  cache: Map<CallKey, Res> | null;
+  lane: number;
 }
 
 /**
@@ -550,6 +553,10 @@ export function createSession(packsJson: string, optionsJson = "{}"): Session {
     else throw e;
   }
   const slots = new Map<string, Slot>();
+  // 枠の番号（消した枠の番号は使い回す）
+  const freeLanes: number[] = [];
+  let nextLane = 0;
+  const lanes = new Set<number>();
   let sinceGc = 0;
   const stateOf = (s: Slot): SlotState => (s.result === null ? "missing" : s.resultRev === s.rev ? "fresh" : "stale");
   const statusJson = (): string => {
@@ -574,10 +581,20 @@ export function createSession(packsJson: string, optionsJson = "{}"): Session {
       const v = todo.pop() as Variant;
       if (keep.has(v)) continue;
       keep.add(v);
-      for (const d of v.deps) if (!("t" in d) && d.variant !== null) todo.push(d.variant);
+      for (const d of v.deps) {
+        if (!("t" in d)) {
+          if (d.variant !== null) todo.push(d.variant);
+        } else if (d.t === 4 && d.res.variant !== null) todo.push(d.res.variant);
+      }
     }
     for (const p of batch.partitions.values()) {
-      for (const ck of p.keys.all) if (ck.variants.length > 0) ck.variants = ck.variants.filter((v: Variant) => keep.has(v));
+      for (const ck of p.keys.all) {
+        if (ck.variants.length > 0) ck.variants = ck.variants.filter((v: Variant) => keep.has(v));
+        for (let i = 0; i < ck.prevs.length; i++) {
+          const v = ck.prevs[i];
+          if (v !== undefined && (!lanes.has(i) || !keep.has(v))) ck.prevs[i] = undefined;
+        }
+      }
     }
   };
   const guard = (f: () => string): string => {
@@ -597,12 +614,23 @@ export function createSession(packsJson: string, optionsJson = "{}"): Session {
         if (given === null || typeof given !== "object" || Array.isArray(given)) throw new EngineError("E_INPUT_SCHEMA", ["/:type"]);
         for (const [id, req] of Object.entries(given as Record<string, unknown>)) {
           if (req === null) {
-            slots.delete(id);
+            const old = slots.get(id);
+            if (old !== undefined) {
+              slots.delete(id);
+              lanes.delete(old.lane);
+              freeLanes.push(old.lane);
+            }
             continue;
           }
           const text = JSON.stringify(req);
           const s = slots.get(id);
-          if (s === undefined) slots.set(id, { request: text, rev: 1, result: null, resultRev: 0, preview: false, used: [], cache: null });
+          if (s === undefined) {
+            const lane = freeLanes.pop() ?? nextLane++;
+            lanes.add(lane);
+            // 前にこの番号を使った枠の候補は、確かめる前の候補にしない（結果は同じだが、無駄に確かめないため）
+            for (const p of (batch as BatchContext).partitions.values()) for (const ck of p.keys.all) if (ck.prevs.length > lane) ck.prevs[lane] = undefined;
+            slots.set(id, { request: text, rev: 1, result: null, resultRev: 0, preview: false, used: [], lane });
+          }
           else if (s.request !== text) {
             s.request = text;
             s.rev++;
@@ -619,16 +647,14 @@ export function createSession(packsJson: string, optionsJson = "{}"): Session {
         const b = batch as BatchContext;
         for (const id of ids(idsJson, false)) {
           const s = slots.get(id) as Slot;
-          b.prev = s.cache;
+          b.lane = s.lane;
           const result = runChecked(JSON.parse(s.request) as unknown, packs as unknown[], { checkInternal, preview, batch: b });
           s.result = JSON.stringify(result);
           s.resultRev = s.rev;
           s.preview = preview;
           s.used = b.lastUsed ?? [];
-          s.cache = b.lastCache;
           b.lastUsed = null;
-          b.lastCache = null;
-          b.prev = null;
+          b.lane = 0;
           sinceGc++;
           out[id] = { rev: s.rev, state: "fresh", result };
         }
@@ -664,6 +690,9 @@ export function createSession(packsJson: string, optionsJson = "{}"): Session {
     },
     clear(): void {
       slots.clear();
+      lanes.clear();
+      freeLanes.length = 0;
+      nextLane = 0;
       if (batch !== null) batch.partitions.clear();
     },
   };
@@ -725,11 +754,7 @@ export function runBatchJson(requestsJson: string, packsJson: string | readonly 
     const packs = typeof packsJson === "string" ? (JSON.parse(packsJson) as unknown[]) : packsJson;
     const batch = context ?? createBatchContext(packs, { checkInternal, ...packsCheckedOf(opts) });
     return JSON.stringify(
-      requests.map((r) => {
-        const out = runChecked(r, packs, { checkInternal, preview, batch });
-        batch.prev = batch.lastCache;
-        return out;
-      }),
+      requests.map((r) => runChecked(r, packs, { checkInternal, preview, batch })),
     );
   } catch (e) {
     if (e instanceof EngineError) return JSON.stringify({ error: { code: e.code, ids: e.ids } });
