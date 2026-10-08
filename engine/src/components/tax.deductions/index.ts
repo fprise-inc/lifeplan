@@ -3,30 +3,25 @@
 // 配偶者控除・配偶者特別控除（tax.spouseDeduction）と扶養控除・特定親族特別控除（tax.dependentDeduction）は、他の構成員の所得で決まるので
 // 小さな部品に分けている（配偶者の所得が変わっても控除の額が同じなら、ここから先を計算し直さない。0006 の追記）
 import {
-  amountInYear,
   bracketFor,
   defineComponent,
   monthIndex,
   RATE_ZERO,
   sumYen,
-  yearOf,
   yen,
   type Bracket,
   type Ctx,
   type DeductionsOutput,
-  type FlowsResult,
   type InsuranceContractInput,
   type DependentDeductionOutput,
   type MonthCtx,
   type PaymentsOutput,
-  type PremiumOutput,
   type SpouseDeductionOutput,
   type TotalIncomeOutput,
   type Yen,
 } from "../../sdk/index.ts";
 
 type Regime = "incomeTax" | "residentTax";
-const SI_COMPONENTS = ["socialInsurance.health", "socialInsurance.pension", "socialInsurance.employment"] as const;
 const LIFE_TYPES = ["general", "careMedical", "pension"] as const;
 
 const ids = (p: Regime) => ({
@@ -73,15 +68,9 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     "tax.totalIncome": ">=1 <2",
     "tax.spouseDeduction": ">=1 <2",
     "tax.dependentDeduction": ">=1 <2",
-    "socialInsurance.health": ">=1 <2",
-    "socialInsurance.pension": ">=1 <2",
-    "socialInsurance.employment": ">=1 <2",
+    "tax.socialInsurancePaid": ">=1 <2",
     "insurance.premiumPayment": ">=1 <2",
     "account.contribution": ">=1 <2",
-    "socialInsurance.nationalPension": ">=1 <2",
-    "socialInsurance.nationalHealth": ">=1 <2",
-    "socialInsurance.lateElderly": ">=1 <2",
-    "socialInsurance.careFirst": ">=1 <2",
   },
   params: ALL_PARAMS,
   reads: [
@@ -98,7 +87,6 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     const resident = regime === "residentTax";
     // 所得税はその年分の値、住民税は翌年度（6月から）の値。判定はどちらもその年の12月31日の現況
     const at = ctx.at(resident ? monthIndex(year + 1, 6) : monthIndex(year, 1));
-    const baseYear = yearOf(ctx.time.base);
     const own = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year }).total;
     const diffs: Yen[] = [];
     const diff = (id: string) => {
@@ -119,26 +107,9 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     const youngDependent = dep.youngDependent;
     diffs.push(sp.personalDiff, dep.personalDiff);
 
-    // 社会保険料控除: その年に本人が払った保険料（給与から控除された被用者保険・国民年金・後期高齢者医療・介護保険（第1号）、
-    // 世帯主として払う国民健康保険）
-    const fromYear = year < baseYear ? year : baseYear;
-    let socialInsurance = yen(0);
+    // 社会保険料控除: その年に本人が払った保険料（所得税・住民税で同じなので、構成員×年で1回だけ集める）
+    const socialInsurance = ctx.call<{ amount: Yen }>("tax.socialInsurancePaid", { member, year }).amount;
     const yearPrefix = `${year}-`;
-    const addPaid = (flows: readonly { ym: string; amount: number; member?: string }[]) => {
-      for (const f of flows) if (f.ym.startsWith(yearPrefix) && (f.member === undefined || f.member === member)) socialInsurance = yen(socialInsurance + f.amount);
-    };
-    // 被用者保険・国民年金は、部品が添える暦年ごとの合計を引く（無い古い約束の版の差し替えなら flows から数える）
-    const addPremium = (out: PremiumOutput) => {
-      if (out.paidByYear === undefined) addPaid(out.flows);
-      else socialInsurance = yen(socialInsurance + amountInYear(out.paidByYear, year));
-    };
-    for (const c of SI_COMPONENTS) addPremium(ctx.call<PremiumOutput>(c, { member, fromYear }));
-    addPremium(ctx.call<PremiumOutput>("socialInsurance.nationalPension", { member, fromYear }));
-    for (const fy of [year - 1, year]) {
-      addPaid(ctx.call<FlowsResult>("socialInsurance.lateElderly", { member, fiscalYear: fy }).flows);
-      addPaid(ctx.call<FlowsResult>("socialInsurance.careFirst", { member, fiscalYear: fy }).flows);
-      addPaid(ctx.call<FlowsResult>("socialInsurance.nationalHealth", { fiscalYear: fy }).flows);
-    }
 
     // 生命保険料控除・地震保険料控除: 契約者が本人の契約の、その年に払った保険料
     const rounding = resident ? "conv.tax.fractionalDeduction" : "incomeTax.insuranceDeduction.rounding";

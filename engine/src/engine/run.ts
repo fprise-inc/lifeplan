@@ -136,18 +136,51 @@ interface FlowAggregate {
 
 function aggregateFlows(raw: readonly Flow[], base: number, end: number, aggregation: CalcConventions["aggregation"], baseYear: number, rootId: string): FlowAggregate {
   const flows: Flow[] = [];
+  // 同じ月の文字列は何度も出るので、月の番号は文字列ごとに1回だけ求める
+  const months = new Map<string, number>();
   for (const f of raw) {
-    const m = parseYm(f.ym);
+    let m = months.get(f.ym);
+    if (m === undefined) {
+      m = parseYm(f.ym);
+      months.set(f.ym, m);
+    }
     if (m >= base && m <= end) flows.push(f);
   }
   for (const f of flows) {
     if (typeof f.formula !== "string") throw new EngineError("E_FORMULA_MISSING", [rootId]);
     checkRow(f.row);
   }
-  const index = new Map<string, Cell>();
+  // 行 → 構成員 → 物 → 年 の表で足す（お金の動きごとに鍵の文字列を作らない）
+  const tree = new Map<string, Map<string, Map<string, Map<number, Cell>>>>();
   const cells: Cell[] = [];
-  for (const f of flows) addCell(index, cells, f.row, tableYear(f, aggregation, baseYear), f.amount, f.member, f.object);
-  const keyed = [...index.entries()].map(([key, cell]) => ({ key, cell: Object.freeze(cell) }));
+  for (const f of flows) {
+    const year = aggregation === "cash" ? Math.floor((months.get(f.ym) as number) / 12) : tableYear(f, aggregation, baseYear);
+    let byMember = tree.get(f.row);
+    if (byMember === undefined) {
+      byMember = new Map();
+      tree.set(f.row, byMember);
+    }
+    const mk = f.member ?? "";
+    let byObject = byMember.get(mk);
+    if (byObject === undefined) {
+      byObject = new Map();
+      byMember.set(mk, byObject);
+    }
+    const ok = f.object ?? "";
+    let byYear = byObject.get(ok);
+    if (byYear === undefined) {
+      byYear = new Map();
+      byObject.set(ok, byYear);
+    }
+    const c = byYear.get(year);
+    if (c !== undefined) c.amount += f.amount;
+    else {
+      const cell: Cell = { row: f.row, year, amount: f.amount, ...(f.member !== undefined ? { member: f.member } : {}), ...(f.object !== undefined ? { object: f.object } : {}) };
+      byYear.set(year, cell);
+      cells.push(cell);
+    }
+  }
+  const keyed = cells.map((cell) => ({ key: `${cell.row}|${cell.year}|${cell.member ?? ""}|${cell.object ?? ""}`, cell: Object.freeze(cell) }));
   return { flows, cells: keyed };
 }
 

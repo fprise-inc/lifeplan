@@ -188,6 +188,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: tax.socialInsurancePaid
+    status: active
+    label: "その年に払った社会保険料"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: tax.spouseDeduction
     status: active
     label: "配偶者控除・配偶者特別控除"

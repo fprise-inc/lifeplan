@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.socialInsurancePaid.output",
+  "title": "その年に本人が払った社会保険料（社会保険料控除の基）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["amount"],
+  "properties": {
+    "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+  }
+}
