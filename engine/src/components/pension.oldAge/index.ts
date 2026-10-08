@@ -118,7 +118,7 @@ export default defineComponent<{ member: string }, Out>({
   title: "老齢年金",
   contract: "1.0",
   revision: 2,
-  requires: { "pension.record": ">=1 <2", "pension.revision": ">=1 <2", "socialInsurance.coverage": ">=1 <2" },
+  requires: { "pension.record": ">=1 <2", "pension.revision": ">=1 <2", "socialInsurance.coverage": ">=1 <2", "pension.employeeMonths": ">=1 <2" },
   params: Object.values(P),
   reads: [
     "member.kind",
@@ -311,15 +311,8 @@ export default defineComponent<{ member: string }, Out>({
         (parentsGiven ? relations.some((r) => r.type === "parentOf" && r.parent === member && r.child === c.id) : me.kind === "self" || me.kind === "spouse"),
     );
     const supMonths = at0.paramCount(P.supMonths) ?? 240;
-    const recordOf = new Map<string, RecordOutput>();
-    const otherRecord = (id: string) => {
-      let r = recordOf.get(id);
-      if (r === undefined) {
-        r = ctx.call<RecordOutput>("pension.record", { member: id });
-        recordOf.set(id, r);
-      }
-      return r;
-    };
+    // 配偶者の厚生年金の月数（加給年金・振替加算の判定）。配偶者の記録の全体ではなく月数だけを読む
+    const otherMonths = (id: string) => ctx.call<{ months: number }>("pension.employeeMonths", { member: id }).months;
     const spouseUntil = memo((id: string) => ageMonth(ctx, base, P.spouseAge, id));
     const childUntil = memo((id: string) => ageMonth(ctx, base, P.childAge, id));
     const supplementOf = (at: MonthCtx, fy: number, m: MonthIndex, cut: MonthIndex): Yen => {
@@ -329,7 +322,7 @@ export default defineComponent<{ member: string }, Out>({
       for (const sp of spouseAt(m)) {
         if (parseYm((members.find((x) => x.id === sp) as MemberInput).birth.birthYearMonth) > m) continue;
         if (m >= spouseUntil(sp)) continue;
-        if (employeeMonthsOf(otherRecord(sp), null, monthCache) >= supMonths) continue;
+        if (otherMonths(sp) >= supMonths) continue;
         total += mulRateM(at, at.paramYen(P.supBase) ?? yen(0), r, P.fullRound);
         const special = at.paramYen(P.supSpecial, { member });
         if (special !== null) total += mulRateM(at, special, r, P.fullRound);
@@ -346,7 +339,7 @@ export default defineComponent<{ member: string }, Out>({
     // 振替加算: 本人の厚生年金が240月未満で、配偶者の厚生年金が240月以上（配偶者の加給年金の対象だった）
     const transferOf = (at: MonthCtx, fy: number): Yen => {
       if (employeeMonthsOf(rec, null, monthCache) >= supMonths) return yen(0);
-      if (!spouseAt(N).some((sp) => employeeMonthsOf(otherRecord(sp), null, monthCache) >= supMonths)) return yen(0);
+      if (!spouseAt(N).some((sp) => otherMonths(sp) >= supMonths)) return yen(0);
       if (!at.has(P.transfer, { member })) {
         // 制度データに率の無い生年月日（原本で確かめる前の区分）は計算せずに知らせる
         ctx.notice("N_PARAM_MISSING", [P.transfer, member]);

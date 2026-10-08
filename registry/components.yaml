@@ -50,6 +50,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.employeeMonths
+    status: active
+    label: "厚生年金の被保険者期間の月数"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.oldAge
     status: active
     label: "老齢年金"

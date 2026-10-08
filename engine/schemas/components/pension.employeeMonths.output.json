@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:pension.employeeMonths.output",
+  "title": "厚生年金の被保険者期間の月数",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["months"],
+  "properties": {
+    "months": { "type": "integer", "minimum": 0 }
+  }
+}
