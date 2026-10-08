@@ -1,0 +1,20 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.socialInsurance.health.lateElderlyAge
+title: 【架空の見本】socialInsurance.health.lateElderlyAge
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: birthdayMonth
+entries:
+  - rev: 1
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 75
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

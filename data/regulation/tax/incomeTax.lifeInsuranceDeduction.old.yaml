@@ -1,0 +1,25 @@
+id: incomeTax.lifeInsuranceDeduction.old
+title: 生命保険料控除（旧契約。支払保険料等の段階）
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+rounding: incomeTax.insuranceDeduction.rounding
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 25000, rate: "1"}
+      - {upTo: 50000, rate: "0.5", amount: 12500}
+      - {upTo: 100000, rate: "0.25", amount: 25000}
+      - {upTo: null, amount: 50000}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/law/shitsugi/shotoku/05/74.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

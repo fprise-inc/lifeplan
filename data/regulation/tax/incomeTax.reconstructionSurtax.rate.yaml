@@ -1,0 +1,76 @@
+id: incomeTax.reconstructionSurtax.rate
+title: 復興特別所得税の税率（基準所得税額に掛ける）
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: "2037-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.021"
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "平成25年から令和19年までの各年分 2.1パーセント", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/shinkoku/tebiki/2025/03/order4/3-4_45.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: "2026.2.0"
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2038-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "平成25年から令和19年までの各年分 2.1パーセント", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/shinkoku/tebiki/2025/03/order4/3-4_45.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: "2026.2.0"
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 3
+    appliesFrom: "2025-01-01"
+    appliesTo: "2026-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.021"
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "平成25年から令和19年までの各年分 2.1パーセント", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/shinkoku/tebiki/2025/03/order4/3-4_45.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 4
+    appliesFrom: "2027-01-01"
+    appliesTo: "2047-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.011"
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/pdf/0026005-024_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "防衛特別所得税及び復興特別所得税の源泉徴収のあらまし （令和９年１月以後の源泉徴収）", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/08taikou_06.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和8年度改正で令和9年分から1.1%、令和29年分まで"}
+  - rev: 5
+    appliesFrom: "2048-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/pdf/0026005-024_02.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "防衛特別所得税及び復興特別所得税の源泉徴収のあらまし （令和９年１月以後の源泉徴収）", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/08taikou_06.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

@@ -1,0 +1,71 @@
+# 所得税法86条（本則）
+id: incomeTax.basicDeduction
+title: 基礎控除（合計所得金額の段階）
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: "2025-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1320000, amount: 950000}
+      - {upTo: 3360000, amount: 880000}
+      - {upTo: 4890000, amount: 680000}
+      - {upTo: 6550000, amount: 630000}
+      - {upTo: 23500000, amount: 580000}
+      - {upTo: 24000000, amount: 480000}
+      - {upTo: 24500000, amount: 320000}
+      - {upTo: 25000000, amount: 160000}
+      - {upTo: null, amount: 0}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1199.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/users/gensen/2025kiso/index.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年度税制改正（基礎控除・給与所得控除・特定親族特別控除）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "2,350万円超の段は1199の1経路。加算（30万・10万・5万円）の当初の期間は未確認"}
+  - rev: 2
+    appliesFrom: "2026-01-01"
+    appliesTo: "2027-12-31"
+    enforcedOn: "2026-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 4890000, amount: 1040000}
+      - {upTo: 6550000, amount: 670000}
+      - {upTo: 23500000, amount: 620000}
+      - {upTo: 24000000, amount: 480000}
+      - {upTo: 24500000, amount: 320000}
+      - {upTo: 25000000, amount: 160000}
+      - {upTo: null, amount: 0}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1199.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/users/gensen/nencho/index/kyuyosyotokusya.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度税制改正の大綱", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "本則62万円に令和8年分・令和9年分の加算（489万円以下42万円、655万円以下5万円）"}
+  - rev: 3
+    appliesFrom: "2028-01-01"
+    appliesTo: null
+    enforcedOn: "2026-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1320000, amount: 990000}
+      - {upTo: 23500000, amount: 620000}
+      - {upTo: 24000000, amount: 480000}
+      - {upTo: 24500000, amount: 320000}
+      - {upTo: 25000000, amount: 160000}
+      - {upTo: null, amount: 0}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1199.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和10年分以後", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "132万円以下の加算37万円（99万円）は1経路。それより上は本則62万円"}

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:payments.output",
+  "title": "支払いの部品の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "payments"],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:financia:schema:common#/$defs/flow"
+      }
+    },
+    "payments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ym", "object", "member", "amount"],
+        "properties": {
+          "ym": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "object": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          },
+          "member": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          },
+          "amount": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          }
+        }
+      }
+    }
+  }
+}

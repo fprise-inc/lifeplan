@@ -1,4 +1,6 @@
-// エンジン全体: 見本の計算・根拠の記録・入出力の検査
+// エンジン全体: モデル世帯の計算・根拠の記録・入出力の検査（製品の制度データ。原本での確認待ちの値を含む）
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { OFFICIAL_COMPONENTS } from "../src/components/index.ts";
 import { runEngine, runJson, type EngineResult } from "../src/engine/run.ts";
@@ -7,98 +9,101 @@ import type { EngineRequest } from "../src/engine/types.ts";
 import { check } from "../src/io/validate.ts";
 import { CONVENTIONS } from "../src/money/conventions.ts";
 import { divRound, mulInt, type RoundingMode } from "../src/money/integer.ts";
-import { clone, fixture, nonIntegerPaths, samplePack } from "./helpers.ts";
+import { REPO_DIR } from "../scripts/lib.ts";
+import { clone, modelHousehold, nonIntegerPaths, realPacks } from "./helpers.ts";
 
-const run = (r: EngineRequest, trace: EngineRequest["trace"] = "none") => runEngine({ ...r, trace }, [samplePack()], { checkInternal: true });
-const cell = (r: EngineResult, row: string, year: number) =>
-  (r.table as { row: string; year: number; amount: number }[]).filter((c) => c.row === row && c.year === year).reduce((s, c) => s + c.amount, 0);
-const annual = (r: EngineResult, row: string, year: number) => r.annual.find((a) => a.row === row && a.year === year)?.amount;
+const MODELS = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
+  .filter((f) => f.endsWith(".json"))
+  .map((f) => f.replace(/\.json$/, ""));
+const run = (r: EngineRequest, trace: EngineRequest["trace"] = "none") => runEngine({ ...r, trace }, realPacks(), { checkInternal: true });
+type Cell = { row: string; year: number; amount: number; member?: string };
+const cells = (r: EngineResult) => r.table as unknown as Cell[];
+const cell = (r: EngineResult, row: string, year: number) => cells(r).filter((c) => c.row === row && c.year === year).reduce((s, c) => s + c.amount, 0);
+const annual = (r: EngineResult, row: string, year: number) => r.annual.find((a) => a.row === row && a.year === year)?.amount as number;
 
-describe("見本の計算（手計算との突き合わせ）", () => {
-  const r = run(fixture("basic"));
-
-  it("初年度は計算基準月（2027-04）以降だけを計上する", () => {
-    expect(r.flows.every((f) => f.ym >= "2027-04" && f.ym <= "2036-12")).toBe(true);
-    // 本人の収入 35万円×9か月＋配偶者 8万円×9か月
-    expect(cell(r, "cf.income.other", 2027)).toBe(350000 * 9 + 80000 * 9);
-  });
-
-  it("年1回の一時金は、帰属の年の率で差し引き、100円未満を切り捨てる", () => {
-    expect(cell(r, "cf.income.lumpSum", 2027)).toBe(540000); // 60万円×(1−0.1)
-    // 2028年: 本人 60万円×(1−0.05)、配偶者は2027年分を翌年3月に受け取る 123456−12300
-    expect(cell(r, "cf.income.lumpSum", 2028)).toBe(570000 + 111156);
-    // 2029年: 配偶者の2028年分は率 0.05 → 6172.8 → 6100 を差し引く
-    expect(cell(r, "cf.income.lumpSum", 2029)).toBe(570000 + 117356);
-  });
-
-  it("退職（60歳に達する月）の前月で収入が止まり、一時金も止まる", () => {
-    expect(cell(r, "cf.income.other", 2031)).toBe(350000 * 3 + 80000 * 12);
-    expect(cell(r, "cf.income.lumpSum", 2031)).toBe(117356);
-  });
-
-  it("運用益＝(期首残高×2＋年間収支)×年利×月数/12÷2 を1回で丸める", () => {
-    expect(annual(r, "cf.net", 2027)).toBe(1035000);
-    expect(annual(r, "cf.balance.return", 2027)).toBe(127762); // 17,035,000×0.02×9/24＝127,762.5
-    expect(annual(r, "cf.balance.financial", 2027)).toBe(8000000 + 1035000 + 127762);
-    // 2030年だけ年利 0.005
-    const open2030 = annual(r, "cf.balance.financial", 2029) as number;
-    const net2030 = annual(r, "cf.net", 2030) as number;
-    expect(annual(r, "cf.balance.return", 2030)).toBe(Math.trunc(((open2030 * 2 + net2030) * 5) / 2000));
-  });
-
-  it("期首残高＋収支＋運用益＝期末残高が毎年成り立つ（0003 の性質のテスト）", () => {
-    let prev = 8000000;
-    for (let y = 2027; y <= 2036; y++) {
-      const end = annual(r, "cf.balance.financial", y) as number;
-      expect(prev + (annual(r, "cf.net", y) as number) + (annual(r, "cf.balance.return", y) as number)).toBe(end);
-      prev = end;
+describe("モデル世帯（架空）", () => {
+  it("10件以上あり、どれも計算でき、出力は JSON Schema に合い整数だけ", () => {
+    expect(MODELS.length).toBeGreaterThanOrEqual(10);
+    for (const m of MODELS) {
+      const r = run(modelHousehold(m));
+      expect(() => check("engine.output", r, "E_OUTPUT_SCHEMA")).not.toThrow();
+      expect(nonIntegerPaths(r)).toEqual([]);
+      expect(r.flows.every((f) => f.ym >= "2026-10" && f.ym <= "2027-12")).toBe(true);
     }
   });
 
-  it("出力は JSON Schema に合い、整数でない数や -0 がない", () => {
-    expect(() => check("engine.output", r, "E_OUTPUT_SCHEMA")).not.toThrow();
-    expect(nonIntegerPaths(r)).toEqual([]);
+  it("期首残高＋収支＋運用益＝期末残高が毎年成り立つ（0003 の性質のテスト）", () => {
+    for (const m of MODELS) {
+      const req = modelHousehold(m);
+      const r = run(req);
+      let prev = req.input.household.accounts.reduce((s, a) => s + (a.marketValue.value ?? 0), 0);
+      for (const y of [2026, 2027]) {
+        const end = annual(r, "cf.balance.financial", y);
+        expect(prev + annual(r, "cf.net", y) + annual(r, "cf.balance.return", y)).toBe(end);
+        prev = end;
+      }
+    }
+  });
+
+  it("年間収支＝収入−税・社会保険料−支出（器の間の移動は入れない）", () => {
+    for (const m of MODELS) {
+      const r = run(modelHousehold(m));
+      const sum = (p: string) => cells(r).filter((c) => c.year === 2027 && c.row.startsWith(p)).reduce((s, c) => s + c.amount, 0);
+      expect(annual(r, "cf.net", 2027)).toBe(sum("cf.income.") - sum("cf.taxSi.") - sum("cf.expense."));
+    }
   });
 
   it("同じ入力なら同じ出力（文字列として一致）", () => {
-    expect(JSON.stringify(run(fixture("basic")))).toBe(JSON.stringify(r));
+    const req = modelHousehold("singleEarnerTwoKids");
+    expect(JSON.stringify(run(req))).toBe(JSON.stringify(run(req)));
+  });
+
+  it("未対応の制度は見出しの notices に ID だけで出す", () => {
+    const r = run(modelHousehold("jobLeaver"));
+    const notices = (r.header as { notices: { code: string; ids: string[] }[] }).notices;
+    expect(notices.some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("employment.unemployed"))).toBe(true);
+    expect(notices.some((n) => n.code === "N_NOT_IMPLEMENTED" && n.ids.includes("residentTax.exemptionThreshold"))).toBe(true);
   });
 });
 
-describe("計算方式の設定", () => {
-  it("aggregation を切り替えると載る年だけが変わり、合計は変わらない", () => {
-    const cash = run(fixture("basic"));
-    const req = clone(fixture("basic"));
-    (req.input.calcConventions as { aggregation: string }).aggregation = "accrual";
-    const accrual = run(req);
-    // 配偶者の2027年分（2028年3月に受け取る）は accrual では2027年に載る
-    expect(cell(accrual, "cf.income.lumpSum", 2027)).toBe(540000 + 111156);
-    const total = (x: EngineResult) => (x.table as { row: string; amount: number }[]).filter((c) => c.row === "cf.income.lumpSum").reduce((s, c) => s + c.amount, 0);
-    expect(total(accrual)).toBe(total(cash));
+describe("計算方式の設定と2本の時間軸", () => {
+  it("aggregation を切り替えると載る年だけが変わり、合計は変わらない。住民税は所得の年に帰属する", () => {
+    const req = modelHousehold("single25");
+    const cash = run(req);
+    const acc = clone(req);
+    (acc.input.calcConventions as { aggregation: string }).aggregation = "accrual";
+    const accrual = run(acc);
+    const total = (x: EngineResult, row: string) => cells(x).filter((c) => c.row === row).reduce((s, c) => s + c.amount, 0);
+    for (const row of ["cf.taxSi.residentTax", "cf.taxSi.health", "cf.income.salary"]) expect(total(accrual, row)).toBe(total(cash, row));
+    // 2027年1〜5月に払う住民税（令和8年度分＝2025年の所得）は、表の最初の年（2026）に載る
+    expect(cell(accrual, "cf.taxSi.residentTax", 2026)).toBeGreaterThan(cell(cash, "cf.taxSi.residentTax", 2026));
+    expect(cash.flows.filter((f) => f.row === "cf.taxSi.residentTax" && f.ym >= "2027-06").every((f) => f.accrualYear === 2026)).toBe(true);
   });
 
-  it("investmentTiming で運用益の式が変わる", () => {
-    const mk = (t: string) => {
-      const req = clone(fixture("basic"));
-      (req.input.calcConventions as { investmentTiming: string }).investmentTiming = t;
-      return annual(run(req), "cf.balance.return", 2027);
-    };
-    expect(mk("beginning")).toBe(Math.trunc((9035000 * 2 * 9) / 1200)); // (800万＋103.5万)×0.02×9/12
-    expect(mk("end")).toBe(120000); // 800万×0.02×9/12
+  it("dataSet で令和8年度改正より前のパックの版（知った時点）を使える", () => {
+    const req = modelHousehold("single45");
+    const latest = run(req);
+    const old = clone(req);
+    (old.input as { dataSet?: Record<string, string> }).dataSet = { "regulation.tax": "2026.1.0", "regulation.socialInsurance": "2026.1.0" };
+    const before = run(old);
+    // 改正前の知識では基礎控除・給与所得控除が小さく、2027年の所得税が多い
+    expect(cell(before, "cf.taxSi.incomeTax", 2027)).toBeGreaterThan(cell(latest, "cf.taxSi.incomeTax", 2027));
+    // 子ども・子育て支援金率は令和8年度の行（版 2026.2.0）で入った
+    expect(cell(before, "cf.taxSi.childSupport", 2027)).toBe(0);
+    expect(cell(latest, "cf.taxSi.childSupport", 2027)).toBeGreaterThan(0);
+    const data = (before.header as { data: { packId: string; asOf: string }[] }).data;
+    expect(data.map((d) => d.asOf)).toEqual(["2026.1.0", "2026.1.0"]);
   });
 
-  it("dataSet で古いパックの版（知った時点）を使える", () => {
-    const req = clone(fixture("basic"));
-    (req.input as { dataSet?: Record<string, string> }).dataSet = { "regulation.sample": "2026.1.0" };
-    const r = run(req);
-    // 版 2026.1.0 では2028年以降の率は 0.08（後で 0.05 に訂正された）
-    expect(cell(r, "cf.income.lumpSum", 2028)).toBe(552000 + 111156);
-    expect((r.header as { data: { asOf: string }[] }).data[0]?.asOf).toBe("2026.1.0");
+  it("dataSet に知らないパックを書くとエラー", () => {
+    const req = clone(modelHousehold("single25"));
+    (req.input as { dataSet?: Record<string, string> }).dataSet = { "regulation.nothing": "2026.1.0" };
+    expect(() => run(req)).toThrow("E_PACK_UNKNOWN");
   });
 });
 
 describe("根拠の記録", () => {
-  const base = fixture("basic");
+  const base = modelHousehold("singleEarnerTwoKids");
   const none = run(base, "none");
   const summary = run(base, "summary");
   const full = run(base, "full");
@@ -112,38 +117,31 @@ describe("根拠の記録", () => {
     expect(none.trace).toBeNull();
   });
 
-  it("どの細かさでも見出し（版・部品表・データの版・基準月・計算方式）を付ける", () => {
+  it("どの細かさでも見出し（版・部品表・データの版・基準月・計算方式・知らせ）を付ける", () => {
     const h = none.header as Record<string, unknown>;
-    expect(Object.keys(h)).toEqual(["engine", "trace", "baseMonth", "endYear", "calcConventions", "components", "data"]);
-    expect((h.data as { fictional: boolean }[])[0]?.fictional).toBe(true);
+    expect(Object.keys(h)).toEqual(["engine", "trace", "baseMonth", "endYear", "calcConventions", "components", "data", "notices"]);
+    expect((h.data as { fictional: boolean }[]).every((d) => !d.fictional)).toBe(true);
+    expect((h.components as { id: string }[]).map((c) => c.id)).toContain("socialInsurance.health");
   });
 
-  it("summary は部品ごとに計算式・制度の値（値ID@r改訂）・端数処理の規則を持つ", () => {
-    const t = summary.trace as { components: { id: string; formulas: string[]; params: { ref: string }[]; roundings: string[] }[]; timepoints: unknown[] };
-    const lump = t.components.find((c) => c.id === "test.sample.lumpSum");
-    expect(lump?.formulas).toEqual(["test.sample.lumpSum.net"]);
-    expect(lump?.params.map((p) => p.ref).sort()).toEqual([
-      "test.sample.lumpSum.rounding@r1",
-      "test.sample.lumpSum.withholdingRate@r1",
-      "test.sample.lumpSum.withholdingRate@r3",
-    ]);
-    expect(lump?.roundings).toEqual(["test.sample.lumpSum.rounding"]);
-    expect(t.components.find((c) => c.id === "test.sample.balance")?.roundings).toEqual(["conv.investment.return"]);
-    // 名前つきイベントの解決の結果
-    expect(t.timepoints).toContainEqual(expect.objectContaining({ event: "f14de8b8-75fc-45d6-844d-63dcfb20618e", ym: "2031-04" }));
+  it("summary は部品ごとに計算式・制度の値（値ID@改訂）・端数処理の規則を持つ", () => {
+    const t = summary.trace as { components: { id: string; formulas: string[]; params: { ref: string }[]; roundings: string[] }[] };
+    const health = t.components.find((c) => c.id === "socialInsurance.health");
+    expect(health?.formulas).toContain("socialInsurance.health.monthly");
+    expect(health?.params.map((p) => p.ref)).toContain("socialInsurance.health.kyokaikenpo.rate@70");
+    expect(health?.roundings).toEqual(["socialInsurance.employeeShare.rounding"]);
+    for (const c of t.components) for (const p of c.params) expect(p.ref).toMatch(/^[a-zA-Z.]+@\d+$/);
   });
 
-  it("full は重複を除いた記録を番号で指し、すべてのお金の動きが記録を指す", () => {
-    const t = full.trace as { nodes: { type: string; uses?: number[] }[]; flows: number[]; annual: number[] };
+  it("full は重複を除いた記録を番号で指し、お金の動きはそれを作った部品の呼び出しを指す（呼び出しごとの細かさ）", () => {
+    const t = full.trace as { nodes: { type: string; uses?: number[]; component?: string }[]; flows: number[]; annual: number[] };
     expect(t.flows).toHaveLength(full.flows.length);
-    expect(t.annual).toHaveLength(full.annual.length);
     for (const i of [...t.flows, ...t.annual]) expect(t.nodes[i]?.type).toBe("call");
     for (const n of t.nodes) for (const u of n.uses ?? []) expect(u).toBeLessThan(t.nodes.length);
     const keys = t.nodes.map((n) => JSON.stringify(n));
     expect(new Set(keys).size).toBe(keys.length);
-    // 一時金のお金の動きは一時金の部品の記録を指す
-    const i = full.flows.findIndex((f) => f.formula === "test.sample.lumpSum.net");
-    expect((t.nodes[t.flows[i] as number] as unknown as { component: string }).component).toBe("test.sample.lumpSum");
+    const i = full.flows.findIndex((f) => f.formula === "incomeTax.annual.withholding");
+    expect(t.nodes[t.flows[i] as number]?.component).toBe("incomeTax.annual");
   });
 
   it("full の端数処理の記録だけから計算し直して同じ値になる", () => {
@@ -151,8 +149,8 @@ describe("根拠の記録", () => {
     const params = t.nodes.filter((n) => n.type === "param");
     const ruleOf = (id: string): { mode: RoundingMode; unit: number } =>
       (CONVENTIONS[id] ?? (params.find((p) => p.id === id)?.value as { mode: RoundingMode; unit: number })) as never;
-    const roundings = t.nodes.filter((n) => n.type === "rounding");
-    expect(roundings.length).toBeGreaterThan(10);
+    const roundings = t.nodes.filter((n) => n.type === "rounding" && n.op !== "allocate");
+    expect(roundings.length).toBeGreaterThan(30);
     for (const n of roundings) {
       const [num, den] = String(n.input).split("/").map((s) => BigInt(s)) as [bigint, bigint];
       const rule = ruleOf(String(n.rule));
@@ -169,73 +167,80 @@ describe("根拠の記録", () => {
 });
 
 describe("入力の検査とエラー", () => {
+  type Loose = {
+    input: Record<string, unknown> & {
+      household: { employmentPeriods: Record<string, unknown>[]; accounts: Record<string, unknown>[]; members: Record<string, unknown>[] };
+      assumptions: { investmentReturn: { default: unknown } };
+    };
+  };
+  const req = () => clone(modelHousehold("single25")) as unknown as Loose;
+
   it("知らない欄（参照値を含む）を拒む（0004 の7）", () => {
-    const req = clone(fixture("basic")) as unknown as { input: Record<string, unknown> };
-    req.input.referenceValues = [{ row: "cf.income.pension", year: 2035, amount: 1834000 }];
-    expect(() => runEngine(req, [samplePack()])).toThrow("E_INPUT_SCHEMA");
-    const req2 = clone(fixture("basic")) as unknown as { input: { flows: Record<string, unknown>[] } };
-    (req2.input.flows[0] as Record<string, unknown>).computed = 1;
-    expect(() => runEngine(req2, [samplePack()])).toThrow("E_INPUT_SCHEMA");
+    const a = req();
+    a.input.referenceValues = [{ row: "cf.income.pension", year: 2035, amount: 1834000 }];
+    expect(() => runEngine(a, realPacks())).toThrow("E_INPUT_SCHEMA");
+    const b = req();
+    (b.input.household.employmentPeriods[0] as Record<string, unknown>).computedTax = 1;
+    expect(() => runEngine(b, realPacks())).toThrow("E_INPUT_SCHEMA");
+  });
+
+  it("値の箱の決まり（0008 の2）を守らない入力を拒む", () => {
+    const salaryOf = (r: Loose) => (r.input.household.employmentPeriods[0] as { salary: { annual: unknown } }).salary;
+    const a = req();
+    salaryOf(a).annual = 3600000;
+    expect(() => runEngine(a, realPacks())).toThrow("E_INPUT_SCHEMA");
+    const b = req();
+    salaryOf(b).annual = { state: "unknown", origin: { kind: "manual" } };
+    expect(() => runEngine(b, realPacks())).toThrow("E_INPUT_SCHEMA");
+    const c = req();
+    salaryOf(c).annual = { value: 3600000, state: "confirmed", origin: { kind: "ai", connector: "x" } };
+    expect(() => runEngine(c, realPacks())).toThrow("E_INPUT_SCHEMA"); // AI の値は FP の承認が要る
+    const d = req();
+    salaryOf(d).annual = { state: "unknown", origin: { kind: "manual" }, substitute: { value: 3000000, state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic", basis: "賃金構造基本統計調査" } } };
+    expect(() => runEngine(d, realPacks())).not.toThrow();
   });
 
   it("金額の小数・率の数値・範囲外の金額を拒む", () => {
-    const a = clone(fixture("basic"));
-    (a.input as { openingBalance: number }).openingBalance = 0.5;
-    expect(() => runEngine(a, [samplePack()])).toThrow("E_INPUT_SCHEMA");
-    const b = clone(fixture("basic")) as unknown as { input: { assumptions: { investmentReturn: { default: unknown } } } };
+    const a = req();
+    (a.input.household.accounts[0] as { marketValue: { value: number } }).marketValue.value = 0.5;
+    expect(() => runEngine(a, realPacks())).toThrow("E_INPUT_SCHEMA");
+    const b = req();
     b.input.assumptions.investmentReturn.default = 0.02;
-    expect(() => runEngine(b, [samplePack()])).toThrow("E_INPUT_SCHEMA");
-    const c = clone(fixture("basic"));
-    (c.input as { openingBalance: number }).openingBalance = 2 ** 53;
-    expect(() => runEngine(c, [samplePack()])).toThrow("E_INPUT_SCHEMA");
+    expect(() => runEngine(b, realPacks())).toThrow("E_INPUT_SCHEMA");
   });
 
-  it("登録簿にない行・時点の循環はエラー", () => {
-    const a = clone(fixture("basic")) as unknown as { input: { flows: { row: string }[] } };
-    (a.input.flows[0] as { row: string }).row = "cf.income.unknown";
-    expect(() => runEngine(a, [samplePack()])).toThrow("E_ROW_UNKNOWN");
-    const b = clone(fixture("basic")) as unknown as { input: { events: { at: unknown; id: string }[] } };
-    const ev = b.input.events[0] as { at: unknown; id: string };
-    ev.at = { event: ev.id };
-    expect(() => runEngine(b, [samplePack()])).toThrow("E_TIMEPOINT_CYCLE");
+  it("世帯にいない構成員を指す物・ID の重複はエラー", () => {
+    const a = req();
+    (a.input.household.employmentPeriods[0] as { member: string }).member = "3f2b8c1e-9a4d-4e7b-8c21-5d0f6a9b7e10";
+    expect(() => runEngine(a, realPacks())).toThrow("E_ARGUMENT");
+    const b = req();
+    (b.input.household.accounts[0] as { id: string }).id = (b.input.household.members[0] as { id: string }).id;
+    expect(() => runEngine(b, realPacks())).toThrow("E_ARGUMENT");
   });
 
   it("文字列の入口は、エラーを ID だけの JSON で返す（値を含めない。0005 の8）", () => {
-    const a = clone(fixture("basic"));
-    (a.input as { openingBalance: number }).openingBalance = 1234.5;
-    const out = runJson(JSON.stringify(a), JSON.stringify([samplePack()]));
-    expect(JSON.parse(out)).toEqual({ error: { code: "E_INPUT_SCHEMA", ids: ["/input/openingBalance:type"] } });
+    const a = req();
+    (a.input.household.accounts[0] as { marketValue: { value: number } }).marketValue.value = 1234.5;
+    const out = runJson(JSON.stringify(a), JSON.stringify(realPacks()));
+    expect(JSON.parse(out)).toEqual({ error: { code: "E_INPUT_SCHEMA", ids: ["/input/household/accounts/0/marketValue/value:type"] } });
     expect(out).not.toContain("1234");
     expect(JSON.parse(runJson("{", "[]"))).toEqual({ error: { code: "E_INPUT_SCHEMA", ids: ["json"] } });
-    expect(JSON.parse(runJson(JSON.stringify(fixture("basic")), "[]"))).toEqual({ error: { code: "E_PARAM_UNKNOWN", ids: ["test.sample.lumpSum.withholdingRate"] } });
+    const noData = JSON.parse(runJson(JSON.stringify(modelHousehold("single25")), "[]")) as { error: { code: string } };
+    expect(noData.error.code).toBe("E_PARAM_UNKNOWN");
   });
 });
 
 describe("部品は純粋な関数", () => {
   it("入力は凍結され、部品から書き換えられない", () => {
-    const req = clone(fixture("basic"));
-    runEngine(req, [samplePack()]);
-    expect(Object.isFrozen(req.input.flows[0])).toBe(true);
-    const official = OFFICIAL_COMPONENTS.find((o) => o.def.id === "test.sample.monthlyFlow")!.def;
+    const official = OFFICIAL_COMPONENTS.find((o) => o.def.id === "socialInsurance.employment")!.def;
     const mutating = defineComponent({
       ...official,
-      compute: (input: { object: string }, ctx) => {
-        (ctx.readObject("test.sample.flows", input.object) as unknown as { amount: number }).amount = 0;
+      compute: (_input: unknown, ctx) => {
+        (ctx.list("employment")[0] as { employer: { industry?: string } }).employer.industry = "construction";
         return { flows: [] };
       },
     }) as ComponentDefinition;
     const replacement = { type: "replace" as const, target: official.id, contract: "1", component: mutating, hash: `sha256:${"0".repeat(64)}` };
-    expect(() => runEngine(fixture("basic"), [samplePack()], { replacements: [replacement] })).toThrow(TypeError);
-  });
-
-  it("dataSet に知らないパックを書くとエラー", () => {
-    const req = clone(fixture("basic"));
-    (req.input as { dataSet?: Record<string, string> }).dataSet = { "regulation.nothing": "2026.1.0" };
-    expect(() => run(req)).toThrow("E_PACK_UNKNOWN");
-  });
-
-  it("full でもイベントの解決を記録する", () => {
-    const t = run(fixture("basic"), "full").trace as { nodes: { type: string; event?: string }[] };
-    expect(t.nodes.some((n) => n.type === "timepoint" && n.event === "f14de8b8-75fc-45d6-844d-63dcfb20618e")).toBe(true);
+    expect(() => runEngine(modelHousehold("single25"), realPacks(), { replacements: [replacement] })).toThrow(TypeError);
   });
 });

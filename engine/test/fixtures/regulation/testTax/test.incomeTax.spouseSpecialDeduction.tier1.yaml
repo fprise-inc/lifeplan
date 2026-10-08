@@ -1,0 +1,23 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.incomeTax.spouseSpecialDeduction.tier1
+title: 【架空の見本】incomeTax.spouseSpecialDeduction.tier1
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1000000, amount: 400000}
+      - {upTo: 1200000, amount: 200000}
+      - {upTo: 1300000, amount: 100000}
+      - {upTo: null, amount: 0}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

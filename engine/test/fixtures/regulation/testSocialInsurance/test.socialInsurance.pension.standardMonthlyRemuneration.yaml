@@ -1,0 +1,25 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.socialInsurance.pension.standardMonthlyRemuneration
+title: 【架空の見本】socialInsurance.pension.standardMonthlyRemuneration
+unit: JPY
+kind: gradeTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {grade: 1, amount: 100000, from: 0, below: 150000}
+      - {grade: 2, amount: 200000, from: 150000, below: 250000}
+      - {grade: 3, amount: 300000, from: 250000, below: 350000}
+      - {grade: 4, amount: 400000, from: 350000, below: 450000}
+      - {grade: 5, amount: 500000, from: 450000, below: 550000}
+      - {grade: 6, amount: 600000, from: 550000, below: null}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

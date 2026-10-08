@@ -1,0 +1,30 @@
+id: incomeTax.spouseSpecialDeduction.tier2
+title: 配偶者特別控除（納税者の合計所得金額900万円超950万円以下。配偶者の合計所得金額の段階）
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 950000, amount: 260000}
+      - {upTo: 1000000, amount: 240000}
+      - {upTo: 1050000, amount: 210000}
+      - {upTo: 1100000, amount: 180000}
+      - {upTo: 1150000, amount: 140000}
+      - {upTo: 1200000, amount: 110000}
+      - {upTo: 1250000, amount: 80000}
+      - {upTo: 1300000, amount: 40000}
+      - {upTo: 1330000, amount: 20000}
+      - {upTo: null, amount: 0}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1195.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/nencho_all.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和7年分 年末調整のしかた", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "最初の段の下限は同一生計配偶者の所得の上限（incomeTax.dependentIncomeLimit）。令和8年分の表は先頭・95万〜100万・130万〜133万の段を2経路、ほかの段は1経路で同じと確認"}

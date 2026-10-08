@@ -1,4 +1,4 @@
-# 計算エンジンの土台の自動テスト（0002・0005・0006・0007・0021）
+# 計算エンジンの自動テスト（0002・0004・0005・0006・0007・0021）
 name: ci
 on:
   push:
@@ -21,12 +21,18 @@ jobs:
           cache: npm
           cache-dependency-path: engine/package-lock.json
       - run: npm ci
+      - name: 登録簿が正本（スキーマ・部品・制度データ）と食い違っていないこと（0004 の5）
+        run: npm run registry:check
       - name: 型の検査
         run: npm run typecheck
       - name: lint
         run: npm run lint
-      - name: 単体テスト
+      - name: 単体テスト・答え合わせ（検証 L2）
         run: npm test
+      - name: 答え合わせ（検証 L2）の合格率
+        run: npm run l2
+      - name: モデル世帯で制度改正の差分を見る
+        run: npm run models
       - name: まとめた JS と制度データの JSON を作る
         run: npm run build
       - name: ライセンスの検査（npm）
@@ -54,6 +60,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # JavaScriptCore の一致テストに使う（配布しない CI の道具。0005・0015 の追記）
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -66,8 +76,8 @@ jobs:
         run: cargo build --locked --release
       - name: Rust のテスト（脱出テスト・上限・凍結の後にエンジンが動くこと）
         run: cargo test --locked --release
-      - name: 一致テスト（Node と quickjs-ng の出力の SHA-256）
-        run: node --disable-warning=ExperimentalWarning engine/scripts/parity.ts
+      - name: 一致テスト（Node・quickjs-ng・JavaScriptCore の出力の SHA-256）
+        run: node --disable-warning=ExperimentalWarning engine/scripts/parity.ts --jsc
       - uses: actions/upload-artifact@v4
         with:
           name: parity-${{ matrix.os }}

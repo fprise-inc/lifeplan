@@ -1,0 +1,27 @@
+id: incomeTax.taxRateTable
+title: 所得税の速算表（課税される所得金額の段階。税額＝所得×率−額）
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1949000, rate: "0.05", amount: 0}
+      - {upTo: 3299000, rate: "0.1", amount: 97500}
+      - {upTo: 6949000, rate: "0.2", amount: 427500}
+      - {upTo: 8999000, rate: "0.23", amount: 636000}
+      - {upTo: 17999000, rate: "0.33", amount: 1536000}
+      - {upTo: 39999000, rate: "0.4", amount: 2796000}
+      - {upTo: null, rate: "0.45", amount: 4796000}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/nencho2025/pdf/115.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和7 年分の年末調整のための算出所得税額の速算表 課税給与所得金額（Ａ） 税 率（Ｂ）", note: "検索結果の題名の原文（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "基準所得金額3億3,000万円超の負担の適正化措置は入れていない"}

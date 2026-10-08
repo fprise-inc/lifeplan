@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:income.salary.output",
+  "title": "income.salary の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "payments"],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:financia:schema:common#/$defs/flow"
+      }
+    },
+    "payments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ym", "period", "salary", "bonus", "commuting"],
+        "properties": {
+          "ym": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "period": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          },
+          "salary": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "bonus": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "commuting": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          }
+        }
+      }
+    }
+  }
+}

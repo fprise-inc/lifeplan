@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:residentTax.annual.input",
+  "title": "residentTax.annual の入力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["member", "fiscalYear"],
+  "properties": {
+    "member": {
+      "$ref": "urn:financia:schema:common#/$defs/uuid"
+    },
+    "fiscalYear": {
+      "$ref": "urn:financia:schema:common#/$defs/year"
+    }
+  }
+}

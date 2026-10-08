@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:financia:schema:engine.input",
-  "title": "エンジン全体の入力（土台の最小限。世帯のデータモデル 0008 への対応は次の作業）",
-  "description": "0004 の7・0006 の5: 知らない欄（参照値を含む）は拒む",
+  "title": "エンジン全体の入力（世帯のデータモデル 0008 のうち、税・社会保険料の部品が使う最小の部分）",
+  "description": "0004 の7・0006 の5: 知らない欄（参照値を含む）は拒む。x-item は入力項目ID（0004）、x-collection は物の集まりの名前。登録簿 registry/items.yaml はここから作る",
   "type": "object",
   "additionalProperties": false,
-  "required": ["baseMonth", "endYear", "calcConventions", "members", "events", "assumptions", "flows", "annualLumpSums", "openingBalance"],
+  "required": ["baseMonth", "endYear", "calcConventions", "household", "assumptions"],
   "properties": {
     "baseMonth": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
     "endYear": { "$ref": "urn:financia:schema:common#/$defs/year" },
@@ -26,78 +26,284 @@
       "propertyNames": { "pattern": "^(regulation|master)(\\.[a-z][a-zA-Z0-9]*)+$" },
       "additionalProperties": { "$ref": "urn:financia:schema:regulation.value#/$defs/packVersion" }
     },
-    "members": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "kind", "birth"],
-        "properties": {
-          "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
-          "kind": { "enum": ["self", "spouse", "child", "parent", "grandparent", "other"] },
-          "birth": { "$ref": "urn:financia:schema:common#/$defs/birth" }
-        }
-      }
-    },
-    "events": {
-      "description": "0003 の6: 名前つきイベント",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "kind", "at"],
-        "properties": {
-          "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
-          "kind": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" },
-          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
-          "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }
-        }
-      }
-    },
+    "household": { "$ref": "#/$defs/household" },
     "assumptions": {
       "description": "0006 の6・0008 の8: 前提条件は年ごとの列",
       "type": "object",
       "additionalProperties": false,
       "required": ["investmentReturn"],
       "properties": {
-        "investmentReturn": { "$ref": "urn:financia:schema:common#/$defs/yearSeries" }
+        "investmentReturn": { "title": "運用利回り（年率）", "x-item": "assumptions.investmentReturn", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
+        "wageGrowth": { "title": "賃金上昇率（年率。省略は0）", "x-item": "assumptions.wageGrowth", "$ref": "urn:financia:schema:common#/$defs/yearSeries" }
       }
-    },
-    "flows": {
-      "description": "毎月の定額の収入・支出（見本の部品 test.sample.monthlyFlow が使う）",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "row", "amount", "from", "to"],
-        "properties": {
-          "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
-          "row": { "$ref": "urn:financia:schema:common#/$defs/rowId" },
-          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-          "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
-          "to": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/timepoint" }] },
-          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" }
+    }
+  },
+  "$defs": {
+    "household": {
+      "description": "0008: 世帯（現状の版のうち計算に使う部分）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["members", "relations", "events", "employmentPeriods", "accounts", "insuranceContracts"],
+      "properties": {
+        "members": { "type": "array", "x-collection": "member", "items": { "$ref": "#/$defs/member" } },
+        "relations": { "type": "array", "x-collection": "relation", "items": { "$ref": "#/$defs/relation" } },
+        "events": { "type": "array", "x-collection": "event", "items": { "$ref": "#/$defs/event" } },
+        "employmentPeriods": { "type": "array", "x-collection": "employment", "items": { "$ref": "#/$defs/employmentPeriod" } },
+        "accounts": { "type": "array", "x-collection": "account", "items": { "$ref": "#/$defs/account" } },
+        "insuranceContracts": { "type": "array", "x-collection": "insurance", "items": { "$ref": "#/$defs/insuranceContract" } },
+        "residentTaxAssessments": {
+          "description": "置き換え口（0006 の5）: 住民税の決定通知書の年税額。与えられた年度はこの額を使う",
+          "type": "array",
+          "x-collection": "residentTaxAssessment",
+          "items": { "$ref": "#/$defs/residentTaxAssessment" }
         }
       }
     },
-    "annualLumpSums": {
-      "description": "年1回の一時金（見本の部品 test.sample.lumpSum が使う）",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "amount", "month", "from", "to", "paidNextYear"],
-        "properties": {
-          "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
-          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-          "month": { "type": "integer", "minimum": 1, "maximum": 12 },
-          "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
-          "to": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/timepoint" }] },
-          "paidNextYear": { "type": "boolean" },
-          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" }
+    "timepointOrNull": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/timepoint" }] },
+    "member": {
+      "description": "0008 の3: 構成員",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "birth", "sex", "joins", "leaves", "expected"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": { "title": "家族の種類", "x-item": "member.kind", "enum": ["self", "spouse", "child", "parent", "grandparent", "other"] },
+        "birth": { "title": "生年月と1日生まれか", "x-item": "member.birth", "$ref": "urn:financia:schema:common#/$defs/birth" },
+        "sex": { "title": "性別", "x-item": "member.sex", "enum": ["female", "male"] },
+        "joins": { "title": "世帯に加わる時点（null は最初から）", "x-item": "member.joins", "$ref": "#/$defs/timepointOrNull" },
+        "leaves": { "title": "世帯から離れる時点（null は最後まで）", "x-item": "member.leaves", "$ref": "#/$defs/timepointOrNull" },
+        "expected": { "title": "まだいない家族か（出産予定・結婚予定）", "x-item": "member.expected", "type": "boolean" },
+        "support": {
+          "title": "親・祖父母の扶養と同居",
+          "x-item": "member.support",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dependent", "cohabiting"],
+          "properties": {
+            "dependent": { "type": "boolean" },
+            "cohabiting": { "type": "boolean" },
+            "allowance": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+          }
         }
       }
     },
-    "openingBalance": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+    "relation": {
+      "description": "0008 の3: 関係（辺の一覧）",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "a", "b", "marriage", "from", "to"],
+          "properties": {
+            "type": { "title": "関係の種類", "x-item": "relation.type", "const": "spouse" },
+            "a": { "title": "配偶者の一方", "x-item": "relation.a", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "b": { "title": "配偶者の他方", "x-item": "relation.b", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "marriage": { "title": "法律婚か事実婚か", "x-item": "relation.marriage", "enum": ["legal", "deFacto"] },
+            "from": { "title": "関係の始まり（null は最初から）", "x-item": "relation.from", "$ref": "#/$defs/timepointOrNull" },
+            "to": { "title": "関係の終わり（null は最後まで）", "x-item": "relation.to", "$ref": "#/$defs/timepointOrNull" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "parent", "child"],
+          "properties": {
+            "type": { "x-item": "relation.type", "const": "parentOf" },
+            "parent": { "title": "親", "x-item": "relation.parent", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "child": { "title": "子", "x-item": "relation.child", "$ref": "urn:financia:schema:common#/$defs/uuid" }
+          }
+        }
+      ]
+    },
+    "event": {
+      "description": "0003 の6: 名前つきイベント",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "at"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": { "title": "イベントの種類", "x-item": "event.kind", "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" },
+        "member": { "title": "イベントの構成員", "x-item": "event.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "at": { "title": "イベントの時点", "x-item": "event.at", "$ref": "urn:financia:schema:common#/$defs/timepoint" }
+      }
+    },
+    "employmentPeriod": {
+      "description": "0008 の4: 人ごとの働き方の期間。期間は重ならない",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "member", "from", "to", "type", "healthInsurance", "pensionCategory", "employer", "salary"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "member": { "title": "働く構成員", "x-item": "employment.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "from": { "title": "期間の始まり（その月を含む）", "x-item": "employment.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "to": { "title": "期間の終わり（その月を含む。null は最後まで）", "x-item": "employment.to", "$ref": "#/$defs/timepointOrNull" },
+        "type": { "title": "働き方", "x-item": "employment.type", "enum": ["regular", "contract", "partTime", "selfEmployed", "civilServant", "leave", "unemployed"] },
+        "leaveKind": { "title": "休業の種類", "x-item": "employment.leaveKind", "enum": ["maternity", "childcare", "sick", "other"] },
+        "healthInsurance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "title": "健康保険の種類",
+              "x-item": "employment.healthInsurance.kind",
+              "enum": ["kyokaikenpo", "union", "mutualAid", "national", "dependent", "continuation", "lateElderly"]
+            },
+            "insurer": {
+              "title": "保険者（協会けんぽの支部 kyokaikenpo.01〜47）",
+              "x-item": "employment.healthInsurance.insurer",
+              "type": "string",
+              "pattern": "^kyokaikenpo\\.(0[1-9]|[1-3][0-9]|4[0-7])$"
+            },
+            "employeeRate": { "title": "健康保険料率の被保険者負担分（健保組合・共済）", "x-item": "employment.healthInsurance.employeeRate", "$ref": "urn:financia:schema:common#/$defs/boxRate" },
+            "careEmployeeRate": { "title": "介護保険料率の被保険者負担分（健保組合・共済）", "x-item": "employment.healthInsurance.careEmployeeRate", "$ref": "urn:financia:schema:common#/$defs/boxRate" },
+            "childSupportEmployeeRate": {
+              "title": "子ども・子育て支援金率の被保険者負担分（健保組合・共済。省略は全国一律の率の半分）",
+              "x-item": "employment.healthInsurance.childSupportEmployeeRate",
+              "$ref": "urn:financia:schema:common#/$defs/boxRate"
+            }
+          },
+          "allOf": [
+            { "if": { "properties": { "kind": { "const": "kyokaikenpo" } } }, "then": { "required": ["insurer"] } },
+            { "if": { "properties": { "kind": { "enum": ["union", "mutualAid"] } } }, "then": { "required": ["employeeRate"] } }
+          ]
+        },
+        "pensionCategory": { "title": "厚生年金の種別", "x-item": "employment.pensionCategory", "enum": ["employee1", "employee2", "employee3", "employee4", "none"] },
+        "employer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["size", "weeklyHours"],
+          "properties": {
+            "size": { "title": "勤務先の従業員数", "x-item": "employment.employer.size", "type": "integer", "minimum": 0 },
+            "weeklyHours": { "title": "週の所定労働時間", "x-item": "employment.employer.weeklyHours", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "industry": { "title": "雇用保険の事業の種類（省略は一般）", "x-item": "employment.employer.industry", "enum": ["general", "agricultureEtc", "construction"] }
+          }
+        },
+        "employmentInsuranceCovered": {
+          "title": "雇用保険の被保険者か（会社員・契約は省略で真、パートは必須）",
+          "x-item": "employment.employmentInsuranceCovered",
+          "type": "boolean"
+        },
+        "salary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["annual", "bonus"],
+          "properties": {
+            "annual": { "title": "給与（賞与を除く年額。期間の最初の年の額）", "x-item": "employment.salary.annual", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "bonus": { "title": "賞与（年間の合計）", "x-item": "employment.salary.bonus", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "bonusMonths": {
+              "title": "賞与の支給月（省略は6月・12月）",
+              "x-item": "employment.salary.bonusMonths",
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "integer", "minimum": 1, "maximum": 12 }
+            },
+            "commutingMonthly": { "title": "非課税の通勤手当（月額）", "x-item": "employment.salary.commutingMonthly", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+          }
+        },
+        "standardMonthlyRemuneration": {
+          "title": "置き換え口: 標準報酬月額（健康保険・厚生年金。給与明細・決定通知の額）",
+          "x-item": "employment.standardMonthlyRemuneration",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["health", "pension"],
+          "properties": {
+            "health": { "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "pension": { "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+          }
+        },
+        "endsOnMonthEnd": { "title": "期間の最後の月の末日に辞めるか（省略は真）", "x-item": "employment.endsOnMonthEnd", "type": "boolean" },
+        "retirementBenefit": { "title": "退職給付", "x-item": "employment.retirementBenefit", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "endsWith": { "title": "期間の終わり方", "x-item": "employment.endsWith", "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" }
+      },
+      "if": { "properties": { "type": { "const": "leave" } } },
+      "then": { "required": ["leaveKind"] }
+    },
+    "account": {
+      "description": "0008 の9: 資産の器（計算に使う部分）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "owner", "marketValue", "asOf", "contributions"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": {
+          "title": "器の種類",
+          "x-item": "account.kind",
+          "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate"]
+        },
+        "owner": { "title": "名義の構成員", "x-item": "account.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "marketValue": { "title": "時価", "x-item": "account.marketValue", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "costBasis": { "title": "取得価額", "x-item": "account.costBasis", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "asOf": { "title": "時価の時点", "x-item": "account.asOf", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+        "contributions": {
+          "title": "積立・掛金",
+          "x-item": "account.contributions",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "to", "monthly"],
+            "properties": {
+              "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+              "to": { "$ref": "#/$defs/timepointOrNull" },
+              "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "tranche": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" }
+            }
+          }
+        }
+      }
+    },
+    "insuranceContract": {
+      "description": "0008 の10: 保険契約（保険料控除の計算に使う部分）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "template", "policyholder", "insured", "contractDate", "currency", "premium", "deductionCategory"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "template": { "title": "保険の種類のひな形", "x-item": "insurance.template", "type": "string", "pattern": "^insurance\\.[a-z][a-zA-Z0-9]*$" },
+        "policyholder": { "title": "契約者", "x-item": "insurance.policyholder", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "insured": { "title": "被保険者", "x-item": "insurance.insured", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "contractDate": { "title": "契約の年月", "x-item": "insurance.contractDate", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+        "currency": { "title": "契約の通貨", "x-item": "insurance.currency", "const": "JPY" },
+        "premium": {
+          "title": "保険料",
+          "x-item": "insurance.premium",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["amount", "frequency", "payUntil"],
+          "properties": {
+            "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "frequency": { "enum": ["monthly", "annual"] },
+            "payUntil": { "description": "払込の終わり（その月の前月まで払う。null は最後まで）", "$ref": "#/$defs/timepointOrNull" }
+          }
+        },
+        "deductionCategory": {
+          "title": "保険料控除の区分",
+          "x-item": "insurance.deductionCategory",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "enum": ["general", "careMedical", "pension", "earthquake", "longTermNonLife", "none"] },
+            "regime": { "enum": ["new", "old"] }
+          },
+          "if": { "properties": { "type": { "enum": ["general", "careMedical", "pension"] } } },
+          "then": { "required": ["regime"] }
+        }
+      }
+    },
+    "residentTaxAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "member", "fiscalYear", "amount"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "member": { "title": "納税する構成員", "x-item": "residentTaxAssessment.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "fiscalYear": { "title": "年度", "x-item": "residentTaxAssessment.fiscalYear", "$ref": "urn:financia:schema:common#/$defs/year" },
+        "amount": { "title": "住民税の年税額（森林環境税を含む）", "x-item": "residentTaxAssessment.amount", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "collection": { "title": "徴収の方法（省略は働き方から決める）", "x-item": "residentTaxAssessment.collection", "enum": ["special", "ordinary"] }
+      }
+    }
   }
 }

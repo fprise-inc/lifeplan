@@ -1,0 +1,20 @@
+id: socialInsurance.standardBonus.rounding
+title: 標準賞与額（賞与額の1,000円未満の切り捨て）
+unit: rounding
+kind: rounding
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 1000}
+    sources:
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/kounen/hyoujunhoushu/20120903.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/section/faq/kounen/hokenryo/shoyokeisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

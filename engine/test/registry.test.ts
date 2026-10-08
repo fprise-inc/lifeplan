@@ -5,29 +5,28 @@ import { runEngine } from "../src/engine/run.ts";
 import type { Flow } from "../src/engine/types.ts";
 import { assemble, type Extension, type Replacement } from "../src/registry/assemble.ts";
 import { defineComponent, type ComponentDefinition } from "../src/registry/define.ts";
+import { satisfiesRange } from "../src/regulation/versions.ts";
 import { formatYm, yen } from "../src/sdk/index.ts";
-import { clone, fixture, samplePack } from "./helpers.ts";
+import { clone, modelHousehold, realPacks } from "./helpers.ts";
 
 const HASH = `sha256:${"0".repeat(64)}`;
-const official = OFFICIAL_COMPONENTS;
-const req = () => fixture("basic");
-const run = (opts: Parameters<typeof runEngine>[2], r = req()) => runEngine(r, [samplePack()], { checkInternal: true, ...opts });
+const official = (id: string) => OFFICIAL_COMPONENTS.find((o) => o.def.id === id)!.def;
+const req = () => modelHousehold("single25");
+const run = (opts: Parameters<typeof runEngine>[2], r = req()) => runEngine(r, realPacks(), { checkInternal: true, ...opts });
+const sum = (r: ReturnType<typeof run>, row: string, year: number) =>
+  (r.table as unknown as { row: string; year: number; amount: number }[]).filter((c) => c.row === row && c.year === year).reduce((s, c) => s + c.amount, 0);
 
-/** 差し替えたことにするテスト用の部品: 毎月の定額を、毎月1円にする */
-const fakeMonthly = (contract = "1.0"): ComponentDefinition =>
-  defineComponent<{ object: string }, { flows: Flow[] }>({
-    id: "test.sample.monthlyFlow",
+/** 差し替えたことにするテスト用の部品: 雇用保険料を、計算基準月に1円だけにする */
+const fakeEmployment = (contract = "1.0", compute?: ComponentDefinition["compute"]): ComponentDefinition =>
+  defineComponent<{ member: string; fromYear: number }, { flows: Flow[] }>({
+    ...official("socialInsurance.employment"),
     contract,
     revision: 1,
-    requires: {},
-    params: [],
-    reads: ["test.sample.flows"],
-    input: "test.sample.monthlyFlow.input",
-    output: "flows.output",
-    compute(input, ctx) {
-      const f = ctx.readObject<{ id: string; row: string }>("test.sample.flows", input.object);
-      return { flows: [{ row: f.row, ym: formatYm(ctx.time.base), amount: yen(1), accrualYear: 2027, object: f.id, formula: "test.fake.one" }] };
-    },
+    compute:
+      (compute as never) ??
+      ((input, ctx) => ({
+        flows: [{ row: "cf.taxSi.employment", ym: formatYm(ctx.time.base), amount: yen(1), accrualYear: 2026, member: input.member, formula: "test.fake.one" }],
+      })),
   }) as ComponentDefinition;
 
 const replace = (component: ComponentDefinition, contract = "1"): Replacement => ({ type: "replace", target: component.id, contract, component, hash: HASH });
@@ -47,62 +46,68 @@ const petCare = (row = "cf.expense.other.ext.test.petCare", id = "test.ext.petCa
     reads: [],
     input: "slot.expense.flow.input",
     output: "flows.output",
-    compute(input) {
-      return { flows: [{ row, ym: input.fromMonth, amount: yen(10000), accrualYear: 2027, formula: "test.ext.petCare.monthly" }] };
+    compute() {
+      return { flows: [{ row, ym: "2027-01", amount: yen(10000), accrualYear: 2027, formula: "test.ext.petCare.monthly" }] };
     },
   }) as ComponentDefinition,
 });
 
 describe("部品表を通した呼び出しと差し替え", () => {
-  it("差し替えは、それを呼ぶ公式部品すべてに効き、見出しに残る", () => {
+  it("差し替えは、それを呼ぶ公式部品すべて（表の組み立てと所得控除）に効き、見出しに残る", () => {
     const base = run({});
-    const r = run({ replacements: [replace(fakeMonthly())] });
-    const monthly = r.flows.filter((f) => f.formula === "test.fake.one");
-    expect(monthly).toHaveLength(4); // 入力の毎月の収支は4件
-    expect(r.flows.some((f) => f.formula === "test.sample.monthlyFlow.fixed")).toBe(false);
-    const ref = (r.header as { components: { id: string; origin: string; hash: string }[] }).components.find((c) => c.id === "test.sample.monthlyFlow");
+    const r = run({ replacements: [replace(fakeEmployment())] });
+    expect(r.flows.filter((f) => f.row === "cf.taxSi.employment")).toHaveLength(1);
+    const ref = (r.header as { components: { id: string; origin: string; hash: string }[] }).components.find((c) => c.id === "socialInsurance.employment");
     expect(ref?.origin).toBe("replacement");
     expect(ref?.hash).toBe(HASH);
-    // 残高の積み上げ（呼び出し元）が差し替え後の値を使っている
-    const closing = (x: typeof r) => x.annual.find((a) => a.row === "cf.balance.financial" && a.year === 2036)?.amount;
-    expect(closing(r)).not.toBe(closing(base));
+    // 社会保険料控除が減るので、所得税（tax.deductions → socialInsurance.employment）も変わる
+    expect(sum(r, "cf.taxSi.incomeTax", 2027)).toBeGreaterThan(sum(base, "cf.taxSi.incomeTax", 2027));
   });
 
   it("約束の MAJOR が合わない差し替えは、黙って公式に戻さず計算を止める", () => {
-    expect(() => run({ replacements: [replace(fakeMonthly("2.0"), "2")] })).toThrow("E_CONTRACT_MISMATCH");
-    expect(() => run({ replacements: [replace(fakeMonthly(), "2")] })).toThrow("E_CONTRACT_MISMATCH");
+    expect(() => run({ replacements: [replace(fakeEmployment("2.0"), "2")] })).toThrow("E_CONTRACT_MISMATCH");
+    expect(() => run({ replacements: [replace(fakeEmployment(), "2")] })).toThrow("E_CONTRACT_MISMATCH");
   });
 
   it("replaceable でない公式部品は差し替えられない", () => {
-    const fake = defineComponent({ ...official.find((o) => o.def.id === "test.sample.balance")!.def });
-    expect(() => run({ replacements: [replace(fake as ComponentDefinition)] })).toThrow("E_NOT_REPLACEABLE");
+    expect(() => run({ replacements: [replace(defineComponent({ ...official("plan.cashflow") }) as ComponentDefinition)] })).toThrow("E_NOT_REPLACEABLE");
   });
 
   it("部品の依存の循環は組み立ての時点でエラー", () => {
-    const a = defineComponent({ id: "test.cycle.a", contract: "1.0", revision: 1, requires: { "test.cycle.b": "1" }, params: [], reads: [], input: "x", output: "x", compute: () => ({}) });
+    const a = defineComponent({ id: "test.cycle.a", contract: "1.0", revision: 1, requires: { "test.cycle.b": ">=1 <2" }, params: [], reads: [], input: "x", output: "x", compute: () => ({}) });
     const b = defineComponent({ id: "test.cycle.b", contract: "1.0", revision: 1, requires: { "test.cycle.a": "1" }, params: [], reads: [], input: "x", output: "x", compute: () => ({}) });
     expect(() => assemble([{ def: a as ComponentDefinition, hash: HASH }, { def: b as ComponentDefinition, hash: HASH }])).toThrow("E_COMPONENT_CYCLE");
   });
 
   it("マニフェストに書いていない呼び出し・制度の値・入力はエラー", () => {
-    const sneaky = (compute: ComponentDefinition["compute"]) =>
-      replace(defineComponent({ ...fakeMonthly(), compute }) as ComponentDefinition);
-    expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.call("test.sample.lumpSum", {}))] })).toThrow("E_CALL_UNDECLARED");
-    expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.at(ctx.time.base).param("test.sample.lumpSum.withholdingRate"))] })).toThrow(
-      "E_PARAM_UNDECLARED",
+    const sneaky = (compute: ComponentDefinition["compute"]) => replace(fakeEmployment("1.0", compute));
+    expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.call("income.salary", {}))] })).toThrow("E_CALL_UNDECLARED");
+    expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.at(ctx.time.base).param("socialInsurance.pension.rate"))] })).toThrow("E_PARAM_UNDECLARED");
+    expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.list("member"))] })).toThrow("E_READ_UNDECLARED");
+    expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.assumption("investmentReturn", 2027))] })).toThrow("E_READ_UNDECLARED");
+  });
+
+  it("部品には reads に書いた入力項目だけが渡る（0016 の5）", () => {
+    let seen: unknown;
+    const spy = replace(
+      fakeEmployment("1.0", (_input, ctx) => {
+        seen = ctx.list("employment")[0];
+        return { flows: [] };
+      }),
     );
-    expect(() => run({ replacements: [sneaky((_i, ctx) => ctx.read("test.sample.openingBalance"))] })).toThrow("E_READ_UNDECLARED");
+    run({ replacements: [spy] });
+    // reads は employment.employer.industry だけ。給与・標準報酬月額・構成員などは渡らない（入力に無い industry も写さない）
+    expect(Object.keys(seen as object)).toEqual(["id"]);
+    expect(seen).not.toHaveProperty("salary");
   });
 
   it("差し替えた部品の出力の形の誤りはエラー（製品でも常に検査する）", () => {
-    const bad = replace(defineComponent({ ...fakeMonthly(), compute: () => ({ flows: [{ row: "cf.income.other", ym: "2027-04", amount: 1.5 }] }) }) as ComponentDefinition);
-    expect(() => runEngine(req(), [samplePack()], { replacements: [bad] })).toThrow("E_COMPONENT_SCHEMA");
+    const bad = replace(fakeEmployment("1.0", () => ({ flows: [{ row: "cf.taxSi.employment", ym: "2027-04", amount: 1.5 }] })));
+    expect(() => runEngine(req(), realPacks(), { replacements: [bad] })).toThrow("E_COMPONENT_SCHEMA");
   });
 
   it("制度の端数処理の規則は、計算している月が無いと使えない（conv. の規約だけ使える）", () => {
-    const r = replace(
-      defineComponent({ ...official.find((o) => o.def.id === "test.sample.lumpSum")!.def, compute: (_i, ctx) => ctx.money.round(yen(1), "test.sample.lumpSum.rounding") }) as ComponentDefinition,
-    );
+    const r = replace(fakeEmployment("1.0", (_i, ctx) => ctx.money.round(yen(1), "employmentInsurance.employeeShare.rounding")));
     expect(() => run({ replacements: [r] })).toThrow("E_ROUNDING_UNKNOWN");
   });
 });
@@ -134,19 +139,35 @@ describe("差し込み口", () => {
   });
 });
 
-describe("部品の定義", () => {
+describe("部品の定義と版", () => {
   it("マニフェストの誤りを拒む", () => {
-    const base = fakeMonthly();
+    const base = fakeEmployment();
     expect(() => defineComponent({ ...base, contract: "1" })).toThrow("E_COMPONENT_DEFINITION");
     expect(() => defineComponent({ ...base, revision: 0 })).toThrow("E_COMPONENT_DEFINITION");
     expect(() => defineComponent({ ...base, requires: { "test.x.y": "1.0" } })).toThrow("E_COMPONENT_DEFINITION");
+    expect(() => defineComponent({ ...base, requires: { "test.x.y": ">=1 <" } })).toThrow("E_COMPONENT_DEFINITION");
     expect(() => defineComponent({ ...base, id: "cf.income.other" })).toThrow("E_ID_FORMAT");
   });
 
+  it("requires の範囲: \"1\" は \">=1 <2\" の省略形（0006・0007 の追記）", () => {
+    for (const m of [0, 1, 2]) expect(satisfiesRange(m, "1")).toBe(satisfiesRange(m, ">=1 <2"));
+    expect(satisfiesRange(2, ">=1 <3")).toBe(true);
+    expect(satisfiesRange(3, ">=1 <3")).toBe(false);
+    expect(satisfiesRange(1, "=1")).toBe(true);
+    expect(() => satisfiesRange(1, "1.0")).toThrow("E_ARGUMENT");
+  });
+
   it("パックが必要とする部品の約束の版を確かめる", () => {
-    const p = samplePack();
-    const broken = clone(p);
-    broken.pack.requires = { "test.sample.lumpSum": ">=2" };
-    expect(() => runEngine(req(), [broken], {})).toThrow("E_CONTRACT_MISMATCH");
+    const packs = clone(realPacks());
+    (packs[0] as unknown as { pack: { requires: Record<string, string> } }).pack.requires = { "socialInsurance.health": ">=2" };
+    expect(() => runEngine(req(), packs, {})).toThrow("E_CONTRACT_MISMATCH");
+  });
+});
+
+describe("登録簿との照合（0004 の5）", () => {
+  it("公式部品が読む入力項目は、データモデル（JSON Schema）の入力項目IDにある", async () => {
+    const { ITEMS } = await import("../src/registry/items.ts");
+    const { OFFICIAL_DEFINITIONS } = await import("../src/components/index.ts");
+    for (const d of OFFICIAL_DEFINITIONS) for (const r of d.reads) expect(ITEMS.items[r], `${d.id}: ${r}`).toBeDefined();
   });
 });

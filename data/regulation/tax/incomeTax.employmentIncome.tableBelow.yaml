@@ -1,0 +1,21 @@
+# 給与等の収入金額が660万円未満は所得税法別表第五による
+id: incomeTax.employmentIncome.tableBelow
+title: 別表第五（4,000円単位の表）で給与所得を求める収入金額の上限（未満）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 6600000
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/annai/shinkoku/pdf/r08/zeigakuhyo.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年分 所得税の税額表等（給与所得の計算例）", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

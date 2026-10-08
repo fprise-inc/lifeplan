@@ -124,6 +124,80 @@
         }
       }
     },
+    "valueBoxMeta": {
+      "description": "0008 の2: 値の箱の共通の欄。値（value）の型は boxYen などで決める",
+      "type": "object",
+      "required": ["state", "origin"],
+      "properties": {
+        "state": { "enum": ["confirmed", "unknown", "notApplicable", "estimated"] },
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "enum": ["manual", "hearing", "import", "ai", "auto", "override"] },
+            "ref": { "type": "string", "minLength": 1 },
+            "connector": { "type": "string", "minLength": 1 }
+          }
+        },
+        "approval": {
+          "description": "0008 の2: 承認できるのは FP だけ",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["by", "at"],
+          "properties": {
+            "by": { "const": "fp" },
+            "at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(Z|[+-][0-9]{2}:[0-9]{2})$" },
+            "candidate": { "$ref": "#/$defs/uuid" }
+          }
+        },
+        "estimate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "basis"],
+          "properties": {
+            "method": { "enum": ["statistic", "derived", "officeDefault"] },
+            "basis": { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "state": { "const": "confirmed" } } }, "then": { "required": ["value"] } },
+        { "if": { "properties": { "state": { "const": "estimated" } } }, "then": { "required": ["value", "estimate"] } },
+        { "if": { "properties": { "state": { "const": "unknown" } } }, "then": { "required": ["substitute"], "not": { "required": ["value"] } } },
+        { "if": { "properties": { "state": { "const": "notApplicable" } } }, "then": { "not": { "anyOf": [{ "required": ["value"] }, { "required": ["substitute"] }] } } },
+        {
+          "if": { "properties": { "origin": { "properties": { "kind": { "enum": ["hearing", "import", "ai"] } } } } },
+          "then": { "required": ["approval"] }
+        }
+      ]
+    },
+    "boxYen": {
+      "description": "0008 の2: 円の金額の値の箱",
+      "allOf": [{ "$ref": "#/$defs/valueBoxMeta" }],
+      "properties": {
+        "value": { "$ref": "#/$defs/nonNegativeYen" },
+        "state": true,
+        "origin": true,
+        "approval": true,
+        "estimate": true,
+        "substitute": { "allOf": [{ "$ref": "#/$defs/boxYen" }, { "properties": { "state": { "const": "estimated" } } }] }
+      },
+      "additionalProperties": false
+    },
+    "boxRate": {
+      "description": "0008 の2: 率の値の箱",
+      "allOf": [{ "$ref": "#/$defs/valueBoxMeta" }],
+      "properties": {
+        "value": { "$ref": "#/$defs/rate" },
+        "state": true,
+        "origin": true,
+        "approval": true,
+        "estimate": true,
+        "substitute": { "allOf": [{ "$ref": "#/$defs/boxRate" }, { "properties": { "state": { "const": "estimated" } } }] }
+      },
+      "additionalProperties": false
+    },
     "flow": {
       "description": "0003 の2: 支払月ごとのお金の動き1件",
       "type": "object",

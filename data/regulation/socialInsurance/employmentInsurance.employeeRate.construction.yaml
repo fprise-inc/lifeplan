@@ -1,0 +1,35 @@
+id: employmentInsurance.employeeRate.construction
+title: 雇用保険料率の被保険者負担分（建設の事業）
+unit: rate
+kind: constant
+basis: {type: "fiscalYear", startMonth: 4}
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.0065"
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/001401966.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和７（2025）年４月１日から令和８（2026）年３月31日までの雇用保険料率は以下 のとおりです。 事業主・被保険者の皆さまへ", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://jsite.mhlw.go.jp/kumamoto-roudoukyoku/content/contents/002198981.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}
+  - rev: 2
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.006"
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/001692566.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和８（202６）年４月１日から令和９（202７）年３月31日までの雇用保険料率は以下 のとおりです。", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://jsite.mhlw.go.jp/ehime-roudoukyoku/content/contents/002602395.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://jsite.mhlw.go.jp/tokyo-hellowork/list/tachikawa/kyushokusha/koyouhokenryouritu08.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

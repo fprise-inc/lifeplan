@@ -1,0 +1,21 @@
+# 地方税法20条の4の2
+id: residentTax.taxableIncome.rounding
+title: 住民税の課税総所得金額などの1,000円未満の端数（切り捨て）
+unit: rounding
+kind: rounding
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 1000}
+    sources:
+      - {type: "web", url: "https://www.soumu.go.jp/main_content/000762836.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "法20の4の2、令6の17", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000383147.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

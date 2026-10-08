@@ -1,0 +1,20 @@
+id: incomeTax.dependentDeduction.elderlyCohabiting
+title: 扶養控除（老人扶養親族のうち同居老親等）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 580000
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1180.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/koho/kurashi/pdf/05.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "区 分 控 除 額 一般の控除対象扶養親族 特定扶養親族 同居老親等 同居老親等以外 老人扶養親族 38万円 63万円 58万円 48万円", note: "検索結果の題名の原文（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "2経路とも令和8年分の資料。令和7年分は額が変わったという記述が無いことで確かめた"}

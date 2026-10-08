@@ -1,0 +1,161 @@
+{
+  "trace": "none",
+  "input": {
+    "baseMonth": "2026-10",
+    "endYear": 2027,
+    "calcConventions": {
+      "aggregation": "cash",
+      "investmentTiming": "midYear",
+      "compatibility": null
+    },
+    "household": {
+      "members": [
+        {
+          "id": "35a74df4-6bf0-46f0-85b7-dc3d06a9550b",
+          "kind": "self",
+          "birth": {
+            "birthYearMonth": "1981-02",
+            "bornOnFirst": false
+          },
+          "sex": "male",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        }
+      ],
+      "relations": [],
+      "events": [],
+      "employmentPeriods": [
+        {
+          "id": "7d523cec-f306-471f-913e-400dc0989cb7",
+          "member": "35a74df4-6bf0-46f0-85b7-dc3d06a9550b",
+          "from": {
+            "at": "2004-04"
+          },
+          "to": null,
+          "type": "regular",
+          "healthInsurance": {
+            "kind": "kyokaikenpo",
+            "insurer": "kyokaikenpo.27"
+          },
+          "pensionCategory": "employee1",
+          "employer": {
+            "size": 300,
+            "weeklyHours": "40"
+          },
+          "salary": {
+            "annual": {
+              "value": 5400000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "bonus": {
+              "value": 1200000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "standardMonthlyRemuneration": {
+            "health": {
+              "value": 470000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "pension": {
+              "value": 470000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        }
+      ],
+      "accounts": [
+        {
+          "id": "8e35e49f-9427-4a5a-8e94-cb99514a83f6",
+          "kind": "deposit",
+          "owner": "35a74df4-6bf0-46f0-85b7-dc3d06a9550b",
+          "marketValue": {
+            "value": 6000000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "asOf": "2026-09",
+          "contributions": []
+        },
+        {
+          "id": "a52f45b6-56d5-40b7-a7f3-238c8f4559fa",
+          "kind": "ideco",
+          "owner": "35a74df4-6bf0-46f0-85b7-dc3d06a9550b",
+          "marketValue": {
+            "value": 2000000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "asOf": "2026-09",
+          "contributions": [
+            {
+              "from": {
+                "at": "2020-01"
+              },
+              "to": null,
+              "monthly": 23000
+            }
+          ]
+        }
+      ],
+      "insuranceContracts": [
+        {
+          "id": "c8c04e95-9cc6-4d46-87b2-b895984371df",
+          "template": "insurance.wholeLife",
+          "policyholder": "35a74df4-6bf0-46f0-85b7-dc3d06a9550b",
+          "insured": "35a74df4-6bf0-46f0-85b7-dc3d06a9550b",
+          "contractDate": "2015-06",
+          "currency": "JPY",
+          "premium": {
+            "amount": 10000,
+            "frequency": "monthly",
+            "payUntil": null
+          },
+          "deductionCategory": {
+            "type": "general",
+            "regime": "new"
+          }
+        }
+      ],
+      "residentTaxAssessments": [
+        {
+          "id": "bac446fd-5112-4386-844b-42ecc3ef0c4b",
+          "member": "35a74df4-6bf0-46f0-85b7-dc3d06a9550b",
+          "fiscalYear": 2026,
+          "amount": {
+            "value": 290000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          }
+        }
+      ]
+    },
+    "assumptions": {
+      "investmentReturn": {
+        "default": "0.01"
+      },
+      "wageGrowth": {
+        "default": "0.01"
+      }
+    }
+  }
+}

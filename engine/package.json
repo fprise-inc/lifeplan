@@ -9,13 +9,16 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "gen": "node --disable-warning=ExperimentalWarning scripts/gen.ts",
+    "gen": "node --disable-warning=ExperimentalWarning scripts/gen.ts && node --disable-warning=ExperimentalWarning scripts/registry.ts",
     "build": "npm run gen && node --disable-warning=ExperimentalWarning scripts/build.ts && node --disable-warning=ExperimentalWarning scripts/build-regulation.ts",
     "typecheck": "npm run gen && tsc -p tsconfig.json && tsc -p tsconfig.tools.json",
     "lint": "npm run gen && eslint .",
     "test": "npm run gen && vitest run",
     "parity": "node --disable-warning=ExperimentalWarning scripts/parity.ts",
-    "check:licenses": "node --disable-warning=ExperimentalWarning scripts/check-licenses.ts"
+    "check:licenses": "node --disable-warning=ExperimentalWarning scripts/check-licenses.ts",
+    "l2": "node --disable-warning=ExperimentalWarning scripts/l2-report.ts",
+    "models": "node --disable-warning=ExperimentalWarning scripts/model-households.ts",
+    "registry:check": "node --disable-warning=ExperimentalWarning scripts/gen.ts && node --disable-warning=ExperimentalWarning scripts/registry.ts --check"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

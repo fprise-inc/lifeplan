@@ -1,0 +1,574 @@
+# 0004 の5: 制度の値IDの登録簿。正本は data/regulation の制度データ（scripts/registry.ts が作る。手で書き換えない）
+# since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
+kind: param
+entries:
+  - id: employmentInsurance.employeeRate.agricultureEtc
+    status: active
+    label: "雇用保険料率の被保険者負担分（農林水産・清酒製造の事業）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.employeeRate.construction
+    status: active
+    label: "雇用保険料率の被保険者負担分（建設の事業）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.employeeRate.general
+    status: active
+    label: "雇用保険料率の被保険者負担分（一般の事業）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.employeeShare.rounding
+    status: active
+    label: "雇用保険料の被保険者負担分を賃金から控除するときの端数（50銭以下切り捨て、50銭超切り上げ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: forestEnvironmentTax.amount
+    status: active
+    label: "森林環境税（国税。住民税の均等割と一緒に徴収する年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.basicDeduction
+    status: active
+    label: "基礎控除（合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.defenseSurtax.rate
+    status: active
+    label: "防衛特別所得税の税率（基準所得税額に掛ける）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.dependentDeduction.elderly
+    status: active
+    label: "扶養控除（老人扶養親族（同居老親等以外））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.dependentDeduction.elderlyAge
+    status: active
+    label: "老人扶養親族の年齢（70歳以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.dependentDeduction.elderlyCohabiting
+    status: active
+    label: "扶養控除（老人扶養親族のうち同居老親等）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.dependentDeduction.general
+    status: active
+    label: "扶養控除（一般の控除対象扶養親族）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.dependentDeduction.minAge
+    status: active
+    label: "控除対象扶養親族の年齢（16歳以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.dependentDeduction.specified
+    status: active
+    label: "扶養控除（特定扶養親族（19歳以上23歳未満））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.dependentDeduction.specifiedFromAge
+    status: active
+    label: "特定扶養親族の年齢の下限（19歳以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.dependentDeduction.specifiedUntilAge
+    status: active
+    label: "特定扶養親族の年齢の上限（23歳未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.dependentIncomeLimit
+    status: active
+    label: "同一生計配偶者・扶養親族の合計所得金額の上限（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.earthquakeDeduction.earthquake
+    status: active
+    label: "地震保険料控除（地震保険料の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.earthquakeDeduction.longTerm
+    status: active
+    label: "地震保険料控除（旧長期損害保険料の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.earthquakeDeduction.totalLimit
+    status: active
+    label: "地震保険料控除（合計の上限）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.employmentIncome.tableBelow
+    status: active
+    label: "別表第五（4,000円単位の表）で給与所得を求める収入金額の上限（未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.employmentIncome.tableRounding
+    status: active
+    label: "別表第五の収入金額の刻み（4,000円未満切り捨て。収入÷4の千円未満切り捨てと同じ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.employmentIncomeDeduction
+    status: active
+    label: "給与所得控除額（給与等の収入金額の段階。控除額＝収入×率＋額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.insuranceDeduction.rounding
+    status: active
+    label: "生命保険料控除・地震保険料控除の1円未満の端数（切り上げ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.lifeInsuranceDeduction.mixedLimit
+    status: active
+    label: "生命保険料控除（新旧の両方で受ける区分の上限）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.lifeInsuranceDeduction.mixedLimitWithYoungDependent
+    status: active
+    label: "生命保険料控除（23歳未満の扶養親族がいる場合の一般生命保険料の新旧併用の上限）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.lifeInsuranceDeduction.new
+    status: active
+    label: "生命保険料控除（新契約。支払保険料等の段階。控除額＝保険料×率＋額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.lifeInsuranceDeduction.newGeneralWithYoungDependent
+    status: active
+    label: "生命保険料控除（23歳未満の扶養親族がいる場合の新契約の一般生命保険料）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.lifeInsuranceDeduction.old
+    status: active
+    label: "生命保険料控除（旧契約。支払保険料等の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.lifeInsuranceDeduction.totalLimit
+    status: active
+    label: "生命保険料控除（3区分の合計の上限）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.lifeInsuranceDeduction.youngDependentUntilAge
+    status: active
+    label: "生命保険料控除の特例の扶養親族の年齢（23歳未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.reconstructionSurtax.rate
+    status: active
+    label: "復興特別所得税の税率（基準所得税額に掛ける）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.specifiedRelativeDeduction
+    status: active
+    label: "特定親族特別控除（19歳以上23歳未満の親族の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.specifiedRelativeDeduction.incomeLimit
+    status: active
+    label: "特定親族特別控除を受けられる親族の合計所得金額の上限（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.spouseDeduction.elderly
+    status: active
+    label: "配偶者控除（老人控除対象配偶者。納税者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.spouseDeduction.elderlyAge
+    status: active
+    label: "老人控除対象配偶者の年齢（その年12月31日に達しているか）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.spouseDeduction.general
+    status: active
+    label: "配偶者控除（一般。納税者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.spouseSpecialDeduction.incomeLimit
+    status: active
+    label: "配偶者特別控除を受けられる配偶者の合計所得金額の上限（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.spouseSpecialDeduction.tier1
+    status: active
+    label: "配偶者特別控除（納税者の合計所得金額900万円以下。配偶者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.spouseSpecialDeduction.tier2
+    status: active
+    label: "配偶者特別控除（納税者の合計所得金額900万円超950万円以下。配偶者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.spouseSpecialDeduction.tier3
+    status: active
+    label: "配偶者特別控除（納税者の合計所得金額950万円超1,000万円以下。配偶者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.surtax.rounding
+    status: active
+    label: "復興特別所得税額・防衛特別所得税額の1円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.taxAmount.rounding
+    status: active
+    label: "所得税及び復興特別所得税の額（申告納税額・年調年税額）の100円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.taxRateTable
+    status: active
+    label: "所得税の速算表（課税される所得金額の段階。税額＝所得×率−額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.taxableIncome.rounding
+    status: active
+    label: "課税される所得金額の1,000円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.basic
+    status: active
+    label: "調整控除の人的控除額の差（基礎控除）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.dependentElderly
+    status: active
+    label: "調整控除の人的控除額の差（扶養控除（老人））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.dependentElderlyCohabiting
+    status: active
+    label: "調整控除の人的控除額の差（扶養控除（同居老親等））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.dependentGeneral
+    status: active
+    label: "調整控除の人的控除額の差（扶養控除（一般））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.dependentSpecified
+    status: active
+    label: "調整控除の人的控除額の差（扶養控除（特定））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.specifiedRelative
+    status: active
+    label: "調整控除の人的控除額の差（特定親族特別控除。令和8年度から差は無いものとして計算）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.spouseElderly
+    status: active
+    label: "調整控除の人的控除額の差（配偶者控除・老人。納税者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.spouseGeneral
+    status: active
+    label: "調整控除の人的控除額の差（配偶者控除・一般。納税者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.spouseSpecial
+    status: active
+    label: "調整控除の人的控除額の差（配偶者特別控除。令和8年度から差は無いものとして計算）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.incomeLimit
+    status: active
+    label: "調整控除を受けられる合計所得金額の上限（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.minimumBase
+    status: active
+    label: "調整控除の計算の最低額（これに率を掛ける）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.municipalRate
+    status: active
+    label: "調整控除の率（市町村民税）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.prefecturalRate
+    status: active
+    label: "調整控除の率（道府県民税）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.threshold
+    status: active
+    label: "調整控除の合計課税所得金額の境目"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.basicDeduction
+    status: active
+    label: "住民税の基礎控除（合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.dependentDeduction.elderly
+    status: active
+    label: "住民税の扶養控除（老人扶養親族（同居老親等以外））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.dependentDeduction.elderlyCohabiting
+    status: active
+    label: "住民税の扶養控除（老人扶養親族のうち同居老親等）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.dependentDeduction.general
+    status: active
+    label: "住民税の扶養控除（一般）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.dependentDeduction.specified
+    status: active
+    label: "住民税の扶養控除（特定扶養親族）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.dependentIncomeLimit
+    status: active
+    label: "住民税の同一生計配偶者・扶養親族の合計所得金額の上限（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.earthquakeDeduction.earthquake
+    status: active
+    label: "住民税の地震保険料控除（地震保険料の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.earthquakeDeduction.longTerm
+    status: active
+    label: "住民税の地震保険料控除（旧長期損害保険料の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.earthquakeDeduction.totalLimit
+    status: active
+    label: "住民税の地震保険料控除（合計の上限）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.incomeLevy.calc.rounding
+    status: active
+    label: "住民税の課税標準×税率・調整控除の額の1円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.incomeLevy.municipalRate
+    status: active
+    label: "住民税の所得割の標準税率（市町村民税）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.incomeLevy.prefecturalRate
+    status: active
+    label: "住民税の所得割の標準税率（道府県民税）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.incomeLevy.rounding
+    status: active
+    label: "住民税の所得割額（市町村民税・道府県民税それぞれ）の100円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.lifeInsuranceDeduction.mixedLimit
+    status: active
+    label: "住民税の生命保険料控除（新旧の両方で受ける区分の上限）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.lifeInsuranceDeduction.new
+    status: active
+    label: "住民税の生命保険料控除（新契約。支払保険料等の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.lifeInsuranceDeduction.old
+    status: active
+    label: "住民税の生命保険料控除（旧契約。支払保険料等の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.lifeInsuranceDeduction.totalLimit
+    status: active
+    label: "住民税の生命保険料控除（3区分の合計の上限）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.perCapita.municipal
+    status: active
+    label: "住民税の均等割の標準税率（市町村民税）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.perCapita.prefectural
+    status: active
+    label: "住民税の均等割の標準税率（道府県民税）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.specifiedRelativeDeduction
+    status: active
+    label: "住民税の特定親族特別控除（19歳以上23歳未満の親族の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.specifiedRelativeDeduction.incomeLimit
+    status: active
+    label: "住民税の特定親族特別控除を受けられる親族の合計所得金額の上限（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.spouseDeduction.elderly
+    status: active
+    label: "住民税の配偶者控除（老人控除対象配偶者。納税者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.spouseDeduction.general
+    status: active
+    label: "住民税の配偶者控除（一般。納税者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.spouseSpecialDeduction.incomeLimit
+    status: active
+    label: "住民税の配偶者特別控除を受けられる配偶者の合計所得金額の上限（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.spouseSpecialDeduction.tier1
+    status: active
+    label: "住民税の配偶者特別控除（納税者の合計所得金額900万円以下。配偶者の合計所得金額の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.taxableIncome.rounding
+    status: active
+    label: "住民税の課税総所得金額などの1,000円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.kyokaikenpo.rate
+    status: active
+    label: "協会けんぽの介護保険料率（全国一律。労使の合計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.secondaryInsuredFromAge
+    status: active
+    label: "介護保険の第2号被保険者になる年齢（40歳に達した日の属する月から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.secondaryInsuredUntilAge
+    status: active
+    label: "介護保険の第2号被保険者でなくなる年齢（65歳に達した日の属する月から第2号でない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.childSupport.rate
+    status: active
+    label: "子ども・子育て支援金率（被用者保険。労使の合計。標準報酬月額・標準賞与額に掛ける）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.employeeShare.rounding
+    status: active
+    label: "健康保険料・介護保険料・支援金・厚生年金保険料の被保険者負担分を給与から控除するときの端数（50銭以下切り捨て、50銭超切り上げ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.health.kyokaikenpo.rate
+    status: active
+    label: "協会けんぽの健康保険料率（都道府県支部ごと。労使の合計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.health.standardBonus.annualLimit
+    status: active
+    label: "健康保険（介護保険・支援金も）の標準賞与額の年度の累計の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.pension.maxAge
+    status: active
+    label: "厚生年金の資格を失う年齢（70歳に達した日。その月の前月分まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.pension.rate
+    status: active
+    label: "厚生年金保険料率（一般の被保険者。労使の合計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.pension.standardBonus.monthlyLimit
+    status: active
+    label: "厚生年金の標準賞与額の上限（支給1回。同じ月は合算）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.standardBonus.rounding
+    status: active
+    label: "標準賞与額（賞与額の1,000円未満の切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null

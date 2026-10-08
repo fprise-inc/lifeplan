@@ -1,0 +1,25 @@
+id: residentTax.basicDeduction
+title: 住民税の基礎控除（合計所得金額の段階）
+unit: JPY
+kind: bracketTable
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 24000000, amount: 430000}
+      - {upTo: 24500000, amount: 290000}
+      - {upTo: 25000000, amount: 150000}
+      - {upTo: null, amount: 0}
+    sources:
+      - {type: "web", url: "https://www.soumu.go.jp/main_content/000767350.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.soumu.go.jp/main_content/001075462.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和9年度 改正なし（最高43万円）", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/kojinkeisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

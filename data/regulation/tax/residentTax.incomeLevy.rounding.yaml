@@ -1,0 +1,21 @@
+# 地方税法20条の4の2
+id: residentTax.incomeLevy.rounding
+title: 住民税の所得割額（市町村民税・道府県民税それぞれ）の100円未満の端数（切り捨て）
+unit: rounding
+kind: rounding
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2025-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 100}
+    sources:
+      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000383147.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/kojinkeisan.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "計算例", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "根拠の条文（地方税法20条の4の2）の読み方は検索では確かめていない"}

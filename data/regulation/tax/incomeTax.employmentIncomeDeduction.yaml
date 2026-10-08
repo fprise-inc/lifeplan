@@ -1,0 +1,50 @@
+# 所得税法別表第五、租税特別措置法29条の4（令和8年度改正の特例）
+id: incomeTax.employmentIncomeDeduction
+title: 給与所得控除額（給与等の収入金額の段階。控除額＝収入×率＋額）
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: "2025-12-01"
+    milestones:
+      - {kind: "withholdingFrom", date: "2025-12-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1900000, amount: 650000}
+      - {upTo: 3600000, rate: "0.3", amount: 80000}
+      - {upTo: 6600000, rate: "0.2", amount: 440000}
+      - {upTo: 8500000, rate: "0.1", amount: 1100000}
+      - {upTo: null, amount: 1950000}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/0025004-025.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和７年度税制改正により、所得税の「基礎控除」や「給与所得控除」に関する見直し、「特定親族特別控除」の創設が行われました。", note: "検索結果の題名の原文（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "190万円超の段の式は1410の1経路（もう1経路は「190万円超は改正なし」の記述）"}
+  - rev: 2
+    appliesFrom: "2026-01-01"
+    appliesTo: "2027-12-31"
+    enforcedOn: "2026-12-01"
+    milestones:
+      - {kind: "withholdingFrom", date: "2027-01-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 2200000, amount: 740000}
+      - {upTo: 3600000, rate: "0.3", amount: 80000}
+      - {upTo: 6600000, rate: "0.2", amount: 440000}
+      - {upTo: 8500000, rate: "0.1", amount: 1100000}
+      - {upTo: null, amount: 1950000}
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "租税特別措置法第29条の4の適用後", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/users/gensen/2026kiso/pdf/0026005-024.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", quote: "令和８年度税制改正により、所得税の基礎控除の引上げ、給与所得控除の最低保障額の引上", note: "検索結果の題名の原文（原本は未取得）"}
+      - {type: "web", url: "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年度税制改正の大綱", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "最低保障額74万円は本則69万円と令和8年分・令和9年分の特例5万円。令和10年分以後の区分は未確認のため行を置かない。収入69.1万〜220万円未満の別表の値は未確認"}

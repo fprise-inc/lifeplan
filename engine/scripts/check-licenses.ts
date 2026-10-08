@@ -8,32 +8,25 @@ import { ENGINE_DIR } from "./lib.ts";
 
 const ALLOWED = new Set([
   "MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Zlib", "Unicode-3.0", "Unicode-DFS-2016",
-  "Unlicense", "CC0-1.0", "0BSD", "BSL-1.0",
+  "Unlicense", "CC0-1.0", "0BSD", "BSL-1.0", "BlueOak-1.0.0",
 ]);
 
-/** 部品ごとの例外（名前を一つずつ載せる）。どれも開発の道具の依存で、配布物には入らない */
-const EXCEPTIONS: Readonly<Record<string, { license: string; reason: string }>> = {
-  // 0021: MPL-2.0 は改変せずに使う場合だけ、部品ごとに許す（vitest → vite が使う CSS の処理）
-  lightningcss: { license: "MPL-2.0", reason: "テストの道具（vitest）の依存。改変しない" },
-  "lightningcss-linux-x64-gnu": { license: "MPL-2.0", reason: "同上（Linux 用のバイナリ）" },
-  "lightningcss-linux-arm64-gnu": { license: "MPL-2.0", reason: "同上" },
-  "lightningcss-darwin-arm64": { license: "MPL-2.0", reason: "同上（macOS 用）" },
-  "lightningcss-darwin-x64": { license: "MPL-2.0", reason: "同上（macOS 用）" },
-  "lightningcss-win32-x64-msvc": { license: "MPL-2.0", reason: "同上（Windows 用）" },
-  // BlueOak-1.0.0 は許可の一覧に無いが、MIT と同じ程度に緩い。ESLint（0002 で使う）の依存
-  minimatch: { license: "BlueOak-1.0.0", reason: "lint の道具（eslint・typescript-eslint）の依存" },
-};
+/**
+ * 0021 の追記: 開発だけで使う道具の依存（配布物に入らないもの）は、MPL-2.0 を改変しない場合に許す。
+ * この npm の依存はすべて開発の道具（テスト・lint・ビルド）で、配布物（dist/engine.js）には入らない（scripts/build.ts で確かめる）
+ */
+const DEV_ONLY_ALLOWED = new Set(["MPL-2.0"]);
 
 const FORBIDDEN = /\b(A?GPL|LGPL|SSPL)|\bNC\b|NonCommercial/i;
 
 /** SPDX の式（OR・AND・括弧）を、許可の一覧で満たせるか */
-export function satisfied(expr: string): boolean {
+export function satisfied(expr: string, devOnly = false): boolean {
   const s = expr.trim().replace(/^\((.*)\)$/, "$1");
   const ors = s.split(/\s+OR\s+/);
-  if (ors.length > 1) return ors.some(satisfied);
+  if (ors.length > 1) return ors.some((x) => satisfied(x, devOnly));
   const ands = s.split(/\s+AND\s+/);
-  if (ands.length > 1) return ands.every(satisfied);
-  return ALLOWED.has(s);
+  if (ands.length > 1) return ands.every((x) => satisfied(x, devOnly));
+  return ALLOWED.has(s) || (devOnly && DEV_ONLY_ALLOWED.has(s));
 }
 
 function licenseOf(pkg: { license?: unknown; licenses?: unknown }): string | null {
@@ -64,13 +57,9 @@ export function checkLicenses(nodeModules: string): { problems: string[]; seen: 
         const lic = licenseOf(pkg);
         const id = `${pkg.name}@${pkg.version}`;
         seen.set(id, lic ?? "(なし)");
-        // lightningcss は OS・CPU ごとのバイナリの部品（-linux-x64-musl など）が増えるので、接頭辞でまとめて扱う
-        const ex = EXCEPTIONS[pkg.name] ?? (pkg.name.startsWith("lightningcss-") ? EXCEPTIONS["lightningcss"] : undefined);
         if (lic === null) problems.push(`${id}: ライセンスの表示が無い`);
-        else if (ex !== undefined && ex.license === lic) {
-          // 例外の一覧にある
-        } else if (FORBIDDEN.test(lic) && !satisfied(lic)) problems.push(`${id}: 禁止のライセンス ${lic}`);
-        else if (!satisfied(lic)) problems.push(`${id}: 許可の一覧に無いライセンス ${lic}`);
+        else if (FORBIDDEN.test(lic) && !satisfied(lic, true)) problems.push(`${id}: 禁止のライセンス ${lic}`);
+        else if (!satisfied(lic, true)) problems.push(`${id}: 許可の一覧に無いライセンス ${lic}`);
       }
       walk(join(p, "node_modules"));
     }

@@ -3,7 +3,7 @@ import { EngineError } from "../errors.ts";
 import { isTestId } from "../ids/ids.ts";
 import type { ComponentDefinition } from "./define.ts";
 import { SLOTS } from "./slots.ts";
-import { contractMajor } from "../regulation/versions.ts";
+import { contractMajor, satisfiesRange } from "../regulation/versions.ts";
 
 export type Origin = "official" | "replacement" | "extension";
 
@@ -117,10 +117,10 @@ export function assemble(official: readonly OfficialComponent[], options: Assemb
 /** 使う部品があり、約束の MAJOR が合い、依存が循環していないこと */
 function checkRequires(impls: ReadonlyMap<string, Impl>): void {
   for (const i of impls.values()) {
-    for (const [dep, major] of Object.entries(i.def.requires)) {
+    for (const [dep, range] of Object.entries(i.def.requires)) {
       const d = impls.get(dep);
       if (d === undefined) throw new EngineError("E_COMPONENT_UNKNOWN", [i.def.id, dep]);
-      if (contractMajor(d.def.contract) !== Number(major)) throw new EngineError("E_CONTRACT_MISMATCH", [i.def.id, dep]);
+      if (!satisfiesRange(contractMajor(d.def.contract), range)) throw new EngineError("E_CONTRACT_MISMATCH", [i.def.id, dep]);
     }
   }
   const state = new Map<string, "visiting" | "done">();

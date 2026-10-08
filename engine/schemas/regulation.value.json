@@ -8,7 +8,7 @@
   "properties": {
     "id": { "$ref": "urn:financia:schema:common#/$defs/dottedId" },
     "title": { "type": "string", "minLength": 1 },
-    "unit": { "enum": ["JPY", "rate", "months", "count", "yearMonth", "rounding"] },
+    "unit": { "enum": ["JPY", "rate", "months", "count", "years", "yearMonth", "rounding"] },
     "kind": { "enum": ["constant", "bracketTable", "gradeTable", "formula", "indexed", "rounding", "componentSwitch"] },
     "basis": { "$ref": "#/$defs/basis" },
     "ageSwitch": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/ageSwitch" }] },
@@ -48,6 +48,35 @@
             "items": {
               "properties": {
                 "value": { "oneOf": [{ "$ref": "urn:financia:schema:common#/$defs/rate" }, { "const": "notApplicable" }] }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "gradeTable" } } },
+      "then": {
+        "properties": {
+          "unit": { "const": "JPY" },
+          "entries": {
+            "items": {
+              "properties": {
+                "value": { "oneOf": [{ "$ref": "#/$defs/gradeValue" }, { "const": "notApplicable" }] }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "constant" }, "unit": { "enum": ["count", "years", "months"] } }, "required": ["kind", "unit"] },
+      "then": {
+        "properties": {
+          "entries": {
+            "items": {
+              "properties": {
+                "value": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "const": "notApplicable" }] }
               }
             }
           }
@@ -130,7 +159,10 @@
         "rev": { "type": "integer", "minimum": 1 },
         "appliesFrom": { "$ref": "urn:financia:schema:common#/$defs/date" },
         "appliesTo": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/date" }] },
-        "enforcedOn": { "$ref": "urn:financia:schema:common#/$defs/date" },
+        "enforcedOn": {
+          "description": "施行日。原本で確かめる前（approval.method が pendingReview）で施行日が分からない行だけ null（PR の提案）",
+          "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/date" }]
+        },
         "milestones": {
           "type": "array",
           "items": {
@@ -165,14 +197,19 @@
         "recordedIn": { "$ref": "#/$defs/packVersion" },
         "supersededIn": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/packVersion" }] },
         "approval": {
+          "description": "0007 の9。pendingReview は原本で人が確かめる前（原本を取れずに検索の抜粋で読んだ値など。PR の提案）。paths は読み取って一致を確かめた経路の数",
           "type": "object",
           "additionalProperties": false,
           "required": ["method"],
           "properties": {
-            "method": { "enum": ["reviewed", "automated"] },
+            "method": { "enum": ["reviewed", "automated", "pendingReview"] },
             "keyId": { "type": "string" },
-            "recordId": { "type": "string" }
-          }
+            "recordId": { "type": "string" },
+            "paths": { "type": "integer", "minimum": 1, "maximum": 9 },
+            "note": { "type": "string", "minLength": 1 }
+          },
+          "if": { "properties": { "method": { "const": "pendingReview" } } },
+          "then": { "required": ["paths"] }
         }
       },
       "if": { "properties": { "status": { "const": "proposed" } } },
@@ -198,6 +235,22 @@
       "properties": {
         "mode": { "enum": ["DOWN", "UP", "HALF_UP", "HALF_DOWN", "HALF_EVEN"] },
         "unit": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+      }
+    },
+    "gradeValue": {
+      "description": "0007 の追記: 等級表（標準報酬月額表など）。報酬月額が from 以上 below 未満なら等級 grade・額 amount。grade は1から1ずつ、from は前の行の below と同じ、最後の行だけ below が null",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["grade", "amount", "from", "below"],
+        "properties": {
+          "grade": { "type": "integer", "minimum": 1 },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "from": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "below": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }] }
+        }
       }
     },
     "bracketValue": {
@@ -229,6 +282,21 @@
             "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
             "locator": { "type": "string" },
             "quote": { "type": "string" }
+          }
+        },
+        {
+          "description": "原本を取れず、公式のドメインに限った検索の結果で読んだもの。原本の指紋は無い（PR の提案）。quote は検索結果の題名に出た原文の抜粋",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "url", "retrievedAt", "retrievedVia"],
+          "properties": {
+            "type": { "const": "web" },
+            "url": { "type": "string", "pattern": "^https://" },
+            "retrievedAt": { "$ref": "urn:financia:schema:common#/$defs/date" },
+            "retrievedVia": { "const": "searchExcerpt" },
+            "locator": { "type": "string" },
+            "quote": { "type": "string" },
+            "note": { "type": "string" }
           }
         },
         {

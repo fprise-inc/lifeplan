@@ -1,6 +1,7 @@
 // 0006 の1: 計算部品の形（マニフェスト＋計算の関数）
 import { EngineError } from "../errors.ts";
 import { checkId, isDottedId } from "../ids/ids.ts";
+import { isRange } from "../regulation/versions.ts";
 import type { Ctx } from "./ctx.ts";
 
 export interface ComponentDefinition<I = unknown, O = unknown> {
@@ -10,7 +11,9 @@ export interface ComponentDefinition<I = unknown, O = unknown> {
   readonly contract: string;
   /** 実装の改訂（不具合修正・制度改正のたびに1ずつ増やす） */
   readonly revision: number;
-  /** 呼ぶ部品と約束の版（MAJOR） */
+  /** 画面・登録簿に出す名前（0004 の5） */
+  readonly title?: string;
+  /** 呼ぶ部品と約束の版の範囲（例 ">=1 <2"。"1" はその省略形。0006 の追記） */
   readonly requires: Readonly<Record<string, string>>;
   /** 読む制度の値ID（端数処理の規則IDを含む） */
   readonly params: readonly string[];
@@ -27,7 +30,6 @@ export interface ComponentDefinition<I = unknown, O = unknown> {
 }
 
 const CONTRACT_PATTERN = /^\d+\.\d+$/;
-const MAJOR_PATTERN = /^\d+$/;
 
 export function defineComponent<I, O>(def: ComponentDefinition<I, O>): ComponentDefinition<I, O> {
   const id = typeof def.id === "string" ? def.id : "";
@@ -37,8 +39,8 @@ export function defineComponent<I, O>(def: ComponentDefinition<I, O>): Component
   checkId("component", def.id);
   if (!CONTRACT_PATTERN.test(def.contract)) bad("contract");
   if (!Number.isSafeInteger(def.revision) || def.revision < 1) bad("revision");
-  for (const [dep, major] of Object.entries(def.requires)) {
-    if (!isDottedId(dep) || !MAJOR_PATTERN.test(major)) bad("requires");
+  for (const [dep, range] of Object.entries(def.requires)) {
+    if (!isDottedId(dep) || !isRange(range)) bad("requires");
   }
   for (const p of def.params) if (!isDottedId(p)) bad("params");
   for (const r of def.reads) if (!isDottedId(r)) bad("reads");

@@ -1,0 +1,30 @@
+id: residentTax.spouseSpecialDeduction.tier1
+title: 住民税の配偶者特別控除（納税者の合計所得金額900万円以下。配偶者の合計所得金額の段階）
+unit: JPY
+kind: bracketTable
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2026-06-01"
+    appliesTo: "2027-05-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 950000, amount: 330000}
+      - {upTo: 1000000, amount: 330000}
+      - {upTo: 1050000, amount: 310000}
+      - {upTo: 1100000, amount: 260000}
+      - {upTo: 1150000, amount: 210000}
+      - {upTo: 1200000, amount: 160000}
+      - {upTo: 1250000, amount: 110000}
+      - {upTo: 1300000, amount: 60000}
+      - {upTo: 1330000, amount: 30000}
+      - {upTo: null, amount: 0}
+    sources:
+      - {type: "web", url: "https://www.city.osaka.lg.jp/zaisei/page/0000370588.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "令和8年度の表。95万〜100万円の段は大阪市の1経路。令和7年度・令和9年度の表は未確認のため行を置かない"}

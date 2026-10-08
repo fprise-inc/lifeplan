@@ -1,0 +1,21 @@
+id: incomeTax.lifeInsuranceDeduction.youngDependentUntilAge
+title: 生命保険料控除の特例の扶養親族の年齢（23歳未満）
+unit: years
+kind: constant
+basis: "incomeYear"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2025-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 23
+    sources:
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", locator: "令和8年分以降・23歳未満の扶養親族がいる場合", note: "検索の要約（原本は未取得）"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/koho/kurashi/html/04_2.htm", retrievedAt: "2026-10-08", retrievedVia: "searchExcerpt", note: "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2}

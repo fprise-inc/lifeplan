@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.deductions.output",
+  "title": "所得控除",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "basic",
+    "spouse",
+    "spouseSpecial",
+    "dependents",
+    "specifiedRelative",
+    "socialInsurance",
+    "lifeInsurance",
+    "earthquake",
+    "smallBusiness",
+    "total",
+    "personalDiff"
+  ],
+  "properties": {
+    "basic": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "spouse": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "spouseSpecial": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "dependents": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "specifiedRelative": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "socialInsurance": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "lifeInsurance": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "earthquake": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "smallBusiness": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "total": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "personalDiff": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    }
+  }
+}

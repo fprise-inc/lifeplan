@@ -1,0 +1,21 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.incomeTax.earthquakeDeduction.longTerm
+title: 【架空の見本】incomeTax.earthquakeDeduction.longTerm
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2000-01-01"
+    appliesTo: null
+    enforcedOn: "2000-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 10000, rate: "1"}
+      - {upTo: null, rate: "0", amount: 10000}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

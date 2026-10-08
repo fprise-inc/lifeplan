@@ -21,7 +21,7 @@ export default tseslint.config(
     rules: componentRules(join(root, "src", "components"), join(root, "src", "sdk")),
   },
   {
-    files: ["scripts/**/*.ts", "test/**/*.ts", "eslint-plugin/**/*.js", "*.js", "*.ts"],
+    files: ["scripts/**/*.ts", "scripts/**/*.js", "test/**/*.ts", "eslint-plugin/**/*.js", "*.js", "*.ts"],
     languageOptions: { globals: { process: "readonly", console: "readonly", URL: "readonly" } },
   },
 );
