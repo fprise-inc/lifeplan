@@ -94,7 +94,17 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   }
   const h = input.household;
   // 世帯内の物のIDは、その世帯の中で一意（0004 の4）
-  const objectIds = [h.members, h.events, h.employmentPeriods, h.accounts, h.insuranceContracts, h.residentTaxAssessments ?? []].flatMap((l) =>
+  const objectIds = [
+    h.members,
+    h.events,
+    h.employmentPeriods,
+    h.accounts,
+    h.insuranceContracts,
+    h.residentTaxAssessments ?? [],
+    h.pensionRecords ?? [],
+    h.premiumAssessments ?? [],
+    h.premiumRates ?? [],
+  ].flatMap((l) =>
     (l as readonly { id: string }[]).map((o) => o.id),
   );
   if (new Set(objectIds).size !== objectIds.length) throw new EngineError("E_ARGUMENT", ["household.id"]);
@@ -104,9 +114,15 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     ...h.accounts.map((a) => a.owner),
     ...h.insuranceContracts.flatMap((c) => [c.policyholder, c.insured]),
     ...(h.residentTaxAssessments ?? []).map((a) => a.member),
+    ...(h.pensionRecords ?? []).map((a) => a.member),
+    ...(h.premiumAssessments ?? []).map((a) => a.member),
+    ...h.employmentPeriods.flatMap((p) => [p.leaveChild, p.childcareShortHours?.child].filter((x): x is string => x !== undefined)),
     ...h.relations.flatMap((r) => (r.type === "spouse" ? [r.a, r.b] : [r.parent, r.child])),
   ];
   if (refs.some((id) => !memberIds.has(id))) throw new EngineError("E_ARGUMENT", ["household.member"]);
+  // 年金の加入の記録は構成員ごとに1件まで
+  const recordMembers = (h.pensionRecords ?? []).map((r) => r.member);
+  if (new Set(recordMembers).size !== recordMembers.length) throw new EngineError("E_ARGUMENT", ["household.pensionRecords.member"]);
 
   const tracer = new Tracer(req.trace);
   const time = new TimeResolver(h.members, h.events);
@@ -128,6 +144,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     items: ITEMS,
     projections: new Map(),
     notices: new Map(),
+    extended: new Map(),
     checkInternal: options.checkInternal === true,
     base,
     end,
@@ -191,8 +208,11 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     calcConventions: input.calcConventions as unknown as Json,
     components: assembly.refs as unknown as Json[],
     data: store.packs() as unknown as Json[],
-    // 計算に反映していないこと（未対応の制度など）。ID だけ
-    notices: [...state.notices.values()].sort((a, b) => cmp(`${a.code}|${a.ids.join(",")}`, `${b.code}|${b.ids.join(",")}`)) as unknown as Json[],
+    // 計算に反映していないこと（未対応の制度など）と、延長の仮定で使った値（値の行・最初の年・最後の年）。ID だけ
+    notices: [
+      ...state.notices.values(),
+      ...[...state.extended.entries()].map(([ref, r]) => ({ code: "N_PARAM_EXTENDED", ids: [ref, String(r.first), String(r.last)] })),
+    ].sort((a, b) => cmp(`${a.code}|${a.ids.join(",")}`, `${b.code}|${b.ids.join(",")}`)) as unknown as Json[],
   };
   const result = stripUndefined({ header, flows, annual, table: table as unknown as Json[], trace });
   return options.entry === undefined ? result : { ...result, entryOutput: output };

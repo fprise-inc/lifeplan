@@ -185,6 +185,19 @@
       },
       "additionalProperties": false
     },
+    "boxBoolean": {
+      "description": "0008 の2: 真偽の値の箱（導いた結果の上書きなど）",
+      "allOf": [{ "$ref": "#/$defs/valueBoxMeta" }],
+      "properties": {
+        "value": { "type": "boolean" },
+        "state": true,
+        "origin": true,
+        "approval": true,
+        "estimate": true,
+        "substitute": { "allOf": [{ "$ref": "#/$defs/boxBoolean" }, { "properties": { "state": { "const": "estimated" } } }] }
+      },
+      "additionalProperties": false
+    },
     "boxRate": {
       "description": "0008 の2: 率の値の箱",
       "allOf": [{ "$ref": "#/$defs/valueBoxMeta" }],

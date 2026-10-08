@@ -173,8 +173,10 @@ describe("エンジン側の読み取り", () => {
     expect(old.select(id, d("2040-01-01")).entry.rev).toBe(2);
     expect(asRoundingRule(latest.select("incomeTax.taxAmount.rounding", d("2030-01-01")))).toEqual({ mode: "DOWN", unit: 100 });
     expect(() => latest.select(id, d("2024-12-31"))).toThrow("E_PARAM_NO_VALUE");
-    // 期限つきの特例の後の区分が分からない値は、行を置かない（推測で埋めない）
-    expect(() => latest.select("incomeTax.employmentIncomeDeduction", d("2028-01-01"))).toThrow("E_PARAM_NO_VALUE");
+    // 期限つきの特例の後の区分が分からない値は、行を置かない（推測で埋めない）。延長の仮定で最後の行が続くとみなす（0007 の追記）
+    const ext = latest.select("incomeTax.employmentIncomeDeduction", d("2028-01-01"));
+    expect([ext.entry.rev, ext.extendedYear]).toEqual([2, 2028]);
+    expect(latest.select("incomeTax.employmentIncomeDeduction", d("2027-01-01")).extendedYear).toBeUndefined();
   });
 
   it("全国以外の管轄（協会けんぽの支部）の値を選ぶ", () => {

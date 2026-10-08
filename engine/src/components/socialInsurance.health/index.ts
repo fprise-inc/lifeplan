@@ -16,6 +16,7 @@ import {
   type Flow,
   type MonthIndex,
   type Rate,
+  type ValueBox,
   type Yen,
 } from "../../sdk/index.ts";
 
@@ -34,8 +35,9 @@ function ratesFor(ctx: Ctx, p: EmploymentPeriodInput, m: MonthIndex, care: boole
   const half = (r: Rate | null) => (r === null ? RATE_ZERO : ctx.rate.div(r, TWO));
   // 支援金率は令和8年4月分から（それより前は制度データで「該当なし」）
   const childSupportNational = half(at.paramRate("socialInsurance.childSupport.rate"));
-  if (p.healthInsurance.kind === "kyokaikenpo") {
-    const insurer = p.healthInsurance.insurer as string;
+  const hi = p.healthInsurance;
+  if (hi?.kind === "kyokaikenpo") {
+    const insurer = hi.insurer as string;
     return {
       health: half(at.paramRate("socialInsurance.health.kyokaikenpo.rate", { jurisdiction: { level: "insurer", code: insurer } })),
       care: care ? half(at.paramRate("socialInsurance.care.kyokaikenpo.rate")) : RATE_ZERO,
@@ -43,14 +45,14 @@ function ratesFor(ctx: Ctx, p: EmploymentPeriodInput, m: MonthIndex, care: boole
     };
   }
   // 健保組合・共済は、被保険者負担の率を入力で受ける（上書きの範囲②。0008 の4）
-  const own = (b: typeof p.healthInsurance.employeeRate) => {
+  const own = (b: ValueBox<string> | undefined) => {
     const v = boxValue(b);
     return v === null ? null : rate(v);
   };
   return {
-    health: own(p.healthInsurance.employeeRate) ?? RATE_ZERO,
-    care: care ? (own(p.healthInsurance.careEmployeeRate) ?? RATE_ZERO) : RATE_ZERO,
-    childSupport: own(p.healthInsurance.childSupportEmployeeRate) ?? childSupportNational,
+    health: own(hi?.employeeRate) ?? RATE_ZERO,
+    care: care ? (own(hi?.careEmployeeRate) ?? RATE_ZERO) : RATE_ZERO,
+    childSupport: own(hi?.childSupportEmployeeRate) ?? childSupportNational,
   };
 }
 
@@ -67,7 +69,7 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
   id: "socialInsurance.health",
   title: "健康保険料・介護保険料・子ども・子育て支援金",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "socialInsurance.coverage": ">=1 <2" },
   params: [
     "socialInsurance.health.kyokaikenpo.rate",
@@ -92,7 +94,7 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
       if (amount > 0) flows.push({ row, ym, amount, accrualYear: accrual, member: input.member, object: period, formula });
     };
     for (const c of cov.months) {
-      if (c.healthStd === null) continue;
+      if (c.healthStd === null || c.exempt === true) continue;
       const m = parseYm(c.month);
       const p = ctx.get<EmploymentPeriodInput>("employment", c.period);
       const [h, care, cs] = split(ctx, m, c.healthStd, ratesFor(ctx, p, m, c.care));
@@ -101,7 +103,7 @@ export default defineComponent<{ member: string; fromYear: number }, { flows: Fl
       push("cf.taxSi.childSupport", c.paidIn, cs, yearOf(m), c.period, "socialInsurance.childSupport.monthly");
     }
     for (const b of cov.bonuses) {
-      if (b.healthStdBonus === null) continue;
+      if (b.healthStdBonus === null || b.exempt === true) continue;
       const m = parseYm(b.month);
       const p = ctx.get<EmploymentPeriodInput>("employment", b.period);
       const [h, care, cs] = split(ctx, m, b.healthStdBonus, ratesFor(ctx, p, m, b.care));

@@ -8,6 +8,8 @@ export interface ParamUse {
   readonly ref: string;
   readonly value: Json;
   readonly packVersion: string;
+  /** 延長の仮定で使った（0007 の追記） */
+  readonly extended?: true;
 }
 
 export type TraceNode =
@@ -20,6 +22,7 @@ export type TraceNode =
       readonly appliesFrom: string;
       readonly appliesTo: string | null;
       readonly sources: readonly Json[];
+      readonly extended?: true;
     }
   | { readonly type: "input"; readonly item?: string; readonly collection?: string; readonly object?: string; readonly value: Json }
   | { readonly type: "rounding"; readonly rule: string; readonly op: string; readonly input: string; readonly result: Json }
@@ -79,8 +82,11 @@ export class Tracer {
   param(frame: Frame, node: Extract<TraceNode, { type: "param" }>): void {
     if (this.mode === "none") return;
     const e = this.entry(frame.component);
-    if (!e.params.has(node.ref)) e.params.set(node.ref, { id: node.id, ref: node.ref, value: node.value, packVersion: node.packVersion });
-    if (this.mode === "full") frame.uses.add(this.intern(`p|${node.ref}`, () => node));
+    const key = node.extended === true ? `${node.ref}+` : node.ref;
+    if (!e.params.has(key)) {
+      e.params.set(key, { id: node.id, ref: node.ref, value: node.value, packVersion: node.packVersion, ...(node.extended === true ? { extended: true as const } : {}) });
+    }
+    if (this.mode === "full") frame.uses.add(this.intern(`p|${key}`, () => node));
   }
 
   rounding(frame: Frame, rule: string, op: string, input: () => string, result: Json): void {

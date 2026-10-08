@@ -22,4 +22,10 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.tax.fractionalDeduction": DOWN1,
   // 住民税の年税額を納期に分ける仮の規約（端数は最初の納期。法令の端数の扱いは原本で確かめる前）
   "conv.residentTax.installment": DOWN1,
+  // 在職老齢年金の支給停止額の2分の1（円未満切り捨て。法令の端数の扱いは原本で確かめる前の仮の規約）
+  "conv.pension.suspension": DOWN1,
+  // 繰下げ待機中の在職停止額の平均（円未満切り捨て）
+  "conv.pension.average": DOWN1,
+  // 整数倍など、端数の出ない計算
+  "conv.exact": DOWN1,
 });

@@ -83,6 +83,8 @@ export interface MonthCtx {
   paramBrackets(id: string, opts?: ParamOptions): readonly Bracket[] | null;
   paramGrades(id: string, opts?: ParamOptions): readonly Grade[] | null;
   paramCount(id: string, opts?: ParamOptions): number | null;
+  /** 延長の仮定を使わずに、その月の値（行）があるか。根拠の記録には残さない（改定率のように前提で延ばす値のため） */
+  has(id: string, opts?: ParamOptions): boolean;
   readonly money: MoneyApi;
 }
 
@@ -121,6 +123,8 @@ export interface RunState {
   /** 部品ごと・集まりごとの絞った写し（1回の計算の中で使い回す） */
   readonly projections: Map<string, readonly Record<string, unknown>[]>;
   readonly notices: Map<string, { readonly code: string; readonly ids: readonly string[] }>;
+  /** 延長の仮定で使った値の行（<値ID>@<rev>）→ 使った年の範囲（見出しの notices に出す。0007 の追記） */
+  readonly extended: Map<string, { first: number; last: number }>;
   readonly checkInternal: boolean;
   readonly base: MonthIndex;
   readonly end: MonthIndex;
@@ -188,6 +192,35 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
   const reads = new Set(def.reads);
   const tracer = state.tracer;
 
+  const matchOf = (opts: ParamOptions) => {
+    const birth = opts.member !== undefined ? state.time.birthOf(opts.member) : undefined;
+    const sex = opts.member !== undefined ? state.time.sexOf(opts.member) : undefined;
+    return {
+      ...(birth !== undefined ? { birth } : {}),
+      ...(sex !== undefined ? { sex } : {}),
+      ...(opts.jurisdiction !== undefined ? { jurisdiction: opts.jurisdiction } : {}),
+    };
+  };
+  const lookupOf = (id: string, month: MonthIndex, opts: ParamOptions) => {
+    const vdef = state.store.definition(id);
+    const lc: { anchorMonth?: MonthIndex } = {};
+    if (vdef.basis.type === "anchor") {
+      if (opts.anchorEvent === undefined) throw new EngineError("E_ARGUMENT", [id, "anchorEvent"]);
+      lc.anchorMonth = state.time.resolveEvent(opts.anchorEvent, []);
+    }
+    return lookupFor(vdef.basis, month, lc as LookupContext);
+  };
+  const has = (id: string, month: MonthIndex, opts: ParamOptions = {}): boolean => {
+    if (!params.has(id)) throw new EngineError("E_PARAM_UNDECLARED", [def.id, id]);
+    try {
+      state.store.select(id, lookupOf(id, month, opts).date, { ...matchOf(opts), noExtension: true });
+      return true;
+    } catch (e) {
+      if (e instanceof EngineError && (e.code === "E_PARAM_NO_VALUE" || e.code === "E_PARAM_UNKNOWN")) return false;
+      throw e;
+    }
+  };
+
   const param = (id: string, month: MonthIndex, opts: ParamOptions = {}): Selected => {
     if (!params.has(id)) throw new EngineError("E_PARAM_UNDECLARED", [def.id, id]);
     const vdef = state.store.definition(id);
@@ -198,22 +231,28 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
       lc.anchorMonth = state.time.resolveEvent(opts.anchorEvent, []);
     }
     const lookup = lookupFor(vdef.basis, month, lc as LookupContext);
-    const birth = opts.member !== undefined ? state.time.birthOf(opts.member) : undefined;
-    const sel = state.store.select(id, lookup.date, {
-      ...(birth !== undefined ? { birth } : {}),
-      ...(opts.jurisdiction !== undefined ? { jurisdiction: opts.jurisdiction } : {}),
-    });
+    const sel = state.store.select(id, lookup.date, matchOf(opts));
+    // 0009 の追記: 値の1行は <制度の値ID>@<rev>
+    const ref = `${id}@${sel.entry.rev}`;
+    if (sel.extendedYear !== undefined) {
+      const r = state.extended.get(ref);
+      if (r === undefined) state.extended.set(ref, { first: sel.extendedYear, last: sel.extendedYear });
+      else {
+        if (sel.extendedYear < r.first) r.first = sel.extendedYear;
+        if (sel.extendedYear > r.last) r.last = sel.extendedYear;
+      }
+    }
     if (tracer.on) {
       tracer.param(frame, {
         type: "param",
         id,
-        // 0009 の追記: 値の1行は <制度の値ID>@<rev>
-        ref: `${id}@${sel.entry.rev}`,
+        ref,
         value: sel.entry.value,
         packVersion: sel.entry.recordedIn,
         appliesFrom: sel.entry.appliesFrom,
         appliesTo: sel.effectiveTo,
         sources: sel.entry.sources,
+        ...(sel.extendedYear !== undefined ? { extended: true } : {}),
       });
     }
     return sel;
@@ -318,6 +357,7 @@ function makeCtx(state: RunState, impl: Impl, frame: Frame): Ctx {
         paramBrackets: (id, opts) => asBrackets(param(id, month, opts)),
         paramGrades: (id, opts) => asGrades(param(id, month, opts)),
         paramCount: (id, opts) => asCount(param(id, month, opts)),
+        has: (id, opts) => has(id, month, opts),
         money: moneyApi(month),
       };
     },

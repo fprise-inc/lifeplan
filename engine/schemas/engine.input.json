@@ -34,7 +34,13 @@
       "required": ["investmentReturn"],
       "properties": {
         "investmentReturn": { "title": "運用利回り（年率）", "x-item": "assumptions.investmentReturn", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
-        "wageGrowth": { "title": "賃金上昇率（年率。省略は0）", "x-item": "assumptions.wageGrowth", "$ref": "urn:financia:schema:common#/$defs/yearSeries" }
+        "wageGrowth": { "title": "賃金上昇率（年率。省略は0）", "x-item": "assumptions.wageGrowth", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
+        "inflation": { "title": "物価上昇率（年率。省略は0。年金額の改定に使う）", "x-item": "assumptions.inflation", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
+        "pensionMacroSlide": {
+          "title": "年金額のマクロ経済スライドの調整率（年度ごと。正の率で書き、改定率から引く。省略は0）",
+          "x-item": "assumptions.pensionMacroSlide",
+          "$ref": "urn:financia:schema:common#/$defs/yearSeries"
+        }
       }
     }
   },
@@ -56,6 +62,24 @@
           "type": "array",
           "x-collection": "residentTaxAssessment",
           "items": { "$ref": "#/$defs/residentTaxAssessment" }
+        },
+        "pensionRecords": {
+          "description": "公的年金の加入の記録（構成員ごとに1件まで）。ねんきん定期便・年金額の通知・加入歴・見込額のどれかの型で入れる",
+          "type": "array",
+          "x-collection": "pensionRecord",
+          "items": { "$ref": "#/$defs/pensionRecord" }
+        },
+        "premiumAssessments": {
+          "description": "置き換え口（0006 の5）: 国民健康保険（世帯主に世帯の合計）・後期高齢者医療・介護保険（第1号）の決定通知書の年額。与えられた年度はこの額を使う",
+          "type": "array",
+          "x-collection": "premiumAssessment",
+          "items": { "$ref": "#/$defs/premiumAssessment" }
+        },
+        "premiumRates": {
+          "description": "上書き（0008 の7 の範囲②）: 住んでいる市町村・広域連合の国民健康保険・後期高齢者医療・介護保険（第1号）の料率。省略は全国の標準的な値",
+          "type": "array",
+          "x-collection": "premiumRate",
+          "items": { "$ref": "#/$defs/premiumRate" }
         }
       }
     },
@@ -128,10 +152,10 @@
       }
     },
     "employmentPeriod": {
-      "description": "0008 の4: 人ごとの働き方の期間。期間は重ならない",
+      "description": "0008 の4: 人ごとの働き方の期間。期間は重ならない。休業は期間を分けて表し、直前の勤め先の期間の保険を引き継ぐ。被保険者の種別（第1〜3号）・被用者保険と雇用保険に入るかは、ここからエンジンが月ごとに導く（上書きは employeeInsurance・employmentInsuranceCovered）",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "member", "from", "to", "type", "healthInsurance", "pensionCategory", "employer", "salary"],
+      "required": ["id", "member", "from", "to", "type"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "member": { "title": "働く構成員", "x-item": "employment.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
@@ -139,7 +163,9 @@
         "to": { "title": "期間の終わり（その月を含む。null は最後まで）", "x-item": "employment.to", "$ref": "#/$defs/timepointOrNull" },
         "type": { "title": "働き方", "x-item": "employment.type", "enum": ["regular", "contract", "partTime", "selfEmployed", "civilServant", "leave", "unemployed"] },
         "leaveKind": { "title": "休業の種類", "x-item": "employment.leaveKind", "enum": ["maternity", "childcare", "sick", "other"] },
+        "leaveChild": { "title": "産前産後休業・育児休業の対象の子（省略は休業の始まりに近い子から決める）", "x-item": "employment.leaveChild", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "healthInsurance": {
+          "description": "会社員などの期間は勤め先の健康保険（協会けんぽ・健保組合・共済）。自営・無職の期間に書いたときは、エンジンが導く健康保険の種類の上書き（国民健康保険・家族の扶養・任意継続）",
           "type": "object",
           "additionalProperties": false,
           "required": ["kind"],
@@ -168,19 +194,26 @@
             { "if": { "properties": { "kind": { "enum": ["union", "mutualAid"] } } }, "then": { "required": ["employeeRate"] } }
           ]
         },
-        "pensionCategory": { "title": "厚生年金の種別", "x-item": "employment.pensionCategory", "enum": ["employee1", "employee2", "employee3", "employee4", "none"] },
+        "pensionCategory": { "title": "厚生年金の種別（none は厚生年金に入らない勤め先）", "x-item": "employment.pensionCategory", "enum": ["employee1", "employee2", "employee3", "employee4", "none"] },
         "employer": {
           "type": "object",
           "additionalProperties": false,
           "required": ["size", "weeklyHours"],
           "properties": {
-            "size": { "title": "勤務先の従業員数", "x-item": "employment.employer.size", "type": "integer", "minimum": 0 },
+            "size": { "title": "勤務先の従業員数（被保険者の数。適用拡大の企業規模の要件）", "x-item": "employment.employer.size", "type": "integer", "minimum": 0 },
             "weeklyHours": { "title": "週の所定労働時間", "x-item": "employment.employer.weeklyHours", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "fullTimeWeeklyHours": { "title": "通常の労働者の週の所定労働時間（4分の3の基準。省略は40）", "x-item": "employment.employer.fullTimeWeeklyHours", "$ref": "urn:financia:schema:common#/$defs/rate" },
             "industry": { "title": "雇用保険の事業の種類（省略は一般）", "x-item": "employment.employer.industry", "enum": ["general", "agricultureEtc", "construction"] }
           }
         },
+        "student": { "title": "学生か（短時間労働者の適用拡大・雇用保険の対象から外れる）", "x-item": "employment.student", "type": "boolean" },
+        "employeeInsurance": {
+          "title": "上書き: 被用者保険（健康保険・厚生年金）に入るか（省略はエンジンが働き方から導く）",
+          "x-item": "employment.employeeInsurance",
+          "$ref": "urn:financia:schema:common#/$defs/boxBoolean"
+        },
         "employmentInsuranceCovered": {
-          "title": "雇用保険の被保険者か（会社員・契約は省略で真、パートは必須）",
+          "title": "上書き: 雇用保険の被保険者か（省略はエンジンが週の所定労働時間などから導く）",
           "x-item": "employment.employmentInsuranceCovered",
           "type": "boolean"
         },
@@ -199,7 +232,40 @@
               "uniqueItems": true,
               "items": { "type": "integer", "minimum": 1, "maximum": 12 }
             },
-            "commutingMonthly": { "title": "非課税の通勤手当（月額）", "x-item": "employment.salary.commutingMonthly", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+            "commutingMonthly": { "title": "非課税の通勤手当（月額）", "x-item": "employment.salary.commutingMonthly", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "contractualMonthly": {
+              "title": "所定内賃金の月額（適用拡大の賃金の要件。省略は給与の年額の12分の1）",
+              "x-item": "employment.salary.contractualMonthly",
+              "$ref": "urn:financia:schema:common#/$defs/boxYen"
+            },
+            "growth": {
+              "title": "昇給の仕方（省略は賃金上昇率だけ。curve は昇給カーブのマスタデータの値ID）",
+              "x-item": "employment.salary.growth",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["curve"],
+              "properties": { "curve": { "$ref": "urn:financia:schema:common#/$defs/dottedId" } }
+            }
+          }
+        },
+        "business": {
+          "title": "自営の事業所得（年額。青色申告特別控除の後。期間の最初の年の額）",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["income"],
+          "properties": {
+            "income": { "title": "事業所得（年額）", "x-item": "employment.business.income", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+          }
+        },
+        "childcareShortHours": {
+          "title": "育児のための短時間勤務（2歳未満の子。育児時短就業給付）",
+          "x-item": "employment.childcareShortHours",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["child"],
+          "properties": {
+            "child": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "wageBefore": { "title": "時短の前の賃金の月額（省略は直前の期間の給与）", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
           }
         },
         "standardMonthlyRemuneration": {
@@ -217,8 +283,14 @@
         "retirementBenefit": { "title": "退職給付", "x-item": "employment.retirementBenefit", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "endsWith": { "title": "期間の終わり方", "x-item": "employment.endsWith", "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" }
       },
-      "if": { "properties": { "type": { "const": "leave" } } },
-      "then": { "required": ["leaveKind"] }
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "leave" } } }, "then": { "required": ["leaveKind"] } },
+        {
+          "if": { "properties": { "type": { "enum": ["regular", "contract", "partTime", "civilServant"] } } },
+          "then": { "required": ["healthInsurance", "pensionCategory", "employer", "salary"] }
+        },
+        { "if": { "properties": { "type": { "const": "selfEmployed" } } }, "then": { "required": ["business"] } }
+      ]
     },
     "account": {
       "description": "0008 の9: 資産の器（計算に使う部分）",
@@ -291,6 +363,115 @@
           "if": { "properties": { "type": { "enum": ["general", "careMedical", "pension"] } } },
           "then": { "required": ["regime"] }
         }
+      }
+    },
+    "pensionRecord": {
+      "description": "公的年金の加入の記録。kind で型を選ぶ: statementUnder50（ねんきん定期便・50歳未満。加入実績に応じた額）、statementOver50（ねんきん定期便・50歳以上。60歳まで続けたときの見込額）、receiving（受給中の年金額の通知）、history（加入歴からの推計）、projection（65歳からの見込額だけを直接入れる）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "member", "kind", "asOf"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "member": { "title": "加入者", "x-item": "pensionRecord.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": { "title": "記録の型", "x-item": "pensionRecord.kind", "enum": ["statementUnder50", "statementOver50", "receiving", "history", "projection"] },
+        "asOf": { "title": "記録の時点（定期便の作成の月・通知の年月・加入歴の終わりの月）。この月より後はエンジンが働き方の期間から足す", "x-item": "pensionRecord.asOf", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+        "months": {
+          "title": "加入期間の月数（定期便の加入期間の欄）",
+          "x-item": "pensionRecord.months",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["basic", "employee"],
+          "properties": {
+            "basic": { "title": "老齢基礎年金の額に反映する月数（第1号の納付済・第3号・第2号の20〜59歳）", "type": "integer", "minimum": 0, "maximum": 600 },
+            "employee": { "title": "厚生年金の加入月数", "type": "integer", "minimum": 0, "maximum": 900 },
+            "employee2059": { "title": "うち20〜59歳の厚生年金の月数（経過的加算。省略は employee と basic の小さい方）", "type": "integer", "minimum": 0, "maximum": 480 },
+            "qualifying": { "title": "受給資格期間の月数（免除・合算対象期間を含む。省略は basic）", "type": "integer", "minimum": 0, "maximum": 900 }
+          }
+        },
+        "amounts": {
+          "title": "置き換え口: 記録の年金額（年額）",
+          "x-item": "pensionRecord.amounts",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "basic": { "title": "老齢基礎年金", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "employee": { "title": "老齢厚生年金（報酬比例部分）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "transitional": { "title": "経過的加算", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "special": { "title": "特別支給の老齢厚生年金（報酬比例部分）", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+          }
+        },
+        "history": {
+          "title": "加入歴（history の型）",
+          "x-item": "pensionRecord.history",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "to", "category"],
+            "properties": {
+              "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+              "to": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+              "category": { "enum": ["national1", "national1Unpaid", "national3", "employee"] },
+              "averageRemuneration": {
+                "title": "平均標準報酬額（2003年3月以前は平均標準報酬月額。いまの賃金の水準に直した額とみなす）",
+                "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+              }
+            }
+          }
+        },
+        "claim": {
+          "title": "受給を始める月（基礎と厚生を別々に。繰上げ・繰下げ。省略は65歳に達した月の翌月）",
+          "x-item": "pensionRecord.claim",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "basic": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "employee": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "enum": ["statementUnder50", "statementOver50"] } } }, "then": { "required": ["months", "amounts"] } },
+        { "if": { "properties": { "kind": { "enum": ["receiving", "projection"] } } }, "then": { "required": ["amounts"] } },
+        { "if": { "properties": { "kind": { "const": "history" } } }, "then": { "required": ["history"] } }
+      ]
+    },
+    "premiumAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "member", "kind", "fiscalYear", "amount"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "member": { "title": "納める構成員（国民健康保険は世帯主）", "x-item": "premiumAssessment.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": { "title": "保険料の種類", "x-item": "premiumAssessment.kind", "enum": ["nationalHealth", "lateElderly", "careFirst"] },
+        "fiscalYear": { "title": "年度", "x-item": "premiumAssessment.fiscalYear", "$ref": "urn:financia:schema:common#/$defs/year" },
+        "amount": { "title": "年額", "x-item": "premiumAssessment.amount", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+      }
+    },
+    "premiumRate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": { "title": "保険料の種類", "x-item": "premiumRate.kind", "enum": ["nationalHealth", "lateElderly", "careFirst"] },
+        "fromFiscalYear": { "title": "この年度から（省略は最初から）", "x-item": "premiumRate.fromFiscalYear", "$ref": "urn:financia:schema:common#/$defs/year" },
+        "parts": {
+          "title": "賦課の区分ごとの料率（国民健康保険は medical・elderlySupport・care・childSupport、後期高齢者医療は medical・childSupport）",
+          "x-item": "premiumRate.parts",
+          "type": "object",
+          "propertyNames": { "enum": ["medical", "elderlySupport", "care", "childSupport"] },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "incomeRate": { "title": "所得割の率", "$ref": "urn:financia:schema:common#/$defs/boxRate" },
+              "perCapita": { "title": "均等割（年額）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+              "perHousehold": { "title": "平等割（年額）", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+            }
+          }
+        },
+        "baseMonthly": { "title": "介護保険（第1号）の基準額（月額）", "x-item": "premiumRate.baseMonthly", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
       }
     },
     "residentTaxAssessment": {
