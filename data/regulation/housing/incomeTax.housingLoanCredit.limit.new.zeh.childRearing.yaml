@@ -16,7 +16,7 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1211-1.htm", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅借入金等特別控除", "note": "検索の要約（原本は未取得。この環境から公式サイトに届かない）"}
       - {"type": "web", "url": "https://www.mlit.go.jp/report/press/content/001854843.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅ローン減税（国土交通省の資料）", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "令和4・5年入居。原本での確認待ち"}
   - rev: 2
     appliesFrom: "2024-01-01"
@@ -30,7 +30,7 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1211-1.htm", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅借入金等特別控除", "note": "検索の要約（原本は未取得。この環境から公式サイトに届かない）"}
       - {"type": "web", "url": "https://www.mlit.go.jp/report/press/content/001854843.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅ローン減税（国土交通省の資料）", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "令和6・7年入居。原本での確認待ち"}
   - rev: 3
     appliesFrom: "2026-01-01"
@@ -45,7 +45,7 @@ entries:
       - {"type": "web", "url": "https://www.mlit.go.jp/report/press/content/001854843.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅ローン減税（国土交通省の資料）", "note": "検索の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）", "note": "検索の要約（原本は未取得。大綱の表は抽出が崩れていて確定できない）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 3, "note": "令和8・9年入居（令和8年度税制改正）。原本での確認待ち"}
   - rev: 4
     appliesFrom: "2028-01-01"
@@ -60,7 +60,7 @@ entries:
       - {"type": "web", "url": "https://www.mlit.go.jp/report/press/content/001854843.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅ローン減税（国土交通省の資料）", "note": "検索の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）", "note": "検索の要約（原本は未取得。大綱の表は抽出が崩れていて確定できない）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 3, "note": "令和10〜12年入居（令和8年度税制改正）。原本での確認待ち"}
   - rev: 5
     appliesFrom: "2031-01-01"
@@ -75,5 +75,101 @@ entries:
       - {"type": "web", "url": "https://www.mlit.go.jp/report/press/content/001854843.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅ローン減税（国土交通省の資料）", "note": "検索の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）", "note": "検索の要約（原本は未取得。大綱の表は抽出が崩れていて確定できない）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 3, "note": "令和13年以後の入居は制度なし（期限の後）。原本での確認待ち"}
+  - rev: 6
+    appliesFrom: "2022-01-01"
+    appliesTo: "2023-12-31"
+    enforcedOn: "2022-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 45000000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第41条第7項第2号イ", "quote": "令和四年又は令和五年その居住に係る家屋が特定エネルギー消費性能向上住宅であり"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20220401_504AC0000000004?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "be3b3da28c658ffe235eab4b205064aa5574defddff2658743a6ef0a38054489", "locator": "租税特別措置法 第41条第11項第2号（令和4年4月1日の版）", "quote": "居住年が令和四年から令和七年までの各年である場合（居住年が令和四年又は令和五年である場合には、その居住に係る家屋が特定エネルギー消費性能向上住宅であり"}
+      - {"type": "web", "url": "https://www.mlit.go.jp/jutakukentiku/house/content/001614831.pdf", "retrievedAt": "2026-10-09", "sha256": "77130cb0b5c58330e82f39bc45bb971970dca023121d4d5661a662348c4fca91", "locator": "国土交通省 住宅ローン減税の省エネ要件化の説明資料（新築住宅の場合の表。抽出した本文は表の並びが崩れているので目でも照らし合わせた）", "quote": "控除率0.7％ 控除期間13年 4,500万円"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "4,500万円（令和4・5年入居に子育て世帯の特例は無く、一般と同じ）。令和4・5年入居（令和4年度税制改正、令和4年4月1日施行）。措置法の条文（施行の版と令和8年10月1日の版）と公表資料で一致"}
+  - rev: 7
+    appliesFrom: "2024-01-01"
+    appliesTo: "2024-12-31"
+    enforcedOn: "2024-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 45000000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第41条第9項第2号", "quote": "居住年が令和六年から令和十二年までの各年である場合（次に掲げる当該居住年の区分に応じそれぞれ次に定める場合に限る。）四千五百万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20240401_506AC0000000008?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "98cdb73f73987c81164fd5e2c357f593ca5db910c38b9d757ccd922033feb5d4", "locator": "租税特別措置法 第41条第13項第2号（令和6年4月1日の版）", "quote": "二その居住に係る家屋が特定エネルギー消費性能向上住宅である場合四千五百万円"}
+      - {"type": "web", "url": "https://www.mlit.go.jp/jutakukentiku/house/content/001887903.pdf", "retrievedAt": "2026-10-09", "sha256": "b829bdf5ae94f7e0f7f70f273db5cb764d0e02ceb1a6b4158a5b4dc59ca3b640", "locator": "同", "quote": "子育て世帯・若者夫婦世帯(6)：4,500万円 その他の世帯：3,500万円"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "4,500万円。令和6年入居の子育て特例（令和6年4月1日施行）。措置法の条文（施行の版と令和8年10月1日の版）と公表資料で一致"}
+  - rev: 8
+    appliesFrom: "2025-01-01"
+    appliesTo: "2025-12-31"
+    enforcedOn: "2025-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 45000000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第41条第9項第2号", "quote": "居住年が令和六年から令和十二年までの各年である場合（次に掲げる当該居住年の区分に応じそれぞれ次に定める場合に限る。）四千五百万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20250401_507AC0000000013?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "4e4d1e1f9d0fb764f5e94ca9b9adb84e7c6a49d414f78d8dc54f42b4237e7cb1", "locator": "租税特別措置法 第41条第13項（令和7年4月1日の版）", "quote": "令和六年一月一日から令和七年十二月三十一日までの間に第一項の定めるところにより当該特例対象個人の居住の用に供した場合に限る"}
+      - {"type": "web", "url": "https://www.mlit.go.jp/jutakukentiku/house/content/001887903.pdf", "retrievedAt": "2026-10-09", "sha256": "b829bdf5ae94f7e0f7f70f273db5cb764d0e02ceb1a6b4158a5b4dc59ca3b640", "locator": "同", "quote": "子育て世帯・若者夫婦世帯(6)：4,500万円 その他の世帯：3,500万円"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "4,500万円。令和7年入居への延長（令和7年4月1日施行）。措置法の条文（施行の版と令和8年10月1日の版）と公表資料で一致"}
+  - rev: 9
+    appliesFrom: "2026-01-01"
+    appliesTo: "2027-12-31"
+    enforcedOn: "2026-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 45000000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第41条第9項第2号", "quote": "居住年が令和六年から令和十二年までの各年である場合（次に掲げる当該居住年の区分に応じそれぞれ次に定める場合に限る。）四千五百万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20260401_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "5f8a975f773da2458260a5a3895ff69b088e2633a9d8c60d0f3317e37b6e79b1", "locator": "租税特別措置法 第41条第9項第2号（令和8年4月1日の版）", "quote": "居住年が令和六年から令和十二年までの各年である場合（次に掲げる当該居住年の区分に応じそれぞれ次に定める場合に限る。）四千五百万円"}
+      - {"type": "web", "url": "https://www.mlit.go.jp/page/content/001975596.pdf", "retrievedAt": "2026-10-09", "sha256": "aa96c3b9035fc3cda6a5bb7c658ce9febd504274e89e5e190ad060252ea3ae0f", "locator": "同", "quote": "3,500万円（4,500万円）× 13年"}
+      - {"type": "web", "url": "https://www.nta.go.jp/publication/pamph/koho/kurashi/html/05_1.htm", "retrievedAt": "2026-10-09", "sha256": "6f97598d3fdbb24525e6c5bca267ea70aff4af38cb570146b2970328253508fb", "locator": "国税庁 暮らしの税情報（令和8年度版）マイホームを持ったとき", "quote": "（最高4,500万円） × 0.7％＝ 控除額 （最高31.5万円）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "4,500万円。令和8〜12年入居（令和8年度税制改正、所得税法等の一部を改正する法律（令和8年法律第12号）、令和8年4月1日施行）。措置法の条文（施行の版と令和8年10月1日の版）と公表資料で一致"}
+  - rev: 10
+    appliesFrom: "2028-01-01"
+    appliesTo: "2030-12-31"
+    enforcedOn: "2026-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 45000000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第41条第9項第2号", "quote": "居住年が令和六年から令和十二年までの各年である場合（次に掲げる当該居住年の区分に応じそれぞれ次に定める場合に限る。）四千五百万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20260401_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "5f8a975f773da2458260a5a3895ff69b088e2633a9d8c60d0f3317e37b6e79b1", "locator": "租税特別措置法 第41条第9項第2号（令和8年4月1日の版）", "quote": "居住年が令和六年から令和十二年までの各年である場合（次に掲げる当該居住年の区分に応じそれぞれ次に定める場合に限る。）四千五百万円"}
+      - {"type": "web", "url": "https://www.mlit.go.jp/page/content/001975596.pdf", "retrievedAt": "2026-10-09", "sha256": "aa96c3b9035fc3cda6a5bb7c658ce9febd504274e89e5e190ad060252ea3ae0f", "locator": "同", "quote": "3,500万円（4,500万円）× 13年"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "4,500万円。令和8〜12年入居（令和8年度税制改正、所得税法等の一部を改正する法律（令和8年法律第12号）、令和8年4月1日施行）。措置法の条文（施行の版と令和8年10月1日の版）と公表資料で一致"}
+  - rev: 11
+    appliesFrom: "2031-01-01"
+    appliesTo: null
+    enforcedOn: "2026-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第41条第6項（令和8年10月1日の版）", "quote": "令和十二年十二月三十一日までの間に第一項の定めるところによりその者の居住の用に供した場合"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1211-1.htm", "retrievedAt": "2026-10-09", "sha256": "932ec473b144c2e4ca4d2de5dbcad1113f8a050103a11b278477b203f1f0850e", "locator": "国税庁 No.1211-1", "quote": "令和4年1月1日から令和12年12月31日までの間に自己の居住の用に供したとき"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20260401_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和13年以後の入居は制度なし（期限の後。期限は令和8年度税制改正で令和12年12月31日の入居まで延長）。措置法の条文と国税庁の資料で一致"}

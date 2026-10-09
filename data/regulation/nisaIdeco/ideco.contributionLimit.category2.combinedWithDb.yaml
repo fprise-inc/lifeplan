@@ -16,7 +16,7 @@ entries:
       - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "月27,500円（他制度掛金相当額は数えない）"}
   - rev: 2
     appliesFrom: "2024-12-01"
@@ -30,7 +30,7 @@ entries:
       - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "月55,000円（他制度掛金相当額を含める）"}
   - rev: 3
     appliesFrom: "2026-12-01"
@@ -44,5 +44,51 @@ entries:
       - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "2026年12月分から月62,000円。原本での確認待ち"}
+  - rev: 4
+    appliesFrom: "2017-01-01"
+    appliesTo: "2024-11-30"
+    enforcedOn: "2017-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 27500
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413CO0000000248_20170101_428CO0000000310?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "2b388936abd58b32c1198fe518720275b51fad1502291bf65ab907ce4ee229cf", "locator": "確定拠出年金法施行令 第11条第4号（平成29年1月1日の版）", "quote": "個人型年金同時加入可能者であって、他制度加入者であるもの一万五千五百円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413CO0000000248_20221001_503CO0000000229?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "ecf782d90d782fbadf0f56966c9a8ff32b624432aee2f710d5c6528958dbf66d", "locator": "確定拠出年金法施行令 第36条第4号（令和4年10月1日の版）", "quote": "当該事業主掛金の額が一万五千五百円を上回るときは、一万二千円から"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001252820.pdf", "retrievedAt": "2026-10-09", "sha256": "b4c59ab44e00ffc9e0200395b80593bba7a1134d895fd17f0cb8a9016a592284", "locator": "2024年12月の改正のリーフレット 図①", "quote": "月額2.75万円から各月の企業型DCの事業主掛金額を控除した残余の範囲内（最大1.2万円）"}
+      - {"type": "law", "lawNumber": "平成十三年政令第二百四十八号", "egovRevisionId": "413CO0000000248_20221001_503CO0000000229"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "2024年11月分まで、事業主掛金とiDeCoの合計で月27,500円（他制度掛金相当額は数えない）。値は政令の条文（2つの版）と厚生労働省のリーフレットで一致"}
+  - rev: 5
+    appliesFrom: "2024-12-01"
+    appliesTo: "2026-11-30"
+    enforcedOn: "2024-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 55000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413CO0000000248_20241201_503CO0000000244?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "ec940bef7daf3bdc13786b3d349a869378072db77e4b2b56e384b4b162d83b48", "locator": "確定拠出年金法施行令 第36条第4号（令和6年12月1日の版）", "quote": "当該他制度掛金相当額から三万五千円を控除した額"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001252820.pdf", "retrievedAt": "2026-10-09", "sha256": "b4c59ab44e00ffc9e0200395b80593bba7a1134d895fd17f0cb8a9016a592284", "locator": "2024年12月の改正のリーフレット 図②", "quote": "月額5.5万円から事業主の拠出額（各月の企業型DCの事業主掛金額＋DB等の他制度掛金相当 額）を控除した残余の範囲内（最大２万円）"}
+      - {"type": "law", "lawNumber": "平成十三年政令第二百四十八号", "egovRevisionId": "413CO0000000248_20241201_503CO0000000244"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "2024年12月分から、事業主掛金・他制度掛金相当額・iDeCoの合計で月55,000円。値は政令の条文と厚生労働省のリーフレットで一致"}
+  - rev: 6
+    appliesFrom: "2026-12-01"
+    appliesTo: null
+    enforcedOn: "2026-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 62000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413CO0000000248_20261201_507CO0000000442?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "c90026bec663a413200a5774366ac8d914bcad2a4022687974ef8f8ba3cbc5b9", "locator": "確定拠出年金法施行令 第36条第4号（令和8年12月1日の版）", "quote": "他制度加入者であるもの六万二千円から他制度掛金相当額（その者が企業型年金加入者である場合において"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001739467.pdf", "retrievedAt": "2026-10-09", "sha256": "2f80ab197cdd5c3b8c8ec5e5d5f6bc7243dd4d842569c48400e9857c03ff2d74", "locator": "企業型DCの拠出限度額のリーフレット", "quote": "月額6.2万円を上限とし、上限から確定給付企業年金（DB）などの他制度 掛金相当額を差し引いた範囲内となります"}
+      - {"type": "law", "lawNumber": "平成十三年政令第二百四十八号", "egovRevisionId": "413CO0000000248_20261201_507CO0000000442"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "2026年12月分から月62,000円（他制度掛金相当額・事業主掛金を引いた範囲）。値は政令の条文と厚生労働省のリーフレットで一致"}

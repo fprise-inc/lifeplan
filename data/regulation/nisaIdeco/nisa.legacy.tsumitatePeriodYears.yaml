@@ -15,5 +15,21 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.fsa.go.jp/policy/nisa2/about/index.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得。この環境から公式サイトに届かない）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "20年。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2018-01-01"
+    appliesTo: null
+    enforcedOn: "2017-10-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 20
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20171001_429AC0000000004?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "7e663612de70dc02bbbfa311cdaca6edfc774d920c747431e23bb7768b0a8432", "locator": "租税特別措置法 第37条の14第1項第2号（平成29年10月1日の版）", "quote": "一月一日以後二十年を経過する日"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第37条の14（令和8年10月1日の版）", "quote": "一月一日以後二十年を経過する日"}
+      - {"type": "web", "url": "https://www.fsa.go.jp/policy/nisa2/about/nisa2024/summary.pdf", "retrievedAt": "2026-10-09", "sha256": "a1120ba5c8cdf41c8c16d1475d06f474d30e7de322d87e0b04ad66135bea0068", "locator": "金融庁 【参考】現行NISA制度の概要", "quote": "非課税保有期間 20年間 ５年間"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "20年。施行日は「二十年を経過する日」の文言が現れた e-Gov の版（平成29年10月1日。前の版（同年8月1日）には無い）。措置法の条文と金融庁の資料で一致"}

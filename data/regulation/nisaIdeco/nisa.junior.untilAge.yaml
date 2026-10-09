@@ -16,5 +16,35 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.matsui.co.jp/service/nisa/jr-nisa/rule/index.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "証券会社の案内の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "1月1日に18歳である年の前年12月31日まで（継続管理勘定）。その後は課税口座へ。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2016-01-01"
+    appliesTo: "2022-12-31"
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 20
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20170401_427AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "409c072709354a7ad1d822c2f6314b1cc94d0cd5e18a5ab8917201bf81451008", "locator": "租税特別措置法 第37条の14の2第1項第2号（平成29年4月1日の版）", "quote": "一月一日において二十歳である年の前年十二月三十一日"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20170401_427AC0000000047"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "訂正: 2022年までは20歳（その年1月1日に20歳である年の前年12月31日まで）。措置法の条文の1経路だけ。18歳への改正（令和4年4月1日の版）の2022年分の経過措置は確かめていない"}
+  - rev: 3
+    appliesFrom: "2023-01-01"
+    appliesTo: null
+    enforcedOn: "2022-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 18
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20220401_431AC0000000006?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "78f55577b8958601d7b18c944a14371925c5014d7d0b6737fb792dee23c85dab", "locator": "租税特別措置法 第37条の14の2第1項第2号（令和4年4月1日の版）", "quote": "その年一月一日において十八歳である年の前年十二月三十一日までの間"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第37条の14の2（令和8年10月1日の版）", "quote": "その年一月一日において十八歳である年の前年十二月三十一日までの間"}
+      - {"type": "web", "url": "https://www.fsa.go.jp/policy/nisa2/about/nisa2024/summary.pdf", "retrievedAt": "2026-10-09", "sha256": "a1120ba5c8cdf41c8c16d1475d06f474d30e7de322d87e0b04ad66135bea0068", "locator": "金融庁 NISAの抜本的拡充・恒久化のイメージ（注4）", "quote": "18歳になるまでは非課税"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "1月1日に18歳である年の前年12月31日まで（継続管理勘定）。2022年4月1日施行（それまでは20歳）。2022年分の扱いは確かめていないので2023年分からとした。措置法の条文と金融庁の資料で一致"}

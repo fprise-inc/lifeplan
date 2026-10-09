@@ -15,5 +15,21 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/000636642.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "通算加入者等期間と受給開始年齢", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "10年以上60歳、8年以上61歳、6年以上62歳、4年以上63歳、2年以上64歳、1か月以上65歳。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2017-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: [{"upTo": 23, "amount": 65}, {"upTo": 47, "amount": 64}, {"upTo": 71, "amount": 63}, {"upTo": 95, "amount": 62}, {"upTo": 119, "amount": 61}, {"upTo": null, "amount": 60}]
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413AC0000000088_20170401_428AC0000000114?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "04794fdcadc81bae93c6e61b50ab00cc3241c7f17f0f26dcec10022120333c45", "locator": "確定拠出年金法 第33条第1項（平成29年4月1日の版）", "quote": "六十四歳以上六十五歳未満の者二年"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413AC0000000088_20260401_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "2beb3795a10d7bc215063f35d79712a8438c0efabe707a7fd07ebf210758d9ef", "locator": "同（令和8年4月1日の版）", "quote": "六十五歳以上の者一月"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/kyoshutsu/ideco.html", "retrievedAt": "2026-10-09", "sha256": "9e365dabf67c149b00904a3aa452c6b5e351caa37cd9b618eed2b6bfd71cf00a", "locator": "iDeCoの概要 3.(4) 給付", "quote": "・８年以上10年未満→61歳 ・６年以上８年未満→62歳 ・４年以上６年未満→63歳 ・２年以上４年未満→64歳 ・１月以上２年未満→65歳"}
+      - {"type": "law", "lawNumber": "平成十三年法律第八十八号", "egovRevisionId": "413AC0000000088_20260401_507AC0000000074"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "10年以上60歳、8年以上61歳、6年以上62歳、4年以上63歳、2年以上64歳、1か月以上65歳（法33条1項の6つの号の表をすべて照合）。60歳以後に初めて加入した人は加入から5年（同項ただし書。部品の側）。法の条文と厚生労働省の概要で一致"}

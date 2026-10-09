@@ -1,0 +1,36 @@
+id: residentTax.listedSecurities.rate
+title: 上場株式等の譲渡所得等の住民税（株式等譲渡所得割）の税率
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2014-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/1463.htm", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "上場株式等の譲渡所得等の申告分離課税", "note": "検索の要約（原本は未取得。この環境から公式サイトに届かない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: "2026.6.0"
+    approval: {"method": "pendingReview", "paths": 1, "note": "5%。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2014-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20170401_429AC0000000002?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "07a0546f1e48a2f292fc0e03d9a12d7dbc7c8e8f760d4438320e46c802e5fcc0", "locator": "地方税法 第71条の49（平成29年4月1日の版）", "quote": "株式等譲渡所得割の税率は、百分の五とする"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", "locator": "同（令和8年10月1日の版）", "quote": "株式等譲渡所得割の税率は、百分の五とする"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1463.htm", "retrievedAt": "2026-10-09", "sha256": "528a157f810c233309727cffd3587db2d4dccc9556f7fd83354d83051cb5c405", "locator": "国税庁 No.1463 税率", "quote": "上場株式等に係る譲渡所得等（譲渡益） 20％（所得税15％、住民税5％）"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1476.htm", "retrievedAt": "2026-10-09", "sha256": "1721ce41db4aafb0d1c752d3d34c2711a13b558d5038fd24d22504af9d0f0fa9", "locator": "国税庁 No.1476 特定口座制度", "quote": "15.315パーセント（他に住民税5パーセント）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20261001_508AC0000000002"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "5%（特定口座の源泉徴収の株式等譲渡所得割。申告分離課税は附則35条の2の2で道府県民税2%・市町村民税3%）。地方税法の条文と国税庁の資料で一致。施行日は e-Gov の改正履歴より前で特定できないので notAfter"}

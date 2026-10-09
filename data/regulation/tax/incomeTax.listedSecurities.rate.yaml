@@ -1,0 +1,35 @@
+id: incomeTax.listedSecurities.rate
+title: 上場株式等の譲渡所得等の所得税の税率（復興特別所得税・防衛特別所得税は基準所得税額に掛けて別に足す）
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2014-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.15"
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/1463.htm", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "上場株式等の譲渡所得等の申告分離課税", "note": "検索の要約（原本は未取得。この環境から公式サイトに届かない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: "2026.6.0"
+    approval: {"method": "pendingReview", "paths": 1, "note": "15%（所得税）。復興特別所得税と合わせて15.315%。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2014-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.15"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20170401_427AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "409c072709354a7ad1d822c2f6314b1cc94d0cd5e18a5ab8917201bf81451008", "locator": "租税特別措置法 第37条の11第1項（平成29年4月1日の版）", "quote": "百分の十五に相当する金額に相当する所得税を課する"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "同 第37条の11の4第1項（令和8年10月1日の版。特定口座の源泉徴収）", "quote": "百分の十五の税率を乗じて計算した金額の所得税を徴収し"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1463.htm", "retrievedAt": "2026-10-09", "sha256": "528a157f810c233309727cffd3587db2d4dccc9556f7fd83354d83051cb5c405", "locator": "国税庁 No.1463 税率", "quote": "上場株式等に係る譲渡所得等（譲渡益） 20％（所得税15％、住民税5％）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "15%（復興特別所得税・防衛特別所得税は基準所得税額に掛けて別に足す）。措置法の条文と国税庁の資料で一致。施行日は e-Gov の改正履歴より前で特定できないので notAfter"}

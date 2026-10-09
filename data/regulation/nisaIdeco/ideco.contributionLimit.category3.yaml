@@ -16,5 +16,22 @@ entries:
       - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "月23,000円（2026年12月の改正の後も同じ）。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2017-01-01"
+    appliesTo: null
+    enforcedOn: "2017-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 23000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413CO0000000248_20170101_428CO0000000310?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "2b388936abd58b32c1198fe518720275b51fad1502291bf65ab907ce4ee229cf", "locator": "確定拠出年金法施行令 第36条第5号（平成29年1月1日の版）", "quote": "第三号加入者二万三千円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413CO0000000248_20261201_507CO0000000442?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "c90026bec663a413200a5774366ac8d914bcad2a4022687974ef8f8ba3cbc5b9", "locator": "確定拠出年金法施行令 第36条第6号（令和8年12月1日の版）", "quote": "第三号加入者二万三千円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/kyoshutsu/ideco.html", "retrievedAt": "2026-10-09", "sha256": "9e365dabf67c149b00904a3aa452c6b5e351caa37cd9b618eed2b6bfd71cf00a", "locator": "iDeCoの概要 3.(1) 拠出限度額", "quote": "（専業主婦（主夫）等）：23,000円／月"}
+      - {"type": "web", "url": "https://www.ideco-koushiki.jp/library/pdf/notice202612-02.pdf", "retrievedAt": "2026-10-09", "sha256": "6bef2f1a5c5719d047df2c8e94be09b70a0c9d18dfc5923a434a37e5e694ebb5", "locator": "国民年金基金連合会 拠出限度額の引き上げの手続きの案内（2026年8月）", "quote": "第３号被保険者は拠出限度額の引き上げはないので対象となりません"}
+      - {"type": "law", "lawNumber": "平成十三年政令第二百四十八号", "egovRevisionId": "413CO0000000248_20261201_507CO0000000442"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "月23,000円（2026年12月の改正の後も同じ）。値は政令の条文（2つの版）・厚生労働省の概要・国民年金基金連合会の案内で一致"}

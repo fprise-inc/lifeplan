@@ -30,5 +30,52 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1211-1.htm", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅借入金等特別控除", "note": "検索の要約（原本は未取得。この環境から公式サイトに届かない）"}
       - {"type": "web", "url": "https://www.city.okayama.jp/kurashi/0000044976.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅借入金等特別税額控除（個人住民税）", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "5%。原本での確認待ち"}
+  - rev: 3
+    appliesFrom: "2022-01-01"
+    appliesTo: "2025-12-31"
+    enforcedOn: "2023-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", "locator": "地方税法 附則第5条の4第1項・第5項（令和8年10月1日の版）", "quote": "百分の二（当該納税義務者が指定都市の区域内に住所を有する場合には、百分の一）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20230101_504AC0000000001?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "72f552b09e4f7208da0acae5163d100e4e3ff84cbb98924ffe2001c990d5729b", "locator": "地方税法 附則第5条の4の2（令和5年1月1日の版）", "quote": "平成二十一年から令和七年までの各年である場合に限る"}
+      - {"type": "web", "url": "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/090929.html", "retrievedAt": "2026-10-09", "sha256": "43d772eb48c24aa0566f30f567a67e537206e962a3b6fcdde5222e9acdfdee34", "locator": "総務省 個人住民税の住宅ローン控除", "quote": "前年分の所得税の課税総所得金額等の5％(97,500円を限度)(B)"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20261001_508AC0000000002"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "5%（道府県民税2%・市町村民税3%。指定都市は1%・4%）。令和4〜7年入居は令和5年1月1日施行（地方税法等の一部を改正する法律（令和4年法律第1号））。地方税法の条文と総務省の資料で一致"}
+  - rev: 4
+    appliesFrom: "2026-01-01"
+    appliesTo: "2030-12-31"
+    enforcedOn: "2027-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", "locator": "地方税法 附則第5条の4第1項・第5項（令和8年10月1日の版）", "quote": "百分の二（当該納税義務者が指定都市の区域内に住所を有する場合には、百分の一）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20270101_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "1f2a8980c0a22b200b0a531a9643cbd6beca08c451b7236041ecc8c393af3ff1", "locator": "地方税法 附則第5条の4（令和9年1月1日の版）", "quote": "平成二十一年から令和十二年までの各年である場合に限る"}
+      - {"type": "web", "url": "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/090929.html", "retrievedAt": "2026-10-09", "sha256": "43d772eb48c24aa0566f30f567a67e537206e962a3b6fcdde5222e9acdfdee34", "locator": "総務省 個人住民税の住宅ローン控除", "quote": "前年分の所得税の課税総所得金額等の5％(97,500円を限度)(B)"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20270101_508AC0000000002"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "5%。令和8〜12年入居は令和9年1月1日施行（地方税法等の一部を改正する法律（令和8年法律第2号）。令和9年度分から）。地方税法の条文と総務省の資料で一致"}
+  - rev: 5
+    appliesFrom: "2031-01-01"
+    appliesTo: null
+    enforcedOn: "2027-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20270101_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "1f2a8980c0a22b200b0a531a9643cbd6beca08c451b7236041ecc8c393af3ff1", "locator": "地方税法 附則第5条の4（令和9年1月1日の版）", "quote": "平成二十一年から令和十二年までの各年である場合に限る"}
+      - {"type": "web", "url": "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/090929.html", "retrievedAt": "2026-10-09", "sha256": "43d772eb48c24aa0566f30f567a67e537206e962a3b6fcdde5222e9acdfdee34", "locator": "総務省 個人住民税の住宅ローン控除", "quote": "平成21年から令和12年12月31日まで の間に居住し"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20270101_508AC0000000002"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和13年以後の入居は制度なし。地方税法の条文と総務省の資料で一致"}
