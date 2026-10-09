@@ -207,6 +207,16 @@ describe("退職所得の分離課税（tax.retirementIncome）", () => {
     expect(tax(2045, [ret, dcLater]).overlapYears).toBe(25);
   });
 
+  it("前年以前9年内に DC 一時金があれば、前の退職手当等も9年内で見る（施行令70条1項2号ロ(1)。PR #14 の 8 の(1)）", () => {
+    const dc = receipt({ ym: "2030-06", amount: 15000000, serviceFrom: "2005-04", serviceTo: "2030-05", source: "dc" });
+    // 2031年の退職金（6年前。4年内ではないが、9年内に DC 一時金があるので9年内で見る）と重なる 2026-04〜2031-03 の5年
+    const r1 = receipt({ ym: "2031-04", amount: 3000000, serviceFrom: "2026-04", serviceTo: "2031-03" });
+    const r2 = receipt({ ym: "2037-04", amount: 8000000, serviceFrom: "2026-04", serviceTo: "2037-03" });
+    expect(tax(2037, [dc, r1, r2]).overlapYears).toBe(5);
+    // DC 一時金が無ければ、2031年の退職金は4年内の外
+    expect(tax(2037, [r1, r2]).overlapYears).toBe(0);
+  });
+
   it("DC 一時金を受ける年の19年内は、令和4年4月1日以後に支払を受けるものから（3月までは14年内。支払の月で分かれる）", () => {
     // 前の退職金は2006年（2022年の16年前）。2022年3月の DC 一時金は14年内なので重ならず、4月なら19年内で重なる
     const ret = receipt({ ym: "2006-04", amount: 10000000, serviceFrom: "1996-04", serviceTo: "2006-03" });
@@ -399,6 +409,24 @@ describe("教育費（education.cost）・公的支援（education.support）・
     expect(f.every((x) => Number(x.ym.slice(5)) % 2 === 0)).toBe(true);
     // 第1子が18歳の年度末（2029年3月）を過ぎても22歳の年度末までは数えるので、第3子は30,000円のまま
     expect(paid("2029-06", "c3")).toBe(60000);
+  });
+
+  it("高校の就学支援金は、国籍・在留資格の要件で対象外にした子には出さない（知らせ。PR #14 の 8 の(5)）", () => {
+    const req = mk([{ stage: "highSchool", sector: "private" }], { highSchoolSupport: "ineligible" }, "2012-06", 0);
+    const r = runEngine(req, fictionalPacks(), { checkInternal: true, entry: { component: "education.support", input: { member: C } } });
+    expect(sumFlows((r.entryOutput as { flows: Flow[] }).flows, (x) => x.formula === "education.support.highSchool")).toBe(0);
+    expect(notices(r)).toContainEqual({ code: "N_NOT_ELIGIBLE", ids: ["education.support", "educationSupport.highSchool.nationality", C] });
+  });
+
+  it("児童手当の3歳の切り替えは誕生日の属する月の翌月から（1日生まれも同じ。PR #14 の 8 の(2)）", () => {
+    for (const bornOnFirst of [false, true]) {
+      const req = edit(household({ members: [member("a", "self", "1985-01"), member("c", "child", "2024-05", { birth: { birthYearMonth: "2024-05", bornOnFirst } })], baseMonth: "2027-01", endYear: 2028 }), () => {});
+      const f = call<{ flows: Flow[] }>(req, "benefit.childAllowance", {}).flows;
+      const paid = (ym: string) => sumFlows(f, (x) => x.ym === ym);
+      // 6月の支払いは4・5月分（3歳未満）、8月の支払いは6・7月分（3歳から）
+      expect(paid("2027-06")).toBe(30000);
+      expect(paid("2027-08")).toBe(20000);
+    }
   });
 
   it("貸与の奨学金: 在学中に受け取り、受け取りの終わりの7か月後から debt.schedule で返す", () => {

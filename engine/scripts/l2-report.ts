@@ -5,7 +5,7 @@ const s = l2Summary();
 const pct = (n: number, d: number) => `${((n * 1000) / d / 10).toFixed(1)}%`;
 const comparable = CASES.filter((c) => c.status === "pass").length;
 console.log(`公式の計算例 ${s.total} 件のうち一致 ${s.passed} 件（${pct(s.passed, s.total)}）。標準税率などの扱いの違いが無い例 ${comparable} 件では ${s.passed}/${comparable}`);
-for (const area of ["所得税", "住民税", "社会保険", "公的年金", "給付", "住宅ローン控除", "NISA・iDeCo", "退職所得", "教育"] as const) {
+for (const area of ["所得税", "住民税", "社会保険", "公的年金", "給付", "住宅ローン控除", "NISA・iDeCo", "退職所得", "教育", "遺族年金・障害年金", "贈与税", "保険", "医療・介護"] as const) {
   const cs = CASES.filter((c) => c.area === area);
   console.log(`- ${area}: ${cs.length} 件`);
 }

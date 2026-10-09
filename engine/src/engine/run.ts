@@ -569,7 +569,8 @@ export interface Session {
   /**
    * スライダーの1刻み（0005 の追記（2026-10-09）: 先出しの範囲）。枠を置き直し（set と同じ）、今見ている案の「万一が起きない」想定の1枠（focus）だけを
    * 先出しで計算する。戻り値は {"focus": {"<枠ID>": {"rev", "state": "fresh", "result"}}, "status": status()}。ほかの枠は古い（stale）のまま、
-   * results() で前の結果を返せる（画面は古い印を付けて表示する）
+   * results() で前の結果を返せる（画面は古い印を付けて表示する）。FP が万一の画面を見ているときは、その万一の枠を focus にしてよい
+   * （0005 の追記 2026-10-09: 万一・ストレステストの枠と先出し）
    */
   slide(slotsJson: string, focusId: string): string;
   /** 指を離した直後: 古い枠とまだ計算していない枠をすべて計算する（既定は先出し。{"preview": false} で出力全体）。戻り値は compute と同じ */

@@ -8,7 +8,7 @@
 //   被保険者の死亡: 死亡保険金（death。変額は積立金と多い方）を受取人の割合で、収入保障（incomeProtection）は月額を保障の終わり
 //   （最低保証の月数に満たなければそこ）まで毎月。障害1級: 高度障害（highDisability）。障害・就業不能: 就業不能（incapacity。
 //   免責の月数の後、働けるようになる月の前まで、保障の終わりまで毎月）。満期金（maturity）は保障の終わりの翌月、祝金（survival）は
-//   契約からn年ごと、年金（annuity）は始まりから毎年、解約（surrender）は解約の月にその時の解約返戻金
+//   保障の始まり（省略は契約からn年）からn年ごと、年金（annuity）は始まりから毎年、解約（surrender）は解約の月にその時の解約返戻金
 // - 税の区分（契約者・被保険者・受取人の関係）: 死亡保険金は 契約者＝被保険者 なら相続税の対象（みなし相続財産。額は計算せず知らせ
 //   N_INHERITANCE_TAX）、契約者＝受取人 なら一時所得（収入保障の月額は雑所得）、それ以外は贈与税。満期金・祝金・解約返戻金は
 //   受取人＝契約者 なら一時所得、それ以外は贈与税。年金は 受取人＝契約者 なら雑所得（必要経費は払込保険料×年金額÷年金の総額）、それ以外は贈与税。
@@ -78,6 +78,7 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
     "insurance.insured",
     "insurance.contractDate",
     "insurance.premium",
+    "insurance.renewals",
     "insurance.beneficiaries",
     "insurance.annuitant",
     "insurance.coverages",
@@ -108,8 +109,30 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
       .call<PaymentsOutput>("insurance.premiumPayment", {})
       .payments.filter((p) => p.object === c.id)
       .map((p) => ({ m: parseYm(p.ym), amount: p.amount }));
+    // insurance.premiumPayment は計算基準年の2年前の1月からの支払いだけを出すので、それより前の払込（契約の月から）は、
+    // 契約の保険料（更新・数表の年額を含む）から数える（解約返戻金・一時所得の必要経費の基の払込保険料の累計）
+    const windowStart = monthIndex(yearOf(base) - 2, 1);
+    let prior = 0;
+    if (start < windowStart) {
+      if (c.premium.frequency === "single") prior = c.premium.amount;
+      else {
+        const payEnd = c.premium.payUntil === null ? windowStart : Math.min(windowStart, ctx.time.resolve(c.premium.payUntil));
+        const renewals = (c.renewals ?? []).map((r) => ({ m: ctx.time.resolve(r.at), premium: r.premium })).sort((a, b) => a.m - b.m);
+        for (let m = start; m < payEnd; m = addMonths(m, 1)) {
+          if (c.premium.frequency === "annual" && (m - start) % 12 !== 0) continue;
+          const py = Math.floor((m - start) / 12) + 1;
+          let annual: number | null = null;
+          for (const r of c.schedule?.rows ?? []) if (r.policyYear === py && r.premium !== undefined) annual = (annual ?? 0) + r.premium;
+          let a: number = c.premium.amount;
+          for (const r of renewals) if (r.m <= m) a = r.premium;
+          if (annual !== null) a = c.premium.frequency === "monthly" ? ctx.money.allocate(yen(annual), [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "conv.expense.share", "first")[(m - start) % 12] ?? 0 : annual;
+          prior += a;
+        }
+      }
+    }
     const paidUpTo = (m: MonthIndex): Yen => {
-      let s = 0;
+      let s = m >= windowStart ? prior : 0;
+      if (m < windowStart) return yen(0);
       for (const p of pays) if (p.m <= m) s += p.amount;
       return yen(s);
     };
@@ -285,8 +308,10 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
         if (endsAt === null || endsAt >= pay || term.cause === "maturity") add(pay, "maturity", x.amount, annuitant, ownClass(annuitant), x.id);
       }
       if (x.benefit === "survival" && x.everyYears !== undefined) {
-        for (let k = 1; ; k++) {
-          const m = addMonths(start, 12 * x.everyYears * k);
+        // 最初は保障の始まり（from。省略は契約から n 年）、その後 n 年ごと
+        const first = x.from === undefined ? addMonths(start, 12 * x.everyYears) : covFrom(x);
+        for (let k = 0; ; k++) {
+          const m = addMonths(first, 12 * x.everyYears * k);
           if (m > end || (to !== null && m > addMonths(to, 1)) || !active(m)) break;
           add(m, "survival", sched(policyYear(m) - 1, "survivalBenefit") ?? x.amount, annuitant, ownClass(annuitant), x.id);
         }
