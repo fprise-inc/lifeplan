@@ -1,9 +1,11 @@
 // 速さの計測の JavaScript 側（Node（V8）と Bun（JavaScriptCore）で同じ手順を流す。scripts/bench.ts と scripts/jsc-bench.js から使う）。
-// 0005 の追記（2回目の見直し）の目標:
-//   1. スライダーを動かしている間: 世帯の入力（または案の前提）を1刻み動かし、今見ている案の1案×4想定を先出し（preview）で計算する1回の時間
-//      （セッションに5案×4想定の枠を置き、20枠すべての要求を置き直してから、見ている案の4枠だけを計算する。画面の動きと同じ）
-//   2. 手を離した後: ほかの4案×4想定（16枠）の先出しを計算する時間（正の計算は quickjs-ng 側で測る）
-//   （比べるための計測）間引き: 動かしている間は見ている案の万一なしの1枠だけを先出しし、万一の3枠は手を離した後に回す形の1刻み（sliderXxxThin）
+// 0005 の追記（2026-10-09: 先出しの範囲）の目標:
+//   1. スライダーを動かしている間（sliderXxx。正式の項目）: 世帯の入力（または案の前提）を1刻み動かし、今見ている案の「万一が起きない」想定の
+//      1枠だけを先出し（preview）で計算する1回の時間（セッションに5案×4想定の20枠を置き、session.slide で20枠すべての要求を置き直して、
+//      見ている1枠だけを計算する。画面の動きと同じ）。目標は画面側で0.1秒以内
+//   2. 指を離した直後（afterRelease19）: 万一の3枠とほかの4案×4想定（19枠）を session.release で先出しで計算し直す時間。目安1秒以内
+//      （正の計算は quickjs-ng 側で測る）
+//   （参考）前の目標の形: 見ている案の1案×4想定を先出しする1刻み（sliderSalaryFour）
 // 使い方: measure(engine, packsJson, data, repeat) → { 名前: { median, min } }
 //   data = { requests: [20件], sliders: { 名前: [[20件]（刻み0）, [20件]（刻み1）, …] } }
 
@@ -45,42 +47,46 @@ export function measure(engine, packsJson, data, repeat) {
       });
       session.set(JSON.stringify(slots));
     };
+    const slotsOf = (k) => {
+      const reqs = ticks[k % ticks.length];
+      const slots = {};
+      reqs.forEach((r, i) => {
+        slots[slotId(i)] = r;
+      });
+      return JSON.stringify(slots);
+    };
     // 始めに20枠すべてを計算しておく（画面を開いたとき）
     setAll(0);
-    session.compute(undefined, '{"preview":true}');
-    const visible = JSON.stringify([0, 1, 2, 3].map(slotId));
+    session.release();
+    const focus = slotId(0);
     let k = 0;
     const key = `slider${name[0].toUpperCase()}${name.slice(1)}`;
+    // 動かしている間（release しない。ほかの19枠は古い印のまま）の1刻み
     out[key] = time(() => {
       k++;
-      setAll(k);
-      const r = session.compute(visible, '{"preview":true}');
+      const r = session.slide(slotsOf(k), focus);
       if (r.startsWith('{"error"')) throw new Error(r.slice(0, 200));
     }, repeat * 3, 3);
-    if (name === "salary" || name === "selfSalary") {
-      // 間引き（0005 の追記（3回目の見直し）の比べた形）: 見ている案の万一なしの1枠だけ
-      const primary = JSON.stringify([slotId(0)]);
-      out[`${key}Thin`] = time(() => {
+    if (name === "salary") {
+      // （参考）前の目標の形: 見ている案の4想定を先出しする1刻み
+      const visible = JSON.stringify([0, 1, 2, 3].map(slotId));
+      out[`${key}Four`] = time(() => {
         k++;
         setAll(k);
-        const r = session.compute(primary, '{"preview":true}');
+        const r = session.compute(visible, '{"preview":true}');
         if (r.startsWith('{"error"')) throw new Error(r.slice(0, 200));
       }, repeat * 3, 3);
-    }
-    if (name === "salary") {
-      // 手を離した後: ほかの4案×4想定（古い印の付いた16枠）を先出しで計算し直す
-      const others = JSON.stringify(Array.from({ length: 16 }, (_, i) => slotId(i + 4)));
-      // afterRelease16 は手を離した後の16枠の計算だけの時間（見ている案の計算を除く）
+      // 指を離した直後: 古い印の付いた19枠（万一の3枠とほかの4案×4想定）を先出しで計算し直す
       const xs = [];
       for (let i = 0; i < Math.max(3, Math.ceil(repeat / 2)); i++) {
         k++;
-        setAll(k);
-        session.compute(visible, '{"preview":true}');
+        session.slide(slotsOf(k), focus);
         const t = now();
-        session.compute(others, '{"preview":true}');
+        const r = session.release();
         xs.push(now() - t);
+        if (r.startsWith('{"error"')) throw new Error(r.slice(0, 200));
       }
-      out.afterRelease16 = stat(xs);
+      out.afterRelease19 = stat(xs);
     }
   }
   return out;

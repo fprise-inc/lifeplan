@@ -53,7 +53,7 @@ export default defineComponent<
   id: "tax.dependentDeduction",
   title: "扶養控除・特定親族特別控除",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2" },
   params: [
     ...(["incomeTax", "residentTax"] as const).flatMap((p) => Object.values(ids(p))),
@@ -76,7 +76,9 @@ export default defineComponent<
     const totalOf = (id: string): Yen => {
       let t = totals.get(id);
       if (t === undefined) {
-        t = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year }).total;
+        // 所得税の合計所得金額は、分離課税の退職所得の金額を含む（住民税は含めない）
+        const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year });
+        t = resident ? inc.total : yen(inc.total + (inc.retirement ?? 0));
         totals.set(id, t);
       }
       return t;

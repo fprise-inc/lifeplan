@@ -1,0 +1,33 @@
+id: residentTax.housingLoanCredit.basicDeductionOffset
+title: 住民税の住宅借入金等特別税額控除の上限の基礎に足す額の差し引き（所得税の基礎控除の額からこの額を引いた額を課税総所得金額等に足す）
+unit: JPY
+kind: constant
+basis: {"type": "anchor", "anchor": "moveIn"}
+entries:
+  - rev: 1
+    appliesFrom: "2016-01-01"
+    appliesTo: "2025-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 480000
+    sources:
+      - {"type": "web", "url": "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/090929.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "個人住民税の住宅ローン控除", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/law/325AC0000000226", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "地方税法附則5条の4", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "居住年が平成28年〜令和7年のとき、課税総所得金額等に（所得税の基礎控除の額−48万円。0未満は0）を足して率を掛ける（地方税法附則5条の4。PR #11 で原本の条文を読んだ。原本の写しの指紋はこの作業の環境では付けられない）"}
+  - rev: 2
+    appliesFrom: "2026-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/law/325AC0000000226", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "地方税法附則5条の4", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和8年以後の入居には加算しない"}

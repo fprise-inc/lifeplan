@@ -1,0 +1,20 @@
+id: pension.basic.childAddition.fullMonths
+title: 老齢基礎年金の子の加算を満額にする保険料納付済期間などの月数（満たないときは ×月数/この月数）
+unit: months
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2028-04-01"
+    appliesTo: null
+    enforcedOn: "2028-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 300
+    sources:
+      - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号", "egovRevisionId": "334AC0000000141_20280401_507AC0000000074"}
+      - {"type": "law", "lawNumber": "令和七年法律第七十四号"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "国民年金法27条の6第2項（保険料納付済期間の月数と保険料免除期間の月数とを合算した月数が300に満たないとき、×月数/300）。PR #9 の照合で条文（令和10年4月1日の版）を読んだが、この値の行は原本の指紋つきの引用で照らし合わせていない"}

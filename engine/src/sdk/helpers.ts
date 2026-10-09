@@ -31,7 +31,7 @@ export function fiscalYearEnd(fy: number): MonthIndex {
 }
 
 /** 給与の出る働き方（会社員・契約・パート・公務員） */
-export const EMPLOYEE_TYPES: ReadonlySet<string> = new Set(["regular", "contract", "partTime", "civilServant"]);
+export const EMPLOYEE_TYPES: ReadonlySet<string> = new Set(["regular", "contract", "partTime", "civilServant", "executive"]);
 
 /** 勤め先の健康保険（被用者保険） */
 export const EMPLOYER_HEALTH_KINDS: ReadonlySet<string> = new Set(["kyokaikenpo", "union", "mutualAid"]);
@@ -215,4 +215,41 @@ export function accountReturnRate(ctx: Ctx, account: { readonly kind: string; re
   let r = RATE_ZERO;
   for (const m of mix) r = ctx.rate.add(r, ctx.rate.mul(classRate(m.assetClass), ctx.rate.of(m.share)));
   return r;
+}
+
+/**
+ * 計算基準年の価格で入れた額を、年ごとに伸ばした額（その年の額）。伸び方は物価上昇率（前提 inflation。教育費は educationInflation が
+ * あればそれ）・固定の率・伸ばさないのどれか。fromYear の額が amount で、翌年からその年の率で伸ばす（1年ごとに円未満切り捨て。conv.expense.growth）。
+ * 部品のマニフェストの reads に assumptions.inflation（教育費は assumptions.educationInflation も）が要る
+ */
+export function grownByYear(
+  ctx: Ctx,
+  amount: Yen,
+  growth: { readonly kind: "inflation" | "rate" | "none"; readonly rate?: string } | undefined,
+  fromYear: number,
+  toYear: number,
+  series: "inflation" | "educationInflation" = "inflation",
+): Map<number, Yen> {
+  const out = new Map<number, Yen>();
+  const kind = growth?.kind ?? "inflation";
+  const fixed = kind === "rate" ? ctx.rate.of(growth?.rate ?? "0") : RATE_ZERO;
+  let v = amount;
+  for (let y = fromYear; y <= toYear; y++) {
+    if (y > fromYear && kind !== "none") {
+      const r =
+        kind === "rate"
+          ? fixed
+          : series === "educationInflation"
+            ? ctx.assumption("educationInflation", y, ctx.assumption("inflation", y, RATE_ZERO))
+            : ctx.assumption("inflation", y, RATE_ZERO);
+      if (ctx.rate.compare(r, RATE_ZERO) !== 0) v = yen(v + ctx.money.mulRate(v, r, "conv.expense.growth"));
+    }
+    out.set(y, v);
+  }
+  return out;
+}
+
+/** 年額を12か月に分けた額（端数は最初の月。conv.expense.share）。月額 × 12 の年額なら各月は同じ */
+export function monthlyParts(ctx: Ctx, annual: Yen): Yen[] {
+  return ctx.money.allocate(annual, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "conv.expense.share", "first");
 }

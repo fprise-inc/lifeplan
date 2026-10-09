@@ -10,9 +10,11 @@
 #   3行は値を定める現行の文言が最初に現れた版の施行日（2019-01-01・2021-01-01）。新しい値・期間は無いので訂正番号を上げた
 # 2026.6.0: 上場株式等の譲渡所得等の税率と特定口座の源泉徴収の端数（incomeTax.listedSecurities.*・residentTax.listedSecurities.*）を regulation.nisaIdeco から値IDはそのままで移した。
 #   移した行の recordedIn "2026.1.0" は regulation.nisaIdeco の版（その版で初めて入った）。税率の2つの値は原本（措置法37条の11・地方税法71条の49と国税庁の資料）と照らし合わせて reviewed の行を足した。端数の2つの値は確認待ちのまま
+# 2026.7.0: 退職所得の分離課税の値（incomeTax.retirementIncome.*: 退職所得控除額・2分の1・特定役員退職手当等・短期退職手当等・重複排除期間の年数・端数）を
+#   新しいファイルとして足した。公式のサイトにこの作業の環境から届かなかったので、検索の要約で読んだ値で、すべて原本での確認待ち（pendingReview）。既存のファイルは変えていない
 packId: regulation.tax
 formatVersion: "0.1"
-version: "2026.6.0"
+version: "2026.7.0"
 features: []
 title: 所得税・住民税
 requires:
@@ -23,6 +25,7 @@ requires:
   residentTax.exemption: ">=1 <2"
   tax.publicPensionIncome: ">=1 <2"
   plan.cashflow: ">=1 <2"
+  tax.retirementIncome: ">=1 <2"
 license:
   values: CC0-1.0
   sources: 出典ごとの条件（各値の sources に記載。国税庁・総務省・地方公共団体・財務省の公表資料）

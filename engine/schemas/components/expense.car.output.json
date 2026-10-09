@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:expense.car.output",
+  "title": "車のお金の動きと、自動車ローンの年末残高",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "loans"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "loans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "yearEnd"],
+        "properties": {
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "yearEnd": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["year", "balance", "unpaidInterest"],
+              "properties": { "year": { "$ref": "urn:financia:schema:common#/$defs/year" }, "balance": { "$ref": "urn:financia:schema:common#/$defs/yen" }, "unpaidInterest": { "$ref": "urn:financia:schema:common#/$defs/yen" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

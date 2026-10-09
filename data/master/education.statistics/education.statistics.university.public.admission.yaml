@@ -1,0 +1,19 @@
+id: education.statistics.university.public.admission
+title: 公立大学の入学料の平均（地域外。令和5年度）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2023-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 374371
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/shinkou/07021403/1412031_00006.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "公立大学の授業料等の平均", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "地域外の入学料（地域内は224,066円。1つの検索結果だけなので既定に使わない）"}

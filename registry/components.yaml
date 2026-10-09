@@ -26,6 +26,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: account.mutualAid
+    status: active
+    label: "小規模企業共済の残高と受け取り"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: benefit.childAllowance
+    status: active
+    label: "児童手当"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: benefit.employment
     status: active
     label: "雇用保険の育児の給付"
@@ -41,6 +53,48 @@ entries:
   - id: debt.schedule
     status: active
     label: "負債の返済"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.cost
+    status: active
+    label: "教育費"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.support
+    status: active
+    label: "教育の公的支援（就学支援金・修学支援）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: expense.advisoryFee
+    status: active
+    label: "FP顧問料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: expense.car
+    status: active
+    label: "車（買い替え・ローン・車検・保険・自動車税）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: expense.living
+    status: active
+    label: "生活費"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: expense.periodic
+    status: active
+    label: "周期的な支出"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: expense.reconcile
+    status: active
+    label: "現状の検算（使途不明金）"
     since: draft
     aliases: []
     replacedBy: null
@@ -143,6 +197,18 @@ entries:
   - id: residentTax.exemption
     status: active
     label: "住民税の非課税の判定"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirement.benefit
+    status: active
+    label: "退職給付（退職一時金・DB・公務員・国民年金基金・役員退職慰労金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirement.receipts
+    status: active
+    label: "退職所得になる一時金（集める）"
     since: draft
     aliases: []
     replacedBy: null
@@ -251,6 +317,12 @@ entries:
   - id: tax.publicPensionIncome
     status: active
     label: "公的年金等に係る雑所得"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.retirementIncome
+    status: active
+    label: "退職所得の税（分離課税）"
     since: draft
     aliases: []
     replacedBy: null

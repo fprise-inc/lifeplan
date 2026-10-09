@@ -63,7 +63,7 @@ export interface EmploymentPeriodInput {
   readonly member: string;
   readonly from: Timepoint;
   readonly to: Timepoint | null;
-  readonly type: "regular" | "contract" | "partTime" | "selfEmployed" | "civilServant" | "leave" | "unemployed";
+  readonly type: "regular" | "contract" | "partTime" | "selfEmployed" | "civilServant" | "executive" | "leave" | "unemployed";
   readonly leaveKind?: "maternity" | "childcare" | "sick" | "other";
   readonly leaveChild?: string;
   readonly healthInsurance?: {
@@ -157,7 +157,8 @@ export type AccountKind =
   | "esop"
   | "fxDeposit"
   | "insurance"
-  | "realEstate";
+  | "realEstate"
+  | "smallBusinessMutualAid";
 
 export interface AccountInput {
   readonly id: string;
@@ -287,6 +288,176 @@ export interface HouseholdInput {
   readonly premiumRates?: readonly PremiumRateInput[];
   readonly debts?: readonly DebtInput[];
   readonly residences?: readonly ResidenceInput[];
+  readonly livingExpenses?: readonly LivingExpenseInput[];
+  readonly periodicExpenses?: readonly PeriodicExpenseInput[];
+  readonly cars?: readonly CarInput[];
+  readonly advisoryFees?: readonly AdvisoryFeeInput[];
+  readonly savingsChecks?: readonly SavingsCheckInput[];
+  readonly retirementBenefits?: readonly RetirementBenefitInput[];
+  readonly goals?: readonly GoalInput[];
+}
+
+/** 額の伸び方（計算基準年の価格で入れた額を年ごとに伸ばす） */
+export interface GrowthInput {
+  readonly kind: "inflation" | "rate" | "none";
+  readonly rate?: string;
+}
+
+/** 万一のときの扱い（万一の部品で使う） */
+export interface OnContingencyInput {
+  readonly mode: "continue" | "stop" | "ratio";
+  readonly ratio?: string;
+}
+
+export type LivingCategory = "food" | "utilities" | "furniture" | "clothing" | "health" | "transport" | "recreation" | "otherConsumption" | "allowance";
+
+export interface LivingExpenseInput {
+  readonly id: string;
+  readonly mode: "total" | "byCategory";
+  readonly from?: Timepoint;
+  readonly to?: Timepoint | null;
+  readonly monthly?: ValueBox<Yen>;
+  readonly categories?: readonly { readonly category: LivingCategory; readonly monthly: ValueBox<Yen> }[];
+  readonly growth?: GrowthInput;
+  readonly stages?: readonly { readonly at: Timepoint; readonly label?: string; readonly ratio?: string; readonly monthly?: ValueBox<Yen> }[];
+  readonly onContingency?: OnContingencyInput;
+}
+
+export interface PeriodicExpenseInput {
+  readonly id: string;
+  readonly label?: string;
+  readonly row: string;
+  readonly from: Timepoint;
+  readonly to?: Timepoint | null;
+  readonly everyYears: number;
+  readonly amount: ValueBox<Yen>;
+  readonly growth?: GrowthInput;
+  readonly onContingency?: OnContingencyInput;
+}
+
+export interface CarInput {
+  readonly id: string;
+  readonly owner: string;
+  readonly purchase: { readonly first: Timepoint; readonly everyYears: number; readonly price: Yen; readonly tradeIn?: Yen; readonly owned?: boolean };
+  readonly until?: Timepoint | null;
+  readonly loan?: { readonly share?: string; readonly rate: string; readonly termMonths: number; readonly method?: "equalPayment" | "equalPrincipal" };
+  readonly inspection?: { readonly amount: Yen; readonly firstAfterYears?: number; readonly everyYears?: number };
+  readonly insurance?: { readonly annual: Yen };
+  readonly tax?: { readonly annual: Yen };
+  readonly growth?: GrowthInput;
+}
+
+export interface AdvisoryFeeTerms {
+  readonly oneTime?: readonly { readonly at: Timepoint; readonly amount: Yen }[];
+  readonly recurring?: {
+    readonly from: Timepoint;
+    readonly to?: Timepoint | null;
+    readonly annual?: Yen;
+    readonly monthly?: Yen;
+    readonly revision?: { readonly rate?: string; readonly steps?: readonly { readonly at: Timepoint; readonly annual?: Yen; readonly monthly?: Yen }[] };
+    readonly onContingency?: OnContingencyInput;
+  };
+}
+
+export interface AdvisoryFeeInput {
+  readonly id: string;
+  readonly payer: string;
+  readonly enabled?: boolean;
+  readonly menu?: { readonly id: string; readonly label?: string; readonly copiedFrom?: { readonly officeDefaultsDigest: string; readonly at: string } };
+  readonly terms?: AdvisoryFeeTerms;
+}
+
+export interface SavingsCheckInput {
+  readonly id: string;
+  readonly year: number;
+  readonly actualSavings: ValueBox<Yen>;
+  readonly treatment: "addToLiving" | "keepUnexplained";
+  readonly until?: Timepoint | null;
+}
+
+export type RetirementBenefitKind = "lumpSum" | "db" | "civilServantAllowance" | "civilServantPension" | "nationalPensionFund" | "officerAllowance";
+
+export interface RetirementBenefitInput {
+  readonly id: string;
+  readonly member: string;
+  readonly kind: RetirementBenefitKind;
+  readonly employment?: string;
+  readonly service?: { readonly from: Timepoint; readonly to: Timepoint };
+  readonly officerService?: { readonly from: Timepoint; readonly to: Timepoint };
+  readonly paidAt?: Timepoint;
+  readonly amount?: ValueBox<Yen>;
+  readonly estimate?: { readonly finalMonthly?: Yen; readonly reason?: "retirementAge" | "voluntary"; readonly multiplier?: string };
+  readonly receipt?: {
+    readonly method?: "lumpSum" | "annuity" | "mixed";
+    readonly lumpShare?: string;
+    readonly start?: Timepoint;
+    readonly years?: number | null;
+    readonly guaranteeYears?: number;
+    readonly perYear?: 1 | 2 | 4 | 6 | 12;
+    readonly annualAmount?: Yen;
+    readonly conversionRate?: string;
+  };
+  readonly contributions?: { readonly monthly: Yen; readonly from: Timepoint; readonly to?: Timepoint | null };
+  readonly disability?: boolean;
+}
+
+export type SchoolStage = "nursery" | "kindergarten" | "elementary" | "juniorHigh" | "highSchool" | "university" | "juniorCollege" | "vocational";
+
+export interface TuitionRow {
+  readonly entryYear: number;
+  readonly grade: number;
+  readonly item: "tuition.admission" | "tuition.annual" | "tuition.facility" | "tuition.lab" | "tuition.other";
+  readonly monthOffset: number;
+  readonly amount: Yen;
+}
+
+export interface EducationStageInput {
+  readonly stage: SchoolStage;
+  readonly sector?: "public" | "national" | "private";
+  readonly field?: "humanities" | "science" | "medical" | "other";
+  readonly living?: "home" | "away";
+  readonly years?: number;
+  readonly delayYears?: number;
+  readonly from?: Timepoint;
+  readonly monthly?: Yen;
+  readonly school?: {
+    readonly school: string;
+    readonly unit: string;
+    readonly track?: string | null;
+    readonly termStartMonth?: number;
+    readonly rows: readonly TuitionRow[];
+    readonly source: { readonly pack: string; readonly version: string; readonly fictional?: boolean };
+  };
+  readonly annualOverride?: Yen;
+  readonly entranceOverride?: Yen;
+  readonly exam?: { readonly amount?: Yen; readonly deposits?: Yen };
+  readonly outOfSchool?: "statistics" | "none" | { readonly monthly: Yen };
+  readonly boarding?: { readonly monthly?: Yen; readonly initial?: Yen };
+  readonly scienceAgriculture?: boolean;
+}
+
+export interface EducationGoalInput {
+  readonly stages: readonly EducationStageInput[];
+  readonly lessons?: readonly { readonly from: Timepoint; readonly to: Timepoint; readonly monthly: Yen; readonly label?: string }[];
+  readonly scholarships?: readonly {
+    readonly monthly: Yen;
+    readonly from: Timepoint;
+    readonly to: Timepoint;
+    readonly rate: string;
+    readonly termMonths: number;
+    readonly repaymentStart?: Timepoint;
+    readonly debtor?: "child" | "parent";
+  }[];
+  readonly loans?: readonly { readonly at: Timepoint; readonly amount: Yen; readonly rate: string; readonly termMonths: number; readonly borrower: string }[];
+  readonly gifts?: readonly { readonly at: Timepoint; readonly amount: Yen; readonly purpose: "wedding" | "housing" | "other"; readonly payer?: string }[];
+  readonly childAllowance?: boolean;
+}
+
+export interface GoalInput {
+  readonly id: string;
+  readonly kind: "education" | "housing" | "retirement" | "other";
+  readonly owner: string;
+  readonly education?: EducationGoalInput;
 }
 
 export interface EngineInput {
@@ -299,6 +470,7 @@ export interface EngineInput {
     readonly investmentReturn: YearSeries;
     readonly wageGrowth?: YearSeries;
     readonly inflation?: YearSeries;
+    readonly educationInflation?: YearSeries;
     readonly pensionMacroSlide?: YearSeries;
     readonly pensionMacroSlideEmployee?: YearSeries;
     readonly assetReturns?: Readonly<Record<string, YearSeries>>;

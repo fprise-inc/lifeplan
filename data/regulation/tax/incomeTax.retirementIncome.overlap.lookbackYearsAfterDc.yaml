@@ -1,0 +1,33 @@
+id: incomeTax.retirementIncome.overlap.lookbackYearsAfterDc
+title: 前に確定拠出年金の老齢給付金の一時金を受けたときの、前年以前の年数（退職手当等を受ける年）
+unit: count
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2013-01-01"
+    appliesTo: "2025-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 4
+    sources:
+      - {"type": "web", "url": "https://www.zeiken.co.jp/news/15056624.php", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年度改正（改正前）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "改正前は前年以前4年内"}
+  - rev: 2
+    appliesFrom: "2026-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 9
+    sources:
+      - {"type": "web", "url": "https://www.zeiken.co.jp/news/15056624.php", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年度改正", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.yamada-partners.jp/reform/r7/k08-review-of-adjustment-provisions-for-retirement-income-deduction", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "退職所得控除の調整規定の見直し", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和7年度改正: 確定拠出年金の一時金を先に受けたときは前年以前9年内（令和8年1月1日以後に支払を受ける一時金・退職手当等。部品は、前の一時金の年と今の年の両方の値の小さい方を使う）"}

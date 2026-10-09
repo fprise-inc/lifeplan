@@ -1,0 +1,31 @@
+# 【架空の見本】テスト用。実在の制度の値ではない（製品の値の形を写したもの）
+id: test.ideco.category5.openEnrollment
+title: 【架空の見本】ideco.category5.openEnrollment
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2026-12-01"
+    appliesTo: "2029-11-30"
+    enforcedOn: "2026-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 2
+    appliesFrom: "2029-12-01"
+    appliesTo: null
+    enforcedOn: "2029-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 0
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

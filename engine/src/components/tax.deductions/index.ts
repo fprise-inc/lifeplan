@@ -65,8 +65,9 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
   id: "tax.deductions",
   title: "所得控除",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: {
+    "account.mutualAid": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
     "tax.spouseDeduction": ">=1 <2",
     "tax.dependentDeduction": ">=1 <2",
@@ -85,7 +86,9 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     const resident = regime === "residentTax";
     // 所得税はその年分の値、住民税は翌年度（6月から）の値。判定はどちらもその年の12月31日の現況
     const at = ctx.at(resident ? monthIndex(year + 1, 6) : monthIndex(year, 1));
-    const own = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year }).total;
+    // 合計所得金額（所得税は分離課税の退職所得の金額を含む）
+    const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year });
+    const own = resident ? inc.total : yen(inc.total + (inc.retirement ?? 0));
     const diffs: Yen[] = [];
     const diff = (id: string) => {
       if (resident) diffs.push(at.paramYen(id) ?? yen(0));
@@ -158,6 +161,8 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     if (hasDc) for (const p of ctx.callMonths<IdecoPayment>("ideco.contribution", { member }, "payments", monthIndex(year, 1), monthIndex(year, 12))) {
       if (p.payer === "self") smallBusiness = yen(smallBusiness + p.amount);
     }
+    // 小規模企業共済の掛金（全額。その年に払った分）
+    for (const p of ctx.callMonths<{ ym: string; amount: Yen }>("account.mutualAid", { member }, "paid", monthIndex(year, 1), monthIndex(year, 12))) smallBusiness = yen(smallBusiness + p.amount);
 
     const total = sumYen([basic, spouse, spouseSpecial, dependents, specifiedRelative, socialInsurance, life, earthquake, smallBusiness]);
     return {

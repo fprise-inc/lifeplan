@@ -39,7 +39,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
   id: "tax.spouseDeduction",
   title: "配偶者控除・配偶者特別控除",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2" },
   params: [
     ...(["incomeTax", "residentTax"] as const).flatMap((p) => {
@@ -60,7 +60,11 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     const at = ctx.at(resident ? monthIndex(year + 1, 6) : monthIndex(year, 1));
     const ageAt = ctx.at(monthIndex(year, 1));
     const dec: MonthIndex = monthIndex(year, 12);
-    const totalOf = (id: string): Yen => ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year }).total;
+    // 所得税の合計所得金額は、分離課税の退職所得の金額を含む（住民税は、現年分離課税の退職所得を含めない）
+    const totalOf = (id: string): Yen => {
+      const t = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year });
+      return resident ? t.total : yen(t.total + (t.retirement ?? 0));
+    };
     const members = ctx.list<MemberInput>("member");
     const present = (m: MemberInput) =>
       parseYm(m.birth.birthYearMonth) <= dec &&

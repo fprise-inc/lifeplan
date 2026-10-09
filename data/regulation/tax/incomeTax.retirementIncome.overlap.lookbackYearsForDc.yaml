@@ -1,0 +1,33 @@
+id: incomeTax.retirementIncome.overlap.lookbackYearsForDc
+title: 確定拠出年金の老齢給付金の一時金を受ける年に、前の退職手当等を見る前年以前の年数
+unit: count
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2013-01-01"
+    appliesTo: "2021-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 14
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/annai/gensen/pdf/2026bun_03-2.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "退職所得の受給に関する申告書", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "改正前は前年以前14年内"}
+  - rev: 2
+    appliesFrom: "2022-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 19
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/annai/gensen/pdf/2026bun_03-2.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "退職所得の受給に関する申告書", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.nli-research.co.jp/report/detail/id=70905?site=nli", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "確定拠出年金の受給開始の上限75歳に合わせた見直し", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "前年以前19年内。施行の時期を2022年4月とする解説があり、年分の区切り（2022年1月）は原本で確かめる"}

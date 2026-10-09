@@ -1,0 +1,23 @@
+# 【架空の見本】テスト用。実在の制度の値ではない（製品の値の形を写したもの）
+id: test.educationSupport.higher.grant.private.away
+title: 【架空の見本】educationSupport.higher.grant.private.away
+unit: JPY
+kind: bracketTable
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2024-04-01"
+    appliesTo: null
+    enforcedOn: "2024-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1, amount: 75800}
+      - {upTo: 2, amount: 50600}
+      - {upTo: 3, amount: 25300}
+      - {upTo: null, amount: 19000}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

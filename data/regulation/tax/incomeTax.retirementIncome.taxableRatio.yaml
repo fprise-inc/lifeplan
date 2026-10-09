@@ -1,0 +1,19 @@
+id: incomeTax.retirementIncome.taxableRatio
+title: 退職所得の金額の割合（収入−控除の2分の1）
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2013-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.5"
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1420.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "No.1420", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "所得税法30条2項（2分の1）"}

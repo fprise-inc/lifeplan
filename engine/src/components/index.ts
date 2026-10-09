@@ -48,6 +48,18 @@ import socialInsuranceLateElderly from "./socialInsurance.lateElderly/index.ts";
 import socialInsuranceNationalHealth from "./socialInsurance.nationalHealth/index.ts";
 import socialInsuranceNationalPension from "./socialInsurance.nationalPension/index.ts";
 import taxPublicPensionIncome from "./tax.publicPensionIncome/index.ts";
+import accountMutualAid from "./account.mutualAid/index.ts";
+import benefitChildAllowance from "./benefit.childAllowance/index.ts";
+import educationCost from "./education.cost/index.ts";
+import educationSupport from "./education.support/index.ts";
+import expenseAdvisoryFee from "./expense.advisoryFee/index.ts";
+import expenseCar from "./expense.car/index.ts";
+import expenseLiving from "./expense.living/index.ts";
+import expensePeriodic from "./expense.periodic/index.ts";
+import expenseReconcile from "./expense.reconcile/index.ts";
+import retirementBenefit from "./retirement.benefit/index.ts";
+import retirementReceipts from "./retirement.receipts/index.ts";
+import taxRetirementIncome from "./tax.retirementIncome/index.ts";
 
 const HASHES = buildInfo.components as Readonly<Record<string, string>>;
 
@@ -103,6 +115,18 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   socialInsuranceNationalHealth,
   socialInsuranceNationalPension,
   taxPublicPensionIncome,
+  accountMutualAid,
+  benefitChildAllowance,
+  educationCost,
+  educationSupport,
+  expenseAdvisoryFee,
+  expenseCar,
+  expenseLiving,
+  expensePeriodic,
+  expenseReconcile,
+  retirementBenefit,
+  retirementReceipts,
+  taxRetirementIncome,
 ] as never;
 
 export const OFFICIAL_COMPONENTS: readonly OfficialComponent[] = OFFICIAL_DEFINITIONS.map(official);

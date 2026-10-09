@@ -80,9 +80,39 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: advisoryFee.enabled
+    status: active
+    label: "この案で計算に入れるか（省略は入れる。案ごとに ON/OFF）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: advisoryFee.menu
+    status: active
+    label: "事務所の標準の料金表から写したときのメニュー"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: advisoryFee.payer
+    status: active
+    label: "払う構成員（個人が払う分は所得から差し引かない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: advisoryFee.terms
+    status: active
+    label: "料金"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: assumptions.assetReturns
     status: active
     label: "資産クラスごとの利回り（年率の年ごとの列。器の assetMix の資産クラスに使う。無い資産クラスは運用利回り、不動産は0）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.educationInflation
+    status: active
+    label: "教育費の上昇率（年率。省略は物価上昇率。学費・学校外活動費に使い、公的支援には使わない）"
     since: draft
     aliases: []
     replacedBy: null
@@ -119,6 +149,54 @@ entries:
   - id: assumptions.withdrawal
     status: active
     label: "年の収支が赤字のときの取り崩し（順序と、決済口座に残す額。省略は既定の順序）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: car.growth
+    status: active
+    label: "価格・維持費の伸び方（省略は前提の物価上昇率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: car.inspection
+    status: active
+    label: "車検（購入から何年後が最初か・その後の周期・1回の額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: car.insurance
+    status: active
+    label: "自動車保険の年額（購入の月に毎年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: car.loan
+    status: active
+    label: "自動車ローン（購入のたびに借りる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: car.owner
+    status: active
+    label: "名義（構成員）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: car.purchase
+    status: active
+    label: "買い替え（最初の購入の月・周期・車両の価格・下取り）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: car.tax
+    status: active
+    label: "自動車税の年額（毎年5月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: car.until
+    status: active
+    label: "手放す月（その月まで。null・省略は最後まで）"
     since: draft
     aliases: []
     replacedBy: null
@@ -416,6 +494,24 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: goal.education
+    status: active
+    label: "教育の目標（進路パターンと学校）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: goal.kind
+    status: active
+    label: "目標の種類（この版は education だけを計算する）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: goal.owner
+    status: active
+    label: "目標の構成員（教育は子）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: insurance.contractDate
     status: active
     label: "契約の年月"
@@ -455,6 +551,54 @@ entries:
   - id: insurance.template
     status: active
     label: "保険の種類のひな形"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: livingExpense.categories
+    status: active
+    label: "費目別の月額（計算基準年の価格）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: livingExpense.from
+    status: active
+    label: "始まり（省略は計算基準月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: livingExpense.growth
+    status: active
+    label: "伸び方（省略は前提の物価上昇率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: livingExpense.mode
+    status: active
+    label: "入れ方（総額／費目別）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: livingExpense.monthly
+    status: active
+    label: "月額（総額。計算基準年の価格）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: livingExpense.onContingency
+    status: active
+    label: "万一のときの扱い"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: livingExpense.stages
+    status: active
+    label: "段階（子の独立・退職後・70代・80代など）。その月から、最初の額に対する割合か、月額（計算基準年の価格）に変える"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: livingExpense.to
+    status: active
+    label: "終わり（その月まで。null・省略は最後まで）"
     since: draft
     aliases: []
     replacedBy: null
@@ -539,6 +683,54 @@ entries:
   - id: pensionRecord.months
     status: active
     label: "加入期間の月数（定期便の加入期間の欄）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: periodicExpense.amount
+    status: active
+    label: "1回の額（計算基準年の価格）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: periodicExpense.everyYears
+    status: active
+    label: "何年ごとか（1は毎年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: periodicExpense.from
+    status: active
+    label: "最初の支払いの月"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: periodicExpense.growth
+    status: active
+    label: "伸び方（省略は前提の物価上昇率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: periodicExpense.label
+    status: active
+    label: "見出し（表示用）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: periodicExpense.onContingency
+    status: active
+    label: "万一のときの扱い"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: periodicExpense.row
+    status: active
+    label: "載せる行"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: periodicExpense.to
+    status: active
+    label: "終わり（その月まで。null・省略は最後まで）"
     since: draft
     aliases: []
     replacedBy: null
@@ -707,6 +899,96 @@ entries:
   - id: residentTaxAssessment.member
     status: active
     label: "納税する構成員"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.amount
+    status: active
+    label: "一時金の見込み額（DB は一時金で受けた場合の額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.contributions
+    status: active
+    label: "本人の掛金（国民年金基金は社会保険料控除）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.disability
+    status: active
+    label: "障害者になったことによる退職（退職所得控除の加算）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.employment
+    status: active
+    label: "勤め先の働き方の期間（勤続期間と支給の月の既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.estimate
+    status: active
+    label: "見込み額の計算（公務員の退職手当: 俸給月額×支給率／役員退職慰労金: 最終報酬月額×在任年数×功績倍率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.kind
+    status: active
+    label: "種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.member
+    status: active
+    label: "受け取る構成員"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.officerService
+    status: active
+    label: "役員等の勤続期間（特定役員退職手当等の判定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.paidAt
+    status: active
+    label: "支給の月（省略は勤続期間の終わりの翌月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.receipt
+    status: active
+    label: "受け取り方"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.service
+    status: active
+    label: "勤続期間（省略は働き方の期間）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: savingsCheck.actualSavings
+    status: active
+    label: "実際の年間の貯蓄額（その年の12か月分）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: savingsCheck.treatment
+    status: active
+    label: "差（使途不明金）の扱い"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: savingsCheck.until
+    status: active
+    label: "差を見込む終わり（その月まで。null・省略は最後まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: savingsCheck.year
+    status: active
+    label: "検算する年（計算基準年以後）"
     since: draft
     aliases: []
     replacedBy: null

@@ -4,6 +4,51 @@
   "title": "エンジン全体の出力（値＋根拠の記録。0006 の7）",
   "oneOf": [{ "$ref": "#/$defs/result" }, { "$ref": "#/$defs/error" }],
   "$defs": {
+    "summary": {
+      "description": "表から作る要約（0008 の追記）: 表の期間の合計（案どうしの比較）と、FP顧問料の年ごとの額・累計・契約ごとの合計（契約は物の ID。顧問料を除いた場合との差は enabled: false の要求と比べて出す）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totals"],
+      "properties": {
+        "totals": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["income", "taxSi", "expense", "net"],
+          "properties": {
+            "income": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "taxSi": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "expense": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "net": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+          }
+        },
+        "advisoryFee": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "byYear", "contracts"],
+          "properties": {
+            "total": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "byYear": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["year", "amount", "cumulative"],
+                "properties": { "year": { "$ref": "urn:financia:schema:common#/$defs/year" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/yen" }, "cumulative": { "$ref": "urn:financia:schema:common#/$defs/yen" } }
+              }
+            },
+            "contracts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["total"],
+                "properties": { "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "total": { "$ref": "urn:financia:schema:common#/$defs/yen" } }
+              }
+            }
+          }
+        }
+      }
+    },
     "error": {
       "description": "0005 の8: ID だけを入れ、値は入れない",
       "type": "object",
@@ -24,7 +69,7 @@
     "result": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["header", "flows", "annual", "table", "trace"],
+      "required": ["header", "flows", "annual", "table", "summary", "trace"],
       "properties": {
         "header": { "$ref": "#/$defs/header" },
         "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
@@ -45,6 +90,7 @@
             }
           }
         },
+        "summary": { "$ref": "#/$defs/summary" },
         "trace": {
           "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/traceSummary" }, { "$ref": "#/$defs/traceFull" }]
         }

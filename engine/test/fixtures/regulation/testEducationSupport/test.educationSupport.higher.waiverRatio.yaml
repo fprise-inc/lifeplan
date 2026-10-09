@@ -1,0 +1,24 @@
+# 【架空の見本】テスト用。実在の制度の値ではない（製品の値の形を写したもの）
+id: test.educationSupport.higher.waiverRatio
+title: 【架空の見本】educationSupport.higher.waiverRatio
+unit: rate
+kind: bracketTable
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2024-04-01"
+    appliesTo: null
+    enforcedOn: "2024-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1, rate: "1"}
+      - {upTo: 2, rate: "0.666666666667"}
+      - {upTo: 3, rate: "0.333333333333"}
+      - {upTo: 4, rate: "0.25"}
+      - {upTo: null, rate: "0"}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

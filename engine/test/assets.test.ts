@@ -257,7 +257,9 @@ describe("iDeCo・企業型DC の掛金（ideco.contribution）と受け取り�
     expect(out.payments[0]?.ym).toBe("2038-06");
     expect(out.payments[0]?.kind).toBe("lumpSum");
     expect(out.payments[0]?.enrolledMonths).toBe(53);
-    expect(notices(full(req)).some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("incomeTax.retirementIncome"))).toBe(true);
+    // 一時金の退職所得の税は tax.retirementIncome が計算する（知らせ N_NOT_SUPPORTED は出さない）
+    expect(notices(full(req)).some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("incomeTax.retirementIncome"))).toBe(false);
+    expect(call<{ incomeTax: number }>(req, "tax.retirementIncome", { member: A, year: 2038 }).incomeTax).toBeGreaterThanOrEqual(0);
   });
 });
 

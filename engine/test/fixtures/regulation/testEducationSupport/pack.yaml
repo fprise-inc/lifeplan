@@ -1,0 +1,12 @@
+# 【架空の見本】テスト用。実在の制度の値ではない（製品のパックの値の形を写したもの）
+packId: regulation.testEducationSupport
+formatVersion: "0.1"
+version: "2026.1.0"
+features: []
+title: 【架空の見本】教育の公的支援のテスト用
+fictional: true
+fictionalOf: regulation.educationSupport
+requires: {}
+license:
+  values: CC0-1.0
+  sources: 架空の値のため出典なし

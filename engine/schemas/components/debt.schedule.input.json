@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:debt.schedule.input",
+  "title": "負債1本（世帯の負債の物の ID か、ほかの部品が作った負債。約束の版 1.1 で loan を足した）",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["object"],
+      "properties": { "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" } }
+    },
+    {
+      "description": "車のひな形の自動車ローン・教育ローン・貸与の奨学金のように、ほかの部品の入力から作った負債（形は世帯の負債と同じ）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["loan"],
+      "properties": { "loan": { "$ref": "urn:financia:schema:engine.input#/$defs/debt" } }
+    }
+  ]
+}

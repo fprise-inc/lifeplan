@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:retirement.receipts.output",
+  "title": "退職所得になる一時金（月の昇順）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipts"
+  ],
+  "properties": {
+    "receipts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ym",
+          "amount",
+          "object",
+          "source",
+          "serviceFrom",
+          "serviceTo"
+        ],
+        "properties": {
+          "ym": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "amount": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "object": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          },
+          "source": {
+            "enum": [
+              "retirement",
+              "dc",
+              "mutualAid"
+            ]
+          },
+          "serviceFrom": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "serviceTo": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "officerFrom": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "officerTo": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "disability": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

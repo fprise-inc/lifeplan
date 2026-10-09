@@ -2,7 +2,7 @@
 import buildInfo from "../generated/build-info.json" with { type: "json" };
 import { OFFICIAL_COMPONENTS, ROOT_COMPONENT } from "../components/index.ts";
 import { EngineError } from "../errors.ts";
-import { checkRow } from "../ids/cfTree.ts";
+import { checkRow, isUnder } from "../ids/cfTree.ts";
 import { check } from "../io/validate.ts";
 import type { Json, PackJson } from "../regulation/reader.ts";
 import { RegulationStore } from "../regulation/reader.ts";
@@ -62,6 +62,8 @@ export interface EngineResult {
   readonly flows: readonly Flow[];
   readonly annual: readonly AnnualRow[];
   readonly table: readonly Json[];
+  /** 表から作る要約（表の期間の収入・税と社会保険料・支出・年間収支の合計と、FP顧問料の累計。0008 の追記） */
+  readonly summary: Json;
   readonly trace: Json;
   /** options.entry のときだけ: その部品の出力 */
   readonly entryOutput?: unknown;
@@ -463,7 +465,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     ].sort((a, b) => cmp(`${a.code}|${a.ids.join(",")}`, `${b.code}|${b.ids.join(",")}`)) as unknown as Json[],
   };
   // undefined の欄を除くのは見出しと根拠の記録だけ（お金の動き・年ごとの行・表は部品と上の集計が欄を省いて作り、JSON にしたときも同じ）
-  const result = { header: stripUndefined(header), flows: options.preview === true ? [] : flows, annual, table: table as unknown as Json[], trace: stripUndefined(trace) };
+  const result = { header: stripUndefined(header), flows: options.preview === true ? [] : flows, annual, table: table as unknown as Json[], summary: summaryOf(table), trace: stripUndefined(trace) };
   return options.entry === undefined ? result : { ...result, entryOutput: output };
 }
 
@@ -532,6 +534,14 @@ export interface Session {
   results(idsJson?: string): string;
   /** 枠ごとの状態: {"<枠ID>": {"rev", "state": "fresh" | "stale" | "missing"}} */
   status(): string;
+  /**
+   * スライダーの1刻み（0005 の追記（2026-10-09）: 先出しの範囲）。枠を置き直し（set と同じ）、今見ている案の「万一が起きない」想定の1枠（focus）だけを
+   * 先出しで計算する。戻り値は {"focus": {"<枠ID>": {"rev", "state": "fresh", "result"}}, "status": status()}。ほかの枠は古い（stale）のまま、
+   * results() で前の結果を返せる（画面は古い印を付けて表示する）
+   */
+  slide(slotsJson: string, focusId: string): string;
+  /** 指を離した直後: 古い枠とまだ計算していない枠をすべて計算する（既定は先出し。{"preview": false} で出力全体）。戻り値は compute と同じ */
+  release(optionsJson?: string): string;
   /** 互換: 要求の配列を計算する（i 番目を枠 "#i" として置いて計算し、結果の配列を返す） */
   runBatch(requestsJson: string, optionsJson?: string): string;
   clear(): void;
@@ -679,6 +689,19 @@ export function createSession(packsJson: string, optionsJson = "{}"): Session {
     status(): string {
       return guard(statusJson);
     },
+    slide(slotsJson: string, focusId: string): string {
+      return guard(() => {
+        const st = session.set(slotsJson);
+        if (st.startsWith('{"error"')) return st;
+        if (!slots.has(focusId)) throw new EngineError("E_ARGUMENT", ["session.focus"]);
+        const focus = session.compute(JSON.stringify([focusId]), '{"preview":true}');
+        if (focus.startsWith('{"error"')) return focus;
+        return `{"focus":${focus},"status":${statusJson()}}`;
+      });
+    },
+    release(runOptionsJson = '{"preview":true}'): string {
+      return guard(() => session.compute(undefined, runOptionsJson));
+    },
     runBatch(requestsJson: string, runOptionsJson = "{}"): string {
       return guard(() => {
         const requests = JSON.parse(requestsJson) as unknown;
@@ -727,6 +750,46 @@ function packsCheckedOf(opts: { packsChecked?: unknown }): { packsChecked?: read
   return Array.isArray(c) && c.every((x) => typeof x === "string") ? { packsChecked: c as string[] } : {};
 }
 
+/**
+ * 表から作る要約（0008 の追記）。案どうしの比較（受け取り方の比較など）のための、表の期間の合計（収入・税と社会保険料・支出・年間収支）と、
+ * FP顧問料（cf.expense.advisoryFee）の年ごとの額・累計・契約ごとの合計。顧問料の行は契約の物の ID（object）で分かるので、
+ * 顧問料を除いた場合との差は、契約を enabled: false にした要求と比べて出す（提案の効果の内訳の材料）
+ */
+function summaryOf(table: readonly { row: string; year: number; amount: number; member?: string; object?: string }[]): Json {
+  let income = 0;
+  let taxSi = 0;
+  let expense = 0;
+  let net = 0;
+  const feeByYear = new Map<number, number>();
+  const feeByContract = new Map<string, { member: string | undefined; total: number }>();
+  for (const c of table) {
+    if (isUnder(c.row, "cf.income")) income += c.amount;
+    else if (isUnder(c.row, "cf.taxSi")) taxSi += c.amount;
+    else if (isUnder(c.row, "cf.expense")) expense += c.amount;
+    else if (c.row === "cf.net") net += c.amount;
+    if (isUnder(c.row, "cf.expense.advisoryFee")) {
+      feeByYear.set(c.year, (feeByYear.get(c.year) ?? 0) + c.amount);
+      const k = c.object ?? "";
+      const e = feeByContract.get(k) ?? { member: c.member, total: 0 };
+      e.total += c.amount;
+      feeByContract.set(k, e);
+    }
+  }
+  const out: Record<string, Json> = { totals: { income, taxSi, expense, net } };
+  if (feeByYear.size > 0) {
+    let cumulative = 0;
+    const byYear: Json[] = [];
+    for (const year of [...feeByYear.keys()].sort((a, b) => a - b)) {
+      const amount = feeByYear.get(year) as number;
+      cumulative += amount;
+      byYear.push({ year, amount, cumulative });
+    }
+    const contracts = [...feeByContract.entries()].sort((a, b) => cmp(a[0], b[0])).map(([object, e]) => ({ ...(object === "" ? {} : { object }), ...(e.member === undefined ? {} : { member: e.member }), total: e.total }));
+    out.advisoryFee = { total: cumulative, byYear, contracts } as unknown as Json;
+  }
+  return out as unknown as Json;
+}
+
 /** 1件を計算し、出力を検査した形（先出しは見出しと表だけ）。エンジンのエラーは {error} */
 function runChecked(request: unknown, packs: readonly unknown[], opts: { checkInternal: boolean; preview: boolean; batch: BatchContext }): unknown {
   try {
@@ -736,7 +799,7 @@ function runChecked(request: unknown, packs: readonly unknown[], opts: { checkIn
       return r;
     }
     // 年ごとの行（annual）は表（table）にも入っているので、先出しでは返さない（0005 の追記（3回目の見直し）: 先出しの出力を小さく）
-    const p = { header: r.header, table: r.table };
+    const p = { header: r.header, table: r.table, summary: r.summary };
     check("engine.preview", p, "E_OUTPUT_SCHEMA");
     return p;
   } catch (e) {

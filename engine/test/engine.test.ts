@@ -310,16 +310,16 @@ describe("まとめて計算とセッション（0005 の7・追記: 案×想定
       for (const r of variants(modelHousehold(m))) {
         for (const preview of [true, false]) {
           const [got] = JSON.parse(session.runBatch(JSON.stringify([r]), JSON.stringify({ preview }))) as unknown[];
-          const full = JSON.parse(one(r)) as { header: unknown; annual: unknown; table: unknown };
-          expect(JSON.stringify(got)).toBe(JSON.stringify(preview ? { header: full.header, table: full.table } : full));
+          const full = JSON.parse(one(r)) as { header: unknown; annual: unknown; table: unknown; summary: unknown };
+          expect(JSON.stringify(got)).toBe(JSON.stringify(preview ? { header: full.header, table: full.table, summary: full.summary } : full));
         }
       }
     }
   });
 
-  it("先出しの出力は engine.preview の形（お金の動き・年ごとの行・根拠の記録を含まない）", () => {
+  it("先出しの出力は engine.preview の形（お金の動き・年ごとの行・根拠の記録を含まない。要約は含む）", () => {
     const [p] = JSON.parse(runBatchJson(JSON.stringify([modelHousehold("single25")]), packsJson, '{"preview":true}')) as Record<string, unknown>[];
-    expect(Object.keys(p as object).sort()).toEqual(["header", "table"]);
+    expect(Object.keys(p as object).sort()).toEqual(["header", "summary", "table"]);
     expect(() => check("engine.preview", p, "E_OUTPUT_SCHEMA")).not.toThrow();
   });
 

@@ -1,0 +1,19 @@
+id: educationSupport.higher.multiChild.minChildren
+title: 多子世帯（授業料・入学金を所得によらず上限まで減免）の扶養する子の数
+unit: count
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 3
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/hutankeigen/index.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "多子世帯の授業料等無償化（令和7年度から）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和7年度から、扶養する子が3人以上の世帯は所得の制限なしで上限まで（資産の要件は扱わない）"}

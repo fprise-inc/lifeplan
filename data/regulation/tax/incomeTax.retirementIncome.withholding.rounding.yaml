@@ -1,0 +1,19 @@
+id: incomeTax.retirementIncome.withholding.rounding
+title: 退職所得の源泉徴収税額（付加税を含む）の端数処理（1円未満切り捨て）
+unit: rounding
+kind: rounding
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2013-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "DOWN", "unit": 1}
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/publication/pamph/gensen/zeigakuhyo2026/data/18.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "退職所得の源泉徴収税額の速算表（(A×B−C)×102.1%）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "税額＝(課税退職所得金額×税率−控除額)×102.1%（1円未満の端数切り捨て）"}

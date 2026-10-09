@@ -3,8 +3,8 @@
 // - 受け取りの始まりと方法は account.idecoPayout（運用利回りに依らない）
 // - 受け取り（payout）: 一時金（lumpSum）は始めの月にその時の残高を、年金（annuity）は始めの月から毎年1回、その時の残高÷残りの回数を
 //   annuityYears 回（最後の回は残り全部）、mixed は始めに lumpShare の割合を一時金で、残りを年金で
-// - 年金で受け取る分は公的年金等の雑所得（tax.publicPensionIncome が payments を読む）。一時金の退職所得の税は退職給付の作業で扱う
-//   （受け取りの年月と通算加入者等期間を payments に残す。重複排除期間の判定に使う）
+// - 年金で受け取る分は公的年金等の雑所得（tax.publicPensionIncome が payments を読む）。一時金の退職所得の税は tax.retirementIncome
+//   （受け取りの年月と通算加入者等期間を payments に残し、retirement.receipts が集める。重複排除期間の判定に使う）
 import {
   accountReturnRate,
   addYen,
@@ -32,7 +32,7 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
   id: "account.ideco",
   title: "iDeCo・企業型DCの残高と受け取り",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "account.idecoPayout": ">=1 <2", "ideco.contribution": ">=1 <2" },
   params: [],
   reads: ["account.kind", "account.owner", "account.marketValue", "account.assetMix", "assumptions.investmentReturn", "assumptions.assetReturns"],
@@ -124,7 +124,6 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
       }
       out.push({ object: a.id, kind, years });
     }
-    if (receipts.some((p) => p.kind === "lumpSum")) ctx.notice("N_NOT_SUPPORTED", ["incomeTax.retirementIncome"]);
     receipts.sort((x, y) => (x.ym < y.ym ? -1 : x.ym > y.ym ? 1 : 0));
     return { flows, accounts: out, payments: receipts };
   },

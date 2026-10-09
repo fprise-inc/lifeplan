@@ -50,4 +50,12 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.account.cost": DOWN1,
   // 住民税の住宅借入金等特別税額控除を市町村民税（5分の3）と道府県民税に分ける（円未満切り捨て。残りは道府県民税）
   "conv.residentTax.housingCredit": DOWN1,
+  // 生活費・周期的な支出・車・FP顧問料・教育費を、物価上昇率（または教育費の上昇率・固定の率）で翌年の額にする（円未満切り捨て）
+  "conv.expense.growth": DOWN1,
+  // 年額・月額を月に分ける・割合を掛ける（円未満切り捨て。端数は allocate の寄せ先へ）
+  "conv.expense.share": DOWN1,
+  // 退職給付の年金額（一時金の額と予定利率から求める年額、年額を支払いの回数に分ける。円未満切り捨て）
+  "conv.retirement.annuity": DOWN1,
+  // 役員退職慰労金の見込み額（最終報酬月額×在任年数×功績倍率。円未満切り捨て）
+  "conv.retirement.estimate": DOWN1,
 });

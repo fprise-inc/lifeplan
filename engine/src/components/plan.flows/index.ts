@@ -1,6 +1,7 @@
 // 器への積立（器の間の移動）は、NISA の枠で止めた後の額で plan.cashflow が出す。
 // 構成員ごとのお金の動き（plan.memberFlows）と、世帯の国民健康保険料・保険料・負債の返済（debt.schedule。1本ずつ）・
-// 住まい（housing.residence）・差し込み口の支出を集め、
+// 住まい（housing.residence）・生活費（expense.living）・周期的な支出（expense.periodic）・FP顧問料（expense.advisoryFee）・
+// 教育の目標（education.cost・education.support。子ごと）・児童手当（benefit.childAllowance）・差し込み口の支出を集め、
 // 年間収支（収入−税・社会保険料−支出。器の間の移動は含めない）を年ごとに出す。
 // 運用益・金融資産の残高（plan.cashflow）と分けるのは、運用利回りのように案の前提だけが変わったとき、集め直さずに済むようにするため（0005 の追記）。
 // 構成員ごとに分けるのは、1人の入力を変えたとき、ほかの構成員の分を集め直さないため（0005・0006 の追記）。
@@ -26,16 +27,22 @@ export default defineComponent<Record<string, never>, Collected>({
   id: "plan.flows",
   title: "お金の動き（集める）",
   contract: "1.1",
-  revision: 3,
+  revision: 4,
   requires: {
     "plan.memberFlows": ">=1 <2",
+    "expense.living": ">=1 <2",
+    "expense.periodic": ">=1 <2",
+    "expense.advisoryFee": ">=1 <2",
+    "education.cost": ">=1 <2",
+    "education.support": ">=1 <2",
+    "benefit.childAllowance": ">=1 <2",
     "debt.schedule": ">=1 <2",
     "housing.residence": ">=1 <2",
     "socialInsurance.nationalHealth": ">=1 <2",
     "insurance.premiumPayment": ">=1 <2",
   },
   params: [],
-  reads: ["member.kind", "debt.kind"],
+  reads: ["member.kind", "debt.kind", "goal.kind", "goal.owner"],
   slots: ["slot.expense.flow"],
   input: "empty.input",
   output: "plan.flows.output",
@@ -60,6 +67,16 @@ export default defineComponent<Record<string, never>, Collected>({
     household.push(ctx.call<PaymentsOutput>("insurance.premiumPayment", {}).flows);
     for (const d of ctx.list<{ id: string }>("debt")) household.push(ctx.call<FlowsResult>("debt.schedule", { object: d.id }).flows);
     household.push(ctx.call<FlowsResult>("housing.residence", {}).flows);
+    household.push(ctx.call<FlowsResult>("expense.living", {}).flows);
+    household.push(ctx.call<FlowsResult>("expense.periodic", {}).flows);
+    household.push(ctx.call<FlowsResult>("expense.advisoryFee", {}).flows);
+    // 教育の目標（子ごと）と、公的支援（学費とは別の部品。0010 の5）
+    for (const g of ctx.list<{ kind: string; owner: string }>("goal")) {
+      if (g.kind !== "education") continue;
+      household.push(ctx.call<FlowsResult>("education.cost", { member: g.owner }).flows);
+      household.push(ctx.call<FlowsResult>("education.support", { member: g.owner }).flows);
+    }
+    household.push(ctx.call<FlowsResult>("benefit.childAllowance", {}).flows);
     for (const out of ctx.slot("slot.expense.flow", { fromMonth: formatYm(base), toMonth: formatYm(end) })) household.push(out.flows);
     const own: Flow[] = [];
     for (const p of household) {
