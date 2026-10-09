@@ -1,5 +1,5 @@
 {
-  "note": "baseline は CI（GitHub Actions の ubuntu-latest と macos-latest）で測った値。--update-baseline で書き換える（同じ OS・CPU の欄だけ比べる）。targets は 0005 の追記（2回目の見直し）の目標で、機械（OS-CPU）ごとのミリ秒。2026-10-08 の2回目の見直しの後に CI で測った値に置き換えた",
+  "note": "baseline は CI（GitHub Actions の ubuntu-latest と macos-latest）で測った値。--update-baseline で書き換える（同じ OS・CPU の欄だけ比べる）。targets は 0005 の追記（2回目の見直し）の目標で、機械（OS-CPU）ごとのミリ秒。2026-10-09: 計測の世帯を新しい部品（住宅ローン・NISA・iDeCo など）を含む lifetime100Assets に替えたので、前の値は previous に移し、baseline はこの変更の CI の値で埋める",
   "targets": {
     "node.sliderSalary": {
       "ms": {
@@ -29,6 +29,13 @@
       },
       "note": "同じく案の前提（運用利回り）"
     },
+    "node.sliderNisa": {
+      "ms": {
+        "linux-x64": 100,
+        "darwin-arm64": 100
+      },
+      "note": "同じく新しい部品の入力（本人の NISA の積立の月額）"
+    },
     "jsc.sliderSalary": {
       "ms": {
         "linux-x64": 100,
@@ -57,6 +64,13 @@
       },
       "note": "同じく案の前提（運用利回り）"
     },
+    "jsc.sliderNisa": {
+      "ms": {
+        "linux-x64": 100,
+        "darwin-arm64": 100
+      },
+      "note": "同じく新しい部品の入力（本人の NISA の積立の月額）"
+    },
     "quickjs.par4": {
       "ms": {
         "darwin-arm64": 500
@@ -76,172 +90,176 @@
       "note": "目標2: 正の計算 5案×4想定（案ごとのスレッドで4想定をまとめて）。par20 とどちらか速い方を使う"
     }
   },
-  "baseline": {
-    "linux-x64": {
-      "node": {
-        "single": {
-          "median": 87,
-          "min": 84.4
+  "baseline": {},
+  "previous": {
+    "note": "2026-10-08 の2回目の見直しの後に CI で測った値（lifetime100。新しい部品の無い世帯）。速さの計測を lifetime100Assets に替えたので比べない（PR の説明に並べて載せる）",
+    "baseline": {
+      "linux-x64": {
+        "node": {
+          "single": {
+            "median": 87,
+            "min": 84.4
+          },
+          "sliderReturn": {
+            "median": 12.8,
+            "min": 11
+          },
+          "sliderSalary": {
+            "median": 197.7,
+            "min": 168.9
+          },
+          "afterRelease16": {
+            "median": 317.9,
+            "min": 227.7
+          },
+          "sliderSelfSalary": {
+            "median": 132.3,
+            "min": 127.9
+          },
+          "sliderRetire": {
+            "median": 68.6,
+            "min": 61.4
+          }
         },
-        "sliderReturn": {
-          "median": 12.8,
-          "min": 11
+        "jsc": {
+          "single": {
+            "median": 174,
+            "min": 166.4
+          },
+          "sliderReturn": {
+            "median": 12.2,
+            "min": 10
+          },
+          "sliderSalary": {
+            "median": 180,
+            "min": 142.4
+          },
+          "afterRelease16": {
+            "median": 396.5,
+            "min": 305.6
+          },
+          "sliderSelfSalary": {
+            "median": 147.7,
+            "min": 127.4
+          },
+          "sliderRetire": {
+            "median": 90.9,
+            "min": 71.5
+          }
         },
-        "sliderSalary": {
-          "median": 197.7,
-          "min": 168.9
-        },
-        "afterRelease16": {
-          "median": 317.9,
-          "min": 227.7
-        },
-        "sliderSelfSalary": {
-          "median": 132.3,
-          "min": 127.9
-        },
-        "sliderRetire": {
-          "median": 68.6,
-          "min": 61.4
+        "quickjs": {
+          "batch4": {
+            "median": 2762.3,
+            "min": 2748.3
+          },
+          "compile": {
+            "median": 52.4,
+            "min": 52.4
+          },
+          "load": {
+            "median": 7.2,
+            "min": 6.8
+          },
+          "par20": {
+            "median": 13944.1,
+            "min": 13919.2
+          },
+          "par4": {
+            "median": 2289.1,
+            "min": 2274
+          },
+          "plans5": {
+            "median": 10552.7,
+            "min": 10513.8
+          },
+          "single": {
+            "median": 796.8,
+            "min": 785.5
+          }
         }
       },
-      "jsc": {
-        "single": {
-          "median": 174,
-          "min": 166.4
+      "darwin-arm64": {
+        "node": {
+          "single": {
+            "median": 52,
+            "min": 51.7
+          },
+          "sliderReturn": {
+            "median": 12.2,
+            "min": 10.4
+          },
+          "sliderSalary": {
+            "median": 104.6,
+            "min": 87.5
+          },
+          "afterRelease16": {
+            "median": 165.1,
+            "min": 150.9
+          },
+          "sliderSelfSalary": {
+            "median": 117.4,
+            "min": 89.5
+          },
+          "sliderRetire": {
+            "median": 59.2,
+            "min": 50.9
+          }
         },
-        "sliderReturn": {
-          "median": 12.2,
-          "min": 10
+        "jsc": {
+          "single": {
+            "median": 65.4,
+            "min": 64.2
+          },
+          "sliderReturn": {
+            "median": 7.4,
+            "min": 6.3
+          },
+          "sliderSalary": {
+            "median": 99.1,
+            "min": 77.1
+          },
+          "afterRelease16": {
+            "median": 151.2,
+            "min": 134.6
+          },
+          "sliderSelfSalary": {
+            "median": 97.8,
+            "min": 85.9
+          },
+          "sliderRetire": {
+            "median": 51.1,
+            "min": 42.3
+          }
         },
-        "sliderSalary": {
-          "median": 180,
-          "min": 142.4
-        },
-        "afterRelease16": {
-          "median": 396.5,
-          "min": 305.6
-        },
-        "sliderSelfSalary": {
-          "median": 147.7,
-          "min": 127.4
-        },
-        "sliderRetire": {
-          "median": 90.9,
-          "min": 71.5
-        }
-      },
-      "quickjs": {
-        "batch4": {
-          "median": 2762.3,
-          "min": 2748.3
-        },
-        "compile": {
-          "median": 52.4,
-          "min": 52.4
-        },
-        "load": {
-          "median": 7.2,
-          "min": 6.8
-        },
-        "par20": {
-          "median": 13944.1,
-          "min": 13919.2
-        },
-        "par4": {
-          "median": 2289.1,
-          "min": 2274
-        },
-        "plans5": {
-          "median": 10552.7,
-          "min": 10513.8
-        },
-        "single": {
-          "median": 796.8,
-          "min": 785.5
-        }
-      }
-    },
-    "darwin-arm64": {
-      "node": {
-        "single": {
-          "median": 52,
-          "min": 51.7
-        },
-        "sliderReturn": {
-          "median": 12.2,
-          "min": 10.4
-        },
-        "sliderSalary": {
-          "median": 104.6,
-          "min": 87.5
-        },
-        "afterRelease16": {
-          "median": 165.1,
-          "min": 150.9
-        },
-        "sliderSelfSalary": {
-          "median": 117.4,
-          "min": 89.5
-        },
-        "sliderRetire": {
-          "median": 59.2,
-          "min": 50.9
-        }
-      },
-      "jsc": {
-        "single": {
-          "median": 65.4,
-          "min": 64.2
-        },
-        "sliderReturn": {
-          "median": 7.4,
-          "min": 6.3
-        },
-        "sliderSalary": {
-          "median": 99.1,
-          "min": 77.1
-        },
-        "afterRelease16": {
-          "median": 151.2,
-          "min": 134.6
-        },
-        "sliderSelfSalary": {
-          "median": 97.8,
-          "min": 85.9
-        },
-        "sliderRetire": {
-          "median": 51.1,
-          "min": 42.3
-        }
-      },
-      "quickjs": {
-        "batch4": {
-          "median": 1971.8,
-          "min": 1932.5
-        },
-        "compile": {
-          "median": 45.8,
-          "min": 45.8
-        },
-        "load": {
-          "median": 5.8,
-          "min": 5.7
-        },
-        "par20": {
-          "median": 2770.5,
-          "min": 2766.4
-        },
-        "par4": {
-          "median": 576.1,
-          "min": 571
-        },
-        "plans5": {
-          "median": 1891.9,
-          "min": 1844.8
-        },
-        "single": {
-          "median": 590.2,
-          "min": 548.5
+        "quickjs": {
+          "batch4": {
+            "median": 1971.8,
+            "min": 1932.5
+          },
+          "compile": {
+            "median": 45.8,
+            "min": 45.8
+          },
+          "load": {
+            "median": 5.8,
+            "min": 5.7
+          },
+          "par20": {
+            "median": 2770.5,
+            "min": 2766.4
+          },
+          "par4": {
+            "median": 576.1,
+            "min": 571
+          },
+          "plans5": {
+            "median": 1891.9,
+            "min": 1844.8
+          },
+          "single": {
+            "median": 590.2,
+            "min": 548.5
+          }
         }
       }
     }

@@ -18,7 +18,7 @@ const DC_KINDS: ReadonlySet<string> = new Set(["ideco", "corporateDc"]);
 export default defineComponent<Record<string, never>, PaymentsOutput>({
   id: "account.contribution",
   title: "積立の予定",
-  contract: "1.0",
+  contract: "2.0",
   revision: 2,
   requires: {},
   params: [],

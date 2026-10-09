@@ -10,11 +10,12 @@ import { asRoundingRule, RegulationStore, type PackJson } from "../../src/regula
 import type { DeductionsOutput, EmploymentIncomeOutput, IncomeTaxOutput, ResidentTaxOutput } from "../../src/sdk/contracts.ts";
 import { parseDate } from "../../src/time/civil.ts";
 import { household, member, period, realPacks, uid } from "../helpers.ts";
+import { ASSET_CASES } from "./cases-assets.ts";
 import { PENSION_CASES } from "./cases-pension.ts";
 
 export interface L2Case {
   readonly id: string;
-  readonly area: "所得税" | "住民税" | "社会保険" | "公的年金" | "給付";
+  readonly area: "所得税" | "住民税" | "社会保険" | "公的年金" | "給付" | "住宅ローン控除" | "NISA・iDeCo";
   readonly title: string;
   readonly source: { readonly url: string; readonly note: string };
   readonly expected: number;
@@ -178,6 +179,7 @@ export const CASES: readonly L2Case[] = [
     status: "pass",
   },
   ...PENSION_CASES,
+  ...ASSET_CASES,
 ];
 
 /** 合格率（pass の例のうち一致した数）と、扱いの違いが分かっている例 */

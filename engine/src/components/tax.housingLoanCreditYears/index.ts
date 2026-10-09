@@ -3,6 +3,8 @@
 import { defineComponent, monthIndex, yearOf, type DebtInput } from "../../sdk/index.ts";
 
 const C = "incomeTax.housingLoanCredit";
+/** 値の無い入居の年に使う範囲（年。これまでの制度の最も長い控除期間） */
+const UNKNOWN_PERIOD = 13;
 const PERIODS = ["new", "newOther", "used", "usedOther"].map((k) => `${C}.period.${k}`);
 
 export default defineComponent<{ member: string }, { from: number; to: number } | { from: null; to: null }>({
@@ -24,8 +26,8 @@ export default defineComponent<{ member: string }, { from: number; to: number } 
       const moveYear = yearOf(ctx.time.resolve({ event: h.moveIn }));
       const at = ctx.at(monthIndex(moveYear, 12));
       const opts = { anchorEvent: h.moveIn };
-      // 値の無い入居の年（令和3年以前など）も、控除の部品が知らせを出すので範囲に入れる（1年）
-      let period = 1;
+      // 値の無い入居の年（令和3年以前など）は、控除の部品が N_PARAM_MISSING で知らせるように、最も長い控除期間の範囲にする
+      let period = UNKNOWN_PERIOD;
       if (at.has(`${C}.rate`, opts)) {
         const other = h.propertyType === "other";
         period = at.paramCount(`${C}.period.${h.newBuild ? (other ? "newOther" : "new") : other ? "usedOther" : "used"}`, opts) ?? 1;
