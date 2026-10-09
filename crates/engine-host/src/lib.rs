@@ -24,7 +24,7 @@ pub struct Limits {
 impl Limits {
     /// 根拠の記録なし・要約
     pub const DEFAULT: Limits = Limits {
-        memory_bytes: 64 * 1024 * 1024,
+        memory_bytes: 128 * 1024 * 1024,
         stack_bytes: 1024 * 1024,
         time: Duration::from_secs(10),
     };
