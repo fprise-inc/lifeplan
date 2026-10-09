@@ -15,5 +15,21 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1420.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "No.1420", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "所得税法30条2項（2分の1）"}
+  - rev: 2
+    appliesFrom: "2013-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.5"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20170401_428AC0000000039?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "a0a457fc3cd248f9f2abaa2866f1218bdc8171c30fb7a05c37a4cf2d2cffa074", "locator": "所得税法 第30条第2項（平成29年4月1日の版）", "quote": "退職所得控除額を控除した残額の二分の一に相当する金額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", "locator": "所得税法 第30条第2項（令和8年10月1日の版）", "quote": "退職所得控除額を控除した残額の二分の一に相当する金額"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2732.htm", "retrievedAt": "2026-10-09", "sha256": "7102f34ed11c74418876bb5d607a336846322df69b4293fb1cd77823c72fbf9c", "locator": "No.2732 3 課税退職所得金額の計算", "quote": "（一般退職手当等の収入金額－退職所得控除額）×1/2"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号", "egovRevisionId": "340AC0000000033_20261001_507AC0000000070"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "退職所得の金額は（収入−控除）の2分の1。所得税法30条2項と国税庁 No.2732 で一致"}

@@ -8,9 +8,11 @@
 #   値は原本の2経路で一致し施行日だけが分からなかった73行を、施行日「遅くとも2017年4月1日」（enforcedOn の notAfter）と reviewed にした（値は変えていない）。
 #   2026.3.0 で確認待ちで足した3行（子の加給年金の要件の月数・老齢基礎年金の子の加算の基準額）を原本で確かめて reviewed にした（値は変えていない）
 # 2026.5.0: 老齢基礎年金の子の加算の按分の月数（pension.basic.childAddition.fullMonths。300月）を新しいファイルとして足した（原本での確認待ち）。既存のファイルは変えていない
+# 2026.6.0: 老齢基礎年金の子の加算の按分の月数（pension.basic.childAddition.fullMonths）を原本（国民年金法27条の6第2項の条文と社会保障審議会年金部会の資料）と
+#   照らし合わせ、reviewed の行を足した（照合: claude、2026-10-09）。値は変えていない
 packId: regulation.pension
 formatVersion: "0.1"
-version: "2026.5.0"
+version: "2026.6.0"
 features: []
 title: 公的年金
 requires:

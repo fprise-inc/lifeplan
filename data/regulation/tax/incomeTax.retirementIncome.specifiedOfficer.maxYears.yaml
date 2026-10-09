@@ -15,5 +15,21 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1420.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "No.1420", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "所得税法30条4項（役員等勤続年数5年以下）"}
+  - rev: 2
+    appliesFrom: "2013-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20170401_428AC0000000039?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "a0a457fc3cd248f9f2abaa2866f1218bdc8171c30fb7a05c37a4cf2d2cffa074", "locator": "所得税法 第30条第4項（平成29年4月1日の版）", "quote": "役員等勤続年数」という。）が五年以下である者"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", "locator": "所得税法 第30条第5項（令和8年10月1日の版）", "quote": "役員等勤続年数」という。）が五年以下である者"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1420.htm", "retrievedAt": "2026-10-09", "sha256": "daef0c400c24bbe4b4b5414d8462b175126e3b5ac42f7fdced6b3bc50b5d8fb9", "locator": "No.1420 （注1）特定役員退職手当等", "quote": "役員等勤続年数が5年以下である人"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号", "egovRevisionId": "340AC0000000033_20261001_507AC0000000070"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "役員等勤続年数5年以下の特定役員退職手当等は2分の1にしない。所得税法30条（平成29年の版は4項、令和8年10月の版は5項）と国税庁 No.1420 で一致"}

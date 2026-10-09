@@ -9,9 +9,11 @@
 #   iDeCo の最低額（5,000円）と、ジュニアNISA の2022年までの行は確認待ちのまま（pendingReview）。
 #   上場株式等の譲渡益の税率と端数（incomeTax.listedSecurities.*・residentTax.listedSecurities.*）は、値IDはそのままで regulation.tax（2026.6.0）に移した（設計記録 0007 への提案）
 # 2026.3.0: iDeCo の第5号加入者の経過措置（令和11年11月末まで前の加入を問わない。ideco.category5.openEnrollment）を新しいファイルとして足した（原本での確認待ち）
+# 2026.4.0: iDeCo の第5号加入者の経過措置（ideco.category5.openEnrollment）を原本（令和7年法律第74号附則33条の条文と厚生労働省の資料）と照らし合わせ、
+#   reviewed の行を足した（照合: claude、2026-10-09）。値は変えていない
 packId: regulation.nisaIdeco
 formatVersion: "0.1"
-version: "2026.3.0"
+version: "2026.4.0"
 features: []
 title: NISA・iDeCo・企業型DC
 requires:

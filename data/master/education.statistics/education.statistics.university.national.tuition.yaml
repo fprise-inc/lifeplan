@@ -15,5 +15,22 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/shinkou/07021403/1412031_00006.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "国立大学等の授業料その他の費用に関する省令", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "標準額（各大学は120%まで上乗せできる）"}
+  - rev: 2
+    appliesFrom: "2005-04-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2016-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 535800
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/416M60000080016_20240401_506M60000080012?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "d0cf7e674f89b1ce36ded53825cd4526d4d059f7416032f96c794ac26236fc0e", "locator": "国立大学等の授業料その他の費用に関する省令 第2条の表（令和6年4月1日の版）", "quote": "大学の学部（次項に掲げるものを除く。）五三五、八〇〇円二八二、〇〇〇円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/416M60000080016_20160401_428M60000080004?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "c54d1d1cbf1d94bab8ee93fa7036aee9b29973562c572de71fc62810d95cf622", "locator": "国立大学等の授業料その他の費用に関する省令 第2条の表（平成28年4月1日の版）", "quote": "大学の学部（次項に掲げるものを除く。）五三五、八〇〇円二八二、〇〇〇円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20251226-mxt_sigakujo-000046463_4.pdf", "retrievedAt": "2026-10-09", "sha256": "bb4cc81ef5c112b6f9705dc38c78991bbf2962d03bd92b57334f5036ee416fea", "locator": "（参考2）国公私立大学の授業料等の推移（令和7年度の調査）", "quote": "17 535,800 ↓"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20251226-mxt_sigakujo-000046463_4.pdf", "retrievedAt": "2026-10-09", "sha256": "bb4cc81ef5c112b6f9705dc38c78991bbf2962d03bd92b57334f5036ee416fea", "locator": "（参考2）国公私立大学の授業料等の推移（令和7年度の調査）", "quote": "国立大学の平成１６年度以降の額は国が示す標準額である"}
+      - {"type": "law", "lawNumber": "平成十六年文部科学省令第十六号", "egovRevisionId": "416M60000080016_20240401_506M60000080012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "国立大学の学部の標準額（授業料の年額535,800円・入学料282,000円）。省令2条の表（平成28年4月・令和6年4月の版）と文部科学省の推移の表で一致。施行日の欄は e-Gov の最初の版（2016-04-01）。各大学は標準額の120%まで上乗せできる（扱わない）"}

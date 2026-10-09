@@ -16,5 +16,21 @@ entries:
       - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号", "egovRevisionId": "334AC0000000141_20280401_507AC0000000074"}
       - {"type": "law", "lawNumber": "令和七年法律第七十四号"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "国民年金法27条の6第2項（保険料納付済期間の月数と保険料免除期間の月数とを合算した月数が300に満たないとき、×月数/300）。PR #9 の照合で条文（令和10年4月1日の版）を読んだが、この値の行は原本の指紋つきの引用で照らし合わせていない"}
+  - rev: 2
+    appliesFrom: "2028-04-01"
+    appliesTo: null
+    enforcedOn: "2028-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 300
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20280401_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "aa09b4bf4908adcbbeaba90d0442b6214581d0a6507a9fd13ad5caa2ec205845", "locator": "国民年金法 第27条の6第2項（令和10年4月1日の版）", "quote": "次に掲げる月数を合算した月数が三百に満たない者に支給する場合は、同項の規定にかかわらず、二十六万九千六百円に改定率を乗じて得た額に、当該合算した月数を三百で除して得た数を乗じて得た額とする"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12401000/001343851.pdf", "retrievedAt": "2026-10-09", "sha256": "03d96d300961afc9cf69f70096e720dd8d07952d44d3c6d2584a446a064b0532", "locator": "年金制度における子に係る加算等について（第22回社会保障審議会年金部会 資料1）", "quote": "保険料納付済期間と保険料免除期間の合計月数で25年間（300月） を求めることとし、300月に満たない受給権者はその月数に応じて調整する"}
+      - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号", "egovRevisionId": "334AC0000000141_20280401_507AC0000000074"}
+      - {"type": "law", "lawNumber": "令和七年法律第七十四号", "egovRevisionId": "334AC0000000141_20280401_507AC0000000074"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "老齢基礎年金の子の加算は、保険料納付済期間と各免除期間の月数の合計が300に満たないとき ×月数/300。国民年金法27条の6第2項（令和10年4月1日の版）と社会保障審議会年金部会の資料（制度の案）で一致"}

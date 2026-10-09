@@ -2,7 +2,7 @@ id: incomeTax.retirementIncome.overlap.lookbackYearsForDc
 title: 確定拠出年金の老齢給付金の一時金を受ける年に、前の退職手当等を見る前年以前の年数
 unit: count
 kind: constant
-basis: "incomeYear"
+basis: "month"
 entries:
   - rev: 1
     appliesFrom: "2013-01-01"
@@ -15,7 +15,7 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/annai/gensen/pdf/2026bun_03-2.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "退職所得の受給に関する申告書", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "改正前は前年以前14年内"}
   - rev: 2
     appliesFrom: "2022-01-01"
@@ -29,5 +29,39 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/annai/gensen/pdf/2026bun_03-2.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "退職所得の受給に関する申告書", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "web", "url": "https://www.nli-research.co.jp/report/detail/id=70905?site=nli", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "確定拠出年金の受給開始の上限75歳に合わせた見直し", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "前年以前19年内。施行の時期を2022年4月とする解説があり、年分の区切り（2022年1月）は原本で確かめる"}
+  - rev: 3
+    appliesFrom: "2013-01-01"
+    appliesTo: "2022-03-31"
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 14
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20170401_428CO0000000353?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "1950925ddd61684bece358191c52222bc6613feab909d6efbd53cefd8b47a4fc", "locator": "所得税法施行令 第70条第1項第2号（平成29年4月1日の版）", "quote": "その年に第七十二条第三項第六号（退職手当等とみなす一時金）に掲げる一時金の支払を受ける場合には、十四年内"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20220101_503CO0000000113?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "9e5ffe184167bdfae794f58b74be077af3b2d4824c3394821d895a75061b0eed", "locator": "所得税法施行令 第70条第1項第2号（令和4年1月1日の版）", "quote": "一時金の支払を受ける場合には、十四年内"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20220401_503CO0000000229?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "351ea046b2481f88f52db5df2cba111c1c30baa3bc74a832c3913233dbb137aa", "locator": "所得税法施行令等の一部を改正する政令（令和3年政令第229号）附則第23条", "quote": "施行日前に支払を受けるべき第四十五条の規定による改正前の所得税法施行令第七十二条第三項第六号に掲げる一時金については、なお従前の例による"}
+      - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20220101_503CO0000000113"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和4年3月31日までに支払を受けるべき確定拠出年金の一時金は前年以前14年内。施行令70条1項2号（平成29年4月・令和4年1月の版）と改正政令附則23条で一致。basis を month にした（支払の日で分かれるため）"}
+  - rev: 4
+    appliesFrom: "2022-04-01"
+    appliesTo: null
+    enforcedOn: "2022-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 19
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20220401_503CO0000000229?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "351ea046b2481f88f52db5df2cba111c1c30baa3bc74a832c3913233dbb137aa", "locator": "所得税法施行令 第70条第1項第2号（令和4年4月1日の版）", "quote": "一時金の支払を受ける場合には、十九年内"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20220401_503CO0000000229?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "351ea046b2481f88f52db5df2cba111c1c30baa3bc74a832c3913233dbb137aa", "locator": "所得税法施行令等の一部を改正する政令（令和3年政令第229号）附則第23条", "quote": "施行日以後に支払を受けるべき同令第七十二条第三項第七号に掲げる一時金について適用し"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20260522_508CO0000000093?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "0a9f371f6401c0e0863a5bf63d2f405f404ee288038cda39e1b67a7ecf4f966e", "locator": "所得税法施行令 第70条第1項第2号ハ（令和8年5月22日の版）", "quote": "その年の前年以前十九年内に退職手当等"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2732.htm", "retrievedAt": "2026-10-09", "sha256": "7102f34ed11c74418876bb5d607a336846322df69b4293fb1cd77823c72fbf9c", "locator": "No.2732 2 重複期間 (2)ハ", "quote": "前年以前19年内に退職手当等"}
+      - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20260522_508CO0000000093"}
+      - {"type": "law", "lawNumber": "令和三年政令第二百二十九号", "egovRevisionId": "340CO0000000096_20220401_503CO0000000229"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和4年4月1日以後に支払を受けるべき確定拠出年金の一時金は前年以前19年内（年分の区切りの2022年1月ではない。改正政令附則1条・23条）。施行令70条1項2号と国税庁 No.2732 で一致"}

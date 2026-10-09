@@ -36,5 +36,61 @@ entries:
       - {"type": "web", "url": "https://www.cas.go.jp/jp/gaiyou/jimu/jinjikyoku/files/minkan_13_09.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "国家公務員の退職手当の支給水準", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "web", "url": "https://www.pref.mie.lg.jp/common/content/000790744.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "退職手当の支給率（国に準じた表）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "平成30年1月1日以後の退職。1・10・20・35年は2つの検索結果で一致、ほかの年は1つだけ。11〜14年などの段は値を確かめられなかったので入れていない（rate の無い段。部品は見込み額の入力を求める）。調整額は含まない"}
+  - rev: 2
+    appliesFrom: "2018-01-01"
+    appliesTo: null
+    enforcedOn: "2018-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1, "rate": "0.837"}
+      - {"upTo": 2, "rate": "1.674"}
+      - {"upTo": 3, "rate": "2.511"}
+      - {"upTo": 4, "rate": "3.348"}
+      - {"upTo": 5, "rate": "4.185"}
+      - {"upTo": 6, "rate": "5.022"}
+      - {"upTo": 7, "rate": "5.859"}
+      - {"upTo": 8, "rate": "6.696"}
+      - {"upTo": 9, "rate": "7.533"}
+      - {"upTo": 10, "rate": "8.37"}
+      - {"upTo": 11, "rate": "11.613375"}
+      - {"upTo": 12, "rate": "12.76425"}
+      - {"upTo": 13, "rate": "13.915125"}
+      - {"upTo": 14, "rate": "15.066"}
+      - {"upTo": 15, "rate": "16.216875"}
+      - {"upTo": 16, "rate": "17.890875"}
+      - {"upTo": 17, "rate": "19.564875"}
+      - {"upTo": 18, "rate": "21.238875"}
+      - {"upTo": 19, "rate": "22.912875"}
+      - {"upTo": 20, "rate": "24.586875"}
+      - {"upTo": 21, "rate": "26.260875"}
+      - {"upTo": 22, "rate": "27.934875"}
+      - {"upTo": 23, "rate": "29.608875"}
+      - {"upTo": 24, "rate": "31.282875"}
+      - {"upTo": 25, "rate": "33.27075"}
+      - {"upTo": 26, "rate": "34.77735"}
+      - {"upTo": 27, "rate": "36.28395"}
+      - {"upTo": 28, "rate": "37.79055"}
+      - {"upTo": 29, "rate": "39.29715"}
+      - {"upTo": 30, "rate": "40.80375"}
+      - {"upTo": 31, "rate": "42.31035"}
+      - {"upTo": 32, "rate": "43.81695"}
+      - {"upTo": 33, "rate": "45.32355"}
+      - {"upTo": 34, "rate": "46.83015"}
+      - {"upTo": null, "rate": "47.709"}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/328AC1000000182_20251001_506AC1000000080?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "34908bd38318d97ca597d8b455216f0e972d048532f2c9a1c424f33c0e83c48c", "locator": "国家公務員退職手当法 第4条第3項（令和7年10月1日の版）", "quote": "一年以上十年以下の期間については、一年につき百分の百二十五"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/328AC1000000182_20251001_506AC1000000080?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "34908bd38318d97ca597d8b455216f0e972d048532f2c9a1c424f33c0e83c48c", "locator": "国家公務員退職手当法 第5条第3項（令和7年10月1日の版）", "quote": "三十五年以上の期間については、一年につき百分の百五"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/328AC1000000182_20251001_506AC1000000080?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "34908bd38318d97ca597d8b455216f0e972d048532f2c9a1c424f33c0e83c48c", "locator": "国家公務員退職手当法 附則第6項（令和7年10月1日の版）", "quote": "第三条から第五条の三まで及び附則第十二項から第十六項までの規定により計算した額にそれぞれ百分の八十三・七を乗じて得た額とする"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/328AC1000000182_20251001_506AC1000000080?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "34908bd38318d97ca597d8b455216f0e972d048532f2c9a1c424f33c0e83c48c", "locator": "国家公務員退職手当法 附則第8項（令和7年10月1日の版）", "quote": "その者の勤続期間を三十五年として附則第六項の規定の例により計算して得られる額とする"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/328AC1000000182_20180101_429AC0000000079?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "5e76d6883ed49dc346ef81cdce10fc3cbc93db9149e3dc4c8292935b9e3bd9ef", "locator": "国家公務員退職手当法 附則（調整率）（平成30年1月1日の版）", "quote": "百分の八十三・七を乗じて得た額とする"}
+      - {"type": "web", "url": "https://www.cas.go.jp/jp/gaiyou/jimu/jinjikyoku/files/h300101_taishoku2.pdf", "retrievedAt": "2026-10-09", "sha256": "6b4a9f6d8882526af0b89920b8ad52498806a1b99fca00ca752620b6e4ef9c9e", "locator": "国家公務員退職手当支給率早見表（平成30年1月1日以降の退職）", "quote": "（注３）法附則第６項から第８項まで及び昭和48年法律第30号附則第５項から第７項による退職手当の基本額の調"}
+      - {"type": "web", "url": "https://www.cas.go.jp/jp/gaiyou/jimu/jinjikyoku/files/h300101_taishoku2.pdf", "retrievedAt": "2026-10-09", "sha256": "6b4a9f6d8882526af0b89920b8ad52498806a1b99fca00ca752620b6e4ef9c9e", "locator": "国家公務員退職手当支給率早見表（平成30年1月1日以降の退職）", "quote": "34 38.7531 38.7531 46.83015 46.83015"}
+      - {"type": "law", "lawNumber": "昭和二十八年法律第百八十二号", "egovRevisionId": "328AC1000000182_20251001_506AC1000000080"}
+      - {"type": "law", "lawNumber": "平成二十九年法律第七十九号", "egovRevisionId": "328AC1000000182_20180101_429AC0000000079"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "平成30年1月1日以後の退職。勤続10年以下は法3条（1年100/100）、11〜24年は法4条（定年・応募認定（1号）など）、25年以上は法5条の割合に、附則6項の調整率83.7/100を掛けた率。35年を超えるときは35年として計算（附則8項）。全45年の率を条文から計算し直し、内閣人事局の早見表の全行と一致。調整額・定年前早期退職の割増は含まない"}

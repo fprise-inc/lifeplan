@@ -15,5 +15,22 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/hutankeigen/index.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "多子世帯の授業料等無償化（令和7年度から）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "令和7年度から、扶養する子が3人以上の世帯は所得の制限なしで上限まで（資産の要件は扱わない）"}
+  - rev: 2
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: "2025-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 3
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/501AC0000000008_20250401_507AC0000000017?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "7abf3bbbac3032eaa0021950246824e5194ee8e3d0a4a2df8837599494211c65", "locator": "大学等における修学の支援に関する法律 第4条第1項第1号（令和7年4月1日の版）", "quote": "当該学生等が三人以上の子等の生計を維持する者に生計を維持されている子等であること"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20250416-mxt_gakushi01_100001505_4.pdf", "retrievedAt": "2026-10-09", "sha256": "959a9dae615888f377f6e1034a35a03cbf2342402c7f740a980057359959dd61", "locator": "令和７年度からの多子世帯に対する大学等の授業料等減免について（文部科学省）", "quote": "令和７年度から多子世帯の学生に対して所得制限なく大学等の授業料・入学金を、国が定めた一定額まで減額・免除する"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20250416-mxt_gakushi01_100001505_4.pdf", "retrievedAt": "2026-10-09", "sha256": "959a9dae615888f377f6e1034a35a03cbf2342402c7f740a980057359959dd61", "locator": "同 支援対象", "quote": "扶養する子供が３人以上"}
+      - {"type": "law", "lawNumber": "令和元年法律第八号", "egovRevisionId": "501AC0000000008_20250401_507AC0000000017"}
+      - {"type": "law", "lawNumber": "令和七年法律第十七号", "egovRevisionId": "501AC0000000008_20250401_507AC0000000017"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和7年4月1日から、3人以上の子等を扶養する世帯の学生は所得によらず上限まで減免（法4条1項1号・2項1号）。法の条文と文部科学省の資料で一致。資産3億円未満の要件（施行規則10条2項3号）と給付型奨学金（多子世帯は第IV区分の額）は扱わない"}

@@ -16,5 +16,22 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.pref.osaka.lg.jp/o090130/kateishien/teate/jite_202410.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "児童手当の拡充（令和6年10月分から）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "3歳未満。切り替えの月（3歳に達する日の属する月の翌月）は原本で確かめる"}
+  - rev: 2
+    appliesFrom: "2024-10-01"
+    appliesTo: null
+    enforcedOn: "2024-10-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 3
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/346AC0000000073_20241001_506AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "9650e572c9cea61cb2262cd8fd39354346cf526704c17009be4782038ae8fba5", "locator": "児童手当法 第6条第2項第5号（令和6年10月1日の版）", "quote": "三歳未満の支給対象児童（月の初日に生まれた支給対象児童にあつては、出生の日から三年を経過しないもの）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/346AC0000000073_20241001_506AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "9650e572c9cea61cb2262cd8fd39354346cf526704c17009be4782038ae8fba5", "locator": "児童手当法 第9条第3項（令和6年10月1日の版）", "quote": "児童手当の額が減額することとなるに至つた場合における児童手当の額の改定は、その事由が生じた日の属する月の翌月から行う"}
+      - {"type": "web", "url": "https://www.cfa.go.jp/policies/kokoseido/jidouteate/annai", "retrievedAt": "2026-10-09", "sha256": "ad9f152b3cc1c6ba7c69318db95a02a719526bb9968d02d765060b16d378dcba", "locator": "児童手当制度のご案内（こども家庭庁）", "quote": "3歳以上 高校生年代まで"}
+      - {"type": "law", "lawNumber": "昭和四十六年法律第七十三号", "egovRevisionId": "346AC0000000073_20241001_506AC0000000047"}
+      - {"type": "law", "lawNumber": "令和六年法律第四十七号", "egovRevisionId": "346AC0000000073_20241001_506AC0000000047"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "3歳未満の額。3歳以上になった月の翌月から減額（法9条3項）。法6条2項5号とこども家庭庁の案内で一致。月の初日生まれは出生の日から3年を経過した日（誕生日）が事由の日なので、誕生月の翌月から（ageSwitch の monthAfterReach は1日生まれだけ1か月早い。部品で扱っていない点として残す）"}

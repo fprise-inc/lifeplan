@@ -15,7 +15,7 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/nenkin/kyoshutsu/2025kaisei.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "2025年の制度改正", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.3.0"
-    supersededIn: null
+    supersededIn: "2026.4.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "施行から3年（令和11年11月末）までの経過措置（PR #11 で厚生労働省の資料を読んだ）"}
   - rev: 2
     appliesFrom: "2029-12-01"
@@ -28,5 +28,37 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/nenkin/kyoshutsu/2025kaisei.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "2025年の制度改正", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.3.0"
-    supersededIn: null
+    supersededIn: "2026.4.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "経過措置の後は、前に加入・運用指図・移換をしていた人だけ"}
+  - rev: 3
+    appliesFrom: "2026-12-01"
+    appliesTo: "2029-11-30"
+    enforcedOn: "2026-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413AC0000000088_20261201_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "11aab7b2dabc7d605a494aea1463489f1752a705f467fc1aeacd1e20fd752fb9", "locator": "社会経済の変化を踏まえた年金制度の機能強化のための国民年金法等の一部を改正する等の法律（令和7年法律第74号）附則第33条第1項", "quote": "施行日から起算して三年を経過する日までの間は、次の各号のいずれかに該当する者であって、申出の時点で日本国内に住所を有する六十歳以上七十歳未満のもの"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413AC0000000088_20261201_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "11aab7b2dabc7d605a494aea1463489f1752a705f467fc1aeacd1e20fd752fb9", "locator": "社会経済の変化を踏まえた年金制度の機能強化のための国民年金法等の一部を改正する等の法律（令和7年法律第74号）附則第33条第1項", "quote": "第九号施行日において現に第九号改正後確定拠出年金法第六十二条第一項各号に掲げる者のいずれにも該当せず、かつ、第九号施行日までの間において国民年金の被保険者であった者"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/nenkin/kyoshutsu/2025kaisei.html", "retrievedAt": "2026-10-09", "sha256": "f2dec18fb24a98e1d51e99cf05e360cdc849849e5aec86e5f84e49733533719b", "locator": "2025年の制度改正 iDeCoの加入可能年齢の引き上げ（厚生労働省）", "quote": "経過措置として、施行日から３年を経過する日までの間は、上記（１）～（３）に該当しない60歳以上70歳未満の者であってもiDeCoの加入が可能です"}
+      - {"type": "law", "lawNumber": "平成十三年法律第八十八号", "egovRevisionId": "413AC0000000088_20261201_507AC0000000074"}
+      - {"type": "law", "lawNumber": "令和七年法律第七十四号", "egovRevisionId": "413AC0000000088_20261201_507AC0000000074"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和8年12月1日（第9号施行日）から3年を経過する日（令和11年11月30日）までは、前にiDeCoの加入・運用指図・移換がなくても60〜70歳で第5号加入者になれる。対象は、施行日に法62条1項各号のいずれにも該当せず施行日までに国民年金の被保険者だった者、または施行日から1年以内に1〜4号に該当しなくなった者（附則33条1項）。条文と厚生労働省の資料で一致"}
+  - rev: 4
+    appliesFrom: "2029-12-01"
+    appliesTo: null
+    enforcedOn: "2026-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 0
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413AC0000000088_20261201_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "11aab7b2dabc7d605a494aea1463489f1752a705f467fc1aeacd1e20fd752fb9", "locator": "社会経済の変化を踏まえた年金制度の機能強化のための国民年金法等の一部を改正する等の法律（令和7年法律第74号）附則第33条第1項", "quote": "施行日から起算して三年を経過する日までの間は、次の各号のいずれかに該当する者であって、申出の時点で日本国内に住所を有する六十歳以上七十歳未満のもの"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/nenkin/kyoshutsu/2025kaisei.html", "retrievedAt": "2026-10-09", "sha256": "f2dec18fb24a98e1d51e99cf05e360cdc849849e5aec86e5f84e49733533719b", "locator": "2025年の制度改正 iDeCoの加入可能年齢の引き上げ（厚生労働省）", "quote": "下記の（１）～（３）いずれかに該当する国民年金被保険者以外の者であって"}
+      - {"type": "law", "lawNumber": "平成十三年法律第八十八号", "egovRevisionId": "413AC0000000088_20261201_507AC0000000074"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "経過措置の後は、iDeCo加入者・運用指図者・企業年金から移換する者だけが第5号加入者になれる。附則33条1項（3年を経過する日まで）と厚生労働省の資料で一致"}

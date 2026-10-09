@@ -15,5 +15,21 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.nta.go.jp/publication/pamph/gensen/zeigakuhyo2026/data/18.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "退職所得の源泉徴収税額の速算表", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "課税退職所得金額は1,000円未満の端数を切り捨て"}
+  - rev: 2
+    appliesFrom: "2013-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "DOWN", "unit": 1000}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/337AC0000000066_20170401_429AC0000000004?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "a230068b7f36b49b4333344aad8686416a24e652d23139c4833b692d4fca5063", "locator": "国税通則法 第118条第1項（平成29年4月1日の版）", "quote": "その額に千円未満の端数があるとき、又はその全額が千円未満であるときは、その端数金額又はその全額を切り捨てる"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/337AC0000000066_20260624_508AC0000000046?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "23e457028ffc8ce58d7543e3f0618618d630c2a5d2a22adb885065173953501a", "locator": "国税通則法 第118条第1項（令和8年6月24日の版）", "quote": "その額に千円未満の端数があるとき、又はその全額が千円未満であるときは、その端数金額又はその全額を切り捨てる"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2732.htm", "retrievedAt": "2026-10-09", "sha256": "7102f34ed11c74418876bb5d607a336846322df69b4293fb1cd77823c72fbf9c", "locator": "No.2732 3 （注1）", "quote": "課税退職所得金額に1,000円未満の端数があるときは、これを切り捨てます"}
+      - {"type": "law", "lawNumber": "昭和三十七年法律第六十六号", "egovRevisionId": "337AC0000000066_20260624_508AC0000000046"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "課税退職所得金額は1,000円未満の端数を切り捨て。国税通則法118条1項と国税庁 No.2732 で一致（退職所得の受給に関する申告書があるときは施行令40条1項の1円の特例の対象外）"}

@@ -20,5 +20,27 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/hutankeigen/index.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "支援の対象となる世帯の区分", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "第I区分 100円未満、第II区分 25,600円未満、第III区分 51,300円未満、第IV区分 154,500円未満（第IV区分は令和6年度から。多子世帯・理工農系）"}
+  - rev: 2
+    appliesFrom: "2024-04-01"
+    appliesTo: null
+    enforcedOn: "2024-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 99, "amount": 1}
+      - {"upTo": 25599, "amount": 2}
+      - {"upTo": 51299, "amount": 3}
+      - {"upTo": 154499, "amount": 4}
+      - {"upTo": null, "amount": 0}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/501CO0000000049_20240401_506CO0000000096?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "04944c869fbe74365c318b4fd2dbfe9f89c6bed09a8fe57023696d8d02ddc09e", "locator": "大学等における修学の支援に関する法律施行令 第2条第1項第2号（令和6年4月1日の版）", "quote": "四五一、三〇〇円以上一五四、五〇〇円未満"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/501CO0000000049_20261001_508CO0000000249?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "2f6c9c73ef1344175806bddf02e48c0194212a31c9dbf2083aacbe96bd9ca683", "locator": "大学等における修学の支援に関する法律施行令 第2条第1項第2号（令和8年10月1日の版）", "quote": "ロ一〇〇円以上二五、六〇〇円未満"}
+      - {"type": "web", "url": "https://www.jasso.go.jp/shogakukin/about/kyufu/kakei/zaigaku.html", "retrievedAt": "2026-10-09", "sha256": "505a8a76f1ae4bc3dd3addc99f2662d759a434a706b7e72ab57df760ea700791", "locator": "進学後（在学採用）の給付奨学金の家計基準（日本学生支援機構）", "quote": "第4区分（※3） 学生等本人と生計維持者の支給額算定基準額（※2）の合計が51,300円以上154,500円未満であること"}
+      - {"type": "law", "lawNumber": "令和元年政令第四十九号", "egovRevisionId": "501CO0000000049_20240401_506CO0000000096"}
+      - {"type": "law", "lawNumber": "令和六年政令第九十六号", "egovRevisionId": "501CO0000000049_20240401_506CO0000000096"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "第I区分 100円未満、第II区分 25,600円未満、第III区分 51,300円未満、第IV区分 154,500円未満（第IV区分は令和6年4月1日から）。施行令2条1項2号（令和6年4月・令和8年10月の版）と日本学生支援機構の家計基準で一致。第IV区分で減免を受けられるのは公示対象学部等（理工農系）の学生（施行規則10条2項4号）、給付型奨学金は多子世帯に限る（日本学生支援機構）。この条件は値に含まれない"}

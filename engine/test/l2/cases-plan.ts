@@ -1,6 +1,6 @@
 // 答え合わせ（検証 L2）: 退職所得の税・教育の公的支援・児童手当・公務員の退職手当（製品の制度データ）。
-// 2026-10-09 にこの作業の環境から公式のサイト（国税庁・文部科学省・日本学生支援機構・こども家庭庁など）に届かなかったので、計算例と規則は
-// 検索の要約で読んだもの（原本は未取得）。「検索で読んだ計算例」はその額をそのまま、「検索で読んだ規則から作った例」は規則（額・率・区分）を当てはめた例
+// 計算例と規則は公式の原本（国税庁・内閣人事局・文部科学省・日本学生支援機構・こども家庭庁の公表資料。写しは非公開リポジトリ）で確かめた（2026-10-09）。
+// 「原本の計算例」はその額をそのまま、「原本の規則から作った例」は規則（額・率・区分）を当てはめた例。R-3（住民税）の出典だけは検索で読んだ地方公共団体の案内のまま
 import { runEngine } from "../../src/engine/run.ts";
 import type { RetirementIncomeOutput, RetirementReceipt } from "../../src/sdk/contracts.ts";
 import { household, member, realPacks, uid } from "../helpers.ts";
@@ -10,16 +10,17 @@ type Req = ReturnType<typeof household>;
 type Obj = Record<string, unknown>;
 type Flow = { row: string; ym: string; amount: number; object?: string; formula: string };
 const A = uid("l2p.a");
-const EX = "検索で読んだ計算例（原本は未取得。2026-10-09）";
-const RULE = "検索で読んだ規則（額・率・区分）から作った例（原本は未取得。2026-10-09）";
+const EX = "原本の計算例（2026-10-09 に確かめた）";
+const RULE = "原本の規則（額・率・区分）から作った例（2026-10-09 に確かめた）";
+const SEARCH_RULE = "検索で読んだ規則（額・率・区分）から作った例（原本は未取得。2026-10-09）";
 const NTA1420 = "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1420.htm";
 const NTA_TABLE = "https://www.nta.go.jp/publication/pamph/gensen/zeigakuhyo2026/data/18.pdf";
-const NTA_OVERLAP = "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/annai/gensen/pdf/2026bun_03-2.pdf";
-const MEXT_HE = "https://www.mext.go.jp/a_menu/koutou/hutankeigen/index.htm";
-const MEXT_HS = "https://www.mext.go.jp/b_menu/activity/detail/2026/20260331.html";
+const NTA2732 = "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2732.htm";
+const JASSO_KAKEI = "https://www.jasso.go.jp/shogakukin/about/kyufu/kakei/zaigaku.html";
+const MEXT_HS = "https://www.mext.go.jp/a_menu/shotou/mushouka/1342600.htm";
 const JASSO = "https://www.jasso.go.jp/shogakukin/about/kyufu/kingaku.html";
-const CHILD = "https://www.pref.osaka.lg.jp/o090130/kateishien/teate/jite_202410.html";
-const CAS = "https://www.cas.go.jp/jp/gaiyou/jimu/jinjikyoku/files/minkan_13_09.pdf";
+const CHILD = "https://www.cfa.go.jp/policies/kokoseido/jidouteate/annai";
+const CAS = "https://www.cas.go.jp/jp/gaiyou/jimu/jinjikyoku/files/h300101_taishoku2.pdf";
 const at = (ym: string) => ({ at: ym });
 const quiet = (o: Obj = {}) => household({ baseMonth: "2027-01", endYear: 2045, members: [member("l2p.a", "self", "1975-05")], ...o }) as Req;
 const entry = <T>(req: Req, component: string, input: unknown, stubs?: Record<string, (i: unknown) => unknown>) =>
@@ -68,7 +69,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "R-1",
     area: "退職所得",
     title: "勤続年数10年2か月は11年として退職所得控除額440万円（40万円×11年）",
-    source: s(NTA1420, `${EX}。No.1420 の計算例`),
+    source: s(NTA1420, `${EX}。No.1420 の例1`),
     expected: 4400000,
     actual: () => ret(2030, [{ ym: "2030-03", amount: 10000000, serviceFrom: "2020-01", serviceTo: "2030-02" }]).deduction,
     status: "pass",
@@ -86,7 +87,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "R-3",
     area: "退職所得",
     title: "同じ例の住民税（課税退職所得250万円×市町村民税6%・道府県民税4%）",
-    source: s("https://www.city.koto.lg.jp/060502/kurashi/zekin/kuminze/taisyoku25.html", `${RULE}。退職所得の分離課税（住民税）`),
+    source: s("https://www.city.koto.lg.jp/060502/kurashi/zekin/kuminze/taisyoku25.html", `${SEARCH_RULE}。退職所得の分離課税（住民税）`),
     expected: 250000,
     actual: () => ret(2030, [{ ym: "2030-04", amount: 20000000, serviceFrom: "2000-04", serviceTo: "2030-03" }]).residentTax,
     status: "pass",
@@ -95,7 +96,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "R-4",
     area: "退職所得",
     title: "短期退職手当等（勤続4年・800万円）: 控除160万円、150万円＋{800万−(300万＋160万)}＝490万円",
-    source: s(NTA1420, `${RULE}。短期退職手当等の2分の1の上限（令和4年分以後）`),
+    source: s(NTA2732, `${RULE}。No.2732 短期退職手当等の課税退職所得金額（令和4年分以後）`),
     expected: 4900000,
     actual: () => ret(2030, [{ ym: "2030-04", amount: 8000000, serviceFrom: "2026-04", serviceTo: "2030-03" }]).income,
     status: "pass",
@@ -113,7 +114,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "R-6",
     area: "退職所得",
     title: "前の一時金（500万円・勤続20年。控除800万円に満たない）は、500万円÷40万円＝12年（切り捨て）とみなして重複を調整",
-    source: s(NTA_OVERLAP, `${EX}。前年以前の退職手当等の収入金額が控除額に満たない場合（施行令70条2項）`),
+    source: s(NTA2732, `${RULE}。No.2732 前の退職手当等の収入金額が控除額に満たない場合の算式（収入金額÷40万円。施行令70条2項）`),
     expected: 12,
     actual: () =>
       ret(2029, [
@@ -126,7 +127,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "R-7",
     area: "退職所得",
     title: "確定拠出年金の一時金（2030年）の6年後に受ける退職金は、令和8年以後の9年内の規定で重複を調整する（重なる勤続25年）",
-    source: s("https://www.zeiken.co.jp/news/15056624.php", `${RULE}。令和7年度改正（前年以前9年内）`),
+    source: s(NTA2732, `${RULE}。No.2732 重複期間 (2)ロ（前年以前9年内。令和8年1月1日以後に支払を受けた一時金）`),
     expected: 25,
     actual: () =>
       ret(2036, [
@@ -139,7 +140,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "R-8",
     area: "退職所得",
     title: "国家公務員の退職手当（定年・勤続35年）: 俸給月額40万円×支給率47.709",
-    source: s(CAS, `${RULE}。調整率83.7/100 の後の最高の支給率（調整額は含まない）`),
+    source: s(CAS, `${RULE}。国家公務員退職手当支給率早見表の勤続35年（調整率83.7/100 の後。調整額は含まない）`),
     expected: 19083600,
     actual: () => civilAllowance(35, 400000, "retirementAge"),
     status: "pass",
@@ -148,7 +149,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "E-1",
     area: "教育",
     title: "修学支援の区分: 支給額算定基準額が100円未満（住民税非課税相当）は第I区分",
-    source: s(MEXT_HE, `${RULE}。支給額算定基準額＝課税標準額×6%−調整控除の額`),
+    source: s(JASSO_KAKEI, `${RULE}。支給額算定基準額＝課税標準額×6%−（調整控除額＋調整額）。第1区分は100円未満`),
     expected: 1,
     actual: () => category(0, 0),
     status: "pass",
@@ -157,7 +158,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "E-2",
     area: "教育",
     title: "修学支援の区分: 課税標準額40万円・調整控除2,500円 → 基準額21,500円（25,600円未満）で第II区分",
-    source: s(MEXT_HE, `${RULE}。第II区分は100円以上25,600円未満`),
+    source: s(JASSO_KAKEI, `${RULE}。第2区分は100円以上25,600円未満`),
     expected: 2,
     actual: () => category(400000, 2500),
     status: "pass",
@@ -166,7 +167,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "E-3",
     area: "教育",
     title: "修学支援の区分: 課税標準額80万円・調整控除2,500円 → 基準額45,500円（51,300円未満）で第III区分",
-    source: s(MEXT_HE, `${RULE}。第III区分は25,600円以上51,300円未満`),
+    source: s(JASSO_KAKEI, `${RULE}。第3区分は25,600円以上51,300円未満`),
     expected: 3,
     actual: () => category(800000, 2500),
     status: "pass",
@@ -175,7 +176,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "E-4",
     area: "教育",
     title: "給付型奨学金の月額（第I区分・私立・自宅外）75,800円",
-    source: s(JASSO, `${EX}。給付奨学金の支給額`),
+    source: s(JASSO, `${RULE}。給付奨学金の支給額の表（私立・自宅外・第1区分）`),
     expected: 75800,
     actual: () => {
       const C = uid("l2p.c");
@@ -189,7 +190,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "E-5",
     area: "教育",
     title: "高等学校等就学支援金（私立の全日制、令和8年度から所得制限なし）の年額 457,200円",
-    source: s(MEXT_HS, `${EX}。令和8年4月から`),
+    source: s(MEXT_HS, `${RULE}。Q&A 8 支給額（私立の全日制は月額3万8,100円まで。令和8年4月から所得制限なし）`),
     expected: 457200,
     actual: () => {
       const C = uid("l2p.c");
@@ -203,7 +204,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "E-6",
     area: "教育",
     title: "児童手当の月額: 3歳未満の第1子 15,000円",
-    source: s(CHILD, `${EX}。令和6年10月分から`),
+    source: s(CHILD, `${RULE}。3歳未満 15,000円（令和6年10月分から）`),
     expected: 15000,
     actual: () => childAllowance(["2026-05"], 0, "2027-03"),
     status: "pass",
@@ -212,7 +213,7 @@ export const PLAN_CASES: readonly L2Case[] = [
     id: "E-7",
     area: "教育",
     title: "児童手当の月額: 第3子は30,000円（22歳の年度末までの子を数える）",
-    source: s(CHILD, `${EX}。多子加算`),
+    source: s(CHILD, `${RULE}。第3子以降は30,000円（第3子以降のカウント方法）`),
     expected: 30000,
     actual: () => childAllowance(["2006-05", "2012-05", "2020-05"], 2, "2027-03"),
     status: "pass",
