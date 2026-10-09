@@ -935,7 +935,8 @@
       "additionalProperties": false,
       "properties": {
         "beforeIndependence": { "$ref": "urn:financia:schema:common#/$defs/rate" },
-        "afterIndependence": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+        "afterIndependence": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+        "noChildren": { "$ref": "urn:financia:schema:common#/$defs/rate" }
       }
     },
     "survivorDeathBenefits": {

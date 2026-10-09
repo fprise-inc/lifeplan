@@ -380,7 +380,7 @@ export interface ContingencyInput {
   readonly grade?: 1 | 2 | 3;
   readonly recovery?: Timepoint;
   readonly survivor?: {
-    readonly livingRatio?: { readonly beforeIndependence?: string; readonly afterIndependence?: string };
+    readonly livingRatio?: { readonly beforeIndependence?: string; readonly afterIndependence?: string; readonly noChildren?: string };
     readonly independenceAge?: number;
     readonly funeral?: Yen;
     readonly reserveMonths?: number;

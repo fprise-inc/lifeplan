@@ -3,7 +3,7 @@
 // 収支を組み立て、亡くなる年ごとに変わる部品（遺族年金。入力の death で「この月に亡くなったら」を試す）だけを呼ぶ（速さ: 0005 の追記 2026-10-09）。
 // 亡くなる月はその年の1月（計算基準年は計算基準月）。遺族は死亡の当時の配偶者（いなければ子）。
 // - 積み上げ方式（標準）: 死亡の月の翌月から期間の終わり（標準は配偶者の平均余命。簡易生命表の主な年齢の値を年齢で補間）までの
-//   必要な資金（遺族の生活費＝生活費×遺族の割合（末子の独立まで0.7・後0.5。生活費の段階の後に掛ける）・住居費（団信で消える住宅ローンは除く）・
+//   必要な資金（遺族の生活費＝生活費×遺族の割合（末子の独立まで0.7・後0.5、子のいない世帯は0.7。生活費の段階の後に掛ける）・住居費（団信で消える住宅ローンは除く）・
 //   教育費・周期的な支出・介護・保険料（亡くなった人が被保険者の契約を除く）・遺族の税と社会保険料・遺族の車など）から、準備できる資金
 //   （遺族の収入（給与・年金）・遺族年金・児童手当・教育の公的支援・死亡退職金・確定拠出年金の死亡一時金・弔慰金）を引き、
 //   諸費用（整理資金・予備の生活資金（遺族の生活費の n か月分））を足す。金融資産（亡くなる年の前の年末）を含めない額（need）と、含めて引いた額
@@ -277,8 +277,10 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
           const own = c.leaves === null ? addMonths(ctx.time.ageSwitch(c.id, { years: req.survivor?.independenceAge ?? 22 }, "firstMarch31AfterReach"), 1) : ctx.time.resolve(c.leaves);
           if (own > indep) indep = own;
         }
-        const before = ctx.rate.of(req.survivor?.livingRatio?.beforeIndependence ?? "0.7");
-        const after = ctx.rate.of(req.survivor?.livingRatio?.afterIndependence ?? "0.5");
+        // 子のいない世帯は、全期間を noChildren（省略は0.7）にする
+        const noChildren = kids.length === 0 ? ctx.rate.of(req.survivor?.livingRatio?.noChildren ?? "0.7") : null;
+        const before = noChildren ?? ctx.rate.of(req.survivor?.livingRatio?.beforeIndependence ?? "0.7");
+        const after = noChildren ?? ctx.rate.of(req.survivor?.livingRatio?.afterIndependence ?? "0.5");
         const scaled = (p: readonly number[], factor: string | null, a: MonthIndex, b: MonthIndex): number => {
           const s = sum(p, a, b);
           return factor === null || s === 0 ? s : ctx.money.mulRate(yen(s), ctx.rate.of(factor), "conv.expense.share");
