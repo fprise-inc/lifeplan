@@ -10,6 +10,7 @@
 //   返済額軽減（reducePayment）は回数を変えずに返済額を計算し直す。手数料は fee
 // - 借り換え（refinance）: その月から、残高（未払利息を含む）を新しい金利の段階・期間で返す。諸費用は払う（costsFinanced なら新しいローンに含める）
 // - 既に借りているローンは balance（balanceAsOf の月の返済の後の残高）から計算する。団信で残高が消える計算は万一の作業で使う（ここは入力まで）
+// - 約束の版 1.1: 世帯の負債の物の ID（object）のほかに、ほかの部品が作った負債（loan。車のひな形の自動車ローン・教育ローン・貸与の奨学金）も受ける
 import {
   addMonths,
   boxValue,
@@ -66,11 +67,11 @@ const ROWS: Readonly<Record<DebtInput["kind"], string>> = {
   other: "cf.expense.debt.other",
 };
 
-export default defineComponent<{ object: string }, DebtScheduleOutput>({
+export default defineComponent<{ object: string } | { loan: DebtInput }, DebtScheduleOutput>({
   id: "debt.schedule",
   title: "負債の返済",
-  contract: "1.0",
-  revision: 1,
+  contract: "1.1",
+  revision: 2,
   requires: {},
   params: [],
   reads: [
@@ -85,10 +86,10 @@ export default defineComponent<{ object: string }, DebtScheduleOutput>({
     "debt.prepayments",
     "debt.refinance",
   ],
-  input: "object.input",
+  input: "debt.schedule.input",
   output: "debt.schedule.output",
   compute(input, ctx) {
-    const d = ctx.get<DebtInput>("debt", input.object);
+    const d = "loan" in input ? input.loan : ctx.get<DebtInput>("debt", input.object);
     const { base, end } = ctx.time;
     const member = (d.debtors.find((x) => x.role === "primary") ?? d.debtors[0])?.member;
     const row = ROWS[d.kind];

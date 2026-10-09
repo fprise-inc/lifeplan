@@ -1,0 +1,19 @@
+# 【架空の見本】テスト用。実在の制度の値ではない（製品の値の形を写したもの）
+id: test.pension.basic.childAddition.fullMonths
+title: 【架空の見本】老齢基礎年金の子の加算を満額にする保険料納付済期間などの月数（満たないときは ×月数/この月数）
+unit: months
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2028-04-01"
+    appliesTo: null
+    enforcedOn: "2028-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 300
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null

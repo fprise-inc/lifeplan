@@ -14,6 +14,9 @@
 //   上場株式等の譲渡益の税（所得税・復興特別所得税・防衛特別所得税と住民税。源泉徴収ありの特定口座とみなす）をかけ、手取りで足りるだけ売る。
 //   引き出せない期間（withdrawalLockedUntil）の器・iDeCo・企業型DC・不動産は取り崩さない。補えなかった額は資金不足（cf.balance.shortfall）
 // - 年ごとの行: 年間収支（譲渡益の税を引いた後）・運用益・金融資産の合計・器ごとの残高・負債の残高・NISA の非課税保有限度額の残り・資金不足
+// - 小規模企業共済は account.mutualAid が残高と受け取りを計算する（掛金は決済口座から出る）。自動車ローン（expense.car）・教育ローンと
+//   貸与の奨学金（education.cost）の年末残高も負債の残高（cf.balance.debt.other）に載せる
+// - 現状の検算（expense.reconcile。年間収支を読むのでここで呼ぶ）の使途不明金を、お金の動きと年間収支に足す
 import {
   accountReturnRate,
   addMonths,
@@ -25,6 +28,7 @@ import {
   formatYm,
   monthIndex,
   monthOf,
+  netByYear,
   RATE_ZERO,
   yearOf,
   yen,
@@ -38,6 +42,7 @@ import {
   type IdecoContributionOutput,
   type MemberInput,
   type MonthIndex,
+  type MutualAidOutput,
   type Rate,
   type ResidenceOutput,
   type Yen,
@@ -113,9 +118,13 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.1",
-  revision: 5,
+  revision: 6,
   requires: {
     "plan.flows": ">=1 <2",
+    "expense.reconcile": ">=1 <2",
+    "expense.car": ">=1 <2",
+    "education.cost": ">=1 <2",
+    "account.mutualAid": ">=1 <2",
     "ideco.contribution": ">=1 <2",
     "account.ideco": ">=1 <2",
     "debt.schedule": ">=1 <2",
@@ -136,6 +145,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "account.lots",
     "debt.kind",
     "debt.debtors",
+    "goal.kind",
+    "goal.owner",
     "assumptions.investmentReturn",
     "assumptions.assetReturns",
     "assumptions.withdrawal",
@@ -148,6 +159,9 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     const endYear = yearOf(end);
     const collected = ctx.call<{ flows: readonly Flow[]; net: readonly { year: number; amount: Yen }[]; parts: readonly (readonly Flow[])[] }>("plan.flows", {});
     const net = new Map(collected.net.map((x) => [x.year, x.amount]));
+    // 現状の検算の使途不明金（年間収支から引く）
+    const reconciled = ctx.call<{ flows: readonly Flow[] }>("expense.reconcile", {}).flows;
+    if (reconciled.length > 0) for (const [y, a] of netByYear(reconciled, ctx.conventions.aggregation, base, end)) net.set(y, yen((net.get(y) ?? 0) + a));
     const inputs = ctx.list<AccountInput>("account");
     const own: Flow[] = [];
     const annual: AnnualRow[] = [];
@@ -159,7 +173,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     // 器（iDeCo・企業型DC は account.ideco）
     const accs: Acc[] = [];
     for (const a of inputs) {
-      if (a.kind === "ideco" || a.kind === "corporateDc") continue;
+      if (a.kind === "ideco" || a.kind === "corporateDc" || a.kind === "smallBusinessMutualAid") continue;
       const value = boxValue(a.marketValue) ?? yen(0);
       const cost = a.costBasis === undefined ? value : (boxValue(a.costBasis) ?? value);
       const lots = a.lots === undefined ? null : a.lots.map((l) => ({ vintage: l.vintageYear, regime: l.regime, cost: l.costBasis, value: l.marketValue }));
@@ -226,8 +240,29 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         selfPaid.set(yearOf(ym), addYen(selfPaid.get(yearOf(ym)) ?? yen(0), p.amount));
       }
     }
+    // 小規模企業共済（構成員ごと。掛金は決済口座から出る）
+    const mutualAid = new Map<string, { owner: string; byYear: Map<number, { closing: Yen; returns: Yen }> }>();
+    for (const m of members) {
+      const out = ctx.call<MutualAidOutput>("account.mutualAid", { member: m.id });
+      for (const a of out.accounts) {
+        mutualAid.set(a.object, { owner: m.id, byYear: new Map(a.years.map((y) => [y.year, { closing: y.closing, returns: y.returns }])) });
+        for (const y of a.years) selfPaid.set(y.year, addYen(selfPaid.get(y.year) ?? yen(0), y.contributions));
+      }
+    }
     // 負債の年末残高と、購入した持ち家
-    const debts = ctx.list<DebtInput>("debt").map((d) => ({ d, out: ctx.call<DebtScheduleOutput>("debt.schedule", { object: d.id }) }));
+    const debts: { d: Pick<DebtInput, "id" | "kind" | "debtors">; out: Pick<DebtScheduleOutput, "yearEnd"> }[] = ctx.list<DebtInput>("debt").map((d) => ({ d, out: ctx.call<DebtScheduleOutput>("debt.schedule", { object: d.id }) }));
+    // ほかの部品が作った負債（自動車ローン・教育ローン・貸与の奨学金）
+    for (const m of members) {
+      for (const l of ctx.call<{ loans: readonly { object: string; yearEnd: DebtScheduleOutput["yearEnd"] }[] }>("expense.car", { member: m.id }).loans) {
+        debts.push({ d: { id: l.object, kind: "car", debtors: [{ member: m.id, role: "primary" }] }, out: { yearEnd: l.yearEnd } });
+      }
+    }
+    for (const g of ctx.list<{ kind: string; owner: string }>("goal")) {
+      if (g.kind !== "education") continue;
+      for (const l of ctx.call<{ loans: readonly { object: string; member: string; yearEnd: DebtScheduleOutput["yearEnd"] }[] }>("education.cost", { member: g.owner }).loans) {
+        debts.push({ d: { id: l.object, kind: "other", debtors: [{ member: l.member, role: "primary" }] }, out: { yearEnd: l.yearEnd } });
+      }
+    }
     const homes = ctx.call<ResidenceOutput>("housing.residence", {}).properties.map((p) => ({ p, from: ctx.time.resolve({ at: p.from }), to: p.to === null ? null : ctx.time.resolve({ at: p.to }), value: yen(0) }));
     if (homes.some((h) => h.to !== null && h.to < end)) ctx.notice("N_NOT_SUPPORTED", ["residence.sale"]);
 
@@ -381,7 +416,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
           if (x.value <= 0) continue;
           const lock = x.input?.withdrawalLockedUntil;
           if (lock !== undefined && lock !== null && ctx.time.resolve(lock) >= dec) continue;
-          if (x.kind === "childNisa" && (x.owner === null || at.paramCount(N.childWithdrawal) === null || reachOf(x.owner, N.childWithdrawal, jan) > dec)) continue;
+          // こどもNISA の払い出しは、その年3月31日に12歳である年（12歳に達する日がその年の3月31日以前）から
+          if (x.kind === "childNisa" && (x.owner === null || at.paramCount(N.childWithdrawal) === null || reachOf(x.owner, N.childWithdrawal, jan) > monthIndex(y, 3))) continue;
           const taxed = x.kind === "taxable";
           const costOf = (g: Yen) => (g >= x.value ? x.cost : ctx.money.mulRatio(x.cost, g, x.value, "conv.account.cost"));
           const taxOf = (g: Yen): [Yen, Yen] => {
@@ -449,6 +485,13 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         financial = addYen(financial, x.value);
         returns = addYen(returns, x.ret);
       }
+      for (const [object, ma] of mutualAid) {
+        const e = ma.byYear.get(y);
+        if (e === undefined) continue;
+        balanceRow("smallBusinessMutualAid", e.closing, ma.owner, object);
+        financial = addYen(financial, e.closing);
+        returns = addYen(returns, e.returns);
+      }
       for (const [object, dc] of dcYears) {
         const e = dc.byYear.get(y);
         if (e === undefined) continue;
@@ -483,6 +526,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     }
     if (cappedNotice) ctx.notice("N_LIMIT_APPLIED", ["nisa.annualLimit"]);
     // parts は plan.flows のまま渡し、この部品の出したお金の動き（積立・取り崩し・譲渡益の税・移管）を足す（エンジンが表の集計を部品ごとに使い回す）
+    if (reconciled.length > 0) for (const f of reconciled) own.push(f);
     const parts = own.length === 0 ? collected.parts : [...collected.parts, own];
     return { flows: own.length === 0 ? collected.flows : [...collected.flows, ...own], annual, parts };
   },

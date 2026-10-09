@@ -1,0 +1,20 @@
+id: incomeTax.retirementIncome.shortTerm.maxYears
+title: 短期退職手当等の勤続年数（役員以外。この年数以下）
+unit: count
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2022-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1420.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "No.1420", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.nta.go.jp/publication/pamph/gensen/0021009-037_01.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和3年度改正 短期退職手当等", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和4年分以後。勤続5年以下で特定役員退職手当等でないもの"}

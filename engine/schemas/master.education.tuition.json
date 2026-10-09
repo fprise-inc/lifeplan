@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:master.education.tuition",
+  "title": "学費データの1校・1学部（0010 の3: 入学年度×年次×費目×支払月。学校が請求する学納金だけ）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["school", "unit", "track", "termStartMonth", "years", "rows", "sources", "recordedIn"],
+  "properties": {
+    "school": { "description": "学校コード（13桁）", "type": "string", "pattern": "^[A-Z0-9]{13}$" },
+    "unit": { "description": "学部・学科（学校コード/部局ID。無い学校種では学校コード）", "type": "string", "pattern": "^[A-Z0-9]{13}(/d[0-9]{3})?$" },
+    "track": { "description": "区分（公立大学の地域内・地域外など）。無ければ null", "type": ["string", "null"] },
+    "termStartMonth": { "type": "integer", "minimum": 1, "maximum": 12 },
+    "years": { "description": "修業年数", "type": "integer", "minimum": 1, "maximum": 6 },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["entryYear", "grade", "item", "monthOffset", "amount", "source"],
+        "properties": {
+          "entryYear": { "$ref": "urn:financia:schema:common#/$defs/year" },
+          "grade": { "type": "integer", "minimum": 1, "maximum": 6 },
+          "item": { "enum": ["tuition.admission", "tuition.annual", "tuition.facility", "tuition.lab", "tuition.other"] },
+          "monthOffset": { "description": "その年次の始まりの月からのずれ（-2 は入学前の2月）", "type": "integer", "minimum": -12, "maximum": 23 },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "source": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9_]*$" }
+        }
+      }
+    },
+    "sources": {
+      "description": "出典（0007 の9 と同じ形。架空の見本は type: fictional）",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "urn:financia:schema:regulation.value#/$defs/source" }
+    },
+    "recordedIn": { "$ref": "urn:financia:schema:regulation.value#/$defs/packVersion" },
+    "supersededIn": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:regulation.value#/$defs/packVersion" }] }
+  }
+}

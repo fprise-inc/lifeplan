@@ -1,0 +1,24 @@
+id: educationSupport.higher.categories
+title: 修学支援の区分（支給額算定基準額の段階。amount は区分の番号、0 は対象外）
+unit: JPY
+kind: bracketTable
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2024-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 99, amount: 1}
+      - {upTo: 25599, amount: 2}
+      - {upTo: 51299, amount: 3}
+      - {upTo: 154499, amount: 4}
+      - {upTo: null, amount: 0}
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/hutankeigen/index.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "支援の対象となる世帯の区分", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "第I区分 100円未満、第II区分 25,600円未満、第III区分 51,300円未満、第IV区分 154,500円未満（第IV区分は令和6年度から。多子世帯・理工農系）"}

@@ -74,7 +74,7 @@ for (const [eng, r] of Object.entries(result)) {
 }
 const table = rows.join("\n");
 console.log(table);
-if (process.env.GITHUB_STEP_SUMMARY !== undefined) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### 速さ（lifetime100、5案×4想定）\n\n${table}\n`);
+if (process.env.GITHUB_STEP_SUMMARY !== undefined) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### 速さ（lifetime100Plan、5案×4想定）\n\n${table}\n`);
 
 // 目標（0005 の追記）と比べて表に出し、前に測った値（bench/baseline.json の同じ OS・CPU の欄）と比べる。
 // 1.5倍を超えたら警告、3倍を超えたら失敗（--check）。--update-baseline で今の値を前の値として書く

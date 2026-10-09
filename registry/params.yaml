@@ -2,6 +2,54 @@
 # since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
 kind: param
 entries:
+  - id: childAllowance.countUntilAge
+    status: active
+    label: "児童手当の第3子の数え方で数える子の年齢（この年齢に達した後の最初の3月31日まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: childAllowance.lowerAge
+    status: active
+    label: "児童手当の3歳未満の額の終わり（この年齢に達した月の翌月から3歳以上の額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: childAllowance.monthly.general
+    status: active
+    label: "児童手当の月額（3歳から高校生年代まで。第1子・第2子）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: childAllowance.monthly.thirdChild
+    status: active
+    label: "児童手当の月額（第3子以降）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: childAllowance.monthly.under3
+    status: active
+    label: "児童手当の月額（3歳未満。第1子・第2子）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: childAllowance.untilAge
+    status: active
+    label: "児童手当の対象の終わり（この年齢に達した後の最初の3月31日まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: civilServant.retirementAllowance.rate.retirementAge
+    status: active
+    label: "国家公務員の退職手当の支給率（定年・勧奨など。調整率83.7/100を当てた後。勤続年数の段階。値の無い段は見込み額の入力が要る）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: civilServant.retirementAllowance.rate.voluntary
+    status: active
+    label: "国家公務員の退職手当の支給率（自己都合。調整率83.7/100を当てた後）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: corporateDc.contributionLimit
     status: active
     label: "企業型DCの拠出限度額（事業主掛金と加入者掛金の合計。月額。2024年12月分からは他制度掛金相当額を引く）"
@@ -17,6 +65,288 @@ entries:
   - id: corporateDc.matching.capToEmployer
     status: active
     label: "企業型DCの加入者掛金（マッチング拠出）を事業主掛金の額以下にする制限（1は制限あり、0は無し）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.boarding.annual
+    status: active
+    label: "自宅外通学の仕送りの年額（教育費負担の実態調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.boarding.initial
+    status: active
+    label: "自宅外通学を始めるための費用（教育費負担の実態調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.elementary.private.total
+    status: active
+    label: "学習費総額の年額（私立小学校。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.elementary.public.outOfSchool
+    status: active
+    label: "学校外活動費の年額（公立小学校）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.elementary.public.total
+    status: active
+    label: "学習費総額の年額（公立小学校。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.highSchool.private.outOfSchool
+    status: active
+    label: "学校外活動費の年額（私立高校）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.highSchool.private.total
+    status: active
+    label: "学習費総額の年額（私立高等学校（全日制）。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.highSchool.public.outOfSchool
+    status: active
+    label: "学校外活動費の年額（公立高校）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.highSchool.public.total
+    status: active
+    label: "学習費総額の年額（公立高等学校（全日制）。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.juniorCollege.private.admission
+    status: active
+    label: "私立短期大学の入学料の平均（令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.juniorCollege.private.facility
+    status: active
+    label: "私立短期大学の施設設備費の平均（令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.juniorCollege.private.tuition
+    status: active
+    label: "私立短期大学の授業料の平均（令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.juniorHigh.private.total
+    status: active
+    label: "学習費総額の年額（私立中学校。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.juniorHigh.public.total
+    status: active
+    label: "学習費総額の年額（公立中学校。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.kindergarten.private.total
+    status: active
+    label: "学習費総額の年額（私立幼稚園。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.kindergarten.public.total
+    status: active
+    label: "学習費総額の年額（公立幼稚園。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.national.admission
+    status: active
+    label: "国立大学の入学料の標準額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.national.tuition
+    status: active
+    label: "国立大学の授業料の標準額（年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.all.admission
+    status: active
+    label: "私立大学の入学料の平均（全体。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.all.facility
+    status: active
+    label: "私立大学の施設設備費の平均（全体。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.all.tuition
+    status: active
+    label: "私立大学の授業料の平均（全体。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.humanities.admission
+    status: active
+    label: "私立大学の入学料の平均（文科系。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.humanities.facility
+    status: active
+    label: "私立大学の施設設備費の平均（文科系。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.humanities.tuition
+    status: active
+    label: "私立大学の授業料の平均（文科系。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.medical.admission
+    status: active
+    label: "私立大学の入学料の平均（医歯系。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.medical.facility
+    status: active
+    label: "私立大学の施設設備費の平均（医歯系。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.medical.tuition
+    status: active
+    label: "私立大学の授業料の平均（医歯系。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.science.admission
+    status: active
+    label: "私立大学の入学料の平均（理科系。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.science.facility
+    status: active
+    label: "私立大学の施設設備費の平均（理科系。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.private.science.tuition
+    status: active
+    label: "私立大学の授業料の平均（理科系。令和7年度入学者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.public.admission
+    status: active
+    label: "公立大学の入学料の平均（地域外。令和5年度）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.university.public.tuition
+    status: active
+    label: "公立大学の授業料の平均（年額。令和5年度）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.highSchool.privateAnnual
+    status: active
+    label: "高等学校等就学支援金の年額の上限（私立の全日制。所得の制限なし）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.highSchool.publicAnnual
+    status: active
+    label: "高等学校等就学支援金の年額（公立。所得の制限なし）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.calcRate
+    status: active
+    label: "修学支援の支給額算定基準額の率（課税標準額に掛ける）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.calcRounding
+    status: active
+    label: "修学支援の支給額算定基準額の端数処理（100円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.categories
+    status: active
+    label: "修学支援の区分（支給額算定基準額の段階。amount は区分の番号、0 は対象外）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.grant.private.away
+    status: active
+    label: "給付型奨学金の月額（私立・自宅外。区分ごと。amount は月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.grant.private.home
+    status: active
+    label: "給付型奨学金の月額（私立・自宅。区分ごと。amount は月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.grant.public.away
+    status: active
+    label: "給付型奨学金の月額（国公立・自宅外。区分ごと。amount は月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.grant.public.home
+    status: active
+    label: "給付型奨学金の月額（国公立・自宅。区分ごと。amount は月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.multiChild.minChildren
+    status: active
+    label: "多子世帯（授業料・入学金を所得によらず上限まで減免）の扶養する子の数"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.waiver.national.admission
+    status: active
+    label: "修学支援の入学金の減免の上限（国公立の大学）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.waiver.national.tuition
+    status: active
+    label: "修学支援の授業料の減免の上限（国公立の大学。年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.waiver.private.admission
+    status: active
+    label: "修学支援の入学金の減免の上限（私立の大学）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.waiver.private.tuition
+    status: active
+    label: "修学支援の授業料の減免の上限（私立の大学。年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.higher.waiverRatio
+    status: active
+    label: "修学支援の授業料・入学金の減免の割合（区分ごと）"
     since: draft
     aliases: []
     replacedBy: null
@@ -119,6 +449,12 @@ entries:
   - id: forestEnvironmentTax.amount
     status: active
     label: "森林環境税（国税。住民税の均等割と一緒に徴収する年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.category5.openEnrollment
+    status: active
+    label: "iDeCo の第5号加入者の経過措置（1 のあいだは、前の加入・運用指図・移換がなくても60〜70歳で加入できる）"
     since: draft
     aliases: []
     replacedBy: null
@@ -584,6 +920,90 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.retirementIncome.deduction.disabilityAddition
+    status: active
+    label: "障害者になったことによる退職の退職所得控除額の加算"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.deduction.minimum
+    status: active
+    label: "退職所得控除額の下限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.deduction.perYearAfter
+    status: active
+    label: "退職所得控除額の勤続1年あたりの額（勤続20年を超える部分）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.deduction.perYearFirst
+    status: active
+    label: "退職所得控除額の勤続1年あたりの額（勤続20年以下の部分）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.deduction.yearsThreshold
+    status: active
+    label: "退職所得控除額の1年あたりの額が変わる勤続年数"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.overlap.lookbackYears
+    status: active
+    label: "前の退職手当等と勤続期間の重複を調整する、前年以前の年数（退職手当等を受ける年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.overlap.lookbackYearsAfterDc
+    status: active
+    label: "前に確定拠出年金の老齢給付金の一時金を受けたときの、前年以前の年数（退職手当等を受ける年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.overlap.lookbackYearsForDc
+    status: active
+    label: "確定拠出年金の老齢給付金の一時金を受ける年に、前の退職手当等を見る前年以前の年数"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.shortTerm.halfLimit
+    status: active
+    label: "短期退職手当等の、控除の後で2分の1にする額の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.shortTerm.maxYears
+    status: active
+    label: "短期退職手当等の勤続年数（役員以外。この年数以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.specifiedOfficer.maxYears
+    status: active
+    label: "特定役員退職手当等の役員等勤続年数（この年数以下は2分の1にしない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.taxable.rounding
+    status: active
+    label: "課税退職所得金額の端数処理（1,000円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.taxableRatio
+    status: active
+    label: "退職所得の金額の割合（収入−控除の2分の1）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.retirementIncome.withholding.rounding
+    status: active
+    label: "退職所得の源泉徴収税額（付加税を含む）の端数処理（1円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.specifiedRelativeDeduction
     status: active
     label: "特定親族特別控除（19歳以上23歳未満の親族の合計所得金額の段階）"
@@ -743,6 +1163,12 @@ entries:
   - id: pension.basic.childAddition.baseAmount
     status: active
     label: "老齢基礎年金の子の加算の基準額（令和10年4月から。一人につき269,600円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.basic.childAddition.fullMonths
+    status: active
+    label: "老齢基礎年金の子の加算を満額にする保険料納付済期間などの月数（満たないときは ×月数/この月数）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1142,6 +1568,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: residentTax.housingLoanCredit.basicDeductionOffset
+    status: active
+    label: "住民税の住宅借入金等特別税額控除の上限の基礎に足す額の差し引き（所得税の基礎控除の額からこの額を引いた額を課税総所得金額等に足す）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: residentTax.housingLoanCredit.limit
     status: active
     label: "住民税の住宅借入金等特別税額控除の上限額"
@@ -1295,6 +1727,24 @@ entries:
   - id: residentTax.taxableIncome.rounding
     status: active
     label: "住民税の課税総所得金額などの1,000円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: smallBusinessMutualAid.contribution.monthlyMax
+    status: active
+    label: "小規模企業共済の掛金月額の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: smallBusinessMutualAid.contribution.monthlyMin
+    status: active
+    label: "小規模企業共済の掛金月額の下限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: smallBusinessMutualAid.installment.paymentsPerYear
+    status: active
+    label: "小規模企業共済の分割共済金の1年の支払いの回数"
     since: draft
     aliases: []
     replacedBy: null

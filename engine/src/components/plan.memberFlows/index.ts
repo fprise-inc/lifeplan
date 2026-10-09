@@ -24,8 +24,13 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
   id: "plan.memberFlows",
   title: "お金の動き（構成員ごとに集める）",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {
+    "expense.car": ">=1 <2",
+    "retirement.benefit": ">=1 <2",
+    "account.mutualAid": ">=1 <2",
+    "tax.retirementIncome": ">=1 <2",
+    "retirement.receipts": ">=1 <2",
     "ideco.contribution": ">=1 <2",
     "account.ideco": ">=1 <2",
     "income.salary": ">=1 <2",
@@ -54,13 +59,16 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
     const member = input.member;
     const parts: (readonly Flow[])[] = [];
     parts.push(ctx.call<SalaryOutput>("income.salary", { member }).flows);
-    for (const c of ["income.business", "pension.oldAge", "pension.supplementaryBenefit", "benefit.health", "benefit.employment", "ideco.contribution", "account.ideco"]) {
+    for (const c of ["income.business", "pension.oldAge", "pension.supplementaryBenefit", "benefit.health", "benefit.employment", "ideco.contribution", "account.ideco", "retirement.benefit", "account.mutualAid", "expense.car"]) {
       parts.push(ctx.call<FlowsResult>(c, { member }).flows);
     }
     for (const c of ["socialInsurance.health", "socialInsurance.pension", "socialInsurance.employment", "socialInsurance.nationalPension"]) {
       parts.push(ctx.call<FlowsResult>(c, { member, fromYear: baseYear }).flows);
     }
     for (let y = baseYear; y <= endYear; y++) parts.push(ctx.call<TaxOutput>("incomeTax.annual", { member, year: y }).flows);
+    // 退職所得の分離課税（退職一時金・DB・iDeCo・企業型DC・小規模企業共済の一時金を受け取る年だけ）
+    const receiptYears = new Set(ctx.call<{ receipts: readonly { ym: string }[] }>("retirement.receipts", { member }).receipts.map((r) => Number(r.ym.slice(0, 4))));
+    for (const y of [...receiptYears].sort((a, b) => a - b)) if (y >= baseYear && y <= endYear) parts.push(ctx.call<TaxOutput>("tax.retirementIncome", { member, year: y }).flows);
     // 前年度の分（計算基準年の1〜5月に払う分）から
     for (let fy = monthOf(base) <= 5 ? baseYear - 1 : baseYear; fy <= endYear; fy++) {
       parts.push(ctx.call<TaxOutput>("residentTax.annual", { member, fiscalYear: fy }).flows);

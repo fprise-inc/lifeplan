@@ -1,0 +1,19 @@
+id: educationSupport.higher.calcRate
+title: 修学支援の支給額算定基準額の率（課税標準額に掛ける）
+unit: rate
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2020-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.06"
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/hutankeigen/index.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "高等教育の修学支援新制度", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "支給額算定基準額＝課税標準額×6%−（市町村民税の調整控除の額＋税額調整額）。政令指定都市は×3/4（扱わない）"}

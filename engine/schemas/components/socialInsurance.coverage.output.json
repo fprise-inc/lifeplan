@@ -58,6 +58,10 @@
           },
           "exempt": {
             "type": "boolean"
+          },
+          "workingStd": {
+            "description": "70歳以上で適用事業所に使用される月の標準報酬月額に相当する額（1.2）",
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
           }
         }
       }
@@ -106,6 +110,10 @@
           },
           "exempt": {
             "type": "boolean"
+          },
+          "workingStdBonus": {
+            "description": "70歳以上の標準賞与額に相当する額（1.2）",
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
           }
         }
       }

@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:account.mutualAid.output",
+  "title": "小規模企業共済の残高と受け取り",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "flows",
+    "accounts",
+    "receipts",
+    "annuities",
+    "paid"
+  ],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:financia:schema:common#/$defs/flow"
+      }
+    },
+    "accounts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "object",
+          "years"
+        ],
+        "properties": {
+          "object": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          },
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "year",
+                "contributions",
+                "payout",
+                "returns",
+                "closing"
+              ],
+              "properties": {
+                "year": {
+                  "$ref": "urn:financia:schema:common#/$defs/year"
+                },
+                "contributions": {
+                  "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                },
+                "payout": {
+                  "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                },
+                "returns": {
+                  "$ref": "urn:financia:schema:common#/$defs/yen"
+                },
+                "closing": {
+                  "$ref": "urn:financia:schema:common#/$defs/yen"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ym",
+          "amount",
+          "object",
+          "source",
+          "serviceFrom",
+          "serviceTo"
+        ],
+        "properties": {
+          "ym": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "amount": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "object": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          },
+          "source": {
+            "enum": [
+              "retirement",
+              "dc",
+              "mutualAid"
+            ]
+          },
+          "serviceFrom": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "serviceTo": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "officerFrom": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "officerTo": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "disability": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "annuities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ym",
+          "amount",
+          "object"
+        ],
+        "properties": {
+          "ym": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "amount": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "object": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          }
+        }
+      }
+    },
+    "paid": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ym",
+          "amount",
+          "object"
+        ],
+        "properties": {
+          "ym": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "amount": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "object": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          }
+        }
+      }
+    }
+  }
+}

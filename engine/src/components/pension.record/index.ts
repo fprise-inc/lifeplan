@@ -25,6 +25,8 @@ import {
   type PensionRecordInput,
   type RecordMonth,
   type RecordOutput,
+  type RevisionOutput,
+  type PeriodRate,
   type Yen,
 } from "../../sdk/index.ts";
 
@@ -42,8 +44,8 @@ export default defineComponent<{ member: string }, RecordOutput>({
   id: "pension.record",
   title: "公的年金の加入の記録",
   contract: "1.0",
-  revision: 3,
-  requires: { "pension.category": ">=1 <2", "socialInsurance.coverage": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2" },
+  revision: 4,
+  requires: { "pension.category": ">=1 <2", "socialInsurance.coverage": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2", "pension.revision": ">=1 <2" },
   params: [UNTIL60, FROM20, PRE, POST, ROUND, REVAL],
   reads: [
     "pensionRecord.member",
@@ -118,11 +120,60 @@ export default defineComponent<{ member: string }, RecordOutput>({
       // 率は小数12桁までなので、分母を 10^12 にそろえて足す（1回だけ丸める）
       const DEN = 1000000000000n;
       let num = 0n;
-      const atK = ctx.at(fiscalYearStart(fiscalYearOf(asOf ?? base)));
-      let reval: ReturnType<typeof atK.paramPeriods> | undefined;
+      const F = fiscalYearOf(asOf ?? base);
+      const atK = ctx.at(fiscalYearStart(F));
+      // 再評価率の延ばし方（0006・0007 の追記（2026-10-09））: 記録の年度 F の表が制度データに無いときは、値のある最後の年度 L（F の前の10年度まで探す）の
+      // 表の各行に、報酬比例の改定の比（pension.revision の employee の F 年度÷L 年度）を掛けて小数3桁に四捨五入する（令和7年度→令和8年度の
+      // 表で、直近の3期間を除く全行がこの規則で一致した。PR #9）。L の表の期間より後の月（直近の期間）は、その月の年度 p の改定の比（F÷p。
+      // p が F 以後なら1）を小数3桁に四捨五入した率にする。延ばした表を使ったら見出しの notices（N_PARAM_PROJECTED）に出す
+      let table: readonly PeriodRate[] | null | undefined;
+      let proj: { readonly L: number; readonly ratio: (from: number) => { num: bigint; den: bigint } } | null = null;
+      const round3 = (num: bigint, den: bigint): { num: bigint; den: bigint } => ({ num: (num * 2000n + den) / (2n * den), den: 1000n });
+      const tableOf = (): readonly PeriodRate[] | null => {
+        if (table !== undefined) return table;
+        table = null;
+        if (atK.has(REVAL, { member })) {
+          table = atK.paramPeriods(REVAL, { member });
+          return table;
+        }
+        for (let y = F - 1; y >= F - 10; y--) {
+          const aty = ctx.at(fiscalYearStart(y));
+          if (!aty.has(REVAL, { member })) continue;
+          const rows = ctx.call<RevisionOutput>("pension.revision", { member }).byFiscalYear;
+          const e = (fy: number): string | null => rows.find((r) => r.fiscalYear === fy)?.employee ?? null;
+          const eF = e(F);
+          if (eF === null || e(y) === null) break;
+          table = aty.paramPeriods(REVAL, { member });
+          proj = {
+            L: y,
+            ratio: (from: number) => {
+              const ef = e(from);
+              return ef === null ? { num: 1n, den: 1n } : ctx.rate.fraction(ctx.rate.div(ctx.rate.of(eF), ctx.rate.of(ef)));
+            },
+          };
+          ctx.notice("N_PARAM_PROJECTED", [REVAL, String(y + 1), String(F)]);
+          break;
+        }
+        return table;
+      };
       const revalAt = (m: MonthIndex): { num: bigint; den: bigint } => {
-        reval ??= atK.has(REVAL, { member }) ? atK.paramPeriods(REVAL, { member }) : null;
-        const row = reval === null ? null : periodRateFor(reval, m);
+        const tb = tableOf();
+        const row = tb === null ? null : periodRateFor(tb, m);
+        if (proj !== null && tb !== null) {
+          const p = proj as { readonly L: number; readonly ratio: (from: number) => { num: bigint; den: bigint } };
+          if (row !== null) {
+            const r = ctx.rate.fraction(row.rate);
+            const k = p.ratio(p.L);
+            return round3(r.num * k.num, r.den * k.den);
+          }
+          const last = tb.length === 0 ? null : (tb[tb.length - 1] as PeriodRate).to;
+          if (last !== null && m > last) {
+            const fy = fiscalYearOf(m);
+            if (fy >= F) return { num: 1n, den: 1n };
+            const k = p.ratio(fy);
+            return round3(k.num, k.den);
+          }
+        }
         if (row === null) {
           // 再評価率の値が無い（制度データに無い年度・生年月日・期間）: いまの水準の額とみなし、知らせる
           ctx.notice("N_PARAM_MISSING", [REVAL, member]);

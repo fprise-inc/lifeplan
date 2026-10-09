@@ -113,8 +113,8 @@ for (const [key, opts, reqs] of batches) {
   const each = (reqs as unknown[]).map((r) => {
     const o = engine.run(JSON.stringify(r), packsJson, JSON.stringify({ checkInternal: true }));
     if (flags.preview !== true || o.startsWith('{"error":')) return o;
-    const x = JSON.parse(o) as { header: unknown; table: unknown };
-    return JSON.stringify({ header: x.header, table: x.table });
+    const x = JSON.parse(o) as { header: unknown; table: unknown; summary: unknown };
+    return JSON.stringify({ header: x.header, table: x.table, summary: x.summary });
   });
   const ok = hn === hq && jscOk && q.status === 0 && nodeOut === `[${each.join(",")}]` && !/-0[,}\]]|\d\.\d|\de[+-]?\d/.test(nodeOut.replace(/"[^"]*"/g, '""'));
   results[key] = hn;

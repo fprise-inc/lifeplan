@@ -1,0 +1,19 @@
+id: smallBusinessMutualAid.contribution.monthlyMax
+title: 小規模企業共済の掛金月額の上限
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2016-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 70000
+    sources:
+      - {"type": "web", "url": "https://kyosai-web.smrj.go.jp/customer/skyosai/installment/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "掛金", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "月1,000円〜70,000円（500円刻み）"}

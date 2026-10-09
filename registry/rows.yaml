@@ -81,6 +81,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.income.corporatePension.publicServant
+    status: active
+    label: "年金払い退職給付（公務員）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.corporatePension.nationalPensionFund
+    status: active
+    label: "国民年金基金"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.income.lumpSum
     status: active
     label: 一時金（退職金・保険金・満期金）
@@ -225,6 +237,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.income.other.scholarship
+    status: active
+    label: "奨学金の貸与・教育ローンの借入"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.taxSi
     status: active
     label: 税・社会保険料
@@ -291,6 +309,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.taxSi.pension.fund
+    status: active
+    label: "国民年金基金の掛金"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.taxSi.employment
     status: active
     label: 雇用保険
@@ -330,6 +354,60 @@ entries:
   - id: cf.expense.living.allowance
     status: active
     label: "仕送り（親・祖父母）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.food
+    status: active
+    label: "食料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.utilities
+    status: active
+    label: "光熱・水道"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.furniture
+    status: active
+    label: "家具・家事用品"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.clothing
+    status: active
+    label: "被服及び履物"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.health
+    status: active
+    label: "保健医療"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.transport
+    status: active
+    label: "交通・通信"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.recreation
+    status: active
+    label: "教養娯楽"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.otherConsumption
+    status: active
+    label: "その他の消費支出"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.car
+    status: active
+    label: "自動車の維持費（車検・自動車税）"
     since: draft
     aliases: []
     replacedBy: null
@@ -426,6 +504,18 @@ entries:
   - id: cf.expense.education.boarding
     status: active
     label: "下宿・仕送り"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.education.nursery
+    status: active
+    label: "保育料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.education.exam
+    status: active
+    label: "受験・併願の費用"
     since: draft
     aliases: []
     replacedBy: null
@@ -546,6 +636,12 @@ entries:
   - id: cf.expense.other
     status: active
     label: その他の支出
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.other.unexplained
+    status: active
+    label: "使途不明金（現状の検算の差）"
     since: draft
     aliases: []
     replacedBy: null
@@ -750,6 +846,12 @@ entries:
   - id: cf.balance.account.realEstate
     status: active
     label: "不動産"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.smallBusinessMutualAid
+    status: active
+    label: "小規模企業共済"
     since: draft
     aliases: []
     replacedBy: null

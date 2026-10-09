@@ -1,6 +1,8 @@
 // 被用者保険の資格と保険料の計算の基礎（標準報酬月額・標準賞与額・雇用保険の賃金）を月ごとに決める
 // 資格は socialInsurance.employeeStatus が働き方の期間から導いた月（休業の月は直前の勤め先を引き継ぐ）。
 // 産前産後休業・育児休業の月は保険料が免除（exempt）。年金の記録には標準報酬月額のまま数える
+// 約束の版 1.2: 70歳以上で厚生年金の適用事業所に使用される月（役員・会社員が70歳以降も働き続ける場合）は、保険料はかからないが、
+// 在職老齢年金の基にする標準報酬月額に相当する額（workingStd）と標準賞与額に相当する額（workingStdBonus）を出す（任意の欄）
 import {
   addMonths,
   addYen,
@@ -30,8 +32,8 @@ export default defineComponent<
 >({
   id: "socialInsurance.coverage",
   title: "被用者保険の資格と標準報酬",
-  contract: "1.1",
-  revision: 3,
+  contract: "1.2",
+  revision: 4,
   requires: { "income.salary": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2" },
   params: [
     "socialInsurance.care.secondaryInsuredFromAge",
@@ -128,7 +130,8 @@ export default defineComponent<
       }
       const pensionCovered = s.pension && m < pensionEnd;
       const healthCovered = s.health && (healthEnd === null || m < healthEnd);
-      if (!pensionCovered && !healthCovered) continue;
+      const working70 = s.pension && m >= pensionEnd;
+      if (!pensionCovered && !healthCovered && !working70) continue;
       const employer = s.employer as string;
       const exempt = s.leave === "maternity" || s.leave === "childcare";
       // 控除する月: 翌月。ただし勤め先の期間の最後の給与の月を超えない（月末に辞めると最後の給与で2か月分）。休業中は翌月
@@ -144,6 +147,7 @@ export default defineComponent<
         pensionStd: pensionCovered ? stdOf("pension", employer, m) : null,
         care: healthCovered && m >= careFrom && m < careUntil,
         ...(exempt ? { exempt: true } : {}),
+        ...(working70 ? { workingStd: stdOf("pension", employer, m) } : {}),
       });
     }
 
@@ -165,7 +169,8 @@ export default defineComponent<
       }
       const pensionCovered = s.pension && m < pensionEnd;
       const healthCovered = s.health && (healthEnd === null || m < healthEnd);
-      if (!pensionCovered && !healthCovered) continue;
+      const working70 = s.pension && m >= pensionEnd;
+      if (!pensionCovered && !healthCovered && !working70) continue;
       const at = ctx.at(m);
       const sb = at.money.round(x.bonus, "socialInsurance.standardBonus.rounding");
       let healthSb: Yen | null = null;
@@ -176,9 +181,12 @@ export default defineComponent<
         fyTotal = addYen(fyTotal, healthSb);
       }
       let pensionSb: Yen | null = null;
-      if (pensionCovered) {
+      let workingSb: Yen | null = null;
+      if (pensionCovered || working70) {
         const limit = at.paramYen("socialInsurance.pension.standardBonus.monthlyLimit");
-        pensionSb = limit === null || sb < limit ? sb : limit;
+        const v = limit === null || sb < limit ? sb : limit;
+        if (pensionCovered) pensionSb = v;
+        else workingSb = v;
       }
       if (m < firstMonth) continue;
       const exempt = s.leave === "maternity" || s.leave === "childcare";
@@ -189,6 +197,7 @@ export default defineComponent<
         pensionStdBonus: pensionSb,
         care: healthCovered && m >= careFrom && m < careUntil,
         ...(exempt ? { exempt: true } : {}),
+        ...(workingSb !== null ? { workingStdBonus: workingSb } : {}),
       });
     }
     return { months, bonuses, wages };

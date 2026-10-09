@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:education.cost.output",
+  "title": "教育費のお金の動き・教育ローンと奨学金の年末残高・在学の期間",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "flows",
+    "loans",
+    "enrollments"
+  ],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:financia:schema:common#/$defs/flow"
+      }
+    },
+    "loans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "object",
+          "member",
+          "yearEnd"
+        ],
+        "properties": {
+          "object": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          },
+          "member": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          },
+          "yearEnd": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "year",
+                "balance",
+                "unpaidInterest"
+              ],
+              "properties": {
+                "year": {
+                  "$ref": "urn:financia:schema:common#/$defs/year"
+                },
+                "balance": {
+                  "$ref": "urn:financia:schema:common#/$defs/yen"
+                },
+                "unpaidInterest": {
+                  "$ref": "urn:financia:schema:common#/$defs/yen"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "enrollments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "stage",
+          "sector",
+          "living",
+          "from",
+          "years",
+          "scienceAgriculture",
+          "fees"
+        ],
+        "properties": {
+          "stage": {
+            "enum": [
+              "nursery",
+              "kindergarten",
+              "elementary",
+              "juniorHigh",
+              "highSchool",
+              "university",
+              "juniorCollege",
+              "vocational"
+            ]
+          },
+          "sector": {
+            "enum": [
+              "public",
+              "national",
+              "private"
+            ]
+          },
+          "living": {
+            "enum": [
+              "home",
+              "away"
+            ]
+          },
+          "from": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "years": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "scienceAgriculture": {
+            "type": "boolean"
+          },
+          "fees": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "fiscalYear",
+                "tuition",
+                "admission"
+              ],
+              "properties": {
+                "fiscalYear": {
+                  "$ref": "urn:financia:schema:common#/$defs/year"
+                },
+                "tuition": {
+                  "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                },
+                "admission": {
+                  "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

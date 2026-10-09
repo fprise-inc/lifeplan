@@ -1,0 +1,19 @@
+id: smallBusinessMutualAid.installment.paymentsPerYear
+title: 小規模企業共済の分割共済金の1年の支払いの回数
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2016-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 6
+    sources:
+      - {"type": "web", "url": "https://www.smrj.go.jp/kyosai/skyosai/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "共済金の受け取り方", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "年6回（奇数月）とする解説が1つ。原本で確かめる"}

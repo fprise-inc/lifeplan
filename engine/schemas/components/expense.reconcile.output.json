@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:expense.reconcile.output",
+  "title": "現状の検算（使途不明金のお金の動きと、検算の結果）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "checks"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "year", "computed", "actual", "unexplainedAnnual"],
+        "properties": {
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+          "computed": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "actual": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "unexplainedAnnual": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
+    }
+  }
+}

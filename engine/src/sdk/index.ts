@@ -27,6 +27,22 @@ export type {
   RelationInput,
   ResidentTaxAssessmentInput,
   ValueBox,
+  GrowthInput,
+  OnContingencyInput,
+  LivingCategory,
+  LivingExpenseInput,
+  PeriodicExpenseInput,
+  CarInput,
+  AdvisoryFeeInput,
+  AdvisoryFeeTerms,
+  SavingsCheckInput,
+  RetirementBenefitInput,
+  RetirementBenefitKind,
+  SchoolStage,
+  TuitionRow,
+  EducationStageInput,
+  EducationGoalInput,
+  GoalInput,
 } from "../engine/types.ts";
 export { yen, addYen, subYen, negYen, sumYen, YEN_ZERO, type Yen, type Money } from "../money/yen.ts";
 export { rate, RATE_ZERO, RATE_ONE, type Rate } from "../money/rate.ts";
@@ -39,4 +55,4 @@ export { netByYear, tableYear } from "../engine/aggregate.ts";
 export { boxValue } from "./box.ts";
 export type * from "./contracts.ts";
 export { fail } from "./fail.ts";
-export { ageMonth, annualReturn, accountReturnRate, monthsIn, paymentsIn, paymentsInYear, paidByYear, amountInYear, fiscalYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS } from "./helpers.ts";
+export { ageMonth, annualReturn, accountReturnRate, monthsIn, paymentsIn, paymentsInYear, paidByYear, amountInYear, fiscalYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS, grownByYear, monthlyParts } from "./helpers.ts";

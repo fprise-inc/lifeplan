@@ -1,0 +1,32 @@
+id: ideco.category5.openEnrollment
+title: iDeCo の第5号加入者の経過措置（1 のあいだは、前の加入・運用指図・移換がなくても60〜70歳で加入できる）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2026-12-01"
+    appliesTo: "2029-11-30"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/nenkin/kyoshutsu/2025kaisei.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "2025年の制度改正", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "施行から3年（令和11年11月末）までの経過措置（PR #11 で厚生労働省の資料を読んだ）"}
+  - rev: 2
+    appliesFrom: "2029-12-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 0
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/nenkin/kyoshutsu/2025kaisei.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "2025年の制度改正", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "経過措置の後は、前に加入・運用指図・移換をしていた人だけ"}

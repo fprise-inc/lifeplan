@@ -14,7 +14,7 @@ export const realPacks = (): PackJson[] => (real ??= packDirs().map(buildPack));
 
 /** 【架空の見本】テスト用の制度データ（値ID の test. を外して製品のパックの代わりに引く） */
 export const fictionalPacks = (): PackJson[] =>
-  (fictional ??= ["testTax", "testSocialInsurance", "testPension", "testWageStats", "testNisaIdeco", "testHousing"].map((n) => buildPack(join(ENGINE_DIR, "test", "fixtures", "regulation", n))));
+  (fictional ??= ["testTax", "testSocialInsurance", "testPension", "testWageStats", "testNisaIdeco", "testHousing", "testRetirement", "testEducationSupport", "testEducationStatistics"].map((n) => buildPack(join(ENGINE_DIR, "test", "fixtures", "regulation", n))));
 
 /** 架空のモデル世帯（data/modelHouseholds。CC0） */
 export function modelHousehold(name: string): EngineRequest {

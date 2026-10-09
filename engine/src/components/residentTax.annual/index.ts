@@ -5,7 +5,8 @@
 // 非課税限度額（residentTax.exemption）以下なら均等割・所得割をかけない。指定都市の税率の配分・超過課税は扱わない（notices）。
 // 住宅借入金等特別税額控除: 前年分の所得税から引ききれなかった住宅借入金等特別控除（incomeTax.annual の creditRemainder）を、
 // 所得税の課税総所得金額等×率（5%など）と上限額（97,500円など。入居の年月で選ぶ。tax.housingLoanCredit）まで、調整控除の後の所得割から
-// 市町村民税5分の3・道府県民税5分の2で引く（引ききれない分は無くなる）
+// 市町村民税5分の3・道府県民税5分の2で引く（引ききれない分は無くなる）。居住年が平成28年〜令和7年のときは、上限の基礎の課税総所得金額等に
+// （所得税の基礎控除の額−48万円。0未満は0）を足す（地方税法附則5条の4。改訂6）
 // 年金からの特別徴収: 年度の初日に65歳以上で、年金が年18万円以上なら、公的年金等に係る所得割（所得割×公的年金等に係る雑所得÷合計所得金額）と
 // （給与からの特別徴収が無ければ）均等割・森林環境税を年金から差し引く。前の年度に年金から差し引いていなければ、6月・8月に4分の1ずつ普通徴収し、
 // 10月・12月・2月に6分の1ずつ。前の年度から続くときは、4月・6月・8月に前の年度の年金の分の6分の1ずつ（仮徴収）、10月・12月・2月に残りを3分の1ずつ
@@ -71,7 +72,13 @@ function levy(ctx: Ctx, fiscalYear: number, member: string, incomeYear: number, 
     const it = ctx.call<IncomeTaxOutput>("incomeTax.annual", { member, year: incomeYear });
     const remainder = it.creditRemainder ?? yen(0);
     if (remainder > 0) {
-      let cap = ctx.money.mulRate(it.taxable, ctx.rate.of(hc.residentRate), "conv.residentTax.housingCredit");
+      // 居住年が平成28年〜令和7年のときは、課税総所得金額等に（所得税の基礎控除の額−48万円。0未満は0）を足す（地方税法附則5条の4）
+      let capBase = it.taxable;
+      if (hc.residentBasicOffset !== undefined) {
+        const basic = ctx.call<DeductionsOutput>("tax.deductions", { member, year: incomeYear, regime: "incomeTax" }).basic;
+        if (basic > hc.residentBasicOffset) capBase = yen(capBase + basic - hc.residentBasicOffset);
+      }
+      let cap = ctx.money.mulRate(capBase, ctx.rate.of(hc.residentRate), "conv.residentTax.housingCredit");
       if (hc.residentLimit !== null && cap > hc.residentLimit) cap = hc.residentLimit;
       housing = remainder < cap ? remainder : cap;
     }
@@ -111,7 +118,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
   id: "residentTax.annual",
   title: "住民税・森林環境税",
   contract: "1.1",
-  revision: 5,
+  revision: 6,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "tax.housingLoanCreditYears": ">=1 <2",

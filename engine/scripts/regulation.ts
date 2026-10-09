@@ -10,6 +10,8 @@ import { isReadableFormat } from "../src/regulation/format.ts";
 import { AJV_OPTIONS, canonicalJson, ENGINE_DIR, readJson, REPO_DIR, sha256 } from "./lib.ts";
 
 export const REGULATION_DIR = join(REPO_DIR, "data", "regulation");
+/** マスタデータ（0007 の1・0010 の1）のうち、制度データと同じ値の形で持つもの（教育費の公的統計の平均など） */
+export const MASTER_DIR = join(REPO_DIR, "data", "master");
 
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 type Obj = { [k: string]: Json };
@@ -287,11 +289,16 @@ export function buildPack(dir: string): PackJson {
   return out;
 }
 
-export function packDirs(root = REGULATION_DIR): string[] {
-  return readdirSync(root)
-    .sort()
-    .map((n) => join(root, n))
-    .filter((p) => statSync(p).isDirectory());
+export function packDirs(root?: string): string[] {
+  const roots = root === undefined ? [REGULATION_DIR, MASTER_DIR] : [root];
+  return roots.flatMap((r) =>
+    existsSync(r)
+      ? readdirSync(r)
+          .sort()
+          .map((n) => join(r, n))
+          .filter((p) => statSync(p).isDirectory())
+      : [],
+  );
 }
 
 /** 正規化した JSON の文字列（キーは辞書順、末尾に改行） */

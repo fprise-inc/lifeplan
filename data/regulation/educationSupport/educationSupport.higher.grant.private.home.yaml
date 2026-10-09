@@ -1,0 +1,23 @@
+id: educationSupport.higher.grant.private.home
+title: 給付型奨学金の月額（私立・自宅。区分ごと。amount は月額）
+unit: JPY
+kind: bracketTable
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2024-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1, amount: 38300}
+      - {upTo: 2, amount: 25600}
+      - {upTo: 3, amount: 12800}
+      - {upTo: null, amount: 9600}
+    sources:
+      - {"type": "web", "url": "https://www.jasso.go.jp/shogakukin/about/kyufu/kingaku.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "給付奨学金の支給額", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "第I区分・第II区分（2/3）・第III区分（1/3）・第IV区分（多子世帯の1/4）"}

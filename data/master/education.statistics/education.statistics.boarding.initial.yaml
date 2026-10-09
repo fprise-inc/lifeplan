@@ -1,0 +1,19 @@
+id: education.statistics.boarding.initial
+title: 自宅外通学を始めるための費用（教育費負担の実態調査）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2021-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 387000
+    sources:
+      - {"type": "web", "url": "https://www.jfc.go.jp/n/findings/pdf/kyouikuhi_chousa_k_r03.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和3年度 教育費負担の実態調査結果", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "38.7万円（1つの検索結果だけ）"}

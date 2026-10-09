@@ -1,7 +1,8 @@
 // iDeCo・企業型DC の掛金（構成員ごと）。月ごとに拠出限度額で止める（0008 の9。2026年12月分からの改正は制度データの行で切り替わる）。
 // - iDeCo に加入できる月: 国民年金の第1号・第2号・第3号の月（pension.category）。加入できる年齢の上限（ideco.enrollment.untilAge）の前の月まで。
 //   上限が70歳の月（2026年12月から）は、60歳以上で国民年金の被保険者でなく、老齢基礎年金を受けておらず、その前に iDeCo の掛金を出していた人も
-//   加入できる（第5号）。受け取りを始めた月からは出さない
+//   加入できる（第5号）。施行から3年（令和11年11月末。ideco.category5.openEnrollment）までは、前に掛金を出していなくても加入できる
+//   （経過措置。改訂2）。受け取りを始めた月からは出さない
 // - 拠出限度額（月額）: 第1号・第3号・第5号はその値。第2号は勤め先の企業年金で分ける（企業年金なし・企業型DCだけ・他制度あり（公務員を含む））。
 //   企業型DCの事業主掛金（2024年12月分からは他制度掛金相当額も）と合わせた上限を超える分も出さない。最低額（月5,000円）に届かなければ出さない
 // - 企業型DC: 事業主掛金と加入者掛金（マッチング拠出）の合計を拠出限度額（2024年12月分からは他制度掛金相当額を引く）で止め、加入者掛金を先に減らす。
@@ -37,6 +38,7 @@ const P = {
   combinedDb: "ideco.contributionLimit.category2.combinedWithDb",
   c3: "ideco.contributionLimit.category3",
   c5: "ideco.contributionLimit.category5",
+  c5open: "ideco.category5.openEnrollment",
   minimum: "ideco.contribution.minimum",
   until: "ideco.enrollment.untilAge",
   earliest: "ideco.payout.earliestAge",
@@ -54,13 +56,14 @@ export default defineComponent<{ member: string }, IdecoContributionOutput>({
   id: "ideco.contribution",
   title: "iDeCo・企業型DCの掛金",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "account.dcList": ">=1 <2", "pension.category": ">=1 <2", "pension.oldAge": ">=1 <2" },
   params: Object.values(P),
   reads: [
     "account.kind",
     "account.owner",
     "account.contributions",
+    "account.enrolledSince",
     "account.payout",
     "employment.member",
     "employment.from",
@@ -116,7 +119,9 @@ export default defineComponent<{ member: string }, IdecoContributionOutput>({
     const periods = ctx.list<EmploymentPeriodInput>("employment");
     const periodAt = (m: MonthIndex) =>
       periods.find((p) => ctx.time.resolve(p.from) <= m && (p.to === null || ctx.time.resolve(p.to) >= m) && p.type !== "leave" && p.type !== "unemployed");
-    const hadIdeco = (m: MonthIndex) => months.some((k) => k < m && (byMonth.get(k) as Plan).ideco.size > 0);
+    // 第5号の「前に加入・運用指図をしていた」: その月より前に iDeCo の掛金を出した（拠出限度額で止めた後に出した）か、iDeCo の器の加入の始まりがその月より前
+    let idecoBefore = false;
+    const enrolledBefore = (m: MonthIndex) => accounts.some((a) => a.kind === "ideco" && a.enrolledSince !== undefined && parseYm(a.enrolledSince) < m);
     let basicFrom: MonthIndex | null | undefined;
     const receivesBasic = (m: MonthIndex): boolean => {
       if (basicFrom === undefined) {
@@ -185,9 +190,10 @@ export default defineComponent<{ member: string }, IdecoContributionOutput>({
           else if (employer > 0) limit = min(at.paramYen(P.withDc) ?? yen(0), pos((at.paramYen(P.combined) ?? 0) - other));
           else limit = at.paramYen(P.noPlan);
         } else {
-          // 第5号（60歳以上70歳未満・国民年金の被保険者でない・老齢基礎年金を受けていない・前に iDeCo の掛金を出していた）
+          // 第5号（60歳以上70歳未満・国民年金の被保険者でない・老齢基礎年金を受けていない・前に iDeCo の掛金を出していた。経過措置の間は前の加入を問わない）
           const c5 = at.paramYen(P.c5);
-          if (c5 !== null && m >= ageMonth(ctx, m, P.earliest, member) && !receivesBasic(m) && hadIdeco(m)) limit = pos(c5 - employer - dbEq);
+          const open = at.has(P.c5open) && at.paramCount(P.c5open) === 1;
+          if (c5 !== null && m >= ageMonth(ctx, m, P.earliest, member) && !receivesBasic(m) && (idecoBefore || enrolledBefore(m) || open)) limit = pos(c5 - employer - dbEq);
         }
       }
       let allowed = limit === null ? yen(0) : min(wanted, limit);
@@ -196,6 +202,7 @@ export default defineComponent<{ member: string }, IdecoContributionOutput>({
       const ids = [...p.ideco.keys()];
       const parts = allowed === wanted ? ids.map((id) => p.ideco.get(id) as Yen) : allowed <= 0 ? ids.map(() => yen(0)) : ctx.money.allocate(allowed, ids.map((id) => p.ideco.get(id) as number), "conv.flow.allocate", "first");
       ids.forEach((id, i) => push(m, id, "ideco", "self", parts[i] as Yen, "cf.transfer.ideco.ideco"));
+      if (allowed > 0) idecoBefore = true;
     }
     if (capped) ctx.notice("N_LIMIT_APPLIED", ["ideco.contributionLimit"]);
     return { flows, payments };

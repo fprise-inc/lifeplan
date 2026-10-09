@@ -1,5 +1,6 @@
 // 公的年金等に係る雑所得＝公的年金等の収入−公的年金等控除額（所得税法35条。住民税も同じ年分の計算による）。
-// 公的年金等の収入は、公的年金（pension.oldAge）と、iDeCo・企業型DC を年金で受け取った額（account.ideco）
+// 公的年金等の収入は、公的年金（pension.oldAge）と、iDeCo・企業型DC を年金で受け取った額（account.ideco）、
+// 確定給付企業年金・年金払い退職給付・国民年金基金の年金（retirement.benefit）と小規模企業共済の分割共済金（account.mutualAid）
 // 控除額は、その年の12月31日の年齢（65歳未満・以上）と、公的年金等に係る雑所得以外の所得の合計所得金額（1,000万円以下・2,000万円以下・超）
 // の表（収入×率＋額）。令和9年分からは、給与所得控除額と公的年金等控除額の合計が上限を超える分を公的年金等控除額から除く
 import {
@@ -32,8 +33,8 @@ export default defineComponent<{ member: string; year: number }, { revenue: Yen;
   id: "tax.publicPensionIncome",
   title: "公的年金等に係る雑所得",
   contract: "1.0",
-  revision: 3,
-  requires: { "pension.oldAge": ">=1 <2", "account.idecoPayout": ">=1 <2", "account.ideco": ">=1 <2", "tax.employmentIncome": ">=1 <2", "income.business": ">=1 <2" },
+  revision: 4,
+  requires: { "retirement.benefit": ">=1 <2", "account.mutualAid": ">=1 <2", "pension.oldAge": ">=1 <2", "account.idecoPayout": ">=1 <2", "account.ideco": ">=1 <2", "tax.employmentIncome": ">=1 <2", "income.business": ">=1 <2" },
   params: [...Object.values(P), ...[false, true].flatMap((e) => [1, 2, 3].map((t) => table(e, t)))],
   reads: [],
   input: "tax.memberYear.input",
@@ -50,6 +51,9 @@ export default defineComponent<{ member: string; year: number }, { revenue: Yen;
       for (const p of ctx.callMonths<IdecoReceipt>("account.ideco", { member }, "payments", monthIndex(year, 1), monthIndex(year, 12))) {
         if (p.kind === "annuity") revenue = yen(revenue + p.amount);
       }
+    }
+    for (const c of ["retirement.benefit", "account.mutualAid"]) {
+      for (const p of ctx.callMonths<{ ym: string; amount: Yen }>(c, { member }, "annuities", monthIndex(year, 1), monthIndex(year, 12))) revenue = yen(revenue + p.amount);
     }
     if (revenue === 0) return { revenue, deduction: yen(0), income: yen(0) };
     const at = ctx.at(monthIndex(year, 1));

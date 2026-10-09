@@ -1,0 +1,10 @@
+# 【架空の見本】学費データ（0010 の1: master.education.tuition）の形を確かめるためのテスト用。実在の学校・学費ではない
+# 学校コードは実在しない X で始まる13桁。実在の学校の値は、各校の公式ページから取り出して data/master/education.tuition に入れる（後の作業）
+packId: master.education.tuition
+formatVersion: "0.1"
+version: "2026.1.0"
+fictional: true
+title: 【架空の見本】学費データ
+license:
+  values: CC0-1.0
+  sources: 架空の値のため出典なし

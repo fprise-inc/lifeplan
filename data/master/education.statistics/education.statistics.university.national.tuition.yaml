@@ -1,0 +1,19 @@
+id: education.statistics.university.national.tuition
+title: 国立大学の授業料の標準額（年額）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2005-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 535800
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/shinkou/07021403/1412031_00006.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "国立大学等の授業料その他の費用に関する省令", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "標準額（各大学は120%まで上乗せできる）"}

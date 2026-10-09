@@ -9,6 +9,7 @@
     "credit": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
     "firstYear": { "type": "boolean" },
     "residentRate": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/rate" }] },
-    "residentLimit": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }] }
+    "residentLimit": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }] },
+    "residentBasicOffset": { "description": "住民税の控除の上限の基礎に足す額の差し引き（約束の版 1.1。居住年が平成28年〜令和7年）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
   }
 }

@@ -36,6 +36,7 @@
         "investmentReturn": { "title": "運用利回り（年率）", "x-item": "assumptions.investmentReturn", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
         "wageGrowth": { "title": "賃金上昇率（年率。省略は0）", "x-item": "assumptions.wageGrowth", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
         "inflation": { "title": "物価上昇率（年率。省略は0。年金額の改定に使う）", "x-item": "assumptions.inflation", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
+        "educationInflation": { "title": "教育費の上昇率（年率。省略は物価上昇率。学費・学校外活動費に使い、公的支援には使わない）", "x-item": "assumptions.educationInflation", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
         "pensionMacroSlide": {
           "title": "年金額のマクロ経済スライドの調整率（年度ごと。正の率で書き、改定率から引く。省略は0）",
           "x-item": "assumptions.pensionMacroSlide",
@@ -113,7 +114,14 @@
           "items": { "$ref": "#/$defs/premiumRate" }
         },
         "debts": { "description": "0008 の9: 負債（住宅ローン・車・奨学金・その他）", "type": "array", "x-collection": "debt", "items": { "$ref": "#/$defs/debt" } },
-        "residences": { "description": "住まい（賃貸・持ち家）の期間", "type": "array", "x-collection": "residence", "items": { "$ref": "#/$defs/residence" } }
+        "residences": { "description": "住まい（賃貸・持ち家）の期間", "type": "array", "x-collection": "residence", "items": { "$ref": "#/$defs/residence" } },
+        "livingExpenses": { "description": "0008 の追記: 生活費", "type": "array", "x-collection": "livingExpense", "items": { "$ref": "#/$defs/livingExpense" } },
+        "periodicExpenses": { "description": "0008 の追記: 周期的な支出", "type": "array", "x-collection": "periodicExpense", "items": { "$ref": "#/$defs/periodicExpense" } },
+        "cars": { "description": "0008 の追記: 車", "type": "array", "x-collection": "car", "x-owner": ["owner"], "items": { "$ref": "#/$defs/car" } },
+        "advisoryFees": { "description": "0008 の追記: FP顧問料の契約", "type": "array", "x-collection": "advisoryFee", "x-owner": ["payer"], "items": { "$ref": "#/$defs/advisoryFee" } },
+        "savingsChecks": { "description": "0008 の追記: 現状の検算（1件まで）", "type": "array", "maxItems": 1, "x-collection": "savingsCheck", "items": { "$ref": "#/$defs/savingsCheck" } },
+        "retirementBenefits": { "description": "0008 の追記: 退職給付", "type": "array", "x-collection": "retirementBenefit", "x-owner": ["member"], "items": { "$ref": "#/$defs/retirementBenefit" } },
+        "goals": { "description": "0008 の6: 目標", "type": "array", "x-collection": "goal", "x-owner": ["owner"], "items": { "$ref": "#/$defs/goal" } }
       }
     },
     "timepointOrNull": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/timepoint" }] },
@@ -194,7 +202,7 @@
         "member": { "title": "働く構成員", "x-item": "employment.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "from": { "title": "期間の始まり（その月を含む）", "x-item": "employment.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
         "to": { "title": "期間の終わり（その月を含む。null は最後まで）", "x-item": "employment.to", "$ref": "#/$defs/timepointOrNull" },
-        "type": { "title": "働き方", "x-item": "employment.type", "enum": ["regular", "contract", "partTime", "selfEmployed", "civilServant", "leave", "unemployed"] },
+        "type": { "title": "働き方", "x-item": "employment.type", "enum": ["regular", "contract", "partTime", "selfEmployed", "civilServant", "executive", "leave", "unemployed"] },
         "leaveKind": { "title": "休業の種類", "x-item": "employment.leaveKind", "enum": ["maternity", "childcare", "sick", "other"] },
         "leaveChild": { "title": "産前産後休業・育児休業の対象の子（省略は休業の始まりに近い子から決める）", "x-item": "employment.leaveChild", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "healthInsurance": {
@@ -336,7 +344,7 @@
       ]
     },
     "accountKind": {
-      "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate"]
+      "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate", "smallBusinessMutualAid"]
     },
     "assetClass": {
       "description": "0008 の9: 資産クラス（公式の一覧）。期待リターンは前提の assetReturns で資産クラスごとに持つ",
@@ -789,6 +797,507 @@
         "fiscalYear": { "title": "年度", "x-item": "residentTaxAssessment.fiscalYear", "$ref": "urn:financia:schema:common#/$defs/year" },
         "amount": { "title": "住民税の年税額（森林環境税を含む）", "x-item": "residentTaxAssessment.amount", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "collection": { "title": "徴収の方法（省略は働き方から決める）", "x-item": "residentTaxAssessment.collection", "enum": ["special", "ordinary"] }
+      }
+    },
+    "growth": {
+      "description": "額の伸び方（計算基準年の価格で入れた額を、年ごとに伸ばす）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["inflation", "rate", "none"], "description": "inflation は前提の物価上昇率（年ごとの列）、rate は固定の率、none は伸ばさない" },
+        "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+      }
+    },
+    "onContingency": {
+      "description": "万一のときの扱い（万一の想定の層で使う。この回の部品は入力として持つだけ）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["continue", "stop", "ratio"], "description": "万一（死亡・障害・就業不能）のとき: 続く／止まる／割合を変える（万一の部品で使う）" },
+        "ratio": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+      }
+    },
+    "livingCategory": {
+      "enum": ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption", "allowance"],
+      "description": "家計調査の消費支出の区分（住居・教育は別の行）: 食料・光熱水道・家具家事用品・被服履物・保健医療・交通通信・教養娯楽・その他の消費支出、仕送り"
+    },
+    "livingExpense": {
+      "description": "0008 の追記: 生活費（総額または費目別。段階と物価上昇率）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "mode"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "mode": { "title": "入れ方（総額／費目別）", "x-item": "livingExpense.mode", "enum": ["total", "byCategory"] },
+        "from": { "title": "始まり（省略は計算基準月）", "x-item": "livingExpense.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "to": { "title": "終わり（その月まで。null・省略は最後まで）", "x-item": "livingExpense.to", "$ref": "#/$defs/timepointOrNull" },
+        "monthly": { "title": "月額（総額。計算基準年の価格）", "x-item": "livingExpense.monthly", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "categories": {
+          "title": "費目別の月額（計算基準年の価格）",
+          "x-item": "livingExpense.categories",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["category", "monthly"],
+            "properties": { "category": { "$ref": "#/$defs/livingCategory" }, "monthly": { "$ref": "urn:financia:schema:common#/$defs/boxYen" } }
+          }
+        },
+        "growth": { "title": "伸び方（省略は前提の物価上昇率）", "x-item": "livingExpense.growth", "$ref": "#/$defs/growth" },
+        "stages": {
+          "title": "段階（子の独立・退職後・70代・80代など）。その月から、最初の額に対する割合か、月額（計算基準年の価格）に変える",
+          "x-item": "livingExpense.stages",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at"],
+            "properties": {
+              "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+              "label": { "enum": ["childIndependence", "retirement", "age70", "age80", "other"] },
+              "ratio": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+              "monthly": { "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+            }
+          }
+        },
+        "onContingency": { "title": "万一のときの扱い", "x-item": "livingExpense.onContingency", "$ref": "#/$defs/onContingency" }
+      }
+    },
+    "periodicExpense": {
+      "description": "0008 の追記: 周期的な支出（n年ごと）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "row", "from", "everyYears", "amount"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "label": { "title": "見出し（表示用）", "x-item": "periodicExpense.label", "type": "string", "maxLength": 80 },
+        "row": {
+          "title": "載せる行",
+          "x-item": "periodicExpense.row",
+          "enum": [
+            "cf.expense.lumpSum.other",
+            "cf.expense.lumpSum.wedding",
+            "cf.expense.lumpSum.gift",
+            "cf.expense.lumpSum.car",
+            "cf.expense.living",
+            "cf.expense.other",
+            "cf.expense.housing.maintenance",
+            "cf.expense.care.medical"
+          ]
+        },
+        "from": { "title": "最初の支払いの月", "x-item": "periodicExpense.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "to": { "title": "終わり（その月まで。null・省略は最後まで）", "x-item": "periodicExpense.to", "$ref": "#/$defs/timepointOrNull" },
+        "everyYears": { "title": "何年ごとか（1は毎年）", "x-item": "periodicExpense.everyYears", "type": "integer", "minimum": 1, "maximum": 50 },
+        "amount": { "title": "1回の額（計算基準年の価格）", "x-item": "periodicExpense.amount", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "growth": { "title": "伸び方（省略は前提の物価上昇率）", "x-item": "periodicExpense.growth", "$ref": "#/$defs/growth" },
+        "onContingency": { "title": "万一のときの扱い", "x-item": "periodicExpense.onContingency", "$ref": "#/$defs/onContingency" }
+      }
+    },
+    "car": {
+      "description": "0008 の追記: 車のひな形（買い替えの周期・ローン・車検・保険・手放す時期）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "owner", "purchase"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "owner": { "title": "名義（構成員）", "x-item": "car.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "purchase": {
+          "title": "買い替え（最初の購入の月・周期・車両の価格・下取り）",
+          "x-item": "car.purchase",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["first", "everyYears", "price"],
+          "properties": {
+            "first": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "everyYears": { "type": "integer", "minimum": 1, "maximum": 30 },
+            "price": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "tradeIn": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "owned": { "type": "boolean", "description": "最初の購入の月より前から持っている（最初の購入は買い替えの1回目から）" }
+          }
+        },
+        "until": { "title": "手放す月（その月まで。null・省略は最後まで）", "x-item": "car.until", "$ref": "#/$defs/timepointOrNull" },
+        "loan": {
+          "title": "自動車ローン（購入のたびに借りる）",
+          "x-item": "car.loan",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rate", "termMonths"],
+          "properties": {
+            "share": { "description": "借りる割合（車両の価格−下取りに対する。省略は1）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "termMonths": { "type": "integer", "minimum": 1, "maximum": 120 },
+            "method": { "enum": ["equalPayment", "equalPrincipal"] }
+          }
+        },
+        "inspection": {
+          "title": "車検（購入から何年後が最初か・その後の周期・1回の額）",
+          "x-item": "car.inspection",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["amount"],
+          "properties": {
+            "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "firstAfterYears": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "everyYears": { "type": "integer", "minimum": 1, "maximum": 10 }
+          }
+        },
+        "insurance": {
+          "title": "自動車保険の年額（購入の月に毎年）",
+          "x-item": "car.insurance",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["annual"],
+          "properties": { "annual": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+        },
+        "tax": {
+          "title": "自動車税の年額（毎年5月）",
+          "x-item": "car.tax",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["annual"],
+          "properties": { "annual": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+        },
+        "growth": { "title": "価格・維持費の伸び方（省略は前提の物価上昇率）", "x-item": "car.growth", "$ref": "#/$defs/growth" }
+      }
+    },
+    "advisoryFeeTerms": {
+      "description": "FP顧問料の料金（単発と継続の組み合わせ。どちらか一方だけでもよい。金額は税込）",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "oneTime": {
+          "description": "単発（一度だけ。税込）",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at", "amount"],
+            "properties": { "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+          }
+        },
+        "recurring": {
+          "description": "継続（年額または月額。税込）",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from"],
+          "properties": {
+            "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "to": { "$ref": "#/$defs/timepointOrNull" },
+            "annual": { "description": "年額（税込。毎年 from の月に払う）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "monthly": { "description": "月額（税込）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "revision": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "rate": { "description": "毎年の改定率（from の翌年から）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "steps": {
+                  "description": "段階（その月からの年額・月額）",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["at"],
+                    "properties": {
+                      "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                      "annual": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                      "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                    }
+                  }
+                }
+              }
+            },
+            "onContingency": { "$ref": "#/$defs/onContingency" }
+          }
+        }
+      }
+    },
+    "advisoryFee": {
+      "description": "0008 の追記: FP顧問料の契約（生活費とは別の行 cf.expense.advisoryFee。既定では提案の側にだけ入れる）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "payer"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "payer": { "title": "払う構成員（個人が払う分は所得から差し引かない）", "x-item": "advisoryFee.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "enabled": { "title": "この案で計算に入れるか（省略は入れる。案ごとに ON/OFF）", "x-item": "advisoryFee.enabled", "type": "boolean" },
+        "menu": {
+          "title": "事務所の標準の料金表から写したときのメニュー",
+          "x-item": "advisoryFee.menu",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[a-zA-Z0-9._-]{1,64}$" },
+            "label": { "type": "string", "maxLength": 80 },
+            "copiedFrom": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["officeDefaultsDigest", "at"],
+              "properties": { "officeDefaultsDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, "at": { "type": "string" } }
+            }
+          }
+        },
+        "terms": { "title": "料金", "x-item": "advisoryFee.terms", "$ref": "#/$defs/advisoryFeeTerms" }
+      }
+    },
+    "savingsCheck": {
+      "description": "0008 の追記: 現状の検算（実際の貯蓄額と計算上の貯蓄額の差＝使途不明金）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "year", "actualSavings", "treatment"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "year": { "title": "検算する年（計算基準年以後）", "x-item": "savingsCheck.year", "$ref": "urn:financia:schema:common#/$defs/year" },
+        "actualSavings": { "title": "実際の年間の貯蓄額（その年の12か月分）", "x-item": "savingsCheck.actualSavings", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "treatment": { "title": "差（使途不明金）の扱い", "x-item": "savingsCheck.treatment", "enum": ["addToLiving", "keepUnexplained"] },
+        "until": { "title": "差を見込む終わり（その月まで。null・省略は最後まで）", "x-item": "savingsCheck.until", "$ref": "#/$defs/timepointOrNull" }
+      }
+    },
+    "retirementBenefit": {
+      "description": "0008 の追記: 退職給付（退職一時金・確定給付企業年金・公務員の退職手当と年金払い退職給付・国民年金基金・役員退職慰労金。iDeCo・企業型DC・小規模企業共済は資産の器）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "member", "kind"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "member": { "title": "受け取る構成員", "x-item": "retirementBenefit.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": {
+          "title": "種類",
+          "x-item": "retirementBenefit.kind",
+          "enum": ["lumpSum", "db", "civilServantAllowance", "civilServantPension", "nationalPensionFund", "officerAllowance"]
+        },
+        "employment": { "title": "勤め先の働き方の期間（勤続期間と支給の月の既定）", "x-item": "retirementBenefit.employment", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "service": {
+          "title": "勤続期間（省略は働き方の期間）",
+          "x-item": "retirementBenefit.service",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "to"],
+          "properties": { "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }, "to": { "$ref": "urn:financia:schema:common#/$defs/timepoint" } }
+        },
+        "officerService": {
+          "title": "役員等の勤続期間（特定役員退職手当等の判定）",
+          "x-item": "retirementBenefit.officerService",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "to"],
+          "properties": { "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }, "to": { "$ref": "urn:financia:schema:common#/$defs/timepoint" } }
+        },
+        "paidAt": { "title": "支給の月（省略は勤続期間の終わりの翌月）", "x-item": "retirementBenefit.paidAt", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "amount": { "title": "一時金の見込み額（DB は一時金で受けた場合の額）", "x-item": "retirementBenefit.amount", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "estimate": {
+          "title": "見込み額の計算（公務員の退職手当: 俸給月額×支給率／役員退職慰労金: 最終報酬月額×在任年数×功績倍率）",
+          "x-item": "retirementBenefit.estimate",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "finalMonthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "reason": { "enum": ["retirementAge", "voluntary"] },
+            "multiplier": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+          }
+        },
+        "receipt": {
+          "title": "受け取り方",
+          "x-item": "retirementBenefit.receipt",
+          "description": "受け取り方（一時金・年金・併用）",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "method": { "enum": ["lumpSum", "annuity", "mixed"] },
+            "lumpShare": { "description": "mixed のとき一時金で受け取る割合", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "start": { "description": "年金の受け取りの始まり（省略は支給の月）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "years": { "description": "年金の受け取りの年数（null は終身）", "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 1, "maximum": 40 }] },
+            "guaranteeYears": { "description": "保証期間（終身年金。万一の部品で使う）", "type": "integer", "minimum": 0, "maximum": 40 },
+            "perYear": { "description": "1年の支払いの回数（省略は6）", "enum": [1, 2, 4, 6, 12] },
+            "annualAmount": { "description": "年金の年額（直接入れる。省略は一時金の額と予定利率から）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "conversionRate": { "description": "一時金から年金への予定利率（省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+          }
+        },
+        "contributions": {
+          "title": "本人の掛金（国民年金基金は社会保険料控除）",
+          "x-item": "retirementBenefit.contributions",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["monthly", "from"],
+          "properties": {
+            "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "to": { "$ref": "#/$defs/timepointOrNull" }
+          }
+        },
+        "disability": { "title": "障害者になったことによる退職（退職所得控除の加算）", "x-item": "retirementBenefit.disability", "type": "boolean" }
+      }
+    },
+    "schoolTuition": {
+      "description": "0010 の9: 学費データから写した学校の行（自己完結）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["school", "unit", "rows", "source"],
+      "properties": {
+        "school": { "type": "string", "pattern": "^[A-Z0-9]{13}$", "description": "学校コード（13桁）" },
+        "unit": { "type": "string", "pattern": "^[A-Z0-9]{13}(/d[0-9]{3})?$" },
+        "track": { "type": ["string", "null"] },
+        "termStartMonth": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["entryYear", "grade", "item", "monthOffset", "amount"],
+            "properties": {
+              "entryYear": { "$ref": "urn:financia:schema:common#/$defs/year" },
+              "grade": { "type": "integer", "minimum": 1, "maximum": 6 },
+              "item": { "enum": ["tuition.admission", "tuition.annual", "tuition.facility", "tuition.lab", "tuition.other"] },
+              "monthOffset": { "type": "integer", "minimum": -12, "maximum": 23 },
+              "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+            }
+          }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pack", "version"],
+          "properties": { "pack": { "type": "string" }, "version": { "type": "string" }, "fictional": { "type": "boolean" } }
+        }
+      }
+    },
+    "goal": {
+      "description": "0008 の6: 目標（正本）。この版は教育の目標を計算する",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "owner"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": { "title": "目標の種類（この版は education だけを計算する）", "x-item": "goal.kind", "enum": ["education", "housing", "retirement", "other"] },
+        "owner": { "title": "目標の構成員（教育は子）", "x-item": "goal.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "education": {
+          "title": "教育の目標（進路パターンと学校）",
+          "x-item": "goal.education",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["stages"],
+          "properties": {
+            "stages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["stage"],
+                "properties": {
+                  "stage": { "enum": ["nursery", "kindergarten", "elementary", "juniorHigh", "highSchool", "university", "juniorCollege", "vocational"] },
+                  "sector": { "enum": ["public", "national", "private"], "description": "公立・国立・私立（保育所は使わない）" },
+                  "field": { "enum": ["humanities", "science", "medical", "other"], "description": "大学の系統（文科系・理科系・医歯系・その他）" },
+                  "living": { "enum": ["home", "away"], "description": "自宅・自宅外" },
+                  "years": { "type": "integer", "minimum": 1, "maximum": 6, "description": "在学年数（省略は学校の種類の標準）" },
+                  "delayYears": { "type": "integer", "minimum": 0, "maximum": 5, "description": "入学を遅らせる年数（浪人など）" },
+                  "from": { "description": "保育所の始まり（省略は1歳の4月）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "monthly": { "description": "保育料の月額（0〜2歳。3歳になった後の最初の4月から無償）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "school": { "description": "学校が決まっているとき（学費データ 0010 から写した行）", "$ref": "#/$defs/schoolTuition" },
+                  "annualOverride": { "description": "学校の年額（学納金）を直接入れる（計算基準年の価格）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "entranceOverride": { "description": "入学金を直接入れる", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "exam": {
+                    "description": "受験・併願の費用（受験料と、入学しなかった学校への納付金）",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                      "deposits": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                    }
+                  },
+                  "outOfSchool": {
+                    "description": "学校外活動費（statistics は統計の平均、none は無し。省略は statistics）",
+                    "oneOf": [
+                      { "enum": ["statistics", "none"] },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["monthly"],
+                        "properties": { "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+                      }
+                    ]
+                  },
+                  "boarding": {
+                    "description": "自宅外の生活費（仕送り）と初期費用（省略は統計の平均）",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                      "initial": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                    }
+                  },
+                  "scienceAgriculture": { "type": "boolean", "description": "理工農系（修学支援の第IV区分の対象）" }
+                }
+              }
+            },
+            "lessons": {
+              "description": "塾・習い事（統計の学校外活動費に足す）",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["from", "to", "monthly"],
+                "properties": {
+                  "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "to": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "label": { "type": "string", "maxLength": 80 }
+                }
+              }
+            },
+            "scholarships": {
+              "description": "貸与の奨学金（在学中に受け取り、卒業後に返す。返済は debt.schedule）",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["monthly", "from", "to", "rate", "termMonths"],
+                "properties": {
+                  "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "to": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+                  "termMonths": { "type": "integer", "minimum": 1, "maximum": 360 },
+                  "repaymentStart": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "debtor": { "enum": ["child", "parent"] }
+                }
+              }
+            },
+            "loans": {
+              "description": "教育ローン（親が借りる。返済は debt.schedule）",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["at", "amount", "rate", "termMonths", "borrower"],
+                "properties": {
+                  "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+                  "termMonths": { "type": "integer", "minimum": 1, "maximum": 300 },
+                  "borrower": { "$ref": "urn:financia:schema:common#/$defs/uuid" }
+                }
+              }
+            },
+            "gifts": {
+              "description": "子への援助（結婚・住宅資金。贈与の税は贈与の作業で扱う）",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["at", "amount", "purpose"],
+                "properties": {
+                  "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "purpose": { "enum": ["wedding", "housing", "other"] },
+                  "payer": { "$ref": "urn:financia:schema:common#/$defs/uuid" }
+                }
+              }
+            },
+            "childAllowance": { "description": "児童手当を計算するか（省略は計算する）", "type": "boolean" }
+          }
+        }
       }
     }
   }

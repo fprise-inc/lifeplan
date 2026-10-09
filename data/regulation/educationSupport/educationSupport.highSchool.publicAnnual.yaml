@@ -1,0 +1,19 @@
+id: educationSupport.highSchool.publicAnnual
+title: 高等学校等就学支援金の年額（公立。所得の制限なし）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 118800
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/b_menu/activity/detail/2026/20260331.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "高校生等への修学支援（令和8年度から）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和8年4月1日から所得制限を撤廃（令和8年法律第8号）。国立は115,200円（扱わない）"}

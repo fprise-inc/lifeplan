@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:retirement.benefit.output",
+  "title": "退職給付のお金の動きと、一時金・年金・国民年金基金の掛金",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "flows",
+    "receipts",
+    "annuities",
+    "fundPaid"
+  ],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:financia:schema:common#/$defs/flow"
+      }
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ym",
+          "amount",
+          "object",
+          "source",
+          "serviceFrom",
+          "serviceTo"
+        ],
+        "properties": {
+          "ym": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "amount": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "object": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          },
+          "source": {
+            "enum": [
+              "retirement",
+              "dc",
+              "mutualAid"
+            ]
+          },
+          "serviceFrom": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "serviceTo": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "officerFrom": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "officerTo": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "disability": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "annuities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ym",
+          "amount",
+          "object"
+        ],
+        "properties": {
+          "ym": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "amount": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "object": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          }
+        }
+      }
+    },
+    "fundPaid": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ym",
+          "amount",
+          "object"
+        ],
+        "properties": {
+          "ym": {
+            "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+          },
+          "amount": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "object": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          }
+        }
+      }
+    }
+  }
+}

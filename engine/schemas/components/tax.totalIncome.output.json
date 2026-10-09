@@ -23,6 +23,10 @@
     },
     "adjustment": {
       "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "retirement": {
+      "description": "分離課税の退職所得の金額（1.2。total には入らない）",
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
     }
   }
 }

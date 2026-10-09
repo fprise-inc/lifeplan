@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.retirementIncome.output",
+  "title": "退職所得の分離課税",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "flows",
+    "total",
+    "revenue",
+    "deduction",
+    "income",
+    "taxable",
+    "years",
+    "overlapYears",
+    "incomeTax",
+    "residentTax"
+  ],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:financia:schema:common#/$defs/flow"
+      }
+    },
+    "total": {
+      "$ref": "urn:financia:schema:common#/$defs/yen"
+    },
+    "revenue": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "deduction": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "income": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "taxable": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "years": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "overlapYears": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "incomeTax": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "residentTax": {
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    }
+  }
+}

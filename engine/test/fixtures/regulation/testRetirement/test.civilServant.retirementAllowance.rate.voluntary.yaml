@@ -1,0 +1,34 @@
+# 【架空の見本】テスト用。実在の制度の値ではない（製品の値の形を写したもの）
+id: test.civilServant.retirementAllowance.rate.voluntary
+title: 【架空の見本】civilServant.retirementAllowance.rate.voluntary
+unit: rate
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2018-01-01"
+    appliesTo: null
+    enforcedOn: "2018-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {upTo: 1, rate: "0.5022"}
+      - {upTo: 2, rate: "1.0044"}
+      - {upTo: 3, rate: "1.5066"}
+      - {upTo: 4, rate: "2.0088"}
+      - {upTo: 5, rate: "2.511"}
+      - {upTo: 6, rate: "3.0132"}
+      - {upTo: 7, rate: "3.5154"}
+      - {upTo: 8, rate: "4.0176"}
+      - {upTo: 9, rate: "4.5198"}
+      - {upTo: 10, rate: "5.022"}
+      - {upTo: 14}
+      - {upTo: 15, rate: "10.3788"}
+      - {upTo: 19}
+      - {upTo: 20, rate: "19.6695"}
+      - {upTo: null}
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

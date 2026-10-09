@@ -2,6 +2,7 @@
 // 会社員・公務員は入る。契約・パートは、週の所定労働時間が通常の労働者の4分の3以上なら入り、そうでなければ短時間労働者の要件
 // （週の所定労働時間・賃金の月額・勤め先の規模・学生でないこと）で決める。要件の値と施行の時期は制度データに持つ。
 // 休業の月は直前の勤め先の期間を引き継ぐ。FP は期間の employeeInsurance・employmentInsuranceCovered で上書きできる。
+// 役員（executive）は健康保険・厚生年金に入り（会社員と同じ）、雇用保険には入らない（失業・育児休業・高年齢雇用継続・介護休業の給付は出ない）。
 // 計算基準月より前の月は、計算基準月の要件で判定する（過去の要件の値を持たないため）
 import {
   addMonths,
@@ -61,7 +62,7 @@ function shortTimeCovered(ctx: Ctx, m: MonthCtx, p: EmploymentPeriodInput): bool
 
 function employmentCovered(ctx: Ctx, at: MonthCtx, p: EmploymentPeriodInput): boolean {
   if (p.employmentInsuranceCovered !== undefined) return p.employmentInsuranceCovered;
-  if (p.type === "civilServant" || p.student === true) return false;
+  if (p.type === "civilServant" || p.type === "executive" || p.student === true) return false;
   const min = at.paramCount(P.eiHours);
   return min !== null && ctx.rate.compare(rate(p.employer?.weeklyHours ?? "0"), rate(String(min))) >= 0;
 }
@@ -70,7 +71,7 @@ export default defineComponent<{ member: string }, { months: EmployeeStatusMonth
   id: "socialInsurance.employeeStatus",
   title: "勤め先の保険に入るか（働き方の期間から導く）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {},
   params: [P.ratio, P.hours, P.wage, P.size, P.eiHours],
   reads: [
@@ -158,7 +159,7 @@ export default defineComponent<{ member: string }, { months: EmployeeStatusMonth
         const ep = emp.p;
         const at = atOf(m);
         const override = boxValue(ep.employeeInsurance);
-        const covered = override ?? (ep.type === "regular" || ep.type === "civilServant" ? true : shortTimeCovered(ctx, at, ep));
+        const covered = override ?? (ep.type === "regular" || ep.type === "civilServant" || ep.type === "executive" ? true : shortTimeCovered(ctx, at, ep));
         // 月の途中で辞めると、最後の月は資格を失っている（月末に辞めればその月まで）
         const lastMonthLost = r === emp && ep.endsOnMonthEnd === false && emp.to !== null && m === emp.to;
         health = covered && !lastMonthLost && EMPLOYER_HEALTH_KINDS.has(ep.healthInsurance?.kind ?? "");

@@ -1,0 +1,19 @@
+id: education.statistics.kindergarten.private.total
+title: 学習費総額の年額（私立幼稚園。子供の学習費調査）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2023-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 347338
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和5年度子供の学習費調査（令和8年1月16日の訂正後）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "学校教育費＋学校給食費＋学校外活動費。令和8年1月16日に訂正された値"}

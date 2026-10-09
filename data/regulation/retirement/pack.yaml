@@ -1,0 +1,15 @@
+# 退職給付の制度データ（0007 の1: パック regulation.retirement）。公務員の退職手当の支給率・小規模企業共済の掛金と分割共済金
+# 2026.1.0: 最初の版。公式のサイト（内閣官房・中小企業基盤整備機構）にこの作業の環境から届かなかったので、検索の要約で読んだ値を入れた。
+#   すべて原本での確認待ち（pendingReview）。公務員の退職手当の支給率は、検索で確かめられた勤続年数の段だけを入れ、ほかの段は率を入れていない
+#   （部品は見込み額の入力を求める）。退職所得の税の値は regulation.tax（incomeTax.retirementIncome.*）
+packId: regulation.retirement
+formatVersion: "0.1"
+version: "2026.1.0"
+features: []
+title: 退職給付（公務員の退職手当・小規模企業共済）
+requires:
+  retirement.benefit: ">=1 <2"
+  account.mutualAid: ">=1 <2"
+license:
+  values: CC0-1.0
+  sources: 出典ごとの条件（各値の sources に記載。内閣官房・地方公共団体・中小企業基盤整備機構の公表資料）

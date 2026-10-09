@@ -27,6 +27,8 @@ export interface CoverageMonth {
   readonly care: boolean;
   /** 産前産後休業・育児休業で保険料が免除される月（年金の記録には数える） */
   readonly exempt?: boolean;
+  /** 70歳以上で適用事業所に使用される月の、標準報酬月額に相当する額（在職老齢年金の基。約束の版 1.2 の任意の欄） */
+  readonly workingStd?: Yen;
 }
 
 export interface CoverageBonus {
@@ -36,6 +38,8 @@ export interface CoverageBonus {
   readonly pensionStdBonus: Yen | null;
   readonly care: boolean;
   readonly exempt?: boolean;
+  /** 70歳以上で適用事業所に使用される月の、標準賞与額に相当する額（約束の版 1.2 の任意の欄） */
+  readonly workingStdBonus?: Yen;
 }
 
 /** 雇用保険の保険料の基にする賃金（支払いごと） */
@@ -76,6 +80,8 @@ export interface TotalIncomeOutput {
   readonly publicPension?: Yen;
   readonly other?: Yen;
   readonly adjustment?: Yen;
+  /** 分離課税の退職所得の金額（約束の版 1.2 の任意の欄。total には入らない。所得税の合計所得金額の判定で足す） */
+  readonly retirement?: Yen;
 }
 
 /** tax.deductions: 所得控除（所得税か住民税か） */
@@ -366,6 +372,11 @@ export interface HousingLoanCreditOutput {
   /** 住民税の控除の上限（所得税の課税総所得金額等に掛ける率と上限額） */
   readonly residentRate: string | null;
   readonly residentLimit: Yen | null;
+  /**
+   * 住民税の控除の上限の基礎に足す額の差し引き（居住年が平成28年〜令和7年のとき48万円。約束の版 1.1 の任意の欄）。
+   * 上限の基礎＝所得税の課税総所得金額等＋（所得税の基礎控除の額−この額。0未満は0）
+   */
+  readonly residentBasicOffset?: Yen;
 }
 
 /** account.idecoPayout: iDeCo・企業型DC の受け取りの始まりと方法（運用利回りに依らない） */
@@ -379,4 +390,94 @@ export interface IdecoPayoutPlanOutput {
     readonly lumpShare: string | null;
     readonly enrolledMonths: number;
   }[];
+}
+
+/** 退職所得になる一時金1件（retirement.receipts・retirement.benefit・account.mutualAid）。勤続期間は年月（両端を含む） */
+export interface RetirementReceipt {
+  readonly ym: string;
+  readonly amount: Yen;
+  readonly object: string;
+  /** retirement は退職手当等（退職一時金・DB・公務員の退職手当・役員退職慰労金）、dc は確定拠出年金の老齢給付金の一時金、mutualAid は小規模企業共済の共済金 */
+  readonly source: "retirement" | "dc" | "mutualAid";
+  readonly serviceFrom: string;
+  readonly serviceTo: string;
+  /** 役員等の勤続期間（特定役員退職手当等の判定） */
+  readonly officerFrom?: string;
+  readonly officerTo?: string;
+  /** 障害者になったことによる退職 */
+  readonly disability?: boolean;
+}
+
+/** 公的年金等の雑所得になる年金の支払い1件（DB・年金払い退職給付・国民年金基金・小規模企業共済の分割） */
+export interface AnnuityPayment {
+  readonly ym: string;
+  readonly amount: Yen;
+  readonly object: string;
+}
+
+/** retirement.benefit: 退職給付のお金の動きと、退職所得の一時金・年金の支払い・国民年金基金の掛金（どれも月の昇順） */
+export interface RetirementBenefitOutput {
+  readonly flows: readonly Flow[];
+  readonly receipts: readonly RetirementReceipt[];
+  readonly annuities: readonly AnnuityPayment[];
+  /** 国民年金基金の掛金（社会保険料控除） */
+  readonly fundPaid: readonly AnnuityPayment[];
+}
+
+/** account.mutualAid: 小規模企業共済の器ごとの年末残高と受け取り */
+export interface MutualAidOutput {
+  readonly flows: readonly Flow[];
+  readonly accounts: readonly { readonly object: string; readonly years: readonly IdecoAccountYear[] }[];
+  readonly receipts: readonly RetirementReceipt[];
+  readonly annuities: readonly AnnuityPayment[];
+  /** その年に払った掛金（小規模企業共済等掛金控除。月の昇順） */
+  readonly paid: readonly AnnuityPayment[];
+}
+
+/** tax.retirementIncome: その年の退職所得の分離課税（所得税・住民税。支払いのたびに源泉徴収・特別徴収） */
+export interface RetirementIncomeOutput {
+  readonly flows: readonly Flow[];
+  /** 所得税と住民税の合計 */
+  readonly total: Yen;
+  readonly revenue: Yen;
+  readonly deduction: Yen;
+  /** 退職所得の金額（2分の1の後。合計所得金額に入る） */
+  readonly income: Yen;
+  /** 課税退職所得金額（1,000円未満切り捨て） */
+  readonly taxable: Yen;
+  readonly years: number;
+  readonly overlapYears: number;
+  readonly incomeTax: Yen;
+  readonly residentTax: Yen;
+}
+
+/** 在学の期間（学年の始まりの月・年数）と、その学校の年ごとの授業料（公的支援の部品が読む） */
+export interface Enrollment {
+  readonly stage: "nursery" | "kindergarten" | "elementary" | "juniorHigh" | "highSchool" | "university" | "juniorCollege" | "vocational";
+  readonly sector: "public" | "national" | "private";
+  readonly living: "home" | "away";
+  readonly from: string;
+  readonly years: number;
+  readonly scienceAgriculture: boolean;
+  /** 年度ごとの授業料（学納金。入学金を除く）と入学金（その年度の入学の分） */
+  readonly fees: readonly { readonly fiscalYear: number; readonly tuition: Yen; readonly admission: Yen }[];
+}
+
+export interface EducationCostOutput {
+  readonly flows: readonly Flow[];
+  readonly loans: readonly { readonly object: string; readonly member: string; readonly yearEnd: DebtScheduleOutput["yearEnd"] }[];
+  readonly enrollments: readonly Enrollment[];
+}
+
+/** expense.car: 車のお金の動きと、自動車ローンの年末残高 */
+export interface CarOutput {
+  readonly flows: readonly Flow[];
+  readonly loans: readonly { readonly object: string; readonly yearEnd: DebtScheduleOutput["yearEnd"] }[];
+}
+
+/** expense.reconcile: 現状の検算 */
+export interface ReconcileOutput {
+  readonly flows: readonly Flow[];
+  /** 検算の結果（年額。計算上の貯蓄額・実際の貯蓄額（表に載る月数で按分）・差） */
+  readonly checks: readonly { readonly object: string; readonly year: number; readonly computed: Yen; readonly actual: Yen; readonly unexplainedAnnual: Yen }[];
 }

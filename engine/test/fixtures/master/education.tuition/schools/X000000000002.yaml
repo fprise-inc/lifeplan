@@ -1,0 +1,25 @@
+# 【架空の見本】実在の学校・学費ではない
+school: "X000000000002"
+unit: "X000000000002"
+track: null
+termStartMonth: 4
+years: 3
+rows:
+  - {entryYear: 2026, grade: 1, item: "tuition.admission", monthOffset: -2, amount: 250000, source: "src1"}
+  - {entryYear: 2026, grade: 1, item: "tuition.annual", monthOffset: 0, amount: 480000, source: "src1"}
+  - {entryYear: 2026, grade: 1, item: "tuition.facility", monthOffset: 0, amount: 120000, source: "src1"}
+  - {entryYear: 2026, grade: 2, item: "tuition.annual", monthOffset: 0, amount: 480000, source: "src1"}
+  - {entryYear: 2026, grade: 2, item: "tuition.facility", monthOffset: 0, amount: 120000, source: "src1"}
+  - {entryYear: 2026, grade: 3, item: "tuition.annual", monthOffset: 0, amount: 480000, source: "src1"}
+  - {entryYear: 2026, grade: 3, item: "tuition.facility", monthOffset: 0, amount: 120000, source: "src1"}
+  - {entryYear: 2027, grade: 1, item: "tuition.admission", monthOffset: -2, amount: 250000, source: "src1"}
+  - {entryYear: 2027, grade: 1, item: "tuition.annual", monthOffset: 0, amount: 480000, source: "src1"}
+  - {entryYear: 2027, grade: 1, item: "tuition.facility", monthOffset: 0, amount: 120000, source: "src1"}
+  - {entryYear: 2027, grade: 2, item: "tuition.annual", monthOffset: 0, amount: 480000, source: "src1"}
+  - {entryYear: 2027, grade: 2, item: "tuition.facility", monthOffset: 0, amount: 120000, source: "src1"}
+  - {entryYear: 2027, grade: 3, item: "tuition.annual", monthOffset: 0, amount: 480000, source: "src1"}
+  - {entryYear: 2027, grade: 3, item: "tuition.facility", monthOffset: 0, amount: 120000, source: "src1"}
+sources:
+  src1: {type: "fictional", note: "架空の見本データ（実在の学校ではない）"}
+recordedIn: "2026.1.0"
+supersededIn: null

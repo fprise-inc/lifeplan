@@ -1,6 +1,8 @@
 // 給与・賞与の支払い（0008 の4 の働き方の期間から）。お金の動きは支払月（0003 の2）
 // 昇給は賃金上昇率（前提）で暦年ごとに伸ばす。期間に昇給カーブ（salary.growth.curve。マスタデータの年齢ごとの係数）を書いたときは、
 // その年の12月31日の年齢の係数と前の年の係数の比も掛ける（0008 の追記。標準報酬の定時決定は9月から等級を変える近似）
+// 役員（executive）: 役員報酬は定期同額（年額を12か月に等分）、賞与は事前確定届出給与（届け出た支給月と額）として同じ形で入れ、
+// 行は cf.income.salary.executive。会社の側の計算（役員報酬をいくらにするか・法人税・会社負担の社会保険料・退職金の財源）は入れない
 import {
   boxValue,
   defineComponent,
@@ -20,7 +22,7 @@ import {
   type Yen,
 } from "../../sdk/index.ts";
 
-const PAID: ReadonlySet<string> = new Set(["regular", "contract", "partTime", "civilServant"]);
+const PAID: ReadonlySet<string> = new Set(["regular", "contract", "partTime", "civilServant", "executive"]);
 const DEFAULT_BONUS_MONTHS = [6, 12];
 /** 昇給カーブの値ID（マスタデータ master.wageStats。段階表の upTo が年齢、rate が係数） */
 const CURVE = "wageStats.default";
@@ -34,7 +36,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
   id: "income.salary",
   title: "給与・賞与",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {},
   params: [CURVE],
   reads: [
@@ -71,6 +73,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
       const stop = to > end ? end : to;
       if (start > stop) continue;
       const sal = p.salary as NonNullable<EmploymentPeriodInput["salary"]>;
+      const row = p.type === "executive" ? "cf.income.salary.executive" : "cf.income.salary";
       const annual0 = boxValue(sal.annual) ?? yen(0);
       const bonus0 = boxValue(sal.bonus) ?? yen(0);
       const commuting = boxValue(sal.commutingMonthly) ?? yen(0);
@@ -104,10 +107,10 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
           const ym = formatYm(month);
           payments.push({ ym, period: p.id, salary, bonus: bonusAmount, commuting });
           if (salary > 0) {
-            flows.push({ row: "cf.income.salary", ym, amount: salary, accrualYear: y, member: input.member, object: p.id, formula: "income.salary.monthly" });
+            flows.push({ row, ym, amount: salary, accrualYear: y, member: input.member, object: p.id, formula: "income.salary.monthly" });
           }
           if (bonusAmount > 0) {
-            flows.push({ row: "cf.income.salary", ym, amount: bonusAmount, accrualYear: y, member: input.member, object: p.id, formula: "income.salary.bonus" });
+            flows.push({ row, ym, amount: bonusAmount, accrualYear: y, member: input.member, object: p.id, formula: "income.salary.bonus" });
           }
         }
       }

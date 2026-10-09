@@ -53,6 +53,7 @@
               "partTime",
               "selfEmployed",
               "civilServant",
+              "executive",
               "leave",
               "unemployed",
               "none"
