@@ -80,6 +80,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.elementary.private.outOfSchool
+    status: active
+    label: "学校外活動費の年額（私立小学校）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.elementary.private.total
     status: active
     label: "学習費総額の年額（私立小学校。子供の学習費調査）"
@@ -140,9 +146,21 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.juniorHigh.private.outOfSchool
+    status: active
+    label: "学校外活動費の年額（私立中学校）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.juniorHigh.private.total
     status: active
     label: "学習費総額の年額（私立中学校。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.juniorHigh.public.outOfSchool
+    status: active
+    label: "学校外活動費の年額（公立中学校）"
     since: draft
     aliases: []
     replacedBy: null
@@ -152,9 +170,21 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.kindergarten.private.outOfSchool
+    status: active
+    label: "学校外活動費の年額（私立幼稚園）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.kindergarten.private.total
     status: active
     label: "学習費総額の年額（私立幼稚園。子供の学習費調査）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.kindergarten.public.outOfSchool
+    status: active
+    label: "学校外活動費の年額（公立幼稚園）"
     since: draft
     aliases: []
     replacedBy: null

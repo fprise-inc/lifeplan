@@ -15,5 +15,21 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/hutankeigen/index.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "高等教育の修学支援新制度", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "支給額算定基準額＝課税標準額×6%−（市町村民税の調整控除の額＋税額調整額）。政令指定都市は×3/4（扱わない）"}
+  - rev: 2
+    appliesFrom: "2020-04-01"
+    appliesTo: null
+    enforcedOn: "2020-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.06"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/501CO0000000049_20200401_000000000000000?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "175eb55f7dd45f40b14e85d7f67a3831a25fcf6acaa0b25acdc1a92db262bc53", "locator": "大学等における修学の支援に関する法律施行令 第2条第2項第1号（令和2年4月1日の版）", "quote": "に百分の六を乗じた額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/501CO0000000049_20261001_508CO0000000249?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "2f6c9c73ef1344175806bddf02e48c0194212a31c9dbf2083aacbe96bd9ca683", "locator": "大学等における修学の支援に関する法律施行令 第2条第2項第1号（令和8年10月1日の版）", "quote": "に百分の六を乗じた額"}
+      - {"type": "web", "url": "https://www.jasso.go.jp/shogakukin/about/kyufu/kakei/zaigaku.html", "retrievedAt": "2026-10-09", "sha256": "505a8a76f1ae4bc3dd3addc99f2662d759a434a706b7e72ab57df760ea700791", "locator": "進学後（在学採用）の給付奨学金の家計基準（日本学生支援機構）", "quote": "支給額算定基準額(a)＝課税標準額×6％－（調整控除額＋調整額）(b)（100円未満切り捨て）"}
+      - {"type": "law", "lawNumber": "令和元年政令第四十九号", "egovRevisionId": "501CO0000000049_20261001_508CO0000000249"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "減免額算定基準額（給付型奨学金では支給額算定基準額）＝課税標準額等×6%−（市町村民税の調整控除の額＋調整額）。政令指定都市は控除する額に3/4（扱わない）。施行令2条2項と日本学生支援機構の家計基準で一致"}

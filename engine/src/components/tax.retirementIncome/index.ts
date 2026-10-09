@@ -3,7 +3,8 @@
 // - 勤続年数: その年の一時金の勤続期間を合わせた期間（重なりは1回だけ数える）の月数を12で割り、1年未満を切り上げ
 // - 退職所得控除額: 勤続年数が20年以下は40万円×年数、20年超は800万円＋70万円×(年数−20)。前の年に受けた一時金と勤続期間が重なるとき
 //   （重複排除期間）は、重なる期間の年数（1年未満切り捨て）の控除額を引く。前の一時金の範囲: 退職手当等を受ける年は前年以前4年内
-//   （前に受けたのが確定拠出年金の一時金なら9年内。令和8年以後に受けるもの）、確定拠出年金の一時金を受ける年は前年以前19年内。
+//   （前に受けたのが確定拠出年金の一時金なら9年内。令和8年以後に受けるもの）、確定拠出年金の一時金を受ける年は前年以前19年内（令和4年4月1日以後に
+//   支払を受けるべき一時金。それより前は14年内。一時金の支払の月で引く）。
 //   前の一時金の額がその控除額に満たないときは、前の勤続期間を、額を40万円（800万円を超える分は70万円）で割った年数（切り捨て）とみなす
 //   （始まりから数える）。引いた後が80万円に満たなければ80万円。障害者になったことによる退職は100万円を足す。年数と時期は制度データ
 // - 退職所得の金額: (収入−控除)×1/2。特定役員退職手当等（役員等の勤続年数が5年以下）は1/2にしない。短期退職手当等（勤続5年以下、役員以外）は
@@ -96,10 +97,11 @@ export default defineComponent<{ member: string; year: number }, RetirementIncom
     const officerMax = count(at, P.officer);
     const shortMax = at.has(P.shortYears) ? count(at, P.shortYears) : null;
     const shortLimit = at.has(P.shortLimit) ? (at.paramYen(P.shortLimit) ?? null) : null;
-    const lbOf = (y: number, id: string): number | null => {
-      const m = ctx.at(monthIndex(y, 1));
+    const lbAt = (mi: MonthIndex, id: string): number | null => {
+      const m = ctx.at(mi);
       return m.has(id) ? count(m, id) : null;
     };
+    const lbOf = (y: number, id: string): number | null => lbAt(monthIndex(y, 1), id);
     const lb = count(at, P.lb) ?? 4;
     const ratio = at.paramRate(P.ratio) ?? RATE_ZERO;
     let approximated = false;
@@ -110,12 +112,13 @@ export default defineComponent<{ member: string; year: number }, RetirementIncom
       for (const r of set) for (const m of monthsOf(r.serviceFrom, r.serviceTo)) union.add(m);
       const years = Math.max(1, Math.ceil(union.size / 12));
       // 重複排除期間
-      const hasDc = set.some((r) => r.source === "dc");
+      // 確定拠出年金の一時金を受ける年の年数（19年内）は、その一時金の支払の日で分かれる（令和4年4月1日以後に支払を受けるべきもの）ので、支払の月で引く
+      const dcReceipt = set.find((r) => r.source === "dc");
       const priorMonths = new Set<number>();
       for (const p of prior) {
         const py = Number(p.ym.slice(0, 4));
         let L: number;
-        if (hasDc) L = lbOf(year, P.lbForDc) ?? lb;
+        if (dcReceipt !== undefined) L = lbAt(parseYm(dcReceipt.ym), P.lbForDc) ?? lb;
         else if (p.source === "dc") {
           const a = lbOf(year, P.lbAfterDc);
           const b = lbOf(py, P.lbAfterDc);

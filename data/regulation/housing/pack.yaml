@@ -8,9 +8,11 @@
 #   令和3年以前の入居の値は入れていない（特定取得・特別特定取得の区分と11〜13年目の別の計算が要り、今の値の形と部品では表せない）。住民税の7%・136,500円の行（特定取得だけの値）は確認待ちのまま
 # 2026.3.0: 住民税の控除の上限の基礎に足す（所得税の基礎控除−48万円）の差し引きの額（residentTax.housingLoanCredit.basicDeductionOffset。居住年が平成28年〜令和7年）を
 #   新しいファイルとして足した（原本での確認待ち）。既存のファイルは変えていない
+# 2026.4.0: 住民税の控除の上限の基礎に足す額の差し引き（residentTax.housingLoanCredit.basicDeductionOffset）を原本（地方税法附則5条の4の条文、
+#   総務省の事務連絡、国税庁 No.1199）と照らし合わせ、reviewed の行を足した（照合: claude、2026-10-09）。施行日は令和8年4月1日（令和8年度分から）。値は変えていない
 packId: regulation.housing
 formatVersion: "0.1"
-version: "2026.3.0"
+version: "2026.4.0"
 features: []
 title: 住宅ローン控除
 requires:

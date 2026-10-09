@@ -15,5 +15,21 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.nta.go.jp/publication/pamph/gensen/zeigakuhyo2026/data/18.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "退職所得の源泉徴収税額の速算表（(A×B−C)×102.1%）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "税額＝(課税退職所得金額×税率−控除額)×102.1%（1円未満の端数切り捨て）"}
+  - rev: 2
+    appliesFrom: "2013-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "DOWN", "unit": 1}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/423AC0000000117_20170401_428AC0000000015?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "2319da89b823dbf773db46886089691574dc8454f7c50ea75a63c91f59b9145e", "locator": "東日本大震災からの復興のための施策を実施するために必要な財源の確保に関する特別措置法 第31条第2項（平成29年4月1日の版）", "quote": "これらの確定金額の合計額によって行い、当該合計額に一円未満の端数があるとき、又はその全額が一円未満であるときは、その端数金額又はその全額を切り捨てる"}
+      - {"type": "web", "url": "https://www.nta.go.jp/publication/pamph/gensen/zeigakuhyo2026/data/18.pdf", "retrievedAt": "2026-10-09", "sha256": "897dcc15c50c63cd5d5a2477b05097b8af946e137a0f4430585a210b38d67651", "locator": "退職所得の源泉徴収税額の速算表（令和8年分）（注）", "quote": "求めた税額に1 円未満の端数があるときは、これを切り捨てます"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2732.htm", "retrievedAt": "2026-10-09", "sha256": "7102f34ed11c74418876bb5d607a336846322df69b4293fb1cd77823c72fbf9c", "locator": "No.2732 具体例（例2）", "quote": "1円未満の端数は切り捨てます"}
+      - {"type": "law", "lawNumber": "平成二十三年法律第百十七号", "egovRevisionId": "423AC0000000117_20170401_428AC0000000015"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "源泉徴収税額（所得税と復興特別所得税の合計）は1円未満の端数を切り捨て。復興財源確保法31条2項と国税庁の速算表・No.2732 の計算例で一致。令和9年以後の防衛特別所得税を含む合計も計算方法は変わらない（国税庁 No.1420）"}

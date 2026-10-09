@@ -15,5 +15,22 @@ entries:
     sources:
       - {"type": "web", "url": "https://kyosai-web.smrj.go.jp/customer/skyosai/installment/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "掛金", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "月1,000円〜70,000円（500円刻み）"}
+  - rev: 2
+    appliesFrom: "2016-04-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2016-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000102_20160401_427AC0000000061?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "8edbffd45427983cd67deb91f64249652d7ecce5037b2690b4595db0de4edc98", "locator": "小規模企業共済法 第4条第2項（平成28年4月1日の版）", "quote": "掛金月額は、千円以上であつて五百円に整数を乗じて得た額とし、共済契約者一人につき七万円を超えてはならない"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000102_20210617_503AC0000000070?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "d9ca1a0dfee728c5e08edc04b5584918e81b745d4c033a1cde8c9e5a6e6533d4", "locator": "小規模企業共済法 第4条第2項（令和3年6月17日の版）", "quote": "掛金月額は、千円以上であつて五百円に整数を乗じて得た額とし、共済契約者一人につき七万円を超えてはならない"}
+      - {"type": "web", "url": "https://kyosai-web.smrj.go.jp/customer/skyosai/installment/", "retrievedAt": "2026-10-09", "sha256": "ded05d077da0ce959d6e14e5f8f9f339e7b7ebb2c85f5c99b6af4ee1df8aedf0", "locator": "小規模企業共済の掛金（中小企業基盤整備機構）", "quote": "1,000円～70,000円の範囲内で、500円単位で設定できます"}
+      - {"type": "web", "url": "https://kyosai-web.smrj.go.jp/content/s_200_202311_shiori.pdf", "retrievedAt": "2026-10-09", "sha256": "377f49ef1b482282bf1d651f82a48796302973273796f4b9c1ee2b0f2c76f591", "locator": "小規模企業共済 制度のしおり（令和8年6月改訂版）", "quote": "掛金月額は、1,000 円～７万円の範囲で選択できます"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第百二号", "egovRevisionId": "340AC0000000102_20210617_503AC0000000070"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "掛金月額は1,000円以上で500円の整数倍。小規模企業共済法4条2項（平成28年4月1日・令和3年6月17日の版）と中小企業基盤整備機構の案内・制度のしおりで一致。e-Gov の最初の版（2016-04-01）に既にある"}

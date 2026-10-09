@@ -15,5 +15,21 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和5年度子供の学習費調査（令和8年1月16日の訂正後）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "学校教育費＋学校給食費＋学校外活動費。令和8年1月16日に訂正された値"}
+  - rev: 2
+    appliesFrom: "2023-04-01"
+    appliesTo: null
+    enforcedOn: "2026-01-16"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 596954
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-10-09", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 学習費総額", "quote": "学 習 費 総 額 184,646 347,338 366,599 1,741,516 542,450 1,560,359 596,954 1,179,261"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-10-09", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校教育費", "quote": "うち学校教育費 69,362 154,062 74,336 978,271 150,761 1,128,061 351,523 832,650"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-10-09", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校給食費", "quote": "うち学校給食費 15,235 35,741 35,774 53,578 35,671 9,317"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260116-mxt_chousa01-000039333_1.pdf", "retrievedAt": "2026-10-09", "sha256": "c07853cbbcdbfe151e582f3f0da9f9d6975e65f8a00c068d0b79df64fe58a0c8", "locator": "令和5年度子供の学習費調査結果のポイント（令和8年1月16日 訂正版）表1 うち学校外活動費", "quote": "うち学校外活動費 100,049 157,535 256,489 709,667 356,018 422,981 245,431 346,611"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["PDF の本文（公表資料）", "表の内訳の合計を計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和5年度の学習費総額（訂正版）。表1の学習費総額と、学校教育費＋学校給食費＋学校外活動費（351,523＋0＋245,431）の合計が一致"}

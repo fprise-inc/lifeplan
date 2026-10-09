@@ -15,5 +15,25 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mext.go.jp/b_menu/activity/detail/2026/20260331.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "高校生等への修学支援（令和8年度から）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "令和8年4月1日から所得制限を撤廃（令和8年法律第8号）。国立は115,200円（扱わない）"}
+  - rev: 2
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 118800
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/422CO0000000112_20260401_508CO0000000088?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "234262fe093c48f859477f6659dec268bf3b8b5722bc25ab316017d6243a58e8", "locator": "高等学校等就学支援金の支給に関する法律施行令 第2条（令和8年4月1日の版）", "quote": "イ高等学校等（ロからトまでに掲げるものを除く。）九千九百円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/shotou/mushouka/1342600.htm", "retrievedAt": "2026-10-09", "sha256": "d563436b4f716d0f0fb6f395d34980b7027b5e8d29fd1bdc36eea8a876fab57b", "locator": "高等学校等就学支援金制度に関するQ＆A 8 支給額について（文部科学省）", "quote": "公立高校の場合、全日制は月額9,900円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260401-mxt_hourei-000048682_1.pdf", "retrievedAt": "2026-10-09", "sha256": "abc82afe60ec181f98460b375ceed54064b4e78313773101203b0203c7b0bb47", "locator": "高等学校等就学支援金の支給に関する法律の一部を改正する法律の概要（文部科学省）", "quote": "所得制限を撤廃し、就学支援金の支給に当たって保護者等の収入の状況を 問わないこととする"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/422AC0000000018_20260401_508AC0000000008?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "0ff14f225123d7b25792485ff5292f36a1e88d1298f24667f2ceb9af3674ee62", "locator": "高等学校等就学支援金の支給に関する法律 附則（令和8年法律第8号）第1条", "quote": "この法律は、令和八年四月一日から施行する"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/422AC0000000018_20250601_504AC0000000068?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "d3b1f54c84ed96871fc9a1853d0ead270ce38d639673bc55b6e328452b59aa87", "locator": "高等学校等就学支援金の支給に関する法律 第3条第2項第3号（令和7年6月1日の版。改正前）", "quote": "保護者等」という。）の収入の状況に照らして"}
+      - {"type": "law", "lawNumber": "平成二十二年法律第十八号", "egovRevisionId": "422AC0000000018_20260401_508AC0000000008"}
+      - {"type": "law", "lawNumber": "平成二十二年政令第百十二号", "egovRevisionId": "422CO0000000112_20260401_508CO0000000088"}
+      - {"type": "law", "lawNumber": "令和八年法律第八号", "egovRevisionId": "422AC0000000018_20260401_508AC0000000008"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "公立の全日制は月額9,900円（年118,800円）。令和8年4月1日から所得制限なし（令和8年法律第8号。法3条2項3号の削除）。施行令2条1項2号イと文部科学省のQ&A・改正の概要で一致。国籍・在留資格の要件（法3条1項）と在学中の経過措置は扱わない"}

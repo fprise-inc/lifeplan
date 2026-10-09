@@ -16,5 +16,22 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1420.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "No.1420", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "web", "url": "https://www.nta.go.jp/publication/pamph/gensen/0021009-037_01.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和3年度改正 短期退職手当等", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "令和4年分以後。勤続5年以下で特定役員退職手当等でないもの"}
+  - rev: 2
+    appliesFrom: "2022-01-01"
+    appliesTo: null
+    enforcedOn: "2022-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20220101_503AC0000000011?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "cc3eb87a829c490f96a9fd3be947942bec9403f7c9cc77189819050b7fe48789", "locator": "所得税法 第30条第4項（令和4年1月1日の版）", "quote": "政令で定める勤続年数が五年以下であるもの"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20220101_503AC0000000011?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "cc3eb87a829c490f96a9fd3be947942bec9403f7c9cc77189819050b7fe48789", "locator": "所得税法等の一部を改正する法律（令和3年法律第11号）附則第5条", "quote": "新所得税法第三十条の規定は、令和四年分以後の所得税について適用し"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1420.htm", "retrievedAt": "2026-10-09", "sha256": "daef0c400c24bbe4b4b5414d8462b175126e3b5ac42f7fdced6b3bc50b5d8fb9", "locator": "No.1420 （注2）短期退職手当等", "quote": "役員等以外の者として勤務した期間により計算した勤続年数が5年以下であるもの"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号", "egovRevisionId": "340AC0000000033_20220101_503AC0000000011"}
+      - {"type": "law", "lawNumber": "令和三年法律第十一号", "egovRevisionId": "340AC0000000033_20220101_503AC0000000011"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和4年分以後。役員等以外の勤続年数5年以下で特定役員退職手当等でないもの。所得税法30条4項・改正法附則5条と国税庁 No.1420 で一致"}

@@ -16,5 +16,22 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1420.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "No.1420", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "web", "url": "https://www.nta.go.jp/publication/pamph/gensen/0021009-037_01.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和3年度改正 短期退職手当等", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "控除の後の300万円を超える部分は2分の1にしない（150万円＋{収入−(300万円＋控除)}）"}
+  - rev: 2
+    appliesFrom: "2022-01-01"
+    appliesTo: null
+    enforcedOn: "2022-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 3000000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20220101_503AC0000000011?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "cc3eb87a829c490f96a9fd3be947942bec9403f7c9cc77189819050b7fe48789", "locator": "所得税法 第30条第2項第1号（令和4年1月1日の版）", "quote": "退職所得控除額を控除した残額が三百万円以下である場合"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", "locator": "所得税法 第30条第2項第2号（令和8年10月1日の版）", "quote": "百五十万円と当該退職手当等の収入金額から三百万円に退職所得控除額を加算した金額を控除した残額との合計額"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2732.htm", "retrievedAt": "2026-10-09", "sha256": "7102f34ed11c74418876bb5d607a336846322df69b4293fb1cd77823c72fbf9c", "locator": "No.2732 3 短期退職手当等の場合", "quote": "150万円＋{短期退職手当等の収入金額－（300万円＋退職所得控除額）}"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号", "egovRevisionId": "340AC0000000033_20261001_507AC0000000070"}
+      - {"type": "law", "lawNumber": "令和三年法律第十一号", "egovRevisionId": "340AC0000000033_20220101_503AC0000000011"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "短期退職手当等は控除後の300万円を超える部分を2分の1にしない（150万円＋{収入−(300万円＋控除)}）。令和4年分以後（改正法附則5条）。所得税法30条2項と国税庁 No.2732 で一致"}

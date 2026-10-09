@@ -207,6 +207,18 @@ describe("退職所得の分離課税（tax.retirementIncome）", () => {
     expect(tax(2045, [ret, dcLater]).overlapYears).toBe(25);
   });
 
+  it("DC 一時金を受ける年の19年内は、令和4年4月1日以後に支払を受けるものから（3月までは14年内。支払の月で分かれる）", () => {
+    // 前の退職金は2006年（2022年の16年前）。2022年3月の DC 一時金は14年内なので重ならず、4月なら19年内で重なる
+    const ret = receipt({ ym: "2006-04", amount: 10000000, serviceFrom: "1996-04", serviceTo: "2006-03" });
+    const dcAt = (ym: string) => receipt({ ym, amount: 5000000, serviceFrom: "2001-04", serviceTo: "2022-02", source: "dc" });
+    // 2022年の税率の表は製品のパックに無いので、架空の見本のパック（製品と同じ区切りの形）で計算する
+    const at = (ym: string) =>
+      runEngine(quiet({ baseMonth: "2027-01" }), fictionalPacks(), { checkInternal: true, entry: { component: "tax.retirementIncome", input: { member: A, year: 2022 } }, stubs: { "retirement.receipts": () => ({ receipts: [ret, dcAt(ym)] }) } })
+        .entryOutput as RetirementIncomeOutput;
+    expect(at("2022-03").overlapYears).toBe(0);
+    expect(at("2022-04").overlapYears).toBe(5);
+  });
+
   it("前の一時金がその控除額に満たないときは、前の勤続期間を額から換算した年数（切り捨て）とみなす", () => {
     // 前: 2026年に500万円・勤続20年（控除800万）→ 500万÷40万＝12年 → 2006-04 から12年分だけ重なる
     const prev = receipt({ ym: "2026-04", amount: 5000000, serviceFrom: "2006-04", serviceTo: "2026-03" });

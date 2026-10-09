@@ -20,5 +20,26 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/hutankeigen/index.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "支援の内容", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "第I区分 全額、第II区分 2/3、第III区分 1/3、第IV区分 1/4（第IV区分は多子世帯。2/3・1/3 は12桁の率で近似）"}
+  - rev: 2
+    appliesFrom: "2024-04-01"
+    appliesTo: null
+    enforcedOn: "2024-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1, "rate": "1"}
+      - {"upTo": 2, "rate": "0.666666666667"}
+      - {"upTo": 3, "rate": "0.333333333333"}
+      - {"upTo": 4, "rate": "0.25"}
+      - {"upTo": null, "rate": "0"}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/501CO0000000049_20240401_506CO0000000096?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "04944c869fbe74365c318b4fd2dbfe9f89c6bed09a8fe57023696d8d02ddc09e", "locator": "大学等における修学の支援に関する法律施行令 第2条第1項第2号（令和6年4月1日の版）", "quote": "授業料の年額に四分の一を乗じた額及び同号に定める入学金の額に四分の一を乗じた額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/501CO0000000049_20261001_508CO0000000249?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "2f6c9c73ef1344175806bddf02e48c0194212a31c9dbf2083aacbe96bd9ca683", "locator": "大学等における修学の支援に関する法律施行令 第2条第1項第2号（令和8年10月1日の版）", "quote": "授業料の年額に三分の二を乗じた額及びイに定める入学金の額に三分の二を乗じた額"}
+      - {"type": "web", "url": "https://www.mext.go.jp/kyufu/assets/file/kyufu.pdf", "retrievedAt": "2026-10-09", "sha256": "2891736526bf626abe7df3672f05c6dec3e78585a33a47ba79a65b190779ff1f", "locator": "高等教育の修学支援新制度 支援の内容（文部科学省 kyufu.pdf）", "quote": "非課税世帯に準ずる世帯の学生等に対しては、非課税世帯の学生等に対する 減免額の３分の２の額又は３分の１の額を減免する"}
+      - {"type": "law", "lawNumber": "令和元年政令第四十九号", "egovRevisionId": "501CO0000000049_20240401_506CO0000000096"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "第I区分 全額、第II区分 2/3、第III区分 1/3、第IV区分 1/4（令和6年4月1日から）。施行令2条1項2号と文部科学省の資料で一致。法令は2/3・1/3・1/4を掛けた額の100円未満を100円に切り上げる（施行令2条1項2号柱書）。データの率は12桁で近似し、切り上げは部品の側の課題"}

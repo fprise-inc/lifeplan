@@ -3,11 +3,11 @@ id: test.incomeTax.retirementIncome.overlap.lookbackYearsForDc
 title: 【架空の見本】incomeTax.retirementIncome.overlap.lookbackYearsForDc
 unit: count
 kind: constant
-basis: "incomeYear"
+basis: "month"
 entries:
   - rev: 1
     appliesFrom: "2013-01-01"
-    appliesTo: "2021-12-31"
+    appliesTo: "2022-03-31"
     enforcedOn: "2013-01-01"
     status: enacted
     jurisdiction: "national"
@@ -18,9 +18,9 @@ entries:
     recordedIn: "2026.2.0"
     supersededIn: null
   - rev: 2
-    appliesFrom: "2022-01-01"
+    appliesFrom: "2022-04-01"
     appliesTo: null
-    enforcedOn: "2022-01-01"
+    enforcedOn: "2022-04-01"
     status: enacted
     jurisdiction: "national"
     conditions: []

@@ -16,7 +16,7 @@ entries:
       - {"type": "web", "url": "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/090929.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "個人住民税の住宅ローン控除", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "web", "url": "https://laws.e-gov.go.jp/law/325AC0000000226", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "地方税法附則5条の4", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.3.0"
-    supersededIn: null
+    supersededIn: "2026.4.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "居住年が平成28年〜令和7年のとき、課税総所得金額等に（所得税の基礎控除の額−48万円。0未満は0）を足して率を掛ける（地方税法附則5条の4。PR #11 で原本の条文を読んだ。原本の写しの指紋はこの作業の環境では付けられない）"}
   - rev: 2
     appliesFrom: "2026-01-01"
@@ -29,5 +29,40 @@ entries:
     sources:
       - {"type": "web", "url": "https://laws.e-gov.go.jp/law/325AC0000000226", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "地方税法附則5条の4", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.3.0"
-    supersededIn: null
+    supersededIn: "2026.4.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "令和8年以後の入居には加算しない"}
+  - rev: 3
+    appliesFrom: "2016-01-01"
+    appliesTo: "2025-12-31"
+    enforcedOn: "2026-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 480000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20260401_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "5ac756847de8de10ef6e6fc1db4e9ed55b04b248d3095ebc7b157d5264aa2265", "locator": "地方税法 附則第5条の4第1項・第6項（令和8年4月1日の版）", "quote": "居住年が平成二十八年から令和七年までの各年である場合には、当該納税義務者の前年分の所得税に係る同法第八十六条第二項に規定する基礎控除の額（租税特別措置法第四十一条の十六の二第一項の規定の適用がある場合には、その適用後の額）から四十八万円を控除して得た額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", "locator": "地方税法 附則第5条の4第1項・第6項（令和8年10月1日の版）", "quote": "居住年が平成二十八年から令和七年までの各年である場合には、当該納税義務者の前年分の所得税に係る同法第八十六条第二項に規定する基礎控除の額（租税特別措置法第四十一条の十六の二第一項の規定の適用がある場合には、その適用後の額）から四十八万円を控除して得た額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20260401_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "5ac756847de8de10ef6e6fc1db4e9ed55b04b248d3095ebc7b157d5264aa2265", "locator": "地方税法等の一部を改正する法律（令和8年法律第2号）附則第3条第1項", "quote": "令和八年度以後の年度分の個人の道府県民税について適用し"}
+      - {"type": "web", "url": "https://www.soumu.go.jp/main_content/001053325.pdf", "retrievedAt": "2026-10-09", "sha256": "5faa975e320b129339ed199a7418ee5f5f33e579500c965d5204691f47ddf6e8", "locator": "総務省 事務連絡（令和8年1月21日）④ア・（注）", "quote": "所得税の基礎控除の額の引上げ に伴い、所要の措置を講ずることとしていること"}
+      - {"type": "web", "url": "https://www.soumu.go.jp/main_content/001053325.pdf", "retrievedAt": "2026-10-09", "sha256": "5faa975e320b129339ed199a7418ee5f5f33e579500c965d5204691f47ddf6e8", "locator": "総務省 事務連絡（令和8年1月21日）④（注）", "quote": "上記の改正は、令和８年度分の個人住民税から適用することとしており"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1199.htm", "retrievedAt": "2026-10-08", "sha256": "21507083e62c8014201736c5122cdf184515695aaaeb9c3fbb414b105a8ab5ac", "locator": "No.1199 基礎控除 基礎控除の金額（令和6年分以前）", "quote": "令和6年分 以前"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20261001_508AC0000000002"}
+      - {"type": "law", "lawNumber": "令和八年法律第二号", "egovRevisionId": "325AC0000000226_20260401_508AC0000000002"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "居住年が平成28年〜令和7年のとき、住民税の住宅ローン控除の上限の基礎に（所得税の基礎控除の額−48万円。0未満は0）を足す。地方税法附則5条の4第1項・6項（令和8年4月・10月の版）の条文と、総務省の事務連絡（令和7年以前の入居の控除限度額を所得税の基礎控除の引上げに合わせる措置、令和8年度分から）・国税庁 No.1199（令和6年分以前の基礎控除は48万円＝引上げ前の額）で一致。施行は令和8年4月1日・令和8年度分の住民税から（改正法附則3条1項）。それより前の年度は加算の規定が無いが、基礎控除が48万円以下だったので加算は0で結果は同じ"}
+  - rev: 4
+    appliesFrom: "2026-01-01"
+    appliesTo: null
+    enforcedOn: "2026-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20260401_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "5ac756847de8de10ef6e6fc1db4e9ed55b04b248d3095ebc7b157d5264aa2265", "locator": "地方税法 附則第5条の4第1項・第6項（令和8年4月1日の版）", "quote": "居住年が平成二十八年から令和七年までの各年である場合には、当該納税義務者の前年分の所得税に係る同法第八十六条第二項に規定する基礎控除の額（租税特別措置法第四十一条の十六の二第一項の規定の適用がある場合には、その適用後の額）から四十八万円を控除して得た額"}
+      - {"type": "web", "url": "https://www.soumu.go.jp/main_content/001053325.pdf", "retrievedAt": "2026-10-09", "sha256": "5faa975e320b129339ed199a7418ee5f5f33e579500c965d5204691f47ddf6e8", "locator": "総務省 事務連絡（令和8年1月21日）③", "quote": "住宅の取得等をして令和８年から令和 １２年までの間に居住の用に供した者に限る"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20261001_508AC0000000002"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和8年以後の入居には加算しない（附則5条の4は居住年が平成28年〜令和7年の場合だけ）。令和8〜12年の入居は課税総所得金額等の5%・97,500円（総務省の事務連絡③）"}

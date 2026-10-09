@@ -15,5 +15,22 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.pref.osaka.lg.jp/o090130/kateishien/teate/jite_202410.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "児童手当の拡充（令和6年10月分から）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "令和6年10月分から"}
+  - rev: 2
+    appliesFrom: "2024-10-01"
+    appliesTo: null
+    enforcedOn: "2024-10-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 10000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/346AC0000000073_20241001_506AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "9650e572c9cea61cb2262cd8fd39354346cf526704c17009be4782038ae8fba5", "locator": "児童手当法 第6条第3項（令和6年10月1日の版）", "quote": "「三歳未満児童算定額」は一万五千円とし、「三歳以上児童算定額」は一万円とし、「第三子以降算定額」は三万円とする"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/346AC0000000073_20250601_504AC0000000068?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "56b452a44666098543c2404ede41eb60c051a6ba93feccbbf13bf4363f88ff91", "locator": "児童手当法 第6条第3項（令和7年6月1日の版）", "quote": "「三歳未満児童算定額」は一万五千円とし、「三歳以上児童算定額」は一万円とし、「第三子以降算定額」は三万円とする"}
+      - {"type": "web", "url": "https://www.cfa.go.jp/policies/kokoseido/jidouteate/annai", "retrievedAt": "2026-10-09", "sha256": "ad9f152b3cc1c6ba7c69318db95a02a719526bb9968d02d765060b16d378dcba", "locator": "児童手当制度のご案内（こども家庭庁）", "quote": "高校生年代まで 10,000円（第3子以降は30,000円）"}
+      - {"type": "law", "lawNumber": "昭和四十六年法律第七十三号", "egovRevisionId": "346AC0000000073_20241001_506AC0000000047"}
+      - {"type": "law", "lawNumber": "令和六年法律第四十七号", "egovRevisionId": "346AC0000000073_20241001_506AC0000000047"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和6年10月分から3歳以上高校生年代までは月10,000円。児童手当法6条3項とこども家庭庁の案内で一致"}

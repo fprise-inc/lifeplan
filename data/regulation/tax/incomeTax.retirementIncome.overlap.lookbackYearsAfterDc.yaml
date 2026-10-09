@@ -15,7 +15,7 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.zeiken.co.jp/news/15056624.php", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年度改正（改正前）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "改正前は前年以前4年内"}
   - rev: 2
     appliesFrom: "2026-01-01"
@@ -29,5 +29,37 @@ entries:
       - {"type": "web", "url": "https://www.zeiken.co.jp/news/15056624.php", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年度改正", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "web", "url": "https://www.yamada-partners.jp/reform/r7/k08-review-of-adjustment-provisions-for-retirement-income-deduction", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "退職所得控除の調整規定の見直し", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "令和7年度改正: 確定拠出年金の一時金を先に受けたときは前年以前9年内（令和8年1月1日以後に支払を受ける一時金・退職手当等。部品は、前の一時金の年と今の年の両方の値の小さい方を使う）"}
+  - rev: 3
+    appliesFrom: "2013-01-01"
+    appliesTo: "2025-12-31"
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 4
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20170401_428CO0000000353?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "1950925ddd61684bece358191c52222bc6613feab909d6efbd53cefd8b47a4fc", "locator": "所得税法施行令 第70条第1項第2号（平成29年4月1日の版）", "quote": "その年の前年以前四年内"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20260101_507CO0000000120?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "748a8e9ca347aec20abefaffaedc511414f54aeafc7eec41906cb6c24fd33d70", "locator": "所得税法施行令 第70条第1項第2号ロ（令和8年1月1日の版）", "quote": "令和八年一月一日以後に支払を受けたものに限り"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2732.htm", "retrievedAt": "2026-10-09", "sha256": "7102f34ed11c74418876bb5d607a336846322df69b4293fb1cd77823c72fbf9c", "locator": "No.2732 2 重複期間 (2)ロ", "quote": "令和８年１月１日以後に支払を受けたものに限り"}
+      - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20220401_503CO0000000229"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和7年までに受けた確定拠出年金の一時金は、ほかの退職手当等と同じく前年以前4年内（9年内の規定は令和8年1月1日以後に支払を受けた一時金に限る）。施行令70条1項2号（平成29年4月の版・令和8年1月の版）と国税庁 No.2732 で一致"}
+  - rev: 4
+    appliesFrom: "2026-01-01"
+    appliesTo: null
+    enforcedOn: "2026-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 9
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20260101_507CO0000000120?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "748a8e9ca347aec20abefaffaedc511414f54aeafc7eec41906cb6c24fd33d70", "locator": "所得税法施行令 第70条第1項第2号ロ（令和8年1月1日の版）", "quote": "その年の前年以前九年内に第七十二条第三項第七号（退職手当等とみなす一時金）に掲げる一時金（令和八年一月一日以後に支払を受けたものに限り"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2732.htm", "retrievedAt": "2026-10-09", "sha256": "7102f34ed11c74418876bb5d607a336846322df69b4293fb1cd77823c72fbf9c", "locator": "No.2732 2 重複期間 (2)ロ", "quote": "前年以前９年内に確定拠出年金法に基づく老齢給付金として支給される一時金（令和８年１月１日以後に支払を受けたものに限り"}
+      - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20260101_507CO0000000120"}
+      - {"type": "law", "lawNumber": "令和七年政令第百二十号", "egovRevisionId": "340CO0000000096_20260101_507CO0000000120"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和8年1月1日以後に確定拠出年金の一時金を受け、その後の年に退職手当等を受けるときは前年以前9年内。施行令70条1項2号ロと国税庁 No.2732 で一致。前の退職手当等のうち令和8年1月1日前に受けたものは4年内（同号ロ(2)）"}

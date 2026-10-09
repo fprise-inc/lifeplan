@@ -16,5 +16,22 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.pref.osaka.lg.jp/o090130/kateishien/teate/jite_202410.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "高校生年代まで", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "18歳に達する日以後の最初の3月31日まで（高校生年代）"}
+  - rev: 2
+    appliesFrom: "2024-10-01"
+    appliesTo: null
+    enforcedOn: "2024-10-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 18
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/346AC0000000073_20241001_506AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "9650e572c9cea61cb2262cd8fd39354346cf526704c17009be4782038ae8fba5", "locator": "児童手当法 第3条第1項（令和6年10月1日の版）", "quote": "「児童」とは、十八歳に達する日以後の最初の三月三十一日までの間にある者"}
+      - {"type": "web", "url": "https://www.cfa.go.jp/policies/kokoseido/jidouteate/annai", "retrievedAt": "2026-10-09", "sha256": "ad9f152b3cc1c6ba7c69318db95a02a719526bb9968d02d765060b16d378dcba", "locator": "児童手当制度のご案内（こども家庭庁）", "quote": "0歳から18歳に達する日以後の最初の3月31日までの間にある子"}
+      - {"type": "web", "url": "https://www.cfa.go.jp/assets/contents/node/basic_page/field_ref_resources/c9d07fdc-1873-4b62-ba35-b38a62a471a6/9f5267a3/20250213_policies_kokoseido_jidouteate_annai_05.pdf", "retrievedAt": "2026-10-09", "sha256": "bf6901ee08d7283c012caa024f0a456f0eae52aadbd71aa600ebf735eed04155", "locator": "「第3子以降」のカウント方法について（こども家庭庁）", "quote": "18歳に達する日以後最初の3月31日までの間にある者"}
+      - {"type": "law", "lawNumber": "昭和四十六年法律第七十三号", "egovRevisionId": "346AC0000000073_20241001_506AC0000000047"}
+      - {"type": "law", "lawNumber": "令和六年法律第四十七号", "egovRevisionId": "346AC0000000073_20241001_506AC0000000047"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "児童は18歳に達する日以後の最初の3月31日までの者。児童手当法3条1項とこども家庭庁の案内で一致"}

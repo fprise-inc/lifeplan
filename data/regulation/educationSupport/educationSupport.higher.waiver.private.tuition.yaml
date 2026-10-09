@@ -15,5 +15,21 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/hutankeigen/index.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "減免の上限額", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "私立 授業料 約70万円"}
+  - rev: 2
+    appliesFrom: "2020-04-01"
+    appliesTo: null
+    enforcedOn: "2020-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 700000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/501CO0000000049_20200401_000000000000000?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "175eb55f7dd45f40b14e85d7f67a3831a25fcf6acaa0b25acdc1a92db262bc53", "locator": "大学等における修学の支援に関する法律施行令 第2条第1項第1号の表（令和2年4月1日の版）", "quote": "私立の大学学部（夜間学部を除く。）七〇〇、〇〇〇円二六〇、〇〇〇円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/501CO0000000049_20261001_508CO0000000249?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "2f6c9c73ef1344175806bddf02e48c0194212a31c9dbf2083aacbe96bd9ca683", "locator": "大学等における修学の支援に関する法律施行令 第2条第1項第1号の表（令和8年10月1日の版）", "quote": "私立の大学学部（夜間学部を除く。）七〇〇、〇〇〇円二六〇、〇〇〇円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/kyufu/assets/file/kyufu.pdf", "retrievedAt": "2026-10-09", "sha256": "2891736526bf626abe7df3672f05c6dec3e78585a33a47ba79a65b190779ff1f", "locator": "高等教育の修学支援新制度 支援の内容（文部科学省 kyufu.pdf）", "quote": "700,000円 260,000円"}
+      - {"type": "law", "lawNumber": "令和元年政令第四十九号", "egovRevisionId": "501CO0000000049_20261001_508CO0000000249"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "私立大学（昼間の学部）の授業料の年額の上限 700,000円。施行令2条1項1号の表（令和2年4月・令和8年10月の版）と文部科学省の資料で一致。短大・高専・専門学校・夜間・通信は扱わない"}
