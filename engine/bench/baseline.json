@@ -90,7 +90,224 @@
       "note": "目標2: 正の計算 5案×4想定（案ごとのスレッドで4想定をまとめて）。par20 とどちらか速い方を使う"
     }
   },
-  "baseline": {},
+  "baseline": {
+    "linux-x64": {
+      "node": {
+        "single": {
+          "median": 222.9,
+          "min": 168.1
+        },
+        "sliderReturn": {
+          "median": 78,
+          "min": 70.6
+        },
+        "sliderSalary": {
+          "median": 178.2,
+          "min": 162.5
+        },
+        "sliderSalaryThin": {
+          "median": 48.5,
+          "min": 45
+        },
+        "afterRelease16": {
+          "median": 355.9,
+          "min": 341.8
+        },
+        "sliderSelfSalary": {
+          "median": 176,
+          "min": 165.3
+        },
+        "sliderSelfSalaryThin": {
+          "median": 48.1,
+          "min": 46.1
+        },
+        "sliderRetire": {
+          "median": 97.4,
+          "min": 94.2
+        },
+        "sliderNisa": {
+          "median": 34.6,
+          "min": 33.4
+        }
+      },
+      "jsc": {
+        "single": {
+          "median": 228.4,
+          "min": 210.1
+        },
+        "sliderReturn": {
+          "median": 82.7,
+          "min": 77.6
+        },
+        "sliderSalary": {
+          "median": 260.5,
+          "min": 159.8
+        },
+        "sliderSalaryThin": {
+          "median": 72.5,
+          "min": 50
+        },
+        "afterRelease16": {
+          "median": 428.3,
+          "min": 421.4
+        },
+        "sliderSelfSalary": {
+          "median": 178.5,
+          "min": 159.4
+        },
+        "sliderSelfSalaryThin": {
+          "median": 48.9,
+          "min": 46.1
+        },
+        "sliderRetire": {
+          "median": 102.2,
+          "min": 91.5
+        },
+        "sliderNisa": {
+          "median": 30.8,
+          "min": 29.2
+        }
+      },
+      "quickjs": {
+        "batch4": {
+          "median": 3974.6,
+          "min": 3794.2
+        },
+        "compile": {
+          "median": 82.6,
+          "min": 82.6
+        },
+        "load": {
+          "median": 11.4,
+          "min": 9.9
+        },
+        "par20": {
+          "median": 21118.8,
+          "min": 21055.8
+        },
+        "par4": {
+          "median": 3417.7,
+          "min": 3416.3
+        },
+        "plans5": {
+          "median": 15468.7,
+          "min": 15371.9
+        },
+        "single": {
+          "median": 1164.7,
+          "min": 1111.7
+        }
+      }
+    },
+    "darwin-arm64": {
+      "node": {
+        "single": {
+          "median": 68.1,
+          "min": 67.2
+        },
+        "sliderReturn": {
+          "median": 54.9,
+          "min": 40.5
+        },
+        "sliderSalary": {
+          "median": 117.1,
+          "min": 91.3
+        },
+        "sliderSalaryThin": {
+          "median": 38.3,
+          "min": 37
+        },
+        "afterRelease16": {
+          "median": 300.4,
+          "min": 273.3
+        },
+        "sliderSelfSalary": {
+          "median": 141.3,
+          "min": 126.3
+        },
+        "sliderSelfSalaryThin": {
+          "median": 38.5,
+          "min": 33.1
+        },
+        "sliderRetire": {
+          "median": 74.1,
+          "min": 68.3
+        },
+        "sliderNisa": {
+          "median": 22,
+          "min": 19.1
+        }
+      },
+      "jsc": {
+        "single": {
+          "median": 85.9,
+          "min": 75.8
+        },
+        "sliderReturn": {
+          "median": 52.8,
+          "min": 39.6
+        },
+        "sliderSalary": {
+          "median": 109.9,
+          "min": 88.4
+        },
+        "sliderSalaryThin": {
+          "median": 32.6,
+          "min": 23.8
+        },
+        "afterRelease16": {
+          "median": 227.2,
+          "min": 226.1
+        },
+        "sliderSelfSalary": {
+          "median": 115.4,
+          "min": 104.2
+        },
+        "sliderSelfSalaryThin": {
+          "median": 25,
+          "min": 22.6
+        },
+        "sliderRetire": {
+          "median": 67.7,
+          "min": 57.2
+        },
+        "sliderNisa": {
+          "median": 26,
+          "min": 21
+        }
+      },
+      "quickjs": {
+        "batch4": {
+          "median": 2137.3,
+          "min": 2132.9
+        },
+        "compile": {
+          "median": 69.2,
+          "min": 69.2
+        },
+        "load": {
+          "median": 7.1,
+          "min": 6.7
+        },
+        "par20": {
+          "median": 3442.3,
+          "min": 3285
+        },
+        "par4": {
+          "median": 780.6,
+          "min": 749.8
+        },
+        "plans5": {
+          "median": 2576.2,
+          "min": 2336.4
+        },
+        "single": {
+          "median": 689.5,
+          "min": 630.8
+        }
+      }
+    }
+  },
   "previous": {
     "note": "2026-10-08 の2回目の見直しの後に CI で測った値（lifetime100。新しい部品の無い世帯）。速さの計測を lifetime100Assets に替えたので比べない（PR の説明に並べて載せる）",
     "baseline": {
