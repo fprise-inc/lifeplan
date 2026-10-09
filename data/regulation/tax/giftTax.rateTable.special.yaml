@@ -24,5 +24,29 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "特例贈与財産用（特例税率）の速算表", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "租税特別措置法70条の2の5。計算例（500万円→48.5万円）と一致"}
+  - rev: 2
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 2000000, "rate": "0.1", "amount": 0}
+      - {"upTo": 4000000, "rate": "0.15", "amount": 100000}
+      - {"upTo": 6000000, "rate": "0.2", "amount": 300000}
+      - {"upTo": 10000000, "rate": "0.3", "amount": 900000}
+      - {"upTo": 15000000, "rate": "0.4", "amount": 1900000}
+      - {"upTo": 30000000, "rate": "0.45", "amount": 2650000}
+      - {"upTo": 45000000, "rate": "0.5", "amount": 4150000}
+      - {"upTo": null, "rate": "0.55", "amount": 6400000}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第70条の2の5第1項（令和8年10月1日の版）", "quote": "平成二十七年一月一日以後に直系尊属からの贈与により財産を取得した者"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第70条の2の5第1項（令和8年10月1日の版）", "quote": "三千万円を超え四千五百万円以下の金額百分の五十四千五百万円を超える金額百分の五十五"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "sha256": "c937178b94e85b87f3227a6ab7f01e41495b14a14ed83ad0a73d9a86b5eaf85f", "locator": "No.4408 贈与税の速算表 ＜特例贈与財産用＞（特例税率）の控除額", "quote": "控除額‐10万円30万円90万円190万円265万円415万円640万円"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "表の内訳の合計を計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "措置法70条の2の5の税率の区分と国税庁 No.4408 の速算表で一致。控除額は条文の段ごとの税率から計算し直して速算表の全行と一致。施行日は e-Gov の最初の版より前なので notAfter"}

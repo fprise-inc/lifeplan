@@ -1,5 +1,5 @@
 id: socialInsurance.highCostMedical.under70.threshold
-title: 高額療養費の自己負担限度額の1%を掛ける基準の医療費（区分ア〜ウ。エ・オは0）
+title: 高額療養費の自己負担限度額の1%を掛ける基準の医療費（upTo は区分の番号（令和9年7月までは 1 ア・2 イ・3 ウ・4 エ・5 オ、令和9年8月からは 1〜13。最後の区分は住民税非課税）。1%の加算の無い区分は0）
 unit: JPY
 kind: bracketTable
 basis: "month"
@@ -20,7 +20,7 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "（医療費−842,000円）×1%・（医療費−558,000円）×1%・（医療費−267,000円）×1%", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "健康保険法施行令42条"}
   - rev: 2
     appliesFrom: "2026-08-01"
@@ -38,5 +38,79 @@ entries:
     sources:
       - {"type": "web", "url": "https://column.finance.ponta.jp/archives/756/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "2026年8月〜 270,300円＋（医療費−901,000円）×1%", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "基準の医療費は自己負担限度額÷0.3（イ・ウは額から計算した。原本で確かめる）"}
+  - rev: 3
+    appliesFrom: "2015-01-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1, "amount": 842000}
+      - {"upTo": 2, "amount": 558000}
+      - {"upTo": 3, "amount": 267000}
+      - {"upTo": 4, "amount": 0}
+      - {"upTo": null, "amount": 0}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260729_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "ccb0b6b668e28a61914502d7f5dbdfb2597aaeda94a809d3ed74c4f74d478dca", "locator": "健康保険法施行令 第42条第1項（令和8年7月29日の版）", "quote": "その額が八十四万二千円に満たないときは、八十四万二千円）から八十四万二千円を控除した額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260729_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "ccb0b6b668e28a61914502d7f5dbdfb2597aaeda94a809d3ed74c4f74d478dca", "locator": "健康保険法施行令 第42条第1項（令和8年7月29日の版）", "quote": "その額が五十五万八千円に満たないときは、五十五万八千円）から五十五万八千円を控除した額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260729_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "ccb0b6b668e28a61914502d7f5dbdfb2597aaeda94a809d3ed74c4f74d478dca", "locator": "健康保険法施行令 第42条第1項（令和8年7月29日の版）", "quote": "その額が二十六万七千円に満たないときは、二十六万七千円）から二十六万七千円を控除した額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20170401_429CO0000000098?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "db5b70339baafeacdaf57baebb9cf009bc367b4163a3cea436f3bc2ca019fde5", "locator": "健康保険法施行令 第42条第1項（平成29年4月1日の版）", "quote": "八十四万二千円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-09", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて（イメージ）の現行の例", "quote": "年収約370万円～約770万円の者の自己負担限度額・年１～３回目：80,100円＋１％"}
+      - {"type": "law", "lawNumber": "大正十五年勅令第二百四十三号", "egovRevisionId": "215IO0000000243_20260729_508CO0000000240"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "ア 842,000円・イ 558,000円・ウ 267,000円（エ・オは1%の加算なし）。健康保険法施行令42条（平成29年4月・令和8年7月の版）と厚生労働省の資料で一致。施行日は e-Gov の最初の版より前なので notAfter"}
+  - rev: 4
+    appliesFrom: "2026-08-01"
+    appliesTo: "2027-07-31"
+    enforcedOn: "2026-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1, "amount": 901000}
+      - {"upTo": 2, "amount": 597000}
+      - {"upTo": 3, "amount": 286000}
+      - {"upTo": 4, "amount": 0}
+      - {"upTo": null, "amount": 0}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "77a492e0652f347af67dde05dd65d8fcb329387cf3dae8b174578ecb90eefc93", "locator": "健康保険法施行令 第42条第1項（令和8年8月1日の版）", "quote": "その額が九十万千円に満たないときは、九十万千円）から九十万千円を控除した額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "77a492e0652f347af67dde05dd65d8fcb329387cf3dae8b174578ecb90eefc93", "locator": "健康保険法施行令 第42条第1項（令和8年8月1日の版）", "quote": "その額が五十九万七千円に満たないときは、五十九万七千円）から五十九万七千円を控除した額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "77a492e0652f347af67dde05dd65d8fcb329387cf3dae8b174578ecb90eefc93", "locator": "健康保険法施行令 第42条第1項（令和8年8月1日の版）", "quote": "その額が二十八万六千円に満たないときは、二十八万六千円）から二十八万六千円を控除した額"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-09", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて（令和８年８月～令和９年７月）", "quote": "85,800＋（医療費－286,000）×1％"}
+      - {"type": "law", "lawNumber": "大正十五年勅令第二百四十三号", "egovRevisionId": "215IO0000000243_20260801_508CO0000000240"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和8年8月診療分から ア 901,000円・イ 597,000円・ウ 286,000円。健康保険法施行令42条（令和8年8月1日の版）と厚生労働省の資料で一致（前の行の限度額÷0.3 で計算した値と同じ）"}
+  - rev: 5
+    appliesFrom: "2027-08-01"
+    appliesTo: null
+    enforcedOn: "2027-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1, "amount": 1140000}
+      - {"upTo": 2, "amount": 1010000}
+      - {"upTo": 3, "amount": 901000}
+      - {"upTo": 4, "amount": 698000}
+      - {"upTo": 5, "amount": 648000}
+      - {"upTo": 6, "amount": 597000}
+      - {"upTo": 7, "amount": 368000}
+      - {"upTo": 8, "amount": 327000}
+      - {"upTo": 9, "amount": 286000}
+      - {"upTo": 10, "amount": 0}
+      - {"upTo": 11, "amount": 0}
+      - {"upTo": 12, "amount": 0}
+      - {"upTo": null, "amount": 0}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20270801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "7d0af72aec713e039e88453498b79bb5f783744ab43e664bfe7d1e09e87d3ea9", "locator": "健康保険法施行令 第42条第1項第1号（令和9年8月1日の版）", "quote": "その額が百十四万円に満たないときは、百十四万円）から百十四万円を控除した額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20270801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "7d0af72aec713e039e88453498b79bb5f783744ab43e664bfe7d1e09e87d3ea9", "locator": "健康保険法施行令 第42条第1項第7号（令和9年8月1日の版）", "quote": "その額が三十六万八千円に満たないときは、三十六万八千円）から三十六万八千円を控除した額"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-09", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて（令和９年８月～）", "quote": "110,400＋（医療費－368,000）×1％"}
+      - {"type": "law", "lawNumber": "大正十五年勅令第二百四十三号", "egovRevisionId": "215IO0000000243_20270801_508CO0000000240"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和9年8月から 1,140,000・1,010,000・901,000・698,000・648,000・597,000・368,000・327,000・286,000円（第10区分以下は1%の加算なし）。健康保険法施行令42条（令和9年8月1日の版）と厚生労働省の資料の全区分で一致"}

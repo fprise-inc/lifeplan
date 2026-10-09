@@ -1,5 +1,5 @@
 id: socialInsurance.highCostMedical.tierByStandard
-title: 高額療養費の区分（標準報酬月額。upTo 以下なら amount の区分）
+title: 高額療養費の区分（標準報酬月額。upTo 以下なら amount の区分。upTo は区分の番号（令和9年7月までは 1 ア・2 イ・3 ウ・4 エ・5 オ、令和9年8月からは 1〜13。最後の区分は住民税非課税））
 unit: JPY
 kind: bracketTable
 basis: "month"
@@ -19,5 +19,56 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "標準報酬月額83万円以上・53万〜79万円・28万〜50万円・26万円以下", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "区分ア 83万円以上・イ 53万〜79万円・ウ 28万〜50万円・エ 26万円以下（区分の細分化（令和9年8月）は扱わない）"}
+  - rev: 2
+    appliesFrom: "2015-01-01"
+    appliesTo: "2027-07-31"
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 260000, "amount": 4}
+      - {"upTo": 500000, "amount": 3}
+      - {"upTo": 790000, "amount": 2}
+      - {"upTo": null, "amount": 1}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "77a492e0652f347af67dde05dd65d8fcb329387cf3dae8b174578ecb90eefc93", "locator": "健康保険法施行令 第42条第1項第2号〜第4号（令和8年8月1日の版）", "quote": "療養のあった月の標準報酬月額が八十三万円以上の被保険者又はその被扶養者"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "77a492e0652f347af67dde05dd65d8fcb329387cf3dae8b174578ecb90eefc93", "locator": "健康保険法施行令 第42条第1項第3号（令和8年8月1日の版）", "quote": "療養のあった月の標準報酬月額が五十三万円以上八十三万円未満の被保険者又はその被扶養者"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "77a492e0652f347af67dde05dd65d8fcb329387cf3dae8b174578ecb90eefc93", "locator": "健康保険法施行令 第42条第1項第4号（令和8年8月1日の版）", "quote": "療養のあった月の標準報酬月額が二十八万円未満の被保険者又はその被扶養者"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20170401_429CO0000000098?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "db5b70339baafeacdaf57baebb9cf009bc367b4163a3cea436f3bc2ca019fde5", "locator": "健康保険法施行令 第42条第1項（平成29年4月1日の版）", "quote": "療養のあった月の標準報酬月額が八十三万円以上の被保険者又はその被扶養者"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-09", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて（令和８年８月～令和９年７月）", "quote": "約770万円～約1,160万円53万円～79万円600万円～901万円"}
+      - {"type": "law", "lawNumber": "大正十五年勅令第二百四十三号", "egovRevisionId": "215IO0000000243_20260801_508CO0000000240"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "標準報酬月額 83万円以上 ア・53万〜79万円 イ・28万〜50万円 ウ・26万円以下 エ（等級の額で区切る）。健康保険法施行令42条（平成29年4月・令和8年8月の版）と厚生労働省の資料で一致。令和9年8月から区分が細分化されるので適用終了を書いた。施行日は e-Gov の最初の版より前なので notAfter"}
+  - rev: 3
+    appliesFrom: "2027-08-01"
+    appliesTo: null
+    enforcedOn: "2027-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 159999, "amount": 12}
+      - {"upTo": 199999, "amount": 11}
+      - {"upTo": 279999, "amount": 10}
+      - {"upTo": 359999, "amount": 9}
+      - {"upTo": 439999, "amount": 8}
+      - {"upTo": 529999, "amount": 7}
+      - {"upTo": 619999, "amount": 6}
+      - {"upTo": 709999, "amount": 5}
+      - {"upTo": 829999, "amount": 4}
+      - {"upTo": 1029999, "amount": 3}
+      - {"upTo": 1269999, "amount": 2}
+      - {"upTo": null, "amount": 1}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20270801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "7d0af72aec713e039e88453498b79bb5f783744ab43e664bfe7d1e09e87d3ea9", "locator": "健康保険法施行令 第42条第1項第1号（令和9年8月1日の版）", "quote": "療養のあった月の標準報酬月額が百二十七万円以上の被保険者又はその被扶養者"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20270801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "7d0af72aec713e039e88453498b79bb5f783744ab43e664bfe7d1e09e87d3ea9", "locator": "健康保険法施行令 第42条第1項第11号（令和9年8月1日の版）", "quote": "療養のあった月の標準報酬月額が十六万円以上二十万円未満の被保険者又はその被扶養者"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20270801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "7d0af72aec713e039e88453498b79bb5f783744ab43e664bfe7d1e09e87d3ea9", "locator": "健康保険法施行令 第42条第1項第8号（令和9年8月1日の版）", "quote": "療養のあった月の標準報酬月額が三十六万円以上四十四万円未満の被保険者又はその被扶養者"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-09", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて（令和９年８月～）", "quote": "約1,410万円～約1,650万円103万円～121万円1,110万円～1,356万円"}
+      - {"type": "law", "lawNumber": "大正十五年勅令第二百四十三号", "egovRevisionId": "215IO0000000243_20270801_508CO0000000240"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和9年8月から12区分（＋住民税非課税）。標準報酬月額の境 16万・20万・28万・36万・44万・53万・62万・71万・83万・103万・127万円（未満で区切る）。健康保険法施行令42条（令和9年8月1日の版。令和8年政令第240号）と厚生労働省の資料で一致"}

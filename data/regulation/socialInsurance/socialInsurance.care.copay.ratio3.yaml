@@ -16,5 +16,21 @@ entries:
       - {"type": "web", "url": "https://www.city.bunkyo.lg.jp/tetsuzuki/kaigo/hoken/hutanwariai.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "介護保険の負担割合", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "平成九年法律第百二十三号"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "介護保険法49条の2第2項の100分の30（平成30年8月から）"}
+  - rev: 2
+    appliesFrom: "2018-08-01"
+    appliesTo: null
+    enforcedOn: "2018-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.3"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/409AC0000000123_20261001_507AC0000000087?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "c1886fd7bfbc2ec713d20799508f5dc9a0e4b6ddc4a5c0969c188f6304fbe552", "locator": "介護保険法 第49条の2第2項（令和8年10月1日の版）", "quote": "「百分の七十」"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/409AC0000000123_20180801_429AC0000000052?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "3fca2fc72f3621021a8a7e544ec6a4a9a3eefbf820f824196b421299327705f2", "locator": "介護保険法 第49条の2第2項（平成30年8月1日の版）", "quote": "「百分の七十」"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12300000/001119101.pdf", "retrievedAt": "2026-10-09", "sha256": "4ccbd31f85a9a2c99f28bb5d1351612aa0ab23f574ae86ecaeeee7ada45159bc", "locator": "介護保険制度における利用者負担割合（判定基準）", "quote": "利用者負担割合を３割としている【平成30年８月施行】"}
+      - {"type": "law", "lawNumber": "平成九年法律第百二十三号", "egovRevisionId": "409AC0000000123_20180801_429AC0000000052"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "特に所得の高い人は給付100分の70（自己負担3割。平成30年8月施行）。介護保険法（平成30年8月・令和8年10月の版）と厚生労働省の資料で一致"}

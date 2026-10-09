@@ -15,7 +15,7 @@ entries:
     sources:
       - {"type": "web", "url": "https://roumu.com/?p=123718", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "介護休業給付金の上限額 347,127円 → 356,574円（2025年8月1日）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "賃金日額の上限（45〜59歳）×30日×67%（検索の要約）"}
   - rev: 2
     appliesFrom: "2026-08-01"
@@ -28,5 +28,36 @@ entries:
     sources:
       - {"type": "web", "url": "https://roumu.com/?p=123718", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "介護休業給付金の上限額 356,574円 → 366,222円（2026年8月1日）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "毎年8月1日に改定（検索の要約）"}
+  - rev: 3
+    appliesFrom: "2025-08-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: "2025-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 356574
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001520023.pdf", "retrievedAt": "2026-10-08", "sha256": "0cae2df02fd4732816933fdacab5b1221b1e20e47745ac60fb484a1bbfaea96d", "locator": "高年齢雇用継続給付金・介護休業給付金・育児休業等給付の受給者の皆さまへ（令和7年8月1日から）", "quote": "支給限度額上限額３４７，１２７円→３５６，５７４円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001520021.pdf", "retrievedAt": "2026-10-08", "sha256": "1ddfafef8808df7bdbbf327bf7211593e8105aed93bba3debe6e02f6eb8d7d50", "locator": "雇用保険の基本手当日額の変更（令和7年8月1日から）の賃金日額の上限額（45歳以上60歳未満）", "quote": "17,740円(上限額)超"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["PDF の本文（公表資料）", "表の内訳の合計を計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和7年8月1日から356,574円。厚生労働省の案内の額と、賃金日額の上限額（45歳以上60歳未満）17,740円×30日×67%＝356,574円で一致"}
+  - rev: 4
+    appliesFrom: "2026-08-01"
+    appliesTo: null
+    enforcedOn: "2026-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 366222
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001728499.pdf", "retrievedAt": "2026-10-09", "sha256": "88d741e14a71a67db9c99b1b4338f095d8bc7a24b49f3c2bc73ba839c4e904b4", "locator": "高年齢雇用継続給付金・介護休業給付金・育児休業等給付の受給者の皆さまへ（令和8年8月1日から）", "quote": "支給限度額上限額356,574円→366,222円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001728499.pdf", "retrievedAt": "2026-10-09", "sha256": "88d741e14a71a67db9c99b1b4338f095d8bc7a24b49f3c2bc73ba839c4e904b4", "locator": "同（休業開始時の賃金月額の上限額）", "quote": "上限額532,200円→546,600円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/11607000/001729233.pdf", "retrievedAt": "2026-10-08", "sha256": "5ddac1004083ec109c587bb9a04833359546ae724554611b9a40aa11ec74878f", "locator": "雇用保険の基本手当日額の変更（令和8年8月1日から）の賃金日額の上限額（45歳以上60歳未満）", "quote": "18,220円"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["PDF の本文（公表資料）", "表の内訳の合計を計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和8年8月1日から366,222円（毎年8月1日に改定）。厚生労働省の案内の額と、賃金日額の上限額18,220円×30日＝546,600円×67%＝366,222円で一致"}

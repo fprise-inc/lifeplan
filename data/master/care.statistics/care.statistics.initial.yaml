@@ -15,5 +15,20 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.jili.or.jp/lifeplan/lifesecurity/1116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "生命保険に関する全国実態調査（2人以上世帯）2024（令和6）年度", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "同調査の一時的な費用 47.2万円（検索の要約。公表日は未確認）"}
+  - rev: 2
+    appliesFrom: "2025-03-01"
+    appliesTo: null
+    enforcedOn: "2025-01-30"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 472000
+    sources:
+      - {"type": "web", "url": "https://www.jili.or.jp/lifeplan/lifesecurity/1116.html", "retrievedAt": "2026-10-09", "sha256": "6bb86ce4e79d38bad2b00c4e5401cefdadfd888ba724247e3e852e9b0514bd4d", "locator": "生命保険文化センター「介護にはどれくらいの費用・期間がかかる？」", "quote": "一時的な費用の合計が平均47.2万円"}
+      - {"type": "web", "url": "https://www.jili.or.jp/files/research/zenkokujittai/xls/r6/8-27.xlsx", "retrievedAt": "2026-10-09", "sha256": "2861105a4b39ebfc3ce6bd163a67a60f54a8d5e64dead9a747d951b015ce2c9c", "locator": "2024（令和6）年度 生命保険に関する全国実態調査 調査結果一覧 8-27 介護費用（一時的な費用の合計）合計の平均値（万円）47.161…"}
+      - {"type": "web", "url": "https://www.jili.or.jp/files/research/zenkokujittai/pdf/r6/2024honshiall.pdf", "retrievedAt": "2026-10-09", "sha256": "e7500a0e4c3dcbabdb9742cdac0ccea42861b8150ba12c77b761137f7d161cb9", "locator": "2024（令和6）年度 生命保険に関する全国実態調査 報告書 〈図表Ⅱ-60〉", "quote": "平均47万円（前回74万円）となっている"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["PDF の本文（公表資料）", "Excel（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "一時的な費用の平均 47.2万円（調査結果一覧の平均値 47.16万円を0.1万円単位に。報告書の本文は1万円単位で47万円）。施行日の欄は報告書（2025年1月）の掲載ファイルの日付"}

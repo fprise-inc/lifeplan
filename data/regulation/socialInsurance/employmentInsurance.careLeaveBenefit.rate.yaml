@@ -16,5 +16,21 @@ entries:
       - {"type": "web", "url": "https://jsite.mhlw.go.jp/tokyo-roudoukyoku/var/rev0/0142/6388/kaigokyugyou_leafret.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "休業開始時賃金日額×支給日数×67%", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "雇用保険法61条の4第4項の100分の67"}
+  - rev: 2
+    appliesFrom: "2016-08-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.67"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "69db3a60873d47999b6f5d4ad13e0b804eb87792ee84b5c0a89bda9b1f48dfdc", "locator": "雇用保険法 附則第12条（令和8年5月13日の版）", "quote": "同項中「百分の四十」とあるのは、「百分の六十七」とする"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20170401_428AC0000000063?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "6b8d12ec93da11852efe2ddb864bc61a7cd6637619348baf6fd5c8d67ec3d03a", "locator": "雇用保険法 附則第12条の2（平成29年4月1日の版）", "quote": "同項中「百分の四十」とあるのは、「百分の六十七」とする"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/file/06-Seisakujouhou-11600000-Shokugyouanteikyoku/0000127885.pdf", "retrievedAt": "2026-10-09", "sha256": "61a8aca8d8278c3ca677e87acc292d98a43b666e6381fde3b29f7985ebb6370b", "locator": "介護休業給付金の「支給率」や「賃金日額の上限額」が変わります（厚生労働省）", "quote": "67％の支給となります"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "平成28年8月1日以後に始まる介護休業は67%（附則の暫定措置。本則は40%）。雇用保険法附則（平成29年4月・令和8年5月の版）と厚生労働省の案内で一致。施行日は e-Gov の最初の版より前なので notAfter"}

@@ -16,7 +16,7 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4103.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和5年以前は基礎控除なし", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "令和5年分までは基礎控除が無い"}
   - rev: 2
     appliesFrom: "2024-01-01"
@@ -30,5 +30,35 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4103.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "基礎控除 110万円（令和6年1月1日以後の贈与）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "租税特別措置法70条の3の2の110万円（令和6年1月1日以後の贈与）"}
+  - rev: 3
+    appliesFrom: "2003-01-01"
+    appliesTo: "2023-12-31"
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 0
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4103.htm", "retrievedAt": "2026-10-09", "sha256": "465ef3bc7f74f4d48f0e684affee3914718de726f60fc7b4d87081c3bba1f46f", "locator": "No.4103 相続時精算課税の選択 （注2）", "quote": "令和5年12月31日以前の贈与に係る贈与税額の計算については、相続時精算課税に係る基礎控除額の控除はありません"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第70条の3の2第1項（令和8年10月1日の版）", "quote": "令和六年一月一日以後に相続税法第二十一条の九第五項に規定する相続時精算課税適用者"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和5年以前の贈与は相続時精算課税の基礎控除なし。国税庁 No.4103 の注2と、措置法70条の3の2（令和6年1月1日以後の贈与から）で一致。施行日は e-Gov の最初の版より前なので notAfter"}
+  - rev: 4
+    appliesFrom: "2024-01-01"
+    appliesTo: null
+    enforcedOn: "2024-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1100000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第70条の3の2第1項（令和8年10月1日の版）", "quote": "令和六年一月一日以後に相続税法第二十一条の九第五項に規定する相続時精算課税適用者（第三項において「相続時精算課税適用者」という。）がその年中において同条第五項に規定する特定贈与者（第三項において「特定贈与者」という。）からの贈与により取得した財産に係るその年分の贈与税については、同法第二十一条の十一の二第一項の規定にかかわらず、贈与税の課税価格から百十万円を控除する"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4103.htm", "retrievedAt": "2026-10-09", "sha256": "465ef3bc7f74f4d48f0e684affee3914718de726f60fc7b4d87081c3bba1f46f", "locator": "No.4103 相続時精算課税の選択", "quote": "相続時精算課税に係る基礎控除額110万円（注1）を控除（注2）し"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和6年1月1日以後の贈与は110万円（相続税法21条の11の2の60万円を措置法70条の3の2が置き換える）。措置法と国税庁 No.4103 で一致"}

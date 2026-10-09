@@ -16,5 +16,21 @@ entries:
       - {"type": "web", "url": "https://laws.e-gov.go.jp/law/501CO0000000049", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "大学等における修学の支援に関する法律施行令 第2条第1項第2号", "note": "PR #14 の照合のときに原本で読んだ規定（その額に100円未満の端数があるときはこれを100円に切り上げる）。この作業の環境からは原本を取り直せなかった"}
       - {"type": "law", "lawNumber": "令和元年政令第四十九号"}
     recordedIn: "2026.3.0"
-    supersededIn: null
+    supersededIn: "2026.4.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "割合（2/3・1/3・1/4）を掛けた授業料等減免の額の100円未満を100円に切り上げる。部品は半年ごとの額に当てる近似"}
+  - rev: 2
+    appliesFrom: "2020-04-01"
+    appliesTo: null
+    enforcedOn: "2020-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "UP", "unit": 100}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/501CO0000000049_20200401_000000000000000?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "175eb55f7dd45f40b14e85d7f67a3831a25fcf6acaa0b25acdc1a92db262bc53", "locator": "大学等における修学の支援に関する法律施行令 第2条第1項（令和2年4月1日の版）", "quote": "第二号又は第三号に定める額に百円未満の端数がある場合には、これを百円に切り上げた額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/501CO0000000049_20261001_508CO0000000249?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "2f6c9c73ef1344175806bddf02e48c0194212a31c9dbf2083aacbe96bd9ca683", "locator": "大学等における修学の支援に関する法律施行令 第2条第1項（令和8年10月1日の版）", "quote": "ロからニまでに定める額に百円未満の端数がある場合には、これを百円に切り上げた額"}
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/koutou/hutankeigen/__icsFiles/afieldfile/2019/09/25/1418611_01.pdf", "retrievedAt": "2026-10-09", "sha256": "37c3abd2873873e1eeab99b7cbad2c0ca259c394460fa04a80cf0fbb02e2bffd", "locator": "高等教育の修学支援新制度 授業料等減免の説明資料（文部科学省）", "quote": "端数処理については、授業料・入学金ともに十の位を切り上げで百円単位として処理することとなります"}
+      - {"type": "law", "lawNumber": "令和元年政令第四十九号", "egovRevisionId": "501CO0000000049_20261001_508CO0000000249"}
+    recordedIn: "2026.4.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "区分の割合（2/3・1/3・1/4）を掛けた減免額の100円未満を100円に切り上げ。施行令2条1項（令和2年4月・令和8年10月の版）と文部科学省の資料で一致"}

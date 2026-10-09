@@ -4,7 +4,7 @@
 #   1歳ごとの値（統計表）は取れなかったので、年齢の間は部品が補間する（知らせ N_ESTIMATED）
 packId: master.lifeTable
 formatVersion: "0.1"
-version: "2026.1.0"
+version: "2026.2.0"
 features: []
 title: 簡易生命表（平均余命）
 requires:

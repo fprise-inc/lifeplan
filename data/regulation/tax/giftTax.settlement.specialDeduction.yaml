@@ -16,5 +16,20 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4103.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "特別控除額 2,500万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "相続税法21条の12の2,500万円"}
+  - rev: 2
+    appliesFrom: "2003-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 25000000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000073_20260401_506AC0000000008?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "b5c7da444d774de23cf9edb964a2edadbff47e4096a8c8d57cd4e2d3315e0790", "locator": "相続税法 第21条の12第1項（令和8年4月1日の版）", "quote": "二千五百万円（既にこの条の規定の適用を受けて控除した金額がある場合には、その金額の合計額を控除した残額）"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4103.htm", "retrievedAt": "2026-10-09", "sha256": "465ef3bc7f74f4d48f0e684affee3914718de726f60fc7b4d87081c3bba1f46f", "locator": "No.4103 相続時精算課税の選択", "quote": "特別控除額（限度額2,500万円。"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号", "egovRevisionId": "325AC0000000073_20260401_506AC0000000008"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "特定贈与者ごとの累計2,500万円。相続税法21条の12と国税庁 No.4103 で一致。施行日は e-Gov の最初の版より前なので notAfter"}

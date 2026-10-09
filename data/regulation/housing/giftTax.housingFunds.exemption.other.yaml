@@ -16,7 +16,7 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4508.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "それ以外の住宅の場合には500万円まで", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "租税特別措置法70条の2（令和6年1月1日から令和8年12月31日までの贈与）"}
   - rev: 2
     appliesFrom: "2027-01-01"
@@ -29,5 +29,36 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4508.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和8年12月31日までの贈与", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "期限の後（延長は未定）"}
+  - rev: 3
+    appliesFrom: "2024-01-01"
+    appliesTo: "2026-12-31"
+    enforcedOn: "2024-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5000000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第70条の2第1項（令和8年10月1日の版）", "quote": "令和六年一月一日から令和八年十二月三十一日までの間"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第70条の2第2項第6号ロ（令和8年10月1日の版）", "quote": "ロ当該住宅用の家屋がイに規定する住宅用の家屋以外の住宅用の家屋である場合五百万円"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4508.htm", "retrievedAt": "2026-10-09", "sha256": "057e32c8473c216747824516d69733b9b46a12f7f391a780baf2f373e2533819", "locator": "No.4508 直系尊属から住宅取得等資金の贈与を受けた場合の非課税", "quote": "それ以外の住宅の場合には500万円まで"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和6年1月1日〜令和8年12月31日の贈与は500万円。措置法70条の2と国税庁 No.4508 で一致"}
+  - rev: 4
+    appliesFrom: "2027-01-01"
+    appliesTo: null
+    enforcedOn: "2024-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20280101_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "19839773a1d17de59191f9249162d09a949d81a8519282cd1cf84ab80f2c8b47", "locator": "租税特別措置法 第70条の2第1項（令和10年1月1日の版。公布済みの改正をすべて反映した版）", "quote": "令和六年一月一日から令和八年十二月三十一日までの間"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4508.htm", "retrievedAt": "2026-10-09", "sha256": "057e32c8473c216747824516d69733b9b46a12f7f391a780baf2f373e2533819", "locator": "No.4508 直系尊属から住宅取得等資金の贈与を受けた場合の非課税", "quote": "令和6年1月1日から令和8年12月31日までの間に"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20280101_508AC0000000012"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和9年以後の贈与は特例なし（公布済みの最新の版でも適用期間は令和8年12月31日まで。延長は決まっていない）。施行日の欄は適用期間を定めた規定の施行日"}

@@ -15,7 +15,7 @@
 #   公式のサイトにこの作業の環境から届かなかったので、検索の要約で読んだ値で、すべて原本での確認待ち（pendingReview）
 packId: regulation.pension
 formatVersion: "0.1"
-version: "2026.7.0"
+version: "2026.8.0"
 features: []
 title: 公的年金
 requires:

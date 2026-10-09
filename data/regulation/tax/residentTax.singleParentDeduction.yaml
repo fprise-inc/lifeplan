@@ -16,7 +16,7 @@ entries:
       - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "ひとり親控除 住民税30万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "地方税法314条の2第1項8号の2の30万円（令和3年度から）"}
   - rev: 2
     appliesFrom: "2028-06-01"
@@ -29,5 +29,37 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "住民税の控除額は2028年度分以後33万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "令和8年度税制改正で令和10年度分から33万円（検索の要約）"}
+  - rev: 3
+    appliesFrom: "2021-06-01"
+    appliesTo: "2028-05-31"
+    enforcedOn: "2021-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 300000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20210101_502AC0000000005?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "c6445e3711a5d46b6fc2a2eaac117090edb7ba22666c26fe8e930e150991164c", "locator": "地方税法 第314条の2第1項第8号の2（令和3年1月1日の版）", "quote": "八の二ひとり親である所得割の納税義務者三十万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", "locator": "地方税法 第314条の2第1項第8号の2（令和8年10月1日の版）", "quote": "八の二ひとり親である所得割の納税義務者三十万円"}
+      - {"type": "web", "url": "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", "retrievedAt": "2026-10-08", "sha256": "1c747b3916abba6d8ae22bb4f22ef05b42b6a19f2b3b0ef5373aa0a6740f72b8", "locator": "横浜市 個人市民税・県民税の所得控除（令和8年度）ひとり親控除", "quote": "控除額30万円"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20261001_508AC0000000002"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和3年度分〜令和9年度分は30万円。地方税法314条の2（令和3年1月・令和8年10月の版）と横浜市の案内で一致"}
+  - rev: 4
+    appliesFrom: "2028-06-01"
+    appliesTo: null
+    enforcedOn: "2028-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 330000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20280101_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "0b3ccda44db034382f90fb3005690db5c6c72150975881010b4c699308a2f115", "locator": "地方税法 第314条の2第1項第8号の2（令和10年1月1日の版）", "quote": "八の二ひとり親である所得割の納税義務者三十三万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20280101_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "0b3ccda44db034382f90fb3005690db5c6c72150975881010b4c699308a2f115", "locator": "地方税法等の一部を改正する法律（令和8年法律第2号）附則第3条第3項", "quote": "新法第三百十四条の二第一項（第八号の二に係る部分に限る。）の規定は、令和十年度以後の年度分の個人の市町村民税について適用し"}
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-10-08", "sha256": "45735bbea194e067b4ebdd7efa114b508d4eff009ed4a49a344c3296013bd544", "locator": "令和8年度税制改正の大綱（地方税）（3）ひとり親控除", "quote": "ひとり親控除について、控除額を33万円（現行：30万円）に引き上げる"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20280101_508AC0000000002"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和10年度分から33万円（令和10年1月1日施行）。地方税法314条の2・改正法附則3条3項と令和8年度税制改正の大綱で一致。施行日を書いた"}

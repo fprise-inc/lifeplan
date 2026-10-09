@@ -311,12 +311,12 @@ describe("贈与税（gift.tax）: 国税庁の計算例", () => {
 });
 
 describe("医療費（medical.highCost）・介護（care.expense）", () => {
-  it("高額療養費（2026年8月診療分から）: 標準報酬月額50万円（区分ウ）で医療費100万円 → 85,800＋(100万−286,000)×1% = 92,940円。4回目から多数回該当 44,400円", () => {
+  it("高額療養費（2027年8月診療分からの細分化の後）: 標準報酬月額50万円（第7区分。44万円以上53万円未満）で医療費100万円 → 110,400＋(100万−368,000)×1% = 116,720円。4回目から多数回該当 44,400円", () => {
     const req = withContingency(family({ endYear: 2032 }), { kind: "incapacity", member: H, occurs: at("2030-01"), medical: { monthly: 1000000, months: 6 } });
     const fs = call<{ flows: Flow[] }>(req, "medical.highCost", { member: H }).flows;
     const m = (ym: string) => sumFlows(fs, (f) => f.ym === ym);
-    expect(m("2030-01")).toBe(92940);
-    expect(m("2030-03")).toBe(92940);
+    expect(m("2030-01")).toBe(116720);
+    expect(m("2030-03")).toBe(116720);
     expect(m("2030-04")).toBe(44400);
   });
 

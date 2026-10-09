@@ -16,7 +16,7 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "総所得金額等が48万円以下の子", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和四十年法律第三十三号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "所得税法施行令11条の2の48万円（基礎控除の額）"}
   - rev: 2
     appliesFrom: "2025-01-01"
@@ -29,7 +29,7 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "子の所得要件は58万円以下", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "令和7年分は58万円（基礎控除の見直しに合わせた）"}
   - rev: 3
     appliesFrom: "2026-01-01"
@@ -42,5 +42,53 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "62万円以下（給与収入のみの場合は年収136万円以下）へ引き上げ。2026年分から", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "令和8年分から62万円（検索の要約）"}
+  - rev: 4
+    appliesFrom: "2020-01-01"
+    appliesTo: "2024-12-31"
+    enforcedOn: "2020-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 480000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20200401_502CO0000000111?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "88bd07e64e1145b2682026f18b69ca4635b6dd9e98fc9b278068bedf991b56ba", "locator": "所得税法施行令 第11条の2第2項（令和2年4月1日の版）", "quote": "山林所得金額の合計額が四十八万円以下の子"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20220101_503CO0000000113?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "9e5ffe184167bdfae794f58b74be077af3b2d4824c3394821d895a75061b0eed", "locator": "所得税法施行令 第11条の2第2項（令和4年1月1日の版）", "quote": "山林所得金額の合計額が四十八万円以下の子"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm", "retrievedAt": "2026-10-09", "sha256": "e13911488a8acd34cf493f6243db696db1436bf5e29fb57984a6af13a9e3a5ea", "locator": "No.1171 ひとり親控除 対象者", "quote": "令和2年分から令和6年分までは48万円以下"}
+      - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20200401_502CO0000000111"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和2年分〜令和6年分は48万円以下。施行令11条の2第2項（令和2年4月・令和4年1月の版）と国税庁 No.1171 で一致。施行は令和2年4月1日（令和2年分から適用）"}
+  - rev: 5
+    appliesFrom: "2025-01-01"
+    appliesTo: "2025-12-31"
+    enforcedOn: "2025-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 580000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20251201_507CO0000000120?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "951c7e73296dbd73c71dce155e6a9e7723c2e51d1169442ab798e3ee60ef1705", "locator": "所得税法施行令 第11条の2第2項（令和7年12月1日の版）", "quote": "山林所得金額の合計額が五十八万円以下の子"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20251201_507CO0000000120?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "951c7e73296dbd73c71dce155e6a9e7723c2e51d1169442ab798e3ee60ef1705", "locator": "所得税法施行令等の一部を改正する政令（令和7年政令第120号）附則第2条第1項", "quote": "第十一条の二第二項の規定は、令和七年分以後の所得税について適用し"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm", "retrievedAt": "2026-10-09", "sha256": "e13911488a8acd34cf493f6243db696db1436bf5e29fb57984a6af13a9e3a5ea", "locator": "No.1171 ひとり親控除 対象者", "quote": "その年分の総所得金額等が58万円以下"}
+      - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20251201_507CO0000000120"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和7年分は58万円以下（令和7年12月1日施行、令和7年分以後に適用）。施行令と国税庁 No.1171 で一致"}
+  - rev: 6
+    appliesFrom: "2026-01-01"
+    appliesTo: null
+    enforcedOn: "2026-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 620000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20261201_508CO0000000093?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "c33c96a917a6fea0a9715d425556ffe5589cc2e29fc8c89fd151fc1c54b53e58", "locator": "所得税法施行令 第11条の2第2項（令和8年12月1日の版）", "quote": "山林所得金額の合計額が六十二万円以下の子"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340CO0000000096_20261201_508CO0000000093?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "c33c96a917a6fea0a9715d425556ffe5589cc2e29fc8c89fd151fc1c54b53e58", "locator": "所得税法施行令の一部を改正する政令（令和8年政令第93号）附則第2条第1項", "quote": "第十一条の二第二項の規定は、令和八年分以後の所得税について適用し"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm", "retrievedAt": "2026-10-09", "sha256": "e13911488a8acd34cf493f6243db696db1436bf5e29fb57984a6af13a9e3a5ea", "locator": "No.1171 ひとり親控除 （注）", "quote": "令和8年12月1日に施行され、令和8年分から適用される金額は「62万円以下」です"}
+      - {"type": "law", "lawNumber": "昭和四十年政令第九十六号", "egovRevisionId": "340CO0000000096_20261201_508CO0000000093"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和8年分から62万円以下（令和8年12月1日施行、令和8年分以後に適用）。施行令と国税庁 No.1171 で一致"}
