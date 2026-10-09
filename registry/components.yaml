@@ -4,7 +4,25 @@ kind: component
 entries:
   - id: account.contribution
     status: active
-    label: "積立・掛金"
+    label: "積立の予定"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.dcList
+    status: active
+    label: "iDeCo・企業型DCの器の一覧"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.ideco
+    status: active
+    label: "iDeCo・企業型DCの残高と受け取り"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.idecoPayout
+    status: active
+    label: "iDeCo・企業型DCの受け取りの始まり"
     since: draft
     aliases: []
     replacedBy: null
@@ -17,6 +35,24 @@ entries:
   - id: benefit.health
     status: active
     label: "健康保険の給付（出産育児一時金・出産手当金・傷病手当金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.schedule
+    status: active
+    label: "負債の返済"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: housing.residence
+    status: active
+    label: "住まい（家賃・購入・固定資産税・修繕費）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.contribution
+    status: active
+    label: "iDeCo・企業型DCの掛金"
     since: draft
     aliases: []
     replacedBy: null
@@ -185,6 +221,12 @@ entries:
   - id: tax.employmentIncome
     status: active
     label: "給与所得"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.housingLoanCredit
+    status: active
+    label: "住宅借入金等特別控除"
     since: draft
     aliases: []
     replacedBy: null

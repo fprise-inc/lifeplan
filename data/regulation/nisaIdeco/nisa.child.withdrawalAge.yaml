@@ -1,0 +1,35 @@
+id: nisa.child.withdrawalAge
+title: こどもNISA から払い出せる年齢（本人の教育費・生活費など、要件つき）
+unit: years
+kind: constant
+basis: "incomeYear"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2024-01-01"
+    appliesTo: "2026-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）", "note": "検索の要約（原本は未取得。大綱の表は抽出が崩れていて確定できない）"}
+      - {"type": "web", "url": "https://www.watch.impress.co.jp/docs/news/2075228.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "報道の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "2026年までは制度なし"}
+  - rev: 2
+    appliesFrom: "2027-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 12
+    sources:
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）", "note": "検索の要約（原本は未取得。大綱の表は抽出が崩れていて確定できない）"}
+      - {"type": "web", "url": "https://www.watch.impress.co.jp/docs/news/2075228.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "報道の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "12歳から（要件つき）。原本での確認待ち"}

@@ -1,4 +1,5 @@
-// 構成員1人のお金の動き（給与・事業所得・公的年金・給付・社会保険料・所得税・住民税・後期高齢者医療・介護保険の第1号）を集め、
+// 構成員1人のお金の動き（給与・事業所得・公的年金・給付・社会保険料・所得税・住民税・後期高齢者医療・介護保険の第1号・
+// iDeCo・企業型DC の掛金（器の間の移動）と受け取り）を集め、
 // 年間収支（収入−税・社会保険料）を年ごとに出す。plan.flows が構成員ごとに呼ぶ（0005・0006 の追記: 構成員ごとに分けておくと、
 // 配偶者の入力を変えたとき、本人の分は集め直さない）。parts は集めた部品の出力の配列のまま（エンジンが表の集計を部品ごとに使い回す）
 import {
@@ -17,8 +18,10 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
   id: "plan.memberFlows",
   title: "お金の動き（構成員ごとに集める）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
+    "ideco.contribution": ">=1 <2",
+    "account.ideco": ">=1 <2",
     "income.salary": ">=1 <2",
     "income.business": ">=1 <2",
     "pension.oldAge": ">=1 <2",
@@ -45,7 +48,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
     const member = input.member;
     const parts: (readonly Flow[])[] = [];
     parts.push(ctx.call<SalaryOutput>("income.salary", { member }).flows);
-    for (const c of ["income.business", "pension.oldAge", "pension.supplementaryBenefit", "benefit.health", "benefit.employment"]) {
+    for (const c of ["income.business", "pension.oldAge", "pension.supplementaryBenefit", "benefit.health", "benefit.employment", "ideco.contribution", "account.ideco"]) {
       parts.push(ctx.call<FlowsResult>(c, { member }).flows);
     }
     for (const c of ["socialInsurance.health", "socialInsurance.pension", "socialInsurance.employment", "socialInsurance.nationalPension"]) {

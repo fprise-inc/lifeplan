@@ -1,0 +1,131 @@
+// iDeCo・企業型DC の器ごとの残高（運用益は 0003 の規約で年に1回）と受け取り（構成員ごと）。
+// 取り崩しの順序では引き出さない（受け取りの年齢までは引き出せない）ので、世帯の残高の計算（plan.cashflow）と分けて、この部品だけで決まる。
+// - 受け取りの始まりと方法は account.idecoPayout（運用利回りに依らない）
+// - 受け取り（payout）: 一時金（lumpSum）は始めの月にその時の残高を、年金（annuity）は始めの月から毎年1回、その時の残高÷残りの回数を
+//   annuityYears 回（最後の回は残り全部）、mixed は始めに lumpShare の割合を一時金で、残りを年金で
+// - 年金で受け取る分は公的年金等の雑所得（tax.publicPensionIncome が payments を読む）。一時金の退職所得の税は退職給付の作業で扱う
+//   （受け取りの年月と通算加入者等期間を payments に残す。重複排除期間の判定に使う）
+import {
+  accountReturnRate,
+  addYen,
+  annualReturn,
+  boxValue,
+  defineComponent,
+  formatYm,
+  monthIndex,
+  monthOf,
+  parseYm,
+  yearOf,
+  yen,
+  type AccountInput,
+  type Flow,
+  type IdecoAccountOutput,
+  type IdecoAccountYear,
+  type IdecoContributionOutput,
+  type IdecoPayoutPlanOutput,
+  type IdecoReceipt,
+  type MonthIndex,
+  type Yen,
+} from "../../sdk/index.ts";
+
+export default defineComponent<{ member: string }, IdecoAccountOutput>({
+  id: "account.ideco",
+  title: "iDeCo・企業型DCの残高と受け取り",
+  contract: "1.0",
+  revision: 1,
+  requires: { "account.idecoPayout": ">=1 <2", "ideco.contribution": ">=1 <2" },
+  params: [],
+  reads: ["account.kind", "account.owner", "account.marketValue", "account.assetMix", "assumptions.investmentReturn", "assumptions.assetReturns"],
+  memberScope: ["account"],
+  input: "member.input",
+  output: "account.ideco.output",
+  compute(input, ctx) {
+    const member = input.member;
+    const { base, end } = ctx.time;
+    const baseYear = yearOf(base);
+    const endYear = yearOf(end);
+    const plans = ctx.call<IdecoPayoutPlanOutput>("account.idecoPayout", { member }).accounts;
+    if (plans.length === 0) return { flows: [], accounts: [], payments: [] };
+    const paid = ctx.call<IdecoContributionOutput>("ideco.contribution", { member }).payments;
+    const flows: Flow[] = [];
+    const receipts: IdecoReceipt[] = [];
+    const out: { object: string; kind: "ideco" | "corporateDc"; years: IdecoAccountYear[] }[] = [];
+    for (const plan of plans) {
+      const a = ctx.get<AccountInput>("account", plan.object);
+      const kind = plan.kind;
+      const enrolledMonths = plan.enrolledMonths;
+      const start = parseYm(plan.start);
+      const method = plan.method;
+      const n = plan.annuityYears;
+      const lumpShare = plan.lumpShare === null ? null : ctx.rate.of(plan.lumpShare);
+      const byYear = new Map<number, { total: Yen; before: Map<number, Yen> }>();
+      for (const p of paid) {
+        if (p.object !== a.id) continue;
+        const m = parseYm(p.ym);
+        if (m < base) continue;
+        const y = yearOf(m);
+        const e = byYear.get(y) ?? { total: yen(0), before: new Map<number, Yen>() };
+        e.total = addYen(e.total, p.amount);
+        e.before.set(monthOf(m), addYen(e.before.get(monthOf(m)) ?? yen(0), p.amount));
+        byYear.set(y, e);
+      }
+      // 受け取りの年の、受け取りの月より前の掛金
+      const contributedBefore = (y: number, month: number): Yen => {
+        let s = yen(0);
+        for (const [mo, v] of byYear.get(y)?.before ?? []) if (mo < month) s = addYen(s, v);
+        return s;
+      };
+      let v: Yen = boxValue(a.marketValue) ?? yen(0);
+      let k = 0; // 年金の受け取りの回数
+      const years: IdecoAccountYear[] = [];
+      const receive = (m: MonthIndex, amount: Yen, part: "lumpSum" | "annuity") => {
+        if (amount <= 0) return;
+        const ym = formatYm(m);
+        receipts.push({ object: a.id, kind: part, ym, amount, enrolledMonths });
+        const row = part === "lumpSum" ? (kind === "ideco" ? "cf.income.lumpSum.ideco" : "cf.income.lumpSum.dc") : kind === "ideco" ? "cf.income.corporatePension.ideco" : "cf.income.corporatePension.dc";
+        flows.push({ row, ym, amount, accrualYear: yearOf(m), member, object: a.id, formula: `account.ideco.${part}` });
+      };
+      for (let y = baseYear; y <= endYear; y++) {
+        const contrib = byYear.get(y)?.total ?? yen(0);
+        const months = y === baseYear ? 13 - monthOf(base) : 12;
+        const r = accountReturnRate(ctx, a, y);
+        const payMonth = monthIndex(y, monthOf(start));
+        const paysThisYear = v + contrib > 0 && y >= yearOf(start) && (method === "lumpSum" ? y === yearOf(start) : k < n || (lumpShare !== null && y === yearOf(start)));
+        if (!paysThisYear || payMonth < base) {
+          const ret = annualReturn(ctx, v, contrib, r, months);
+          v = addYen(addYen(v, contrib), ret);
+          years.push({ year: y, contributions: contrib, payout: yen(0), returns: ret, closing: v });
+          continue;
+        }
+        // 受け取りの月までの運用益（受け取りの月より前の月数）と、受け取りの月までの掛金
+        const elapsed = y === baseYear ? payMonth - base : monthOf(start) - 1;
+        const before = contributedBefore(y, monthOf(start));
+        const retBefore = annualReturn(ctx, v, before, r, elapsed);
+        let balance = addYen(addYen(v, before), retBefore);
+        let payout = yen(0);
+        if (y === yearOf(start) && method !== "annuity") {
+          const lump = lumpShare === null ? balance : ctx.money.mulRate(balance, lumpShare, "conv.flow.allocate");
+          receive(payMonth, lump, "lumpSum");
+          payout = addYen(payout, lump);
+          balance = yen(balance - lump);
+        }
+        if (n > 0 && k < n && balance > 0) {
+          const amount = k === n - 1 ? balance : ctx.money.divInt(balance, n - k, "conv.flow.allocate");
+          receive(payMonth, amount, "annuity");
+          payout = addYen(payout, amount);
+          balance = yen(balance - amount);
+          k++;
+        }
+        // 受け取りの後の残りの月の掛金（受け取りを始めた後は出ない）と運用益
+        const after = yen(contrib - before);
+        const retAfter = balance > 0 ? annualReturn(ctx, balance, after, r, months - elapsed) : yen(0);
+        v = addYen(addYen(balance, after), retAfter);
+        years.push({ year: y, contributions: contrib, payout, returns: addYen(retBefore, retAfter), closing: v });
+      }
+      out.push({ object: a.id, kind, years });
+    }
+    if (receipts.some((p) => p.kind === "lumpSum")) ctx.notice("N_NOT_SUPPORTED", ["incomeTax.retirementIncome"]);
+    receipts.sort((x, y) => (x.ym < y.ym ? -1 : x.ym > y.ym ? 1 : 0));
+    return { flows, accounts: out, payments: receipts };
+  },
+});

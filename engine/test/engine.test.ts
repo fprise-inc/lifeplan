@@ -37,10 +37,12 @@ describe("モデル世帯（架空）", () => {
     for (const m of MODELS) {
       const req = modelHousehold(m);
       const r = run(req);
-      let prev = req.input.household.accounts.reduce((s, a) => s + (a.marketValue.value ?? 0), 0);
+      let prev = req.input.household.accounts.filter((a) => a.kind !== "realEstate" && a.kind !== "insurance").reduce((s, a) => s + (a.marketValue.value ?? 0), 0);
       for (const y of [2026, 2027]) {
         const end = annual(r, "cf.balance.financial", y);
-        expect(prev + annual(r, "cf.net", y) + annual(r, "cf.balance.return", y)).toBe(end);
+        // 企業型DC の事業主掛金は世帯の収支の外から器に入る（cf.transfer.ideco.employer）
+        const employer = cells(r).filter((c) => c.year === y && c.row === "cf.transfer.ideco.employer").reduce((s, c) => s + c.amount, 0);
+        expect(prev + annual(r, "cf.net", y) + annual(r, "cf.balance.return", y) + employer).toBe(end);
         prev = end;
       }
     }
@@ -106,7 +108,7 @@ describe("計算方式の設定と2本の時間軸", () => {
     expect(cell(before, "cf.taxSi.childSupport", 2027)).toBe(0);
     expect(cell(latest, "cf.taxSi.childSupport", 2027)).toBeGreaterThan(0);
     const data = (before.header as { data: { packId: string; asOf: string }[] }).data;
-    expect(data.filter((d) => d.packId !== "regulation.pension").map((d) => d.asOf)).toEqual(["2026.1.0", "2026.1.0"]);
+    expect(data.filter((d) => d.packId === "regulation.tax" || d.packId === "regulation.socialInsurance").map((d) => d.asOf)).toEqual(["2026.1.0", "2026.1.0"]);
     // その版のときにはまだ無かった値ID（後の版で足した値）は最新の版の行を使い、見出しで知らせる
     const notices = (before.header as { notices: { code: string; ids: string[] }[] }).notices;
     expect(notices.some((n) => n.code === "N_PARAM_RECORDED_LATER" && n.ids[0]?.startsWith("socialInsurance.health.lateElderlyAge@"))).toBe(true);

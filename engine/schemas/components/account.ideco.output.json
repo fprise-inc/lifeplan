@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:account.ideco.output",
+  "title": "iDeCo・企業型DCの器ごとの残高と受け取り",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "accounts", "payments"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "accounts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "kind", "years"],
+        "properties": {
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "kind": { "enum": ["ideco", "corporateDc"] },
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["year", "contributions", "payout", "returns", "closing"],
+              "properties": {
+                "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+                "contributions": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "payout": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "returns": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+                "closing": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "payments": {
+      "description": "受け取り（月の昇順）",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "kind", "ym", "amount", "enrolledMonths"],
+        "properties": {
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "kind": { "enum": ["lumpSum", "annuity"] },
+          "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "enrolledMonths": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

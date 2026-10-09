@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:object.input",
+  "title": "世帯内の物（ローン1本など）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["object"],
+  "properties": { "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" } }
+}

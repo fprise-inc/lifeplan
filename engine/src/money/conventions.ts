@@ -2,6 +2,7 @@
 import type { RoundingRule } from "./rounding.ts";
 
 const DOWN1: RoundingRule = Object.freeze({ mode: "DOWN", unit: 1 });
+const UP1: RoundingRule = Object.freeze({ mode: "UP", unit: 1 });
 
 export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze({
   // 0003: 運用益は円未満切り捨て
@@ -37,4 +38,16 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.premium.installment": DOWN1,
   // 雇用保険の給付の賃金日額・給付額（法令の端数の扱いは原本で確かめる前の仮の規約）
   "conv.benefit.daily": DOWN1,
+  // ローンの返済額（元利均等の返済額・元金均等の元金。円未満切り捨て。端数は最後の回で精算する。金融機関で違うので規約にする）
+  "conv.loan.payment": DOWN1,
+  // ローンの利息（残高×年利÷12。円未満切り捨て）
+  "conv.loan.interest": DOWN1,
+  // 元金均等の期間短縮で、元金の額を変えずに返し終える回数（切り上げ）
+  "conv.loan.term": UP1,
+  // 住まいの費用（家賃・管理費・固定資産税）の上昇率を当てた額（円未満切り捨て）
+  "conv.housing.growth": DOWN1,
+  // 課税口座の取り崩しで売る取得価額（取得価額×売る額÷時価。円未満切り捨て）と、NISA の枠の復活の簿価
+  "conv.account.cost": DOWN1,
+  // 住民税の住宅借入金等特別税額控除を市町村民税（5分の3）と道府県民税に分ける（円未満切り捨て。残りは道府県民税）
+  "conv.residentTax.housingCredit": DOWN1,
 });

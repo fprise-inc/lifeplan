@@ -1,0 +1,19 @@
+id: residentTax.listedSecurities.rate
+title: 上場株式等の譲渡所得等の住民税（株式等譲渡所得割）の税率
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2014-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/1463.htm", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "上場株式等の譲渡所得等の申告分離課税", "note": "検索の要約（原本は未取得。この環境から公式サイトに届かない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "5%。原本での確認待ち"}

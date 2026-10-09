@@ -96,6 +96,7 @@ export interface EmploymentPeriodInput {
   readonly standardMonthlyRemuneration?: { readonly health: ValueBox<Yen>; readonly pension: ValueBox<Yen> };
   readonly endsOnMonthEnd?: boolean;
   readonly retirementBenefit?: string;
+  readonly corporatePension?: { readonly db?: boolean; readonly dbEquivalentMonthly?: Yen };
   readonly endsWith?: string;
 }
 
@@ -143,14 +144,112 @@ export interface PremiumRateInput {
   readonly baseMonthly?: ValueBox<Yen>;
 }
 
+export type AccountKind =
+  | "deposit"
+  | "taxable"
+  | "nisa"
+  | "juniorNisa"
+  | "childNisa"
+  | "legacyNisa"
+  | "ideco"
+  | "corporateDc"
+  | "zaikei"
+  | "esop"
+  | "fxDeposit"
+  | "insurance"
+  | "realEstate";
+
 export interface AccountInput {
   readonly id: string;
-  readonly kind: string;
+  readonly kind: AccountKind;
   readonly owner: string;
   readonly marketValue: ValueBox<Yen>;
   readonly costBasis?: ValueBox<Yen>;
   readonly asOf: string;
-  readonly contributions: readonly { readonly from: Timepoint; readonly to: Timepoint | null; readonly monthly: Yen; readonly tranche?: string }[];
+  readonly assetMix?: readonly { readonly assetClass: string; readonly share: string }[];
+  readonly settlement?: boolean;
+  readonly withdrawalLockedUntil?: Timepoint | null;
+  readonly contributions: readonly {
+    readonly from: Timepoint;
+    readonly to: Timepoint | null;
+    readonly monthly: Yen;
+    readonly tranche?: string;
+    readonly payer?: "self" | "employer";
+  }[];
+  readonly frame?: { readonly lifetimeUsedCost: Yen; readonly growthUsedCost?: Yen; readonly asOfYear: number };
+  readonly lots?: readonly { readonly vintageYear: number; readonly regime: "general" | "tsumitate" | "junior"; readonly costBasis: Yen; readonly marketValue: Yen }[];
+  readonly enrolledSince?: string;
+  readonly payout?: { readonly start: Timepoint; readonly method: "lumpSum" | "annuity" | "mixed"; readonly annuityYears?: number; readonly lumpShare?: string };
+}
+
+export interface RateStep {
+  readonly from: Timepoint;
+  readonly type: "fixed" | "variable" | "fixedPeriod";
+  readonly rate: string;
+}
+
+export interface VariableRules {
+  readonly fiveYear?: boolean;
+  readonly cap125?: boolean;
+}
+
+export interface DebtInput {
+  readonly id: string;
+  readonly kind: "mortgage" | "car" | "scholarship" | "other";
+  readonly product?: "bank" | "flat35";
+  readonly debtors: readonly { readonly member: string; readonly role: "primary" | "joint" | "guarantor"; readonly share?: string }[];
+  readonly pairWith?: string;
+  readonly principal: Yen;
+  readonly start: Timepoint;
+  readonly balance?: ValueBox<Yen>;
+  readonly balanceAsOf?: string;
+  readonly rateSchedule: readonly RateStep[];
+  readonly repayment: {
+    readonly method: "equalPayment" | "equalPrincipal";
+    readonly termMonths: number;
+    readonly bonusShare?: string;
+    readonly bonusMonths?: readonly number[];
+    readonly variableRules?: VariableRules;
+  };
+  readonly prepayments?: readonly { readonly at: Timepoint; readonly amount: Yen; readonly mode: "shortenTerm" | "reducePayment"; readonly fee?: Yen }[];
+  readonly refinance?: readonly {
+    readonly at: Timepoint;
+    readonly rateSchedule: readonly RateStep[];
+    readonly termMonths: number;
+    readonly method?: "equalPayment" | "equalPrincipal";
+    readonly costs?: Yen;
+    readonly costsFinanced?: boolean;
+    readonly variableRules?: VariableRules;
+  }[];
+  readonly creditLife?: { readonly covered: readonly string[]; readonly ratio?: string; readonly events?: readonly string[]; readonly spouseJoint?: boolean };
+  readonly housing?: {
+    readonly residence?: string;
+    readonly moveIn: string;
+    readonly propertyType: "certified" | "zeh" | "energySaving" | "other";
+    readonly newBuild: boolean;
+    readonly acquisitionCost?: Yen;
+    readonly ownership?: readonly { readonly member: string; readonly share: string }[];
+    readonly childRearing?: boolean;
+    readonly creditDisabled?: boolean;
+  };
+}
+
+export interface ResidenceInput {
+  readonly id: string;
+  readonly kind: "rent" | "own";
+  readonly from: Timepoint;
+  readonly to: Timepoint | null;
+  readonly rent?: { readonly monthly: ValueBox<Yen>; readonly growth?: string; readonly renewalFee?: string; readonly renewalEveryMonths?: number };
+  readonly purchase?: {
+    readonly at?: Timepoint;
+    readonly price: Yen;
+    readonly downPayment: Yen;
+    readonly costs: Yen;
+    readonly gifts?: readonly { readonly recipient: string; readonly giver?: string; readonly amount: Yen }[];
+  };
+  readonly propertyTax?: { readonly annual: ValueBox<Yen>; readonly growth?: string };
+  readonly maintenance?: { readonly monthly: ValueBox<Yen>; readonly growth?: string };
+  readonly ownership?: readonly { readonly member: string; readonly share: string }[];
 }
 
 export interface InsuranceContractInput {
@@ -186,6 +285,8 @@ export interface HouseholdInput {
   readonly pensionRecords?: readonly PensionRecordInput[];
   readonly premiumAssessments?: readonly PremiumAssessmentInput[];
   readonly premiumRates?: readonly PremiumRateInput[];
+  readonly debts?: readonly DebtInput[];
+  readonly residences?: readonly ResidenceInput[];
 }
 
 export interface EngineInput {
@@ -200,6 +301,8 @@ export interface EngineInput {
     readonly inflation?: YearSeries;
     readonly pensionMacroSlide?: YearSeries;
     readonly pensionMacroSlideEmployee?: YearSeries;
+    readonly assetReturns?: Readonly<Record<string, YearSeries>>;
+    readonly withdrawal?: { readonly order?: readonly ({ readonly kind: AccountKind } | { readonly object: string })[]; readonly minimumDeposit?: Yen };
   };
 }
 

@@ -181,3 +181,38 @@ export function monthsIn<T extends { readonly month: string }>(xs: readonly T[],
   };
   return xs.slice(bound(from, false), bound(to, true));
 }
+
+/**
+ * 0003 の3・5: 器1つの1年の運用益。期首残高×年利＋その年の収支×年利×1/2（midYear）を、(期首残高×2＋収支)×年利×月数÷12÷2 の
+ * 分数のまま1回で丸める（conv.investment.return）。beginning は収支を期首に、end は期末に動いたとみなす。months は初年度の残りの月数
+ */
+export function annualReturn(ctx: Ctx, opening: Yen, net: Yen, r: Rate, months: number): Yen {
+  const f = ctx.rate.fraction(r);
+  const timing = ctx.conventions.investmentTiming;
+  const [amount, half] = timing === "midYear" ? [yen(opening + opening + net), 2n] : timing === "beginning" ? [yen(opening + net), 1n] : [opening, 1n];
+  return ctx.money.mulRatio(amount, f.num * BigInt(months), f.den * 12n * half, "conv.investment.return");
+}
+
+/** 預金・外貨預金の既定の資産クラス（assetMix を省略したとき） */
+const CASH_KINDS: Readonly<Record<string, string>> = { deposit: "cash.deposit", fxDeposit: "cash.foreign", realEstate: "realEstate" };
+
+/**
+ * 器のその年の利回り: 資産クラスの配分（assetMix）×前提の資産クラスごとの利回り（assumptions.assetReturns）。
+ * 前提に無い資産クラスは運用利回り（assumptions.investmentReturn）、ただし不動産は0。assetMix を省略した器は、預金・外貨預金・不動産は
+ * その資産クラス、ほかは運用利回り。部品の reads に assumptions.investmentReturn と assumptions.assetReturns が要る
+ */
+export function accountReturnRate(ctx: Ctx, account: { readonly kind: string; readonly assetMix?: readonly { readonly assetClass: string; readonly share: string }[] }, year: number): Rate {
+  const classRate = (cls: string): Rate => {
+    const fallback = cls === "realEstate" ? RATE_ZERO : ctx.assumption("investmentReturn", year);
+    return ctx.assumptionIn("assetReturns", cls, year, fallback) ?? fallback;
+  };
+  const mix = account.assetMix;
+  if (mix === undefined || mix.length === 0) {
+    const cls = CASH_KINDS[account.kind];
+    return cls === undefined ? ctx.assumption("investmentReturn", year) : classRate(cls);
+  }
+  if (mix.length === 1) return classRate((mix[0] as { assetClass: string }).assetClass);
+  let r = RATE_ZERO;
+  for (const m of mix) r = ctx.rate.add(r, ctx.rate.mul(classRate(m.assetClass), ctx.rate.of(m.share)));
+  return r;
+}

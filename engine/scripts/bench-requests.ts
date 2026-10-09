@@ -1,4 +1,5 @@
-// 速さの計測（0005 の「速さの回帰」）に使う要求: 100年分のモデル世帯（lifetime100）から作る5案×4想定の20件（すべて架空）。
+// 速さの計測（0005 の「速さの回帰」）に使う要求: 100年分のモデル世帯（lifetime100Assets。lifetime100 に住まい・住宅ローン・
+// NISA・iDeCo・企業型DC・課税口座を足したもの）から作る5案×4想定の20件（すべて架空）。
 // 案は前提・働き方の違い、想定は「万一」の代わりの出来事（遺族年金などの部品はまだ無いので、構成員が世帯から抜ける・働けなくなる形で近似する）。
 // 並びは「案ごとに4想定」（先頭の4件が1案×4想定）。
 // スライダーの計測（0005 の追記の目標1）は、世帯の入力を変えてから（tweak）案と想定を当てる。案や想定の中で上書きされる入力は、その案・想定では変わらない
@@ -37,10 +38,15 @@ export const SLIDERS: Readonly<Record<string, (r: Obj, k: number) => void>> = {
   retire: (r, k) => {
     (periods(r)[0] as Obj).to = at(`${2055 + (k % 7)}-04`);
   },
+  // 本人の NISA の積立の月額（新しい部品の入力）
+  nisa: (r, k) => {
+    const a = (h(r).accounts as Obj[]).find((x) => x.kind === "nisa") as Obj;
+    ((a.contributions as Obj[])[0] as Obj).monthly = 30000 + k * 1000;
+  },
 };
 
 export function benchRequests(tweak?: (r: Obj) => void): Obj[] {
-  const base = JSON.parse(readFileSync(join(REPO_DIR, "data", "modelHouseholds", "lifetime100.json"), "utf8")) as Obj;
+  const base = JSON.parse(readFileSync(join(REPO_DIR, "data", "modelHouseholds", "lifetime100Assets.json"), "utf8")) as Obj;
   const plans: ((r: Obj) => void)[] = [
     () => {},
     (r) => {

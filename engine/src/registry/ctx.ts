@@ -121,6 +121,13 @@ export interface Ctx {
   get<T = Record<string, unknown>>(collection: string, object: string): T;
   /** 前提条件の、その年の値。reads に assumptions.<名前> が要る。入力に無い前提は fallback（無ければエラー） */
   assumption(name: string, year: number, fallback?: Rate): Rate;
+  /**
+   * 前提条件の、キーごとの年ごとの列（例 assetReturns の資産クラス）の、その年の値。reads に assumptions.<名前> が要る。
+   * 依存は前提の名前の全体（キーの1つを変えても、その前提を読む部品は計算し直す）。キーが無ければ fallback（無ければ null）
+   */
+  assumptionIn(name: string, key: string, year: number, fallback?: Rate): Rate | null;
+  /** 前提条件のうち、年ごとの列でない設定（取り崩しの順序など）の値。reads に assumptions.<名前> が要る。無ければ undefined */
+  setting<T>(name: string): T | undefined;
   /** 計算に反映していないこと（未対応の制度など）の知らせ。見出しの notices に ID だけで残す */
   notice(code: string, ids: readonly string[]): void;
   at(month: MonthIndex): MonthCtx;
@@ -245,8 +252,6 @@ export interface Variant {
   readonly closure: Closure;
   readonly cell: Cell;
   readonly own: Own | null;
-  /** 知らせを集めるときにたどった印 */
-  mark: number;
 }
 
 /** 要求の組（計算基準月・データの組・構成員の生年月などが同じ要求）で共有するもの */
@@ -400,38 +405,39 @@ interface Summary {
   readonly extended: Map<string, { first: number; last: number }>;
 }
 
-/** 依存の多い候補（構成員ごとのお金の動きを集める部品など）は、内側が残したことをまとめて覚えておく（要求のたびに内側をたどらない） */
-const BIG = 64;
+/**
+ * 候補とその内側が残したこと（最初に残った順）を、候補ごとに1回だけまとめて覚えておく（候補は使い回しても中身が変わらないので、
+ * 要求のたびに内側をたどらない。0005 の追記（3回目の見直し）: 以前は依存の多い候補だけを覚えていた）。
+ * 内側が何も残していない候補は、同じ空のまとめを共有する
+ */
 const SUMMARIES = new WeakMap<Variant, Summary>();
-/** たどった印の通し番号（たどるたびに新しくする） */
-let MARK = 0;
+const EMPTY_SUMMARY: Summary = { notices: new Map(), extended: new Map() };
 
-/** v とその内側が残したことを、最初に残った順に to へ足す（seen はたどった候補） */
-function gather(to: Summary, v: Variant, mark: number): void {
-  if (v.mark === mark) return;
-  v.mark = mark;
-  if (v.deps.length >= BIG && to !== SUMMARIES.get(v)) {
-    let sum = SUMMARIES.get(v);
-    if (sum === undefined) {
-      sum = { notices: new Map(), extended: new Map() };
-      SUMMARIES.set(v, sum);
-      gather(sum, v, ++MARK);
-    }
-    for (const [k, n] of sum.notices) if (!to.notices.has(k)) to.notices.set(k, n);
-    for (const [ref, r] of sum.extended) mergeExtended(to.extended, ref, r.first, r.last);
-    return;
-  }
+function summaryOf(v: Variant): Summary {
+  const hit = SUMMARIES.get(v);
+  if (hit !== undefined) return hit;
+  let sum: Summary | null = null;
+  const ensure = (): Summary => (sum ??= { notices: new Map(), extended: new Map() });
+  const merge = (child: Summary) => {
+    if (child === EMPTY_SUMMARY) return;
+    const to = ensure();
+    for (const [k, n] of child.notices) if (!to.notices.has(k)) to.notices.set(k, n);
+    for (const [ref, r] of child.extended) mergeExtended(to.extended, ref, r.first, r.last);
+  };
   for (const d of v.deps) {
     if (!("t" in d)) {
-      if (d.variant !== null) gather(to, d.variant, mark);
+      if (d.variant !== null) merge(summaryOf(d.variant));
     } else if (d.t === 4) {
-      if (d.res.variant !== null) gather(to, d.res.variant, mark);
-    } else if (d.t === 3 && !to.notices.has(d.key)) to.notices.set(d.key, d.notice);
+      if (d.res.variant !== null) merge(summaryOf(d.res.variant));
+    } else if (d.t === 3) {
+      const to = ensure();
+      if (!to.notices.has(d.key)) to.notices.set(d.key, d.notice);
+    }
   }
-  if (v.own !== null) {
-    for (const [k, n] of v.own.notices) if (!to.notices.has(k)) to.notices.set(k, n);
-    for (const [ref, r] of v.own.extended) mergeExtended(to.extended, ref, r.first, r.last);
-  }
+  if (v.own !== null && (v.own.notices.size > 0 || v.own.extended.size > 0)) merge({ notices: v.own.notices, extended: v.own.extended });
+  const out: Summary = sum ?? EMPTY_SUMMARY;
+  SUMMARIES.set(v, out);
+  return out;
 }
 
 /**
@@ -440,7 +446,9 @@ function gather(to: Summary, v: Variant, mark: number): void {
  */
 export function collectEffects(state: RunState, root: Res): void {
   if (root.variant === null) return;
-  gather({ notices: state.notices, extended: state.extended }, root.variant, ++MARK);
+  const sum = summaryOf(root.variant);
+  for (const [k, n] of sum.notices) if (!state.notices.has(k)) state.notices.set(k, n);
+  for (const [ref, r] of sum.extended) mergeExtended(state.extended, ref, r.first, r.last);
 }
 
 
@@ -607,7 +615,7 @@ function resolve(state: RunState, ck: CallKey, input: unknown): Res {
         if (w === null) continue;
         // たどって同じとわかった候補は、この要求の依存と読んだ入力の集まりで作り直す（内側の結果は同じ値でも、読んだ入力が違うことがある。
         // 次からはこの要求の形の候補が速い確かめで当たる）
-        found = w.closure === v.closure ? v : { deps: w.deps, closure: w.closure, cell: v.cell, own: v.own, mark: 0 };
+        found = w.closure === v.closure ? v : { deps: w.deps, closure: w.closure, cell: v.cell, own: v.own };
         if (found !== v) addVariant(ck, found);
       }
     }
@@ -662,7 +670,7 @@ function resolve(state: RunState, ck: CallKey, input: unknown): Res {
       if (sameJson(c.output, output)) cell = c;
     }
     cell ??= { output };
-    variant = { deps, closure, cell, own: ctx.ownOf(), mark: 0 };
+    variant = { deps, closure, cell, own: ctx.ownOf() };
     addVariant(ck, variant);
   }
   const r: Res = { ck, impl, input, output: cell === null ? output : cell.output, node, cell, closure, variant };
@@ -1292,13 +1300,29 @@ class CtxImpl implements Ctx {
     const item = `assumptions.${name}`;
     if (!this.#sets.reads.has(item)) throw new EngineError("E_READ_UNDECLARED", [def.id, item]);
     this.#inputDep(2, name, null, null);
-    const series = (this.#state.input.assumptions as Readonly<Record<string, { default: string; byYear?: Record<string, string> } | undefined>>)[name];
+    const series = (this.#state.input.assumptions as unknown as Readonly<Record<string, { default: string; byYear?: Record<string, string> } | undefined>>)[name];
     if (series === undefined) {
       if (fallback !== undefined) return fallback;
       throw new EngineError("E_ARGUMENT", [item]);
     }
     this.#state.tracer.input(this.#frame, { item }, undefined, () => series as unknown as Json);
     return rate(series.byYear?.[String(year)] ?? series.default);
+  }
+
+  assumptionIn(name: string, key: string, year: number, fallback?: Rate): Rate | null {
+    const series = this.setting<Readonly<Record<string, { default: string; byYear?: Record<string, string> }>>>(name)?.[key];
+    if (series === undefined) return fallback ?? null;
+    return rate(series.byYear?.[String(year)] ?? series.default);
+  }
+
+  setting<T>(name: string): T | undefined {
+    const def = this.#impl.def;
+    const item = `assumptions.${name}`;
+    if (!this.#sets.reads.has(item)) throw new EngineError("E_READ_UNDECLARED", [def.id, item]);
+    this.#inputDep(2, name, null, null);
+    const v = (this.#state.input.assumptions as unknown as Readonly<Record<string, unknown>>)[name];
+    if (v !== undefined) this.#state.tracer.input(this.#frame, { item }, undefined, () => v as Json);
+    return v as T | undefined;
   }
 
   notice(code: string, ids: readonly string[]): void {

@@ -1,4 +1,6 @@
-// 構成員ごとのお金の動き（plan.memberFlows）と、世帯の国民健康保険料・保険料・積立・差し込み口の支出を集め、
+// 器への積立（器の間の移動）は、NISA の枠で止めた後の額で plan.cashflow が出す。
+// 構成員ごとのお金の動き（plan.memberFlows）と、世帯の国民健康保険料・保険料・負債の返済（debt.schedule。1本ずつ）・
+// 住まい（housing.residence）・差し込み口の支出を集め、
 // 年間収支（収入−税・社会保険料−支出。器の間の移動は含めない）を年ごとに出す。
 // 運用益・金融資産の残高（plan.cashflow）と分けるのは、運用利回りのように案の前提だけが変わったとき、集め直さずに済むようにするため（0005 の追記）。
 // 構成員ごとに分けるのは、1人の入力を変えたとき、ほかの構成員の分を集め直さないため（0005・0006 の追記）。
@@ -24,15 +26,16 @@ export default defineComponent<Record<string, never>, Collected>({
   id: "plan.flows",
   title: "お金の動き（集める）",
   contract: "1.1",
-  revision: 2,
+  revision: 3,
   requires: {
     "plan.memberFlows": ">=1 <2",
+    "debt.schedule": ">=1 <2",
+    "housing.residence": ">=1 <2",
     "socialInsurance.nationalHealth": ">=1 <2",
     "insurance.premiumPayment": ">=1 <2",
-    "account.contribution": ">=1 <2",
   },
   params: [],
-  reads: ["member.kind"],
+  reads: ["member.kind", "debt.kind"],
   slots: ["slot.expense.flow"],
   input: "empty.input",
   output: "plan.flows.output",
@@ -55,7 +58,8 @@ export default defineComponent<Record<string, never>, Collected>({
       household.push(ctx.call<FlowsResult>("socialInsurance.nationalHealth", { fiscalYear: fy }).flows);
     }
     household.push(ctx.call<PaymentsOutput>("insurance.premiumPayment", {}).flows);
-    household.push(ctx.call<PaymentsOutput>("account.contribution", {}).flows);
+    for (const d of ctx.list<{ id: string }>("debt")) household.push(ctx.call<FlowsResult>("debt.schedule", { object: d.id }).flows);
+    household.push(ctx.call<FlowsResult>("housing.residence", {}).flows);
     for (const out of ctx.slot("slot.expense.flow", { fromMonth: formatYm(base), toMonth: formatYm(end) })) household.push(out.flows);
     const own: Flow[] = [];
     for (const p of household) {

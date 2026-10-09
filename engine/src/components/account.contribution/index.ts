@@ -1,4 +1,6 @@
-// 資産の器への積立・掛金（器の間の移動。年間収支に入れない。0004 の6）
+// 資産の器への積立の予定（月ごと。器の間の移動。年間収支に入れない。0004 の6）。
+// iDeCo・企業型DC の掛金は拠出限度額で止める ideco.contribution（構成員ごと）が扱うので、ここでは数えない。
+// NISA・課税口座・財形などの移動のお金の動き（cf.transfer）は、NISA の枠で止めた後の額で plan.cashflow が出す（ここは予定の支払いだけを返す）
 import {
   addMonths,
   defineComponent,
@@ -6,23 +8,18 @@ import {
   monthIndex,
   yearOf,
   type AccountInput,
-  type Flow,
   type PaymentsOutput,
   type PremiumPayment,
 } from "../../sdk/index.ts";
 
-const ROW: Readonly<Record<string, string>> = {
-  ideco: "cf.transfer.ideco",
-  corporateDc: "cf.transfer.ideco",
-  nisa: "cf.transfer.nisa",
-  childNisa: "cf.transfer.nisa",
-};
+/** ideco.contribution が扱う器 */
+const DC_KINDS: ReadonlySet<string> = new Set(["ideco", "corporateDc"]);
 
 export default defineComponent<Record<string, never>, PaymentsOutput>({
   id: "account.contribution",
-  title: "積立・掛金",
+  title: "積立の予定",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {},
   params: [],
   reads: ["account.kind", "account.owner", "account.contributions"],
@@ -31,21 +28,18 @@ export default defineComponent<Record<string, never>, PaymentsOutput>({
   compute(_input, ctx) {
     const { base, end } = ctx.time;
     const calcStart = monthIndex(yearOf(base) - 2, 1);
-    const flows: Flow[] = [];
     const payments: PremiumPayment[] = [];
     for (const a of ctx.list<AccountInput>("account")) {
+      if (DC_KINDS.has(a.kind)) continue;
       for (const c of a.contributions) {
         const from = ctx.time.resolve(c.from);
         const to = c.to === null ? end : ctx.time.resolve(c.to);
         for (let m = from > calcStart ? from : calcStart; m <= to && m <= end; m = addMonths(m, 1)) {
-          const ym = formatYm(m);
-          payments.push({ ym, object: a.id, member: a.owner, amount: c.monthly });
-          if (c.monthly > 0) {
-            flows.push({ row: ROW[a.kind] ?? "cf.transfer.savings", ym, amount: c.monthly, accrualYear: yearOf(m), member: a.owner, object: a.id, formula: "account.contribution.monthly" });
-          }
+          if (c.monthly > 0) payments.push({ ym: formatYm(m), object: a.id, member: a.owner, amount: c.monthly });
         }
       }
     }
-    return { flows, payments };
+    payments.sort((x, y) => (x.ym < y.ym ? -1 : x.ym > y.ym ? 1 : 0));
+    return { flows: [], payments };
   },
 });

@@ -1,0 +1,19 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.nisa.legacy.tsumitatePeriodYears
+title: 【架空の見本】nisa.legacy.tsumitatePeriodYears
+unit: count
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2018-01-01"
+    appliesTo: null
+    enforcedOn: "2018-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 20
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

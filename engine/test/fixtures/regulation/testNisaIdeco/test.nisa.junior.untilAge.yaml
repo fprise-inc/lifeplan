@@ -1,0 +1,20 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.nisa.junior.untilAge
+title: 【架空の見本】nisa.junior.untilAge
+unit: years
+kind: constant
+basis: "incomeYear"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2016-01-01"
+    appliesTo: null
+    enforcedOn: "2016-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 18
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

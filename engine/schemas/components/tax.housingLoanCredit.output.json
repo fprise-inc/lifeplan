@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.housingLoanCredit.output",
+  "title": "住宅借入金等特別控除の額（所得税から引く上限）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["credit", "firstYear", "residentRate", "residentLimit"],
+  "properties": {
+    "credit": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "firstYear": { "type": "boolean" },
+    "residentRate": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/rate" }] },
+    "residentLimit": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }] }
+  }
+}

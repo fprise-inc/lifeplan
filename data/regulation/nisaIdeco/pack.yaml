@@ -1,0 +1,17 @@
+# NISA・iDeCo・企業型DC の制度データと、課税口座の上場株式等の譲渡益の税率（0007 の1: パック regulation.nisaIdeco）
+# 2026.1.0: 最初の版。公式のサイト（金融庁・厚生労働省・国税庁・財務省）にこの作業の環境から届かなかったので、
+#   公式のドメインの資料の検索の要約と政府広報・報道で読んだ値を入れた。すべて原本での確認待ち（approval.method: pendingReview）
+# 上場株式等の譲渡益の税率（incomeTax.listedSecurities.*・residentTax.listedSecurities.*）は税の値だが、
+#   既存の regulation.tax のファイルを書き換えない約束（手元で原本から値を入れている最中）のため、このパックに置いた。値IDは税の名前のまま
+packId: regulation.nisaIdeco
+formatVersion: "0.1"
+version: "2026.1.0"
+features: []
+title: NISA・iDeCo・企業型DC
+requires:
+  ideco.contribution: ">=1 <2"
+  account.ideco: ">=1 <2"
+  plan.cashflow: ">=1 <2"
+license:
+  values: CC0-1.0
+  sources: 出典ごとの条件（各値の sources に記載。金融庁・厚生労働省・国税庁・財務省・政府広報などの公表資料）

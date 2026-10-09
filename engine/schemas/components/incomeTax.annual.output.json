@@ -33,6 +33,14 @@
     },
     "defenseSurtax": {
       "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "housingLoanCredit": {
+      "description": "引いた住宅借入金等特別控除（約束の版 1.1。任意）",
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "creditRemainder": {
+      "description": "所得税から引ききれなかった住宅借入金等特別控除（1.1。任意）",
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
     }
   }
 }

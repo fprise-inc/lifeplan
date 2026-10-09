@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:housing.residence.output",
+  "title": "住まいのお金の動きと購入した持ち家",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "properties"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "properties": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "owner", "from", "to", "price"],
+        "properties": {
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "owner": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/uuid" }] },
+          "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "to": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }] },
+          "price": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
+    }
+  }
+}

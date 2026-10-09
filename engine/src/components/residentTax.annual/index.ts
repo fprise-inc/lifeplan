@@ -3,6 +3,9 @@
 // 給与所得者（その年度の6月に給与を受ける人）は特別徴収（6月〜翌年5月の12回）。辞めた後の残りは最後の給与の月にまとめる。
 // それ以外は普通徴収（6月・8月・10月・翌年1月の4回）。
 // 非課税限度額（residentTax.exemption）以下なら均等割・所得割をかけない。指定都市の税率の配分・超過課税は扱わない（notices）。
+// 住宅借入金等特別税額控除: 前年分の所得税から引ききれなかった住宅借入金等特別控除（incomeTax.annual の creditRemainder）を、
+// 所得税の課税総所得金額等×率（5%など）と上限額（97,500円など。入居の年月で選ぶ。tax.housingLoanCredit）まで、調整控除の後の所得割から
+// 市町村民税5分の3・道府県民税5分の2で引く（引ききれない分は無くなる）
 // 年金からの特別徴収: 年度の初日に65歳以上で、年金が年18万円以上なら、公的年金等に係る所得割（所得割×公的年金等に係る雑所得÷合計所得金額）と
 // （給与からの特別徴収が無ければ）均等割・森林環境税を年金から差し引く。前の年度に年金から差し引いていなければ、6月・8月に4分の1ずつ普通徴収し、
 // 10月・12月・2月に6分の1ずつ。前の年度から続くときは、4月・6月・8月に前の年度の年金の分の6分の1ずつ（仮徴収）、10月・12月・2月に残りを3分の1ずつ
@@ -20,6 +23,8 @@ import {
   type Ctx,
   type DeductionsOutput,
   type ExemptionOutput,
+  type HousingLoanCreditOutput,
+  type IncomeTaxOutput,
   type Flow,
   type LevyPair,
   type ResidentTaxAssessmentInput,
@@ -57,15 +62,33 @@ function levy(ctx: Ctx, fiscalYear: number, member: string, incomeYear: number, 
       creditBase = yen(v > minimum ? v : minimum);
     }
   }
-  const part = (rateId: string, creditId: string): [Yen, Yen, Yen] => {
+  // 住宅借入金等特別税額控除（前年分の所得税から引ききれなかった額を、上限まで）
+  let housing = yen(0);
+  const hc = ctx.call<HousingLoanCreditOutput>("tax.housingLoanCredit", { member, year: incomeYear });
+  if (hc.credit > 0 && hc.residentRate !== null) {
+    const it = ctx.call<IncomeTaxOutput>("incomeTax.annual", { member, year: incomeYear });
+    const remainder = it.creditRemainder ?? yen(0);
+    if (remainder > 0) {
+      let cap = ctx.money.mulRate(it.taxable, ctx.rate.of(hc.residentRate), "conv.residentTax.housingCredit");
+      if (hc.residentLimit !== null && cap > hc.residentLimit) cap = hc.residentLimit;
+      housing = remainder < cap ? remainder : cap;
+    }
+  }
+  const housingMunicipal = housing > 0 ? ctx.money.mulRatio(housing, 3, 5, "conv.residentTax.housingCredit") : yen(0);
+  const housingParts = { municipal: housingMunicipal, prefectural: yen(housing - housingMunicipal) };
+  const used = { municipal: yen(0), prefectural: yen(0) };
+  const part = (rateId: string, creditId: string, which: "municipal" | "prefectural"): [Yen, Yen, Yen] => {
     const r = at.paramRate(rateId);
     const cr = at.paramRate(creditId);
     const gross = r === null ? yen(0) : at.money.mulRate(taxable, r, CALC);
     const credit = cr === null ? yen(0) : at.money.mulRate(creditBase, cr, CALC);
-    return [gross, credit, at.money.round(gross > credit ? subYen(gross, credit) : yen(0), LEVY)];
+    const after = gross > credit ? subYen(gross, credit) : yen(0);
+    const h = housingParts[which] < after ? housingParts[which] : after;
+    used[which] = h;
+    return [gross, credit, at.money.round(yen(after - h), LEVY)];
   };
-  const [gm, cm, lm] = part("residentTax.incomeLevy.municipalRate", "residentTax.adjustmentCredit.municipalRate");
-  const [gp, cp, lp] = part("residentTax.incomeLevy.prefecturalRate", "residentTax.adjustmentCredit.prefecturalRate");
+  const [gm, cm, lm] = part("residentTax.incomeLevy.municipalRate", "residentTax.adjustmentCredit.municipalRate", "municipal");
+  const [gp, cp, lp] = part("residentTax.incomeLevy.prefecturalRate", "residentTax.adjustmentCredit.prefecturalRate", "prefectural");
   const perCapita = { municipal: at.paramYen("residentTax.perCapita.municipal") ?? yen(0), prefectural: at.paramYen("residentTax.perCapita.prefectural") ?? yen(0) };
   const forest = at.paramYen("forestEnvironmentTax.amount") ?? yen(0);
   return {
@@ -76,6 +99,7 @@ function levy(ctx: Ctx, fiscalYear: number, member: string, incomeYear: number, 
     incomeLevy: { municipal: lm, prefectural: lp },
     perCapita,
     forestEnvironmentTax: forest,
+    ...(housing > 0 ? { housingLoanCredit: used } : {}),
   };
 }
 
@@ -84,10 +108,12 @@ const NONE: Levy = { total: yen(0), taxable: yen(0), grossLevy: PAIR0, adjustmen
 export default defineComponent<{ member: string; fiscalYear: number }, ResidentTaxOutput>({
   id: "residentTax.annual",
   title: "住民税・森林環境税",
-  contract: "1.0",
-  revision: 4,
+  contract: "1.1",
+  revision: 5,
   requires: {
     "tax.totalIncome": ">=1 <2",
+    "tax.housingLoanCredit": ">=1 <2",
+    "incomeTax.annual": ">=1 <2",
     "tax.deductions": ">=1 <2",
     "income.salary": ">=1 <2",
     "residentTax.exemption": ">=1 <2",

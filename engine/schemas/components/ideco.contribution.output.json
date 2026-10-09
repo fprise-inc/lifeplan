@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:ideco.contribution.output",
+  "title": "iDeCo・企業型DCの掛金（拠出限度額で止めた後）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "payments"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "payments": {
+      "description": "月の昇順",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ym", "object", "amount", "kind", "payer"],
+        "properties": {
+          "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "kind": { "enum": ["ideco", "corporateDc"] },
+          "payer": { "enum": ["self", "employer"] }
+        }
+      }
+    }
+  }
+}

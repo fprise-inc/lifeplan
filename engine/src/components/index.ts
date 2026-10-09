@@ -4,6 +4,13 @@ import { EngineError } from "../errors.ts";
 import type { ComponentDefinition } from "../registry/define.ts";
 import type { OfficialComponent } from "../registry/assemble.ts";
 import accountContribution from "./account.contribution/index.ts";
+import accountDcList from "./account.dcList/index.ts";
+import accountIdeco from "./account.ideco/index.ts";
+import accountIdecoPayout from "./account.idecoPayout/index.ts";
+import debtSchedule from "./debt.schedule/index.ts";
+import housingResidence from "./housing.residence/index.ts";
+import idecoContribution from "./ideco.contribution/index.ts";
+import taxHousingLoanCredit from "./tax.housingLoanCredit/index.ts";
 import incomeSalary from "./income.salary/index.ts";
 import incomeTaxAnnual from "./incomeTax.annual/index.ts";
 import insurancePremium from "./insurance.premiumPayment/index.ts";
@@ -51,6 +58,13 @@ function official(def: ComponentDefinition<never, unknown>): OfficialComponent {
 
 export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[] = [
   accountContribution,
+  accountDcList,
+  accountIdeco,
+  accountIdecoPayout,
+  debtSchedule,
+  housingResidence,
+  idecoContribution,
+  taxHousingLoanCredit,
   incomeSalary,
   incomeTaxAnnual,
   insurancePremium,
