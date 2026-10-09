@@ -100,6 +100,16 @@ describe("万一の重ね（overlay）と判定の部品（contingency.event）"
     const r2 = death(base, "2030-06", H, { survivor: { livingRatio: { beforeIndependence: "0.8" } } });
     expect(year(r2, 2031)).toBe(300000 * 12 * 0.8);
   });
+
+  it("子のいない世帯の遺族の生活費は、全期間0.7（万一の想定の noChildren で書き換えられる）", () => {
+    const base = edit(family({ endYear: 2050, children: false }), (h) => (h.livingExpenses = [{ id: uid("lv"), mode: "total", monthly: box(300000) }]));
+    const year = (req: Req, y: number) => sumFlows(call<{ flows: Flow[] }>(req, "expense.living", {}).flows, (f) => f.ym.startsWith(`${y}-`));
+    const r1 = death(base, "2030-06");
+    expect(year(r1, 2031)).toBe(300000 * 12 * 0.7);
+    expect(year(r1, 2049)).toBe(300000 * 12 * 0.7);
+    const r2 = death(base, "2030-06", H, { survivor: { livingRatio: { noChildren: "0.6" } } });
+    expect(year(r2, 2049)).toBe(300000 * 12 * 0.6);
+  });
 });
 
 describe("遺族年金（pension.survivor）", () => {
