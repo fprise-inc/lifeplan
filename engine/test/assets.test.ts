@@ -368,3 +368,26 @@ describe("住まい（housing.residence）", () => {
     expect(cells(r, "cf.balance.account.realEstate", 2027)).toBe(40000000);
   });
 });
+
+describe("取り崩し: 旧NISA の移し先の課税口座", () => {
+  it("課税口座が無い名義人の旧NISA を移した器も、取り崩しの順序（課税口座）で売る", () => {
+    const A2 = uid("a");
+    const req = withInput(
+      household({ members: [member("a", "self", "1980-06")], endYear: 2030 }),
+      (h) => {
+        h.accounts = [
+          { id: uid("dep"), kind: "deposit", owner: A2, marketValue: box(100000), asOf: "2025-12", contributions: [] },
+          { id: uid("lg"), kind: "legacyNisa", owner: A2, marketValue: box(3000000), asOf: "2025-12", lots: [{ vintageYear: 2022, regime: "general", costBasis: 2000000, marketValue: 3000000 }], contributions: [] },
+        ];
+        h.residences = [{ id: uid("rent"), kind: "rent", from: at("2010-01"), to: null, rent: { monthly: box(100000) } }];
+      },
+    );
+    const r = full(req);
+    expect(cells(r, "cf.transfer.rollover", 2026)).toBeGreaterThan(0);
+    expect(cells(r, "cf.transfer.withdrawal", 2027)).toBeGreaterThan(0);
+    // 移したときの時価が取得価額なので、利益は移した後の運用益（1年分・1%）の売った分だけ
+    const it = cells(r, "cf.taxSi.incomeTax.capitalGains", 2027);
+    expect(it).toBeGreaterThan(0);
+    expect(it).toBeLessThan(Math.ceil(3030000 * 0.01 * 0.15315));
+  });
+});

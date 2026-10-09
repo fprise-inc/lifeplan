@@ -247,13 +247,16 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       }
     }
 
-    // 取り崩しの順序
+    // 取り崩しの順序（旧NISA・ジュニアNISA の移し先に作った課税口座も含めるため、取り崩すたびに器の一覧から決める）
     const setting = ctx.setting<{ order?: readonly ({ kind: string } | { object: string })[]; minimumDeposit?: Yen }>("withdrawal");
-    const order: Acc[] = [];
-    for (const o of setting?.order ?? DEFAULT_ORDER.map((kind) => ({ kind }))) {
-      const hits = "object" in o ? accs.filter((x) => x.id === o.object && x.input !== null) : accs.filter((x) => x.input?.kind === o.kind);
-      for (const h of hits) if (h !== D && !order.includes(h) && !NEVER_WITHDRAWN.has(h.input?.kind ?? h.kind)) order.push(h);
-    }
+    const orderOf = (): Acc[] => {
+      const order: Acc[] = [];
+      for (const o of setting?.order ?? DEFAULT_ORDER.map((kind) => ({ kind }))) {
+        const hits = "object" in o ? accs.filter((x) => x.id === o.object && x.input !== null) : accs.filter((x) => (x.input === null ? x.kind : x.input.kind) === o.kind);
+        for (const h of hits) if (h !== D && !order.includes(h) && !NEVER_WITHDRAWN.has(h.input?.kind ?? h.kind)) order.push(h);
+      }
+      return order;
+    };
     const minimum = setting?.minimumDeposit ?? yen(0);
     let cappedNotice = false;
 
@@ -373,7 +376,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
           }
           return rates;
         };
-        for (const x of order) {
+        for (const x of orderOf()) {
           if (need <= 0) break;
           if (x.value <= 0) continue;
           const lock = x.input?.withdrawalLockedUntil;
