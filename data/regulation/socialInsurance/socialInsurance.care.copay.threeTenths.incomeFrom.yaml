@@ -1,0 +1,20 @@
+id: socialInsurance.care.copay.threeTenths.incomeFrom
+title: 介護の3割負担の本人の合計所得金額の基準（220万円以上）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2018-08-01"
+    appliesTo: null
+    enforcedOn: "2018-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 2200000
+    sources:
+      - {"type": "web", "url": "https://www.city.bunkyo.lg.jp/tetsuzuki/kaigo/hoken/hutanwariai.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "負担割合の判定（160万円・220万円、280万円・346万円・340万円・463万円）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12300000/001119101.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "利用者負担の判定", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "介護保険法施行令22条の2の2（検索の要約）"}

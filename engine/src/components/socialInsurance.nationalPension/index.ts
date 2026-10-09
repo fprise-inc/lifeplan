@@ -1,5 +1,6 @@
 // 国民年金の保険料（第1号被保険者。全国一律の月額。年度ごとの値）。納付期限は翌月末なので翌月に払う。
 // 産前産後の免除の月は払わない。制度データの後の年度は、最後の値に賃金上昇率（前提）を掛けて10円単位に丸めて延ばす（0007 の7）
+// 障害の想定で1・2級の障害基礎年金を受ける月（障害認定日の翌月から）は払わない（法定免除。改訂3。免除の月の老齢基礎年金の額の減り（国庫負担の分）は扱わない）
 import {
   addMonths,
   defineComponent,
@@ -13,6 +14,7 @@ import {
   RATE_ZERO,
   yearOf,
   type CategoryOutput,
+  type ContingencyEventOutput,
   type Flow,
   type PremiumOutput,
   type Yen,
@@ -25,8 +27,8 @@ export default defineComponent<{ member: string; fromYear: number }, PremiumOutp
   id: "socialInsurance.nationalPension",
   title: "国民年金保険料",
   contract: "1.1",
-  revision: 2,
-  requires: { "pension.category": ">=1 <2" },
+  revision: 3,
+  requires: { "pension.category": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [PREMIUM, ROUND],
   reads: ["assumptions.wageGrowth"],
   input: "socialInsurance.premium.input",
@@ -61,9 +63,14 @@ export default defineComponent<{ member: string; fromYear: number }, PremiumOutp
       if (ctx.at(fiscalYearStart(fy)).has(PREMIUM) && ctx.at(fiscalYearStart(fy)).paramYen(PREMIUM) !== null) premiumOf(fy);
     }
     const flows: Flow[] = [];
+    // 法定免除（障害1・2級の想定。働けるようになる月の前まで）
+    const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: input.member }).event;
+    const exemptFrom = ev !== null && ev.kind === "disability" && ev.grade !== undefined && ev.grade <= 2 && ev.recognition !== undefined ? addMonths(parseYm(ev.recognition), 1) : null;
+    const exemptTo = ev?.recovery === undefined ? null : parseYm(ev.recovery);
     for (const c of months) {
       if (c.category !== "1" || c.premiumExempt) continue;
       const m = parseYm(c.month);
+      if (exemptFrom !== null && m >= exemptFrom && (exemptTo === null || m < exemptTo)) continue;
       if (m < first) continue;
       const amount = premiumOf(fiscalYearOf(m));
       if (amount > 0) {

@@ -11,6 +11,9 @@
 // - 借り換え（refinance）: その月から、残高（未払利息を含む）を新しい金利の段階・期間で返す。諸費用は払う（costsFinanced なら新しいローンに含める）
 // - 既に借りているローンは balance（balanceAsOf の月の返済の後の残高）から計算する。団信で残高が消える計算は万一の作業で使う（ここは入力まで）
 // - 約束の版 1.1: 世帯の負債の物の ID（object）のほかに、ほかの部品が作った負債（loan。車のひな形の自動車ローン・教育ローン・貸与の奨学金）も受ける
+// - 団信（改訂3。0008 の追記 2026-10-09）: 団信の部品（debt.creditLifeEvents）が返す月の返済の後に、残高（ボーナス返済の分・未払利息を含む）を
+//   その割合だけ減らし、残りの回数で返済額を計算し直す（割合が1なら返し終わる）
+// - 変動金利の上乗せ（改訂3。ストレステスト）: 前提の loanRateShifts の月から、変動金利（variable）の段の金利に上乗せを足す
 import {
   addMonths,
   boxValue,
@@ -20,6 +23,7 @@ import {
   parseYm,
   yearOf,
   yen,
+  type CreditLifeOutput,
   type Ctx,
   type DebtInput,
   type DebtScheduleOutput,
@@ -71,10 +75,11 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
   id: "debt.schedule",
   title: "負債の返済",
   contract: "1.1",
-  revision: 2,
-  requires: {},
+  revision: 3,
+  requires: { "debt.creditLifeEvents": ">=1 <2" },
   params: [],
   reads: [
+    "assumptions.loanRateShifts",
     "debt.kind",
     "debt.debtors",
     "debt.principal",
@@ -96,14 +101,39 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
     const prepayRow = d.kind === "mortgage" ? "cf.expense.housing.loan.prepayment" : row;
     const feeRow = d.kind === "mortgage" ? "cf.expense.housing.loan.fees" : row;
     const start = ctx.time.resolve(d.start);
-    const stepsOf = (s: readonly RateStep[], from: MonthIndex): Step[] =>
-      s
+    // ストレステストの変動金利の上乗せ（月の昇順）
+    const shifts = (ctx.setting<readonly { from: string; add: string }[]>("loanRateShifts") ?? []).map((x) => ({ m: parseYm(x.from), add: x.add })).sort((a, b) => a.m - b.m);
+    const stepsOf = (s: readonly RateStep[], from: MonthIndex): Step[] => {
+      const raw = s
         .map((x) => {
-          const f = ctx.rate.fraction(ctx.rate.of(x.rate));
           const at = ctx.time.resolve(x.from);
-          return { from: at < from ? from : at, type: x.type, num: f.num, den: f.den, key: `${x.type}|${x.rate}` };
+          return { from: at < from ? from : at, type: x.type, rate: x.rate };
         })
         .sort((a, b) => a.from - b.from);
+      if (shifts.length === 0) {
+        return raw.map((x) => {
+          const f = ctx.rate.fraction(ctx.rate.of(x.rate));
+          return { from: x.from, type: x.type, num: f.num, den: f.den, key: `${x.type}|${x.rate}` };
+        });
+      }
+      // 段の始まりと上乗せの始まりで区切り、変動の段には、その月までの上乗せの合計を足す
+      const cuts = [...new Set([...raw.map((x) => x.from as number), ...shifts.map((x) => (x.m < from ? from : x.m) as number)])].sort((a, b) => a - b);
+      const out: Step[] = [];
+      for (const c of cuts) {
+        let b = raw[0];
+        for (const x of raw) if (x.from <= c) b = x;
+        if (b === undefined) continue;
+        let r = ctx.rate.of(b.rate);
+        if (b.type === "variable") for (const sh of shifts) if (sh.m <= c) r = ctx.rate.add(r, ctx.rate.of(sh.add));
+        const f = ctx.rate.fraction(r);
+        const key = `${b.type}|${ctx.rate.toString(r)}`;
+        if (out.length > 0 && (out[out.length - 1] as Step).key === key) continue;
+        out.push({ from: c as MonthIndex, type: b.type, num: f.num, den: f.den, key });
+      }
+      return out;
+    };
+    // 団信で残高が消える月と割合（世帯の負債だけ）
+    const credit = "loan" in input ? [] : ctx.call<CreditLifeOutput>("debt.creditLifeEvents", { object: input.object }).events.map((e) => ({ m: parseYm(e.month), keep: ctx.rate.sub(ctx.rate.of("1"), ctx.rate.of(e.ratio)) }));
     let steps = stepsOf(d.rateSchedule, start);
     let method = d.repayment.method;
     let rules: VariableRules = d.repayment.variableRules ?? {};
@@ -259,6 +289,14 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
           n = ctx.money.divInt(main, principalPart > 0 ? principalPart : 1, "conv.loan.term") as number;
         }
         if (bonus > 0) bonusPayment = annuity(ctx, bonus, step.num, step.den * 2n, bonusLeft(addMonths(m, 1), n));
+      }
+      // 団信: その月の返済の後に、残高をその割合だけ減らし、残りの回数で返済額を計算し直す
+      for (const c of credit) {
+        if (c.m !== m) continue;
+        main = ctx.money.mulRate(main, c.keep, "conv.loan.payment");
+        bonus = ctx.money.mulRate(bonus, c.keep, "conv.loan.payment");
+        unpaid = ctx.money.mulRate(unpaid, c.keep, "conv.loan.payment");
+        if (main > 0 || bonus > 0) reprice(addMonths(m, 1));
       }
       const done = main <= 0 && bonus <= 0 && unpaid <= 0;
       if (monthOf(m) === 12 || done) {

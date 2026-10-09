@@ -1,0 +1,20 @@
+id: incomeTax.temporaryIncome.specialDeduction
+title: 一時所得の特別控除額（50万円まで）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "1989-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 500000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1490.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "特別控除額（最高50万円）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "所得税法34条3項の50万円"}

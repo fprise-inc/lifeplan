@@ -1,0 +1,20 @@
+id: employmentInsurance.careLeaveBenefit.maxDays
+title: 介護休業給付金の支給の日数の上限（対象の家族1人につき通算93日）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2017-01-01"
+    appliesTo: null
+    enforcedOn: "2017-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 93
+    sources:
+      - {"type": "web", "url": "https://jsite.mhlw.go.jp/tokyo-roudoukyoku/var/rev0/0142/6388/kaigokyugyou_leafret.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "同一の対象家族について93日を限度に3回まで", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "雇用保険法61条の4第6項の93日"}

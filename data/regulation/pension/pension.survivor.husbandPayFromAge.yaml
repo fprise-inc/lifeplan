@@ -1,0 +1,21 @@
+id: pension.survivor.husbandPayFromAge
+title: 夫の遺族厚生年金の支給の始まりの年齢（60歳。遺族基礎年金を受ける間を除く）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: monthAfterReach
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 60
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/izokunenkin/jukyu-yoken/20150401-03.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "受給開始は60歳から（遺族基礎年金を受給中の場合は除く）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "厚生年金保険法65条の2の60歳"}

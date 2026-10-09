@@ -50,6 +50,14 @@
     },
     "personalDiff": {
       "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "widow": {
+      "description": "寡婦控除（1.1）",
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "singleParent": {
+      "description": "ひとり親控除（1.1）",
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
     }
   }
 }

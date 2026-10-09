@@ -1,0 +1,26 @@
+id: pension.deathLumpSum
+title: 死亡一時金の額（第1号被保険者としての保険料の納付月数の段階）
+unit: JPY
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "1991-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 179, "amount": 120000}
+      - {"upTo": 239, "amount": 145000}
+      - {"upTo": 299, "amount": 170000}
+      - {"upTo": 359, "amount": 220000}
+      - {"upTo": 419, "amount": 270000}
+      - {"upTo": null, "amount": 320000}
+    sources:
+      - {"type": "web", "url": "https://www.city.hiroshima.lg.jp/living/hoken-nenkin/1021145/1006017/1025570/1012136.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "死亡一時金の額（36月以上180月未満 120,000円〜420月以上 320,000円）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "国民年金法52条の4の表。段は納付月数（upTo は月数）。付加保険料の8,500円の加算は扱わない"}

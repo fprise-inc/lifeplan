@@ -2,11 +2,16 @@
 // - 額は計算基準年の価格の月額。年ごとに伸び方（省略は前提の物価上昇率。年ごとの列）で伸ばし（1年ごとに円未満切り捨て）、年額を12か月に分けて毎月払う
 // - 段階（子の独立・退職後・70代・80代など）: その月から、最初の額に対する割合（ratio）か、月額（計算基準年の価格）に変える。
 //   費目別の入れ方で月額の段階を書いたときは、各費目を最初の費目の割合で分ける。段階は月の順に当て、後の段階が前の段階に勝つ
-// - 万一のときの扱い（onContingency）は入力として持つだけ（万一の部品で使う）
+// - 万一のとき（改訂2。0008 の追記 2026-10-09 の決定2・3）: 生活費の段階を先に掛け、その後に万一の割合を掛ける（万一の月の翌月から）。
+//   onContingency を書いた生活費は、その扱い（続く・止まる・割合。割合は万一の後の全期間で1つ）。書いていない生活費は、死亡のときだけ
+//   遺族の生活費の割合（万一の想定の survivor.livingRatio。省略は末子の独立まで0.7、独立の後0.5）を総額に掛ける（費目別の生活費も同じ割合）。
+//   末子の独立は、子の leaves があればその月、無ければ独立とみなす年齢（survivor.independenceAge。省略は22）に達した後の最初の3月31日の翌月
 import {
   addMonths,
   boxValue,
+  contingencyRatio,
   defineComponent,
+  parseYm,
   formatYm,
   grownByYear,
   monthIndex,
@@ -16,7 +21,11 @@ import {
   type FlowsResult,
   type LivingCategory,
   type LivingExpenseInput,
+  type ContingencyEvent,
+  type ContingencyEventOutput,
+  type MemberInput,
   type MonthIndex,
+  type Rate,
   type Yen,
 } from "../../sdk/index.ts";
 
@@ -36,10 +45,14 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "expense.living",
   title: "生活費",
   contract: "1.0",
-  revision: 1,
-  requires: {},
+  revision: 2,
+  requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: [
+    "member.kind",
+    "member.birth",
+    "member.leaves",
+    "livingExpense.onContingency",
     "livingExpense.mode",
     "livingExpense.from",
     "livingExpense.to",
@@ -56,6 +69,27 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     const baseYear = yearOf(base);
     const endYear = yearOf(end);
     const flows: Flow[] = [];
+    // 万一の想定（世帯のだれか。要求1つに1件まで）と、遺族の生活費の割合の切り替わり（末子の独立）
+    const members = ctx.list<MemberInput>("member");
+    let ev: ContingencyEvent | null = null;
+    for (const m of members) {
+      ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: m.id }).event;
+      if (ev !== null) break;
+    }
+    let survivorRatio: ((m: MonthIndex) => Rate) | null = null;
+    if (ev !== null && ev.kind === "death") {
+      const D = parseYm(ev.month);
+      const before = ctx.rate.of(ev.survivor?.livingRatio?.beforeIndependence ?? "0.7");
+      const after = ctx.rate.of(ev.survivor?.livingRatio?.afterIndependence ?? "0.5");
+      const age = ev.survivor?.independenceAge ?? 22;
+      let independence: MonthIndex = D;
+      for (const c of members) {
+        if (c.kind !== "child" || parseYm(c.birth.birthYearMonth) > addMonths(D, 10)) continue;
+        const own = c.leaves === null ? addMonths(ctx.time.ageSwitch(c.id, { years: age }, "firstMarch31AfterReach"), 1) : ctx.time.resolve(c.leaves);
+        if (own > independence) independence = own;
+      }
+      survivorRatio = (m) => (m < independence ? before : after);
+    }
     for (const e of ctx.list<LivingExpenseInput>("livingExpense")) {
       const from = e.from === undefined ? base : ctx.time.resolve(e.from);
       const to = e.to === undefined || e.to === null ? end : ctx.time.resolve(e.to);
@@ -111,9 +145,13 @@ export default defineComponent<Record<string, never>, FlowsResult>({
           });
         }
         const mo = m - monthIndex(year, 1);
+        // 万一の割合（段階の後に掛ける）
+        const explicit = contingencyRatio(ctx, e.onContingency, ev, m);
+        const r = e.onContingency !== undefined ? explicit : survivorRatio !== null && m > parseYm((ev as ContingencyEvent).month) ? survivorRatio(m) : null;
         items.forEach((x, i) => {
-          const amount = (parts[i] as Yen[])[mo] as Yen;
-          if (amount > 0) flows.push({ row: x.row, ym: formatYm(m), amount, accrualYear: year, object: e.id, formula: k < 0 ? "expense.living.monthly" : "expense.living.stage" });
+          const full = (parts[i] as Yen[])[mo] as Yen;
+          const amount = r === null ? full : ctx.money.mulRate(full, r, "conv.expense.share");
+          if (amount > 0) flows.push({ row: x.row, ym: formatYm(m), amount, accrualYear: year, object: e.id, formula: r !== null ? "expense.living.contingency" : k < 0 ? "expense.living.monthly" : "expense.living.stage" });
         });
       }
     }

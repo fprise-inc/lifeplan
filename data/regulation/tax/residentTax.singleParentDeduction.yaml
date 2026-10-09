@@ -1,0 +1,33 @@
+id: residentTax.singleParentDeduction
+title: ひとり親控除（住民税）
+unit: JPY
+kind: constant
+basis: {"type": "priorYearIncome", "switchMonth": 6}
+entries:
+  - rev: 1
+    appliesFrom: "2021-06-01"
+    appliesTo: "2028-05-31"
+    enforcedOn: "2021-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 300000
+    sources:
+      - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "ひとり親控除 住民税30万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "地方税法314条の2第1項8号の2の30万円（令和3年度から）"}
+  - rev: 2
+    appliesFrom: "2028-06-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 330000
+    sources:
+      - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "住民税の控除額は2028年度分以後33万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和8年度税制改正で令和10年度分から33万円（検索の要約）"}

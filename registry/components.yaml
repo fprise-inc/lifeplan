@@ -40,13 +40,37 @@ entries:
     replacedBy: null
   - id: benefit.employment
     status: active
-    label: "雇用保険の育児の給付"
+    label: "雇用保険の育児・介護の給付"
     since: draft
     aliases: []
     replacedBy: null
   - id: benefit.health
     status: active
     label: "健康保険の給付（出産育児一時金・出産手当金・傷病手当金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.expense
+    status: active
+    label: "介護の費用（自己負担割合・高額介護サービス費）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: contingency.event
+    status: active
+    label: "構成員の万一（判定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: contingency.lumpSum
+    status: active
+    label: "万一のときの一時のお金（整理資金・死亡退職金・弔慰金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.creditLifeEvents
+    status: active
+    label: "団体信用生命保険（残高が消える月と割合）"
     since: draft
     aliases: []
     replacedBy: null
@@ -98,6 +122,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: gift.received
+    status: active
+    label: "受け取る贈与（集める）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: gift.tax
+    status: active
+    label: "贈与税（暦年課税・相続時精算課税・住宅取得等資金の非課税）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: housing.residence
     status: active
     label: "住まい（家賃・購入・固定資産税・修繕費）"
@@ -128,15 +164,45 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: insurance.income
+    status: active
+    label: "保険の一時所得・雑所得"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.policy
+    status: active
+    label: "保険契約（保険年度ごとの値と受け取り）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: insurance.premiumPayment
     status: active
     label: "保険料の支払い"
     since: draft
     aliases: []
     replacedBy: null
+  - id: insurance.term
+    status: active
+    label: "保険契約の終わりと払込免除（判定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: medical.highCost
+    status: active
+    label: "医療費の自己負担（高額療養費）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.category
     status: active
     label: "国民年金の被保険者の種別"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.disability
+    status: active
+    label: "障害年金（障害基礎年金・障害厚生年金）"
     since: draft
     aliases: []
     replacedBy: null
@@ -170,6 +236,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.survivor
+    status: active
+    label: "遺族年金（遺族基礎年金・遺族厚生年金・中高齢寡婦加算・寡婦年金・死亡一時金）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: plan.cashflow
     status: active
     label: "キャッシュフロー表"
@@ -185,6 +257,12 @@ entries:
   - id: plan.memberFlows
     status: active
     label: "お金の動き（構成員ごとに集める）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: protection.need
+    status: active
+    label: "必要保障額の推移（積み上げ方式・逆算方式）"
     since: draft
     aliases: []
     replacedBy: null
@@ -335,6 +413,12 @@ entries:
   - id: tax.spouseDeduction
     status: active
     label: "配偶者控除・配偶者特別控除"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.survivorStatus
+    status: active
+    label: "ひとり親・寡婦の判定（配偶者と死別した人）"
     since: draft
     aliases: []
     replacedBy: null

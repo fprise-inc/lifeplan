@@ -1,0 +1,19 @@
+id: socialInsurance.highCostMedical.incomeDeduction
+title: 旧ただし書き所得で総所得金額等から引く額（住民税の基礎控除の額）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2021-08-01"
+    appliesTo: null
+    enforcedOn: "2021-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 430000
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "旧ただし書き所得（総所得金額等から基礎控除43万円を控除した額）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "国民健康保険法施行令29条の7の基礎控除額（43万円）"}

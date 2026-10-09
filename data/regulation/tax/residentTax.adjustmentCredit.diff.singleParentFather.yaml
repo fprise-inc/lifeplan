@@ -1,0 +1,20 @@
+id: residentTax.adjustmentCredit.diff.singleParentFather
+title: 調整控除の人的控除額の差（ひとり親控除・父）
+unit: JPY
+kind: constant
+basis: {"type": "priorYearIncome", "switchMonth": 6}
+entries:
+  - rev: 1
+    appliesFrom: "2021-06-01"
+    appliesTo: null
+    enforcedOn: "2021-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 10000
+    sources:
+      - {"type": "web", "url": "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/chouseikoujo.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "調整控除の人的控除額の差", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "地方税法314条の6第1号イの表の1万円（検索の要約・記憶の値を原本で確かめる）"}

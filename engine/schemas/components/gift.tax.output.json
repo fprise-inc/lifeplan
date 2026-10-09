@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:gift.tax.output",
+  "title": "贈与税（受け取る構成員×年）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "amount", "exempt", "calendarTaxable", "settlementTaxable", "tax", "settlementRemaining", "inCashflow"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "exempt": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "calendarTaxable": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "settlementTaxable": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "tax": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "settlementRemaining": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["giver", "remaining"],
+        "properties": { "giver": { "type": "string" }, "remaining": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+      }
+    },
+    "inCashflow": { "type": "boolean" }
+  }
+}

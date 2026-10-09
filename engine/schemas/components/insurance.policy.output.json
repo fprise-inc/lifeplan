@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:insurance.policy.output",
+  "title": "保険契約1件（保険年度ごとの値と受け取り）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "receipts", "years", "endsAt"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ym", "object", "coverage", "member", "kind", "amount", "taxClass", "cost"],
+        "properties": {
+          "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "coverage": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/uuid" }] },
+          "member": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/uuid" }] },
+          "kind": { "enum": ["death", "incomeProtection", "incapacity", "highDisability", "maturity", "surrender", "annuity", "survival"] },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "taxClass": { "enum": ["inheritance", "temporary", "miscellaneous", "gift", "none"] },
+          "cost": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "giver": { "$ref": "urn:financia:schema:common#/$defs/uuid" }
+        }
+      }
+    },
+    "years": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["year", "premium", "deathBenefit", "surrenderValue"],
+        "properties": {
+          "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+          "premium": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "deathBenefit": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "surrenderValue": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
+    },
+    "endsAt": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }] }
+  }
+}

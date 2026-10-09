@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:protection.need.input",
+  "title": "必要保障額の推移の部品の入力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request"],
+  "properties": { "request": { "$ref": "urn:financia:schema:engine.input#/properties/protection" } }
+}

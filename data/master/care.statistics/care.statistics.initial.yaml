@@ -1,0 +1,19 @@
+id: care.statistics.initial
+title: 介護の一時的な費用の平均
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-03-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 472000
+    sources:
+      - {"type": "web", "url": "https://www.jili.or.jp/lifeplan/lifesecurity/1116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "生命保険に関する全国実態調査（2人以上世帯）2024（令和6）年度", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "同調査の一時的な費用 47.2万円（検索の要約。公表日は未確認）"}

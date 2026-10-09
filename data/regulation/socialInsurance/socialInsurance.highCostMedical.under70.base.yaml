@@ -1,0 +1,45 @@
+id: socialInsurance.highCostMedical.under70.base
+title: 高額療養費の自己負担限度額（70歳未満・月額。upTo は区分（1 ア・2 イ・3 ウ・4 エ・5 オ））
+unit: JPY
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: "2015-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1, "amount": 252600}
+      - {"upTo": 2, "amount": 167400}
+      - {"upTo": 3, "amount": 80100}
+      - {"upTo": 4, "amount": 57600}
+      - {"upTo": null, "amount": 35400}
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "70歳未満の方の区分（平成27年1月診療分から）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "大正十一年厚生省令第三十六号"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "健康保険法施行令42条。ア 252,600円＋1%・イ 167,400円＋1%・ウ 80,100円＋1%・エ 57,600円・オ 35,400円"}
+  - rev: 2
+    appliesFrom: "2026-08-01"
+    appliesTo: null
+    enforcedOn: "2026-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1, "amount": 270300}
+      - {"upTo": 2, "amount": 179100}
+      - {"upTo": 3, "amount": 85800}
+      - {"upTo": 4, "amount": 61500}
+      - {"upTo": null, "amount": 36900}
+    sources:
+      - {"type": "web", "url": "https://column.finance.ponta.jp/archives/756/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "2026年8月〜 ア 270,300円＋1%・イ 179,100円＋1%", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.city.suginami.tokyo.jp/s035/news/27125.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "区分エ 61,500円・区分オ 36,900円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.city.setagaya.lg.jp/02060/33049.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "8月から高額療養費制度が改正", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和8年8月診療分からの引き上げ（検索の要約。ウは解説の一つで85,800円）"}

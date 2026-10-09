@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:contingency.event.output",
+  "title": "構成員の万一（判定だけを返す）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event"],
+  "properties": {
+    "event": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "kind", "month"],
+          "properties": {
+            "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "kind": { "enum": ["death", "disability", "incapacity"] },
+            "month": { "description": "起きる月", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+            "grade": { "enum": [1, 2, 3] },
+            "recovery": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+            "recognition": { "description": "障害認定日の月（初診日から1年6か月）", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+            "survivor": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "livingRatio": { "$ref": "urn:financia:schema:engine.input#/$defs/survivorLivingRatio" },
+                "independenceAge": { "type": "integer" },
+                "funeral": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "reserveMonths": { "type": "integer" },
+                "deathBenefits": { "$ref": "urn:financia:schema:engine.input#/$defs/survivorDeathBenefits" },
+                "spouseWork": { "type": "array" }
+              }
+            },
+            "medical": { "$ref": "urn:financia:schema:engine.input#/$defs/contingency/properties/medical" }
+          }
+        }
+      ]
+    }
+  }
+}

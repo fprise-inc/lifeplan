@@ -1,0 +1,20 @@
+id: pension.survivor.widowAddition.longTermEmployeeMonths
+title: 中高齢寡婦加算の長期要件で要る夫の厚生年金の被保険者期間（20年）
+unit: months
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 240
+    sources:
+      - {"type": "web", "url": "https://www.jili.or.jp/lifeplan/lifesecurity/1041.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "長期要件の場合は厚生年金の加入期間が20年以上", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "厚生年金保険法62条1項の240月"}

@@ -60,6 +60,20 @@ import expenseReconcile from "./expense.reconcile/index.ts";
 import retirementBenefit from "./retirement.benefit/index.ts";
 import retirementReceipts from "./retirement.receipts/index.ts";
 import taxRetirementIncome from "./tax.retirementIncome/index.ts";
+import careExpense from "./care.expense/index.ts";
+import contingencyEvent from "./contingency.event/index.ts";
+import contingencyLumpSum from "./contingency.lumpSum/index.ts";
+import debtCreditLife from "./debt.creditLifeEvents/index.ts";
+import giftReceived from "./gift.received/index.ts";
+import giftTax from "./gift.tax/index.ts";
+import insuranceIncome from "./insurance.income/index.ts";
+import insurancePolicy from "./insurance.policy/index.ts";
+import insuranceTerm from "./insurance.term/index.ts";
+import medicalHighCost from "./medical.highCost/index.ts";
+import pensionDisability from "./pension.disability/index.ts";
+import pensionSurvivor from "./pension.survivor/index.ts";
+import protectionNeed from "./protection.need/index.ts";
+import taxSurvivorStatus from "./tax.survivorStatus/index.ts";
 
 const HASHES = buildInfo.components as Readonly<Record<string, string>>;
 
@@ -127,9 +141,26 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   retirementBenefit,
   retirementReceipts,
   taxRetirementIncome,
+  careExpense,
+  contingencyEvent,
+  contingencyLumpSum,
+  debtCreditLife,
+  giftReceived,
+  giftTax,
+  insuranceIncome,
+  insurancePolicy,
+  insuranceTerm,
+  medicalHighCost,
+  pensionDisability,
+  pensionSurvivor,
+  protectionNeed,
+  taxSurvivorStatus,
 ] as never;
 
 export const OFFICIAL_COMPONENTS: readonly OfficialComponent[] = OFFICIAL_DEFINITIONS.map(official);
 
 /** 計算のはじめに呼ぶ部品 */
 export const ROOT_COMPONENT = "plan.cashflow";
+
+/** 必要保障額の推移（input.protection を指定したときに、根の部品の後に呼ぶ部品） */
+export const PROTECTION_COMPONENT = "protection.need";

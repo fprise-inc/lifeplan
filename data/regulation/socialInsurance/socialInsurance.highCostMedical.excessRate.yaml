@@ -1,0 +1,19 @@
+id: socialInsurance.highCostMedical.excessRate
+title: 高額療養費の自己負担限度額の医療費に掛ける割合（1%）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: "2015-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.01"
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "×1%", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "健康保険法施行令42条"}

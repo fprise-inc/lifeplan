@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:gift.received.output",
+  "title": "受け取る贈与",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["gifts"],
+  "properties": {
+    "gifts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ym", "source", "object", "amount", "giver", "giverMember", "method", "housing", "inflow"],
+        "properties": {
+          "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "source": { "enum": ["housingPurchase", "education", "insurance"] },
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "giver": { "enum": ["parent", "grandparent", "household", "other"] },
+          "giverMember": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/uuid" }] },
+          "method": { "enum": ["calendar", "settlement"] },
+          "housing": { "enum": [null, "energySaving", "other"] },
+          "inflow": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

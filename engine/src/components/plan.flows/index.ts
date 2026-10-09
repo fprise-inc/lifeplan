@@ -3,6 +3,7 @@
 // 住まい（housing.residence）・生活費（expense.living）・周期的な支出（expense.periodic）・FP顧問料（expense.advisoryFee）・
 // 教育の目標（education.cost・education.support。子ごと）・児童手当（benefit.childAllowance）・差し込み口の支出を集め、
 // 年間収支（収入−税・社会保険料−支出。器の間の移動は含めない）を年ごとに出す。
+// 改訂5: 保険の受け取り（insurance.policy。契約ごと）・介護の費用（care.expense）・万一のときの一時のお金（contingency.lumpSum）も集める。
 // 運用益・金融資産の残高（plan.cashflow）と分けるのは、運用利回りのように案の前提だけが変わったとき、集め直さずに済むようにするため（0005 の追記）。
 // 構成員ごとに分けるのは、1人の入力を変えたとき、ほかの構成員の分を集め直さないため（0005・0006 の追記）。
 // parts は、お金の動きを出した部品の出力の配列のまま（つなげると flows。エンジンが表の集計を部品ごとに使い回す）
@@ -27,8 +28,11 @@ export default defineComponent<Record<string, never>, Collected>({
   id: "plan.flows",
   title: "お金の動き（集める）",
   contract: "1.1",
-  revision: 4,
+  revision: 5,
   requires: {
+    "insurance.policy": ">=1 <2",
+    "care.expense": ">=1 <2",
+    "contingency.lumpSum": ">=1 <2",
     "plan.memberFlows": ">=1 <2",
     "expense.living": ">=1 <2",
     "expense.periodic": ">=1 <2",
@@ -42,7 +46,7 @@ export default defineComponent<Record<string, never>, Collected>({
     "insurance.premiumPayment": ">=1 <2",
   },
   params: [],
-  reads: ["member.kind", "debt.kind", "goal.kind", "goal.owner"],
+  reads: ["member.kind", "debt.kind", "goal.kind", "goal.owner", "insurance.policyholder"],
   slots: ["slot.expense.flow"],
   input: "empty.input",
   output: "plan.flows.output",
@@ -65,6 +69,9 @@ export default defineComponent<Record<string, never>, Collected>({
       household.push(ctx.call<FlowsResult>("socialInsurance.nationalHealth", { fiscalYear: fy }).flows);
     }
     household.push(ctx.call<PaymentsOutput>("insurance.premiumPayment", {}).flows);
+    for (const c of ctx.list<{ id: string }>("insurance")) household.push(ctx.call<FlowsResult>("insurance.policy", { object: c.id }).flows);
+    household.push(ctx.call<FlowsResult>("care.expense", {}).flows);
+    household.push(ctx.call<FlowsResult>("contingency.lumpSum", {}).flows);
     for (const d of ctx.list<{ id: string }>("debt")) household.push(ctx.call<FlowsResult>("debt.schedule", { object: d.id }).flows);
     household.push(ctx.call<FlowsResult>("housing.residence", {}).flows);
     household.push(ctx.call<FlowsResult>("expense.living", {}).flows);

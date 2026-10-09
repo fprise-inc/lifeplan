@@ -1,0 +1,20 @@
+id: educationSupport.higher.waiver.rounding
+title: 授業料等の減免の額の端数（区分の割合を掛けた額の100円未満を切り上げ）
+unit: rounding
+kind: rounding
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2020-04-01"
+    appliesTo: null
+    enforcedOn: "2020-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "UP", "unit": 100}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/law/501CO0000000049", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "大学等における修学の支援に関する法律施行令 第2条第1項第2号", "note": "PR #14 の照合のときに原本で読んだ規定（その額に100円未満の端数があるときはこれを100円に切り上げる）。この作業の環境からは原本を取り直せなかった"}
+      - {"type": "law", "lawNumber": "令和元年政令第四十九号"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "割合（2/3・1/3・1/4）を掛けた授業料等減免の額の100円未満を100円に切り上げる。部品は半年ごとの額に当てる近似"}

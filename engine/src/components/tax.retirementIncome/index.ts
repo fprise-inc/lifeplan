@@ -3,7 +3,8 @@
 // - 勤続年数: その年の一時金の勤続期間を合わせた期間（重なりは1回だけ数える）の月数を12で割り、1年未満を切り上げ
 // - 退職所得控除額: 勤続年数が20年以下は40万円×年数、20年超は800万円＋70万円×(年数−20)。前の年に受けた一時金と勤続期間が重なるとき
 //   （重複排除期間）は、重なる期間の年数（1年未満切り捨て）の控除額を引く。前の一時金の範囲: 退職手当等を受ける年は前年以前4年内
-//   （前に受けたのが確定拠出年金の一時金なら9年内。令和8年以後に受けるもの）、確定拠出年金の一時金を受ける年は前年以前19年内（令和4年4月1日以後に
+//   （前に受けたのが確定拠出年金の一時金なら9年内。令和8年以後に受けるもの。その9年内に確定拠出年金の一時金があるときは、前の退職手当等のうち
+//   令和8年以後に受けたものも9年内で見る（施行令70条1項2号ロ(1)。改訂2））、確定拠出年金の一時金を受ける年は前年以前19年内（令和4年4月1日以後に
 //   支払を受けるべき一時金。それより前は14年内。一時金の支払の月で引く）。
 //   前の一時金の額がその控除額に満たないときは、前の勤続期間を、額を40万円（800万円を超える分は70万円）で割った年数（切り捨て）とみなす
 //   （始まりから数える）。引いた後が80万円に満たなければ80万円。障害者になったことによる退職は100万円を足す。年数と時期は制度データ
@@ -70,7 +71,7 @@ export default defineComponent<{ member: string; year: number }, RetirementIncom
   id: "tax.retirementIncome",
   title: "退職所得の税（分離課税）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "retirement.receipts": ">=1 <2" },
   params: Object.values(P),
   reads: [],
@@ -115,15 +116,20 @@ export default defineComponent<{ member: string; year: number }, RetirementIncom
       // 確定拠出年金の一時金を受ける年の年数（19年内）は、その一時金の支払の日で分かれる（令和4年4月1日以後に支払を受けるべきもの）ので、支払の月で引く
       const dcReceipt = set.find((r) => r.source === "dc");
       const priorMonths = new Set<number>();
+      // 前年以前の年数（前の一時金が確定拠出年金のもの・令和8年以後の退職手当等。今の年と前の年の値の小さい方）
+      const afterDc = (py: number): number => {
+        const a = lbOf(year, P.lbAfterDc);
+        const b = lbOf(py, P.lbAfterDc);
+        return a === null || b === null ? lb : Math.min(a, b);
+      };
+      // 9年内に確定拠出年金の一時金を受けているか（ロ(1): そのときは前の退職手当等も9年内で見る）
+      const dcBefore = dcReceipt === undefined && prior.some((p) => p.source === "dc" && Number(p.ym.slice(0, 4)) >= year - afterDc(Number(p.ym.slice(0, 4))));
       for (const p of prior) {
         const py = Number(p.ym.slice(0, 4));
         let L: number;
         if (dcReceipt !== undefined) L = lbAt(parseYm(dcReceipt.ym), P.lbForDc) ?? lb;
-        else if (p.source === "dc") {
-          const a = lbOf(year, P.lbAfterDc);
-          const b = lbOf(py, P.lbAfterDc);
-          L = a === null || b === null ? lb : Math.min(a, b);
-        } else L = lb;
+        else if (p.source === "dc" || dcBefore) L = afterDc(py);
+        else L = lb;
         if (py < year - L) continue;
         let ms = monthsOf(p.serviceFrom, p.serviceTo);
         const pYears = Math.max(1, Math.ceil(ms.length / 12));

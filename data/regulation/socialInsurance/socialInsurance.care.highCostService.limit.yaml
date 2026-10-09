@@ -1,0 +1,23 @@
+id: socialInsurance.care.highCostService.limit
+title: 高額介護サービス費の負担の上限（月額。住民税の課税世帯。前年の課税所得の段階）
+unit: JPY
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2021-08-01"
+    appliesTo: null
+    enforcedOn: "2021-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 3799999, "amount": 44400}
+      - {"upTo": 6899999, "amount": 93000}
+      - {"upTo": null, "amount": 140100}
+    sources:
+      - {"type": "web", "url": "https://www.city.sumida.lg.jp/kenko_fukushi/koureisya_kaigohoken/tanpopo.files/10.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "課税所得690万円以上 140,100円・380万円以上690万円未満 93,000円・380万円未満 44,400円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.city.ota.tokyo.jp/seikatsu/fukushi/kaigo/keigen/gkougaku.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "高額介護サービス費", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "介護保険法施行令22条の2の2（令和3年8月から）。世帯の上限を介護を受ける人ごとに当てる近似"}

@@ -1,0 +1,20 @@
+id: pension.widowPension.ratio
+title: 寡婦年金の額（夫の第1号被保険者期間で計算した老齢基礎年金の額×4分の3）
+unit: rate
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.75"
+    sources:
+      - {"type": "web", "url": "https://www.city.hiroshima.lg.jp/living/hoken-nenkin/1021145/1006017/1025570/1012136.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "寡婦年金（夫の第1号被保険者期間だけで計算した老齢基礎年金額の4分の3）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "国民年金法50条の4分の3"}

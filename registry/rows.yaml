@@ -243,6 +243,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.income.other.insuranceBenefit
+    status: active
+    label: "保険の給付（収入保障・就業不能の月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.taxSi
     status: active
     label: 税・社会保険料
@@ -600,6 +606,12 @@ entries:
   - id: cf.expense.lumpSum.other
     status: active
     label: "その他の一時的支出"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.lumpSum.funeral
+    status: active
+    label: "整理資金（葬儀・お墓など）"
     since: draft
     aliases: []
     replacedBy: null

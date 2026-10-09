@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:insurance.term.output",
+  "title": "保険契約の終わりと払込免除",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["endsAt", "cause", "waiverFrom"],
+  "properties": {
+    "endsAt": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }] },
+    "cause": { "enum": [null, "surrender", "death", "maturity"] },
+    "waiverFrom": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }] }
+  }
+}

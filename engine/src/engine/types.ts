@@ -64,7 +64,7 @@ export interface EmploymentPeriodInput {
   readonly from: Timepoint;
   readonly to: Timepoint | null;
   readonly type: "regular" | "contract" | "partTime" | "selfEmployed" | "civilServant" | "executive" | "leave" | "unemployed";
-  readonly leaveKind?: "maternity" | "childcare" | "sick" | "other";
+  readonly leaveKind?: "maternity" | "childcare" | "sick" | "care" | "other";
   readonly leaveChild?: string;
   readonly healthInsurance?: {
     readonly kind: HealthKind;
@@ -222,7 +222,13 @@ export interface DebtInput {
     readonly costsFinanced?: boolean;
     readonly variableRules?: VariableRules;
   }[];
-  readonly creditLife?: { readonly covered: readonly string[]; readonly ratio?: string; readonly events?: readonly string[]; readonly spouseJoint?: boolean };
+  readonly creditLife?: {
+    readonly covered: readonly string[];
+    readonly ratio?: string;
+    readonly events?: readonly ("death" | "highDisability" | "cancer" | "threeMajor" | "eightMajor" | "incapacity")[];
+    readonly spouseJoint?: boolean;
+    readonly incapacityMonths?: number;
+  };
   readonly housing?: {
     readonly residence?: string;
     readonly moveIn: string;
@@ -246,11 +252,53 @@ export interface ResidenceInput {
     readonly price: Yen;
     readonly downPayment: Yen;
     readonly costs: Yen;
-    readonly gifts?: readonly { readonly recipient: string; readonly giver?: string; readonly amount: Yen }[];
+    readonly gifts?: readonly {
+      readonly recipient: string;
+      readonly giver?: "parent" | "grandparent" | "other";
+      readonly amount: Yen;
+      readonly taxMethod?: "calendar" | "settlement";
+      readonly housingExemption?: "energySaving" | "other" | "none";
+    }[];
   };
   readonly propertyTax?: { readonly annual: ValueBox<Yen>; readonly growth?: string };
   readonly maintenance?: { readonly monthly: ValueBox<Yen>; readonly growth?: string };
   readonly ownership?: readonly { readonly member: string; readonly share: string }[];
+}
+
+export type CoverageBenefit =
+  | "death"
+  | "incomeProtection"
+  | "incapacity"
+  | "highDisability"
+  | "maturity"
+  | "annuity"
+  | "survival"
+  | "hospitalDaily"
+  | "surgery"
+  | "cancerLump"
+  | "other";
+
+export interface CoverageInput {
+  readonly id: string;
+  readonly role: "main" | "rider";
+  readonly benefit: CoverageBenefit;
+  readonly amount: Yen;
+  readonly from?: Timepoint;
+  readonly to?: Timepoint | null;
+  readonly minimumMonths?: number;
+  readonly waitingMonths?: number;
+  readonly years?: number;
+  readonly everyYears?: number;
+}
+
+export interface ScheduleRowInput {
+  readonly coverage?: string;
+  readonly policyYear: number;
+  readonly premium?: Yen;
+  readonly deathBenefit?: Yen;
+  readonly surrenderValue?: Yen;
+  readonly annuity?: Yen;
+  readonly survivalBenefit?: Yen;
 }
 
 export interface InsuranceContractInput {
@@ -260,11 +308,19 @@ export interface InsuranceContractInput {
   readonly insured: string;
   readonly contractDate: string;
   readonly currency: "JPY";
-  readonly premium: { readonly amount: Yen; readonly frequency: "monthly" | "annual"; readonly payUntil: Timepoint | null };
+  readonly premium: { readonly amount: Yen; readonly frequency: "monthly" | "annual" | "single"; readonly payUntil: Timepoint | null };
   readonly deductionCategory: {
     readonly type: "general" | "careMedical" | "pension" | "earthquake" | "longTermNonLife" | "none";
     readonly regime?: "new" | "old";
   };
+  readonly beneficiaries?: readonly { readonly member?: string; readonly external?: "child" | "parent" | "sibling" | "other"; readonly share: string }[];
+  readonly annuitant?: string;
+  readonly waiver?: boolean;
+  readonly renewals?: readonly { readonly at: Timepoint; readonly premium: Yen }[];
+  readonly coverages?: readonly CoverageInput[];
+  readonly schedule?: { readonly source?: { readonly productRef: string; readonly digest: string }; readonly rows: readonly ScheduleRowInput[] };
+  readonly simple?: { readonly returnRate?: string; readonly assetClass?: string; readonly loadRate?: string };
+  readonly surrender?: Timepoint;
 }
 
 export interface ResidentTaxAssessmentInput {
@@ -295,6 +351,71 @@ export interface HouseholdInput {
   readonly savingsChecks?: readonly SavingsCheckInput[];
   readonly retirementBenefits?: readonly RetirementBenefitInput[];
   readonly goals?: readonly GoalInput[];
+  readonly careExpenses?: readonly CareExpenseInput[];
+}
+
+/** 6.10: 介護の費用 */
+export interface CareExpenseInput {
+  readonly id: string;
+  readonly member: string;
+  readonly payer?: string;
+  readonly from: Timepoint;
+  readonly months?: number;
+  readonly place?: "home" | "facility";
+  readonly serviceMonthly?: ValueBox<Yen>;
+  readonly otherMonthly?: ValueBox<Yen>;
+  readonly initial?: ValueBox<Yen>;
+  readonly growth?: GrowthInput;
+  readonly onContingency?: OnContingencyInput;
+}
+
+export type ContingencyKind = "death" | "disability" | "incapacity";
+
+/** 0008 の5: 万一の想定（要求1つに1件まで） */
+export interface ContingencyInput {
+  readonly id: string;
+  readonly kind: ContingencyKind;
+  readonly member: string;
+  readonly occurs: Timepoint;
+  readonly grade?: 1 | 2 | 3;
+  readonly recovery?: Timepoint;
+  readonly survivor?: {
+    readonly livingRatio?: { readonly beforeIndependence?: string; readonly afterIndependence?: string };
+    readonly independenceAge?: number;
+    readonly funeral?: Yen;
+    readonly reserveMonths?: number;
+    readonly deathBenefits?: { readonly retirementAllowance?: Yen; readonly condolence?: Yen; readonly workRelated?: boolean };
+    readonly spouseWork?: readonly EmploymentPeriodInput[];
+  };
+  readonly medical?: { readonly monthly: Yen; readonly months: number; readonly from?: Timepoint };
+}
+
+export type StressTemplate = "marketDropAtRetirement" | "inflationSpike" | "rateRise" | "incomeDrop";
+
+export interface StressTestInput {
+  readonly template: StressTemplate;
+  readonly params?: {
+    readonly member?: string;
+    readonly year?: number;
+    readonly from?: string;
+    readonly years?: number;
+    readonly drop?: string;
+    readonly rate?: string;
+    readonly add?: string;
+    readonly ratio?: string;
+    readonly alsoWages?: boolean;
+    readonly kinds?: readonly AccountKind[];
+  };
+}
+
+export interface ProtectionRequest {
+  readonly members?: readonly string[];
+  readonly method?: "accumulation" | "reverse";
+  readonly horizon?: { readonly kind: "lifeExpectancy" | "age" | "youngestIndependence"; readonly age?: number };
+  readonly reverseUntilAge?: number;
+  readonly fromYear?: number;
+  readonly toYear?: number;
+  readonly survivor?: Omit<NonNullable<ContingencyInput["survivor"]>, "spouseWork">;
 }
 
 /** 額の伸び方（計算基準年の価格で入れた額を年ごとに伸ばす） */
@@ -307,6 +428,8 @@ export interface GrowthInput {
 export interface OnContingencyInput {
   readonly mode: "continue" | "stop" | "ratio";
   readonly ratio?: string;
+  /** どの万一で当てるか（省略は死亡だけ） */
+  readonly kinds?: readonly ("death" | "disability" | "incapacity")[];
 }
 
 export type LivingCategory = "food" | "utilities" | "furniture" | "clothing" | "health" | "transport" | "recreation" | "otherConsumption" | "allowance";
@@ -449,8 +572,16 @@ export interface EducationGoalInput {
     readonly debtor?: "child" | "parent";
   }[];
   readonly loans?: readonly { readonly at: Timepoint; readonly amount: Yen; readonly rate: string; readonly termMonths: number; readonly borrower: string }[];
-  readonly gifts?: readonly { readonly at: Timepoint; readonly amount: Yen; readonly purpose: "wedding" | "housing" | "other"; readonly payer?: string }[];
+  readonly gifts?: readonly {
+    readonly at: Timepoint;
+    readonly amount: Yen;
+    readonly purpose: "wedding" | "housing" | "other";
+    readonly payer?: string;
+    readonly taxMethod?: "calendar" | "settlement";
+    readonly housingExemption?: "energySaving" | "other" | "none";
+  }[];
   readonly childAllowance?: boolean;
+  readonly highSchoolSupport?: "eligible" | "ineligible";
 }
 
 export interface GoalInput {
@@ -475,7 +606,26 @@ export interface EngineInput {
     readonly pensionMacroSlideEmployee?: YearSeries;
     readonly assetReturns?: Readonly<Record<string, YearSeries>>;
     readonly withdrawal?: { readonly order?: readonly ({ readonly kind: AccountKind } | { readonly object: string })[]; readonly minimumDeposit?: Yen };
+    readonly marketShocks?: readonly MarketShock[];
+    readonly loanRateShifts?: readonly { readonly from: string; readonly add: string }[];
+    readonly incomeShocks?: readonly IncomeShock[];
   };
+  readonly contingencies?: readonly ContingencyInput[];
+  readonly stressTest?: StressTestInput;
+  readonly protection?: ProtectionRequest;
+}
+
+export interface MarketShock {
+  readonly year: number;
+  readonly drop: string;
+  readonly kinds?: readonly AccountKind[];
+}
+
+export interface IncomeShock {
+  readonly member: string;
+  readonly from: string;
+  readonly to: string;
+  readonly ratio: string;
 }
 
 export interface EngineRequest {

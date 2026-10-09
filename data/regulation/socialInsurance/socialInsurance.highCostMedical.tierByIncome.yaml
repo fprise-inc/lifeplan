@@ -1,0 +1,23 @@
+id: socialInsurance.highCostMedical.tierByIncome
+title: 高額療養費の区分（国民健康保険などの旧ただし書き所得。upTo 以下なら amount の区分）
+unit: JPY
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: "2015-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 2100000, "amount": 4}
+      - {"upTo": 6000000, "amount": 3}
+      - {"upTo": 9010000, "amount": 2}
+      - {"upTo": null, "amount": 1}
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "旧ただし書き所得 901万円超・600万〜901万円・210万〜600万円・210万円以下", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "区分ア 901万円超・イ 600万円超901万円以下・ウ 210万円超600万円以下・エ 210万円以下"}

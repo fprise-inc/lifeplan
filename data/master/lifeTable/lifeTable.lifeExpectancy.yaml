@@ -1,0 +1,60 @@
+id: lifeTable.lifeExpectancy
+title: 主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）
+unit: rate
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2026-07-01"
+    appliesTo: null
+    enforcedOn: "2026-07-24"
+    status: enacted
+    jurisdiction: "national"
+    conditions: [{"key": "sex", "equals": "male"}]
+    value:
+      - {"upTo": 0, "rate": "81.35"}
+      - {"upTo": 20, "rate": "61.72"}
+      - {"upTo": 30, "rate": "51.98"}
+      - {"upTo": 40, "rate": "42.29"}
+      - {"upTo": 50, "rate": "32.82"}
+      - {"upTo": 60, "rate": "23.86"}
+      - {"upTo": 65, "rate": "19.68"}
+      - {"upTo": 70, "rate": "15.78"}
+      - {"upTo": 75, "rate": "12.24"}
+      - {"upTo": 80, "rate": "9.10"}
+      - {"upTo": 85, "rate": "6.44"}
+      - {"upTo": 90, "rate": "4.38"}
+      - {"upTo": null, "rate": "4.38"}
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/saikin/hw/life/life25/dl/life25-02.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年簡易生命表 主な年齢の平均余命（男）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.psrn.jp/topics/detail.php?id=41938", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年簡易生命表（30歳・50歳・70歳・80歳・85歳）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和7(2025)年簡易生命表（2026年7月24日公表）の主な年齢の平均余命（男）。年齢の間は部品が補間する"}
+  - rev: 2
+    appliesFrom: "2026-07-01"
+    appliesTo: null
+    enforcedOn: "2026-07-24"
+    status: enacted
+    jurisdiction: "national"
+    conditions: [{"key": "sex", "equals": "female"}]
+    value:
+      - {"upTo": 0, "rate": "87.33"}
+      - {"upTo": 20, "rate": "67.67"}
+      - {"upTo": 30, "rate": "57.85"}
+      - {"upTo": 40, "rate": "48.05"}
+      - {"upTo": 50, "rate": "38.41"}
+      - {"upTo": 60, "rate": "29.07"}
+      - {"upTo": 65, "rate": "24.52"}
+      - {"upTo": 70, "rate": "20.10"}
+      - {"upTo": 75, "rate": "15.88"}
+      - {"upTo": 80, "rate": "11.95"}
+      - {"upTo": 85, "rate": "8.47"}
+      - {"upTo": 90, "rate": "5.66"}
+      - {"upTo": null, "rate": "5.66"}
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/saikin/hw/life/life25/dl/life25-02.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年簡易生命表 主な年齢の平均余命（女）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.psrn.jp/topics/detail.php?id=41938", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年簡易生命表（30歳・50歳・70歳・80歳・85歳）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和7(2025)年簡易生命表（2026年7月24日公表）の主な年齢の平均余命（女）"}

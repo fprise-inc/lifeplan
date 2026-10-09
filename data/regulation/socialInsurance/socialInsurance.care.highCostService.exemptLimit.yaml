@@ -1,0 +1,19 @@
+id: socialInsurance.care.highCostService.exemptLimit
+title: 高額介護サービス費の負担の上限（月額。世帯全員が住民税非課税）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2021-08-01"
+    appliesTo: null
+    enforcedOn: "2021-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 24600
+    sources:
+      - {"type": "web", "url": "https://www.city.sumida.lg.jp/kenko_fukushi/koureisya_kaigohoken/tanpopo.files/10.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "世帯全員が住民税非課税 24,600円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "介護保険法施行令22条の2の2（年金収入80万円以下などの15,000円は扱わない）"}

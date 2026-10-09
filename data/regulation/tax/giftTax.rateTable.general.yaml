@@ -1,0 +1,28 @@
+id: giftTax.rateTable.general
+title: 贈与税の速算表（一般税率。基礎控除後の課税価格の段階、rate は税率、amount は控除額）
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: "2015-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 2000000, "rate": "0.1", "amount": 0}
+      - {"upTo": 3000000, "rate": "0.15", "amount": 100000}
+      - {"upTo": 4000000, "rate": "0.2", "amount": 250000}
+      - {"upTo": 6000000, "rate": "0.3", "amount": 650000}
+      - {"upTo": 10000000, "rate": "0.4", "amount": 1250000}
+      - {"upTo": 15000000, "rate": "0.45", "amount": 1750000}
+      - {"upTo": 30000000, "rate": "0.5", "amount": 2500000}
+      - {"upTo": null, "rate": "0.55", "amount": 4000000}
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "一般贈与財産用（一般税率）の速算表", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "相続税法21条の7。計算例（500万円→53万円）と一致"}

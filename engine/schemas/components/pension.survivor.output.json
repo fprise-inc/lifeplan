@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:pension.survivor.output",
+  "title": "遺族年金の部品の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "months", "deceased", "death", "lumpSum"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "months": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["month", "basic", "employee", "widowAddition", "widowPension"],
+        "properties": {
+          "month": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "basic": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "employee": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "widowAddition": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "widowPension": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+        }
+      }
+    },
+    "deceased": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/uuid" }] },
+    "death": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }] },
+    "lumpSum": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+  }
+}

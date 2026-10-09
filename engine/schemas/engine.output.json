@@ -21,6 +21,8 @@
             "net": { "$ref": "urn:financia:schema:common#/$defs/yen" }
           }
         },
+        "insurance": { "$ref": "#/$defs/insurance" },
+        "gifts": { "$ref": "#/$defs/gifts" },
         "advisoryFee": {
           "type": "object",
           "additionalProperties": false,
@@ -49,6 +51,119 @@
         }
       }
     },
+    "protection": {
+      "description": "6.3: 必要保障額の推移（構成員ごとに「この年に亡くなったら」を1年ずつずらす）。積み上げ方式は金融資産を含む額と含まない額、逆算方式は資産が尽きない最小の保険金。加入中の死亡保険金と並べる",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "members"],
+      "properties": {
+        "method": { "enum": ["accumulation", "reverse"] },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["member", "years"],
+            "properties": {
+              "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "survivor": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "years": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["year", "death", "horizon", "need", "needWithAssets", "coverage"],
+                  "properties": {
+                    "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+                    "death": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+                    "horizon": { "$ref": "urn:financia:schema:common#/$defs/year" },
+                    "need": { "description": "必要保障額（金融資産を含まない。積み上げ方式は不足額の累計、逆算方式は最小の保険金）", "$ref": "urn:financia:schema:common#/$defs/yen" },
+                    "needWithAssets": { "description": "金融資産（亡くなった年の前の年末）を準備できる資金に含めた額", "$ref": "urn:financia:schema:common#/$defs/yen" },
+                    "coverage": { "description": "加入中の死亡保険金（一時金と収入保障の残りの合計）", "$ref": "urn:financia:schema:common#/$defs/yen" },
+                    "expenses": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+                    "resources": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+                    "lumpSum": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+                    "assets": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "insurance": {
+      "description": "6.8: 保障内容一覧と払込保険料の推移の材料（商品を特定しない形）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contracts", "byYear"],
+      "properties": {
+        "contracts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["object", "template", "policyholder", "insured", "coverages"],
+            "properties": {
+              "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "template": { "type": "string" },
+              "policyholder": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "insured": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "coverages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["id", "role", "benefit", "amount"],
+                  "properties": {
+                    "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                    "role": { "enum": ["main", "rider"] },
+                    "benefit": { "type": "string" },
+                    "amount": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+                    "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+                    "to": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "byYear": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["year", "object", "premium", "deathBenefit", "surrenderValue"],
+            "properties": {
+              "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+              "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "premium": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+              "deathBenefit": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+              "surrenderValue": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+            }
+          }
+        }
+      }
+    },
+    "gifts": {
+      "description": "贈与と贈与税（受け取る構成員×年）。inCashflow は世帯が受け取った贈与の税をキャッシュフロー表に載せたか（世帯から出す贈与の税は受け取る人が払うので載せない）",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["year", "recipient", "amount", "exempt", "tax", "inCashflow"],
+        "properties": {
+          "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+          "recipient": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "exempt": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "calendarTaxable": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "settlementTaxable": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "tax": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "inCashflow": { "type": "boolean" }
+        }
+      }
+    },
     "error": {
       "description": "0005 の8: ID だけを入れ、値は入れない",
       "type": "object",
@@ -71,6 +186,7 @@
       "additionalProperties": false,
       "required": ["header", "flows", "annual", "table", "summary", "trace"],
       "properties": {
+        "protection": { "$ref": "#/$defs/protection" },
         "header": { "$ref": "#/$defs/header" },
         "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
         "annual": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/annualRow" } },
@@ -128,6 +244,30 @@
         "baseMonth": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
         "endYear": { "$ref": "urn:financia:schema:common#/$defs/year" },
         "calcConventions": { "$ref": "urn:financia:schema:engine.input#/properties/calcConventions" },
+        "contingency": {
+          "description": "重ねた万一の想定（0008 の5。月は解決した年月）",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "kind", "member", "occurs"],
+          "properties": {
+            "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "kind": { "enum": ["death", "disability", "incapacity"] },
+            "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "occurs": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+            "grade": { "enum": [1, 2, 3] },
+            "recovery": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }
+          }
+        },
+        "stressTest": {
+          "description": "展開したストレステストの型と値",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["template", "params"],
+          "properties": {
+            "template": { "enum": ["marketDropAtRetirement", "inflationSpike", "rateRise", "incomeDrop"] },
+            "params": { "type": "object" }
+          }
+        },
         "components": { "type": "array", "items": { "$ref": "#/$defs/componentRef" } },
         "data": {
           "type": "array",

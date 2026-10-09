@@ -116,6 +116,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: assumptions.incomeShocks
+    status: active
+    label: "収入の減少（ストレステスト。構成員の給与・事業所得を from〜to の月だけ ratio の割合で減らす）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: assumptions.inflation
     status: active
     label: "物価上昇率（年率。省略は0。年金額の改定に使う）"
@@ -125,6 +131,18 @@ entries:
   - id: assumptions.investmentReturn
     status: active
     label: "運用利回り（年率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.loanRateShifts
+    status: active
+    label: "変動金利の上乗せ（ストレステスト。from の月から、変動金利の段の金利に add を足す）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.marketShocks
+    status: active
+    label: "資産の時価の下落（ストレステスト。その年の年末に、器の時価をその割合だけ下げる）"
     since: draft
     aliases: []
     replacedBy: null
@@ -200,6 +218,108 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: care.from
+    status: active
+    label: "始まり"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.growth
+    status: active
+    label: "伸び方（省略は物価上昇率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.initial
+    status: active
+    label: "一時費用（住宅の改修・介護用品など）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.member
+    status: active
+    label: "介護を受ける構成員（本人・親など）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.months
+    status: active
+    label: "期間の月数（省略は統計の既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.onContingency
+    status: active
+    label: "万一のときの扱い（払う人の万一）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.otherMonthly
+    status: active
+    label: "介護保険の対象外の費用（月額。居住費・食費・日常の費用。計算基準年の価格）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.payer
+    status: active
+    label: "払う構成員（省略は介護を受ける人）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.place
+    status: active
+    label: "在宅か施設か（統計の既定の月額を選ぶ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.serviceMonthly
+    status: active
+    label: "介護保険の対象の費用（月額・10割。計算基準年の価格）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: contingency.grade
+    status: active
+    label: "障害等級（該当した場合の仮定。1〜3級。障害年金・団信・保険の判定だけに使う）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: contingency.kind
+    status: active
+    label: "万一の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: contingency.medical
+    status: active
+    label: "医療費（就業不能・障害のとき。高額療養費で自己負担を簡易に計算する）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: contingency.member
+    status: active
+    label: "対象の構成員"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: contingency.occurs
+    status: active
+    label: "起きる月（死亡の月・初診日の月・働けなくなった月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: contingency.recovery
+    status: active
+    label: "働けるようになる月（その月から元の働き方に戻る。省略は戻らない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: contingency.survivor
+    status: active
+    label: "遺族の側の前提（死亡）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: debt.balance
     status: active
     label: "残高（balanceAsOf の月の返済の後。既に借りているローン）"
@@ -214,7 +334,7 @@ entries:
     replacedBy: null
   - id: debt.creditLife
     status: active
-    label: "団体信用生命保険（団信で残高が消える計算は万一の作業で使う）"
+    label: "団体信用生命保険（万一の想定で、団信の部品 debt.creditLifeEvents が残高の消える月と割合を返し、debt.schedule がその月以後の残高と返済を減らす）"
     since: draft
     aliases: []
     replacedBy: null
@@ -512,9 +632,27 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: insurance.annuitant
+    status: active
+    label: "満期金・年金・祝金の受取人（省略は契約者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.beneficiaries
+    status: active
+    label: "死亡保険金の受取人（構成員、または構成員でない受取人の続柄）と割合"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: insurance.contractDate
     status: active
     label: "契約の年月"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.coverages
+    status: active
+    label: "主契約と特約の明細（給付の種類ごとの金額と期間）"
     since: draft
     aliases: []
     replacedBy: null
@@ -548,9 +686,39 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: insurance.renewals
+    status: active
+    label: "更新（その月から更新後の保険料）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.schedule
+    status: active
+    label: "年次の数表（保険年度ごと。主契約・特約ごと）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.simple
+    status: active
+    label: "数表の無い契約を型（ひな形）から計算するための簡易の入力"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.surrender
+    status: active
+    label: "解約する月（解約返戻金を受け取り、保障と払込が終わる）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: insurance.template
     status: active
     label: "保険の種類のひな形"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: insurance.waiver
+    status: active
+    label: "保険料の払込免除（障害・就業不能の想定で払込が止まる）"
     since: draft
     aliases: []
     replacedBy: null

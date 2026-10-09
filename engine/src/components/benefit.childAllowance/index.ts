@@ -1,5 +1,5 @@
 // 児童手当（2024年10月分からの制度。値は制度データ regulation.educationSupport）。世帯の子（構成員の種類 child）ごとに、出生の翌月分から
-// 18歳に達した後の最初の3月31日の月分まで、3歳未満（3歳に達した月の翌月の前まで）は月額 under3、それ以後は general、第3子以降は thirdChild。
+// 18歳に達した後の最初の3月31日の月分まで、3歳未満（3歳の誕生日の属する月の翌月の前まで。1日生まれも同じ）は月額 under3、それ以後は general、第3子以降は thirdChild。
 // 第3子の数え方は、22歳に達した後の最初の3月31日までの子（世帯にいる子）を生まれの順に数える（親が経済的な負担をしているとみなす近似）。
 // 支払いは偶数月に前の2か月分（2月に12月・1月分）。受け取るのは子の最初の親（関係 parentOf。無ければ本人）。
 // 教育の目標の education.childAllowance が false の子は計算しない。所得の制限は無い
@@ -32,7 +32,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "benefit.childAllowance",
   title: "児童手当",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {},
   params: Object.values(P),
   reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "goal.kind", "goal.owner", "goal.education"],
@@ -54,7 +54,8 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       born: parseYm(c.birth.birthYearMonth),
       joins: c.joins === null ? null : ctx.time.resolve(c.joins),
       leaves: c.leaves === null ? null : ctx.time.resolve(c.leaves),
-      lower: ageMonth(ctx, base, P.lower, c.id),
+      // 3歳の切り替えは誕生日の属する月の翌月から（法9条3項。1日生まれも同じ。規則 monthAfterBirthday。制度データの ageSwitch より優先する。改訂2）
+      lower: ctx.time.ageSwitch(c.id, { years: ctx.at(base).paramCount(P.lower) ?? 3 }, "monthAfterBirthday"),
       until: ageMonth(ctx, base, P.until, c.id),
       count: ageMonth(ctx, base, P.count, c.id),
       parent: parentOf(c.id),

@@ -1,0 +1,21 @@
+id: pension.survivor.widowAddition.untilAge
+title: 中高齢寡婦加算を加算する年齢の終わり（65歳に達するまで。達した月の翌月から加算しない）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: monthAfterReach
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 65
+    sources:
+      - {"type": "web", "url": "https://www.jili.or.jp/lifeplan/lifesecurity/1041.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "妻が65歳になるまで加算", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "厚生年金保険法62条1項の65歳"}

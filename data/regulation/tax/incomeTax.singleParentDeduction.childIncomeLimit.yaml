@@ -1,0 +1,46 @@
+id: incomeTax.singleParentDeduction.childIncomeLimit
+title: ひとり親控除の生計を一にする子の総所得金額等の上限
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: "2024-12-31"
+    enforcedOn: "2020-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 480000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "総所得金額等が48万円以下の子", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "所得税法施行令11条の2の48万円（基礎控除の額）"}
+  - rev: 2
+    appliesFrom: "2025-01-01"
+    appliesTo: "2025-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 580000
+    sources:
+      - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "子の所得要件は58万円以下", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和7年分は58万円（基礎控除の見直しに合わせた）"}
+  - rev: 3
+    appliesFrom: "2026-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 620000
+    sources:
+      - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "62万円以下（給与収入のみの場合は年収136万円以下）へ引き上げ。2026年分から", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和8年分から62万円（検索の要約）"}

@@ -1,0 +1,20 @@
+id: pension.survivor.widowAddition.ratio
+title: 中高齢寡婦加算（遺族基礎年金の額×4分の3）
+unit: rate
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.75"
+    sources:
+      - {"type": "web", "url": "https://www.jili.or.jp/lifeplan/lifesecurity/1041.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "中高齢寡婦加算（年額635,500円）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "厚生年金保険法62条1項の4分の3。令和8年度は847,300円×3/4→635,500円（100円単位）で、検索の要約の635,500円と一致"}

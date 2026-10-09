@@ -1,0 +1,20 @@
+id: giftTax.settlement.specialDeduction
+title: 相続時精算課税の特別控除（贈与者ごとの累計）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2003-01-01"
+    appliesTo: null
+    enforcedOn: "2003-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 25000000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4103.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "特別控除額 2,500万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "相続税法21条の12の2,500万円"}

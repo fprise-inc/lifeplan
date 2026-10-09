@@ -1,0 +1,28 @@
+id: giftTax.rateTable.special
+title: 贈与税の速算表（特例税率。直系尊属から18歳以上の者への贈与）
+unit: JPY
+kind: bracketTable
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: "2015-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 2000000, "rate": "0.1", "amount": 0}
+      - {"upTo": 4000000, "rate": "0.15", "amount": 100000}
+      - {"upTo": 6000000, "rate": "0.2", "amount": 300000}
+      - {"upTo": 10000000, "rate": "0.3", "amount": 900000}
+      - {"upTo": 15000000, "rate": "0.4", "amount": 1900000}
+      - {"upTo": 30000000, "rate": "0.45", "amount": 2650000}
+      - {"upTo": 45000000, "rate": "0.5", "amount": 4150000}
+      - {"upTo": null, "rate": "0.55", "amount": 6400000}
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "特例贈与財産用（特例税率）の速算表", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "租税特別措置法70条の2の5。計算例（500万円→48.5万円）と一致"}

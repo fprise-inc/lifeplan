@@ -1,0 +1,20 @@
+id: pension.survivor.elderly.proportionalRatio
+title: 65歳以降の遺族厚生年金の額の比較で使う報酬比例の額の割合（遺族厚生年金×3分の2＝報酬比例×2分の1）
+unit: rate
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2007-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.5"
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/izokunenkin/jukyu-yoken/20150401-03.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "65歳以上で老齢厚生年金を受ける権利がある方の計算", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "厚生年金保険法60条1項2号（遺族厚生年金の額×3分の2＋自分の老齢厚生年金×2分の1）。報酬比例×3/4×2/3＝報酬比例×1/2"}

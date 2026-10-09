@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:pension.survivor.input",
+  "title": "遺族年金の部品の入力（受け取る構成員。death は必要保障額の推移で「この月に亡くなったら」を試すとき）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["member"],
+  "properties": {
+    "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+    "death": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["member", "month"],
+      "properties": {
+        "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "month": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@
 // その年の12月31日の年齢の係数と前の年の係数の比も掛ける（0008 の追記。標準報酬の定時決定は9月から等級を変える近似）
 // 役員（executive）: 役員報酬は定期同額（年額を12か月に等分）、賞与は事前確定届出給与（届け出た支給月と額）として同じ形で入れ、
 // 行は cf.income.salary.executive。会社の側の計算（役員報酬をいくらにするか・法人税・会社負担の社会保険料・退職金の財源）は入れない
+// ストレステストの収入の減少（前提 incomeShocks。改訂5）: その構成員の from〜to の月の給与・賞与を ratio の割合だけ減らす（標準報酬月額は変えない近似）
 import {
   boxValue,
   defineComponent,
@@ -16,6 +17,7 @@ import {
   type Bracket,
   type EmploymentPeriodInput,
   type Flow,
+  type IncomeShock,
   type MemberInput,
   type Rate,
   type SalaryPayment,
@@ -36,7 +38,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
   id: "income.salary",
   title: "給与・賞与",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: {},
   params: [CURVE],
   reads: [
@@ -51,6 +53,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
     "employment.salary.commutingMonthly",
     "employment.salary.growth",
     "assumptions.wageGrowth",
+    "assumptions.incomeShocks",
   ],
   memberScope: ["employment"],
   input: "income.salary.input",
@@ -66,6 +69,12 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
     const birthYear = yearOf(parseYm(ctx.get<MemberInput>("member", input.member).birth.birthYearMonth));
     const flows: Flow[] = [];
     const payments: SalaryPayment[] = [];
+    const shocks = (ctx.setting<readonly IncomeShock[]>("incomeShocks") ?? []).filter((x) => x.member === input.member).map((x) => ({ from: parseYm(x.from), to: parseYm(x.to), keep: ctx.rate.sub(RATE_ONE, ctx.rate.of(x.ratio)) }));
+    const shock = (month: number, a: Yen): Yen => {
+      let v = a;
+      for (const sh of shocks) if (month >= sh.from && month <= sh.to && v > 0) v = ctx.money.mulRate(v, sh.keep, "conv.salary.monthly");
+      return v;
+    };
     for (const p of periods) {
       const from = ctx.time.resolve(p.from);
       const to = p.to === null ? end : ctx.time.resolve(p.to);
@@ -102,8 +111,8 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
           const month = monthIndex(y, m);
           if (month < start || month > stop) continue;
           const bi = bonusMonths.indexOf(m);
-          const bonusAmount = bi >= 0 && b > 0 ? (bonusParts[bi] as Yen) : yen(0);
-          const salary = monthly[m - 1] as Yen;
+          const bonusAmount = shock(month, bi >= 0 && b > 0 ? (bonusParts[bi] as Yen) : yen(0));
+          const salary = shock(month, monthly[m - 1] as Yen);
           const ym = formatYm(month);
           payments.push({ ym, period: p.id, salary, bonus: bonusAmount, commuting });
           if (salary > 0) {

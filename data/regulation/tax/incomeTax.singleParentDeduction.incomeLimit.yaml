@@ -1,0 +1,34 @@
+id: incomeTax.singleParentDeduction.incomeLimit
+title: ひとり親控除の本人の合計所得金額の上限
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: "2026-12-31"
+    enforcedOn: "2020-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5000000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "合計所得金額が500万円以下", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "所得税法2条1項31号の500万円"}
+  - rev: 2
+    appliesFrom: "2027-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 10000000
+    sources:
+      - {"type": "web", "url": "https://biz.moneyforward.com/tax_return/basic/52713/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "合計所得金額の要件は500万円以下から1,000万円に拡充予定", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://hojyokin-portal.jp/columns/hitorioya_kojyo", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "合計所得金額が1,000万円以下", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "1,000万円への拡充。適用の年を令和8年分とする解説と令和9年分（控除額の38万円と同じ）とする解説があり、令和9年分とした（原本で確かめる）"}

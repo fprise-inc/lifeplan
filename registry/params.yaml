@@ -2,6 +2,36 @@
 # since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
 kind: param
 entries:
+  - id: care.statistics.initial
+    status: active
+    label: "介護の一時的な費用の平均"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.statistics.monthly
+    status: active
+    label: "介護の月々の費用の平均（自己負担。在宅・施設の全体）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.statistics.monthlyFacility
+    status: active
+    label: "介護の月々の費用の平均（施設）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.statistics.monthlyHome
+    status: active
+    label: "介護の月々の費用の平均（在宅）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: care.statistics.months
+    status: active
+    label: "介護の期間の平均（月数）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: childAllowance.countUntilAge
     status: active
     label: "児童手当の第3子の数え方で数える子の年齢（この年齢に達した後の最初の3月31日まで）"
@@ -374,9 +404,33 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: educationSupport.higher.waiver.rounding
+    status: active
+    label: "授業料等の減免の額の端数（区分の割合を掛けた額の100円未満を切り上げ）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: educationSupport.higher.waiverRatio
     status: active
     label: "修学支援の授業料・入学金の減免の割合（区分ごと）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.careLeaveBenefit.maxDays
+    status: active
+    label: "介護休業給付金の支給の日数の上限（対象の家族1人につき通算93日）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.careLeaveBenefit.monthlyLimit
+    status: active
+    label: "介護休業給付金の支給の上限額（支給日数30日あたり。毎年8月1日に改定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.careLeaveBenefit.rate
+    status: active
+    label: "介護休業給付金の支給率（休業開始時賃金日額×支給日数の67%）"
     since: draft
     aliases: []
     replacedBy: null
@@ -479,6 +533,78 @@ entries:
   - id: forestEnvironmentTax.amount
     status: active
     label: "森林環境税（国税。住民税の均等割と一緒に徴収する年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.basicDeduction
+    status: active
+    label: "贈与税（暦年課税）の基礎控除"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.housingFunds.exemption.energySaving
+    status: active
+    label: "住宅取得等資金の贈与税の非課税限度額（省エネ等住宅）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.housingFunds.exemption.other
+    status: active
+    label: "住宅取得等資金の贈与税の非課税限度額（省エネ等住宅以外）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.housingFunds.incomeLimit
+    status: active
+    label: "住宅取得等資金の非課税の受贈者の合計所得金額の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.rateTable.general
+    status: active
+    label: "贈与税の速算表（一般税率。基礎控除後の課税価格の段階、rate は税率、amount は控除額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.rateTable.special
+    status: active
+    label: "贈与税の速算表（特例税率。直系尊属から18歳以上の者への贈与）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.settlement.basicDeduction
+    status: active
+    label: "相続時精算課税の基礎控除（受贈者ごと・その年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.settlement.rate
+    status: active
+    label: "相続時精算課税の税率"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.settlement.specialDeduction
+    status: active
+    label: "相続時精算課税の特別控除（贈与者ごとの累計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.special.recipientMinAge
+    status: active
+    label: "特例税率・相続時精算課税・住宅取得等資金の非課税の受贈者の年齢（贈与の年の1月1日に18歳以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.tax.rounding
+    status: active
+    label: "贈与税の税額の端数（100円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: giftTax.taxable.rounding
+    status: active
+    label: "贈与税の課税価格の端数（1,000円未満切り捨て）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1034,6 +1160,24 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.singleParentDeduction
+    status: active
+    label: "ひとり親控除（所得税）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.singleParentDeduction.childIncomeLimit
+    status: active
+    label: "ひとり親控除の生計を一にする子の総所得金額等の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.singleParentDeduction.incomeLimit
+    status: active
+    label: "ひとり親控除の本人の合計所得金額の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.specifiedRelativeDeduction
     status: active
     label: "特定親族特別控除（19歳以上23歳未満の親族の合計所得金額の段階）"
@@ -1109,6 +1253,36 @@ entries:
   - id: incomeTax.taxableIncome.rounding
     status: active
     label: "課税される所得金額の1,000円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.temporaryIncome.specialDeduction
+    status: active
+    label: "一時所得の特別控除額（50万円まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.temporaryIncome.taxableRatio
+    status: active
+    label: "総所得金額に入れる一時所得の割合（2分の1）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.widowDeduction
+    status: active
+    label: "寡婦控除（所得税）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.widowDeduction.incomeLimit
+    status: active
+    label: "寡婦控除の本人の合計所得金額の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: lifeTable.lifeExpectancy
+    status: active
+    label: "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1238,6 +1412,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.deathLumpSum
+    status: active
+    label: "死亡一時金の額（第1号被保険者としての保険料の納付月数の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.deathLumpSum.requiredMonths
+    status: active
+    label: "死亡一時金の第1号被保険者としての保険料の納付月数の要件（36月）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.deferral.increaseRate
     status: active
     label: "繰下げの増額率（1か月あたり）"
@@ -1247,6 +1433,36 @@ entries:
   - id: pension.deferral.maxMonths
     status: active
     label: "繰下げの増額の上限の月数（昭和27年4月2日以後生まれは75歳まで、それ以前は70歳まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.disability.basicGrade1Ratio
+    status: active
+    label: "1級の障害基礎年金の額（2級の額×1.25）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.disability.deemedMonths
+    status: active
+    label: "障害厚生年金で被保険者期間が300月に満たないときのみなしの月数"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.disability.employeeGrade1Ratio
+    status: active
+    label: "1級の障害厚生年金の額（報酬比例の額×1.25）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.disability.grade3MinimumRatio
+    status: active
+    label: "3級の障害厚生年金の最低保障額（障害基礎年金2級の額×4分の3）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.disability.recognitionMonths
+    status: active
+    label: "障害認定日（初診日から1年6か月）の月数"
     since: draft
     aliases: []
     replacedBy: null
@@ -1406,6 +1622,84 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.survivor.elderly.ownRatio
+    status: active
+    label: "65歳以降の遺族厚生年金の額の比較で使う自分の老齢厚生年金の割合（2分の1）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.elderly.proportionalRatio
+    status: active
+    label: "65歳以降の遺族厚生年金の額の比較で使う報酬比例の額の割合（遺族厚生年金×3分の2＝報酬比例×2分の1）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.employee.deemedMonths
+    status: active
+    label: "遺族厚生年金の短期要件で被保険者期間が300月に満たないときのみなしの月数"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.employee.ratio
+    status: active
+    label: "遺族厚生年金の額（報酬比例の額×4分の3）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.husbandMinAge
+    status: active
+    label: "遺族厚生年金を受ける夫の年齢の要件（妻の死亡の当時55歳以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.husbandPayFromAge
+    status: active
+    label: "夫の遺族厚生年金の支給の始まりの年齢（60歳。遺族基礎年金を受ける間を除く）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.longTermMonths
+    status: active
+    label: "遺族年金の長期要件の受給資格期間（25年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.widowAddition.fromAge
+    status: active
+    label: "中高齢寡婦加算の対象の年齢（夫の死亡の当時・遺族基礎年金が終わった当時40歳以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.widowAddition.longTermEmployeeMonths
+    status: active
+    label: "中高齢寡婦加算の長期要件で要る夫の厚生年金の被保険者期間（20年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.widowAddition.ratio
+    status: active
+    label: "中高齢寡婦加算（遺族基礎年金の額×4分の3）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.widowAddition.untilAge
+    status: active
+    label: "中高齢寡婦加算を加算する年齢の終わり（65歳に達するまで。達した月の翌月から加算しない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.youngWidowAge
+    status: active
+    label: "遺族厚生年金が5年で終わる妻の年齢（夫の死亡の当時30歳未満で子のない妻）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.youngWidowMonths
+    status: active
+    label: "30歳未満の子のない妻の遺族厚生年金を受けられる期間（5年）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.transferAddition.baseAmount
     status: active
     label: "振替加算の基準額（224,700円×改定率。受給する人の改定率）"
@@ -1415,6 +1709,36 @@ entries:
   - id: pension.transferAddition.coefficient
     status: active
     label: "振替加算の率（振替加算を受ける人の生年月日。昭和9年4月2日〜昭和12年4月1日生まれの3区分は未確認のため置いていない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.widowPension.fromAge
+    status: active
+    label: "寡婦年金の支給の始まりの年齢（60歳）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.widowPension.marriageMonths
+    status: active
+    label: "寡婦年金の婚姻関係の期間の要件（10年以上継続）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.widowPension.ratio
+    status: active
+    label: "寡婦年金の額（夫の第1号被保険者期間で計算した老齢基礎年金の額×4分の3）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.widowPension.requiredMonths
+    status: active
+    label: "寡婦年金の夫の第1号被保険者期間の要件（10年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.widowPension.untilAge
+    status: active
+    label: "寡婦年金の支給の終わりの年齢（65歳に達するまで）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1454,6 +1778,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.singleParentFather
+    status: active
+    label: "調整控除の人的控除額の差（ひとり親控除・父）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.singleParentMother
+    status: active
+    label: "調整控除の人的控除額の差（ひとり親控除・母）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: residentTax.adjustmentCredit.diff.specifiedRelative
     status: active
     label: "調整控除の人的控除額の差（特定親族特別控除。令和8年度から差は無いものとして計算）"
@@ -1475,6 +1811,12 @@ entries:
   - id: residentTax.adjustmentCredit.diff.spouseSpecial
     status: active
     label: "調整控除の人的控除額の差（配偶者特別控除。令和8年度から差は無いものとして計算）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.adjustmentCredit.diff.widow
+    status: active
+    label: "調整控除の人的控除額の差（寡婦控除）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1706,6 +2048,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: residentTax.singleParentDeduction
+    status: active
+    label: "ひとり親控除（住民税）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: residentTax.specifiedRelativeDeduction
     status: active
     label: "住民税の特定親族特別控除（19歳以上23歳未満の親族の合計所得金額の段階）"
@@ -1760,6 +2108,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: residentTax.widowDeduction
+    status: active
+    label: "寡婦控除（住民税）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: smallBusinessMutualAid.contribution.monthlyMax
     status: active
     label: "小規模企業共済の掛金月額の上限"
@@ -1775,6 +2129,60 @@ entries:
   - id: smallBusinessMutualAid.installment.paymentsPerYear
     status: active
     label: "小規模企業共済の分割共済金の1年の支払いの回数"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.copay.ratio1
+    status: active
+    label: "介護サービスの利用者負担の割合（1割）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.copay.ratio2
+    status: active
+    label: "介護サービスの利用者負担の割合（2割）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.copay.ratio3
+    status: active
+    label: "介護サービスの利用者負担の割合（3割）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.copay.threeTenths.incomeFrom
+    status: active
+    label: "介護の3割負担の本人の合計所得金額の基準（220万円以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.copay.threeTenths.pensionCouple
+    status: active
+    label: "介護の3割負担の年金収入＋その他の合計所得金額の基準（2人以上・463万円以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.copay.threeTenths.pensionSingle
+    status: active
+    label: "介護の3割負担の年金収入＋その他の合計所得金額の基準（単身・340万円以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.copay.twoTenths.incomeFrom
+    status: active
+    label: "介護の2割負担の本人の合計所得金額の基準（160万円以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.copay.twoTenths.pensionCouple
+    status: active
+    label: "介護の2割負担の年金収入＋その他の合計所得金額の基準（2人以上・346万円以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.copay.twoTenths.pensionSingle
+    status: active
+    label: "介護の2割負担の年金収入＋その他の合計所得金額の基準（単身・280万円以上）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1799,6 +2207,18 @@ entries:
   - id: socialInsurance.care.firstInsured.ratio.taxable
     status: active
     label: "介護保険の第1号被保険者の保険料の割合（本人が住民税課税。合計所得金額の段階。国の標準段階の第6〜13段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.highCostService.exemptLimit
+    status: active
+    label: "高額介護サービス費の負担の上限（月額。世帯全員が住民税非課税）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.highCostService.limit
+    status: active
+    label: "高額介護サービス費の負担の上限（月額。住民税の課税世帯。前年の課税所得の段階）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1946,6 +2366,60 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.highCostMedical.elderlyAge
+    status: active
+    label: "高額療養費の70歳以上の区分になる年齢"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.highCostMedical.excessRate
+    status: active
+    label: "高額療養費の自己負担限度額の医療費に掛ける割合（1%）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.highCostMedical.incomeDeduction
+    status: active
+    label: "旧ただし書き所得で総所得金額等から引く額（住民税の基礎控除の額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.highCostMedical.tierByIncome
+    status: active
+    label: "高額療養費の区分（国民健康保険などの旧ただし書き所得。upTo 以下なら amount の区分）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.highCostMedical.tierByStandard
+    status: active
+    label: "高額療養費の区分（標準報酬月額。upTo 以下なら amount の区分）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.highCostMedical.under70.annualLimit
+    status: active
+    label: "高額療養費の年間上限（70歳未満。8月〜翌年7月の12か月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.highCostMedical.under70.base
+    status: active
+    label: "高額療養費の自己負担限度額（70歳未満・月額。upTo は区分（1 ア・2 イ・3 ウ・4 エ・5 オ））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.highCostMedical.under70.multiple
+    status: active
+    label: "高額療養費の多数回該当の自己負担限度額（70歳未満。直近12か月に3回以上で4回目から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.highCostMedical.under70.threshold
+    status: active
+    label: "高額療養費の自己負担限度額の1%を掛ける基準の医療費（区分ア〜ウ。エ・オは0）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.lateElderly.childSupport.incomeRate
     status: active
     label: "後期高齢者医療の子ども・子育て支援金分の所得割率（全国平均。既定）"
@@ -2051,6 +2525,12 @@ entries:
   - id: socialInsurance.maternityAllowance.days
     status: active
     label: "出産手当金の日数（出産の日以前42日と出産の翌日以後56日。単胎）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.medical.copayRate.under70
+    status: active
+    label: "医療の窓口の負担の割合（6歳〜69歳）"
     since: draft
     aliases: []
     replacedBy: null

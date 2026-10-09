@@ -10,12 +10,15 @@
 #   新しいファイルとして足した（原本での確認待ち）。既存のファイルは変えていない
 # 2026.4.0: 住民税の控除の上限の基礎に足す額の差し引き（residentTax.housingLoanCredit.basicDeductionOffset）を原本（地方税法附則5条の4の条文、
 #   総務省の事務連絡、国税庁 No.1199）と照らし合わせ、reviewed の行を足した（照合: claude、2026-10-09）。施行日は令和8年4月1日（令和8年度分から）。値は変えていない
+# 2026.5.0: 住宅取得等資金の贈与税の非課税（省エネ等住宅1,000万円・それ以外500万円・令和8年12月31日まで・受贈者の合計所得金額2,000万円以下）を
+#   新しいファイルで足した（既存のファイルは変えていない。検索の要約で読んだ値で、原本での確認待ち）
 packId: regulation.housing
 formatVersion: "0.1"
-version: "2026.4.0"
+version: "2026.5.0"
 features: []
 title: 住宅ローン控除
 requires:
+  gift.tax: ">=1 <2"
   tax.housingLoanCredit: ">=1 <2"
 license:
   values: CC0-1.0

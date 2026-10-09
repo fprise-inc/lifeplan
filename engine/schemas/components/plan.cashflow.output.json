@@ -30,6 +30,19 @@
           "$ref": "urn:financia:schema:common#/$defs/flow"
         }
       }
+    },
+    "details": {
+      "description": "約束の版 1.2: 保障内容一覧・払込保険料の推移の材料（insurance）と贈与の税（gifts）。エンジンが出力の summary に写す（任意の欄）",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "insurance": {
+          "$ref": "urn:financia:schema:engine.output#/$defs/insurance"
+        },
+        "gifts": {
+          "$ref": "urn:financia:schema:engine.output#/$defs/gifts"
+        }
+      }
     }
   }
 }

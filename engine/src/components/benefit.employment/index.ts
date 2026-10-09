@@ -4,6 +4,10 @@
 // - 出生後休業支援給付: 子の出生から2か月以内に始まる育児休業で、配偶者も同じく育児休業をとるか、雇用保険に入っていないか、産後休業中のとき、
 //   最初の月に賃金日額×28日×13%
 // - 育児時短就業給付: 2歳未満の子のための短時間勤務の期間に、時短の前より下がった給与の月、その月の給与×10%（支給限度額まで）
+// - 介護休業給付金（改訂3。6.10）: 介護休業（leaveKind: care）の期間に、休業開始時賃金日額（休業の前6か月の給与÷180。上限は介護休業の値）×
+//   休業の日数（月×30日。対象の家族1人につき通算93日まで。家族を区別しないので構成員ごとの通算）×率（67%）を、休業の終わりの翌月に払う
+//   （30日あたりの支給の上限額（制度データ）を日数で按分した額まで）。
+//   雇用保険に入っていない月（役員・公務員）の休業は出ない
 // 日数は月単位の近似で1か月を30日とみなす（PR の提案）。給付金は2か月分ずつ、その2か月の次の月に払う。時短の給付は翌月
 import {
   addMonths,
@@ -39,14 +43,17 @@ const P = {
   shortRate: "employmentInsurance.shortHoursBenefit.rate",
   shortLimit: "employmentInsurance.shortHoursBenefit.monthlyLimit",
   shortUntil: "employmentInsurance.shortHoursBenefit.childUntilAge",
+  careRate: "employmentInsurance.careLeaveBenefit.rate",
+  careDays: "employmentInsurance.careLeaveBenefit.maxDays",
+  careMax: "employmentInsurance.careLeaveBenefit.monthlyLimit",
 };
 const DAYS_PER_MONTH = 30;
 
 export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "benefit.employment",
-  title: "雇用保険の育児の給付",
+  title: "雇用保険の育児・介護の給付",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -147,6 +154,27 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
         const paid = addMonths(from, k - (k % 2) + 2);
         if (x.amount > 0) flows.push({ row: "cf.income.benefit", ym: formatYm(paid), amount: x.amount, accrualYear: yearOf(x.m), member, object: p.id, formula: x.formula });
       }
+    }
+    // 介護休業給付金
+    let careUsed = 0;
+    for (const { p, from, to } of periods) {
+      if (p.type !== "leave" || p.leaveKind !== "care" || !insured.has(formatYm(from))) continue;
+      const at = ctx.at(from);
+      const maxDays = at.paramCount(P.careDays);
+      const r = at.paramRate(P.careRate);
+      if (maxDays === null || r === null) continue;
+      let sum = 0;
+      for (let k = 1; k <= 6; k++) sum += salary.get(formatYm(addMonths(from, -k))) ?? 0;
+      const daily = ctx.money.mulRatio(yen(sum), 1, 180, "conv.benefit.daily");
+      const days = Math.min((to - from + 1) * DAYS_PER_MONTH, Math.max(0, maxDays - careUsed));
+      careUsed += days;
+      let amount = ctx.money.mulRate(ctx.money.mulRatio(daily, days, 1, "conv.exact"), r, "conv.benefit.daily");
+      const limit = at.paramYen(P.careMax);
+      if (limit !== null) {
+        const cap = ctx.money.mulRatio(limit, days, DAYS_PER_MONTH, "conv.benefit.daily");
+        if (amount > cap) amount = cap;
+      }
+      if (amount > 0) flows.push({ row: "cf.income.benefit", ym: formatYm(addMonths(to, 1)), amount, accrualYear: yearOf(to), member, object: p.id, formula: "benefit.employment.careLeave" });
     }
     // 育児時短就業給付
     for (let i = 0; i < periods.length; i++) {

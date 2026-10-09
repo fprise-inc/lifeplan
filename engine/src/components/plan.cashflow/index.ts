@@ -17,6 +17,9 @@
 // - 小規模企業共済は account.mutualAid が残高と受け取りを計算する（掛金は決済口座から出る）。自動車ローン（expense.car）・教育ローンと
 //   貸与の奨学金（education.cost）の年末残高も負債の残高（cf.balance.debt.other）に載せる
 // - 現状の検算（expense.reconcile。年間収支を読むのでここで呼ぶ）の使途不明金を、お金の動きと年間収支に足す
+// - 改訂7（約束の版 1.2）: ストレステストの資産の時価の下落（前提 marketShocks。その年の年末に器の時価をその割合だけ下げ、運用益に含める。
+//   既定の器は預金・外貨預金・財形・不動産・保険・小規模企業共済を除く）。保険契約の解約返戻金を器ごとの残高の行（cf.balance.account.insurance。
+//   契約の ID。金融資産の合計には入れない）に載せる。保障内容一覧・払込保険料の推移の材料と贈与税を details（エンジンが summary に写す）に出す
 import {
   accountReturnRate,
   addMonths,
@@ -35,10 +38,15 @@ import {
   type AccountInput,
   type AccountKind,
   type AnnualRow,
+  type CashflowDetails,
   type DebtInput,
   type DebtScheduleOutput,
   type Flow,
+  type GiftTaxOutput,
   type IdecoAccountOutput,
+  type InsuranceContractInput,
+  type InsurancePolicyOutput,
+  type MarketShock,
   type IdecoContributionOutput,
   type MemberInput,
   type MonthIndex,
@@ -114,13 +122,19 @@ interface Frame {
   restoreGrowth: Yen;
 }
 
-export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[]; parts: readonly (readonly Flow[])[] }>({
+/** 時価の下落の既定で下げない器 */
+const SHOCK_EXEMPT: ReadonlySet<string> = new Set(["deposit", "fxDeposit", "zaikei", "realEstate", "insurance", "smallBusinessMutualAid"]);
+
+export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[]; parts: readonly (readonly Flow[])[]; details?: CashflowDetails }>({
   id: "plan.cashflow",
   title: "キャッシュフロー表",
-  contract: "1.1",
-  revision: 6,
+  contract: "1.2",
+  revision: 7,
   requires: {
     "plan.flows": ">=1 <2",
+    "insurance.policy": ">=1 <2",
+    "gift.received": ">=1 <2",
+    "gift.tax": ">=1 <2",
     "expense.reconcile": ">=1 <2",
     "expense.car": ">=1 <2",
     "education.cost": ">=1 <2",
@@ -150,6 +164,11 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "assumptions.investmentReturn",
     "assumptions.assetReturns",
     "assumptions.withdrawal",
+    "assumptions.marketShocks",
+    "insurance.template",
+    "insurance.policyholder",
+    "insurance.insured",
+    "insurance.coverages",
   ],
   input: "empty.input",
   output: "plan.cashflow.output",
@@ -293,6 +312,10 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       return order;
     };
     const minimum = setting?.minimumDeposit ?? yen(0);
+    const shocks = ctx.setting<readonly MarketShock[]>("marketShocks") ?? [];
+    // 保険契約（解約返戻金・保障内容一覧・払込保険料の推移）
+    const contracts = ctx.list<Pick<InsuranceContractInput, "id" | "template" | "policyholder" | "insured" | "coverages">>("insurance");
+    const policies = contracts.map((c) => ({ c, out: ctx.call<InsurancePolicyOutput>("insurance.policy", { object: c.id }) }));
     let cappedNotice = false;
 
     for (let y = baseYear; y <= endYear; y++) {
@@ -367,6 +390,13 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         const r: Rate = x.input === null ? accountReturnRate(ctx, { kind: x.kind }, y) : x.kind === "insurance" && x.input.assetMix === undefined ? RATE_ZERO : accountReturnRate(ctx, x.input, y);
         x.ret = annualReturn(ctx, opening, x.inflow, r, months);
         x.value = addYen(addYen(opening, x.inflow), x.ret);
+        // ストレステスト: その年の年末に時価を下げる（運用益に含める）
+        for (const sh of shocks) {
+          if (sh.year !== y || (sh.kinds !== undefined ? !sh.kinds.includes(x.kind as AccountKind) : SHOCK_EXEMPT.has(x.kind)) || x.value <= 0) continue;
+          const drop = ctx.money.mulRate(x.value, ctx.rate.of(sh.drop), "conv.investment.return");
+          x.value = yen(x.value - drop);
+          x.ret = yen(x.ret - drop);
+        }
         // 旧NISA・ジュニアNISA の内訳は、期首の時価の割合で年末の時価を分ける
         if (x.lots !== null && x.lots.some((l) => l.value > 0) && opening > 0) {
           const parts = ctx.money.allocate(x.value, x.lots.map((l) => l.value as number), "conv.flow.allocate", "first");
@@ -492,6 +522,10 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         financial = addYen(financial, e.closing);
         returns = addYen(returns, e.returns);
       }
+      for (const { c, out } of policies) {
+        const e = out.years.find((x) => x.year === y);
+        if (e !== undefined && e.surrenderValue > 0) balanceRow("insurance", e.surrenderValue, c.policyholder, c.id);
+      }
       for (const [object, dc] of dcYears) {
         const e = dc.byYear.get(y);
         if (e === undefined) continue;
@@ -528,6 +562,38 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     // parts は plan.flows のまま渡し、この部品の出したお金の動き（積立・取り崩し・譲渡益の税・移管）を足す（エンジンが表の集計を部品ごとに使い回す）
     if (reconciled.length > 0) for (const f of reconciled) own.push(f);
     const parts = own.length === 0 ? collected.parts : [...collected.parts, own];
-    return { flows: own.length === 0 ? collected.flows : [...collected.flows, ...own], annual, parts };
+    // 保障内容一覧と払込保険料の推移の材料・贈与税（エンジンが summary に写す）
+    const details: CashflowDetails = {};
+    if (policies.length > 0) {
+      details.insurance = {
+        contracts: policies.map(({ c }) => ({
+          object: c.id,
+          template: c.template,
+          policyholder: c.policyholder,
+          insured: c.insured,
+          coverages: (c.coverages ?? []).map((x) => ({
+            id: x.id,
+            role: x.role,
+            benefit: x.benefit,
+            amount: x.amount,
+            ...(x.from !== undefined ? { from: formatYm(ctx.time.resolve(x.from)) } : {}),
+            ...(x.to !== undefined && x.to !== null ? { to: formatYm(ctx.time.resolve(x.to)) } : {}),
+          })),
+        })),
+        byYear: policies.flatMap(({ c, out }) => out.years.map((e) => ({ year: e.year, object: c.id, premium: e.premium, deathBenefit: e.deathBenefit, surrenderValue: e.surrenderValue }))),
+      };
+    }
+    const gifts: NonNullable<CashflowDetails["gifts"]>[number][] = [];
+    for (const m of members) {
+      const years = new Set(ctx.call<{ gifts: readonly { ym: string }[] }>("gift.received", { member: m.id }).gifts.map((g) => Number(g.ym.slice(0, 4))));
+      for (const gy of [...years].sort((a, b) => a - b)) {
+        if (gy < baseYear || gy > endYear) continue;
+        const t = ctx.call<GiftTaxOutput>("gift.tax", { member: m.id, year: gy });
+        gifts.push({ year: gy, recipient: m.id, amount: t.amount, exempt: t.exempt, calendarTaxable: t.calendarTaxable, settlementTaxable: t.settlementTaxable, tax: t.tax, inCashflow: t.inCashflow });
+      }
+    }
+    if (gifts.length > 0) details.gifts = gifts;
+    const hasDetails = details.insurance !== undefined || details.gifts !== undefined;
+    return { flows: own.length === 0 ? collected.flows : [...collected.flows, ...own], annual, parts, ...(hasDetails ? { details } : {}) };
   },
 });

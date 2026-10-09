@@ -1,0 +1,13 @@
+# 介護の費用の統計の平均（0007 の1: マスタデータ master.care.statistics。介護の費用の既定に使う）
+# 2026.1.0: 最初の版。生命保険文化センター「生命保険に関する全国実態調査（2人以上世帯）2024（令和6）年度」の介護の月々の費用（全体・在宅・施設）・
+#   期間・一時的な費用。公式のサイトにこの作業の環境から届かなかったので、検索の要約で読んだ値で、原本での確認待ち（pendingReview）
+packId: master.care.statistics
+formatVersion: "0.1"
+version: "2026.1.0"
+features: []
+title: 介護の費用の統計の平均
+requires:
+  care.expense: ">=1 <2"
+license:
+  values: CC0-1.0
+  sources: 出典ごとの条件（各値の sources に記載。公益財団法人生命保険文化センターの公表資料の数値。出典を示して利用する）

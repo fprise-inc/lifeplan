@@ -1,0 +1,20 @@
+id: pension.disability.basicGrade1Ratio
+title: 1級の障害基礎年金の額（2級の額×1.25）
+unit: rate
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "1.25"
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/shougainenkin/jukyu-yoken/20150514.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "1級 847,300円×1.25＋子の加算", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "国民年金法33条2項の100分の125"}

@@ -1,0 +1,20 @@
+id: pension.survivor.employee.ratio
+title: 遺族厚生年金の額（報酬比例の額×4分の3）
+unit: rate
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.75"
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/izokunenkin/jukyu-yoken/20150401-03.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "遺族厚生年金の年金額", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "厚生年金保険法60条1項1号の4分の3"}
