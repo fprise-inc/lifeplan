@@ -46,12 +46,13 @@ export const SLIDERS: Readonly<Record<string, (r: Obj, k: number) => void>> = {
   },
   // 生活費の月額（新しい部品の入力）
   living: (r, k) => {
-    ((h(r).livingExpenses as Obj[])[0] as Obj).monthly = box(260000 + k * 5000);
+    const lv = h(r).livingExpenses as Obj[] | undefined;
+    if (lv !== undefined) (lv[0] as Obj).monthly = box(260000 + k * 5000);
   },
 };
 
 export function benchRequests(tweak?: (r: Obj) => void): Obj[] {
-  const base = JSON.parse(readFileSync(join(REPO_DIR, "data", "modelHouseholds", "lifetime100Plan.json"), "utf8")) as Obj;
+  const base = JSON.parse(readFileSync(join(REPO_DIR, "data", "modelHouseholds", process.env.BENCH_HOUSEHOLD ?? "lifetime100Plan.json"), "utf8")) as Obj;
   const plans: ((r: Obj) => void)[] = [
     () => {},
     (r) => {

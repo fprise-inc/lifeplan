@@ -526,3 +526,29 @@ describe("学費データの形（0010 の3。【架空の見本】）", () => {
     expect((school.rows as unknown[]).length).toBe(1 + 6 * 3);
   });
 });
+
+describe("受け取り方の比較（6.4）: 年金で受けると、公的年金等控除・保険料・住民税の非課税の判定まで変わる", () => {
+  it("DB を年金で受けると、退職所得の税は減り、受け取る間の所得税・住民税・国民健康保険料は増える（retirementSequence）", async () => {
+    const { modelHousehold } = await import("./helpers.ts");
+    const run = (receipt: Obj) => {
+      const r = JSON.parse(JSON.stringify(modelHousehold("retirementSequence"))) as Req;
+      ((r.input.household as unknown as Obj).retirementBenefits as Obj[])[1] = { ...(((r.input.household as unknown as Obj).retirementBenefits as Obj[])[1] as Obj), receipt };
+      return runEngine(r, realPacks());
+    };
+    const lump = run({ method: "lumpSum" });
+    const annuity = run({ method: "annuity", years: 10, conversionRate: "0.015" });
+    const span = (r: { table: unknown }, p: string, y0: number, y1: number) => Array.from({ length: y1 - y0 + 1 }, (_, i) => cells(r, p, y0 + i)).reduce((s, x) => s + x, 0);
+    expect(span(annuity, "cf.taxSi.incomeTax.retirement", 2036, 2036)).toBeLessThan(span(lump, "cf.taxSi.incomeTax.retirement", 2036, 2036));
+    for (const p of ["cf.taxSi.incomeTax", "cf.taxSi.residentTax", "cf.taxSi.health"]) expect(span(annuity, p, 2038, 2045)).toBeGreaterThan(span(lump, p, 2038, 2045));
+  });
+
+  it("年金の額で住民税の非課税の判定が変わる（公的年金等控除の後の所得が非課税限度額を超える）", () => {
+    const mk = (annual: number) =>
+      edit(household({ members: [member("a", "self", "1958-05")], baseMonth: "2027-01", endYear: 2029 }), (h) => {
+        h.retirementBenefits = annual === 0 ? [] : [{ id: uid("db"), member: A, kind: "db", receipt: { method: "annuity", start: at("2027-01"), years: 10, annualAmount: annual } }];
+      });
+    const ex = (annual: number) => runEngine(mk(annual), realPacks(), { checkInternal: true, entry: { component: "residentTax.exemption", input: { member: A, fiscalYear: 2028 } } }).entryOutput as { perCapitaExempt: boolean };
+    expect(ex(0).perCapitaExempt).toBe(true);
+    expect(ex(2400000).perCapitaExempt).toBe(false);
+  });
+});

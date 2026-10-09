@@ -224,6 +224,106 @@
             "guaranteeYears": 10
           }
         }
+      ],
+      "premiumRates": [
+        {
+          "id": "56b06965-f5f2-49eb-8d33-9820ecd7a7ae",
+          "kind": "nationalHealth",
+          "parts": {
+            "medical": {
+              "incomeRate": {
+                "value": "0.077",
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perCapita": {
+                "value": 47000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perHousehold": {
+                "value": 0,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            },
+            "elderlySupport": {
+              "incomeRate": {
+                "value": "0.028",
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perCapita": {
+                "value": 16000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perHousehold": {
+                "value": 0,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            },
+            "care": {
+              "incomeRate": {
+                "value": "0.025",
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perCapita": {
+                "value": 17000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perHousehold": {
+                "value": 0,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            },
+            "childSupport": {
+              "incomeRate": {
+                "value": "0.0024",
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perCapita": {
+                "value": 1100,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perHousehold": {
+                "value": 0,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            }
+          }
+        }
       ]
     },
     "assumptions": {
