@@ -15,5 +15,20 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.jili.or.jp/lifeplan/lifesecurity/1116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "生命保険に関する全国実態調査（2人以上世帯）2024（令和6）年度", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "生命保険に関する全国実態調査（2024年度）の月々の費用 9.0万円（検索の要約。公表日は未確認）"}
+  - rev: 2
+    appliesFrom: "2025-03-01"
+    appliesTo: null
+    enforcedOn: "2025-01-30"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 90000
+    sources:
+      - {"type": "web", "url": "https://www.jili.or.jp/lifeplan/lifesecurity/1116.html", "retrievedAt": "2026-10-09", "sha256": "6bb86ce4e79d38bad2b00c4e5401cefdadfd888ba724247e3e852e9b0514bd4d", "locator": "生命保険文化センター「介護にはどれくらいの費用・期間がかかる？」", "quote": "月々の費用が平均9.0万円"}
+      - {"type": "web", "url": "https://www.jili.or.jp/files/research/zenkokujittai/xls/r6/8-28.xlsx", "retrievedAt": "2026-10-09", "sha256": "35548531e14e3197e3ed4789aa5b19fa90468884374a9dcfb800acb218ec5c3f", "locator": "同 調査結果一覧 8-28 介護費用（月額）合計の平均値（千円）89.507…"}
+      - {"type": "web", "url": "https://www.jili.or.jp/files/research/zenkokujittai/pdf/r6/2024honshiall.pdf", "retrievedAt": "2026-10-09", "sha256": "e7500a0e4c3dcbabdb9742cdac0ccea42861b8150ba12c77b761137f7d161cb9", "locator": "同 報告書 〈図表Ⅱ-62〉", "quote": "１カ月当たり平均で9.0万円（前回8.3万円）となっている"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["PDF の本文（公表資料）", "Excel（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "月々の費用の平均 9.0万円（調査結果一覧の平均値 89.5千円）。報告書・調査結果一覧・案内で一致。施行日の欄は報告書の掲載ファイルの日付"}

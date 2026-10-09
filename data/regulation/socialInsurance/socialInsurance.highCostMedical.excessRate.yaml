@@ -15,5 +15,21 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "×1%", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "健康保険法施行令42条"}
+  - rev: 2
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.01"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "77a492e0652f347af67dde05dd65d8fcb329387cf3dae8b174578ecb90eefc93", "locator": "健康保険法施行令 第42条第1項第1号（令和8年8月1日の版）", "quote": "二十八万六千円）から二十八万六千円を控除した額に百分の一を乗じて得た額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20170401_429CO0000000098?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "db5b70339baafeacdaf57baebb9cf009bc367b4163a3cea436f3bc2ca019fde5", "locator": "健康保険法施行令 第42条第1項（平成29年4月1日の版）", "quote": "控除した額に百分の一を乗じて得た額"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-09", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて（令和8年8月診療分から）の表", "quote": "85,800＋（医療費－286,000）×1％"}
+      - {"type": "law", "lawNumber": "大正十五年勅令第二百四十三号", "egovRevisionId": "215IO0000000243_20260801_508CO0000000240"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "1%。健康保険法施行令42条（平成29年4月・令和8年8月の版）と厚生労働省の資料で一致。施行日は e-Gov の最初の版より前なので notAfter"}

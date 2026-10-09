@@ -9,7 +9,7 @@
 #   既存のファイルは変えていない。原本で確かめる前（pendingReview））
 packId: regulation.educationSupport
 formatVersion: "0.1"
-version: "2026.3.0"
+version: "2026.4.0"
 features: []
 title: 教育の公的支援（児童手当・就学支援金・修学支援）
 requires:

@@ -3,7 +3,7 @@
 #   期間・一時的な費用。公式のサイトにこの作業の環境から届かなかったので、検索の要約で読んだ値で、原本での確認待ち（pendingReview）
 packId: master.care.statistics
 formatVersion: "0.1"
-version: "2026.1.0"
+version: "2026.2.0"
 features: []
 title: 介護の費用の統計の平均
 requires:

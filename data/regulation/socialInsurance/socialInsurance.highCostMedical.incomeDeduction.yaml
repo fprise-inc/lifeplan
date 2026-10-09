@@ -15,5 +15,22 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "旧ただし書き所得（総所得金額等から基礎控除43万円を控除した額）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "国民健康保険法施行令29条の7の基礎控除額（43万円）"}
+  - rev: 2
+    appliesFrom: "2021-08-01"
+    appliesTo: null
+    enforcedOn: "2021-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 430000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/333CO0000000362_20260801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "41e7dffd51eedd191464031e1e88e71ec62744e32f50ecabdd72ee4d503d0cfa", "locator": "国民健康保険法施行令 第29条の3第13項（令和8年8月1日の版）", "quote": "基準所得額は、第二十九条の七第二項第四号に規定する基礎控除後の総所得金額等の算定の例により算定するものとする"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", "locator": "地方税法 第314条の2第2項第1号（令和8年10月1日の版）", "quote": "当該納税義務者の前年の合計所得金額が二千四百万円以下である場合四十三万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20210101_502AC0000000005?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "c6445e3711a5d46b6fc2a2eaac117090edb7ba22666c26fe8e930e150991164c", "locator": "地方税法 第314条の2第2項第1号（令和3年1月1日の版）", "quote": "当該納税義務者の前年の合計所得金額が二千四百万円以下である場合四十三万円"}
+      - {"type": "web", "url": "https://www.city.shinjuku.lg.jp/hoken/hoken01_001004.html", "retrievedAt": "2026-10-08", "sha256": "3827b5c1082ef786e9c398a40aa55766bbd0a843c39af92f3025b135b72cd38f", "locator": "新宿区 国民健康保険料の計算（所得割額の算定基礎額）", "quote": "前年中の総所得金額等から基礎控除額43万円（合計所得金額2,400万円以下の場合）を差し引いた額"}
+      - {"type": "law", "lawNumber": "昭和三十三年政令第三百六十二号", "egovRevisionId": "333CO0000000362_20260801_508CO0000000240"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "基準所得額（旧ただし書き所得）は総所得金額等から住民税の基礎控除（合計所得金額2,400万円以下で43万円）を引いた額。国民健康保険法施行令29条の3・地方税法314条の2第2項と新宿区の案内で一致。施行は令和3年1月1日（令和3年度分の住民税から）。2,400万円超の基礎控除の逓減は扱わない"}

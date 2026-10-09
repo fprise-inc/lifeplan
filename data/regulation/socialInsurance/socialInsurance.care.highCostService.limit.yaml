@@ -19,5 +19,25 @@ entries:
       - {"type": "web", "url": "https://www.city.sumida.lg.jp/kenko_fukushi/koureisya_kaigohoken/tanpopo.files/10.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "課税所得690万円以上 140,100円・380万円以上690万円未満 93,000円・380万円未満 44,400円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "web", "url": "https://www.city.ota.tokyo.jp/seikatsu/fukushi/kaigo/keigen/gkougaku.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "高額介護サービス費", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "介護保険法施行令22条の2の2（令和3年8月から）。世帯の上限を介護を受ける人ごとに当てる近似"}
+  - rev: 2
+    appliesFrom: "2021-08-01"
+    appliesTo: null
+    enforcedOn: "2021-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 3799999, "amount": 44400}
+      - {"upTo": 6899999, "amount": 93000}
+      - {"upTo": null, "amount": 140100}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20261001_508CO0000000274?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "666ede0602c34022f4580976538c0f9ff0bf973c41cb852ff334303f6a5d6ec3", "locator": "介護保険法施行令 第22条の2の2第2項・第5項・第6項（令和8年10月1日の版）", "quote": "前項第一号に掲げる額が三百八十万円以上六百九十万円未満であるときは、第二項中「四万四千四百円」とあるのは、「九万三千円」とする"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20261001_508CO0000000274?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "666ede0602c34022f4580976538c0f9ff0bf973c41cb852ff334303f6a5d6ec3", "locator": "介護保険法施行令 第22条の2の2第5項（令和8年10月1日の版）", "quote": "が六百九十万円以上であるときは、第二項中「四万四千四百円」とあるのは、「十四万百円」とする"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/410CO0000000412_20210801_503CO0000000097?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "d394786ce0ff17b2d323f006b05e0cfd3a6f606a98e1c60bfba6ab1d1509af7d", "locator": "介護保険法施行令 第22条の2の2第5項（令和3年8月1日の版。令和3年政令第97号による改正）", "quote": "「十四万百円」とする"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12300000/001119101.pdf", "retrievedAt": "2026-10-09", "sha256": "4ccbd31f85a9a2c99f28bb5d1351612aa0ab23f574ae86ecaeeee7ada45159bc", "locator": "高額介護（介護予防）サービス費の概要について", "quote": "①世帯44,400円②世帯93,000円③世帯140,100円"}
+      - {"type": "law", "lawNumber": "平成十年政令第四百十二号", "egovRevisionId": "410CO0000000412_20210801_503CO0000000097"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "課税所得380万円未満44,400円・380万円以上690万円未満93,000円・690万円以上140,100円（令和3年8月から。その前の版に93,000円・140,100円の区分は無い）。施行令22条の2の2と厚生労働省の資料で一致"}

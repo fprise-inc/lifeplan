@@ -16,5 +16,20 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4103.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "一律20%", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "相続税法21条の13の100分の20"}
+  - rev: 2
+    appliesFrom: "2003-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.2"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000073_20260401_506AC0000000008?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "b5c7da444d774de23cf9edb964a2edadbff47e4096a8c8d57cd4e2d3315e0790", "locator": "相続税法 第21条の13（令和8年4月1日の版）", "quote": "それぞれ百分の二十の税率を乗じて計算した金額とする"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4103.htm", "retrievedAt": "2026-10-09", "sha256": "465ef3bc7f74f4d48f0e684affee3914718de726f60fc7b4d87081c3bba1f46f", "locator": "No.4103 相続時精算課税の選択", "quote": "一律20パーセントの税率を乗じて算出します"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号", "egovRevisionId": "325AC0000000073_20260401_506AC0000000008"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "相続税法21条の13と国税庁 No.4103 で一致。施行日は e-Gov の最初の版より前なので notAfter"}

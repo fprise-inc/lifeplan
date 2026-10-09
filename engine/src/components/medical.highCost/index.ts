@@ -1,7 +1,8 @@
 // 医療費の自己負担（6.10。0008 の追記 2026-10-09 の決定6）: 万一の想定（障害・就業不能）の医療費（contingency.medical。1か月の医療費10割と月数）から、
 // 窓口の負担（70歳未満は3割）を高額療養費の上限で止めた額を、その月の支出（cf.expense.care.medical）にする（簡易の計算。医療費控除は作らない）。
 // - 所得の区分: その月に勤め先の健康保険に入っていれば標準報酬月額、それ以外は前年の総所得金額等から基礎控除を引いた額（旧ただし書き所得）で、
-//   住民税が非課税なら区分オ。上限は 基準の額＋（医療費−基準の医療費）×1%（区分ア〜ウ）か定額（エ・オ）。
+//   住民税が非課税なら最後の区分（オ）。上限は 基準の額＋（医療費−基準の医療費）×1%（区分ア〜ウ）か定額（エ・オ）。
+//   令和9年8月からは区分が13に細分化される（区分の番号と額は制度データ。部品は番号で引くだけ）。
 //   直近12か月に3回以上上限に達していれば、4回目から多数回該当の額
 // - 年間上限（2026年8月診療分から。8月〜翌年7月）: その期間の負担の合計が上限を超えた分を、期間の最後の月の負担から引く
 // - 70歳以上の区分・外来の特例は作らない（70歳未満の区分で計算し、知らせ）
@@ -72,7 +73,8 @@ export default defineComponent<{ member: string }, FlowsResult>({
     const std = new Map(ctx.call<CoverageOutput>("socialInsurance.coverage", { member, fromYear: yearOf(base) }).months.map((x) => [x.month, x.healthStd]));
     const tierOf = (m: MonthIndex): number => {
       const at = ctx.at(m);
-      if (ctx.call<ExemptionOutput>("residentTax.exemption", { member, fiscalYear: fiscalYearOf(m) }).perCapitaExempt) return 5;
+      // 住民税非課税の区分は限度額の表の最後の区分（令和9年7月までは5のオ、8月からは13）
+      if (ctx.call<ExemptionOutput>("residentTax.exemption", { member, fiscalYear: fiscalYearOf(m) }).perCapitaExempt) return at.paramBrackets(P.base)?.length ?? 5;
       const kind = health.get(formatYm(m));
       const s = std.get(formatYm(m)) ?? null;
       if (kind !== undefined && EMPLOYER.has(kind) && s !== null) return Number(tierAmount(at.paramBrackets(P.byStd), s) ?? 4);

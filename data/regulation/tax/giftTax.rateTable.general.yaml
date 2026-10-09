@@ -24,5 +24,29 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "一般贈与財産用（一般税率）の速算表", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "相続税法21条の7。計算例（500万円→53万円）と一致"}
+  - rev: 2
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 2000000, "rate": "0.1", "amount": 0}
+      - {"upTo": 3000000, "rate": "0.15", "amount": 100000}
+      - {"upTo": 4000000, "rate": "0.2", "amount": 250000}
+      - {"upTo": 6000000, "rate": "0.3", "amount": 650000}
+      - {"upTo": 10000000, "rate": "0.4", "amount": 1250000}
+      - {"upTo": 15000000, "rate": "0.45", "amount": 1750000}
+      - {"upTo": 30000000, "rate": "0.5", "amount": 2500000}
+      - {"upTo": null, "rate": "0.55", "amount": 4000000}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000073_20260401_506AC0000000008?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "b5c7da444d774de23cf9edb964a2edadbff47e4096a8c8d57cd4e2d3315e0790", "locator": "相続税法 第21条の7（令和8年4月1日の版）", "quote": "二百万円を超え三百万円以下の金額百分の十五三百万円を超え四百万円以下の金額百分の二十"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000073_20260401_506AC0000000008?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "b5c7da444d774de23cf9edb964a2edadbff47e4096a8c8d57cd4e2d3315e0790", "locator": "相続税法 第21条の7（令和8年4月1日の版）", "quote": "三千万円を超える金額百分の五十五"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "sha256": "c937178b94e85b87f3227a6ab7f01e41495b14a14ed83ad0a73d9a86b5eaf85f", "locator": "No.4408 贈与税の速算表 ＜一般贈与財産用＞（一般税率）の控除額", "quote": "控除額‐10万円25万円65万円125万円175万円250万円400万円"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号", "egovRevisionId": "325AC0000000073_20260401_506AC0000000008"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "表の内訳の合計を計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "相続税法21条の7の税率の区分と国税庁 No.4408 の速算表で一致。控除額は条文の段ごとの税率から計算し直して速算表の全行と一致。施行日は e-Gov の最初の版より前なので notAfter"}

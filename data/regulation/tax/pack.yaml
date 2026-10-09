@@ -21,7 +21,7 @@
 #   公式のサイトにこの作業の環境から届かなかったので、検索の要約で読んだ値で、すべて原本での確認待ち（pendingReview）
 packId: regulation.tax
 formatVersion: "0.1"
-version: "2026.9.0"
+version: "2026.10.0"
 features: []
 title: 所得税・住民税
 requires:

@@ -14,7 +14,7 @@
 #   新しいファイルで足した（既存のファイルは変えていない。検索の要約で読んだ値で、原本での確認待ち）
 packId: regulation.housing
 formatVersion: "0.1"
-version: "2026.5.0"
+version: "2026.6.0"
 features: []
 title: 住宅ローン控除
 requires:

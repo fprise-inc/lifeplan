@@ -15,5 +15,20 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.jili.or.jp/lifeplan/lifesecurity/1116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "生命保険に関する全国実態調査（2人以上世帯）2024（令和6）年度", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "同調査の介護期間 55.0か月（4年7か月）（検索の要約。公表日は未確認）"}
+  - rev: 2
+    appliesFrom: "2025-03-01"
+    appliesTo: null
+    enforcedOn: "2025-01-30"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 55
+    sources:
+      - {"type": "web", "url": "https://www.jili.or.jp/lifeplan/lifesecurity/1116.html", "retrievedAt": "2026-10-09", "sha256": "6bb86ce4e79d38bad2b00c4e5401cefdadfd888ba724247e3e852e9b0514bd4d", "locator": "生命保険文化センター「介護にはどれくらいの費用・期間がかかる？」", "quote": "平均55.0カ月（4年7カ月）"}
+      - {"type": "web", "url": "https://www.jili.or.jp/files/research/zenkokujittai/xls/r6/8-24.xlsx", "retrievedAt": "2026-10-09", "sha256": "0729d84275247fa1853b8fd244e607b407c080c765f95a829eb4a4b2e20c36e5", "locator": "同 調査結果一覧 8-24 介護期間 合計の平均値（月）54.96…"}
+      - {"type": "web", "url": "https://www.jili.or.jp/files/research/zenkokujittai/pdf/r6/2024honshiall.pdf", "retrievedAt": "2026-10-09", "sha256": "e7500a0e4c3dcbabdb9742cdac0ccea42861b8150ba12c77b761137f7d161cb9", "locator": "同 報告書 介護期間", "quote": "平均55.0カ月（４年７カ月）となっている"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["PDF の本文（公表資料）", "Excel（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "介護期間の平均 55.0か月（調査結果一覧 54.96か月）。報告書・調査結果一覧・案内で一致。施行日の欄は報告書の掲載ファイルの日付"}

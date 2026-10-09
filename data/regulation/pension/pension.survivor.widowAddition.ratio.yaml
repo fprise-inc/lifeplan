@@ -16,5 +16,21 @@ entries:
       - {"type": "web", "url": "https://www.jili.or.jp/lifeplan/lifesecurity/1041.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "中高齢寡婦加算（年額635,500円）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "厚生年金保険法62条1項の4分の3。令和8年度は847,300円×3/4→635,500円（100円単位）で、検索の要約の635,500円と一致"}
+  - rev: 2
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.75"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", "locator": "厚生年金保険法 第62条第1項（令和8年10月1日の版）", "quote": "同法第三十八条に規定する遺族基礎年金の額に四分の三を乗じて得た額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20170401_424AC0000000062?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "b06d8a935013ae17699ff39cae5e4311a3068297c6f555499ab354120d930ca6", "locator": "厚生年金保険法 第62条第1項（平成29年4月1日の版）", "quote": "遺族基礎年金の額に四分の三を乗じて得た額"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/izokunenkin/jukyu-yoken/20150424.html", "retrievedAt": "2026-10-09", "sha256": "376c7656a857cb090b00dba68468918ea48d590251caac14a09bd2cbebc4c877", "locator": "遺族厚生年金（受給要件・対象者・年金額）中高齢寡婦加算（日本年金機構）", "quote": "635,500円（年額）が加算されます"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号", "egovRevisionId": "329AC0000000115_20261001_507AC0000000074"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "厚生年金保険法62条1項（平成29年4月・令和8年10月の版）と、日本年金機構の令和8年度の額 635,500円（847,300円×3/4 を100円単位に）で一致。令和10年4月1日の版で本則が改められる（令和7年法律第74号。経過措置あり）が、部品は見直し前の制度で計算し N_REFORM_NOT_REFLECTED を出すので、この行は見直し前の値として続ける。施行日は e-Gov の最初の版より前なので notAfter"}

@@ -17,5 +17,21 @@ entries:
       - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "寡婦控除 所得税27万円・住民税26万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和四十年法律第三十三号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "所得税法81条の27万円（令和2年分から）"}
+  - rev: 2
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: "2020-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 270000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20200401_502AC0000000008?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "63af29c7283715745f9cc34626c6ea36c5fbe76b55c31bf0b99873b912dfbaf1", "locator": "所得税法 第80条第1項（令和2年4月1日の版）", "quote": "居住者が寡婦である場合には、その者のその年分の総所得金額、退職所得金額又は山林所得金額から二十七万円を控除する"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261201_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "0ee4d9aa4fd7bb5550597ed08665588639a9473e6bd9f6387126de41603a0020", "locator": "所得税法 第80条第1項（令和8年12月1日の版）", "quote": "居住者が寡婦である場合には、その者のその年分の総所得金額、退職所得金額又は山林所得金額から二十七万円を控除する"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1170.htm", "retrievedAt": "2026-10-08", "sha256": "d3791953fd88ffbde034ae52145af53e64a498818c9702636f9b8379586b3658", "locator": "No.1170 寡婦控除の金額", "quote": "27万円"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号", "egovRevisionId": "340AC0000000033_20261201_508AC0000000012"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "法80条（令和2年4月・令和8年12月の版）と国税庁 No.1170 で一致。施行は令和2年4月1日（令和2年分から適用）"}

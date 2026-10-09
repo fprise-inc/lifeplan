@@ -16,5 +16,20 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4508.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "合計所得金額が2,000万円以下（床面積40㎡以上50㎡未満は1,000万円以下）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "租税特別措置法70条の2の2,000万円（床面積40㎡以上50㎡未満の1,000万円は扱わない）"}
+  - rev: 2
+    appliesFrom: "2024-01-01"
+    appliesTo: null
+    enforcedOn: "2024-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 20000000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第70条の2第2項第1号（令和8年10月1日の版）", "quote": "合計所得金額が二千万円（住宅取得等資金を充てて新築、取得又は増改築等"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4508.htm", "retrievedAt": "2026-10-09", "sha256": "057e32c8473c216747824516d69733b9b46a12f7f391a780baf2f373e2533819", "locator": "No.4508 直系尊属から住宅取得等資金の贈与を受けた場合の非課税 (3)", "quote": "合計所得金額が2,000万円以下"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "2,000万円以下（床面積40㎡以上50㎡未満の1,000万円は扱わない）。措置法70条の2と国税庁 No.4508 で一致"}

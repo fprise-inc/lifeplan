@@ -16,5 +16,21 @@ entries:
       - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "3割負担", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "大正十一年法律第七十号"}
     recordedIn: "2026.5.0"
-    supersededIn: null
+    supersededIn: "2026.6.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "健康保険法74条1項の100分の30（義務教育就学前・70歳以上は扱わない）"}
+  - rev: 2
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.3"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", "locator": "健康保険法 第74条第1項第1号（令和8年10月1日の版）", "quote": "一七十歳に達する日の属する月以前である場合百分の三十"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20170401_428AC0000000114?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "f454e47a420ecdca187b132f233fc7a74e7e53f1a1418a2b4511072d5707c7a6", "locator": "健康保険法 第74条第1項第1号（平成29年4月1日の版）", "quote": "一七十歳に達する日の属する月以前である場合百分の三十"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-09", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "患者負担割合及び高額療養費自己負担限度額（令和８年８月～令和９年７月）", "quote": "３割（※１）"}
+      - {"type": "law", "lawNumber": "大正十一年法律第七十号", "egovRevisionId": "211AC0000000070_20261001_507AC0000000087"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "70歳に達する月までは3割（義務教育就学前の2割は扱わない）。健康保険法74条（平成29年4月・令和8年10月の版）と厚生労働省の資料で一致。施行日は e-Gov の最初の版より前なので notAfter"}

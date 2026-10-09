@@ -16,5 +16,22 @@ entries:
       - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/izokunenkin/jukyu-yoken/20150401-03.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "遺族厚生年金の受給要件（長期要件）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "厚生年金保険法58条1項4号・国民年金法37条4号の25年（300月）"}
+  - rev: 2
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 300
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", "locator": "厚生年金保険法 第58条第1項第4号（令和8年10月1日の版）", "quote": "四保険料納付済期間と保険料免除期間とを合算した期間が二十五年以上である者が、死亡したとき"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", "locator": "国民年金法 第37条第3号（令和8年10月1日の版）", "quote": "三保険料納付済期間と保険料免除期間とを合算した期間が二十五年以上である者が、死亡したとき"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20170401_429AC0000000004?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "5d079346916b55d497c4d776284742a3b1eb41302945fb1170271e9fcaee38dc", "locator": "国民年金法 第26条ただし書（平成29年4月1日の版。受給資格期間）", "quote": "ただし、その者の保険料納付済期間と保険料免除期間とを合算した期間が二十五年に満たないときは、この限りでない"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/izokunenkin/jukyu-yoken/20150424.html", "retrievedAt": "2026-10-09", "sha256": "376c7656a857cb090b00dba68468918ea48d590251caac14a09bd2cbebc4c877", "locator": "遺族厚生年金（受給要件・対象者・年金額）（日本年金機構）", "quote": "合算した期間が25年以上ある方に限ります"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号", "egovRevisionId": "329AC0000000115_20261001_507AC0000000074"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "25年（300月）。厚生年金保険法58条1項4号・国民年金法37条3号（令和8年10月の版。平成29年4月の版では国民年金法26条ただし書の受給資格期間25年）と日本年金機構の案内で一致。施行日は e-Gov の最初の版より前なので notAfter"}

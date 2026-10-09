@@ -16,5 +16,21 @@ entries:
       - {"type": "web", "url": "https://www.city.hiroshima.lg.jp/living/hoken-nenkin/1021145/1006017/1025570/1012136.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "寡婦年金（夫の第1号被保険者期間だけで計算した老齢基礎年金額の4分の3）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "国民年金法50条の4分の3"}
+  - rev: 2
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.75"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", "locator": "国民年金法 第50条（令和8年10月1日の版）", "quote": "第二十七条の規定の例によつて計算した額の四分の三に相当する額とする"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20170401_429AC0000000004?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "5d079346916b55d497c4d776284742a3b1eb41302945fb1170271e9fcaee38dc", "locator": "国民年金法 第50条（平成29年4月1日の版）", "quote": "第二十七条の規定の例によつて計算した額の四分の三に相当する額とする"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/sonota-kyufu/1go-dokuji/20140422-02.html", "retrievedAt": "2026-10-09", "sha256": "0a6c9b7a9f962396538e3394f35028cf102fde28523be9fd00b37147fd21e26e", "locator": "寡婦年金（日本年金機構）", "quote": "夫の第1号被保険者期間だけで計算した老齢基礎年金額の4分の3の額です"}
+      - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号", "egovRevisionId": "334AC0000000141_20261001_507AC0000000074"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "国民年金法50条（平成29年4月・令和8年10月の版）と日本年金機構の案内で一致。施行日は e-Gov の最初の版より前なので notAfter"}

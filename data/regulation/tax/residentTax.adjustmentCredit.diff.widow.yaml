@@ -16,5 +16,21 @@ entries:
       - {"type": "web", "url": "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/chouseikoujo.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "調整控除の人的控除額の差", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "地方税法314条の6第1号イの表の1万円（検索の要約・記憶の値を原本で確かめる）"}
+  - rev: 2
+    appliesFrom: "2021-06-01"
+    appliesTo: null
+    enforcedOn: "2021-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 10000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20210101_502AC0000000005?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "c6445e3711a5d46b6fc2a2eaac117090edb7ba22666c26fe8e930e150991164c", "locator": "地方税法 第314条の6第1号イの表（３）（令和3年1月1日の版）", "quote": "（３）寡婦又はひとり親で政令で定めるものである所得割の納税義務者一万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", "locator": "地方税法 第314条の6第1号イの表（３）（令和8年10月1日の版）", "quote": "（３）寡婦又はひとり親で政令で定めるものである所得割の納税義務者一万円"}
+      - {"type": "web", "url": "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", "retrievedAt": "2026-10-08", "sha256": "1c747b3916abba6d8ae22bb4f22ef05b42b6a19f2b3b0ef5373aa0a6740f72b8", "locator": "横浜市 個人市民税・県民税の所得控除（令和8年度）寡婦控除", "quote": "控除額26万円所得税との人的控除額の差額（注）1万円"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20261001_508AC0000000002"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "寡婦は1万円。地方税法314条の6と横浜市の案内で一致"}

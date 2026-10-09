@@ -2386,37 +2386,37 @@ entries:
     replacedBy: null
   - id: socialInsurance.highCostMedical.tierByIncome
     status: active
-    label: "高額療養費の区分（国民健康保険などの旧ただし書き所得。upTo 以下なら amount の区分）"
+    label: "高額療養費の区分（国民健康保険などの旧ただし書き所得。upTo 以下なら amount の区分。upTo は区分の番号（令和9年7月までは 1 ア・2 イ・3 ウ・4 エ・5 オ、令和9年8月からは 1〜13。最後の区分は住民税非課税））"
     since: draft
     aliases: []
     replacedBy: null
   - id: socialInsurance.highCostMedical.tierByStandard
     status: active
-    label: "高額療養費の区分（標準報酬月額。upTo 以下なら amount の区分）"
+    label: "高額療養費の区分（標準報酬月額。upTo 以下なら amount の区分。upTo は区分の番号（令和9年7月までは 1 ア・2 イ・3 ウ・4 エ・5 オ、令和9年8月からは 1〜13。最後の区分は住民税非課税））"
     since: draft
     aliases: []
     replacedBy: null
   - id: socialInsurance.highCostMedical.under70.annualLimit
     status: active
-    label: "高額療養費の年間上限（70歳未満。8月〜翌年7月の12か月）"
+    label: "高額療養費の年間上限（70歳未満。8月〜翌年7月の12か月。upTo は区分の番号（令和9年7月までは 1 ア・2 イ・3 ウ・4 エ・5 オ、令和9年8月からは 1〜13。最後の区分は住民税非課税））"
     since: draft
     aliases: []
     replacedBy: null
   - id: socialInsurance.highCostMedical.under70.base
     status: active
-    label: "高額療養費の自己負担限度額（70歳未満・月額。upTo は区分（1 ア・2 イ・3 ウ・4 エ・5 オ））"
+    label: "高額療養費の自己負担限度額（70歳未満・月額。upTo は区分の番号（令和9年7月までは 1 ア・2 イ・3 ウ・4 エ・5 オ、令和9年8月からは 1〜13。最後の区分は住民税非課税））"
     since: draft
     aliases: []
     replacedBy: null
   - id: socialInsurance.highCostMedical.under70.multiple
     status: active
-    label: "高額療養費の多数回該当の自己負担限度額（70歳未満。直近12か月に3回以上で4回目から）"
+    label: "高額療養費の多数回該当の自己負担限度額（70歳未満。直近12か月に3回以上で4回目から。upTo は区分の番号（令和9年7月までは 1 ア・2 イ・3 ウ・4 エ・5 オ、令和9年8月からは 1〜13。最後の区分は住民税非課税））"
     since: draft
     aliases: []
     replacedBy: null
   - id: socialInsurance.highCostMedical.under70.threshold
     status: active
-    label: "高額療養費の自己負担限度額の1%を掛ける基準の医療費（区分ア〜ウ。エ・オは0）"
+    label: "高額療養費の自己負担限度額の1%を掛ける基準の医療費（upTo は区分の番号（令和9年7月までは 1 ア・2 イ・3 ウ・4 エ・5 オ、令和9年8月からは 1〜13。最後の区分は住民税非課税）。1%の加算の無い区分は0）"
     since: draft
     aliases: []
     replacedBy: null

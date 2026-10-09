@@ -22,5 +22,29 @@ entries:
       - {"type": "web", "url": "https://www.city.hiroshima.lg.jp/living/hoken-nenkin/1021145/1006017/1025570/1012136.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "死亡一時金の額（36月以上180月未満 120,000円〜420月以上 320,000円）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.8.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "国民年金法52条の4の表。段は納付月数（upTo は月数）。付加保険料の8,500円の加算は扱わない"}
+  - rev: 2
+    appliesFrom: "1991-04-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 179, "amount": 120000}
+      - {"upTo": 239, "amount": 145000}
+      - {"upTo": 299, "amount": 170000}
+      - {"upTo": 359, "amount": 220000}
+      - {"upTo": 419, "amount": 270000}
+      - {"upTo": null, "amount": 320000}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", "locator": "国民年金法 第52条の4の表（令和8年10月1日の版）", "quote": "三六月以上一八〇月未満一二〇、〇〇〇円一八〇月以上二四〇月未満一四五、〇〇〇円二四〇月以上三〇〇月未満一七〇、〇〇〇円三〇〇月以上三六〇月未満二二〇、〇〇〇円三六〇月以上四二〇月未満二七〇、〇〇〇円四二〇月以上三二〇、〇〇〇円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20170401_429AC0000000004?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "5d079346916b55d497c4d776284742a3b1eb41302945fb1170271e9fcaee38dc", "locator": "国民年金法 第52条の4の表（平成29年4月1日の版）", "quote": "三六月以上一八〇月未満一二〇、〇〇〇円"}
+      - {"type": "web", "url": "https://www.city.hiroshima.lg.jp/living/hoken-nenkin/1021145/1006017/1025570/1012136.html", "retrievedAt": "2026-10-09", "sha256": "594699ed839f1756342dfe0e89a98b2218cc89a89dc58309d9036dd756290cbc", "locator": "広島市 寡婦年金・死亡一時金（死亡一時金の額）", "quote": "36か月以上180か月未満（3年以上15年未満）120,000円"}
+      - {"type": "web", "url": "https://www.city.hiroshima.lg.jp/living/hoken-nenkin/1021145/1006017/1025570/1012136.html", "retrievedAt": "2026-10-09", "sha256": "594699ed839f1756342dfe0e89a98b2218cc89a89dc58309d9036dd756290cbc", "locator": "広島市 寡婦年金・死亡一時金（死亡一時金の額）", "quote": "420か月以上（35年以上）320,000円"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/sonota-kyufu/1go-dokuji/20140422-01.html", "retrievedAt": "2026-10-09", "sha256": "1ffba851204a7d3438cc531a83994f62024ac8e76e4a1c25a7d274bf60c43491", "locator": "死亡一時金（日本年金機構）", "quote": "120,000円～320,000円です"}
+      - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号", "egovRevisionId": "334AC0000000141_20261001_507AC0000000074"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "国民年金法52条の4の表（平成29年4月・令和8年10月の版）の全6段と広島市の案内の表で一致（upTo は月数。付加保険料の8,500円の加算は扱わない）。施行日は e-Gov の最初の版より前なので notAfter"}

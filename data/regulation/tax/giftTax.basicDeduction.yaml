@@ -16,5 +16,21 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "基礎控除額110万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "租税特別措置法70条の2の4の110万円"}
+  - rev: 2
+    appliesFrom: "2001-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1100000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第70条の2の4第1項（令和8年10月1日の版）", "quote": "平成十三年一月一日以後に贈与により財産を取得した者に係る贈与税については、相続税法第二十一条の五の規定にかかわらず、課税価格から百十万円を控除する"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20170401_427AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "409c072709354a7ad1d822c2f6314b1cc94d0cd5e18a5ab8917201bf81451008", "locator": "租税特別措置法 第70条の2の4第1項（平成29年4月1日の版）", "quote": "課税価格から百十万円を控除する"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "sha256": "c937178b94e85b87f3227a6ab7f01e41495b14a14ed83ad0a73d9a86b5eaf85f", "locator": "No.4408 贈与税の計算と税率（暦年課税）", "quote": "その合計額から基礎控除額110万円を差し引きます"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "平成13年以後の贈与は110万円。措置法70条の2の4（平成29年4月・令和8年10月の版）と国税庁 No.4408 で一致。施行日は e-Gov の最初の版より前なので notAfter"}

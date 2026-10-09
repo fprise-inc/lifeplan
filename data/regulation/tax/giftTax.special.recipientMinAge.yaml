@@ -17,7 +17,7 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "1月1日において20歳以上（令和4年3月31日以前）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "成年年齢の引下げ前は20歳"}
   - rev: 2
     appliesFrom: "2022-04-01"
@@ -31,5 +31,38 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "1月1日において18歳以上", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "令和4年4月1日以後の贈与は18歳"}
+  - rev: 3
+    appliesFrom: "2015-01-01"
+    appliesTo: "2022-03-31"
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 20
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20220301_503AC0000000087?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "e5a3e156f3b9639d0469b7e9597f2b029fe6bbfbfd3939552925bd02ff9ec6a5", "locator": "租税特別措置法 第70条の2の5第1項（令和4年3月1日の版）", "quote": "その年一月一日において二十歳以上の者に限る"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20170401_427AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "409c072709354a7ad1d822c2f6314b1cc94d0cd5e18a5ab8917201bf81451008", "locator": "租税特別措置法 第70条の2の5第1項（平成29年4月1日の版）", "quote": "その年一月一日において二十歳以上の者に限る"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "sha256": "c937178b94e85b87f3227a6ab7f01e41495b14a14ed83ad0a73d9a86b5eaf85f", "locator": "No.4408 特例贈与財産用の注", "quote": "「18歳」とあるのは、令和4年3月31日以前の贈与については「20歳」となります"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20220301_503AC0000000087"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和4年3月31日以前の贈与は贈与の年の1月1日に20歳以上。措置法70条の2の5（平成29年4月・令和4年3月の版）と国税庁 No.4408 で一致。施行日は e-Gov の最初の版より前なので notAfter"}
+  - rev: 4
+    appliesFrom: "2022-04-01"
+    appliesTo: null
+    enforcedOn: "2022-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 18
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20220401_431AC0000000006?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "78f55577b8958601d7b18c944a14371925c5014d7d0b6737fb792dee23c85dab", "locator": "租税特別措置法 第70条の2の5第1項（令和4年4月1日の版。平成31年法律第6号による改正）", "quote": "その年一月一日において十八歳以上の者に限る"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第70条の2第2項第1号（令和8年10月1日の版。住宅取得等資金）", "quote": "住宅取得等資金の贈与を受けた日の属する年の一月一日において十八歳以上であつて"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000073_20260401_506AC0000000008?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "b5c7da444d774de23cf9edb964a2edadbff47e4096a8c8d57cd4e2d3315e0790", "locator": "相続税法 第21条の9第1項（令和8年4月1日の版。相続時精算課税）", "quote": "その年一月一日において十八歳以上であるものに限る"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "sha256": "c937178b94e85b87f3227a6ab7f01e41495b14a14ed83ad0a73d9a86b5eaf85f", "locator": "No.4408 特例贈与財産用", "quote": "贈与を受けた年の1月1日において18歳（注）以上の者に限ります"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和4年4月1日以後の贈与は18歳。措置法70条の2の5・70条の2・相続税法21条の9（令和4年4月以後の版）と国税庁 No.4408 で一致"}

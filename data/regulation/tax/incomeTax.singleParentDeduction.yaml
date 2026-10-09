@@ -17,7 +17,7 @@ entries:
       - {"type": "web", "url": "https://biz.moneyforward.com/tax_return/basic/52713/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和8年分は35万円のまま、38万円は令和9年分以後", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "law", "lawNumber": "昭和四十年法律第三十三号"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "所得税法81条の2の35万円"}
   - rev: 2
     appliesFrom: "2027-01-01"
@@ -31,5 +31,37 @@ entries:
       - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "所得税の控除額は2027年分以後38万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "web", "url": "https://biz.moneyforward.com/tax_return/basic/52713/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "38万円は令和9年分以後", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.9.0"
-    supersededIn: null
+    supersededIn: "2026.10.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "令和8年度税制改正で令和9年分から38万円（検索の要約。改正法の条文は未確認）"}
+  - rev: 3
+    appliesFrom: "2020-01-01"
+    appliesTo: "2026-12-31"
+    enforcedOn: "2020-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 350000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20200401_502AC0000000008?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "63af29c7283715745f9cc34626c6ea36c5fbe76b55c31bf0b99873b912dfbaf1", "locator": "所得税法 第81条第1項（令和2年4月1日の版）", "quote": "山林所得金額から三十五万円を控除する"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261201_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "0ee4d9aa4fd7bb5550597ed08665588639a9473e6bd9f6387126de41603a0020", "locator": "所得税法 第81条第1項（令和8年12月1日の版）", "quote": "山林所得金額から三十五万円を控除する"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm", "retrievedAt": "2026-10-09", "sha256": "e13911488a8acd34cf493f6243db696db1436bf5e29fb57984a6af13a9e3a5ea", "locator": "No.1171 ひとり親控除の金額", "quote": "ひとり親控除35万円"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号", "egovRevisionId": "340AC0000000033_20261201_508AC0000000012"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和2年分〜令和8年分は35万円。法81条（令和2年4月・令和8年12月の版）と国税庁 No.1171 で一致。施行は令和2年4月1日（令和2年分から適用）"}
+  - rev: 4
+    appliesFrom: "2027-01-01"
+    appliesTo: null
+    enforcedOn: "2027-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 380000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20270101_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "00cf8aee912faf86d7b56fd939b8ac76bde3731d10341e66ce60a5aebe01b262", "locator": "所得税法 第81条第1項（令和9年1月1日の版。令和8年法律第12号による改正）", "quote": "山林所得金額から三十八万円を控除する"}
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-10-08", "sha256": "45735bbea194e067b4ebdd7efa114b508d4eff009ed4a49a344c3296013bd544", "locator": "令和8年度税制改正の大綱 一 個人所得課税（6）ひとり親控除", "quote": "ひとり親控除について、控除額を38万円（現行：35万円）に引き上げる"}
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-10-08", "sha256": "45735bbea194e067b4ebdd7efa114b508d4eff009ed4a49a344c3296013bd544", "locator": "令和8年度税制改正の大綱 一 個人所得課税（6）ひとり親控除（注）", "quote": "上記の改正は、令和９年分以後の所得税について適用する"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号", "egovRevisionId": "340AC0000000033_20270101_508AC0000000012"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和9年分から38万円。法81条（令和9年1月1日の版）と令和8年度税制改正の大綱で一致"}

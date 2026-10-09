@@ -29,7 +29,7 @@ entries:
       - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/saikin/hw/life/life25/dl/life25-02.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年簡易生命表 主な年齢の平均余命（男）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "web", "url": "https://www.psrn.jp/topics/detail.php?id=41938", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年簡易生命表（30歳・50歳・70歳・80歳・85歳）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "令和7(2025)年簡易生命表（2026年7月24日公表）の主な年齢の平均余命（男）。年齢の間は部品が補間する"}
   - rev: 2
     appliesFrom: "2026-07-01"
@@ -56,5 +56,63 @@ entries:
       - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/saikin/hw/life/life25/dl/life25-02.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年簡易生命表 主な年齢の平均余命（女）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
       - {"type": "web", "url": "https://www.psrn.jp/topics/detail.php?id=41938", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和7年簡易生命表（30歳・50歳・70歳・80歳・85歳）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "令和7(2025)年簡易生命表（2026年7月24日公表）の主な年齢の平均余命（女）"}
+  - rev: 3
+    appliesFrom: "2026-07-01"
+    appliesTo: null
+    enforcedOn: "2026-07-24"
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "sex", "equals": "male"}
+    value:
+      - {"upTo": 0, "rate": "81.35"}
+      - {"upTo": 20, "rate": "61.72"}
+      - {"upTo": 30, "rate": "51.98"}
+      - {"upTo": 40, "rate": "42.29"}
+      - {"upTo": 50, "rate": "32.82"}
+      - {"upTo": 60, "rate": "23.86"}
+      - {"upTo": 65, "rate": "19.68"}
+      - {"upTo": 70, "rate": "15.78"}
+      - {"upTo": 75, "rate": "12.24"}
+      - {"upTo": 80, "rate": "9.10"}
+      - {"upTo": 85, "rate": "6.44"}
+      - {"upTo": 90, "rate": "4.38"}
+      - {"upTo": null, "rate": "4.38"}
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/saikin/hw/life/life25/dl/life25-02.pdf", "retrievedAt": "2026-10-09", "sha256": "7c8078bf2d7cb50930ff79a026d6b90a5fb776a5429dbe29df1e2e423d224a4d", "locator": "令和7年簡易生命表の概況 1 主な年齢の平均余命 表1（男）", "quote": "男の平均寿命（０歳の平均余命のこと。以下同じ。）は81.35年"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/saikin/hw/life/life25/dl/life25-06.pdf", "retrievedAt": "2026-10-09", "sha256": "21a108943c2ea10aaf042180232aa690c43c52b210ffb426fa18acdcc20401af", "locator": "令和7(2025)年簡易生命表（男）の平均余命の列（0・20・30・…・90歳）", "quote": "令和７(2025)年簡易生命表（男）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/saikin/hw/life/life25/index.html", "retrievedAt": "2026-10-09", "sha256": "2ab98b58800742890079b28e64789c09bd90fc9fdbb6f07ab159013117173a19", "locator": "令和7年簡易生命表の概況（掲載日。ページの日付表示の引数 2026, 7, 24）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["PDF の本文（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和7年簡易生命表（2026年7月24日公表）の主な年齢の平均余命（男）。概況の表1と、簡易生命表（男）の各年齢の平均余命の列の12の年齢すべてで一致。施行日の欄は公表日"}
+  - rev: 4
+    appliesFrom: "2026-07-01"
+    appliesTo: null
+    enforcedOn: "2026-07-24"
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "sex", "equals": "female"}
+    value:
+      - {"upTo": 0, "rate": "87.33"}
+      - {"upTo": 20, "rate": "67.67"}
+      - {"upTo": 30, "rate": "57.85"}
+      - {"upTo": 40, "rate": "48.05"}
+      - {"upTo": 50, "rate": "38.41"}
+      - {"upTo": 60, "rate": "29.07"}
+      - {"upTo": 65, "rate": "24.52"}
+      - {"upTo": 70, "rate": "20.10"}
+      - {"upTo": 75, "rate": "15.88"}
+      - {"upTo": 80, "rate": "11.95"}
+      - {"upTo": 85, "rate": "8.47"}
+      - {"upTo": 90, "rate": "5.66"}
+      - {"upTo": null, "rate": "5.66"}
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/saikin/hw/life/life25/dl/life25-02.pdf", "retrievedAt": "2026-10-09", "sha256": "7c8078bf2d7cb50930ff79a026d6b90a5fb776a5429dbe29df1e2e423d224a4d", "locator": "令和7年簡易生命表の概況 1 主な年齢の平均余命 表1（女）", "quote": "女の平均寿命は87.33年となり"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/saikin/hw/life/life25/dl/life25-07.pdf", "retrievedAt": "2026-10-09", "sha256": "2576993dc56973fd0bc994c1a04fa15c831229992b69f0f0b5534743b73a0222", "locator": "令和7(2025)年簡易生命表（女）の平均余命の列（0・20・30・…・90歳）", "quote": "令和７(2025)年簡易生命表（女）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/saikin/hw/life/life25/index.html", "retrievedAt": "2026-10-09", "sha256": "2ab98b58800742890079b28e64789c09bd90fc9fdbb6f07ab159013117173a19", "locator": "令和7年簡易生命表の概況（掲載日。ページの日付表示の引数 2026, 7, 24）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["PDF の本文（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和7年簡易生命表（2026年7月24日公表）の主な年齢の平均余命（女）。概況の表1と、簡易生命表（女）の各年齢の平均余命の列の12の年齢すべてで一致。施行日の欄は公表日"}
