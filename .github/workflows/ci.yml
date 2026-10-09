@@ -1,12 +1,37 @@
 # 計算エンジンの自動テスト（0002・0004・0005・0006・0007・0021）
 name: ci
 on:
+  # 同じ変更で2回流さない: 作業用のブランチは pull_request だけ、main は取り込んだときだけ（非公開の間は実行の分数に限りがあるため）
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
+# 同じブランチで新しい送信があれば、古い実行を止める
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # 計算に関係する変更か（制度データ・文書・登録簿だけの変更なら、macOS・Windows・速さの測定を省く）
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      heavy: ${{ steps.diff.outputs.heavy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "heavy=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then base="${{ github.event.pull_request.base.sha }}"; else base="${{ github.event.before }}"; fi
+          if ! git cat-file -e "$base" 2>/dev/null; then echo "heavy=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          changed=$(git diff --name-only "$base" HEAD)
+          echo "$changed"
+          if echo "$changed" | grep -Ev '^(data/|docs/|registry/)|\.md$' | grep -q .; then echo "heavy=true" >> "$GITHUB_OUTPUT"; else echo "heavy=false" >> "$GITHUB_OUTPUT"; fi
+
   # 型の検査・lint・単体テスト・まとめた JS と制度データの JSON の作成・npm の依存のライセンスの検査
   engine:
     runs-on: ubuntu-latest
@@ -45,11 +70,12 @@ jobs:
 
   # Rust のホスト（quickjs-ng）のテストと、Node との一致テスト。Windows・macOS・Linux それぞれでビルドする（0005 の6）
   host:
-    needs: engine
+    needs: [engine, changes]
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # 計算に関係する変更のときだけ macOS・Windows でも流す（Linux は毎回）
+        os: ${{ fromJSON(needs.changes.outputs.heavy == 'true' && '["ubuntu-latest","macos-latest","windows-latest"]' || '["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -88,7 +114,8 @@ jobs:
   # 目標と前の値（engine/bench/baseline.json）を表にする。前の値の1.5倍を超えたら警告、3倍を超えたら失敗。
   # 結果（result.json）は成果物として残す。macOS の実行環境は Apple シリコン
   bench:
-    needs: engine
+    needs: [engine, changes]
+    if: needs.changes.outputs.heavy == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -134,7 +161,7 @@ jobs:
           for d in parity/*; do
             diff "parity/$first/parity-hashes.json" "$d/parity-hashes.json"
           done
-          echo "すべての OS で一致"
+          echo "すべての OS で一致（$(ls parity | wc -l) 個）"
 
   # Rust の依存のライセンスの検査（GPL・LGPL・AGPL を止める。0021）
   licenses-rust:
