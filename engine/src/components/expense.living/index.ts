@@ -4,7 +4,7 @@
 //   費目別の入れ方で月額の段階を書いたときは、各費目を最初の費目の割合で分ける。段階は月の順に当て、後の段階が前の段階に勝つ
 // - 万一のとき（改訂2。0008 の追記 2026-10-09 の決定2・3）: 生活費の段階を先に掛け、その後に万一の割合を掛ける（万一の月の翌月から）。
 //   onContingency を書いた生活費は、その扱い（続く・止まる・割合。割合は万一の後の全期間で1つ）。書いていない生活費は、死亡のときだけ
-//   遺族の生活費の割合（万一の想定の survivor.livingRatio。省略は末子の独立まで0.7、独立の後0.5）を総額に掛ける（費目別の生活費も同じ割合）。
+//   遺族の生活費の割合（万一の想定の survivor.livingRatio。省略は末子の独立まで0.7、独立の後0.5。子のいない世帯は noChildren で省略は0.7）を総額に掛ける（費目別の生活費も同じ割合）。
 //   末子の独立は、子の leaves があればその月、無ければ独立とみなす年齢（survivor.independenceAge。省略は22）に達した後の最初の3月31日の翌月
 import {
   addMonths,
@@ -81,14 +81,17 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       const D = parseYm(ev.month);
       const before = ctx.rate.of(ev.survivor?.livingRatio?.beforeIndependence ?? "0.7");
       const after = ctx.rate.of(ev.survivor?.livingRatio?.afterIndependence ?? "0.5");
+      const noChildren = ctx.rate.of(ev.survivor?.livingRatio?.noChildren ?? "0.7");
       const age = ev.survivor?.independenceAge ?? 22;
       let independence: MonthIndex = D;
+      let hasChild = false;
       for (const c of members) {
         if (c.kind !== "child" || parseYm(c.birth.birthYearMonth) > addMonths(D, 10)) continue;
+        hasChild = true;
         const own = c.leaves === null ? addMonths(ctx.time.ageSwitch(c.id, { years: age }, "firstMarch31AfterReach"), 1) : ctx.time.resolve(c.leaves);
         if (own > independence) independence = own;
       }
-      survivorRatio = (m) => (m < independence ? before : after);
+      survivorRatio = hasChild ? (m) => (m < independence ? before : after) : () => noChildren;
     }
     for (const e of ctx.list<LivingExpenseInput>("livingExpense")) {
       const from = e.from === undefined ? base : ctx.time.resolve(e.from);

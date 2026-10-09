@@ -500,7 +500,7 @@ export interface ContingencyEvent {
   /** 障害認定日の月（初診日から1年6か月） */
   readonly recognition?: string;
   readonly survivor?: {
-    readonly livingRatio?: { readonly beforeIndependence?: string; readonly afterIndependence?: string };
+    readonly livingRatio?: { readonly beforeIndependence?: string; readonly afterIndependence?: string; readonly noChildren?: string };
     readonly independenceAge?: number;
     readonly funeral?: Yen;
     readonly reserveMonths?: number;
