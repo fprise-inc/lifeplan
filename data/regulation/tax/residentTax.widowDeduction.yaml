@@ -1,0 +1,20 @@
+id: residentTax.widowDeduction
+title: 寡婦控除（住民税）
+unit: JPY
+kind: constant
+basis: {"type": "priorYearIncome", "switchMonth": 6}
+entries:
+  - rev: 1
+    appliesFrom: "2021-06-01"
+    appliesTo: null
+    enforcedOn: "2021-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 260000
+    sources:
+      - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "寡婦控除 住民税26万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "地方税法314条の2第1項8号の26万円（令和3年度から）"}

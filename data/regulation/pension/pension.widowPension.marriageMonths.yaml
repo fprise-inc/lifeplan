@@ -1,0 +1,20 @@
+id: pension.widowPension.marriageMonths
+title: 寡婦年金の婚姻関係の期間の要件（10年以上継続）
+unit: months
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 120
+    sources:
+      - {"type": "web", "url": "https://www.city.hiroshima.lg.jp/living/hoken-nenkin/1021145/1006017/1025570/1012136.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "10年以上継続して婚姻関係", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "国民年金法49条1項の10年"}

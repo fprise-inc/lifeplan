@@ -2,12 +2,13 @@
 import { EngineError } from "../errors.ts";
 import { addMonths, monthIndex, monthOf, parseYm, yearOf, type MonthIndex } from "./month.ts";
 
-export type AgeSwitch = "reachMonth" | "monthAfterReach" | "birthdayMonth" | "firstMarch31AfterReach" | "schoolYear";
+export type AgeSwitch = "reachMonth" | "monthAfterReach" | "birthdayMonth" | "monthAfterBirthday" | "firstMarch31AfterReach" | "schoolYear";
 
 export const AGE_SWITCHES: readonly AgeSwitch[] = [
   "reachMonth",
   "monthAfterReach",
   "birthdayMonth",
+  "monthAfterBirthday",
   "firstMarch31AfterReach",
   "schoolYear",
 ];
@@ -41,6 +42,9 @@ export function resolveAgeSwitch(birth: Birth, age: Age, rule: AgeSwitch): Month
       return addMonths(reach, 1);
     case "birthdayMonth":
       return birthday;
+    case "monthAfterBirthday":
+      // 誕生日当日の属する月の翌月（0003 の追記 2026-10-09: 児童手当の3歳の切り替え。1日生まれも誕生月の翌月）
+      return addMonths(birthday, 1);
     case "firstMarch31AfterReach": {
       // 達する日以後の最初の3月31日の月（その月まで該当）
       const y = yearOf(reach);

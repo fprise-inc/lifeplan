@@ -1,0 +1,21 @@
+id: pension.survivor.youngWidowAge
+title: 遺族厚生年金が5年で終わる妻の年齢（夫の死亡の当時30歳未満で子のない妻）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2007-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 30
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/izokunenkin/jukyu-yoken/20150401-03.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "30歳未満の子のない妻は5年間の有期給付", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "厚生年金保険法63条1項5号の30歳"}

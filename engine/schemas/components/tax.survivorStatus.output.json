@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.survivorStatus.output",
+  "title": "ひとり親・寡婦の判定",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["widow", "singleParent"],
+  "properties": { "widow": { "type": "boolean" }, "singleParent": { "type": "boolean" } }
+}

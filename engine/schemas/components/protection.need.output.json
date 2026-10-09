@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:protection.need.output",
+  "title": "必要保障額の推移の部品の出力（エンジン全体の出力の protection と同じ形）",
+  "$ref": "urn:financia:schema:engine.output#/$defs/protection"
+}

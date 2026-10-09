@@ -5,6 +5,7 @@
 // - 在職老齢年金: 厚生年金に入る月は（基本月額＋総報酬月額相当額−支給停止調整額）÷2 を止める。全部止まる月は加給年金も止める
 // - 在職定時改定（65歳から、8月までの加入を10月分から）と退職改定（資格を失った月の翌月から）で、記録の後の加入を足す
 // - 支払い: 偶数月に前2か月分。各支払いの1円未満を切り捨て、年度の切り捨ての合計を2月の支払いに足す
+// - 万一の想定で亡くなる構成員は、死亡の月の分まで（受給権は死亡で消え、その月の分までが支給される。改訂5）
 import {
   addMonths,
   ageMonth,
@@ -19,6 +20,7 @@ import {
   RATE_ZERO,
   yearOf,
   yen,
+  type ContingencyEventOutput,
   type CoverageOutput,
   type Ctx,
   type Flow,
@@ -120,8 +122,14 @@ export default defineComponent<{ member: string }, Out>({
   id: "pension.oldAge",
   title: "老齢年金",
   contract: "1.0",
-  revision: 4,
-  requires: { "pension.record": ">=1 <2", "pension.revision": ">=1 <2", "socialInsurance.coverage": ">=1 <2", "pension.employeeMonths": ">=1 <2" },
+  revision: 5,
+  requires: {
+    "pension.record": ">=1 <2",
+    "pension.revision": ">=1 <2",
+    "socialInsurance.coverage": ">=1 <2",
+    "pension.employeeMonths": ">=1 <2",
+    "contingency.event": ">=1 <2",
+  },
   params: Object.values(P),
   reads: [
     "member.kind",
@@ -150,6 +158,9 @@ export default defineComponent<{ member: string }, Out>({
     const input0 = ctx.list<PensionRecordInput>("pensionRecord").find((r) => r.member === member);
     const N = ageMonth(ctx, base, P.start, member);
     if (addMonths(N, -60) > end && input0?.kind !== "receiving") return empty;
+    // 万一の想定で亡くなる月（その月の分まで支給）
+    const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member }).event;
+    const lastMonth = ev !== null && ev.kind === "death" ? parseYm(ev.month) : null;
     const rec = ctx.call<RecordOutput>("pension.record", { member });
     const rv = ctx.call<RevisionOutput>("pension.revision", { member });
     const R = revisionTable(rv, "rate");
@@ -472,7 +483,7 @@ export default defineComponent<{ member: string }, Out>({
         if (m >= N || receiving) basic = yen(basic + transferOf(at, fy) + basicChildOf(at, fy, m, childByEmployee));
       }
       if (basic > 0 || employee > 0 || special > 0 || suspended > 0) {
-        for (let k = seg.from; k <= seg.to; k = addMonths(k, 1)) months.push({ month: formatYm(k), basic, employee, special, suspended });
+        for (let k = seg.from; k <= seg.to && (lastMonth === null || k <= lastMonth); k = addMonths(k, 1)) months.push({ month: formatYm(k), basic, employee, special, suspended });
       }
     }
 

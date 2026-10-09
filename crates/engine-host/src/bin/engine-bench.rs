@@ -1,7 +1,8 @@
 //! 速さの計測（0005 の「速さの回帰」と追記の目標2）。製品と同じ形（バイトコードから読み込み、パックの形は先に1回だけ確かめ、
 //! 計算ごとに新しい実行環境）で、quickjs-ng の正の計算の時間を測る。
-//! 使い方: engine-bench --engine dist/engine.js --packs packs.json --requests requests.json [--repeat N] [--threads T]
-//! requests.json は要求の JSON の配列（5案×4想定の20件。案ごとに4件）。結果は JSON（ミリ秒の中央値と最小値）を標準出力に出す
+//! 使い方: engine-bench --engine dist/engine.js --packs packs.json --requests requests.json [--protection protection.json] [--repeat N] [--threads T]
+//! requests.json は要求の JSON の配列（5案×4想定の20件。案ごとに4件）。protection.json は必要保障額の推移（夫婦2人。0005 の追記 2026-10-09）を
+//! 求める要求1件（あれば protection として1件の正の計算の時間を測る）。結果は JSON（ミリ秒の中央値と最小値）を標準出力に出す
 use std::time::Instant;
 
 use engine_host::{
@@ -87,6 +88,7 @@ fn main() {
     let mut engine_path = None;
     let mut packs_path = None;
     let mut requests_path = None;
+    let mut protection_path = None;
     let mut repeat = 5usize;
     let mut threads = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -99,9 +101,10 @@ fn main() {
             "--engine" => engine_path = args.next(),
             "--packs" => packs_path = args.next(),
             "--requests" => requests_path = args.next(),
+            "--protection" => protection_path = args.next(),
             "--repeat" => repeat = args.next().and_then(|v| v.parse().ok()).unwrap_or(5),
             "--threads" => threads = args.next().and_then(|v| v.parse().ok()).unwrap_or(threads),
-            _ => panic!("usage: engine-bench --engine <engine.js> --packs <packs.json> --requests <requests.json> [--repeat N] [--threads T]"),
+            _ => panic!("usage: engine-bench --engine <engine.js> --packs <packs.json> --requests <requests.json> [--protection <request.json>] [--repeat N] [--threads T]"),
         }
     }
     let engine_js = std::fs::read_to_string(engine_path.expect("--engine")).expect("engine");
@@ -112,6 +115,11 @@ fn main() {
     .expect("json");
     let requests: Vec<String> = list.iter().map(|v| v.to_string()).collect();
     let four = &requests[..4.min(requests.len())];
+    let protection: Option<String> = protection_path.map(|p| {
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(p).expect("protection")).expect("json");
+        v.to_string()
+    });
     // 製品と同じ: ビルドの時にバイトコードにし、パックの形は本体が読み込んだときに1回だけ確かめる
     let t = Instant::now();
     let engine = compile_engine(&engine_js).expect("compile");
@@ -129,6 +137,7 @@ fn main() {
     let mut batch4 = Vec::new();
     let mut par20 = Vec::new();
     let mut plans5 = Vec::new();
+    let mut protection_ms = Vec::new();
     // 温める（ファイルの読み込みなどの初回の費用を除く）
     bench.one(&requests[0]);
     for _ in 0..repeat {
@@ -152,8 +161,13 @@ fn main() {
         let t = Instant::now();
         bench.plans(&requests);
         plans5.push(ms(t));
+        if let Some(p) = &protection {
+            let t = Instant::now();
+            bench.one(p);
+            protection_ms.push(ms(t));
+        }
     }
-    let out = serde_json::json!({
+    let mut out = serde_json::json!({
         "threads": threads,
         "compile": stats(vec![compile_ms]),
         "load": stats(load),
@@ -163,5 +177,8 @@ fn main() {
         "par20": stats(par20),
         "plans5": stats(plans5),
     });
+    if !protection_ms.is_empty() {
+        out["protection"] = stats(protection_ms);
+    }
     println!("{out}");
 }

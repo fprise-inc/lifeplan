@@ -253,3 +253,92 @@ export function grownByYear(
 export function monthlyParts(ctx: Ctx, annual: Yen): Yen[] {
   return ctx.money.allocate(annual, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "conv.expense.share", "first");
 }
+
+/**
+ * 年金の支払い（偶数月に前2か月分）。months は月ごとの年額（その月に支給される額の12倍）。各支払いは2か月分の年額の合計÷12 の1円未満を
+ * roundingId で丸め、3月から翌年2月までの丸めの残りの合計（1円未満は丸める）を2月の支払い（無ければその期間の最後の支払い）に足す
+ * （国民年金法18条の2。pension.oldAge と同じ決まり。遺族年金・障害年金の部品が使う）
+ */
+export function evenMonthPayments(ctx: Ctx, months: readonly { readonly month: string; readonly amount: Yen }[], roundingId: string): { ym: string; amount: Yen; accrualYear: number }[] {
+  const pays = new Map<string, { sum: number; accrual: number }>();
+  for (const x of months) {
+    if (x.amount <= 0) continue;
+    const m = parseYm(x.month);
+    const paid = formatYm(addMonthsLocal(m, monthOf(m) % 2 === 1 ? 1 : 2));
+    const cur = pays.get(paid) ?? { sum: 0, accrual: yearOf(m) };
+    cur.sum += x.amount;
+    pays.set(paid, cur);
+  }
+  const remainder = new Map<number, number>();
+  const lastOf = new Map<number, string>();
+  const list: { ym: string; amount: Yen; accrualYear: number }[] = [];
+  for (const [ym, v] of [...pays.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    const pm = parseYm(ym);
+    const period = monthOf(pm) >= 3 ? yearOf(pm) : yearOf(pm) - 1;
+    const amount = ctx.at(pm).money.divInt(yen(v.sum), 12, roundingId);
+    remainder.set(period, (remainder.get(period) ?? 0) + (v.sum - ctx.money.mulRatio(amount, 12, 1, "conv.exact")));
+    lastOf.set(period, ym);
+    list.push({ ym, amount, accrualYear: v.accrual });
+  }
+  for (const [period, rem] of remainder) {
+    const add = ctx.at(monthIndex(period + 1, 2)).money.divInt(yen(rem), 12, roundingId);
+    if (add <= 0) continue;
+    const feb = formatYm(monthIndex(period + 1, 2));
+    const i = list.findIndex((p) => p.ym === feb);
+    const k = i >= 0 ? i : list.findIndex((p) => p.ym === lastOf.get(period));
+    if (k >= 0) list[k] = { ...(list[k] as { ym: string; amount: Yen; accrualYear: number }), amount: yen((list[k] as { amount: Yen }).amount + add) };
+  }
+  return list.filter((p) => p.amount > 0);
+}
+
+const addMonthsLocal = (m: MonthIndex, k: number): MonthIndex => (m + k) as MonthIndex;
+
+/** 関係の辺から、月 m に member の配偶者である構成員（from・to は解決した月で比べる） */
+export function spousesAt(
+  ctx: Ctx,
+  relations: readonly { readonly type: string; readonly a?: string; readonly b?: string; readonly from?: unknown; readonly to?: unknown }[],
+  member: string,
+  m: MonthIndex,
+): string[] {
+  const out: string[] = [];
+  for (const r of relations) {
+    if (r.type !== "spouse" || (r.a !== member && r.b !== member)) continue;
+    const from = r.from === null || r.from === undefined ? null : ctx.time.resolve(r.from as never);
+    const to = r.to === null || r.to === undefined ? null : ctx.time.resolve(r.to as never);
+    if ((from !== null && from > m) || (to !== null && to < m)) continue;
+    out.push((r.a === member ? r.b : r.a) as string);
+  }
+  return out;
+}
+
+/**
+ * member の子（関係の parentOf があればそれで、無ければ member が本人・配偶者のとき家族の種類が child の構成員）。
+ * 構成員と関係は部品が reads に書いて読んだもの（member.kind・relation.type・relation.parent・relation.child が要る）
+ */
+export function childrenOf<M extends { readonly id: string; readonly kind: string }>(
+  members: readonly M[],
+  relations: readonly { readonly type: string; readonly parent?: string; readonly child?: string }[],
+  member: string,
+): M[] {
+  const me = members.find((x) => x.id === member);
+  const parentsGiven = relations.some((r) => r.type === "parentOf");
+  return members.filter((c) =>
+    c.kind === "child" && (parentsGiven ? relations.some((r) => r.type === "parentOf" && r.parent === member && r.child === c.id) : me !== undefined && (me.kind === "self" || me.kind === "spouse")),
+  );
+}
+
+/**
+ * 万一のときの扱い（onContingency）の割合: 万一の種類が kinds（省略は死亡だけ）に入り、その月が万一の月より後なら、
+ * continue は1、stop は0、ratio はその割合。当てないときは null（そのまま）
+ */
+export function contingencyRatio(
+  ctx: Ctx,
+  on: { readonly mode: "continue" | "stop" | "ratio"; readonly ratio?: string; readonly kinds?: readonly string[] } | undefined,
+  event: { readonly kind: string; readonly month: string } | null,
+  m: MonthIndex,
+): Rate | null {
+  if (on === undefined || event === null || on.mode === "continue") return null;
+  if (!(on.kinds ?? ["death"]).includes(event.kind)) return null;
+  if (m <= parseYm(event.month)) return null;
+  return on.mode === "stop" ? RATE_ZERO : ctx.rate.of(on.ratio ?? "1");
+}

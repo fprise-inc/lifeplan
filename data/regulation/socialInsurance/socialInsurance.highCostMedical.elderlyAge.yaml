@@ -1,0 +1,20 @@
+id: socialInsurance.highCostMedical.elderlyAge
+title: 高額療養費の70歳以上の区分になる年齢
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: monthAfterReach
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 70
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "70歳以上の方", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "70歳に達する日の属する月の翌月から"}

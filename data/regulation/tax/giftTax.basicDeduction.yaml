@@ -1,0 +1,20 @@
+id: giftTax.basicDeduction
+title: 贈与税（暦年課税）の基礎控除
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2001-01-01"
+    appliesTo: null
+    enforcedOn: "2001-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1100000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "基礎控除額110万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "租税特別措置法70条の2の4の110万円"}

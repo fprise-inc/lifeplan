@@ -1,0 +1,42 @@
+id: socialInsurance.highCostMedical.under70.threshold
+title: 高額療養費の自己負担限度額の1%を掛ける基準の医療費（区分ア〜ウ。エ・オは0）
+unit: JPY
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: "2015-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1, "amount": 842000}
+      - {"upTo": 2, "amount": 558000}
+      - {"upTo": 3, "amount": 267000}
+      - {"upTo": 4, "amount": 0}
+      - {"upTo": null, "amount": 0}
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "（医療費−842,000円）×1%・（医療費−558,000円）×1%・（医療費−267,000円）×1%", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "健康保険法施行令42条"}
+  - rev: 2
+    appliesFrom: "2026-08-01"
+    appliesTo: null
+    enforcedOn: "2026-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1, "amount": 901000}
+      - {"upTo": 2, "amount": 597000}
+      - {"upTo": 3, "amount": 286000}
+      - {"upTo": 4, "amount": 0}
+      - {"upTo": null, "amount": 0}
+    sources:
+      - {"type": "web", "url": "https://column.finance.ponta.jp/archives/756/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "2026年8月〜 270,300円＋（医療費−901,000円）×1%", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "基準の医療費は自己負担限度額÷0.3（イ・ウは額から計算した。原本で確かめる）"}

@@ -2,6 +2,8 @@
 // iDeCo・企業型DC の掛金（器の間の移動）と受け取り）を集め、
 // 年間収支（収入−税・社会保険料）を年ごとに出す。plan.flows が構成員ごとに呼ぶ（0005・0006 の追記: 構成員ごとに分けておくと、
 // 配偶者の入力を変えたとき、本人の分は集め直さない）。parts は集めた部品の出力の配列のまま（エンジンが表の集計を部品ごとに使い回す）
+// 改訂5（万一・医療・贈与）: 遺族年金（pension.survivor）・障害年金（pension.disability）・万一の医療費（medical.highCost）・
+// 受け取る贈与の税（gift.tax。贈与を受け取る年だけ）を集める
 import {
   ageMonth,
   defineComponent,
@@ -24,8 +26,13 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
   id: "plan.memberFlows",
   title: "お金の動き（構成員ごとに集める）",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: {
+    "pension.survivor": ">=1 <2",
+    "pension.disability": ">=1 <2",
+    "medical.highCost": ">=1 <2",
+    "gift.received": ">=1 <2",
+    "gift.tax": ">=1 <2",
     "expense.car": ">=1 <2",
     "retirement.benefit": ">=1 <2",
     "account.mutualAid": ">=1 <2",
@@ -59,7 +66,21 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
     const member = input.member;
     const parts: (readonly Flow[])[] = [];
     parts.push(ctx.call<SalaryOutput>("income.salary", { member }).flows);
-    for (const c of ["income.business", "pension.oldAge", "pension.supplementaryBenefit", "benefit.health", "benefit.employment", "ideco.contribution", "account.ideco", "retirement.benefit", "account.mutualAid", "expense.car"]) {
+    for (const c of [
+      "income.business",
+      "pension.oldAge",
+      "pension.supplementaryBenefit",
+      "pension.survivor",
+      "pension.disability",
+      "benefit.health",
+      "benefit.employment",
+      "medical.highCost",
+      "ideco.contribution",
+      "account.ideco",
+      "retirement.benefit",
+      "account.mutualAid",
+      "expense.car",
+    ]) {
       parts.push(ctx.call<FlowsResult>(c, { member }).flows);
     }
     for (const c of ["socialInsurance.health", "socialInsurance.pension", "socialInsurance.employment", "socialInsurance.nationalPension"]) {
@@ -69,6 +90,9 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
     // 退職所得の分離課税（退職一時金・DB・iDeCo・企業型DC・小規模企業共済の一時金を受け取る年だけ）
     const receiptYears = new Set(ctx.call<{ receipts: readonly { ym: string }[] }>("retirement.receipts", { member }).receipts.map((r) => Number(r.ym.slice(0, 4))));
     for (const y of [...receiptYears].sort((a, b) => a - b)) if (y >= baseYear && y <= endYear) parts.push(ctx.call<TaxOutput>("tax.retirementIncome", { member, year: y }).flows);
+    // 受け取る贈与の税（贈与を受け取る年だけ）
+    const giftYears = new Set(ctx.call<{ gifts: readonly { ym: string }[] }>("gift.received", { member }).gifts.map((g) => Number(g.ym.slice(0, 4))));
+    for (const y of [...giftYears].sort((a, b) => a - b)) if (y >= baseYear - 1 && y <= endYear) parts.push(ctx.call<TaxOutput>("gift.tax", { member, year: y }).flows);
     // 前年度の分（計算基準年の1〜5月に払う分）から
     for (let fy = monthOf(base) <= 5 ? baseYear - 1 : baseYear; fy <= endYear; fy++) {
       parts.push(ctx.call<TaxOutput>("residentTax.annual", { member, fiscalYear: fy }).flows);

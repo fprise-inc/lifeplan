@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:debt.creditLifeEvents.output",
+  "title": "団信で残高が消える月と割合",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["events"],
+  "properties": {
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["month", "ratio", "cause", "member"],
+        "properties": {
+          "month": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "ratio": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+          "cause": { "enum": ["death", "highDisability", "incapacity"] },
+          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" }
+        }
+      }
+    }
+  }
+}

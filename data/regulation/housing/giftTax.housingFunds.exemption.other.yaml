@@ -1,0 +1,33 @@
+id: giftTax.housingFunds.exemption.other
+title: 住宅取得等資金の贈与税の非課税限度額（省エネ等住宅以外）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2024-01-01"
+    appliesTo: "2026-12-31"
+    enforcedOn: "2024-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5000000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4508.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "それ以外の住宅の場合には500万円まで", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "租税特別措置法70条の2（令和6年1月1日から令和8年12月31日までの贈与）"}
+  - rev: 2
+    appliesFrom: "2027-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4508.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和8年12月31日までの贈与", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "期限の後（延長は未定）"}

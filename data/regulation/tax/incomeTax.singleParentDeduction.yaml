@@ -1,0 +1,35 @@
+id: incomeTax.singleParentDeduction
+title: ひとり親控除（所得税）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: "2026-12-31"
+    enforcedOn: "2020-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 350000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "ひとり親控除 35万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://biz.moneyforward.com/tax_return/basic/52713/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和8年分は35万円のまま、38万円は令和9年分以後", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "所得税法81条の2の35万円"}
+  - rev: 2
+    appliesFrom: "2027-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 380000
+    sources:
+      - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "所得税の控除額は2027年分以後38万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://biz.moneyforward.com/tax_return/basic/52713/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "38万円は令和9年分以後", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和8年度税制改正で令和9年分から38万円（検索の要約。改正法の条文は未確認）"}

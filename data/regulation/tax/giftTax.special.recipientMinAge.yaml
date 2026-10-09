@@ -1,0 +1,35 @@
+id: giftTax.special.recipientMinAge
+title: 特例税率・相続時精算課税・住宅取得等資金の非課税の受贈者の年齢（贈与の年の1月1日に18歳以上）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: "2022-03-31"
+    enforcedOn: "2015-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 20
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "1月1日において20歳以上（令和4年3月31日以前）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "成年年齢の引下げ前は20歳"}
+  - rev: 2
+    appliesFrom: "2022-04-01"
+    appliesTo: null
+    enforcedOn: "2022-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 18
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "1月1日において18歳以上", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和4年4月1日以後の贈与は18歳"}

@@ -1,0 +1,21 @@
+id: incomeTax.widowDeduction
+title: 寡婦控除（所得税）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: "2020-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 270000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1170.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "寡婦控除 27万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.bk.mufg.jp/column/others/b0116.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "寡婦控除 所得税27万円・住民税26万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "所得税法81条の27万円（令和2年分から）"}

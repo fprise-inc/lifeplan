@@ -5,9 +5,10 @@
 //      見ている1枠だけを計算する。画面の動きと同じ）。目標は画面側で0.1秒以内
 //   2. 指を離した直後（afterRelease19）: 万一の3枠とほかの4案×4想定（19枠）を session.release で先出しで計算し直す時間。目安1秒以内
 //      （正の計算は quickjs-ng 側で測る）
+//   3. 必要保障額の推移（protection）: 夫婦2人の「この年に亡くなったら」の推移を求める要求1件（0005 の追記 2026-10-09。目安は正の計算で数秒）
 //   （参考）前の目標の形: 見ている案の1案×4想定を先出しする1刻み（sliderSalaryFour）
 // 使い方: measure(engine, packsJson, data, repeat) → { 名前: { median, min } }
-//   data = { requests: [20件], sliders: { 名前: [[20件]（刻み0）, [20件]（刻み1）, …] } }
+//   data = { requests: [20件], sliders: { 名前: [[20件]（刻み0）, [20件]（刻み1）, …] }, protection?: 要求 }
 
 import { performance } from "node:perf_hooks";
 
@@ -37,6 +38,14 @@ export function measure(engine, packsJson, data, repeat) {
   const reqJson = data.requests.map((r) => JSON.stringify(r));
   // 1件（正と同じ run の入口。温まった後）
   out.single = time(() => engine.run(reqJson[0], packsJson, "{}"), repeat);
+  // 必要保障額の推移（夫婦2人。正と同じ run の入口）
+  if (data.protection !== undefined) {
+    const p = JSON.stringify(data.protection);
+    out.protection = time(() => {
+      const r = engine.run(p, packsJson, "{}");
+      if (r.startsWith('{"error"')) throw new Error(r.slice(0, 200));
+    }, repeat, 1);
+  }
   for (const [name, ticks] of Object.entries(data.sliders)) {
     const session = engine.createSession(packsJson);
     const setAll = (k) => {

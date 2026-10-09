@@ -1,6 +1,6 @@
 // エンジン全体の計算: 入力の検査 → 部品表の組み立て → 時点の解決 → 部品の呼び出し → 出力の検査
 import buildInfo from "../generated/build-info.json" with { type: "json" };
-import { OFFICIAL_COMPONENTS, ROOT_COMPONENT } from "../components/index.ts";
+import { OFFICIAL_COMPONENTS, PROTECTION_COMPONENT, ROOT_COMPONENT } from "../components/index.ts";
 import { EngineError } from "../errors.ts";
 import { checkRow, isUnder } from "../ids/cfTree.ts";
 import { check } from "../io/validate.ts";
@@ -15,6 +15,7 @@ import { decemberOf, formatYm, parseYm, yearOf } from "../time/month.ts";
 import { TimeResolver } from "../time/timepoint.ts";
 import { tableYear } from "./aggregate.ts";
 import { deepFreeze } from "./freeze.ts";
+import { applyContingency, applyStress } from "./overlay.ts";
 import type { AnnualRow, CalcConventions, EngineRequest, Flow } from "./types.ts";
 
 export interface RunOptions {
@@ -65,6 +66,8 @@ export interface EngineResult {
   /** 表から作る要約（表の期間の収入・税と社会保険料・支出・年間収支の合計と、FP顧問料の累計。0008 の追記） */
   readonly summary: Json;
   readonly trace: Json;
+  /** 必要保障額の推移（input.protection を指定したときだけ） */
+  readonly protection?: Json;
   /** options.entry のときだけ: その部品の出力 */
   readonly entryOutput?: unknown;
 }
@@ -258,14 +261,14 @@ function checkPackRequires(packs: readonly unknown[], assembly: Assembly): void 
 export function runEngine(request: unknown, packs: readonly unknown[], options: RunOptions = {}): EngineResult {
   check("engine.request", request, "E_INPUT_SCHEMA");
   const req = deepFreeze(request as EngineRequest);
-  const input = req.input;
+  const given = req.input;
   const batch = options.batch;
   if (batch === undefined) checkPackSchemas(packs, options.packsChecked);
 
-  const dataSetKey = JSON.stringify(input.dataSet ?? {});
+  const dataSetKey = JSON.stringify(given.dataSet ?? {});
   let store = batch?.stores.get(dataSetKey);
   if (store === undefined) {
-    store = new RegulationStore(packs as readonly PackJson[], input.dataSet ?? {});
+    store = new RegulationStore(packs as readonly PackJson[], given.dataSet ?? {});
     batch?.stores.set(dataSetKey, store);
   }
   const assembled = batch?.assembly ?? assemble(OFFICIAL_COMPONENTS, options);
@@ -283,6 +286,12 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
         };
   // 0007 の3: パックが必要とする計算部品の約束の版（まとめて計算するときは runBatch で1回だけ）
   if (batch === undefined) checkPackRequires(packs, assembly);
+  // 0008 の7: 上書きの決まり方の順番の最後に、ストレステスト（前提の書き換え）と万一の重ねを入力に重ねる（overlay.ts）。
+  // 構成員の生年月・性別と名前つきイベントは変えないので、要求の組（使い回しの範囲）は万一なしの要求と同じ
+  const time = new TimeResolver(given.household.members, given.household.events);
+  const stressed = applyStress(given, time);
+  const overlaid = applyContingency(stressed.input, time);
+  const input = overlaid.input;
   const h = input.household;
   // 世帯内の物のIDは、その世帯の中で一意（0004 の4）
   const objectIds = [
@@ -309,6 +318,9 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     ...(h.premiumAssessments ?? []).map((a) => a.member),
     ...h.employmentPeriods.flatMap((p) => [p.leaveChild, p.childcareShortHours?.child].filter((x): x is string => x !== undefined)),
     ...h.relations.flatMap((r) => (r.type === "spouse" ? [r.a, r.b] : [r.parent, r.child])),
+    ...(h.careExpenses ?? []).flatMap((c) => [c.member, ...(c.payer !== undefined ? [c.payer] : [])]),
+    ...h.insuranceContracts.flatMap((c) => [...(c.annuitant !== undefined ? [c.annuitant] : []), ...(c.beneficiaries ?? []).flatMap((b) => (b.member !== undefined ? [b.member] : []))]),
+    ...(input.protection?.members ?? []),
   ];
   if (refs.some((id) => !memberIds.has(id))) throw new EngineError("E_ARGUMENT", ["household.member"]);
   // 年金の加入の記録は構成員ごとに1件まで
@@ -325,7 +337,6 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   // 要求のあいだの結果の使い回しは、根拠の記録なしのときだけ（記録は計算した要求の記録にしか残らないため）
   const sharing = partition !== undefined && req.trace === "none";
   const tracer = new Tracer(req.trace);
-  const time = new TimeResolver(h.members, h.events);
   // 0003 の6: 計算の前にすべてのイベントを絶対の年月へ解決する（循環はここでエラー）
   const events = time.resolveAllEvents();
   for (const e of h.events) {
@@ -364,8 +375,17 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   const rootRes = invoke(state, root, options.entry?.input ?? {});
   const { output, node: rootNode } = rootRes;
   if (sharing) collectEffects(state, rootRes);
+  // 必要保障額の推移（指定したときだけ。6.3）: 根の部品の後に、同じ要求の中で求める（キャッシュフロー表の部品の結果を使い回す）
+  let protectionRes: ReturnType<typeof invoke> | null = null;
+  if (input.protection !== undefined && options.entry === undefined) {
+    const impl = assembly.impls.get(PROTECTION_COMPONENT);
+    if (impl === undefined) throw new EngineError("E_COMPONENT_UNKNOWN", [PROTECTION_COMPONENT]);
+    protectionRes = invoke(state, impl, { request: input.protection });
+    if (sharing) collectEffects(state, protectionRes);
+  }
   if (batch !== undefined) {
-    batch.lastUsed = rootRes.variant === null ? null : [rootRes.variant];
+    const used = [rootRes.variant, protectionRes?.variant ?? null].filter((v): v is Variant => v !== null);
+    batch.lastUsed = rootRes.variant === null ? null : used;
     if (sharing) keepLane(state);
   }
   const out = output as { flows?: readonly Flow[]; annual?: readonly AnnualRow[]; parts?: readonly (readonly Flow[])[] };
@@ -456,6 +476,8 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     baseMonth: input.baseMonth,
     endYear: input.endYear,
     calcConventions: input.calcConventions as unknown as Json,
+    ...(overlaid.header !== null ? { contingency: overlaid.header as unknown as Json } : {}),
+    ...(stressed.header !== null ? { stressTest: stressed.header as unknown as Json } : {}),
     components: assembly.refs as unknown as Json[],
     data: store.packs() as unknown as Json[],
     // 計算に反映していないこと（未対応の制度など）と、延長の仮定で使った値（値の行・最初の年・最後の年）。ID だけ
@@ -465,7 +487,17 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     ].sort((a, b) => cmp(`${a.code}|${a.ids.join(",")}`, `${b.code}|${b.ids.join(",")}`)) as unknown as Json[],
   };
   // undefined の欄を除くのは見出しと根拠の記録だけ（お金の動き・年ごとの行・表は部品と上の集計が欄を省いて作り、JSON にしたときも同じ）
-  const result = { header: stripUndefined(header), flows: options.preview === true ? [] : flows, annual, table: table as unknown as Json[], summary: summaryOf(table), trace: stripUndefined(trace) };
+  const details = (output as { details?: { insurance?: Json; gifts?: Json } } | null)?.details;
+  const summary = summaryOf(table, details);
+  const result = {
+    header: stripUndefined(header),
+    flows: options.preview === true ? [] : flows,
+    annual,
+    table: table as unknown as Json[],
+    summary,
+    trace: stripUndefined(trace),
+    ...(protectionRes !== null ? { protection: protectionRes.output as Json } : {}),
+  };
   return options.entry === undefined ? result : { ...result, entryOutput: output };
 }
 
@@ -537,7 +569,8 @@ export interface Session {
   /**
    * スライダーの1刻み（0005 の追記（2026-10-09）: 先出しの範囲）。枠を置き直し（set と同じ）、今見ている案の「万一が起きない」想定の1枠（focus）だけを
    * 先出しで計算する。戻り値は {"focus": {"<枠ID>": {"rev", "state": "fresh", "result"}}, "status": status()}。ほかの枠は古い（stale）のまま、
-   * results() で前の結果を返せる（画面は古い印を付けて表示する）
+   * results() で前の結果を返せる（画面は古い印を付けて表示する）。FP が万一の画面を見ているときは、その万一の枠を focus にしてよい
+   * （0005 の追記 2026-10-09: 万一・ストレステストの枠と先出し）
    */
   slide(slotsJson: string, focusId: string): string;
   /** 指を離した直後: 古い枠とまだ計算していない枠をすべて計算する（既定は先出し。{"preview": false} で出力全体）。戻り値は compute と同じ */
@@ -755,7 +788,7 @@ function packsCheckedOf(opts: { packsChecked?: unknown }): { packsChecked?: read
  * FP顧問料（cf.expense.advisoryFee）の年ごとの額・累計・契約ごとの合計。顧問料の行は契約の物の ID（object）で分かるので、
  * 顧問料を除いた場合との差は、契約を enabled: false にした要求と比べて出す（提案の効果の内訳の材料）
  */
-function summaryOf(table: readonly { row: string; year: number; amount: number; member?: string; object?: string }[]): Json {
+function summaryOf(table: readonly { row: string; year: number; amount: number; member?: string; object?: string }[], details?: { insurance?: Json; gifts?: Json }): Json {
   let income = 0;
   let taxSi = 0;
   let expense = 0;
@@ -787,6 +820,9 @@ function summaryOf(table: readonly { row: string; year: number; amount: number; 
     const contracts = [...feeByContract.entries()].sort((a, b) => cmp(a[0], b[0])).map(([object, e]) => ({ ...(object === "" ? {} : { object }), ...(e.member === undefined ? {} : { member: e.member }), total: e.total }));
     out.advisoryFee = { total: cumulative, byYear, contracts } as unknown as Json;
   }
+  // 保障内容一覧・払込保険料の推移の材料（insurance）と贈与の税（gifts）は、根の部品（plan.cashflow）の details から（6.8・贈与）
+  if (details?.insurance !== undefined) out.insurance = details.insurance;
+  if (details?.gifts !== undefined) out.gifts = details.gifts;
   return out as unknown as Json;
 }
 
@@ -799,7 +835,7 @@ function runChecked(request: unknown, packs: readonly unknown[], opts: { checkIn
       return r;
     }
     // 年ごとの行（annual）は表（table）にも入っているので、先出しでは返さない（0005 の追記（3回目の見直し）: 先出しの出力を小さく）
-    const p = { header: r.header, table: r.table, summary: r.summary };
+    const p = { header: r.header, table: r.table, summary: r.summary, ...(r.protection !== undefined ? { protection: r.protection } : {}) };
     check("engine.preview", p, "E_OUTPUT_SCHEMA");
     return p;
   } catch (e) {

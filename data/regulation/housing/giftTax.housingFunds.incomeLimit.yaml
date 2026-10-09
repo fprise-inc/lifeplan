@@ -1,0 +1,20 @@
+id: giftTax.housingFunds.incomeLimit
+title: 住宅取得等資金の非課税の受贈者の合計所得金額の上限
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2024-01-01"
+    appliesTo: null
+    enforcedOn: "2024-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 20000000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4508.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "合計所得金額が2,000万円以下（床面積40㎡以上50㎡未満は1,000万円以下）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "租税特別措置法70条の2の2,000万円（床面積40㎡以上50㎡未満の1,000万円は扱わない）"}

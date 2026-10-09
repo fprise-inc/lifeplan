@@ -1,0 +1,23 @@
+id: socialInsurance.highCostMedical.tierByStandard
+title: 高額療養費の区分（標準報酬月額。upTo 以下なら amount の区分）
+unit: JPY
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: "2015-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 260000, "amount": 4}
+      - {"upTo": 500000, "amount": 3}
+      - {"upTo": 790000, "amount": 2}
+      - {"upTo": null, "amount": 1}
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "標準報酬月額83万円以上・53万〜79万円・28万〜50万円・26万円以下", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "区分ア 83万円以上・イ 53万〜79万円・ウ 28万〜50万円・エ 26万円以下（区分の細分化（令和9年8月）は扱わない）"}

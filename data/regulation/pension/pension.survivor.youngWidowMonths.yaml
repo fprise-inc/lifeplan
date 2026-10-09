@@ -1,0 +1,20 @@
+id: pension.survivor.youngWidowMonths
+title: 30歳未満の子のない妻の遺族厚生年金を受けられる期間（5年）
+unit: months
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2007-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 60
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/izokunenkin/jukyu-yoken/20150401-03.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "5年間の有期給付", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "厚生年金保険法63条1項5号の5年"}

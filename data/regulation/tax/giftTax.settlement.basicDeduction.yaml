@@ -1,0 +1,34 @@
+id: giftTax.settlement.basicDeduction
+title: 相続時精算課税の基礎控除（受贈者ごと・その年）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2003-01-01"
+    appliesTo: "2023-12-31"
+    enforcedOn: "2003-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 0
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4103.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "令和5年以前は基礎控除なし", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和5年分までは基礎控除が無い"}
+  - rev: 2
+    appliesFrom: "2024-01-01"
+    appliesTo: null
+    enforcedOn: "2024-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1100000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4103.htm", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "基礎控除 110万円（令和6年1月1日以後の贈与）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "租税特別措置法70条の3の2の110万円（令和6年1月1日以後の贈与）"}

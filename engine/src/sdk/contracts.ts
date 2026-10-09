@@ -82,6 +82,10 @@ export interface TotalIncomeOutput {
   readonly adjustment?: Yen;
   /** 分離課税の退職所得の金額（約束の版 1.2 の任意の欄。total には入らない。所得税の合計所得金額の判定で足す） */
   readonly retirement?: Yen;
+  /** 保険の一時所得のうち総所得金額に入れた額（特別控除の後の2分の1。約束の版 1.3 の任意の欄。total に入る） */
+  readonly temporary?: Yen;
+  /** 個人年金の雑所得（約束の版 1.3 の任意の欄。total に入る） */
+  readonly miscellaneous?: Yen;
 }
 
 /** tax.deductions: 所得控除（所得税か住民税か） */
@@ -95,6 +99,9 @@ export interface DeductionsOutput {
   readonly lifeInsurance: Yen;
   readonly earthquake: Yen;
   readonly smallBusiness: Yen;
+  /** 寡婦控除・ひとり親控除（約束の版 1.1 の任意の欄） */
+  readonly widow?: Yen;
+  readonly singleParent?: Yen;
   readonly total: Yen;
   /** 住民税の調整控除に使う人的控除額の差の合計（所得税のときは 0） */
   readonly personalDiff: Yen;
@@ -174,7 +181,7 @@ export interface EmployeeStatusMonth {
   readonly employer: string | null;
   /** 働き方（期間が無い月は none） */
   readonly type: string;
-  readonly leave?: "maternity" | "childcare" | "sick" | "other";
+  readonly leave?: "maternity" | "childcare" | "sick" | "care" | "other";
   /** 勤め先の健康保険に入る */
   readonly health: boolean;
   /** 厚生年金に入る（70歳の上限は socialInsurance.coverage で見る） */
@@ -480,4 +487,163 @@ export interface ReconcileOutput {
   readonly flows: readonly Flow[];
   /** 検算の結果（年額。計算上の貯蓄額・実際の貯蓄額（表に載る月数で按分）・差） */
   readonly checks: readonly { readonly object: string; readonly year: number; readonly computed: Yen; readonly actual: Yen; readonly unexplainedAnnual: Yen }[];
+}
+
+/** contingency.event: 構成員の万一（判定だけ）。万一の無い構成員は null */
+export interface ContingencyEvent {
+  readonly id: string;
+  readonly kind: "death" | "disability" | "incapacity";
+  /** 起きる月 */
+  readonly month: string;
+  readonly grade?: 1 | 2 | 3;
+  readonly recovery?: string;
+  /** 障害認定日の月（初診日から1年6か月） */
+  readonly recognition?: string;
+  readonly survivor?: {
+    readonly livingRatio?: { readonly beforeIndependence?: string; readonly afterIndependence?: string };
+    readonly independenceAge?: number;
+    readonly funeral?: Yen;
+    readonly reserveMonths?: number;
+    readonly deathBenefits?: { readonly retirementAllowance?: Yen; readonly condolence?: Yen; readonly workRelated?: boolean };
+  };
+  readonly medical?: { readonly monthly: Yen; readonly months: number; readonly from?: unknown };
+}
+
+export interface ContingencyEventOutput {
+  readonly event: ContingencyEvent | null;
+}
+
+/** 遺族年金・障害年金の月ごとの額（年額。その月に支給される額の12倍） */
+export interface SurvivorPensionMonth {
+  readonly month: string;
+  /** 遺族基礎年金（子の加算を含む） */
+  readonly basic: Yen;
+  /** 遺族厚生年金（65歳以降は自分の老齢厚生年金との調整の後） */
+  readonly employee: Yen;
+  /** 中高齢寡婦加算 */
+  readonly widowAddition: Yen;
+  /** 寡婦年金 */
+  readonly widowPension: Yen;
+}
+
+/** pension.survivor: 遺族年金（受け取る構成員ごと） */
+export interface SurvivorPensionOutput {
+  readonly flows: readonly Flow[];
+  readonly months: readonly SurvivorPensionMonth[];
+  /** 亡くなった構成員と死亡の月（遺族年金の基。無ければ null） */
+  readonly deceased: string | null;
+  readonly death: string | null;
+  /** 死亡一時金（受け取るときだけ） */
+  readonly lumpSum: Yen;
+}
+
+export interface DisabilityPensionMonth {
+  readonly month: string;
+  readonly basic: Yen;
+  readonly employee: Yen;
+}
+
+/** pension.disability: 障害年金（本人） */
+export interface DisabilityPensionOutput {
+  readonly flows: readonly Flow[];
+  readonly months: readonly DisabilityPensionMonth[];
+}
+
+/** debt.creditLifeEvents: 団信で残高が消える月と割合（保障割合・事由・夫婦連生から） */
+export interface CreditLifeOutput {
+  readonly events: readonly { readonly month: string; readonly ratio: string; readonly cause: "death" | "highDisability" | "incapacity"; readonly member: string }[];
+}
+
+/** 保険の受け取り（税の区分つき） */
+export interface InsuranceReceipt {
+  readonly ym: string;
+  readonly object: string;
+  readonly coverage: string | null;
+  /** 受け取る構成員（構成員でない受取人は null） */
+  readonly member: string | null;
+  readonly kind: "death" | "incomeProtection" | "incapacity" | "highDisability" | "maturity" | "surrender" | "annuity" | "survival";
+  readonly amount: Yen;
+  /** 課税の区分: inheritance 相続税の対象（みなし相続財産）・temporary 一時所得・miscellaneous 雑所得（年金）・gift 贈与税・none 非課税 */
+  readonly taxClass: "inheritance" | "temporary" | "miscellaneous" | "gift" | "none";
+  /** 一時所得・雑所得の必要経費（払込保険料のうちこの受け取りに当たる額） */
+  readonly cost: Yen;
+  /** 贈与税のとき: 贈与者（契約者）の構成員 */
+  readonly giver?: string;
+}
+
+/** insurance.policy: 保険契約1件の受け取り・保険年度ごとの値（数表か型から） */
+export interface InsurancePolicyOutput {
+  readonly flows: readonly Flow[];
+  /** 受け取り（支払月の昇順） */
+  readonly receipts: readonly InsuranceReceipt[];
+  /** 年末の値（解約返戻金・死亡保障額）と、その年の払込保険料 */
+  readonly years: readonly { readonly year: number; readonly premium: Yen; readonly deathBenefit: Yen; readonly surrenderValue: Yen }[];
+  /** 保障と払込が終わる月（解約・満期・被保険者の死亡。無ければ null） */
+  readonly endsAt: string | null;
+}
+
+/** insurance.income: 構成員×年の保険の一時所得・雑所得（tax.totalIncome が読む） */
+export interface InsuranceIncomeOutput {
+  /** 一時所得の金額（特別控除の後。総所得金額に入れるのはこの2分の1） */
+  readonly temporary: Yen;
+  /** 総所得金額に入れる額（一時所得の2分の1） */
+  readonly temporaryIncluded: Yen;
+  /** 公的年金等以外の雑所得（個人年金） */
+  readonly miscellaneous: Yen;
+}
+
+/** gift.received: 構成員が受け取る贈与（受け取る月の昇順） */
+export interface GiftReceived {
+  readonly ym: string;
+  readonly source: "housingPurchase" | "education" | "insurance";
+  readonly object: string;
+  readonly amount: Yen;
+  /** 贈与者の区分（特例税率は直系尊属から） */
+  readonly giver: "parent" | "grandparent" | "household" | "other";
+  readonly giverMember: string | null;
+  readonly method: "calendar" | "settlement";
+  readonly housing: "energySaving" | "other" | null;
+  /** 世帯の外から受け取る贈与か（その贈与税をキャッシュフロー表に載せる） */
+  readonly inflow: boolean;
+}
+
+export interface GiftReceivedOutput {
+  readonly gifts: readonly GiftReceived[];
+}
+
+/** gift.tax: 受け取る構成員×年の贈与税 */
+export interface GiftTaxOutput {
+  readonly flows: readonly Flow[];
+  readonly amount: Yen;
+  readonly exempt: Yen;
+  readonly calendarTaxable: Yen;
+  readonly settlementTaxable: Yen;
+  readonly tax: Yen;
+  /** 相続時精算課税の特別控除の残り（年末。贈与者ごと） */
+  readonly settlementRemaining: readonly { readonly giver: string; readonly remaining: Yen }[];
+  readonly inCashflow: boolean;
+}
+
+/** plan.cashflow の details（約束の版 1.2 の任意の欄。エンジンが出力の summary に写す） */
+export interface CashflowDetails {
+  insurance?: {
+    readonly contracts: readonly {
+      readonly object: string;
+      readonly template: string;
+      readonly policyholder: string;
+      readonly insured: string;
+      readonly coverages: readonly { readonly id: string; readonly role: string; readonly benefit: string; readonly amount: Yen; readonly from?: string; readonly to?: string }[];
+    }[];
+    readonly byYear: readonly { readonly year: number; readonly object: string; readonly premium: Yen; readonly deathBenefit: Yen; readonly surrenderValue: Yen }[];
+  };
+  gifts?: readonly {
+    readonly year: number;
+    readonly recipient: string;
+    readonly amount: Yen;
+    readonly exempt: Yen;
+    readonly calendarTaxable: Yen;
+    readonly settlementTaxable: Yen;
+    readonly tax: Yen;
+    readonly inCashflow: boolean;
+  }[];
 }

@@ -1,0 +1,38 @@
+id: socialInsurance.highCostMedical.under70.annualLimit
+title: 高額療養費の年間上限（70歳未満。8月〜翌年7月の12か月）
+unit: JPY
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://www.city.setagaya.lg.jp/02060/33049.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "年間上限は令和8年8月診療分から", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "それより前は年間上限が無い"}
+  - rev: 2
+    appliesFrom: "2026-08-01"
+    appliesTo: null
+    enforcedOn: "2026-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1, "amount": 1680000}
+      - {"upTo": 2, "amount": 1110000}
+      - {"upTo": 3, "amount": 530000}
+      - {"upTo": 4, "amount": 530000}
+      - {"upTo": null, "amount": 290000}
+    sources:
+      - {"type": "web", "url": "https://column.finance.ponta.jp/archives/756/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "年間上限 168万円・111万円・53万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.city.setagaya.lg.jp/02060/33049.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "区分エ 53万円・区分オ 29万円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和8年8月診療分から（検索の要約）"}

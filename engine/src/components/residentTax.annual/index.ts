@@ -10,6 +10,7 @@
 // 年金からの特別徴収: 年度の初日に65歳以上で、年金が年18万円以上なら、公的年金等に係る所得割（所得割×公的年金等に係る雑所得÷合計所得金額）と
 // （給与からの特別徴収が無ければ）均等割・森林環境税を年金から差し引く。前の年度に年金から差し引いていなければ、6月・8月に4分の1ずつ普通徴収し、
 // 10月・12月・2月に6分の1ずつ。前の年度から続くときは、4月・6月・8月に前の年度の年金の分の6分の1ずつ（仮徴収）、10月・12月・2月に残りを3分の1ずつ
+// 年度の初めの年の1月1日に世帯にいない（leaves がその月以前。万一の重ねで亡くなった人）構成員には、その年度の住民税をかけない（改訂7）
 import {
   ageMonth,
   boxValue,
@@ -32,6 +33,7 @@ import {
   type ResidentTaxOutput,
   type SalaryOutput,
   type TotalIncomeOutput,
+  type Timepoint,
   type Yen,
 } from "../../sdk/index.ts";
 
@@ -118,7 +120,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
   id: "residentTax.annual",
   title: "住民税・森林環境税",
   contract: "1.1",
-  revision: 6,
+  revision: 7,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "tax.housingLoanCreditYears": ">=1 <2",
@@ -148,13 +150,16 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
     ORDINARY,
     SPECIAL,
   ],
-  reads: ["residentTaxAssessment.member", "residentTaxAssessment.fiscalYear", "residentTaxAssessment.amount", "residentTaxAssessment.collection"],
+  reads: ["residentTaxAssessment.member", "residentTaxAssessment.fiscalYear", "residentTaxAssessment.amount", "residentTaxAssessment.collection", "member.leaves"],
   memberScope: ["residentTaxAssessment"],
   input: "residentTax.annual.input",
   output: "residentTax.annual.output",
   compute(input, ctx) {
     const { member, fiscalYear } = input;
     const incomeYear = fiscalYear - 1;
+    // 賦課期日（1月1日）に世帯にいない構成員にはかけない
+    const leaves = ctx.get<{ leaves: Timepoint | null }>("member", member).leaves;
+    if (leaves !== null && ctx.time.resolve(leaves) <= monthIndex(fiscalYear, 1)) return { flows: [], assessed: false, ...NONE };
     const given = ctx.list<ResidentTaxAssessmentInput>("residentTaxAssessment").find((a) => a.member === member && a.fiscalYear === fiscalYear);
     // 給与を受ける月か（支払いは月の昇順なので、その月の支払いだけを二分探索で見る）
     // 給与を受ける月か（その年度の6月〜翌年5月の支払いだけを読む。ほかの年の給与が変わっても計算し直さない）

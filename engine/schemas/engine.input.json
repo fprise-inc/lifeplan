@@ -72,6 +72,118 @@
             },
             "minimumDeposit": { "description": "決済口座に年末に残す額（下回ると取り崩す。省略は0）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
           }
+        },
+        "marketShocks": {
+          "title": "資産の時価の下落（ストレステスト。その年の年末に、器の時価をその割合だけ下げる）",
+          "x-item": "assumptions.marketShocks",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["year", "drop"],
+            "properties": {
+              "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+              "drop": { "description": "下がる割合（0.3 は3割下がる）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+              "kinds": { "description": "下げる器の種類（省略は預金・外貨預金・財形・不動産・保険・小規模企業共済を除く器）", "type": "array", "items": { "$ref": "#/$defs/accountKind" } }
+            }
+          }
+        },
+        "loanRateShifts": {
+          "title": "変動金利の上乗せ（ストレステスト。from の月から、変動金利の段の金利に add を足す）",
+          "x-item": "assumptions.loanRateShifts",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "add"],
+            "properties": {
+              "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+              "add": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+            }
+          }
+        },
+        "incomeShocks": {
+          "title": "収入の減少（ストレステスト。構成員の給与・事業所得を from〜to の月だけ ratio の割合で減らす）",
+          "x-item": "assumptions.incomeShocks",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["member", "from", "to", "ratio"],
+            "properties": {
+              "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+              "to": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+              "ratio": { "description": "減る割合（0.2 は2割減る）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+            }
+          }
+        }
+      }
+    },
+    "contingencies": {
+      "description": "0008 の5: 万一の想定（現状・提案の上に重ねる層）。要求1つに1件まで（4つの想定は要求を分ける）。エンジンが入力に重ねてから計算する（0008 の7 の決まり方の順番の最後）",
+      "type": "array",
+      "maxItems": 1,
+      "x-collection": "contingency",
+      "x-owner": ["member"],
+      "items": { "$ref": "#/$defs/contingency" }
+    },
+    "stressTest": {
+      "description": "0006 の6・0005 の追記（2026-10-09）: 型の決まったストレステスト。エンジンが前提の系列（年ごとの列）と資産の時価の下落などに書き換えてから計算する。4つの想定とは別の枠で、FP が選んだときだけ計算する",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template"],
+      "properties": {
+        "template": { "enum": ["marketDropAtRetirement", "inflationSpike", "rateRise", "incomeDrop"] },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+            "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+            "years": { "type": "integer", "minimum": 1, "maximum": 50 },
+            "drop": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "add": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "ratio": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "alsoWages": { "type": "boolean" },
+            "kinds": { "type": "array", "items": { "$ref": "#/$defs/accountKind" } }
+          }
+        }
+      }
+    },
+    "protection": {
+      "description": "6.3: 必要保障額の推移（「この年に亡くなったら」を1年ずつずらす）を求める。指定したときだけ計算し、出力の protection に出す",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "members": { "description": "推移を求める構成員（省略は本人と配偶者）", "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/uuid" } },
+        "method": { "description": "積み上げ方式（標準）か逆算方式", "enum": ["accumulation", "reverse"] },
+        "horizon": {
+          "description": "累計する期間の終わり（標準は配偶者の平均余命まで）",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "enum": ["lifeExpectancy", "age", "youngestIndependence"] },
+            "age": { "type": "integer", "minimum": 0, "maximum": 120 }
+          }
+        },
+        "reverseUntilAge": { "description": "逆算方式: 遺族（配偶者）がこの年齢になるまで資産が尽きないようにする（省略は平均余命）", "type": "integer", "minimum": 0, "maximum": 120 },
+        "fromYear": { "description": "亡くなる年の最初（省略は計算基準年）", "$ref": "urn:financia:schema:common#/$defs/year" },
+        "toYear": { "description": "亡くなる年の最後（省略は亡くなる人が65歳になる年と表の最後の早い方）", "$ref": "urn:financia:schema:common#/$defs/year" },
+        "survivor": {
+          "description": "遺族の側の前提（万一の想定の survivor と同じ形。働き方の変化は除く）",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "livingRatio": { "$ref": "#/$defs/survivorLivingRatio" },
+            "independenceAge": { "type": "integer", "minimum": 15, "maximum": 30 },
+            "funeral": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "reserveMonths": { "type": "integer", "minimum": 0, "maximum": 120 },
+            "deathBenefits": { "$ref": "#/$defs/survivorDeathBenefits" }
+          }
         }
       }
     }
@@ -121,7 +233,8 @@
         "advisoryFees": { "description": "0008 の追記: FP顧問料の契約", "type": "array", "x-collection": "advisoryFee", "x-owner": ["payer"], "items": { "$ref": "#/$defs/advisoryFee" } },
         "savingsChecks": { "description": "0008 の追記: 現状の検算（1件まで）", "type": "array", "maxItems": 1, "x-collection": "savingsCheck", "items": { "$ref": "#/$defs/savingsCheck" } },
         "retirementBenefits": { "description": "0008 の追記: 退職給付", "type": "array", "x-collection": "retirementBenefit", "x-owner": ["member"], "items": { "$ref": "#/$defs/retirementBenefit" } },
-        "goals": { "description": "0008 の6: 目標", "type": "array", "x-collection": "goal", "x-owner": ["owner"], "items": { "$ref": "#/$defs/goal" } }
+        "goals": { "description": "0008 の6: 目標", "type": "array", "x-collection": "goal", "x-owner": ["owner"], "items": { "$ref": "#/$defs/goal" } },
+        "careExpenses": { "description": "6.10: 介護（本人・親）の費用。月額×期間＋一時費用", "type": "array", "x-collection": "care", "x-owner": ["member", "payer"], "items": { "$ref": "#/$defs/careExpense" } }
       }
     },
     "timepointOrNull": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/timepoint" }] },
@@ -203,7 +316,7 @@
         "from": { "title": "期間の始まり（その月を含む）", "x-item": "employment.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
         "to": { "title": "期間の終わり（その月を含む。null は最後まで）", "x-item": "employment.to", "$ref": "#/$defs/timepointOrNull" },
         "type": { "title": "働き方", "x-item": "employment.type", "enum": ["regular", "contract", "partTime", "selfEmployed", "civilServant", "executive", "leave", "unemployed"] },
-        "leaveKind": { "title": "休業の種類", "x-item": "employment.leaveKind", "enum": ["maternity", "childcare", "sick", "other"] },
+        "leaveKind": { "title": "休業の種類", "x-item": "employment.leaveKind", "enum": ["maternity", "childcare", "sick", "care", "other"] },
         "leaveChild": { "title": "産前産後休業・育児休業の対象の子（省略は休業の始まりに近い子から決める）", "x-item": "employment.leaveChild", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "healthInsurance": {
           "description": "会社員などの期間は勤め先の健康保険（協会けんぽ・健保組合・共済）。自営・無職の期間に書いたときは、エンジンが導く健康保険の種類の上書き（国民健康保険・家族の扶養・任意継続）",
@@ -538,7 +651,7 @@
           }
         },
         "creditLife": {
-          "title": "団体信用生命保険（団信で残高が消える計算は万一の作業で使う）",
+          "title": "団体信用生命保険（万一の想定で、団信の部品 debt.creditLifeEvents が残高の消える月と割合を返し、debt.schedule がその月以後の残高と返済を減らす）",
           "x-item": "debt.creditLife",
           "type": "object",
           "additionalProperties": false,
@@ -547,7 +660,8 @@
             "covered": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/uuid" } },
             "ratio": { "description": "保障割合（省略は1）", "$ref": "urn:financia:schema:common#/$defs/rate" },
             "events": { "type": "array", "items": { "enum": ["death", "highDisability", "cancer", "threeMajor", "eightMajor", "incapacity"] } },
-            "spouseJoint": { "description": "夫婦連生（どちらかの事由で全額）", "type": "boolean" }
+            "spouseJoint": { "description": "夫婦連生（どちらかの事由で全額）", "type": "boolean" },
+            "incapacityMonths": { "description": "就業不能の特約: 働けない状態がこの月数続いたら残高が消える（省略は12）", "type": "integer", "minimum": 0, "maximum": 120 }
           }
         },
         "housing": {
@@ -606,7 +720,7 @@
             "gifts": {
               "description": "親・祖父母からの資金援助（受け取る構成員と額。贈与税は贈与の作業で扱う）",
               "type": "array",
-              "items": { "type": "object", "additionalProperties": false, "required": ["recipient", "amount"], "properties": { "recipient": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "giver": { "enum": ["parent", "grandparent", "other"] }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } } }
+              "items": { "type": "object", "additionalProperties": false, "required": ["recipient", "amount"], "properties": { "recipient": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "giver": { "enum": ["parent", "grandparent", "other"] }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }, "taxMethod": { "description": "贈与税の課税の方法（省略は暦年課税）", "enum": ["calendar", "settlement"] }, "housingExemption": { "description": "住宅取得等資金の非課税を使うか・住宅の種類（省略は使う・省エネ等住宅でない）", "enum": ["energySaving", "other", "none"] } } }
             }
           }
         },
@@ -654,10 +768,108 @@
           "required": ["amount", "frequency", "payUntil"],
           "properties": {
             "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-            "frequency": { "enum": ["monthly", "annual"] },
+            "frequency": { "enum": ["monthly", "annual", "single"], "description": "single は一時払（契約の月に1回）" },
             "payUntil": { "description": "払込の終わり（その月の前月まで払う。null は最後まで）", "$ref": "#/$defs/timepointOrNull" }
           }
         },
+        "beneficiaries": {
+          "title": "死亡保険金の受取人（構成員、または構成員でない受取人の続柄）と割合",
+          "x-item": "insurance.beneficiaries",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["share"],
+            "properties": {
+              "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "external": { "enum": ["child", "parent", "sibling", "other"] },
+              "share": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+            },
+            "oneOf": [{ "required": ["member"] }, { "required": ["external"] }]
+          }
+        },
+        "annuitant": { "title": "満期金・年金・祝金の受取人（省略は契約者）", "x-item": "insurance.annuitant", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "waiver": { "title": "保険料の払込免除（障害・就業不能の想定で払込が止まる）", "x-item": "insurance.waiver", "type": "boolean" },
+        "renewals": {
+          "title": "更新（その月から更新後の保険料）",
+          "x-item": "insurance.renewals",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at", "premium"],
+            "properties": { "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }, "premium": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+          }
+        },
+        "coverages": {
+          "title": "主契約と特約の明細（給付の種類ごとの金額と期間）",
+          "x-item": "insurance.coverages",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "role", "benefit", "amount"],
+            "properties": {
+              "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "role": { "enum": ["main", "rider"] },
+              "benefit": {
+                "description": "death 死亡保険金（一時金）・incomeProtection 収入保障（死亡の後、月額を期間の終わりまで）・incapacity 就業不能（月額）・highDisability 高度障害（一時金）・maturity 満期金・annuity 年金（年額）・survival 祝金・hospitalDaily 入院日額・surgery 手術・cancerLump がん一時金・other",
+                "enum": ["death", "incomeProtection", "incapacity", "highDisability", "maturity", "annuity", "survival", "hospitalDaily", "surgery", "cancerLump", "other"]
+              },
+              "amount": { "description": "一時金・月額（収入保障・就業不能）・年額（年金）・日額（入院）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+              "to": { "description": "保障の終わり（その月まで。満期金はその翌月に払う）。null は終身", "$ref": "#/$defs/timepointOrNull" },
+              "minimumMonths": { "description": "収入保障の最低保証の月数", "type": "integer", "minimum": 0, "maximum": 600 },
+              "waitingMonths": { "description": "就業不能の給付が始まるまでの月数（免責）", "type": "integer", "minimum": 0, "maximum": 120 },
+              "years": { "description": "年金の受け取りの年数（省略は保障の終わりまで）", "type": "integer", "minimum": 1, "maximum": 100 },
+              "everyYears": { "description": "祝金の間隔（年）", "type": "integer", "minimum": 1, "maximum": 50 }
+            }
+          }
+        },
+        "schedule": {
+          "title": "年次の数表（保険年度ごと。主契約・特約ごと）",
+          "x-item": "insurance.schedule",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rows"],
+          "properties": {
+            "source": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["productRef", "digest"],
+              "properties": { "productRef": { "type": "string" }, "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } }
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["policyYear"],
+                "properties": {
+                  "coverage": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                  "policyYear": { "type": "integer", "minimum": 1, "maximum": 120 },
+                  "premium": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "deathBenefit": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "surrenderValue": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "annuity": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "survivalBenefit": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                }
+              }
+            }
+          }
+        },
+        "simple": {
+          "title": "数表の無い契約を型（ひな形）から計算するための簡易の入力",
+          "x-item": "insurance.simple",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "returnRate": { "description": "払込の終わりの解約返戻率（払込保険料の累計に対する割合。終身・学資・個人年金）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "assetClass": { "description": "変額・外貨建: 積立の部分を伸ばす資産クラス（前提の利回り）", "$ref": "#/$defs/assetClass" },
+            "loadRate": { "description": "変額・外貨建: 保険料のうち積立に回らない割合", "$ref": "urn:financia:schema:common#/$defs/rate" }
+          }
+        },
+        "surrender": { "title": "解約する月（解約返戻金を受け取り、保障と払込が終わる）", "x-item": "insurance.surrender", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
         "deductionCategory": {
           "title": "保険料控除の区分",
           "x-item": "insurance.deductionCategory",
@@ -671,6 +883,88 @@
           "if": { "properties": { "type": { "enum": ["general", "careMedical", "pension"] } } },
           "then": { "required": ["regime"] }
         }
+      }
+    },
+    "contingency": {
+      "description": "0008 の5: 万一の想定。死亡（death）・障害（disability。等級は「該当した場合」の仮定で、実在の状態としては保存しない）・就業不能（incapacity）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "member", "occurs"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": { "title": "万一の種類", "x-item": "contingency.kind", "enum": ["death", "disability", "incapacity"] },
+        "member": { "title": "対象の構成員", "x-item": "contingency.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "occurs": { "title": "起きる月（死亡の月・初診日の月・働けなくなった月）", "x-item": "contingency.occurs", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "grade": { "title": "障害等級（該当した場合の仮定。1〜3級。障害年金・団信・保険の判定だけに使う）", "x-item": "contingency.grade", "enum": [1, 2, 3] },
+        "recovery": { "title": "働けるようになる月（その月から元の働き方に戻る。省略は戻らない）", "x-item": "contingency.recovery", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "survivor": {
+          "title": "遺族の側の前提（死亡）",
+          "x-item": "contingency.survivor",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "livingRatio": { "$ref": "#/$defs/survivorLivingRatio" },
+            "independenceAge": { "description": "子の独立とみなす年齢（その年齢に達した後の最初の3月31日の翌月。子の leaves があればその月。省略は22）", "type": "integer", "minimum": 15, "maximum": 30 },
+            "funeral": { "description": "整理資金（葬儀・お墓などの一時の支出。死亡の翌月）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "reserveMonths": { "description": "予備の生活資金（遺族の生活費の何か月分。必要保障額の諸費用に足す）", "type": "integer", "minimum": 0, "maximum": 120 },
+            "deathBenefits": { "$ref": "#/$defs/survivorDeathBenefits" },
+            "spouseWork": {
+              "description": "残された配偶者の働き方の変化（その期間の始まりから、配偶者のそれまでの働き方の期間を置き換える）",
+              "type": "array",
+              "items": { "$ref": "#/$defs/employmentPeriod" }
+            }
+          }
+        },
+        "medical": {
+          "title": "医療費（就業不能・障害のとき。高額療養費で自己負担を簡易に計算する）",
+          "x-item": "contingency.medical",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["monthly", "months"],
+          "properties": {
+            "monthly": { "description": "1か月の医療費（10割）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "months": { "type": "integer", "minimum": 1, "maximum": 600 },
+            "from": { "description": "始まり（省略は起きる月）", "$ref": "urn:financia:schema:common#/$defs/timepoint" }
+          }
+        }
+      }
+    },
+    "survivorLivingRatio": {
+      "description": "遺族の生活費の割合（生活費の総額に掛ける。省略は末子の独立まで0.7、独立の後0.5）",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "beforeIndependence": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+        "afterIndependence": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+      }
+    },
+    "survivorDeathBenefits": {
+      "description": "勤め先からの死亡退職金・弔慰金（入れたときは退職給付から求めた額より優先する）",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "retirementAllowance": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+        "condolence": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+        "workRelated": { "description": "業務上の死亡か（弔慰金の非課税の枠が普通給与の3年分になる）", "type": "boolean" }
+      }
+    },
+    "careExpense": {
+      "description": "6.10: 介護の費用。介護保険の対象の費用（10割）には自己負担割合（所得で1〜3割）と高額介護サービス費の上限を効かせる。保険の対象外の費用・一時費用はそのまま。省略は統計の既定（出典つき）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "member", "from"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "member": { "title": "介護を受ける構成員（本人・親など）", "x-item": "care.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "payer": { "title": "払う構成員（省略は介護を受ける人）", "x-item": "care.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "from": { "title": "始まり", "x-item": "care.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "months": { "title": "期間の月数（省略は統計の既定）", "x-item": "care.months", "type": "integer", "minimum": 1, "maximum": 600 },
+        "place": { "title": "在宅か施設か（統計の既定の月額を選ぶ）", "x-item": "care.place", "enum": ["home", "facility"] },
+        "serviceMonthly": { "title": "介護保険の対象の費用（月額・10割。計算基準年の価格）", "x-item": "care.serviceMonthly", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "otherMonthly": { "title": "介護保険の対象外の費用（月額。居住費・食費・日常の費用。計算基準年の価格）", "x-item": "care.otherMonthly", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "initial": { "title": "一時費用（住宅の改修・介護用品など）", "x-item": "care.initial", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "growth": { "title": "伸び方（省略は物価上昇率）", "x-item": "care.growth", "$ref": "#/$defs/growth" },
+        "onContingency": { "title": "万一のときの扱い（払う人の万一）", "x-item": "care.onContingency", "$ref": "#/$defs/onContingency" }
       }
     },
     "pensionRecord": {
@@ -810,13 +1104,14 @@
       }
     },
     "onContingency": {
-      "description": "万一のときの扱い（万一の想定の層で使う。この回の部品は入力として持つだけ）",
+      "description": "万一のときの扱い（万一の想定の層で使う。対象は万一の構成員が払う物、生活費・周期的な支出は世帯の物なので世帯のだれかの万一）",
       "type": "object",
       "additionalProperties": false,
       "required": ["mode"],
       "properties": {
-        "mode": { "enum": ["continue", "stop", "ratio"], "description": "万一（死亡・障害・就業不能）のとき: 続く／止まる／割合を変える（万一の部品で使う）" },
-        "ratio": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+        "mode": { "enum": ["continue", "stop", "ratio"], "description": "万一（死亡・障害・就業不能）のとき: 続く／止まる／割合を変える。割合は万一の後の全期間で1つ（段階を付けたいときは周期的な支出の行を分ける。0008 の追記 2026-10-09）" },
+        "ratio": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+        "kinds": { "description": "どの万一で当てるか（省略は死亡だけ）", "type": "array", "items": { "enum": ["death", "disability", "incapacity"] } }
       }
     },
     "livingCategory": {
@@ -1291,11 +1586,14 @@
                   "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "purpose": { "enum": ["wedding", "housing", "other"] },
-                  "payer": { "$ref": "urn:financia:schema:common#/$defs/uuid" }
+                  "payer": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                  "taxMethod": { "description": "贈与税の課税の方法（省略は暦年課税）", "enum": ["calendar", "settlement"] },
+                  "housingExemption": { "description": "住宅資金の援助で住宅取得等資金の非課税を使うか・住宅の種類（省略は使う・省エネ等住宅でない）", "enum": ["energySaving", "other", "none"] }
                 }
               }
             },
-            "childAllowance": { "description": "児童手当を計算するか（省略は計算する）", "type": "boolean" }
+            "childAllowance": { "description": "児童手当を計算するか（省略は計算する）", "type": "boolean" },
+            "highSchoolSupport": { "description": "高等学校等就学支援金の対象か（国籍・在留資格の要件。令和8年4月から。省略は対象。ineligible は支給しない）", "enum": ["eligible", "ineligible"] }
           }
         }
       }

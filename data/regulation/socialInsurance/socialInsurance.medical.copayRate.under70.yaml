@@ -1,0 +1,20 @@
+id: socialInsurance.medical.copayRate.under70
+title: 医療の窓口の負担の割合（6歳〜69歳）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2003-04-01"
+    appliesTo: null
+    enforcedOn: "2003-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.3"
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "3割負担", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "大正十一年法律第七十号"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "健康保険法74条1項の100分の30（義務教育就学前・70歳以上は扱わない）"}

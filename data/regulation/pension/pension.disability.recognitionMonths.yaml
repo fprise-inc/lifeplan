@@ -1,0 +1,20 @@
+id: pension.disability.recognitionMonths
+title: 障害認定日（初診日から1年6か月）の月数
+unit: months
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 18
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/shougainenkin/jukyu-yoken/20150514.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "初診日から1年6カ月を経過した日（障害認定日）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "国民年金法30条1項・厚生年金保険法47条1項の1年6月"}

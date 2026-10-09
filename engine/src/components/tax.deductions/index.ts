@@ -3,6 +3,8 @@
 // （iDeCo の掛金と企業型DCの加入者掛金。拠出限度額で止めた後の額を ideco.contribution から、その年の分だけ読む）。
 // 配偶者控除・配偶者特別控除（tax.spouseDeduction）と扶養控除・特定親族特別控除（tax.dependentDeduction）は、他の構成員の所得で決まるので
 // 小さな部品に分けている（配偶者の所得が変わっても控除の額が同じなら、ここから先を計算し直さない。0006 の追記）
+// ひとり親控除・寡婦控除（改訂7。約束の版 1.1 の任意の欄）: 配偶者と死別した人を tax.survivorStatus で判定する（万一の想定で自動で切り替わる）。
+// 住民税の調整控除の人的控除額の差は、寡婦1万円・ひとり親（母）5万円・ひとり親（父）1万円（制度データ）
 import {
   bracketFor,
   defineComponent,
@@ -35,6 +37,8 @@ const ids = (p: Regime) => ({
   quake: `${p}.earthquakeDeduction.earthquake`,
   quakeLongTerm: `${p}.earthquakeDeduction.longTerm`,
   quakeTotalLimit: `${p}.earthquakeDeduction.totalLimit`,
+  widow: `${p}.widowDeduction`,
+  singleParent: `${p}.singleParentDeduction`,
 });
 
 const IDS = { incomeTax: ids("incomeTax"), residentTax: ids("residentTax") } as const;
@@ -42,12 +46,18 @@ const IDS = { incomeTax: ids("incomeTax"), residentTax: ids("residentTax") } as 
 const LIFE_YOUNG = "incomeTax.lifeInsuranceDeduction.newGeneralWithYoungDependent";
 const LIFE_YOUNG_LIMIT = "incomeTax.lifeInsuranceDeduction.mixedLimitWithYoungDependent";
 const DIFF_BASIC = "residentTax.adjustmentCredit.diff.basic";
+const DIFF_WIDOW = "residentTax.adjustmentCredit.diff.widow";
+const DIFF_PARENT_MOTHER = "residentTax.adjustmentCredit.diff.singleParentMother";
+const DIFF_PARENT_FATHER = "residentTax.adjustmentCredit.diff.singleParentFather";
 
 const ALL_PARAMS = [
   ...(["incomeTax", "residentTax"] as const).flatMap((p) => Object.values(ids(p))),
   LIFE_YOUNG,
   LIFE_YOUNG_LIMIT,
   DIFF_BASIC,
+  DIFF_WIDOW,
+  DIFF_PARENT_MOTHER,
+  DIFF_PARENT_FATHER,
   "incomeTax.insuranceDeduction.rounding",
 ];
 
@@ -64,9 +74,10 @@ function formulaIn(ctx: Ctx, at: MonthCtx, table: readonly Bracket[] | null, x: 
 export default defineComponent<{ member: string; year: number; regime: Regime }, DeductionsOutput>({
   id: "tax.deductions",
   title: "所得控除",
-  contract: "1.0",
-  revision: 6,
+  contract: "1.1",
+  revision: 7,
   requires: {
+    "tax.survivorStatus": ">=1 <2",
     "account.mutualAid": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
     "tax.spouseDeduction": ">=1 <2",
@@ -77,7 +88,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     "ideco.contribution": ">=1 <2",
   },
   params: ALL_PARAMS,
-  reads: ["insurance.policyholder", "insurance.deductionCategory"],
+  reads: ["insurance.policyholder", "insurance.deductionCategory", "member.sex"],
   input: "tax.deductions.input",
   output: "tax.deductions.output",
   compute(input, ctx) {
@@ -164,7 +175,19 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     // 小規模企業共済の掛金（全額。その年に払った分）
     for (const p of ctx.callMonths<{ ym: string; amount: Yen }>("account.mutualAid", { member }, "paid", monthIndex(year, 1), monthIndex(year, 12))) smallBusiness = yen(smallBusiness + p.amount);
 
-    const total = sumYen([basic, spouse, spouseSpecial, dependents, specifiedRelative, socialInsurance, life, earthquake, smallBusiness]);
+    // ひとり親控除・寡婦控除（配偶者と死別した人）
+    const sv = ctx.call<{ widow: boolean; singleParent: boolean }>("tax.survivorStatus", { member, year });
+    let widow = yen(0);
+    let singleParent = yen(0);
+    if (sv.singleParent) {
+      singleParent = at.paramYen(P.singleParent) ?? yen(0);
+      if (singleParent > 0) diff(ctx.get<{ sex: string }>("member", member).sex === "female" ? DIFF_PARENT_MOTHER : DIFF_PARENT_FATHER);
+    } else if (sv.widow) {
+      widow = at.paramYen(P.widow) ?? yen(0);
+      if (widow > 0) diff(DIFF_WIDOW);
+    }
+
+    const total = sumYen([basic, spouse, spouseSpecial, dependents, specifiedRelative, socialInsurance, life, earthquake, smallBusiness, widow, singleParent]);
     return {
       basic,
       spouse,
@@ -175,6 +198,8 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
       lifeInsurance: life,
       earthquake,
       smallBusiness,
+      ...(widow > 0 ? { widow } : {}),
+      ...(singleParent > 0 ? { singleParent } : {}),
       total,
       personalDiff: sumYen(diffs),
     };

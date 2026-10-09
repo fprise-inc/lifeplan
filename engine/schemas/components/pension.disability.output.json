@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:pension.disability.output",
+  "title": "障害年金の部品の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "months"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "months": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["month", "basic", "employee"],
+        "properties": {
+          "month": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "basic": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "employee": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+        }
+      }
+    }
+  }
+}

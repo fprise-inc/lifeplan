@@ -18,6 +18,9 @@
     },
     "summary": {
       "$ref": "urn:financia:schema:engine.output#/$defs/summary"
+    },
+    "protection": {
+      "$ref": "urn:financia:schema:engine.output#/$defs/protection"
     }
   }
 }

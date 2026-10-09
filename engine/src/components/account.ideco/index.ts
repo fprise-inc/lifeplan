@@ -5,9 +5,15 @@
 //   annuityYears 回（最後の回は残り全部）、mixed は始めに lumpShare の割合を一時金で、残りを年金で
 // - 年金で受け取る分は公的年金等の雑所得（tax.publicPensionIncome が payments を読む）。一時金の退職所得の税は tax.retirementIncome
 //   （受け取りの年月と通算加入者等期間を payments に残し、retirement.receipts が集める。重複排除期間の判定に使う）
+// - 死亡（改訂3。万一の想定 contingency.event）: 死亡の月の翌月に、その時の残高を死亡一時金として遺族（死亡の当時の配偶者。いなければ子）が受け取る
+//   （みなし相続財産。退職所得・雑所得の税をかけないので payments に入れない。知らせ N_INHERITANCE_TAX）
+// - 資産の時価の下落（ストレステスト。前提 marketShocks）: その年の年末の残高を、その割合だけ下げる
 import {
   accountReturnRate,
+  addMonths,
   addYen,
+  childrenOf,
+  spousesAt,
   annualReturn,
   boxValue,
   defineComponent,
@@ -18,7 +24,11 @@ import {
   yearOf,
   yen,
   type AccountInput,
+  type ContingencyEventOutput,
   type Flow,
+  type MarketShock,
+  type MemberInput,
+  type RelationInput,
   type IdecoAccountOutput,
   type IdecoAccountYear,
   type IdecoContributionOutput,
@@ -32,10 +42,26 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
   id: "account.ideco",
   title: "iDeCo・企業型DCの残高と受け取り",
   contract: "1.0",
-  revision: 2,
-  requires: { "account.idecoPayout": ">=1 <2", "ideco.contribution": ">=1 <2" },
+  revision: 3,
+  requires: { "account.idecoPayout": ">=1 <2", "ideco.contribution": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
-  reads: ["account.kind", "account.owner", "account.marketValue", "account.assetMix", "assumptions.investmentReturn", "assumptions.assetReturns"],
+  reads: [
+    "account.kind",
+    "account.owner",
+    "account.marketValue",
+    "account.assetMix",
+    "assumptions.investmentReturn",
+    "assumptions.assetReturns",
+    "assumptions.marketShocks",
+    "member.kind",
+    "relation.type",
+    "relation.a",
+    "relation.b",
+    "relation.from",
+    "relation.to",
+    "relation.parent",
+    "relation.child",
+  ],
   memberScope: ["account"],
   input: "member.input",
   output: "account.ideco.output",
@@ -47,6 +73,15 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
     const plans = ctx.call<IdecoPayoutPlanOutput>("account.idecoPayout", { member }).accounts;
     if (plans.length === 0) return { flows: [], accounts: [], payments: [] };
     const paid = ctx.call<IdecoContributionOutput>("ideco.contribution", { member }).payments;
+    // 死亡の月の翌月（死亡一時金）と受け取る遺族
+    const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member }).event;
+    const deathPay = ev !== null && ev.kind === "death" ? addMonths(parseYm(ev.month), 1) : null;
+    let heir = member;
+    if (deathPay !== null) {
+      const relations = ctx.list<RelationInput>("relation");
+      heir = spousesAt(ctx, relations, member, addMonths(deathPay, -1))[0] ?? childrenOf(ctx.list<MemberInput>("member"), relations, member)[0]?.id ?? member;
+    }
+    const shocks = ctx.setting<readonly MarketShock[]>("marketShocks") ?? [];
     const flows: Flow[] = [];
     const receipts: IdecoReceipt[] = [];
     const out: { object: string; kind: "ideco" | "corporateDc"; years: IdecoAccountYear[] }[] = [];
@@ -76,6 +111,15 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
         return s;
       };
       let v: Yen = boxValue(a.marketValue) ?? yen(0);
+      // ストレステスト: その年の年末の時価をその割合だけ下げる（運用益に含める）
+      const dropOf = (x: Yen, y: number): Yen => {
+        let out = x;
+        for (const sh of shocks) {
+          if (sh.year !== y || (sh.kinds !== undefined && !sh.kinds.includes(kind))) continue;
+          out = yen(out - ctx.money.mulRate(out, ctx.rate.of(sh.drop), "conv.investment.return"));
+        }
+        return yen(x - out);
+      };
       let k = 0; // 年金の受け取りの回数
       const years: IdecoAccountYear[] = [];
       const receive = (m: MonthIndex, amount: Yen, part: "lumpSum" | "annuity") => {
@@ -89,10 +133,30 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
         const contrib = byYear.get(y)?.total ?? yen(0);
         const months = y === baseYear ? 13 - monthOf(base) : 12;
         const r = accountReturnRate(ctx, a, y);
+        if (deathPay !== null && y > yearOf(deathPay)) {
+          years.push({ year: y, contributions: yen(0), payout: yen(0), returns: yen(0), closing: yen(0) });
+          continue;
+        }
+        if (deathPay !== null && y === yearOf(deathPay) && deathPay >= base) {
+          // 死亡一時金: 死亡の月の翌月までの運用益と掛金を足した残高（受け取りが始まっていれば、その残り）
+          const elapsed = y === baseYear ? deathPay - base : monthOf(deathPay) - 1;
+          const before = contributedBefore(y, monthOf(deathPay));
+          const ret = annualReturn(ctx, v, before, r, elapsed);
+          const balance = addYen(addYen(v, before), ret);
+          if (balance > 0) {
+            flows.push({ row: "cf.income.lumpSum.inheritance", ym: formatYm(deathPay), amount: balance, accrualYear: y, member: heir, object: a.id, formula: "account.ideco.deathLumpSum" });
+            ctx.notice("N_INHERITANCE_TAX", ["account.ideco.deathLumpSum", a.id]);
+          }
+          v = yen(0);
+          years.push({ year: y, contributions: before, payout: balance, returns: ret, closing: yen(0) });
+          continue;
+        }
         const payMonth = monthIndex(y, monthOf(start));
         const paysThisYear = v + contrib > 0 && y >= yearOf(start) && (method === "lumpSum" ? y === yearOf(start) : k < n || (lumpShare !== null && y === yearOf(start)));
         if (!paysThisYear || payMonth < base) {
-          const ret = annualReturn(ctx, v, contrib, r, months);
+          const ret0 = annualReturn(ctx, v, contrib, r, months);
+          const drop = dropOf(addYen(addYen(v, contrib), ret0), y);
+          const ret = yen(ret0 - drop);
           v = addYen(addYen(v, contrib), ret);
           years.push({ year: y, contributions: contrib, payout: yen(0), returns: ret, closing: v });
           continue;
@@ -119,8 +183,9 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
         // 受け取りの後の残りの月の掛金（受け取りを始めた後は出ない）と運用益
         const after = yen(contrib - before);
         const retAfter = balance > 0 ? annualReturn(ctx, balance, after, r, months - elapsed) : yen(0);
-        v = addYen(addYen(balance, after), retAfter);
-        years.push({ year: y, contributions: contrib, payout, returns: addYen(retBefore, retAfter), closing: v });
+        const drop = dropOf(addYen(addYen(balance, after), retAfter), y);
+        v = yen(addYen(addYen(balance, after), retAfter) - drop);
+        years.push({ year: y, contributions: contrib, payout, returns: yen(retBefore + retAfter - drop), closing: v });
       }
       out.push({ object: a.id, kind, years });
     }

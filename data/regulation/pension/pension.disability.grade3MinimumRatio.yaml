@@ -1,0 +1,20 @@
+id: pension.disability.grade3MinimumRatio
+title: 3級の障害厚生年金の最低保障額（障害基礎年金2級の額×4分の3）
+unit: rate
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.75"
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/shougainenkin/jukyu-yoken/20150514.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "3級 最低保障額 635,500円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "厚生年金保険法50条3項の4分の3（令和8年度は635,500円）"}

@@ -5,7 +5,11 @@
 //   （第I〜第IV区分。境目は制度データ）を決め、4〜9月は前年度、10〜3月はその年度の住民税で判定する。授業料・入学金の減免は
 //   上限（国公立・私立）と実際の額の小さい方×区分の割合（第I区分は全額、II 2/3、III 1/3、IV 1/4）。多子世帯（扶養する子が3人以上。
 //   22歳に達した後の最初の3月31日までの子の数で近似）は、2025年度から所得によらず上限まで全額。給付型奨学金（月額）は第I〜第III区分
-//   （第IV区分は多子世帯だけ）に、国公立・私立×自宅・自宅外の額を毎月。資産の要件・理工農系の第IV区分・短大・専門学校は扱わない（知らせ）
+//   （第IV区分は多子世帯だけ）に、国公立・私立×自宅・自宅外の額を毎月。資産の要件・短大・専門学校は扱わない（知らせ）
+// 改訂2（PR #14 の「気づいたが直していない点」3〜5）: 第IV区分の減免（1/4）は、多子世帯でなければ理工農系（公示対象学部等。scienceAgriculture）の
+//   学生だけ（施行規則10条2項4号）。減免の額は割合を掛けた額の100円未満を切り上げる（施行令2条1項2号。制度データの端数処理）。
+//   高等学校等就学支援金は、教育の目標で対象外（highSchoolSupport: ineligible。令和8年4月からの国籍・在留資格の要件）とした子には出さない。
+//   入れていない子は対象とみなし、令和8年度以後は知らせる（N_ASSUMED）
 // 支援の額は名目額で、教育費の上昇率を当てない（0010 の5）
 import {
   addMonths,
@@ -46,16 +50,19 @@ const P = {
   grantPublicAway: `${U}.grant.public.away`,
   grantPrivateHome: `${U}.grant.private.home`,
   grantPrivateAway: `${U}.grant.private.away`,
+  waiverRounding: `${U}.waiver.rounding`,
 };
+/** 就学支援金の国籍・在留資格の要件（令和8年4月から） */
+const HS_ELIGIBILITY_FROM = 2026;
 
 export default defineComponent<{ member: string }, FlowsResult>({
   id: "education.support",
   title: "教育の公的支援（就学支援金・修学支援）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "education.cost": ">=1 <2", "residentTax.annual": ">=1 <2" },
   params: Object.values(P),
-  reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child"],
+  reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "goal.kind", "goal.owner", "goal.education"],
   input: "member.input",
   output: "flows.output",
   compute(input, ctx) {
@@ -104,6 +111,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
       return n;
     };
     let unsupported = false;
+    const hsEligibility = ctx.list<{ kind: string; owner: string; education?: { highSchoolSupport?: string } }>("goal").find((g) => g.kind === "education" && g.owner === child)?.education?.highSchoolSupport;
     for (const e of enrollments) {
       const from = ctx.time.resolve({ at: e.from });
       if (e.stage === "highSchool") {
@@ -113,6 +121,13 @@ export default defineComponent<{ member: string }, FlowsResult>({
           if (!at.has(id)) {
             ctx.notice("N_PARAM_MISSING", [id, String(f.fiscalYear)]);
             continue;
+          }
+          if (f.fiscalYear >= HS_ELIGIBILITY_FROM) {
+            if (hsEligibility === "ineligible") {
+              ctx.notice("N_NOT_ELIGIBLE", ["educationSupport.highSchool.nationality", child]);
+              continue;
+            }
+            if (hsEligibility === undefined) ctx.notice("N_ASSUMED", ["educationSupport.highSchool.nationality", child]);
           }
           const cap = at.paramYen(id) ?? yen(0);
           const parts = monthly12(f.tuition < cap ? f.tuition : cap);
@@ -138,12 +153,16 @@ export default defineComponent<{ member: string }, FlowsResult>({
         for (let h = 0; h < 2; h++) {
           const cat = categoryOf(h === 0 ? f.fiscalYear - 1 : f.fiscalYear);
           const eligible = cat >= 1 && cat <= 4;
-          const ratio = multi ? ctx.rate.of("1") : eligible ? (bracketFor(at.paramBrackets(P.waiverRatio) ?? [], yen(cat)).rate ?? RATE_ZERO) : RATE_ZERO;
+          // 第IV区分の減免は、多子世帯でなければ理工農系の学生だけ
+          const waived = eligible && (cat <= 3 || e.scienceAgriculture);
+          const ratio = multi ? ctx.rate.of("1") : waived ? (bracketFor(at.paramBrackets(P.waiverRatio) ?? [], yen(cat)).rate ?? RATE_ZERO) : RATE_ZERO;
+          // 減免の額の端数（100円未満を切り上げ。全額のときは端数が出ない）
+          const waiverOf = (x: Yen): Yen => (at.has(P.waiverRounding) ? at.money.mulRate(x, ratio, P.waiverRounding) : ctx.money.mulRate(x, ratio, "conv.expense.share"));
           const halfStart = monthIndex(f.fiscalYear, h === 0 ? 4 : 10);
           const t = tuitionHalves[h] as Yen;
           const c = capHalves[h] as Yen;
-          push(halfStart, ctx.money.mulRate(t < c ? t : c, ratio, "conv.expense.share"), "education.support.tuitionWaiver");
-          if (h === 0 && f.admission > 0) push(addMonths(from, publicSector ? -1 : -2), ctx.money.mulRate(f.admission < capA ? f.admission : capA, ratio, "conv.expense.share"), "education.support.admissionWaiver");
+          push(halfStart, waiverOf(t < c ? t : c), "education.support.tuitionWaiver");
+          if (h === 0 && f.admission > 0) push(addMonths(from, publicSector ? -1 : -2), waiverOf(f.admission < capA ? f.admission : capA), "education.support.admissionWaiver");
           // 給付型奨学金（第I〜第III区分。第IV区分は多子世帯だけ）
           if (eligible && (cat <= 3 || multi)) {
             const grant = bracketFor(at.paramBrackets(grantId) ?? [], yen(cat)).amount ?? yen(0);
@@ -151,7 +170,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
           }
         }
       }
-      ctx.notice("N_NOT_SUPPORTED", ["educationSupport.higher.assetTest", "educationSupport.higher.scienceAgriculture"]);
+      ctx.notice("N_NOT_SUPPORTED", ["educationSupport.higher.assetTest", "educationSupport.higher.scienceAgricultureMinimum"]);
     }
     if (unsupported) ctx.notice("N_NOT_SUPPORTED", ["educationSupport.higher.juniorCollegeVocational"]);
     return { flows };

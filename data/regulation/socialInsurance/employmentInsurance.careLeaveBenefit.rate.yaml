@@ -1,0 +1,20 @@
+id: employmentInsurance.careLeaveBenefit.rate
+title: 介護休業給付金の支給率（休業開始時賃金日額×支給日数の67%）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2016-08-01"
+    appliesTo: null
+    enforcedOn: "2016-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.67"
+    sources:
+      - {"type": "web", "url": "https://jsite.mhlw.go.jp/tokyo-roudoukyoku/var/rev0/0142/6388/kaigokyugyou_leafret.pdf", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "休業開始時賃金日額×支給日数×67%", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "雇用保険法61条の4第4項の100分の67"}

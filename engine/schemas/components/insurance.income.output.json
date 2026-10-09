@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:insurance.income.output",
+  "title": "保険の一時所得・雑所得（構成員×年）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["temporary", "temporaryIncluded", "miscellaneous"],
+  "properties": {
+    "temporary": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "temporaryIncluded": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+    "miscellaneous": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+  }
+}

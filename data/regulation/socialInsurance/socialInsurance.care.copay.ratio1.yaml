@@ -1,0 +1,20 @@
+id: socialInsurance.care.copay.ratio1
+title: 介護サービスの利用者負担の割合（1割）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2018-08-01"
+    appliesTo: null
+    enforcedOn: "2018-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.1"
+    sources:
+      - {"type": "web", "url": "https://www.city.bunkyo.lg.jp/tetsuzuki/kaigo/hoken/hutanwariai.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "介護保険の負担割合", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "law", "lawNumber": "平成九年法律第百二十三号"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "介護保険法49条の2の100分の10"}

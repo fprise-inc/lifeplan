@@ -1,0 +1,25 @@
+id: socialInsurance.highCostMedical.under70.multiple
+title: 高額療養費の多数回該当の自己負担限度額（70歳未満。直近12か月に3回以上で4回目から）
+unit: JPY
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: "2015-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 1, "amount": 140100}
+      - {"upTo": 2, "amount": 93000}
+      - {"upTo": 3, "amount": 44400}
+      - {"upTo": 4, "amount": 44400}
+      - {"upTo": null, "amount": 24600}
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "多数回該当 140,100円・93,000円・44,400円・44,400円・24,600円", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+      - {"type": "web", "url": "https://www.city.suginami.tokyo.jp/s035/news/27125.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "区分エ（44,400円）・区分オ（24,600円）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和8年8月の見直しでも据え置き"}

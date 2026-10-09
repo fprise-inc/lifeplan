@@ -1,0 +1,32 @@
+id: employmentInsurance.careLeaveBenefit.monthlyLimit
+title: 介護休業給付金の支給の上限額（支給日数30日あたり。毎年8月1日に改定）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-08-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: "2025-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 356574
+    sources:
+      - {"type": "web", "url": "https://roumu.com/?p=123718", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "介護休業給付金の上限額 347,127円 → 356,574円（2025年8月1日）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "賃金日額の上限（45〜59歳）×30日×67%（検索の要約）"}
+  - rev: 2
+    appliesFrom: "2026-08-01"
+    appliesTo: null
+    enforcedOn: "2026-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 366222
+    sources:
+      - {"type": "web", "url": "https://roumu.com/?p=123718", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "介護休業給付金の上限額 356,574円 → 366,222円（2026年8月1日）", "note": "検索の要約（原本は未取得。この作業の環境から公式のサイトに届かなかった）"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "毎年8月1日に改定（検索の要約）"}
