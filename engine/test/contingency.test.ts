@@ -8,7 +8,6 @@ import type {
   CreditLifeOutput,
   DebtScheduleOutput,
   DisabilityPensionOutput,
-  Flow,
   GiftTaxOutput,
   InsuranceIncomeOutput,
   InsurancePolicyOutput,
@@ -17,6 +16,8 @@ import type {
 import { box, household, member, period, realPacks, uid } from "./helpers.ts";
 
 type Req = EngineRequest;
+type Flow = EngineResult["flows"][number];
+type Cell = { row: string; year: number; amount: number };
 type Obj = Record<string, unknown>;
 const H = uid("h");
 const W = uid("w");
@@ -359,7 +360,7 @@ describe("ストレステスト（stressTest）", () => {
       ];
     });
     const req = edit(base, (_h, input) => (input.stressTest = { template: "marketDropAtRetirement", params: { year: 2030 } }));
-    const bal = (r: EngineResult, y: number) => r.table.filter((c) => c.row === "cf.balance.account.taxable" && c.year === y).reduce((s, c) => s + c.amount, 0);
+    const bal = (r: EngineResult, y: number) => (r.table as unknown as Cell[]).filter((c) => c.row === "cf.balance.account.taxable" && c.year === y).reduce((s, c) => s + c.amount, 0);
     const a = run(base);
     const b = run(req);
     expect(bal(b, 2029)).toBe(bal(a, 2029));
