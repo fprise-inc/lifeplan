@@ -1491,6 +1491,7 @@
                   "from": { "description": "保育所の始まり（省略は1歳の4月）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "monthly": { "description": "保育料の月額（0〜2歳。3歳になった後の最初の4月から無償）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "school": { "description": "学校が決まっているとき（学費データ 0010 から写した行）", "$ref": "#/$defs/schoolTuition" },
+                  "tuitionLevel": { "enum": ["standard", "cap"], "description": "国立大学の授業料（standard は標準額、cap は授業料を上限まで上げた大学として標準額の120%。省略は standard。入学料は標準額のまま。ほかの学校では使わない）" },
                   "annualOverride": { "description": "学校の年額（学納金）を直接入れる（計算基準年の価格）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "entranceOverride": { "description": "入学金を直接入れる", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "exam": {

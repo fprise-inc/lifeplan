@@ -236,6 +236,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.university.national.tuitionCapRate
+    status: active
+    label: "国立大学の授業料の上限（標準額に対する割合）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.university.private.all.admission
     status: active
     label: "私立大学の入学料の平均（全体。令和7年度入学者）"

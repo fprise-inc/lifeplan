@@ -1,0 +1,21 @@
+id: education.statistics.university.national.tuitionCapRate
+title: 国立大学の授業料の上限（標準額に対する割合）
+unit: rate
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2005-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "1.2"
+    sources:
+      - {"type": "web", "url": "https://www.kyoto-u.ac.jp/uni_int/kitei/reiki_honbun/w002RG00000953.html", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "国立大学等の授業料その他の費用に関する省令 第10条（授業料等の上限額等）", "note": "検索の要約（原本は未取得。この作業の環境から e-Gov と公式のサイトに届かなかった）。特別の事情があるときは、標準額に百分の百二十を乗じて得た額を超えない範囲内で定めることができる（授業料・入学料・検定料）"}
+      - {"type": "web", "url": "https://www.nikkei.com/article/DGXZQOUE211R40R20C24A7000000/", "retrievedAt": "2026-10-09", "retrievedVia": "searchExcerpt", "locator": "日本経済新聞「国立大学の授業料とは 2割まで引き上げ可能」", "note": "検索の要約（原本は未取得）。授業料の上限は標準額535,800円の120%の642,960円"}
+      - {"type": "law", "lawNumber": "平成十六年文部科学省令第十六号"}
+    recordedIn: "2026.3.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "授業料の年額の上限（標準額×120% = 642,960円）。教育の目標の大学の段で tuitionLevel: cap を選んだときだけ使う（入学料には当てない。上乗せしている大学の多くは入学料を標準額のままにしている）"}

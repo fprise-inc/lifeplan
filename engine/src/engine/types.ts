@@ -551,6 +551,8 @@ export interface EducationStageInput {
     readonly rows: readonly TuitionRow[];
     readonly source: { readonly pack: string; readonly version: string; readonly fictional?: boolean };
   };
+  /** 国立大学の授業料（standard は標準額、cap は上限（標準額×120%）。省略は standard） */
+  readonly tuitionLevel?: "standard" | "cap";
   readonly annualOverride?: Yen;
   readonly entranceOverride?: Yen;
   readonly exam?: { readonly amount?: Yen; readonly deposits?: Yen };

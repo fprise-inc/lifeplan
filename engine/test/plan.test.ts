@@ -379,6 +379,22 @@ describe("教育費（education.cost）・公的支援（education.support）・
     expect(notices(full(later)).some((n) => n.code === "N_ESTIMATED")).toBe(true);
   });
 
+  it("国立大学の授業料は標準額（535,800円）。tuitionLevel: cap なら上限の標準額×120%（642,960円）で、入学料は標準額のまま。修学支援の減免は標準額が上限", () => {
+    const fees = (stage: Obj) => flowsOf(mk([{ stage: "university", sector: "national", ...stage }])).enrollments[0]?.fees.find((x) => x.fiscalYear === 2032);
+    expect(fees({})?.tuition).toBe(535800);
+    expect(fees({ tuitionLevel: "standard" })?.tuition).toBe(535800);
+    expect(fees({ tuitionLevel: "cap" })?.tuition).toBe(642960);
+    const cap = flowsOf(mk([{ stage: "university", sector: "national", tuitionLevel: "cap" }])).flows as unknown as Flow[];
+    expect(sumFlows(cap, (x) => x.row === "cf.expense.education.entrance")).toBe(282000);
+    expect(sumFlows(cap, (x) => x.formula === "education.cost.tuition" && x.ym >= "2031-04" && x.ym <= "2035-03")).toBe(642960 * 4);
+    // 直接入れた額（annualOverride）が優先
+    expect(fees({ tuitionLevel: "cap", annualOverride: 600000 })?.tuition).toBe(600000);
+    // 住民税非課税（第I区分）でも、減免は標準額まで（上乗せ分の107,160円は残る）
+    const req = mk([{ stage: "university", sector: "national", tuitionLevel: "cap" }], {}, "2012-06", 0);
+    const f = call<{ flows: Flow[] }>(req, "education.support", { member: C }).flows;
+    expect(sumFlows(f, (x) => x.formula === "education.support.tuitionWaiver" && x.ym >= "2032-04" && x.ym <= "2033-03")).toBe(535800);
+  });
+
   it("保育料は3歳になった後の最初の4月から無償", () => {
     const out = flowsOf(mk([{ stage: "nursery", from: at("2027-04"), monthly: 40000 }], {}, "2025-05"));
     const ns = (out.flows as unknown as Flow[]).filter((x) => x.row === "cf.expense.education.nursery");

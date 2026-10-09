@@ -6,7 +6,8 @@
 //   最も近い入学年度の行に教育費の上昇率を当てて推計。知らせ N_ESTIMATED）。行が無ければ統計の平均（制度データ master.education.statistics。
 //   計算基準年の値を教育費の上昇率で伸ばす）: 幼〜高は学校の費用（学習費総額−学校外活動費。学校外活動費の値が無い区分は学習費総額を学校の費用にし、
 //   学校外活動費を足さない）を年度の12か月に分けて毎月、大学・短大は授業料＋施設設備費を4月と10月に半分ずつ、入学金を入学の前の2月
-//   （国公立は3月）に払う。annualOverride・entranceOverride で直接入れられる
+//   （国公立は3月）に払う。annualOverride・entranceOverride で直接入れられる。国立大学の授業料は標準額（tuitionLevel: cap なら、
+//   授業料を上限まで上げた大学として標準額×上限の割合（120%）。入学料は標準額のまま）
 // - 保育料（nursery）: from（省略は1歳の学年の4月）から、3歳になった後の最初の4月の前の月まで月額（3歳からは幼児教育・保育の無償化で0）
 // - 受験・併願の費用（exam）: 受験料を入学の前の1月、入学しなかった学校への納付金を2月に
 // - 学校外活動費（outOfSchool）: 統計の平均（幼〜高）か月額か無し。塾・習い事（lessons）は月額を足す
@@ -44,6 +45,7 @@ const PARAMS = [
   ...[...K12].flatMap((s) => K12_SECTORS.flatMap((x) => [`${S}.${s}.${x}.total`, `${S}.${s}.${x}.outOfSchool`])),
   ...FIELDS.flatMap((f) => ["tuition", "admission", "facility"].map((i) => `${S}.university.private.${f}.${i}`)),
   ...["national", "public"].flatMap((x) => ["tuition", "admission"].map((i) => `${S}.university.${x}.${i}`)),
+  `${S}.university.national.tuitionCapRate`,
   ...["tuition", "admission", "facility"].map((i) => `${S}.juniorCollege.private.${i}`),
   `${S}.boarding.annual`,
   `${S}.boarding.initial`,
@@ -53,8 +55,8 @@ const PARAMS = [
 export default defineComponent<{ member: string }, EducationCostOutput>({
   id: "education.cost",
   title: "教育費",
-  contract: "1.0",
-  revision: 1,
+  contract: "1.1",
+  revision: 2,
   requires: { "debt.schedule": ">=1 <2" },
   params: PARAMS,
   reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
@@ -181,6 +183,12 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
           } else {
             tuition = statOr0(`${S}.university.${sector}.tuition`);
             admission = statOr0(`${S}.university.${sector}.admission`);
+            if (sector === "national" && st.tuitionLevel === "cap") {
+              const capId = `${S}.university.national.tuitionCapRate`;
+              const cap = at0.has(capId) ? at0.paramRate(capId) : null;
+              if (cap === null) missing.add(capId);
+              else tuition = ctx.money.mulRate(tuition, cap, "conv.exact");
+            }
           }
           if (st.annualOverride !== undefined) tuition = st.annualOverride;
           if (st.entranceOverride !== undefined) admission = st.entranceOverride;
