@@ -17,5 +17,21 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1211-1.htm", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅借入金等特別控除", "note": "検索の要約（原本は未取得。この環境から公式サイトに届かない）"}
       - {"type": "web", "url": "https://www.mlit.go.jp/report/press/content/001854843.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅ローン減税（国土交通省の資料）", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "40歳未満。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2022-01-01"
+    appliesTo: null
+    enforcedOn: "2024-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 40
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20240401_506AC0000000008?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "98cdb73f73987c81164fd5e2c357f593ca5db910c38b9d757ccd922033feb5d4", "locator": "租税特別措置法 第41条第13項（令和6年4月1日の版）", "quote": "年齢四十歳未満であつて配偶者を有する者"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第41条第9項", "quote": "年齢四十歳未満であつて配偶者を有する者"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1211-1.htm", "retrievedAt": "2026-10-09", "sha256": "932ec473b144c2e4ca4d2de5dbcad1113f8a050103a11b278477b203f1f0850e", "locator": "国税庁 No.1211-1 特例対象個人", "quote": "年齢40歳未満であって配偶者を有する者"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "40歳未満（本人または配偶者）（入居の年の12月31日の現況）。特例は令和6年以後の入居だけ（令和6年度税制改正、令和6年4月1日施行。令和4・5年入居では子育ての借入限度額が一般と同じなので、この値は結果を変えない）。措置法の条文と国税庁の資料で一致"}

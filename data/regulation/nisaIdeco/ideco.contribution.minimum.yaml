@@ -15,5 +15,20 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "月5,000円から1,000円単位。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2017-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5000
+    sources:
+      - {"type": "web", "url": "https://www.ideco-koushiki.jp/guide/structure.html", "retrievedAt": "2026-10-09", "sha256": "0b82ef06ef043480ac677d5c406a24deb5426727f1da180381d7a83004a3ad20", "locator": "iDeCo公式 加入資格・掛金", "quote": "iDeCoは月々5,000円から始められ、掛金額を1,000円単位で自由に設定できます"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001739467.pdf", "retrievedAt": "2026-10-09", "sha256": "2f80ab197cdd5c3b8c8ec5e5d5f6bc7243dd4d842569c48400e9857c03ff2d74", "locator": "企業型DCの拠出限度額のリーフレット", "quote": "（最低掛金額５千円）"}
+      - {"type": "web", "url": "https://www.ideco-koushiki.jp/library/pdf/idecoPlus_guide.pdf", "retrievedAt": "2026-10-09", "sha256": "b6094b69a02310d09f1539d1663cf90d7e5da0169d9d4a02048e93ce08ace921", "locator": "国民年金基金連合会 中小事業主掛金納付制度の手引き", "quote": "月額5,000 円以上23,000 円以下となるよう、1,000 円単位で"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "月5,000円から1,000円単位。値は国民年金基金連合会・厚生労働省の原本（3つ）で一致したが、額を定める規定（個人型年金規約）の原本と施行日を確かめていない"}

@@ -16,5 +16,21 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1211-1.htm", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅借入金等特別控除", "note": "検索の要約（原本は未取得。この環境から公式サイトに届かない）"}
       - {"type": "web", "url": "https://www.mlit.go.jp/report/press/content/001854843.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅ローン減税（国土交通省の資料）", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "100円未満切り捨て。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2022-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "DOWN", "unit": 100}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20170401_427AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "409c072709354a7ad1d822c2f6314b1cc94d0cd5e18a5ab8917201bf81451008", "locator": "租税特別措置法 第41条第2項（平成29年4月1日の版）", "quote": "百円未満の端数があるときは、これを切り捨てる"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第41条第2項", "quote": "百円未満の端数があるときは、これを切り捨てる。）とする"}
+      - {"type": "web", "url": "https://www.nta.go.jp/publication/pamph/koho/kurashi/html/05_1.htm", "retrievedAt": "2026-10-09", "sha256": "6f97598d3fdbb24525e6c5bca267ea70aff4af38cb570146b2970328253508fb", "locator": "国税庁 暮らしの税情報", "quote": "◎100円未満の端数切捨て"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "100円未満切り捨て。措置法の条文と国税庁の資料で一致。施行日は e-Gov の改正履歴より前で特定できないので notAfter"}

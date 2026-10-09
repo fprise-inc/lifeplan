@@ -16,7 +16,7 @@ entries:
       - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "事業主掛金の額以下"}
   - rev: 2
     appliesFrom: "2026-12-01"
@@ -30,5 +30,36 @@ entries:
       - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "2026年12月分から制限を撤廃とする解説による。原本での確認待ち"}
+  - rev: 3
+    appliesFrom: "2017-01-01"
+    appliesTo: "2026-03-31"
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413AC0000000088_20170401_428AC0000000114?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "04794fdcadc81bae93c6e61b50ab00cc3241c7f17f0f26dcec10022120333c45", "locator": "確定拠出年金法 第4条第1項第3号の2（平成29年4月1日の版）", "quote": "企業型年金加入者掛金の額が当該企業型年金加入者に係る事業主掛金の額を超えないように"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413AC0000000088_20250620_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "23ca6b4546135aeb93ce75b18919604c0397b10d7c9e2ff5d152f7266eda6238", "locator": "同（令和7年6月20日の版）", "quote": "企業型年金加入者掛金の額が当該企業型年金加入者に係る事業主掛金の額を超えないように"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/nenkin/kyoshutsu/2025kaisei.html", "retrievedAt": "2026-10-09", "sha256": "f2dec18fb24a98e1d51e99cf05e360cdc849849e5aec86e5f84e49733533719b", "locator": "2025年の制度改正 企業型DCの拠出限度額の拡充", "quote": "マッチング拠出における加入者掛金の額は、事業主掛金の額を超えてはならないという制限が設けられています"}
+      - {"type": "law", "lawNumber": "平成十三年法律第八十八号", "egovRevisionId": "413AC0000000088_20250620_507AC0000000074"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "訂正: 制限の撤廃は2026年12月分からではなく2026年4月1日施行（令和7年法律第74号）。2026年3月までは加入者掛金を事業主掛金の額以下に。法の条文と厚生労働省の資料で一致"}
+  - rev: 4
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 0
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/nenkin/kyoshutsu/2025kaisei.html", "retrievedAt": "2026-10-09", "sha256": "f2dec18fb24a98e1d51e99cf05e360cdc849849e5aec86e5f84e49733533719b", "locator": "2025年の制度改正 企業型DCの拠出限度額の拡充", "quote": "マッチング拠出における加入者掛金の額の制限撤廃（2026年４月１日施行）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413CO0000000248_20261001_508CO0000000153?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "878f3ea7e7347061900d2ffc61c0feee85364850ab492979d9e9c6cc166514ce", "locator": "確定拠出年金法施行令 第6条第4号ハ（令和8年10月1日の版）", "quote": "当該事業主掛金の額と企業型年金加入者に係る当該企業型年金加入者掛金の額との合計額が法第二十条に規定する拠出限度額を超えることとなる場合"}
+      - {"type": "law", "lawNumber": "平成十三年法律第八十八号", "egovRevisionId": "413AC0000000088_20260401_507AC0000000074"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "2026年4月1日から制限なし（法4条1項3号の2を削る。令和8年4月1日の版の法の条文に制限の文言が無い）。厚生労働省の資料と、施行令6条4号ハ（加入者掛金を拠出限度額で止める形に改めた）で一致"}

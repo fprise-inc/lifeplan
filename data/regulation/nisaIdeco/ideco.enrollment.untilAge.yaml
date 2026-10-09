@@ -17,7 +17,7 @@ entries:
       - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "65歳未満（国民年金の被保険者）"}
   - rev: 2
     appliesFrom: "2026-12-01"
@@ -31,5 +31,37 @@ entries:
       - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "2026年12月から70歳未満（老齢基礎年金・iDeCo の老齢給付金を受けていない人）。施行日は解説により食い違いがあり、原本での確認待ち"}
+  - rev: 3
+    appliesFrom: "2022-05-01"
+    appliesTo: "2026-11-30"
+    enforcedOn: "2022-05-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 65
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413AC0000000088_20220501_502AC0000000040?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "4fe6b687aa8c0be70f6203b85b9464cab233d0cd95e8db52b9e502b39cf10df2", "locator": "確定拠出年金法 第62条第1項第4号（令和4年5月1日の版）", "quote": "国民年金法附則第五条第一項の規定による被保険者（同項第一号に掲げる者を除く。）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/000883881.pdf", "retrievedAt": "2026-10-09", "sha256": "7bc4ea1462c181f4b832654b5dbccc11ed62f5c4a8c2fd71c11a44ba5e0df2e3", "locator": "iDeCoに加入できる年齢の要件などが拡大されます（2022年5月から）", "quote": "60歳以上65歳未満で国民年金に任意加入している方"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/nenkin/kyoshutsu/2020kaisei.html", "retrievedAt": "2026-10-09", "sha256": "f51f58d2bb98ae71c574be59d28d539fe6b74cb58fd538c8c4f146a22b9f3dd4", "locator": "2020年の制度改正", "quote": "企業型DC・iDeCoの加入可能年齢の拡大（2022年5月1日施行）"}
+      - {"type": "law", "lawNumber": "平成十三年法律第八十八号", "egovRevisionId": "413AC0000000088_20220501_502AC0000000040"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "65歳未満（国民年金の被保険者。任意加入は65歳未満、第2号は老齢年金の受給権者を除く）。法の条文と厚生労働省のリーフレット・資料で一致"}
+  - rev: 4
+    appliesFrom: "2026-12-01"
+    appliesTo: null
+    enforcedOn: "2026-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 70
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413AC0000000088_20261201_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "11aab7b2dabc7d605a494aea1463489f1752a705f467fc1aeacd1e20fd752fb9", "locator": "確定拠出年金法 第62条第4項第3号（令和8年12月1日の版）", "quote": "第五号加入者が七十歳に達したとき"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/nenkin/kyoshutsu/2025kaisei.html", "retrievedAt": "2026-10-09", "sha256": "f2dec18fb24a98e1d51e99cf05e360cdc849849e5aec86e5f84e49733533719b", "locator": "2025年の制度改正", "quote": "iDeCoの加入可能年齢の引き上げ（2026年12月１日施行予定）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001620594.pdf", "retrievedAt": "2026-10-09", "sha256": "a440bddc37c32ac8cdc23d75a6c17d865f37bef450d1c3d5bacbf4971a072902", "locator": "iDeCoがパワーアップします（令和8年12月から）", "quote": "70歳になるまで掛金の拠出が可能に"}
+      - {"type": "law", "lawNumber": "平成十三年法律第八十八号", "egovRevisionId": "413AC0000000088_20261201_507AC0000000074"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "2026年12月1日から70歳未満（第5号: 60歳以上70歳未満の国民年金の被保険者でない人で、iDeCoの加入者・運用指図者・企業年金からの移換の申出をする人。老齢基礎年金・iDeCoの老齢給付金を受けていない人。施行から3年（令和11年11月末）までは前の加入の要件なしでも加入できる経過措置）。施行日は e-Gov の改正の版（令和8年12月1日）。法の条文と厚生労働省の資料で一致"}

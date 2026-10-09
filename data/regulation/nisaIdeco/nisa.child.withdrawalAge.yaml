@@ -17,7 +17,7 @@ entries:
       - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）", "note": "検索の要約（原本は未取得。大綱の表は抽出が崩れていて確定できない）"}
       - {"type": "web", "url": "https://www.watch.impress.co.jp/docs/news/2075228.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "報道の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "2026年までは制度なし"}
   - rev: 2
     appliesFrom: "2027-01-01"
@@ -31,5 +31,35 @@ entries:
       - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/fy2026/20251226taikou.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "令和8年度税制改正の大綱（令和7年12月26日閣議決定）", "note": "検索の要約（原本は未取得。大綱の表は抽出が崩れていて確定できない）"}
       - {"type": "web", "url": "https://www.watch.impress.co.jp/docs/news/2075228.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "報道の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "12歳から（要件つき）。原本での確認待ち"}
+  - rev: 3
+    appliesFrom: "2024-01-01"
+    appliesTo: "2026-12-31"
+    enforcedOn: "2024-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20270101_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "69072960bb5b5aa5cc95421c51dfc0a5e75b1bb9b9ce11b839acec8182a1a61d", "locator": "租税特別措置法 第37条の14第5項第7号イ（令和9年1月1日の版）", "quote": "令和九年）以後の各年"}
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/summary/income/nisa_2.pdf", "retrievedAt": "2026-10-09", "sha256": "8489cb1841ee04bdba45bf93622bf1828763c8e0a6ff2926b249ce686f5f3cd2", "locator": "財務省 NISAのつみたて投資枠の拡充（令和8年度改正）", "quote": "（令和９年～）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20270101_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "2026年までは制度なし。措置法の条文と財務省の資料で一致"}
+  - rev: 4
+    appliesFrom: "2027-01-01"
+    appliesTo: null
+    enforcedOn: "2027-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 12
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20270101_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "69072960bb5b5aa5cc95421c51dfc0a5e75b1bb9b9ce11b839acec8182a1a61d", "locator": "租税特別措置法 第37条の14第5項第6号ニ（令和9年1月1日の版）", "quote": "その年三月三十一日において十二歳である年"}
+      - {"type": "web", "url": "https://www.mof.go.jp/tax_policy/summary/income/nisa_2.pdf", "retrievedAt": "2026-10-09", "sha256": "8489cb1841ee04bdba45bf93622bf1828763c8e0a6ff2926b249ce686f5f3cd2", "locator": "財務省 NISAのつみたて投資枠の拡充（令和8年度改正）", "quote": "12歳以降において、子の同意を得た場合にのみ、親権者等による払出しを可能とする"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20270101_508AC0000000012"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "12歳。法は「その年3月31日に12歳である年（特定基準年）」から（前の年までは災害などやむを得ない事由に限る）。払い出しは子の同意と子のための使途の書面が要る。措置法の条文と財務省の資料で一致"}

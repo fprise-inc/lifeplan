@@ -16,5 +16,21 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/000636642.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "通算加入者等期間と受給開始年齢", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "75歳（2022年4月から）。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2022-04-01"
+    appliesTo: null
+    enforcedOn: "2022-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 75
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413AC0000000088_20220401_502AC0000000040?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "d335edce24f9f7e138753f36c76ad4cf04af64cf8b229401c2c1bf703f829f33", "locator": "確定拠出年金法 第34条（令和4年4月1日の版）", "quote": "請求することなく七十五歳に達したときは"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/nenkin/nenkin/kyoshutsu/2020kaisei.html", "retrievedAt": "2026-10-09", "sha256": "f51f58d2bb98ae71c574be59d28d539fe6b74cb58fd538c8c4f146a22b9f3dd4", "locator": "2020年の制度改正 受給開始時期の選択肢の拡大（2022年4月1日施行）", "quote": "受給開始の上限年齢を 70歳から 75歳に引き上げます"}
+      - {"type": "web", "url": "https://www.ideco-koushiki.jp/guide/structure.html", "retrievedAt": "2026-10-09", "sha256": "0b82ef06ef043480ac677d5c406a24deb5426727f1da180381d7a83004a3ad20", "locator": "iDeCo公式 受取方法", "quote": "受給を開始する時期は、75歳になるまでの間で選ぶことができます"}
+      - {"type": "law", "lawNumber": "平成十三年法律第八十八号", "egovRevisionId": "413AC0000000088_20220401_502AC0000000040"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "75歳（2022年4月から。それまでは70歳。1952年4月1日以前生まれは70歳）。法の条文と厚生労働省・国民年金基金連合会の資料で一致"}

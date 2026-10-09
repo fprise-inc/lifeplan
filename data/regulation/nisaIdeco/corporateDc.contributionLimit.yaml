@@ -16,7 +16,7 @@ entries:
       - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "月55,000円（他制度がある勤め先は2024年11月分まで27,500円）"}
   - rev: 2
     appliesFrom: "2026-12-01"
@@ -30,5 +30,36 @@ entries:
       - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 2, "note": "2026年12月分から月62,000円。原本での確認待ち"}
+  - rev: 3
+    appliesFrom: "2017-01-01"
+    appliesTo: "2026-11-30"
+    enforcedOn: "2017-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 55000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413CO0000000248_20170101_428CO0000000310?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "2b388936abd58b32c1198fe518720275b51fad1502291bf65ab907ce4ee229cf", "locator": "確定拠出年金法施行令 第11条第1号（平成29年1月1日の版）", "quote": "以外のもの五万五千円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413CO0000000248_20261001_508CO0000000153?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "878f3ea7e7347061900d2ffc61c0feee85364850ab492979d9e9c6cc166514ce", "locator": "確定拠出年金法施行令 第11条第1号（令和8年10月1日の版）", "quote": "において「他制度加入者」という。）以外のもの五万五千円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001739467.pdf", "retrievedAt": "2026-10-09", "sha256": "2f80ab197cdd5c3b8c8ec5e5d5f6bc7243dd4d842569c48400e9857c03ff2d74", "locator": "企業型DCの拠出限度額のリーフレット", "quote": "企業型DCの拠出限度額が 5.5万円から6.2万円に引き上げられます"}
+      - {"type": "law", "lawNumber": "平成十三年政令第二百四十八号", "egovRevisionId": "413CO0000000248_20261001_508CO0000000153"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "月55,000円。2022年9月までに規約で個人型年金への同時加入を定めた企業型年金は35,000円（扱わない）。値は政令の条文（2つの版）と厚生労働省のリーフレットで一致"}
+  - rev: 4
+    appliesFrom: "2026-12-01"
+    appliesTo: null
+    enforcedOn: "2026-12-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 62000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/413CO0000000248_20261201_507CO0000000442?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "c90026bec663a413200a5774366ac8d914bcad2a4022687974ef8f8ba3cbc5b9", "locator": "確定拠出年金法施行令 第11条第1号（令和8年12月1日の版）", "quote": "（以下「他制度加入者」という。）以外のもの六万二千円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001739467.pdf", "retrievedAt": "2026-10-09", "sha256": "2f80ab197cdd5c3b8c8ec5e5d5f6bc7243dd4d842569c48400e9857c03ff2d74", "locator": "企業型DCの拠出限度額のリーフレット", "quote": "企業型DCの拠出限度額が 5.5万円から6.2万円に引き上げられます"}
+      - {"type": "law", "lawNumber": "平成十三年政令第二百四十八号", "egovRevisionId": "413CO0000000248_20261201_507CO0000000442"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "2026年12月分から月62,000円。値は政令の条文と厚生労働省のリーフレットで一致"}
