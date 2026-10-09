@@ -97,6 +97,23 @@
     },
     "forestEnvironmentTax": {
       "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "housingLoanCredit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "municipal",
+        "prefectural"
+      ],
+      "properties": {
+        "municipal": {
+          "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+        },
+        "prefectural": {
+          "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+        }
+      },
+      "description": "住宅借入金等特別税額控除（約束の版 1.1。任意）"
     }
   }
 }

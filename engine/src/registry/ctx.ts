@@ -121,6 +121,13 @@ export interface Ctx {
   get<T = Record<string, unknown>>(collection: string, object: string): T;
   /** 前提条件の、その年の値。reads に assumptions.<名前> が要る。入力に無い前提は fallback（無ければエラー） */
   assumption(name: string, year: number, fallback?: Rate): Rate;
+  /**
+   * 前提条件の、キーごとの年ごとの列（例 assetReturns の資産クラス）の、その年の値。reads に assumptions.<名前> が要る。
+   * 依存は前提の名前の全体（キーの1つを変えても、その前提を読む部品は計算し直す）。キーが無ければ fallback（無ければ null）
+   */
+  assumptionIn(name: string, key: string, year: number, fallback?: Rate): Rate | null;
+  /** 前提条件のうち、年ごとの列でない設定（取り崩しの順序など）の値。reads に assumptions.<名前> が要る。無ければ undefined */
+  setting<T>(name: string): T | undefined;
   /** 計算に反映していないこと（未対応の制度など）の知らせ。見出しの notices に ID だけで残す */
   notice(code: string, ids: readonly string[]): void;
   at(month: MonthIndex): MonthCtx;
@@ -1292,13 +1299,29 @@ class CtxImpl implements Ctx {
     const item = `assumptions.${name}`;
     if (!this.#sets.reads.has(item)) throw new EngineError("E_READ_UNDECLARED", [def.id, item]);
     this.#inputDep(2, name, null, null);
-    const series = (this.#state.input.assumptions as Readonly<Record<string, { default: string; byYear?: Record<string, string> } | undefined>>)[name];
+    const series = (this.#state.input.assumptions as unknown as Readonly<Record<string, { default: string; byYear?: Record<string, string> } | undefined>>)[name];
     if (series === undefined) {
       if (fallback !== undefined) return fallback;
       throw new EngineError("E_ARGUMENT", [item]);
     }
     this.#state.tracer.input(this.#frame, { item }, undefined, () => series as unknown as Json);
     return rate(series.byYear?.[String(year)] ?? series.default);
+  }
+
+  assumptionIn(name: string, key: string, year: number, fallback?: Rate): Rate | null {
+    const series = this.setting<Readonly<Record<string, { default: string; byYear?: Record<string, string> }>>>(name)?.[key];
+    if (series === undefined) return fallback ?? null;
+    return rate(series.byYear?.[String(year)] ?? series.default);
+  }
+
+  setting<T>(name: string): T | undefined {
+    const def = this.#impl.def;
+    const item = `assumptions.${name}`;
+    if (!this.#sets.reads.has(item)) throw new EngineError("E_READ_UNDECLARED", [def.id, item]);
+    this.#inputDep(2, name, null, null);
+    const v = (this.#state.input.assumptions as unknown as Readonly<Record<string, unknown>>)[name];
+    if (v !== undefined) this.#state.tracer.input(this.#frame, { item }, undefined, () => v as Json);
+    return v as T | undefined;
   }
 
   notice(code: string, ids: readonly string[]): void {

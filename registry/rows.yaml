@@ -15,6 +15,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.income.salary.executive
+    status: active
+    label: "役員報酬"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.income.business
     status: active
     label: 事業
@@ -27,9 +33,51 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.income.pension.survivor
+    status: active
+    label: "遺族年金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.pension.disability
+    status: active
+    label: "障害年金"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.income.corporatePension
     status: active
     label: 企業年金・個人年金
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.corporatePension.db
+    status: active
+    label: "確定給付企業年金（年金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.corporatePension.dc
+    status: active
+    label: "企業型DC（年金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.corporatePension.ideco
+    status: active
+    label: "iDeCo（年金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.corporatePension.smallBusiness
+    status: active
+    label: "小規模企業共済（分割）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.corporatePension.privateAnnuity
+    status: active
+    label: "個人年金保険（年金）"
     since: draft
     aliases: []
     replacedBy: null
@@ -39,15 +87,141 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.income.lumpSum.retirement
+    status: active
+    label: "退職一時金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum.db
+    status: active
+    label: "確定給付企業年金（一時金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum.dc
+    status: active
+    label: "企業型DC（一時金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum.ideco
+    status: active
+    label: "iDeCo（一時金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum.smallBusiness
+    status: active
+    label: "小規模企業共済（一括）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum.insurance
+    status: active
+    label: "保険金（死亡・高度障害など）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum.maturity
+    status: active
+    label: "満期保険金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum.surrender
+    status: active
+    label: "解約返戻金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum.gift
+    status: active
+    label: "贈与（受けた資金援助）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum.inheritance
+    status: active
+    label: "相続"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum.realEstateSale
+    status: active
+    label: "不動産の売却"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.lumpSum.other
+    status: active
+    label: "その他の一時金"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.income.benefit
     status: active
     label: 給付・手当
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.income.benefit.childAllowance
+    status: active
+    label: "児童手当"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.benefit.childcare
+    status: active
+    label: "育児休業給付"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.benefit.health
+    status: active
+    label: "傷病手当金・出産手当金・出産育児一時金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.benefit.employment
+    status: active
+    label: "雇用保険の基本手当"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.benefit.medical
+    status: active
+    label: "高額療養費などの医療の給付"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.benefit.care
+    status: active
+    label: "介護の給付"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.benefit.education
+    status: active
+    label: "就学支援金・修学支援"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.income.other
     status: active
     label: その他の収入
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.other.rental
+    status: active
+    label: "不動産の賃料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.income.other.sideJob
+    status: active
+    label: "副業"
     since: draft
     aliases: []
     replacedBy: null
@@ -63,9 +237,33 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.taxSi.incomeTax.capitalGains
+    status: active
+    label: "所得税（上場株式等の譲渡益・源泉徴収）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.incomeTax.retirement
+    status: active
+    label: "所得税（退職所得）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.taxSi.residentTax
     status: active
     label: 住民税
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.residentTax.capitalGains
+    status: active
+    label: "住民税（上場株式等の譲渡益・特別徴収）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.residentTax.retirement
+    status: active
+    label: "住民税（退職所得）"
     since: draft
     aliases: []
     replacedBy: null
@@ -105,6 +303,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.taxSi.giftTax
+    status: active
+    label: "贈与税"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.inheritanceTax
+    status: active
+    label: "相続税"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.expense
     status: active
     label: 支出
@@ -114,6 +324,12 @@ entries:
   - id: cf.expense.living
     status: active
     label: 基本生活費
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.living.allowance
+    status: active
+    label: "仕送り（親・祖父母）"
     since: draft
     aliases: []
     replacedBy: null
@@ -129,9 +345,27 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.expense.housing.rent.renewal
+    status: active
+    label: "更新料"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.expense.housing.loan
     status: active
     label: 住宅ローン
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.housing.loan.prepayment
+    status: active
+    label: "繰上返済"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.housing.loan.fees
+    status: active
+    label: "手数料・諸費用（繰上返済・借り換え）"
     since: draft
     aliases: []
     replacedBy: null
@@ -147,9 +381,51 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.expense.housing.purchase
+    status: active
+    label: "住宅の取得"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.housing.purchase.downPayment
+    status: active
+    label: "頭金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.housing.purchase.costs
+    status: active
+    label: "取得の諸費用"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.expense.education
     status: active
     label: 教育費
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.education.school
+    status: active
+    label: "学校教育費"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.education.entrance
+    status: active
+    label: "入学金・入学の準備"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.education.outOfSchool
+    status: active
+    label: "学校外教育費"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.education.boarding
+    status: active
+    label: "下宿・仕送り"
     since: draft
     aliases: []
     replacedBy: null
@@ -159,9 +435,51 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.expense.insurance.life
+    status: active
+    label: "生命保険"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.insurance.medical
+    status: active
+    label: "医療保険・がん保険"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.insurance.savings
+    status: active
+    label: "貯蓄型の保険（学資・個人年金など）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.insurance.nonLife
+    status: active
+    label: "損害保険（火災・地震・自動車など）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.expense.debt
     status: active
     label: 住宅ローン以外の負債の返済
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.debt.car
+    status: active
+    label: "自動車ローン"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.debt.scholarship
+    status: active
+    label: "奨学金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.debt.other
+    status: active
+    label: "その他の負債"
     since: draft
     aliases: []
     replacedBy: null
@@ -171,9 +489,57 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.expense.lumpSum.car
+    status: active
+    label: "車の購入"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.lumpSum.wedding
+    status: active
+    label: "結婚"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.lumpSum.gift
+    status: active
+    label: "贈与（贈った資金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.lumpSum.other
+    status: active
+    label: "その他の一時的支出"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.expense.care
     status: active
     label: 介護・医療
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.care.nursing
+    status: active
+    label: "介護の費用"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.care.medical
+    status: active
+    label: "医療費"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.care.facility
+    status: active
+    label: "施設の入居の一時金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.expense.advisoryFee
+    status: active
+    label: "FP顧問料"
     since: draft
     aliases: []
     replacedBy: null
@@ -195,9 +561,45 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.transfer.nisa.tsumitate
+    status: active
+    label: "NISA（つみたて投資枠）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.nisa.growth
+    status: active
+    label: "NISA（成長投資枠）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.nisa.child
+    status: active
+    label: "こどもNISA"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.transfer.ideco
     status: active
     label: iDeCo・DCの掛金
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.ideco.ideco
+    status: active
+    label: "iDeCoの掛金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.ideco.matching
+    status: active
+    label: "企業型DCの加入者掛金（マッチング拠出）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.ideco.employer
+    status: active
+    label: "企業型DCの事業主掛金（世帯の支払いではない）"
     since: draft
     aliases: []
     replacedBy: null
@@ -207,9 +609,45 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.transfer.savings.zaikei
+    status: active
+    label: "財形貯蓄"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.savings.esop
+    status: active
+    label: "持株会"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.savings.deposit
+    status: active
+    label: "積立預金・外貨預金"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.transfer.withdrawal
     status: active
     label: 取り崩し
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.investment
+    status: active
+    label: "課税口座への積立"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.mutualAid
+    status: active
+    label: "小規模企業共済の掛金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.transfer.rollover
+    status: active
+    label: "非課税期間の終了による課税口座への移管"
     since: draft
     aliases: []
     replacedBy: null
@@ -237,6 +675,84 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.balance.account.deposit
+    status: active
+    label: "預金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.taxable
+    status: active
+    label: "課税口座"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.nisa
+    status: active
+    label: "NISA"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.childNisa
+    status: active
+    label: "こどもNISA"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.juniorNisa
+    status: active
+    label: "ジュニアNISA"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.legacyNisa
+    status: active
+    label: "旧NISA"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.ideco
+    status: active
+    label: "iDeCo"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.corporateDc
+    status: active
+    label: "企業型DC"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.zaikei
+    status: active
+    label: "財形"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.esop
+    status: active
+    label: "持株会"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.fxDeposit
+    status: active
+    label: "外貨預金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.insurance
+    status: active
+    label: "保険（解約返戻金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.realEstate
+    status: active
+    label: "不動産"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.balance.return
     status: active
     label: 運用益
@@ -246,6 +762,36 @@ entries:
   - id: cf.balance.debt
     status: active
     label: 負債残高
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.debt.mortgage
+    status: active
+    label: "住宅ローン"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.debt.unpaidInterest
+    status: active
+    label: "未払利息（変動金利の5年ルール）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.debt.other
+    status: active
+    label: "住宅ローン以外の負債"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.nisaFrame
+    status: active
+    label: "NISAの非課税保有限度額の残り（簿価）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.shortfall
+    status: active
+    label: "資金不足（取り崩す器が無い額）"
     since: draft
     aliases: []
     replacedBy: null

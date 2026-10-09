@@ -1,5 +1,6 @@
 // 所得控除（所得税・住民税）。その年の12月31日の現況で判定する
-// 基礎控除・配偶者控除・配偶者特別控除・扶養控除・特定親族特別控除・社会保険料控除・生命保険料控除・地震保険料控除・小規模企業共済等掛金控除。
+// 基礎控除・配偶者控除・配偶者特別控除・扶養控除・特定親族特別控除・社会保険料控除・生命保険料控除・地震保険料控除・小規模企業共済等掛金控除
+// （iDeCo の掛金と企業型DCの加入者掛金。拠出限度額で止めた後の額を ideco.contribution から、その年の分だけ読む）。
 // 配偶者控除・配偶者特別控除（tax.spouseDeduction）と扶養控除・特定親族特別控除（tax.dependentDeduction）は、他の構成員の所得で決まるので
 // 小さな部品に分けている（配偶者の所得が変わっても控除の額が同じなら、ここから先を計算し直さない。0006 の追記）
 import {
@@ -14,6 +15,7 @@ import {
   type DeductionsOutput,
   type InsuranceContractInput,
   type DependentDeductionOutput,
+  type IdecoPayment,
   type MonthCtx,
   type PaymentsOutput,
   type SpouseDeductionOutput,
@@ -63,22 +65,18 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
   id: "tax.deductions",
   title: "所得控除",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "tax.spouseDeduction": ">=1 <2",
     "tax.dependentDeduction": ">=1 <2",
     "tax.socialInsurancePaid": ">=1 <2",
     "insurance.premiumPayment": ">=1 <2",
-    "account.contribution": ">=1 <2",
+    "account.dcList": ">=1 <2",
+    "ideco.contribution": ">=1 <2",
   },
   params: ALL_PARAMS,
-  reads: [
-    "insurance.policyholder",
-    "insurance.deductionCategory",
-    "account.kind",
-    "account.owner",
-  ],
+  reads: ["insurance.policyholder", "insurance.deductionCategory"],
   input: "tax.deductions.input",
   output: "tax.deductions.output",
   compute(input, ctx) {
@@ -154,14 +152,12 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
       if (cap !== null && earthquake > cap) earthquake = cap;
     }
 
-    // 小規模企業共済等掛金控除: iDeCo の掛金（全額）
-    const accounts = ctx.list<{ id: string; kind: string; owner: string }>("account");
-    const smallBusiness = sumYen(
-      ctx
-        .call<PaymentsOutput>("account.contribution", {})
-        .payments.filter((p) => p.member === member && p.ym.startsWith(yearPrefix) && accounts.find((a) => a.id === p.object)?.kind === "ideco")
-        .map((p) => p.amount),
-    );
+    // 小規模企業共済等掛金控除: 本人が払った iDeCo の掛金と企業型DCの加入者掛金（全額。その年の支払いだけを読む）
+    let smallBusiness = yen(0);
+    const hasDc = ctx.call<{ ids: string[] }>("account.dcList", { member }).ids.length > 0;
+    if (hasDc) for (const p of ctx.callMonths<IdecoPayment>("ideco.contribution", { member }, "payments", monthIndex(year, 1), monthIndex(year, 12))) {
+      if (p.payer === "self") smallBusiness = yen(smallBusiness + p.amount);
+    }
 
     const total = sumYen([basic, spouse, spouseSpecial, dependents, specifiedRelative, socialInsurance, life, earthquake, smallBusiness]);
     return {

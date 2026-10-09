@@ -1,0 +1,20 @@
+id: nisa.junior.untilAge
+title: ジュニアNISA（継続管理勘定）が非課税のまま保有できる年齢（その年1月1日に達している年齢の前年12月31日まで）
+unit: years
+kind: constant
+basis: "incomeYear"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2016-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 18
+    sources:
+      - {"type": "web", "url": "https://www.matsui.co.jp/service/nisa/jr-nisa/rule/index.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "証券会社の案内の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "1月1日に18歳である年の前年12月31日まで（継続管理勘定）。その後は課税口座へ。原本での確認待ち"}

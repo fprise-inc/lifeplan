@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.housingLoanCreditYears.output",
+  "title": "住宅借入金等特別控除を受けうる年分の範囲（無ければ両方 null）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["from", "to"],
+  "properties": {
+    "from": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/year" }] },
+    "to": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/year" }] }
+  }
+}

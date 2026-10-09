@@ -1,0 +1,34 @@
+id: ideco.contributionLimit.category5
+title: iDeCo の拠出限度額（60歳以上70歳未満で国民年金の被保険者でない加入者＝第5号。月額）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2017-01-01"
+    appliesTo: "2026-11-30"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "2026年11月分までは加入できない"}
+  - rev: 2
+    appliesFrom: "2026-12-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 62000
+    sources:
+      - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/001597572.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "note": "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "2026年12月分から。月62,000円とする解説による。原本での確認待ち"}

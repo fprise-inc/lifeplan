@@ -1,0 +1,67 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.incomeTax.housingLoanCredit.limit.new.other.childRearing
+title: 【架空の見本】incomeTax.housingLoanCredit.limit.new.other.childRearing
+unit: JPY
+kind: constant
+basis: {"type": "anchor", "anchor": "moveIn"}
+entries:
+  - rev: 1
+    appliesFrom: "2022-01-01"
+    appliesTo: "2023-12-31"
+    enforcedOn: "2022-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 30000000
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 2
+    appliesFrom: "2024-01-01"
+    appliesTo: "2025-12-31"
+    enforcedOn: "2024-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 0
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 3
+    appliesFrom: "2026-01-01"
+    appliesTo: "2027-12-31"
+    enforcedOn: "2026-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 0
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 4
+    appliesFrom: "2028-01-01"
+    appliesTo: "2030-12-31"
+    enforcedOn: "2028-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 0
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+  - rev: 5
+    appliesFrom: "2031-01-01"
+    appliesTo: null
+    enforcedOn: "2031-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

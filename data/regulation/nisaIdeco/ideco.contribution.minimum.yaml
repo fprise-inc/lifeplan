@@ -1,0 +1,19 @@
+id: ideco.contribution.minimum
+title: iDeCo の掛金の最低額（月額）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2017-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5000
+    sources:
+      - {"type": "web", "url": "https://www.gov-online.go.jp/article/202412/entry-6825.html", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "iDeCoが大きく変わる！ 2026年12月制度改正のポイント", "note": "政府広報の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "月5,000円から1,000円単位。原本での確認待ち"}

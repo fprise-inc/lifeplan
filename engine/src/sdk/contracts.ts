@@ -131,9 +131,14 @@ export interface TaxOutput {
 /** incomeTax.annual: 年税額と途中の値（根拠の表示と答え合わせのため） */
 export interface IncomeTaxOutput extends TaxOutput {
   readonly taxable: Yen;
+  /** 算出税額（税額控除の前） */
   readonly computedTax: Yen;
   readonly reconstructionSurtax: Yen;
   readonly defenseSurtax: Yen;
+  /** 引いた住宅借入金等特別控除（約束の版 1.1 で足した任意の欄。控除が無い年は無い） */
+  readonly housingLoanCredit?: Yen;
+  /** 所得税から引ききれなかった住宅借入金等特別控除（翌年度の住民税から上限まで引く。1.1） */
+  readonly creditRemainder?: Yen;
 }
 
 export interface LevyPair {
@@ -150,6 +155,8 @@ export interface ResidentTaxOutput extends TaxOutput {
   readonly incomeLevy: LevyPair;
   readonly perCapita: LevyPair;
   readonly forestEnvironmentTax: Yen;
+  /** 住宅借入金等特別税額控除（約束の版 1.1 で足した任意の欄。控除が無い年度は無い） */
+  readonly housingLoanCredit?: LevyPair;
 }
 
 /** socialInsurance.employeeStatus: 月ごとの働き方と、勤め先の保険（健康保険・厚生年金・雇用保険）に入るか */
@@ -292,4 +299,84 @@ export interface PublicPensionIncomeOutput {
   readonly revenue: Yen;
   readonly deduction: Yen;
   readonly income: Yen;
+}
+
+/** ideco.contribution: 拠出限度額で止めた後の iDeCo・企業型DC の掛金（月の昇順） */
+export interface IdecoPayment {
+  readonly ym: string;
+  readonly object: string;
+  readonly amount: Yen;
+  readonly kind: "ideco" | "corporateDc";
+  /** self は本人が払う（iDeCo・加入者掛金。小規模企業共済等掛金控除の対象）、employer は事業主掛金 */
+  readonly payer: "self" | "employer";
+}
+
+export interface IdecoContributionOutput {
+  readonly flows: readonly Flow[];
+  readonly payments: readonly IdecoPayment[];
+}
+
+/** account.ideco: iDeCo・企業型DC の器ごとの年末残高と受け取り */
+export interface IdecoAccountYear {
+  readonly year: number;
+  /** その年の掛金（事業主掛金を含む） */
+  readonly contributions: Yen;
+  readonly payout: Yen;
+  readonly returns: Yen;
+  readonly closing: Yen;
+}
+
+export interface IdecoReceipt {
+  readonly object: string;
+  readonly kind: "lumpSum" | "annuity";
+  readonly ym: string;
+  readonly amount: Yen;
+  /** 通算加入者等期間の月数（退職所得の勤続年数の代わり。退職給付の作業で使う） */
+  readonly enrolledMonths: number;
+}
+
+export interface IdecoAccountOutput {
+  readonly flows: readonly Flow[];
+  readonly accounts: readonly { readonly object: string; readonly kind: "ideco" | "corporateDc"; readonly years: readonly IdecoAccountYear[] }[];
+  /** 受け取り（月の昇順）。年金で受け取る分は公的年金等の収入（tax.publicPensionIncome）、一時金は退職所得（退職給付の作業）と重複排除期間の判定に使う */
+  readonly payments: readonly IdecoReceipt[];
+}
+
+/** debt.schedule: 負債1本の返済のお金の動きと年末残高 */
+export interface DebtScheduleOutput {
+  readonly flows: readonly Flow[];
+  /** 年末（12月の返済の後）の残高と未払利息。返し終えた年まで（年の昇順） */
+  readonly yearEnd: readonly { readonly year: number; readonly balance: Yen; readonly unpaidInterest: Yen }[];
+  readonly firstPayment: string;
+  /** 返し終えた月（表の最後の月までに返し終えなければ null） */
+  readonly payoff: string | null;
+}
+
+/** housing.residence: 住まいのお金の動きと、購入した持ち家（不動産の残高の計算に使う） */
+export interface ResidenceOutput {
+  readonly flows: readonly Flow[];
+  readonly properties: readonly { readonly object: string; readonly owner: string | null; readonly from: string; readonly to: string | null; readonly price: Yen }[];
+}
+
+/** tax.housingLoanCredit: 構成員のその年分の住宅借入金等特別控除の額（所得税から引く上限）と、住民税の控除の上限の決まり */
+export interface HousingLoanCreditOutput {
+  readonly credit: Yen;
+  /** 入居の年（確定申告で受け、還付は翌年3月） */
+  readonly firstYear: boolean;
+  /** 住民税の控除の上限（所得税の課税総所得金額等に掛ける率と上限額） */
+  readonly residentRate: string | null;
+  readonly residentLimit: Yen | null;
+}
+
+/** account.idecoPayout: iDeCo・企業型DC の受け取りの始まりと方法（運用利回りに依らない） */
+export interface IdecoPayoutPlanOutput {
+  readonly accounts: readonly {
+    readonly object: string;
+    readonly kind: "ideco" | "corporateDc";
+    readonly start: string;
+    readonly method: "lumpSum" | "annuity" | "mixed";
+    readonly annuityYears: number;
+    readonly lumpShare: string | null;
+    readonly enrolledMonths: number;
+  }[];
 }

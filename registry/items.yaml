@@ -8,6 +8,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: account.assetMix
+    status: active
+    label: "資産クラスの配分（率の合計は1。省略は預金・外貨預金なら cash、ほかは運用利回り）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: account.contributions
     status: active
     label: "積立・掛金"
@@ -16,13 +22,31 @@ entries:
     replacedBy: null
   - id: account.costBasis
     status: active
-    label: "取得価額"
+    label: "取得価額（省略は時価と同じ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.enrolledSince
+    status: active
+    label: "iDeCo・企業型DC の加入者等期間の始まり（受給開始の年齢を判定する）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.frame
+    status: active
+    label: "NISA の非課税保有限度額の消化（簿価。asOfYear の年末の値）"
     since: draft
     aliases: []
     replacedBy: null
   - id: account.kind
     status: active
     label: "器の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.lots
+    status: active
+    label: "旧NISA・ジュニアNISA の買付の年ごとの内訳（非課税期間の終わりを判定する）"
     since: draft
     aliases: []
     replacedBy: null
@@ -35,6 +59,30 @@ entries:
   - id: account.owner
     status: active
     label: "名義の構成員"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.payout
+    status: active
+    label: "iDeCo・企業型DC の受け取り"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.settlement
+    status: active
+    label: "決済口座（年の収支が入り、赤字のとき取り崩しで補う口座。省略は最初の預金）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.withdrawalLockedUntil
+    status: active
+    label: "引き出せない期間の終わり（その月まで。iDeCo・企業型DC は省略すると制度から導く）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.assetReturns
+    status: active
+    label: "資産クラスごとの利回り（年率の年ごとの列。器の assetMix の資産クラスに使う。無い資産クラスは運用利回り、不動産は0）"
     since: draft
     aliases: []
     replacedBy: null
@@ -68,6 +116,96 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: assumptions.withdrawal
+    status: active
+    label: "年の収支が赤字のときの取り崩し（順序と、決済口座に残す額。省略は既定の順序）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.balance
+    status: active
+    label: "残高（balanceAsOf の月の返済の後。既に借りているローン）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.balanceAsOf
+    status: active
+    label: "残高の時点"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.creditLife
+    status: active
+    label: "団体信用生命保険（団信で残高が消える計算は万一の作業で使う）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.debtors
+    status: active
+    label: "債務者（主債務者・連帯債務者・連帯保証人）と負担割合"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.housing
+    status: active
+    label: "住宅ローン控除に使う住宅の情報"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.kind
+    status: active
+    label: "負債の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.pairWith
+    status: active
+    label: "ペアローンの相手のローン"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.prepayments
+    status: active
+    label: "繰上返済"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.principal
+    status: active
+    label: "借入額（実行の時）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.product
+    status: active
+    label: "商品（flat35 は全期間固定の住宅金融支援機構の買取型。計算は固定金利と同じ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.rateSchedule
+    status: active
+    label: "金利の段階（固定・変動・期間選択）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.refinance
+    status: active
+    label: "借り換え（その月に残高を新しいローンで返す）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.repayment
+    status: active
+    label: "返済の方法"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.start
+    status: active
+    label: "借入の月（最初の返済はその翌月）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: employment.business.income
     status: active
     label: "事業所得（年額）"
@@ -77,6 +215,12 @@ entries:
   - id: employment.childcareShortHours
     status: active
     label: "育児のための短時間勤務（2歳未満の子。育児時短就業給付）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employment.corporatePension
+    status: active
+    label: "勤め先の企業年金（iDeCo の拠出限度額の判定に使う。企業型DC の事業主掛金は器の積立に書く）"
     since: draft
     aliases: []
     replacedBy: null
@@ -491,6 +635,54 @@ entries:
   - id: relation.type
     status: active
     label: "関係の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residence.from
+    status: active
+    label: "住み始め"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residence.kind
+    status: active
+    label: "住まいの種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residence.maintenance
+    status: active
+    label: "修繕費・管理費（月額と上昇率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residence.ownership
+    status: active
+    label: "持ち家の名義と持分"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residence.propertyTax
+    status: active
+    label: "固定資産税・都市計画税（年額と上昇率。4・7・12・2月の4回に分けて払う）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residence.purchase
+    status: active
+    label: "購入（物件価格・頭金・諸費用・親からの資金援助）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residence.rent
+    status: active
+    label: "家賃と更新料"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residence.to
+    status: active
+    label: "住み終わり（その月まで。null は最後まで）"
     since: draft
     aliases: []
     replacedBy: null

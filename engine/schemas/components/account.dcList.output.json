@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:account.dcList.output",
+  "title": "iDeCo・企業型DCの器の ID の一覧",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ids"],
+  "properties": { "ids": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/uuid" } } }
+}

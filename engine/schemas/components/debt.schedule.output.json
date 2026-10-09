@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:debt.schedule.output",
+  "title": "負債の返済",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "yearEnd", "firstPayment", "payoff"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "yearEnd": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["year", "balance", "unpaidInterest"],
+        "properties": {
+          "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+          "balance": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "unpaidInterest": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
+    },
+    "firstPayment": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+    "payoff": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }] }
+  }
+}

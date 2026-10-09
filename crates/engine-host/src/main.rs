@@ -137,18 +137,30 @@ fn main() -> ExitCode {
         opts["packsChecked"] = checked;
     }
     let options = opts.to_string();
+    // 内部の検査（--check-internal。CI とテストだけ）は公式部品の入出力のスキーマの検査と凍結を足すので、
+    // 時間の上限を3倍にする（製品の上限（0005 の4）は変えない）
+    let widen = |l: Limits| {
+        if check_internal {
+            Limits {
+                time: l.time.saturating_mul(3),
+                ..l
+            }
+        } else {
+            l
+        }
+    };
     let result = if batch {
         // まとめて計算: 根拠の記録「全部」の要求があれば、その上限を使う
         let list = serde_json::from_str::<Vec<serde_json::Value>>(&request).unwrap_or_default();
         let full = list
             .iter()
             .any(|r| r.get("trace").and_then(|t| t.as_str()) == Some("full"));
-        let limits = Limits::for_batch(list.len(), full);
+        let limits = widen(Limits::for_batch(list.len(), full));
         engine
             .sandbox(&limits)
             .and_then(|s| s.run_batch(&request, &packs_json, &options))
     } else {
-        let limits = Limits::for_trace(&trace_mode(&request));
+        let limits = widen(Limits::for_trace(&trace_mode(&request)));
         engine
             .sandbox(&limits)
             .and_then(|s| s.run(&request, &packs_json, &options))

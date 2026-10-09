@@ -35,17 +35,16 @@ describe("科目の木", () => {
     const ids = rowEntries().map((e) => e.id);
     const top = ids.filter((i) => rowDepth(i) === 1);
     expect(top).toEqual(["cf.income", "cf.taxSi", "cf.expense", "cf.transfer", "cf.net", "cf.balance"]);
-    expect(ids.filter((i) => i.startsWith("cf.taxSi.") && rowDepth(i) === 2)).toEqual([
-      "cf.taxSi.incomeTax",
-      "cf.taxSi.residentTax",
-      "cf.taxSi.businessTax",
-      "cf.taxSi.health",
-      "cf.taxSi.care",
-      "cf.taxSi.pension",
-      "cf.taxSi.employment",
-      "cf.taxSi.childSupport",
-    ]);
+    // 中分類は 0004 の表と、その追記（2026-10-08 の科目の木の確定）で固定した（β公開の固定ファイルの段）
+    const second = (top: string) => ids.filter((i) => i.startsWith(`${top}.`) && rowDepth(i) === 2).map((i) => i.slice(top.length + 1));
+    expect(second("cf.income")).toEqual(["salary", "business", "pension", "corporatePension", "lumpSum", "benefit", "other"]);
+    expect(second("cf.taxSi")).toEqual(["incomeTax", "residentTax", "businessTax", "health", "care", "pension", "employment", "childSupport", "giftTax", "inheritanceTax"]);
+    expect(second("cf.expense")).toEqual(["living", "housing", "education", "insurance", "debt", "lumpSum", "care", "advisoryFee", "other"]);
+    expect(second("cf.transfer")).toEqual(["nisa", "ideco", "savings", "withdrawal", "investment", "mutualAid", "rollover"]);
+    expect(second("cf.balance")).toEqual(["financial", "account", "return", "debt", "nisaFrame", "shortfall"]);
     expect(ids).toContain("cf.expense.housing.loan");
+    // FP顧問料は生活費・その他に混ぜない（独立した中分類）
+    expect(ids.filter((i) => i.startsWith("cf.expense.living.") || i.startsWith("cf.expense.other.")).some((i) => i.includes("advisory"))).toBe(false);
   });
 
   it("登録簿にない行は拒み、枝の下の拡張の行は受ける", () => {

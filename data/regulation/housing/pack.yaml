@@ -1,0 +1,14 @@
+# 住宅借入金等特別控除（住宅ローン控除）の制度データ（0007 の1: パック regulation.housing）。値は入居の年月（basis: anchor moveIn）で選ぶ
+# 2026.1.0: 最初の版。令和4年〜12年入居（令和8年度税制改正で令和12年入居まで延長）の借入限度額・控除率・控除期間・所得の上限、住民税の控除の上限。
+#   公式のサイト（国税庁・国土交通省・財務省）にこの作業の環境から届かなかったので、検索の要約で読んだ値を入れた。すべて原本での確認待ち（pendingReview）
+#   令和3年以前の入居の値は入れていない（部品は値が無いと控除を計算せず N_PARAM_MISSING で知らせる）
+packId: regulation.housing
+formatVersion: "0.1"
+version: "2026.1.0"
+features: []
+title: 住宅ローン控除
+requires:
+  tax.housingLoanCredit: ">=1 <2"
+license:
+  values: CC0-1.0
+  sources: 出典ごとの条件（各値の sources に記載。国税庁・国土交通省・財務省・地方公共団体などの公表資料）

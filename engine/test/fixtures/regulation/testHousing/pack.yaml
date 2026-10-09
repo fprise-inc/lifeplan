@@ -1,0 +1,12 @@
+# 【架空の見本】テスト用のパック。実在の制度の値ではない（製品のパックの値の形を写した見本）。値ID の test. を外した ID で regulation.housing の代わりに引く
+packId: regulation.testHousing
+formatVersion: "0.1"
+version: "2026.1.0"
+features: []
+title: 【架空の見本】住宅ローン控除のテスト用
+fictional: true
+fictionalOf: regulation.housing
+requires: {}
+license:
+  values: CC0-1.0
+  sources: 架空の値のため出典なし

@@ -1,0 +1,21 @@
+id: incomeTax.housingLoanCredit.childRearing.childAge
+title: 子育て特例対象個人の扶養親族の年齢（この年齢未満。入居の年の12月31日の現況）
+unit: years
+kind: constant
+basis: "incomeYear"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2022-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 19
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1211-1.htm", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅借入金等特別控除", "note": "検索の要約（原本は未取得。この環境から公式サイトに届かない）"}
+      - {"type": "web", "url": "https://www.mlit.go.jp/report/press/content/001854843.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "住宅ローン減税（国土交通省の資料）", "note": "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "19歳未満。原本での確認待ち"}

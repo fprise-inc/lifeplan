@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:account.idecoPayout.output",
+  "title": "iDeCo・企業型DCの受け取りの始まりと方法",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accounts"],
+  "properties": {
+    "accounts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "kind", "start", "method", "annuityYears", "lumpShare", "enrolledMonths"],
+        "properties": {
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "kind": { "enum": ["ideco", "corporateDc"] },
+          "start": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "method": { "enum": ["lumpSum", "annuity", "mixed"] },
+          "annuityYears": { "type": "integer", "minimum": 0 },
+          "lumpShare": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/rate" }] },
+          "enrolledMonths": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

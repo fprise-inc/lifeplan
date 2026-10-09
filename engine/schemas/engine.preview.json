@@ -1,13 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:financia:schema:engine.preview",
-  "title": "表示の先出しの出力（0005 の5・追記）。エンジン全体の出力からお金の動き（flows）と根拠の記録を除いたもの",
+  "title": "表示の先出しの出力（0005 の5・追記）。エンジン全体の出力からお金の動き（flows）・年ごとの行（annual。表に含まれる）・根拠の記録を除いたもの",
   "type": "object",
   "additionalProperties": false,
-  "required": ["header", "annual", "table"],
+  "required": [
+    "header",
+    "table"
+  ],
   "properties": {
-    "header": { "$ref": "urn:financia:schema:engine.output#/$defs/header" },
-    "annual": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/annualRow" } },
-    "table": { "$ref": "urn:financia:schema:engine.output#/$defs/result/properties/table" }
+    "header": {
+      "$ref": "urn:financia:schema:engine.output#/$defs/header"
+    },
+    "table": {
+      "$ref": "urn:financia:schema:engine.output#/$defs/result/properties/table"
+    }
   }
 }

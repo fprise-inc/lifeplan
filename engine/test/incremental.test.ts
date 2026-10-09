@@ -66,7 +66,7 @@ describe("セッションの枠と古い・最新の印（0005 の追記の目�
       const out = JSON.parse(s.compute(undefined, '{"preview":true}')) as Record<string, { result: unknown }>;
       for (const [id, r] of Object.entries(slots)) {
         const full = JSON.parse(runJson(JSON.stringify(r), packsJson)) as EngineResult;
-        expect(JSON.stringify(out[id]?.result)).toBe(JSON.stringify({ header: full.header, annual: full.annual, table: full.table }));
+        expect(JSON.stringify(out[id]?.result)).toBe(JSON.stringify({ header: full.header, table: full.table }));
       }
     }
   });

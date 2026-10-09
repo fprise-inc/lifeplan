@@ -2,6 +2,24 @@
 # since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
 kind: param
 entries:
+  - id: corporateDc.contributionLimit
+    status: active
+    label: "企業型DCの拠出限度額（事業主掛金と加入者掛金の合計。月額。2024年12月分からは他制度掛金相当額を引く）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: corporateDc.contributionLimit.withDb
+    status: active
+    label: "企業型DCの拠出限度額（他制度がある勤め先。月額。2024年12月分からは他制度掛金相当額を引く前の額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: corporateDc.matching.capToEmployer
+    status: active
+    label: "企業型DCの加入者掛金（マッチング拠出）を事業主掛金の額以下にする制限（1は制限あり、0は無し）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: employmentInsurance.childcareBenefit.dailyWageMax
     status: active
     label: "育児休業給付の休業開始時賃金日額の上限"
@@ -101,6 +119,84 @@ entries:
   - id: forestEnvironmentTax.amount
     status: active
     label: "森林環境税（国税。住民税の均等割と一緒に徴収する年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.contribution.minimum
+    status: active
+    label: "iDeCo の掛金の最低額（月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.contributionLimit.category1
+    status: active
+    label: "iDeCo の拠出限度額（第1号被保険者。月額。国民年金基金・付加保険料と合算）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.contributionLimit.category2.combined
+    status: active
+    label: "iDeCo と企業型DCの事業主掛金（2024年12月分からは他制度掛金相当額を含む）を合わせた上限（月額。企業型DCだけの勤め先）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.contributionLimit.category2.combinedWithDb
+    status: active
+    label: "iDeCo と企業型DCの事業主掛金・他制度掛金相当額を合わせた上限（月額。他制度がある勤め先）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.contributionLimit.category2.noPlan
+    status: active
+    label: "iDeCo の拠出限度額（第2号被保険者・勤め先に企業年金が無い。月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.contributionLimit.category2.withDb
+    status: active
+    label: "iDeCo の拠出限度額（第2号被保険者・確定給付型などの他制度がある、公務員を含む。月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.contributionLimit.category2.withDc
+    status: active
+    label: "iDeCo の拠出限度額（第2号被保険者・企業型DCだけがある。月額。企業型DCとの合計の上限は別の値）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.contributionLimit.category3
+    status: active
+    label: "iDeCo の拠出限度額（第3号被保険者。月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.contributionLimit.category5
+    status: active
+    label: "iDeCo の拠出限度額（60歳以上70歳未満で国民年金の被保険者でない加入者＝第5号。月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.enrollment.untilAge
+    status: active
+    label: "iDeCo に加入できる年齢の上限（この年齢に達する前の月まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.payout.earliestAge
+    status: active
+    label: "iDeCo・企業型DC を受け取れる最も早い年齢（通算加入者等期間が10年以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.payout.latestAge
+    status: active
+    label: "iDeCo・企業型DC の受け取りを始める年齢の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: ideco.payout.startAgeByMonths
+    status: active
+    label: "通算加入者等期間（月数）ごとの受給開始の年齢（60歳の時点の期間で判定。段の upTo は月数、amount は年齢）"
     since: draft
     aliases: []
     replacedBy: null
@@ -212,6 +308,138 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.housingLoanCredit.childRearing.childAge
+    status: active
+    label: "子育て特例対象個人の扶養親族の年齢（この年齢未満。入居の年の12月31日の現況）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.childRearing.youngCoupleAge
+    status: active
+    label: "子育て特例対象個人の年齢（この年齢未満で配偶者がいる、またはこの年齢未満の配偶者がいる。入居の年の12月31日の現況）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.incomeLimit
+    status: active
+    label: "住宅借入金等特別控除を受けられる合計所得金額の上限"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.new.certified
+    status: active
+    label: "住宅借入金等特別控除の借入限度額（新築・買取再販の認定住宅（長期優良・低炭素））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.new.certified.childRearing
+    status: active
+    label: "同（新築の認定住宅・子育て世帯または若者夫婦世帯）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.new.energySaving
+    status: active
+    label: "同（新築・買取再販の省エネ基準適合住宅。令和10年以後は原則として対象外）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.new.energySaving.childRearing
+    status: active
+    label: "同（新築の省エネ基準適合住宅・子育て世帯または若者夫婦世帯）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.new.other
+    status: active
+    label: "同（新築・買取再販のその他の住宅。令和6年以後は原則として対象外（令和5年までに建築確認を受けたものを除く。扱わない））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.new.other.childRearing
+    status: active
+    label: "同（新築のその他の住宅・子育て世帯または若者夫婦世帯）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.new.zeh
+    status: active
+    label: "同（新築・買取再販のZEH水準省エネ住宅）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.new.zeh.childRearing
+    status: active
+    label: "同（新築のZEH水準省エネ住宅・子育て世帯または若者夫婦世帯）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.used.certified
+    status: active
+    label: "同（既存住宅の認定住宅・ZEH水準省エネ住宅）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.used.certified.childRearing
+    status: active
+    label: "同（既存住宅の認定住宅・ZEH水準省エネ住宅・子育て世帯または若者夫婦世帯）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.used.energySaving
+    status: active
+    label: "同（既存住宅の省エネ基準適合住宅）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.used.energySaving.childRearing
+    status: active
+    label: "同（既存住宅の省エネ基準適合住宅・子育て世帯または若者夫婦世帯）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.used.other
+    status: active
+    label: "同（既存住宅のその他の住宅）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.period.new
+    status: active
+    label: "住宅借入金等特別控除の控除期間（新築・買取再販の認定住宅・ZEH・省エネ基準適合。年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.period.newOther
+    status: active
+    label: "住宅借入金等特別控除の控除期間（新築・買取再販のその他の住宅。年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.period.used
+    status: active
+    label: "住宅借入金等特別控除の控除期間（既存住宅の認定住宅・ZEH・省エネ基準適合。年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.period.usedOther
+    status: active
+    label: "住宅借入金等特別控除の控除期間（既存住宅のその他の住宅。年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.rate
+    status: active
+    label: "住宅借入金等特別控除の控除率（年末残高に掛ける）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.rounding
+    status: active
+    label: "住宅借入金等特別控除の額の端数（100円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.incomeAdjustment.salaryAndPension.limit
     status: active
     label: "所得金額調整控除（給与所得と公的年金等に係る雑所得がある場合）の各所得の限度額と差し引く額"
@@ -263,6 +491,18 @@ entries:
   - id: incomeTax.lifeInsuranceDeduction.youngDependentUntilAge
     status: active
     label: "生命保険料控除の特例の扶養親族の年齢（23歳未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.listedSecurities.rate
+    status: active
+    label: "上場株式等の譲渡所得等の所得税の税率（復興特別所得税・防衛特別所得税は基準所得税額に掛けて別に足す）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.listedSecurities.withholding.rounding
+    status: active
+    label: "特定口座の源泉徴収の所得税・復興特別所得税（防衛特別所得税）の端数（1円未満切り捨て）"
     since: draft
     aliases: []
     replacedBy: null
@@ -419,6 +659,72 @@ entries:
   - id: incomeTax.taxableIncome.rounding
     status: active
     label: "課税される所得金額の1,000円未満の端数（切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: nisa.annualLimit.growth
+    status: active
+    label: "NISA の成長投資枠の年間投資枠"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: nisa.annualLimit.tsumitate
+    status: active
+    label: "NISA のつみたて投資枠の年間投資枠"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: nisa.child.annualLimit
+    status: active
+    label: "こどもNISA（つみたて投資枠の一部・0〜17歳）の年間投資枠"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: nisa.child.lifetimeLimit
+    status: active
+    label: "こどもNISA の非課税保有限度額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: nisa.child.withdrawalAge
+    status: active
+    label: "こどもNISA から払い出せる年齢（本人の教育費・生活費など、要件つき）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: nisa.eligibleAge
+    status: active
+    label: "NISA の口座を開ける年齢（その年1月1日に達している年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: nisa.junior.untilAge
+    status: active
+    label: "ジュニアNISA（継続管理勘定）が非課税のまま保有できる年齢（その年1月1日に達している年齢の前年12月31日まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: nisa.legacy.generalPeriodYears
+    status: active
+    label: "旧NISA（一般NISA）の非課税期間（買付の年を含めた年数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: nisa.legacy.tsumitatePeriodYears
+    status: active
+    label: "旧NISA（つみたてNISA）の非課税期間（買付の年を含めた年数）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: nisa.lifetimeLimit
+    status: active
+    label: "NISA の非課税保有限度額（総枠。簿価で管理し、売却した翌年に復活）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: nisa.lifetimeLimit.growth
+    status: active
+    label: "NISA の非課税保有限度額のうち成長投資枠（内数）"
     since: draft
     aliases: []
     replacedBy: null
@@ -836,6 +1142,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: residentTax.housingLoanCredit.limit
+    status: active
+    label: "住民税の住宅借入金等特別税額控除の上限額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.housingLoanCredit.rate
+    status: active
+    label: "住民税の住宅借入金等特別税額控除の上限の率（所得税の課税総所得金額等に掛ける）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: residentTax.incomeLevy.calc.rounding
     status: active
     label: "住民税の課税標準×税率・調整控除の額の1円未満の端数（切り捨て）"
@@ -893,6 +1211,18 @@ entries:
   - id: residentTax.lifeInsuranceDeduction.totalLimit
     status: active
     label: "住民税の生命保険料控除（3区分の合計の上限）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.listedSecurities.rate
+    status: active
+    label: "上場株式等の譲渡所得等の住民税（株式等譲渡所得割）の税率"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.listedSecurities.rounding
+    status: active
+    label: "特定口座の株式等譲渡所得割の端数（1円未満切り捨て）"
     since: draft
     aliases: []
     replacedBy: null

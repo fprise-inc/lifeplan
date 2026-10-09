@@ -1,0 +1,19 @@
+id: ideco.payout.startAgeByMonths
+title: 通算加入者等期間（月数）ごとの受給開始の年齢（60歳の時点の期間で判定。段の upTo は月数、amount は年齢）
+unit: count
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2017-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: [{"upTo": 23, "amount": 65}, {"upTo": 47, "amount": 64}, {"upTo": 71, "amount": 63}, {"upTo": 95, "amount": 62}, {"upTo": 119, "amount": 61}, {"upTo": null, "amount": 60}]
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/12500000/000636642.pdf", "retrievedAt": "2026-10-08", "retrievedVia": "searchExcerpt", "locator": "通算加入者等期間と受給開始年齢", "note": "検索の要約（原本は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "10年以上60歳、8年以上61歳、6年以上62歳、4年以上63歳、2年以上64歳、1か月以上65歳。原本での確認待ち"}

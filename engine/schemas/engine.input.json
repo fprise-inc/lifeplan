@@ -45,6 +45,32 @@
           "title": "厚生年金（報酬比例）のマクロ経済スライドの調整率（省略は基礎年金と同じ）",
           "x-item": "assumptions.pensionMacroSlideEmployee",
           "$ref": "urn:financia:schema:common#/$defs/yearSeries"
+        },
+        "assetReturns": {
+          "title": "資産クラスごとの利回り（年率の年ごとの列。器の assetMix の資産クラスに使う。無い資産クラスは運用利回り、不動産は0）",
+          "x-item": "assumptions.assetReturns",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/assetClass" },
+          "additionalProperties": { "$ref": "urn:financia:schema:common#/$defs/yearSeries" }
+        },
+        "withdrawal": {
+          "title": "年の収支が赤字のときの取り崩し（順序と、決済口座に残す額。省略は既定の順序）",
+          "x-item": "assumptions.withdrawal",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "order": {
+              "description": "取り崩す器の順序。器の種類（kind）か物のID（object）で書く。書かなかった器は取り崩さない。省略は既定の順序（預金・外貨預金・財形・課税口座・持株会・旧NISA・NISA）",
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "$ref": "#/$defs/accountKind" } } },
+                  { "type": "object", "additionalProperties": false, "required": ["object"], "properties": { "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" } } }
+                ]
+              }
+            },
+            "minimumDeposit": { "description": "決済口座に年末に残す額（下回ると取り崩す。省略は0）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+          }
         }
       }
     }
@@ -85,7 +111,9 @@
           "type": "array",
           "x-collection": "premiumRate",
           "items": { "$ref": "#/$defs/premiumRate" }
-        }
+        },
+        "debts": { "description": "0008 の9: 負債（住宅ローン・車・奨学金・その他）", "type": "array", "x-collection": "debt", "items": { "$ref": "#/$defs/debt" } },
+        "residences": { "description": "住まい（賃貸・持ち家）の期間", "type": "array", "x-collection": "residence", "items": { "$ref": "#/$defs/residence" } }
       }
     },
     "timepointOrNull": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/timepoint" }] },
@@ -286,6 +314,16 @@
         },
         "endsOnMonthEnd": { "title": "期間の最後の月の末日に辞めるか（省略は真）", "x-item": "employment.endsOnMonthEnd", "type": "boolean" },
         "retirementBenefit": { "title": "退職給付", "x-item": "employment.retirementBenefit", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "corporatePension": {
+          "title": "勤め先の企業年金（iDeCo の拠出限度額の判定に使う。企業型DC の事業主掛金は器の積立に書く）",
+          "x-item": "employment.corporatePension",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "db": { "description": "確定給付企業年金・厚生年金基金・共済などの他制度があるか", "type": "boolean" },
+            "dbEquivalentMonthly": { "description": "他制度掛金相当額（月額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+          }
+        },
         "endsWith": { "title": "期間の終わり方", "x-item": "employment.endsWith", "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" }
       },
       "allOf": [
@@ -297,22 +335,39 @@
         { "if": { "properties": { "type": { "const": "selfEmployed" } } }, "then": { "required": ["business"] } }
       ]
     },
+    "accountKind": {
+      "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate"]
+    },
+    "assetClass": {
+      "description": "0008 の9: 資産クラス（公式の一覧）。期待リターンは前提の assetReturns で資産クラスごとに持つ",
+      "enum": ["cash.deposit", "cash.foreign", "bond.domestic", "bond.global", "equity.domestic", "equity.global", "reit.domestic", "reit.global", "balanced", "commodity", "realEstate", "other"]
+    },
     "account": {
-      "description": "0008 の9: 資産の器（計算に使う部分）",
+      "description": "0008 の9: 資産の器。時価と取得価額は asOf の時点の値（計算基準月の前の月末の値として扱う）",
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "kind", "owner", "marketValue", "asOf", "contributions"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
-        "kind": {
-          "title": "器の種類",
-          "x-item": "account.kind",
-          "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate"]
-        },
+        "kind": { "title": "器の種類", "x-item": "account.kind", "$ref": "#/$defs/accountKind" },
         "owner": { "title": "名義の構成員", "x-item": "account.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "marketValue": { "title": "時価", "x-item": "account.marketValue", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
-        "costBasis": { "title": "取得価額", "x-item": "account.costBasis", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "costBasis": { "title": "取得価額（省略は時価と同じ）", "x-item": "account.costBasis", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "asOf": { "title": "時価の時点", "x-item": "account.asOf", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+        "assetMix": {
+          "title": "資産クラスの配分（率の合計は1。省略は預金・外貨預金なら cash、ほかは運用利回り）",
+          "x-item": "account.assetMix",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["assetClass", "share"],
+            "properties": { "assetClass": { "$ref": "#/$defs/assetClass" }, "share": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+          }
+        },
+        "settlement": { "title": "決済口座（年の収支が入り、赤字のとき取り崩しで補う口座。省略は最初の預金）", "x-item": "account.settlement", "type": "boolean" },
+        "withdrawalLockedUntil": { "title": "引き出せない期間の終わり（その月まで。iDeCo・企業型DC は省略すると制度から導く）", "x-item": "account.withdrawalLockedUntil", "$ref": "#/$defs/timepointOrNull" },
         "contributions": {
           "title": "積立・掛金",
           "x-item": "account.contributions",
@@ -325,9 +380,249 @@
               "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
               "to": { "$ref": "#/$defs/timepointOrNull" },
               "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-              "tranche": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" }
+              "tranche": { "description": "NISA の枠（tsumitate・growth。省略は tsumitate）", "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" },
+              "payer": { "description": "掛金を払う人（self は世帯の支払い、employer は企業型DC の事業主掛金。省略は self）", "enum": ["self", "employer"] }
             }
           }
+        },
+        "frame": {
+          "title": "NISA の非課税保有限度額の消化（簿価。asOfYear の年末の値）",
+          "x-item": "account.frame",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lifetimeUsedCost", "asOfYear"],
+          "properties": {
+            "lifetimeUsedCost": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "growthUsedCost": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "asOfYear": { "$ref": "urn:financia:schema:common#/$defs/year" }
+          }
+        },
+        "lots": {
+          "title": "旧NISA・ジュニアNISA の買付の年ごとの内訳（非課税期間の終わりを判定する）",
+          "x-item": "account.lots",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["vintageYear", "regime", "costBasis", "marketValue"],
+            "properties": {
+              "vintageYear": { "$ref": "urn:financia:schema:common#/$defs/year" },
+              "regime": { "enum": ["general", "tsumitate", "junior"] },
+              "costBasis": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "marketValue": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+            }
+          }
+        },
+        "enrolledSince": { "title": "iDeCo・企業型DC の加入者等期間の始まり（受給開始の年齢を判定する）", "x-item": "account.enrolledSince", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+        "payout": {
+          "title": "iDeCo・企業型DC の受け取り",
+          "x-item": "account.payout",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "method"],
+          "properties": {
+            "start": { "description": "受け取りの始まり（受給開始の年齢より前なら、その年齢の月から）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "method": { "enum": ["lumpSum", "annuity", "mixed"] },
+            "annuityYears": { "description": "年金で受け取る年数（5〜20年。省略は10）", "type": "integer", "minimum": 1, "maximum": 30 },
+            "lumpShare": { "description": "mixed のとき一時金で受け取る割合", "$ref": "urn:financia:schema:common#/$defs/rate" }
+          }
+        }
+      }
+    },
+    "debt": {
+      "description": "0008 の9: 負債の共通の型。返済は月単位で計算して年に集計する（0003）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "debtors", "principal", "start", "rateSchedule", "repayment"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": { "title": "負債の種類", "x-item": "debt.kind", "enum": ["mortgage", "car", "scholarship", "other"] },
+        "product": { "title": "商品（flat35 は全期間固定の住宅金融支援機構の買取型。計算は固定金利と同じ）", "x-item": "debt.product", "enum": ["bank", "flat35"] },
+        "debtors": {
+          "title": "債務者（主債務者・連帯債務者・連帯保証人）と負担割合",
+          "x-item": "debt.debtors",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["member", "role"],
+            "properties": {
+              "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "role": { "enum": ["primary", "joint", "guarantor"] },
+              "share": { "description": "負担割合（連帯債務。省略は主債務者が1）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+            }
+          }
+        },
+        "pairWith": { "title": "ペアローンの相手のローン", "x-item": "debt.pairWith", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "principal": { "title": "借入額（実行の時）", "x-item": "debt.principal", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+        "start": { "title": "借入の月（最初の返済はその翌月）", "x-item": "debt.start", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "balance": { "title": "残高（balanceAsOf の月の返済の後。既に借りているローン）", "x-item": "debt.balance", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "balanceAsOf": { "title": "残高の時点", "x-item": "debt.balanceAsOf", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+        "rateSchedule": {
+          "title": "金利の段階（固定・変動・期間選択）",
+          "x-item": "debt.rateSchedule",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "type", "rate"],
+            "properties": {
+              "from": { "description": "この金利になる月（その月の返済から）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+              "type": { "enum": ["fixed", "variable", "fixedPeriod"] },
+              "rate": { "description": "年利", "$ref": "urn:financia:schema:common#/$defs/rate" }
+            }
+          }
+        },
+        "repayment": {
+          "title": "返済の方法",
+          "x-item": "debt.repayment",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "termMonths"],
+          "properties": {
+            "method": { "enum": ["equalPayment", "equalPrincipal"] },
+            "termMonths": { "description": "借入の時の返済の月数", "type": "integer", "minimum": 1, "maximum": 600 },
+            "bonusShare": { "description": "ボーナス返済に充てる借入額の割合（省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "bonusMonths": { "description": "ボーナス返済の月（省略は6月・12月）", "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 12 }, "minItems": 2, "maxItems": 2 },
+            "variableRules": {
+              "description": "変動金利の5年ルール（返済額を5年ごとに見直す）と125%ルール（見直しの上限）。省略はどちらも無し",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": { "fiveYear": { "type": "boolean" }, "cap125": { "type": "boolean" } }
+            }
+          }
+        },
+        "prepayments": {
+          "title": "繰上返済",
+          "x-item": "debt.prepayments",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at", "amount", "mode"],
+            "properties": {
+              "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+              "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "mode": { "enum": ["shortenTerm", "reducePayment"] },
+              "fee": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+            }
+          }
+        },
+        "refinance": {
+          "title": "借り換え（その月に残高を新しいローンで返す）",
+          "x-item": "debt.refinance",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at", "rateSchedule", "termMonths"],
+            "properties": {
+              "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+              "rateSchedule": { "$ref": "#/$defs/debt/properties/rateSchedule" },
+              "termMonths": { "type": "integer", "minimum": 1, "maximum": 600 },
+              "method": { "enum": ["equalPayment", "equalPrincipal"] },
+              "costs": { "description": "借り換えの諸費用", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "costsFinanced": { "description": "諸費用を新しいローンに含めるか（諸費用込み）", "type": "boolean" },
+              "variableRules": { "$ref": "#/$defs/debt/properties/repayment/properties/variableRules" }
+            }
+          }
+        },
+        "creditLife": {
+          "title": "団体信用生命保険（団信で残高が消える計算は万一の作業で使う）",
+          "x-item": "debt.creditLife",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["covered"],
+          "properties": {
+            "covered": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/uuid" } },
+            "ratio": { "description": "保障割合（省略は1）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "events": { "type": "array", "items": { "enum": ["death", "highDisability", "cancer", "threeMajor", "eightMajor", "incapacity"] } },
+            "spouseJoint": { "description": "夫婦連生（どちらかの事由で全額）", "type": "boolean" }
+          }
+        },
+        "housing": {
+          "title": "住宅ローン控除に使う住宅の情報",
+          "x-item": "debt.housing",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["moveIn", "propertyType", "newBuild"],
+          "properties": {
+            "residence": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "moveIn": { "description": "入居（名前つきイベント。種類 moveIn）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "propertyType": { "enum": ["certified", "zeh", "energySaving", "other"] },
+            "newBuild": { "description": "新築・買取再販（true）か既存（false）", "type": "boolean" },
+            "acquisitionCost": { "description": "取得対価（省略は借入額の上限を設けない）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "ownership": { "description": "持分（省略は主債務者が1）", "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["member", "share"], "properties": { "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "share": { "$ref": "urn:financia:schema:common#/$defs/rate" } } } },
+            "childRearing": { "description": "子育て世帯・若者夫婦世帯の上乗せの対象か（省略は入居の年の12月31日の現況から判定）", "type": "boolean" },
+            "creditDisabled": { "description": "控除を受けない（要件を満たさないなど）", "type": "boolean" }
+          }
+        }
+      }
+    },
+    "residence": {
+      "description": "住まいの期間（賃貸・持ち家）。購入の頭金・諸費用・親からの資金援助（贈与の税は贈与の作業で扱う）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "from", "to"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": { "title": "住まいの種類", "x-item": "residence.kind", "enum": ["rent", "own"] },
+        "from": { "title": "住み始め", "x-item": "residence.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "to": { "title": "住み終わり（その月まで。null は最後まで）", "x-item": "residence.to", "$ref": "#/$defs/timepointOrNull" },
+        "rent": {
+          "title": "家賃と更新料",
+          "x-item": "residence.rent",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["monthly"],
+          "properties": {
+            "monthly": { "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "growth": { "description": "家賃の上昇率（年率。更新のたびに当てる。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "renewalFee": { "description": "更新料（家賃の何か月分か。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "renewalEveryMonths": { "description": "更新の間隔（省略は24か月）", "type": "integer", "minimum": 1, "maximum": 120 }
+          }
+        },
+        "purchase": {
+          "title": "購入（物件価格・頭金・諸費用・親からの資金援助）",
+          "x-item": "residence.purchase",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["price", "downPayment", "costs"],
+          "properties": {
+            "at": { "description": "購入の月（省略は住み始め）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "price": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "downPayment": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "costs": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "gifts": {
+              "description": "親・祖父母からの資金援助（受け取る構成員と額。贈与税は贈与の作業で扱う）",
+              "type": "array",
+              "items": { "type": "object", "additionalProperties": false, "required": ["recipient", "amount"], "properties": { "recipient": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "giver": { "enum": ["parent", "grandparent", "other"] }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } } }
+            }
+          }
+        },
+        "propertyTax": {
+          "title": "固定資産税・都市計画税（年額と上昇率。4・7・12・2月の4回に分けて払う）",
+          "x-item": "residence.propertyTax",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["annual"],
+          "properties": { "annual": { "$ref": "urn:financia:schema:common#/$defs/boxYen" }, "growth": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+        },
+        "maintenance": {
+          "title": "修繕費・管理費（月額と上昇率）",
+          "x-item": "residence.maintenance",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["monthly"],
+          "properties": { "monthly": { "$ref": "urn:financia:schema:common#/$defs/boxYen" }, "growth": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+        },
+        "ownership": {
+          "title": "持ち家の名義と持分",
+          "x-item": "residence.ownership",
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": false, "required": ["member", "share"], "properties": { "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "share": { "$ref": "urn:financia:schema:common#/$defs/rate" } } }
         }
       }
     },

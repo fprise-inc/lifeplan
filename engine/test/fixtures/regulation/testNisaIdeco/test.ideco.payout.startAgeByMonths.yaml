@@ -1,0 +1,19 @@
+# 【架空の見本】テスト用。実在の制度の値ではない
+id: test.ideco.payout.startAgeByMonths
+title: 【架空の見本】ideco.payout.startAgeByMonths
+unit: count
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2017-01-01"
+    appliesTo: null
+    enforcedOn: "2017-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: [{"upTo": 23, "amount": 65}, {"upTo": 47, "amount": 64}, {"upTo": 71, "amount": 63}, {"upTo": 95, "amount": 62}, {"upTo": 119, "amount": 61}, {"upTo": null, "amount": 60}]
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

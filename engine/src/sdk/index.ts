@@ -5,6 +5,11 @@ export type { Segment, SegmentOptions } from "../registry/segments.ts";
 export { segmentIndex } from "../registry/segments.ts";
 export type {
   AccountInput,
+  AccountKind,
+  DebtInput,
+  RateStep,
+  ResidenceInput,
+  VariableRules,
   AnnualRow,
   CalcConventions,
   EmploymentPeriodInput,
@@ -34,4 +39,4 @@ export { netByYear, tableYear } from "../engine/aggregate.ts";
 export { boxValue } from "./box.ts";
 export type * from "./contracts.ts";
 export { fail } from "./fail.ts";
-export { ageMonth, monthsIn, paymentsIn, paymentsInYear, paidByYear, amountInYear, fiscalYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS } from "./helpers.ts";
+export { ageMonth, annualReturn, accountReturnRate, monthsIn, paymentsIn, paymentsInYear, paidByYear, amountInYear, fiscalYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS } from "./helpers.ts";
