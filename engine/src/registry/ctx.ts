@@ -252,6 +252,8 @@ export interface Variant {
   readonly closure: Closure;
   readonly cell: Cell;
   readonly own: Own | null;
+  /** 知らせを集めるときにたどった印 */
+  mark: number;
 }
 
 /** 要求の組（計算基準月・データの組・構成員の生年月などが同じ要求）で共有するもの */
@@ -405,39 +407,38 @@ interface Summary {
   readonly extended: Map<string, { first: number; last: number }>;
 }
 
-/**
- * 候補とその内側が残したこと（最初に残った順）を、候補ごとに1回だけまとめて覚えておく（候補は使い回しても中身が変わらないので、
- * 要求のたびに内側をたどらない。0005 の追記（3回目の見直し）: 以前は依存の多い候補だけを覚えていた）。
- * 内側が何も残していない候補は、同じ空のまとめを共有する
- */
+/** 依存の多い候補（構成員ごとのお金の動きを集める部品など）は、内側が残したことをまとめて覚えておく（要求のたびに内側をたどらない） */
+const BIG = 64;
 const SUMMARIES = new WeakMap<Variant, Summary>();
-const EMPTY_SUMMARY: Summary = { notices: new Map(), extended: new Map() };
+/** たどった印の通し番号（たどるたびに新しくする） */
+let MARK = 0;
 
-function summaryOf(v: Variant): Summary {
-  const hit = SUMMARIES.get(v);
-  if (hit !== undefined) return hit;
-  let sum: Summary | null = null;
-  const ensure = (): Summary => (sum ??= { notices: new Map(), extended: new Map() });
-  const merge = (child: Summary) => {
-    if (child === EMPTY_SUMMARY) return;
-    const to = ensure();
-    for (const [k, n] of child.notices) if (!to.notices.has(k)) to.notices.set(k, n);
-    for (const [ref, r] of child.extended) mergeExtended(to.extended, ref, r.first, r.last);
-  };
+/** v とその内側が残したことを、最初に残った順に to へ足す（seen はたどった候補） */
+function gather(to: Summary, v: Variant, mark: number): void {
+  if (v.mark === mark) return;
+  v.mark = mark;
+  if (v.deps.length >= BIG && to !== SUMMARIES.get(v)) {
+    let sum = SUMMARIES.get(v);
+    if (sum === undefined) {
+      sum = { notices: new Map(), extended: new Map() };
+      SUMMARIES.set(v, sum);
+      gather(sum, v, ++MARK);
+    }
+    for (const [k, n] of sum.notices) if (!to.notices.has(k)) to.notices.set(k, n);
+    for (const [ref, r] of sum.extended) mergeExtended(to.extended, ref, r.first, r.last);
+    return;
+  }
   for (const d of v.deps) {
     if (!("t" in d)) {
-      if (d.variant !== null) merge(summaryOf(d.variant));
+      if (d.variant !== null) gather(to, d.variant, mark);
     } else if (d.t === 4) {
-      if (d.res.variant !== null) merge(summaryOf(d.res.variant));
-    } else if (d.t === 3) {
-      const to = ensure();
-      if (!to.notices.has(d.key)) to.notices.set(d.key, d.notice);
-    }
+      if (d.res.variant !== null) gather(to, d.res.variant, mark);
+    } else if (d.t === 3 && !to.notices.has(d.key)) to.notices.set(d.key, d.notice);
   }
-  if (v.own !== null && (v.own.notices.size > 0 || v.own.extended.size > 0)) merge({ notices: v.own.notices, extended: v.own.extended });
-  const out: Summary = sum ?? EMPTY_SUMMARY;
-  SUMMARIES.set(v, out);
-  return out;
+  if (v.own !== null) {
+    for (const [k, n] of v.own.notices) if (!to.notices.has(k)) to.notices.set(k, n);
+    for (const [ref, r] of v.own.extended) mergeExtended(to.extended, ref, r.first, r.last);
+  }
 }
 
 /**
@@ -446,9 +447,7 @@ function summaryOf(v: Variant): Summary {
  */
 export function collectEffects(state: RunState, root: Res): void {
   if (root.variant === null) return;
-  const sum = summaryOf(root.variant);
-  for (const [k, n] of sum.notices) if (!state.notices.has(k)) state.notices.set(k, n);
-  for (const [ref, r] of sum.extended) mergeExtended(state.extended, ref, r.first, r.last);
+  gather({ notices: state.notices, extended: state.extended }, root.variant, ++MARK);
 }
 
 
@@ -615,7 +614,7 @@ function resolve(state: RunState, ck: CallKey, input: unknown): Res {
         if (w === null) continue;
         // たどって同じとわかった候補は、この要求の依存と読んだ入力の集まりで作り直す（内側の結果は同じ値でも、読んだ入力が違うことがある。
         // 次からはこの要求の形の候補が速い確かめで当たる）
-        found = w.closure === v.closure ? v : { deps: w.deps, closure: w.closure, cell: v.cell, own: v.own };
+        found = w.closure === v.closure ? v : { deps: w.deps, closure: w.closure, cell: v.cell, own: v.own, mark: 0 };
         if (found !== v) addVariant(ck, found);
       }
     }
@@ -670,7 +669,7 @@ function resolve(state: RunState, ck: CallKey, input: unknown): Res {
       if (sameJson(c.output, output)) cell = c;
     }
     cell ??= { output };
-    variant = { deps, closure, cell, own: ctx.ownOf() };
+    variant = { deps, closure, cell, own: ctx.ownOf(), mark: 0 };
     addVariant(ck, variant);
   }
   const r: Res = { ck, impl, input, output: cell === null ? output : cell.output, node, cell, closure, variant };

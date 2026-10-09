@@ -64,8 +64,10 @@ function levy(ctx: Ctx, fiscalYear: number, member: string, incomeYear: number, 
   }
   // 住宅借入金等特別税額控除（前年分の所得税から引ききれなかった額を、上限まで）
   let housing = yen(0);
-  const hc = ctx.call<HousingLoanCreditOutput>("tax.housingLoanCredit", { member, year: incomeYear });
-  if (hc.credit > 0 && hc.residentRate !== null) {
+  const window = ctx.call<{ from: number | null; to: number | null }>("tax.housingLoanCreditYears", { member });
+  const inWindow = window.from !== null && window.to !== null && incomeYear >= window.from && incomeYear <= window.to;
+  const hc = inWindow ? ctx.call<HousingLoanCreditOutput>("tax.housingLoanCredit", { member, year: incomeYear }) : null;
+  if (hc !== null && hc.credit > 0 && hc.residentRate !== null) {
     const it = ctx.call<IncomeTaxOutput>("incomeTax.annual", { member, year: incomeYear });
     const remainder = it.creditRemainder ?? yen(0);
     if (remainder > 0) {
@@ -112,6 +114,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
   revision: 5,
   requires: {
     "tax.totalIncome": ">=1 <2",
+    "tax.housingLoanCreditYears": ">=1 <2",
     "tax.housingLoanCredit": ">=1 <2",
     "incomeTax.annual": ">=1 <2",
     "tax.deductions": ">=1 <2",

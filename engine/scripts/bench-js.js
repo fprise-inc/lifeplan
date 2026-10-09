@@ -3,6 +3,7 @@
 //   1. スライダーを動かしている間: 世帯の入力（または案の前提）を1刻み動かし、今見ている案の1案×4想定を先出し（preview）で計算する1回の時間
 //      （セッションに5案×4想定の枠を置き、20枠すべての要求を置き直してから、見ている案の4枠だけを計算する。画面の動きと同じ）
 //   2. 手を離した後: ほかの4案×4想定（16枠）の先出しを計算する時間（正の計算は quickjs-ng 側で測る）
+//   （比べるための計測）間引き: 動かしている間は見ている案の万一なしの1枠だけを先出しし、万一の3枠は手を離した後に回す形の1刻み（sliderXxxThin）
 // 使い方: measure(engine, packsJson, data, repeat) → { 名前: { median, min } }
 //   data = { requests: [20件], sliders: { 名前: [[20件]（刻み0）, [20件]（刻み1）, …] } }
 
@@ -56,6 +57,16 @@ export function measure(engine, packsJson, data, repeat) {
       const r = session.compute(visible, '{"preview":true}');
       if (r.startsWith('{"error"')) throw new Error(r.slice(0, 200));
     }, repeat * 3, 3);
+    if (name === "salary" || name === "selfSalary") {
+      // 間引き（0005 の追記（3回目の見直し）の比べた形）: 見ている案の万一なしの1枠だけ
+      const primary = JSON.stringify([slotId(0)]);
+      out[`${key}Thin`] = time(() => {
+        k++;
+        setAll(k);
+        const r = session.compute(primary, '{"preview":true}');
+        if (r.startsWith('{"error"')) throw new Error(r.slice(0, 200));
+      }, repeat * 3, 3);
+    }
     if (name === "salary") {
       // 手を離した後: ほかの4案×4想定（古い印の付いた16枠）を先出しで計算し直す
       const others = JSON.stringify(Array.from({ length: 16 }, (_, i) => slotId(i + 4)));

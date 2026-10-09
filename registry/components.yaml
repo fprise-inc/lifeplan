@@ -230,6 +230,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: tax.housingLoanCreditYears
+    status: active
+    label: "住宅借入金等特別控除を受けうる年分"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: tax.incomeOrder
     status: active
     label: "合計所得金額の大小"

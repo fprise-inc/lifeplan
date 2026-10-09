@@ -11,6 +11,7 @@ import debtSchedule from "./debt.schedule/index.ts";
 import housingResidence from "./housing.residence/index.ts";
 import idecoContribution from "./ideco.contribution/index.ts";
 import taxHousingLoanCredit from "./tax.housingLoanCredit/index.ts";
+import taxHousingLoanCreditYears from "./tax.housingLoanCreditYears/index.ts";
 import incomeSalary from "./income.salary/index.ts";
 import incomeTaxAnnual from "./incomeTax.annual/index.ts";
 import insurancePremium from "./insurance.premiumPayment/index.ts";
@@ -65,6 +66,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   housingResidence,
   idecoContribution,
   taxHousingLoanCredit,
+  taxHousingLoanCreditYears,
   incomeSalary,
   incomeTaxAnnual,
   insurancePremium,

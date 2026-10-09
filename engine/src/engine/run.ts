@@ -470,7 +470,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
 /**
  * 複数の要求（案×想定）をまとめて計算する（0005 の7・追記）。パックの検査と部品表の組み立ては1回だけ行い、根拠の記録なしの要求の
  * あいだでは、読む入力が同じ部品の結果を使い回す。結果は1件ずつ計算したときと同じ（一致テストで確かめる）。
- * preview は表示の先出し用で、お金の動きと根拠の記録を除いた見出し・年ごとの行・表だけを返す
+ * preview は表示の先出し用で、お金の動き・年ごとの行（表に含まれる）・根拠の記録を除いた見出しと表だけを返す
  */
 export function runBatch(
   requests: readonly unknown[],
@@ -568,7 +568,7 @@ export function createSession(packsJson: string, optionsJson = "{}"): Session {
     if (idsJson === undefined) return [...slots.entries()].filter(([, s]) => all || stateOf(s) !== "fresh").map(([id]) => id);
     const list = JSON.parse(idsJson) as unknown;
     if (!Array.isArray(list) || list.some((x) => typeof x !== "string" || !slots.has(x))) throw new EngineError("E_ARGUMENT", ["session.ids"]);
-    return list as string[];
+    return [...new Set(list as string[])];
   };
   /** どの枠でも使っていない候補を捨てる */
   const gc = (): void => {
@@ -643,7 +643,8 @@ export function createSession(packsJson: string, optionsJson = "{}"): Session {
       return guard(() => {
         const opts = JSON.parse(runOptionsJson) as { preview?: boolean };
         const preview = opts.preview === true;
-        const out: Record<string, { rev: number; state: SlotState; result: unknown }> = {};
+        // 返す JSON は、枠に残した結果の JSON をそのまま使って作る（結果を2回 JSON にしない。0005 の追記（3回目の見直し））
+        const parts: string[] = [];
         const b = batch as BatchContext;
         for (const id of ids(idsJson, false)) {
           const s = slots.get(id) as Slot;
@@ -656,13 +657,13 @@ export function createSession(packsJson: string, optionsJson = "{}"): Session {
           b.lastUsed = null;
           b.lane = 0;
           sinceGc++;
-          out[id] = { rev: s.rev, state: "fresh", result };
+          parts.push(`${JSON.stringify(id)}:{"rev":${s.rev},"state":"fresh","result":${s.result}}`);
         }
         if (sinceGc >= SESSION_GC_EVERY) {
           sinceGc = 0;
           gc();
         }
-        return JSON.stringify(out);
+        return `{${parts.join(",")}}`;
       });
     },
     results(idsJson?: string): string {
@@ -726,7 +727,7 @@ function packsCheckedOf(opts: { packsChecked?: unknown }): { packsChecked?: read
   return Array.isArray(c) && c.every((x) => typeof x === "string") ? { packsChecked: c as string[] } : {};
 }
 
-/** 1件を計算し、出力を検査した形（先出しは見出し・年ごとの行・表だけ）。エンジンのエラーは {error} */
+/** 1件を計算し、出力を検査した形（先出しは見出しと表だけ）。エンジンのエラーは {error} */
 function runChecked(request: unknown, packs: readonly unknown[], opts: { checkInternal: boolean; preview: boolean; batch: BatchContext }): unknown {
   try {
     const r = runEngine(request, packs, { checkInternal: opts.checkInternal, preview: opts.preview, batch: opts.batch });
@@ -734,7 +735,8 @@ function runChecked(request: unknown, packs: readonly unknown[], opts: { checkIn
       check("engine.output", r, "E_OUTPUT_SCHEMA");
       return r;
     }
-    const p = { header: r.header, annual: r.annual, table: r.table };
+    // 年ごとの行（annual）は表（table）にも入っているので、先出しでは返さない（0005 の追記（3回目の見直し）: 先出しの出力を小さく）
+    const p = { header: r.header, table: r.table };
     check("engine.preview", p, "E_OUTPUT_SCHEMA");
     return p;
   } catch (e) {

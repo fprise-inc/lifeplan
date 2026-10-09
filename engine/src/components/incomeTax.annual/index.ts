@@ -29,6 +29,7 @@ import {
 } from "../../sdk/index.ts";
 
 const ZERO = { flows: [], total: yen(0), taxable: yen(0), computedTax: yen(0), reconstructionSurtax: yen(0), defenseSurtax: yen(0) };
+const NO_CREDIT: HousingLoanCreditOutput = { credit: yen(0), firstYear: false, residentRate: null, residentLimit: null };
 const FILING = { revenue: "incomeTax.pensionFilingExemption.revenueLimit", other: "incomeTax.pensionFilingExemption.otherIncomeLimit" };
 
 interface Tax {
@@ -79,6 +80,7 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
   revision: 4,
   requires: {
     "tax.totalIncome": ">=1 <2",
+    "tax.housingLoanCreditYears": ">=1 <2",
     "tax.housingLoanCredit": ">=1 <2",
     "tax.deductions": ">=1 <2",
     "tax.employmentIncome": ">=1 <2",
@@ -109,7 +111,9 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
     const ded = ctx.call<DeductionsOutput>("tax.deductions", { member, year, regime: "incomeTax" });
     const at = ctx.at(monthIndex(year, 1));
     // 税額控除（住宅借入金等特別控除）
-    const hc = ctx.call<HousingLoanCreditOutput>("tax.housingLoanCredit", { member, year });
+    // （控除を受けうる年分の範囲だけ控除の部品を呼ぶ）
+    const window = ctx.call<{ from: number | null; to: number | null }>("tax.housingLoanCreditYears", { member });
+    const hc = window.from !== null && window.to !== null && year >= window.from && year <= window.to ? ctx.call<HousingLoanCreditOutput>("tax.housingLoanCredit", { member, year }) : NO_CREDIT;
     const credit = hc.credit;
     const t = taxOf(ctx, at, total, ded.total, credit);
     const annual = t.annual;

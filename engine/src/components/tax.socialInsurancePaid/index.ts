@@ -1,7 +1,10 @@
 // 社会保険料控除の基にする、その年に本人が払った社会保険料（給与から控除された被用者保険・国民年金・後期高齢者医療・介護保険（第1号）、
 // 世帯主として払う国民健康保険）。所得控除（tax.deductions）が所得税・住民税の両方で使うので、構成員×年で1回だけ集める
 import {
+  ageMonth,
   amountInYear,
+  fiscalYearEnd,
+  fiscalYearStart,
   defineComponent,
   yearOf,
   yen,
@@ -10,13 +13,14 @@ import {
   type Yen,
 } from "../../sdk/index.ts";
 
+const AGE = { late: "socialInsurance.health.lateElderlyAge", care: "socialInsurance.care.secondaryInsuredUntilAge" };
 const SI_COMPONENTS = ["socialInsurance.health", "socialInsurance.pension", "socialInsurance.employment"] as const;
 
 export default defineComponent<{ member: string; year: number }, { amount: Yen }>({
   id: "tax.socialInsurancePaid",
   title: "その年に払った社会保険料",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "socialInsurance.health": ">=1 <2",
     "socialInsurance.pension": ">=1 <2",
@@ -26,7 +30,7 @@ export default defineComponent<{ member: string; year: number }, { amount: Yen }
     "socialInsurance.lateElderly": ">=1 <2",
     "socialInsurance.careFirst": ">=1 <2",
   },
-  params: [],
+  params: Object.values(AGE),
   reads: [],
   input: "tax.memberYear.input",
   output: "tax.socialInsurancePaid.output",
@@ -46,9 +50,13 @@ export default defineComponent<{ member: string; year: number }, { amount: Yen }
     };
     for (const c of SI_COMPONENTS) addPremium(ctx.call<PremiumOutput>(c, { member, fromYear }));
     addPremium(ctx.call<PremiumOutput>("socialInsurance.nationalPension", { member, fromYear }));
+    const base = ctx.time.base;
     for (const fy of [year - 1, year]) {
-      addPaid(ctx.call<FlowsResult>("socialInsurance.lateElderly", { member, fiscalYear: fy }).flows);
-      addPaid(ctx.call<FlowsResult>("socialInsurance.careFirst", { member, fiscalYear: fy }).flows);
+      // 後期高齢者医療・介護保険の第1号は、その年齢を含む年度からだけ呼ぶ（その前は空。plan.memberFlows と同じ判定）
+      const start = fiscalYearStart(fy);
+      const last = fiscalYearEnd(fy);
+      if (ageMonth(ctx, base, AGE.late, member) <= last) addPaid(ctx.call<FlowsResult>("socialInsurance.lateElderly", { member, fiscalYear: fy }).flows);
+      if (ageMonth(ctx, start < base ? base : start, AGE.care, member) <= last) addPaid(ctx.call<FlowsResult>("socialInsurance.careFirst", { member, fiscalYear: fy }).flows);
       addPaid(ctx.call<FlowsResult>("socialInsurance.nationalHealth", { fiscalYear: fy }).flows);
     }
     return { amount };
