@@ -1,5 +1,5 @@
 {
-  "note": "baseline は CI（GitHub Actions の ubuntu-latest と macos-latest）で測った値。--update-baseline で書き換える（同じ OS・CPU の欄だけ比べる）。targets は 0005 の追記（2026-10-09: 先出しの範囲）の目標で、機械（OS-CPU）ごとのミリ秒。2026-10-09: 計測の世帯を生活費・教育・退職給付・FP顧問料を含む lifetime100Plan に替え、スライダーの計測を「見ている案の万一なしの1枠」（session.slide）に、手を離した後を19枠（session.release）にしたので、前の値は previous に移した（baseline はこの変更の CI の値で埋める。埋めるまでは比べない）",
+  "note": "baseline は CI（GitHub Actions の ubuntu-latest と macos-latest）で測った値。--update-baseline で書き換える（同じ OS・CPU の欄だけ比べる）。targets は 0005 の追記（2026-10-09: 先出しの範囲）の目標で、機械（OS-CPU）ごとのミリ秒。2026-10-09: 計測の世帯を生活費・教育・退職給付・FP顧問料を含む lifetime100Plan に替え、スライダーの計測を「見ている案の万一なしの1枠」（session.slide）に、手を離した後を19枠（session.release）にしたので、前の値は previous に移した（baseline はこの変更の CI（PR #13 の最初の実行）の値）",
   "targets": {
     "node.sliderSalary": {
       "ms": {
@@ -118,7 +118,224 @@
       "note": "目標2: 正の計算 5案×4想定（案ごとのスレッドで4想定をまとめて）。par20 とどちらか速い方を使う"
     }
   },
-  "baseline": {},
+  "baseline": {
+    "linux-x64": {
+      "node": {
+        "single": {
+          "median": 126.4,
+          "min": 123.5
+        },
+        "sliderReturn": {
+          "median": 30.7,
+          "min": 26.9
+        },
+        "sliderSalary": {
+          "median": 52.5,
+          "min": 50.4
+        },
+        "sliderSalaryFour": {
+          "median": 163.5,
+          "min": 156.1
+        },
+        "afterRelease19": {
+          "median": 600.4,
+          "min": 570.5
+        },
+        "sliderSelfSalary": {
+          "median": 53.3,
+          "min": 48.3
+        },
+        "sliderRetire": {
+          "median": 58.4,
+          "min": 55.5
+        },
+        "sliderNisa": {
+          "median": 22,
+          "min": 18
+        },
+        "sliderLiving": {
+          "median": 14.7,
+          "min": 12.8
+        }
+      },
+      "jsc": {
+        "single": {
+          "median": 191.3,
+          "min": 180.4
+        },
+        "sliderReturn": {
+          "median": 41,
+          "min": 29.4
+        },
+        "sliderSalary": {
+          "median": 79,
+          "min": 67.1
+        },
+        "sliderSalaryFour": {
+          "median": 201.7,
+          "min": 159.8
+        },
+        "afterRelease19": {
+          "median": 593,
+          "min": 559.6
+        },
+        "sliderSelfSalary": {
+          "median": 69.9,
+          "min": 45.7
+        },
+        "sliderRetire": {
+          "median": 59.6,
+          "min": 49.9
+        },
+        "sliderNisa": {
+          "median": 21.3,
+          "min": 20.1
+        },
+        "sliderLiving": {
+          "median": 13.6,
+          "min": 11.6
+        }
+      },
+      "quickjs": {
+        "batch4": {
+          "median": 3511.4,
+          "min": 3477.8
+        },
+        "compile": {
+          "median": 86.8,
+          "min": 86.8
+        },
+        "load": {
+          "median": 10.3,
+          "min": 8.9
+        },
+        "par20": {
+          "median": 18910.4,
+          "min": 18417.5
+        },
+        "par4": {
+          "median": 3192.8,
+          "min": 3137.3
+        },
+        "plans5": {
+          "median": 13513.4,
+          "min": 13502.6
+        },
+        "single": {
+          "median": 1027.7,
+          "min": 1009
+        }
+      }
+    },
+    "darwin-arm64": {
+      "node": {
+        "single": {
+          "median": 90.3,
+          "min": 88.9
+        },
+        "sliderReturn": {
+          "median": 28.5,
+          "min": 23.3
+        },
+        "sliderSalary": {
+          "median": 43.6,
+          "min": 42
+        },
+        "sliderSalaryFour": {
+          "median": 134.8,
+          "min": 125.2
+        },
+        "afterRelease19": {
+          "median": 502.1,
+          "min": 479.2
+        },
+        "sliderSelfSalary": {
+          "median": 47.2,
+          "min": 41.1
+        },
+        "sliderRetire": {
+          "median": 60.5,
+          "min": 49.3
+        },
+        "sliderNisa": {
+          "median": 15.2,
+          "min": 13.8
+        },
+        "sliderLiving": {
+          "median": 12.4,
+          "min": 10.6
+        }
+      },
+      "jsc": {
+        "single": {
+          "median": 96.1,
+          "min": 83.8
+        },
+        "sliderReturn": {
+          "median": 19.8,
+          "min": 18.1
+        },
+        "sliderSalary": {
+          "median": 35,
+          "min": 33.2
+        },
+        "sliderSalaryFour": {
+          "median": 116.5,
+          "min": 104
+        },
+        "afterRelease19": {
+          "median": 429.5,
+          "min": 351.4
+        },
+        "sliderSelfSalary": {
+          "median": 30.3,
+          "min": 28.6
+        },
+        "sliderRetire": {
+          "median": 35.8,
+          "min": 29.9
+        },
+        "sliderNisa": {
+          "median": 9.7,
+          "min": 9.1
+        },
+        "sliderLiving": {
+          "median": 9.3,
+          "min": 8.7
+        }
+      },
+      "quickjs": {
+        "batch4": {
+          "median": 2171.7,
+          "min": 1980.5
+        },
+        "compile": {
+          "median": 85.8,
+          "min": 85.8
+        },
+        "load": {
+          "median": 7.8,
+          "min": 7.5
+        },
+        "par20": {
+          "median": 3302.7,
+          "min": 3257.1
+        },
+        "par4": {
+          "median": 680.6,
+          "min": 672.6
+        },
+        "plans5": {
+          "median": 2325.1,
+          "min": 2300
+        },
+        "single": {
+          "median": 713.3,
+          "min": 628.6
+        }
+      }
+    }
+  },
   "previous": {
     "lifetime100Assets（2026-10-09 まで。スライダーは1案×4想定）": {
       "linux-x64": {
