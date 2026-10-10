@@ -12,9 +12,12 @@
 #   介護の利用者負担の割合（1〜3割と判定の基準）・高額介護サービス費の上限、介護休業給付金（67%・93日・上限額）の値を新しいファイルで足した
 #   （既存のファイルは変えていない。検索の要約で読んだ値で、すべて原本での確認待ち（pendingReview））
 # 2026.7.0: 高額療養費の年間上限の計算し直し（令和8年8月〜令和9年7月の年収約200万円以下の41万円。socialInsurance.highCostMedical.under70.annualLimitRetroactive）を新しいファイルで足した（原本での確認待ち）
+# 2026.7.1: 高額療養費の年間上限の計算し直し（socialInsurance.highCostMedical.under70.annualLimitRetroactive）を原本（令和8年政令第240号の附則:
+#   健康保険法施行令の附則19条1項・国民健康保険法施行令の附則25条1項、令和9年8月1日の版の健康保険法施行令42条11項4号と、厚生労働省の資料）と照らし合わせ、
+#   reviewed の行を足した（照合: claude、2026-10-10）。古い行には supersededIn を書いた。値は変えていない。新しい値・期間は無いので訂正番号を上げた
 packId: regulation.socialInsurance
 formatVersion: "0.1"
-version: "2026.7.0"
+version: "2026.7.1"
 features: []
 title: 社会保険（被用者保険・国民年金・国民健康保険・後期高齢者医療・介護保険・休業の給付）
 requires:

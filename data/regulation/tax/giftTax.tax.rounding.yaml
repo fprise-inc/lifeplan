@@ -30,5 +30,21 @@ entries:
       - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/337AC0000000066_20260624_508AC0000000046?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "23e457028ffc8ce58d7543e3f0618618d630c2a5d2a22adb885065173953501a", "locator": "国税通則法 第119条第1項（令和8年6月24日の版）", "quote": "国税（自動車重量税、印紙税及び附帯税を除く。以下この条において同じ。）の確定金額に百円未満の端数があるとき、又はその全額が百円未満であるときは、その端数金額又はその全額を切り捨てる"}
       - {"type": "law", "lawNumber": "昭和三十七年法律第六十六号", "egovRevisionId": "337AC0000000066_20260624_508AC0000000046"}
     recordedIn: "2026.10.0"
-    supersededIn: null
+    supersededIn: "2026.11.1"
     approval: {"method": "pendingReview", "paths": 1, "note": "国税通則法119条1項の100円未満切り捨て（原本で確かめた）。贈与税について述べた2つ目の公表資料（国税庁の案内・申告の手引き）が見つからず、読み方が1つなので確認待ちのまま"}
+  - rev: 3
+    appliesFrom: "2001-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "DOWN", "unit": 100}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/337AC0000000066_20260624_508AC0000000046?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "23e457028ffc8ce58d7543e3f0618618d630c2a5d2a22adb885065173953501a", "locator": "国税通則法 第119条第1項（令和8年6月24日の版）", "quote": "国税（自動車重量税、印紙税及び附帯税を除く。以下この条において同じ。）の確定金額に百円未満の端数があるとき、又はその全額が百円未満であるときは、その端数金額又はその全額を切り捨てる"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/shinkoku/zoyo/tebiki2025/pdf/all.pdf", "retrievedAt": "2026-10-10", "sha256": "3bbf945d1dee5186d045d6ff2949bffd6a715d4df27dcb1e38f8e3ac1fa4cb3d", "locator": "令和7年分 贈与税の申告のしかた 14ページ（PDF の16ページ目）【事例２】の申告書第一表の記載例（⑦の税額 416,666円、⑭の納付すべき税額 416,600円（百円未満の欄は印字済みの00））（国税庁）", "quote": "【事例２】暦年課税（一般税率及び特例税率）を適用する場合"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/shinkoku/zoyo/tebiki2025/pdf/all.pdf", "retrievedAt": "2026-10-10", "sha256": "3bbf945d1dee5186d045d6ff2949bffd6a715d4df27dcb1e38f8e3ac1fa4cb3d", "locator": "同 15ページ（PDF の17ページ目）【事例２】の計算明細の合計額（⑦に転記する額）", "quote": "その合計額（416,666 円）"}
+      - {"type": "law", "lawNumber": "昭和三十七年法律第六十六号", "egovRevisionId": "337AC0000000066_20260624_508AC0000000046"}
+    recordedIn: "2026.11.1"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-10", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "PDF の記載例の目視（ページの画像）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "国税通則法119条1項（国税の確定金額の100円未満の端数を切り捨てる）と、国税庁「令和7年分 贈与税の申告のしかた」14ページの【事例２】の申告書の記載例（⑦の税額 416,666円が⑭の納付すべき税額で 416,600円。15ページの計算明細の合計額も 416,666円）で一致。施行日は e-Gov の最初の版より前なので notAfter"}

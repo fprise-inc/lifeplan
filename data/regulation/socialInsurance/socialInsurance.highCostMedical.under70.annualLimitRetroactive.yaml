@@ -15,7 +15,7 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-10", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて（年間上限は令和8年8月から）", "quote": "年間上限の月額平均（令和８年度）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.7.1"
     approval: {"method": "pendingReview", "paths": 1, "note": "年間上限は令和8年8月診療分からで、それより前は計算し直しも無い"}
   - rev: 2
     appliesFrom: "2026-08-01"
@@ -28,8 +28,8 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-10", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて 令和８年８月～令和９年７月の表の※5", "quote": "年間上限41万円を適用し、令和９年８月以降に償還払い。"}
     recordedIn: "2026.7.0"
-    supersededIn: null
-    approval: {"method": "pendingReview", "paths": 1, "note": "「年収換算 ～約200万円（健保：15万円以下、国保：86万円以下）」は令和9年8月からの第12区分と同じ境なので、部品は令和9年8月の区分の表と年間上限の表で計算し直す。償還の月は令和9年8月とみなす（実際はそれより後になりうる）。政令の条文（経過措置）は確かめていない"}
+    supersededIn: "2026.7.1"
+    approval: {"method": "pendingReview", "paths": 1, "note": "「年収換算 ～約200万円（健保：15万円以下、国保：86万円以下）」は令和9年8月からの第12区分と同じ境なので、部品は令和9年8月の区分の表と年間上限の表で計算し直す。償還の月は令和9年8月とみなす（実際はそれより後になりうる）。この行を入れたときは政令の条文（経過措置）を確かめていない（2026-10-10 に確かめた: 令和8年政令第240号の附則）"}
   - rev: 3
     appliesFrom: "2027-08-01"
     appliesTo: null
@@ -41,5 +41,55 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-10", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて 令和９年８月～の表（第12区分の年間上限 410,000円）", "quote": "患者負担割合及び高額療養費自己負担限度額（令和９年８月～）"}
     recordedIn: "2026.7.0"
-    supersededIn: null
+    supersededIn: "2026.7.1"
     approval: {"method": "pendingReview", "paths": 1, "note": "令和9年8月からは区分の細分化で41万円が年間上限の表に入るので、計算し直しは要らない"}
+  - rev: 4
+    appliesFrom: "2015-01-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: "2026-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260729_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "ccb0b6b668e28a61914502d7f5dbdfb2597aaeda94a809d3ed74c4f74d478dca", "locator": "健康保険法施行令 第41条の2・第42条（令和8年7月29日の版。年間上限の第41条の3は無い）", "quote": "（高額療養費算定基準額）第四十二条第四十一条第一項の高額療養費算定基準額は"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20260801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "77a492e0652f347af67dde05dd65d8fcb329387cf3dae8b174578ecb90eefc93", "locator": "健康保険法施行令 第41条の3（令和8年8月1日の版で新設。年間上限）", "quote": "第四十一条の三高額療養費は、計算期間において"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/juuyou/kougakuiryou/index.html", "retrievedAt": "2026-10-09", "sha256": "f0359573fdc1c984f0d71f622a59fa1ba2ac0594400175b324750877b60d05ef", "locator": "高額療養費制度（厚生労働省）", "quote": "令和８年７月までの制度では、月単位の上限額となっていますが、令和８年８月からは新たに年単位の上限額を設ける「年間上限」が設けられ"}
+      - {"type": "law", "lawNumber": "大正十五年勅令第二百四十三号", "egovRevisionId": "215IO0000000243_20260801_508CO0000000240"}
+    recordedIn: "2026.7.1"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-10", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和8年7月までは年間上限が無く、計算し直しも無い（制度なしの行）。健康保険法施行令の令和8年7月29日の版に第41条の3（年間上限）が無く、令和8年8月1日の版で新設されたことと、厚生労働省の案内で一致。施行日の欄は年間上限が始まる日"}
+  - rev: 5
+    appliesFrom: "2026-08-01"
+    appliesTo: "2027-07-31"
+    enforcedOn: "2026-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20261001_508CO0000000276?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "76414ba1bf16291870f2efaa7d7edd9f1ed274ce108b88b31be6bb58d8f44ccb", "locator": "健康保険法施行令 附則（令和8年政令第240号）第19条第1項（令和8年10月1日の版）", "quote": "標準報酬月額が十六万円未満の被保険者である者（新健康保険法施行令第四十二条第十一項第四号に掲げる者を除く。）に該当していることにつき保険者の確認を受けている者については、第二号新健康保険法施行令第四十二条第十一項（第四号に係る部分に限る。）の規定の例による高額療養費算定基準額を用いて"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/333CO0000000362_20260801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "41e7dffd51eedd191464031e1e88e71ec62744e32f50ecabdd72ee4d503d0cfa", "locator": "国民健康保険法施行令 附則（令和8年政令第240号）第25条第1項（令和8年8月1日の版）", "quote": "基準所得額を合算した額が八十六万円以下の場合（新国民健康保険法施行令第二十九条の三第十二項第四号に掲げる場合を除く。）に該当していることにつき市町村又は組合の確認を受けている場合については、第二号新国民健康保険法施行令第二十九条の三第十二項（第四号に係る部分に限る。）の規定の例による高額療養費算定基準額を用いて"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20270801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "7d0af72aec713e039e88453498b79bb5f783744ab43e664bfe7d1e09e87d3ea9", "locator": "健康保険法施行令 第42条第11項第4号（令和9年8月1日の版。附則19条1項が例による規定）", "quote": "四基準日の属する月の標準報酬月額が十六万円未満の被保険者（次号に掲げる者を除く。）四十一万円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-09", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて 令和８年８月～令和９年７月の表の※5（厚生労働省）", "quote": "年間上限41万円を適用し、令和９年８月以降に償還払い。"}
+      - {"type": "law", "lawNumber": "大正十五年勅令第二百四十三号", "egovRevisionId": "215IO0000000243_20261001_508CO0000000276"}
+      - {"type": "law", "lawNumber": "昭和三十三年政令第三百六十二号", "egovRevisionId": "333CO0000000362_20260801_508CO0000000240"}
+    recordedIn: "2026.7.1"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-10", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和8年政令第240号の附則で、令和8年8月〜令和9年7月の年間上限は、標準報酬月額16万円未満（健康保険法施行令の附則19条1項）・世帯の基準所得額の合算86万円以下（国民健康保険法施行令の附則25条1項）と保険者の確認を受けた人について、令和9年8月1日の版の健康保険法施行令42条11項4号（国民健康保険は29条の3第12項4号）の41万円を用いて算定する。厚生労働省の資料の※5（健保15万円以下・国保86万円以下。令和9年8月以降に償還払い）と一致（標準報酬月額15万円は16万円未満の最も上の等級）。部品は令和9年8月の区分の表と年間上限の表で計算し直す。償還の月は令和9年8月とみなす（実際はそれより後になりうる。保険者の確認の手続きは扱わない）"}
+  - rev: 6
+    appliesFrom: "2027-08-01"
+    appliesTo: null
+    enforcedOn: "2027-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/215IO0000000243_20270801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "7d0af72aec713e039e88453498b79bb5f783744ab43e664bfe7d1e09e87d3ea9", "locator": "健康保険法施行令 第42条第11項第4号（令和9年8月1日の版）", "quote": "四基準日の属する月の標準報酬月額が十六万円未満の被保険者（次号に掲げる者を除く。）四十一万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/333CO0000000362_20270801_508CO0000000240?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "2e3cf8ba10b56a0408f835035ecec98f35d389a8958a3b08fe0050f0394cf161", "locator": "国民健康保険法施行令 第29条の3第12項第4号（令和9年8月1日の版）", "quote": "基準所得額を合算した額が八十六万円以下の場合（次号に掲げる場合を除く。）四十一万円"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-09", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて（令和９年８月～）（厚生労働省）", "quote": "61,500＜34,500＞410,000"}
+      - {"type": "law", "lawNumber": "大正十五年勅令第二百四十三号", "egovRevisionId": "215IO0000000243_20270801_508CO0000000240"}
+    recordedIn: "2026.7.1"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-10", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和9年8月からは41万円が年間上限の表（健康保険法施行令42条11項4号・国民健康保険法施行令29条の3第12項4号）に入るので、計算し直しは要らない。令和9年8月1日の版の条文と厚生労働省の資料で一致"}

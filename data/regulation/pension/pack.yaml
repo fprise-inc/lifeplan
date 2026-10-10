@@ -17,9 +17,13 @@
 #   原本（国民年金法27条・52条の2・平成16年改正法附則10条と日本年金機構の案内）で確かめて足した。中高齢者の期間短縮の特例（pension.survivor.middleAgeSpecial.*）と
 #   経過的寡婦加算の率（pension.survivor.transitionalWidowAddition.*）を新しいファイルで足した（改正法の附則の本文に届かないので原本での確認待ち）。
 #   年金生活者支援給付金の免除期間の分の割合（pension.supplementaryBenefit.exemptionShare.*）を原本（法3条2号と日本年金機構の案内）で確かめて足した。既存のファイルは変えていない
+# 2026.9.1: 中高齢者の期間短縮の特例（pension.survivor.middleAgeSpecial.*）と経過的寡婦加算の率（pension.survivor.transitionalWidowAddition.*）を原本
+#   （e-Gov の国民年金法・厚生年金保険法のデータに抜き出しの形で入っている昭和60年改正法の附則12条・57条・61条・73条と附則別表第三・第九、日本年金機構の老齢年金ガイド・
+#   年金給付の経過措置一覧（令和8年度）・遺族厚生年金の案内）と2つの読み方で照らし合わせ、reviewed の行を足した（照合: claude、2026-10-10）。古い行には supersededIn を書いた。
+#   値は変えていない。新しい値・期間は無いので訂正番号を上げた。2026.9.0 の note の「e-Gov に改正法の附則の本文が無い」は誤りだったので直した
 packId: regulation.pension
 formatVersion: "0.1"
-version: "2026.9.0"
+version: "2026.9.1"
 features: []
 title: 公的年金
 requires:
