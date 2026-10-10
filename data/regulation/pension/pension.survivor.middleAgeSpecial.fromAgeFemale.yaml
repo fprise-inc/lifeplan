@@ -17,5 +17,23 @@ entries:
       - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", "retrievedAt": "2026-10-10", "sha256": "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", "locator": "加給年金額と振替加算（日本年金機構）の注", "quote": "40歳（女性と坑内員・船員は35歳）以降15年から19年"}
       - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
     recordedIn: "2026.9.0"
+    supersededIn: "2026.9.1"
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則12条1項4号（この行を入れたときは条文を確かめていない。2026-10-10 訂正: 昭和60年改正法の附則は e-Gov の国民年金法・厚生年金保険法のデータに抜き出しの形で入っている）。日本年金機構の案内で読んだ。坑内員・船員の35歳は扱わない"}
+  - rev: 2
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: "1986-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 35
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", "locator": "国民年金法 附則（昭和60年法律第34号。e-Gov のデータに抜き出しの形で収録）第12条第1項第4号（令和8年10月1日の版）", "quote": "四十歳（女子については、三十五歳）に達した月以後の厚生年金保険の被保険者期間"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20170401_429AC0000000004?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "5d079346916b55d497c4d776284742a3b1eb41302945fb1170271e9fcaee38dc", "locator": "同（平成29年4月1日の版）", "quote": "四十歳（女子については、三十五歳）に達した月以後の厚生年金保険の被保険者期間"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", "locator": "厚生年金保険法 附則（昭和60年法律第34号。e-Gov のデータに抜き出しの形で収録）第61条第1項（令和8年10月1日の版）", "quote": "その者の老齢厚生年金の額の計算の基礎となる被保険者期間の月数が二百四十に満たないときは、当該月数は二百四十であるものとみなす"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", "retrievedAt": "2026-10-08", "sha256": "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", "locator": "老齢年金ガイド 令和8年度版 4ページ（PDF の5ページ目）資格期間の特例【特例2】（日本年金機構）", "quote": "40歳（女性・坑内員・船員は35歳）以降の厚生年金保険の加入期間が、生年月日に応じて"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", "retrievedAt": "2026-10-10", "sha256": "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", "locator": "加給年金額と振替加算（日本年金機構）の注", "quote": "40歳（女性と坑内員・船員は35歳）以降15年から19年"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.1"
     supersededIn: null
-    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則12条1項4号（e-Gov に改正法の附則の本文が無く、条文は確かめていない）。日本年金機構の案内で読んだ。坑内員・船員の35歳は扱わない"}
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-10", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "昭和60年改正法附則12条1項4号の「四十歳（女子については、三十五歳）に達した月以後」（e-Gov の国民年金法のデータに抜き出しの形で収録。令和8年10月・平成29年4月の版で同じ文）。遺族厚生年金への当てはめは、厚生年金保険法のデータ（令和8年10月の版）の昭和60年改正法附則57条（12条1項各号に当たる人は長期要件の25年を満たすとみなす）と附則61条1項（12条1項4号〜7号に当たる人の62条1項（中高齢寡婦加算）の月数は240とみなす）。2つ目の読み方は、日本年金機構の老齢年金ガイド（令和8年度版）の【特例2】、年金給付の経過措置一覧（令和8年度）の老齢基礎年金の「厚年の中高齢加入期間」の欄、遺族厚生年金のページの中高齢寡婦加算の※1で一致（女子35歳）。坑内員・船員の35歳（同項5号）と、うち7年6月以上は第四種被保険者・船員任意継続被保険者以外の期間であることの要件は扱わない。施行日は昭和60年改正法附則1条（昭和61年4月1日）"}

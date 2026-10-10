@@ -13,9 +13,27 @@ entries:
     conditions: []
     value: {"mode": "DOWN", "unit": 1}
     sources:
-      - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/shinkoku/zoyo/yoshiki2025/pdf/001.pdf", "retrievedAt": "2026-10-10", "sha256": "b66832f6b31dccb08a6c42991124362ae08954d6bdc2ed5e2f55e0337bdf0707", "locator": "令和7年分贈与税の申告書 第一表（兼贈与税の額の計算明細書）の計算明細の記載例（特例贈与財産・一般贈与財産に対応する税額）", "quote": "１円未満の端数があるときは、その端数金額を切り捨てます。"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/shinkoku/zoyo/yoshiki2025/pdf/001.pdf", "retrievedAt": "2026-10-10", "sha256": "b66832f6b31dccb08a6c42991124362ae08954d6bdc2ed5e2f55e0337bdf0707", "locator": "令和7年分贈与税の申告書 3ページ目「贈与税（暦年課税）の税額の計算方法等」の３の記載例（特例贈与財産・一般贈与財産に対応する税額）", "quote": "１円未満の端数があるときは、その端数金額を切り捨てます。"}
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-10", "sha256": "c937178b94e85b87f3227a6ab7f01e41495b14a14ed83ad0a73d9a86b5eaf85f", "locator": "No.4408 贈与税の計算と税率（暦年課税）（3）の計算例（按分の順）", "quote": "「一般贈与財産用」と「特例贈与財産用」の両方の計算が必要な場合"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
     recordedIn: "2026.11.0"
+    supersededIn: "2026.11.1"
+    approval: {"method": "pendingReview", "paths": 1, "note": "国税庁の申告書（3ページ目「贈与税（暦年課税）の税額の計算方法等」の３）の記載例で、特例贈与財産・一般贈与財産に対応する税額（按分の各部分）の1円未満を切り捨て、その合計を税額とする順を確かめた（3,660,000円×5,000,000円/15,000,000円＝1,220,000円、4,505,000円×10,000,000円/15,000,000円＝3,003,333円、合計4,223,333円）。按分の割合は配偶者控除の後の額の比（一般贈与財産の側は（一般贈与財産−配偶者控除）÷（合計−配偶者控除）。租税特別措置法70条の2の5第3項。2026-10-10 訂正: 前は「贈与の額の比」と書いていた）。読み方が1つ（法令の条文に端数の定めが無く、申告書の書き方による）なので確認待ち"}
+  - rev: 2
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "DOWN", "unit": 1}
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/shinkoku/zoyo/yoshiki2025/pdf/001.pdf", "retrievedAt": "2026-10-10", "sha256": "b66832f6b31dccb08a6c42991124362ae08954d6bdc2ed5e2f55e0337bdf0707", "locator": "令和7年分贈与税の申告書 3ページ目「贈与税（暦年課税）の税額の計算方法等」の３（特例贈与財産と一般贈与財産の両方を取得した場合）の記載例の注（国税庁）", "quote": "１円未満の端数があるときは、その端数金額を切り捨てます。"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/shinkoku/zoyo/yoshiki2025/pdf/001.pdf", "retrievedAt": "2026-10-10", "sha256": "b66832f6b31dccb08a6c42991124362ae08954d6bdc2ed5e2f55e0337bdf0707", "locator": "同 ３の（２）一般贈与財産に対応する税額（（一般贈与財産−配偶者控除）÷合計）", "quote": "4,505,000円×｛（10,000,000円－0円）／15,000,000円｝"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/shinkoku/zoyo/tebiki2025/pdf/all.pdf", "retrievedAt": "2026-10-10", "sha256": "3bbf945d1dee5186d045d6ff2949bffd6a715d4df27dcb1e38f8e3ac1fa4cb3d", "locator": "令和7年分 贈与税の申告のしかた 15ページ（PDF の17ページ目）【事例２】の計算明細（各部分の1円未満を切り捨てた額と合計額）（国税庁）", "quote": "H 273,333 円・J 143,333 円）を計算し、その合計額（"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261001_508AC0000000012?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "2ffb4df56f9c0ce8bb14334cdf305d1cb089b34c5aa026d84b2758f979450cf6", "locator": "租税特別措置法 第70条の2の5第3項第2号（令和8年10月1日の版。按分の割合だけを定め、端数の定めは無い）", "quote": "一般贈与財産の価額（同法第二十一条の六の規定による控除後のものとする。）が合計贈与価額のうちに占める割合を乗じて計算した金額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20170401_427AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "409c072709354a7ad1d822c2f6314b1cc94d0cd5e18a5ab8917201bf81451008", "locator": "同（平成29年4月1日の版）", "quote": "一般贈与財産の価額（同法第二十一条の六の規定による控除後のものとする。）が合計贈与価額のうちに占める割合を乗じて計算した金額"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261001_508AC0000000012"}
+    recordedIn: "2026.11.1"
     supersededIn: null
-    approval: {"method": "pendingReview", "paths": 1, "note": "国税庁の申告書の計算明細の記載例で、特例贈与財産・一般贈与財産に対応する税額（按分の各部分）の1円未満を切り捨て、その合計を税額とする順を確かめた（3,660,000円×5,000,000円/15,000,000円＝1,220,000円、4,505,000円×10,000,000円/15,000,000円＝3,003,333円、合計4,223,333円）。按分の割合は贈与の額の比。読み方が1つ（法令の条文に端数の定めが無く、申告書の書き方による）なので確認待ち"}
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-10", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "法令に端数の定めが無い（租税特別措置法70条の2の5第3項は按分の割合だけを定める）ので、税務の取扱いをする国税庁の計算明細の様式に従う。令和7年分贈与税の申告書の3ページ目「贈与税（暦年課税）の税額の計算方法等」の３の記載例（3,660,000円×5,000,000円/15,000,000円＝1,220,000円、4,505,000円×（10,000,000円−0円）/15,000,000円＝3,003,333円。各部分に「１円未満の端数があるときは、その端数金額を切り捨てます。」、合計 4,223,333円）と、「贈与税の申告のしかた」15ページの【事例２】の計算明細（410,000円×300万/450万＝273,333円、430,000円×150万/450万＝143,333円、合計 416,666円）の2つで一致。按分の割合は配偶者控除の後の額の比（一般贈与財産の側は（一般贈与財産−配偶者控除）÷（合計−配偶者控除）。措置法70条の2の5第3項）。施行日は措置法70条の2の5第3項の文言が e-Gov の最初の版にあるので notAfter"}
