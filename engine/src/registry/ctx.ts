@@ -41,12 +41,13 @@ import {
 import { projectCollection, type ItemTable } from "./items.ts";
 import { resolveAgeSwitch, type Age, type AgeSwitch, type Birth } from "../time/ageSwitch.ts";
 import { lookupFor, type LookupContext } from "../time/basis.ts";
-import { formatYm, monthIndex, yearOf, type MonthIndex } from "../time/month.ts";
+import { formatYm, monthIndex, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
 import type { Timepoint, TimeResolver } from "../time/timepoint.ts";
 import type { Assembly, Impl } from "./assemble.ts";
 import { rowAllowedInSlot, SLOTS } from "./slots.ts";
 import { Frame, type Tracer } from "./trace.ts";
 import { autoStarts, segmentKey, segmentsOf, type Segment, type SegmentOptions } from "./segments.ts";
+import { numTable, type NumTable } from "../engine/numTable.ts";
 
 export interface MoneyApi {
   mulRate(amount: Yen, r: Rate, roundingId: string): Yen;
@@ -169,9 +170,24 @@ export interface CallKey {
   prevs: (Variant | undefined)[];
 }
 
+/**
+ * 呼び出しの鍵の木の節。入力の欄を順にたどり、欄の名前（ふつうは部品ごとに同じ並び）と値で次の節に進む。
+ * 最初に見た欄の名前は field に置き（欄の名前の表を引かずに比べる）、ほかの名前の欄は others に置く。葉の鍵は ck
+ */
+interface KeyNode {
+  field: string | null;
+  byValue: Map<unknown, KeyNode> | null;
+  /** field の値が数のとき（数の鍵の表は Map より速い。数と文字列などは別の表なので、鍵は Map と同じく区別される） */
+  byNum: NumTable<KeyNode> | null;
+  others: Map<string, Map<unknown, KeyNode>> | null;
+  ck: CallKey | null;
+}
+
+const newKeyNode = (): KeyNode => ({ field: null, byValue: null, byNum: null, others: null, ck: null });
+
 /** 呼び出しの鍵の表（部品の実体ごとの、入力の欄の木と JSON の表）と、作った鍵の一覧（使わない候補を捨てるため） */
 export interface KeyTable {
-  readonly trees: Map<Impl, Map<unknown, unknown>>;
+  readonly trees: Map<Impl, KeyNode>;
   readonly byJson: Map<Impl, Map<string, CallKey>>;
   readonly all: CallKey[];
 }
@@ -268,7 +284,7 @@ export interface Partition {
 
 export function newPartition(): Partition {
   const empty: Closure = { ids: [], deps: [], unions: new Map(), epoch: 0, ok: true };
-  return { keys: newKeyTable(), params: { params: new Map(), has: new Map() }, canon: new Map(), closures: new Map([["", empty]]), empty, next: 0 };
+  return { keys: newKeyTable(), params: newParamCache(), canon: new Map(), closures: new Map([["", empty]]), empty, next: 0 };
 }
 
 function internClosure(p: Partition, ids: readonly number[], deps: readonly CanonDep[]): Closure {
@@ -340,14 +356,42 @@ const CELLS = 6;
 
 /** 制度の値を引いた結果の使い回し（計算基準月・データの組・構成員の生年月などが同じ要求のあいだで共有） */
 export interface ParamCache {
-  readonly params: Map<string, Map<number, Selected>>;
-  readonly has: Map<string, Map<number, boolean>>;
+  readonly params: Map<string, NumTable<Selected>>;
+  readonly has: Map<string, NumTable<boolean>>;
+  /** 部品ごとの、値IDから上の表（月ごとの結果）への近道（部品が読めると確かめた値IDだけ。0005 の追記（2026-10-10）） */
+  readonly slots: WeakMap<Impl, Map<string, ParamSlot>>;
+}
+
+/** 部品が読める値ID1つの、月ごとの結果の表（条件なしと、構成員などの条件つき）。表そのものは ParamCache.params・has と同じ物 */
+export interface ParamSlot {
+  plain: NumTable<Selected> | null;
+  plainHas: NumTable<boolean> | null;
+  /** 構成員だけの条件（構成員の ID → 月ごとの結果） */
+  byMember: Map<string, NumTable<Selected>> | null;
+  /** そのほかの条件（ParamCache の鍵の文字列 → 月ごとの結果） */
+  byOpts: Map<string, NumTable<Selected>> | null;
+  hasByMember: Map<string, NumTable<boolean>> | null;
+  hasByOpts: Map<string, NumTable<boolean>> | null;
+}
+
+export const newParamCache = (): ParamCache => ({ params: new Map(), has: new Map(), slots: new WeakMap() });
+
+/** 表の中の、鍵の月ごとの表（無ければ作る） */
+function monthTable<V>(cache: Map<string, NumTable<V>>, key: string): NumTable<V> {
+  let m = cache.get(key);
+  if (m === undefined) {
+    m = numTable<V>();
+    cache.set(key, m);
+  }
+  return m;
 }
 
 export interface RunState {
   readonly assembly: Assembly;
   readonly store: RegulationStore;
   readonly tracer: Tracer;
+  /** 根拠の記録を取るか（tracer.on と同じ。読み取りのたびに確かめるので値で持つ） */
+  readonly traceOn: boolean;
   readonly time: TimeResolver;
   readonly input: EngineInput;
   readonly items: ItemTable;
@@ -476,11 +520,59 @@ function sameJson(a: unknown, b: unknown): boolean {
 type MonthItem = { readonly ym: string } | { readonly month: string };
 const monthKeyOf = (x: MonthItem): string => ("ym" in x ? x.ym : x.month);
 
-/** 出力の field（月の昇順の並び。要素は ym か month の欄を持つ）のうち from〜to（"YYYY-MM"。両端を含む）の月の分（二分探索） */
-function monthsOf(output: unknown, field: string, from: string, to: string): readonly MonthItem[] {
+/**
+ * 月の並びの要素の月の番号（並びごとに1回だけ作る。部品の出力は書き換えない約束（0006 の追記）なので、並びの物で覚えてよい）。
+ * 要素がどれも "YYYY-MM"（年は4桁）なら、月の番号の大小は月の文字列の大小と同じ。そうでない要素があれば null（文字列で比べる）
+ */
+const MONTH_NUMBERS = new WeakMap<readonly MonthItem[], readonly number[] | null>();
+
+function monthNumbers(list: readonly MonthItem[]): readonly number[] | null {
+  const hit = MONTH_NUMBERS.get(list);
+  if (hit !== undefined) return hit;
+  let out: number[] | null = [];
+  for (let i = 0; i < list.length; i++) {
+    const x = list[i] as MonthItem | null;
+    if (x === null || typeof x !== "object") {
+      out = null;
+      break;
+    }
+    const k = monthKeyOf(x);
+    try {
+      out.push(parseYm(k));
+    } catch (e) {
+      if (!(e instanceof EngineError)) throw e;
+      out = null;
+      break;
+    }
+  }
+  MONTH_NUMBERS.set(list, out);
+  return out;
+}
+
+/**
+ * 出力の field（月の昇順の並び。要素は ym か month の欄を持つ）のうち from〜to（"YYYY-MM"。両端を含む）の月の分（二分探索）。
+ * fromM・toM（from・to の月の番号。年が0〜9999のとき）があり、要素の月がどれも "YYYY-MM" なら、文字列ではなく月の番号で比べる
+ * （同じ結果。内蔵の実行環境では文字列の比べ方が重い。0005 の追記（2026-10-10））
+ */
+function monthsOf(output: unknown, field: string, from: string, to: string, fromM?: number, toM?: number): readonly MonthItem[] {
   const xs = (output as Record<string, unknown> | null)?.[field];
   if (!Array.isArray(xs)) throw new EngineError("E_ARGUMENT", ["callMonths", field]);
   const list = xs as readonly MonthItem[];
+  const nums = fromM !== undefined && toM !== undefined ? monthNumbers(list) : null;
+  if (nums !== null) {
+    const boundM = (key: number, strict: boolean): number => {
+      let lo = 0;
+      let hi = nums.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        const m = nums[mid] as number;
+        if (strict ? m <= key : m < key) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    };
+    return list.slice(boundM(fromM as number, false), boundM(toM as number, true));
+  }
   const bound = (key: string, strict: boolean): number => {
     let lo = 0;
     let hi = list.length;
@@ -498,20 +590,21 @@ function monthsOf(output: unknown, field: string, from: string, to: string): rea
 /** 根拠の記録なしのときの Frame（記録には使わない） */
 const NO_FRAME = new Frame("-");
 
-/** 鍵の木の葉の印 */
-const LEAF = Symbol("leaf");
-
 /**
  * 呼び出しの鍵（部品の実体と入力）を引く。入力の欄の名前と値の木をたどる（欄の値が数・文字列・真偽・null の入力。鍵の文字列を作らない）。
- * それ以外の入力は JSON の文字列で引く。組（Partition）があれば組の中で共有する（同じ部品・同じ入力なら、どの要求でも同じ鍵）
+ * それ以外の入力は JSON の文字列で引く。組（Partition）があれば組の中で共有する（同じ部品・同じ入力なら、どの要求でも同じ鍵）。
+ * 0005 の追記（2026-10-10）: 節ごとに最初に見た欄の名前を持ち、同じ名前なら欄の名前の表を引かない（引く表は欄ごとに値の表の1つだけ）
  */
-function callKeyOf(keys: KeyTable, impl: Impl, input: unknown): CallKey {
-  let tree = keys.trees.get(impl);
-  if (tree === undefined) {
-    tree = new Map();
-    keys.trees.set(impl, tree);
+function callKeyOf(keys: KeyTable, impl: Impl, input: unknown, callee?: Callee): CallKey {
+  let node: KeyNode | null = callee !== undefined && callee.keys === keys ? callee.root : (keys.trees.get(impl) ?? null);
+  if (node === null) {
+    node = newKeyNode();
+    keys.trees.set(impl, node);
   }
-  let node: Map<unknown, unknown> | null = tree;
+  if (callee !== undefined && callee.keys !== keys) {
+    callee.keys = keys;
+    callee.root = node;
+  }
   if (input !== null && typeof input === "object" && !Array.isArray(input)) {
     const o = input as Record<string, unknown>;
     for (const k in o) {
@@ -521,24 +614,45 @@ function callKeyOf(keys: KeyTable, impl: Impl, input: unknown): CallKey {
         node = null;
         break;
       }
-      let a = node.get(k) as Map<unknown, unknown> | undefined;
-      if (a === undefined) {
-        a = new Map();
-        node.set(k, a);
+      if (typeof v === "number" && (node.field === k || node.field === null)) {
+        node.field ??= k;
+        node.byValue ??= new Map();
+        const nums: NumTable<KeyNode> = (node.byNum ??= numTable<KeyNode>());
+        let next = nums[v];
+        if (next === undefined) {
+          next = newKeyNode();
+          nums[v] = next;
+        }
+        node = next;
+        continue;
       }
-      let b = a.get(v) as Map<unknown, unknown> | undefined;
-      if (b === undefined) {
-        b = new Map();
-        a.set(v, b);
+      let byValue: Map<unknown, KeyNode> | null | undefined;
+      if (node.field === k) byValue = node.byValue;
+      else if (node.field === null) {
+        node.field = k;
+        byValue = node.byValue = new Map();
+      } else {
+        node.others ??= new Map();
+        byValue = node.others.get(k);
+        if (byValue === undefined) {
+          byValue = new Map();
+          node.others.set(k, byValue);
+        }
       }
-      node = b;
+      const m = byValue as Map<unknown, KeyNode>;
+      let next = m.get(v);
+      if (next === undefined) {
+        next = newKeyNode();
+        m.set(v, next);
+      }
+      node = next;
     }
   } else node = null;
   if (node !== null) {
-    let ck = node.get(LEAF) as CallKey | undefined;
-    if (ck === undefined) {
+    let ck = node.ck;
+    if (ck === null) {
       ck = { impl, input, variants: [], epoch: 0, res: null, prevs: [] };
-      node.set(LEAF, ck);
+      node.ck = ck;
       keys.all.push(ck);
     }
     return ck;
@@ -564,8 +678,8 @@ function callKeyOf(keys: KeyTable, impl: Impl, input: unknown): CallKey {
  * この要求でも同じものを使う。まず読んだ入力の集まり（内側を含む）で速く確かめ、当たらなければ依存を読んだ順にたどる
  * （前の依存が同じなら、部品は同じ順に同じものを読むので、次の依存も同じ物を指す）
  */
-export function invoke(state: RunState, impl: Impl, input: unknown): Res {
-  const ck = callKeyOf(state.keys, impl, input);
+export function invoke(state: RunState, impl: Impl, input: unknown, callee?: Callee): Res {
+  const ck = callKeyOf(state.keys, impl, input, callee);
   return ck.epoch === state.epoch ? (ck.res as Res) : resolve(state, ck, input);
 }
 
@@ -629,7 +743,7 @@ function resolve(state: RunState, ck: CallKey, input: unknown): Res {
   if (validate && hasSchema(impl.def.input)) check(impl.def.input, input, "E_COMPONENT_SCHEMA", [id, "input"]);
   if (validate && !hasSchema(impl.def.input)) throw new EngineError("E_COMPONENT_SCHEMA", [id, "input.schema"]);
   // 根拠の記録なしのときは、呼び出しの記録（Frame）を使わないので作らない
-  const frame = state.tracer.on ? new Frame(id) : NO_FRAME;
+  const frame = state.traceOn ? new Frame(id) : NO_FRAME;
   state.stack.push(id);
   const deps: Dep[] | null = sharing ? [] : null;
   const ctx = new CtxImpl(state, impl, frame, input, deps);
@@ -648,7 +762,7 @@ function resolve(state: RunState, ck: CallKey, input: unknown): Res {
   const annual = o?.annual ?? [];
   for (let i = 0; i < flows.length; i++) if (typeof (flows[i] as Flow).formula !== "string") throw new EngineError("E_FORMULA_MISSING", [id]);
   for (let i = 0; i < annual.length; i++) if (typeof (annual[i] as AnnualRow).formula !== "string") throw new EngineError("E_FORMULA_MISSING", [id]);
-  if (state.tracer.on) state.tracer.formulas(id, [...flows, ...annual].map((f) => f.formula));
+  if (state.traceOn) state.tracer.formulas(id, [...flows, ...annual].map((f) => f.formula));
   const node = state.tracer.finishCall(frame);
   if (state.tracer.mode === "full") {
     // 最も内側で作った部品を、そのお金の動きの出どころにする
@@ -807,9 +921,16 @@ function manifestSets(def: Impl["def"]): ManifestSets {
 }
 
 /** 部品が呼べる部品（requires に書いたもの）の実体。部品表と部品ごとに1回だけ作る */
-const CALLEES = new WeakMap<Assembly, WeakMap<Impl, Map<string, Impl>>>();
+const CALLEES = new WeakMap<Assembly, WeakMap<Impl, Map<string, Callee>>>();
 
-function callees(assembly: Assembly, impl: Impl): Map<string, Impl> {
+/** 呼べる部品の実体と、その部品の呼び出しの鍵の木の根（最後に使った鍵の表のもの。表を引き直さないため） */
+interface Callee {
+  readonly impl: Impl;
+  keys: KeyTable | null;
+  root: KeyNode | null;
+}
+
+function callees(assembly: Assembly, impl: Impl): Map<string, Callee> {
   let byImpl = CALLEES.get(assembly);
   if (byImpl === undefined) {
     byImpl = new WeakMap();
@@ -820,7 +941,7 @@ function callees(assembly: Assembly, impl: Impl): Map<string, Impl> {
     m = new Map();
     for (const id of Object.keys(impl.def.requires)) {
       const t = assembly.impls.get(id);
-      if (t !== undefined) m.set(id, t);
+      if (t !== undefined) m.set(id, { impl: t, keys: null, root: null });
     }
     byImpl.set(impl, m);
   }
@@ -842,10 +963,17 @@ function listOf(state: RunState, impl: Impl, collection: string, member: string 
 class MoneyImpl implements MoneyApi {
   readonly #ctx: CtxImpl;
   readonly #mc: MonthCtx | null;
+  /** 根拠の記録を取るか（呼び出しの間は変わらない） */
+  readonly #on: boolean;
+  /**
+   * この月（区間）の文脈で引いた制度の端数処理の規則（0005 の追記（2026-10-10））。同じ月で同じ値を2回目以後に読んでも、根拠の記録・
+   * 知らせ・延長の仮定の記録は何も増えない（どれも同じものを1回だけ持つ）ので、引き直さない
+   */
+  #rules: Map<string, R.RoundingRule> | null = null;
   constructor(ctx: CtxImpl, mc: MonthCtx | null) {
     this.#ctx = ctx;
     this.#mc = mc;
-
+    this.#on = ctx.traceOn;
   }
   #rule(id: string): R.RoundingRule {
     if (id.startsWith("conv.")) {
@@ -855,11 +983,14 @@ class MoneyImpl implements MoneyApi {
     }
     // 制度の端数処理は制度の値なので、計算している月が要る
     if (this.#mc === null) throw new EngineError("E_ROUNDING_UNKNOWN", [id, "month"]);
-    return asRoundingRule(this.#mc.param(id));
+    const hit = this.#rules?.get(id);
+    if (hit !== undefined) return hit;
+    const rule = asRoundingRule(this.#mc.param(id));
+    (this.#rules ??= new Map()).set(id, rule);
+    return rule;
   }
   #done(id: string, op: string, r: R.Rounded): Yen {
-    const tracer = this.#ctx.tracer;
-    if (tracer.on) tracer.rounding(this.#ctx.frame, id, op, () => `${intToString(r.num)}/${intToString(r.den)}`, r.value);
+    if (this.#on) this.#ctx.tracer.rounding(this.#ctx.frame, id, op, () => `${intToString(r.num)}/${intToString(r.den)}`, r.value);
     return r.value;
   }
   mulRate(a: Yen, r: Rate, id: string): Yen {
@@ -879,8 +1010,7 @@ class MoneyImpl implements MoneyApi {
   }
   allocate(total: Yen, weights: readonly number[], id: string, to: R.RemainderTo): Yen[] {
     const out = R.allocate(total, weights, this.#rule(id), to);
-    const tracer = this.#ctx.tracer;
-    if (tracer.on) tracer.rounding(this.#ctx.frame, id, "allocate", () => `${total}|${weights.join(",")}|${String(to)}`, out);
+    if (this.#on) this.#ctx.tracer.rounding(this.#ctx.frame, id, "allocate", () => `${total}|${weights.join(",")}|${String(to)}`, out);
     return out;
   }
 }
@@ -912,8 +1042,15 @@ abstract class ParamReader {
 export const whoKey = (opts: ParamOptions | undefined): string =>
   opts?.member ?? (opts?.birth === undefined ? "" : `@${opts.birth.birthYearMonth}${opts.birth.bornOnFirst ? "+" : ""}`);
 
-const simpleOpts = (opts: ParamOptions | undefined): boolean =>
-  opts === undefined || (opts.anchorEvent === undefined && (opts.jurisdiction === undefined || opts.jurisdiction === "national"));
+/** 条件の無い読み取り（書き換えない） */
+const NO_OPTS: ParamOptions = Object.freeze({});
+
+/** 値を選ぶ条件（構成員の生年月・性別・管轄） */
+type MatchOf = { readonly birth?: ReturnType<TimeResolver["birthOf"]>; readonly sex?: "female" | "male"; readonly jurisdiction?: Jurisdiction };
+const NO_MATCH: MatchOf = Object.freeze({});
+/** 構成員だけの条件の使い回し（計算の時点の解決ごと。構成員の生年月・性別は計算の中で変わらない） */
+const MATCHES = new WeakMap<TimeResolver, Map<string, MatchOf>>();
+const NO_LOOKUP: LookupContext = Object.freeze({});
 
 /**
  * 「いま計算している月」に結び付けた制度の値と丸め（0003 の9）。この呼び出しのこの月の中では、同じ値（条件なし・構成員だけの条件）を
@@ -921,37 +1058,24 @@ const simpleOpts = (opts: ParamOptions | undefined): boolean =>
  */
 class MonthCtxImpl extends ParamReader implements MonthCtx {
   readonly month: MonthIndex;
-  readonly money: MoneyApi;
   readonly #ctx: CtxImpl;
-  readonly #local = new Map<string, Selected>();
-  #hasLocal: Map<string, boolean> | null = null;
+  #money: MoneyApi | null = null;
   constructor(ctx: CtxImpl, month: MonthIndex) {
     super();
     this.#ctx = ctx;
     this.month = month;
-    this.money = new MoneyImpl(ctx, this);
-
   }
+  get money(): MoneyApi {
+    this.#money ??= new MoneyImpl(this.#ctx, this);
+    return this.#money;
+  }
+  // 同じ月で同じ値を2回目以後に読んでも、根拠の記録・知らせ・延長の仮定の記録は何も増えない（どれも同じものを1回だけ持つ）。
+  // 引いた結果は ctx.param が部品・値ID・月ごとに覚えているので、月の文脈では覚えない（0005 の追記（2026-10-10））
   param(id: string, opts?: ParamOptions): Selected {
-    if (!simpleOpts(opts)) return this.#ctx.param(id, this.month, opts ?? {}, this.month);
-    const who = whoKey(opts);
-    const key = who === "" ? id : `${id}|${who}`;
-    const hit = this.#local.get(key);
-    if (hit !== undefined) return hit;
-    const s = this.#ctx.param(id, this.month, opts ?? {}, this.month);
-    this.#local.set(key, s);
-    return s;
+    return this.#ctx.param(id, this.month, opts ?? NO_OPTS, this.month);
   }
   has(id: string, opts?: ParamOptions): boolean {
-    if (!simpleOpts(opts)) return this.#ctx.has(id, this.month, opts ?? {});
-    const who = whoKey(opts);
-    const key = who === "" ? id : `${id}|${who}`;
-    this.#hasLocal ??= new Map();
-    const hit = this.#hasLocal.get(key);
-    if (hit !== undefined) return hit;
-    const v = this.#ctx.has(id, this.month, opts ?? {});
-    this.#hasLocal.set(key, v);
-    return v;
+    return this.#ctx.has(id, this.month, opts ?? NO_OPTS);
   }
 }
 
@@ -982,10 +1106,10 @@ class AutoAt {
     const key = optsKey(id, opts);
     let s = this.#local.get(key);
     if (s === undefined) {
-      s = this.#ctx.param(id, this.#from, opts ?? {}, this.#to);
+      s = this.#ctx.param(id, this.#from, opts ?? NO_OPTS, this.#to);
       this.#local.set(key, s);
     }
-    this.#ctx.checkSame(id, opts ?? {}, month, s);
+    this.#ctx.checkSame(id, opts ?? NO_OPTS, month, s);
     return s;
   }
   has(id: string, opts: ParamOptions | undefined, month: MonthIndex): boolean {
@@ -993,10 +1117,10 @@ class AutoAt {
     this.#hasLocal ??= new Map();
     let v = this.#hasLocal.get(key);
     if (v === undefined) {
-      v = this.#ctx.has(id, this.#from, opts ?? {});
+      v = this.#ctx.has(id, this.#from, opts ?? NO_OPTS);
       this.#hasLocal.set(key, v);
     }
-    if (this.#ctx.checking && this.#ctx.has(id, month, opts ?? {}) !== v) throw new EngineError("E_ARGUMENT", [id, "segments.notConstant"]);
+    if (this.#ctx.checking && this.#ctx.has(id, month, opts ?? NO_OPTS) !== v) throw new EngineError("E_ARGUMENT", [id, "segments.notConstant"]);
     return v;
   }
 }
@@ -1004,13 +1128,18 @@ class AutoAt {
 /** ctx.at(m) の月の文脈（区間の自動の使い回しの中の1か月） */
 class MonthView extends ParamReader implements MonthCtx {
   readonly month: MonthIndex;
-  readonly money: MoneyApi;
+  readonly #ctx: CtxImpl;
   readonly #shared: AutoAt;
+  #money: MoneyApi | null = null;
   constructor(ctx: CtxImpl, month: MonthIndex, shared: AutoAt) {
     super();
     this.month = month;
+    this.#ctx = ctx;
     this.#shared = shared;
-    this.money = new MoneyImpl(ctx, this);
+  }
+  get money(): MoneyApi {
+    this.#money ??= new MoneyImpl(this.#ctx, this);
+    return this.#money;
   }
   param(id: string, opts?: ParamOptions): Selected {
     return this.#shared.param(id, opts, this.month);
@@ -1077,14 +1206,14 @@ export class SegmentAt extends ParamReader implements MonthCtx {
     if (opts?.anchorEvent !== undefined || !this.#allowed.has(key)) throw new EngineError("E_PARAM_UNDECLARED", [this.#ctx.id, id, "segment"]);
     const hit = this.#local.get(key);
     if (hit !== undefined) return hit;
-    const s = this.#ctx.param(id, this.month, opts ?? {}, this.#to);
+    const s = this.#ctx.param(id, this.month, opts ?? NO_OPTS, this.#to);
     this.#local.set(key, s);
     return s;
   }
   has(id: string, opts?: ParamOptions): boolean {
     const key = segmentKey(id, opts);
     if (opts?.anchorEvent !== undefined || !this.#allowed.has(key)) throw new EngineError("E_PARAM_UNDECLARED", [this.#ctx.id, id, "segment"]);
-    return this.#ctx.has(id, this.month, opts ?? {});
+    return this.#ctx.has(id, this.month, opts ?? NO_OPTS);
   }
 }
 
@@ -1122,10 +1251,14 @@ class CtxImpl implements Ctx {
   readonly #sets: ManifestSets;
   #closure: Closure | null;
   #own: Own | null = null;
-  #months: Map<MonthIndex, MonthCtx> | null = null;
-  #autoAts: Map<number, AutoAt> | null = null;
+  #months: NumTable<MonthCtx> | null = null;
+  #monthCount = 0;
+  #autoAts: NumTable<AutoAt> | null = null;
   #money: MoneyImpl | null = null;
   #time: TimeImpl | null = null;
+  #slots: Map<string, ParamSlot> | null = null;
+  #auto: AutoSegments | null = null;
+  #callees: Map<string, Callee> | null = null;
 
   constructor(state: RunState, impl: Impl, frame: Frame, input: unknown, deps: Dep[] | null) {
     this.#state = state;
@@ -1171,6 +1304,9 @@ class CtxImpl implements Ctx {
   }
   get tracer(): Tracer {
     return this.#state.tracer;
+  }
+  get traceOn(): boolean {
+    return this.#state.traceOn;
   }
   get frame(): Frame {
     return this.#frame;
@@ -1221,26 +1357,26 @@ class CtxImpl implements Ctx {
   }
 
   call<O>(id: string, input: unknown): O {
-    const target = callees(this.#state.assembly, this.#impl).get(id);
-    if (target === undefined) {
+    const callee = (this.#callees ??= callees(this.#state.assembly, this.#impl)).get(id);
+    if (callee === undefined) {
       const def = this.#impl.def;
       if (def.requires[id] === undefined) throw new EngineError("E_CALL_UNDECLARED", [def.id, id]);
       throw new EngineError("E_COMPONENT_UNKNOWN", [id]);
     }
-    const r = invoke(this.#state, target, input);
+    const r = invoke(this.#state, callee.impl, input, callee);
     if (r.node >= 0) this.#frame.uses.add(r.node);
     this.#callDep(r);
     return r.output as O;
   }
 
   callMonths<T extends MonthItem>(id: string, input: unknown, field: string, from: MonthIndex, to: MonthIndex): readonly T[] {
-    const target = callees(this.#state.assembly, this.#impl).get(id);
-    if (target === undefined) {
+    const callee = (this.#callees ??= callees(this.#state.assembly, this.#impl)).get(id);
+    if (callee === undefined) {
       const def = this.#impl.def;
       if (def.requires[id] === undefined) throw new EngineError("E_CALL_UNDECLARED", [def.id, id]);
       throw new EngineError("E_COMPONENT_UNKNOWN", [id]);
     }
-    const r = invoke(this.#state, target, input);
+    const r = invoke(this.#state, callee.impl, input, callee);
     if (r.node >= 0) this.#frame.uses.add(r.node);
     const f = formatYm(from);
     const t = formatYm(to);
@@ -1248,7 +1384,9 @@ class CtxImpl implements Ctx {
       const xs = (r.output as Record<string, unknown> | null)?.[field];
       if (Array.isArray(xs)) for (let i = 1; i < xs.length; i++) if (monthKeyOf(xs[i - 1] as MonthItem) > monthKeyOf(xs[i] as MonthItem)) throw new EngineError("E_ARGUMENT", [id, field, "order"]);
     }
-    const items = monthsOf(r.output, field, f, t) as readonly T[];
+    // 年が0〜9999の整数の月なら、月の番号で比べる（"YYYY-MM" の文字列の大小と同じ）
+    const numeric = Number.isInteger(from) && Number.isInteger(to) && from >= 0 && to >= 0 && from < 120000 && to < 120000;
+    const items = (numeric ? monthsOf(r.output, field, f, t, from, to) : monthsOf(r.output, field, f, t)) as readonly T[];
     if (this.#memo && this.#seen?.has(r) !== true) {
       (this.#deps as Dep[]).push({ t: 4, res: r, field, from: f, to: t, items });
       this.#closure = unionClosure(this.#state.partition as Partition, this.#closure as Closure, r.closure as Closure);
@@ -1334,12 +1472,13 @@ class CtxImpl implements Ctx {
   }
 
   at(month: MonthIndex): MonthCtx {
-    this.#months ??= new Map();
-    const hit = this.#months.get(month);
+    this.#months ??= numTable<MonthCtx>();
+    const hit = this.#months[month];
     if (hit !== undefined) return hit;
     let mc: MonthCtx;
     // 1回の呼び出しで多くの月を読む部品（月ごとの計算）だけ、区間の自動の使い回しを使う（年ごとの部品は準備のほうが重い）
-    const auto = this.#months.size >= AUTO_AFTER ? autoSegmentsOf(this.#state, this.#impl) : null;
+    // 区切りは部品・データの組・計算の範囲で決まるので、この呼び出しの中では1回だけ引く
+    const auto = this.#monthCount >= AUTO_AFTER ? (this.#auto ??= autoSegmentsOf(this.#state, this.#impl)) : null;
     if (auto !== null && Number.isInteger(month) && month >= auto.from && month <= auto.to) {
       // 区間の自動の使い回し: m を含む区間（starts の中で m 以下の最後）
       const starts = auto.starts;
@@ -1350,16 +1489,17 @@ class CtxImpl implements Ctx {
         if ((starts[mid] as number) <= month) lo = mid;
         else hi = mid - 1;
       }
-      this.#autoAts ??= new Map();
-      let shared = this.#autoAts.get(lo);
+      this.#autoAts ??= numTable<AutoAt>();
+      let shared = this.#autoAts[lo];
       if (shared === undefined) {
         const next = starts[lo + 1];
         shared = new AutoAt(this, starts[lo] as MonthIndex, (next === undefined ? auto.to : next - 1) as MonthIndex);
-        this.#autoAts.set(lo, shared);
+        this.#autoAts[lo] = shared;
       }
       mc = new MonthView(this, month, shared);
     } else mc = new MonthCtxImpl(this, month);
-    this.#months.set(month, mc);
+    this.#months[month] = mc;
+    this.#monthCount++;
     return mc;
   }
 
@@ -1405,8 +1545,25 @@ class CtxImpl implements Ctx {
     );
   }
 
-  #matchOf(_id: string, opts: ParamOptions): { birth?: ReturnType<TimeResolver["birthOf"]>; sex?: "female" | "male"; jurisdiction?: Jurisdiction } {
+  #matchOf(_id: string, opts: ParamOptions): MatchOf {
     const time = this.#state.time;
+    // 条件の無い読み取りと、構成員だけの読み取りは、同じ形の物を使い回す（中身は同じ。0005 の追記（2026-10-10））
+    if (opts.birth === undefined && opts.jurisdiction === undefined) {
+      if (opts.member === undefined) return NO_MATCH;
+      let byMember = MATCHES.get(time);
+      if (byMember === undefined) {
+        byMember = new Map();
+        MATCHES.set(time, byMember);
+      }
+      let m = byMember.get(opts.member);
+      if (m === undefined) {
+        const birth = time.birthOf(opts.member);
+        const sex = time.sexOf(opts.member);
+        m = Object.freeze({ ...(birth !== undefined ? { birth } : {}), ...(sex !== undefined ? { sex } : {}) });
+        byMember.set(opts.member, m);
+      }
+      return m;
+    }
     if (opts.member !== undefined && opts.birth !== undefined) throw new EngineError("E_ARGUMENT", [_id, "birth"]);
     const birth = opts.member !== undefined ? time.birthOf(opts.member) : opts.birth;
     const sex = opts.member !== undefined ? time.sexOf(opts.member) : undefined;
@@ -1430,28 +1587,65 @@ class CtxImpl implements Ctx {
   }
 
   #selectAt(id: string, month: MonthIndex, opts: ParamOptions): Selected {
-    const { basis, lc } = this.#lookupBasis(id, opts);
-    return this.#state.store.select(id, lookupFor(basis, month, lc).date, this.#matchOf(id, opts));
+    const store = this.#state.store;
+    const basis = store.definition(id).basis;
+    // anchor でなければ引く日の文脈は要らない（物を作らない）
+    const lc = basis.type === "anchor" ? this.#lookupBasis(id, opts).lc : NO_LOOKUP;
+    return store.select(id, lookupFor(basis, month, lc).date, this.#matchOf(id, opts));
+  }
+
+  /** 値IDの近道（部品が読めると確かめた値IDだけ。読めなければ E_PARAM_UNDECLARED） */
+  #slot(id: string): ParamSlot {
+    let slots = this.#slots;
+    if (slots === null) {
+      const all = this.#state.paramCache.slots;
+      slots = all.get(this.#impl) ?? null;
+      if (slots === null) {
+        slots = new Map();
+        all.set(this.#impl, slots);
+      }
+      this.#slots = slots;
+    }
+    let slot = slots.get(id);
+    if (slot === undefined) {
+      if (!this.#sets.params.has(id)) throw new EngineError("E_PARAM_UNDECLARED", [this.#impl.def.id, id]);
+      slot = { plain: null, plainHas: null, byMember: null, byOpts: null, hasByMember: null, hasByOpts: null };
+      slots.set(id, slot);
+    }
+    return slot;
   }
 
   /** 延長の仮定を使わずに値があるか */
   has(id: string, month: MonthIndex, opts: ParamOptions): boolean {
-    const def = this.#impl.def;
     const state = this.#state;
-    if (!this.#sets.params.has(id)) throw new EngineError("E_PARAM_UNDECLARED", [def.id, id]);
+    const slot = this.#slot(id);
     if (!state.store.knows(id)) return false;
     // 鍵: 値ID →（構成員・出来事・管轄）→ 月（param と同じ形）
     const j = opts.jurisdiction;
-    const sub =
-      opts.member === undefined && opts.birth === undefined && opts.anchorEvent === undefined && (j === undefined || j === "national")
-        ? id
-        : `${id}|${whoKey(opts)}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
-    let byMonth = state.paramCache.has.get(sub);
-    if (byMonth === undefined) {
-      byMonth = new Map();
-      state.paramCache.has.set(sub, byMonth);
+    let byMonth: NumTable<boolean>;
+    const member = opts.member;
+    if (opts.birth === undefined && opts.anchorEvent === undefined && (j === undefined || j === "national")) {
+      if (member === undefined) byMonth = slot.plainHas ??= monthTable(state.paramCache.has, id);
+      else {
+        slot.hasByMember ??= new Map();
+        let m = slot.hasByMember.get(member);
+        if (m === undefined) {
+          m = monthTable(state.paramCache.has, `${id}|${member}||`);
+          slot.hasByMember.set(member, m);
+        }
+        byMonth = m;
+      }
+    } else {
+      const sub = `${id}|${whoKey(opts)}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
+      slot.hasByOpts ??= new Map();
+      let m = slot.hasByOpts.get(sub);
+      if (m === undefined) {
+        m = monthTable(state.paramCache.has, sub);
+        slot.hasByOpts.set(sub, m);
+      }
+      byMonth = m;
     }
-    const hit = byMonth.get(month);
+    const hit = byMonth[month];
     if (hit !== undefined) return hit;
     const vdef = state.store.definition(id);
     const lc: { anchorMonth?: MonthIndex } = {};
@@ -1460,7 +1654,7 @@ class CtxImpl implements Ctx {
       lc.anchorMonth = state.time.resolveEvent(opts.anchorEvent, []);
     }
     const v = state.store.trySelect(id, lookupFor(vdef.basis, month, lc as LookupContext).date, { ...this.#matchOf(id, opts), noExtension: true }) !== null;
-    byMonth.set(month, v);
+    byMonth[month] = v;
     return v;
   }
 
@@ -1469,25 +1663,37 @@ class CtxImpl implements Ctx {
    * 引いた結果は、同じ要求の組（計算基準月・データの組・構成員の生年月などが同じ）のあいだで使い回す
    */
   param(id: string, month: MonthIndex, opts: ParamOptions, until: MonthIndex): Selected {
-    const def = this.#impl.def;
     const state = this.#state;
-    if (!this.#sets.params.has(id)) throw new EngineError("E_PARAM_UNDECLARED", [def.id, id]);
-    // 鍵: 値ID →（構成員・出来事・管轄）→ 月。数の鍵で引けるように入れ子の Map にする
+    const slot = this.#slot(id);
+    // 鍵: 値ID →（構成員・出来事・管轄）→ 月。数の鍵で引けるように入れ子の Map にする（部品の近道から、同じ表を引く）
     const j = opts.jurisdiction;
-    const sub =
-      opts.member === undefined && opts.birth === undefined && opts.anchorEvent === undefined && (j === undefined || j === "national")
-        ? id
-        : `${id}|${whoKey(opts)}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
-    const cache = state.paramCache.params;
-    let byMonth = cache.get(sub);
-    if (byMonth === undefined) {
-      byMonth = new Map();
-      cache.set(sub, byMonth);
+    let byMonth: NumTable<Selected>;
+    if (opts.birth === undefined && opts.anchorEvent === undefined && (j === undefined || j === "national")) {
+      const member = opts.member;
+      if (member === undefined) byMonth = slot.plain ??= monthTable(state.paramCache.params, id);
+      else {
+        slot.byMember ??= new Map();
+        let m = slot.byMember.get(member);
+        if (m === undefined) {
+          m = monthTable(state.paramCache.params, `${id}|${member}||`);
+          slot.byMember.set(member, m);
+        }
+        byMonth = m;
+      }
+    } else {
+      const sub = `${id}|${whoKey(opts)}|${opts.anchorEvent ?? ""}|${j === undefined || j === "national" ? "" : `${j.level}:${j.code}`}`;
+      slot.byOpts ??= new Map();
+      let m = slot.byOpts.get(sub);
+      if (m === undefined) {
+        m = monthTable(state.paramCache.params, sub);
+        slot.byOpts.set(sub, m);
+      }
+      byMonth = m;
     }
-    let sel = byMonth.get(month);
+    let sel = byMonth[month];
     if (sel === undefined) {
       sel = this.#selectAt(id, month, opts);
-      byMonth.set(month, sel);
+      byMonth[month] = sel;
     }
     if (sel.recordedLater === true) {
       this.#addNotice(`N_PARAM_RECORDED_LATER|${id}`, { code: "N_PARAM_RECORDED_LATER", ids: [sel.ref, sel.entry.recordedIn] }, false);
@@ -1500,8 +1706,8 @@ class CtxImpl implements Ctx {
       }
       this.#addExtended(sel.ref, sel.extendedYear, last);
     }
-    const tracer = state.tracer;
-    if (tracer.on) {
+    if (state.traceOn) {
+      const tracer = state.tracer;
       tracer.param(this.#frame, {
         type: "param",
         id,

@@ -47,7 +47,8 @@ const P = {
 
 /**
  * 制度データに無い年度は、最後の値に改定率の比を掛けて延ばす（0007 の7: 連動する値）。at はその月（または区間）の値、fy はその年度。
- * back は「fy より前で値のある最後の年度」を探した結果の使い回し
+ * back は「fy より前で値のある最後の年度」を探した結果の使い回し。conds は年度ごとの「値がある（notApplicable でない）か」の使い回し
+ * （改訂5: 年度ごとに前の年度へさかのぼって探すので、同じ年度を何度も読まない。読む順と結果は前と同じ）
  */
 function indexed(
   ctx: Ctx,
@@ -58,6 +59,7 @@ function indexed(
   R: (fy: number) => string,
   projected: Map<string, number[]>,
   backs: Map<string, number | null>,
+  conds: Map<string, Map<number, boolean>>,
 ): Yen | null {
   if (at0.has(id, { member })) {
     const v = at0.paramYen(id, { member });
@@ -67,10 +69,19 @@ function indexed(
   let found = backs.get(key);
   if (found === undefined) {
     found = null;
+    let byYear = conds.get(id);
+    if (byYear === undefined) {
+      byYear = new Map();
+      conds.set(id, byYear);
+    }
     for (let back = fy - 1; back >= fy - 100; back--) {
-      const at = ctx.at(fiscalYearStart(back));
-      if (!at.has(id, { member })) continue;
-      if (at.paramYen(id, { member }) === null) continue;
+      let ok = byYear.get(back);
+      if (ok === undefined) {
+        const at = ctx.at(fiscalYearStart(back));
+        ok = at.has(id, { member }) && at.paramYen(id, { member }) !== null;
+        byYear.set(back, ok);
+      }
+      if (!ok) continue;
       found = back;
       break;
     }
@@ -89,7 +100,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "pension.supplementaryBenefit",
   title: "年金生活者支援給付金",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: {
     "pension.oldAge": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -120,6 +131,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
     const cache = new Map<number, { num: number; den: number } | null>();
     const projected = new Map<string, number[]>();
     const backs = new Map<string, number | null>();
+    const conds = new Map<string, Map<number, boolean>>();
     // 10月から翌年9月は、その年（判定の年度）の住民税と前年の所得で決める
     const eligible = (y: number): { num: number; den: number } | null => {
       let v = cache.get(y);
@@ -129,13 +141,13 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
       const total = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: y - 1 }).total;
       const measure = pensionIncome.revenue + (total - pensionIncome.income);
       const oct = monthIndex(y, 10);
-      const limit = indexed(ctx, ctx.at(oct), fiscalYearOf(oct), P.limit, member, R, projected, backs);
+      const limit = indexed(ctx, ctx.at(oct), fiscalYearOf(oct), P.limit, member, R, projected, backs, conds);
       v = null;
       if (exemptAll && limit !== null) {
         if (measure <= limit) v = { num: 1, den: 1 };
         else {
           const at = ctx.at(oct);
-          const sup = at.has(P.supLimit, { member }) || hasEarlier(P.supLimit, fiscalYearOf(oct)) ? indexed(ctx, at, fiscalYearOf(oct), P.supLimit, member, R, projected, backs) : null;
+          const sup = at.has(P.supLimit, { member }) || hasEarlier(P.supLimit, fiscalYearOf(oct)) ? indexed(ctx, at, fiscalYearOf(oct), P.supLimit, member, R, projected, backs, conds) : null;
           if (sup === null) ctx.notice("N_PARAM_MISSING", [P.supLimit, member]);
           else if (measure <= sup && sup > limit) v = { num: sup - measure, den: sup - limit };
         }
@@ -167,7 +179,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
         const judge = monthOf(m) >= 10 ? yearOf(m) : yearOf(m) - 1;
         const ratio = eligible(judge);
         if (ratio === null) continue;
-        const b = indexed(ctx, seg.at, fiscalYearOf(m), P.base, member, R, projected, backs);
+        const b = indexed(ctx, seg.at, fiscalYearOf(m), P.base, member, R, projected, backs, conds);
         if (b === null) continue;
         const max = seg.at.paramCount(P.maxMonths) ?? 480;
         let v = seg.at.money.mulRatio(b, Math.min(paid, max) * ratio.num, max * ratio.den, P.round);

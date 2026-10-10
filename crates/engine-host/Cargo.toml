@@ -8,5 +8,6 @@ description = "計算エンジン（TypeScript をまとめた JS）を quickjs-
 
 [dependencies]
 # 0005: quickjs-ng と rquickjs の版は固定する（上げるときは一致テストと脱出テストを通す）
-rquickjs = { version = "=0.14.0", default-features = false }
+# disable-assertions: quickjs-ng の C の assert を外す（NDEBUG。quickjs-ng の Release ビルドと同じ。0005 の追記（2026-10-10）: 正の計算が約5%速い）
+rquickjs = { version = "=0.14.0", default-features = false, features = ["disable-assertions"] }
 serde_json = "1"

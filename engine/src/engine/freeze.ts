@@ -2,7 +2,8 @@
 export function deepFreeze<T>(v: T): T {
   if (v !== null && typeof v === "object" && !Object.isFrozen(v)) {
     Object.freeze(v);
-    for (const x of Object.values(v)) deepFreeze(x);
+    // 数・文字列などの中身には関数を呼ばない（0005 の追記（2026-10-10））
+    for (const x of Object.values(v)) if (x !== null && typeof x === "object") deepFreeze(x);
   }
   return v;
 }

@@ -2,6 +2,7 @@
 import { EngineError } from "../errors.ts";
 import type { Ctx } from "../registry/ctx.ts";
 import type { Flow } from "../engine/types.ts";
+import { numTable } from "../engine/numTable.ts";
 import { RATE_ZERO, type Rate } from "../money/rate.ts";
 import { yen, type Yen } from "../money/yen.ts";
 import type { AgeSwitch } from "../time/ageSwitch.ts";
@@ -144,12 +145,16 @@ export function paymentsInYear<T extends { readonly ym: string }>(xs: readonly T
 
 /** お金の動きを、支払月の暦年ごとに足した額（年の昇順）。被用者保険・国民年金の保険料の部品が出力に添える（社会保険料控除のため） */
 export function paidByYear(flows: readonly Flow[]): { year: number; amount: Yen }[] {
-  const sums = new Map<number, number>();
+  // 数の鍵の表で足す（Map より速い。0005 の追記（2026-10-10））。最後に年の昇順に並べる
+  const sums = numTable<number>();
+  const years: number[] = [];
   for (const f of flows) {
     const y = yearOf(parseYm(f.ym));
-    sums.set(y, (sums.get(y) ?? 0) + f.amount);
+    const cur = sums[y];
+    if (cur === undefined) years.push(y);
+    sums[y] = (cur ?? 0) + f.amount;
   }
-  return [...sums.entries()].sort((a, b) => a[0] - b[0]).map(([year, amount]) => ({ year, amount: yen(amount) }));
+  return years.sort((a, b) => a - b).map((year) => ({ year, amount: yen(sums[year] as number) }));
 }
 
 /** paidByYear の形の列から、その年の額（無ければ 0。年の昇順なので二分探索） */
