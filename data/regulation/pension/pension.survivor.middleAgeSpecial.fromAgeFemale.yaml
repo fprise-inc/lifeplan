@@ -1,0 +1,21 @@
+id: pension.survivor.middleAgeSpecial.fromAgeFemale
+title: 中高齢者の期間短縮の特例で数える厚生年金の月の始まりの年齢（女子35歳に達した月以後）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 35
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/kakyu-hurikae/20150401.html", "retrievedAt": "2026-10-10", "sha256": "075db478a1ab2747d22acf878fe169de54a00d004c3cf447a3f795986c6c9e37", "locator": "加給年金額と振替加算（日本年金機構）の注", "quote": "40歳（女性と坑内員・船員は35歳）以降15年から19年"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則12条1項4号（e-Gov に改正法の附則の本文が無く、条文は確かめていない）。日本年金機構の案内で読んだ。坑内員・船員の35歳は扱わない"}

@@ -100,12 +100,30 @@ export interface EmploymentPeriodInput {
   readonly endsWith?: string;
 }
 
+/** 第1号の期間の内訳の月数 */
+export interface Category1Months {
+  readonly paid: number;
+  readonly exemptQuarter?: number;
+  readonly exemptHalf?: number;
+  readonly exemptThreeQuarters?: number;
+  readonly exemptFull?: number;
+  /** 学生納付特例・納付猶予 */
+  readonly deferred?: number;
+}
+
 export interface PensionRecordInput {
   readonly id: string;
   readonly member: string;
   readonly kind: "statementUnder50" | "statementOver50" | "receiving" | "history" | "projection";
   readonly asOf: string;
-  readonly months?: { readonly basic: number; readonly employee: number; readonly employee2059?: number; readonly qualifying?: number };
+  readonly months?: {
+    readonly basic: number;
+    readonly employee: number;
+    readonly employee2059?: number;
+    readonly qualifying?: number;
+    /** 第1号の期間の内訳（納付済・免除の種類・学生納付特例と納付猶予）。2026-10-10 に足した任意の欄 */
+    readonly category1?: Category1Months;
+  };
   readonly amounts?: {
     readonly basic?: ValueBox<Yen>;
     readonly employee?: ValueBox<Yen>;
@@ -115,7 +133,16 @@ export interface PensionRecordInput {
   readonly history?: readonly {
     readonly from: string;
     readonly to: string;
-    readonly category: "national1" | "national1Unpaid" | "national3" | "employee";
+    readonly category:
+      | "national1"
+      | "national1Unpaid"
+      | "national1ExemptQuarter"
+      | "national1ExemptHalf"
+      | "national1ExemptThreeQuarters"
+      | "national1ExemptFull"
+      | "national1Deferred"
+      | "national3"
+      | "employee";
     readonly averageRemuneration?: Yen;
     /** 当時の平均標準報酬（月）額。再評価率（pension.revaluationRate）でいまの水準に直す。averageRemuneration と一緒には書かない */
     readonly averageRemunerationAtTime?: Yen;
@@ -255,6 +282,8 @@ export interface ResidenceInput {
     readonly gifts?: readonly {
       readonly recipient: string;
       readonly giver?: "parent" | "grandparent" | "other";
+      /** 贈与者（世帯の外の親族。donors の ID）。同じ贈与者からの贈与を合わせて数える */
+      readonly donor?: string;
       readonly amount: Yen;
       readonly taxMethod?: "calendar" | "settlement";
       readonly housingExemption?: "energySaving" | "other" | "none";
@@ -352,6 +381,15 @@ export interface HouseholdInput {
   readonly retirementBenefits?: readonly RetirementBenefitInput[];
   readonly goals?: readonly GoalInput[];
   readonly careExpenses?: readonly CareExpenseInput[];
+  readonly donors?: readonly DonorInput[];
+}
+
+/** 贈与者（世帯の外の親族。0008 の追記 2026-10-10 の決定1） */
+export interface DonorInput {
+  readonly id: string;
+  readonly kind: "parent" | "grandparent" | "other";
+  /** 誰の親・祖父母か（構成員の ID）。省略は受け取る人の親・祖父母とみなす */
+  readonly of?: string;
 }
 
 /** 6.10: 介護の費用 */
@@ -577,6 +615,8 @@ export interface EducationGoalInput {
     readonly amount: Yen;
     readonly purpose: "wedding" | "housing" | "other";
     readonly payer?: string;
+    /** 世帯の外の贈与者（donors の ID）が出すとき。世帯からは出さない */
+    readonly donor?: string;
     readonly taxMethod?: "calendar" | "settlement";
     readonly housingExemption?: "energySaving" | "other" | "none";
   }[];

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:pension.oldAgeBase.output",
+  "title": "pension.oldAgeBase の出力（老齢年金の月ごとの額。障害年金と選ぶ前）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["months"],
+  "properties": {
+    "months": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["month", "basic", "employee", "special", "suspended"],
+        "properties": {
+          "month": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "basic": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "employee": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "special": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "suspended": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
+    }
+  }
+}

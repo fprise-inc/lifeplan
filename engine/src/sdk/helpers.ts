@@ -342,3 +342,54 @@ export function contingencyRatio(
   if (m <= parseYm(event.month)) return null;
   return on.mode === "stop" ? RATE_ZERO : ctx.rate.of(on.ratio ?? "1");
 }
+
+/** 老齢基礎年金の月数に換算する免除の割合の値ID（分子。分母は EXEMPTION_WEIGHT_DENOMINATOR）。国民年金法27条ただし書・平成16年改正法附則10条 */
+export const EXEMPTION_WEIGHT_IDS = {
+  quarter: "pension.basic.exemptionWeight.quarter",
+  half: "pension.basic.exemptionWeight.half",
+  threeQuarters: "pension.basic.exemptionWeight.threeQuarters",
+  full: "pension.basic.exemptionWeight.full",
+} as const;
+export const EXEMPTION_WEIGHT_DENOMINATOR = "pension.basic.exemptionWeight.denominator";
+
+/** 第1号の期間の内訳（pension.record の出力 category1 と同じ形） */
+export interface ExemptionCounts {
+  readonly exemptQuarter: number;
+  readonly exemptHalf: number;
+  readonly exemptThreeQuarters: number;
+  readonly exemptFull: number;
+  readonly pre2009?: { readonly exemptQuarter: number; readonly exemptHalf: number; readonly exemptThreeQuarters: number; readonly exemptFull: number };
+}
+
+/**
+ * 免除の月（4分の1・半額・4分の3・全額。学生納付特例・納付猶予は入れない）を、老齢基礎年金の額の月数に換算した月数（分数）。
+ * 割合は免除の月で決まる（2009年3月以前は 5/6・2/3・1/2・1/3、2009年4月以後は 7/8・3/4・5/8・1/2）ので、制度データを2009年3月と2009年4月で引く。
+ * 480月を超える分の割合（27条3・5・7号）は扱わない（呼ぶ側が480月で止める）。部品は値IDを params に書くこと
+ */
+export function exemptionMonths(ctx: Ctx, c: ExemptionCounts): { num: bigint; den: bigint } {
+  const pre = c.pre2009 ?? { exemptQuarter: 0, exemptHalf: 0, exemptThreeQuarters: 0, exemptFull: 0 };
+  let num = 0n;
+  let den = 1n;
+  const add = (month: MonthIndex, counts: readonly [string, number][]) => {
+    if (counts.every(([, n]) => n <= 0)) return;
+    const at = ctx.at(month);
+    const d = BigInt(at.paramCount(EXEMPTION_WEIGHT_DENOMINATOR) ?? 1);
+    let part = 0n;
+    for (const [id, n] of counts) if (n > 0) part += BigInt(n) * BigInt(at.paramCount(id) ?? 0);
+    num = num * d + part * den;
+    den = den * d;
+  };
+  add(monthIndex(2009, 3), [
+    [EXEMPTION_WEIGHT_IDS.quarter, pre.exemptQuarter],
+    [EXEMPTION_WEIGHT_IDS.half, pre.exemptHalf],
+    [EXEMPTION_WEIGHT_IDS.threeQuarters, pre.exemptThreeQuarters],
+    [EXEMPTION_WEIGHT_IDS.full, pre.exemptFull],
+  ]);
+  add(monthIndex(2009, 4), [
+    [EXEMPTION_WEIGHT_IDS.quarter, c.exemptQuarter - pre.exemptQuarter],
+    [EXEMPTION_WEIGHT_IDS.half, c.exemptHalf - pre.exemptHalf],
+    [EXEMPTION_WEIGHT_IDS.threeQuarters, c.exemptThreeQuarters - pre.exemptThreeQuarters],
+    [EXEMPTION_WEIGHT_IDS.full, c.exemptFull - pre.exemptFull],
+  ]);
+  return { num, den };
+}

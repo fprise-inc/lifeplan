@@ -1,0 +1,21 @@
+id: pension.supplementaryBenefit.exemptionShare.denominator
+title: 年金生活者支援給付金の免除期間の分の割合の分母（12）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2019-10-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2025-06-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 12
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/424AC0000000102_20250601_504AC0000000068?response_format=xml", "retrievedAt": "2026-10-10", "sha256": "b00ecb58dddd85fa396b72e4b52d2eb12dd38809a5424b2a99f703d7a35b4de6", "locator": "年金生活者支援給付金の支給に関する法律 第3条第2号（令和7年6月1日の版）", "quote": "保険料四分の一免除期間の月数の十二分の一"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/section/faq/jukyu/seido/sonota-kyufu/shienkyufukin/kaiteitsuchi/keisan.html", "retrievedAt": "2026-10-10", "sha256": "96c54a4c7228e30e83f39e6b6abff90958e9ab0718e12ef058034888de7b4622", "locator": "年金生活者支援給付金の計算（日本年金機構）の※3", "quote": "老齢基礎年金満額（月額）の12分の1"}
+      - {"type": "law", "lawNumber": "平成二十四年法律第百二号", "egovRevisionId": "424AC0000000102_20250601_504AC0000000068"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-10", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合"], "note": "年金生活者支援給付金の支給に関する法律3条2号（令和7年6月1日の版）と日本年金機構の案内（令和8年度の給付額の計算）が一致: 保険料免除期間（学生納付特例・納付猶予を除く）の月数の6分の1（4分の1免除は12分の1）×老齢基礎年金の満額/480÷12。分母12で表す。施行日は確かめた版の日を notAfter に書いた"}

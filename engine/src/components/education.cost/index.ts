@@ -54,7 +54,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
   id: "education.cost",
   title: "教育費",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "debt.schedule": ">=1 <2" },
   params: PARAMS,
   reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
@@ -264,6 +264,8 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
       }
       // 子への援助
       for (const gf of e.gifts ?? []) {
+        // 世帯の外の贈与者（donors）が出す援助は世帯から出さない（贈与税は gift.tax）
+        if (gf.donor !== undefined) continue;
         push(ctx.time.resolve(gf.at), gf.purpose === "wedding" ? "cf.expense.lumpSum.wedding" : "cf.expense.lumpSum.gift", gf.amount, `education.cost.gift.${gf.purpose}`, gf.payer ?? parent);
       }
       if ((e.gifts ?? []).length > 0) ctx.notice("N_NOT_SUPPORTED", ["giftTax"]);

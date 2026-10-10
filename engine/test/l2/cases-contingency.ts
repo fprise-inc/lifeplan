@@ -146,6 +146,69 @@ function careCopay(service: number): number {
   return entry<{ flows: Flow[] }>(r, "care.expense", {}).flows.filter((f) => f.ym === "2027-02").reduce((s, f) => s + f.amount, 0);
 }
 
+
+const EX10 = "原本の額・計算例（2026-10-10 に取得して読んだ）";
+const RULE10 = "原本の規則（額・率・区分）から作った例（2026-10-10 に取得して読んだ）";
+const NENKIN_OLDAGE_GUIDE = "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf";
+const NENKIN_SURVIVOR_GUIDE = "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03-3.pdf";
+const NENKIN_UNIT_2026 = "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf";
+const NTA_GIFT_FORM = "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/shinkoku/zoyo/yoshiki2025/pdf/001.pdf";
+
+/** 65歳（1961年6月生まれ）の老齢基礎年金（2026年10月の年額）。定期便の月数と第1号の内訳 */
+function basicWithExemptions(category1: Obj, basic: number): number {
+  const A = uid("l2c.oa");
+  const req = edit(household({ baseMonth: "2026-10", endYear: 2028, members: [member("l2c.oa", "self", "1961-06")] }), (h) => {
+    h.pensionRecords = [{ id: uid("l2c.oar"), member: A, kind: "statementUnder50", asOf: "2026-05", months: { basic, employee: 0, category1 }, amounts: { employee: box(0) } }];
+  });
+  return entry<{ months: { month: string; basic: number }[] }>(req, "pension.oldAgeBase", { member: A }).months.find((m) => m.month === "2026-10")?.basic ?? -1;
+}
+
+/** 自営業の夫（1980年生まれ）が2026年10月に亡くなる。第1号の納付 paid か月と4分の1免除 quarter か月（どちらも記録の中）での死亡一時金 */
+function deathLumpSumExempt(paid: number, quarter: number): number {
+  const total = paid + quarter;
+  const ym = (back: number) => {
+    const m = 2026 * 12 + 9 - back; // 2026-10 の back か月前
+    return `${Math.floor(m / 12)}-${String((m % 12) + 1).padStart(2, "0")}`;
+  };
+  const req = household({
+    baseMonth: "2026-10",
+    endYear: 2028,
+    members: [member("l2c.h", "self", "1980-05", { sex: "male" }), member("l2c.w", "spouse", "1985-05")],
+    relations: [{ type: "spouse", a: H, b: W, marriage: "legal", from: null, to: null }],
+  });
+  const r = edit(req, (h, input) => {
+    h.employmentPeriods = [{ id: uid("l2c.p"), member: H, from: at("2026-10"), to: null, type: "unemployed" }];
+    h.pensionRecords = [
+      {
+        id: uid("l2c.r"),
+        member: H,
+        kind: "history",
+        asOf: "2026-09",
+        history: [
+          { from: ym(total), to: ym(quarter + 1), category: "national1" },
+          { from: ym(quarter), to: ym(1), category: "national1ExemptQuarter" },
+        ],
+      },
+    ];
+    input.contingencies = [{ id: uid("l2c.cg"), kind: "death", member: H, occurs: at("2026-10") }];
+  });
+  return entry<SurvivorPensionOutput>(r, "pension.survivor", { member: W }).lumpSum;
+}
+
+/** 会社員の夫（1960年生まれ・在職中）が2026年10月に亡くなったときの、65歳以上の妻（wifeBirth）の2026年11月の経過的寡婦加算 */
+function transitionalWidow(wifeBirth: string): number {
+  const req = household({
+    baseMonth: "2026-10",
+    endYear: 2028,
+    members: [member("l2c.h", "self", "1960-05", { sex: "male" }), member("l2c.w", "spouse", wifeBirth)],
+    relations: [{ type: "spouse", a: H, b: W, marriage: "legal", from: null, to: null }],
+    periods: [period("l2c.p", { member: "l2c.h", from: "1983-04", annual: 6000000, std: [500000, 500000] })],
+    residentTaxAssessments: rta(),
+  });
+  const r = edit(req, (_h, input) => (input.contingencies = [{ id: uid("l2c.cg"), kind: "death", member: H, occurs: at("2026-10") }]));
+  return entry<SurvivorPensionOutput>(r, "pension.survivor", { member: W }).months.find((m) => m.month === "2026-11")?.widowAddition ?? -1;
+}
+
 export const CONTINGENCY_CASES: L2Case[] = [
   { id: "S-1", area: "遺族年金・障害年金", title: "遺族基礎年金（令和8年度・子2人の妻）: 847,300＋243,800×2 = 1,334,900円", source: { url: NENKIN_SURVIVOR, note: RULE }, expected: 1334900, actual: () => survivor("1985-05", ["2018-06", "2021-06"])?.basic ?? -1, status: "pass" },
   { id: "S-2", area: "遺族年金・障害年金", title: "遺族基礎年金（令和8年度・子1人の妻）: 847,300＋243,800 = 1,091,100円", source: { url: NENKIN_SURVIVOR, note: RULE }, expected: 1091100, actual: () => survivor("1985-05", ["2018-06"])?.basic ?? -1, status: "pass" },
@@ -159,6 +222,12 @@ export const CONTINGENCY_CASES: L2Case[] = [
   { id: "G-3", area: "贈与税", title: "一般100万円と特例400万円: 53万×1/5＋48.5万×4/5 = 49.4万円", source: { url: NTA4408, note: EX }, expected: 494000, actual: () => giftTax([{ giver: "other", amount: 1000000, housingExemption: "none" }, { giver: "parent", amount: 4000000, housingExemption: "none" }]), status: "pass" },
   { id: "G-4", area: "贈与税", title: "相続時精算課税（2024年以後）: 3,000万円 → (3,000万−110万−2,500万)×20% = 78万円", source: { url: NTA4103, note: RULE }, expected: 780000, actual: () => giftTax([{ giver: "parent", amount: 30000000, taxMethod: "settlement", housingExemption: "none" }]), status: "pass" },
   { id: "G-5", area: "贈与税", title: "住宅取得等資金の非課税（省エネ等住宅1,000万円）と基礎控除: 1,200万円 → (1,200万−1,000万−110万)×10% = 9万円", source: { url: NTA4508, note: RULE }, expected: 90000, actual: () => giftTax([{ giver: "parent", amount: 12000000, housingExemption: "energySaving" }]), status: "pass" },
+  { id: "S-8", area: "公的年金", title: "老齢基礎年金の免除の月（令和8年度・日本年金機構の計算例）: 納付400月・全額免除40月・4分の1免除40月 → 847,300×(400＋40×1/2＋40×7/8)/480 = 803,170円", source: { url: NENKIN_OLDAGE_GUIDE, note: EX10 }, expected: 803170, actual: () => basicWithExemptions({ paid: 400, exemptFull: 40, exemptQuarter: 40 }, 400), status: "pass" },
+  { id: "S-9", area: "遺族年金・障害年金", title: "死亡一時金の月数（4分の1免除は3/4で数える）: 納付27月＋4分の1免除12月×3/4 = 36月 → 120,000円", source: { url: NENKIN_SURVIVOR_GUIDE, note: RULE10 }, expected: 120000, actual: () => deathLumpSumExempt(27, 12), status: "pass" },
+  { id: "S-10", area: "遺族年金・障害年金", title: "死亡一時金の月数: 納付26月＋4分の1免除12月×3/4 = 35月（36月未満）→ 0円", source: { url: NENKIN_SURVIVOR_GUIDE, note: RULE10 }, expected: 0, actual: () => deathLumpSumExempt(26, 12), status: "pass" },
+  { id: "S-11", area: "遺族年金・障害年金", title: "経過的寡婦加算（令和8年度・昭和5年4月2日〜昭和6年4月1日生まれの妻）: 517,162円", source: { url: NENKIN_UNIT_2026, note: EX10 }, expected: 517162, actual: () => transitionalWidow("1930-06"), status: "pass" },
+  { id: "S-12", area: "遺族年金・障害年金", title: "経過的寡婦加算（令和8年度・昭和30年4月2日〜昭和31年4月1日生まれの妻）: 21,147円", source: { url: NENKIN_UNIT_2026, note: EX10 }, expected: 21147, actual: () => transitionalWidow("1955-06"), status: "pass" },
+  { id: "G-6", area: "贈与税", title: "一般と特例の両方（国税庁の申告書の計算明細の例）: 特例500万円・一般1,000万円 → 366万×5/15＋450.5万×10/15（各1円未満切り捨て）= 4,223,333円 → 100円未満切り捨て 4,223,300円", source: { url: NTA_GIFT_FORM, note: EX10 }, expected: 4223300, actual: () => giftTax([{ giver: "parent", amount: 5000000, housingExemption: "none" }, { giver: "other", amount: 10000000, housingExemption: "none" }]), status: "pass" },
   { id: "I-1", area: "保険", title: "満期金の一時所得: 満期金300万円・払込保険料240万円 → (300万−240万−50万)×1/2 = 5万円を総所得金額に", source: { url: NTA1755, note: RULE }, expected: 50000, actual: () => maturityIncluded(3000000, 20000), status: "pass" },
   { id: "M-1", area: "医療・介護", title: "高額療養費（2026年8月診療分から・区分ウ）: 医療費100万円 → 85,800＋(100万−286,000)×1% = 92,940円", source: { url: MHLW_HIGHCOST, note: RULE }, expected: 92940, actual: () => highCost(1000000, 1), status: "pass" },
   { id: "M-2", area: "医療・介護", title: "高額療養費の多数回該当（区分ウ）: 4回目から44,400円", source: { url: MHLW_HIGHCOST, note: RULE }, expected: 44400, actual: () => highCost(1000000, 4), status: "pass" },

@@ -218,6 +218,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.oldAgeBase
+    status: active
+    label: "老齢年金の月ごとの額（障害年金と選ぶ前）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.record
     status: active
     label: "公的年金の加入の記録"

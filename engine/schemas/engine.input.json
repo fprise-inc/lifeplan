@@ -234,7 +234,8 @@
         "savingsChecks": { "description": "0008 の追記: 現状の検算（1件まで）", "type": "array", "maxItems": 1, "x-collection": "savingsCheck", "items": { "$ref": "#/$defs/savingsCheck" } },
         "retirementBenefits": { "description": "0008 の追記: 退職給付", "type": "array", "x-collection": "retirementBenefit", "x-owner": ["member"], "items": { "$ref": "#/$defs/retirementBenefit" } },
         "goals": { "description": "0008 の6: 目標", "type": "array", "x-collection": "goal", "x-owner": ["owner"], "items": { "$ref": "#/$defs/goal" } },
-        "careExpenses": { "description": "6.10: 介護（本人・親）の費用。月額×期間＋一時費用", "type": "array", "x-collection": "care", "x-owner": ["member", "payer"], "items": { "$ref": "#/$defs/careExpense" } }
+        "careExpenses": { "description": "6.10: 介護（本人・親）の費用。月額×期間＋一時費用", "type": "array", "x-collection": "care", "x-owner": ["member", "payer"], "items": { "$ref": "#/$defs/careExpense" } },
+        "donors": { "description": "0008 の追記（2026-10-10）: 贈与者（世帯の外の親族。親・祖父母など）。同じ贈与者からの贈与を、相続時精算課税の特別控除・暦年課税で合わせて数える", "type": "array", "x-collection": "donor", "items": { "$ref": "#/$defs/donor" } }
       }
     },
     "timepointOrNull": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/timepoint" }] },
@@ -720,7 +721,7 @@
             "gifts": {
               "description": "親・祖父母からの資金援助（受け取る構成員と額。贈与税は贈与の作業で扱う）",
               "type": "array",
-              "items": { "type": "object", "additionalProperties": false, "required": ["recipient", "amount"], "properties": { "recipient": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "giver": { "enum": ["parent", "grandparent", "other"] }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }, "taxMethod": { "description": "贈与税の課税の方法（省略は暦年課税）", "enum": ["calendar", "settlement"] }, "housingExemption": { "description": "住宅取得等資金の非課税を使うか・住宅の種類（省略は使う・省エネ等住宅でない）", "enum": ["energySaving", "other", "none"] } } }
+              "items": { "type": "object", "additionalProperties": false, "required": ["recipient", "amount"], "properties": { "recipient": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "giver": { "enum": ["parent", "grandparent", "other"] }, "donor": { "description": "贈与者（donors の ID）。同じ贈与者からの贈与を合わせて数える（省略は援助ごとに別の贈与者）", "$ref": "urn:financia:schema:common#/$defs/uuid" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }, "taxMethod": { "description": "贈与税の課税の方法（省略は暦年課税）", "enum": ["calendar", "settlement"] }, "housingExemption": { "description": "住宅取得等資金の非課税を使うか・住宅の種類（省略は使う・省エネ等住宅でない）", "enum": ["energySaving", "other", "none"] } } }
             }
           }
         },
@@ -949,6 +950,17 @@
         "workRelated": { "description": "業務上の死亡か（弔慰金の非課税の枠が普通給与の3年分になる）", "type": "boolean" }
       }
     },
+    "donor": {
+      "description": "贈与者（世帯の外の親族）。氏名は持たない（0012）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "kind": { "title": "贈与者の区分（親・祖父母は直系尊属。特例税率・住宅取得等資金の非課税の判定に使う）", "x-item": "donor.kind", "enum": ["parent", "grandparent", "other"] },
+        "of": { "title": "誰の親・祖父母か（構成員）。省略は受け取る人の親・祖父母とみなす", "x-item": "donor.of", "$ref": "urn:financia:schema:common#/$defs/uuid" }
+      }
+    },
     "careExpense": {
       "description": "6.10: 介護の費用。介護保険の対象の費用（10割）には自己負担割合（所得で1〜3割）と高額介護サービス費の上限を効かせる。保険の対象外の費用・一時費用はそのまま。省略は統計の既定（出典つき）",
       "type": "object",
@@ -988,7 +1000,21 @@
             "basic": { "title": "老齢基礎年金の額に反映する月数（第1号の納付済・第3号・第2号の20〜59歳）", "type": "integer", "minimum": 0, "maximum": 600 },
             "employee": { "title": "厚生年金の加入月数", "type": "integer", "minimum": 0, "maximum": 900 },
             "employee2059": { "title": "うち20〜59歳の厚生年金の月数（経過的加算。省略は employee と basic の小さい方）", "type": "integer", "minimum": 0, "maximum": 480 },
-            "qualifying": { "title": "受給資格期間の月数（免除・合算対象期間を含む。省略は basic）", "type": "integer", "minimum": 0, "maximum": 900 }
+            "qualifying": { "title": "受給資格期間の月数（免除・合算対象期間を含む。省略は basic と category1 の免除・学生納付特例・納付猶予の月数の合計）", "type": "integer", "minimum": 0, "maximum": 900 },
+            "category1": {
+              "title": "第1号の期間の内訳（20〜59歳。納付済の月は basic に含まれ、免除・学生納付特例・納付猶予の月は basic に含めない）。死亡一時金・寡婦年金・老齢基礎年金で免除の月を数えるのに使う。省略は第1号の月を basic から近似する",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["paid"],
+              "properties": {
+                "paid": { "title": "保険料納付済の月数", "type": "integer", "minimum": 0, "maximum": 480 },
+                "exemptQuarter": { "title": "4分の1免除の月数", "type": "integer", "minimum": 0, "maximum": 480 },
+                "exemptHalf": { "title": "半額免除の月数", "type": "integer", "minimum": 0, "maximum": 480 },
+                "exemptThreeQuarters": { "title": "4分の3免除の月数", "type": "integer", "minimum": 0, "maximum": 480 },
+                "exemptFull": { "title": "全額免除の月数（学生納付特例・納付猶予を除く）", "type": "integer", "minimum": 0, "maximum": 480 },
+                "deferred": { "title": "学生納付特例・納付猶予の月数（追納していないもの）", "type": "integer", "minimum": 0, "maximum": 480 }
+              }
+            }
           }
         },
         "amounts": {
@@ -1014,7 +1040,7 @@
             "properties": {
               "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
               "to": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
-              "category": { "enum": ["national1", "national1Unpaid", "national3", "employee"] },
+              "category": { "description": "national1 は第1号の納付済、national1Unpaid は未納、national1Exempt* は免除（4分の1・半額・4分の3・全額）、national1Deferred は学生納付特例・納付猶予（追納していないもの）", "enum": ["national1", "national1Unpaid", "national1ExemptQuarter", "national1ExemptHalf", "national1ExemptThreeQuarters", "national1ExemptFull", "national1Deferred", "national3", "employee"] },
               "averageRemuneration": {
                 "title": "平均標準報酬額（2003年3月以前は平均標準報酬月額。いまの賃金の水準に直した額とみなす）",
                 "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
@@ -1588,6 +1614,7 @@
                   "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "purpose": { "enum": ["wedding", "housing", "other"] },
                   "payer": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                  "donor": { "description": "世帯の外の贈与者（donors の ID）が出すとき（世帯からは出さない）。同じ贈与者からの贈与を合わせて数える", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                   "taxMethod": { "description": "贈与税の課税の方法（省略は暦年課税）", "enum": ["calendar", "settlement"] },
                   "housingExemption": { "description": "住宅資金の援助で住宅取得等資金の非課税を使うか・住宅の種類（省略は使う・省エネ等住宅でない）", "enum": ["energySaving", "other", "none"] }
                 }

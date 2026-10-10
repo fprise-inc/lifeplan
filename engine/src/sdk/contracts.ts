@@ -297,6 +297,20 @@ export interface RecordOutput {
     readonly special: Yen | null;
   };
   readonly months: readonly RecordMonth[];
+  /** 約束の版 1.1: 記録の第1号の期間の内訳（20〜59歳。記録の時点まで）。known は入力に内訳があったか。pre2009 は2009年3月以前の免除の月数（加入歴だけ） */
+  readonly category1?: {
+    readonly known: boolean;
+    readonly paid: number;
+    readonly exemptQuarter: number;
+    readonly exemptHalf: number;
+    readonly exemptThreeQuarters: number;
+    readonly exemptFull: number;
+    readonly deferred: number;
+    /** うち2009年3月以前の免除の月（老齢基礎年金の割合が違う。加入歴だけ） */
+    readonly pre2009: { readonly exemptQuarter: number; readonly exemptHalf: number; readonly exemptThreeQuarters: number; readonly exemptFull: number };
+  };
+  /** 約束の版 1.1: 加入歴（history）の厚生年金の月のうち40歳（女子35歳）以後の月数（中高齢者の期間短縮の特例）。記録の時点まで */
+  readonly employeeFromMiddleAge?: number;
 }
 
 /** residentTax.exemption: 住民税の非課税（均等割・所得割）の判定。前年の所得による */
@@ -547,6 +561,11 @@ export interface DisabilityPensionMonth {
 export interface DisabilityPensionOutput {
   readonly flows: readonly Flow[];
   readonly months: readonly DisabilityPensionMonth[];
+  /**
+   * 約束の版 1.1: 65歳からの組み合わせ（月の範囲。両端を含む）。disability は障害基礎年金＋障害厚生年金、oldAge は老齢基礎年金＋老齢厚生年金、
+   * disabilityBasicOldAgeEmployee は障害基礎年金＋老齢厚生年金
+   */
+  readonly choices?: readonly { readonly from: string; readonly to: string; readonly combination: "disability" | "oldAge" | "disabilityBasicOldAgeEmployee" }[];
 }
 
 /** debt.creditLifeEvents: 団信で残高が消える月と割合（保障割合・事由・夫婦連生から） */
@@ -601,6 +620,8 @@ export interface GiftReceived {
   /** 贈与者の区分（特例税率は直系尊属から） */
   readonly giver: "parent" | "grandparent" | "household" | "other";
   readonly giverMember: string | null;
+  /** 約束の版 1.1: 世帯の外の贈与者（donors の ID）。同じ贈与者からの贈与を合わせて数える */
+  readonly donor?: string;
   readonly method: "calendar" | "settlement";
   readonly housing: "energySaving" | "other" | null;
   /** 世帯の外から受け取る贈与か（その贈与税をキャッシュフロー表に載せる） */

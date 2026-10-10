@@ -37,16 +37,19 @@ const POST = "pension.employee.accrualRate.post2003";
 const ROUND = "pension.amount.rounding";
 // 再評価率（生年月日の区分×報酬の期間の表。年度ごと）。加入歴の「当時の額」をその年度の水準に直す（0007 の追記）
 const REVAL = "pension.revaluationRate";
+// 中高齢者の期間短縮の特例で数える厚生年金の月の始まり（40歳。女子は35歳。昭和60年改正法附則12条1項4号）
+const MIDDLE_MALE = "pension.survivor.middleAgeSpecial.fromAgeMale";
+const MIDDLE_FEMALE = "pension.survivor.middleAgeSpecial.fromAgeFemale";
 const SPLIT_2003 = monthIndex(2003, 4);
 const SINCE_1961 = monthIndex(1961, 4);
 
 export default defineComponent<{ member: string }, RecordOutput>({
   id: "pension.record",
   title: "公的年金の加入の記録",
-  contract: "1.0",
-  revision: 4,
+  contract: "1.1",
+  revision: 5,
   requires: { "pension.category": ">=1 <2", "socialInsurance.coverage": ">=1 <2", "socialInsurance.employeeStatus": ">=1 <2", "pension.revision": ">=1 <2" },
-  params: [UNTIL60, FROM20, PRE, POST, ROUND, REVAL],
+  params: [UNTIL60, FROM20, PRE, POST, ROUND, REVAL, MIDDLE_MALE, MIDDLE_FEMALE],
   reads: [
     "pensionRecord.member",
     "pensionRecord.kind",
@@ -56,6 +59,7 @@ export default defineComponent<{ member: string }, RecordOutput>({
     "pensionRecord.history",
     "employment.salary.annual",
     "employment.salary.bonus",
+    "member.sex",
   ],
   memberScope: ["pensionRecord", "employment"],
   input: "member.input",
@@ -112,6 +116,11 @@ export default defineComponent<{ member: string }, RecordOutput>({
     let employeeMonths = 0;
     let employee2059Months = 0;
     let qualifyingMonths = 0;
+    // 第1号の期間の内訳（死亡一時金・寡婦年金・老齢基礎年金の免除の月。改訂5）
+    const c1 = { known: false, paid: 0, exemptQuarter: 0, exemptHalf: 0, exemptThreeQuarters: 0, exemptFull: 0, deferred: 0, pre2009: { exemptQuarter: 0, exemptHalf: 0, exemptThreeQuarters: 0, exemptFull: 0 } };
+    const SINCE_2009 = monthIndex(2009, 4);
+    let middleFrom: MonthIndex | null = null;
+    let employeeFromMiddleAge = 0;
     if (rec === undefined) {
       ctx.notice("N_ESTIMATED", ["pensionRecord", member]);
     } else if (rec.kind === "history") {
@@ -181,6 +190,18 @@ export default defineComponent<{ member: string }, RecordOutput>({
         }
         return ctx.rate.fraction(row.rate);
       };
+      c1.known = true;
+      // 中高齢者の期間短縮の特例（40歳・女子35歳以後の厚生年金の月）
+      const sex = ctx.list<{ id: string; sex?: string }>("member").find((x) => x.id === member)?.sex;
+      const middleId = sex === "female" ? MIDDLE_FEMALE : MIDDLE_MALE;
+      middleFrom = ctx.at(base).has(middleId) ? ageMonth(ctx, base, middleId, member) : null;
+      const exemptKey = {
+        national1ExemptQuarter: "exemptQuarter",
+        national1ExemptHalf: "exemptHalf",
+        national1ExemptThreeQuarters: "exemptThreeQuarters",
+        national1ExemptFull: "exemptFull",
+        national1Deferred: "deferred",
+      } as const;
       for (const h of rec.history ?? []) {
         const f = parseYm(h.from);
         const t = parseYm(h.to);
@@ -188,9 +209,20 @@ export default defineComponent<{ member: string }, RecordOutput>({
           const npAge = m >= from20 && m < until60;
           if (h.category === "national1Unpaid") continue;
           qualifyingMonths++;
+          // 免除・学生納付特例・納付猶予: 受給資格期間に数え、老齢基礎年金の額の月数（basicMonths）には入れない
+          if (h.category in exemptKey) {
+            if (npAge) {
+              c1[exemptKey[h.category as keyof typeof exemptKey]]++;
+              const key = exemptKey[h.category as keyof typeof exemptKey];
+              if (key !== "deferred" && m < SINCE_2009) c1.pre2009[key]++;
+            }
+            continue;
+          }
+          if (npAge && h.category === "national1") c1.paid++;
           if (npAge) basicMonths++;
           if (h.category === "employee") {
             employeeMonths++;
+            if (middleFrom !== null && m >= middleFrom) employeeFromMiddleAge++;
             if (npAge && m >= SINCE_1961) employee2059Months++;
             const r = ctx.rate.fraction(at.paramRate(m < SPLIT_2003 ? PRE : POST) ?? rate("0"));
             if (h.averageRemunerationAtTime !== undefined) {
@@ -205,7 +237,17 @@ export default defineComponent<{ member: string }, RecordOutput>({
       basicMonths = rec.months?.basic ?? 0;
       employeeMonths = rec.months?.employee ?? 0;
       employee2059Months = rec.months?.employee2059 ?? Math.min(employeeMonths, basicMonths);
-      qualifyingMonths = rec.months?.qualifying ?? basicMonths;
+      const k = rec.months?.category1;
+      if (k !== undefined) {
+        c1.known = true;
+        c1.paid = k.paid;
+        c1.exemptQuarter = k.exemptQuarter ?? 0;
+        c1.exemptHalf = k.exemptHalf ?? 0;
+        c1.exemptThreeQuarters = k.exemptThreeQuarters ?? 0;
+        c1.exemptFull = k.exemptFull ?? 0;
+        c1.deferred = k.deferred ?? 0;
+      }
+      qualifyingMonths = rec.months?.qualifying ?? basicMonths + c1.exemptQuarter + c1.exemptHalf + c1.exemptThreeQuarters + c1.exemptFull + c1.deferred;
       amounts.basic = rec.kind === "statementUnder50" ? null : boxValue(rec.amounts?.basic);
       amounts.employee = boxValue(rec.amounts?.employee);
       amounts.transitional = boxValue(rec.amounts?.transitional);
@@ -223,6 +265,8 @@ export default defineComponent<{ member: string }, RecordOutput>({
       qualifyingMonths,
       amounts,
       months,
+      category1: c1,
+      ...(rec?.kind === "history" && middleFrom !== null ? { employeeFromMiddleAge } : {}),
     };
   },
 });

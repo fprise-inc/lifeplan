@@ -1,0 +1,45 @@
+id: socialInsurance.highCostMedical.under70.annualLimitRetroactive
+title: 高額療養費の年間上限を次の期間の区分と年間上限で計算し直して払い戻すか（1 は払い戻す。令和8年8月〜令和9年7月の年収約200万円以下の41万円）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-10", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて（年間上限は令和8年8月から）", "quote": "年間上限の月額平均（令和８年度）"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "年間上限は令和8年8月診療分からで、それより前は計算し直しも無い"}
+  - rev: 2
+    appliesFrom: "2026-08-01"
+    appliesTo: "2027-07-31"
+    enforcedOn: "2026-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-10", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて 令和８年８月～令和９年７月の表の※5", "quote": "年間上限41万円を適用し、令和９年８月以降に償還払い。"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "「年収換算 ～約200万円（健保：15万円以下、国保：86万円以下）」は令和9年8月からの第12区分と同じ境なので、部品は令和9年8月の区分の表と年間上限の表で計算し直す。償還の月は令和9年8月とみなす（実際はそれより後になりうる）。政令の条文（経過措置）は確かめていない"}
+  - rev: 3
+    appliesFrom: "2027-08-01"
+    appliesTo: null
+    enforcedOn: "2027-08-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726232.pdf", "retrievedAt": "2026-10-10", "sha256": "df9834435fe4d02466f94fbc8cecf5e7e544ea169ae111942d4ae5be9974c6b9", "locator": "高額療養費制度の見直しについて 令和９年８月～の表（第12区分の年間上限 410,000円）", "quote": "患者負担割合及び高額療養費自己負担限度額（令和９年８月～）"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和9年8月からは区分の細分化で41万円が年間上限の表に入るので、計算し直しは要らない"}
