@@ -1,0 +1,22 @@
+id: pension.deathLumpSum.exemptionWeight.half
+title: 死亡一時金の月数に数える保険料半額免除の月（1/2）の割合
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2006-07-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.5"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-10", "sha256": "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", "locator": "国民年金法 第52条の2第1項（令和8年10月1日の版）", "quote": "保険料四分の一免除期間の月数の四分の三に相当する月数、保険料半額免除期間の月数の二分の一に相当する月数及び保険料四分の三免除期間の月数の四分の一に相当する月数"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20170401_429AC0000000004?response_format=xml", "retrievedAt": "2026-10-10", "sha256": "5d079346916b55d497c4d776284742a3b1eb41302945fb1170271e9fcaee38dc", "locator": "同（平成29年4月1日の版）", "quote": "保険料四分の一免除期間の月数の四分の三に相当する月数、保険料半額免除期間の月数の二分の一に相当する月数及び保険料四分の三免除期間の月数の四分の一に相当する月数"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03-3.pdf", "retrievedAt": "2026-10-10", "sha256": "a0d3fcfdf953d366813db3aac14da799a7abc3dd262430a9c7913dba55e770cf", "locator": "遺族年金ガイド 令和8年度版 死亡一時金", "quote": "半額納付期間は1/2に相当する月数"}
+      - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号", "egovRevisionId": "334AC0000000141_20261001_507AC0000000074"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-10", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合"], "note": "国民年金法52条の2（令和8年10月・平成29年4月の版）と日本年金機構の遺族年金ガイド（令和8年度版）が一致。全額免除・学生納付特例・納付猶予の月は数えない。4分の1・4分の3免除は平成18年7月から（適用開始はその月とした）"}

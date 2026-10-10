@@ -1,0 +1,471 @@
+id: pension.survivor.transitionalWidowAddition.numerator
+title: 経過的寡婦加算の率の分子（妻の生年月日。加算額＝中高齢寡婦加算の額−老齢基礎年金の満額×分子÷分母。昭和31年4月2日以後生まれは無い）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": null, "to": "1927-04-01"}
+    value: 0
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（大正15年4月2日～昭和2年4月1日・それ以前）", "quote": "633,700円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）。昭和2年4月1日以前生まれは率0（中高齢寡婦加算と同じ額）"}
+  - rev: 2
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1927-04-02", "to": "1928-04-01"}
+    value: 12
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1927-04-02〜1928-04-01生まれ）", "quote": "601,204円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 3
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1928-04-02", "to": "1929-04-01"}
+    value: 24
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1928-04-02〜1929-04-01生まれ）", "quote": "571,115円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 4
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1929-04-02", "to": "1930-04-01"}
+    value: 36
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1929-04-02〜1930-04-01生まれ）", "quote": "543,175円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 5
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1930-04-02", "to": "1931-04-01"}
+    value: 48
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1930-04-02〜1931-04-01生まれ）", "quote": "517,162円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 6
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1931-04-02", "to": "1932-04-01"}
+    value: 60
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1931-04-02〜1932-04-01生まれ）", "quote": "492,883円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 7
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1932-04-02", "to": "1933-04-01"}
+    value: 72
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1932-04-02〜1933-04-01生まれ）", "quote": "470,171円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 8
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1933-04-02", "to": "1934-04-01"}
+    value: 84
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1933-04-02〜1934-04-01生まれ）", "quote": "448,878円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 9
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1934-04-02", "to": "1935-04-01"}
+    value: 96
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1934-04-02〜1935-04-01生まれ）", "quote": "428,876円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 10
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1935-04-02", "to": "1936-04-01"}
+    value: 108
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1935-04-02〜1936-04-01生まれ）", "quote": "410,050円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 11
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1936-04-02", "to": "1937-04-01"}
+    value: 120
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1936-04-02〜1937-04-01生まれ）", "quote": "392,300円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 12
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1937-04-02", "to": "1938-04-01"}
+    value: 132
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1937-04-02〜1938-04-01生まれ）", "quote": "375,536円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 13
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1938-04-02", "to": "1939-04-01"}
+    value: 144
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1938-04-02〜1939-04-01生まれ）", "quote": "359,678円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 14
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1939-04-02", "to": "1940-04-01"}
+    value: 156
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1939-04-02〜1940-04-01生まれ）", "quote": "344,655円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 15
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1940-04-02", "to": "1941-04-01"}
+    value: 168
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1940-04-02〜1941-04-01生まれ）", "quote": "330,403円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 16
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1941-04-02", "to": "1942-04-01"}
+    value: 180
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1941-04-02〜1942-04-01生まれ）", "quote": "316,862円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 17
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1942-04-02", "to": "1943-04-01"}
+    value: 192
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1942-04-02〜1943-04-01生まれ）", "quote": "295,740円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 18
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1943-04-02", "to": "1944-04-01"}
+    value: 204
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1943-04-02〜1944-04-01生まれ）", "quote": "274,617円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 19
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1944-04-02", "to": "1945-04-01"}
+    value: 216
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1944-04-02〜1945-04-01生まれ）", "quote": "253,495円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 20
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1945-04-02", "to": "1946-04-01"}
+    value: 228
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1945-04-02〜1946-04-01生まれ）", "quote": "232,372円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 21
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1946-04-02", "to": "1947-04-01"}
+    value: 240
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1946-04-02〜1947-04-01生まれ）", "quote": "211,250円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 22
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1947-04-02", "to": "1948-04-01"}
+    value: 252
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1947-04-02〜1948-04-01生まれ）", "quote": "190,127円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 23
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1948-04-02", "to": "1949-04-01"}
+    value: 264
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1948-04-02〜1949-04-01生まれ）", "quote": "169,005円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 24
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1949-04-02", "to": "1950-04-01"}
+    value: 276
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1949-04-02〜1950-04-01生まれ）", "quote": "147,882円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 25
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1950-04-02", "to": "1951-04-01"}
+    value: 288
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1950-04-02〜1951-04-01生まれ）", "quote": "126,760円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 26
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1951-04-02", "to": "1952-04-01"}
+    value: 300
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1951-04-02〜1952-04-01生まれ）", "quote": "105,637円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 27
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1952-04-02", "to": "1953-04-01"}
+    value: 312
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1952-04-02〜1953-04-01生まれ）", "quote": "84,515円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 28
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1953-04-02", "to": "1954-04-01"}
+    value: 324
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1953-04-02〜1954-04-01生まれ）", "quote": "63,392円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 29
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1954-04-02", "to": "1955-04-01"}
+    value: 336
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1954-04-02〜1955-04-01生まれ）", "quote": "42,270円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 30
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1955-04-02", "to": "1956-04-01"}
+    value: 348
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/kyotsu/nenkingaku/20150401-02.files/0804.pdf", "retrievedAt": "2026-10-10", "sha256": "64ed04ca9102f6197d0f819c1582432ed8dc742973842d6e0eacdda2ea1aa38d", "locator": "遺族厚生年金 単価表（令和8年4月）の経過的寡婦加算の欄（1955-04-02〜1956-04-01生まれ）", "quote": "21,147円"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "昭和60年改正法附則73条1項（e-Gov に改正法の附則の本文が無く、条文と率の表は確かめていない）。率は、日本年金機構の遺族厚生年金の単価表（令和8年4月）の経過的寡婦加算の額（昭和31年4月1日以前生まれの単価: 中高齢寡婦加算 633,700円・老齢基礎年金 844,900円）から、加算額＝633,700−844,900×率（1円未満四捨五入）が全29区分で一致する率として読んだ（分子は12×区分の番号、分母は300＋12×区分の番号で480が上限）"}
+  - rev: 31
+    appliesFrom: "1986-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions:
+      - {"key": "birthDate", "from": "1956-04-02", "to": null}
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03-3.pdf", "retrievedAt": "2026-10-10", "sha256": "a0d3fcfdf953d366813db3aac14da799a7abc3dd262430a9c7913dba55e770cf", "locator": "遺族年金ガイド 令和8年度版 中高齢の寡婦加算額", "quote": "昭和31年4月1日以前生まれの妻が"}
+      - {"type": "law", "lawNumber": "昭和六十年法律第三十四号"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "経過的寡婦加算は昭和31年4月1日以前生まれの妻だけ"}

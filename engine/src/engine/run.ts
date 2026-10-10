@@ -304,6 +304,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     h.pensionRecords ?? [],
     h.premiumAssessments ?? [],
     h.premiumRates ?? [],
+    h.donors ?? [],
   ].flatMap((l) =>
     (l as readonly { id: string }[]).map((o) => o.id),
   );
@@ -321,8 +322,16 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     ...(h.careExpenses ?? []).flatMap((c) => [c.member, ...(c.payer !== undefined ? [c.payer] : [])]),
     ...h.insuranceContracts.flatMap((c) => [...(c.annuitant !== undefined ? [c.annuitant] : []), ...(c.beneficiaries ?? []).flatMap((b) => (b.member !== undefined ? [b.member] : []))]),
     ...(input.protection?.members ?? []),
+    ...(h.donors ?? []).flatMap((d) => (d.of !== undefined ? [d.of] : [])),
   ];
   if (refs.some((id) => !memberIds.has(id))) throw new EngineError("E_ARGUMENT", ["household.member"]);
+  // 贈与者（donors）を指す欄は、贈与者の ID だけ
+  const donorIds = new Set((h.donors ?? []).map((d) => d.id));
+  const donorRefs = [
+    ...(h.residences ?? []).flatMap((r) => (r.purchase?.gifts ?? []).flatMap((g) => (g.donor !== undefined ? [g.donor] : []))),
+    ...(h.goals ?? []).flatMap((g) => (g.education?.gifts ?? []).flatMap((x) => (x.donor !== undefined ? [x.donor] : []))),
+  ];
+  if (donorRefs.some((id) => !donorIds.has(id))) throw new EngineError("E_ARGUMENT", ["household.donor"]);
   // 年金の加入の記録は構成員ごとに1件まで
   const recordMembers = (h.pensionRecords ?? []).map((r) => r.member);
   if (new Set(recordMembers).size !== recordMembers.length) throw new EngineError("E_ARGUMENT", ["household.pensionRecords.member"]);

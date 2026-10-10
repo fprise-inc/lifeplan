@@ -13,9 +13,13 @@
 # 2026.7.0: 遺族年金（遺族厚生年金の4分の3・300月みなし・長期要件・中高齢寡婦加算・30歳未満の妻・夫の55歳と60歳・65歳以降の調整）・寡婦年金・
 #   死亡一時金・障害年金（1級の1.25・3級の最低保障・300月みなし・障害認定日）の値を新しいファイルで足した（既存のファイルは変えていない）。
 #   公式のサイトにこの作業の環境から届かなかったので、検索の要約で読んだ値で、すべて原本での確認待ち（pendingReview）
+# 2026.9.0: 老齢基礎年金の免除の月の割合（pension.basic.exemptionWeight.*。2009年3月以前と以後）・死亡一時金の免除の月の割合（pension.deathLumpSum.exemptionWeight.*）を
+#   原本（国民年金法27条・52条の2・平成16年改正法附則10条と日本年金機構の案内）で確かめて足した。中高齢者の期間短縮の特例（pension.survivor.middleAgeSpecial.*）と
+#   経過的寡婦加算の率（pension.survivor.transitionalWidowAddition.*）を新しいファイルで足した（改正法の附則の本文に届かないので原本での確認待ち）。
+#   年金生活者支援給付金の免除期間の分の割合（pension.supplementaryBenefit.exemptionShare.*）を原本（法3条2号と日本年金機構の案内）で確かめて足した。既存のファイルは変えていない
 packId: regulation.pension
 formatVersion: "0.1"
-version: "2026.8.0"
+version: "2026.9.0"
 features: []
 title: 公的年金
 requires:

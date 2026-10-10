@@ -404,6 +404,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: donor.kind
+    status: active
+    label: "贈与者の区分（親・祖父母は直系尊属。特例税率・住宅取得等資金の非課税の判定に使う）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: donor.of
+    status: active
+    label: "誰の親・祖父母か（構成員）。省略は受け取る人の親・祖父母とみなす"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: employment.business.income
     status: active
     label: "事業所得（年額）"

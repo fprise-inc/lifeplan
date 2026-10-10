@@ -596,6 +596,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: giftTax.tax.allocation.rounding
+    status: active
+    label: "贈与税（暦年課税）で一般税率と特例税率の両方があるときの、按分した各部分の端数（1円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: giftTax.tax.rounding
     status: active
     label: "贈与税の税額の端数（100円未満切り捨て）"
@@ -1376,6 +1382,36 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.basic.exemptionWeight.denominator
+    status: active
+    label: "老齢基礎年金の額の月数に換算する免除の月の割合の分母（2009年3月以前の月は6、2009年4月以後は8）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.basic.exemptionWeight.full
+    status: active
+    label: "老齢基礎年金の額の月数に換算する保険料全額免除の月（学生納付特例・納付猶予を除く）の割合の分子（分母は pension.basic.exemptionWeight.denominator。2009年3月以前の月は6分の2、2009年4月以後は8分の4）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.basic.exemptionWeight.half
+    status: active
+    label: "老齢基礎年金の額の月数に換算する保険料半額免除の月の割合の分子（分母は pension.basic.exemptionWeight.denominator。2009年3月以前の月は6分の4、2009年4月以後は8分の6）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.basic.exemptionWeight.quarter
+    status: active
+    label: "老齢基礎年金の額の月数に換算する保険料4分の1免除の月の割合の分子（分母は pension.basic.exemptionWeight.denominator。2009年3月以前の月は6分の5、2009年4月以後は8分の7）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.basic.exemptionWeight.threeQuarters
+    status: active
+    label: "老齢基礎年金の額の月数に換算する保険料4分の3免除の月の割合の分子（分母は pension.basic.exemptionWeight.denominator。2009年3月以前の月は6分の3、2009年4月以後は8分の5）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.basic.fullAmount.rounding
     status: active
     label: "満額・加給年金額などの基準額×改定率の端数処理（100円未満四捨五入）"
@@ -1415,6 +1451,24 @@ entries:
   - id: pension.deathLumpSum
     status: active
     label: "死亡一時金の額（第1号被保険者としての保険料の納付月数の段階）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.deathLumpSum.exemptionWeight.half
+    status: active
+    label: "死亡一時金の月数に数える保険料半額免除の月（1/2）の割合"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.deathLumpSum.exemptionWeight.quarter
+    status: active
+    label: "死亡一時金の月数に数える保険料4分の1免除の月（3/4）の割合"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.deathLumpSum.exemptionWeight.threeQuarters
+    status: active
+    label: "死亡一時金の月数に数える保険料4分の3免除の月（1/4）の割合"
     since: draft
     aliases: []
     replacedBy: null
@@ -1610,6 +1664,24 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.supplementaryBenefit.exemptionShare.denominator
+    status: active
+    label: "年金生活者支援給付金の免除期間の分の割合の分母（12）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.supplementaryBenefit.exemptionShare.other
+    status: active
+    label: "年金生活者支援給付金の免除期間の分で数える保険料全額・4分の3・半額免除の月（6分の1）の割合の分子（分母は pension.supplementaryBenefit.exemptionShare.denominator）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.supplementaryBenefit.exemptionShare.quarter
+    status: active
+    label: "年金生活者支援給付金の免除期間の分で数える保険料4分の1免除の月（12分の1）の割合の分子（分母は pension.supplementaryBenefit.exemptionShare.denominator）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.supplementaryBenefit.incomeLimit
     status: active
     label: "年金生活者支援給付金（老齢）の所得基準額（前年の公的年金等の収入金額＋その他の所得。10月から翌年9月）"
@@ -1661,6 +1733,36 @@ entries:
   - id: pension.survivor.longTermMonths
     status: active
     label: "遺族年金の長期要件の受給資格期間（25年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.middleAgeSpecial.fromAgeFemale
+    status: active
+    label: "中高齢者の期間短縮の特例で数える厚生年金の月の始まりの年齢（女子35歳に達した月以後）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.middleAgeSpecial.fromAgeMale
+    status: active
+    label: "中高齢者の期間短縮の特例で数える厚生年金の月の始まりの年齢（男子40歳に達した月以後）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.middleAgeSpecial.requiredMonths
+    status: active
+    label: "中高齢者の期間短縮の特例: 40歳（女子35歳）以後の厚生年金の月数がこの月数以上なら、遺族厚生年金の長期要件・中高齢寡婦加算の240月を満たすとみなす（死亡した人の生年月日。昭和26年4月2日以後生まれは無い）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.transitionalWidowAddition.denominator
+    status: active
+    label: "経過的寡婦加算の率の分母（妻の生年月日。昭和31年4月2日以後生まれは無い）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.survivor.transitionalWidowAddition.numerator
+    status: active
+    label: "経過的寡婦加算の率の分子（妻の生年月日。加算額＝中高齢寡婦加算の額−老齢基礎年金の満額×分子÷分母。昭和31年4月2日以後生まれは無い）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2399,6 +2501,12 @@ entries:
   - id: socialInsurance.highCostMedical.under70.annualLimit
     status: active
     label: "高額療養費の年間上限（70歳未満。8月〜翌年7月の12か月。upTo は区分の番号（令和9年7月までは 1 ア・2 イ・3 ウ・4 エ・5 オ、令和9年8月からは 1〜13。最後の区分は住民税非課税））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.highCostMedical.under70.annualLimitRetroactive
+    status: active
+    label: "高額療養費の年間上限を次の期間の区分と年間上限で計算し直して払い戻すか（1 は払い戻す。令和8年8月〜令和9年7月の年収約200万円以下の41万円）"
     since: draft
     aliases: []
     replacedBy: null

@@ -37,6 +37,7 @@ import incomeBusiness from "./income.business/index.ts";
 import pensionCategory from "./pension.category/index.ts";
 import pensionEmployeeMonths from "./pension.employeeMonths/index.ts";
 import pensionOldAge from "./pension.oldAge/index.ts";
+import pensionOldAgeBase from "./pension.oldAgeBase/index.ts";
 import pensionRecord from "./pension.record/index.ts";
 import pensionRevision from "./pension.revision/index.ts";
 import pensionSupplementaryBenefit from "./pension.supplementaryBenefit/index.ts";
@@ -118,6 +119,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   pensionCategory,
   pensionEmployeeMonths,
   pensionOldAge,
+  pensionOldAgeBase,
   pensionRecord,
   pensionRevision,
   pensionSupplementaryBenefit,

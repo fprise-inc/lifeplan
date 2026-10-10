@@ -82,12 +82,12 @@ function couple(base: string, hBirth: string, wBirth: string, who: "h" | "w", at
 }
 
 /** 年金生活者支援給付金（月額）。納付済の月数と、世帯全員が住民税非課税・所得基準以下とする */
-function supportBenefit(basicMonths: number): number {
+function supportBenefit(basicMonths: number, exemptFull = 0): number {
   const req = withH(household({ baseMonth: "2026-10", endYear: 2027, members: [member("l2p.a", "self", "1958-01", { sex: "male" })] }), { residentTaxAssessments: [rta(A)] });
   const months = ["2026-10", "2026-11", "2026-12"].map((month) => ({ month, basic: 800000, employee: 0, special: 0, suspended: 0 }));
   const flows = entry<{ flows: { ym: string; amount: number }[] }>(req, "pension.supplementaryBenefit", { member: A }, {
     "pension.oldAge": () => ({ flows: [], payments: [], months }),
-    "pension.record": () => ({ kind: "projection", fiscalYear: 2026, asOf: "2026-04", basicMonths, employeeMonths: 0, employee2059Months: 0, qualifyingMonths: basicMonths, amounts: { basic: null, employee: null, transitional: null, special: null }, months: [] }),
+    "pension.record": () => ({ kind: "projection", fiscalYear: 2026, asOf: "2026-04", basicMonths, employeeMonths: 0, employee2059Months: 0, qualifyingMonths: basicMonths, amounts: { basic: null, employee: null, transitional: null, special: null }, months: [], ...(exemptFull > 0 ? { category1: { known: true, paid: basicMonths, exemptQuarter: 0, exemptHalf: 0, exemptThreeQuarters: 0, exemptFull, deferred: 0, pre2009: { exemptQuarter: 0, exemptHalf: 0, exemptThreeQuarters: 0, exemptFull: 0 } } } : {}) }),
     "residentTax.exemption": () => ({ perCapitaExempt: true, incomeLevyExempt: true, persons: 1 }),
     "tax.totalIncome": () => ({ total: 0, employment: 0, publicPension: 0 }),
     "tax.publicPensionIncome": () => ({ revenue: 700000, deduction: 700000, income: 0 }),
@@ -199,8 +199,7 @@ export const PENSION_CASES: readonly L2Case[] = [
   { id: "pn.transfer.r7", area: "公的年金", title: "振替加算 令和7年度（配偶者が昭和30年4月2日〜昭和31年4月1日生まれ）→ 54,162円", source: { url: "https://www.shaho-net.co.jp/nenkin_guide/images/104_02.pdf", note: `${SUM}（令和7年度の表）` }, expected: 600000 + 54162, actual: () => couple("2025-10", "1953-05", "1955-10", "w", "2025-10"), status: "pass" },
   { id: "pn.supportBenefit.480", area: "公的年金", title: "年金生活者支援給付金 令和8年度: 納付済480月 → 月5,620円", source: { url: SB, note: SUM }, expected: 5620, actual: () => supportBenefit(480), status: "pass" },
   {
-    id: "pn.supportBenefit.240", area: "公的年金", title: "年金生活者支援給付金 令和8年度: 納付済240月・全額免除60月 → 月4,281円", source: { url: SB, note: SUM }, expected: 4281, actual: () => supportBenefit(240), status: "knownMismatch",
-    cause: "免除期間の分（11,768円×免除月数/480）を入れていない。加入の記録に免除の月を持たないため（この計算は納付済の分 2,810円だけ）",
+    id: "pn.supportBenefit.240", area: "公的年金", title: "年金生活者支援給付金 令和8年度: 納付済240月・全額免除60月 → 5,620×240/480＋847,300÷12×(60×1/6)/480 = 2,810＋1,471 = 月4,281円", source: { url: SB, note: SUM }, expected: 4281, actual: () => supportBenefit(240, 60), status: "pass",
   },
   // 年金の税
   { id: "pt.pensionIncome.matsudo", area: "公的年金", title: "松戸市: 年金収入 2,500,000円（65歳以上）の雑所得", source: { url: "https://www.city.matsudo.chiba.jp/kurashi/zeikin_top/kojiin/shikenminzei/kojin_keisan_nekin.html", note: SUM }, expected: 1400000, actual: () => pensionIncome(2025, "1953-01", 2500000).income, status: "pass" },

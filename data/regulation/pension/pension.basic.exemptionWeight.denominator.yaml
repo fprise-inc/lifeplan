@@ -1,0 +1,38 @@
+id: pension.basic.exemptionWeight.denominator
+title: 老齢基礎年金の額の月数に換算する免除の月の割合の分母（2009年3月以前の月は6、2009年4月以後は8）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "1961-04-01"
+    appliesTo: "2009-03-31"
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 6
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-10", "sha256": "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", "locator": "国民年金法 附則（平成16年法律第104号）第10条第1項（令和8年10月1日の版）", "quote": "の六分の五に相当する月数"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20170401_429AC0000000004?response_format=xml", "retrievedAt": "2026-10-10", "sha256": "5d079346916b55d497c4d776284742a3b1eb41302945fb1170271e9fcaee38dc", "locator": "同（平成29年4月1日の版）", "quote": "の六分の五に相当する月数"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", "retrievedAt": "2026-10-10", "sha256": "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", "locator": "老齢年金ガイド 令和8年度版 老齢基礎年金の計算式の注", "quote": "平成21年3月分までの免除期間については"}
+      - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号", "egovRevisionId": "334AC0000000141_20261001_507AC0000000074"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-10", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合"], "note": "平成16年改正法附則10条（国民年金法の附則に収録。令和8年10月・平成29年4月の版）の「特定月の前月以前の期間（平成二十一年四月から平成二十六年三月までの期間を除く。）」の割合と、日本年金機構の老齢年金ガイド（令和8年度版）の「平成21年3月分までの免除期間」の割合が一致。分母6。割合は免除の月で決まるので、適用期間は免除の月の期間として読む（部品は2009年3月の行で引く）。5/6・2/3・1/2・1/3 を分母6で表す"}
+  - rev: 2
+    appliesFrom: "2009-04-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 8
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20261001_507AC0000000074?response_format=xml", "retrievedAt": "2026-10-10", "sha256": "04c88d7cd38da702595e915f5e517c109371553efd1282873956c6d6273c0362", "locator": "国民年金法 第27条ただし書（令和8年10月1日の版）", "quote": "の八分の七に相当する月数"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/334AC0000000141_20170401_429AC0000000004?response_format=xml", "retrievedAt": "2026-10-10", "sha256": "5d079346916b55d497c4d776284742a3b1eb41302945fb1170271e9fcaee38dc", "locator": "同（平成29年4月1日の版）", "quote": "の八分の七に相当する月数"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/pamphlet/kyufu.files/LK03.pdf", "retrievedAt": "2026-10-10", "sha256": "4e73a91e41d925c21edb0a4f2144eab33b9b2cd4e00748baf8381aea50fd6c94", "locator": "老齢年金ガイド 令和8年度版 老齢基礎年金の計算式", "quote": "老齢基礎年金の計算式"}
+      - {"type": "law", "lawNumber": "昭和三十四年法律第百四十一号", "egovRevisionId": "334AC0000000141_20261001_507AC0000000074"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-10", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合"], "note": "国民年金法27条ただし書（令和8年10月・平成29年4月の版）と日本年金機構の老齢年金ガイド（令和8年度版）の計算式が一致。分母8。480月を超える分の割合（3・5・7号）は部品が扱わない。割合は免除の月で決まる（部品は2009年4月の行で引く）。7/8・3/4・5/8・1/2 を分母8で表す"}

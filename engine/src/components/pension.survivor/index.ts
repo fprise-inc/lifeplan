@@ -7,17 +7,28 @@
 //   60歳から（遺族基礎年金を受ける間は60歳前でも）。配偶者が65歳になった後は、自分の老齢厚生年金との調整（報酬比例×1/2＋自分の老齢厚生年金×1/2
 //   と遺族厚生年金の多い方から、自分の老齢厚生年金を引いた額。自分の老齢厚生年金を先に受ける）
 // - 中高齢寡婦加算: 妻が死亡の当時（子があれば遺族基礎年金が終わったとき）40歳以上で、65歳になるまで、遺族基礎年金を受けない月に、
-//   遺族基礎年金の基本額×3/4（100円単位）。長期要件は夫の厚生年金が240月以上のとき。経過的寡婦加算（昭和31年4月1日以前生まれ）は値を持たないので知らせる
-// - 寡婦年金（第1号の期間の夫）: 第1号の月数（免除を含む）が10年以上の夫が老齢年金を受けずに亡くなり、婚姻が10年以上の妻に、60歳から65歳になるまで、
-//   夫の第1号の期間で計算した老齢基礎年金の額×3/4。死亡一時金: 第1号の月数が36月以上で、遺族基礎年金を受ける人がいないとき。寡婦年金と両方を
-//   受けられるときは総額の多い方。第1号の月数は、記録の型によっては第3号の月と区別できないので、厚生年金の月を除いた20〜59歳の月で近似する（知らせ）
+//   遺族基礎年金の基本額×3/4（100円単位）。長期要件は夫の厚生年金が240月以上のとき（夫が昭和26年4月1日以前生まれなら、中高齢者の期間短縮の特例:
+//   40歳（女子35歳）以後の厚生年金の月が生年月日ごとの15〜19年以上でもよい。昭和60年改正法附則12条1項4号・61条1項。月数は加入歴から数える）
+// - 経過的寡婦加算（妻が昭和31年4月1日以前生まれ。昭和60年改正法附則73条）: 中高齢寡婦加算の要件（年齢を除く）を満たす妻の65歳から（65歳以後に
+//   受給権を得たときはその翌月から）、中高齢寡婦加算の額−老齢基礎年金の満額×生年月日ごとの率（附則別表第九。制度データの分子・分母）。
+//   65歳からの自分の老齢厚生年金との調整では、遺族厚生年金に含めて調整する（先に自分の老齢厚生年金を受ける）
+// - 寡婦年金（第1号の期間の夫）: 第1号の保険料納付済期間と保険料免除期間（学生納付特例・納付猶予を含む）が10年以上の夫が老齢年金を受けずに
+//   亡くなり、婚姻が10年以上の妻に、60歳から65歳になるまで、夫の第1号の期間で計算した老齢基礎年金の額（免除の月は27条の割合）×3/4（国民年金法49条・50条）。
+//   死亡一時金: 第1号の納付済の月数＋4分の1免除の月数×3/4＋半額免除×1/2＋4分の3免除×1/4（全額免除・学生納付特例・納付猶予は数えない。52条の2・52条の4）が
+//   36月以上で、遺族基礎年金を受ける人がいないとき。寡婦年金と両方を受けられるときは総額の多い方。第1号の内訳は加入の記録（加入歴・定期便の category1）から。
+//   内訳が無い記録では第3号の月と区別できないので、厚生年金の月を除いた20〜59歳の月を納付済とみなす近似（知らせ）。記録の後の第1号の月は、
+//   死亡の月の前月まで数える（49条・52条の2「死亡日の属する月の前月まで」。改訂2）
 // - 2028年4月からの遺族年金の見直し（有期化・子の加算の見直しなど）は作らない。2028年4月以後の死亡の想定には知らせ（N_REFORM_NOT_REFLECTED）を必ず出す
+//   （制度データの行の扱いは 0007 の追記 2026-10-10: 見直し後の値は別の値IDで持ち、この部品が読む値IDの行は見直し前の値のまま続ける）
 import {
   addMonths,
   ageMonth,
   bracketFor,
   childrenOf,
   defineComponent,
+  exemptionMonths,
+  EXEMPTION_WEIGHT_DENOMINATOR,
+  EXEMPTION_WEIGHT_IDS,
   evenMonthPayments,
   fiscalYearOf,
   fiscalYearStart,
@@ -78,12 +89,16 @@ const P = {
   wpUntil: "pension.widowPension.untilAge",
   lump: "pension.deathLumpSum",
   lumpMonths: "pension.deathLumpSum.requiredMonths",
+  lumpQ: "pension.deathLumpSum.exemptionWeight.quarter",
+  lumpH: "pension.deathLumpSum.exemptionWeight.half",
+  lumpTQ: "pension.deathLumpSum.exemptionWeight.threeQuarters",
+  middleMonths: "pension.survivor.middleAgeSpecial.requiredMonths",
+  twNum: "pension.survivor.transitionalWidowAddition.numerator",
+  twDen: "pension.survivor.transitionalWidowAddition.denominator",
 };
 const SPLIT_2003 = monthIndex(2003, 4);
 /** 2028年4月からの遺族年金の見直し（作らない。知らせだけ） */
 const REFORM_2028 = monthIndex(2028, 4);
-/** 経過的寡婦加算の対象（昭和31年4月1日以前生まれ） */
-const TRANSITIONAL_BORN_BEFORE = "1956-04";
 const DEN = 1000000000000n;
 
 type Input = { member: string; death?: { member: string; month: string } };
@@ -100,7 +115,7 @@ export default defineComponent<Input, SurvivorPensionOutput>({
   id: "pension.survivor",
   title: "遺族年金（遺族基礎年金・遺族厚生年金・中高齢寡婦加算・寡婦年金・死亡一時金）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "contingency.event": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -108,7 +123,7 @@ export default defineComponent<Input, SurvivorPensionOutput>({
     "pension.category": ">=1 <2",
     "pension.oldAge": ">=1 <2",
   },
-  params: Object.values(P),
+  params: [...Object.values(P), ...Object.values(EXEMPTION_WEIGHT_IDS), EXEMPTION_WEIGHT_DENOMINATOR],
   reads: ["member.kind", "member.birth", "member.sex", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "relation.parent", "relation.child"],
   input: "pension.survivor.input",
   output: "pension.survivor.output",
@@ -233,10 +248,27 @@ export default defineComponent<Input, SurvivorPensionOutput>({
     // 中高齢寡婦加算: 遺族基礎年金が終わった月（子が無ければ死亡の月の翌月）に40歳以上
     const lastKid = kidsAll.length === 0 ? death : kidsAll.reduce((mx, c) => ((childUntil.get(c.id) as MonthIndex) > mx ? (childUntil.get(c.id) as MonthIndex) : mx), death);
     const addStart = isSpouse && basicOk && kidsAtDeath ? addMonths(lastKid, 1) : addMonths(death, 1);
-    const addOk =
-      isSpouse && female && employeeOk && (shortTerm || empMonths >= (at0.paramCount(P.addLongMonths) ?? 240)) && addMonths(ageAt(Y, P.addFrom), 0) <= addStart;
+    // 中高齢者の期間短縮の特例（夫の生年月日で必要な月数。制度データに行の無い生年月日は特例なし）
+    let middleOk = false;
+    if (!shortTerm && at0.has(P.middleMonths, { member: deceased })) {
+      const need = at0.paramCount(P.middleMonths, { member: deceased });
+      if (need !== null) {
+        if (rec.employeeFromMiddleAge === undefined) ctx.notice("N_INPUT_REQUIRED", ["pension.survivor.middleAgeSpecial", deceased]);
+        else {
+          // 記録の後の厚生年金の月は、40歳（女子35歳）以後とみなす（記録の後に40歳になる人は特例の生年月日に当たらない）
+          const after = recMonths.filter((x) => x.employee).length;
+          middleOk = rec.employeeFromMiddleAge + after >= need;
+        }
+      }
+    }
+    const longEmpOk = shortTerm || empMonths >= (at0.paramCount(P.addLongMonths) ?? 240) || middleOk;
+    const addOk = isSpouse && female && employeeOk && longEmpOk && addMonths(ageAt(Y, P.addFrom), 0) <= addStart;
     const addUntil = ageAt(Y, P.addUntil);
-    if (isSpouse && female && employeeOk && me.birth.birthYearMonth <= TRANSITIONAL_BORN_BEFORE) ctx.notice("N_PARAM_MISSING", ["pension.survivor.transitionalWidowAddition", Y]);
+    // 経過的寡婦加算（妻の生年月日の率。行の無い生年月日（昭和31年4月2日以後）は無い）
+    // 受給権を得たとき65歳以上、または中高齢寡婦加算を受けていた妻（昭和60年改正法附則73条）
+    const twOk = isSpouse && female && employeeOk && longEmpOk && (addOk || addMonths(death, 1) >= addUntil) && at0.has(P.twNum, { member: Y }) && at0.paramCount(P.twNum, { member: Y }) !== null;
+    const twNum = twOk ? (at0.paramCount(P.twNum, { member: Y }) ?? 0) : 0;
+    const twDen = twOk ? (at0.paramCount(P.twDen, { member: Y }) ?? 1) : 1;
     // 65歳からの自分の老齢厚生年金
     const N = ageAt(Y, P.start);
     let own: Map<string, Yen> | null = null;
@@ -247,14 +279,42 @@ export default defineComponent<Input, SurvivorPensionOutput>({
 
     // 寡婦年金・死亡一時金（第1号の月数）
     const cats = ctx.call<CategoryOutput>("pension.category", { member: deceased }).months;
-    const cat1Future = cats.filter((c) => c.category === "1" && parseYm(c.month) <= death && rec.months.some((x) => x.month === c.month)).length;
-    const cat1 = Math.max(0, rec.basicMonths - rec.employee2059Months) + cat1Future;
-    if (rec.basicMonths - rec.employee2059Months > 0) ctx.notice("N_ESTIMATED", ["pension.survivor.category1Months", deceased]);
+    const cat1Future = cats.filter((c) => c.category === "1" && parseYm(c.month) < death && rec.months.some((x) => x.month === c.month)).length;
+    const k1 = rec.category1;
+    const known = k1 !== undefined && k1.known;
+    const cat1Paid = (known ? k1.paid : Math.max(0, rec.basicMonths - rec.employee2059Months)) + cat1Future;
+    if (!known && rec.basicMonths - rec.employee2059Months > 0) ctx.notice("N_ESTIMATED", ["pension.survivor.category1Months", deceased]);
+    const exQ = known ? k1.exemptQuarter : 0;
+    const exH = known ? k1.exemptHalf : 0;
+    const exTQ = known ? k1.exemptThreeQuarters : 0;
+    const exF = known ? k1.exemptFull : 0;
+    const deferred = known ? k1.deferred : 0;
+    /** 月数＋Σ 月数×率 を分数で（率は制度データ） */
+    const weighted = (base0: number, parts: readonly [string, number][]): { num: bigint; den: bigint } => {
+      let num = BigInt(base0);
+      let den = 1n;
+      for (const [id, n] of parts) {
+        if (n <= 0) continue;
+        const f = ctx.rate.fraction(at0.paramRate(id) ?? RATE_ZERO);
+        num = num * f.den + BigInt(n) * f.num * den;
+        den = den * f.den;
+      }
+      return { num, den };
+    };
+    // 死亡一時金の月数（52条の2）
+    const lumpW = weighted(cat1Paid, [[P.lumpQ, exQ], [P.lumpH, exH], [P.lumpTQ, exTQ]]);
+    const lumpMonthsN = Number(lumpW.num / lumpW.den);
+    // 寡婦年金の要件の月数（49条: 納付済＋免除。学生納付特例・納付猶予だけの夫は除く）と額の月数（27条の割合）
+    const cat1 = cat1Paid + exQ + exH + exTQ + exF + deferred;
+    const wpMonthsOk = cat1Paid + exQ + exH + exTQ + exF > 0;
+    // 寡婦年金の額の月数（27条の割合。免除の月で割合が違う）
+    const wpEx = known ? exemptionMonths(ctx, k1) : { num: 0n, den: 1n };
+    const wpAmountW = { num: BigInt(cat1Paid) * wpEx.den + wpEx.num, den: wpEx.den };
     const receivingOldAge = rec.kind === "receiving" || death >= ageAt(deceased, P.start);
     const spouseRel = relations.find((r) => r.type === "spouse" && ((r.a === Y && r.b === deceased) || (r.b === Y && r.a === deceased)));
     const marriedFrom = spouseRel === undefined || spouseRel.type !== "spouse" || spouseRel.from === null ? null : ctx.time.resolve(spouseRel.from);
     const wpOk =
-      isSpouse && female && !receivingOldAge && cat1 >= (at0.paramCount(P.wpMonths) ?? 120) && (marriedFrom === null || death - marriedFrom >= (at0.paramCount(P.wpMarriage) ?? 120));
+      isSpouse && female && !receivingOldAge && wpMonthsOk && cat1 >= (at0.paramCount(P.wpMonths) ?? 120) && (marriedFrom === null || death - marriedFrom >= (at0.paramCount(P.wpMarriage) ?? 120));
     const wpFrom = ageAt(Y, P.wpFrom) > addMonths(death, 1) ? ageAt(Y, P.wpFrom) : addMonths(death, 1);
     const wpUntil = ageAt(Y, P.wpUntil);
     const maxMonths = at0.paramCount(P.maxMonths) ?? 480;
@@ -276,19 +336,29 @@ export default defineComponent<Input, SurvivorPensionOutput>({
         basic = total;
       }
       let employee = yen(0);
+      let transitional = yen(0);
       if (employeeOk && (isChild ? kids.length > 0 : m >= empFrom || (basic > 0 && !female)) && (empUntil === null || m <= empUntil)) {
         employee = v.survivorEmp;
+        // 経過的寡婦加算（65歳から。遺族基礎年金を受けない月）
+        if (twOk && m >= addUntil && basic === 0) {
+          const minus = v.at.money.mulRatio(v.basic, twNum, twDen, P.round);
+          transitional = v.add > minus ? yen(v.add - minus) : yen(0);
+        }
         if (isSpouse && m >= N) {
           const o = ownAt(m);
           const alt = yen(v.at.money.mulRate(v.prop, v.at.paramRate(P.elderlyProp) ?? RATE_ZERO, P.round) + v.at.money.mulRate(o, v.at.paramRate(P.elderlyOwn) ?? RATE_ZERO, P.round));
-          const best = alt > employee ? alt : employee;
-          employee = best > o ? yen(best - o) : yen(0);
+          const best = yen((alt > employee ? alt : employee) + transitional);
+          const paid = best > o ? yen(best - o) : yen(0);
+          // 調整の後の額のうち、経過的寡婦加算の分（加算を先に残す）
+          transitional = paid < transitional ? paid : transitional;
+          employee = yen(paid - transitional);
         }
       }
-      const widowAddition = addOk && basic === 0 && m >= addStart && m < addUntil ? v.add : yen(0);
+      const widowAddition = addOk && basic === 0 && m >= addStart && m < addUntil ? v.add : transitional;
       let widowPension = yen(0);
       if (wpOk && basic === 0 && m >= wpFrom && m < wpUntil) {
-        const full = v.at.money.mulRatio(v.basic, Math.min(cat1, maxMonths), maxMonths, P.round);
+        const capped = wpAmountW.num > BigInt(maxMonths) * wpAmountW.den ? BigInt(maxMonths) * wpAmountW.den : wpAmountW.num;
+        const full = v.at.money.mulRatio(v.basic, capped, wpAmountW.den * BigInt(maxMonths), P.round);
         widowPension = v.at.money.mulRate(full, v.at.paramRate(P.wpRatio) ?? RATE_ZERO, P.round);
         wpTotal += widowPension;
       }
@@ -299,9 +369,9 @@ export default defineComponent<Input, SurvivorPensionOutput>({
     // 死亡一時金（遺族基礎年金を受ける人がいないとき）。寡婦年金と両方なら総額（年額÷12 の月の合計）の多い方
     let lumpSum = yen(0);
     const anyBasic = basicOk && kidsAtDeath;
-    if (!anyBasic && !receivingOldAge && cat1 >= (at0.paramCount(P.lumpMonths) ?? 36)) {
+    if (!anyBasic && !receivingOldAge && lumpW.num >= BigInt(at0.paramCount(P.lumpMonths) ?? 36) * lumpW.den) {
       const table = at0.paramBrackets(P.lump);
-      const amount = table === null ? yen(0) : (bracketFor(table, yen(cat1)).amount ?? yen(0));
+      const amount = table === null ? yen(0) : (bracketFor(table, yen(lumpMonthsN)).amount ?? yen(0));
       const wpSum = ctx.money.divInt(yen(wpTotal), 12, "conv.exact");
       if (amount > wpSum) {
         lumpSum = amount;

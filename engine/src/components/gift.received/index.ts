@@ -4,6 +4,9 @@
 //   住宅資金は住宅取得等資金の非課税を使う（省略は使う・省エネ等住宅でない）
 // - 保険の受け取りのうち贈与税の区分のもの（insurance.policy。契約者・被保険者・受取人が違う死亡保険金、契約者でない人が受け取る満期金など）
 // 贈与者の区分は、特例税率（直系尊属から18歳以上へ）の判定に使う（親・祖父母・世帯の親・その他）
+// 世帯の外の贈与者（donors。0008 の追記 2026-10-10 の決定1）を指す贈与は donor に ID を残し、gift.tax が同じ贈与者からの贈与を合わせて数える。
+// 贈与者の区分は、贈与者が「誰の親・祖父母か」（of）と受け取る人の関係から決める（受け取る人がその人か、その人の子なら直系尊属。
+// その人の配偶者など、それ以外は「その他」＝一般税率）。教育の目標の援助で贈与者を指すものは、世帯からは出さない（education.cost）
 import {
   defineComponent,
   formatYm,
@@ -14,13 +17,14 @@ import {
   type MemberInput,
   type RelationInput,
   type ResidenceInput,
+  type DonorInput,
 } from "../../sdk/index.ts";
 
 export default defineComponent<{ member: string }, GiftReceivedOutput>({
   id: "gift.received",
   title: "受け取る贈与（集める）",
-  contract: "1.0",
-  revision: 1,
+  contract: "1.1",
+  revision: 2,
   requires: { "insurance.policy": ">=1 <2" },
   params: [],
   reads: [
@@ -34,12 +38,28 @@ export default defineComponent<{ member: string }, GiftReceivedOutput>({
     "relation.type",
     "relation.parent",
     "relation.child",
+    "donor.kind",
+    "donor.of",
   ],
   input: "member.input",
   output: "gift.received.output",
   compute(input, ctx) {
     const member = input.member;
     const gifts: GiftReceived[] = [];
+    const donors = ctx.list<DonorInput>("donor");
+    // 贈与者の区分（受け取る人から見て直系尊属なら parent・grandparent、そうでなければ other）
+    const donorGiver = (id: string): GiftReceived["giver"] => {
+      const d = donors.find((x) => x.id === id);
+      if (d === undefined || d.kind === "other") return "other";
+      if (d.of === undefined || d.of === member) return d.kind;
+      const members = ctx.list<MemberInput>("member");
+      const relations = ctx.list<RelationInput>("relation");
+      const parentsGiven = relations.some((x) => x.type === "parentOf");
+      const childOf = parentsGiven
+        ? relations.some((x) => x.type === "parentOf" && x.parent === d.of && x.child === member)
+        : members.find((m) => m.id === member)?.kind === "child" && ["self", "spouse"].includes(members.find((m) => m.id === d.of)?.kind ?? "");
+      return childOf ? "grandparent" : "other";
+    };
     for (const r of ctx.list<ResidenceInput>("residence")) {
       const p = r.purchase;
       if (p === undefined) continue;
@@ -52,8 +72,9 @@ export default defineComponent<{ member: string }, GiftReceivedOutput>({
           source: "housingPurchase",
           object: r.id,
           amount: g.amount,
-          giver: g.giver ?? "parent",
+          giver: g.donor !== undefined ? donorGiver(g.donor) : (g.giver ?? "parent"),
           giverMember: null,
+          ...(g.donor !== undefined ? { donor: g.donor } : {}),
           method: g.taxMethod ?? "calendar",
           housing: housing === "none" ? null : housing,
           inflow: true,
@@ -70,8 +91,9 @@ export default defineComponent<{ member: string }, GiftReceivedOutput>({
           source: "education",
           object: goal.id,
           amount: g.amount,
-          giver: "household",
-          giverMember: g.payer ?? null,
+          giver: g.donor !== undefined ? donorGiver(g.donor) : "household",
+          giverMember: g.donor !== undefined ? null : (g.payer ?? null),
+          ...(g.donor !== undefined ? { donor: g.donor } : {}),
           method: g.taxMethod ?? "calendar",
           housing: housing === "none" ? null : housing,
           inflow: false,

@@ -1,0 +1,21 @@
+id: giftTax.tax.allocation.rounding
+title: 贈与税（暦年課税）で一般税率と特例税率の両方があるときの、按分した各部分の端数（1円未満切り捨て）
+unit: rounding
+kind: rounding
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "DOWN", "unit": 1}
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/tetsuzuki/shinsei/shinkoku/zoyo/yoshiki2025/pdf/001.pdf", "retrievedAt": "2026-10-10", "sha256": "b66832f6b31dccb08a6c42991124362ae08954d6bdc2ed5e2f55e0337bdf0707", "locator": "令和7年分贈与税の申告書 第一表（兼贈与税の額の計算明細書）の計算明細の記載例（特例贈与財産・一般贈与財産に対応する税額）", "quote": "１円未満の端数があるときは、その端数金額を切り捨てます。"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/zoyo/4408.htm", "retrievedAt": "2026-10-10", "sha256": "c937178b94e85b87f3227a6ab7f01e41495b14a14ed83ad0a73d9a86b5eaf85f", "locator": "No.4408 贈与税の計算と税率（暦年課税）（3）の計算例（按分の順）", "quote": "「一般贈与財産用」と「特例贈与財産用」の両方の計算が必要な場合"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "国税庁の申告書の計算明細の記載例で、特例贈与財産・一般贈与財産に対応する税額（按分の各部分）の1円未満を切り捨て、その合計を税額とする順を確かめた（3,660,000円×5,000,000円/15,000,000円＝1,220,000円、4,505,000円×10,000,000円/15,000,000円＝3,003,333円、合計4,223,333円）。按分の割合は贈与の額の比。読み方が1つ（法令の条文に端数の定めが無く、申告書の書き方による）なので確認待ち"}

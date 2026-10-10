@@ -19,6 +19,20 @@
           "employee": { "$ref": "urn:financia:schema:common#/$defs/yen" }
         }
       }
+    },
+    "choices": {
+      "description": "約束の版 1.1: 65歳からの組み合わせ（手取りが多いもの）。月の範囲（両端を含む）",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "combination"],
+        "properties": {
+          "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "to": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "combination": { "enum": ["disability", "oldAge", "disabilityBasicOldAgeEmployee"] }
+        }
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
 // 年金生活者支援給付金（老齢）。65歳以上で老齢基礎年金を受け、世帯全員の住民税（均等割）が非課税で、前年の公的年金等の収入と
 // その他の所得の合計が所得基準額以下のとき、給付基準額×保険料納付済の月数/480 を年金と同じ偶数月に払う（非課税の給付）。
-// 10月から翌年9月までを、前年の所得（その年度の住民税の非課税）で判定する。免除期間の分は入れていない（免除は記録で入れない）。
+// 10月から翌年9月までを、前年の所得（その年度の住民税の非課税）で判定する。免除期間の分（老齢基礎年金の満額×（全額・4分の3・半額免除の月数×1/6＋
+// 4分の1免除の月数×1/12）/480÷12。学生納付特例・納付猶予は除く。法3条2号）は、加入の記録に第1号の内訳（category1）があるときだけ足す（改訂4）。
 // 補足的老齢年金生活者支援給付金: 所得が所得基準額を超え補足的所得基準額以下なら、給付基準額×納付済の月数/480×調整支給率
 // （（補足的所得基準額−所得）÷（補足的所得基準額−所得基準額））。補足的所得基準額が制度データに無いときは計算せず、
 // 対象かもしれない年（世帯全員が非課税で、所得が所得基準額を超える）を見出しの notices（N_PARAM_MISSING）で知らせる
@@ -37,6 +38,11 @@ const P = {
   start: "pension.normalStartAge",
   maxMonths: "pension.basic.maxMonths",
   round: "pension.amount.rounding",
+  basicBase: "pension.basic.baseAmount",
+  fullRound: "pension.basic.fullAmount.rounding",
+  shareQuarter: "pension.supplementaryBenefit.exemptionShare.quarter",
+  shareOther: "pension.supplementaryBenefit.exemptionShare.other",
+  shareDen: "pension.supplementaryBenefit.exemptionShare.denominator",
 };
 
 /**
@@ -83,7 +89,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "pension.supplementaryBenefit",
   title: "年金生活者支援給付金",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {
     "pension.oldAge": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -108,6 +114,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
     const R = (fy: number) => rmap.get(fy) ?? rv.byFiscalYear[rv.byFiscalYear.length - 1]?.rate ?? "1";
     const n65 = ageMonth(ctx, base, P.start, member);
     const paid = rec.basicMonths + rec.months.filter((x) => x.basic).length;
+    const c1 = rec.category1 !== undefined && rec.category1.known ? rec.category1 : null;
     const others = ctx.list<MemberInput>("member").filter((m) => m.leaves === null || ctx.time.resolve(m.leaves) > base);
     // 判定の年ごと: null は支給なし、ratio は調整支給率（分子・分母。本来の給付金は 1/1）
     const cache = new Map<number, { num: number; den: number } | null>();
@@ -154,7 +161,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
         wasIn = now;
       }
       for (let y = yearOf(start); y <= yearOf(end); y++) breaks.push(monthIndex(y, 10));
-      for (const seg of ctx.segments(start, end, { params: [[P.base, { member }], P.maxMonths, P.round], breaks, every: "fiscalYear" })) {
+      for (const seg of ctx.segments(start, end, { params: [[P.base, { member }], P.maxMonths, P.round, P.basicBase, P.fullRound, P.shareQuarter, P.shareOther, P.shareDen], breaks, every: "fiscalYear" })) {
         const m = seg.from;
         if (!basicMonths.has(formatYm(m))) continue;
         const judge = monthOf(m) >= 10 ? yearOf(m) : yearOf(m) - 1;
@@ -163,7 +170,18 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
         const b = indexed(ctx, seg.at, fiscalYearOf(m), P.base, member, R, projected, backs);
         if (b === null) continue;
         const max = seg.at.paramCount(P.maxMonths) ?? 480;
-        const v = seg.at.money.mulRatio(b, Math.min(paid, max) * ratio.num, max * ratio.den, P.round);
+        let v = seg.at.money.mulRatio(b, Math.min(paid, max) * ratio.num, max * ratio.den, P.round);
+        // 免除期間の分（本来の給付金だけ。補足的給付金には無い）
+        if (c1 !== null && ratio.num === ratio.den && seg.at.has(P.shareDen)) {
+          const den = seg.at.paramCount(P.shareDen) ?? 12;
+          let share = (c1.exemptFull + c1.exemptThreeQuarters + c1.exemptHalf) * (seg.at.paramCount(P.shareOther) ?? 0) + c1.exemptQuarter * (seg.at.paramCount(P.shareQuarter) ?? 0);
+          // 納付済の月数と合わせて480月まで
+          share = Math.min(share, Math.max(0, max - paid) * den);
+          if (share > 0) {
+            const full = seg.at.money.mulRate(seg.at.paramYen(P.basicBase) ?? yen(0), ctx.rate.of(R(fiscalYearOf(m))), P.fullRound);
+            v = yen(v + seg.at.money.mulRatio(full, share, max * den * 12, P.round));
+          }
+        }
         for (let k = seg.from; k <= seg.to; k = addMonths(k, 1)) monthly.set(formatYm(k), v);
       }
     }

@@ -19,6 +19,7 @@
           "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
           "giver": { "enum": ["parent", "grandparent", "household", "other"] },
           "giverMember": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/uuid" }] },
+          "donor": { "description": "約束の版 1.1: 世帯の外の贈与者（donors の ID）。同じ贈与者からの贈与を合わせて数える", "$ref": "urn:financia:schema:common#/$defs/uuid" },
           "method": { "enum": ["calendar", "settlement"] },
           "housing": { "enum": [null, "energySaving", "other"] },
           "inflow": { "type": "boolean" }

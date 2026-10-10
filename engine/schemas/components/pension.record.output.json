@@ -141,6 +141,83 @@
           }
         }
       }
+    },
+    "category1": {
+      "description": "約束の版 1.1: 記録の第1号の期間の内訳（20〜59歳。記録の時点まで）。known は入力に内訳があったか（加入歴・定期便の category1）。pre2009 は2009年3月以前の免除の月数（種類ごと。老齢基礎年金の割合が違う。加入歴だけ）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "known",
+        "paid",
+        "exemptQuarter",
+        "exemptHalf",
+        "exemptThreeQuarters",
+        "exemptFull",
+        "deferred",
+        "pre2009"
+      ],
+      "properties": {
+        "paid": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exemptQuarter": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exemptHalf": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exemptThreeQuarters": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exemptFull": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deferred": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "known": {
+          "type": "boolean"
+        },
+        "pre2009": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "exemptQuarter",
+            "exemptHalf",
+            "exemptThreeQuarters",
+            "exemptFull"
+          ],
+          "properties": {
+            "exemptQuarter": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "exemptHalf": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "exemptThreeQuarters": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "exemptFull": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "employeeFromMiddleAge": {
+      "description": "約束の版 1.1: 加入歴の厚生年金の月のうち40歳（女子35歳）以後の月数（中高齢者の期間短縮の特例。記録の時点まで）",
+      "type": "integer",
+      "minimum": 0
     }
   }
 }
