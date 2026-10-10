@@ -3,18 +3,19 @@ import buildInfo from "../generated/build-info.json" with { type: "json" };
 import { OFFICIAL_COMPONENTS, PROTECTION_COMPONENT, ROOT_COMPONENT } from "../components/index.ts";
 import { EngineError } from "../errors.ts";
 import { checkRow, isUnder } from "../ids/cfTree.ts";
-import { check } from "../io/validate.ts";
+import { check, checkOutput } from "../io/validate.ts";
 import type { Json, PackJson } from "../regulation/reader.ts";
 import { RegulationStore } from "../regulation/reader.ts";
 import { contractMajor, satisfiesRange } from "../regulation/versions.ts";
 import { assemble, type Assembly, type Extension, type Replacement } from "../registry/assemble.ts";
-import { collectEffects, invoke, keepLane, newKeyTable, newPartition, nextEpoch, type ParamCache, type Partition, type RunState, type Variant } from "../registry/ctx.ts";
+import { collectEffects, invoke, keepLane, newKeyTable, newParamCache, newPartition, nextEpoch, type Partition, type RunState, type Variant } from "../registry/ctx.ts";
 import { ITEMS } from "../registry/items.ts";
 import { Tracer } from "../registry/trace.ts";
 import { decemberOf, formatYm, parseYm, yearOf } from "../time/month.ts";
 import { TimeResolver } from "../time/timepoint.ts";
 import { tableYear } from "./aggregate.ts";
 import { deepFreeze } from "./freeze.ts";
+import { numTable, type NumTable } from "./numTable.ts";
 import { applyContingency, applyStress } from "./overlay.ts";
 import type { AnnualRow, CalcConventions, EngineRequest, Flow } from "./types.ts";
 
@@ -56,8 +57,6 @@ export interface BatchContext {
   lane: number;
 }
 
-const newParamCache = (): ParamCache => ({ params: new Map(), has: new Map() });
-
 export interface EngineResult {
   readonly header: Json;
   readonly flows: readonly Flow[];
@@ -74,16 +73,37 @@ export interface EngineResult {
 
 const cmp = (a: string | number, b: string | number): number => (a < b ? -1 : a > b ? 1 : 0);
 
-function compareFlow(a: Flow, b: Flow): number {
-  return (
-    cmp(a.ym, b.ym) ||
-    cmp(a.row, b.row) ||
-    cmp(a.member ?? "", b.member ?? "") ||
-    cmp(a.object ?? "", b.object ?? "") ||
-    cmp(a.formula, b.formula) ||
-    cmp(a.accrualYear, b.accrualYear) ||
-    cmp(a.amount, b.amount)
-  );
+/**
+ * 同じ支払月のお金の動きどうしの並べ方（行・構成員・物・計算式・帰属の年・額）。全体の並べ方は「支払月、その中でこれ」で、
+ * sortFlows は月で分けてから月の中だけをこれで並べる（月の比べ方を省く。0005 の追記（2026-10-10））
+ */
+function compareFlowInMonth(a: Flow, b: Flow): number {
+  // cmp を欄ごとに呼ぶのと同じ（関数を呼ばずに。どちらでもなければ次の欄へ）
+  const ar = a.row;
+  const br = b.row;
+  if (ar !== br) {
+    if (ar < br) return -1;
+    if (ar > br) return 1;
+  }
+  const am = a.member ?? "";
+  const bm = b.member ?? "";
+  if (am !== bm) {
+    if (am < bm) return -1;
+    if (am > bm) return 1;
+  }
+  const ao = a.object ?? "";
+  const bo = b.object ?? "";
+  if (ao !== bo) {
+    if (ao < bo) return -1;
+    if (ao > bo) return 1;
+  }
+  const af = a.formula;
+  const bf = b.formula;
+  if (af !== bf) {
+    if (af < bf) return -1;
+    if (af > bf) return 1;
+  }
+  return cmp(a.accrualYear, b.accrualYear) || cmp(a.amount, b.amount);
 }
 
 function compareAnnual(a: AnnualRow, b: AnnualRow): number {
@@ -135,65 +155,126 @@ function addCell(index: Map<string, Cell>, cells: Cell[], row: string, year: num
   }
 }
 
+/** addCell と同じ（鍵の文字列の代わりに、行 → 構成員 → 物 → 年 の表で引く） */
+function addTreeCell(tree: CellTree, cells: Cell[], row: string, year: number, amount: number, member?: string, object?: string): void {
+  let byMember = tree.get(row);
+  if (byMember === undefined) {
+    byMember = new Map();
+    tree.set(row, byMember);
+  }
+  let byObject = byMember.get(member ?? "");
+  if (byObject === undefined) {
+    byObject = new Map();
+    byMember.set(member ?? "", byObject);
+  }
+  let byYear = byObject.get(object ?? "");
+  if (byYear === undefined) {
+    byYear = numTable<Cell>();
+    byObject.set(object ?? "", byYear);
+  }
+  const c = byYear[year];
+  if (c !== undefined) c.amount += amount;
+  else {
+    const cell: Cell = { row, year, amount, ...(member !== undefined ? { member } : {}), ...(object !== undefined ? { object } : {}) };
+    byYear[year] = cell;
+    cells.push(cell);
+  }
+}
+
 /** 表に載せるお金の動き（計算基準月から表の最後まで）と、それを年に集めた表の行 */
 interface FlowAggregate {
   readonly flows: Flow[];
   readonly cells: readonly { readonly key: string; readonly cell: Readonly<Cell> }[];
 }
 
-function aggregateFlows(raw: readonly Flow[], base: number, end: number, aggregation: CalcConventions["aggregation"], baseYear: number, rootId: string): FlowAggregate {
+/** 行 → 構成員 → 物 → 年 の表（集めた表の行） */
+type CellTree = Map<string, Map<string, Map<string, NumTable<Cell>>>>;
+
+/**
+ * shared を渡すと、その表と行の並びに足し込む（1件ずつの計算: 部品の出力ごとの集計を使い回さないので、全部の部品の出力を1つの表に集める。
+ * 足す順は部品の出力の順で、表の行は最後に並べ替えるので、出力ごとに集めて足し合わせたときと同じ。戻り値の cells は空）
+ */
+function aggregateFlows(
+  raw: readonly Flow[],
+  base: number,
+  end: number,
+  aggregation: CalcConventions["aggregation"],
+  baseYear: number,
+  rootId: string,
+  shared?: { readonly tree: CellTree; readonly cells: Cell[] },
+): FlowAggregate {
   const flows: Flow[] = [];
-  // 同じ月の文字列は何度も出るので、月の番号は文字列ごとに1回だけ求める
-  const months = new Map<string, number>();
+  // 月の文字列の読み取りは parseYm が文字列ごとに覚えている
+  // 部品の出力は同じ月のお金の動きが続くので、1つ前と同じ月の文字列なら読み直さない
+  let lastYm: string | null = null;
+  let lastM = 0;
   for (const f of raw) {
-    let m = months.get(f.ym);
-    if (m === undefined) {
-      m = parseYm(f.ym);
-      months.set(f.ym, m);
+    const ym = f.ym;
+    if (ym !== lastYm) {
+      lastM = parseYm(ym);
+      lastYm = ym;
     }
-    if (m >= base && m <= end) flows.push(f);
+    if (lastM >= base && lastM <= end) flows.push(f);
   }
+  // 行 → 構成員 → 物 → 年 の表で足す（お金の動きごとに鍵の文字列を作らない）。部品の出力は同じ行・構成員・物のお金の動きが続くので、
+  // 1つ前と同じなら表を引き直さない。計算式と行の確かめは、表に足す前にお金の動きの順に行う（同じ行は1回だけ確かめる）
+  const tree: CellTree = shared?.tree ?? new Map();
+  const cells: Cell[] = shared?.cells ?? [];
+  let lastRow: string | null = null;
+  let lastMember: string | undefined;
+  let lastObject: string | undefined;
+  let byYear: NumTable<Cell> | null = null;
   for (const f of flows) {
     if (typeof f.formula !== "string") throw new EngineError("E_FORMULA_MISSING", [rootId]);
-    checkRow(f.row);
-  }
-  // 行 → 構成員 → 物 → 年 の表で足す（お金の動きごとに鍵の文字列を作らない）
-  const tree = new Map<string, Map<string, Map<string, Map<number, Cell>>>>();
-  const cells: Cell[] = [];
-  for (const f of flows) {
-    const year = aggregation === "cash" ? Math.floor((months.get(f.ym) as number) / 12) : tableYear(f, aggregation, baseYear);
-    let byMember = tree.get(f.row);
-    if (byMember === undefined) {
-      byMember = new Map();
-      tree.set(f.row, byMember);
+    const row = f.row;
+    if (row !== lastRow) checkRow(row);
+    let year: number;
+    if (aggregation === "cash") {
+      const ym = f.ym;
+      if (ym !== lastYm) {
+        lastM = parseYm(ym);
+        lastYm = ym;
+      }
+      year = Math.floor(lastM / 12);
+    } else year = tableYear(f, aggregation, baseYear);
+    if (byYear === null || row !== lastRow || f.member !== lastMember || f.object !== lastObject) {
+      let byMember = tree.get(row);
+      if (byMember === undefined) {
+        byMember = new Map();
+        tree.set(row, byMember);
+      }
+      const mk = f.member ?? "";
+      let byObject = byMember.get(mk);
+      if (byObject === undefined) {
+        byObject = new Map();
+        byMember.set(mk, byObject);
+      }
+      const ok = f.object ?? "";
+      byYear = byObject.get(ok) ?? null;
+      if (byYear === null) {
+        byYear = numTable<Cell>();
+        byObject.set(ok, byYear);
+      }
+      lastRow = row;
+      lastMember = f.member;
+      lastObject = f.object;
     }
-    const mk = f.member ?? "";
-    let byObject = byMember.get(mk);
-    if (byObject === undefined) {
-      byObject = new Map();
-      byMember.set(mk, byObject);
-    }
-    const ok = f.object ?? "";
-    let byYear = byObject.get(ok);
-    if (byYear === undefined) {
-      byYear = new Map();
-      byObject.set(ok, byYear);
-    }
-    const c = byYear.get(year);
+    const c = byYear[year];
     if (c !== undefined) c.amount += f.amount;
     else {
-      const cell: Cell = { row: f.row, year, amount: f.amount, ...(f.member !== undefined ? { member: f.member } : {}), ...(f.object !== undefined ? { object: f.object } : {}) };
-      byYear.set(year, cell);
+      const cell: Cell = { row, year, amount: f.amount, ...(f.member !== undefined ? { member: f.member } : {}), ...(f.object !== undefined ? { object: f.object } : {}) };
+      byYear[year] = cell;
       cells.push(cell);
     }
   }
+  if (shared !== undefined) return { flows, cells: [] };
   const keyed = cells.map((cell) => ({ key: `${cell.row}|${cell.year}|${cell.member ?? ""}|${cell.object ?? ""}`, cell: Object.freeze(cell) }));
   return { flows, cells: keyed };
 }
 
 /**
- * compareFlow の順に並べる。まず支払月で分け（月は「年×12＋月」の整数）、月の中だけを比べて並べる。
- * どちらも安定した並べ方なので、compareFlow で全体を並べたときと同じ順になる（内蔵の実行環境では比べる回数が多いと遅いため）
+ * 支払月、その中で compareFlowInMonth の順に並べる。まず支払月で分け、月の中だけを比べて並べる。
+ * どちらも安定した並べ方なので、全体を1回で並べたときと同じ順になる（内蔵の実行環境では比べる回数が多いと遅いため）
  */
 function sortFlows(flows: Flow[]): void {
   if (flows.length < 2) return;
@@ -207,7 +288,7 @@ function sortFlows(flows: Flow[]): void {
   let i = 0;
   for (const ym of months) {
     const b = buckets.get(ym) as Flow[];
-    if (b.length > 1) b.sort(compareFlow);
+    if (b.length > 1) b.sort(compareFlowInMonth);
     for (const f of b) flows[i++] = f;
   }
 }
@@ -359,6 +440,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     assembly,
     store,
     tracer,
+    traceOn: tracer.on,
     time,
     input,
     items: ITEMS,
@@ -407,7 +489,10 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   const rawFlows = out.flows ?? [];
   const parts = out.parts ?? [rawFlows];
   const aggKey = `${base}|${end}|${aggregation}`;
+  // 1件ずつの計算（まとめて計算でない）は、部品の出力ごとの集計を使い回さないので、1つの表に集める
+  const shared = batch === undefined ? { tree: new Map() as CellTree, cells: [] as Cell[] } : undefined;
   const aggOf = (arr: readonly Flow[]): FlowAggregate => {
+    if (shared !== undefined) return aggregateFlows(arr, base, end, aggregation, baseYear, rootId, shared);
     let agg = batch?.aggregates.get(arr)?.get(aggKey);
     if (agg === undefined) {
       agg = aggregateFlows(arr, base, end, aggregation, baseYear, rootId);
@@ -448,7 +533,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   annual.sort(compareAnnual);
 
   // キャッシュフロー表: お金の動きを年に集めたもの（部品の出力ごと）を足し合わせ、年ごとの行を足す
-  const cells: Cell[] = [];
+  const cells: Cell[] = shared?.cells ?? [];
   const index = new Map<string, Cell>();
   for (const g of aggs) {
     for (const c of g.cells) {
@@ -461,7 +546,8 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
       }
     }
   }
-  for (const a of annual) addCell(index, cells, a.row, a.year, a.amount, a.member, a.object);
+  if (shared !== undefined) for (const a of annual) addTreeCell(shared.tree, cells, a.row, a.year, a.amount, a.member, a.object);
+  else for (const a of annual) addCell(index, cells, a.row, a.year, a.amount, a.member, a.object);
   const table = cells.sort(
     (a, b) => cmp(a.row, b.row) || cmp(a.year, b.year) || cmp(a.member ?? "", b.member ?? "") || cmp(a.object ?? "", b.object ?? ""),
   );
@@ -840,7 +926,7 @@ function runChecked(request: unknown, packs: readonly unknown[], opts: { checkIn
   try {
     const r = runEngine(request, packs, { checkInternal: opts.checkInternal, preview: opts.preview, batch: opts.batch });
     if (!opts.preview) {
-      check("engine.output", r, "E_OUTPUT_SCHEMA");
+      checkOutput(r, "E_OUTPUT_SCHEMA");
       return r;
     }
     // 年ごとの行（annual）は表（table）にも入っているので、先出しでは返さない（0005 の追記（3回目の見直し）: 先出しの出力を小さく）
@@ -878,7 +964,7 @@ export function runJson(requestJson: string, packsJson: string, optionsJson = "{
   try {
     const opts = JSON.parse(optionsJson) as { checkInternal?: boolean; packsChecked?: string[] };
     const result = runEngine(JSON.parse(requestJson), JSON.parse(packsJson) as unknown[], { checkInternal: opts.checkInternal === true, ...packsCheckedOf(opts) });
-    check("engine.output", result, "E_OUTPUT_SCHEMA");
+    checkOutput(result, "E_OUTPUT_SCHEMA");
     return JSON.stringify(result);
   } catch (e) {
     if (e instanceof EngineError) return JSON.stringify({ error: { code: e.code, ids: e.ids } });

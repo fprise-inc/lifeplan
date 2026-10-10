@@ -6,6 +6,7 @@ import type { RoundingRule } from "../money/rounding.ts";
 import { yen, type Yen } from "../money/yen.ts";
 import type { Birth } from "../time/ageSwitch.ts";
 import type { Basis } from "../time/basis.ts";
+import { numTable, type NumTable } from "../engine/numTable.ts";
 import { dateKey, daysInMonth, formatDate, parseDate, previousDay, type CivilDate } from "../time/civil.ts";
 import { parseYm, type MonthIndex } from "../time/month.ts";
 import { deepFreeze } from "../engine/freeze.ts";
@@ -101,6 +102,14 @@ export interface Selected {
   readonly recordedLater?: true;
 }
 
+/** 区間で選ぶ行（sel）、または延長の仮定で続くとみなす行（ext。引く年ごとに byYear） */
+interface RegionHit {
+  readonly def: ValueDef;
+  readonly sel: Selected | null;
+  readonly ext: Visible | null;
+  readonly byYear: Map<number, Selected>;
+}
+
 interface Visible {
   readonly entry: Entry;
   /** 管轄の比べ方の鍵（jurisdictionKey）。引くたびに作らないよう前もって作る */
@@ -130,8 +139,10 @@ export class RegulationStore {
   private readonly infos: PackInfo[] = [];
   private readonly later = new Set<string>();
   /** 引いた結果（同じ値ID・引く日・条件なら同じ行。部品が同じ値を何度も引くので使い回す） */
-  private readonly selected = new Map<string, Map<number, Selected | null>>();
+  private readonly selected = new Map<string, NumTable<Selected | null>>();
   private readonly hints = new Map<string, { readonly keys: readonly number[]; readonly extendFrom: number | null }>();
+  /** 引いた結果の、行が変わりうる日（boundaryHints の keys）で区切った区間ごとの使い回し（memo → 区間の番号。0005 の追記（2026-10-10）） */
+  private readonly regions = new Map<string, NumTable<RegionHit>>();
 
   constructor(packs: readonly PackJson[], dataSet: Readonly<Record<string, string>> = {}) {
     for (const p of packs) {
@@ -247,18 +258,55 @@ export class RegulationStore {
         : `${id}|${want}|${mc.birth === undefined ? "" : `${mc.birth.birthYearMonth}${mc.birth.bornOnFirst ? "+" : ""}`}|${mc.sex ?? ""}|${mc.noExtension === true ? "x" : ""}`;
     let byDate = this.selected.get(memo);
     if (byDate === undefined) {
-      byDate = new Map();
+      byDate = numTable<Selected | null>();
       this.selected.set(memo, byDate);
     }
-    const hit = byDate.get(key);
+    const hit = byDate[key];
     if (hit !== undefined) return hit;
-    const sel = this.selectUncached(id, date, key, want, mc);
-    const s = sel === null ? null : Object.freeze(sel);
-    byDate.set(key, s);
+    // 行が変わりうる日（どの条件・管轄の行の適用開始と適用終了の翌日。boundaryHints）の間（区間）では、引く日の範囲に入る行の組が同じなので、
+    // 選ばれる行も同じ（延長の仮定は年だけが違う）。区間ごとに1回だけ行を探す（日ごとに探したときと同じ結果・同じ誤り）
+    const keys = this.boundaryHints(id).keys;
+    let lo = 0;
+    let hi = keys.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if ((keys[mid] as number) <= key) lo = mid + 1;
+      else hi = mid;
+    }
+    let byRegion = this.regions.get(memo);
+    if (byRegion === undefined) {
+      byRegion = numTable<RegionHit>();
+      this.regions.set(memo, byRegion);
+    }
+    let r = byRegion[lo];
+    if (r === undefined) {
+      r = this.regionHit(id, key, want, mc);
+      byRegion[lo] = r;
+    }
+    let s: Selected | null;
+    if (r.ext === null) s = r.sel;
+    else {
+      s = r.byYear.get(date.year) ?? null;
+      if (s === null) {
+        const ext = r.ext;
+        s = Object.freeze({
+          def: r.def,
+          entry: ext.entry,
+          ref: `${id}@${ext.entry.rev}`,
+          packVersion: ext.entry.recordedIn,
+          effectiveTo: ext.effectiveTo,
+          extendedYear: date.year,
+          ...(this.later.has(id) ? { recordedLater: true as const } : {}),
+        });
+        r.byYear.set(date.year, s);
+      }
+    }
+    byDate[key] = s;
     return s;
   }
 
-  private selectUncached(id: string, date: CivilDate, key: number, want: string, mc: MatchContext): Selected | null {
+  /** 引く日 key の区間で選ぶ行（延長の仮定なら、その行。値が無ければ sel も ext も null） */
+  private regionHit(id: string, key: number, want: string, mc: MatchContext): RegionHit {
     const def = this.definition(id);
     const hits: Visible[] = [];
     for (const v of this.visibleOf(id)) {
@@ -271,20 +319,12 @@ export class RegulationStore {
       // 延長の仮定（0007 の追記）: 期限の後の値が分からない（同じ条件・管轄の最後の行が、引く日より前に終わる）ときは、
       // 計算を止めずに最後の行が続くとみなす。最初の行より前の日は値が無いので止める
       const ext = mc.noExtension === true ? null : this.extension(id, key, want, mc);
-      if (ext === null) return null;
-      return {
-        def,
-        entry: ext.entry,
-        ref: `${id}@${ext.entry.rev}`,
-        packVersion: ext.entry.recordedIn,
-        effectiveTo: ext.effectiveTo,
-        extendedYear: date.year,
-        ...(this.later.has(id) ? { recordedLater: true as const } : {}),
-      };
+      return { def, sel: null, ext, byYear: new Map() };
     }
     if (hits.length > 1) throw new EngineError("E_PARAM_AMBIGUOUS", [id]);
     const hit = hits[0] as Visible;
-    return { def, entry: hit.entry, ref: `${id}@${hit.entry.rev}`, packVersion: hit.entry.recordedIn, effectiveTo: hit.effectiveTo, ...(this.later.has(id) ? { recordedLater: true as const } : {}) };
+    const sel: Selected = Object.freeze({ def, entry: hit.entry, ref: `${id}@${hit.entry.rev}`, packVersion: hit.entry.recordedIn, effectiveTo: hit.effectiveTo, ...(this.later.has(id) ? { recordedLater: true as const } : {}) });
+    return { def, sel, ext: null, byYear: new Map() };
   }
 
   /** 引く日より前に終わる行のうち最後のもの（その後に始まる行が無いときだけ）。同じ条件の組で1つに決まらなければエラー */
@@ -316,15 +356,18 @@ function visibleEntries(def: ValueDef, asOf: string): Visible[] {
       e.status === "enacted",
   );
   // 適用終了が null の行は「同じ条件・管轄の次の行の適用開始の前日まで」
-  const group = (e: Entry) => `${JSON.stringify(e.conditions)}|${jurisdictionKey(e.jurisdiction)}`;
+  // 組の鍵は行ごとに1回だけ作る（行どうしを比べるたびに作らない。0005 の追記（2026-10-10））
+  const groups = known.map((e) => `${JSON.stringify(e.conditions)}|${jurisdictionKey(e.jurisdiction)}`);
   const out: Visible[] = [];
-  for (const e of known) {
+  for (let i = 0; i < known.length; i++) {
+    const e = known[i] as Entry;
     let effectiveTo = e.appliesTo;
     if (effectiveTo === null) {
-      const sameGroup = group(e);
+      const sameGroup = groups[i];
       let next: string | null = null;
-      for (const o of known) {
-        if (o === e || group(o) !== sameGroup) continue;
+      for (let k = 0; k < known.length; k++) {
+        const o = known[k] as Entry;
+        if (o === e || groups[k] !== sameGroup) continue;
         if (o.appliesFrom > e.appliesFrom && (next === null || o.appliesFrom < next)) next = o.appliesFrom;
       }
       if (next !== null) effectiveTo = formatDate(previousDay(parseDate(next)));

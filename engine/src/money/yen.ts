@@ -4,8 +4,12 @@ import { EngineError } from "../errors.ts";
 /** 円の金額（安全な整数）。`*` `/` `%` は lint で禁止し、丸め関数を通す */
 export type Yen = number & { readonly __brand: "Yen" };
 
+const MAX_SAFE = Number.MAX_SAFE_INTEGER;
+
+// 0005 の追記（2026-10-10 の速さの見直し）: Number.isSafeInteger(n) と同じ判定を、組み込みの関数を呼ばずに行う
+// （内蔵の実行環境では関数の呼び出しが重く、yen は1回の計算で十数万回呼ばれる）。NaN・Infinity は % 1 が NaN になって外れる
 export function yen(n: number): Yen {
-  if (!Number.isSafeInteger(n)) throw new EngineError("E_UNSAFE_INTEGER");
+  if (typeof n !== "number" || n % 1 !== 0 || n > MAX_SAFE || n < -MAX_SAFE) throw new EngineError("E_UNSAFE_INTEGER");
   return (n === 0 ? 0 : n) as Yen;
 }
 
@@ -17,11 +21,15 @@ export const YEN_ZERO = yen(0);
 
 // 0002: 安全な整数どうしの足し算・引き算は正確。結果が範囲を超えたらエラー
 export function addYen(a: Yen, b: Yen): Yen {
-  return yen(a + b);
+  const n = a + b;
+  if (typeof n !== "number" || n % 1 !== 0 || n > MAX_SAFE || n < -MAX_SAFE) throw new EngineError("E_UNSAFE_INTEGER");
+  return (n === 0 ? 0 : n) as Yen;
 }
 
 export function subYen(a: Yen, b: Yen): Yen {
-  return yen(a - b);
+  const n = a - b;
+  if (typeof n !== "number" || n % 1 !== 0 || n > MAX_SAFE || n < -MAX_SAFE) throw new EngineError("E_UNSAFE_INTEGER");
+  return (n === 0 ? 0 : n) as Yen;
 }
 
 export function negYen(a: Yen): Yen {

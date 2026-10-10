@@ -1,6 +1,6 @@
 // 0002: 金額を丸められるのはこのファイルの関数だけ。規則（方式と単位）は規則IDから解決して渡す
 import { EngineError } from "../errors.ts";
-import { divRound, mulInt, toSafeNumber, pow10, type Int, type RoundingMode } from "./integer.ts";
+import { divRound, divRoundPosNumber, mulInt, toSafeNumber, pow10, type Int, type RoundingMode } from "./integer.ts";
 import type { Rate } from "./rate.ts";
 import { minorUnit, yen, type Money, type Yen } from "./yen.ts";
 
@@ -18,7 +18,24 @@ export interface Rounded {
 }
 
 function apply(num: Int, den: Int, rule: RoundingRule): Rounded {
-  if (!Number.isSafeInteger(rule.unit) || rule.unit <= 0) throw new EngineError("E_ARGUMENT", ["rounding.unit"]);
+  const unit = rule.unit;
+  if (!Number.isSafeInteger(unit) || unit <= 0) throw new EngineError("E_ARGUMENT", ["rounding.unit"]);
+  // 0005 の追記（2026-10-10 の速さの見直し）: 分子と分母×単位が安全な整数のときは、下の divRound・mulInt・toSafeNumber と同じ計算を
+  // 関数を重ねずに行う（内蔵の実行環境では関数の呼び出しが重い。丸めは1回の計算で3万回ほど）。結果と誤りは同じ
+  if (typeof num === "number" && typeof den === "number") {
+    const d = den * unit;
+    if (d !== 0 && Number.isSafeInteger(d) && Number.isSafeInteger(num)) {
+      const n = num < 0 ? -num : num;
+      const dd = d < 0 ? -d : d;
+      if (n + dd <= Number.MAX_SAFE_INTEGER) {
+        const q0 = divRoundPosNumber(n, dd, rule.mode);
+        const q = q0 === 0 ? 0 : (num < 0) !== (d < 0) && num !== 0 ? -q0 : q0;
+        const p = q * unit;
+        if (!Number.isSafeInteger(p)) throw new EngineError("E_UNSAFE_INTEGER");
+        return { value: (p === 0 ? 0 : p) as Yen, num, den };
+      }
+    }
+  }
   const q = divRound(num, mulInt(den, rule.unit), rule.mode);
   return { value: yen(toSafeNumber(mulInt(q, rule.unit))), num, den };
 }

@@ -81,7 +81,8 @@ function shouldRoundAway(rem: Int, den: Int, qIsOdd: boolean, mode: RoundingMode
   }
 }
 
-function divRoundPosNumber(n: number, d: number, mode: RoundingMode): number {
+/** n ÷ d（どちらも正の安全な整数、n + d も安全な整数）を mode で丸めた整数 */
+export function divRoundPosNumber(n: number, d: number, mode: RoundingMode): number {
   let q = Math.trunc(n / d);
   let r = n - q * d;
   // 浮動小数点の商のずれを整数で直す

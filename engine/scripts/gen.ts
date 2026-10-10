@@ -61,6 +61,17 @@ if (/require\(/.test(code)) throw new Error("検査器のコードに require �
 // （正規表現は g・y の印を持たないので、同じ文字列なら同じ結果）
 if (/new RegExp\([^)]*"[^"]*[gy][^"]*"\)/.test(code)) throw new Error("検査器の正規表現に g・y の印があります（結果を覚えられません）");
 code = code.replace(/\b(pattern\d+)\.test\(/g, "__memoTest($1, ");
+// 0005 の追記（2026-10-10 の速さの見直し）: 内側の検査器の呼び出しのたびに作る引数の物（instancePath・parentData・parentDataProperty・
+// rootData・dynamicAnchors）をやめ、使っている instancePath だけを位置の引数で渡す（お金の動き1件ごとに物を作って分解すると、内蔵の
+// quickjs-ng では出力の検査の時間の半分を占めた）。ほかの4つは誤りの形にも使っていない（下で確かめる）ので、検査の結果と誤りは同じ
+const HEADER = '(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={})';
+const headers = code.split(HEADER).length - 1;
+code = code.split(HEADER).join('(data, instancePath = "")');
+code = code.replace(/\{instancePath:([^{}]*?),parentData:[^{},]*,parentDataProperty:[^{},]*,rootData,dynamicAnchors\}/g, "$1");
+code = code.split("{instancePath,parentData,parentDataProperty,rootData,dynamicAnchors}").join("instancePath");
+if (headers === 0 || /\b(parentData|parentDataProperty|rootData|dynamicAnchors)\b/.test(code)) {
+  throw new Error("検査器のコードの形が想定と違います（引数の書き換えを見直してください）");
+}
 code =
   "const __memo = new Map();\n" +
   "function __memoTest(re, s) { if (typeof s !== \"string\") return re.test(s); let m = __memo.get(re); if (m === undefined) { m = new Map(); __memo.set(re, m); } let v = m.get(s); if (v === undefined) { v = re.test(s); if (m.size < 50000) m.set(s, v); } return v; }\n" +
