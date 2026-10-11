@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "0016 の1: 画面から呼べるのは、アプリが定義した命令だけ（プラグインの権限は与えない）。命令を足すときは、このファイルの差分をレビューする",
+  "windows": ["main"],
+  "permissions": [
+    "allow-engine-packs",
+    "allow-list-households",
+    "allow-open-household",
+    "allow-compute",
+    "allow-evidence"
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@financia/app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ファイナンシアのアプリ本体の画面（Tauri 2 の WebView）",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "prepare-assets": "node --disable-warning=ExperimentalWarning scripts/prepare-assets.ts",
+    "dev": "npm run prepare-assets && vite",
+    "build": "npm run prepare-assets && vite build",
+    "typecheck": "npm run prepare-assets && tsc -p tsconfig.json && tsc -p tsconfig.tools.json",
+    "lint": "npm run prepare-assets && eslint .",
+    "test": "npm run prepare-assets && vitest run",
+    "check:licenses": "node --disable-warning=ExperimentalWarning scripts/check-licenses.ts",
+    "check:distribution": "node --disable-warning=ExperimentalWarning scripts/distribution.ts --check",
+    "gen:distribution": "node --disable-warning=ExperimentalWarning scripts/distribution.ts",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@fontsource/biz-udpgothic": "5.3.0",
+    "@tauri-apps/api": "2.12.1",
+    "preact": "10.29.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@tauri-apps/cli": "2.12.1",
+    "@types/node": "26.6.4",
+    "eslint": "10.12.0",
+    "preact-render-to-string": "6.6.1",
+    "smol-toml": "1.9.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vite": "8.3.4",
+    "vitest": "5.0.3",
+    "yaml": "2.9.1"
+  }
+}

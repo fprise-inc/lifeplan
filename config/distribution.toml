@@ -1,0 +1,25 @@
+# 0017 の2: 配布元の設定を1か所にまとめる。
+# アプリの識別子・名前・自動通信の相手・更新の公開鍵は、このファイルだけに書く。
+# Tauri の設定（app/src-tauri/tauri.conf.json の identifier・productName など）は、
+# app/ で `npm run gen:distribution` を流してこのファイルから作る（CI は `npm run check:distribution` で食い違いと、
+# このファイルの外に識別子・配信先のホスト名が書かれていないことを確かめる）。
+# フォークは、このファイルを書き換えるだけで、識別子・名前・配信先・鍵を自分のものにできる。
+
+identifier   = "com.fprise.lifeplan"
+product_name = { ja = "ファイナンシア", en = "Financia" }
+publisher    = "FPRISE, INC."
+
+[endpoints]
+# 自動通信の相手はこのホストだけ（0017 の4）。更新の仕組みはまだ入れていない（アプリは通信しない）
+host        = "updates.fprise.com"
+app         = "https://updates.fprise.com/v1/app/latest.json"
+packs       = "https://updates.fprise.com/v1/packs/index.json"
+notices     = "https://updates.fprise.com/v1/notices/notices.json"
+revocations = "https://updates.fprise.com/v1/revocations/revocations.json"
+
+[keys]
+# 公開鍵（それぞれ現用＋次期）。署名を入れる回で足す。秘密鍵はどのリポジトリにも置かない（0017 の5・0021）
+app_update    = []
+data          = []
+auto_delivery = []
+revocation    = []
