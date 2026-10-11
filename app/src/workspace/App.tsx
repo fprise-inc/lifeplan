@@ -2,17 +2,22 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
 import { devBrowserHost, isTauri, tauriHost, webEngine, type HostApi, type WebSession } from "../engine/host.ts";
-import { isEngineError, type EngineRequest } from "../engine/types.ts";
+import { isEngineError } from "../engine/types.ts";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { monthlyMan } from "../presentation/format.ts";
 import { CashflowTable, GoalCards, MainCard } from "../presentation/MainView.tsx";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
 import { buildEvidence } from "./evidence.ts";
+import type { Level, StageId } from "./input/form.ts";
+import { blankHousehold, fromRequest, reemploymentOf, type WorkingHousehold } from "./input/household.ts";
+import { InputView, type MiniResult } from "./input/InputView.tsx";
+import { withRefreshedEstimates } from "./input/estimates.ts";
+import { STAGE_ORDER } from "./input/stages/index.ts";
 import { LeverPanel, type LeverRow } from "./LeverPanel.tsx";
-import { applyLevers, availableLevers, LEVER_KEYS, readLevers, type LeverKey, type LeverValues } from "./levers.ts";
-import { toPresentation } from "./present.ts";
+import { ageAt, applyLevers, availableLevers, LEVER_KEYS, parseYm, readLevers, type LeverKey, type LeverValues } from "./levers.ts";
+import { depletionYear, displayYears, financialOf, toPresentation } from "./present.ts";
 import { roles } from "./roles.ts";
-import { runSelfCheck } from "./selfcheck.ts";
+import { runInputCheck, runSelfCheck } from "./selfcheck.ts";
 
 type Tab = "input" | "main" | "contingency" | "report";
 const TABS: { id: Tab; label: string }[] = [
@@ -22,14 +27,32 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "report", label: "提案書" },
 ];
 
-/** URL の # の後ろ（画面の確かめ用: #share・#household=…・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck） */
-export function parseHash(hash: string): { share: boolean; household?: string; levers?: number[]; year?: number; evidence?: { row: string; year: number }; selfcheck: boolean } {
+/** URL の # の後ろ（画面の確かめ用: #share・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#stage=work・#level=detail） */
+export function parseHash(hash: string): {
+  share: boolean;
+  household?: string;
+  levers?: number[];
+  year?: number;
+  evidence?: { row: string; year: number };
+  selfcheck: boolean;
+  /** #selfcheck=input: 入力の画面の自己確認 */
+  selfcheckInput?: boolean;
+  tab?: Tab;
+  stage?: StageId;
+  level?: Level;
+} {
   const out: ReturnType<typeof parseHash> = { share: false, selfcheck: false };
   for (const part of hash.replace(/^#/, "").split("&")) {
     const [k, v] = part.split("=") as [string, string | undefined];
     if (k === "share") out.share = true;
-    else if (k === "selfcheck") out.selfcheck = true;
+    else if (k === "selfcheck") {
+      out.selfcheck = true;
+      if (v === "input") out.selfcheckInput = true;
+    }
     else if (k === "household" && v !== undefined) out.household = v;
+    else if (k === "tab" && TABS.some((t) => t.id === v)) out.tab = v as Tab;
+    else if (k === "stage" && STAGE_ORDER.some((s) => s.id === v)) out.stage = v as StageId;
+    else if (k === "level" && (v === "simple" || v === "detail")) out.level = v;
     else if (k === "levers" && v !== undefined) out.levers = v.split(",").map(Number);
     else if (k === "year" && v !== undefined) out.year = Number(v);
     else if (k === "evidence" && v !== undefined) {
@@ -39,6 +62,25 @@ export function parseHash(hash: string): { share: boolean; household?: string; l
   }
   return out;
 }
+
+const BLANK = "__blank__";
+
+/** 打ち手の目盛り: 見本の世帯の目盛りに、今の値（現状）を足す。見本の無い世帯は標準の目盛り */
+export function leverSteps(demo: DemoHousehold | null, base: Partial<LeverValues>): Record<LeverKey, number[]> {
+  const living = base.livingMonthly ?? 250000;
+  const around = [-40000, -20000, 0, 20000].map((d) => Math.max(50000, Math.round((living + d) / 10000) * 10000));
+  const std: Record<LeverKey, number[]> = { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 10000, 30000, 50000], livingMonthly: around };
+  const out = {} as Record<LeverKey, number[]>;
+  for (const k of LEVER_KEYS) {
+    const steps = new Set(demo?.steps[k] ?? std[k]);
+    const b = base[k];
+    if (b !== undefined) steps.add(b);
+    out[k] = [...steps].sort((a, z) => a - z);
+  }
+  return out;
+}
+
+const pct = (r: string) => `${Math.round(Number(r) * 100)}%`;
 
 const LEVER_LABEL: Record<LeverKey, (who: string) => string> = {
   retireAge: (who) => `${who}が働く最後の年齢`,
@@ -60,11 +102,24 @@ function nearestIndex(steps: number[], v: number | undefined): number {
 }
 
 interface Opened {
-  demo: DemoHousehold;
-  base: EngineRequest;
+  /** 見本の世帯（目盛り・最初の提案の既定）。空の世帯は null */
+  demo: DemoHousehold | null;
+  /** 画面の中で編集する世帯（現状） */
+  wh: WorkingHousehold;
   selfId: string;
   baseLevers: Partial<LeverValues>;
   available: Set<LeverKey>;
+}
+
+function openedFrom(demo: DemoHousehold | null, wh: WorkingHousehold): Opened | null {
+  const self = roles(wh.request).find((r) => r.key === "self");
+  if (self === undefined) return null;
+  return { demo, wh, selfId: self.member.id, baseLevers: readLevers(wh.request, self.member.id), available: availableLevers(wh.request, self.member.id) };
+}
+
+function thisMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 export function App() {
@@ -76,7 +131,10 @@ export function App() {
   const [levers, setLevers] = useState<Partial<LeverValues>>({});
   const [selectedYear, setSelectedYear] = useState<number | null>(initial.year ?? null);
   const [share, setShare] = useState(initial.share);
-  const [tab, setTab] = useState<Tab>("main");
+  const [tab, setTab] = useState<Tab>(initial.tab ?? "main");
+  const [stage, setStage] = useState<StageId>(initial.stage ?? "family");
+  const [level, setLevel] = useState<Level>(initial.level ?? "simple");
+  const openedRef = useRef<Opened | null>(null);
   const [evidence, setEvidence] = useState<EvidenceState | null>(null);
   const [, setTick] = useState(0);
   const dual = useRef<DualEngine | null>(null);
@@ -113,23 +171,34 @@ export function App() {
   }, []);
 
   const requestsFor = useCallback((o: Opened, values: Partial<LeverValues>) => {
-    const proposal = applyLevers(o.base, o.selfId, values, o.demo.reemployment !== undefined ? { reemployment: o.demo.reemployment } : {});
-    return { current: o.base, proposal };
+    // 主画面の打ち手は提案の差分として当てる（現状＝入力の値は変えない）。定年後の予定の条件は入力の値から
+    const r = reemploymentOf(o.wh.postRetirement[o.selfId]);
+    const proposal = applyLevers(o.wh.request, o.selfId, values, r !== undefined ? { reemployment: r } : {});
+    return { current: o.wh.request, proposal };
   }, []);
 
   const open = useCallback(
     async (id: string, hashLevers?: number[]) => {
       if (host === null) return;
-      const demo = demoHousehold(id);
-      if (demo === undefined) return;
-      const base = await host.openHousehold(id);
-      const self = roles(base).find((r) => r.key === "self");
-      if (self === undefined) return;
-      const baseLevers = readLevers(base, self.member.id);
-      const o: Opened = { demo, base, selfId: self.member.id, baseLevers, available: availableLevers(base, self.member.id) };
-      let values: Partial<LeverValues> = { ...baseLevers, ...demo.firstProposal };
+      let o: Opened | null;
+      if (id === BLANK) o = openedFrom(null, withRefreshedEstimates(blankHousehold(thisMonth())));
+      else {
+        const demo = demoHousehold(id);
+        if (demo === undefined) return;
+        const base = await host.openHousehold(id);
+        const self = roles(base).find((r) => r.key === "self");
+        if (self === undefined) return;
+        const re = demo.reemployment;
+        const wh = fromRequest(base, { memo: demo.memo, ...(re !== undefined ? { postRetirement: { [self.member.id]: { ...re, type: re.type as "contract" } } } : {}) });
+        o = openedFrom(demo, wh);
+      }
+      if (o === null) return;
+      const baseLevers = o.baseLevers;
+      let values: Partial<LeverValues> = { ...baseLevers, ...(o.demo?.firstProposal ?? {}) };
       if (hashLevers !== undefined) LEVER_KEYS.forEach((k, i) => (hashLevers[i] !== undefined && !Number.isNaN(hashLevers[i]) ? (values = { ...values, [k]: hashLevers[i] }) : null));
       for (const k of LEVER_KEYS) if (!o.available.has(k)) delete values[k];
+      openedRef.current = o;
+      leversRef.current = values;
       setOpened(o);
       setLevers(values);
       setEvidence(null);
@@ -141,29 +210,54 @@ export function App() {
 
   useEffect(() => {
     if (host === null || households.length === 0) return;
-    const id = initial.household !== undefined && households.some((h) => h.id === initial.household) ? initial.household : (households[0] as DemoHousehold).id;
+    const id = initial.household === "blank" ? BLANK : initial.household !== undefined && households.some((h) => h.id === initial.household) ? initial.household : (households[0] as DemoHousehold).id;
     void open(id, initial.levers);
   }, [host, households, open, initial]);
+
+  /** 入力の画面で世帯（現状）を変えた: 推定を入れ直し、打ち手のうち現状のままだったものは新しい現状に合わせ、計算し直す */
+  const edit = useCallback(
+    (next: WorkingHousehold) => {
+      const o = openedRef.current;
+      if (o === null || dual.current === null) return;
+      const n = openedFrom(o.demo, withRefreshedEstimates(next));
+      if (n === null) return;
+      const values: Partial<LeverValues> = {};
+      for (const k of LEVER_KEYS) {
+        if (!n.available.has(k)) continue;
+        const cur = leversRef.current[k];
+        values[k] = cur === undefined || cur === o.baseLevers[k] ? n.baseLevers[k] : cur;
+      }
+      openedRef.current = n;
+      leversRef.current = values;
+      setOpened(n);
+      setLevers(values);
+      dual.current.slide("current", requestsFor(n, values));
+    },
+    [requestsFor],
+  );
+
+  const steps = useMemo(() => (opened === null ? null : leverSteps(opened.demo, opened.baseLevers)), [opened]);
 
   const slide = useCallback(
     (key: LeverKey, index: number) => {
       const o = opened;
-      if (o === null || dual.current === null) return;
-      const v = o.demo.steps[key][index];
+      if (o === null || dual.current === null || steps === null) return;
+      const v = steps[key][index];
       if (v === undefined || leversRef.current[key] === v) return;
       const values = { ...leversRef.current, [key]: v };
       leversRef.current = values;
       setLevers(values);
       dual.current.slide("proposal", { proposal: requestsFor(o, values).proposal });
     },
-    [opened, requestsFor],
+    [opened, requestsFor, steps],
   );
   const release = useCallback(() => void dual.current?.release(), []);
   const reset = useCallback(
     (to: "current" | "first") => {
       const o = opened;
       if (o === null || dual.current === null) return;
-      const values = to === "current" ? { ...o.baseLevers } : { ...o.baseLevers, ...o.demo.firstProposal };
+      const values = to === "current" ? { ...o.baseLevers } : { ...o.baseLevers, ...(o.demo?.firstProposal ?? {}) };
+      for (const k of LEVER_KEYS) if (!o.available.has(k)) delete values[k];
       leversRef.current = values;
       setLevers(values);
       dual.current.slide("proposal", { proposal: requestsFor(o, values).proposal });
@@ -177,11 +271,11 @@ export function App() {
   const model = useMemo(() => {
     if (opened === null || cur?.result == null || pro?.result == null) return null;
     return toPresentation({
-      base: opened.base,
+      base: opened.wh.request,
       proposal: requestsFor(opened, levers).proposal,
       current: cur.result,
       proposed: pro.result,
-      targetAge: opened.demo.targetAge,
+      targetAge: opened.demo?.targetAge ?? 95,
       selectedYear,
       provisional: pro.source !== "canonical" || pro.stale,
     });
@@ -210,29 +304,69 @@ export function App() {
     if (model === null || once.current) return;
     once.current = true;
     if (initial.evidence !== undefined) void showEvidence(initial.evidence.row, initial.evidence.year);
-    if (import.meta.env.DEV && initial.selfcheck && dual.current !== null) void runSelfCheck(dual.current, host?.kind ?? "browser-dev");
+    if (import.meta.env.DEV && initial.selfcheck && dual.current !== null) {
+      if (initial.selfcheckInput === true) void runInputCheck(() => dual.current, host?.kind ?? "browser-dev");
+      else void runSelfCheck(dual.current, host?.kind ?? "browser-dev");
+    }
   }, [model, initial, showEvidence, host]);
 
   if (import.meta.env.DEV && dual.current !== null) (globalThis as { __financia?: unknown }).__financia = { timings: dual.current.timings, mismatches: () => dual.current?.mismatches };
 
+  // 小さな結果（入力の画面の隅）: 現状の計算から、資産が尽きる年と目標の年齢の金融資産
+  const mini = useMemo<MiniResult | null>(() => {
+    if (opened === null) return null;
+    const req = opened.wh.request;
+    const self = roles(req).find((r) => r.key === "self");
+    if (cur?.result == null || self === undefined) return cur?.error != null ? { targetLabel: "", targetAmount: null, depletion: null, years: [], financial: [], provisional: false, error: cur.error } : null;
+    const years = displayYears(req);
+    const fin = financialOf(cur.result.table);
+    const dep = depletionYear(cur.result.table, years);
+    const targetAge = opened.demo?.targetAge ?? 95;
+    const targetYear = parseYm(self.member.birth.birthYearMonth).y + targetAge;
+    return {
+      targetLabel: `${self.label}${targetAge}歳時点の金融資産`,
+      targetAmount: years.includes(targetYear) ? (fin.get(targetYear) ?? 0) : null,
+      depletion: dep === null ? null : `${dep}年（${self.label}${ageAt(self.member, `${dep}-12`)}歳）`,
+      years,
+      financial: years.map((y) => fin.get(y) ?? 0),
+      provisional: cur.source !== "canonical" || cur.stale,
+      error: cur.error,
+    };
+  }, [opened, cur?.result, cur?.source, cur?.stale, cur?.error]);
+
   const who = model?.members[0]?.label ?? "本人";
+  const leverNote = (k: LeverKey, v: number | undefined): string | null => {
+    if (opened === null) return null;
+    const h = opened.wh.request.input.household;
+    if (k === "retireAge") {
+      const p = opened.wh.postRetirement[opened.selfId];
+      if (p?.type != null && p.annualSalary !== null) return `${p.fromAge}歳から${p.type === "selfEmployed" ? "自営業" : p.type === "partTime" ? "パート" : "再雇用"}（年収${Math.round(p.annualSalary / 10000)}万円）`;
+      return null;
+    }
+    if (k === "pensionAge") return v === 65 ? "原則の65歳" : null;
+    if (k === "nisaMonthly") return opened.demo?.notes?.nisaMonthly ?? "働いている間、毎月積み立てる";
+    const st = (h.livingExpenses ?? []).find((l) => l.mode === "total")?.stages ?? [];
+    const names: Record<string, string> = { childIndependence: "子の独立後は", retirement: "退職後は", age70: "70歳から", age80: "80歳から" };
+    const parts = st.filter((s) => s.ratio !== undefined && names[s.label] !== undefined).map((s) => `${names[s.label]}${pct(s.ratio as string)}`);
+    return parts.length > 0 ? parts.join("、") : null;
+  };
   const leverRows: LeverRow[] =
-    opened === null
+    opened === null || steps === null
       ? []
       : LEVER_KEYS.filter((k) => opened.available.has(k)).map((k) => {
-          const steps = opened.demo.steps[k];
+          const st = steps[k];
           const v = levers[k];
           const b = opened.baseLevers[k];
           return {
             key: k,
             label: LEVER_LABEL[k](who),
-            steps,
-            index: nearestIndex(steps, v),
-            baseIndex: nearestIndex(steps, b),
+            steps: st,
+            index: nearestIndex(st, v),
+            baseIndex: nearestIndex(st, b),
             valueText: v !== undefined ? valueText(k, v) : "",
             stepText: (x: number) => stepText(k, x),
             baseText: b !== undefined ? valueText(k, b) : "",
-            note: opened.demo.notes?.[k] ?? (k === "pensionAge" && v === 65 ? "原則の65歳" : null),
+            note: leverNote(k, v),
           };
         });
 
@@ -254,12 +388,13 @@ export function App() {
         </span>
         {!share && households.length > 0 ? (
           <label class="hh-pick">
-            <select value={opened?.demo.id ?? ""} onChange={(e) => void open((e.currentTarget as HTMLSelectElement).value)} aria-label="開く世帯">
+            <select value={opened === null ? "" : (opened.demo?.id ?? BLANK)} onChange={(e) => void open((e.currentTarget as HTMLSelectElement).value)} aria-label="開く世帯">
               {households.map((h) => (
                 <option value={h.id} key={h.id}>
                   {h.title}（架空）
                 </option>
               ))}
+              <option value={BLANK}>新しい世帯（空から入れる）</option>
             </select>
           </label>
         ) : null}
@@ -286,7 +421,9 @@ export function App() {
       <main class="wrap">
         {fatal !== null ? <p class="fatal">起動できませんでした（{fatal}）</p> : null}
         {error !== null ? <p class="fatal">計算できませんでした（{error}）</p> : null}
-        {tab !== "main" && !share ? (
+        {tab === "input" && opened !== null ? (
+          <InputView wh={opened.wh} onEdit={edit} stage={stage} onStage={setStage} level={level} onLevel={setLevel} share={share} mini={mini} />
+        ) : tab !== "main" && tab !== "input" && !share ? (
           <section class="card placeholder">
             <h2>{TABS.find((t) => t.id === tab)?.label}</h2>
             <p>準備中です。</p>
@@ -301,11 +438,15 @@ export function App() {
                 {!share && opened !== null ? (
                   <section class="memo" aria-label="FP用のメモ">
                     <div class="memo-h">メモ（顧客には見せない）</div>
-                    <ul>
-                      {opened.demo.memo.map((m, i) => (
-                        <li key={i}>{m}</li>
-                      ))}
-                    </ul>
+                    {opened.wh.memo.length > 0 ? (
+                      <ul>
+                        {opened.wh.memo.map((m, i) => (
+                          <li key={i}>{m}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p class="memo-empty">入力の画面で書けます</p>
+                    )}
                   </section>
                 ) : null}
               </aside>
@@ -314,7 +455,7 @@ export function App() {
             </div>
             <CashflowTable model={model.table} selectedYear={model.selectedYear} onSelectYear={setSelectedYear} onEvidence={(r, y) => void showEvidence(r, y)} />
             <div class="foot footnote">
-              <span>架空のモデル世帯を、ファイナンシアの計算エンジン（開発版）で計算した結果です。制度データには原本での確認待ちの行があります。</span>
+              <span>{opened?.demo !== null ? "架空のモデル世帯を" : "入力した世帯を"}、ファイナンシアの計算エンジン（開発版）で計算した結果です。制度データには原本での確認待ちの行があります。保存は次の版です。</span>
               {import.meta.env.DEV && !share ? (
                 <span class="perf">
                   計算の速さ: 先出し {last !== undefined ? `${last.ms.toFixed(0)}ms` : "—"}／正の計算 {lastCanon !== undefined ? `${lastCanon.ms.toFixed(0)}ms（本体 ${lastCanon.hostMs?.toFixed(0) ?? "—"}ms）` : "—"}／{host?.kind}

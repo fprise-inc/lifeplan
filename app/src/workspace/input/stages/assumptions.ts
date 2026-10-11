@@ -1,0 +1,146 @@
+// 10. 前提条件: 物価上昇率・賃金上昇率・運用利回り・教育費の上昇率・年金のマクロ経済スライド（年ごとの列の既定の値。0008 の8）、
+// 資産の種類ごとの利回り、表の最後の年
+import type { Household, YearSeries } from "../../../engine/types.ts";
+import { field, getPath, plain, type FieldDef, type GroupDef, type StageDef } from "../form.ts";
+import { mutate, standardEndYear, type WorkingHousehold } from "../household.ts";
+import { ASSET_CLASSES } from "../labels.ts";
+import { sameRate } from "../units.ts";
+
+/** 年ごとの列の既定の値（default）の欄。年ごとの値（byYear）があるときは、その旨を出す */
+function seriesField(name: string, label: string, help: string, level: "simple" | "detail", optional: boolean): FieldDef {
+  return field({
+    key: `assume/${name}`,
+    item: `assumptions.${name}`,
+    label,
+    level,
+    kind: "pct",
+    optional,
+    help,
+    get: (wh) => {
+      const s = getPath(wh.request.input.assumptions, [name]) as YearSeries | undefined;
+      return { value: s?.default ?? null, hint: s === undefined ? "入れない（計算エンジンの既定）" : null, derived: s?.byYear !== undefined ? `年ごとの値が ${Object.keys(s.byYear).length} 年分あります（詳しい入力は次の版）` : null };
+    },
+    set: (wh, v) => {
+      const request = structuredClone(wh.request);
+      const a = (request.input.assumptions ??= { investmentReturn: { default: "0.01" } }) as Record<string, unknown>;
+      const cur = a[name] as YearSeries | undefined;
+      if (v === null) delete a[name];
+      else if (!(cur !== undefined && sameRate(cur.default, String(v)))) a[name] = { ...cur, default: String(v) };
+      return { ...wh, request };
+    },
+  });
+}
+
+function assetReturnGroups(wh: WorkingHousehold): GroupDef[] {
+  const ar = wh.request.input.assumptions?.assetReturns ?? {};
+  return Object.keys(ar).map((cls) => ({
+    key: `assume/assetReturns/${cls}`,
+    title: ASSET_CLASSES.find((o) => o.value === cls)?.label ?? cls,
+    level: "detail" as const,
+    fields: [
+      plain({
+        key: `assume/assetReturns/${cls}/default`,
+        item: "assumptions.assetReturns",
+        label: "利回り（年）",
+        level: "detail",
+        kind: "pct",
+        find: (_h, w) => (getPath(w.request.input.assumptions, ["assetReturns", cls]) as Record<string, unknown> | undefined) ?? undefined,
+        path: ["default"],
+      }),
+    ],
+    actions: [
+      {
+        key: `assume/assetReturns/${cls}/remove`,
+        label: "外す",
+        level: "detail" as const,
+        danger: true,
+        run: (w: WorkingHousehold) => {
+          const request = structuredClone(w.request);
+          const a = request.input.assumptions;
+          if (a?.assetReturns !== undefined) {
+            delete a.assetReturns[cls];
+            if (Object.keys(a.assetReturns).length === 0) delete a.assetReturns;
+          }
+          return { ...w, request };
+        },
+      },
+    ],
+  }));
+}
+
+export function assumptionsStage(wh: WorkingHousehold): StageDef {
+  const have = new Set(Object.keys(wh.request.input.assumptions?.assetReturns ?? {}));
+  const endYear = field({
+    key: "assume/endYear",
+    item: null,
+    label: "表の最後の年",
+    level: "detail",
+    kind: "int",
+    suffix: "年",
+    min: 2000,
+    max: 2200,
+    help: "標準は、本人・配偶者のうち若い方が100歳になる年",
+    get: (w) => ({ value: w.request.input.endYear, hint: `標準は ${standardEndYear(w.request.input.household)}年` }),
+    set: (w, v) => (v === null ? w : mutate(w, (_h: Household, req) => void (req.input.endYear = Number(v)))),
+  });
+  const baseMonth = field({
+    key: "assume/baseMonth",
+    item: null,
+    label: "計算の基準の月",
+    level: "detail",
+    kind: "ym",
+    help: "この月から計算します。保存と見直しの版ができるまでは、世帯を開いたときの値のままにします",
+    readOnly: "見直しの版（現状の版を積む）ができてから変えられます",
+    get: (w) => ({ value: w.request.input.baseMonth }),
+    set: (w) => w,
+  });
+  return {
+    id: "assumptions",
+    label: "前提条件",
+    lead: "物価・賃金・運用利回りなどの前提。顧客ごとに変えられます。",
+    sections: [
+      {
+        key: "assume/main",
+        title: "経済の前提",
+        note: "事務所の標準値（設定）はまだありません。今は世帯ごとの値を使います",
+        level: "simple",
+        groups: [
+          {
+            key: "assume/main/fields",
+            level: "simple",
+            fields: [
+              seriesField("inflation", "物価上昇率（年）", "基本生活費などの変動率に使います", "simple", true),
+              seriesField("wageGrowth", "賃金上昇率（年）", "給与の伸び（年齢ごとの昇給カーブとは別）", "simple", true),
+              seriesField("investmentReturn", "運用利回り（年）", "資産の配分を入れていない口座の利回り", "simple", false),
+              seriesField("educationInflation", "教育費の上昇率（年）", "空欄なら物価上昇率と同じ", "detail", true),
+              seriesField("pensionMacroSlide", "年金のマクロ経済スライドの調整率（年）", "将来の年金額の伸びから差し引く率", "detail", true),
+              endYear,
+              baseMonth,
+            ],
+            actions: [],
+          },
+        ],
+        actions: [],
+      },
+      {
+        key: "assume/assetReturns",
+        title: "資産の種類ごとの利回り",
+        level: "detail",
+        groups: assetReturnGroups(wh),
+        actions: ASSET_CLASSES.filter((o) => !have.has(o.value))
+          .slice(0, 6)
+          .map((o) => ({
+            key: `assume/addReturn/${o.value}`,
+            label: `＋ ${o.label}`,
+            level: "detail" as const,
+            run: (w: WorkingHousehold) => {
+              const request = structuredClone(w.request);
+              const a = (request.input.assumptions ??= { investmentReturn: { default: "0.01" } });
+              (a.assetReturns ??= {})[o.value] = { default: o.value.startsWith("cash") ? "0.001" : "0.03" };
+              return { ...w, request };
+            },
+          })),
+      },
+    ],
+  };
+}
