@@ -192,3 +192,53 @@ export async function runInputCheck(dual: () => DualEngine | null, host: string)
   }
   await fetch("/__dev/report", { method: "POST", body: JSON.stringify(report, null, 2) });
 }
+
+/**
+ * 万一の画面の自己確認（URL の #selfcheck=contingency）: 開いてから必要保障額の推移が出るまでの時間、障害の想定の組み合わせの一文、
+ * 2028年4月以後の死亡の知らせ、共有用の表示でメモと前提の欄が隠れること。開発用のサーバーのときだけ
+ */
+export async function runContingencyCheck(host: string): Promise<void> {
+  const report: Record<string, unknown> = { host, kind: "contingency", userAgent: navigator.userAgent };
+  const waitFor = async (pred: () => boolean, ms = 30000) => {
+    const t0 = performance.now();
+    while (!pred() && performance.now() - t0 < ms) await sleep(20);
+    return Math.round(performance.now() - t0);
+  };
+  try {
+    const t0 = performance.now();
+    clickTab("万一の想定");
+    await waitFor(() => document.querySelector(".cg-prot") !== null, 2000);
+    report.loadingShown = document.querySelector(".cg-loading") !== null;
+    await waitFor(() => document.querySelector(".pchart") !== null || document.querySelector(".cg-prot .fatal") !== null);
+    report.protectionMs = Math.round(performance.now() - t0);
+    await waitFor(() => document.querySelector(".cg-scenario .hero-num") !== null);
+    await sleep(300);
+    report.open = { perf: text("[data-cg-perf]"), headline: text(".cg-scenario .hero-num"), verdict: text(".cg-scenario .verdict"), charts: document.querySelectorAll(".pchart").length };
+    await stage("cg-open", report);
+    document.querySelector<HTMLButtonElement>('[data-scenario="disability:self"]')?.click();
+    report.disabilityMs = await waitFor(() => document.querySelector("[data-choice]") !== null && document.querySelector(".cg-scenario .is-stale") === null);
+    report.disability = { title: text(".cg-title"), choice: text("[data-choice]") };
+    await stage("cg-disability", report);
+    document.querySelector<HTMLButtonElement>('[data-scenario="death:self"]')?.click();
+    await sleep(100);
+    const sel = document.querySelector<HTMLSelectElement>("[data-scenario-year]");
+    if (sel !== null) {
+      sel.value = "2030";
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    report.deathMs = await waitFor(() => (text(".cg-title") ?? "").includes("2030") && document.querySelector(".cg-scenario .is-stale") === null);
+    report.death2030 = { title: text(".cg-title"), notice: text("[data-notice]") };
+    await stage("cg-death-2030", report);
+    document.querySelector<HTMLButtonElement>("[data-share-toggle]")?.click();
+    await sleep(300);
+    report.share = { memo: document.querySelector(".memo") !== null, inputs: document.querySelector(".cg-side") !== null, banner: text(".share-banner") };
+    await stage("cg-share", report);
+    document.querySelector<HTMLButtonElement>("[data-share-toggle]")?.click();
+    await sleep(200);
+    report.ok = true;
+  } catch (e) {
+    report.ok = false;
+    report.error = String(e);
+  }
+  await fetch("/__dev/report", { method: "POST", body: JSON.stringify(report, null, 2) });
+}

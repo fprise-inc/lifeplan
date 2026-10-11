@@ -1,5 +1,5 @@
 // 提示層の部品（主画面）。受け取るのは PresentationModel（とその一部）と、年・根拠を選ぶ手続きだけ（0016 の2）
-import type { CashflowTableModel, EventChip, GoalsModel, Headline as HeadlineModel, PresentationModel, Verdict as VerdictModel, YearDetail as YearDetailModel } from "./model.ts";
+import type { CashflowTableModel, EventChip, FeeLine, GoalsModel, Headline as HeadlineModel, PresentationModel, Verdict as VerdictModel, YearDetail as YearDetailModel } from "./model.ts";
 import { man, manDiff } from "./format.ts";
 import { AssetChart } from "./AssetChart.tsx";
 
@@ -37,16 +37,26 @@ export function Verdict({ model }: { model: VerdictModel }) {
   );
 }
 
-export function Legend() {
+/** FP顧問料の ON/OFF の一文（対策で切り替える） */
+export function FeeNote({ model }: { model: FeeLine }) {
+  return (
+    <div class={`fee-note${model.on ? " on" : ""}`} data-fee-note>
+      <span class="fee-tag">{model.on ? "顧問料込み" : "顧問料なし"}</span>
+      <span>{model.parts.map((p, i) => (p.strong === true ? <b key={i}>{p.text}</b> : <span key={i}>{p.text}</span>))}</span>
+    </div>
+  );
+}
+
+export function Legend({ labels }: { labels?: { proposal: string; current: string } } = {}) {
   return (
     <div class="legend">
       <span class="lg">
         <i />
-        提案
+        {labels?.proposal ?? "提案"}
       </span>
       <span class="lg base">
         <i />
-        現状
+        {labels?.current ?? "現状"}
       </span>
       <span class="lg short">
         <i />
@@ -240,6 +250,7 @@ export function MainCard({ model, onSelectYear }: { model: PresentationModel; on
     <section class="card col-main" aria-label="資産残高の見通し">
       <Headline model={model.headline} provisional={model.provisional} />
       <Verdict model={model.verdict} />
+      {model.fee !== null ? <FeeNote model={model.fee} /> : null}
       <div class="chart-top">
         <Legend />
         <span class="footnote">グラフの年を押すと、下の表の同じ年が光ります</span>

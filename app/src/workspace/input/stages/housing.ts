@@ -130,6 +130,111 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   return groups;
 }
 
+/** 団信の事由（スキーマの並び） */
+const CL_EVENTS = ["death", "highDisability", "cancer", "threeMajor", "eightMajor", "incapacity"] as const;
+const DISEASE_RIDERS = [
+  { value: "", label: "なし" },
+  { value: "cancer", label: "がんの特約" },
+  { value: "threeMajor", label: "3大疾病の特約" },
+  { value: "eightMajor", label: "8大疾病の特約" },
+];
+
+/**
+ * 住宅ローンの団信の欄（対象・事由（特約）・保障割合・夫婦連生・就業不能の特約の月数）。住まい・ローンの段階と、万一の画面の「団信」で同じ欄を使う
+ * （欄のキーが同じなので、どちらで直しても同じ世帯データが変わる）
+ */
+export function creditLifeFields(wh: WorkingHousehold, d: Debt): FieldDef[] {
+  const find = byId(debts, d.id);
+  const k = `housing/debt/${d.id}`;
+  const cl = (h: Household, w: WorkingHousehold) => (find(h, w) as Debt | undefined)?.creditLife;
+  const events = (h: Household, w: WorkingHousehold): string[] => (cl(h, w)?.events as string[] | undefined) ?? ["death"];
+  const setEvent = (w: WorkingHousehold, ev: string, on: boolean) =>
+    mutate(w, (h) => {
+      const c = cl(h, w);
+      if (c === undefined) return;
+      const cur = new Set((c.events as string[] | undefined) ?? ["death"]);
+      if (on) cur.add(ev);
+      else cur.delete(ev);
+      c.events = CL_EVENTS.filter((e) => cur.has(e));
+    });
+  const fields: FieldDef[] = [
+    field({
+      key: `${k}/creditLife`,
+      item: "debt.creditLife",
+      label: "団体信用生命保険（団信）の対象",
+      level: "simple",
+      kind: "select",
+      options: [{ value: "", label: "入っていない・未確認" }, ...memberOptions(wh, (m) => d.debtors.some((x) => x.member === m.id))],
+      help: "亡くなったとき・高度障害のとき、この人の負担分の残高が消えます",
+      get: (w) => ({ value: (find(w.request.input.household, w) as Debt | undefined)?.creditLife?.covered[0] ?? "", ...(((find(w.request.input.household, w) as Debt | undefined)?.creditLife?.covered.length ?? 0) > 1 ? { derived: "夫婦連生（2人とも対象）" } : {}) }),
+      set: (w, v) =>
+        mutate(w, (h) => {
+          const x = find(h, w) as Debt | undefined;
+          if (x === undefined) return;
+          if (v === "" || v === null) delete x.creditLife;
+          else x.creditLife = { ...(x.creditLife ?? { events: ["death", "highDisability"] }), covered: [String(v)] };
+        }),
+    }),
+  ];
+  if (d.creditLife === undefined) return fields;
+  const implicitEvents = (w: WorkingHousehold) => cl(w.request.input.household, w)?.events === undefined;
+  fields.push(
+    field({
+      key: `${k}/clHigh`,
+      item: "debt.creditLife",
+      label: "高度障害も対象",
+      level: "detail",
+      kind: "bool",
+      get: (w) => ({ value: events(w.request.input.household, w).includes("highDisability"), ...(implicitEvents(w) ? { implicit: true } : {}) }),
+      set: (w, v) => setEvent(w, "highDisability", v === true),
+    }),
+    field({
+      key: `${k}/clIncapacity`,
+      item: "debt.creditLife",
+      label: "就業不能の特約",
+      level: "detail",
+      kind: "bool",
+      help: "働けない状態が決まった月数続くと残高が消えます（障害・就業不能の想定で使います）",
+      get: (w) => ({ value: events(w.request.input.household, w).includes("incapacity"), ...(implicitEvents(w) ? { implicit: true } : {}) }),
+      set: (w, v) => setEvent(w, "incapacity", v === true),
+    }),
+    field({
+      key: `${k}/clDisease`,
+      item: "debt.creditLife",
+      label: "疾病の特約",
+      level: "detail",
+      kind: "select",
+      options: DISEASE_RIDERS,
+      help: "記録として持ちます（万一の想定は死亡・障害・就業不能なので、疾病の特約はまだ計算に使いません）",
+      get: (w) => ({ value: events(w.request.input.household, w).find((e) => e === "cancer" || e === "threeMajor" || e === "eightMajor") ?? "", ...(implicitEvents(w) ? { implicit: true } : {}) }),
+      set: (w, v) =>
+        mutate(w, (h) => {
+          const c = cl(h, w);
+          if (c === undefined) return;
+          const cur = new Set(((c.events as string[] | undefined) ?? ["death"]).filter((e) => e !== "cancer" && e !== "threeMajor" && e !== "eightMajor"));
+          if (v !== "" && v !== null) cur.add(String(v));
+          c.events = CL_EVENTS.filter((e) => cur.has(e));
+        }),
+    }),
+  );
+  if (events(wh.request.input.household, wh).includes("incapacity"))
+    fields.push(plain({ key: `${k}/clMonths`, item: "debt.creditLife", label: "就業不能の特約: 残高が消えるまでの月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 120, find, path: ["creditLife", "incapacityMonths"], optional: true, fallback: 12 }));
+  fields.push(
+    plain({ key: `${k}/clRatio`, item: "debt.creditLife", label: "保障割合", level: "detail", kind: "pct", find, path: ["creditLife", "ratio"], optional: true, fallback: "1", help: "連帯債務などで、残高のうち保障される割合" }),
+    plain({ key: `${k}/clJoint`, item: "debt.creditLife", label: "夫婦連生（どちらかの万一で全額）", level: "detail", kind: "bool", find, path: ["creditLife", "spouseJoint"], optional: true, fallback: false }),
+  );
+  return fields;
+}
+
+/** 万一の画面に出す団信のまとまり（住宅ローンごと。欄は住まい・ローンの段階と同じ） */
+export function creditLifeGroups(wh: WorkingHousehold): GroupDef[] {
+  const list = (wh.request.input.household.debts ?? []).filter((d) => d.kind === "mortgage");
+  return list.map((d, i) => {
+    const debtor = d.debtors.find((x) => x.role === "primary") ?? d.debtors[0];
+    return { key: `cg/creditLife/${d.id}`, title: `住宅ローン ${i + 1}（${memberLabel(wh, debtor?.member)}）の団信`, level: "simple", fields: creditLifeFields(wh, d), actions: [] };
+  });
+}
+
 function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
   const find = byId(debts, d.id);
   const firstRate: Finder = (h, w) => (getPath(find(h, w), ["rateSchedule", "0"]) as Record<string, unknown> | undefined) ?? undefined;
@@ -168,23 +273,7 @@ function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
     fields.push(
       plain({ key: `${k}/fiveYear`, item: "debt.repayment", label: "5年ルール（返済額を5年ごとに見直す）", level: "detail", kind: "bool", find, path: ["repayment", "variableRules", "fiveYear"], optional: true, fallback: false }),
       plain({ key: `${k}/cap125`, item: "debt.repayment", label: "125%ルール（見直しの上限）", level: "detail", kind: "bool", find, path: ["repayment", "variableRules", "cap125"], optional: true, fallback: false }),
-      field({
-        key: `${k}/creditLife`,
-        item: "debt.creditLife",
-        label: "団体信用生命保険（団信）の対象",
-        level: "simple",
-        kind: "select",
-        options: [{ value: "", label: "入っていない・未確認" }, ...memberOptions(wh, (m) => d.debtors.some((x) => x.member === m.id))],
-        help: "亡くなったとき・高度障害のとき、この人の負担分の残高が消えます",
-        get: (w) => ({ value: (find(w.request.input.household, w) as Debt | undefined)?.creditLife?.covered[0] ?? "", ...(((find(w.request.input.household, w) as Debt | undefined)?.creditLife?.covered.length ?? 0) > 1 ? { derived: "夫婦連生（2人とも対象）" } : {}) }),
-        set: (w, v) =>
-          mutate(w, (h) => {
-            const x = find(h, w) as Debt | undefined;
-            if (x === undefined) return;
-            if (v === "" || v === null) delete x.creditLife;
-            else x.creditLife = { ...(x.creditLife ?? { events: ["death", "highDisability"] }), covered: [String(v)] };
-          }),
-      }),
+      ...creditLifeFields(wh, d),
     );
   }
   if (d.pairWith !== undefined) fields.push(field({ key: `${k}/pair`, item: "debt.pairWith", label: "ペアローン", level: "simple", kind: "text", readOnly: "もう1本のローンは、そのローンの欄で入れます", get: () => ({ value: "もう1本のローンと組（ペアローン）" }), set: (w) => w }));

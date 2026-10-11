@@ -10,6 +10,8 @@
 //   見積もり（その年金だけを収入とし、公的年金等控除・基礎控除・税率表。復興・防衛特別所得税・ほかの所得・社会保険料は入れない近似。知らせ）を
 //   引いて比べ、同じなら障害年金の側を選ぶ。選んだ組み合わせは出力の choices に残し、pension.oldAge が選ばれなかった老齢年金の部分を止める。
 //   老齢年金の額は pension.oldAgeBase の選ぶ前の年額（循環しないよう pension.oldAge からは読まない）。子の加算と子の加給年金の調整は扱わない
+// - FP が組み合わせを選び直したとき（万一の想定の oldAgeChoice。改訂3）は、65歳からの月はその組み合わせにする。障害基礎年金を含む組み合わせで
+//   障害基礎年金を受けない月（3級など）は、その月だけ自動の選び方に戻す
 // - 働けるようになる月（recovery）が障害認定日より前なら払わない。後なら、その前の月まで
 import {
   addMonths,
@@ -87,7 +89,7 @@ export default defineComponent<{ member: string }, DisabilityPensionOutput>({
   id: "pension.disability",
   title: "障害年金（障害基礎年金・障害厚生年金）",
   contract: "1.1",
-  revision: 2,
+  revision: 3,
   requires: { "contingency.event": ">=1 <2", "pension.record": ">=1 <2", "pension.revision": ">=1 <2", "pension.oldAgeBase": ">=1 <2" },
   params: [...Object.values(P), ...Object.values(T)],
   reads: ["member.kind", "member.birth", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "relation.parent", "relation.child"],
@@ -232,6 +234,8 @@ export default defineComponent<{ member: string }, DisabilityPensionOutput>({
           if (basic > 0) options.push({ c: "disabilityBasicOldAgeEmployee", net: basic + o.employee - taxOn(o.employee, y) });
           let best = options[0] as { c: Combination; net: number };
           for (const x of options) if (x.net > best.net) best = x;
+          const chosen = ev.oldAgeChoice === undefined ? undefined : options.find((x) => x.c === ev.oldAgeChoice);
+          if (chosen !== undefined && (chosen.c !== "disability" || basic > 0 || employee > 0)) best = chosen;
           if (best.c === "oldAge") {
             basic = yen(0);
             employee = yen(0);

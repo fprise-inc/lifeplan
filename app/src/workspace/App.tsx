@@ -2,9 +2,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
 import { devBrowserHost, isTauri, tauriHost, webEngine, type HostApi, type WebSession } from "../engine/host.ts";
-import { isEngineError } from "../engine/types.ts";
+import { isEngineError, type EngineRequest } from "../engine/types.ts";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
-import { monthlyMan } from "../presentation/format.ts";
+import { group, monthlyMan } from "../presentation/format.ts";
 import { CashflowTable, GoalCards, MainCard } from "../presentation/MainView.tsx";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
 import { buildEvidence } from "./evidence.ts";
@@ -13,11 +13,12 @@ import { blankHousehold, fromRequest, reemploymentOf, type WorkingHousehold } fr
 import { InputView, type MiniResult } from "./input/InputView.tsx";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { STAGE_ORDER } from "./input/stages/index.ts";
-import { LeverPanel, type LeverRow } from "./LeverPanel.tsx";
-import { ageAt, applyLevers, availableLevers, LEVER_KEYS, parseYm, readLevers, type LeverKey, type LeverValues } from "./levers.ts";
+import { ContingencyTab } from "./contingency/ContingencyTab.tsx";
+import { LeverPanel, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
+import { advisoryFeeInCurrent, ageAt, applyAdvisoryFee, applyLevers, availableLevers, hasAdvisoryFee, LEVER_KEYS, parseYm, readLevers, type LeverKey, type LeverValues } from "./levers.ts";
 import { depletionYear, displayYears, financialOf, toPresentation } from "./present.ts";
 import { roles } from "./roles.ts";
-import { runInputCheck, runSelfCheck } from "./selfcheck.ts";
+import { runContingencyCheck, runInputCheck, runSelfCheck } from "./selfcheck.ts";
 
 type Tab = "input" | "main" | "contingency" | "report";
 const TABS: { id: Tab; label: string }[] = [
@@ -27,7 +28,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "report", label: "提案書" },
 ];
 
-/** URL の # の後ろ（画面の確かめ用: #share・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#stage=work・#level=detail） */
+/** URL の # の後ろ（画面の確かめ用: #share・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#stage=work・#level=detail・#fee=off・#scenario=death:self） */
 export function parseHash(hash: string): {
   share: boolean;
   household?: string;
@@ -40,6 +41,12 @@ export function parseHash(hash: string): {
   tab?: Tab;
   stage?: StageId;
   level?: Level;
+  /** #fee=off: FP顧問料を入れない提案で開く */
+  feeOff?: boolean;
+  /** #scenario=death:self: 万一の画面で開く想定 */
+  scenario?: string;
+  /** #selfcheck=contingency: 万一の画面の自己確認 */
+  selfcheckContingency?: boolean;
 } {
   const out: ReturnType<typeof parseHash> = { share: false, selfcheck: false };
   for (const part of hash.replace(/^#/, "").split("&")) {
@@ -48,7 +55,10 @@ export function parseHash(hash: string): {
     else if (k === "selfcheck") {
       out.selfcheck = true;
       if (v === "input") out.selfcheckInput = true;
+      if (v === "contingency") out.selfcheckContingency = true;
     }
+    else if (k === "fee" && v === "off") out.feeOff = true;
+    else if (k === "scenario" && v !== undefined) out.scenario = v;
     else if (k === "household" && v !== undefined) out.household = v;
     else if (k === "tab" && TABS.some((t) => t.id === v)) out.tab = v as Tab;
     else if (k === "stage" && STAGE_ORDER.some((s) => s.id === v)) out.stage = v as StageId;
@@ -64,6 +74,27 @@ export function parseHash(hash: string): {
 }
 
 const BLANK = "__blank__";
+
+const manYen = (n: number) => (n % 10000 === 0 ? `${group(n / 10000)}万円` : `${group(n)}円`);
+
+/** 対策「FP顧問料」の下の一文: 契約の中身の要約（例: 単発30万円＋年額12万円（2027年1月から）） */
+export function feeSummary(req: EngineRequest): string {
+  return (req.input.household.advisoryFees ?? [])
+    .map((c) => {
+      const parts: string[] = [];
+      const one = (c.terms?.oneTime ?? []).reduce((s, o) => s + o.amount, 0);
+      if (one > 0) parts.push(`単発${manYen(one)}`);
+      const r = c.terms?.recurring;
+      if (r !== undefined) {
+        const from = r.from.at !== undefined ? `（${Number(r.from.at.slice(0, 4))}年${Number(r.from.at.slice(5))}月から）` : "";
+        if (r.annual !== undefined) parts.push(`年額${manYen(r.annual)}${from}`);
+        if (r.monthly !== undefined) parts.push(`月額${manYen(r.monthly)}${from}`);
+      }
+      return parts.join("＋");
+    })
+    .filter((x) => x !== "")
+    .join("、");
+}
 
 /** 打ち手の目盛り: 見本の世帯の目盛りに、今の値（現状）を足す。見本の無い世帯は標準の目盛り */
 export function leverSteps(demo: DemoHousehold | null, base: Partial<LeverValues>): Record<LeverKey, number[]> {
@@ -141,6 +172,9 @@ export function App() {
   const session = useRef<WebSession | null>(null);
   const leversRef = useRef(levers);
   leversRef.current = levers;
+  const [feeOn, setFeeOn] = useState(initial.feeOff !== true);
+  const feeRef = useRef(feeOn);
+  feeRef.current = feeOn;
 
   // 共有用の表示: 文字の大きさ・線の太さは html の class で切り替える（描いた直後に。次の描画を待たない）
   useLayoutEffect(() => {
@@ -170,11 +204,13 @@ export function App() {
     })();
   }, []);
 
-  const requestsFor = useCallback((o: Opened, values: Partial<LeverValues>) => {
+  const requestsFor = useCallback((o: Opened, values: Partial<LeverValues>, fee: boolean = feeRef.current): { current: EngineRequest; proposal: EngineRequest; alt?: EngineRequest } & Record<string, EngineRequest> => {
     // 主画面の打ち手は提案の差分として当てる（現状＝入力の値は変えない）。定年後の予定の条件は入力の値から
     const r = reemploymentOf(o.wh.postRetirement[o.selfId]);
-    const proposal = applyLevers(o.wh.request, o.selfId, values, r !== undefined ? { reemployment: r } : {});
-    return { current: o.wh.request, proposal };
+    const levered = applyLevers(o.wh.request, o.selfId, values, r !== undefined ? { reemployment: r } : {});
+    if (!hasAdvisoryFee(o.wh.request)) return { current: o.wh.request, proposal: levered };
+    // FP顧問料: 提案の側の ON/OFF（現状は入力のまま）。一文に「入れた場合と入れない場合の差」を出すため、逆の案（alt）も計算する
+    return { current: o.wh.request, proposal: applyAdvisoryFee(levered, fee), alt: applyAdvisoryFee(levered, !fee) };
   }, []);
 
   const open = useCallback(
@@ -247,11 +283,24 @@ export function App() {
       const values = { ...leversRef.current, [key]: v };
       leversRef.current = values;
       setLevers(values);
-      dual.current.slide("proposal", { proposal: requestsFor(o, values).proposal });
+      const { current: _c, ...rest } = requestsFor(o, values);
+      void _c;
+      dual.current.slide("proposal", rest);
     },
     [opened, requestsFor, steps],
   );
   const release = useCallback(() => void dual.current?.release(), []);
+  const toggleFee = useCallback(() => {
+    const o = opened;
+    if (o === null || dual.current === null) return;
+    const fee = !feeRef.current;
+    feeRef.current = fee;
+    setFeeOn(fee);
+    const { current: _c, ...rest } = requestsFor(o, leversRef.current, fee);
+    void _c;
+    dual.current.slide("proposal", rest);
+    void dual.current.release();
+  }, [opened, requestsFor]);
   const reset = useCallback(
     (to: "current" | "first") => {
       const o = opened;
@@ -260,7 +309,12 @@ export function App() {
       for (const k of LEVER_KEYS) if (!o.available.has(k)) delete values[k];
       leversRef.current = values;
       setLevers(values);
-      dual.current.slide("proposal", { proposal: requestsFor(o, values).proposal });
+      const fee = to === "current" ? advisoryFeeInCurrent(o.wh.request) : true;
+      feeRef.current = fee;
+      setFeeOn(fee);
+      const { current: _c, ...rest } = requestsFor(o, values, fee);
+      void _c;
+      dual.current.slide("proposal", rest);
       void dual.current.release();
     },
     [opened, requestsFor],
@@ -268,18 +322,21 @@ export function App() {
 
   const cur = dual.current?.view("current");
   const pro = dual.current?.view("proposal");
+  const alt = dual.current?.view("alt");
   const model = useMemo(() => {
     if (opened === null || cur?.result == null || pro?.result == null) return null;
+    const fee = hasAdvisoryFee(opened.wh.request) ? { on: feeOn, withFee: feeOn ? pro.result : (alt?.result ?? null), alt: alt?.result ?? null } : undefined;
     return toPresentation({
       base: opened.wh.request,
-      proposal: requestsFor(opened, levers).proposal,
+      proposal: requestsFor(opened, levers, feeOn).proposal,
       current: cur.result,
       proposed: pro.result,
       targetAge: opened.demo?.targetAge ?? 95,
       selectedYear,
       provisional: pro.source !== "canonical" || pro.stale,
+      ...(fee !== undefined ? { fee } : {}),
     });
-  }, [opened, levers, cur?.result, pro?.result, pro?.source, pro?.stale, selectedYear, requestsFor]);
+  }, [opened, levers, feeOn, cur?.result, pro?.result, pro?.source, pro?.stale, alt?.result, selectedYear, requestsFor]);
 
   const showEvidence = useCallback(
     async (rowKey: string, year: number) => {
@@ -306,6 +363,7 @@ export function App() {
     if (initial.evidence !== undefined) void showEvidence(initial.evidence.row, initial.evidence.year);
     if (import.meta.env.DEV && initial.selfcheck && dual.current !== null) {
       if (initial.selfcheckInput === true) void runInputCheck(() => dual.current, host?.kind ?? "browser-dev");
+      else if (initial.selfcheckContingency === true) void runContingencyCheck(host?.kind ?? "browser-dev");
       else void runSelfCheck(dual.current, host?.kind ?? "browser-dev");
     }
   }, [model, initial, showEvidence, host]);
@@ -370,6 +428,9 @@ export function App() {
           };
         });
 
+  const feeToggle: FeeToggle | null =
+    opened !== null && hasAdvisoryFee(opened.wh.request) ? { on: feeOn, inCurrent: advisoryFeeInCurrent(opened.wh.request), note: feeSummary(opened.wh.request), onToggle: toggleFee } : null;
+
   const last = dual.current?.timings.filter((t) => t.kind === "preview").at(-1);
   const lastCanon = dual.current?.timings.filter((t) => t.kind === "canonical").at(-1);
   const error = cur?.error ?? pro?.error ?? null;
@@ -423,7 +484,9 @@ export function App() {
         {error !== null ? <p class="fatal">計算できませんでした（{error}）</p> : null}
         {tab === "input" && opened !== null ? (
           <InputView wh={opened.wh} onEdit={edit} stage={stage} onStage={setStage} level={level} onLevel={setLevel} share={share} mini={mini} />
-        ) : tab !== "main" && tab !== "input" && !share ? (
+        ) : tab === "contingency" && opened !== null ? (
+          <ContingencyTab wh={opened.wh} host={host} share={share} targetAge={opened.demo?.targetAge ?? 95} onEdit={edit} {...(initial.scenario !== undefined ? { initialScenario: initial.scenario } : {})} />
+        ) : tab === "report" && !share ? (
           <section class="card placeholder">
             <h2>{TABS.find((t) => t.id === tab)?.label}</h2>
             <p>準備中です。</p>
@@ -451,7 +514,7 @@ export function App() {
                 ) : null}
               </aside>
               <MainCard model={model} onSelectYear={setSelectedYear} />
-              <LeverPanel levers={leverRows} onSlide={slide} onRelease={release} onReset={reset} />
+              <LeverPanel levers={leverRows} onSlide={slide} onRelease={release} onReset={reset} fee={feeToggle} />
             </div>
             <CashflowTable model={model.table} selectedYear={model.selectedYear} onSelectYear={setSelectedYear} onEvidence={(r, y) => void showEvidence(r, y)} />
             <div class="foot footnote">

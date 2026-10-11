@@ -339,4 +339,15 @@ describe("障害年金の65歳からの選択（pension.disability・pension.old
     const old = call<PensionOutput>(req, "pension.oldAge", { member: H }).months.find((m) => m.month === "2056-01");
     expect(old?.basic).toBe(base?.basic);
   });
+  it("FP が選び直した組み合わせ（oldAgeChoice）にする。障害基礎年金を受けない月にその組み合わせは選べず、自動に戻る", () => {
+    const choose = (grade: number, c: string) => edit(disabled(grade), (_h, input) => ((input.contingencies as Obj[])[0] = { ...(input.contingencies as Obj[])[0], oldAgeChoice: c }));
+    const auto = call<DisabilityPensionOutput>(disabled(3), "pension.disability", { member: H }).choices;
+    expect(call<DisabilityPensionOutput>(choose(3, "disability"), "pension.disability", { member: H }).choices).toEqual([{ from: "2055-06", to: "2058-12", combination: "disability" }]);
+    expect(call<DisabilityPensionOutput>(choose(3, "disabilityBasicOldAgeEmployee"), "pension.disability", { member: H }).choices).toEqual(auto);
+    const two = choose(2, "oldAge");
+    expect(call<DisabilityPensionOutput>(two, "pension.disability", { member: H }).choices).toEqual([{ from: "2055-06", to: "2058-12", combination: "oldAge" }]);
+    const old = call<PensionOutput>(two, "pension.oldAge", { member: H }).months.find((m) => m.month === "2056-01");
+    const base = call<{ months: PensionOutput["months"] }>(two, "pension.oldAgeBase", { member: H }).months.find((m) => m.month === "2056-01");
+    expect(old?.employee).toBe(base?.employee);
+  });
 });

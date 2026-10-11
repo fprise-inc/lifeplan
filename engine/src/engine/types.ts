@@ -409,6 +409,9 @@ export interface CareExpenseInput {
 
 export type ContingencyKind = "death" | "disability" | "incapacity";
 
+/** 障害年金の65歳からの組み合わせ: 障害基礎＋障害厚生・老齢基礎＋老齢厚生・障害基礎＋老齢厚生 */
+export type OldAgeChoice = "disability" | "oldAge" | "disabilityBasicOldAgeEmployee";
+
 /** 0008 の5: 万一の想定（要求1つに1件まで） */
 export interface ContingencyInput {
   readonly id: string;
@@ -417,6 +420,8 @@ export interface ContingencyInput {
   readonly occurs: Timepoint;
   readonly grade?: 1 | 2 | 3;
   readonly recovery?: Timepoint;
+  /** 障害年金の65歳からの組み合わせ（FP が選び直したとき。省略は自動） */
+  readonly oldAgeChoice?: OldAgeChoice;
   readonly survivor?: {
     readonly livingRatio?: { readonly beforeIndependence?: string; readonly afterIndependence?: string; readonly noChildren?: string };
     readonly independenceAge?: number;
@@ -505,7 +510,12 @@ export interface CarInput {
   readonly inspection?: { readonly amount: Yen; readonly firstAfterYears?: number; readonly everyYears?: number };
   readonly insurance?: { readonly annual: Yen };
   readonly tax?: { readonly annual: Yen };
+  /** 維持費の合計の年額（まとめて入れるとき。毎月12分の1） */
+  readonly upkeep?: { readonly annual: Yen };
+  readonly parking?: { readonly annual: Yen };
+  readonly fuel?: { readonly annual: Yen };
   readonly growth?: GrowthInput;
+  readonly onContingency?: OnContingencyInput;
 }
 
 export interface AdvisoryFeeTerms {

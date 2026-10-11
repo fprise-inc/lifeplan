@@ -397,6 +397,31 @@ describe("必要保障額の推移（protection.need）", () => {
   });
 });
 
+describe("必要保障額の推移と車の万一のときの扱い（protection.need 改訂2）", () => {
+  const withCar = (owner: string, on?: Obj) =>
+    edit(family({ endYear: 2080 }), (h, input) => {
+      h.livingExpenses = [{ id: uid("lv"), mode: "total", monthly: box(300000) }];
+      h.cars = [{ id: uid("car"), owner, purchase: { first: at("2027-04"), everyYears: 7, price: 2500000 }, parking: { annual: 240000 }, growth: { kind: "none" }, ...(on !== undefined ? { onContingency: on } : {}) }];
+      input.protection = { members: [H], toYear: 2030 };
+    });
+  const need = (req: Req) => ((run(req).protection as { members: { years: { year: number; need: number }[] }[] }).members[0]?.years ?? []).map((y) => y.need);
+  it("遺族の車を「止める」にすると必要保障額が減り、入れていなければ今までと同じ（遺族の車は続く）", () => {
+    const none = need(edit(withCar(W), (h) => delete h.cars));
+    const keep = need(withCar(W));
+    const stop = need(withCar(W, { mode: "stop" }));
+    const cont = need(withCar(W, { mode: "continue" }));
+    expect(keep.every((v, i) => v > (none[i] ?? 0))).toBe(true);
+    expect(cont).toEqual(keep);
+    expect(stop.every((v, i) => v < (keep[i] ?? 0))).toBe(true);
+  });
+  it("亡くなった人の車は、入れていなければ数えず、「続ける」なら遺族の支出に足す", () => {
+    const none = need(edit(withCar(H), (h) => delete h.cars));
+    expect(need(withCar(H))).toEqual(none);
+    expect(need(withCar(H, { mode: "stop" }))).toEqual(none);
+    expect(need(withCar(H, { mode: "continue" })).every((v, i) => v > (none[i] ?? 0))).toBe(true);
+  });
+});
+
 describe("セッション: 万一の枠を見ている枠（focus）にする（0005 の追記 2026-10-09）", () => {
   it("万一の画面を見ているときは、その万一の枠だけを先出しし、万一なしの枠は古い（stale）のまま", () => {
     const base = family({ endYear: 2040 });

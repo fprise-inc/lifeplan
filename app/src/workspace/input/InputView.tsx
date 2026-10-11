@@ -109,7 +109,7 @@ export function InputView({ wh, onEdit, stage, onStage, level, onLevel, share, m
   );
 }
 
-function Section({ section, wh, level, onEdit }: { section: SectionDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void }) {
+export function Section({ section, wh, level, onEdit }: { section: SectionDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void }) {
   const actions = section.actions.filter((a) => visible(level, a.level));
   return (
     <section class="in-section" aria-label={section.title}>
@@ -168,7 +168,7 @@ function Actions({ actions, wh, onEdit, note }: { actions: ActionDef[]; wh: Work
 }
 
 /** 欄1つ。打っている間は下書きの文字を持ち、読める値になったらすぐ世帯に入れる（計算は親が間引く） */
-function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   const state = f.get(wh);
   const [draft, setDraft] = useState<string | null>(null);
   const [unit, setUnit] = useState<YenUnit>(f.kind === "yen" ? (f.unit ?? "man") : "man");
@@ -344,7 +344,7 @@ function MiniPanel({ mini }: { mini: MiniResult | null }) {
   );
 }
 
-function MemoPanel({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+export function MemoPanel({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
   const text = wh.memo.join("\n");
   return (

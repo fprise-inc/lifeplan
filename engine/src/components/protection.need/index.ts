@@ -10,6 +10,8 @@
 //   （needWithAssets）を出し、加入中の死亡保険金（亡くなった人が被保険者の契約の、その年の死亡保障額）と並べる。名目の額で、割り引かない
 // - 逆算方式: 遺族の年ごとの収支で金融資産を前提の運用利回りで伸ばし、遺族（配偶者）が指定の年齢（省略は平均余命）になるまで残高が負に
 //   ならない最小の保険金（死亡の月に受け取る）を求める（金融資産を含まない額と含む額）
+// - 車（改訂2）: 万一のときの扱い（onContingency。死亡に当てるもの）を入れた車だけ、購入と維持費（ローンの返済を除く）に割合を当てる。
+//   遺族の車はその割合で残し、亡くなった人の車も割合で足す（入れていない車は今のまま: 遺族の車は続け、亡くなった人の車は数えない）
 // - 遺族年金の2028年4月の見直しは作らない（pension.survivor の知らせ）
 import {
   addMonths,
@@ -23,6 +25,8 @@ import {
   yen,
   type AccountInput,
   type AnnualRow,
+  type CarInput,
+  type CarOutput,
   type DebtInput,
   type Flow,
   type FlowsResult,
@@ -63,9 +67,10 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
   id: "protection.need",
   title: "必要保障額の推移（積み上げ方式・逆算方式）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "plan.cashflow": ">=1 <2",
+    "expense.car": ">=1 <2",
     "plan.memberFlows": ">=1 <2",
     "expense.living": ">=1 <2",
     "expense.periodic": ">=1 <2",
@@ -99,6 +104,8 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     "livingExpense.onContingency",
     "periodicExpense.onContingency",
     "advisoryFee.terms",
+    "car.owner",
+    "car.onContingency",
     "debt.debtors",
     "debt.creditLife",
     "goal.kind",
@@ -189,6 +196,16 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
       }
       return v;
     };
+    // 車: 万一のときの扱いを入れた車の購入・維持費（ローンの返済を除く）。構成員ごと
+    const carGroups = new Map<string, { factor: string; p: number[] }[]>();
+    const carInputs = ctx.list<Pick<CarInput, "id" | "owner" | "onContingency">>("car").filter((c) => c.onContingency !== undefined && (c.onContingency.kinds ?? ["death"]).includes("death"));
+    for (const owner of new Set(carInputs.map((c) => c.owner))) {
+      const fl = ctx.call<CarOutput>("expense.car", { member: owner }).flows.filter((f) => f.formula.startsWith("expense.car."));
+      carGroups.set(
+        owner,
+        carInputs.filter((c) => c.owner === owner).map((c) => ({ factor: deathFactor(c.onContingency) ?? "1", p: prefixOf(fl, (f) => f.object === c.id) })),
+      );
+    }
     // 金融資産（年末）
     const annual = ctx.call<{ annual: readonly AnnualRow[] }>("plan.cashflow", {}).annual;
     const financial = new Map(annual.filter((a) => a.row === "cf.balance.financial").map((a) => [a.year, a.amount]));
@@ -316,7 +333,11 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
           if (survivorOwn !== null) {
             exp += sum(survivorOwn.tax, a, b) + sum(survivorOwn.expense, a, b);
             res += sum(survivorOwn.income, a, b);
+            // 遺族の車: 万一の扱いの割合に置き換える
+            for (const g of carGroups.get(spouse as string) ?? []) exp += scaled(g.p, g.factor, a, b) - sum(g.p, a, b);
           }
+          // 亡くなった人の車: 万一の扱いを入れたものだけ、割合で足す
+          for (const g of carGroups.get(X) ?? []) exp += scaled(g.p, g.factor, a, b);
           for (const f of sp) {
             const m = parseYm(f.ym);
             if (m >= a && m <= b) res += f.amount;

@@ -1,7 +1,7 @@
 // 計算結果と世帯から、提示用の値（PresentationModel。0016 の2）を作る。許可した項目だけを選んで写す
-import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts";
+import { advisoryFeeSummary, type EngineRequest, type PreviewResult, type TableCell } from "../engine/types.ts";
 import { ROW_LABELS } from "../generated/labels.ts";
-import type { CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, GoalCard, GoalsModel, Headline, PresentationModel, TableRowModel, Verdict, YearDetail } from "../presentation/model.ts";
+import type { CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, GoalCard, GoalsModel, Headline, PresentationModel, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
@@ -219,6 +219,37 @@ function goals(req: EngineRequest, proposed: readonly TableCell[], years: readon
   return { needTotal: need.length, needReady: need.filter((c) => c.ready === true).length, cards };
 }
 
+/** FP顧問料の ON/OFF の材料（顧問料の契約があるときだけ） */
+export interface FeeInput {
+  on: boolean;
+  /** 顧問料を入れた案の要約（累計を出すため）。無ければ累計は出さない */
+  withFee: PreviewResult | null;
+  /** ON と OFF を入れ替えた案の結果（差を一文に出すため。まだ無ければ null） */
+  alt: PreviewResult | null;
+}
+
+/** FP顧問料の一文: 「顧問料（累計○万円）を払っても、ご主人95歳時点の資産は現状より○万円多い」 */
+export function feeLine(input: { fee: FeeInput; targetYear: number; targetLabel: string; finP: Map<number, number>; finC: Map<number, number> }): FeeLine {
+  const { fee, targetYear, targetLabel, finP, finC } = input;
+  const cum = fee.withFee === null ? null : (advisoryFeeSummary(fee.withFee)?.byYear.filter((b) => b.year <= targetYear).at(-1)?.cumulative ?? 0);
+  const cumText = cum === null ? "" : `（${targetLabel}までの累計${man(cum)}万円）`;
+  const diffOf = (fin: Map<number, number>) => (fin.get(targetYear) ?? 0) - (finC.get(targetYear) ?? 0);
+  const word = (d: number) => `${man(Math.abs(d))}万円${d >= 0 ? "多い" : "少ない"}`;
+  const alt = fee.alt === null ? null : diffOf(financialOf(fee.alt.table));
+  const d = diffOf(finP);
+  if (fee.on) {
+    const parts: VerdictPart[] = [
+      { text: `FP顧問料${cumText}を${d >= 0 ? "払っても" : "含めると"}、${targetLabel}時点の資産は現状より ` },
+      { text: word(d), strong: true },
+    ];
+    if (alt !== null) parts.push({ text: `（顧問料を除くと${word(alt)}）` });
+    return { on: true, parts };
+  }
+  const parts: VerdictPart[] = [{ text: "FP顧問料を含めない試算です。" }];
+  if (alt !== null) parts.push({ text: `含めると${cumText}、${targetLabel}時点の資産は現状より ` }, { text: word(alt), strong: true });
+  return { on: false, parts };
+}
+
 export interface PresentInput {
   /** 現状の要求 */
   base: EngineRequest;
@@ -229,6 +260,8 @@ export interface PresentInput {
   targetAge: number;
   selectedYear: number | null;
   provisional: boolean;
+  /** FP顧問料の ON/OFF（契約が無ければ省略） */
+  fee?: FeeInput;
 }
 
 export function toPresentation(input: PresentInput): PresentationModel {
@@ -306,6 +339,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
     events: evs,
     table,
     goals: goals(proposal, proposed.table, years, depP),
+    fee: input.fee === undefined ? null : feeLine({ fee: input.fee, targetYear, targetLabel: self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`, finP, finC }),
     provisional: input.provisional,
   };
 }

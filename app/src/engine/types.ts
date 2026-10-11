@@ -214,6 +214,100 @@ export interface RetirementBenefit {
   [key: string]: unknown;
 }
 
+/** 万一のときの扱い（万一の想定の層で使う） */
+export interface OnContingency {
+  mode: "continue" | "stop" | "ratio";
+  ratio?: string;
+  kinds?: ("death" | "disability" | "incapacity")[];
+}
+
+export interface Car {
+  id: string;
+  owner: string;
+  purchase: { first: Timepoint; everyYears: number; price: number; tradeIn?: number; owned?: boolean };
+  until?: Timepoint | null;
+  loan?: { share?: string; rate: string; termMonths: number; method?: string };
+  inspection?: { amount: number; firstAfterYears?: number; everyYears?: number };
+  insurance?: { annual: number };
+  tax?: { annual: number };
+  upkeep?: { annual: number };
+  parking?: { annual: number };
+  fuel?: { annual: number };
+  growth?: { kind: string; rate?: string };
+  onContingency?: OnContingency;
+  [key: string]: unknown;
+}
+
+export interface AdvisoryFee {
+  id: string;
+  payer: string;
+  enabled?: boolean;
+  menu?: { id: string; label?: string; [key: string]: unknown };
+  terms?: {
+    oneTime?: { at: Timepoint; amount: number }[];
+    recurring?: {
+      from: Timepoint;
+      to?: Timepoint | null;
+      annual?: number;
+      monthly?: number;
+      revision?: { rate?: string; steps?: { at: Timepoint; annual?: number; monthly?: number }[] };
+      onContingency?: OnContingency;
+    };
+  };
+  [key: string]: unknown;
+}
+
+export type OldAgeChoice = "disability" | "oldAge" | "disabilityBasicOldAgeEmployee";
+
+export interface SurvivorAssumptions {
+  livingRatio?: { beforeIndependence?: string; afterIndependence?: string; noChildren?: string };
+  independenceAge?: number;
+  funeral?: number;
+  reserveMonths?: number;
+  deathBenefits?: { retirementAllowance?: number; condolence?: number; workRelated?: boolean };
+}
+
+/** 万一の想定（0008 の5。要求1つに1件まで） */
+export interface Contingency {
+  id: string;
+  kind: "death" | "disability" | "incapacity";
+  member: string;
+  occurs: Timepoint;
+  grade?: 1 | 2 | 3;
+  recovery?: Timepoint;
+  oldAgeChoice?: OldAgeChoice;
+  survivor?: SurvivorAssumptions & { spouseWork?: EmploymentPeriod[] };
+  medical?: { monthly: number; months: number; from?: Timepoint };
+}
+
+/** 必要保障額の推移の要求（6.3） */
+export interface ProtectionRequest {
+  members?: string[];
+  method?: "accumulation" | "reverse";
+  horizon?: { kind: "lifeExpectancy" | "age" | "youngestIndependence"; age?: number };
+  fromYear?: number;
+  toYear?: number;
+  survivor?: SurvivorAssumptions;
+}
+
+export interface ProtectionYear {
+  year: number;
+  death: string;
+  horizon: number;
+  need: number;
+  needWithAssets: number;
+  coverage: number;
+  expenses: number;
+  resources: number;
+  lumpSum: number;
+  assets: number;
+}
+
+export interface ProtectionOutput {
+  method: "accumulation" | "reverse";
+  members: { member: string; survivor?: string; years: ProtectionYear[] }[];
+}
+
 export interface YearSeries {
   default: string;
   byYear?: Record<string, string>;
@@ -235,6 +329,8 @@ export interface Household {
   donors?: Donor[];
   careExpenses?: CareExpense[];
   retirementBenefits?: RetirementBenefit[];
+  cars?: Car[];
+  advisoryFees?: AdvisoryFee[];
   [key: string]: unknown;
 }
 
@@ -245,6 +341,8 @@ export interface EngineRequest {
     endYear: number;
     household: Household;
     assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; [key: string]: unknown };
+    contingencies?: Contingency[];
+    protection?: ProtectionRequest;
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -273,6 +371,19 @@ export interface PreviewResult {
   header: EngineHeader;
   table: TableCell[];
   summary: unknown;
+  /** 必要保障額の推移（要求に protection を入れたときだけ） */
+  protection?: ProtectionOutput;
+}
+
+/** 要約のうち FP顧問料（0008 の追記。顧問料の行があるときだけ） */
+export interface AdvisoryFeeSummary {
+  total: number;
+  byYear: { year: number; amount: number; cumulative: number }[];
+}
+
+export function advisoryFeeSummary(r: PreviewResult): AdvisoryFeeSummary | null {
+  const s = (r.summary as { advisoryFee?: AdvisoryFeeSummary } | null)?.advisoryFee;
+  return s === undefined ? null : s;
 }
 
 export interface Flow {

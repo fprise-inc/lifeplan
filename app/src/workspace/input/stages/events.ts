@@ -1,9 +1,11 @@
-// 9. ライフイベント（一時的な収支）: 一時的支出・n年ごとの支出（旅行・家電・結婚の援助など）と、介護の費用
+// 9. ライフイベント（一時的な収支）: 一時的支出・n年ごとの支出（旅行・家電・結婚の援助など）、介護の費用、車（cars.ts）、FP顧問料（fees.ts）
 import type { CareExpense, Household, PeriodicExpense } from "../../../engine/types.ts";
 import { addMonths, ageReachedMonth } from "../../levers.ts";
 import { byId, plain, removeAction, timepointField, yenBox, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, type WorkingHousehold } from "../household.ts";
 import { CARE_PLACE, memberLabel, memberOptions, PERIODIC_ROWS } from "../labels.ts";
+import { carSection } from "./cars.ts";
+import { feeSection } from "./fees.ts";
 
 const periodic = (h: Household) => h.periodicExpenses;
 const cares = (h: Household) => h.careExpenses;
@@ -103,7 +105,6 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
       ],
     },
   ];
-  if (Array.isArray(h.cars) && h.cars.length > 0)
-    sections.push({ key: "ev/cars", title: "車", note: "車のひな形（買い替え・車検・保険・税）は、今は入っている値で計算します。入力の欄は次の版で足します", level: "simple", groups: [], actions: [] });
-  return { id: "events", label: "ライフイベント", lead: "一時的な収支（旅行・買い替え・援助など）と介護。", sections };
+  sections.push(carSection(wh), feeSection(wh));
+  return { id: "events", label: "ライフイベント", lead: "一時的な収支（旅行・買い替え・援助など）・介護・車・FP顧問料。", sections };
 }

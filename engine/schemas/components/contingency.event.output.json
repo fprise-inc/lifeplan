@@ -20,6 +20,7 @@
             "grade": { "enum": [1, 2, 3] },
             "recovery": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
             "recognition": { "description": "障害認定日の月（初診日から1年6か月）", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+            "oldAgeChoice": { "description": "障害年金の65歳からの組み合わせ（FP が選び直したとき）", "enum": ["disability", "oldAge", "disabilityBasicOldAgeEmployee"] },
             "survivor": {
               "type": "object",
               "additionalProperties": false,
