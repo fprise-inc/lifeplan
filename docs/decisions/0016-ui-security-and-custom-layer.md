@@ -195,3 +195,11 @@ Mac（Apple M5、WKWebView、Tauri 2.12.1）で確かめた。
 ## 追記
 
 - 2026-10-08（全体の整合）: マニフェストの例を、0004 の書式（各段は英小文字で始まる英数字。ハイフン不可）と 0006 の綴り（差し込み口は `slot.expense.flow`、差し替え先の部品は `retirement.benefit.rules`）に直した。`manifestVersion` を 0001 の `MAJOR.MINOR` の文字列にした。
+- 2026-10-11（画面の技術・提示層の分け方。アプリの骨格を作ったときの決定）:
+  - **画面の技術**: Preact 10＋TypeScript、ビルドは Vite（変換は Oxc。JSX は Preact の自動の形）。グラフのライブラリは使わず、SVG を自分で描く。フォントは BIZ UDPGothic（SIL OFL 1.1。npm の `@fontsource/biz-udpgothic` を同梱し、外から読み込まない）。
+    - 理由: (1) 依存が少ない（配布物に入る npm の依存は Preact・`@tauri-apps/api`・フォントの3つで、どれも依存を持たない。ライセンスの一覧と供給の経路を小さく保てる。0021）。(2) CSP（`unsafe-inline`・`unsafe-eval` なし）の下でそのまま動く（Preact は style を CSSOM で書き、文字列からコードを作らない。Vite の出力は外部ファイルだけで、`build.assetsInlineLimit: 0` で `data:` の URI も作らない）。(3) 型の検査で、提示層の部品が受け取る値を `PresentationModel` の型に限れる（下）。(4) React と同じ書き方なので、作る人・AIが読み書きしやすい。グラフを自分で描くのは、不足の赤の斜線・「▲」の文字・現状の破線・共有用の表示の太い線・年の選択を、色だけに頼らずに決まった形で描くため（グラフのライブラリはキャンバスに描くものが多く、文字として読めず、inline の style を使うものもある）。
+    - 比べたもの: React（依存とまとめた JS が大きい。書き方は同じ）、Svelte（コンパイラと開発時の依存が多く、開発中の画面が `<style>` を差し込む）、Chart.js・ECharts（キャンバス。斜線・文字の扱いと CSP の確認が要る）。
+  - **提示層の分け方（2）**: 提示層の部品は `app/src/presentation/` に置き、受け取るのは `presentation/model.ts` の型（`PresentationModel` とその一部、根拠の表示の `EvidenceView`）と、年・根拠を選ぶ手続きだけ。提示用の値は、作業の層の `app/src/workspace/present.ts`（根拠は `evidence.ts`）が、許可した項目だけを写して作る（構成員は「ご主人・奥様・長男・長女」の呼び方だけ。物の ID・FPのメモ・部品の指紋は写さない）。lint（`no-restricted-imports`）で、提示層から作業の層・エンジン・本体の命令（`@tauri-apps/*`）を読み込めないようにし、そのこと自体を単体テストで確かめる。メモに目印の文字列を入れても、提示用の値と、提示層の部品を描いた結果に目印も物の ID も出ないことをテストで確かめる。
+  - **共有用の表示**: 文字を約2割大きく（16px→19px）、グラフの線を太くし、FP用のメモ・タブ・世帯の選択を出さない（メモの部品は描かない）。見た目の切り替えで、提示層の型の約束（2）とは別の仕組み（2 の最後の項目のとおり）。
+  - **箱の実装（1）**: CSP は本文の文字列のまま（`tauri.conf.json`）。開発用の `devCsp` は、開発用のサーバー（Vite）の差し込む `<style>` と更新の通知（`ws://localhost:1420`）だけを足す。起動時のスクリプト（`app/src-tauri/src/hardening.js`）で保存機能5種類・WebAssembly・`window.open`・`target="_blank"` と外のページへのリンクを止め、WebView は incognito、画面の移動（`on_navigation`）はアプリ自身の画面だけ、新しいウィンドウ（`on_new_window`）は全部拒む。画面から呼べる命令は `engine_packs`・`list_households`・`open_household`・`compute`・`evidence` の5つだけ（`capabilities/main.json`。プラグインは入れない）。
+  - 開発用のサーバーだけの入口（`/__dev/`。Tauri の外のブラウザで画面を確かめるための、モデル世帯と制度データの読み込みと自己確認の結果の受け取り）は、Vite の開発用のサーバーにだけあり、本番のビルドには入らない（画面の側も `import.meta.env.DEV` のときだけ使う）。

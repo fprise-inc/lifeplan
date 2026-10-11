@@ -12,6 +12,8 @@ FP（ファイナンシャルプランナー）向けの無料ライフプラン
 - `crates/engine-host/` … エンジンを quickjs-ng で動かす Rust のホストと、JSON を受けて JSON を返すコマンド `engine-host`
 - `data/regulation/` … 制度データの正本（YAML。いまは所得税・住民税（`tax`）、社会保険（`socialInsurance`。被用者保険・国民年金・国民健康保険・後期高齢者医療・介護保険の第1号・雇用保険の給付など）、公的年金（`pension`）。すべての行が原本での確認待ち）。`npm run build` で `engine/dist/regulation/` に正規化した JSON を作る
 - `data/modelHouseholds/` … 架空のモデル世帯（CC0）。`engine/` で `npm run models` を流すと制度改正の差分を表にする
+- `app/` … アプリ本体（Tauri 2）。画面は Preact＋TypeScript（`app/src/`）、本体は Rust（`app/src-tauri/`）。`engine/` で `npm run build` の後、`app/` で `npm ci`・`npm run typecheck`・`npm run lint`・`npm test`。起動は `npx tauri dev`（ブラウザだけで画面を見るなら `npm run dev` で http://localhost:1420/ ）。本体のテストは `app/src-tauri/` で `cargo test`。3つの OS でのビルド（バンドル）は GitHub Actions の `app-bundle`（手で起動するかリリースのときだけ）
+- `config/distribution.toml` … 配布元の設定（識別子・名前・配信先・公開鍵。0017 の2）。`app/` で `npm run gen:distribution` が Tauri の設定を作る
 - `registry/` … ID の登録簿（科目の木・入力項目・計算部品・制度の値）。入力項目・計算部品・制度の値は `npm run gen` が正本から作る
 - 答え合わせ（検証 L2）: `engine/` で `npm run l2`（公式の計算例との一致の合格率）
 - 一致テスト: `cargo build --release` の後、`engine/` で `npm run parity`（Node・quickjs-ng・JavaScriptCore（Bun があれば）で同じ入力から同じ結果になることを SHA-256 で確かめる。`-- --jsc` で Bun を必須にする）。まとめて計算（`runBatch`）の結果も比べる

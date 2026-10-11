@@ -1,0 +1,47 @@
+# 0021: アプリ本体（app/src-tauri）の Rust の依存のライセンスの検査（cargo-deny）。許可の一覧はリポジトリ直下の deny.toml と同じ
+# CI: app/src-tauri/ で cargo deny --locked check licenses bans sources（このフォルダの deny.toml を読む）
+[graph]
+all-features = false
+
+[licenses]
+# 許可: MIT、Apache-2.0、BSD-2-Clause、BSD-3-Clause、ISC、Zlib、Unicode-3.0（Unicode-DFS-2016）、Unlicense、CC0-1.0、0BSD、BSL-1.0、BlueOak-1.0.0（0021 の追記）
+# GPL・LGPL・AGPL・SSPL・非商用の条件のもの・表示の無いものは一覧に無いので止まる
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "Unicode-3.0",
+  "Unicode-DFS-2016",
+  "Unlicense",
+  "CC0-1.0",
+  "0BSD",
+  "BSL-1.0",
+  "BlueOak-1.0.0",
+]
+# Rust の依存は配布物（アプリ本体）に入るので、MPL-2.0 は部品の名前を一つずつ載せ、改変せずに使う場合だけ許す（0021）。
+# Tauri の標準構成の間接的な依存（ビルド時に HTML を処理する部品と、dirs 経由の option-ext。0021 の「試作での確認」の5つ）。どれも改変しない
+exceptions = [
+  { name = "cssparser", allow = ["MPL-2.0"] },
+  { name = "cssparser-macros", allow = ["MPL-2.0"] },
+  { name = "selectors", allow = ["MPL-2.0"] },
+  { name = "dtoa-short", allow = ["MPL-2.0"] },
+  { name = "option-ext", allow = ["MPL-2.0"] },
+]
+confidence-threshold = 0.9
+# 許可の一覧のうち、今は使っていないものがあっても警告しない
+unused-allowed-license = "allow"
+
+[bans]
+multiple-versions = "allow"
+
+[advisories]
+# 脆弱性の情報の取得はネットワークに依るので、ここでは見ない（ライセンスの検査だけ）
+ignore = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

@@ -184,3 +184,4 @@
 ## 追記
 
 - 2026-10-08（全体の整合）: 自動配信用の鍵で受け付ける範囲を 0022（既にある値IDに同じ形の新しい期間を1つ足すことだけ）にそろえた。目録（`index.json`）が各パックの「配信の目録」（0022）を並べたものであること、`critical` の欄、項目ごとの署名を明記した。取り下げの一覧の例を、`revision` は整数（0006）、パックのIDは `regulation.tax`（0007）、`formatVersion` は `"1.0"`（0001）に直した。
+- 2026-10-11（アプリの骨格）: `config/distribution.toml` を置いた（識別子・名前・発行者・配信先。公開鍵は署名の回で足す）。`app/src-tauri/tauri.conf.json` の `identifier`・`productName`（英語の名前 `Financia`。配布物のファイル名に使う）・`bundle.publisher`・ウィンドウの題名（日本語の名前）は、このファイルから `app/` の `npm run gen:distribution` で作り、CI の `npm run check:distribution` が、食い違いと、識別子・配信先のホスト名がこの2つのファイル（と設計記録）の外に書かれていないことを確かめる。実行ファイルの名前は `financia`（`mainBinaryName`）。アプリはまだ通信しない（更新の仕組みは入れていない）。
