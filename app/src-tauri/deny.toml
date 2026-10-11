@@ -1,5 +1,5 @@
 # 0021: アプリ本体（app/src-tauri）の Rust の依存のライセンスの検査（cargo-deny）。許可の一覧はリポジトリ直下の deny.toml と同じ
-# CI: cargo deny --manifest-path app/src-tauri/Cargo.toml --locked check --config app/src-tauri/deny.toml licenses bans sources
+# CI: app/src-tauri/ で cargo deny --locked check licenses bans sources（このフォルダの deny.toml を読む）
 [graph]
 all-features = false
 

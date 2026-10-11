@@ -226,4 +226,5 @@ jobs:
           tool: cargo-deny@0.20.2
       - run: cargo deny --locked check licenses bans sources
       - name: アプリ本体（app/src-tauri。Tauri の依存の MPL-2.0 は部品ごとの例外）
-        run: cargo deny --manifest-path app/src-tauri/Cargo.toml --locked check --config app/src-tauri/deny.toml licenses bans sources
+        working-directory: app/src-tauri
+        run: cargo deny --locked check licenses bans sources
