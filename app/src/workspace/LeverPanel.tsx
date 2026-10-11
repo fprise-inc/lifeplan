@@ -14,7 +14,17 @@ export interface LeverRow {
   note: string | null;
 }
 
-export function LeverPanel({ levers, onSlide, onRelease, onReset }: { levers: LeverRow[]; onSlide: (key: LeverKey, index: number) => void; onRelease: () => void; onReset: (to: "current" | "first") => void }) {
+/** FP顧問料の ON/OFF（提案の側だけ。現状は変えない） */
+export interface FeeToggle {
+  on: boolean;
+  /** 例: 「単発30万円＋年額12万円（2027年1月から）」 */
+  note: string;
+  /** 現状にも入っている（すでに契約している）か */
+  inCurrent: boolean;
+  onToggle: () => void;
+}
+
+export function LeverPanel({ levers, onSlide, onRelease, onReset, fee }: { levers: LeverRow[]; onSlide: (key: LeverKey, index: number) => void; onRelease: () => void; onReset: (to: "current" | "first") => void; fee?: FeeToggle | null }) {
   return (
     <aside class="card col-levers" aria-labelledby="h-lev">
       <div class="card-h">
@@ -62,6 +72,21 @@ export function LeverPanel({ levers, onSlide, onRelease, onReset }: { levers: Le
           </div>
         </div>
       ))}
+      {fee != null ? (
+        <div class={`lever toggle${fee.on !== fee.inCurrent ? " changed" : ""}`}>
+          <div class="lever-head">
+            <label for="lv-fee">FP顧問料</label>
+            <button type="button" id="lv-fee" class={`switch${fee.on ? " on" : ""}`} role="switch" aria-checked={fee.on} onClick={fee.onToggle} data-fee-toggle>
+              <span class="knob" aria-hidden="true" />
+              <span class="lbl">{fee.on ? "入れる" : "入れない"}</span>
+            </button>
+          </div>
+          <div class="lever-note">
+            <span>{fee.note}</span>
+            <span class="base-tag">現状: {fee.inCurrent ? "入れる" : "入れない"}</span>
+          </div>
+        </div>
+      ) : null}
       <div class="levers-foot">
         <button type="button" class="reset-btn" onClick={() => onReset("current")}>
           現状に戻す

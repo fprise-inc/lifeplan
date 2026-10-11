@@ -37,7 +37,10 @@ export function removeMember(wh: WorkingHousehold, id: string): WorkingHousehold
   void _n;
   void _p;
   const assumed = Object.fromEntries(Object.entries(next.assumed).filter(([k]) => !k.includes(id)));
-  return { ...next, labelsByMember, postRetirement, assumed };
+  const contingency = structuredClone(next.contingency);
+  delete contingency.work[id];
+  delete contingency.oldAgeChoice[id];
+  return { ...next, labelsByMember, postRetirement, assumed, contingency };
 }
 
 /** 家族を足す。配偶者・子は関係（0008 の3 の辺）も足す */

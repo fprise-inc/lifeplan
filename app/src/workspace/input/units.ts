@@ -44,6 +44,15 @@ export function rateFromPct(text: string): string | null {
   return shiftDecimal(t, -2);
 }
 
+/** 1から率を引いた率（"0.2" → "0.8"）。10進の文字列のまま（浮動小数点を使わない） */
+export function oneMinus(rate: string): string {
+  if (!DECIMAL.test(rate)) throw new Error("E_DECIMAL");
+  const frac = rate.split(".")[1]?.length ?? 0;
+  const scaled = BigInt(shiftDecimal(rate, frac));
+  const one = 10n ** BigInt(frac);
+  return shiftDecimal(String(one - scaled), -frac);
+}
+
 /** 率どうしが同じ値か（"0.010" と "0.01"） */
 export function sameRate(a: string | null | undefined, b: string | null | undefined): boolean {
   if (a == null || b == null) return a == b;

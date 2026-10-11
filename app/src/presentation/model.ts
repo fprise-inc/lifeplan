@@ -114,6 +114,8 @@ export interface PresentationModel {
   events: EventChip[];
   table: CashflowTableModel;
   goals: GoalsModel;
+  /** FP顧問料を対策で ON/OFF しているときの一文（顧問料の契約が無ければ null） */
+  fee: FeeLine | null;
   /** 数字が確定前（画面側の先出し）か。0005 の5: 控えめに示す */
   provisional: boolean;
 }
@@ -127,4 +129,66 @@ export interface EvidenceView {
   formulas: string[];
   params: { label: string; value: string; source: string; version: string; appliesFrom: string }[];
   note: string | null;
+}
+
+/** FP顧問料の ON/OFF（主画面の対策）の一文。顧客に見せてよい項目だけ（料金表の写しの印などは含めない） */
+export interface FeeLine {
+  on: boolean;
+  parts: VerdictPart[];
+}
+
+// ---- 万一の想定の画面（6.3）----
+
+/** 必要保障額の推移（構成員1人。「この年に亡くなったら」） */
+export interface ProtectionChartModel {
+  /** 提示用の鍵（self・spouse） */
+  key: string;
+  /** 例: 「ご主人が亡くなった場合」 */
+  title: string;
+  /** 例: 「奥様の平均余命（2071年）までの資金」 */
+  sub: string;
+  years: number[];
+  /** 亡くなる人の年齢（各年12月末） */
+  ages: (number | null)[];
+  /** 金融資産を含まない必要保障額 */
+  need: Yen[];
+  /** 金融資産を含む（差し引いた）必要保障額 */
+  needWithAssets: Yen[];
+  /** 加入中の死亡保険金 */
+  coverage: Yen[];
+  /** 不足（金融資産を含む額が死亡保険金を上回る）がいちばん大きい年。無ければ null */
+  maxShort: { year: number; amount: Yen } | null;
+  /** 2028年4月以後に亡くなる年の遺族年金は見直し前の制度で計算している（その最初の年） */
+  reformFrom: number | null;
+}
+
+export interface BreakdownRowModel {
+  label: string;
+  /** 万一の翌年の額（万一なしとの差） */
+  firstYear: Yen;
+  /** 累計（万一なしとの差） */
+  total: Yen;
+  group: "income" | "expense" | "net";
+}
+
+export interface ScenarioModel {
+  /** 例: 「ご主人が2027年に亡くなった場合」 */
+  title: string;
+  headline: Headline;
+  verdict: Verdict;
+  /** proposal＝万一の場合、current＝万一なし */
+  chart: ChartModel;
+  breakdown: { firstYearLabel: string; totalLabel: string; rows: BreakdownRowModel[] };
+  /** 障害年金の65歳からの組み合わせの一文（障害の想定だけ） */
+  choice: string | null;
+  notices: string[];
+}
+
+export interface ContingencyModel {
+  protection: { status: "loading" | "ready" | "error"; charts: ProtectionChartModel[]; error: string | null; ms: number | null };
+  scenarios: { key: string; label: string }[];
+  selected: string;
+  year: number;
+  yearOptions: { value: number; label: string }[];
+  scenario: { status: "loading" | "ready" | "error"; model: ScenarioModel | null; error: string | null; stale: boolean };
 }

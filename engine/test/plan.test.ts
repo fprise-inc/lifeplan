@@ -108,6 +108,46 @@ describe("周期的な支出・車（expense.periodic・expense.car）", () => {
   });
 });
 
+describe("車の維持費と万一のときの扱い（expense.car 改訂2）", () => {
+  const B = uid("b");
+  const couple = (car: Obj, contingency?: Obj) =>
+    edit(quiet({ endYear: 2034, members: [member("a", "self", "1980-01"), member("b", "spouse", "1982-01", { sex: "female" })] }), (h, input) => {
+      h.relations = [{ type: "spouse", a: A, b: B, marriage: "legal", from: null, to: null }];
+      h.accounts = [{ id: uid("dep"), kind: "deposit", owner: A, marketValue: box(10000000), asOf: "2027-01", contributions: [] }];
+      h.cars = [{ id: uid("car"), owner: B, purchase: { first: at("2027-04"), everyYears: 5, price: 2000000 }, growth: { kind: "none" }, ...car }];
+      if (contingency !== undefined) input.contingencies = [contingency];
+    });
+  it("維持費の合計・駐車場代・燃料代は年額の12分の1を持っている間の毎月（端数は年の初めの月から）", () => {
+    const req = couple({ upkeep: { annual: 120005 }, parking: { annual: 120000 }, fuel: { annual: 60000 } });
+    const out = call<{ flows: Flow[] }>(req, "expense.car", { member: B }).flows;
+    const by = (formula: string, ym: string) => sumFlows(out, (f) => f.formula === formula && f.ym === ym);
+    expect(by("expense.car.upkeep", "2027-03")).toBe(0);
+    expect(by("expense.car.upkeep", "2027-04")).toBe(10000);
+    expect(by("expense.car.parking", "2027-05")).toBe(10000);
+    expect(by("expense.car.fuel", "2028-01")).toBe(5000);
+    expect(sumFlows(out, (f) => f.formula === "expense.car.upkeep" && f.ym.startsWith("2028-"))).toBe(120005);
+    expect(out.filter((f) => f.formula.startsWith("expense.car.") && f.formula !== "expense.car.purchase").every((f) => f.row === "cf.expense.living.car")).toBe(true);
+  });
+  it("万一のときに止める車は、万一の月の翌月から購入も維持費も止まる。組んだローンの返済は続く", () => {
+    const death = { id: uid("cg"), kind: "death", member: A, occurs: at("2029-06") };
+    const keep = couple({ parking: { annual: 120000 }, loan: { rate: "0", termMonths: 60 } }, death);
+    const stop = couple({ parking: { annual: 120000 }, loan: { rate: "0", termMonths: 60 }, onContingency: { mode: "stop" } }, death);
+    const half = couple({ parking: { annual: 120000 }, onContingency: { mode: "ratio", ratio: "0.5" } }, death);
+    const f = (req: Req, formula: string, ym: string) => sumFlows(call<{ flows: Flow[] }>(req, "expense.car", { member: B }).flows, (x) => x.formula.startsWith(formula) && x.ym === ym);
+    expect(f(keep, "expense.car.parking", "2029-07")).toBe(10000);
+    expect(f(stop, "expense.car.parking", "2029-06")).toBe(10000);
+    expect(f(stop, "expense.car.parking", "2029-07")).toBe(0);
+    expect(f(half, "expense.car.parking", "2029-07")).toBe(5000);
+    // 2回目の購入（2032-04）: 止める車は買わない・ローンも組まない。割合なら半分
+    expect(f(stop, "expense.car.purchase", "2032-04")).toBe(0);
+    expect(f(half, "expense.car.purchase", "2032-04")).toBe(1000000);
+    // 1回目のローン（2027年）の返済は万一の後も続く
+    const loanFlows = (req: Req) => call<{ flows: Flow[] }>(req, "expense.car", { member: B }).flows.filter((x) => x.row === "cf.expense.debt.car" && x.ym === "2030-01");
+    expect(loanFlows(stop).reduce((s2, x) => s2 + x.amount, 0)).toBe(loanFlows(keep).reduce((s2, x) => s2 + x.amount, 0));
+    expect(loanFlows(stop).length).toBeGreaterThan(0);
+  });
+});
+
 describe("FP顧問料（expense.advisoryFee）と要約", () => {
   const fee = (o: Obj = {}) =>
     edit(quiet(), (h) => {

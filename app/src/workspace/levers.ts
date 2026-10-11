@@ -92,7 +92,7 @@ export function availableLevers(req: EngineRequest, memberId: string): Set<Lever
 const box = <T,>(v: T) => ({ value: v, state: "confirmed", origin: { kind: "manual" } });
 
 /** 新しい ID（UUID 第4版の形。0004）。打ち手で足す働き方の期間に使う。決まった値から作る（同じ打ち手なら同じ要求にする） */
-function derivedId(base: string, salt: string): string {
+export function derivedId(base: string, salt: string): string {
   let h1 = 0x811c9dc5;
   let h2 = 0x01000193;
   for (const ch of base + "|" + salt) {
@@ -183,4 +183,29 @@ export function applyLevers(base: EngineRequest, memberId: string, values: Parti
     if (l !== undefined) l.monthly = box(values.livingMonthly);
   }
   return req;
+}
+
+/** FP顧問料の契約があるか（主画面の対策「FP顧問料」を出すか） */
+export function hasAdvisoryFee(req: EngineRequest): boolean {
+  return (req.input.household.advisoryFees ?? []).length > 0;
+}
+
+/** 現状で顧問料を入れているか（現状にも入れる契約が1件でもあるか） */
+export function advisoryFeeInCurrent(req: EngineRequest): boolean {
+  return (req.input.household.advisoryFees ?? []).some((c) => c.enabled !== false);
+}
+
+/**
+ * FP顧問料の ON/OFF を提案の要求に当てる（0008 の追記: 既定では提案の側にだけ入れる。契約の enabled で案ごとに切り替える）。
+ * ON はすべての契約を入れ、OFF はすべての契約を外す。元の要求は変えない
+ */
+export function applyAdvisoryFee(req: EngineRequest, on: boolean): EngineRequest {
+  const list = req.input.household.advisoryFees;
+  if (list === undefined || list.length === 0) return req;
+  const out = structuredClone(req);
+  for (const c of out.input.household.advisoryFees ?? []) {
+    if (on) delete c.enabled;
+    else c.enabled = false;
+  }
+  return out;
 }

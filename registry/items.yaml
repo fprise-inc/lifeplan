@@ -170,6 +170,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: car.fuel
+    status: active
+    label: "燃料代（ガソリンなど）の年額（毎月12分の1）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: car.growth
     status: active
     label: "価格・維持費の伸び方（省略は前提の物価上昇率）"
@@ -194,9 +200,21 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: car.onContingency
+    status: active
+    label: "万一のときの扱い（万一の月の翌月からの買い替え・維持費に当てる。組んだローンの返済は続く）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: car.owner
     status: active
     label: "名義（構成員）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: car.parking
+    status: active
+    label: "駐車場代の年額（毎月12分の1）"
     since: draft
     aliases: []
     replacedBy: null
@@ -215,6 +233,12 @@ entries:
   - id: car.until
     status: active
     label: "手放す月（その月まで。null・省略は最後まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: car.upkeep
+    status: active
+    label: "維持費の合計の年額（車検・保険・税・駐車場・燃料などをまとめて入れるとき。毎月12分の1。行は cf.expense.living.car）"
     since: draft
     aliases: []
     replacedBy: null
@@ -305,6 +329,12 @@ entries:
   - id: contingency.occurs
     status: active
     label: "起きる月（死亡の月・初診日の月・働けなくなった月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: contingency.oldAgeChoice
+    status: active
+    label: "障害年金の65歳からの組み合わせ（FP が選び直したとき。省略は月ごとに手取りが多い組み合わせを自動で選ぶ）"
     since: draft
     aliases: []
     replacedBy: null

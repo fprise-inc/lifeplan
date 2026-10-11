@@ -51,6 +51,21 @@ export function businessEstimate(): Estimate {
   return { value: 3000000, basis: "個人企業経済調査（総務省）の営業利益の目安（仮の値。原本での確かめ前）" };
 }
 
+/** 車の目安（1台。計算基準年の価格）。買い替えの周期・車両の価格（下取りを引く前）・維持費の年額 */
+const CAR_BASIS = "自動車の保有・維持費の調査の目安（仮の値。原本での確かめ前）";
+export const CAR_ESTIMATE = {
+  everyYears: { value: 8, basis: `${CAR_BASIS}・乗り換えの間隔` },
+  price: { value: 2500000, basis: `${CAR_BASIS}・新車の価格` },
+  tradeIn: { value: 500000, basis: `${CAR_BASIS}・下取り` },
+  /** 維持費の合計（自動車税・保険・車検・駐車場・燃料） */
+  upkeep: { value: 360000, basis: `${CAR_BASIS}・維持費の合計（自動車税・保険・車検・駐車場・燃料）` },
+  tax: { value: 36000, basis: `${CAR_BASIS}・自動車税（排気量1.5〜2リットル）` },
+  insurance: { value: 70000, basis: `${CAR_BASIS}・任意保険` },
+  inspection: { value: 100000, basis: `${CAR_BASIS}・車検1回（法定費用と整備）` },
+  parking: { value: 0, basis: `${CAR_BASIS}・駐車場（自宅に置く）` },
+  fuel: { value: 100000, basis: `${CAR_BASIS}・燃料` },
+} as const satisfies Record<string, Estimate>;
+
 /** 今の年齢から見た、ふつうの働き始め（22歳）。過去の期間の始まりの目安 */
 export function careerStartMonth(birthYearMonth: string): string {
   const [y] = birthYearMonth.split("-");

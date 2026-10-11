@@ -1,8 +1,9 @@
 // 画面の中で編集する世帯（作業の層）。計算エンジンに渡す要求（0008 の形の世帯と前提条件）と、
-// エンジンに渡さない画面の側の値（FP が付ける呼び名・定年後の予定の条件・FP用のメモ）を1つにまとめる。
+// エンジンに渡さない画面の側の値（FP が付ける呼び名・定年後の予定の条件・FP用のメモ・万一の想定の前提）を1つにまとめる。
 // 保存・暗号化はまだ無い（次の回。世帯ファイルの封筒 0011 に入れる）。アプリを閉じると消える
 import type { Box, EmploymentPeriod, EngineRequest, Household, Member } from "../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, parseYm, type Reemployment } from "../levers.ts";
+import { emptyPlan, planFromRequest, type ContingencyPlan } from "../contingency/planData.ts";
 import { livingEstimate } from "./estimates.ts";
 
 /** 定年の後に働くときの条件（D: 入力画面の「定年後の予定」。主画面の「働く最後の年齢」を延ばすときにも使う） */
@@ -27,6 +28,8 @@ export interface WorkingHousehold {
   memo: string[];
   /** 箱（0008 の2）を持たない項目に入れた仮の値。欄のキー → 理由。FP が入れ直すと消える */
   assumed: Record<string, string>;
+  /** 万一の想定の前提（遺族の生活費の割合・働き方の変化・等級の仮定など）。万一の画面で要求を作るときに使う */
+  contingency: ContingencyPlan;
 }
 
 /** 新しい物の ID（UUID 第4版。0004） */
@@ -100,7 +103,7 @@ export function fromRequest(request: EngineRequest, extras: { memo?: string[]; p
     const p = extras.postRetirement?.[m.id] ?? inferPostRetirement(h, m);
     if (p !== null) post[m.id] = p;
   }
-  return { request, labelsByMember: {}, postRetirement: post, memo: extras.memo ?? [], assumed: {} };
+  return { request, labelsByMember: {}, postRetirement: post, memo: extras.memo ?? [], assumed: {}, contingency: planFromRequest(request) };
 }
 
 /** 計算の要求のうち、世帯ごとに変わらない部分の既定（前提条件は事務所の標準値ができるまでの仮の値。0008 の8） */
@@ -135,6 +138,7 @@ export function blankHousehold(baseMonth: string, id: () => string = newId): Wor
     postRetirement: {},
     memo: [],
     assumed: { [`family/${selfId}/birth`]: "仮の値（40歳として計算）", [`family/${selfId}/sex`]: "仮の値" },
+    contingency: emptyPlan(),
   };
 }
 

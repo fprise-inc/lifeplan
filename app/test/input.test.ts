@@ -6,7 +6,8 @@ import { REPO_DIR } from "../scripts/lib.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { addMonths, readLevers } from "../src/workspace/levers.ts";
-import { allFields, type FieldDef, type Val } from "../src/workspace/input/form.ts";
+import { allFields, type FieldDef, type StageDef, type Val } from "../src/workspace/input/form.ts";
+import { contingencyInputSections } from "../src/workspace/contingency/inputs.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { buildStage, buildStages, STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
 import { addMember, removeMember } from "../src/workspace/input/stages/family.ts";
@@ -98,7 +99,8 @@ describe("モデル世帯の往復（世帯データ → 入力の表示 → 世
     const before = JSON.stringify(wh.request);
     let fields = 0;
     let moved = 0;
-    for (const stage of buildStages(wh)) {
+    // 入力の10段階と、万一の画面の前提の欄（同じ欄の部品。前提は世帯といっしょに画面の側に持つ）
+    for (const stage of [...buildStages(wh), { sections: contingencyInputSections(wh) } as unknown as StageDef]) {
       for (const f of allFields(stage)) {
         fields++;
         const s = f.get(wh);
