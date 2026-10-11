@@ -126,18 +126,25 @@ export function applyLevers(base: EngineRequest, memberId: string, values: Parti
     if (lastEnd !== undefined && lastEnd < lastMonth) {
       const r = opts.reemployment;
       const tail = kept.find((e) => atOf(e.to) === lastEnd) as EmploymentPeriod;
-      if (r !== undefined) {
+      if (r !== undefined && r.type === "selfEmployed") {
+        // 定年の後に自営業: 事業の所得で、その年齢まで（健康保険・年金の種類はエンジンが導く）
+        kept.push({ id: derivedId(tail.id, "reemployment"), member: memberId, from: { at: addMonths(lastEnd, 1) }, to: { at: lastMonth }, type: "selfEmployed", business: { income: box(r.annualSalary) } });
+      } else if (r !== undefined) {
         // 定年の後: 再雇用などの働き方で、その年齢まで
         const smr = r.standardMonthlyRemuneration;
-        const { standardMonthlyRemuneration: _smr, corporatePension: _cp, ...rest } = tail;
+        const { standardMonthlyRemuneration: _smr, corporatePension: _cp, business: _b, ...rest } = tail;
         void _smr;
         void _cp;
+        void _b;
         kept.push({
           ...rest,
           id: derivedId(tail.id, "reemployment"),
           from: { at: addMonths(lastEnd, 1) },
           to: { at: lastMonth },
           type: r.type,
+          healthInsurance: rest.healthInsurance ?? { kind: "kyokaikenpo" },
+          pensionCategory: rest.pensionCategory ?? "employee1",
+          employer: rest.employer ?? { size: 50, weeklyHours: "30" },
           salary: { annual: box(r.annualSalary), bonus: box(0) },
           ...(smr !== undefined ? { standardMonthlyRemuneration: { health: box(smr), pension: box(smr) } } : {}),
         });

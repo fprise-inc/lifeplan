@@ -15,10 +15,22 @@ export interface Timepoint {
 
 export interface Member {
   id: string;
-  kind: "self" | "spouse" | "child" | "parent" | "other" | string;
+  kind: "self" | "spouse" | "child" | "parent" | "grandparent" | "other" | string;
   birth: { birthYearMonth: string; bornOnFirst: boolean };
   sex: "male" | "female" | string;
+  joins?: Timepoint | null;
   leaves?: Timepoint | null;
+  expected?: boolean;
+  support?: { dependent?: boolean; cohabiting?: boolean; allowance?: number };
+}
+
+export type Relation = { type: "spouse"; a: string; b: string; marriage: "legal" | "deFacto"; from: Timepoint | null; to: Timepoint | null } | { type: "parentOf"; parent: string; child: string };
+
+export interface HouseholdEvent {
+  id: string;
+  kind: string;
+  member?: string;
+  at: Timepoint;
 }
 
 export interface EmploymentPeriod {
@@ -27,7 +39,13 @@ export interface EmploymentPeriod {
   from: Timepoint;
   to: Timepoint | null;
   type: string;
-  salary?: { annual: Box<number>; bonus?: Box<number> };
+  leaveKind?: string;
+  healthInsurance?: { kind: string; insurer?: string; [key: string]: unknown };
+  pensionCategory?: string;
+  employer?: { size?: number; weeklyHours?: string; [key: string]: unknown };
+  salary?: { annual: Box<number>; bonus?: Box<number>; [key: string]: unknown };
+  business?: { income: Box<number> };
+  standardMonthlyRemuneration?: { health: Box<number>; pension: Box<number> };
   [key: string]: unknown;
 }
 
@@ -35,7 +53,11 @@ export interface Account {
   id: string;
   kind: string;
   owner: string;
-  contributions?: { from: Timepoint; to: Timepoint; monthly: number }[];
+  marketValue?: Box<number>;
+  costBasis?: Box<number>;
+  asOf?: string;
+  assetMix?: { assetClass: string; share: string }[];
+  contributions?: { from: Timepoint; to: Timepoint | null; monthly: number; [key: string]: unknown }[];
   [key: string]: unknown;
 }
 
@@ -43,7 +65,9 @@ export interface LivingExpense {
   id: string;
   mode: string;
   monthly?: Box<number>;
-  stages?: { at: Timepoint; label: string; ratio: string }[];
+  categories?: { category: string; monthly: Box<number> }[];
+  growth?: { kind: string; rate?: string };
+  stages?: { at: Timepoint; label: string; ratio?: string; monthly?: Box<number> }[];
   [key: string]: unknown;
 }
 
@@ -51,6 +75,10 @@ export interface PensionRecord {
   id: string;
   member: string;
   kind: string;
+  asOf?: string;
+  months?: { basic?: number; employee?: number; employee2059?: number; qualifying?: number; category1?: Record<string, number> };
+  amounts?: { basic?: Box<number>; employee?: Box<number>; transitional?: Box<number>; special?: Box<number> };
+  history?: { from: string; to: string; category: string; averageRemuneration?: number; averageRemunerationAtTime?: number }[];
   claim?: { basic?: Timepoint; employee?: Timepoint };
   [key: string]: unknown;
 }
@@ -60,6 +88,20 @@ export interface EducationStage {
   sector?: string;
   field?: string;
   living?: string;
+  years?: number;
+  delayYears?: number;
+  monthly?: number;
+  exam?: { amount?: number; deposits?: number };
+  [key: string]: unknown;
+}
+
+export interface EducationGift {
+  at: Timepoint;
+  amount: number;
+  purpose: string;
+  payer?: string;
+  donor?: string;
+  [key: string]: unknown;
 }
 
 export interface Goal {
@@ -67,27 +109,132 @@ export interface Goal {
   kind: string;
   owner?: string;
   priority?: "need" | "want" | "wish";
-  education?: { stages: EducationStage[] };
+  education?: { stages: EducationStage[]; lessons?: { from: Timepoint; to: Timepoint; monthly: number; label?: string }[]; gifts?: EducationGift[]; childAllowance?: boolean; [key: string]: unknown };
   [key: string]: unknown;
 }
 
 export interface PeriodicExpense {
   id: string;
   row: string;
+  label?: string;
+  from: Timepoint;
+  to?: Timepoint | null;
   everyYears: number;
   amount: Box<number>;
   [key: string]: unknown;
 }
 
+export interface Debt {
+  id: string;
+  kind: string;
+  debtors: { member: string; role: string; share?: string }[];
+  principal: number;
+  start: Timepoint;
+  balance?: Box<number>;
+  balanceAsOf?: string;
+  rateSchedule: { from: Timepoint; type: string; rate: string }[];
+  repayment: { method: string; termMonths: number; bonusShare?: string; variableRules?: { fiveYear?: boolean; cap125?: boolean }; [key: string]: unknown };
+  prepayments?: { at: Timepoint; amount: number; mode: string; fee?: number }[];
+  creditLife?: { covered: string[]; ratio?: string; events?: string[]; [key: string]: unknown };
+  pairWith?: string;
+  [key: string]: unknown;
+}
+
+export interface Gift {
+  recipient: string;
+  giver: string;
+  donor?: string;
+  amount: number;
+  [key: string]: unknown;
+}
+
+export interface Residence {
+  id: string;
+  kind: "rent" | "own" | string;
+  from: Timepoint;
+  to: Timepoint | null;
+  rent?: { monthly: Box<number>; [key: string]: unknown };
+  purchase?: { at: Timepoint; price: number; downPayment?: number; costs?: number; gifts?: Gift[] };
+  propertyTax?: { annual: Box<number>; growth?: string };
+  maintenance?: { monthly: Box<number>; growth?: string };
+  ownership?: { member: string; share: string }[];
+  [key: string]: unknown;
+}
+
+export interface Coverage {
+  id: string;
+  role: string;
+  benefit: string;
+  amount: number;
+  from: Timepoint;
+  to: Timepoint | null;
+  [key: string]: unknown;
+}
+
+export interface InsuranceContract {
+  id: string;
+  template: string;
+  policyholder: string;
+  insured: string;
+  contractDate: string;
+  currency: string;
+  premium: { amount: number; frequency: string; payUntil: Timepoint | null };
+  beneficiaries?: unknown[];
+  coverages?: Coverage[];
+  deductionCategory: { type: string; regime: string };
+  [key: string]: unknown;
+}
+
+export interface Donor {
+  id: string;
+  kind: "parent" | "grandparent" | "other" | string;
+  of?: string;
+}
+
+export interface CareExpense {
+  id: string;
+  member: string;
+  payer?: string;
+  from: Timepoint;
+  months?: number;
+  place?: string;
+  serviceMonthly?: Box<number>;
+  otherMonthly?: Box<number>;
+  initial?: Box<number>;
+  [key: string]: unknown;
+}
+
+export interface RetirementBenefit {
+  id: string;
+  member: string;
+  kind: string;
+  employment?: string;
+  amount?: Box<number>;
+  paidAt?: Timepoint;
+  [key: string]: unknown;
+}
+
+export interface YearSeries {
+  default: string;
+  byYear?: Record<string, string>;
+}
+
 export interface Household {
   members: Member[];
+  relations?: Relation[];
+  events?: HouseholdEvent[];
   employmentPeriods?: EmploymentPeriod[];
   accounts?: Account[];
+  insuranceContracts?: InsuranceContract[];
   livingExpenses?: LivingExpense[];
   pensionRecords?: PensionRecord[];
   goals?: Goal[];
   periodicExpenses?: PeriodicExpense[];
-  debts?: { id: string; kind: string }[];
+  debts?: Debt[];
+  residences?: Residence[];
+  donors?: Donor[];
+  careExpenses?: CareExpense[];
+  retirementBenefits?: RetirementBenefit[];
   [key: string]: unknown;
 }
 
@@ -97,6 +244,7 @@ export interface EngineRequest {
     baseMonth: string;
     endYear: number;
     household: Household;
+    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; [key: string]: unknown };
     [key: string]: unknown;
   };
   [key: string]: unknown;

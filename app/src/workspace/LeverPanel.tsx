@@ -18,7 +18,7 @@ export function LeverPanel({ levers, onSlide, onRelease, onReset }: { levers: Le
   return (
     <aside class="card col-levers" aria-labelledby="h-lev">
       <div class="card-h">
-        <h2 id="h-lev">打ち手</h2>
+        <h2 id="h-lev">対策</h2>
         <span class="aside">動かすとすぐ計算し直します</span>
       </div>
       {levers.map((l) => (

@@ -1,0 +1,329 @@
+// 入力の画面の言葉（FP が慣れた言葉。日本FP協会・FP技能検定の言葉を標準にする）と、構成員の呼び方
+import type { Household, Member } from "../../engine/types.ts";
+import { roles } from "../roles.ts";
+import type { Option } from "./form.ts";
+import type { WorkingHousehold } from "./household.ts";
+
+const KIND_LABEL: Record<string, string> = { parent: "親", grandparent: "祖父母", other: "ご家族" };
+
+/** 構成員の呼び方: 続柄（ご主人・奥様・長男…）と、FP が付けた呼び名（任意） */
+export function memberLabels(wh: WorkingHousehold): Map<string, string> {
+  const out = new Map<string, string>();
+  const h = wh.request.input.household;
+  const rs = roles(wh.request);
+  for (const r of rs) {
+    const base = KIND_LABEL[r.member.kind] ?? r.label;
+    const nick = wh.labelsByMember[r.member.id];
+    out.set(r.member.id, nick !== undefined && nick !== "" ? `${base}（${nick}）` : base);
+  }
+  for (const m of h.members) if (!out.has(m.id)) out.set(m.id, KIND_LABEL[m.kind] ?? "ご家族");
+  return out;
+}
+
+export function memberLabel(wh: WorkingHousehold, id: string | undefined): string {
+  if (id === undefined) return "（未選択）";
+  return memberLabels(wh).get(id) ?? "（いない家族）";
+}
+
+export function memberOptions(wh: WorkingHousehold, filter: (m: Member) => boolean = () => true): Option[] {
+  const labels = memberLabels(wh);
+  return roles(wh.request)
+    .map((r) => r.member)
+    .concat(wh.request.input.household.members.filter((m) => !roles(wh.request).some((r) => r.member.id === m.id)))
+    .filter(filter)
+    .map((m) => ({ value: m.id, label: labels.get(m.id) ?? "ご家族" }));
+}
+
+export const isAdult = (m: Member) => m.kind === "self" || m.kind === "spouse";
+
+/** 本人・配偶者（働き方・年金の段階に出す人）。働き方の期間がある人も含める */
+export function earners(h: Household): Member[] {
+  const withPeriods = new Set((h.employmentPeriods ?? []).map((e) => e.member));
+  const order = (m: Member) => (m.kind === "self" ? 0 : m.kind === "spouse" ? 1 : 2);
+  return h.members.filter((m) => isAdult(m) || withPeriods.has(m.id)).sort((a, b) => order(a) - order(b));
+}
+
+export const KIND_OPTIONS: Option[] = [
+  { value: "spouse", label: "配偶者" },
+  { value: "child", label: "子" },
+  { value: "parent", label: "親" },
+  { value: "grandparent", label: "祖父母" },
+  { value: "other", label: "その他の家族" },
+];
+
+export const SEX_OPTIONS: Option[] = [
+  { value: "male", label: "男性" },
+  { value: "female", label: "女性" },
+];
+
+export const EMPLOYMENT_TYPES: Option[] = [
+  { value: "regular", label: "正社員" },
+  { value: "contract", label: "契約社員・嘱託（再雇用など）" },
+  { value: "partTime", label: "パート・アルバイト" },
+  { value: "selfEmployed", label: "自営業" },
+  { value: "civilServant", label: "公務員" },
+  { value: "executive", label: "会社役員" },
+  { value: "leave", label: "休業中（産休・育休・病気など）" },
+  { value: "unemployed", label: "働いていない" },
+];
+
+export const LEAVE_KINDS: Option[] = [
+  { value: "maternity", label: "産前産後休業" },
+  { value: "childcare", label: "育児休業" },
+  { value: "sick", label: "病気の休業" },
+  { value: "care", label: "介護休業" },
+  { value: "other", label: "その他の休業" },
+];
+
+export const HEALTH_INSURANCE: Option[] = [
+  { value: "kyokaikenpo", label: "協会けんぽ" },
+  { value: "union", label: "健康保険組合" },
+  { value: "mutualAid", label: "共済組合" },
+  { value: "national", label: "国民健康保険" },
+  { value: "dependent", label: "家族の扶養" },
+  { value: "continuation", label: "任意継続" },
+  { value: "lateElderly", label: "後期高齢者医療" },
+];
+
+export const PENSION_CATEGORY: Option[] = [
+  { value: "employee1", label: "厚生年金（会社員）" },
+  { value: "employee2", label: "厚生年金（国家公務員）" },
+  { value: "employee3", label: "厚生年金（地方公務員）" },
+  { value: "employee4", label: "厚生年金（私学教職員）" },
+  { value: "none", label: "厚生年金に入らない" },
+];
+
+export const POST_RETIREMENT_TYPES: Option[] = [
+  { value: "", label: "働かない" },
+  { value: "contract", label: "再雇用・嘱託" },
+  { value: "partTime", label: "パート・アルバイト" },
+  { value: "selfEmployed", label: "自営業" },
+];
+
+/** 年金の入れ方（ねんきん定期便の数字を入れる形を主にする） */
+export const PENSION_KINDS: Option[] = [
+  { value: "statementUnder50", label: "ねんきん定期便（50歳未満）" },
+  { value: "statementOver50", label: "ねんきん定期便（50歳以上）" },
+  { value: "receiving", label: "年金額改定通知書（受給中）" },
+  { value: "projection", label: "見込額だけを入れる" },
+  { value: "history", label: "加入歴から計算する（詳しく入れる）" },
+  { value: "", label: "入れない（働き方から推計）" },
+];
+
+export const HISTORY_CATEGORIES: Option[] = [
+  { value: "employee", label: "厚生年金" },
+  { value: "national1", label: "国民年金（第1号・納付）" },
+  { value: "national1Unpaid", label: "国民年金（第1号・未納）" },
+  { value: "national1ExemptFull", label: "国民年金（全額免除）" },
+  { value: "national1ExemptThreeQuarters", label: "国民年金（4分の3免除）" },
+  { value: "national1ExemptHalf", label: "国民年金（半額免除）" },
+  { value: "national1ExemptQuarter", label: "国民年金（4分の1免除）" },
+  { value: "national1Deferred", label: "国民年金（納付猶予・学生納付特例）" },
+  { value: "national3", label: "国民年金（第3号）" },
+];
+
+export const LIVING_STAGE_LABELS: Option[] = [
+  { value: "childIndependence", label: "末子独立後" },
+  { value: "retirement", label: "退職後" },
+  { value: "age70", label: "70歳から" },
+  { value: "age80", label: "80歳から" },
+  { value: "other", label: "その他の節目" },
+];
+
+export const LIVING_CATEGORIES: Option[] = [
+  { value: "food", label: "食費" },
+  { value: "utilities", label: "水道・光熱費" },
+  { value: "furniture", label: "家具・家事用品" },
+  { value: "clothing", label: "被服費" },
+  { value: "health", label: "保健医療費" },
+  { value: "transport", label: "交通・通信費" },
+  { value: "recreation", label: "教養娯楽費" },
+  { value: "otherConsumption", label: "その他の消費（こづかい・交際費など）" },
+  { value: "allowance", label: "仕送り" },
+];
+
+export const GROWTH_KINDS: Option[] = [
+  { value: "inflation", label: "物価上昇率に合わせる" },
+  { value: "rate", label: "決まった変動率" },
+  { value: "none", label: "変えない" },
+];
+
+export const SCHOOL_STAGES: Option[] = [
+  { value: "nursery", label: "保育園" },
+  { value: "kindergarten", label: "幼稚園" },
+  { value: "elementary", label: "小学校" },
+  { value: "juniorHigh", label: "中学校" },
+  { value: "highSchool", label: "高校" },
+  { value: "university", label: "大学" },
+  { value: "juniorCollege", label: "短大" },
+  { value: "vocational", label: "専門学校" },
+];
+
+export const SECTORS: Option[] = [
+  { value: "public", label: "公立" },
+  { value: "national", label: "国立" },
+  { value: "private", label: "私立" },
+];
+
+export const FIELDS: Option[] = [
+  { value: "humanities", label: "文系" },
+  { value: "science", label: "理系" },
+  { value: "medical", label: "医歯系" },
+  { value: "other", label: "その他" },
+];
+
+export const LIVING_PLACE: Option[] = [
+  { value: "home", label: "自宅から通う" },
+  { value: "away", label: "自宅外（下宿・寮）" },
+];
+
+export const RESIDENCE_KINDS: Option[] = [
+  { value: "rent", label: "賃貸" },
+  { value: "own", label: "持ち家" },
+];
+
+export const RATE_TYPES: Option[] = [
+  { value: "variable", label: "変動金利" },
+  { value: "fixedPeriod", label: "固定期間選択型" },
+  { value: "fixed", label: "全期間固定" },
+];
+
+export const REPAYMENT_METHODS: Option[] = [
+  { value: "equalPayment", label: "元利均等" },
+  { value: "equalPrincipal", label: "元金均等" },
+];
+
+export const DEBT_KINDS: Option[] = [
+  { value: "car", label: "自動車ローン" },
+  { value: "scholarship", label: "奨学金" },
+  { value: "other", label: "その他のローン" },
+];
+
+export const INSURANCE_TEMPLATES: Option[] = [
+  { value: "insurance.term", label: "定期保険" },
+  { value: "insurance.wholeLife", label: "終身保険" },
+  { value: "insurance.incomeProtection", label: "収入保障保険" },
+  { value: "insurance.medical", label: "医療保険" },
+  { value: "insurance.cancer", label: "がん保険" },
+  { value: "insurance.education", label: "学資保険" },
+  { value: "insurance.privateAnnuity", label: "個人年金保険" },
+  { value: "insurance.foreignCurrency", label: "外貨建て保険" },
+  { value: "insurance.variable", label: "変額保険" },
+  { value: "insurance.nonLife", label: "損害保険（火災・自動車など）" },
+];
+
+export const PREMIUM_FREQUENCY: Option[] = [
+  { value: "monthly", label: "月払い" },
+  { value: "annual", label: "年払い" },
+  { value: "single", label: "一時払い" },
+];
+
+export const DEDUCTION_TYPES: Option[] = [
+  { value: "general", label: "一般生命保険料" },
+  { value: "careMedical", label: "介護医療保険料" },
+  { value: "pension", label: "個人年金保険料" },
+  { value: "earthquake", label: "地震保険料" },
+  { value: "longTermNonLife", label: "旧長期損害保険料" },
+  { value: "none", label: "控除の対象外" },
+];
+
+export const BENEFITS: Option[] = [
+  { value: "death", label: "死亡保険金" },
+  { value: "incomeProtection", label: "収入保障（年金月額）" },
+  { value: "incapacity", label: "就業不能" },
+  { value: "highDisability", label: "高度障害" },
+  { value: "maturity", label: "満期金" },
+  { value: "annuity", label: "年金" },
+  { value: "survival", label: "祝金" },
+  { value: "hospitalDaily", label: "入院日額" },
+  { value: "surgery", label: "手術" },
+  { value: "cancerLump", label: "がん一時金" },
+  { value: "other", label: "その他" },
+];
+
+export const ACCOUNT_KINDS: Option[] = [
+  { value: "deposit", label: "預貯金" },
+  { value: "taxable", label: "課税口座（特定・一般口座）" },
+  { value: "nisa", label: "NISA" },
+  { value: "childNisa", label: "こどもNISA" },
+  { value: "legacyNisa", label: "旧NISA" },
+  { value: "juniorNisa", label: "ジュニアNISA" },
+  { value: "ideco", label: "iDeCo" },
+  { value: "corporateDc", label: "企業型DC" },
+  { value: "smallBusinessMutualAid", label: "小規模企業共済" },
+  { value: "zaikei", label: "財形貯蓄" },
+  { value: "esop", label: "持株会" },
+  { value: "fxDeposit", label: "外貨預金" },
+  { value: "insurance", label: "保険（積立部分）" },
+  { value: "realEstate", label: "不動産" },
+];
+
+export const ASSET_CLASSES: Option[] = [
+  { value: "cash.deposit", label: "預金" },
+  { value: "cash.foreign", label: "外貨預金" },
+  { value: "bond.domestic", label: "国内債券" },
+  { value: "bond.global", label: "外国債券" },
+  { value: "equity.domestic", label: "国内株式" },
+  { value: "equity.global", label: "外国株式" },
+  { value: "reit.domestic", label: "国内REIT" },
+  { value: "reit.global", label: "外国REIT" },
+  { value: "balanced", label: "バランス型" },
+  { value: "commodity", label: "コモディティ" },
+  { value: "realEstate", label: "不動産" },
+  { value: "other", label: "その他" },
+];
+
+export const PERIODIC_ROWS: Option[] = [
+  { value: "cf.expense.lumpSum.other", label: "一時的支出（旅行・家電など）" },
+  { value: "cf.expense.lumpSum.wedding", label: "結婚の費用" },
+  { value: "cf.expense.lumpSum.gift", label: "贈り物・援助" },
+  { value: "cf.expense.lumpSum.car", label: "車両費（一時）" },
+  { value: "cf.expense.housing.maintenance", label: "住まいの修繕" },
+  { value: "cf.expense.care.medical", label: "医療・介護" },
+  { value: "cf.expense.living", label: "基本生活費に含める" },
+  { value: "cf.expense.other", label: "その他の支出" },
+];
+
+export const CARE_PLACE: Option[] = [
+  { value: "home", label: "在宅" },
+  { value: "facility", label: "施設" },
+];
+
+export const DONOR_KINDS: Option[] = [
+  { value: "parent", label: "親" },
+  { value: "grandparent", label: "祖父母" },
+  { value: "other", label: "その他の親族" },
+];
+
+export const GIFT_PURPOSES: Option[] = [
+  { value: "housing", label: "住宅資金" },
+  { value: "wedding", label: "結婚資金" },
+  { value: "other", label: "その他の援助" },
+];
+
+export const TAX_METHODS: Option[] = [
+  { value: "calendar", label: "暦年課税" },
+  { value: "settlement", label: "相続時精算課税" },
+];
+
+export const HOUSING_EXEMPTION: Option[] = [
+  { value: "energySaving", label: "住宅取得等資金の非課税（省エネ等住宅）" },
+  { value: "other", label: "住宅取得等資金の非課税（それ以外の住宅）" },
+  { value: "none", label: "非課税の特例を使わない" },
+];
+
+/** 贈与する人の呼び方（氏名は持たない。0012）: 「ご主人の親」など */
+export function donorLabel(wh: WorkingHousehold, d: { kind: string; of?: string }): string {
+  const k = DONOR_KINDS.find((o) => o.value === d.kind)?.label ?? "親族";
+  if (d.kind === "other") return k;
+  return d.of !== undefined ? `${memberLabel(wh, d.of)}の${k}` : `受け取る人の${k}`;
+}
+
+export function donorOptions(wh: WorkingHousehold): Option[] {
+  return [{ value: "", label: "贈与する人を選ばない（援助ごとに別の人）" }, ...(wh.request.input.household.donors ?? []).map((d) => ({ value: d.id, label: donorLabel(wh, d) }))];
+}
+
+const PREFS = "北海道,青森,岩手,宮城,秋田,山形,福島,茨城,栃木,群馬,埼玉,千葉,東京,神奈川,新潟,富山,石川,福井,山梨,長野,岐阜,静岡,愛知,三重,滋賀,京都,大阪,兵庫,奈良,和歌山,鳥取,島根,岡山,広島,山口,徳島,香川,愛媛,高知,福岡,佐賀,長崎,熊本,大分,宮崎,鹿児島,沖縄".split(",");
+
+/** 協会けんぽの支部（都道府県。kyokaikenpo.01〜47） */
+export const KYOKAI_BRANCHES: Option[] = PREFS.map((p, i) => ({ value: `kyokaikenpo.${String(i + 1).padStart(2, "0")}`, label: `${p}支部` }));

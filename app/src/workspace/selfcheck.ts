@@ -119,3 +119,76 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
   }
   await fetch("/__dev/report", { method: "POST", body: JSON.stringify(report, null, 2) });
 }
+
+/** 入力欄に打つ（打つ → 欄を離れる） */
+async function typeInto(sel: string, value: string): Promise<boolean> {
+  const el = document.querySelector<HTMLInputElement>(sel);
+  if (el === null) return false;
+  el.focus();
+  await sleep(50);
+  el.value = value;
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  await sleep(50);
+  el.blur();
+  return true;
+}
+
+const clickTab = (label: string) => [...document.querySelectorAll<HTMLButtonElement>(".tabs button")].find((b) => b.textContent?.includes(label))?.click();
+const miniText = () => [...document.querySelectorAll("[data-mini]")].map((e) => e.textContent?.trim()).join(" / ");
+
+/**
+ * 入力の画面の自己確認（URL の #selfcheck=input）: 入力の画面が出ること、値を変えると隅の小さな結果と主画面が変わること、空の世帯から入れられること。
+ * 開発用のサーバーのときだけ
+ */
+export async function runInputCheck(dual: () => DualEngine | null, host: string): Promise<void> {
+  const report: Record<string, unknown> = { host, kind: "input", userAgent: navigator.userAgent };
+  const wait = async () => {
+    const d = dual();
+    if (d !== null) await settle(d);
+  };
+  try {
+    clickTab("入力");
+    await sleep(300);
+    document.querySelector<HTMLButtonElement>('[data-stage="living"]')?.click();
+    await wait();
+    report.initial = { mini: miniText(), stage: text("#h-stage") };
+    await stage("input-initial", report);
+    report.typed = await typeInto('input[id^="fld-living"][id$="_monthly"]', "26");
+    await sleep(200);
+    await wait();
+    report.changed = { mini: miniText() };
+    await stage("input-changed", report);
+    clickTab("主画面");
+    await sleep(300);
+    await wait();
+    report.main = { headline: text(".hero-num"), diff: text(".hero-diff") };
+    await stage("main-after-input", report);
+    // 空の世帯から
+    const pick = document.querySelector<HTMLSelectElement>('select[aria-label="開く世帯"]');
+    if (pick !== null) {
+      pick.value = "__blank__";
+      pick.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    await sleep(500);
+    clickTab("入力");
+    await sleep(300);
+    document.querySelector<HTMLButtonElement>('[data-stage="family"]')?.click();
+    await wait();
+    report.blank = { mini: miniText(), members: text(".hh") };
+    await typeInto('input[id^="fld-family"][id$="_birth"]', "1988-06");
+    document.querySelector<HTMLButtonElement>('[data-action="family/add/spouse"]')?.click();
+    await sleep(200);
+    document.querySelector<HTMLButtonElement>('[data-stage="work"]')?.click();
+    await sleep(200);
+    document.querySelector<HTMLButtonElement>('[data-action$="/start"]')?.click();
+    await sleep(300);
+    await wait();
+    report.blankFilled = { mini: miniText(), members: text(".hh") };
+    await stage("blank-work", report);
+    report.ok = true;
+  } catch (e) {
+    report.ok = false;
+    report.error = String(e);
+  }
+  await fetch("/__dev/report", { method: "POST", body: JSON.stringify(report, null, 2) });
+}
