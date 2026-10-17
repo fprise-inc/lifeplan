@@ -1,7 +1,7 @@
 // 計算結果と世帯から、提示用の値（PresentationModel。0016 の2）を作る。許可した項目だけを選んで写す
 import { advisoryFeeSummary, type EngineRequest, type PreviewResult, type TableCell } from "../engine/types.ts";
 import { ROW_LABELS } from "../generated/labels.ts";
-import type { BalanceChartModel, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
+import type { BalanceChartModel, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
@@ -101,7 +101,8 @@ export function schoolEntryYear(birthYearMonth: string, bornOnFirst: boolean, st
   return y + age + (early ? 0 : 1);
 }
 
-function events(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[]): EventChip[] {
+/** 年のライフイベント（案の要求と結果から。学校・独立・退職・年金・ローン完済・資産が尽きる年） */
+export function eventsOf(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[]): EventChip[] {
   const rs = roles(req);
   const h = req.input.household;
   const first = years[0] ?? 0;
@@ -162,6 +163,19 @@ function verdict(self: Role | undefined, depP: number | null, depC: number | nul
     tone: later ? "up" : "down",
     parts: [{ text: `${later ? "↑" : "↓"} 資産が尽きる年が ` }, { text: `${Math.abs(p - c)}年${later ? "遅く" : "早く"}`, strong: true }, { text: `なりました（${who}${age(c)}歳→${age(p)}歳）` }],
   };
+}
+
+/**
+ * 主画面の結論の1文: 「B案は100歳まで足ります」＋2行目「A案（基準）は80歳で資産が尽きます」。
+ * 選んだ案が基準の案のときは「A案（基準）：80歳で資産が尽きます」の1行。○歳時点の資産は既定では出さない（表示の設定で足す）
+ */
+export function resultVerdict(names: SeriesNames, self: Role | undefined, depP: number | null, depC: number | null, endAge: number | null): ResultVerdict {
+  const age = (y: number) => (self !== undefined ? ageInYear(self.member, y) : y);
+  const until = endAge !== null ? `${endAge}歳まで足ります` : "最後まで足ります";
+  const st = (d: number | null) => (d === null ? until : `${age(d)}歳で資産が尽きます`);
+  if (names.same) return { tone: depP === null ? "up" : "down", parts: [{ text: `${names.selected}（基準）`, strong: true }, { text: "：" }, { text: st(depP), strong: true }], sub: [] };
+  const better = depP === depC ? "flat" : depP === null ? "up" : depC === null ? "down" : depP > depC ? "up" : "down";
+  return { tone: better, parts: [{ text: names.selected, strong: true }, { text: "は" }, { text: st(depP), strong: true }], sub: [{ text: `${names.base}（基準）は${st(depC)}` }] };
 }
 
 function goals(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[], depP: number | null): GoalsModel {
@@ -229,8 +243,9 @@ export interface FeeInput {
 }
 
 /** FP顧問料の一文: 「顧問料（累計○万円）を払っても、ご主人95歳時点の資産は現状より○万円多い」 */
-export function feeLine(input: { fee: FeeInput; targetYear: number; targetLabel: string; finP: Map<number, number>; finC: Map<number, number> }): FeeLine {
+export function feeLine(input: { fee: FeeInput; targetYear: number; targetLabel: string; finP: Map<number, number>; finC: Map<number, number>; baseLabel?: string }): FeeLine {
   const { fee, targetYear, targetLabel, finP, finC } = input;
+  const than = input.baseLabel ?? "現状";
   const cum = fee.withFee === null ? null : (advisoryFeeSummary(fee.withFee)?.byYear.filter((b) => b.year <= targetYear).at(-1)?.cumulative ?? 0);
   const cumText = cum === null ? "" : `（${targetLabel}までの累計${man(cum)}万円）`;
   const diffOf = (fin: Map<number, number>) => (fin.get(targetYear) ?? 0) - (finC.get(targetYear) ?? 0);
@@ -239,14 +254,14 @@ export function feeLine(input: { fee: FeeInput; targetYear: number; targetLabel:
   const d = diffOf(finP);
   if (fee.on) {
     const parts: VerdictPart[] = [
-      { text: `FP顧問料${cumText}を${d >= 0 ? "払っても" : "含めると"}、${targetLabel}時点の資産は現状より ` },
+      { text: `FP顧問料${cumText}を${d >= 0 ? "払っても" : "含めると"}、${targetLabel}時点の資産は${than}より ` },
       { text: word(d), strong: true },
     ];
     if (alt !== null) parts.push({ text: `（顧問料を除くと${word(alt)}）` });
     return { on: true, parts };
   }
   const parts: VerdictPart[] = [{ text: "FP顧問料を含めない試算です。" }];
-  if (alt !== null) parts.push({ text: `含めると${cumText}、${targetLabel}時点の資産は現状より ` }, { text: word(alt), strong: true });
+  if (alt !== null) parts.push({ text: `含めると${cumText}、${targetLabel}時点の資産は${than}より ` }, { text: word(alt), strong: true });
   return { on: false, parts };
 }
 
@@ -262,10 +277,14 @@ export interface PresentInput {
   provisional: boolean;
   /** FP顧問料の ON/OFF（契約が無ければ省略） */
   fee?: FeeInput;
+  /** 線の呼び方（主画面: 選んだ案「B案」・基準の案「A案」）。省略は「提案」と「現状」 */
+  names?: SeriesNames;
 }
 
 export function toPresentation(input: PresentInput): PresentationModel {
   const { base, proposal, current, proposed } = input;
+  const names: SeriesNames = input.names ?? { selected: "提案", base: "現状", same: false };
+  const custom = input.names !== undefined;
   const years = displayYears(base);
   const rs = roles(base);
   const self = rs.find((r) => r.key === "self");
@@ -279,7 +298,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
   const targetYear = self !== undefined ? Math.min(lastYear, parseYm(self.member.birth.birthYearMonth).y + input.targetAge) : lastYear;
   const age = (y: number) => (self !== undefined ? ageInYear(self.member, y) : null);
   const headline: Headline = {
-    label: `${self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`}時点の金融資産（提案）`,
+    label: `${self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`}時点の金融資産（${names.selected}）`,
     amount: finP.get(targetYear) ?? 0,
     currentAmount: finC.get(targetYear) ?? 0,
     diff: (finP.get(targetYear) ?? 0) - (finC.get(targetYear) ?? 0),
@@ -287,8 +306,8 @@ export function toPresentation(input: PresentInput): PresentationModel {
   };
 
   const depletions: Depletion[] = [];
-  if (depC !== null) depletions.push({ series: "current", year: depC, label: `現状 ${age(depC) ?? depC}歳で不足` });
-  if (depP !== null) depletions.push({ series: "proposal", year: depP, label: `提案 ${age(depP) ?? depP}歳で不足` });
+  if (depC !== null) depletions.push({ series: "current", year: depC, label: `${custom ? "▲ " : ""}${names.base} ${age(depC) ?? depC}歳で不足` });
+  if (depP !== null) depletions.push({ series: "proposal", year: depP, label: `${custom ? "▲ " : ""}${names.selected} ${age(depP) ?? depP}歳で不足` });
   const chart: ChartModel = {
     years,
     ages: years.map((y) => age(y)),
@@ -309,8 +328,10 @@ export function toPresentation(input: PresentInput): PresentationModel {
     financial: finP.get(selectedYear) ?? 0,
   };
 
-  const evs = events(proposal, proposed.table, years);
-  const table = cashflowTable(proposal, proposed.table, years, "生涯キャッシュフロー表（提案）", evs);
+  const evs = eventsOf(proposal, proposed.table, years);
+  const table = cashflowTable(proposal, proposed.table, years, custom ? "生涯キャッシュフロー表" : "生涯キャッシュフロー表（提案）", evs);
+  const baseFlows = flowChart(base, current.table, years, "");
+  const baseBalance = balanceChart(current.table, years, chart.ages, "");
 
 
   const { y: by, m: bm } = parseYm(base.input.baseMonth);
@@ -319,15 +340,19 @@ export function toPresentation(input: PresentInput): PresentationModel {
     asOf: `${by}年${bm}月時点`,
     headline,
     verdict: verdict(self, depP, depC, endAge),
+    result: resultVerdict(names, self, depP, depC, endAge),
+    names,
     chart,
     flows: flowChart(proposal, proposed.table, years, "収支の推移（提案）"),
     balance: balanceChart(proposed.table, years, chart.ages, "資産と負債の推移（提案）"),
+    baseLines: { net: baseFlows.net, netWorth: baseBalance.netWorth },
+    who: self?.label ?? "",
     selectedYear,
     yearDetail,
     events: evs,
     table,
     goals: goals(proposal, proposed.table, years, depP),
-    fee: input.fee === undefined ? null : feeLine({ fee: input.fee, targetYear, targetLabel: self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`, finP, finC }),
+    fee: input.fee === undefined ? null : feeLine({ fee: input.fee, targetYear, targetLabel: self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`, finP, finC, ...(custom ? { baseLabel: `${names.base}（基準）` } : {}) }),
     provisional: input.provisional,
   };
 }
@@ -382,6 +407,31 @@ export function diffCashflowTable(req: EngineRequest, a: readonly TableCell[], b
     rows.push({ kind: d.kind, key: d.key, label: d.label, cells, evidence: false });
   }
   return { title, years, rows };
+}
+
+/**
+ * 表に基準との差を足す: 年間収支と金融資産残高の下に「差（C−A）」の行（見ている案−基準）、基準と違うマスに印。
+ * table は見ている案の表（cashflowTable の結果）、shown・base はその案と基準の案の計算結果
+ */
+export function withDiff(req: EngineRequest, table: CashflowTableModel, shown: readonly TableCell[], base: readonly TableCell[], label: string): CashflowTableModel {
+  const defs = new Map(rowDefs(req).map((d) => [d.key, d]));
+  const rows: TableRowModel[] = [];
+  for (const r of table.rows) {
+    if (r.kind !== "value" && r.kind !== "total") {
+      rows.push(r);
+      continue;
+    }
+    const d = defs.get(r.key);
+    if (d === undefined) {
+      rows.push(r);
+      continue;
+    }
+    const sb = sumByYear(base, d.match);
+    const ss = sumByYear(shown, d.match);
+    rows.push({ ...r, cells: r.cells.map((c, i) => ({ ...c, changed: (ss.get(table.years[i] as number) ?? 0) !== (sb.get(table.years[i] as number) ?? 0) })) });
+    if (r.key === "net" || r.key === "financial") rows.push({ kind: "diff", key: `diff:${r.key}`, label, cells: table.years.map((y) => (ss.get(y) ?? 0) - (sb.get(y) ?? 0)) });
+  }
+  return { ...table, rows };
 }
 
 // ---- 収支の推移・資産と負債の推移 ----

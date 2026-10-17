@@ -66,9 +66,11 @@ export interface ItemRowProps {
   /** 指を離した・欄を確定した（正の計算） */
   onRelease: () => void;
   onRemove: (key: string) => void;
+  /** 基準の値の札の見出し（例: 「基準（A）」）。省略は「現状」 */
+  baseLabel?: string;
 }
 
-function RangeRow({ item, value, base, onSlide, onRelease }: ItemRowProps & { item: MovableItem & { control: { kind: "range" } } }) {
+function RangeRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }: ItemRowProps & { item: MovableItem & { control: { kind: "range" } } }) {
   const c = item.control;
   const v = typeof value === "number" ? value : c.min;
   const b = typeof base === "number" ? base : c.min;
@@ -90,14 +92,16 @@ function RangeRow({ item, value, base, onSlide, onRelease }: ItemRowProps & { it
       />
       <div class="range-scale">
         <span>{c.tick(c.min)}</span>
-        <span class="base-mark">現状 {item.text(b)}</span>
+        <span class="base-mark">
+          {baseLabel} {item.text(b)}
+        </span>
         <span>{c.tick(c.max)}</span>
       </div>
     </>
   );
 }
 
-function RateRow({ item, value, base, onSlide, onRelease }: ItemRowProps & { item: MovableItem & { control: { kind: "rate" } } }) {
+function RateRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }: ItemRowProps & { item: MovableItem & { control: { kind: "rate" } } }) {
   const c = item.control;
   const min = rateToInt(c.min);
   const max = rateToInt(c.max);
@@ -122,7 +126,9 @@ function RateRow({ item, value, base, onSlide, onRelease }: ItemRowProps & { ite
       />
       <div class="range-scale">
         <span>{pctText(c.min)}</span>
-        <span class="base-mark">現状 {pctText(b)}</span>
+        <span class="base-mark">
+          {baseLabel} {pctText(b)}
+        </span>
         <span>{pctText(c.max)}</span>
       </div>
     </>
@@ -175,7 +181,7 @@ function MixRow({ item, value, onSlide, onRelease }: ItemRowProps & { item: Mova
   );
 }
 
-function ShiftRow({ item, value, onSlide, onRelease }: ItemRowProps & { item: MovableItem & { control: { kind: "shift" } } }) {
+function ShiftRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }: ItemRowProps & { item: MovableItem & { control: { kind: "shift" } } }) {
   const s = (value as RateShift | null) ?? { add: "0", from: `${item.control.years[2] ?? 2030}-01` };
   const add = Math.round(Number(shiftDecimal(s.add, 4)));
 
@@ -197,7 +203,9 @@ function ShiftRow({ item, value, onSlide, onRelease }: ItemRowProps & { item: Mo
       />
       <div class="range-scale">
         <span>0%</span>
-        <span class="base-mark">現状: 上がらない</span>
+        <span class="base-mark">
+          {baseLabel}: {item.text(base)}
+        </span>
         <span>+3%</span>
       </div>
       <label class="shift-from">
@@ -219,7 +227,7 @@ function ShiftRow({ item, value, onSlide, onRelease }: ItemRowProps & { item: Mo
 
 /** 足した項目の1行（スライダーか数値の欄） */
 export function ItemRow(props: ItemRowProps) {
-  const { item, value, base, wh, onSlide, onRelease, onRemove } = props;
+  const { item, value, base, wh, onSlide, onRelease, onRemove, baseLabel = "現状" } = props;
   const changed = !item.same(value, base);
   const c = item.control;
   let control;
@@ -248,7 +256,9 @@ export function ItemRow(props: ItemRowProps) {
       {control}
       <div class="lever-note">
         {note !== null ? <span>{note}</span> : <span />}
-        <span class="base-tag">現状: {item.text(base)}</span>
+        <span class="base-tag">
+          {baseLabel}: {item.text(base)}
+        </span>
       </div>
     </div>
   );

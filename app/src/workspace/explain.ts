@@ -117,16 +117,17 @@ export function explainModel(req: EngineRequest, result: PreviewResult, targetAg
   });
 
   // 6. 資産の推移
+  // ○歳時点の資産は既定では出さない（2026-10-17。出すかどうかは表示の設定で FP が選ぶ）。ここは足りるかどうかだけ
   const dep = depletionYear(t, years);
   const last = years.at(-1) ?? req.input.endYear;
-  const ty = self !== undefined ? Math.min(last, parseYm(self.member.birth.birthYearMonth).y + targetAge) : last;
+  void targetAge;
   steps.push({
     key: "assets",
     title: "資産の推移",
     sentence:
       dep !== null
         ? s([{ text: "この収入と支出のままだと、" }, { text: `${dep}年（${ageText(dep)}）に資産が尽きます`, strong: true }])
-        : s([{ text: `その結果、${ageText(ty)}時点の金融資産は ` }, { text: `${man(fin.get(ty) ?? 0)}万円`, strong: true }, { text: "です" }]),
+        : s([{ text: "その結果、" }, { text: `${self !== undefined ? `${ageOf(last)}歳まで` : "最後まで"}資産が足ります`, strong: true }]),
   });
 
   return { title: "これからのお金の流れ", years, ages: years.map((y) => ageOf(y)), work, pension, living, education, housing, financial, steps };

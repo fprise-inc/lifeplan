@@ -70,13 +70,17 @@ export interface TableCellModel {
   amount: Yen | null;
   /** 不足（金融資産がマイナス） */
   short?: boolean;
+  /** 基準の案と違うマス（差を表示しているときだけ付ける） */
+  changed?: boolean;
 }
 
 export type TableRowModel =
   | { kind: "age"; key: string; label: string; ages: (number | null)[] }
   | { kind: "events"; key: string; label: string; icons: EventIcon[][] }
   | { kind: "group"; key: string; label: string }
-  | { kind: "value" | "total"; key: string; label: string; cells: TableCellModel[]; evidence: boolean };
+  | { kind: "value" | "total"; key: string; label: string; cells: TableCellModel[]; evidence: boolean }
+  /** 基準との差の行（選んだ案−基準。年間収支と金融資産残高の下） */
+  | { kind: "diff"; key: string; label: string; cells: (Yen | null)[] };
 
 export interface CashflowTableModel {
   title: string;
@@ -102,17 +106,48 @@ export interface GoalsModel {
   cards: GoalCard[];
 }
 
+/** 主画面の結論の1文（例: 「B案は100歳まで足ります」＋「A案（基準）は80歳で資産が尽きます」） */
+export interface ResultVerdict {
+  tone: "up" | "down" | "flat";
+  parts: VerdictPart[];
+  /** 2行目（基準の案のこと・表示の設定で選んだ数字）。無ければ空 */
+  sub: VerdictPart[];
+}
+
+/** 線の呼び方（グラフ・表・1文）。例: 選んだ案「B案」・基準の案「A案」 */
+export interface SeriesNames {
+  selected: string;
+  base: string;
+  /** 選んだ案が基準の案と同じ（線は1本） */
+  same: boolean;
+}
+
+/** 表示の設定で選んだ「○歳時点の金融資産」の印（グラフに縦の点線と2つの点） */
+export interface AgeMark {
+  year: number;
+  /** 例: 「95歳」 */
+  label: string;
+}
+
 export interface PresentationModel {
   members: MemberChip[];
   /** 例: 「2026年10月時点」 */
   asOf: string;
   headline: Headline;
   verdict: Verdict;
+  /** 主画面の結論の1文（選んだ案と基準の案） */
+  result: ResultVerdict;
+  names: SeriesNames;
+  /** proposal＝選んだ案、current＝基準の案 */
   chart: ChartModel;
-  /** 収支の推移（提案） */
+  /** 収支の推移（選んだ案） */
   flows: FlowChartModel;
-  /** 資産と負債の推移（提案） */
+  /** 資産と負債の推移（選んだ案） */
   balance: BalanceChartModel;
+  /** 基準の案の線（年間収支・純資産）。収支・資産と負債のグラフに点線で重ねる */
+  baseLines: { net: Yen[]; netWorth: Yen[] };
+  /** 本人の呼び方（例: ご主人）。グラフの年の札に使う */
+  who: string;
   selectedYear: number;
   yearDetail: YearDetail | null;
   events: EventChip[];
@@ -231,31 +266,18 @@ export interface BalanceChartModel {
 
 // ---- 案の比較 ----
 
-export interface CompareSeries {
-  /** 提示用の鍵（current・p1…。物の ID は含まない） */
-  key: string;
-  name: string;
-  /** 線の形と印の番号（0＝現状の灰の破線、1〜5＝案）。色だけで区別しない */
-  style: number;
-  values: Yen[];
-}
-
-export interface CompareChartModel {
-  years: number[];
-  ages: (number | null)[];
-  series: CompareSeries[];
-}
-
 export interface CompareCell {
   text: string;
-  /** 現状との差（例: 「+1,200万円」）。現状の列は null */
+  /** 基準の案との差（例: 「+1,200万円」）。基準の列は null */
   diff: string | null;
   /** 悪いほう（不足・減る）に目立たせる */
   bad: boolean;
 }
 
 export interface CompareTableModel {
-  columns: { name: string; style: number }[];
+  /** 差の見出し（例: 「基準（A案）より」） */
+  diffLabel: string;
+  columns: { name: string; style: number; base?: boolean }[];
   rows: { key: string; label: string; cells: CompareCell[] }[];
 }
 
@@ -283,4 +305,33 @@ export interface ExplainModel {
   housing: Yen[];
   financial: Yen[];
   steps: ExplainStep[];
+}
+
+// ---- 主画面の案の帯 ----
+
+/** 案の帯のカード1枚。key は提示用の鍵（A・B…の文字。物の ID は含まない） */
+export interface PlanCardModel {
+  key: string;
+  /** 例: 「B」 */
+  letter: string;
+  name: string;
+  /** 資産が足りなくなる年齢（足りれば null）。計算中は undefined */
+  shortAge: number | null | undefined;
+  /** 例: 「100歳まで足りる」「80歳で不足」「計算しています」 */
+  status: string;
+  base: boolean;
+  shown: boolean;
+  /** 保存していない変更がある */
+  modified: boolean;
+  /** 表示の設定で選んだ数字（既定では出さない） */
+  metrics: { label: string; text: string; neg: boolean }[];
+}
+
+export interface PlanBandModel {
+  cards: PlanCardModel[];
+  /** 基準の案の選択肢 */
+  baseOptions: { key: string; label: string }[];
+  base: string;
+  /** 「＋ この案を元に作る」の下の小さな文（例: 「B案を写して動かす」） */
+  addNote: string;
 }
