@@ -2,6 +2,7 @@
 import type { CashflowTableModel, EventChip, FeeLine, GoalsModel, Headline as HeadlineModel, PresentationModel, Verdict as VerdictModel, YearDetail as YearDetailModel } from "./model.ts";
 import { man, manDiff } from "./format.ts";
 import { AssetChart } from "./AssetChart.tsx";
+import { BalanceChartView, ChartTabs, FlowChartView, type ChartTab } from "./FlowCharts.tsx";
 
 export interface Selectors {
   onSelectYear: (year: number) => void;
@@ -244,21 +245,36 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence }:
   );
 }
 
-/** 主画面の中央（主役の数字・結論・グラフ・年の内訳・イベント） */
-export function MainCard({ model, onSelectYear }: { model: PresentationModel; onSelectYear: (y: number) => void }) {
+/** 資産の推移のグラフ（凡例・グラフ・年の内訳） */
+export function AssetChartView({ model, onSelectYear }: { model: PresentationModel; onSelectYear: (y: number) => void }) {
   return (
-    <section class="card col-main" aria-label="資産残高の見通し">
-      <Headline model={model.headline} provisional={model.provisional} />
-      <Verdict model={model.verdict} />
-      {model.fee !== null ? <FeeNote model={model.fee} /> : null}
+    <>
       <div class="chart-top">
         <Legend />
         <span class="footnote">グラフの年を押すと、下の表の同じ年が光ります</span>
       </div>
       <AssetChart model={model.chart} selectedYear={model.selectedYear} onSelectYear={onSelectYear} />
       {model.yearDetail !== null ? <YearDetail model={model.yearDetail} /> : null}
+    </>
+  );
+}
+
+/** 主画面の中央（主役の数字・結論・グラフの切り替え・年の内訳・イベント） */
+export function MainCard({ model, onSelectYear, chartTab = "assets", onChartTab }: { model: PresentationModel; onSelectYear: (y: number) => void; chartTab?: ChartTab; onChartTab?: (t: ChartTab) => void }) {
+  return (
+    <section class="card col-main" aria-label="資産残高の見通し">
+      <Headline model={model.headline} provisional={model.provisional} />
+      <Verdict model={model.verdict} />
+      {model.fee !== null ? <FeeNote model={model.fee} /> : null}
+      {onChartTab !== undefined ? <ChartTabs tab={chartTab} onTab={onChartTab} /> : null}
+      {chartTab === "flows" ? (
+        <FlowChartView model={model.flows} selectedYear={model.selectedYear} onSelectYear={onSelectYear} />
+      ) : chartTab === "balance" ? (
+        <BalanceChartView model={model.balance} selectedYear={model.selectedYear} onSelectYear={onSelectYear} />
+      ) : (
+        <AssetChartView model={model} onSelectYear={onSelectYear} />
+      )}
       <EventChips events={model.events} selectedYear={model.selectedYear} onSelectYear={onSelectYear} />
     </section>
   );
 }
-

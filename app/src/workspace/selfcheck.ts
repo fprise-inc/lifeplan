@@ -259,3 +259,162 @@ export async function runContingencyCheck(host: string): Promise<void> {
   }
   await fetch("/__dev/report", { method: "POST", body: JSON.stringify(report, null, 2) });
 }
+
+/** スライダー（data-item）を1刻みずつ動かし、刻みごとの先出しの時間を集める */
+async function moveItem(sel: string, to: number, dual: () => DualEngine | null, stepMs = 40): Promise<number[]> {
+  const el = document.querySelector<HTMLInputElement>(sel);
+  if (el === null) throw new Error(`item ${sel}`);
+  const step = Number(el.step) || 1;
+  const out: number[] = [];
+  let v = Number(el.value);
+  while (Math.abs(v - to) >= step / 2) {
+    v += v < to ? step : -step;
+    const before = dual()?.timings.length ?? 0;
+    el.value = String(v);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    const t = dual()?.timings.slice(before).find((x) => x.kind === "preview");
+    if (t !== undefined) out.push(Math.round(t.ms * 10) / 10);
+    await sleep(stepMs);
+  }
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+  return out;
+}
+
+/**
+ * 案の自己確認（URL の #selfcheck=plans）: 動かす項目を足して動かす（先出しの時間）→ 案として保存 → 重ねる → 5案を比べる（比較の時間）→
+ * 収支のグラフ → 資産と負債のグラフ → 説明モード。開発用のサーバーのときだけ
+ */
+export async function runPlansCheck(dual: () => DualEngine | null, host: string, compare: () => { ms: number; hostMs: number; slots: number }[]): Promise<void> {
+  const report: Record<string, unknown> = { host, kind: "plans", userAgent: navigator.userAgent };
+  const click = async (sel: string, ms = 300) => {
+    const el = document.querySelector<HTMLElement>(sel);
+    if (el === null) throw new Error(`click ${sel}`);
+    el.click();
+    await sleep(ms);
+  };
+  const wait = async () => {
+    const d = dual();
+    if (d !== null) await settle(d);
+  };
+  try {
+    await wait();
+    report.initial = { headline: text(".hero-num") };
+    // 1. 動かす項目を足す（借入・金利・配分）
+    await click("[data-add-item]");
+    report.menuItems = document.querySelectorAll("[data-pick]").length;
+    await stage("item-menu", report);
+    const pickRe = async (re: RegExp) => {
+      const b = [...document.querySelectorAll<HTMLButtonElement>("[data-pick]")].find((x) => re.test(x.dataset.pick ?? ""));
+      if (b === undefined) return null;
+      const key = b.dataset.pick ?? "";
+      b.click();
+      await sleep(200);
+      return key;
+    };
+    const picked: string[] = [];
+    for (const re of [/^loan:.*:(principal|prepay)$/, /^loan:.*:rate$/, /^mix:/]) {
+      if (document.querySelector("[data-item-menu]") === null) await click("[data-add-item]");
+      const k = await pickRe(re);
+      if (k !== null) picked.push(k);
+    }
+    report.picked = picked;
+    const loanKey = picked.find((k) => /^loan:/.test(k) && !k.endsWith(":rate"));
+    const previews: Record<string, number[]> = {};
+    if (loanKey !== undefined) {
+      const el = document.querySelector<HTMLInputElement>(`input[data-item="${loanKey}"]`);
+      const target = loanKey.endsWith(":prepay") ? 5_000_000 : Number(el?.value ?? 0) - 5_000_000;
+      previews.loan = await moveItem(`input[data-item="${loanKey}"]`, target, dual);
+      await wait();
+    }
+    report.afterLoan = { headline: text(".hero-num") };
+    await stage("item-added", report);
+    // 2. 案として保存
+    await click("[data-plan-save]");
+    report.suggestedName = (document.querySelector<HTMLInputElement>("[data-plan-save-form] input") as HTMLInputElement | null)?.value ?? null;
+    await stage("plan-save", report);
+    await click("[data-plan-save-form] button[type=submit]");
+    // 3. 金利を上げて、土台に重ねて保存
+    const rateKey = picked.find((k) => k.endsWith(":rate"));
+    if (rateKey !== undefined) {
+      const el = document.querySelector<HTMLInputElement>(`input[data-item="${rateKey}"]`);
+      previews.rate = await moveItem(`input[data-item="${rateKey}"]`, Number(el?.value ?? 0) + 500, dual, 30);
+      await wait();
+      await click("[data-plan-save]");
+      await click("[data-plan-save-form] button[type=submit]");
+    }
+    // 4. 配分を変えて、現状から保存
+    const mixKey = picked.find((k) => k.startsWith("mix:"));
+    if (mixKey !== undefined) {
+      const sel = document.querySelector<HTMLSelectElement>("[data-plan-bar] select");
+      if (sel !== null) {
+        sel.value = "";
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+        await sleep(300);
+        document.querySelector<HTMLButtonElement>(".pb-confirm .btn.danger")?.click();
+        await sleep(300);
+      }
+      previews.mix = await moveItem(`input[data-item="${mixKey}:equity"]`, 80, dual, 30);
+      await wait();
+      await click("[data-plan-save]");
+      await click("[data-plan-save-form] button[type=submit]");
+    }
+    // 5. 対策の固定の項目でも2つ
+    for (const [lever, idx] of [["retireAge", 4], ["livingMonthly", 0]] as const) {
+      const sel = document.querySelector<HTMLSelectElement>("[data-plan-bar] select");
+      if (sel !== null) {
+        sel.value = "";
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+        await sleep(300);
+        document.querySelector<HTMLButtonElement>(".pb-confirm .btn.danger")?.click();
+        await sleep(300);
+      }
+      await moveLever(lever, idx);
+      await wait();
+      await click("[data-plan-save]");
+      await click("[data-plan-save-form] button[type=submit]");
+    }
+    report.previews = previews;
+    const all = Object.values(previews).flat();
+    report.previewSummary = { median: median(all), max: all.length > 0 ? Math.max(...all) : null, count: all.length };
+    const canon = (dual()?.timings ?? []).filter((t) => t.kind === "canonical");
+    report.canonicalSummary = { median: median(canon.map((t) => t.ms)), max: canon.length > 0 ? Math.max(...canon.map((t) => t.ms)) : null, hostMedian: median(canon.map((t) => t.hostMs ?? 0)), count: canon.length, mismatches: dual()?.mismatches ?? null };
+    report.plans = [...document.querySelectorAll<HTMLOptionElement>("[data-plan-bar] select option")].map((o) => o.textContent);
+    // 6. 収支のグラフ・資産と負債のグラフ
+    await click('[data-chart-tab="flows"]');
+    report.flows = { bars: document.querySelectorAll(".flow-chart .bar").length, flags: document.querySelectorAll(".flow-chart .flag-band").length };
+    await stage("flows", report);
+    await click('[data-chart-tab="balance"]');
+    report.balance = { bars: document.querySelectorAll(".balance-chart .bar").length };
+    await stage("balance", report);
+    await click('[data-chart-tab="assets"]');
+    // 7. 説明モード（3段目まで進める）
+    await click("[data-explain-open]");
+    await click("[data-explain-next]");
+    await click("[data-explain-next]");
+    report.explain = { sentence: text(".ex-sentence"), pos: text(".ex-pos") };
+    await stage("explain", report);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await sleep(300);
+    report.explainClosed = document.querySelector("[data-explain]") === null;
+    // 8. 5案を比べる
+    // 時間は「案を比べる」を押してから、5案と現状の線と数字の表が出るまで（案の計算はすべて本体で。前の結果は使わない）
+    const n0 = compare().length;
+    const t0 = performance.now();
+    await click("[data-plan-compare]", 0);
+    while (document.querySelector("[data-compare-pick]") === null && performance.now() - t0 < 5000) await sleep(5);
+    const picks = [...document.querySelectorAll<HTMLInputElement>("[data-compare-pick]")];
+    for (const p of picks.slice(0, 5)) {
+      if (!p.checked) p.click();
+      await sleep(30);
+    }
+    const want = Math.min(5, picks.length) + 1;
+    while ((document.querySelector("[data-compare-table]") === null || document.querySelectorAll(".compare-chart .chart .cmp-line").length < want) && performance.now() - t0 < 20000) await sleep(20);
+    report.compare = { ms: Math.round(performance.now() - t0), selected: document.querySelectorAll("[data-compare-pick]:checked").length, series: document.querySelectorAll(".compare-chart .chart .cmp-line").length, host: compare().slice(n0).map((t) => ({ ms: Math.round(t.ms), hostMs: Math.round(t.hostMs), slots: t.slots })) };
+    await stage("compare", report, 2500);
+    report.ok = true;
+  } catch (e) {
+    report.ok = false;
+    report.error = String(e);
+  }
+  await fetch("/__dev/report", { method: "POST", body: JSON.stringify(report, null, 2) });
+}

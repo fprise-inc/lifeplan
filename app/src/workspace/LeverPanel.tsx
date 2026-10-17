@@ -1,5 +1,6 @@
 // 打ち手のスライダー（作業の層の部品）。
 // 動かしている間（input）は画面側の先出し、指を離したら（change・pointerup・keyup）正の計算（0005 の5）
+import type { ComponentChildren } from "preact";
 import type { LeverKey } from "./levers.ts";
 
 export interface LeverRow {
@@ -24,12 +25,13 @@ export interface FeeToggle {
   onToggle: () => void;
 }
 
-export function LeverPanel({ levers, onSlide, onRelease, onReset, fee }: { levers: LeverRow[]; onSlide: (key: LeverKey, index: number) => void; onRelease: () => void; onReset: (to: "current" | "first") => void; fee?: FeeToggle | null }) {
+/** 対策の列（独立した部品。置き場所は画面の大枠が決める）。children に足した動かす項目と「＋ 動かす項目を追加」を入れる */
+export function LeverPanel({ levers, onSlide, onRelease, onReset, fee, children }: { levers: LeverRow[]; onSlide: (key: LeverKey, index: number) => void; onRelease: () => void; onReset: (to: "current" | "first") => void; fee?: FeeToggle | null; children?: ComponentChildren }) {
   return (
     <aside class="card col-levers" aria-labelledby="h-lev">
       <div class="card-h">
         <h2 id="h-lev">対策</h2>
-        <span class="aside">動かすとすぐ計算し直します</span>
+        <span class="aside">動かした値は案にだけ入ります（入力は変わりません）</span>
       </div>
       {levers.map((l) => (
         <div class={`lever${l.index !== l.baseIndex ? " changed" : ""}`} key={l.key}>
@@ -87,6 +89,7 @@ export function LeverPanel({ levers, onSlide, onRelease, onReset, fee }: { lever
           </div>
         </div>
       ) : null}
+      {children}
       <div class="levers-foot">
         <button type="button" class="reset-btn" onClick={() => onReset("current")}>
           現状に戻す
