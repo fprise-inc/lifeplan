@@ -1,5 +1,5 @@
 // 画面の中で編集する世帯（作業の層）。計算エンジンに渡す要求（0008 の形の世帯と前提条件）と、
-// エンジンに渡さない画面の側の値（FP が付ける呼び名・定年後の予定の条件・FP用のメモ・万一の想定の前提）を1つにまとめる。
+// エンジンに渡さない画面の側の値（FP が付ける呼び名・定年後の予定の条件・FP用のメモ・万一の想定の前提・FPが足した項目・保存した項目）を1つにまとめる。
 // 保存・暗号化はまだ無い（次の回。世帯ファイルの封筒 0011 に入れる）。アプリを閉じると消える
 import type { Box, EmploymentPeriod, EngineRequest, Household, Member } from "../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, parseYm, type Reemployment } from "../levers.ts";
@@ -24,12 +24,27 @@ export interface WorkingHousehold {
   labelsByMember: Record<string, string>;
   /** 定年後の予定の条件。構成員の ID → 条件 */
   postRetirement: Record<string, PostRetirement>;
-  /** FP用のメモ（顧客に見せない。共有用の表示では出さない） */
+  /** FP用のメモ（顧客に見せない。画面には出さず、開いたときだけ見える引き出しに置く） */
   memo: string[];
   /** 箱（0008 の2）を持たない項目に入れた仮の値。欄のキー → 理由。FP が入れ直すと消える */
   assumed: Record<string, string>;
   /** 万一の想定の前提（遺族の生活費の割合・働き方の変化・等級の仮定など）。万一の画面で要求を作るときに使う */
   contingency: ContingencyPlan;
+  /** 入力のホームで FP が足した項目（物1件ずつのカード。items.ts）。並びは足した順 */
+  addedItems: AddedItem[];
+  /** FP が入力のパネルで保存した項目（カードの ID）。物が無い項目でも「入力済み（なし）」にするために使う */
+  confirmed: string[];
+}
+
+/** FP が足した項目（今あるデータの型の物1件を、別のカードにする） */
+export interface AddedItem {
+  /** カードの ID（`added:` で始まる） */
+  id: string;
+  kind: "periodic" | "care" | "car" | "fee";
+  /** 世帯の中の物の ID */
+  ref: string;
+  /** イラストの種類（足すときに選んだひな形） */
+  art: "pet" | "abroad" | "events" | "car" | "fee";
 }
 
 /** 新しい物の ID（UUID 第4版。0004） */
@@ -103,7 +118,7 @@ export function fromRequest(request: EngineRequest, extras: { memo?: string[]; p
     const p = extras.postRetirement?.[m.id] ?? inferPostRetirement(h, m);
     if (p !== null) post[m.id] = p;
   }
-  return { request, labelsByMember: {}, postRetirement: post, memo: extras.memo ?? [], assumed: {}, contingency: planFromRequest(request) };
+  return { request, labelsByMember: {}, postRetirement: post, memo: extras.memo ?? [], assumed: {}, contingency: planFromRequest(request), addedItems: [], confirmed: [] };
 }
 
 /** 計算の要求のうち、世帯ごとに変わらない部分の既定（前提条件は事務所の標準値ができるまでの仮の値。0008 の8） */
@@ -139,6 +154,8 @@ export function blankHousehold(baseMonth: string, id: () => string = newId): Wor
     memo: [],
     assumed: { [`family/${selfId}/birth`]: "仮の値（40歳として計算）", [`family/${selfId}/sex`]: "仮の値" },
     contingency: emptyPlan(),
+    addedItems: [],
+    confirmed: [],
   };
 }
 

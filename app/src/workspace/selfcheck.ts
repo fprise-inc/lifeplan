@@ -1,4 +1,4 @@
-// 開発用のサーバーのときだけ（URL の #selfcheck）: 画面を実際に操作して、数字が変わること・共有用の表示に切り替わることと、
+// 開発用のサーバーのときだけ（URL の #selfcheck）: 画面を実際に操作して、数字が変わること・文字を大きくできること・根拠が端の引き出しに出ることと、
 // 計算の速さを確かめ、開発用のサーバーに送る（vite.config.ts の /__dev/report。本番のビルドには入らない）
 import type { DualEngine } from "../engine/dual.ts";
 
@@ -46,22 +46,21 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
     await settle(dual);
     report.initial = { headline: text(".hero-num"), verdict: text(".verdict") };
     await stage("initial", report);
-    // 共有用の表示
-    const memoBefore = document.querySelector(".memo") !== null;
+    // 文字を大きくする（メモは画面に出さない。引き出しを開いたときだけ）
     const fsBefore = getComputedStyle(document.documentElement).fontSize;
-    document.querySelector<HTMLButtonElement>("[data-share-toggle]")?.click();
+    const lwBefore = getComputedStyle(document.querySelector(".line-prop") as Element).strokeWidth;
+    document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
     await sleep(200);
-    report.share = {
+    report.big = {
       htmlClass: document.documentElement.className,
-      banner: text(".share-banner"),
-      memoBefore,
-      memoAfter: document.querySelector(".memo") !== null,
+      memoOnScreen: document.querySelector("[data-memo]") !== null,
       fontSizeBefore: fsBefore,
       fontSizeAfter: getComputedStyle(document.documentElement).fontSize,
-      lineWidth: getComputedStyle(document.querySelector(".line-prop") as Element).strokeWidth,
+      lineWidthBefore: lwBefore,
+      lineWidthAfter: getComputedStyle(document.querySelector(".line-prop") as Element).strokeWidth,
     };
-    await stage("share", report);
-    document.querySelector<HTMLButtonElement>("[data-share-toggle]")?.click();
+    await stage("big", report);
+    document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
     await sleep(300);
     // 根拠のパネル（ご主人の年金の、受け取り開始の翌々年のマス）
     const cell = [...document.querySelectorAll<HTMLButtonElement>(".cellbtn")].find((b) => (b.getAttribute("aria-label") ?? "").includes("ご主人の年金"));
@@ -69,7 +68,13 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
       cell.click();
       const t0 = performance.now();
       while (document.querySelector(".ev-body") === null && performance.now() - t0 < 20000) await sleep(20);
-      report.evidence = { ms: Math.round(performance.now() - t0), title: text("#ev-title"), params: document.querySelectorAll(".ev-params tbody tr").length };
+      // 根拠のパネルは端の引き出し: グラフ・表と重ならないこと
+      const box = (sel: string) => document.querySelector(sel)?.getBoundingClientRect();
+      const drawer = box(".drawer.evidence");
+      const chart = box(".chart");
+      const table = box(".cf-wrap");
+      const overlaps = (a?: DOMRect, b?: DOMRect) => a !== undefined && b !== undefined && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      report.evidence = { ms: Math.round(performance.now() - t0), title: text("#ev-title"), params: document.querySelectorAll(".ev-params tbody tr").length, coversChart: overlaps(drawer, chart), coversTable: overlaps(drawer, table), viewport: `${innerWidth}x${innerHeight}` };
       await stage("evidence", report);
       document.querySelector<HTMLButtonElement>(".ev-close")?.click();
       await sleep(300);
@@ -134,11 +139,20 @@ async function typeInto(sel: string, value: string): Promise<boolean> {
 }
 
 const clickTab = (label: string) => [...document.querySelectorAll<HTMLButtonElement>(".tabs button")].find((b) => b.textContent?.includes(label))?.click();
-const miniText = () => [...document.querySelectorAll("[data-mini]")].map((e) => e.textContent?.trim()).join(" / ");
+const cardText = (id: string) => text(`[data-card="${id}"]`);
+
+async function openCard(id: string): Promise<void> {
+  document.querySelector<HTMLButtonElement>(`[data-card="${id}"]`)?.click();
+  await sleep(300);
+}
+async function savePanel(): Promise<void> {
+  document.querySelector<HTMLButtonElement>("[data-save]")?.click();
+  await sleep(300);
+}
 
 /**
- * 入力の画面の自己確認（URL の #selfcheck=input）: 入力の画面が出ること、値を変えると隅の小さな結果と主画面が変わること、空の世帯から入れられること。
- * 開発用のサーバーのときだけ
+ * 入力のホームの自己確認（URL の #selfcheck=input）: カードのホームが出ること、カードを押すと中央のパネルが開くこと、
+ * パネルで値を変えて保存すると、カード・進み具合・主画面が変わること、空の世帯から入れられること。開発用のサーバーのときだけ
  */
 export async function runInputCheck(dual: () => DualEngine | null, host: string): Promise<void> {
   const report: Record<string, unknown> = { host, kind: "input", userAgent: navigator.userAgent };
@@ -149,15 +163,17 @@ export async function runInputCheck(dual: () => DualEngine | null, host: string)
   try {
     clickTab("入力");
     await sleep(300);
-    document.querySelector<HTMLButtonElement>('[data-stage="living"]')?.click();
-    await wait();
-    report.initial = { mini: miniText(), stage: text("#h-stage") };
-    await stage("input-initial", report);
-    report.typed = await typeInto('input[id^="fld-living"][id$="_monthly"]', "26");
+    report.initial = { progress: text("[data-progress]"), cards: document.querySelectorAll("[data-card]").length, living: cardText("living") };
+    await stage("input-home", report);
+    await openCard("living");
+    report.panel = { title: text("#ip-title"), note: text("[data-panel-note]"), scrim: document.querySelector(".scrim") !== null };
+    await stage("input-panel", report);
+    report.typed = await typeInto('.ipanel input[id^="fld-living"][id$="_monthly"]', "26");
     await sleep(200);
+    await savePanel();
     await wait();
-    report.changed = { mini: miniText() };
-    await stage("input-changed", report);
+    report.saved = { living: cardText("living"), progress: text("[data-progress]"), panelClosed: document.querySelector(".ipanel") === null };
+    await stage("input-saved", report);
     clickTab("主画面");
     await sleep(300);
     await wait();
@@ -172,18 +188,19 @@ export async function runInputCheck(dual: () => DualEngine | null, host: string)
     await sleep(500);
     clickTab("入力");
     await sleep(300);
-    document.querySelector<HTMLButtonElement>('[data-stage="family"]')?.click();
     await wait();
-    report.blank = { mini: miniText(), members: text(".hh") };
-    await typeInto('input[id^="fld-family"][id$="_birth"]', "1988-06");
-    document.querySelector<HTMLButtonElement>('[data-action="family/add/spouse"]')?.click();
+    report.blank = { progress: text("[data-progress]"), family: cardText("family"), members: text(".hh") };
+    await openCard("family");
+    await typeInto('.ipanel input[id^="fld-family"][id$="_birth"]', "1988-06");
+    document.querySelector<HTMLButtonElement>('.ipanel [data-action="family/add/spouse"]')?.click();
     await sleep(200);
-    document.querySelector<HTMLButtonElement>('[data-stage="work"]')?.click();
-    await sleep(200);
-    document.querySelector<HTMLButtonElement>('[data-action$="/start"]')?.click();
+    await savePanel();
+    await openCard("work");
+    document.querySelector<HTMLButtonElement>('.ipanel [data-action$="/start"]')?.click();
     await sleep(300);
+    await savePanel();
     await wait();
-    report.blankFilled = { mini: miniText(), members: text(".hh") };
+    report.blankFilled = { progress: text("[data-progress]"), family: cardText("family"), work: cardText("work"), members: text(".hh") };
     await stage("blank-work", report);
     report.ok = true;
   } catch (e) {
@@ -195,7 +212,7 @@ export async function runInputCheck(dual: () => DualEngine | null, host: string)
 
 /**
  * 万一の画面の自己確認（URL の #selfcheck=contingency）: 開いてから必要保障額の推移が出るまでの時間、障害の想定の組み合わせの一文、
- * 2028年4月以後の死亡の知らせ、共有用の表示でメモと前提の欄が隠れること。開発用のサーバーのときだけ
+ * 2028年4月以後の死亡の知らせ、文字を大きくしたときもメモが画面に出ないこと。開発用のサーバーのときだけ
  */
 export async function runContingencyCheck(host: string): Promise<void> {
   const report: Record<string, unknown> = { host, kind: "contingency", userAgent: navigator.userAgent };
@@ -229,11 +246,11 @@ export async function runContingencyCheck(host: string): Promise<void> {
     report.deathMs = await waitFor(() => (text(".cg-title") ?? "").includes("2030") && document.querySelector(".cg-scenario .is-stale") === null);
     report.death2030 = { title: text(".cg-title"), notice: text("[data-notice]") };
     await stage("cg-death-2030", report);
-    document.querySelector<HTMLButtonElement>("[data-share-toggle]")?.click();
+    document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
     await sleep(300);
-    report.share = { memo: document.querySelector(".memo") !== null, inputs: document.querySelector(".cg-side") !== null, banner: text(".share-banner") };
-    await stage("cg-share", report);
-    document.querySelector<HTMLButtonElement>("[data-share-toggle]")?.click();
+    report.big = { memo: document.querySelector("[data-memo]") !== null, inputs: document.querySelector(".cg-side") !== null, fontSize: getComputedStyle(document.documentElement).fontSize };
+    await stage("cg-big", report);
+    document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
     await sleep(200);
     report.ok = true;
   } catch (e) {

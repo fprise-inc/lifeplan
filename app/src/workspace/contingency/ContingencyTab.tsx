@@ -1,12 +1,12 @@
 // 万一の想定の画面（作業の層）: 開いたときに、必要保障額の推移（大人ごと）・万一なし・選んだ想定を本体で計算し（枠どうしは同時に）、
-// 計算している間は「計算しています」を出す。提示用の値を作って提示層の部品に渡し、右に FP が直す前提の欄（共有用の表示では出さない）を置く
+// 計算している間は「計算しています」を出す。提示用の値を作って提示層の部品に渡し、右に FP が直す前提の欄を置く（FP用のメモは画面に出さず、上部の引き出しに置く）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { HostApi } from "../../engine/host.ts";
 import { isEngineError, type EngineRequest, type PreviewResult } from "../../engine/types.ts";
 import { ProtectionCard, ScenarioCard } from "../../presentation/ContingencyView.tsx";
 import type { ContingencyModel, ProtectionChartModel } from "../../presentation/model.ts";
 import type { WorkingHousehold } from "../input/household.ts";
-import { Field, MemoPanel, Section } from "../input/InputView.tsx";
+import { Field, Section } from "../input/FieldViews.tsx";
 import { roles } from "../roles.ts";
 import { contingencyInputSections, oldAgeChoiceField } from "./inputs.ts";
 import { protectionChart, scenarioModel, yearOptions } from "./present.ts";
@@ -92,7 +92,6 @@ function useSlots(host: HostApi | null, requests: Record<string, EngineRequest>,
 export interface ContingencyTabProps {
   wh: WorkingHousehold;
   host: HostApi | null;
-  share: boolean;
   targetAge: number;
   onEdit: (w: WorkingHousehold) => void;
   /** 開いたときの想定（URL の #scenario=death:self） */
@@ -102,7 +101,7 @@ export interface ContingencyTabProps {
 const timings: ContingencyTiming[] = [];
 export const contingencyTimings = (): readonly ContingencyTiming[] => timings;
 
-export function ContingencyTab({ wh, host, share, targetAge, onEdit, initialScenario }: ContingencyTabProps) {
+export function ContingencyTab({ wh, host, targetAge, onEdit, initialScenario }: ContingencyTabProps) {
   const scs = useMemo(() => scenarios(wh), [wh]);
   const [selected, setSelected] = useState<string>(initialScenario !== undefined && scs.some((s) => s.key === initialScenario) ? initialScenario : (scs[0]?.key ?? ""));
   const sc = scs.find((s) => s.key === selected) ?? scs[0];
@@ -190,7 +189,7 @@ export function ContingencyTab({ wh, host, share, targetAge, onEdit, initialScen
   const sections = useMemo(() => contingencyInputSections(wh), [wh]);
 
   return (
-    <div class={`cg-layout${share ? " is-share" : ""}`}>
+    <div class="cg-layout">
       <div class="cg-main">
         <ProtectionCard model={model.protection} selected={selectedProt} onPick={pick} />
         <ScenarioCard
@@ -206,7 +205,7 @@ export function ContingencyTab({ wh, host, share, targetAge, onEdit, initialScen
           }}
           onSelectChartYear={setChartYear}
         />
-        {import.meta.env.DEV && !share ? (
+        {import.meta.env.DEV ? (
           <div class="foot footnote">
             <span class="perf" data-cg-perf>
               必要保障額の推移の計算: {lastMs !== null ? `${(lastMs.ms / 1000).toFixed(2)}秒（本体 ${(lastMs.hostMs / 1000).toFixed(2)}秒・枠 ${lastMs.slots}）` : "—"}／{host?.kind}
@@ -214,8 +213,7 @@ export function ContingencyTab({ wh, host, share, targetAge, onEdit, initialScen
           </div>
         ) : null}
       </div>
-      {!share ? (
-        <aside class="cg-side">
+      <aside class="cg-side">
           {sc?.kind === "disability" && (wh.contingency.grade ?? 2) !== 0 ? (
             <section class="card cg-fp" aria-label="障害年金の組み合わせ">
               <div class="memo-h fp-h">障害年金の65歳からの組み合わせ</div>
@@ -232,9 +230,7 @@ export function ContingencyTab({ wh, host, share, targetAge, onEdit, initialScen
               <Section key={s.key} section={s} wh={wh} level="detail" onEdit={onEdit} />
             ))}
           </section>
-          <MemoPanel wh={wh} onEdit={onEdit} />
-        </aside>
-      ) : null}
+      </aside>
     </div>
   );
 }

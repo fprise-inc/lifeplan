@@ -91,7 +91,7 @@ export interface SectionDef {
   actions: ActionDef[];
 }
 
-export type StageId = "family" | "work" | "pension" | "living" | "education" | "housing" | "insurance" | "savings" | "events" | "assumptions";
+export type StageId = "family" | "work" | "pension" | "living" | "education" | "housing" | "insurance" | "savings" | "events" | "car" | "fee" | "assumptions";
 
 export interface StageDef {
   id: StageId;

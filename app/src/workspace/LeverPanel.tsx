@@ -1,4 +1,4 @@
-// 打ち手のスライダー（作業の層の部品。共有用の表示でも出す）。
+// 打ち手のスライダー（作業の層の部品）。
 // 動かしている間（input）は画面側の先出し、指を離したら（change・pointerup・keyup）正の計算（0005 の5）
 import type { LeverKey } from "./levers.ts";
 
