@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://financia.fprise.com/schemas/hearing/filled-sheet.schema.json",
+  "title": "記入済みのヒアリングシートの中身（管理の値と回答の一覧）",
+  "description": "Excel から読んだ結果と、世帯データから書き出す前の形。配置に頼らないので、紙で返ってきたものの入力や将来の Web フォームでも同じ受け皿を使える。世帯の内部ID は持たない（0012）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["management", "answers"],
+  "properties": {
+    "management": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "formatVersion", "sheetId", "sheetVersion", "requestId", "customerNo", "layoutDigest", "appVersion", "exportedOn"],
+      "properties": {
+        "format": { "const": "fprise-lifeplan-hearing" },
+        "formatVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+        "sheetId": { "type": "string" },
+        "sheetVersion": { "type": "integer", "minimum": 1 },
+        "requestId": { "type": "string", "pattern": "^R-[2-9A-HJ-NP-Z]{6}$" },
+        "customerNo": { "type": "string", "maxLength": 32 },
+        "layoutDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "appVersion": { "type": "string" },
+        "exportedOn": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
+      }
+    },
+    "answers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "status"],
+        "properties": {
+          "key": { "type": "string", "pattern": "^(hs|ext)(\\.[a-z][a-zA-Z0-9]*)+$" },
+          "index": { "type": "integer", "minimum": 1 },
+          "status": { "enum": ["value", "blank", "unknown", "notApplicable"] },
+          "raw": { "$ref": "#/$defs/raw" },
+          "raw2": { "$ref": "#/$defs/raw" },
+          "review": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "raw": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["kind", "text"], "properties": { "kind": { "const": "number" }, "text": { "type": "string" } } },
+        { "type": "object", "additionalProperties": false, "required": ["kind", "text"], "properties": { "kind": { "const": "text" }, "text": { "type": "string" } } },
+        { "type": "object", "additionalProperties": false, "required": ["kind", "value"], "properties": { "kind": { "const": "bool" }, "value": { "type": "boolean" } } }
+      ]
+    }
+  }
+}

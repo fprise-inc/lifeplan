@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://financia.fprise.com/schemas/hearing/sheet-definition.schema.json",
+  "title": "ヒアリングシートのシート定義（0018 の1）",
+  "description": "1つのシート定義から、Excel・印刷用 PDF・取り込みの規則を作る。公開した版（status: published）は書き換えず、新しい版を作る。JSON Schema で書けない決まり（キーの重なり・配置の漏れなど）は src/definition.ts の checkDefinition で確かめる",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "sheetId", "version", "status", "title", "intro", "axes", "items", "sections", "years", "layout"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": "fprise-lifeplan-hearing-sheet-definition" },
+    "sheetId": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$", "description": "シートID（basic・full・review）" },
+    "version": { "type": "integer", "minimum": 1, "description": "シート定義ごとの通し番号" },
+    "status": { "enum": ["draft", "published", "retired"], "description": "draft は開発中。published は公開済み（書き換えない）。retired は書き出さないが取り込める" },
+    "title": { "type": "string", "minLength": 1 },
+    "intro": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "notes", "documents", "consentTitle", "consentLead", "consentItems"],
+      "properties": {
+        "title": { "type": "string" },
+        "notes": { "type": "array", "items": { "type": "string" } },
+        "documents": { "type": "array", "items": { "type": "string" } },
+        "consentTitle": { "type": "string" },
+        "consentLead": { "type": "string" },
+        "consentItems": { "type": "array", "items": { "$ref": "#/$defs/key" } }
+      }
+    },
+    "axes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "count", "labels"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" },
+          "count": { "type": "integer", "minimum": 1, "maximum": 20, "description": "繰り返しの上限" },
+          "labels": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/item" } },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "groups"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" },
+          "title": { "type": "string" },
+          "lead": { "type": "string" },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "items"],
+              "properties": {
+                "id": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" },
+                "title": { "type": "string" },
+                "axis": { "type": "string" },
+                "items": { "type": "array", "items": { "$ref": "#/$defs/key" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "years": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": { "from": { "type": "integer", "minimum": 1900 }, "to": { "type": "integer", "maximum": 2200 } }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["introSheet", "answerSheet", "columns", "rows"],
+      "properties": {
+        "introSheet": { "type": "string", "minLength": 1, "maxLength": 31 },
+        "answerSheet": { "type": "string", "minLength": 1, "maxLength": 31 },
+        "columns": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["no", "label", "value", "value2", "status", "guide"],
+          "properties": {
+            "no": { "$ref": "#/$defs/col" },
+            "label": { "$ref": "#/$defs/col" },
+            "value": { "$ref": "#/$defs/col" },
+            "value2": { "$ref": "#/$defs/col" },
+            "status": { "$ref": "#/$defs/col" },
+            "guide": { "$ref": "#/$defs/col" }
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sheet", "row", "kind"],
+            "properties": {
+              "sheet": { "type": "string" },
+              "row": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "kind": { "enum": ["title", "note", "document", "heading", "lead", "office", "section", "group", "item"] },
+              "text": { "type": "string" },
+              "ref": { "enum": ["name", "purpose", "privacy"] },
+              "section": { "type": "string" },
+              "group": { "type": "string" },
+              "key": { "$ref": "#/$defs/key" },
+              "index": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "key": { "type": "string", "pattern": "^(hs|ext)(\\.[a-z][a-zA-Z0-9]*)+$", "description": "項目キー（0004・0018 の3）。ext.<作成者>.<項目キー> は拡張（0011）" },
+    "col": { "type": "string", "pattern": "^[A-Z]{1,2}$" },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label", "type", "states", "inputItems", "addedIn", "retiredIn"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "label": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["yearMonth", "integer", "decimal", "money", "percent", "choice", "text"] },
+        "unit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["scale", "basis"],
+          "properties": { "scale": { "enum": ["yen", "manYen"] }, "basis": { "enum": ["monthly", "annual", "once"] } }
+        },
+        "unitLabel": { "type": "string" },
+        "choices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "label"],
+            "properties": { "value": { "type": "string" }, "label": { "type": "string" } }
+          }
+        },
+        "choiceList": { "enum": ["years"] },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "maxLength": { "type": "integer", "minimum": 1, "maximum": 2000 },
+        "example": { "type": "string" },
+        "guide": { "type": "string", "description": "転記の手引き（書類のどの欄を写すか）" },
+        "states": { "type": "array", "items": { "enum": ["unknown", "notApplicable"] }, "uniqueItems": true },
+        "inputItems": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)+$" }, "description": "項目キー → 入力項目ID（0004）の変換表" },
+        "destination": { "enum": ["memo", "consent"] },
+        "addedIn": { "type": "integer", "minimum": 1 },
+        "retiredIn": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    }
+  }
+}
