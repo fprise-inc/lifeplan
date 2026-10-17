@@ -14,6 +14,8 @@ FP（ファイナンシャルプランナー）向けの無料ライフプラン
 - `data/regulation/` … 制度データの正本（YAML。いまは所得税・住民税（`tax`）、社会保険（`socialInsurance`。被用者保険・国民年金・国民健康保険・後期高齢者医療・介護保険の第1号・雇用保険の給付など）、公的年金（`pension`）。すべての行が原本での確認待ち）。`npm run build` で `engine/dist/regulation/` に正規化した JSON を作る
 - `data/modelHouseholds/` … 架空のモデル世帯（CC0）。`engine/` で `npm run models` を流すと制度改正の差分を表にする
 - `app/` … アプリ本体（Tauri 2）。画面は Preact＋TypeScript（`app/src/`）、本体は Rust（`app/src-tauri/`）。`engine/` で `npm run build` の後、`app/` で `npm ci`・`npm run typecheck`・`npm run lint`・`npm test`。起動は `npx tauri dev`（ブラウザだけで画面を見るなら `npm run dev` で http://localhost:1420/ ）。本体のテストは `app/src-tauri/` で `cargo test`。3つの OS でのビルド（バンドル）は GitHub Actions の `app-bundle`（手で起動するかリリースのときだけ）
+- `report/` … 提案書の PDF（0009・構想書 6.11）。計算結果から帳票の入力（JSON。形は `report/schema/proposal-input.schema.json`）を組み立てる部品（`report/src/`）と、公式の帳票（Typst のパッケージ `@lifeplan/report-core`。`report/typst/report-core/`）、同梱フォント（BIZ UDゴシック。`report/fonts/`）。`engine/` で `npm run build` の後、`report/` で `npm ci`・`npm run typecheck`・`npm run lint`・`npm test`。見本の PDF は `npm run samples`（`report/dist/samples/` に出る。CI の成果物 `proposal-samples` でも見られる）
+- `crates/report-pdf/` … Typst をライブラリとして組み込み、帳票の入力から PDF を作る（刻印・必須の記載・内部情報はここで帳票の外側から付ける）。呼び出し口は `report_pdf::render_proposal`。重いので既定のビルドには入れていない: `cargo build -p report-pdf`・`cargo test -p report-pdf`
 - `config/distribution.toml` … 配布元の設定（識別子・名前・配信先・公開鍵。0017 の2）。`app/` で `npm run gen:distribution` が Tauri の設定を作る
 - `registry/` … ID の登録簿（科目の木・入力項目・計算部品・制度の値）。入力項目・計算部品・制度の値は `npm run gen` が正本から作る
 - 答え合わせ（検証 L2）: `engine/` で `npm run l2`（公式の計算例との一致の合格率）

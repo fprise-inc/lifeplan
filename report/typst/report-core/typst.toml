@@ -1,0 +1,8 @@
+# 公式の帳票の部品（0009 の9）。名前の空間は製品名に依存しない @lifeplan/。入出力は試験版（過去の版はアプリ内に残す）
+[package]
+name = "report-core"
+version = "0.1.0"
+entrypoint = "lib.typ"
+compiler = "0.15.1"
+license = "MIT"
+description = "提案書の標準構成（構想書 6.11）の帳票。帳票の入力（lifeplan.proposalInput 0.1.0）を受け取る"

@@ -1,0 +1,485 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:lifeplan:schema:proposalInput:0.1.0",
+  "title": "帳票の入力（提案書。試験版 0.1.0）",
+  "description": "0009 の9: 公式の帳票（@lifeplan/report-core）に渡す、提示に必要な値だけの JSON。宛名・氏名・FP のメモ・カスタム計算の印・世帯の内部 ID は入れない。金額は円の整数で、計算エンジンの出力を写すか足したもの",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "version", "document", "basis", "members", "assumptions", "summary", "basics", "events", "cashflow", "assets", "education", "housingLoan", "retirement", "contingency", "insurance", "changes"],
+  "properties": {
+    "format": { "const": "lifeplan.proposalInput" },
+    "version": { "const": "0.1.0" },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "issuedOn", "preparedBy"],
+      "properties": {
+        "title": { "type": "string" },
+        "issuedOn": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "preparedBy": { "type": ["string", "null"] }
+      }
+    },
+    "basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseMonth", "baseMonthLabel", "years"],
+      "properties": {
+        "baseMonth": { "$ref": "#/$defs/month" },
+        "baseMonthLabel": { "type": "string" },
+        "years": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/year" } }
+      }
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "label", "ageAtBase", "ages"],
+        "properties": {
+          "key": { "$ref": "#/$defs/presentKey" },
+          "label": { "type": "string" },
+          "ageAtBase": { "type": "integer" },
+          "ages": { "type": "array", "items": { "type": ["integer", "null"] } }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rates", "dataSet", "survivor", "survivorReform", "advisoryFee", "notes"],
+      "properties": {
+        "rates": { "type": "array", "items": { "$ref": "#/$defs/labelValue" } },
+        "dataSet": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "version", "fictional"],
+            "properties": { "label": { "type": "string" }, "version": { "type": "string" }, "fictional": { "type": "boolean" } }
+          }
+        },
+        "survivor": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["beforeIndependence", "afterIndependence", "noChildren", "source"],
+              "properties": {
+                "beforeIndependence": { "type": "string" },
+                "afterIndependence": { "type": "string" },
+                "noChildren": { "type": "string" },
+                "source": { "enum": ["input", "default"] }
+              }
+            }
+          ]
+        },
+        "survivorReform": { "type": "boolean" },
+        "advisoryFee": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["contracts", "total", "firstYear", "lastYear"],
+              "properties": {
+                "contracts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["label", "oneTime", "recurring"],
+                    "properties": {
+                      "label": { "type": "string" },
+                      "oneTime": {
+                        "type": "array",
+                        "items": { "type": "object", "additionalProperties": false, "required": ["month", "amount"], "properties": { "month": { "type": "string" }, "amount": { "$ref": "#/$defs/yen" } } }
+                      },
+                      "recurring": {
+                        "oneOf": [
+                          { "type": "null" },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["amount", "per", "from", "to", "revision"],
+                            "properties": {
+                              "amount": { "$ref": "#/$defs/yen" },
+                              "per": { "enum": ["year", "month"] },
+                              "from": { "type": "string" },
+                              "to": { "type": ["string", "null"] },
+                              "revision": { "type": ["string", "null"] }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "total": { "$ref": "#/$defs/yen" },
+                "firstYear": { "oneOf": [{ "$ref": "#/$defs/year" }, { "type": "null" }] },
+                "lastYear": { "oneOf": [{ "$ref": "#/$defs/year" }, { "type": "null" }] }
+              }
+            }
+          ]
+        },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "current", "proposal", "diffAtTarget", "depletionShift"],
+      "properties": {
+        "target": { "$ref": "#/$defs/yearPoint" },
+        "current": { "$ref": "#/$defs/outcome" },
+        "proposal": { "$ref": "#/$defs/outcome" },
+        "diffAtTarget": { "$ref": "#/$defs/yen" },
+        "depletionShift": { "type": ["integer", "null"] }
+      }
+    },
+    "basics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["year", "income", "expense", "net", "balanceYear", "assets", "debts"],
+      "properties": {
+        "year": { "$ref": "#/$defs/year" },
+        "income": { "$ref": "#/$defs/namedAmounts" },
+        "expense": { "$ref": "#/$defs/namedAmounts" },
+        "net": { "$ref": "#/$defs/yen" },
+        "balanceYear": { "$ref": "#/$defs/year" },
+        "assets": { "$ref": "#/$defs/namedAmounts" },
+        "debts": { "$ref": "#/$defs/namedAmounts" }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["year", "ages", "items"],
+        "properties": { "year": { "$ref": "#/$defs/year" }, "ages": { "type": "string" }, "items": { "type": "array", "items": { "type": "string" } } }
+      }
+    },
+    "cashflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "proposal"],
+      "properties": { "current": { "$ref": "#/$defs/cfTable" }, "proposal": { "$ref": "#/$defs/cfTable" } }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "proposal"],
+      "properties": { "current": { "$ref": "#/$defs/yens" }, "proposal": { "$ref": "#/$defs/yens" } }
+    },
+    "education": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["years", "rows", "total", "grandTotal"],
+          "properties": {
+            "years": { "$ref": "#/$defs/years" },
+            "rows": {
+              "type": "array",
+              "items": { "type": "object", "additionalProperties": false, "required": ["label", "amounts", "total"], "properties": { "label": { "type": "string" }, "amounts": { "$ref": "#/$defs/yens" }, "total": { "$ref": "#/$defs/yen" } } }
+            },
+            "total": { "$ref": "#/$defs/yens" },
+            "grandTotal": { "$ref": "#/$defs/yen" }
+          }
+        }
+      ]
+    },
+    "housingLoan": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["years", "balance", "repayment", "compare", "effect"],
+          "properties": {
+            "years": { "$ref": "#/$defs/years" },
+            "balance": { "$ref": "#/$defs/yens" },
+            "repayment": { "$ref": "#/$defs/yens" },
+            "compare": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["label", "payoff", "totalRepayment"],
+                "properties": { "label": { "type": "string" }, "payoff": { "$ref": "#/$defs/yearPointOrNull" }, "totalRepayment": { "$ref": "#/$defs/yen" } }
+              }
+            },
+            "effect": { "oneOf": [{ "$ref": "#/$defs/yen" }, { "type": "null" }] }
+          }
+        }
+      ]
+    },
+    "retirement": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pensions", "table", "atRetirement", "afterRetirement", "deferral"],
+          "properties": {
+            "pensions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["label", "start", "annual", "total"],
+                "properties": { "label": { "type": "string" }, "start": { "$ref": "#/$defs/yearPointOrNull" }, "annual": { "$ref": "#/$defs/yenOrNull" }, "total": { "$ref": "#/$defs/yen" } }
+              }
+            },
+            "table": { "$ref": "#/$defs/yearTable" },
+            "atRetirement": {
+              "type": "array",
+              "items": { "type": "object", "additionalProperties": false, "required": ["label", "current", "proposal"], "properties": { "label": { "type": "string" }, "current": { "$ref": "#/$defs/yen" }, "proposal": { "$ref": "#/$defs/yen" } } }
+            },
+            "afterRetirement": {
+              "oneOf": [
+                { "type": "null" },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["from", "income", "spending", "gap"],
+                  "properties": { "from": { "$ref": "#/$defs/year" }, "income": { "$ref": "#/$defs/yen" }, "spending": { "$ref": "#/$defs/yen" }, "gap": { "$ref": "#/$defs/yen" } }
+                }
+              ]
+            },
+            "deferral": {
+              "oneOf": [
+                { "type": "null" },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["label", "options"],
+                  "properties": {
+                    "label": { "type": "string" },
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["label", "annual", "totalToTarget", "financialAtTarget"],
+                        "properties": { "label": { "type": "string" }, "annual": { "$ref": "#/$defs/yenOrNull" }, "totalToTarget": { "$ref": "#/$defs/yen" }, "financialAtTarget": { "$ref": "#/$defs/yen" } }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "contingency": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["scenarios", "protection"],
+          "properties": {
+            "scenarios": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["title", "withEvent", "withoutEvent", "depletion", "survivorPension", "survivorPensionTotal", "breakdown", "notices"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "withEvent": { "$ref": "#/$defs/yens" },
+                  "withoutEvent": { "$ref": "#/$defs/yens" },
+                  "depletion": { "$ref": "#/$defs/yearPointOrNull" },
+                  "survivorPension": {
+                    "type": "array",
+                    "items": { "type": "object", "additionalProperties": false, "required": ["year", "amount"], "properties": { "year": { "$ref": "#/$defs/year" }, "amount": { "$ref": "#/$defs/yen" } } }
+                  },
+                  "survivorPensionTotal": { "$ref": "#/$defs/yen" },
+                  "breakdown": { "$ref": "#/$defs/namedAmounts" },
+                  "notices": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            },
+            "protection": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["title", "sub", "years", "need", "needWithAssets", "coverage", "maxShort"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "sub": { "type": "string" },
+                  "years": { "$ref": "#/$defs/years" },
+                  "need": { "$ref": "#/$defs/yens" },
+                  "needWithAssets": { "$ref": "#/$defs/yens" },
+                  "coverage": { "$ref": "#/$defs/yens" },
+                  "maxShort": {
+                    "oneOf": [
+                      { "type": "null" },
+                      { "type": "object", "additionalProperties": false, "required": ["year", "amount"], "properties": { "year": { "$ref": "#/$defs/year" }, "amount": { "$ref": "#/$defs/yen" } } }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "insurance": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["contracts", "table", "total"],
+          "properties": {
+            "contracts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["label", "insured", "premium", "benefits", "status"],
+                "properties": {
+                  "label": { "type": "string" },
+                  "insured": { "type": "string" },
+                  "premium": { "type": "string" },
+                  "benefits": { "type": "array", "items": { "type": "string" } },
+                  "status": { "enum": ["継続", "新規", "解約"] }
+                }
+              }
+            },
+            "table": { "$ref": "#/$defs/yearTable" },
+            "total": { "type": "object", "additionalProperties": false, "required": ["current", "proposal"], "properties": { "current": { "$ref": "#/$defs/yen" }, "proposal": { "$ref": "#/$defs/yen" } } }
+          }
+        }
+      ]
+    },
+    "changes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metrics", "items", "fee", "steps", "excludingInvestment"],
+      "properties": {
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "unit", "current", "proposal", "diff"],
+            "properties": {
+              "label": { "type": "string" },
+              "unit": { "enum": ["yen", "year"] },
+              "current": { "type": ["integer", "null"] },
+              "proposal": { "type": ["integer", "null"] },
+              "diff": { "type": ["integer", "null"] }
+            }
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": false, "required": ["label", "current", "proposal"], "properties": { "label": { "type": "string" }, "current": { "type": "string" }, "proposal": { "type": "string" } } }
+        },
+        "fee": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["total", "totalToTarget", "diffAtTarget", "diffWithoutFee"],
+              "properties": { "total": { "$ref": "#/$defs/yen" }, "totalToTarget": { "$ref": "#/$defs/yen" }, "diffAtTarget": { "$ref": "#/$defs/yen" }, "diffWithoutFee": { "$ref": "#/$defs/yenOrNull" } }
+            }
+          ]
+        },
+        "steps": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["label", "investment", "effect", "cumulative"],
+                "properties": { "label": { "type": "string" }, "investment": { "type": "boolean" }, "effect": { "$ref": "#/$defs/yen" }, "cumulative": { "$ref": "#/$defs/yen" } }
+              }
+            }
+          ]
+        },
+        "excludingInvestment": { "$ref": "#/$defs/yenOrNull" }
+      }
+    }
+  },
+  "$defs": {
+    "yen": { "description": "円（整数）", "type": "integer" },
+    "yenOrNull": { "type": ["integer", "null"] },
+    "yens": { "type": "array", "items": { "type": "integer" } },
+    "year": { "type": "integer", "minimum": 1900, "maximum": 2200 },
+    "years": { "type": "array", "items": { "$ref": "#/$defs/year" } },
+    "month": { "type": "string", "pattern": "^\\d{4}-(0[1-9]|1[0-2])$" },
+    "presentKey": { "description": "提示用の鍵（物の ID ではない）", "type": "string", "pattern": "^(self|spouse|child[0-9]+|other[0-9]+)$" },
+    "labelValue": { "type": "object", "additionalProperties": false, "required": ["label", "value"], "properties": { "label": { "type": "string" }, "value": { "type": "string" } } },
+    "namedAmounts": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": false, "required": ["label", "amount"], "properties": { "label": { "type": "string" }, "amount": { "$ref": "#/$defs/yen" } } }
+    },
+    "yearPoint": { "type": "object", "additionalProperties": false, "required": ["year", "label"], "properties": { "year": { "$ref": "#/$defs/year" }, "label": { "type": "string" } } },
+    "yearPointOrNull": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/yearPoint" }] },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["financialAtTarget", "depletion", "totals"],
+      "properties": {
+        "financialAtTarget": { "$ref": "#/$defs/yen" },
+        "depletion": { "$ref": "#/$defs/yearPointOrNull" },
+        "totals": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["income", "taxSi", "expense", "net"],
+          "properties": { "income": { "$ref": "#/$defs/yen" }, "taxSi": { "$ref": "#/$defs/yen" }, "expense": { "$ref": "#/$defs/yen" }, "net": { "$ref": "#/$defs/yen" } }
+        }
+      }
+    },
+    "cfTable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "rows"],
+      "properties": {
+        "title": { "type": "string" },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "key", "label", "cells"],
+            "properties": {
+              "kind": { "enum": ["group", "value", "total"] },
+              "key": { "type": "string" },
+              "label": { "type": "string" },
+              "cells": { "type": "array", "items": { "type": ["integer", "null"] } }
+            }
+          }
+        }
+      }
+    },
+    "yearTable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["columns", "rows"],
+      "properties": {
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["year", "ages", "cells"],
+            "properties": { "year": { "$ref": "#/$defs/year" }, "ages": { "type": "string" }, "cells": { "type": "array", "items": { "type": ["integer", "null"] } } }
+          }
+        }
+      }
+    }
+  }
+}

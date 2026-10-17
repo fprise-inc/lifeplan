@@ -1,0 +1,27 @@
+{
+  "name": "@financia/report",
+  "version": "0.1.0",
+  "private": true,
+  "description": "提案書の帳票の入力（JSON）を計算結果から組み立てる部品と、公式の帳票（Typst のパッケージ）",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.tools.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "samples": "node --disable-warning=ExperimentalWarning scripts/samples.ts",
+    "check:licenses": "node --disable-warning=ExperimentalWarning scripts/check-licenses.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.4",
+    "ajv": "8.20.0",
+    "eslint": "10.12.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vitest": "5.0.3"
+  }
+}

@@ -10,6 +10,7 @@
 | `engine/test/fixtures/regulation/` | 【架空の見本】テスト用の制度データ。実在の制度の値ではない | CC0 1.0（各フォルダの LICENSE） |
 | `app/src-tauri/icons/` | アプリのアイコン（提供元が作ったもの） | MIT（[LICENSE](LICENSE)） |
 | `app/src/assets/illustrations/` | 入力のホームのカードのイラスト（ファイナンシアのために作成したイラスト。画像生成AIで作り、提供元が仕上げたもの） | CC0 1.0（[LICENSE](app/src/assets/illustrations/LICENSE)） |
+| `report/fonts/` | 提案書の PDF に同梱するフォント（BIZ UDゴシック。googlefonts/morisawa-biz-ud-gothic のコミット 18934af のもの） | SIL OFL 1.1（[OFL.txt](report/fonts/OFL.txt)。0021 の表の「同梱フォント」） |
 | `registry/` | ID の登録簿（科目の木・入力項目・計算部品・制度の値） | CC0 1.0（[LICENSE](registry/LICENSE)） |
 
 第三者の依存のライセンスは、CI で検査する（npm は `engine/scripts/check-licenses.ts`・`app/scripts/check-licenses.ts`、Rust は `deny.toml`・`app/src-tauri/deny.toml` と cargo-deny）。
