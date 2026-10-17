@@ -109,6 +109,10 @@ export interface PresentationModel {
   headline: Headline;
   verdict: Verdict;
   chart: ChartModel;
+  /** 収支の推移（提案） */
+  flows: FlowChartModel;
+  /** 資産と負債の推移（提案） */
+  balance: BalanceChartModel;
   selectedYear: number;
   yearDetail: YearDetail | null;
   events: EventChip[];
@@ -191,4 +195,92 @@ export interface ContingencyModel {
   year: number;
   yearOptions: { value: number; label: string }[];
   scenario: { status: "loading" | "ready" | "error"; model: ScenarioModel | null; error: string | null; stale: boolean };
+}
+
+// ---- 主画面のグラフの切り替え（収支の推移・資産と負債の推移）----
+
+/** 積み上げの1つの系列（例: 給与・生活費）。pattern は色だけに頼らないための塗りの模様の名前 */
+export interface StackSeries {
+  key: string;
+  label: string;
+  values: Yen[];
+}
+
+/** 収支の推移: 年ごとの収入（上に積む）と支出（下に積む）。赤字（年間収支がマイナス）の年は「▲」で示す */
+export interface FlowChartModel {
+  title: string;
+  years: number[];
+  ages: (number | null)[];
+  income: StackSeries[];
+  expense: StackSeries[];
+  /** 年間収支（収入−支出−税・社会保険料） */
+  net: Yen[];
+}
+
+/** 資産と負債の推移: 資産（上に積む）と負債（下に積む）、純資産（資産−負債）の線 */
+export interface BalanceChartModel {
+  title: string;
+  years: number[];
+  ages: (number | null)[];
+  assets: StackSeries[];
+  debts: StackSeries[];
+  /** 預金の不足（金融資産のマイナス。赤の斜線で下に積む） */
+  shortfall: Yen[];
+  netWorth: Yen[];
+}
+
+// ---- 案の比較 ----
+
+export interface CompareSeries {
+  /** 提示用の鍵（current・p1…。物の ID は含まない） */
+  key: string;
+  name: string;
+  /** 線の形と印の番号（0＝現状の灰の破線、1〜5＝案）。色だけで区別しない */
+  style: number;
+  values: Yen[];
+}
+
+export interface CompareChartModel {
+  years: number[];
+  ages: (number | null)[];
+  series: CompareSeries[];
+}
+
+export interface CompareCell {
+  text: string;
+  /** 現状との差（例: 「+1,200万円」）。現状の列は null */
+  diff: string | null;
+  /** 悪いほう（不足・減る）に目立たせる */
+  bad: boolean;
+}
+
+export interface CompareTableModel {
+  columns: { name: string; style: number }[];
+  rows: { key: string; label: string; cells: CompareCell[] }[];
+}
+
+// ---- 説明モード（面談で、グラフを1段ずつ積み上げて見せる）----
+
+export type ExplainStepKey = "income" | "pension" | "expense" | "education" | "housing" | "assets";
+
+export interface ExplainStep {
+  key: ExplainStepKey;
+  title: string;
+  /** 短い説明の一文（数字は計算の結果から作る） */
+  sentence: VerdictPart[];
+}
+
+export interface ExplainModel {
+  title: string;
+  years: number[];
+  ages: (number | null)[];
+  /** 給与・退職金などの収入（年金を除く） */
+  work: Yen[];
+  pension: Yen[];
+  /** 生活費・税と社会保険料・保険料など（教育・住宅を除く支出） */
+  living: Yen[];
+  education: Yen[];
+  housing: Yen[];
+  financial: Yen[];
+  steps: ExplainStep[];
 }

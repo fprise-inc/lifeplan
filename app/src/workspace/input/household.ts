@@ -5,6 +5,7 @@ import type { Box, EmploymentPeriod, EngineRequest, Household, Member } from "..
 import { addMonths, ageAt, ageReachedMonth, parseYm, type Reemployment } from "../levers.ts";
 import { emptyPlan, planFromRequest, type ContingencyPlan } from "../contingency/planData.ts";
 import { livingEstimate } from "./estimates.ts";
+import type { Proposal } from "../plans/plans.ts";
 
 /** 定年の後に働くときの条件（D: 入力画面の「定年後の予定」。主画面の「働く最後の年齢」を延ばすときにも使う） */
 export interface PostRetirement {
@@ -34,6 +35,11 @@ export interface WorkingHousehold {
   addedItems: AddedItem[];
   /** FP が入力のパネルで保存した項目（カードの ID）。物が無い項目でも「入力済み（なし）」にするために使う */
   confirmed: string[];
+  /**
+   * 案（0008 の5 のプランの層の「提案」）。現状からの差分だけを持ち、数に上限は付けない。保存の回で世帯ファイル（0011）の
+   * 世帯データの proposals に入れる（いまは画面の中で持ち、アプリを閉じると消える）
+   */
+  proposals: Proposal[];
 }
 
 /** FP が足した項目（今あるデータの型の物1件を、別のカードにする） */
@@ -118,7 +124,7 @@ export function fromRequest(request: EngineRequest, extras: { memo?: string[]; p
     const p = extras.postRetirement?.[m.id] ?? inferPostRetirement(h, m);
     if (p !== null) post[m.id] = p;
   }
-  return { request, labelsByMember: {}, postRetirement: post, memo: extras.memo ?? [], assumed: {}, contingency: planFromRequest(request), addedItems: [], confirmed: [] };
+  return { request, labelsByMember: {}, postRetirement: post, memo: extras.memo ?? [], assumed: {}, contingency: planFromRequest(request), addedItems: [], confirmed: [], proposals: [] };
 }
 
 /** 計算の要求のうち、世帯ごとに変わらない部分の既定（前提条件は事務所の標準値ができるまでの仮の値。0008 の8） */
@@ -156,6 +162,7 @@ export function blankHousehold(baseMonth: string, id: () => string = newId): Wor
     contingency: emptyPlan(),
     addedItems: [],
     confirmed: [],
+    proposals: [],
   };
 }
 

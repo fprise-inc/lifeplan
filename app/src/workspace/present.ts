@@ -1,7 +1,7 @@
 // 計算結果と世帯から、提示用の値（PresentationModel。0016 の2）を作る。許可した項目だけを選んで写す
 import { advisoryFeeSummary, type EngineRequest, type PreviewResult, type TableCell } from "../engine/types.ts";
 import { ROW_LABELS } from "../generated/labels.ts";
-import type { CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, GoalCard, GoalsModel, Headline, PresentationModel, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
+import type { BalanceChartModel, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
@@ -310,12 +310,44 @@ export function toPresentation(input: PresentInput): PresentationModel {
   };
 
   const evs = events(proposal, proposed.table, years);
-  const rows: TableRowModel[] = rs.map((r) => ({ kind: "age", key: `age:${r.key}`, label: r.label, ages: years.map((y) => (present(r, y) ? ageInYear(r.member, y) : null)) }));
-  rows.push({ kind: "events", key: "events", label: "ライフイベント", icons: years.map((y) => evs.filter((e) => e.year === y).map((e) => e.icon)) });
+  const table = cashflowTable(proposal, proposed.table, years, "生涯キャッシュフロー表（提案）", evs);
+
+
+  const { y: by, m: bm } = parseYm(base.input.baseMonth);
+  return {
+    members: rs.filter((r) => present(r, by)).map((r) => ({ label: r.label, age: ageInYear(r.member, by) })),
+    asOf: `${by}年${bm}月時点`,
+    headline,
+    verdict: verdict(self, depP, depC, endAge),
+    chart,
+    flows: flowChart(proposal, proposed.table, years, "収支の推移（提案）"),
+    balance: balanceChart(proposed.table, years, chart.ages, "資産と負債の推移（提案）"),
+    selectedYear,
+    yearDetail,
+    events: evs,
+    table,
+    goals: goals(proposal, proposed.table, years, depP),
+    fee: input.fee === undefined ? null : feeLine({ fee: input.fee, targetYear, targetLabel: self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`, finP, finC }),
+    provisional: input.provisional,
+  };
+}
+
+// ---- キャッシュフロー表（案ごと・2つの案の差）----
+
+/** 年齢の行（世帯にいる年だけ） */
+function ageRows(req: EngineRequest, years: readonly number[]): TableRowModel[] {
+  const present = (r: Role, y: number) => ageInYear(r.member, y) >= 0 && (leaveYear(r.member) === null || y <= (leaveYear(r.member) as number));
+  return roles(req).map((r) => ({ kind: "age", key: `age:${r.key}`, label: r.label, ages: years.map((y) => (present(r, y) ? ageInYear(r.member, y) : null)) }));
+}
+
+/** 生涯キャッシュフロー表の提示用の値（1つの案）。evs を渡すとライフイベントの行も出す */
+export function cashflowTable(req: EngineRequest, table: readonly TableCell[], years: number[], title: string, evs?: EventChip[]): CashflowTableModel {
+  const rows: TableRowModel[] = ageRows(req, years);
+  if (evs !== undefined) rows.push({ kind: "events", key: "events", label: "ライフイベント", icons: years.map((y) => evs.filter((e) => e.year === y).map((e) => e.icon)) });
   const groupLabel: Record<RowDef["group"], string> = { income: "収入", expense: "支出", net: "", assets: "貯蓄・資産" };
   let lastGroup: RowDef["group"] | null = null;
-  for (const d of rowDefs(proposal)) {
-    const sums = sumByYear(proposed.table, d.match);
+  for (const d of rowDefs(req)) {
+    const sums = sumByYear(table, d.match);
     const cells = years.map((y) => {
       const v = sums.get(y);
       return { amount: v === undefined ? null : v, ...(d.key === "financial" && (v ?? 0) < 0 ? { short: true } : {}) };
@@ -325,21 +357,93 @@ export function toPresentation(input: PresentInput): PresentationModel {
     lastGroup = d.group;
     rows.push({ kind: d.kind, key: d.key, label: d.label, cells, evidence: d.evidence });
   }
-  const table: CashflowTableModel = { title: "生涯キャッシュフロー表（提案）", years, rows };
+  return { title, years, rows };
+}
 
-  const { y: by, m: bm } = parseYm(base.input.baseMonth);
+/**
+ * 2つの案の差のキャッシュフロー表（b − a。年ごと・行ごと）。根拠は出さない（差は計算式ではないため）。
+ * 行の決め方は両方の案の構成員から（a の要求の行の定義を使う。構成員は案で変わらない）
+ */
+export function diffCashflowTable(req: EngineRequest, a: readonly TableCell[], b: readonly TableCell[], years: number[], title: string): CashflowTableModel {
+  const rows: TableRowModel[] = ageRows(req, years);
+  const groupLabel: Record<RowDef["group"], string> = { income: "収入", expense: "支出", net: "", assets: "貯蓄・資産" };
+  let lastGroup: RowDef["group"] | null = null;
+  for (const d of rowDefs(req)) {
+    const sa = sumByYear(a, d.match);
+    const sb = sumByYear(b, d.match);
+    const cells = years.map((y) => {
+      const va = sa.get(y);
+      const vb = sb.get(y);
+      return { amount: va === undefined && vb === undefined ? null : (vb ?? 0) - (va ?? 0) };
+    });
+    if (cells.every((c) => (c.amount ?? 0) === 0)) continue;
+    if (d.group !== lastGroup && groupLabel[d.group] !== "") rows.push({ kind: "group", key: `group:${d.group}`, label: groupLabel[d.group] });
+    lastGroup = d.group;
+    rows.push({ kind: d.kind, key: d.key, label: d.label, cells, evidence: false });
+  }
+  return { title, years, rows };
+}
+
+// ---- 収支の推移・資産と負債の推移 ----
+
+const series = (key: string, label: string, table: readonly TableCell[], years: readonly number[], pred: (c: TableCell) => boolean): StackSeries => {
+  const m = sumByYear(table, pred);
+  return { key, label, values: years.map((y) => m.get(y) ?? 0) };
+};
+
+/** 収支の推移: 収入（給与・年金・その他）と支出（生活費・住宅・教育・保険・その他）の積み上げ */
+export function flowChart(req: EngineRequest, table: readonly TableCell[], years: number[], title: string): FlowChartModel {
+  const self = roles(req).find((r) => r.key === "self");
+  const isWork = (c: TableCell) => under(c.row, "cf.income.salary") || under(c.row, "cf.income.business");
+  const known = ["cf.expense.living", "cf.expense.housing", "cf.expense.education", "cf.expense.insurance"];
+  const net = sumByYear(table, (c) => c.row === "cf.net");
   return {
-    members: rs.filter((r) => present(r, by)).map((r) => ({ label: r.label, age: ageInYear(r.member, by) })),
-    asOf: `${by}年${bm}月時点`,
-    headline,
-    verdict: verdict(self, depP, depC, endAge),
-    chart,
-    selectedYear,
-    yearDetail,
-    events: evs,
-    table,
-    goals: goals(proposal, proposed.table, years, depP),
-    fee: input.fee === undefined ? null : feeLine({ fee: input.fee, targetYear, targetLabel: self !== undefined ? `${self.label}${age(targetYear)}歳` : `${targetYear}年`, finP, finC }),
-    provisional: input.provisional,
+    title,
+    years,
+    ages: years.map((y) => (self !== undefined ? ageInYear(self.member, y) : null)),
+    income: [
+      series("salary", "給与", table, years, isWork),
+      series("pension", "年金", table, years, (c) => under(c.row, "cf.income.pension")),
+      series("incomeOther", "その他の収入", table, years, (c) => under(c.row, "cf.income") && !isWork(c) && !under(c.row, "cf.income.pension")),
+    ],
+    expense: [
+      series("living", "生活費", table, years, (c) => under(c.row, "cf.expense.living")),
+      series("housing", "住宅", table, years, (c) => under(c.row, "cf.expense.housing")),
+      series("education", "教育", table, years, (c) => under(c.row, "cf.expense.education")),
+      series("insurance", "保険", table, years, (c) => under(c.row, "cf.expense.insurance")),
+      series("expenseOther", "その他（税・社会保険料など）", table, years, (c) => (under(c.row, "cf.expense") && !known.some((p) => under(c.row, p))) || under(c.row, "cf.taxSi")),
+    ],
+    net: years.map((y) => net.get(y) ?? 0),
+  };
+}
+
+const NISA_ROWS = ["cf.balance.account.nisa", "cf.balance.account.childNisa", "cf.balance.account.juniorNisa", "cf.balance.account.legacyNisa"];
+const DC_ROWS = ["cf.balance.account.ideco", "cf.balance.account.corporateDc"];
+
+/** 資産と負債の推移: 資産（預金・NISA・iDeCo など・その他）と負債（住宅ローン・その他）、純資産 */
+export function balanceChart(table: readonly TableCell[], years: number[], ages: (number | null)[], title: string): BalanceChartModel {
+  const pos = (s: StackSeries): StackSeries => ({ ...s, values: s.values.map((v) => Math.max(0, v)) });
+  const isAccount = (c: TableCell) => under(c.row, "cf.balance.account") && c.row !== "cf.balance.account.realEstate";
+  const deposit = series("deposit", "預金", table, years, (c) => c.row === "cf.balance.account.deposit");
+  const assets = [
+    pos(deposit),
+    series("nisa", "NISA", table, years, (c) => NISA_ROWS.includes(c.row)),
+    series("dc", "iDeCo・企業型DC", table, years, (c) => DC_ROWS.includes(c.row)),
+    series("assetOther", "その他の資産（課税口座・財形など）", table, years, (c) => isAccount(c) && c.row !== "cf.balance.account.deposit" && !NISA_ROWS.includes(c.row) && !DC_ROWS.includes(c.row)),
+  ].map(pos);
+  const debts = [
+    series("mortgage", "住宅ローン", table, years, (c) => c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest"),
+    series("debtOther", "その他の負債", table, years, (c) => c.row === "cf.balance.debt.other"),
+  ];
+  const fin = financialOf(table);
+  const shortfall = years.map((y) => Math.min(0, fin.get(y) ?? 0));
+  return {
+    title,
+    years,
+    ages,
+    assets,
+    debts,
+    shortfall,
+    netWorth: years.map((y, i) => (fin.get(y) ?? 0) - debts.reduce((s, d) => s + (d.values[i] ?? 0), 0)),
   };
 }
