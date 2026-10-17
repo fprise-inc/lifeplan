@@ -119,6 +119,16 @@ export class DualEngine {
     s.previewTable = { rev: s.rev, table: JSON.stringify(r.table) };
   }
 
+  /** 使わなくなった枠を消す（主画面の帯から外した案。画面側のエンジンの枠も消す）。消した枠の名前を返す */
+  retain(ids: readonly string[]): string[] {
+    const keep = new Set(ids);
+    const gone = [...this.slots.keys()].filter((id) => !keep.has(id));
+    if (gone.length === 0) return gone;
+    for (const id of gone) this.slots.delete(id);
+    this.opts.session?.set(`{${gone.map((id) => `${JSON.stringify(id)}:null`).join(",")}}`);
+    return gone;
+  }
+
   /** 世帯を開いたとき・リセットのとき: すべての枠を先出しで出し、すぐ正の計算をする */
   async set(requests: Record<string, EngineRequest>): Promise<void> {
     const changed = this.put(requests);

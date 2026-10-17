@@ -1,7 +1,7 @@
-// 案の比較の数字（エンジンの出力の表から作る）と、比較の提示用の値（CompareChartModel・CompareTableModel）
+// 案の比較の数字（エンジンの出力の表から作る）と、比較の表の提示用の値（CompareTableModel）
 import type { EngineRequest, TableCell } from "../../engine/types.ts";
 import { group, man, manDiff } from "../../presentation/format.ts";
-import type { CompareChartModel, CompareTableModel } from "../../presentation/model.ts";
+import type { CompareTableModel } from "../../presentation/model.ts";
 import { parseYm } from "../levers.ts";
 import { depletionYear, displayYears, financialOf } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
@@ -65,55 +65,45 @@ export interface ComparedPlan {
   table: readonly TableCell[];
 }
 
-/** 比較のグラフ: 現状（灰の破線）と案（最大5つ。線の形と印を変える） */
-export function compareChart(req: EngineRequest, current: ComparedPlan, plans: ComparedPlan[]): CompareChartModel {
-  const years = displayYears(req);
-  const self = roles(req).find((r) => r.key === "self");
-  const values = (t: readonly TableCell[]) => {
-    const f = financialOf(t);
-    return years.map((y) => f.get(y) ?? 0);
-  };
-  return {
-    years,
-    ages: years.map((y) => (self !== undefined ? ageInYear(self.member, y) : null)),
-    series: [{ key: "current", name: current.name, style: 0, values: values(current.table) }, ...plans.slice(0, 5).map((p, i) => ({ key: `p${i + 1}`, name: p.name, style: i + 1, values: values(p.table) }))],
-  };
-}
-
-/** 比較の数字の表: 行＝主な数字、列＝現状と案。案の列には現状との差を添える */
-export function compareTable(req: EngineRequest, current: ComparedPlan, plans: ComparedPlan[], targetAge: number): CompareTableModel {
+/**
+ * 比較の数字の表（主画面の「比較の表を見る」）: 行＝主な数字、列＝現状と帯の案（最大6列）。
+ * 案の列には基準の案（base 番目の列）との差を添える（差はいつも「その案−基準」）
+ */
+export function compareTable(req: EngineRequest, columns: ComparedPlan[], targetAge: number, base = 0): CompareTableModel {
   const self = roles(req).find((r) => r.key === "self");
   const who = self?.label ?? "";
   const age = (y: number) => (self !== undefined ? `${who}${ageInYear(self.member, y)}歳` : `${y}年`);
-  const cols = [current, ...plans.slice(0, 5)];
+  const cols = columns.slice(0, 6);
   const ms = cols.map((c) => metricsOf(req, c.table, targetAge));
-  const base = ms[0] as PlanMetrics;
+  const b = Math.min(Math.max(0, base), cols.length - 1);
+  const bm = ms[b] as PlanMetrics;
   const yen = (v: number) => `${man(v)}万円`;
-  const diffYen = (v: number, b: number, higherIsBetter = true) => ({ diff: `${manDiff(v - b)}万円`, bad: higherIsBetter ? v < b : v > b });
-  const tY = base.targetYear;
+  const diffYen = (v: number, x: number, higherIsBetter = true) => ({ diff: `${manDiff(v - x)}万円`, bad: higherIsBetter ? v < x : v > x });
+  const tY = bm.targetYear;
   return {
-    columns: cols.map((c, i) => ({ name: c.name, style: i })),
+    diffLabel: "基準より",
+    columns: cols.map((c, i) => ({ name: c.name, style: i, ...(i === b ? { base: true } : {}) })),
     rows: [
       {
         key: "target",
         label: `${age(tY)}時点の金融資産`,
-        cells: ms.map((m, i) => ({ text: yen(m.target), ...(i === 0 ? { diff: null, bad: m.target < 0 } : { ...diffYen(m.target, base.target), bad: m.target < 0 || m.target < base.target }) })),
+        cells: ms.map((m, i) => ({ text: yen(m.target), ...(i === b ? { diff: null, bad: m.target < 0 } : { ...diffYen(m.target, bm.target), bad: m.target < 0 || m.target < bm.target }) })),
       },
       {
         key: "depletion",
         label: "資産が尽きる年",
         cells: ms.map((m, i) => {
           const text = m.depletion === null ? "尽きない" : `${m.depletion}年（${age(m.depletion)}）`;
-          if (i === 0) return { text, diff: null, bad: m.depletion !== null };
-          const d = m.depletion === null ? (base.depletion === null ? null : "尽きなくなる") : base.depletion === null ? "尽きるようになる" : m.depletion === base.depletion ? "±0年" : `${m.depletion > base.depletion ? "+" : "▲"}${group(Math.abs(m.depletion - base.depletion))}年`;
+          if (i === b) return { text, diff: null, bad: m.depletion !== null };
+          const d = m.depletion === null ? (bm.depletion === null ? null : "尽きなくなる") : bm.depletion === null ? "尽きるようになる" : m.depletion === bm.depletion ? "±0年" : `${m.depletion > bm.depletion ? "+" : "▲"}${group(Math.abs(m.depletion - bm.depletion))}年`;
           return { text, diff: d, bad: m.depletion !== null };
         }),
       },
-      { key: "takeHome", label: "生涯の手取りの合計", cells: ms.map((m, i) => ({ text: yen(m.takeHome), ...(i === 0 ? { diff: null, bad: false } : diffYen(m.takeHome, base.takeHome)) })) },
-      { key: "expense", label: "生涯の支出の合計（税・社会保険料を除く）", cells: ms.map((m, i) => ({ text: yen(m.expense), ...(i === 0 ? { diff: null, bad: false } : diffYen(m.expense, base.expense, false)) })) },
-      { key: "min", label: "金融資産がいちばん少ない年", cells: ms.map((m, i) => ({ text: `${yen(m.min.amount)}（${m.min.year}年）`, ...(i === 0 ? { diff: null, bad: m.min.amount < 0 } : { ...diffYen(m.min.amount, base.min.amount), bad: m.min.amount < 0 }) })) },
+      { key: "takeHome", label: "生涯の手取りの合計", cells: ms.map((m, i) => ({ text: yen(m.takeHome), ...(i === b ? { diff: null, bad: false } : diffYen(m.takeHome, bm.takeHome)) })) },
+      { key: "expense", label: "生涯の支出の合計（税・社会保険料を除く）", cells: ms.map((m, i) => ({ text: yen(m.expense), ...(i === b ? { diff: null, bad: false } : diffYen(m.expense, bm.expense, false)) })) },
+      { key: "min", label: "金融資産がいちばん少ない年", cells: ms.map((m, i) => ({ text: `${yen(m.min.amount)}（${m.min.year}年）`, ...(i === b ? { diff: null, bad: m.min.amount < 0 } : { ...diffYen(m.min.amount, bm.min.amount), bad: m.min.amount < 0 }) })) },
       ...(ms.some((m) => m.loan > 0)
-        ? [{ key: "loan", label: "住宅ローンの返済の合計（繰上返済を含む）", cells: ms.map((m, i) => ({ text: yen(m.loan), ...(i === 0 ? { diff: null, bad: false } : diffYen(m.loan, base.loan, false)) })) }]
+        ? [{ key: "loan", label: "住宅ローンの返済の合計（繰上返済を含む）", cells: ms.map((m, i) => ({ text: yen(m.loan), ...(i === b ? { diff: null, bad: false } : diffYen(m.loan, bm.loan, false)) })) }]
         : []),
     ],
   };

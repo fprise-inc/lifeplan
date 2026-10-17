@@ -3,7 +3,7 @@ import { renderToString } from "preact-render-to-string";
 import { h } from "preact";
 import { describe, expect, it } from "vitest";
 import { advisoryFeeSummary } from "../src/engine/types.ts";
-import { MainCard } from "../src/presentation/MainView.tsx";
+import { FeeNote } from "../src/presentation/MainView.tsx";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -147,7 +147,7 @@ describe("主画面の対策「FP顧問料」の ON/OFF", () => {
     expect(text(mOff)).toContain("FP顧問料を含めない試算です");
     expect(text(mOff)).toContain(`${man(finOn - finC)}万円`);
     // 提示層の部品で描くと一文が出る
-    const html = renderToString(h(MainCard, { model: mOn, onSelectYear: () => undefined }));
+    const html = renderToString(h(FeeNote, { model: mOn.fee! }));
     expect(html).toContain("顧問料込み");
     expect(html).toContain("data-fee-note");
   });

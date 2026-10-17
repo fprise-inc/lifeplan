@@ -5,7 +5,7 @@ import { applyLevers } from "../src/workspace/levers.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { depletionYear, displayYears, schoolEntryYear, toPresentation } from "../src/workspace/present.ts";
 import { roles } from "../src/workspace/roles.ts";
-import { CashflowTable, GoalCards, MainCard } from "../src/presentation/MainView.tsx";
+import { CashflowTable, GoalCards, ResultCard } from "../src/presentation/MainView.tsx";
 import type { TableCell } from "../src/engine/types.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -48,6 +48,9 @@ describe("提示用の値を作る", () => {
     expect(dep).not.toBeNull();
     expect(model.verdict.tone).toBe("up");
     expect(model.verdict.parts.map((p) => p.text).join("")).toContain(`ご主人 ${dep! - 1981}歳で不足`);
+    // 主画面の結論の1文（○歳時点の資産は既定では出さない）
+    expect(model.result.parts.map((p) => p.text).join("")).toBe("提案は100歳まで足ります");
+    expect(model.result.sub.map((p) => p.text).join("")).toBe(`現状（基準）は${dep! - 1981}歳で資産が尽きます`);
     expect(model.chart.depletions.map((d) => d.series)).toEqual(["current"]);
   });
 
@@ -98,8 +101,8 @@ describe("0016 の2: 提示層は内部情報を受け取らない", () => {
   it("提示層の部品を描いた結果に、メモの目印も物の ID も出ない", () => {
     // メモを持つのは作業の層だけ。提示層の部品は PresentationModel しか受け取れないので、目印は出ようがない
     const noop = () => undefined;
-    const html = renderToString(h("div", null, h(GoalCards, { model: model.goals }), h(MainCard, { model, onSelectYear: noop }), h(CashflowTable, { model: model.table, selectedYear: 2031, onSelectYear: noop, onEvidence: noop })));
-    expect(html).toContain("ご主人95歳時点の金融資産（提案）");
+    const html = renderToString(h("div", null, h(GoalCards, { model: model.goals }), h(ResultCard, { model, verdict: model.result, provisional: false, mode: "assets", onMode: noop, explain: null, onExplain: noop, ageMark: null, onSelectYear: noop }), h(CashflowTable, { model: model.table, selectedYear: 2031, onSelectYear: noop, onEvidence: noop })));
+    expect(html).toContain("100歳まで足ります");
     expect(html).not.toContain(MARK);
     for (const m of base.input.household.members) expect(html).not.toContain(m.id);
   });

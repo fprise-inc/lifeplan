@@ -1,8 +1,10 @@
-// 提示層の部品（主画面）。受け取るのは PresentationModel（とその一部）と、年・根拠を選ぶ手続きだけ（0016 の2）
-import type { CashflowTableModel, EventChip, FeeLine, GoalsModel, Headline as HeadlineModel, PresentationModel, Verdict as VerdictModel, YearDetail as YearDetailModel } from "./model.ts";
+// 提示層の部品（主画面）。受け取るのは PresentationModel（とその一部）と、年・根拠を選ぶ手続きだけ（0016 の2）。
+// 配置（上から）: 案の帯（PlanBand.tsx）→ グラフ（ResultCard）→ 対策（作業の層）→ 生涯キャッシュフロー表（CashflowTable）
+import type { ComponentChildren } from "preact";
+import { useEffect, useRef } from "preact/hooks";
+import type { AgeMark, CashflowTableModel, ExplainModel, FeeLine, GoalsModel, Headline as HeadlineModel, ResultVerdict, Verdict as VerdictModel, VerdictPart } from "./model.ts";
 import { man, manDiff } from "./format.ts";
-import { AssetChart } from "./AssetChart.tsx";
-import { BalanceChartView, ChartTabs, FlowChartView, type ChartTab } from "./FlowCharts.tsx";
+import { CHART_MODES, ExplainBar, MainChart, MainLegend, type ChartMode, type MainChartModel } from "./MainChart.tsx";
 
 export interface Selectors {
   onSelectYear: (year: number) => void;
@@ -67,43 +69,6 @@ export function Legend({ labels }: { labels?: { proposal: string; current: strin
   );
 }
 
-export function YearDetail({ model }: { model: YearDetailModel }) {
-  return (
-    <div class="yearline">
-      <span class="y">{model.year}年</span>
-      <span>{model.members}</span>
-      <span class="kv">
-        収入 <b>{man(model.income)}</b>万円
-      </span>
-      <span class="kv">
-        支出 <b>{man(model.expense)}</b>万円
-      </span>
-      <span class={`kv${model.net < 0 ? " neg" : ""}`}>
-        収支 <b>{man(model.net)}</b>万円
-      </span>
-      <span class={`kv${model.financial < 0 ? " neg" : ""}`}>
-        金融資産 <b>{man(model.financial)}</b>万円
-      </span>
-    </div>
-  );
-}
-
-export function EventChips({ events, selectedYear, onSelectYear }: { events: EventChip[]; selectedYear: number; onSelectYear: (y: number) => void }) {
-  return (
-    <div class="chips" aria-label="ライフイベント">
-      {events.map((e, i) => (
-        <button type="button" key={i} class={`chip${e.short ? " short" : ""}${e.year === selectedYear ? " on" : ""}`} onClick={() => onSelectYear(e.year)}>
-          <span class="ic" aria-hidden="true">
-            {e.icon}
-          </span>
-          <span class="yr">{e.year}</span>
-          {e.text}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function GoalCards({ model }: { model: GoalsModel }) {
   return (
     <section class="card">
@@ -148,20 +113,154 @@ export function GoalCards({ model }: { model: GoalsModel }) {
   );
 }
 
-export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence }: { model: CashflowTableModel; selectedYear: number } & Selectors) {
-  const sel = (y: number) => (y === selectedYear ? " sel" : "");
+const Parts = ({ parts }: { parts: VerdictPart[] }) => <>{parts.map((p, i) => (p.strong === true ? <b key={i}>{p.text}</b> : <span key={i}>{p.text}</span>))}</>;
+
+/** 主画面の結論の1文（例: 「B案は100歳まで足ります」と、2行目に基準の案） */
+export function ResultVerdictView({ model }: { model: ResultVerdict }) {
   return (
-    <section class="card cf-card" aria-labelledby="h-cf">
-      <div class="card-h">
-        <h2 id="h-cf">{model.title}</h2>
-        <span class="aside">単位: 万円／年齢は各年12月末時点／▲はマイナス／数字を押すと根拠が出ます</span>
+    <p class={`verdict-line ${model.tone}`} aria-live="polite" data-verdict>
+      <Parts parts={model.parts} />
+      {model.sub.length > 0 ? (
+        <span class="v-sub">
+          <Parts parts={model.sub} />
+        </span>
+      ) : null}
+    </p>
+  );
+}
+
+export interface ResultCardProps {
+  model: MainChartModel;
+  verdict: ResultVerdict;
+  provisional: boolean;
+  mode: ChartMode;
+  onMode: (m: ChartMode) => void;
+  explain: { model: ExplainModel; step: number } | null;
+  onExplain: (step: number | null) => void;
+  ageMark: AgeMark | null;
+  onSelectYear: (year: number) => void;
+  /** 右の操作の後ろに置くもの（表示の設定のボタン。作業の層が渡す） */
+  tools?: ComponentChildren;
+  /** 結論の下に置くもの（表示の設定の欄・FP顧問料の一文） */
+  below?: ComponentChildren;
+}
+
+/** グラフの枠: 結論の1文・グラフの切り替え・説明モード・凡例・グラフ・説明モードの帯 */
+export function ResultCard(p: ResultCardProps) {
+  const ex = p.explain;
+  const step = ex !== null ? Math.max(0, Math.min(ex.model.steps.length - 1, ex.step)) : 0;
+  const s = ex?.model.steps[step];
+  return (
+    <section class="card chart-card" aria-label="グラフ" data-result-card>
+      <div class="cc-head">
+        {ex !== null && s !== undefined ? (
+          <p class="verdict-line" aria-live="polite" data-verdict>
+            <span class="ord">
+              説明 {step + 1}/{ex.model.steps.length} {s.title}
+            </span>
+            <Parts parts={s.sentence} />
+            <span class="v-sub">{p.model.names.selected}の内容で説明しています</span>
+          </p>
+        ) : (
+          <ResultVerdictView model={p.verdict} />
+        )}
+        <div class="cc-tools">
+          {p.provisional ? (
+            <span class="provisional" title="指を離すと正式な計算に置き換わります">
+              確定前
+            </span>
+          ) : null}
+          <span class="seg-g" role="group" aria-label="グラフの切り替え">
+            {CHART_MODES.map((m) => (
+              <button type="button" key={m.id} aria-pressed={ex === null && p.mode === m.id} disabled={ex !== null} onClick={() => p.onMode(m.id)} data-chart-tab={m.id}>
+                {m.label}
+              </button>
+            ))}
+          </span>
+          <button type="button" class="explain-btn" aria-pressed={ex !== null} onClick={() => p.onExplain(ex !== null ? null : 0)} data-explain-open>
+            説明モード
+          </button>
+          {p.tools ?? null}
+        </div>
       </div>
-      <div class="cf-wrap">
+      {p.below ?? null}
+      <MainLegend model={p.model} mode={p.mode} explain={ex} />
+      <MainChart model={p.model} mode={p.mode} explain={ex} ageMark={p.ageMark} onSelectYear={p.onSelectYear} />
+      {ex !== null ? <ExplainBar model={ex.model} step={step} onStep={(i) => p.onExplain(i)} onClose={() => p.onExplain(null)} /> : null}
+    </section>
+  );
+}
+
+/** 表の上の切り替え（見る案・差を表示） */
+export interface TableControls {
+  plans: { key: string; letter: string }[];
+  shown: string;
+  onShow: (key: string) => void;
+  diff: { on: boolean; disabled: boolean; label: string };
+  onDiff: (on: boolean) => void;
+}
+
+export interface CashflowTableProps {
+  model: CashflowTableModel;
+  selectedYear: number;
+  onSelectYear: (year: number) => void;
+  onEvidence: (rowKey: string, year: number) => void;
+  controls?: TableControls;
+  /** 表の左上（例: 「B案「65歳まで働く」」） */
+  corner?: string;
+  /** 値が変わるたびに、選んだ年の列まで横に動かす（グラフで年を押したとき） */
+  scrollNonce?: number;
+}
+
+export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence, controls, corner, scrollNonce }: CashflowTableProps) {
+  const sel = (y: number) => (y === selectedYear ? " sel" : "");
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollNonce === undefined || scrollNonce === 0) return;
+    const el = wrap.current;
+    const th = el?.querySelector<HTMLElement>(`thead th[data-year="${selectedYear}"]`);
+    const stub = el?.querySelector<HTMLElement>(".stub");
+    if (el == null || th == null || stub == null) return;
+    const reduce = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ left: Math.max(0, th.offsetLeft - stub.offsetWidth - 120), behavior: reduce ? "auto" : "smooth" });
+  }, [scrollNonce]);
+  const diffOn = controls?.diff.on === true && !controls.diff.disabled;
+  return (
+    <section class="card cf-card" aria-labelledby="h-cf" data-cf-card>
+      <div class="cf-head">
+        <h2 id="h-cf">{model.title}</h2>
+        {controls !== undefined ? (
+          <>
+            <span class="k">表示する案</span>
+            <span class="seg-g" role="group" aria-label="表示する案">
+              {controls.plans.map((x) => (
+                <button type="button" key={x.key} aria-pressed={x.key === controls.shown} onClick={() => controls.onShow(x.key)} data-table-plan={x.key}>
+                  {x.letter}
+                </button>
+              ))}
+            </span>
+            <label class={`chk${diffOn ? " on" : ""}`}>
+              <input type="checkbox" checked={controls.diff.on} disabled={controls.diff.disabled} onChange={(e) => controls.onDiff((e.currentTarget as HTMLInputElement).checked)} data-diff-toggle />
+              <span>{controls.diff.label}</span>
+            </label>
+          </>
+        ) : null}
+        <span class="cf-note">
+          単位: 万円／年齢は各年12月末時点／▲はマイナス／数字を押すと根拠が出ます
+          {diffOn ? (
+            <span class="chg-key">
+              <i />
+              基準と違うマス
+            </span>
+          ) : null}
+        </span>
+      </div>
+      <div class="cf-wrap" ref={wrap}>
         <table class="cf">
           <thead>
             <tr class="r-year">
               <th class="stub" scope="col">
-                年
+                {corner ?? "年"}
               </th>
               {model.years.map((y) => (
                 <th scope="col" key={y} class={sel(y)} data-year={y}>
@@ -213,6 +312,19 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence }:
                     ))}
                   </tr>
                 );
+              if (r.kind === "diff")
+                return (
+                  <tr class="r-diff" key={r.key} data-diff-row={r.key}>
+                    <th class="stub" scope="row">
+                      {r.label}
+                    </th>
+                    {r.cells.map((v, i) => (
+                      <td key={i} class={`${v === null ? "" : v < 0 ? "minus" : Math.round(v / 10000) === 0 ? "zero" : ""}${sel(model.years[i] as number)}`}>
+                        {v === null ? "" : manDiff(v)}
+                      </td>
+                    ))}
+                  </tr>
+                );
               return (
                 <tr class={r.kind === "total" ? "r-total" : ""} key={r.key}>
                   <th class="stub" scope="row">
@@ -220,7 +332,7 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence }:
                   </th>
                   {r.cells.map((c, i) => {
                     const y = model.years[i] as number;
-                    const cls = `${c.amount !== null && c.amount < 0 ? "neg" : ""}${c.short === true ? " short" : ""}${sel(y)}`;
+                    const cls = `${c.amount !== null && c.amount < 0 ? "neg" : ""}${c.short === true ? " short" : ""}${c.changed === true ? " chg" : ""}${sel(y)}`;
                     if (c.amount === null || (c.amount === 0 && r.kind === "value")) return <td key={i} class={cls} />;
                     return (
                       <td key={i} class={cls}>
@@ -241,40 +353,6 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence }:
           </tbody>
         </table>
       </div>
-    </section>
-  );
-}
-
-/** 資産の推移のグラフ（凡例・グラフ・年の内訳） */
-export function AssetChartView({ model, onSelectYear }: { model: PresentationModel; onSelectYear: (y: number) => void }) {
-  return (
-    <>
-      <div class="chart-top">
-        <Legend />
-        <span class="footnote">グラフの年を押すと、下の表の同じ年が光ります</span>
-      </div>
-      <AssetChart model={model.chart} selectedYear={model.selectedYear} onSelectYear={onSelectYear} />
-      {model.yearDetail !== null ? <YearDetail model={model.yearDetail} /> : null}
-    </>
-  );
-}
-
-/** 主画面の中央（主役の数字・結論・グラフの切り替え・年の内訳・イベント） */
-export function MainCard({ model, onSelectYear, chartTab = "assets", onChartTab }: { model: PresentationModel; onSelectYear: (y: number) => void; chartTab?: ChartTab; onChartTab?: (t: ChartTab) => void }) {
-  return (
-    <section class="card col-main" aria-label="資産残高の見通し">
-      <Headline model={model.headline} provisional={model.provisional} />
-      <Verdict model={model.verdict} />
-      {model.fee !== null ? <FeeNote model={model.fee} /> : null}
-      {onChartTab !== undefined ? <ChartTabs tab={chartTab} onTab={onChartTab} /> : null}
-      {chartTab === "flows" ? (
-        <FlowChartView model={model.flows} selectedYear={model.selectedYear} onSelectYear={onSelectYear} />
-      ) : chartTab === "balance" ? (
-        <BalanceChartView model={model.balance} selectedYear={model.selectedYear} onSelectYear={onSelectYear} />
-      ) : (
-        <AssetChartView model={model} onSelectYear={onSelectYear} />
-      )}
-      <EventChips events={model.events} selectedYear={model.selectedYear} onSelectYear={onSelectYear} />
     </section>
   );
 }

@@ -6,15 +6,14 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { REPO_DIR } from "../scripts/lib.ts";
 import type { EngineRequest, PreviewResult, TableCell } from "../src/engine/types.ts";
-import { CompareChart, CompareTable } from "../src/presentation/Compare.tsx";
-import { ExplainView } from "../src/presentation/ExplainView.tsx";
-import { BalanceChartView, FlowChartView } from "../src/presentation/FlowCharts.tsx";
+import { CompareTable } from "../src/presentation/Compare.tsx";
+import { ExplainBar, MainChart, MainLegend, type MainChartModel } from "../src/presentation/MainChart.tsx";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { explainModel } from "../src/workspace/explain.ts";
 import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { applyLevers } from "../src/workspace/levers.ts";
 import { bucketShares, expectedReturn, mixFromBuckets } from "../src/workspace/plans/allocation.ts";
-import { compareChart, compareTable, metricsOf } from "../src/workspace/plans/compare.ts";
+import { compareTable, metricsOf } from "../src/workspace/plans/compare.ts";
 import { addRate, mulRate, pctText, subRate } from "../src/workspace/plans/decimal.ts";
 import { buildCatalog, loanStarted, type Catalog } from "../src/workspace/plans/items.ts";
 import { acknowledge, applyValues, changesOf, deletePlan, dropChange, effectiveValues, normalizeValues, overwritePlan, reflectPlan, savePlan, suggestName, type Values } from "../src/workspace/plans/plans.ts";
@@ -364,20 +363,27 @@ describe("比較の数字がエンジンの出力と一致する", () => {
     }
   });
 
-  it("比較のグラフ・表は5案と現状。案ごとの線の値はエンジンの金融資産", () => {
+  it("比較の表は現状と帯の5案。差は基準の案（列を選べる）から", () => {
     const named = results.map((r, i) => ({ name: `案${i + 1}`, table: r.table }));
-    const chart = compareChart(wh.request, { name: "現状", table: cur.table }, named);
-    expect(chart.series.map((s) => s.style)).toEqual([0, 1, 2, 3, 4, 5]);
-    chart.series.slice(1).forEach((s, i) => expect(s.values).toEqual(years.map((y) => fin(results[i]!, y))));
-    const table = compareTable(wh.request, { name: "現状", table: cur.table }, named, 95);
+    const table = compareTable(wh.request, [{ name: "現状", table: cur.table }, ...named], 95);
     expect(table.columns.map((c) => c.name)).toEqual(["現状", "案1", "案2", "案3", "案4", "案5"]);
+    expect(table.columns[0]!.base).toBe(true);
+    expect(table.diffLabel).toBe("基準より");
     const target = table.rows.find((r) => r.key === "target")!;
     expect(target.label).toBe("ご主人95歳時点の金融資産");
     expect(target.cells[1]!.text).toBe(`${Math.round(Math.abs(fin(results[0]!, 2076)) / 10000).toLocaleString("en-US")}万円`.replace(/^/, fin(results[0]!, 2076) < 0 ? "▲" : ""));
-    // 6案目以降は比べない
-    expect(compareChart(wh.request, { name: "現状", table: cur.table }, [...named, ...named]).series).toHaveLength(6);
-    const html = renderToString(h("div", null, h(CompareChart, { model: chart }), h(CompareTable, { model: table })));
+    expect(target.cells[0]!.diff).toBeNull();
+    // 基準を案2にすると、差は案2から
+    const t2 = compareTable(wh.request, [{ name: "現状", table: cur.table }, ...named], 95, 2);
+    expect(t2.columns[2]!.base).toBe(true);
+    expect(t2.rows.find((r) => r.key === "target")!.cells[2]!.diff).toBeNull();
+    const man = (n: number) => `${n === 0 ? "±" : n > 0 ? "+" : "▲"}${Math.round(Math.abs(n) / 10000).toLocaleString("en-US")}`.replace("±0", "±0");
+    expect(t2.rows.find((r) => r.key === "target")!.cells[1]!.diff).toBe(`${man(fin(results[0]!, 2076) - fin(results[1]!, 2076))}万円`);
+    // 7列目以降は比べない（現状＋5案）
+    expect(compareTable(wh.request, [{ name: "現状", table: cur.table }, ...named, ...named], 95).columns).toHaveLength(6);
+    const html = renderToString(h(CompareTable, { model: table }));
     expect(html).toContain("案5");
+    expect(html).toContain("基準");
     expect(html).not.toContain("MEMO-MARK-plans");
   });
 
@@ -412,9 +418,11 @@ describe("収支の推移・資産と負債の推移", () => {
     expect(f.income.map((s) => s.label)).toEqual(["給与", "年金", "その他の収入"]);
     expect(f.expense.map((s) => s.label)).toEqual(["生活費", "住宅", "教育", "保険", "その他（税・社会保険料など）"]);
     expect(f.net.some((v) => v < 0)).toBe(true);
-    const html = renderToString(h(FlowChartView, { model: f, selectedYear: 2031, onSelectYear: () => undefined }));
+    const m = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: 2031, provisional: false, names: { selected: "B案", base: "A案", same: false } });
+    const html = renderToString(h("div", null, h(MainLegend, { model: m, mode: "flows", explain: null }), h(MainChart, { model: m, mode: "flows", explain: null, ageMark: null, onSelectYear: () => undefined })));
     expect(html).toContain("flag-band");
     expect(html).toContain("赤字の年");
+    expect(html).toContain("net-base");
   });
 
   it("資産の系列の合計は金融資産（マイナスは不足）、負債は住宅ローンの残高", () => {
@@ -429,7 +437,9 @@ describe("収支の推移・資産と負債の推移", () => {
       expect(b.debts.reduce((s, x) => s + x.values[i]!, 0)).toBe(debt.get(y) ?? 0);
       expect(b.netWorth[i]).toBe(f - (debt.get(y) ?? 0));
     });
-    expect(renderToString(h(BalanceChartView, { model: b, selectedYear: 2031, onSelectYear: () => undefined }))).toContain("純資産");
+    const m: MainChartModel = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: 2031, provisional: false, names: { selected: "B案", base: "A案", same: false } });
+    expect(renderToString(h(MainLegend, { model: m, mode: "balance", explain: null }))).toContain("純資産");
+    expect(renderToString(h(MainChart, { model: m, mode: "balance", explain: null, ageMark: null, onSelectYear: () => undefined }))).toContain("net-sel");
   });
 
   it("主画面の提示用の値に入る", () => {
@@ -452,8 +462,8 @@ describe("説明モード", () => {
     const text = (i: number) => m.steps[i]!.sentence.map((p) => p.text).join("");
     const pension2047 = sumByYear(r.table, (c) => under(c.row, "cf.income.pension")).get(2047)!;
     expect(text(1)).toBe(`ご主人が65歳からは、年金が 年${Math.round(pension2047 / 10000).toLocaleString("en-US")}万円入ります（2047年の世帯の合計）`);
-    expect(text(5)).toContain("ご主人95歳時点の金融資産は");
-    expect(text(5)).toContain(`${Math.round(fin(r, 2076) / 10000).toLocaleString("en-US")}万円`);
+    // ○歳時点の資産は出さない（足りるかどうかだけ）
+    expect(text(5)).toBe("その結果、100歳まで資産が足ります");
     expect(text(3)).toMatch(/^教育費がかかるのは\d{4}〜\d{4}年/);
     expect(text(4)).toContain("住宅ローンの返済は");
   });
@@ -462,9 +472,9 @@ describe("説明モード", () => {
     const json = JSON.stringify(m);
     expect(json).not.toContain("MEMO-MARK-plans");
     for (const x of wh.request.input.household.members) expect(json).not.toContain(x.id);
-    const html = renderToString(h(ExplainView, { model: m, step: 2, onStep: () => undefined, onClose: () => undefined }));
+    const html = renderToString(h(ExplainBar, { model: m, step: 2, onStep: () => undefined, onClose: () => undefined }));
     expect(html).toContain("3 / 6");
-    expect(html).toContain("説明を終わる");
+    expect(html).toContain("次へ");
     expect(html).not.toContain("MEMO-MARK-plans");
   });
 });

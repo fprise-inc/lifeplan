@@ -44,7 +44,7 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
   const report: Record<string, unknown> = { host, userAgent: navigator.userAgent };
   try {
     await settle(dual);
-    report.initial = { headline: text(".hero-num"), verdict: text(".verdict") };
+    report.initial = { verdict: text("[data-verdict]"), year: text(".sel-lbl") };
     await stage("initial", report);
     // 文字を大きくする（メモは画面に出さない。引き出しを開いたときだけ）
     const fsBefore = getComputedStyle(document.documentElement).fontSize;
@@ -85,15 +85,15 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
     for (const [key, to] of [["retireAge", 4], ["retireAge", 0], ["pensionAge", 3], ["nisaMonthly", 3], ["livingMonthly", 0], ["retireAge", 2]] as const) {
       const before = dual.timings.length;
       await moveLever(key, to);
-      const previewHeadline = text(".hero-num");
+      const previewHeadline = text(".sel-lbl");
       await settle(dual);
       const ts = dual.timings.slice(before);
       steps.push({
         key,
         to,
         previewHeadline,
-        canonicalHeadline: text(".hero-num"),
-        verdict: text(".verdict"),
+        canonicalHeadline: text(".sel-lbl"),
+        verdict: text("[data-verdict]"),
         previewMs: ts.filter((t) => t.kind === "preview").map((t) => Math.round(t.ms * 10) / 10),
         releaseMs: ts.filter((t) => t.kind === "release").map((t) => Math.round(t.ms * 10) / 10),
         canonical: ts.filter((t) => t.kind === "canonical").map((t) => ({ ms: Math.round(t.ms), hostMs: Math.round(t.hostMs ?? 0) })),
@@ -177,7 +177,7 @@ export async function runInputCheck(dual: () => DualEngine | null, host: string)
     clickTab("主画面");
     await sleep(300);
     await wait();
-    report.main = { headline: text(".hero-num"), diff: text(".hero-diff") };
+    report.main = { verdict: text("[data-verdict]"), year: text(".sel-lbl") };
     await stage("main-after-input", report);
     // 空の世帯から
     const pick = document.querySelector<HTMLSelectElement>('select[aria-label="開く世帯"]');
@@ -280,9 +280,12 @@ async function moveItem(sel: string, to: number, dual: () => DualEngine | null, 
   return out;
 }
 
+/** グラフの選んだ案の線（path の d）。補間の確かめに使う */
+const selLine = () => document.querySelector(".main-chart .line-prop")?.getAttribute("d") ?? "";
+
 /**
- * 案の自己確認（URL の #selfcheck=plans）: 動かす項目を足して動かす（先出しの時間）→ 案として保存 → 重ねる → 5案を比べる（比較の時間）→
- * 収支のグラフ → 資産と負債のグラフ → 説明モード。開発用のサーバーのときだけ
+ * 案の自己確認（URL の #selfcheck=plans）: 動かす項目を足して動かす（先出しの時間）→ 案として保存（5案まで）→ 6案目（帯から1つ外れる）→
+ * 案の切り替え（補間）→ 基準の切り替え → 収支 → 資産と負債 → 説明モード → 差を表示 → 表示の設定 → 比較の表（5案の比較の時間）。開発用のサーバーのときだけ
  */
 export async function runPlansCheck(dual: () => DualEngine | null, host: string, compare: () => { ms: number; hostMs: number; slots: number }[]): Promise<void> {
   const report: Record<string, unknown> = { host, kind: "plans", userAgent: navigator.userAgent };
@@ -296,13 +299,18 @@ export async function runPlansCheck(dual: () => DualEngine | null, host: string,
     const d = dual();
     if (d !== null) await settle(d);
   };
+  const cards = () => [...document.querySelectorAll<HTMLElement>("[data-plan-card]")].map((c) => `${c.dataset.planCard}:${c.className.includes("is-sel") ? "表示中" : ""}${c.className.includes("is-base") ? "基準" : ""}`);
+  const saveAs = async () => {
+    await click("[data-plan-save]");
+    await click("[data-plan-save-form] button[type=submit]", 500);
+    await wait();
+  };
   try {
     await wait();
-    report.initial = { headline: text(".hero-num") };
+    report.initial = { verdict: text("[data-verdict]"), cards: cards(), lock: text("[data-lever-lock]") };
     // 1. 動かす項目を足す（借入・金利・配分）
     await click("[data-add-item]");
     report.menuItems = document.querySelectorAll("[data-pick]").length;
-    await stage("item-menu", report);
     const pickRe = async (re: RegExp) => {
       const b = [...document.querySelectorAll<HTMLButtonElement>("[data-pick]")].find((x) => re.test(x.dataset.pick ?? ""));
       if (b === undefined) return null;
@@ -318,99 +326,112 @@ export async function runPlansCheck(dual: () => DualEngine | null, host: string,
       if (k !== null) picked.push(k);
     }
     report.picked = picked;
-    const loanKey = picked.find((k) => /^loan:/.test(k) && !k.endsWith(":rate"));
     const previews: Record<string, number[]> = {};
+    // 2. 借入を減らして保存（C案）
+    const loanKey = picked.find((k) => /^loan:/.test(k) && !k.endsWith(":rate"));
     if (loanKey !== undefined) {
       const el = document.querySelector<HTMLInputElement>(`input[data-item="${loanKey}"]`);
       const target = loanKey.endsWith(":prepay") ? 5_000_000 : Number(el?.value ?? 0) - 5_000_000;
       previews.loan = await moveItem(`input[data-item="${loanKey}"]`, target, dual);
       await wait();
     }
-    report.afterLoan = { headline: text(".hero-num") };
-    await stage("item-added", report);
-    // 2. 案として保存
+    report.afterLoan = { verdict: text("[data-verdict]"), modified: document.querySelector(".plan.is-sel .p-mod") !== null };
     await click("[data-plan-save]");
-    report.suggestedName = (document.querySelector<HTMLInputElement>("[data-plan-save-form] input") as HTMLInputElement | null)?.value ?? null;
+    report.suggestedName = document.querySelector<HTMLInputElement>("[data-plan-save-form] input")?.value ?? null;
     await stage("plan-save", report);
-    await click("[data-plan-save-form] button[type=submit]");
-    // 3. 金利を上げて、土台に重ねて保存
+    await click("[data-plan-save-form] button[type=submit]", 500);
+    await wait();
+    // 3. 金利・配分・働く年齢を動かして保存（D・E・F案）
     const rateKey = picked.find((k) => k.endsWith(":rate"));
     if (rateKey !== undefined) {
       const el = document.querySelector<HTMLInputElement>(`input[data-item="${rateKey}"]`);
       previews.rate = await moveItem(`input[data-item="${rateKey}"]`, Number(el?.value ?? 0) + 500, dual, 30);
       await wait();
-      await click("[data-plan-save]");
-      await click("[data-plan-save-form] button[type=submit]");
+      await saveAs();
     }
-    // 4. 配分を変えて、現状から保存
     const mixKey = picked.find((k) => k.startsWith("mix:"));
     if (mixKey !== undefined) {
-      const sel = document.querySelector<HTMLSelectElement>("[data-plan-bar] select");
-      if (sel !== null) {
-        sel.value = "";
-        sel.dispatchEvent(new Event("change", { bubbles: true }));
-        await sleep(300);
-        document.querySelector<HTMLButtonElement>(".pb-confirm .btn.danger")?.click();
-        await sleep(300);
-      }
       previews.mix = await moveItem(`input[data-item="${mixKey}:equity"]`, 80, dual, 30);
       await wait();
-      await click("[data-plan-save]");
-      await click("[data-plan-save-form] button[type=submit]");
+      await saveAs();
     }
-    // 5. 対策の固定の項目でも2つ
-    for (const [lever, idx] of [["retireAge", 4], ["livingMonthly", 0]] as const) {
-      const sel = document.querySelector<HTMLSelectElement>("[data-plan-bar] select");
-      if (sel !== null) {
-        sel.value = "";
-        sel.dispatchEvent(new Event("change", { bubbles: true }));
-        await sleep(300);
-        document.querySelector<HTMLButtonElement>(".pb-confirm .btn.danger")?.click();
-        await sleep(300);
-      }
-      await moveLever(lever, idx);
-      await wait();
-      await click("[data-plan-save]");
-      await click("[data-plan-save-form] button[type=submit]");
-    }
+    await moveLever("retireAge", 4);
+    await wait();
+    await saveAs();
+    report.fiveCards = cards();
+    // 4. 6案目: 帯は5案まで（選んでいない・基準でない案が1つ帯から外れる。案は一覧に残る）
+    await moveLever("livingMonthly", 0);
+    await wait();
+    await saveAs();
+    report.sixth = { cards: cards(), notice: text(".toast"), listCount: text("[data-open-list]") };
     report.previews = previews;
     const all = Object.values(previews).flat();
     report.previewSummary = { median: median(all), max: all.length > 0 ? Math.max(...all) : null, count: all.length };
-    const canon = (dual()?.timings ?? []).filter((t) => t.kind === "canonical");
-    report.canonicalSummary = { median: median(canon.map((t) => t.ms)), max: canon.length > 0 ? Math.max(...canon.map((t) => t.ms)) : null, hostMedian: median(canon.map((t) => t.hostMs ?? 0)), count: canon.length, mismatches: dual()?.mismatches ?? null };
-    report.plans = [...document.querySelectorAll<HTMLOptionElement>("[data-plan-bar] select option")].map((o) => o.textContent);
-    // 6. 収支のグラフ・資産と負債のグラフ
-    await click('[data-chart-tab="flows"]');
-    report.flows = { bars: document.querySelectorAll(".flow-chart .bar").length, flags: document.querySelectorAll(".flow-chart .flag-band").length };
+    // 5. 案の切り替え: 線が前の形から新しい形へ動く（途中は間の形、約0.5秒で新しい形に止まる）
+    const before = selLine();
+    const t0 = performance.now();
+    const first = document.querySelector<HTMLElement>("[data-plan-card]:not(.is-sel):not(.is-base)");
+    first?.click();
+    await sleep(120);
+    const mid = selLine();
+    await sleep(700);
+    const end = selLine();
+    await sleep(300);
+    report.tween = { switchedTo: first?.dataset.planCard, moved: before !== mid, midDiffers: mid !== end, settled: end === selLine(), ms: Math.round(performance.now() - t0) };
+    await stage("switched", report);
+    // 6. 基準の切り替え: 選んだ案を基準にすると、対策は動かせない（理由を出す）
+    const baseSel = document.querySelector<HTMLSelectElement>("[data-base-select]");
+    const selLetter = document.querySelector<HTMLElement>(".plan.is-sel")?.dataset.planCard ?? "";
+    if (baseSel !== null) {
+      baseSel.value = selLetter;
+      baseSel.dispatchEvent(new Event("change", { bubbles: true }));
+      await sleep(400);
+      report.baseIsSel = { cards: cards(), lock: text("[data-lever-lock]"), verdict: text("[data-verdict]"), sliderDisabled: document.querySelector<HTMLInputElement>("input[data-lever]")?.closest("fieldset")?.disabled ?? null };
+      baseSel.value = "A";
+      baseSel.dispatchEvent(new Event("change", { bubbles: true }));
+      await sleep(400);
+    }
+    // 7. 収支のグラフ・資産と負債のグラフ
+    await click('[data-chart-tab="flows"]', 700);
+    report.flows = { bars: document.querySelectorAll(".main-chart .bar").length, flags: document.querySelectorAll(".main-chart .flag-band").length, lines: document.querySelectorAll(".main-chart .net-sel, .main-chart .net-base").length };
     await stage("flows", report);
-    await click('[data-chart-tab="balance"]');
-    report.balance = { bars: document.querySelectorAll(".balance-chart .bar").length };
+    await click('[data-chart-tab="balance"]', 700);
+    report.balance = { bars: document.querySelectorAll(".main-chart .bar").length, lines: document.querySelectorAll(".main-chart .net-sel, .main-chart .net-base").length };
     await stage("balance", report);
     await click('[data-chart-tab="assets"]');
-    // 7. 説明モード（3段目まで進める）
+    // 8. 説明モード（3段目まで進める）
     await click("[data-explain-open]");
     await click("[data-explain-next]");
     await click("[data-explain-next]");
-    report.explain = { sentence: text(".ex-sentence"), pos: text(".ex-pos") };
+    report.explain = { sentence: text("[data-verdict]"), pos: text(".ex-pos") };
     await stage("explain", report);
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await sleep(300);
     report.explainClosed = document.querySelector("[data-explain]") === null;
-    // 8. 5案を比べる
-    // 時間は「案を比べる」を押してから、5案と現状の線と数字の表が出るまで（案の計算はすべて本体で。前の結果は使わない）
-    const n0 = compare().length;
-    const t0 = performance.now();
-    await click("[data-plan-compare]", 0);
-    while (document.querySelector("[data-compare-pick]") === null && performance.now() - t0 < 5000) await sleep(5);
-    const picks = [...document.querySelectorAll<HTMLInputElement>("[data-compare-pick]")];
-    for (const p of picks.slice(0, 5)) {
-      if (!p.checked) p.click();
-      await sleep(30);
-    }
-    const want = Math.min(5, picks.length) + 1;
-    while ((document.querySelector("[data-compare-table]") === null || document.querySelectorAll(".compare-chart .chart .cmp-line").length < want) && performance.now() - t0 < 20000) await sleep(20);
-    report.compare = { ms: Math.round(performance.now() - t0), selected: document.querySelectorAll("[data-compare-pick]:checked").length, series: document.querySelectorAll(".compare-chart .chart .cmp-line").length, host: compare().slice(n0).map((t) => ({ ms: Math.round(t.ms), hostMs: Math.round(t.hostMs), slots: t.slots })) };
+    // 9. 差を表示（年間収支と金融資産残高の下に差の行）
+    await click("[data-diff-toggle]");
+    report.diff = { rows: [...document.querySelectorAll("[data-diff-row] th")].map((x) => x.textContent), changed: document.querySelectorAll(".cf td.chg").length };
+    await stage("diff", report);
+    // 10. 表示の設定: ○歳時点の金融資産を出す
+    await click("[data-settings-open]");
+    await click('[data-metric="assetsAtAge"]', 500);
+    report.settings = { mark: document.querySelector(".main-chart .m-age") !== null, cardMetrics: document.querySelectorAll(".plan .p-amt").length, verdict: text("[data-verdict]") };
+    await stage("settings", report);
+    await click('[data-metric="assetsAtAge"]', 300);
+    // 11. 5案の比較: 一覧で帯の案を外してから5案を並べ直し、6枠の正の計算がそろって比較の表が出るまで
+    await click("[data-open-list]");
+    for (const b of [...document.querySelectorAll<HTMLInputElement>("[data-band-pick]")]) if (b.checked) b.click();
+    await sleep(300);
+    const t1 = performance.now();
+    for (const b of [...document.querySelectorAll<HTMLInputElement>("[data-band-pick]")].slice(0, 5)) b.click();
+    await click("[data-open-compare]", 0);
+    while (document.querySelector("[data-compare-table]") === null && performance.now() - t1 < 20000) await sleep(10);
+    const d = dual();
+    while (d !== null && !d.settled() && performance.now() - t1 < 20000) await sleep(10);
+    report.compare = { ms: Math.round(performance.now() - t1), columns: document.querySelectorAll("[data-compare-table] thead th").length - 1, cards: cards(), open: compare()[0] ?? null };
     await stage("compare", report, 2500);
+    const canon = (dual()?.timings ?? []).filter((t) => t.kind === "canonical");
+    report.canonicalSummary = { median: median(canon.map((t) => t.ms)), max: canon.length > 0 ? Math.max(...canon.map((t) => t.ms)) : null, hostMedian: median(canon.map((t) => t.hostMs ?? 0)), count: canon.length, mismatches: dual()?.mismatches ?? null };
     report.ok = true;
   } catch (e) {
     report.ok = false;
