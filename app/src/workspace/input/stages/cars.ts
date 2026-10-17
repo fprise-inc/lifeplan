@@ -1,9 +1,9 @@
-// 車（ライフイベントの段階の区画）: 車のひな形（買い替えの周期・車両の価格・現金かローンか・維持費・手放す年齢・万一のときの扱い）。
+// 車（入力の項目「車」）: 車のひな形（買い替えの周期・車両の価格・現金かローンか・維持費・手放す年齢・万一のときの扱い）。
 // エンジンの cars（0008 の追記）をそのまま読み書きする。値の箱を持たない項目なので、空欄を目安で補った値は「推定」の印を画面の側（assumed）に持つ
 import type { Car, Household, Member } from "../../../engine/types.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { CAR_ESTIMATE, type Estimate } from "../estimates.ts";
-import { byId, field, getPath, plain, setPath, timepointField, type FieldDef, type Finder, type GroupDef, type Level, type SectionDef } from "../form.ts";
+import { byId, field, getPath, plain, setPath, timepointField, type FieldDef, type Finder, type GroupDef, type Level, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import { GROWTH_KINDS, memberLabel, memberOptions } from "../labels.ts";
 import { oneMinus } from "../units.ts";
@@ -57,7 +57,7 @@ export function upkeepAnnual(c: Car): number {
 
 const ownerOf = (h: Household, c: Car | undefined): Member | undefined => (c === undefined ? undefined : h.members.find((m) => m.id === c.owner));
 
-function carGroup(wh: WorkingHousehold, c: Car, i: number): GroupDef {
+export function carGroup(wh: WorkingHousehold, c: Car, i: number): GroupDef {
   const find = byId(cars, c.id);
   const k = `ev/car/${c.id}`;
   const car = (h: Household, w: WorkingHousehold) => find(h, w) as Car | undefined;
@@ -290,14 +290,22 @@ export function addCar(wh: WorkingHousehold, id: () => string = newId): WorkingH
   return { ...next, assumed: { ...next.assumed, [`${k}/price`]: CAR_ESTIMATE.price.basis, [`${k}/tradeIn`]: CAR_ESTIMATE.tradeIn.basis, [`${k}/upkeep`]: CAR_ESTIMATE.upkeep.basis } };
 }
 
-export function carSection(wh: WorkingHousehold): SectionDef {
-  const list = wh.request.input.household.cars ?? [];
+export function carStage(wh: WorkingHousehold): StageDef {
+  const claimed = new Set(wh.addedItems.map((a) => a.ref));
+  const list = (wh.request.input.household.cars ?? []).filter((c) => !claimed.has(c.id));
   return {
-    key: "ev/cars",
-    title: "車",
-    note: "買い替え（下取り・ローン）と維持費を、車ごとに入れます。基本生活費の「交通」には車の費用を入れないでください（二重になります）",
-    level: "simple",
-    groups: list.map((c, i) => carGroup(wh, c, i)),
-    actions: [{ key: "ev/addCar", label: "＋ 車（目安の値で入れる）", level: "simple", run: (w) => addCar(w) }],
+    id: "car",
+    label: "車",
+    lead: "車の台数と買い替えの予定・維持費。",
+    sections: [
+      {
+        key: "ev/cars",
+        title: "車",
+        note: "買い替え（下取り・ローン）と維持費を、車ごとに入れます。基本生活費の「交通」には車の費用を入れないでください（二重になります）",
+        level: "simple",
+        groups: list.map((c, i) => carGroup(wh, c, i)),
+        actions: [{ key: "ev/addCar", label: "＋ 車（目安の値で入れる）", level: "simple", run: (w) => addCar(w) }],
+      },
+    ],
   };
 }

@@ -1,16 +1,15 @@
-// 9. ライフイベント（一時的な収支）: 一時的支出・n年ごとの支出（旅行・家電・結婚の援助など）、介護の費用、車（cars.ts）、FP顧問料（fees.ts）
+// ライフイベント（一時的な収支）: 一時的支出・n年ごとの支出（旅行・家電・結婚の援助など）、介護の費用。
+// 車（cars.ts）・FP顧問料（fees.ts）は別の項目。FP が別のカードに足した物（items.ts の addedItems）は、ここには出さない
 import type { CareExpense, Household, PeriodicExpense } from "../../../engine/types.ts";
 import { addMonths, ageReachedMonth } from "../../levers.ts";
 import { byId, plain, removeAction, timepointField, yenBox, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, type WorkingHousehold } from "../household.ts";
 import { CARE_PLACE, memberLabel, memberOptions, PERIODIC_ROWS } from "../labels.ts";
-import { carSection } from "./cars.ts";
-import { feeSection } from "./fees.ts";
 
 const periodic = (h: Household) => h.periodicExpenses;
 const cares = (h: Household) => h.careExpenses;
 
-function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense): GroupDef {
+export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense): GroupDef {
   const find = byId(periodic, p.id);
   const k = `ev/${p.id}`;
   const self = wh.request.input.household.members.find((m) => m.kind === "self");
@@ -33,7 +32,7 @@ function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense): GroupDef {
   };
 }
 
-function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
+export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
   const find = byId(cares, c.id);
   const k = `ev/care/${c.id}`;
   return {
@@ -59,13 +58,14 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const base = wh.request.input.baseMonth;
   const self = h.members.find((m) => m.kind === "self");
+  const claimed = new Set(wh.addedItems.map((a) => a.ref));
   const sections: SectionDef[] = [
     {
       key: "ev/periodic",
       title: "一時的支出・n年ごとの支出",
       note: "旅行・家電の買い替え・リフォーム・結婚の援助など。毎月の基本生活費とは別に入れます",
       level: "simple",
-      groups: (h.periodicExpenses ?? []).map((p) => periodicGroup(wh, p)),
+      groups: (h.periodicExpenses ?? []).filter((p) => !claimed.has(p.id)).map((p) => periodicGroup(wh, p)),
       actions: [
         {
           key: "ev/addOnce",
@@ -88,7 +88,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
       key: "ev/care",
       title: "介護",
       level: "simple",
-      groups: (h.careExpenses ?? []).map((c) => careGroup(wh, c)),
+      groups: (h.careExpenses ?? []).filter((c) => !claimed.has(c.id)).map((c) => careGroup(wh, c)),
       actions: [
         {
           key: "ev/addCare",
@@ -105,6 +105,5 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
       ],
     },
   ];
-  sections.push(carSection(wh), feeSection(wh));
-  return { id: "events", label: "ライフイベント", lead: "一時的な収支（旅行・買い替え・援助など）・介護・車・FP顧問料。", sections };
+  return { id: "events", label: "ライフイベント", lead: "一時的な収支（旅行・買い替え・援助など）と介護。", sections };
 }

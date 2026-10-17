@@ -1,4 +1,5 @@
-// 根拠のパネル（0006 の7）: 数字を押すと、内訳・式・使った制度の値（値・出典・制度データの版・適用の開始）を出す
+// 根拠のパネル（0006 の7）: 数字を押すと、内訳・式・使った制度の値（値・出典・制度データの版・適用の開始）を出す。
+// 別の窓や画面の中央の重なりにはせず、画面の右の端の引き出しに出す（グラフや表を覆わない。広い画面では本文を左に寄せる）
 import { useEffect, useRef } from "preact/hooks";
 import { yen } from "./format.ts";
 import type { EvidenceView } from "./model.ts";
@@ -6,14 +7,26 @@ import type { EvidenceView } from "./model.ts";
 export type EvidenceState = { status: "loading"; title: string } | { status: "ready"; view: EvidenceView } | { status: "error"; title: string; code: string };
 
 export function EvidencePanel({ state, onClose }: { state: EvidenceState; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
+  const ref = useRef<HTMLElement>(null);
+  // 開いたら引き出しの閉じるボタンに移り、閉じたら元の場所（押した数字）に戻る
   useEffect(() => {
-    const d = ref.current;
-    if (d !== null && !d.open) d.showModal();
+    const back = document.activeElement as HTMLElement | null;
+    ref.current?.querySelector<HTMLElement>(".ev-close")?.focus({ preventScroll: true });
+    return () => back?.focus({ preventScroll: true });
   }, []);
   const title = state.status === "ready" ? state.view.title : state.title;
   return (
-    <dialog ref={ref} class="evidence" onClose={onClose} aria-labelledby="ev-title">
+    <aside
+      ref={ref}
+      class="drawer evidence"
+      aria-labelledby="ev-title"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onClose();
+        }
+      }}
+    >
       <div class="ev">
         <div class="ev-head">
           <div>
@@ -23,7 +36,7 @@ export function EvidencePanel({ state, onClose }: { state: EvidenceState; onClos
             </h2>
             {state.status === "ready" ? <div class="ev-sub">{state.view.context}</div> : null}
           </div>
-          <button type="button" class="ev-close" onClick={() => ref.current?.close()}>
+          <button type="button" class="ev-close" onClick={onClose}>
             閉じる ×
           </button>
         </div>
@@ -91,6 +104,6 @@ export function EvidencePanel({ state, onClose }: { state: EvidenceState; onClos
           </div>
         ) : null}
       </div>
-    </dialog>
+    </aside>
   );
 }

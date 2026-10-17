@@ -21,7 +21,8 @@ const ids = () => {
   return () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
 };
 const open = (id: string): WorkingHousehold => fromRequest(modelHousehold(id));
-const fields = (wh: WorkingHousehold): FieldDef[] => allFields(buildStage("events", wh));
+// 車・FP顧問料は、入力のホームでは別々の項目（カード）
+const fields = (wh: WorkingHousehold): FieldDef[] => [...allFields(buildStage("car", wh)), ...allFields(buildStage("fee", wh))];
 const fieldOf = (wh: WorkingHousehold, suffix: string) => fields(wh).find((f) => f.key.endsWith(suffix)) as FieldDef;
 
 describe("車の入力", () => {

@@ -8,15 +8,16 @@ import { group, monthlyMan } from "../presentation/format.ts";
 import { CashflowTable, GoalCards, MainCard } from "../presentation/MainView.tsx";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
 import { buildEvidence } from "./evidence.ts";
-import type { Level, StageId } from "./input/form.ts";
+import type { Level } from "./input/form.ts";
 import { blankHousehold, fromRequest, reemploymentOf, type WorkingHousehold } from "./input/household.ts";
-import { InputView, type MiniResult } from "./input/InputView.tsx";
+import { InputView } from "./input/InputView.tsx";
+import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
-import { STAGE_ORDER } from "./input/stages/index.ts";
 import { ContingencyTab } from "./contingency/ContingencyTab.tsx";
 import { LeverPanel, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
-import { advisoryFeeInCurrent, ageAt, applyAdvisoryFee, applyLevers, availableLevers, hasAdvisoryFee, LEVER_KEYS, parseYm, readLevers, type LeverKey, type LeverValues } from "./levers.ts";
-import { depletionYear, displayYears, financialOf, toPresentation } from "./present.ts";
+import { advisoryFeeInCurrent, applyAdvisoryFee, applyLevers, availableLevers, hasAdvisoryFee, LEVER_KEYS, readLevers, type LeverKey, type LeverValues } from "./levers.ts";
+import { MemoDrawer } from "./MemoDrawer.tsx";
+import { toPresentation } from "./present.ts";
 import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runSelfCheck } from "./selfcheck.ts";
 
@@ -28,9 +29,10 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "report", label: "提案書" },
 ];
 
-/** URL の # の後ろ（画面の確かめ用: #share・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#stage=work・#level=detail・#fee=off・#scenario=death:self） */
+/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#add=pet,car（開発用のサーバーだけ: 項目を足して保存した状態で開く）） */
 export function parseHash(hash: string): {
-  share: boolean;
+  /** 文字を大きくした状態で開く */
+  big: boolean;
   household?: string;
   levers?: number[];
   year?: number;
@@ -39,8 +41,13 @@ export function parseHash(hash: string): {
   /** #selfcheck=input: 入力の画面の自己確認 */
   selfcheckInput?: boolean;
   tab?: Tab;
-  stage?: StageId;
+  /** 入力のホームで開くパネル（項目の ID） */
+  open?: string;
   level?: Level;
+  /** メモの引き出しを開いて開く */
+  memo?: boolean;
+  /** 入力のホームで足して保存した状態にする項目（開発用のサーバーだけ） */
+  add?: string[];
   /** #fee=off: FP顧問料を入れない提案で開く */
   feeOff?: boolean;
   /** #scenario=death:self: 万一の画面で開く想定 */
@@ -48,20 +55,22 @@ export function parseHash(hash: string): {
   /** #selfcheck=contingency: 万一の画面の自己確認 */
   selfcheckContingency?: boolean;
 } {
-  const out: ReturnType<typeof parseHash> = { share: false, selfcheck: false };
+  const out: ReturnType<typeof parseHash> = { big: false, selfcheck: false };
   for (const part of hash.replace(/^#/, "").split("&")) {
     const [k, v] = part.split("=") as [string, string | undefined];
-    if (k === "share") out.share = true;
+    if (k === "big") out.big = true;
+    else if (k === "memo") out.memo = true;
     else if (k === "selfcheck") {
       out.selfcheck = true;
       if (v === "input") out.selfcheckInput = true;
       if (v === "contingency") out.selfcheckContingency = true;
     }
     else if (k === "fee" && v === "off") out.feeOff = true;
+    else if (k === "add" && v !== undefined) out.add = v.split(",").filter((x) => /^[a-z]+$/.test(x));
     else if (k === "scenario" && v !== undefined) out.scenario = v;
     else if (k === "household" && v !== undefined) out.household = v;
     else if (k === "tab" && TABS.some((t) => t.id === v)) out.tab = v as Tab;
-    else if (k === "stage" && STAGE_ORDER.some((s) => s.id === v)) out.stage = v as StageId;
+    else if ((k === "open" || k === "stage") && v !== undefined && /^[A-Za-z0-9:-]+$/.test(v)) out.open = v;
     else if (k === "level" && (v === "simple" || v === "detail")) out.level = v;
     else if (k === "levers" && v !== undefined) out.levers = v.split(",").map(Number);
     else if (k === "year" && v !== undefined) out.year = Number(v);
@@ -161,10 +170,10 @@ export function App() {
   const [opened, setOpened] = useState<Opened | null>(null);
   const [levers, setLevers] = useState<Partial<LeverValues>>({});
   const [selectedYear, setSelectedYear] = useState<number | null>(initial.year ?? null);
-  const [share, setShare] = useState(initial.share);
+  const [big, setBig] = useState(initial.big);
   const [tab, setTab] = useState<Tab>(initial.tab ?? "main");
-  const [stage, setStage] = useState<StageId>(initial.stage ?? "family");
   const [level, setLevel] = useState<Level>(initial.level ?? "simple");
+  const [memoOpen, setMemoOpen] = useState(initial.memo === true);
   const openedRef = useRef<Opened | null>(null);
   const [evidence, setEvidence] = useState<EvidenceState | null>(null);
   const [, setTick] = useState(0);
@@ -176,10 +185,10 @@ export function App() {
   const feeRef = useRef(feeOn);
   feeRef.current = feeOn;
 
-  // 共有用の表示: 文字の大きさ・線の太さは html の class で切り替える（描いた直後に。次の描画を待たない）
+  // 文字を大きくする: 文字の大きさ・線の太さは html の class で切り替える（描いた直後に。次の描画を待たない）
   useLayoutEffect(() => {
-    document.documentElement.classList.toggle("share", share);
-  }, [share]);
+    document.documentElement.classList.toggle("big", big);
+  }, [big]);
 
   // 起動: 本体（Tauri）か、開発用のサーバー（ブラウザでの確認）か
   useEffect(() => {
@@ -213,6 +222,7 @@ export function App() {
     return { current: o.wh.request, proposal: applyAdvisoryFee(levered, fee), alt: applyAdvisoryFee(levered, !fee) };
   }, []);
 
+  const addOnce = useRef(false);
   const open = useCallback(
     async (id: string, hashLevers?: number[]) => {
       if (host === null) return;
@@ -229,6 +239,16 @@ export function App() {
         o = openedFrom(demo, wh);
       }
       if (o === null) return;
+      // 画面の確かめ用（#add=…）: 項目を足して保存した状態にする。開発用のサーバーのときだけ
+      if (import.meta.env.DEV && initial.add !== undefined && !addOnce.current) {
+        addOnce.current = true;
+        let w = o.wh;
+        for (const k of initial.add) {
+          const r = addItem(w, k);
+          if (r !== null) w = saveItem(r.wh, r.itemId);
+        }
+        o = openedFrom(o.demo, w) ?? o;
+      }
       const baseLevers = o.baseLevers;
       let values: Partial<LeverValues> = { ...baseLevers, ...(o.demo?.firstProposal ?? {}) };
       if (hashLevers !== undefined) LEVER_KEYS.forEach((k, i) => (hashLevers[i] !== undefined && !Number.isNaN(hashLevers[i]) ? (values = { ...values, [k]: hashLevers[i] }) : null));
@@ -241,7 +261,7 @@ export function App() {
       dual.current = new DualEngine({ session: session.current, host, onChange: () => setTick((t) => t + 1) });
       await dual.current.set(requestsFor(o, values));
     },
-    [host, requestsFor],
+    [host, requestsFor, initial],
   );
 
   useEffect(() => {
@@ -342,6 +362,7 @@ export function App() {
     async (rowKey: string, year: number) => {
       if (host === null || opened === null) return;
       const req = { ...requestsFor(opened, leversRef.current).proposal, trace: "full" as const };
+      setMemoOpen(false);
       setEvidence({ status: "loading", title: `${year}年` });
       try {
         const full = await host.evidence(JSON.stringify(req));
@@ -369,28 +390,6 @@ export function App() {
   }, [model, initial, showEvidence, host]);
 
   if (import.meta.env.DEV && dual.current !== null) (globalThis as { __financia?: unknown }).__financia = { timings: dual.current.timings, mismatches: () => dual.current?.mismatches };
-
-  // 小さな結果（入力の画面の隅）: 現状の計算から、資産が尽きる年と目標の年齢の金融資産
-  const mini = useMemo<MiniResult | null>(() => {
-    if (opened === null) return null;
-    const req = opened.wh.request;
-    const self = roles(req).find((r) => r.key === "self");
-    if (cur?.result == null || self === undefined) return cur?.error != null ? { targetLabel: "", targetAmount: null, depletion: null, years: [], financial: [], provisional: false, error: cur.error } : null;
-    const years = displayYears(req);
-    const fin = financialOf(cur.result.table);
-    const dep = depletionYear(cur.result.table, years);
-    const targetAge = opened.demo?.targetAge ?? 95;
-    const targetYear = parseYm(self.member.birth.birthYearMonth).y + targetAge;
-    return {
-      targetLabel: `${self.label}${targetAge}歳時点の金融資産`,
-      targetAmount: years.includes(targetYear) ? (fin.get(targetYear) ?? 0) : null,
-      depletion: dep === null ? null : `${dep}年（${self.label}${ageAt(self.member, `${dep}-12`)}歳）`,
-      years,
-      financial: years.map((y) => fin.get(y) ?? 0),
-      provisional: cur.source !== "canonical" || cur.stale,
-      error: cur.error,
-    };
-  }, [opened, cur?.result, cur?.source, cur?.stale, cur?.error]);
 
   const who = model?.members[0]?.label ?? "本人";
   const leverNote = (k: LeverKey, v: number | undefined): string | null => {
@@ -435,19 +434,15 @@ export function App() {
   const lastCanon = dual.current?.timings.filter((t) => t.kind === "canonical").at(-1);
   const error = cur?.error ?? pro?.error ?? null;
 
+  const drawer = memoOpen || evidence !== null;
   return (
-    <>
-      {share ? (
-        <div class="share-banner" role="status">
-          共有用の表示中（FP用のメモは隠れています）
-        </div>
-      ) : null}
+    <div class={`app${drawer ? " has-drawer" : ""}`}>
       <header class="top">
         <span class="brand">
           <span class="brand-mark" aria-hidden="true" />
           ファイナンシア
         </span>
-        {!share && households.length > 0 ? (
+        {households.length > 0 ? (
           <label class="hh-pick">
             <select value={opened === null ? "" : (opened.demo?.id ?? BLANK)} onChange={(e) => void open((e.currentTarget as HTMLSelectElement).value)} aria-label="開く世帯">
               {households.map((h) => (
@@ -462,31 +457,49 @@ export function App() {
         {model !== null ? (
           <div class="hh">
             <span>{model.members.map((m) => `${m.label} ${m.age}歳`).join("・")}</span>
-            {!share ? <span class="tag">{model.asOf}</span> : null}
+            <span class="tag">{model.asOf}</span>
           </div>
         ) : null}
-        {!share ? (
-          <nav class="tabs" aria-label="画面">
-            {TABS.map((t) => (
-              <button type="button" key={t.id} class={t.id === tab ? "on" : ""} aria-current={t.id === tab ? "page" : undefined} onClick={() => setTab(t.id)}>
-                {t.label}
-              </button>
-            ))}
-          </nav>
+        <nav class="tabs" aria-label="画面">
+          {TABS.map((t) => (
+            <button type="button" key={t.id} class={t.id === tab ? "on" : ""} aria-current={t.id === tab ? "page" : undefined} onClick={() => setTab(t.id)}>
+              {t.label}
+            </button>
+          ))}
+        </nav>
+        {opened !== null ? (
+          <button
+            type="button"
+            class="memo-btn"
+            aria-expanded={memoOpen}
+            onClick={() => {
+              setEvidence(null);
+              setMemoOpen(!memoOpen);
+            }}
+            data-memo-toggle
+          >
+            メモ{opened.wh.memo.length > 0 ? <span class="memo-n">{opened.wh.memo.length}</span> : null}
+          </button>
         ) : null}
-        <button type="button" class="share-btn" aria-pressed={share} onClick={() => setShare(!share)} data-share-toggle>
+        <button type="button" class="big-btn" aria-pressed={big} onClick={() => setBig(!big)} data-big-toggle>
           <span class="sw" aria-hidden="true" />
-          <span class="lbl">共有用の表示{share ? " ON" : ""}</span>
+          <span class="aa" aria-hidden="true">
+            あ<b>あ</b>
+          </span>
+          <span>文字を大きくする</span>
         </button>
       </header>
       <main class="wrap">
         {fatal !== null ? <p class="fatal">起動できませんでした（{fatal}）</p> : null}
-        {error !== null ? <p class="fatal">計算できませんでした（{error}）</p> : null}
+        {error !== null && tab !== "input" ? <p class="fatal">計算できませんでした（{error}）</p> : null}
         {tab === "input" && opened !== null ? (
-          <InputView wh={opened.wh} onEdit={edit} stage={stage} onStage={setStage} level={level} onLevel={setLevel} share={share} mini={mini} />
+          <>
+            {error !== null ? <p class="fatal">今の入力では計算できませんでした（{error}）</p> : null}
+            <InputView wh={opened.wh} onSave={edit} level={level} onLevel={setLevel} {...(initial.open !== undefined ? { initialOpen: initial.open } : {})} />
+          </>
         ) : tab === "contingency" && opened !== null ? (
-          <ContingencyTab wh={opened.wh} host={host} share={share} targetAge={opened.demo?.targetAge ?? 95} onEdit={edit} {...(initial.scenario !== undefined ? { initialScenario: initial.scenario } : {})} />
-        ) : tab === "report" && !share ? (
+          <ContingencyTab wh={opened.wh} host={host} targetAge={opened.demo?.targetAge ?? 95} onEdit={edit} {...(initial.scenario !== undefined ? { initialScenario: initial.scenario } : {})} />
+        ) : tab === "report" ? (
           <section class="card placeholder">
             <h2>{TABS.find((t) => t.id === tab)?.label}</h2>
             <p>準備中です。</p>
@@ -498,20 +511,6 @@ export function App() {
             <div class="grid">
               <aside class="col-goals">
                 <GoalCards model={model.goals} />
-                {!share && opened !== null ? (
-                  <section class="memo" aria-label="FP用のメモ">
-                    <div class="memo-h">メモ（顧客には見せない）</div>
-                    {opened.wh.memo.length > 0 ? (
-                      <ul>
-                        {opened.wh.memo.map((m, i) => (
-                          <li key={i}>{m}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p class="memo-empty">入力の画面で書けます</p>
-                    )}
-                  </section>
-                ) : null}
               </aside>
               <MainCard model={model} onSelectYear={setSelectedYear} />
               <LeverPanel levers={leverRows} onSlide={slide} onRelease={release} onReset={reset} fee={feeToggle} />
@@ -519,7 +518,7 @@ export function App() {
             <CashflowTable model={model.table} selectedYear={model.selectedYear} onSelectYear={setSelectedYear} onEvidence={(r, y) => void showEvidence(r, y)} />
             <div class="foot footnote">
               <span>{opened?.demo !== null ? "架空のモデル世帯を" : "入力した世帯を"}、ファイナンシアの計算エンジン（開発版）で計算した結果です。制度データには原本での確認待ちの行があります。保存は次の版です。</span>
-              {import.meta.env.DEV && !share ? (
+              {import.meta.env.DEV ? (
                 <span class="perf">
                   計算の速さ: 先出し {last !== undefined ? `${last.ms.toFixed(0)}ms` : "—"}／正の計算 {lastCanon !== undefined ? `${lastCanon.ms.toFixed(0)}ms（本体 ${lastCanon.hostMs?.toFixed(0) ?? "—"}ms）` : "—"}／{host?.kind}
                 </span>
@@ -528,7 +527,8 @@ export function App() {
           </>
         )}
       </main>
+      {memoOpen && opened !== null ? <MemoDrawer wh={opened.wh} onEdit={edit} onClose={() => setMemoOpen(false)} /> : null}
       {evidence !== null ? <EvidencePanel state={evidence} onClose={() => setEvidence(null)} /> : null}
-    </>
+    </div>
   );
 }

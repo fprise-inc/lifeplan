@@ -1,11 +1,14 @@
-// 入力の10段階（標準の順番: 家族 → 働き方と収入 → 年金 → 基本生活費 → 子ども・教育 → 住まい・ローン → 保険 → 貯蓄・運用 → ライフイベント → 前提条件）
+// 入力の12項目（標準の順番: 家族 → 働き方と収入 → 年金 → 基本生活費 → 子ども・教育 → 住まい・ローン → 保険 → 貯蓄・運用 → ライフイベント → 車 → FP顧問料 → 前提条件）。
+// 入力のホームでは、項目ごとのカード（items.ts）になる
 import type { StageDef, StageId } from "../form.ts";
 import { allFields } from "../form.ts";
 import type { WorkingHousehold } from "../household.ts";
 import { assumptionsStage } from "./assumptions.ts";
+import { carStage } from "./cars.ts";
 import { educationStage } from "./education.ts";
 import { eventsStage } from "./events.ts";
 import { familyStage } from "./family.ts";
+import { feeStage } from "./fees.ts";
 import { housingStage } from "./housing.ts";
 import { insuranceStage } from "./insurance.ts";
 import { livingStage } from "./living.ts";
@@ -23,6 +26,8 @@ export const STAGE_ORDER: readonly { id: StageId; label: string }[] = [
   { id: "insurance", label: "保険" },
   { id: "savings", label: "貯蓄・運用" },
   { id: "events", label: "ライフイベント" },
+  { id: "car", label: "車" },
+  { id: "fee", label: "FP顧問料" },
   { id: "assumptions", label: "前提条件" },
 ];
 
@@ -36,6 +41,8 @@ const BUILDERS: Record<StageId, (wh: WorkingHousehold) => StageDef> = {
   insurance: insuranceStage,
   savings: savingsStage,
   events: eventsStage,
+  car: carStage,
+  fee: feeStage,
   assumptions: assumptionsStage,
 };
 
@@ -47,7 +54,7 @@ export function buildStages(wh: WorkingHousehold): StageDef[] {
   return STAGE_ORDER.map((s) => buildStage(s.id, wh));
 }
 
-/** 段階の一覧に添える状態: 推定・仮の値の数、入っている物の数 */
+/** 段階（項目）の状態の材料: 推定・仮の値の欄の数、入っている欄の数 */
 export interface StageStatus {
   id: StageId;
   estimated: number;
