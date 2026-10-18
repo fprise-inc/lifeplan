@@ -410,6 +410,45 @@
         },
         "excludingInvestment": { "$ref": "#/$defs/yenOrNull" }
       }
+    },
+    "chapters": {
+      "description": "載せる章（帳票の並び）。省略はすべての章。cover・assumptions は必ず入れる（宛名欄と必須の記載の欄。0009 の3・6）",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["cover", "assumptions", "summary", "basics", "events", "cashflow", "education", "housing", "retirement", "contingency", "insurance", "changes", "comparison"] },
+      "allOf": [{ "contains": { "const": "cover" } }, { "contains": { "const": "assumptions" } }]
+    },
+    "comparison": {
+      "description": "案の比較のページ（主画面の比較の表と同じ数字）。差はいつも「その案−基準」。省略・null は載せない",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["target", "base", "columns", "rows"],
+      "properties": {
+        "target": { "$ref": "#/$defs/yearPoint" },
+        "base": { "type": "integer", "minimum": 0 },
+        "columns": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 6,
+          "items": { "type": "object", "additionalProperties": false, "required": ["letter", "name"], "properties": { "letter": { "type": "string" }, "name": { "type": "string" } } }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "label", "unit", "values", "years", "diffs"],
+            "properties": {
+              "key": { "enum": ["target", "depletion", "takeHome", "expense", "min", "loan"] },
+              "label": { "type": "string" },
+              "unit": { "enum": ["yen", "year"] },
+              "values": { "type": "array", "items": { "type": ["integer", "null"] } },
+              "years": { "type": "array", "items": { "type": ["integer", "null"] } },
+              "diffs": { "type": "array", "items": { "type": ["integer", "null"] } }
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {

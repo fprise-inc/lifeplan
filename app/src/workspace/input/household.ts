@@ -6,6 +6,7 @@ import { addMonths, ageAt, ageReachedMonth, parseYm, type Reemployment } from ".
 import { emptyPlan, planFromRequest, type ContingencyPlan } from "../contingency/planData.ts";
 import { livingEstimate } from "./estimates.ts";
 import type { Proposal } from "../plans/plans.ts";
+import type { HearingLog } from "../hearing/sheet.ts";
 
 /** 定年の後に働くときの条件（D: 入力画面の「定年後の予定」。主画面の「働く最後の年齢」を延ばすときにも使う） */
 export interface PostRetirement {
@@ -40,6 +41,8 @@ export interface WorkingHousehold {
    * 世帯データの proposals に入れる（いまは画面の中で持ち、アプリを閉じると消える）
    */
   proposals: Proposal[];
+  /** ヒアリングシートの依頼・取り込み・同意の下書きの記録（0018。保存の回で世帯ファイルの取り込みの記録・同意の記録に入れる） */
+  hearing?: HearingLog;
 }
 
 /** FP が足した項目（今あるデータの型の物1件を、別のカードにする） */

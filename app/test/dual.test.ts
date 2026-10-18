@@ -38,6 +38,12 @@ function fakeSession() {
   };
 }
 
+/** 提案書・ヒアリングシートの命令（この試験では使わない） */
+const NO_FILES: Pick<HostApi, "report" | "sheets"> = {
+  report: { render: async () => Promise.reject("E"), page: async () => Promise.reject("E"), save: async () => Promise.reject("E"), discard: async () => undefined },
+  sheets: { save: async () => Promise.reject("E"), open: async () => null },
+};
+
 /** 本体の代わり: 結果は要求の n×10（正の計算）。応答は手で返す */
 function fakeHost() {
   const pending: { slots: SlotRequest[]; resolve: (r: ComputeResponse) => void }[] = [];
@@ -48,6 +54,7 @@ function fakeHost() {
     openHousehold: async () => req(0),
     compute: (slots) => new Promise((resolve) => pending.push({ slots, resolve })),
     evidence: async () => ({ error: { code: "E", ids: [] } }),
+    ...NO_FILES,
   };
   const answer = (i = 0, tamper = false) => {
     const p = pending.splice(i, 1)[0]!;
@@ -160,6 +167,7 @@ describe("二本立て（0005 の5）", () => {
     const base = modelHousehold("salariedCoupleTwoKids");
     const self = roles(base).find((r) => r.key === "self")!.member;
     const host: HostApi = {
+      ...NO_FILES,
       kind: "browser-dev",
       packs: async () => packs,
       listHouseholds: async () => [],

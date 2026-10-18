@@ -1,7 +1,7 @@
 // 公式の帳票（提案書の標準構成。0009 の9）の入口。
 //   #import "@lifeplan/report-core:0.1.0": proposal
 //   #proposal(json("/input.json"), json("/frame.json"))
-// data: 帳票の入力（lifeplan.proposalInput 0.1.0。提示に必要な値だけ）
+// data: 帳票の入力（lifeplan.proposalInput 0.1.0。提示に必要な値だけ。任意の chapters で載せる章を、comparison で案の比較を渡す）
 // frame: アプリが帳票の外側で決める値（刻印の帯の高さ band（pt）、必須の記載 notices）。刻印そのものはアプリが組んだ後に重ねる
 // 帳票は刻印の帯（下端の band の高さ）の内側に描かない。金額は計算し直さず、書式だけを当てる
 #import "parts/format.typ": *
@@ -12,6 +12,7 @@
 #import "pages/topics.typ": assets-page, education, housing, retirement
 #import "pages/risk.typ": contingency, insurance
 #import "pages/changes.typ": changes
+#import "pages/compare.typ": comparison
 
 #let supported = "0.1.0"
 
@@ -26,17 +27,29 @@
   set heading(numbering: "1")
   show heading.where(level: 1): chapter-style
 
+  // 載せる章（省略はすべて。表紙と前提条件と注意書きは外せない）。材料の無い章は省く
+  let chosen = data.at("chapters", default: none)
+  let on(id) = chosen == none or id in chosen
+  let compared = data.at("comparison", default: none)
+
   cover(data)
   assumptions(data, frame)
-  summary(data)
-  basics(data)
-  if data.events.len() > 0 { events(data) }
-  cashflow(data, band-height)
-  assets-page(data)
-  if data.education != none { education(data) }
-  if data.housingLoan != none { housing(data) }
-  if data.retirement != none { retirement(data) }
-  if data.contingency != none { contingency(data) }
-  if data.insurance != none { insurance(data) }
-  changes(data)
+  if on("summary") { summary(data) }
+  if on("basics") { basics(data) }
+  if on("events") and data.events.len() > 0 { events(data) }
+  if on("cashflow") {
+    cashflow(data, band-height)
+    assets-page(data)
+  }
+  if on("education") and data.education != none { education(data) }
+  if on("housing") and data.housingLoan != none { housing(data) }
+  if on("retirement") and data.retirement != none { retirement(data) }
+  if on("contingency") and data.contingency != none { contingency(data) }
+  if on("insurance") and data.insurance != none { insurance(data) }
+  if on("changes") { changes(data) }
+  // 案の比較は列が多い（4案より多い）ときは A4 横にする
+  if on("comparison") and compared != none {
+    set page(flipped: compared.columns.len() > 4)
+    comparison(data)
+  }
 }

@@ -1,6 +1,7 @@
 // 入力のホーム（作業の層の部品）: 項目ごとのカードを同じ大きさのグリッドで並べ、押すと中央に入力のパネルが開く。
 // カードに出すのは「イラスト＋名前＋要約の数字1つ＋状態」まで。上部に「○項目中○項目 入力済み」と項目ごとのマスの進み具合。
 // 項目が増えたら、まとまりの見出しで区切る（items.ts の GROUP_HEADINGS_FROM）。「＋ 項目を追加」で FP が項目を足せる
+import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
@@ -17,6 +18,8 @@ interface Props {
   onLevel: (l: Level) => void;
   /** 開いたときにパネルを開く項目（URL の #open=work など。画面の確かめ用） */
   initialOpen?: string;
+  /** 進み具合の下に置く道具（ヒアリングシートの書き出しと取り込み）。カードの並びの上に出す */
+  tools?: ComponentChildren;
 }
 
 function Card({ item, onOpen, flash }: { item: InputItem; onOpen: (id: string) => void; flash: boolean }) {
@@ -88,7 +91,7 @@ function AddCard({ open, onOpen, onPick }: { open: boolean; onOpen: (v: boolean)
   );
 }
 
-export function InputView({ wh, onSave, level, onLevel, initialOpen }: Props) {
+export function InputView({ wh, onSave, level, onLevel, initialOpen, tools }: Props) {
   const items = useMemo(() => inputItems(wh), [wh]);
   const groups = useMemo(() => groupedItems(items), [items]);
   const p = progressOf(items);
@@ -173,6 +176,7 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen }: Props) {
           </div>
         </div>
       </div>
+      {tools !== undefined ? <div class="ih-tools">{tools}</div> : null}
       {groups.map((g, gi) => (
         <section class="ih-group" key={g.group?.id ?? "all"} aria-label={g.group?.label ?? "入力の項目"}>
           {g.group !== null ? <h2 class="ih-gh">{g.group.label}</h2> : null}

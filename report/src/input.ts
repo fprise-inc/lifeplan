@@ -6,6 +6,8 @@
 // 金額はすべて円の整数で、計算エンジンの出力（表のマス・要約・必要保障額）をそのまま写すか、年ごと・行ごとに足したもの。
 // 帳票（Typst）の側は表示の書式（3桁区切り・万円への丸め・▲）だけを行い、計算し直さない。
 
+import type { ChapterId } from "./chapters.ts";
+
 /** 円（整数） */
 export type Yen = number;
 
@@ -77,6 +79,27 @@ export interface ScenarioView {
   /** 万一の場合と万一なしの差（表の期間の合計。行のまとまりごと） */
   breakdown: NamedAmount[];
   notices: string[];
+}
+
+/** 案の比較のページ（主画面の「比較の表」と同じ数字。列は現状と案、差はいつも「その案−基準」） */
+export interface Comparison {
+  /** 目標の年（本人の目標の年齢の年） */
+  target: YearPoint;
+  /** 基準の列（0 から） */
+  base: number;
+  columns: { letter: string; name: string }[];
+  rows: {
+    key: "target" | "depletion" | "takeHome" | "expense" | "min" | "loan";
+    label: string;
+    /** yen: 円、year: 年（null は「尽きない」） */
+    unit: "yen" | "year";
+    /** 列と同じ並び */
+    values: (number | null)[];
+    /** その額の年（min の行だけ。ほかは空） */
+    years: (number | null)[];
+    /** 基準との差（基準の列と、比べられないときは null） */
+    diffs: (number | null)[];
+  }[];
 }
 
 export interface ProposalInput {
@@ -178,4 +201,8 @@ export interface ProposalInput {
     /** 運用の前提の変更を除いた効果（目標の年の金融資産の差） */
     excludingInvestment: Yen | null;
   };
+  /** 載せる章（帳票の並び。省略はすべての章。外せない章は必ず入る。chapters.ts） */
+  chapters?: ChapterId[];
+  /** 案の比較のページ（省略・null は載せない） */
+  comparison?: Comparison | null;
 }

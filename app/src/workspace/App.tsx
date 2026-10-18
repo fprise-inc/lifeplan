@@ -13,6 +13,9 @@ import { CashflowTable, FeeNote, ResultCard } from "../presentation/MainView.tsx
 import { PlanBand } from "../presentation/PlanBand.tsx";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
 import { ContingencyTab } from "./contingency/ContingencyTab.tsx";
+import { HearingTools } from "./hearing/HearingTools.tsx";
+import { ReportTab } from "./report/ReportTab.tsx";
+import { runWireCheck } from "./report/wirecheck.ts";
 import { DisplaySettingsPanel } from "./DisplaySettingsPanel.tsx";
 import { buildEvidence } from "./evidence.ts";
 import { explainModel } from "./explain.ts";
@@ -74,6 +77,8 @@ export function parseHash(hash: string): {
   selfcheckContingency?: boolean;
   /** #selfcheck=plans: 案の帯・対策・グラフの切り替え・説明モード・比較の表の自己確認 */
   selfcheckPlans?: boolean;
+  /** #selfcheck=wire: 提案書の PDF とヒアリングシートの自己確認 */
+  selfcheckWire?: boolean;
   /** 主画面のグラフ */
   chart?: ChartMode;
   /** 説明モードを開いた状態（段の番号。0 から） */
@@ -107,6 +112,7 @@ export function parseHash(hash: string): {
       if (v === "input") out.selfcheckInput = true;
       if (v === "contingency") out.selfcheckContingency = true;
       if (v === "plans") out.selfcheckPlans = true;
+      if (v === "wire") out.selfcheckWire = true;
     } else if (k === "chart" && (v === "flows" || v === "balance" || v === "assets")) out.chart = v;
     else if (k === "explain" && v !== undefined && /^\d$/.test(v)) out.explain = Number(v);
     else if (k === "items" && v !== undefined) out.items = v.split(",").filter((x) => /^[a-z]+$/.test(x));
@@ -356,6 +362,7 @@ export function App() {
   );
 
   const addOnce = useRef(false);
+  const seedOnce = useRef(false);
   const open = useCallback(
     async (id: string, hashLevers?: number[]) => {
       if (host === null) return;
@@ -395,7 +402,8 @@ export function App() {
       const values = normalizeValues(first, {}, o.wh, o.catalog);
       let band: string[] = [];
       let shownKeys: string[] = [];
-      if (import.meta.env.DEV && initial.seed === true) {
+      if (import.meta.env.DEV && initial.seed === true && !seedOnce.current) {
+        seedOnce.current = true;
         // 画面の確かめ用（開発用のサーバーだけ）: #seed=plans で見本の案を5つ作り、帯に並べる
         const seeded = seedPlans(o, values);
         o = { ...o, wh: seeded.wh };
@@ -714,6 +722,7 @@ export function App() {
     if (import.meta.env.DEV && initial.selfcheck && dual.current !== null) {
       if (initial.selfcheckInput === true) void runInputCheck(() => dual.current, host?.kind ?? "browser-dev");
       else if (initial.selfcheckContingency === true) void runContingencyCheck(host?.kind ?? "browser-dev");
+      else if (initial.selfcheckWire === true) void runWireCheck(host?.kind ?? "browser-dev");
       else if (initial.selfcheckPlans === true) void runPlansCheck(() => dual.current, host?.kind ?? "browser-dev", () => compareTimings.current);
       else void runSelfCheck(dual.current, host?.kind ?? "browser-dev");
     }
@@ -867,15 +876,30 @@ export function App() {
           <>
             {error !== null ? <p class="fatal">今の入力では計算できませんでした（{error}）</p> : null}
             {opened.wh.proposals.length > 0 ? <p class="in-note plans-note">入力（現状）を直すと、保存した案（{opened.wh.proposals.length}件）にも反映されます。案が指していた物を外すと、その案に「要確認」が出ます。</p> : null}
-            <InputView wh={opened.wh} onSave={edit} level={level} onLevel={setLevel} {...(initial.open !== undefined ? { initialOpen: initial.open } : {})} />
+            <InputView
+              wh={opened.wh}
+              onSave={edit}
+              level={level}
+              onLevel={setLevel}
+              {...(initial.open !== undefined ? { initialOpen: initial.open } : {})}
+              {...(host !== null ? { tools: <HearingTools wh={opened.wh} sheets={host.sheets} onSave={edit} /> } : {})}
+            />
           </>
         ) : tab === "contingency" && opened !== null ? (
           <ContingencyTab wh={opened.wh} host={host} targetAge={opened.demo?.targetAge ?? 95} onEdit={edit} {...(initial.scenario !== undefined ? { initialScenario: initial.scenario } : {})} />
-        ) : tab === "report" ? (
-          <section class="card placeholder">
-            <h2>{TABS.find((t) => t.id === tab)?.label}</h2>
-            <p>準備中です。</p>
-          </section>
+        ) : tab === "report" && opened !== null && host !== null ? (
+          <ReportTab
+            host={host}
+            wh={opened.wh}
+            catalog={opened.catalog}
+            band={work.band}
+            base={work.base}
+            selected={work.sel}
+            modified={modified}
+            valuesOf={(id) => valuesOf(opened.wh, work, id)}
+            letterOf={(id) => ({ letter: letterOf(id), name: id === CURRENT ? "現状" : (letters.get(id)?.name ?? "") })}
+            targetAge={settings.atAge}
+          />
         ) : model === null || opened === null || band === null ? (
           fatal === null ? <p class="loading">計算しています…</p> : null
         ) : (

@@ -4,7 +4,9 @@
 // - 世帯の内部 ID（構成員・物の ID）、氏名・宛名、FP のメモ、カスタム計算の印は写さない（0009 の9・0016 の2）。
 // - 構成員の呼び方と表の行の決め方は、アプリの提示の値（app/src/workspace/roles.ts・present.ts）と同じにしている。
 import type { EngineOutput, EngineRequest, ProposalBundle, Run, TableCell } from "./bundle.ts";
+import { selectChapters } from "./chapters.ts";
 import {
+  type Comparison,
   PROPOSAL_INPUT_FORMAT,
   PROPOSAL_INPUT_VERSION,
   type CfRow,
@@ -759,6 +761,76 @@ function changes(ctx: Ctx, current: Outcome, proposal: Outcome): ProposalInput["
   return { metrics, items: b.changes ?? [], fee, steps, excludingInvestment };
 }
 
+/** 案の主な数字（主画面の比較の表 app/src/workspace/plans/compare.ts の metricsOf と同じ決め方） */
+export interface ComparisonMetrics {
+  target: Yen;
+  depletion: number | null;
+  /** 生涯の手取りの合計（収入−税・社会保険料。表に出す年の合計） */
+  takeHome: Yen;
+  /** 生涯の支出の合計（税・社会保険料を除く） */
+  expense: Yen;
+  min: { year: number; amount: Yen };
+  /** 住宅ローンの返済の合計（繰上返済・手数料を含む） */
+  loan: Yen;
+}
+
+export function comparisonMetrics(run: Run, years: readonly number[], targetYear: number): ComparisonMetrics {
+  const ys = new Set(years);
+  const fin = financialOf(run.result);
+  let takeHome = 0;
+  let expense = 0;
+  let loan = 0;
+  for (const c of run.result.table) {
+    if (!ys.has(c.year)) continue;
+    if (under(c.row, "cf.income")) takeHome += c.amount;
+    else if (under(c.row, "cf.taxSi")) takeHome -= c.amount;
+    else if (under(c.row, "cf.expense")) {
+      expense += c.amount;
+      if (under(c.row, "cf.expense.housing.loan")) loan += c.amount;
+    }
+  }
+  let min = { year: years[0] ?? run.request.input.endYear, amount: Number.POSITIVE_INFINITY };
+  for (const y of years) {
+    const v = fin.get(y) ?? 0;
+    if (v < min.amount) min = { year: y, amount: v };
+  }
+  if (!Number.isFinite(min.amount)) min = { ...min, amount: 0 };
+  return { target: fin.get(targetYear) ?? 0, depletion: depletionYear(run.result, years), takeHome, expense, min, loan };
+}
+
+function comparison(ctx: Ctx): Comparison | null {
+  const c = ctx.bundle.comparison;
+  if (c === undefined || c.plans.length < 2) return null;
+  const plans = c.plans.slice(0, 6);
+  const b = Math.min(Math.max(0, c.base), plans.length - 1);
+  const ms = plans.map((p) => comparisonMetrics(p.run, ctx.years, ctx.target.year));
+  const bm = ms[b] as ComparisonMetrics;
+  const yenRow = (key: "target" | "takeHome" | "expense" | "loan", label: string, get: (m: ComparisonMetrics) => number): Comparison["rows"][number] => ({
+    key,
+    label,
+    unit: "yen",
+    values: ms.map(get),
+    years: [],
+    diffs: ms.map((m, i) => (i === b ? null : get(m) - get(bm))),
+  });
+  const rows: Comparison["rows"] = [
+    yenRow("target", `${ctx.target.label}時点の金融資産`, (m) => m.target),
+    {
+      key: "depletion",
+      label: "資産が尽きる年",
+      unit: "year",
+      values: ms.map((m) => m.depletion),
+      years: [],
+      diffs: ms.map((m, i) => (i === b || m.depletion === null || bm.depletion === null ? null : m.depletion - bm.depletion)),
+    },
+    yenRow("takeHome", "生涯の手取りの合計", (m) => m.takeHome),
+    yenRow("expense", "生涯の支出の合計（税・社会保険料を除く）", (m) => m.expense),
+    { key: "min", label: "金融資産がいちばん少ない年", unit: "yen", values: ms.map((m) => m.min.amount), years: ms.map((m) => m.min.year), diffs: ms.map((m, i) => (i === b ? null : m.min.amount - bm.min.amount)) },
+  ];
+  if (ms.some((m) => m.loan > 0)) rows.push(yenRow("loan", "住宅ローンの返済の合計（繰上返済を含む）", (m) => m.loan));
+  return { target: ctx.target, base: b, columns: plans.map((p) => ({ letter: p.letter, name: p.name })), rows };
+}
+
 /** 計算の要求と正の計算の結果から、帳票の入力を組み立てる */
 export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
   const req = bundle.proposal.request;
@@ -772,7 +844,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
   ctx.target = { year: targetYear, label: pointLabel(ctx, targetYear) };
   const current = outcome(ctx, bundle.current);
   const proposal = outcome(ctx, bundle.proposal);
-  return {
+  const input: ProposalInput = {
     format: PROPOSAL_INPUT_FORMAT,
     version: PROPOSAL_INPUT_VERSION,
     document: { title: bundle.document.title ?? "ライフプランのご提案", issuedOn: bundle.document.issuedOn, preparedBy: bundle.document.preparedBy ?? null },
@@ -796,5 +868,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     contingency: contingency(ctx),
     insurance: insurance(ctx),
     changes: changes(ctx, current, proposal),
+    comparison: comparison(ctx),
   };
+  return bundle.chapters !== undefined ? selectChapters(input, bundle.chapters) : input;
 }

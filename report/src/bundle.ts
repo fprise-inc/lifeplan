@@ -1,6 +1,7 @@
 // 帳票の入力を組み立てる材料（ProposalBundle）: 計算の要求と、その正の計算の結果の組。
 // 結果は本体の quickjs-ng で計算したもの（0005 の2。画面側の先出しの結果は渡さない）。形は表示の形（preview: 見出し・表・要約）でよい。
 import type { EngineRequest } from "../../engine/src/engine/types.ts";
+import type { ChapterId } from "./chapters.ts";
 
 export type { EngineRequest };
 
@@ -76,4 +77,8 @@ export interface ProposalBundle {
   protection?: Run;
   /** 年金の受け取り開始の比較（繰下げ。提案の世帯で、受け取り開始だけを変えた計算） */
   deferral?: { memberKey: string; options: { startAge: number; run: Run }[] };
+  /** 案の比較のページ（現状と帯の案。基準の列の番号。主画面の比較の表と同じ） */
+  comparison?: { base: number; plans: { letter: string; name: string; run: Run }[] };
+  /** 載せる章（省略はすべて。chapters.ts） */
+  chapters?: ChapterId[];
 }
