@@ -29,6 +29,74 @@ function readBody(req: import("node:http").IncomingMessage): Promise<Buffer> {
   });
 }
 
+/** 開発用のサーバーの世帯の保存（メモリの中だけ。再起動で消える） */
+const devStore = {
+  households: new Map<string, { customerNo: string; summary: string; createdAt: string; updatedAt: string; body: string; generation: number }>(),
+  lastOpened: null as string | null,
+  acknowledgedAt: null as string | null,
+  verifiedAt: null as string | null,
+  next: 1,
+  // 見本の復元キー（開発用。本物の親鍵ではない）
+  recoveryKey: Array.from({ length: 58 }, (_, i) => "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[(i * 7 + 3) % 32]).join("").replace(/(.{4})(?=.)/g, "$1-"),
+  deletions: 0,
+};
+
+function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: unknown } | { ok: false; code: string } {
+  const s = devStore;
+  const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  const status = () => ({ state: "ready", firstRun: s.households.size === 0 && s.acknowledgedAt === null, recoveryAcknowledged: s.acknowledgedAt !== null, recoveryVerifiedAt: s.verifiedAt, lastOpened: s.lastOpened, deletionsPending: s.deletions, deletionsCompleted: 0 });
+  const norm = (k: string) => k.toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
+  const withMeta = (body: string, customerNo: string) => JSON.stringify({ ...(JSON.parse(body) as object), meta: { format: "lifeplan.household", formatVersion: "0.1", savedAt: now, appVersion: "dev", customerNo } });
+  const h = a.id !== undefined ? s.households.get(a.id) : undefined;
+  switch (op) {
+    case "status":
+      return { ok: true, value: status() };
+    case "list":
+      return { ok: true, value: [...s.households.entries()].map(([id, e]) => ({ id, customerNo: e.customerNo, summary: e.summary, createdAt: e.createdAt, updatedAt: e.updatedAt })).sort((x, y) => (x.updatedAt < y.updatedAt ? 1 : -1)) };
+    case "create": {
+      const id = crypto.randomUUID();
+      const customerNo = `D${String(s.next++).padStart(4, "0")}`;
+      s.households.set(id, { customerNo, summary: a.summary ?? "", createdAt: now, updatedAt: now, body: a.body ?? "{}", generation: 1 });
+      s.lastOpened = id;
+      return { ok: true, value: { id, customerNo, body: withMeta(a.body ?? "{}", customerNo), readOnly: false, generation: 1 } };
+    }
+    case "open":
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      s.lastOpened = a.id ?? null;
+      return { ok: true, value: { id: a.id, customerNo: h.customerNo, body: withMeta(h.body, h.customerNo), readOnly: false, generation: h.generation } };
+    case "save":
+      if (h === undefined) return { ok: false, code: "E_STORE_NOT_OPEN" };
+      Object.assign(h, { body: a.body, summary: a.summary, updatedAt: now, generation: h.generation + 1 });
+      return { ok: true, value: { generation: h.generation, savedAt: now } };
+    case "rename":
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      if (!/^[A-Za-z0-9_-]{1,16}$/.test((a.customerNo ?? "").trim())) return { ok: false, code: "E_STORE_CUSTOMER_NO" };
+      h.customerNo = (a.customerNo ?? "").trim();
+      return { ok: true, value: { customerNo: h.customerNo, duplicate: [...s.households.entries()].some(([k, e]) => k !== a.id && e.customerNo === h.customerNo) } };
+    case "delete":
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      if ((a.confirm ?? "").trim() !== h.customerNo) return { ok: false, code: "E_STORE_CONFIRM" };
+      s.households.delete(a.id as string);
+      if (s.lastOpened === a.id) s.lastOpened = null;
+      s.deletions++;
+      return { ok: true };
+    case "recoveryKey":
+      return { ok: true, value: s.recoveryKey };
+    case "acknowledge":
+      s.acknowledgedAt = now;
+      return { ok: true, value: status() };
+    case "test":
+    case "restore": {
+      const k = norm(a.key ?? "");
+      if (k.length !== 58) return { ok: false, code: "E_RECOVERY_TYPO" };
+      if (k !== norm(s.recoveryKey)) return { ok: false, code: "E_RECOVERY_MISMATCH" };
+      if (op === "test") s.verifiedAt = now;
+      return { ok: true, value: status() };
+    }
+  }
+  return { ok: false, code: "E_DEV_STORE_OP" };
+}
+
 function devHost(): Plugin {
   const households = join(REPO_DIR, "data", "modelHouseholds");
   const regulation = join(ENGINE_DIST, "regulation");
@@ -117,6 +185,18 @@ function devHost(): Plugin {
           const f = process.env.FINANCIA_DEV_OPEN_FILE || join(REPO_DIR, "hearing", "samples", "basic-1-sample.xlsx");
           res.setHeader("content-type", "application/octet-stream");
           return void res.end(readFileSync(f));
+        }
+        // 世帯の保存（本体の store_*・recovery_key_* の代わり）: 開発用のサーバーのメモリの中だけ。暗号化もファイルへの保存もしない
+        const st = /^store\/([a-zA-Z]+)$/.exec(path);
+        if (st !== null && req.method === "POST") {
+          void (async () => {
+            const args = JSON.parse((await readBody(req)).toString("utf8") || "{}") as Record<string, string>;
+            const r = devStoreOp(st[1] as string, args);
+            res.statusCode = r.ok ? 200 : 400;
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(r.ok ? JSON.stringify(r.value ?? null) : r.code);
+          })();
+          return;
         }
         void next;
         // 画面の自己確認（#selfcheck）の待ち

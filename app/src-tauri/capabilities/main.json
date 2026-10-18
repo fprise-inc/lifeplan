@@ -14,6 +14,18 @@
     "allow-proposal-save",
     "allow-proposal-discard",
     "allow-hearing-save",
-    "allow-hearing-open"
+    "allow-hearing-open",
+    "allow-store-status",
+    "allow-store-list",
+    "allow-store-create",
+    "allow-store-open",
+    "allow-store-save",
+    "allow-store-rename",
+    "allow-store-delete",
+    "allow-recovery-key-show",
+    "allow-recovery-key-acknowledge",
+    "allow-recovery-key-test",
+    "allow-recovery-key-restore",
+    "allow-app-close-ready"
   ]
 }

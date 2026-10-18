@@ -75,6 +75,57 @@ export interface SheetHost {
   open(): Promise<Uint8Array | null>;
 }
 
+/** 保存の状態（本体の household-store の Status） */
+export interface StoreStatus {
+  state: "ready" | "needsRecovery";
+  firstRun: boolean;
+  recoveryAcknowledged: boolean;
+  recoveryVerifiedAt: string | null;
+  lastOpened: string | null;
+  deletionsPending: number;
+  deletionsCompleted: number;
+}
+
+/** 保存した世帯の一覧の1件（表示用の顧客番号と構成の要約だけ。氏名は持たない。0012） */
+export interface StoredHousehold {
+  id: string;
+  customerNo: string;
+  summary: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 開いた世帯（本文は JSON の文字列。0011 の2） */
+export interface StoredOpened {
+  id: string;
+  customerNo: string;
+  body: string;
+  readOnly: boolean;
+  generation: number;
+}
+
+/**
+ * 世帯ファイルの保存（0011・0013）。暗号化・鍵・ファイルの読み書きはすべて本体が行い、画面はパスを渡さない・受け取らない（0016 の1）。
+ * 世帯は本体が振る内部ID だけで指す
+ */
+export interface StoreHost {
+  status(): Promise<StoreStatus>;
+  list(): Promise<StoredHousehold[]>;
+  create(body: string, summary: string): Promise<StoredOpened>;
+  open(id: string): Promise<StoredOpened>;
+  save(id: string, body: string, summary: string): Promise<{ generation: number; savedAt: string }>;
+  rename(id: string, customerNo: string): Promise<{ customerNo: string; duplicate: boolean }>;
+  /** 完全削除（confirm は FP が打った顧客番号） */
+  remove(id: string, confirm: string): Promise<void>;
+  /** 復元キー（72文字）。表示のためだけに受け取り、どこにも保存しない */
+  recoveryKey(): Promise<string>;
+  acknowledgeRecovery(): Promise<StoreStatus>;
+  testRecoveryKey(key: string): Promise<StoreStatus>;
+  restoreWithRecoveryKey(key: string): Promise<StoreStatus>;
+  /** アプリを閉じる前の保存が済んだことを本体に知らせる（本体が閉じる） */
+  closeReady(): Promise<void>;
+}
+
 /** 本体の命令（0016 の1: 用途ごとの命令だけ） */
 export interface HostApi {
   readonly kind: "tauri" | "browser-dev";
@@ -88,6 +139,7 @@ export interface HostApi {
   evidence(requestJson: string): Promise<FullResult | EngineError>;
   report: ReportHost;
   sheets: SheetHost;
+  store: StoreHost;
 }
 
 const bytesOf = (b: ArrayBuffer | Uint8Array | number[]): Uint8Array => (b instanceof Uint8Array ? b : b instanceof ArrayBuffer ? new Uint8Array(b) : Uint8Array.from(b));
@@ -107,6 +159,20 @@ export function tauriHost(): HostApi {
       save: () => invoke<SaveOutcome>("proposal_save"),
       discard: () => invoke<void>("proposal_discard"),
     },
+    store: {
+      status: () => invoke<StoreStatus>("store_status"),
+      list: () => invoke<StoredHousehold[]>("store_list"),
+      create: (body, summary) => invoke<StoredOpened>("store_create", { body, summary }),
+      open: (id) => invoke<StoredOpened>("store_open", { id }),
+      save: (id, body, summary) => invoke<{ generation: number; savedAt: string }>("store_save", { id, body, summary }),
+      rename: (id, customerNo) => invoke<{ customerNo: string; duplicate: boolean }>("store_rename", { id, customerNo }),
+      remove: (id, confirm) => invoke<void>("store_delete", { id, confirm }),
+      recoveryKey: () => invoke<string>("recovery_key_show"),
+      acknowledgeRecovery: () => invoke<StoreStatus>("recovery_key_acknowledge"),
+      testRecoveryKey: (key) => invoke<StoreStatus>("recovery_key_test", { key }),
+      restoreWithRecoveryKey: (key) => invoke<StoreStatus>("recovery_key_restore", { key }),
+      closeReady: () => invoke<void>("app_close_ready"),
+    },
     sheets: {
       save: (bytes, m) => invoke<SaveOutcome>("hearing_save", bytes, { headers: { "x-customer-no": m.customerNo, "x-exported-on": m.exportedOn, "x-prefilled": m.prefilled ? "1" : "0" } }),
       open: async () => {
@@ -122,6 +188,8 @@ async function devJson<T>(res: Response): Promise<T> {
   if (!res.ok) throw (await res.text()) || `E_DEV_${res.status}`;
   return (await res.json()) as T;
 }
+
+const devStore = (op: string, args: Record<string, string> = {}) => fetch(`/__dev/store/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 
 /**
  * 開発用のサーバーだけ（import.meta.env.DEV）: Tauri の外のブラウザで画面を確かめるための代わり。
@@ -165,6 +233,21 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       },
       save: async () => devJson<SaveOutcome>(await fetch("/__dev/report/save", { method: "POST" })),
       discard: async () => void (await fetch("/__dev/report/discard", { method: "POST" })),
+    },
+    // 世帯の保存: 開発用のサーバーのメモリの中だけ（暗号化もファイルへの保存もしない。画面の確かめ用）
+    store: {
+      status: async () => devJson<StoreStatus>(await devStore("status")),
+      list: async () => devJson<StoredHousehold[]>(await devStore("list")),
+      create: async (body, summary) => devJson<StoredOpened>(await devStore("create", { body, summary })),
+      open: async (id) => devJson<StoredOpened>(await devStore("open", { id })),
+      save: async (id, body, summary) => devJson<{ generation: number; savedAt: string }>(await devStore("save", { id, body, summary })),
+      rename: async (id, customerNo) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("rename", { id, customerNo })),
+      remove: async (id, confirm) => void (await devJson<unknown>(await devStore("delete", { id, confirm }))),
+      recoveryKey: async () => devJson<string>(await devStore("recoveryKey")),
+      acknowledgeRecovery: async () => devJson<StoreStatus>(await devStore("acknowledge")),
+      testRecoveryKey: async (key) => devJson<StoreStatus>(await devStore("test", { key })),
+      restoreWithRecoveryKey: async (key) => devJson<StoreStatus>(await devStore("restore", { key })),
+      closeReady: async () => undefined,
     },
     sheets: {
       save: async (bytes, m) =>

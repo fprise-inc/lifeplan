@@ -3,7 +3,8 @@
 //! - 画面（WebView）は「外と話せない箱」（0016 の1）: CSP は tauri.conf.json、起動時のスクリプトは `hardening.js`、
 //!   画面の移動と新しいウィンドウは本体で止める。画面から呼べるのは下の命令だけ（capabilities/main.json）。
 //! - 正の計算は quickjs-ng（engine-host）で、計算ごとに新しい実行環境を作る（0005 の2・3）。画面側のエンジンは表示の先出しだけ（0005 の5）。
-//! - 世帯は、いまは埋め込んだ架空のモデル世帯だけ（入力・保存・暗号化は次の回）。
+//! - 世帯は、保存した世帯（store.rs。暗号化した世帯ファイル。0011・0013）と、埋め込んだ架空のモデル世帯（見本）。
+//! - アプリを閉じるときは、画面に自動保存の残りを書かせてから閉じる（`__financiaBeforeClose` → `app_close_ready`。待つのは最長4秒）。
 //! - 提案書の PDF（report.rs）とヒアリングシートの保存・取り込みは、平文の書き出しの出口（export.rs）を通す（0020 の5）。
 //!   画面にはファイル・ダイアログの権限を与えず、パスも受け取らない。
 //! - macOS のメニュー（menu.rs）: 標準の編集メニューを付け、元に戻す・やり直すは画面のアプリ全体の履歴へ渡す。
@@ -13,10 +14,15 @@ mod engine;
 mod export;
 mod menu;
 mod report;
+mod store;
+
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::webview::NewWindowResponse;
-use tauri::{AppHandle, Manager, State, Url, WebviewWindow, WebviewWindowBuilder};
+use tauri::{
+    AppHandle, Manager, RunEvent, State, Url, WebviewWindow, WebviewWindowBuilder, WindowEvent,
+};
 
 use export::{ExportKind, ExportLog, SaveOutcome};
 use report::{RenderInfo, ReportState};
@@ -194,6 +200,37 @@ async fn hearing_open(window: WebviewWindow) -> Result<Response, String> {
     ))
 }
 
+/// 閉じる前の保存が済んだ（または待ちきれなかった）
+static CLOSE_READY: AtomicBool = AtomicBool::new(false);
+/// 閉じる前の保存を画面に頼んだ
+static CLOSE_ASKED: AtomicBool = AtomicBool::new(false);
+/// 画面の保存を待つ時間の上限
+const CLOSE_WAIT: std::time::Duration = std::time::Duration::from_secs(4);
+
+/// アプリを閉じる前に、画面に自動保存の残りを書かせる（画面は済んだら app_close_ready を呼ぶ）。
+/// 画面のスクリプトは本体から呼ぶだけで、画面に新しい権限は与えない
+fn ask_flush_before_close<R: tauri::Runtime>(app: &AppHandle<R>) {
+    if CLOSE_ASKED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.eval("window.__financiaBeforeClose ? window.__financiaBeforeClose() : 0");
+    }
+    let a = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(CLOSE_WAIT);
+        CLOSE_READY.store(true, Ordering::SeqCst);
+        a.exit(0);
+    });
+}
+
+/// 画面が閉じる前の保存を済ませた
+#[tauri::command]
+fn app_close_ready(app: AppHandle) {
+    CLOSE_READY.store(true, Ordering::SeqCst);
+    app.exit(0);
+}
+
 pub fn run() {
     let builder = tauri::Builder::default();
     #[cfg(target_os = "macos")]
@@ -204,7 +241,7 @@ pub fn run() {
             }
         }
     });
-    builder
+    let app = builder
         .manage(ReportState::default())
         .manage(ExportLog::default())
         .invoke_handler(tauri::generate_handler![
@@ -218,11 +255,24 @@ pub fn run() {
             proposal_save,
             proposal_discard,
             hearing_save,
-            hearing_open
+            hearing_open,
+            store::store_status,
+            store::store_list,
+            store::store_create,
+            store::store_open,
+            store::store_save,
+            store::store_rename,
+            store::store_delete,
+            store::recovery_key_show,
+            store::recovery_key_acknowledge,
+            store::recovery_key_test,
+            store::recovery_key_restore,
+            app_close_ready
         ])
         .setup(|app| {
             // エンジンのバイトコードを裏で用意する（最初の計算を待たせない）
             std::thread::spawn(engine::warm_up);
+            app.manage(store::init(app.handle())?);
             let config = app
                 .config()
                 .app
@@ -238,11 +288,28 @@ pub fn run() {
                 .build()?;
             if let Some(w) = app.get_webview_window("main") {
                 w.set_focus().ok();
+                let handle = app.handle().clone();
+                w.on_window_event(move |e| {
+                    if let WindowEvent::CloseRequested { api, .. } = e {
+                        if !CLOSE_READY.load(Ordering::SeqCst) {
+                            api.prevent_close();
+                            ask_flush_before_close(&handle);
+                        }
+                    }
+                });
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("ファイナンシアを起動できませんでした");
+    app.run(|handle, event| {
+        if let RunEvent::ExitRequested { api, .. } = event {
+            if !CLOSE_READY.load(Ordering::SeqCst) {
+                api.prevent_exit();
+                ask_flush_before_close(handle);
+            }
+        }
+    });
 }
 
 #[cfg(test)]

@@ -16,6 +16,19 @@ const COMMANDS: &[&str] = &[
     "proposal_discard",
     "hearing_save",
     "hearing_open",
+    // 0011・0013: 世帯ファイルの保存と暗号化（パスは受け取らない。世帯は内部IDだけで指す）
+    "store_status",
+    "store_list",
+    "store_create",
+    "store_open",
+    "store_save",
+    "store_rename",
+    "store_delete",
+    "recovery_key_show",
+    "recovery_key_acknowledge",
+    "recovery_key_test",
+    "recovery_key_restore",
+    "app_close_ready",
 ];
 
 fn list_json(dir: &Path) -> Vec<PathBuf> {

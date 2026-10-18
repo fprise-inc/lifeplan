@@ -152,7 +152,7 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools }: Pr
       <div class="ih-head">
         <div>
           <h1>入力</h1>
-          <p class="ih-lead">カードを押すと、入力のパネルが開きます。空欄は統計の目安などで補って計算します（「推定あり」の印）。保存はアプリの中だけです（ファイルへの保存は次の版。アプリを閉じると消えます）。</p>
+          <p class="ih-lead">カードを押すと、入力のパネルが開きます。空欄は統計の目安などで補って計算します（「推定あり」の印）。保存した世帯は、世帯ごとに暗号化して自動で保存します（見本の世帯は保存しません。上の「世帯」から保存できます）。</p>
         </div>
         <div class="ih-prog" aria-live="polite">
           <div class="ih-prog-line" data-progress>
