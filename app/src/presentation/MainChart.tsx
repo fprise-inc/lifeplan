@@ -3,14 +3,17 @@
 // 説明モード（収入 → 年金 → 支出 → 教育 → 住宅 → 資産の推移を1段ずつ足す）。
 // 数字が変わると、線と面は前の形から新しい形へ補間して動く（tween.ts）。受け取るのは提示用の値だけ（0016 の2）。
 // 年の選び方（yearPick.ts）: カーソルを合わせた年に、線の上の○（選んだ案＝藍の塗り、基準の案＝灰の白抜き）と小さな表示を出す。クリックで固定。
-// 比べ方（表示の設定）: 重ねる（既定。1つのグラフに2本）／左右に並べる（基準の案と選んだ案を2つのグラフにし、縦の目盛り・年の選択をそろえる）。
+// 比べ方（表示の設定）: 重ねる（既定。1つのグラフに2本）／左右に並べる（基準の案と選んだ案を2つのグラフにし、縦の目盛り・年の選択をそろえる）／
+// 全部の案を色分けで重ねる（帯の全部の案を1つのグラフに。色・線の種類・線の端の印で描き分け、見た目は planLines.tsx。積み上げの棒は重ねられないので、
+// 収支は年間収支、資産と負債は純資産の線で比べる）。
 // x 軸の上の丸は年のイベント。カーソルを合わせるかキーボードで選ぶと、年と中身の小さな表示を出す
 import type { RefObject } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { areaAbove, areaBelow, eventRows, linePath, scale, spreadX, type Frame, type Scale } from "./chart.ts";
 import { group, man } from "./format.ts";
-import type { AgeMark, BalanceChartModel, BaseCharts, ChartModel, EventChip, ExplainModel, FlowChartModel, SeriesNames, StackSeries, Yen } from "./model.ts";
+import type { AgeMark, BalanceChartModel, BaseCharts, ChartModel, EventChip, ExplainModel, FlowChartModel, PlanLineModel, SeriesNames, StackSeries, Yen } from "./model.ts";
 import { EVENT_R, EventDotSvg, EventTip, eventLabel, useEventFocus } from "./EventDot.tsx";
+import { lineOf, MULTI_WHAT, PlanMarker, PlanSwatch, planStyles, type PlanStyle } from "./planLines.tsx";
 import { Pattern, Swatch } from "./StackChart.tsx";
 import { useTween, type Series } from "./tween.ts";
 import { estimateWidth, indexAt, placeAbove, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
@@ -22,8 +25,8 @@ export const CHART_MODES: readonly { id: ChartMode; label: string }[] = [
   { id: "balance", label: "資産と負債の推移" },
 ];
 
-/** 基準の案と選んだ案の比べ方: 重ねる（既定）／左右に並べる */
-export type ChartLayout = "overlay" | "side";
+/** 比べ方: 重ねる（既定。基準の案と選んだ案）／左右に並べる（基準の案と選んだ案）／全部の案を色分けで重ねる */
+export type ChartLayout = "overlay" | "side" | "all";
 
 /** グラフに渡す値（PresentationModel の一部） */
 export interface MainChartModel {
@@ -36,7 +39,17 @@ export interface MainChartModel {
   names: SeriesNames;
   who: string;
   selectedYear: number;
+  /** 帯の全部の案の線（全部の案を色分けで重ねる表示のときだけ渡す） */
+  plans?: PlanLineModel[];
 }
+
+/** 全部の案を色分けで重ねる表示か（説明モードでは今のまま1本で説明する。線が1本も計算できていなければ重ねる表示） */
+export function multiOn(layout: ChartLayout, explain: unknown, model: MainChartModel): boolean {
+  return layout === "all" && explain === null && (model.plans ?? []).some((p) => p.financial !== null);
+}
+
+/** 全部の案を重ねる表示の補間の系列の名前（a: 金融資産、f: 年間収支、b: 純資産） */
+const multiKey = (key: string, mode: ChartMode) => `p.${key}.${mode === "flows" ? "f" : mode === "balance" ? "b" : "a"}`;
 
 /** グラフの高さ: 画面の高さに合わせる（ノートPCで約520px、大きい画面で最大700px。文字を大きくすると上下の帯の分を広く見る） */
 export function chartHeight(innerHeight: number, fontPx: number): number {
@@ -68,6 +81,11 @@ function flatten(m: MainChartModel, ex: ExplainModel | null): Series {
   for (const s of m.baseCharts.balance.assets) out[`bba.${s.key}`] = s.values;
   for (const s of m.baseCharts.balance.debts) out[`bbd.${s.key}`] = s.values;
   if (ex !== null) for (const k of ["work", "pension", "living", "education", "housing", "financial"] as const) out[`x.${k}`] = ex[k];
+  for (const p of m.plans ?? []) {
+    if (p.financial !== null) out[multiKey(p.key, "assets")] = p.financial;
+    if (p.net !== null) out[multiKey(p.key, "flows")] = p.net;
+    if (p.netWorth !== null) out[multiKey(p.key, "balance")] = p.netWorth;
+  }
   return out;
 }
 
@@ -167,10 +185,10 @@ export { EVENT_R };
 /** 丸と丸の間（中心の間隔） */
 const eventGap = (fs: number) => (2 * EVENT_R + 3) * fs;
 
-/** rows: 年のイベントの丸の段の数（2段のときは下の余白を1段分広げる） */
-function frameOf(w: number, h: number, fs: number, wideRight: boolean, rows = 1): Frame {
+/** right: 右の余白（文字の大きさ 16px のとき）。rows: 年のイベントの丸の段の数（2段のときは下の余白を1段分広げる） */
+function frameOf(w: number, h: number, fs: number, right: number, rows = 1): Frame {
   // rows = 0: 年のイベントの丸を描かない（縮めた表示。年と年齢の目盛りの分だけ空ける）
-  return { width: w, height: h, left: 64 * fs, right: (wideRight ? 92 : 20) * fs, top: 26 * fs, bottom: (rows === 0 ? 44 : 70 + (rows - 1) * (2 * EVENT_R + 3)) * fs };
+  return { width: w, height: h, left: 64 * fs, right: right * fs, top: 26 * fs, bottom: (rows === 0 ? 44 : 70 + (rows - 1) * (2 * EVENT_R + 3)) * fs };
 }
 
 /** 年のイベントの丸の置き場所（x と段）。x は年の位置から、重なる丸は横に並べ直す（狭いグラフでは2段にする） */
@@ -260,6 +278,13 @@ export interface MainChartProps {
   layout?: ChartLayout;
   /** 高さ（px）を決めて描く（操作中に上に付いてくる縮めた表示）。省略は画面の高さに合わせる */
   height?: number;
+  /** 全部の案を色分けで重ねる表示の、凡例で強調している案と一時的に隠している案 */
+  multi?: MultiState;
+}
+
+export interface MultiState {
+  focus: string | null;
+  hidden: readonly string[];
 }
 
 /** 年の表示の中身（○の位置と文字） */
@@ -276,7 +301,7 @@ interface YearMark {
   extra: string | null;
 }
 
-export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectYear, layout = "overlay", height }: MainChartProps) {
+export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectYear, layout = "overlay", height, multi }: MainChartProps) {
   const box = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [size, setSize] = useState<{ w: number; h: number; fs: number }>({ w: 1100, h: 520, fs: 1 });
@@ -309,6 +334,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
   const compact = height !== undefined;
   // 縮めた表示で、左右に並べると縦に積む幅のときは、重ねる表示にする（縦に2つ積むと高くなりすぎる）
   const side = layout === "side" && explain === null && !model.names.same && !(compact && sideLayout(size.w, h, size.fs).stacked);
+  const all = multiOn(layout, explain, model);
   const pinned = pinnedYear !== null && years.includes(pinnedYear) ? pinnedYear : null;
   const shown = explain === null ? shownYear(pinned, hover !== null && years.includes(hover) ? hover : null) : null;
 
@@ -340,7 +366,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
     return () => document.removeEventListener("keydown", onDoc);
   }, [pinned, explain, onSelectYear]);
 
-  const modeLabel = explain !== null ? "説明モードのグラフ" : (CHART_MODES.find((m) => m.id === mode)?.label ?? "グラフ");
+  const modeLabel = explain !== null ? "説明モードのグラフ" : all ? MULTI_WHAT[mode].caption : (CHART_MODES.find((m) => m.id === mode)?.label ?? "グラフ");
   // 年の選択・固定・カーソルは、左右に並べたときも2つのグラフで同じ年にそろえる
   const common = {
     mode,
@@ -357,7 +383,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
   };
 
   let body: preact.JSX.Element;
-  if (!side) body = <ChartPlot {...common} model={model} t={t} size={{ w: size.w, h, fs: size.fs }} scaleWith={[]} label={modeLabel} live={!compact} />;
+  if (!side) body = <ChartPlot {...common} model={model} t={t} size={{ w: size.w, h, fs: size.fs }} scaleWith={[]} label={modeLabel} live={!compact} multi={all ? (multi ?? { focus: null, hidden: [] }) : null} />;
   else {
     const lay = compact ? { ...sideLayout(size.w, h, size.fs), h } : sideLayout(size.w, h, size.fs);
     const panes = (["base", "selected"] as const).map((who) => {
@@ -387,9 +413,9 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
       tabIndex={0}
       onKeyDown={onKey}
       role="group"
-      aria-label={`グラフ${side ? `（${model.names.base}と${model.names.selected}を左右に並べています）` : ""}。カーソルを合わせるとその年の数字が出ます。クリックか左右の矢印キーで年を固定し、Esc で外します`}
+      aria-label={`グラフ${side ? `（${model.names.base}と${model.names.selected}を左右に並べています）` : all ? "（全部の案を色と線の種類で描き分けて重ねています）" : ""}。カーソルを合わせるとその年の数字が出ます。クリックか左右の矢印キーで年を固定し、Esc で外します`}
       data-main-chart={explain !== null ? "explain" : mode}
-      data-chart-layout={side ? "side" : "overlay"}
+      data-chart-layout={side ? "side" : all ? "all" : "overlay"}
       data-shown-year={shown ?? undefined}
       data-pinned-year={pinned ?? undefined}
     >
@@ -415,12 +441,27 @@ interface ChartPlotProps {
   live: boolean;
   /** 縮めた表示（年のイベントの丸を描かない） */
   compact?: boolean;
+  /** 全部の案を色分けで重ねる表示（それ以外は null） */
+  multi?: MultiState | null;
   onHover: (year: number | null) => void;
   onPick: (year: number) => void;
 }
 
+/** 全部の案を重ねる表示の、選んだ年の1つの案の値 */
+interface MultiRow {
+  key: string;
+  name: string;
+  title: string;
+  st: PlanStyle;
+  /** 線の上の印の y */
+  y: number;
+  text: string;
+  neg: boolean;
+  selected: boolean;
+}
+
 /** 1つのグラフ（SVG と、年の表示・イベントの表示） */
-function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scaleWith, label, live, compact = false, onHover, onPick }: ChartPlotProps) {
+function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scaleWith, label, live, compact = false, multi = null, onHover, onPick }: ChartPlotProps) {
   const svg = useRef<SVGSVGElement>(null);
   const tip = useRef<HTMLDivElement>(null);
   const evTipEl = useRef<HTMLDivElement>(null);
@@ -439,8 +480,11 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   // 縮めた表示（上に付いてくるグラフ）では、年のイベントの丸を描かない（線と塗りの高さを残す。丸は元のグラフと表にある）
   const evList = compact ? [] : model.events.filter((e) => years.includes(e.year));
   // 丸の横の位置は下の余白に関わらないので、先に段の数を決めてから枠を決める
-  const evLay = eventLayout(evList, years, frameOf(size.w, size.h, fs, showMark), fs);
-  const f = frameOf(size.w, size.h, fs, showMark, compact ? 0 : evLay.rows);
+  const isMulti = multi !== null && explain === null;
+  // 右の余白: ○歳時点の印の数字（重ねる表示）か、線の右端の案の文字（全部の案を重ねる表示）の分
+  const right = isMulti ? 46 : showMark ? 92 : 20;
+  const evLay = eventLayout(evList, years, frameOf(size.w, size.h, fs, right), fs);
+  const f = frameOf(size.w, size.h, fs, right, compact ? 0 : evLay.rows);
   const selIdx = shown === null ? -1 : years.indexOf(shown);
 
   /** カーソル・指の位置から年を読む（SVG の座標に直す） */
@@ -461,8 +505,78 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const at = (arr: readonly number[]) => `${man(arr[selIdx] ?? 0)}万円`;
   const sumAt = (list: StackSeries[]) => list.reduce((a, x) => a + Math.max(0, x.values[selIdx] ?? 0), 0);
   const keys: string[] = [];
+  /** 全部の案を重ねる表示の、選んだ年の各案の値（帯の順） */
+  let multiRows: MultiRow[] | null = null;
 
-  if (explain !== null && ex !== null) {
+  if (isMulti && multi !== null) {
+    const what = MULTI_WHAT[mode];
+    const plans = model.plans ?? [];
+    const styles = planStyles(plans);
+    const lines = plans.flatMap((p) => {
+      const raw = lineOf(p, mode);
+      return raw === null ? [] : [{ p, st: styles.get(p.key) as PlanStyle, v: pick(t, multiKey(p.key, mode), n), raw }];
+    });
+    // 縦の目盛りは隠した案も含めて決める（一時的に隠しても目盛りが動かない）
+    s = scale([...lines.map((l) => l.v), ...scaleWith], n, f);
+    const visible = lines.filter((l) => !multi.hidden.includes(l.p.key));
+    // 0未満の範囲: 線には塗りを付けず、薄い地と言葉で示す（0の線は太く）
+    if (s.min < 0) {
+      const y0 = s.y(0);
+      const y1 = s.y(s.min * 10000);
+      body.push(<rect key="zone" x={f.left} y={y0} width={Math.max(0, f.width - f.left - f.right)} height={Math.max(0, y1 - y0)} class="multi-zone" />);
+      // 言葉は範囲の下の端に置く（0の近くを通る線と重ならないように。範囲が狭ければ出さない）
+      if (y1 - y0 > 28 * fs)
+        body.push(
+          <text key="zone-t" x={f.left + 6} y={y1 - 7 * fs} class="unit zone-t">
+            ↓ {what.zone}
+          </text>,
+        );
+    }
+    if (showMark && ageMark !== null) {
+      const i = years.indexOf(ageMark.year);
+      if (i >= 0)
+        body.push(
+          <g key="mark">
+            <line x1={s.x(i)} x2={s.x(i)} y1={f.top} y2={f.height - f.bottom} class="m-age" />
+            <text x={s.x(i)} y={f.top - 8} class="m-age-t" text-anchor="middle">
+              {ageMark.label}
+            </text>
+          </g>,
+        );
+    }
+    // 重ね順: 基準の案 → ほかの案 → 選んだ案 → 強調している案（いちばん上）
+    const rank = (l: (typeof lines)[number]) => (multi.focus === l.p.key ? 3 : l.p.selected ? 2 : l.p.base ? 0 : 1);
+    const order = [...visible].sort((a, b) => rank(a) - rank(b));
+    const lastX = s.x(n - 1);
+    // 線の右端の案の文字（重なるときは縦にずらす）
+    const endYs = spreadX(
+      visible.map((l) => s.y(l.v[n - 1] ?? 0)),
+      15 * fs,
+      f.top,
+      f.height - f.bottom,
+    );
+    const endY = new Map(visible.map((l, i) => [l.p.key, endYs[i] as number]));
+    for (const l of order) {
+      const dim = multi.focus !== null && multi.focus !== l.p.key;
+      body.push(
+        <g key={`ml-${l.p.key}`} class={`ml${dim ? " dim" : ""}${multi.focus === l.p.key ? " hi" : ""}${l.p.selected ? " sel" : ""}${l.p.base ? " base" : ""}`} data-multi-line={l.p.key}>
+          <path d={linePath(l.v, s)} class="multi-line" stroke={l.st.color} stroke-dasharray={l.st.dash || undefined} stroke-linecap={l.st.dash.startsWith("1 ") ? "round" : "butt"} />
+          <PlanMarker shape={l.st.marker} x={lastX} y={s.y(l.v[n - 1] ?? 0)} r={5.5 * fs} color={l.st.color} />
+          <text x={lastX + 10 * fs} y={(endY.get(l.p.key) ?? 0) + 4.5 * fs} class="ml-end" fill={l.st.base ? "#4a5361" : l.st.color}>
+            {l.p.key}
+          </text>
+        </g>,
+      );
+    }
+    if (selIdx >= 0 && visible.length > 0) {
+      multiRows = visible.map((l) => {
+        const v = l.raw[selIdx] ?? 0;
+        return { key: l.p.key, name: l.p.name, title: l.p.title, st: l.st, y: s.y(l.v[selIdx] ?? 0), text: `${man(v)}万円`, neg: v < 0, selected: l.p.selected };
+      });
+      const ys = multiRows.map((r) => r.y);
+      mark = { sel: Math.min(...ys), base: Math.max(...ys), lead: what.lead, selText: "", baseText: null, extra: null };
+    }
+  } else if (explain !== null && ex !== null) {
     const step = explain.step;
     const on = (k: string) => ex.steps.findIndex((x) => x.key === k) <= step;
     const now = (k: string) => ex.steps.findIndex((x) => x.key === k) === step;
@@ -632,7 +746,8 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const age = selIdx >= 0 ? ages[selIdx] : undefined;
   const head = selIdx >= 0 ? `${years[selIdx]}年${age != null ? `（${model.who}${age}歳）` : ""}` : "";
   const valueLine = mark !== null ? `${mark.lead} ● ${model.names.selected} ${mark.selText}${mark.baseText !== null ? `／○ ${model.names.base} ${mark.baseText}` : ""}` : "";
-  const tipLines = mark !== null ? [`${head}${pinned !== null ? " 固定中" : ""}`, valueLine, ...(mark.extra !== null ? [mark.extra] : [])] : [];
+  const tipLines =
+    mark === null ? [] : multiRows !== null ? [`${head}${pinned !== null ? " 固定中" : ""}`, mark.lead, ...multiRows.map((r) => `●● ${r.name} ${r.title} ${r.text}`)] : [`${head}${pinned !== null ? " 固定中" : ""}`, valueLine, ...(mark.extra !== null ? [mark.extra] : [])];
   const tw = tipSize?.w ?? estimateWidth(tipLines, 13 * fs);
   const th = tipSize?.h ?? (tipLines.length * 19 + 12) * fs;
   const mx = selIdx >= 0 ? s.x(selIdx) : 0;
@@ -693,7 +808,13 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
             </g>
           ) : null,
         )}
-        {mark !== null ? (
+        {mark !== null && multiRows !== null ? (
+          <g class="hv-dots" data-year-mark>
+            {multiRows.map((r) => (
+              <PlanMarker key={r.key} shape={r.st.marker} x={mx} y={r.y} r={6.5 * fs} color={r.st.color} cls="hv-mk" />
+            ))}
+          </g>
+        ) : mark !== null ? (
           <g class="hv-dots" data-year-mark>
             {mark.base !== null ? <circle cx={mx} cy={mark.base} r={6 * fs} class="hv-dot base" /> : null}
             <circle cx={mx} cy={mark.sel} r={6.5 * fs} class="hv-dot sel" />
@@ -718,7 +839,31 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         {/* イベントの丸は、年を読む面より上に置く（カーソルを合わせられるように） */}
         <g class="evs">{evs}</g>
       </svg>
-      {mark !== null && place !== null ? (
+      {mark !== null && place !== null && multiRows !== null ? (
+        <div
+          ref={tip}
+          class={`sel-lbl year-tip multi-tip${pinned !== null ? " pinned" : ""}`}
+          style={{ left: pct(place.left, f.width), top: pct(place.top, f.height) }}
+          role={pinned !== null && live ? "status" : undefined}
+          data-year-tip={place.side}
+        >
+          <div class="yt-h">
+            {head}
+            {pinned !== null ? <span class="yt-pin">固定中</span> : null}
+          </div>
+          <div class="yt-lead">{mark.lead}（帯の順）</div>
+          <ul class="yt-rows">
+            {multiRows.map((r) => (
+              <li key={r.key} class={r.selected ? "sel" : ""} data-tip-plan={r.key}>
+                <PlanSwatch style={r.st} w={26} h={12} />
+                <span class="yt-n">{r.name}</span>
+                <span class="yt-t">{r.title}</span>
+                <b class={r.neg ? "neg" : ""}>{r.text}</b>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : mark !== null && place !== null ? (
         <div
           ref={tip}
           class={`sel-lbl year-tip${pinned !== null ? " pinned" : ""}`}

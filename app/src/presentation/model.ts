@@ -386,6 +386,26 @@ export interface PlanCardModel {
   metrics: { label: string; text: string; neg: boolean }[];
 }
 
+/**
+ * 全部の案を色分けで重ねる表示の1本（帯の順。現状を含め最大6本）。案の名前と数字だけ（物の ID・メモは含まない）。
+ * key は帯のカードと同じ提示用の鍵（A・B…の文字）
+ */
+export interface PlanLineModel {
+  key: string;
+  /** 例: 「B案」 */
+  name: string;
+  /** 例: 「65歳まで働く」 */
+  title: string;
+  base: boolean;
+  selected: boolean;
+  /** 金融資産（計算中は null） */
+  financial: Yen[] | null;
+  /** 年間収支 */
+  net: Yen[] | null;
+  /** 純資産 */
+  netWorth: Yen[] | null;
+}
+
 export interface PlanBandModel {
   cards: PlanCardModel[];
   /** 基準の案の選択肢 */

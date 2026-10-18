@@ -5,7 +5,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { AgeMark, CashflowTableModel, EventChip, ExplainModel, FeeLine, GoalsModel, Headline as HeadlineModel, ResultVerdict, Verdict as VerdictModel, VerdictPart } from "./model.ts";
 import { EventDotHtml, EventTip, eventLabel, placeFixedAbove, useEventFocus } from "./EventDot.tsx";
 import { man, manDiff } from "./format.ts";
-import { CHART_MODES, ExplainBar, MainChart, MainLegend, type ChartLayout, type ChartMode, type MainChartModel } from "./MainChart.tsx";
+import { CHART_MODES, ExplainBar, MainChart, MainLegend, multiOn, type ChartLayout, type ChartMode, type MainChartModel } from "./MainChart.tsx";
+import { MultiLegend } from "./planLines.tsx";
 
 export interface Selectors {
   onSelectYear: (year: number) => void;
@@ -149,6 +150,44 @@ export interface ResultCardProps {
   tools?: ComponentChildren;
   /** 結論の下に置くもの（表示の設定の欄・FP顧問料の一文） */
   below?: ComponentChildren;
+  /** 全部の案を色分けで重ねる表示で、一時的に隠している案（帯の文字）と、隠す・戻す手続き */
+  multi?: MultiHidden;
+}
+
+export interface MultiHidden {
+  hidden: readonly string[];
+  onToggle: (key: string) => void;
+}
+
+/** 凡例とグラフ（重ねる・左右に並べる・全部の案を重ねる）。全部の案を重ねる表示では、凡例で合わせた案をグラフで強調する */
+function LegendAndChart(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExplain" | "tools" | "below"> & { height?: number }) {
+  const [focus, setFocus] = useState<string | null>(null);
+  const ex = p.explain;
+  const layout = p.layout ?? "overlay";
+  // 左右に並べるのは、説明モードの外で、選んだ案が基準の案と違うときだけ（MainChart と同じ決まり）
+  const side = layout === "side" && ex === null && !p.model.names.same;
+  const all = multiOn(layout, ex, p.model);
+  const hidden = p.multi?.hidden ?? [];
+  return (
+    <>
+      {all ? (
+        <MultiLegend plans={p.model.plans ?? []} mode={p.mode} focus={focus} onFocus={setFocus} hidden={hidden} onToggle={p.multi?.onToggle ?? (() => undefined)} />
+      ) : (
+        <MainLegend model={p.model} mode={p.mode} explain={ex} side={side} />
+      )}
+      <MainChart
+        model={p.model}
+        mode={p.mode}
+        explain={ex}
+        ageMark={p.ageMark}
+        pinnedYear={p.pinnedYear}
+        onSelectYear={p.onSelectYear}
+        layout={layout}
+        multi={{ focus: focus !== null && !hidden.includes(focus) ? focus : null, hidden }}
+        {...(p.height !== undefined ? { height: p.height } : {})}
+      />
+    </>
+  );
 }
 
 /** グラフの枠: 結論の1文・グラフの切り替え・説明モード・凡例・グラフ・説明モードの帯 */
@@ -156,9 +195,6 @@ export function ResultCard(p: ResultCardProps) {
   const ex = p.explain;
   const step = ex !== null ? Math.max(0, Math.min(ex.model.steps.length - 1, ex.step)) : 0;
   const s = ex?.model.steps[step];
-  const layout = p.layout ?? "overlay";
-  // 左右に並べるのは、説明モードの外で、選んだ案が基準の案と違うときだけ（MainChart と同じ決まり）
-  const side = layout === "side" && ex === null && !p.model.names.same;
   return (
     <section class="card chart-card" aria-label="グラフ" data-result-card>
       <div class="cc-head">
@@ -193,8 +229,7 @@ export function ResultCard(p: ResultCardProps) {
         </div>
       </div>
       {p.below ?? null}
-      <MainLegend model={p.model} mode={p.mode} explain={ex} side={side} />
-      <MainChart model={p.model} mode={p.mode} explain={ex} ageMark={p.ageMark} pinnedYear={p.pinnedYear} onSelectYear={p.onSelectYear} layout={layout} />
+      <LegendAndChart {...p} />
       {ex !== null ? <ExplainBar model={ex.model} step={step} onStep={(i) => p.onExplain(i)} onClose={() => p.onExplain(null)} /> : null}
     </section>
   );
@@ -202,12 +237,9 @@ export function ResultCard(p: ResultCardProps) {
 
 /** 操作中に上に付いてくる縮めたグラフ（ChartDock の中身）: 元のグラフと同じ部品（凡例・グラフ・補間）を、決めた高さで描く */
 export function DockedResult(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExplain" | "tools" | "below"> & { height: number }) {
-  const ex = p.explain;
-  const side = (p.layout ?? "overlay") === "side" && ex === null && !p.model.names.same;
   return (
     <div class="dock-chart" data-dock-chart="main">
-      <MainLegend model={p.model} mode={p.mode} explain={ex} side={side} />
-      <MainChart model={p.model} mode={p.mode} explain={ex} ageMark={p.ageMark} pinnedYear={p.pinnedYear} onSelectYear={p.onSelectYear} layout={p.layout ?? "overlay"} height={p.height} />
+      <LegendAndChart {...p} />
     </div>
   );
 }

@@ -30,7 +30,7 @@ import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
 import { advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { mixFromBuckets } from "./plans/allocation.ts";
-import { addToBand, bandModel, cleanBand, CURRENT, MAX_BAND, planLetters } from "./plans/band.ts";
+import { addToBand, bandModel, cleanBand, CURRENT, MAX_BAND, planLetters, planLinesModel } from "./plans/band.ts";
 import { compareTable, metricsOf } from "./plans/compare.ts";
 import { addRate } from "./plans/decimal.ts";
 import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
@@ -151,7 +151,7 @@ export function parseHash(hash: string): {
     else if (k === "compare") out.compare = true;
     else if (k === "list") out.list = true;
     else if (k === "scroll" && v === "table") out.scroll = "table";
-    else if (k === "layout" && (v === "side" || v === "overlay")) out.layout = v;
+    else if (k === "layout" && (v === "side" || v === "overlay" || v === "all")) out.layout = v;
   }
   return out;
 }
@@ -280,6 +280,8 @@ export function App() {
   const [shown, setShown] = useState<string[]>([]);
   const [menuOpen, setMenuOpen] = useState(initial.addMenu === true);
   const [selectedYear, setSelectedYear] = useState<number | null>(initial.year ?? null);
+  /** 全部の案を色分けで重ねる表示で、凡例のクリックで一時的に隠している案（帯の文字。保存しない） */
+  const [hiddenLines, setHiddenLines] = useState<string[]>([]);
   const [scrollNonce, setScrollNonce] = useState(0);
   const [big, setBig] = useState(initial.big);
   const [tab, setTab] = useState<Tab>(initial.tab ?? "main");
@@ -952,6 +954,13 @@ export function App() {
   );
   const modified = useMemo(() => (opened === null ? new Set<string>() : modifiedSet(opened.wh, opened.catalog, work)), [opened, work]);
   const band = opened === null ? null : bandModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id) => [id, resultOf(id)])), modified, base: work.base, selected: work.sel, settings });
+  // 全部の案を色分けで重ねる表示: 帯の全部の案の線（案の名前と数字だけ）をグラフの値に足す
+  const slotResults = slots.map((id) => resultOf(id));
+  const chartModel = useMemo(() => {
+    if (model === null || opened === null || settings.layout !== "all") return model;
+    return { ...model, plans: planLinesModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id, i) => [id, slotResults[i] ?? null])), base: work.base, selected: work.sel }) };
+  }, [model, opened, settings.layout, slots, letters, work.base, work.sel, ...slotResults]);
+  const multiHidden = { hidden: hiddenLines, onToggle: (k: string) => setHiddenLines((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k])) };
 
   // 表: 見る案（既定は選んだ案）と、基準との差
   const tKey = tableKey !== null && slots.includes(tableKey) ? tableKey : work.sel;
@@ -1252,7 +1261,8 @@ export function App() {
           <div class="main-stack">
             <ChartDock docked={mainDock.docked} head={<ResultVerdictView model={model.result} />} onClose={dockOff}>
               <DockedResult
-                model={model}
+                model={chartModel ?? model}
+                multi={multiHidden}
                 provisional={model.provisional}
                 mode={chartMode}
                 layout={settings.layout}
@@ -1266,6 +1276,7 @@ export function App() {
             {/* ① 案の帯 */}
             <PlanBand
               model={band}
+              lineMarks={settings.layout === "all" && explainStep === null}
               onSelect={select}
               onBase={setBase}
               onAdd={duplicate}
@@ -1298,7 +1309,8 @@ export function App() {
             {/* ② グラフ */}
             <div class="dock-anchor" ref={dockAnchor}>
               <ResultCard
-                model={model}
+                model={chartModel ?? model}
+                multi={multiHidden}
                 verdict={model.result}
                 provisional={model.provisional}
                 mode={chartMode}
