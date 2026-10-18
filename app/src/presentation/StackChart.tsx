@@ -1,24 +1,24 @@
 // 積み上げの棒の塗り（模様）と凡例: 収支の推移・資産と負債の推移・説明モード（描くのは MainChart.tsx）。
-// 系列は落ち着いた色に加えて塗りの模様を変え、凡例にも同じ模様を出す（色だけで区別しない）
+// 系列はすべてベタ塗り（斜線や点の模様は読みにくいため使わない）。色の明るさを系列ごとに変え、凡例の名前と並び順で区別する
 import type { StackSeries } from "./model.ts";
 
 /** 系列の鍵 → 模様（solid・stripe・dots・cross・hline）。色は CSS の .pbg-<鍵> */
 export const PATTERN: Readonly<Record<string, string>> = {
   salary: "solid",
   work: "solid",
-  pension: "stripe",
-  incomeOther: "dots",
+  pension: "solid",
+  incomeOther: "solid",
   living: "solid",
-  housing: "hline",
-  education: "stripe",
-  insurance: "dots",
-  expenseOther: "cross",
+  housing: "solid",
+  education: "solid",
+  insurance: "solid",
+  expenseOther: "solid",
   deposit: "solid",
-  nisa: "stripe",
-  dc: "dots",
-  assetOther: "cross",
-  mortgage: "hline",
-  debtOther: "cross",
+  nisa: "solid",
+  dc: "solid",
+  assetOther: "solid",
+  mortgage: "solid",
+  debtOther: "solid",
 };
 
 export function Pattern({ k }: { k: string }) {

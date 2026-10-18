@@ -121,7 +121,7 @@ b { font-weight: 700; }
 .lg { display: inline-flex; align-items: center; gap: 7px; }
 .lg i { display: inline-block; width: 30px; height: 0; border-top: 4px solid var(--prop); }
 .lg.base i { border-top: 4px dashed var(--base); }
-.lg.short i { height: 14px; border: 2px solid var(--short); background: repeating-linear-gradient(45deg, var(--short) 0 3px, var(--short-bg) 3px 7px); }
+.lg.short i { height: 14px; border: 2px solid var(--short); background: #f5b5b0; }
 
 /* グラフ */
 .chart { width: 100%; outline: none; }
@@ -135,8 +135,8 @@ html.big .chart .axis-label.sub { font-size: 13px; }
 .chart .unit { fill: var(--ink-2); font-weight: 700; font-size: 12px; }
 .chart .area-prop { fill: var(--prop-area); }
 .chart .area-short { fill: url(#hatch-short); stroke: var(--short); stroke-width: 1; }
-.chart .hatch-bg { fill: var(--short-bg); }
-.chart .hatch-line { stroke: var(--short); stroke-width: 3; opacity: 0.55; }
+.chart .hatch-bg { fill: #f5b5b0; }
+.chart .hatch-line { stroke: none; }
 .chart .line-prop { fill: none; stroke: var(--prop); stroke-width: var(--lw-prop); stroke-linejoin: round; }
 .chart .line-base { fill: none; stroke: var(--base); stroke-width: var(--lw-base); stroke-dasharray: 9 6; stroke-linejoin: round; }
 .chart .selband { fill: var(--sel-bg); stroke: var(--sel); stroke-width: 2.5; pointer-events: none; }
@@ -220,7 +220,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .cf .r-group th, .cf .r-group td { background: #eef1f4; font-size: 0.85em; letter-spacing: 0.1em; }
 .cf .r-total th, .cf .r-total td { font-weight: 700; border-bottom-color: var(--line); }
 .cf td.neg { color: var(--short-ink); }
-.cf td.short { background: var(--short-bg); background-image: repeating-linear-gradient(45deg, rgba(198, 40, 40, 0.12) 0 2px, transparent 2px 7px); }
+.cf td.short { background: var(--short-bg); }
 .cf .short-lbl { font-size: 0.72em; border: 1.5px solid var(--short); border-radius: 3px; padding: 0 3px; margin-right: 4px; }
 .cf .sel { background-color: var(--sel-bg); box-shadow: inset 2px 0 0 var(--sel), inset -2px 0 0 var(--sel); }
 .cf thead th.sel { box-shadow: inset 2px 0 0 var(--sel), inset -2px 0 0 var(--sel), inset 0 3px 0 var(--sel); }
