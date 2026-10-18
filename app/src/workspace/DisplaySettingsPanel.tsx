@@ -8,7 +8,7 @@ export function DisplaySettingsPanel({ value, onChange, onClose, feeAvailable }:
     <div class="disp-settings" role="group" aria-label="表示の設定" data-display-settings>
       <div class="ds-head">
         <b>表示の設定</b>
-        <span class="ds-note">主画面に出す数字とグラフの比べ方を選びます（事務所の設定。今は画面の中だけで持ち、アプリを閉じると元に戻ります）</span>
+        <span class="ds-note">見通しに出す数字とグラフの見せ方を選びます（事務所の設定。今は画面の中だけで持ち、アプリを閉じると元に戻ります）</span>
         <button type="button" class="link-btn" onClick={onClose}>
           閉じる
         </button>
@@ -44,6 +44,16 @@ export function DisplaySettingsPanel({ value, onChange, onClose, feeAvailable }:
             </label>
           );
         })}
+      </div>
+      <div class="ds-layout ds-dock">
+        <span class="ds-k">操作中</span>
+        <label class={`ds-item${value.dock ? " on" : ""}`}>
+          <input type="checkbox" checked={value.dock} onChange={(e) => onChange({ ...value, dock: (e.currentTarget as HTMLInputElement).checked })} data-dock-setting />
+          <span class="ds-l">
+            操作中はグラフを上に表示（既定）
+            <small>対策・想定の前提までスクロールすると、縮めたグラフが画面の上に付いてきます（見通しと万一のとき）。窓の高さが低いときは出しません</small>
+          </span>
+        </label>
       </div>
       <div class="ds-layout" role="radiogroup" aria-label="比べ方" data-layout-choices>
         <span class="ds-k">比べ方</span>

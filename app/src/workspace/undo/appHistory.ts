@@ -36,7 +36,7 @@ export function describeSnap(a: AppSnap, b: AppSnap, hint: Hint): string {
       : !deepEqual(a.wh.memo, b.wh.memo)
         ? "メモ"
         : !deepEqual(a.wh.contingency, b.wh.contingency)
-          ? "万一の想定の前提"
+          ? "万一のときの前提"
           : !deepEqual(a.wh.proposals, b.wh.proposals)
             ? "案"
             : !deepEqual(a.work.drafts, b.work.drafts)

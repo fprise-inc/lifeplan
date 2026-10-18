@@ -66,7 +66,7 @@ function claimFields(m: Member, rec: PensionRecord, find: Finder, prefix: string
     suffix: "歳から",
     min: 60,
     max: 75,
-    help: "65歳より前は繰上げ（減額）、後は繰下げ（増額）。主画面の対策でも動かせます",
+    help: "65歳より前は繰上げ（減額）、後は繰下げ（増額）。見通しの対策でも動かせます",
     get: (w) => {
       const r = find(w.request.input.household, w) as PensionRecord | undefined;
       const age = tpAge(r?.claim?.basic) ?? 65;

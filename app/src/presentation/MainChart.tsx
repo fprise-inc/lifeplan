@@ -10,6 +10,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { areaAbove, areaBelow, eventRows, linePath, scale, spreadX, type Frame, type Scale } from "./chart.ts";
 import { group, man } from "./format.ts";
 import type { AgeMark, BalanceChartModel, BaseCharts, ChartModel, EventChip, ExplainModel, FlowChartModel, SeriesNames, StackSeries, Yen } from "./model.ts";
+import { EVENT_R, EventDotSvg, EventTip, eventLabel, useEventFocus } from "./EventDot.tsx";
 import { Pattern, Swatch } from "./StackChart.tsx";
 import { useTween, type Series } from "./tween.ts";
 import { estimateWidth, indexAt, placeAbove, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
@@ -161,15 +162,15 @@ export function scaleInputs(m: MainChartModel, t: Series, mode: ChartMode, n: nu
 
 // ---- 描く部品 ----
 
-/** 年のイベントの丸の半径（文字の大きさ fs に比例） */
-export const EVENT_R = 12.5;
+export { EVENT_R };
 
 /** 丸と丸の間（中心の間隔） */
 const eventGap = (fs: number) => (2 * EVENT_R + 3) * fs;
 
 /** rows: 年のイベントの丸の段の数（2段のときは下の余白を1段分広げる） */
 function frameOf(w: number, h: number, fs: number, wideRight: boolean, rows = 1): Frame {
-  return { width: w, height: h, left: 64 * fs, right: (wideRight ? 92 : 20) * fs, top: 26 * fs, bottom: (70 + (rows - 1) * (2 * EVENT_R + 3)) * fs };
+  // rows = 0: 年のイベントの丸を描かない（縮めた表示。年と年齢の目盛りの分だけ空ける）
+  return { width: w, height: h, left: 64 * fs, right: (wideRight ? 92 : 20) * fs, top: 26 * fs, bottom: (rows === 0 ? 44 : 70 + (rows - 1) * (2 * EVENT_R + 3)) * fs };
 }
 
 /** 年のイベントの丸の置き場所（x と段）。x は年の位置から、重なる丸は横に並べ直す（狭いグラフでは2段にする） */
@@ -257,6 +258,8 @@ export interface MainChartProps {
   onSelectYear: (year: number | null) => void;
   /** 比べ方（省略は重ねる）。説明モードと、選んだ案が基準の案のときは重ねる表示（1つのグラフ） */
   layout?: ChartLayout;
+  /** 高さ（px）を決めて描く（操作中に上に付いてくる縮めた表示）。省略は画面の高さに合わせる */
+  height?: number;
 }
 
 /** 年の表示の中身（○の位置と文字） */
@@ -273,7 +276,7 @@ interface YearMark {
   extra: string | null;
 }
 
-export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectYear, layout = "overlay" }: MainChartProps) {
+export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectYear, layout = "overlay", height }: MainChartProps) {
   const box = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [size, setSize] = useState<{ w: number; h: number; fs: number }>({ w: 1100, h: 520, fs: 1 });
@@ -302,7 +305,10 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
   const ex = explain?.model ?? null;
   const t = useTween(flatten(model, ex));
   const years = model.chart.years;
-  const side = layout === "side" && explain === null && !model.names.same;
+  const h = height ?? size.h;
+  const compact = height !== undefined;
+  // 縮めた表示で、左右に並べると縦に積む幅のときは、重ねる表示にする（縦に2つ積むと高くなりすぎる）
+  const side = layout === "side" && explain === null && !model.names.same && !(compact && sideLayout(size.w, h, size.fs).stacked);
   const pinned = pinnedYear !== null && years.includes(pinnedYear) ? pinnedYear : null;
   const shown = explain === null ? shownYear(pinned, hover !== null && years.includes(hover) ? hover : null) : null;
 
@@ -342,6 +348,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
     ageMark,
     pinned,
     shown,
+    compact,
     onHover: (y: number | null) => setHover((h) => (h === y ? h : y)),
     onPick: (y: number) => {
       setHover(y);
@@ -350,9 +357,9 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
   };
 
   let body: preact.JSX.Element;
-  if (!side) body = <ChartPlot {...common} model={model} t={t} size={size} scaleWith={[]} label={modeLabel} live />;
+  if (!side) body = <ChartPlot {...common} model={model} t={t} size={{ w: size.w, h, fs: size.fs }} scaleWith={[]} label={modeLabel} live={!compact} />;
   else {
-    const lay = sideLayout(size.w, size.h, size.fs);
+    const lay = compact ? { ...sideLayout(size.w, h, size.fs), h } : sideLayout(size.w, h, size.fs);
     const panes = (["base", "selected"] as const).map((who) => {
       const m = planModel(model, who);
       const pt = planSeries(t, who);
@@ -366,7 +373,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
               <b>{p.m.names.selected}</b>
               <span class="side-tag">{p.who === "base" ? "基準" : "選んだ案"}</span>
             </div>
-            <ChartPlot {...common} model={p.m} t={p.t} size={{ w: lay.w, h: lay.h, fs: size.fs }} scaleWith={(panes[1 - i] as (typeof panes)[number]).ext} label={`${modeLabel}（${p.m.names.selected}）`} live={p.who === "selected"} />
+            <ChartPlot {...common} model={p.m} t={p.t} size={{ w: lay.w, h: lay.h, fs: size.fs }} scaleWith={(panes[1 - i] as (typeof panes)[number]).ext} label={`${modeLabel}（${p.m.names.selected}）`} live={p.who === "selected" && !compact} />
           </div>
         ))}
       </div>
@@ -375,7 +382,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
 
   return (
     <div
-      class={`chart main-chart${side ? " side" : ""}`}
+      class={`chart main-chart${side ? " side" : ""}${compact ? " compact" : ""}`}
       ref={box}
       tabIndex={0}
       onKeyDown={onKey}
@@ -406,16 +413,19 @@ interface ChartPlotProps {
   label: string;
   /** 固定したときに読み上げる（左右に並べる表示では片方だけ） */
   live: boolean;
+  /** 縮めた表示（年のイベントの丸を描かない） */
+  compact?: boolean;
   onHover: (year: number | null) => void;
   onPick: (year: number) => void;
 }
 
 /** 1つのグラフ（SVG と、年の表示・イベントの表示） */
-function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scaleWith, label, live, onHover, onPick }: ChartPlotProps) {
+function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scaleWith, label, live, compact = false, onHover, onPick }: ChartPlotProps) {
   const svg = useRef<SVGSVGElement>(null);
   const tip = useRef<HTMLDivElement>(null);
   const evTipEl = useRef<HTMLDivElement>(null);
-  const [evOn, setEvOn] = useState<number | null>(null);
+  const evFocus = useEventFocus<number>();
+  const evOn = evFocus.on;
   const tipSize = useBoxSize(tip);
   const evTipSize = useBoxSize(evTipEl);
 
@@ -426,10 +436,11 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const ages = model.chart.ages;
   const showMark = ageMark !== null && mode === "assets" && explain === null;
   const fs = size.fs;
-  const evList = model.events.filter((e) => years.includes(e.year));
+  // 縮めた表示（上に付いてくるグラフ）では、年のイベントの丸を描かない（線と塗りの高さを残す。丸は元のグラフと表にある）
+  const evList = compact ? [] : model.events.filter((e) => years.includes(e.year));
   // 丸の横の位置は下の余白に関わらないので、先に段の数を決めてから枠を決める
   const evLay = eventLayout(evList, years, frameOf(size.w, size.h, fs, showMark), fs);
-  const f = frameOf(size.w, size.h, fs, showMark, evLay.rows);
+  const f = frameOf(size.w, size.h, fs, showMark, compact ? 0 : evLay.rows);
   const selIdx = shown === null ? -1 : years.indexOf(shown);
 
   /** カーソル・指の位置から年を読む（SVG の座標に直す） */
@@ -615,27 +626,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const evX = evLay.x;
   const evYs = evLay.row.map((r) => f.height - f.bottom + 4 * fs + evR + r * eventGap(fs));
   const evNow = evOn !== null ? evList[evOn] : undefined;
-  const evs = evList.map((e, j) => (
-    <g
-      key={`${e.year}-${e.icon}-${j}`}
-      class={`ev${e.short ? " short" : ""}${evOn === j ? " on" : ""}`}
-      transform={`translate(${(evX[j] as number).toFixed(1)},${(evYs[j] as number).toFixed(1)})`}
-      tabIndex={0}
-      role="img"
-      aria-label={`${e.year}年 ${e.text}`}
-      data-ev={e.year}
-      onPointerEnter={() => setEvOn(j)}
-      onPointerLeave={() => setEvOn((c) => (c === j ? null : c))}
-      onFocus={() => setEvOn(j)}
-      onBlur={() => setEvOn((c) => (c === j ? null : c))}
-      onClick={() => setEvOn(j)}
-    >
-      <circle r={evR} />
-      <text text-anchor="middle" dominant-baseline="central">
-        {e.icon}
-      </text>
-    </g>
-  ));
+  const evs = evList.map((e, j) => <EventDotSvg key={`${e.year}-${e.icon}-${j}`} chip={e} x={evX[j] as number} y={evYs[j] as number} r={evR} on={evOn === j} handlers={evFocus.bind(j)} />);
 
   // ---- 年の印（線の上の○・細い縦の補助線）と小さな表示 ----
   const age = selIdx >= 0 ? ages[selIdx] : undefined;
@@ -647,7 +638,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const mx = selIdx >= 0 ? s.x(selIdx) : 0;
   const place = mark !== null ? placeTip(mx, Math.min(mark.sel, mark.base ?? mark.sel), Math.max(mark.sel, mark.base ?? mark.sel), tw, th, f.width, f.height) : null;
   // イベントの表示（丸の真上）
-  const evText = evNow !== undefined ? `${evNow.year}年 ${evNow.text}` : "";
+  const evText = evNow !== undefined ? eventLabel(evNow) : "";
   const evPlace =
     evNow !== undefined && evOn !== null ? placeAbove(evX[evOn] as number, (evYs[evOn] as number) - evR, (evYs[evOn] as number) + evR, evTipSize?.w ?? estimateWidth([evText], 13 * fs), evTipSize?.h ?? 30 * fs, f.width, f.height) : null;
   const pct = (v: number, of: number) => `${((v / of) * 100).toFixed(3)}%`;
@@ -755,16 +746,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
           {mark.extra !== null ? <div class="yt-x">{mark.extra}</div> : null}
         </div>
       ) : null}
-      {evNow !== undefined && evPlace !== null ? (
-        <div ref={evTipEl} class={`year-tip ev-tip${evNow.short ? " short" : ""}`} style={{ left: pct(evPlace.left, f.width), top: pct(evPlace.top, f.height) }} role="tooltip" data-ev-tip={evNow.year}>
-          <div class="yt-h">
-            <span class="ev-ic" aria-hidden="true">
-              {evNow.icon}
-            </span>
-            {evNow.year}年 <span class="ev-t">{evNow.text}</span>
-          </div>
-        </div>
-      ) : null}
+      {evNow !== undefined && evPlace !== null ? <EventTip chip={evNow} tipRef={evTipEl} style={{ left: pct(evPlace.left, f.width), top: pct(evPlace.top, f.height) }} /> : null}
     </div>
   );
 }

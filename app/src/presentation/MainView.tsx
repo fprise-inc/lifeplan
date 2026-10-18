@@ -1,8 +1,9 @@
 // 提示層の部品（主画面）。受け取るのは PresentationModel（とその一部）と、年・根拠を選ぶ手続きだけ（0016 の2）。
 // 配置（上から）: 案の帯（PlanBand.tsx）→ グラフ（ResultCard）→ 対策（作業の層）→ 生涯キャッシュフロー表（CashflowTable）
 import type { ComponentChildren } from "preact";
-import { useEffect, useRef } from "preact/hooks";
-import type { AgeMark, CashflowTableModel, ExplainModel, FeeLine, GoalsModel, Headline as HeadlineModel, ResultVerdict, Verdict as VerdictModel, VerdictPart } from "./model.ts";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import type { AgeMark, CashflowTableModel, EventChip, ExplainModel, FeeLine, GoalsModel, Headline as HeadlineModel, ResultVerdict, Verdict as VerdictModel, VerdictPart } from "./model.ts";
+import { EventDotHtml, EventTip, eventLabel, placeFixedAbove, useEventFocus } from "./EventDot.tsx";
 import { man, manDiff } from "./format.ts";
 import { CHART_MODES, ExplainBar, MainChart, MainLegend, type ChartLayout, type ChartMode, type MainChartModel } from "./MainChart.tsx";
 
@@ -199,6 +200,18 @@ export function ResultCard(p: ResultCardProps) {
   );
 }
 
+/** 操作中に上に付いてくる縮めたグラフ（ChartDock の中身）: 元のグラフと同じ部品（凡例・グラフ・補間）を、決めた高さで描く */
+export function DockedResult(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExplain" | "tools" | "below"> & { height: number }) {
+  const ex = p.explain;
+  const side = (p.layout ?? "overlay") === "side" && ex === null && !p.model.names.same;
+  return (
+    <div class="dock-chart" data-dock-chart="main">
+      <MainLegend model={p.model} mode={p.mode} explain={ex} side={side} />
+      <MainChart model={p.model} mode={p.mode} explain={ex} ageMark={p.ageMark} pinnedYear={p.pinnedYear} onSelectYear={p.onSelectYear} layout={p.layout ?? "overlay"} height={p.height} />
+    </div>
+  );
+}
+
 /** 表の上の切り替え（見る案・差を表示） */
 export interface TableControls {
   plans: { key: string; letter: string }[];
@@ -234,6 +247,21 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence, c
     el.scrollTo({ left: Math.max(0, th.offsetLeft - stub.offsetWidth - 120), behavior: reduce ? "auto" : "smooth" });
   }, [scrollNonce]);
   const diffOn = controls?.diff.on === true && !controls.diff.disabled;
+  // ライフイベントの丸の説明（グラフの下の丸と同じ部品）。表は横に動くので、画面に対して置く（動かしたら閉じる）
+  const ev = useEventFocus<string>();
+  const dots = useRef(new Map<string, HTMLSpanElement>());
+  const evChip: EventChip | undefined = ev.on === null ? undefined : eventAt(model, ev.on);
+  const clearEv = ev.clear;
+  useEffect(() => {
+    if (ev.on === null) return;
+    const close = () => clearEv();
+    window.addEventListener("scroll", close, { capture: true, passive: true });
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, { capture: true });
+      window.removeEventListener("resize", close);
+    };
+  }, [ev.on, clearEv]);
   return (
     <section class="card cf-card" aria-labelledby="h-cf" data-cf-card>
       <div class="cf-head">
@@ -310,13 +338,15 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence, c
                     <th class="stub" scope="row">
                       {r.label}
                     </th>
-                    {r.icons.map((ics, i) => (
+                    {r.events.map((chips, i) => (
                       <td key={i} class={sel(model.years[i] as number)}>
-                        {ics.map((ic, j) => (
-                          <span key={j} class={`evi${ic === "！" ? " short" : ""}`}>
-                            {ic}
-                          </span>
-                        ))}
+                        {chips.map((c, j) => {
+                          const k = `${i}:${j}`;
+                          return <EventDotHtml key={j} chip={c} on={ev.on === k} handlers={ev.bind(k)} dotRef={(el) => {
+                                if (el !== null) dots.current.set(k, el);
+                                else dots.current.delete(k);
+                              }} />;
+                        })}
                       </td>
                     ))}
                   </tr>
@@ -362,6 +392,34 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence, c
           </tbody>
         </table>
       </div>
+      {evChip !== undefined && ev.on !== null ? <TableEventTip chip={evChip} anchor={dots.current.get(ev.on) ?? null} /> : null}
     </section>
   );
+}
+
+/** 表の丸の鍵（「年の位置:その年の何番目」）から、できごと */
+function eventAt(model: CashflowTableModel, key: string): EventChip | undefined {
+  const [i, j] = key.split(":").map(Number) as [number, number];
+  for (const r of model.rows) if (r.kind === "events") return r.events[i]?.[j];
+  return undefined;
+}
+
+/** 表の丸の説明: 丸の真上の中央（入らなければ下）。大きさは描いてから測り直す */
+function TableEventTip({ chip, anchor }: { chip: EventChip; anchor: HTMLElement | null }) {
+  const tip = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = tip.current;
+    if (el === null) return;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    if (w > 0 && h > 0 && (size === null || Math.abs(size.w - w) > 0.5 || Math.abs(size.h - h) > 0.5)) setSize({ w, h });
+  });
+  if (anchor === null || typeof window === "undefined") return null;
+  const r = anchor.getBoundingClientRect();
+  const fs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const w = size?.w ?? eventLabel(chip).length * 0.85 * fs + 40;
+  const h = size?.h ?? 2 * fs;
+  const p = placeFixedAbove(r, w, h, window.innerWidth);
+  return <EventTip chip={chip} fixed tipRef={tip} style={{ left: `${p.left.toFixed(1)}px`, top: `${p.top.toFixed(1)}px` }} />;
 }

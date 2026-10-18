@@ -205,7 +205,7 @@ export function creditLifeFields(wh: WorkingHousehold, d: Debt): FieldDef[] {
       level: "detail",
       kind: "select",
       options: DISEASE_RIDERS,
-      help: "記録として持ちます（万一の想定は死亡・障害・就業不能なので、疾病の特約はまだ計算に使いません）",
+      help: "記録として持ちます（万一のときの想定は死亡・障害・就業不能なので、疾病の特約はまだ計算に使いません）",
       get: (w) => ({ value: events(w.request.input.household, w).find((e) => e === "cancer" || e === "threeMajor" || e === "eightMajor") ?? "", ...(implicitEvents(w) ? { implicit: true } : {}) }),
       set: (w, v) =>
         mutate(w, (h) => {

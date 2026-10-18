@@ -1,6 +1,6 @@
 // FP顧問料（入力の項目「FP顧問料」）: 契約ごとに、払う人・単発（相談料・プラン作成料の額と年月）・継続（月額か年額・始まりと終わり・値上げの率）・
 // 万一のときの扱い。エンジンの advisoryFees（0008 の追記）をそのまま読み書きする。
-// 既定では提案の側にだけ入れる（契約は enabled: false で現状に入れ、主画面の対策「FP顧問料」で提案の側を ON にする）。
+// 既定では提案の側にだけ入れる（契約は enabled: false で現状に入れ、見通しの対策「FP顧問料」で提案の側を ON にする）。
 // 顧客に見せる画面にも出してよい項目だが、事務所の内部の情報（料金表の写しの印など）は画面に出さない
 import type { AdvisoryFee, Household } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
@@ -37,7 +37,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       path: ["enabled"],
       optional: true,
       fallback: true,
-      help: "入れないときは、主画面の対策「FP顧問料」で提案の側にだけ入れます（既定）",
+      help: "入れないときは、見通しの対策「FP顧問料」で提案の側にだけ入れます（既定）",
     }),
     ...(c.terms?.oneTime ?? []).flatMap((_, i) => oneTimeFields(k, find, i)),
   ];
@@ -191,7 +191,7 @@ export function feeStage(wh: WorkingHousehold): StageDef {
       {
         key: "ev/fees",
         title: "FP顧問料",
-        note: "生活費とは別の行で計算します。既定では提案の側にだけ入れ、主画面の対策「FP顧問料」で入れる・入れないを切り替えます",
+        note: "生活費とは別の行で計算します。既定では提案の側にだけ入れ、見通しの対策「FP顧問料」で入れる・入れないを切り替えます",
         level: "simple",
         groups: list.flatMap((c, i) => feeGroups(wh, c, i)),
         actions: [{ key: "ev/addFee", label: "＋ FP顧問料の契約", level: "simple", run: (w) => addAdvisoryFee(w) }],

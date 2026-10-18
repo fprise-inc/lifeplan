@@ -1,7 +1,7 @@
 // 万一の画面の提示用の値（作業の層）。計算結果（必要保障額の推移・万一の想定の表）から、許可した項目だけを写す（0016 の2）。
 // 物の ID・FP用のメモ・前提の入力の細部は写さない
 import type { EngineRequest, OldAgeChoice, PreviewResult, ProtectionOutput, TableCell } from "../../engine/types.ts";
-import type { BreakdownRowModel, ChartModel, ContingencyModel, Depletion, ProtectionChartModel, ScenarioCardModel, ScenarioModel, Verdict } from "../../presentation/model.ts";
+import type { BreakdownRowModel, ChartModel, ContingencyModel, Depletion, ProtectionChartModel, ScenarioCardModel, ScenarioModel, Verdict, YearCellModel, YearStripModel } from "../../presentation/model.ts";
 import { man } from "../../presentation/format.ts";
 import { parseYm } from "../levers.ts";
 import { depletionYear, displayYears, financialOf, sumByYear } from "../present.ts";
@@ -175,17 +175,81 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
   };
 }
 
-/** 想定の年の選択肢（計算基準年から、対象の人が75歳になる年まで） */
-export function yearOptions(req: EngineRequest, memberId: string): { value: number; label: string }[] {
+/** 想定の年の選択肢（計算基準年から、対象の人が75歳になる年まで）。age は対象の人のその年の年齢 */
+export function yearOptions(req: EngineRequest, memberId: string): { value: number; label: string; age: number | null }[] {
   const m = req.input.household.members.find((x) => x.id === memberId);
   const by = parseYm(req.input.baseMonth).y;
-  const out: { value: number; label: string }[] = [];
+  const out: { value: number; label: string; age: number | null }[] = [];
   for (let y = by; y <= Math.min(req.input.endYear, by + 60); y++) {
     const a = m === undefined ? null : ageInYear(m, y);
     if (a !== null && a > 75) break;
-    out.push({ value: y, label: `${y}年${a !== null ? `（${a}歳）` : ""}` });
+    out.push({ value: y, label: `${y}年${a !== null ? `（${a}歳）` : ""}`, age: a });
   }
   return out;
+}
+
+/** 年ごとの結果の帯の1マスの計算結果（要約。workspace/contingency/engine.ts の YearOutcome と同じ形） */
+export type YearResult = { state: "ready"; depletion: number | null; source: "preview" | "canonical" } | { state: "error"; code: string } | { state: "pending" };
+
+/** 続いた年のまとまり（例: [2031, 2032, 2033, 2040] → 「2031〜2033年・2040年」） */
+export function yearRanges(years: readonly number[]): string {
+  const ys = [...years].sort((a, b) => a - b);
+  const parts: string[] = [];
+  let i = 0;
+  while (i < ys.length) {
+    let j = i;
+    while (j + 1 < ys.length && (ys[j + 1] as number) === (ys[j] as number) + 1) j++;
+    parts.push(i === j ? `${ys[i]}年` : `${ys[i]}〜${ys[j]}年`);
+    i = j + 1;
+  }
+  return parts.join("・");
+}
+
+/**
+ * 年ごとの結果の帯（提示用の値）: マスごとに「その年に起きても最後まで足りるか」。全体の一言は、
+ * 全部足りる「2027〜2050年のどの年に起きても、最後まで資産は足ります」／一部が不足「2031〜2035年に起きると、資産が途中で不足します」。
+ * 計算中の年が残っている間は一言を出さず、何年分できたかを出す。万一なしでも不足する世帯は、そのことを添える
+ */
+export function yearStripModel(input: {
+  options: readonly { value: number; age: number | null }[];
+  results: readonly YearResult[];
+  who: string;
+  /** 万一なしで資産が尽きる年（尽きなければ null。計算前は undefined） */
+  noneDepletion: number | null | undefined;
+  stale: boolean;
+}): YearStripModel {
+  const { options, results, who } = input;
+  const cells: YearCellModel[] = options.map((o, i) => {
+    const r = results[i] ?? { state: "pending" };
+    const when = `${o.value}年${o.age !== null ? `（${who}${o.age}歳）` : ""}に起きた場合`;
+    if (r.state === "pending") return { year: o.value, age: o.age, state: "pending", shortYear: null, provisional: false, label: `${when}（計算中）` };
+    if (r.state === "error") return { year: o.value, age: o.age, state: "error", shortYear: null, provisional: false, label: `${when}、計算できませんでした` };
+    const short = r.depletion !== null;
+    return {
+      year: o.value,
+      age: o.age,
+      state: short ? "short" : "ok",
+      shortYear: r.depletion,
+      provisional: r.source !== "canonical",
+      label: short ? `${when}、${r.depletion}年に資産が不足` : `${when}、最後まで資産は足ります`,
+    };
+  });
+  const total = cells.length;
+  const done = cells.filter((c) => c.state !== "pending").length;
+  const first = options[0]?.value;
+  const last = options.at(-1)?.value;
+  const span = first === undefined ? "" : first === last ? `${first}年` : `${first}〜${last}年`;
+  let summary: string;
+  let tone: YearStripModel["tone"];
+  const shorts = cells.filter((c) => c.state === "short").map((c) => c.year);
+  if (total === 0) [summary, tone] = ["", "wait"];
+  else if (done < total) [summary, tone] = [`年ごとの結果を計算しています（${done}/${total}年）`, "wait"];
+  else if (cells.some((c) => c.state === "error")) [summary, tone] = ["計算できなかった年があります", "wait"];
+  else if (shorts.length === 0) [summary, tone] = [`${span}のどの年に起きても、最後まで資産は足ります`, "ok"];
+  else if (shorts.length === total) [summary, tone] = [`${span}のどの年に起きても、資産が途中で不足します`, "short"];
+  else [summary, tone] = [`${yearRanges(shorts)}に起きると、資産が途中で不足します`, "short"];
+  if (tone === "short" && input.noneDepletion != null) summary += `（万一なしでも${input.noneDepletion}年に不足します）`;
+  return { who, cells, summary, tone, done, total, stale: input.stale };
 }
 
 /** 万円の短い書き方（提示層の外で一文を作るとき） */
@@ -199,15 +263,14 @@ export function scenarioTitle(sc: Scenario): string {
 const GRADE_TEXT: Record<number, string> = { 0: "障害年金なしの仮定", 1: "障害1級の仮定", 2: "障害2級の仮定", 3: "障害3級の仮定" };
 
 /**
- * 場面の帯のカード（提示用の値）: 死亡の場面は必要保障額の推移から「保障の不足 最大○万円」、障害の場面は仮定の等級。
- * 表示中の場面には、計算できていれば資産が尽きる年を添える
+ * 場面の帯のカード（提示用の値）: 死亡の場面は必要保障額の推移から「保障の不足 最大○万円」か「保障は足りています」、障害の場面は仮定の等級。
+ * 資産が最後まで足りるかは、カードには出さない（カードによって出る・出ないがばらつくため。年ごとの結果の帯とグラフの見出しで分かる）
  */
 export function scenarioCards(input: {
   req: EngineRequest;
   scenarios: readonly Scenario[];
   selected: string;
   protection: ContingencyModel["protection"];
-  scenario: ContingencyModel["scenario"];
   grade: 0 | 1 | 2 | 3 | undefined;
 }): ScenarioCardModel[] {
   const keyOf = new Map(roles(input.req).map((r) => [r.member.id, r.key]));
@@ -220,14 +283,9 @@ export function scenarioCards(input: {
       if (input.protection.status === "loading") [status, tone] = ["計算しています", "wait"];
       else if (input.protection.status === "error" || chart === undefined) [status, tone] = ["必要保障額は出していません", "wait"];
       else if (chart.maxShort !== null) [status, tone] = [`保障の不足 最大${man(chart.maxShort.amount)}万円`, "ng"];
-      else [status, tone] = ["死亡保険金で足ります", "ok"];
+      else [status, tone] = ["保障は足りています", "ok"];
     } else [status, tone] = [GRADE_TEXT[input.grade ?? 2] ?? "", "wait"];
-    let result: ScenarioCardModel["result"] = null;
-    const sm = input.scenario.model;
-    if (sc.key === input.selected && sm !== null && input.scenario.status === "ready") {
-      const dep = sm.chart.depletions.find((d) => d.series === "proposal");
-      result = dep !== undefined ? { label: "資産", text: `${dep.year}年に不足`, neg: true } : { label: "資産", text: "最後まで足りる", neg: false };
-    }
-    return { key: sc.key, label: sc.label, title: scenarioTitle(sc), status, tone, result, protection: chart !== undefined ? chart.key : null };
+    const loading = sc.kind === "death" && input.protection.status === "loading";
+    return { key: sc.key, label: sc.label, title: scenarioTitle(sc), status, tone, loading, protection: chart !== undefined ? chart.key : null };
   });
 }

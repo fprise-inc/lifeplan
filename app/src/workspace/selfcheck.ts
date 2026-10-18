@@ -181,7 +181,7 @@ export async function runInputCheck(dual: () => DualEngine | null, host: string)
     await wait();
     report.saved = { living: cardText("living"), progress: text("[data-progress]"), panelClosed: document.querySelector(".ipanel") === null };
     await stage("input-saved", report);
-    clickTab("主画面");
+    clickTab("見通し");
     await sleep(300);
     await wait();
     report.main = { verdict: text("[data-verdict]"), year: text(".sel-lbl") };
@@ -229,7 +229,7 @@ export async function runContingencyCheck(host: string): Promise<void> {
   };
   try {
     const t0 = performance.now();
-    clickTab("万一の想定");
+    clickTab("万一のとき");
     await waitFor(() => document.querySelector("[data-cg-band]") !== null, 2000);
     report.loadingShown = document.querySelector(".cg-loading") !== null || document.querySelector('[data-cg-band][data-prot-status="loading"]') !== null;
     await waitFor(() => document.querySelector('[data-cg-band][data-prot-status="loading"]') === null);
@@ -249,13 +249,22 @@ export async function runContingencyCheck(host: string): Promise<void> {
     await stage("cg-disability", report);
     document.querySelector<HTMLButtonElement>('[data-scenario="death:self"]')?.click();
     await sleep(100);
-    const sel = document.querySelector<HTMLSelectElement>("[data-scenario-year]");
-    if (sel !== null) {
-      sel.value = "2030";
-      sel.dispatchEvent(new Event("change", { bubbles: true }));
-    }
+    // 起きる年は年ごとの結果の帯のマスで選ぶ
+    document.querySelector<HTMLButtonElement>('[data-year-strip] [data-year-cell="2030"]')?.click();
     report.deathMs = await waitFor(() => (text(".cg-chart [data-verdict]") ?? "").includes("2030") && document.querySelector(".cg-chart .is-stale") === null);
     report.death2030 = { title: text(".cg-chart [data-verdict]"), notice: text("[data-notice]") };
+    report.yearStripMs = await waitFor(() => {
+      const d = document.querySelector<HTMLElement>("[data-year-strip]")?.dataset.yearDone ?? "";
+      const [a, b] = d.split("/");
+      return a !== undefined && a === b;
+    });
+    report.yearStrip = { summary: text("[data-year-summary]"), done: document.querySelector<HTMLElement>("[data-year-strip]")?.dataset.yearDone };
+    // タブを切り替えて戻る: 前の結果をそのまま出す（「計算しています」を出さない）
+    clickTab("見通し");
+    await sleep(300);
+    clickTab("万一のとき");
+    await sleep(50);
+    report.reopen = { loading: document.querySelector(".cg-loading") !== null, headline: text(".cg-chart [data-headline]") !== null, perf: text("[data-cg-perf]") };
     await stage("cg-death-2030", report);
     document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
     await sleep(300);

@@ -1,15 +1,17 @@
-// グラフの補間（数字を動かす・案を切り替えると、線と面が前の形から新しい形へ約0.5秒で動く）。
+// グラフの補間（数字を動かす・案を切り替えると、線と面が前の形から新しい形へ約0.5秒で動く。行き過ぎない）。
 // 計算はしない（受け取った数字の間を描くだけ）。補間しても、計算の待ち（先出し・正の計算）は変わらない
 import { useEffect, useRef, useState } from "preact/hooks";
 
 /** 補間の長さ（ミリ秒） */
 export const TWEEN_MS = 520;
 
-/** 少し行き過ぎて戻る動き（0→1。途中で 1 を少し超える） */
-export function easeOutBack(t: number): number {
-  const c1 = 1.15;
-  const c3 = c1 + 1;
-  return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2;
+/**
+ * 行き過ぎのない動き（0→1。初めは速く、終わりはゆっくり目標に着く。途中で 1 を超えない・0 を下回らない・戻らない）。
+ * 少し上振れ・下振れして戻る動き（以前の easeOutBack）は、数字が一瞬その値になったように見えて誤解のもとになるのでやめた
+ */
+export function easeOutCubic(t: number): number {
+  const u = Math.min(1, Math.max(0, t));
+  return 1 - (1 - u) ** 3;
 }
 
 /** 補間する数字の束（系列の名前 → 年ごとの値） */
@@ -81,7 +83,7 @@ export function useTween(target: Series, opts: { reduce?: boolean; duration?: nu
       const cur = anim.current;
       if (cur === null) return;
       const t = Math.min(1, (now - cur.t0) / duration);
-      shown.current = t >= 1 ? cur.to : lerpSeries(cur.from, cur.to, easeOutBack(t));
+      shown.current = t >= 1 ? cur.to : lerpSeries(cur.from, cur.to, easeOutCubic(t));
       if (t >= 1) anim.current = null;
       else cur.raf = requestAnimationFrame(step);
       setFrame((n) => n + 1);

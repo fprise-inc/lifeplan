@@ -76,7 +76,8 @@ export interface TableCellModel {
 
 export type TableRowModel =
   | { kind: "age"; key: string; label: string; ages: (number | null)[] }
-  | { kind: "events"; key: string; label: string; icons: EventIcon[][] }
+  /** ライフイベント（年ごとのできごと。丸の漢字と説明。グラフの下の丸と同じ） */
+  | { kind: "events"; key: string; label: string; events: EventChip[][] }
   | { kind: "group"; key: string; label: string }
   | { kind: "value" | "total"; key: string; label: string; cells: TableCellModel[]; evidence: boolean }
   /** 基準との差の行（選んだ案−基準。年間収支と金融資産残高の下） */
@@ -245,10 +246,39 @@ export interface ScenarioCardModel {
   /** 小さな状態の札（例: 「保障の不足 最大5,482万円」）。tone の wait は灰の札 */
   status: string;
   tone: "ok" | "ng" | "wait";
-  /** 表示中の場面の結果（例: 「2038年に不足」）。表示中でない・計算中は null */
-  result: { label: string; text: string; neg: boolean } | null;
+  /** 計算中（短い計算では「計算しています」を出さないため、札を空けておく） */
+  loading: boolean;
   /** その人が亡くなった場合の必要保障額の推移のグラフの鍵（ProtectionChartModel.key。無ければ null） */
   protection: string | null;
+}
+
+/** 年ごとの結果の帯の1マス（その年に起きた場合） */
+export interface YearCellModel {
+  year: number;
+  /** 対象の人のその年の年齢 */
+  age: number | null;
+  /** ok: 最後まで足りる／short: 途中で不足／pending: 計算中／error: 計算できない */
+  state: "ok" | "short" | "pending" | "error";
+  /** 資産が尽きる年（short のとき） */
+  shortYear: number | null;
+  /** 先出し（確定前）の結果か */
+  provisional: boolean;
+  /** 読み上げ（例: 「2031年（ご主人42歳）に起きた場合、2045年に資産が不足」） */
+  label: string;
+}
+
+/** 年ごとの結果の帯 */
+export interface YearStripModel {
+  /** 年齢の人の呼び方（例: 「ご主人」） */
+  who: string;
+  cells: YearCellModel[];
+  /** 全体の一言（例: 「2027〜2050年のどの年に起きても、最後まで資産は足ります」） */
+  summary: string;
+  tone: "ok" | "short" | "wait";
+  done: number;
+  total: number;
+  /** 前提を動かしている途中（帯は指を離してから計算し直す） */
+  stale: boolean;
 }
 
 export interface ContingencyModel {
@@ -256,7 +286,8 @@ export interface ContingencyModel {
   scenarios: ScenarioCardModel[];
   selected: string;
   year: number;
-  yearOptions: { value: number; label: string }[];
+  /** 年ごとの結果の帯（起きる年を1年ずつ選ぶ） */
+  strip: YearStripModel;
   scenario: { status: "loading" | "ready" | "error"; model: ScenarioModel | null; error: string | null; stale: boolean };
 }
 
