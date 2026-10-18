@@ -59,7 +59,7 @@ impl<T: SecretStore + ?Sized> SecretStore for std::sync::Arc<T> {
     }
 }
 
-/// OS の資格情報の保管庫。サービス名は製品が `com.fprise.lifeplan`、開発用のビルドは `com.fprise.lifeplan.dev`（0013 の2:
+/// OS の資格情報の保管庫。サービス名は製品がアプリの識別子、開発用のビルドは `<識別子>.dev`（0013 の2:
 /// 開発用のビルドは製品の鍵に触れない）。どちらにするかはアプリ本体が決める
 #[cfg(feature = "os-keyring")]
 pub struct OsSecretStore {
@@ -109,7 +109,7 @@ mod os_tests {
     #[test]
     #[ignore]
     fn os_keyring_round_trip() {
-        let s = OsSecretStore::new("com.fprise.lifeplan.test");
+        let s = OsSecretStore::new("lifeplan.household-store.test");
         let account = crate::crypto::new_uuid();
         assert!(s.get(&account).unwrap().is_none());
         s.set(&account, "00ff").unwrap();
