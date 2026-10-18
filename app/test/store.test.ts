@@ -30,7 +30,7 @@ function sample(): BodyState {
   return {
     wh: b.wh,
     workspace: { template: id, band: [a.id, b.id], base: CURRENT, selected: b.id, shownItems: ["rates:shift"] },
-    display: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"], atAge: 90 },
+    display: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"], atAge: 90, layout: "side" },
     carry: { extDefinitions: { "ext.exampleOffice.carCount": { type: "integer", label: "車の台数" } }, ext: { "ext.exampleOffice.carCount": 2 } },
   };
 }
@@ -91,6 +91,9 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(s.wh.proposals).toEqual([]);
     expect(s.workspace.selected).toBe(CURRENT);
     expect(s.carry).toEqual(EMPTY_CARRY);
+    // 表示の設定の知らない値は既定に戻す（グラフの比べ方を含む）
+    const d = fromBody(JSON.stringify({ household: { request: sample().wh.request }, display: { metrics: ["x", "takeHome"], atAge: "9", layout: "diagonal" } })).display;
+    expect(d).toEqual({ ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"] });
   });
 
   it("過去のすべての形式の版の見本を、今の画面で読める（0011 の5）", () => {
