@@ -1,0 +1,17 @@
+[package]
+name = "ai-share"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "AIに世帯を渡す（共有）ためのアプリ本体の側の部品: 共有の台帳・縮約版・文章の包み方・AIに渡した記録・接続口からの依頼の受け口（0014・0015）"
+
+[dependencies]
+ai-ipc = { path = "../ai-ipc" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["net", "io-util", "rt", "time", "sync"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
