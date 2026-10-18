@@ -3,11 +3,12 @@ import { renderToString } from "preact-render-to-string";
 import { h } from "preact";
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, ProtectionOutput } from "../src/engine/types.ts";
-import { ProtectionCard, ScenarioCard } from "../src/presentation/ContingencyView.tsx";
+import { ContingencyChartCard, ScenarioBand } from "../src/presentation/ContingencyView.tsx";
 import type { ContingencyModel } from "../src/presentation/model.ts";
 import { contingencyInputSections, oldAgeChoiceField } from "../src/workspace/contingency/inputs.ts";
 import { planFromRequest } from "../src/workspace/contingency/planData.ts";
-import { chosenCombinations, protectionChart, scenarioModel, yearOptions } from "../src/workspace/contingency/present.ts";
+import { chosenCombinations, protectionChart, scenarioCards, scenarioModel, yearOptions } from "../src/workspace/contingency/present.ts";
+import { PremisePanel } from "../src/workspace/contingency/PremisePanel.tsx";
 import { baseRequest, protectionRequest, scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
 import type { FieldDef, Val } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -197,17 +198,21 @@ describe("提示用の値がエンジンの結果と一致する", () => {
     const chart = protectionChart(pr, r.protection!, r, self.id)!;
     const none = preview(baseRequest(req));
     const result = preview(scenarioRequest(memoWh, sc, 2030));
+    const protection: ContingencyModel["protection"] = { status: "ready", charts: [chart], error: null, ms: 100 };
+    const scenario: ContingencyModel["scenario"] = { status: "ready", model: scenarioModel({ req, scenario: sc, year: 2030, result, none, targetAge: 95, choice: undefined }), error: null, stale: false };
     const model: ContingencyModel = {
-      protection: { status: "ready", charts: [chart], error: null, ms: 100 },
-      scenarios: scenarios(memoWh).map((s) => ({ key: s.key, label: s.label })),
+      protection,
+      scenarios: scenarioCards({ req, scenarios: scenarios(memoWh), selected: sc.key, protection, scenario, grade: undefined }),
       selected: sc.key,
       year: 2030,
       yearOptions: yearOptions(req, self.id),
-      scenario: { status: "ready", model: scenarioModel({ req, scenario: sc, year: 2030, result, none, targetAge: 95, choice: undefined }), error: null, stale: false },
+      scenario,
     };
-    const html =
-      renderToString(h(ProtectionCard, { model: model.protection, selected: { key: "self", year: 2030 }, onPick: () => undefined })) +
-      renderToString(h(ScenarioCard, { model, selectedYear: 2030, onSelectScenario: () => undefined, onSelectYear: () => undefined, onSelectChartYear: () => undefined }));
+    const card = (mode: "assets" | "protection") => renderToString(h(ContingencyChartCard, { model, mode, onMode: () => undefined, pinnedYear: 2030, onPinYear: () => undefined, onPick: () => undefined }));
+    const html = renderToString(h(ScenarioBand, { model, onSelect: () => undefined, onYear: () => undefined })) + card("assets") + card("protection");
+    expect(html).toContain("ご主人が亡くなったら");
+    expect(html).toContain("保障の不足 最大");
+    expect(html).toContain("2030年に亡くなった場合");
     expect(html).toContain("必要保障額の推移");
     expect(html).toContain("ご主人が2030年に亡くなった場合");
     expect(html).toContain("見直し前の制度");
@@ -216,8 +221,31 @@ describe("提示用の値がエンジンの結果と一致する", () => {
   });
 
   it("計算中は「計算しています」を出す", () => {
-    const html = renderToString(h(ProtectionCard, { model: { status: "loading", charts: [], error: null, ms: null }, selected: null, onPick: () => undefined }));
-    expect(html).toContain("計算しています");
+    const wh = open("salariedCoupleTwoKids");
+    const scs = scenarios(wh);
+    const protection: ContingencyModel["protection"] = { status: "loading", charts: [], error: null, ms: null };
+    const scenario: ContingencyModel["scenario"] = { status: "loading", model: null, error: null, stale: false };
+    const model: ContingencyModel = { protection, scenarios: scenarioCards({ req, scenarios: scs, selected: scs[0]!.key, protection, scenario, grade: undefined }), selected: scs[0]!.key, year: 2030, yearOptions: [], scenario };
+    const band = renderToString(h(ScenarioBand, { model, onSelect: () => undefined, onYear: () => undefined }));
+    expect(band).toContain("計算しています");
+    for (const mode of ["assets", "protection"] as const) {
+      const html = renderToString(h(ContingencyChartCard, { model, mode, onMode: () => undefined, pinnedYear: null, onPinYear: () => undefined, onPick: () => undefined }));
+      expect(html).toContain("計算しています");
+    }
+  });
+
+  it("想定の前提の欄: 対策と同じ部品（スライダー・万円の数値の欄・既定の札）で描き、物の ID・FP用のメモは出ない", () => {
+    const memoWh = open("salariedCoupleTwoKids", ["MEMO-MARK-pp"]);
+    const sections = contingencyInputSections(memoWh);
+    const html = renderToString(h(PremisePanel, { wh: memoWh, sections, used: new Set(["cg/living"]), extra: { section: "cg/disability", field: oldAgeChoiceField(self.id), note: "組み合わせ" }, onDraft: () => undefined, onCommit: () => undefined }));
+    expect(html).toContain("想定の前提");
+    expect(html).toContain('type="range"');
+    expect(html).toContain("既定: 70%");
+    expect(html).toContain("1万円ずつ");
+    expect(html).toContain("この場面で使う");
+    expect(html).toContain("65歳からの障害年金と老齢年金の組み合わせ");
+    // 前提の欄は作業の層（FP が直す欄）。FP用のメモは出さない
+    expect(html).not.toContain("MEMO-MARK");
   });
 });
 

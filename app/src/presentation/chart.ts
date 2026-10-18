@@ -1,4 +1,4 @@
-// 資産のグラフの座標の計算（描くのは AssetChart.tsx）。グラフのライブラリは使わず SVG で描く（0016 の追記）
+// グラフの座標の計算（描くのは MainChart.tsx・ContingencyView.tsx）。グラフのライブラリは使わず SVG で描く（0016 の追記）
 import type { Yen } from "./model.ts";
 
 export interface Frame {
@@ -99,4 +99,54 @@ export function areaBelow(values: Yen[], s: Scale): string {
   }
   close();
   return parts.join(" ");
+}
+
+/**
+ * 横に並ぶ丸（年のイベント）の置き場所: 重なる丸は間隔 gap で横に並べ直し、まとまりの中心を元の位置の平均に置く。
+ * 同じ年の丸も、隣り合う年の丸も重ならない。lo〜hi（丸の中心が置ける範囲）からはみ出さない。返す並びは xs と同じ
+ */
+export function spreadX(xs: readonly number[], gap: number, lo: number, hi: number): number[] {
+  const order = xs.map((_, i) => i).sort((a, b) => (xs[a] as number) - (xs[b] as number) || a - b);
+  const groups: { ids: number[]; sum: number; left: number }[] = [];
+  const leftOf = (ids: number[], sum: number) => {
+    const span = (ids.length - 1) * gap;
+    return Math.max(lo, Math.min(hi - span, sum / ids.length - span / 2));
+  };
+  for (const i of order) {
+    const x = xs[i] as number;
+    groups.push({ ids: [i], sum: x, left: leftOf([i], x) });
+    // 前のまとまりと重なる間は1つにまとめる
+    while (groups.length >= 2) {
+      const b = groups[groups.length - 1] as (typeof groups)[number];
+      const a = groups[groups.length - 2] as (typeof groups)[number];
+      if (a.left + (a.ids.length - 1) * gap + gap <= b.left + 1e-9) break;
+      const ids = [...a.ids, ...b.ids];
+      const sum = a.sum + b.sum;
+      groups.splice(groups.length - 2, 2, { ids, sum, left: leftOf(ids, sum) });
+    }
+  }
+  const out = new Array<number>(xs.length).fill(0);
+  for (const g of groups) g.ids.forEach((id, k) => (out[id] = g.left + k * gap));
+  return out;
+}
+
+/**
+ * 丸の段（0 か 1）: 1段に並べたときに元の位置から maxShift より多くずれるまとまりは、丸を交互に2段目に回す
+ * （狭いグラフで丸が年から大きく離れないように）。ずれが小さいまとまりは1段のまま
+ */
+export function eventRows(xs: readonly number[], gap: number, maxShift: number): number[] {
+  const order = xs.map((_, i) => i).sort((a, b) => (xs[a] as number) - (xs[b] as number) || a - b);
+  const placed = spreadX(xs, gap, -Infinity, Infinity);
+  const rows = new Array<number>(xs.length).fill(0);
+  let k = 0;
+  while (k < order.length) {
+    // 1段に並べたときに隣り合う（間隔が gap ちょうどの）丸のまとまり
+    let e = k + 1;
+    while (e < order.length && (placed[order[e] as number] as number) - (placed[order[e - 1] as number] as number) < gap + 1e-6) e++;
+    const ids = order.slice(k, e);
+    const far = ids.some((id) => Math.abs((placed[id] as number) - (xs[id] as number)) > maxShift + 1e-6);
+    if (far) ids.forEach((id, j) => (rows[id] = j % 2));
+    k = e;
+  }
+  return rows;
 }

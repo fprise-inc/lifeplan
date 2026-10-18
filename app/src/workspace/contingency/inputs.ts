@@ -1,4 +1,4 @@
-// 万一の想定の前提の欄（万一の画面の右に出す。入力の画面と同じ欄の部品で描く）。
+// 万一の想定の前提の欄（万一の画面のグラフの下に出す。主画面の対策と同じ並べ方・同じ部品で描く: PremisePanel.tsx）。
 // 値は世帯の要求ではなく、画面の側の前提（WorkingHousehold.contingency）を読み書きする。団信だけは住まい・ローンの段階と同じ欄（世帯の要求）
 import type { OldAgeChoice } from "../../engine/types.ts";
 import { field, getPath, setPath, type FieldDef, type FieldState, type GroupDef, type Level, type Option, type SectionDef, type Val } from "../input/form.ts";
@@ -9,6 +9,25 @@ import type { ContingencyPlan } from "./planData.ts";
 import { adults } from "./requests.ts";
 
 type Obj = Record<string, unknown>;
+
+/** 前提の欄の描き方（スライダーの範囲・既定の値）。欄の定義（FieldDef）には持たせず、ここで欄ごとに覚えておく */
+export interface PremiseMeta {
+  /** スライダーの範囲（金額は円、率は百分率の整数、整数はそのまま）。選択の欄は null */
+  slider: { min: number; max: number; step: number } | null;
+  /** 省略のときの既定（書き戻すと省略に戻る） */
+  fallback: Val | undefined;
+  /** 空欄（省略）が「目安・自動で計算」の意味の欄の、その説明（例: 「自動（勤続の月数で按分）」）。無い欄は空欄＝0 */
+  auto: string | undefined;
+}
+
+const META = new WeakMap<FieldDef, PremiseMeta>();
+
+/** 前提の欄の描き方（万一の前提の欄でなければ undefined） */
+export function premiseMeta(f: FieldDef): PremiseMeta | undefined {
+  return META.get(f);
+}
+
+const MAN = 10000;
 
 /** 前提の欄（path は ContingencyPlan の中の場所）。fallback は省略のときの既定（書き戻すと省略に戻る） */
 function planField(o: {
@@ -26,6 +45,10 @@ function planField(o: {
   help?: string;
   /** 値を数として持つ選択（等級） */
   numeric?: boolean;
+  /** 金額のスライダーの上限（円。下限は0、刻みは1万円） */
+  maxYen?: number;
+  /** 空欄が「目安・自動」の意味のときの説明 */
+  auto?: string;
 }): FieldDef {
   const kindPart: Obj = { kind: o.kind };
   if (o.kind === "yen") kindPart.basis = o.basis ?? "once";
@@ -33,7 +56,7 @@ function planField(o: {
   if (o.suffix !== undefined) kindPart.suffix = o.suffix;
   if (o.min !== undefined) kindPart.min = o.min;
   if (o.max !== undefined) kindPart.max = o.max;
-  return field({
+  const def = field({
     key: o.key,
     item: null,
     label: o.label,
@@ -59,6 +82,10 @@ function planField(o: {
       return { ...wh, contingency: p };
     },
   });
+  const slider =
+    o.kind === "pct" ? { min: 0, max: 100, step: 1 } : o.kind === "yen" ? { min: 0, max: o.maxYen ?? 1000 * MAN, step: MAN } : o.kind === "int" ? { min: o.min ?? 0, max: Math.min(o.max ?? 100, 120), step: 1 } : null;
+  META.set(def, { slider, fallback: o.fallback, auto: o.auto });
+  return def;
 }
 
 export const HORIZON_KINDS: Option[] = [
@@ -109,7 +136,7 @@ function workGroups(wh: WorkingHousehold): GroupDef[] {
       fields.push(planField({ key: `${k}/after`, label: "変える時期（亡くなってから）", kind: "int", suffix: "か月後", min: 0, max: 120, path: ["work", id, "afterMonths"], fallback: 6 }));
       if (w.type !== "none") {
         fields.push(
-          planField({ key: `${k}/salary`, label: w.type === "selfEmployed" ? "事業の所得（年額）" : "年収（賞与を除く）", kind: "yen", basis: "annual", path: ["work", id, "annualSalary"], help: "空欄なら働き方ごとの目安で計算します" }),
+          planField({ key: `${k}/salary`, label: w.type === "selfEmployed" ? "事業の所得（年額）" : "年収（賞与を除く）", kind: "yen", basis: "annual", path: ["work", id, "annualSalary"], help: "空欄なら働き方ごとの目安で計算します", maxYen: 1500 * MAN, auto: "働き方ごとの目安" }),
           planField({ key: `${k}/until`, label: "何歳まで", kind: "int", suffix: "歳", min: 20, max: 80, path: ["work", id, "untilAge"], fallback: 65 }),
         );
       }
@@ -119,7 +146,7 @@ function workGroups(wh: WorkingHousehold): GroupDef[] {
   return out;
 }
 
-/** 前提の欄の区画（万一の画面の右） */
+/** 前提の欄の区画（万一の画面のグラフの下） */
 export function contingencyInputSections(wh: WorkingHousehold): SectionDef[] {
   const plan = wh.contingency;
   const sections: SectionDef[] = [
@@ -151,9 +178,9 @@ export function contingencyInputSections(wh: WorkingHousehold): SectionDef[] {
           key: "cg/lump/fields",
           level: "simple",
           fields: [
-            planField({ key: "cg/lump/allowance", label: "死亡退職金", kind: "yen", path: ["survivor", "deathBenefits", "retirementAllowance"], help: "空欄なら、退職金の見込みを勤続の月数で按分します" }),
-            planField({ key: "cg/lump/condolence", label: "弔慰金", kind: "yen", path: ["survivor", "deathBenefits", "condolence"] }),
-            planField({ key: "cg/lump/funeral", label: "整理資金（葬儀・お墓など）", kind: "yen", path: ["survivor", "funeral"], help: "亡くなった月の翌月の支出にします" }),
+            planField({ key: "cg/lump/allowance", label: "死亡退職金", kind: "yen", path: ["survivor", "deathBenefits", "retirementAllowance"], help: "空欄なら、退職金の見込みを勤続の月数で按分します", maxYen: 5000 * MAN, auto: "自動（勤続の月数で按分）" }),
+            planField({ key: "cg/lump/condolence", label: "弔慰金", kind: "yen", path: ["survivor", "deathBenefits", "condolence"], maxYen: 1000 * MAN }),
+            planField({ key: "cg/lump/funeral", label: "整理資金（葬儀・お墓など）", kind: "yen", path: ["survivor", "funeral"], help: "亡くなった月の翌月の支出にします", maxYen: 1000 * MAN }),
             planField({ key: "cg/lump/reserve", label: "予備の生活資金", kind: "int", suffix: "か月分", min: 0, max: 120, path: ["survivor", "reserveMonths"], help: "遺族の生活費の何か月分を、必要保障額に足すか" }),
           ],
           actions: [],
@@ -190,7 +217,7 @@ export function contingencyInputSections(wh: WorkingHousehold): SectionDef[] {
           level: "simple",
           fields: [
             planField({ key: "cg/disability/grade", label: "仮定の等級", kind: "select", options: GRADES, path: ["grade"], fallback: "2", numeric: true }),
-            planField({ key: "cg/disability/medical", label: "医療費（1か月・10割）", level: "detail", kind: "yen", basis: "monthly", path: ["medical", "monthly"], help: "高額療養費で止めた自己負担を計算します" }),
+            planField({ key: "cg/disability/medical", label: "医療費（1か月・10割）", level: "detail", kind: "yen", basis: "monthly", path: ["medical", "monthly"], help: "高額療養費で止めた自己負担を計算します", maxYen: 300 * MAN }),
             planField({ key: "cg/disability/months", label: "医療費の月数", level: "detail", kind: "int", suffix: "か月", min: 1, max: 600, path: ["medical", "months"], fallback: 12 }),
           ],
           actions: [],

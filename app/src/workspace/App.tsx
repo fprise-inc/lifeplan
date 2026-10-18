@@ -8,7 +8,7 @@ import { isEngineError } from "../engine/types.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { group } from "../presentation/format.ts";
-import type { ChartMode } from "../presentation/MainChart.tsx";
+import type { ChartLayout, ChartMode } from "../presentation/MainChart.tsx";
 import { CashflowTable, FeeNote, ResultCard } from "../presentation/MainView.tsx";
 import { PlanBand } from "../presentation/PlanBand.tsx";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
@@ -39,6 +39,9 @@ import { cashflowTable, displayYears, eventsOf, toPresentation, withDiff } from 
 import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
 import { ageMarkOf, DEFAULT_DISPLAY_SETTINGS, METRIC_CHOICES, shows, verdictMetrics, type DisplaySettings, type MetricKey } from "./settings.ts";
+import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
+import { installUndo, undoController } from "./undo/controller.ts";
+import { UndoButtons } from "./undo/UndoButtons.tsx";
 
 type Tab = "input" | "main" | "contingency" | "report";
 const TABS: { id: Tab; label: string }[] = [
@@ -50,7 +53,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 /** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#add=pet,car（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
  * #items=loan,rate,shift,mix（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
- * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table） */
+ * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）） */
 export function parseHash(hash: string): {
   /** 文字を大きくした状態で開く */
   big: boolean;
@@ -101,6 +104,8 @@ export function parseHash(hash: string): {
   compare?: boolean;
   list?: boolean;
   scroll?: "table";
+  /** グラフの比べ方 */
+  layout?: ChartLayout;
 } {
   const out: ReturnType<typeof parseHash> = { big: false, selfcheck: false };
   for (const part of hash.replace(/^#/, "").split("&")) {
@@ -140,6 +145,7 @@ export function parseHash(hash: string): {
     else if (k === "compare") out.compare = true;
     else if (k === "list") out.list = true;
     else if (k === "scroll" && v === "table") out.scroll = "table";
+    else if (k === "layout" && (v === "side" || v === "overlay")) out.layout = v;
   }
   return out;
 }
@@ -168,15 +174,6 @@ export function feeSummary(req: EngineRequest): string {
 }
 
 export { leverSteps };
-
-function nearestIndex(steps: number[], v: number | undefined): number {
-  if (v === undefined) return 0;
-  let best = 0;
-  steps.forEach((s, i) => {
-    if (Math.abs(s - v) < Math.abs((steps[best] as number) - v)) best = i;
-  });
-  return best;
-}
 
 interface Opened {
   /** 見本の世帯（目盛り・最初の提案の既定）。空の世帯は null */
@@ -253,7 +250,7 @@ export function App() {
   const [explainStep, setExplainStep] = useState<number | null>(initial.explain ?? null);
   const [tableKey, setTableKey] = useState<string | null>(null);
   const [showDiff, setShowDiff] = useState(initial.diff === true);
-  const [settings, setSettings] = useState<DisplaySettings>({ ...DEFAULT_DISPLAY_SETTINGS, ...(initial.metrics !== undefined ? { metrics: initial.metrics } : {}), ...(initial.age !== undefined ? { atAge: initial.age } : {}) });
+  const [settings, setSettings] = useState<DisplaySettings>({ ...DEFAULT_DISPLAY_SETTINGS, ...(initial.metrics !== undefined ? { metrics: initial.metrics } : {}), ...(initial.age !== undefined ? { atAge: initial.age } : {}), ...(initial.layout !== undefined ? { layout: initial.layout } : {}) });
   const [settingsOpen, setSettingsOpen] = useState(initial.settings === true);
   const [panel, setPanel] = useState<null | "list" | "compare">(initial.compare === true ? "compare" : initial.list === true ? "list" : null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -271,6 +268,14 @@ export function App() {
   const compareTimings = useRef<{ ms: number; hostMs: number; slots: number }[]>([]);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ---- 元に戻す・やり直す: 世帯データ・案・表示の設定を変える setter を history.track で包む（世帯ごとの履歴）----
+  const history = useHistoryBook<AppSnap<Work>>({
+    read: () => (openedRef.current === null ? null : { wh: openedRef.current.wh, work: workRef.current, settings: settingsRef.current }),
+    same: sameSnap,
+    describe: describeSnap,
+    apply: (s) => restore(s),
+  });
+
   /** グラフで年を固定する・外す（固定したら表の同じ年の列まで横に動かす） */
   const pinYear = useCallback((y: number | null) => {
     setSelectedYear(y);
@@ -281,6 +286,10 @@ export function App() {
     if (noticeTimer.current !== null) clearTimeout(noticeTimer.current);
     noticeTimer.current = setTimeout(() => setNotice(null), 3200);
   }, []);
+  useEffect(() => {
+    undoController.notify = say;
+    return installUndo(undoController);
+  }, [say]);
 
   // 文字を大きくする: 文字の大きさ・線の太さは html の class で切り替える（描いた直後に。次の描画を待たない）
   useLayoutEffect(() => {
@@ -342,7 +351,7 @@ export function App() {
   );
 
   /** 作業の状態を置き直して計算する。slide: 選んだ案の1枠だけ先出し、release: 先出しのあと正の計算、set: 全部の枠（帯が変わったとき） */
-  const putWork = useCallback(
+  const putWorkRaw = useCallback(
     (w: Work, o: Opened | null = openedRef.current, mode: "slide" | "release" | "set" = "set") => {
       workRef.current = w;
       setWork(w);
@@ -359,6 +368,10 @@ export function App() {
       if (mode === "release") void dual.current.release();
     },
     [requestsFor],
+  );
+  const putWork = useCallback(
+    (w: Work, o: Opened | null = openedRef.current, mode: "slide" | "release" | "set" = "set") => history.track(() => putWorkRaw(w, o, mode)),
+    [putWorkRaw, history],
   );
 
   const addOnce = useRef(false);
@@ -422,6 +435,7 @@ export function App() {
       const w: Work = { band, base: pickBase ?? CURRENT, sel: pickSel ?? band[0] ?? CURRENT, drafts: {} };
       openedRef.current = o;
       workRef.current = w;
+      history.reset(id);
       setOpened(o);
       setWork(w);
       setShown(shownKeys);
@@ -436,7 +450,7 @@ export function App() {
       compareTimings.current.push({ ms: performance.now() - t0, hostMs: canon?.hostMs ?? 0, slots: Object.keys(all).length });
       setTick((t) => t + 1);
     },
-    [host, requestsFor, initial],
+    [host, requestsFor, initial, history],
   );
 
   useEffect(() => {
@@ -461,38 +475,53 @@ export function App() {
 
   /** 現状（入力）を置き換える: 推定を入れ直し、動かす項目を作り直し、案を新しい現状に当て直して計算し直す */
   const replaceCurrent = useCallback(
-    (next: WorkingHousehold, nextWork?: Work) => {
-      const o = openedRef.current;
-      if (o === null || dual.current === null) return;
-      const n = openedFrom(o.demo, withRefreshedEstimates(next));
-      if (n === null) return;
-      reqCache.current.clear();
-      const w = fitWork(n, nextWork ?? workRef.current);
-      openedRef.current = n;
-      workRef.current = w;
-      setOpened(n);
-      setWork(w);
-      const all = requestsFor(n, w, settingsRef.current);
-      dual.current.retain(Object.keys(all));
-      dual.current.slide(w.sel, all);
-    },
-    [requestsFor],
+    (next: WorkingHousehold, nextWork?: Work) =>
+      history.track(() => {
+        const o = openedRef.current;
+        if (o === null || dual.current === null) return;
+        const n = openedFrom(o.demo, withRefreshedEstimates(next));
+        if (n === null) return;
+        reqCache.current.clear();
+        const w = fitWork(n, nextWork ?? workRef.current);
+        openedRef.current = n;
+        workRef.current = w;
+        setOpened(n);
+        setWork(w);
+        const all = requestsFor(n, w, settingsRef.current);
+        dual.current.retain(Object.keys(all));
+        dual.current.slide(w.sel, all);
+      }),
+    [requestsFor, history],
   );
+  /** 元に戻す・やり直す: 履歴の状態をそのまま入れる（推定は入れ直し済みの世帯なので、そのまま使う） */
+  const restore = (s: AppSnap<Work>) => {
+    const o = openedRef.current;
+    if (o === null) return;
+    const n = s.wh === o.wh ? o : s.wh.request === o.wh.request ? { ...o, wh: s.wh } : openedFrom(o.demo, s.wh);
+    if (n === null) return;
+    reqCache.current.clear();
+    openedRef.current = n;
+    settingsRef.current = s.settings;
+    setOpened(n);
+    setSettings(s.settings);
+    putWorkRaw(fitWork(n, s.work), n, "set");
+  };
   /** 入力の画面で世帯（現状）を変えた */
   const edit = useCallback((next: WorkingHousehold) => replaceCurrent(next), [replaceCurrent]);
 
   /** 案の一覧だけを変えた（名前・印・保存・外す）。現状は同じ */
   const setPlans = useCallback(
-    (next: WorkingHousehold, nextWork?: Work) => {
-      const o = openedRef.current;
-      if (o === null) return;
-      const n = { ...o, wh: next };
-      reqCache.current.clear();
-      openedRef.current = n;
-      setOpened(n);
-      putWork(fitWork(n, nextWork ?? workRef.current), n, "set");
-    },
-    [putWork],
+    (next: WorkingHousehold, nextWork?: Work) =>
+      history.track(() => {
+        const o = openedRef.current;
+        if (o === null) return;
+        const n = { ...o, wh: next };
+        reqCache.current.clear();
+        openedRef.current = n;
+        setOpened(n);
+        putWork(fitWork(n, nextWork ?? workRef.current), n, "set");
+      }),
+    [putWork, history],
   );
 
   const setValue = useCallback(
@@ -521,7 +550,7 @@ export function App() {
     (key: LeverKey, v: number) => {
       const o = openedRef.current;
       const it = o?.catalog.byKey.get(`lever:${key}`);
-      if (it === undefined || (it.control.kind !== "steps" && it.control.kind !== "range")) return;
+      if (it === undefined || (it.control.kind !== "age" && it.control.kind !== "range")) return;
       setValue(it.key, v);
     },
     [setValue],
@@ -660,6 +689,7 @@ export function App() {
   const altRes = dual.current?.view("alt").result ?? null;
   const selValues = opened === null ? {} : valuesOf(opened.wh, work, work.sel);
   const selReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.sel))), [opened, work, reqOf]);
+  const baseReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.base))), [opened, work, reqOf]);
   const feeOn = opened !== null && hasAdvisoryFee(opened.wh.request) ? feeOf(opened, selValues) : false;
   const names = { selected: `${letterOf(work.sel)}案`, base: `${letterOf(work.base)}案`, same: work.sel === work.base };
   const feeShown = opened !== null && shows(settings, "feeLine") && hasAdvisoryFee(opened.wh.request) && work.sel !== CURRENT;
@@ -667,10 +697,10 @@ export function App() {
   const model = useMemo(() => {
     if (opened === null || selReq === null || selRes === null || baseRes === null) return null;
     const fee = feeShown ? { on: feeOn, withFee: feeOn ? selRes : altRes, alt: altRes } : undefined;
-    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, ...(fee !== undefined ? { fee } : {}) });
+    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}) });
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return extra.length > 0 ? { ...m, result: { ...m.result, sub: [...m.result.sub, ...extra] } } : m;
-  }, [opened, selReq, selRes, baseRes, altRes, feeOn, feeShown, selectedYear, provisional, settings, names.selected, names.base, names.same]);
+  }, [opened, selReq, baseReq, selRes, baseRes, altRes, feeOn, feeShown, selectedYear, provisional, settings, names.selected, names.base, names.same]);
   const explain = useMemo(
     () => (explainStep === null || opened === null || selReq === null || selRes === null ? null : explainModel(selReq, selRes, settings.atAge)),
     [explainStep !== null, opened, selReq, selRes, settings.atAge],
@@ -739,14 +769,18 @@ export function App() {
       ? []
       : leverItemsOf(opened).flatMap((it): LeverRow[] => {
           const c = it.control;
-          if (c.kind !== "steps" && c.kind !== "range") return [];
+          if (c.kind !== "age" && c.kind !== "range") return [];
           const v = valueOf(it, selValues, opened.wh);
           const b = valueOf(it, baseValues, opened.wh);
           const vn = typeof v === "number" ? v : undefined;
           const bn = typeof b === "number" ? b : undefined;
           const common = { key: it.key.slice(6) as LeverKey, label: it.label, valueText: it.text(v), baseText: it.text(b), note: it.note?.(v) ?? null };
-          if (c.kind === "steps")
-            return [{ ...common, slider: { kind: "steps", steps: c.steps, index: nearestIndex(c.steps, vn), baseIndex: nearestIndex(c.steps, bn), stepText: c.tick } }];
+          if (c.kind === "age") {
+            // 年齢: 1歳ずつ。今の値・基準の値が範囲の外なら範囲を広げる（入力で直接入れたとき）
+            const min = Math.min(c.min, vn ?? c.min, bn ?? c.min);
+            const max = Math.max(c.max, vn ?? c.max, bn ?? c.max);
+            return [{ ...common, slider: { kind: "age", min, max, value: vn ?? min, base: bn ?? min, ticks: c.ticks, stepText: c.tick } }];
+          }
           // 金額: 1万円の刻み。今の値・基準の値が範囲の外なら範囲を広げる（数値の欄で直接入れたとき）
           const r = amountRange(c.min, c.max, vn, bn);
           return [{ ...common, slider: { kind: "amount", min: r.min, max: r.max, step: c.step, value: vn ?? r.min, base: bn ?? r.min, per: c.per ?? "", tick: c.tick } }];
@@ -847,6 +881,7 @@ export function App() {
             </button>
           ))}
         </nav>
+        {opened !== null ? <UndoButtons /> : null}
         {opened !== null ? (
           <button
             type="button"
@@ -943,6 +978,7 @@ export function App() {
               provisional={model.provisional}
               mode={chartMode}
               onMode={setChartMode}
+              layout={settings.layout}
               explain={explain !== null && explainStep !== null ? { model: explain, step: explainStep } : null}
               onExplain={setExplainStep}
               ageMark={ageMark}
@@ -959,12 +995,14 @@ export function App() {
                     <DisplaySettingsPanel
                       value={settings}
                       feeAvailable={hasAdvisoryFee(opened.wh.request)}
-                      onChange={(s) => {
-                        settingsRef.current = s;
-                        setSettings(s);
-                        // FP顧問料の一文の枠（alt）を足す・外す
-                        putWork(workRef.current, openedRef.current, "set");
-                      }}
+                      onChange={(s) =>
+                        history.track(() => {
+                          settingsRef.current = s;
+                          setSettings(s);
+                          // FP顧問料の一文の枠（alt）を足す・外す
+                          putWork(workRef.current, openedRef.current, "set");
+                        })
+                      }
                       onClose={() => setSettingsOpen(false)}
                     />
                   ) : null}

@@ -8,6 +8,8 @@ import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { inputItems, itemStage, saveItem } from "./items.ts";
 import { StatusBadge } from "./StatusBadge.tsx";
+import { historyScope, undoController, useUndoScope } from "../undo/controller.ts";
+import { deepEqual, UndoHistory } from "../undo/history.ts";
 
 export interface InputPanelProps {
   /** 保存されている世帯（下書きの始まり） */
@@ -32,12 +34,33 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const stage = useMemo(() => itemStage(draft, itemId), [draft, itemId]);
   const adding = initialDraft !== undefined;
 
+  // 元に戻す・やり直す: 開いている間は、このパネルの下書きの履歴を使う（裏の世帯は戻さない）
+  const history = useRef<UndoHistory<WorkingHousehold> | null>(null);
+  if (history.current === null) history.current = new UndoHistory<WorkingHousehold>({ same: deepEqual });
+  const latest = useRef(draft);
+  latest.current = draft;
   const edit = (next: WorkingHousehold) => {
-    if (next === draft) return;
-    setDraft(withRefreshedEstimates(next));
+    const cur = latest.current;
+    if (next === cur) return;
+    const n = withRefreshedEstimates(next);
+    if (history.current !== null) undoController.record(history.current, cur, n, (h) => h.control ?? item?.label ?? "入力");
+    latest.current = n;
+    setDraft(n);
     setDirty(true);
     setLeaving(false);
   };
+  useUndoScope(
+    historyScope(
+      1,
+      () => history.current,
+      (s) => {
+        latest.current = s;
+        setDraft(s);
+        setDirty(true);
+        setLeaving(false);
+      },
+    ),
+  );
   const tryClose = () => {
     if (dirty && !leaving) {
       setLeaving(true);
@@ -57,13 +80,13 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   }, []);
 
   // Esc で閉じる（変更があれば先に知らせ、もう一度で閉じる）
-  const latest = useRef(tryClose);
-  latest.current = tryClose;
+  const closeRef = useRef(tryClose);
+  closeRef.current = tryClose;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.preventDefault();
-      latest.current();
+      closeRef.current();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);

@@ -88,7 +88,8 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
     window.scrollTo(0, 0);
     const steps: Record<string, unknown>[] = [];
     // 打ち手を順に動かす（働く最後の年齢・年金の受け取り開始・NISA・生活費）
-    for (const [key, to] of [["retireAge", 4], ["retireAge", 0], ["pensionAge", 3], ["nisaMonthly", "max"], ["livingMonthly", "min"], ["retireAge", 2]] as const) {
+    // 年齢は1歳ずつのスライダー（値＝歳）
+    for (const [key, to] of [["retireAge", 70], ["retireAge", 60], ["pensionAge", 70], ["nisaMonthly", "max"], ["livingMonthly", "min"], ["retireAge", 65]] as const) {
       const before = dual.timings.length;
       await moveLever(key, to);
       const previewHeadline = text(".sel-lbl");
@@ -230,17 +231,22 @@ export async function runContingencyCheck(host: string): Promise<void> {
   try {
     const t0 = performance.now();
     clickTab("万一の想定");
-    await waitFor(() => document.querySelector(".cg-prot") !== null, 2000);
-    report.loadingShown = document.querySelector(".cg-loading") !== null;
-    await waitFor(() => document.querySelector(".pchart") !== null || document.querySelector(".cg-prot .fatal") !== null);
+    await waitFor(() => document.querySelector("[data-cg-band]") !== null, 2000);
+    report.loadingShown = document.querySelector(".cg-loading") !== null || document.querySelector('[data-cg-band][data-prot-status="loading"]') !== null;
+    await waitFor(() => document.querySelector('[data-cg-band][data-prot-status="loading"]') === null);
     report.protectionMs = Math.round(performance.now() - t0);
-    await waitFor(() => document.querySelector(".cg-scenario .hero-num") !== null);
+    await waitFor(() => document.querySelector(".cg-chart [data-headline]") !== null);
     await sleep(300);
-    report.open = { perf: text("[data-cg-perf]"), headline: text(".cg-scenario .hero-num"), verdict: text(".cg-scenario .verdict"), charts: document.querySelectorAll(".pchart").length };
+    report.open = {
+      perf: text("[data-cg-perf]"),
+      headline: text(".cg-chart [data-headline]"),
+      verdict: text(".cg-chart [data-verdict]"),
+      protection: [...document.querySelectorAll('[data-scenario^="death:"] .p-st')].map((e) => e.textContent),
+    };
     await stage("cg-open", report);
     document.querySelector<HTMLButtonElement>('[data-scenario="disability:self"]')?.click();
-    report.disabilityMs = await waitFor(() => document.querySelector("[data-choice]") !== null && document.querySelector(".cg-scenario .is-stale") === null);
-    report.disability = { title: text(".cg-title"), choice: text("[data-choice]") };
+    report.disabilityMs = await waitFor(() => document.querySelector("[data-choice]") !== null && document.querySelector(".cg-chart .is-stale") === null);
+    report.disability = { title: text(".cg-chart [data-verdict]"), choice: text("[data-choice]") };
     await stage("cg-disability", report);
     document.querySelector<HTMLButtonElement>('[data-scenario="death:self"]')?.click();
     await sleep(100);
@@ -249,12 +255,12 @@ export async function runContingencyCheck(host: string): Promise<void> {
       sel.value = "2030";
       sel.dispatchEvent(new Event("change", { bubbles: true }));
     }
-    report.deathMs = await waitFor(() => (text(".cg-title") ?? "").includes("2030") && document.querySelector(".cg-scenario .is-stale") === null);
-    report.death2030 = { title: text(".cg-title"), notice: text("[data-notice]") };
+    report.deathMs = await waitFor(() => (text(".cg-chart [data-verdict]") ?? "").includes("2030") && document.querySelector(".cg-chart .is-stale") === null);
+    report.death2030 = { title: text(".cg-chart [data-verdict]"), notice: text("[data-notice]") };
     await stage("cg-death-2030", report);
     document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
     await sleep(300);
-    report.big = { memo: document.querySelector("[data-memo]") !== null, inputs: document.querySelector(".cg-side") !== null, fontSize: getComputedStyle(document.documentElement).fontSize };
+    report.big = { memo: document.querySelector("[data-memo]") !== null, inputs: document.querySelector("[data-cg-premises]") !== null, fontSize: getComputedStyle(document.documentElement).fontSize };
     await stage("cg-big", report);
     document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
     await sleep(200);
@@ -362,7 +368,7 @@ export async function runPlansCheck(dual: () => DualEngine | null, host: string,
       await wait();
       await saveAs();
     }
-    await moveLever("retireAge", 4);
+    await moveLever("retireAge", 70);
     await wait();
     await saveAs();
     report.fiveCards = cards();
