@@ -934,3 +934,46 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ys.compact .ys-row { padding: 3px 2px 2px; }
 .ys.compact .yc { padding: 1px 2px 2px; min-width: 3.1rem; flex-basis: 3.1rem; }
 html.big .yc { min-width: 3.9rem; flex-basis: 3.9rem; }
+/* ---- 全部の案を色分けで重ねる表示（MainChart.tsx・planLines.tsx）: 色は線ごとに属性で渡し、色だけに頼らず線の種類・印の形も変える ---- */
+.chart .multi-line { fill: none; stroke-width: var(--lw-base); stroke-linejoin: round; }
+.chart .ml.sel .multi-line { stroke-width: var(--lw-prop); }
+.chart .ml.hi .multi-line { stroke-width: calc(var(--lw-prop) + 1px); }
+.chart .ml { transition: opacity 0.15s; }
+.chart .ml.dim { opacity: 0.16; }
+.chart .ml-end { font-weight: 700; font-size: 0.8rem; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.chart .pl-mk { stroke-width: 1.5; }
+.chart .hv-mk { stroke-width: 2; }
+html.big .chart .hv-mk { stroke-width: 2.5; }
+.chart .multi-zone { fill: var(--short-bg); opacity: 0.55; pointer-events: none; }
+.chart .zone-t { fill: var(--short-ink); }
+.main-chart[data-chart-layout="all"] .axis0 { stroke-width: 2.5; }
+.pl-sw { display: inline-block; flex: none; vertical-align: middle; overflow: visible; }
+.pl-sw .pl-mk { stroke-width: 1.2; }
+.multi-legend { gap: 4px 12px; }
+.multi-legend .ml-cap { flex-basis: 100%; font-size: 0.86rem; }
+.ml-items { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.ml-item { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); border-radius: 7px; background: #fff; padding: 2px 8px 2px 6px; font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; max-width: 22em; }
+.ml-item:hover, .ml-item.on { border-color: var(--ink); }
+.ml-item:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
+.ml-item.sel { border-width: 2px; border-color: var(--prop); }
+.ml-item.off { color: var(--ink-2); background: #f3f4f6; border-style: dashed; }
+.ml-item.off .pl-sw { opacity: 0.3; }
+.ml-item.off .ml-n, .ml-item.off .ml-t { text-decoration: line-through; }
+.ml-item:disabled { cursor: default; opacity: 0.7; }
+.ml-t { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ml-tag { flex: none; font-size: 0.72rem; border: 1px solid var(--line); color: var(--base-ink); border-radius: 4px; padding: 0 4px; line-height: 1.5; }
+.ml-tag.wait { border-style: dashed; }
+.dock-chart .multi-legend .ml-cap { display: none; }
+.dock-chart .multi-legend .ml-t { display: none; }
+.year-tip.multi-tip .yt-lead { font-size: 0.78rem; }
+.year-tip .yt-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 1px 6px; align-items: center; }
+.year-tip .yt-rows li { display: contents; }
+.year-tip .yt-rows .yt-n { font-weight: 700; }
+.year-tip .yt-rows .yt-t { color: var(--ink-2); max-width: 11em; overflow: hidden; text-overflow: ellipsis; }
+.year-tip .yt-rows b { text-align: right; }
+.year-tip .yt-rows li.sel .yt-n::after { content: "（表示中）"; font-weight: 400; color: var(--ink-2); font-size: 0.9em; }
+.p-mark { margin-left: auto; display: inline-flex; align-items: center; }
+@media (prefers-reduced-motion: reduce) { .chart .ml { transition: none; } }
+.chart .pl-mk.ring, .pl-sw .pl-mk.ring { stroke-width: 2.5; }
+.dock-chart .multi-tip .yt-t { display: none; }
+.dock-chart .multi-tip { font-size: 0.76rem; line-height: 1.35; }

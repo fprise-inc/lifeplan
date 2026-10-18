@@ -1,8 +1,8 @@
 // 主画面の案の帯（作業の層）: 帯に並べる案（現状＋最大5案）、案の文字（A・B…）、カードの提示用の値（PlanBandModel）。
 // 保存できる案の数に上限は無い。帯に並べる案は一覧から選ぶ（6つ目を並べると、選んでいない・基準でない案を1つ帯から外す）
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
-import type { PlanBandModel, PlanCardModel } from "../../presentation/model.ts";
-import { depletionYear, displayYears } from "../present.ts";
+import type { PlanBandModel, PlanCardModel, PlanLineModel } from "../../presentation/model.ts";
+import { balanceChart, depletionYear, displayYears, financialOf, sumByYear } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
 import { cardMetrics, type DisplaySettings } from "../settings.ts";
 import { metricsOf } from "./compare.ts";
@@ -60,6 +60,20 @@ export interface BandInput {
   base: string;
   selected: string;
   settings: DisplaySettings;
+}
+
+/** 全部の案を色分けで重ねる表示の線（帯の順。案の名前と、金融資産・年間収支・純資産の数字だけ） */
+export function planLinesModel(input: Omit<BandInput, "modified" | "settings">): PlanLineModel[] {
+  const years = displayYears(input.req);
+  return input.slots.map((slot) => {
+    const l = input.letters.get(slot) ?? { letter: "?", name: "" };
+    const r = input.results.get(slot) ?? null;
+    const line = { key: l.letter, name: `${l.letter}案`, title: l.name, base: slot === input.base, selected: slot === input.selected };
+    if (r === null) return { ...line, financial: null, net: null, netWorth: null };
+    const fin = financialOf(r.table);
+    const net = sumByYear(r.table, (c) => c.row === "cf.net");
+    return { ...line, financial: years.map((y) => fin.get(y) ?? 0), net: years.map((y) => net.get(y) ?? 0), netWorth: balanceChart(r.table, years, [], "").netWorth };
+  });
 }
 
 export function bandModel(input: BandInput): PlanBandModel {

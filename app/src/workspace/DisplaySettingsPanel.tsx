@@ -1,5 +1,5 @@
 // 表示の設定（作業の層の部品。主画面のグラフの右上の「表示の設定」で、結論の下に開く。別の窓は出さない）。
-// FP が主画面に出す数字と、グラフの比べ方（重ねる／左右に並べる）を選ぶ。既定では何も足さず、重ねる。
+// FP が主画面に出す数字と、グラフの比べ方（重ねる／左右に並べる／全部の案を色分けで重ねる）を選ぶ。既定では何も足さず、重ねる。
 // 事務所の設定として持てる形で、まだファイルには保存しない（settings.ts）
 import { AGE_OPTIONS, LAYOUT_CHOICES, METRIC_CHOICES, shows, toggleMetric, type DisplaySettings } from "./settings.ts";
 
