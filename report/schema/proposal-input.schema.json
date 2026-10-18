@@ -411,6 +411,16 @@
         "excludingInvestment": { "$ref": "#/$defs/yenOrNull" }
       }
     },
+    "layout": {
+      "description": "帳票の組み方（表示の設定。金額ではない）。orientation: 紙の向き（portrait＝縦にそろえる・landscape＝横にそろえる・mixed＝年ごとの表だけ横にする以前の形）、cashflow: キャッシュフロー表の載せ方（summary＝主要な行・全年、excerpt＝全部の行・最初と最後の年と5年ごとと主なできごとの年、full＝全部の行・全年）。省略は portrait・summary",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["orientation", "cashflow"],
+      "properties": {
+        "orientation": { "enum": ["portrait", "landscape", "mixed"] },
+        "cashflow": { "enum": ["summary", "excerpt", "full"] }
+      }
+    },
     "chapters": {
       "description": "載せる章（帳票の並び）。省略はすべての章。cover・assumptions は必ず入れる（宛名欄と必須の記載の欄。0009 の3・6）",
       "type": "array",

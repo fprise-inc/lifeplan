@@ -4,18 +4,17 @@
 
 #let assets-page(data) = {
   pagebreak(weak: true)
-  section("資産残高の推移（現状と提案）")
+  let land = is-land(data)
   let s = data.summary
   let marks = ()
   if s.current.depletion != none { marks.push((year: s.current.depletion.year, label: "現状 不足")) }
   if s.proposal.depletion != none { marks.push((year: s.proposal.depletion.year, label: "提案 不足")) }
-  line-chart(data.basis.years, (
+  let chart = line-chart(data.basis.years, (
     (label: "提案", values: data.assets.proposal, stroke: 1.6pt + accent),
     (label: "現状", values: data.assets.current, stroke: (paint: muted, thickness: 1.2pt, dash: "dashed")),
-  ), height: 230pt, marks: marks)
-  section("5年ごとの金融資産残高")
+  ), height: if land { 260pt } else { 230pt }, marks: marks)
   let idx = data.basis.years.enumerate().filter(((i, y)) => calc.rem(y, 5) == 0 or i == 0 or i == data.basis.years.len() - 1).map(((i, y)) => i)
-  data-table(
+  let table5 = data-table(
     columns: (auto, auto, 1fr, 1fr),
     header: ("年", "年齢", "現状", "提案"),
     align: (x, y) => if x <= 1 { left + horizon } else { right + horizon },
@@ -25,6 +24,20 @@
       (str(y), text(fill: muted, ages), man-unit(data.assets.current.at(i)), man-unit(data.assets.proposal.at(i)))
     }).flatten(),
   )
+  if land {
+    // 横の紙: グラフと5年ごとの表を左右に並べる
+    grid(
+      columns: (1.5fr, 1fr),
+      column-gutter: 12pt,
+      { section("資産残高の推移（現状と提案）"); chart },
+      { section("5年ごとの金融資産残高"); table5 },
+    )
+  } else {
+    section("資産残高の推移（現状と提案）")
+    chart
+    section("5年ごとの金融資産残高")
+    table5
+  }
 }
 
 #let education(data) = {
@@ -61,7 +74,7 @@
     callout[繰上返済などの見直しで、返済額の合計が *#man-diff(hl.effect)* 変わります（提案−現状）。]
   }
   section("返済表（提案）")
-  columns(2, gutter: 12pt, data-table(
+  columns(if is-land(data) { 3 } else { 2 }, gutter: 12pt, data-table(
     columns: (auto, 1fr, 1fr),
     header: ("年", "年間の返済額", "年末の残高"),
     size: 8pt,
@@ -102,5 +115,5 @@
     note("受け取りを遅らせると年額は増えますが、受け取る期間は短くなります。合計と金融資産は、目標の年までの計算です。")
   }
   section("年金の受取予想（年ごと）")
-  columns(2, gutter: 12pt, year-table(r.table, size: 7pt, ages: false))
+  columns(if is-land(data) { 3 } else { 2 }, gutter: 12pt, year-table(r.table, size: 7pt, ages: false))
 }

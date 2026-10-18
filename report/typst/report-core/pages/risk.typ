@@ -8,27 +8,32 @@
   for (k, s) in c.scenarios.enumerate() {
     if k > 0 { pagebreak() }
     section(s.title)
-    callout(if s.depletion == none [この場合も、表の期間の最後まで金融資産は不足しません。] else [この場合、*#s.depletion.label* に金融資産が不足します。], color: if s.depletion == none { accent } else { warn })
-    line-chart(data.basis.years, (
+    let land = is-land(data)
+    let head = callout(if s.depletion == none [この場合も、表の期間の最後まで金融資産は不足しません。] else [この場合、*#s.depletion.label* に金融資産が不足します。], color: if s.depletion == none { accent } else { warn })
+    let chart = line-chart(data.basis.years, (
       (label: "万一の場合", values: s.withEvent, stroke: 1.6pt + warn),
       (label: "万一が無い場合（提案）", values: s.withoutEvent, stroke: (paint: muted, thickness: 1.2pt, dash: "dashed")),
-    ), height: 140pt)
-    grid(
-      columns: (1fr, 1fr),
-      column-gutter: 12pt,
-      {
-        section("万一が無い場合との差（表の期間の合計）")
-        data-table(columns: (1fr, auto), header: ("", "差"), s.breakdown.map(b => (b.label, man-diff(b.amount))).flatten())
-      },
-      if s.survivorPension.len() > 0 {
-        section("遺族年金（年ごと）")
-        set text(size: 7pt)
-        grid(columns: (auto, 1fr, auto, 1fr), column-gutter: 6pt, row-gutter: 3pt,
-          ..s.survivorPension.map(p => (str(p.year), align(right, man-unit(p.amount)))).flatten())
-        v(4pt)
-        text(size: 8pt, [遺族年金の合計 *#man-unit(s.survivorPensionTotal)*])
-      },
-    )
+    ), height: if land { 170pt } else { 140pt })
+    let diff = {
+      section("万一が無い場合との差（表の期間の合計）")
+      data-table(columns: (1fr, auto), header: ("", "差"), s.breakdown.map(b => (b.label, man-diff(b.amount))).flatten())
+    }
+    let pension = if s.survivorPension.len() > 0 {
+      section("遺族年金（年ごと）")
+      set text(size: 7pt)
+      grid(columns: (auto, 1fr, auto, 1fr), column-gutter: 6pt, row-gutter: 3pt,
+        ..s.survivorPension.map(p => (str(p.year), align(right, man-unit(p.amount)))).flatten())
+      v(4pt)
+      text(size: 8pt, [遺族年金の合計 *#man-unit(s.survivorPensionTotal)*])
+    }
+    if land {
+      // 横の紙: 左に見通しのグラフと差、右に遺族年金
+      grid(columns: (1.5fr, 1fr), column-gutter: 14pt, { head; chart; diff }, pension)
+    } else {
+      head
+      chart
+      grid(columns: (1fr, 1fr), column-gutter: 12pt, diff, pension)
+    }
     for n in s.notices { note("※ " + n) }
   }
   if c.protection.len() > 0 {
@@ -73,6 +78,6 @@
   )
   if ins.table.rows.len() > 0 {
     section("払込保険料の推移")
-    columns(2, gutter: 12pt, year-table(ins.table, size: 7pt, ages: false))
+    columns(if is-land(data) { 3 } else { 2 }, gutter: 12pt, year-table(ins.table, size: 7pt, ages: false))
   }
 }

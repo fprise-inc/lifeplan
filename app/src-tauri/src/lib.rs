@@ -94,13 +94,16 @@ async fn proposal_render(
     Ok(info)
 }
 
-/// 見本の1ページ（0 から）を PNG で返す。scale は 1pt あたりの画素
+/// 見本の1ページ（0 から）を返す。format が "svg" なら SVG の文字列（本体の見本）、省略・"png" なら PNG（縮小一覧。
+/// scale は 1pt あたりの画素）
 #[tauri::command]
 async fn proposal_page(
     state: State<'_, ReportState>,
     page: usize,
     scale: f64,
+    format: Option<String>,
 ) -> Result<Response, String> {
+    let format = report::PageFormat::parse(format.as_deref())?;
     let rendered = {
         let g = state.0.lock().map_err(|_| "E_HOST_LOCK".to_owned())?;
         let p = g.as_ref().ok_or_else(|| "E_REPORT_NONE".to_owned())?;
@@ -109,7 +112,7 @@ async fn proposal_page(
             issued_on: p.issued_on.clone(),
         }
     };
-    tauri::async_runtime::spawn_blocking(move || report::page_png(&rendered, page, scale))
+    tauri::async_runtime::spawn_blocking(move || report::page_image(&rendered, page, scale, format))
         .await
         .map_err(|_| "E_HOST_THREAD".to_owned())?
         .map(Response::new)

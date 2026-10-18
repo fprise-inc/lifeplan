@@ -65,7 +65,7 @@ function devHost(): Plugin {
             const dir = mkdtempSync(join(tmpdir(), "financia-dev-report-"));
             writeFileSync(join(dir, "input.json"), input);
             writeFileSync(join(dir, "frame.json"), JSON.stringify(frame));
-            const args = ["render", "--input", join(dir, "input.json"), "--frame", join(dir, "frame.json"), "--out", join(dir, "out.pdf"), "--meta", join(dir, "meta.json"), "--pages-dir", dir, "--scale", "2"];
+            const args = ["render", "--input", join(dir, "input.json"), "--frame", join(dir, "frame.json"), "--out", join(dir, "out.pdf"), "--meta", join(dir, "meta.json"), "--pages-dir", dir, "--scale", "0.5"];
             if (addressee !== null && addressee.trim() !== "") args.push("--addressee", addressee);
             execFile(bin, args, (err, _out, stderr) => {
               if (err !== null) return void ((res.statusCode = 500), res.end(/"code":"([A-Z_]+)"/.exec(stderr)?.[1] ?? "E_DEV_REPORT"));
@@ -77,11 +77,12 @@ function devHost(): Plugin {
           })();
           return;
         }
-        const pg = /^report\/page\/(\d+)$/.exec(path);
+        const pg = /^report\/(page|svg)\/(\d+)$/.exec(path);
         if (pg !== null) {
-          const f = lastReport === null ? null : join(lastReport.dir, `page-${pg[1]}.png`);
+          const svg = pg[1] === "svg";
+          const f = lastReport === null ? null : join(lastReport.dir, `page-${pg[2]}.${svg ? "svg" : "png"}`);
           if (f === null || !existsSync(f)) return void ((res.statusCode = 404), res.end());
-          res.setHeader("content-type", "image/png");
+          res.setHeader("content-type", svg ? "image/svg+xml" : "image/png");
           return void res.end(readFileSync(f));
         }
         if (path === "report/save" && req.method === "POST") {

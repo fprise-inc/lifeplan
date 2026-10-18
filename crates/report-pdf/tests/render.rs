@@ -1,8 +1,8 @@
 //! 提案書の PDF の試験（0009 の「テストで確かめること」のうち、帳票の外側で付けるもの）。
 //! 入力は架空のモデル世帯から作った帳票の入力（tests/fixtures。report/ で `npm run samples -- --fixture` が作る）
 use report_pdf::{
-    extract_text, normalize, render_proposal, render_with_main, Internal, ReportError, ReportFrame,
-    Stamp, INPUT_VERSION, WATERMARK, XMP_NAMESPACE,
+    extract_text, normalize, render_proposal, render_proposal_output, render_with_main, Internal,
+    ReportError, ReportFrame, Stamp, INPUT_VERSION, WATERMARK, XMP_NAMESPACE,
 };
 
 const INPUT: &str = include_str!("fixtures/advisoryFeeProposal.input.json");
@@ -243,5 +243,77 @@ fn preview_pages_are_png_of_the_same_layout() {
     assert!(
         render_page_png(&r, r.pages, 1.0).is_none(),
         "無いページは None"
+    );
+}
+
+#[test]
+fn preview_svg_is_shapes_only() {
+    use report_pdf::render_page_svg;
+    let r = render_proposal_output(INPUT, &frame(), Some("見本 花子")).unwrap();
+    for i in 0..r.pages {
+        let svg = render_page_svg(&r, i).expect("ページ");
+        assert!(svg.starts_with("<svg"), "{}ページ目", i + 1);
+        // 文字は輪郭の図形になり、宛名・金額が文字列として入らない。スクリプト・外への参照・画像も無い
+        for bad in [
+            "<script",
+            "<text",
+            "<foreignObject",
+            "<image",
+            "href=\"http",
+            "javascript:",
+            "見本",
+            "花子",
+        ] {
+            assert!(!svg.contains(bad), "{}ページ目に {bad}", i + 1);
+        }
+    }
+    assert!(render_page_svg(&r, r.pages).is_none(), "無いページは None");
+}
+
+/// 帳票の入力の layout を差し替える
+fn with_layout(orientation: &str, cashflow: &str) -> String {
+    let mut v: serde_json::Value = serde_json::from_str(INPUT).unwrap();
+    v["layout"] = serde_json::json!({ "orientation": orientation, "cashflow": cashflow });
+    v.to_string()
+}
+
+fn orientations(r: &report_pdf::Rendered) -> String {
+    r.layout
+        .pages()
+        .iter()
+        .map(|p| {
+            let s = p.frame.size();
+            if s.x > s.y {
+                'L'
+            } else {
+                'P'
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn orientation_is_uniform_when_aligned() {
+    for cashflow in ["summary", "excerpt", "full"] {
+        let p = render_proposal(&with_layout("portrait", cashflow), &frame()).unwrap();
+        assert!(
+            orientations(&p).chars().all(|c| c == 'P'),
+            "縦にそろえる・{cashflow}: {}",
+            orientations(&p)
+        );
+        let l = render_proposal(&with_layout("landscape", cashflow), &frame()).unwrap();
+        assert!(
+            orientations(&l).chars().all(|c| c == 'L'),
+            "横にそろえる・{cashflow}: {}",
+            orientations(&l)
+        );
+        // 刻印は向きによらず全ページに入る（render_proposal が出力の後に確かめている）
+        assert_eq!(l.pages, extract_text(&l.pdf).unwrap().len());
+    }
+    let m = render_proposal(&with_layout("mixed", "full"), &frame()).unwrap();
+    let o = orientations(&m);
+    assert!(
+        o.contains('L') && o.contains('P'),
+        "以前の形はキャッシュフロー表だけ横: {o}"
     );
 }

@@ -72,3 +72,13 @@ describe("案の比較のページ", () => {
     expect(hasMaterial(one, "comparison")).toBe(false);
   });
 });
+
+describe("帳票の組み方（紙の向き・キャッシュフロー表の載せ方）", () => {
+  it("省略は縦にそろえる・要約。指定はそのまま渡る。JSON Schema に合う", () => {
+    expect(full.layout).toEqual({ orientation: "portrait", cashflow: "summary" });
+    const land = buildProposalInput({ ...bundle, layout: { orientation: "landscape", cashflow: "excerpt" } });
+    expect(land.layout).toEqual({ orientation: "landscape", cashflow: "excerpt" });
+    expect(validate(land), JSON.stringify(validate.errors)).toBe(true);
+    expect(validate({ ...land, layout: { orientation: "sideways", cashflow: "full" } })).toBe(false);
+  });
+});

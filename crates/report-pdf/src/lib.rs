@@ -13,8 +13,8 @@
 //!
 //! - 宛名は保存しない（0012・0009 の3）。出力するときだけ、表紙の部品が宣言した宛名欄の位置に、帳票を組んだ後に重ねる
 //!   （`render_proposal_output`）。帳票の入力・内部情報（XMP）には入れない。
-//! - 画面の中の見本は、PDF と同じ組版の結果をページごとに PNG にしたもの（`render_page_png`）。画面は PDF を直接表示できない
-//!   （CSP の object-src・frame-src が none。0016 の1）。
+//! - 画面の中の見本は、PDF と同じ組版の結果をページごとに SVG（`render_page_svg`。拡大してもぼやけない）か PNG
+//!   （`render_page_png`。縮小一覧）にしたもの。画面は PDF を直接表示できない（CSP の object-src・frame-src が none。0016 の1）。
 //!
 //! 金額の計算はしない（0005 の1）。帳票の入力の金額は、計算エンジンの出力から組み立てたもの（report/src/build.ts）。
 
@@ -735,6 +735,17 @@ pub fn render_page_png(rendered: &Rendered, page: usize, pixel_per_pt: f64) -> O
         render_bleed: false,
     };
     typst_render::render(p, &opts).encode_png().ok()
+}
+
+/// 画面の中の見本: 組版の結果の1ページ（0 から）を SVG にする。文字はフォントの輪郭の図形（`<path>`・`<use>`）になり、
+/// 文字列・スクリプト・外部の参照は入らない（帳票に画像は無い。リンクは同じ文書の中の位置だけで、外への URL は出さない）
+pub fn render_page_svg(rendered: &Rendered, page: usize) -> Option<String> {
+    let p = rendered.layout.pages().get(page)?;
+    let opts = typst_svg::SvgOptions {
+        render_bleed: false,
+        pretty: false,
+    };
+    Some(typst_svg::svg(p, &opts))
 }
 
 /// 控えの `report` 欄（使った帳票の部品・Typst の版・フォントの指紋）

@@ -7,6 +7,7 @@ import type { EngineOutput, EngineRequest, ProposalBundle, Run, TableCell } from
 import { selectChapters } from "./chapters.ts";
 import {
   type Comparison,
+  DEFAULT_LAYOUT,
   PROPOSAL_INPUT_FORMAT,
   PROPOSAL_INPUT_VERSION,
   type CfRow,
@@ -869,6 +870,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     insurance: insurance(ctx),
     changes: changes(ctx, current, proposal),
     comparison: comparison(ctx),
+    layout: { ...DEFAULT_LAYOUT, ...bundle.layout },
   };
   return bundle.chapters !== undefined ? selectChapters(input, bundle.chapters) : input;
 }

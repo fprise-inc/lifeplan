@@ -1163,5 +1163,10 @@
    }
   ],
   "excludingInvestment": -3981200
+ },
+ "comparison": null,
+ "layout": {
+  "orientation": "portrait",
+  "cashflow": "summary"
  }
 }

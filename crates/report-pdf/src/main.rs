@@ -2,11 +2,13 @@
 //! 使い方: report-pdf render --input <帳票の入力.json> --frame <外枠.json> --out <出力.pdf> [--meta <控えの情報.json>]
 //!                           [--addressee <宛名>] [--pages-dir <見本の PNG を書くフォルダ> [--scale <1pt あたりの画素>]]
 //!         report-pdf text <file.pdf>（各ページの文字を JSON の配列で出す）
-//! --pages-dir は開発用のサーバー（画面をブラウザで確かめるとき）の見本のため。page-1.png … を書く
+//! --pages-dir は開発用のサーバー（画面をブラウザで確かめるとき）の見本のため。page-1.png …（縮小一覧）と page-1.svg …（見本）を書く
 //! 失敗は符号だけの JSON を標準エラーに出し、終了コード 1（中身は --debug のときだけ）
 use std::process::ExitCode;
 
-use report_pdf::{extract_text, render_page_png, render_proposal_output, ReportFrame};
+use report_pdf::{
+    extract_text, render_page_png, render_page_svg, render_proposal_output, ReportFrame,
+};
 
 fn usage() -> ExitCode {
     eprintln!("usage: report-pdf render --input <input.json> --frame <frame.json> --out <out.pdf> [--meta <meta.json>] [--addressee <name>] [--pages-dir <dir> [--scale <px/pt>]] [--debug]");
@@ -91,6 +93,15 @@ fn main() -> ExitCode {
                     if let Err(e) = std::fs::write(
                         std::path::Path::new(&dir).join(format!("page-{}.png", i + 1)),
                         png,
+                    ) {
+                        return fail("E_IO", &e, debug);
+                    }
+                    let Some(svg) = render_page_svg(&r, i) else {
+                        return fail("E_REPORT_PREVIEW", &i, debug);
+                    };
+                    if let Err(e) = std::fs::write(
+                        std::path::Path::new(&dir).join(format!("page-{}.svg", i + 1)),
+                        svg,
                     ) {
                         return fail("E_IO", &e, debug);
                     }

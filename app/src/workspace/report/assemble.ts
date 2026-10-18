@@ -3,7 +3,7 @@
 // - 「現状」はいつも A案（入力の値）。「提案」は FP が選んだ帯の案（既定は主画面で選んでいる案）
 // - 目標の年齢は表示の設定の「○歳時点」、比較のページの基準は主画面の基準の案（主画面の比較の表と同じ数字）
 // - 宛名は材料に入れない（本体が出力の PDF に重ねるだけ。0009 の3・0012）
-import { buildProposalInput, CHAPTERS, type ChapterId, type ProposalBundle, type ProposalInput, type Run } from "../../../../report/src/index.ts";
+import { buildProposalInput, CHAPTERS, DEFAULT_LAYOUT, type ChapterId, type ProposalBundle, type ProposalInput, type ReportLayout, type Run } from "../../../../report/src/index.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { adults, baseRequest, defaultYear, occursMonth, scenarioRequest, scenarios, survivorOf } from "../contingency/requests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -28,7 +28,11 @@ export interface ReportChoice {
   issuedOn: string;
   /** 担当（FP・事務所の表示名。任意。保存しない） */
   preparedBy: string;
+  /** 帳票の組み方（紙の向き・キャッシュフロー表の載せ方。省略は標準） */
+  layout?: ReportLayout;
 }
+
+export { DEFAULT_LAYOUT };
 
 export interface ReportContext {
   wh: WorkingHousehold;
@@ -126,6 +130,7 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
       proposal: proposalRun,
       targetAge: choice.targetAge,
       chapters: [...choice.chapters],
+      layout: choice.layout ?? DEFAULT_LAYOUT,
       changes: changes.map((c) => ({ label: c.label, current: c.from, proposal: c.to })),
     };
     if (steps.length > 0) b.steps = steps.map((s, i) => ({ label: s.label, investment: s.investment, run: i === steps.length - 1 ? proposalRun : run(s.key) }));

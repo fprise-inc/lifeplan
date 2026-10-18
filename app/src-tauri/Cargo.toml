@@ -35,6 +35,13 @@ report-pdf = { path = "../../crates/report-pdf" }
 rfd = { version = "0.15", default-features = false, features = ["gtk3"] }
 sha2 = "0.10"
 
+[profile.dev.package."*"]
+# 開発用の起動（npx tauri dev）でも、依存の crate（Typst の組版・PDF・画像など）は最適化する。
+# 最適化なしでは、提案書を組むのに約4.5秒・見本の1ページの PNG に約2秒かかっていた（最適化すると約0.5秒・約0.1秒）。
+# アプリ自身のコードは最適化しない（作り直しの速さはそのまま）。CI のテストは依存の最適化を外して流す（ci.yml）
+opt-level = 1
+debug = false
+
 [profile.dev.package.rquickjs-sys]
 # quickjs-ng の C は debug のビルドでも最適化する（正の計算の速さを製品に近づける）
 opt-level = 3

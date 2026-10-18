@@ -5,24 +5,19 @@
 /// 宛名欄の大きさ（表紙の部品が宣言する。0009 の3・9）
 #let addressee-size = (width: 110mm, height: 14mm)
 
-#let cover(data) = {
-  v(36mm)
-  text(size: 11pt, fill: muted, data.basis.baseMonthLabel + "時点の試算")
-  v(4pt)
-  text(size: 26pt, weight: "bold", fill: ink, data.document.title)
-  v(26mm)
-  // 宛名欄: 宛名は印刷・出力のときに重ねる（保存しない）。位置と大きさを内部の印（metadata）で宣言する
-  grid(
-    columns: (auto, auto),
-    column-gutter: 6pt,
-    align: bottom,
-    box(width: addressee-size.width, height: addressee-size.height, stroke: (bottom: 0.8pt + ink), context {
-      let p = here().position()
-      [#metadata((page: p.page, x: p.x.pt(), y: p.y.pt(), width: addressee-size.width.pt(), height: addressee-size.height.pt())) <lifeplan-addressee>]
-    }),
-    text(size: 14pt, "様"),
-  )
-  v(30mm)
+/// 宛名欄（宛名は印刷・出力のときに重ねる。保存しない）。位置と大きさを内部の印（metadata）で宣言する
+#let addressee-field() = grid(
+  columns: (auto, auto),
+  column-gutter: 6pt,
+  align: bottom,
+  box(width: addressee-size.width, height: addressee-size.height, stroke: (bottom: 0.8pt + ink), context {
+    let p = here().position()
+    [#metadata((page: p.page, x: p.x.pt(), y: p.y.pt(), width: addressee-size.width.pt(), height: addressee-size.height.pt())) <lifeplan-addressee>]
+  }),
+  text(size: 14pt, "様"),
+)
+
+#let cover-facts(data) = {
   set text(size: 10pt)
   grid(
     columns: (auto, 1fr),
@@ -33,14 +28,50 @@
     text(fill: muted, "試算の期間"), str(data.basis.years.first()) + "年〜" + str(data.basis.years.last()) + "年",
     ..if data.document.preparedBy != none { (text(fill: muted, "担当"), data.document.preparedBy) } else { () },
   )
-  v(1fr)
-  block(width: 100%, inset: 10pt, fill: band, radius: 3pt, {
-    text(size: 9pt, weight: "bold", "目次")
-    v(4pt)
-    set text(size: 8.5pt)
-    outline(title: none, depth: 1, indent: 0pt)
-  })
 }
+
+#let cover-outline() = block(width: 100%, inset: 10pt, fill: band, radius: 3pt, {
+  text(size: 9pt, weight: "bold", "目次")
+  v(4pt)
+  set text(size: 8.5pt)
+  outline(title: none, depth: 1, indent: 0pt)
+})
+
+/// 横の紙の表紙: 左に題名・宛名・作成日など、右に目次
+#let cover-landscape(data) = grid(
+  columns: (1.15fr, 1fr),
+  column-gutter: 14mm,
+  {
+    v(24mm)
+    text(size: 11pt, fill: muted, data.basis.baseMonthLabel + "時点の試算")
+    v(4pt)
+    text(size: 26pt, weight: "bold", fill: ink, data.document.title)
+    v(20mm)
+    addressee-field()
+    v(20mm)
+    cover-facts(data)
+  },
+  {
+    v(18mm)
+    cover-outline()
+  },
+)
+
+#let cover-portrait(data) = {
+  v(36mm)
+  text(size: 11pt, fill: muted, data.basis.baseMonthLabel + "時点の試算")
+  v(4pt)
+  text(size: 26pt, weight: "bold", fill: ink, data.document.title)
+  v(26mm)
+  // 宛名欄: 宛名は印刷・出力のときに重ねる（保存しない）
+  addressee-field()
+  v(30mm)
+  cover-facts(data)
+  v(1fr)
+  cover-outline()
+}
+
+#let cover(data) = if is-land(data) { cover-landscape(data) } else { cover-portrait(data) }
 
 #let assumptions(data, frame) = {
   chapter("前提条件と注意書き", sub: "この提案書の数字は、次の前提で計算した試算です。")

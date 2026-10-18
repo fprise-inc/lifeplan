@@ -2343,6 +2343,7 @@ dependencies = [
  "typst-layout",
  "typst-pdf",
  "typst-render",
+ "typst-svg",
 ]
 
 [[package]]

@@ -102,6 +102,20 @@ export interface Comparison {
   }[];
 }
 
+/** 紙の向き: 縦にそろえる・横にそろえる・年ごとの表だけ横（以前の形） */
+export type Orientation = "portrait" | "landscape" | "mixed";
+/** キャッシュフロー表の載せ方: 主要な行・全年／全部の行・5年ごとと主なできごとの年／全部の行・全年 */
+export type CashflowLayout = "summary" | "excerpt" | "full";
+
+/** 帳票の組み方（表示の設定。金額ではない） */
+export interface ReportLayout {
+  orientation: Orientation;
+  cashflow: CashflowLayout;
+}
+
+/** 標準の組み方: 1冊を縦にそろえ（印刷して綴じる・両面印刷で裏が逆さにならない）、キャッシュフロー表は要約（ページが少ない） */
+export const DEFAULT_LAYOUT: ReportLayout = { orientation: "portrait", cashflow: "summary" };
+
 export interface ProposalInput {
   format: typeof PROPOSAL_INPUT_FORMAT;
   version: typeof PROPOSAL_INPUT_VERSION;
@@ -201,6 +215,8 @@ export interface ProposalInput {
     /** 運用の前提の変更を除いた効果（目標の年の金融資産の差） */
     excludingInvestment: Yen | null;
   };
+  /** 帳票の組み方（省略は DEFAULT_LAYOUT） */
+  layout?: ReportLayout;
   /** 載せる章（帳票の並び。省略はすべての章。外せない章は必ず入る。chapters.ts） */
   chapters?: ChapterId[];
   /** 案の比較のページ（省略・null は載せない） */

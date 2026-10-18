@@ -117,9 +117,10 @@ jobs:
       - name: clippy
         working-directory: app/src-tauri
         run: cargo clippy --locked --all-targets -- -D warnings
+      # 開発用の起動のための依存の最適化（Cargo.toml の profile.dev.package."*"）は、CI では外す（依存のビルドの時間を延ばさない）
       - name: Rust のテスト（正の計算・根拠の記録・画面の移動の制限）
         working-directory: app/src-tauri
-        run: cargo test --locked
+        run: cargo test --locked --config 'profile.dev.package."*".opt-level=0'
 
   # 提案書の PDF（0009）: 帳票の入力を組み立てる部品（report/）と、Typst を組み込んだ report-pdf のテスト。
   # 見本の PDF（架空のモデル世帯）を作って成果物に残す。Linux だけで流す（Typst は大きいのでホストの3つの OS には入れない）

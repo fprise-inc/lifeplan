@@ -9,6 +9,37 @@
 #let warn = rgb("#b42318")
 #let good = rgb("#1a7f4b")
 
+/// 表の数字の文字の大きさの下限（年ごとの表を1ページに多く入れるときも、これより小さくしない）
+#let min-size = 7pt
+
+/// 帳票の組み方（帳票の入力の layout。省略は標準: 縦にそろえる・キャッシュフロー表は要約）
+///   orientation: "portrait"（縦にそろえる）・"landscape"（横にそろえる）・"mixed"（年ごとの表だけ横。以前の形）
+///   cashflow: "summary"（主要な行・全年）・"excerpt"（全部の行・5年ごとと主なできごとの年）・"full"（全部の行・全年）
+#let layout-of(data) = {
+  let l = data.at("layout", default: none)
+  if l == none { l = (:) }
+  (orientation: l.at("orientation", default: "portrait"), cashflow: l.at("cashflow", default: "summary"))
+}
+
+/// 横にそろえる帳票か
+#let is-land(data) = layout-of(data).orientation == "landscape"
+
+/// n 個を、1つあたり max 個までの、なるべく同じ数のかたまりに分ける（(from, to) の並び）
+#let balanced-chunks(n, max) = {
+  if n == 0 { return () }
+  let k = calc.ceil(n / calc.max(1, max))
+  let base = calc.quo(n, k)
+  let extra = calc.rem(n, k)
+  let out = ()
+  let from = 0
+  for i in range(k) {
+    let len = base + if i < extra { 1 } else { 0 }
+    out.push((from, from + len))
+    from += len
+  }
+  out
+}
+
 /// 章の見出しの形（heading の level 1 に当てる。PDF のしおりにもなる）
 #let chapter-style(it) = block(width: 100%, below: 10pt, {
   grid(

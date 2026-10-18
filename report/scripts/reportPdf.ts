@@ -47,7 +47,7 @@ export function reportPdfBin(): string | null {
 
 export interface RenderResult {
   pdf: Buffer;
-  meta: { pages: number; bytes: number; addressee: { page: number } | null; noticesPageAdded: boolean };
+  meta: { pages: number; bytes: number; addressee: { page: number } | null; noticesPageAdded: boolean; sizes: [number, number][] };
   pages: string[];
 }
 

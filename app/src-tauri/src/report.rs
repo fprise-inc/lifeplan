@@ -4,13 +4,18 @@
 //!   （画面から受け取らない。0009 の5〜7）。制度データの版は、本体に埋め込んだパックの組から作る。
 //! - 宛名は保存しない（0012・0009 の3）。出力の PDF に重ねるだけで、ファイル・記録・ログに残さない。作った PDF は
 //!   次に作り直すまで本体のメモリの中だけに置く（見本の表示と保存のため）。
-//! - 画面は PDF を直接表示できない（CSP の object-src・frame-src が none）ので、見本はページごとの PNG で返す。
+//! - 画面は PDF を直接表示できない（CSP の object-src・frame-src が none）ので、見本はページごとに返す。本体は SVG
+//!   （文字は輪郭の図形。拡大してもぼやけず、作るのも速い）、ページの縮小一覧は PNG。どちらも PDF と同じ組版の結果
+//!   （帳票を組み直さない）から作る。
 //! - 控え（0009 の2。世帯ファイルの snapshots と、暗号化した宛名なしの PDF）は、世帯ファイルの保存の回で作る。
 
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use report_pdf::{render_page_png, render_proposal_output, Internal, Rendered, ReportFrame, Stamp};
+use report_pdf::{
+    render_page_png, render_page_svg, render_proposal_output, Internal, Rendered, ReportFrame,
+    Stamp,
+};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -154,9 +159,38 @@ pub fn render(input_json: &str, addressee: Option<&str>) -> Result<(Prepared, Re
     ))
 }
 
-/// 見本の1ページ（0 から）の PNG
-pub fn page_png(prepared: &Prepared, page: usize, scale: f64) -> Result<Vec<u8>, String> {
-    render_page_png(&prepared.rendered, page, scale).ok_or_else(|| "E_REPORT_PAGE".to_owned())
+/// 見本の1ページの形式
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PageFormat {
+    /// 縮小一覧（scale は 1pt あたりの画素）
+    Png,
+    /// 本体の見本（拡大してもぼやけない）
+    Svg,
+}
+
+impl PageFormat {
+    /// 画面から受け取る名前（省略は PNG。以前の画面と同じ）
+    pub fn parse(s: Option<&str>) -> Result<PageFormat, String> {
+        match s {
+            None | Some("png") => Ok(PageFormat::Png),
+            Some("svg") => Ok(PageFormat::Svg),
+            Some(_) => Err("E_REPORT_PAGE_FORMAT".to_owned()),
+        }
+    }
+}
+
+/// 見本の1ページ（0 から）。PNG のバイト列か、SVG の文字列（UTF-8）
+pub fn page_image(
+    prepared: &Prepared,
+    page: usize,
+    scale: f64,
+    format: PageFormat,
+) -> Result<Vec<u8>, String> {
+    match format {
+        PageFormat::Png => render_page_png(&prepared.rendered, page, scale),
+        PageFormat::Svg => render_page_svg(&prepared.rendered, page).map(String::into_bytes),
+    }
+    .ok_or_else(|| "E_REPORT_PAGE".to_owned())
 }
 
 /// 既定のファイル名（宛名・氏名は入れない）
@@ -228,9 +262,17 @@ mod tests {
         assert_eq!(info.pages, p.rendered.pages);
         assert_eq!(info.sizes.len(), info.pages);
         assert!(info.bytes > 10_000);
-        let png = page_png(&p, 0, 1.0).unwrap();
+        let png = page_image(&p, 0, 1.0, PageFormat::Png).unwrap();
         assert_eq!(&png[..4], b"\x89PNG");
-        assert!(page_png(&p, info.pages, 1.0).is_err());
+        assert!(page_image(&p, info.pages, 1.0, PageFormat::Png).is_err());
+        // 本体の見本は SVG。文字は図形になり、宛名は文字列として入らない
+        let svg = String::from_utf8(page_image(&p, 0, 1.0, PageFormat::Svg).unwrap()).unwrap();
+        assert!(svg.starts_with("<svg"));
+        assert!(!svg.contains("花子") && !svg.contains("<script"));
+        assert!(page_image(&p, info.pages, 1.0, PageFormat::Svg).is_err());
+        assert_eq!(PageFormat::parse(None).unwrap(), PageFormat::Png);
+        assert_eq!(PageFormat::parse(Some("svg")).unwrap(), PageFormat::Svg);
+        assert!(PageFormat::parse(Some("pdf")).is_err());
         let text = report_pdf::extract_text(&p.rendered.pdf).unwrap();
         assert!(report_pdf::normalize(&text[0]).contains("見本花子"));
         assert!(default_name(&p).starts_with("提案書_"));

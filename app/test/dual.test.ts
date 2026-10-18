@@ -40,7 +40,7 @@ function fakeSession() {
 
 /** 提案書・ヒアリングシートの命令（この試験では使わない） */
 const NO_FILES: Pick<HostApi, "report" | "sheets"> = {
-  report: { render: async () => Promise.reject("E"), page: async () => Promise.reject("E"), save: async () => Promise.reject("E"), discard: async () => undefined },
+  report: { render: async () => Promise.reject("E"), page: async () => Promise.reject("E"), pageSvg: async () => Promise.reject("E"), save: async () => Promise.reject("E"), discard: async () => undefined },
   sheets: { save: async () => Promise.reject("E"), open: async () => null },
 };
 
