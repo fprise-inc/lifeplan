@@ -1,15 +1,17 @@
 // 万一の想定の画面（作業の層）: 開いたときに、必要保障額の推移（大人ごと）・万一なし・選んだ想定を本体で計算し（枠どうしは同時に）、
-// 計算している間は「計算しています」を出す。提示用の値を作って提示層の部品に渡し、右に FP が直す前提の欄を置く（FP用のメモは画面に出さず、上部の引き出しに置く）
+// 計算している間は「計算しています」を出す。提示用の値を作って提示層の部品に渡す。配置は主画面と同じ上から下の流れ:
+// ① 場面の帯（場面と起きる年）→ ② 大きなグラフ（資産の推移／必要保障額の推移）→ ③ FP が直す前提の欄（対策の欄と同じ部品）。
+// FP用のメモは画面に出さず、上部の引き出しに置く
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { HostApi } from "../../engine/host.ts";
 import { isEngineError, type EngineRequest, type PreviewResult } from "../../engine/types.ts";
-import { ProtectionCard, ScenarioCard } from "../../presentation/ContingencyView.tsx";
+import { ContingencyChartCard, ScenarioBand, type ContingencyMode } from "../../presentation/ContingencyView.tsx";
 import type { ContingencyModel, ProtectionChartModel } from "../../presentation/model.ts";
 import type { WorkingHousehold } from "../input/household.ts";
-import { Field, Section } from "../input/FieldViews.tsx";
 import { roles } from "../roles.ts";
 import { contingencyInputSections, oldAgeChoiceField } from "./inputs.ts";
-import { protectionChart, scenarioModel, yearOptions } from "./present.ts";
+import { PremisePanel } from "./PremisePanel.tsx";
+import { protectionChart, scenarioCards, scenarioModel, yearOptions } from "./present.ts";
 import { adults, baseRequest, defaultYear, protectionRequest, scenarioRequest, scenarios } from "./requests.ts";
 
 interface SlotState {
@@ -101,12 +103,21 @@ export interface ContingencyTabProps {
 const timings: ContingencyTiming[] = [];
 export const contingencyTimings = (): readonly ContingencyTiming[] => timings;
 
-export function ContingencyTab({ wh, host, targetAge, onEdit, initialScenario }: ContingencyTabProps) {
+export function ContingencyTab({ wh: saved, host, targetAge, onEdit, initialScenario }: ContingencyTabProps) {
+  // 前提のスライダーを動かしている間は、画面の側の世帯（draft）で描いて計算する。指を離したら世帯に書く
+  const [draft, setDraft] = useState<WorkingHousehold | null>(null);
+  const wh = draft ?? saved;
+  const commit = (w?: WorkingHousehold) => {
+    const next = w ?? draft;
+    setDraft(null);
+    if (next !== null && next !== saved) onEdit(next);
+  };
   const scs = useMemo(() => scenarios(wh), [wh]);
   const [selected, setSelected] = useState<string>(initialScenario !== undefined && scs.some((s) => s.key === initialScenario) ? initialScenario : (scs[0]?.key ?? ""));
   const sc = scs.find((s) => s.key === selected) ?? scs[0];
   const year = wh.contingency.year ?? defaultYear(wh.request);
   const [chartYear, setChartYear] = useState<number | null>(null);
+  const [mode, setMode] = useState<ContingencyMode>("assets");
   const [lastMs, setLastMs] = useState<ContingencyTiming | null>(null);
   const opened = useRef(performance.now());
 
@@ -166,18 +177,21 @@ export function ContingencyTab({ wh, host, targetAge, onEdit, initialScenario }:
         error: null,
         stale: sr.resultRev !== sr.rev || none.resultRev !== none.rev,
       };
+    const protection: ContingencyModel["protection"] = { status: protStatus, charts, error: protError, ms: lastMs?.ms ?? null };
+    const sel = sc?.key ?? "";
     return {
-      protection: { status: protStatus, charts, error: protError, ms: lastMs?.ms ?? null },
-      scenarios: scs.map((s) => ({ key: s.key, label: s.label })),
-      selected: sc?.key ?? "",
+      protection,
+      scenarios: scenarioCards({ req: wh.request, scenarios: scs, selected: sel, protection, scenario, grade: wh.contingency.grade }),
+      selected: sel,
       year,
       yearOptions: sc !== undefined ? yearOptions(wh.request, sc.member) : [],
       scenario,
     };
   }, [slots, protMembers, sc, scs, wh, year, targetAge, lastMs]);
 
-  const setYear = (y: number) => onEdit({ ...wh, contingency: { ...wh.contingency, year: y } });
+  const setYear = (y: number) => commit({ ...wh, contingency: { ...wh.contingency, year: y } });
   const roleKey = useMemo(() => new Map(roles(wh.request).map((r) => [r.key, r.member.id])), [wh.request]);
+  /** 必要保障額の推移で年を押した: その人の死亡の場面にして、起きる年をその年にする */
   const pick = (key: string, y: number) => {
     const member = roleKey.get(key);
     const s = scs.find((x) => x.kind === "death" && x.member === member);
@@ -185,52 +199,41 @@ export function ContingencyTab({ wh, host, targetAge, onEdit, initialScenario }:
     setChartYear(null);
     setYear(y);
   };
-  const selectedProt = sc?.kind === "death" ? { key: roles(wh.request).find((r) => r.member.id === sc.member)?.key ?? "", year } : null;
   const sections = useMemo(() => contingencyInputSections(wh), [wh]);
+  const used = useMemo(() => {
+    if (sc === undefined) return new Set<string>();
+    return new Set(sc.kind === "death" ? ["cg/living", "cg/lump", "cg/work", "cg/creditLife"] : ["cg/disability", "cg/creditLife"]);
+  }, [sc]);
+  const extra =
+    sc?.kind === "disability" && (wh.contingency.grade ?? 2) !== 0
+      ? { section: "cg/disability", field: oldAgeChoiceField(sc.member), note: "自動で手取りが多い組み合わせを選びます。選び直すとその組み合わせで計算します" }
+      : null;
 
   return (
-    <div class="cg-layout">
-      <div class="cg-main">
-        <ProtectionCard model={model.protection} selected={selectedProt} onPick={pick} />
-        <ScenarioCard
-          model={model}
-          selectedYear={chartYear ?? year}
-          onSelectScenario={(k) => {
-            setSelected(k);
-            setChartYear(null);
-          }}
-          onSelectYear={(y) => {
-            setChartYear(null);
-            setYear(y);
-          }}
-          onSelectChartYear={setChartYear}
-        />
-        {import.meta.env.DEV ? (
-          <div class="foot footnote">
-            <span class="perf" data-cg-perf>
-              必要保障額の推移の計算: {lastMs !== null ? `${(lastMs.ms / 1000).toFixed(2)}秒（本体 ${(lastMs.hostMs / 1000).toFixed(2)}秒・枠 ${lastMs.slots}）` : "—"}／{host?.kind}
-            </span>
-          </div>
-        ) : null}
-      </div>
-      <aside class="cg-side">
-          {sc?.kind === "disability" && (wh.contingency.grade ?? 2) !== 0 ? (
-            <section class="card cg-fp" aria-label="障害年金の組み合わせ">
-              <div class="memo-h fp-h">障害年金の65歳からの組み合わせ</div>
-              <p class="in-note">自動で手取りが多い組み合わせを選びます。選び直すとその組み合わせで計算します</p>
-              <Field f={oldAgeChoiceField(sc.member)} wh={wh} onEdit={onEdit} />
-            </section>
-          ) : null}
-          <section class="card cg-fp" aria-labelledby="h-cg-in">
-            <div class="card-h">
-              <h2 id="h-cg-in">想定の前提</h2>
-              <span class="aside">変えるとすぐ計算し直します</span>
-            </div>
-            {sections.map((s) => (
-              <Section key={s.key} section={s} wh={wh} level="detail" onEdit={onEdit} />
-            ))}
-          </section>
-      </aside>
+    <div class="main-stack cg-stack">
+      {/* ① 場面の帯 */}
+      <ScenarioBand
+        model={model}
+        onSelect={(k) => {
+          setSelected(k);
+          setChartYear(null);
+        }}
+        onYear={(y) => {
+          setChartYear(null);
+          setYear(y);
+        }}
+      />
+      {/* ② グラフ */}
+      <ContingencyChartCard model={model} mode={mode} onMode={setMode} pinnedYear={chartYear} onPinYear={setChartYear} onPick={pick} />
+      {/* ③ 想定の前提 */}
+      <PremisePanel wh={wh} sections={sections} used={used} extra={extra} onDraft={setDraft} onCommit={commit} />
+      {import.meta.env.DEV ? (
+        <div class="foot footnote">
+          <span class="perf" data-cg-perf>
+            必要保障額の推移の計算: {lastMs !== null ? `${(lastMs.ms / 1000).toFixed(2)}秒（本体 ${(lastMs.hostMs / 1000).toFixed(2)}秒・枠 ${lastMs.slots}）` : "—"}／{host?.kind}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

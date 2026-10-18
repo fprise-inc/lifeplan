@@ -1,7 +1,9 @@
 // 表示の設定（事務所の設定）: 主画面に出す数字を FP が選ぶ。既定では何も足さない（「○歳時点の資産」も出さない。2026-10-17）。
 // 事務所の設定として持てる形（0016 の3 の settings/ の宣言型の設定に入れる形）にしてあるが、まだファイルには保存しない（画面の中で持つ）。
-// 選んだ数字は、案の帯のカード・結論の2行目・グラフ（○歳時点の印）に出す
+// 選んだ数字は、案の帯のカード・結論の2行目・グラフ（○歳時点の印）に出す。
+// グラフの比べ方（基準の案と選んだ案を1つのグラフに重ねるか、左右に2つ並べるか）もここで選ぶ。既定は重ねる
 import { man, manDiff } from "../presentation/format.ts";
+import type { ChartLayout } from "../presentation/MainChart.tsx";
 import type { AgeMark, VerdictPart } from "../presentation/model.ts";
 import type { EngineRequest } from "../engine/types.ts";
 import type { PlanMetrics } from "./plans/compare.ts";
@@ -14,9 +16,16 @@ export interface DisplaySettings {
   metrics: MetricKey[];
   /** 「○歳時点の金融資産」の年齢（本人） */
   atAge: number;
+  /** グラフの比べ方: 重ねる（既定）／左右に並べる */
+  layout: ChartLayout;
 }
 
-export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95 };
+export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay" };
+
+export const LAYOUT_CHOICES: readonly { key: ChartLayout; label: string; note: string }[] = [
+  { key: "overlay", label: "重ねる", note: "1つのグラフに基準の案（点線）と選んだ案を重ねる（既定）" },
+  { key: "side", label: "左右に並べる", note: "基準の案と選んだ案を2つのグラフにして並べる。縦の目盛りはそろえる" },
+];
 
 export const METRIC_CHOICES: readonly { key: MetricKey; label: string; note: string }[] = [
   { key: "assetsAtAge", label: "○歳時点の金融資産", note: "年齢を選べます。カード・結論の2行目・グラフの印に出します" },

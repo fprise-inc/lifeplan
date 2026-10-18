@@ -1,7 +1,7 @@
 // 万一の画面の提示用の値（作業の層）。計算結果（必要保障額の推移・万一の想定の表）から、許可した項目だけを写す（0016 の2）。
 // 物の ID・FP用のメモ・前提の入力の細部は写さない
 import type { EngineRequest, OldAgeChoice, PreviewResult, ProtectionOutput, TableCell } from "../../engine/types.ts";
-import type { BreakdownRowModel, ChartModel, Depletion, ProtectionChartModel, ScenarioModel, Verdict } from "../../presentation/model.ts";
+import type { BreakdownRowModel, ChartModel, ContingencyModel, Depletion, ProtectionChartModel, ScenarioCardModel, ScenarioModel, Verdict } from "../../presentation/model.ts";
 import { man } from "../../presentation/format.ts";
 import { parseYm } from "../levers.ts";
 import { depletionYear, displayYears, financialOf, sumByYear } from "../present.ts";
@@ -165,6 +165,7 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
   void target;
   return {
     title: event,
+    who: self?.label ?? "",
     headline,
     verdict,
     chart,
@@ -189,3 +190,44 @@ export function yearOptions(req: EngineRequest, memberId: string): { value: numb
 
 /** 万円の短い書き方（提示層の外で一文を作るとき） */
 export const manText = (yen: number) => `${man(yen)}万円`;
+
+/** 場面の帯のカードの名前（例: 「ご主人が亡くなったら」「奥様が働けなくなったら」） */
+export function scenarioTitle(sc: Scenario): string {
+  return sc.kind === "death" ? `${sc.who}が亡くなったら` : `${sc.who}が働けなくなったら`;
+}
+
+const GRADE_TEXT: Record<number, string> = { 0: "障害年金なしの仮定", 1: "障害1級の仮定", 2: "障害2級の仮定", 3: "障害3級の仮定" };
+
+/**
+ * 場面の帯のカード（提示用の値）: 死亡の場面は必要保障額の推移から「保障の不足 最大○万円」、障害の場面は仮定の等級。
+ * 表示中の場面には、計算できていれば資産が尽きる年を添える
+ */
+export function scenarioCards(input: {
+  req: EngineRequest;
+  scenarios: readonly Scenario[];
+  selected: string;
+  protection: ContingencyModel["protection"];
+  scenario: ContingencyModel["scenario"];
+  grade: 0 | 1 | 2 | 3 | undefined;
+}): ScenarioCardModel[] {
+  const keyOf = new Map(roles(input.req).map((r) => [r.member.id, r.key]));
+  return input.scenarios.map((sc) => {
+    const pk = keyOf.get(sc.member) ?? null;
+    const chart = pk === null ? undefined : input.protection.charts.find((c) => c.key === pk);
+    let status: string;
+    let tone: ScenarioCardModel["tone"];
+    if (sc.kind === "death") {
+      if (input.protection.status === "loading") [status, tone] = ["計算しています", "wait"];
+      else if (input.protection.status === "error" || chart === undefined) [status, tone] = ["必要保障額は出していません", "wait"];
+      else if (chart.maxShort !== null) [status, tone] = [`保障の不足 最大${man(chart.maxShort.amount)}万円`, "ng"];
+      else [status, tone] = ["死亡保険金で足ります", "ok"];
+    } else [status, tone] = [GRADE_TEXT[input.grade ?? 2] ?? "", "wait"];
+    let result: ScenarioCardModel["result"] = null;
+    const sm = input.scenario.model;
+    if (sc.key === input.selected && sm !== null && input.scenario.status === "ready") {
+      const dep = sm.chart.depletions.find((d) => d.series === "proposal");
+      result = dep !== undefined ? { label: "資産", text: `${dep.year}年に不足`, neg: true } : { label: "資産", text: "最後まで足りる", neg: false };
+    }
+    return { key: sc.key, label: sc.label, title: scenarioTitle(sc), status, tone, result, protection: chart !== undefined ? chart.key : null };
+  });
+}

@@ -33,8 +33,8 @@ export type DiffTarget = { object: string } | { member: string } | { plan: "assu
 export const AMOUNT_STEP = 10_000;
 
 export type Control =
-  /** 目盛りのあるスライダー（対策の固定の項目のうち、年齢） */
-  | { kind: "steps"; steps: number[]; tick: (v: number) => string }
+  /** 年齢のスライダー（対策の固定の項目のうち、働く最後の年齢・年金の受け取り開始）。1歳ずつ動き、目盛りの数字は ticks だけ出す */
+  | { kind: "age"; min: number; max: number; ticks: number[]; tick: (v: number) => string }
   /** 円などの数のスライダー（金額は1万円の刻み。per は月額・年額の別） */
   | { kind: "range"; min: number; max: number; step: number; ticks: number[]; tick: (v: number) => string; per?: "月" | "年" | "" }
   /** 率のスライダー（10進の文字列） */
@@ -115,6 +115,20 @@ export function leverSteps(demo: DemoHousehold | null, base: Partial<LeverValues
   return out;
 }
 
+/** 年金の受け取り開始の年齢の範囲（繰上げ60歳〜繰下げ75歳。制度は1か月単位だが、対策のスライダーは1歳ずつ） */
+export const PENSION_AGE_RANGE = { min: 60, max: 75 } as const;
+
+/** 年齢のスライダー: 目盛りの最小〜最大を1歳ずつ（limit があればその中に収める）。目盛りの数字は今の段を残す */
+export function ageControl(steps: readonly number[], tick: (v: number) => string, limit: { min: number; max: number } | null): Control & { kind: "age" } {
+  let min = Math.min(...steps);
+  let max = Math.max(...steps);
+  if (limit !== null) {
+    min = Math.max(limit.min, min);
+    max = Math.min(limit.max, max);
+  }
+  return { kind: "age", min, max, ticks: steps.filter((v) => v >= min && v <= max), tick };
+}
+
 const LEVER_LABEL: Record<LeverKey, (who: string) => string> = {
   retireAge: (who) => `${who}が働く最後の年齢`,
   pensionAge: (who) => `${who}の年金の受け取り開始`,
@@ -160,10 +174,10 @@ function leverItems(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | 
     }
     return { member: selfId };
   };
-  // 金額（NISA・生活費）は1万円の刻みのスライダー。範囲は目盛りの最小から最大まで（今の考え方のまま）
+  // 年齢は1歳ずつ、金額（NISA・生活費）は1万円の刻みのスライダー。範囲は目盛りの最小から最大まで（今の考え方のまま）
   const controlOf = (k: LeverKey): Control => {
     const tick = (v: number) => leverTick(k, v);
-    if (k !== "nisaMonthly" && k !== "livingMonthly") return { kind: "steps", steps: steps[k], tick };
+    if (k === "retireAge" || k === "pensionAge") return ageControl(steps[k], tick, k === "pensionAge" ? PENSION_AGE_RANGE : null);
     const r = amountRange(Math.min(...steps[k]), Math.max(...steps[k]));
     return { kind: "range", min: r.min, max: r.max, step: AMOUNT_STEP, ticks: steps[k], tick, per: "月" };
   };

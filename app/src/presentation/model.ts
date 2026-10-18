@@ -146,6 +146,8 @@ export interface PresentationModel {
   balance: BalanceChartModel;
   /** 基準の案の線（年間収支・純資産）。収支・資産と負債のグラフに点線で重ねる */
   baseLines: { net: Yen[]; netWorth: Yen[] };
+  /** 基準の案の積み上げと年のイベント（グラフを左右に並べる表示で、基準の案の側に使う） */
+  baseCharts: BaseCharts;
   /** 本人の呼び方（例: ご主人）。グラフの年の札に使う */
   who: string;
   selectedYear: number;
@@ -157,6 +159,13 @@ export interface PresentationModel {
   fee: FeeLine | null;
   /** 数字が確定前（画面側の先出し）か。0005 の5: 控えめに示す */
   provisional: boolean;
+}
+
+/** 基準の案の収支・資産と負債の積み上げと、年のイベント */
+export interface BaseCharts {
+  flows: FlowChartModel;
+  balance: BalanceChartModel;
+  events: EventChip[];
 }
 
 /** 根拠の表示（0006 の7）に出す値。根拠の記録から、顧客に見せてよい項目だけを選んだもの */
@@ -213,6 +222,8 @@ export interface BreakdownRowModel {
 export interface ScenarioModel {
   /** 例: 「ご主人が2027年に亡くなった場合」 */
   title: string;
+  /** グラフの年齢の人の呼び方（例: 「ご主人」。chart.ages はこの人の年齢） */
+  who: string;
   headline: Headline;
   verdict: Verdict;
   /** proposal＝万一の場合、current＝万一なし */
@@ -223,9 +234,26 @@ export interface ScenarioModel {
   notices: string[];
 }
 
+/** 万一の画面の場面の帯のカード（主画面の案の帯と同じ見た目） */
+export interface ScenarioCardModel {
+  /** 画面の鍵（death:self など。物の ID を含まない） */
+  key: string;
+  /** 例: 「ご主人の死亡」 */
+  label: string;
+  /** カードの名前（例: 「ご主人が亡くなったら」） */
+  title: string;
+  /** 小さな状態の札（例: 「保障の不足 最大5,482万円」）。tone の wait は灰の札 */
+  status: string;
+  tone: "ok" | "ng" | "wait";
+  /** 表示中の場面の結果（例: 「2038年に不足」）。表示中でない・計算中は null */
+  result: { label: string; text: string; neg: boolean } | null;
+  /** その人が亡くなった場合の必要保障額の推移のグラフの鍵（ProtectionChartModel.key。無ければ null） */
+  protection: string | null;
+}
+
 export interface ContingencyModel {
   protection: { status: "loading" | "ready" | "error"; charts: ProtectionChartModel[]; error: string | null; ms: number | null };
-  scenarios: { key: string; label: string }[];
+  scenarios: ScenarioCardModel[];
   selected: string;
   year: number;
   yearOptions: { value: number; label: string }[];

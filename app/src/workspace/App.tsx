@@ -8,7 +8,7 @@ import { isEngineError } from "../engine/types.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { group } from "../presentation/format.ts";
-import type { ChartMode } from "../presentation/MainChart.tsx";
+import type { ChartLayout, ChartMode } from "../presentation/MainChart.tsx";
 import { CashflowTable, FeeNote, ResultCard } from "../presentation/MainView.tsx";
 import { PlanBand } from "../presentation/PlanBand.tsx";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
@@ -53,7 +53,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 /** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#add=pet,car（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
  * #items=loan,rate,shift,mix（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
- * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table） */
+ * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）） */
 export function parseHash(hash: string): {
   /** 文字を大きくした状態で開く */
   big: boolean;
@@ -104,6 +104,8 @@ export function parseHash(hash: string): {
   compare?: boolean;
   list?: boolean;
   scroll?: "table";
+  /** グラフの比べ方 */
+  layout?: ChartLayout;
 } {
   const out: ReturnType<typeof parseHash> = { big: false, selfcheck: false };
   for (const part of hash.replace(/^#/, "").split("&")) {
@@ -143,6 +145,7 @@ export function parseHash(hash: string): {
     else if (k === "compare") out.compare = true;
     else if (k === "list") out.list = true;
     else if (k === "scroll" && v === "table") out.scroll = "table";
+    else if (k === "layout" && (v === "side" || v === "overlay")) out.layout = v;
   }
   return out;
 }
@@ -171,15 +174,6 @@ export function feeSummary(req: EngineRequest): string {
 }
 
 export { leverSteps };
-
-function nearestIndex(steps: number[], v: number | undefined): number {
-  if (v === undefined) return 0;
-  let best = 0;
-  steps.forEach((s, i) => {
-    if (Math.abs(s - v) < Math.abs((steps[best] as number) - v)) best = i;
-  });
-  return best;
-}
 
 interface Opened {
   /** 見本の世帯（目盛り・最初の提案の既定）。空の世帯は null */
@@ -256,7 +250,7 @@ export function App() {
   const [explainStep, setExplainStep] = useState<number | null>(initial.explain ?? null);
   const [tableKey, setTableKey] = useState<string | null>(null);
   const [showDiff, setShowDiff] = useState(initial.diff === true);
-  const [settings, setSettings] = useState<DisplaySettings>({ ...DEFAULT_DISPLAY_SETTINGS, ...(initial.metrics !== undefined ? { metrics: initial.metrics } : {}), ...(initial.age !== undefined ? { atAge: initial.age } : {}) });
+  const [settings, setSettings] = useState<DisplaySettings>({ ...DEFAULT_DISPLAY_SETTINGS, ...(initial.metrics !== undefined ? { metrics: initial.metrics } : {}), ...(initial.age !== undefined ? { atAge: initial.age } : {}), ...(initial.layout !== undefined ? { layout: initial.layout } : {}) });
   const [settingsOpen, setSettingsOpen] = useState(initial.settings === true);
   const [panel, setPanel] = useState<null | "list" | "compare">(initial.compare === true ? "compare" : initial.list === true ? "list" : null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -556,7 +550,7 @@ export function App() {
     (key: LeverKey, v: number) => {
       const o = openedRef.current;
       const it = o?.catalog.byKey.get(`lever:${key}`);
-      if (it === undefined || (it.control.kind !== "steps" && it.control.kind !== "range")) return;
+      if (it === undefined || (it.control.kind !== "age" && it.control.kind !== "range")) return;
       setValue(it.key, v);
     },
     [setValue],
@@ -695,6 +689,7 @@ export function App() {
   const altRes = dual.current?.view("alt").result ?? null;
   const selValues = opened === null ? {} : valuesOf(opened.wh, work, work.sel);
   const selReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.sel))), [opened, work, reqOf]);
+  const baseReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.base))), [opened, work, reqOf]);
   const feeOn = opened !== null && hasAdvisoryFee(opened.wh.request) ? feeOf(opened, selValues) : false;
   const names = { selected: `${letterOf(work.sel)}案`, base: `${letterOf(work.base)}案`, same: work.sel === work.base };
   const feeShown = opened !== null && shows(settings, "feeLine") && hasAdvisoryFee(opened.wh.request) && work.sel !== CURRENT;
@@ -702,10 +697,10 @@ export function App() {
   const model = useMemo(() => {
     if (opened === null || selReq === null || selRes === null || baseRes === null) return null;
     const fee = feeShown ? { on: feeOn, withFee: feeOn ? selRes : altRes, alt: altRes } : undefined;
-    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, ...(fee !== undefined ? { fee } : {}) });
+    const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}) });
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return extra.length > 0 ? { ...m, result: { ...m.result, sub: [...m.result.sub, ...extra] } } : m;
-  }, [opened, selReq, selRes, baseRes, altRes, feeOn, feeShown, selectedYear, provisional, settings, names.selected, names.base, names.same]);
+  }, [opened, selReq, baseReq, selRes, baseRes, altRes, feeOn, feeShown, selectedYear, provisional, settings, names.selected, names.base, names.same]);
   const explain = useMemo(
     () => (explainStep === null || opened === null || selReq === null || selRes === null ? null : explainModel(selReq, selRes, settings.atAge)),
     [explainStep !== null, opened, selReq, selRes, settings.atAge],
@@ -774,14 +769,18 @@ export function App() {
       ? []
       : leverItemsOf(opened).flatMap((it): LeverRow[] => {
           const c = it.control;
-          if (c.kind !== "steps" && c.kind !== "range") return [];
+          if (c.kind !== "age" && c.kind !== "range") return [];
           const v = valueOf(it, selValues, opened.wh);
           const b = valueOf(it, baseValues, opened.wh);
           const vn = typeof v === "number" ? v : undefined;
           const bn = typeof b === "number" ? b : undefined;
           const common = { key: it.key.slice(6) as LeverKey, label: it.label, valueText: it.text(v), baseText: it.text(b), note: it.note?.(v) ?? null };
-          if (c.kind === "steps")
-            return [{ ...common, slider: { kind: "steps", steps: c.steps, index: nearestIndex(c.steps, vn), baseIndex: nearestIndex(c.steps, bn), stepText: c.tick } }];
+          if (c.kind === "age") {
+            // 年齢: 1歳ずつ。今の値・基準の値が範囲の外なら範囲を広げる（入力で直接入れたとき）
+            const min = Math.min(c.min, vn ?? c.min, bn ?? c.min);
+            const max = Math.max(c.max, vn ?? c.max, bn ?? c.max);
+            return [{ ...common, slider: { kind: "age", min, max, value: vn ?? min, base: bn ?? min, ticks: c.ticks, stepText: c.tick } }];
+          }
           // 金額: 1万円の刻み。今の値・基準の値が範囲の外なら範囲を広げる（数値の欄で直接入れたとき）
           const r = amountRange(c.min, c.max, vn, bn);
           return [{ ...common, slider: { kind: "amount", min: r.min, max: r.max, step: c.step, value: vn ?? r.min, base: bn ?? r.min, per: c.per ?? "", tick: c.tick } }];
@@ -979,6 +978,7 @@ export function App() {
               provisional={model.provisional}
               mode={chartMode}
               onMode={setChartMode}
+              layout={settings.layout}
               explain={explain !== null && explainStep !== null ? { model: explain, step: explainStep } : null}
               onExplain={setExplainStep}
               ageMark={ageMark}
