@@ -5,7 +5,7 @@
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
 // - hearing: ヒアリングの依頼・取り込み・同意の下書きの記録（0018。取り込みの記録・同意の記録への分け方は後の版）
 // - workspace: 案の帯の並び・基準の案・選んだ案・対策に足した項目・出発点にした見本
-// - display: 表示の設定（世帯ごと。出す数字・○歳時点の年齢・グラフの比べ方）
+// - display: 表示の設定（世帯ごと。出す数字・○歳時点の年齢・グラフの比べ方・操作中はグラフを上に表示）
 // - extDefinitions / ext: 拡張領域（0011 の4。読んだものをそのまま書き戻し、失わない）
 // 保存しないもの: 提案書の宛名（0012 の2。出力のときだけ）、保存していない案の変更（「案として保存」「上書き」で保存する）、
 // 画面の一時的な状態（開いているタブ・パネル・文字の大きさなど）
@@ -107,6 +107,7 @@ export function fromBody(json: string): BodyState {
     metrics: strings(d.metrics).filter((k): k is MetricKey => METRIC_CHOICES.some((c) => c.key === k)),
     atAge: typeof d.atAge === "number" ? d.atAge : DEFAULT_DISPLAY_SETTINGS.atAge,
     layout: LAYOUT_CHOICES.some((c) => c.key === d.layout) ? (d.layout as DisplaySettings["layout"]) : DEFAULT_DISPLAY_SETTINGS.layout,
+    dock: typeof d.dock === "boolean" ? d.dock : DEFAULT_DISPLAY_SETTINGS.dock,
   };
   return {
     wh,

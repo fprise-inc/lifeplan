@@ -1,12 +1,12 @@
-// 提示層の部品（万一の想定の画面）。受け取るのは提示用の値（ContingencyModel とその一部）と、場面・年を選ぶ手続きだけ（0016 の2）。
-// 配置（上から。主画面と同じ流れ）: 場面の帯（ScenarioBand。主画面の案の帯と同じ見た目）→ グラフ（ContingencyChartCard。資産の推移／必要保障額の推移の切り替え）
-// → 想定の前提（作業の層の部品）。グラフは主画面と同じ幅・高さの感覚で、年の選び方（線の上の○・クリックで固定・薄いグレーの実線の補助線）と
+// 提示層の部品（万一のときの画面）。受け取るのは提示用の値（ContingencyModel とその一部）と、場面・年を選ぶ手続きだけ（0016 の2）。
+// 配置（上から。見通しと同じ流れ）: 場面の帯（ScenarioBand。見通しの案の帯と同じ見た目）→ 年ごとの結果の帯（YearStrip。起きる年を1年ずつ選ぶ・1年ずつ見せる）
+// → グラフ（ContingencyChartCard。資産の推移／必要保障額の推移の切り替え）→ 想定の前提（作業の層の部品）。グラフは主画面と同じ幅・高さの感覚で、年の選び方（線の上の○・クリックで固定・薄いグレーの実線の補助線）と
 // 補間の動き（tween.ts）も主画面と同じ決まり（yearPick.ts）で描く。色は藍（万一の場合・必要保障額）と灰（万一なし・死亡保険金）、不足は赤のベタ塗りと「▲」
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { areaAbove, areaBelow, linePath, scale, type Frame, type Scale } from "./chart.ts";
 import { group, man, manDiff } from "./format.ts";
 import { chartHeight } from "./MainChart.tsx";
-import type { ChartModel, ContingencyModel, ProtectionChartModel, ScenarioModel, VerdictPart } from "./model.ts";
+import type { ChartModel, ContingencyModel, ProtectionChartModel, ScenarioModel, VerdictPart, YearStripModel } from "./model.ts";
 import { useTween, type Series } from "./tween.ts";
 import { estimateWidth, indexAt, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
 
@@ -15,26 +15,18 @@ import { estimateWidth, indexAt, placeTip, shownYear, stepYear, togglePin } from
 export interface ScenarioBandProps {
   model: ContingencyModel;
   onSelect: (key: string) => void;
-  onYear: (year: number) => void;
+  /** 「計算しています」を出すまでの時間（ミリ秒。既定は LOADING_DELAY_MS） */
+  loadingAfter?: number;
 }
 
-/** 場面の帯: 「ご主人が亡くなったら」などを小さなカードで横に並べる。左の欄で「起きる年」を選ぶ（主画面の「基準の案」の欄と同じ位置） */
-export function ScenarioBand({ model, onSelect, onYear }: ScenarioBandProps) {
+/** 場面の帯: 「ご主人が亡くなったら」などを小さなカードで横に並べる（見通しの案の帯と同じ見た目）。起きる年は下の年ごとの結果の帯で選ぶ */
+export function ScenarioBand({ model, onSelect, loadingAfter = LOADING_DELAY_MS }: ScenarioBandProps) {
   const many = model.scenarios.length > 4;
+  const showLoading = useDelayed(model.scenarios.some((c) => c.loading), loadingAfter);
   return (
     <section class={`band cg-band${many ? " many" : ""}`} aria-label="場面" data-cg-band data-prot-status={model.protection.status}>
       <div class="band-head">
         <span class="band-t">場面</span>
-        <label>
-          起きる年
-          <select value={String(model.year)} onChange={(e) => onYear(Number((e.currentTarget as HTMLSelectElement).value))} aria-label="起きる年" data-scenario-year>
-            {model.yearOptions.map((o) => (
-              <option key={o.value} value={String(o.value)}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
       <div class="band-cards" role="group" aria-label="グラフに出す場面">
         {model.scenarios.map((c, i) => {
@@ -47,14 +39,8 @@ export function ScenarioBand({ model, onSelect, onYear }: ScenarioBandProps) {
                 {on ? <span class="p-tag show">表示中</span> : null}
               </span>
               <span class="p-nums">
-                <span class={`p-st ${c.tone}`}>{c.status}</span>
+                {c.loading && !showLoading ? <span class="p-st wait" aria-hidden="true">{"\u00a0"}</span> : <span class={`p-st ${c.tone}`}>{c.status}</span>}
               </span>
-              {c.result !== null ? (
-                <span class="p-amt">
-                  <span class="p-k">{c.result.label}</span>
-                  <span class={`p-v num${c.result.neg ? " neg" : ""}`}>{c.result.text}</span>
-                </span>
-              ) : null}
               <span class="p-line" aria-hidden="true" />
             </button>
           );
@@ -63,6 +49,133 @@ export function ScenarioBand({ model, onSelect, onYear }: ScenarioBandProps) {
     </section>
   );
 }
+
+// ---- 年ごとの結果の帯 ----
+
+/** 1年ずつ見せている状態（見せていなければ null） */
+export type PlayState = "playing" | "paused" | null;
+
+export interface YearStripProps {
+  model: YearStripModel;
+  /** 選んでいる年（グラフに出している年） */
+  selected: number;
+  onSelect: (year: number) => void;
+  play: PlayState;
+  onPlay: () => void;
+  onPause: () => void;
+  onStop: () => void;
+  /** 上に付いてくる縮めた表示（年齢を省く） */
+  compact?: boolean;
+  /** 「計算しています」を出すまでの時間（ミリ秒。既定は LOADING_DELAY_MS） */
+  loadingAfter?: number;
+}
+
+const cellMark = (c: YearStripModel["cells"][number]) => (c.state === "ok" ? "✓" : c.state === "short" ? `▲${c.shortYear ?? ""}` : c.state === "error" ? "－" : "…");
+
+/**
+ * 年ごとの結果の帯: 選べる年を横一列のマスで並べ、マスごとに「その年に起きても最後まで足りるか」を色と印で出す
+ * （足りる＝落ち着いた緑の ✓、途中で不足＝赤系の ▲と不足の始まる年。色だけに頼らない）。マスのクリック・← → キーで年を選ぶ。
+ * 「▶ 1年ずつ見せる」で1年ずつ進める（一時停止・止める）。狭い窓ではマスが横に動く
+ */
+export function YearStrip({ model, selected, onSelect, play, onPlay, onPause, onStop, compact = false, loadingAfter = LOADING_DELAY_MS }: YearStripProps) {
+  const row = useRef<HTMLDivElement>(null);
+  const counting = model.done < model.total;
+  const showCounting = useDelayed(counting, loadingAfter);
+  const years = model.cells.map((c) => c.year);
+  // 選んだ年のマスが見えるように、帯の中だけを横に動かす（ページは動かさない）
+  useEffect(() => {
+    const el = row.current;
+    const cell = el?.querySelector<HTMLElement>(`[data-year-cell="${selected}"]`);
+    if (el == null || cell == null) return;
+    const left = cell.offsetLeft - el.offsetLeft;
+    if (left < el.scrollLeft + 8 || left + cell.offsetWidth > el.scrollLeft + el.clientWidth - 8) el.scrollLeft = Math.max(0, left - el.clientWidth / 2 + cell.offsetWidth / 2);
+  }, [selected, model.cells.length]);
+  const onKey = (e: KeyboardEvent) => {
+    const i = years.indexOf(selected);
+    const to = e.key === "ArrowRight" ? years[i + 1] : e.key === "ArrowLeft" ? years[i - 1] : e.key === "Home" ? years[0] : e.key === "End" ? years.at(-1) : undefined;
+    if (to === undefined) return;
+    e.preventDefault();
+    onSelect(to);
+    row.current?.querySelector<HTMLElement>(`[data-year-cell="${to}"]`)?.focus();
+  };
+  return (
+    <section class={`card ys${compact ? " compact" : ""}${model.stale ? " is-stale" : ""}`} aria-label="起きる年ごとの結果" data-year-strip={model.tone} data-year-done={`${model.done}/${model.total}`}>
+      <div class="ys-head">
+        <span class="ys-t">
+          起きる年<small>（{model.who}の年齢）</small>
+        </span>
+        <span class={`ys-sum ${model.tone}`} aria-live="polite" data-year-summary>
+          {counting && !showCounting ? "" : model.summary}
+        </span>
+        <span class="ys-play">
+          {play === null ? (
+            <button type="button" class="ys-btn" onClick={onPlay} disabled={model.cells.length < 2} data-play>
+              ▶ 1年ずつ見せる
+            </button>
+          ) : (
+            <>
+              {play === "playing" ? (
+                <button type="button" class="ys-btn on" onClick={onPause} data-pause>
+                  ❚❚ 一時停止
+                </button>
+              ) : (
+                <button type="button" class="ys-btn" onClick={onPlay} data-play>
+                  ▶ 続ける
+                </button>
+              )}
+              <button type="button" class="ys-btn" onClick={onStop} data-stop>
+                ■ 止める
+              </button>
+            </>
+          )}
+        </span>
+      </div>
+      <div class="ys-row" ref={row} role="radiogroup" aria-label="起きる年" onKeyDown={onKey}>
+        {model.cells.map((c) => {
+          const on = c.year === selected;
+          return (
+            <button
+              type="button"
+              role="radio"
+              key={c.year}
+              aria-checked={on}
+              tabIndex={on ? 0 : -1}
+              class={`yc ${c.state}${on ? " is-sel" : ""}${c.provisional ? " prov" : ""}`}
+              aria-label={c.label}
+              title={c.label}
+              onClick={() => onSelect(c.year)}
+              data-year-cell={c.year}
+              data-state={c.state}
+            >
+              <span class="yc-y">{c.year}</span>
+              {!compact ? <span class="yc-a">{c.age !== null ? `${c.age}歳` : ""}</span> : null}
+              <span class="yc-r" aria-hidden="true">
+                {cellMark(c)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/** 値が true になってから ms 経つまでは false のまま（短い計算で「計算しています」を一瞬出さない） */
+export function useDelayed(flag: boolean, ms: number): boolean {
+  const [late, setLate] = useState(false);
+  useEffect(() => {
+    if (!flag || ms <= 0) {
+      setLate(false);
+      return;
+    }
+    const t = setTimeout(() => setLate(true), ms);
+    return () => clearTimeout(t);
+  }, [flag, ms]);
+  return flag && (late || ms <= 0);
+}
+
+/** 計算の待ちで「計算しています」を出すまでの時間（これより短い計算では出さない） */
+export const LOADING_DELAY_MS = 300;
 
 // ---- ② グラフ ----
 
@@ -152,8 +265,8 @@ function frameOf(w: number, h: number, fs: number): Frame {
   return { width: w, height: h, left: 74 * fs, right: 24 * fs, top: 26 * fs, bottom: 48 * fs };
 }
 
-/** 万一の画面の大きなグラフ（主画面のグラフと同じ大きさ・同じ年の選び方） */
-export function ContingencyChart({ spec }: { spec: ContingencyChartSpec }) {
+/** 万一のときの大きなグラフ（見通しのグラフと同じ大きさ・同じ年の選び方）。height を渡すとその高さで描く（上に付いてくる縮めた表示） */
+export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec; height?: number }) {
   const box = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
   const tip = useRef<HTMLDivElement>(null);
@@ -186,7 +299,7 @@ export function ContingencyChart({ spec }: { spec: ContingencyChartSpec }) {
   const n = years.length;
   const t = useTween(spec.kind === "assets" ? { "a.sel": spec.model.proposal, "a.base": spec.model.current } : { "p.need": spec.model.need, "p.nwa": spec.model.needWithAssets, "p.cov": spec.model.coverage });
   const fs = size.fs;
-  const f = frameOf(size.w, size.h, fs);
+  const f = frameOf(size.w, height ?? size.h, fs);
   const hv = hover !== null && years.includes(hover) ? hover : null;
   const event = spec.eventYear !== null && years.includes(spec.eventYear) ? spec.eventYear : null;
   // 資産の推移: 主画面と同じ（固定していればその年、なければカーソルの年）。
@@ -371,7 +484,7 @@ export function ContingencyChart({ spec }: { spec: ContingencyChartSpec }) {
       : "必要保障額の推移のグラフ。カーソルを合わせるとその年に亡くなった場合の数字が出ます。クリックか左右の矢印キーで、その年に亡くなった場面にします";
   return (
     <div
-      class="chart main-chart cg-big"
+      class={`chart main-chart cg-big${height !== undefined ? " compact" : ""}`}
       ref={box}
       tabIndex={0}
       onKeyDown={onKey}
@@ -580,6 +693,8 @@ const Parts = ({ parts }: { parts: VerdictPart[] }) => <>{parts.map((p, i) => (p
 
 export interface ContingencyChartCardProps {
   model: ContingencyModel;
+  /** 「計算しています」を出すまでの時間（ミリ秒。既定は LOADING_DELAY_MS） */
+  loadingAfter?: number;
   mode: ContingencyMode;
   onMode: (m: ContingencyMode) => void;
   /** 資産の推移で固定した年（固定していなければ null） */
@@ -589,51 +704,64 @@ export interface ContingencyChartCardProps {
   onPick: (key: string, year: number) => void;
 }
 
-/** グラフの枠（主画面の結果の枠と同じ形）: 結論の1文・グラフの切り替え・凡例・大きなグラフ・その下の内訳 */
-export function ContingencyChartCard({ model, mode, onMode, pinnedYear, onPinYear, onPick }: ContingencyChartCardProps) {
+/** グラフの枠に出すもの（枠と、上に付いてくる縮めた表示で同じ決め方） */
+function cardView(model: ContingencyModel, mode: ContingencyMode) {
   const card = model.scenarios.find((c) => c.key === model.selected);
   const prot = card?.protection != null ? model.protection.charts.find((c) => c.key === card.protection) : undefined;
   const protOk = prot !== undefined || model.protection.status !== "ready";
   const m: ContingencyMode = mode === "protection" && !protOk ? "assets" : mode;
-  const sm = model.scenario.model;
-  const stale = model.scenario.stale;
   const protEvent = prot !== undefined && card?.key.startsWith("death:") === true ? model.year : null;
+  return { card, prot, protOk, m, protEvent, sm: model.scenario.model, stale: model.scenario.stale };
+}
 
-  let head: preact.JSX.Element;
-  if (m === "assets") {
-    head =
-      sm !== null ? (
-        <p class={`verdict-line cg-verdict ${sm.verdict.tone}`} aria-live="polite" data-verdict>
-          <Parts parts={sm.verdict.parts} />
-          <span class="v-sub" data-headline>
-            {sm.headline.label} <b class={sm.headline.amount < 0 ? "neg" : ""}>{yen(sm.headline.amount)}</b>（万一なしより {manDiff(sm.headline.diff)}万円。万一なし: {yen(sm.headline.currentAmount)}
-            {sm.headline.currentNote !== null ? `・${sm.headline.currentNote}` : ""}）
-          </span>
-        </p>
-      ) : (
-        <p class="verdict-line cg-verdict" data-verdict>
-          {card?.title ?? ""}
-        </p>
-      );
-  } else {
-    head =
-      prot !== undefined ? (
-        <p class={`verdict-line cg-verdict ${prot.maxShort !== null ? "down" : "flat"}`} aria-live="polite" data-verdict>
-          <span>{prot.title}、</span>
-          {prot.maxShort !== null ? <b>保障の不足は最大{man(prot.maxShort.amount)}万円（{prot.maxShort.year}年）</b> : <b>死亡保険金で足ります</b>}
-          <span class="v-sub">{prot.sub}</span>
-        </p>
-      ) : (
-        <p class="verdict-line cg-verdict" data-verdict>
-          必要保障額の推移
-        </p>
-      );
-  }
+/** グラフの見出しの1文（資産の推移／必要保障額の推移） */
+export function ContingencyVerdict({ model, mode }: { model: ContingencyModel; mode: ContingencyMode }) {
+  const { card, prot, m, sm } = cardView(model, mode);
+  if (m === "assets")
+    return sm !== null ? (
+      <p class={`verdict-line cg-verdict ${sm.verdict.tone}`} aria-live="polite" data-verdict>
+        <Parts parts={sm.verdict.parts} />
+        <span class="v-sub" data-headline>
+          {sm.headline.label} <b class={sm.headline.amount < 0 ? "neg" : ""}>{yen(sm.headline.amount)}</b>（万一なしより {manDiff(sm.headline.diff)}万円。万一なし: {yen(sm.headline.currentAmount)}
+          {sm.headline.currentNote !== null ? `・${sm.headline.currentNote}` : ""}）
+        </span>
+      </p>
+    ) : (
+      <p class="verdict-line cg-verdict" data-verdict>
+        {card?.title ?? ""}
+      </p>
+    );
+  return prot !== undefined ? (
+    <p class={`verdict-line cg-verdict ${prot.maxShort !== null ? "down" : "flat"}`} aria-live="polite" data-verdict>
+      <span>{prot.title}、</span>
+      {prot.maxShort !== null ? <b>保障の不足は最大{man(prot.maxShort.amount)}万円（{prot.maxShort.year}年）</b> : <b>保障は足りています</b>}
+      <span class="v-sub">{prot.sub}</span>
+    </p>
+  ) : (
+    <p class="verdict-line cg-verdict" data-verdict>
+      必要保障額の推移
+    </p>
+  );
+}
+
+/** グラフの枠（見通しの結果の枠と同じ形）: 結論の1文・グラフの切り替え・凡例・大きなグラフ・その下の内訳 */
+export function ContingencyChartCard({ model, mode, onMode, pinnedYear, onPinYear, onPick, loadingAfter = LOADING_DELAY_MS }: ContingencyChartCardProps) {
+  const { prot, protOk, m, protEvent, sm, stale } = cardView(model, mode);
+  const loading = m === "assets" ? model.scenario.status === "loading" && sm === null : model.protection.status === "loading";
+  // 短い計算（300ミリ秒未満）では「計算しています」を出さない（その間は同じ高さの空きを置く）
+  const showLoading = useDelayed(loading, loadingAfter);
+  const wait = showLoading ? (
+    <p class="loading cg-loading" role="status">
+      {m === "assets" ? "計算しています…" : "必要保障額の推移を計算しています…"}
+    </p>
+  ) : (
+    <div class="cg-wait" aria-hidden="true" />
+  );
 
   return (
-    <section class="card chart-card cg-chart" aria-label="グラフ" aria-busy={m === "assets" ? model.scenario.status === "loading" : model.protection.status === "loading"} data-cg-card={m}>
+    <section class="card chart-card cg-chart" aria-label="グラフ" aria-busy={loading} data-cg-card={m}>
       <div class="cc-head">
-        {head}
+        <ContingencyVerdict model={model} mode={mode} />
         <div class="cc-tools">
           {m === "assets" && stale ? (
             <span class="provisional" title="計算が終わると置き換わります">
@@ -653,9 +781,7 @@ export function ContingencyChartCard({ model, mode, onMode, pinnedYear, onPinYea
         model.scenario.status === "error" ? (
           <p class="fatal">計算できませんでした（{model.scenario.error}）</p>
         ) : sm === null ? (
-          <p class="loading cg-loading" role="status">
-            計算しています…
-          </p>
+          wait
         ) : (
           <div class={stale ? "is-stale" : ""}>
             {sm.notices.map((tx) => (
@@ -674,9 +800,7 @@ export function ContingencyChartCard({ model, mode, onMode, pinnedYear, onPinYea
           </div>
         )
       ) : model.protection.status === "loading" ? (
-        <p class="loading cg-loading" role="status">
-          必要保障額の推移を計算しています…
-        </p>
+        wait
       ) : model.protection.status === "error" ? (
         <p class="fatal">計算できませんでした（{model.protection.error}）</p>
       ) : prot === undefined ? (
@@ -690,5 +814,26 @@ export function ContingencyChartCard({ model, mode, onMode, pinnedYear, onPinYea
         </div>
       )}
     </section>
+  );
+}
+
+/** 上に付いてくる縮めた表示の中身（年ごとの結果の帯・凡例・グラフ）。元の枠と同じ部品で描く */
+export function DockedContingency({ model, mode, pinnedYear, onPinYear, onPick, height, strip }: Omit<ContingencyChartCardProps, "onMode"> & { height: number; strip: Omit<YearStripProps, "model" | "compact"> }) {
+  const { prot, m, protEvent, sm } = cardView(model, mode);
+  return (
+    <div class="dock-chart" data-dock-chart="contingency">
+      <YearStrip {...strip} model={model.strip} compact />
+      {m === "assets" && sm !== null ? (
+        <>
+          <ScenarioLegend />
+          <ContingencyChart height={height} spec={{ kind: "assets", model: sm.chart, who: sm.who, eventYear: model.year, pinnedYear, onSelectYear: onPinYear }} />
+        </>
+      ) : m === "protection" && prot !== undefined ? (
+        <>
+          <ProtectionLegend />
+          <ContingencyChart height={height} spec={{ kind: "protection", model: prot, eventYear: protEvent, onPick: (y) => onPick(prot.key, y) }} />
+        </>
+      ) : null}
+    </div>
   );
 }

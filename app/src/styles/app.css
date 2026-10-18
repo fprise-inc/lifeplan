@@ -78,7 +78,7 @@ b { font-weight: 700; }
 @media (min-width: 1100px) {
   .top { flex-wrap: nowrap; }
   .top > * { flex: none; }
-  .top > .hh { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; }
+  .top > .hh { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden; }
   .top > .hh > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 }
 .big-btn .aa b { font-size: 1.15rem; }
@@ -219,8 +219,15 @@ html.big .lever input[type="range"] { height: 36px; }
 .cf .r-year th.stub { padding: 6px 8px; }
 .cf .ybtn { all: unset; display: block; padding: 6px 8px; cursor: pointer; font-weight: 700; text-align: right; }
 .cf .r-ev td { text-align: center; }
-.cf .evi { display: inline-grid; place-items: center; width: 1.55em; height: 1.55em; border-radius: 50%; border: 2px solid var(--ink); font-size: 0.78em; font-weight: 700; margin: 0 1px; }
-.cf .evi.short { background: var(--short); border-color: var(--short); color: #fff; }
+/* ライフイベントの丸: グラフの下の丸（.chart .ev）と同じ大きさ（半径 12.5px × 文字の大きさ）・同じ線・漢字は真ん中（EventDot.tsx） */
+.cf .ev-dot { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 1.5625rem; height: 1.5625rem; border-radius: 50%; border: 2px solid var(--ink); background: #fff; margin: 1px; vertical-align: middle; cursor: default; outline: none; }
+.cf .ev-dot-t { font-size: 0.9rem; font-weight: 700; line-height: 1; color: var(--ink); }
+.cf .ev-dot.short { background: var(--short); border-color: var(--short); }
+.cf .ev-dot.short .ev-dot-t { color: #fff; }
+.cf .ev-dot.on { border-color: var(--prop); box-shadow: 0 0 0 1px var(--prop); }
+.cf .ev-dot.short.on { border-color: var(--short-ink); box-shadow: 0 0 0 1px var(--short-ink); }
+.cf .ev-dot:focus-visible { border-color: var(--prop); box-shadow: 0 0 0 1.5px var(--prop); }
+.cf .r-ev td { white-space: nowrap; }
 .cf .r-group th, .cf .r-group td { background: #eef1f4; font-size: 0.85em; letter-spacing: 0.1em; }
 .cf .r-total th, .cf .r-total td { font-weight: 700; border-bottom-color: var(--line); }
 .cf td.neg { color: var(--short-ink); }
@@ -443,7 +450,6 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 @keyframes cg-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .cg-loading::before { animation: none; } }
 /* ① 場面の帯（案の帯と同じカード。左の欄は「起きる年」） */
-.cg-band .band-head select { max-width: 11em; }
 .cg-band .plan { min-width: 180px; grid-template-columns: minmax(0, 1fr); white-space: normal; }
 .cg-band .p-amt { justify-content: flex-start; gap: 0 8px; }
 .cg-band .p-v { font-size: 1rem; }
@@ -759,6 +765,8 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .chart .ev:focus-visible circle { stroke: var(--prop); stroke-width: 3.5; }
 .chart .ev-guide { stroke: var(--ink-2); stroke-dasharray: 3 3; }
 .year-tip.ev-tip .yt-h { gap: 6px; }
+/* 表の丸の説明は画面に対して置く（表は横に動くため） */
+.year-tip.fixed { position: fixed; z-index: 30; }
 .year-tip.ev-tip .ev-t { font-weight: 400; }
 .year-tip.ev-tip .ev-ic { display: inline-flex; align-items: center; justify-content: center; width: 1.5em; height: 1.5em; border-radius: 50%; border: 1.5px solid var(--ink); font-size: 0.78rem; line-height: 1; }
 .year-tip.ev-tip.short .ev-ic { background: var(--short); border-color: var(--short); color: #fff; }
@@ -868,3 +876,61 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 /* 対策に足した欄の中でも、点線の枠は使わない（推定の欄は灰の背景と「推定」の札で示す） */
 .lever.added .fld.is-est .fld-c input[type="text"] { border-style: solid; }
 .lever.added .badge.est { border-style: solid; }
+
+/* ---- 操作中はグラフを上に表示（ChartDock.tsx）: 縦の並びの先頭に高さ0の sticky の箱を置き、その中に縮めたグラフを描く（並びの高さは変わらない） ---- */
+.chart-dock { position: sticky; top: 0; height: 0; z-index: 20; margin-bottom: -12px; }
+.chart-dock .dock-in { position: absolute; left: 0; right: 0; top: 0; padding: 6px 14px 4px; border-radius: 0 0 var(--radius) var(--radius); border-top: 0; box-shadow: 0 6px 18px rgba(20, 30, 50, 0.16); max-height: 45vh; overflow: hidden; }
+.dock-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.dock-t { flex: 1; min-width: 0; }
+.dock-t .verdict-line { font-size: 0.95rem; flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dock-t .verdict-line b { font-size: 1em; }
+.dock-t .verdict-line .v-sub { display: none; }
+.dock-x { flex: none; width: 30px; height: 28px; border: 1.5px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font-size: 1.1rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
+.dock-x:hover { border-color: var(--ink); }
+.dock-chart .main-legend { margin-top: 2px; font-size: 0.8rem; }
+.dock-chart .main-legend .hint { display: none; }
+.dock-chart .ys { margin: 2px 0 0; }
+@media (prefers-reduced-motion: no-preference) { .chart-dock.on .dock-in { animation: dock-in 0.16s ease-out; } }
+@keyframes dock-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.dock-anchor, .dock-controls { min-width: 0; }
+
+/* 計算の待ち（300ミリ秒未満は「計算しています」を出さず、同じくらいの高さを空けておく） */
+.cg-wait { min-height: 420px; }
+
+/* ---- 年ごとの結果の帯（ContingencyView.tsx の YearStrip）: 足りる＝落ち着いた緑の ✓、途中で不足＝赤系の ▲と不足の始まる年。色だけに頼らない ---- */
+.ys { padding: 8px 14px 8px; }
+.ys-head { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; }
+.ys-t { font-weight: 700; font-size: 1rem; white-space: nowrap; }
+.ys-t small { font-weight: 400; font-size: 0.8rem; color: var(--ink-2); margin-left: 2px; }
+.ys-sum { flex: 1 1 320px; min-width: 0; font-weight: 700; font-size: 0.95rem; }
+.ys-sum.ok { color: var(--good); }
+.ys-sum.short { color: var(--short-ink); }
+.ys-sum.wait { color: var(--ink-2); font-weight: 400; }
+.ys-sum.ok::before { content: "✓ "; }
+.ys-sum.short::before { content: "▲ "; }
+.ys-play { display: inline-flex; gap: 6px; flex: none; }
+.ys-btn { border: 2px solid var(--prop); color: var(--prop-ink); background: #fff; border-radius: 8px; padding: 2px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.88rem; }
+.ys-btn.on { background: var(--prop); color: #fff; }
+.ys-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ys-row { display: flex; gap: 4px; overflow-x: auto; padding: 6px 2px 4px; scroll-behavior: auto; scrollbar-width: thin; }
+.yc { all: unset; box-sizing: border-box; flex: 1 0 3.5rem; min-width: 3.5rem; display: grid; justify-items: center; gap: 0; padding: 3px 2px 4px; border-radius: 7px; border: 1.5px solid transparent; cursor: pointer; font-variant-numeric: tabular-nums; line-height: 1.25; text-align: center; }
+.yc:focus-visible { outline: 3px solid #f0b400; outline-offset: 1px; }
+.yc-y { font-size: 0.82rem; font-weight: 700; }
+.yc-a { font-size: 0.72rem; color: var(--ink-2); }
+.yc-r { font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
+.yc.ok { background: var(--good-bg); }
+.yc.ok .yc-r { color: var(--good); }
+.yc.short { background: var(--short-bg); }
+.yc.short .yc-r { color: var(--short-ink); font-size: 0.74rem; }
+.yc.pending, .yc.error { background: #f4f5f7; color: #8a939d; }
+.yc.pending .yc-a, .yc.error .yc-a { color: #8a939d; }
+.yc:hover { border-color: #b9c0c9; }
+.yc.is-sel { border: 2.5px solid var(--prop); box-shadow: 0 0 0 1px var(--prop); background-clip: padding-box; }
+.yc.is-sel .yc-y { color: var(--prop-ink); }
+.ys.compact { padding: 0; border: 0; box-shadow: none; }
+.ys.compact .ys-head { gap: 4px 10px; }
+.ys.compact .ys-t small { display: none; }
+.ys.compact .ys-sum { font-size: 0.84rem; }
+.ys.compact .ys-row { padding: 3px 2px 2px; }
+.ys.compact .yc { padding: 1px 2px 2px; min-width: 3.1rem; flex-basis: 3.1rem; }
+html.big .yc { min-width: 3.9rem; flex-basis: 3.9rem; }

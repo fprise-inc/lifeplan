@@ -3,16 +3,18 @@
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
-import { devBrowserHost, isTauri, tauriHost, webEngine, type HostApi, type StoredHousehold, type StoreStatus, type WebSession } from "../engine/host.ts";
+import { devBrowserHost, isTauri, tauriHost, webEngine, type HostApi, type StoredHousehold, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { group } from "../presentation/format.ts";
 import type { ChartLayout, ChartMode } from "../presentation/MainChart.tsx";
-import { CashflowTable, FeeNote, ResultCard } from "../presentation/MainView.tsx";
+import { ChartDock, useChartDock } from "../presentation/ChartDock.tsx";
+import { CashflowTable, DockedResult, FeeNote, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
 import { PlanBand } from "../presentation/PlanBand.tsx";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
-import { ContingencyTab } from "./contingency/ContingencyTab.tsx";
+import { ContingencyEngine } from "./contingency/engine.ts";
+import { ContingencyTab, type ContingencyUi } from "./contingency/ContingencyTab.tsx";
 import { HearingTools } from "./hearing/HearingTools.tsx";
 import { ReportTab } from "./report/ReportTab.tsx";
 import { runWireCheck } from "./report/wirecheck.ts";
@@ -48,10 +50,10 @@ import { installUndo, undoController } from "./undo/controller.ts";
 import { UndoButtons } from "./undo/UndoButtons.tsx";
 
 type Tab = "input" | "main" | "contingency" | "report";
-const TABS: { id: Tab; label: string }[] = [
+export const TABS: { id: Tab; label: string }[] = [
   { id: "input", label: "入力" },
-  { id: "main", label: "主画面" },
-  { id: "contingency", label: "万一の想定" },
+  { id: "main", label: "見通し" },
+  { id: "contingency", label: "万一のとき" },
   { id: "report", label: "提案書" },
 ];
 
@@ -155,6 +157,9 @@ export function parseHash(hash: string): {
 }
 
 const BLANK = "__blank__";
+
+/** 付いてくる部分のうち、グラフの外の高さ（文字の大きさ 16px のとき。見出し・凡例・余白） */
+const MAIN_DOCK_EXTRA = 92;
 
 const manYen = (n: number) => (n % 10000 === 0 ? `${group(n / 10000)}万円` : `${group(n)}円`);
 
@@ -313,6 +318,11 @@ export function App() {
   const [, setTick] = useState(0);
   const dual = useRef<DualEngine | null>(null);
   const session = useRef<WebSession | null>(null);
+  /** 画面の側のエンジンとパック（万一のときの計算で、別のセッションを作るため） */
+  const webRef = useRef<{ web: WebEngine | null; packs: string | null }>({ web: null, packs: null });
+  /** 万一のときの計算（アプリの側で持ち続ける。タブを切り替えても結果を捨てない） */
+  const cgEngine = useRef<ContingencyEngine | null>(null);
+  const [cgUi, setCgUi] = useState<ContingencyUi>({ mode: "assets" });
   const compareTimings = useRef<{ ms: number; hostMs: number; slots: number }[]>([]);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -352,6 +362,7 @@ export function App() {
         const h = isTauri() ? tauriHost() : import.meta.env.DEV && web !== null ? devBrowserHost(web) : null;
         if (h === null) throw new Error("E_NO_HOST");
         const packs = await h.packs();
+        webRef.current = { web, packs };
         if (web !== null) {
           const s = web.createSession(packs);
           // パックを読めなかったときは先出しを使わず、本体の計算だけにする
@@ -477,6 +488,9 @@ export function App() {
       setTableKey(null);
       setEvidence(null);
       dual.current = new DualEngine({ session: session.current, host, onChange: () => setTick((t) => t + 1) });
+      // 万一のときの計算は世帯ごと（別の世帯を開いたら捨てて、万一のときのタブを開いたときに作る。同じ世帯の中ではタブを切り替えても持ち続ける）
+      cgEngine.current = null;
+      setCgUi({ mode: "assets" });
       // 速さの計測: 帯の案と現状の枠を、開いてから正の計算がそろうまで（5案の比較の目標 3秒）
       const t0 = performance.now();
       const all = requestsFor(o, w, settingsRef.current);
@@ -1078,6 +1092,19 @@ export function App() {
     );
   }, [panel, opened, slots, work.base, settings.atAge, letters, ...compareResults]);
 
+  /** 付いてくるグラフの ×: 表示の設定の「操作中はグラフを上に表示」を外す（見通しと万一のときで同じ設定） */
+  const dockOff = useCallback(() => {
+    history.track(() => {
+      const s = { ...settingsRef.current, dock: false };
+      settingsRef.current = s;
+      setSettings(s);
+    });
+    say("グラフを上に表示するのをやめました（見通しの「表示の設定」で戻せます）");
+  }, [history, say]);
+  const dockAnchor = useRef<HTMLDivElement>(null);
+  const dockControls = useRef<HTMLDivElement>(null);
+  const mainDock = useChartDock(dockAnchor, dockControls, settings.dock && tab === "main", MAIN_DOCK_EXTRA);
+
   const drawer = memoOpen || evidence !== null;
   const ageMark = opened === null ? null : ageMarkOf(settings, opened.wh.request);
   return (
@@ -1194,7 +1221,18 @@ export function App() {
             />
           </>
         ) : tab === "contingency" && opened !== null ? (
-          <ContingencyTab wh={opened.wh} host={host} targetAge={opened.demo?.targetAge ?? 95} onEdit={edit} {...(initial.scenario !== undefined ? { initialScenario: initial.scenario } : {})} />
+          <ContingencyTab
+            wh={opened.wh}
+            host={host}
+            engine={host === null ? null : (cgEngine.current ??= new ContingencyEngine({ host, web: webRef.current.web, packs: webRef.current.packs }))}
+            targetAge={opened.demo?.targetAge ?? 95}
+            onEdit={edit}
+            ui={cgUi}
+            onUi={setCgUi}
+            dock={settings.dock}
+            onDockOff={dockOff}
+            {...(initial.scenario !== undefined ? { initialScenario: initial.scenario } : {})}
+          />
         ) : tab === "report" && opened !== null && host !== null ? (
           <ReportTab
             host={host}
@@ -1212,6 +1250,19 @@ export function App() {
           fatal === null ? <p class="loading">計算しています…</p> : null
         ) : (
           <div class="main-stack">
+            <ChartDock docked={mainDock.docked} head={<ResultVerdictView model={model.result} />} onClose={dockOff}>
+              <DockedResult
+                model={model}
+                provisional={model.provisional}
+                mode={chartMode}
+                layout={settings.layout}
+                explain={explain !== null && explainStep !== null ? { model: explain, step: explainStep } : null}
+                ageMark={ageMark}
+                pinnedYear={pinnedYear}
+                onSelectYear={pinYear}
+                height={mainDock.height}
+              />
+            </ChartDock>
             {/* ① 案の帯 */}
             <PlanBand
               model={band}
@@ -1245,84 +1296,88 @@ export function App() {
               </section>
             ) : null}
             {/* ② グラフ */}
-            <ResultCard
-              model={model}
-              verdict={model.result}
-              provisional={model.provisional}
-              mode={chartMode}
-              onMode={setChartMode}
-              layout={settings.layout}
-              explain={explain !== null && explainStep !== null ? { model: explain, step: explainStep } : null}
-              onExplain={setExplainStep}
-              ageMark={ageMark}
-              pinnedYear={pinnedYear}
-              onSelectYear={pinYear}
-              tools={
-                <button type="button" class="set-btn" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)} data-settings-open>
-                  表示の設定{settings.metrics.length > 0 ? <span class="memo-n">{settings.metrics.length}</span> : null}
-                </button>
-              }
-              below={
-                <>
-                  {settingsOpen ? (
-                    <DisplaySettingsPanel
-                      value={settings}
-                      feeAvailable={hasAdvisoryFee(opened.wh.request)}
-                      onChange={(s) =>
-                        history.track(() => {
-                          settingsRef.current = s;
-                          setSettings(s);
-                          // FP顧問料の一文の枠（alt）を足す・外す
-                          putWork(workRef.current, openedRef.current, "set");
-                        })
-                      }
-                      onClose={() => setSettingsOpen(false)}
-                    />
-                  ) : null}
-                  {model.fee !== null ? <FeeNote model={model.fee} /> : null}
-                </>
-              }
-            />
+            <div class="dock-anchor" ref={dockAnchor}>
+              <ResultCard
+                model={model}
+                verdict={model.result}
+                provisional={model.provisional}
+                mode={chartMode}
+                onMode={setChartMode}
+                layout={settings.layout}
+                explain={explain !== null && explainStep !== null ? { model: explain, step: explainStep } : null}
+                onExplain={setExplainStep}
+                ageMark={ageMark}
+                pinnedYear={pinnedYear}
+                onSelectYear={pinYear}
+                tools={
+                  <button type="button" class="set-btn" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)} data-settings-open>
+                    表示の設定{settings.metrics.length > 0 ? <span class="memo-n">{settings.metrics.length}</span> : null}
+                  </button>
+                }
+                below={
+                  <>
+                    {settingsOpen ? (
+                      <DisplaySettingsPanel
+                        value={settings}
+                        feeAvailable={hasAdvisoryFee(opened.wh.request)}
+                        onChange={(s) =>
+                          history.track(() => {
+                            settingsRef.current = s;
+                            setSettings(s);
+                            // FP顧問料の一文の枠（alt）を足す・外す
+                            putWork(workRef.current, openedRef.current, "set");
+                          })
+                        }
+                        onClose={() => setSettingsOpen(false)}
+                      />
+                    ) : null}
+                    {model.fee !== null ? <FeeNote model={model.fee} /> : null}
+                  </>
+                }
+              />
+            </div>
             {/* ③ 対策 */}
-            <LeverCard
-              selected={names.selected}
-              baseLetter={letterOf(work.base)}
-              locked={locked}
-              modified={modified.has(work.sel)}
-              levers={leverRows}
-              fee={feeToggle}
-              onSlide={slide}
-              onRelease={release}
-              onReset={resetDraft}
-              onOverwrite={work.sel !== CURRENT ? overwrite : null}
-              onSaveNew={saveNew}
-              suggested={planInfo.suggested}
-              changes={planInfo.changes}
-              onAck={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(acknowledge(opened.wh, opened.catalog, work.sel, k)) : null}
-              onDrop={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(dropChange(opened.wh, opened.catalog, work.sel, k)) : null}
-              {...(initial.save === true ? { initialSave: true } : {})}
-              addRow={
-                <div class="add-row">
-                  {menuOpen ? (
-                    <ItemMenu
-                      catalog={opened.catalog}
-                      shown={shownSet}
-                      onPick={(k) => {
-                        setShown((s) => [...s, k]);
-                        setMenuOpen(false);
-                      }}
-                      onClose={() => setMenuOpen(false)}
-                    />
-                  ) : (
-                    <button type="button" class="add-item-btn" onClick={() => setMenuOpen(true)} data-add-item>
-                      ＋ 動かす項目を追加
-                    </button>
-                  )}
-                </div>
-              }
-            >
-              {addedRows}
-            </LeverCard>
+            <div class="dock-controls" ref={dockControls}>
+              <LeverCard
+                selected={names.selected}
+                baseLetter={letterOf(work.base)}
+                locked={locked}
+                modified={modified.has(work.sel)}
+                levers={leverRows}
+                fee={feeToggle}
+                onSlide={slide}
+                onRelease={release}
+                onReset={resetDraft}
+                onOverwrite={work.sel !== CURRENT ? overwrite : null}
+                onSaveNew={saveNew}
+                suggested={planInfo.suggested}
+                changes={planInfo.changes}
+                onAck={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(acknowledge(opened.wh, opened.catalog, work.sel, k)) : null}
+                onDrop={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(dropChange(opened.wh, opened.catalog, work.sel, k)) : null}
+                {...(initial.save === true ? { initialSave: true } : {})}
+                addRow={
+                  <div class="add-row">
+                    {menuOpen ? (
+                      <ItemMenu
+                        catalog={opened.catalog}
+                        shown={shownSet}
+                        onPick={(k) => {
+                          setShown((s) => [...s, k]);
+                          setMenuOpen(false);
+                        }}
+                        onClose={() => setMenuOpen(false)}
+                      />
+                    ) : (
+                      <button type="button" class="add-item-btn" onClick={() => setMenuOpen(true)} data-add-item>
+                        ＋ 動かす項目を追加
+                      </button>
+                    )}
+                  </div>
+                }
+              >
+                {addedRows}
+              </LeverCard>
+            </div>
             {/* ④ 生涯キャッシュフロー表 */}
             {table !== null ? (
               <CashflowTable

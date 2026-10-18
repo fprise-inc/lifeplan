@@ -8,7 +8,7 @@ import type { PreviewResult } from "../src/engine/types.ts";
 import { chartHeight, MainChart } from "../src/presentation/MainChart.tsx";
 import { CashflowTable, ResultCard } from "../src/presentation/MainView.tsx";
 import { PlanBand } from "../src/presentation/PlanBand.tsx";
-import { easeOutBack, lerpSeries, sameSeries } from "../src/presentation/tween.ts";
+import { easeOutCubic, lerpSeries, sameSeries } from "../src/presentation/tween.ts";
 import { lockReason, modifiedSet, slotOfLetter, valuesOf, type Work } from "../src/workspace/App.tsx";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -223,12 +223,34 @@ describe("○歳時点の表示の切り替え（既定では出さない）", (
 });
 
 describe("グラフの補間", () => {
-  it("少し行き過ぎて戻る動き: 始めは0、終わりは1、途中で1を少し超える", () => {
-    expect(easeOutBack(0)).toBeCloseTo(0, 10);
-    expect(easeOutBack(1)).toBe(1);
-    const mid = [0.5, 0.6, 0.7, 0.8, 0.9].map(easeOutBack);
-    expect(Math.max(...mid)).toBeGreaterThan(1);
-    expect(Math.max(...mid)).toBeLessThan(1.15);
+  it("行き過ぎのない動き: 始めは0、終わりは1、途中は0〜1の間で増えるだけ（戻らない）", () => {
+    expect(easeOutCubic(0)).toBe(0);
+    expect(easeOutCubic(1)).toBe(1);
+    let prev = 0;
+    for (let i = 1; i <= 1000; i++) {
+      const k = easeOutCubic(i / 1000);
+      expect(k).toBeGreaterThanOrEqual(prev);
+      expect(k).toBeLessThanOrEqual(1);
+      prev = k;
+    }
+    // 範囲の外の t でも 0〜1 に収める
+    expect(easeOutCubic(-0.2)).toBe(0);
+    expect(easeOutCubic(1.3)).toBe(1);
+  });
+
+  it("補間の途中の値は、前の値と目標の値の間から一度も出ない（上振れ・下振れしない）", () => {
+    const a = { up: [0, 100, -300, 5_000_000], down: [100, 0, 300, -2_000_000] };
+    const b = { up: [100, 300, 200, 9_000_000], down: [-50, -400, -100, -9_000_000] };
+    for (let i = 0; i <= 200; i++) {
+      const m = lerpSeries(a, b, easeOutCubic(i / 200));
+      for (const key of ["up", "down"] as const)
+        m[key]!.forEach((v, j) => {
+          const lo = Math.min(a[key][j]!, b[key][j]!);
+          const hi = Math.max(a[key][j]!, b[key][j]!);
+          expect(v).toBeGreaterThanOrEqual(lo);
+          expect(v).toBeLessThanOrEqual(hi);
+        });
+    }
   });
 
   it("始めと終わりの値が一致し、途中は間の値になる", () => {

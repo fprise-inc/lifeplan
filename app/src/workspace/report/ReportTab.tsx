@@ -155,7 +155,7 @@ export function ReportTab(p: Props) {
     return (
       <section class="card rp-empty">
         <h2>提案書</h2>
-        <p>提案書に載せる案がありません。主画面で案を作り、帯に並べてから開いてください。</p>
+        <p>提案書に載せる案がありません。見通しで案を作り、帯に並べてから開いてください。</p>
       </section>
     );
 
@@ -208,7 +208,7 @@ export function ReportTab(p: Props) {
               </label>
             ))}
           </div>
-          {drafted ? <p class="rp-note warn">保存していない変更を含む案があります。今の中身（主画面と同じ）で作ります。</p> : null}
+          {drafted ? <p class="rp-note warn">保存していない変更を含む案があります。今の中身（見通しと同じ）で作ります。</p> : null}
         </fieldset>
         <fieldset class="rp-set">
           <legend>章</legend>

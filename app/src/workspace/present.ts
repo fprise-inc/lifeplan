@@ -371,7 +371,7 @@ function ageRows(req: EngineRequest, years: readonly number[]): TableRowModel[] 
 /** 生涯キャッシュフロー表の提示用の値（1つの案）。evs を渡すとライフイベントの行も出す */
 export function cashflowTable(req: EngineRequest, table: readonly TableCell[], years: number[], title: string, evs?: EventChip[]): CashflowTableModel {
   const rows: TableRowModel[] = ageRows(req, years);
-  if (evs !== undefined) rows.push({ kind: "events", key: "events", label: "ライフイベント", icons: years.map((y) => evs.filter((e) => e.year === y).map((e) => e.icon)) });
+  if (evs !== undefined) rows.push({ kind: "events", key: "events", label: "ライフイベント", events: years.map((y) => evs.filter((e) => e.year === y)) });
   const groupLabel: Record<RowDef["group"], string> = { income: "収入", expense: "支出", net: "", assets: "貯蓄・資産" };
   let lastGroup: RowDef["group"] | null = null;
   for (const d of rowDefs(req)) {

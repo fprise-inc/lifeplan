@@ -127,7 +127,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
         find,
         path: ["monthly"],
         estimate: (h) => livingEstimate(h, wh.request.input.baseMonth),
-        help: "空欄なら統計の目安（世帯の人数ごと）で計算します。主画面の対策「毎月の生活費」でも動かせます",
+        help: "空欄なら統計の目安（世帯の人数ごと）で計算します。見通しの対策「毎月の生活費」でも動かせます",
       }),
     );
   main.push(

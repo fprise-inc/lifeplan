@@ -3,11 +3,11 @@ import { renderToString } from "preact-render-to-string";
 import { h } from "preact";
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, ProtectionOutput } from "../src/engine/types.ts";
-import { ContingencyChartCard, ScenarioBand } from "../src/presentation/ContingencyView.tsx";
+import { ContingencyChartCard, LOADING_DELAY_MS, ScenarioBand, YearStrip } from "../src/presentation/ContingencyView.tsx";
 import type { ContingencyModel } from "../src/presentation/model.ts";
 import { contingencyInputSections, oldAgeChoiceField } from "../src/workspace/contingency/inputs.ts";
 import { planFromRequest } from "../src/workspace/contingency/planData.ts";
-import { chosenCombinations, protectionChart, scenarioCards, scenarioModel, yearOptions } from "../src/workspace/contingency/present.ts";
+import { chosenCombinations, protectionChart, scenarioCards, scenarioModel, yearOptions, yearStripModel } from "../src/workspace/contingency/present.ts";
 import { PremisePanel } from "../src/workspace/contingency/PremisePanel.tsx";
 import { baseRequest, protectionRequest, scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
 import type { FieldDef, Val } from "../src/workspace/input/form.ts";
@@ -202,14 +202,14 @@ describe("提示用の値がエンジンの結果と一致する", () => {
     const scenario: ContingencyModel["scenario"] = { status: "ready", model: scenarioModel({ req, scenario: sc, year: 2030, result, none, targetAge: 95, choice: undefined }), error: null, stale: false };
     const model: ContingencyModel = {
       protection,
-      scenarios: scenarioCards({ req, scenarios: scenarios(memoWh), selected: sc.key, protection, scenario, grade: undefined }),
+      scenarios: scenarioCards({ req, scenarios: scenarios(memoWh), selected: sc.key, protection, grade: undefined }),
       selected: sc.key,
       year: 2030,
-      yearOptions: yearOptions(req, self.id),
+      strip: yearStripModel({ options: yearOptions(req, self.id).map((o) => ({ value: o.value, age: o.age })), results: [], who: "ご主人", noneDepletion: undefined, stale: false }),
       scenario,
     };
     const card = (mode: "assets" | "protection") => renderToString(h(ContingencyChartCard, { model, mode, onMode: () => undefined, pinnedYear: 2030, onPinYear: () => undefined, onPick: () => undefined }));
-    const html = renderToString(h(ScenarioBand, { model, onSelect: () => undefined, onYear: () => undefined })) + card("assets") + card("protection");
+    const html = renderToString(h(ScenarioBand, { model, onSelect: () => undefined })) + card("assets") + card("protection");
     expect(html).toContain("ご主人が亡くなったら");
     expect(html).toContain("保障の不足 最大");
     expect(html).toContain("2030年に亡くなった場合");
@@ -220,16 +220,28 @@ describe("提示用の値がエンジンの結果と一致する", () => {
     for (const m of req.input.household.members) expect(html).not.toContain(m.id);
   });
 
-  it("計算中は「計算しています」を出す", () => {
+  it("計算中: 短い計算（300ミリ秒未満）では「計算しています」を出さず、同じ高さの空きを置く。長くかかるときだけ出す", () => {
     const wh = open("salariedCoupleTwoKids");
     const scs = scenarios(wh);
     const protection: ContingencyModel["protection"] = { status: "loading", charts: [], error: null, ms: null };
     const scenario: ContingencyModel["scenario"] = { status: "loading", model: null, error: null, stale: false };
-    const model: ContingencyModel = { protection, scenarios: scenarioCards({ req, scenarios: scs, selected: scs[0]!.key, protection, scenario, grade: undefined }), selected: scs[0]!.key, year: 2030, yearOptions: [], scenario };
-    const band = renderToString(h(ScenarioBand, { model, onSelect: () => undefined, onYear: () => undefined }));
-    expect(band).toContain("計算しています");
+    const strip = yearStripModel({ options: [{ value: 2030, age: 40 }], results: [{ state: "pending" }], who: "ご主人", noneDepletion: undefined, stale: false });
+    const model: ContingencyModel = { protection, scenarios: scenarioCards({ req, scenarios: scs, selected: scs[0]!.key, protection, grade: undefined }), selected: scs[0]!.key, year: 2030, strip, scenario };
+    expect(LOADING_DELAY_MS).toBe(300);
+    // 描いた直後（待ちの時間の前）は出さない
+    expect(renderToString(h(ScenarioBand, { model, onSelect: () => undefined }))).not.toContain("計算しています");
+    expect(renderToString(h(YearStrip, { model: strip, selected: 2030, onSelect: () => undefined, play: null, onPlay: () => undefined, onPause: () => undefined, onStop: () => undefined }))).not.toContain("計算しています");
     for (const mode of ["assets", "protection"] as const) {
       const html = renderToString(h(ContingencyChartCard, { model, mode, onMode: () => undefined, pinnedYear: null, onPinYear: () => undefined, onPick: () => undefined }));
+      expect(html).not.toContain("計算しています");
+      expect(html).toContain("cg-wait");
+      expect(html).toContain('aria-busy="true"');
+    }
+    // 待ちの時間が過ぎたら出す（待ちの時間を0にして描く）
+    expect(renderToString(h(ScenarioBand, { model, onSelect: () => undefined, loadingAfter: 0 }))).toContain("計算しています");
+    expect(renderToString(h(YearStrip, { model: strip, selected: 2030, onSelect: () => undefined, play: null, onPlay: () => undefined, onPause: () => undefined, onStop: () => undefined, loadingAfter: 0 }))).toContain("計算しています（0/1年）");
+    for (const mode of ["assets", "protection"] as const) {
+      const html = renderToString(h(ContingencyChartCard, { model, mode, onMode: () => undefined, pinnedYear: null, onPinYear: () => undefined, onPick: () => undefined, loadingAfter: 0 }));
       expect(html).toContain("計算しています");
     }
   });

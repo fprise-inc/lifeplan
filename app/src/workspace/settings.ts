@@ -18,9 +18,11 @@ export interface DisplaySettings {
   atAge: number;
   /** グラフの比べ方: 重ねる（既定）／左右に並べる */
   layout: ChartLayout;
+  /** 操作中はグラフを上に表示（操作の欄までスクロールすると、縮めたグラフが画面の上に付いてくる。既定はオン。見通しと万一のときで同じ） */
+  dock: boolean;
 }
 
-export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay" };
+export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", dock: true };
 
 export const LAYOUT_CHOICES: readonly { key: ChartLayout; label: string; note: string }[] = [
   { key: "overlay", label: "重ねる", note: "1つのグラフに基準の案（点線）と選んだ案を重ねる（既定）" },
