@@ -39,6 +39,9 @@ import { cashflowTable, displayYears, eventsOf, toPresentation, withDiff } from 
 import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
 import { ageMarkOf, DEFAULT_DISPLAY_SETTINGS, METRIC_CHOICES, shows, verdictMetrics, type DisplaySettings, type MetricKey } from "./settings.ts";
+import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
+import { installUndo, undoController } from "./undo/controller.ts";
+import { UndoButtons } from "./undo/UndoButtons.tsx";
 
 type Tab = "input" | "main" | "contingency" | "report";
 const TABS: { id: Tab; label: string }[] = [
@@ -271,6 +274,14 @@ export function App() {
   const compareTimings = useRef<{ ms: number; hostMs: number; slots: number }[]>([]);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ---- 元に戻す・やり直す: 世帯データ・案・表示の設定を変える setter を history.track で包む（世帯ごとの履歴）----
+  const history = useHistoryBook<AppSnap<Work>>({
+    read: () => (openedRef.current === null ? null : { wh: openedRef.current.wh, work: workRef.current, settings: settingsRef.current }),
+    same: sameSnap,
+    describe: describeSnap,
+    apply: (s) => restore(s),
+  });
+
   /** グラフで年を固定する・外す（固定したら表の同じ年の列まで横に動かす） */
   const pinYear = useCallback((y: number | null) => {
     setSelectedYear(y);
@@ -281,6 +292,10 @@ export function App() {
     if (noticeTimer.current !== null) clearTimeout(noticeTimer.current);
     noticeTimer.current = setTimeout(() => setNotice(null), 3200);
   }, []);
+  useEffect(() => {
+    undoController.notify = say;
+    return installUndo(undoController);
+  }, [say]);
 
   // 文字を大きくする: 文字の大きさ・線の太さは html の class で切り替える（描いた直後に。次の描画を待たない）
   useLayoutEffect(() => {
@@ -342,7 +357,7 @@ export function App() {
   );
 
   /** 作業の状態を置き直して計算する。slide: 選んだ案の1枠だけ先出し、release: 先出しのあと正の計算、set: 全部の枠（帯が変わったとき） */
-  const putWork = useCallback(
+  const putWorkRaw = useCallback(
     (w: Work, o: Opened | null = openedRef.current, mode: "slide" | "release" | "set" = "set") => {
       workRef.current = w;
       setWork(w);
@@ -359,6 +374,10 @@ export function App() {
       if (mode === "release") void dual.current.release();
     },
     [requestsFor],
+  );
+  const putWork = useCallback(
+    (w: Work, o: Opened | null = openedRef.current, mode: "slide" | "release" | "set" = "set") => history.track(() => putWorkRaw(w, o, mode)),
+    [putWorkRaw, history],
   );
 
   const addOnce = useRef(false);
@@ -422,6 +441,7 @@ export function App() {
       const w: Work = { band, base: pickBase ?? CURRENT, sel: pickSel ?? band[0] ?? CURRENT, drafts: {} };
       openedRef.current = o;
       workRef.current = w;
+      history.reset(id);
       setOpened(o);
       setWork(w);
       setShown(shownKeys);
@@ -436,7 +456,7 @@ export function App() {
       compareTimings.current.push({ ms: performance.now() - t0, hostMs: canon?.hostMs ?? 0, slots: Object.keys(all).length });
       setTick((t) => t + 1);
     },
-    [host, requestsFor, initial],
+    [host, requestsFor, initial, history],
   );
 
   useEffect(() => {
@@ -461,38 +481,53 @@ export function App() {
 
   /** 現状（入力）を置き換える: 推定を入れ直し、動かす項目を作り直し、案を新しい現状に当て直して計算し直す */
   const replaceCurrent = useCallback(
-    (next: WorkingHousehold, nextWork?: Work) => {
-      const o = openedRef.current;
-      if (o === null || dual.current === null) return;
-      const n = openedFrom(o.demo, withRefreshedEstimates(next));
-      if (n === null) return;
-      reqCache.current.clear();
-      const w = fitWork(n, nextWork ?? workRef.current);
-      openedRef.current = n;
-      workRef.current = w;
-      setOpened(n);
-      setWork(w);
-      const all = requestsFor(n, w, settingsRef.current);
-      dual.current.retain(Object.keys(all));
-      dual.current.slide(w.sel, all);
-    },
-    [requestsFor],
+    (next: WorkingHousehold, nextWork?: Work) =>
+      history.track(() => {
+        const o = openedRef.current;
+        if (o === null || dual.current === null) return;
+        const n = openedFrom(o.demo, withRefreshedEstimates(next));
+        if (n === null) return;
+        reqCache.current.clear();
+        const w = fitWork(n, nextWork ?? workRef.current);
+        openedRef.current = n;
+        workRef.current = w;
+        setOpened(n);
+        setWork(w);
+        const all = requestsFor(n, w, settingsRef.current);
+        dual.current.retain(Object.keys(all));
+        dual.current.slide(w.sel, all);
+      }),
+    [requestsFor, history],
   );
+  /** 元に戻す・やり直す: 履歴の状態をそのまま入れる（推定は入れ直し済みの世帯なので、そのまま使う） */
+  const restore = (s: AppSnap<Work>) => {
+    const o = openedRef.current;
+    if (o === null) return;
+    const n = s.wh === o.wh ? o : s.wh.request === o.wh.request ? { ...o, wh: s.wh } : openedFrom(o.demo, s.wh);
+    if (n === null) return;
+    reqCache.current.clear();
+    openedRef.current = n;
+    settingsRef.current = s.settings;
+    setOpened(n);
+    setSettings(s.settings);
+    putWorkRaw(fitWork(n, s.work), n, "set");
+  };
   /** 入力の画面で世帯（現状）を変えた */
   const edit = useCallback((next: WorkingHousehold) => replaceCurrent(next), [replaceCurrent]);
 
   /** 案の一覧だけを変えた（名前・印・保存・外す）。現状は同じ */
   const setPlans = useCallback(
-    (next: WorkingHousehold, nextWork?: Work) => {
-      const o = openedRef.current;
-      if (o === null) return;
-      const n = { ...o, wh: next };
-      reqCache.current.clear();
-      openedRef.current = n;
-      setOpened(n);
-      putWork(fitWork(n, nextWork ?? workRef.current), n, "set");
-    },
-    [putWork],
+    (next: WorkingHousehold, nextWork?: Work) =>
+      history.track(() => {
+        const o = openedRef.current;
+        if (o === null) return;
+        const n = { ...o, wh: next };
+        reqCache.current.clear();
+        openedRef.current = n;
+        setOpened(n);
+        putWork(fitWork(n, nextWork ?? workRef.current), n, "set");
+      }),
+    [putWork, history],
   );
 
   const setValue = useCallback(
@@ -847,6 +882,7 @@ export function App() {
             </button>
           ))}
         </nav>
+        {opened !== null ? <UndoButtons /> : null}
         {opened !== null ? (
           <button
             type="button"
@@ -959,12 +995,14 @@ export function App() {
                     <DisplaySettingsPanel
                       value={settings}
                       feeAvailable={hasAdvisoryFee(opened.wh.request)}
-                      onChange={(s) => {
-                        settingsRef.current = s;
-                        setSettings(s);
-                        // FP顧問料の一文の枠（alt）を足す・外す
-                        putWork(workRef.current, openedRef.current, "set");
-                      }}
+                      onChange={(s) =>
+                        history.track(() => {
+                          settingsRef.current = s;
+                          setSettings(s);
+                          // FP顧問料の一文の枠（alt）を足す・外す
+                          putWork(workRef.current, openedRef.current, "set");
+                        })
+                      }
                       onClose={() => setSettingsOpen(false)}
                     />
                   ) : null}
