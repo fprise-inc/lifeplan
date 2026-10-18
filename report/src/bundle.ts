@@ -1,0 +1,79 @@
+// 帳票の入力を組み立てる材料（ProposalBundle）: 計算の要求と、その正の計算の結果の組。
+// 結果は本体の quickjs-ng で計算したもの（0005 の2。画面側の先出しの結果は渡さない）。形は表示の形（preview: 見出し・表・要約）でよい。
+import type { EngineRequest } from "../../engine/src/engine/types.ts";
+
+export type { EngineRequest };
+
+/** 表のマス（エンジンの出力 table の1件） */
+export interface TableCell {
+  row: string;
+  year: number;
+  amount: number;
+  member?: string;
+  object?: string;
+}
+
+export interface ProtectionYear {
+  year: number;
+  death: string;
+  horizon: number;
+  need: number;
+  needWithAssets: number;
+  coverage: number;
+}
+
+export interface ProtectionOutput {
+  method: string;
+  members: { member: string; survivor: string | null; years: ProtectionYear[] }[];
+}
+
+export interface AdvisoryFeeSummary {
+  total: number;
+  byYear: { year: number; amount: number; cumulative: number }[];
+  contracts: { object: string; member: string; total: number }[];
+}
+
+/** エンジンの結果のうち、帳票で使うところ（run・runBatch の結果。preview の形でも同じ欄がある） */
+export interface EngineOutput {
+  header: {
+    baseMonth: string;
+    endYear: number;
+    data?: { packId: string; version: string; fictional?: boolean }[];
+    notices?: { code: string; ids: string[] }[];
+  };
+  table: TableCell[];
+  summary: {
+    totals: { income: number; taxSi: number; expense: number; net: number };
+    advisoryFee?: AdvisoryFeeSummary;
+  };
+  protection?: ProtectionOutput;
+}
+
+export interface Run {
+  request: EngineRequest;
+  result: EngineOutput;
+}
+
+export interface ProposalBundle {
+  document: { title?: string; issuedOn: string; preparedBy?: string | null };
+  /** 現状 */
+  current: Run;
+  /** 提案（打ち手を当てたもの。FP顧問料を含む） */
+  proposal: Run;
+  /** 目標の年を決める本人の年齢（省略は表の最後の年） */
+  targetAge?: number;
+  /** FP顧問料を除いた提案（「顧問料を除くと」の比較。0008 の FP顧問料） */
+  proposalWithoutFee?: Run;
+  /** 打ち手を1件ずつ足していった順の計算（運用の前提の変更を除いた効果を出すため）。最後は提案と同じになるのが普通 */
+  steps?: { label: string; investment?: boolean; run: Run }[];
+  /** 運用の前提の変更だけを除いた提案（無ければ steps から読む） */
+  excludingInvestment?: Run;
+  /** 変更点の説明（打ち手の一覧。画面の打ち手のパネルが作る文） */
+  changes?: { label: string; current: string; proposal: string }[];
+  /** 万一の想定（提案に万一を1件重ねた計算。万一なしは提案） */
+  contingencies?: { title: string; run: Run }[];
+  /** 必要保障額の推移（提案に input.protection を付けた計算） */
+  protection?: Run;
+  /** 年金の受け取り開始の比較（繰下げ。提案の世帯で、受け取り開始だけを変えた計算） */
+  deferral?: { memberKey: string; options: { startAge: number; run: Run }[] };
+}

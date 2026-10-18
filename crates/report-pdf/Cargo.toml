@@ -1,0 +1,18 @@
+[package]
+name = "report-pdf"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "提案書の帳票の入力（JSON）から、Typst を組み込んで PDF を作る（0009 の5〜9）"
+
+[dependencies]
+# 0009 の8: Typst はライブラリとして組み込む（外部のコマンドは呼ばない）。版はアプリの版ごとに固定する（上げるときは全帳票を試す）
+typst = "=0.15.1"
+typst-layout = "=0.15.1"
+typst-pdf = "=0.15.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+# 出力した PDF から文字を抜き出して、刻印と必須の記載を確かめる（0009 の6）。内部情報（XMP）の追記にも使う
+lopdf = { version = "0.45", default-features = false }

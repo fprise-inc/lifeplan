@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # 計算に関係する変更か（制度データ・文書・登録簿・アプリの画面・配布元の設定だけの変更なら、macOS・Windows・速さの測定を省く）
+  # 計算に関係する変更か（制度データ・文書・登録簿・アプリの画面・配布元の設定・提案書の帳票だけの変更なら、macOS・Windows・速さの測定を省く）
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -31,7 +31,7 @@ jobs:
           if ! git cat-file -e "$base" 2>/dev/null; then echo "heavy=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           changed=$(git diff --name-only "$base" HEAD)
           echo "$changed"
-          if echo "$changed" | grep -Ev '^(data/|docs/|registry/|app/|config/)|\.md$' | grep -q .; then echo "heavy=true" >> "$GITHUB_OUTPUT"; else echo "heavy=false" >> "$GITHUB_OUTPUT"; fi
+          if echo "$changed" | grep -Ev '^(data/|docs/|registry/|app/|config/|report/|crates/report-pdf/)|\.md$' | grep -q .; then echo "heavy=true" >> "$GITHUB_OUTPUT"; else echo "heavy=false" >> "$GITHUB_OUTPUT"; fi
 
   # 型の検査・lint・単体テスト・まとめた JS と制度データの JSON の作成・npm の依存のライセンスの検査
   engine:
@@ -120,6 +120,59 @@ jobs:
       - name: Rust のテスト（正の計算・根拠の記録・画面の移動の制限）
         working-directory: app/src-tauri
         run: cargo test --locked
+
+  # 提案書の PDF（0009）: 帳票の入力を組み立てる部品（report/）と、Typst を組み込んだ report-pdf のテスト。
+  # 見本の PDF（架空のモデル世帯）を作って成果物に残す。Linux だけで流す（Typst は大きいのでホストの3つの OS には入れない）
+  report:
+    needs: engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: engine-dist
+          path: engine/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: report/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: report-pdf
+      - name: clippy（report-pdf）
+        run: cargo clippy --locked -p report-pdf --all-targets -- -D warnings
+      - name: Rust のテスト（刻印・必須の記載・内部情報・同梱フォントだけ・同じ入力から同じ PDF）
+        run: cargo test --locked -p report-pdf
+      - name: ビルド（report-pdf のコマンド）
+        run: cargo build --locked -p report-pdf
+      - run: npm ci
+        working-directory: report
+      - name: 型の検査
+        working-directory: report
+        run: npm run typecheck
+      - name: lint
+        working-directory: report
+        run: npm run lint
+      - name: ライセンスの検査（npm）
+        working-directory: report
+        run: npm run check:licenses
+      - name: テスト（帳票の入力の形・エンジンの出力との一致・PDF の文字の数字との一致）
+        working-directory: report
+        env:
+          REPORT_PDF_REQUIRED: "1"
+        run: npm test
+      - name: 見本の PDF
+        working-directory: report
+        run: npm run samples
+      - uses: actions/upload-artifact@v4
+        with:
+          name: proposal-samples
+          path: report/dist/samples
+          if-no-files-found: error
 
   # Rust のホスト（quickjs-ng）のテストと、Node との一致テスト。Windows・macOS・Linux それぞれでビルドする（0005 の6）
   host:
