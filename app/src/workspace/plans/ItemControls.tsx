@@ -4,10 +4,63 @@
 import { useMemo, useState } from "preact/hooks";
 import { Field } from "../input/FieldViews.tsx";
 import type { WorkingHousehold } from "../input/household.ts";
-import { shiftDecimal } from "../input/units.ts";
+import { normalizeNumberText, shiftDecimal } from "../input/units.ts";
 import { BUCKETS, bucketShares, mixFromBuckets, type MixPart } from "./allocation.ts";
 import { pctText } from "./decimal.ts";
-import type { Catalog, ItemValue, MovableItem, RateShift } from "./items.ts";
+import { AMOUNT_STEP, type Catalog, type ItemValue, type MovableItem, type RateShift } from "./items.ts";
+
+// ---- 金額の数値の欄（スライダーの横。万円で直接入れる。1万円単位に丸める）----
+
+/** 万円の文字（全角・カンマも可）→ 円（1万円単位に丸める）。読めない・マイナスは null */
+export function parseManInput(text: string): number | null {
+  const t = normalizeNumberText(text);
+  if (!/^\d+(\.\d+)?$/.test(t)) return null;
+  return Math.round(Number(t)) * AMOUNT_STEP;
+}
+
+/** 円 → 欄に出す万円の文字（1万円の倍数でないときは小数1桁まで） */
+export function manInputText(yen: number): string {
+  const m = yen / AMOUNT_STEP;
+  return Number.isInteger(m) ? String(m) : String(Math.round(m * 10) / 10);
+}
+
+/** スライダーの横の数値の欄。打って Enter か欄を離れたら確定（正の計算）。per は「月」「年」 */
+export function AmountInput({ value, onCommit, label, per, id }: { value: number; onCommit: (yen: number) => void; label: string; per: "月" | "年" | ""; id?: string }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = manInputText(value);
+  const bad = draft !== null && parseManInput(draft) === null;
+  const commit = (t: string) => {
+    const v = parseManInput(t);
+    setDraft(null);
+    if (v !== null && v !== value) onCommit(v);
+  };
+  return (
+    <span class="amt-in">
+      {per !== "" ? <span class="amt-per">{per}</span> : null}
+      <input
+        type="text"
+        inputMode="numeric"
+        class={`num${bad ? " bad" : ""}`}
+        id={id}
+        value={draft ?? shown}
+        aria-label={`${label}（万円で入れる。1万円単位）`}
+        aria-invalid={bad ? true : undefined}
+        data-amount-input
+        onFocus={() => setDraft(shown)}
+        onInput={(e) => setDraft((e.currentTarget as HTMLInputElement).value)}
+        onBlur={(e) => commit((e.currentTarget as HTMLInputElement).value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+          else if (e.key === "Escape") {
+            setDraft(null);
+            (e.currentTarget as HTMLInputElement).blur();
+          }
+        }}
+      />
+      <span class="amt-u">万円</span>
+    </span>
+  );
+}
 
 /** 率の文字列 ⇔ 10万分の1の整数（スライダーの位置） */
 const RATE_UNIT = 5;
@@ -74,12 +127,15 @@ function RangeRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" 
   const c = item.control;
   const v = typeof value === "number" ? value : c.min;
   const b = typeof base === "number" ? base : c.min;
+  // 直接入れた値が範囲の外でも、スライダーの範囲を広げて合わせる（刻みは1万円のまま）
+  const min = Math.min(c.min, Math.floor(v / c.step) * c.step);
+  const max = Math.max(c.max, Math.ceil(v / c.step) * c.step);
   return (
     <>
       <input
         type="range"
-        min={c.min}
-        max={c.max}
+        min={min}
+        max={max}
         step={c.step}
         value={v}
         data-item={item.key}
@@ -91,11 +147,41 @@ function RangeRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" 
         onKeyUp={onRelease}
       />
       <div class="range-scale">
-        <span>{c.tick(c.min)}</span>
+        <span>{c.tick(min)}</span>
         <span class="base-mark">
           {baseLabel} {item.text(b)}
         </span>
-        <span>{c.tick(c.max)}</span>
+        <span>{c.tick(max)}</span>
+      </div>
+    </>
+  );
+}
+
+/** 金額の欄のスライダー（1万円の刻み）。数値の欄は入力の欄と同じ部品を下に置く */
+function FieldAmountSlider({ item, value, onSlide, onRelease, slider }: ItemRowProps & { slider: { min: number; max: number; step: number; per: "月" | "年" | "" } }) {
+  const v = typeof value === "number" ? value : 0;
+  const min = Math.min(slider.min, Math.floor(v / slider.step) * slider.step);
+  const max = Math.max(slider.max, Math.ceil(v / slider.step) * slider.step);
+  const tick = (n: number) => `${slider.per}${(n / AMOUNT_STEP).toLocaleString("en-US")}万`;
+  return (
+    <>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={slider.step}
+        value={v}
+        data-item={item.key}
+        aria-label={item.label}
+        aria-valuetext={item.text(v)}
+        onInput={(e) => onSlide(item.key, Number((e.currentTarget as HTMLInputElement).value))}
+        onChange={onRelease}
+        onPointerUp={onRelease}
+        onKeyUp={onRelease}
+      />
+      <div class="range-scale">
+        <span>{tick(min)}</span>
+        <span>{tick(max)}</span>
       </div>
     </>
   );
@@ -238,10 +324,15 @@ export function ItemRow(props: ItemRowProps) {
   else if (c.kind === "field") {
     // 入力の欄と同じ部品で、案の値を見せる（書いた値は案にだけ入る）
     const view = changed ? item.apply(wh, value) : wh;
-    control = <Field f={c.field} wh={view} onEdit={(w) => {
-          onSlide(item.key, c.field.get(w).value as ItemValue);
-          onRelease();
-        }} />;
+    control = (
+      <>
+        {c.slider !== undefined ? <FieldAmountSlider {...props} slider={c.slider} /> : null}
+        <Field f={c.field} wh={view} onEdit={(w) => {
+            onSlide(item.key, c.field.get(w).value as ItemValue);
+            onRelease();
+          }} />
+      </>
+    );
   } else control = null;
   const note = item.note?.(value) ?? null;
   return (
@@ -252,7 +343,22 @@ export function ItemRow(props: ItemRowProps) {
           外す
         </button>
       </div>
-      {c.kind !== "field" ? <div class="lever-val added-val">{item.text(value)}</div> : null}
+      {c.kind === "range" ? (
+        <div class="lever-val added-val amt-row">
+          <span>{item.text(value)}</span>
+          <AmountInput
+            value={typeof value === "number" ? value : c.min}
+            per={c.per ?? ""}
+            label={item.label}
+            onCommit={(n) => {
+              onSlide(item.key, n);
+              onRelease();
+            }}
+          />
+        </div>
+      ) : c.kind !== "field" ? (
+        <div class="lever-val added-val">{item.text(value)}</div>
+      ) : null}
       {control}
       <div class="lever-note">
         {note !== null ? <span>{note}</span> : <span />}

@@ -1,24 +1,46 @@
 // 対策（作業の層の部品。主画面のグラフの下）: 選んだ案にだけ効くスライダー。基準の案（と現状）を選んでいるときは動かせず、理由を出す。
-// 各項目に基準の案の値を点線の札で出す。「＋ 動かす項目を追加」「元に戻す」「上書き保存」「案として保存」（名前の欄はその場に開く。別の窓は出さない）。
+// 各項目に基準の案の値を札（薄いグレーの実線の枠）で出す。「＋ 動かす項目を追加」「元に戻す」「上書き保存」「案として保存」（名前の欄はその場に開く。別の窓は出さない）。
 // 動かしている間（input）は画面側の先出し、指を離したら（change・pointerup・keyup）正の計算（0005 の5）
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 import type { LeverKey } from "./levers.ts";
+import { AmountInput } from "./plans/ItemControls.tsx";
 import type { ChangeRow } from "./plans/plans.ts";
 
-export interface LeverRow {
-  key: LeverKey;
-  label: string;
+/** 年齢など: 目盛りのスライダー（位置＝目盛りの番号） */
+export interface StepsSlider {
+  kind: "steps";
   steps: number[];
   index: number;
   /** 基準の案の値の位置 */
   baseIndex: number;
-  valueText: string;
   stepText: (v: number) => string;
+}
+
+/** 金額: 1万円の刻みのスライダー（値＝円）と、横の数値の欄（万円） */
+export interface AmountSlider {
+  kind: "amount";
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  base: number;
+  /** 月額・年額の別（「月」「年」） */
+  per: "月" | "年" | "";
+  tick: (v: number) => string;
+}
+
+export interface LeverRow {
+  key: LeverKey;
+  label: string;
+  slider: StepsSlider | AmountSlider;
+  valueText: string;
   /** 基準の案の値 */
   baseText: string;
   note: string | null;
 }
+
+const changedOf = (l: LeverRow) => (l.slider.kind === "steps" ? l.slider.index !== l.slider.baseIndex : l.slider.value !== l.slider.base);
 
 /** FP顧問料の ON/OFF（選んだ案の側だけ。現状は変えない） */
 export interface FeeToggle {
@@ -40,7 +62,8 @@ export interface LeverCardProps {
   modified: boolean;
   levers: LeverRow[];
   fee: FeeToggle | null;
-  onSlide: (key: LeverKey, index: number) => void;
+  /** 動かした（値。目盛りのスライダーは目盛りの値、金額は円） */
+  onSlide: (key: LeverKey, value: number) => void;
   onRelease: () => void;
   onReset: () => void;
   /** 上書き保存（保存した案でないときは null） */
@@ -168,48 +191,92 @@ export function LeverCard(p: LeverCardProps) {
         </p>
       ) : null}
       <fieldset class="lv-grid" disabled={locked}>
-        {p.levers.map((l) => (
-          <div class={`lever${l.index !== l.baseIndex ? " changed" : ""}`} key={l.key}>
-            <div class="lever-head">
-              <label for={`lv-${l.key}`}>{l.label}</label>
-              <span class="lever-val">{l.valueText}</span>
+        {p.levers.map((l) => {
+          const sl = l.slider;
+          return (
+            <div class={`lever${changedOf(l) ? " changed" : ""}`} key={l.key} data-lever-kind={sl.kind}>
+              <div class="lever-head">
+                <label for={`lv-${l.key}`}>{l.label}</label>
+                {sl.kind === "amount" ? (
+                  <AmountInput
+                    value={sl.value}
+                    per={sl.per}
+                    label={l.label}
+                    onCommit={(v) => {
+                      p.onSlide(l.key, v);
+                      p.onRelease();
+                    }}
+                  />
+                ) : (
+                  <span class="lever-val">{l.valueText}</span>
+                )}
+              </div>
+              {sl.kind === "steps" ? (
+                <>
+                  <input
+                    id={`lv-${l.key}`}
+                    type="range"
+                    min={0}
+                    max={sl.steps.length - 1}
+                    step={1}
+                    value={sl.index}
+                    data-lever={l.key}
+                    aria-valuetext={l.valueText}
+                    onInput={(e) => {
+                      const v = sl.steps[Number((e.currentTarget as HTMLInputElement).value)];
+                      if (v !== undefined) p.onSlide(l.key, v);
+                    }}
+                    onChange={p.onRelease}
+                    onPointerUp={p.onRelease}
+                    onKeyUp={p.onRelease}
+                  />
+                  <div class="ticks">
+                    {sl.steps.map((v, i) => (
+                      <button
+                        type="button"
+                        key={v}
+                        tabIndex={-1}
+                        class={`tick${i === sl.index ? " is-on" : ""}${i === sl.baseIndex ? " is-base" : ""}`}
+                        onClick={() => {
+                          p.onSlide(l.key, v);
+                          p.onRelease();
+                        }}
+                      >
+                        {sl.stepText(v)}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <input
+                    id={`lv-${l.key}`}
+                    type="range"
+                    min={sl.min}
+                    max={sl.max}
+                    step={sl.step}
+                    value={sl.value}
+                    data-lever={l.key}
+                    aria-valuetext={l.valueText}
+                    onInput={(e) => p.onSlide(l.key, Number((e.currentTarget as HTMLInputElement).value))}
+                    onChange={p.onRelease}
+                    onPointerUp={p.onRelease}
+                    onKeyUp={p.onRelease}
+                  />
+                  <div class="range-scale">
+                    <span>{sl.tick(sl.min)}</span>
+                    <span class="amt-step">1万円ずつ</span>
+                    <span>{sl.tick(sl.max)}</span>
+                  </div>
+                </>
+              )}
+              <div class="lever-note">
+                {l.note !== null ? <span>{l.note}</span> : <span />}
+                <span class="base-tag">{baseTag(l.baseText)}</span>
+              </div>
             </div>
-            <input
-              id={`lv-${l.key}`}
-              type="range"
-              min={0}
-              max={l.steps.length - 1}
-              step={1}
-              value={l.index}
-              data-lever={l.key}
-              aria-valuetext={l.valueText}
-              onInput={(e) => p.onSlide(l.key, Number((e.currentTarget as HTMLInputElement).value))}
-              onChange={p.onRelease}
-              onPointerUp={p.onRelease}
-              onKeyUp={p.onRelease}
-            />
-            <div class="ticks">
-              {l.steps.map((v, i) => (
-                <button
-                  type="button"
-                  key={v}
-                  tabIndex={-1}
-                  class={`tick${i === l.index ? " is-on" : ""}${i === l.baseIndex ? " is-base" : ""}`}
-                  onClick={() => {
-                    p.onSlide(l.key, i);
-                    p.onRelease();
-                  }}
-                >
-                  {l.stepText(v)}
-                </button>
-              ))}
-            </div>
-            <div class="lever-note">
-              {l.note !== null ? <span>{l.note}</span> : <span />}
-              <span class="base-tag">{baseTag(l.baseText)}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {p.fee !== null ? (
           <div class={`lever toggle${p.fee.on !== p.fee.inBase ? " changed" : ""}`}>
             <div class="lever-head">

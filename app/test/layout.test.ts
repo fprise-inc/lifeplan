@@ -194,7 +194,7 @@ describe("○歳時点の表示の切り替え（既定では出さない）", (
     expect(verdictMetrics(DEFAULT_DISPLAY_SETTINGS, { name: "B案", m: mB }, { name: "A案", m: mA })).toEqual([]);
     expect(ageMarkOf(DEFAULT_DISPLAY_SETTINGS, wh.request)).toBeNull();
     const m = toPresentation({ base: wh.request, proposal: wh.request, current: rA, proposed: rB, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "B案", base: "A案", same: false } });
-    const svg = renderToString(h(MainChart, { model: m, mode: "assets", explain: null, ageMark: null, onSelectYear: () => undefined }));
+    const svg = renderToString(h(MainChart, { model: m, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: () => undefined }));
     expect(svg).not.toContain("m-age");
     expect(svg).not.toContain("dot-sel");
   });
@@ -216,7 +216,7 @@ describe("○歳時点の表示の切り替え（既定では出さない）", (
     expect(s2.metrics).toEqual(["assetsAtAge", "takeHome"]);
     expect(toggleMetric(s2, "assetsAtAge", false).metrics).toEqual(["takeHome"]);
     const m = toPresentation({ base: wh.request, proposal: wh.request, current: rA, proposed: rB, targetAge: 90, selectedYear: null, provisional: false, names: { selected: "B案", base: "A案", same: false } });
-    const svg = renderToString(h(MainChart, { model: m, mode: "assets", explain: null, ageMark: ageMarkOf(s, wh.request), onSelectYear: () => undefined }));
+    const svg = renderToString(h(MainChart, { model: m, mode: "assets", explain: null, ageMark: ageMarkOf(s, wh.request), pinnedYear: null, onSelectYear: () => undefined }));
     expect(svg).toContain("m-age");
     expect(svg).toContain("90歳");
   });
@@ -280,7 +280,7 @@ describe("配置の部品の組み立て", () => {
       "div",
       null,
       h(PlanBand, { model: band, onSelect: noop, onBase: noop, onAdd: noop }),
-      h(ResultCard, { model: m, verdict: m.result, provisional: false, mode: "assets", onMode: noop, explain: null, onExplain: noop, ageMark: null, onSelectYear: noop }),
+      h(ResultCard, { model: m, verdict: m.result, provisional: false, mode: "assets", onMode: noop, explain: null, onExplain: noop, ageMark: null, pinnedYear: null, onSelectYear: noop }),
       h(CashflowTable, { model: m.table, selectedYear: m.selectedYear, onSelectYear: noop, onEvidence: noop }),
     ),
   );
