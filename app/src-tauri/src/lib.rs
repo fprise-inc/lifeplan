@@ -6,9 +6,12 @@
 //! - 世帯は、いまは埋め込んだ架空のモデル世帯だけ（入力・保存・暗号化は次の回）。
 //! - 提案書の PDF（report.rs）とヒアリングシートの保存・取り込みは、平文の書き出しの出口（export.rs）を通す（0020 の5）。
 //!   画面にはファイル・ダイアログの権限を与えず、パスも受け取らない。
+//! - macOS のメニュー（menu.rs）: 標準の編集メニューを付け、元に戻す・やり直すは画面のアプリ全体の履歴へ渡す。
+//!   Windows・Linux はメニューバーを出さない（キー操作は画面が受ける）。
 
 mod engine;
 mod export;
+mod menu;
 mod report;
 
 use tauri::ipc::{InvokeBody, Request, Response};
@@ -189,7 +192,16 @@ async fn hearing_open(window: WebviewWindow) -> Result<Response, String> {
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(menu::build).on_menu_event(|app, event| {
+        if let Some(js) = menu::script_for(event.id().as_ref()) {
+            if let Some(w) = app.get_webview_window("main") {
+                w.eval(js).ok();
+            }
+        }
+    });
+    builder
         .manage(ReportState::default())
         .manage(ExportLog::default())
         .invoke_handler(tauri::generate_handler![
