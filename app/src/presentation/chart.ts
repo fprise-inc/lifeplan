@@ -1,4 +1,4 @@
-// 資産のグラフの座標の計算（描くのは AssetChart.tsx）。グラフのライブラリは使わず SVG で描く（0016 の追記）
+// グラフの座標の計算（描くのは MainChart.tsx・ContingencyView.tsx）。グラフのライブラリは使わず SVG で描く（0016 の追記）
 import type { Yen } from "./model.ts";
 
 export interface Frame {

@@ -222,6 +222,8 @@ export interface BreakdownRowModel {
 export interface ScenarioModel {
   /** 例: 「ご主人が2027年に亡くなった場合」 */
   title: string;
+  /** グラフの年齢の人の呼び方（例: 「ご主人」。chart.ages はこの人の年齢） */
+  who: string;
   headline: Headline;
   verdict: Verdict;
   /** proposal＝万一の場合、current＝万一なし */
@@ -232,9 +234,26 @@ export interface ScenarioModel {
   notices: string[];
 }
 
+/** 万一の画面の場面の帯のカード（主画面の案の帯と同じ見た目） */
+export interface ScenarioCardModel {
+  /** 画面の鍵（death:self など。物の ID を含まない） */
+  key: string;
+  /** 例: 「ご主人の死亡」 */
+  label: string;
+  /** カードの名前（例: 「ご主人が亡くなったら」） */
+  title: string;
+  /** 小さな状態の札（例: 「保障の不足 最大5,482万円」）。tone の wait は灰の札 */
+  status: string;
+  tone: "ok" | "ng" | "wait";
+  /** 表示中の場面の結果（例: 「2038年に不足」）。表示中でない・計算中は null */
+  result: { label: string; text: string; neg: boolean } | null;
+  /** その人が亡くなった場合の必要保障額の推移のグラフの鍵（ProtectionChartModel.key。無ければ null） */
+  protection: string | null;
+}
+
 export interface ContingencyModel {
   protection: { status: "loading" | "ready" | "error"; charts: ProtectionChartModel[]; error: string | null; ms: number | null };
-  scenarios: { key: string; label: string }[];
+  scenarios: ScenarioCardModel[];
   selected: string;
   year: number;
   yearOptions: { value: number; label: string }[];

@@ -140,9 +140,6 @@ html.big .chart .axis-label.sub { font-size: 13px; }
 .chart .hatch-line { stroke: none; }
 .chart .line-prop { fill: none; stroke: var(--prop); stroke-width: var(--lw-prop); stroke-linejoin: round; }
 .chart .line-base { fill: none; stroke: var(--base); stroke-width: var(--lw-base); stroke-dasharray: 9 6; stroke-linejoin: round; }
-/* 万一の想定の画面のグラフの選んだ年（主画面のグラフは線の上の○。下の「年の印」） */
-.chart .selband { fill: var(--sel-bg); stroke: var(--sel); stroke-width: 2.5; pointer-events: none; }
-html.big .chart .selband { stroke-width: 4; }
 .chart .hit { fill: transparent; cursor: pointer; }
 .chart .dep-line { stroke: var(--short); stroke-width: 2; stroke-dasharray: 4 3; }
 .chart .dep-tri { fill: var(--short); }
@@ -236,11 +233,6 @@ html.big .lever input[type="range"] { height: 36px; }
   .app.has-drawer > .top { grid-column: 1 / -1; }
   .app.has-drawer > .wrap { grid-column: 1; grid-row: 2; width: 100%; min-width: 0; }
   .app.has-drawer > .drawer { position: sticky; top: 0; bottom: auto; grid-column: 2; grid-row: 2; height: 100vh; width: auto; box-shadow: none; z-index: 1; }
-}
-/* 引き出しを開いている間は、本文の幅に合わせる（万一の画面の前提の欄は下に回す） */
-@media (min-width: 1100px) and (max-width: 1900px) {
-  .app.has-drawer .cg-layout { grid-template-columns: minmax(0, 1fr); }
-  .app.has-drawer .cg-side { position: static; max-height: none; }
 }
 /* 根拠の引き出しの「使った制度の値」: 狭い幅では1つの値を縦に積む */
 .drawer.evidence .ev-params thead { display: none; }
@@ -440,41 +432,36 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .switch.on .knob { background: var(--prop); }
 .switch:focus-visible { outline: 3px solid #f0b400; }
 
-/* 万一の想定の画面 */
-.cg-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
-.cg-main { display: grid; gap: 16px; min-width: 0; }
-.cg-side { display: grid; gap: 12px; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; }
-.cg-side .fields { grid-template-columns: 1fr; }
-.cg-side .in-group.compact { grid-template-columns: 1fr; }
+/* 万一の想定の画面（主画面と同じ上から下の流れ: ① 場面の帯 → ② 大きなグラフ → ③ 想定の前提。右の固定の欄は置かない） */
 .cg-loading { padding: 28px 8px; font-weight: 700; color: var(--ink-2); }
 .cg-loading::before { content: ""; display: inline-block; width: 14px; height: 14px; margin-right: 10px; border-radius: 50%; border: 3px solid var(--prop-bg); border-top-color: var(--prop); vertical-align: -2px; animation: cg-spin 0.9s linear infinite; }
 @keyframes cg-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .cg-loading::before { animation: none; } }
-.pcharts { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 12px 20px; }
-.pchart { margin: 6px 0 0; min-width: 0; }
-.pchart figcaption { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 1rem; }
-.pchart figcaption .aside { font-size: 0.82rem; color: var(--ink-2); }
+/* ① 場面の帯（案の帯と同じカード。左の欄は「起きる年」） */
+.cg-band .band-head select { max-width: 11em; }
+.cg-band .plan { min-width: 180px; grid-template-columns: minmax(0, 1fr); white-space: normal; }
+.cg-band .p-amt { justify-content: flex-start; gap: 0 8px; }
+.cg-band .p-v { font-size: 1rem; }
+.cg-band .p-st { white-space: normal; line-height: 1.4; padding-top: 1px; padding-bottom: 1px; }
+/* ② グラフ（結論の1文は強い部分だけ色を付ける） */
+.cg-verdict.down > b { color: var(--short-ink); }
+.cg-verdict.up > b, .cg-verdict.flat > b { color: var(--prop-ink); }
+.cg-verdict .v-sub b { font-size: 1em; color: var(--ink); }
+.cg-verdict .v-sub b.neg { color: var(--short-ink); }
 .chart .area-cover { fill: rgba(140, 150, 163, 0.28); stroke: var(--base); stroke-width: 1.5; stroke-dasharray: 5 3; }
-.chart .area-pshort { stroke: var(--short); stroke-width: 1; }
 .chart .line-prop2 { fill: none; stroke: var(--prop); stroke-width: 2.5; stroke-dasharray: 2 4; stroke-linecap: round; }
 html.big .chart .line-prop2 { stroke-width: 3.5; }
 .chart .reform-band { fill: rgba(122, 88, 0, 0.06); pointer-events: none; }
+.chart .hv-dot.sel2 { fill: #fff; stroke: var(--prop); stroke-width: 2.5; }
+.year-tip .yt-dot.sel2 { background: #fff; border: 2px solid var(--prop); }
 .lg.dot i { border-top: 4px dotted var(--prop); }
 .lg.cover i { height: 12px; border: 1.5px dashed var(--base); background: rgba(140, 150, 163, 0.28); }
-.pline { margin-top: 4px; padding: 6px 10px; border-radius: 8px; background: #f6f7f9; border: 2px solid var(--sel); display: flex; flex-wrap: wrap; gap: 2px 16px; font-size: 0.9rem; align-items: baseline; }
+.pline { margin-top: 4px; padding: 6px 10px; border-radius: 8px; background: #f6f7f9; border: 1.5px solid var(--base); display: flex; flex-wrap: wrap; gap: 2px 16px; font-size: 0.9rem; align-items: baseline; }
 .pline .y { font-weight: 700; }
 .pline .kv { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pline .kv.neg { color: var(--short-ink); font-weight: 700; }
 .cg-notice { margin: 8px 0 0; font-size: 0.86rem; color: #7a5800; border-left: 4px solid #c9a400; padding: 2px 8px; background: #fffbea; }
 .cg-choice { margin: 8px 0 0; font-weight: 700; font-size: 0.95rem; border: 1.5px solid var(--prop); border-radius: 8px; padding: 6px 10px; background: var(--prop-bg); color: var(--prop); }
-.cg-pick { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
-.seg { display: inline-flex; flex-wrap: wrap; border: 2px solid var(--ink-2); border-radius: 9px; overflow: hidden; }
-.seg button { background: #fff; border: 0; border-right: 1px solid var(--line); padding: 6px 12px; font-weight: 700; cursor: pointer; color: var(--ink-2); }
-.seg button:last-child { border-right: 0; }
-.seg button.on { background: var(--ink); color: #fff; }
-.cg-year { display: inline-flex; gap: 8px; align-items: center; font-weight: 700; font-size: 0.92rem; }
-.cg-year select { border: 1.5px solid var(--line); border-radius: 6px; padding: 5px 8px; background: #fff; }
-.cg-title { margin: 0 0 8px; font-size: 1.05rem; }
 .is-stale { opacity: 0.75; transition: opacity 0.2s; }
 .cg-break { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 0.92rem; }
 .cg-break caption { text-align: left; font-weight: 700; padding: 0 0 4px; }
@@ -483,12 +470,23 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-break thead th { background: #f6f7f9; font-size: 0.85rem; }
 .cg-break tr.g-net th, .cg-break tr.g-net td { font-weight: 700; border-top: 2px solid var(--ink); }
 .cg-break td.neg { color: var(--short-ink); }
-.cg-fp .fp-h { margin-bottom: 6px; }
-@media (max-width: 1250px) {
-  .cg-layout { grid-template-columns: minmax(0, 1fr); }
-  .cg-side { position: static; max-height: none; }
-}
-@media (max-width: 860px) { .pcharts { grid-template-columns: minmax(0, 1fr); } }
+/* ③ 想定の前提（対策の欄と同じ部品。広い画面で3列、狭いと2列・1列） */
+.cg-sec { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-2); }
+.cg-sec:first-of-type { border-top: 0; padding-top: 0; }
+.cg-sec-h { margin: 0; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cg-sec .in-note { margin: 2px 0 0; }
+.cg-premises .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cg-gh { grid-column: 1 / -1; font-weight: 700; font-size: 0.9rem; margin: 8px 0 -4px; display: flex; gap: 4px 10px; flex-wrap: wrap; align-items: baseline; }
+.cg-gh .in-note { margin: 0; font-weight: 400; }
+.cg-premises .lever-val.auto { font-size: 0.95rem; color: var(--ink-2); white-space: normal; text-align: right; }
+.cg-premises .lever.field .fld { margin-top: 6px; }
+.cg-premises .lever.field .fld-l { display: none; }
+.cg-premises .lever.field .fld-c select { max-width: 100%; font-weight: 700; }
+.cg-premises .cg-auto { margin-left: 8px; font-size: 0.8rem; }
+@media (max-width: 1100px) { .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .cg-premises .lv-grid { grid-template-columns: minmax(0, 1fr); } }
+html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 860px) { html.big .cg-premises .lv-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---- 案（動かす項目・費目の色） ---- */
 :root {
