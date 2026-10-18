@@ -67,3 +67,12 @@ export function placeTip(x: number, yTop: number, yBottom: number, w: number, h:
   top = Math.max(pad, Math.min(height - pad - h, top));
   return { left, top, side };
 }
+
+/** 丸の上に出す小さな表示（年のイベント）の置き場所: 丸の真上の中央。上に入らなければ下。グラフの枠からはみ出さない */
+export function placeAbove(x: number, yTop: number, yBottom: number, w: number, h: number, width: number, height: number, gap = 8): { left: number; top: number } {
+  const pad = 4;
+  const left = Math.max(pad, Math.min(width - pad - w, x - w / 2));
+  let top = yTop - gap - h;
+  if (top < pad) top = yBottom + gap;
+  return { left, top: Math.max(pad, Math.min(height - pad - h, top)) };
+}

@@ -697,6 +697,16 @@ html.big .band.many .plan-add { width: 140px; }
 .main-legend .lg.net i { border-top-color: var(--prop-ink); }
 .main-chart { position: relative; margin-top: 2px; }
 .main-chart svg { display: block; width: 100%; height: auto; }
+.main-chart .plot { position: relative; }
+/* 左右に並べる表示: 2つのグラフ（狭い窓では縦に積む。gap は MainChart.tsx の sideLayout が決める） */
+.side-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.side-grid.stacked { grid-template-columns: minmax(0, 1fr); }
+.side-pane { min-width: 0; }
+.side-h { display: flex; align-items: baseline; gap: 8px; padding: 2px 0 0 4px; font-size: 1rem; }
+.side-h b { font-size: 1.05rem; }
+.side-tag { font-size: 0.75rem; font-weight: 700; border-radius: 4px; padding: 0 6px; line-height: 1.6; }
+.side-pane.base .side-tag { color: var(--base-ink); background: var(--base-bg); border: 1px solid var(--line); }
+.side-pane.selected .side-tag { color: #fff; background: var(--prop); border: 1px solid var(--prop); }
 .chart .axis-label { font-size: 0.8rem; }
 .chart .axis-label.sub { font-size: 0.74rem; }
 .chart .unit { font-size: 0.78rem; }
@@ -733,10 +743,20 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .chart .val.sel { fill: var(--prop-ink); }
 .chart .val.base { fill: var(--base-ink); }
 .chart .val.neg { fill: var(--short-ink); }
-.chart .ev circle { fill: #fff; stroke: var(--ink); stroke-width: 1.8; }
-.chart .ev text { font-weight: 700; fill: var(--ink); font-size: 0.7rem; }
+/* 年のイベントの丸: 漢字は丸の真ん中（dominant-baseline: central で縦をそろえる）。カーソル・フォーカスで年と中身を出す */
+.chart .ev { cursor: default; outline: none; }
+.chart .ev circle { fill: #fff; stroke: var(--ink); stroke-width: 2; }
+.chart .ev text { font-weight: 700; fill: var(--ink); font-size: 0.9rem; dominant-baseline: central; pointer-events: none; }
 .chart .ev.short circle { fill: var(--short); stroke: var(--short); }
 .chart .ev.short text { fill: #fff; }
+.chart .ev.on circle { stroke: var(--prop); stroke-width: 3; }
+.chart .ev.short.on circle { stroke: var(--short-ink); }
+.chart .ev:focus-visible circle { stroke: var(--prop); stroke-width: 3.5; }
+.chart .ev-guide { stroke: var(--ink-2); stroke-dasharray: 3 3; }
+.year-tip.ev-tip .yt-h { gap: 6px; }
+.year-tip.ev-tip .ev-t { font-weight: 400; }
+.year-tip.ev-tip .ev-ic { display: inline-flex; align-items: center; justify-content: center; width: 1.5em; height: 1.5em; border-radius: 50%; border: 1.5px solid var(--ink); font-size: 0.78rem; line-height: 1; }
+.year-tip.ev-tip.short .ev-ic { background: var(--short); border-color: var(--short); color: #fff; }
 .chart .dep-txt { font-size: 0.82rem; }
 .chart .ex-new { animation: exin 0.5s ease-out; }
 @keyframes exin { 0% { opacity: 0; } 100% { opacity: 1; } }
@@ -761,6 +781,9 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .ds-l small { font-weight: 400; color: var(--ink-2); font-size: 0.78rem; }
 .ds-age { display: inline-flex; align-items: center; gap: 2px; }
 .ds-l select { border: 1.5px solid var(--field); border-radius: 6px; padding: 0 4px; margin-right: 2px; background: #fff; font-weight: 700; }
+.ds-layout { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px 14px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-2); }
+.ds-layout .ds-k { font-weight: 700; font-size: 0.9rem; align-self: center; min-width: 4em; }
+.ds-layout .ds-item { flex: 1 1 260px; }
 .chart-card .fee-note { margin: 6px 0 0; }
 
 /* ③ 対策 */
@@ -784,6 +807,11 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .lv-grid .lever input[type="range"] { margin: 6px 0 0; height: 26px; }
 .lv-grid .tick { font-size: 0.8rem; min-width: 26px; padding: 1px 3px; }
 .lv-grid .lever-note { font-size: 0.8rem; margin-top: 3px; align-items: center; }
+/* 年齢のスライダー（1歳ずつ）: 目盛りの数字は値の位置に置く。--thumb はつまみの幅（線の端からつまみの中心までの分を除く） */
+.age-ticks { position: relative; display: block; height: 1.7em; margin: 0; --thumb: 16px; }
+.age-ticks .tick { position: absolute; top: 0; transform: translateX(-50%); min-width: 0; }
+.lv-grid .age-ticks .tick { min-width: 0; padding: 1px 4px; }
+.age-ticks .age-base { position: absolute; top: -3px; width: 2px; height: 6px; margin-left: -1px; background: var(--base-ink); border-radius: 1px; }
 .lv-grid .lever.added .lever-head { align-items: center; }
 .tg { display: inline-flex; border: 2px solid var(--ink-2); border-radius: 8px; overflow: hidden; margin-top: 8px; }
 .tg button { border: 0; background: #fff; padding: 3px 16px; font-weight: 700; cursor: pointer; }

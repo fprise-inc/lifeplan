@@ -173,8 +173,16 @@ describe("金額のスライダーは1万円の刻み", () => {
     }
   });
 
-  it("年齢の項目（働く最後の年齢・年金の受け取り開始）は今の目盛りのまま", () => {
-    for (const k of ["retireAge", "pensionAge"]) expect(demo.cat.byKey.get(`lever:${k}`)!.control.kind).toBe("steps");
+  it("年齢の項目（働く最後の年齢・年金の受け取り開始）は1歳ずつ。範囲は今の目盛りの最小〜最大、目盛りの数字は今の段", () => {
+    const steps = leverSteps(demoHousehold("salariedCoupleTwoKids")!, readLevers(demo.wh.request, demo.selfId));
+    for (const k of ["retireAge", "pensionAge"] as const) {
+      const c = demo.cat.byKey.get(`lever:${k}`)!.control;
+      expect(c.kind).toBe("age");
+      if (c.kind !== "age") continue;
+      expect(c.min).toBe(Math.min(...steps[k]));
+      expect(c.max).toBe(Math.max(...steps[k]));
+      expect(c.ticks).toEqual(steps[k]);
+    }
   });
 
   it("どのモデル世帯でも、金額のスライダー（借入額・繰上返済・金額の欄）は1万円の刻み。割合・年はそのまま", () => {
@@ -229,16 +237,21 @@ describe("金額のスライダーは1万円の刻み", () => {
     expect(manInputText(253_000)).toBe("25.3");
   });
 
-  it("対策の欄: 金額はスライダー（step=10000）と横の数値の欄、年齢は目盛り", () => {
+  it("対策の欄: 金額はスライダー（step=10000）と横の数値の欄、年齢は1歳ずつのスライダーと値の位置の目盛り", () => {
     const rows: LeverRow[] = [
-      { key: "retireAge", label: "ご主人が働く最後の年齢", slider: { kind: "steps", steps: [60, 65, 70], index: 1, baseIndex: 0, stepText: String }, valueText: "65歳まで", baseText: "60歳まで", note: null },
+      { key: "retireAge", label: "ご主人が働く最後の年齢", slider: { kind: "age", min: 60, max: 70, value: 63, base: 60, ticks: [60, 65, 70], stepText: String }, valueText: "63歳まで", baseText: "60歳まで", note: null },
       { key: "nisaMonthly", label: "NISAの積立額（月）", slider: { kind: "amount", min: 0, max: 50_000, step: 10_000, value: 30_000, base: 10_000, per: "月", tick: (v) => `${v / 10000}万` }, valueText: "月3万円", baseText: "月1万円", note: null },
     ];
     const html = renderToString(h(LeverCard, { selected: "B案", baseLetter: "A", locked: null, modified: false, levers: rows, fee: null, onSlide: noop, onRelease: noop, onReset: noop, onOverwrite: null, onSaveNew: noop, suggested: "", changes: [], onAck: null, onDrop: null }));
     expect(html).toMatch(/<input id="lv-nisaMonthly" type="range" min="0" max="50000" step="10000" value="30000"/);
     expect(html).toContain("data-amount-input");
     expect(html).toContain('value="3"');
-    expect(html).toMatch(/<input id="lv-retireAge" type="range" min="0" max="2" step="1"/);
+    expect(html).toMatch(/<input id="lv-retireAge" type="range" min="60" max="70" step="1" value="63"/);
+    // 目盛りの数字は今の段だけ、値の位置（65 は線の真ん中）に置く。63 は目盛りに無いので光らない
+    expect(html.match(/class="tick( [^"]*)?"/g)).toHaveLength(3);
+    expect(html).toContain("(100% - var(--thumb, 16px)) * 0.5000");
+    expect(html).not.toContain("tick is-on");
+    expect(html).toContain('class="tick is-base"');
     expect(html).toContain("基準（A）: 月1万円");
   });
 

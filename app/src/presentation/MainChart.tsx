@@ -2,14 +2,17 @@
 // 切り替え: 資産の推移／収支の推移（選んだ案の積み上げ＋年間収支の線2本）／資産と負債の推移（選んだ案の積み上げ＋純資産の線2本）、
 // 説明モード（収入 → 年金 → 支出 → 教育 → 住宅 → 資産の推移を1段ずつ足す）。
 // 数字が変わると、線と面は前の形から新しい形へ補間して動く（tween.ts）。受け取るのは提示用の値だけ（0016 の2）。
-// 年の選び方（yearPick.ts）: カーソルを合わせた年に、線の上の○（選んだ案＝藍の塗り、基準の案＝灰の白抜き）と小さな表示を出す。クリックで固定
+// 年の選び方（yearPick.ts）: カーソルを合わせた年に、線の上の○（選んだ案＝藍の塗り、基準の案＝灰の白抜き）と小さな表示を出す。クリックで固定。
+// 比べ方（表示の設定）: 重ねる（既定。1つのグラフに2本）／左右に並べる（基準の案と選んだ案を2つのグラフにし、縦の目盛り・年の選択をそろえる）。
+// x 軸の上の丸は年のイベント。カーソルを合わせるかキーボードで選ぶと、年と中身の小さな表示を出す
+import type { RefObject } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { areaAbove, areaBelow, linePath, scale, type Frame, type Scale } from "./chart.ts";
+import { areaAbove, areaBelow, eventRows, linePath, scale, spreadX, type Frame, type Scale } from "./chart.ts";
 import { group, man } from "./format.ts";
-import type { AgeMark, BalanceChartModel, ChartModel, EventChip, ExplainModel, FlowChartModel, SeriesNames, StackSeries, Yen } from "./model.ts";
+import type { AgeMark, BalanceChartModel, BaseCharts, ChartModel, EventChip, ExplainModel, FlowChartModel, SeriesNames, StackSeries, Yen } from "./model.ts";
 import { Pattern, Swatch } from "./StackChart.tsx";
 import { useTween, type Series } from "./tween.ts";
-import { estimateWidth, indexAt, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
+import { estimateWidth, indexAt, placeAbove, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
 
 export type ChartMode = "assets" | "flows" | "balance";
 export const CHART_MODES: readonly { id: ChartMode; label: string }[] = [
@@ -18,12 +21,16 @@ export const CHART_MODES: readonly { id: ChartMode; label: string }[] = [
   { id: "balance", label: "資産と負債の推移" },
 ];
 
+/** 基準の案と選んだ案の比べ方: 重ねる（既定）／左右に並べる */
+export type ChartLayout = "overlay" | "side";
+
 /** グラフに渡す値（PresentationModel の一部） */
 export interface MainChartModel {
   chart: ChartModel;
   flows: FlowChartModel;
   balance: BalanceChartModel;
   baseLines: { net: Yen[]; netWorth: Yen[] };
+  baseCharts: BaseCharts;
   events: EventChip[];
   names: SeriesNames;
   who: string;
@@ -36,14 +43,29 @@ export function chartHeight(innerHeight: number, fontPx: number): number {
   return Math.round(Math.max(420, Math.min(700, h)));
 }
 
+/** 左右に並べる表示: この幅（文字の大きさに比例）より狭い窓では縦に積む */
+export const SIDE_STACK_BELOW = 880;
+
+/** 左右に並べる表示の、1つのグラフの大きさと並べ方（w・h は重ねる表示のときの大きさ） */
+export function sideLayout(w: number, h: number, fs: number): { stacked: boolean; gap: number; w: number; h: number } {
+  const gap = Math.round(20 * fs);
+  if (w < SIDE_STACK_BELOW * fs) return { stacked: true, gap, w, h: Math.max(340, Math.round(h * 0.72)) };
+  return { stacked: false, gap, w: Math.max(300, Math.floor((w - gap) / 2)), h: Math.round(h * 0.9) };
+}
+
 // ---- 補間する数字の束（系列の名前 → 年ごとの値）----
 
 function flatten(m: MainChartModel, ex: ExplainModel | null): Series {
-  const out: Record<string, readonly number[]> = { "a.sel": m.chart.proposal, "a.base": m.chart.current, "f.net": m.flows.net, "f.bnet": m.baseLines.net, "b.short": m.balance.shortfall, "b.nw": m.balance.netWorth, "b.bnw": m.baseLines.netWorth };
+  const out: Record<string, readonly number[]> = { "a.sel": m.chart.proposal, "a.base": m.chart.current, "f.net": m.flows.net, "f.bnet": m.baseLines.net, "b.short": m.balance.shortfall, "b.nw": m.balance.netWorth, "b.bnw": m.baseLines.netWorth, "bb.short": m.baseCharts.balance.shortfall };
   for (const s of m.flows.income) out[`fi.${s.key}`] = s.values;
   for (const s of m.flows.expense) out[`fe.${s.key}`] = s.values;
   for (const s of m.balance.assets) out[`ba.${s.key}`] = s.values;
   for (const s of m.balance.debts) out[`bd.${s.key}`] = s.values;
+  // 基準の案の積み上げ（左右に並べる表示で使う。重ねる表示でも同じ束で補間しておき、切り替えても形がつながる）
+  for (const s of m.baseCharts.flows.income) out[`bfi.${s.key}`] = s.values;
+  for (const s of m.baseCharts.flows.expense) out[`bfe.${s.key}`] = s.values;
+  for (const s of m.baseCharts.balance.assets) out[`bba.${s.key}`] = s.values;
+  for (const s of m.baseCharts.balance.debts) out[`bbd.${s.key}`] = s.values;
   if (ex !== null) for (const k of ["work", "pension", "living", "education", "housing", "financial"] as const) out[`x.${k}`] = ex[k];
   return out;
 }
@@ -51,10 +73,124 @@ function flatten(m: MainChartModel, ex: ExplainModel | null): Series {
 const pick = (t: Series, key: string, n: number): number[] => (t[key] as number[] | undefined) ?? new Array<number>(n).fill(0);
 const withValues = (list: StackSeries[], t: Series, prefix: string, n: number): StackSeries[] => list.map((s) => ({ ...s, values: pick(t, `${prefix}.${s.key}`, n) }));
 
+// ---- 左右に並べる表示: 1つの案だけのグラフの値 ----
+
+export type PlanSide = "base" | "selected";
+
+/** その案だけを描く値（選んだ案＝基準の案として渡し、線を1本にする） */
+export function planModel(m: MainChartModel, who: PlanSide): MainChartModel {
+  if (who === "selected")
+    return {
+      ...m,
+      chart: { ...m.chart, current: m.chart.proposal, depletions: m.chart.depletions.filter((d) => d.series === "proposal") },
+      baseLines: { net: m.flows.net, netWorth: m.balance.netWorth },
+      names: { ...m.names, base: m.names.selected, same: true },
+    };
+  return {
+    ...m,
+    chart: { ...m.chart, proposal: m.chart.current, depletions: m.chart.depletions.filter((d) => d.series === "current").map((d) => ({ ...d, series: "proposal" as const })) },
+    flows: m.baseCharts.flows,
+    balance: m.baseCharts.balance,
+    events: m.baseCharts.events,
+    names: { ...m.names, selected: m.names.base, same: true },
+  };
+}
+
+const BASE_PREFIX: readonly [string, string][] = [
+  ["bfi.", "fi."],
+  ["bfe.", "fe."],
+  ["bba.", "ba."],
+  ["bbd.", "bd."],
+];
+
+/** 補間した束を、その案だけのグラフの名前に読み替える（基準の案は基準の系列を選んだ案の名前で読む） */
+export function planSeries(t: Series, who: PlanSide): Series {
+  if (who === "selected") return t;
+  const out: Record<string, readonly number[]> = {};
+  for (const [k, v] of Object.entries(t)) {
+    const hit = BASE_PREFIX.find(([from]) => k.startsWith(from));
+    if (hit !== undefined) out[hit[1] + k.slice(hit[0].length)] = v;
+    else if (!BASE_PREFIX.some(([, to]) => k.startsWith(to))) out[k] = v;
+  }
+  for (const [to, from] of [
+    ["a.sel", "a.base"],
+    ["f.net", "f.bnet"],
+    ["b.nw", "b.bnw"],
+    ["b.short", "bb.short"],
+  ] as const)
+    if (t[from] !== undefined) out[to] = t[from];
+  return out;
+}
+
+// ---- 描く系列と縦の目盛り ----
+
+/** 積み上げの合計（sign = −1 は下に積む。extra は下に足す正の額） */
+function totals(list: StackSeries[], n: number, sign: 1 | -1, extra?: readonly number[]): number[] {
+  return Array.from({ length: n }, (_, i) => sign * (list.reduce((a, x) => a + Math.max(0, x.values[i] ?? 0), 0) + Math.max(0, extra?.[i] ?? 0)));
+}
+
+function flowParts(m: MainChartModel, t: Series, n: number) {
+  return { inc: withValues(m.flows.income, t, "fi", n), exp: withValues(m.flows.expense, t, "fe", n), net: pick(t, "f.net", n), bnet: pick(t, "f.bnet", n) };
+}
+
+function balanceParts(m: MainChartModel, t: Series, n: number) {
+  const nonZero = (list: StackSeries[]) => (x: StackSeries) => list.find((y) => y.key === x.key)?.values.some((v) => v > 0) === true;
+  return {
+    as: withValues(m.balance.assets, t, "ba", n).filter(nonZero(m.balance.assets)),
+    ds: withValues(m.balance.debts, t, "bd", n).filter(nonZero(m.balance.debts)),
+    short: pick(t, "b.short", n).map((v) => -v),
+    nw: pick(t, "b.nw", n),
+    bnw: pick(t, "b.bnw", n),
+  };
+}
+
+/** 縦の目盛りを決める系列（説明モードの外）。左右に並べる表示では、もう一方の案の分も足して目盛りをそろえる */
+export function scaleInputs(m: MainChartModel, t: Series, mode: ChartMode, n: number): number[][] {
+  const same = m.names.same;
+  if (mode === "flows") {
+    const p = flowParts(m, t, n);
+    return [totals(p.inc, n, 1), totals(p.exp, n, -1), p.net, same ? [] : p.bnet];
+  }
+  if (mode === "balance") {
+    const p = balanceParts(m, t, n);
+    return [totals(p.as, n, 1), totals(p.ds, n, -1, p.short), p.nw, same ? [] : p.bnw];
+  }
+  const aSel = pick(t, "a.sel", n);
+  return same ? [aSel] : [aSel, pick(t, "a.base", n)];
+}
+
 // ---- 描く部品 ----
 
-function frameOf(w: number, h: number, fs: number, wideRight: boolean): Frame {
-  return { width: w, height: h, left: 64 * fs, right: (wideRight ? 92 : 20) * fs, top: 26 * fs, bottom: 60 * fs };
+/** 年のイベントの丸の半径（文字の大きさ fs に比例） */
+export const EVENT_R = 12.5;
+
+/** 丸と丸の間（中心の間隔） */
+const eventGap = (fs: number) => (2 * EVENT_R + 3) * fs;
+
+/** rows: 年のイベントの丸の段の数（2段のときは下の余白を1段分広げる） */
+function frameOf(w: number, h: number, fs: number, wideRight: boolean, rows = 1): Frame {
+  return { width: w, height: h, left: 64 * fs, right: (wideRight ? 92 : 20) * fs, top: 26 * fs, bottom: (70 + (rows - 1) * (2 * EVENT_R + 3)) * fs };
+}
+
+/** 年のイベントの丸の置き場所（x と段）。x は年の位置から、重なる丸は横に並べ直す（狭いグラフでは2段にする） */
+function eventLayout(events: readonly EventChip[], years: readonly number[], f: Frame, fs: number): { x: number[]; row: number[]; rows: number } {
+  const n = years.length;
+  const band = n > 0 ? (f.width - f.left - f.right) / n : 0;
+  const xs = events.map((e) => f.left + band * (years.indexOf(e.year) + 0.5));
+  const gap = eventGap(fs);
+  const row = eventRows(xs, gap, gap * 0.5);
+  const x = new Array<number>(xs.length).fill(0);
+  for (const r of [0, 1]) {
+    const ids = xs.map((_, i) => i).filter((i) => row[i] === r);
+    const placed = spreadX(
+      ids.map((i) => xs[i] as number),
+      gap,
+      f.left,
+      f.width - EVENT_R * fs - 2,
+    );
+    ids.forEach((id, k) => (x[id] = placed[k] as number));
+  }
+  return { x, row, rows: row.some((r) => r === 1) ? 2 : 1 };
 }
 
 /** 積み上げの棒（上に積む系列と下に積む系列。下は正の額で渡す） */
@@ -97,6 +233,19 @@ function bars(up: StackSeries[], down: StackSeries[], s: Scale, n: number, hatch
 
 const tickText = (t: number) => (t < 0 ? "▲" : "") + group(t);
 
+/** 表示（HTML の小さな箱）の実際の大きさを測る（文字の大きさ・中身が変わったとき） */
+function useBoxSize(ref: RefObject<HTMLElement>): { w: number; h: number } | null {
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el === null) return;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    if (w > 0 && h > 0 && (size === null || Math.abs(size.w - w) > 0.5 || Math.abs(size.h - h) > 0.5)) setSize({ w, h });
+  });
+  return size;
+}
+
 export interface MainChartProps {
   model: MainChartModel;
   mode: ChartMode;
@@ -106,6 +255,8 @@ export interface MainChartProps {
   pinnedYear: number | null;
   /** 年を固定する・外す（null） */
   onSelectYear: (year: number | null) => void;
+  /** 比べ方（省略は重ねる）。説明モードと、選んだ案が基準の案のときは重ねる表示（1つのグラフ） */
+  layout?: ChartLayout;
 }
 
 /** 年の表示の中身（○の位置と文字） */
@@ -122,12 +273,9 @@ interface YearMark {
   extra: string | null;
 }
 
-export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectYear }: MainChartProps) {
+export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectYear, layout = "overlay" }: MainChartProps) {
   const box = useRef<HTMLDivElement>(null);
-  const svg = useRef<SVGSVGElement>(null);
-  const tip = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
-  const [tipSize, setTipSize] = useState<{ w: number; h: number } | null>(null);
   const [size, setSize] = useState<{ w: number; h: number; fs: number }>({ w: 1100, h: 520, fs: 1 });
   // 幅は枠に合わせ、高さは画面の高さに合わせる（文字を大きくしたときも測り直す）
   useLayoutEffect(() => {
@@ -153,15 +301,10 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
   const n = model.chart.years.length;
   const ex = explain?.model ?? null;
   const t = useTween(flatten(model, ex));
-  const same = model.names.same;
   const years = model.chart.years;
-  const ages = model.chart.ages;
-  const showMark = ageMark !== null && mode === "assets" && explain === null;
-  const f = frameOf(size.w, size.h, size.fs, showMark);
-  const fs = size.fs;
+  const side = layout === "side" && explain === null && !model.names.same;
   const pinned = pinnedYear !== null && years.includes(pinnedYear) ? pinnedYear : null;
   const shown = explain === null ? shownYear(pinned, hover !== null && years.includes(hover) ? hover : null) : null;
-  const selIdx = shown === null ? -1 : years.indexOf(shown);
 
   const onKey = (e: KeyboardEvent) => {
     if (explain !== null) return;
@@ -191,6 +334,104 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
     return () => document.removeEventListener("keydown", onDoc);
   }, [pinned, explain, onSelectYear]);
 
+  const modeLabel = explain !== null ? "説明モードのグラフ" : (CHART_MODES.find((m) => m.id === mode)?.label ?? "グラフ");
+  // 年の選択・固定・カーソルは、左右に並べたときも2つのグラフで同じ年にそろえる
+  const common = {
+    mode,
+    explain,
+    ageMark,
+    pinned,
+    shown,
+    onHover: (y: number | null) => setHover((h) => (h === y ? h : y)),
+    onPick: (y: number) => {
+      setHover(y);
+      onSelectYear(togglePin(pinned, y));
+    },
+  };
+
+  let body: preact.JSX.Element;
+  if (!side) body = <ChartPlot {...common} model={model} t={t} size={size} scaleWith={[]} label={modeLabel} live />;
+  else {
+    const lay = sideLayout(size.w, size.h, size.fs);
+    const panes = (["base", "selected"] as const).map((who) => {
+      const m = planModel(model, who);
+      const pt = planSeries(t, who);
+      return { who, m, t: pt, ext: scaleInputs(m, pt, mode, n) };
+    });
+    body = (
+      <div class={`side-grid${lay.stacked ? " stacked" : ""}`} style={{ gap: `${lay.gap}px` }} data-side-grid={lay.stacked ? "stacked" : "row"}>
+        {panes.map((p, i) => (
+          <div class={`side-pane ${p.who}`} key={p.who} data-side={p.who}>
+            <div class="side-h">
+              <b>{p.m.names.selected}</b>
+              <span class="side-tag">{p.who === "base" ? "基準" : "選んだ案"}</span>
+            </div>
+            <ChartPlot {...common} model={p.m} t={p.t} size={{ w: lay.w, h: lay.h, fs: size.fs }} scaleWith={(panes[1 - i] as (typeof panes)[number]).ext} label={`${modeLabel}（${p.m.names.selected}）`} live={p.who === "selected"} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      class={`chart main-chart${side ? " side" : ""}`}
+      ref={box}
+      tabIndex={0}
+      onKeyDown={onKey}
+      role="group"
+      aria-label={`グラフ${side ? `（${model.names.base}と${model.names.selected}を左右に並べています）` : ""}。カーソルを合わせるとその年の数字が出ます。クリックか左右の矢印キーで年を固定し、Esc で外します`}
+      data-main-chart={explain !== null ? "explain" : mode}
+      data-chart-layout={side ? "side" : "overlay"}
+      data-shown-year={shown ?? undefined}
+      data-pinned-year={pinned ?? undefined}
+    >
+      {body}
+    </div>
+  );
+}
+
+interface ChartPlotProps {
+  model: MainChartModel;
+  t: Series;
+  mode: ChartMode;
+  explain: { model: ExplainModel; step: number } | null;
+  ageMark: AgeMark | null;
+  pinned: number | null;
+  /** ○と表示を出す年（固定した年か、カーソルを合わせた年） */
+  shown: number | null;
+  size: { w: number; h: number; fs: number };
+  /** 縦の目盛りを決めるときに足す系列（左右に並べる表示で、もう一方の案の系列） */
+  scaleWith: number[][];
+  label: string;
+  /** 固定したときに読み上げる（左右に並べる表示では片方だけ） */
+  live: boolean;
+  onHover: (year: number | null) => void;
+  onPick: (year: number) => void;
+}
+
+/** 1つのグラフ（SVG と、年の表示・イベントの表示） */
+function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scaleWith, label, live, onHover, onPick }: ChartPlotProps) {
+  const svg = useRef<SVGSVGElement>(null);
+  const tip = useRef<HTMLDivElement>(null);
+  const evTipEl = useRef<HTMLDivElement>(null);
+  const [evOn, setEvOn] = useState<number | null>(null);
+  const tipSize = useBoxSize(tip);
+  const evTipSize = useBoxSize(evTipEl);
+
+  const n = model.chart.years.length;
+  const ex = explain?.model ?? null;
+  const same = model.names.same;
+  const years = model.chart.years;
+  const ages = model.chart.ages;
+  const showMark = ageMark !== null && mode === "assets" && explain === null;
+  const fs = size.fs;
+  const evList = model.events.filter((e) => years.includes(e.year));
+  // 丸の横の位置は下の余白に関わらないので、先に段の数を決めてから枠を決める
+  const evLay = eventLayout(evList, years, frameOf(size.w, size.h, fs, showMark), fs);
+  const f = frameOf(size.w, size.h, fs, showMark, evLay.rows);
+  const selIdx = shown === null ? -1 : years.indexOf(shown);
+
   /** カーソル・指の位置から年を読む（SVG の座標に直す） */
   const yearAt = (e: MouseEvent): number | null => {
     const el = svg.current;
@@ -202,8 +443,6 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
   };
 
   // ---- 系列（補間した値）----
-  const aSel = pick(t, "a.sel", n);
-  const aBase = pick(t, "a.base", n);
   let s: Scale;
   let body: preact.JSX.Element[] = [];
   let zeroLabels: [string, string] | null = null;
@@ -230,9 +469,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
     if (on("education")) down.push({ key: "education", label: "教育費", values: education });
     if (on("housing")) down.push({ key: "housing", label: "住居費", values: housing });
     const showAssets = on("assets");
-    const upTot = years.map((_, i) => up.reduce((a, x) => a + Math.max(0, x.values[i] ?? 0), 0));
-    const downTot = years.map((_, i) => -down.reduce((a, x) => a + Math.max(0, x.values[i] ?? 0), 0));
-    s = scale([upTot, downTot, showAssets ? fin : []], n, f);
+    s = scale([totals(up, n, 1), totals(down, n, -1), showAssets ? fin : []], n, f);
     keys.push(...up.map((x) => x.key), ...down.map((x) => x.key));
     const stepKey: Record<string, string> = { work: "income", pension: "pension", living: "expense", education: "education", housing: "housing" };
     body = bars(up, down, s, n, undefined, (k) => (now(stepKey[k] ?? "") ? { cls: "ex-new", op: 1 } : { cls: "", op: 0.55 }));
@@ -240,18 +477,13 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
       body.push(
         <g key="fin" class={now("assets") ? "ex-new" : ""}>
           <path d={areaBelow(fin, s)} class="area-short" />
-          <path d={linePath(fin, s)} class="line-sel" />
+          <path d={linePath(fin, s)} class="line-prop" />
         </g>,
       );
     zeroLabels = ["↑ 入るお金", "↓ 出るお金"];
   } else if (mode === "flows") {
-    const inc = withValues(model.flows.income, t, "fi", n);
-    const exp = withValues(model.flows.expense, t, "fe", n);
-    const net = pick(t, "f.net", n);
-    const bnet = pick(t, "f.bnet", n);
-    const upTot = years.map((_, i) => inc.reduce((a, x) => a + Math.max(0, x.values[i] ?? 0), 0));
-    const downTot = years.map((_, i) => -exp.reduce((a, x) => a + Math.max(0, x.values[i] ?? 0), 0));
-    s = scale([upTot, downTot, net, same ? [] : bnet], n, f);
+    const { inc, exp, net, bnet } = flowParts(model, t, n);
+    s = scale([...scaleInputs(model, t, mode, n), ...scaleWith], n, f);
     keys.push(...inc.map((x) => x.key), ...exp.map((x) => x.key));
     body = bars(inc, exp, s, n);
     // 赤字の年: 下の帯（赤のベタ塗り）。続く年のまとまりの初めに「▲」
@@ -279,14 +511,8 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
         extra: `収入 ${man(sumAt(model.flows.income))}万円・支出 ${man(sumAt(model.flows.expense))}万円（${model.names.selected}）`,
       };
   } else if (mode === "balance") {
-    const as = withValues(model.balance.assets, t, "ba", n).filter((x) => model.balance.assets.find((y) => y.key === x.key)?.values.some((v) => v > 0));
-    const ds = withValues(model.balance.debts, t, "bd", n).filter((x) => model.balance.debts.find((y) => y.key === x.key)?.values.some((v) => v > 0));
-    const short = pick(t, "b.short", n).map((v) => -v);
-    const nw = pick(t, "b.nw", n);
-    const bnw = pick(t, "b.bnw", n);
-    const upTot = years.map((_, i) => as.reduce((a, x) => a + Math.max(0, x.values[i] ?? 0), 0));
-    const downTot = years.map((_, i) => -(ds.reduce((a, x) => a + Math.max(0, x.values[i] ?? 0), 0) + Math.max(0, short[i] ?? 0)));
-    s = scale([upTot, downTot, nw, same ? [] : bnw], n, f);
+    const { as, ds, short, nw, bnw } = balanceParts(model, t, n);
+    s = scale([...scaleInputs(model, t, mode, n), ...scaleWith], n, f);
     keys.push(...as.map((x) => x.key), ...ds.map((x) => x.key));
     body = bars(as, ds, s, n, short);
     if (!same) body.push(<path key="bnw" d={linePath(bnw, s)} class="net-base" />);
@@ -302,7 +528,9 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
         extra: `資産 ${man(sumAt(model.balance.assets))}万円・負債 ${man(sumAt(model.balance.debts) + Math.max(0, -(model.balance.shortfall[selIdx] ?? 0)))}万円（${model.names.selected}）`,
       };
   } else {
-    s = scale(same ? [aSel] : [aSel, aBase], n, f);
+    const aSel = pick(t, "a.sel", n);
+    const aBase = pick(t, "a.base", n);
+    s = scale([...scaleInputs(model, t, mode, n), ...scaleWith], n, f);
     if (!same) body.push(<path key="bb" d={areaBelow(aBase, s)} class="area-short" opacity={0.75} />);
     body.push(<path key="sb" d={areaBelow(aSel, s)} class="area-short" />);
     body.push(<path key="sa" d={areaAbove(aSel, s)} class="area-prop" />);
@@ -382,27 +610,32 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
       };
   }
 
-  // ---- 年のイベント（x 軸の上の小さな丸）----
-  const evCount = new Map<number, number>();
-  for (const e of model.events) evCount.set(e.year, (evCount.get(e.year) ?? 0) + 1);
-  const evSeen = new Map<number, number>();
-  const evs = model.events.map((e, j) => {
-    const i = years.indexOf(e.year);
-    if (i < 0) return null;
-    const k = evSeen.get(e.year) ?? 0;
-    evSeen.set(e.year, k + 1);
-    const cx = s.x(i) + (k - ((evCount.get(e.year) ?? 1) - 1) / 2) * 17 * fs;
-    const cy = f.height - f.bottom + 13 * fs;
-    return (
-      <g key={j} class={`ev${e.short ? " short" : ""}`} transform={`translate(${cx.toFixed(1)},${cy.toFixed(1)})`}>
-        <circle r={8.5 * fs} />
-        <text text-anchor="middle" y={3.8 * fs}>
-          {e.icon}
-        </text>
-        <title>{`${e.year}年 ${e.text}`}</title>
-      </g>
-    );
-  });
+  // ---- 年のイベント（x 軸のすぐ下の丸）: 重なる丸は横に並べ直す。カーソル・フォーカスで年と中身を出す ----
+  const evR = EVENT_R * fs;
+  const evX = evLay.x;
+  const evYs = evLay.row.map((r) => f.height - f.bottom + 4 * fs + evR + r * eventGap(fs));
+  const evNow = evOn !== null ? evList[evOn] : undefined;
+  const evs = evList.map((e, j) => (
+    <g
+      key={`${e.year}-${e.icon}-${j}`}
+      class={`ev${e.short ? " short" : ""}${evOn === j ? " on" : ""}`}
+      transform={`translate(${(evX[j] as number).toFixed(1)},${(evYs[j] as number).toFixed(1)})`}
+      tabIndex={0}
+      role="img"
+      aria-label={`${e.year}年 ${e.text}`}
+      data-ev={e.year}
+      onPointerEnter={() => setEvOn(j)}
+      onPointerLeave={() => setEvOn((c) => (c === j ? null : c))}
+      onFocus={() => setEvOn(j)}
+      onBlur={() => setEvOn((c) => (c === j ? null : c))}
+      onClick={() => setEvOn(j)}
+    >
+      <circle r={evR} />
+      <text text-anchor="middle" dominant-baseline="central">
+        {e.icon}
+      </text>
+    </g>
+  ));
 
   // ---- 年の印（線の上の○・細い縦の補助線）と小さな表示 ----
   const age = selIdx >= 0 ? ages[selIdx] : undefined;
@@ -413,28 +646,15 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
   const th = tipSize?.h ?? (tipLines.length * 19 + 12) * fs;
   const mx = selIdx >= 0 ? s.x(selIdx) : 0;
   const place = mark !== null ? placeTip(mx, Math.min(mark.sel, mark.base ?? mark.sel), Math.max(mark.sel, mark.base ?? mark.sel), tw, th, f.width, f.height) : null;
-  // 表示の実際の大きさを測り直す（文字の大きさ・中身が変わったとき）
-  useLayoutEffect(() => {
-    const el = tip.current;
-    if (el === null) return;
-    const w = el.offsetWidth;
-    const h = el.offsetHeight;
-    if (w > 0 && h > 0 && (tipSize === null || Math.abs(tipSize.w - w) > 0.5 || Math.abs(tipSize.h - h) > 0.5)) setTipSize({ w, h });
-  });
+  // イベントの表示（丸の真上）
+  const evText = evNow !== undefined ? `${evNow.year}年 ${evNow.text}` : "";
+  const evPlace =
+    evNow !== undefined && evOn !== null ? placeAbove(evX[evOn] as number, (evYs[evOn] as number) - evR, (evYs[evOn] as number) + evR, evTipSize?.w ?? estimateWidth([evText], 13 * fs), evTipSize?.h ?? 30 * fs, f.width, f.height) : null;
+  const pct = (v: number, of: number) => `${((v / of) * 100).toFixed(3)}%`;
 
   return (
-    <div
-      class="chart main-chart"
-      ref={box}
-      tabIndex={0}
-      onKeyDown={onKey}
-      role="group"
-      aria-label="グラフ。カーソルを合わせるとその年の数字が出ます。クリックか左右の矢印キーで年を固定し、Esc で外します"
-      data-main-chart={explain !== null ? "explain" : mode}
-      data-shown-year={shown ?? undefined}
-      data-pinned-year={pinned ?? undefined}
-    >
-      <svg ref={svg} viewBox={`0 0 ${f.width} ${f.height}`} width={f.width} height={f.height} role="img" aria-label={explain !== null ? "説明モードのグラフ" : (CHART_MODES.find((m) => m.id === mode)?.label ?? "グラフ")}>
+    <div class="plot">
+      <svg ref={svg} viewBox={`0 0 ${f.width} ${f.height}`} width={f.width} height={f.height} role="img" aria-label={label}>
         <defs>
           {keys.map((k) => (
             <Pattern key={k} k={k} />
@@ -457,6 +677,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
         ))}
         {body}
         {mark !== null ? <line x1={mx} x2={mx} y1={f.top - 4} y2={f.height - f.bottom} class={`hv-guide${pinned !== null ? " pinned" : ""}`} /> : null}
+        {evNow !== undefined ? <line x1={s.x(years.indexOf(evNow.year))} x2={s.x(years.indexOf(evNow.year))} y1={f.top - 4} y2={f.height - f.bottom} class="hv-guide ev-guide" /> : null}
         {zeroLabels !== null ? (
           <>
             <text x={f.left + 6} y={s.y(0) - 6} class="unit">
@@ -467,15 +688,14 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
             </text>
           </>
         ) : null}
-        {evs}
         {years.map((y, i) =>
           y % 5 === 0 ? (
             <g key={y}>
-              <text x={s.x(i)} y={f.height - f.bottom + 36 * fs} class="axis-label" text-anchor="middle">
+              <text x={s.x(i)} y={f.height - 24 * fs} class="axis-label" text-anchor="middle">
                 {y}
               </text>
               {ages[i] != null ? (
-                <text x={s.x(i)} y={f.height - f.bottom + 52 * fs} class="axis-label sub" text-anchor="middle">
+                <text x={s.x(i)} y={f.height - 8 * fs} class="axis-label sub" text-anchor="middle">
                   {ages[i]}歳
                 </text>
               ) : null}
@@ -496,26 +716,23 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
             height={Math.max(0, f.height - f.top + 4)}
             class="hit-area"
             data-hit-area
-            onPointerMove={(e) => {
-              const y = yearAt(e);
-              if (y !== hover) setHover(y);
-            }}
-            onPointerLeave={() => setHover(null)}
+            onPointerMove={(e) => onHover(yearAt(e))}
+            onPointerLeave={() => onHover(null)}
             onClick={(e) => {
               const y = yearAt(e);
-              if (y === null) return;
-              setHover(y);
-              onSelectYear(togglePin(pinned, y));
+              if (y !== null) onPick(y);
             }}
           />
         ) : null}
+        {/* イベントの丸は、年を読む面より上に置く（カーソルを合わせられるように） */}
+        <g class="evs">{evs}</g>
       </svg>
       {mark !== null && place !== null ? (
         <div
           ref={tip}
           class={`sel-lbl year-tip${pinned !== null ? " pinned" : ""}`}
-          style={{ left: `${((place.left / f.width) * 100).toFixed(3)}%`, top: `${((place.top / f.height) * 100).toFixed(3)}%` }}
-          role={pinned !== null ? "status" : undefined}
+          style={{ left: pct(place.left, f.width), top: pct(place.top, f.height) }}
+          role={pinned !== null && live ? "status" : undefined}
           data-year-tip={place.side}
         >
           <div class="yt-h">
@@ -526,16 +743,26 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
             {mark.lead !== "金融資産" ? <span class="yt-lead">{mark.lead}</span> : null}
             <span class="yt-s">
               <i class="yt-dot sel" aria-hidden="true" />
-              {model.names.selected} <b class={(mark.selText.startsWith("▲") ? "neg" : "")}>{mark.selText}</b>
+              {model.names.selected} <b class={mark.selText.startsWith("▲") ? "neg" : ""}>{mark.selText}</b>
             </span>
             {mark.baseText !== null ? (
               <span class="yt-b">
                 ／<i class="yt-dot base" aria-hidden="true" />
-                {model.names.base} <b class={(mark.baseText.startsWith("▲") ? "neg" : "")}>{mark.baseText}</b>
+                {model.names.base} <b class={mark.baseText.startsWith("▲") ? "neg" : ""}>{mark.baseText}</b>
               </span>
             ) : null}
           </div>
           {mark.extra !== null ? <div class="yt-x">{mark.extra}</div> : null}
+        </div>
+      ) : null}
+      {evNow !== undefined && evPlace !== null ? (
+        <div ref={evTipEl} class={`year-tip ev-tip${evNow.short ? " short" : ""}`} style={{ left: pct(evPlace.left, f.width), top: pct(evPlace.top, f.height) }} role="tooltip" data-ev-tip={evNow.year}>
+          <div class="yt-h">
+            <span class="ev-ic" aria-hidden="true">
+              {evNow.icon}
+            </span>
+            {evNow.year}年 <span class="ev-t">{evNow.text}</span>
+          </div>
         </div>
       ) : null}
     </div>
@@ -543,8 +770,11 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
 }
 
 /** グラフの凡例（モードごと）。右端に操作の手がかり */
-export function MainLegend({ model, mode, explain }: { model: MainChartModel; mode: ChartMode; explain: { model: ExplainModel; step: number } | null }) {
-  const nm = model.names;
+export function MainLegend({ model, mode, explain, side = false }: { model: MainChartModel; mode: ChartMode; explain: { model: ExplainModel; step: number } | null; side?: boolean }) {
+  // 左右に並べる表示: 案の名前は各グラフの上に出すので、凡例は線・積み上げの種類だけ
+  const nm = side ? { ...model.names, same: true } : model.names;
+  const sel = (label: string) => (side ? label : `${label} ${nm.selected}`);
+  const anyPositive = (list: StackSeries[], other: StackSeries[]) => list.filter((x) => x.values.some((v) => v > 0) || (side && other.find((y) => y.key === x.key)?.values.some((v) => v > 0) === true));
   const base = nm.same ? null : (
     <span class="lg base">
       <i />
@@ -580,7 +810,7 @@ export function MainLegend({ model, mode, explain }: { model: MainChartModel; mo
       ...model.flows.expense.map((x) => sw(x.key, x.label)),
       <span class="lg net" key="net">
         <i />
-        年間収支 {nm.selected}
+        {sel("年間収支")}
       </span>,
       nm.same ? null : (
         <span class="lg base" key="bnet">
@@ -595,9 +825,9 @@ export function MainLegend({ model, mode, explain }: { model: MainChartModel; mo
     ];
   } else if (mode === "balance") {
     items = [
-      ...model.balance.assets.filter((x) => x.values.some((v) => v > 0)).map((x) => sw(x.key, x.label)),
-      ...model.balance.debts.filter((x) => x.values.some((v) => v > 0)).map((x) => sw(x.key, x.label)),
-      model.balance.shortfall.some((v) => v < 0) ? (
+      ...anyPositive(model.balance.assets, model.baseCharts.balance.assets).map((x) => sw(x.key, x.label)),
+      ...anyPositive(model.balance.debts, model.baseCharts.balance.debts).map((x) => sw(x.key, x.label)),
+      model.balance.shortfall.some((v) => v < 0) || (side && model.baseCharts.balance.shortfall.some((v) => v < 0)) ? (
         <span class="lg short" key="short">
           <i />
           預金の不足（▲）
@@ -605,7 +835,7 @@ export function MainLegend({ model, mode, explain }: { model: MainChartModel; mo
       ) : null,
       <span class="lg net" key="nw">
         <i />
-        純資産 {nm.selected}
+        {sel("純資産")}
       </span>,
       nm.same ? null : (
         <span class="lg base" key="bnw">
@@ -618,8 +848,7 @@ export function MainLegend({ model, mode, explain }: { model: MainChartModel; mo
     items = [
       <span class="lg" key="sel">
         <i />
-        {nm.selected}
-        {nm.same ? "（基準）" : "（選んだ案）"}
+        {side ? "金融資産" : `${nm.selected}${nm.same ? "（基準）" : "（選んだ案）"}`}
       </span>,
       base,
       <span class="lg short" key="short">
@@ -631,7 +860,11 @@ export function MainLegend({ model, mode, explain }: { model: MainChartModel; mo
   return (
     <div class="legend main-legend">
       {items}
-      <span class="hint">{explain !== null ? "説明モード: 「次へ」で1段ずつ足します" : "グラフに合わせるとその年の数字。クリックで固定（下の表の同じ年が光る。もう一度クリックか Esc で外す）"}</span>
+      <span class="hint">
+        {explain !== null
+          ? "説明モード: 「次へ」で1段ずつ足します"
+          : `${side ? "2つのグラフは縦の目盛りをそろえています。" : ""}グラフに合わせるとその年の数字。クリックで固定（下の表の同じ年が光る。もう一度クリックか Esc で外す）。下の丸はその年のできごと`}
+      </span>
     </div>
   );
 }

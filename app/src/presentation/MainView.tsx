@@ -4,7 +4,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import type { AgeMark, CashflowTableModel, ExplainModel, FeeLine, GoalsModel, Headline as HeadlineModel, ResultVerdict, Verdict as VerdictModel, VerdictPart } from "./model.ts";
 import { man, manDiff } from "./format.ts";
-import { CHART_MODES, ExplainBar, MainChart, MainLegend, type ChartMode, type MainChartModel } from "./MainChart.tsx";
+import { CHART_MODES, ExplainBar, MainChart, MainLegend, type ChartLayout, type ChartMode, type MainChartModel } from "./MainChart.tsx";
 
 export interface Selectors {
   onSelectYear: (year: number) => void;
@@ -135,6 +135,8 @@ export interface ResultCardProps {
   provisional: boolean;
   mode: ChartMode;
   onMode: (m: ChartMode) => void;
+  /** 比べ方（省略は重ねる） */
+  layout?: ChartLayout;
   explain: { model: ExplainModel; step: number } | null;
   onExplain: (step: number | null) => void;
   ageMark: AgeMark | null;
@@ -153,6 +155,9 @@ export function ResultCard(p: ResultCardProps) {
   const ex = p.explain;
   const step = ex !== null ? Math.max(0, Math.min(ex.model.steps.length - 1, ex.step)) : 0;
   const s = ex?.model.steps[step];
+  const layout = p.layout ?? "overlay";
+  // 左右に並べるのは、説明モードの外で、選んだ案が基準の案と違うときだけ（MainChart と同じ決まり）
+  const side = layout === "side" && ex === null && !p.model.names.same;
   return (
     <section class="card chart-card" aria-label="グラフ" data-result-card>
       <div class="cc-head">
@@ -187,8 +192,8 @@ export function ResultCard(p: ResultCardProps) {
         </div>
       </div>
       {p.below ?? null}
-      <MainLegend model={p.model} mode={p.mode} explain={ex} />
-      <MainChart model={p.model} mode={p.mode} explain={ex} ageMark={p.ageMark} pinnedYear={p.pinnedYear} onSelectYear={p.onSelectYear} />
+      <MainLegend model={p.model} mode={p.mode} explain={ex} side={side} />
+      <MainChart model={p.model} mode={p.mode} explain={ex} ageMark={p.ageMark} pinnedYear={p.pinnedYear} onSelectYear={p.onSelectYear} layout={layout} />
       {ex !== null ? <ExplainBar model={ex.model} step={step} onStep={(i) => p.onExplain(i)} onClose={() => p.onExplain(null)} /> : null}
     </section>
   );

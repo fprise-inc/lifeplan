@@ -88,7 +88,8 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
     window.scrollTo(0, 0);
     const steps: Record<string, unknown>[] = [];
     // 打ち手を順に動かす（働く最後の年齢・年金の受け取り開始・NISA・生活費）
-    for (const [key, to] of [["retireAge", 4], ["retireAge", 0], ["pensionAge", 3], ["nisaMonthly", "max"], ["livingMonthly", "min"], ["retireAge", 2]] as const) {
+    // 年齢は1歳ずつのスライダー（値＝歳）
+    for (const [key, to] of [["retireAge", 70], ["retireAge", 60], ["pensionAge", 70], ["nisaMonthly", "max"], ["livingMonthly", "min"], ["retireAge", 65]] as const) {
       const before = dual.timings.length;
       await moveLever(key, to);
       const previewHeadline = text(".sel-lbl");
@@ -367,7 +368,7 @@ export async function runPlansCheck(dual: () => DualEngine | null, host: string,
       await wait();
       await saveAs();
     }
-    await moveLever("retireAge", 4);
+    await moveLever("retireAge", 70);
     await wait();
     await saveAs();
     report.fiveCards = cards();
