@@ -87,12 +87,10 @@ export async function runWireCheck(host: string): Promise<void> {
     // ---- ヒアリングシート（空の世帯で）----
     clickTab("入力");
     await waitFor(".ih");
-    const pick = document.querySelector<HTMLSelectElement>(".hh-pick select");
-    if (pick !== null) {
-      pick.value = "__blank__";
-      pick.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-    await sleep(800);
+    // 上の帯の「世帯」から「空から作る」（開発用のサーバーの保存はメモリの中だけ）
+    (await waitFor<HTMLButtonElement>("[data-household-button]")).click();
+    (await waitFor<HTMLButtonElement>("[data-create-blank]")).click();
+    await sleep(1200);
     await waitFor("[data-hearing-export]");
     const before = cards();
     const progressBefore = document.querySelector("[data-progress]")?.textContent?.trim();

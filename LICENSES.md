@@ -11,6 +11,7 @@
 | `app/src-tauri/icons/` | アプリのアイコン（提供元が作ったもの） | MIT（[LICENSE](LICENSE)） |
 | `app/src/assets/illustrations/` | 入力のホームのカードのイラスト（ファイナンシアのために作成したイラスト。画像生成AIで作り、提供元が仕上げたもの） | CC0 1.0（[LICENSE](app/src/assets/illustrations/LICENSE)） |
 | `report/fonts/` | 提案書の PDF に同梱するフォント（BIZ UDゴシック。googlefonts/morisawa-biz-ud-gothic のコミット 18934af のもの） | SIL OFL 1.1（[OFL.txt](report/fonts/OFL.txt)。0021 の表の「同梱フォント」） |
+| `crates/household-store/tests/fixtures/household-format/` | 【架空の見本】過去の全形式の世帯ファイルの見本（架空のモデル世帯の写しと、秘密ではない試験用の鍵の作り方。0011 の5） | CC0 1.0（[LICENSE](crates/household-store/tests/fixtures/household-format/LICENSE)） |
 | `registry/` | ID の登録簿（科目の木・入力項目・計算部品・制度の値） | CC0 1.0（[LICENSE](registry/LICENSE)） |
 
 第三者の依存のライセンスは、CI で検査する（npm は `engine/scripts/check-licenses.ts`・`app/scripts/check-licenses.ts`、Rust は `deny.toml`・`app/src-tauri/deny.toml` と cargo-deny）。

@@ -3,7 +3,7 @@
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
-import { devBrowserHost, isTauri, tauriHost, webEngine, type HostApi, type WebSession } from "../engine/host.ts";
+import { devBrowserHost, isTauri, tauriHost, webEngine, type HostApi, type StoredHousehold, type StoreStatus, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
@@ -39,6 +39,10 @@ import { cashflowTable, displayYears, eventsOf, toPresentation, withDiff } from 
 import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
 import { ageMarkOf, DEFAULT_DISPLAY_SETTINGS, METRIC_CHOICES, shows, verdictMetrics, type DisplaySettings, type MetricKey } from "./settings.ts";
+import { Autosaver, type SaveState } from "./store/autosave.ts";
+import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
+import { HouseholdPanel, storeMessage } from "./store/HouseholdPanel.tsx";
+import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
 import { installUndo, undoController } from "./undo/controller.ts";
 import { UndoButtons } from "./undo/UndoButtons.tsx";
@@ -232,6 +236,34 @@ function thisMonth(): string {
 
 const nowIso = () => new Date().toISOString();
 
+const codeOf = (e: unknown) => (typeof e === "string" ? e : e instanceof Error ? e.message : "E_STORE");
+
+/** 開いている保存した世帯（見本・保存していない世帯のときは null） */
+interface StoredRef {
+  id: string;
+  customerNo: string;
+  readOnly: boolean;
+  /** 読んだ拡張領域（書き戻して失わない。0011 の4） */
+  carry: BodyState["carry"];
+}
+
+/** 世帯ファイルの本文（0011 の2）: 現状・案・案の帯の並び・対策に足した項目・表示の設定（保存していない案の変更は入れない） */
+function bodyFor(o: Opened, w: Work, shownKeys: string[], s: DisplaySettings, carry: BodyState["carry"]): string {
+  return bodyOf({ wh: o.wh, workspace: { template: o.demo?.id ?? null, band: w.band, base: w.base, selected: w.sel, shownItems: shownKeys }, display: s, carry });
+}
+
+/** 上の帯の保存の状態の文 */
+function saveText(stored: boolean, st: SaveState): { text: string; cls: string } {
+  if (!stored) return { text: "保存していません", cls: "unsaved" };
+  if (st.kind === "pending" || st.kind === "saving") return { text: "保存しています…", cls: "" };
+  if (st.kind === "error") return { text: storeMessage(st.code), cls: "err" };
+  if (st.kind === "saved") {
+    const d = new Date(st.at);
+    return { text: Number.isNaN(d.getTime()) ? "保存済み" : `保存済み ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`, cls: "" };
+  }
+  return { text: "保存済み", cls: "" };
+}
+
 export function App() {
   const initial = useMemo(() => parseHash(typeof location === "undefined" ? "" : location.hash), []);
   const [host, setHost] = useState<HostApi | null>(null);
@@ -256,11 +288,27 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>(initial.level ?? "simple");
   const [memoOpen, setMemoOpen] = useState(initial.memo === true);
+  // 世帯の保存（0011・0013）
+  const [storeStatus, setStoreStatus] = useState<StoreStatus | null>(null);
+  const [storeUnavailable, setStoreUnavailable] = useState<string | null>(null);
+  const [storeChecked, setStoreChecked] = useState(false);
+  const [storedList, setStoredList] = useState<StoredHousehold[]>([]);
+  const [storedInfo, setStoredInfo] = useState<Omit<StoredRef, "carry"> | null>(null);
+  const [hhOpen, setHhOpen] = useState(false);
+  const [hhError, setHhError] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState<RecoveryMode | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
+  const storedRef = useRef<StoredRef | null>(null);
+  const autosaver = useRef<Autosaver | null>(null);
+  /** 保存した世帯ごとの、最後に保存した（読んだ）本文（開き直したときに元に戻すの履歴を続けてよいかの目安） */
+  const savedBodies = useRef(new Map<string, string>());
+  const shownRef = useRef<string[]>([]);
   const openedRef = useRef<Opened | null>(null);
   const workRef = useRef<Work>(work);
   workRef.current = work;
   const settingsRef = useRef<DisplaySettings>(settings);
   settingsRef.current = settings;
+  shownRef.current = shown;
   const [evidence, setEvidence] = useState<EvidenceState | null>(null);
   const [, setTick] = useState(0);
   const dual = useRef<DualEngine | null>(null);
@@ -312,12 +360,49 @@ export function App() {
         const ids = new Set(await h.listHouseholds());
         const list = DEMO_HOUSEHOLDS.filter((d) => ids.has(d.id));
         setHouseholds(list);
+        // 世帯の保存: 初回はここで事務所の鍵と鍵置き場を作る（本体）
+        try {
+          const st = await h.store.status();
+          setStoreStatus(st);
+          if (st.state === "ready") setStoredList(await h.store.list());
+          if (st.state === "needsRecovery") setRecovery("restore");
+          else if (st.firstRun && !st.recoveryAcknowledged) setRecovery("first");
+        } catch (e) {
+          setStoreUnavailable(storeMessage(codeOf(e)));
+        }
+        autosaver.current = new Autosaver(async (body) => {
+          const sr = storedRef.current;
+          const o = openedRef.current;
+          if (sr === null || o === null) throw "E_STORE_NOT_OPEN";
+          const at = (await h.store.save(sr.id, body, summaryOf(o.wh.request))).savedAt;
+          savedBodies.current.set(sr.id, body);
+          return at;
+        }, setSaveState);
+        setStoreChecked(true);
         setHost(h);
       } catch (e) {
         setFatal(e instanceof Error ? e.message : String(e));
       }
     })();
   }, []);
+
+  // アプリを閉じる前に、自動保存の残りを書く（本体が閉じるときに呼ぶ。済んだら本体に知らせる）
+  useEffect(() => {
+    if (host === null || host.kind !== "tauri") return;
+    const w = window as unknown as { __financiaBeforeClose?: () => void };
+    w.__financiaBeforeClose = () => {
+      void (async () => {
+        try {
+          await autosaver.current?.flush();
+        } finally {
+          await host.store.closeReady();
+        }
+      })();
+    };
+    const hide = () => void autosaver.current?.flush();
+    window.addEventListener("pagehide", hide);
+    return () => window.removeEventListener("pagehide", hide);
+  }, [host]);
 
   // ---- 計算の要求（枠: 現状・帯の案。表示の設定で FP顧問料の一文を出すときは、選んだ案の顧問料を入れ替えた枠 alt も）----
   const reqCache = useRef(new Map<string, EngineRequest>());
@@ -376,9 +461,41 @@ export function App() {
 
   const addOnce = useRef(false);
   const seedOnce = useRef(false);
+  /** 開いた世帯を画面に置き、計算する（見本・空・保存した世帯で共通） */
+  const install = useCallback(
+    async (o: Opened, w: Work, shownKeys: string[], historyKey: string, keepHistory: boolean) => {
+      if (host === null) return;
+      openedRef.current = o;
+      workRef.current = w;
+      shownRef.current = shownKeys;
+      // 元に戻すの履歴はその世帯のもの。開いた直後の状態は履歴に積まない
+      if (keepHistory) history.select(historyKey);
+      else history.reset(historyKey);
+      setOpened(o);
+      setWork(w);
+      setShown(shownKeys);
+      setTableKey(null);
+      setEvidence(null);
+      dual.current = new DualEngine({ session: session.current, host, onChange: () => setTick((t) => t + 1) });
+      // 速さの計測: 帯の案と現状の枠を、開いてから正の計算がそろうまで（5案の比較の目標 3秒）
+      const t0 = performance.now();
+      const all = requestsFor(o, w, settingsRef.current);
+      await dual.current.set(all);
+      const canon = dual.current.timings.filter((t) => t.kind === "canonical").at(-1);
+      compareTimings.current.push({ ms: performance.now() - t0, hostMs: canon?.hostMs ?? 0, slots: Object.keys(all).length });
+      setTick((t) => t + 1);
+    },
+    [host, requestsFor, history],
+  );
+
+  /** 見本・空の世帯を開く（保存しない。保存するときは persistCurrent） */
   const open = useCallback(
     async (id: string, hashLevers?: number[]) => {
       if (host === null) return;
+      await autosaver.current?.flush();
+      storedRef.current = null;
+      setStoredInfo(null);
+      autosaver.current?.reset(null);
       let o: Opened | null;
       if (id === BLANK) o = openedFrom(null, withRefreshedEstimates(blankHousehold(thisMonth())));
       else {
@@ -433,31 +550,145 @@ export function App() {
       const pickSel = initial.sel !== undefined ? slotOfLetter(letters, slots, initial.sel) : initial.seedOpen === true ? band[1] : band[0];
       const pickBase = initial.base !== undefined ? slotOfLetter(letters, slots, initial.base) : undefined;
       const w: Work = { band, base: pickBase ?? CURRENT, sel: pickSel ?? band[0] ?? CURRENT, drafts: {} };
-      openedRef.current = o;
-      workRef.current = w;
-      history.reset(id);
-      setOpened(o);
-      setWork(w);
-      setShown(shownKeys);
-      setTableKey(null);
-      setEvidence(null);
-      dual.current = new DualEngine({ session: session.current, host, onChange: () => setTick((t) => t + 1) });
-      // 速さの計測: 帯の案と現状の枠を、開いてから正の計算がそろうまで（5案の比較の目標 3秒）
-      const t0 = performance.now();
-      const all = requestsFor(o, w, settingsRef.current);
-      await dual.current.set(all);
-      const canon = dual.current.timings.filter((t) => t.kind === "canonical").at(-1);
-      compareTimings.current.push({ ms: performance.now() - t0, hostMs: canon?.hostMs ?? 0, slots: Object.keys(all).length });
-      setTick((t) => t + 1);
+      await install(o, w, shownKeys, id, false);
     },
-    [host, requestsFor, initial, history],
+    [host, install, initial],
   );
 
+  /** 保存した世帯を開く（本体が復号して本文を返す） */
+  const openStored = useCallback(
+    async (id: string) => {
+      if (host === null) return;
+      await autosaver.current?.flush();
+      const r = await host.store.open(id);
+      const st = fromBody(r.body);
+      const demo = st.workspace.template !== null ? (demoHousehold(st.workspace.template) ?? null) : null;
+      const o = openedFrom(demo, st.wh);
+      if (o === null) throw new Error("E_BODY_SHAPE");
+      reqCache.current.clear();
+      const live = new Set(o.wh.proposals.map((x) => x.id));
+      const band = st.workspace.band.filter((x) => live.has(x)).slice(0, MAX_BAND);
+      const inBand = (x: string) => x === CURRENT || band.includes(x);
+      const w: Work = { band, base: inBand(st.workspace.base) ? st.workspace.base : CURRENT, sel: inBand(st.workspace.selected) ? st.workspace.selected : (band[0] ?? CURRENT), drafts: {} };
+      const shownKeys = st.workspace.shownItems.filter((k) => o.catalog.byKey.has(k));
+      storedRef.current = { id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, carry: st.carry };
+      setStoredInfo({ id: r.id, customerNo: r.customerNo, readOnly: r.readOnly });
+      settingsRef.current = st.display;
+      setSettings(st.display);
+      const loaded = bodyFor(o, w, shownKeys, st.display, st.carry);
+      // この画面で前に開いて保存したときと同じ中身なら、元に戻すの履歴を続きから使う（違えば空から）
+      const keep = savedBodies.current.get(r.id) === loaded;
+      savedBodies.current.set(r.id, loaded);
+      autosaver.current?.reset(r.readOnly ? null : loaded);
+      if (r.readOnly) setSaveState({ kind: "error", code: "E_STORE_READ_ONLY" });
+      await install(o, w, shownKeys, `stored:${r.id}`, keep);
+    },
+    [host, install],
+  );
+
+  /** いま開いている（保存していない）世帯を、新しい世帯として保存する */
+  const persistCurrent = useCallback(async () => {
+    const o = openedRef.current;
+    if (host === null || o === null) return;
+    const body = bodyFor(o, workRef.current, shownRef.current, settingsRef.current, EMPTY_CARRY);
+    const r = await host.store.create(body, summaryOf(o.wh.request));
+    storedRef.current = { id: r.id, customerNo: r.customerNo, readOnly: false, carry: EMPTY_CARRY };
+    setStoredInfo({ id: r.id, customerNo: r.customerNo, readOnly: false });
+    savedBodies.current.set(r.id, body);
+    autosaver.current?.reset(body, nowIso());
+    setStoredList(await host.store.list());
+    say(`世帯 ${r.customerNo} として保存しました。これからは自動で保存します`);
+  }, [host, say]);
+
+  // 起動: 前回の世帯を開く（無ければ見本）。画面の確かめ用の # があるときは見本
+  const initialOnce = useRef(false);
   useEffect(() => {
-    if (host === null || households.length === 0) return;
+    if (host === null || households.length === 0 || !storeChecked || initialOnce.current) return;
+    initialOnce.current = true;
     const id = initial.household === "blank" ? BLANK : initial.household !== undefined && households.some((h) => h.id === initial.household) ? initial.household : (households[0] as DemoHousehold).id;
-    void open(id, initial.levers);
-  }, [host, households, open, initial]);
+    const dev = initial.household !== undefined || initial.selfcheck || initial.seed === true || initial.add !== undefined;
+    const last = !dev && storeStatus?.state === "ready" ? storeStatus.lastOpened : null;
+    if (last !== null)
+      void openStored(last).catch((e: unknown) => {
+        setHhError(storeMessage(codeOf(e)));
+        void open(id, initial.levers);
+      });
+    else void open(id, initial.levers);
+  }, [host, households, open, openStored, initial, storeChecked, storeStatus]);
+
+  // 自動保存: 保存した世帯の現状・案・帯の並び・足した項目・表示の設定が変わったら、少し待って保存する
+  useEffect(() => {
+    const sr = storedRef.current;
+    if (opened === null || sr === null || sr.readOnly) return;
+    autosaver.current?.change(bodyFor(opened, workRef.current, shown, settings, sr.carry));
+  }, [opened, work.band, work.base, work.sel, shown, settings]);
+
+  // ---- 世帯の一覧の操作 ----
+  const refreshStore = useCallback(async () => {
+    if (host === null) return;
+    try {
+      const st = await host.store.status();
+      setStoreStatus(st);
+      setStoredList(st.state === "ready" ? await host.store.list() : []);
+    } catch (e) {
+      setStoreUnavailable(storeMessage(codeOf(e)));
+    }
+  }, [host]);
+  const guard = useCallback(
+    async (fn: () => Promise<void>) => {
+      setHhError(null);
+      try {
+        await fn();
+        setHhOpen(false);
+      } catch (e) {
+        setHhError(storeMessage(codeOf(e)));
+      }
+    },
+    [],
+  );
+  const renameStored = useCallback(
+    async (id: string, customerNo: string): Promise<string | null> => {
+      if (host === null) return null;
+      try {
+        const r = await host.store.rename(id, customerNo);
+        const sr = storedRef.current;
+        if (sr !== null && sr.id === id) {
+          sr.customerNo = r.customerNo;
+          setStoredInfo({ id, customerNo: r.customerNo, readOnly: sr.readOnly });
+        }
+        setStoredList(await host.store.list());
+        if (r.duplicate) say(`顧客番号を ${r.customerNo} にしました（同じ番号の世帯がほかにもあります）`);
+        return null;
+      } catch (e) {
+        return storeMessage(codeOf(e));
+      }
+    },
+    [host, say],
+  );
+  const deleteStored = useCallback(
+    async (id: string, confirm: string): Promise<string | null> => {
+      if (host === null) return null;
+      const isOpen = storedRef.current?.id === id;
+      try {
+        if (isOpen) autosaver.current?.reset(null);
+        await host.store.remove(id, confirm);
+        savedBodies.current.delete(id);
+        history.drop(`stored:${id}`);
+        if (isOpen) {
+          storedRef.current = null;
+          setStoredInfo(null);
+          if (households.length > 0) await open((households[0] as DemoHousehold).id);
+        }
+        await refreshStore();
+        say("削除しました。アプリのバックアップからも完全に読めなくなるのは30日後です");
+        return null;
+      } catch (e) {
+        if (isOpen && storedRef.current !== null && opened !== null) autosaver.current?.reset(bodyFor(opened, workRef.current, shownRef.current, settingsRef.current, storedRef.current.carry));
+        return storeMessage(codeOf(e));
+      }
+    },
+    [host, households, open, refreshStore, say, opened, history],
+  );
 
   /** 作業の状態を新しい世帯（案の一覧）に合わせる: 消えた案を帯から外し、保存していない変更を整える */
   const fitWork = (o: Opened, w: Work): Work => {
@@ -856,17 +1087,35 @@ export function App() {
           <span class="brand-mark" aria-hidden="true" />
           ファイナンシア
         </span>
-        {households.length > 0 ? (
-          <label class="hh-pick">
-            <select value={opened === null ? "" : (opened.demo?.id ?? BLANK)} onChange={(e) => void open((e.currentTarget as HTMLSelectElement).value)} aria-label="開く世帯">
-              {households.map((h) => (
-                <option value={h.id} key={h.id}>
-                  {h.title}（架空）
-                </option>
-              ))}
-              <option value={BLANK}>新しい世帯（空から入れる）</option>
-            </select>
-          </label>
+        {host !== null ? (
+          <button
+            type="button"
+            class="hh-btn"
+            aria-expanded={hhOpen}
+            aria-label="世帯の一覧を開く"
+            onClick={() => {
+              setHhError(null);
+              if (!hhOpen) void refreshStore();
+              setHhOpen(!hhOpen);
+            }}
+            data-household-button
+          >
+            <span class="hh-no">{storedInfo !== null ? storedInfo.customerNo : opened?.demo != null ? "見本" : "新しい世帯"}</span>
+            <span class="hh-sub">{storedInfo !== null ? (opened !== null ? summaryOf(opened.wh.request) : "") : (opened?.demo?.title ?? "")}</span>
+            <span class="caret" aria-hidden="true">
+              ▼
+            </span>
+          </button>
+        ) : null}
+        {opened !== null ? (
+          <span class={`save-state ${saveText(storedInfo !== null, saveState).cls}`} role="status" data-save-state={storedInfo === null ? "unsaved" : saveState.kind}>
+            {saveText(storedInfo !== null, saveState).text}
+          </span>
+        ) : null}
+        {storeStatus?.state === "ready" && !storeStatus.recoveryAcknowledged && recovery === null ? (
+          <button type="button" class="rk-remind" onClick={() => setRecovery("manage")} data-recovery-remind>
+            復元キーを保管してください
+          </button>
         ) : null}
         {model !== null ? (
           <div class="hh">
@@ -905,6 +1154,30 @@ export function App() {
         </button>
       </header>
       <main class="wrap">
+        {hhOpen && host !== null ? (
+          <HouseholdPanel
+            status={storeStatus}
+            unavailable={storeUnavailable}
+            error={hhError}
+            list={storedList}
+            currentId={storedInfo?.id ?? null}
+            demos={households.map((h) => ({ id: h.id, title: h.title }))}
+            unsavedTitle={opened !== null && storedInfo === null ? (opened.demo?.title ?? "新しい世帯") : null}
+            onOpen={(id) => void guard(() => openStored(id))}
+            onCreate={(from) =>
+              void guard(async () => {
+                await open(from ?? BLANK);
+                await persistCurrent();
+              })
+            }
+            onViewDemo={(id) => void guard(() => open(id))}
+            onSaveCurrent={() => void guard(persistCurrent)}
+            onRename={renameStored}
+            onDelete={deleteStored}
+            onRecovery={() => setRecovery(storeStatus?.state === "needsRecovery" ? "restore" : "manage")}
+            onClose={() => setHhOpen(false)}
+          />
+        ) : null}
         {fatal !== null ? <p class="fatal">起動できませんでした（{fatal}）</p> : null}
         {error !== null && tab !== "input" ? <p class="fatal">計算できませんでした（{error}）</p> : null}
         {tab === "input" && opened !== null ? (
@@ -1072,7 +1345,7 @@ export function App() {
               />
             ) : null}
             <div class="foot footnote">
-              <span>{opened.demo !== null ? "架空のモデル世帯を" : "入力した世帯を"}、ファイナンシアの計算エンジン（開発版）で計算した結果です。制度データには原本での確認待ちの行があります。保存は次の版です。</span>
+              <span>{opened.demo !== null && storedInfo === null ? "架空のモデル世帯を" : "入力した世帯を"}、ファイナンシアの計算エンジン（開発版）で計算した結果です。制度データには原本での確認待ちの行があります。</span>
               {import.meta.env.DEV ? (
                 <span class="perf">
                   計算の速さ: 先出し {last !== undefined ? `${last.ms.toFixed(0)}ms` : "—"}／正の計算 {lastCanon !== undefined ? `${lastCanon.ms.toFixed(0)}ms（本体 ${lastCanon.hostMs?.toFixed(0) ?? "—"}ms）` : "—"}／{host?.kind}
@@ -1089,6 +1362,21 @@ export function App() {
       ) : null}
       {memoOpen && opened !== null ? <MemoDrawer wh={opened.wh} onEdit={edit} onClose={() => setMemoOpen(false)} /> : null}
       {evidence !== null ? <EvidencePanel state={evidence} onClose={() => setEvidence(null)} /> : null}
+      {recovery !== null && host !== null ? (
+        <RecoveryPanel
+          mode={recovery}
+          store={host.store}
+          status={storeStatus}
+          onStatus={(st) => {
+            setStoreStatus(st);
+            if (recovery === "restore" && st.state === "ready") {
+              setRecovery(null);
+              void refreshStore();
+            }
+          }}
+          onClose={() => setRecovery(null)}
+        />
+      ) : null}
     </div>
   );
 }

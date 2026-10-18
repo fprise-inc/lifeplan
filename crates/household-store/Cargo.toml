@@ -1,0 +1,24 @@
+[package]
+name = "household-store"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "世帯ファイルの保存と暗号化（封筒・鍵の3段・復元キー・差し替えの保存・一方向の形式移行・完全削除・自動バックアップ。0011・0013）"
+
+[features]
+default = []
+# OS の資格情報の保管庫（Mac はキーチェーン、Windows は資格情報マネージャー）を使う実装。
+# アプリ本体だけが有効にする（テストと CI はメモリの実装を使い、保管庫に触れない）
+os-keyring = ["dep:keyring"]
+
+[dependencies]
+# 0013 の1: AES-256-GCM（RustCrypto）。用途ごとの鍵は HKDF-SHA256 で導く
+aes-gcm = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"
+getrandom = "0.2"
+zeroize = { version = "1", features = ["zeroize_derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+keyring = { version = "3", optional = true, default-features = false, features = ["apple-native", "windows-native", "linux-native"] }

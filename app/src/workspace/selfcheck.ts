@@ -187,12 +187,11 @@ export async function runInputCheck(dual: () => DualEngine | null, host: string)
     report.main = { verdict: text("[data-verdict]"), year: text(".sel-lbl") };
     await stage("main-after-input", report);
     // 空の世帯から
-    const pick = document.querySelector<HTMLSelectElement>('select[aria-label="開く世帯"]');
-    if (pick !== null) {
-      pick.value = "__blank__";
-      pick.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-    await sleep(500);
+    // 上の帯の「世帯」から「空から作る」（開発用のサーバーの保存はメモリの中だけ）
+    document.querySelector<HTMLButtonElement>("[data-household-button]")?.click();
+    await sleep(300);
+    document.querySelector<HTMLButtonElement>("[data-create-blank]")?.click();
+    await sleep(800);
     clickTab("入力");
     await sleep(300);
     await wait();

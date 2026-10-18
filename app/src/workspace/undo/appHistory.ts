@@ -88,6 +88,18 @@ export function useHistoryBook<S>(opts: HistoryBookOptions<S>, c: UndoController
     c.changed();
   }, []);
 
+  /** 世帯を開いた（中身が前に開いていたときと同じ）: その世帯の履歴を続きから使う */
+  const select = useCallback((id: string) => {
+    book.current?.select(id);
+    c.changed();
+  }, []);
+
+  /** 世帯を消した: 履歴を捨てる */
+  const drop = useCallback((id: string) => {
+    book.current?.drop(id);
+    c.changed();
+  }, []);
+
   useUndoScope(
     historyScope(
       0,
@@ -104,5 +116,5 @@ export function useHistoryBook<S>(opts: HistoryBookOptions<S>, c: UndoController
     c,
   );
 
-  return useMemo(() => ({ track, reset }), [track, reset]);
+  return useMemo(() => ({ track, reset, select, drop }), [track, reset, select, drop]);
 }

@@ -1,0 +1,48 @@
+/* 世帯の保存（上の帯の世帯のボタン・保存の状態・世帯の一覧・復元キーの中央のパネル）。色と線は app.css の変数を使う */
+
+/* 上の帯: 開いている世帯のボタンと保存の状態 */
+.hh-btn { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); background: #fff; border-radius: 8px; padding: 3px 10px; font-size: 0.88rem; cursor: pointer; max-width: 22em; }
+.hh-btn[aria-expanded="true"] { border-color: var(--prop); background: var(--prop-bg); }
+.hh-btn .hh-no { font-weight: 700; white-space: nowrap; }
+.hh-btn .hh-sub { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.hh-btn .caret { font-size: 0.7em; color: var(--ink-2); }
+.save-state { font-size: 0.78rem; color: var(--ink-2); white-space: nowrap; }
+.save-state.err { color: var(--short-ink); font-weight: 700; white-space: normal; max-width: 22em; }
+.save-state.unsaved { color: var(--est-ink); }
+.rk-remind { border: 1.5px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 999px; padding: 2px 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+
+/* 世帯の一覧 */
+.hh-panel { margin: 12px 20px 0; }
+.wrap .hh-panel { margin: 0 0 14px; }
+.hh-h { font-size: 0.95rem; margin: 14px 0 6px; }
+.hh-list td { vertical-align: middle; }
+.hh-new { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.hh-new .btn { padding: 6px 14px; }
+.hh-warn { color: var(--short-ink); font-weight: 700; margin: 4px 0 8px; }
+.hh-err { display: block; color: var(--short-ink); font-weight: 700; font-size: 0.85rem; }
+.hh-unsaved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border: 1.5px solid var(--est-band); background: var(--est-bg); border-radius: 8px; padding: 8px 12px; margin: 4px 0 6px; }
+.hh-unsaved .btn.primary { padding: 6px 16px; }
+.hh-delete { max-width: 46em; align-items: center; }
+.hh-delete input { border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; width: 9em; }
+.hh-delete .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.hh-foot { display: flex; gap: 10px; align-items: baseline; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line-2); }
+
+/* 復元キーの中央のパネル */
+.rk-panel { position: fixed; z-index: 50; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow-y: auto; background: #fff; border-radius: 12px; border-top: 6px solid var(--prop); padding: 18px 24px 16px; box-shadow: 0 18px 48px rgba(20, 30, 50, 0.28); }
+.rk-panel:focus { outline: none; }
+.rk-panel h2 { margin: 0 0 8px; font-size: 1.25rem; }
+.rk-panel h3 { margin: 14px 0 4px; font-size: 0.98rem; }
+.rk-panel p { margin: 6px 0; }
+.rk-advice { font-weight: 700; }
+.rk-key { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 1.3rem; letter-spacing: 0.08em; line-height: 1.7; border: 2px dashed var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 10px 16px; margin: 10px 0; user-select: all; -webkit-user-select: all; text-align: center; font-variant-numeric: tabular-nums; }
+html.big .rk-key { font-size: 1.45rem; }
+.rk-ack { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 8px 0; }
+.rk-ack label { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.rk-ack input { width: 18px; height: 18px; }
+.rk-ack .btn:disabled, .rk-test .btn:disabled, .rk-later .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.rk-test { border-top: 1px solid var(--line-2); margin-top: 12px; }
+.rk-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.rk-row input { flex: 1 1 320px; border: 1.5px solid var(--field); border-radius: 6px; padding: 6px 8px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.rk-ok { color: var(--good); font-weight: 700; }
+.rk-later { border-top: 1px solid var(--line-2); margin-top: 12px; }
+.rk-foot { display: flex; justify-content: flex-end; margin-top: 14px; }

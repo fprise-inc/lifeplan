@@ -34,6 +34,8 @@ report-pdf = { path = "../../crates/report-pdf" }
 # 0020 の5: 平文の書き出しの出口で、OS の保存・開くのダイアログを本体から出す（プラグインではないので、画面には権限を与えない）
 rfd = { version = "0.15", default-features = false, features = ["gtk3"] }
 sha2 = "0.10"
+# 0011・0013: 世帯ファイルの保存と暗号化（OS の資格情報の保管庫を使う実装を有効にする）
+household-store = { path = "../../crates/household-store", features = ["os-keyring"] }
 
 [profile.dev.package."*"]
 # 開発用の起動（npx tauri dev）でも、依存の crate（Typst の組版・PDF・画像など）は最適化する。
