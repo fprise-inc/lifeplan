@@ -101,7 +101,7 @@ fn custom_digests_go_to_xmp_only() {
     let text = extract_text(&r.pdf).unwrap().join("");
     assert!(
         !text.contains("abc123"),
-        "カスタムの印は紙面に出ない（D-29）"
+        "カスタムの印は紙面に出ない（0009 の7）"
     );
 }
 

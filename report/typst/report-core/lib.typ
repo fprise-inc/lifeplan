@@ -1,4 +1,4 @@
-// 公式の帳票（提案書の標準構成。構想書 6.11・0009 の9）の入口。
+// 公式の帳票（提案書の標準構成。0009 の9）の入口。
 //   #import "@lifeplan/report-core:0.1.0": proposal
 //   #proposal(json("/input.json"), json("/frame.json"))
 // data: 帳票の入力（lifeplan.proposalInput 0.1.0。提示に必要な値だけ）

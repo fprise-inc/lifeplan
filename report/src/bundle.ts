@@ -62,9 +62,9 @@ export interface ProposalBundle {
   proposal: Run;
   /** 目標の年を決める本人の年齢（省略は表の最後の年） */
   targetAge?: number;
-  /** FP顧問料を除いた提案（D-65 の「顧問料を除くと」） */
+  /** FP顧問料を除いた提案（「顧問料を除くと」の比較。0008 の FP顧問料） */
   proposalWithoutFee?: Run;
-  /** 打ち手を1件ずつ足していった順の計算（D-65 の5）。最後は提案と同じになるのが普通 */
+  /** 打ち手を1件ずつ足していった順の計算（運用の前提の変更を除いた効果を出すため）。最後は提案と同じになるのが普通 */
   steps?: { label: string; investment?: boolean; run: Run }[];
   /** 運用の前提の変更だけを除いた提案（無ければ steps から読む） */
   excludingInvestment?: Run;

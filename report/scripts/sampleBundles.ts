@@ -51,7 +51,7 @@ function setPensionAge(req: EngineRequest, member: Member, age: number): EngineR
   return out;
 }
 
-/** FP顧問料（初回＋継続の年額。D-65改）を足す */
+/** FP顧問料（初回＋継続の年額。0008 の FP顧問料）を足す */
 function addAdvisoryFee(req: EngineRequest, id: string, oneTime: { at: string; amount: number }, annual: number, from: string): EngineRequest {
   const out = clone(req);
   const fees: unknown[] = [...(out.input.household.advisoryFees ?? [])];
@@ -113,7 +113,7 @@ export function salariedCoupleBundle(): ProposalBundle {
 /**
  * 見本2: FP顧問料つきの提案（advisoryFeeProposal）。現状は顧問料の無い世帯（NISA の積立は現状から続ける）。
  * 打ち手を FP顧問料 → 運用の前提の見直し（年2%→年3%。運用の前提の変更）の順に足し、
- * 「運用の前提の変更を除いた効果」（D-65 の5）を示す
+ * 「運用の前提の変更を除いた効果」（運用の利回りの仮定だけで顧問料を上回って見せない）を示す
  */
 export function advisoryFeeBundle(): ProposalBundle {
   const withFee = modelHousehold("advisoryFeeProposal");

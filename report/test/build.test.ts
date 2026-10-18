@@ -90,7 +90,7 @@ describe("帳票の入力", () => {
     expect(input.changes.fee?.diffWithoutFee).not.toBeNull();
   });
 
-  it("FP顧問料の提案: 運用の前提の変更を除いた効果（D-65 の5）は、運用の前提の手前までの累計", () => {
+  it("FP顧問料の提案: 運用の前提の変更を除いた効果（運用の利回りの仮定だけで顧問料を上回って見せない）は、運用の前提の手前までの累計", () => {
     const { input } = built.find((b) => b.id === "advisoryFeeProposal") as (typeof built)[number];
     const steps = input.changes.steps ?? [];
     expect(steps.map((s) => s.investment)).toEqual([false, true]);

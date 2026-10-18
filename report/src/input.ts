@@ -105,7 +105,7 @@ export interface ProposalInput {
     survivor: { beforeIndependence: string; afterIndependence: string; noChildren: string; source: "input" | "default" } | null;
     /** 遺族年金を見直し前の制度で計算している旨を書くか */
     survivorReform: boolean;
-    /** FP顧問料（提案に入っているときだけ。D-65・D-65改） */
+    /** FP顧問料（提案に入っているときだけ。単発と継続。0008 の FP顧問料） */
     advisoryFee: {
       contracts: { label: string; oneTime: { month: string; amount: Yen }[]; recurring: { amount: Yen; per: "year" | "month"; from: string; to: string | null; revision: string | null } | null }[];
       /** 累計（エンジンの summary.advisoryFee.total） */
