@@ -240,7 +240,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
       body.push(
         <g key="fin" class={now("assets") ? "ex-new" : ""}>
           <path d={areaBelow(fin, s)} class="area-short" />
-          <path d={linePath(fin, s)} class="line-sel" />
+          <path d={linePath(fin, s)} class="line-prop" />
         </g>,
       );
     zeroLabels = ["↑ 入るお金", "↓ 出るお金"];
