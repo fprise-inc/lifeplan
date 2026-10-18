@@ -1,4 +1,4 @@
-// 取り込み: 不足・矛盾・読めない値の検出、推定の印（D-82 と同じ考え方）、候補・同意・メモ・取り込み保留
+// 取り込み: 不足・矛盾・読めない値の検出、推定の印（入力の画面の推定の印と同じ考え方）、候補・同意・メモ・取り込み保留
 import { describe, expect, it } from "vitest";
 import { approveAll, importAnswers, type Answer, type FilledSheet } from "../src/index.ts";
 import { formatValue } from "../src/values.ts";

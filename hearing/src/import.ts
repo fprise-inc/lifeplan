@@ -2,7 +2,7 @@
 // - 読んだ値は、シート定義の変換表（項目キー → 入力項目ID）で世帯データの欄に写し、出どころ「ヒアリング」の値の箱にする（0008 の2）
 // - 物ごとに候補（0008 の5。op: add）にする。FP が承認するまで現状に効かない。request は「すべての候補を承認したとき」の世帯
 // - 不足（計算に要る欄が空）・矛盾・読めない値を知らせ、面談のチェックリストに載せる（「わからない」も載せる。0018 の6）
-// - 空欄・「わからない」を目安で補った欄には、入力の画面の「推定あり」（D-82）と同じ印を付ける:
+// - 空欄・「わからない」を目安で補った欄には、入力の画面の「推定あり」（0008 の 2026-10-11 の追記の2）と同じ印を付ける:
 //   値の箱を持つ欄は state: estimated（わからないは unknown＋substitute）、値の箱を持たない欄は assumed（欄のキー → 理由）
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
