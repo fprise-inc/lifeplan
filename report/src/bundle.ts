@@ -2,6 +2,7 @@
 // 結果は本体の quickjs-ng で計算したもの（0005 の2。画面側の先出しの結果は渡さない）。形は表示の形（preview: 見出し・表・要約）でよい。
 import type { EngineRequest } from "../../engine/src/engine/types.ts";
 import type { ChapterId } from "./chapters.ts";
+import type { ReportLayout } from "./input.ts";
 
 export type { EngineRequest };
 
@@ -81,4 +82,6 @@ export interface ProposalBundle {
   comparison?: { base: number; plans: { letter: string; name: string; run: Run }[] };
   /** 載せる章（省略はすべて。chapters.ts） */
   chapters?: ChapterId[];
+  /** 帳票の組み方（紙の向き・キャッシュフロー表の載せ方。省略は標準） */
+  layout?: ReportLayout;
 }

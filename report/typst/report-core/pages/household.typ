@@ -33,8 +33,7 @@
     figure-card("提案と現状の差", man-diff(s.diffAtTarget), sub: s.target.label + "時点"),
     figure-card("金融資産が不足する年（提案）", if s.proposal.depletion == none { "不足しない" } else { s.proposal.depletion.label }, sub: "現状 " + if s.current.depletion == none { "不足しない" } else { s.current.depletion.label }),
   )
-  section("表の期間の合計")
-  data-table(
+  let totals = data-table(
     columns: (1fr, 1fr, 1fr),
     header: ("", "現状", "提案"),
     (
@@ -44,15 +43,29 @@
       ("年間収支の合計", s.current.totals.net, s.proposal.totals.net),
     ).map(((l, c, p)) => (l, man-unit(c), man-unit(p))).flatten(),
   )
-  note("表の期間（計算基準月から" + str(data.basis.years.last()) + "年まで）の合計。万円未満は四捨五入しています。")
-  section("金融資産の推移")
+  let totals-note = note("表の期間（計算基準月から" + str(data.basis.years.last()) + "年まで）の合計。万円未満は四捨五入しています。")
   let marks = ()
   if s.current.depletion != none { marks.push((year: s.current.depletion.year, label: "現状 不足")) }
   if s.proposal.depletion != none { marks.push((year: s.proposal.depletion.year, label: "提案 不足")) }
-  line-chart(data.basis.years, (
+  let chart(h) = line-chart(data.basis.years, (
     (label: "提案", values: data.assets.proposal, stroke: 1.6pt + accent),
     (label: "現状", values: data.assets.current, stroke: (paint: muted, thickness: 1.2pt, dash: "dashed")),
-  ), height: 170pt, marks: marks)
+  ), height: h, marks: marks)
+  if is-land(data) {
+    // 横の紙: 合計の表とグラフを左右に並べる
+    grid(
+      columns: (1fr, 1.6fr),
+      column-gutter: 12pt,
+      { section("表の期間の合計"); totals; totals-note },
+      { section("金融資産の推移"); chart(150pt) },
+    )
+  } else {
+    section("表の期間の合計")
+    totals
+    totals-note
+    section("金融資産の推移")
+    chart(170pt)
+  }
 }
 
 #let basics(data) = {

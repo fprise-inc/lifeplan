@@ -44,20 +44,28 @@ export async function runWireCheck(host: string): Promise<void> {
     const t0 = performance.now();
     (await waitFor<HTMLButtonElement>("[data-report-build]")).click();
     await waitFor("[data-report-ready]", 120000);
-    const canvas = await waitFor<HTMLCanvasElement>("[data-report-canvas]", 20000, (c) => c.dataset.drawn !== undefined);
+    const sheet = await waitFor<HTMLElement>("[data-report-svg]", 20000, (c) => c.dataset.drawn !== undefined && c.querySelector("svg") !== null);
+    const svg = sheet.querySelector("svg");
     report.report = {
       clickToPreviewMs: Math.round(performance.now() - t0),
       timings: (globalThis as { __financiaReport?: unknown }).__financiaReport,
       page: document.querySelector("[data-report-page]")?.textContent?.trim(),
-      canvas: [canvas.width, canvas.height],
+      svg: [svg?.getAttribute("width"), svg?.getAttribute("height")],
+      zoom: document.querySelector("[data-report-zoom]")?.textContent?.trim(),
       busyShown: true,
       summary: document.querySelector("[data-report-ready]")?.textContent?.trim(),
     };
     await stage("report-preview", report);
     // 最後のページ（案の比較）
+    // 縮小一覧と先読みが終わるのを待ってから、ページを切り替えた時間を測る
+    await sleep(3000);
     const thumbs = document.querySelectorAll<HTMLButtonElement>(".rp-thumbs button");
+    for (const i of [1, 2, thumbs.length - 1, 0]) {
+      thumbs[i]?.click();
+      await waitFor<HTMLElement>("[data-report-svg]", 20000, (c) => c.querySelector("svg")?.getAttribute("aria-label") === `見本 ${i + 1}ページ目`);
+    }
+    report.reportView = (globalThis as { __financiaReportView?: unknown }).__financiaReportView;
     thumbs[thumbs.length - 1]?.click();
-    await waitFor<HTMLCanvasElement>("[data-report-canvas]", 20000, (c) => c.dataset.drawn !== undefined);
     await sleep(400);
     await stage("report-last-page", report);
     // 章を減らした10ページ前後の提案書でも測る（作り直し）
@@ -67,7 +75,7 @@ export async function runWireCheck(host: string): Promise<void> {
     (await waitFor<HTMLButtonElement>("[data-report-build]")).click();
     await waitFor("[data-report-busy]", 5000).catch(() => null);
     await waitFor<HTMLElement>("[data-report-ready]", 120000, () => document.querySelector("[data-report-busy]") === null);
-    await waitFor<HTMLCanvasElement>("[data-report-canvas]", 20000, (c) => c.dataset.drawn !== undefined && c.dataset.drawn !== "1");
+    await waitFor<HTMLElement>("[data-report-svg]", 20000, (c) => c.dataset.drawn !== undefined && c.dataset.drawn !== "1" && c.querySelector("svg") !== null);
     report.reportShort = { clickToPreviewMs: Math.round(performance.now() - t1), timings: (globalThis as { __financiaReport?: unknown }).__financiaReport, summary: document.querySelector("[data-report-ready]")?.textContent?.trim() };
     await stage("report-short", report);
     (await waitFor<HTMLButtonElement>("[data-report-save]", 5000, (b) => !b.disabled)).click();

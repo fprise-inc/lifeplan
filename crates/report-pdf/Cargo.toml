@@ -13,6 +13,9 @@ typst-layout = "=0.15.1"
 typst-pdf = "=0.15.1"
 # 画面の中の見本（PDF と同じ組版の結果をページごとに画像にする）。画面は PDF を直接表示できない（CSP の object-src・frame-src が none）
 typst-render = "=0.15.1"
+# 画面の中の見本の本体（ページを SVG にする。軽く、拡大してもぼやけない。文字は輪郭の図形になり、文字列としては入らない）。
+# PNG（typst-render）はページの縮小一覧に使う
+typst-svg = "=0.15.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"

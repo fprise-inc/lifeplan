@@ -2,15 +2,16 @@
 // - 計算は本体の正の計算（host.compute）。画面側の先出しの結果は PDF に使わない（0005 の2）
 // - PDF は本体が作り、本体の中に置く。画面は見本の画像（ページごとの PNG）だけを受け取る（CSP の object-src・frame-src が none）
 // - 保存は本体の平文の書き出しの出口（OS の保存のダイアログ）。最初の保存の前に、平文の注意を出す（0020 の5）
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { CHAPTERS, hasMaterial, type ChapterId, type ProposalInput } from "../../../../report/src/index.ts";
+import { useEffect, useMemo, useState } from "preact/hooks";
+import { CHAPTERS, hasMaterial, type CashflowLayout, type ChapterId, type Orientation, type ProposalInput } from "../../../../report/src/index.ts";
 import type { HostApi, RenderInfo, SaveOutcome } from "../../engine/host.ts";
 import { isEngineError, type PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { CURRENT } from "../plans/band.ts";
 import type { Catalog } from "../plans/items.ts";
 import type { Values } from "../plans/plans.ts";
-import { DEFAULT_CHAPTERS, planReport, reportInput, today, type ReportChoice } from "./assemble.ts";
+import { DEFAULT_CHAPTERS, DEFAULT_LAYOUT, planReport, reportInput, today, type ReportChoice } from "./assemble.ts";
+import { ReportViewer } from "./ReportViewer.tsx";
 
 interface Props {
   host: HostApi;
@@ -50,41 +51,19 @@ let warnedThisSession = false;
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}秒`;
 
-/** 見本の1ページ（本体が作った PNG をキャンバスに描く。img の data:・blob: は CSP で使わない） */
-function PagePreview({ host, index, version, size }: { host: HostApi; index: number; version: number; size: [number, number] | undefined }) {
-  const ref = useRef<HTMLCanvasElement | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    setErr(null);
-    const scale = Math.min(3, 1.4 * (globalThis.devicePixelRatio || 1));
-    void (async () => {
-      try {
-        const blob = await host.report.page(index, scale);
-        const bmp = await createImageBitmap(blob);
-        const c = ref.current;
-        if (!live || c === null) return;
-        c.width = bmp.width;
-        c.height = bmp.height;
-        c.getContext("2d")?.drawImage(bmp, 0, 0);
-        c.dataset.drawn = String(version);
-        bmp.close();
-      } catch (e) {
-        if (live) setErr(typeof e === "string" ? e : "E_REPORT_PAGE");
-      }
-    })();
-    return () => {
-      live = false;
-    };
-  }, [host, index, version]);
-  const landscape = size !== undefined && size[0] > size[1];
-  return (
-    <div class={`rp-page${landscape ? " land" : ""}`}>
-      {err !== null ? <p class="fatal">見本を表示できませんでした（{err}）</p> : null}
-      <canvas ref={ref} aria-label={`見本 ${index + 1}ページ目`} data-report-canvas />
-    </div>
-  );
-}
+/** 紙の向きの選択肢（1冊の中の向き） */
+const ORIENTATIONS: { id: Orientation; label: string; note: string }[] = [
+  { id: "portrait", label: "縦にそろえる", note: "印刷して綴じる・両面印刷に向きます" },
+  { id: "landscape", label: "横にそろえる", note: "画面で見せる（オンライン面談）に向きます" },
+  { id: "mixed", label: "年ごとの表だけ横", note: "以前の形。キャッシュフロー表の章だけ A4 横" },
+];
+
+/** キャッシュフロー表の載せ方の選択肢 */
+const CASHFLOWS: { id: CashflowLayout; label: string; note: string }[] = [
+  { id: "summary", label: "要約（主な行・全年）", note: "収入合計・支出合計・年間収支・金融資産残高を、現状と提案で並べます" },
+  { id: "excerpt", label: "抜粋（全部の行・5年ごと）", note: "最初と最後の年・5年ごと・主なできごとの年だけ" },
+  { id: "full", label: "全年（全部の行）", note: "内訳まですべて。ページが増えます" },
+];
 
 export function ReportTab(p: Props) {
   const slots = [CURRENT, ...p.band];
@@ -94,10 +73,11 @@ export function ReportTab(p: Props) {
   const [chapters, setChapters] = useState<Set<ChapterId>>(new Set(DEFAULT_CHAPTERS));
   const [addressee, setAddressee] = useState("");
   const [preparedBy, setPreparedBy] = useState("");
+  const [orientation, setOrientation] = useState<Orientation>(DEFAULT_LAYOUT.orientation);
+  const [cashflow, setCashflow] = useState<CashflowLayout>(DEFAULT_LAYOUT.cashflow);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [info, setInfo] = useState<RenderInfo | null>(null);
-  const [built, setBuilt] = useState<{ key: string; input: ProposalInput; timings: ReportTimings } | null>(null);
-  const [page, setPage] = useState(0);
+  const [built, setBuilt] = useState<{ key: string; input: ProposalInput; timings: ReportTimings; firstSvg: string | null } | null>(null);
   const [version, setVersion] = useState(0);
   const [warn, setWarn] = useState(false);
   const [saved, setSaved] = useState<SaveOutcome | null>(null);
@@ -112,8 +92,8 @@ export function ReportTab(p: Props) {
   useEffect(() => () => void p.host.report.discard().catch(() => undefined), [p.host]);
 
   const choice: ReportChoice = useMemo(
-    () => ({ proposal, compare: slots.filter((id) => compare.includes(id) || id === proposal), base: p.base, chapters: CHAPTERS.filter((c) => c.fixed || chapters.has(c.id)).map((c) => c.id), targetAge: p.targetAge, issuedOn: today(), preparedBy }),
-    [proposal, compare.join(","), p.base, [...chapters].join(","), p.targetAge, preparedBy, slots.join(",")],
+    () => ({ proposal, compare: slots.filter((id) => compare.includes(id) || id === proposal), base: p.base, chapters: CHAPTERS.filter((c) => c.fixed || chapters.has(c.id)).map((c) => c.id), targetAge: p.targetAge, issuedOn: today(), preparedBy, layout: { orientation, cashflow } }),
+    [proposal, compare.join(","), p.base, [...chapters].join(","), p.targetAge, preparedBy, slots.join(","), orientation, cashflow],
   );
   // 何を変えたら作り直しが要るか（宛名も PDF に入るので含める。帳票の入力そのものは保存しない）
   const key = JSON.stringify({ choice, addressee: addressee.trim(), wh: p.wh.request, values: slots.map((id) => p.valuesOf(id)) });
@@ -142,12 +122,11 @@ export function ReportTab(p: Props) {
       const t2 = performance.now();
       const ri = await p.host.report.render(JSON.stringify(input), addressee.trim() === "" ? null : addressee.trim());
       const t3 = performance.now();
-      // 見本の1ページ目を待つ（ここまでを「できるまでの時間」とする）
-      await p.host.report.page(0, 0.5);
+      // 見本の1ページ目を待つ（ここまでを「できるまでの時間」とする。読んだものは見本の画面がそのまま使う）
+      const firstSvg = await p.host.report.pageSvg(0).catch(() => null);
       const timings: ReportTimings = { computeMs: t1 - t0, buildMs: t2 - t1, renderHostMs: ri.ms, renderMs: t3 - t2, totalMs: performance.now() - t0, pages: ri.pages, bytes: ri.bytes, slots: names.length };
       setInfo(ri);
-      setBuilt({ key, input, timings });
-      setPage(0);
+      setBuilt({ key, input, timings, firstSvg });
       setVersion((v) => v + 1);
       setStatus({ kind: "ready" });
       if (import.meta.env.DEV) (globalThis as { __financiaReport?: unknown }).__financiaReport = { timings, chapters: input.chapters, comparison: input.comparison?.columns ?? null };
@@ -188,8 +167,8 @@ export function ReportTab(p: Props) {
           <span class="aside">β版・試算の印が入ります</span>
         </div>
         <div class="rp-actions">
-          <button type="button" class="btn primary" disabled={busy || proposal === CURRENT} onClick={() => void build()} data-report-build>
-            {built === null ? "見本を作る" : "作り直す"}
+          <button type="button" class="btn primary" disabled={busy || proposal === CURRENT || (built !== null && !stale && status.kind === "ready")} onClick={() => void build()} data-report-build>
+            {built === null ? "見本を作る" : stale || status.kind !== "ready" ? "作り直す" : "見本は最新です"}
           </button>
           <button type="button" class="btn" disabled={busy || built === null || stale || status.kind !== "ready"} onClick={save} data-report-save>
             PDFを保存
@@ -257,6 +236,29 @@ export function ReportTab(p: Props) {
           </div>
         </fieldset>
         <fieldset class="rp-set">
+          <legend>紙の向きとキャッシュフロー表</legend>
+          <div class="rp-checks" role="radiogroup" aria-label="紙の向き">
+            <span class="rp-sub">紙の向き（1冊の中）</span>
+            {ORIENTATIONS.map((o) => (
+              <label key={o.id} class="rp-check">
+                <input type="radio" name="rp-orientation" checked={orientation === o.id} onChange={() => setOrientation(o.id)} data-report-orientation={o.id} />
+                {o.label}
+                <small>（{o.note}）</small>
+              </label>
+            ))}
+          </div>
+          <div class="rp-checks" role="radiogroup" aria-label="キャッシュフロー表の載せ方">
+            <span class="rp-sub">キャッシュフロー表の載せ方</span>
+            {CASHFLOWS.map((c) => (
+              <label key={c.id} class="rp-check">
+                <input type="radio" name="rp-cashflow" checked={cashflow === c.id} onChange={() => setCashflow(c.id)} data-report-cashflow={c.id} />
+                {c.label}
+                <small>（{c.note}）</small>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset class="rp-set">
           <legend>宛名と担当</legend>
           <label class="rp-row">
             <span>宛名</span>
@@ -296,29 +298,7 @@ export function ReportTab(p: Props) {
             <p>{busy ? status.step : "「見本を作る」を押すと、ここに PDF の見本が出ます。"}</p>
           </div>
         ) : (
-          <>
-            <div class="rp-nav">
-              <button type="button" class="btn" disabled={page === 0} onClick={() => setPage(page - 1)}>
-                ← 前のページ
-              </button>
-              <span data-report-page>
-                {page + 1} / {info.pages}ページ
-              </span>
-              <button type="button" class="btn" disabled={page >= info.pages - 1} onClick={() => setPage(page + 1)}>
-                次のページ →
-              </button>
-            </div>
-            <div class={`rp-sheet${stale ? " stale" : ""}`}>
-              <PagePreview host={p.host} index={page} version={version} size={info.sizes[page]} />
-            </div>
-            <div class="rp-thumbs" role="group" aria-label="ページ">
-              {info.sizes.map((_, i) => (
-                <button type="button" key={i} class={i === page ? "on" : ""} aria-current={i === page ? "page" : undefined} onClick={() => setPage(i)}>
-                  {i + 1}
-                </button>
-              ))}
-            </div>
-          </>
+          <ReportViewer host={p.host} info={info} version={version} stale={stale} firstSvg={built.firstSvg} />
         )}
       </section>
     </div>

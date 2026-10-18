@@ -59,8 +59,10 @@ export interface SaveOutcome {
 export interface ReportHost {
   /** 帳票の入力（JSON）から PDF を作る。宛名は出力の PDF に重ねるだけ（保存しない） */
   render(inputJson: string, addressee: string | null): Promise<RenderInfo>;
-  /** 見本の1ページ（0 から）の PNG */
+  /** 見本の1ページ（0 から）の PNG（ページの縮小一覧。scale は 1pt あたりの画素） */
   page(index: number, scale: number): Promise<Blob>;
+  /** 見本の1ページ（0 から）の SVG の文字列（本体の見本。拡大してもぼやけない） */
+  pageSvg(index: number): Promise<string>;
   save(): Promise<SaveOutcome>;
   /** 作った PDF を本体から捨てる（画面を離れたとき） */
   discard(): Promise<void>;
@@ -101,6 +103,7 @@ export function tauriHost(): HostApi {
     report: {
       render: (input, addressee) => invoke<RenderInfo>("proposal_render", { input, addressee }),
       page: async (page, scale) => new Blob([bytesOf(await invoke<ArrayBuffer>("proposal_page", { page, scale })) as Uint8Array<ArrayBuffer>], { type: "image/png" }),
+      pageSvg: async (page) => new TextDecoder().decode(bytesOf(await invoke<ArrayBuffer>("proposal_page", { page, scale: 1, format: "svg" }))),
       save: () => invoke<SaveOutcome>("proposal_save"),
       discard: () => invoke<void>("proposal_discard"),
     },
@@ -154,6 +157,11 @@ export function devBrowserHost(engine: WebEngine): HostApi {
         const res = await fetch(`/__dev/report/page/${page + 1}`);
         if (!res.ok) throw `E_DEV_${res.status}`;
         return res.blob();
+      },
+      pageSvg: async (page) => {
+        const res = await fetch(`/__dev/report/svg/${page + 1}`);
+        if (!res.ok) throw `E_DEV_${res.status}`;
+        return res.text();
       },
       save: async () => devJson<SaveOutcome>(await fetch("/__dev/report/save", { method: "POST" })),
       discard: async () => void (await fetch("/__dev/report/discard", { method: "POST" })),

@@ -20,18 +20,29 @@
 .rp-status { margin: 0; font-weight: 700; color: var(--prop-ink); }
 .rp-warn { border: 2px solid var(--est); background: var(--est-bg); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; }
 .rp-warn p { margin: 0; }
-.rp-view { min-height: 480px; display: grid; gap: 10px; justify-items: center; }
-.rp-blank { display: grid; place-items: center; min-height: 420px; color: var(--ink-2); }
-.rp-nav { display: flex; gap: 12px; align-items: center; }
-.rp-nav .btn { padding: 4px 12px; }
-.rp-sheet { width: 100%; display: grid; justify-items: center; background: #e9e7e1; border-radius: 8px; padding: 14px; }
+/* 見本: 操作（ページ送り・拡大と縮小）はいつも上に出し、見本だけがスクロールする。窓の高さに収める */
+.rp-view { position: sticky; top: 8px; height: calc(100vh - 90px); min-height: 420px; display: flex; flex-direction: column; padding: 10px; overflow: hidden; }
+.rp-blank { display: grid; place-items: center; flex: 1; color: var(--ink-2); }
+.rp-viewer { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+.rp-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.rp-nav, .rp-zoom { display: flex; gap: 6px; align-items: center; }
+.rp-nav .btn, .rp-zoom .btn { padding: 4px 10px; }
+.rp-zoom .btn.on { border-color: var(--prop); background: var(--prop-bg); font-weight: 700; }
+.rp-pct { min-width: 3.4em; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
+.rp-pageno { display: flex; gap: 4px; align-items: center; font-variant-numeric: tabular-nums; }
+.rp-pageno input { width: 3.6em; border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 4px; font: inherit; text-align: right; }
+.rp-body { display: grid; grid-template-columns: 108px 1fr; gap: 8px; flex: 1; min-height: 0; }
+.rp-thumbs { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; padding: 4px; background: #f3f2ee; border-radius: 8px; }
+.rp-thumbs button { display: grid; justify-items: center; gap: 2px; border: 2px solid transparent; background: none; border-radius: 6px; padding: 3px; cursor: pointer; font-size: 0.78rem; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.rp-thumbs button.on { border-color: var(--prop); background: var(--prop-bg); font-weight: 700; color: var(--ink); }
+.rp-thumb { display: block; width: 64px; aspect-ratio: 210 / 297; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
+.rp-thumb.land { width: 88px; aspect-ratio: 297 / 210; }
+.rp-thumb.wait { background: #e4e2dc; }
+.rp-sheet { position: relative; display: flex; overflow: auto; background: #e9e7e1; border-radius: 8px; padding: 12px; min-height: 0; outline-offset: -2px; }
 .rp-sheet.stale { opacity: 0.55; }
-.rp-page { width: min(100%, 640px); background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); }
-.rp-page.land { width: min(100%, 900px); }
-.rp-page canvas { display: block; width: 100%; height: auto; }
-.rp-thumbs { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
-.rp-thumbs button { min-width: 2.2em; border: 1.5px solid var(--line); background: #fff; border-radius: 6px; padding: 2px 6px; cursor: pointer; font-variant-numeric: tabular-nums; }
-.rp-thumbs button.on { border-color: var(--prop); background: var(--prop-bg); font-weight: 700; }
+.rp-page { margin: auto; flex: none; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); line-height: 0; }
+.rp-page svg { display: block; }
+.rp-loading { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--ink-2); pointer-events: none; }
 .rp-empty { max-width: 640px; }
 @media (max-width: 1100px) {
   .rp { grid-template-columns: 1fr; }
