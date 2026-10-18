@@ -279,6 +279,8 @@ export interface PresentInput {
   fee?: FeeInput;
   /** 線の呼び方（主画面: 選んだ案「B案」・基準の案「A案」）。省略は「提案」と「現状」 */
   names?: SeriesNames;
+  /** 基準の案の要求（基準の案の年のイベントに使う）。省略は base */
+  baseProposal?: EngineRequest;
 }
 
 export function toPresentation(input: PresentInput): PresentationModel {
@@ -330,8 +332,8 @@ export function toPresentation(input: PresentInput): PresentationModel {
 
   const evs = eventsOf(proposal, proposed.table, years);
   const table = cashflowTable(proposal, proposed.table, years, custom ? "生涯キャッシュフロー表" : "生涯キャッシュフロー表（提案）", evs);
-  const baseFlows = flowChart(base, current.table, years, "");
-  const baseBalance = balanceChart(current.table, years, chart.ages, "");
+  const baseFlows = flowChart(input.baseProposal ?? base, current.table, years, custom ? `収支の推移（${names.base}）` : "収支の推移（現状）");
+  const baseBalance = balanceChart(current.table, years, chart.ages, custom ? `資産と負債の推移（${names.base}）` : "資産と負債の推移（現状）");
 
 
   const { y: by, m: bm } = parseYm(base.input.baseMonth);
@@ -346,6 +348,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
     flows: flowChart(proposal, proposed.table, years, "収支の推移（提案）"),
     balance: balanceChart(proposed.table, years, chart.ages, "資産と負債の推移（提案）"),
     baseLines: { net: baseFlows.net, netWorth: baseBalance.netWorth },
+    baseCharts: { flows: baseFlows, balance: baseBalance, events: eventsOf(input.baseProposal ?? base, current.table, years) },
     who: self?.label ?? "",
     selectedYear,
     yearDetail,
