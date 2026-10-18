@@ -15,6 +15,7 @@
   --prop-area: rgba(43, 76, 140, 0.12);
   --base: #8c96a3;
   --base-ink: #4a5361;
+  --base-bg: #f1f2f4; /* 基準の案の背景（薄い灰） */
   --short: #c62828;
   --short-ink: #a61b1b;
   --short-bg: #fdecea;
@@ -107,7 +108,7 @@ b { font-weight: 700; }
 .hero-diff .d.neg { color: var(--short-ink); }
 .hero-diff .was { display: block; font-weight: 400; color: var(--ink-2); font-size: 0.88rem; }
 /* 確定前（画面側の先出し）の控えめな印 */
-.provisional { font-size: 0.72rem; font-weight: 700; color: var(--base-ink); border: 1.5px dashed var(--base-ink); border-radius: 4px; padding: 0 6px; }
+.provisional { font-size: 0.72rem; font-weight: 700; color: var(--base-ink); border: 1.5px solid var(--line); background: var(--base-bg); border-radius: 4px; padding: 0 6px; }
 
 /* 結論の一文 */
 .verdict { border-radius: 10px; padding: 12px 14px; font-size: 1.12rem; line-height: 1.5; border: 2px solid var(--prop); background: var(--prop-bg); }
@@ -139,6 +140,7 @@ html.big .chart .axis-label.sub { font-size: 13px; }
 .chart .hatch-line { stroke: none; }
 .chart .line-prop { fill: none; stroke: var(--prop); stroke-width: var(--lw-prop); stroke-linejoin: round; }
 .chart .line-base { fill: none; stroke: var(--base); stroke-width: var(--lw-base); stroke-dasharray: 9 6; stroke-linejoin: round; }
+/* 万一の想定の画面のグラフの選んだ年（主画面のグラフは線の上の○。下の「年の印」） */
 .chart .selband { fill: var(--sel-bg); stroke: var(--sel); stroke-width: 2.5; pointer-events: none; }
 html.big .chart .selband { stroke-width: 4; }
 .chart .hit { fill: transparent; cursor: pointer; }
@@ -199,9 +201,9 @@ html.big .lever input[type="range"] { height: 36px; }
 .ticks { display: flex; justify-content: space-between; margin: 0 2px; }
 .tick { background: none; border: 0; padding: 2px 4px; font-size: 0.85rem; color: var(--ink-2); cursor: pointer; border-radius: 4px; min-width: 30px; font-variant-numeric: tabular-nums; }
 .tick.is-on { background: var(--prop); color: #fff; font-weight: 700; }
-.tick.is-base { text-decoration: underline dashed 2px; text-underline-offset: 3px; }
+.tick.is-base { text-decoration: underline solid 2px var(--base); text-underline-offset: 3px; }
 .lever-note { font-size: 0.85rem; color: var(--ink-2); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: space-between; }
-.base-tag { border: 1.5px dashed var(--base-ink); border-radius: 4px; padding: 0 6px; color: var(--base-ink); font-weight: 700; white-space: nowrap; }
+.base-tag { border: 1px solid var(--line); background: var(--base-bg); border-radius: 4px; padding: 0 6px; color: var(--base-ink); font-weight: 700; white-space: nowrap; }
 .levers-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
 .reset-btn { border: 2px solid var(--ink-2); background: #fff; border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer; }
 
@@ -426,7 +428,7 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 
 /* FP顧問料の ON/OFF（主画面の対策と、結論の下の一文） */
-.fee-note { margin-top: 8px; display: flex; gap: 10px; align-items: baseline; font-size: 0.98rem; line-height: 1.5; padding: 8px 12px; border-radius: 8px; border: 1.5px dashed var(--line); background: #fff; }
+.fee-note { margin-top: 8px; display: flex; gap: 10px; align-items: baseline; font-size: 0.98rem; line-height: 1.5; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: #fff; }
 .fee-note.on { border: 1.5px solid var(--prop); background: #fff; }
 .fee-note b { color: var(--prop); }
 .fee-tag { flex: none; font-size: 0.78rem; font-weight: 700; border-radius: 4px; padding: 1px 7px; border: 1.5px solid var(--ink-2); color: var(--ink-2); white-space: nowrap; }
@@ -512,8 +514,9 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .pb-list li.review { background: var(--est-bg); border-left: 4px solid var(--est); padding: 4px 8px; border-radius: 4px; }
 .pb-l { font-weight: 700; }
 .pb-v b { color: var(--prop); }
-.pb-tag, .pl-tag { font-size: 0.75rem; border: 1.5px dashed var(--ink-2); border-radius: 4px; padding: 0 6px; color: var(--ink-2); }
-.pl-tag { border-style: solid; margin-left: 6px; }
+.pb-tag, .pl-tag { font-size: 0.75rem; border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; color: var(--ink-2); }
+.pb-tag { background: var(--base-bg); }
+.pl-tag { border-color: var(--ink-2); margin-left: 6px; }
 .pb-note { flex-basis: 100%; font-size: 0.86rem; color: var(--est-ink); display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .link-btn { background: none; border: 0; padding: 0; color: var(--prop); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .link-btn.danger { color: var(--short-ink); }
@@ -524,7 +527,7 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .added-val { margin-top: 2px; font-size: 1.1rem; }
 .lever.added input[type="range"] { width: 100%; margin: 6px 0 2px; accent-color: var(--prop); height: 28px; cursor: pointer; }
 .range-scale { display: flex; justify-content: space-between; gap: 6px; font-size: 0.8rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.base-mark { border: 1.5px dashed var(--base-ink); border-radius: 4px; padding: 0 5px; color: var(--base-ink); font-weight: 700; }
+.base-mark { border: 1px solid var(--line); background: var(--base-bg); border-radius: 4px; padding: 0 5px; color: var(--base-ink); font-weight: 700; }
 .lever.added .fld { margin-top: 4px; }
 .lever.added .fld-l { display: none; }
 .mix { display: grid; gap: 2px; margin-top: 4px; }
@@ -535,7 +538,7 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .mix-row input[type="range"] { margin: 0 !important; }
 .shift-from { display: flex; gap: 8px; align-items: center; font-size: 0.88rem; margin-top: 4px; }
 .shift-from select { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 6px; background: #fff; }
-.add-item-btn { width: 100%; margin-top: 10px; border: 2px dashed var(--prop); background: #fff; color: var(--prop); border-radius: 8px; padding: 8px 10px; font-weight: 700; cursor: pointer; }
+.add-item-btn { width: 100%; margin-top: 10px; border: 1.5px solid var(--line); background: #fff; color: var(--prop); border-radius: 8px; padding: 8px 10px; font-weight: 700; cursor: pointer; }
 .add-item-btn:hover { background: var(--prop-bg); }
 .item-menu { margin-top: 10px; border: 2px solid var(--prop); border-radius: 10px; padding: 8px 10px; background: #fff; }
 .item-menu-h { display: flex; justify-content: space-between; align-items: center; }
@@ -544,7 +547,7 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .item-menu-list h4 { margin: 6px 0 2px; font-size: 0.82rem; color: var(--ink-2); }
 .item-menu-list button { display: block; width: 100%; text-align: left; border: 1.5px solid var(--line); background: #fff; border-radius: 6px; padding: 4px 8px; margin: 2px 0; cursor: pointer; font-size: 0.88rem; }
 .item-menu-list button:hover { border-color: var(--prop); background: var(--prop-bg); }
-.item-menu-list button:disabled { color: var(--ink-2); border-style: dashed; cursor: default; background: #fff; }
+.item-menu-list button:disabled { color: var(--ink-2); border-color: var(--line-2); cursor: default; background: var(--base-bg); }
 
 /* グラフの切り替え・積み上げの棒 */
 .stack-legend { gap: 6px 14px; font-size: 0.86rem; }
@@ -614,7 +617,7 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .band-head { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding-right: 4px; }
 .band-t { font-weight: 700; font-size: 1.05rem; }
 .band-head label { font-size: 0.82rem; font-weight: 700; display: grid; gap: 2px; color: var(--ink-2); }
-.band-head select { border: 2px dashed var(--base-ink); border-radius: 7px; padding: 2px 6px; font-weight: 700; color: var(--ink); background: #fff; max-width: 10em; }
+.band-head select { border: 1.5px solid var(--line); border-radius: 7px; padding: 2px 6px; font-weight: 700; color: var(--ink); background: #fff; max-width: 10em; }
 .band-links { display: grid; gap: 0; justify-items: start; line-height: 1.35; }
 .band-links .link-btn { font-size: 0.8rem; }
 .band-cards { flex: 1; min-width: 0; display: flex; gap: 10px; }
@@ -626,7 +629,7 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .p-letter.sm { width: 1.5em; height: 1.5em; font-size: 0.8rem; margin-right: 6px; }
 .p-name { font-weight: 700; font-size: 0.88rem; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-width: 0; flex: 1; }
 .p-tag { flex: none; font-size: 0.72rem; font-weight: 700; border-radius: 4px; padding: 0 5px; line-height: 1.5; }
-.p-tag.base { border: 1.5px dashed var(--base-ink); color: var(--base-ink); background: #fff; }
+.p-tag.base { border: 1px solid var(--line); color: var(--base-ink); background: #fff; }
 .p-tag.show { background: var(--prop); color: #fff; border: 1.5px solid var(--prop); }
 .p-nums { display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; }
 .p-amt { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 0 6px; min-width: 0; }
@@ -646,11 +649,15 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .plan.is-sel { border: 2.5px solid var(--prop); background: #f6f8fc; box-shadow: 0 0 0 1px var(--prop); }
 .plan.is-sel .p-letter { background: var(--prop); border-color: var(--prop); color: #fff; }
 .plan.is-sel .p-line { height: 5px; background: var(--prop); }
-/* 基準の案: 灰の点線の枠（グラフの点線と同じ約束） */
-.plan.is-base { border: 2px dashed var(--base-ink); background: #fbfbfc; }
-.plan.is-base .p-letter { border-style: dashed; }
-.plan.is-base .p-line { height: 0; border-top: 4px dashed var(--base); }
-.plan-add { all: unset; box-sizing: border-box; flex: none; width: 158px; cursor: pointer; border: 2px dashed var(--field); border-radius: 10px; display: grid; place-content: center; text-align: center; gap: 2px; padding: 6px 10px; color: var(--prop-ink); font-weight: 700; font-size: 0.92rem; background: #fff; }
+/* 基準の案: 薄いグレーの実線の枠と灰の背景＋「基準」の札（色だけに頼らない。点線の枠は崩れて見えるので使わない） */
+.plan.is-base { border: 1.5px solid var(--line); background: var(--base-bg); }
+.plan.is-base .p-letter { border-color: var(--line); background: #fff; color: var(--base-ink); }
+.plan.is-base .p-line { height: 4px; background: var(--line); }
+/* 基準の案を表示しているとき: 藍の太い枠（表示中）を優先し、背景は灰のまま */
+.plan.is-sel.is-base { border: 2.5px solid var(--prop); }
+.plan.is-sel.is-base .p-letter { background: var(--prop); border-color: var(--prop); color: #fff; }
+.plan.is-sel.is-base .p-line { height: 5px; background: var(--prop); }
+.plan-add { all: unset; box-sizing: border-box; flex: none; width: 158px; cursor: pointer; border: 1.5px solid var(--line); border-radius: 10px; display: grid; place-content: center; text-align: center; gap: 2px; padding: 6px 10px; color: var(--prop-ink); font-weight: 700; font-size: 0.92rem; background: #fff; }
 .plan-add:hover { background: var(--prop-bg); }
 .plan-add:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
 .plan-add small { font-weight: 400; color: var(--ink-2); font-size: 0.78rem; }
@@ -695,7 +702,29 @@ html.big .band.many .plan-add { width: 140px; }
 .chart .axis-label { font-size: 0.8rem; }
 .chart .axis-label.sub { font-size: 0.74rem; }
 .chart .unit { font-size: 0.78rem; }
-.chart .sel-lbl { fill: var(--ink); font-weight: 700; font-size: 0.82rem; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: #fff; stroke-width: 4px; }
+/* 年の印: 細い縦の補助線（薄いグレー）と線の上の○（選んだ案＝藍の塗り、基準の案＝灰の白抜き。色だけに頼らず形・塗りで分ける） */
+.chart .hit-area { fill: transparent; cursor: crosshair; touch-action: manipulation; }
+.chart .hv-guide { stroke: var(--line); stroke-width: 1.5; pointer-events: none; }
+.chart .hv-guide.pinned { stroke: var(--base); stroke-width: 2; }
+.chart .hv-dots { pointer-events: none; }
+.chart .hv-dot.sel { fill: var(--prop); stroke: #fff; stroke-width: 2.5; }
+.chart .hv-dot.base { fill: #fff; stroke: var(--base-ink); stroke-width: 2.5; }
+html.big .chart .hv-dot { stroke-width: 3; }
+/* 年の小さな表示（○の近く。グラフの端で見切れないように置く） */
+.year-tip { position: absolute; z-index: 2; pointer-events: none; white-space: nowrap; background: rgba(255, 255, 255, 0.97); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(20, 30, 50, 0.12); padding: 5px 10px 6px; font-size: 0.82rem; line-height: 1.5; color: var(--ink); font-variant-numeric: tabular-nums; }
+.year-tip.pinned { border-color: var(--base-ink); }
+.year-tip .yt-h { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.year-tip .yt-pin { font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--base-ink); border-radius: 4px; padding: 0 5px; line-height: 1.5; }
+.year-tip .yt-v { display: flex; align-items: center; gap: 0 4px; }
+.year-tip .yt-lead { color: var(--ink-2); font-weight: 700; margin-right: 4px; }
+.year-tip .yt-s, .year-tip .yt-b { display: inline-flex; align-items: center; gap: 4px; }
+.year-tip .yt-s b { color: var(--prop-ink); }
+.year-tip .yt-b { color: var(--base-ink); }
+.year-tip b.neg { color: var(--short-ink); }
+.year-tip .yt-dot { display: inline-block; width: 0.7em; height: 0.7em; border-radius: 50%; box-sizing: border-box; }
+.year-tip .yt-dot.sel { background: var(--prop); }
+.year-tip .yt-dot.base { background: #fff; border: 2px solid var(--base-ink); }
+.year-tip .yt-x { color: var(--ink-2); font-size: 0.78rem; }
 .chart .net-sel { fill: none; stroke: var(--prop-ink); stroke-width: var(--lw-base); stroke-linejoin: round; }
 .chart .net-base { fill: none; stroke: var(--base-ink); stroke-width: 2.5; stroke-dasharray: 7 5; stroke-linejoin: round; }
 .chart .m-age { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 2 3; }
@@ -728,7 +757,7 @@ html.big .band.many .plan-add { width: 140px; }
 .ds-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 14px; margin-top: 8px; }
 .ds-item { display: flex; gap: 8px; align-items: flex-start; border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 10px; background: #fff; cursor: pointer; }
 .ds-item.on { border-color: var(--prop); background: var(--prop-bg); }
-.ds-item.off { cursor: not-allowed; color: var(--ink-2); border-style: dashed; }
+.ds-item.off { cursor: not-allowed; color: var(--ink-2); border-color: var(--line-2); background: var(--base-bg); }
 .ds-item input { width: 18px; height: 18px; accent-color: var(--prop); margin: 3px 0 0; flex: none; }
 .ds-l { display: grid; gap: 1px; font-weight: 700; font-size: 0.9rem; }
 .ds-l small { font-weight: 400; color: var(--ink-2); font-size: 0.78rem; }
@@ -744,7 +773,7 @@ html.big .band.many .plan-add { width: 140px; }
 .lv-who b { color: var(--prop-ink); }
 .lv-mod { font-size: 0.8rem; font-weight: 700; color: var(--prop-ink); border: 1.5px solid var(--prop); border-radius: 4px; padding: 0 6px; }
 .lv-gap { flex: 1; }
-.lv-lock { margin: 10px 0 0; padding: 10px 14px; border: 2px dashed var(--field); border-radius: 10px; color: var(--ink-2); font-weight: 700; }
+.lv-lock { margin: 10px 0 0; padding: 10px 14px; border: 1.5px solid var(--line); background: var(--base-bg); border-radius: 10px; color: var(--ink-2); font-weight: 700; }
 .save-form { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-top: 10px; padding: 10px 14px; border-radius: 10px; background: var(--prop-bg); }
 .save-form label { font-weight: 700; display: inline-flex; align-items: center; gap: 8px; flex: 1 1 360px; }
 .save-form input { flex: 1; min-width: 0; border: 2px solid var(--field); border-radius: 7px; padding: 4px 8px; background: #fff; }
@@ -796,3 +825,15 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cmp-table thead th.is-base { background: #f0f1f3; }
 .cmp-table thead th .p-tag { margin-left: 6px; }
 @media (prefers-reduced-motion: reduce) { .chart .ex-new { animation: none; } .plan { transition: none; } }
+/* 金額のスライダーの横の数値の欄（万円で直接入れる。1万円単位） */
+.amt-in { display: inline-flex; align-items: baseline; gap: 3px; font-weight: 700; white-space: nowrap; }
+.amt-in input { width: 4.2em; text-align: right; font: inherit; font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; border: 1.5px solid var(--field); border-radius: 6px; padding: 1px 6px; background: #fff; color: var(--ink); }
+.amt-in input:focus { outline: 2px solid var(--prop); outline-offset: 1px; }
+.amt-in input.bad { border-color: var(--short); background: var(--short-bg); }
+.amt-per, .amt-u { font-size: 0.85rem; color: var(--ink-2); }
+.lever.changed .amt-in input { color: var(--prop); border-color: var(--prop); }
+.amt-row { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+.range-scale .amt-step { color: var(--ink-2); }
+/* 対策に足した欄の中でも、点線の枠は使わない（推定の欄は灰の背景と「推定」の札で示す） */
+.lever.added .fld.is-est .fld-c input[type="text"] { border-style: solid; }
+.lever.added .badge.est { border-style: solid; }

@@ -29,11 +29,14 @@ export type ItemValue = number | string | boolean | MixPart[] | RateShift | null
 /** 差分の向き先（0008 の5）: 物・構成員・プランの前提 */
 export type DiffTarget = { object: string } | { member: string } | { plan: "assumptions" };
 
+/** 金額のスライダーの刻み（1万円。月額は月1万円、年額は年1万円） */
+export const AMOUNT_STEP = 10_000;
+
 export type Control =
-  /** 目盛りのあるスライダー（対策の固定の項目） */
+  /** 目盛りのあるスライダー（対策の固定の項目のうち、年齢） */
   | { kind: "steps"; steps: number[]; tick: (v: number) => string }
-  /** 円などの数のスライダー */
-  | { kind: "range"; min: number; max: number; step: number; ticks: number[]; tick: (v: number) => string }
+  /** 円などの数のスライダー（金額は1万円の刻み。per は月額・年額の別） */
+  | { kind: "range"; min: number; max: number; step: number; ticks: number[]; tick: (v: number) => string; per?: "月" | "年" | "" }
   /** 率のスライダー（10進の文字列） */
   | { kind: "rate"; min: string; max: string; step: string }
   | { kind: "toggle" }
@@ -41,8 +44,8 @@ export type Control =
   | { kind: "mix"; accountKind: string }
   /** 変動金利の上昇（幅と始まりの年） */
   | { kind: "shift"; years: number[] }
-  /** 入力の欄と同じ形の数値の欄 */
-  | { kind: "field"; field: FieldDef };
+  /** 入力の欄と同じ形の数値の欄（金額の欄は、1万円の刻みのスライダーも付ける） */
+  | { kind: "field"; field: FieldDef; slider?: { min: number; max: number; step: number; per: "月" | "年" | "" } };
 
 export interface MovableItem {
   /** 動かす項目のキー（差分の key。物の ID を含む） */
@@ -80,6 +83,20 @@ const jsonSame = (a: ItemValue, b: ItemValue) => JSON.stringify(a ?? null) === J
 const manText = (n: number) => `${group(Math.round(n / 10000))}万円`;
 const ymText = (ym: string) => `${Number(ym.slice(0, 4))}年${Number(ym.slice(5))}月`;
 const MAN = 10000;
+
+/** 金額のスライダーの範囲を1万円の倍数にそろえる（今の値と基準の値も必ず含む） */
+export function amountRange(min: number, max: number, ...include: (number | null | undefined)[]): { min: number; max: number } {
+  const xs = include.filter((x): x is number => typeof x === "number" && Number.isFinite(x));
+  const lo = Math.min(min, ...xs);
+  const hi = Math.max(max, ...xs);
+  return { min: Math.max(0, Math.floor(lo / AMOUNT_STEP) * AMOUNT_STEP), max: Math.ceil(hi / AMOUNT_STEP) * AMOUNT_STEP };
+}
+
+/** 金額の欄のスライダーの範囲: 0 から、今の値の2倍（少なくとも月額10万円・年額と一時金100万円）まで */
+export function fieldAmountRange(basis: "monthly" | "annual" | "once", now: number | null): { min: number; max: number } {
+  const floor = basis === "monthly" ? 100_000 : 1_000_000;
+  return amountRange(0, Math.max(floor, (now ?? 0) * 2));
+}
 
 // ---- 対策の固定の項目（今までの主画面のスライダー）----
 
@@ -143,6 +160,13 @@ function leverItems(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | 
     }
     return { member: selfId };
   };
+  // 金額（NISA・生活費）は1万円の刻みのスライダー。範囲は目盛りの最小から最大まで（今の考え方のまま）
+  const controlOf = (k: LeverKey): Control => {
+    const tick = (v: number) => leverTick(k, v);
+    if (k !== "nisaMonthly" && k !== "livingMonthly") return { kind: "steps", steps: steps[k], tick };
+    const r = amountRange(Math.min(...steps[k]), Math.max(...steps[k]));
+    return { kind: "range", min: r.min, max: r.max, step: AMOUNT_STEP, ticks: steps[k], tick, per: "月" };
+  };
   return LEVER_KEYS.filter((k) => base[k] !== undefined).map((k) => ({
     key: `lever:${k}`,
     item: LEVER_ITEM[k],
@@ -152,7 +176,7 @@ function leverItems(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | 
     group: "対策",
     builtin: true,
     phase: "lever" as const,
-    control: { kind: "steps" as const, steps: steps[k], tick: (v: number) => leverTick(k, v) },
+    control: controlOf(k),
     read: (w: WorkingHousehold) => readLevers(w.request, selfId)[k] ?? null,
     apply: (w: WorkingHousehold) => w,
     text: (v: ItemValue) => (typeof v === "number" ? leverValueText(k, v) : "—"),
@@ -218,7 +242,7 @@ function loanItems(wh: WorkingHousehold): MovableItem[] {
         group: "よく使う",
         builtin: false,
         phase: "field",
-        control: { kind: "range", min, max, step: 1_000_000, ticks: [min, p, max], tick: (v) => `${group(v / MAN)}万` },
+        control: { kind: "range", min, max, step: AMOUNT_STEP, ticks: [min, p, max], tick: (v) => `${group(v / MAN)}万`, per: "" },
         read: (w) => find(w, d.id)?.principal ?? null,
         apply: (w, v) =>
           typeof v !== "number"
@@ -244,7 +268,7 @@ function loanItems(wh: WorkingHousehold): MovableItem[] {
         group: "よく使う",
         builtin: false,
         phase: "field",
-        control: { kind: "range", min: 0, max, step: 500_000, ticks: [0, max], tick: (v) => `${group(v / MAN)}万` },
+        control: { kind: "range", min: 0, max, step: AMOUNT_STEP, ticks: [0, max], tick: (v) => `${group(v / MAN)}万`, per: "" },
         read: () => 0,
         apply: (w, v) =>
           typeof v !== "number" || v <= 0
@@ -402,6 +426,8 @@ export function fieldText(f: FieldDef, v: ItemValue): string {
   return String(v);
 }
 
+const numberOr = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
 function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>): MovableItem[] {
   const members = new Set(wh.request.input.household.members.map((m) => m.id));
   const out: MovableItem[] = [];
@@ -423,7 +449,7 @@ function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>)
             group: stageLabel,
             builtin: false,
             phase: "field",
-            control: { kind: "field", field: f },
+            control: { kind: "field", field: f, ...(f.kind === "yen" ? { slider: { ...fieldAmountRange(f.basis, numberOr(f.get(wh).value)), step: AMOUNT_STEP, per: f.basis === "monthly" ? ("月" as const) : f.basis === "annual" ? ("年" as const) : ("" as const) } } : {}) },
             read: (w) => f.get(w).value as ItemValue,
             apply: (w, v) => f.set(w, v as number | string | null),
             text: (v) => fieldText(f, v),

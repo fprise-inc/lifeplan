@@ -19,12 +19,15 @@ function median(xs: number[]): number | null {
   return s[Math.floor(s.length / 2)] ?? null;
 }
 
-async function moveLever(key: string, to: number): Promise<void> {
+/** スライダーを1刻みずつ動かす（to: 位置の値。金額のスライダーは "min"・"max" で端まで。刻みは step の属性） */
+async function moveLever(key: string, to: number | "min" | "max"): Promise<void> {
   const el = document.querySelector<HTMLInputElement>(`input[data-lever="${key}"]`);
   if (el === null) throw new Error(`lever ${key}`);
+  const target = to === "min" ? Number(el.min) : to === "max" ? Number(el.max) : to;
+  const step = Number(el.step) || 1;
   let v = Number(el.value);
-  while (v !== to) {
-    v += v < to ? 1 : -1;
+  while (Math.abs(v - target) >= step / 2) {
+    v += v < target ? step : -step;
     el.value = String(v);
     el.dispatchEvent(new Event("input", { bubbles: true }));
     await sleep(30);
@@ -44,6 +47,9 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
   const report: Record<string, unknown> = { host, userAgent: navigator.userAgent };
   try {
     await settle(dual);
+    // グラフで年を固定する（← → のキー。固定すると年の小さな表示が出る）
+    document.querySelector<HTMLElement>("[data-main-chart]")?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await sleep(100);
     report.initial = { verdict: text("[data-verdict]"), year: text(".sel-lbl") };
     await stage("initial", report);
     // 文字を大きくする（メモは画面に出さない。引き出しを開いたときだけ）
@@ -82,7 +88,7 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
     window.scrollTo(0, 0);
     const steps: Record<string, unknown>[] = [];
     // 打ち手を順に動かす（働く最後の年齢・年金の受け取り開始・NISA・生活費）
-    for (const [key, to] of [["retireAge", 4], ["retireAge", 0], ["pensionAge", 3], ["nisaMonthly", 3], ["livingMonthly", 0], ["retireAge", 2]] as const) {
+    for (const [key, to] of [["retireAge", 4], ["retireAge", 0], ["pensionAge", 3], ["nisaMonthly", "max"], ["livingMonthly", "min"], ["retireAge", 2]] as const) {
       const before = dual.timings.length;
       await moveLever(key, to);
       const previewHeadline = text(".sel-lbl");
@@ -331,8 +337,9 @@ export async function runPlansCheck(dual: () => DualEngine | null, host: string,
     const loanKey = picked.find((k) => /^loan:/.test(k) && !k.endsWith(":rate"));
     if (loanKey !== undefined) {
       const el = document.querySelector<HTMLInputElement>(`input[data-item="${loanKey}"]`);
-      const target = loanKey.endsWith(":prepay") ? 5_000_000 : Number(el?.value ?? 0) - 5_000_000;
-      previews.loan = await moveItem(`input[data-item="${loanKey}"]`, target, dual);
+      // 刻みは1万円（200刻み＝200万円動かす）
+      const target = loanKey.endsWith(":prepay") ? 2_000_000 : Number(el?.value ?? 0) - 2_000_000;
+      previews.loan = await moveItem(`input[data-item="${loanKey}"]`, target, dual, 15);
       await wait();
     }
     report.afterLoan = { verdict: text("[data-verdict]"), modified: document.querySelector(".plan.is-sel .p-mod") !== null };
@@ -360,7 +367,7 @@ export async function runPlansCheck(dual: () => DualEngine | null, host: string,
     await saveAs();
     report.fiveCards = cards();
     // 4. 6案目: 帯は5案まで（選んでいない・基準でない案が1つ帯から外れる。案は一覧に残る）
-    await moveLever("livingMonthly", 0);
+    await moveLever("livingMonthly", "min");
     await wait();
     await saveAs();
     report.sixth = { cards: cards(), notice: text(".toast"), listCount: text("[data-open-list]") };

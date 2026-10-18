@@ -419,7 +419,7 @@ describe("収支の推移・資産と負債の推移", () => {
     expect(f.expense.map((s) => s.label)).toEqual(["生活費", "住宅", "教育", "保険", "その他（税・社会保険料など）"]);
     expect(f.net.some((v) => v < 0)).toBe(true);
     const m = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: 2031, provisional: false, names: { selected: "B案", base: "A案", same: false } });
-    const html = renderToString(h("div", null, h(MainLegend, { model: m, mode: "flows", explain: null }), h(MainChart, { model: m, mode: "flows", explain: null, ageMark: null, onSelectYear: () => undefined })));
+    const html = renderToString(h("div", null, h(MainLegend, { model: m, mode: "flows", explain: null }), h(MainChart, { model: m, mode: "flows", explain: null, ageMark: null, pinnedYear: null, onSelectYear: () => undefined })));
     expect(html).toContain("flag-band");
     expect(html).toContain("赤字の年");
     expect(html).toContain("net-base");
@@ -439,7 +439,7 @@ describe("収支の推移・資産と負債の推移", () => {
     });
     const m: MainChartModel = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: 2031, provisional: false, names: { selected: "B案", base: "A案", same: false } });
     expect(renderToString(h(MainLegend, { model: m, mode: "balance", explain: null }))).toContain("純資産");
-    expect(renderToString(h(MainChart, { model: m, mode: "balance", explain: null, ageMark: null, onSelectYear: () => undefined }))).toContain("net-sel");
+    expect(renderToString(h(MainChart, { model: m, mode: "balance", explain: null, ageMark: null, pinnedYear: null, onSelectYear: () => undefined }))).toContain("net-sel");
   });
 
   it("主画面の提示用の値に入る", () => {

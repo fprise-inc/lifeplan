@@ -29,7 +29,7 @@ import { addToBand, bandModel, cleanBand, CURRENT, MAX_BAND, planLetters } from 
 import { compareTable, metricsOf } from "./plans/compare.ts";
 import { addRate } from "./plans/decimal.ts";
 import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
-import { buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
+import { amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
 import { PlanList } from "./plans/PlanList.tsx";
 import { acknowledge, applyValues, changesOf, changesOfValues, dropChange, effectiveValues, normalizeValues, overwritePlan, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
 import { cashflowTable, displayYears, eventsOf, toPresentation, withDiff } from "./present.ts";
@@ -265,6 +265,11 @@ export function App() {
   const compareTimings = useRef<{ ms: number; hostMs: number; slots: number }[]>([]);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /** グラフで年を固定する・外す（固定したら表の同じ年の列まで横に動かす） */
+  const pinYear = useCallback((y: number | null) => {
+    setSelectedYear(y);
+    if (y !== null) setScrollNonce((n) => n + 1);
+  }, []);
   const say = useCallback((msg: string) => {
     setNotice(msg);
     if (noticeTimer.current !== null) clearTimeout(noticeTimer.current);
@@ -503,13 +508,13 @@ export function App() {
   );
 
   const leverItemsOf = (o: Opened) => o.catalog.items.filter((it) => it.phase === "lever");
+  /** 対策の固定の項目を動かした（v は値。目盛りのスライダーは目盛りの値、金額は1万円の刻みの円） */
   const slide = useCallback(
-    (key: LeverKey, index: number) => {
+    (key: LeverKey, v: number) => {
       const o = openedRef.current;
       const it = o?.catalog.byKey.get(`lever:${key}`);
-      if (it === undefined || it.control.kind !== "steps") return;
-      const v = it.control.steps[index];
-      if (v !== undefined) setValue(it.key, v);
+      if (it === undefined || (it.control.kind !== "steps" && it.control.kind !== "range")) return;
+      setValue(it.key, v);
     },
     [setValue],
   );
@@ -717,28 +722,25 @@ export function App() {
   if (import.meta.env.DEV && dual.current !== null) (globalThis as { __financia?: unknown }).__financia = { timings: dual.current.timings, mismatches: () => dual.current?.mismatches, compare: compareTimings.current };
 
   const locked = lockReason(work, letterOf);
+  /** 固定した年（グラフの○と表の光る列）。表示する年の外の年は固定しない */
+  const pinnedYear = selectedYear !== null && model?.selectedYear === selectedYear ? selectedYear : null;
   const baseValues = opened === null ? {} : valuesOf(opened.wh, work, work.base);
   const leverRows: LeverRow[] =
     opened === null
       ? []
-      : leverItemsOf(opened).flatMap((it) => {
-          if (it.control.kind !== "steps") return [];
-          const st = it.control.steps;
+      : leverItemsOf(opened).flatMap((it): LeverRow[] => {
+          const c = it.control;
+          if (c.kind !== "steps" && c.kind !== "range") return [];
           const v = valueOf(it, selValues, opened.wh);
           const b = valueOf(it, baseValues, opened.wh);
-          return [
-            {
-              key: it.key.slice(6) as LeverKey,
-              label: it.label,
-              steps: st,
-              index: nearestIndex(st, typeof v === "number" ? v : undefined),
-              baseIndex: nearestIndex(st, typeof b === "number" ? b : undefined),
-              valueText: it.text(v),
-              stepText: it.control.tick,
-              baseText: it.text(b),
-              note: it.note?.(v) ?? null,
-            },
-          ];
+          const vn = typeof v === "number" ? v : undefined;
+          const bn = typeof b === "number" ? b : undefined;
+          const common = { key: it.key.slice(6) as LeverKey, label: it.label, valueText: it.text(v), baseText: it.text(b), note: it.note?.(v) ?? null };
+          if (c.kind === "steps")
+            return [{ ...common, slider: { kind: "steps", steps: c.steps, index: nearestIndex(c.steps, vn), baseIndex: nearestIndex(c.steps, bn), stepText: c.tick } }];
+          // 金額: 1万円の刻み。今の値・基準の値が範囲の外なら範囲を広げる（数値の欄で直接入れたとき）
+          const r = amountRange(c.min, c.max, vn, bn);
+          return [{ ...common, slider: { kind: "amount", min: r.min, max: r.max, step: c.step, value: vn ?? r.min, base: bn ?? r.min, per: c.per ?? "", tick: c.tick } }];
         });
   const feeToggle: FeeToggle | null =
     opened !== null && hasAdvisoryFee(opened.wh.request) ? { on: feeOn, inBase: feeOf(opened, baseValues), note: feeSummary(opened.wh.request), onToggle: toggleFee } : null;
@@ -920,10 +922,8 @@ export function App() {
               explain={explain !== null && explainStep !== null ? { model: explain, step: explainStep } : null}
               onExplain={setExplainStep}
               ageMark={ageMark}
-              onSelectYear={(y) => {
-                setSelectedYear(y);
-                setScrollNonce((n) => n + 1);
-              }}
+              pinnedYear={pinnedYear}
+              onSelectYear={pinYear}
               tools={
                 <button type="button" class="set-btn" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)} data-settings-open>
                   表示の設定{settings.metrics.length > 0 ? <span class="memo-n">{settings.metrics.length}</span> : null}
@@ -992,7 +992,7 @@ export function App() {
             {table !== null ? (
               <CashflowTable
                 model={table}
-                selectedYear={model.selectedYear}
+                selectedYear={pinnedYear}
                 onSelectYear={setSelectedYear}
                 onEvidence={(r, y) => void showEvidence(r, y)}
                 corner={`${letterOf(tKey)}案「${letters.get(tKey)?.name ?? ""}」`}

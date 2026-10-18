@@ -101,7 +101,7 @@ describe("0016 の2: 提示層は内部情報を受け取らない", () => {
   it("提示層の部品を描いた結果に、メモの目印も物の ID も出ない", () => {
     // メモを持つのは作業の層だけ。提示層の部品は PresentationModel しか受け取れないので、目印は出ようがない
     const noop = () => undefined;
-    const html = renderToString(h("div", null, h(GoalCards, { model: model.goals }), h(ResultCard, { model, verdict: model.result, provisional: false, mode: "assets", onMode: noop, explain: null, onExplain: noop, ageMark: null, onSelectYear: noop }), h(CashflowTable, { model: model.table, selectedYear: 2031, onSelectYear: noop, onEvidence: noop })));
+    const html = renderToString(h("div", null, h(GoalCards, { model: model.goals }), h(ResultCard, { model, verdict: model.result, provisional: false, mode: "assets", onMode: noop, explain: null, onExplain: noop, ageMark: null, pinnedYear: null, onSelectYear: noop }), h(CashflowTable, { model: model.table, selectedYear: 2031, onSelectYear: noop, onEvidence: noop })));
     expect(html).toContain("100歳まで足ります");
     expect(html).not.toContain(MARK);
     for (const m of base.input.household.members) expect(html).not.toContain(m.id);

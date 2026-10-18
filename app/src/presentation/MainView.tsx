@@ -138,7 +138,10 @@ export interface ResultCardProps {
   explain: { model: ExplainModel; step: number } | null;
   onExplain: (step: number | null) => void;
   ageMark: AgeMark | null;
-  onSelectYear: (year: number) => void;
+  /** グラフで固定した年（固定していなければ null） */
+  pinnedYear: number | null;
+  /** 年を固定する・外す（null） */
+  onSelectYear: (year: number | null) => void;
   /** 右の操作の後ろに置くもの（表示の設定のボタン。作業の層が渡す） */
   tools?: ComponentChildren;
   /** 結論の下に置くもの（表示の設定の欄・FP顧問料の一文） */
@@ -185,7 +188,7 @@ export function ResultCard(p: ResultCardProps) {
       </div>
       {p.below ?? null}
       <MainLegend model={p.model} mode={p.mode} explain={ex} />
-      <MainChart model={p.model} mode={p.mode} explain={ex} ageMark={p.ageMark} onSelectYear={p.onSelectYear} />
+      <MainChart model={p.model} mode={p.mode} explain={ex} ageMark={p.ageMark} pinnedYear={p.pinnedYear} onSelectYear={p.onSelectYear} />
       {ex !== null ? <ExplainBar model={ex.model} step={step} onStep={(i) => p.onExplain(i)} onClose={() => p.onExplain(null)} /> : null}
     </section>
   );
@@ -202,7 +205,8 @@ export interface TableControls {
 
 export interface CashflowTableProps {
   model: CashflowTableModel;
-  selectedYear: number;
+  /** 光らせる年（グラフで固定した年。固定していなければ null） */
+  selectedYear: number | null;
   onSelectYear: (year: number) => void;
   onEvidence: (rowKey: string, year: number) => void;
   controls?: TableControls;
