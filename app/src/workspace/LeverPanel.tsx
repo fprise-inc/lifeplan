@@ -7,13 +7,15 @@ import type { LeverKey } from "./levers.ts";
 import { AmountInput } from "./plans/ItemControls.tsx";
 import type { ChangeRow } from "./plans/plans.ts";
 
-/** 年齢など: 目盛りのスライダー（位置＝目盛りの番号） */
-export interface StepsSlider {
-  kind: "steps";
-  steps: number[];
-  index: number;
-  /** 基準の案の値の位置 */
-  baseIndex: number;
+/** 年齢: 1歳ずつのスライダー（値＝歳）。目盛りの数字は ticks だけ（値の位置に置く） */
+export interface AgeSlider {
+  kind: "age";
+  min: number;
+  max: number;
+  value: number;
+  /** 基準の案の値 */
+  base: number;
+  ticks: number[];
   stepText: (v: number) => string;
 }
 
@@ -33,14 +35,20 @@ export interface AmountSlider {
 export interface LeverRow {
   key: LeverKey;
   label: string;
-  slider: StepsSlider | AmountSlider;
+  slider: AgeSlider | AmountSlider;
   valueText: string;
   /** 基準の案の値 */
   baseText: string;
   note: string | null;
 }
 
-const changedOf = (l: LeverRow) => (l.slider.kind === "steps" ? l.slider.index !== l.slider.baseIndex : l.slider.value !== l.slider.base);
+const changedOf = (l: LeverRow) => l.slider.value !== l.slider.base;
+
+/** スライダーの値の位置（つまみの幅の分を除いた、線の上の割合） */
+export const tickLeft = (v: number, min: number, max: number): string => {
+  const f = max > min ? Math.max(0, Math.min(1, (v - min) / (max - min))) : 0;
+  return `calc(var(--thumb, 16px) / 2 + (100% - var(--thumb, 16px)) * ${f.toFixed(4)})`;
+};
 
 /** FP顧問料の ON/OFF（選んだ案の側だけ。現状は変えない） */
 export interface FeeToggle {
@@ -211,32 +219,31 @@ export function LeverCard(p: LeverCardProps) {
                   <span class="lever-val">{l.valueText}</span>
                 )}
               </div>
-              {sl.kind === "steps" ? (
+              {sl.kind === "age" ? (
                 <>
                   <input
                     id={`lv-${l.key}`}
                     type="range"
-                    min={0}
-                    max={sl.steps.length - 1}
+                    min={sl.min}
+                    max={sl.max}
                     step={1}
-                    value={sl.index}
+                    value={sl.value}
                     data-lever={l.key}
                     aria-valuetext={l.valueText}
-                    onInput={(e) => {
-                      const v = sl.steps[Number((e.currentTarget as HTMLInputElement).value)];
-                      if (v !== undefined) p.onSlide(l.key, v);
-                    }}
+                    onInput={(e) => p.onSlide(l.key, Number((e.currentTarget as HTMLInputElement).value))}
                     onChange={p.onRelease}
                     onPointerUp={p.onRelease}
                     onKeyUp={p.onRelease}
                   />
-                  <div class="ticks">
-                    {sl.steps.map((v, i) => (
+                  <div class="ticks age-ticks">
+                    {sl.base >= sl.min && sl.base <= sl.max ? <i class="age-base" style={{ left: tickLeft(sl.base, sl.min, sl.max) }} aria-hidden="true" /> : null}
+                    {sl.ticks.map((v) => (
                       <button
                         type="button"
                         key={v}
                         tabIndex={-1}
-                        class={`tick${i === sl.index ? " is-on" : ""}${i === sl.baseIndex ? " is-base" : ""}`}
+                        class={`tick${v === sl.value ? " is-on" : ""}${v === sl.base ? " is-base" : ""}`}
+                        style={{ left: tickLeft(v, sl.min, sl.max) }}
                         onClick={() => {
                           p.onSlide(l.key, v);
                           p.onRelease();

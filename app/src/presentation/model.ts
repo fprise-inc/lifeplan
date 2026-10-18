@@ -146,6 +146,8 @@ export interface PresentationModel {
   balance: BalanceChartModel;
   /** 基準の案の線（年間収支・純資産）。収支・資産と負債のグラフに点線で重ねる */
   baseLines: { net: Yen[]; netWorth: Yen[] };
+  /** 基準の案の積み上げと年のイベント（グラフを左右に並べる表示で、基準の案の側に使う） */
+  baseCharts: BaseCharts;
   /** 本人の呼び方（例: ご主人）。グラフの年の札に使う */
   who: string;
   selectedYear: number;
@@ -157,6 +159,13 @@ export interface PresentationModel {
   fee: FeeLine | null;
   /** 数字が確定前（画面側の先出し）か。0005 の5: 控えめに示す */
   provisional: boolean;
+}
+
+/** 基準の案の収支・資産と負債の積み上げと、年のイベント */
+export interface BaseCharts {
+  flows: FlowChartModel;
+  balance: BalanceChartModel;
+  events: EventChip[];
 }
 
 /** 根拠の表示（0006 の7）に出す値。根拠の記録から、顧客に見せてよい項目だけを選んだもの */
