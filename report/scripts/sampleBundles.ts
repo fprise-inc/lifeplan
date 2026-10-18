@@ -107,6 +107,15 @@ export function salariedCoupleBundle(): ProposalBundle {
     contingencies: [{ title: "ご主人が2031年4月に亡くなった場合", run: runOf(runs, 4) }],
     protection: runOf(runs, 5),
     deferral: { memberKey: "self", options: [{ startAge: 65, run: runOf(runs, 3) }, { startAge: 70, run: runOf(runs, 6) }] },
+    // 案の比較（主画面の帯に並べた案の見本）: 現状・生活費だけ見直す案・提案
+    comparison: {
+      base: 0,
+      plans: [
+        { letter: "A", name: "現状", run: runOf(runs, 0) },
+        { letter: "B", name: "生活費の見直し", run: runOf(runs, 1) },
+        { letter: "C", name: "生活費・NISA・FP顧問料", run: runOf(runs, 3) },
+      ],
+    },
   };
 }
 

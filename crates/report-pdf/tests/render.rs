@@ -184,3 +184,64 @@ fn template_cannot_read_files_or_clock() {
         );
     }
 }
+
+#[test]
+fn addressee_is_overlaid_only_on_output() {
+    use report_pdf::render_proposal_output;
+    let name = "見本 太郎";
+    let r = render_proposal_output(INPUT, &frame(), Some(name)).expect("宛名つきの PDF");
+    let pages = extract_text(&r.pdf).unwrap();
+    let field = r.addressee.expect("宛名欄");
+    let on = normalize(&pages[(field.page - 1) as usize]);
+    assert!(on.contains(&normalize(name)), "宛名欄のページに宛名");
+    for (i, p) in pages.iter().enumerate() {
+        if i as u64 + 1 != field.page {
+            assert!(
+                !normalize(p).contains(&normalize(name)),
+                "{}ページ目に宛名が無い",
+                i + 1
+            );
+        }
+    }
+    // 内部情報（XMP は圧縮しない）に宛名を入れない
+    assert!(!contains(&r.pdf, name), "宛名は XMP・文書の情報に入らない");
+    // 宛名なしの PDF には宛名が無い
+    let plain = render_proposal(INPUT, &frame()).unwrap();
+    assert!(!normalize(&extract_text(&plain.pdf).unwrap().join("")).contains(&normalize(name)));
+    assert_eq!(plain.pages, r.pages, "宛名を重ねてもページ数は同じ");
+}
+
+#[test]
+fn addressee_is_checked() {
+    use report_pdf::render_proposal_output;
+    for bad in [
+        "",
+        "   ",
+        "改行\nあり",
+        &"長".repeat(report_pdf::ADDRESSEE_MAX_CHARS + 1),
+    ] {
+        let e = render_proposal_output(INPUT, &frame(), Some(bad)).unwrap_err();
+        assert_eq!(e.code(), "E_REPORT_INPUT", "{bad:?}");
+    }
+    // Typst の記法として読まない（そのままの文字で出る）
+    let r = render_proposal_output(INPUT, &frame(), Some("#read(\"/etc/hosts\") *様*")).unwrap();
+    let all = normalize(&extract_text(&r.pdf).unwrap().join(""));
+    assert!(all.contains(&normalize("#read(\"/etc/hosts\") *様*")));
+}
+
+#[test]
+fn preview_pages_are_png_of_the_same_layout() {
+    use report_pdf::render_page_png;
+    let r = render_proposal(INPUT, &frame()).unwrap();
+    assert_eq!(
+        r.layout.pages().len(),
+        r.pages,
+        "見本と PDF は同じ組版の結果"
+    );
+    let png = render_page_png(&r, 0, 1.0).expect("1ページ目");
+    assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
+    assert!(
+        render_page_png(&r, r.pages, 1.0).is_none(),
+        "無いページは None"
+    );
+}

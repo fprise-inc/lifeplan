@@ -2,6 +2,7 @@
 import "@fontsource/biz-udpgothic/400.css";
 import "@fontsource/biz-udpgothic/700.css";
 import "./styles/app.css";
+import "./styles/wire.css";
 import { render } from "preact";
 import { App } from "./workspace/App.tsx";
 

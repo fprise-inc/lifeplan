@@ -10,6 +10,12 @@ const COMMANDS: &[&str] = &[
     "open_household",
     "compute",
     "evidence",
+    "proposal_render",
+    "proposal_page",
+    "proposal_save",
+    "proposal_discard",
+    "hearing_save",
+    "hearing_open",
 ];
 
 fn list_json(dir: &Path) -> Vec<PathBuf> {

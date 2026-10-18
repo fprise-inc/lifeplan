@@ -29,6 +29,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # 0005: 正の計算は quickjs-ng（engine-host）。計算ごとに新しい実行環境
 engine-host = { path = "../../crates/engine-host" }
+# 0009: 提案書の PDF（Typst をライブラリとして組み込む。刻印・必須の記載・内部情報は帳票の外側で付ける）
+report-pdf = { path = "../../crates/report-pdf" }
+# 0020 の5: 平文の書き出しの出口で、OS の保存・開くのダイアログを本体から出す（プラグインではないので、画面には権限を与えない）
+rfd = { version = "0.15", default-features = false, features = ["gtk3"] }
+sha2 = "0.10"
 
 [profile.dev.package.rquickjs-sys]
 # quickjs-ng の C は debug のビルドでも最適化する（正の計算の速さを製品に近づける）

@@ -11,6 +11,11 @@
 //! - 作成ソフトの欄（Creator・Producer）は空にし、印刷されない内部情報（XMP）に控えの ID・データの組・計算基準日・
 //!   カスタムの有無と指紋を入れる（0009 の7）。名前空間は製品名・社名を含まない。
 //!
+//! - 宛名は保存しない（0012・0009 の3）。出力するときだけ、表紙の部品が宣言した宛名欄の位置に、帳票を組んだ後に重ねる
+//!   （`render_proposal_output`）。帳票の入力・内部情報（XMP）には入れない。
+//! - 画面の中の見本は、PDF と同じ組版の結果をページごとに PNG にしたもの（`render_page_png`）。画面は PDF を直接表示できない
+//!   （CSP の object-src・frame-src が none。0016 の1）。
+//!
 //! 金額の計算はしない（0005 の1）。帳票の入力の金額は、計算エンジンの出力から組み立てたもの（report/src/build.ts）。
 
 use std::collections::HashMap;
@@ -52,6 +57,8 @@ pub const BAND_PT: f64 = 22.0;
 pub const WATERMARK: &str = "β版・試算";
 /// 宛名欄を宣言する内部の印（表紙の部品が置く）
 const ADDRESSEE_LABEL: &str = "lifeplan-addressee";
+/// 宛名の長さの上限（文字数）
+pub const ADDRESSEE_MAX_CHARS: usize = 40;
 
 /// 公式の帳票の部品のファイル（パッケージの中のパスと中身）
 const PACKAGE_FILES: &[(&str, &str)] = &[
@@ -95,6 +102,10 @@ const PACKAGE_FILES: &[(&str, &str)] = &[
         "pages/changes.typ",
         include_str!("../../../report/typst/report-core/pages/changes.typ"),
     ),
+    (
+        "pages/compare.typ",
+        include_str!("../../../report/typst/report-core/pages/compare.typ"),
+    ),
 ];
 
 /// 同梱フォント（BIZ UDゴシック。SIL OFL 1.1。ライセンス文は report/fonts/OFL.txt）
@@ -129,6 +140,20 @@ const STAMP_TYP: &str = r##"#let s = json("/stamp.json")
       if s.beta { text(weight: "bold", s.watermark) } else { [] },
       align(right, str(i + 1) + " / " + str(s.pages.len())),
     ))))
+  })
+}
+"##;
+
+/// 宛名（出力するときだけ。宛名欄の位置に重ねる。文字は JSON の値として渡し、Typst の記法として読まない）
+const ADDRESSEE_TYP: &str = r##"#let s = json("/addressee.json")
+#set text(font: "BIZ UDGothic", lang: "ja", fill: rgb("#1f2933"))
+#for (i, p) in s.pages.enumerate() {
+  page(width: p.width * 1pt, height: p.height * 1pt, margin: 0pt, {
+    if i + 1 == s.field.page {
+      place(top + left, dx: s.field.x * 1pt, dy: s.field.y * 1pt,
+        box(width: s.field.width * 1pt, height: s.field.height * 1pt, inset: (x: 2pt, bottom: 3pt),
+          align(left + bottom, text(size: 16pt, s.name))))
+    }
   })
 }
 "##;
@@ -222,6 +247,8 @@ pub struct FontRef {
 #[derive(Debug, Clone)]
 pub struct Rendered {
     pub pdf: Vec<u8>,
+    /// PDF にした組版の結果（刻印・透かし・宛名を重ねた後）。画面の中の見本に使う（`render_page_png`）
+    pub layout: PagedDocument,
     pub pages: usize,
     pub addressee: Option<AddresseeField>,
     /// アプリが「注意書き」のページを足したか（帳票に必須の記載の欄が無かった）
@@ -506,6 +533,61 @@ fn overlay_stamp(doc: &PagedDocument, frame: &ReportFrame) -> Result<PagedDocume
     ))
 }
 
+/// 宛名を確かめる（空・長すぎる・制御文字は受けない）
+fn check_addressee(name: &str) -> Result<String, ReportError> {
+    let t = name.trim();
+    if t.is_empty() {
+        return Err(ReportError::Input("宛名が空".into()));
+    }
+    if t.chars().count() > ADDRESSEE_MAX_CHARS {
+        return Err(ReportError::Input("宛名が長すぎる".into()));
+    }
+    if t.chars().any(char::is_control) {
+        return Err(ReportError::Input("宛名に使えない文字".into()));
+    }
+    Ok(t.to_owned())
+}
+
+/// 宛名を、表紙の部品が宣言した宛名欄の位置に重ねる（帳票を組んだ後。0009 の3）
+fn overlay_addressee(
+    doc: &PagedDocument,
+    field: &AddresseeField,
+    name: &str,
+) -> Result<PagedDocument, ReportError> {
+    let pages: Vec<serde_json::Value> = doc
+        .pages()
+        .iter()
+        .map(|p| {
+            let s = p.frame.size();
+            serde_json::json!({ "width": s.x.to_pt(), "height": s.y.to_pt() })
+        })
+        .collect();
+    let data = serde_json::json!({ "pages": pages, "field": field, "name": name });
+    let world = ReportWorld::new(
+        ADDRESSEE_TYP,
+        &[("addressee.json", data.to_string())],
+        false,
+    );
+    let overlay = compile(&world)?;
+    if overlay.pages().len() != doc.pages().len() {
+        return Err(ReportError::Typst(vec!["宛名のページ数が合わない".into()]));
+    }
+    let out: Vec<Page> = doc
+        .pages()
+        .iter()
+        .zip(overlay.pages())
+        .map(|(p, o)| {
+            let mut page = p.clone();
+            page.frame.push_frame(Point::zero(), o.frame.clone());
+            page
+        })
+        .collect();
+    Ok(PagedDocument::new(
+        out.into_iter().collect(),
+        doc.info().clone(),
+    ))
+}
+
 fn append_notices_page(
     doc: &PagedDocument,
     notices: &[String],
@@ -545,7 +627,17 @@ pub fn render_with_main(
     input_json: &str,
     frame: &ReportFrame,
 ) -> Result<Rendered, ReportError> {
+    render_inner(main_typ, input_json, frame, None)
+}
+
+fn render_inner(
+    main_typ: &str,
+    input_json: &str,
+    frame: &ReportFrame,
+    addressee_name: Option<&str>,
+) -> Result<Rendered, ReportError> {
     check_input(input_json)?;
+    let addressee_name = addressee_name.map(check_addressee).transpose()?;
     let frame_json = serde_json::json!({ "band": BAND_PT, "notices": frame.notices }).to_string();
     let world = ReportWorld::new(
         main_typ,
@@ -567,7 +659,14 @@ pub fn render_with_main(
     if notices_page_added {
         doc = append_notices_page(&doc, &frame.notices)?;
     }
-    let doc = overlay_stamp(&doc, frame)?;
+    let mut doc = overlay_stamp(&doc, frame)?;
+    // 宛名は出力の PDF にだけ重ねる（帳票の入力・内部情報・控えには入れない）
+    if let Some(name) = &addressee_name {
+        let Some(field) = &addressee else {
+            return Err(ReportError::Input("帳票に宛名欄が無い".into()));
+        };
+        doc = overlay_addressee(&doc, field, name)?;
+    }
 
     let options = PdfOptions {
         ident: match &frame.internal.snapshot_id {
@@ -605,6 +704,7 @@ pub fn render_with_main(
     Ok(Rendered {
         pages: pages.len(),
         pdf,
+        layout: doc,
         addressee,
         notices_page_added,
         report: report_info(),
@@ -615,6 +715,26 @@ pub fn render_with_main(
 /// できた PDF は平文なので、ファイルに書くのは平文の書き出しの出口（0020 の5）を通す
 pub fn render_proposal(input_json: &str, frame: &ReportFrame) -> Result<Rendered, ReportError> {
     render_with_main(MAIN_TYP, input_json, frame)
+}
+
+/// 出力用: 公式の帳票で PDF を作り、宛名（あれば）を宛名欄に重ねる。宛名は保存しない（呼ぶ側も残さない。0009 の3・0012）。
+/// 控えの PDF（宛名なし）は `render_proposal` で作る
+pub fn render_proposal_output(
+    input_json: &str,
+    frame: &ReportFrame,
+    addressee: Option<&str>,
+) -> Result<Rendered, ReportError> {
+    render_inner(MAIN_TYP, input_json, frame, addressee)
+}
+
+/// 画面の中の見本: 組版の結果の1ページ（0 から）を PNG にする。pixel_per_pt は 1pt あたりの画素（0.5〜4）
+pub fn render_page_png(rendered: &Rendered, page: usize, pixel_per_pt: f64) -> Option<Vec<u8>> {
+    let p = rendered.layout.pages().get(page)?;
+    let opts = typst_render::RenderOptions {
+        pixel_per_pt: typst::utils::Scalar::new(pixel_per_pt.clamp(0.5, 4.0)),
+        render_bleed: false,
+    };
+    typst_render::render(p, &opts).encode_png().ok()
 }
 
 /// 控えの `report` 欄（使った帳票の部品・Typst の版・フォントの指紋）
