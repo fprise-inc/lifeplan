@@ -1,4 +1,4 @@
-# 計算エンジンとアプリの画面の自動テスト（0002・0004・0005・0006・0007・0016・0017・0021）
+# 計算エンジンとアプリの画面・ヒアリングシートの自動テスト（0002・0004・0005・0006・0007・0016・0017・0018・0021）
 # アプリの3つの OS でのビルド（バンドル）は、手で起動するかリリースのときだけ（app-bundle.yml。実行の分数に限りがあるため）
 name: ci
 on:
@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # 計算に関係する変更か（制度データ・文書・登録簿・アプリの画面・配布元の設定・提案書の帳票だけの変更なら、macOS・Windows・速さの測定を省く）
+  # 計算に関係する変更か（制度データ・文書・登録簿・アプリの画面・配布元の設定・提案書の帳票・ヒアリングシートだけの変更なら、macOS・Windows・速さの測定を省く）
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -31,7 +31,7 @@ jobs:
           if ! git cat-file -e "$base" 2>/dev/null; then echo "heavy=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           changed=$(git diff --name-only "$base" HEAD)
           echo "$changed"
-          if echo "$changed" | grep -Ev '^(data/|docs/|registry/|app/|config/|report/|crates/report-pdf/)|\.md$' | grep -q .; then echo "heavy=true" >> "$GITHUB_OUTPUT"; else echo "heavy=false" >> "$GITHUB_OUTPUT"; fi
+          if echo "$changed" | grep -Ev '^(data/|docs/|registry/|app/|config/|report/|crates/report-pdf/|hearing/)|\.md$' | grep -q .; then echo "heavy=true" >> "$GITHUB_OUTPUT"; else echo "heavy=false" >> "$GITHUB_OUTPUT"; fi
 
   # 型の検査・lint・単体テスト・まとめた JS と制度データの JSON の作成・npm の依存のライセンスの検査
   engine:
@@ -173,6 +173,40 @@ jobs:
           name: proposal-samples
           path: report/dist/samples
           if-no-files-found: error
+
+  # ヒアリングシート（0018）: シート定義の検査・配置・見本・登録簿・単体テスト（取り込んだ世帯を本物のエンジンで計算する）・npm の依存のライセンス
+  hearing:
+    needs: engine
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hearing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: engine-dist
+          path: engine/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hearing/package-lock.json
+      - run: npm ci
+      - name: 型の検査
+        run: npm run typecheck
+      - name: lint
+        run: npm run lint
+      - name: 開発中のシート定義の配置が項目の並びと食い違っていないこと
+        run: npm run layout:check
+      - name: ヒアリング項目のキーの登録簿（registry/hearing.yaml）がシート定義と食い違っていないこと（0004 の5）
+        run: npm run registry:check
+      - name: 見本のシート（架空の記入例）が記入例の JSON から作り直したものと同じこと（0018 の7）
+        run: npm run sample:check
+      - name: 単体テスト（往復・取り込み・読み込みの安全）
+        run: npm test
+      - name: ライセンスの検査（npm）
+        run: npm run check:licenses
 
   # Rust のホスト（quickjs-ng）のテストと、Node との一致テスト。Windows・macOS・Linux それぞれでビルドする（0005 の6）
   host:

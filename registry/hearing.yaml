@@ -1,0 +1,412 @@
+# 0004 の5: ヒアリング項目のキーの登録簿。正本は hearing/sheets/ のシート定義（hearing/scripts/registry.ts が作る。手で書き換えない）
+# since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
+kind: hearingKey
+entries:
+  - id: hs.assets.corporateDc
+    status: active
+    label: "企業型確定拠出年金（残高）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.assets.deposit
+    status: active
+    label: "預貯金（普通・定期の合計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.assets.ideco
+    status: active
+    label: "iDeCo（残高）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.assets.idecoMonthly
+    status: active
+    label: "iDeCo の毎月の掛金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.assets.nisa
+    status: active
+    label: "NISA（時価）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.assets.nisaMonthly
+    status: active
+    label: "NISA の毎月の積立額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.assets.taxable
+    status: active
+    label: "株式・投資信託（NISA・iDeCo 以外。時価）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.consent.externalAi
+    status: active
+    label: "（任意）分析のために、外部のAIサービスに情報を渡すことに同意します"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.consent.familyInfo
+    status: active
+    label: "ご家族の情報を記入することについて、ご家族に伝えています"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.consent.purpose
+    status: active
+    label: "ご記入の情報を、ライフプランの作成とご相談のために使うことを確認しました"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.consult.topics
+    status: active
+    label: "ご相談したいこと・気になっていること"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.education.after
+    status: active
+    label: "高校の後"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.education.elementary
+    status: active
+    label: "小学校"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.education.highSchool
+    status: active
+    label: "高校"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.education.juniorHigh
+    status: active
+    label: "中学校"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.education.living
+    status: active
+    label: "大学などへの通い方"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.education.school
+    status: active
+    label: "考えている学校名（あれば）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.expense.living
+    status: active
+    label: "毎月の生活費"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.expense.savings
+    status: active
+    label: "1年間に実際に貯められている額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.family.adult.birthYearMonth
+    status: active
+    label: "生年月"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.family.adult.sex
+    status: active
+    label: "性別"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.family.child.birthYearMonth
+    status: active
+    label: "生年月（出産予定の方は予定の年月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.family.child.sex
+    status: active
+    label: "性別"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.family.spouse.marriage
+    status: active
+    label: "ご結婚の形"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.housing.maintenance
+    status: active
+    label: "管理費・修繕積立金（月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.housing.propertyTax
+    status: active
+    label: "固定資産税・都市計画税（年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.housing.rent
+    status: active
+    label: "家賃（管理費・共益費を含む）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.housing.since
+    status: active
+    label: "いまのお住まいに住み始めた年月"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.housing.type
+    status: active
+    label: "いまのお住まい"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.income.bonus
+    status: active
+    label: "そのうち賞与（ボーナス）の年額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.income.business
+    status: active
+    label: "事業の所得（年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.income.residentTax
+    status: active
+    label: "住民税の年税額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.income.salary
+    status: active
+    label: "給与の年収（賞与を含む）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.insurance.contractDate
+    status: active
+    label: "契約した年月"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.insurance.deathBenefit
+    status: active
+    label: "死亡保険金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.insurance.frequency
+    status: active
+    label: "保険料の払い方"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.insurance.insured
+    status: active
+    label: "被保険者（保険の対象の方）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.insurance.monthlyBenefit
+    status: active
+    label: "収入保障保険の年金月額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.insurance.payUntilAge
+    status: active
+    label: "保険料を払い終える年齢（被保険者の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.insurance.policyholder
+    status: active
+    label: "契約者（保険料を払う方）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.insurance.premium
+    status: active
+    label: "保険料（1回あたり）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.insurance.type
+    status: active
+    label: "保険の種類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.balance
+    status: active
+    label: "いまの残高"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.creditLife
+    status: active
+    label: "団体信用生命保険（団信）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.debtor
+    status: active
+    label: "借りている方"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.method
+    status: active
+    label: "返済の方法"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.principal
+    status: active
+    label: "借入額（借りたときの額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.rate
+    status: active
+    label: "いまの金利"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.rateType
+    status: active
+    label: "金利のタイプ"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.start
+    status: active
+    label: "借りた年月"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.termYears
+    status: active
+    label: "返済期間"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.memo.free
+    status: active
+    label: "そのほかお伝えしたいこと（保険の商品名など）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.meta.filledOn
+    status: active
+    label: "ご記入の年月"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.pension.amount.basic
+    status: active
+    label: "老齢基礎年金の額（年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.pension.amount.employee
+    status: active
+    label: "老齢厚生年金の額（年額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.pension.months.employee
+    status: active
+    label: "そのうち厚生年金の加入期間"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.pension.months.total
+    status: active
+    label: "年金の加入期間の合計"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.pension.notice.asOf
+    status: active
+    label: "書類の作成年月"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.pension.notice.type
+    status: active
+    label: "お手元の書類"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.plan.events
+    status: active
+    label: "これからの予定（住宅の購入・転職・独立・車の買い替えなど）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.retirement.lumpSum
+    status: active
+    label: "退職金の見込み額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.work.employerSize
+    status: active
+    label: "勤め先の従業員数（会社全体・おおよそ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.work.healthInsurance
+    status: active
+    label: "加入している健康保険"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.work.prefecture
+    status: active
+    label: "勤め先の都道府県（協会けんぽの方）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.work.retireAge
+    status: active
+    label: "いまの勤め先の定年（辞める予定の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.work.since
+    status: active
+    label: "いまの仕事を始めた年月"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.work.type
+    status: active
+    label: "いまの働き方"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.work.weeklyHours
+    status: active
+    label: "1週間の勤務時間（契約上）"
+    since: draft
+    aliases: []
+    replacedBy: null
