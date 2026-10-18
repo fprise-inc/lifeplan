@@ -201,7 +201,7 @@ export function MainChart({ model, mode, explain, ageMark, onSelectYear }: MainC
     s = scale([upTot, downTot, net, same ? [] : bnet], n, f);
     keys.push(...inc.map((x) => x.key), ...exp.map((x) => x.key));
     body = bars(inc, exp, s, n);
-    // 赤字の年: 下の帯（赤の斜線）。続く年のまとまりの初めに「▲」
+    // 赤字の年: 下の帯（赤のベタ塗り）。続く年のまとまりの初めに「▲」
     const bandY = f.height - f.bottom - 9;
     model.flows.net.forEach((v, i) => {
       if (v >= 0) return;
