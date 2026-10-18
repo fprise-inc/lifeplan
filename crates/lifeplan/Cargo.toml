@@ -1,0 +1,27 @@
+[package]
+name = "lifeplan"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "ファイナンシアの AI接続口（MCP サーバー。標準入出力だけ）とコマンド（0015・0019）"
+
+[[bin]]
+name = "lifeplan"
+path = "src/main.rs"
+
+[dependencies]
+# 0015: アプリ本体との取り決めだけに依存する（縮約・包み方・許可の判定はアプリ本体の ai-share。ここには入れない）
+ai-ipc = { path = "../ai-ipc" }
+# 0005: 計算はアプリ本体と同じ quickjs-ng（engine-host）で、同じ engine.js を動かす
+engine-host = { path = "../engine-host" }
+# 0015 の1: 公式 Rust SDK（Apache-2.0）。標準入出力だけ（HTTP などの口の機能は入れない）
+rmcp = { version = "=3.5.1", default-features = false, features = ["server", "macros", "transport-io"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt", "macros", "io-std", "sync", "time"] }
+
+[dev-dependencies]
+ai-share = { path = "../ai-share" }
+rmcp = { version = "=3.5.1", default-features = false, features = ["client", "transport-child-process"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util"] }
