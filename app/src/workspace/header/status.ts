@@ -1,8 +1,10 @@
 // 上の帯に出す札と通知を決める（画面の部品から切り離した決まり。テストで確かめる）。
 // ふだんは何も出さない。出すのは:
 //   札（急ぎ）: 保存に失敗した・閲覧だけで保存しない・ほかの人が開いていて自動保存を止めている・この世帯をAIと共有中
-//   通知（行動を求める）: 復元キーの保管・ほかの人が開いている・復元キーで加わった人
+//   通知（行動を求める）: 本体が返す保存先と同期の通知（復元キーの保管・復元キーで加わった人／PC・参加の申請・衝突の写し など）と、ほかの人が開いていること
+import type { StorageNotice } from "../../engine/host.ts";
 import type { SaveState } from "../store/autosave.ts";
+import { storageNoticeText } from "../store/storage.ts";
 
 export interface BarInputs {
   /** 世帯を開いている */
@@ -14,10 +16,10 @@ export interface BarInputs {
   paused: boolean;
   /** この世帯をAIと共有中 */
   aiSharing: boolean;
-  /** 復元キーを保管していない（事務所で共有しているときは事務所の復元キー） */
-  recoveryDue: null | "own" | "office";
-  /** 復元キーで加わった人の表示名（まだ見ていない通知） */
-  joined: readonly string[];
+  /** 本体が返す保存先と同期の通知 */
+  storage: readonly StorageNotice[];
+  /** いま開いている画面（その画面で扱う通知は出さない） */
+  showing: { recovery: boolean; office: boolean; storage: boolean };
   /** 開いている人の文（ほかの人が開いていないときは null） */
   presence: string | null;
   /** 保存の失敗の文（失敗の符号 → 文） */
@@ -25,7 +27,8 @@ export interface BarInputs {
 }
 
 export type AlertKind = "saveError" | "readOnly" | "paused" | "aiSharing";
-export type NoticeKind = "recovery" | "presence" | "joined";
+/** 通知を押したときに開く画面 */
+export type NoticeTarget = "recovery" | "restore" | "storage" | "office" | "households" | "presence";
 
 export interface AlertSpec {
   kind: AlertKind;
@@ -37,7 +40,9 @@ export interface AlertSpec {
 }
 
 export interface NoticeSpec {
-  kind: NoticeKind;
+  /** 一覧の中で重ならない名前 */
+  id: string;
+  target: NoticeTarget;
   text: string;
   action: string;
 }
@@ -53,11 +58,28 @@ export function barAlerts(i: BarInputs): AlertSpec[] {
   return out;
 }
 
+const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める" };
+
+/** 本体の通知を押したときに開く画面（1人で複数の PC の同期フォルダの通知は保存先、事務所での共有の通知は事務所の共有） */
+export function noticeTarget(n: StorageNotice): NoticeTarget {
+  if (n.kind === "needsRecovery") return "restore";
+  if (n.kind === "recoveryNotKept") return "recovery";
+  if (n.kind === "syncCopies") return "households";
+  if (n.kind === "localHouseholds" || n.scope !== "office") return "storage";
+  return "office";
+}
+
 export function barNotices(i: BarInputs): NoticeSpec[] {
   const out: NoticeSpec[] = [];
-  if (i.recoveryDue !== null) out.push({ kind: "recovery", text: i.recoveryDue === "office" ? "事務所の復元キーを保管してください" : "復元キーを保管してください", action: "復元キー" });
-  if (i.opened && i.stored && i.presence !== null) out.push({ kind: "presence", text: i.presence, action: "編集を始める" });
-  if (i.joined.length > 0) out.push({ kind: "joined", text: `復元キーで${i.joined.map((n) => `${n}さん`).join("・")}が加わりました`, action: "事務所の共有" });
+  i.storage.forEach((n, k) => {
+    const target = noticeTarget(n);
+    // その通知を扱う画面を開いている間は出さない
+    if ((target === "recovery" || target === "restore") && i.showing.recovery) return;
+    if (target === "office" && i.showing.office) return;
+    if (target === "storage" && i.showing.storage) return;
+    out.push({ id: `${n.kind}:${k}`, target, text: storageNoticeText(n), action: ACTION[target] });
+  });
+  if (i.opened && i.stored && i.presence !== null) out.push({ id: "presence", target: "presence", text: i.presence, action: ACTION.presence });
   return out;
 }
 

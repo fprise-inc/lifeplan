@@ -8,12 +8,14 @@ import { describe, expect, it } from "vitest";
 import { APP_DIR } from "../scripts/lib.ts";
 import { chooseFit, FIT_MAX } from "../src/workspace/header/fit.ts";
 import { BasisLine, HouseholdNow } from "../src/workspace/header/HouseholdNow.tsx";
-import { barAlerts, barNotices, saveText, type BarInputs } from "../src/workspace/header/status.ts";
+import type { StorageNotice } from "../src/engine/host.ts";
+import { barAlerts, barNotices, noticeTarget, saveText, type BarInputs } from "../src/workspace/header/status.ts";
+import { storageNoticeText } from "../src/workspace/store/storage.ts";
 import { NoticeBell, TextSizePick, TopBar } from "../src/workspace/header/TopBar.tsx";
 
 const noop = () => undefined;
 const message = (code: string) => `失敗（${code}）`;
-const base: BarInputs = { opened: true, stored: true, save: { kind: "saved", at: "2026-10-19T05:03:00.000Z" }, paused: false, aiSharing: false, recoveryDue: null, joined: [], presence: null, message };
+const base: BarInputs = { opened: true, stored: true, save: { kind: "saved", at: "2026-10-19T05:03:00.000Z" }, paused: false, aiSharing: false, storage: [], showing: { recovery: false, office: false, storage: false }, presence: null, message };
 
 describe("上の帯の札（ふだんは出さない）", () => {
   it("保存済み・保存中・待ち・保存していない世帯（見本）・AIを使わない／使うが共有していない: 札は出ない", () => {
@@ -47,14 +49,36 @@ describe("通知の印にまとめる通知", () => {
     expect(html).not.toContain("data-notice-bell");
   });
 
-  it("復元キーの保管・開いている人・復元キーで加わった人を、この順で1か所に", () => {
-    const n = barNotices({ ...base, recoveryDue: "office", presence: "担当Bさんが開いています（12分前から）", joined: ["担当N", "担当M"] });
-    expect(n.map((x) => x.kind)).toEqual(["recovery", "presence", "joined"]);
-    expect(n[0]!.text).toBe("事務所の復元キーを保管してください");
-    expect(n[2]!.text).toBe("復元キーで担当Nさん・担当Mさんが加わりました");
-    expect(barNotices({ ...base, recoveryDue: "own" })[0]!.text).toBe("復元キーを保管してください");
+  const sn = (kind: string, scope: StorageNotice["scope"], extra: Partial<StorageNotice> = {}): StorageNotice => ({ kind, level: "warn", scope, count: null, name: null, at: null, code: null, ...extra });
+
+  it("本体の保存先と同期の通知（文は storageNoticeText と同じ）と、開いている人を1か所に", () => {
+    const storage = [sn("recoveryNotKept", "office"), sn("recoveryJoin", "office", { name: "担当N" }), sn("syncCopies", "office", { count: 2 })];
+    const n = barNotices({ ...base, storage, presence: "担当Bさんが開いています（12分前から）" });
+    expect(n.map((x) => x.target)).toEqual(["recovery", "office", "households", "presence"]);
+    expect(n.map((x) => x.text)).toEqual([...storage.map(storageNoticeText), "担当Bさんが開いています（12分前から）"]);
+    expect(n[1]!.text).toBe("復元キーで担当Nさんが加わりました");
     // 保存していない世帯では、開いている人の通知は出さない
     expect(barNotices({ ...base, stored: false, presence: "x" })).toEqual([]);
+  });
+
+  it("1人で2台の PC の同期フォルダ: 加わった PC は「さん」を付けず PC の呼び名で。押すと保存先の画面", () => {
+    const n = barNotices({ ...base, storage: [sn("recoveryJoin", "personal", { name: "自宅のノート" }), sn("localHouseholds", "personal", { count: 3 })] });
+    expect(n[0]!.text).toContain("「自宅のノート」");
+    expect(n[0]!.text).not.toContain("さん");
+    expect(n.map((x) => [x.target, x.action])).toEqual([
+      ["storage", "保存先"],
+      ["storage", "保存先"],
+    ]);
+  });
+
+  it("押す先: 鍵が無い＝復元キーを入れる・事務所の共有の通知＝事務所の共有。その画面を開いている間は、その画面の通知を出さない", () => {
+    expect(noticeTarget(sn("needsRecovery", "local"))).toBe("restore");
+    expect(noticeTarget(sn("pending", "office"))).toBe("office");
+    expect(noticeTarget(sn("unavailable", "personal"))).toBe("storage");
+    const storage = [sn("recoveryNotKept", "local"), sn("joinRequest", "office", { count: 1 }), sn("removed", "personal")];
+    expect(barNotices({ ...base, storage }).length).toBe(3);
+    expect(barNotices({ ...base, storage, showing: { recovery: true, office: true, storage: true } })).toEqual([]);
+    expect(barNotices({ ...base, storage, showing: { recovery: false, office: true, storage: false } }).map((x) => x.target)).toEqual(["recovery", "storage"]);
   });
 
   it("通知の印は件数つき。読み上げの名前にも件数を入れる", () => {

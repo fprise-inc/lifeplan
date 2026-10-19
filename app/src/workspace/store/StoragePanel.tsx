@@ -19,7 +19,7 @@ export interface StoragePanelProps {
   /** 2台目の PC として開く節を先に出す（初回の案内から来たとき） */
   focus?: "open" | null;
   onStatus: (s: OfficeStatus) => void;
-  /** 世帯を移した・開いた（世帯の一覧と知らせを読み直す） */
+  /** 世帯を移した・開いた（世帯の一覧と通知を読み直す） */
   onHouseholdsChanged: () => void;
   /** 復元キーのパネルを開く */
   onRecovery: () => void;
@@ -74,7 +74,7 @@ export function StoragePanel(p: StoragePanelProps) {
       <span class="pl-sub">もう1台のPCに「○○で開いています」と出す名前です。顧客のお名前は入れないでください</span>
     </label>
   );
-  // このパネルの中で詳しく出す知らせ（復元キー・PC が加わった・申請・移していない世帯・使えない理由）は除き、残り（同期の衝突の写し）だけを並べる
+  // このパネルの中で詳しく出す通知（復元キー・PC が加わった・申請・移していない世帯・使えない理由）は除き、残り（同期の衝突の写し）だけを並べる
   const notices = p.notices.filter((n) => n.kind === "syncCopies");
 
   const startSection = (
@@ -117,7 +117,7 @@ export function StoragePanel(p: StoragePanelProps) {
       <h3>すでに使っている同期フォルダを開く（2台目のPC）</h3>
       <p class="pl-sub">
         1台目のPCで選んだ同期フォルダと<b>同じフォルダ</b>を選び、<b>復元キー</b>を入れます。開いた後は、このPCの保管庫に鍵を置くので、ふだんは復元キーは要りません。
-        このPCが加わったことは、1台目のPCにも知らせが出ます。
+        このPCが加わったことは、1台目のPCにも通知が出ます。
       </p>
       <label class="of-name">
         復元キー

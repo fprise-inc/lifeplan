@@ -60,7 +60,7 @@ import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/app
 import { installUndo, undoController } from "./undo/controller.ts";
 import { UndoButtons } from "./undo/UndoButtons.tsx";
 import { BasisLine, HouseholdNow } from "./header/HouseholdNow.tsx";
-import { barAlerts, barNotices, saveText, type AlertKind, type BarInputs, type NoticeKind } from "./header/status.ts";
+import { barAlerts, barNotices, saveText, type AlertKind, type BarInputs, type NoticeTarget } from "./header/status.ts";
 import { TopBar } from "./header/TopBar.tsx";
 
 type Tab = "input" | "main" | "contingency" | "report";
@@ -771,6 +771,11 @@ export function App() {
       setStoreUnavailable(storeMessage(codeOf(e)));
     }
   }, [host]);
+  // 復元キー・事務所の共有・保存先の画面を閉じたら、保存先と同期の通知を取り直す（保管した・見た通知を上の帯の通知から消す）
+  const panelsOpen = recovery !== null || officeOpen || storageOpen !== null;
+  useEffect(() => {
+    if (host !== null && !panelsOpen) void host.office.notices().then(setStorageNotices, () => undefined);
+  }, [host, panelsOpen]);
   const guard = useCallback(
     async (fn: () => Promise<void>) => {
       setHhError(null);
@@ -1301,8 +1306,8 @@ export function App() {
     save: saveState,
     paused: presence !== null,
     aiSharing: aiShare === "sharing",
-    recoveryDue: storeStatus?.state === "ready" && !storeStatus.recoveryAcknowledged && recovery === null ? (officeStatus?.state === "member" ? "office" : "own") : null,
-    joined: officeStatus?.state === "member" && !officeOpen ? officeStatus.notices.map((n) => n.name) : [],
+    storage: storageNotices,
+    showing: { recovery: recovery !== null, office: officeOpen, storage: storageOpen !== null },
     presence: presence !== null ? presenceText(presence) : null,
     message: storeMessage,
   };
@@ -1326,7 +1331,11 @@ export function App() {
     setOfficeOpen(true);
   };
   const alertActions: Record<AlertKind, () => void> = { saveError: showHousehold, readOnly: showHousehold, paused: toPresence, aiSharing: openAiShare };
-  const noticeActions: Record<NoticeKind, () => void> = { recovery: () => setRecovery("manage"), presence: toPresence, joined: openOffice };
+  const openStorage = () => {
+    void host?.office.status().then(setOfficeStatus, () => undefined);
+    setStorageOpen("default");
+  };
+  const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence };
   const save = saveText(storedInfo !== null, saveState, storeMessage, presence !== null);
   const basis = model === null ? null : { members: model.members.map((m) => `${m.label} ${m.age}歳`).join("・"), asOf: model.asOf };
   return (
@@ -1346,7 +1355,7 @@ export function App() {
             : null
         }
         alerts={barAlerts(barIn).map((a) => ({ id: a.kind, text: a.text, short: a.short, title: a.title, tone: a.tone, onClick: alertActions[a.kind] }))}
-        notices={barNotices(barIn).map((n) => ({ id: n.kind, text: n.text, action: n.action, onClick: noticeActions[n.kind] }))}
+        notices={barNotices(barIn).map((n) => ({ id: n.id, text: n.text, action: n.action, onClick: noticeActions[n.target] }))}
         tools={
           opened !== null ? (
             <>

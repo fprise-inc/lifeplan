@@ -79,7 +79,7 @@ html.big .rk-key { font-size: 1.45rem; }
 .memo-authors .memo-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 .memo-authors .memo-by { white-space: nowrap; font-weight: 700; }
 
-/* 保存先（1人で2台の PC の同期フォルダ。0024）: 保存先のパネルの節・保存先と同期の知らせ・初回の案内の「2台目の PC」 */
+/* 保存先（1人で2台の PC の同期フォルダ。0024）: 保存先のパネルの節・保存先と同期の通知・初回の案内の「2台目の PC」 */
 .sp-section { border-top: 1px solid var(--line-2); margin-top: 12px; padding-top: 4px; }
 .sp-notices { list-style: none; padding: 0; margin: 6px 0 10px; display: grid; gap: 6px; }
 .sp-notices li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.88rem; border: 1.5px solid var(--line); background: #fff; }
