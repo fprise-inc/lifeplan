@@ -1,86 +1,71 @@
-// 全部の案を色分けで重ねる表示（提示層の部品）: 案ごとの線の見た目（色・線の種類・線の端の印）と、凡例。
-// 色の見分けにくい人にも区別できるよう、色の見分け方の違いに配慮した配色（白地で 3:1 以上）に、線の種類と印の形を必ず組み合わせる（色だけに頼らない）。
-// 基準の案は今の決まりのまま、落ち着いた灰の破線と白抜きの丸。ほかの案は帯の順に、下の並びの見た目を割り当てる
-// （帯のカードの小さな印・グラフの線・凡例・年の表示で同じ見た目を使う）。
-// 受け取るのは案の名前と数字だけ（PlanLineModel。0016 の2）
+// 全部のプランを色分けで重ねる表示（提示層の部品）: プランごとの線の色と、凡例。
+// 線は全部実線、線の端の印は全部同じ丸にして、色だけで描き分ける（線の種類・印の形を変えると、6本重なったときにかえって読みにくいため）。
+// 色だけに頼らないための最低限の手がかりとして、線の右端にプランの文字（A・B…）を出し、基準のプランには「基準」の札を付ける。
+// 色はプランごとに決まった番号（colorIndex。0 は現状＝プランA）で引く。基準を変えても、帯の並びを変えても、同じプランは同じ色
+// （番号の割り当ては作業の層の band.ts の assignColors）。帯のカードの小さな印・グラフの線・凡例・年の表示で同じ色を使う。
+// 受け取るのはプランの名前と数字と色の番号だけ（PlanLineModel。0016 の2）
 import type { PlanLineModel } from "./model.ts";
 import type { ChartMode } from "./MainChart.tsx";
-
-export type MarkerShape = "circle" | "square" | "triangle" | "diamond" | "triangleDown" | "ring";
 
 export interface PlanStyle {
   /** 線の色 */
   color: string;
-  /** 線の種類（stroke-dasharray。実線は空） */
-  dash: string;
-  /** 読み上げ・説明用の線の種類の名前 */
-  dashName: string;
-  marker: MarkerShape;
-  base: boolean;
+  /** 読み上げ・説明用の色の名前 */
+  colorName: string;
 }
 
-/** 基準の案: 落ち着いた灰の破線と白抜きの丸（重ねる表示の基準の案と同じ） */
-export const BASE_STYLE: PlanStyle = { color: "#8c96a3", dash: "9 6", dashName: "破線", marker: "ring", base: true };
-
-/** 基準でない案に帯の順で割り当てる見た目（最大5つ）。色・線の種類・印の形をすべて変える */
-export const PLAN_STYLES: readonly PlanStyle[] = [
-  { color: "#0072B2", dash: "", dashName: "実線", marker: "circle", base: false },
-  { color: "#D55E00", dash: "14 5", dashName: "長い破線", marker: "square", base: false },
-  { color: "#009E73", dash: "1 6", dashName: "点線", marker: "triangle", base: false },
-  { color: "#CC79A7", dash: "12 4 2 4", dashName: "一点鎖線", marker: "diamond", base: false },
-  { color: "#1a1d21", dash: "5 4", dashName: "短い破線", marker: "triangleDown", base: false },
+/**
+ * 色の番号ごとの線の色（0: 現状、1〜5: 帯に並べるプラン）。実線だけで6本を見分けられるように選んだ:
+ * - 白地とのコントラスト比はすべて 3:1 以上
+ * - 色の見分け方の違い（1型・2型・3型）を模した見え方でも、どの2色も近づきすぎない（色差 ΔE2000 でおよそ 10 以上）
+ * - 現状は落ち着いた濃い青灰（ほかの5色より彩度を落として、現状だと分かるように）
+ */
+export const PLAN_COLOR_STYLES: readonly PlanStyle[] = [
+  { color: "#4c5563", colorName: "青灰" },
+  { color: "#0072c6", colorName: "青" },
+  { color: "#d95f02", colorName: "橙" },
+  { color: "#009a5b", colorName: "緑" },
+  { color: "#c2309a", colorName: "赤紫" },
+  { color: "#2f2380", colorName: "藍" },
 ];
 
-/** 案（帯の順）ごとの見た目。基準の案は灰の破線、ほかは帯の順に PLAN_STYLES を割り当てる */
-export function planStyles(list: readonly { key: string; base: boolean }[]): Map<string, PlanStyle> {
-  const out = new Map<string, PlanStyle>();
-  let k = 0;
-  for (const p of list) {
-    if (p.base) out.set(p.key, BASE_STYLE);
-    else {
-      out.set(p.key, PLAN_STYLES[k % PLAN_STYLES.length] as PlanStyle);
-      k++;
-    }
-  }
-  return out;
+/** 帯に並べるプランの色の数（現状のほか） */
+export const PLAN_COLORS = PLAN_COLOR_STYLES.length - 1;
+
+/** 色の番号の見た目（範囲の外は 1〜5 に折り返す） */
+export function colorStyle(index: number): PlanStyle {
+  if (index <= 0) return PLAN_COLOR_STYLES[0] as PlanStyle;
+  return PLAN_COLOR_STYLES[((index - 1) % PLAN_COLORS) + 1] as PlanStyle;
 }
 
-/** 線の端の印（中心 x・y、大きさ r）。白い縁取りで、線が重なっても形が読める */
-export function PlanMarker({ shape, x, y, r, color, cls }: { shape: MarkerShape; x: number; y: number; r: number; color: string; cls?: string }) {
-  const common = { class: `pl-mk${shape === "ring" ? " ring" : ""}${cls !== undefined ? ` ${cls}` : ""}`, fill: shape === "ring" ? "#fff" : color, stroke: shape === "ring" ? color : "#fff" };
-  const f = (n: number) => n.toFixed(1);
-  switch (shape) {
-    case "square":
-      return <rect {...common} x={f(x - r * 0.85)} y={f(y - r * 0.85)} width={f(r * 1.7)} height={f(r * 1.7)} />;
-    case "triangle":
-      return <path {...common} d={`M${f(x)} ${f(y - r * 1.15)} L${f(x + r * 1.1)} ${f(y + r * 0.8)} L${f(x - r * 1.1)} ${f(y + r * 0.8)} Z`} />;
-    case "triangleDown":
-      return <path {...common} d={`M${f(x)} ${f(y + r * 1.15)} L${f(x + r * 1.1)} ${f(y - r * 0.8)} L${f(x - r * 1.1)} ${f(y - r * 0.8)} Z`} />;
-    case "diamond":
-      return <path {...common} d={`M${f(x)} ${f(y - r * 1.25)} L${f(x + r * 1.1)} ${f(y)} L${f(x)} ${f(y + r * 1.25)} L${f(x - r * 1.1)} ${f(y)} Z`} />;
-    default:
-      return <circle {...common} cx={f(x)} cy={f(y)} r={f(shape === "ring" ? r * 0.85 : r)} />;
-  }
+/** プランごとの見た目（鍵 → 見た目）。基準かどうか・帯の順には関わらず、色の番号だけで決まる */
+export function planStyles(list: readonly { key: string; colorIndex: number }[]): Map<string, PlanStyle> {
+  return new Map(list.map((p) => [p.key, colorStyle(p.colorIndex)]));
 }
 
-/** 小さな見本（線の種類＋真ん中に印）。凡例・帯のカード・年の表示で使う */
+/** 線の端の印（中心 x・y、大きさ r）。どのプランも同じ丸。白い縁取りで、線が重なっても読める */
+export function PlanMarker({ x, y, r, color, cls }: { x: number; y: number; r: number; color: string; cls?: string }) {
+  return <circle class={`pl-mk${cls !== undefined ? ` ${cls}` : ""}`} fill={color} stroke="#fff" cx={x.toFixed(1)} cy={y.toFixed(1)} r={r.toFixed(1)} />;
+}
+
+/** 小さな見本（実線＋真ん中に丸）。凡例・帯のカード・年の表示で使う */
 export function PlanSwatch({ style, w = 34, h = 14 }: { style: PlanStyle; w?: number; h?: number }) {
   return (
     <svg class="pl-sw" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
-      <line x1="1" x2={w - 1} y1={h / 2} y2={h / 2} stroke={style.color} stroke-width="3" stroke-dasharray={style.dash || undefined} stroke-linecap={style.dash.startsWith("1 ") ? "round" : "butt"} />
-      <PlanMarker shape={style.marker} x={w / 2} y={h / 2} r={4.2} color={style.color} />
+      <line x1="1" x2={w - 1} y1={h / 2} y2={h / 2} stroke={style.color} stroke-width="3" />
+      <PlanMarker x={w / 2} y={h / 2} r={4.2} color={style.color} />
     </svg>
   );
 }
 
-/** グラフの種類ごとに、各案の何の線を描くか（見出し・凡例・年の表示に出す） */
+/** グラフの種類ごとに、各プランの何の線を描くか（見出し・凡例・年の表示に出す） */
 export const MULTI_WHAT: Record<ChartMode, { lead: string; caption: string; zone: string }> = {
-  assets: { lead: "金融資産", caption: "全部の案の金融資産の推移（色と線の種類で描き分け）", zone: "0未満は不足" },
-  flows: { lead: "年間収支", caption: "全部の案の年間収支（収入−支出）の線（積み上げの棒は出しません）", zone: "0未満は赤字" },
-  balance: { lead: "純資産", caption: "全部の案の純資産（資産−負債）の線（積み上げの棒は出しません）", zone: "0未満は負債が上回る" },
+  assets: { lead: "金融資産", caption: "全部のプランの金融資産の推移（色で描き分け）", zone: "0未満は不足" },
+  flows: { lead: "年間収支", caption: "全部のプランの年間収支（収入−支出）の線（積み上げの棒は出しません）", zone: "0未満は赤字" },
+  balance: { lead: "純資産", caption: "全部のプランの純資産（資産−負債）の線（積み上げの棒は出しません）", zone: "0未満は負債が上回る" },
 };
 
-/** その案のその種類の線（計算中は null） */
+/** そのプランのその種類の線（計算中は null） */
 export function lineOf(p: PlanLineModel, mode: ChartMode): readonly number[] | null {
   return mode === "flows" ? p.net : mode === "balance" ? p.netWorth : p.financial;
 }
@@ -88,15 +73,15 @@ export function lineOf(p: PlanLineModel, mode: ChartMode): readonly number[] | n
 export interface MultiLegendProps {
   plans: PlanLineModel[];
   mode: ChartMode;
-  /** カーソルを合わせて強調している案（無ければ null） */
+  /** カーソルを合わせて強調しているプラン（無ければ null） */
   focus: string | null;
   onFocus: (key: string | null) => void;
-  /** 一時的に隠している案 */
+  /** 一時的に隠しているプラン */
   hidden: readonly string[];
   onToggle: (key: string) => void;
 }
 
-/** 全部の案を重ねる表示の凡例: 何の線か（見出し）と、案ごとの見本・名前。合わせると強調、クリックで一時的に隠す・戻す */
+/** 全部のプランを重ねる表示の凡例: 何の線か（見出し）と、プランごとの見本・名前。合わせると強調、クリックで一時的に隠す・戻す */
 export function MultiLegend({ plans, mode, focus, onFocus, hidden, onToggle }: MultiLegendProps) {
   const styles = planStyles(plans);
   const what = MULTI_WHAT[mode];
@@ -105,7 +90,7 @@ export function MultiLegend({ plans, mode, focus, onFocus, hidden, onToggle }: M
       <b class="ml-cap" data-multi-caption>
         {what.caption}
       </b>
-      <span class="ml-items" role="group" aria-label="案の線（クリックで一時的に隠す・戻す）">
+      <span class="ml-items" role="group" aria-label="プランの線（クリックで一時的に隠す・戻す）">
         {plans.map((p) => {
           const st = styles.get(p.key) as PlanStyle;
           const off = hidden.includes(p.key);
@@ -117,7 +102,7 @@ export function MultiLegend({ plans, mode, focus, onFocus, hidden, onToggle }: M
               class={`ml-item${off ? " off" : ""}${focus === p.key ? " on" : ""}${p.selected ? " sel" : ""}`}
               aria-pressed={!off}
               disabled={wait}
-              title={`${p.name} ${p.title}（${st.dashName}）${off ? "。クリックで戻す" : "。クリックで一時的に隠す"}`}
+              title={`${p.name} ${p.title}（${st.colorName}の線）${off ? "。クリックで戻す" : "。クリックで一時的に隠す"}`}
               onMouseEnter={() => onFocus(p.key)}
               onMouseLeave={() => onFocus(null)}
               onFocus={() => onFocus(p.key)}
@@ -134,7 +119,7 @@ export function MultiLegend({ plans, mode, focus, onFocus, hidden, onToggle }: M
           );
         })}
       </span>
-      <span class="hint">名前に合わせるとその線を強調、クリックで一時的に隠す・戻す。グラフに合わせるとその年の全部の案の数字（クリックで固定）。{what.zone}</span>
+      <span class="hint">名前に合わせるとその線を強調、クリックで一時的に隠す・戻す。グラフに合わせるとその年の全部のプランの数字（クリックで固定）。{what.zone}</span>
     </div>
   );
 }

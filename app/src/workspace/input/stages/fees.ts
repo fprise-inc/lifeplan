@@ -37,7 +37,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       path: ["enabled"],
       optional: true,
       fallback: true,
-      help: "入れないときは、見通しの対策「FP顧問料」で提案の側にだけ入れます（既定）",
+      help: "入れないときは、結果の対策「FP顧問料」で提案の側にだけ入れます（既定）",
     }),
     ...(c.terms?.oneTime ?? []).flatMap((_, i) => oneTimeFields(k, find, i)),
   ];
@@ -191,7 +191,7 @@ export function feeStage(wh: WorkingHousehold): StageDef {
       {
         key: "ev/fees",
         title: "FP顧問料",
-        note: "生活費とは別の行で計算します。既定では提案の側にだけ入れ、見通しの対策「FP顧問料」で入れる・入れないを切り替えます",
+        note: "生活費とは別の行で計算します。既定では提案の側にだけ入れ、結果の対策「FP顧問料」で入れる・入れないを切り替えます",
         level: "simple",
         groups: list.flatMap((c, i) => feeGroups(wh, c, i)),
         actions: [{ key: "ev/addFee", label: "＋ FP顧問料の契約", level: "simple", run: (w) => addAdvisoryFee(w) }],

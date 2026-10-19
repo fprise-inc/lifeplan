@@ -42,16 +42,16 @@ describe("章を選ぶ", () => {
   });
 });
 
-describe("案の比較のページ", () => {
+describe("プランの比較のページ", () => {
   const c = full.comparison;
-  it("列は現状と案、基準の列は差を持たない。JSON Schema に合う", () => {
+  it("列は現状とプラン、基準の列は差を持たない。JSON Schema に合う", () => {
     expect(validate(full), JSON.stringify(validate.errors)).toBe(true);
     expect(c?.columns.map((x) => x.letter)).toEqual(["A", "B", "C"]);
     expect(c?.base).toBe(0);
     for (const r of c?.rows ?? []) expect(r.diffs[0]).toBeNull();
   });
 
-  it("数字は主画面の比較の表と同じ決め方（エンジンの出力の表から）で、差は「その案−基準」", () => {
+  it("数字は主画面の比較の表と同じ決め方（エンジンの出力の表から）で、差は「そのプラン−基準」", () => {
     const years = displayYears(bundle.proposal.request);
     const ms = (bundle.comparison?.plans ?? []).map((p) => comparisonMetrics(p.run, years, full.summary.target.year));
     const row = (k: string) => c?.rows.find((r) => r.key === k);
@@ -66,7 +66,7 @@ describe("案の比較のページ", () => {
     expect(row("target")?.values[0]).toBe(full.summary.current.financialAtTarget);
   });
 
-  it("案が1つだけなら比較のページを作らない", () => {
+  it("プランが1つだけなら比較のページを作らない", () => {
     const one = buildProposalInput({ ...bundle, comparison: { base: 0, plans: (bundle.comparison?.plans ?? []).slice(0, 1) } });
     expect(one.comparison).toBeNull();
     expect(hasMaterial(one, "comparison")).toBe(false);

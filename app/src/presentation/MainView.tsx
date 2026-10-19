@@ -300,8 +300,8 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence, c
         <h2 id="h-cf">{model.title}</h2>
         {controls !== undefined ? (
           <>
-            <span class="k">表示する案</span>
-            <span class="seg-g" role="group" aria-label="表示する案">
+            <span class="k">表示するプラン</span>
+            <span class="seg-g" role="group" aria-label="表示するプラン">
               {controls.plans.map((x) => (
                 <button type="button" key={x.key} aria-pressed={x.key === controls.shown} onClick={() => controls.onShow(x.key)} data-table-plan={x.key}>
                   {x.letter}

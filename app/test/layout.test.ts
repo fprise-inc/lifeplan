@@ -65,7 +65,7 @@ const resultOf = (wh: WorkingHousehold, cat: Catalog, values: Values): PreviewRe
 };
 
 describe("帯の案の選択", () => {
-  it("案の文字: 現状は A、名前の頭の「B案」は文字にして名前から外す。重なる文字は空いている文字にする", () => {
+  it("案の文字: 現状は A、名前の頭の「プランB」は文字にして名前から外す。重なる文字は空いている文字にする", () => {
     const { wh } = withPlans(2);
     const renamed = { ...wh, proposals: [...wh.proposals, { ...wh.proposals[0]!, id: "x", name: "B案 同じ文字" }, { ...wh.proposals[0]!, id: "y", name: "名前だけ" }] };
     const l = planLetters(renamed.proposals);
@@ -93,7 +93,7 @@ describe("帯の案の選択", () => {
     const letters = planLetters(wh.proposals);
     const cur = resultOf(wh, cat, {});
     const b = resultOf(wh, cat, wh.proposals[0]!.diffs.reduce((o, d) => ({ ...o, [d.key]: d.value.value }), {} as Values));
-    const m = bandModel({ req: wh.request, slots: [CURRENT, ...ids], letters, results: new Map([[CURRENT, cur], [ids[0]!, b], [ids[1]!, null]]), modified: new Set([ids[0]!]), base: CURRENT, selected: ids[0]!, settings: DEFAULT_DISPLAY_SETTINGS });
+    const m = bandModel({ req: wh.request, slots: [CURRENT, ...ids], letters, results: new Map([[CURRENT, cur], [ids[0]!, b], [ids[1]!, null]]), modified: new Set([ids[0]!]), base: CURRENT, selected: ids[0]!, settings: DEFAULT_DISPLAY_SETTINGS, colors: new Map() });
     expect(m.cards.map((c) => [c.letter, c.status, c.base, c.shown, c.modified])).toEqual([
       ["A", "80歳で不足", true, false, false],
       ["B", "100歳まで足りる", false, true, true],
@@ -104,8 +104,8 @@ describe("帯の案の選択", () => {
     expect(m.cards[2]!.shortAge).toBeUndefined();
     // 既定では○歳時点の資産を出さない
     expect(m.cards.every((c) => c.metrics.length === 0)).toBe(true);
-    expect(m.baseOptions.map((o) => o.label)).toEqual(["A 現状", "B 案1", "C 案2"]);
-    expect(m.addNote).toBe("B案を写して動かす");
+    expect(m.baseOptions.map((o) => o.label)).toEqual(["プランA 現状", "プランB 案1", "プランC 案2"]);
+    expect(m.addNote).toBe("プランBを写して動かす");
     // カードの鍵は文字だけ（案の ID は入らない）
     expect(JSON.stringify(m)).not.toContain(ids[0]!);
     expect(slotOfLetter(letters, [CURRENT, ...ids], "C")).toBe(ids[1]);
@@ -129,32 +129,32 @@ describe("基準の切り替え", () => {
   const rC = resultOf(wh, cat, valuesC);
   const years = displayYears(wh.request);
 
-  it("基準の案は灰の点線（current）、選んだ案は藍の実線（proposal）。1文は「B案は100歳まで足ります」と「A案（基準）は80歳で…」", () => {
-    const m = toPresentation({ base: wh.request, proposal: applyValues(wh, valuesB, cat), current: rA, proposed: rB, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "B案", base: "A案", same: false } });
-    expect(m.result.parts.map((p) => p.text).join("")).toBe("B案は100歳まで足ります");
-    expect(m.result.sub.map((p) => p.text).join("")).toBe("A案（基準）は80歳で資産が尽きます");
+  it("基準の案は灰の点線（current）、選んだ案は藍の実線（proposal）。1文は「プランBは100歳まで足ります」と「プランA（基準）は80歳で…」", () => {
+    const m = toPresentation({ base: wh.request, proposal: applyValues(wh, valuesB, cat), current: rA, proposed: rB, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
+    expect(m.result.parts.map((p) => p.text).join("")).toBe("プランBは100歳まで足ります");
+    expect(m.result.sub.map((p) => p.text).join("")).toBe("プランA（基準）は80歳で資産が尽きます");
     expect(m.result.tone).toBe("up");
     expect(m.chart.current).toEqual(years.map((y) => financialOf(rA.table).get(y) ?? 0));
     expect(m.chart.proposal).toEqual(years.map((y) => financialOf(rB.table).get(y) ?? 0));
-    expect(m.chart.depletions).toEqual([{ series: "current", year: 2061, label: "▲ A案 80歳で不足" }]);
+    expect(m.chart.depletions).toEqual([{ series: "current", year: 2061, label: "▲ プランA 80歳で不足" }]);
     // 基準の案の線（年間収支・純資産）も基準の案の結果から
     expect(m.baseLines.net).toEqual(years.map((y) => sumByYear(rA.table, (c) => c.row === "cf.net").get(y) ?? 0));
   });
 
-  it("基準を C案に替えると、点線と2行目が C案になる", () => {
-    const m = toPresentation({ base: wh.request, proposal: applyValues(wh, valuesB, cat), current: rC, proposed: rB, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "B案", base: "C案", same: false } });
+  it("基準を プランCに替えると、点線と2行目が プランCになる", () => {
+    const m = toPresentation({ base: wh.request, proposal: applyValues(wh, valuesB, cat), current: rC, proposed: rB, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "プランB", base: "プランC", same: false } });
     expect(m.chart.current).toEqual(years.map((y) => financialOf(rC.table).get(y) ?? 0));
-    expect(m.result.sub.map((p) => p.text).join("")).toBe("C案（基準）は100歳まで足ります");
+    expect(m.result.sub.map((p) => p.text).join("")).toBe("プランC（基準）は100歳まで足ります");
     expect(m.chart.depletions).toEqual([]);
   });
 
   it("基準の案を選んでいるとき（と現状を選んでいるとき）は、対策を動かせず理由を出す", () => {
     const letter = (id: string) => (id === CURRENT ? "A" : "B");
     expect(lockReason({ band: ids, base: CURRENT, sel: ids[0]!, drafts: {} }, letter)).toBeNull();
-    expect(lockReason({ band: ids, base: ids[0]!, sel: ids[0]!, drafts: {} }, letter)).toContain("基準の案は動かせません");
-    expect(lockReason({ band: ids, base: ids[0]!, sel: CURRENT, drafts: {} }, letter)).toContain("A案（現状）は入力の画面で直します");
-    const same = toPresentation({ base: wh.request, proposal: wh.request, current: rA, proposed: rA, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "A案", base: "A案", same: true } });
-    expect(same.result.parts.map((p) => p.text).join("")).toBe("A案（基準）：80歳で資産が尽きます");
+    expect(lockReason({ band: ids, base: ids[0]!, sel: ids[0]!, drafts: {} }, letter)).toContain("基準のプランは動かせません");
+    expect(lockReason({ band: ids, base: ids[0]!, sel: CURRENT, drafts: {} }, letter)).toContain("プランA（現状）は入力の画面で直します");
+    const same = toPresentation({ base: wh.request, proposal: wh.request, current: rA, proposed: rA, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "プランA", base: "プランA", same: true } });
+    expect(same.result.parts.map((p) => p.text).join("")).toBe("プランA（基準）：80歳で資産が尽きます");
     expect(same.result.sub).toEqual([]);
   });
 
@@ -173,7 +173,7 @@ describe("基準の切り替え", () => {
     expect(fin.cells.some((c) => c.changed === true)).toBe(true);
     fin.cells.forEach((c, i) => expect(c.changed).toBe(d.cells[i] !== 0));
     const html = renderToString(
-      h(CashflowTable, { model: t, selectedYear: 2041, onSelectYear: () => undefined, onEvidence: () => undefined, corner: "B案「案1」", controls: { plans: [{ key: "A", letter: "A" }, { key: "B", letter: "B" }], shown: "B", onShow: () => undefined, diff: { on: true, disabled: false, label: "差を表示（B−A）" }, onDiff: () => undefined } }),
+      h(CashflowTable, { model: t, selectedYear: 2041, onSelectYear: () => undefined, onEvidence: () => undefined, corner: "プランB「案1」", controls: { plans: [{ key: "A", letter: "A" }, { key: "B", letter: "B" }], shown: "B", onShow: () => undefined, diff: { on: true, disabled: false, label: "差を表示（B−A）" }, onDiff: () => undefined } }),
     );
     expect(html).toContain("差（B−A）");
     expect(html).toContain("data-diff-row");
@@ -191,9 +191,9 @@ describe("○歳時点の表示の切り替え（既定では出さない）", (
   it("既定: カード・1文・グラフに○歳時点の資産を出さない", () => {
     expect(DEFAULT_DISPLAY_SETTINGS.metrics).toEqual([]);
     expect(cardMetrics(DEFAULT_DISPLAY_SETTINGS, mB)).toEqual([]);
-    expect(verdictMetrics(DEFAULT_DISPLAY_SETTINGS, { name: "B案", m: mB }, { name: "A案", m: mA })).toEqual([]);
+    expect(verdictMetrics(DEFAULT_DISPLAY_SETTINGS, { name: "プランB", m: mB }, { name: "プランA", m: mA })).toEqual([]);
     expect(ageMarkOf(DEFAULT_DISPLAY_SETTINGS, wh.request)).toBeNull();
-    const m = toPresentation({ base: wh.request, proposal: wh.request, current: rA, proposed: rB, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "B案", base: "A案", same: false } });
+    const m = toPresentation({ base: wh.request, proposal: wh.request, current: rA, proposed: rB, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
     const svg = renderToString(h(MainChart, { model: m, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: () => undefined }));
     expect(svg).not.toContain("m-age");
     expect(svg).not.toContain("dot-sel");
@@ -206,16 +206,16 @@ describe("○歳時点の表示の切り替え（既定では出さない）", (
     expect(m90B.targetYear).toBe(2071);
     const man = (n: number) => `${n < 0 ? "▲" : ""}${Math.round(Math.abs(n) / 10000).toLocaleString("en-US")}`;
     expect(cardMetrics(s, m90B)).toEqual([{ label: "90歳時点", text: `${man(m90B.target)}万円`, neg: m90B.target < 0 }]);
-    const parts = verdictMetrics(s, { name: "B案", m: m90B }, { name: "A案", m: m90A }).map((p) => p.text).join("");
-    expect(parts).toContain(`90歳時点: B案 ${man(m90B.target)}万円`);
-    expect(parts).toContain(`A案 ${man(m90A.target)}万円`);
+    const parts = verdictMetrics(s, { name: "プランB", m: m90B }, { name: "プランA", m: m90A }).map((p) => p.text).join("");
+    expect(parts).toContain(`90歳時点: プランB ${man(m90B.target)}万円`);
+    expect(parts).toContain(`プランA ${man(m90A.target)}万円`);
     expect(parts).toContain(`差 +${man(m90B.target - m90A.target)}万円`);
     expect(ageMarkOf(s, wh.request)).toEqual({ year: 2071, label: "90歳" });
     // 生涯の手取りも足せる。並びは選択肢の順
     const s2 = toggleMetric(toggleMetric(DEFAULT_DISPLAY_SETTINGS, "takeHome", true), "assetsAtAge", true);
     expect(s2.metrics).toEqual(["assetsAtAge", "takeHome"]);
     expect(toggleMetric(s2, "assetsAtAge", false).metrics).toEqual(["takeHome"]);
-    const m = toPresentation({ base: wh.request, proposal: wh.request, current: rA, proposed: rB, targetAge: 90, selectedYear: null, provisional: false, names: { selected: "B案", base: "A案", same: false } });
+    const m = toPresentation({ base: wh.request, proposal: wh.request, current: rA, proposed: rB, targetAge: 90, selectedYear: null, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
     const svg = renderToString(h(MainChart, { model: m, mode: "assets", explain: null, ageMark: ageMarkOf(s, wh.request), pinnedYear: null, onSelectYear: () => undefined }));
     expect(svg).toContain("m-age");
     expect(svg).toContain("90歳");
@@ -294,8 +294,8 @@ describe("配置の部品の組み立て", () => {
   const valuesB: Values = { "lever:retireAge": 65, "lever:livingMonthly": 280000 };
   const rB = resultOf(wh, cat, valuesB);
   const req = applyValues(wh, valuesB, cat);
-  const m = toPresentation({ base: wh.request, proposal: req, current: rA, proposed: rB, targetAge: 95, selectedYear: 2041, provisional: false, names: { selected: "B案", base: "A案", same: false } });
-  const band = bandModel({ req: wh.request, slots: [CURRENT, ...ids], letters, results: new Map([[CURRENT, rA], [ids[0]!, rB]]), modified: new Set(), base: CURRENT, selected: ids[0]!, settings: DEFAULT_DISPLAY_SETTINGS });
+  const m = toPresentation({ base: wh.request, proposal: req, current: rA, proposed: rB, targetAge: 95, selectedYear: 2041, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
+  const band = bandModel({ req: wh.request, slots: [CURRENT, ...ids], letters, results: new Map([[CURRENT, rA], [ids[0]!, rB]]), modified: new Set(), base: CURRENT, selected: ids[0]!, settings: DEFAULT_DISPLAY_SETTINGS, colors: new Map() });
   const noop = () => undefined;
   const html = renderToString(
     h(
@@ -307,13 +307,13 @@ describe("配置の部品の組み立て", () => {
     ),
   );
 
-  it("上から 案の帯 → グラフ → 表。帯は現状＋5案のカードと「＋ この案を元に作る」", () => {
+  it("上から 案の帯 → グラフ → 表。帯は現状＋5案のカードと「＋ このプランを元に作る」", () => {
     const at = (s: string) => html.indexOf(s);
     expect(at("data-band")).toBeGreaterThanOrEqual(0);
     expect(at("data-band")).toBeLessThan(at("data-result-card"));
     expect(at("data-result-card")).toBeLessThan(at("data-cf-card"));
     expect(html.match(/data-plan-card=/g)).toHaveLength(6);
-    expect(html).toContain("＋ この案を元に作る");
+    expect(html).toContain("＋ このプランを元に作る");
     expect(html).toContain("表示中");
     expect(html).toContain("基準");
     // グラフは2本だけ（選んだ案の実線・基準の案の点線）

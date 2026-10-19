@@ -384,6 +384,8 @@ export interface PlanCardModel {
   modified: boolean;
   /** 表示の設定で選んだ数字（既定では出さない） */
   metrics: { label: string; text: string; neg: boolean }[];
+  /** 全部のプランを色分けで重ねる表示の色の番号（0: 現状、1〜5。プランごとに決まっていて、基準や帯の並びを変えても変わらない） */
+  colorIndex: number;
 }
 
 /**
@@ -392,12 +394,14 @@ export interface PlanCardModel {
  */
 export interface PlanLineModel {
   key: string;
-  /** 例: 「B案」 */
+  /** 例: 「プランB」 */
   name: string;
   /** 例: 「65歳まで働く」 */
   title: string;
   base: boolean;
   selected: boolean;
+  /** 線の色の番号（帯のカードの colorIndex と同じ） */
+  colorIndex: number;
   /** 金融資産（計算中は null） */
   financial: Yen[] | null;
   /** 年間収支 */

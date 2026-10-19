@@ -98,3 +98,55 @@ export function useTween(target: Series, opts: { reduce?: boolean; duration?: nu
   );
   return shown.current;
 }
+
+/**
+ * 切り替え（key が変わったとき）だけ、前に描いた値から新しい値へ行き過ぎのない動きでつなぐ（全部のプランを重ねる表示の縦の目盛り）。
+ * key が同じ間は target をそのまま返す（数字の補間は useTween が受け持つので、二重に遅らせない）。
+ * 動いている途中で key がまた変わったら、今描いている値から動き直す。動きを減らす設定のときは動かさない。
+ * animate で、動かす切り替えを選べる（例: 表示そのものを切り替えたときは動かさない）。
+ * 返す k は動きの進み（0→1。動いていなければ 1）、from は動き始めの値（動いていなければ null）
+ */
+export function useSwitchEase(
+  key: string,
+  target: readonly number[],
+  opts: { reduce?: boolean; duration?: number; animate?: (fromKey: string, toKey: string) => boolean } = {},
+): { value: number[]; from: readonly number[] | null; k: number } {
+  const [, setFrame] = useState(0);
+  const st = useRef<{ key: string; shown: number[]; from: readonly number[] | null; t0: number; raf: number }>({ key, shown: [...target], from: null, t0: 0, raf: 0 });
+  const reduce = opts.reduce ?? prefersReducedMotion();
+  const duration = opts.duration ?? TWEEN_MS;
+  const s = st.current;
+  if (s.key !== key) {
+    const prev = s.key;
+    s.key = key;
+    if (reduce || typeof requestAnimationFrame !== "function" || s.shown.length !== target.length || opts.animate?.(prev, key) === false) s.from = null;
+    else {
+      s.from = s.shown.slice();
+      s.t0 = performance.now();
+    }
+  }
+  let k = 1;
+  if (s.from !== null) {
+    k = easeOutCubic((performance.now() - s.t0) / duration);
+    if (k >= 1) s.from = null;
+  }
+  const from = s.from;
+  const value = from === null ? [...target] : target.map((v, i) => (from[i] as number) + (v - (from[i] as number)) * k);
+  s.shown = value;
+
+  useEffect(() => {
+    const cur = st.current;
+    if (cur.from === null || cur.raf !== 0) return;
+    cur.raf = requestAnimationFrame(() => {
+      cur.raf = 0;
+      setFrame((n) => n + 1);
+    });
+  });
+  useEffect(
+    () => () => {
+      if (st.current.raf !== 0) cancelAnimationFrame(st.current.raf);
+    },
+    [],
+  );
+  return { value, from, k: from === null ? 1 : k };
+}

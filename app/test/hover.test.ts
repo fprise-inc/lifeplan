@@ -40,7 +40,7 @@ const valuesB: Values = { "lever:retireAge": 65, "lever:livingMonthly": 280000 }
 const rA = preview(demo.wh.request);
 const rB = preview(applyValues(demo.wh, valuesB, demo.cat));
 const model = (selectedYear: number | null = null) =>
-  toPresentation({ base: demo.wh.request, proposal: applyValues(demo.wh, valuesB, demo.cat), current: rA, proposed: rB, targetAge: 95, selectedYear, provisional: false, names: { selected: "B案", base: "A案", same: false } });
+  toPresentation({ base: demo.wh.request, proposal: applyValues(demo.wh, valuesB, demo.cat), current: rA, proposed: rB, targetAge: 95, selectedYear, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
 
 describe("グラフの年: カーソルで○と表示、クリックで固定", () => {
   const years = [2026, 2027, 2028, 2029, 2030];
@@ -99,7 +99,7 @@ describe("グラフの年: カーソルで○と表示、クリックで固定",
         expect(p.top).toBeGreaterThanOrEqual(0);
         expect(p.top + 70).toBeLessThanOrEqual(H);
       }
-    expect(estimateWidth(["2053年", "B案 3,771万円"], 10)).toBeGreaterThan(estimateWidth(["2053年"], 10));
+    expect(estimateWidth(["2053年", "プランB 3,771万円"], 10)).toBeGreaterThan(estimateWidth(["2053年"], 10));
   });
 
   it("縦長の帯は出さない。固定した年は2本の線の上に○（選んだ案＝塗り、基準の案＝白抜き）と表示（固定中）", () => {
@@ -143,11 +143,11 @@ describe("グラフの年: カーソルで○と表示、クリックで固定",
     expect(flows).toContain('class="hv-dot sel"');
     expect(flows).toContain('class="hv-dot base"');
     expect(flows).toContain("年間収支");
-    expect(flows).toMatch(/収入 [\d,▲]+万円・支出 [\d,▲]+万円（B案）/);
+    expect(flows).toMatch(/収入 [\d,▲]+万円・支出 [\d,▲]+万円（プランB）/);
     const bal = renderToString(h(MainChart, { model: m, mode: "balance", explain: null, ageMark: null, pinnedYear: 2041, onSelectYear: noop }));
     expect(bal).toContain('class="hv-dot sel"');
     expect(bal).toContain("純資産");
-    expect(bal).toMatch(/資産 [\d,▲]+万円・負債 [\d,▲]+万円（B案）/);
+    expect(bal).toMatch(/資産 [\d,▲]+万円・負債 [\d,▲]+万円（プランB）/);
   });
 
   it("説明モードでは年を選ばない（○・表示・選ぶ枠を出さない）", () => {
@@ -242,7 +242,7 @@ describe("金額のスライダーは1万円の刻み", () => {
       { key: "retireAge", label: "ご主人が働く最後の年齢", slider: { kind: "age", min: 60, max: 70, value: 63, base: 60, ticks: [60, 65, 70], stepText: String }, valueText: "63歳まで", baseText: "60歳まで", note: null },
       { key: "nisaMonthly", label: "NISAの積立額（月）", slider: { kind: "amount", min: 0, max: 50_000, step: 10_000, value: 30_000, base: 10_000, per: "月", tick: (v) => `${v / 10000}万` }, valueText: "月3万円", baseText: "月1万円", note: null },
     ];
-    const html = renderToString(h(LeverCard, { selected: "B案", baseLetter: "A", locked: null, modified: false, levers: rows, fee: null, onSlide: noop, onRelease: noop, onReset: noop, onOverwrite: null, onSaveNew: noop, suggested: "", changes: [], onAck: null, onDrop: null }));
+    const html = renderToString(h(LeverCard, { selected: "プランB", baseLetter: "A", locked: null, modified: false, levers: rows, fee: null, onSlide: noop, onRelease: noop, onReset: noop, onOverwrite: null, onSaveNew: noop, suggested: "", changes: [], onAck: null, onDrop: null }));
     expect(html).toMatch(/<input id="lv-nisaMonthly" type="range" min="0" max="50000" step="10000" value="30000"/);
     expect(html).toContain("data-amount-input");
     expect(html).toContain('value="3"');
@@ -304,10 +304,10 @@ describe("主画面の点線の枠は、薄いグレーの実線にする", () =
     ids.push(r.id);
   }
   const m = model(2041);
-  const band = bandModel({ req: wh.request, slots: [CURRENT, ...ids], letters: planLetters(wh.proposals), results: new Map([[CURRENT, rA], [ids[0]!, rB]]), modified: new Set([ids[0]!]), base: CURRENT, selected: ids[0]!, settings: DEFAULT_DISPLAY_SETTINGS });
+  const band = bandModel({ req: wh.request, slots: [CURRENT, ...ids], letters: planLetters(wh.proposals), results: new Map([[CURRENT, rA], [ids[0]!, rB]]), modified: new Set([ids[0]!]), base: CURRENT, selected: ids[0]!, settings: DEFAULT_DISPLAY_SETTINGS, colors: new Map() });
   const rows: LeverRow[] = [{ key: "nisaMonthly", label: "NISA", slider: { kind: "amount", min: 0, max: 50_000, step: 10_000, value: 30_000, base: 10_000, per: "月", tick: String }, valueText: "月3万円", baseText: "月1万円", note: "注" }];
   const lever = (locked: string | null) =>
-    h(LeverCard, { selected: "B案", baseLetter: "A", locked, modified: true, levers: rows, fee: { on: true, inBase: false, note: "単発", onToggle: noop }, onSlide: noop, onRelease: noop, onReset: noop, onOverwrite: noop, onSaveNew: noop, suggested: "", changes: [{ key: "k", label: "生活費", from: "月30万円", to: "月28万円", state: "ok", inherited: true, reviewNote: null }], onAck: null, onDrop: null, initialSave: true }, h("div", { class: "add-row" }, h("button", { type: "button", class: "add-item-btn" }, "＋ 動かす項目を追加")));
+    h(LeverCard, { selected: "プランB", baseLetter: "A", locked, modified: true, levers: rows, fee: { on: true, inBase: false, note: "単発", onToggle: noop }, onSlide: noop, onRelease: noop, onReset: noop, onOverwrite: noop, onSaveNew: noop, suggested: "", changes: [{ key: "k", label: "生活費", from: "月30万円", to: "月28万円", state: "ok", inherited: true, reviewNote: null }], onAck: null, onDrop: null, initialSave: true }, h("div", { class: "add-row" }, h("button", { type: "button", class: "add-item-btn" }, "＋ 動かす項目を追加")));
   const added = demo.cat.items.filter((x) => !x.builtin && x.control.kind !== "field").slice(0, 4);
   const html = renderToString(
     h(
@@ -318,7 +318,7 @@ describe("主画面の点線の枠は、薄いグレーの実線にする", () =
       h(ResultCard, { model: m, verdict: m.result, provisional: true, mode: "assets", onMode: noop, explain: null, onExplain: noop, ageMark: null, pinnedYear: 2041, onSelectYear: noop }),
       h(DisplaySettingsPanel, { value: DEFAULT_DISPLAY_SETTINGS, feeAvailable: false, onChange: noop, onClose: noop }),
       lever(null),
-      lever("基準の案は動かせません"),
+      lever("基準のプランは動かせません"),
       ...added.map((it) => h(ItemRow, { item: it, value: it.read(demo.wh), base: it.read(demo.wh), wh: demo.wh, onSlide: noop, onRelease: noop, onRemove: noop, baseLabel: "基準（A）" })),
       h(CashflowTable, { model: m.table, selectedYear: 2041, onSelectYear: noop, onEvidence: noop }),
     ),

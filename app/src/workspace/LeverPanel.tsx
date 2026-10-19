@@ -106,7 +106,7 @@ export function LeverCard(p: LeverCardProps) {
             <>{p.selected}を表示中</>
           ) : (
             <>
-              <b>{p.selected}</b>に効きます。基準の{p.baseLetter}案は動きません
+              <b>{p.selected}</b>に効きます。基準のプラン{p.baseLetter}は動きません
             </>
           )}
         </span>
@@ -138,7 +138,7 @@ export function LeverCard(p: LeverCardProps) {
           }}
           data-plan-save
         >
-          案として保存
+          プランとして保存
         </button>
       </div>
       {open ? (
@@ -150,7 +150,7 @@ export function LeverCard(p: LeverCardProps) {
               <span class="pb-v">
                 {c.from} → <b>{c.to}</b>
               </span>
-              {c.inherited ? <span class="pb-tag">元の案から</span> : null}
+              {c.inherited ? <span class="pb-tag">元のプランから</span> : null}
               {c.reviewNote !== null ? (
                 <span class="pb-note">
                   <b>要確認:</b> {c.reviewNote}
@@ -181,7 +181,7 @@ export function LeverCard(p: LeverCardProps) {
           data-plan-save-form
         >
           <label>
-            新しい案の名前
+            新しいプランの名前
             <input type="text" value={name} onInput={(e) => setName((e.currentTarget as HTMLInputElement).value)} />
           </label>
           <span class="sf-note">元の{p.selected}は保存した内容のまま残します</span>

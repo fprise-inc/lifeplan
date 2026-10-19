@@ -8,14 +8,14 @@
 // 収支は年間収支、資産と負債は純資産の線で比べる）。
 // x 軸の上の丸は年のイベント。カーソルを合わせるかキーボードで選ぶと、年と中身の小さな表示を出す
 import type { RefObject } from "preact";
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { areaAbove, areaBelow, eventRows, linePath, scale, spreadX, type Frame, type Scale } from "./chart.ts";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { areaAbove, areaBelow, eventRows, linePath, multiDomain, scale, scaleOf, spreadX, type Frame, type Scale } from "./chart.ts";
 import { group, man } from "./format.ts";
 import type { AgeMark, BalanceChartModel, BaseCharts, ChartModel, EventChip, ExplainModel, FlowChartModel, PlanLineModel, SeriesNames, StackSeries, Yen } from "./model.ts";
 import { EVENT_R, EventDotSvg, EventTip, eventLabel, useEventFocus } from "./EventDot.tsx";
 import { lineOf, MULTI_WHAT, PlanMarker, PlanSwatch, planStyles, type PlanStyle } from "./planLines.tsx";
 import { Pattern, Swatch } from "./StackChart.tsx";
-import { useTween, type Series } from "./tween.ts";
+import { useSwitchEase, useTween, type Series } from "./tween.ts";
 import { estimateWidth, indexAt, placeAbove, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
 
 export type ChartMode = "assets" | "flows" | "balance";
@@ -397,7 +397,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
           <div class={`side-pane ${p.who}`} key={p.who} data-side={p.who}>
             <div class="side-h">
               <b>{p.m.names.selected}</b>
-              <span class="side-tag">{p.who === "base" ? "基準" : "選んだ案"}</span>
+              <span class="side-tag">{p.who === "base" ? "基準" : "選んだプラン"}</span>
             </div>
             <ChartPlot {...common} model={p.m} t={p.t} size={{ w: lay.w, h: lay.h, fs: size.fs }} scaleWith={(panes[1 - i] as (typeof panes)[number]).ext} label={`${modeLabel}（${p.m.names.selected}）`} live={p.who === "selected" && !compact} />
           </div>
@@ -413,7 +413,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
       tabIndex={0}
       onKeyDown={onKey}
       role="group"
-      aria-label={`グラフ${side ? `（${model.names.base}と${model.names.selected}を左右に並べています）` : all ? "（全部の案を色と線の種類で描き分けて重ねています）" : ""}。カーソルを合わせるとその年の数字が出ます。クリックか左右の矢印キーで年を固定し、Esc で外します`}
+      aria-label={`グラフ${side ? `（${model.names.base}と${model.names.selected}を左右に並べています）` : all ? "（全部のプランを色で描き分けて重ねています）" : ""}。カーソルを合わせるとその年の数字が出ます。クリックか左右の矢印キーで年を固定し、Esc で外します`}
       data-main-chart={explain !== null ? "explain" : mode}
       data-chart-layout={side ? "side" : all ? "all" : "overlay"}
       data-shown-year={shown ?? undefined}
@@ -481,8 +481,10 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const evList = compact ? [] : model.events.filter((e) => years.includes(e.year));
   // 丸の横の位置は下の余白に関わらないので、先に段の数を決めてから枠を決める
   const isMulti = multi !== null && explain === null;
-  // 右の余白: ○歳時点の印の数字（重ねる表示）か、線の右端の案の文字（全部の案を重ねる表示）の分
-  const right = isMulti ? 46 : showMark ? 92 : 20;
+  // 右の余白: ○歳時点の印の数字（重ねる表示）か、線の右端のプランの文字と「基準」の札（全部のプランを重ねる表示）の分
+  const right = isMulti ? 78 : showMark ? 92 : 20;
+  // 全部のプランを重ねる表示で、目盛りが動いている途中に線が枠からはみ出さないように切り抜く
+  const clipId = `mc-clip-${useId().replace(/[^A-Za-z0-9_-]/g, "")}`;
   const evLay = eventLayout(evList, years, frameOf(size.w, size.h, fs, right), fs);
   const f = frameOf(size.w, size.h, fs, right, compact ? 0 : evLay.rows);
   const selIdx = shown === null ? -1 : years.indexOf(shown);
@@ -505,20 +507,37 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const at = (arr: readonly number[]) => `${man(arr[selIdx] ?? 0)}万円`;
   const sumAt = (list: StackSeries[]) => list.reduce((a, x) => a + Math.max(0, x.values[selIdx] ?? 0), 0);
   const keys: string[] = [];
-  /** 全部の案を重ねる表示の、選んだ年の各案の値（帯の順） */
+  /** 全部のプランを重ねる表示の、選んだ年の各プランの値（帯の順） */
   let multiRows: MultiRow[] | null = null;
+  /** 全部のプランを重ねる表示で、隠したために目盛りを決め直したか */
+  let rescaled = false;
+
+  // 全部のプランを重ねる表示の線と縦の目盛りの範囲（目盛りの動きのフックは、どの表示でも同じ順で呼ぶ）
+  const mPlans = isMulti ? (model.plans ?? []) : [];
+  const mStyles = planStyles(mPlans);
+  const lines = mPlans.flatMap((p) => {
+    const raw = lineOf(p, mode);
+    return raw === null ? [] : [{ p, st: mStyles.get(p.key) as PlanStyle, v: pick(t, multiKey(p.key, mode), n), raw }];
+  });
+  const visible = lines.filter((l) => !(multi?.hidden ?? []).includes(l.p.key));
+  // 縦の目盛りは、できるだけ隠したプランも含めて決める（少し隠しても目盛りが動かない）。隠した結果、残りの線がつぶれるときだけ
+  // 表示中の線に合わせて決め直し、行き過ぎのない動きでなめらかにつなぐ（戻すと元の目盛りに戻る）
+  const md = multiDomain([...lines.map((l) => l.v), ...scaleWith], [...visible.map((l) => l.v), ...scaleWith]);
+  const eased = useSwitchEase(!isMulti ? "off" : md.rescaled ? `fit:${visible.map((l) => l.p.key).join(",")}` : "all", [md.domain.min, md.domain.max, md.domain.step], { animate: (a, b) => a !== "off" && b !== "off" });
 
   if (isMulti && multi !== null) {
     const what = MULTI_WHAT[mode];
-    const plans = model.plans ?? [];
-    const styles = planStyles(plans);
-    const lines = plans.flatMap((p) => {
-      const raw = lineOf(p, mode);
-      return raw === null ? [] : [{ p, st: styles.get(p.key) as PlanStyle, v: pick(t, multiKey(p.key, mode), n), raw }];
-    });
-    // 縦の目盛りは隠した案も含めて決める（一時的に隠しても目盛りが動かない）
-    s = scale([...lines.map((l) => l.v), ...scaleWith], n, f);
-    const visible = lines.filter((l) => !multi.hidden.includes(l.p.key));
+    const [dMin, dMax] = eased.value as [number, number, number];
+    // 動いている途中の目盛りの間隔は、動きの前半は前の間隔、後半は新しい間隔（目盛りの数が急に増えたり減ったりしない）
+    const dStep = eased.from !== null && eased.k < 0.5 ? (eased.from[2] as number) : md.domain.step;
+    s = scaleOf({ min: dMin, max: dMax, step: dStep }, n, f);
+    rescaled = md.rescaled;
+    if (rescaled)
+      body.push(
+        <text key="fit-t" x={f.width - f.right} y={f.top - 10} class="unit fit-t" text-anchor="end" data-scale-note>
+          縦の目盛りを表示中の線に合わせています
+        </text>,
+      );
     // 0未満の範囲: 線には塗りを付けず、薄い地と言葉で示す（0の線は太く）
     if (s.min < 0) {
       const y0 = s.y(0);
@@ -544,11 +563,11 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
           </g>,
         );
     }
-    // 重ね順: 基準の案 → ほかの案 → 選んだ案 → 強調している案（いちばん上）
+    // 重ね順: 基準のプラン → ほかのプラン → 選んだプラン → 強調しているプラン（いちばん上）
     const rank = (l: (typeof lines)[number]) => (multi.focus === l.p.key ? 3 : l.p.selected ? 2 : l.p.base ? 0 : 1);
     const order = [...visible].sort((a, b) => rank(a) - rank(b));
     const lastX = s.x(n - 1);
-    // 線の右端の案の文字（重なるときは縦にずらす）
+    // 線の右端のプランの文字（重なるときは縦にずらす）。基準のプランには「基準」の札を添える
     const endYs = spreadX(
       visible.map((l) => s.y(l.v[n - 1] ?? 0)),
       15 * fs,
@@ -560,10 +579,17 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
       const dim = multi.focus !== null && multi.focus !== l.p.key;
       body.push(
         <g key={`ml-${l.p.key}`} class={`ml${dim ? " dim" : ""}${multi.focus === l.p.key ? " hi" : ""}${l.p.selected ? " sel" : ""}${l.p.base ? " base" : ""}`} data-multi-line={l.p.key}>
-          <path d={linePath(l.v, s)} class="multi-line" stroke={l.st.color} stroke-dasharray={l.st.dash || undefined} stroke-linecap={l.st.dash.startsWith("1 ") ? "round" : "butt"} />
-          <PlanMarker shape={l.st.marker} x={lastX} y={s.y(l.v[n - 1] ?? 0)} r={5.5 * fs} color={l.st.color} />
-          <text x={lastX + 10 * fs} y={(endY.get(l.p.key) ?? 0) + 4.5 * fs} class="ml-end" fill={l.st.base ? "#4a5361" : l.st.color}>
+          <g clip-path={`url(#${clipId})`}>
+            <path d={linePath(l.v, s)} class="multi-line" stroke={l.st.color} />
+            <PlanMarker x={lastX} y={s.y(l.v[n - 1] ?? 0)} r={5.5 * fs} color={l.st.color} />
+          </g>
+          <text x={lastX + 10 * fs} y={(endY.get(l.p.key) ?? 0) + 4.5 * fs} class="ml-end" fill={l.st.color}>
             {l.p.key}
+            {l.p.base ? (
+              <tspan class="ml-end-base" dx={4 * fs}>
+                基準
+              </tspan>
+            ) : null}
           </text>
         </g>,
       );
@@ -760,8 +786,13 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
 
   return (
     <div class="plot">
-      <svg ref={svg} viewBox={`0 0 ${f.width} ${f.height}`} width={f.width} height={f.height} role="img" aria-label={label}>
+      <svg ref={svg} viewBox={`0 0 ${f.width} ${f.height}`} width={f.width} height={f.height} role="img" aria-label={label} data-multi-scale={isMulti ? (rescaled ? "fit" : "all") : undefined}>
         <defs>
+          {isMulti ? (
+            <clipPath id={clipId}>
+              <rect x={f.left - 2} y={f.top - 10} width={Math.max(0, f.width - f.left - f.right + 4)} height={Math.max(0, f.height - f.top - f.bottom + 20)} />
+            </clipPath>
+          ) : null}
           {keys.map((k) => (
             <Pattern key={k} k={k} />
           ))}
@@ -811,7 +842,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         {mark !== null && multiRows !== null ? (
           <g class="hv-dots" data-year-mark>
             {multiRows.map((r) => (
-              <PlanMarker key={r.key} shape={r.st.marker} x={mx} y={r.y} r={6.5 * fs} color={r.st.color} cls="hv-mk" />
+              <PlanMarker key={r.key} x={mx} y={r.y} r={6.5 * fs} color={r.st.color} cls="hv-mk" />
             ))}
           </g>
         ) : mark !== null ? (
@@ -975,7 +1006,7 @@ export function MainLegend({ model, mode, explain, side = false }: { model: Main
     items = [
       <span class="lg" key="sel">
         <i />
-        {side ? "金融資産" : `${nm.selected}${nm.same ? "（基準）" : "（選んだ案）"}`}
+        {side ? "金融資産" : `${nm.selected}${nm.same ? "（基準）" : "（選んだプラン）"}`}
       </span>,
       base,
       <span class="lg short" key="short">

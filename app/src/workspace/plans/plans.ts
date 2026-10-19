@@ -165,7 +165,7 @@ export interface SaveInput {
 export function savePlan(wh: WorkingHousehold, cat: Catalog, input: SaveInput): { wh: WorkingHousehold; id: string } {
   const id = newId();
   const baseValues = effectiveValues(wh.proposals, input.base);
-  const p: Proposal = { id, name: input.name.trim() || "名前のない案", createdAt: input.now, updatedAt: input.now, base: input.base, tags: input.tags ?? [], diffs: ownDiffs(input.values, baseValues, wh, cat, []) };
+  const p: Proposal = { id, name: input.name.trim() || "名前のないプラン", createdAt: input.now, updatedAt: input.now, base: input.base, tags: input.tags ?? [], diffs: ownDiffs(input.values, baseValues, wh, cat, []) };
   return { wh: { ...wh, proposals: [...wh.proposals, p] }, id };
 }
 
@@ -229,7 +229,7 @@ export function changesOf(list: readonly Proposal[], id: string, wh: WorkingHous
       to: it.text(diff.value.value),
       inherited,
       state: changed ? "changed" : "ok",
-      reviewNote: changed ? `入力（現状）が ${it.text(diff.before.value)}→${it.text(now)} に変わりました${it.same(diff.value.value, now) ? "（この案と同じ値になりました）" : ""}` : null,
+      reviewNote: changed ? `入力（現状）が ${it.text(diff.before.value)}→${it.text(now)} に変わりました${it.same(diff.value.value, now) ? "（このプランと同じ値になりました）" : ""}` : null,
     });
   }
   return out;
@@ -283,9 +283,26 @@ export function reflectPlan(wh: WorkingHousehold, cat: Catalog, id: string, now:
   return { ...wh, request, proposals: wh.proposals.map((p) => (p.id === id ? { ...p, base: null, diffs: [], reflectedAt: now, updatedAt: now } : p)) };
 }
 
-// ---- 案の名前の例 ----
+// ---- プランの名前 ----
 
 const LETTERS = "BCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+/** プランの呼び名（例: 「プランB」） */
+export const planLabel = (letter: string): string => `プラン${letter}`;
+
+/** 名前の頭のプランの文字（「プランB」。以前の「B案」も読む） */
+export const HEAD = /^(?:プラン([A-Z])|([A-Z])案)(?:\s+|$)/;
+
+/** 名前の中の以前の呼び方「B案」を「プランB」に直す（例: 「プランB＋金利が上がる」。英大文字の後の「案」だけ） */
+export function modernPlanName(name: string): string {
+  return name.replace(/([A-Z])案/g, "プラン$1");
+}
+
+/** 名前の頭のプランの文字（後ろに空白が無くてもよい。無ければ undefined） */
+export function headLetter(name: string): string | undefined {
+  const m = /^(?:プラン([A-Z])|([A-Z])案)/.exec(name);
+  return m === null ? undefined : (m[1] ?? m[2]);
+}
 
 function phrase(it: MovableItem, v: ItemValue, now: ItemValue): string {
   if (it.key.endsWith(":prepay") && typeof v === "number") return `借入を${man(v)}万円減らす`;
@@ -309,19 +326,19 @@ function phrase(it: MovableItem, v: ItemValue, now: ItemValue): string {
 }
 
 /**
- * 案の名前の例（例: 「B案 借入を500万円減らす」）。土台の案があれば、土台から変えたことで名前を作る。
+ * プランの名前の例（例: 「プランB 借入を500万円減らす」）。土台のプランがあれば、土台から変えたことで名前を作る。
  * 足した項目（借入・金利・配分など）を、対策の固定の項目より先に使う
  */
 export function suggestName(list: readonly Proposal[], values: Values, wh: WorkingHousehold, cat: Catalog, base: string | null = null): string {
-  const used = new Set(list.map((p) => p.name.match(/^([A-Z])案/)?.[1]).filter((x): x is string => x !== undefined));
+  const used = new Set(list.map((p) => headLetter(p.name)).filter((x): x is string => x !== undefined));
   const letter = [...LETTERS].find((l) => !used.has(l)) ?? String(list.length + 2);
   const baseValues = effectiveValues(list, base);
   const ref = (it: MovableItem) => (Object.hasOwn(baseValues, it.key) ? (baseValues[it.key] ?? null) : it.read(wh));
   const rows = cat.items.filter((it) => Object.hasOwn(values, it.key) && !it.same(values[it.key] ?? null, ref(it))).sort((a, b) => Number(a.builtin) - Number(b.builtin));
   const first = rows[0];
-  const baseName = findPlan(list, base)?.name.match(/^([A-Z])案/)?.[0];
-  const head = baseName !== undefined ? `${letter}案 ${baseName}＋` : `${letter}案 `;
-  if (first === undefined) return `${letter}案`;
+  const baseLetter = headLetter(findPlan(list, base)?.name ?? "");
+  const head = baseLetter !== undefined ? `${planLabel(letter)} ${planLabel(baseLetter)}＋` : `${planLabel(letter)} `;
+  if (first === undefined) return planLabel(letter);
   const p = phrase(first, values[first.key] ?? null, ref(first));
   return `${head}${p}${rows.length > 1 ? ` ほか${rows.length - 1}件` : ""}`;
 }

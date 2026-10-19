@@ -119,7 +119,7 @@ describe("案: 差分の作成と適用", () => {
   const rate = keyOf(cat, /^loan:.*:rate$/);
 
   it("案は現状からの差分だけを持つ（0008 の5 の形）", () => {
-    const { wh: w1, id } = savePlan(wh, cat, { name: "B案 借入を500万円減らす", base: null, values: { [prepay]: 5_000_000, "lever:livingMonthly": 300000 }, now: NOW });
+    const { wh: w1, id } = savePlan(wh, cat, { name: "プランB 借入を500万円減らす", base: null, values: { [prepay]: 5_000_000, "lever:livingMonthly": 300000 }, now: NOW });
     const p = w1.proposals.find((x) => x.id === id)!;
     // 生活費は現状と同じ値なので差分にしない
     expect(p.diffs).toHaveLength(1);
@@ -155,9 +155,9 @@ describe("案: 差分の作成と適用", () => {
   });
 
   it("案の名前の例と、変えたことの一覧", () => {
-    expect(suggestName([], { [prepay]: 5_000_000 }, wh, cat)).toBe("B案 借入を500万円減らす");
-    const { wh: w1, id } = savePlan(wh, cat, { name: "B案 借入を500万円減らす", base: null, values: { [prepay]: 5_000_000 }, now: NOW });
-    expect(suggestName(w1.proposals, { [prepay]: 5_000_000, [rate]: "0.0115" }, w1, cat, id)).toBe("C案 B案＋金利1.15%");
+    expect(suggestName([], { [prepay]: 5_000_000 }, wh, cat)).toBe("プランB 借入を500万円減らす");
+    const { wh: w1, id } = savePlan(wh, cat, { name: "プランB 借入を500万円減らす", base: null, values: { [prepay]: 5_000_000 }, now: NOW });
+    expect(suggestName(w1.proposals, { [prepay]: 5_000_000, [rate]: "0.0115" }, w1, cat, id)).toBe("プランC プランB＋金利1.15%");
     const ch = changesOf(w1.proposals, id, w1, cat);
     expect(ch).toEqual([{ key: prepay, label: "住宅ローンの繰上返済（借入を減らす）", from: "なし", to: "500万円（2026年11月）", inherited: false, state: "ok", reviewNote: null }]);
   });
@@ -418,7 +418,7 @@ describe("収支の推移・資産と負債の推移", () => {
     expect(f.income.map((s) => s.label)).toEqual(["給与", "年金", "その他の収入"]);
     expect(f.expense.map((s) => s.label)).toEqual(["生活費", "住宅", "教育", "保険", "その他（税・社会保険料など）"]);
     expect(f.net.some((v) => v < 0)).toBe(true);
-    const m = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: 2031, provisional: false, names: { selected: "B案", base: "A案", same: false } });
+    const m = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: 2031, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
     const html = renderToString(h("div", null, h(MainLegend, { model: m, mode: "flows", explain: null }), h(MainChart, { model: m, mode: "flows", explain: null, ageMark: null, pinnedYear: null, onSelectYear: () => undefined })));
     expect(html).toContain("flag-band");
     expect(html).toContain("赤字の年");
@@ -437,7 +437,7 @@ describe("収支の推移・資産と負債の推移", () => {
       expect(b.debts.reduce((s, x) => s + x.values[i]!, 0)).toBe(debt.get(y) ?? 0);
       expect(b.netWorth[i]).toBe(f - (debt.get(y) ?? 0));
     });
-    const m: MainChartModel = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: 2031, provisional: false, names: { selected: "B案", base: "A案", same: false } });
+    const m: MainChartModel = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: 2031, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
     expect(renderToString(h(MainLegend, { model: m, mode: "balance", explain: null }))).toContain("純資産");
     expect(renderToString(h(MainChart, { model: m, mode: "balance", explain: null, ageMark: null, pinnedYear: null, onSelectYear: () => undefined }))).toContain("net-sel");
   });
