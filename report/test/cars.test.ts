@@ -4,6 +4,10 @@ import { buildProposalInput, ESTIMATED_NOTE, hasEstimatedBox } from "../src/buil
 import type { EngineRequest, ProposalBundle, TableCell } from "../src/bundle.ts";
 import type { CfTable } from "../src/input.ts";
 import { modelHousehold, run } from "../scripts/engine.ts";
+import { renderAndExtract, reportPdfBin, sampleFrame } from "../scripts/reportPdf.ts";
+import { normalize } from "./helpers.ts";
+
+const bin = reportPdfBin();
 
 type Car = NonNullable<EngineRequest["input"]["household"]["cars"]>[number];
 
@@ -38,7 +42,7 @@ describe("車を2台持つ世帯", () => {
 
   it("キャッシュフロー表の「車」の行は、2台分の買い替え・維持費・ローンの合計（ほかの行と重ならない）", () => {
     const t = input.cashflow.proposal;
-    const row = rowOf(t, "車（買い替え・維持費・ローン）");
+    const row = rowOf(t, "車の費用");
     expect(row).toBeDefined();
     const ids = new Set(cars.map((c) => c.id));
     input.basis.years.forEach((y, i) => {
@@ -70,7 +74,7 @@ describe("車を2台持つ世帯", () => {
     const one = buildProposalInput(bundleOf(modelHousehold("unexplainedSpending")));
     expect(one.events.flatMap((e) => e.items)).toContain("車の買い替え");
     const none = buildProposalInput(bundleOf(modelHousehold("salariedCoupleTwoKids")));
-    expect(rowOf(none.cashflow.proposal, "車（買い替え・維持費・ローン）")).toBeUndefined();
+    expect(rowOf(none.cashflow.proposal, "車の費用")).toBeUndefined();
   });
 });
 
@@ -91,5 +95,18 @@ describe("推定の値の注意書き", () => {
     const fromBox = buildProposalInput(bundleOf(est));
     expect(fromBox.assumptions.notes.filter((n) => n === ESTIMATED_NOTE)).toHaveLength(1);
     expect(JSON.stringify(fromBox)).not.toContain("統計の目安");
+  });
+});
+
+describe.skipIf(bin === null)("車を2台持つ世帯の PDF", () => {
+  it("全年のキャッシュフロー表に「車」の行、ライフイベント表に車ごとの買い替え、注意書きに推定の一文が出る", () => {
+    const bundle = { ...bundleOf(withCars()), estimated: true };
+    const input = buildProposalInput(bundle);
+    const r = renderAndExtract(bin as string, input, sampleFrame(bundle, input));
+    const all = normalize(r.pages.join("\n"));
+    expect(all).toContain(normalize("車の費用"));
+    expect(all).toContain(normalize("車1の買い替え"));
+    expect(all).toContain(normalize("車2を購入"));
+    expect(all).toContain(normalize(ESTIMATED_NOTE));
   });
 });
