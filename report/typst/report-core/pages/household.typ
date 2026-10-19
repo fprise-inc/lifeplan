@@ -81,12 +81,6 @@
         header: ("", data.basis.baseMonthLabel + "時点"),
         data.members.map(m => (m.label, str(m.ageAtBase) + "歳")).flatten(),
       )
-      section("資産（" + str(b.balanceYear) + "年末の見込み）")
-      data-table(columns: (1fr, auto), header: ("", "金額"), b.assets.map(x => (x.label, man-unit(x.amount))).flatten())
-      if b.debts.len() > 0 {
-        section("負債（" + str(b.balanceYear) + "年末の見込み）")
-        data-table(columns: (1fr, auto), header: ("", "残高"), b.debts.map(x => (x.label, man-unit(x.amount))).flatten())
-      }
     },
     {
       section("収支（" + str(b.year) + "年）")
@@ -103,6 +97,9 @@
       )
     },
   )
+  section("資産と負債（" + str(b.balanceYear) + "年末の見込み）")
+  sheet-pair(b.balance)
+  note("不動産は持ち家の評価額（土地は上昇率で動かし、建物は構造の耐用年数で減らした見込み）、その他の資産は車・保険の解約返戻金などです。純資産は資産の合計から負債の合計を引いた額で、不動産を含みます。")
 }
 
 #let events(data) = {

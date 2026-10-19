@@ -56,6 +56,45 @@ describe("帳票の入力", () => {
         expect(input.summary.diffAtTarget).toBe(input.summary.proposal.financialAtTarget - input.summary.current.financialAtTarget);
       });
 
+      it("バランスシート: 資産の合計＝負債の合計＋純資産。金融資産は金融資産残高、不動産・負債はエンジンの行のまま", () => {
+        const views = [
+          { view: input.basics.balance, run: bundle.current },
+          ...(input.balanceSheet !== null ? [{ view: input.balanceSheet.proposal, run: bundle.proposal }] : []),
+        ];
+        expect(input.balanceSheet).not.toBeNull();
+        for (const { view, run } of views) {
+          const line = (list: typeof view.assets, label: string) => list.find((l) => l.label === label);
+          const fin = byYear(run.result, (c) => c.row === "cf.balance.financial");
+          const re = byYear(run.result, (c) => c.row === "cf.balance.account.realEstate");
+          const debt = byYear(run.result, (c) => c.row.startsWith("cf.balance.debt."));
+          view.points.forEach((p, i) => {
+            const total = line(view.assets, "資産の合計")!.amounts[i]!;
+            const liab = line(view.liabilities, "負債の合計")!.amounts[i]!;
+            expect(total).toBe(liab + view.netWorth[i]!);
+            const short = line(view.liabilities, "預金の不足")?.amounts[i] ?? 0;
+            expect(line(view.assets, "金融資産")!.amounts[i]! - short).toBe(fin.get(p.year) ?? 0);
+            expect(line(view.assets, "不動産")!.amounts[i]).toBe(re.get(p.year) ?? 0);
+            expect(liab - short).toBe(debt.get(p.year) ?? 0);
+            // 内訳の合計は金融資産
+            expect(view.assets.filter((l) => l.kind === "sub").reduce((s2, l) => s2 + l.amounts[i]!, 0)).toBe(line(view.assets, "金融資産")!.amounts[i]);
+          });
+        }
+        const bs = input.balanceSheet!;
+        expect(bs.netWorth.proposal).toHaveLength(input.basis.years.length);
+        const years = bs.proposal.points.map((p) => p.year);
+        expect([...years].sort((a, b) => a - b)).toEqual(years);
+        expect(new Set(years).size).toBe(years.length);
+        expect(bs.proposal.points[0]).toMatchObject({ label: "今" });
+        // 抜粋の純資産は推移の同じ年の値
+        bs.proposal.points.forEach((p, i) => {
+          const k = input.basis.years.indexOf(p.year);
+          if (k >= 0) {
+            expect(bs.netWorth.proposal[k]).toBe(bs.proposal.netWorth[i]);
+            expect(bs.netWorth.current[k]).toBe(bs.currentNetWorth[i]);
+          }
+        });
+      });
+
       it("FP顧問料の累計はエンジンの要約（summary.advisoryFee）のまま", () => {
         const fee = bundle.proposal.result.summary.advisoryFee;
         expect(fee?.total).toBeGreaterThan(0);

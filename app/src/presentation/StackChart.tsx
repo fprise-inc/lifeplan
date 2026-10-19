@@ -16,7 +16,9 @@ export const PATTERN: Readonly<Record<string, string>> = {
   deposit: "solid",
   nisa: "solid",
   dc: "solid",
-  assetOther: "solid",
+  finOther: "solid",
+  realEstate: "solid",
+  otherAsset: "solid",
   mortgage: "solid",
   debtOther: "solid",
 };

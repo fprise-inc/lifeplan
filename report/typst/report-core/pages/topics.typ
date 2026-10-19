@@ -1,4 +1,4 @@
-// 6の続き（資産残高のグラフ）　7. 教育費の推移　8. 住宅ローン　9. 老後の必要資金と年金の受取予想
+// 6の続き（資産残高のグラフ・資産と負債の推移）　7. 教育費の推移　8. 住宅ローン　9. 老後の必要資金と年金の受取予想
 #import "../parts/format.typ": *
 #import "../parts/layout.typ": *
 
@@ -116,4 +116,21 @@
   }
   section("年金の受取予想（年ごと）")
   columns(if is-land(data) { 3 } else { 2 }, gutter: 12pt, year-table(r.table, size: 7pt, ages: false))
+}
+
+/// 資産と負債の推移（全資産・全負債）: 純資産の推移のグラフ（現状と提案）と、年の抜粋のバランスシート（提案）
+#let balance-page(data) = {
+  let bs = data.balanceSheet
+  if bs == none { return }
+  pagebreak(weak: true)
+  let land = is-land(data)
+  let chart = line-chart(data.basis.years, (
+    (label: "提案", values: bs.netWorth.proposal, stroke: 1.6pt + accent),
+    (label: "現状", values: bs.netWorth.current, stroke: (paint: muted, thickness: 1.2pt, dash: "dashed")),
+  ), height: if land { 170pt } else { 170pt })
+  section("純資産の推移（現状と提案。不動産・その他の資産を含む資産の合計−負債の合計）")
+  chart
+  section("年の抜粋のバランスシート（提案）")
+  sheet-table(bs.proposal, extra: (("純資産（現状）", bs.currentNetWorth),))
+  note("金額は各年の年末の見込みです。不動産は持ち家の評価額（土地は上昇率で動かし、建物は構造の耐用年数で定額で減らし、建てた時の価値の一定の割合を下限にした見込み）で、売却の予定があれば売った年から現金（金融資産）に変わります。その他の資産は車・保険の解約返戻金などです。老後の資金が足りるかは、前のページの金融資産で見ます。")
 }

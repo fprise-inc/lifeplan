@@ -81,6 +81,25 @@ export interface ScenarioView {
   notices: string[];
 }
 
+/** バランスシートの行。item: 項目、sub: 金融資産の内訳、total: 合計 */
+export interface SheetLine {
+  label: string;
+  kind: "item" | "sub" | "total";
+  /** points と同じ並び */
+  amounts: Yen[];
+}
+
+/** 全資産・全負債のバランスシート（年末の値。列は年の時点）。資産の合計＝負債の合計＋純資産 */
+export interface BalanceSheetView {
+  points: YearPoint[];
+  /** 金融資産（内訳）・不動産・その他の資産・資産の合計 */
+  assets: SheetLine[];
+  /** 住宅ローン・その他の負債・預金の不足・負債の合計 */
+  liabilities: SheetLine[];
+  /** 純資産（不動産・その他の資産を含む） */
+  netWorth: Yen[];
+}
+
 /** 案の比較のページ（主画面の「比較の表」と同じ数字。列は現状と案、差はいつも「その案−基準」） */
 export interface Comparison {
   /** 目標の年（本人の目標の年齢の年） */
@@ -169,12 +188,21 @@ export interface ProposalInput {
     net: Yen;
     /** 資産・負債の時点（計算基準年の年末） */
     balanceYear: number;
-    assets: NamedAmount[];
-    debts: NamedAmount[];
+    /** 計算基準年の年末のバランスシート（現状。1列） */
+    balance: BalanceSheetView;
   };
   events: { year: number; ages: string; items: string[] }[];
   cashflow: { current: CfTable; proposal: CfTable };
   assets: { current: Yen[]; proposal: Yen[] };
+  /** 資産と負債の推移（キャッシュフロー表の章の続き。章を外したときは null） */
+  balanceSheet: {
+    /** 年の抜粋（今・10年後・定年・老後・目標の年）の提案のバランスシート */
+    proposal: BalanceSheetView;
+    /** 同じ時点の現状の純資産 */
+    currentNetWorth: Yen[];
+    /** 純資産の推移（basis.years と同じ並び） */
+    netWorth: { current: Yen[]; proposal: Yen[] };
+  } | null;
   education: { years: number[]; rows: { label: string; amounts: Yen[]; total: Yen }[]; total: Yen[]; grandTotal: Yen } | null;
   housingLoan: {
     years: number[];

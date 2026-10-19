@@ -9,6 +9,8 @@ import accountIdeco from "./account.ideco/index.ts";
 import accountIdecoPayout from "./account.idecoPayout/index.ts";
 import debtSchedule from "./debt.schedule/index.ts";
 import housingResidence from "./housing.residence/index.ts";
+import housingValuation from "./housing.valuation/index.ts";
+import assetCar from "./asset.car/index.ts";
 import idecoContribution from "./ideco.contribution/index.ts";
 import taxHousingLoanCredit from "./tax.housingLoanCredit/index.ts";
 import taxHousingLoanCreditYears from "./tax.housingLoanCreditYears/index.ts";
@@ -91,6 +93,8 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   accountIdecoPayout,
   debtSchedule,
   housingResidence,
+  housingValuation,
+  assetCar,
   idecoContribution,
   taxHousingLoanCredit,
   taxHousingLoanCreditYears,

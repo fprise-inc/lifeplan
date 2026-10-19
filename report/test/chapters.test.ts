@@ -32,6 +32,7 @@ describe("章を選ぶ", () => {
     expect(input.events).toEqual([]);
     // 外さない章の数字は変わらない
     expect(input.cashflow).toEqual(full.cashflow);
+    expect(input.balanceSheet).toEqual(full.balanceSheet);
     expect(input.summary).toEqual(full.summary);
     expect(validate(input), JSON.stringify(validate.errors)).toBe(true);
   });
@@ -39,6 +40,8 @@ describe("章を選ぶ", () => {
   it("組み立ての材料（bundle.chapters）で選んでも同じ", () => {
     const chosen: ChapterId[] = ["summary", "retirement", "comparison"];
     expect(buildProposalInput({ ...bundle, chapters: chosen })).toEqual(selectChapters(full, chosen));
+    // キャッシュフロー表の章を外すと、資産と負債の推移（その続き）も渡さない
+    expect(selectChapters(full, chosen).balanceSheet).toBeNull();
   });
 });
 

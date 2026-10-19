@@ -385,7 +385,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
   const view = () => {
     const b = book();
     const sh = shareStatus();
-    return { consentState: consentState(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, allowlistVersion: "reduced@1", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id) };
+    return { consentState: consentState(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, allowlistVersion: "reduced@2", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id) };
   };
   const setup = (title: string, client: string, text: string) => ({ client, title, text });
   switch (op) {
@@ -436,7 +436,7 @@ function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: un
       const minutes = Number(a.minutes);
       const shareId = `s-${crypto.randomUUID().slice(0, 8)}`;
       devAi.share = { householdId: id, shareId, alias: "共有中の世帯A", expiresMs: Date.now() + minutes * 60_000 };
-      b.records.push({ id: crypto.randomUUID(), kind: "household", shareId, grantedAt: now, expiresAt: new Date(Date.now() + minutes * 60_000).toISOString().replace(/\.\d+Z$/, "Z"), endedAt: null, endReason: null, scope: "reduced", allowlistVersion: "reduced@1", fields: view().fields, householdRevision: "generation-dev", destinationDeclared: String(a.destination), consentAtGrant: { state: "given", recordId: (b.consents.at(-1)?.id as string) ?? null, warned: false }, reads: [], proposals: [] });
+      b.records.push({ id: crypto.randomUUID(), kind: "household", shareId, grantedAt: now, expiresAt: new Date(Date.now() + minutes * 60_000).toISOString().replace(/\.\d+Z$/, "Z"), endedAt: null, endReason: null, scope: "reduced", allowlistVersion: "reduced@2", fields: view().fields, householdRevision: "generation-dev", destinationDeclared: String(a.destination), consentAtGrant: { state: "given", recordId: (b.consents.at(-1)?.id as string) ?? null, warned: false }, reads: [], proposals: [] });
       return { ok: true, value: view() };
     }
     case "stopShare":

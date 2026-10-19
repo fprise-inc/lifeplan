@@ -314,7 +314,20 @@
               "member": "109eb62e-eb92-46db-a07e-719f10c7b93a",
               "share": "1"
             }
-          ]
+          ],
+          "valuation": {
+            "value": {
+              "value": 38000000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "asOf": "2016-04",
+            "structure": "wood",
+            "builtYear": 2016,
+            "landShare": "0.35"
+          }
         }
       ],
       "debts": [

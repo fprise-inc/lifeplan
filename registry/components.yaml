@@ -32,6 +32,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: asset.car
+    status: active
+    label: "車の評価額"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: benefit.childAllowance
     status: active
     label: "児童手当"
@@ -137,6 +143,12 @@ entries:
   - id: housing.residence
     status: active
     label: "住まい（家賃・購入・固定資産税・修繕費）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: housing.valuation
+    status: active
+    label: "持ち家の評価額と売却"
     since: draft
     aliases: []
     replacedBy: null

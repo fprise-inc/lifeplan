@@ -177,3 +177,53 @@
     t.rows.map(r => (str(r.year), ..if ages { (text(fill: muted, r.ages),) } else { () }, ..r.cells.map(c => man(c)))).flatten(),
   )
 }
+
+/// バランスシートの行の見出しと金額（kind: item・sub（内訳。字下げ・小さく）・total（太字））
+#let sheet-label(line) = if line.kind == "sub" { text(fill: muted, "　" + line.label) } else if line.kind == "total" { text(weight: "bold", line.label) } else { line.label }
+#let sheet-amount(line, v) = if line.kind == "total" { text(weight: "bold", man(v)) } else if line.kind == "sub" { text(fill: muted, man(v)) } else { man(v) }
+
+/// 1つの時点のバランスシート（左に資産、右に負債と純資産。万円）。col は列（時点）の位置
+#let sheet-pair(view, col: 0, size: 8.5pt) = {
+  let assets = view.assets
+  let liab = view.liabilities
+  let net = view.netWorth.at(col)
+  let total-a = assets.last().amounts.at(col)
+  // 右は 負債の行・純資産・負債と純資産の合計。左右の合計の行をそろえる（短い側に空の行を足す）
+  let right = (..liab.map(l => (sheet-label(l), sheet-amount(l, l.amounts.at(col)))), (text(weight: "bold", "純資産"), text(weight: "bold", fill: if net < 0 { warn } else { ink }, man(net))))
+  let left = assets.slice(0, assets.len() - 1).map(l => (sheet-label(l), sheet-amount(l, l.amounts.at(col))))
+  let n = calc.max(left.len(), right.len())
+  let pad(xs) = xs + range(n - xs.len()).map(_ => ("", ""))
+  let side(rows, total-label, total) = data-table(
+    columns: (1fr, auto),
+    header: rows.at(0),
+    size: size,
+    (..rows.slice(1).flatten(), text(weight: "bold", total-label), text(weight: "bold", man(total))),
+  )
+  grid(
+    columns: (1fr, 1fr),
+    column-gutter: 8pt,
+    side((("資産", "万円"), ..pad(left)), "資産の合計", total-a),
+    side((("負債・純資産", "万円"), ..pad(right)), "負債と純資産の合計", liab.last().amounts.at(col) + net),
+  )
+}
+
+/// 年の抜粋のバランスシート（行は資産・負債・純資産、列は時点。万円）。extra は表の最後に足す行（(label, amounts) の組。灰色）
+#let sheet-table(view, extra: (), size: 8pt) = {
+  let cols = view.points.len()
+  let row(l) = (sheet-label(l), ..l.amounts.map(v => sheet-amount(l, v)))
+  let group-row(label) = (table.cell(colspan: cols + 1, fill: band.lighten(40%), text(weight: "bold", size: size - 0.5pt, label)),)
+  data-table(
+    columns: (auto, ..range(cols).map(_ => 1fr)),
+    header: ("（万円）", ..view.points.map(p => p.label + "\n" + str(p.year) + "年")),
+    size: size,
+    (
+      ..group-row("資産"),
+      ..view.assets.map(row).flatten(),
+      ..group-row("負債"),
+      ..view.liabilities.map(row).flatten(),
+      text(weight: "bold", "純資産"),
+      ..view.netWorth.map(v => text(weight: "bold", fill: if v < 0 { warn } else { ink }, man(v))),
+      ..extra.map(((label, amounts)) => (text(fill: muted, label), ..amounts.map(v => text(fill: muted, man(v))))).flatten(),
+    ),
+  )
+}

@@ -56,6 +56,8 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.expense.share": DOWN1,
   // 退職給付の年金額（一時金の額と予定利率から求める年額、年額を支払いの回数に分ける。円未満切り捨て）
   "conv.retirement.annuity": DOWN1,
+  // 資産の評価額（持ち家の土地の上昇・建物の減価・売却の費用、車の評価額。円未満切り捨て）
+  "conv.asset.valuation": DOWN1,
   // 役員退職慰労金の見込み額（最終報酬月額×在任年数×功績倍率。円未満切り捨て）
   "conv.retirement.estimate": DOWN1,
 });

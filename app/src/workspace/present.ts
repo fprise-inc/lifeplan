@@ -479,31 +479,42 @@ export function flowChart(req: EngineRequest, table: readonly TableCell[], years
 
 const NISA_ROWS = ["cf.balance.account.nisa", "cf.balance.account.childNisa", "cf.balance.account.juniorNisa", "cf.balance.account.legacyNisa"];
 const DC_ROWS = ["cf.balance.account.ideco", "cf.balance.account.corporateDc"];
+/** 不動産の行（持ち家の評価額と、住まい以外の不動産。金融資産の合計 cf.balance.financial には入らない） */
+export const REAL_ESTATE_ROW = "cf.balance.account.realEstate";
+/** その他の資産の行（保険の解約返戻金・車の評価額・その他の資産。金融資産の合計には入らない） */
+export const OTHER_ASSET_ROWS: readonly string[] = ["cf.balance.account.insurance", "cf.balance.account.car", "cf.balance.account.otherAsset"];
+/** 金融資産の器の行（器ごとの残高のうち、不動産・その他の資産を除いたもの。合計は cf.balance.financial と同じ） */
+export const isFinancialRow = (row: string): boolean => under(row, "cf.balance.account") && row !== REAL_ESTATE_ROW && !OTHER_ASSET_ROWS.includes(row);
 
-/** 資産と負債の推移: 資産（預金・NISA・iDeCo など・その他）と負債（住宅ローン・その他）、純資産 */
+/**
+ * 資産と負債の推移（全資産・全負債のバランスシート）: 資産（金融資産の内訳・不動産・その他の資産）を上に、負債（住宅ローン・その他）を下に積み、
+ * 純資産（資産−負債。不動産・その他の資産を含む）の線を引く。金融資産の器のマイナス（預金の不足）は負債の側に斜線で積む
+ */
 export function balanceChart(table: readonly TableCell[], years: number[], ages: (number | null)[], title: string): BalanceChartModel {
   const pos = (s: StackSeries): StackSeries => ({ ...s, values: s.values.map((v) => Math.max(0, v)) });
-  const isAccount = (c: TableCell) => under(c.row, "cf.balance.account") && c.row !== "cf.balance.account.realEstate";
-  const deposit = series("deposit", "預金", table, years, (c) => c.row === "cf.balance.account.deposit");
-  const assets = [
-    pos(deposit),
+  const known = (row: string) => row === "cf.balance.account.deposit" || NISA_ROWS.includes(row) || DC_ROWS.includes(row);
+  const financial: StackSeries[] = [
+    series("deposit", "預金", table, years, (c) => c.row === "cf.balance.account.deposit"),
     series("nisa", "NISA", table, years, (c) => NISA_ROWS.includes(c.row)),
     series("dc", "iDeCo・企業型DC", table, years, (c) => DC_ROWS.includes(c.row)),
-    series("assetOther", "その他の資産（課税口座・財形など）", table, years, (c) => isAccount(c) && c.row !== "cf.balance.account.deposit" && !NISA_ROWS.includes(c.row) && !DC_ROWS.includes(c.row)),
-  ].map(pos);
+    series("finOther", "その他の金融資産（課税口座・財形など）", table, years, (c) => isFinancialRow(c.row) && !known(c.row)),
+  ].map((x) => ({ ...x, group: "financial" as const }));
+  const others: StackSeries[] = [
+    { ...series("realEstate", "不動産", table, years, (c) => c.row === REAL_ESTATE_ROW), group: "realEstate" },
+    { ...series("otherAsset", "その他の資産（車・保険の解約返戻金など）", table, years, (c) => OTHER_ASSET_ROWS.includes(c.row)), group: "other" },
+  ];
   const debts = [
     series("mortgage", "住宅ローン", table, years, (c) => c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest"),
     series("debtOther", "その他の負債", table, years, (c) => c.row === "cf.balance.debt.other"),
   ];
-  const fin = financialOf(table);
-  const shortfall = years.map((y) => Math.min(0, fin.get(y) ?? 0));
+  const at = (list: StackSeries[], i: number) => list.reduce((s, x) => s + (x.values[i] ?? 0), 0);
   return {
     title,
     years,
     ages,
-    assets,
+    assets: [...financial, ...others].map(pos),
     debts,
-    shortfall,
-    netWorth: years.map((y, i) => (fin.get(y) ?? 0) - debts.reduce((s, d) => s + (d.values[i] ?? 0), 0)),
+    shortfall: years.map((_, i) => financial.reduce((s, x) => s + Math.min(0, x.values[i] ?? 0), 0)),
+    netWorth: years.map((_, i) => at(financial, i) + at(others, i) - at(debts, i)),
   };
 }

@@ -58,6 +58,8 @@ export interface Account {
   asOf?: string;
   assetMix?: { assetClass: string; share: string }[];
   contributions?: { from: Timepoint; to: Timepoint | null; monthly: number; [key: string]: unknown }[];
+  /** 評価額の増減率（年率。不動産・その他の資産だけ） */
+  valueGrowth?: string;
   [key: string]: unknown;
 }
 
@@ -158,7 +160,20 @@ export interface Residence {
   propertyTax?: { annual: Box<number>; growth?: string };
   maintenance?: { monthly: Box<number>; growth?: string };
   ownership?: { member: string; share: string }[];
+  /** 持ち家の評価（housing.valuation） */
+  valuation?: { value?: Box<number>; asOf?: string; structure?: string; builtYear?: number; landShare?: string };
+  /** 住み終わりの月に売る */
+  sale?: { price?: number; costRate?: string };
   [key: string]: unknown;
+}
+
+/** 持ち家の評価の前提 */
+export interface RealEstateValuationSetting {
+  landGrowth?: YearSeries;
+  landShare?: string;
+  usefulLife?: { wood?: number; lightSteel?: number; steel?: number; rc?: number };
+  residualFloor?: string;
+  saleCostRate?: string;
 }
 
 export interface Coverage {
@@ -340,7 +355,7 @@ export interface EngineRequest {
     baseMonth: string;
     endYear: number;
     household: Household;
-    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; [key: string]: unknown };
+    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; [key: string]: unknown };
     contingencies?: Contingency[];
     protection?: ProtectionRequest;
     [key: string]: unknown;

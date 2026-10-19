@@ -185,7 +185,8 @@ export type AccountKind =
   | "fxDeposit"
   | "insurance"
   | "realEstate"
-  | "smallBusinessMutualAid";
+  | "smallBusinessMutualAid"
+  | "otherAsset";
 
 export interface AccountInput {
   readonly id: string;
@@ -208,6 +209,8 @@ export interface AccountInput {
   readonly lots?: readonly { readonly vintageYear: number; readonly regime: "general" | "tsumitate" | "junior"; readonly costBasis: Yen; readonly marketValue: Yen }[];
   readonly enrolledSince?: string;
   readonly payout?: { readonly start: Timepoint; readonly method: "lumpSum" | "annuity" | "mixed"; readonly annuityYears?: number; readonly lumpShare?: string };
+  /** 評価額の増減率（年率。不動産・その他の資産だけで使う。入れたときは資産の配分の利回りの代わり） */
+  readonly valueGrowth?: string;
 }
 
 export interface RateStep {
@@ -292,6 +295,25 @@ export interface ResidenceInput {
   readonly propertyTax?: { readonly annual: ValueBox<Yen>; readonly growth?: string };
   readonly maintenance?: { readonly monthly: ValueBox<Yen>; readonly growth?: string };
   readonly ownership?: readonly { readonly member: string; readonly share: string }[];
+  /** 持ち家の評価（土地と建物に分け、土地は上昇率、建物は耐用年数で減らす。housing.valuation） */
+  readonly valuation?: ResidenceValuationInput;
+  /** 売却（住み終わりの月に売り、手取りを現金にする） */
+  readonly sale?: { readonly price?: Yen; readonly costRate?: string };
+}
+
+/** 建物の構造（耐用年数の目安を選ぶ） */
+export type BuildingStructure = "wood" | "lightSteel" | "steel" | "rc";
+
+export interface ResidenceValuationInput {
+  /** 評価の基にする額（asOf の時点の土地と建物の合計。省略は購入の価格） */
+  readonly value?: ValueBox<Yen>;
+  /** value の時点（省略は購入の月。購入が無ければ計算基準月） */
+  readonly asOf?: string;
+  readonly structure?: BuildingStructure;
+  /** 建物が建った年（省略は asOf の年。新築とみなす） */
+  readonly builtYear?: number;
+  /** 土地の割合（省略は前提の realEstateValuation.landShare か目安） */
+  readonly landShare?: string;
 }
 
 export type CoverageBenefit =
@@ -659,10 +681,25 @@ export interface EngineInput {
     readonly marketShocks?: readonly MarketShock[];
     readonly loanRateShifts?: readonly { readonly from: string; readonly add: string }[];
     readonly incomeShocks?: readonly IncomeShock[];
+    readonly realEstateValuation?: RealEstateValuationSetting;
   };
   readonly contingencies?: readonly ContingencyInput[];
   readonly stressTest?: StressTestInput;
   readonly protection?: ProtectionRequest;
+}
+
+/** 持ち家の評価の前提（世帯ごと・事務所の標準で変えられる。省略した項目は housing.valuation の目安） */
+export interface RealEstateValuationSetting {
+  /** 土地の上昇率（年ごとの列。省略は物価上昇率） */
+  readonly landGrowth?: YearSeries;
+  /** 土地の割合（物件ごとの入力が無いとき） */
+  readonly landShare?: string;
+  /** 建物の耐用年数（構造ごと。年） */
+  readonly usefulLife?: Partial<Readonly<Record<BuildingStructure, number>>>;
+  /** 建物の残りの価値の下限（建てた時の価値に対する割合） */
+  readonly residualFloor?: string;
+  /** 売却の費用（売却価格に対する割合。仲介手数料・印紙税など） */
+  readonly saleCostRate?: string;
 }
 
 export interface MarketShock {

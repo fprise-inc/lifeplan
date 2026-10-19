@@ -7,6 +7,40 @@ import { ACCOUNT_KINDS, ASSET_CLASSES, memberLabel, memberOptions } from "../lab
 
 const accounts = (h: Household) => h.accounts;
 const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "childNisa"]);
+/** 金融資産でない器（不動産・その他の資産）。評価額と増減率だけを入れる */
+const NON_FINANCIAL = new Set(["realEstate", "otherAsset"]);
+
+/** 不動産（住まい以外）・その他の資産（貴金属・美術品・貸付金など）: 評価額・時点・増減率 */
+function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
+  const find = byId(accounts, a.id);
+  const k = `sav/${a.id}`;
+  const label = a.kind === "realEstate" ? "不動産（住まい以外）" : "その他の資産";
+  return [
+    {
+      key: k,
+      title: `${label}（${memberLabel(wh, a.owner)}）`,
+      level: "simple",
+      fields: [
+        plain({ key: `${k}/kind`, item: "account.kind", label: "種類", level: "simple", kind: "select", options: ACCOUNT_KINDS, find, path: ["kind"], structural: true }),
+        plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"] }),
+        yenBox({ key: `${k}/value`, item: "account.marketValue", label: "今の評価額", level: "simple", basis: "once", find, path: ["marketValue"] }),
+        plain({ key: `${k}/asOf`, item: "account.asOf", label: "評価額の時点", level: "detail", kind: "ym", find, path: ["asOf"] }),
+        plain({
+          key: `${k}/growth`,
+          item: "account.valueGrowth",
+          label: "評価額の増減率（年）",
+          level: "simple",
+          kind: "pct",
+          find,
+          path: ["valueGrowth"],
+          optional: true,
+          help: a.kind === "realEstate" ? "空欄なら前提条件の不動産の利回り（入れていなければ0）。マイナスも入れられます" : "空欄なら0（評価額のまま）。値下がりするものはマイナスで入れます",
+        }),
+      ],
+      actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.accounts = (h.accounts ?? []).filter((x) => x.id !== a.id)))],
+    },
+  ];
+}
 
 function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const find = byId(accounts, a.id);
@@ -119,8 +153,16 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
         key: "sav/accounts",
         title: "金融資産",
         level: "simple",
-        groups: (h.accounts ?? []).flatMap((a) => accountGroups(wh, a)),
+        groups: (h.accounts ?? []).filter((a) => !NON_FINANCIAL.has(a.kind)).flatMap((a) => accountGroups(wh, a)),
         actions: [add("deposit", "預貯金"), add("nisa", "NISA"), add("ideco", "iDeCo"), add("taxable", "課税口座"), add("zaikei", "財形貯蓄"), add("corporateDc", "企業型DC"), add("fxDeposit", "外貨預金")],
+      },
+      {
+        key: "sav/others",
+        title: "不動産（住まい以外）・その他の資産",
+        note: "資産と負債の推移・提案書のバランスシートに入ります（金融資産には入れず、取り崩しにも使いません）。住まいは「住まい・ローン」で、車は「車」で入れます",
+        level: (h.accounts ?? []).some((a) => NON_FINANCIAL.has(a.kind)) ? "simple" : "detail",
+        groups: (h.accounts ?? []).filter((a) => NON_FINANCIAL.has(a.kind)).flatMap((a) => otherAssetGroups(wh, a)),
+        actions: [add("realEstate", "不動産（住まい以外）"), add("otherAsset", "その他の資産")],
       },
     ],
   };

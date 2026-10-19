@@ -422,7 +422,7 @@ describe("凡例と帯のカード", () => {
 
   it("資産と負債の推移の見出しは純資産", () => {
     const html = renderToString(h(MultiLegend, { plans: lines(), mode: "balance", focus: null, onFocus: noop, hidden: [], onToggle: noop }));
-    expect(html).toContain("全部のプランの純資産（資産−負債）");
+    expect(html).toContain("全部のプランの純資産（不動産・その他の資産を含む資産−負債）");
   });
 
   it("グラフの枠: 全部のプランを重ねるときは全部のプランの凡例（重ねる表示の凡例は出さない）", () => {

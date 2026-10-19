@@ -11,14 +11,16 @@ use serde_json::Value;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.3";
+pub const CURRENT: &str = "0.4";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
 /// - 0.2: 誰が直したか（`meta.savedBy`・`meta.revisions`・`meta.editors`・`household.memoBy`・
 ///   `consents[].recordedBy`・`candidates[].decidedByMember`）を足した（0023 の6。足すだけの MINOR）
 /// - 0.3: 控えの区画 `snapshots`（0009 の2。任意。控えが無ければ区画ごと無い）を足した（足すだけの MINOR）
-pub const KNOWN: &[&str] = &["0.1", "0.2", "0.3"];
+/// - 0.4: 世帯のデータに、持ち家の評価 `residences[].valuation`・売却 `residences[].sale`・器の種類 `otherAsset`（その他の資産）と
+///   評価額の増減率 `accounts[].valueGrowth`・前提 `assumptions.realEstateValuation` を足した（どれも任意。足すだけの MINOR。0025）
+pub const KNOWN: &[&str] = &["0.1", "0.2", "0.3", "0.4"];
 
 /// 1段分の変換
 pub struct Step {
@@ -38,6 +40,11 @@ pub const STEPS: &[Step] = &[
         from: "0.2",
         to: "0.3",
         apply: v0_2_to_0_3,
+    },
+    Step {
+        from: "0.3",
+        to: "0.4",
+        apply: v0_3_to_0_4,
     },
 ];
 
@@ -61,6 +68,15 @@ fn v0_2_to_0_3(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.3".into());
+    }
+    Ok(body)
+}
+
+/// 0.3 → 0.4: 足した欄はどれも任意なので足さない（評価・売却・その他の資産が無い世帯は、今までどおりの計算）。形式の版だけを書き換える
+fn v0_3_to_0_4(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.4".into());
     }
     Ok(body)
 }
@@ -151,7 +167,8 @@ mod tests {
         assert_eq!(access(CURRENT).unwrap(), Access::ReadWrite);
         assert_eq!(access("0.1").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.2").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.4").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.3").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.5").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -163,7 +180,7 @@ mod tests {
         assert_eq!(access("01.1").unwrap_err(), StoreError::FORMAT_UNKNOWN);
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
-        assert_eq!(upgrade("0.4", b.clone()).unwrap(), b);
+        assert_eq!(upgrade("0.5", b.clone()).unwrap(), b);
     }
 
     #[test]
@@ -185,7 +202,7 @@ mod tests {
     fn v0_2_keeps_everything_and_has_no_snapshots_section() {
         let b = serde_json::json!({"meta": {"formatVersion": "0.2", "revisions": [], "editors": {}}, "household": {"memo": ["x"]}, "ext": {"ext.a.b": 1}});
         let u = upgrade("0.2", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.3");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
         assert_eq!(u["ext"], b["ext"]);
         assert!(
@@ -194,7 +211,20 @@ mod tests {
         );
         // 0.1 からも1段ずつ今の版へ
         let u1 = upgrade("0.1", serde_json::json!({"meta": {"formatVersion": "0.1"}})).unwrap();
-        assert_eq!(u1["meta"]["formatVersion"], "0.3");
+        assert_eq!(u1["meta"]["formatVersion"], CURRENT);
         assert!(upgrade("0.2", serde_json::json!("x")).is_err());
+    }
+
+    #[test]
+    fn v0_3_keeps_everything_and_adds_no_valuation() {
+        let b = serde_json::json!({"meta": {"formatVersion": "0.3", "revisions": [], "editors": {}}, "household": {"request": {"input": {"household": {"residences": [{"kind": "own"}]}}}}, "snapshots": [{"a": 1}]});
+        let u = upgrade("0.3", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.4");
+        assert_eq!(
+            u["household"], b["household"],
+            "評価・売却の欄は任意なので足さない"
+        );
+        assert_eq!(u["snapshots"], b["snapshots"]);
+        assert!(upgrade("0.3", serde_json::json!(1)).is_err());
     }
 }
