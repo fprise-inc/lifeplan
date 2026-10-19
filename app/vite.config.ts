@@ -75,7 +75,7 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
       return { ok: true, value: { generation: h.generation, savedAt: now } };
     case "forkInfo":
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
-      return { ok: true, value: { savedConflict: h.conflict === true, theirsSavedAt: h.updatedAt, theirsBy: h.updatedBy ?? null, theirsGeneration: h.generation, oursGeneration: h.conflict === true ? h.generation : null, syncCopies: h.forks ?? 0 } };
+      return { ok: true, value: { savedConflict: h.conflict === true, theirsSavedAt: h.updatedAt, theirsBy: h.updatedBy ?? null, theirsGeneration: h.generation, oursGeneration: h.conflict === true ? h.generation : null, syncCopies: h.forks ?? 0, personal: devOffice.usage === "personal" } };
     case "resolveFork":
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
       if (h.conflict !== true && a.keepOurs === "1") return { ok: false, code: "E_STORE_NO_FORK" };
@@ -120,7 +120,8 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
 /**
  * 開発用のサーバーの事務所での共有（本体の office_* の代わり。メモリの中だけ）。フォルダのダイアログは出さず、架空の共有フォルダを選んだことにする。
  * 決まり（承認は指紋の入力が必須・申請の指紋は承認する人に返さない・外すときは表示名の確認）は本体（household-store）と同じにしてある。
- * `/__dev/office/simulate?kind=request|approved|presence|conflict|editor|fork|recoveryJoin|others` で、他の PC の操作が届いたことにする（others は架空の事務所の復元キーを返す）
+ * `/__dev/office/simulate?kind=request|approved|presence|conflict|editor|fork|recoveryJoin|others|personalOthers|pcJoin|otherPcOpen` で、他の PC の操作が届いたことにする
+ * （others は架空の事務所の復元キー、personalOthers は1台目の PC が同期フォルダを始めたことにして、その架空の復元キーを返す。0024）
  */
 type DevMember = { memberId: string; name: string; fingerprint: string; joinedAt: string; approvedBy: string | null; role: string; isMe: boolean; viaRecovery?: boolean };
 /** 開発用のサーバーの事務所の復元キー（外すたびに作り直す。画面の確かめ用の架空の値） */
@@ -139,6 +140,12 @@ const devOffice = {
   ack: null as null | { by: string; at: string; verifiedAt: string | null },
   key: devOfficeKey(),
   notices: [] as { kind: "recoveryJoin"; name: string; at: string }[],
+  /** 使い方（1人で2台の PC の同期フォルダ・事務所での共有。0024） */
+  usage: null as null | "personal" | "office",
+  /** 「ほかの PC で始めた」フォルダの使い方（復元キーで開く画面の確かめ用） */
+  othersUsage: "office" as "personal" | "office",
+  /** もう1台の PC が世帯を開いている（この PC の中へ戻すのを止める確かめ用） */
+  otherPcOpen: false,
 };
 
 function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
@@ -148,6 +155,7 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
   const name = typeof a.name === "string" ? a.name.trim() : "";
   const status = () => ({
     state: o.state,
+    usage: o.state === "off" ? null : (o.usage ?? "office"),
     problem: null,
     myName: o.myName,
     myFingerprint: o.state === "off" ? null : o.myFingerprint,
@@ -173,6 +181,7 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       if (name === "" || [...name].length > 20) return { ok: false, code: "E_OFFICE_NAME" };
       if (o.state === "member" || o.state === "pending") return { ok: false, code: "E_OFFICE_STATE" };
       o.myName = name;
+      o.usage = "office";
       if (op === "join") {
         o.state = "pending";
         return { ok: true, value: status() };
@@ -192,6 +201,7 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       if (k !== norm(o.key)) return { ok: false, code: "E_RECOVERY_MISMATCH" };
       o.state = "member";
       o.myName = name;
+      o.usage = o.othersUsage;
       o.members = [
         { memberId: crypto.randomUUID(), name: "担当A", fingerprint: "M3TQ-8VNA-2KXD-H7RP", joinedAt: ago(60 * 24 * 30), approvedBy: null, role: "member", isMe: false },
         { memberId: crypto.randomUUID(), name, fingerprint: o.myFingerprint, joinedAt: now, approvedBy: null, role: "member", isMe: true, viaRecovery: true },
@@ -204,8 +214,54 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       if (o.state !== "member" || me === undefined) return { ok: false, code: "E_OFFICE_STATE" };
       if (String(a.confirm ?? "").trim() !== me.name) return { ok: false, code: "E_OFFICE_CONFIRM" };
       if (o.members.length > 1) return { ok: false, code: "E_OFFICE_OTHERS_REMAIN" };
-      Object.assign(o, { state: "off", members: [], removed: [], requests: [], ack: null, notices: [] });
+      Object.assign(o, { state: "off", members: [], removed: [], requests: [], ack: null, notices: [], usage: null });
       return { ok: true, value: status() };
+    }
+    // 1人で2台の PC の同期フォルダ（本体の storage_* の代わり。0024）
+    case "syncStart": {
+      if (name === "" || [...name].length > 20) return { ok: false, code: "E_OFFICE_NAME" };
+      if (o.state === "member" || o.state === "pending") return { ok: false, code: "E_OFFICE_STATE" };
+      if (devStore.acknowledgedAt === null && devStore.verifiedAt === null) return { ok: false, code: "E_SYNC_RECOVERY_REQUIRED" };
+      // 今の復元キーをそのまま使い、保管の記録も引き継ぐ
+      Object.assign(o, { state: "member", usage: "personal", myName: name, key: devStore.recoveryKey, ack: { by: name, at: devStore.acknowledgedAt ?? now, verifiedAt: devStore.verifiedAt }, removed: [], requests: [], notices: [] });
+      o.members = [{ memberId: crypto.randomUUID(), name, fingerprint: o.myFingerprint, joinedAt: now, approvedBy: null, role: "member", isMe: true }];
+      return { ok: true, value: status() };
+    }
+    case "syncOpen": {
+      if (name === "" || [...name].length > 20) return { ok: false, code: "E_OFFICE_NAME" };
+      const k = norm(String(a.key ?? ""));
+      if (k.length !== 58) return { ok: false, code: "E_RECOVERY_TYPO" };
+      if (o.state === "member" || o.state === "pending") return { ok: false, code: "E_OFFICE_STATE" };
+      if (k !== norm(o.key)) return { ok: false, code: "E_RECOVERY_MISMATCH" };
+      if (o.othersUsage !== "personal") return { ok: false, code: "E_SYNC_IS_OFFICE" };
+      Object.assign(o, { state: "member", usage: "personal", myName: name });
+      o.members = [
+        { memberId: crypto.randomUUID(), name: "事務所のPC", fingerprint: "M3TQ-8VNA-2KXD-H7RP", joinedAt: ago(60 * 24 * 14), approvedBy: null, role: "member", isMe: false },
+        { memberId: crypto.randomUUID(), name, fingerprint: o.myFingerprint, joinedAt: now, approvedBy: null, role: "member", isMe: true, viaRecovery: true },
+      ];
+      o.ack = o.ack ?? { by: "事務所のPC", at: ago(60 * 24 * 14), verifiedAt: null };
+      return { ok: true, value: status() };
+    }
+    case "syncEnd": {
+      const me = o.members.find((m) => m.isMe);
+      if (o.state !== "member" || o.usage !== "personal" || me === undefined) return { ok: false, code: "E_OFFICE_STATE" };
+      if (String(a.confirm ?? "").trim() !== me.name) return { ok: false, code: "E_OFFICE_CONFIRM" };
+      if (o.otherPcOpen) return { ok: false, code: "E_SYNC_OTHER_PC_OPEN" };
+      Object.assign(o, { state: "off", members: [], removed: [], requests: [], notices: [], usage: null });
+      return { ok: true, value: status() };
+    }
+    case "notices": {
+      const st = status();
+      const scope = st.usage === null ? "local" : st.usage;
+      const n = (kind: string, level: string, extra: Record<string, unknown> = {}) => ({ kind, level, scope, count: null, name: null, at: null, code: null, ...extra });
+      const out: unknown[] = [];
+      if (!(o.state === "member" ? o.ack !== null : devStore.acknowledgedAt !== null)) out.push(n("recoveryNotKept", scope === "local" ? "info" : "warn"));
+      if (o.state === "pending") out.push(n("pending", "info"));
+      for (const x of st.notices) out.push(n("recoveryJoin", "alert", { name: x.name, at: x.at }));
+      if (st.requests.length > 0) out.push(n("joinRequest", scope === "personal" ? "alert" : "info", { count: st.requests.length }));
+      const forks = [...devStore.households.values()].filter((h) => (h.forks ?? 0) > 0).length;
+      if (forks > 0) out.push(n("syncCopies", "warn", { count: forks }));
+      return { ok: true, value: out };
     }
     case "dismissNotices":
       o.notices = [];
@@ -214,10 +270,12 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       if (o.state === "member") return { ok: false, code: "E_OFFICE_STATE" };
       o.state = "off";
       o.myName = null;
+      o.usage = null;
       return { ok: true, value: status() };
     case "approve": {
       const r = o.requests.find((x) => x.requestId === a.requestId);
       if (o.state !== "member" || r === undefined) return { ok: false, code: "E_OFFICE_STATE" };
+      if (o.usage === "personal") return { ok: false, code: "E_SYNC_PERSONAL" };
       if (o.ack === null) return { ok: false, code: "E_OFFICE_RECOVERY_REQUIRED" };
       if (norm(String(a.fingerprint ?? "")) !== norm(r.fingerprint)) return { ok: false, code: "E_OFFICE_FINGERPRINT" };
       o.requests = o.requests.filter((x) => x !== r);
@@ -243,7 +301,7 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       return { ok: true, value: o.state === "member" ? devStore.households.size : 0 };
     case "reset":
       // 画面の確かめを最初からやり直す（開発用のサーバーのメモリを空にする）
-      Object.assign(o, { state: "off", myName: null, members: [], removed: [], requests: [], ack: null, notices: [], key: devOfficeKey() });
+      Object.assign(o, { state: "off", myName: null, members: [], removed: [], requests: [], ack: null, notices: [], key: devOfficeKey(), usage: null, othersUsage: "office", otherPcOpen: false });
       devStore.households.clear();
       devStore.lastOpened = null;
       devStore.acknowledgedAt = null;
@@ -254,11 +312,19 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       if (kind === "recoveryJoin" && o.state === "member") {
         o.members.push({ memberId: crypto.randomUUID(), name: "担当N", fingerprint: "N4KD-7QXA-2MVT-H9RP", joinedAt: ago(5), approvedBy: null, role: "member", isMe: false, viaRecovery: true });
         o.notices.push({ kind: "recoveryJoin", name: "担当N", at: ago(5) });
-      } else if (kind === "others") {
-        // 他の PC で事務所を始めた（復元キーで加わる画面の確かめ用。架空の事務所の復元キーを返す）
+      } else if (kind === "others" || kind === "personalOthers") {
+        // 他の PC で事務所を始めた・同期フォルダを始めた（復元キーで加わる・開く画面の確かめ用。架空の復元キーを返す）
         o.key = devOfficeKey();
         o.ack = null;
+        o.othersUsage = kind === "personalOthers" ? "personal" : "office";
         return { ok: true, value: o.key };
+      } else if (kind === "pcJoin" && o.state === "member") {
+        // 1人で2台の PC: もう1台の PC が復元キーで同期フォルダを開いた
+        o.members.push({ memberId: crypto.randomUUID(), name: "自宅のノート", fingerprint: "N4KD-7QXA-2MVT-H9RP", joinedAt: ago(5), approvedBy: null, role: "member", isMe: false, viaRecovery: true });
+        o.notices.push({ kind: "recoveryJoin", name: "自宅のノート", at: ago(5) });
+      } else if (kind === "otherPcOpen") {
+        o.otherPcOpen = !o.otherPcOpen;
+        for (const h of devStore.households.values()) if (h === target || devStore.households.size === 1) h.openBy = o.otherPcOpen ? [{ name: "自宅のノート", since: ago(3) }] : [];
       } else if (kind === "request") o.requests.push({ requestId: crypto.randomUUID(), name: "担当C", requestedAt: ago(3), fingerprint: "7XQM-2KDN-HV4R-P9TC" });
       else if (kind === "approved" && o.state === "pending") {
         o.state = "member";

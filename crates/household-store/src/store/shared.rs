@@ -3,6 +3,9 @@
 //! - 共有フォルダの場所は、このPCの事務所データ（暗号化）にだけ持ち、画面には渡さない。選ぶダイアログはアプリ本体が出す（0023 の8）。
 //! - このPCの保管庫には、メンバーの秘密鍵（アカウント名 `<事務所ID>.member`）と、共有の事務所の親鍵の写し（アカウント名 `<事務所ID>`）を置く。
 //! - 名簿は、手元の親鍵と同じか、手元の親鍵を「前の親鍵の一覧」に含むときだけ受け入れる（0023 の2）。
+//! - 1人の FP が複数の PC で使う同期フォルダ（0024）も、同じ名簿・札・開いている印に「メンバー＝PC」として乗せる。
+//!   名簿の使い方の欄が `personal` のとき、表示名は PC の呼び名、2台目の PC は復元キーで名簿に自分を足し（承認は無い）、
+//!   参加の申請は承認しない。この PC の中へ戻すのは、もう1台の PC がいても1台でできる（[`Store::sync_end`]）。
 
 use std::collections::HashSet;
 
@@ -70,6 +73,8 @@ pub struct RequestView {
 pub struct OfficeStatus {
     /// `off`／`pending`（承認待ち）／`member`／`removed`（外された）／`unavailable`（使えない）
     pub state: String,
+    /// 使い方: `personal`（1人で複数の PC の同期フォルダ。0024）／`office`（事務所での共有）。`off` のときは null
+    pub usage: Option<String>,
     /// 使えない理由の符号
     pub problem: Option<String>,
     pub my_name: Option<String>,
@@ -109,6 +114,49 @@ pub struct ForkInfo {
     pub ours_generation: Option<u64>,
     /// 同期サービスの衝突の写しの数
     pub sync_copies: usize,
+    /// 1人で複数の PC の同期フォルダ（相手は人ではなく、もう1台の PC。0024）
+    pub personal: bool,
+}
+
+/// 保存先と同期の知らせ（画面の上の帯の「知らせ」にまとめられる形。パス・鍵は入れない。0024）
+///
+/// `kind` の一覧:
+/// - `needsRecovery`（alert）: 保管庫に事務所の鍵が無い。復元キーを入れる
+/// - `recoveryNotKept`（同期フォルダ・事務所の共有では warn、PC の中だけなら info）: 今の復元キーがまだ保管されていない
+/// - `unavailable`（warn）: 同期フォルダ・共有フォルダを使えない（`code` に理由の符号）
+/// - `closed`（warn）: 同期フォルダ・共有の事務所は終わっている（ほかの PC でこの PC の中へ戻した・共有をやめた）
+/// - `removed`（alert）: この PC は外された
+/// - `pending`（info）: 参加の申請の承認待ち
+/// - `recoveryJoin`（alert）: 復元キーで PC（人）が加わった（`name`・`at`）
+/// - `joinRequest`（1人の同期フォルダでは alert、事務所では info）: 参加の申請がある（`count`）
+/// - `localHouseholds`（info）: この PC の中に、まだ移していない世帯がある（`count`）
+/// - `syncCopies`（warn）: 同期サービスの衝突の写しがある世帯がある（`count`）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageNotice {
+    pub kind: String,
+    /// `info`／`warn`／`alert`
+    pub level: String,
+    /// どの保存先の知らせか: `local`（この PC の中）／`personal`（1人で複数の PC の同期フォルダ）／`office`（事務所での共有）
+    pub scope: String,
+    pub count: Option<usize>,
+    pub name: Option<String>,
+    pub at: Option<String>,
+    pub code: Option<String>,
+}
+
+impl StorageNotice {
+    fn new(kind: &str, level: &str, scope: &str) -> StorageNotice {
+        StorageNotice {
+            kind: kind.into(),
+            level: level.into(),
+            scope: scope.into(),
+            count: None,
+            name: None,
+            at: None,
+            code: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -494,6 +542,15 @@ fn member_account(office_id: &str) -> String {
     format!("{office_id}.member")
 }
 
+/// 名簿の使い方（欄が無い名簿は事務所での共有。0024）
+fn usage_of(r: &Roster) -> &'static str {
+    if r.personal() {
+        office::USAGE_PERSONAL
+    } else {
+        office::USAGE_OFFICE
+    }
+}
+
 impl Store {
     /// 事務所データの共有の設定から、共有の事務所を開く（起動時・承認待ちの確かめ）
     pub(super) fn activate_shared(&self, s: &mut Session) {
@@ -508,14 +565,23 @@ impl Store {
         match self.connect(&set, &s.device_id) {
             Ok(Some(mut sh)) => {
                 sh.present = present;
-                if set.state == "pending" {
-                    set.state = "member".into();
-                    set.joined_at = Some(iso_of(self.now()));
+                let usage = Some(usage_of(&sh.roster).to_owned());
+                if set.state == "pending" || set.usage != usage {
+                    if set.state == "pending" {
+                        set.state = "member".into();
+                        set.joined_at = Some(iso_of(self.now()));
+                    }
+                    set.usage = usage;
                     s.data.sharing = Some(set);
                     let _ = self.write_office(s);
                 }
                 self.prune_previous(&mut sh);
+                let align = sh.roster.personal().then(|| sh.master.clone());
                 s.shared = Some(sh);
+                // 1人で複数の PC: 同期フォルダの鍵が入れ替わっていたら（PC を外した）、この PC の中の事務所の鍵もそろえる（0024）
+                if let Some(m) = align {
+                    let _ = self.adopt_local_master(s, &m);
+                }
             }
             Ok(None) => {}
             Err(StoreError::OFFICE_REMOVED) => {
@@ -685,6 +751,7 @@ impl Store {
         let set = s.data.sharing.as_ref();
         let mut st = OfficeStatus {
             state: "off".into(),
+            usage: None,
             problem: s.share_problem.map(|e| e.code().to_owned()),
             my_name: set.map(|x| x.display_name.clone()),
             my_fingerprint: None,
@@ -709,6 +776,13 @@ impl Store {
         } else {
             set.state.clone()
         };
+        st.usage = Some(match &s.shared {
+            Some(sh) => usage_of(&sh.roster).to_owned(),
+            None => set
+                .usage
+                .clone()
+                .unwrap_or_else(|| office::USAGE_OFFICE.to_owned()),
+        });
         if set.state == "pending" {
             if let Ok(Some(secret)) = self.secrets.get(&member_account(&set.office_id)) {
                 if let Some(k) = MemberKeys::from_hex(&secret) {
@@ -791,6 +865,31 @@ impl Store {
         sync_folder: bool,
         forbidden: &[PathBuf],
     ) -> Result<OfficeStatus, StoreError> {
+        self.start_shared(folder, display_name, sync_folder, forbidden, false)
+    }
+
+    /// 保存先を同期フォルダにする（1人の FP が複数の PC で使う。0024）: 選んだフォルダの中に同期フォルダ用の事務所のフォルダを作り、
+    /// このPCの世帯を暗号化したまま移す。`pc_name` はこの PC の呼び名。事務所での共有と違い、**今の事務所の鍵（復元キー）をそのまま使う**
+    /// （保管済みの復元キーで2台目の PC を開ける）。復元キーを保管していなければ移さない（[`StoreError::SYNC_RECOVERY_REQUIRED`]。0013 の3）。
+    /// `folder` はアプリ本体が OS のダイアログで選ばせたもの（画面から受け取らない）
+    pub fn sync_start(
+        &self,
+        folder: &Path,
+        pc_name: &str,
+        sync_folder: bool,
+        forbidden: &[PathBuf],
+    ) -> Result<OfficeStatus, StoreError> {
+        self.start_shared(folder, pc_name, sync_folder, forbidden, true)
+    }
+
+    fn start_shared(
+        &self,
+        folder: &Path,
+        display_name: &str,
+        sync_folder: bool,
+        forbidden: &[PathBuf],
+        personal: bool,
+    ) -> Result<OfficeStatus, StoreError> {
         if !office::valid_display_name(display_name) {
             return Err(StoreError::OFFICE_NAME);
         }
@@ -805,6 +904,15 @@ impl Store {
         {
             return Err(StoreError::OFFICE_STATE);
         }
+        let local_ack = s
+            .data
+            .recovery
+            .acknowledged_at
+            .clone()
+            .or_else(|| s.data.recovery.verified_at.clone());
+        if personal && local_ack.is_none() {
+            return Err(StoreError::SYNC_RECOVERY_REQUIRED);
+        }
         let mut roots = forbidden.to_vec();
         roots.push(self.root.clone());
         let folder = check_folder(folder, &roots)?;
@@ -813,11 +921,33 @@ impl Store {
         }
         let paths = Paths::new(folder.join(office::OFFICE_DIR));
         let office_id = crypto::new_uuid();
-        let master = crypto::random_key();
+        // 1人で複数の PC: 今の事務所の鍵をそのまま使う（FP が保管済みの復元キーが、そのまま同期フォルダの復元キーになる。0024）。
+        // 事務所での共有: 新しい鍵（共有の事務所の復元キーは新しくなる。0023 の1）
+        let master = if personal {
+            s.master.clone()
+        } else {
+            crypto::random_key()
+        };
         let master_key_id = crypto::new_uuid();
         let keys = MemberKeys::generate();
         let member_id = crypto::new_uuid();
         let at = iso_of(now);
+        // 1人で複数の PC: この PC の復元キーの保管の記録を、名簿の保管の記録として引き継ぐ（同じ鍵なので）
+        let recovery = match (personal, local_ack) {
+            (true, Some(acked)) => Some(office::RecoveryAck {
+                master_key_id: master_key_id.clone(),
+                acknowledged_at: acked,
+                acknowledged_by: member_id.clone(),
+                verified_at: s.data.recovery.verified_at.clone(),
+                verified_by: s
+                    .data
+                    .recovery
+                    .verified_at
+                    .as_ref()
+                    .map(|_| member_id.clone()),
+            }),
+            _ => None,
+        };
         // 先に保管庫へ（ここで止まっても、共有フォルダには何も無い）
         self.secrets.set(
             &office_id,
@@ -840,9 +970,17 @@ impl Store {
             members: vec![me.clone()],
             removed: vec![],
             previous: vec![],
-            recovery: None,
+            recovery,
             events: vec![],
             closed: None,
+            usage: Some(
+                if personal {
+                    office::USAGE_PERSONAL
+                } else {
+                    office::USAGE_OFFICE
+                }
+                .to_owned(),
+            ),
             updated_at: at.clone(),
             updated_by: Some(member_id.clone()),
         };
@@ -868,6 +1006,7 @@ impl Store {
             joined_at: Some(at),
             sync_folder,
             notices_seen_at: None,
+            usage: Some(usage_of(&roster).to_owned()),
         });
         self.write_office(s)?;
         s.shared = Some(Shared {
@@ -942,6 +1081,7 @@ impl Store {
             joined_at: None,
             sync_folder,
             notices_seen_at: None,
+            usage: Some(office::USAGE_OFFICE.to_owned()),
         });
         s.share_problem = None;
         self.write_office(s)?;
@@ -986,6 +1126,40 @@ impl Store {
         sync_folder: bool,
         forbidden: &[PathBuf],
     ) -> Result<OfficeStatus, StoreError> {
+        self.recover_join_shared(
+            folder,
+            display_name,
+            recovery_key,
+            sync_folder,
+            forbidden,
+            false,
+        )
+    }
+
+    /// 2台目の PC で、すでに使っている同期フォルダを開く（1人の FP が複数の PC で使う。0024）: 復元キーで名簿を開き、この PC を名簿に足す
+    /// （承認は要らない。復元キーを持つことが本人の証明）。この PC の保管庫に鍵を置くので、次からは復元キーなしで開ける。
+    /// 足したことは名簿の履歴に残り、ほかの PC の画面に知らせが出る。事務所での共有（複数の FP）のフォルダは開かない
+    /// （[`StoreError::SYNC_IS_OFFICE`]。事務所の設定の「参加する」から）。`pc_name` はこの PC の呼び名
+    pub fn sync_open(
+        &self,
+        folder: &Path,
+        pc_name: &str,
+        recovery_key: &str,
+        sync_folder: bool,
+        forbidden: &[PathBuf],
+    ) -> Result<OfficeStatus, StoreError> {
+        self.recover_join_shared(folder, pc_name, recovery_key, sync_folder, forbidden, true)
+    }
+
+    fn recover_join_shared(
+        &self,
+        folder: &Path,
+        display_name: &str,
+        recovery_key: &str,
+        sync_folder: bool,
+        forbidden: &[PathBuf],
+        personal_only: bool,
+    ) -> Result<OfficeStatus, StoreError> {
         if !office::valid_display_name(display_name) {
             return Err(StoreError::OFFICE_NAME);
         }
@@ -1020,6 +1194,9 @@ impl Store {
         }
         if roster.closed.is_some() {
             return Err(StoreError::OFFICE_CLOSED);
+        }
+        if personal_only && !roster.personal() {
+            return Err(StoreError::SYNC_IS_OFFICE);
         }
         let keys = MemberKeys::generate();
         let member_id = crypto::new_uuid();
@@ -1079,8 +1256,11 @@ impl Store {
             joined_at: Some(at),
             sync_folder,
             notices_seen_at: None,
+            usage: Some(usage_of(&roster).to_owned()),
         });
         self.write_office(s)?;
+        let personal = roster.personal();
+        let master = candidate.clone();
         s.shared = Some(Shared {
             paths,
             office_id: roster.office_id.clone(),
@@ -1093,6 +1273,11 @@ impl Store {
             present: HashMap::new(),
         });
         s.share_problem = None;
+        if personal {
+            // 1人で複数の PC: この PC の中の事務所の鍵も同期フォルダの鍵にそろえる（復元キーは1つで足りる。0024）。
+            // 途中で止まっても、次の起動で続きから終える
+            let _ = self.adopt_local_master(s, &master);
+        }
         g.opened.clear();
         let s = Self::session(&mut g)?;
         Ok(self.office_status_of(s))
@@ -1119,15 +1304,35 @@ impl Store {
     /// 暗号化し直し、開けることを確かめる）、名簿に「終えた」印を書いてから、共有フォルダの世帯ファイル・鍵の札・世帯の札を消す。
     /// `confirm` は自分の表示名（取り違えて押さないため）。ほかのメンバーがいる間はできない（先に外す）
     pub fn office_end(&self, confirm: &str) -> Result<OfficeStatus, StoreError> {
+        self.end_shared(confirm, false)
+    }
+
+    /// 保存先をこの PC の中へ戻す（1人の FP が複数の PC で使う同期フォルダ。0024）: 手順は「共有をやめる」と同じ
+    /// （世帯をこの PC の中へ写して開けることを確かめ、名簿に「終えた」印を書いてから、同期フォルダの世帯を消す）。
+    /// もう1台の PC が名簿にいても、この PC だけでできる（同じ FP の PC なので。もう1台の PC は次に開いたとき「終わっています」と出る）。
+    /// ただし、もう1台の PC で世帯を開いている間はしない（[`StoreError::SYNC_OTHER_PC_OPEN`]。保存が届く前に消さないため）。
+    /// `confirm` はこの PC の呼び名
+    pub fn sync_end(&self, confirm: &str) -> Result<OfficeStatus, StoreError> {
+        self.end_shared(confirm, true)
+    }
+
+    fn end_shared(&self, confirm: &str, personal: bool) -> Result<OfficeStatus, StoreError> {
         let mut g = self.lock();
         let now = self.now();
         let s = Self::session(&mut g)?;
         self.refresh_shared(s)?;
         let sh = Self::shared_mut(s)?;
+        if personal && !sh.roster.personal() {
+            return Err(StoreError::OFFICE_STATE);
+        }
         if confirm.trim() != sh.me.name {
             return Err(StoreError::OFFICE_CONFIRM);
         }
-        if sh
+        if personal {
+            if !sh.presence_map(now).is_empty() {
+                return Err(StoreError::SYNC_OTHER_PC_OPEN);
+            }
+        } else if sh
             .roster
             .members
             .iter()
@@ -1175,6 +1380,20 @@ impl Store {
         }
         // 4. この PC の共有の設定と、保管庫の共有の事務所の鍵を片付ける（PC の中の事務所と、その復元キーに戻る）
         let office_id = sh.office_id.clone();
+        // この PC の中の事務所の復元キーの保管の記録: 共有の鍵と同じ鍵（1人で複数の PC で、入れ替えていない）なら、共有の鍵の記録を写す。
+        // 違う鍵なら、記録を消して保管を促す（入れ替えの後に古い控えを破棄していると、この PC の中の鍵の控えが無いことがあるため。0024）
+        let shared_master = sh.master.clone();
+        let shared_ack = sh.current_ack().cloned();
+        if *shared_master == *s.master {
+            if let Some(a) = shared_ack {
+                s.data.recovery.acknowledged_at = Some(a.acknowledged_at);
+                if a.verified_at.is_some() {
+                    s.data.recovery.verified_at = a.verified_at;
+                }
+            }
+        } else {
+            s.data.recovery = RecoveryRecord::default();
+        }
         s.data.sharing = None;
         s.shared = None;
         s.share_problem = None;
@@ -1283,6 +1502,10 @@ impl Store {
         let s = Self::session(&mut g)?;
         self.refresh_shared(s)?;
         let sh = Self::shared_mut(s)?;
+        // 1人で複数の PC の同期フォルダには、ほかの人を加えない（PC は復元キーで加わる。0024）
+        if sh.roster.personal() {
+            return Err(StoreError::SYNC_PERSONAL);
+        }
         // 申請のファイルを、承認のこの時点で読み直す（承認の直前に差し替えられても、入力した指紋と合わなければ承認しない）
         let bytes = fs::read(sh.paths.request(request_id)).map_err(|_| StoreError::OFFICE_STATE)?;
         let req: office::JoinRequest =
@@ -1451,6 +1674,11 @@ impl Store {
         for (id, (opened, _)) in open_ids {
             sh.write_presence(&id, opened, now);
         }
+        // 1人で複数の PC: この PC の中の事務所の鍵も、新しい同期フォルダの鍵にそろえる（0024）
+        if sh.roster.personal() {
+            let m = sh.master.clone();
+            let _ = self.adopt_local_master(s, &m);
+        }
         Ok(self.office_status_of(s))
     }
 
@@ -1587,7 +1815,70 @@ impl Store {
             theirs_generation: h.generation,
             ours_generation,
             sync_copies: sync_copy_names(&self.hh_dir(s)).get(id).map_or(0, Vec::len),
+            personal: s.shared.as_ref().is_some_and(|sh| sh.roster.personal()),
         })
+    }
+
+    /// 保存先と同期の知らせ（世帯の一覧・保存先・事務所の設定のパネルに出す。画面の上の帯の「知らせ」にまとめられる形。0024）。
+    /// パス・鍵は入れない。種類は [`StorageNotice`]
+    pub fn storage_notices(&self) -> Result<Vec<StorageNotice>, StoreError> {
+        let status = self.status()?;
+        if status.state == StatusState::NeedsRecovery {
+            return Ok(vec![StorageNotice::new("needsRecovery", "alert", "local")]);
+        }
+        let of = self.office_status()?;
+        let scope = match of.usage.as_deref() {
+            None => "local",
+            Some(office::USAGE_PERSONAL) => "personal",
+            Some(_) => "office",
+        };
+        let mut out = vec![];
+        match of.state.as_str() {
+            "unavailable" if of.problem.as_deref() == Some(StoreError::OFFICE_CLOSED.code()) => {
+                out.push(StorageNotice::new("closed", "warn", scope));
+            }
+            "unavailable" => out.push(StorageNotice {
+                code: of.problem.clone(),
+                ..StorageNotice::new("unavailable", "warn", scope)
+            }),
+            "removed" => out.push(StorageNotice::new("removed", "alert", scope)),
+            "pending" => out.push(StorageNotice::new("pending", "info", scope)),
+            _ => {}
+        }
+        if !status.recovery_acknowledged {
+            let level = if scope == "local" { "info" } else { "warn" };
+            out.push(StorageNotice::new("recoveryNotKept", level, scope));
+        }
+        for n in &of.notices {
+            out.push(StorageNotice {
+                name: Some(n.name.clone()),
+                at: Some(n.at.clone()),
+                ..StorageNotice::new(&n.kind, "alert", scope)
+            });
+        }
+        if !of.requests.is_empty() {
+            let level = if scope == "personal" { "alert" } else { "info" };
+            out.push(StorageNotice {
+                count: Some(of.requests.len()),
+                ..StorageNotice::new("joinRequest", level, scope)
+            });
+        }
+        if of.state == "member" && of.local_households > 0 {
+            out.push(StorageNotice {
+                count: Some(of.local_households),
+                ..StorageNotice::new("localHouseholds", "info", scope)
+            });
+        }
+        if let Ok(list) = self.list() {
+            let n = list.iter().filter(|e| e.forks > 0).count();
+            if n > 0 {
+                out.push(StorageNotice {
+                    count: Some(n),
+                    ..StorageNotice::new("syncCopies", "warn", scope)
+                });
+            }
+        }
+        Ok(out)
     }
 
     /// 保存のときに見つけた分岐を選ぶ。相手を残すなら開き直し、こちらで上書きするなら相手の改訂も `conflicts/` に残してから保存する

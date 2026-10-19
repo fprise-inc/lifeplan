@@ -6,6 +6,7 @@
 // - 事務所の復元キーを保管するまで、承認・外すは止める（理由と「保管する」への導線を出す。世帯の閲覧・編集は止めない）
 // - 全員の PC が使えなくなったとき: 事務所の復元キーで名簿に自分を足す（ほかのメンバーの画面に知らせが出る）
 // - 共有をやめる（最後の1人だけ。世帯をこの PC の中へ移す）
+// - 1人で2台の PC で使う同期フォルダ（0024）は「保存先」のパネル（StoragePanel）。同期フォルダで使っている間は、ここではその案内だけを出す
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OfficeHost, OfficeStatus } from "../../engine/host.ts";
 import { shortDate } from "./HouseholdPanel.tsx";
@@ -19,6 +20,8 @@ export interface OfficePanelProps {
   onHouseholdsChanged: () => void;
   /** 事務所の復元キーのパネルを開く */
   onRecovery: () => void;
+  /** 保存先（1人で2台の PC の同期フォルダ）のパネルを開く（0024） */
+  onStorage?: () => void;
   onClose: () => void;
 }
 
@@ -36,6 +39,8 @@ export function OfficePanel(p: OfficePanelProps) {
   const [ending, setEnding] = useState<string | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   const st = p.status;
+  /** 1人で2台の PC の同期フォルダで使っている（事務所の共有の画面は出さない。0024） */
+  const personal = st !== null && st.state !== "off" && st.usage === "personal";
 
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
   useEffect(() => {
@@ -77,12 +82,34 @@ export function OfficePanel(p: OfficePanelProps) {
       <div ref={panel} class="rk-panel of-panel" role="dialog" aria-modal="true" aria-labelledby="of-title" tabIndex={-1} data-office-panel={st?.state ?? "loading"}>
         <h2 id="of-title">事務所の共有</h2>
         {st === null ? <p>読み込んでいます…</p> : null}
+        {personal ? (
+          <div data-office-personal>
+            <p>
+              今は<b>1人で2台のPCで使う同期フォルダ</b>に保存しています（事務所の共有はオフ）。PCの一覧・PCを外す・このPCの中へ戻すは「保存先」から行います。
+            </p>
+            <p class="pl-sub">複数のFPで共有するときは、先に「保存先」でこのPCの中へ戻してから、ここで事務所の共有を始めてください。</p>
+            {p.onStorage !== undefined ? (
+              <button type="button" class="btn" onClick={p.onStorage} data-office-to-storage>
+                保存先を開く
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {st?.state === "off" ? (
           <>
             <p>
               複数の FP で、同じ顧客の世帯をそれぞれの PC で開けるようにします。世帯は、事務所で選んだ共有フォルダ（同期サービスの同期フォルダや社内のファイルサーバー）に、
               <b>暗号化したまま</b>置きます。提供元のサーバーは使いません。1人で使うときは、このままで構いません。
             </p>
+            {p.onStorage !== undefined ? (
+              <p class="pl-sub" data-office-storage-hint>
+                1人で2台のPCで使うときは、こちらではなく
+                <button type="button" class="link-btn" onClick={p.onStorage}>
+                  保存先
+                </button>
+                から同期フォルダを選んでください。
+              </p>
+            ) : null}
             {nameField}
             <h3>事務所で最初の1人として始める</h3>
             <p class="pl-sub">共有フォルダを選ぶと、その中に事務所のフォルダを作り、このPCの世帯（{st.localHouseholds}件）を移します。事務所の復元キーが新しくなるので、保管してください。</p>
@@ -152,7 +179,7 @@ export function OfficePanel(p: OfficePanelProps) {
             </details>
           </>
         ) : null}
-        {st?.state === "pending" ? (
+        {!personal && st?.state === "pending" ? (
           <>
             <p>
               参加の申請を置きました。承認する人（事務所のメンバー）に、<b>電話や対面など、ファイルとは別の方法で</b>、次の指紋を読み上げて伝えてください。
@@ -172,7 +199,7 @@ export function OfficePanel(p: OfficePanelProps) {
             </div>
           </>
         ) : null}
-        {st?.state === "removed" ? (
+        {!personal && st?.state === "removed" ? (
           <>
             <p class="hh-warn">この事務所の共有から外されました。共有フォルダの世帯は、このPCでは開けません。</p>
             <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.cancel()))}>
@@ -180,7 +207,7 @@ export function OfficePanel(p: OfficePanelProps) {
             </button>
           </>
         ) : null}
-        {st?.state === "unavailable" ? (
+        {!personal && st?.state === "unavailable" ? (
           <>
             <p class="hh-warn">{officeMessage(st.problem ?? "E_OFFICE_UNAVAILABLE")}</p>
             <div class="rk-row">
@@ -205,7 +232,7 @@ export function OfficePanel(p: OfficePanelProps) {
             </div>
           </>
         ) : null}
-        {st?.state === "member" ? (
+        {!personal && st?.state === "member" ? (
           <>
             <p>
               事務所の共有: <b>オン</b>

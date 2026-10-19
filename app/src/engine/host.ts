@@ -129,6 +129,8 @@ export interface ForkInfo {
   theirsGeneration: number;
   oursGeneration: number | null;
   syncCopies: number;
+  /** 1人で複数の PC の同期フォルダ（相手は人ではなく、もう1台の PC。0024） */
+  personal: boolean;
 }
 
 // ---- 事務所での共有（0023）。共有フォルダは本体のダイアログで選ばせ、画面にはパスも鍵も渡らない ----
@@ -161,6 +163,8 @@ export interface OfficeRequest {
 
 export interface OfficeStatus {
   state: "off" | "pending" | "member" | "removed" | "unavailable";
+  /** 使い方: 1人で複数の PC の同期フォルダ（0024）／事務所での共有（0023）。off のときは null */
+  usage: "personal" | "office" | null;
   problem: string | null;
   myName: string | null;
   myFingerprint: string | null;
@@ -179,6 +183,22 @@ export interface OfficeStatus {
   recoveryRequired: boolean;
   /** まだ見ていない知らせ */
   notices: OfficeNotice[];
+}
+
+/**
+ * 保存先と同期の知らせ（0024。パス・鍵は入らない）。画面の上の帯の「知らせ」にまとめられる形。
+ * kind: needsRecovery・recoveryNotKept・unavailable（code に理由）・closed・removed・pending・recoveryJoin（name・at）・
+ * joinRequest（count）・localHouseholds（count）・syncCopies（count）
+ */
+export interface StorageNotice {
+  kind: string;
+  level: "info" | "warn" | "alert";
+  /** どの保存先の知らせか（この PC の中・1人で複数の PC の同期フォルダ・事務所での共有） */
+  scope: "local" | "personal" | "office";
+  count: number | null;
+  name: string | null;
+  at: string | null;
+  code: string | null;
 }
 
 export interface OfficeHost {
@@ -202,6 +222,14 @@ export interface OfficeHost {
   end(confirm: string): Promise<OfficeStatus>;
   /** 知らせを見た（この PC では次から出さない） */
   dismissNotices(): Promise<OfficeStatus>;
+  /** 保存先を同期フォルダにする（1人で複数の PC。0024）。本体がフォルダのダイアログを出す（選ばなかったら null）。name はこの PC の呼び名 */
+  syncStart(name: string): Promise<OfficeStatus | null>;
+  /** 2台目の PC: すでに使っている同期フォルダを、本体のダイアログで選び、復元キーで開く（選ばなかったら null） */
+  syncOpen(name: string, key: string): Promise<OfficeStatus | null>;
+  /** 保存先をこの PC の中へ戻す（confirm はこの PC の呼び名） */
+  syncEnd(confirm: string): Promise<OfficeStatus>;
+  /** 保存先と同期の知らせ */
+  notices(): Promise<StorageNotice[]>;
 }
 
 /**
@@ -447,6 +475,10 @@ export function tauriHost(): HostApi {
       recover: (name, key) => invoke<OfficeStatus | null>("office_recover", { name, key }),
       end: (confirm) => invoke<OfficeStatus>("office_end", { confirm }),
       dismissNotices: () => invoke<OfficeStatus>("office_dismiss_notices"),
+      syncStart: (name) => invoke<OfficeStatus | null>("storage_sync_start", { name }),
+      syncOpen: (name, key) => invoke<OfficeStatus | null>("storage_sync_open", { name, key }),
+      syncEnd: (confirm) => invoke<OfficeStatus>("storage_sync_end", { confirm }),
+      notices: () => invoke<StorageNotice[]>("storage_notices"),
     },
     ai: {
       status: () => invoke<AiStatus>("ai_status"),
@@ -554,6 +586,10 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       recover: async (name, key) => devJson<OfficeStatus | null>(await devOffice("recover", { name, key })),
       end: async (confirm) => devJson<OfficeStatus>(await devOffice("end", { confirm })),
       dismissNotices: async () => devJson<OfficeStatus>(await devOffice("dismissNotices")),
+      syncStart: async (name) => devJson<OfficeStatus | null>(await devOffice("syncStart", { name })),
+      syncOpen: async (name, key) => devJson<OfficeStatus | null>(await devOffice("syncOpen", { name, key })),
+      syncEnd: async (confirm) => devJson<OfficeStatus>(await devOffice("syncEnd", { confirm })),
+      notices: async () => devJson<StorageNotice[]>(await devOffice("notices")),
     },
     // AI接続口: 開発用のサーバーのメモリの中の代わり（本物の受け口は開けない。画面の確かめ用）
     ai: {

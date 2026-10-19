@@ -22,6 +22,20 @@ pub trait SecretStore: Send + Sync {
 #[derive(Default)]
 pub struct MemorySecretStore(Mutex<HashMap<String, Zeroizing<String>>>);
 
+impl MemorySecretStore {
+    /// 試験用: 置いてある項目のアカウント名（値は返さない）
+    #[doc(hidden)]
+    pub fn accounts_for_test(&self) -> Vec<String> {
+        let mut v: Vec<String> = self
+            .0
+            .lock()
+            .map(|m| m.keys().cloned().collect())
+            .unwrap_or_default();
+        v.sort();
+        v
+    }
+}
+
 impl SecretStore for MemorySecretStore {
     fn get(&self, account: &str) -> Result<Option<Zeroizing<String>>, StoreError> {
         Ok(self

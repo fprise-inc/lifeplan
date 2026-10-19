@@ -52,6 +52,10 @@
     "allow-store-fork-resolve",
     "allow-store-sync-copies-resolve",
     "allow-store-leave",
+    "allow-storage-sync-start",
+    "allow-storage-sync-open",
+    "allow-storage-sync-end",
+    "allow-storage-notices",
     "allow-app-close-ready"
   ]
 }

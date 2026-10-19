@@ -123,6 +123,35 @@ impl Vault {
         Ok((w.key_id.clone(), key))
     }
 
+    /// 親鍵を入れ替えた鍵置き場（世帯の鍵はそのまま、包みだけを新しい親鍵で作り直す。親鍵の鍵IDも新しくする。0024）
+    pub fn rekeyed(
+        &self,
+        old: &[u8; KEY_LEN],
+        new: &[u8; KEY_LEN],
+        master_key_id: &str,
+    ) -> Result<Vault, StoreError> {
+        let wk = crypto::derive(new, purpose::HOUSEHOLD_KEY_WRAP);
+        let mut households = BTreeMap::new();
+        for id in self.households.keys() {
+            let (key_id, key) = self.unwrap_key(old, id)?;
+            let nonce = crypto::random_nonce();
+            let wrapped = crypto::seal(&wk, &nonce, &wrap_aad(id, &key_id), key.as_ref());
+            households.insert(
+                id.clone(),
+                WrappedKey {
+                    key_id,
+                    nonce: crypto::hex_encode(&nonce),
+                    wrapped: crypto::hex_encode(&wrapped),
+                },
+            );
+        }
+        Ok(Vault {
+            office_id: self.office_id.clone(),
+            master_key_id: master_key_id.to_owned(),
+            households,
+        })
+    }
+
     pub fn remove(&mut self, household_id: &str) -> bool {
         self.households.remove(household_id).is_some()
     }
@@ -202,6 +231,25 @@ impl Vault {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rekeyed_vault_opens_only_with_the_new_master() {
+        let (m1, m2) = (crypto::random_key(), crypto::random_key());
+        let mut v = Vault::new(&crypto::new_uuid(), &crypto::new_uuid());
+        let h = crypto::new_uuid();
+        let (kid, k) = v.insert_new(&m1, &h);
+        let r = v.rekeyed(&m1, &m2, &crypto::new_uuid()).unwrap();
+        let bytes = r.encode(&m2);
+        assert_eq!(
+            Vault::decode(&bytes, &m1).err(),
+            Some(StoreError::WRONG_MASTER)
+        );
+        let back = Vault::decode(&bytes, &m2).unwrap();
+        let (kid2, k2) = back.unwrap_key(&m2, &h).unwrap();
+        assert_eq!((kid, *k), (kid2, *k2));
+        assert!(back.unwrap_key(&m1, &h).is_err());
+        assert_ne!(back.master_key_id, v.master_key_id);
+    }
 
     #[test]
     fn round_trip_and_wrong_master() {
