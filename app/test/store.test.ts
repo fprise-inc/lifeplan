@@ -100,6 +100,8 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const base = join(REPO_DIR, "crates", "household-store", "tests", "fixtures", "household-format");
     const versions = readdirSync(base).filter((v) => /^\d+\.\d+$/.test(v));
     expect(versions).toContain(BODY_FORMAT_VERSION);
+    const newest = [...versions].sort((x, y) => x.split(".").map(Number).reduce((acc, n, i) => acc || n - Number(y.split(".")[i]), 0)).at(-1);
+    expect(BODY_FORMAT_VERSION, "画面の形式の版は、いちばん新しい見本の版").toBe(newest);
     for (const v of versions) {
       const body = readFileSync(join(base, v, "body.json"), "utf8");
       const s = fromBody(body);
@@ -107,6 +109,9 @@ describe("世帯ファイルの本文（0011 の2）", () => {
       expect(s.wh.proposals.length).toBeGreaterThan(0);
       // 読んで書き戻しても、拡張領域を失わない
       const again = JSON.parse(bodyOf(s)) as Record<string, unknown>;
+      // 0.2 から: メモの行ごとの書いた人（0023 の6）も、読んで書き戻して失わない
+      const memoBy = (JSON.parse(body) as { household: { memoBy?: unknown } }).household.memoBy;
+      if (memoBy !== undefined) expect((again.household as { memoBy?: unknown }).memoBy).toEqual(memoBy);
       const orig = JSON.parse(body) as Record<string, unknown>;
       expect(again.ext).toEqual(orig.ext);
       expect(again.extDefinitions).toEqual(orig.extDefinitions);
@@ -134,11 +139,12 @@ describe("画面にファイルの道（パス）を渡さない（0016 の1）"
     expect(Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).filter((k) => k.startsWith("@tauri-apps/plugin-"))).toEqual([]);
   });
 
-  it("保存の命令に渡すのは、内部ID・本文・要約・顧客番号・確認・復元キーだけ", () => {
+  it("保存・事務所の共有の命令に渡すのは、内部ID・本文・要約・顧客番号・確認・復元キー・分岐の選び方・表示名・申請と指紋だけ", () => {
     const host = readFileSync(join(APP_DIR, "src", "engine", "host.ts"), "utf8");
-    const calls = [...host.matchAll(/invoke<[^>]*>\("((?:store|recovery_key|app)_[a-z_]+)"(?:, \{ ([^}]*) \})?\)/g)];
-    expect(calls.length).toBeGreaterThanOrEqual(12);
-    const allowed = new Set(["id", "body", "summary", "customerNo", "confirm", "key"]);
+    const calls = [...host.matchAll(/invoke<[^>]*>\("((?:store|recovery_key|app|office)_[a-z_]+)"(?:, \{ ([^}]*) \})?\)/g)];
+    expect(calls.length).toBeGreaterThanOrEqual(23);
+    // 0023: 共有フォルダは本体のダイアログで選ばせるので、パス・フォルダの引数は無い
+    const allowed = new Set(["id", "body", "summary", "customerNo", "confirm", "key", "keepOurs", "adopt", "name", "request: requestId", "fingerprint", "member: memberId"]);
     for (const c of calls) {
       const args = (c[2] ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "");
       for (const a of args) expect(allowed.has(a), `${c[1]} の引数 ${a}`).toBe(true);

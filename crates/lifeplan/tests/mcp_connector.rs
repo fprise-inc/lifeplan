@@ -529,6 +529,7 @@ async fn app_policy_consent_is_required_end_to_end() {
         &consent(ConsentDecision::Given),
         "2026-10-19",
         "2026-10-19T00:00:00Z",
+        None,
     )
     .unwrap();
     let g = reg.grant(book.source().unwrap(), grant_opts()).unwrap();
@@ -575,6 +576,7 @@ async fn app_policy_consent_is_required_end_to_end() {
         &consent(ConsentDecision::Withdrawn),
         "2026-10-19",
         "2026-10-19T00:10:00Z",
+        None,
     )
     .unwrap();
     reg.withdraw_consent(HOUSEHOLD_ID);

@@ -11,7 +11,12 @@
 //! keys/vault.lpkv             鍵置き場（＋ .prev）。OS のバックアップから外す（0013 の4）
 //! keys/backups/<日付>.lpkv    鍵置き場の日ごとの世代（最大30日。作った世代は書き換えない）
 //! backups/<日付>/             世帯ファイルと事務所データの毎日の写し（暗号化のまま。30世代）
+//! keys/backups/shared/<日付>/ 事務所で共有しているときの、世帯の鍵の札の日ごとの写し（最大30日）
 //! ```
+//!
+//! 事務所で共有しているとき（0023。既定はオフ）は、世帯ファイル・世帯の鍵の札・世帯の札・開いている印を共有フォルダ（`lifeplan-office/`。
+//! 形は [`crate::office`]）に置き、このデータフォルダには事務所データ（共有の設定）・分岐の写し・バックアップだけを置く。
+//! 共有の設定があるのに共有フォルダが使えないときは、PCの中の世帯を黙って見せず、理由の符号で止める。
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
@@ -25,11 +30,18 @@ use zeroize::Zeroizing;
 use crate::atomic::{self, FailPoint};
 use crate::container::{self, HouseholdHeader};
 use crate::crypto::{self, purpose, Key, NONCE_LEN};
+use crate::member::MemberKeys;
 use crate::migrate::{self, Access};
+use crate::office::{self, Author, Roster};
 use crate::recovery;
 use crate::secret::SecretStore;
 use crate::vault::Vault;
 use crate::{StoreError, HOUSEHOLD_EXT, HOUSEHOLD_FORMAT};
+
+mod shared;
+pub use shared::{
+    ForkChoice, ForkInfo, MemberView, OfficeStatus, PresenceView, RemovedView, RequestView,
+};
 
 const OFFICE_FILE: &str = "office.json";
 const DEVICE_FILE: &str = "device.json";
@@ -39,6 +51,8 @@ const CONFLICTS_DIR: &str = "conflicts";
 const KEYS_DIR: &str = "keys";
 const VAULT_FILE: &str = "vault.lpkv";
 const KEY_BACKUPS_DIR: &str = "backups";
+/// 共有の事務所の世帯の鍵の札の日ごとの写し（`keys/backups/shared/<日付>/`。0023）
+const SHARED_KEY_BACKUPS: &str = "shared";
 const BACKUPS_DIR: &str = "backups";
 
 const OFFICE_MAGIC: &[u8; 4] = b"LPOD";
@@ -124,6 +138,26 @@ struct OfficeData {
     /// AI接続口を使うかどうか（事務所全体の設定。0015。既定はオフ。この欄の無い古い事務所データもオフとして読む）
     #[serde(default)]
     ai_connector: AiConnectorSetting,
+    /// 事務所での共有（0023。既定はオフ＝無し。この欄の無い古い事務所データもオフとして読む）
+    #[serde(default)]
+    sharing: Option<SharingSetting>,
+}
+
+/// 事務所での共有の設定（このPCの事務所データに暗号化して持つ。共有フォルダの場所は画面に渡さない。0023 の8）
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SharingSetting {
+    /// 事務所のフォルダ（`lifeplan-office`）の場所
+    folder: String,
+    office_id: String,
+    member_id: String,
+    display_name: String,
+    /// `pending`（承認待ち）／`member`／`removed`（外された）
+    state: String,
+    requested_at: String,
+    joined_at: Option<String>,
+    /// 選んだフォルダが同期フォルダの中か（画面の案内のため）
+    sync_folder: bool,
 }
 
 /// AI接続口の事務所全体の設定（0015）。既定はオフ
@@ -149,6 +183,7 @@ impl OfficeData {
             customer_no_prefix: ((b'A' + b % 26) as char).to_string(),
             customer_no_next: 1,
             ai_connector: AiConnectorSetting::default(),
+            sharing: None,
         }
     }
 }
@@ -184,6 +219,12 @@ pub struct HouseholdEntry {
     pub summary: String,
     pub created_at: String,
     pub updated_at: String,
+    /// 最後に直した人の表示名（事務所で共有しているときだけ。0023 の7）
+    pub updated_by: Option<String>,
+    /// 今開いている他のメンバー（事務所で共有しているときだけ）
+    pub open_by: Vec<PresenceView>,
+    /// 同期サービスの衝突の写しの数（0023 の7）
+    pub forks: usize,
 }
 
 /// 開いた世帯（本文は JSON の文字列）
@@ -196,6 +237,10 @@ pub struct Opened {
     /// MINOR だけが新しい形式: 閲覧だけ
     pub read_only: bool,
     pub generation: u64,
+    /// この改訂を保存した人の表示名（事務所で共有しているとき）
+    pub saved_by: Option<String>,
+    /// 今この世帯を開いている他のメンバー（事務所で共有しているとき。0023 の7）
+    pub others_open: Vec<PresenceView>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -226,13 +271,50 @@ struct Session {
     master: Key,
     vault: Vault,
     data: OfficeData,
+    /// 事務所で共有しているとき（承認済みのメンバー）
+    shared: Option<shared::Shared>,
+    /// 共有の設定はあるが使えない理由（共有フォルダが見つからない・秘密鍵が無いなど）
+    share_problem: Option<StoreError>,
+}
+
+/// 開いた世帯の本文から持ち越す「誰が直したか」の記録（0023 の6）
+#[derive(Default, Clone)]
+struct MetaCarry {
+    revisions: Vec<Value>,
+    editors: serde_json::Map<String, Value>,
+}
+
+impl MetaCarry {
+    fn from_meta(meta: Option<&Value>) -> MetaCarry {
+        let m = meta.and_then(Value::as_object);
+        MetaCarry {
+            revisions: m
+                .and_then(|m| m.get("revisions"))
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default(),
+            editors: m
+                .and_then(|m| m.get("editors"))
+                .and_then(Value::as_object)
+                .cloned()
+                .unwrap_or_default(),
+        }
+    }
 }
 
 struct OpenState {
     parent_revision: String,
     generation: u64,
     read_only: bool,
+    carry: MetaCarry,
+    /// 分岐を見つけたときに残した、こちらの保存の写し（0011 の7・0023 の7）
+    conflict: Option<PathBuf>,
 }
+
+/// 改訂の履歴で、同じメンバーの続けての保存を1行にまとめる時間（秒。0023 の6）
+const REVISION_MERGE_SECS: i64 = 30 * 60;
+/// 改訂の履歴の行の上限（古い行から消す）
+const MAX_REVISIONS: usize = 500;
 
 #[derive(Default)]
 struct Inner {
@@ -306,6 +388,19 @@ fn parse_date(s: &str) -> Option<i64> {
         return None;
     }
     Some(days_from_civil(y, m, d))
+}
+
+/// 自分で書いた ISO 8601（`YYYY-MM-DDTHH:MM:SSZ`）→ 1970-01-01 からの秒
+fn parse_iso(s: &str) -> Option<i64> {
+    let b = s.as_bytes();
+    if b.len() != 20 || b[10] != b'T' || b[13] != b':' || b[16] != b':' || b[19] != b'Z' {
+        return None;
+    }
+    let d = parse_date(&s[..10])?;
+    let h: i64 = s[11..13].parse().ok()?;
+    let m: i64 = s[14..16].parse().ok()?;
+    let sec: i64 = s[17..19].parse().ok()?;
+    Some(d * 86_400 + h * 3600 + m * 60 + sec)
 }
 
 // ---- 検査 ----
@@ -492,10 +587,11 @@ impl Store {
                 StatusState::NeedsRecovery
             },
             first_run: g.first_run,
-            recovery_acknowledged: g
-                .session
-                .as_ref()
-                .is_some_and(|s| s.data.recovery.acknowledged_at.is_some()),
+            recovery_acknowledged: g.session.as_ref().is_some_and(|s| match &s.shared {
+                // 事務所で共有しているときは、事務所の復元キー（今の親鍵）を保管したか（0023 の5）
+                Some(sh) => sh.recovery_acknowledged(),
+                None => s.data.recovery.acknowledged_at.is_some(),
+            }),
             recovery_verified_at: g
                 .session
                 .as_ref()
@@ -607,6 +703,8 @@ impl Store {
             master,
             vault,
             data,
+            shared: None,
+            share_problem: None,
         });
         self.daily_backup(g.session.as_ref().unwrap());
         Ok(())
@@ -658,6 +756,8 @@ impl Store {
             master,
             vault,
             data,
+            shared: None,
+            share_problem: None,
         };
         // 世帯ファイルの片付け（今のファイルが無く、一時ファイルか .prev だけがある世帯も戻す）
         for id in self.household_files() {
@@ -684,6 +784,8 @@ impl Store {
             self.write_office(&s)?;
         }
         g.needs_recovery = false;
+        // 事務所で共有しているときは、共有フォルダの名簿を開く（0023）
+        self.activate_shared(&mut s);
         self.daily_backup(&s);
         g.session = Some(s);
         Ok(())
@@ -752,22 +854,85 @@ impl Store {
 
     // ---- 世帯 ----
 
+    /// 世帯ファイルの場所（事務所で共有しているときは共有フォルダ）
+    fn hh_path(&self, s: &Session, id: &str) -> PathBuf {
+        match &s.shared {
+            Some(sh) => sh.household_path(id),
+            None => self.household_path(id),
+        }
+    }
+
+    fn hh_dir(&self, s: &Session) -> PathBuf {
+        match &s.shared {
+            Some(sh) => sh.paths.households_dir(),
+            None => self.households_dir(),
+        }
+    }
+
+    /// 世帯の鍵（読むため。今の鍵と前の鍵）
+    fn keys_for_read(&self, s: &Session, id: &str) -> Result<office::HouseholdKeys, StoreError> {
+        match &s.shared {
+            Some(sh) => sh.keys_for_read(id),
+            None => {
+                let (key_id, key) = s.vault.unwrap_key(&s.master, id)?;
+                Ok(office::HouseholdKeys {
+                    current_id: key_id,
+                    current: key,
+                    previous: vec![],
+                })
+            }
+        }
+    }
+
+    /// 共有の設定があるのに使えないときは、その理由で止める（PCの中の世帯を黙って見せない）
+    fn usable(s: &mut Session) -> Result<(), StoreError> {
+        match s.share_problem {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+
     /// 世帯の一覧（新しく保存した順）
     pub fn list(&self) -> Result<Vec<HouseholdEntry>, StoreError> {
         let mut g = self.lock();
+        let now = self.now();
         let s = Self::session(&mut g)?;
-        let mut v: Vec<HouseholdEntry> = s
-            .data
-            .households
-            .iter()
-            .map(|(id, e)| HouseholdEntry {
-                id: id.clone(),
-                customer_no: e.customer_no.clone(),
-                summary: e.summary.clone(),
-                created_at: e.created_at.clone(),
-                updated_at: e.updated_at.clone(),
-            })
-            .collect();
+        Self::usable(s)?;
+        self.refresh_shared(s)?;
+        let copies = sync_copy_names(&self.hh_dir(s));
+        let mut v: Vec<HouseholdEntry> = match &s.shared {
+            Some(sh) => {
+                let presence = sh.presence_map(now);
+                sh.list_cards()
+                    .into_iter()
+                    .map(|(id, c)| HouseholdEntry {
+                        forks: copies.get(&id).map_or(0, Vec::len),
+                        open_by: presence.get(&id).cloned().unwrap_or_default(),
+                        id,
+                        customer_no: c.customer_no,
+                        summary: c.summary,
+                        created_at: c.created_at,
+                        updated_at: c.updated_at,
+                        updated_by: c.updated_by.map(|a| a.name),
+                    })
+                    .collect()
+            }
+            None => s
+                .data
+                .households
+                .iter()
+                .map(|(id, e)| HouseholdEntry {
+                    id: id.clone(),
+                    customer_no: e.customer_no.clone(),
+                    summary: e.summary.clone(),
+                    created_at: e.created_at.clone(),
+                    updated_at: e.updated_at.clone(),
+                    updated_by: None,
+                    open_by: vec![],
+                    forks: copies.get(id).map_or(0, Vec::len),
+                })
+                .collect(),
+        };
         v.sort_by(|a, b| {
             b.updated_at
                 .cmp(&a.updated_at)
@@ -777,21 +942,35 @@ impl Store {
     }
 
     fn next_customer_no(data: &mut OfficeData) -> String {
+        Self::next_customer_no_avoiding(data, &std::collections::HashSet::new())
+    }
+
+    /// 次の顧客番号（PCごとの接頭辞＋連番。0012 の1）。`taken` は共有の事務所の世帯の番号
+    fn next_customer_no_avoiding(
+        data: &mut OfficeData,
+        taken: &std::collections::HashSet<String>,
+    ) -> String {
         loop {
             let c = format!("{}{:04}", data.customer_no_prefix, data.customer_no_next);
             data.customer_no_next += 1;
-            if !data.households.values().any(|e| e.customer_no == c) {
+            if !data.households.values().any(|e| e.customer_no == c) && !taken.contains(&c) {
                 return c;
             }
         }
     }
 
-    /// 本文の meta（形式名・形式の版・保存日時・保存したアプリの版・表示用の顧客番号）を入れる（0011 の2）
+    /// 本文の meta（形式名・形式の版・保存日時・保存したアプリの版・表示用の顧客番号）を入れる（0011 の2）。
+    /// 誰が直したか（保存した人・改訂の履歴・出てくるメンバーの表示名。0023 の6）も入れる。`carry` は保存できたら OpenState に戻す
+    #[allow(clippy::too_many_arguments)]
     fn with_meta(
         &self,
         mut body: serde_json::Map<String, Value>,
         customer_no: &str,
         saved_at: &str,
+        now: i64,
+        generation: u64,
+        author: Option<&Author>,
+        carry: &mut MetaCarry,
     ) -> Vec<u8> {
         let mut meta = match body.remove("meta") {
             Some(Value::Object(m)) => m,
@@ -802,6 +981,55 @@ impl Store {
         meta.insert("savedAt".into(), saved_at.into());
         meta.insert("appVersion".into(), self.app_version.clone().into());
         meta.insert("customerNo".into(), customer_no.into());
+        let member = author.map_or(Value::Null, |a| Value::from(a.member_id.clone()));
+        let merge = carry
+            .revisions
+            .last()
+            .and_then(Value::as_object)
+            .is_some_and(|r| {
+                r.get("memberId") == Some(&member)
+                    && r.get("to")
+                        .and_then(Value::as_str)
+                        .and_then(parse_iso)
+                        .is_some_and(|t| now >= t && now - t <= REVISION_MERGE_SECS)
+            });
+        if merge {
+            if let Some(r) = carry.revisions.last_mut().and_then(Value::as_object_mut) {
+                let count = r.get("count").and_then(Value::as_u64).unwrap_or(1) + 1;
+                r.insert("toGeneration".into(), generation.into());
+                r.insert("to".into(), saved_at.into());
+                r.insert("count".into(), count.into());
+            }
+        } else {
+            carry.revisions.push(serde_json::json!({
+                "fromGeneration": generation,
+                "toGeneration": generation,
+                "memberId": member,
+                "from": saved_at,
+                "to": saved_at,
+                "count": 1
+            }));
+        }
+        if carry.revisions.len() > MAX_REVISIONS {
+            let extra = carry.revisions.len() - MAX_REVISIONS;
+            carry.revisions.drain(..extra);
+        }
+        match author {
+            Some(a) => {
+                carry
+                    .editors
+                    .insert(a.member_id.clone(), serde_json::json!({ "name": a.name }));
+                meta.insert(
+                    "savedBy".into(),
+                    serde_json::json!({ "memberId": a.member_id, "name": a.name }),
+                );
+            }
+            None => {
+                meta.remove("savedBy");
+            }
+        }
+        meta.insert("revisions".into(), Value::Array(carry.revisions.clone()));
+        meta.insert("editors".into(), Value::Object(carry.editors.clone()));
         body.insert("meta".into(), Value::Object(meta));
         serde_json::to_vec(&Value::Object(body)).expect("本文の JSON")
     }
@@ -815,58 +1043,117 @@ impl Store {
         let mut g = self.lock();
         let fail = g.fail;
         let now = self.now();
-        let s = Self::session(&mut g)?;
-        let id = crypto::new_uuid();
-        let (key_id, key) = s.vault.insert_new(&s.master, &id);
-        if let Err(e) = self.write_vault(s) {
-            s.vault.remove(&id);
-            return Err(e);
-        }
-        let mut data = s.data.clone();
-        let customer_no = Self::next_customer_no(&mut data);
-        let saved_at = iso_of(now);
-        let plain = Zeroizing::new(self.with_meta(body, &customer_no, &saved_at));
-        let header = HouseholdHeader {
-            cipher: String::new(),
-            compression: "none".into(),
-            device_id: s.device_id.clone(),
-            format: HOUSEHOLD_FORMAT.into(),
-            format_version: migrate::CURRENT.into(),
-            generation: 1,
-            household_id: id.clone(),
-            key_id,
-            nonce: String::new(),
-            parent_revision: None,
+        let (id, customer_no, bytes, carry, plain, others) = {
+            let s = Self::session(&mut g)?;
+            Self::usable(s)?;
+            self.refresh_shared(s)?;
+            let id = crypto::new_uuid();
+            let author = s.shared.as_ref().map(|sh| sh.me.clone());
+            let (key_id, key) = match &s.shared {
+                Some(sh) => {
+                    let hk = sh.create_keys(&id)?;
+                    (hk.current_id.clone(), hk.current.clone())
+                }
+                None => {
+                    let (key_id, key) = s.vault.insert_new(&s.master, &id);
+                    if let Err(e) = self.write_vault(s) {
+                        s.vault.remove(&id);
+                        return Err(e);
+                    }
+                    (key_id, key)
+                }
+            };
+            let mut data = s.data.clone();
+            let customer_no = match &s.shared {
+                Some(sh) => Self::next_customer_no_avoiding(&mut data, &sh.customer_nos()),
+                None => Self::next_customer_no(&mut data),
+            };
+            let saved_at = iso_of(now);
+            let mut carry = MetaCarry::default();
+            let plain = Zeroizing::new(self.with_meta(
+                body,
+                &customer_no,
+                &saved_at,
+                now,
+                1,
+                author.as_ref(),
+                &mut carry,
+            ));
+            let header = HouseholdHeader {
+                cipher: String::new(),
+                compression: "none".into(),
+                device_id: s.device_id.clone(),
+                format: HOUSEHOLD_FORMAT.into(),
+                format_version: migrate::CURRENT.into(),
+                generation: 1,
+                household_id: id.clone(),
+                key_id,
+                nonce: String::new(),
+                parent_revision: None,
+            };
+            let bytes = container::seal_household(header, &key, &plain);
+            atomic::replace(&self.hh_path(s, &id), &bytes, fail)?;
+            match &s.shared {
+                Some(sh) => sh.write_card(
+                    &id,
+                    &office::Card {
+                        customer_no: customer_no.clone(),
+                        summary: req.summary.clone(),
+                        created_at: saved_at.clone(),
+                        updated_at: saved_at.clone(),
+                        updated_by: author.clone(),
+                        generation: 1,
+                    },
+                )?,
+                None => {
+                    data.households.insert(
+                        id.clone(),
+                        CatalogEntry {
+                            customer_no: customer_no.clone(),
+                            summary: req.summary.clone(),
+                            created_at: saved_at.clone(),
+                            updated_at: saved_at,
+                        },
+                    );
+                }
+            }
+            data.last_opened = Some(id.clone());
+            s.data = data;
+            self.write_office(s)?;
+            let others = match &mut s.shared {
+                Some(sh) => sh.enter(&id, now),
+                None => vec![],
+            };
+            (id, customer_no, bytes, carry, plain, others)
         };
-        let bytes = container::seal_household(header, &key, &plain);
-        atomic::replace(&self.household_path(&id), &bytes, fail)?;
-        data.households.insert(
-            id.clone(),
-            CatalogEntry {
-                customer_no: customer_no.clone(),
-                summary: req.summary.clone(),
-                created_at: saved_at.clone(),
-                updated_at: saved_at,
-            },
-        );
-        data.last_opened = Some(id.clone());
-        s.data = data;
-        self.write_office(s)?;
         g.opened.insert(
             id.clone(),
             OpenState {
                 parent_revision: crypto::digest(&bytes),
                 generation: 1,
                 read_only: false,
+                carry,
+                conflict: None,
             },
         );
+        let saved_by = Self::saved_by_of(&plain);
         Ok(Opened {
             id,
             customer_no,
             body: String::from_utf8_lossy(&plain).into_owned(),
             read_only: false,
             generation: 1,
+            saved_by,
+            others_open: others,
         })
+    }
+
+    fn saved_by_of(plain: &[u8]) -> Option<String> {
+        serde_json::from_slice::<Value>(plain)
+            .ok()?
+            .pointer("/meta/savedBy/name")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
     }
 
     /// 世帯を開く（古い形式の版は今の版へ変換する）
@@ -875,55 +1162,75 @@ impl Store {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
         }
         let mut g = self.lock();
-        let s = Self::session(&mut g)?;
-        let customer_no = s
-            .data
-            .households
-            .get(id)
-            .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?
-            .customer_no
-            .clone();
-        let bytes = match fs::read(self.household_path(id)) {
-            Ok(b) => b,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                return Err(StoreError::UNKNOWN_HOUSEHOLD)
+        let now = self.now();
+        let (opened, state) = {
+            let s = Self::session(&mut g)?;
+            Self::usable(s)?;
+            self.refresh_shared(s)?;
+            let customer_no = match &s.shared {
+                Some(sh) => sh.read_card(id)?.customer_no,
+                None => s
+                    .data
+                    .households
+                    .get(id)
+                    .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?
+                    .customer_no
+                    .clone(),
+            };
+            let bytes = match fs::read(self.hh_path(s, id)) {
+                Ok(b) => b,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    return Err(StoreError::UNKNOWN_HOUSEHOLD)
+                }
+                Err(_) => return Err(StoreError::IO),
+            };
+            let header = container::read_household_header(&bytes)?;
+            if header.household_id != id {
+                return Err(StoreError::CORRUPT);
             }
-            Err(_) => return Err(StoreError::IO),
+            let access = migrate::access(&header.format_version)?;
+            let keys = self.keys_for_read(s, id)?;
+            let key = keys.find(&header.key_id).ok_or(StoreError::CORRUPT)?;
+            let (h, plain) = container::open_household(&bytes, &key)?;
+            let value: Value = serde_json::from_slice(&plain).map_err(|_| StoreError::CORRUPT)?;
+            let mut value = migrate::upgrade(&h.format_version, value)?;
+            if let Some(meta) = value.get_mut("meta").and_then(Value::as_object_mut) {
+                meta.insert("customerNo".into(), customer_no.clone().into());
+            }
+            let carry = MetaCarry::from_meta(value.get("meta"));
+            let saved_by = value
+                .pointer("/meta/savedBy/name")
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+            if s.data.last_opened.as_deref() != Some(id) {
+                s.data.last_opened = Some(id.to_owned());
+                self.write_office(s)?;
+            }
+            let others = match &mut s.shared {
+                Some(sh) => sh.enter(id, now),
+                None => vec![],
+            };
+            (
+                Opened {
+                    id: id.to_owned(),
+                    customer_no,
+                    body: serde_json::to_string(&value).expect("本文の JSON"),
+                    read_only: access == Access::ReadOnly,
+                    generation: h.generation,
+                    saved_by,
+                    others_open: others,
+                },
+                OpenState {
+                    parent_revision: crypto::digest(&bytes),
+                    generation: h.generation,
+                    read_only: access == Access::ReadOnly,
+                    carry,
+                    conflict: None,
+                },
+            )
         };
-        let header = container::read_household_header(&bytes)?;
-        if header.household_id != id {
-            return Err(StoreError::CORRUPT);
-        }
-        let access = migrate::access(&header.format_version)?;
-        let (key_id, key) = s.vault.unwrap_key(&s.master, id)?;
-        if header.key_id != key_id {
-            return Err(StoreError::CORRUPT);
-        }
-        let (h, plain) = container::open_household(&bytes, &key)?;
-        let value: Value = serde_json::from_slice(&plain).map_err(|_| StoreError::CORRUPT)?;
-        let mut value = migrate::upgrade(&h.format_version, value)?;
-        if let Some(meta) = value.get_mut("meta").and_then(Value::as_object_mut) {
-            meta.insert("customerNo".into(), customer_no.clone().into());
-        }
-        if s.data.last_opened.as_deref() != Some(id) {
-            s.data.last_opened = Some(id.to_owned());
-            self.write_office(s)?;
-        }
-        g.opened.insert(
-            id.to_owned(),
-            OpenState {
-                parent_revision: crypto::digest(&bytes),
-                generation: h.generation,
-                read_only: access == Access::ReadOnly,
-            },
-        );
-        Ok(Opened {
-            id: id.to_owned(),
-            customer_no,
-            body: serde_json::to_string(&value).expect("本文の JSON"),
-            read_only: access == Access::ReadOnly,
-            generation: h.generation,
-        })
+        g.opened.insert(id.to_owned(), state);
+        Ok(opened)
     }
 
     /// 開いている世帯を保存する（一時ファイルに書いて差し替え、直前の世代を残す）。
@@ -939,68 +1246,122 @@ impl Store {
         }
         let mut g = self.lock();
         let fail = g.fail;
-        let (parent, generation) = match g.opened.get(id) {
+        let (parent, generation, mut carry) = match g.opened.get(id) {
             None => return Err(StoreError::NOT_OPEN),
             Some(st) if st.read_only => return Err(StoreError::READ_ONLY),
-            Some(st) => (st.parent_revision.clone(), st.generation),
+            Some(st) => (st.parent_revision.clone(), st.generation, st.carry.clone()),
         };
         let now = self.now();
-        let s = Self::session(&mut g)?;
-        let customer_no = s
-            .data
-            .households
-            .get(id)
-            .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?
-            .customer_no
-            .clone();
-        let (key_id, key) = s.vault.unwrap_key(&s.master, id)?;
-        let saved_at = iso_of(now);
-        let plain = Zeroizing::new(self.with_meta(body, &customer_no, &saved_at));
-        let header = HouseholdHeader {
-            cipher: String::new(),
-            compression: "none".into(),
-            device_id: s.device_id.clone(),
-            format: HOUSEHOLD_FORMAT.into(),
-            format_version: migrate::CURRENT.into(),
-            generation: generation + 1,
-            household_id: id.to_owned(),
-            key_id,
-            nonce: String::new(),
-            parent_revision: Some(parent.clone()),
-        };
-        let bytes = container::seal_household(header, &key, &plain);
-        let path = self.household_path(id);
-        let current = fs::read(&path).ok().map(|b| crypto::digest(&b));
-        if current.as_deref() != Some(parent.as_str()) {
-            let mut r = [0u8; 4];
-            crypto::fill_random(&mut r);
-            let aside = self.root.join(CONFLICTS_DIR).join(format!(
-                "{id}.{HOUSEHOLD_EXT}.conflict-{}-{}",
+        let outcome = {
+            let s = Self::session(&mut g)?;
+            Self::usable(s)?;
+            self.refresh_shared(s)?;
+            let author = s.shared.as_ref().map(|sh| sh.me.clone());
+            let (customer_no, card) = match &s.shared {
+                Some(sh) => {
+                    let c = sh.read_card(id)?;
+                    (c.customer_no.clone(), Some(c))
+                }
+                None => (
+                    s.data
+                        .households
+                        .get(id)
+                        .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?
+                        .customer_no
+                        .clone(),
+                    None,
+                ),
+            };
+            let keys = match (&s.shared, &card) {
+                (Some(sh), Some(c)) => sh.keys_for_write(id, &c.created_at)?,
+                _ => self.keys_for_read(s, id)?,
+            };
+            let saved_at = iso_of(now);
+            let plain = Zeroizing::new(self.with_meta(
+                body,
+                &customer_no,
+                &saved_at,
+                now,
                 generation + 1,
-                crypto::hex_encode(&r)
+                author.as_ref(),
+                &mut carry,
             ));
-            atomic::replace(&aside, &bytes, FailPoint::None)?;
-            return Err(StoreError::CONFLICT);
-        }
-        atomic::replace(&path, &bytes, fail)?;
-        if let Some(e) = s.data.households.get_mut(id) {
-            e.updated_at = saved_at.clone();
-            e.summary = summary.to_owned();
-        }
-        self.write_office(s)?;
-        self.daily_backup(s);
-        g.opened.insert(
-            id.to_owned(),
-            OpenState {
-                parent_revision: crypto::digest(&bytes),
+            let header = HouseholdHeader {
+                cipher: String::new(),
+                compression: "none".into(),
+                device_id: s.device_id.clone(),
+                format: HOUSEHOLD_FORMAT.into(),
+                format_version: migrate::CURRENT.into(),
                 generation: generation + 1,
-                read_only: false,
-            },
-        );
-        Ok(Saved {
-            generation: generation + 1,
-            saved_at,
-        })
+                household_id: id.to_owned(),
+                key_id: keys.current_id.clone(),
+                nonce: String::new(),
+                parent_revision: Some(parent.clone()),
+            };
+            let bytes = container::seal_household(header, &keys.current, &plain);
+            let path = self.hh_path(s, id);
+            let current = fs::read(&path).ok().map(|b| crypto::digest(&b));
+            if current.as_deref() != Some(parent.as_str()) {
+                let aside = self.aside_path(id, generation + 1, "ours");
+                atomic::replace(&aside, &bytes, FailPoint::None)?;
+                Err(aside)
+            } else {
+                atomic::replace(&path, &bytes, fail)?;
+                match (&mut s.shared, card) {
+                    (Some(sh), Some(mut c)) => {
+                        c.updated_at = saved_at.clone();
+                        c.updated_by = author;
+                        c.summary = summary.to_owned();
+                        c.generation = generation + 1;
+                        sh.write_card(id, &c)?;
+                        sh.touch(id, now);
+                    }
+                    _ => {
+                        if let Some(e) = s.data.households.get_mut(id) {
+                            e.updated_at = saved_at.clone();
+                            e.summary = summary.to_owned();
+                        }
+                        self.write_office(s)?;
+                    }
+                }
+                self.daily_backup(s);
+                Ok((crypto::digest(&bytes), saved_at))
+            }
+        };
+        match outcome {
+            Err(aside) => {
+                if let Some(st) = g.opened.get_mut(id) {
+                    st.conflict = Some(aside);
+                }
+                Err(StoreError::CONFLICT)
+            }
+            Ok((digest, saved_at)) => {
+                g.opened.insert(
+                    id.to_owned(),
+                    OpenState {
+                        parent_revision: digest,
+                        generation: generation + 1,
+                        read_only: false,
+                        carry,
+                        conflict: None,
+                    },
+                );
+                Ok(Saved {
+                    generation: generation + 1,
+                    saved_at,
+                })
+            }
+        }
+    }
+
+    /// 分岐のときに残す写しの場所（PCの中の `conflicts/`。暗号化のまま）
+    fn aside_path(&self, id: &str, generation: u64, side: &str) -> PathBuf {
+        let mut r = [0u8; 4];
+        crypto::fill_random(&mut r);
+        self.root.join(CONFLICTS_DIR).join(format!(
+            "{id}.{HOUSEHOLD_EXT}.conflict-{side}-{generation}-{}",
+            crypto::hex_encode(&r)
+        ))
     }
 
     /// 表示用の顧客番号を変える（内部IDは変わらない。同じ番号があっても止めない。0012 の1）
@@ -1009,8 +1370,26 @@ impl Store {
         if !valid_customer_no(c) {
             return Err(StoreError::CUSTOMER_NO);
         }
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
         let mut g = self.lock();
         let s = Self::session(&mut g)?;
+        Self::usable(s)?;
+        self.refresh_shared(s)?;
+        if let Some(sh) = &s.shared {
+            let mut card = sh.read_card(id)?;
+            let duplicate = sh
+                .list_cards()
+                .iter()
+                .any(|(k, e)| k != id && e.customer_no == c);
+            card.customer_no = c.to_owned();
+            sh.write_card(id, &card)?;
+            return Ok(RenameOutcome {
+                customer_no: c.to_owned(),
+                duplicate,
+            });
+        }
         if !s.data.households.contains_key(id) {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
         }
@@ -1031,6 +1410,7 @@ impl Store {
 
     /// 完全削除（0013 の5）: 世帯ファイル・直前の世代・アプリが管理するバックアップの写しを消し、鍵置き場からその世帯の鍵を消す。
     /// 削除の記録（世帯の内部IDと日付だけ）を残す。鍵置き場の古い世代（最大30日）が入れ替わると、どこにも読める鍵が無くなる。
+    /// 事務所で共有しているときは、共有フォルダの世帯ファイル・世帯の札・開いている印・すべての時代の世帯の鍵の札も消す（0023 の9）。
     /// `confirm` は FP が打った顧客番号（取り違えて消さないため）
     pub fn delete(&self, id: &str, confirm: &str) -> Result<(), StoreError> {
         if !crypto::is_uuid(id) {
@@ -1038,52 +1418,74 @@ impl Store {
         }
         let mut g = self.lock();
         let now = self.now();
-        let s = Self::session(&mut g)?;
-        let entry = s
-            .data
-            .households
-            .get(id)
-            .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?;
-        if confirm.trim() != entry.customer_no {
-            return Err(StoreError::CONFIRM);
-        }
-        // 1. 世帯ファイル・直前の世代・一時ファイル・分岐の写し
-        let path = self.household_path(id);
-        for p in [path.clone(), atomic::prev_path(&path)]
-            .into_iter()
-            .chain(atomic::temp_files(&path))
         {
-            remove_if_exists(&p)?;
+            let s = Self::session(&mut g)?;
+            Self::usable(s)?;
+            self.refresh_shared(s)?;
+            if let Some(sh) = &s.shared {
+                let card = sh.read_card(id)?;
+                if confirm.trim() != card.customer_no {
+                    return Err(StoreError::CONFIRM);
+                }
+                sh.delete_household(id)?;
+            } else {
+                let entry = s
+                    .data
+                    .households
+                    .get(id)
+                    .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?;
+                if confirm.trim() != entry.customer_no {
+                    return Err(StoreError::CONFIRM);
+                }
+                // 1. 世帯ファイル・直前の世代・一時ファイル
+                let path = self.household_path(id);
+                for p in [path.clone(), atomic::prev_path(&path)]
+                    .into_iter()
+                    .chain(atomic::temp_files(&path))
+                {
+                    remove_if_exists(&p)?;
+                }
+                // 2. 今の鍵置き場から鍵を消す。直前の世代（.prev）にも鍵が残るので、新しい鍵置き場が開けることを確かめてから消す
+                s.vault.remove(id);
+                self.write_vault(s)?;
+                let check = fs::read(self.vault_path()).map_err(|_| StoreError::IO)?;
+                let v = Vault::decode(&check, &s.master)?;
+                if v.contains(id) {
+                    return Err(StoreError::CORRUPT);
+                }
+                remove_if_exists(&atomic::prev_path(&self.vault_path()))?;
+            }
+            // 分岐の写し（PCの中）
+            for p in files_starting_with(&self.root.join(CONFLICTS_DIR), id) {
+                remove_if_exists(&p)?;
+            }
+            // 3. アプリが管理するバックアップの写し
+            for dir in backup_dirs(&self.root.join(BACKUPS_DIR)) {
+                remove_if_exists(
+                    &dir.join(HOUSEHOLDS_DIR)
+                        .join(format!("{id}.{HOUSEHOLD_EXT}")),
+                )?;
+            }
+            for dir in backup_dirs(
+                &self
+                    .root
+                    .join(KEYS_DIR)
+                    .join(KEY_BACKUPS_DIR)
+                    .join(SHARED_KEY_BACKUPS),
+            ) {
+                remove_if_exists(&dir.join(format!("{id}.lphk")))?;
+            }
+            // 4. 削除の記録
+            s.data.households.remove(id);
+            s.data.deletions.push(Deletion {
+                household_id: id.to_owned(),
+                on: date_of(now),
+            });
+            if s.data.last_opened.as_deref() == Some(id) {
+                s.data.last_opened = None;
+            }
+            self.write_office(s)?;
         }
-        for p in files_starting_with(&self.root.join(CONFLICTS_DIR), id) {
-            remove_if_exists(&p)?;
-        }
-        // 3. アプリが管理するバックアップの写し
-        for dir in backup_dirs(&self.root.join(BACKUPS_DIR)) {
-            remove_if_exists(
-                &dir.join(HOUSEHOLDS_DIR)
-                    .join(format!("{id}.{HOUSEHOLD_EXT}")),
-            )?;
-        }
-        // 2. 今の鍵置き場から鍵を消す。直前の世代（.prev）にも鍵が残るので、新しい鍵置き場が開けることを確かめてから消す
-        s.vault.remove(id);
-        self.write_vault(s)?;
-        let check = fs::read(self.vault_path()).map_err(|_| StoreError::IO)?;
-        let v = Vault::decode(&check, &s.master)?;
-        if v.contains(id) {
-            return Err(StoreError::CORRUPT);
-        }
-        remove_if_exists(&atomic::prev_path(&self.vault_path()))?;
-        // 4. 削除の記録
-        s.data.households.remove(id);
-        s.data.deletions.push(Deletion {
-            household_id: id.to_owned(),
-            on: date_of(now),
-        });
-        if s.data.last_opened.as_deref() == Some(id) {
-            s.data.last_opened = None;
-        }
-        self.write_office(s)?;
         g.opened.remove(id);
         Ok(())
     }
@@ -1094,7 +1496,11 @@ impl Store {
     pub fn recovery_key(&self) -> Result<Zeroizing<String>, StoreError> {
         let mut g = self.lock();
         let s = Self::session(&mut g)?;
-        Ok(recovery::encode(&s.master))
+        // 事務所で共有しているときは、共有の事務所の親鍵（事務所の復元キー。0023 の5）
+        Ok(match &s.shared {
+            Some(sh) => recovery::encode(&sh.master),
+            None => recovery::encode(&s.master),
+        })
     }
 
     /// AI接続口を使うかどうか（事務所全体の設定。既定はオフ。0015）
@@ -1124,8 +1530,15 @@ impl Store {
         let mut g = self.lock();
         let now = self.now();
         let s = Self::session(&mut g)?;
-        s.data.recovery.acknowledged_at = Some(iso_of(now));
-        self.write_office(s)?;
+        if s.shared.is_some() {
+            self.refresh_shared(s)?;
+            if let Some(sh) = &mut s.shared {
+                sh.acknowledge_recovery(&iso_of(now))?;
+            }
+        } else {
+            s.data.recovery.acknowledged_at = Some(iso_of(now));
+            self.write_office(s)?;
+        }
         Ok(self.status_of(&g))
     }
 
@@ -1134,6 +1547,15 @@ impl Store {
         let candidate = recovery::decode(input)?;
         let mut g = self.lock();
         let now = self.now();
+        if let Some(sh) = g.session.as_ref().and_then(|s| s.shared.as_ref()) {
+            // 事務所の復元キー: 共有フォルダの今の名簿が開けるか
+            let bytes = fs::read(sh.paths.members()).map_err(|_| StoreError::IO)?;
+            return match office::open_roster_with_master(&bytes, &candidate) {
+                Ok(_) => Ok(self.status_of(&g)),
+                Err(StoreError::WRONG_MASTER) => Err(StoreError::RECOVERY_MISMATCH),
+                Err(e) => Err(e),
+            };
+        }
         let bytes = fs::read(self.vault_path()).map_err(|_| StoreError::IO)?;
         match Vault::decode(&bytes, &candidate) {
             Ok(_) => {}
@@ -1197,6 +1619,50 @@ impl Store {
         let today = date_of(now);
         let _ = self.backup_households(s, &today);
         let _ = self.backup_vault(&today, now.div_euclid(86_400));
+        if let Some(sh) = &s.shared {
+            let _ = self.backup_shared_keys(sh, &today, now.div_euclid(86_400));
+        }
+    }
+
+    /// 共有の事務所の世帯の鍵の札（今の時代）の日ごとの写し（鍵置き場の世代と同じく 30日。作った世代は書き換えない）
+    fn backup_shared_keys(
+        &self,
+        sh: &shared::Shared,
+        today: &str,
+        today_days: i64,
+    ) -> Result<(), StoreError> {
+        let base = self
+            .root
+            .join(KEYS_DIR)
+            .join(KEY_BACKUPS_DIR)
+            .join(SHARED_KEY_BACKUPS);
+        let target = base.join(today);
+        if !target.exists() {
+            let mut r = [0u8; 4];
+            crypto::fill_random(&mut r);
+            let tmp = base.join(format!(".tmp-{today}-{}", crypto::hex_encode(&r)));
+            fs::create_dir_all(&tmp)?;
+            if let Ok(rd) = fs::read_dir(sh.paths.keys_dir(&sh.roster.master_key_id)) {
+                for e in rd.filter_map(|e| e.ok()) {
+                    let name = e.file_name().to_string_lossy().into_owned();
+                    if name.ends_with(".lphk") {
+                        fs::copy(e.path(), tmp.join(&name))?;
+                    }
+                }
+            }
+            fs::rename(&tmp, &target)?;
+        }
+        for e in fs::read_dir(&base)?.filter_map(|e| e.ok()) {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if name.starts_with(".tmp-") {
+                let _ = fs::remove_dir_all(e.path());
+            } else if let Some(d) = parse_date(&name) {
+                if today_days - d >= KEY_BACKUP_DAYS {
+                    fs::remove_dir_all(e.path())?;
+                }
+            }
+        }
+        Ok(())
     }
 
     fn backup_households(&self, s: &Session, today: &str) -> Result<(), StoreError> {
@@ -1207,8 +1673,12 @@ impl Store {
             crypto::fill_random(&mut r);
             let tmp = base.join(format!(".tmp-{today}-{}", crypto::hex_encode(&r)));
             fs::create_dir_all(tmp.join(HOUSEHOLDS_DIR))?;
-            for id in s.data.households.keys() {
-                let src = self.household_path(id);
+            let ids: Vec<String> = match &s.shared {
+                Some(sh) => sh.list_cards().into_iter().map(|(id, _)| id).collect(),
+                None => s.data.households.keys().cloned().collect(),
+            };
+            for id in &ids {
+                let src = self.hh_path(s, id);
                 if src.exists() {
                     fs::copy(
                         &src,
@@ -1339,6 +1809,45 @@ impl Store {
         )?;
         Ok(())
     }
+}
+
+/// 同期サービスの衝突の写し（名前が世帯IDで始まり `.lphf` を含むが、今のファイル・直前の世代・一時ファイルではないもの）を、
+/// 世帯IDごとに集める。見出しの世帯IDが名前の世帯IDと同じで、今のファイルと中身が違うものだけ（0011 の7・0023 の7）
+fn sync_copy_names(dir: &Path) -> HashMap<String, Vec<PathBuf>> {
+    let mut out: HashMap<String, Vec<PathBuf>> = HashMap::new();
+    let Ok(rd) = fs::read_dir(dir) else {
+        return out;
+    };
+    let ext = format!(".{HOUSEHOLD_EXT}");
+    for e in rd.filter_map(|e| e.ok()) {
+        let name = e.file_name().to_string_lossy().into_owned();
+        let Some(id) = name.get(..36).filter(|id| crypto::is_uuid(id)) else {
+            continue;
+        };
+        let rest = &name[36..];
+        if !rest.contains(&ext)
+            || rest == ext
+            || rest == format!("{ext}.prev")
+            || rest.starts_with(&format!("{ext}.tmp-"))
+        {
+            continue;
+        }
+        let Ok(bytes) = fs::read(e.path()) else {
+            continue;
+        };
+        let same_household =
+            container::read_household_header(&bytes).is_ok_and(|h| h.household_id == id);
+        let current = fs::read(dir.join(format!("{id}{ext}")))
+            .ok()
+            .map(|b| crypto::digest(&b));
+        if same_household && current.as_deref() != Some(crypto::digest(&bytes).as_str()) {
+            out.entry(id.to_owned()).or_default().push(e.path());
+        }
+    }
+    for v in out.values_mut() {
+        v.sort();
+    }
+    out
 }
 
 fn remove_if_exists(p: &Path) -> Result<(), StoreError> {

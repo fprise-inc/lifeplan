@@ -98,6 +98,14 @@ fn code(e: StoreError) -> String {
     e.code().to_owned()
 }
 
+/// 書いた人（事務所で共有しているときのメンバー。0023 の6）
+fn author_of(store: &Store) -> Option<ai_share::Author> {
+    store.current_author().map(|a| ai_share::Author {
+        member_id: a.member_id,
+        name: a.name,
+    })
+}
+
 // ------------------------------------------------------------------ 世帯の保存とのつなぎ（store.rs から呼ぶ）
 
 impl AiState {
@@ -154,6 +162,16 @@ impl AiState {
             }
         }
         Ok(saved)
+    }
+
+    /// 分岐を選んだ後など、世帯ファイルの中身で帳面を作り直すとき: 持っている帳面を捨てる（次の on_opened で作り直す）
+    pub fn forget(&self, id: &str) {
+        lock(&self.books).remove(id);
+    }
+
+    /// 事務所の作業フォルダ（AIの受け口の場所）。共有フォルダに選ばせない場所の1つ（0023 の8）
+    pub fn runtime_dir(&self) -> PathBuf {
+        self.runtime_dir.clone()
     }
 
     /// 世帯を完全削除する前: 共有を取り消し、帳面を捨てる（記録は世帯ファイルごと消える。0013 の5）
@@ -536,7 +554,7 @@ pub async fn ai_consent_record(
             return Err("E_AI_NOT_SAVED".into());
         }
         e.book
-            .record_consent(&input, &today_upper(), &now_iso())
+            .record_consent(&input, &today_upper(), &now_iso(), author_of(store))
             .map_err(str::to_owned)?;
         if input.decision != ai_share::ConsentDecision::Given {
             ai.registry.withdraw_consent(&id);
@@ -636,7 +654,7 @@ pub async fn ai_candidate_decide(
             .get_mut(&id)
             .ok_or_else(|| code(StoreError::NOT_OPEN))?;
         e.book
-            .decide(&candidate, accept, plan, &now_iso())
+            .decide(&candidate, accept, plan, &now_iso(), author_of(store))
             .map_err(str::to_owned)?;
         ai.persist_locked(store, &mut books);
         view(ai, &books, &id)

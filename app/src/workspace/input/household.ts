@@ -28,6 +28,8 @@ export interface WorkingHousehold {
   postRetirement: Record<string, PostRetirement>;
   /** FP用のメモ（顧客に見せない。画面には出さず、開いたときだけ見える引き出しに置く） */
   memo: string[];
+  /** メモの行ごとの書いた人（事務所のメンバーの内部ID。`memo` と同じ並び。事務所で共有しているときだけ。0023 の6） */
+  memoBy?: (string | null)[];
   /** 箱（0008 の2）を持たない項目に入れた仮の値。欄のキー → 理由。FP が入れ直すと消える */
   assumed: Record<string, string>;
   /** 万一の想定の前提（遺族の生活費の割合・働き方の変化・等級の仮定など）。万一の画面で要求を作るときに使う */

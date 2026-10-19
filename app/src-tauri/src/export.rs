@@ -143,7 +143,7 @@ pub fn is_date(s: &str) -> bool {
             .all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit())
 }
 
-fn forbidden_of<R: Runtime>(app: &AppHandle<R>) -> Forbidden {
+pub fn forbidden_of<R: Runtime>(app: &AppHandle<R>) -> Forbidden {
     let p = app.path();
     let mut roots: Vec<PathBuf> = [p.app_data_dir(), p.app_local_data_dir(), p.app_config_dir()]
         .into_iter()

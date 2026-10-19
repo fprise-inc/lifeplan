@@ -107,6 +107,28 @@ pub fn replace(path: &Path, bytes: &[u8], fail: FailPoint) -> io::Result<()> {
     Ok(())
 }
 
+/// 差し替えて保存する（直前の世代を残さない）。共有フォルダの、すぐ書き直す小さなファイル（世帯の札・開いている印。0023）に使う
+pub fn replace_no_prev(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let dir = path
+        .parent()
+        .ok_or_else(|| io::Error::other("フォルダが無い"))?;
+    fs::create_dir_all(dir)?;
+    let mut r = [0u8; 6];
+    crypto::fill_random(&mut r);
+    let tmp = with_suffix(path, &format!(".tmp-{}", crypto::hex_encode(&r)));
+    {
+        let mut f = File::create(&tmp)?;
+        f.write_all(bytes)?;
+        f.sync_all()?;
+    }
+    if let Err(e) = fs::rename(&tmp, path) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
+    sync_dir(dir);
+    Ok(())
+}
+
 /// 片付けの結果
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Recovered {

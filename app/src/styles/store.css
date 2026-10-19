@@ -46,3 +46,37 @@ html.big .rk-key { font-size: 1.45rem; }
 .rk-ok { color: var(--good); font-weight: 700; }
 .rk-later { border-top: 1px solid var(--line-2); margin-top: 12px; }
 .rk-foot { display: flex; justify-content: flex-end; margin-top: 14px; }
+
+/* 事務所の共有（0023） */
+.hh-presence { display: inline-block; border: 1.5px solid var(--est-band); background: var(--est-bg); color: var(--est-ink); border-radius: 999px; padding: 0 8px; font-size: 0.78rem; font-weight: 700; }
+.hh-fork { margin-left: 6px; font-size: 0.78rem; }
+.of-panel { width: min(860px, calc(100vw - 32px)); }
+.of-name { display: grid; gap: 4px; margin: 10px 0; font-weight: 700; }
+.of-name input { max-width: 16em; border: 1.5px solid var(--field); border-radius: 6px; padding: 5px 8px; font-weight: 400; }
+.of-panel .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.of-fp { font-size: 1.6rem; letter-spacing: 0.12em; }
+.of-code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em; background: var(--prop-bg); border-radius: 4px; padding: 0 4px; white-space: nowrap; }
+.of-requests { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 8px; }
+.of-requests li { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; border: 1.5px solid var(--est-band); background: var(--est-bg); border-radius: 8px; padding: 8px 12px; }
+.of-fp-input { flex: 0 1 17em; border: 1.5px solid var(--field); border-radius: 6px; padding: 5px 8px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; text-transform: uppercase; }
+.of-remove { border: 1.5px solid var(--short-ink); border-radius: 8px; padding: 8px 12px; margin: 10px 0; background: #fff7f5; }
+.of-remove input { border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; width: 10em; }
+.of-notes { margin: 4px 0; padding-left: 1.2em; font-size: 0.86rem; color: var(--ink-2); }
+.of-notes li { margin: 3px 0; }
+
+/* 開いている人の帯（世帯を開いたとき） */
+.presence-band { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border: 1.5px solid var(--est-band); background: var(--est-bg); border-radius: 8px; padding: 8px 14px; margin: 0 0 12px; }
+.presence-band b { color: var(--est-ink); }
+.presence-band .btn { padding: 4px 14px; }
+
+/* 分岐を選ぶ画面 */
+.fork-choices { display: grid; gap: 8px; margin: 10px 0; }
+.fork-choices .btn { display: grid; justify-items: start; gap: 2px; text-align: left; padding: 10px 14px; }
+.fork-choices .btn span { font-size: 0.82rem; color: var(--ink-2); font-weight: 400; }
+.fork-panel .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* メモの書いた人 */
+.memo-authors { list-style: none; padding: 0; margin: 8px 0 0; font-size: 0.8rem; color: var(--ink-2); display: grid; gap: 2px; }
+.memo-authors li { display: flex; gap: 8px; }
+.memo-authors .memo-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.memo-authors .memo-by { white-space: nowrap; font-weight: 700; }
