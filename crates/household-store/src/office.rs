@@ -46,12 +46,19 @@ pub const ROLE_MEMBER: &str = "member";
 pub const PRESENCE_TTL_SECS: i64 = 300;
 /// 開いている印を新しくする間隔（1分）
 pub const PRESENCE_REFRESH_SECS: i64 = 60;
+/// アプリ本体が「印を新しくする時期か」を確かめる間隔（秒）。書くのは [`PRESENCE_REFRESH_SECS`] ごと。
+/// 開いている印の時間の値（この3つ）は、実機の同期の遅れに合わせて後から変えてよい（0023 の7）
+pub const PRESENCE_POLL_SECS: u64 = 20;
 /// 前の親鍵を名簿に残す日数（0023 の4。鍵置き場の世代と同じ 30日）
 pub const PREVIOUS_MASTER_DAYS: i64 = 30;
 /// 世帯の鍵の札に残す前の世帯の鍵の数の上限
 pub const MAX_PREVIOUS_KEYS: usize = 16;
 /// 表示名の長さの上限（文字）
 pub const MAX_DISPLAY_NAME: usize = 20;
+/// 名簿の履歴の行の上限（古い行から消す）
+pub const MAX_ROSTER_EVENTS: usize = 200;
+/// 名簿の履歴: 復元キーで名簿に自分を足した（全員の PC が使えなくなったとき。0023 の5）
+pub const EVENT_RECOVERY_JOIN: &str = "recoveryJoin";
 
 /// 事務所のフォルダの中の場所
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -197,13 +204,37 @@ pub struct RemovedMember {
     pub removed_by: Option<String>,
 }
 
-/// 事務所の復元キーを保管した記録（その時代の親鍵についてだけ有効）
+/// 事務所の復元キーを保管した記録（その時代の親鍵についてだけ有効）。
+/// 「保管した」の記録か、「復元キーで実際に開けるか試す」を通ったこと（`verified_*`）のどちらかで保管済みとみなす（0023 の5）
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecoveryAck {
     pub master_key_id: String,
     pub acknowledged_at: String,
     pub acknowledged_by: String,
+    /// 復元キーで実際に開けることを確かめた日時と人（任意）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified_by: Option<String>,
+}
+
+/// 名簿の履歴の1行（今は復元キーで加わったことだけを書く。知らない種類の行は読む側が無視する）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RosterEvent {
+    pub kind: String,
+    pub member_id: String,
+    pub display_name: String,
+    pub at: String,
+}
+
+/// 事務所の共有を終えた印（最後の1人が「共有をやめる」を行った。0023 の10）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClosedMark {
+    pub closed_at: String,
+    pub closed_by: String,
 }
 
 /// 前の親鍵（入れ替えの後、30日だけ持つ）
@@ -232,11 +263,29 @@ pub struct Roster {
     pub removed: Vec<RemovedMember>,
     pub previous: Vec<PreviousMaster>,
     pub recovery: Option<RecoveryAck>,
+    /// 名簿の履歴（復元キーで加わった、など）
+    pub events: Vec<RosterEvent>,
+    /// 事務所の共有を終えた印
+    pub closed: Option<ClosedMark>,
     pub updated_at: String,
     pub updated_by: Option<String>,
 }
 
 impl Roster {
+    /// 履歴に1行足す（上限を超えたら古い行から消す）
+    pub fn push_event(&mut self, e: RosterEvent) {
+        self.events.push(e);
+        if self.events.len() > MAX_ROSTER_EVENTS {
+            let extra = self.events.len() - MAX_ROSTER_EVENTS;
+            self.events.drain(..extra);
+        }
+    }
+    /// 復元キーで加わったメンバーか
+    pub fn joined_by_recovery(&self, member_id: &str) -> bool {
+        self.events
+            .iter()
+            .any(|e| e.kind == EVENT_RECOVERY_JOIN && e.member_id == member_id)
+    }
     pub fn member(&self, id: &str) -> Option<&Member> {
         self.members.iter().find(|m| m.member_id == id)
     }
@@ -296,6 +345,10 @@ struct MembersBody {
     previous_masters: Vec<PreviousMasterRaw>,
     #[serde(default)]
     recovery: Option<RecoveryAck>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    events: Vec<RosterEvent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    closed: Option<ClosedMark>,
     updated_at: String,
     updated_by: Option<String>,
 }
@@ -345,6 +398,8 @@ pub fn encode_roster(r: &Roster, master: &[u8; KEY_LEN]) -> Result<Vec<u8>, Stor
                 })
                 .collect(),
             recovery: r.recovery.clone(),
+            events: r.events.clone(),
+            closed: r.closed.clone(),
             updated_at: r.updated_at.clone(),
             updated_by: r.updated_by.clone(),
         })
@@ -397,6 +452,8 @@ pub fn open_roster_with_master(bytes: &[u8], master: &[u8; KEY_LEN]) -> Result<R
         removed: b.removed,
         previous,
         recovery: b.recovery,
+        events: b.events,
+        closed: b.closed,
         updated_at: b.updated_at,
         updated_by: b.updated_by,
     })
@@ -807,6 +864,8 @@ mod tests {
             removed: vec![],
             previous: vec![],
             recovery: None,
+            events: vec![],
+            closed: None,
             updated_at: "2026-10-19T00:00:00Z".into(),
             updated_by: None,
         }
@@ -861,6 +920,48 @@ mod tests {
         let text = String::from_utf8_lossy(&bytes);
         assert!(!text.contains(&crypto::hex_encode(m.as_ref())));
         assert!(!text.contains("Aさん"));
+    }
+
+    #[test]
+    fn roster_history_closed_mark_and_verification_round_trip() {
+        let a = MemberKeys::generate();
+        let ma = member_of(&a, "Aさん");
+        let mut r = roster(&crypto::new_uuid(), vec![ma.clone()]);
+        for i in 0..(MAX_ROSTER_EVENTS + 3) {
+            r.push_event(RosterEvent {
+                kind: EVENT_RECOVERY_JOIN.into(),
+                member_id: if i == MAX_ROSTER_EVENTS + 2 {
+                    ma.member_id.clone()
+                } else {
+                    crypto::new_uuid()
+                },
+                display_name: "Aさん".into(),
+                at: format!("2026-10-19T00:00:{:02}Z", i % 60),
+            });
+        }
+        assert_eq!(r.events.len(), MAX_ROSTER_EVENTS, "古い行から消す");
+        r.recovery = Some(RecoveryAck {
+            master_key_id: r.master_key_id.clone(),
+            acknowledged_at: "x".into(),
+            acknowledged_by: ma.member_id.clone(),
+            verified_at: Some("y".into()),
+            verified_by: Some(ma.member_id.clone()),
+        });
+        r.closed = Some(ClosedMark {
+            closed_at: "z".into(),
+            closed_by: ma.member_id.clone(),
+        });
+        let m = crypto::random_key();
+        let back = open_roster_with_master(&encode_roster(&r, &m).unwrap(), &m).unwrap();
+        assert_eq!(back.events, r.events);
+        assert_eq!(back.recovery, r.recovery);
+        assert_eq!(back.closed, r.closed);
+        assert!(back.joined_by_recovery(&ma.member_id));
+        assert!(!back.joined_by_recovery(&crypto::new_uuid()));
+        // 履歴・終えた印・確かめた記録の無い名簿（前の形）もそのまま読める
+        let plain = roster(&crypto::new_uuid(), vec![ma]);
+        let back = open_roster_with_master(&encode_roster(&plain, &m).unwrap(), &m).unwrap();
+        assert!(back.events.is_empty() && back.closed.is_none() && back.recovery.is_none());
     }
 
     #[test]

@@ -5,7 +5,10 @@
 //! - 選べない場所: データフォルダ（アプリのデータ・設定の場所）、カスタム層の既定の場所、AIの受け口の作業フォルダと、
 //!   それらを含む場所・それらの中（household-store が確かめる）。
 //! - 承認は、承認する人が新しいメンバーから別の経路で聞いた指紋の入力が必須（画面に申請の指紋は返さない。0023 の3）。
-//! - 開いている印は、裏で定期的に新しくし、アプリを閉じるときに消す（lib.rs）。
+//! - 開いている印は、裏で定期的に新しくし、アプリを閉じるときに消す（lib.rs）。間隔は household-store の定数（office::PRESENCE_*）。
+//! - 事務所の復元キーを保管するまで、承認・外すは本体が止める（household-store。0023 の5）。
+//! - 全員の PC が使えなくなったとき: 共有フォルダを選び、事務所の復元キーで名簿に自分を足す（office_recover）。
+//! - 共有をやめる（office_end）: 最後の1人だけ。世帯をこの PC の中へ移す（0023 の10）。
 
 use std::path::PathBuf;
 
@@ -27,7 +30,7 @@ async fn blocking<T: Send + 'static>(
     tauri::async_runtime::spawn_blocking(move || {
         let store = app.state::<StoreState>();
         let ai = app.state::<AiState>();
-        f(&store.0, &ai)
+        f(&store.store, &ai)
     })
     .await
     .map_err(|_| "E_HOST_THREAD".to_owned())?
@@ -111,6 +114,58 @@ pub async fn office_join(
             .map_err(code)
     })
     .await
+}
+
+/// 全員の PC が使えなくなったとき: 共有フォルダを選び、事務所の復元キー（key）で名簿に自分を足す。選ばなかったときは null
+#[tauri::command]
+pub async fn office_recover(
+    app: AppHandle,
+    window: WebviewWindow,
+    name: String,
+    key: String,
+) -> Result<Option<OfficeStatus>, String> {
+    // ダイアログを出す前に、打ち間違い・表示名の形を確かめる（ダイアログを出してから断らない）
+    household_store::recovery::decode(&key).map_err(code)?;
+    if !household_store::office::valid_display_name(&name) {
+        return Err(code(StoreError::OFFICE_NAME));
+    }
+    let Some(picked) = pick(&window, "事務所の共有フォルダを選ぶ").await else {
+        return Ok(None);
+    };
+    let roots = forbidden(&app);
+    let sync = export::is_sync_folder(&picked);
+    blocking(app, move |s, _| {
+        s.office_recover_join(&picked, &name, &key, sync, &roots)
+            .map(Some)
+            .map_err(code)
+    })
+    .await
+}
+
+/// 事務所の共有をやめる（最後の1人だけ。confirm は自分の表示名）。世帯をこの PC の中へ移す
+#[tauri::command]
+pub async fn office_end(app: AppHandle, confirm: String) -> Result<OfficeStatus, String> {
+    blocking(app, move |s, ai| {
+        let ids: Vec<String> = s
+            .list()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|e| e.id)
+            .collect();
+        let st = s.office_end(&confirm).map_err(code)?;
+        // 世帯を PC の中へ移したので、開いていた世帯の帳面は作り直す
+        for id in ids {
+            ai.forget(&id);
+        }
+        Ok(st)
+    })
+    .await
+}
+
+/// 知らせ（復元キーで加わった人など）を見た
+#[tauri::command]
+pub async fn office_dismiss_notices(app: AppHandle) -> Result<OfficeStatus, String> {
+    blocking(app, |s, _| s.office_dismiss_notices().map_err(code)).await
 }
 
 /// 参加の申請を取り下げる・外された設定を片付ける
@@ -224,9 +279,11 @@ pub async fn store_leave(app: AppHandle) -> Result<(), String> {
 pub fn start_heartbeat<R: Runtime>(app: &AppHandle<R>) {
     let handle = app.clone();
     std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_secs(20));
+        std::thread::sleep(std::time::Duration::from_secs(
+            household_store::office::PRESENCE_POLL_SECS,
+        ));
         if let Some(s) = handle.try_state::<StoreState>() {
-            s.0.heartbeat();
+            s.store.heartbeat();
         }
     });
 }

@@ -2,7 +2,7 @@
 // - 初回: 復元キーを表示して、保管を強く勧める（保管するかは FP が選ぶ）。「保管した」を記録する
 // - 「復元キーで実際に開けるか試す」（データは変えない）
 // - 保管庫に親鍵が無いとき: 復元キーを入れて戻す
-// - 2台目の PC・同期フォルダ: この版では入口だけ（使うときは復元キーの保管が必須）
+// - 事務所で共有しているとき（shared）: 事務所の復元キー（共有の事務所の鍵）。試して開けたら保管済みとして記録する（0023 の5）
 // 復元キーは表示のためだけに受け取り、パネルを閉じたら消す（画面はどこにも保存しない。0016 の1）
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { StoreHost, StoreStatus } from "../../engine/host.ts";
@@ -24,7 +24,7 @@ export function keyLines(key: string): string[] {
   return out;
 }
 
-export function RecoveryPanel({ mode, store, status, onStatus, onClose }: { mode: RecoveryMode; store: StoreHost; status: StoreStatus | null; onStatus: (s: StoreStatus) => void; onClose: () => void }) {
+export function RecoveryPanel({ mode, store, status, onStatus, onClose, shared = false }: { mode: RecoveryMode; store: StoreHost; status: StoreStatus | null; onStatus: (s: StoreStatus) => void; onClose: () => void; shared?: boolean }) {
   const [key, setKey] = useState<string | null>(null);
   const [kept, setKept] = useState(false);
   const [input, setInput] = useState("");
@@ -51,7 +51,7 @@ export function RecoveryPanel({ mode, store, status, onStatus, onClose }: { mode
       const s = mode === "restore" ? await store.restoreWithRecoveryKey(input) : await store.testRecoveryKey(input);
       onStatus(s);
       setInput("");
-      setResult({ ok: true, text: mode === "restore" ? "事務所の鍵を戻しました。保存した世帯を開けます" : "この復元キーで開けることを確かめました" });
+      setResult({ ok: true, text: mode === "restore" ? "事務所の鍵を戻しました。保存した世帯を開けます" : shared ? "この復元キーで開けることを確かめました。事務所の復元キーを保管済みとして記録しました" : "この復元キーで開けることを確かめました" });
     } catch (e) {
       setResult({ ok: false, text: message(codeOf(e)) });
     } finally {
@@ -59,7 +59,7 @@ export function RecoveryPanel({ mode, store, status, onStatus, onClose }: { mode
     }
   };
 
-  const title = mode === "restore" ? "復元キーで事務所の鍵を戻す" : "復元キー";
+  const title = mode === "restore" ? "復元キーで事務所の鍵を戻す" : shared ? "事務所の復元キー" : "復元キー";
   return (
     <>
       <div class="scrim" aria-hidden="true" onClick={mode === "restore" ? undefined : onClose} />
@@ -71,10 +71,17 @@ export function RecoveryPanel({ mode, store, status, onStatus, onClose }: { mode
           </p>
         ) : (
           <>
-            <p>
-              保存した世帯は、この PC の資格情報の保管庫にある事務所の鍵で暗号化しています。ふだんはパスワードの入力は要りません。
-              <b>PC の故障・入れ替え・OS の入れ直しで鍵がなくなったときは、復元キーが無いと、すべての世帯とバックアップを誰も読めなくなります（提供元にも戻せません）。</b>
-            </p>
+            {shared ? (
+              <p data-recovery-shared>
+                共有している事務所の世帯は、事務所の鍵で暗号化しています。<b>事務所の全員の PC が使えなくなったときは、この復元キーで新しい PC を事務所に加えられます。復元キーが無いと、誰も読めなくなります（提供元にも戻せません）。</b>
+                復元キーを持つ人は事務所のすべての世帯を開けるので、事務所の代表の方が保管してください。メンバーを外すたびに新しくなります（古い控えは破棄してください）。保管するまで、参加の承認とメンバーを外す操作は止まります。
+              </p>
+            ) : (
+              <p>
+                保存した世帯は、この PC の資格情報の保管庫にある事務所の鍵で暗号化しています。ふだんはパスワードの入力は要りません。
+                <b>PC の故障・入れ替え・OS の入れ直しで鍵がなくなったときは、復元キーが無いと、すべての世帯とバックアップを誰も読めなくなります（提供元にも戻せません）。</b>
+              </p>
+            )}
             <p class="rk-advice">印刷するか、パスワード管理のソフトに保存してください。画面の写真やメールでの保管は避けてください。</p>
             {key !== null ? (
               <div class="rk-key" data-recovery-key>
@@ -125,7 +132,12 @@ export function RecoveryPanel({ mode, store, status, onStatus, onClose }: { mode
           }}
         >
           <h3>{mode === "restore" ? "復元キーを入れる" : "復元キーで実際に開けるか試す"}</h3>
-          {mode !== "restore" ? <p class="in-note">保管した控えが正しいかを確かめます。データは変えません。{status?.recoveryVerifiedAt != null ? "（前に確かめた控えがあります）" : ""}</p> : null}
+          {mode !== "restore" ? (
+            <p class="in-note">
+              保管した控えが正しいかを確かめます。世帯のデータは変えません。{shared ? "開けたら、事務所の復元キーを保管済みとして記録します。" : ""}
+              {status?.recoveryVerifiedAt != null ? "（前に確かめた控えがあります）" : ""}
+            </p>
+          ) : null}
           <div class="rk-row">
             <input value={input} onInput={(e) => setInput((e.currentTarget as HTMLInputElement).value)} placeholder="XXXX-XXXX-…（72文字）" aria-label="復元キー" autoComplete="off" spellcheck={false} data-recovery-input />
             <button type="submit" class="btn" disabled={busy || input.trim() === ""} data-recovery-try>
@@ -134,13 +146,10 @@ export function RecoveryPanel({ mode, store, status, onStatus, onClose }: { mode
           </div>
           {result !== null ? <p class={result.ok ? "rk-ok" : "hh-err"} role="status">{result.text}</p> : null}
         </form>
-        {mode !== "restore" ? (
+        {mode !== "restore" && !shared ? (
           <div class="rk-later">
             <h3>別の PC で使う・同期フォルダに置く</h3>
-            <p class="in-note">この版ではまだ使えません。使えるようになったときは、復元キーの保管が必須になります（2台目の PC では、復元キーで同じ事務所の鍵を入れます）。</p>
-            <button type="button" class="btn" disabled>
-              準備中
-            </button>
+            <p class="in-note">複数の PC・複数の FP で使うときは、世帯の一覧の「事務所の共有」から始めます。共有を始めると事務所の復元キーは新しくなり、保管が必須になります。</p>
           </div>
         ) : null}
         {mode !== "restore" ? (

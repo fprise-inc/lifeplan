@@ -3,57 +3,107 @@
 //! - データフォルダは Tauri のアプリのデータの場所の中に固定する（製品は `data/`、開発用のビルドは `data-dev/`）。
 //!   画面からは選べず、パスを画面に渡さない・受け取らない（0016 の1。ファイル・ダイアログのプラグインは入れない）。
 //!   世帯は本体が振る内部ID（UUID）だけで指す。
-//! - 事務所の親鍵は OS の資格情報の保管庫（Mac はキーチェーン、Windows は資格情報マネージャー）。サービス名はアプリの識別子で、
-//!   開発用のビルドは `<識別子>.dev`（0013 の2: 製品の鍵に触れない）。
+//! - 事務所の親鍵は OS の資格情報の保管庫（Mac はキーチェーン、Windows は資格情報マネージャー）。サービス名はアプリの識別子。
+//! - 開発用のビルド（debug）は、既定では OS の保管庫を使わず、データフォルダ（`data-dev-filekeys/`）の中の `dev-keystore/` に
+//!   平文で置く（dev_keystore.rs。作り直すたびに OS の確認の窓が出るのを避ける）。環境変数 `FINANCIA_DEV_KEYCHAIN_SERVICE`
+//!   （`<識別子>.〜`）を明示したときだけ、そのサービス名で OS の保管庫を使う（データフォルダは `data-dev/`。0013 の2: 製品の鍵に触れない）。
+//!   製品のビルドは必ず OS の保管庫を使う（ファイルの実装はコンパイルされない）。
 //! - 本文のうち、同意とAIの記録の区画（`consents`・`consentExplanations`・`aiShares`・`candidates`）は本体だけが書く（ai.rs）。
 //!   開くときは画面に返す本文から外し、保存のときは画面から届いた本文に本体の帳面の中身を入れて書く。
 //! - 復号は本体だけが行い、画面には本文（JSON）だけを返す。鍵は返さない。例外は復元キーで、FP が書き写すために表示する
 //!   ときだけ返す（画面はどこにも保存しない。0016 の1 の「画面に保存しない」で守る）。
 
+use std::sync::Arc;
+
 use household_store::{
-    CreateRequest, HouseholdEntry, Opened, OsSecretStore, RenameOutcome, Saved, Status, Store,
-    StoreError, SystemClock,
+    CreateRequest, HouseholdEntry, Opened, OsSecretStore, RenameOutcome, Saved, SecretStore,
+    Status, Store, StoreError, SystemClock,
 };
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::ai::AiState;
 
-/// データフォルダの名前（アプリのデータの場所の中）
-fn data_dir_name() -> &'static str {
-    if cfg!(debug_assertions) {
-        "data-dev"
-    } else {
-        "data"
+/// 鍵の保管庫の選び方
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Keystore {
+    /// OS の資格情報の保管庫（サービス名）
+    Os { service: String },
+    /// 開発用のビルドだけ: データフォルダの中のファイル（dev_keystore.rs）
+    DevFile,
+}
+
+/// 保管庫を選ぶ（製品のビルドは必ず OS の保管庫）。開発用のビルドは、`FINANCIA_DEV_KEYCHAIN_SERVICE` に
+/// `<識別子>.〜` を明示したときだけ OS の保管庫（そのサービス名）、それ以外はファイル
+fn choose_keystore(identifier: &str, debug: bool, dev_service: Option<&str>) -> Keystore {
+    if !debug {
+        return Keystore::Os {
+            service: identifier.to_owned(),
+        };
+    }
+    match dev_service {
+        Some(s) if s.starts_with(identifier) && s.len() > identifier.len() => Keystore::Os {
+            service: s.to_owned(),
+        },
+        _ => Keystore::DevFile,
     }
 }
 
-pub struct StoreState(pub Store);
+/// データフォルダの名前（アプリのデータの場所の中）。開発用のビルドでファイルの保管庫を使うときは、
+/// OS の保管庫と組にしていた前の開発用のデータ（`data-dev/`）とは別にする（前のデータは消さずに残す）
+fn data_dir_name(keystore: &Keystore, debug: bool) -> &'static str {
+    match (debug, keystore) {
+        (false, _) => "data",
+        (true, Keystore::Os { .. }) => "data-dev",
+        (true, Keystore::DevFile) => "data-dev-filekeys",
+    }
+}
+
+pub struct StoreState {
+    pub store: Store,
+    /// 開発用: 鍵をファイルに置いている（画面に小さな札を出す）
+    pub dev_file_keys: bool,
+}
 
 /// アプリの起動時に作る（まだファイルは読まない。最初の store_status で準備する）
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<StoreState, Box<dyn std::error::Error>> {
-    let mut root = app.path().app_data_dir()?.join(data_dir_name());
     let identifier = &app.config().identifier;
-    let mut service = if cfg!(debug_assertions) {
-        format!("{identifier}.dev")
+    let debug = cfg!(debug_assertions);
+    let dev_service = if debug {
+        std::env::var("FINANCIA_DEV_KEYCHAIN_SERVICE").ok()
     } else {
-        identifier.clone()
+        None
     };
-    // 開発のときだけ（debug のビルド）: 試験用のデータフォルダと保管庫のサービス名に替える（手元で試して、終わったら消すため）
-    if cfg!(debug_assertions) {
+    let keystore = choose_keystore(identifier, debug, dev_service.as_deref());
+    let mut root = app
+        .path()
+        .app_data_dir()?
+        .join(data_dir_name(&keystore, debug));
+    // 開発のときだけ（debug のビルド）: 試験用のデータフォルダに替える（手元で試して、終わったら消すため）
+    if debug {
         if let Some(d) = std::env::var_os("FINANCIA_DEV_STORE_DIR").filter(|v| !v.is_empty()) {
             root = std::path::PathBuf::from(d);
         }
-        if let Ok(s) = std::env::var("FINANCIA_DEV_KEYCHAIN_SERVICE") {
-            if s.starts_with(identifier.as_str()) && s.len() > identifier.len() {
-                service = s;
-            }
-        }
     }
+    let secrets: Arc<dyn SecretStore> = match &keystore {
+        Keystore::Os { service } => Arc::new(OsSecretStore::new(service)),
+        #[cfg(debug_assertions)]
+        Keystore::DevFile => Arc::new(crate::dev_keystore::DevFileSecretStore::new(&root)),
+        #[cfg(not(debug_assertions))]
+        Keystore::DevFile => {
+            return Err("製品のビルドでは OS の資格情報の保管庫だけを使います".into())
+        }
+    };
     let version = app.package_info().version.to_string();
-    Ok(StoreState(
-        Store::new(root, OsSecretStore::new(&service), SystemClock, &version)
-            .exclude_keys_from_os_backup(),
-    ))
+    Ok(StoreState {
+        store: Store::new(root, secrets, SystemClock, &version).exclude_keys_from_os_backup(),
+        dev_file_keys: keystore == Keystore::DevFile,
+    })
+}
+
+/// 鍵の保管庫の種類（開発用のビルドでファイルに置いているときだけ true。画面の札のため。パスは返さない）
+#[tauri::command]
+pub fn store_keystore(state: tauri::State<'_, StoreState>) -> bool {
+    state.dev_file_keys
 }
 
 fn code(e: StoreError) -> String {
@@ -67,7 +117,7 @@ async fn blocking<T: Send + 'static>(
 ) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<StoreState>();
-        f(&state.0).map_err(code)
+        f(&state.store).map_err(code)
     })
     .await
     .map_err(|_| "E_HOST_THREAD".to_owned())?
@@ -91,7 +141,7 @@ async fn with_ai<T: Send + 'static>(
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<StoreState>();
         let ai = app.state::<AiState>();
-        f(&state.0, &ai)
+        f(&state.store, &ai)
     })
     .await
     .map_err(|_| "E_HOST_THREAD".to_owned())?
@@ -178,7 +228,7 @@ pub async fn recovery_key_acknowledge(app: AppHandle) -> Result<Status, String> 
     blocking(app, |s| s.acknowledge_recovery()).await
 }
 
-/// 復元キーで開けるかを試す（データは変えない）
+/// 復元キーで開けるかを試す（世帯のデータは変えない。開けたら日時を記録する。共有の事務所では保管済みとみなす。0023 の5）
 #[tauri::command]
 pub async fn recovery_key_test(app: AppHandle, key: String) -> Result<Status, String> {
     blocking(app, move |s| s.test_recovery_key(&key)).await
@@ -221,9 +271,53 @@ mod tests {
         assert!(count >= 40, "命令を見つけられていない（{count}）");
     }
 
+    use super::{choose_keystore, data_dir_name, Keystore};
+
     #[test]
     fn data_folder_is_fixed() {
-        assert!(!super::data_dir_name().contains('/'));
-        assert!(!super::data_dir_name().contains(".."));
+        for k in [
+            Keystore::DevFile,
+            Keystore::Os {
+                service: "x".into(),
+            },
+        ] {
+            for debug in [false, true] {
+                let n = data_dir_name(&k, debug);
+                assert!(!n.contains('/') && !n.contains(".."));
+            }
+        }
+        assert_eq!(data_dir_name(&Keystore::DevFile, false), "data");
+    }
+
+    /// 製品のビルドは、環境変数があっても必ず OS の保管庫（製品のサービス名）。開発用のビルドは明示したときだけ OS の保管庫
+    #[test]
+    fn release_always_uses_the_os_keystore() {
+        let id = "com.example.app";
+        for env in [None, Some(""), Some("com.example.app.dev"), Some("other")] {
+            assert_eq!(
+                choose_keystore(id, false, env),
+                Keystore::Os { service: id.into() }
+            );
+        }
+        assert_eq!(choose_keystore(id, true, None), Keystore::DevFile);
+        assert_eq!(choose_keystore(id, true, Some(id)), Keystore::DevFile);
+        assert_eq!(
+            choose_keystore(id, true, Some("other.dev")),
+            Keystore::DevFile
+        );
+        assert_eq!(
+            choose_keystore(id, true, Some("com.example.app.dev")),
+            Keystore::Os {
+                service: "com.example.app.dev".into()
+            }
+        );
+    }
+
+    /// ファイルの保管庫の実装は、開発用のビルドのときだけコンパイルする
+    #[test]
+    fn dev_keystore_is_debug_only() {
+        let lib = include_str!("lib.rs");
+        let i = lib.find("mod dev_keystore;").unwrap();
+        assert!(lib[..i].trim_end().ends_with("#[cfg(debug_assertions)]"));
     }
 }

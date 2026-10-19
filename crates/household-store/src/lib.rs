@@ -28,9 +28,9 @@ pub mod vault;
 pub use office::Author;
 pub use secret::{MemorySecretStore, SecretStore};
 pub use store::{
-    Clock, CreateRequest, ForkChoice, ForkInfo, HouseholdEntry, MemberView, OfficeStatus, Opened,
-    PresenceView, RemovedView, RenameOutcome, RequestView, Saved, Status, StatusState, Store,
-    SystemClock,
+    Clock, CreateRequest, ForkChoice, ForkInfo, HouseholdEntry, MemberView, NoticeView,
+    OfficeStatus, Opened, PresenceView, RemovedView, RenameOutcome, RequestView, Saved, Status,
+    StatusState, Store, SystemClock,
 };
 
 #[cfg(feature = "os-keyring")]
@@ -131,6 +131,12 @@ impl StoreError {
     pub const OFFICE_CONFIRM: StoreError = StoreError("E_OFFICE_CONFIRM");
     /// この PC のメンバーの秘密鍵が保管庫に無い（参加し直す）
     pub const OFFICE_KEY_MISSING: StoreError = StoreError("E_OFFICE_KEY_MISSING");
+    /// 事務所の復元キーがまだ保管されていない（保管するまで、承認・外すを止める。0023 の5）
+    pub const OFFICE_RECOVERY_REQUIRED: StoreError = StoreError("E_OFFICE_RECOVERY_REQUIRED");
+    /// この事務所の共有は終わっている（共有をやめた事務所には加われない）
+    pub const OFFICE_CLOSED: StoreError = StoreError("E_OFFICE_CLOSED");
+    /// ほかのメンバーがいる間は、共有をやめられない（先に外す。0023 の10）
+    pub const OFFICE_OTHERS_REMAIN: StoreError = StoreError("E_OFFICE_OTHERS_REMAIN");
     /// 世帯の鍵の札がまだ同期されていない
     pub const OFFICE_WAITING_SYNC: StoreError = StoreError("E_OFFICE_WAITING_SYNC");
     /// 選ぶ分岐が無い

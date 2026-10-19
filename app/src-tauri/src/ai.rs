@@ -263,7 +263,7 @@ pub fn start_watch<R: Runtime>(app: &AppHandle<R>) {
             std::thread::sleep(TICK);
             let ai = app.state::<AiState>();
             let store = app.state::<StoreState>();
-            ai.tick(&store.0, &mut last);
+            ai.tick(&store.store, &mut last);
         }
     });
 }
@@ -492,7 +492,7 @@ async fn blocking<T: Send + 'static>(
     tauri::async_runtime::spawn_blocking(move || {
         let ai = app.state::<AiState>();
         let store = app.state::<StoreState>();
-        f(&ai, &store.0)
+        f(&ai, &store.store)
     })
     .await
     .map_err(|_| "E_HOST_THREAD".to_owned())?

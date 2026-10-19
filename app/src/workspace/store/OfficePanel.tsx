@@ -3,10 +3,13 @@
 // - 始める（最初の1人）・参加する（2人目から）: 共有フォルダは本体が OS のダイアログで選ばせる（画面はパスを持たない）
 // - 参加の申請と承認: 承認する人は、申請した人から別の経路で聞いた指紋（16文字）を入力する。申請の指紋は画面に出さない
 // - メンバーの一覧（表示名・指紋・参加日）と、外す（確認つき・親鍵の入れ替え。外した人の手元の写しは消せないことを正直に出す）
+// - 事務所の復元キーを保管するまで、承認・外すは止める（理由と「保管する」への導線を出す。世帯の閲覧・編集は止めない）
+// - 全員の PC が使えなくなったとき: 事務所の復元キーで名簿に自分を足す（ほかのメンバーの画面に知らせが出る）
+// - 共有をやめる（最後の1人だけ。世帯をこの PC の中へ移す）
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OfficeHost, OfficeStatus } from "../../engine/host.ts";
 import { shortDate } from "./HouseholdPanel.tsx";
-import { normalizeFingerprint, officeMessage } from "./office.ts";
+import { normalizeFingerprint, officeMessage, syncShareNotice } from "./office.ts";
 
 export interface OfficePanelProps {
   office: OfficeHost;
@@ -27,6 +30,10 @@ export function OfficePanel(p: OfficePanelProps) {
   const [name, setName] = useState("");
   const [fps, setFps] = useState<Record<string, string>>({});
   const [removing, setRemoving] = useState<{ id: string; name: string; value: string } | null>(null);
+  /** 外した直後の完了の表示（外した人の表示名） */
+  const [removedDone, setRemovedDone] = useState<string | null>(null);
+  const [recoverKey, setRecoverKey] = useState("");
+  const [ending, setEnding] = useState<string | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   const st = p.status;
 
@@ -114,6 +121,35 @@ export function OfficePanel(p: OfficePanelProps) {
             >
               共有フォルダを選んで参加を申請する
             </button>
+            <details class="of-recover" data-office-recover-section>
+              <summary>事務所の全員の PC が使えなくなったとき（事務所の復元キーで加わる）</summary>
+              <p class="pl-sub">
+                事務所の共有フォルダを選び、保管しておいた<b>事務所の復元キー</b>を入れると、このPCを事務所のメンバーとして名簿に足します（承認は要りません）。
+                復元キーを持つことが本人の証明になるので、復元キーを持つ人は事務所のすべての世帯を開けます。加わったことは名簿の履歴に残り、ほかのメンバーの画面にも「復元キーで○○さんが加わりました」と出ます。
+              </p>
+              <label class="of-name">
+                事務所の復元キー
+                <input value={recoverKey} onInput={(e) => setRecoverKey((e.currentTarget as HTMLInputElement).value)} placeholder="XXXX-XXXX-…（72文字）" autoComplete="off" spellcheck={false} class="of-key-input" data-office-recover-key />
+              </label>
+              <button
+                type="button"
+                class="btn"
+                disabled={busy || !nameOk || recoverKey.trim() === ""}
+                onClick={() =>
+                  void run(async () => {
+                    const r = await p.office.recover(name, recoverKey);
+                    if (r === null) return;
+                    setRecoverKey("");
+                    p.onStatus(r);
+                    p.onHouseholdsChanged();
+                    setMsg({ ok: true, text: "事務所の復元キーで、このPCを事務所のメンバーに加えました" });
+                  })
+                }
+                data-office-recover
+              >
+                共有フォルダを選んで、復元キーで加わる
+              </button>
+            </details>
           </>
         ) : null}
         {st?.state === "pending" ? (
@@ -147,9 +183,26 @@ export function OfficePanel(p: OfficePanelProps) {
         {st?.state === "unavailable" ? (
           <>
             <p class="hh-warn">{officeMessage(st.problem ?? "E_OFFICE_UNAVAILABLE")}</p>
-            <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.status()))}>
-              確かめ直す
-            </button>
+            <div class="rk-row">
+              <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.status()))}>
+                確かめ直す
+              </button>
+              {st.problem === "E_OFFICE_CLOSED" ? (
+                <button
+                  type="button"
+                  class="btn"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      p.onStatus(await p.office.cancel());
+                      p.onHouseholdsChanged();
+                    })
+                  }
+                >
+                  このPCの中の事務所に戻る
+                </button>
+              ) : null}
+            </div>
           </>
         ) : null}
         {st?.state === "member" ? (
@@ -161,6 +214,42 @@ export function OfficePanel(p: OfficePanelProps) {
             <p class="pl-sub">
               事務所の確かめ用の番号 <code class="of-code" data-office-code>{st.officeCode}</code>（全員の画面で同じになります。参加した人は、承認した人の画面と同じかを確かめてください）
             </p>
+            {st.notices.length > 0 ? (
+              <div class="of-alert" role="alert" data-office-notice>
+                {st.notices.map((n) => (
+                  <p key={`${n.name}-${n.at}`}>
+                    <b>復元キーで{n.name}さんが加わりました</b>（{shortDate(n.at)}）。
+                  </p>
+                ))}
+                <p class="pl-sub">事務所の復元キーを持つ人は、承認なしで加われます。心当たりが無いときは、すぐにその人を外し（復元キーも新しくなります）、復元キーの控えの置き場所を確かめてください。</p>
+                <button type="button" class="btn" disabled={busy} onClick={() => void run(async () => p.onStatus(await p.office.dismissNotices()))} data-office-notice-ok>
+                  確かめた
+                </button>
+              </div>
+            ) : null}
+            {removedDone !== null ? (
+              <div class="of-alert" role="status" data-office-removed-done>
+                <p>
+                  <b>{removedDone}さんを外し、事務所の鍵とすべての世帯の鍵を入れ替えました。</b>
+                </p>
+                <p class="of-alert-strong">{syncShareNotice(removedDone)}</p>
+                <p class="pl-sub">外した直後は、同期の遅れの間に、{removedDone}さんの PC から古い鍵で書き込まれるおそれがあります。同期サービスの共有から外せば、それも止まります。</p>
+              </div>
+            ) : null}
+            {st.recoveryRequired ? (
+              <div class="of-lock" role="status" data-office-locked>
+                <p>
+                  <b>事務所の復元キーがまだ保管されていません。</b>保管するまで、<b>参加の承認</b>と<b>メンバーを外す</b>操作を止めています（世帯を開く・直すことはできます）。
+                </p>
+                <p class="pl-sub">
+                  {st.removed.length > 0 ? "メンバーを外すと、事務所の復元キーは新しくなります。新しいキーを保管して、古い控えは破棄してください。" : "共有を始めると、事務所の復元キーは新しくなります。"}
+                  「保管した」と記録するか、復元キーで実際に開けるか試して通ると、保管済みになります。
+                </p>
+                <button type="button" class="btn primary" onClick={p.onRecovery} data-office-locked-go>
+                  復元キーを保管する
+                </button>
+              </div>
+            ) : null}
             {st.requests.length > 0 ? (
               <>
                 <h3>参加の申請（{st.requests.length}）</h3>
@@ -187,7 +276,8 @@ export function OfficePanel(p: OfficePanelProps) {
                         <button
                           type="button"
                           class="btn primary"
-                          disabled={busy || !ok}
+                          disabled={busy || !ok || st.recoveryRequired}
+                          title={st.recoveryRequired ? "事務所の復元キーを保管するまで承認できません" : undefined}
                           onClick={() =>
                             void run(async () => {
                               p.onStatus(await p.office.approve(r.requestId, v));
@@ -230,10 +320,20 @@ export function OfficePanel(p: OfficePanelProps) {
                         <code class="of-code">{m.fingerprint}</code>
                       </td>
                       <td class="num">{shortDate(m.joinedAt).slice(0, 10)}</td>
-                      <td>{m.approvedBy ?? "（始めた人）"}</td>
+                      <td>{m.viaRecovery ? "（復元キーで参加）" : (m.approvedBy ?? "（始めた人）")}</td>
                       <td>
                         {!m.isMe && st.members.length > 1 ? (
-                          <button type="button" class="link-btn danger" onClick={() => setRemoving({ id: m.memberId, name: m.name, value: "" })} data-office-remove={m.name}>
+                          <button
+                            type="button"
+                            class="link-btn danger"
+                            disabled={st.recoveryRequired}
+                            title={st.recoveryRequired ? "事務所の復元キーを保管するまで外せません" : undefined}
+                            onClick={() => {
+                              setRemovedDone(null);
+                              setRemoving({ id: m.memberId, name: m.name, value: "" });
+                            }}
+                            data-office-remove={m.name}
+                          >
                             外す
                           </button>
                         ) : null}
@@ -250,7 +350,10 @@ export function OfficePanel(p: OfficePanelProps) {
                 </p>
                 <p>
                   ただし、<b>{removing.name}さんのPCに既に同期された写しや、{removing.name}さんが書き出したファイルは、このアプリからは消せません</b>（外す時点までの内容は読めるままです）。
-                  共有フォルダの共有の設定からも{removing.name}さんを外してください。事務所の復元キーも新しくなるので、保管し直してください。
+                </p>
+                <p class="of-alert-strong" data-office-sync-notice>{syncShareNotice(removing.name)}</p>
+                <p class="pl-sub">
+                  同期サービスの共有に残っていると、外した直後の同期の遅れの間に、古い鍵で書き込まれるおそれがあります。事務所の復元キーも新しくなるので、外した後に保管し直してください（保管するまで、次の承認・外すは止まります）。
                 </p>
                 <label>
                   確認のため表示名（{removing.name}）を入れてください{" "}
@@ -264,9 +367,8 @@ export function OfficePanel(p: OfficePanelProps) {
                     onClick={() =>
                       void run(async () => {
                         p.onStatus(await p.office.remove(removing.id, removing.value));
-                        setMsg({ ok: true, text: `${removing.name}さんを外し、鍵を入れ替えました。事務所の復元キーを保管し直してください` });
+                        setRemovedDone(removing.name);
                         setRemoving(null);
-                        p.onRecovery();
                       })
                     }
                     data-office-remove-go
@@ -312,6 +414,54 @@ export function OfficePanel(p: OfficePanelProps) {
                 復元キーを表示・保管する
               </button>
             </p>
+            <h3>共有をやめる</h3>
+            {st.members.length > 1 ? (
+              <p class="pl-sub" data-office-end-blocked>
+                ほかのメンバーがいる間は、共有をやめられません。あなただけ抜けるときは、ほかのメンバーにあなたを<b>外してもらって</b>ください（事務所の鍵が入れ替わり、これから保存する内容はあなたのPCでは読めなくなります）。外されたら、このPCの中の事務所に戻れます。
+                担当していた顧客を持ち出すときは、パスワードつきの引き継ぎの書き出しを使ってください。事務所の共有を終えるときは、最後の1人になるまでメンバーを外してから、ここでやめます。
+              </p>
+            ) : ending === null ? (
+              <p>
+                共有フォルダの世帯（暗号化したまま）をこのPCの中へ移し、このPCの中だけで使う形に戻します。{" "}
+                <button type="button" class="btn" disabled={busy} onClick={() => setEnding("")} data-office-end>
+                  共有をやめる…
+                </button>
+              </p>
+            ) : (
+              <div class="of-remove" role="alert" data-office-end-confirm>
+                <p>
+                  <b>事務所の共有をやめると</b>、共有フォルダの世帯をすべてこのPCの中へ移し（このPCの鍵で暗号化し直します）、開けることを確かめてから、共有フォルダの世帯ファイル・鍵の札を消します。共有フォルダの事務所には「終えた」印が残り、復元キーでも加われなくなります。
+                </p>
+                <p class="pl-sub">
+                  これからは、このPCの中の事務所の復元キー（共有を始める前のもの）を使います。同期サービスの版の履歴には、暗号化された古い写しが残ります。
+                </p>
+                <label>
+                  確認のため、あなたの表示名（{st.myName}）を入れてください{" "}
+                  <input value={ending} onInput={(e) => setEnding((e.currentTarget as HTMLInputElement).value)} data-office-end-input />
+                </label>
+                <div class="rk-row">
+                  <button
+                    type="button"
+                    class="btn danger"
+                    disabled={busy || ending.trim() !== st.myName}
+                    onClick={() =>
+                      void run(async () => {
+                        p.onStatus(await p.office.end(ending));
+                        setEnding(null);
+                        p.onHouseholdsChanged();
+                        setMsg({ ok: true, text: "事務所の共有をやめました。世帯はこのPCの中にあります。このPCの中の事務所の復元キーを保管しているか確かめてください" });
+                      })
+                    }
+                    data-office-end-go
+                  >
+                    共有をやめる（世帯をこのPCの中へ移す）
+                  </button>
+                  <button type="button" class="link-btn" onClick={() => setEnding(null)}>
+                    やめない
+                  </button>
+                </div>
+              </div>
+            )}
             <h3>知っておいてほしいこと</h3>
             <ul class="of-notes">
               <li>ほかの人が開いている世帯を開くと「○○さんが開いています」と出ます。同期の遅れの分だけ遅れて届く目安で、同時に直すことを止める仕組みではありません。</li>

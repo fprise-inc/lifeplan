@@ -141,6 +141,15 @@ export interface OfficeMember {
   approvedBy: string | null;
   role: string;
   isMe: boolean;
+  /** 復元キーで名簿に自分を足したメンバー（承認した人はいない。0023 の5） */
+  viaRecovery: boolean;
+}
+
+/** ほかのメンバーへの知らせ（今は「復元キーで○○さんが加わりました」だけ） */
+export interface OfficeNotice {
+  kind: "recoveryJoin";
+  name: string;
+  at: string;
 }
 
 /** 参加の申請（承認する人には指紋を出さない。指紋は本人から別の経路で聞いて入力する） */
@@ -164,6 +173,12 @@ export interface OfficeStatus {
   recoveryAcknowledged: boolean;
   recoveryAcknowledgedBy: string | null;
   recoveryAcknowledgedAt: string | null;
+  /** 復元キーで実際に開けることを確かめた日時（今のキーについて） */
+  recoveryVerifiedAt: string | null;
+  /** 事務所の復元キーを保管するまで、承認・外すを止めている（世帯の閲覧・編集は止めない。0023 の5） */
+  recoveryRequired: boolean;
+  /** まだ見ていない知らせ */
+  notices: OfficeNotice[];
 }
 
 export interface OfficeHost {
@@ -181,6 +196,12 @@ export interface OfficeHost {
   remove(memberId: string, confirm: string): Promise<OfficeStatus>;
   /** このPCの中の世帯を共有フォルダへ移す（移した数） */
   moveLocal(): Promise<number>;
+  /** 全員の PC が使えなくなったとき: 本体がフォルダのダイアログを出し、事務所の復元キーで名簿に自分を足す（選ばなかったら null） */
+  recover(name: string, key: string): Promise<OfficeStatus | null>;
+  /** 事務所の共有をやめる（最後の1人だけ。confirm は自分の表示名）。世帯をこの PC の中へ移す */
+  end(confirm: string): Promise<OfficeStatus>;
+  /** 知らせを見た（この PC では次から出さない） */
+  dismissNotices(): Promise<OfficeStatus>;
 }
 
 /**
@@ -211,6 +232,8 @@ export interface StoreHost {
   resolveSyncCopies(id: string, adopt: boolean): Promise<void>;
   /** 保存した世帯から離れた（見本を開いた・削除した）: 事務所で共有しているときの自分の開いている印を消す */
   leave(): Promise<void>;
+  /** 開発用のビルドで、鍵を OS の保管庫ではなくファイルに置いているか（画面に小さな札を出す） */
+  devFileKeys(): Promise<boolean>;
 }
 
 // ---- AI接続口（0014・0015）。画面には鍵もパスも渡らない（接続の設定の文面は場所を伏せたもの） ----
@@ -410,6 +433,7 @@ export function tauriHost(): HostApi {
       resolveFork: (id, keepOurs) => invoke<StoredOpened>("store_fork_resolve", { id, keepOurs }),
       resolveSyncCopies: (id, adopt) => invoke<void>("store_sync_copies_resolve", { id, adopt }),
       leave: () => invoke<void>("store_leave"),
+      devFileKeys: () => invoke<boolean>("store_keystore"),
     },
     office: {
       status: () => invoke<OfficeStatus>("office_status"),
@@ -420,6 +444,9 @@ export function tauriHost(): HostApi {
       reject: (requestId) => invoke<OfficeStatus>("office_reject", { request: requestId }),
       remove: (memberId, confirm) => invoke<OfficeStatus>("office_remove", { member: memberId, confirm }),
       moveLocal: () => invoke<number>("office_move_local"),
+      recover: (name, key) => invoke<OfficeStatus | null>("office_recover", { name, key }),
+      end: (confirm) => invoke<OfficeStatus>("office_end", { confirm }),
+      dismissNotices: () => invoke<OfficeStatus>("office_dismiss_notices"),
     },
     ai: {
       status: () => invoke<AiStatus>("ai_status"),
@@ -512,6 +539,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       resolveFork: async (id, keepOurs) => devJson<StoredOpened>(await devStore("resolveFork", { id, keepOurs: keepOurs ? "1" : "" })),
       resolveSyncCopies: async (id, adopt) => void (await devJson<unknown>(await devStore("resolveSyncCopies", { id, adopt: adopt ? "1" : "" }))),
       leave: async () => undefined,
+      devFileKeys: async () => false,
     },
     // 事務所での共有: 開発用のサーバーのメモリの中の代わり（フォルダのダイアログは出さず、架空の共有フォルダを選んだことにする）
     office: {
@@ -523,6 +551,9 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       reject: async (requestId) => devJson<OfficeStatus>(await devOffice("reject", { requestId })),
       remove: async (memberId, confirm) => devJson<OfficeStatus>(await devOffice("remove", { memberId, confirm })),
       moveLocal: async () => devJson<number>(await devOffice("moveLocal")),
+      recover: async (name, key) => devJson<OfficeStatus | null>(await devOffice("recover", { name, key })),
+      end: async (confirm) => devJson<OfficeStatus>(await devOffice("end", { confirm })),
+      dismissNotices: async () => devJson<OfficeStatus>(await devOffice("dismissNotices")),
     },
     // AI接続口: 開発用のサーバーのメモリの中の代わり（本物の受け口は開けない。画面の確かめ用）
     ai: {

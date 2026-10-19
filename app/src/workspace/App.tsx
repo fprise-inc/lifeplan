@@ -321,6 +321,8 @@ export function App() {
   // 事務所での共有（0023）
   const [officeStatus, setOfficeStatus] = useState<OfficeStatus | null>(null);
   const [officeOpen, setOfficeOpen] = useState(false);
+  /** 開発用のビルドで、鍵をファイルに置いている（取り違えないよう札を出す） */
+  const [devKeys, setDevKeys] = useState(false);
   /** 開いた世帯を、ほかのメンバーが開いている（自動保存を止めて開いている間） */
   const [presence, setPresence] = useState<PresenceView[] | null>(null);
   /** 開いている人がいるので自動保存を止めているときの、保存済みの本文 */
@@ -409,6 +411,7 @@ export function App() {
           setStoreUnavailable(storeMessage(codeOf(e)));
         }
         void h.office.status().then(setOfficeStatus, () => undefined);
+        void h.store.devFileKeys().then(setDevKeys, () => undefined);
         autosaver.current = new Autosaver(async (body) => {
           const sr = storedRef.current;
           const o = openedRef.current;
@@ -1341,8 +1344,26 @@ export function App() {
         ) : null}
         {storeStatus?.state === "ready" && !storeStatus.recoveryAcknowledged && recovery === null ? (
           <button type="button" class="rk-remind" onClick={() => setRecovery("manage")} data-recovery-remind>
-            復元キーを保管してください
+            {officeStatus?.state === "member" ? "事務所の復元キーを保管してください" : "復元キーを保管してください"}
           </button>
+        ) : null}
+        {officeStatus?.state === "member" && officeStatus.notices.length > 0 && !officeOpen ? (
+          <button
+            type="button"
+            class="of-notice-band"
+            onClick={() => {
+              void host?.office.status().then(setOfficeStatus, () => undefined);
+              setOfficeOpen(true);
+            }}
+            data-office-notice-band
+          >
+            復元キーで{officeStatus.notices.map((n) => `${n.name}さん`).join("・")}が加わりました
+          </button>
+        ) : null}
+        {devKeys ? (
+          <span class="dev-keys" title="開発用のビルドです。鍵を OS の保管庫ではなく、開発用のデータフォルダのファイルに置いています。本物の顧客データに使わないでください" data-keystore-dev>
+            開発用: 鍵はファイルに保存
+          </span>
         ) : null}
         {model !== null ? (
           <div class="hh">
@@ -1702,8 +1723,11 @@ export function App() {
           mode={recovery}
           store={host.store}
           status={storeStatus}
+          shared={officeStatus?.state === "member"}
           onStatus={(st) => {
             setStoreStatus(st);
+            // 事務所の復元キーを保管した・試して通った: 止めていた共有の操作の表示を戻す（0023 の5）
+            void host.office.status().then(setOfficeStatus, () => undefined);
             if (recovery === "restore" && st.state === "ready") {
               setRecovery(null);
               void refreshStore();

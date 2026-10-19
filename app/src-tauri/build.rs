@@ -28,6 +28,7 @@ const COMMANDS: &[&str] = &[
     "recovery_key_acknowledge",
     "recovery_key_test",
     "recovery_key_restore",
+    "store_keystore",
     // 0014・0015: AI接続口（事務所の設定・世帯ごとの同意・共有・記録・候補の判断。パスも鍵も受け取らない・返さない）
     "ai_status",
     "ai_set_enabled",
@@ -46,6 +47,9 @@ const COMMANDS: &[&str] = &[
     "office_reject",
     "office_remove",
     "office_move_local",
+    "office_recover",
+    "office_end",
+    "office_dismiss_notices",
     "store_fork_info",
     "store_fork_resolve",
     "store_sync_copies_resolve",
