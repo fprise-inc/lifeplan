@@ -209,3 +209,18 @@ describe("相場が下がった場合・利回りの書き換え（0026）", () 
     expect(cells(short, "cf.balance.account.deposit", 2026)).toBe(cells(base, "cf.balance.account.deposit", 2026));
   });
 });
+
+describe("大きな病気（働けない期間の後に戻る）と退職給付（0026）", () => {
+  it("休職の後に同じ勤め先に戻るときは、退職給付を休職の月に支給せず、戻った期間の終わりにもとの勤続期間で支給する", async () => {
+    const { modelHousehold, realPacks } = await import("./helpers.ts");
+    const req = modelHousehold("investmentCouple") as unknown as Req;
+    const self = (req.input.household.members as unknown as { id: string; kind: string }[]).find((m) => m.kind === "self")?.id as string;
+    (req.input as unknown as Obj).contingencies = [{ id: uid("ill"), kind: "incapacity", member: self, occurs: { at: "2027-01" }, recovery: { at: "2028-01" }, medical: { monthly: 600000, months: 6 } }];
+    const r = runEngine(req, realPacks(), {});
+    const base = runEngine(modelHousehold("investmentCouple"), realPacks(), {});
+    const lump = (x: typeof r, y: number) => (x.table as unknown as { row: string; year: number; amount: number }[]).filter((c) => c.row === "cf.income.lumpSum.retirement" && c.year === y).reduce((s, c) => s + c.amount, 0);
+    expect(lump(r, 2027)).toBe(0);
+    expect(lump(r, 2041)).toBe(lump(base, 2041));
+    expect(lump(r, 2041)).toBeGreaterThan(0);
+  });
+});

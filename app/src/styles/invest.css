@@ -193,3 +193,4 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .pb-sub { font-size: 0.76rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-seg.tiny .pb-sub { visibility: hidden; }
 .donut-pair:not(.two) { max-width: 680px; }
+.sv-fld > .seg-g { justify-self: start; }

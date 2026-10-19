@@ -5,7 +5,8 @@
 //   その人の器への積立もその月で止まる。遺族年金・団信・保険金・遺族の生活費などは、判定の部品 contingency.event を読む部品が計算する
 // - 障害（disability）・就業不能（incapacity）: その月で働けなくなる（働き方の期間を区切る）。勤め先の健康保険に入っていた人は、翌月から
 //   休業（病気。leave/sick）の期間を最長18か月置く（傷病手当金は benefit.health がその期間に出す。保険料は休業中も続く）。
-//   働けるようになる月（recovery）があれば、その月から元の働き方の期間に戻る
+//   働けるようになる月（recovery）があれば、その月から元の働き方の期間に戻る（休職。その期間に結び付いた退職給付は、戻った期間の終わりに
+//   もとの勤続期間で支給する。0026）
 // - 遺族・家族の働き方の変化（survivor.spouseWork）: その期間の始まりから、その人のそれまでの働き方の期間を置き換える
 // ストレステスト（0005・0006 の追記 2026-10-09）: 型（template）と値から、前提の年ごとの列（物価・賃金）・資産の時価の下落（marketShocks）・
 // 変動金利の上乗せ（loanRateShifts）・収入の減少（incomeShocks）に書き換える
@@ -86,6 +87,7 @@ export function applyContingency(input: EngineInput, time: TimeResolver): { inpu
   let members = h.members;
   let relations = h.relations;
   let accounts = h.accounts;
+  let benefits = h.retirementBenefits;
 
   if (c.kind === "death") {
     // 働き方の期間はその月まで
@@ -125,6 +127,14 @@ export function applyContingency(input: EngineInput, time: TimeResolver): { inpu
       if (R !== null && pt >= R) {
         const from = pf > R ? pf : R;
         out.push(pf > D ? p : { ...p, id: derivedId(p.id, 1), from: at(from as MonthIndex) });
+        // 働けるようになって同じ勤め先に戻る（休職）: その期間に結び付いた退職給付は、休職で退職したことにせず、
+        // 戻った期間の終わりに、もとの勤続期間で支給する（0026）
+        if (pf <= D && benefits !== undefined) {
+          const resumed = derivedId(p.id, 1);
+          benefits = benefits.map((b) =>
+            b.employment !== p.id ? b : { ...b, employment: resumed, ...(b.service === undefined && p.to !== null ? { service: { from: p.from, to: p.to } } : {}) },
+          );
+        }
       }
     }
     periods = out;
@@ -164,7 +174,7 @@ export function applyContingency(input: EngineInput, time: TimeResolver): { inpu
     periods.push(q);
   }
 
-  const household = { ...h, members, relations, employmentPeriods: periods, accounts };
+  const household = { ...h, members, relations, employmentPeriods: periods, accounts, ...(benefits !== undefined ? { retirementBenefits: benefits } : {}) };
   return { input: { ...input, household }, header };
 }
 

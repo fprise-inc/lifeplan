@@ -61,6 +61,7 @@
 ### 8. 行と表示
 
 - 足す行: `cf.balance.account.pooled`（まとめた金融資産。金融資産に入る）、`cf.expense.living.drawdown`（取り崩して使うお金）。
+- 足した入力項目（器の利回り・運用の費用・前提の investment・assetVolatility・returnShifts）は計算に要る値なので、AI に渡す縮約版の許可リストに入れた（`reduced@3`。0015 の6）。
 - 資産の推移の見出しは「金融資産は○歳まで持ちます」（尽きる年の前の年の年齢。尽きなければ表の最後の年の年齢）。口座の内訳・運用の期間の帯は表示の設定（`display.invBreakdown`・`display.invPeriods`。運用の期間は省略で「取り崩しの計画があるときだけ」）として覚える。
 
 ## 未確定
