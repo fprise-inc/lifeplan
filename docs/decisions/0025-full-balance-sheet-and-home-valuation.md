@@ -95,3 +95,4 @@
 - 万一のときの扱い（車を手放すなど）を評価額に当てるか。
 
 ## 追記
+- 2026-10-19（AI接続口の縮約版）: 足した入力項目（`residence.valuation`・`residence.sale`・`account.valueGrowth`・`assumptions.realEstateValuation`）は計算に要る数の項目なので、縮約版の許可リスト（0015 の追記の3）に入れ、版を `reduced@2` にした。
