@@ -1,15 +1,4 @@
-/* 世帯の保存（上の帯の世帯のボタン・保存の状態・世帯の一覧・復元キーの中央のパネル）。色と線は app.css の変数を使う */
-
-/* 上の帯: 開いている世帯のボタンと保存の状態 */
-.hh-btn { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); background: #fff; border-radius: 8px; padding: 3px 10px; font-size: 0.88rem; cursor: pointer; max-width: 22em; }
-.hh-btn[aria-expanded="true"] { border-color: var(--prop); background: var(--prop-bg); }
-.hh-btn .hh-no { font-weight: 700; white-space: nowrap; }
-.hh-btn .hh-sub { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.hh-btn .caret { font-size: 0.7em; color: var(--ink-2); }
-.save-state { font-size: 0.78rem; color: var(--ink-2); white-space: nowrap; }
-.save-state.err { color: var(--short-ink); font-weight: 700; white-space: normal; max-width: 22em; }
-.save-state.unsaved { color: var(--est-ink); }
-.rk-remind { border: 1.5px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 999px; padding: 2px 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+/* 世帯の保存（世帯の一覧・復元キーの中央のパネル。上の帯の世帯のボタンは header.css）。色と線は app.css の変数を使う */
 
 /* 世帯の一覧 */
 .hh-panel { margin: 12px 20px 0; }
@@ -70,8 +59,6 @@ html.big .rk-key { font-size: 1.45rem; }
 .of-recover summary { cursor: pointer; font-weight: 700; }
 .of-key-input { max-width: 34em !important; width: 100%; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 .link-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.dev-keys { border: 1.5px dashed var(--short-ink); color: var(--short-ink); border-radius: 999px; padding: 1px 8px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
-.of-notice-band { border: 1.5px solid var(--short-ink); background: #fff7f5; color: var(--short-ink); border-radius: 999px; padding: 2px 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .of-notes { margin: 4px 0; padding-left: 1.2em; font-size: 0.86rem; color: var(--ink-2); }
 .of-notes li { margin: 3px 0; }
 
@@ -92,7 +79,7 @@ html.big .rk-key { font-size: 1.45rem; }
 .memo-authors .memo-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 .memo-authors .memo-by { white-space: nowrap; font-weight: 700; }
 
-/* 保存先（1人で2台の PC の同期フォルダ。0024）: 保存先のパネルの節・保存先と同期の知らせ・初回の案内の「2台目の PC」 */
+/* 保存先（1人で2台の PC の同期フォルダ。0024）: 保存先のパネルの節・保存先と同期の通知・初回の案内の「2台目の PC」 */
 .sp-section { border-top: 1px solid var(--line-2); margin-top: 12px; padding-top: 4px; }
 .sp-notices { list-style: none; padding: 0; margin: 6px 0 10px; display: grid; gap: 6px; }
 .sp-notices li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; border-radius: 8px; padding: 6px 12px; font-size: 0.88rem; border: 1.5px solid var(--line); background: #fff; }

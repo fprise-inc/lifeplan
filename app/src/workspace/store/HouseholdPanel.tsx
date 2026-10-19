@@ -38,7 +38,7 @@ export interface HouseholdPanelProps {
   onStorage?: () => void;
   /** 使い方: 1人で複数の PC の同期フォルダ（personal）／事務所での共有（office）。共有していなければ null */
   usage?: "personal" | "office" | null;
-  /** 保存先と同期の知らせ */
+  /** 保存先と同期の通知 */
   storageNotices?: StorageNotice[];
   onClose: () => void;
 }
@@ -84,7 +84,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   const shared = p.officeState === "member";
   /** 1人で複数の PC の同期フォルダ: 「人」ではなく「PC」の言葉で出す（0024） */
   const personal = p.usage === "personal";
-  // 一覧に出す知らせ（鍵が無い・PC の中だけで復元キーを保管していないは、この下と帯の案内で出すので除く）
+  // 一覧に出す通知（鍵が無い・PC の中だけで復元キーを保管していないは、この下と帯の案内で出すので除く）
   const notices = (p.storageNotices ?? []).filter((n) => n.kind !== "needsRecovery" && !(n.kind === "recoveryNotKept" && n.scope === "local"));
   const storageLabel = p.officeState === undefined || p.officeState === "off" ? "このPCの中" : personal ? (p.officeState === "member" ? "同期フォルダ（2台のPC）" : "同期フォルダ（使えません）") : "事務所の共有フォルダ";
   return (

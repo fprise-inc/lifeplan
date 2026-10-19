@@ -1,10 +1,7 @@
-/* AI接続口（上の帯の印・共有中の帯・事務所の設定と世帯の同意の中央のパネル・AIからの候補）。色と線は app.css の変数を使う */
+/* AI接続口（共有中の帯・事務所の設定と世帯の同意の中央のパネル・AIからの候補）。色と線は app.css の変数を使う */
 
-/* 上の帯: 世帯の「AIとの共有」の印 */
-.ai-chip { border: 1.5px solid var(--line); background: #fff; color: var(--ink-2); border-radius: 999px; padding: 2px 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
-.ai-chip.s-given { border-color: var(--prop); color: var(--prop-ink); background: var(--prop-bg); }
-.ai-chip.s-sharing { border-color: var(--est); background: var(--est-bg); color: var(--est-ink); }
-.ai-chip.s-sharing::before, .ai-band-mark { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--est); margin-right: 6px; vertical-align: 1px; }
+/* 共有中の印（上の帯の札は header.css） */
+.ai-band-mark { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--est); margin-right: 6px; vertical-align: 1px; }
 
 /* 共有中の帯 */
 .ai-band { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 7px 20px; background: var(--est-bg); border-bottom: 2px solid var(--est-band); color: var(--est-ink); font-size: 0.9rem; }

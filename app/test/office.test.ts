@@ -157,7 +157,7 @@ describe("事務所の共有の設定", () => {
     expect(ok).not.toContain("data-office-locked");
     expect(ok).not.toMatch(/<button[^>]*disabled[^>]*data-office-remove="担当C"/);
   });
-  it("復元キーで加わった人を、名簿と知らせに出す", () => {
+  it("復元キーで加わった人を、名簿と通知に出す", () => {
     const st = status({
       members: [...status().members, { memberId: "n", name: "担当N", fingerprint: "N4KD-7QXA-2MVT-H9RP", joinedAt: "2026-10-19T00:00:00Z", approvedBy: null, role: "member", isMe: false, viaRecovery: true }],
       notices: [{ kind: "recoveryJoin", name: "担当N", at: "2026-10-19T00:00:00Z" }],

@@ -1,5 +1,5 @@
 /* ファイナンシア（入力のホーム・主画面・万一の想定）。色は藍（提案）と灰（現状）の2色、不足の赤だけ例外。塗りは単色、不足は斜線。
-   表示は1つ（共有用の切り替えは無い）。右上の「文字を大きくする」で、文字を約2割大きく・線を太くする */
+   表示は1つ（共有用の切り替えは無い）。右上の文字の大きさ「中・大」の「大」で、文字を約2割大きく・線を太くする */
 :root {
   color-scheme: light;
   --ink: #1a1d21;
@@ -38,7 +38,7 @@
   --font: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
 }
 html { font-size: var(--fs); -webkit-text-size-adjust: 100%; }
-/* 文字を大きくする: 文字を約2割大きく（16px→19px）、線を太く */
+/* 文字の大きさ「大」: 文字を約2割大きく（16px→19px）、線を太く */
 html.big { --fs: 19px; --lw-prop: 5px; --lw-base: 4.5px; --drawer-w: 500px; }
 html.panel-open { overflow: hidden; }
 * { box-sizing: border-box; }
@@ -49,43 +49,8 @@ b { font-weight: 700; }
 .u { font-size: 0.62em; font-weight: 700; margin-left: 0.12em; }
 :focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
 
-/* 上の帯 */
-.top { display: flex; align-items: center; gap: 10px 14px; padding: 10px 20px; background: #fff; border-bottom: 1px solid var(--card-line); flex-wrap: wrap; }
-.brand { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.04em; white-space: nowrap; }
-.brand-mark { width: 18px; height: 18px; border-radius: 5px; background: var(--prop); position: relative; flex: none; }
-.brand-mark::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 4px; height: 6px; border-left: 3px solid #fff; border-bottom: 3px solid #fff; transform: skewX(-12deg); }
-.hh, .hh-pick { font-size: 0.88rem; display: flex; gap: 6px 10px; flex-wrap: wrap; align-items: center; }
+/* 上の帯は header.css */
 .tag { font-size: 0.78rem; font-weight: 700; border: 1.5px solid var(--ink-2); border-radius: 4px; padding: 0 6px; white-space: nowrap; }
-.hh-pick select { border: 1.5px solid var(--line); border-radius: 6px; padding: 2px 6px; background: #fff; max-width: 14em; }
-.tabs { display: flex; gap: 2px; margin-left: auto; }
-.tabs button { background: none; border: 0; padding: 6px 10px; font-weight: 700; font-size: 0.92rem; border-bottom: 3px solid transparent; color: var(--ink-2); cursor: pointer; }
-.tabs button.on { color: var(--ink); border-bottom-color: var(--prop); }
-/* 元に戻す・やり直す（↶ ↷）。控えめに、メモのボタンの左に置く */
-.undo-btns { display: inline-flex; gap: 4px; }
-.undo-btn { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); background: #fff; color: var(--ink); border-radius: 8px; font-size: 1.15rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
-.undo-btn:hover:not(:disabled) { border-color: var(--ink); }
-.undo-btn:disabled { color: #b4bbc3; cursor: default; }
-/* 右上: メモの引き出しと「文字を大きくする」 */
-.memo-btn { display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--memo-line); background: var(--memo-bg); border-radius: 8px; padding: 5px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-.memo-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
-.memo-n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 99px; background: #fff; color: var(--ink); border: 1.5px solid currentColor; font-size: 0.78em; padding: 0 0.3em; }
-.big-btn { display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--ink); background: #fff; border-radius: 999px; padding: 5px 14px 5px 8px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-.big-btn .sw { width: 38px; height: 22px; border-radius: 99px; background: #8a939d; position: relative; flex: none; }
-.big-btn .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.15s; }
-.big-btn .aa { font-size: 0.8rem; }
-@media (max-width: 1500px) { .big-btn .aa { display: none; } .top { gap: 8px 10px; } .tabs button { padding: 6px 8px; } }
-/* 広い画面では上の帯を1行に保つ（世帯の構成員の文字を省略して詰める） */
-@media (min-width: 1100px) {
-  .top { flex-wrap: nowrap; }
-  .top > * { flex: none; }
-  .top > .hh { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden; }
-  .top > .hh > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-}
-.big-btn .aa b { font-size: 1.15rem; }
-.big-btn[aria-pressed="true"] { background: var(--prop); border-color: var(--prop); color: #fff; }
-.big-btn[aria-pressed="true"] .sw { background: #fff; }
-.big-btn[aria-pressed="true"] .sw::after { left: 19px; background: var(--prop); }
-@media (prefers-reduced-motion: reduce) { .big-btn .sw::after { transition: none; } }
 
 /* 配置 */
 .wrap { padding: 16px 20px 24px; max-width: 1880px; margin: 0 auto; }
@@ -99,7 +64,6 @@ b { font-weight: 700; }
 .foot { margin-top: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; }
-  .tabs { margin-left: 0; }
 }
 
 /* 主役の数字 */
