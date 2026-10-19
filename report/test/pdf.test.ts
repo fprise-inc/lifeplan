@@ -88,8 +88,9 @@ describe.skipIf(bin === null)("見本の PDF", () => {
       it("要約の数字（目標の年の金融資産・FP顧問料の累計）がエンジンの出力と一致する", () => {
         const fin = byYear(bundle.proposal.result, ROWS.金融資産残高 as never).get(input.summary.target.year) as number;
         expect(all).toContain(`${man(fin)}万円`);
-        const fee = bundle.proposal.result.summary.advisoryFee?.total as number;
-        expect(all).toContain(`累計は${yenText(fee)}`);
+        // FP顧問料の累計は、顧問料の契約がある見本だけ（資産運用の見本は持たない）
+        const fee = bundle.proposal.result.summary.advisoryFee?.total;
+        if (fee !== undefined) expect(all).toContain(`累計は${yenText(fee)}`);
       });
 
       it("提案での変更点の章には FP顧問料の累計を出さない（顧問料込みの効果の一文だけ）", () => {

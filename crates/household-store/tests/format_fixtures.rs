@@ -86,6 +86,23 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "0.4 の見本には持ち家の評価がある"
             );
         }
+        if *v == "0.5" {
+            // 0.5 から: 資産運用（0026）。見本の世帯は、積立の終わりが空の積立と、取り崩しの計画を持つ
+            let accounts = now["household"]["request"]["input"]["household"]["accounts"]
+                .as_array()
+                .unwrap();
+            assert!(
+                accounts.iter().any(|a| a["contributions"]
+                    .as_array()
+                    .is_some_and(|cs| cs.iter().any(|c| c["to"].is_null()))),
+                "0.5 の見本には積立の終わりが空の積立がある"
+            );
+            assert!(
+                now["household"]["request"]["input"]["assumptions"]["investment"]["drawdown"]
+                    .is_object(),
+                "0.5 の見本には取り崩しの計画がある"
+            );
+        }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
         }

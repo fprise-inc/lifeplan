@@ -446,8 +446,58 @@
       "description": "載せる章（帳票の並び）。省略はすべての章。cover・assumptions は必ず入れる（宛名欄と必須の記載の欄。0009 の3・6）",
       "type": "array",
       "uniqueItems": true,
-      "items": { "enum": ["cover", "assumptions", "summary", "basics", "events", "cashflow", "education", "housing", "retirement", "contingency", "insurance", "changes", "comparison"] },
+      "items": { "enum": ["cover", "assumptions", "summary", "basics", "events", "cashflow", "education", "housing", "retirement", "investment", "marketDrop", "contingency", "insurance", "changes", "comparison"] },
       "allOf": [{ "contains": { "const": "cover" } }, { "contains": { "const": "assumptions" } }]
+    },
+    "investment": {
+      "description": "資産運用の計画（0026）: 入れ方・取り崩しの条件・何歳まで持つか・運用の期間・口座ごとの推移（提案）・資産の内訳（現状と提案を同じ年で）。省略・null は載せない",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["method", "condition", "lasts", "periods", "accounts", "donut"],
+      "properties": {
+        "method": { "type": "string" },
+        "condition": { "type": "string" },
+        "lasts": { "type": "object", "additionalProperties": false, "required": ["current", "proposal"], "properties": { "current": { "type": "string" }, "proposal": { "type": "string" } } },
+        "periods": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["accumText", "holdText", "holdSub", "wdText", "wdSub", "accumEnd", "wdStart", "steps", "estimated"],
+          "properties": {
+            "accumText": { "type": "string" },
+            "holdText": { "type": "string" },
+            "holdSub": { "type": "string" },
+            "wdText": { "type": "string" },
+            "wdSub": { "type": "string" },
+            "accumEnd": { "type": ["integer", "null"] },
+            "wdStart": { "type": ["integer", "null"] },
+            "steps": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["year", "label"], "properties": { "year": { "$ref": "#/$defs/year" }, "label": { "type": "string" } } } },
+            "estimated": { "type": "boolean" }
+          }
+        },
+        "accounts": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["label", "color", "values"], "properties": { "label": { "type": "string" }, "color": { "type": "string", "pattern": "^#[0-9a-f]{6}$" }, "values": { "$ref": "#/$defs/yens" } } } },
+        "donut": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["year", "label", "current", "proposal"],
+          "properties": {
+            "year": { "$ref": "#/$defs/year" },
+            "label": { "type": "string" },
+            "current": { "$ref": "#/$defs/coloredAmounts" },
+            "proposal": { "$ref": "#/$defs/coloredAmounts" }
+          }
+        }
+      }
+    },
+    "marketDrop": {
+      "description": "相場が下がった場合（0026）: 提案の金融資産と、3つの型（退職の直後の下落・一定期間の低い利回り・ずっと低い利回り）の金融資産。省略・null は載せない",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["proposal", "lasts", "lines"],
+      "properties": {
+        "proposal": { "$ref": "#/$defs/yens" },
+        "lasts": { "type": "string" },
+        "lines": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["label", "lasts", "values"], "properties": { "label": { "type": "string" }, "lasts": { "type": "string" }, "values": { "$ref": "#/$defs/yens" } } } }
+      }
     },
     "comparison": {
       "description": "案の比較のページ（主画面の比較の表と同じ数字）。差はいつも「その案−基準」。省略・null は載せない",
@@ -552,6 +602,7 @@
         }
       }
     },
+    "coloredAmounts": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["label", "amount", "color"], "properties": { "label": { "type": "string" }, "amount": { "$ref": "#/$defs/yen" }, "color": { "type": "string", "pattern": "^#[0-9a-f]{6}$" } } } },
     "yearTable": {
       "type": "object",
       "additionalProperties": false,

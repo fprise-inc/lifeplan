@@ -89,4 +89,32 @@ export interface ProposalBundle {
    * 計算の要求の中の推定の値の箱（state: "estimated"）は、これが無くても読む。どの欄が推定かは帳票に渡さない（FP 向けの画面だけで示す）
    */
   estimated?: boolean;
+  /** 資産運用の計画（0026）: 画面が入力から作る文（入れ方・取り崩しの条件・運用の期間）と、相場が下がった場合の計算（提案に型を重ねたもの） */
+  investment?: InvestmentMaterial;
+}
+
+/** 資産運用の計画の材料（画面の作業の層が作る。金額は計算の結果から帳票の側で読む） */
+export interface InvestmentMaterial {
+  /** 入れ方（合計・口座・資産配分） */
+  method: string;
+  /** 例: 「65歳から毎月17万円ずつ取り崩す場合」 */
+  condition: string;
+  periods: {
+    accumText: string;
+    holdText: string;
+    holdSub: string;
+    wdText: string;
+    wdSub: string;
+    /** 据え置き始める年（積立をやめた次の年）と、取り崩しを始める年（予定が無ければ null） */
+    accumEnd: number | null;
+    wdStart: number | null;
+    /** 積立額が変わる年と、その期間の額の札 */
+    steps: { year: number; label: string }[];
+    /** 積立をやめる年が空欄（退職の年まで・推定） */
+    estimated: boolean;
+  };
+  /** 資産の内訳を見る年 */
+  donutYear: number;
+  /** 相場が下がった場合（提案に型を重ねた計算） */
+  stress?: { label: string; run: Run }[];
 }

@@ -88,12 +88,13 @@ describe("万一の画面の要求", () => {
   const self = hh.members.find((m) => m.kind === "self")!;
   const spouse = hh.members.find((m) => m.kind === "spouse")!;
 
-  it("想定: 大人ごとの死亡と就業不能。万一なしは世帯の万一の想定・必要保障額の要求を外す", () => {
-    expect(scenarios(wh).map((s) => s.label)).toEqual(["ご主人の死亡", "奥様の死亡", "就業不能（ご主人）", "就業不能（奥様）"]);
+  it("想定: 大人ごとの死亡と就業不能・本人の大きな病気・（運用する口座があれば）相場の下落。万一なしは世帯の万一の想定・必要保障額の要求を外す", () => {
+    expect(scenarios(wh).map((s) => s.label)).toEqual(["ご主人の死亡", "奥様の死亡", "就業不能（ご主人）", "就業不能（奥様）", "大きな病気（ご主人）", "相場の下落"]);
+    expect(scenarios(open("investmentCouple")).map((s) => s.key)).toEqual(["death:self", "death:spouse", "disability:self", "disability:spouse", "illness:self", "market"]);
     const b = baseRequest(modelHousehold("survivorEmployeeLoan"));
     expect(b.input.contingencies).toBeUndefined();
     expect(b.input.protection).toBeUndefined();
-    expect(scenarios(open("single45")).map((s) => s.key)).toEqual(["disability:self"]);
+    expect(scenarios(open("single45")).map((s) => s.key)).toEqual(["disability:self", "illness:self", "market"]);
   });
 
   it("前提（遺族の生活費の割合・整理資金・期間）は必要保障額と死亡の想定の両方に入る。残された配偶者の働き方は死亡の想定にだけ", () => {

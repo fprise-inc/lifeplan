@@ -13,6 +13,10 @@ import { hasAdvisoryFee } from "../levers.ts";
 import { CURRENT } from "../plans/band.ts";
 import type { Catalog } from "../plans/items.ts";
 import { applyValues, changesOfValues, type Values } from "../plans/plans.ts";
+import { METHODS, methodOf } from "../input/savings/model.ts";
+import { bandOf, donutYear, drawdownText, stressLabel, stressRequests, STRESS_KEYS } from "../invest/present.ts";
+import { displayYears } from "../present.ts";
+import { ageInYear, roles } from "../roles.ts";
 
 export const DEFAULT_CHAPTERS: readonly ChapterId[] = CHAPTERS.map((c) => c.id);
 
@@ -115,6 +119,14 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
     }
   }
 
+  // 資産運用の計画・相場が下がった場合（0026）: 金融資産の器があるときだけ。相場が下がった場合は提案に3つの型を重ねた計算
+  const invested = (proposal.input.household.accounts ?? []).some((a) => a.kind !== "realEstate" && a.kind !== "otherAsset" && a.kind !== "insurance");
+  const investOn = invested && (on.has("investment") || on.has("marketDrop"));
+  if (invested && on.has("marketDrop")) {
+    const sr = stressRequests(proposal);
+    for (const k of STRESS_KEYS) requests[`stress:${k}`] = sr[k];
+  }
+
   // 比較のページ（現状と帯の案。2列以上のときだけ）
   const compare = on.has("comparison") ? choice.compare.filter((id, i, a) => a.indexOf(id) === i).slice(0, 6) : [];
   if (compare.length >= 2) for (const id of compare) if (id !== CURRENT && id !== choice.proposal) requests[`plan:${id}`] = applyValues(wh, ctx.valuesOf(id), cat);
@@ -146,6 +158,29 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
     if (deferral !== null) {
       const now = typeof values["lever:pensionAge"] === "number" ? (values["lever:pensionAge"] as number) : (pensionItem?.read(wh) as number);
       b.deferral = { memberKey: "self", options: deferral.ages.map((age) => ({ startAge: age, run: age === now ? proposalRun : run(`defer${age}`) })) };
+    }
+    if (investOn) {
+      const years = displayYears(proposal);
+      const self = roles(proposal).find((r) => r.key === "self");
+      const band = bandOf(proposal, years.map((y) => (self === undefined ? null : ageInYear(self.member, y))));
+      const yearAt = (i: number | null) => (i === null ? null : (years[i] ?? null));
+      b.investment = {
+        method: METHODS.find((m) => m.id === methodOf(proposal))?.label ?? "口座",
+        condition: drawdownText(proposal),
+        periods: {
+          accumText: band?.accumText ?? "",
+          holdText: band?.holdText ?? "",
+          holdSub: band?.holdSub ?? "",
+          wdText: band?.wdText ?? "",
+          wdSub: band?.wdSub ?? "",
+          accumEnd: band === null ? null : yearAt(band.accumEnd),
+          wdStart: band === null ? null : yearAt(band.wdStart),
+          steps: (band?.steps ?? []).flatMap((x) => (years[x.at] === undefined ? [] : [{ year: years[x.at] as number, label: x.label }])),
+          estimated: band?.estimated ?? false,
+        },
+        donutYear: donutYear(proposal, years),
+        ...(on.has("marketDrop") ? { stress: STRESS_KEYS.map((k) => ({ label: stressLabel(proposal, k), run: run(`stress:${k}`) })) } : {}),
+      };
     }
     if (compare.length >= 2) {
       b.comparison = {

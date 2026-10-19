@@ -8,7 +8,15 @@ import { addMonths, ageReachedMonth, derivedId, parseYm } from "../levers.ts";
 import { roles } from "../roles.ts";
 import type { SurvivorWork } from "./planData.ts";
 
-export type ScenarioKind = "death" | "disability";
+export type ScenarioKind = "death" | "disability" | "illness" | "market";
+
+/** 大きな病気のときの目安（仮の値。事務所で根拠を確かめて直す前提）。医療費は保険診療の10割で、自己負担は高額療養費で計算する */
+export const ILLNESS_DEFAULT = { months: 12, medicalMonthly: 600_000, medicalMonths: 6 } as const;
+/** 相場が下がったときの下がる幅の既定（3割）と、下げる資産の種類（株・REIT） */
+export const MARKET_DROP_DEFAULT = "0.3";
+const RISKY = ["equity.domestic", "equity.global", "reit.domestic", "reit.global"];
+/** 運用する器（相場が下がったときの場面を出すか） */
+const INVESTED = new Set(["taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "esop", "pooled"]);
 
 export interface Scenario {
   /** 画面の鍵（物の ID を含まない）: death:self・disability:spouse など */
@@ -55,6 +63,13 @@ export function scenarios(wh: WorkingHousehold): Scenario[] {
   for (const a of list) {
     const who = label.get(a.member.id) ?? "ご本人";
     out.push({ key: `disability:${a.member.kind}`, kind: "disability", member: a.member.id, label: `就業不能（${who}）`, who });
+  }
+  // 0026: 大きな病気のとき（本人）・相場が下がったとき（運用する口座があるとき）
+  const self = list.find((a) => a.member.kind === "self") ?? list[0];
+  if (self !== undefined) {
+    const who = label.get(self.member.id) ?? "ご本人";
+    out.push({ key: "illness:self", kind: "illness", member: self.member.id, label: `大きな病気（${who}）`, who });
+    if ((h.accounts ?? []).some((x) => INVESTED.has(x.kind))) out.push({ key: "market", kind: "market", member: self.member.id, label: "相場の下落", who });
   }
   return out;
 }
@@ -142,6 +157,19 @@ export function scenarioRequest(wh: WorkingHousehold, sc: Scenario, year: number
   const h = req.input.household;
   const plan = wh.contingency;
   const occurs = occursMonth(req, year);
+  if (sc.kind === "market") {
+    // 相場が下がったとき: その年の年末に、株・REIT の部分をその幅だけ下げる（ストレステストの型。0026）
+    req.input.stressTest = { template: "marketDropAtRetirement", params: { year, drop: plan.market?.drop ?? MARKET_DROP_DEFAULT, assetClasses: [...RISKY] } };
+    return req;
+  }
+  if (sc.kind === "illness") {
+    // 大きな病気のとき: その月から働けない（会社員は休業して傷病手当金）、決めた月数の後に元の働き方に戻る。医療費は高額療養費で止める
+    const il = { ...ILLNESS_DEFAULT, ...(plan.illness ?? {}) };
+    req.input.contingencies = [
+      { id: derivedId(sc.member, "contingency:illness"), kind: "incapacity", member: sc.member, occurs: { at: occurs }, recovery: { at: addMonths(occurs, il.months) }, medical: { monthly: il.medicalMonthly, months: il.medicalMonths } },
+    ];
+    return req;
+  }
   const c: Contingency = { id: derivedId(sc.member, `contingency:${sc.kind}`), kind: sc.kind, member: sc.member, occurs: { at: occurs } };
   if (sc.kind === "death") {
     const s = survivorOf(plan.survivor) ?? {};

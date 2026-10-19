@@ -1330,6 +1330,8 @@
   "excludingInvestment": -3981200
  },
  "comparison": null,
+ "investment": null,
+ "marketDrop": null,
  "layout": {
   "orientation": "portrait",
   "cashflow": "summary"

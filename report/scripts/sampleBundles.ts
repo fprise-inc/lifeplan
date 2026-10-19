@@ -146,7 +146,63 @@ export function advisoryFeeBundle(): ProposalBundle {
   };
 }
 
+/**
+ * 見本3: 資産運用（investmentCouple。0026）。NISA の積立を年齢で増やし、65歳から毎月17万円を取り崩す現状に、取り崩しを毎月13万円にする提案。
+ * 資産運用の計画（運用の期間・口座ごとの推移・資産の内訳）と、相場が下がった場合の3つの型
+ */
+export function investmentBundle(): ProposalBundle {
+  const current = modelHousehold("investmentCouple");
+  const me = self(current);
+  const proposal = clone(current);
+  const inv = (proposal.input.assumptions as { investment?: { drawdown?: { monthly?: number } } }).investment;
+  if (inv?.drawdown !== undefined) inv.drawdown.monthly = 130000;
+  const retireYear = Number(addMonths(ageReachedMonth(me, 60), -1).slice(0, 4));
+  const wdYear = Number(ageReachedMonth(me, 65).slice(0, 4));
+  const withTest = (stressTest: Record<string, unknown>): EngineRequest => ({ ...clone(proposal), input: { ...clone(proposal).input, stressTest } }) as unknown as EngineRequest;
+  const risky = ["equity.domestic", "equity.global", "reit.domestic", "reit.global"];
+  const runs = runAll([
+    current,
+    proposal,
+    withTest({ template: "marketDropAtRetirement", params: { year: retireYear, drop: "0.3", assetClasses: risky } }),
+    withTest({ template: "lowReturnPeriod", params: { year: wdYear, years: 10, cap: "0.005" } }),
+    withTest({ template: "returnShortfall", params: { add: "-0.01" } }),
+  ]);
+  return {
+    document: { issuedOn: "2026-10-19", preparedBy: "見本FP事務所（架空）" },
+    current: runOf(runs, 0),
+    proposal: runOf(runs, 1),
+    targetAge: 95,
+    changes: [{ label: "毎月の取り崩し額", current: "17万円", proposal: "13万円" }],
+    investment: {
+      method: "口座",
+      condition: "65歳から毎月13万円ずつ取り崩す場合",
+      periods: {
+        accumText: "積み立てる 45〜59歳",
+        holdText: "据え置く",
+        holdSub: "60〜64歳",
+        wdText: "取り崩す",
+        wdSub: "65歳〜 月13万円",
+        accumEnd: retireYear + 1,
+        wdStart: wdYear,
+        steps: [
+          { year: 2027, label: "月5.7万" },
+          { year: 2031, label: "月7.7万" },
+          { year: 2036, label: "月9.7万" },
+        ],
+        estimated: true,
+      },
+      donutYear: wdYear,
+      stress: [
+        { label: "退職の直後に株などが3割下がる", run: runOf(runs, 2) },
+        { label: "取り崩しを始めてから10年間、利回りが低いまま（年0.5%）", run: runOf(runs, 3) },
+        { label: "利回りがずっと想定より1%低い", run: runOf(runs, 4) },
+      ],
+    },
+  };
+}
+
 export const SAMPLES: { id: string; title: string; bundle: () => ProposalBundle }[] = [
   { id: "salariedCoupleTwoKids", title: "会社員の夫婦と子2人（生活費・NISA・FP顧問料、万一、年金の繰下げ）", bundle: salariedCoupleBundle },
   { id: "advisoryFeeProposal", title: "FP顧問料つきの提案（打ち手ごとの効果と、運用の前提の変更を除いた効果）", bundle: advisoryFeeBundle },
+  { id: "investmentCouple", title: "資産運用（期間を分けた積立・取り崩しの計画、資産運用の計画と相場が下がった場合）", bundle: investmentBundle },
 ];
