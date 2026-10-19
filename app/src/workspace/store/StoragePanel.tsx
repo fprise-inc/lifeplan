@@ -348,7 +348,7 @@ export function StoragePanel(p: StoragePanelProps) {
                     外す（鍵を入れ替える）
                   </button>
                   <button type="button" class="link-btn" onClick={() => setRemoving(null)}>
-                    やめる
+                    キャンセル
                   </button>
                 </div>
               </div>
@@ -422,7 +422,7 @@ export function StoragePanel(p: StoragePanelProps) {
                     このPCの中へ戻す
                   </button>
                   <button type="button" class="link-btn" onClick={() => setEnding(null)}>
-                    やめる
+                    キャンセル
                   </button>
                 </div>
               </div>
