@@ -1,5 +1,5 @@
 // 1人で2台の PC の同期フォルダ（0024）の画面の側: 保存先のパネル（このPCの中・同期フォルダ・2台目の PC で開く・PC の一覧・外す・戻す）、
-// 世帯の一覧の PC の言葉と知らせ、事務所の共有のパネルとの出し分け、初回の案内の「2台目の PC」の入口、分岐の画面、知らせの文
+// 世帯の一覧の PC の言葉と通知、事務所の共有のパネルとの出し分け、初回の案内の「2台目の PC」の入口、分岐の画面、通知の文
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
@@ -103,7 +103,7 @@ describe("保存先のパネル: 同期フォルダ（1人で2台の PC）", () 
     expect(html).toContain("data-sync-end");
     expect(html).toContain("同期フォルダには置きません");
   });
-  it("復元キーで PC が加わった知らせ・置かれた参加の申請（承認はできない）・移していない世帯", () => {
+  it("復元キーで PC が加わった通知・置かれた参加の申請（承認はできない）・移していない世帯", () => {
     const html = storage(personal({ notices: [{ kind: "recoveryJoin", name: "古いノート", at: "2026-10-19T00:00:00Z" }], requests: [{ requestId: "r", name: "だれか", requestedAt: "2026-10-19T00:00:00Z" }], localHouseholds: 2 }));
     expect(html).toContain("data-sync-notice");
     expect(html).toContain("復元キーで「古いノート」が同期フォルダを開きました");
@@ -152,7 +152,7 @@ describe("世帯の一覧", () => {
     expect(html).toContain("data-household-notices");
     expect(html).toContain("同期サービスの衝突の写しがある世帯が1件あります");
   });
-  it("このPCの中のときは「このPCの中」。PC の中だけの復元キーの知らせは帯の案内に任せて出さない", () => {
+  it("このPCの中のときは「このPCの中」。PC の中だけの復元キーの通知は帯の案内に任せて出さない", () => {
     const html = renderToString(h(HouseholdPanel, { ...base, list: [], officeState: "off", usage: null, storageNotices: [notice("recoveryNotKept", { scope: "local", level: "info" })] }));
     expect(html).toMatch(/data-storage-label[^>]*>このPCの中</);
     expect(html).not.toContain("data-household-notices");
@@ -213,7 +213,7 @@ describe("分岐・開いている PC の文", () => {
   });
 });
 
-describe("知らせの文", () => {
+describe("通知の文", () => {
   it("種類ごとに、保存先に合った文を作る", () => {
     expect(storageNoticeText(notice("recoveryJoin", { name: "古いノート" }))).toContain("「古いノート」が同期フォルダを開きました");
     expect(storageNoticeText(notice("recoveryJoin", { name: "担当N", scope: "office" }))).toBe("復元キーで担当Nさんが加わりました");

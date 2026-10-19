@@ -1,7 +1,7 @@
 // 画面の大枠（作業の層）: 世帯を開き、案（現状＋帯に並べた案）を二本立てのエンジンで計算し、提示用の値を作って提示層の部品に渡す。
 // 主画面の配置（2026-10-17 に決定）: 上から ① 案の帯 → ② グラフ（幅いっぱい・上下を大きく） → ③ 対策 → ④ 生涯キャッシュフロー表
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
 import { devBrowserHost, isTauri, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
@@ -17,7 +17,7 @@ import { AiCandidates } from "./ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
 import { AiShareBand } from "./ai/AiShareBand.tsx";
 import { AiSharePanel } from "./ai/AiSharePanel.tsx";
-import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, remainingText, shareState, SHARE_STATE_TEXT } from "./ai/model.ts";
+import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, shareState, SHARE_STATE_TEXT } from "./ai/model.ts";
 import { useAi } from "./ai/useAi.ts";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
 import { ContingencyEngine } from "./contingency/engine.ts";
@@ -59,6 +59,9 @@ import { StoragePanel } from "./store/StoragePanel.tsx";
 import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
 import { installUndo, undoController } from "./undo/controller.ts";
 import { UndoButtons } from "./undo/UndoButtons.tsx";
+import { BasisLine, HouseholdNow } from "./header/HouseholdNow.tsx";
+import { barAlerts, barNotices, saveText, type AlertKind, type BarInputs, type NoticeTarget } from "./header/status.ts";
+import { TopBar } from "./header/TopBar.tsx";
 
 type Tab = "input" | "main" | "contingency" | "report";
 export const TABS: { id: Tab; label: string }[] = [
@@ -268,18 +271,6 @@ function bodyFor(o: Opened, w: Work, shownKeys: string[], s: DisplaySettings, ca
   return bodyOf({ wh: o.wh, workspace: { template: o.demo?.id ?? null, band: w.band, base: w.base, selected: w.sel, shownItems: shownKeys }, display: s, carry });
 }
 
-/** 上の帯の保存の状態の文 */
-function saveText(stored: boolean, st: SaveState): { text: string; cls: string } {
-  if (!stored) return { text: "保存していません", cls: "unsaved" };
-  if (st.kind === "pending" || st.kind === "saving") return { text: "保存しています…", cls: "" };
-  if (st.kind === "error") return { text: storeMessage(st.code), cls: "err" };
-  if (st.kind === "saved") {
-    const d = new Date(st.at);
-    return { text: Number.isNaN(d.getTime()) ? "保存済み" : `保存済み ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`, cls: "" };
-  }
-  return { text: "保存済み", cls: "" };
-}
-
 export function App() {
   const initial = useMemo(() => parseHash(typeof location === "undefined" ? "" : location.hash), []);
   const [host, setHost] = useState<HostApi | null>(null);
@@ -382,10 +373,7 @@ export function App() {
     return installUndo(undoController);
   }, [say]);
 
-  // 文字を大きくする: 文字の大きさ・線の太さは html の class で切り替える（描いた直後に。次の描画を待たない）
-  useLayoutEffect(() => {
-    document.documentElement.classList.toggle("big", big);
-  }, [big]);
+  // 文字を大きくする: html の class の切り替えは上の帯（TopBar）が行う（切り替えた直後に帯の詰め方を測り直すため）
 
   // 起動: 本体（Tauri）か、開発用のサーバー（ブラウザでの確認）か
   useEffect(() => {
@@ -416,7 +404,11 @@ export function App() {
         }
         void h.office.status().then(setOfficeStatus, () => undefined);
         void h.office.notices().then(setStorageNotices, () => undefined);
-        void h.store.devFileKeys().then(setDevKeys, () => undefined);
+        void h.store.devFileKeys().then((dev) => {
+          setDevKeys(dev);
+          // 取り違えないよう、窓の名前にも出す（上の帯には出さない）
+          if (dev) document.title = "ファイナンシア（開発用・鍵はファイル）";
+        }, () => undefined);
         autosaver.current = new Autosaver(async (body) => {
           const sr = storedRef.current;
           const o = openedRef.current;
@@ -779,6 +771,11 @@ export function App() {
       setStoreUnavailable(storeMessage(codeOf(e)));
     }
   }, [host]);
+  // 復元キー・事務所の共有・保存先の画面を閉じたら、保存先と同期の通知を取り直す（保管した・見た通知を上の帯の通知から消す）
+  const panelsOpen = recovery !== null || officeOpen || storageOpen !== null;
+  useEffect(() => {
+    if (host !== null && !panelsOpen) void host.office.notices().then(setStorageNotices, () => undefined);
+  }, [host, panelsOpen]);
   const guard = useCallback(
     async (fn: () => Promise<void>) => {
       setHhError(null);
@@ -1302,111 +1299,85 @@ export function App() {
 
   const drawer = memoOpen || evidence !== null;
   const ageMark = opened === null ? null : ageMarkOf(settings, opened.wh.request);
+  // 上の帯の札と通知（ふだんは出さない。header/status.ts）
+  const barIn: BarInputs = {
+    opened: opened !== null,
+    stored: storedInfo !== null,
+    save: saveState,
+    paused: presence !== null,
+    aiSharing: aiShare === "sharing",
+    storage: storageNotices,
+    showing: { recovery: recovery !== null, office: officeOpen, storage: storageOpen !== null },
+    presence: presence !== null ? presenceText(presence) : null,
+    message: storeMessage,
+  };
+  const toggleHousehold = () => {
+    setHhError(null);
+    if (!hhOpen) void refreshStore();
+    setHhOpen(!hhOpen);
+  };
+  /** 世帯の選択のメニューを開いて、保存の状態の詳しい文を見せる */
+  const showHousehold = () => {
+    if (!hhOpen) toggleHousehold();
+    window.scrollTo({ top: 0 });
+  };
+  const toPresence = () => document.querySelector("[data-presence-band]")?.scrollIntoView({ block: "center" });
+  const openAiShare = () => {
+    void ai.refresh();
+    setAiPanel(storedInfo !== null ? "share" : "connector");
+  };
+  const openOffice = () => {
+    void host?.office.status().then(setOfficeStatus, () => undefined);
+    setOfficeOpen(true);
+  };
+  const alertActions: Record<AlertKind, () => void> = { saveError: showHousehold, readOnly: showHousehold, paused: toPresence, aiSharing: openAiShare };
+  const openStorage = () => {
+    void host?.office.status().then(setOfficeStatus, () => undefined);
+    setStorageOpen("default");
+  };
+  const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence };
+  const save = saveText(storedInfo !== null, saveState, storeMessage, presence !== null);
+  const basis = model === null ? null : { members: model.members.map((m) => `${m.label} ${m.age}歳`).join("・"), asOf: model.asOf };
   return (
     <div class={`app${drawer ? " has-drawer" : ""}`}>
-      <header class="top">
-        <span class="brand">
-          <span class="brand-mark" aria-hidden="true" />
-          ファイナンシア
-        </span>
-        {host !== null ? (
-          <button
-            type="button"
-            class="hh-btn"
-            aria-expanded={hhOpen}
-            aria-label="世帯の一覧を開く"
-            onClick={() => {
-              setHhError(null);
-              if (!hhOpen) void refreshStore();
-              setHhOpen(!hhOpen);
-            }}
-            data-household-button
-          >
-            <span class="hh-no">{storedInfo !== null ? storedInfo.customerNo : opened?.demo != null ? "見本" : "新しい世帯"}</span>
-            <span class="hh-sub">{storedInfo !== null ? (opened !== null ? summaryOf(opened.wh.request) : "") : (opened?.demo?.title ?? "")}</span>
-            <span class="caret" aria-hidden="true">
-              ▼
-            </span>
-          </button>
-        ) : null}
-        {host !== null && opened !== null ? (
-          <button
-            type="button"
-            class={`ai-chip s-${aiShare}`}
-            title={SHARE_STATE_TEXT[aiShare].long}
-            onClick={() => {
-              void ai.refresh();
-              setAiPanel(storedInfo !== null ? "share" : "connector");
-            }}
-            data-ai-chip={aiShare}
-          >
-            {aiShare === "sharing" && ai.view?.share != null ? `AI: 共有中・${remainingText(ai.view.share.expiresInSec)}` : SHARE_STATE_TEXT[aiShare].short}
-          </button>
-        ) : null}
-        {opened !== null ? (
-          <span class={`save-state ${presence !== null ? "unsaved" : saveText(storedInfo !== null, saveState).cls}`} role="status" data-save-state={storedInfo === null ? "unsaved" : presence !== null ? "paused" : saveState.kind}>
-            {presence !== null ? "編集を始めるまで保存しません" : saveText(storedInfo !== null, saveState).text}
-          </span>
-        ) : null}
-        {storeStatus?.state === "ready" && !storeStatus.recoveryAcknowledged && recovery === null ? (
-          <button type="button" class="rk-remind" onClick={() => setRecovery("manage")} data-recovery-remind>
-            {officeStatus?.state === "member" ? "事務所の復元キーを保管してください" : "復元キーを保管してください"}
-          </button>
-        ) : null}
-        {officeStatus?.state === "member" && officeStatus.notices.length > 0 && !officeOpen ? (
-          <button
-            type="button"
-            class="of-notice-band"
-            onClick={() => {
-              void host?.office.status().then(setOfficeStatus, () => undefined);
-              setOfficeOpen(true);
-            }}
-            data-office-notice-band
-          >
-            復元キーで{officeStatus.notices.map((n) => `${n.name}さん`).join("・")}が加わりました
-          </button>
-        ) : null}
-        {devKeys ? (
-          <span class="dev-keys" title="開発用のビルドです。鍵を OS の保管庫ではなく、開発用のデータフォルダのファイルに置いています。本物の顧客データに使わないでください" data-keystore-dev>
-            開発用: 鍵はファイルに保存
-          </span>
-        ) : null}
-        {model !== null ? (
-          <div class="hh">
-            <span>{model.members.map((m) => `${m.label} ${m.age}歳`).join("・")}</span>
-            <span class="tag">{model.asOf}</span>
-          </div>
-        ) : null}
-        <nav class="tabs" aria-label="画面">
-          {TABS.map((t) => (
-            <button type="button" key={t.id} class={t.id === tab ? "on" : ""} aria-current={t.id === tab ? "page" : undefined} onClick={() => setTab(t.id)}>
-              {t.label}
-            </button>
-          ))}
-        </nav>
-        {opened !== null ? <UndoButtons /> : null}
-        {opened !== null ? (
-          <button
-            type="button"
-            class="memo-btn"
-            aria-expanded={memoOpen}
-            onClick={() => {
-              setEvidence(null);
-              setMemoOpen(!memoOpen);
-            }}
-            data-memo-toggle
-          >
-            メモ{opened.wh.memo.length > 0 ? <span class="memo-n">{opened.wh.memo.length}</span> : null}
-          </button>
-        ) : null}
-        <button type="button" class="big-btn" aria-pressed={big} onClick={() => setBig(!big)} data-big-toggle>
-          <span class="sw" aria-hidden="true" />
-          <span class="aa" aria-hidden="true">
-            あ<b>あ</b>
-          </span>
-          <span>文字を大きくする</span>
-        </button>
-      </header>
+      <TopBar
+        tabs={TABS}
+        tab={tab}
+        onTab={setTab}
+        household={
+          host !== null
+            ? {
+                no: storedInfo !== null ? storedInfo.customerNo : opened?.demo != null ? "見本" : "新しい世帯",
+                sub: storedInfo !== null ? (opened !== null ? summaryOf(opened.wh.request) : "") : (opened?.demo?.title ?? ""),
+                open: hhOpen,
+                onToggle: toggleHousehold,
+              }
+            : null
+        }
+        alerts={barAlerts(barIn).map((a) => ({ id: a.kind, text: a.text, short: a.short, title: a.title, tone: a.tone, onClick: alertActions[a.kind] }))}
+        notices={barNotices(barIn).map((n) => ({ id: n.id, text: n.text, action: n.action, onClick: noticeActions[n.target] }))}
+        tools={
+          opened !== null ? (
+            <>
+              <UndoButtons />
+              <button
+                type="button"
+                class="memo-btn"
+                aria-expanded={memoOpen}
+                onClick={() => {
+                  setEvidence(null);
+                  setMemoOpen(!memoOpen);
+                }}
+                data-memo-toggle
+              >
+                メモ{opened.wh.memo.length > 0 ? <span class="memo-n">{opened.wh.memo.length}</span> : null}
+              </button>
+            </>
+          ) : null
+        }
+        big={big}
+        onBig={setBig}
+      />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <main class="wrap">
         {presence !== null && storedInfo !== null ? (
@@ -1419,6 +1390,15 @@ export function App() {
             </button>
             <span class="pl-sub">編集を始めるまで、この画面の変更は保存しません</span>
           </div>
+        ) : null}
+        {hhOpen && host !== null && opened !== null ? (
+          <HouseholdNow
+            title={storedInfo !== null ? `顧客番号 ${storedInfo.customerNo}` : (opened.demo?.title ?? "新しい世帯")}
+            members={basis?.members ?? null}
+            asOf={basis?.asOf ?? null}
+            save={{ ...save, state: storedInfo === null ? "unsaved" : presence !== null ? "paused" : saveState.kind }}
+            ai={ai.status?.enabled === true ? { text: SHARE_STATE_TEXT[aiShare].long, sharing: aiShare === "sharing", onOpen: storedInfo !== null ? openAiShare : null } : null}
+          />
         ) : null}
         {hhOpen && host !== null ? (
           <HouseholdPanel
@@ -1477,18 +1457,21 @@ export function App() {
             />
           </>
         ) : tab === "contingency" && opened !== null ? (
-          <ContingencyTab
-            wh={opened.wh}
-            host={host}
-            engine={host === null ? null : (cgEngine.current ??= new ContingencyEngine({ host, web: webRef.current.web, packs: webRef.current.packs }))}
-            targetAge={opened.demo?.targetAge ?? 95}
-            onEdit={edit}
-            ui={cgUi}
-            onUi={setCgUi}
-            dock={settings.dock}
-            onDockOff={dockOff}
-            {...(initial.scenario !== undefined ? { initialScenario: initial.scenario } : {})}
-          />
+          <>
+            {basis !== null ? <BasisLine {...basis} /> : null}
+            <ContingencyTab
+              wh={opened.wh}
+              host={host}
+              engine={host === null ? null : (cgEngine.current ??= new ContingencyEngine({ host, web: webRef.current.web, packs: webRef.current.packs }))}
+              targetAge={opened.demo?.targetAge ?? 95}
+              onEdit={edit}
+              ui={cgUi}
+              onUi={setCgUi}
+              dock={settings.dock}
+              onDockOff={dockOff}
+              {...(initial.scenario !== undefined ? { initialScenario: initial.scenario } : {})}
+            />
+          </>
         ) : tab === "report" && opened !== null && host !== null ? (
           <ReportTab
             host={host}
@@ -1506,6 +1489,7 @@ export function App() {
           fatal === null ? <p class="loading">計算しています…</p> : null
         ) : (
           <div class="main-stack">
+            {basis !== null ? <BasisLine {...basis} /> : null}
             <ChartDock docked={mainDock.docked} head={<ResultVerdictView model={model.result} />} onClose={dockOff}>
               <DockedResult
                 model={chartModel ?? model}
@@ -1785,6 +1769,11 @@ export function App() {
           }}
           onClose={() => setRecovery(null)}
         />
+      ) : null}
+      {devKeys ? (
+        <span class="dev-keys" aria-label="開発用のビルドです。鍵を OS の保管庫ではなく、開発用のデータフォルダのファイルに置いています。本物の顧客データに使わないでください" data-keystore-dev>
+          開発用・鍵はファイル
+        </span>
       ) : null}
     </div>
   );

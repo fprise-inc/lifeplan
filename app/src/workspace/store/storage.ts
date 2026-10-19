@@ -1,6 +1,6 @@
-// 保存先（このPCの中・同期フォルダ）と同期の知らせの画面の側の小さな部品（0024）: 文言・知らせの文。
-// 同期フォルダの場所と鍵は本体だけが持ち、画面には来ない。知らせ（StorageNotice）は、世帯の一覧・保存先・事務所の設定のパネルに出し、
-// 画面の上の帯の「知らせ」にもまとめられるよう、文を作る関数をここに置く
+// 保存先（このPCの中・同期フォルダ）と同期の通知の画面の側の小さな部品（0024）: 文言・通知の文。
+// 同期フォルダの場所と鍵は本体だけが持ち、画面には来ない。通知（StorageNotice）は、世帯の一覧・保存先・事務所の設定のパネルに出し、
+// 画面の上の帯の「通知」にもまとめられるよう、文を作る関数をここに置く
 import type { StorageNotice } from "../../engine/host.ts";
 import { OFFICE_MESSAGES } from "./office.ts";
 
@@ -25,7 +25,7 @@ export const SYNC_MESSAGES: Record<string, string> = {
 /** 1人で複数の PC の同期フォルダの操作の失敗の文（同期フォルダ向けの文が無ければ、事務所の共有の文） */
 export const syncMessage = (code: string) => SYNC_MESSAGES[code] ?? OFFICE_MESSAGES[code] ?? `保存先の操作に失敗しました（${code}）`;
 
-/** 知らせの文（世帯の一覧・保存先のパネル・画面の上の帯で同じ文を使う） */
+/** 通知の文（世帯の一覧・保存先のパネル・画面の上の帯で同じ文を使う） */
 export function storageNoticeText(n: StorageNotice): string {
   const personal = n.scope === "personal";
   const where = personal ? "同期フォルダ" : "事務所の共有フォルダ";
@@ -51,7 +51,7 @@ export function storageNoticeText(n: StorageNotice): string {
     case "syncCopies":
       return `同期サービスの衝突の写しがある世帯が${n.count ?? 0}件あります`;
     default:
-      return `保存先の知らせ（${n.kind}）`;
+      return `保存先の通知（${n.kind}）`;
   }
 }
 
