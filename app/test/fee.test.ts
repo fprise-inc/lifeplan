@@ -134,14 +134,17 @@ describe("主画面の対策「FP顧問料」の ON/OFF", () => {
     const cum = advisoryFeeSummary(pOn)!.byYear.filter((b) => b.year <= target).at(-1)!.cumulative;
     expect(cum).toBeGreaterThan(0);
     expect(advisoryFeeSummary(pOff)).toBeNull();
-    const mOn = toPresentation({ base, proposal: on, current, proposed: pOn, targetAge: 95, selectedYear: null, provisional: false, fee: { on: true, withFee: pOn, alt: pOff } });
-    const mOff = toPresentation({ base, proposal: off, current, proposed: pOff, targetAge: 95, selectedYear: null, provisional: false, fee: { on: false, withFee: pOn, alt: pOn } });
+    const mOn = toPresentation({ base, proposal: on, current, proposed: pOn, targetAge: 95, selectedYear: null, provisional: false, fee: { on: true, alt: pOff } });
+    const mOff = toPresentation({ base, proposal: off, current, proposed: pOff, targetAge: 95, selectedYear: null, provisional: false, fee: { on: false, alt: pOn } });
     expect(mOn.headline.amount).toBe(finOn);
     expect(mOff.headline.amount).toBe(finOff);
     expect(mOn.headline.diff).toBe(finOn - finC);
     const text = (m: typeof mOn) => m.fee!.parts.map((p) => p.text).join("");
     const man = (n: number) => Math.round(Math.abs(n) / 10000).toLocaleString("en-US");
-    expect(text(mOn)).toContain(`累計${man(cum)}万円`);
+    // 一文には顧問料の累計の額を出さない
+    expect(text(mOn)).not.toContain("累計");
+    expect(text(mOff)).not.toContain("累計");
+    expect(text(mOn)).not.toContain(`${man(cum)}万円）`);
     expect(text(mOn)).toContain(`${man(finOn - finC)}万円${finOn - finC >= 0 ? "多い" : "少ない"}`);
     expect(text(mOn)).toContain(`顧問料を除くと${man(finOff - finC)}万円`);
     expect(text(mOff)).toContain("FP顧問料を含めない試算です");

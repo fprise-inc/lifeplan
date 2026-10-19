@@ -92,6 +92,14 @@ describe.skipIf(bin === null)("見本の PDF", () => {
         expect(all).toContain(`累計は${yenText(fee)}`);
       });
 
+      it("提案での変更点の章には FP顧問料の累計を出さない（顧問料込みの効果の一文だけ）", () => {
+        const page = r.pages.find((p) => normalize(p).includes(normalize("提案での変更点")) && normalize(p).includes(normalize("FP顧問料込みの効果")));
+        if (page === undefined) return;
+        expect(normalize(page)).not.toContain(normalize("FP顧問料の累計"));
+        expect(normalize(page)).not.toMatch(/までの累計/);
+        expect(normalize(page)).toContain(normalize("FP顧問料を払っても"));
+      });
+
       it("PDF の文字に内部 ID・提供元の名前が入らない", () => {
         expect(all).not.toMatch(UUID);
         for (const bad of ["ファイナンシア", "Financia", "FPライズ", "FPRISE"]) expect(all).not.toContain(bad);

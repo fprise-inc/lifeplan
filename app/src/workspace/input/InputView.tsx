@@ -64,7 +64,7 @@ function AddCard({ open, onOpen, onPick }: { open: boolean; onOpen: (v: boolean)
           </span>
           <span>
             項目を追加
-            <small>ペット・留学・車（もう1台）など、FPが項目を足せます</small>
+            <small>ペット・留学・名前を付けた支出・介護など、FPが項目を足せます</small>
           </span>
         </button>
       </div>
@@ -84,7 +84,7 @@ function AddCard({ open, onOpen, onPick }: { open: boolean; onOpen: (v: boolean)
           <small>準備中</small>
         </button>
         <button type="button" class="cancel" onClick={() => onOpen(false)}>
-          やめる
+          キャンセル
         </button>
       </div>
     </div>

@@ -189,7 +189,7 @@ export function LeverCard(p: LeverCardProps) {
             保存
           </button>
           <button type="button" class="btn" onClick={() => setSaving(false)}>
-            やめる
+            キャンセル
           </button>
         </form>
       ) : null}

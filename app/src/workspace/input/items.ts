@@ -1,13 +1,14 @@
-// 入力のホームの項目（作業の層）: 12の項目と、FP が足した項目を、同じ形のカードにする。
-// カードに出すのは「イラスト＋名前＋要約の数字1つ＋状態」まで。状態は世帯データ（と保存した項目の印）から決め、色だけに頼らずに見せる（InputView.tsx）
+// 入力のホームの項目（作業の層）: 11の項目と、FP が足した項目を、同じ形のカードにする。
+// カードに出すのは「イラスト＋名前＋要約の数字1つ＋状態」まで。状態は世帯データ（と保存した項目の印）から決め、色だけに頼らずに見せる（InputView.tsx）。
+// FP顧問料は「前提条件」のカードの中の欄のまとまり（stages/assumptions.ts）。車は「車」のカードの中で1台ずつ足す（stages/cars.ts）。
+// 以前の「＋ 項目を追加」で足した車・FP顧問料の記録（AddedItem の kind が car・fee）は、別のカードにせず「車」「前提条件」のカードに入れて見せる
 import type { AdvisoryFee, Car, CareExpense, Household, Member, PeriodicExpense } from "../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth } from "../levers.ts";
 import type { StageDef, StageId } from "./form.ts";
 import { estimatedBox, mutate, newId, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { memberLabel } from "./labels.ts";
-import { addCar, carGroup } from "./stages/cars.ts";
+import { upkeepAnnual } from "./stages/cars.ts";
 import { careGroup, periodicGroup } from "./stages/events.ts";
-import { addAdvisoryFee, feeGroups } from "./stages/fees.ts";
 import { buildStage, stageStatus, STAGE_ORDER } from "./stages/index.ts";
 import { currentPeriod } from "./stages/work.ts";
 
@@ -86,7 +87,11 @@ export function manText(yen: number): string {
   return Math.round(man).toLocaleString("ja-JP");
 }
 
-const claimedRefs = (wh: WorkingHousehold) => new Set(wh.addedItems.map((a) => a.ref));
+/** 別のカードにする足した項目の種類（車・FP顧問料は、それぞれのカードの中に入れる） */
+const SEPARATE: ReadonlySet<AddedItem["kind"]> = new Set(["periodic", "care"]);
+/** 別のカードにする足した項目（以前の版で足した車・FP顧問料の記録は除く） */
+export const separateItems = (wh: WorkingHousehold): AddedItem[] => wh.addedItems.filter((a) => SEPARATE.has(a.kind));
+const claimedRefs = (wh: WorkingHousehold) => new Set(separateItems(wh).map((a) => a.ref));
 const adults = (h: Household) => h.members.filter((m) => m.kind === "self" || m.kind === "spouse");
 const EXPECTED_KINDS = new Set(["statementOver50", "receiving", "projection"]);
 
@@ -151,6 +156,13 @@ function feeSummary(list: AdvisoryFee[]): Summary | null {
   return { pre: "単発 ", main: manText(one), unit: "万円" };
 }
 
+/** 車のカードの要約: 「1台・維持費 年36万円」（維持費は内訳を年額にならした合計を、全部の車で足す） */
+export function carSummary(list: readonly Car[]): Summary | null {
+  if (list.length === 0) return null;
+  const upkeep = list.reduce((s, c) => s + upkeepAnnual(c), 0);
+  return { main: String(list.length), unit: `台・維持費 年${manText(upkeep)}万円` };
+}
+
 function periodicSummary(p: PeriodicExpense): Summary {
   const amount = p.amount.value ?? 0;
   const once = p.everyYears === 1 && p.to?.at !== undefined && p.to.at === p.from.at;
@@ -187,12 +199,10 @@ function baseSummary(id: StageId, wh: WorkingHousehold): Summary | null {
       const n = (h.periodicExpenses ?? []).filter((p) => !claimed.has(p.id)).length + (h.careExpenses ?? []).filter((c) => !claimed.has(c.id)).length;
       return n === 0 ? null : { main: String(n), unit: "件" };
     }
-    case "car": {
-      const n = (h.cars ?? []).filter((c) => !claimed.has(c.id)).length;
-      return n === 0 ? null : { main: String(n), unit: "台" };
-    }
+    case "car":
+      return carSummary(h.cars ?? []);
     case "fee":
-      return feeSummary((h.advisoryFees ?? []).filter((c) => !claimed.has(c.id)));
+      return feeSummary(h.advisoryFees ?? []);
     case "assumptions": {
       const a = wh.request.input.assumptions;
       const inf = a?.inflation?.default;
@@ -227,9 +237,9 @@ function baseHasData(id: StageId, wh: WorkingHousehold): boolean {
     case "events":
       return (h.periodicExpenses ?? []).some((p) => !claimed.has(p.id)) || (h.careExpenses ?? []).some((c) => !claimed.has(c.id));
     case "car":
-      return (h.cars ?? []).some((c) => !claimed.has(c.id));
+      return (h.cars ?? []).length > 0;
     case "fee":
-      return (h.advisoryFees ?? []).some((c) => !claimed.has(c.id));
+      return (h.advisoryFees ?? []).length > 0;
     case "assumptions":
       // 前提条件は計算に必ず要るので、既定の値（事務所の標準値ができるまでの仮の値）が入っている
       return wh.request.input.assumptions !== undefined;
@@ -238,7 +248,7 @@ function baseHasData(id: StageId, wh: WorkingHousehold): boolean {
 
 // ---- 足した項目 ----
 
-type AddedObject = { kind: "periodic"; obj: PeriodicExpense } | { kind: "care"; obj: CareExpense } | { kind: "car"; obj: Car } | { kind: "fee"; obj: AdvisoryFee };
+type AddedObject = { kind: "periodic"; obj: PeriodicExpense } | { kind: "care"; obj: CareExpense };
 
 function addedObject(h: Household, a: AddedItem): AddedObject | null {
   if (a.kind === "periodic") {
@@ -249,34 +259,22 @@ function addedObject(h: Household, a: AddedItem): AddedObject | null {
     const obj = (h.careExpenses ?? []).find((x) => x.id === a.ref);
     return obj === undefined ? null : { kind: "care", obj };
   }
-  if (a.kind === "car") {
-    const obj = (h.cars ?? []).find((x) => x.id === a.ref);
-    return obj === undefined ? null : { kind: "car", obj };
-  }
-  const obj = (h.advisoryFees ?? []).find((x) => x.id === a.ref);
-  return obj === undefined ? null : { kind: "fee", obj };
+  return null;
 }
 
 function addedLabel(wh: WorkingHousehold, o: AddedObject): string {
   if (o.kind === "periodic") return o.obj.label !== undefined && o.obj.label !== "" ? o.obj.label : "名前のない支出";
-  if (o.kind === "care") return `介護（${memberLabel(wh, o.obj.member)}）`;
-  if (o.kind === "car") return `車（${memberLabel(wh, o.obj.owner)}）`;
-  return `FP顧問料（${memberLabel(wh, o.obj.payer)}）`;
+  return `介護（${memberLabel(wh, o.obj.member)}）`;
 }
 
 function addedSummary(o: AddedObject): Summary {
   if (o.kind === "periodic") return periodicSummary(o.obj);
-  if (o.kind === "care") return o.obj.months !== undefined ? { main: String(o.obj.months), unit: "か月" } : { main: "期間は目安" };
-  if (o.kind === "car") return { main: manText(o.obj.purchase.price), unit: `万円・${o.obj.purchase.everyYears}年ごと` };
-  return feeSummary([o.obj]) ?? { main: "—" };
+  return o.obj.months !== undefined ? { main: String(o.obj.months), unit: "か月" } : { main: "期間は目安" };
 }
 
-const ADDED_STAGE: Record<AddedItem["kind"], StageId> = { periodic: "events", care: "events", car: "car", fee: "fee" };
-const ADDED_LEAD: Record<AddedItem["kind"], string> = {
+const ADDED_LEAD: Record<"periodic" | "care", string> = {
   periodic: "FP が足した項目です。名前・1回の額・時期・何年ごとかを入れます。",
   care: "FP が足した項目です。介護を受ける人・始まり・期間を入れます。",
-  car: "FP が足した項目です。この1台の買い替えと維持費を入れます。",
-  fee: "FP が足した項目です。この契約の単発と継続の料金を入れます。",
 };
 
 /** 足した項目のパネルの中身（物1件だけの区画）。物を外した後は空 */
@@ -284,20 +282,11 @@ function addedStage(wh: WorkingHousehold, a: AddedItem): StageDef {
   const h = wh.request.input.household;
   const o = addedObject(h, a);
   const label = o === null ? "外した項目" : addedLabel(wh, o);
-  const groups =
-    o === null
-      ? []
-      : o.kind === "periodic"
-        ? [periodicGroup(wh, o.obj)]
-        : o.kind === "care"
-          ? [careGroup(wh, o.obj)]
-          : o.kind === "car"
-            ? [carGroup(wh, o.obj, (h.cars ?? []).indexOf(o.obj))]
-            : feeGroups(wh, o.obj, (h.advisoryFees ?? []).indexOf(o.obj));
+  const groups = o === null ? [] : o.kind === "periodic" ? [periodicGroup(wh, o.obj)] : [careGroup(wh, o.obj)];
   return {
-    id: ADDED_STAGE[a.kind],
+    id: "events",
     label,
-    lead: ADDED_LEAD[a.kind],
+    lead: ADDED_LEAD[a.kind === "care" ? "care" : "periodic"],
     sections: [{ key: `added/${a.id}`, title: label, ...(o === null ? { note: "この項目の物を外しました。保存すると、カードがなくなります" } : {}), level: "simple", groups, actions: [] }],
   };
 }
@@ -313,13 +302,13 @@ export function statusOf(estimated: number, hasData: boolean, confirmed: boolean
 /** カードの中身（パネルで開く欄の定義） */
 export function itemStage(wh: WorkingHousehold, id: string): StageDef | null {
   if (id.startsWith("added:")) {
-    const a = wh.addedItems.find((x) => x.id === id);
+    const a = separateItems(wh).find((x) => x.id === id);
     return a === undefined ? null : addedStage(wh, a);
   }
   return STAGE_ORDER.some((s) => s.id === id) ? buildStage(id as StageId, wh) : null;
 }
 
-/** 入力のホームのカード（12の項目のあとに、足した項目を足した順に） */
+/** 入力のホームのカード（11の項目のあとに、足した項目を足した順に） */
 export function inputItems(wh: WorkingHousehold): InputItem[] {
   const h = wh.request.input.household;
   const confirmed = new Set(wh.confirmed);
@@ -329,7 +318,7 @@ export function inputItems(wh: WorkingHousehold): InputItem[] {
     const def = BASE[id];
     return { id, label, lead: stage.lead, group: def.group, color: def.color, art: id, added: null, status: statusOf(st.estimated, baseHasData(id, wh), confirmed.has(id)), estimated: st.estimated, summary: baseSummary(id, wh) };
   });
-  for (const a of wh.addedItems) {
+  for (const a of separateItems(wh)) {
     const o = addedObject(h, a);
     const stage = addedStage(wh, a);
     const st = stageStatus(stage, wh);
@@ -372,10 +361,10 @@ export function progressOf(items: readonly InputItem[]): Progress {
   };
 }
 
-/** 保存: その項目を「保存した」印に足し、物を外した足した項目は一覧から外す */
+/** 保存: その項目を「保存した」印に足し、物を外した足した項目は一覧から外す（以前の版で足した車・FP顧問料の記録も外す。物は「車」「前提条件」のカードに残る） */
 export function saveItem(wh: WorkingHousehold, id: string): WorkingHousehold {
   const h = wh.request.input.household;
-  const addedItems = wh.addedItems.filter((a) => addedObject(h, a) !== null);
+  const addedItems = separateItems(wh).filter((a) => addedObject(h, a) !== null);
   const alive = new Set([...STAGE_ORDER.map((s) => s.id as string), ...addedItems.map((a) => a.id)]);
   const confirmed = [...new Set([...wh.confirmed, id])].filter((x) => alive.has(x));
   return { ...wh, addedItems, confirmed };
@@ -392,14 +381,13 @@ export interface AddOption {
   art: AddedItem["art"];
 }
 
-/** 足せる項目（今ある任意の項目の型。FP が自由な項目を作る仕組みは、拡張領域の約束（0011 の4・0016 の3）に沿って次の回） */
+/** 足せる項目（今ある任意の項目の型。FP が自由な項目を作る仕組みは、拡張領域の約束（0011 の4・0016 の3）に沿って次の回）。
+ * 車は「車」のカードの中の「＋ もう1台」、FP顧問料は「前提条件」のカードの中の「＋ FP顧問料の契約」で足す */
 export const ADD_OPTIONS: readonly AddOption[] = [
   { key: "pet", label: "ペット", note: "毎年の費用（えさ・医療・保険）", art: "pet" },
   { key: "abroad", label: "留学", note: "1回の費用", art: "abroad" },
   { key: "periodic", label: "名前を付けた支出", note: "一時的な支出・n年ごとの支出", art: "events" },
   { key: "care", label: "介護の費用", note: "介護を受ける人・期間", art: "events" },
-  { key: "car", label: "車（もう1台）", note: "別のカードで1台ずつ", art: "car" },
-  { key: "fee", label: "FP顧問料（もう1件の契約）", note: "別のカードで契約ごと", art: "fee" },
 ];
 
 /** 項目を足す: 物を1件作り、その物を指すカードの記録を足す（保存するまでは下書き） */
@@ -412,7 +400,7 @@ export function addItem(wh: WorkingHousehold, key: string, id: () => string = ne
   if (self === undefined) return null;
   const ref = id();
   let next: WorkingHousehold;
-  let kind: AddedItem["kind"];
+  let kind: "periodic" | "care";
   if (key === "pet" || key === "abroad" || key === "periodic") {
     kind = "periodic";
     const at = addMonths(base, key === "abroad" ? 60 : 12);
@@ -423,17 +411,11 @@ export function addItem(wh: WorkingHousehold, key: string, id: () => string = ne
           ? { id: ref, label: "留学", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: estimatedBox(3500000, PRESET_BASIS) }
           : { id: ref, label: "新しい支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: estimatedBox(300000, PRESET_BASIS) };
     next = mutate(wh, (hh) => void (hh.periodicExpenses ??= []).push(p));
-  } else if (key === "care") {
+  } else {
     kind = "care";
     const who: Member = h.members.find((m) => m.kind === "parent") ?? self;
     const at = who.kind === "self" ? ageReachedMonth(who, 80) : addMonths(base, 60);
     next = mutate(wh, (hh) => void (hh.careExpenses ??= []).push({ id: ref, member: who.id, from: { at }, months: 61, place: "home" }));
-  } else if (key === "car") {
-    kind = "car";
-    next = addCar(wh, () => ref);
-  } else {
-    kind = "fee";
-    next = addAdvisoryFee(wh, () => ref);
   }
   const itemId = `added:${id()}`;
   return { wh: { ...next, addedItems: [...next.addedItems, { id: itemId, kind, ref, art: opt.art }] }, itemId };

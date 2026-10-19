@@ -64,6 +64,10 @@ describe("帳票の入力", () => {
         expect(input.changes.fee?.diffAtTarget).toBe(input.summary.diffAtTarget);
       });
 
+      it("提案での変更点の表に FP顧問料の累計の行は出さない（顧問料は目立たせない）", () => {
+        expect(input.changes.metrics.map((m) => m.label).join("・")).not.toContain("顧問料");
+      });
+
       it("打ち手ごとの効果の累計の最後は、提案と現状の差", () => {
         const steps = input.changes.steps ?? [];
         expect(steps.length).toBeGreaterThan(0);

@@ -221,7 +221,7 @@ function ReviewPanel({ wh, view, onSave, onClose }: { wh: WorkingHousehold; view
           承認して現状に入れる（{sel.size}件）
         </button>
         <button type="button" class="btn" onClick={() => onClose(null)}>
-          やめる
+          キャンセル
         </button>
       </div>
     </section>

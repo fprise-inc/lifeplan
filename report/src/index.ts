@@ -3,4 +3,4 @@ export { buildProposalInput, displayYears, percent, roles } from "./build.ts";
 export type { EngineOutput, ProposalBundle, Run, TableCell } from "./bundle.ts";
 export { DEFAULT_LAYOUT, PROPOSAL_INPUT_FORMAT, PROPOSAL_INPUT_VERSION, type CashflowLayout, type Comparison, type Orientation, type ProposalInput, type ReportLayout } from "./input.ts";
 export { CHAPTER_IDS, CHAPTERS, hasMaterial, selectChapters, type ChapterDef, type ChapterId } from "./chapters.ts";
-export { comparisonMetrics, type ComparisonMetrics } from "./build.ts";
+export { comparisonMetrics, ESTIMATED_NOTE, hasEstimatedBox, type ComparisonMetrics } from "./build.ts";

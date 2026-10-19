@@ -119,6 +119,23 @@ export function survivorWorkPeriod(h: Household, survivor: Member, w: SurvivorWo
   return p;
 }
 
+/** グラフの枠の名前（見るプランごとに分ける。例: current|none・<プランの ID>|prot:0） */
+export const planSlot = (plan: string, name: string): string => `${plan}|${name}`;
+
+/** グラフの枠の要求（万一なし・必要保障額の推移（大人ごと）・選んだ想定）。wh はそのプランの要求を入れた世帯 */
+export function chartRequests(wh: WorkingHousehold, plan: string, protMembers: readonly string[], sc: Scenario | undefined, year: number): Record<string, EngineRequest> {
+  const r: Record<string, EngineRequest> = { [planSlot(plan, "none")]: baseRequest(wh.request) };
+  protMembers.forEach((m, i) => (r[planSlot(plan, `prot:${i}`)] = protectionRequest(wh, m)));
+  if (sc !== undefined) r[planSlot(plan, "sc")] = scenarioRequest(wh, sc, year);
+  return r;
+}
+
+/** 残すグラフの枠: 今のプランの枠と、最近見たプラン（recent。今のプランを含む）のすでにある枠 */
+export function keptSlots(existing: readonly string[], requests: Readonly<Record<string, EngineRequest>>, recent: readonly string[]): string[] {
+  const keep = new Set(recent);
+  return [...Object.keys(requests), ...existing.filter((id) => !Object.hasOwn(requests, id) && keep.has(id.slice(0, id.indexOf("|"))))];
+}
+
 /** 選んだ想定の要求（現状に万一の想定を重ねる） */
 export function scenarioRequest(wh: WorkingHousehold, sc: Scenario, year: number): EngineRequest {
   const req = baseRequest(wh.request);

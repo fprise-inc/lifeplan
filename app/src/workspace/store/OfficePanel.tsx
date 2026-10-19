@@ -403,7 +403,7 @@ export function OfficePanel(p: OfficePanelProps) {
                     外す（鍵を入れ替える）
                   </button>
                   <button type="button" class="link-btn" onClick={() => setRemoving(null)}>
-                    やめる
+                    キャンセル
                   </button>
                 </div>
               </div>

@@ -158,10 +158,20 @@ interface RowDef {
   match: (c: TableCell) => boolean;
 }
 
+/** 車（何台でも）の支出のマス: 買い替え・維持費（車検・税・保険・駐車場・燃料）・ローンの返済。車の物の ID で見分ける */
+export function carExpense(req: EngineRequest): (c: TableCell) => boolean {
+  const ids = new Set((req.input.household.cars ?? []).map((c) => c.id));
+  return (c) => ids.size > 0 && c.object !== undefined && ids.has(c.object) && under(c.row, "cf.expense");
+}
+
 function rowDefs(req: EngineRequest): RowDef[] {
   const rs = roles(req).filter((r) => r.key === "self" || r.key === "spouse");
   const defs: RowDef[] = [];
   const byMember = (prefix: string, role: Role) => (c: TableCell) => under(c.row, prefix) && c.member === role.member.id;
+  // 車があるときだけ「車」の行を出し、車の支出はほかの行（基本生活費・保険料・一時的な支出・その他）から外す（台数が増えても1行）
+  const hasCar = (req.input.household.cars ?? []).length > 0;
+  const car = carExpense(req);
+  const notCar = (p: (c: TableCell) => boolean) => (c: TableCell) => p(c) && !car(c);
   for (const r of rs) defs.push({ key: `salary:${r.key}`, label: `${r.label}の給与`, group: "income", kind: "value", match: byMember("cf.income.salary", r) });
   for (const r of rs) defs.push({ key: `pension:${r.key}`, label: `${r.label}の年金`, group: "income", kind: "value", match: byMember("cf.income.pension", r) });
   const ids = new Set(rs.map((r) => r.member.id));
@@ -178,13 +188,14 @@ function rowDefs(req: EngineRequest): RowDef[] {
       match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit"),
     },
     { key: "incomeTotal", label: "収入合計", group: "income", kind: "total", match: (c) => under(c.row, "cf.income") },
-    { key: "living", label: "基本生活費", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.living") },
+    { key: "living", label: "基本生活費", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.living")) },
     { key: "housing", label: "住居費（ローン・税・修繕）", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.housing") },
     { key: "education", label: "教育費", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.education") },
-    { key: "insurance", label: "保険料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.insurance") },
-    { key: "lumpSum", label: "一時的な支出（旅行など）", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.lumpSum") },
+    { key: "insurance", label: "保険料", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.insurance")) },
+    { key: "lumpSum", label: "一時的な支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum")) },
+    ...(hasCar ? [{ key: "car", label: "車の費用", group: "expense" as const, kind: "value" as const, match: car }] : []),
     { key: "advisoryFee", label: "FP顧問料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.advisoryFee") },
-    { key: "expenseOther", label: "その他の支出", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense") && !known5.some((p) => under(c.row, p)) },
+    { key: "expenseOther", label: "その他の支出", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense") && !known5.some((p) => under(c.row, p))) },
     { key: "taxSi", label: "税・社会保険料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.taxSi") },
     { key: "expenseTotal", label: "支出合計", group: "expense", kind: "total", match: (c) => under(c.row, "cf.expense") || under(c.row, "cf.taxSi") },
     { key: "net", label: "年間収支", group: "net", kind: "total", match: (c) => c.row === "cf.net" },
@@ -333,6 +344,36 @@ function pensionStartMonth(req: EngineRequest, member: Member): string {
   return claim ?? addMonths(ageReachedMonth(member, 65), 1);
 }
 
+/** 年月か構成員の年齢で決めた時点を年月にする（ほかの形は読めない: null） */
+function monthOfTimepoint(h: Household, t: Timepoint | null | undefined): string | null {
+  if (t === null || t === undefined) return null;
+  if ("at" in t && typeof t.at === "string") return t.at;
+  const ma = (t as { memberAge?: { member: string; years: number; months?: number } }).memberAge;
+  if (ma === undefined) return null;
+  const m = h.members.find((x) => x.id === ma.member);
+  return m === undefined ? null : addMonths(ageReachedMonth(m, ma.years), ma.months ?? 0);
+}
+
+/** 車の買い替え（購入）の年: 計算エンジンの車の部品と同じ決め方（最初の年月から周期ごと、手放す時点と表の最後まで）。車が2台以上なら「車1」「車2」と分ける */
+function carPurchases(req: EngineRequest): { year: number; text: string }[] {
+  const h = req.input.household;
+  const cars = h.cars ?? [];
+  const base = req.input.baseMonth;
+  const end = `${req.input.endYear}-12`;
+  const out: { year: number; text: string }[] = [];
+  cars.forEach((c, i) => {
+    const first = monthOfTimepoint(h, c.purchase.first);
+    if (first === null || c.purchase.everyYears < 1) return;
+    const until = c.until === undefined || c.until === null ? end : (monthOfTimepoint(h, c.until) ?? end);
+    const name = cars.length > 1 ? `車${i + 1}` : "車";
+    for (let m = first, k = 0; m <= until && m <= end; m = addMonths(m, 12 * c.purchase.everyYears), k++) {
+      if (m < base) continue;
+      out.push({ year: parseYm(m).y, text: k === 0 && c.purchase.owned !== true ? `${name}を購入` : `${name}の買い替え` });
+    }
+  });
+  return out;
+}
+
 function events(ctx: Ctx): ProposalInput["events"] {
   const req = ctx.bundle.proposal.request;
   const h = req.input.household;
@@ -366,6 +407,7 @@ function events(ctx: Ctx): ProposalInput["events"] {
     const ps = pensionStartMonth(req, r.member);
     add(parseYm(ps).y, `${r.label}が年金の受け取りを開始（${ageAt(r.member, addMonths(ps, -1))}歳）`);
   }
+  for (const e of carPurchases(req)) add(e.year, e.text);
   const loan = sumByYear(ctx.bundle.proposal.result.table, (c) => under(c.row, "cf.expense.housing.loan"));
   const paid = [...loan.entries()].filter(([, v]) => v > 0).map(([y]) => y).sort((a, b) => a - b).at(-1);
   if (paid !== undefined && paid < req.input.endYear) add(paid, "住宅ローンの返済が終わる");
@@ -712,15 +754,27 @@ function assumptions(ctx: Ctx): ProposalInput["assumptions"] {
   const advisoryFee = advisoryFeeAssumption(ctx);
   const notes: string[] = [];
   if (advisoryFee !== null) notes.push("ご本人が払うFP顧問料は、所得から差し引かない扱いで計算しています。");
+  // 推定の値: どの欄かは書かない（FP 向けの画面だけで示す）
+  if (ctx.bundle.estimated === true || hasEstimatedBox(ctx.bundle.current.request.input.household) || hasEstimatedBox(ctx.bundle.proposal.request.input.household)) notes.push(ESTIMATED_NOTE);
   return { rates, dataSet, survivor, survivorReform: reform, advisoryFee, notes };
+}
+
+/** 推定の値があるときの注意書き（提案書にはこの一文だけを書く） */
+export const ESTIMATED_NOTE = "一部は統計の平均で補っています。";
+
+/** 値の箱（0008 の2）のうち、推定（統計などで補った値）のものがあるか */
+export function hasEstimatedBox(v: unknown): boolean {
+  if (Array.isArray(v)) return v.some(hasEstimatedBox);
+  if (typeof v !== "object" || v === null) return false;
+  const o = v as Record<string, unknown>;
+  if (o.state === "estimated" && "value" in o) return true;
+  return Object.values(o).some(hasEstimatedBox);
 }
 
 function changes(ctx: Ctx, current: Outcome, proposal: Outcome): ProposalInput["changes"] {
   const b = ctx.bundle;
   const diff = (c: number | null, p: number | null) => (c === null || p === null ? null : p - c);
   const yen = (label: string, c: number, p: number) => ({ label, unit: "yen" as const, current: c, proposal: p, diff: p - c });
-  const feeC = b.current.result.summary.advisoryFee?.total ?? 0;
-  const feeP = b.proposal.result.summary.advisoryFee?.total ?? 0;
   const metrics: ProposalInput["changes"]["metrics"] = [
     yen(`${ctx.target.label}の金融資産`, current.financialAtTarget, proposal.financialAtTarget),
     { label: "金融資産が不足する年", unit: "year", current: current.depletion?.year ?? null, proposal: proposal.depletion?.year ?? null, diff: diff(current.depletion?.year ?? null, proposal.depletion?.year ?? null) },
@@ -729,7 +783,7 @@ function changes(ctx: Ctx, current: Outcome, proposal: Outcome): ProposalInput["
     yen("支出の合計", current.totals.expense, proposal.totals.expense),
     yen("年間収支の合計", current.totals.net, proposal.totals.net),
   ];
-  if (feeC !== 0 || feeP !== 0) metrics.push(yen("FP顧問料の累計", feeC, feeP));
+  // FP顧問料の累計の額は、この章には出さない（結果の画面の一文と同じ扱い。顧問料の額は「前提条件と注意書き」の章にある）
   const finC = current.financialAtTarget;
   const finAt = (r: Run) => financialOf(r.result).get(ctx.target.year) ?? 0;
   let fee: ProposalInput["changes"]["fee"] = null;

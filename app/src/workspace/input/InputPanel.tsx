@@ -107,7 +107,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
       : item.estimated > 0
         ? `推定・仮の値のままの欄が ${item.estimated}つ あります。保存しても、推定の欄が残る間はカードは「推定あり」のままです。`
         : adding
-          ? "保存すると、カードが足されます（取り消すと足しません）。"
+          ? "保存すると、カードが足されます（キャンセルすると足しません）。"
           : "保存すると、このカードは「入力済み」になります。";
 
   return (
@@ -183,7 +183,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                 {note}
               </p>
               <button type="button" class="btn" onClick={onClose}>
-                取り消し
+                キャンセル
               </button>
               <button type="button" class="btn primary" onClick={save} data-save>
                 保存

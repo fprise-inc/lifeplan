@@ -202,7 +202,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                               変える
                             </button>
                             <button type="button" class="link-btn" onClick={() => setRenaming(null)}>
-                              やめる
+                              キャンセル
                             </button>
                             <span class="pl-sub">英数字・ハイフン・下線の16字まで。お名前は入れないでください</span>
                             {renaming.error !== null ? <span class="hh-err">{renaming.error}</span> : null}
@@ -232,7 +232,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                               完全に削除する
                             </button>
                             <button type="button" class="link-btn" onClick={() => setDeleting(null)}>
-                              やめる
+                              キャンセル
                             </button>
                             {deleting.error !== null ? <span class="hh-err">{deleting.error}</span> : null}
                           </form>

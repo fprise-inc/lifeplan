@@ -90,6 +90,14 @@ describe("分岐の「両方を残す」", () => {
     expect(b.meta).toEqual({ savedAt: "x" });
     // こちらにだけあるものが無ければ、何も足さない
     expect(mergeForkBodies(theirs, theirs, () => "z").added).toBe(0);
+    expect((JSON.parse(m.body) as { snapshots?: unknown }).snapshots).toBeUndefined();
+  });
+
+  it("控えは両方の分岐のものを残す（作った後は変えないので、同じ ID は1つ）", () => {
+    const theirs = JSON.stringify({ household: {}, proposals: [], snapshots: [{ id: "s1", memo: "相手" }, { id: "s2", memo: "共通" }] });
+    const ours = JSON.stringify({ household: {}, proposals: [], snapshots: [{ id: "s2", memo: "共通" }, { id: "s3", memo: "こちら" }] });
+    const b = JSON.parse(mergeForkBodies(theirs, ours, () => "z").body) as { snapshots: { id: string }[] };
+    expect(b.snapshots.map((x) => x.id)).toEqual(["s1", "s2", "s3"]);
   });
 });
 

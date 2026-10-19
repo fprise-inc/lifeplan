@@ -81,3 +81,23 @@
 .hs-fields dt { color: var(--ink-2); }
 .hs-fields dd { margin: 0; text-align: right; white-space: nowrap; }
 .hs-list { margin: 0; padding-left: 1.2em; font-size: 0.88rem; }
+
+/* ---- 控え（入力のホームの上部。控えめに置く） ---- */
+.snap-tools { gap: 4px 12px; }
+.snap-tools .link-btn { font-size: 0.88rem; }
+.snap-form { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: end; }
+.snap-form label { display: grid; gap: 2px; font-size: 0.88rem; font-weight: 700; color: var(--ink-2); flex: 1 1 280px; }
+.snap-form input[type="text"] { border: 1.5px solid var(--field); border-radius: 6px; padding: 4px 8px; font: inherit; color: var(--ink); font-weight: 400; }
+.snap-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.snap-table th { text-align: left; font-size: 0.82rem; color: var(--ink-2); border-bottom: 1.5px solid var(--line); padding: 4px 8px; }
+.snap-table td { border-bottom: 1px solid var(--line-2); padding: 6px 8px; vertical-align: top; }
+.snap-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.snap-kind { font-size: 0.78rem; font-weight: 700; border-radius: 4px; padding: 0 6px; border: 1.5px solid var(--line); color: var(--ink-2); white-space: nowrap; }
+.snap-kind.pdf { border-color: var(--prop); color: var(--prop-ink); background: var(--prop-bg); }
+.snap-none { color: var(--ink-2); }
+.snap-bad { display: block; margin-top: 2px; color: var(--short-ink); font-weight: 700; font-size: 0.82rem; }
+.snap-ops { white-space: nowrap; text-align: right; }
+.snap-ops .link-btn + .link-btn { margin-left: 8px; }
+
+/* ---- 万一のとき: 見るプランの切り替え（場面の帯の見出しの下） ---- */
+.cg-band .band-head select { max-width: 13em; }

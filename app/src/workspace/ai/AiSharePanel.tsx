@@ -219,7 +219,7 @@ export function AiSharePanel(p: AiSharePanelProps) {
                     撤回を記録する
                   </button>
                   <button type="button" class="link-btn" onClick={() => setWithdraw(null)}>
-                    やめる
+                    キャンセル
                   </button>
                 </div>
               </form>

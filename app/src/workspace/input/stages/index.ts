@@ -1,5 +1,5 @@
-// 入力の12項目（標準の順番: 家族 → 働き方と収入 → 年金 → 基本生活費 → 子ども・教育 → 住まい・ローン → 保険 → 貯蓄・運用 → ライフイベント → 車 → FP顧問料 → 前提条件）。
-// 入力のホームでは、項目ごとのカード（items.ts）になる
+// 入力の11項目（標準の順番: 家族 → 働き方と収入 → 年金 → 基本生活費 → 子ども・教育 → 住まい・ローン → 保険 → 貯蓄・運用 → ライフイベント → 車 → 前提条件）。
+// 入力のホームでは、項目ごとのカード（items.ts）になる。FP顧問料は前提条件の中の欄のまとまり（カードにしない。区画 fee は前提条件のパネルの中身を作るときにだけ使う）
 import type { StageDef, StageId } from "../form.ts";
 import { allFields } from "../form.ts";
 import type { WorkingHousehold } from "../household.ts";
@@ -27,7 +27,6 @@ export const STAGE_ORDER: readonly { id: StageId; label: string }[] = [
   { id: "savings", label: "貯蓄・運用" },
   { id: "events", label: "ライフイベント" },
   { id: "car", label: "車" },
-  { id: "fee", label: "FP顧問料" },
   { id: "assumptions", label: "前提条件" },
 ];
 

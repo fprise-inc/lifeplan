@@ -3,10 +3,12 @@
 // - 「現状」はいつも A案（入力の値）。「提案」は FP が選んだ帯の案（既定は主画面で選んでいる案）
 // - 目標の年齢は表示の設定の「○歳時点」、比較のページの基準は主画面の基準の案（主画面の比較の表と同じ数字）
 // - 宛名は材料に入れない（本体が出力の PDF に重ねるだけ。0009 の3・0012）
+// - 推定の値: 提案書には「一部は統計の平均で補っています」とだけ書く。どの欄が推定かは FP 向けの画面（提案書のタブ・入力のカード）だけで示す
 import { buildProposalInput, CHAPTERS, DEFAULT_LAYOUT, type ChapterId, type ProposalBundle, type ProposalInput, type ReportLayout, type Run } from "../../../../report/src/index.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { adults, baseRequest, defaultYear, occursMonth, scenarioRequest, scenarios, survivorOf } from "../contingency/requests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
+import { inputItems } from "../input/items.ts";
 import { hasAdvisoryFee } from "../levers.ts";
 import { CURRENT } from "../plans/band.ts";
 import type { Catalog } from "../plans/items.ts";
@@ -132,6 +134,7 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
       chapters: [...choice.chapters],
       layout: choice.layout ?? DEFAULT_LAYOUT,
       changes: changes.map((c) => ({ label: c.label, current: c.from, proposal: c.to })),
+      estimated: estimatedCards(wh).length > 0,
     };
     if (steps.length > 0) b.steps = steps.map((s, i) => ({ label: s.label, investment: s.investment, run: i === steps.length - 1 ? proposalRun : run(s.key) }));
     if (requests.withoutFee !== undefined) b.proposalWithoutFee = run("withoutFee");
@@ -156,6 +159,13 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
     return b;
   };
   return { requests, bundle };
+}
+
+/** 推定・仮の値の欄が残っている入力のカード（FP 向けの画面だけに出す。提案書には欄を書かない） */
+export function estimatedCards(wh: WorkingHousehold): { label: string; count: number }[] {
+  return inputItems(wh)
+    .filter((i) => i.estimated > 0)
+    .map((i) => ({ label: i.label, count: i.estimated }));
 }
 
 /** 材料から帳票の入力（JSON）を作る */

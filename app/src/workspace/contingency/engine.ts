@@ -5,7 +5,8 @@
 //   1年分は一生分の計算なので、画面の側のエンジンでも1年あたり数十ミリ秒かかる（スライダーの先出しの数ミリ秒とは違う）。
 //   そこで画面の側の先出しは、選んでいる年の近くの数年だけを1年ずつ間をあけて計算し（画面を止めない）、
 //   全部の年は本体の正の計算（画面とは別のスレッドで、並べて計算する）で出して確かめ、先出しを差し替える。
-//   覚えるのは年ごとの要約（資産が尽きる年）だけで、表そのものは持たない。要求の中身（の指紋）ごとに覚えるので、同じ内容なら計算しない
+//   覚えるのは年ごとの要約（資産が尽きる年）だけで、表そのものは持たない。要求の中身（の指紋）ごとに覚えるので、同じ内容なら計算しない。
+//   見るプランを切り替えると要求の中身が変わるので、プランごとに別に覚える（要約の決め方は、計算を始めたときの帯のものを使う）
 import { DualEngine } from "../../engine/dual.ts";
 import type { HostApi, WebEngine, WebSession } from "../../engine/host.ts";
 import { isEngineError, type EngineError, type EngineRequest, type PreviewResult } from "../../engine/types.ts";
@@ -109,13 +110,13 @@ export class YearSweep {
     });
   }
 
-  private put(key: string, result: PreviewResult | EngineError | undefined, source: "preview" | "canonical"): void {
+  private put(key: string, result: PreviewResult | EngineError | undefined, source: "preview" | "canonical", summarize: (r: PreviewResult) => number | null = this.summarize): void {
     const prev = this.cache.get(key);
     if (source === "preview" && prev !== undefined && prev.state !== "pending") return;
     let next: YearOutcome;
     if (result === undefined) next = { state: "error", code: "E_HOST" };
     else if (isEngineError(result)) next = { state: "error", code: result.error.code };
-    else next = { state: "ready", depletion: this.summarize(result), source };
+    else next = { state: "ready", depletion: summarize(result), source };
     if (source === "canonical" && prev?.state === "ready" && prev.source === "preview" && next.state === "ready" && prev.depletion !== next.depletion) this.mismatches++;
     this.cache.delete(key);
     this.cache.set(key, next);
@@ -173,9 +174,11 @@ export class YearSweep {
           .slice(0, this.opts.canonicalChunk);
         if (todo.length === 0) return;
         const t0 = performance.now();
+        // 計算している間に帯（見るプラン）が変わっても、送ったときの要約の決め方で覚える
+        const summarize = this.summarize;
         try {
           const res = await this.opts.host.compute(todo.map((p, i) => ({ id: `y${i}`, rev: 1, request: p.text })));
-          todo.forEach((p, i) => this.put(p.key, res.slots[`y${i}`]?.result, "canonical"));
+          todo.forEach((p, i) => this.put(p.key, res.slots[`y${i}`]?.result, "canonical", summarize));
         } catch (e) {
           for (const p of todo) this.cache.set(p.key, { state: "error", code: typeof e === "string" ? e : "E_HOST" });
         }

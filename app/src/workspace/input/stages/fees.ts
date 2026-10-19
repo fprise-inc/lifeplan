@@ -1,10 +1,10 @@
-// FP顧問料（入力の項目「FP顧問料」）: 契約ごとに、払う人・単発（相談料・プラン作成料の額と年月）・継続（月額か年額・始まりと終わり・値上げの率）・
+// FP顧問料（入力の項目「前提条件」の中の欄のまとまり「FP顧問料（単発・継続）」）: 契約ごとに、払う人・単発（相談料・プラン作成料の額と年月）・継続（月額か年額・始まりと終わり・値上げの率）・
 // 万一のときの扱い。エンジンの advisoryFees（0008 の追記）をそのまま読み書きする。
 // 既定では提案の側にだけ入れる（契約は enabled: false で現状に入れ、見通しの対策「FP顧問料」で提案の側を ON にする）。
 // 顧客に見せる画面にも出してよい項目だが、事務所の内部の情報（料金表の写しの印など）は画面に出さない
 import type { AdvisoryFee, Household } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
-import { byId, field, getPath, plain, timepointField, type FieldDef, type Finder, type GroupDef, type StageDef } from "../form.ts";
+import { byId, field, getPath, plain, timepointField, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import { memberLabel, memberOptions } from "../labels.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
@@ -180,22 +180,22 @@ export function addAdvisoryFee(wh: WorkingHousehold, id: () => string = newId): 
   });
 }
 
+/** 前提条件のパネルの中の「FP顧問料（単発・継続）」の欄のまとまり（契約ごと。欄のキーは以前のカード「FP顧問料」と同じ） */
+export function feeSections(wh: WorkingHousehold): SectionDef[] {
+  const list = wh.request.input.household.advisoryFees ?? [];
+  return [
+    {
+      key: "ev/fees",
+      title: "FP顧問料（単発・継続）",
+      note: "FP への相談料・顧問料。生活費とは別の行で計算します。既定では提案の側にだけ入れ、結果の対策「FP顧問料」で入れる・入れないを切り替えます",
+      level: "simple",
+      groups: list.flatMap((c, i) => feeGroups(wh, c, i)),
+      actions: [{ key: "ev/addFee", label: "＋ FP顧問料の契約", level: "simple", run: (w) => addAdvisoryFee(w) }],
+    },
+  ];
+}
+
+/** FP顧問料の欄だけの区画（入力のホームのカードにはしない。前提条件のパネルの中に入れる。stages/assumptions.ts） */
 export function feeStage(wh: WorkingHousehold): StageDef {
-  const claimed = new Set(wh.addedItems.map((a) => a.ref));
-  const list = (wh.request.input.household.advisoryFees ?? []).filter((c) => !claimed.has(c.id));
-  return {
-    id: "fee",
-    label: "FP顧問料",
-    lead: "FP への相談料・顧問料（単発と継続）。",
-    sections: [
-      {
-        key: "ev/fees",
-        title: "FP顧問料",
-        note: "生活費とは別の行で計算します。既定では提案の側にだけ入れ、結果の対策「FP顧問料」で入れる・入れないを切り替えます",
-        level: "simple",
-        groups: list.flatMap((c, i) => feeGroups(wh, c, i)),
-        actions: [{ key: "ev/addFee", label: "＋ FP顧問料の契約", level: "simple", run: (w) => addAdvisoryFee(w) }],
-      },
-    ],
-  };
+  return { id: "fee", label: "FP顧問料", lead: "FP への相談料・顧問料（単発と継続）。", sections: feeSections(wh) };
 }

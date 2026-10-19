@@ -119,6 +119,11 @@ export class DualEngine {
     s.previewTable = { rev: s.rev, table: JSON.stringify(r.table) };
   }
 
+  /** 今ある枠の名前 */
+  ids(): string[] {
+    return [...this.slots.keys()];
+  }
+
   /** 使わなくなった枠を消す（主画面の帯から外した案。画面側のエンジンの枠も消す）。消した枠の名前を返す */
   retain(ids: readonly string[]): string[] {
     const keep = new Set(ids);

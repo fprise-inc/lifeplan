@@ -15,18 +15,32 @@ import { estimateWidth, indexAt, placeTip, shownYear, stepYear, togglePin } from
 export interface ScenarioBandProps {
   model: ContingencyModel;
   onSelect: (key: string) => void;
+  /** 見るプランの切り替え（既定は現状のプランA。プランが1つなら出さない） */
+  plan?: { options: { id: string; text: string }[]; value: string; onChange: (id: string) => void };
   /** 「計算しています」を出すまでの時間（ミリ秒。既定は LOADING_DELAY_MS） */
   loadingAfter?: number;
 }
 
 /** 場面の帯: 「ご主人が亡くなったら」などを小さなカードで横に並べる（見通しの案の帯と同じ見た目）。起きる年は下の年ごとの結果の帯で選ぶ */
-export function ScenarioBand({ model, onSelect, loadingAfter = LOADING_DELAY_MS }: ScenarioBandProps) {
+export function ScenarioBand({ model, onSelect, plan, loadingAfter = LOADING_DELAY_MS }: ScenarioBandProps) {
   const many = model.scenarios.length > 4;
   const showLoading = useDelayed(model.scenarios.some((c) => c.loading), loadingAfter);
   return (
     <section class={`band cg-band${many ? " many" : ""}`} aria-label="場面" data-cg-band data-prot-status={model.protection.status}>
       <div class="band-head">
         <span class="band-t">場面</span>
+        {plan !== undefined && plan.options.length > 1 ? (
+          <label>
+            見るプラン
+            <select value={plan.value} title={plan.options.find((o) => o.id === plan.value)?.text ?? ""} onChange={(e) => plan.onChange((e.currentTarget as HTMLSelectElement).value)} data-cg-plan>
+              {plan.options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.text}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
       <div class="band-cards" role="group" aria-label="グラフに出す場面">
         {model.scenarios.map((c, i) => {

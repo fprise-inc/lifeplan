@@ -2,6 +2,7 @@
 // - 計算は本体の正の計算（host.compute）。画面側の先出しの結果は PDF に使わない（0005 の2）
 // - PDF は本体が作り、本体の中に置く。画面は見本の画像（ページごとの PNG）だけを受け取る（CSP の object-src・frame-src が none）
 // - 保存は本体の平文の書き出しの出口（OS の保存のダイアログ）。最初の保存の前に、平文の注意を出す（0020 の5）
+// - 保存したら、その時点の控え（0009 の2。きっかけ「PDF書き出し」）を残す（宛名・担当は控えに入れない）
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { CHAPTERS, hasMaterial, type CashflowLayout, type ChapterId, type Orientation, type ProposalInput } from "../../../../report/src/index.ts";
 import type { HostApi, RenderInfo, SaveOutcome } from "../../engine/host.ts";
@@ -10,7 +11,8 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { CURRENT } from "../plans/band.ts";
 import type { Catalog } from "../plans/items.ts";
 import type { Values } from "../plans/plans.ts";
-import { DEFAULT_CHAPTERS, DEFAULT_LAYOUT, planReport, reportInput, today, type ReportChoice } from "./assemble.ts";
+import type { SnapshotDraft } from "../snapshots/snapshots.ts";
+import { DEFAULT_CHAPTERS, DEFAULT_LAYOUT, estimatedCards, planReport, reportInput, today, type ReportChoice } from "./assemble.ts";
 import { ReportViewer } from "./ReportViewer.tsx";
 
 interface Props {
@@ -27,6 +29,8 @@ interface Props {
   letterOf: (id: string) => { letter: string; name: string };
   /** 表示の設定の「○歳時点」 */
   targetAge: number;
+  /** PDF を保存したときに控えを残す（App が現状とプランの写しを足して世帯に入れる） */
+  onSnapshot?: (d: SnapshotDraft) => Promise<void>;
 }
 
 export interface ReportTimings {
@@ -142,6 +146,17 @@ export function ReportTab(p: Props) {
       const r = await p.host.report.save();
       warnedThisSession = true;
       setSaved(r);
+      if (r.saved && built !== null && p.onSnapshot !== undefined) {
+        const l = p.letterOf(proposal);
+        const input = built.input;
+        await p.onSnapshot({
+          trigger: "pdf",
+          memo: `提案書（${built.timings.pages}ページ）`,
+          plan: { id: proposal, letter: l.letter, name: l.name },
+          report: { chapters: [...(input.chapters ?? choice.chapters)], orientation: (input.layout ?? DEFAULT_LAYOUT).orientation, cashflow: (input.layout ?? DEFAULT_LAYOUT).cashflow, targetAge: choice.targetAge, issuedOn: input.document.issuedOn },
+          outputs: { summary: input.summary, dataSet: input.assumptions.dataSet },
+        }).catch(() => undefined);
+      }
     } catch (e) {
       setSaveErr(typeof e === "string" ? e : "E_EXPORT");
     }
@@ -150,6 +165,7 @@ export function ReportTab(p: Props) {
 
   const material = (id: ChapterId) => (built === null ? true : hasMaterial(built.input, id) || !chapters.has(id));
   const drafted = [proposal, ...compare].some((id) => p.modified.has(id));
+  const estimates = useMemo(() => estimatedCards(p.wh), [p.wh]);
 
   if (p.band.length === 0)
     return (
@@ -209,6 +225,11 @@ export function ReportTab(p: Props) {
             ))}
           </div>
           {drafted ? <p class="rp-note warn">保存していない変更を含むプランがあります。今の中身（結果と同じ）で作ります。</p> : null}
+          {estimates.length > 0 ? (
+            <p class="rp-note" data-report-estimates>
+              推定・仮の値のままの欄があります（FP向けの表示）: {estimates.map((e) => `${e.label} ${e.count}つ`).join("・")}。提案書には「一部は統計の平均で補っています」とだけ載せ、どの欄かは書きません。
+            </p>
+          ) : null}
         </fieldset>
         <fieldset class="rp-set">
           <legend>章</legend>
@@ -280,14 +301,14 @@ export function ReportTab(p: Props) {
                 わかりました。保存する
               </button>
               <button type="button" class="btn" onClick={() => setWarn(false)}>
-                やめる
+                キャンセル
               </button>
             </div>
           </div>
         ) : null}
         {saved !== null ? (
           <p class={`rp-note${saved.syncFolder ? " warn" : ""}`} role="status" data-report-saved={saved.saved ? "1" : "0"}>
-            {saved.saved ? `「${saved.fileName ?? ""}」を保存しました。${saved.syncFolder ? "同期フォルダの中です。共有の範囲に気をつけてください。" : ""}` : "保存しませんでした。"}
+            {saved.saved ? `「${saved.fileName ?? ""}」を保存しました。${saved.syncFolder ? "同期フォルダの中です。共有の範囲に気をつけてください。" : ""}${p.onSnapshot !== undefined ? "この時点の控えを残しました（入力の「控えの一覧」）。" : ""}` : "保存しませんでした。"}
           </p>
         ) : null}
         {saveErr !== null ? <p class="fatal">保存できませんでした（{saveErr === "E_EXPORT_FORBIDDEN_DIR" ? "データフォルダ・カスタム層の中には保存できません" : saveErr}）</p> : null}

@@ -23,10 +23,9 @@
     let f = ch.fee
     section("FP顧問料込みの効果")
     callout[
-      FP顧問料（#data.summary.target.label までの累計 *#man-unit(f.totalToTarget)*）を#if f.diffAtTarget >= 0 [払っても] else [含めると]、#data.summary.target.label の金融資産は現状より *#man-diff(f.diffAtTarget)* です。
+      FP顧問料を#if f.diffAtTarget >= 0 [払っても] else [含めると]、#data.summary.target.label の金融資産は現状より *#man-diff(f.diffAtTarget)* です。
       #if f.diffWithoutFee != none [（顧問料を除くと #man-diff(f.diffWithoutFee)）]
     ]
-    note("FP顧問料の累計（表の期間）は " + yen(f.total) + " です。")
   }
   if ch.steps != none {
     section("打ち手ごとの効果（" + data.summary.target.label + "の金融資産。1件ずつ足していった順）")

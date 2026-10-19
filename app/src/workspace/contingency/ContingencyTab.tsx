@@ -1,6 +1,8 @@
 // 万一のときの画面（作業の層）: 必要保障額の推移（大人ごと）・万一なし・選んだ想定を計算し、提示用の値を作って提示層の部品に渡す。
 // 配置は見通しと同じ上から下の流れ: ① 場面の帯 → ② 年ごとの結果の帯（起きる年を選ぶ・1年ずつ見せる）→ ③ 大きなグラフ（資産の推移／必要保障額の推移）
 // → ④ FP が直す前提の欄（対策の欄と同じ部品）。前提の欄までスクロールすると、②③が縮んで画面の上に付いてくる（ChartDock）。
+// 見るプラン: 既定は現状（プランA）。切り替えると、場面の帯・年ごとの結果の帯・グラフ・必要保障額をそのプラン（保存していない変更を含む今の中身）で計算する。
+// 想定の前提（遺族の生活費の割合など）は世帯に1つで、どのプランにも同じものを使う。グラフの枠の名前はプランごとに分け、プランを戻したときは前の結果をすぐ出す。
 // 計算はアプリの側が持つ ContingencyEngine で行う（タブを切り替えても結果を捨てない。同じ内容ならすぐ出す）。
 // 画面の側のエンジンで先に出し、本体の正の計算で置き換える（見通しと同じ二本立て）。FP用のメモは画面に出さず、上部の引き出しに置く
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -12,11 +14,12 @@ import type { ContingencyModel, ProtectionChartModel } from "../../presentation/
 import type { WorkingHousehold } from "../input/household.ts";
 import { depletionYear, displayYears } from "../present.ts";
 import { roles } from "../roles.ts";
+import { CURRENT } from "../plans/band.ts";
 import { YearSweep, type ContingencyEngine } from "./engine.ts";
 import { contingencyInputSections, oldAgeChoiceField } from "./inputs.ts";
 import { PremisePanel } from "./PremisePanel.tsx";
 import { protectionChart, scenarioCards, scenarioModel, yearOptions, yearStripModel } from "./present.ts";
-import { adults, baseRequest, defaultYear, protectionRequest, scenarioRequest, scenarios } from "./requests.ts";
+import { adults, chartRequests, defaultYear, keptSlots, planSlot, scenarioRequest, scenarios } from "./requests.ts";
 
 /** 1年ずつ見せるときの、1年あたりの時間（ミリ秒） */
 export const PLAY_STEP_MS = 1000;
@@ -29,7 +32,19 @@ export interface ContingencyUi {
   /** 選んでいる場面（death:self など。未選択は undefined） */
   selected?: string;
   mode: ContingencyMode;
+  /** 見るプラン（プランの内部 ID。省略は現状のプランA） */
+  plan?: string;
 }
+
+/** 見るプランの選択肢（現状と帯に並べたプラン） */
+export interface PlanOption {
+  id: string;
+  letter: string;
+  name: string;
+}
+
+/** プランの枠の数の上限（グラフの枠の結果を覚えておくプランの数。今のプランを含む） */
+export const KEEP_PLANS = 4;
 
 export interface ContingencyTabProps {
   wh: WorkingHousehold;
@@ -46,6 +61,12 @@ export interface ContingencyTabProps {
   onDockOff: () => void;
   /** 開いたときの想定（URL の #scenario=death:self） */
   initialScenario?: string;
+  /** 見るプランの選択肢（現状 CURRENT と帯のプラン）。無ければ現状だけ */
+  plans?: readonly PlanOption[];
+  /** プランの計算の要求（打ち手を当てた現状。保存していない変更を含む）。CURRENT は世帯の要求そのもの */
+  requestOf?: (id: string) => EngineRequest;
+  /** 開いたときに見るプラン（URL の #cgplan=B。帯の文字） */
+  initialPlan?: string;
 }
 
 /** 1年ずつ見せている状態: from は見せ始める前に選んでいた年（止めると戻る） */
@@ -55,12 +76,22 @@ interface Play {
   year: number;
 }
 
-export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui, onUi, dock, onDockOff, initialScenario }: ContingencyTabProps) {
+export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui, onUi, dock, onDockOff, initialScenario, plans, requestOf, initialPlan }: ContingencyTabProps) {
   // 前提のスライダーを動かしている間は、画面の側の世帯（draft）で描いて計算する。指を離したら世帯に書く
   const [draft, setDraft] = useState<WorkingHousehold | null>(null);
-  const wh = draft ?? saved;
+  const edited = draft ?? saved;
+  // ---- 見るプラン（既定は現状）。前提は世帯のもの（edited.contingency）、計算の要求はそのプランのもの ----
+  const wantPlan = ui.plan ?? (initialPlan !== undefined ? plans?.find((p) => p.letter === initialPlan)?.id : undefined);
+  const planId = wantPlan !== undefined && wantPlan !== CURRENT && (plans ?? []).some((p) => p.id === wantPlan) && requestOf !== undefined ? wantPlan : CURRENT;
+  const planReq = useMemo(() => (planId === CURRENT || requestOf === undefined ? saved.request : requestOf(planId)), [planId, saved.request, requestOf]);
+  /** 計算に使う世帯（プランの要求＋世帯の前提）。前提の欄はこれを直さず、edited を直す */
+  const wh = useMemo<WorkingHousehold>(() => (planReq === edited.request ? edited : { ...edited, request: planReq }), [edited, planReq]);
+  const planSaved = useMemo<WorkingHousehold>(() => (planReq === saved.request ? saved : { ...saved, request: planReq }), [saved, planReq]);
+  /** グラフの枠の名前（プランごとに分ける） */
+  const slot = (name: string) => planSlot(planId, name);
+  const recentPlans = useRef<string[]>([]);
   const commit = (w?: WorkingHousehold) => {
-    const next = w ?? draft;
+    const next = w === undefined ? draft : w.request === saved.request ? w : { ...w, request: saved.request };
     setDraft(null);
     if (next !== null && next !== saved) onEdit(next);
   };
@@ -84,29 +115,26 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
       .map((a) => a.member.id);
   }, [wh.request]);
 
-  // ---- グラフの枠（万一なし・必要保障額の推移・選んだ想定）----
-  const requests = useMemo(() => {
-    const r: Record<string, EngineRequest> = { none: baseRequest(wh.request) };
-    protMembers.forEach((m, i) => (r[`prot:${i}`] = protectionRequest(wh, m)));
-    if (sc !== undefined) r.sc = scenarioRequest(wh, sc, year);
-    return r;
-  }, [wh, protMembers, sc, year]);
+  // ---- グラフの枠（万一なし・必要保障額の推移・選んだ想定。枠の名前はプランごと）----
+  const requests = useMemo(() => chartRequests(wh, planId, protMembers, sc, year), [wh, protMembers, sc, year, planId]);
   const dragging = draft !== null;
   useEffect(() => {
     if (engine === null) return;
     const c = engine.chart;
-    c.retain(Object.keys(requests));
+    // 最近見たプランの枠は残す（戻したときに前の結果をすぐ出す）。ほかのプランの枠は消す
+    recentPlans.current = [planId, ...recentPlans.current.filter((p) => p !== planId)].slice(0, KEEP_PLANS);
+    c.retain(keptSlots(c.ids(), requests, recentPlans.current));
     // 前提を動かしている間は選んだ想定の枠だけ先に出す（ほかの枠と正の計算は、操作が止まってから）
-    if (dragging) c.slide("sc", requests);
+    if (dragging) c.slide(slot("sc"), requests);
     else void c.set(requests);
   }, [engine, requests, dragging]);
 
   // ---- 年ごとの結果の帯（世帯に書いた前提で。動かしている途中は計算し直さない）----
-  const options = useMemo(() => (sc !== undefined ? yearOptions(saved.request, sc.member) : []), [saved.request, sc]);
-  const sweepKey = useMemo(() => JSON.stringify({ r: saved.request, c: { ...saved.contingency, year: null }, s: sc?.key ?? "" }), [saved, sc]);
-  const sweepList = useMemo(() => (sc === undefined ? [] : YearSweep.prepare(options.map((o) => ({ year: o.value, request: scenarioRequest(saved, sc, o.value) })))), [sweepKey, options.length]);
+  const options = useMemo(() => (sc !== undefined ? yearOptions(planSaved.request, sc.member) : []), [planSaved.request, sc]);
+  const sweepKey = useMemo(() => JSON.stringify({ r: planSaved.request, c: { ...planSaved.contingency, year: null }, s: sc?.key ?? "" }), [planSaved, sc]);
+  const sweepList = useMemo(() => (sc === undefined ? [] : YearSweep.prepare(options.map((o) => ({ year: o.value, request: scenarioRequest(planSaved, sc, o.value) })))), [sweepKey, options.length]);
   const summarize = useMemo(() => {
-    const years = displayYears(saved.request);
+    const years = displayYears(planSaved.request);
     return (r: PreviewResult) => depletionYear(r.table, years);
   }, [sweepKey]);
   useEffect(() => {
@@ -118,7 +146,7 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
   // ---- 開いてから必要保障額の推移が出るまで（DEV の表示と自己確認）----
   const view = (id: string) => engine?.chart.view(id) ?? null;
   const opened = useRef({ t0: performance.now(), done: false, first: true });
-  const protReady = protMembers.every((_, i) => view(`prot:${i}`)?.result != null || view(`prot:${i}`)?.error != null);
+  const protReady = protMembers.every((_, i) => view(slot(`prot:${i}`))?.result != null || view(slot(`prot:${i}`))?.error != null);
   if (!opened.current.done && protReady && engine !== null) {
     opened.current.done = true;
     engine.openings.push({ ms: performance.now() - opened.current.t0, cached: opened.current.first });
@@ -131,8 +159,8 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
     let protStatus: ContingencyModel["protection"]["status"] = "ready";
     let protError: string | null = null;
     protMembers.forEach((m, i) => {
-      const s = view(`prot:${i}`);
-      const req = requests[`prot:${i}`];
+      const s = view(slot(`prot:${i}`));
+      const req = requests[slot(`prot:${i}`)];
       if (s?.error != null) {
         protStatus = "error";
         protError = s.error;
@@ -143,8 +171,8 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
         if (c !== null) charts.push(c);
       }
     });
-    const none = view("none");
-    const sr = view("sc");
+    const none = view(slot("none"));
+    const sr = view(slot("sc"));
     let scenario: ContingencyModel["scenario"] = { status: "loading", model: null, error: null, stale: false };
     if (sr?.error != null || none?.error != null) scenario = { status: "error", model: null, error: sr?.error ?? none?.error ?? null, stale: false };
     else if (sc !== undefined && sr?.result != null && none?.result != null)
@@ -157,7 +185,7 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
     const last = engine?.openings.at(-1);
     const protection: ContingencyModel["protection"] = { status: protStatus, charts, error: protError, ms: last?.ms ?? null };
     const sel = sc?.key ?? "";
-    const who = sc !== undefined ? (roles(saved.request).find((r) => r.member.id === sc.member)?.label ?? sc.who) : "";
+    const who = sc !== undefined ? (roles(planSaved.request).find((r) => r.member.id === sc.member)?.label ?? sc.who) : "";
     const noneRes = none?.result ?? null;
     return {
       protection,
@@ -168,13 +196,13 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
         options: options.map((o) => ({ value: o.value, age: o.age })),
         results: engine === null ? [] : sweepList.map((p) => engine.sweep.outcome(p.key)),
         who,
-        noneDepletion: noneRes === null ? undefined : depletionYear(noneRes.table, displayYears(saved.request)),
+        noneDepletion: noneRes === null ? undefined : depletionYear(noneRes.table, displayYears(planSaved.request)),
         stale: dragging,
       }),
       scenario,
     };
     // view() は engine の中の結果を読む（engine の知らせのたびに tick が進むので、読み直す）
-  }, [tick, engine, requests, protMembers, sc, scs, wh, year, targetAge, options, sweepList, dragging, saved.request]);
+  }, [tick, engine, requests, protMembers, sc, scs, wh, year, targetAge, options, sweepList, dragging, planSaved.request, planId]);
 
   // ---- 年を選ぶ・1年ずつ見せる ----
   const setYear = (y: number) => {
@@ -234,7 +262,21 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
     setChartYear(null);
     setYear(y);
   };
-  const sections = useMemo(() => contingencyInputSections(wh), [wh]);
+  const planChoice =
+    plans !== undefined && plans.length > 1 && requestOf !== undefined
+      ? {
+          options: plans.map((p) => ({ id: p.id, text: `プラン${p.letter}${p.id === CURRENT ? "（現状）" : p.name !== "" ? ` ${p.name}` : ""}` })),
+          value: planId,
+          onChange: (id: string) => {
+            setPlay(null);
+            setChartYear(null);
+            const { plan: _p, ...rest } = ui;
+            void _p;
+            onUi(id === CURRENT ? rest : { ...rest, plan: id });
+          },
+        }
+      : undefined;
+  const sections = useMemo(() => contingencyInputSections(edited), [edited]);
   const used = useMemo(() => {
     if (sc === undefined) return new Set<string>();
     return new Set(sc.kind === "death" ? ["cg/living", "cg/lump", "cg/work", "cg/creditLife"] : ["cg/disability", "cg/creditLife"]);
@@ -258,7 +300,7 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
         <DockedContingency {...chartProps} height={docked.height} strip={strip} />
       </ChartDock>
       {/* ① 場面の帯 */}
-      <ScenarioBand model={model} onSelect={selectScenario} />
+      <ScenarioBand model={model} onSelect={selectScenario} {...(planChoice !== undefined ? { plan: planChoice } : {})} />
       {/* ② 年ごとの結果の帯 */}
       <YearStrip {...strip} model={model.strip} />
       {/* ③ グラフ */}
@@ -267,7 +309,7 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
       </div>
       {/* ④ 想定の前提 */}
       <div class="dock-controls" ref={controls}>
-        <PremisePanel wh={wh} sections={sections} used={used} extra={extra} onDraft={setDraft} onCommit={commit} />
+        <PremisePanel wh={edited} sections={sections} used={used} extra={extra} onDraft={setDraft} onCommit={commit} />
       </div>
       {import.meta.env.DEV ? (
         <div class="foot footnote">

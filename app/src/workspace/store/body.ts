@@ -1,11 +1,12 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.2。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
+// 本文の区画（形式の版 0.3。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
 // - meta: 形式名・形式の版・保存日時・アプリの版・表示用の顧客番号、誰が直したか（保存した人・改訂の履歴・出てくるメンバーの表示名。本体が入れる。0023 の6）
 // - household: 現状の世帯（計算の要求と、画面の側の値: 呼び名・定年後の予定・FP用のメモとその行ごとの書いた人・万一の想定の前提・足した項目など）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
 // - hearing: ヒアリングの依頼・取り込み・同意の下書きの記録（0018。取り込みの記録・同意の記録への分け方は後の版）
 // - workspace: 案の帯の並び・基準の案・選んだ案・対策に足した項目・出発点にした見本
 // - display: 表示の設定（世帯ごと。出す数字・○歳時点の年齢・グラフの比べ方・操作中はグラフを上に表示）
+// - snapshots: 控え（0009 の2。PDF を書き出した時点・FP が残した時点の写し。0.3 から。控えが無ければ区画を作らない）
 // - extDefinitions / ext: 拡張領域（0011 の4。読んだものをそのまま書き戻し、失わない）
 // 保存しないもの: 提案書の宛名（0012 の2。出力のときだけ）、保存していない案の変更（「案として保存」「上書き」で保存する）、
 // 画面の一時的な状態（開いているタブ・パネル・文字の大きさなど）
@@ -15,10 +16,11 @@ import type { HearingLog } from "../hearing/sheet.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { CURRENT } from "../plans/band.ts";
 import type { Proposal } from "../plans/plans.ts";
+import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.2";
+export const BODY_FORMAT_VERSION = "0.3";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -33,9 +35,11 @@ export interface SavedWorkspace {
 
 export interface HouseholdBody {
   meta?: Record<string, unknown>;
-  household: Omit<WorkingHousehold, "proposals" | "hearing">;
+  household: Omit<WorkingHousehold, "proposals" | "hearing" | "snapshots">;
   proposals: StoredProposal[];
   hearing: HearingLog | null;
+  /** 控え（0.3 から。無ければ区画ごと省く） */
+  snapshots?: Snapshot[];
   workspace: SavedWorkspace;
   display: DisplaySettings;
   extDefinitions: Record<string, unknown>;
@@ -54,11 +58,12 @@ export interface BodyState {
 export const EMPTY_CARRY: BodyState["carry"] = { extDefinitions: {}, ext: {} };
 
 export function bodyObject(s: BodyState): HouseholdBody {
-  const { proposals, hearing, ...household } = s.wh;
+  const { proposals, hearing, snapshots, ...household } = s.wh;
   return {
     household,
     proposals: proposals.map(({ name, ...p }) => ({ ...p, title: name })),
     hearing: hearing ?? null,
+    ...(snapshots !== undefined && snapshots.length > 0 ? { snapshots } : {}),
     workspace: s.workspace,
     display: s.display,
     extDefinitions: s.carry.extDefinitions,
@@ -78,7 +83,8 @@ const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is
 export function fromBody(json: string): BodyState {
   const b = JSON.parse(json) as unknown;
   if (!isObj(b) || !isObj(b.household) || !isObj(b.household.request)) throw new Error("E_BODY_SHAPE");
-  const h = b.household as unknown as Partial<Omit<WorkingHousehold, "proposals" | "hearing">> & { request: EngineRequest };
+  const { snapshots: _inHousehold, ...h } = b.household as unknown as Partial<WorkingHousehold> & { request: EngineRequest };
+  void _inHousehold;
   const proposals: Proposal[] = (Array.isArray(b.proposals) ? (b.proposals as StoredProposal[]) : []).map(({ title, ...p }) => ({ ...p, name: title }));
   const wh: WorkingHousehold = {
     labelsByMember: {},
@@ -92,6 +98,8 @@ export function fromBody(json: string): BodyState {
     proposals,
     ...(isObj(b.hearing) ? { hearing: b.hearing as unknown as HearingLog } : {}),
   };
+  const snapshots = readSnapshots(b.snapshots);
+  if (snapshots.length > 0) wh.snapshots = snapshots;
   const w = isObj(b.workspace) ? b.workspace : {};
   const workspace: SavedWorkspace = {
     template: typeof w.template === "string" ? w.template : null,
