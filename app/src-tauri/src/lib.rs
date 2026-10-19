@@ -15,6 +15,9 @@
 //!   Windows・Linux はメニューバーを出さない（キー操作は画面が受ける）。
 
 mod ai;
+/// 開発用のビルドだけの鍵の保管庫（ファイル。製品のビルドには入らない）
+#[cfg(debug_assertions)]
+mod dev_keystore;
 mod engine;
 mod export;
 mod menu;
@@ -273,6 +276,7 @@ pub fn run() {
             store::recovery_key_acknowledge,
             store::recovery_key_test,
             store::recovery_key_restore,
+            store::store_keystore,
             ai::ai_status,
             ai::ai_set_enabled,
             ai::ai_setup_copy,
@@ -289,6 +293,9 @@ pub fn run() {
             office::office_reject,
             office::office_remove,
             office::office_move_local,
+            office::office_recover,
+            office::office_end,
+            office::office_dismiss_notices,
             office::store_fork_info,
             office::store_fork_resolve,
             office::store_sync_copies_resolve,
@@ -341,9 +348,9 @@ pub fn run() {
         // 終わる直前: AIへの共有をすべて「アプリの終了」で閉じ、記録を世帯ファイルへ書き戻し、受け口を閉じる（app.json を消す）
         RunEvent::Exit => {
             let store = handle.state::<store::StoreState>();
-            handle.state::<ai::AiState>().shutdown(&store.0);
+            handle.state::<ai::AiState>().shutdown(&store.store);
             // 事務所で共有しているときは、自分の開いている印を消す（0023 の7）
-            store.0.leave_all();
+            store.store.leave_all();
         }
         _ => {}
     });

@@ -40,7 +40,8 @@ use crate::{StoreError, HOUSEHOLD_EXT, HOUSEHOLD_FORMAT};
 
 mod shared;
 pub use shared::{
-    ForkChoice, ForkInfo, MemberView, OfficeStatus, PresenceView, RemovedView, RequestView,
+    ForkChoice, ForkInfo, MemberView, NoticeView, OfficeStatus, PresenceView, RemovedView,
+    RequestView,
 };
 
 const OFFICE_FILE: &str = "office.json";
@@ -158,6 +159,9 @@ struct SharingSetting {
     joined_at: Option<String>,
     /// 選んだフォルダが同期フォルダの中か（画面の案内のため）
     sync_folder: bool,
+    /// 名簿の履歴の知らせ（復元キーで加わった、など）を、この PC でどこまで見たか（その行の日時）
+    #[serde(default)]
+    notices_seen_at: Option<String>,
 }
 
 /// AI接続口の事務所全体の設定（0015）。既定はオフ
@@ -592,10 +596,10 @@ impl Store {
                 Some(sh) => sh.recovery_acknowledged(),
                 None => s.data.recovery.acknowledged_at.is_some(),
             }),
-            recovery_verified_at: g
-                .session
-                .as_ref()
-                .and_then(|s| s.data.recovery.verified_at.clone()),
+            recovery_verified_at: g.session.as_ref().and_then(|s| match &s.shared {
+                Some(sh) => sh.recovery_verified_at(),
+                None => s.data.recovery.verified_at.clone(),
+            }),
             last_opened: g.session.as_ref().and_then(|s| s.data.last_opened.clone()),
             deletions_pending: pending,
             deletions_completed: done,
@@ -1547,14 +1551,19 @@ impl Store {
         let candidate = recovery::decode(input)?;
         let mut g = self.lock();
         let now = self.now();
-        if let Some(sh) = g.session.as_ref().and_then(|s| s.shared.as_ref()) {
-            // 事務所の復元キー: 共有フォルダの今の名簿が開けるか
+        if g.session.as_ref().is_some_and(|s| s.shared.is_some()) {
+            // 事務所の復元キー: 共有フォルダの今の名簿が開けるか。開けたら「試して確かめた」を名簿に記録し、保管済みとみなす（0023 の5）
+            let s = Self::session(&mut g)?;
+            self.refresh_shared(s)?;
+            let sh = Self::shared_mut(s)?;
             let bytes = fs::read(sh.paths.members()).map_err(|_| StoreError::IO)?;
-            return match office::open_roster_with_master(&bytes, &candidate) {
-                Ok(_) => Ok(self.status_of(&g)),
-                Err(StoreError::WRONG_MASTER) => Err(StoreError::RECOVERY_MISMATCH),
-                Err(e) => Err(e),
-            };
+            match office::open_roster_with_master(&bytes, &candidate) {
+                Ok(_) if *candidate == *sh.master => {}
+                Ok(_) | Err(StoreError::WRONG_MASTER) => return Err(StoreError::RECOVERY_MISMATCH),
+                Err(e) => return Err(e),
+            }
+            sh.verify_recovery(&iso_of(now))?;
+            return Ok(self.status_of(&g));
         }
         let bytes = fs::read(self.vault_path()).map_err(|_| StoreError::IO)?;
         match Vault::decode(&bytes, &candidate) {

@@ -34,6 +34,7 @@ report-pdf = { path = "../../crates/report-pdf" }
 # 0020 の5: 平文の書き出しの出口で、OS の保存・開くのダイアログを本体から出す（プラグインではないので、画面には権限を与えない）
 rfd = { version = "0.15", default-features = false, features = ["gtk3"] }
 sha2 = "0.10"
+zeroize = "1"
 # 0011・0013: 世帯ファイルの保存と暗号化（OS の資格情報の保管庫を使う実装を有効にする）
 household-store = { path = "../../crates/household-store", features = ["os-keyring"] }
 # 0014・0015: AI接続口のアプリ本体の側（共有の台帳・縮約版・同意とAIの記録・接続口からの依頼の受け口）

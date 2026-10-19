@@ -8,7 +8,10 @@ use std::collections::HashSet;
 
 use super::*;
 use crate::member;
-use crate::office::{Card, HouseholdKeys, Member, Paths, Presence, PreviousMaster, RemovedMember};
+use crate::office::{
+    Card, ClosedMark, HouseholdKeys, Member, Paths, Presence, PreviousMaster, RemovedMember,
+    RosterEvent,
+};
 
 /// 開いている他のメンバー（画面に返す。0023 の7）
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -30,6 +33,18 @@ pub struct MemberView {
     pub approved_by: Option<String>,
     pub role: String,
     pub is_me: bool,
+    /// 復元キーで名簿に自分を足したメンバー（承認した人はいない。0023 の5）
+    pub via_recovery: bool,
+}
+
+/// ほかのメンバーへの知らせ（名簿の履歴から。今は「復元キーで○○さんが加わりました」だけ）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoticeView {
+    /// `recoveryJoin`
+    pub kind: String,
+    pub name: String,
+    pub at: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -72,6 +87,12 @@ pub struct OfficeStatus {
     pub recovery_acknowledged: bool,
     pub recovery_acknowledged_by: Option<String>,
     pub recovery_acknowledged_at: Option<String>,
+    /// 復元キーで実際に開けることを確かめた日時（今の親鍵について）
+    pub recovery_verified_at: Option<String>,
+    /// 事務所の復元キーを保管するまで、共有の操作（承認・外す）を止めている（世帯の閲覧・編集は止めない。0023 の5）
+    pub recovery_required: bool,
+    /// まだ見ていない知らせ（復元キーで加わった人など）
+    pub notices: Vec<NoticeView>,
 }
 
 /// 分岐を選ぶ画面の材料（0023 の7）
@@ -394,15 +415,61 @@ impl Shared {
         Ok(())
     }
 
+    /// 今の親鍵の保管の記録（前の時代の記録は使わない）
+    fn current_ack(&self) -> Option<&office::RecoveryAck> {
+        self.roster
+            .recovery
+            .as_ref()
+            .filter(|r| r.master_key_id == self.roster.master_key_id)
+    }
+
+    pub(super) fn recovery_verified_at(&self) -> Option<String> {
+        self.current_ack().and_then(|a| a.verified_at.clone())
+    }
+
+    /// 共有の操作（承認・外す）の前に: 事務所の復元キーを保管するまで止める（0023 の5）
+    fn require_recovery(&self) -> Result<(), StoreError> {
+        if self.recovery_acknowledged() {
+            Ok(())
+        } else {
+            Err(StoreError::OFFICE_RECOVERY_REQUIRED)
+        }
+    }
+
     pub(super) fn acknowledge_recovery(&mut self, now: &str) -> Result<(), StoreError> {
         let mut r = self.roster.clone();
+        let prev = self.current_ack().cloned();
         r.recovery = Some(office::RecoveryAck {
             master_key_id: r.master_key_id.clone(),
             acknowledged_at: now.to_owned(),
             acknowledged_by: self.me.member_id.clone(),
+            verified_at: prev.as_ref().and_then(|a| a.verified_at.clone()),
+            verified_by: prev.and_then(|a| a.verified_by),
         });
         r.updated_at = now.to_owned();
         r.updated_by = Some(self.me.member_id.clone());
+        let m = self.master.clone();
+        self.write_roster(r, &m)
+    }
+
+    /// 復元キーで実際に開けることを確かめた: 名簿に記録し、保管済みとみなす（「保管した」の記録が無ければ、それも今の日時で書く）
+    pub(super) fn verify_recovery(&mut self, now: &str) -> Result<(), StoreError> {
+        let mut r = self.roster.clone();
+        let me = self.me.member_id.clone();
+        let prev = self.current_ack().cloned();
+        r.recovery = Some(office::RecoveryAck {
+            master_key_id: r.master_key_id.clone(),
+            acknowledged_at: prev
+                .as_ref()
+                .map_or_else(|| now.to_owned(), |a| a.acknowledged_at.clone()),
+            acknowledged_by: prev
+                .as_ref()
+                .map_or_else(|| me.clone(), |a| a.acknowledged_by.clone()),
+            verified_at: Some(now.to_owned()),
+            verified_by: Some(me.clone()),
+        });
+        r.updated_at = now.to_owned();
+        r.updated_by = Some(me);
         let m = self.master.clone();
         self.write_roster(r, &m)
     }
@@ -484,6 +551,10 @@ impl Store {
         };
         if roster.office_id != set.office_id {
             return Err(StoreError::OFFICE_FORGED);
+        }
+        if roster.closed.is_some() {
+            // 共有をやめた事務所（やめる途中で止まった場合を含む）。世帯は先にこの PC の中へ写してある（0023 の10）
+            return Err(StoreError::OFFICE_CLOSED);
         }
         // 手元の親鍵と違う名簿は、手元の親鍵を前の親鍵の一覧に含むときだけ受け入れる（入れ替え）
         match self.master_of(&set.office_id)? {
@@ -626,6 +697,9 @@ impl Store {
             recovery_acknowledged: false,
             recovery_acknowledged_by: None,
             recovery_acknowledged_at: None,
+            recovery_verified_at: None,
+            recovery_required: false,
+            notices: vec![],
         };
         let Some(set) = set else {
             return st;
@@ -658,6 +732,7 @@ impl Store {
                     approved_by: m.approved_by.as_deref().and_then(|a| r.name_of(a)),
                     role: m.role.clone(),
                     is_me: m.member_id == sh.me.member_id,
+                    via_recovery: r.joined_by_recovery(&m.member_id),
                 })
                 .collect();
             st.removed = r
@@ -678,15 +753,31 @@ impl Store {
                     requested_at: q.requested_at,
                 })
                 .collect();
-            if let Some(ack) = r
-                .recovery
-                .as_ref()
-                .filter(|a| a.master_key_id == r.master_key_id)
-            {
+            if let Some(ack) = sh.current_ack() {
                 st.recovery_acknowledged = true;
                 st.recovery_acknowledged_by = r.name_of(&ack.acknowledged_by);
                 st.recovery_acknowledged_at = Some(ack.acknowledged_at.clone());
+                st.recovery_verified_at = ack.verified_at.clone();
             }
+            st.recovery_required = !st.recovery_acknowledged;
+            // 知らせ: 自分が加わった後の、ほかのメンバーの「復元キーで加わった」で、この PC でまだ見ていないもの
+            let seen = set.notices_seen_at.as_deref().unwrap_or("");
+            let since = set.joined_at.as_deref().unwrap_or("");
+            st.notices = r
+                .events
+                .iter()
+                .filter(|e| {
+                    e.kind == office::EVENT_RECOVERY_JOIN
+                        && e.member_id != sh.me.member_id
+                        && e.at.as_str() > seen
+                        && e.at.as_str() >= since
+                })
+                .map(|e| NoticeView {
+                    kind: e.kind.clone(),
+                    name: e.display_name.clone(),
+                    at: e.at.clone(),
+                })
+                .collect();
         }
         st
     }
@@ -750,6 +841,8 @@ impl Store {
             removed: vec![],
             previous: vec![],
             recovery: None,
+            events: vec![],
+            closed: None,
             updated_at: at.clone(),
             updated_by: Some(member_id.clone()),
         };
@@ -774,6 +867,7 @@ impl Store {
             requested_at: at.clone(),
             joined_at: Some(at),
             sync_folder,
+            notices_seen_at: None,
         });
         self.write_office(s)?;
         s.shared = Some(Shared {
@@ -847,6 +941,7 @@ impl Store {
             requested_at: at,
             joined_at: None,
             sync_folder,
+            notices_seen_at: None,
         });
         s.share_problem = None;
         self.write_office(s)?;
@@ -861,14 +956,16 @@ impl Store {
             return Ok(self.office_status_of(s));
         };
         if set.state == "member" && s.share_problem.is_none() {
-            // 承認済みのメンバーは、ここでは抜けない（共有をやめる操作は 0023 の未確定）
+            // 承認済みのメンバーは、ここでは抜けない。抜けるときはほかのメンバーに外してもらい（鍵の入れ替え）、
+            // 最後の1人は「共有をやめる」（office_end）を使う（0023 の10）
             return Err(StoreError::OFFICE_STATE);
         }
+        let closed = s.share_problem == Some(StoreError::OFFICE_CLOSED);
         if set.state == "pending" && crypto::is_uuid(&set.member_id) {
             let _ = fs::remove_file(Paths::new(PathBuf::from(&set.folder)).request(&set.member_id));
         }
         let _ = self.secrets.delete(&member_account(&set.office_id));
-        if set.state != "member" {
+        if set.state != "member" || closed {
             let _ = self.secrets.delete(&set.office_id);
         }
         s.data.sharing = None;
@@ -878,7 +975,297 @@ impl Store {
         Ok(self.office_status_of(s))
     }
 
-    fn shared_mut(s: &mut Session) -> Result<&mut Shared, StoreError> {
+    /// 全員の PC が使えなくなったとき: 事務所の復元キーで名簿を開き、この PC を事務所のメンバーとして名簿に足す（0023 の5）。
+    /// 復元キー（＝今の親鍵）を持つことを本人の証明とする。足したことを名簿の履歴に残し、ほかのメンバーの画面に知らせを出す。
+    /// `folder` はアプリ本体が OS のダイアログで選ばせたもの（画面から受け取らない）
+    pub fn office_recover_join(
+        &self,
+        folder: &Path,
+        display_name: &str,
+        recovery_key: &str,
+        sync_folder: bool,
+        forbidden: &[PathBuf],
+    ) -> Result<OfficeStatus, StoreError> {
+        if !office::valid_display_name(display_name) {
+            return Err(StoreError::OFFICE_NAME);
+        }
+        let candidate = recovery::decode(recovery_key)?;
+        let name = display_name.trim().to_owned();
+        let mut g = self.lock();
+        let now = self.now();
+        let s = Self::session(&mut g)?;
+        if s.data
+            .sharing
+            .as_ref()
+            .is_some_and(|x| x.state != "removed")
+        {
+            return Err(StoreError::OFFICE_STATE);
+        }
+        let mut roots = forbidden.to_vec();
+        roots.push(self.root.clone());
+        let folder = check_folder(folder, &roots)?;
+        let root = office::locate(&folder).ok_or(StoreError::OFFICE_NOT_FOUND)?;
+        let root = check_folder(&root, &roots)?;
+        let paths = Paths::new(root);
+        let of = office::OfficeFile::read(&paths)?;
+        let bytes = fs::read(paths.members()).map_err(|_| StoreError::OFFICE_UNAVAILABLE)?;
+        // 今の親鍵でだけ開く（古い控え＝前の時代の親鍵では加われない）
+        let mut roster = match office::open_roster_with_master(&bytes, &candidate) {
+            Ok(r) => r,
+            Err(StoreError::WRONG_MASTER) => return Err(StoreError::RECOVERY_MISMATCH),
+            Err(e) => return Err(e),
+        };
+        if roster.office_id != of.office_id {
+            return Err(StoreError::OFFICE_FORGED);
+        }
+        if roster.closed.is_some() {
+            return Err(StoreError::OFFICE_CLOSED);
+        }
+        let keys = MemberKeys::generate();
+        let member_id = crypto::new_uuid();
+        let at = iso_of(now);
+        let me = Member {
+            member_id: member_id.clone(),
+            display_name: name.clone(),
+            public_key: keys.public_hex(),
+            fingerprint: member::fingerprint(&keys.public()),
+            joined_at: at.clone(),
+            approved_by: None,
+            role: office::ROLE_MEMBER.into(),
+        };
+        roster.members.push(me.clone());
+        roster.push_event(RosterEvent {
+            kind: office::EVENT_RECOVERY_JOIN.into(),
+            member_id: member_id.clone(),
+            display_name: name.clone(),
+            at: at.clone(),
+        });
+        // 復元キーで開けたので、今の親鍵の保管の記録が無ければ「試して確かめた」として書く
+        if !roster
+            .recovery
+            .as_ref()
+            .is_some_and(|r| r.master_key_id == roster.master_key_id)
+        {
+            roster.recovery = Some(office::RecoveryAck {
+                master_key_id: roster.master_key_id.clone(),
+                acknowledged_at: at.clone(),
+                acknowledged_by: member_id.clone(),
+                verified_at: Some(at.clone()),
+                verified_by: Some(member_id.clone()),
+            });
+        }
+        roster.updated_at = at.clone();
+        roster.updated_by = Some(member_id.clone());
+        // 読んだ後にほかの PC が名簿を書き換えていたら書かない
+        if digest_of(&paths.members()).as_deref() != Some(crypto::digest(&bytes).as_str()) {
+            return Err(StoreError::OFFICE_BUSY);
+        }
+        // 先に保管庫へ（ここで止まっても、名簿は変わっていない）
+        self.secrets.set(
+            &roster.office_id,
+            &Zeroizing::new(crypto::hex_encode(candidate.as_ref())),
+        )?;
+        self.secrets
+            .set(&member_account(&roster.office_id), &keys.secret_hex())?;
+        let out = office::encode_roster(&roster, &candidate)?;
+        atomic::replace(&paths.members(), &out, FailPoint::None)?;
+        s.data.sharing = Some(SharingSetting {
+            folder: paths.root.to_string_lossy().into_owned(),
+            office_id: roster.office_id.clone(),
+            member_id,
+            display_name: name,
+            state: "member".into(),
+            requested_at: at.clone(),
+            joined_at: Some(at),
+            sync_folder,
+            notices_seen_at: None,
+        });
+        self.write_office(s)?;
+        s.shared = Some(Shared {
+            paths,
+            office_id: roster.office_id.clone(),
+            me: me.author(),
+            keys,
+            master: candidate,
+            roster,
+            members_digest: crypto::digest(&out),
+            device_id: s.device_id.clone(),
+            present: HashMap::new(),
+        });
+        s.share_problem = None;
+        g.opened.clear();
+        let s = Self::session(&mut g)?;
+        Ok(self.office_status_of(s))
+    }
+
+    /// 知らせ（復元キーで加わった人など）を見た: この PC では次から出さない
+    pub fn office_dismiss_notices(&self) -> Result<OfficeStatus, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        let last = self
+            .office_status_of(s)
+            .notices
+            .into_iter()
+            .map(|n| n.at)
+            .max();
+        if let (Some(last), Some(set)) = (last, s.data.sharing.as_mut()) {
+            set.notices_seen_at = Some(last);
+            self.write_office(s)?;
+        }
+        Ok(self.office_status_of(s))
+    }
+
+    /// 事務所の共有をやめる（最後の1人だけ。0023 の10）: 共有フォルダの世帯をこの PC の中へ移し（PC の鍵置き場の新しい世帯の鍵で
+    /// 暗号化し直し、開けることを確かめる）、名簿に「終えた」印を書いてから、共有フォルダの世帯ファイル・鍵の札・世帯の札を消す。
+    /// `confirm` は自分の表示名（取り違えて押さないため）。ほかのメンバーがいる間はできない（先に外す）
+    pub fn office_end(&self, confirm: &str) -> Result<OfficeStatus, StoreError> {
+        let mut g = self.lock();
+        let now = self.now();
+        let s = Self::session(&mut g)?;
+        self.refresh_shared(s)?;
+        let sh = Self::shared_mut(s)?;
+        if confirm.trim() != sh.me.name {
+            return Err(StoreError::OFFICE_CONFIRM);
+        }
+        if sh
+            .roster
+            .members
+            .iter()
+            .any(|m| m.member_id != sh.me.member_id)
+        {
+            return Err(StoreError::OFFICE_OTHERS_REMAIN);
+        }
+        sh.leave_all();
+        // 1. 共有フォルダの世帯を、この PC の中へ写す（途中で止まっても、共有フォルダはそのまま。やり直すと写していない世帯から続ける）
+        let mut ids: Vec<String> = sh.list_cards().into_iter().map(|(id, _)| id).collect();
+        if let Ok(rd) = fs::read_dir(sh.paths.households_dir()) {
+            for e in rd.filter_map(|e| e.ok()) {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if let Some(id) = name
+                    .strip_suffix(&format!(".{HOUSEHOLD_EXT}"))
+                    .filter(|i| crypto::is_uuid(i))
+                {
+                    ids.push(id.to_owned());
+                }
+            }
+        }
+        ids.sort();
+        ids.dedup();
+        for id in &ids {
+            self.copy_to_local(s, id)?;
+        }
+        // 2. 名簿に「終えた」印（ここで共有の事務所は使えなくなる。復元キーで加わることもできない）
+        let at = iso_of(now);
+        let sh = Self::shared_mut(s)?;
+        let mut r = sh.roster.clone();
+        r.closed = Some(ClosedMark {
+            closed_at: at.clone(),
+            closed_by: sh.me.member_id.clone(),
+        });
+        r.updated_at = at;
+        r.updated_by = Some(sh.me.member_id.clone());
+        let m = sh.master.clone();
+        sh.write_roster(r, &m)?;
+        // 3. 共有フォルダの世帯ファイル・直前の世代・衝突の写し・世帯の札・開いている印・鍵の札・参加の申請を消す（失敗しても続ける）
+        for id in &ids {
+            let _ = sh.delete_household(id);
+        }
+        for q in files_starting_with(&sh.paths.requests_dir(), "") {
+            let _ = fs::remove_file(q);
+        }
+        // 4. この PC の共有の設定と、保管庫の共有の事務所の鍵を片付ける（PC の中の事務所と、その復元キーに戻る）
+        let office_id = sh.office_id.clone();
+        s.data.sharing = None;
+        s.shared = None;
+        s.share_problem = None;
+        self.write_office(s)?;
+        let _ = self.secrets.delete(&member_account(&office_id));
+        let _ = self.secrets.delete(&office_id);
+        g.opened.clear();
+        let s = Self::session(&mut g)?;
+        Ok(self.office_status_of(s))
+    }
+
+    /// 共有の事務所の世帯を1つ、この PC の中へ写す（既に写してあれば何もしない）
+    fn copy_to_local(&self, s: &mut Session, id: &str) -> Result<(), StoreError> {
+        let local = self.household_path(id);
+        if s.data.households.contains_key(id) && s.vault.contains(id) && local.exists() {
+            return Ok(());
+        }
+        let sh = s.shared.as_ref().ok_or(StoreError::OFFICE_STATE)?;
+        // 世帯の札だけがあって世帯ファイルがまだ届いていないときは、同期を待つ（消してしまわない）
+        let bytes = match fs::read(sh.household_path(id)) {
+            Ok(b) => b,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return Err(StoreError::OFFICE_WAITING_SYNC)
+            }
+            Err(_) => return Err(StoreError::IO),
+        };
+        let h = container::read_household_header(&bytes)?;
+        if h.household_id != id {
+            return Err(StoreError::CORRUPT);
+        }
+        let keys = sh.keys_for_read(id)?;
+        let key = keys.find(&h.key_id).ok_or(StoreError::CORRUPT)?;
+        let (_, plain) = container::open_household(&bytes, &key)?;
+        let entry = match sh.read_card(id) {
+            Ok(c) => CatalogEntry {
+                customer_no: c.customer_no,
+                summary: c.summary,
+                created_at: c.created_at,
+                updated_at: c.updated_at,
+            },
+            Err(_) => {
+                let v: Value = serde_json::from_slice(&plain).map_err(|_| StoreError::CORRUPT)?;
+                let text = |k: &str| {
+                    v.pointer(&format!("/meta/{k}"))
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                };
+                let saved = text("savedAt").unwrap_or_default();
+                CatalogEntry {
+                    customer_no: text("customerNo")
+                        .filter(|c| valid_customer_no(c))
+                        .unwrap_or_else(|| "NO-NUMBER".into()),
+                    summary: String::new(),
+                    created_at: saved.clone(),
+                    updated_at: saved,
+                }
+            }
+        };
+        let (key_id, k) = s.vault.insert_new(&s.master, id);
+        if let Err(e) = self.write_vault(s) {
+            s.vault.remove(id);
+            return Err(e);
+        }
+        let header = HouseholdHeader {
+            cipher: String::new(),
+            compression: "none".into(),
+            device_id: s.device_id.clone(),
+            format: HOUSEHOLD_FORMAT.into(),
+            format_version: h.format_version.clone(),
+            generation: h.generation + 1,
+            household_id: id.to_owned(),
+            key_id,
+            nonce: String::new(),
+            parent_revision: None,
+        };
+        fs::create_dir_all(self.households_dir())?;
+        atomic::replace(
+            &local,
+            &container::seal_household(header, &k, &plain),
+            FailPoint::None,
+        )?;
+        // 書いたものが PC の中の鍵で開けることを確かめる
+        let check = fs::read(&local)?;
+        let (_, k2) = s.vault.unwrap_key(&s.master, id)?;
+        container::open_household(&check, &k2)?;
+        s.data.households.insert(id.to_owned(), entry);
+        self.write_office(s)?;
+        Ok(())
+    }
+
+    pub(super) fn shared_mut(s: &mut Session) -> Result<&mut Shared, StoreError> {
         s.shared.as_mut().ok_or(StoreError::OFFICE_STATE)
     }
 
@@ -904,6 +1291,7 @@ impl Store {
         if req.member_id != request_id {
             return Err(StoreError::CORRUPT);
         }
+        sh.require_recovery()?;
         let public = req.public()?;
         if !member::fingerprint_matches(fingerprint, &public) {
             return Err(StoreError::OFFICE_FINGERPRINT);
@@ -956,6 +1344,7 @@ impl Store {
         if member_id == sh.me.member_id {
             return Err(StoreError::OFFICE_SELF);
         }
+        sh.require_recovery()?;
         let target = sh
             .roster
             .member(member_id)

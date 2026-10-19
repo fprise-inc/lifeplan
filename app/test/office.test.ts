@@ -6,14 +6,14 @@ import { describe, expect, it } from "vitest";
 import type { ForkInfo, OfficeHost, OfficeStatus, StoredHousehold } from "../src/engine/host.ts";
 import { ForkPanel } from "../src/workspace/store/ForkPanel.tsx";
 import { HouseholdPanel } from "../src/workspace/store/HouseholdPanel.tsx";
-import { memoAuthors, mergeForkBodies, normalizeFingerprint, OFFICE_MESSAGES, presenceText, sinceText, editorsOf } from "../src/workspace/store/office.ts";
+import { memoAuthors, mergeForkBodies, normalizeFingerprint, OFFICE_MESSAGES, presenceText, sinceText, editorsOf, syncShareNotice } from "../src/workspace/store/office.ts";
 import { OfficePanel } from "../src/workspace/store/OfficePanel.tsx";
 import { MemoDrawer } from "../src/workspace/MemoDrawer.tsx";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { modelHousehold } from "./helpers.ts";
 
 const no = async () => Promise.reject("E");
-const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no };
+const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no };
 
 function status(over: Partial<OfficeStatus> = {}): OfficeStatus {
   return {
@@ -22,8 +22,8 @@ function status(over: Partial<OfficeStatus> = {}): OfficeStatus {
     myName: "担当A",
     myFingerprint: "M3TQ-8VNA-2KXD-H7RP",
     members: [
-      { memberId: "a", name: "担当A", fingerprint: "M3TQ-8VNA-2KXD-H7RP", joinedAt: "2026-10-12T00:00:00Z", approvedBy: null, role: "member", isMe: true },
-      { memberId: "c", name: "担当C", fingerprint: "Z9KQ-1MNA-7TXD-V4RP", joinedAt: "2026-10-15T00:00:00Z", approvedBy: "担当A", role: "member", isMe: false },
+      { memberId: "a", name: "担当A", fingerprint: "M3TQ-8VNA-2KXD-H7RP", joinedAt: "2026-10-12T00:00:00Z", approvedBy: null, role: "member", isMe: true, viaRecovery: false },
+      { memberId: "c", name: "担当C", fingerprint: "Z9KQ-1MNA-7TXD-V4RP", joinedAt: "2026-10-15T00:00:00Z", approvedBy: "担当A", role: "member", isMe: false, viaRecovery: false },
     ],
     removed: [],
     requests: [{ requestId: "r1", name: "担当B", requestedAt: "2026-10-19T00:00:00Z" }],
@@ -33,6 +33,9 @@ function status(over: Partial<OfficeStatus> = {}): OfficeStatus {
     recoveryAcknowledged: false,
     recoveryAcknowledgedBy: null,
     recoveryAcknowledgedAt: null,
+    recoveryVerifiedAt: null,
+    recoveryRequired: false,
+    notices: [],
     ...over,
   };
 }
@@ -131,6 +134,53 @@ describe("事務所の共有の設定", () => {
     expect(html).not.toContain('data-office-remove="担当A"');
     // パスらしいものは出さない
     expect(html).not.toMatch(/\/Users\/|Library\/|lifeplan-office|:\\\\/);
+  });
+  it("事務所の復元キーを保管するまで、承認・外すを止め、理由と保管への導線を出す", () => {
+    const html = panel(status({ recoveryRequired: true }));
+    expect(html).toContain("data-office-locked");
+    expect(html).toContain("data-office-locked-go");
+    expect(html).toContain("世帯を開く・直すことはできます");
+    expect(html).toMatch(/<button[^>]*disabled[^>]*data-office-remove="担当C"/);
+    expect(html).toMatch(/data-office-approve[^>]*disabled|disabled[^>]*data-office-approve/);
+    // 外した後（外したメンバーがいる）は、新しいキーを保管するよう案内する
+    expect(panel(status({ recoveryRequired: true, removed: [{ name: "担当X", removedAt: "2026-10-19T00:00:00Z", removedBy: "担当A" }] }))).toContain("事務所の復元キーは新しくなります");
+    const ok = panel(status({ recoveryRequired: false, recoveryAcknowledged: true, recoveryAcknowledgedBy: "担当A", recoveryAcknowledgedAt: "2026-10-19T00:00:00Z" }));
+    expect(ok).not.toContain("data-office-locked");
+    expect(ok).not.toMatch(/<button[^>]*disabled[^>]*data-office-remove="担当C"/);
+  });
+  it("復元キーで加わった人を、名簿と知らせに出す", () => {
+    const st = status({
+      members: [...status().members, { memberId: "n", name: "担当N", fingerprint: "N4KD-7QXA-2MVT-H9RP", joinedAt: "2026-10-19T00:00:00Z", approvedBy: null, role: "member", isMe: false, viaRecovery: true }],
+      notices: [{ kind: "recoveryJoin", name: "担当N", at: "2026-10-19T00:00:00Z" }],
+    });
+    const html = panel(st);
+    expect(html).toContain("data-office-notice");
+    expect(html).toContain("復元キーで担当Nさんが加わりました");
+    expect(html).toContain("（復元キーで参加）");
+    expect(panel(status())).not.toContain("data-office-notice");
+  });
+  it("共有オフ: 事務所の復元キーで加わる入口を出す（表示名と復元キーが無いと押せない）", () => {
+    const html = panel(status({ state: "off", members: [], requests: [], myFingerprint: null, officeCode: null }));
+    expect(html).toContain("data-office-recover-section");
+    expect(html).toMatch(/data-office-recover(?!-)[^>]*disabled|disabled[^>]*data-office-recover(?!-)/);
+    expect(html).toContain("ほかのメンバーの画面にも「復元キーで○○さんが加わりました」と出ます");
+  });
+  it("共有をやめる: 最後の1人だけ。ほかのメンバーがいる間は理由と抜け方を出す", () => {
+    const many = panel(status());
+    expect(many).toContain("data-office-end-blocked");
+    expect(many).not.toContain("data-office-end>");
+    expect(many).toContain("外してもらって");
+    const one = panel(status({ members: [status().members[0]!], requests: [] }));
+    expect(one).toContain("data-office-end");
+    expect(one).not.toContain("data-office-end-blocked");
+  });
+  it("外す画面の案内: 同期サービス側の共有からも外す", () => {
+    expect(syncShareNotice("担当C")).toBe("共有フォルダの共有の設定（同期サービス側）からも、担当Cさんを外してください");
+  });
+  it("共有を終えた事務所では、このPCの中の事務所に戻る道を出す", () => {
+    const html = panel(status({ state: "unavailable", problem: "E_OFFICE_CLOSED", members: [], requests: [] }));
+    expect(html).toContain("この事務所の共有は終わっています");
+    expect(html).toContain("このPCの中の事務所に戻る");
   });
   it("文言に以前の呼び方（案）が無い", () => {
     for (const t of Object.values(OFFICE_MESSAGES)) expect(t.replace(/提案|案内/g, "").includes("案"), t).toBe(false);

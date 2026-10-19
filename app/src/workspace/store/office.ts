@@ -18,8 +18,16 @@ export const OFFICE_MESSAGES: Record<string, string> = {
   E_OFFICE_KEY_MISSING: "このPCのメンバーの鍵が見つかりません。もう一度「参加する」から申請してください",
   E_OFFICE_WAITING_SYNC: "この世帯の鍵の同期を待っています。少し待ってから開き直してください",
   E_OFFICE_BAD_KEY: "申請の鍵が壊れています。申請し直してもらってください",
+  E_OFFICE_RECOVERY_REQUIRED: "事務所の復元キーがまだ保管されていません。保管するまで、参加の承認とメンバーを外す操作は止めています",
+  E_OFFICE_CLOSED: "この事務所の共有は終わっています（最後のメンバーが共有をやめました）",
+  E_OFFICE_OTHERS_REMAIN: "ほかのメンバーがいる間は、共有をやめられません。先にほかのメンバーを外してください",
+  E_RECOVERY_TYPO: "復元キーに打ち間違いがあります。文字を確かめてください（大文字・小文字、区切りの有無は問いません）",
+  E_RECOVERY_MISMATCH: "この事務所の今の復元キーではありません（メンバーを外すと復元キーは新しくなり、古い控えでは加われません）",
   E_STORE_NO_FORK: "選ぶ分岐がありません",
 };
+
+/** 外す画面と外した後に、目立つ形で出す案内（0023 の4・残る危険） */
+export const syncShareNotice = (name: string) => `共有フォルダの共有の設定（同期サービス側）からも、${name}さんを外してください`;
 
 export const officeMessage = (code: string) => OFFICE_MESSAGES[code] ?? `事務所の共有の操作に失敗しました（${code}）`;
 

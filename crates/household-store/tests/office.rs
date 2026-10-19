@@ -120,11 +120,17 @@ fn fingerprint_of(store: &Store) -> String {
     store.office_status().unwrap().my_fingerprint.unwrap()
 }
 
+/// A が事務所を始め、事務所の復元キーを保管したと記録する（保管するまで承認・外すは止まる）
+fn start(o: &Office, a: &Store) {
+    a.status().unwrap();
+    a.office_start(&o.shared, "担当A", true, &[]).unwrap();
+    a.acknowledge_recovery().unwrap();
+}
+
 /// A が事務所を始め、B が参加して A が承認する
 fn start_and_join(o: &Office, a: &Store, b: &Store) -> String {
-    a.status().unwrap();
+    start(o, a);
     b.status().unwrap();
-    a.office_start(&o.shared, "担当A", true, &[]).unwrap();
     let st = b.office_join(&o.shared, "担当B", true, &[]).unwrap();
     assert_eq!(st.state, "pending");
     let fp = st.my_fingerprint.clone().unwrap();
@@ -224,9 +230,8 @@ fn approval_requires_the_fingerprint() {
     let o = Office::new();
     let (pa, pb) = (o.pc("a"), o.pc("b"));
     let (a, b) = (pa.store(), pb.store());
-    a.status().unwrap();
+    start(&o, &a);
     b.status().unwrap();
-    a.office_start(&o.shared, "担当A", false, &[]).unwrap();
     b.office_join(&o.shared, "担当B", false, &[]).unwrap();
     let fp_b = fingerprint_of(&b);
     let req = a.office_status().unwrap().requests;
@@ -387,6 +392,8 @@ fn forged_roster_is_rejected() {
         removed: vec![],
         previous: vec![],
         recovery: None,
+        events: vec![],
+        closed: None,
         updated_at: "x".into(),
         updated_by: None,
     };
@@ -729,17 +736,29 @@ fn shared_recovery_key_and_acknowledgement() {
     let o = Office::new();
     let (pa, pb) = (o.pc("a"), o.pc("b"));
     let (a, b) = (pa.store(), pb.store());
-    start_and_join(&o, &a, &b);
+    a.status().unwrap();
+    b.status().unwrap();
+    a.office_start(&o.shared, "担当A", true, &[]).unwrap();
+    assert!(!a.status().unwrap().recovery_acknowledged);
+    a.acknowledge_recovery().unwrap();
+    b.office_join(&o.shared, "担当B", true, &[]).unwrap();
+    let rid = a.office_status().unwrap().requests[0].request_id.clone();
+    a.office_approve(&rid, &fingerprint_of(&b)).unwrap();
+    assert_eq!(b.office_status().unwrap().state, "member");
     // 事務所の復元キーは共有の事務所の親鍵で、どのメンバーの PC でも同じ
     let ka = a.recovery_key().unwrap();
     assert_eq!(ka.as_str(), b.recovery_key().unwrap().as_str());
-    b.test_recovery_key(&ka).unwrap();
-    assert!(!a.status().unwrap().recovery_acknowledged);
-    a.acknowledge_recovery().unwrap();
     let st = b.office_status().unwrap();
     assert!(st.recovery_acknowledged);
     assert_eq!(st.recovery_acknowledged_by.as_deref(), Some("担当A"));
+    assert!(st.recovery_verified_at.is_none());
     assert!(b.status().unwrap().recovery_acknowledged);
+    // B が試して確かめると、その記録も名簿に残る（保管した記録は A のまま）
+    b.test_recovery_key(&ka).unwrap();
+    let st = a.office_status().unwrap();
+    assert_eq!(st.recovery_acknowledged_by.as_deref(), Some("担当A"));
+    assert!(st.recovery_verified_at.is_some());
+    assert!(a.status().unwrap().recovery_verified_at.is_some());
 }
 
 #[test]
@@ -806,4 +825,276 @@ fn stray_keys_written_by_a_lagging_pc_are_adopted_with_a_new_key() {
     let file = std::fs::read(root.households_dir().join(format!("{id}.lphf"))).unwrap();
     assert!(container::open_household(&file, &hk.current).is_err());
     assert_eq!(n_of(&a.open(&id).unwrap().body), 8);
+}
+
+fn office_id_of(o: &Office) -> String {
+    let v: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(o.office_root().join("office.json")).unwrap(),
+    )
+    .unwrap();
+    v["officeId"].as_str().unwrap().to_owned()
+}
+
+#[test]
+fn sharing_operations_wait_for_the_office_recovery_key() {
+    let o = Office::new();
+    let (pa, pb, pc, pd) = (o.pc("a"), o.pc("b"), o.pc("c"), o.pc("d"));
+    let (a, b, c, d) = (pa.store(), pb.store(), pc.store(), pd.store());
+    for s in [&a, &b, &c, &d] {
+        s.status().unwrap();
+    }
+    a.office_start(&o.shared, "担当A", true, &[]).unwrap();
+    let st = a.office_status().unwrap();
+    assert!(st.recovery_required && !st.recovery_acknowledged);
+    b.office_join(&o.shared, "担当B", true, &[]).unwrap();
+    let rid = a.office_status().unwrap().requests[0].request_id.clone();
+    // 保管するまで、承認は止まる（申請は残る）
+    assert_eq!(
+        a.office_approve(&rid, &fingerprint_of(&b)).unwrap_err(),
+        StoreError::OFFICE_RECOVERY_REQUIRED
+    );
+    assert_eq!(a.office_status().unwrap().requests.len(), 1);
+    assert_eq!(b.office_status().unwrap().state, "pending");
+    // 世帯の閲覧・編集は止めない
+    let h = create(&a, 1);
+    a.save(&h.id, &body(2), "本人").unwrap();
+    assert_eq!(n_of(&a.open(&h.id).unwrap().body), 2);
+    // 違う復元キーを試しても保管済みにならない
+    let wrong = household_store::recovery::encode(&crypto::random_key());
+    assert_eq!(
+        a.test_recovery_key(&wrong).unwrap_err(),
+        StoreError::RECOVERY_MISMATCH
+    );
+    assert!(a.office_status().unwrap().recovery_required);
+    // 復元キーで実際に開けるかを試して通ったら、保管済みとみなす
+    let key1 = a.recovery_key().unwrap();
+    a.test_recovery_key(&key1).unwrap();
+    let st = a.office_status().unwrap();
+    assert!(!st.recovery_required && st.recovery_acknowledged);
+    assert!(st.recovery_verified_at.is_some());
+    a.office_approve(&rid, &fingerprint_of(&b)).unwrap();
+    assert_eq!(b.office_status().unwrap().state, "member");
+    c.office_join(&o.shared, "担当C", false, &[]).unwrap();
+    let rid_c = a.office_status().unwrap().requests[0].request_id.clone();
+    a.office_approve(&rid_c, &fingerprint_of(&c)).unwrap();
+    assert_eq!(c.office_status().unwrap().state, "member");
+    // 外すと復元キーが新しくなり、新しいキーを保管するまで次の共有の操作が止まる（どのメンバーの PC でも）
+    let c_id = c.current_author().unwrap().member_id;
+    let st = a.office_remove(&c_id, "担当C").unwrap();
+    assert!(st.recovery_required);
+    let st_b = b.office_status().unwrap();
+    assert!(st_b.recovery_required, "ほかのメンバーの PC でも止まる");
+    d.office_join(&o.shared, "担当D", false, &[]).unwrap();
+    let rid_d = b.office_status().unwrap().requests[0].request_id.clone();
+    assert_eq!(
+        b.office_approve(&rid_d, &fingerprint_of(&d)).unwrap_err(),
+        StoreError::OFFICE_RECOVERY_REQUIRED
+    );
+    let a_id = a.current_author().unwrap().member_id;
+    assert_eq!(
+        b.office_remove(&a_id, "担当A").unwrap_err(),
+        StoreError::OFFICE_RECOVERY_REQUIRED
+    );
+    // 古い控え（入れ替えの前のキー）では保管済みにならない
+    assert_eq!(
+        b.test_recovery_key(&key1).unwrap_err(),
+        StoreError::RECOVERY_MISMATCH
+    );
+    assert!(b.office_status().unwrap().recovery_required);
+    // 世帯は開けて直せる
+    b.open(&h.id).unwrap();
+    b.save(&h.id, &body(3), "本人").unwrap();
+    // 新しいキーを「保管した」と記録すると、止まっていた操作ができる
+    assert_ne!(b.recovery_key().unwrap().as_str(), key1.as_str());
+    b.acknowledge_recovery().unwrap();
+    assert!(!a.office_status().unwrap().recovery_required);
+    b.office_approve(&rid_d, &fingerprint_of(&d)).unwrap();
+    assert_eq!(d.office_status().unwrap().state, "member");
+}
+
+#[test]
+fn recovery_key_adds_a_new_pc_to_the_roster() {
+    let o = Office::new();
+    let (pa, pb, pn) = (o.pc("a"), o.pc("b"), o.pc("new"));
+    let (a, b, n) = (pa.store(), pb.store(), pn.store());
+    start_and_join(&o, &a, &b);
+    let h = create(&a, 4);
+    let key0 = a.recovery_key().unwrap();
+    // B を外して鍵を入れ替える（key0 は古い控えになる）
+    let b_id = b.current_author().unwrap().member_id;
+    a.office_remove(&b_id, "担当B").unwrap();
+    let key1 = a.recovery_key().unwrap();
+    assert!(a.office_status().unwrap().recovery_required);
+    // 全員の PC が使えなくなった: 新しい PC で共有フォルダを選び、事務所の復元キーを入れる
+    n.status().unwrap();
+    let members_before = std::fs::read(o.office_root().join("members.lpmb")).unwrap();
+    let wrong = household_store::recovery::encode(&crypto::random_key());
+    assert_eq!(
+        n.office_recover_join(&o.shared, "担当N", &wrong, true, &[])
+            .unwrap_err(),
+        StoreError::RECOVERY_MISMATCH,
+        "違うキーでは加われない"
+    );
+    assert_eq!(
+        n.office_recover_join(&o.shared, "担当N", &key0, true, &[])
+            .unwrap_err(),
+        StoreError::RECOVERY_MISMATCH,
+        "入れ替えの前の古い控えでは加われない"
+    );
+    assert_eq!(
+        n.office_recover_join(&o.shared, "担当N", "ABCD-EFGH", true, &[])
+            .unwrap_err(),
+        StoreError::RECOVERY_TYPO
+    );
+    assert_eq!(
+        n.office_recover_join(&o.shared, "", &key1, true, &[])
+            .unwrap_err(),
+        StoreError::OFFICE_NAME
+    );
+    assert_eq!(
+        n.office_recover_join(&pn.root, "担当N", &key1, true, &[])
+            .unwrap_err(),
+        StoreError::OFFICE_FOLDER
+    );
+    assert_eq!(n.office_status().unwrap().state, "off");
+    assert_eq!(
+        std::fs::read(o.office_root().join("members.lpmb")).unwrap(),
+        members_before,
+        "失敗したときは名簿を変えない"
+    );
+    // 今の復元キーなら、承認なしで名簿に自分を足せる
+    let st = n
+        .office_recover_join(&o.shared, "担当N", &key1, true, &[])
+        .unwrap();
+    assert_eq!(st.state, "member");
+    let me = st.members.iter().find(|m| m.is_me).unwrap();
+    assert_eq!(me.name, "担当N");
+    assert!(me.via_recovery && me.approved_by.is_none());
+    assert!(st.notices.is_empty(), "自分には知らせを出さない");
+    // 復元キーで開けたので、今のキーは保管済み（試して確かめた）とみなす
+    assert!(!st.recovery_required);
+    assert!(st.recovery_verified_at.is_some());
+    // 共有の世帯を開いて直せる
+    assert_eq!(n_of(&n.open(&h.id).unwrap().body), 4);
+    o.clock.advance(60);
+    n.save(&h.id, &body(5), "本人").unwrap();
+    // 名簿の履歴に残る
+    let roster = office::open_roster_with_master(
+        &std::fs::read(o.office_root().join("members.lpmb")).unwrap(),
+        &household_store::recovery::decode(&key1).unwrap(),
+    )
+    .unwrap();
+    let ev = roster.events.last().unwrap();
+    assert_eq!(ev.kind, office::EVENT_RECOVERY_JOIN);
+    assert_eq!(ev.display_name, "担当N");
+    assert_eq!(ev.member_id, me.member_id);
+    // ほかのメンバーの画面に「復元キーで○○さんが加わりました」の知らせが出る
+    let st_a = a.office_status().unwrap();
+    assert_eq!(st_a.notices.len(), 1);
+    assert_eq!(st_a.notices[0].name, "担当N");
+    assert_eq!(st_a.notices[0].kind, "recoveryJoin");
+    assert!(st_a
+        .members
+        .iter()
+        .any(|m| m.name == "担当N" && m.via_recovery));
+    assert_eq!(n_of(&a.open(&h.id).unwrap().body), 5);
+    // 見たら、この PC では次から出さない（アプリを開き直しても）
+    assert!(a.office_dismiss_notices().unwrap().notices.is_empty());
+    let a2 = pa.store();
+    a2.status().unwrap();
+    assert!(a2.office_status().unwrap().notices.is_empty());
+    // 外された B は、古いキーで加わり直せない（上で確かめた）。画面の値に復元キー・パスは入らない
+    let json = serde_json::to_string(&st).unwrap() + &serde_json::to_string(&st_a).unwrap();
+    assert!(!json.contains(key1.as_str()) && !json.contains(&*o.shared.to_string_lossy()));
+    // 共有フォルダの名簿にも、表示名は平文で出ない
+    let text =
+        String::from_utf8_lossy(&std::fs::read(o.office_root().join("members.lpmb")).unwrap())
+            .into_owned();
+    assert!(!text.contains("担当N"));
+}
+
+#[test]
+fn ending_sharing_brings_households_back_into_the_pc() {
+    let o = Office::new();
+    let (pa, pb, pn) = (o.pc("a"), o.pc("b"), o.pc("new"));
+    let (a, b, n) = (pa.store(), pb.store(), pn.store());
+    start_and_join(&o, &a, &b);
+    let h1 = create(&a, 1);
+    let h2 = create(&b, 2);
+    let office_id = office_id_of(&o);
+    // ほかのメンバーがいる間はやめられない・確認の表示名が違えばやめない
+    assert_eq!(
+        a.office_end("担当A").unwrap_err(),
+        StoreError::OFFICE_OTHERS_REMAIN
+    );
+    assert_eq!(
+        a.office_end("担当B").unwrap_err(),
+        StoreError::OFFICE_CONFIRM
+    );
+    let b_id = b.current_author().unwrap().member_id;
+    a.acknowledge_recovery().unwrap();
+    a.office_remove(&b_id, "担当B").unwrap();
+    let key = a.recovery_key().unwrap();
+    a.open(&h1.id).unwrap();
+    // 最後の1人がやめる: 世帯を PC の中へ移し、共有フォルダは使わなくなる
+    let st = a.office_end(" 担当A ").unwrap();
+    assert_eq!(st.state, "off");
+    assert!(a.current_author().is_none());
+    let list = a.list().unwrap();
+    assert_eq!(list.len(), 2);
+    assert!(list
+        .iter()
+        .all(|e| e.updated_by.is_none() && e.open_by.is_empty()));
+    assert!(list.iter().any(|e| e.customer_no == h2.customer_no));
+    // 暗号化のまま PC の中にあり、開けて直せる
+    for (h, n0) in [(&h1, 1), (&h2, 2)] {
+        let p = pa.root.join("households").join(format!("{}.lphf", h.id));
+        let raw = std::fs::read(&p).unwrap();
+        assert!(!String::from_utf8_lossy(&raw).contains("架空のメモ"));
+        assert!(a.can_open_bytes_with_managed_keys(&h.id, &raw));
+        assert_eq!(n_of(&a.open(&h.id).unwrap().body), n0);
+    }
+    a.save(&h2.id, &body(9), "本人").unwrap();
+    assert!(meta_of(&a.open(&h2.id).unwrap().body)
+        .get("savedBy")
+        .is_none());
+    // アプリを開き直しても PC の中の世帯として開ける
+    let a2 = pa.store();
+    a2.status().unwrap();
+    assert_eq!(a2.list().unwrap().len(), 2);
+    assert_eq!(n_of(&a2.open(&h2.id).unwrap().body), 9);
+    // 共有フォルダの世帯ファイル・鍵の札・世帯の札は消え、名簿には「終えた」印が残る
+    let left: Vec<PathBuf> = files_under(&o.office_root())
+        .into_iter()
+        .filter(|p| {
+            let s = p.to_string_lossy();
+            s.contains(".lphf")
+                || s.ends_with(".lphk")
+                || s.ends_with(".lpcd")
+                || s.ends_with(".lpop")
+        })
+        .collect();
+    assert!(left.is_empty(), "{left:?}");
+    let roster = office::open_roster_with_master(
+        &std::fs::read(o.office_root().join("members.lpmb")).unwrap(),
+        &household_store::recovery::decode(&key).unwrap(),
+    )
+    .unwrap();
+    assert!(roster.closed.is_some());
+    // この PC の保管庫から、共有の事務所の鍵・メンバーの秘密鍵が消えている
+    assert!(pa.secrets.get(&office_id).unwrap().is_none());
+    assert!(pa
+        .secrets
+        .get(&format!("{office_id}.member"))
+        .unwrap()
+        .is_none());
+    // 終えた事務所には、復元キーでも加われない
+    n.status().unwrap();
+    assert_eq!(
+        n.office_recover_join(&o.shared, "担当N", &key, false, &[])
+            .unwrap_err(),
+        StoreError::OFFICE_CLOSED
+    );
+    // 外された B のアプリは外されたことに気づく
+    assert_eq!(b.office_status().unwrap().state, "removed");
 }
