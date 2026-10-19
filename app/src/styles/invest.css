@@ -194,3 +194,4 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .pb-seg.tiny .pb-sub { visibility: hidden; }
 .donut-pair:not(.two) { max-width: 680px; }
 .sv-fld > .seg-g { justify-self: start; }
+.dd-calc.closed .add-item-btn { width: auto; padding-left: 18px; padding-right: 18px; }

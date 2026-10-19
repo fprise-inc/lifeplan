@@ -225,6 +225,9 @@ function feeItem(wh: WorkingHousehold): MovableItem[] {
 
 // ---- 資産運用（0026）: 毎月の積立額・運用の利回り・積立をやめる年齢・取り崩しを始める年齢・毎月の取り崩し額・毎年の取り崩し率 ----
 
+/** 万円（1万円未満は小数1桁）: 57000 → 「5.7万円」 */
+const manDecimal = (v: number) => `${v % MAN === 0 ? group(v / MAN) : (Math.round(v / 1000) / 10).toFixed(1)}万円`;
+
 /** 今の毎月の積立額（本人の払う分。会社の掛金を除く。合計の入れ方はまとめた器の額） */
 export function investMonthlyNow(req: EngineRequest): number {
   const v = totalViewOf(req);
@@ -290,7 +293,7 @@ function investItems(wh: WorkingHousehold): MovableItem[] {
       control: { kind: "range", ...amountRange(0, Math.max(300_000, monthly * 2), monthly), step: AMOUNT_STEP, ticks: [0, monthly], tick: (v) => `${v / MAN}万`, per: "月" },
       read: (w) => investMonthlyNow(w.request),
       apply: (w, v) => (typeof v === "number" ? applyMonthly(w, v) : w),
-      text: (v) => (typeof v === "number" ? `月${monthlyMan(v)}` : "—"),
+      text: (v) => (typeof v === "number" ? `月${manDecimal(v)}` : "—"),
       same: jsonSame,
       note: () => "期間を分けているときは、どの期間も同じだけ増減します（増やした分は NISA のつみたて投資枠へ）",
     },
@@ -376,7 +379,7 @@ function investItems(wh: WorkingHousehold): MovableItem[] {
         if (v <= 0) return d.method === "fixed" ? mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "none" })) : w;
         return mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "fixed", monthly: v, startAge: d.method === "none" ? Math.max(65, retire) : d.startAge }));
       },
-      text: (v) => (typeof v === "number" ? (v === 0 ? "予定なし" : `月${monthlyMan(v)}`) : "—"),
+      text: (v) => (typeof v === "number" ? (v === 0 ? "予定なし" : `月${manDecimal(v)}`) : "—"),
       same: jsonSame,
       note: () => "年金などで足りない分を含めた、金融資産から使う額（収支の不足のほうが大きい年は不足の分）",
     },

@@ -736,7 +736,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         <g key={`dep-${d.series}`}>
           <line x1={x} x2={x} y1={y0} y2={f.height - f.bottom} class="dep-line" />
           <path d={`M${x} ${y0 - 11} l8 13 h-16 z`} class={`dep-tri${d.series === "current" ? " base" : ""}`} />
-          <text x={x + 10} y={y0 - 8 - dy} class="dep-txt">
+          <text x={x > f.width - f.right - 180 * fs ? x - 10 : x + 10} y={y0 - 8 - dy} class="dep-txt" text-anchor={x > f.width - f.right - 180 * fs ? "end" : "start"}>
             {inv !== undefined ? (d.series === "proposal" ? `${same ? "" : `${model.names.selected} `}${inv.lasts.selected}` : `${model.names.base} ${inv.lasts.base}`) : d.label}
           </text>
         </g>,
