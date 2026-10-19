@@ -93,7 +93,7 @@ export function ItemMenu({ catalog, shown, onPick, onClose }: { catalog: Catalog
         {groups.length === 0 ? <p class="in-note">当てはまる項目がありません</p> : null}
         {groups.map(([g, items]) => (
           <section key={g}>
-            <h4>{g === "よく使う" ? "よく使う項目" : `入力: ${g}`}</h4>
+            <h4>{g === "よく使う" ? "よく使う項目" : g === "資産運用" ? "資産運用" : `入力: ${g}`}</h4>
             {items.map((it) => (
               <button type="button" key={it.key} disabled={shown.has(it.key)} onClick={() => onPick(it.key)} data-pick={it.key}>
                 {it.label}
@@ -311,6 +311,38 @@ function ShiftRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" 
   );
 }
 
+/** 年齢のスライダー（1歳ずつ。資産運用の積立をやめる年齢・取り崩しを始める年齢。0026） */
+function AgeRow({ item, value, base, onSlide, onRelease, baseLabel = "現状" }: ItemRowProps & { item: MovableItem & { control: { kind: "age" } } }) {
+  const c = item.control;
+  const v = typeof value === "number" ? value : c.min;
+  const b = typeof base === "number" ? base : c.min;
+  return (
+    <>
+      <input
+        type="range"
+        min={Math.min(c.min, v)}
+        max={Math.max(c.max, v)}
+        step={1}
+        value={v}
+        data-item={item.key}
+        aria-label={item.label}
+        aria-valuetext={item.text(v)}
+        onInput={(e) => onSlide(item.key, Number((e.currentTarget as HTMLInputElement).value))}
+        onChange={onRelease}
+        onPointerUp={onRelease}
+        onKeyUp={onRelease}
+      />
+      <div class="range-scale">
+        <span>{c.tick(Math.min(c.min, v))}歳</span>
+        <span class="base-mark">
+          {baseLabel} {item.text(b)}
+        </span>
+        <span>{c.tick(Math.max(c.max, v))}歳</span>
+      </div>
+    </>
+  );
+}
+
 /** 足した項目の1行（スライダーか数値の欄） */
 export function ItemRow(props: ItemRowProps) {
   const { item, value, base, wh, onSlide, onRelease, onRemove, baseLabel = "現状" } = props;
@@ -321,6 +353,7 @@ export function ItemRow(props: ItemRowProps) {
   else if (c.kind === "rate") control = <RateRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "mix") control = <MixRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "shift") control = <ShiftRow {...props} item={item as MovableItem & { control: typeof c }} />;
+  else if (c.kind === "age") control = <AgeRow {...props} item={item as MovableItem & { control: typeof c }} />;
   else if (c.kind === "field") {
     // 入力の欄と同じ部品で、案の値を見せる（書いた値は案にだけ入る）
     const view = changed ? item.apply(wh, value) : wh;

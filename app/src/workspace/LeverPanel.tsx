@@ -88,6 +88,8 @@ export interface LeverCardProps {
   children?: ComponentChildren;
   /** 「＋ 動かす項目を追加」とその一覧 */
   addRow?: ComponentChildren;
+  /** 対策の欄の中の小さな欄（取り崩しの計算。0026） */
+  extra?: ComponentChildren;
 }
 
 export function LeverCard(p: LeverCardProps) {
@@ -307,6 +309,7 @@ export function LeverCard(p: LeverCardProps) {
         {p.children}
       </fieldset>
       {!locked ? p.addRow : null}
+      {p.extra ?? null}
     </section>
   );
 }

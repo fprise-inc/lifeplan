@@ -264,7 +264,7 @@
           "additionalProperties": false,
           "required": ["template", "params"],
           "properties": {
-            "template": { "enum": ["marketDropAtRetirement", "inflationSpike", "rateRise", "incomeDrop"] },
+            "template": { "enum": ["marketDropAtRetirement", "inflationSpike", "rateRise", "incomeDrop", "lowReturnPeriod", "returnShortfall"] },
             "params": { "type": "object" }
           }
         },

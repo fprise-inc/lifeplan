@@ -78,7 +78,7 @@ export function readLevers(req: EngineRequest, memberId: string): Partial<LeverV
     out.pensionAge = claim === null ? 65 : ageAt(member, addMonths(claim, -1));
   }
   const nisa = (h.accounts ?? []).find((a) => a.kind === "nisa" && a.owner === memberId);
-  if (nisa !== undefined) out.nisaMonthly = nisa.contributions?.[0]?.monthly ?? 0;
+  if (nisa !== undefined) out.nisaMonthly = (nisa.contributions ?? []).filter((c) => c.tranche !== "growth").sort((x, y) => ((atOf(x.from) ?? "") < (atOf(y.from) ?? "") ? -1 : 1))[0]?.monthly ?? 0;
   const living = (h.livingExpenses ?? []).find((l) => l.mode === "total");
   if (living?.monthly?.value != null) out.livingMonthly = living.monthly.value;
   return out;
@@ -157,9 +157,11 @@ export function applyLevers(base: EngineRequest, memberId: string, values: Parti
     for (const l of h.livingExpenses ?? []) {
       for (const s of l.stages ?? []) if (s.label === "retirement") s.at = { at: ageReachedMonth(member, values.retireAge) };
     }
+    // 積立の終わりが退職の月だった積立だけ、新しい退職の月に合わせる（空の終わりは、エンジンが退職の月まで積み立てる。0026）
+    const oldEnd = current.retireAge !== undefined ? addMonths(ageReachedMonth(member, current.retireAge), -1) : null;
     for (const a of h.accounts ?? []) {
       if (a.kind !== "nisa" || a.owner !== memberId) continue;
-      for (const c of a.contributions ?? []) c.to = { at: lastMonth };
+      for (const c of a.contributions ?? []) if (c.to !== null && atOf(c.to) === oldEnd) c.to = { at: lastMonth };
     }
   }
 
@@ -170,11 +172,16 @@ export function applyLevers(base: EngineRequest, memberId: string, values: Parti
   }
 
   if (values.nisaMonthly !== undefined && values.nisaMonthly !== current.nisaMonthly) {
-    const retire = values.retireAge ?? current.retireAge;
+    // 期間を分けた積立は、どの期間も同じだけ増減する（0026）。積立が無ければ今から（終わりは空＝退職の年まで）
+    const delta = values.nisaMonthly - (current.nisaMonthly ?? 0);
     for (const a of h.accounts ?? []) {
       if (a.kind !== "nisa" || a.owner !== memberId) continue;
-      const end = a.contributions?.[0]?.to ?? (retire !== undefined ? { at: addMonths(ageReachedMonth(member, retire), -1) } : null);
-      a.contributions = values.nisaMonthly > 0 && end !== null ? [{ from: { at: req.input.baseMonth }, to: end, monthly: values.nisaMonthly }] : [];
+      const own = (a.contributions ?? []).filter((c) => c.tranche !== "growth");
+      if (own.length === 0) {
+        if (values.nisaMonthly > 0) a.contributions = [...(a.contributions ?? []), { from: { at: req.input.baseMonth }, to: null, monthly: values.nisaMonthly }];
+        continue;
+      }
+      for (const c of own) c.monthly = Math.max(0, c.monthly + delta);
     }
   }
 

@@ -23,9 +23,13 @@ export interface DisplaySettings {
   layout: ChartLayout;
   /** 操作中はグラフを上に表示（操作の欄までスクロールすると、グラフが画面の上に付いてくる。見通しと万一のときで同じ）: 出さない／小さく／大きく（既定） */
   dock: DockMode;
+  /** 資産の推移に口座の内訳を積み上げて出す（0026。既定は出さない） */
+  invBreakdown: boolean;
+  /** 資産の推移の上に運用の期間の帯を出す（0026。null は「取り崩しの予定があるときだけ」） */
+  invPeriods: boolean | null;
 }
 
-export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", dock: "large" };
+export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", dock: "large", invBreakdown: false, invPeriods: null };
 
 export const DOCK_CHOICES: readonly { key: DockMode; label: string; note: string }[] = [
   { key: "off", label: "出さない", note: "対策・想定の前提までスクロールしても、グラフは付いてきません" },

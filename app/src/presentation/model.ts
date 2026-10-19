@@ -421,3 +421,51 @@ export interface PlanBandModel {
   /** 「＋ この案を元に作る」の下の小さな文（例: 「B案を写して動かす」） */
   addNote: string;
 }
+
+// ---- 資産運用（0026）: 資産の推移のグラフに重ねるもの ----
+
+/** 運用の期間の帯（積み立てる・据え置く・取り崩す）。位置は years の番号 */
+export interface InvestBandModel {
+  /** 積み立てる帯の終わり（この番号の年から据え置く。積立が無ければ 0） */
+  accumEnd: number;
+  /** 取り崩しを始める年の番号（取り崩しの予定が無ければ null） */
+  wdStart: number | null;
+  /** 積立をやめる年齢（本人）と、取り崩しを始める年齢 */
+  stopAge: number;
+  wdAge: number | null;
+  /** 積立をやめる年が空欄（退職の年まで・推定） */
+  estimated: boolean;
+  /** 積立額が変わる年（番号）と、その期間の額の札（例: 「月7.7万」） */
+  steps: { at: number; label: string }[];
+  /** 帯の文字（例: 「積み立てる 45〜59歳」「据え置く」「60〜64歳」「取り崩す」「65歳〜 月17万円」） */
+  accumText: string;
+  holdText: string;
+  holdSub: string;
+  wdText: string;
+  wdSub: string;
+  /** 帯の切れ目を動かせる年齢の範囲 */
+  minAge: number;
+  maxAge: number;
+}
+
+/** 相場が下がった場合の線1本 */
+export interface StressLineModel {
+  key: "drop" | "low" | "minus1";
+  /** 例: 「退職の直後に株などが3割下がる」 */
+  label: string;
+  /** 金融資産（計算中は null） */
+  values: Yen[] | null;
+  /** 例: 「89歳まで持つ」 */
+  lasts: string;
+}
+
+export interface InvestChartModel {
+  /** 口座の内訳（選んだプラン。下から 預金・まだ分けていない・iDeCo/DC・NISA・課税口座など）。合計の入れ方のときは null */
+  breakdown: StackSeries[] | null;
+  band: InvestBandModel | null;
+  /** 線の札（「99歳まで持つ」）。選んだプランと基準のプラン */
+  lasts: { selected: string; base: string };
+  stress: StressLineModel[] | null;
+  /** 表示の設定（口座の内訳・運用の期間の帯）と、一時的に外した相場の線 */
+  view: { breakdown: boolean; band: boolean; stressHidden: readonly string[] };
+}

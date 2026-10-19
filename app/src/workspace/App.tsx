@@ -34,6 +34,9 @@ import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
+import { bandShown, donutPanes, donutYear, investChart, investVerdict, stressRequests, STRESS_KEYS, type StressKey } from "./invest/present.ts";
+import { InvestBar, DonutCard } from "./invest/InvestBar.tsx";
+import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
 import { advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { mixFromBuckets } from "./plans/allocation.ts";
@@ -111,6 +114,14 @@ export function parseHash(hash: string): {
   selfcheckWire?: boolean;
   /** 主画面のグラフ */
   chart?: ChartMode;
+  /** #stress: 相場が下がった場合を重ねて開く（0026） */
+  stress?: boolean;
+  /** #inv=breakdown,periods（口座の内訳・運用の期間の帯を出す）・#inv=noperiods（帯を外す）。画面の確かめ用 */
+  inv?: string[];
+  /** #mix=class: 資産の内訳を資産の種類ごとで開く */
+  mix?: "class";
+  /** #calc: 取り崩しの計算を開いて開く */
+  calc?: boolean;
   /** 説明モードを開いた状態（段の番号。0 から） */
   explain?: number;
   /** 対策に足す動かす項目（開発用のサーバーだけ） */
@@ -175,6 +186,10 @@ export function parseHash(hash: string): {
     else if (k === "list") out.list = true;
     else if (k === "scroll" && v === "table") out.scroll = "table";
     else if (k === "layout" && (v === "side" || v === "overlay" || v === "all")) out.layout = v;
+    else if (k === "stress") out.stress = true;
+    else if (k === "inv" && v !== undefined) out.inv = v.split(",").filter((x) => /^[a-z]+$/.test(x));
+    else if (k === "mix" && v === "class") out.mix = "class";
+    else if (k === "calc") out.calc = true;
   }
   return out;
 }
@@ -299,10 +314,16 @@ export function App() {
   const [big, setBig] = useState(initial.big);
   const [tab, setTab] = useState<Tab>(initial.tab ?? "main");
   const [chartMode, setChartMode] = useState<ChartMode>(initial.chart ?? "assets");
+  /** 相場が下がった場合を重ねる（最初は出さない。保存しない）と、一時的に外した線 */
+  const [stressOn, setStressOn] = useState(initial.stress === true);
+  const stressRef = useRef(initial.stress === true);
+  const [stressHidden, setStressHidden] = useState<string[]>([]);
+  /** 資産の内訳のドーナツの分け方 */
+  const [donutBy, setDonutBy] = useState<"account" | "class">(initial.mix === "class" ? "class" : "account");
   const [explainStep, setExplainStep] = useState<number | null>(initial.explain ?? null);
   const [tableKey, setTableKey] = useState<string | null>(null);
   const [showDiff, setShowDiff] = useState(initial.diff === true);
-  const [settings, setSettings] = useState<DisplaySettings>({ ...DEFAULT_DISPLAY_SETTINGS, ...(initial.metrics !== undefined ? { metrics: initial.metrics } : {}), ...(initial.age !== undefined ? { atAge: initial.age } : {}), ...(initial.layout !== undefined ? { layout: initial.layout } : {}) });
+  const [settings, setSettings] = useState<DisplaySettings>({ ...DEFAULT_DISPLAY_SETTINGS, ...(initial.metrics !== undefined ? { metrics: initial.metrics } : {}), ...(initial.age !== undefined ? { atAge: initial.age } : {}), ...(initial.layout !== undefined ? { layout: initial.layout } : {}), ...(initial.inv !== undefined ? { invBreakdown: initial.inv.includes("breakdown"), invPeriods: initial.inv.includes("periods") ? true : initial.inv.includes("noperiods") ? false : null } : {}) });
   const [settingsOpen, setSettingsOpen] = useState(initial.settings === true);
   const [panel, setPanel] = useState<null | "list" | "compare">(initial.compare === true ? "compare" : initial.list === true ? "list" : null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -478,6 +499,11 @@ export function App() {
       for (const id of w.band) out[id] = reqOf(o, valuesOf(o.wh, w, id));
       const alt = altFor(o, w, s);
       if (alt !== null) out.alt = alt;
+      // 相場が下がった場合（重ねているときだけ。選んだプランに3つの型を重ねた枠。0026）
+      if (stressRef.current) {
+        const sr = stressRequests(out[w.sel] as EngineRequest);
+        for (const k of STRESS_KEYS) out[`stress:${k}`] = sr[k];
+      }
       return out;
     },
     [reqOf, altFor],
@@ -499,6 +525,9 @@ export function App() {
       if (all.alt !== undefined) focus.alt = all.alt;
       dual.current.slide(w.sel, focus);
       if (mode === "release") void dual.current.release();
+      // 相場が下がった場合の枠は、指を離してから計算し直す
+      const stress = Object.entries(all).filter(([k]) => k.startsWith("stress:"));
+      if (mode === "release" && stress.length > 0) void dual.current.set(Object.fromEntries(stress));
     },
     [requestsFor],
   );
@@ -964,6 +993,45 @@ export function App() {
     [setValue],
   );
   const release = useCallback(() => void dual.current?.release(), []);
+  /** 運用の期間の帯の切れ目を動かした: 選んだプランの「積立をやめる年齢」「取り崩しを始める年齢」を動かす（対策に出す。0026） */
+  const onBand = useCallback(
+    (which: "stop" | "wd", age: number, phase: "slide" | "release") => {
+      const key = which === "stop" ? "inv:stop" : "inv:wStart";
+      setShown((s) => (s.includes(key) ? s : [...s, key]));
+      setValue(key, age, phase);
+      if (phase === "release") void dual.current?.release();
+    },
+    [setValue],
+  );
+  /** 相場が下がった場合を重ねる・やめる（枠を足す・外す） */
+  const toggleStress = useCallback(
+    (on: boolean) => {
+      stressRef.current = on;
+      setStressOn(on);
+      if (!on) setStressHidden([]);
+      putWorkRaw(workRef.current, openedRef.current, "set");
+    },
+    [putWorkRaw],
+  );
+  /** 取り崩しの計算の1回（本体の正の計算） */
+  const computeOne = useCallback(
+    async (req: EngineRequest): Promise<PreviewResult | null> => {
+      if (host === null) return null;
+      const res = await host.compute([{ id: "calc", rev: 1, request: JSON.stringify(req) }]);
+      const r = res.slots.calc?.result;
+      return r === undefined || isEngineError(r) ? null : r;
+    },
+    [host],
+  );
+  const putSettings = useCallback(
+    (patch: Partial<DisplaySettings>) =>
+      history.track(() => {
+        const s = { ...settingsRef.current, ...patch };
+        settingsRef.current = s;
+        setSettings(s);
+      }),
+    [history],
+  );
   const toggleFee = useCallback(() => {
     const o = openedRef.current;
     if (o === null) return;
@@ -1153,7 +1221,7 @@ export function App() {
   // ---- 提示用の値 ----
   const slots = useMemo(() => [CURRENT, ...work.band], [work.band]);
   const views = new Map(slots.map((id) => [id, dual.current?.view(id) ?? null]));
-  const resultOf = (id: string): PreviewResult | null => views.get(id)?.result ?? null;
+  const resultOf = (id: string): PreviewResult | null => (views.get(id) ?? dual.current?.view(id) ?? null)?.result ?? null;
   const selRes = resultOf(work.sel);
   const baseRes = resultOf(work.base);
   const selView = views.get(work.sel) ?? null;
@@ -1186,10 +1254,37 @@ export function App() {
   const band = opened === null ? null : bandModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id) => [id, resultOf(id)])), modified, base: work.base, selected: work.sel, settings, colors });
   // 全部のプランを色分けで重ねる表示: 帯の全部のプランの線（プランの名前と色の番号と数字だけ）をグラフの値に足す
   const slotResults = slots.map((id) => resultOf(id));
+  // 資産運用（資産の推移のとき。0026）: 口座の内訳・運用の期間の帯・相場が下がった場合の線
+  const stressRes = STRESS_KEYS.map((k) => (stressOn ? resultOf(`stress:${k}`) : null));
+  const investModel = useMemo(() => {
+    if (model === null || selReq === null || selRes === null || chartMode !== "assets") return null;
+    const base = names.same || baseReq === null || baseRes === null ? null : { req: baseReq, res: baseRes };
+    const stress = stressOn ? (Object.fromEntries(STRESS_KEYS.map((k, i) => [k, stressRes[i] ?? null])) as Record<StressKey, PreviewResult | null>) : null;
+    return investChart({ sel: { req: selReq, res: selRes }, base, years: model.chart.years, ages: model.chart.ages, stress, view: { breakdown: settings.invBreakdown, band: bandShown(settings.invPeriods, selReq), stressHidden } });
+  }, [model, selReq, selRes, baseReq, baseRes, chartMode, stressOn, settings.invBreakdown, settings.invPeriods, stressHidden, names.same, ...stressRes]);
   const chartModel = useMemo(() => {
-    if (model === null || opened === null || settings.layout !== "all") return model;
-    return { ...model, plans: planLinesModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id, i) => [id, slotResults[i] ?? null])), base: work.base, selected: work.sel, colors }) };
-  }, [model, opened, settings.layout, slots, letters, work.base, work.sel, colors, ...slotResults]);
+    if (model === null || opened === null) return model;
+    const m = investModel === null ? model : { ...model, invest: investModel };
+    if (settings.layout !== "all") return m;
+    return { ...m, plans: planLinesModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id, i) => [id, slotResults[i] ?? null])), base: work.base, selected: work.sel, colors }) };
+  }, [model, investModel, opened, settings.layout, slots, letters, work.base, work.sel, colors, ...slotResults]);
+  /** 結論の1文: 資産の推移のときは「金融資産は○歳まで持ちます」（0026） */
+  const verdictView = useMemo(() => {
+    if (model === null) return null;
+    if (chartMode !== "assets" || opened === null || selReq === null || selRes === null || baseRes === null || baseReq === null) return model.result;
+    const v = investVerdict(names, { req: selReq, table: selRes.table }, names.same ? null : { req: baseReq, table: baseRes.table }, model.chart.years);
+    const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
+    return { ...v, sub: [...v.sub, ...extra] };
+  }, [model, chartMode, opened, selReq, selRes, baseReq, baseRes, settings, names.selected, names.base, names.same]);
+  // 資産の内訳（ドーナツ）: 基準のプランと選んだプランを同じ年で（グラフで固定した年。固定していなければ取り崩しを始める年）
+  const donut = useMemo(() => {
+    if (model === null || selReq === null || selRes === null || baseReq === null || baseRes === null || chartMode !== "assets") return null;
+    const fixed = selectedYear !== null && model.chart.years.includes(selectedYear) && model.selectedYear === selectedYear ? selectedYear : null;
+    const year = fixed ?? donutYear(selReq, model.chart.years);
+    const age = model.chart.ages[model.chart.years.indexOf(year)] ?? null;
+    const panes = donutPanes({ base: { name: names.base, req: baseReq, table: baseRes.table }, sel: { name: names.selected, req: selReq, table: selRes.table }, same: names.same, year, age, who: model.who, by: donutBy });
+    return <DonutCard panes={panes} by={donutBy} onBy={setDonutBy} note={fixed !== null ? "グラフで固定した年の内訳です（もう一度押すと外れます）" : "グラフで年を押して固定すると、その年の内訳になります（いまは取り崩しを始める年）"} />;
+  }, [model, selReq, selRes, baseReq, baseRes, chartMode, selectedYear, names.base, names.selected, names.same, donutBy]);
   const multiHidden = { hidden: hiddenLines, onToggle: (k: string) => setHiddenLines((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k])) };
 
   // 表: 見る案（既定は選んだ案）と、基準との差
@@ -1552,7 +1647,7 @@ export function App() {
         ) : (
           <div class="main-stack">
             {basis !== null ? <BasisLine {...basis} /> : null}
-            <ChartDock dock={mainDock} head={<ResultVerdictView model={model.result} />} onClose={dockOff}>
+            <ChartDock dock={mainDock} head={<ResultVerdictView model={verdictView ?? model.result} />} onClose={dockOff}>
               {(height) => (
                 <DockedResult
                   model={chartModel ?? model}
@@ -1607,7 +1702,7 @@ export function App() {
               <ResultCard
                 model={chartModel ?? model}
                 multi={multiHidden}
-                verdict={model.result}
+                verdict={verdictView ?? model.result}
                 provisional={model.provisional}
                 mode={chartMode}
                 onMode={setChartMode}
@@ -1617,6 +1712,23 @@ export function App() {
                 ageMark={ageMark}
                 pinnedYear={pinnedYear}
                 onSelectYear={pinYear}
+                {...(locked === null ? { onBand } : {})}
+                {...(investModel !== null && explain === null
+                  ? {
+                      bar: (
+                        <InvestBar
+                          invest={investModel}
+                          canBreakdown={investModel.breakdown !== null}
+                          onBreakdown={(on) => putSettings({ invBreakdown: on })}
+                          onPeriods={(on) => putSettings({ invPeriods: on })}
+                          stressOn={stressOn}
+                          onStress={toggleStress}
+                          onStressLine={(k) => setStressHidden((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k]))}
+                        />
+                      ),
+                      ...(donut !== null ? { after: donut } : {}),
+                    }
+                  : {})}
                 tools={
                   <button type="button" class="set-btn" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)} data-settings-open>
                     表示の設定{settings.metrics.length > 0 ? <span class="memo-n">{settings.metrics.length}</span> : null}
@@ -1663,6 +1775,26 @@ export function App() {
                 onAck={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(acknowledge(opened.wh, opened.catalog, work.sel, k)) : null}
                 onDrop={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(dropChange(opened.wh, opened.catalog, work.sel, k)) : null}
                 {...(initial.save === true ? { initialSave: true } : {})}
+                {...(selReq !== null && model !== null && (selReq.input.household.accounts ?? []).length > 0
+                  ? {
+                      extra: (
+                        <DrawdownCalc
+                          key={work.sel}
+                          req={selReq}
+                          years={model.chart.years}
+                          compute={computeOne}
+                          locked={locked !== null}
+                          {...(initial.calc === true ? { initialOpen: true } : {})}
+                          onUse={(d) => {
+                            const key = d.method === "fixed" ? "inv:wAmt" : "inv:wRate";
+                            setShown((s) => [...new Set([...s, key, "inv:wStart"])]);
+                            setValue("inv:wStart", d.startAge, "slide");
+                            setValue(key, d.value, "release");
+                          }}
+                        />
+                      ),
+                    }
+                  : {})}
                 addRow={
                   <div class="add-row">
                     {menuOpen ? (

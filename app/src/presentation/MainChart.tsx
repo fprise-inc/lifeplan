@@ -11,9 +11,10 @@ import type { RefObject } from "preact";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { areaAbove, areaBelow, eventRows, linePath, multiDomain, scale, scaleOf, spreadX, type Frame, type Scale } from "./chart.ts";
 import { group, man } from "./format.ts";
-import type { AgeMark, BalanceChartModel, BaseCharts, ChartModel, EventChip, ExplainModel, FlowChartModel, PlanLineModel, SeriesNames, StackSeries, Yen } from "./model.ts";
+import type { AgeMark, BalanceChartModel, BaseCharts, ChartModel, EventChip, ExplainModel, FlowChartModel, InvestChartModel, PlanLineModel, SeriesNames, StackSeries, Yen } from "./model.ts";
 import { EVENT_R, EventDotSvg, EventTip, eventLabel, useEventFocus } from "./EventDot.tsx";
 import { lineOf, MULTI_WHAT, PlanMarker, PlanSwatch, planStyles, type PlanStyle } from "./planLines.tsx";
+import { PeriodBand, stackAreas, stressPaths } from "./InvestLayers.tsx";
 import { Pattern, Swatch } from "./StackChart.tsx";
 import { useSwitchEase, useTween, type Series } from "./tween.ts";
 import { estimateWidth, indexAt, placeAbove, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
@@ -41,6 +42,8 @@ export interface MainChartModel {
   selectedYear: number;
   /** 帯の全部の案の線（全部の案を色分けで重ねる表示のときだけ渡す） */
   plans?: PlanLineModel[];
+  /** 資産運用（資産の推移に重ねる口座の内訳・運用の期間の帯・相場が下がった場合。0026） */
+  invest?: InvestChartModel;
 }
 
 /** 全部の案を色分けで重ねる表示か（説明モードでは今のまま1本で説明する。線が1本も計算できていなければ重ねる表示） */
@@ -105,8 +108,10 @@ export function planModel(m: MainChartModel, who: PlanSide): MainChartModel {
       baseLines: { net: m.flows.net, netWorth: m.balance.netWorth },
       names: { ...m.names, base: m.names.selected, same: true },
     };
+  const { invest: _invest, ...rest } = m;
+  void _invest;
   return {
-    ...m,
+    ...rest,
     chart: { ...m.chart, proposal: m.chart.current, depletions: m.chart.depletions.filter((d) => d.series === "current").map((d) => ({ ...d, series: "proposal" as const })) },
     flows: m.baseCharts.flows,
     balance: m.baseCharts.balance,
@@ -280,6 +285,8 @@ export interface MainChartProps {
   height?: number;
   /** 全部の案を色分けで重ねる表示の、凡例で強調している案と一時的に隠している案 */
   multi?: MultiState;
+  /** 運用の期間の帯の切れ目を動かした（動かせないときは省略。0026） */
+  onBand?: (which: "stop" | "wd", age: number, phase: "slide" | "release") => void;
 }
 
 export interface MultiState {
@@ -301,7 +308,7 @@ interface YearMark {
   extra: string | null;
 }
 
-export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectYear, layout = "overlay", height, multi }: MainChartProps) {
+export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectYear, layout = "overlay", height, multi, onBand }: MainChartProps) {
   const box = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [size, setSize] = useState<{ w: number; h: number; fs: number }>({ w: 1100, h: 520, fs: 1 });
@@ -375,6 +382,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
     pinned,
     shown,
     compact,
+    ...(onBand !== undefined ? { onBand } : {}),
     onHover: (y: number | null) => setHover((h) => (h === y ? h : y)),
     onPick: (y: number) => {
       setHover(y);
@@ -443,6 +451,7 @@ interface ChartPlotProps {
   compact?: boolean;
   /** 全部の案を色分けで重ねる表示（それ以外は null） */
   multi?: MultiState | null;
+  onBand?: MainChartProps["onBand"];
   onHover: (year: number | null) => void;
   onPick: (year: number) => void;
 }
@@ -461,7 +470,7 @@ interface MultiRow {
 }
 
 /** 1つのグラフ（SVG と、年の表示・イベントの表示） */
-function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scaleWith, label, live, compact = false, multi = null, onHover, onPick }: ChartPlotProps) {
+function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scaleWith, label, live, compact = false, multi = null, onBand, onHover, onPick }: ChartPlotProps) {
   const svg = useRef<SVGSVGElement>(null);
   const tip = useRef<HTMLDivElement>(null);
   const evTipEl = useRef<HTMLDivElement>(null);
@@ -476,6 +485,9 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const years = model.chart.years;
   const ages = model.chart.ages;
   const showMark = ageMark !== null && mode === "assets" && explain === null;
+  // 資産運用（資産の推移のときだけ。説明モード・全部のプランを重ねる表示では出さない）
+  const inv = mode === "assets" && explain === null && multi === null ? model.invest : undefined;
+  const bandOn = inv !== undefined && inv.band !== null && inv.view.band && !compact;
   const fs = size.fs;
   // 縮めた表示（上に付いてくるグラフ）では、年のイベントの丸を描かない（線と塗りの高さを残す。丸は元のグラフと表にある）
   const evList = compact ? [] : model.events.filter((e) => years.includes(e.year));
@@ -684,7 +696,19 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
     s = scale([...scaleInputs(model, t, mode, n), ...scaleWith], n, f);
     if (!same) body.push(<path key="bb" d={areaBelow(aBase, s)} class="area-short" opacity={0.75} />);
     body.push(<path key="sb" d={areaBelow(aSel, s)} class="area-short" />);
-    body.push(<path key="sa" d={areaAbove(aSel, s)} class="area-prop" />);
+    // 口座の内訳（表示の設定）: 口座ごとのベタ塗りの積み上げ。無ければ合計の1本の塗り（0026）
+    const bd = inv !== undefined && inv.view.breakdown && inv.breakdown !== null && inv.breakdown.length > 0 ? inv.breakdown : null;
+    if (bd !== null) body.push(...stackAreas(bd, s, n));
+    else body.push(<path key="sa" d={areaAbove(aSel, s)} class="area-prop" />);
+    // 運用の期間の帯の切れ目の細い縦の線
+    if (bandOn && inv?.band != null) {
+      const b = inv.band;
+      for (const [k, i] of [["acc", b.accumEnd], ["wd", b.wdStart]] as const) {
+        if (i === null || i <= 0 || i >= n) continue;
+        const x = s.x(i) - s.band / 2;
+        body.push(<line key={`pl-${k}`} x1={x} x2={x} y1={f.top} y2={f.height - f.bottom} class="period-line" />);
+      }
+    }
     if (showMark && ageMark !== null) {
       const i = years.indexOf(ageMark.year);
       if (i >= 0)
@@ -699,6 +723,8 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
     }
     if (!same) body.push(<path key="lb" d={linePath(aBase, s)} class="line-base" />);
     body.push(<path key="ls" d={linePath(aSel, s)} class="line-prop" />);
+    // 相場が下がった場合（重ねたときだけ）
+    if (inv?.stress != null) body.push(...stressPaths(inv.stress, inv.view.stressHidden, s, n, fs, f.top));
     // 資産が尽きる年
     for (const d of model.chart.depletions) {
       const i = years.indexOf(d.year);
@@ -711,7 +737,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
           <line x1={x} x2={x} y1={y0} y2={f.height - f.bottom} class="dep-line" />
           <path d={`M${x} ${y0 - 11} l8 13 h-16 z`} class={`dep-tri${d.series === "current" ? " base" : ""}`} />
           <text x={x + 10} y={y0 - 8 - dy} class="dep-txt">
-            {d.label}
+            {inv !== undefined ? (d.series === "proposal" ? `${same ? "" : `${model.names.selected} `}${inv.lasts.selected}` : `${model.names.base} ${inv.lasts.base}`) : d.label}
           </text>
         </g>,
       );
@@ -785,6 +811,8 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const pct = (v: number, of: number) => `${((v / of) * 100).toFixed(3)}%`;
 
   return (
+    <>
+    {bandOn && inv?.band != null ? <PeriodBand band={inv.band} s={s} n={n} left={f.left} width={f.width} ages={ages} {...(onBand !== undefined ? { onBand } : {})} /> : null}
     <div class="plot">
       <svg ref={svg} viewBox={`0 0 ${f.width} ${f.height}`} width={f.width} height={f.height} role="img" aria-label={label} data-multi-scale={isMulti ? (rescaled ? "fit" : "all") : undefined}>
         <defs>
@@ -924,6 +952,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
       ) : null}
       {evNow !== undefined && evPlace !== null ? <EventTip chip={evNow} tipRef={evTipEl} style={{ left: pct(evPlace.left, f.width), top: pct(evPlace.top, f.height) }} /> : null}
     </div>
+    </>
   );
 }
 
