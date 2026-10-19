@@ -7,6 +7,9 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # macOS・Windows・速さの測定は、毎晩1回（その日に main が変わったときだけ）と手で起動したときだけ流す
+  schedule:
+    - cron: "0 18 * * *"
 permissions:
   contents: read
 # 同じブランチで新しい送信があれば、古い実行を止める
@@ -15,26 +18,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # 計算に関係する変更か（制度データ・文書・登録簿・アプリの画面・配布元の設定・提案書の帳票・ヒアリングシートだけの変更なら、macOS・Windows・速さの測定を省く）
+  # 重い検査（macOS・Windows・速さの測定）を流すか。非公開の間は実行の分数に限りがあるため、
+  # pull_request と main への取り込みでは Linux だけにし、重い検査は手で起動したときと毎晩（その日に main が変わったときだけ）に流す
   changes:
     runs-on: ubuntu-latest
     outputs:
       heavy: ${{ steps.diff.outputs.heavy }}
+      run: ${{ steps.diff.outputs.run }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - id: diff
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "heavy=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          if [ "${{ github.event_name }}" = "pull_request" ]; then base="${{ github.event.pull_request.base.sha }}"; else base="${{ github.event.before }}"; fi
-          if ! git cat-file -e "$base" 2>/dev/null; then echo "heavy=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          changed=$(git diff --name-only "$base" HEAD)
-          echo "$changed"
-          if echo "$changed" | grep -Ev '^(data/|docs/|registry/|app/|config/|report/|crates/report-pdf/|hearing/)|\.md$' | grep -q .; then echo "heavy=true" >> "$GITHUB_OUTPUT"; else echo "heavy=false" >> "$GITHUB_OUTPUT"; fi
+          run=true; heavy=false
+          case "${{ github.event_name }}" in
+            workflow_dispatch) heavy=true ;;
+            schedule) if [ -n "$(git log --since='24 hours ago' --oneline)" ]; then heavy=true; else run=false; fi ;;
+          esac
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
 
   # 型の検査・lint・単体テスト・まとめた JS と制度データの JSON の作成・npm の依存のライセンスの検査
   engine:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -306,6 +314,8 @@ jobs:
 
   # Rust の依存のライセンスの検査（GPL・LGPL・AGPL を止める。0021）
   licenses-rust:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
