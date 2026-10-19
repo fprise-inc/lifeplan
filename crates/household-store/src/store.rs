@@ -41,7 +41,7 @@ use crate::{StoreError, HOUSEHOLD_EXT, HOUSEHOLD_FORMAT};
 mod shared;
 pub use shared::{
     ForkChoice, ForkInfo, MemberView, NoticeView, OfficeStatus, PresenceView, RemovedView,
-    RequestView,
+    RequestView, StorageNotice,
 };
 
 const OFFICE_FILE: &str = "office.json";
@@ -162,6 +162,10 @@ struct SharingSetting {
     /// 名簿の履歴の知らせ（復元キーで加わった、など）を、この PC でどこまで見たか（その行の日時）
     #[serde(default)]
     notices_seen_at: Option<String>,
+    /// 使い方（`personal`＝1人で複数の PC・`office`＝事務所での共有。0024）。名簿を開けないとき（承認待ち・使えない）の画面の出し分けに使う。
+    /// 名簿を開けたときは名簿の値に合わせる。この欄の無い古い事務所データは事務所での共有として読む
+    #[serde(default)]
+    usage: Option<String>,
 }
 
 /// AI接続口の事務所全体の設定（0015）。既定はオフ
@@ -336,6 +340,13 @@ pub struct Store {
     app_version: String,
     exclude_keys_from_os_backup: bool,
     inner: Mutex<Inner>,
+    /// 試験用: この PC の中の事務所の鍵の入れ替えを、指定の段階の後で止める（途中で落ちた代わり。0 は止めない）
+    rekey_stop: std::sync::atomic::AtomicU8,
+}
+
+/// この PC の中の事務所の鍵を入れ替えている途中の、新しい鍵の保管庫の項目（アカウント名 `<事務所ID>.next`。0024）
+fn next_account(office_id: &str) -> String {
+    format!("{office_id}.next")
 }
 
 // ---- 日付（UTC） ----
@@ -515,7 +526,15 @@ impl Store {
             app_version: app_version.to_owned(),
             exclude_keys_from_os_backup: false,
             inner: Mutex::new(Inner::default()),
+            rekey_stop: std::sync::atomic::AtomicU8::new(0),
         }
+    }
+
+    /// 試験用: この PC の中の事務所の鍵の入れ替えを、`step` 段目の後で止める（1: 新しい鍵を保管庫へ、2: 事務所データ、3: 鍵置き場、4: 保管庫の鍵）
+    #[doc(hidden)]
+    pub fn set_rekey_stop_for_test(&self, step: u8) {
+        self.rekey_stop
+            .store(step, std::sync::atomic::Ordering::SeqCst);
     }
 
     /// 鍵置き場のフォルダを OS のバックアップから外す（0013 の4。Mac は OS のバックアップの除外の印）。アプリ本体だけが使う
@@ -666,11 +685,103 @@ impl Store {
                 }
             }
         };
+        // この PC の中の事務所の鍵の入れ替えが途中で止まっていたら、続きから終える（0024）
+        if let Some(next) = self.secrets.get(&next_account(&office_id))? {
+            self.finish_rekey(&office_id, &next)?;
+        }
         let Some(master) = self.master_of(&office_id)? else {
             g.needs_recovery = true;
             return Ok(());
         };
         self.open_office(g, office_id, device_id, master)
+    }
+
+    /// この PC の中の事務所の鍵（親鍵）を入れ替える（1人の FP が複数の PC で使う同期フォルダの鍵にそろえる。0024）。
+    /// 世帯の鍵はそのままで、鍵置き場の包みと事務所データを新しい鍵で書き直す。順番は「新しい鍵を保管庫の別の項目へ → 事務所データ →
+    /// 鍵置き場 → 保管庫の鍵 → 別の項目を消す」。途中で止まっても、次の起動で [`Store::finish_rekey`] が続きから終える
+    /// （どのファイルも古い鍵か新しい鍵のどちらかで開けるので、壊れない）
+    fn adopt_local_master(&self, s: &mut Session, new: &Key) -> Result<(), StoreError> {
+        if **new == *s.master {
+            return Ok(());
+        }
+        let stop = self.rekey_stop.load(std::sync::atomic::Ordering::SeqCst);
+        let halt = |step: u8| {
+            if stop == step {
+                Err(StoreError::IO)
+            } else {
+                Ok(())
+            }
+        };
+        let hex = Zeroizing::new(crypto::hex_encode(new.as_ref()));
+        let next = next_account(&s.office_id);
+        self.secrets.set(&next, &hex)?;
+        halt(1)?;
+        let vault = s.vault.rekeyed(&s.master, new, &crypto::new_uuid())?;
+        atomic::replace(
+            &self.office_data_path(),
+            &encode_office(&s.data, &s.office_id, new),
+            FailPoint::None,
+        )?;
+        halt(2)?;
+        atomic::replace(&self.vault_path(), &vault.encode(new), FailPoint::None)?;
+        halt(3)?;
+        self.secrets.set(&s.office_id, &hex)?;
+        halt(4)?;
+        let _ = self.secrets.delete(&next);
+        s.master = new.clone();
+        s.vault = vault;
+        Ok(())
+    }
+
+    /// 鍵の入れ替えの続き: 事務所データと鍵置き場を、古い鍵か新しい鍵のどちらかで開き、新しい鍵で書き直して保管庫の鍵を入れ替える。
+    /// どちらでも開けないときは何もしない（復元キーで戻す）
+    fn finish_rekey(&self, office_id: &str, next_hex: &str) -> Result<(), StoreError> {
+        let next = crypto::key_from_hex(next_hex.trim()).ok_or(StoreError::CORRUPT)?;
+        let old = self.master_of(office_id).ok().flatten();
+        let keys: Vec<Key> = std::iter::once(next.clone()).chain(old).collect();
+        let vp = self.vault_path();
+        let op = self.office_data_path();
+        atomic::recover(&vp, |b| {
+            keys.iter()
+                .any(|k| Vault::decode(b, k).is_ok())
+                .then_some(0)
+        })?;
+        atomic::recover(&op, |b| {
+            keys.iter()
+                .any(|k| decode_office(b, k).is_ok())
+                .then_some(0)
+        })?;
+        let vault_bytes = fs::read(&vp).ok();
+        let vault = vault_bytes.as_ref().and_then(|b| {
+            keys.iter().find_map(|k| {
+                Vault::decode(b, k).ok().map(|v| {
+                    if **k == *next {
+                        Ok(v)
+                    } else {
+                        v.rekeyed(k, &next, &crypto::new_uuid())
+                    }
+                })
+            })
+        });
+        let data = fs::read(&op)
+            .ok()
+            .and_then(|b| keys.iter().find_map(|k| decode_office(&b, k).ok()));
+        let (Some(vault), Some(data)) = (vault, data) else {
+            return Ok(());
+        };
+        let vault = vault?;
+        atomic::replace(
+            &op,
+            &encode_office(&data, office_id, &next),
+            FailPoint::None,
+        )?;
+        atomic::replace(&vp, &vault.encode(&next), FailPoint::None)?;
+        self.secrets.set(
+            office_id,
+            &Zeroizing::new(crypto::hex_encode(next.as_ref())),
+        )?;
+        let _ = self.secrets.delete(&next_account(office_id));
+        Ok(())
     }
 
     /// 初回: 事務所ID・親鍵（保管庫へ）・空の鍵置き場・事務所データを作る

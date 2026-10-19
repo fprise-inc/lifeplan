@@ -300,6 +300,10 @@ pub fn run() {
             office::store_fork_resolve,
             office::store_sync_copies_resolve,
             office::store_leave,
+            office::storage_sync_start,
+            office::storage_sync_open,
+            office::storage_sync_end,
+            office::storage_notices,
             app_close_ready
         ])
         .setup(|app| {

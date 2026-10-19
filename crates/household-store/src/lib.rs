@@ -10,6 +10,8 @@
 //! - 世帯の一覧・作成・開く・保存・顧客番号の変更・完全削除・自動バックアップは [`Store`]。
 //! - 事務所での共有（0023。既定はオフ）: メンバーごとの X25519 の鍵の組で事務所の親鍵を包む名簿・世帯ごとの鍵の札と世帯の札・
 //!   開いている印は [`office`]、鍵の組・親鍵の包み・指紋は [`member`]。共有フォルダの場所は [`Store`] が事務所データに持ち、外に返さない。
+//! - 1人の FP が複数の PC で使う同期フォルダ（0024）: 事務所での共有と同じ仕組みに「メンバー＝PC」として乗せる（名簿の使い方の欄が
+//!   `personal`）。保存先を同期フォルダにする・2台目の PC で復元キーで開く・この PC の中へ戻すは [`Store::sync_start`] など。
 //!
 //! この部品はファイルの道（パス）を外に返さない。呼ぶ側（アプリ本体）は世帯の内部IDだけでやりとりする（0016 の1）。
 //! 世帯の値・鍵をログやエラーの文に入れない（0012 の4）。エラーは符号（`E_STORE_…`）だけ。
@@ -30,7 +32,7 @@ pub use secret::{MemorySecretStore, SecretStore};
 pub use store::{
     Clock, CreateRequest, ForkChoice, ForkInfo, HouseholdEntry, MemberView, NoticeView,
     OfficeStatus, Opened, PresenceView, RemovedView, RenameOutcome, RequestView, Saved, Status,
-    StatusState, Store, SystemClock,
+    StatusState, StorageNotice, Store, SystemClock,
 };
 
 #[cfg(feature = "os-keyring")]
@@ -141,4 +143,13 @@ impl StoreError {
     pub const OFFICE_WAITING_SYNC: StoreError = StoreError("E_OFFICE_WAITING_SYNC");
     /// 選ぶ分岐が無い
     pub const NO_FORK: StoreError = StoreError("E_STORE_NO_FORK");
+    // ---- 1人の FP が複数の PC で使う同期フォルダ（0024） ----
+    /// 保存先を同期フォルダにする前に、復元キーを保管する（2台目の PC で開くときに要る。0013 の3）
+    pub const SYNC_RECOVERY_REQUIRED: StoreError = StoreError("E_SYNC_RECOVERY_REQUIRED");
+    /// 選んだフォルダは事務所での共有（複数の FP）に使われている（「すでに使っている同期フォルダを開く」では開かない）
+    pub const SYNC_IS_OFFICE: StoreError = StoreError("E_SYNC_IS_OFFICE");
+    /// 1人で使う同期フォルダでは、参加の申請を承認しない
+    pub const SYNC_PERSONAL: StoreError = StoreError("E_SYNC_PERSONAL");
+    /// もう1台の PC で世帯を開いている間は、保存先をこの PC の中へ戻さない
+    pub const SYNC_OTHER_PC_OPEN: StoreError = StoreError("E_SYNC_OTHER_PC_OPEN");
 }

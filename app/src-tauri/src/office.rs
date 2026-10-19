@@ -9,10 +9,15 @@
 //! - 事務所の復元キーを保管するまで、承認・外すは本体が止める（household-store。0023 の5）。
 //! - 全員の PC が使えなくなったとき: 共有フォルダを選び、事務所の復元キーで名簿に自分を足す（office_recover）。
 //! - 共有をやめる（office_end）: 最後の1人だけ。世帯をこの PC の中へ移す（0023 の10）。
+//! - 1人の FP が複数の PC で使う同期フォルダ（0024。storage_*）: 保存先を同期フォルダにする・2台目の PC で復元キーで開く・
+//!   この PC の中へ戻す。中身は事務所での共有と同じ仕組み（メンバー＝PC）。同期フォルダも本体のダイアログで選ばせる。
+//! - 保存先と同期の知らせ（storage_notices）: 世帯の一覧・保存先・事務所の設定のパネルに出す（画面の上の帯の「知らせ」にまとめられる形）。
 
 use std::path::PathBuf;
 
-use household_store::{ForkChoice, ForkInfo, OfficeStatus, Opened, Store, StoreError};
+use household_store::{
+    ForkChoice, ForkInfo, OfficeStatus, Opened, StorageNotice, Store, StoreError,
+};
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
 
 use crate::ai::AiState;
@@ -160,6 +165,100 @@ pub async fn office_end(app: AppHandle, confirm: String) -> Result<OfficeStatus,
         Ok(st)
     })
     .await
+}
+
+/// 保存先を同期フォルダにする（1人の FP が複数の PC で使う。0024）。name はこの PC の呼び名。選ばなかったときは null。
+/// 今の事務所の鍵（復元キー）をそのまま使うので、復元キーを保管していなければダイアログを出さずに断る
+#[tauri::command]
+pub async fn storage_sync_start(
+    app: AppHandle,
+    window: WebviewWindow,
+    name: String,
+) -> Result<Option<OfficeStatus>, String> {
+    if !household_store::office::valid_display_name(&name) {
+        return Err(code(StoreError::OFFICE_NAME));
+    }
+    let ready = blocking(app.clone(), |s, _| {
+        s.status()
+            .map(|st| st.recovery_acknowledged || st.recovery_verified_at.is_some())
+            .map_err(code)
+    })
+    .await?;
+    if !ready {
+        return Err(code(StoreError::SYNC_RECOVERY_REQUIRED));
+    }
+    let Some(picked) = pick(&window, "世帯を置く同期フォルダを選ぶ").await else {
+        return Ok(None);
+    };
+    let roots = forbidden(&app);
+    let sync = export::is_sync_folder(&picked);
+    blocking(app, move |s, ai| {
+        let ids: Vec<String> = s
+            .list()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|e| e.id)
+            .collect();
+        let r = s.sync_start(&picked, &name, sync, &roots);
+        // 世帯を同期フォルダへ移した（途中で止まった場合も一部は移っている）ので、開いていた世帯の帳面は作り直す
+        for id in ids {
+            ai.forget(&id);
+        }
+        r.map(Some).map_err(code)
+    })
+    .await
+}
+
+/// 2台目の PC: すでに使っている同期フォルダを選び、復元キー（key）で開く。name はこの PC の呼び名。選ばなかったときは null
+#[tauri::command]
+pub async fn storage_sync_open(
+    app: AppHandle,
+    window: WebviewWindow,
+    name: String,
+    key: String,
+) -> Result<Option<OfficeStatus>, String> {
+    // ダイアログを出す前に、打ち間違い・呼び名の形を確かめる（ダイアログを出してから断らない）
+    household_store::recovery::decode(&key).map_err(code)?;
+    if !household_store::office::valid_display_name(&name) {
+        return Err(code(StoreError::OFFICE_NAME));
+    }
+    let Some(picked) = pick(&window, "すでに使っている同期フォルダを選ぶ").await
+    else {
+        return Ok(None);
+    };
+    let roots = forbidden(&app);
+    let sync = export::is_sync_folder(&picked);
+    blocking(app, move |s, _| {
+        s.sync_open(&picked, &name, &key, sync, &roots)
+            .map(Some)
+            .map_err(code)
+    })
+    .await
+}
+
+/// 保存先をこの PC の中へ戻す（confirm はこの PC の呼び名）。世帯をこの PC の中へ移す
+#[tauri::command]
+pub async fn storage_sync_end(app: AppHandle, confirm: String) -> Result<OfficeStatus, String> {
+    blocking(app, move |s, ai| {
+        let ids: Vec<String> = s
+            .list()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|e| e.id)
+            .collect();
+        let st = s.sync_end(&confirm).map_err(code)?;
+        for id in ids {
+            ai.forget(&id);
+        }
+        Ok(st)
+    })
+    .await
+}
+
+/// 保存先と同期の知らせ（パス・鍵は入れない）
+#[tauri::command]
+pub async fn storage_notices(app: AppHandle) -> Result<Vec<StorageNotice>, String> {
+    blocking(app, |s, _| s.storage_notices().map_err(code)).await
 }
 
 /// 知らせ（復元キーで加わった人など）を見た

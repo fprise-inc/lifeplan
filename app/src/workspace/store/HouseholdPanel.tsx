@@ -1,8 +1,9 @@
 // 世帯の一覧（上の帯の「世帯」から開く）: 保存した世帯を開く・新しく作る・表示用の顧客番号を変える・完全削除（0013 の5）。
 // 一覧に出すのは表示用の顧客番号と構成の要約（続柄と人数）だけ。氏名は持たない（0012）
 import { useEffect, useState } from "preact/hooks";
-import type { StoredHousehold, StoreStatus } from "../../engine/host.ts";
+import type { StorageNotice, StoredHousehold, StoreStatus } from "../../engine/host.ts";
 import { OFFICE_MESSAGES, sinceText } from "./office.ts";
+import { storageNoticeText } from "./storage.ts";
 
 export interface HouseholdPanelProps {
   status: StoreStatus | null;
@@ -33,6 +34,12 @@ export interface HouseholdPanelProps {
   officeState?: string;
   /** 同期サービスの衝突の写しを選ぶ画面を開く */
   onForks?: (id: string) => void;
+  /** 保存先（このPCの中・同期フォルダ）の設定を開く（0024） */
+  onStorage?: () => void;
+  /** 使い方: 1人で複数の PC の同期フォルダ（personal）／事務所での共有（office）。共有していなければ null */
+  usage?: "personal" | "office" | null;
+  /** 保存先と同期の知らせ */
+  storageNotices?: StorageNotice[];
   onClose: () => void;
 }
 
@@ -75,16 +82,39 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
 
   const ready = p.status?.state === "ready" && p.unavailable === null;
   const shared = p.officeState === "member";
+  /** 1人で複数の PC の同期フォルダ: 「人」ではなく「PC」の言葉で出す（0024） */
+  const personal = p.usage === "personal";
+  // 一覧に出す知らせ（鍵が無い・PC の中だけで復元キーを保管していないは、この下と帯の案内で出すので除く）
+  const notices = (p.storageNotices ?? []).filter((n) => n.kind !== "needsRecovery" && !(n.kind === "recoveryNotKept" && n.scope === "local"));
+  const storageLabel = p.officeState === undefined || p.officeState === "off" ? "このPCの中" : personal ? (p.officeState === "member" ? "同期フォルダ（2台のPC）" : "同期フォルダ（使えません）") : "事務所の共有フォルダ";
   return (
     <section class="card hh-panel" aria-label="世帯の一覧" data-household-panel>
       <div class="card-h">
         <h2>世帯</h2>
-        <span class="aside">{shared ? "世帯ごとに暗号化して、事務所の共有フォルダに自動で保存します" : "世帯ごとに暗号化して、このPCのアプリのデータの場所に自動で保存します"}</span>
+        <span class="aside">{shared ? (personal ? "世帯ごとに暗号化して、同期フォルダに自動で保存します（2台のPCで使えます）" : "世帯ごとに暗号化して、事務所の共有フォルダに自動で保存します") : "世帯ごとに暗号化して、このPCのアプリのデータの場所に自動で保存します"}</span>
         <button type="button" class="btn" onClick={p.onClose}>
           閉じる
         </button>
       </div>
       {p.unavailable !== null ? <p class="hh-warn">{p.unavailable}</p> : null}
+      {notices.length > 0 ? (
+        <ul class="sp-notices" data-household-notices>
+          {notices.map((n) => (
+            <li key={`${n.kind}-${n.at ?? ""}`} class={`sp-n-${n.level}`}>
+              {storageNoticeText(n)}
+              {p.onStorage !== undefined && personal ? (
+                <button type="button" class="link-btn" onClick={p.onStorage}>
+                  保存先を開く
+                </button>
+              ) : p.onOffice !== undefined && n.scope === "office" ? (
+                <button type="button" class="link-btn" onClick={p.onOffice}>
+                  事務所の共有を開く
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {p.error !== null ? (
         <p class="hh-warn" role="alert">
           {p.error}
@@ -120,8 +150,8 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                     <th>顧客番号</th>
                     <th>家族</th>
                     <th>最後に保存</th>
-                    {shared ? <th>最後に直した人</th> : null}
-                    {shared ? <th>開いている人</th> : null}
+                    {shared ? <th>{personal ? "最後に直したPC" : "最後に直した人"}</th> : null}
+                    {shared ? <th>{personal ? "開いているPC" : "開いている人"}</th> : null}
                     <th />
                   </tr>
                 </thead>
@@ -146,7 +176,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                             "—"
                           ) : (
                             <span class="hh-presence">
-                              {h.openBy.map((o) => `${o.name}さん（${sinceText(o.since)}）`).join("、")}
+                              {h.openBy.map((o) => (personal ? `「${o.name}」（${sinceText(o.since)}）` : `${o.name}さん（${sinceText(o.since)}）`)).join("、")}
                             </span>
                           )}
                         </td>
@@ -257,12 +287,20 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           復元キー
         </button>
         {p.status?.state === "ready" ? <span class="pl-sub">{p.status.recoveryAcknowledged ? "復元キーは保管済みです" : "復元キーをまだ保管していません"}</span> : null}
+        {p.onStorage !== undefined ? (
+          <>
+            <button type="button" class="link-btn" onClick={p.onStorage} data-open-storage>
+              保存先
+            </button>
+            <span class="pl-sub" data-storage-label>{storageLabel}</span>
+          </>
+        ) : null}
         {p.onOffice !== undefined ? (
           <>
             <button type="button" class="link-btn" onClick={p.onOffice} data-open-office>
               事務所の共有
             </button>
-            <span class="pl-sub">{p.officeState === "member" ? "オン" : p.officeState === "pending" ? "承認待ち" : p.officeState === "removed" ? "外されました" : p.officeState === "unavailable" ? "使えません" : "オフ（既定）"}</span>
+            <span class="pl-sub">{personal ? "オフ（同期フォルダで1人で使っています）" : p.officeState === "member" ? "オン" : p.officeState === "pending" ? "承認待ち" : p.officeState === "removed" ? "外されました" : p.officeState === "unavailable" ? "使えません" : "オフ（既定）"}</span>
           </>
         ) : null}
         {p.onAiConnector !== undefined ? (

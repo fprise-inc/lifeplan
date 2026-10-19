@@ -3,7 +3,7 @@
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
-import { devBrowserHost, isTauri, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
+import { devBrowserHost, isTauri, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
@@ -55,6 +55,7 @@ import { HouseholdPanel, storeMessage } from "./store/HouseholdPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
 import { OfficePanel } from "./store/OfficePanel.tsx";
 import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
+import { StoragePanel } from "./store/StoragePanel.tsx";
 import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
 import { installUndo, undoController } from "./undo/controller.ts";
 import { UndoButtons } from "./undo/UndoButtons.tsx";
@@ -321,6 +322,9 @@ export function App() {
   // 事務所での共有（0023）
   const [officeStatus, setOfficeStatus] = useState<OfficeStatus | null>(null);
   const [officeOpen, setOfficeOpen] = useState(false);
+  // 保存先（1人で2台の PC の同期フォルダ。0024）: パネル（"open" は2台目の PC として開く節を先に出す）と、保存先と同期の知らせ
+  const [storageOpen, setStorageOpen] = useState<null | "default" | "open">(null);
+  const [storageNotices, setStorageNotices] = useState<StorageNotice[]>([]);
   /** 開発用のビルドで、鍵をファイルに置いている（取り違えないよう札を出す） */
   const [devKeys, setDevKeys] = useState(false);
   /** 開いた世帯を、ほかのメンバーが開いている（自動保存を止めて開いている間） */
@@ -411,6 +415,7 @@ export function App() {
           setStoreUnavailable(storeMessage(codeOf(e)));
         }
         void h.office.status().then(setOfficeStatus, () => undefined);
+        void h.office.notices().then(setStorageNotices, () => undefined);
         void h.store.devFileKeys().then(setDevKeys, () => undefined);
         autosaver.current = new Autosaver(async (body) => {
           const sr = storedRef.current;
@@ -765,6 +770,7 @@ export function App() {
     if (host === null) return;
     try {
       void host.office.status().then(setOfficeStatus, () => undefined);
+      void host.office.notices().then(setStorageNotices, () => undefined);
       const st = await host.store.status();
       setStoreStatus(st);
       setStoredList(st.state === "ready" ? await host.store.list() : []);
@@ -1406,7 +1412,7 @@ export function App() {
         {presence !== null && storedInfo !== null ? (
           <div class="presence-band" role="status" data-presence-band>
             <span>
-              <b>{presenceText(presence)}</b>。見ることはできます。同時に直すと分岐になり、どちらを残すか選ぶことになります。
+              <b>{presenceText(presence, undefined, officeStatus?.usage === "personal")}</b>。見ることはできます。同時に直すと分岐になり、どちらを残すか選ぶことになります。
             </span>
             <button type="button" class="btn" onClick={startEditing} data-start-editing>
               編集を始める
@@ -1445,6 +1451,12 @@ export function App() {
               setOfficeOpen(true);
             }}
             officeState={officeStatus?.state ?? "off"}
+            usage={officeStatus?.usage ?? null}
+            storageNotices={storageNotices}
+            onStorage={() => {
+              void host.office.status().then(setOfficeStatus, () => undefined);
+              setStorageOpen("default");
+            }}
             onForks={(id) => void openFork(id)}
             onClose={() => setHhOpen(false)}
           />
@@ -1701,8 +1713,37 @@ export function App() {
             if (sr !== null) void openStored(sr.id).catch((e: unknown) => setHhError(storeMessage(codeOf(e))));
           }}
           onRecovery={() => setRecovery("first")}
+          onStorage={() => {
+            setOfficeOpen(false);
+            setStorageOpen("default");
+          }}
           onClose={() => {
             setOfficeOpen(false);
+            void refreshStore();
+          }}
+        />
+      ) : null}
+      {storageOpen !== null && host !== null ? (
+        <StoragePanel
+          office={host.office}
+          status={officeStatus}
+          storeStatus={storeStatus}
+          notices={storageNotices}
+          focus={storageOpen === "open" ? "open" : null}
+          onStatus={setOfficeStatus}
+          onHouseholdsChanged={() => {
+            void refreshStore();
+            // 世帯を同期フォルダへ移した・この PC の中へ戻した: 開いていた世帯は、移した先から開き直す
+            const sr = storedRef.current;
+            if (sr !== null) void openStored(sr.id).catch((e: unknown) => setHhError(storeMessage(codeOf(e))));
+          }}
+          onRecovery={() => setRecovery("manage")}
+          onOffice={() => {
+            setStorageOpen(null);
+            setOfficeOpen(true);
+          }}
+          onClose={() => {
+            setStorageOpen(null);
             void refreshStore();
           }}
         />
@@ -1724,6 +1765,15 @@ export function App() {
           store={host.store}
           status={storeStatus}
           shared={officeStatus?.state === "member"}
+          personal={officeStatus?.state === "member" && officeStatus.usage === "personal"}
+          onOpenSync={() => {
+            setRecovery(null);
+            setStorageOpen("open");
+          }}
+          onStorage={() => {
+            setRecovery(null);
+            setStorageOpen("default");
+          }}
           onStatus={(st) => {
             setStoreStatus(st);
             // 事務所の復元キーを保管した・試して通った: 止めていた共有の操作の表示を戻す（0023 の5）

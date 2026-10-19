@@ -53,9 +53,9 @@ export function sinceText(iso: string, now: number = Date.now()): string {
   return `${h}時間前から`;
 }
 
-/** 「○○さんが開いています（○分前から）」 */
-export function presenceText(list: readonly PresenceView[], now: number = Date.now()): string {
-  return list.map((p) => `${p.name}さんが開いています（${sinceText(p.since, now)}）`).join("、");
+/** 「○○さんが開いています（○分前から）」。1人で複数の PC の同期フォルダ（personal）では「もう1台のPC「○○」で開いています」（0024） */
+export function presenceText(list: readonly PresenceView[], now: number = Date.now(), personal = false): string {
+  return list.map((p) => (personal ? `もう1台のPC「${p.name}」で開いています（${sinceText(p.since, now)}）` : `${p.name}さんが開いています（${sinceText(p.since, now)}）`)).join("、");
 }
 
 /**

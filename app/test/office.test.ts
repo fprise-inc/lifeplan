@@ -13,11 +13,12 @@ import { fromRequest } from "../src/workspace/input/household.ts";
 import { modelHousehold } from "./helpers.ts";
 
 const no = async () => Promise.reject("E");
-const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no };
+const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] };
 
 function status(over: Partial<OfficeStatus> = {}): OfficeStatus {
   return {
     state: "member",
+    usage: "office",
     problem: null,
     myName: "担当A",
     myFingerprint: "M3TQ-8VNA-2KXD-H7RP",
@@ -210,7 +211,7 @@ describe("世帯の一覧", () => {
 });
 
 describe("分岐を選ぶ画面", () => {
-  const info: ForkInfo = { savedConflict: true, theirsSavedAt: "2026-10-19T01:00:00Z", theirsBy: "担当B", theirsGeneration: 5, oursGeneration: 5, syncCopies: 0 };
+  const info: ForkInfo = { savedConflict: true, theirsSavedAt: "2026-10-19T01:00:00Z", theirsBy: "担当B", theirsGeneration: 5, oursGeneration: 5, syncCopies: 0, personal: false };
   it("相手の名前と、3つの選び方を出す", () => {
     const html = renderToString(h(ForkPanel, { customerNo: "A0001", info, busy: false, error: null, onChoose: () => undefined, onSyncCopies: () => undefined, onClose: () => undefined }));
     expect(html).toContain("担当Bさん");

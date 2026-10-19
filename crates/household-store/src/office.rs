@@ -59,6 +59,10 @@ pub const MAX_DISPLAY_NAME: usize = 20;
 pub const MAX_ROSTER_EVENTS: usize = 200;
 /// 名簿の履歴: 復元キーで名簿に自分を足した（全員の PC が使えなくなったとき。0023 の5）
 pub const EVENT_RECOVERY_JOIN: &str = "recoveryJoin";
+/// 名簿の使い方: 1人の FP が複数の PC で使う同期フォルダ（0024）。メンバーは PC ごと、表示名は PC の呼び名
+pub const USAGE_PERSONAL: &str = "personal";
+/// 名簿の使い方: 複数の FP の事務所での共有（0023）。欄が無い名簿もこれとして読む
+pub const USAGE_OFFICE: &str = "office";
 
 /// 事務所のフォルダの中の場所
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -267,11 +271,17 @@ pub struct Roster {
     pub events: Vec<RosterEvent>,
     /// 事務所の共有を終えた印
     pub closed: Option<ClosedMark>,
+    /// 使い方（[`USAGE_PERSONAL`]・[`USAGE_OFFICE`]）。無ければ事務所での共有（0024）
+    pub usage: Option<String>,
     pub updated_at: String,
     pub updated_by: Option<String>,
 }
 
 impl Roster {
+    /// 1人の FP が複数の PC で使う同期フォルダか（0024）
+    pub fn personal(&self) -> bool {
+        self.usage.as_deref() == Some(USAGE_PERSONAL)
+    }
     /// 履歴に1行足す（上限を超えたら古い行から消す）
     pub fn push_event(&mut self, e: RosterEvent) {
         self.events.push(e);
@@ -349,6 +359,9 @@ struct MembersBody {
     events: Vec<RosterEvent>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     closed: Option<ClosedMark>,
+    /// 使い方（足した欄。無い名簿は事務所での共有として読む。0024）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    usage: Option<String>,
     updated_at: String,
     updated_by: Option<String>,
 }
@@ -400,6 +413,7 @@ pub fn encode_roster(r: &Roster, master: &[u8; KEY_LEN]) -> Result<Vec<u8>, Stor
             recovery: r.recovery.clone(),
             events: r.events.clone(),
             closed: r.closed.clone(),
+            usage: r.usage.clone(),
             updated_at: r.updated_at.clone(),
             updated_by: r.updated_by.clone(),
         })
@@ -454,6 +468,7 @@ pub fn open_roster_with_master(bytes: &[u8], master: &[u8; KEY_LEN]) -> Result<R
         recovery: b.recovery,
         events: b.events,
         closed: b.closed,
+        usage: b.usage,
         updated_at: b.updated_at,
         updated_by: b.updated_by,
     })
@@ -866,6 +881,7 @@ mod tests {
             recovery: None,
             events: vec![],
             closed: None,
+            usage: None,
             updated_at: "2026-10-19T00:00:00Z".into(),
             updated_by: None,
         }
@@ -951,8 +967,10 @@ mod tests {
             closed_at: "z".into(),
             closed_by: ma.member_id.clone(),
         });
+        r.usage = Some(USAGE_PERSONAL.into());
         let m = crypto::random_key();
         let back = open_roster_with_master(&encode_roster(&r, &m).unwrap(), &m).unwrap();
+        assert!(back.personal());
         assert_eq!(back.events, r.events);
         assert_eq!(back.recovery, r.recovery);
         assert_eq!(back.closed, r.closed);
@@ -962,6 +980,8 @@ mod tests {
         let plain = roster(&crypto::new_uuid(), vec![ma]);
         let back = open_roster_with_master(&encode_roster(&plain, &m).unwrap(), &m).unwrap();
         assert!(back.events.is_empty() && back.closed.is_none() && back.recovery.is_none());
+        // 使い方の欄の無い名簿は、事務所での共有として読む（0024）
+        assert!(back.usage.is_none() && !back.personal());
     }
 
     #[test]
