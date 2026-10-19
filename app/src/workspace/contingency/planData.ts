@@ -31,6 +31,10 @@ export interface ContingencyPlan {
   oldAgeChoice: Record<string, OldAgeChoice>;
   /** 想定の年（万一の画面で選んだ年。省略は計算基準年の翌年） */
   year?: number;
+  /** 相場が下がったときの前提（下がる幅。省略は3割。0026） */
+  market?: { drop?: string };
+  /** 大きな病気のときの前提（働けない月数・医療費（1か月・10割）と月数。省略は目安。0026） */
+  illness?: { months?: number; medicalMonthly?: number; medicalMonths?: number };
 }
 
 export function emptyPlan(): ContingencyPlan {

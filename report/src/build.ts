@@ -12,6 +12,9 @@ import {
   PROPOSAL_INPUT_VERSION,
   type CfRow,
   type BalanceSheetView,
+  type ColoredAmount,
+  type InvestmentView,
+  type MarketDropView,
   type CfTable,
   type NamedAmount,
   type Outcome,
@@ -954,6 +957,65 @@ function comparison(ctx: Ctx): Comparison | null {
 }
 
 /** 計算の要求と正の計算の結果から、帳票の入力を組み立てる */
+// ---- 資産運用の計画・相場が下がった場合（0026。アプリの資産の推移と同じまとめ方）----
+
+/** 口座の内訳のまとまり（下から積む順。アプリの workspace/invest/present.ts と同じ） */
+const INVEST_GROUPS: readonly { label: string; color: string; kinds: readonly string[] }[] = [
+  { label: "預金", color: "#cad2dd", kinds: ["deposit", "fxDeposit", "zaikei"] },
+  { label: "まだ分けていない", color: "#ddd6e8", kinds: ["pooled"] },
+  { label: "iDeCo・企業型DC", color: "#a8c59e", kinds: ["ideco", "corporateDc"] },
+  { label: "NISA", color: "#8ea7d5", kinds: ["nisa", "childNisa", "juniorNisa", "legacyNisa"] },
+  { label: "課税口座など", color: "#e2cd9b", kinds: ["taxable", "esop", "smallBusinessMutualAid"] },
+];
+const NOT_FINANCIAL_KINDS = new Set(["realEstate", "insurance", "car", "otherAsset"]);
+const kindOfRow = (row: string): string | null => (row.startsWith("cf.balance.account.") ? row.slice("cf.balance.account.".length) : null);
+
+/** 何歳まで持つか（尽きる年の前の年。尽きなければ表の最後の年）の文 */
+function lastsText(ctx: Ctx, r: EngineOutput): string {
+  if (ctx.self === undefined || ctx.years.length === 0) return "";
+  const dep = depletionYear(r, ctx.years);
+  return `${ageInYear(ctx.self.member, dep === null ? (ctx.years.at(-1) as number) : dep - 1)}歳まで持つ`;
+}
+
+/** その年の口座ごとの内訳（0以下は除く） */
+function accountMix(r: EngineOutput, year: number): ColoredAmount[] {
+  return INVEST_GROUPS.map((g) => ({
+    label: g.label,
+    color: g.color,
+    amount: r.table.filter((c) => c.year === year && c.amount > 0 && g.kinds.includes(kindOfRow(c.row) ?? "")).reduce((x, c) => x + c.amount, 0),
+  })).filter((x) => x.amount > 0);
+}
+
+function investment(ctx: Ctx): InvestmentView | null {
+  const m = ctx.bundle.investment;
+  if (m === undefined) return null;
+  const p = ctx.bundle.proposal.result;
+  const accounts = INVEST_GROUPS.map((g) => ({
+    label: g.label,
+    color: g.color,
+    values: ctx.years.map((y) => Math.max(0, p.table.filter((c) => c.year === y && g.kinds.includes(kindOfRow(c.row) ?? "") && !NOT_FINANCIAL_KINDS.has(kindOfRow(c.row) ?? "")).reduce((x, c) => x + c.amount, 0))),
+  })).filter((x) => x.values.some((v) => v > 0));
+  const year = ctx.years.includes(m.donutYear) ? m.donutYear : (ctx.years.at(-1) ?? m.donutYear);
+  return {
+    method: m.method,
+    condition: m.condition,
+    lasts: { current: lastsText(ctx, ctx.bundle.current.result), proposal: lastsText(ctx, p) },
+    periods: { ...m.periods, steps: m.periods.steps.map((x) => ({ ...x })) },
+    accounts,
+    donut: { year, label: pointLabel(ctx, year), current: accountMix(ctx.bundle.current.result, year), proposal: accountMix(p, year) },
+  };
+}
+
+function marketDrop(ctx: Ctx): MarketDropView | null {
+  const st = ctx.bundle.investment?.stress;
+  if (st === undefined || st.length === 0) return null;
+  return {
+    proposal: seriesOf(financialOf(ctx.bundle.proposal.result), ctx.years),
+    lasts: lastsText(ctx, ctx.bundle.proposal.result),
+    lines: st.map((x) => ({ label: x.label, lasts: lastsText(ctx, x.run.result), values: seriesOf(financialOf(x.run.result), ctx.years) })),
+  };
+}
+
 export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
   const req = bundle.proposal.request;
   const years = displayYears(req);
@@ -992,6 +1054,8 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     insurance: insurance(ctx),
     changes: changes(ctx, current, proposal),
     comparison: comparison(ctx),
+    investment: investment(ctx),
+    marketDrop: marketDrop(ctx),
     layout: { ...DEFAULT_LAYOUT, ...bundle.layout },
   };
   return bundle.chapters !== undefined ? selectChapters(input, bundle.chapters) : input;

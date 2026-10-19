@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.4";
+pub const CURRENT: &str = "0.5";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -20,7 +20,12 @@ pub const CURRENT: &str = "0.4";
 /// - 0.3: 控えの区画 `snapshots`（0009 の2。任意。控えが無ければ区画ごと無い）を足した（足すだけの MINOR）
 /// - 0.4: 世帯のデータに、持ち家の評価 `residences[].valuation`・売却 `residences[].sale`・器の種類 `otherAsset`（その他の資産）と
 ///   評価額の増減率 `accounts[].valueGrowth`・前提 `assumptions.realEstateValuation` を足した（どれも任意。足すだけの MINOR。0025）
-pub const KNOWN: &[&str] = &["0.1", "0.2", "0.3", "0.4"];
+/// - 0.5: 資産運用（0026）。器の種類 `pooled`（まとめた金融資産）・器の利回り `accounts[].expectedReturn`・運用の費用 `accounts[].fee`・
+///   受け取ったお金の行き先 `accounts[].payout.destination`・前提 `assumptions.investment`・`assumptions.assetVolatility`・
+///   `assumptions.returnShifts` を足した（どれも任意）。読み方を2つ変えた: 積立の終わり（`contributions[].to`）が空の積立は
+///   「表の最後まで」ではなく「名義の人の退職の月まで（推定）」、iDeCo・企業型DC の受け取りの始まりが空なら「75歳」ではなく
+///   「退職の年（60〜65歳に収める）」。データは書き換えず、空のまま新しい読み方で読む（画面は「推定あり」の印を出す）
+pub const KNOWN: &[&str] = &["0.1", "0.2", "0.3", "0.4", "0.5"];
 
 /// 1段分の変換
 pub struct Step {
@@ -45,6 +50,11 @@ pub const STEPS: &[Step] = &[
         from: "0.3",
         to: "0.4",
         apply: v0_3_to_0_4,
+    },
+    Step {
+        from: "0.4",
+        to: "0.5",
+        apply: v0_4_to_0_5,
     },
 ];
 
@@ -77,6 +87,16 @@ fn v0_3_to_0_4(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.4".into());
+    }
+    Ok(body)
+}
+
+/// 0.4 → 0.5: 足した欄はどれも任意なので足さない。積立の終わり・iDeCo の受け取りの始まりが空の値は、空のまま新しい読み方
+/// （退職の月まで・退職の年に受け取る。推定）で読む（0026）。形式の版だけを書き換える
+fn v0_4_to_0_5(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.5".into());
     }
     Ok(body)
 }
@@ -168,7 +188,8 @@ mod tests {
         assert_eq!(access("0.1").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.2").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.3").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.5").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.4").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.6").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -180,7 +201,7 @@ mod tests {
         assert_eq!(access("01.1").unwrap_err(), StoreError::FORMAT_UNKNOWN);
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
-        assert_eq!(upgrade("0.5", b.clone()).unwrap(), b);
+        assert_eq!(upgrade("0.6", b.clone()).unwrap(), b);
     }
 
     #[test]
@@ -219,12 +240,23 @@ mod tests {
     fn v0_3_keeps_everything_and_adds_no_valuation() {
         let b = serde_json::json!({"meta": {"formatVersion": "0.3", "revisions": [], "editors": {}}, "household": {"request": {"input": {"household": {"residences": [{"kind": "own"}]}}}}, "snapshots": [{"a": 1}]});
         let u = upgrade("0.3", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.4");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(
             u["household"], b["household"],
             "評価・売却の欄は任意なので足さない"
         );
         assert_eq!(u["snapshots"], b["snapshots"]);
         assert!(upgrade("0.3", serde_json::json!(1)).is_err());
+    }
+
+    #[test]
+    fn v0_4_keeps_empty_contribution_ends_as_they_are() {
+        // 積立の終わりが空の積立・受け取りの始まりが空の iDeCo は、書き換えずに新しい読み方（退職の月まで・退職の年。推定）で読む
+        let acc = serde_json::json!([{"kind": "nisa", "contributions": [{"from": {"at": "2026-01"}, "to": null, "monthly": 30000}]}, {"kind": "ideco", "contributions": []}]);
+        let b = serde_json::json!({"meta": {"formatVersion": "0.4", "revisions": [], "editors": {}}, "household": {"request": {"input": {"household": {"accounts": acc}}}}});
+        let u = upgrade("0.4", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.5");
+        assert_eq!(u["household"], b["household"]);
+        assert!(upgrade("0.4", serde_json::json!(null)).is_err());
     }
 }

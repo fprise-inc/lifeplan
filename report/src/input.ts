@@ -249,4 +249,44 @@ export interface ProposalInput {
   chapters?: ChapterId[];
   /** 案の比較のページ（省略・null は載せない） */
   comparison?: Comparison | null;
+  /** 資産運用の計画（0026。省略・null は載せない） */
+  investment?: InvestmentView | null;
+  /** 相場が下がった場合（0026。省略・null は載せない） */
+  marketDrop?: MarketDropView | null;
+}
+
+/** 内訳の1つ（色つき） */
+export interface ColoredAmount {
+  label: string;
+  amount: Yen;
+  color: string;
+}
+
+/** 資産運用の計画: 運用の期間の図・口座ごとの推移・資産の内訳（現状と提案を同じ年で） */
+export interface InvestmentView {
+  method: string;
+  condition: string;
+  /** 例: 「86歳まで持つ」 */
+  lasts: { current: string; proposal: string };
+  periods: {
+    accumText: string;
+    holdText: string;
+    holdSub: string;
+    wdText: string;
+    wdSub: string;
+    accumEnd: number | null;
+    wdStart: number | null;
+    steps: { year: number; label: string }[];
+    estimated: boolean;
+  };
+  /** 口座ごとの年末の残高（提案。basis.years と同じ並び。下から積む順） */
+  accounts: { label: string; color: string; values: Yen[] }[];
+  donut: { year: number; label: string; current: ColoredAmount[]; proposal: ColoredAmount[] };
+}
+
+/** 相場が下がった場合: 提案の金融資産と、型ごとの線 */
+export interface MarketDropView {
+  proposal: Yen[];
+  lasts: string;
+  lines: { label: string; lasts: string; values: Yen[] }[];
 }

@@ -186,7 +186,8 @@ export type AccountKind =
   | "insurance"
   | "realEstate"
   | "smallBusinessMutualAid"
-  | "otherAsset";
+  | "otherAsset"
+  | "pooled";
 
 export interface AccountInput {
   readonly id: string;
@@ -208,9 +209,21 @@ export interface AccountInput {
   readonly frame?: { readonly lifetimeUsedCost: Yen; readonly growthUsedCost?: Yen; readonly asOfYear: number };
   readonly lots?: readonly { readonly vintageYear: number; readonly regime: "general" | "tsumitate" | "junior"; readonly costBasis: Yen; readonly marketValue: Yen }[];
   readonly enrolledSince?: string;
-  readonly payout?: { readonly start: Timepoint; readonly method: "lumpSum" | "annuity" | "mixed"; readonly annuityYears?: number; readonly lumpShare?: string };
+  readonly payout?: {
+    /** 受け取りの始まり（省略は退職の年。60〜65歳の範囲に収める。0026） */
+    readonly start?: Timepoint;
+    readonly method: "lumpSum" | "annuity" | "mixed";
+    readonly annuityYears?: number;
+    readonly lumpShare?: string;
+    /** 受け取ったお金の行き先（deposit は預金。invest は NISA に入れ、枠を超えた分は課税口座。省略は deposit。0026） */
+    readonly destination?: "deposit" | "invest";
+  };
   /** 評価額の増減率（年率。不動産・その他の資産だけで使う。入れたときは資産の配分の利回りの代わり） */
   readonly valueGrowth?: string;
+  /** FP が入れた器の利回り（年率。入れたときは資産の配分の利回りの代わり。0026） */
+  readonly expectedReturn?: string;
+  /** 運用の費用（信託報酬など。年率。器の利回りから引く。0026） */
+  readonly fee?: string;
 }
 
 export interface RateStep {
@@ -455,7 +468,7 @@ export interface ContingencyInput {
   readonly medical?: { readonly monthly: Yen; readonly months: number; readonly from?: Timepoint };
 }
 
-export type StressTemplate = "marketDropAtRetirement" | "inflationSpike" | "rateRise" | "incomeDrop";
+export type StressTemplate = "marketDropAtRetirement" | "inflationSpike" | "rateRise" | "incomeDrop" | "lowReturnPeriod" | "returnShortfall";
 
 export interface StressTestInput {
   readonly template: StressTemplate;
@@ -470,6 +483,10 @@ export interface StressTestInput {
     readonly ratio?: string;
     readonly alsoWages?: boolean;
     readonly kinds?: readonly AccountKind[];
+    /** 下げる資産クラス（marketDropAtRetirement。0026） */
+    readonly assetClasses?: readonly string[];
+    /** 利回りの上限（lowReturnPeriod。0026） */
+    readonly cap?: string;
   };
 }
 
@@ -682,6 +699,10 @@ export interface EngineInput {
     readonly loanRateShifts?: readonly { readonly from: string; readonly add: string }[];
     readonly incomeShocks?: readonly IncomeShock[];
     readonly realEstateValuation?: RealEstateValuationSetting;
+    readonly investment?: InvestmentSetting;
+    /** 資産クラスごとの値動きの大きさ（年率の標準偏差。計算には使わない。結果の幅の計算の材料。0026） */
+    readonly assetVolatility?: Readonly<Record<string, string>>;
+    readonly returnShifts?: readonly ReturnShift[];
   };
   readonly contingencies?: readonly ContingencyInput[];
   readonly stressTest?: StressTestInput;
@@ -706,6 +727,36 @@ export interface MarketShock {
   readonly year: number;
   readonly drop: string;
   readonly kinds?: readonly AccountKind[];
+  /** 下げる資産クラス（書いたときは、器の資産の配分のうちその資産クラスの割合だけ下げる。0026） */
+  readonly assetClasses?: readonly string[];
+}
+
+/** 資産運用の入れ方と、運用・取り崩しの前提（0026） */
+export interface InvestmentSetting {
+  /** 入れ方: total は合計（まとめた金融資産の器だけ）、accounts は口座ごと、allocation は口座ごと＋資産配分。省略は accounts */
+  readonly method?: "total" | "accounts" | "allocation";
+  /** 資産配分（allocation のときに、運用する器に共通で使う） */
+  readonly allocation?: {
+    readonly mix: readonly { readonly assetClass: string; readonly share: string }[];
+    /** 信託報酬など（年率。利回りから引く） */
+    readonly fee?: string;
+    /** 年に1回、元の割合に戻す（省略は true） */
+    readonly rebalance?: boolean;
+  };
+  /** NISA の枠を超えた積立の扱い: deposit は預金に残す、taxable は課税口座で続ける。省略は deposit */
+  readonly nisaOverflow?: "deposit" | "taxable";
+  /** 課税口座の税: onSale は売るときに利益に、annual は毎年の運用益に。省略は onSale */
+  readonly taxableTax?: "onSale" | "annual";
+  /** 取り崩しの計画（start の月から、毎月の額か、毎年の初めの残高の率を金融資産から使う） */
+  readonly drawdown?: { readonly start: Timepoint; readonly method: "fixed" | "rate"; readonly monthly?: Yen; readonly rate?: string };
+}
+
+/** 運用の利回りの書き換え（運用する器だけ。from〜to の年。add を足し、cap より高ければ cap にする。0026） */
+export interface ReturnShift {
+  readonly from: number;
+  readonly to?: number;
+  readonly add?: string;
+  readonly cap?: string;
 }
 
 export interface IncomeShock {

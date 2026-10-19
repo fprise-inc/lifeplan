@@ -84,7 +84,8 @@
             "properties": {
               "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
               "drop": { "description": "下がる割合（0.3 は3割下がる）", "$ref": "urn:financia:schema:common#/$defs/rate" },
-              "kinds": { "description": "下げる器の種類（省略は預金・外貨預金・財形・不動産・保険・小規模企業共済を除く器）", "type": "array", "items": { "$ref": "#/$defs/accountKind" } }
+              "kinds": { "description": "下げる器の種類（省略は預金・外貨預金・財形・不動産・保険・小規模企業共済を除く器）", "type": "array", "items": { "$ref": "#/$defs/accountKind" } },
+              "assetClasses": { "description": "下げる資産クラス（書いたときは、器の資産の配分のうちその資産クラスの割合だけ下げる。配分の無い運用の器は全体を下げる。0026）", "type": "array", "items": { "$ref": "#/$defs/assetClass" } }
             }
           }
         },
@@ -140,6 +141,72 @@
               "ratio": { "description": "減る割合（0.2 は2割減る）", "$ref": "urn:financia:schema:common#/$defs/rate" }
             }
           }
+        },
+        "investment": {
+          "title": "資産運用の入れ方と、運用・取り崩しの前提（0026）",
+          "x-item": "assumptions.investment",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "method": { "description": "入れ方: total は合計（まとめた金融資産の器 pooled だけで計算する）、accounts は口座ごと、allocation は口座ごと＋資産配分。省略は accounts", "enum": ["total", "accounts", "allocation"] },
+            "allocation": {
+              "description": "資産配分（allocation のとき、運用する器に共通で使う）",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mix"],
+              "properties": {
+                "mix": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["assetClass", "share"],
+                    "properties": { "assetClass": { "$ref": "#/$defs/assetClass" }, "share": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+                  }
+                },
+                "fee": { "description": "信託報酬など（年率。利回りから引く）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "rebalance": { "description": "年に1回、元の割合に戻す（省略は true）", "type": "boolean" }
+              }
+            },
+            "nisaOverflow": { "description": "NISA の枠を超えた積立の扱い: deposit は預金に残す、taxable は課税口座で続ける。省略は deposit", "enum": ["deposit", "taxable"] },
+            "taxableTax": { "description": "課税口座の税: onSale は売るときに利益に、annual は毎年の運用益に。省略は onSale", "enum": ["onSale", "annual"] },
+            "drawdown": {
+              "description": "取り崩しの計画（start の月から、毎月の額か、毎年の初めの金融資産の率を使う。収支の不足のほうが大きい年は不足の分を取り崩す）",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["start", "method"],
+              "properties": {
+                "start": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                "method": { "enum": ["fixed", "rate"] },
+                "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+              }
+            }
+          }
+        },
+        "assetVolatility": {
+          "title": "資産クラスごとの値動きの大きさ（年率の標準偏差。計算には使わない。0026）",
+          "x-item": "assumptions.assetVolatility",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/assetClass" },
+          "additionalProperties": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+        },
+        "returnShifts": {
+          "title": "運用の利回りの書き換え（運用する器だけ。from〜to の年。add を足し、cap より高ければ cap にする。0026）",
+          "x-item": "assumptions.returnShifts",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from"],
+            "properties": {
+              "from": { "$ref": "urn:financia:schema:common#/$defs/year" },
+              "to": { "$ref": "urn:financia:schema:common#/$defs/year" },
+              "add": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+              "cap": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+            }
+          }
         }
       }
     },
@@ -157,7 +224,7 @@
       "additionalProperties": false,
       "required": ["template"],
       "properties": {
-        "template": { "enum": ["marketDropAtRetirement", "inflationSpike", "rateRise", "incomeDrop"] },
+        "template": { "enum": ["marketDropAtRetirement", "inflationSpike", "rateRise", "incomeDrop", "lowReturnPeriod", "returnShortfall"] },
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -171,7 +238,9 @@
             "add": { "$ref": "urn:financia:schema:common#/$defs/rate" },
             "ratio": { "$ref": "urn:financia:schema:common#/$defs/rate" },
             "alsoWages": { "type": "boolean" },
-            "kinds": { "type": "array", "items": { "$ref": "#/$defs/accountKind" } }
+            "kinds": { "type": "array", "items": { "$ref": "#/$defs/accountKind" } },
+            "assetClasses": { "type": "array", "items": { "$ref": "#/$defs/assetClass" } },
+            "cap": { "$ref": "urn:financia:schema:common#/$defs/rate" }
           }
         }
       }
@@ -481,7 +550,7 @@
       ]
     },
     "accountKind": {
-      "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate", "smallBusinessMutualAid", "otherAsset"]
+      "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate", "smallBusinessMutualAid", "otherAsset", "pooled"]
     },
     "assetClass": {
       "description": "0008 の9: 資産クラス（公式の一覧）。期待リターンは前提の assetReturns で資産クラスごとに持つ",
@@ -564,19 +633,22 @@
           "x-item": "account.payout",
           "type": "object",
           "additionalProperties": false,
-          "required": ["start", "method"],
+          "required": ["method"],
           "properties": {
-            "start": { "description": "受け取りの始まり（受給開始の年齢より前なら、その年齢の月から）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "start": { "description": "受け取りの始まり（受給開始の年齢より前なら、その年齢の月から。省略は退職の年で、60〜65歳の範囲に収める。0026）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
             "method": { "enum": ["lumpSum", "annuity", "mixed"] },
             "annuityYears": { "description": "年金で受け取る年数（5〜20年。省略は10）", "type": "integer", "minimum": 1, "maximum": 30 },
-            "lumpShare": { "description": "mixed のとき一時金で受け取る割合", "$ref": "urn:financia:schema:common#/$defs/rate" }
+            "lumpShare": { "description": "mixed のとき一時金で受け取る割合", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "destination": { "description": "受け取ったお金の行き先（deposit は預金、invest は NISA に入れ、枠を超えた分は課税口座。省略は deposit。0026）", "enum": ["deposit", "invest"] }
           }
         },
         "valueGrowth": {
           "title": "評価額の増減率（年率。不動産・その他の資産だけで使う。マイナスも書ける。入れたときは資産の配分の利回りの代わり。省略は不動産は資産クラスの利回り、その他の資産は0）",
           "x-item": "account.valueGrowth",
           "$ref": "urn:financia:schema:common#/$defs/rate"
-        }
+        },
+        "expectedReturn": { "title": "FP が入れた器の利回り（年率。入れたときは資産の配分の利回りの代わり。0026）", "x-item": "account.expectedReturn", "$ref": "urn:financia:schema:common#/$defs/rate" },
+        "fee": { "title": "運用の費用（信託報酬など。年率。器の利回りから引く。0026）", "x-item": "account.fee", "$ref": "urn:financia:schema:common#/$defs/rate" }
       }
     },
     "debt": {

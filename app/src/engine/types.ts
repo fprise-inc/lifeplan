@@ -57,10 +57,33 @@ export interface Account {
   costBasis?: Box<number>;
   asOf?: string;
   assetMix?: { assetClass: string; share: string }[];
-  contributions?: { from: Timepoint; to: Timepoint | null; monthly: number; [key: string]: unknown }[];
+  contributions?: { from: Timepoint; to: Timepoint | null; monthly: number; tranche?: string; payer?: "self" | "employer"; [key: string]: unknown }[];
   /** 評価額の増減率（年率。不動産・その他の資産だけ） */
   valueGrowth?: string;
+  /** FP が入れた器の利回り（年率。0026） */
+  expectedReturn?: string;
+  /** 運用の費用（信託報酬など。年率。0026） */
+  fee?: string;
+  /** iDeCo・企業型DC の受け取り（始まりが空なら退職の年。0026） */
+  payout?: { start?: Timepoint; method: "lumpSum" | "annuity" | "mixed"; annuityYears?: number; lumpShare?: string; destination?: "deposit" | "invest" };
   [key: string]: unknown;
+}
+
+/** 資産運用の入れ方と、運用・取り崩しの前提（0026。エンジンの assumptions.investment） */
+export interface InvestmentSetting {
+  method?: "total" | "accounts" | "allocation";
+  allocation?: { mix: { assetClass: string; share: string }[]; fee?: string; rebalance?: boolean };
+  nisaOverflow?: "deposit" | "taxable";
+  taxableTax?: "onSale" | "annual";
+  drawdown?: { start: Timepoint; method: "fixed" | "rate"; monthly?: number; rate?: string };
+}
+
+/** 運用の利回りの書き換え（0026） */
+export interface ReturnShift {
+  from: number;
+  to?: number;
+  add?: string;
+  cap?: string;
 }
 
 export interface LivingExpense {
@@ -355,7 +378,7 @@ export interface EngineRequest {
     baseMonth: string;
     endYear: number;
     household: Household;
-    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; [key: string]: unknown };
+    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; investment?: InvestmentSetting; assetVolatility?: Record<string, string>; returnShifts?: ReturnShift[]; withdrawal?: { order?: ({ kind: string } | { object: string })[]; minimumDeposit?: number }; marketShocks?: { year: number; drop: string; kinds?: string[]; assetClasses?: string[] }[]; [key: string]: unknown };
     contingencies?: Contingency[];
     protection?: ProtectionRequest;
     [key: string]: unknown;

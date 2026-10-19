@@ -95,7 +95,8 @@ describe("帳票の入力", () => {
         });
       });
 
-      it("FP顧問料の累計はエンジンの要約（summary.advisoryFee）のまま", () => {
+      // 資産運用の見本（0026）は FP顧問料・打ち手ごとの効果を持たない
+      it.skipIf(bundle.investment !== undefined)("FP顧問料の累計はエンジンの要約（summary.advisoryFee）のまま", () => {
         const fee = bundle.proposal.result.summary.advisoryFee;
         expect(fee?.total).toBeGreaterThan(0);
         expect(input.assumptions.advisoryFee?.total).toBe(fee?.total);
@@ -107,7 +108,7 @@ describe("帳票の入力", () => {
         expect(input.changes.metrics.map((m) => m.label).join("・")).not.toContain("顧問料");
       });
 
-      it("打ち手ごとの効果の累計の最後は、提案と現状の差", () => {
+      it.skipIf(bundle.investment !== undefined)("打ち手ごとの効果の累計の最後は、提案と現状の差", () => {
         const steps = input.changes.steps ?? [];
         expect(steps.length).toBeGreaterThan(0);
         expect(steps.at(-1)?.cumulative).toBe(input.summary.diffAtTarget);
@@ -115,6 +116,24 @@ describe("帳票の入力", () => {
       });
     });
   }
+
+  it("資産運用（0026）: 口座ごとの推移は器ごとの残高の行の足し算、内訳は同じ年、相場が下がった場合の線は型を重ねた計算の金融資産のまま", () => {
+    const { bundle, input } = built.find((b) => b.id === "investmentCouple") as (typeof built)[number];
+    const inv = input.investment;
+    expect(inv).not.toBeNull();
+    expect(inv?.lasts.proposal).toMatch(/^\d+歳まで持つ$/);
+    const years = input.basis.years;
+    const fin = byYear(bundle.proposal.result as never, (c) => c.row === "cf.balance.financial");
+    // 預金が不足しない年は、口座ごとの合計＝金融資産の合計
+    const i = years.findIndex((y) => (fin.get(y) ?? 0) > 0);
+    expect((inv?.accounts ?? []).reduce((s, a) => s + (a.values[i] ?? 0), 0)).toBe(fin.get(years[i] as number));
+    expect(inv?.donut.year).toBe(bundle.investment?.donutYear);
+    expect(inv?.donut.proposal.reduce((s, x) => s + x.amount, 0)).toBe(fin.get(inv?.donut.year as number));
+    const md = input.marketDrop;
+    expect(md?.lines.length).toBe(3);
+    const first = byYear(bundle.investment?.stress?.[0]?.run.result as never, (c) => c.row === "cf.balance.financial");
+    expect(md?.lines[0]?.values).toEqual(years.map((y) => first.get(y) ?? 0));
+  });
 
   it("会社員の夫婦: 必要保障額・万一・繰下げ・住宅ローン・教育費・保険がエンジンの出力のまま", () => {
     const { bundle, input } = built.find((b) => b.id === "salariedCoupleTwoKids") as (typeof built)[number];

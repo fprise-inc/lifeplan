@@ -153,6 +153,12 @@ export interface ResultCardProps {
   below?: ComponentChildren;
   /** 全部の案を色分けで重ねる表示で、一時的に隠している案（帯の文字）と、隠す・戻す手続き */
   multi?: MultiHidden;
+  /** グラフのすぐ上に置くもの（資産の推移の口座の内訳・運用の期間・相場が下がった場合の切り替え。0026） */
+  bar?: ComponentChildren;
+  /** グラフのすぐ下に置くもの（資産の内訳のドーナツ） */
+  after?: ComponentChildren;
+  /** 運用の期間の帯の切れ目を動かした */
+  onBand?: (which: "stop" | "wd", age: number, phase: "slide" | "release") => void;
 }
 
 export interface MultiHidden {
@@ -161,7 +167,7 @@ export interface MultiHidden {
 }
 
 /** 凡例とグラフ（重ねる・左右に並べる・全部の案を重ねる）。全部の案を重ねる表示では、凡例で合わせた案をグラフで強調する */
-function LegendAndChart(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExplain" | "tools" | "below"> & { height?: number }) {
+function LegendAndChart(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExplain" | "tools" | "below" | "bar" | "after"> & { height?: number }) {
   const [focus, setFocus] = useState<string | null>(null);
   const ex = p.explain;
   const layout = p.layout ?? "overlay";
@@ -186,6 +192,7 @@ function LegendAndChart(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExpla
         layout={layout}
         multi={{ focus: focus !== null && !hidden.includes(focus) ? focus : null, hidden }}
         {...(p.height !== undefined ? { height: p.height } : {})}
+        {...(p.onBand !== undefined ? { onBand: p.onBand } : {})}
       />
     </>
   );
@@ -230,7 +237,9 @@ export function ResultCard(p: ResultCardProps) {
         </div>
       </div>
       {p.below ?? null}
+      {ex === null ? (p.bar ?? null) : null}
       <LegendAndChart {...p} />
+      {ex === null ? (p.after ?? null) : null}
       {ex === null && p.mode === "balance" ? <YearSheet {...p} /> : null}
       {ex !== null ? <ExplainBar model={ex.model} step={step} onStep={(i) => p.onExplain(i)} onClose={() => p.onExplain(null)} /> : null}
     </section>
@@ -256,7 +265,7 @@ function YearSheet(p: ResultCardProps) {
 }
 
 /** 操作中に上に付いてくる縮めたグラフ（ChartDock の中身）: 元のグラフと同じ部品（凡例・グラフ・補間）を、決めた高さで描く */
-export function DockedResult(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExplain" | "tools" | "below"> & { height: number }) {
+export function DockedResult(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExplain" | "tools" | "below" | "bar" | "after"> & { height: number }) {
   return (
     <div class="dock-chart" data-dock-chart="main">
       <LegendAndChart {...p} />

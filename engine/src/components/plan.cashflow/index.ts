@@ -23,8 +23,17 @@
 // - 改訂8: 持ち家の残高（cf.balance.account.realEstate）を housing.valuation の評価額（土地は上昇率、建物は耐用年数で減らす。売った年からは載せない）に
 //   した。車の評価額（asset.car）を cf.balance.account.car に載せる。器の種類「その他の資産」（otherAsset。評価額の増減率 valueGrowth、省略は0）を足した。
 //   不動産・車・その他の資産・保険の解約返戻金は、金融資産の合計に入れず、取り崩さない
+// - 改訂9（約束の版 1.3。0026）: まとめた金融資産の器（pooled。合計の入れ方・まだ口座に分けていない分）は、決済口座の次に取り崩す（税なし）。
+//   NISA のつみたて投資枠の年間の枠を超えた積立は、成長投資枠の残りに入れる。それも超えた分は、前提 investment.nisaOverflow が taxable なら
+//   名義人の課税口座へ（無ければ作る）、省略・deposit なら決済口座に残す。iDeCo・企業型DC の受け取り（payout.destination が invest）は、
+//   受け取った年に、受け取った額（税を引く前）を名義人の NISA（その年の枠の残り）へ、残りを課税口座へ移す。課税口座の税を毎年の運用益に
+//   かける前提（investment.taxableTax が annual）では、運用益から上場株式等の税を引いて取得価額を時価にそろえる（税の行には出さない近似）。
+//   取り崩しの計画（investment.drawdown）: 始まりの月から、毎月の額（fixed）か、年の初めの金融資産×率（rate）を金融資産から使う。
+//   その年の収支の不足（年間収支−本人の掛金がマイナスの分）より多い分を「取り崩して使うお金」（cf.expense.living.drawdown）として年間収支から引く。
+//   時価の下落に資産クラス（assetClasses）を書いたときは、配分のうちその資産クラスの割合だけ下げる
 import {
   accountReturnRate,
+  shockShare,
   type CarValuationOutput,
   type HousingValuationOutput,
   addMonths,
@@ -52,6 +61,7 @@ import {
   type InsuranceContractInput,
   type InsurancePolicyOutput,
   type MarketShock,
+  type InvestmentSetting,
   type IdecoContributionOutput,
   type MemberInput,
   type MonthIndex,
@@ -117,6 +127,8 @@ interface Acc {
   /** その年の器への出入り（運用益の計算に使う） */
   inflow: Yen;
   ret: Yen;
+  /** 入力の無い器（エンジンが作った課税口座・NISA）の利回りの元にする器（0026） */
+  like?: AccountInput | null;
 }
 
 interface Frame {
@@ -132,8 +144,8 @@ const SHOCK_EXEMPT: ReadonlySet<string> = new Set(["deposit", "fxDeposit", "zaik
 export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[]; parts: readonly (readonly Flow[])[]; details?: CashflowDetails }>({
   id: "plan.cashflow",
   title: "キャッシュフロー表",
-  contract: "1.2",
-  revision: 8,
+  contract: "1.3",
+  revision: 9,
   requires: {
     "plan.flows": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -163,6 +175,9 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "account.frame",
     "account.lots",
     "account.valueGrowth",
+    "account.expectedReturn",
+    "account.fee",
+    "account.payout",
     "debt.kind",
     "debt.debtors",
     "goal.kind",
@@ -171,6 +186,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "assumptions.assetReturns",
     "assumptions.withdrawal",
     "assumptions.marketShocks",
+    "assumptions.investment",
+    "assumptions.returnShifts",
     "insurance.template",
     "insurance.policyholder",
     "insurance.insured",
@@ -229,10 +246,19 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       x.growthCost = yen(given?.growthUsedCost ?? 0);
     }
     // 課税口座（旧NISA・ジュニアNISA の移し先。名義人の最初の課税口座。無ければ移す元の器の ID で作る）
-    const taxableOf = (owner: string | null, from: Acc): Acc => {
+    const taxableOf = (owner: string | null, from: Acc, like: AccountInput | null = null): Acc => {
       let t = accs.find((x) => x.kind === "taxable" && x.owner === owner);
       if (t === undefined) {
-        t = { id: from.id, input: null, kind: "taxable", owner, value: yen(0), cost: yen(0), growthCost: yen(0), lots: null, inflow: yen(0), ret: yen(0) };
+        t = { id: from.id, input: null, kind: "taxable", owner, value: yen(0), cost: yen(0), growthCost: yen(0), lots: null, inflow: yen(0), ret: yen(0), like };
+        accs.push(t);
+      }
+      return t;
+    };
+    // 名義人の NISA（無ければ作る。iDeCo・企業型DC の受け取りを入れるとき。0026）
+    const nisaOf = (owner: string, from: { id: string; like: AccountInput | null }): Acc => {
+      let t = accs.find((x) => x.kind === "nisa" && x.owner === owner);
+      if (t === undefined) {
+        t = { id: from.id, input: null, kind: "nisa", owner, value: yen(0), cost: yen(0), growthCost: yen(0), lots: null, inflow: yen(0), ret: yen(0), like: from.like };
         accs.push(t);
       }
       return t;
@@ -254,9 +280,17 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     // iDeCo・企業型DC（構成員ごと）と、本人が払う掛金（決済口座から出る）
     const dcYears = new Map<string, { kind: string; owner: string; byYear: Map<number, { closing: Yen; returns: Yen }> }>();
     const selfPaid = new Map<number, Yen>();
+    // 受け取ったお金を運用に回す iDeCo・企業型DC の受け取り（年ごと。0026）
+    const reinvest = new Map<number, { object: string; owner: string; ym: string; amount: Yen }[]>();
     for (const m of members) {
       const out = ctx.call<IdecoAccountOutput>("account.ideco", { member: m.id });
       for (const a of out.accounts) dcYears.set(a.object, { kind: a.kind, owner: m.id, byYear: new Map(a.years.map((y) => [y.year, { closing: y.closing, returns: y.returns }])) });
+      for (const p of out.payments) {
+        const a = inputs.find((x) => x.id === p.object);
+        if (a?.payout?.destination !== "invest" || p.amount <= 0) continue;
+        const py = Number(p.ym.slice(0, 4));
+        reinvest.set(py, [...(reinvest.get(py) ?? []), { object: p.object, owner: m.id, ym: p.ym, amount: p.amount }]);
+      }
       if (out.accounts.length === 0) continue;
       for (const p of ctx.call<IdecoContributionOutput>("ideco.contribution", { member: m.id }).payments) {
         if (p.payer !== "self") continue;
@@ -311,7 +345,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     // 取り崩しの順序（旧NISA・ジュニアNISA の移し先に作った課税口座も含めるため、取り崩すたびに器の一覧から決める）
     const setting = ctx.setting<{ order?: readonly ({ kind: string } | { object: string })[]; minimumDeposit?: Yen }>("withdrawal");
     const orderOf = (): Acc[] => {
-      const order: Acc[] = [];
+      // まとめた金融資産の器（まだ口座に分けていない分）は、決済口座の次に取り崩す（0026）
+      const order: Acc[] = accs.filter((x) => x.kind === "pooled" && x !== D);
       for (const o of setting?.order ?? DEFAULT_ORDER.map((kind) => ({ kind }))) {
         const hits = "object" in o ? accs.filter((x) => x.id === o.object && x.input !== null) : accs.filter((x) => (x.input === null ? x.kind : x.input.kind) === o.kind);
         for (const h of hits) if (h !== D && !order.includes(h) && !NEVER_WITHDRAWN.has(h.input?.kind ?? h.kind)) order.push(h);
@@ -320,11 +355,26 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     };
     const minimum = setting?.minimumDeposit ?? yen(0);
     const shocks = ctx.setting<readonly MarketShock[]>("marketShocks") ?? [];
+    const invest = ctx.setting<InvestmentSetting>("investment");
+    const overflowTaxable = invest?.nisaOverflow === "taxable";
+    const taxAnnual = invest?.taxableTax === "annual";
+    const dd = invest?.drawdown;
+    const ddStart = dd === undefined ? null : ctx.time.resolve(dd.start);
+    // 年の初めの金融資産（取り崩しの計画の率に使う。最初の年は入力の時価の合計）
+    let openingFinancial = yen(0);
+    for (const a of inputs) if (!NOT_FINANCIAL.has(a.kind)) openingFinancial = addYen(openingFinancial, boxValue(a.marketValue) ?? yen(0));
     // 保険契約（解約返戻金・保障内容一覧・払込保険料の推移）
     const contracts = ctx.list<Pick<InsuranceContractInput, "id" | "template" | "policyholder" | "insured" | "coverages">>("insurance");
     const policies = contracts.map((c) => ({ c, out: ctx.call<InsurancePolicyOutput>("insurance.policy", { object: c.id }) }));
     let cappedNotice = false;
     // 器の年利: 不動産・その他の資産は評価額の増減率（valueGrowth）があればそれ。その他の資産と保険は、資産の配分が無ければ0
+    // 譲渡益の税率（所得税・復興特別所得税・防衛特別所得税と住民税。課税口座を売るとき・毎年の運用益にかけるときだけ読む）
+    const taxRatesAt = (at: ReturnType<typeof ctx.at>): [Rate, Rate] => {
+      const recon = at.paramRate(T.recon) ?? RATE_ZERO;
+      const defense = at.paramRate(T.defense) ?? RATE_ZERO;
+      const itBase = at.paramRate(T.it) ?? RATE_ZERO;
+      return [ctx.rate.add(itBase, ctx.rate.add(ctx.rate.mul(itBase, recon), ctx.rate.mul(itBase, defense))), at.paramRate(T.rt) ?? RATE_ZERO];
+    };
     const rateOf = (a: AccountInput, y: number): Rate => {
       if ((a.kind === "realEstate" || a.kind === "otherAsset") && a.valueGrowth !== undefined) return ctx.rate.of(a.valueGrowth);
       if ((a.kind === "insurance" || a.kind === "otherAsset") && a.assetMix === undefined) return RATE_ZERO;
@@ -356,57 +406,129 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       }
       // 1. 積立
       const used = new Map<string, { tsumitate: Yen; growth: Yen; child: Yen }>();
-      for (const p of planned.get(y) ?? []) {
-        const x = p.acc;
-        const owner = x.owner as string;
-        let amount = p.amount;
-        let row = TRANSFER_ROW[x.kind] ?? null;
-        if (x.kind === "nisa" || x.kind === "childNisa") {
-          const u = used.get(owner) ?? { tsumitate: yen(0), growth: yen(0), child: yen(0) };
+      const usedOf = (owner: string) => {
+        let u = used.get(owner);
+        if (u === undefined) {
+          u = { tsumitate: yen(0), growth: yen(0), child: yen(0) };
           used.set(owner, u);
-          if (x.kind === "childNisa") {
-            const annualLimit = at.paramYen(N.childAnnual);
-            const lifetime = at.paramYen(N.childLifetime);
-            const room = annualLimit === null || lifetime === null ? 0 : Math.min(annualLimit - u.child, lifetime - x.cost);
-            amount = yen(Math.max(0, Math.min(amount, room)));
-            u.child = addYen(u.child, amount);
-            row = "cf.transfer.nisa.child";
-          } else {
-            const f = frameOf(owner);
-            const growth = p.tranche === "growth";
-            const annualLimit = at.paramYen(growth ? N.growth : N.tsumitate) ?? yen(0);
-            let room = Math.min(annualLimit - (growth ? u.growth : u.tsumitate), (at.paramYen(N.lifetime) ?? 0) - f.used);
-            if (growth) room = Math.min(room, (at.paramYen(N.lifetimeGrowth) ?? 0) - f.usedGrowth);
-            if (!adultIn(owner, y)) room = 0;
-            amount = yen(Math.max(0, Math.min(amount, room)));
-            if (growth) {
-              u.growth = addYen(u.growth, amount);
-              f.usedGrowth = addYen(f.usedGrowth, amount);
-              x.growthCost = addYen(x.growthCost, amount);
-            } else u.tsumitate = addYen(u.tsumitate, amount);
-            f.used = addYen(f.used, amount);
-            row = growth ? "cf.transfer.nisa.growth" : "cf.transfer.nisa.tsumitate";
-          }
-        } else if (x.kind === "legacyNisa" || x.kind === "juniorNisa" || row === null) amount = yen(0);
-        if (amount < p.amount) cappedNotice = true;
-        if (amount <= 0 || row === null) continue;
-        flow(row, p.m, amount, owner, x.id, "plan.cashflow.contribution");
+        }
+        return u;
+      };
+      // 成人の NISA のその年の枠の残り（年間投資枠・非課税保有限度額。成長投資枠は成長の生涯の枠も）
+      const nisaRoom = (owner: string, growth: boolean): number => {
+        if (!adultIn(owner, y)) return 0;
+        const f = frameOf(owner);
+        const u = usedOf(owner);
+        let room = Math.min((at.paramYen(growth ? N.growth : N.tsumitate) ?? 0) - (growth ? u.growth : u.tsumitate), (at.paramYen(N.lifetime) ?? 0) - f.used);
+        if (growth) room = Math.min(room, (at.paramYen(N.lifetimeGrowth) ?? 0) - f.usedGrowth);
+        return Math.max(0, room);
+      };
+      // 決済口座から器へ移す（積立・枠を超えた分・受け取りの運用）
+      const move = (x: Acc, row: string, m: MonthIndex, amount: Yen, owner: string | null, formula: string) => {
+        if (amount <= 0) return;
+        flow(row, m, amount, owner, x.id, formula);
         x.inflow = addYen(x.inflow, amount);
         x.cost = addYen(x.cost, amount);
         D.inflow = yen(D.inflow - amount);
+      };
+      // NISA に入れる（つみたて投資枠 → 成長投資枠の順。growthFirst は成長投資枠だけ）。入らなかった額を返す
+      const putNisa = (x: Acc, owner: string, amount: Yen, growthOnly: boolean, m: MonthIndex, formula: string): Yen => {
+        let rest = amount;
+        for (const growth of growthOnly ? [true] : [false, true]) {
+          const put = yen(Math.min(rest, nisaRoom(owner, growth)));
+          if (put <= 0) continue;
+          const u = usedOf(owner);
+          const f = frameOf(owner);
+          if (growth) {
+            u.growth = addYen(u.growth, put);
+            f.usedGrowth = addYen(f.usedGrowth, put);
+            x.growthCost = addYen(x.growthCost, put);
+          } else u.tsumitate = addYen(u.tsumitate, put);
+          f.used = addYen(f.used, put);
+          move(x, growth ? "cf.transfer.nisa.growth" : "cf.transfer.nisa.tsumitate", m, put, owner, formula);
+          rest = yen(rest - put);
+        }
+        return rest;
+      };
+      // NISA の枠を超えた分: 課税口座で続ける前提なら名義人の課税口座へ（0026）。そうでなければ決済口座に残す
+      const overflow = (x: Acc, owner: string, amount: Yen, m: MonthIndex, formula: string) => {
+        if (amount <= 0) return;
+        cappedNotice = true;
+        if (overflowTaxable) move(taxableOf(owner, x, x.input ?? x.like ?? null), "cf.transfer.investment", m, amount, owner, formula);
+      };
+      for (const p of planned.get(y) ?? []) {
+        const x = p.acc;
+        const owner = x.owner as string;
+        if (x.kind === "childNisa") {
+          const u = usedOf(owner);
+          const annualLimit = at.paramYen(N.childAnnual);
+          const lifetime = at.paramYen(N.childLifetime);
+          const room = annualLimit === null || lifetime === null ? 0 : Math.min(annualLimit - u.child, lifetime - x.cost);
+          const amount = yen(Math.max(0, Math.min(p.amount, room)));
+          if (amount < p.amount) cappedNotice = true;
+          u.child = addYen(u.child, amount);
+          move(x, "cf.transfer.nisa.child", p.m, amount, owner, "plan.cashflow.contribution");
+          continue;
+        }
+        if (x.kind === "nisa") {
+          // つみたて投資枠の年間の枠を超えた分は成長投資枠の残りに入れ、それも超えた分は枠を超えた分の扱い（0026）
+          const rest = putNisa(x, owner, p.amount, p.tranche === "growth", p.m, "plan.cashflow.contribution");
+          overflow(x, owner, rest, p.m, "plan.cashflow.nisaOverflow");
+          continue;
+        }
+        const row = TRANSFER_ROW[x.kind] ?? (x.kind === "pooled" ? "cf.transfer.savings.deposit" : null);
+        if (x.kind === "legacyNisa" || x.kind === "juniorNisa" || row === null) {
+          cappedNotice = true;
+          continue;
+        }
+        move(x, row, p.m, p.amount, owner, "plan.cashflow.contribution");
+      }
+      // iDeCo・企業型DC の受け取りを運用に回す: 名義人の NISA（その年の枠の残り）へ、残りを課税口座へ（0026）
+      for (const r of reinvest.get(y) ?? []) {
+        const like = inputs.find((a) => a.id === r.object) ?? null;
+        const m = ctx.time.resolve({ at: r.ym });
+        const nisa = nisaOf(r.owner, { id: r.object, like });
+        const rest = putNisa(nisa, r.owner, r.amount, false, m, "plan.cashflow.payoutReinvest");
+        if (rest > 0) move(taxableOf(r.owner, nisa, like), "cf.transfer.investment", m, rest, r.owner, "plan.cashflow.payoutReinvest");
+      }
+      // 取り崩しの計画: 始まりの月から、毎月の額か年の初めの金融資産×率を使う。その年の収支の不足より多い分を年間収支から引く（0026）
+      if (dd !== undefined && ddStart !== null && yearOf(ddStart) <= y) {
+        const first = ddStart > (y === baseYear ? base : jan) ? ddStart : y === baseYear ? base : jan;
+        const ddMonths = yearOf(first) === y ? 13 - monthOf(first) : 0;
+        let want = yen(0);
+        if (ddMonths > 0) {
+          if (dd.method === "fixed") want = ctx.money.mulRatio(dd.monthly ?? yen(0), BigInt(ddMonths), 1n, "conv.flow.allocate");
+          else if (dd.rate !== undefined && openingFinancial > 0) want = ctx.money.mulRatio(ctx.money.mulRate(openingFinancial, ctx.rate.of(dd.rate), "conv.flow.allocate"), BigInt(ddMonths), 12n, "conv.flow.allocate");
+        }
+        const shortage = Math.max(0, -((net.get(y) ?? 0) - (selfPaid.get(y) ?? 0)));
+        const extra = yen(Math.max(0, want - shortage));
+        if (extra > 0) {
+          const parts = ctx.money.allocate(extra, Array.from({ length: ddMonths }, () => 1), "conv.flow.allocate", "first");
+          parts.forEach((a, i) => flow("cf.expense.living.drawdown", addMonths(first, i), a, null, null, "plan.cashflow.drawdown"));
+          net.set(y, yen((net.get(y) ?? 0) - extra));
+        }
       }
       // 2. その年の収支と、本人が払う iDeCo・企業型DC の掛金
       D.inflow = yen(D.inflow + (net.get(y) ?? 0) - (selfPaid.get(y) ?? 0));
       // 3. 運用益
       for (const x of accs) {
         const opening = x.value;
-        const r: Rate = x.input === null ? accountReturnRate(ctx, { kind: x.kind }, y) : rateOf(x.input, y);
+        const spec = x.input ?? x.like ?? null;
+        const r: Rate = x.input !== null ? rateOf(x.input, y) : accountReturnRate(ctx, { ...(x.like ?? {}), kind: x.kind }, y);
         x.ret = annualReturn(ctx, opening, x.inflow, r, months);
+        // 課税口座の税を毎年の運用益にかける前提: 運用益から税を引き、取得価額を時価にそろえる（0026）
+        if (taxAnnual && x.kind === "taxable" && x.ret > 0) {
+          const [itRate, rtRate] = taxRatesAt(at);
+          x.ret = yen(x.ret - at.money.mulRate(x.ret, itRate, T.itRound) - at.money.mulRate(x.ret, rtRate, T.rtRound));
+        }
         x.value = addYen(addYen(opening, x.inflow), x.ret);
-        // ストレステスト: その年の年末に時価を下げる（運用益に含める）
+        if (taxAnnual && x.kind === "taxable") x.cost = x.value;
+        // ストレステスト: その年の年末に時価を下げる（運用益に含める）。資産クラスを書いた下落は、配分のうちその資産クラスの割合だけ（0026）
         for (const sh of shocks) {
           if (sh.year !== y || (sh.kinds !== undefined ? !sh.kinds.includes(x.kind as AccountKind) : SHOCK_EXEMPT.has(x.kind)) || x.value <= 0) continue;
-          const drop = ctx.money.mulRate(x.value, ctx.rate.of(sh.drop), "conv.investment.return");
+          const share = shockShare(ctx, { kind: x.kind, ...(spec?.assetMix !== undefined ? { assetMix: spec.assetMix } : {}) }, sh.assetClasses);
+          if (share === null) continue;
+          const drop = ctx.money.mulRate(x.value, ctx.rate.mul(ctx.rate.of(sh.drop), share), "conv.investment.return");
           x.value = yen(x.value - drop);
           x.ret = yen(x.ret - drop);
         }
@@ -445,15 +567,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       if (need > 0) {
         // 譲渡益の税率（課税口座を売るときだけ読む）
         let rates: [Rate, Rate] | null = null;
-        const taxRates = (): [Rate, Rate] => {
-          if (rates === null) {
-            const recon = at.paramRate(T.recon) ?? RATE_ZERO;
-            const defense = at.paramRate(T.defense) ?? RATE_ZERO;
-            const itBase = at.paramRate(T.it) ?? RATE_ZERO;
-            rates = [ctx.rate.add(itBase, ctx.rate.add(ctx.rate.mul(itBase, recon), ctx.rate.mul(itBase, defense))), at.paramRate(T.rt) ?? RATE_ZERO];
-          }
-          return rates;
-        };
+        const taxRates = (): [Rate, Rate] => (rates ??= taxRatesAt(at));
         for (const x of orderOf()) {
           if (need <= 0) break;
           if (x.value <= 0) continue;
@@ -566,6 +680,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       for (const [owner, f] of frames) {
         annual.push({ row: "cf.balance.nisaFrame", year: y, amount: yen(Math.max(0, (at.paramYen(N.lifetime) ?? 0) - f.used)), member: owner, formula: "plan.cashflow.nisaFrame" });
       }
+      openingFinancial = financial;
       annual.push(
         { row: "cf.net", year: y, amount: n, formula: "plan.cashflow.net" },
         { row: "cf.balance.return", year: y, amount: returns, formula: "plan.cashflow.return" },

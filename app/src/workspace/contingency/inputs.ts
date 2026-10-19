@@ -6,7 +6,15 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { memberLabel } from "../input/labels.ts";
 import { creditLifeGroups } from "../input/stages/housing.ts";
 import type { ContingencyPlan } from "./planData.ts";
-import { adults } from "./requests.ts";
+import { adults, ILLNESS_DEFAULT, MARKET_DROP_DEFAULT } from "./requests.ts";
+
+/** 相場が下がったときの下がる幅（2〜5割） */
+const DROPS: Option[] = [
+  { value: "0.2", label: "2割" },
+  { value: "0.3", label: "3割" },
+  { value: "0.4", label: "4割" },
+  { value: "0.5", label: "5割" },
+];
 
 type Obj = Record<string, unknown>;
 
@@ -226,6 +234,43 @@ export function contingencyInputSections(wh: WorkingHousehold): SectionDef[] {
       actions: [],
     },
   ];
+  // 0026: 大きな病気のとき・相場が下がったとき
+  sections.push(
+    {
+      key: "cg/illness",
+      title: "大きな病気のときの前提",
+      note: "働けない間は、会社員は休業して傷病手当金（健康保険）を受け、決めた月数の後に元の働き方に戻ります。医療費は保険診療の10割で入れ、自己負担は高額療養費（厚生労働省）で止めて計算します。目安の値は仮の値です（事務所で根拠を確かめて直してください）",
+      level: "simple",
+      groups: [
+        {
+          key: "cg/illness/fields",
+          level: "simple",
+          fields: [
+            planField({ key: "cg/illness/months", label: "働けない期間", kind: "int", suffix: "か月", min: 1, max: 60, path: ["illness", "months"], fallback: ILLNESS_DEFAULT.months }),
+            planField({ key: "cg/illness/medical", label: "医療費（1か月・10割）", kind: "yen", basis: "monthly", path: ["illness", "medicalMonthly"], fallback: ILLNESS_DEFAULT.medicalMonthly, maxYen: 300 * MAN }),
+            planField({ key: "cg/illness/medicalMonths", label: "医療費の月数", kind: "int", suffix: "か月", min: 1, max: 60, path: ["illness", "medicalMonths"], fallback: ILLNESS_DEFAULT.medicalMonths }),
+          ],
+          actions: [],
+        },
+      ],
+      actions: [],
+    },
+    {
+      key: "cg/market",
+      title: "相場が下がったときの前提",
+      note: "起きる年の年末に、運用する口座のうち株・REIT の部分を下げます（預金・債券は下げません）。その後は元の利回りに戻ります。年ごとの帯は、どの年に下がっても最後まで足りるかを1年ずつ見せます",
+      level: "simple",
+      groups: [
+        {
+          key: "cg/market/fields",
+          level: "simple",
+          fields: [planField({ key: "cg/market/drop", label: "下がる幅", kind: "select", options: DROPS, path: ["market", "drop"], fallback: MARKET_DROP_DEFAULT })],
+          actions: [],
+        },
+      ],
+      actions: [],
+    },
+  );
   const cl = creditLifeGroups(wh);
   if (cl.length > 0) sections.push({ key: "cg/creditLife", title: "団信（住まい・ローンの段階と同じ欄）", note: "どちらで直しても同じ住宅ローンの値が変わります", level: "simple", groups: cl, actions: [] });
   return sections;

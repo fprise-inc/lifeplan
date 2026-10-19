@@ -275,7 +275,7 @@ describe("器ごとの残高・取り崩し・NISA の枠（plan.cashflow）", (
     );
 
   it("NISA の積立は年間投資枠（成長投資枠 240万円）と生涯の枠で止め、売った簿価の分の枠は翌年に復活する", () => {
-    const nisa = { id: uid("nisa"), kind: "nisa", owner: A, marketValue: box(17000000), costBasis: box(17000000), asOf: "2025-12", frame: { lifetimeUsedCost: 17000000, growthUsedCost: 11000000, asOfYear: 2025 }, contributions: [{ from: at("2026-01"), to: null, monthly: 300000, tranche: "growth" }] };
+    const nisa = { id: uid("nisa"), kind: "nisa", owner: A, marketValue: box(17000000), costBasis: box(17000000), asOf: "2025-12", frame: { lifetimeUsedCost: 17000000, growthUsedCost: 11000000, asOfYear: 2025 }, contributions: [{ from: at("2026-01"), to: at("2040-12"), monthly: 300000, tranche: "growth" }] };
     const req = mk([dep(1000000), nisa], (_h, input) => {
       (input.assumptions as Obj).withdrawal = { order: [{ kind: "nisa" }], minimumDeposit: 0 };
     });

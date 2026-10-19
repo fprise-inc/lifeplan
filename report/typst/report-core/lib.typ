@@ -12,6 +12,7 @@
 #import "pages/cashflow.typ": cashflow
 #import "pages/topics.typ": assets-page, balance-page, education, housing, retirement
 #import "pages/risk.typ": contingency, insurance
+#import "pages/invest.typ": investment, market-drop
 #import "pages/changes.typ": changes
 #import "pages/compare.typ": comparison
 
@@ -53,6 +54,8 @@
   if on("education") and data.education != none { education(data) }
   if on("housing") and data.housingLoan != none { housing(data) }
   if on("retirement") and data.retirement != none { retirement(data) }
+  if on("investment") and data.at("investment", default: none) != none { investment(data) }
+  if on("marketDrop") and data.at("marketDrop", default: none) != none { market-drop(data) }
   if on("contingency") and data.contingency != none { contingency(data) }
   if on("insurance") and data.insurance != none { insurance(data) }
   if on("changes") { changes(data) }

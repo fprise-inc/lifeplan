@@ -7,7 +7,8 @@ import { parseYm } from "../levers.ts";
 import { depletionYear, displayYears, financialOf, sumByYear } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
 import { OLD_AGE_CHOICE_LABEL } from "./inputs.ts";
-import type { Scenario } from "./requests.ts";
+import type { ContingencyPlan } from "./planData.ts";
+import { ILLNESS_DEFAULT, type Scenario } from "./requests.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
 export const REFORM_NOTICE = "N_REFORM_NOT_REFLECTED";
@@ -100,6 +101,8 @@ export interface ScenarioInput {
   targetAge: number;
   /** FP が選び直した組み合わせ（障害の想定） */
   choice: OldAgeChoice | undefined;
+  /** 相場が下がったときの下がる幅 */
+  drop?: string;
 }
 
 export function scenarioModel(input: ScenarioInput): ScenarioModel {
@@ -116,7 +119,7 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
   const depN = depletionYear(none.table, years);
   const lastYear = years.at(-1) ?? req.input.endYear;
   const targetYear = self !== undefined ? Math.min(lastYear, parseYm(self.member.birth.birthYearMonth).y + input.targetAge) : lastYear;
-  const event = sc.kind === "death" ? `${sc.who}が${year}年に亡くなった場合` : `${sc.who}が${year}年に働けなくなった場合`;
+  const event = scenarioEvent(sc, year, input.drop);
   // 主役の数字は、残る人（死亡の想定）か本人の年齢で見る
   const watcher = sc.kind === "death" ? (other ?? self) : self;
   const wAge = (y: number) => (watcher !== undefined ? ageInYear(watcher.member, y) : null);
@@ -255,9 +258,21 @@ export function yearStripModel(input: {
 /** 万円の短い書き方（提示層の外で一文を作るとき） */
 export const manText = (yen: number) => `${man(yen)}万円`;
 
-/** 場面の帯のカードの名前（例: 「ご主人が亡くなったら」「奥様が働けなくなったら」） */
+/** 場面の帯のカードの名前（例: 「ご主人が亡くなったら」「奥様が働けなくなったら」「相場が下がったとき」） */
 export function scenarioTitle(sc: Scenario): string {
+  if (sc.kind === "illness") return `${sc.who}が大きな病気のとき`;
+  if (sc.kind === "market") return "相場が下がったとき";
   return sc.kind === "death" ? `${sc.who}が亡くなったら` : `${sc.who}が働けなくなったら`;
+}
+
+/** 下がる幅の言い方（"0.3" → 「3割」） */
+export const dropText = (drop: string | undefined) => `${Math.round(Number(drop ?? "0.3") * 10)}割`;
+
+/** 想定の出来事の言い方（例: 「ご主人が2031年に亡くなった場合」「2041年に株などが3割下がった場合」） */
+export function scenarioEvent(sc: Scenario, year: number, drop?: string): string {
+  if (sc.kind === "market") return `${year}年に株などが${dropText(drop)}下がった場合`;
+  if (sc.kind === "illness") return `${sc.who}が${year}年に大きな病気になった場合`;
+  return sc.kind === "death" ? `${sc.who}が${year}年に亡くなった場合` : `${sc.who}が${year}年に働けなくなった場合`;
 }
 
 const GRADE_TEXT: Record<number, string> = { 0: "障害年金なしの仮定", 1: "障害1級の仮定", 2: "障害2級の仮定", 3: "障害3級の仮定" };
@@ -272,6 +287,8 @@ export function scenarioCards(input: {
   selected: string;
   protection: ContingencyModel["protection"];
   grade: 0 | 1 | 2 | 3 | undefined;
+  /** 大きな病気・相場が下がったときの前提（カードの札に出す） */
+  plan?: Pick<ContingencyPlan, "market" | "illness">;
 }): ScenarioCardModel[] {
   const keyOf = new Map(roles(input.req).map((r) => [r.member.id, r.key]));
   return input.scenarios.map((sc) => {
@@ -284,7 +301,9 @@ export function scenarioCards(input: {
       else if (input.protection.status === "error" || chart === undefined) [status, tone] = ["必要保障額は出していません", "wait"];
       else if (chart.maxShort !== null) [status, tone] = [`保障の不足 最大${man(chart.maxShort.amount)}万円`, "ng"];
       else [status, tone] = ["保障は足りています", "ok"];
-    } else [status, tone] = [GRADE_TEXT[input.grade ?? 2] ?? "", "wait"];
+    } else if (sc.kind === "market") [status, tone] = [`下がる幅 ${dropText(input.plan?.market?.drop)}（株・REIT）`, "wait"];
+    else if (sc.kind === "illness") [status, tone] = [`働けない期間 ${input.plan?.illness?.months ?? ILLNESS_DEFAULT.months}か月・医療費`, "wait"];
+    else [status, tone] = [GRADE_TEXT[input.grade ?? 2] ?? "", "wait"];
     const loading = sc.kind === "death" && input.protection.status === "loading";
     return { key: sc.key, label: sc.label, title: scenarioTitle(sc), status, tone, loading, protection: chart !== undefined ? chart.key : null };
   });

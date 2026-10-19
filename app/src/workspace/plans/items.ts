@@ -15,6 +15,8 @@ import { addMonths, advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, parseYm, r
 import { roles } from "../roles.ts";
 import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
 import { addRate, cmpRate, nonNegative, pctText, subRate } from "./decimal.ts";
+import { ageAt } from "../levers.ts";
+import { accountsOf, drawdownOf, INVEST_KINDS, methodOf, NOT_FINANCIAL, portfolioOf, rateOf, rateText, retireAgeOf, setDrawdown, setStopAge, stopAgeOf, totalViewOf, valueOf } from "../input/savings/model.ts";
 
 /** 変動金利の上乗せ（前提の assumptions.loanRateShifts の1件） */
 export interface RateShift {
@@ -219,6 +221,192 @@ function feeItem(wh: WorkingHousehold): MovableItem[] {
       same: jsonSame,
     },
   ];
+}
+
+// ---- 資産運用（0026）: 毎月の積立額・運用の利回り・積立をやめる年齢・取り崩しを始める年齢・毎月の取り崩し額・毎年の取り崩し率 ----
+
+/** 万円（1万円未満は小数1桁）: 57000 → 「5.7万円」 */
+const manDecimal = (v: number) => `${v % MAN === 0 ? group(v / MAN) : (Math.round(v / 1000) / 10).toFixed(1)}万円`;
+
+/** 今の毎月の積立額（本人の払う分。会社の掛金を除く。合計の入れ方はまとめた器の額） */
+export function investMonthlyNow(req: EngineRequest): number {
+  const v = totalViewOf(req);
+  return v.steps[0]?.monthly ?? 0;
+}
+
+/** 運用の利回り（運用する口座の残高で平均。資産配分の入れ方は割合から、合計の入れ方は平均の利回り）。10進の文字列 */
+export function investRateNow(req: EngineRequest): string {
+  const m = methodOf(req);
+  if (m === "total") return totalViewOf(req).rate;
+  if (m === "allocation") return rateText(portfolioOf(req).net);
+  const list = accountsOf(req.input.household).filter((a) => INVEST_KINDS.has(a.kind));
+  const w = list.reduce((s, a) => s + valueOf(a), 0);
+  if (list.length === 0) return totalViewOf(req).rate;
+  const avg = w > 0 ? list.reduce((s, a) => s + valueOf(a) * Number(rateOf(req, a)), 0) / w : list.reduce((s, a) => s + Number(rateOf(req, a)), 0) / list.length;
+  return rateText(avg);
+}
+
+/** 毎月の積立額を変える: 増やした分は本人の NISA のつみたて投資枠（無ければ合計の器・預金）のどの期間にも足し、減らした分はどの積立も同じ割合で減らす */
+function applyMonthly(w: WorkingHousehold, v: number): WorkingHousehold {
+  const now = investMonthlyNow(w.request);
+  const delta = v - now;
+  if (delta === 0) return w;
+  return mutate(w, (h, req) => {
+    const self = h.members.find((m) => m.kind === "self");
+    const total = methodOf(req) === "total";
+    const list = (h.accounts ?? []).filter((a) => (total ? a.kind === "pooled" : a.kind !== "pooled" && !NOT_FINANCIAL.has(a.kind) && a.kind !== "corporateDc"));
+    if (delta > 0) {
+      const target = list.find((a) => a.kind === "nisa" && a.owner === self?.id) ?? list.find((a) => a.kind === "pooled") ?? list.find((a) => a.kind === "deposit") ?? list[0];
+      if (target === undefined) return;
+      const own = (target.contributions ?? []).filter((c) => c.tranche !== "growth" && c.payer !== "employer");
+      if (own.length === 0) (target.contributions ??= []).push({ from: { at: req.input.baseMonth }, to: null, monthly: delta });
+      else for (const c of own) c.monthly += delta;
+      return;
+    }
+    const k = now > 0 ? Math.max(0, v) / now : 0;
+    for (const a of list) for (const c of a.contributions ?? []) if (c.payer !== "employer") c.monthly = Math.round((c.monthly * k) / 1000) * 1000;
+  });
+}
+
+function investItems(wh: WorkingHousehold): MovableItem[] {
+  const req = wh.request;
+  const h = req.input.household;
+  const self = h.members.find((m) => m.kind === "self");
+  if (self === undefined || !(h.accounts ?? []).some((a) => !NOT_FINANCIAL.has(a.kind))) return [];
+  const nowAge = ageAt(self, req.input.baseMonth);
+  const retire = retireAgeOf(req) ?? 65;
+  const monthly = investMonthlyNow(req);
+  const rate = investRateNow(req);
+  const dd = drawdownOf(req);
+  const plan = { plan: "assumptions" } as const;
+  const ageTicks = (lo: number, hi: number) => [lo, ...[55, 60, 65, 70, 75, 80].filter((x) => x > lo && x < hi), hi];
+  const out: MovableItem[] = [
+    {
+      key: "inv:monthly",
+      item: "account.contributions",
+      target: plan,
+      label: "毎月の積立額（今の額）",
+      short: "積立",
+      group: "資産運用",
+      builtin: false,
+      phase: "field",
+      control: { kind: "range", ...amountRange(0, Math.max(300_000, monthly * 2), monthly), step: AMOUNT_STEP, ticks: [0, monthly], tick: (v) => `${v / MAN}万`, per: "月" },
+      read: (w) => investMonthlyNow(w.request),
+      apply: (w, v) => (typeof v === "number" ? applyMonthly(w, v) : w),
+      text: (v) => (typeof v === "number" ? `月${manDecimal(v)}` : "—"),
+      same: jsonSame,
+      note: () => "期間を分けているときは、どの期間も同じだけ増減します（増やした分は NISA のつみたて投資枠へ）",
+    },
+    {
+      key: "inv:rate",
+      item: "assumptions.returnShifts",
+      target: plan,
+      label: "運用の利回り（預金を除く）",
+      short: "利回り",
+      group: "資産運用",
+      builtin: false,
+      phase: "field",
+      control: { kind: "rate", min: "0", max: addRate(rate, "0.03"), step: "0.0005" },
+      read: (w) => investRateNow(w.request),
+      apply: (w, v) => {
+        if (typeof v !== "string") return w;
+        const delta = subRate(v, investRateNow(w.request));
+        if (cmpRate(delta, "0") === 0) return w;
+        const request = structuredClone(w.request);
+        const a = (request.input.assumptions ??= { investmentReturn: { default: "0.01" } });
+        a.returnShifts = [...(a.returnShifts ?? []), { from: parseYm(request.input.baseMonth).y, add: delta }];
+        return { ...w, request };
+      },
+      text: (v) => (typeof v === "string" ? `年${pctText(v, 1)}` : "—"),
+      same: (a, b) => (typeof a === "string" && typeof b === "string" ? sameRate(a, b) : a === b),
+      note: () => "運用する口座の利回りを、どの口座も同じ幅だけ動かします",
+    },
+    {
+      key: "inv:stop",
+      item: "account.contributions",
+      target: plan,
+      label: "積立をやめる年齢",
+      short: "積立をやめる年",
+      group: "資産運用",
+      builtin: false,
+      phase: "field",
+      control: ageControl(ageTicks(Math.max(nowAge + 1, 50), 75), (v) => String(v), { min: nowAge + 1, max: 80 }),
+      read: (w) => stopAgeOf(w.request.input.household) ?? retireAgeOf(w.request) ?? 65,
+      apply: (w, v) => (typeof v === "number" && v !== (stopAgeOf(w.request.input.household) ?? retireAgeOf(w.request) ?? 65) ? mutate(w, (hh, r) => setStopAge(hh, r.input.baseMonth, v)) : w),
+      text: (v) => (typeof v === "number" ? `${v}歳でやめる` : "—"),
+      same: jsonSame,
+      note: () => (stopAgeOf(h) === null ? `入力は空欄（退職の年 ${retire}歳まで・推定）` : null),
+    },
+  ];
+  const wStart = (w: WorkingHousehold) => (drawdownOf(w.request).method === "none" ? null : drawdownOf(w.request).startAge);
+  out.push(
+    {
+      key: "inv:wStart",
+      item: "assumptions.investment",
+      target: plan,
+      label: "取り崩しを始める年齢",
+      short: "取り崩しの始まり",
+      group: "資産運用",
+      builtin: false,
+      phase: "field",
+      control: ageControl(ageTicks(Math.max(nowAge + 1, 55), 85), (v) => String(v), { min: nowAge + 1, max: 90 }),
+      read: (w) => wStart(w) ?? Math.max(65, retire),
+      apply: (w, v) => {
+        if (typeof v !== "number") return w;
+        const d = drawdownOf(w.request);
+        if (d.method !== "none" ? d.startAge === v : v === Math.max(65, retireAgeOf(w.request) ?? 65)) return w;
+        return mutate(w, (_h, r) => setDrawdown(r, { ...d, method: d.method === "none" ? "fixed" : d.method, startAge: v }));
+      },
+      text: (v) => (typeof v === "number" ? `${v}歳から` : "—"),
+      same: jsonSame,
+      note: () => (dd.method === "none" ? "取り崩しの予定が無いときは、毎月の取り崩し額（今の値）で始めます" : null),
+    },
+    {
+      key: "inv:wAmt",
+      item: "assumptions.investment",
+      target: plan,
+      label: "毎月の取り崩し額",
+      short: "取り崩し",
+      group: "資産運用",
+      builtin: false,
+      phase: "field",
+      control: { kind: "range", ...amountRange(0, 500_000, dd.monthly), step: AMOUNT_STEP, ticks: [0, dd.method === "fixed" ? dd.monthly : 0], tick: (v) => `${v / MAN}万`, per: "月" },
+      read: (w) => (drawdownOf(w.request).method === "fixed" ? drawdownOf(w.request).monthly : 0),
+      apply: (w, v) => {
+        if (typeof v !== "number") return w;
+        const d = drawdownOf(w.request);
+        if (d.method === "fixed" && d.monthly === v) return w;
+        if (v <= 0) return d.method === "fixed" ? mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "none" })) : w;
+        return mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "fixed", monthly: v, startAge: d.method === "none" ? Math.max(65, retire) : d.startAge }));
+      },
+      text: (v) => (typeof v === "number" ? (v === 0 ? "予定なし" : `月${manDecimal(v)}`) : "—"),
+      same: jsonSame,
+      note: () => "年金などで足りない分を含めた、金融資産から使う額（収支の不足のほうが大きい年は不足の分）",
+    },
+    {
+      key: "inv:wRate",
+      item: "assumptions.investment",
+      target: plan,
+      label: "毎年の取り崩し率",
+      short: "取り崩し率",
+      group: "資産運用",
+      builtin: false,
+      phase: "field",
+      control: { kind: "rate", min: "0", max: "0.1", step: "0.0005" },
+      read: (w) => (drawdownOf(w.request).method === "rate" ? drawdownOf(w.request).rate : "0"),
+      apply: (w, v) => {
+        if (typeof v !== "string") return w;
+        const d = drawdownOf(w.request);
+        if (d.method === "rate" && sameRate(d.rate, v)) return w;
+        if (cmpRate(v, "0") <= 0) return d.method === "rate" ? mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "none" })) : w;
+        return mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "rate", rate: v, startAge: d.method === "none" ? Math.max(65, retire) : d.startAge }));
+      },
+      text: (v) => (typeof v === "string" ? (cmpRate(v, "0") <= 0 ? "予定なし" : `年${pctText(v, 1)}`) : "—"),
+      same: (a, b) => (typeof a === "string" && typeof b === "string" ? sameRate(a, b) : a === b),
+      note: () => "その年の初めの金融資産に対する率",
+    },
+  );
+  return out;
 }
 
 // ---- よく使う項目 ----
@@ -489,7 +677,9 @@ export function buildCatalog(wh: WorkingHousehold, selfId: string, demo: DemoHou
     skip.add(`housing/debt/${d.id}/rate`);
     skip.add(`housing/debt/${d.id}/principal`);
   }
-  const items = [...leverItems(wh, selfId, demo), ...feeItem(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), skip)];
+  // 資産運用の項目と同じものを動かす入力の欄（積立をやめる年齢・まとめた器の欄）は重ねて出さない
+  skip.add("sav/stopAge");
+  const items = [...leverItems(wh, selfId, demo), ...feeItem(wh), ...investItems(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), skip)];
   return { selfId, items, byKey: new Map(items.map((i) => [i.key, i])) };
 }
 

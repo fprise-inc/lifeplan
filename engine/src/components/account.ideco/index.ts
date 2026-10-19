@@ -7,9 +7,11 @@
 //   （受け取りの年月と通算加入者等期間を payments に残し、retirement.receipts が集める。重複排除期間の判定に使う）
 // - 死亡（改訂3。万一の想定 contingency.event）: 死亡の月の翌月に、その時の残高を死亡一時金として遺族（死亡の当時の配偶者。いなければ子）が受け取る
 //   （みなし相続財産。退職所得・雑所得の税をかけないので payments に入れない。知らせ N_INHERITANCE_TAX）
-// - 資産の時価の下落（ストレステスト。前提 marketShocks）: その年の年末の残高を、その割合だけ下げる
+// - 資産の時価の下落（ストレステスト。前提 marketShocks）: その年の年末の残高を、その割合だけ下げる（改訂4: 資産クラスを書いた下落は、
+//   配分のうちその資産クラスの割合だけ。利回りは FP が入れた器の利回り・運用の費用・利回りの書き換えも見る。0026）
 import {
   accountReturnRate,
+  shockShare,
   addMonths,
   addYen,
   childrenOf,
@@ -42,7 +44,7 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
   id: "account.ideco",
   title: "iDeCo・企業型DCの残高と受け取り",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "account.idecoPayout": ">=1 <2", "ideco.contribution": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -50,9 +52,13 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
     "account.owner",
     "account.marketValue",
     "account.assetMix",
+    "account.expectedReturn",
+    "account.fee",
     "assumptions.investmentReturn",
     "assumptions.assetReturns",
     "assumptions.marketShocks",
+    "assumptions.investment",
+    "assumptions.returnShifts",
     "member.kind",
     "relation.type",
     "relation.a",
@@ -116,7 +122,10 @@ export default defineComponent<{ member: string }, IdecoAccountOutput>({
         let out = x;
         for (const sh of shocks) {
           if (sh.year !== y || (sh.kinds !== undefined && !sh.kinds.includes(kind))) continue;
-          out = yen(out - ctx.money.mulRate(out, ctx.rate.of(sh.drop), "conv.investment.return"));
+          // 資産クラスを書いた下落は、配分のうちその資産クラスの割合だけ（0026）
+          const share = shockShare(ctx, a, sh.assetClasses);
+          if (share === null) continue;
+          out = yen(out - ctx.money.mulRate(out, ctx.rate.mul(ctx.rate.of(sh.drop), share), "conv.investment.return"));
         }
         return yen(x - out);
       };

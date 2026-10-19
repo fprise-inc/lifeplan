@@ -16,7 +16,8 @@ const full = buildProposalInput(bundle);
 describe("章を選ぶ", () => {
   it("省略はすべての章（chapters の欄を持たない）。材料はそろっている", () => {
     expect(full.chapters).toBeUndefined();
-    for (const c of CHAPTERS) expect(hasMaterial(full, c.id), c.id).toBe(true);
+    // 資産運用の計画・相場が下がった場合（0026）は、材料（画面が作る文と型の計算）があるときだけ
+    for (const c of CHAPTERS) expect(hasMaterial(full, c.id), c.id).toBe(c.id !== "investment" && c.id !== "marketDrop");
   });
 
   it("外した章の材料は帳票に渡さない。外せない章は残る。JSON Schema に合う", () => {

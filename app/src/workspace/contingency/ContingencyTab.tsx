@@ -178,7 +178,7 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
     else if (sc !== undefined && sr?.result != null && none?.result != null)
       scenario = {
         status: "ready",
-        model: scenarioModel({ req: wh.request, scenario: sc, year, result: sr.result, none: none.result, targetAge, choice: wh.contingency.oldAgeChoice[sc.member] }),
+        model: scenarioModel({ req: wh.request, scenario: sc, year, result: sr.result, none: none.result, targetAge, choice: wh.contingency.oldAgeChoice[sc.member], ...(wh.contingency.market?.drop !== undefined ? { drop: wh.contingency.market.drop } : {}) }),
         error: null,
         stale: sr.stale || none.stale,
       };
@@ -189,7 +189,7 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
     const noneRes = none?.result ?? null;
     return {
       protection,
-      scenarios: scenarioCards({ req: wh.request, scenarios: scs, selected: sel, protection, grade: wh.contingency.grade }),
+      scenarios: scenarioCards({ req: wh.request, scenarios: scs, selected: sel, protection, grade: wh.contingency.grade, plan: wh.contingency }),
       selected: sel,
       year,
       strip: yearStripModel({
@@ -279,6 +279,8 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
   const sections = useMemo(() => contingencyInputSections(edited), [edited]);
   const used = useMemo(() => {
     if (sc === undefined) return new Set<string>();
+    if (sc.kind === "market") return new Set(["cg/market"]);
+    if (sc.kind === "illness") return new Set(["cg/illness"]);
     return new Set(sc.kind === "death" ? ["cg/living", "cg/lump", "cg/work", "cg/creditLife"] : ["cg/disability", "cg/creditLife"]);
   }, [sc]);
   const extra =

@@ -66,7 +66,7 @@ export default defineComponent<{ member: string }, MutualAidOutput>({
     let capped = false;
     for (const a of list) {
       const payout = a.payout;
-      const start: MonthIndex | null = payout === undefined ? null : ctx.time.resolve(payout.start);
+      const start: MonthIndex | null = payout?.start === undefined ? null : ctx.time.resolve(payout.start);
       // 掛金（受け取りの前の月まで）
       const byYear = new Map<number, Map<number, Yen>>();
       for (const c of a.contributions) {

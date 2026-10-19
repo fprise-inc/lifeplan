@@ -19,7 +19,8 @@ import { modelHousehold } from "./helpers.ts";
 const NOW = "2026-10-18T10:00:00.000Z";
 
 function sample(): BodyState {
-  const id = "salariedCoupleTwoKids";
+  // 0.5 から: 資産運用（期間を分けた積立・積立の終わりが空・FP が入れた利回り・取り崩しの計画。0026）の見本の世帯
+  const id = "investmentCouple";
   const req = modelHousehold(id);
   const self = roles(req).find((r) => r.key === "self")!.member;
   const demo = demoHousehold(id) ?? null;
@@ -31,7 +32,7 @@ function sample(): BodyState {
   return {
     wh: b.wh,
     workspace: { template: id, band: [a.id, b.id], base: CURRENT, selected: b.id, shownItems: ["rates:shift"] },
-    display: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"], atAge: 90, layout: "side" },
+    display: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"], atAge: 90, layout: "side", invBreakdown: true },
     carry: { extDefinitions: { "ext.exampleOffice.carCount": { type: "integer", label: "車の台数" } }, ext: { "ext.exampleOffice.carCount": 2 } },
   };
 }
