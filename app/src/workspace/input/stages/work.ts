@@ -226,7 +226,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
   return {
     key: `work/${m.id}/retirement`,
     title: `${who}の定年後の予定`,
-    note: "見通しの対策「働く最後の年齢」でも動かせます。見通しで動かした値は提案として持ち、ここ（現状）は変わりません",
+    note: "結果の対策「働く最後の年齢」でも動かせます。結果で動かした値は提案として持ち、ここ（現状）は変わりません",
     level: "simple",
     fields,
     actions:

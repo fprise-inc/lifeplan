@@ -25,9 +25,9 @@ function open(id: string) {
   const cat = buildCatalog(wh, self.id, demo);
   const living = cat.byKey.get("lever:livingMonthly")!.read(wh) as number;
   const mix = cat.items.find((x) => x.key.startsWith("mix:") && x.control.kind === "mix")!;
-  const b = savePlan(wh, cat, { name: "B案 生活費とNISA", base: null, values: { "lever:livingMonthly": living - 20000, "lever:nisaMonthly": 30000, ...(cat.byKey.has("lever:fee") ? { "lever:fee": true } : {}) }, now: NOW });
+  const b = savePlan(wh, cat, { name: "プランB 生活費とNISA", base: null, values: { "lever:livingMonthly": living - 20000, "lever:nisaMonthly": 30000, ...(cat.byKey.has("lever:fee") ? { "lever:fee": true } : {}) }, now: NOW });
   wh = b.wh;
-  const c = savePlan(wh, cat, { name: "C案 生活費と配分", base: null, values: { "lever:livingMonthly": living - 20000, [mix.key]: mixFromBuckets(undefined, 80, 10) }, now: NOW });
+  const c = savePlan(wh, cat, { name: "プランC 生活費と配分", base: null, values: { "lever:livingMonthly": living - 20000, [mix.key]: mixFromBuckets(undefined, 80, 10) }, now: NOW });
   wh = c.wh;
   const letters = planLetters(wh.proposals);
   const ctx = { wh, catalog: cat, valuesOf: (pid: string) => (pid === CURRENT ? {} : effectiveValues(wh.proposals, pid)), letterOf: (pid: string) => letters.get(pid) ?? { letter: "?", name: "" } };
@@ -56,7 +56,7 @@ describe("提案書の材料: 案の選び方", () => {
   const bundle = plan.bundle(results);
   const input = reportInput(bundle);
 
-  it("現状は A案（入力の値）、提案は選んだ案。目標の年齢は表示の設定のまま", () => {
+  it("現状は プランA（入力の値）、提案は選んだ案。目標の年齢は表示の設定のまま", () => {
     expect(plan.requests.current).toBe(o.wh.request);
     const self = roles(o.wh.request).find((r) => r.key === "self")!.member;
     expect(input.summary.target.year).toBe(Number(self.birth.birthYearMonth.slice(0, 4)) + 95);
@@ -65,7 +65,7 @@ describe("提案書の材料: 案の選び方", () => {
     expect(input.summary.current.financialAtTarget).toBe(metricsOf(o.wh.request, results.current!.table, 95).target);
   });
 
-  it("比較のページは主画面の比較の表と同じ数字（現状・B案・C案、基準は現状）", () => {
+  it("比較のページは主画面の比較の表と同じ数字（現状・プランB・プランC、基準は現状）", () => {
     const c = input.comparison!;
     expect(c.columns.map((x) => x.letter)).toEqual(["A", "B", "C"]);
     expect(c.base).toBe(0);

@@ -100,16 +100,16 @@ describe.skipIf(bin === null)("見本の PDF", () => {
   }
 });
 
-describe.skipIf(bin === null)("章を選んだ PDF と案の比較のページ", () => {
+describe.skipIf(bin === null)("章を選んだ PDF とプランの比較のページ", () => {
   const s = SAMPLES[0] as (typeof SAMPLES)[number];
   const bundle = s.bundle();
   const input = buildProposalInput(bundle);
   const frame = sampleFrame(bundle, input);
 
-  it("すべての章: 案の比較のページが入り、数字が帳票の入力と同じ", () => {
+  it("すべての章: プランの比較のページが入り、数字が帳票の入力と同じ", () => {
     const r = renderAndExtract(bin as string, input, frame);
     const all = normalize(r.pages.join("\n"));
-    expect(all).toContain(normalize("案の比較"));
+    expect(all).toContain(normalize("プランの比較"));
     const target = input.comparison?.rows.find((x) => x.key === "target");
     for (const v of target?.values ?? []) expect(all).toContain(normalize(`${man(v as number)}万円`));
   });
@@ -121,7 +121,7 @@ describe.skipIf(bin === null)("章を選んだ PDF と案の比較のページ",
     expect(all).toContain(normalize("前提条件と注意書き"));
     expect(all).toContain(normalize("世帯サマリー"));
     expect(all).toContain(normalize("提案での変更点"));
-    for (const t of ["キャッシュフロー表（現状）", "教育費の推移", "住宅ローン", "万一のとき", "案の比較"]) expect(all, t).not.toContain(normalize(t));
+    for (const t of ["キャッシュフロー表（現状）", "教育費の推移", "住宅ローン", "万一のとき", "プランの比較"]) expect(all, t).not.toContain(normalize(t));
     for (const n of frame.notices) expect(all).toContain(normalize(n));
     expect(r.pages.length).toBeLessThan(8);
   });

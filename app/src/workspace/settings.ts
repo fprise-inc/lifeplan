@@ -25,9 +25,9 @@ export interface DisplaySettings {
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", dock: true };
 
 export const LAYOUT_CHOICES: readonly { key: ChartLayout; label: string; note: string }[] = [
-  { key: "overlay", label: "重ねる", note: "1つのグラフに基準の案（点線）と選んだ案を重ねる（既定）" },
-  { key: "side", label: "左右に並べる", note: "基準の案と選んだ案を2つのグラフにして並べる。縦の目盛りはそろえる" },
-  { key: "all", label: "全部の案を色分けで重ねる", note: "帯に並べた全部の案（現状を含め最大6本）を1つのグラフに、色・線の種類・印の形で描き分ける。収支は年間収支、資産と負債は純資産の線で比べる" },
+  { key: "overlay", label: "重ねる", note: "1つのグラフに基準のプラン（点線）と選んだプランを重ねる（既定）" },
+  { key: "side", label: "左右に並べる", note: "基準のプランと選んだプランを2つのグラフにして並べる。縦の目盛りはそろえる" },
+  { key: "all", label: "全部のプランを色分けで重ねる", note: "帯に並べた全部のプラン（現状を含め最大6本）を1つのグラフに、色で描き分ける（プランごとに色が決まっています）。収支は年間収支、資産と負債は純資産の線で比べる" },
 ];
 
 export const METRIC_CHOICES: readonly { key: MetricKey; label: string; note: string }[] = [

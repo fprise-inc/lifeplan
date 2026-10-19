@@ -31,21 +31,33 @@ export interface Scale {
   band: number;
 }
 
-/** 系列（円）から、0 を必ず含む縦の目盛りと、年の位置を決める */
-export function scale(series: Yen[][], n: number, frame: Frame = FRAME): Scale {
+/** 縦の目盛りの範囲（万円。0 を必ず含む）と間隔 */
+export interface Domain {
+  min: number;
+  max: number;
+  step: number;
+}
+
+/** 系列（円）から、0 を必ず含む縦の目盛りの範囲を決める（端は目盛りの間隔にそろえる） */
+export function domainOf(series: readonly (readonly Yen[])[]): Domain {
   let lo = 0;
   let hi = 0;
-  for (const s of series) for (const v of s) {
-    const m = v / 10000;
-    if (m < lo) lo = m;
-    if (m > hi) hi = m;
-  }
+  for (const s of series)
+    for (const v of s) {
+      const m = v / 10000;
+      if (m < lo) lo = m;
+      if (m > hi) hi = m;
+    }
   if (hi === lo) hi = lo + 100;
   const step = niceStep(hi - lo);
-  const min = Math.floor(lo / step) * step;
-  const max = Math.ceil(hi / step) * step;
+  return { min: Math.floor(lo / step) * step, max: Math.ceil(hi / step) * step, step };
+}
+
+/** 範囲（domainOf）から目盛りと座標を作る。目盛りは範囲の中の間隔の倍数（範囲の端が倍数でないとき＝目盛りが動いている途中も読める） */
+export function scaleOf(d: Domain, n: number, frame: Frame = FRAME): Scale {
+  const { min, max, step } = d;
   const ticks: number[] = [];
-  for (let t = min; t <= max + step / 2; t += step) ticks.push(Math.round(t));
+  for (let t = Math.ceil(min / step - 1e-9) * step; t <= max + step / 1e6; t += step) ticks.push(Math.round(t));
   const plotW = frame.width - frame.left - frame.right;
   const plotH = frame.height - frame.top - frame.bottom;
   const band = n > 0 ? plotW / n : plotW;
@@ -57,6 +69,36 @@ export function scale(series: Yen[][], n: number, frame: Frame = FRAME): Scale {
     x: (i) => frame.left + band * (i + 0.5),
     y: (v) => frame.top + plotH * (1 - (v / 10000 - min) / (max - min)),
   };
+}
+
+/** 系列（円）から、0 を必ず含む縦の目盛りと、年の位置を決める */
+export function scale(series: Yen[][], n: number, frame: Frame = FRAME): Scale {
+  return scaleOf(domainOf(series), n, frame);
+}
+
+/**
+ * 全部のプランを重ねる表示で線を隠したとき、表示中の線の値の幅（0 を含む）が、全部の線で決めた目盛りの幅のこの割合未満になったら、
+ * 表示中の線に合わせて目盛りを決め直す（それ以外は目盛りを変えない）
+ */
+export const RESCALE_BELOW = 0.5;
+
+/**
+ * 全部のプランを重ねる表示の縦の目盛りの範囲: できるだけ全部の線（隠した線を含む）で決めた範囲のまま。
+ * 隠した結果、残りの線がつぶれて読みにくいとき（RESCALE_BELOW）だけ、表示中の線に合わせて決め直す
+ */
+export function multiDomain(all: readonly (readonly Yen[])[], visible: readonly (readonly Yen[])[]): { domain: Domain; rescaled: boolean } {
+  const full = domainOf(all);
+  if (visible.length === 0 || visible.length >= all.length) return { domain: full, rescaled: false };
+  let lo = 0;
+  let hi = 0;
+  for (const s of visible)
+    for (const v of s) {
+      const m = v / 10000;
+      if (m < lo) lo = m;
+      if (m > hi) hi = m;
+    }
+  if (hi - lo < RESCALE_BELOW * (full.max - full.min)) return { domain: domainOf(visible), rescaled: true };
+  return { domain: full, rescaled: false };
 }
 
 /** 折れ線の点の列 */

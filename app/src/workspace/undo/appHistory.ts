@@ -38,11 +38,11 @@ export function describeSnap(a: AppSnap, b: AppSnap, hint: Hint): string {
         : !deepEqual(a.wh.contingency, b.wh.contingency)
           ? "万一のときの前提"
           : !deepEqual(a.wh.proposals, b.wh.proposals)
-            ? "案"
+            ? "プラン"
             : !deepEqual(a.work.drafts, b.work.drafts)
               ? "対策"
               : !deepEqual(a.work.band, b.work.band)
-                ? "案の帯"
+                ? "プランの帯"
                 : "入力";
   const detail = hint.dialog ?? hint.control;
   return detail !== null && detail !== what ? `${what}（${detail}）` : what;

@@ -44,7 +44,7 @@ const demo = openDemo();
 const reqB = applyValues(demo.wh, { "lever:retireAge": 65 }, demo.cat);
 const rA = preview(demo.wh.request);
 const rB = preview(reqB);
-const pm = toPresentation({ base: demo.wh.request, proposal: reqB, current: rA, proposed: rB, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "B案", base: "A案", same: false } });
+const pm = toPresentation({ base: demo.wh.request, proposal: reqB, current: rA, proposed: rB, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
 
 /** 本物のエンジンで計算する本体の代わり（呼ばれた回数と枠の数を数える） */
 function countingHost(): HostApi & { calls: number; slots: number } {
@@ -349,8 +349,8 @@ describe("操作中はグラフを上に表示", () => {
 });
 
 describe("言葉の統一", () => {
-  it("上のタブは「入力」「見通し」「万一のとき」「提案書」", () => {
-    expect(TABS.map((t) => t.label)).toEqual(["入力", "見通し", "万一のとき", "提案書"]);
+  it("上のタブは「入力」「結果」「万一のとき」「提案書」", () => {
+    expect(TABS.map((t) => t.label)).toEqual(["入力", "結果", "万一のとき", "提案書"]);
   });
 
   it("場面のカード: 不足がなければ「保障は足りています」。結果の行（最後まで足りる・○年に不足）は出さない。起きる年のプルダウンも無い", () => {

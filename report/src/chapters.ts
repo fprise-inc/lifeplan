@@ -25,7 +25,7 @@ export const CHAPTERS: readonly ChapterDef[] = [
   { id: "contingency", label: "万一のとき", fixed: false },
   { id: "insurance", label: "保障内容と払込保険料", fixed: false },
   { id: "changes", label: "提案での変更点", fixed: false },
-  { id: "comparison", label: "案の比較", fixed: false },
+  { id: "comparison", label: "プランの比較", fixed: false },
 ];
 
 export const CHAPTER_IDS: readonly ChapterId[] = CHAPTERS.map((c) => c.id);

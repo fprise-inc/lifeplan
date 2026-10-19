@@ -36,7 +36,7 @@ const reqB = applyValues(demo.wh, valuesB, demo.cat);
 const rA = preview(demo.wh.request);
 const rB = preview(reqB);
 const model = (selectedYear: number | null = null) =>
-  toPresentation({ base: demo.wh.request, proposal: reqB, current: rA, proposed: rB, targetAge: 95, selectedYear, provisional: false, names: { selected: "B案", base: "A案", same: false } });
+  toPresentation({ base: demo.wh.request, proposal: reqB, current: rA, proposed: rB, targetAge: 95, selectedYear, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
 
 /** SVG ごとの縦の目盛りの数字（右寄せの axis-label） */
 const tickLabels = (html: string) => html.split("<svg").slice(1).map((svg) => [...svg.matchAll(/class="axis-label" text-anchor="end">([^<]+)</g)].map((m) => m[1]));
@@ -107,8 +107,8 @@ describe("グラフを左右に並べる表示（表示の設定）", () => {
     expect(html).toContain('data-chart-layout="side"');
     expect(html.match(/<svg/g)).toHaveLength(2);
     expect(html.indexOf('data-side="base"')).toBeLessThan(html.indexOf('data-side="selected"'));
-    expect(html).toMatch(/<b>A案<\/b><span class="side-tag">基準<\/span>/);
-    expect(html).toMatch(/<b>B案<\/b><span class="side-tag">選んだ案<\/span>/);
+    expect(html).toMatch(/<b>プランA<\/b><span class="side-tag">基準<\/span>/);
+    expect(html).toMatch(/<b>プランB<\/b><span class="side-tag">選んだプラン<\/span>/);
     expect(html).not.toContain('class="line-base"');
     expect(html.match(/class="line-prop"/g)).toHaveLength(2);
   });
@@ -130,7 +130,7 @@ describe("グラフを左右に並べる表示（表示の設定）", () => {
     expect(base["f.net"]).toBe(m.baseLines.net);
     expect(base["b.short"]).toBe(m.baseCharts.balance.shortfall);
     const pb = planModel(m, "base");
-    expect(pb.names).toEqual({ selected: "A案", base: "A案", same: true });
+    expect(pb.names).toEqual({ selected: "プランA", base: "プランA", same: true });
     expect(pb.flows).toBe(m.baseCharts.flows);
     expect(pb.events).toBe(m.baseCharts.events);
     expect(pb.chart.depletions.every((d) => d.series === "proposal")).toBe(true);
@@ -146,8 +146,8 @@ describe("グラフを左右に並べる表示（表示の設定）", () => {
     expect(html.match(/class="hv-dot sel"/g)).toHaveLength(2);
     expect(html).not.toContain('class="hv-dot base"');
     expect(html.match(/role="status"/g)).toHaveLength(1);
-    expect(html).toMatch(/収入 [\d,▲]+万円・支出 [\d,▲]+万円（A案）/);
-    expect(html).toMatch(/収入 [\d,▲]+万円・支出 [\d,▲]+万円（B案）/);
+    expect(html).toMatch(/収入 [\d,▲]+万円・支出 [\d,▲]+万円（プランA）/);
+    expect(html).toMatch(/収入 [\d,▲]+万円・支出 [\d,▲]+万円（プランB）/);
   });
 
   it("説明モードと、選んだ案が基準の案のときは重ねる表示（1つのグラフ）のまま", () => {
@@ -155,7 +155,7 @@ describe("グラフを左右に並べる表示（表示の設定）", () => {
     const a = renderToString(h(MainChart, { model: model(), mode: "assets", explain: ex, ageMark: null, pinnedYear: null, onSelectYear: noop, layout: "side" }));
     expect(a.match(/<svg/g)).toHaveLength(1);
     const m = model();
-    const same = { ...m, names: { selected: "A案", base: "A案", same: true } };
+    const same = { ...m, names: { selected: "プランA", base: "プランA", same: true } };
     const b = renderToString(h(MainChart, { model: same, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop, layout: "side" }));
     expect(b.match(/<svg/g)).toHaveLength(1);
   });
@@ -172,7 +172,7 @@ describe("グラフを左右に並べる表示（表示の設定）", () => {
     const m = model();
     const lg = renderToString(h(MainLegend, { model: m, mode: "flows", explain: null, side: true }));
     expect(lg).toContain("年間収支");
-    expect(lg).not.toContain("年間収支 B案");
+    expect(lg).not.toContain("年間収支 プランB");
     expect(lg).not.toContain("（基準）");
     const card = renderToString(h(ResultCard, { model: m, verdict: m.result, provisional: false, mode: "assets", onMode: noop, layout: "side", explain: null, onExplain: noop, ageMark: null, pinnedYear: null, onSelectYear: noop }));
     expect(card).toContain("data-verdict");
@@ -181,7 +181,7 @@ describe("グラフを左右に並べる表示（表示の設定）", () => {
   });
 
   it("基準の案の年のイベントは基準の案の要求から（働く最後の年齢が違えば退職の年も違う）", () => {
-    const m = toPresentation({ base: demo.wh.request, proposal: reqB, current: rB, proposed: rA, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "A案", base: "B案", same: false }, baseProposal: reqB });
+    const m = toPresentation({ base: demo.wh.request, proposal: reqB, current: rB, proposed: rA, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "プランA", base: "プランB", same: false }, baseProposal: reqB });
     const retire = (evs: { icon: string; text: string; year: number }[]) => evs.find((e) => e.icon === "退" && e.text.startsWith("ご主人"))?.year;
     expect(retire(m.baseCharts.events)).toBe(retire(toPresentation({ base: demo.wh.request, proposal: reqB, current: rA, proposed: rB, targetAge: 95, selectedYear: null, provisional: false }).events));
   });

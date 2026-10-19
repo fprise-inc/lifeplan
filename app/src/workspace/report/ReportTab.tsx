@@ -155,7 +155,7 @@ export function ReportTab(p: Props) {
     return (
       <section class="card rp-empty">
         <h2>提案書</h2>
-        <p>提案書に載せる案がありません。見通しで案を作り、帯に並べてから開いてください。</p>
+        <p>提案書に載せるプランがありません。結果でプランを作り、帯に並べてから開いてください。</p>
       </section>
     );
 
@@ -187,28 +187,28 @@ export function ReportTab(p: Props) {
           </p>
         ) : null}
         <fieldset class="rp-set">
-          <legend>載せる案</legend>
+          <legend>載せるプラン</legend>
           <label class="rp-row">
             <span>提案</span>
             <select value={proposal} onChange={(e) => setProposal((e.currentTarget as HTMLSelectElement).value)} data-report-proposal>
               {p.band.map((id) => (
                 <option value={id} key={id}>
-                  {p.letterOf(id).letter}案 {p.letterOf(id).name}
+                  プラン{p.letterOf(id).letter} {p.letterOf(id).name}
                 </option>
               ))}
             </select>
           </label>
-          <p class="rp-note">現状は A案（入力の値）です。目標の年齢は表示の設定の {p.targetAge}歳です。</p>
-          <div class="rp-checks" role="group" aria-label="比較のページに載せる案">
-            <span class="rp-sub">比較のページに載せる案（基準: {p.letterOf(p.base).letter}案）</span>
+          <p class="rp-note">現状は プランA（入力の値）です。目標の年齢は表示の設定の {p.targetAge}歳です。</p>
+          <div class="rp-checks" role="group" aria-label="比較のページに載せるプラン">
+            <span class="rp-sub">比較のページに載せるプラン（基準: プラン{p.letterOf(p.base).letter}）</span>
             {slots.map((id) => (
               <label key={id} class="rp-check">
                 <input type="checkbox" checked={compare.includes(id) || id === proposal} disabled={id === proposal} onChange={(e) => setCompare((c) => ((e.currentTarget as HTMLInputElement).checked ? [...c, id] : c.filter((x) => x !== id)))} data-report-compare={p.letterOf(id).letter} />
-                {p.letterOf(id).letter}案 {id === CURRENT ? "現状" : p.letterOf(id).name}
+                プラン{p.letterOf(id).letter} {id === CURRENT ? "現状" : p.letterOf(id).name}
               </label>
             ))}
           </div>
-          {drafted ? <p class="rp-note warn">保存していない変更を含む案があります。今の中身（見通しと同じ）で作ります。</p> : null}
+          {drafted ? <p class="rp-note warn">保存していない変更を含むプランがあります。今の中身（結果と同じ）で作ります。</p> : null}
         </fieldset>
         <fieldset class="rp-set">
           <legend>章</legend>

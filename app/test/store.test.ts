@@ -25,8 +25,8 @@ function sample(): BodyState {
   let wh: WorkingHousehold = fromRequest(req, { memo: ["架空のメモ"] });
   wh = { ...wh, labelsByMember: { [self.id]: "ご主人" } };
   const cat = buildCatalog(wh, self.id, demo);
-  const a = savePlan(wh, cat, { name: "B案 生活費を28万円に", base: null, values: { "lever:livingMonthly": 280000 }, now: NOW });
-  const b = savePlan(a.wh, cat, { name: "C案 B案＋70歳まで働く", tags: ["老後"], base: a.id, values: { "lever:livingMonthly": 280000, "lever:retireAge": 70 }, now: NOW });
+  const a = savePlan(wh, cat, { name: "プランB 生活費を28万円に", base: null, values: { "lever:livingMonthly": 280000 }, now: NOW });
+  const b = savePlan(a.wh, cat, { name: "プランC プランB＋70歳まで働く", tags: ["老後"], base: a.id, values: { "lever:livingMonthly": 280000, "lever:retireAge": 70 }, now: NOW });
   return {
     wh: b.wh,
     workspace: { template: id, band: [a.id, b.id], base: CURRENT, selected: b.id, shownItems: ["rates:shift"] },

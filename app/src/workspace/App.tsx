@@ -12,6 +12,7 @@ import type { ChartLayout, ChartMode } from "../presentation/MainChart.tsx";
 import { ChartDock, useChartDock } from "../presentation/ChartDock.tsx";
 import { CashflowTable, DockedResult, FeeNote, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
 import { PlanBand } from "../presentation/PlanBand.tsx";
+import { PLAN_COLORS } from "../presentation/planLines.tsx";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
 import { ContingencyEngine } from "./contingency/engine.ts";
 import { ContingencyTab, type ContingencyUi } from "./contingency/ContingencyTab.tsx";
@@ -30,13 +31,13 @@ import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
 import { advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { mixFromBuckets } from "./plans/allocation.ts";
-import { addToBand, bandModel, cleanBand, CURRENT, MAX_BAND, planLetters, planLinesModel } from "./plans/band.ts";
+import { addToBand, assignColors, bandModel, cleanBand, CURRENT, MAX_BAND, planLetters, planLinesModel } from "./plans/band.ts";
 import { compareTable, metricsOf } from "./plans/compare.ts";
 import { addRate } from "./plans/decimal.ts";
 import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
 import { amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
 import { PlanList } from "./plans/PlanList.tsx";
-import { acknowledge, applyValues, changesOf, changesOfValues, dropChange, effectiveValues, normalizeValues, overwritePlan, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
+import { acknowledge, applyValues, changesOf, changesOfValues, dropChange, effectiveValues, headLetter, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
 import { cashflowTable, displayYears, eventsOf, toPresentation, withDiff } from "./present.ts";
 import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
@@ -52,7 +53,7 @@ import { UndoButtons } from "./undo/UndoButtons.tsx";
 type Tab = "input" | "main" | "contingency" | "report";
 export const TABS: { id: Tab; label: string }[] = [
   { id: "input", label: "入力" },
-  { id: "main", label: "見通し" },
+  { id: "main", label: "結果" },
   { id: "contingency", label: "万一のとき" },
   { id: "report", label: "提案書" },
 ];
@@ -226,8 +227,8 @@ export function modifiedSet(wh: WorkingHousehold, cat: Catalog, w: Work): Set<st
 
 /** 選んだ案を動かせないときの理由（動かせるときは null） */
 export function lockReason(w: Work, letter: (id: string) => string): string | null {
-  if (w.sel === CURRENT) return `${letter(CURRENT)}案（現状）は入力の画面で直します。上の帯で別の案を選ぶか、「＋ この案を元に作る」で新しい案を作ってから動かしてください。`;
-  if (w.sel === w.base) return "基準の案は動かせません。上の帯で別の案を選ぶか、「＋ この案を元に作る」で新しい案を作ってから動かしてください。";
+  if (w.sel === CURRENT) return `${planLabel(letter(CURRENT))}（現状）は入力の画面で直します。上の帯で別のプランを選ぶか、「＋ このプランを元に作る」で新しいプランを作ってから動かしてください。`;
+  if (w.sel === w.base) return "基準のプランは動かせません。上の帯で別のプランを選ぶか、「＋ このプランを元に作る」で新しいプランを作ってから動かしてください。";
   return null;
 }
 
@@ -282,6 +283,8 @@ export function App() {
   const [selectedYear, setSelectedYear] = useState<number | null>(initial.year ?? null);
   /** 全部の案を色分けで重ねる表示で、凡例のクリックで一時的に隠している案（帯の文字。保存しない） */
   const [hiddenLines, setHiddenLines] = useState<string[]>([]);
+  /** 全部のプランを色分けで重ねる表示の色の番号（プランの内部 ID → 番号）。ID は世帯をまたいでも重ならないので、アプリを開いている間持ち続ける */
+  const colorMap = useRef<ReadonlyMap<string, number>>(new Map());
   const [scrollNonce, setScrollNonce] = useState(0);
   const [big, setBig] = useState(initial.big);
   const [tab, setTab] = useState<Tab>(initial.tab ?? "main");
@@ -845,7 +848,7 @@ export function App() {
       const ls = planLetters(wh.proposals);
       setPlans(wh, { ...w, band: r.band, sel: id, drafts });
       setTableKey(null);
-      say(r.dropped !== null ? `${msg}（帯は${MAX_BAND}案までのため、${ls.get(r.dropped)?.letter ?? ""}案を帯から外しました。一覧に残っています）` : msg);
+      say(r.dropped !== null ? `${msg}（帯は${MAX_BAND}つまでのため、${planLabel(ls.get(r.dropped)?.letter ?? "")}を帯から外しました。一覧に残っています）` : msg);
     },
     [setPlans, say],
   );
@@ -856,10 +859,10 @@ export function App() {
     if (o === null) return;
     const src = w.sel;
     const srcLetter = planLetters(o.wh.proposals).get(src)?.letter ?? "A";
-    const head = suggestName(o.wh.proposals, savedValues(o.wh, src), o.wh, o.catalog, src === CURRENT ? null : src).replace(/^([A-Z]案).*$/, "$1");
-    const r = savePlan(o.wh, o.catalog, { name: `${head} ${srcLetter}案を元に`, base: src === CURRENT ? null : src, values: valuesOf(o.wh, w, src), now: nowIso() });
+    const head = planLabel(headLetter(suggestName(o.wh.proposals, savedValues(o.wh, src), o.wh, o.catalog, src === CURRENT ? null : src)) ?? "");
+    const r = savePlan(o.wh, o.catalog, { name: `${head} ${planLabel(srcLetter)}を元に`, base: src === CURRENT ? null : src, values: valuesOf(o.wh, w, src), now: nowIso() });
     const newLetter = planLetters(r.wh.proposals).get(r.id)?.letter ?? "";
-    placeNew(w, r.wh, r.id, w.drafts, `${srcLetter}案を写して ${newLetter}案 を作りました。下の対策で動かしてください`);
+    placeNew(w, r.wh, r.id, w.drafts, `${planLabel(srcLetter)}を写して ${planLabel(newLetter)} を作りました。下の対策で動かしてください`);
   }, [placeNew]);
   /** 案として保存: 選んでいる案の今の中身を新しい案にする（元の案は保存した内容のまま残す） */
   const saveNew = useCallback(
@@ -871,7 +874,7 @@ export function App() {
       const drafts = { ...w.drafts };
       delete drafts[w.sel];
       const l = planLetters(r.wh.proposals).get(r.id);
-      placeNew(w, r.wh, r.id, drafts, `${l?.letter ?? ""}案「${l?.name ?? name}」として保存しました`);
+      placeNew(w, r.wh, r.id, drafts, `${planLabel(l?.letter ?? "")}「${l?.name ?? name}」として保存しました`);
     },
     [placeNew],
   );
@@ -882,7 +885,7 @@ export function App() {
     const drafts = { ...w.drafts };
     delete drafts[w.sel];
     setPlans(overwritePlan(o.wh, o.catalog, w.sel, valuesOf(o.wh, w, w.sel), nowIso()), { ...w, drafts });
-    say(`${planLetters(o.wh.proposals).get(w.sel)?.letter ?? ""}案を上書きしました`);
+    say(`${planLabel(planLetters(o.wh.proposals).get(w.sel)?.letter ?? "")}を上書きしました`);
   }, [setPlans, say]);
   const resetDraft = useCallback(() => {
     const o = openedRef.current;
@@ -938,7 +941,7 @@ export function App() {
   const selReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.sel))), [opened, work, reqOf]);
   const baseReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.base))), [opened, work, reqOf]);
   const feeOn = opened !== null && hasAdvisoryFee(opened.wh.request) ? feeOf(opened, selValues) : false;
-  const names = { selected: `${letterOf(work.sel)}案`, base: `${letterOf(work.base)}案`, same: work.sel === work.base };
+  const names = { selected: planLabel(letterOf(work.sel)), base: planLabel(letterOf(work.base)), same: work.sel === work.base };
   const feeShown = opened !== null && shows(settings, "feeLine") && hasAdvisoryFee(opened.wh.request) && work.sel !== CURRENT;
   const provisional = selView?.source !== "canonical" || selView.stale;
   const model = useMemo(() => {
@@ -953,13 +956,19 @@ export function App() {
     [explainStep !== null, opened, selReq, selRes, settings.atAge],
   );
   const modified = useMemo(() => (opened === null ? new Set<string>() : modifiedSet(opened.wh, opened.catalog, work)), [opened, work]);
-  const band = opened === null ? null : bandModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id) => [id, resultOf(id)])), modified, base: work.base, selected: work.sel, settings });
-  // 全部の案を色分けで重ねる表示: 帯の全部の案の線（案の名前と数字だけ）をグラフの値に足す
+  // 全部のプランを色分けで重ねる表示の色の番号: プランの内部 ID ごとに決めて持ち続ける（基準・帯の並びを変えても同じ色。band.ts の assignColors）
+  const colors = useMemo(() => {
+    const m = assignColors(colorMap.current, work.band, (id) => letters.get(id)?.letter, PLAN_COLORS);
+    colorMap.current = m;
+    return m;
+  }, [work.band, letters]);
+  const band = opened === null ? null : bandModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id) => [id, resultOf(id)])), modified, base: work.base, selected: work.sel, settings, colors });
+  // 全部のプランを色分けで重ねる表示: 帯の全部のプランの線（プランの名前と色の番号と数字だけ）をグラフの値に足す
   const slotResults = slots.map((id) => resultOf(id));
   const chartModel = useMemo(() => {
     if (model === null || opened === null || settings.layout !== "all") return model;
-    return { ...model, plans: planLinesModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id, i) => [id, slotResults[i] ?? null])), base: work.base, selected: work.sel }) };
-  }, [model, opened, settings.layout, slots, letters, work.base, work.sel, ...slotResults]);
+    return { ...model, plans: planLinesModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id, i) => [id, slotResults[i] ?? null])), base: work.base, selected: work.sel, colors }) };
+  }, [model, opened, settings.layout, slots, letters, work.base, work.sel, colors, ...slotResults]);
   const multiHidden = { hidden: hiddenLines, onToggle: (k: string) => setHiddenLines((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k])) };
 
   // 表: 見る案（既定は選んだ案）と、基準との差
@@ -1095,7 +1104,7 @@ export function App() {
     if (panel !== "compare" || opened === null || compareResults.some((r) => r === null)) return null;
     return compareTable(
       opened.wh.request,
-      slots.map((id, i) => ({ name: `${letterOf(id)}案 ${letters.get(id)?.name ?? ""}`, table: (compareResults[i] as PreviewResult).table })),
+      slots.map((id, i) => ({ name: `${planLabel(letterOf(id))} ${letters.get(id)?.name ?? ""}`, table: (compareResults[i] as PreviewResult).table })),
       settings.atAge,
       Math.max(0, slots.indexOf(work.base)),
     );
@@ -1108,7 +1117,7 @@ export function App() {
       settingsRef.current = s;
       setSettings(s);
     });
-    say("グラフを上に表示するのをやめました（見通しの「表示の設定」で戻せます）");
+    say("グラフを上に表示するのをやめました（結果の「表示の設定」で戻せます）");
   }, [history, say]);
   const dockAnchor = useRef<HTMLDivElement>(null);
   const dockControls = useRef<HTMLDivElement>(null);
@@ -1219,7 +1228,7 @@ export function App() {
         {tab === "input" && opened !== null ? (
           <>
             {error !== null ? <p class="fatal">今の入力では計算できませんでした（{error}）</p> : null}
-            {opened.wh.proposals.length > 0 ? <p class="in-note plans-note">入力（現状）を直すと、保存した案（{opened.wh.proposals.length}件）にも反映されます。案が指していた物を外すと、その案に「要確認」が出ます。</p> : null}
+            {opened.wh.proposals.length > 0 ? <p class="in-note plans-note">入力（現状）を直すと、保存したプラン（{opened.wh.proposals.length}件）にも反映されます。プランが指していた物を外すと、そのプランに「要確認」が出ます。</p> : null}
             <InputView
               wh={opened.wh}
               onSave={edit}
@@ -1293,12 +1302,12 @@ export function App() {
             />
             {panel === "list" ? <PlanList wh={opened.wh} catalog={opened.catalog} letters={letters} band={work.band} onBand={toggleBand} onEdit={(w) => setPlans(w)} onReflect={reflect} onClose={() => setPanel(null)} /> : null}
             {panel === "compare" ? (
-              <section class="card compare-card" aria-label="案の比較" data-compare>
+              <section class="card compare-card" aria-label="プランの比較" data-compare>
                 <div class="card-h">
                   <h2>
-                    案の比較（{slots.length}案。基準: {letterOf(work.base)}案）
+                    プランの比較（{slots.length}つ。基準: {planLabel(letterOf(work.base))}）
                   </h2>
-                  <span class="aside">{compareModel === null ? "計算しています…" : "帯に並べた案の主な数字。差はいつも「その案−基準」"}</span>
+                  <span class="aside">{compareModel === null ? "計算しています…" : "帯に並べたプランの主な数字。差はいつも「そのプラン−基準」"}</span>
                   <button type="button" class="btn" onClick={() => setPanel(null)}>
                     閉じる
                   </button>
@@ -1397,7 +1406,7 @@ export function App() {
                 selectedYear={pinnedYear}
                 onSelectYear={setSelectedYear}
                 onEvidence={(r, y) => void showEvidence(r, y)}
-                corner={`${letterOf(tKey)}案「${letters.get(tKey)?.name ?? ""}」`}
+                corner={`${planLabel(letterOf(tKey))}「${letters.get(tKey)?.name ?? ""}」`}
                 scrollNonce={scrollNonce}
                 controls={{
                   plans: slots.map((id) => ({ key: letterOf(id), letter: letterOf(id) })),
@@ -1406,7 +1415,7 @@ export function App() {
                     const id = slotOfLetter(letters, slots, l);
                     setTableKey(id === undefined || id === work.sel ? null : id);
                   },
-                  diff: { on: showDiff, disabled: tKey === work.base, label: tKey === work.base ? "差を表示（基準の案を表示中）" : `差を表示（${letterOf(tKey)}−${letterOf(work.base)}）` },
+                  diff: { on: showDiff, disabled: tKey === work.base, label: tKey === work.base ? "差を表示（基準のプランを表示中）" : `差を表示（${letterOf(tKey)}−${letterOf(work.base)}）` },
                   onDiff: setShowDiff,
                 }}
               />
@@ -1475,11 +1484,11 @@ function seedPlans(o: Opened, first: Values): { wh: WorkingHousehold; ids: strin
     return r.id;
   };
   const loanValue = loan === undefined ? {} : { [loan.key]: loan.key.endsWith(":prepay") ? 5_000_000 : (loan.read(wh) as number) - 5_000_000 };
-  const b = save("B案 借入を500万円減らす", { ...first, ...loanValue }, null, ["住宅"]);
+  const b = save("プランB 借入を500万円減らす", { ...first, ...loanValue }, null, ["住宅"]);
   const r0 = rate?.read(wh);
-  save("C案 B案＋金利が0.5%上がる", { ...first, ...loanValue, ...(rate !== undefined && typeof r0 === "string" ? { [rate.key]: addRate(r0, "0.005") } : {}) }, b, ["住宅"]);
-  save("D案 NISAを株式80%で", { ...first, ...(mix !== undefined ? { [mix.key]: mixFromBuckets(undefined, 80, 10) } : {}) }, null, ["運用"]);
-  save("E案 70歳まで働く", { ...first, "lever:retireAge": 70, "lever:pensionAge": 70 }, null, ["老後"]);
-  save("F案 変動金利が2030年から1%上がる", { ...first, ...(shift !== undefined ? { [shift.key]: { add: "0.01", from: "2030-01" } } : {}) }, null, ["住宅"]);
+  save("プランC プランB＋金利が0.5%上がる", { ...first, ...loanValue, ...(rate !== undefined && typeof r0 === "string" ? { [rate.key]: addRate(r0, "0.005") } : {}) }, b, ["住宅"]);
+  save("プランD NISAを株式80%で", { ...first, ...(mix !== undefined ? { [mix.key]: mixFromBuckets(undefined, 80, 10) } : {}) }, null, ["運用"]);
+  save("プランE 70歳まで働く", { ...first, "lever:retireAge": 70, "lever:pensionAge": 70 }, null, ["老後"]);
+  save("プランF 変動金利が2030年から1%上がる", { ...first, ...(shift !== undefined ? { [shift.key]: { add: "0.01", from: "2030-01" } } : {}) }, null, ["住宅"]);
   return { wh, ids, keys: [loan?.key, rate?.key, shift?.key, mix?.key].filter((x): x is string => x !== undefined) };
 }

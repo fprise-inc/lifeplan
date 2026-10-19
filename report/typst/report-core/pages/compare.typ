@@ -1,4 +1,4 @@
-// 13. 案の比較（現状と、FP が選んだ案。主画面の「比較の表」と同じ数字。差はいつも「その案−基準」）
+// 13. プランの比較（現状と、FP が選んだプラン。主画面の「比較の表」と同じ数字。差はいつも「そのプラン−基準」）
 #import "../parts/format.typ": *
 #import "../parts/layout.typ": *
 
@@ -20,10 +20,10 @@
 
 #let comparison(data, newpage: true) = {
   let c = data.comparison
-  chapter("案の比較", newpage: newpage, sub: "現状と、ご検討いただいた案の主な数字です。差は基準（" + c.columns.at(c.base).letter + "案）との差です。")
+  chapter("プランの比較", newpage: newpage, sub: "現状と、ご検討いただいたプランの主な数字です。差は基準（プラン" + c.columns.at(c.base).letter + "）との差です。")
   let n = c.columns.len()
   let head = ("",) + c.columns.enumerate().map(((i, col)) => {
-    text(weight: "bold", col.letter + "案") + if i == c.base { text(fill: muted, "（基準）") } else { [] }
+    text(weight: "bold", "プラン" + col.letter) + if i == c.base { text(fill: muted, "（基準）") } else { [] }
     linebreak()
     text(size: 7.5pt, weight: "regular", col.name)
   })
@@ -43,7 +43,7 @@
     })
   }
   let cells = c.rows.map(row => (text(size: 8.5pt, row.label),) + range(n).map(i => cell-of(row, i))).flatten()
-  // 縦の紙で案が多い（4案より多い）ときは、行と列を入れ替える（案を行、数字の項目を列に）
+  // 縦の紙でプランが多い（4つより多い）ときは、行と列を入れ替える（プランを行、数字の項目を列に）
   let transpose = layout-of(data).orientation == "portrait" and n > 4
   if transpose {
     data-table(
@@ -54,7 +54,7 @@
       c.columns.enumerate().map(((i, col)) => {
         (
           {
-            text(weight: "bold", col.letter + "案") + if i == c.base { text(fill: muted, "（基準）") } else { [] }
+            text(weight: "bold", "プラン" + col.letter) + if i == c.base { text(fill: muted, "（基準）") } else { [] }
             linebreak()
             text(size: 7pt, col.name)
           },

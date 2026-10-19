@@ -934,13 +934,15 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ys.compact .ys-row { padding: 3px 2px 2px; }
 .ys.compact .yc { padding: 1px 2px 2px; min-width: 3.1rem; flex-basis: 3.1rem; }
 html.big .yc { min-width: 3.9rem; flex-basis: 3.9rem; }
-/* ---- 全部の案を色分けで重ねる表示（MainChart.tsx・planLines.tsx）: 色は線ごとに属性で渡し、色だけに頼らず線の種類・印の形も変える ---- */
+/* ---- 全部のプランを色分けで重ねる表示（MainChart.tsx・planLines.tsx）: 線は全部実線・端の印は全部同じ丸で、色は線ごとに属性で渡す。線の右端の文字と「基準」の札を添える ---- */
 .chart .multi-line { fill: none; stroke-width: var(--lw-base); stroke-linejoin: round; }
 .chart .ml.sel .multi-line { stroke-width: var(--lw-prop); }
 .chart .ml.hi .multi-line { stroke-width: calc(var(--lw-prop) + 1px); }
 .chart .ml { transition: opacity 0.15s; }
 .chart .ml.dim { opacity: 0.16; }
 .chart .ml-end { font-weight: 700; font-size: 0.8rem; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.chart .ml-end-base { font-size: 0.68rem; fill: var(--base-ink); }
+.chart .fit-t { fill: var(--ink-2); font-size: 0.72rem; }
 .chart .pl-mk { stroke-width: 1.5; }
 .chart .hv-mk { stroke-width: 2; }
 html.big .chart .hv-mk { stroke-width: 2.5; }
@@ -960,6 +962,7 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .ml-item.off .pl-sw { opacity: 0.3; }
 .ml-item.off .ml-n, .ml-item.off .ml-t { text-decoration: line-through; }
 .ml-item:disabled { cursor: default; opacity: 0.7; }
+.ml-n { flex: none; white-space: nowrap; }
 .ml-t { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .ml-tag { flex: none; font-size: 0.72rem; border: 1px solid var(--line); color: var(--base-ink); border-radius: 4px; padding: 0 4px; line-height: 1.5; }
 .ml-tag.wait { border-style: dashed; }
@@ -968,12 +971,11 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .year-tip.multi-tip .yt-lead { font-size: 0.78rem; }
 .year-tip .yt-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 1px 6px; align-items: center; }
 .year-tip .yt-rows li { display: contents; }
-.year-tip .yt-rows .yt-n { font-weight: 700; }
+.year-tip .yt-rows .yt-n { font-weight: 700; white-space: nowrap; }
 .year-tip .yt-rows .yt-t { color: var(--ink-2); max-width: 11em; overflow: hidden; text-overflow: ellipsis; }
 .year-tip .yt-rows b { text-align: right; }
 .year-tip .yt-rows li.sel .yt-n::after { content: "（表示中）"; font-weight: 400; color: var(--ink-2); font-size: 0.9em; }
 .p-mark { margin-left: auto; display: inline-flex; align-items: center; }
 @media (prefers-reduced-motion: reduce) { .chart .ml { transition: none; } }
-.chart .pl-mk.ring, .pl-sw .pl-mk.ring { stroke-width: 2.5; }
 .dock-chart .multi-tip .yt-t { display: none; }
 .dock-chart .multi-tip { font-size: 0.76rem; line-height: 1.35; }

@@ -181,7 +181,7 @@ export async function runInputCheck(dual: () => DualEngine | null, host: string)
     await wait();
     report.saved = { living: cardText("living"), progress: text("[data-progress]"), panelClosed: document.querySelector(".ipanel") === null };
     await stage("input-saved", report);
-    clickTab("見通し");
+    clickTab("結果");
     await sleep(300);
     await wait();
     report.main = { verdict: text("[data-verdict]"), year: text(".sel-lbl") };
@@ -260,7 +260,7 @@ export async function runContingencyCheck(host: string): Promise<void> {
     });
     report.yearStrip = { summary: text("[data-year-summary]"), done: document.querySelector<HTMLElement>("[data-year-strip]")?.dataset.yearDone };
     // タブを切り替えて戻る: 前の結果をそのまま出す（「計算しています」を出さない）
-    clickTab("見通し");
+    clickTab("結果");
     await sleep(300);
     clickTab("万一のとき");
     await sleep(50);

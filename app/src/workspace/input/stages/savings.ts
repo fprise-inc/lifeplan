@@ -29,7 +29,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       kind: "yen",
       basis: "monthly",
       optional: true,
-      help: a.kind === "nisa" ? "見通しの対策「NISAの積立額」でも動かせます" : undefined,
+      help: a.kind === "nisa" ? "結果の対策「NISAの積立額」でも動かせます" : undefined,
       get: (w) => ({ value: (firstContribution(w.request.input.household, w)?.monthly as number | undefined) ?? null, ...(((find(w.request.input.household, w) as Account | undefined)?.contributions?.length ?? 0) > 1 ? { derived: "積立の期間が複数あります（最初の期間を見せています）" } : {}) }),
       set: (w, v) =>
         mutate(w, (h) => {
