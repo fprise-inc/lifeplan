@@ -842,9 +842,15 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .chk input { width: 18px; height: 18px; accent-color: var(--prop); margin: 0; }
 .chk.on { border-color: var(--prop); background: var(--prop-bg); }
 .cf-note { font-size: 0.8rem; color: var(--ink-2); margin-left: auto; display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.cf-card .cf-wrap { overflow: auto; max-height: calc(100vh - 150px); overscroll-behavior: contain; }
-.cf-card .cf .r-year th { position: sticky; top: 0; z-index: 3; }
-.cf-card .cf .r-year th.stub { z-index: 4; }
+/* 表は縦に全部の行を出す（表の中は縦にスクロールしない。縦は画面全体だけ）。横（年の列）は表の中でスクロールする。
+   ホイールの上下は表に吸われず画面に渡る（横は Shift＋ホイール・横のホイール・スクロールバー）。
+   年の見出しの行は、写し（.cf-sticky。MainView.tsx）を表の箱の外に置いて画面の上に付いてこさせる。項目名の列は左に固定 */
+.cf-card .cf-wrap { overflow-x: auto; overflow-y: hidden; }
+.cf-body { position: relative; }
+.cf-sticky { position: sticky; top: -1px; z-index: 6; pointer-events: none; }
+.cf-sticky-in { position: relative; top: 1px; margin: 0 1px; overflow: hidden; border-radius: 7px 7px 0 0; pointer-events: auto; }
+.cf-headcopy { table-layout: fixed; }
+.cf-headcopy th { min-width: 0; box-sizing: border-box; }
 .cf .r-diff th, .cf .r-diff td { background: #f3f6fb; color: var(--prop-ink); font-weight: 700; border-bottom: 1px solid #cfd9ea; }
 .cf .r-diff th { padding-left: 1.6em; }
 .cf .r-diff td.minus { color: var(--short-ink); }
@@ -876,6 +882,14 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 /* ---- 操作中はグラフを上に表示（ChartDock.tsx）: 縦の並びの先頭に高さ0の sticky の箱を置き、その中に縮めたグラフを描く（並びの高さは変わらない） ---- */
 .chart-dock { position: sticky; top: 0; height: 0; z-index: 20; margin-bottom: -12px; }
 .chart-dock .dock-in { position: absolute; left: 0; right: 0; top: 0; padding: 6px 14px 4px; border-radius: 0 0 var(--radius) var(--radius); border-top: 0; box-shadow: 0 6px 18px rgba(20, 30, 50, 0.16); max-height: 45vh; overflow: hidden; }
+/* 大きく: 窓の高さから操作の欄の1行分を引いた高さ（ChartDock.tsx が決める） */
+.chart-dock.large .dock-in { max-height: none; }
+.dock-btn { flex: none; height: 28px; border: 1.5px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0 10px; white-space: nowrap; }
+.dock-btn:hover { border-color: var(--ink); }
+/* 浮かせた枠（アプリの窓の中に固定。別の窓にはしない）: 見出しをドラッグで移動、右下の角で大きさを変える */
+.dock-float { position: fixed; z-index: 1; display: flex; flex-direction: column; box-sizing: border-box; margin: 0; padding: 4px 12px 6px; border: 1.5px solid var(--ink-2); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(20, 30, 50, 0.28); overflow: hidden; background: #fff; }
+.dock-grip { cursor: move; touch-action: none; user-select: none; -webkit-user-select: none; padding: 2px 0; }
+.dock-resize { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; background: linear-gradient(135deg, transparent 0 55%, var(--ink-2) 55% 62%, transparent 62% 72%, var(--ink-2) 72% 79%, transparent 79%); }
 .dock-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .dock-t { flex: 1; min-width: 0; }
 .dock-t .verdict-line { font-size: 0.95rem; flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

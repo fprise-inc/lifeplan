@@ -1334,7 +1334,7 @@ export function App() {
   /** 付いてくるグラフの ×: 表示の設定の「操作中はグラフを上に表示」を外す（見通しと万一のときで同じ設定） */
   const dockOff = useCallback(() => {
     history.track(() => {
-      const s = { ...settingsRef.current, dock: false };
+      const s = { ...settingsRef.current, dock: "off" as const };
       settingsRef.current = s;
       setSettings(s);
     });
@@ -1342,7 +1342,7 @@ export function App() {
   }, [history, say]);
   const dockAnchor = useRef<HTMLDivElement>(null);
   const dockControls = useRef<HTMLDivElement>(null);
-  const mainDock = useChartDock(dockAnchor, dockControls, settings.dock && tab === "main", MAIN_DOCK_EXTRA);
+  const mainDock = useChartDock(dockAnchor, dockControls, tab === "main" ? settings.dock : "off", MAIN_DOCK_EXTRA);
 
   const drawer = memoOpen || evidence !== null;
   const ageMark = opened === null ? null : ageMarkOf(settings, opened.wh.request);
@@ -1552,19 +1552,21 @@ export function App() {
         ) : (
           <div class="main-stack">
             {basis !== null ? <BasisLine {...basis} /> : null}
-            <ChartDock docked={mainDock.docked} head={<ResultVerdictView model={model.result} />} onClose={dockOff}>
-              <DockedResult
-                model={chartModel ?? model}
-                multi={multiHidden}
-                provisional={model.provisional}
-                mode={chartMode}
-                layout={settings.layout}
-                explain={explain !== null && explainStep !== null ? { model: explain, step: explainStep } : null}
-                ageMark={ageMark}
-                pinnedYear={pinnedYear}
-                onSelectYear={pinYear}
-                height={mainDock.height}
-              />
+            <ChartDock dock={mainDock} head={<ResultVerdictView model={model.result} />} onClose={dockOff}>
+              {(height) => (
+                <DockedResult
+                  model={chartModel ?? model}
+                  multi={multiHidden}
+                  provisional={model.provisional}
+                  mode={chartMode}
+                  layout={settings.layout}
+                  explain={explain !== null && explainStep !== null ? { model: explain, step: explainStep } : null}
+                  ageMark={ageMark}
+                  pinnedYear={pinnedYear}
+                  onSelectYear={pinYear}
+                  height={height}
+                />
+              )}
             </ChartDock>
             {/* ① 案の帯 */}
             <PlanBand

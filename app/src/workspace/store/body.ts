@@ -17,7 +17,7 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { CURRENT } from "../plans/band.ts";
 import type { Proposal } from "../plans/plans.ts";
 import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
-import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type DisplaySettings, type MetricKey } from "../settings.ts";
+import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, readDockMode, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
 export const BODY_FORMAT_VERSION = "0.4";
@@ -115,7 +115,7 @@ export function fromBody(json: string): BodyState {
     metrics: strings(d.metrics).filter((k): k is MetricKey => METRIC_CHOICES.some((c) => c.key === k)),
     atAge: typeof d.atAge === "number" ? d.atAge : DEFAULT_DISPLAY_SETTINGS.atAge,
     layout: LAYOUT_CHOICES.some((c) => c.key === d.layout) ? (d.layout as DisplaySettings["layout"]) : DEFAULT_DISPLAY_SETTINGS.layout,
-    dock: typeof d.dock === "boolean" ? d.dock : DEFAULT_DISPLAY_SETTINGS.dock,
+    dock: readDockMode(d.dock),
   };
   return {
     wh,

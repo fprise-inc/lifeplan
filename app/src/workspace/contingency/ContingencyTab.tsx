@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { HostApi } from "../../engine/host.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
-import { ChartDock, useChartDock } from "../../presentation/ChartDock.tsx";
+import { ChartDock, useChartDock, type DockMode } from "../../presentation/ChartDock.tsx";
 import { ContingencyChartCard, ContingencyVerdict, DockedContingency, ScenarioBand, YearStrip, type ContingencyMode, type YearStripProps } from "../../presentation/ContingencyView.tsx";
 import type { ContingencyModel, ProtectionChartModel } from "../../presentation/model.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -55,8 +55,8 @@ export interface ContingencyTabProps {
   onEdit: (w: WorkingHousehold) => void;
   ui: ContingencyUi;
   onUi: (u: ContingencyUi) => void;
-  /** 操作中はグラフを上に表示（表示の設定） */
-  dock: boolean;
+  /** 操作中はグラフを上に表示（表示の設定: 出さない／小さく／大きく） */
+  dock: DockMode;
   /** 付いてくるグラフの × */
   onDockOff: () => void;
   /** 開いたときの想定（URL の #scenario=death:self） */
@@ -296,8 +296,8 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
 
   return (
     <div class="main-stack cg-stack">
-      <ChartDock docked={docked.docked} head={<ContingencyVerdict model={model} mode={mode} />} onClose={onDockOff}>
-        <DockedContingency {...chartProps} height={docked.height} strip={strip} />
+      <ChartDock dock={docked} head={<ContingencyVerdict model={model} mode={mode} />} onClose={onDockOff}>
+        {(height) => <DockedContingency {...chartProps} height={height} strip={strip} />}
       </ChartDock>
       {/* ① 場面の帯 */}
       <ScenarioBand model={model} onSelect={selectScenario} {...(planChoice !== undefined ? { plan: planChoice } : {})} />

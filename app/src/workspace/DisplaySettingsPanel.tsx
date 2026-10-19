@@ -1,7 +1,8 @@
 // 表示の設定（作業の層の部品。主画面のグラフの右上の「表示の設定」で、結論の下に開く。別の窓は出さない）。
-// FP が主画面に出す数字と、グラフの比べ方（重ねる／左右に並べる／全部の案を色分けで重ねる）を選ぶ。既定では何も足さず、重ねる。
+// FP が主画面に出す数字と、グラフの比べ方（重ねる／左右に並べる／全部の案を色分けで重ねる）、操作中に上に付いてくるグラフの大きさ（出さない／小さく／大きく）を選ぶ。
+// 既定では何も足さず、重ねる。付いてくるグラフは大きく。
 // 事務所の設定として持てる形で、まだファイルには保存しない（settings.ts）
-import { AGE_OPTIONS, LAYOUT_CHOICES, METRIC_CHOICES, shows, toggleMetric, type DisplaySettings } from "./settings.ts";
+import { AGE_OPTIONS, DEFAULT_DISPLAY_SETTINGS, DOCK_CHOICES, LAYOUT_CHOICES, METRIC_CHOICES, shows, toggleMetric, type DisplaySettings } from "./settings.ts";
 
 export function DisplaySettingsPanel({ value, onChange, onClose, feeAvailable }: { value: DisplaySettings; onChange: (s: DisplaySettings) => void; onClose: () => void; feeAvailable: boolean }) {
   return (
@@ -45,15 +46,18 @@ export function DisplaySettingsPanel({ value, onChange, onClose, feeAvailable }:
           );
         })}
       </div>
-      <div class="ds-layout ds-dock">
-        <span class="ds-k">操作中</span>
-        <label class={`ds-item${value.dock ? " on" : ""}`}>
-          <input type="checkbox" checked={value.dock} onChange={(e) => onChange({ ...value, dock: (e.currentTarget as HTMLInputElement).checked })} data-dock-setting />
-          <span class="ds-l">
-            操作中はグラフを上に表示（既定）
-            <small>対策・想定の前提までスクロールすると、縮めたグラフが画面の上に付いてきます（結果と万一のとき）。窓の高さが低いときは出しません</small>
-          </span>
-        </label>
+      <div class="ds-layout ds-dock" role="radiogroup" aria-label="操作中はグラフを上に表示" data-dock-choices>
+        <span class="ds-k">操作中はグラフを上に表示</span>
+        {DOCK_CHOICES.map((c) => (
+          <label key={c.key} class={`ds-item${value.dock === c.key ? " on" : ""}`}>
+            <input type="radio" name="chart-dock" value={c.key} checked={value.dock === c.key} onChange={() => onChange({ ...value, dock: c.key })} data-dock-setting={c.key} />
+            <span class="ds-l">
+              {c.label}
+              {c.key === DEFAULT_DISPLAY_SETTINGS.dock ? "（既定）" : ""}
+              <small>{c.note}</small>
+            </span>
+          </label>
+        ))}
       </div>
       <div class="ds-layout" role="radiogroup" aria-label="比べ方" data-layout-choices>
         <span class="ds-k">比べ方</span>

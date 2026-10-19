@@ -3,11 +3,14 @@
 // 選んだ数字は、案の帯のカード・結論の2行目・グラフ（○歳時点の印）に出す。
 // グラフの比べ方（基準の案と選んだ案を1つのグラフに重ねるか、左右に2つ並べるか、帯の全部の案を色分けで重ねるか）もここで選ぶ。既定は重ねる
 import { man, manDiff } from "../presentation/format.ts";
+import type { DockMode } from "../presentation/ChartDock.tsx";
 import type { ChartLayout } from "../presentation/MainChart.tsx";
 import type { AgeMark, VerdictPart } from "../presentation/model.ts";
 import type { EngineRequest } from "../engine/types.ts";
 import type { PlanMetrics } from "./plans/compare.ts";
 import { targetYearOf } from "./plans/compare.ts";
+
+export type { DockMode };
 
 export type MetricKey = "assetsAtAge" | "takeHome" | "minAssets" | "feeLine";
 
@@ -18,11 +21,24 @@ export interface DisplaySettings {
   atAge: number;
   /** グラフの比べ方: 重ねる（既定）／左右に並べる／全部の案を色分けで重ねる */
   layout: ChartLayout;
-  /** 操作中はグラフを上に表示（操作の欄までスクロールすると、縮めたグラフが画面の上に付いてくる。既定はオン。見通しと万一のときで同じ） */
-  dock: boolean;
+  /** 操作中はグラフを上に表示（操作の欄までスクロールすると、グラフが画面の上に付いてくる。見通しと万一のときで同じ）: 出さない／小さく／大きく（既定） */
+  dock: DockMode;
 }
 
-export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", dock: true };
+export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", dock: "large" };
+
+export const DOCK_CHOICES: readonly { key: DockMode; label: string; note: string }[] = [
+  { key: "off", label: "出さない", note: "対策・想定の前提までスクロールしても、グラフは付いてきません" },
+  { key: "small", label: "小さく", note: "グラフを元の約4割の高さに縮めて付いてこさせます。操作の欄が多く見えます。窓の高さが低いときは出しません" },
+  { key: "large", label: "大きく（操作の欄は1行分を残す）", note: "グラフを大きく取り、その下に操作の欄の1行分（つまみ4つ）を残します。隠れた行を動かすと、その行が見えるところまで少しスクロールします" },
+];
+
+/** 保存した本文の値を読む（前の版は「上に表示する／しない」の2つ: する→既定、しない→出さない） */
+export function readDockMode(v: unknown): DockMode {
+  if (v === "off" || v === "small" || v === "large") return v;
+  if (v === false) return "off";
+  return DEFAULT_DISPLAY_SETTINGS.dock;
+}
 
 export const LAYOUT_CHOICES: readonly { key: ChartLayout; label: string; note: string }[] = [
   { key: "overlay", label: "重ねる", note: "1つのグラフに基準のプラン（点線）と選んだプランを重ねる（既定）" },
