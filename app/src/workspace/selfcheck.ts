@@ -1,6 +1,7 @@
 // 開発用のサーバーのときだけ（URL の #selfcheck）: 画面を実際に操作して、数字が変わること・文字を大きくできること・根拠が端の引き出しに出ることと、
 // 計算の速さを確かめ、開発用のサーバーに送る（vite.config.ts の /__dev/report。本番のビルドには入らない）
 import type { DualEngine } from "../engine/dual.ts";
+import { overflowsBar } from "./header/fit.ts";
 
 // 待ちは開発用のサーバーに任せる（窓が隠れると WebView のタイマーが止まることがあるため。通信の応答は届く）
 const sleep = (ms: number) => fetch(`/__dev/sleep/${Math.round(ms)}`).then(() => undefined);
@@ -64,6 +65,11 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
       fontSizeAfter: getComputedStyle(document.documentElement).fontSize,
       lineWidthBefore: lwBefore,
       lineWidthAfter: getComputedStyle(document.querySelector(".line-prop") as Element).strokeWidth,
+      // 上の帯が窓からはみ出していないこと（詰めた段も記録する）
+      header: (() => {
+        const el = document.querySelector<HTMLElement>("header.top");
+        return el === null ? null : { fit: el.dataset.fit ?? null, overflow: overflowsBar(el), width: innerWidth };
+      })(),
     };
     await stage("big", report);
     document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
