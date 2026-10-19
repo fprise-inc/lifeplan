@@ -40,6 +40,8 @@ export type {
   CoverageBenefit,
   ScheduleRowInput,
   MarketShock,
+  InvestmentSetting,
+  ReturnShift,
   IncomeShock,
   ProtectionRequest,
   LivingCategory,
@@ -68,5 +70,5 @@ export { netByYear, tableYear } from "../engine/aggregate.ts";
 export { boxValue } from "./box.ts";
 export type * from "./contracts.ts";
 export { fail } from "./fail.ts";
-export { ageMonth, annualReturn, accountReturnRate, monthsIn, paymentsIn, paymentsInYear, paidByYear, amountInYear, fiscalYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS, grownByYear, monthlyParts, evenMonthPayments, spousesAt, childrenOf, contingencyRatio, exemptionMonths, EXEMPTION_WEIGHT_IDS, EXEMPTION_WEIGHT_DENOMINATOR } from "./helpers.ts";
+export { ageMonth, annualReturn, accountReturnRate, shockShare, INVEST_KINDS, monthsIn, paymentsIn, paymentsInYear, paidByYear, amountInYear, fiscalYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS, grownByYear, monthlyParts, evenMonthPayments, spousesAt, childrenOf, contingencyRatio, exemptionMonths, EXEMPTION_WEIGHT_IDS, EXEMPTION_WEIGHT_DENOMINATOR } from "./helpers.ts";
 export type { ExemptionCounts } from "./helpers.ts";

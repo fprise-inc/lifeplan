@@ -3,7 +3,7 @@ import { EngineError } from "../errors.ts";
 import type { Ctx } from "../registry/ctx.ts";
 import type { Flow } from "../engine/types.ts";
 import { numTable } from "../engine/numTable.ts";
-import { RATE_ZERO, type Rate } from "../money/rate.ts";
+import { RATE_ONE, RATE_ZERO, type Rate } from "../money/rate.ts";
 import { yen, type Yen } from "../money/yen.ts";
 import type { AgeSwitch } from "../time/ageSwitch.ts";
 import { formatYm, monthIndex, monthOf, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
@@ -200,26 +200,77 @@ export function annualReturn(ctx: Ctx, opening: Yen, net: Yen, r: Rate, months: 
 
 /** 預金・外貨預金の既定の資産クラス（assetMix を省略したとき） */
 const CASH_KINDS: Readonly<Record<string, string>> = { deposit: "cash.deposit", fxDeposit: "cash.foreign", realEstate: "realEstate" };
+/** 運用する器（資産配分・利回りの書き換え（returnShifts）を当てる。まとめた金融資産の器を含む。0026） */
+export const INVEST_KINDS: ReadonlySet<string> = new Set(["taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "esop", "pooled"]);
+
+interface ReturnAccount {
+  readonly kind: string;
+  readonly assetMix?: readonly { readonly assetClass: string; readonly share: string }[];
+  readonly expectedReturn?: string;
+  readonly fee?: string;
+}
 
 /**
  * 器のその年の利回り: 資産クラスの配分（assetMix）×前提の資産クラスごとの利回り（assumptions.assetReturns）。
  * 前提に無い資産クラスは運用利回り（assumptions.investmentReturn）、ただし不動産は0。assetMix を省略した器は、預金・外貨預金・不動産は
- * その資産クラス、ほかは運用利回り。部品の reads に assumptions.investmentReturn と assumptions.assetReturns が要る
+ * その資産クラス、ほかは運用利回り。部品の reads に assumptions.investmentReturn と assumptions.assetReturns が要る。
+ * 0026: FP が入れた器の利回り（expectedReturn）があればそれを使う。運用の費用（fee）を引く。資産配分の入れ方でリバランスしないときは、
+ * 資産クラスごとの増え方で割合がずれる（計算基準年からの資産クラスの増え方で重みを付け直す）。運用する器には利回りの書き換え（returnShifts）を当てる。
+ * reads に assumptions.investment と assumptions.returnShifts も要る
  */
-export function accountReturnRate(ctx: Ctx, account: { readonly kind: string; readonly assetMix?: readonly { readonly assetClass: string; readonly share: string }[] }, year: number): Rate {
-  const classRate = (cls: string): Rate => {
-    const fallback = cls === "realEstate" ? RATE_ZERO : ctx.assumption("investmentReturn", year);
-    return ctx.assumptionIn("assetReturns", cls, year, fallback) ?? fallback;
+export function accountReturnRate(ctx: Ctx, account: ReturnAccount, year: number): Rate {
+  const classRate = (cls: string, y: number): Rate => {
+    const fallback = cls === "realEstate" ? RATE_ZERO : ctx.assumption("investmentReturn", y);
+    return ctx.assumptionIn("assetReturns", cls, y, fallback) ?? fallback;
   };
   const mix = account.assetMix;
-  if (mix === undefined || mix.length === 0) {
+  let r: Rate;
+  if (account.expectedReturn !== undefined) r = ctx.rate.of(account.expectedReturn);
+  else if (mix === undefined || mix.length === 0) {
     const cls = CASH_KINDS[account.kind];
-    return cls === undefined ? ctx.assumption("investmentReturn", year) : classRate(cls);
+    r = cls === undefined ? ctx.assumption("investmentReturn", year) : classRate(cls, year);
+  } else if (mix.length === 1) r = classRate((mix[0] as { assetClass: string }).assetClass, year);
+  else {
+    const setting = INVEST_KINDS.has(account.kind) ? ctx.setting<{ method?: string; allocation?: { rebalance?: boolean } }>("investment") : undefined;
+    const drift = setting?.method === "allocation" && setting.allocation?.rebalance === false;
+    const baseYear = yearOf(ctx.time.base);
+    // リバランスしないとき: 重み＝割合×計算基準年からの増え方（Π(1＋その年の利回り)）
+    const weights = mix.map((m) => {
+      let w = ctx.rate.of(m.share);
+      if (drift) for (let y = baseYear; y < year; y++) w = ctx.rate.mul(w, ctx.rate.add(RATE_ONE, classRate(m.assetClass, y)));
+      return w;
+    });
+    let total = RATE_ZERO;
+    for (const w of weights) total = ctx.rate.add(total, w);
+    r = RATE_ZERO;
+    mix.forEach((m, i) => {
+      const w = weights[i] as Rate;
+      const share = drift && ctx.rate.compare(total, RATE_ZERO) > 0 ? ctx.rate.div(w, total) : w;
+      r = ctx.rate.add(r, ctx.rate.mul(classRate(m.assetClass, year), share));
+    });
   }
-  if (mix.length === 1) return classRate((mix[0] as { assetClass: string }).assetClass);
-  let r = RATE_ZERO;
-  for (const m of mix) r = ctx.rate.add(r, ctx.rate.mul(classRate(m.assetClass), ctx.rate.of(m.share)));
+  if (account.fee !== undefined) r = ctx.rate.sub(r, ctx.rate.of(account.fee));
+  if (INVEST_KINDS.has(account.kind)) {
+    for (const s of ctx.setting<readonly { from: number; to?: number; add?: string; cap?: string }[]>("returnShifts") ?? []) {
+      if (year < s.from || (s.to !== undefined && year > s.to)) continue;
+      if (s.add !== undefined) r = ctx.rate.add(r, ctx.rate.of(s.add));
+      if (s.cap !== undefined && ctx.rate.compare(r, ctx.rate.of(s.cap)) > 0) r = ctx.rate.of(s.cap);
+    }
+  }
   return r;
+}
+
+/**
+ * 時価の下落（前提 marketShocks の1件）で下げる割合（0026）。資産クラス（assetClasses）を書いた下落は、器の資産の配分のうち、その資産クラスの
+ * 割合の合計だけ下げる（配分の無い運用の器は全体、運用でない器（預金など）は下げない＝null）。書いていない下落は全体（1）
+ */
+export function shockShare(ctx: Ctx, account: { readonly kind: string; readonly assetMix?: readonly { readonly assetClass: string; readonly share: string }[] }, classes: readonly string[] | undefined): Rate | null {
+  if (classes === undefined) return RATE_ONE;
+  const mix = account.assetMix;
+  if (mix === undefined || mix.length === 0) return INVEST_KINDS.has(account.kind) ? RATE_ONE : null;
+  let s = RATE_ZERO;
+  for (const m of mix) if (classes.includes(m.assetClass)) s = ctx.rate.add(s, ctx.rate.of(m.share));
+  return ctx.rate.compare(s, RATE_ZERO) > 0 ? s : null;
 }
 
 /**

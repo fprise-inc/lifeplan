@@ -45,6 +45,20 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
     memo: ["退職金1,800万円は規程の確認待ち（架空の例）", "奥様は扶養内のパートを60歳まで続ける意向（架空の例）", "次回: 長男の進路の希望を確認"],
   },
   {
+    id: "investmentCouple",
+    title: "資産運用の見本（会社員の夫婦と子2人）",
+    targetAge: 95,
+    steps: {
+      retireAge: [60, 62, 65, 68, 70],
+      pensionAge: [60, 65, 68, 70, 75],
+      nisaMonthly: [0, 30000, 50000, 70000, 100000],
+      livingMonthly: [260000, 280000, 300000, 320000],
+    },
+    firstProposal: {},
+    reemployment: { fromAge: 60, type: "contract", annualSalary: 4200000, standardMonthlyRemuneration: 360000 },
+    memo: ["NISA のつみたて投資枠を年齢で増やす（架空の例）", "65歳から毎月17万円を取り崩す前提（架空の例）"],
+  },
+  {
     id: "lifetime100Plan",
     title: "共働きの夫婦と子1人（100年分）",
     targetAge: 95,

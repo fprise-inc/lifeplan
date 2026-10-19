@@ -8,6 +8,7 @@ import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { inputItems, itemStage, saveItem } from "./items.ts";
 import { StatusBadge } from "./StatusBadge.tsx";
+import { SavingsPanel } from "./savings/SavingsPanel.tsx";
 import { historyScope, undoController, useUndoScope } from "../undo/controller.ts";
 import { deepEqual, UndoHistory } from "../undo/history.ts";
 
@@ -73,7 +74,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   // 開いた直後: 最初の欄（無ければ閉じるボタン）に移る。背景はスクロールさせない
   useEffect(() => {
     const el = panel.current;
-    const first = el?.querySelector<HTMLElement>(".ip-body input, .ip-body select") ?? el?.querySelector<HTMLElement>(".ip-body button:not(.danger)") ?? el?.querySelector<HTMLElement>(".x-btn");
+    const first = el?.querySelector<HTMLElement>(".ip-body [data-autofocus]") ?? el?.querySelector<HTMLElement>(".ip-body input, .ip-body select") ?? el?.querySelector<HTMLElement>(".ip-body button:not(.danger)") ?? el?.querySelector<HTMLElement>(".x-btn");
     first?.focus({ preventScroll: true });
     document.documentElement.classList.add("panel-open");
     return () => document.documentElement.classList.remove("panel-open");
@@ -115,7 +116,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
       <div class="scrim" onClick={tryClose} aria-hidden="true" />
       <div
         ref={panel}
-        class="ipanel"
+        class={`ipanel${itemId === "savings" ? " wide" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="ip-title"
@@ -161,10 +162,16 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
           <p class="ip-lead">{item.lead}空欄は統計の目安などで補って計算します（「推定」の印）。</p>
         </div>
         <div class="ip-body">
-          {sections.map((s) => (
-            <Section key={s.key} section={s} wh={draft} level={level} onEdit={edit} />
-          ))}
-          {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます。</p> : null}
+          {itemId === "savings" ? (
+            <SavingsPanel wh={draft} level={level} onEdit={edit} />
+          ) : (
+            <>
+              {sections.map((s) => (
+                <Section key={s.key} section={s} wh={draft} level={level} onEdit={edit} />
+              ))}
+              {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます。</p> : null}
+            </>
+          )}
         </div>
         <div class="ip-foot" role={leaving ? "alert" : undefined}>
           {leaving ? (

@@ -16,6 +16,7 @@ import { TimeResolver } from "../time/timepoint.ts";
 import { tableYear } from "./aggregate.ts";
 import { deepFreeze } from "./freeze.ts";
 import { numTable, type NumTable } from "./numTable.ts";
+import { applyInvestment } from "./investment.ts";
 import { applyContingency, applyStress } from "./overlay.ts";
 import type { AnnualRow, CalcConventions, EngineRequest, Flow } from "./types.ts";
 
@@ -370,7 +371,9 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   // 0008 の7: 上書きの決まり方の順番の最後に、ストレステスト（前提の書き換え）と万一の重ねを入力に重ねる（overlay.ts）。
   // 構成員の生年月・性別と名前つきイベントは変えないので、要求の組（使い回しの範囲）は万一なしの要求と同じ
   const time = new TimeResolver(given.household.members, given.household.events);
-  const stressed = applyStress(given, time);
+  // 0026: 資産運用の入れ方と既定の値（積立の終わり・iDeCo の受け取りの始まり）を、ストレス・万一より先に重ねる
+  const invested = applyInvestment(given, time, parseYm(given.baseMonth), decemberOf(given.endYear));
+  const stressed = applyStress(invested, time);
   const overlaid = applyContingency(stressed.input, time);
   const input = overlaid.input;
   const h = input.household;

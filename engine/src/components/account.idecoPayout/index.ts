@@ -2,7 +2,8 @@
 // （利回りを変えても、受け取りの無い年の税の部品は account.ideco を読まない。0006 の追記: 判定だけを返す小さな部品）。
 // - 受け取りを始められる月: 60歳の時点の通算加入者等期間（enrolledSince から60歳の前の月まで。省略は最初の掛金の月）で決まる年齢
 //   （10年以上なら60歳、1か月以上なら65歳）。60歳以後に加入したときは加入から5年後。withdrawalLockedUntil があればその翌月より前には受け取らない
-// - 始まり: payout.start（受け取りを始められる月より前ならその月）。75歳までに始める。payout が無ければ75歳の月に一時金
+// - 始まり: payout.start（受け取りを始められる月より前ならその月）。75歳までに始める。payout・start が空なら、計算の前に退職の年
+//   （60〜65歳に収める）の一時金を入れる（0026。engine/investment.ts）
 import { addMonths, bracketFor, defineComponent, formatYm, parseYm, yen, type AccountInput, type MonthIndex } from "../../sdk/index.ts";
 
 const P = { earliest: "ideco.payout.earliestAge", byMonths: "ideco.payout.startAgeByMonths", latest: "ideco.payout.latestAge" };
@@ -59,7 +60,8 @@ export default defineComponent<{ member: string }, { accounts: IdecoPayoutPlan[]
         const lock = addMonths(ctx.time.resolve(a.withdrawalLockedUntil), 1);
         if (lock > earliest) earliest = lock;
       }
-      const wanted = a.payout === undefined ? latest : ctx.time.resolve(a.payout.start);
+      // 始まりが空のときは、エンジンが計算の前に退職の年（60〜65歳）を入れる（0026。engine/investment.ts）
+      const wanted = a.payout?.start === undefined ? latest : ctx.time.resolve(a.payout.start);
       let start = wanted < earliest ? earliest : wanted;
       if (start > latest) start = latest;
       const method = a.payout?.method ?? "lumpSum";

@@ -417,6 +417,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.expense.living.drawdown
+    status: active
+    label: "取り崩して使うお金（取り崩しの計画のうち、その年の収支の不足より多い分）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.expense.housing
     status: active
     label: 住居関連費
@@ -870,6 +876,12 @@ entries:
   - id: cf.balance.account.otherAsset
     status: active
     label: "その他の資産"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.pooled
+    status: active
+    label: "まとめた金融資産（合計で入れた金融資産・まだ口座に分けていない分）"
     since: draft
     aliases: []
     replacedBy: null

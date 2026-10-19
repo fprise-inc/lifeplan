@@ -41,6 +41,8 @@ export const STRESS_TEMPLATES: readonly {
   { template: "inflationSpike", title: "インフレが一定期間だけ上振れする", params: { year: null, years: 5, rate: "0.04", alsoWages: false } },
   { template: "rateRise", title: "変動金利が上がる", params: { from: null, add: "0.01" } },
   { template: "incomeDrop", title: "収入が一定期間減る", params: { member: null, from: null, years: 3, ratio: "0.2" } },
+  { template: "lowReturnPeriod", title: "退職から一定期間、運用の利回りが低いまま", params: { member: null, year: null, years: 10, cap: "0.005" } },
+  { template: "returnShortfall", title: "運用の利回りが想定よりずっと低い", params: { year: null, add: "-0.01" } },
 ];
 
 const at = (m: MonthIndex): Timepoint => ({ at: formatYm(m) });
@@ -207,8 +209,28 @@ export function applyStress(input: EngineInput, time: TimeResolver): { input: En
       const ret = retirementOf(input, member, time);
       const year = p.year ?? (ret === null ? baseYear + 1 : yearOf(ret));
       const drop = p.drop ?? "0.3";
-      a.marketShocks = [...(a.marketShocks ?? []), { year, drop, ...(p.kinds !== undefined ? { kinds: p.kinds } : {}) }];
-      params = { member, year, drop, ...(p.kinds !== undefined ? { kinds: p.kinds } : {}) };
+      const extra = { ...(p.kinds !== undefined ? { kinds: p.kinds } : {}), ...(p.assetClasses !== undefined ? { assetClasses: p.assetClasses } : {}) };
+      a.marketShocks = [...(a.marketShocks ?? []), { year, drop, ...extra }];
+      params = { member, year, drop, ...extra };
+      break;
+    }
+    case "lowReturnPeriod": {
+      // 0026: 退職の年（year があればその年）から years 年のあいだ、運用の利回りを cap までに抑える
+      const member = p.member ?? selfOf(input);
+      const ret = retirementOf(input, member, time);
+      const year = p.year ?? (ret === null ? baseYear + 1 : yearOf(ret));
+      const years = p.years ?? 10;
+      const cap = p.cap ?? "0.005";
+      a.returnShifts = [...(a.returnShifts ?? []), { from: year, to: year + years - 1, cap }];
+      params = { member, year, years, cap };
+      break;
+    }
+    case "returnShortfall": {
+      // 0026: 運用の利回りがずっと想定より低い（add は負の率。省略は -0.01）
+      const add = p.add ?? "-0.01";
+      const from = p.year ?? baseYear;
+      a.returnShifts = [...(a.returnShifts ?? []), { from, add }];
+      params = { year: from, add };
       break;
     }
     case "inflationSpike": {

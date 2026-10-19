@@ -32,6 +32,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: account.expectedReturn
+    status: active
+    label: "FP が入れた器の利回り（年率。入れたときは資産の配分の利回りの代わり。0026）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: account.fee
+    status: active
+    label: "運用の費用（信託報酬など。年率。器の利回りから引く。0026）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: account.frame
     status: active
     label: "NISA の非課税保有限度額の消化（簿価。asOfYear の年末の値）"
@@ -116,6 +128,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: assumptions.assetVolatility
+    status: active
+    label: "資産クラスごとの値動きの大きさ（年率の標準偏差。計算には使わない。0026）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: assumptions.educationInflation
     status: active
     label: "教育費の上昇率（年率。省略は物価上昇率。学費・学校外活動費に使い、公的支援には使わない）"
@@ -131,6 +149,12 @@ entries:
   - id: assumptions.inflation
     status: active
     label: "物価上昇率（年率。省略は0。年金額の改定に使う）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.investment
+    status: active
+    label: "資産運用の入れ方と、運用・取り崩しの前提（0026）"
     since: draft
     aliases: []
     replacedBy: null
@@ -167,6 +191,12 @@ entries:
   - id: assumptions.realEstateValuation
     status: active
     label: "持ち家の評価の前提（土地の上昇率・土地の割合・構造ごとの耐用年数・建物の残りの価値の下限・売却の費用。省略した項目は目安）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.returnShifts
+    status: active
+    label: "運用の利回りの書き換え（運用する器だけ。from〜to の年。add を足し、cap より高ければ cap にする。0026）"
     since: draft
     aliases: []
     replacedBy: null

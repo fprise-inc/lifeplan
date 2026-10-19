@@ -94,7 +94,7 @@ export default defineComponent<{ member: string }, IdecoContributionOutput>({
       return p;
     };
     // 受け取りを始める月（その月から掛金を出さない）
-    const payoutFrom = (a: AccountInput): MonthIndex => (a.payout === undefined ? addMonths(end, 1) : ctx.time.resolve(a.payout.start));
+    const payoutFrom = (a: AccountInput): MonthIndex => (a.payout?.start === undefined ? addMonths(end, 1) : ctx.time.resolve(a.payout.start));
     for (const a of accounts) {
       const stop = payoutFrom(a);
       for (const c of a.contributions) {

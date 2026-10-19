@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.3。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
+// 本文の区画（形式の版 0.5。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
 // - meta: 形式名・形式の版・保存日時・アプリの版・表示用の顧客番号、誰が直したか（保存した人・改訂の履歴・出てくるメンバーの表示名。本体が入れる。0023 の6）
 // - household: 現状の世帯（計算の要求と、画面の側の値: 呼び名・定年後の予定・FP用のメモとその行ごとの書いた人・万一の想定の前提・足した項目など）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
@@ -20,7 +20,7 @@ import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, readDockMode, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.4";
+export const BODY_FORMAT_VERSION = "0.5";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
