@@ -1294,7 +1294,7 @@ export function App() {
 
   const drawer = memoOpen || evidence !== null;
   const ageMark = opened === null ? null : ageMarkOf(settings, opened.wh.request);
-  // 上の帯の札と知らせ（ふだんは出さない。header/status.ts）
+  // 上の帯の札と通知（ふだんは出さない。header/status.ts）
   const barIn: BarInputs = {
     opened: opened !== null,
     stored: storedInfo !== null,
@@ -1367,7 +1367,7 @@ export function App() {
           ) : null
         }
         big={big}
-        onBig={() => setBig(!big)}
+        onBig={setBig}
       />
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <main class="wrap">

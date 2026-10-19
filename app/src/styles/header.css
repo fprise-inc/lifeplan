@@ -1,6 +1,6 @@
 /* 上の帯（workspace/header/TopBar.tsx）。画面の上に固定しない（スクロールで流れる）。色と線は app.css の変数を使う。
-   並び: 左＝ロゴと世帯の選択（と急ぎの札）、中＝タブ、右＝↶↷・メモ・文字を大きくする・知らせの印。
-   文字を大きくしたとき・窓が狭いときは、data-fit（header/fit.ts が測って決める）で段階的に詰める。どの段でも見切れさせない:
+   並び: 左＝ロゴと世帯の選択（と急ぎの札）、中＝タブ、右＝↶↷・メモ・文字の大きさ（中・大）・通知の印。
+   文字を「大」にしたとき・窓が狭いときは、data-fit（header/fit.ts が測って決める）で段階的に詰める。どの段でも見切れさせない:
      0 = すべて文字つき / 1 = 右側をアイコンだけに / 2 = 世帯のボタンを省略して詰める / 3 = タブを2行目に折り返す */
 .top { display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); grid-template-areas: "l t r"; align-items: center; gap: 8px 16px; padding: 9px 20px; background: #fff; border-bottom: 1px solid var(--card-line); }
 .top-l { grid-area: l; display: flex; align-items: center; gap: 8px 12px; min-width: 0; }
@@ -40,18 +40,15 @@
 .memo-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
 .memo-n { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 99px; background: #fff; color: var(--ink); border: 1.5px solid currentColor; font-size: 0.78em; padding: 0 0.3em; }
 
-/* 文字を大きくする */
-.big-btn { display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--ink); background: #fff; border-radius: 999px; padding: 5px 14px 5px 8px; font-weight: 700; cursor: pointer; white-space: nowrap; flex: none; }
-.big-btn .sw { width: 38px; height: 22px; border-radius: 99px; background: #8a939d; position: relative; flex: none; }
-.big-btn .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.15s; }
-.big-btn .aa { font-size: 0.8rem; }
-.big-btn .aa b { font-size: 1.15rem; }
-.big-btn[aria-pressed="true"] { background: var(--prop); border-color: var(--prop); color: #fff; }
-.big-btn[aria-pressed="true"] .sw { background: #fff; }
-.big-btn[aria-pressed="true"] .sw::after { left: 19px; background: var(--prop); }
-@media (prefers-reduced-motion: reduce) { .big-btn .sw::after { transition: none; } }
+/* 文字の大きさ「文字 [中] [大]」（どちらかを選ぶ。選んでいる方を塗る） */
+.fs-pick { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.fs-lbl { font-weight: 700; font-size: 0.86rem; color: var(--ink-2); margin-right: 2px; white-space: nowrap; }
+.fs-opt { min-width: 2.3em; height: 2.1em; padding: 0 0.5em; display: inline-grid; place-items: center; border: 2px solid var(--ink-2); background: #fff; color: var(--ink); border-radius: 8px; font-weight: 700; font-size: 0.9rem; line-height: 1; cursor: pointer; }
+.fs-opt.fs-l { font-size: 1.05rem; }
+.fs-opt:hover:not([aria-checked="true"]) { border-color: var(--ink); background: var(--prop-bg); }
+.fs-opt[aria-checked="true"] { background: var(--prop); border-color: var(--prop); color: #fff; }
 
-/* 知らせの印（件数つき）と一覧。行動を求める知らせ（復元キーの保管など）をここにまとめる */
+/* 通知の印（件数つき）と一覧。行動を求める通知（復元キーの保管など）をここにまとめる */
 .bell { position: relative; flex: none; }
 .bell-btn { display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 8px; padding: 4px 10px 4px 8px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .bell-btn[aria-expanded="true"] { background: var(--est-ink); border-color: var(--est-ink); color: #fff; }
@@ -63,14 +60,14 @@
 .bell-text { font-weight: 700; }
 .bell-act { color: var(--ink-2); font-size: 0.82rem; white-space: nowrap; }
 
-/* 1: 右側の操作をアイコンだけにする（読み上げの名前は aria-label に残す）・世帯の要約を短く */
+/* 1: 右側の操作をアイコンだけにする（読み上げの名前は aria-label に残す）・世帯の要約を短く。文字の大きさの［中］［大］はそのまま */
 .top[data-fit]:not([data-fit="0"]) .lbl { display: none; }
-.top[data-fit]:not([data-fit="0"]) .big-btn { padding: 5px 10px 5px 8px; }
 .top[data-fit]:not([data-fit="0"]) .hh-btn { max-width: 16em; }
 .top[data-fit]:not([data-fit="0"]) { gap: 8px 12px; }
-/* 2: 世帯のボタンを省略して詰める・ロゴの文字を隠す・タブの間を詰める */
+/* 2: 世帯のボタンを省略して詰める・ロゴの文字と「文字」のラベルを隠す（［中］［大］の名前に「文字の大きさ」が入っている）・タブの間を詰める */
 .top:is([data-fit="2"], [data-fit="3"]) { grid-template-columns: minmax(min-content, 1fr) auto max-content; padding-left: 14px; padding-right: 14px; }
 .top:is([data-fit="2"], [data-fit="3"]) .brand-name { display: none; }
+.top:is([data-fit="2"], [data-fit="3"]) .fs-lbl { display: none; }
 .top:is([data-fit="2"], [data-fit="3"]) .hh-btn { flex: 0 1 auto; min-width: 6em; overflow: hidden; }
 .top:is([data-fit="2"], [data-fit="3"]) .tabs button { padding: 6px 7px; }
 .top:is([data-fit="2"], [data-fit="3"]) .bar-alert .full { display: none; }

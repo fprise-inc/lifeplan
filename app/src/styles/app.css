@@ -1,5 +1,5 @@
 /* ファイナンシア（入力のホーム・主画面・万一の想定）。色は藍（提案）と灰（現状）の2色、不足の赤だけ例外。塗りは単色、不足は斜線。
-   表示は1つ（共有用の切り替えは無い）。右上の「文字を大きくする」で、文字を約2割大きく・線を太くする */
+   表示は1つ（共有用の切り替えは無い）。右上の文字の大きさ「中・大」の「大」で、文字を約2割大きく・線を太くする */
 :root {
   color-scheme: light;
   --ink: #1a1d21;
@@ -38,7 +38,7 @@
   --font: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
 }
 html { font-size: var(--fs); -webkit-text-size-adjust: 100%; }
-/* 文字を大きくする: 文字を約2割大きく（16px→19px）、線を太く */
+/* 文字の大きさ「大」: 文字を約2割大きく（16px→19px）、線を太く */
 html.big { --fs: 19px; --lw-prop: 5px; --lw-base: 4.5px; --drawer-w: 500px; }
 html.panel-open { overflow: hidden; }
 * { box-sizing: border-box; }

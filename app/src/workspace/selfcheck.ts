@@ -53,10 +53,10 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
     await sleep(100);
     report.initial = { verdict: text("[data-verdict]"), year: text(".sel-lbl") };
     await stage("initial", report);
-    // 文字を大きくする（メモは画面に出さない。引き出しを開いたときだけ）
+    // 文字の大きさを「大」にする（メモは画面に出さない。引き出しを開いたときだけ）
     const fsBefore = getComputedStyle(document.documentElement).fontSize;
     const lwBefore = getComputedStyle(document.querySelector(".line-prop") as Element).strokeWidth;
-    document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
+    document.querySelector<HTMLButtonElement>('[data-text-size="large"]')?.click();
     await sleep(200);
     report.big = {
       htmlClass: document.documentElement.className,
@@ -72,7 +72,7 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
       })(),
     };
     await stage("big", report);
-    document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
+    document.querySelector<HTMLButtonElement>('[data-text-size="mid"]')?.click();
     await sleep(300);
     // 根拠のパネル（ご主人の年金の、受け取り開始の翌々年のマス）
     const cell = [...document.querySelectorAll<HTMLButtonElement>(".cellbtn")].find((b) => (b.getAttribute("aria-label") ?? "").includes("ご主人の年金"));
@@ -272,11 +272,11 @@ export async function runContingencyCheck(host: string): Promise<void> {
     await sleep(50);
     report.reopen = { loading: document.querySelector(".cg-loading") !== null, headline: text(".cg-chart [data-headline]") !== null, perf: text("[data-cg-perf]") };
     await stage("cg-death-2030", report);
-    document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
+    document.querySelector<HTMLButtonElement>('[data-text-size="large"]')?.click();
     await sleep(300);
     report.big = { memo: document.querySelector("[data-memo]") !== null, inputs: document.querySelector("[data-cg-premises]") !== null, fontSize: getComputedStyle(document.documentElement).fontSize };
     await stage("cg-big", report);
-    document.querySelector<HTMLButtonElement>("[data-big-toggle]")?.click();
+    document.querySelector<HTMLButtonElement>('[data-text-size="mid"]')?.click();
     await sleep(200);
     report.ok = true;
   } catch (e) {
