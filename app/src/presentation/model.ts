@@ -298,6 +298,8 @@ export interface StackSeries {
   key: string;
   label: string;
   values: Yen[];
+  /** 資産と負債の推移の資産の区分（金融資産・不動産・その他の資産）。バランスシートの表のまとめ方に使う */
+  group?: "financial" | "realEstate" | "other";
 }
 
 /** 収支の推移: 年ごとの収入（上に積む）と支出（下に積む）。赤字（年間収支がマイナス）の年は「▲」で示す */
@@ -311,15 +313,16 @@ export interface FlowChartModel {
   net: Yen[];
 }
 
-/** 資産と負債の推移: 資産（上に積む）と負債（下に積む）、純資産（資産−負債）の線 */
+/** 資産と負債の推移（全資産・全負債）: 資産（金融資産の内訳・不動産・その他の資産。上に積む）と負債（下に積む）、純資産（資産−負債）の線 */
 export interface BalanceChartModel {
   title: string;
   years: number[];
   ages: (number | null)[];
   assets: StackSeries[];
   debts: StackSeries[];
-  /** 預金の不足（金融資産のマイナス。赤の斜線で下に積む） */
+  /** 預金の不足（金融資産の器のマイナスの合計。0以下。赤の斜線で負債の側に積む） */
   shortfall: Yen[];
+  /** 純資産（金融資産＋不動産＋その他の資産−負債） */
   netWorth: Yen[];
 }
 

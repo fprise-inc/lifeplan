@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:asset.car.output",
+  "title": "車の年末の評価額",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cars"],
+  "properties": {
+    "cars": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "owner", "years"],
+        "properties": {
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "owner": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["year", "value"],
+              "properties": { "year": { "$ref": "urn:financia:schema:common#/$defs/year" }, "value": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

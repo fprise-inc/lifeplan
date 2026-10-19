@@ -16,6 +16,7 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   "debt.schedule.equalPayment": { label: "住宅ローンの返済", text: "毎月の返済額 ＝ 元利均等返済（金利の見直し・5年ルール・125%ルールを含む）" },
   "housing.residence.propertyTax": { label: "固定資産税", text: "固定資産税 ＝ 入力した年額" },
   "housing.residence.maintenance": { label: "修繕費", text: "修繕費 ＝ 月額 × 上昇率での延ばし" },
+  "housing.valuation.sale": { label: "持ち家の売却の手取り", text: "売却の手取り ＝ 売却価格（入れていなければその年の評価額）− 売却価格 × 売却の費用の割合（譲渡所得の税は含めない）" },
   "insurance.premiumPayment.monthly": { label: "保険料", text: "保険料 ＝ 契約の保険料（払込の期間の間）" },
   "plan.cashflow.closing": { label: "年末の金融資産", text: "年末の金融資産 ＝ 年初の残高 ＋ 年間収支 ＋ 運用益" },
   "plan.cashflow.debt": { label: "年末の借入の残高", text: "年末の残高 ＝ 返済の予定から計算した残高" },

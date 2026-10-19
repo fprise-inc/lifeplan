@@ -11,6 +11,7 @@ import {
   PROPOSAL_INPUT_FORMAT,
   PROPOSAL_INPUT_VERSION,
   type CfRow,
+  type BalanceSheetView,
   type CfTable,
   type NamedAmount,
   type Outcome,
@@ -239,9 +240,9 @@ const ACCOUNT_LABEL: Record<string, string> = {
   insurance: "保険（積立部分）",
   realEstate: "不動産",
   smallBusinessMutualAid: "小規模企業共済",
+  otherAsset: "その他の資産",
+  car: "車",
 };
-
-const DEBT_LABEL: Record<string, string> = { mortgage: "住宅ローン", unpaidInterest: "住宅ローンの未払利息", other: "その他の負債" };
 
 const PACK_LABEL: Record<string, string> = {
   "regulation.tax": "所得税・住民税",
@@ -447,28 +448,94 @@ function basics(ctx: Ctx): ProposalInput["basics"] {
     { label: "税・社会保険料", amount: sum((c) => under(c.row, "cf.taxSi")) },
   ]);
   const by = ctx.baseYear;
-  const accounts = new Map<string, number>();
-  const debts = new Map<string, number>();
-  for (const c of t) {
-    if (c.year !== by) continue;
-    if (under(c.row, "cf.balance.account")) {
-      const kind = c.row.split(".")[3] ?? "";
-      accounts.set(kind, (accounts.get(kind) ?? 0) + c.amount);
-    } else if (under(c.row, "cf.balance.debt")) {
-      const kind = c.row.split(".")[3] ?? "other";
-      debts.set(kind, (debts.get(kind) ?? 0) + c.amount);
-    }
-  }
-  const assets = nonZero([...accounts.entries()].map(([k, v]) => ({ label: ACCOUNT_LABEL[k] ?? "その他の資産", amount: v })));
-  assets.push({ label: "金融資産の合計", amount: sum((c) => c.row === "cf.balance.financial", by) });
   return {
     year,
     income,
     expense,
     net: sum((c) => c.row === "cf.net"),
     balanceYear: by,
-    assets,
-    debts: nonZero([...debts.entries()].map(([k, v]) => ({ label: DEBT_LABEL[k] ?? "その他の負債", amount: v }))),
+    balance: sheetOf(t, [{ year: by, label: `${by}年末` }]),
+  };
+}
+
+// ---- バランスシート（全資産・全負債。アプリの資産と負債の推移と同じ分け方: 不動産・その他の資産は金融資産の合計に入らない）----
+
+const REAL_ESTATE_ROW = "cf.balance.account.realEstate";
+/** その他の資産の行（保険の解約返戻金・車・その他の資産）。並びは帳票の行の順 */
+const OTHER_ASSET_KINDS = ["car", "insurance", "otherAsset"];
+const OTHER_ASSET_LABEL: Record<string, string> = { car: "車", insurance: "保険の解約返戻金", otherAsset: "その他の資産" };
+/** 金融資産の器の並び（帳票の行の順） */
+const FINANCIAL_KINDS = ["deposit", "fxDeposit", "zaikei", "taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "esop", "smallBusinessMutualAid"];
+
+/** 年末の時点ごとのバランスシート。金融資産の器のマイナス（預金の不足）は負債の側に出す。資産の合計＝負債の合計＋純資産 */
+export function sheetOf(table: readonly TableCell[], points: readonly YearPoint[]): BalanceSheetView {
+  const ys = points.map((p) => p.year);
+  const at = (pred: (c: TableCell) => boolean): Yen[] => ys.map((y) => table.reduce((s, c) => (c.year === y && pred(c) ? s + c.amount : s), 0));
+  const kindOf = (row: string) => row.slice("cf.balance.account.".length);
+  const present = new Set(table.filter((c) => under(c.row, "cf.balance.account") && ys.includes(c.year)).map((c) => kindOf(c.row)));
+  const finKinds = [...FINANCIAL_KINDS.filter((k) => present.has(k)), ...[...present].filter((k) => !FINANCIAL_KINDS.includes(k) && !OTHER_ASSET_KINDS.includes(k) && k !== "realEstate").sort()];
+  const fin = finKinds.map((k) => ({ label: ACCOUNT_LABEL[k] ?? "その他の金融資産", values: at((c) => c.row === `cf.balance.account.${k}`) }));
+  const pos = (v: Yen) => Math.max(0, v);
+  const any = (xs: readonly Yen[]) => xs.some((v) => v !== 0);
+  const finPos = ys.map((_, i) => fin.reduce((s, x) => s + pos(x.values[i] ?? 0), 0));
+  const short = ys.map((_, i) => fin.reduce((s, x) => s + pos(-(x.values[i] ?? 0)), 0));
+  const realEstate = at((c) => c.row === REAL_ESTATE_ROW);
+  const others = OTHER_ASSET_KINDS.map((k) => ({ label: OTHER_ASSET_LABEL[k] as string, values: at((c) => c.row === `cf.balance.account.${k}`) })).filter((x) => any(x.values));
+  const totalAssets = ys.map((_, i) => (finPos[i] ?? 0) + (realEstate[i] ?? 0) + others.reduce((s, x) => s + (x.values[i] ?? 0), 0));
+  const mortgage = at((c) => c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest");
+  const otherDebt = at((c) => c.row === "cf.balance.debt.other");
+  const debts = [
+    { label: "住宅ローン", values: mortgage },
+    { label: "その他の負債", values: otherDebt },
+    { label: "預金の不足", values: short },
+  ].filter((x) => any(x.values));
+  const totalLiabilities = ys.map((_, i) => debts.reduce((s, x) => s + (x.values[i] ?? 0), 0));
+  return {
+    points: [...points],
+    assets: [
+      { label: "金融資産", kind: "item", amounts: finPos },
+      ...fin.filter((x) => any(x.values.map(pos))).map((x) => ({ label: x.label, kind: "sub" as const, amounts: x.values.map(pos) })),
+      { label: "不動産", kind: "item", amounts: realEstate },
+      ...others.map((x) => ({ label: x.label, kind: "item" as const, amounts: x.values })),
+      { label: "資産の合計", kind: "total", amounts: totalAssets },
+    ],
+    liabilities: [...debts.map((x) => ({ label: x.label, kind: "item" as const, amounts: x.values })), { label: "負債の合計", kind: "total", amounts: totalLiabilities }],
+    netWorth: ys.map((_, i) => (totalAssets[i] ?? 0) - (totalLiabilities[i] ?? 0)),
+  };
+}
+
+/** 純資産の推移（basis.years と同じ並び） */
+const netWorthOf = (table: readonly TableCell[], years: readonly number[]): Yen[] => sheetOf(table, years.map((y) => ({ year: y, label: "" }))).netWorth;
+
+/** バランスシートの年の抜粋: 今（計算基準年の年末）・10年後・本人の退職の年・本人75歳・目標の年（表の範囲の中だけ。同じ年は1つ） */
+function balancePoints(ctx: Ctx): YearPoint[] {
+  const last = ctx.years.at(-1) ?? ctx.baseYear;
+  const self = ctx.self;
+  const who = (y: number) => (self !== undefined ? `${self.label}${ageInYear(self.member, y)}歳` : `${y}年`);
+  const out: YearPoint[] = [
+    { year: ctx.baseYear, label: "今" },
+    { year: ctx.baseYear + 10, label: `10年後（${who(ctx.baseYear + 10)}）` },
+  ];
+  if (self !== undefined) {
+    const ret = retirementMonth(ctx.bundle.proposal.request, self.member);
+    if (ret !== null) out.push({ year: parseYm(ret).y, label: `退職の年（${who(parseYm(ret).y)}）` });
+    const y75 = parseYm(self.member.birth.birthYearMonth).y + 75;
+    out.push({ year: y75, label: who(y75) });
+  }
+  out.push({ year: ctx.target.year, label: who(ctx.target.year) });
+  const kept: YearPoint[] = [];
+  for (const p of out) if (p.year >= ctx.baseYear && p.year <= last && !kept.some((k) => k.year === p.year)) kept.push(p);
+  return kept.sort((a, b) => a.year - b.year);
+}
+
+function balanceSheet(ctx: Ctx): NonNullable<ProposalInput["balanceSheet"]> {
+  const points = balancePoints(ctx);
+  const cur = ctx.bundle.current.result.table;
+  const prop = ctx.bundle.proposal.result.table;
+  return {
+    proposal: sheetOf(prop, points),
+    currentNetWorth: sheetOf(cur, points).netWorth,
+    netWorth: { current: netWorthOf(cur, ctx.years), proposal: netWorthOf(prop, ctx.years) },
   };
 }
 
@@ -917,6 +984,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     events: events(ctx),
     cashflow: { current: cashflowTable(bundle.current, years, "キャッシュフロー表（現状）"), proposal: cashflowTable(bundle.proposal, years, "キャッシュフロー表（提案）") },
     assets: { current: seriesOf(financialOf(bundle.current.result), years), proposal: seriesOf(financialOf(bundle.proposal.result), years) },
+    balanceSheet: balanceSheet(ctx),
     education: education(ctx),
     housingLoan: housingLoan(ctx),
     retirement: retirement(ctx),

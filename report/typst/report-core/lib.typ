@@ -10,7 +10,7 @@
 #import "pages/front.typ": cover, assumptions
 #import "pages/household.typ": summary, basics, events
 #import "pages/cashflow.typ": cashflow
-#import "pages/topics.typ": assets-page, education, housing, retirement
+#import "pages/topics.typ": assets-page, balance-page, education, housing, retirement
 #import "pages/risk.typ": contingency, insurance
 #import "pages/changes.typ": changes
 #import "pages/compare.typ": comparison
@@ -48,6 +48,7 @@
   if on("cashflow") {
     cashflow(data, band-height)
     assets-page(data)
+    balance-page(data)
   }
   if on("education") and data.education != none { education(data) }
   if on("housing") and data.housingLoan != none { housing(data) }

@@ -5,7 +5,7 @@
   "description": "0009 の9: 公式の帳票（@lifeplan/report-core）に渡す、提示に必要な値だけの JSON。宛名・氏名・FP のメモ・カスタム計算の印・世帯の内部 ID は入れない。金額は円の整数で、計算エンジンの出力を写すか足したもの",
   "type": "object",
   "additionalProperties": false,
-  "required": ["format", "version", "document", "basis", "members", "assumptions", "summary", "basics", "events", "cashflow", "assets", "education", "housingLoan", "retirement", "contingency", "insurance", "changes"],
+  "required": ["format", "version", "document", "basis", "members", "assumptions", "summary", "basics", "events", "cashflow", "assets", "balanceSheet", "education", "housingLoan", "retirement", "contingency", "insurance", "changes"],
   "properties": {
     "format": { "const": "lifeplan.proposalInput" },
     "version": { "const": "0.1.0" },
@@ -140,15 +140,14 @@
     "basics": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["year", "income", "expense", "net", "balanceYear", "assets", "debts"],
+      "required": ["year", "income", "expense", "net", "balanceYear", "balance"],
       "properties": {
         "year": { "$ref": "#/$defs/year" },
         "income": { "$ref": "#/$defs/namedAmounts" },
         "expense": { "$ref": "#/$defs/namedAmounts" },
         "net": { "$ref": "#/$defs/yen" },
         "balanceYear": { "$ref": "#/$defs/year" },
-        "assets": { "$ref": "#/$defs/namedAmounts" },
-        "debts": { "$ref": "#/$defs/namedAmounts" }
+        "balance": { "description": "計算基準年の年末のバランスシート（現状。1列）", "$ref": "#/$defs/balanceSheetView" }
       }
     },
     "events": {
@@ -171,6 +170,28 @@
       "additionalProperties": false,
       "required": ["current", "proposal"],
       "properties": { "current": { "$ref": "#/$defs/yens" }, "proposal": { "$ref": "#/$defs/yens" } }
+    },
+    "balanceSheet": {
+      "description": "資産と負債の推移（キャッシュフロー表の章の続き。全資産・全負債）。章を外したときは null",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["proposal", "currentNetWorth", "netWorth"],
+          "properties": {
+            "proposal": { "description": "年の抜粋（今・10年後・退職の年・75歳・目標の年）の提案のバランスシート", "$ref": "#/$defs/balanceSheetView" },
+            "currentNetWorth": { "description": "同じ時点の現状の純資産", "$ref": "#/$defs/yens" },
+            "netWorth": {
+              "description": "純資産の推移（basis.years と同じ並び）",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["current", "proposal"],
+              "properties": { "current": { "$ref": "#/$defs/yens" }, "proposal": { "$ref": "#/$defs/yens" } }
+            }
+          }
+        }
+      ]
     },
     "education": {
       "oneOf": [
@@ -473,6 +494,24 @@
     "namedAmounts": {
       "type": "array",
       "items": { "type": "object", "additionalProperties": false, "required": ["label", "amount"], "properties": { "label": { "type": "string" }, "amount": { "$ref": "#/$defs/yen" } } }
+    },
+    "sheetLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "kind", "amounts"],
+      "properties": { "label": { "type": "string" }, "kind": { "enum": ["item", "sub", "total"] }, "amounts": { "$ref": "#/$defs/yens" } }
+    },
+    "balanceSheetView": {
+      "description": "全資産・全負債のバランスシート（年末の値。列は時点）。資産の合計＝負債の合計＋純資産",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["points", "assets", "liabilities", "netWorth"],
+      "properties": {
+        "points": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/yearPoint" } },
+        "assets": { "type": "array", "items": { "$ref": "#/$defs/sheetLine" } },
+        "liabilities": { "type": "array", "items": { "$ref": "#/$defs/sheetLine" } },
+        "netWorth": { "$ref": "#/$defs/yens" }
+      }
     },
     "yearPoint": { "type": "object", "additionalProperties": false, "required": ["year", "label"], "properties": { "year": { "$ref": "#/$defs/year" }, "label": { "type": "string" } } },
     "yearPointOrNull": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/yearPoint" }] },

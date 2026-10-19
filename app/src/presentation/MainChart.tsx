@@ -676,7 +676,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         lead: "純資産",
         selText: at(model.balance.netWorth),
         baseText: same ? null : at(model.baseLines.netWorth),
-        extra: `資産 ${man(sumAt(model.balance.assets))}万円・負債 ${man(sumAt(model.balance.debts) + Math.max(0, -(model.balance.shortfall[selIdx] ?? 0)))}万円（${model.names.selected}）`,
+        extra: `資産 ${man(sumAt(model.balance.assets))}万円（うち不動産 ${man(sumAt(model.balance.assets.filter((x) => x.group === "realEstate")))}万円）・負債 ${man(sumAt(model.balance.debts) + Math.max(0, -(model.balance.shortfall[selIdx] ?? 0)))}万円（${model.names.selected}）`,
       };
   } else {
     const aSel = pick(t, "a.sel", n);
@@ -993,7 +993,7 @@ export function MainLegend({ model, mode, explain, side = false }: { model: Main
       ) : null,
       <span class="lg net" key="nw">
         <i />
-        {sel("純資産")}
+        {sel("純資産（不動産を含む）")}
       </span>,
       nm.same ? null : (
         <span class="lg base" key="bnw">

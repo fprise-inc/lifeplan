@@ -74,6 +74,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: account.valueGrowth
+    status: active
+    label: "評価額の増減率（年率。不動産・その他の資産だけで使う。マイナスも書ける。入れたときは資産の配分の利回りの代わり。省略は不動産は資産クラスの利回り、その他の資産は0）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: account.withdrawalLockedUntil
     status: active
     label: "引き出せない期間の終わり（その月まで。iDeCo・企業型DC は省略すると制度から導く）"
@@ -155,6 +161,12 @@ entries:
   - id: assumptions.pensionMacroSlideEmployee
     status: active
     label: "厚生年金（報酬比例）のマクロ経済スライドの調整率（省略は基礎年金と同じ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.realEstateValuation
+    status: active
+    label: "持ち家の評価の前提（土地の上昇率・土地の割合・構造ごとの耐用年数・建物の残りの価値の下限・売却の費用。省略した項目は目安）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1082,9 +1094,21 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: residence.sale
+    status: active
+    label: "売却（住み終わりの月に売り、売却価格から売却の費用を引いた手取りを現金にする。住み終わりが無ければ使わない）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: residence.to
     status: active
     label: "住み終わり（その月まで。null は最後まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residence.valuation
+    status: active
+    label: "持ち家の評価（土地と建物に分け、土地は上昇率で、建物は構造の耐用年数で減らす）"
     since: draft
     aliases: []
     replacedBy: null

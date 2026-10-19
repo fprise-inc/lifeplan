@@ -867,6 +867,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.balance.account.otherAsset
+    status: active
+    label: "その他の資産"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.car
+    status: active
+    label: "車（評価額）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.balance.return
     status: active
     label: 運用益

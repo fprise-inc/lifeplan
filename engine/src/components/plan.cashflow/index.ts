@@ -20,8 +20,13 @@
 // - 改訂7（約束の版 1.2）: ストレステストの資産の時価の下落（前提 marketShocks。その年の年末に器の時価をその割合だけ下げ、運用益に含める。
 //   既定の器は預金・外貨預金・財形・不動産・保険・小規模企業共済を除く）。保険契約の解約返戻金を器ごとの残高の行（cf.balance.account.insurance。
 //   契約の ID。金融資産の合計には入れない）に載せる。保障内容一覧・払込保険料の推移の材料と贈与税を details（エンジンが summary に写す）に出す
+// - 改訂8: 持ち家の残高（cf.balance.account.realEstate）を housing.valuation の評価額（土地は上昇率、建物は耐用年数で減らす。売った年からは載せない）に
+//   した。車の評価額（asset.car）を cf.balance.account.car に載せる。器の種類「その他の資産」（otherAsset。評価額の増減率 valueGrowth、省略は0）を足した。
+//   不動産・車・その他の資産・保険の解約返戻金は、金融資産の合計に入れず、取り崩さない
 import {
   accountReturnRate,
+  type CarValuationOutput,
+  type HousingValuationOutput,
   addMonths,
   addYen,
   ageMonth,
@@ -52,7 +57,6 @@ import {
   type MonthIndex,
   type MutualAidOutput,
   type Rate,
-  type ResidenceOutput,
   type Yen,
 } from "../../sdk/index.ts";
 
@@ -78,12 +82,12 @@ const T = {
   defense: "incomeTax.defenseSurtax.rate",
 };
 
-/** 残高に入れない器（不動産・保険の解約返戻金） */
-const NOT_FINANCIAL: ReadonlySet<string> = new Set(["realEstate", "insurance"]);
+/** 残高に入れない器（不動産・保険の解約返戻金・その他の資産） */
+const NOT_FINANCIAL: ReadonlySet<string> = new Set(["realEstate", "insurance", "otherAsset"]);
 /** 既定の取り崩しの順序 */
 const DEFAULT_ORDER: readonly AccountKind[] = ["deposit", "fxDeposit", "zaikei", "taxable", "esop", "legacyNisa", "nisa"];
-/** 取り崩さない器（受け取りの年齢までの iDeCo・企業型DC、不動産） */
-const NEVER_WITHDRAWN: ReadonlySet<string> = new Set(["ideco", "corporateDc", "realEstate"]);
+/** 取り崩さない器（受け取りの年齢までの iDeCo・企業型DC、不動産・その他の資産） */
+const NEVER_WITHDRAWN: ReadonlySet<string> = new Set(["ideco", "corporateDc", "realEstate", "otherAsset"]);
 const TRANSFER_ROW: Readonly<Record<string, string>> = {
   taxable: "cf.transfer.investment",
   zaikei: "cf.transfer.savings.zaikei",
@@ -123,13 +127,13 @@ interface Frame {
 }
 
 /** 時価の下落の既定で下げない器 */
-const SHOCK_EXEMPT: ReadonlySet<string> = new Set(["deposit", "fxDeposit", "zaikei", "realEstate", "insurance", "smallBusinessMutualAid"]);
+const SHOCK_EXEMPT: ReadonlySet<string> = new Set(["deposit", "fxDeposit", "zaikei", "realEstate", "insurance", "smallBusinessMutualAid", "otherAsset"]);
 
 export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[]; parts: readonly (readonly Flow[])[]; details?: CashflowDetails }>({
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.2",
-  revision: 7,
+  revision: 8,
   requires: {
     "plan.flows": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -142,7 +146,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "ideco.contribution": ">=1 <2",
     "account.ideco": ">=1 <2",
     "debt.schedule": ">=1 <2",
-    "housing.residence": ">=1 <2",
+    "housing.valuation": ">=1 <2",
+    "asset.car": ">=1 <2",
   },
   params: [...Object.values(N), ...Object.values(T)],
   reads: [
@@ -157,6 +162,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "account.contributions",
     "account.frame",
     "account.lots",
+    "account.valueGrowth",
     "debt.kind",
     "debt.debtors",
     "goal.kind",
@@ -282,8 +288,9 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         debts.push({ d: { id: l.object, kind: "other", debtors: [{ member: l.member, role: "primary" }] }, out: { yearEnd: l.yearEnd } });
       }
     }
-    const homes = ctx.call<ResidenceOutput>("housing.residence", {}).properties.map((p) => ({ p, from: ctx.time.resolve({ at: p.from }), to: p.to === null ? null : ctx.time.resolve({ at: p.to }), value: yen(0) }));
-    if (homes.some((h) => h.to !== null && h.to < end)) ctx.notice("N_NOT_SUPPORTED", ["residence.sale"]);
+    // 持ち家の評価額（年ごと）と車の評価額（金融資産の合計には入れない）
+    const homes = ctx.call<HousingValuationOutput>("housing.valuation", {}).properties.map((p) => ({ p, byYear: new Map(p.years.map((e) => [e.year, e.value])) }));
+    const cars = ctx.call<CarValuationOutput>("asset.car", {}).cars.map((c) => ({ c, byYear: new Map(c.years.map((e) => [e.year, e.value])) }));
 
     // 積立の予定（器ごと・月ごと）
     const planned = new Map<number, { acc: Acc; m: MonthIndex; amount: Yen; tranche: string }[]>();
@@ -317,6 +324,12 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     const contracts = ctx.list<Pick<InsuranceContractInput, "id" | "template" | "policyholder" | "insured" | "coverages">>("insurance");
     const policies = contracts.map((c) => ({ c, out: ctx.call<InsurancePolicyOutput>("insurance.policy", { object: c.id }) }));
     let cappedNotice = false;
+    // 器の年利: 不動産・その他の資産は評価額の増減率（valueGrowth）があればそれ。その他の資産と保険は、資産の配分が無ければ0
+    const rateOf = (a: AccountInput, y: number): Rate => {
+      if ((a.kind === "realEstate" || a.kind === "otherAsset") && a.valueGrowth !== undefined) return ctx.rate.of(a.valueGrowth);
+      if ((a.kind === "insurance" || a.kind === "otherAsset") && a.assetMix === undefined) return RATE_ZERO;
+      return accountReturnRate(ctx, a, y);
+    };
 
     for (let y = baseYear; y <= endYear; y++) {
       const jan = monthIndex(y, 1);
@@ -387,7 +400,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       // 3. 運用益
       for (const x of accs) {
         const opening = x.value;
-        const r: Rate = x.input === null ? accountReturnRate(ctx, { kind: x.kind }, y) : x.kind === "insurance" && x.input.assetMix === undefined ? RATE_ZERO : accountReturnRate(ctx, x.input, y);
+        const r: Rate = x.input === null ? accountReturnRate(ctx, { kind: x.kind }, y) : rateOf(x.input, y);
         x.ret = annualReturn(ctx, opening, x.inflow, r, months);
         x.value = addYen(addYen(opening, x.inflow), x.ret);
         // ストレステスト: その年の年末に時価を下げる（運用益に含める）
@@ -533,12 +546,14 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         financial = addYen(financial, e.closing);
         returns = addYen(returns, e.returns);
       }
-      // 購入した持ち家（購入の額から。不動産の資産クラスの利回り、省略は0）
+      // 持ち家（housing.valuation の年末の評価額）と車（asset.car）
       for (const h of homes) {
-        if (yearOf(h.from) > y || (h.to !== null && yearOf(h.to) < y)) continue;
-        const r = accountReturnRate(ctx, { kind: "realEstate" }, y);
-        h.value = yearOf(h.from) === y ? h.p.price : addYen(h.value, annualReturn(ctx, h.value, yen(0), r, 12));
-        balanceRow("realEstate", h.value, h.p.owner, h.p.object);
+        const v = h.byYear.get(y);
+        if (v !== undefined) balanceRow("realEstate", v, h.p.owner, h.p.object);
+      }
+      for (const c of cars) {
+        const v = c.byYear.get(y);
+        if (v !== undefined) balanceRow("car", v, c.c.owner, c.c.object);
       }
       for (const { d, out } of debts) {
         const e = out.yearEnd.find((x) => x.year === y);

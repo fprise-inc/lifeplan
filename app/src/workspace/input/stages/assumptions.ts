@@ -1,9 +1,10 @@
 // 10. 前提条件: 物価上昇率・賃金上昇率・運用利回り・教育費の上昇率・年金のマクロ経済スライド（年ごとの列の既定の値。0008 の8）、
-// 資産の種類ごとの利回り、表の最後の年、FP顧問料（単発・継続。stages/fees.ts。以前は別のカード）
+// 資産の種類ごとの利回り、持ち家の評価の前提（土地の上昇率・土地の割合・耐用年数・建物の下限・売却の費用）、表の最後の年、
+// FP顧問料（単発・継続。stages/fees.ts。以前は別のカード）
 import type { Household, YearSeries } from "../../../engine/types.ts";
 import { field, getPath, plain, type FieldDef, type GroupDef, type StageDef } from "../form.ts";
 import { mutate, standardEndYear, type WorkingHousehold } from "../household.ts";
-import { ASSET_CLASSES } from "../labels.ts";
+import { ASSET_CLASSES, BUILDING_STRUCTURES, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import { sameRate } from "../units.ts";
 import { feeSections } from "./fees.ts";
 
@@ -69,6 +70,27 @@ function assetReturnGroups(wh: WorkingHousehold): GroupDef[] {
   }));
 }
 
+/** 持ち家の評価の前提（assumptions.realEstateValuation。空欄は計算エンジンの目安） */
+function valuationGroup(): GroupDef {
+  const find = (_h: Household, w: WorkingHousehold) => w.request.input.assumptions as Record<string, unknown> | undefined;
+  const item = "assumptions.realEstateValuation";
+  const R = "realEstateValuation";
+  return {
+    key: "assume/realEstate/fields",
+    level: "detail",
+    fields: [
+      plain({ key: "assume/realEstate/landGrowth", item, label: "土地の上昇率（年）", level: "detail", kind: "pct", find, path: [R, "landGrowth", "default"], optional: true, help: "空欄なら物価上昇率と同じ" }),
+      plain({ key: "assume/realEstate/landShare", item, label: "土地の割合（物件に入れていないとき）", level: "detail", kind: "pct", find, path: [R, "landShare"], optional: true, fallback: VALUATION_DEFAULTS.landShare, help: "目安は3割（土地付きの注文住宅の土地の取得費の全国の割合）。地域で大きく違うので物件ごとに直します" }),
+      ...BUILDING_STRUCTURES.map((o) =>
+        plain({ key: `assume/realEstate/life/${o.value}`, item, label: `耐用年数: ${o.label}`, level: "detail", kind: "int", suffix: "年", min: 1, max: 100, find, path: [R, "usefulLife", o.value], optional: true, fallback: USEFUL_LIFE[o.value] ?? 22, help: "建物はこの年数で定額で減らします（目安は住宅用の建物の法定耐用年数）" }),
+      ),
+      plain({ key: "assume/realEstate/floor", item, label: "建物の残りの価値の下限", level: "detail", kind: "pct", find, path: [R, "residualFloor"], optional: true, fallback: VALUATION_DEFAULTS.residualFloor, help: "建てた時の価値に対する割合。目安は2割（固定資産の評価で古い家屋の価値を下げる下限と同じ）" }),
+      plain({ key: "assume/realEstate/saleCost", item, label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find, path: [R, "saleCostRate"], optional: true, fallback: VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料（上限は価格の3%＋6万円と消費税）・印紙税・登記などの目安" }),
+    ],
+    actions: [],
+  };
+}
+
 export function assumptionsStage(wh: WorkingHousehold): StageDef {
   const have = new Set(Object.keys(wh.request.input.assumptions?.assetReturns ?? {}));
   const endYear = field({
@@ -121,6 +143,14 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
             actions: [],
           },
         ],
+        actions: [],
+      },
+      {
+        key: "assume/realEstate",
+        title: "持ち家の評価（資産と負債の推移）",
+        note: "土地は上昇率で動き、建物は構造の耐用年数で定額で減らします。空欄は目安を使います",
+        level: "detail",
+        groups: [valuationGroup()],
         actions: [],
       },
       {

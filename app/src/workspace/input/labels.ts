@@ -182,6 +182,19 @@ export const RESIDENCE_KINDS: Option[] = [
   { value: "own", label: "持ち家" },
 ];
 
+/** 建物の構造（耐用年数の目安を選ぶ。持ち家の評価） */
+export const BUILDING_STRUCTURES: Option[] = [
+  { value: "wood", label: "木造" },
+  { value: "lightSteel", label: "軽量鉄骨造" },
+  { value: "steel", label: "重量鉄骨造" },
+  { value: "rc", label: "鉄筋コンクリート造（マンションなど）" },
+];
+
+/** 構造ごとの耐用年数の目安（計算エンジンの housing.valuation と同じ） */
+export const USEFUL_LIFE: Readonly<Record<string, number>> = { wood: 22, lightSteel: 19, steel: 34, rc: 47 };
+/** 持ち家の評価の目安（計算エンジンの housing.valuation と同じ） */
+export const VALUATION_DEFAULTS = { landShare: "0.3", residualFloor: "0.2", saleCostRate: "0.04" } as const;
+
 export const RATE_TYPES: Option[] = [
   { value: "variable", label: "変動金利" },
   { value: "fixedPeriod", label: "固定期間選択型" },
@@ -256,6 +269,7 @@ export const ACCOUNT_KINDS: Option[] = [
   { value: "fxDeposit", label: "外貨預金" },
   { value: "insurance", label: "保険（積立部分）" },
   { value: "realEstate", label: "不動産" },
+  { value: "otherAsset", label: "その他の資産" },
 ];
 
 export const ASSET_CLASSES: Option[] = [

@@ -18,7 +18,7 @@ export const CHAPTERS: readonly ChapterDef[] = [
   { id: "summary", label: "世帯サマリー", fixed: false },
   { id: "basics", label: "基本項目", fixed: false },
   { id: "events", label: "ライフイベント表", fixed: false },
-  { id: "cashflow", label: "キャッシュフロー表（資産残高のグラフを含む）", fixed: false },
+  { id: "cashflow", label: "キャッシュフロー表（資産残高のグラフ・資産と負債の推移を含む）", fixed: false },
   { id: "education", label: "教育費の推移", fixed: false },
   { id: "housing", label: "住宅ローン", fixed: false },
   { id: "retirement", label: "老後の必要資金と年金の受取予想", fixed: false },
@@ -60,6 +60,7 @@ export function selectChapters(input: ProposalInput, chosen: readonly ChapterId[
   const on = new Set<ChapterId>([...chosen, ...CHAPTERS.filter((c) => c.fixed).map((c) => c.id)]);
   const out: ProposalInput = { ...input, chapters: CHAPTER_IDS.filter((id) => on.has(id)) };
   if (!on.has("events")) out.events = [];
+  if (!on.has("cashflow")) out.balanceSheet = null;
   if (!on.has("education")) out.education = null;
   if (!on.has("housing")) out.housingLoan = null;
   if (!on.has("retirement")) out.retirement = null;

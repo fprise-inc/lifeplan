@@ -147,7 +147,7 @@ describe("グラフの年: カーソルで○と表示、クリックで固定",
     const bal = renderToString(h(MainChart, { model: m, mode: "balance", explain: null, ageMark: null, pinnedYear: 2041, onSelectYear: noop }));
     expect(bal).toContain('class="hv-dot sel"');
     expect(bal).toContain("純資産");
-    expect(bal).toMatch(/資産 [\d,▲]+万円・負債 [\d,▲]+万円（プランB）/);
+    expect(bal).toMatch(/資産 [\d,▲]+万円（うち不動産 [\d,▲]+万円）・負債 [\d,▲]+万円（プランB）/);
   });
 
   it("説明モードでは年を選ばない（○・表示・選ぶ枠を出さない）", () => {

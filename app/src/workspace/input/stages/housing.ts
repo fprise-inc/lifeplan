@@ -3,7 +3,7 @@ import type { Debt, Household, Residence } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, type WorkingHousehold } from "../household.ts";
-import { DEBT_KINDS, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, RESIDENCE_KINDS, TAX_METHODS } from "../labels.ts";
+import { BUILDING_STRUCTURES, DEBT_KINDS, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, RESIDENCE_KINDS, TAX_METHODS, VALUATION_DEFAULTS } from "../labels.ts";
 
 const residences = (h: Household) => h.residences;
 const debts = (h: Household) => h.debts;
@@ -31,6 +31,8 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
           delete res.maintenance;
           delete res.ownership;
           delete res.purchase;
+          delete res.valuation;
+          delete res.sale;
           res.rent ??= { monthly: confirmedBox(80000) };
         } else {
           delete res.rent;
@@ -66,6 +68,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.residences = (h.residences ?? []).filter((x) => x.id !== r.id)))],
     },
   ];
+  if (r.kind === "own") groups.push(...valuationGroups(wh, r, k));
   if (r.purchase !== undefined) {
     const kp = `${k}/purchase`;
     groups.push({
@@ -126,6 +129,74 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         },
       ],
     });
+  }
+  return groups;
+}
+
+/**
+ * 持ち家の評価（資産と負債の推移・提案書のバランスシートに使う）と売却。土地は前提の上昇率で、建物は構造の耐用年数で減らす（計算エンジンの housing.valuation）。
+ * 購入の予定がある持ち家は物件の価格から、今住んでいる持ち家は評価額（または購入の価格と時点）から評価する
+ */
+function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef[] {
+  const find = byId(residences, r.id);
+  const kv = `${k}/valuation`;
+  const bought = r.purchase !== undefined;
+  const base = wh.request.input.baseMonth;
+  const setting = wh.request.input.assumptions?.realEstateValuation;
+  const asOf = r.valuation?.asOf ?? r.purchase?.at?.at ?? base;
+  const groups: GroupDef[] = [
+    {
+      key: kv,
+      title: "持ち家の評価（資産と負債の推移に使う）",
+      level: bought ? "detail" : "simple",
+      ...(!bought && r.valuation?.value === undefined ? { note: "評価額を入れると、資産と負債の推移・提案書のバランスシートに不動産として入ります" } : {}),
+      fields: [
+        yenBox({
+          key: `${kv}/value`,
+          item: "residence.valuation",
+          label: bought ? "評価の基にする額" : "評価額（わからなければ購入の価格）",
+          level: bought ? "detail" : "simple",
+          basis: "once",
+          find,
+          path: ["valuation", "value"],
+          optional: true,
+          help: bought ? "空欄なら物件の価格を購入の月の評価額にします" : "土地と建物の合計。購入の価格を入れたときは、時点に購入の年月を入れます",
+        }),
+        plain({ key: `${kv}/asOf`, item: "residence.valuation", label: bought ? "その額の時点" : "その額の時点（購入の年月）", level: "detail", kind: "ym", find, path: ["valuation", "asOf"], optional: true, fallback: asOf }),
+        plain({ key: `${kv}/structure`, item: "residence.valuation", label: "建物の構造", level: bought ? "detail" : "simple", kind: "select", options: BUILDING_STRUCTURES, find, path: ["valuation", "structure"], optional: true, fallback: "wood", help: "建物を耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で減らします" }),
+        plain({ key: `${kv}/builtYear`, item: "residence.valuation", label: "建物が建った年", level: bought ? "detail" : "simple", kind: "int", suffix: "年", min: 1900, max: 2200, find, path: ["valuation", "builtYear"], optional: true, fallback: Number(asOf.slice(0, 4)), help: "空欄なら新築とみなします（その額の時点の年）" }),
+        plain({ key: `${kv}/landShare`, item: "residence.valuation", label: "土地の割合", level: "detail", kind: "pct", find, path: ["valuation", "landShare"], optional: true, fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare, help: "空欄なら前提条件の目安。土地は前提条件の上昇率（空欄なら物価上昇率）で動きます" }),
+      ],
+      actions: [],
+    },
+  ];
+  if (r.to !== null) {
+    const ks = `${k}/sale`;
+    const fields: FieldDef[] = [
+      field({
+        key: `${ks}/on`,
+        item: "residence.sale",
+        label: "住み終わりの月に売る",
+        level: "simple",
+        kind: "bool",
+        structural: true,
+        help: "売ると、売却価格から売却の費用を引いた手取りが預金に入り、その年から不動産は無くなります。譲渡所得の税は計算しません",
+        get: (w) => ({ value: (find(w.request.input.household, w) as Residence | undefined)?.sale !== undefined }),
+        set: (w, v) =>
+          mutate(w, (h) => {
+            const x = find(h, w) as Residence | undefined;
+            if (x === undefined) return;
+            if (v === true) x.sale ??= {};
+            else delete x.sale;
+          }),
+      }),
+    ];
+    if (r.sale !== undefined)
+      fields.push(
+        plain({ key: `${ks}/price`, item: "residence.sale", label: "売却価格", level: "simple", kind: "yen", basis: "once", find, path: ["sale", "price"], optional: true, help: "空欄ならその年の評価額で売るとみなします" }),
+        plain({ key: `${ks}/cost`, item: "residence.sale", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など。住宅ローンが残るときは、売る月の繰上返済で返します" }),
+      );
+    groups.push({ key: ks, title: "売却", level: "simple", fields, actions: [] });
   }
   return groups;
 }

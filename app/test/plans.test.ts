@@ -425,17 +425,21 @@ describe("収支の推移・資産と負債の推移", () => {
     expect(html).toContain("net-base");
   });
 
-  it("資産の系列の合計は金融資産（マイナスは不足）、負債は住宅ローンの残高", () => {
+  it("金融資産の系列の合計は金融資産（器のマイナスは預金の不足）、負債は住宅ローンの残高、純資産は不動産・その他の資産を含む", () => {
     const b = balanceChart(r.table, years, years.map(() => null), "資産と負債");
     const finM = financialOf(r.table);
     const debt = sumByYear(r.table, (c) => under(c.row, "cf.balance.debt"));
+    const realEstate = sumByYear(r.table, (c) => c.row === "cf.balance.account.realEstate");
+    const others = sumByYear(r.table, (c) => ["cf.balance.account.insurance", "cf.balance.account.car", "cf.balance.account.otherAsset"].includes(c.row));
     years.forEach((y, i) => {
-      const assets = b.assets.reduce((s, x) => s + x.values[i]!, 0);
+      const fin = b.assets.filter((x) => x.group === "financial").reduce((s, x) => s + x.values[i]!, 0);
       const f = finM.get(y) ?? 0;
-      if (f >= 0) expect(assets).toBe(f);
-      else expect(b.shortfall[i]).toBe(f);
+      // 積み上げ（マイナスは0）＋預金の不足（0以下）＝金融資産
+      expect(fin + b.shortfall[i]!).toBe(f);
+      expect(b.assets.find((x) => x.key === "realEstate")!.values[i]).toBe(realEstate.get(y) ?? 0);
+      expect(b.assets.find((x) => x.key === "otherAsset")!.values[i]).toBe(others.get(y) ?? 0);
       expect(b.debts.reduce((s, x) => s + x.values[i]!, 0)).toBe(debt.get(y) ?? 0);
-      expect(b.netWorth[i]).toBe(f - (debt.get(y) ?? 0));
+      expect(b.netWorth[i]).toBe(f + (realEstate.get(y) ?? 0) + (others.get(y) ?? 0) - (debt.get(y) ?? 0));
     });
     const m: MainChartModel = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: 2031, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
     expect(renderToString(h(MainLegend, { model: m, mode: "balance", explain: null }))).toContain("純資産");
@@ -445,7 +449,7 @@ describe("収支の推移・資産と負債の推移", () => {
   it("主画面の提示用の値に入る", () => {
     const m = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: null, provisional: false });
     expect(m.flows.years).toEqual(years);
-    expect(m.balance.assets.map((s) => s.key)).toEqual(["deposit", "nisa", "dc", "assetOther"]);
+    expect(m.balance.assets.map((s) => s.key)).toEqual(["deposit", "nisa", "dc", "finOther", "realEstate", "otherAsset"]);
   });
 });
 

@@ -385,6 +385,24 @@ export interface ResidenceOutput {
   readonly properties: readonly { readonly object: string; readonly owner: string | null; readonly from: string; readonly to: string | null; readonly price: Yen }[];
 }
 
+/** housing.valuation: 持ち家の年末の評価額（土地・建物）と売却 */
+export interface HousingValuationOutput {
+  /** 売却の手取り（cf.income.lumpSum.realEstateSale） */
+  readonly flows: readonly Flow[];
+  readonly properties: readonly {
+    readonly object: string;
+    readonly owner: string | null;
+    /** 持っている年の年末の評価額（売った年は含めない。年の昇順） */
+    readonly years: readonly { readonly year: number; readonly land: Yen; readonly building: Yen; readonly value: Yen }[];
+    readonly sale: { readonly ym: string; readonly value: Yen; readonly price: Yen; readonly costs: Yen; readonly proceeds: Yen } | null;
+  }[];
+}
+
+/** asset.car: 車の年末の評価額 */
+export interface CarValuationOutput {
+  readonly cars: readonly { readonly object: string; readonly owner: string; readonly years: readonly { readonly year: number; readonly value: Yen }[] }[];
+}
+
 /** tax.housingLoanCredit: 構成員のその年分の住宅借入金等特別控除の額（所得税から引く上限）と、住民税の控除の上限の決まり */
 export interface HousingLoanCreditOutput {
   readonly credit: Yen;

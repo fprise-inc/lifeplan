@@ -102,6 +102,29 @@
             }
           }
         },
+        "realEstateValuation": {
+          "title": "持ち家の評価の前提（土地の上昇率・土地の割合・構造ごとの耐用年数・建物の残りの価値の下限・売却の費用。省略した項目は目安）",
+          "x-item": "assumptions.realEstateValuation",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "landGrowth": { "description": "土地の上昇率（年率の年ごとの列。省略は物価上昇率）", "$ref": "urn:financia:schema:common#/$defs/yearSeries" },
+            "landShare": { "description": "土地の割合（物件の入力が無いとき。省略は 0.3）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "usefulLife": {
+              "description": "建物の耐用年数（年。省略は木造22・軽量鉄骨19・重量鉄骨34・鉄筋コンクリート47）",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "wood": { "type": "integer", "minimum": 1, "maximum": 100 },
+                "lightSteel": { "type": "integer", "minimum": 1, "maximum": 100 },
+                "steel": { "type": "integer", "minimum": 1, "maximum": 100 },
+                "rc": { "type": "integer", "minimum": 1, "maximum": 100 }
+              }
+            },
+            "residualFloor": { "description": "建物の残りの価値の下限（建てた時の価値に対する割合。省略は 0.2）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "saleCostRate": { "description": "売却の費用（売却価格に対する割合。省略は 0.04）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+          }
+        },
         "incomeShocks": {
           "title": "収入の減少（ストレステスト。構成員の給与・事業所得を from〜to の月だけ ratio の割合で減らす）",
           "x-item": "assumptions.incomeShocks",
@@ -458,7 +481,7 @@
       ]
     },
     "accountKind": {
-      "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate", "smallBusinessMutualAid"]
+      "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate", "smallBusinessMutualAid", "otherAsset"]
     },
     "assetClass": {
       "description": "0008 の9: 資産クラス（公式の一覧）。期待リターンは前提の assetReturns で資産クラスごとに持つ",
@@ -548,6 +571,11 @@
             "annuityYears": { "description": "年金で受け取る年数（5〜20年。省略は10）", "type": "integer", "minimum": 1, "maximum": 30 },
             "lumpShare": { "description": "mixed のとき一時金で受け取る割合", "$ref": "urn:financia:schema:common#/$defs/rate" }
           }
+        },
+        "valueGrowth": {
+          "title": "評価額の増減率（年率。不動産・その他の資産だけで使う。マイナスも書ける。入れたときは資産の配分の利回りの代わり。省略は不動産は資産クラスの利回り、その他の資産は0）",
+          "x-item": "account.valueGrowth",
+          "$ref": "urn:financia:schema:common#/$defs/rate"
         }
       }
     },
@@ -746,6 +774,29 @@
           "x-item": "residence.ownership",
           "type": "array",
           "items": { "type": "object", "additionalProperties": false, "required": ["member", "share"], "properties": { "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "share": { "$ref": "urn:financia:schema:common#/$defs/rate" } } }
+        },
+        "valuation": {
+          "title": "持ち家の評価（土地と建物に分け、土地は上昇率で、建物は構造の耐用年数で減らす）",
+          "x-item": "residence.valuation",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": { "description": "評価の基にする額（asOf の時点の土地と建物の合計。省略は購入の価格）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "asOf": { "description": "value の時点（省略は購入の月。購入が無ければ計算基準月）", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+            "structure": { "description": "建物の構造（省略は木造）", "enum": ["wood", "lightSteel", "steel", "rc"] },
+            "builtYear": { "description": "建物が建った年（省略は asOf の年。新築とみなす）", "$ref": "urn:financia:schema:common#/$defs/year" },
+            "landShare": { "description": "土地の割合（0〜1。省略は前提の realEstateValuation.landShare か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+          }
+        },
+        "sale": {
+          "title": "売却（住み終わりの月に売り、売却価格から売却の費用を引いた手取りを現金にする。住み終わりが無ければ使わない）",
+          "x-item": "residence.sale",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "price": { "description": "売却価格（省略はその年の評価額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "costRate": { "description": "売却の費用の割合（省略は前提の realEstateValuation.saleCostRate か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+          }
         }
       }
     },
