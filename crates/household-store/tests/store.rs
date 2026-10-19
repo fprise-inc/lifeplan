@@ -102,6 +102,26 @@ fn first_run_creates_the_office_and_a_master_key() {
 }
 
 #[test]
+fn ai_connector_is_off_by_default_and_the_setting_is_kept() {
+    let env = Env::new();
+    let store = env.store();
+    store.status().unwrap();
+    assert!(
+        !store.ai_connector_enabled().unwrap(),
+        "AI接続口は既定でオフ（0015）"
+    );
+    assert!(store.set_ai_connector_enabled(true).unwrap());
+    // 開き直しても覚えている（事務所データは暗号化して保存）
+    let store2 = env.store();
+    store2.status().unwrap();
+    assert!(store2.ai_connector_enabled().unwrap());
+    store2.set_ai_connector_enabled(false).unwrap();
+    let store3 = env.store();
+    store3.status().unwrap();
+    assert!(!store3.ai_connector_enabled().unwrap());
+}
+
+#[test]
 fn save_and_open_round_trip() {
     let env = Env::new();
     let store = env.store();

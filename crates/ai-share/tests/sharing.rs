@@ -1,4 +1,4 @@
-//! 共有の台帳・縮約版・文章の包み方・AIに渡した記録・案（0014・0015 の「テストで確かめること」）。モデル世帯（架空）で確かめる。
+//! 共有の台帳・縮約版・文章の包み方・AIに渡した記録・プランの候補（0014・0015 の「テストで確かめること」）。モデル世帯（架空）で確かめる。
 
 use ai_share::clock::ManualClock;
 use ai_share::proposal::{MAX_CHANGES, MAX_TITLE_CHARS};
@@ -406,7 +406,7 @@ fn proposals_do_not_change_the_household_and_are_checked() {
         .to_owned();
 
     let ok = json!({
-        "title": "生活費を月2万円下げる案",
+        "title": "生活費を月2万円下げるプラン",
         "summary": "退職後の取り崩しを減らす",
         "changes": [
             { "target": "assumptions", "item": "assumptions.inflation", "value": "0.01", "note": "物価の想定を下げる" },
@@ -501,7 +501,11 @@ fn records_loaded_from_the_file_come_first() {
         reg2.records(HOUSEHOLD_ID)[1].end_reason,
         Some(EndReason::Revoked)
     );
-    assert_eq!(reg2.records(HOUSEHOLD_ID)[0].end_reason, None);
+    // 前の起動で終わりの記録が残らなかった共有は「アプリの終了」で閉じる（0015 の5: 再開しない）
+    assert_eq!(
+        reg2.records(HOUSEHOLD_ID)[0].end_reason,
+        Some(EndReason::AppClosed)
+    );
 }
 
 fn reg_list(reg: &ShareRegistry) -> Value {

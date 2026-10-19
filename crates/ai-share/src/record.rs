@@ -128,6 +128,27 @@ impl AiShareRecord {
     }
 }
 
+/// 実行ファイルのパスから、ファイル名だけを取り出す（`/` と `\\` のどちらの区切りでも）
+fn file_name_only(path: &str) -> String {
+    path.rsplit(['/', '\\']).next().unwrap_or("").to_owned()
+}
+
+/// 画面に出す形にする: 呼び出し元の実行ファイルはファイル名だけにする（画面にパスを渡さない。0016 の1）
+pub fn for_screen(records: &[AiShareRecord]) -> Vec<AiShareRecord> {
+    records
+        .iter()
+        .cloned()
+        .map(|mut r| {
+            for read in &mut r.reads {
+                read.caller.connector_exe =
+                    read.caller.connector_exe.as_deref().map(file_name_only);
+                read.caller.parent_exe = read.caller.parent_exe.as_deref().map(file_name_only);
+            }
+            r
+        })
+        .collect()
+}
+
 /// 追記だけかどうかを確かめる（`after` が `before` に足しただけなら Ok）
 pub fn verify_append_only(before: &[AiShareRecord], after: &[AiShareRecord]) -> Result<(), String> {
     if after.len() < before.len() {
@@ -158,10 +179,14 @@ pub fn verify_append_only(before: &[AiShareRecord], after: &[AiShareRecord]) -> 
             ));
         }
         if a.reads.len() < b.reads.len() || a.proposals.len() < b.proposals.len() {
-            return Err(format!("{i} 行目の読まれた記録か案の記録が減っています"));
+            return Err(format!(
+                "{i} 行目の読まれた記録かプランの候補の記録が減っています"
+            ));
         }
         if b.proposals[..] != a.proposals[..b.proposals.len()] {
-            return Err(format!("{i} 行目の案の記録が書き換えられています"));
+            return Err(format!(
+                "{i} 行目のプランの候補の記録が書き換えられています"
+            ));
         }
         let n = b.reads.len();
         if n > 0 {
@@ -244,6 +269,29 @@ mod tests {
         assert_eq!(after[0].end_reason, Some(EndReason::Revoked));
         after.push(record());
         assert!(verify_append_only(&before, &after).is_ok());
+    }
+
+    #[test]
+    fn screen_view_has_no_paths() {
+        let mut r = record();
+        r.add_read(
+            "2026-10-17T00:01:00Z".into(),
+            "get_shared_household",
+            &[],
+            "sha256:aa",
+            &Caller {
+                connector_pid: Some(42),
+                connector_exe: Some("/Users/someone/apps/lifeplan".into()),
+                parent_exe: Some("C:\\Program Files\\AI\\ai-app.exe".into()),
+                mcp_client_declared: Some("client 1.0".into()),
+            },
+        );
+        let v = for_screen(&[r]);
+        let c = &v[0].reads[0].caller;
+        assert_eq!(c.connector_exe.as_deref(), Some("lifeplan"));
+        assert_eq!(c.parent_exe.as_deref(), Some("ai-app.exe"));
+        let json = serde_json::to_string(&v).unwrap();
+        assert!(!json.contains("/Users") && !json.contains("Program Files"));
     }
 
     #[test]

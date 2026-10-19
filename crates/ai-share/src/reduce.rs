@@ -6,7 +6,7 @@
 //!   画面の側の文章（FPのメモ・顧客の相談内容・移行メモ・自由記述）。足したときは入力から抜き出して包み（`client_text`）、`texts` に並べる。
 //! - **どの版でも渡さない**: 世帯の内部ID・表示用の顧客番号・呼び名・同意の記録の中身・取り込みの記録の元データへの参照など（足せない）。
 //! - **物の ID の仮名**: 世帯の中の乱数ID（構成員・物）は、共有ごとに別の乱数IDに置き換える（同じ世帯の別の共有と結びつけられないように）。
-//!   並びの順番は保つ（計算の結果の並びが変わらないように）。案の ID は戻してから「外から来た案」に入れる。
+//!   並びの順番は保つ（計算の結果の並びが変わらないように）。プランの候補の ID は戻してから「AIからの候補」に入れる。
 
 use crate::schema::{self, constrained_string, location, x_item, Node};
 use crate::source::SharedHouseholdSource;
@@ -168,7 +168,7 @@ impl Pseudonyms {
         }
     }
 
-    /// 案の値の中の仮名を元の ID に戻す。知らない乱数IDがあれば Err（その ID）
+    /// プランの候補の値の中の仮名を元の ID に戻す。知らない乱数IDがあれば Err（その ID）
     pub fn restore(&self, v: &Value) -> Result<Value, String> {
         match v {
             Value::String(s) if is_uuid(s) => self

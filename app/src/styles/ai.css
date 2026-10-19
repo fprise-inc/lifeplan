@@ -1,0 +1,79 @@
+/* AI接続口（上の帯の印・共有中の帯・事務所の設定と世帯の同意の中央のパネル・AIからの候補）。色と線は app.css の変数を使う */
+
+/* 上の帯: 世帯の「AIとの共有」の印 */
+.ai-chip { border: 1.5px solid var(--line); background: #fff; color: var(--ink-2); border-radius: 999px; padding: 2px 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.ai-chip.s-given { border-color: var(--prop); color: var(--prop-ink); background: var(--prop-bg); }
+.ai-chip.s-sharing { border-color: var(--est); background: var(--est-bg); color: var(--est-ink); }
+.ai-chip.s-sharing::before, .ai-band-mark { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--est); margin-right: 6px; vertical-align: 1px; }
+
+/* 共有中の帯 */
+.ai-band { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 7px 20px; background: var(--est-bg); border-bottom: 2px solid var(--est-band); color: var(--est-ink); font-size: 0.9rem; }
+.ai-band-item { display: inline-flex; align-items: center; gap: 8px; }
+.ai-band .btn { padding: 2px 10px; font-size: 0.82rem; }
+
+/* 中央のパネル */
+.ai-panel { width: min(860px, calc(100vw - 32px)); }
+.ai-panel code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em; background: var(--base-bg); border-radius: 4px; padding: 0 4px; }
+.ai-switch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; border: 2px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 10px 0; }
+.ai-switch.on { border-color: var(--prop); background: var(--prop-bg); }
+.ai-switch label { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.05rem; }
+.ai-switch input { width: 20px; height: 20px; }
+.ai-switch-state { color: var(--ink-2); font-size: 0.9rem; }
+.ai-share-list { list-style: none; padding: 0; margin: 4px 0 8px; }
+.ai-share-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 0; border-bottom: 1px solid var(--line-2); }
+.ai-share-list .btn, .ai-sharing .btn { padding: 4px 12px; }
+.ai-setup { border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 12px; margin: 6px 0; }
+.ai-setup summary { cursor: pointer; font-weight: 700; }
+.ai-setup pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; background: var(--base-bg); border-radius: 6px; padding: 8px 10px; overflow-x: auto; font-size: 0.82rem; white-space: pre-wrap; word-break: break-all; }
+.ai-limits { margin: 4px 0; padding-left: 1.3em; font-size: 0.88rem; color: var(--ink-2); }
+.ai-limits li { margin: 2px 0; }
+.ai-state { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; border-radius: 10px; padding: 10px 14px; margin: 8px 0; border: 2px solid var(--line); background: var(--base-bg); }
+.ai-state b { font-size: 1.1rem; }
+.ai-state.s-given { border-color: var(--prop); background: var(--prop-bg); }
+.ai-state.s-sharing { border-color: var(--est); background: var(--est-bg); color: var(--est-ink); }
+.ai-state.s-refused, .ai-state.s-withdrawn { border-color: var(--short); background: var(--short-bg); }
+.ai-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line-2); margin: 6px 0 4px; }
+.ai-tabs button { background: none; border: 0; padding: 6px 12px; font-weight: 700; color: var(--ink-2); border-bottom: 3px solid transparent; cursor: pointer; }
+.ai-tabs button.on { color: var(--ink); border-bottom-color: var(--prop); }
+.ai-form { display: flex; flex-direction: column; gap: 8px; margin: 6px 0; }
+.ai-explain { margin: 0; border-left: 4px solid var(--prop); background: var(--prop-bg); padding: 6px 14px; border-radius: 0 8px 8px 0; font-size: 0.92rem; }
+.ai-explain p { margin: 4px 0; }
+.ai-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 14px; }
+.ai-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 0.88rem; font-weight: 700; }
+.ai-grid input, .ai-grid select, .ai-cand-foot input { border: 1.5px solid var(--field); border-radius: 6px; padding: 5px 8px; font: inherit; font-weight: 400; background: #fff; }
+.ai-scope { border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 12px; margin: 0; }
+.ai-scope legend { font-weight: 700; font-size: 0.88rem; padding: 0 4px; }
+.ai-scope label { font-size: 0.92rem; }
+.ai-scope details summary { cursor: pointer; font-size: 0.85rem; color: var(--prop); }
+.ai-fields { font-size: 0.8rem; color: var(--ink-2); max-height: 9em; overflow-y: auto; }
+.ai-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.92rem; }
+.ai-check input { width: 18px; height: 18px; margin-top: 2px; flex: none; }
+.ai-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.ai-actions .btn:disabled, .ai-panel .btn:disabled, .ai-cand-foot .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ai-latest { margin: 4px 0; }
+.ai-withdraw { border: 1.5px solid var(--short); background: var(--short-bg); border-radius: 8px; padding: 8px 12px; }
+.ai-sharing { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; border: 2px solid var(--est); background: var(--est-bg); border-radius: 8px; padding: 6px 12px; }
+.ai-sharing p { margin: 0; }
+
+/* 共有の記録 */
+.ai-record { border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+.ai-record-h { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
+.ai-record-h span { color: var(--ink-2); font-size: 0.88rem; }
+.ai-kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 6px 0; font-size: 0.88rem; }
+.ai-kv dt { color: var(--ink-2); }
+.ai-kv dd { margin: 0; }
+.ai-reads { font-size: 0.82rem; }
+.ai-digest { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.78rem; color: var(--ink-2); }
+
+/* AIからの候補 */
+.ai-cands { border: 2px solid var(--prop); }
+.ai-cand { border-top: 1px solid var(--line-2); padding: 10px 0 4px; }
+.ai-cand:first-of-type { border-top: 0; }
+.ai-cand-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.ai-tag { font-size: 0.72rem; font-weight: 700; color: var(--ink-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-right: 6px; white-space: nowrap; }
+.ai-untrusted { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ai-summary { margin: 6px 0; font-size: 0.92rem; color: var(--ink-2); }
+.ai-cand-rows tr.ai-skip td { color: var(--ink-2); background: var(--base-bg); }
+.ai-cand-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; }
+.ai-cand-foot label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; font-weight: 700; }
+.ai-cand-foot input { min-width: 22em; }

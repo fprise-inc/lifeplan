@@ -1,4 +1,4 @@
-//! AIの案（0015 の7）。プランの「外から来た案」（候補。0008）に承認待ちで入るだけで、世帯のデータは1文字も変えない。
+//! AIのプランの候補（0015 の7）。外から来た候補（0008。画面では「AIからの候補」）に承認待ちで入るだけで、世帯のデータは1文字も変えない。
 //! 形は提案の差分と同じ（対象の物の ID・入力項目ID・新しい値）。変えられるのは入力値と前提条件だけ。
 
 use crate::reduce::{allowlist, Pseudonyms, TEXT_ITEMS};
@@ -14,7 +14,7 @@ pub const MAX_PROPOSAL_BYTES: usize = 50 * 1024;
 /// 前提条件を指す対象
 pub const ASSUMPTIONS_TARGET: &str = "assumptions";
 
-/// アプリ本体が受け取る、承認待ちの案
+/// アプリ本体が受け取る、承認待ちのプランの候補
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PendingProposal {
@@ -69,7 +69,7 @@ struct RawChange {
     note: Option<String>,
 }
 
-/// 案を確かめ、物の ID を元に戻す。外れたら FPに見せてよい理由（`INVALID`）
+/// プランの候補を確かめ、物の ID を元に戻す。外れたら FPに見せてよい理由（`INVALID`）
 pub(crate) fn validate(
     proposal: &Value,
     pseudonyms: &Pseudonyms,
@@ -79,11 +79,11 @@ pub(crate) fn validate(
         .unwrap_or(usize::MAX);
     if bytes > MAX_PROPOSAL_BYTES {
         return Err(format!(
-            "案が大きすぎます（{MAX_PROPOSAL_BYTES} バイトまで）"
+            "プランの候補が大きすぎます（{MAX_PROPOSAL_BYTES} バイトまで）"
         ));
     }
-    let raw: RawProposal =
-        serde_json::from_value(proposal.clone()).map_err(|e| format!("案の形が違います: {e}"))?;
+    let raw: RawProposal = serde_json::from_value(proposal.clone())
+        .map_err(|e| format!("プランの候補の形が違います: {e}"))?;
     if raw.title.trim().is_empty() || raw.title.chars().count() > MAX_TITLE_CHARS {
         return Err(format!("題名は1〜{MAX_TITLE_CHARS}文字にしてください"));
     }
@@ -99,7 +99,7 @@ pub(crate) fn validate(
         let n = i + 1;
         if TEXT_ITEMS.iter().any(|(t, _)| *t == c.item) || !allow.contains(&c.item) {
             return Err(format!(
-                "{n}件目: 入力項目ID {} は案で変えられません（変えられるのは入力値と前提条件だけ）",
+                "{n}件目: 入力項目ID {} はプランの候補で変えられません（変えられるのは入力値と前提条件だけ）",
                 c.item
             ));
         }

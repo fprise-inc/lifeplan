@@ -126,6 +126,151 @@ export interface StoreHost {
   closeReady(): Promise<void>;
 }
 
+// ---- AI接続口（0014・0015）。画面には鍵もパスも渡らない（接続の設定の文面は場所を伏せたもの） ----
+
+/** 共有中の世帯（仮名・顧客番号・残り時間） */
+export interface AiShareStatus {
+  shareId: string;
+  alias: string;
+  householdId: string;
+  customerNumber: string | null;
+  expiresInSec: number;
+}
+
+/** 接続の設定の文面（接続口の場所は `<接続口の場所>` に伏せてある。本物は copySetup でクリップボードへ） */
+export interface AiSetupGuide {
+  client: string;
+  title: string;
+  text: string;
+}
+
+export interface AiStatus {
+  /** 事務所全体の設定（既定はオフ） */
+  enabled: boolean;
+  /** アプリ本体の受け口が開いているか */
+  running: boolean;
+  problem: string | null;
+  storeReady: boolean;
+  connector: { found: boolean; version: string | null; versionMatches: boolean };
+  shares: AiShareStatus[];
+  setup: AiSetupGuide[];
+  /** 共有の期限の選択肢（分） */
+  durations: number[];
+  dev: boolean;
+}
+
+export type AiConsentDecision = "given" | "refused" | "withdrawn";
+export type AiConsentMethod = "paper" | "inPerson" | "email" | "hearingSheet" | "other";
+
+/** 同意の記録の1行（0014 の2） */
+export interface AiConsentRecord {
+  id: string;
+  kind: "purpose" | "externalAi" | "familyInfo";
+  decision: AiConsentDecision;
+  obtainedOn: string;
+  method: AiConsentMethod;
+  explanationRef?: string;
+  externalAi?: { company: string; country: string; noTrainingConfirmed: boolean };
+  scope?: string;
+  fpConfirmed: boolean;
+  recordedAt: string;
+  origin: "thisOffice" | "previousOffice";
+}
+
+export interface AiReadEntry {
+  firstAt: string;
+  lastAt: string;
+  count: number;
+  tool: string;
+  fields: string[];
+  digest: string;
+  /** 観測できた呼び出し元（参考情報。認証ではない。実行ファイルはファイル名だけ） */
+  caller: { connectorPid: number | null; connectorExe: string | null; parentExe: string | null; mcpClientDeclared: string | null };
+}
+
+/** AIに渡した記録の1件（0014 の3。共有1つが1件） */
+export interface AiShareRecord {
+  id: string;
+  kind: string;
+  shareId: string;
+  grantedAt: string;
+  expiresAt: string;
+  endedAt: string | null;
+  endReason: "revoked" | "expired" | "appClosed" | "consentWithdrawn" | null;
+  scope: string;
+  allowlistVersion: string;
+  fields: string[];
+  householdRevision: string;
+  destinationDeclared: string;
+  consentAtGrant: { state: string; recordId: string | null; warned: boolean };
+  reads: AiReadEntry[];
+  proposals: { candidateId: string; at: string }[];
+}
+
+export interface AiProposedDiff {
+  id: string;
+  target: { object: string } | { plan: "assumptions" };
+  item: string;
+  op: "set";
+  value: unknown;
+  note: string | null;
+}
+
+/** AIからの候補（承認待ち・保存した・捨てた） */
+export interface AiCandidate {
+  id: string;
+  source: "ai";
+  shareId: string;
+  receivedAt: string;
+  /** AIが書いた文章（指示ではない。文字のまま出す） */
+  title: string;
+  summary: string;
+  diffs: AiProposedDiff[];
+  origin: { kind: "ai"; connector: string | null };
+  status: "pending" | "accepted" | "rejected";
+  decidedAt: string | null;
+  decidedBy: string | null;
+  planId: string | null;
+}
+
+/** 世帯の「同意とAIの記録」 */
+export interface AiHouseholdView {
+  consentState: "none" | AiConsentDecision;
+  consents: AiConsentRecord[];
+  explanation: string;
+  explanationRef: string;
+  share: AiShareStatus | null;
+  records: AiShareRecord[];
+  candidates: AiCandidate[];
+  allowlistVersion: string;
+  fields: string[];
+  saved: boolean;
+}
+
+export interface AiConsentInput {
+  decision: AiConsentDecision;
+  obtainedOn: string;
+  method: AiConsentMethod;
+  company: string;
+  country: string;
+  noTrainingConfirmed: boolean;
+  fpConfirmed: boolean;
+}
+
+/** AI接続口（本体の命令。世帯は内部IDだけで指す） */
+export interface AiHost {
+  status(): Promise<AiStatus>;
+  setEnabled(enabled: boolean): Promise<AiStatus>;
+  /** 接続の設定の文面（本物の場所入り）を本体が OS のクリップボードへ写す */
+  copySetup(client: string): Promise<boolean>;
+  household(id: string): Promise<AiHouseholdView>;
+  recordConsent(id: string, input: AiConsentInput): Promise<AiHouseholdView>;
+  startShare(id: string, minutes: number, destination: string): Promise<AiHouseholdView>;
+  stopShare(id: string): Promise<AiHouseholdView>;
+  /** AIの候補についての FP の判断（accept のときは保存したプランの ID） */
+  decide(id: string, candidate: string, accept: boolean, plan: string | null): Promise<AiHouseholdView>;
+}
+
 /** 本体の命令（0016 の1: 用途ごとの命令だけ） */
 export interface HostApi {
   readonly kind: "tauri" | "browser-dev";
@@ -140,6 +285,7 @@ export interface HostApi {
   report: ReportHost;
   sheets: SheetHost;
   store: StoreHost;
+  ai: AiHost;
 }
 
 const bytesOf = (b: ArrayBuffer | Uint8Array | number[]): Uint8Array => (b instanceof Uint8Array ? b : b instanceof ArrayBuffer ? new Uint8Array(b) : Uint8Array.from(b));
@@ -173,6 +319,16 @@ export function tauriHost(): HostApi {
       restoreWithRecoveryKey: (key) => invoke<StoreStatus>("recovery_key_restore", { key }),
       closeReady: () => invoke<void>("app_close_ready"),
     },
+    ai: {
+      status: () => invoke<AiStatus>("ai_status"),
+      setEnabled: (enabled) => invoke<AiStatus>("ai_set_enabled", { enabled }),
+      copySetup: (client) => invoke<boolean>("ai_setup_copy", { client }),
+      household: (id) => invoke<AiHouseholdView>("ai_household", { id }),
+      recordConsent: (id, input) => invoke<AiHouseholdView>("ai_consent_record", { id, input }),
+      startShare: (id, minutes, destination) => invoke<AiHouseholdView>("ai_share_start", { id, minutes, destination }),
+      stopShare: (id) => invoke<AiHouseholdView>("ai_share_stop", { id }),
+      decide: (id, candidate, accept, plan) => invoke<AiHouseholdView>("ai_candidate_decide", { id, candidate, accept, plan }),
+    },
     sheets: {
       save: (bytes, m) => invoke<SaveOutcome>("hearing_save", bytes, { headers: { "x-customer-no": m.customerNo, "x-exported-on": m.exportedOn, "x-prefilled": m.prefilled ? "1" : "0" } }),
       open: async () => {
@@ -189,6 +345,7 @@ async function devJson<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
+const devAi = (op: string, args: Record<string, unknown> = {}) => fetch(`/__dev/ai/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 const devStore = (op: string, args: Record<string, string> = {}) => fetch(`/__dev/store/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 
 /**
@@ -248,6 +405,17 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       testRecoveryKey: async (key) => devJson<StoreStatus>(await devStore("test", { key })),
       restoreWithRecoveryKey: async (key) => devJson<StoreStatus>(await devStore("restore", { key })),
       closeReady: async () => undefined,
+    },
+    // AI接続口: 開発用のサーバーのメモリの中の代わり（本物の受け口は開けない。画面の確かめ用）
+    ai: {
+      status: async () => devJson<AiStatus>(await devAi("status")),
+      setEnabled: async (enabled) => devJson<AiStatus>(await devAi("setEnabled", { enabled })),
+      copySetup: async (client) => devJson<boolean>(await devAi("copySetup", { client })),
+      household: async (id) => devJson<AiHouseholdView>(await devAi("household", { id })),
+      recordConsent: async (id, input) => devJson<AiHouseholdView>(await devAi("recordConsent", { id, input })),
+      startShare: async (id, minutes, destination) => devJson<AiHouseholdView>(await devAi("startShare", { id, minutes, destination })),
+      stopShare: async (id) => devJson<AiHouseholdView>(await devAi("stopShare", { id })),
+      decide: async (id, candidate, accept, plan) => devJson<AiHouseholdView>(await devAi("decide", { id, candidate, accept, plan })),
     },
     sheets: {
       save: async (bytes, m) =>

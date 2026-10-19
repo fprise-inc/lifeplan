@@ -5,6 +5,8 @@
 //!   世帯は本体が振る内部ID（UUID）だけで指す。
 //! - 事務所の親鍵は OS の資格情報の保管庫（Mac はキーチェーン、Windows は資格情報マネージャー）。サービス名はアプリの識別子で、
 //!   開発用のビルドは `<識別子>.dev`（0013 の2: 製品の鍵に触れない）。
+//! - 本文のうち、同意とAIの記録の区画（`consents`・`consentExplanations`・`aiShares`・`candidates`）は本体だけが書く（ai.rs）。
+//!   開くときは画面に返す本文から外し、保存のときは画面から届いた本文に本体の帳面の中身を入れて書く。
 //! - 復号は本体だけが行い、画面には本文（JSON）だけを返す。鍵は返さない。例外は復元キーで、FP が書き写すために表示する
 //!   ときだけ返す（画面はどこにも保存しない。0016 の1 の「画面に保存しない」で守る）。
 
@@ -13,6 +15,8 @@ use household_store::{
     StoreError, SystemClock,
 };
 use tauri::{AppHandle, Manager, Runtime};
+
+use crate::ai::AiState;
 
 /// データフォルダの名前（アプリのデータの場所の中）
 fn data_dir_name() -> &'static str {
@@ -79,15 +83,50 @@ pub async fn store_list(app: AppHandle) -> Result<Vec<HouseholdEntry>, String> {
     blocking(app, |s| s.list()).await
 }
 
+/// 同意とAIの記録の帳面（ai.rs）と一緒に、保存の処理を別のスレッドで行う
+async fn with_ai<T: Send + 'static>(
+    app: AppHandle,
+    f: impl FnOnce(&Store, &AiState) -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<StoreState>();
+        let ai = app.state::<AiState>();
+        f(&state.0, &ai)
+    })
+    .await
+    .map_err(|_| "E_HOST_THREAD".to_owned())?
+}
+
+fn summary_of(s: &Store, id: &str) -> String {
+    s.list()
+        .ok()
+        .and_then(|l| l.into_iter().find(|e| e.id == id).map(|e| e.summary))
+        .unwrap_or_default()
+}
+
 /// 新しい世帯を作る（世帯の内部IDと世帯の鍵は本体が作る）
 #[tauri::command]
 pub async fn store_create(app: AppHandle, body: String, summary: String) -> Result<Opened, String> {
-    blocking(app, move |s| s.create(CreateRequest { body, summary })).await
+    with_ai(app, move |s, ai| {
+        let o = s
+            .create(CreateRequest {
+                body,
+                summary: summary.clone(),
+            })
+            .map_err(code)?;
+        ai.on_opened(o, summary)
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn store_open(app: AppHandle, id: String) -> Result<Opened, String> {
-    blocking(app, move |s| s.open(&id)).await
+    with_ai(app, move |s, ai| {
+        let o = s.open(&id).map_err(code)?;
+        let summary = summary_of(s, &id);
+        ai.on_opened(o, summary)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -97,7 +136,7 @@ pub async fn store_save(
     body: String,
     summary: String,
 ) -> Result<Saved, String> {
-    blocking(app, move |s| s.save(&id, &body, &summary)).await
+    with_ai(app, move |s, ai| ai.save(s, &id, &body, &summary)).await
 }
 
 /// 表示用の顧客番号を変える
@@ -113,7 +152,19 @@ pub async fn store_rename(
 /// 完全削除（confirm は FP が打った顧客番号）
 #[tauri::command]
 pub async fn store_delete(app: AppHandle, id: String, confirm: String) -> Result<(), String> {
-    blocking(app, move |s| s.delete(&id, &confirm)).await
+    with_ai(app, move |s, ai| {
+        // 確認の顧客番号が合うときだけ、共有を取り消して帳面を捨てる
+        let matches = s
+            .list()
+            .ok()
+            .and_then(|l| l.into_iter().find(|e| e.id == id))
+            .is_some_and(|e| e.customer_no == confirm.trim());
+        if matches {
+            ai.on_deleting(&id);
+        }
+        s.delete(&id, &confirm).map_err(code)
+    })
+    .await
 }
 
 /// 復元キー（72文字）を表示のために返す
@@ -146,7 +197,11 @@ mod tests {
     fn commands_take_no_paths() {
         let needle = concat!("#[tauri::", "command]");
         let mut count = 0;
-        for text in [include_str!("store.rs"), include_str!("lib.rs")] {
+        for text in [
+            include_str!("store.rs"),
+            include_str!("lib.rs"),
+            include_str!("ai.rs"),
+        ] {
             let mut rest = text;
             while let Some(i) = rest.find(needle) {
                 count += 1;
@@ -162,7 +217,7 @@ mod tests {
                 }
             }
         }
-        assert!(count >= 20, "命令を見つけられていない（{count}）");
+        assert!(count >= 28, "命令を見つけられていない（{count}）");
     }
 
     #[test]

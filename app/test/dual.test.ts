@@ -40,10 +40,11 @@ function fakeSession() {
 
 /** 提案書・ヒアリングシート・世帯の保存の命令（この試験では使わない） */
 const no = async () => Promise.reject("E");
-const NO_FILES: Pick<HostApi, "report" | "sheets" | "store"> = {
+const NO_FILES: Pick<HostApi, "report" | "sheets" | "store" | "ai"> = {
   report: { render: no, page: no, pageSvg: no, save: no, discard: async () => undefined },
   sheets: { save: no, open: async () => null },
   store: { status: no, list: no, create: no, open: no, save: no, rename: no, remove: no, recoveryKey: no, acknowledgeRecovery: no, testRecoveryKey: no, restoreWithRecoveryKey: no, closeReady: async () => undefined },
+  ai: { status: no, setEnabled: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no },
 };
 
 /** 本体の代わり: 結果は要求の n×10（正の計算）。応答は手で返す */

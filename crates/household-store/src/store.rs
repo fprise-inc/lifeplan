@@ -121,6 +121,17 @@ struct OfficeData {
     /// 表示用の顧客番号の接頭辞（PCごと。0012 の1）と次の連番
     customer_no_prefix: String,
     customer_no_next: u32,
+    /// AI接続口を使うかどうか（事務所全体の設定。0015。既定はオフ。この欄の無い古い事務所データもオフとして読む）
+    #[serde(default)]
+    ai_connector: AiConnectorSetting,
+}
+
+/// AI接続口の事務所全体の設定（0015）。既定はオフ
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AiConnectorSetting {
+    enabled: bool,
+    changed_at: Option<String>,
 }
 
 impl OfficeData {
@@ -137,6 +148,7 @@ impl OfficeData {
             deletions: vec![],
             customer_no_prefix: ((b'A' + b % 26) as char).to_string(),
             customer_no_next: 1,
+            ai_connector: AiConnectorSetting::default(),
         }
     }
 }
@@ -1083,6 +1095,28 @@ impl Store {
         let mut g = self.lock();
         let s = Self::session(&mut g)?;
         Ok(recovery::encode(&s.master))
+    }
+
+    /// AI接続口を使うかどうか（事務所全体の設定。既定はオフ。0015）
+    pub fn ai_connector_enabled(&self) -> Result<bool, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        Ok(s.data.ai_connector.enabled)
+    }
+
+    /// AI接続口を使うかどうかを変える（FPがアプリの設定の画面で操作したときだけ呼ぶ）
+    pub fn set_ai_connector_enabled(&self, enabled: bool) -> Result<bool, StoreError> {
+        let mut g = self.lock();
+        let now = self.now();
+        let s = Self::session(&mut g)?;
+        if s.data.ai_connector.enabled != enabled {
+            s.data.ai_connector = AiConnectorSetting {
+                enabled,
+                changed_at: Some(iso_of(now)),
+            };
+            self.write_office(s)?;
+        }
+        Ok(enabled)
     }
 
     /// 「保管した」を記録する

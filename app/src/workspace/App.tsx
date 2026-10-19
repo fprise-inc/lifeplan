@@ -3,7 +3,7 @@
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
-import { devBrowserHost, isTauri, tauriHost, webEngine, type HostApi, type StoredHousehold, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
+import { devBrowserHost, isTauri, tauriHost, webEngine, type AiCandidate, type HostApi, type StoredHousehold, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
@@ -13,6 +13,12 @@ import { ChartDock, useChartDock } from "../presentation/ChartDock.tsx";
 import { CashflowTable, DockedResult, FeeNote, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
 import { PlanBand } from "../presentation/PlanBand.tsx";
 import { PLAN_COLORS } from "../presentation/planLines.tsx";
+import { AiCandidates } from "./ai/AiCandidates.tsx";
+import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
+import { AiShareBand } from "./ai/AiShareBand.tsx";
+import { AiSharePanel } from "./ai/AiSharePanel.tsx";
+import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, remainingText, shareState, SHARE_STATE_TEXT } from "./ai/model.ts";
+import { useAi } from "./ai/useAi.ts";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
 import { ContingencyEngine } from "./contingency/engine.ts";
 import { ContingencyTab, type ContingencyUi } from "./contingency/ContingencyTab.tsx";
@@ -307,6 +313,8 @@ export function App() {
   const [hhOpen, setHhOpen] = useState(false);
   const [hhError, setHhError] = useState<string | null>(null);
   const [recovery, setRecovery] = useState<RecoveryMode | null>(null);
+  /** AI接続口の中央のパネル（事務所の設定・世帯の同意と共有） */
+  const [aiPanel, setAiPanel] = useState<null | "connector" | "share">(null);
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const storedRef = useRef<StoredRef | null>(null);
   const autosaver = useRef<Autosaver | null>(null);
@@ -852,6 +860,57 @@ export function App() {
     },
     [setPlans, say],
   );
+  // ---- AI接続口（0014・0015）: 状態と世帯の記録は本体から読む。AIからの候補は FP が承認したときだけプランになる ----
+  const ai = useAi(host?.ai ?? null, storeStatus?.state === "ready", storedInfo?.id ?? null);
+  const acceptCandidate = useCallback(
+    async (c: AiCandidate, name: string) => {
+      const o = openedRef.current;
+      const w = workRef.current;
+      const sr = storedRef.current;
+      if (host === null || o === null || sr === null || sr.readOnly) return;
+      const values = candidateValues(candidateRows(c, o.wh, o.catalog));
+      if (Object.keys(values).length === 0) return;
+      const r = acceptAiCandidate(o.wh, o.catalog, c, values, name.trim() || candidatePlanName(o.wh, o.catalog, values), nowIso());
+      try {
+        // 先に本体へ判断を記録する（承認待ちの候補だけ・1回だけ）。記録できたときだけプランを入れる
+        ai.setView(await host.ai.decide(sr.id, c.id, true, r.id));
+      } catch (e) {
+        say(aiMessage(codeOf(e)));
+        return;
+      }
+      const l = planLetters(r.wh.proposals).get(r.id);
+      placeNew(w, r.wh, r.id, w.drafts, `AIからの候補を ${planLabel(l?.letter ?? "")}「${l?.name ?? name}」として保存しました`);
+    },
+    [host, ai, placeNew, say],
+  );
+  const rejectCandidate = useCallback(
+    async (c: AiCandidate) => {
+      const sr = storedRef.current;
+      if (host === null || sr === null) return;
+      try {
+        ai.setView(await host.ai.decide(sr.id, c.id, false, null));
+        say("AIからの候補を捨てました（記録に残ります）");
+      } catch (e) {
+        say(aiMessage(codeOf(e)));
+      }
+    },
+    [host, ai, say],
+  );
+  const stopShare = useCallback(
+    async (householdId: string) => {
+      if (host === null) return;
+      try {
+        await host.ai.stopShare(householdId);
+        say("AIへの共有を取り消しました");
+      } catch (e) {
+        say(aiMessage(codeOf(e)));
+      }
+      await ai.refresh();
+    },
+    [host, ai, say],
+  );
+  const aiShare = shareState(ai.status, storedInfo !== null ? ai.view : null);
+
   /** ＋ この案を元に作る: 選んでいる案（保存していない変更を含む）を写して新しい案を作り、そのまま選ぶ */
   const duplicate = useCallback(() => {
     const o = openedRef.current;
@@ -1152,6 +1211,20 @@ export function App() {
             </span>
           </button>
         ) : null}
+        {host !== null && opened !== null ? (
+          <button
+            type="button"
+            class={`ai-chip s-${aiShare}`}
+            title={SHARE_STATE_TEXT[aiShare].long}
+            onClick={() => {
+              void ai.refresh();
+              setAiPanel(storedInfo !== null ? "share" : "connector");
+            }}
+            data-ai-chip={aiShare}
+          >
+            {aiShare === "sharing" && ai.view?.share != null ? `AI: 共有中・${remainingText(ai.view.share.expiresInSec)}` : SHARE_STATE_TEXT[aiShare].short}
+          </button>
+        ) : null}
         {opened !== null ? (
           <span class={`save-state ${saveText(storedInfo !== null, saveState).cls}`} role="status" data-save-state={storedInfo === null ? "unsaved" : saveState.kind}>
             {saveText(storedInfo !== null, saveState).text}
@@ -1198,6 +1271,7 @@ export function App() {
           <span>文字を大きくする</span>
         </button>
       </header>
+      <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <main class="wrap">
         {hhOpen && host !== null ? (
           <HouseholdPanel
@@ -1220,6 +1294,11 @@ export function App() {
             onRename={renameStored}
             onDelete={deleteStored}
             onRecovery={() => setRecovery(storeStatus?.state === "needsRecovery" ? "restore" : "manage")}
+            onAiConnector={() => {
+              void ai.refresh();
+              setAiPanel("connector");
+            }}
+            aiEnabled={ai.status?.enabled === true}
             onClose={() => setHhOpen(false)}
           />
         ) : null}
@@ -1300,6 +1379,7 @@ export function App() {
                 </span>
               }
             />
+            {storedInfo !== null && ai.view !== null ? <AiCandidates candidates={ai.view.candidates} wh={opened.wh} catalog={opened.catalog} onAccept={acceptCandidate} onReject={rejectCandidate} /> : null}
             {panel === "list" ? <PlanList wh={opened.wh} catalog={opened.catalog} letters={letters} band={work.band} onBand={toggleBand} onEdit={(w) => setPlans(w)} onReflect={reflect} onClose={() => setPanel(null)} /> : null}
             {panel === "compare" ? (
               <section class="card compare-card" aria-label="プランの比較" data-compare>
@@ -1438,6 +1518,22 @@ export function App() {
       ) : null}
       {memoOpen && opened !== null ? <MemoDrawer wh={opened.wh} onEdit={edit} onClose={() => setMemoOpen(false)} /> : null}
       {evidence !== null ? <EvidencePanel state={evidence} onClose={() => setEvidence(null)} /> : null}
+      {aiPanel === "connector" && host !== null ? <AiConnectorPanel ai={host.ai} status={ai.status} onStatus={ai.setStatus} onChanged={() => void ai.refresh()} onClose={() => setAiPanel(null)} /> : null}
+      {aiPanel === "share" && host !== null && storedInfo !== null ? (
+        <AiSharePanel
+          ai={host.ai}
+          householdId={storedInfo.id}
+          customerNo={storedInfo.customerNo}
+          status={ai.status}
+          view={ai.view}
+          onView={(v) => {
+            ai.setView(v);
+            void ai.refresh();
+          }}
+          onOpenConnector={() => setAiPanel("connector")}
+          onClose={() => setAiPanel(null)}
+        />
+      ) : null}
       {recovery !== null && host !== null ? (
         <RecoveryPanel
           mode={recovery}

@@ -28,7 +28,7 @@ pub enum Request {
     ListShares,
     /// 渡された世帯（縮約版が既定）。`tool` は読んだ道具の名前（AIに渡した記録の `reads` に残す。0014 の3）
     GetShare { share_id: String, tool: String },
-    /// AIの案を「外から来た案」に承認待ちで入れる（世帯は変えない。0015 の7）
+    /// AIのプランの候補を「AIからの候補」に承認待ちで入れる（世帯は変えない。0015 の7）
     Propose { share_id: String, proposal: Value },
 }
 
