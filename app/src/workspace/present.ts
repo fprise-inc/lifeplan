@@ -1,5 +1,5 @@
 // 計算結果と世帯から、提示用の値（PresentationModel。0016 の2）を作る。許可した項目だけを選んで写す
-import { advisoryFeeSummary, type EngineRequest, type PreviewResult, type TableCell } from "../engine/types.ts";
+import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts";
 import { ROW_LABELS } from "../generated/labels.ts";
 import type { BalanceChartModel, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
@@ -43,10 +43,20 @@ export interface RowDef {
   evidence: boolean;
 }
 
+/** 車（何台でも）の支出のマス: 買い替え・維持費（車検・税・保険・駐車場・燃料）・ローンの返済。車の物の ID で見分ける */
+export function carExpense(req: EngineRequest): (c: TableCell) => boolean {
+  const ids = new Set((req.input.household.cars ?? []).map((c) => c.id));
+  return (c) => ids.size > 0 && c.object !== undefined && ids.has(c.object) && under(c.row, "cf.expense");
+}
+
 export function rowDefs(req: EngineRequest): RowDef[] {
   const rs = roles(req);
   const defs: RowDef[] = [];
   const byMember = (prefix: string, role: Role) => (c: TableCell) => under(c.row, prefix) && c.member === role.member.id;
+  // 車があるときだけ「車」の行を出し、車の支出はほかの行から外す（台数が増えても1行。提案書の表と同じ）
+  const hasCar = (req.input.household.cars ?? []).length > 0;
+  const car = carExpense(req);
+  const notCar = (p: (c: TableCell) => boolean) => (c: TableCell) => p(c) && !car(c);
   for (const r of rs) defs.push({ key: `salary:${r.key}`, label: `${r.label}の給与`, group: "income", kind: "value", match: byMember("cf.income.salary", r), evidence: true });
   for (const r of rs) defs.push({ key: `pension:${r.key}`, label: `${r.label}の年金`, group: "income", kind: "value", match: byMember("cf.income.pension", r), evidence: true });
   const ids = new Set(rs.map((r) => r.member.id));
@@ -63,17 +73,18 @@ export function rowDefs(req: EngineRequest): RowDef[] {
       evidence: true,
     },
     { key: "incomeTotal", label: "収入合計", group: "income", kind: "total", match: (c) => under(c.row, "cf.income"), evidence: false },
-    { key: "living", label: ROW_LABELS["cf.expense.living"] ?? "基本生活費", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.living"), evidence: true },
+    { key: "living", label: ROW_LABELS["cf.expense.living"] ?? "基本生活費", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.living")), evidence: true },
     { key: "housing", label: "住居費（ローン・税・修繕）", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.housing"), evidence: true },
     { key: "education", label: "教育費", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.education"), evidence: true },
-    { key: "insurance", label: "保険料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.insurance"), evidence: true },
-    { key: "lumpSum", label: "一時的な支出（旅行など）", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.lumpSum"), evidence: true },
+    { key: "insurance", label: "保険料", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.insurance")), evidence: true },
+    { key: "lumpSum", label: "一時的な支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum")), evidence: true },
+    ...(hasCar ? [{ key: "car", label: "車（買い替え・維持費・ローン）", group: "expense" as const, kind: "value" as const, match: car, evidence: true }] : []),
     {
       key: "expenseOther",
       label: "その他の支出",
       group: "expense",
       kind: "value",
-      match: (c) => under(c.row, "cf.expense") && !["cf.expense.living", "cf.expense.housing", "cf.expense.education", "cf.expense.insurance", "cf.expense.lumpSum"].some((p) => under(c.row, p)),
+      match: notCar((c) => under(c.row, "cf.expense") && !["cf.expense.living", "cf.expense.housing", "cf.expense.education", "cf.expense.insurance", "cf.expense.lumpSum"].some((p) => under(c.row, p))),
       evidence: true,
     },
     { key: "taxSi", label: "税・社会保険料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.taxSi"), evidence: true },
@@ -236,32 +247,28 @@ function goals(req: EngineRequest, proposed: readonly TableCell[], years: readon
 /** FP顧問料の ON/OFF の材料（顧問料の契約があるときだけ） */
 export interface FeeInput {
   on: boolean;
-  /** 顧問料を入れた案の要約（累計を出すため）。無ければ累計は出さない */
-  withFee: PreviewResult | null;
   /** ON と OFF を入れ替えた案の結果（差を一文に出すため。まだ無ければ null） */
   alt: PreviewResult | null;
 }
 
-/** FP顧問料の一文: 「顧問料（累計○万円）を払っても、ご主人95歳時点の資産は現状より○万円多い」 */
+/** FP顧問料の一文: 「FP顧問料を払っても、ご主人95歳時点の資産は現状より○万円多い」。顧問料の累計の額は出さない（額は入力・提案書の顧問料の欄で見る） */
 export function feeLine(input: { fee: FeeInput; targetYear: number; targetLabel: string; finP: Map<number, number>; finC: Map<number, number>; baseLabel?: string }): FeeLine {
   const { fee, targetYear, targetLabel, finP, finC } = input;
   const than = input.baseLabel ?? "現状";
-  const cum = fee.withFee === null ? null : (advisoryFeeSummary(fee.withFee)?.byYear.filter((b) => b.year <= targetYear).at(-1)?.cumulative ?? 0);
-  const cumText = cum === null ? "" : `（${targetLabel}までの累計${man(cum)}万円）`;
   const diffOf = (fin: Map<number, number>) => (fin.get(targetYear) ?? 0) - (finC.get(targetYear) ?? 0);
   const word = (d: number) => `${man(Math.abs(d))}万円${d >= 0 ? "多い" : "少ない"}`;
   const alt = fee.alt === null ? null : diffOf(financialOf(fee.alt.table));
   const d = diffOf(finP);
   if (fee.on) {
     const parts: VerdictPart[] = [
-      { text: `FP顧問料${cumText}を${d >= 0 ? "払っても" : "含めると"}、${targetLabel}時点の資産は${than}より ` },
+      { text: `FP顧問料を${d >= 0 ? "払っても" : "含めると"}、${targetLabel}時点の資産は${than}より ` },
       { text: word(d), strong: true },
     ];
     if (alt !== null) parts.push({ text: `（顧問料を除くと${word(alt)}）` });
     return { on: true, parts };
   }
   const parts: VerdictPart[] = [{ text: "FP顧問料を含めない試算です。" }];
-  if (alt !== null) parts.push({ text: `含めると${cumText}、${targetLabel}時点の資産は${than}より ` }, { text: word(alt), strong: true });
+  if (alt !== null) parts.push({ text: `含めると、${targetLabel}時点の資産は${than}より ` }, { text: word(alt), strong: true });
   return { on: false, parts };
 }
 

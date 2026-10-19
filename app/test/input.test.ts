@@ -264,8 +264,8 @@ describe("段階の操作（足す・外す・選ぶ）", () => {
 });
 
 describe("入力の段階", () => {
-  it("12項目が決まった順番で並ぶ", () => {
-    expect(buildStages(open("salariedCoupleTwoKids")).map((s) => s.label)).toEqual(["家族", "働き方と収入", "年金", "基本生活費", "子ども・教育", "住まい・ローン", "保険", "貯蓄・運用", "ライフイベント", "車", "FP顧問料", "前提条件"]);
+  it("11項目が決まった順番で並ぶ（FP顧問料は前提条件の中）", () => {
+    expect(buildStages(open("salariedCoupleTwoKids")).map((s) => s.label)).toEqual(["家族", "働き方と収入", "年金", "基本生活費", "子ども・教育", "住まい・ローン", "保険", "貯蓄・運用", "ライフイベント", "車", "前提条件"]);
   });
   it("簡易の欄がどの段階にもある（子のいない世帯の教育を除く）", () => {
     const wh = open("salariedCoupleTwoKids");

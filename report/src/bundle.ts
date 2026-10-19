@@ -84,4 +84,9 @@ export interface ProposalBundle {
   chapters?: ChapterId[];
   /** 帳票の組み方（紙の向き・キャッシュフロー表の載せ方。省略は標準） */
   layout?: ReportLayout;
+  /**
+   * 入力に推定・仮の値（統計の平均などで補った値）が残っているか（アプリの画面が入力の欄から決める）。
+   * 計算の要求の中の推定の値の箱（state: "estimated"）は、これが無くても読む。どの欄が推定かは帳票に渡さない（FP 向けの画面だけで示す）
+   */
+  estimated?: boolean;
 }

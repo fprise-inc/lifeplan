@@ -1,10 +1,11 @@
 // 10. 前提条件: 物価上昇率・賃金上昇率・運用利回り・教育費の上昇率・年金のマクロ経済スライド（年ごとの列の既定の値。0008 の8）、
-// 資産の種類ごとの利回り、表の最後の年
+// 資産の種類ごとの利回り、表の最後の年、FP顧問料（単発・継続。stages/fees.ts。以前は別のカード）
 import type { Household, YearSeries } from "../../../engine/types.ts";
 import { field, getPath, plain, type FieldDef, type GroupDef, type StageDef } from "../form.ts";
 import { mutate, standardEndYear, type WorkingHousehold } from "../household.ts";
 import { ASSET_CLASSES } from "../labels.ts";
 import { sameRate } from "../units.ts";
+import { feeSections } from "./fees.ts";
 
 /** 年ごとの列の既定の値（default）の欄。年ごとの値（byYear）があるときは、その旨を出す */
 function seriesField(name: string, label: string, help: string, level: "simple" | "detail", optional: boolean): FieldDef {
@@ -97,7 +98,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
   return {
     id: "assumptions",
     label: "前提条件",
-    lead: "物価・賃金・運用利回りなどの前提。顧客ごとに変えられます。",
+    lead: "物価・賃金・運用利回りなどの前提と、FP顧問料。顧客ごとに変えられます。",
     sections: [
       {
         key: "assume/main",
@@ -141,6 +142,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
             },
           })),
       },
+      ...feeSections(wh),
     ],
   };
 }

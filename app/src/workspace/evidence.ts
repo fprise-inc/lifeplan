@@ -66,14 +66,14 @@ export function buildEvidence(full: FullResult, req: EngineRequest, rowKey: stri
   let total = 0;
   full.flows.forEach((f, i) => {
     const y = byAccrual ? f.accrualYear : Number(f.ym.slice(0, 4));
-    if (y !== year || !def.match({ row: f.row, year: y, amount: f.amount, ...(f.member !== undefined ? { member: f.member } : {}) })) return;
+    if (y !== year || !def.match({ row: f.row, year: y, amount: f.amount, ...(f.member !== undefined ? { member: f.member } : {}), ...(f.object !== undefined ? { object: f.object } : {}) })) return;
     total += f.amount;
     breakdown.set(f.formula, (breakdown.get(f.formula) ?? 0) + f.amount);
     const t = full.trace.flows[i];
     if (t !== undefined) calls.add(t);
   });
   full.annual.forEach((a, i) => {
-    if (a.year !== year || !def.match({ row: a.row, year: a.year, amount: a.amount, ...(a.member !== undefined ? { member: a.member } : {}) })) return;
+    if (a.year !== year || !def.match({ row: a.row, year: a.year, amount: a.amount, ...(a.member !== undefined ? { member: a.member } : {}), ...(a.object !== undefined ? { object: a.object } : {}) })) return;
     total += a.amount;
     breakdown.set(a.formula, (breakdown.get(a.formula) ?? 0) + a.amount);
     const t = full.trace.annual[i];

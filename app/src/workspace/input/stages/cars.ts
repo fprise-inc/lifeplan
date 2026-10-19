@@ -1,9 +1,9 @@
 // 車（入力の項目「車」）: 車のひな形（買い替えの周期・車両の価格・現金かローンか・維持費・手放す年齢・万一のときの扱い）。
 // エンジンの cars（0008 の追記）をそのまま読み書きする。値の箱を持たない項目なので、空欄を目安で補った値は「推定」の印を画面の側（assumed）に持つ
 import type { Car, Household, Member } from "../../../engine/types.ts";
-import { addMonths, ageAt } from "../../levers.ts";
+import { addMonths, ageAt, parseYm } from "../../levers.ts";
 import { CAR_ESTIMATE, type Estimate } from "../estimates.ts";
-import { byId, field, getPath, plain, setPath, timepointField, type FieldDef, type Finder, type GroupDef, type Level, type StageDef } from "../form.ts";
+import { byId, field, getPath, plain, resolveTimepoint, setPath, timepointField, type FieldDef, type Finder, type GroupDef, type Level, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import { GROWTH_KINDS, memberLabel, memberOptions } from "../labels.ts";
 import { oneMinus } from "../units.ts";
@@ -55,6 +55,13 @@ export function upkeepAnnual(c: Car): number {
   return (c.tax?.annual ?? 0) + (c.insurance?.annual ?? 0) + insp + (c.parking?.annual ?? 0) + (c.fuel?.annual ?? 0);
 }
 
+/** 2つの年月の間の月数（b − a） */
+function monthsBetween(a: string, b: string): number {
+  const x = parseYm(a);
+  const y = parseYm(b);
+  return (y.y - x.y) * 12 + (y.m - x.m);
+}
+
 const ownerOf = (h: Household, c: Car | undefined): Member | undefined => (c === undefined ? undefined : h.members.find((m) => m.id === c.owner));
 
 export function carGroup(wh: WorkingHousehold, c: Car, i: number): GroupDef {
@@ -78,6 +85,31 @@ export function carGroup(wh: WorkingHousehold, c: Car, i: number): GroupDef {
       help: "持っているときは、下の年月から買い替えます（その前の車検も数えます）",
     }),
     timepointField({ key: `${k}/first`, item: "car.purchase", label: c.purchase.owned === true ? "次の買い替えの年月" : "購入の年月", level: "simple", find, path: ["purchase", "first"], ageOf: owner }),
+    field({
+      key: `${k}/firstIn`,
+      item: "car.purchase",
+      label: c.purchase.owned === true ? "次の買い替えまでの年数" : "購入までの年数",
+      level: "simple",
+      kind: "int",
+      suffix: "年後",
+      min: 0,
+      max: 30,
+      help: "計算の基準の月から数えます。入れると上の年月をその年数後の同じ月にします",
+      get: (w) => {
+        const h = w.request.input.household;
+        const ym = resolveTimepoint(h, car(h, w)?.purchase.first ?? null);
+        if (ym === null) return { value: null };
+        const months = monthsBetween(w.request.input.baseMonth, ym);
+        return months % 12 === 0 ? { value: months / 12 } : { value: Math.round(months / 12), derived: `${Math.floor(months / 12)}年${months % 12}か月後（年月で入っています）` };
+      },
+      set: (w, v) =>
+        v === null
+          ? w
+          : mutate(w, (h, req) => {
+              const x = car(h, { ...w, request: req });
+              if (x !== undefined) x.purchase.first = { at: addMonths(req.input.baseMonth, Number(v) * 12) };
+            }),
+    }),
     plain({ key: `${k}/every`, item: "car.purchase", label: "買い替えの周期", level: "simple", kind: "int", suffix: "年ごと", min: 1, max: 30, find, path: ["purchase", "everyYears"] }),
     carYen({ key: `${k}/price`, item: "car.purchase", label: "車両の価格", level: "simple", basis: "once", find, path: ["purchase", "price"], estimate: CAR_ESTIMATE.price, help: "今の価格で入れます（物価上昇率で伸ばします）。空欄なら目安で計算します" }),
     carYen({ key: `${k}/tradeIn`, item: "car.purchase", label: "下取り", level: "simple", basis: "once", find, path: ["purchase", "tradeIn"], optional: true, help: "下取りを引いた額を車両の価格に入れたときは空欄に" }),
@@ -290,9 +322,9 @@ export function addCar(wh: WorkingHousehold, id: () => string = newId): WorkingH
   return { ...next, assumed: { ...next.assumed, [`${k}/price`]: CAR_ESTIMATE.price.basis, [`${k}/tradeIn`]: CAR_ESTIMATE.tradeIn.basis, [`${k}/upkeep`]: CAR_ESTIMATE.upkeep.basis } };
 }
 
+/** 車のパネル: 持っている車を1台ずつ（台数に上限なし）。「＋ もう1台」で同じ欄の車を足す */
 export function carStage(wh: WorkingHousehold): StageDef {
-  const claimed = new Set(wh.addedItems.map((a) => a.ref));
-  const list = (wh.request.input.household.cars ?? []).filter((c) => !claimed.has(c.id));
+  const list = wh.request.input.household.cars ?? [];
   return {
     id: "car",
     label: "車",
@@ -301,10 +333,10 @@ export function carStage(wh: WorkingHousehold): StageDef {
       {
         key: "ev/cars",
         title: "車",
-        note: "買い替え（下取り・ローン）と維持費を、車ごとに入れます。基本生活費の「交通」には車の費用を入れないでください（二重になります）",
+        note: "買い替え（下取り・ローン）と維持費を、車ごとに入れます。2台目からは「＋ もう1台」で足します。基本生活費の「交通」には車の費用を入れないでください（二重になります）",
         level: "simple",
         groups: list.map((c, i) => carGroup(wh, c, i)),
-        actions: [{ key: "ev/addCar", label: "＋ 車（目安の値で入れる）", level: "simple", run: (w) => addCar(w) }],
+        actions: [{ key: "ev/addCar", label: list.length === 0 ? "＋ 車（目安の値で入れる）" : "＋ もう1台（目安の値で入れる）", level: "simple", run: (w) => addCar(w) }],
       },
     ],
   };

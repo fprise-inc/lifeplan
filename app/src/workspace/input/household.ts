@@ -7,6 +7,7 @@ import { emptyPlan, planFromRequest, type ContingencyPlan } from "../contingency
 import { livingEstimate } from "./estimates.ts";
 import type { Proposal } from "../plans/plans.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
+import type { Snapshot } from "../snapshots/snapshots.ts";
 
 /** 定年の後に働くときの条件（D: 入力画面の「定年後の予定」。主画面の「働く最後の年齢」を延ばすときにも使う） */
 export interface PostRetirement {
@@ -45,6 +46,11 @@ export interface WorkingHousehold {
   proposals: Proposal[];
   /** ヒアリングシートの依頼・取り込み・同意の下書きの記録（0018。保存の回で世帯ファイルの取り込みの記録・同意の記録に入れる） */
   hearing?: HearingLog;
+  /**
+   * 控え（0009 の2。PDF を書き出した時点・FP が残した時点の写し）。作った後は変えない。世帯ファイルでは本文の区画 snapshots に置く
+   * （App.tsx の bodyFor。household の区画には入れない）。元に戻す・やり直すの対象にしない
+   */
+  snapshots?: Snapshot[];
 }
 
 /** FP が足した項目（今あるデータの型の物1件を、別のカードにする） */

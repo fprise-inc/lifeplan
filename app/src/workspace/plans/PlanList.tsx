@@ -130,7 +130,7 @@ export function PlanList(p: PlanListProps) {
                             {confirm.kind === "delete" ? "外す" : "取り込む"}
                           </button>
                           <button type="button" class="link-btn" onClick={() => setConfirm(null)}>
-                            やめる
+                            キャンセル
                           </button>
                         </span>
                       ) : (

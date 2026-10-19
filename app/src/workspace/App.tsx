@@ -49,13 +49,16 @@ import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
 import { ageMarkOf, DEFAULT_DISPLAY_SETTINGS, METRIC_CHOICES, shows, verdictMetrics, type DisplaySettings, type MetricKey } from "./settings.ts";
 import { Autosaver, type SaveState } from "./store/autosave.ts";
-import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
+import { bodyObject, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
 import { ForkPanel, type ForkChoiceUi } from "./store/ForkPanel.tsx";
 import { HouseholdPanel, storeMessage } from "./store/HouseholdPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
 import { OfficePanel } from "./store/OfficePanel.tsx";
 import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
+import { keepSnapshots, makeSnapshot, snapshotsOfBody, withSnapshotsSection, type Snapshot, type SnapshotDraft } from "./snapshots/snapshots.ts";
+import { SnapshotTools } from "./snapshots/SnapshotTools.tsx";
 import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
+import { version as APP_VERSION } from "../../package.json";
 import { installUndo, undoController } from "./undo/controller.ts";
 import { UndoButtons } from "./undo/UndoButtons.tsx";
 
@@ -67,7 +70,7 @@ export const TABS: { id: Tab; label: string }[] = [
   { id: "report", label: "提案書" },
 ];
 
-/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#add=pet,car（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
+/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#add=pet,periodic（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
  * #items=loan,rate,shift,mix（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
  * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）） */
 export function parseHash(hash: string): {
@@ -86,6 +89,10 @@ export function parseHash(hash: string): {
   level?: Level;
   /** メモの引き出しを開いて開く */
   memo?: boolean;
+  /** #snapshots: 入力のホームで控えの一覧を開いて開く */
+  snapshots?: boolean;
+  /** #cgplan=B: 万一のときの画面で見るプラン（帯の文字） */
+  cgPlan?: string;
   /** 入力のホームで足して保存した状態にする項目（開発用のサーバーだけ） */
   add?: string[];
   /** #fee=off: FP顧問料を入れない提案で開く */
@@ -128,6 +135,7 @@ export function parseHash(hash: string): {
     const [k, v] = part.split("=") as [string, string | undefined];
     if (k === "big") out.big = true;
     else if (k === "memo") out.memo = true;
+    else if (k === "snapshots") out.snapshots = true;
     else if (k === "selfcheck") {
       out.selfcheck = true;
       if (v === "input") out.selfcheckInput = true;
@@ -154,6 +162,7 @@ export function parseHash(hash: string): {
       const i = v.lastIndexOf(":");
       out.evidence = { row: v.slice(0, i), year: Number(v.slice(i + 1)) };
     } else if ((k === "sel" || k === "base") && v !== undefined && /^[A-Z]$/.test(v)) out[k] = v;
+    else if (k === "cgplan" && v !== undefined && /^[A-Z]$/.test(v)) out.cgPlan = v;
     else if (k === "diff") out.diff = true;
     else if (k === "settings") out.settings = true;
     else if (k === "metrics" && v !== undefined) out.metrics = v.split(",").filter((x): x is MetricKey => METRIC_CHOICES.some((c) => c.key === x));
@@ -262,9 +271,10 @@ interface StoredRef {
   carry: BodyState["carry"];
 }
 
-/** 世帯ファイルの本文（0011 の2）: 現状・案・案の帯の並び・対策に足した項目・表示の設定（保存していない案の変更は入れない） */
+/** 世帯ファイルの本文（0011 の2）: 現状・案・案の帯の並び・対策に足した項目・表示の設定（保存していない案の変更は入れない）。控え（0009）は区画 snapshots に置く */
 function bodyFor(o: Opened, w: Work, shownKeys: string[], s: DisplaySettings, carry: BodyState["carry"]): string {
-  return bodyOf({ wh: o.wh, workspace: { template: o.demo?.id ?? null, band: w.band, base: w.base, selected: w.sel, shownItems: shownKeys }, display: s, carry });
+  const { snapshots, ...wh } = o.wh;
+  return JSON.stringify(withSnapshotsSection({ ...bodyObject({ wh, workspace: { template: o.demo?.id ?? null, band: w.band, base: w.base, selected: w.sel, shownItems: shownKeys }, display: s, carry }) }, snapshots));
 }
 
 /** 上の帯の保存の状態の文 */
@@ -610,6 +620,8 @@ export function App() {
   const loadStored = useCallback(
     async (r: StoredOpened, stored?: string) => {
       const st = fromBody(r.body);
+      const snaps = snapshotsOfBody(r.body);
+      if (snaps.length > 0) st.wh.snapshots = snaps;
       const demo = st.workspace.template !== null ? (demoHousehold(st.workspace.template) ?? null) : null;
       const o = openedFrom(demo, st.wh);
       if (o === null) throw new Error("E_BODY_SHAPE");
@@ -849,7 +861,7 @@ export function App() {
       history.track(() => {
         const o = openedRef.current;
         if (o === null || dual.current === null) return;
-        const n = openedFrom(o.demo, withRefreshedEstimates(next));
+        const n = openedFrom(o.demo, withRefreshedEstimates(keepSnapshots(next, o.wh)));
         if (n === null) return;
         reqCache.current.clear();
         const w = fitWork(n, nextWork ?? workRef.current);
@@ -867,7 +879,9 @@ export function App() {
   const restore = (s: AppSnap<Work>) => {
     const o = openedRef.current;
     if (o === null) return;
-    const n = s.wh === o.wh ? o : s.wh.request === o.wh.request ? { ...o, wh: s.wh } : openedFrom(o.demo, s.wh);
+    // 控えは元に戻す・やり直すの対象にしない（作った後は変えない）。今の控えを持ち越す
+    const sw = keepSnapshots(s.wh, o.wh);
+    const n = sw === o.wh ? o : sw.request === o.wh.request ? { ...o, wh: sw } : openedFrom(o.demo, sw);
     if (n === null) return;
     reqCache.current.clear();
     openedRef.current = n;
@@ -879,13 +893,37 @@ export function App() {
   /** 入力の画面で世帯（現状）を変えた */
   const edit = useCallback((next: WorkingHousehold) => replaceCurrent(next), [replaceCurrent]);
 
+  /** 控えを足す・外す（元に戻す・やり直すの履歴には積まない。作った後は変えない。保存した世帯なら自動保存で世帯ファイルに書く） */
+  const putSnapshots = useCallback((f: (list: Snapshot[]) => Snapshot[]) => {
+    const o = openedRef.current;
+    if (o === null) return;
+    const list = f(o.wh.snapshots ?? []);
+    const { snapshots: _old, ...rest } = o.wh;
+    void _old;
+    const n: Opened = { ...o, wh: list.length > 0 ? { ...rest, snapshots: list } : rest };
+    openedRef.current = n;
+    setOpened(n);
+  }, []);
+  /** 控えを作る（その時点の現状・プラン・保存していないプランの変更の写し。0009 の2） */
+  const takeSnapshot = useCallback(
+    async (draft: SnapshotDraft) => {
+      const o = openedRef.current;
+      if (o === null) return;
+      const s = await makeSnapshot({ wh: o.wh, drafts: workRef.current.drafts, draft, appVersion: APP_VERSION });
+      // 指紋を作っている間に別の世帯を開いたときは、残さない
+      if (openedRef.current?.selfId !== o.selfId) return;
+      putSnapshots((l) => [...l, s]);
+    },
+    [putSnapshots],
+  );
+
   /** 案の一覧だけを変えた（名前・印・保存・外す）。現状は同じ */
   const setPlans = useCallback(
     (next: WorkingHousehold, nextWork?: Work) =>
       history.track(() => {
         const o = openedRef.current;
         if (o === null) return;
-        const n = { ...o, wh: next };
+        const n = { ...o, wh: keepSnapshots(next, o.wh) };
         reqCache.current.clear();
         openedRef.current = n;
         setOpened(n);
@@ -935,6 +973,18 @@ export function App() {
   // ---- 案の操作 ----
   const letters = useMemo(() => (opened === null ? new Map<string, { letter: string; name: string }>() : planLetters(opened.wh.proposals)), [opened]);
   const letterOf = (id: string) => letters.get(id)?.letter ?? "?";
+  /** 万一のときの画面で見るプランの選択肢（現状と帯のプラン）と、その計算の要求（保存していない変更を含む今の中身） */
+  const cgPlans = useMemo(
+    () => [CURRENT, ...work.band].map((id) => ({ id, letter: letters.get(id)?.letter ?? (id === CURRENT ? "A" : "?"), name: id === CURRENT ? "現状" : (letters.get(id)?.name ?? "") })),
+    [work.band.join(","), letters],
+  );
+  const cgRequestOf = useCallback(
+    (id: string): EngineRequest => {
+      if (opened === null) throw new Error("E_NOT_OPEN");
+      return id === CURRENT ? opened.wh.request : reqOf(opened, valuesOf(opened.wh, work, id));
+    },
+    [opened, work, reqOf],
+  );
 
   /** 帯のカードを押した: その案を選ぶ（グラフの実線・1文・対策・表がその案に替わる） */
   const select = useCallback(
@@ -1117,7 +1167,7 @@ export function App() {
   const provisional = selView?.source !== "canonical" || selView.stale;
   const model = useMemo(() => {
     if (opened === null || selReq === null || selRes === null || baseRes === null) return null;
-    const fee = feeShown ? { on: feeOn, withFee: feeOn ? selRes : altRes, alt: altRes } : undefined;
+    const fee = feeShown ? { on: feeOn, alt: altRes } : undefined;
     const m = toPresentation({ base: opened.wh.request, proposal: selReq, current: baseRes, proposed: selRes, targetAge: settings.atAge, selectedYear, provisional, names, ...(baseReq !== null ? { baseProposal: baseReq } : {}), ...(fee !== undefined ? { fee } : {}) });
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return extra.length > 0 ? { ...m, result: { ...m.result, sub: [...m.result.sub, ...extra] } } : m;
@@ -1461,7 +1511,18 @@ export function App() {
               level={level}
               onLevel={setLevel}
               {...(initial.open !== undefined ? { initialOpen: initial.open } : {})}
-              {...(host !== null ? { tools: <HearingTools wh={opened.wh} sheets={host.sheets} onSave={edit} /> } : {})}
+              tools={
+                <>
+                  <SnapshotTools
+                    list={opened.wh.snapshots ?? []}
+                    stored={storedInfo !== null}
+                    onTake={(memo) => takeSnapshot({ trigger: "manual", memo, plan: { id: work.sel, letter: letterOf(work.sel), name: work.sel === CURRENT ? "現状" : (letters.get(work.sel)?.name ?? "") } })}
+                    onRemove={(id) => putSnapshots((l) => l.filter((x) => x.id !== id))}
+                    {...(initial.snapshots === true ? { initialOpen: true } : {})}
+                  />
+                  {host !== null ? <HearingTools wh={opened.wh} sheets={host.sheets} onSave={edit} /> : null}
+                </>
+              }
             />
           </>
         ) : tab === "contingency" && opened !== null ? (
@@ -1476,6 +1537,9 @@ export function App() {
             dock={settings.dock}
             onDockOff={dockOff}
             {...(initial.scenario !== undefined ? { initialScenario: initial.scenario } : {})}
+            plans={cgPlans}
+            requestOf={cgRequestOf}
+            {...(initial.cgPlan !== undefined ? { initialPlan: initial.cgPlan } : {})}
           />
         ) : tab === "report" && opened !== null && host !== null ? (
           <ReportTab
@@ -1489,6 +1553,7 @@ export function App() {
             valuesOf={(id) => valuesOf(opened.wh, work, id)}
             letterOf={(id) => ({ letter: letterOf(id), name: id === CURRENT ? "現状" : (letters.get(id)?.name ?? "") })}
             targetAge={settings.atAge}
+            onSnapshot={takeSnapshot}
           />
         ) : model === null || opened === null || band === null ? (
           fatal === null ? <p class="loading">計算しています…</p> : null
