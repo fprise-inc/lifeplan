@@ -3,6 +3,8 @@
 // - 「復元キーで実際に開けるか試す」（データは変えない）
 // - 保管庫に親鍵が無いとき: 復元キーを入れて戻す
 // - 事務所で共有しているとき（shared）: 事務所の復元キー（共有の事務所の鍵）。試して開けたら保管済みとして記録する（0023 の5）
+// - 1人で2台の PC の同期フォルダ（personal。0024）: 同期フォルダの復元キー（どの PC でも同じ）。初回の案内には「2台目の PC なら、
+//   すでに使っている同期フォルダを開く」への入口を出す
 // 復元キーは表示のためだけに受け取り、パネルを閉じたら消す（画面はどこにも保存しない。0016 の1）
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { StoreHost, StoreStatus } from "../../engine/host.ts";
@@ -24,7 +26,30 @@ export function keyLines(key: string): string[] {
   return out;
 }
 
-export function RecoveryPanel({ mode, store, status, onStatus, onClose, shared = false }: { mode: RecoveryMode; store: StoreHost; status: StoreStatus | null; onStatus: (s: StoreStatus) => void; onClose: () => void; shared?: boolean }) {
+export function RecoveryPanel({
+  mode,
+  store,
+  status,
+  onStatus,
+  onClose,
+  shared = false,
+  personal = false,
+  onOpenSync,
+  onStorage,
+}: {
+  mode: RecoveryMode;
+  store: StoreHost;
+  status: StoreStatus | null;
+  onStatus: (s: StoreStatus) => void;
+  onClose: () => void;
+  shared?: boolean;
+  /** 1人で2台の PC の同期フォルダで使っている（0024） */
+  personal?: boolean;
+  /** 初回の案内で「2台目の PC: すでに使っている同期フォルダを開く」を選んだ */
+  onOpenSync?: () => void;
+  /** 保存先のパネルを開く */
+  onStorage?: () => void;
+}) {
   const [key, setKey] = useState<string | null>(null);
   const [kept, setKept] = useState(false);
   const [input, setInput] = useState("");
@@ -51,7 +76,7 @@ export function RecoveryPanel({ mode, store, status, onStatus, onClose, shared =
       const s = mode === "restore" ? await store.restoreWithRecoveryKey(input) : await store.testRecoveryKey(input);
       onStatus(s);
       setInput("");
-      setResult({ ok: true, text: mode === "restore" ? "事務所の鍵を戻しました。保存した世帯を開けます" : shared ? "この復元キーで開けることを確かめました。事務所の復元キーを保管済みとして記録しました" : "この復元キーで開けることを確かめました" });
+      setResult({ ok: true, text: mode === "restore" ? "事務所の鍵を戻しました。保存した世帯を開けます" : personal ? "この復元キーで開けることを確かめました。保管済みとして記録しました" : shared ? "この復元キーで開けることを確かめました。事務所の復元キーを保管済みとして記録しました" : "この復元キーで開けることを確かめました" });
     } catch (e) {
       setResult({ ok: false, text: message(codeOf(e)) });
     } finally {
@@ -59,19 +84,35 @@ export function RecoveryPanel({ mode, store, status, onStatus, onClose, shared =
     }
   };
 
-  const title = mode === "restore" ? "復元キーで事務所の鍵を戻す" : shared ? "事務所の復元キー" : "復元キー";
+  const title = mode === "restore" ? "復元キーで事務所の鍵を戻す" : personal ? "復元キー（同期フォルダ）" : shared ? "事務所の復元キー" : "復元キー";
   return (
     <>
       <div class="scrim" aria-hidden="true" onClick={mode === "restore" ? undefined : onClose} />
       <div ref={panel} class="rk-panel" role="dialog" aria-modal="true" aria-labelledby="rk-title" tabIndex={-1} data-recovery-panel={mode}>
         <h2 id="rk-title">{title}</h2>
+        {mode === "first" && !shared && onOpenSync !== undefined ? (
+          <div class="sp-second" data-recovery-second-pc>
+            <p>
+              <b>2台目のPCですか？</b> 別のPCで同期フォルダに置いて使っているなら、そのフォルダを開きます（そのときの復元キーを使います。下のこのPCの復元キーは使いません）。
+            </p>
+            <button type="button" class="btn" onClick={onOpenSync} data-recovery-open-sync>
+              すでに使っている同期フォルダを開く
+            </button>
+          </div>
+        ) : null}
         {mode === "restore" ? (
           <p>
             この PC の資格情報の保管庫に、事務所の鍵が見つかりません（OS の入れ直し・PC の交換など）。保管しておいた復元キーを入れると、鍵を戻して、保存した世帯を開けるようになります。
+            同期フォルダで2台のPCで使っていたときは、同期フォルダの復元キー（どのPCでも同じ）を入れてください。
           </p>
         ) : (
           <>
-            {shared ? (
+            {personal ? (
+              <p data-recovery-personal>
+                同期フォルダの世帯は、この復元キーの鍵で暗号化しています。<b>どのPCでも同じ復元キーです。</b>新しいPCで同期フォルダを開くとき・PCの保管庫の鍵がなくなったときに使います。
+                <b>復元キーが無いと、すべての世帯とバックアップを誰も読めなくなります（提供元にも戻せません）。</b>PCを外すと新しくなります（古い控えは破棄してください）。
+              </p>
+            ) : shared ? (
               <p data-recovery-shared>
                 共有している事務所の世帯は、事務所の鍵で暗号化しています。<b>事務所の全員の PC が使えなくなったときは、この復元キーで新しい PC を事務所に加えられます。復元キーが無いと、誰も読めなくなります（提供元にも戻せません）。</b>
                 復元キーを持つ人は事務所のすべての世帯を開けるので、事務所の代表の方が保管してください。メンバーを外すたびに新しくなります（古い控えは破棄してください）。保管するまで、参加の承認とメンバーを外す操作は止まります。
@@ -149,7 +190,15 @@ export function RecoveryPanel({ mode, store, status, onStatus, onClose, shared =
         {mode !== "restore" && !shared ? (
           <div class="rk-later">
             <h3>別の PC で使う・同期フォルダに置く</h3>
-            <p class="in-note">複数の PC・複数の FP で使うときは、世帯の一覧の「事務所の共有」から始めます。共有を始めると事務所の復元キーは新しくなり、保管が必須になります。</p>
+            <p class="in-note">
+              1人で2台のPCで使うときは、世帯の一覧の「保存先」から同期フォルダを選びます（この復元キーをそのまま使います。2台目のPCで開くときに入れます）。
+              複数のFPで使うときは「事務所の共有」から始めます（事務所の復元キーは新しくなり、保管が必須になります）。
+            </p>
+            {onStorage !== undefined ? (
+              <button type="button" class="btn" onClick={onStorage} data-recovery-to-storage>
+                保存先を開く
+              </button>
+            ) : null}
           </div>
         ) : null}
         {mode !== "restore" ? (

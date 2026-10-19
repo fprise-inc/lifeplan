@@ -54,6 +54,11 @@ const COMMANDS: &[&str] = &[
     "store_fork_resolve",
     "store_sync_copies_resolve",
     "store_leave",
+    // 0024: 1人の FP が複数の PC で使う同期フォルダ（同期フォルダは本体のダイアログで選ばせる。パスも鍵も受け取らない・返さない）
+    "storage_sync_start",
+    "storage_sync_open",
+    "storage_sync_end",
+    "storage_notices",
     "app_close_ready",
 ];
 

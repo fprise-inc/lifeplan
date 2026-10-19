@@ -394,6 +394,7 @@ fn forged_roster_is_rejected() {
         recovery: None,
         events: vec![],
         closed: None,
+        usage: None,
         updated_at: "x".into(),
         updated_by: None,
     };

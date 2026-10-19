@@ -21,7 +21,8 @@ export interface ForkPanelProps {
 export function ForkPanel(p: ForkPanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => panel.current?.focus({ preventScroll: true }), []);
-  const who = p.info?.theirsBy != null ? `${p.info.theirsBy}さん` : "ほかのPC";
+  // 1人で2台の PC の同期フォルダでは、相手は人ではなく、もう1台の PC（0024）
+  const who = p.info?.theirsBy != null ? (p.info.personal ? `もう1台のPC「${p.info.theirsBy}」` : `${p.info.theirsBy}さん`) : "ほかのPC";
   const when = p.info?.theirsSavedAt != null ? shortDate(p.info.theirsSavedAt) : "";
   return (
     <>
