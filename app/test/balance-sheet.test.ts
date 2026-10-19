@@ -123,7 +123,7 @@ describe("入力の画面: 持ち家の評価・売却・その他の資産", ()
     const stage = buildStage("savings", wh);
     const sec = stage.sections.find((s) => s.key === "sav/others")!;
     wh = sec.actions.find((a) => a.key === "sav/add/otherAsset")!.run(wh);
-    const acc = wh.request.input.household.accounts.find((a) => a.kind === "otherAsset")!;
+    const acc = (wh.request.input.household.accounts ?? []).find((a) => a.kind === "otherAsset")!;
     const fs = fieldsOf(wh, "savings");
     wh = fs.find((f) => f.key === `sav/${acc.id}/value`)!.set(wh, 2000000);
     wh = fs.find((f) => f.key === `sav/${acc.id}/growth`)!.set(wh, "-0.05");

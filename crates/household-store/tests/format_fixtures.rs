@@ -76,6 +76,16 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(snaps.as_array().is_some_and(|a| !a.is_empty()));
             assert_eq!(snaps, &expected["snapshots"], "{v}: 控えの中身は変えない");
         }
+        if *v == "0.4" {
+            // 0.4 から: 持ち家の評価（任意。見本の世帯は持ち家の評価を持つ）
+            let homes = now["household"]["request"]["input"]["household"]["residences"]
+                .as_array()
+                .unwrap();
+            assert!(
+                homes.iter().any(|r| r.get("valuation").is_some()),
+                "0.4 の見本には持ち家の評価がある"
+            );
+        }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
         }
