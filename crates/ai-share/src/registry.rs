@@ -93,6 +93,10 @@ struct State {
     issued: u32,
     logs: HashMap<String, Vec<AiShareRecord>>,
     proposals: Vec<PendingProposal>,
+    /// 外部AIへの提供の同意が `given` の世帯だけを渡せるようにする（アプリ本体の方針。下の `require_consent`）
+    require_consent: bool,
+    /// 記録が変わるたびに1つ増える（アプリ本体が世帯ファイルへ書き戻す合図）
+    revision: u64,
 }
 
 pub struct ShareRegistry {
@@ -125,6 +129,21 @@ impl ShareRegistry {
         self.state.lock().unwrap_or_else(|p| p.into_inner())
     }
 
+    /// 同意を必須にする（アプリ本体はこれを使う）。オンのとき:
+    /// - 外部AIへの提供の同意が `given` でない世帯は、`proceed_without_consent` でも渡せない（`ConsentMissing`）
+    /// - 渡した後に同意の状態が `given` でなくなった共有（`update_source` で届いたもの）は、その場で「同意の撤回」で閉じ、
+    ///   接続口の一覧にも出さず、読ませない
+    ///
+    /// 0014 の6 は「同意が無くても警告して FP の判断で続けられる」だが、アプリでは最も保守的な側を選んだ
+    pub fn require_consent(&self, on: bool) {
+        self.lock().require_consent = on;
+    }
+
+    /// 記録が変わった回数（世帯ファイルへ書き戻すかどうかの判定に使う）
+    pub fn revision(&self) -> u64 {
+        self.lock().revision
+    }
+
     fn now(&self) -> u64 {
         self.clock.now_ms()
     }
@@ -155,7 +174,7 @@ impl ShareRegistry {
             None => "none",
         };
         let warned = consent_state != "given";
-        if warned && !opts.proceed_without_consent {
+        if warned && (!opts.proceed_without_consent || self.lock().require_consent) {
             return Err(GrantError::ConsentMissing {
                 state: consent_state.to_owned(),
             });
@@ -193,6 +212,7 @@ impl ShareRegistry {
             reads: Vec::new(),
             proposals: Vec::new(),
         };
+        st.revision += 1;
         let log = st.logs.entry(source.household_id.clone()).or_default();
         log.push(record);
         let record_index = log.len() - 1;
@@ -219,14 +239,40 @@ impl ShareRegistry {
 
     /// 共有中にFPが世帯を直したとき、渡す中身を新しい世帯に置き換える（同じ世帯だけ）
     pub fn update_source(&self, share_id: &str, source: SharedHouseholdSource) -> bool {
+        let now = self.now();
         let mut st = self.lock();
-        match st.shares.get_mut(share_id) {
+        let require = st.require_consent;
+        let consent_ok = consent_given(&source);
+        let updated = match st.shares.get_mut(share_id) {
             Some(s) if s.ended.is_none() && s.source.household_id == source.household_id => {
                 s.source = source;
                 true
             }
             _ => false,
+        };
+        if updated && require && !consent_ok {
+            end_share(&mut st, share_id, iso8601(now), EndReason::ConsentWithdrawn);
+            return false;
         }
+        updated
+    }
+
+    /// 世帯の共有中の共有ID（期限内で閉じていないもの）
+    pub fn active_share_ids(&self, household_id: &str) -> Vec<String> {
+        let now = self.now();
+        let st = self.lock();
+        st.shares
+            .iter()
+            .filter(|(_, s)| {
+                s.ended.is_none() && now < s.expires_ms && s.source.household_id == household_id
+            })
+            .map(|(id, _)| id.clone())
+            .collect()
+    }
+
+    /// すべての共有を取り消す（FPがAI接続口をオフにしたとき）
+    pub fn revoke_all(&self) -> usize {
+        self.end_where(EndReason::Revoked, |_, _| true)
     }
 
     /// 取り消す（即時。取り消した直後の呼び出しから REVOKED）
@@ -304,9 +350,25 @@ impl ShareRegistry {
         v
     }
 
-    /// 世帯を開いたときに、世帯ファイルの `aiShares` の記録を読み込む（この後の記録はその後ろに足す）
-    pub fn load_records(&self, household_id: &str, existing: Vec<AiShareRecord>) {
+    /// この世帯の記録をもう持っているか（同じ起動の中で2回目に世帯を開いたときは、読み込み直さない）
+    pub fn has_records(&self, household_id: &str) -> bool {
+        self.lock().logs.contains_key(household_id)
+    }
+
+    /// 世帯を開いたときに、世帯ファイルの `aiShares` の記録を読み込む（この後の記録はその後ろに足す）。
+    /// 前の起動で終わりの記録が残らなかった共有（アプリが落ちたなど）は、「アプリの終了」で閉じる（0015 の5: 再開しない）
+    pub fn load_records(&self, household_id: &str, mut existing: Vec<AiShareRecord>) {
+        let now = self.now();
+        for r in existing.iter_mut().filter(|r| r.ended_at.is_none()) {
+            let at = if r.expires_at.as_str() < iso8601(now).as_str() {
+                r.expires_at.clone()
+            } else {
+                iso8601(now)
+            };
+            r.end(at, EndReason::AppClosed);
+        }
         let mut st = self.lock();
+        st.revision += 1;
         let log = st.logs.entry(household_id.to_owned()).or_default();
         if log.is_empty() {
             *log = existing;
@@ -332,7 +394,7 @@ impl ShareRegistry {
             .unwrap_or_default()
     }
 
-    /// 届いた承認待ちの案を受け取る（「外から来た案」に入れるのはアプリ本体）
+    /// 届いた承認待ちのプランの候補を受け取る（「AIからの候補」に入れるのはアプリ本体）
     pub fn take_proposals(&self) -> Vec<PendingProposal> {
         std::mem::take(&mut self.lock().proposals)
     }
@@ -351,10 +413,11 @@ impl ShareRegistry {
         for id in &expired {
             expire(&mut st, id);
         }
+        let require = st.require_consent;
         let mut list: Vec<(String, serde_json::Value)> = st
             .shares
             .iter()
-            .filter(|(_, s)| s.ended.is_none())
+            .filter(|(_, s)| s.ended.is_none() && (!require || consent_given(&s.source)))
             .map(|(id, s)| {
                 (
                     s.alias.clone(),
@@ -407,6 +470,7 @@ impl ShareRegistry {
         {
             r.add_read(iso8601(now), tool, &reduced.fields, &digest, caller);
         }
+        st.revision += 1;
         Ok(payload)
     }
 
@@ -449,14 +513,22 @@ impl ShareRegistry {
                 at: iso8601(now),
             });
         }
+        st.revision += 1;
         Ok(json!({
             "proposalId": candidate_id,
             "status": "pendingReview",
             "changes": n,
-            "message": "案をアプリの「外から来た案」に入れました。FPがアプリで確認して承認するまで、世帯のデータは変わりません。",
+            "message": "プランの候補をアプリの「AIからの候補」に入れました。FPがアプリで中身を確かめて「プランとして保存」するまで、世帯のデータは変わりません。",
         })
         .to_string())
     }
+}
+
+fn consent_given(source: &SharedHouseholdSource) -> bool {
+    source
+        .external_ai_consent
+        .as_ref()
+        .is_some_and(|c| c.decision == ConsentDecision::Given)
 }
 
 fn not_shared() -> Refusal {
@@ -486,6 +558,13 @@ fn usable(st: &mut State, share_id: &str, now: u64) -> Result<(), Refusal> {
         expire(st, share_id);
         return Err(expired_refusal());
     }
+    if st.require_consent && !consent_given(&s.source) {
+        end_share(st, share_id, iso8601(now), EndReason::ConsentWithdrawn);
+        return Err((
+            ErrorCode::Revoked,
+            "この世帯の共有は取り消されました（外部AIへの提供の同意がありません）。".to_owned(),
+        ));
+    }
     Ok(())
 }
 
@@ -511,6 +590,7 @@ fn end_share(st: &mut State, share_id: &str, at: String, reason: EndReason) {
         return;
     }
     s.ended = Some(reason);
+    st.revision += 1;
     let household_id = s.source.household_id.clone();
     let index = s.record_index;
     if let Some(r) = st

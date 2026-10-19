@@ -28,6 +28,15 @@ const COMMANDS: &[&str] = &[
     "recovery_key_acknowledge",
     "recovery_key_test",
     "recovery_key_restore",
+    // 0014・0015: AI接続口（事務所の設定・世帯ごとの同意・共有・記録・候補の判断。パスも鍵も受け取らない・返さない）
+    "ai_status",
+    "ai_set_enabled",
+    "ai_setup_copy",
+    "ai_household",
+    "ai_consent_record",
+    "ai_share_start",
+    "ai_share_stop",
+    "ai_candidate_decide",
     "app_close_ready",
 ];
 

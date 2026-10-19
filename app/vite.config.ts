@@ -97,6 +97,126 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
   return { ok: false, code: "E_DEV_STORE_OP" };
 }
 
+/**
+ * 開発用のサーバーの AI接続口（本体の ai_* の代わり。メモリの中だけ）。画面の確かめ用で、本物の受け口は開けない。
+ * 決まり（既定はオフ・同意が無ければ渡さない・撤回で共有を止める・候補は判断を1回だけ）は本体（ai-share）と同じにしてある。
+ * `/__dev/ai/simulate?kind=read|propose` で、AI からの読み取り・プランの候補が届いたことにする
+ */
+const devAi = {
+  enabled: false,
+  books: new Map<string, { consents: Record<string, unknown>[]; records: Record<string, unknown>[]; candidates: Record<string, unknown>[] }>(),
+  share: null as null | { householdId: string; shareId: string; alias: string; expiresMs: number },
+};
+const DEV_AI_EXPLANATION = "（開発用の見本）ご相談の内容をもとにしたライフプランの計算や見直しの検討に、FPが契約している外部のAIを使うことがあります。\nAIに渡すのは、計算に必要な項目だけです。お名前・ご住所・FPのメモは渡しません。\nこの同意はいつでも撤回でき、撤回した後はAIに渡しません。";
+
+function devAiOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
+  const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  const id = typeof a.id === "string" ? a.id : "";
+  const book = () => {
+    let b = devAi.books.get(id);
+    if (b === undefined) devAi.books.set(id, (b = { consents: [], records: [], candidates: [] }));
+    return b;
+  };
+  const active = () => (devAi.share !== null && devAi.share.expiresMs > Date.now() ? devAi.share : null);
+  const shareStatus = () => {
+    const s = active();
+    return s === null ? null : { shareId: s.shareId, alias: s.alias, householdId: s.householdId, customerNumber: devStore.households.get(s.householdId)?.customerNo ?? null, expiresInSec: Math.floor((s.expiresMs - Date.now()) / 1000) };
+  };
+  const end = (reason: string) => {
+    const s = active();
+    if (s === null) return;
+    const r = devAi.books.get(s.householdId)?.records.find((x) => x.shareId === s.shareId);
+    if (r !== undefined && r.endedAt === null) Object.assign(r, { endedAt: now, endReason: reason });
+    devAi.share = null;
+  };
+  const consentState = (b: ReturnType<typeof book>) => (b.consents.at(-1)?.decision as string | undefined) ?? "none";
+  const view = () => {
+    const b = book();
+    const sh = shareStatus();
+    return { consentState: consentState(b), consents: b.consents, explanation: DEV_AI_EXPLANATION, explanationRef: "sha256:dev", share: sh !== null && sh.householdId === id ? sh : null, records: b.records, candidates: b.candidates, allowlistVersion: "reduced@1", fields: ["member.birth", "income.salary.annual", "livingExpense.monthly", "account.marketValue", "assumptions.inflation"], saved: devStore.households.has(id) };
+  };
+  const setup = (title: string, client: string, text: string) => ({ client, title, text });
+  switch (op) {
+    case "status": {
+      const sh = shareStatus();
+      return {
+        ok: true,
+        value: {
+          enabled: devAi.enabled,
+          running: devAi.enabled,
+          problem: null,
+          storeReady: true,
+          connector: { found: true, version: "0.1.0", versionMatches: true },
+          shares: sh === null ? [] : [sh],
+          setup: [
+            setup("コマンドで登録するAIアプリ（claude mcp add）", "command", 'claude mcp add --transport stdio --scope user -e LIFEPLAN_RUNTIME_DIR="<開発用の作業フォルダ>" fprise-lifeplan -- "<接続口の場所>" mcp'),
+            setup("JSON の設定ファイル（mcpServers）に書くAIアプリ", "json", '{\n  "mcpServers": {\n    "fprise-lifeplan": {\n      "args": ["mcp"],\n      "command": "<接続口の場所>",\n      "env": { "LIFEPLAN_RUNTIME_DIR": "<開発用の作業フォルダ>" }\n    }\n  }\n}'),
+            setup("TOML の設定ファイル（mcp_servers）に書くAIアプリ", "toml", '[mcp_servers.fprise-lifeplan]\ncommand = "<接続口の場所>"\nargs = ["mcp"]'),
+          ],
+          durations: [15, 60, 120, 240, 480],
+          dev: true,
+        },
+      };
+    }
+    case "setEnabled":
+      devAi.enabled = a.enabled === true;
+      if (!devAi.enabled) end("revoked");
+      return devAiOp("status", {});
+    case "copySetup":
+      return { ok: true, value: false };
+    case "household":
+      return devStore.households.has(id) ? { ok: true, value: view() } : { ok: false, code: "E_STORE_NOT_OPEN" };
+    case "recordConsent": {
+      const i = a.input as Record<string, unknown>;
+      const b = book();
+      if (i.fpConfirmed !== true) return { ok: false, code: "E_AI_CONSENT_FP_CONFIRM" };
+      if (i.decision === "given" && consentState(b) === "given") return { ok: false, code: "E_AI_CONSENT_ALREADY" };
+      if (i.decision === "withdrawn" && consentState(b) !== "given") return { ok: false, code: "E_AI_CONSENT_NOT_GIVEN" };
+      b.consents.push({ id: crypto.randomUUID(), kind: "externalAi", decision: i.decision, obtainedOn: i.obtainedOn, method: i.method, explanationRef: "sha256:dev", ...(i.decision === "given" ? { externalAi: { company: i.company, country: i.country, noTrainingConfirmed: i.noTrainingConfirmed }, scope: "reduced" } : {}), fpConfirmed: true, recordedAt: now, origin: "thisOffice" });
+      if (i.decision !== "given" && active()?.householdId === id) end("consentWithdrawn");
+      return { ok: true, value: view() };
+    }
+    case "startShare": {
+      const b = book();
+      if (!devAi.enabled) return { ok: false, code: "E_AI_OFF" };
+      if (consentState(b) !== "given") return { ok: false, code: "E_AI_NO_CONSENT" };
+      if (active() !== null) return { ok: false, code: "E_AI_ALREADY_SHARED" };
+      const minutes = Number(a.minutes);
+      const shareId = `s-${crypto.randomUUID().slice(0, 8)}`;
+      devAi.share = { householdId: id, shareId, alias: "共有中の世帯A", expiresMs: Date.now() + minutes * 60_000 };
+      b.records.push({ id: crypto.randomUUID(), kind: "household", shareId, grantedAt: now, expiresAt: new Date(Date.now() + minutes * 60_000).toISOString().replace(/\.\d+Z$/, "Z"), endedAt: null, endReason: null, scope: "reduced", allowlistVersion: "reduced@1", fields: view().fields, householdRevision: "generation-dev", destinationDeclared: String(a.destination), consentAtGrant: { state: "given", recordId: (b.consents.at(-1)?.id as string) ?? null, warned: false }, reads: [], proposals: [] });
+      return { ok: true, value: view() };
+    }
+    case "stopShare":
+      if (active()?.householdId === id) end("revoked");
+      return { ok: true, value: view() };
+    case "decide": {
+      const c = book().candidates.find((x) => x.id === a.candidate);
+      if (c === undefined) return { ok: false, code: "E_AI_CANDIDATE_UNKNOWN" };
+      if (c.status !== "pending") return { ok: false, code: "E_AI_CANDIDATE_DECIDED" };
+      Object.assign(c, { status: a.accept === true ? "accepted" : "rejected", decidedAt: now, decidedBy: "fp", planId: a.accept === true ? a.plan : null });
+      return { ok: true, value: view() };
+    }
+    case "simulate": {
+      const s = active();
+      if (s === null) return { ok: false, code: "E_AI_NOT_SHARED" };
+      const b = devAi.books.get(s.householdId)!;
+      const r = b.records.find((x) => x.shareId === s.shareId)! as { reads: Record<string, unknown>[]; proposals: Record<string, unknown>[] };
+      if (a.kind === "propose") {
+        const cid = crypto.randomUUID();
+        b.candidates.push({ id: cid, source: "ai", shareId: s.shareId, receivedAt: now, title: "物価の上がり方を年1.5%で見直したプラン", summary: "物価の前提を少し高めにし、老後の金融資産がどれだけ変わるかを比べるためのプランです。", diffs: [{ id: crypto.randomUUID(), target: { plan: "assumptions" }, item: "assumptions.inflation", op: "set", value: "0.015", note: "最近の物価の動きに合わせて高めに見る" }, { id: crypto.randomUUID(), target: { plan: "assumptions" }, item: "assumptions.marketShocks", op: "set", value: [{ year: 2030, drop: "0.3" }], note: "下落の年を足す" }], origin: { kind: "ai", connector: "dev-client 1.0" }, status: "pending", decidedAt: null, decidedBy: null, planId: null });
+        r.proposals.push({ candidateId: cid, at: now });
+      } else {
+        const last = r.reads.at(-1);
+        if (last !== undefined && last.tool === "get_shared_household") Object.assign(last, { count: (last.count as number) + 1, lastAt: now });
+        else r.reads.push({ firstAt: now, lastAt: now, count: 1, tool: "get_shared_household", fields: view().fields, digest: "sha256:3f6c0a9d2b71e4c85a0f19d6b2c3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b", caller: { connectorPid: 4242, connectorExe: "lifeplan", parentExe: "ai-app", mcpClientDeclared: "dev-client 1.0" } });
+      }
+      return { ok: true };
+    }
+  }
+  return { ok: false, code: "E_DEV_AI_OP" };
+}
+
 function devHost(): Plugin {
   const households = join(REPO_DIR, "data", "modelHouseholds");
   const regulation = join(ENGINE_DIST, "regulation");
@@ -192,6 +312,18 @@ function devHost(): Plugin {
           void (async () => {
             const args = JSON.parse((await readBody(req)).toString("utf8") || "{}") as Record<string, string>;
             const r = devStoreOp(st[1] as string, args);
+            res.statusCode = r.ok ? 200 : 400;
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(r.ok ? JSON.stringify(r.value ?? null) : r.code);
+          })();
+          return;
+        }
+        // AI接続口（本体の ai_* の代わり）: 開発用のサーバーのメモリの中だけ。本物の受け口は開けない
+        const ai = /^ai\/([a-zA-Z]+)(?:\?|$)/.exec(path);
+        if (ai !== null) {
+          void (async () => {
+            const args = req.method === "POST" ? (JSON.parse((await readBody(req)).toString("utf8") || "{}") as Record<string, unknown>) : Object.fromEntries(new URL(req.url ?? "", "http://x").searchParams);
+            const r = devAiOp(ai[1] as string, args);
             res.statusCode = r.ok ? 200 : 400;
             res.setHeader("content-type", "application/json; charset=utf-8");
             res.end(r.ok ? JSON.stringify(r.value ?? null) : r.code);

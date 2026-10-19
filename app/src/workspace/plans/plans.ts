@@ -32,9 +32,15 @@ export interface PlanDiff {
   /** 差分を作った時点の現状の値（現状が変わったら「要確認」） */
   before: ValueBox;
   enabled: boolean;
-  origin: { kind: "manual" };
+  /** 出どころ（0008 の2）: 手で動かした値か、AIからの候補を FP が承認して入れた値か */
+  origin: DiffOrigin;
+  /** 外から来た値（AI）は、FP が承認した記録を持つ（0008 の2） */
+  approval?: { by: "fp"; at: string; candidate: string };
   note: string | null;
 }
+
+/** 差分の出どころ。`ai` の `ref` は候補の ID、`connector` は AI のアプリが名乗った名前（自己申告） */
+export type DiffOrigin = { kind: "manual" } | { kind: "ai"; ref: string; connector: string | null };
 
 /** 案（0008 の5 の proposals の1件） */
 export interface Proposal {
@@ -51,6 +57,8 @@ export interface Proposal {
   diffs: PlanDiff[];
   /** 現状に反映した日時 */
   reflectedAt?: string;
+  /** AIからの候補を FP がプランとして保存したもの（候補の ID） */
+  source?: { kind: "ai"; candidate: string };
 }
 
 const box = (value: ItemValue): ValueBox => ({ value, state: "confirmed", origin: { kind: "manual" } });
@@ -145,7 +153,8 @@ function ownDiffs(values: Values, baseValues: Values, wh: WorkingHousehold, cat:
       value: box(v),
       before: old !== undefined ? old.before : box(it.read(wh)),
       enabled: true,
-      origin: { kind: "manual" },
+      // 前と同じ値のままの差分は、出どころ（AIの候補を承認したものなど）を引き継ぐ。動かした差分は手で動かした値になる
+      ...(old !== undefined && it.same(old.value.value, v) ? { origin: old.origin, ...(old.approval !== undefined ? { approval: old.approval } : {}) } : { origin: { kind: "manual" as const } }),
       note: null,
     });
   }

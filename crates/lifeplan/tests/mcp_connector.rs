@@ -171,7 +171,7 @@ async fn standalone_tools_work_without_the_app() {
     let sample = call_ok(&c, "get_sample_household", json!({ "id": "single25" })).await;
     let input = sample["input"].clone();
 
-    // 見本の世帯・AIが組み立てた入力・変更を当てた案
+    // 見本の世帯・AIが組み立てた入力・変更を当てたプラン
     let a = call_ok(
         &c,
         "calculate",
@@ -326,7 +326,7 @@ async fn shared_household_flow() {
     let again = call_ok(&c, "calculate", json!({ "input": view["input"] })).await;
     assert_eq!(again["totals"], sample["totals"]);
 
-    // 案: 世帯は変わらず、承認待ちに入る
+    // プランの候補: 世帯は変わらず、承認待ちに入る
     let member_alias = view["input"]["household"]["members"][0]["id"]
         .as_str()
         .unwrap()
@@ -337,7 +337,7 @@ async fn shared_household_flow() {
         json!({
             "share_id": g.share_id,
             "title": "物価の想定を下げる",
-            "summary": "比べるための案",
+            "summary": "比べるためのプラン",
             "changes": [
                 { "target": "assumptions", "item": "assumptions.inflation", "value": "0.005", "note": "低めの想定" },
                 { "target": member_alias, "item": "member.sex", "value": "female" }
@@ -361,7 +361,7 @@ async fn shared_household_flow() {
     .await;
     assert_eq!(
         after["input"], view["input"],
-        "案を出しても世帯は変わらない"
+        "プランの候補を出しても世帯は変わらない"
     );
     let (err, msg) = call(
         &c,
@@ -479,6 +479,118 @@ async fn shared_household_flow() {
     ep2.shutdown();
     c.cancel().await.unwrap();
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// アプリの方針（同意が必須・アプリだけが記録を書く）で、本物の接続口から: 同意の無い世帯は見えない → 同意を記録して渡すと読める →
+/// プランの候補は帳面の候補に入るだけで世帯は変わらない → 撤回するとその場で REVOKED
+#[tokio::test(flavor = "multi_thread")]
+async fn app_policy_consent_is_required_end_to_end() {
+    use ai_share::book::HouseholdBook;
+    use ai_share::ExternalAiConsentInput;
+    let dir = temp_dir("policy");
+    let reg = Arc::new(ShareRegistry::new());
+    reg.require_consent(true);
+    let ep = AppEndpoint::start(reg.clone(), VERSION, &dir).unwrap();
+    let (c, _) = connect(&dir).await;
+    let s = std::fs::read_to_string(repo().join("data/modelHouseholds/salariedCoupleTwoKids.json"))
+        .unwrap();
+    let request: Value = serde_json::from_str(&s).unwrap();
+    let body =
+        json!({ "household": { "request": request, "memo": [MEMO] }, "proposals": [] }).to_string();
+    let (mut book, _) =
+        HouseholdBook::from_opened(HOUSEHOLD_ID, Some(CUSTOMER_NUMBER.into()), 1, &body).unwrap();
+    let input_before = book.source().unwrap().input;
+
+    // 同意なし: 渡せないので、接続口からは何も見えない
+    assert!(reg
+        .grant(
+            book.source().unwrap(),
+            GrantOptions {
+                proceed_without_consent: true,
+                ..grant_opts()
+            }
+        )
+        .is_err());
+    assert_eq!(
+        call_ok(&c, "list_shared_households", json!({})).await["shares"],
+        json!([])
+    );
+
+    let consent = |decision| ExternalAiConsentInput {
+        decision,
+        obtained_on: "2026-10-19".into(),
+        method: "inPerson".into(),
+        company: "架空AI株式会社".into(),
+        country: "日本".into(),
+        no_training_confirmed: true,
+        fp_confirmed: true,
+    };
+    book.record_consent(
+        &consent(ConsentDecision::Given),
+        "2026-10-19",
+        "2026-10-19T00:00:00Z",
+    )
+    .unwrap();
+    let g = reg.grant(book.source().unwrap(), grant_opts()).unwrap();
+    let got = call_ok(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": g.share_id }),
+    )
+    .await
+    .to_string();
+    assert!(!got.contains(MEMO) && !got.contains(CUSTOMER_NUMBER) && !got.contains(HOUSEHOLD_ID));
+
+    let r = call_ok(
+        &c,
+        "propose_scenario",
+        json!({ "share_id": g.share_id, "title": "物価の想定を下げるプラン", "changes": [{ "target": "assumptions", "item": "assumptions.inflation", "value": "0.005" }] }),
+    )
+    .await;
+    assert_eq!(r["status"], "pendingReview");
+    for p in reg.take_proposals() {
+        book.add_candidate(p);
+    }
+    assert_eq!(book.candidates.len(), 1);
+    assert_eq!(
+        book.source().unwrap().input,
+        input_before,
+        "候補は承認まで世帯に入らない"
+    );
+    let composed: Value =
+        serde_json::from_str(&book.compose(&reg.records(HOUSEHOLD_ID)).unwrap()).unwrap();
+    assert_eq!(
+        composed["aiShares"][0]["reads"][0]["tool"],
+        "get_shared_household"
+    );
+    assert!(
+        composed["aiShares"][0]["reads"][0]["caller"]["mcpClientDeclared"]
+            .as_str()
+            .unwrap()
+            .starts_with("test-ai")
+    );
+
+    // 撤回: アプリは記録して共有を取り消す。直後の読み取りから REVOKED
+    book.record_consent(
+        &consent(ConsentDecision::Withdrawn),
+        "2026-10-19",
+        "2026-10-19T00:10:00Z",
+    )
+    .unwrap();
+    reg.withdraw_consent(HOUSEHOLD_ID);
+    let (err, msg) = call(
+        &c,
+        "get_shared_household",
+        json!({ "share_id": g.share_id }),
+    )
+    .await;
+    assert!(err && msg.contains("REVOKED"), "{msg}");
+    assert_eq!(
+        reg.records(HOUSEHOLD_ID)[0].end_reason,
+        Some(EndReason::ConsentWithdrawn)
+    );
+    c.cancel().await.unwrap();
+    ep.shutdown();
 }
 
 #[tokio::test(flavor = "multi_thread")]

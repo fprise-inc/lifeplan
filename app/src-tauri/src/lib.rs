@@ -7,9 +7,12 @@
 //! - アプリを閉じるときは、画面に自動保存の残りを書かせてから閉じる（`__financiaBeforeClose` → `app_close_ready`。待つのは最長4秒）。
 //! - 提案書の PDF（report.rs）とヒアリングシートの保存・取り込みは、平文の書き出しの出口（export.rs）を通す（0020 の5）。
 //!   画面にはファイル・ダイアログの権限を与えず、パスも受け取らない。
+//! - AI接続口（ai.rs。0014・0015）: 事務所全体の設定（既定はオフ）・世帯ごとの同意・期限つきの共有・記録・AIの候補の判断。
+//!   受け口は設定がオンのときだけ開け、画面には鍵もパスも渡さない。
 //! - macOS のメニュー（menu.rs）: 標準の編集メニューを付け、元に戻す・やり直すは画面のアプリ全体の履歴へ渡す。
 //!   Windows・Linux はメニューバーを出さない（キー操作は画面が受ける）。
 
+mod ai;
 mod engine;
 mod export;
 mod menu;
@@ -267,12 +270,22 @@ pub fn run() {
             store::recovery_key_acknowledge,
             store::recovery_key_test,
             store::recovery_key_restore,
+            ai::ai_status,
+            ai::ai_set_enabled,
+            ai::ai_setup_copy,
+            ai::ai_household,
+            ai::ai_consent_record,
+            ai::ai_share_start,
+            ai::ai_share_stop,
+            ai::ai_candidate_decide,
             app_close_ready
         ])
         .setup(|app| {
             // エンジンのバイトコードを裏で用意する（最初の計算を待たせない）
             std::thread::spawn(engine::warm_up);
             app.manage(store::init(app.handle())?);
+            app.manage(ai::init(app.handle())?);
+            ai::start_watch(app.handle());
             let config = app
                 .config()
                 .app
@@ -302,13 +315,19 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("ファイナンシアを起動できませんでした");
-    app.run(|handle, event| {
-        if let RunEvent::ExitRequested { api, .. } = event {
+    app.run(|handle, event| match event {
+        RunEvent::ExitRequested { api, .. } => {
             if !CLOSE_READY.load(Ordering::SeqCst) {
                 api.prevent_exit();
                 ask_flush_before_close(handle);
             }
         }
+        // 終わる直前: AIへの共有をすべて「アプリの終了」で閉じ、記録を世帯ファイルへ書き戻し、受け口を閉じる（app.json を消す）
+        RunEvent::Exit => {
+            let store = handle.state::<store::StoreState>();
+            handle.state::<ai::AiState>().shutdown(&store.0);
+        }
+        _ => {}
     });
 }
 

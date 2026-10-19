@@ -2,7 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
   "description": "0016 の1: 画面から呼べるのは、アプリが定義した命令だけ（プラグインの権限は与えない。ファイル・ダイアログも画面には与えず、保存・開くは用途ごとの命令の中で本体が行う）。命令を足すときは、このファイルの差分をレビューする",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "allow-engine-packs",
     "allow-list-households",
@@ -26,6 +28,14 @@
     "allow-recovery-key-acknowledge",
     "allow-recovery-key-test",
     "allow-recovery-key-restore",
+    "allow-ai-status",
+    "allow-ai-set-enabled",
+    "allow-ai-setup-copy",
+    "allow-ai-household",
+    "allow-ai-consent-record",
+    "allow-ai-share-start",
+    "allow-ai-share-stop",
+    "allow-ai-candidate-decide",
     "allow-app-close-ready"
   ]
 }

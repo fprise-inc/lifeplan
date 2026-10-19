@@ -1,6 +1,6 @@
 //! 制度の値の参照（`get_regulation_value`）。埋め込んだ制度データのパック（engine/dist/regulation）から、
 //! 値・出典・適用期間を返す。計算エンジンの行の選び方（0007 の8: 最新の版で知っている決定済みの行・`appliesTo: null` は同じ条件の次の行の前日まで）に合わせる。
-//! 案（proposed）の行は返さない。
+//! 制度の改正案（proposed）の行は返さない。
 
 use crate::engine::assets::PACKS;
 use serde_json::{json, Value};

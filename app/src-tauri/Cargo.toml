@@ -36,6 +36,9 @@ rfd = { version = "0.15", default-features = false, features = ["gtk3"] }
 sha2 = "0.10"
 # 0011・0013: 世帯ファイルの保存と暗号化（OS の資格情報の保管庫を使う実装を有効にする）
 household-store = { path = "../../crates/household-store", features = ["os-keyring"] }
+# 0014・0015: AI接続口のアプリ本体の側（共有の台帳・縮約版・同意とAIの記録・接続口からの依頼の受け口）
+ai-share = { path = "../../crates/ai-share" }
+ai-ipc = { path = "../../crates/ai-ipc" }
 
 [profile.dev.package."*"]
 # 開発用の起動（npx tauri dev）でも、依存の crate（Typst の組版・PDF・画像など）は最適化する。

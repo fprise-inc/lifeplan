@@ -23,6 +23,9 @@ export interface HouseholdPanelProps {
   onRename: (id: string, customerNo: string) => Promise<string | null>;
   onDelete: (id: string, confirm: string) => Promise<string | null>;
   onRecovery: () => void;
+  /** AI接続口の事務所全体の設定を開く */
+  onAiConnector?: () => void;
+  aiEnabled?: boolean;
   onClose: () => void;
 }
 
@@ -226,6 +229,14 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           復元キー
         </button>
         {p.status?.state === "ready" ? <span class="pl-sub">{p.status.recoveryAcknowledged ? "復元キーは保管済みです" : "復元キーをまだ保管していません"}</span> : null}
+        {p.onAiConnector !== undefined ? (
+          <>
+            <button type="button" class="link-btn" onClick={p.onAiConnector} data-open-ai-connector>
+              AI接続口
+            </button>
+            <span class="pl-sub">{p.aiEnabled === true ? "オン" : "オフ（既定）"}</span>
+          </>
+        ) : null}
       </div>
     </section>
   );
