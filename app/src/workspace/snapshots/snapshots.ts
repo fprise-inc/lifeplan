@@ -3,7 +3,7 @@
 // - 中身: 作った日時・きっかけ・メモ・計算の基準の月・その時点の現状とプランの全体の写し（保存していないプランの変更も含む）・アプリの版。
 //   PDF のときは、提案にしたプラン・帳票の組み方・主な結果（帳票の入力の要約）・制度データの版も写す
 // - 作った後は変えない（消すことはできる）。指紋（digest。中身の SHA-256）を持ち、一覧を開くたびに確かめる
-// - 世帯ファイルの本文の区画 snapshots（0011 の2）に置く。宛名・担当の名前は入れない（0009 の3・0012）
+// - 世帯ファイルの本文の区画 snapshots（0011 の2。形式の版 0.3 から。store/body.ts）に置く。宛名・担当の名前は入れない（0009 の3・0012）
 // - まだ無いもの（次の回）: 実際に読んだ制度の値の写し（usedValues）・計算部品の版（components）・根拠の記録・宛名なしの PDF の暗号化した別ファイル
 import type { CashflowLayout, Orientation, ProposalInput } from "../../../../report/src/index.ts";
 import type { EngineRequest } from "../../engine/types.ts";
@@ -34,7 +34,7 @@ export interface Snapshot {
     proposals: Proposal[];
     contingency: ContingencyPlan;
     /** 保存していないプランの変更（プランの ID → 動かした値） */
-    drafts: Record<string, Values>;
+    unsavedPlanValues: Record<string, Values>;
   };
   /** 提案書の PDF のとき: 載せた章・紙の向き・キャッシュフロー表の載せ方・目標の年齢・作成日 */
   report?: { chapters: string[]; orientation: Orientation; cashflow: CashflowLayout; targetAge: number | null; issuedOn: string };
@@ -88,7 +88,7 @@ export async function makeSnapshot(o: { wh: WorkingHousehold; drafts: Record<str
     ...o.draft,
     memo: o.draft.memo.trim().slice(0, SNAPSHOT_MEMO_MAX),
     baseMonth: o.wh.request.input.baseMonth,
-    inputs: { request: o.wh.request, proposals: o.wh.proposals, contingency: o.wh.contingency, drafts: o.drafts },
+    inputs: { request: o.wh.request, proposals: o.wh.proposals, contingency: o.wh.contingency, unsavedPlanValues: o.drafts },
     appVersion: o.appVersion,
   });
   return { ...body, digest: await snapshotDigest(body) };
@@ -105,21 +105,6 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object
 export function readSnapshots(v: unknown): Snapshot[] {
   if (!Array.isArray(v)) return [];
   return v.filter((x): x is Snapshot => isObj(x) && typeof x.id === "string" && typeof x.createdAt === "string" && (x.trigger === "pdf" || x.trigger === "manual") && isObj(x.inputs));
-}
-
-/** 世帯ファイルの本文（JSON）に、控えの区画を足す（控えが無ければ区画を作らない） */
-export function withSnapshotsSection(body: Record<string, unknown>, list: readonly Snapshot[] | undefined): Record<string, unknown> {
-  return list === undefined || list.length === 0 ? body : { ...body, snapshots: list };
-}
-
-/** 本文の JSON から控えの区画を読む */
-export function snapshotsOfBody(json: string): Snapshot[] {
-  try {
-    const b = JSON.parse(json) as unknown;
-    return isObj(b) ? readSnapshots(b.snapshots) : [];
-  } catch {
-    return [];
-  }
 }
 
 /** 世帯（現状）を置き換えるときに、今の控えを持ち越す（控えは元に戻す・やり直すの対象にしない。作った後は変えない） */

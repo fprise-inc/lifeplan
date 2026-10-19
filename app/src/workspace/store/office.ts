@@ -109,6 +109,12 @@ export function mergeForkBodies(theirsJson: string, oursJson: string, newId: () 
   }
   const merged: Record<string, unknown> = { ...theirs, proposals: out };
   if (isObj(theirs.meta)) merged.meta = theirs.meta;
+  // 控え（0009 の2）は作った後に変えないので、両方の分岐の控えを ID で重ねずに残す
+  const ts = Array.isArray(theirs.snapshots) ? (theirs.snapshots as { id?: unknown }[]) : [];
+  const os = Array.isArray(ours.snapshots) ? (ours.snapshots as { id?: unknown }[]) : [];
+  const seen = new Set(ts.map((x) => x.id));
+  const snaps = [...ts, ...os.filter((x) => !seen.has(x.id))];
+  if (snaps.length > 0) merged.snapshots = snaps;
   return { body: JSON.stringify(merged), added };
 }
 

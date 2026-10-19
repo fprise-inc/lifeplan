@@ -67,6 +67,18 @@ fn every_format_version_has_a_fixture_and_opens() {
         // 0.2 から: 誰が直したかの記録（0023 の6。古い版は空で足される）
         assert!(now["meta"]["revisions"].is_array(), "{v}: meta.revisions");
         assert!(now["meta"]["editors"].is_object(), "{v}: meta.editors");
+        // 0.3 から: 控えの区画（任意。あるなら配列で、中身は変換で変えない）
+        if let Some(snaps) = now.get("snapshots") {
+            assert!(
+                migrate::parse(v).unwrap() >= (0, 3),
+                "{v}: 0.3 より前の版に控えの区画は無い"
+            );
+            assert!(snaps.as_array().is_some_and(|a| !a.is_empty()));
+            assert_eq!(snaps, &expected["snapshots"], "{v}: 控えの中身は変えない");
+        }
+        if *v == "0.3" {
+            assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

@@ -775,8 +775,6 @@ function changes(ctx: Ctx, current: Outcome, proposal: Outcome): ProposalInput["
   const b = ctx.bundle;
   const diff = (c: number | null, p: number | null) => (c === null || p === null ? null : p - c);
   const yen = (label: string, c: number, p: number) => ({ label, unit: "yen" as const, current: c, proposal: p, diff: p - c });
-  const feeC = b.current.result.summary.advisoryFee?.total ?? 0;
-  const feeP = b.proposal.result.summary.advisoryFee?.total ?? 0;
   const metrics: ProposalInput["changes"]["metrics"] = [
     yen(`${ctx.target.label}の金融資産`, current.financialAtTarget, proposal.financialAtTarget),
     { label: "金融資産が不足する年", unit: "year", current: current.depletion?.year ?? null, proposal: proposal.depletion?.year ?? null, diff: diff(current.depletion?.year ?? null, proposal.depletion?.year ?? null) },
@@ -785,7 +783,7 @@ function changes(ctx: Ctx, current: Outcome, proposal: Outcome): ProposalInput["
     yen("支出の合計", current.totals.expense, proposal.totals.expense),
     yen("年間収支の合計", current.totals.net, proposal.totals.net),
   ];
-  if (feeC !== 0 || feeP !== 0) metrics.push(yen("FP顧問料の累計", feeC, feeP));
+  // FP顧問料の累計の額は、この章には出さない（結果の画面の一文と同じ扱い。顧問料の額は「前提条件と注意書き」の章にある）
   const finC = current.financialAtTarget;
   const finAt = (r: Run) => financialOf(r.result).get(ctx.target.year) ?? 0;
   let fee: ProposalInput["changes"]["fee"] = null;

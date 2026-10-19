@@ -49,14 +49,14 @@ import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
 import { ageMarkOf, DEFAULT_DISPLAY_SETTINGS, METRIC_CHOICES, shows, verdictMetrics, type DisplaySettings, type MetricKey } from "./settings.ts";
 import { Autosaver, type SaveState } from "./store/autosave.ts";
-import { bodyObject, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
+import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
 import { ForkPanel, type ForkChoiceUi } from "./store/ForkPanel.tsx";
 import { HouseholdPanel, storeMessage } from "./store/HouseholdPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
 import { OfficePanel } from "./store/OfficePanel.tsx";
 import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
-import { keepSnapshots, makeSnapshot, snapshotsOfBody, withSnapshotsSection, type Snapshot, type SnapshotDraft } from "./snapshots/snapshots.ts";
+import { keepSnapshots, makeSnapshot, type Snapshot, type SnapshotDraft } from "./snapshots/snapshots.ts";
 import { SnapshotTools } from "./snapshots/SnapshotTools.tsx";
 import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
 import { version as APP_VERSION } from "../../package.json";
@@ -274,8 +274,7 @@ interface StoredRef {
 
 /** 世帯ファイルの本文（0011 の2）: 現状・案・案の帯の並び・対策に足した項目・表示の設定（保存していない案の変更は入れない）。控え（0009）は区画 snapshots に置く */
 function bodyFor(o: Opened, w: Work, shownKeys: string[], s: DisplaySettings, carry: BodyState["carry"]): string {
-  const { snapshots, ...wh } = o.wh;
-  return JSON.stringify(withSnapshotsSection({ ...bodyObject({ wh, workspace: { template: o.demo?.id ?? null, band: w.band, base: w.base, selected: w.sel, shownItems: shownKeys }, display: s, carry }) }, snapshots));
+  return bodyOf({ wh: o.wh, workspace: { template: o.demo?.id ?? null, band: w.band, base: w.base, selected: w.sel, shownItems: shownKeys }, display: s, carry });
 }
 
 /** 上の帯の保存の状態の文 */
@@ -625,8 +624,6 @@ export function App() {
   const loadStored = useCallback(
     async (r: StoredOpened, stored?: string) => {
       const st = fromBody(r.body);
-      const snaps = snapshotsOfBody(r.body);
-      if (snaps.length > 0) st.wh.snapshots = snaps;
       const demo = st.workspace.template !== null ? (demoHousehold(st.workspace.template) ?? null) : null;
       const o = openedFrom(demo, st.wh);
       if (o === null) throw new Error("E_BODY_SHAPE");

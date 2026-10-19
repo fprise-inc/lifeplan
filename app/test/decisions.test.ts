@@ -19,8 +19,8 @@ import { depletionYear, displayYears, rowDefs, sumByYear } from "../src/workspac
 import { estimatedCards } from "../src/workspace/report/assemble.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { SnapshotTools } from "../src/workspace/snapshots/SnapshotTools.tsx";
-import { canonicalJson, keepSnapshots, makeSnapshot, snapshotsOfBody, verifySnapshot, withSnapshotsSection, type Snapshot } from "../src/workspace/snapshots/snapshots.ts";
-import { bodyObject, fromBody } from "../src/workspace/store/body.ts";
+import { canonicalJson, keepSnapshots, makeSnapshot, readSnapshots, verifySnapshot, type Snapshot } from "../src/workspace/snapshots/snapshots.ts";
+import { bodyOf, fromBody } from "../src/workspace/store/body.ts";
 import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { modelHousehold, preview, realEngine } from "./helpers.ts";
 
@@ -54,7 +54,7 @@ describe("控え（0009 の2）", () => {
     expect(s).toMatchObject({ id: "snap-1", createdAt: expect.stringMatching(/^2026-10-19T14:03:00[+-]\d{2}:\d{2}$/), trigger: "manual", memo: "1回目の面談の後", baseMonth: wh.request.input.baseMonth, appVersion: "0.1.0" });
     expect(s.inputs.request).toEqual(wh.request);
     expect(s.inputs.request).not.toBe(wh.request);
-    expect(s.inputs.drafts).toEqual(drafts);
+    expect(s.inputs.unsavedPlanValues).toEqual(drafts);
     expect(s.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(await verifySnapshot(s)).toBe(true);
     // 控えの中身を書き換えると、指紋が合わなくなる
@@ -69,19 +69,17 @@ describe("控え（0009 の2）", () => {
 
   it("世帯ファイルの本文では区画 snapshots に置き（household の区画には入れない）、読むと戻る。控えが無ければ区画を作らない", async () => {
     const s = await makeSnapshot({ wh, drafts: {}, draft: { trigger: "pdf", memo: "提案書（12ページ）", plan: { id: "p1", letter: "B", name: "生活費を見直す" } }, appVersion: "0.1.0", now: NOW });
-    const withSnap: WorkingHousehold = { ...wh, snapshots: [s] };
-    const { snapshots, ...rest } = withSnap;
-    const body = JSON.stringify(withSnapshotsSection({ ...bodyObject({ wh: rest, workspace: { template: null, band: [], base: CURRENT, selected: CURRENT, shownItems: [] }, display: DEFAULT_DISPLAY_SETTINGS, carry: { extDefinitions: {}, ext: {} } }) }, snapshots));
+    const state = (w: WorkingHousehold) => ({ wh: w, workspace: { template: null, band: [], base: CURRENT, selected: CURRENT, shownItems: [] }, display: DEFAULT_DISPLAY_SETTINGS, carry: { extDefinitions: {}, ext: {} } });
+    const body = bodyOf(state({ ...wh, snapshots: [s] }));
     const parsed = JSON.parse(body) as Record<string, unknown>;
     expect(Object.keys(parsed)).toContain("snapshots");
     expect(JSON.stringify(parsed.household)).not.toContain(s.digest);
-    const back = snapshotsOfBody(body);
+    const back = fromBody(body).wh.snapshots!;
     expect(back).toEqual([s]);
     expect(await verifySnapshot(back[0]!)).toBe(true);
-    expect(fromBody(body).wh.snapshots).toBeUndefined();
-    expect(Object.keys(withSnapshotsSection({ a: 1 }, []))).toEqual(["a"]);
-    expect(snapshotsOfBody("{}")).toEqual([]);
-    expect(snapshotsOfBody("not json")).toEqual([]);
+    expect(Object.keys(JSON.parse(bodyOf(state(wh))) as object)).not.toContain("snapshots");
+    expect(fromBody(bodyOf(state(wh))).wh.snapshots).toBeUndefined();
+    expect(readSnapshots([{ id: 1 }, "x"])).toEqual([]);
   });
 
   it("元に戻す・入力の保存で世帯を置き換えても、今の控えを持ち越す（控えは履歴の対象にしない）", async () => {

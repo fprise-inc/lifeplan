@@ -11,6 +11,7 @@ import { savePlan } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { Autosaver, type SaveState, type Timers } from "../src/workspace/store/autosave.ts";
+import { makeSnapshot, snapshotDigest, verifySnapshot } from "../src/workspace/snapshots/snapshots.ts";
 import { BODY_FORMAT_VERSION, bodyObject, bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "../src/workspace/store/body.ts";
 import { keyLines } from "../src/workspace/store/RecoveryPanel.tsx";
 import { modelHousehold } from "./helpers.ts";
@@ -35,6 +36,21 @@ function sample(): BodyState {
   };
 }
 
+/** 見本の控え（固定の ID・日時。PDF を書き出した時点） */
+async function withSnapshot(s: BodyState): Promise<BodyState> {
+  const snap = await makeSnapshot({
+    wh: s.wh,
+    drafts: {},
+    draft: { trigger: "pdf", memo: "提案書（16ページ）", plan: { id: s.workspace.selected, letter: "C", name: "プランB＋70歳まで働く" } },
+    appVersion: "0.1.0",
+    now: new Date(Date.UTC(2026, 9, 19, 5, 0, 0)),
+    id: "00000000-0000-4000-8000-0000000000c1",
+  });
+  // 作った日時は端末の時差によらない固定の値にして、指紋を作り直す
+  const fixed = { ...snap, createdAt: "2026-10-19T14:00:00+09:00" };
+  return { ...s, wh: { ...s.wh, snapshots: [{ ...fixed, digest: await snapshotDigest(fixed) }] } };
+}
+
 function keysOf(v: unknown, out: string[] = []): string[] {
   if (Array.isArray(v)) v.forEach((x) => keysOf(x, out));
   else if (typeof v === "object" && v !== null)
@@ -56,6 +72,18 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     // 本体が足す meta があっても読める
     const withMeta = JSON.stringify({ ...JSON.parse(bodyOf(s)), meta: { format: "lifeplan.household", formatVersion: BODY_FORMAT_VERSION, customerNo: "A0001" } });
     expect(fromBody(withMeta).wh).toEqual(s.wh);
+  });
+
+  it("控え（0.3 から）: 区画 snapshots に置いて読み戻す。household の区画には入れない。控えが無ければ区画を作らない", async () => {
+    const s = await withSnapshot(sample());
+    const text = bodyOf(s);
+    const b = JSON.parse(text) as { snapshots?: unknown[]; household: Record<string, unknown> };
+    expect(b.snapshots).toHaveLength(1);
+    expect(b.household.snapshots).toBeUndefined();
+    const back = fromBody(text);
+    expect(back.wh).toEqual(s.wh);
+    expect(await verifySnapshot(back.wh.snapshots![0]!)).toBe(true);
+    expect(JSON.parse(bodyOf(sample())).snapshots).toBeUndefined();
   });
 
   it("案の数に上限は無い", () => {
@@ -96,7 +124,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(d).toEqual({ ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"] });
   });
 
-  it("過去のすべての形式の版の見本を、今の画面で読める（0011 の5）", () => {
+  it("過去のすべての形式の版の見本を、今の画面で読める（0011 の5）", async () => {
     const base = join(REPO_DIR, "crates", "household-store", "tests", "fixtures", "household-format");
     const versions = readdirSync(base).filter((v) => /^\d+\.\d+$/.test(v));
     expect(versions).toContain(BODY_FORMAT_VERSION);
@@ -114,14 +142,19 @@ describe("世帯ファイルの本文（0011 の2）", () => {
       if (memoBy !== undefined) expect((again.household as { memoBy?: unknown }).memoBy).toEqual(memoBy);
       const orig = JSON.parse(body) as Record<string, unknown>;
       expect(again.ext).toEqual(orig.ext);
+      // 0.3 から: 控えも、読んで書き戻して失わない（中身は変えない。指紋が合う）
+      if (orig.snapshots !== undefined) {
+        expect(again.snapshots).toEqual(orig.snapshots);
+        for (const x of s.wh.snapshots ?? []) expect(await verifySnapshot(x), `${v} の控えの指紋`).toBe(true);
+      }
       expect(again.extDefinitions).toEqual(orig.extDefinitions);
     }
   });
 
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
-  it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(sample()), null, 2) + "\n");
+  it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample())), null, 2) + "\n");
   });
 });
 
