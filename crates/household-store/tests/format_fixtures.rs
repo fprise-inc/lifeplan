@@ -64,6 +64,9 @@ fn every_format_version_has_a_fixture_and_opens() {
         assert!(now["household"]["request"]["input"]["household"]["members"]
             .as_array()
             .is_some_and(|m| !m.is_empty()));
+        // 0.2 から: 誰が直したかの記録（0023 の6。古い版は空で足される）
+        assert!(now["meta"]["revisions"].is_array(), "{v}: meta.revisions");
+        assert!(now["meta"]["editors"].is_object(), "{v}: meta.editors");
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;
@@ -91,6 +94,8 @@ fn regenerate_fixture() {
     );
     std::fs::write(dir.join("key.txt"), format!("{seed}\n\n試験用の鍵は、1行目の文字列（UTF-8）の SHA-256。秘密ではない。中身は架空のモデル世帯。\n")).unwrap();
     let mut body: serde_json::Value = serde_json::from_slice(&std::fs::read(src).unwrap()).unwrap();
+    // 誰が直したかの記録（0.2 から。0023 の6）は、元の本文の meta にあれば残す
+    let carried = body["meta"].clone();
     body["meta"] = serde_json::json!({
         "format": household_store::HOUSEHOLD_FORMAT,
         "formatVersion": migrate::CURRENT,
@@ -98,6 +103,11 @@ fn regenerate_fixture() {
         "appVersion": "0.1.0",
         "customerNo": "A0001"
     });
+    for k in ["savedBy", "revisions", "editors"] {
+        if let Some(v) = carried.get(k) {
+            body["meta"][k] = v.clone();
+        }
+    }
     let plain = serde_json::to_vec(&body).unwrap();
     let header = HouseholdHeader {
         cipher: String::new(),

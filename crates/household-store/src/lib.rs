@@ -8,6 +8,8 @@
 //! - 保存は一時ファイルに書いてディスクへ同期してから差し替え、直前の世代を1つ残す（0011 の7。[`atomic`]）。
 //! - 形式の版と一方向の移行（0011 の5。[`migrate`]）。
 //! - 世帯の一覧・作成・開く・保存・顧客番号の変更・完全削除・自動バックアップは [`Store`]。
+//! - 事務所での共有（0023。既定はオフ）: メンバーごとの X25519 の鍵の組で事務所の親鍵を包む名簿・世帯ごとの鍵の札と世帯の札・
+//!   開いている印は [`office`]、鍵の組・親鍵の包み・指紋は [`member`]。共有フォルダの場所は [`Store`] が事務所データに持ち、外に返さない。
 //!
 //! この部品はファイルの道（パス）を外に返さない。呼ぶ側（アプリ本体）は世帯の内部IDだけでやりとりする（0016 の1）。
 //! 世帯の値・鍵をログやエラーの文に入れない（0012 の4）。エラーは符号（`E_STORE_…`）だけ。
@@ -15,15 +17,19 @@
 pub mod atomic;
 pub mod container;
 pub mod crypto;
+pub mod member;
 pub mod migrate;
+pub mod office;
 pub mod recovery;
 pub mod secret;
 mod store;
 pub mod vault;
 
+pub use office::Author;
 pub use secret::{MemorySecretStore, SecretStore};
 pub use store::{
-    Clock, CreateRequest, HouseholdEntry, Opened, RenameOutcome, Saved, Status, StatusState, Store,
+    Clock, CreateRequest, ForkChoice, ForkInfo, HouseholdEntry, MemberView, OfficeStatus, Opened,
+    PresenceView, RemovedView, RenameOutcome, RequestView, Saved, Status, StatusState, Store,
     SystemClock,
 };
 
@@ -94,4 +100,39 @@ impl StoreError {
     pub const RECOVERY_TYPO: StoreError = StoreError("E_RECOVERY_TYPO");
     /// 復元キーは正しい形だが、この事務所の鍵置き場を開けない
     pub const RECOVERY_MISMATCH: StoreError = StoreError("E_RECOVERY_MISMATCH");
+    // ---- 事務所での共有（0023） ----
+    /// 公開鍵が使えない（壊れた・小さい位数の点）
+    pub const OFFICE_BAD_KEY: StoreError = StoreError("E_OFFICE_BAD_KEY");
+    /// 入力した指紋が、申請の公開鍵の指紋と合わない
+    pub const OFFICE_FINGERPRINT: StoreError = StoreError("E_OFFICE_FINGERPRINT");
+    /// 名簿にこの PC の包みが無い（承認待ち）
+    pub const OFFICE_NOT_MEMBER: StoreError = StoreError("E_OFFICE_NOT_MEMBER");
+    /// この事務所の共有から外された
+    pub const OFFICE_REMOVED: StoreError = StoreError("E_OFFICE_REMOVED");
+    /// 名簿が、手元の親鍵から続くものでない（偽物の疑い）
+    pub const OFFICE_FORGED: StoreError = StoreError("E_OFFICE_FORGED");
+    /// 選んだフォルダに既に事務所がある（始めるのではなく参加する）
+    pub const OFFICE_EXISTS: StoreError = StoreError("E_OFFICE_EXISTS");
+    /// 選んだフォルダに事務所が無い（参加できない）
+    pub const OFFICE_NOT_FOUND: StoreError = StoreError("E_OFFICE_NOT_FOUND");
+    /// 選べない場所（データフォルダ・カスタム層・SDK・AIの作業フォルダの中、またはそれらを含む）
+    pub const OFFICE_FOLDER: StoreError = StoreError("E_OFFICE_FOLDER");
+    /// 共有フォルダが見つからない（外付けのドライブ・同期の停止など）
+    pub const OFFICE_UNAVAILABLE: StoreError = StoreError("E_OFFICE_UNAVAILABLE");
+    /// 表示名の形が違う（1〜20文字、制御文字なし）
+    pub const OFFICE_NAME: StoreError = StoreError("E_OFFICE_NAME");
+    /// 今の状態ではできない操作
+    pub const OFFICE_STATE: StoreError = StoreError("E_OFFICE_STATE");
+    /// 名簿がほかの PC で先に書き換えられた（もう一度）
+    pub const OFFICE_BUSY: StoreError = StoreError("E_OFFICE_BUSY");
+    /// 自分自身・最後の1人は外せない
+    pub const OFFICE_SELF: StoreError = StoreError("E_OFFICE_SELF");
+    /// 外す人の確認（表示名の入力）が合わない
+    pub const OFFICE_CONFIRM: StoreError = StoreError("E_OFFICE_CONFIRM");
+    /// この PC のメンバーの秘密鍵が保管庫に無い（参加し直す）
+    pub const OFFICE_KEY_MISSING: StoreError = StoreError("E_OFFICE_KEY_MISSING");
+    /// 世帯の鍵の札がまだ同期されていない
+    pub const OFFICE_WAITING_SYNC: StoreError = StoreError("E_OFFICE_WAITING_SYNC");
+    /// 選ぶ分岐が無い
+    pub const NO_FORK: StoreError = StoreError("E_STORE_NO_FORK");
 }

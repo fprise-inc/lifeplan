@@ -110,6 +110,13 @@ pub mod purpose {
     pub const HOUSEHOLD_KEY_WRAP: &str = "lifeplan/household-key-wrap/v1";
     pub const OFFICE_DATA: &str = "lifeplan/office-data/v1";
     pub const KEY_CHECK: &str = "lifeplan/key-check/v1";
+    // 事務所での共有（0023）
+    pub const OFFICE_MEMBERS: &str = "lifeplan/office-members/v1";
+    pub const HOUSEHOLD_KEYS: &str = "lifeplan/household-keys/v1";
+    pub const HOUSEHOLD_CARD: &str = "lifeplan/household-card/v1";
+    pub const PRESENCE: &str = "lifeplan/presence/v1";
+    pub const OFFICE_CODE: &str = "lifeplan/office-code/v1";
+    pub const MEMBER_WRAP: &str = "lifeplan/member-wrap/v1";
 }
 
 /// ファイル全体の指紋（0011 の1 の改訂のID）。`sha256:<16進>`

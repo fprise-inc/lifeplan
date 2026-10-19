@@ -11,10 +11,13 @@ use serde_json::Value;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.1";
+pub const CURRENT: &str = "0.2";
 
 /// これまでのすべての形式の版（古い順）。消さない
-pub const KNOWN: &[&str] = &["0.1"];
+/// - 0.1: 最初の版（2026-10-18）
+/// - 0.2: 誰が直したか（`meta.savedBy`・`meta.revisions`・`meta.editors`・`household.memoBy`・
+///   `consents[].recordedBy`・`candidates[].decidedByMember`）を足した（0023 の6。足すだけの MINOR）
+pub const KNOWN: &[&str] = &["0.1", "0.2"];
 
 /// 1段分の変換
 pub struct Step {
@@ -24,7 +27,26 @@ pub struct Step {
 }
 
 /// 変換の段（古い順）。版を上げるときは、ここに1段と、その版の見本を足す。消さない
-pub const STEPS: &[Step] = &[];
+pub const STEPS: &[Step] = &[Step {
+    from: "0.1",
+    to: "0.2",
+    apply: v0_1_to_0_2,
+}];
+
+/// 0.1 → 0.2: 改訂の履歴と、出てくるメンバーの表示名を空で足す（ほかの欄は任意なので足さない）
+fn v0_1_to_0_2(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    let meta = obj
+        .entry("meta")
+        .or_insert_with(|| Value::Object(serde_json::Map::new()));
+    let meta = meta.as_object_mut().ok_or(StoreError::BODY)?;
+    meta.entry("revisions")
+        .or_insert_with(|| Value::Array(vec![]));
+    meta.entry("editors")
+        .or_insert_with(|| Value::Object(serde_json::Map::new()));
+    meta.insert("formatVersion".into(), "0.2".into());
+    Ok(body)
+}
 
 /// 開き方
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -110,7 +132,8 @@ mod tests {
     #[test]
     fn newer_versions_are_refused_or_read_only() {
         assert_eq!(access(CURRENT).unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.2").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.1").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.3").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -122,6 +145,21 @@ mod tests {
         assert_eq!(access("01.1").unwrap_err(), StoreError::FORMAT_UNKNOWN);
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
-        assert_eq!(upgrade("0.2", b.clone()).unwrap(), b);
+        assert_eq!(upgrade("0.3", b.clone()).unwrap(), b);
+    }
+
+    #[test]
+    fn v0_1_gains_empty_editor_records() {
+        let b = serde_json::json!({"meta": {"formatVersion": "0.1", "customerNo": "A1"}, "household": {"memo": ["x"]}});
+        let u = upgrade("0.1", b).unwrap();
+        assert_eq!(u["meta"]["revisions"], serde_json::json!([]));
+        assert_eq!(u["meta"]["editors"], serde_json::json!({}));
+        assert_eq!(u["meta"]["formatVersion"], "0.2");
+        assert_eq!(u["meta"]["customerNo"], "A1");
+        assert_eq!(u["household"]["memo"], serde_json::json!(["x"]));
+        // meta の無い本文にも足す。既にある値は変えない
+        let u2 = upgrade("0.1", serde_json::json!({"meta": {"revisions": [1]}})).unwrap();
+        assert_eq!(u2["meta"]["revisions"], serde_json::json!([1]));
+        assert!(upgrade("0.1", serde_json::json!([])).is_err());
     }
 }

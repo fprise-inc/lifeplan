@@ -13,7 +13,7 @@
 //! 画面に返す本文からは、これらの区画を外す（画面は `view` で見る）。
 
 use crate::consent::{
-    self, current_external_ai, explanation_ref, verify_consents_append_only, ConsentRecord,
+    self, current_external_ai, explanation_ref, verify_consents_append_only, Author, ConsentRecord,
     ExternalAiConsentInput, EXTERNAL_AI_EXPLANATION,
 };
 use crate::proposal::{PendingProposal, ProposalOrigin, ProposedDiff};
@@ -72,6 +72,9 @@ pub struct AiCandidate {
     /// プランとして保存したときの、プランの ID
     #[serde(default)]
     pub plan_id: Option<String>,
+    /// 判断したメンバー（事務所で共有しているとき。0023 の6。`decided_by` は今までどおり `fp`）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decided_by_member: Option<Author>,
 }
 
 /// 候補の中身が書き換えられていないか・判断が1回だけか
@@ -273,14 +276,16 @@ impl HouseholdBook {
         })
     }
 
-    /// 外部AIへの提供の同意（撤回・同意しなかった）を記録する
+    /// 外部AIへの提供の同意（撤回・同意しなかった）を記録する。`author` は書いた人（事務所で共有しているとき）
     pub fn record_consent(
         &mut self,
         input: &ExternalAiConsentInput,
         today: &str,
         now: &str,
+        author: Option<Author>,
     ) -> Result<ConsentRecord, &'static str> {
-        let r = consent::new_external_ai_record(&self.consents, input, today, now)?;
+        let mut r = consent::new_external_ai_record(&self.consents, input, today, now)?;
+        r.recorded_by = author;
         self.explanations
             .entry(explanation_ref(EXTERNAL_AI_EXPLANATION))
             .or_insert_with(|| EXTERNAL_AI_EXPLANATION.to_owned());
@@ -306,16 +311,18 @@ impl HouseholdBook {
             decided_at: None,
             decided_by: None,
             plan_id: None,
+            decided_by_member: None,
         });
     }
 
-    /// FPの判断を記録する（承認待ちの候補だけ。1回だけ）
+    /// FPの判断を記録する（承認待ちの候補だけ。1回だけ）。`author` は判断したメンバー（事務所で共有しているとき）
     pub fn decide(
         &mut self,
         candidate_id: &str,
         accept: bool,
         plan_id: Option<String>,
         now: &str,
+        author: Option<Author>,
     ) -> Result<(), &'static str> {
         let c = self
             .candidates
@@ -339,6 +346,7 @@ impl HouseholdBook {
         };
         c.decided_at = Some(now.to_owned());
         c.decided_by = Some("fp".into());
+        c.decided_by_member = author;
         c.plan_id = if accept { plan_id } else { None };
         Ok(())
     }

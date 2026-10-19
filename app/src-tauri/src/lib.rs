@@ -9,6 +9,8 @@
 //!   画面にはファイル・ダイアログの権限を与えず、パスも受け取らない。
 //! - AI接続口（ai.rs。0014・0015）: 事務所全体の設定（既定はオフ）・世帯ごとの同意・期限つきの共有・記録・AIの候補の判断。
 //!   受け口は設定がオンのときだけ開け、画面には鍵もパスも渡さない。
+//! - 事務所での共有（office.rs。0023）: 共有フォルダは本体のダイアログで選ばせ、パスを画面に渡さない。参加の承認は指紋の入力が必須。
+//!   開いている印は裏で定期的に新しくし、閉じるときに消す。
 //! - macOS のメニュー（menu.rs）: 標準の編集メニューを付け、元に戻す・やり直すは画面のアプリ全体の履歴へ渡す。
 //!   Windows・Linux はメニューバーを出さない（キー操作は画面が受ける）。
 
@@ -16,6 +18,7 @@ mod ai;
 mod engine;
 mod export;
 mod menu;
+mod office;
 mod report;
 mod store;
 
@@ -278,6 +281,18 @@ pub fn run() {
             ai::ai_share_start,
             ai::ai_share_stop,
             ai::ai_candidate_decide,
+            office::office_status,
+            office::office_start,
+            office::office_join,
+            office::office_cancel,
+            office::office_approve,
+            office::office_reject,
+            office::office_remove,
+            office::office_move_local,
+            office::store_fork_info,
+            office::store_fork_resolve,
+            office::store_sync_copies_resolve,
+            office::store_leave,
             app_close_ready
         ])
         .setup(|app| {
@@ -286,6 +301,7 @@ pub fn run() {
             app.manage(store::init(app.handle())?);
             app.manage(ai::init(app.handle())?);
             ai::start_watch(app.handle());
+            office::start_heartbeat(app.handle());
             let config = app
                 .config()
                 .app
@@ -326,6 +342,8 @@ pub fn run() {
         RunEvent::Exit => {
             let store = handle.state::<store::StoreState>();
             handle.state::<ai::AiState>().shutdown(&store.0);
+            // 事務所で共有しているときは、自分の開いている印を消す（0023 の7）
+            store.0.leave_all();
         }
         _ => {}
     });

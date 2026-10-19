@@ -31,7 +31,7 @@ function readBody(req: import("node:http").IncomingMessage): Promise<Buffer> {
 
 /** 開発用のサーバーの世帯の保存（メモリの中だけ。再起動で消える） */
 const devStore = {
-  households: new Map<string, { customerNo: string; summary: string; createdAt: string; updatedAt: string; body: string; generation: number }>(),
+  households: new Map<string, { customerNo: string; summary: string; createdAt: string; updatedAt: string; body: string; generation: number; updatedBy?: string | null; openBy?: { name: string; since: string }[]; forks?: number; conflict?: boolean }>(),
   lastOpened: null as string | null,
   acknowledgedAt: null as string | null,
   verifiedAt: null as string | null,
@@ -46,28 +46,43 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
   const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
   const status = () => ({ state: "ready", firstRun: s.households.size === 0 && s.acknowledgedAt === null, recoveryAcknowledged: s.acknowledgedAt !== null, recoveryVerifiedAt: s.verifiedAt, lastOpened: s.lastOpened, deletionsPending: s.deletions, deletionsCompleted: 0 });
   const norm = (k: string) => k.toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
-  const withMeta = (body: string, customerNo: string) => JSON.stringify({ ...(JSON.parse(body) as object), meta: { format: "lifeplan.household", formatVersion: "0.1", savedAt: now, appVersion: "dev", customerNo } });
+  const editors = Object.fromEntries(devOffice.members.map((m) => [m.memberId, { name: m.name }]));
+  const withMeta = (body: string, customerNo: string) => JSON.stringify({ ...(JSON.parse(body) as object), meta: { format: "lifeplan.household", formatVersion: "0.2", savedAt: now, appVersion: "dev", customerNo, revisions: [], editors } });
+  const me = devOffice.state === "member" ? (devOffice.members.find((m) => m.isMe)?.name ?? null) : null;
   const h = a.id !== undefined ? s.households.get(a.id) : undefined;
   switch (op) {
     case "status":
       return { ok: true, value: status() };
     case "list":
-      return { ok: true, value: [...s.households.entries()].map(([id, e]) => ({ id, customerNo: e.customerNo, summary: e.summary, createdAt: e.createdAt, updatedAt: e.updatedAt })).sort((x, y) => (x.updatedAt < y.updatedAt ? 1 : -1)) };
+      return { ok: true, value: [...s.households.entries()].map(([id, e]) => ({ id, customerNo: e.customerNo, summary: e.summary, createdAt: e.createdAt, updatedAt: e.updatedAt, updatedBy: e.updatedBy ?? null, openBy: e.openBy ?? [], forks: e.forks ?? 0 })).sort((x, y) => (x.updatedAt < y.updatedAt ? 1 : -1)) };
     case "create": {
       const id = crypto.randomUUID();
       const customerNo = `D${String(s.next++).padStart(4, "0")}`;
-      s.households.set(id, { customerNo, summary: a.summary ?? "", createdAt: now, updatedAt: now, body: a.body ?? "{}", generation: 1 });
+      s.households.set(id, { customerNo, summary: a.summary ?? "", createdAt: now, updatedAt: now, body: a.body ?? "{}", generation: 1, updatedBy: me });
       s.lastOpened = id;
-      return { ok: true, value: { id, customerNo, body: withMeta(a.body ?? "{}", customerNo), readOnly: false, generation: 1 } };
+      return { ok: true, value: { id, customerNo, body: withMeta(a.body ?? "{}", customerNo), readOnly: false, generation: 1, savedBy: me, othersOpen: [] } };
     }
     case "open":
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
       s.lastOpened = a.id ?? null;
-      return { ok: true, value: { id: a.id, customerNo: h.customerNo, body: withMeta(h.body, h.customerNo), readOnly: false, generation: h.generation } };
+      return { ok: true, value: { id: a.id, customerNo: h.customerNo, body: withMeta(h.body, h.customerNo), readOnly: false, generation: h.generation, savedBy: h.updatedBy ?? null, othersOpen: h.openBy ?? [] } };
     case "save":
       if (h === undefined) return { ok: false, code: "E_STORE_NOT_OPEN" };
-      Object.assign(h, { body: a.body, summary: a.summary, updatedAt: now, generation: h.generation + 1 });
+      if (h.conflict === true) return { ok: false, code: "E_STORE_CONFLICT" };
+      Object.assign(h, { body: a.body, summary: a.summary, updatedAt: now, generation: h.generation + 1, updatedBy: me });
       return { ok: true, value: { generation: h.generation, savedAt: now } };
+    case "forkInfo":
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      return { ok: true, value: { savedConflict: h.conflict === true, theirsSavedAt: h.updatedAt, theirsBy: h.updatedBy ?? null, theirsGeneration: h.generation, oursGeneration: h.conflict === true ? h.generation : null, syncCopies: h.forks ?? 0 } };
+    case "resolveFork":
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      if (h.conflict !== true && a.keepOurs === "1") return { ok: false, code: "E_STORE_NO_FORK" };
+      h.conflict = false;
+      return { ok: true, value: { id: a.id, customerNo: h.customerNo, body: withMeta(h.body, h.customerNo), readOnly: false, generation: h.generation, savedBy: h.updatedBy ?? null, othersOpen: h.openBy ?? [] } };
+    case "resolveSyncCopies":
+      if (h === undefined || (h.forks ?? 0) === 0) return { ok: false, code: "E_STORE_NO_FORK" };
+      h.forks = 0;
+      return { ok: true };
     case "rename":
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
       if (!/^[A-Za-z0-9_-]{1,16}$/.test((a.customerNo ?? "").trim())) return { ok: false, code: "E_STORE_CUSTOMER_NO" };
@@ -95,6 +110,121 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
     }
   }
   return { ok: false, code: "E_DEV_STORE_OP" };
+}
+
+/**
+ * 開発用のサーバーの事務所での共有（本体の office_* の代わり。メモリの中だけ）。フォルダのダイアログは出さず、架空の共有フォルダを選んだことにする。
+ * 決まり（承認は指紋の入力が必須・申請の指紋は承認する人に返さない・外すときは表示名の確認）は本体（household-store）と同じにしてある。
+ * `/__dev/office/simulate?kind=request|approved|presence|conflict|editor|fork` で、他の PC の操作が届いたことにする
+ */
+type DevMember = { memberId: string; name: string; fingerprint: string; joinedAt: string; approvedBy: string | null; role: string; isMe: boolean };
+const devOffice = {
+  state: "off" as "off" | "pending" | "member" | "removed",
+  myName: null as string | null,
+  myFingerprint: "R8DW-5N2K-QH7T-3MVA",
+  members: [] as DevMember[],
+  removed: [] as { name: string; removedAt: string; removedBy: string | null }[],
+  requests: [] as { requestId: string; name: string; requestedAt: string; fingerprint: string }[],
+  ack: null as null | { by: string; at: string },
+};
+
+function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
+  const o = devOffice;
+  const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  const norm = (f: string) => f.toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
+  const name = typeof a.name === "string" ? a.name.trim() : "";
+  const status = () => ({
+    state: o.state,
+    problem: null,
+    myName: o.myName,
+    myFingerprint: o.state === "off" ? null : o.myFingerprint,
+    members: o.state === "member" ? o.members : [],
+    removed: o.state === "member" ? o.removed : [],
+    requests: o.state === "member" ? o.requests.map(({ requestId, name: n, requestedAt }) => ({ requestId, name: n, requestedAt })) : [],
+    officeCode: o.state === "member" ? "7K2M-QX9P" : null,
+    syncFolder: o.state !== "off",
+    localHouseholds: o.state === "member" ? 0 : devStore.households.size,
+    recoveryAcknowledged: o.ack !== null,
+    recoveryAcknowledgedBy: o.ack?.by ?? null,
+    recoveryAcknowledgedAt: o.ack?.at ?? null,
+  });
+  const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString().replace(/\.\d+Z$/, "Z");
+  switch (op) {
+    case "status":
+      return { ok: true, value: status() };
+    case "start":
+    case "join": {
+      if (name === "" || [...name].length > 20) return { ok: false, code: "E_OFFICE_NAME" };
+      if (o.state === "member" || o.state === "pending") return { ok: false, code: "E_OFFICE_STATE" };
+      o.myName = name;
+      if (op === "join") {
+        o.state = "pending";
+        return { ok: true, value: status() };
+      }
+      o.state = "member";
+      o.members = [{ memberId: crypto.randomUUID(), name, fingerprint: o.myFingerprint, joinedAt: now, approvedBy: null, role: "member", isMe: true }];
+      return { ok: true, value: status() };
+    }
+    case "cancel":
+      if (o.state === "member") return { ok: false, code: "E_OFFICE_STATE" };
+      o.state = "off";
+      o.myName = null;
+      return { ok: true, value: status() };
+    case "approve": {
+      const r = o.requests.find((x) => x.requestId === a.requestId);
+      if (o.state !== "member" || r === undefined) return { ok: false, code: "E_OFFICE_STATE" };
+      if (norm(String(a.fingerprint ?? "")) !== norm(r.fingerprint)) return { ok: false, code: "E_OFFICE_FINGERPRINT" };
+      o.requests = o.requests.filter((x) => x !== r);
+      o.members.push({ memberId: r.requestId, name: r.name, fingerprint: r.fingerprint, joinedAt: now, approvedBy: o.myName, role: "member", isMe: false });
+      return { ok: true, value: status() };
+    }
+    case "reject":
+      o.requests = o.requests.filter((x) => x.requestId !== a.requestId);
+      return { ok: true, value: status() };
+    case "remove": {
+      const m = o.members.find((x) => x.memberId === a.memberId);
+      if (m === undefined) return { ok: false, code: "E_OFFICE_STATE" };
+      if (m.isMe) return { ok: false, code: "E_OFFICE_SELF" };
+      if (String(a.confirm ?? "").trim() !== m.name) return { ok: false, code: "E_OFFICE_CONFIRM" };
+      o.members = o.members.filter((x) => x !== m);
+      o.removed.push({ name: m.name, removedAt: now, removedBy: o.myName });
+      o.ack = null;
+      return { ok: true, value: status() };
+    }
+    case "moveLocal":
+      return { ok: true, value: o.state === "member" ? devStore.households.size : 0 };
+    case "reset":
+      // 画面の確かめを最初からやり直す（開発用のサーバーのメモリを空にする）
+      Object.assign(o, { state: "off", myName: null, members: [], removed: [], requests: [], ack: null });
+      devStore.households.clear();
+      devStore.lastOpened = null;
+      devStore.acknowledgedAt = null;
+      return { ok: true, value: status() };
+    case "simulate": {
+      const kind = String(a.kind ?? "");
+      const target = devStore.lastOpened !== null ? devStore.households.get(devStore.lastOpened) : undefined;
+      if (kind === "request") o.requests.push({ requestId: crypto.randomUUID(), name: "担当C", requestedAt: ago(3), fingerprint: "7XQM-2KDN-HV4R-P9TC" });
+      else if (kind === "approved" && o.state === "pending") {
+        o.state = "member";
+        o.members = [
+          { memberId: crypto.randomUUID(), name: "担当A", fingerprint: "M3TQ-8VNA-2KXD-H7RP", joinedAt: ago(60 * 24 * 7), approvedBy: null, role: "member", isMe: false },
+          { memberId: crypto.randomUUID(), name: o.myName ?? "担当B", fingerprint: o.myFingerprint, joinedAt: now, approvedBy: "担当A", role: "member", isMe: true },
+        ];
+      } else if (kind === "presence") {
+        for (const h of devStore.households.values()) if (h === target || devStore.households.size === 1) h.openBy = [{ name: "担当B", since: ago(12) }];
+      } else if (kind === "editor") {
+        let i = 0;
+        for (const h of devStore.households.values()) h.updatedBy = i++ % 2 === 0 ? "担当B" : (o.myName ?? "担当A");
+      } else if (kind === "conflict" && target !== undefined) {
+        target.conflict = true;
+        target.updatedBy = "担当B";
+        target.updatedAt = ago(1);
+      } else if (kind === "fork" && target !== undefined) target.forks = 1;
+      else return { ok: false, code: "E_DEV_SIMULATE" };
+      return { ok: true, value: status() };
+    }
+  }
+  return { ok: false, code: "E_DEV_OFFICE_OP" };
 }
 
 /**
@@ -312,6 +442,18 @@ function devHost(): Plugin {
           void (async () => {
             const args = JSON.parse((await readBody(req)).toString("utf8") || "{}") as Record<string, string>;
             const r = devStoreOp(st[1] as string, args);
+            res.statusCode = r.ok ? 200 : 400;
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(r.ok ? JSON.stringify(r.value ?? null) : r.code);
+          })();
+          return;
+        }
+        // 事務所での共有（本体の office_* の代わり）: 開発用のサーバーのメモリの中だけ
+        const of = /^office\/([a-zA-Z]+)(?:\?|$)/.exec(path);
+        if (of !== null) {
+          void (async () => {
+            const args = req.method === "POST" ? (JSON.parse((await readBody(req)).toString("utf8") || "{}") as Record<string, unknown>) : Object.fromEntries(new URL(req.url ?? "", "http://x").searchParams);
+            const r = devOfficeOp(of[1] as string, args);
             res.statusCode = r.ok ? 200 : 400;
             res.setHeader("content-type", "application/json; charset=utf-8");
             res.end(r.ok ? JSON.stringify(r.value ?? null) : r.code);

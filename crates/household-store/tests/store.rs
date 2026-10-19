@@ -149,8 +149,20 @@ fn save_and_open_round_trip() {
     let meta: serde_json::Value =
         serde_json::from_str::<serde_json::Value>(&o2.body).unwrap()["meta"].clone();
     assert_eq!(meta["format"], "lifeplan.household");
-    assert_eq!(meta["formatVersion"], "0.1");
+    assert_eq!(meta["formatVersion"], household_store::migrate::CURRENT);
     assert_eq!(meta["customerNo"], o.customer_no.as_str());
+    // 誰が直したか（0023 の6）: 共有していないときは、保存した人を書かず、改訂の履歴だけ（メンバーは null）を残す
+    assert!(meta.get("savedBy").is_none());
+    assert_eq!(
+        meta["revisions"].as_array().unwrap().len(),
+        1,
+        "続けての保存は1行にまとめる"
+    );
+    assert_eq!(meta["revisions"][0]["memberId"], serde_json::Value::Null);
+    assert_eq!(meta["revisions"][0]["fromGeneration"], 1);
+    assert_eq!(meta["revisions"][0]["toGeneration"], 2);
+    assert_eq!(meta["revisions"][0]["count"], 2);
+    assert_eq!(meta["editors"], serde_json::json!({}));
     let list = store2.list().unwrap();
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].summary, "本人・配偶者・子1人");
@@ -378,7 +390,9 @@ fn newer_format_versions() {
     store.status().unwrap();
     let o = create(&store, 1);
     // MINOR だけが新しい: 閲覧はでき、保存はできない
-    store.write_raw_for_test(&o.id, "0.2", &body(5), 7).unwrap();
+    store
+        .write_raw_for_test(&o.id, "0.99", &body(5), 7)
+        .unwrap();
     let r = store.open(&o.id).unwrap();
     assert!(r.read_only);
     assert_eq!(

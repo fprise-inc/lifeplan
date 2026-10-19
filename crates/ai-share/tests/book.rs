@@ -122,7 +122,7 @@ fn households_without_consent_cannot_be_shared_or_seen() {
     // 同意しなかった記録だけの世帯も渡せない
     let mut refused = book();
     refused
-        .record_consent(&consent(ConsentDecision::Refused), TODAY, NOW)
+        .record_consent(&consent(ConsentDecision::Refused), TODAY, NOW, None)
         .unwrap();
     assert!(matches!(
         reg.grant(refused.source().unwrap(), opts()),
@@ -134,13 +134,13 @@ fn households_without_consent_cannot_be_shared_or_seen() {
 fn withdrawing_consent_stops_reads_at_once() {
     let (reg, _) = registry();
     let mut b = book();
-    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW)
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
         .unwrap();
     let g = reg.grant(b.source().unwrap(), opts()).unwrap();
     assert_eq!(list_len(&reg), 1);
     assert!(get(&reg, &g.share_id).is_ok());
 
-    b.record_consent(&consent(ConsentDecision::Withdrawn), TODAY, NOW)
+    b.record_consent(&consent(ConsentDecision::Withdrawn), TODAY, NOW, None)
         .unwrap();
     // アプリは撤回を記録したら、その世帯の共有を取り消す（0014 の6）
     assert_eq!(reg.withdraw_consent(HOUSEHOLD_ID), 1);
@@ -155,10 +155,10 @@ fn withdrawing_consent_stops_reads_at_once() {
 fn a_source_without_consent_ends_the_share_even_if_withdraw_was_missed() {
     let (reg, _) = registry();
     let mut b = book();
-    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW)
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
         .unwrap();
     let g = reg.grant(b.source().unwrap(), opts()).unwrap();
-    b.record_consent(&consent(ConsentDecision::Withdrawn), TODAY, NOW)
+    b.record_consent(&consent(ConsentDecision::Withdrawn), TODAY, NOW, None)
         .unwrap();
     // 保存のたびに渡す中身を置き換える。そのとき同意が無ければ、その場で閉じる（二重の守り）
     assert!(!reg.update_source(&g.share_id, b.source().unwrap()));
@@ -173,7 +173,7 @@ fn a_source_without_consent_ends_the_share_even_if_withdraw_was_missed() {
 fn the_reduced_view_has_no_identifiers_or_memos() {
     let (reg, _) = registry();
     let mut b = book();
-    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW)
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
         .unwrap();
     let g = reg.grant(b.source().unwrap(), opts()).unwrap();
     let out = get(&reg, &g.share_id).unwrap();
@@ -211,7 +211,7 @@ fn records_are_written_by_the_app_only_and_cannot_be_rewritten() {
     for k in OWNED_SECTIONS {
         assert!(sv.get(k).is_none());
     }
-    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW)
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
         .unwrap();
     let g = reg.grant(b.source().unwrap(), opts()).unwrap();
     get(&reg, &g.share_id).unwrap();
@@ -268,7 +268,7 @@ fn ai_candidates_do_not_enter_the_household_until_approved() {
     let (reg, _) = registry();
     let mut b = book();
     let original_input = b.source().unwrap().input;
-    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW)
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
         .unwrap();
     let g = reg.grant(b.source().unwrap(), opts()).unwrap();
     let p = json!({
@@ -298,10 +298,14 @@ fn ai_candidates_do_not_enter_the_household_until_approved() {
 
     // 承認は1回だけ。承認にはプランの ID が要る
     let id = b.candidates[0].id.clone();
-    assert_eq!(b.decide(&id, true, None, NOW), Err("E_AI_CANDIDATE_PLAN"));
-    b.decide(&id, true, Some("plan-1".into()), NOW).unwrap();
     assert_eq!(
-        b.decide(&id, false, None, NOW),
+        b.decide(&id, true, None, NOW, None),
+        Err("E_AI_CANDIDATE_PLAN")
+    );
+    b.decide(&id, true, Some("plan-1".into()), NOW, None)
+        .unwrap();
+    assert_eq!(
+        b.decide(&id, false, None, NOW, None),
         Err("E_AI_CANDIDATE_DECIDED")
     );
     assert_eq!(b.candidates[0].decided_by.as_deref(), Some("fp"));
@@ -317,7 +321,7 @@ fn ai_candidates_do_not_enter_the_household_until_approved() {
 fn the_screen_view_has_no_paths() {
     let (reg, _) = registry();
     let mut b = book();
-    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW)
+    b.record_consent(&consent(ConsentDecision::Given), TODAY, NOW, None)
         .unwrap();
     let g = reg.grant(b.source().unwrap(), opts()).unwrap();
     let caller = Caller {
@@ -340,4 +344,31 @@ fn the_screen_view_has_no_paths() {
     assert!(json.contains("\"lifeplan\""));
     assert_eq!(view.consent_state, "given");
     assert!(view.share.is_some());
+}
+
+/// 事務所で共有しているときは、同意の記録とAIの候補の判断に、書いた人（メンバー）が残る（0023 の6）
+#[test]
+fn authors_are_recorded_when_the_office_is_shared() {
+    let author = ai_share::Author {
+        member_id: "0b8c2d4e-1a3f-4c5d-8e6f-7a8b9c0d1e2f".into(),
+        name: "担当A".into(),
+    };
+    let mut b = book();
+    let r = b
+        .record_consent(
+            &consent(ConsentDecision::Refused),
+            TODAY,
+            NOW,
+            Some(author.clone()),
+        )
+        .unwrap();
+    assert_eq!(r.recorded_by.as_ref(), Some(&author));
+    let composed: Value = serde_json::from_str(&b.compose(&[]).unwrap()).unwrap();
+    assert_eq!(composed["consents"][0]["recordedBy"]["name"], "担当A");
+    // 共有していないとき（書いた人なし）は欄を書かない
+    let mut c = book();
+    c.record_consent(&consent(ConsentDecision::Refused), TODAY, NOW, None)
+        .unwrap();
+    let composed: Value = serde_json::from_str(&c.compose(&[]).unwrap()).unwrap();
+    assert!(composed["consents"][0].get("recordedBy").is_none());
 }

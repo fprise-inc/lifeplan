@@ -2,6 +2,7 @@
 // 一覧に出すのは表示用の顧客番号と構成の要約（続柄と人数）だけ。氏名は持たない（0012）
 import { useEffect, useState } from "preact/hooks";
 import type { StoredHousehold, StoreStatus } from "../../engine/host.ts";
+import { OFFICE_MESSAGES, sinceText } from "./office.ts";
 
 export interface HouseholdPanelProps {
   status: StoreStatus | null;
@@ -26,6 +27,12 @@ export interface HouseholdPanelProps {
   /** AI接続口の事務所全体の設定を開く */
   onAiConnector?: () => void;
   aiEnabled?: boolean;
+  /** 事務所の共有の設定を開く（0023） */
+  onOffice?: () => void;
+  /** 事務所の共有の状態（off・pending・member・removed・unavailable） */
+  officeState?: string;
+  /** 同期サービスの衝突の写しを選ぶ画面を開く */
+  onForks?: (id: string) => void;
   onClose: () => void;
 }
 
@@ -42,7 +49,7 @@ export function shortDate(iso: string): string {
 export const STORE_MESSAGES: Record<string, string> = {
   E_STORE_CUSTOMER_NO: "顧客番号は英数字・ハイフン・下線の16字までです（お名前は入れないでください）",
   E_STORE_CONFIRM: "確認の顧客番号が違います",
-  E_STORE_CONFLICT: "ほかの場所でこの世帯が先に保存されていました。上書きせず、今の内容は別のファイルとして残しました。世帯を開き直してください",
+  E_STORE_CONFLICT: "ほかの人（ほかのPC）がこの世帯を先に保存していました。上書きせず、今の内容はこのPCの中に残しました。どちらを残すか選んでください",
   E_STORE_READ_ONLY: "新しい版のアプリで保存された世帯のため、閲覧だけできます（保存はできません）",
   E_STORE_FORMAT_TOO_NEW: "新しい版のアプリで保存されたファイルです。アプリを更新してください",
   E_STORE_CORRUPT: "世帯ファイルを開けませんでした（壊れているか、書き換えられています）",
@@ -50,6 +57,7 @@ export const STORE_MESSAGES: Record<string, string> = {
   E_STORE_NEEDS_RECOVERY: "復元キーを入れるまで、保存した世帯を開けません",
   E_STORE_KEYCHAIN: "OS の資格情報の保管庫を使えませんでした",
   E_STORE_IO: "ファイルの読み書きに失敗しました",
+  ...OFFICE_MESSAGES,
 };
 
 export const storeMessage = (code: string) => STORE_MESSAGES[code] ?? `保存の処理に失敗しました（${code}）`;
@@ -66,11 +74,12 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   }, [p.onClose]);
 
   const ready = p.status?.state === "ready" && p.unavailable === null;
+  const shared = p.officeState === "member";
   return (
     <section class="card hh-panel" aria-label="世帯の一覧" data-household-panel>
       <div class="card-h">
         <h2>世帯</h2>
-        <span class="aside">世帯ごとに暗号化して、このPCのアプリのデータの場所に自動で保存します</span>
+        <span class="aside">{shared ? "世帯ごとに暗号化して、事務所の共有フォルダに自動で保存します" : "世帯ごとに暗号化して、このPCのアプリのデータの場所に自動で保存します"}</span>
         <button type="button" class="btn" onClick={p.onClose}>
           閉じる
         </button>
@@ -111,6 +120,8 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                     <th>顧客番号</th>
                     <th>家族</th>
                     <th>最後に保存</th>
+                    {shared ? <th>最後に直した人</th> : null}
+                    {shared ? <th>開いている人</th> : null}
                     <th />
                   </tr>
                 </thead>
@@ -120,9 +131,26 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                       <td>
                         <b>{h.customerNo}</b>
                         {h.id === p.currentId ? <span class="pl-tag">開いています</span> : null}
+                        {h.forks > 0 ? (
+                          <button type="button" class="link-btn danger hh-fork" onClick={() => p.onForks?.(h.id)} data-household-forks={h.forks}>
+                            同期の衝突の写しがあります
+                          </button>
+                        ) : null}
                       </td>
                       <td>{h.summary || "—"}</td>
                       <td class="num">{shortDate(h.updatedAt)}</td>
+                      {shared ? <td data-household-editor>{h.updatedBy ?? "—"}</td> : null}
+                      {shared ? (
+                        <td data-household-presence={h.openBy.length}>
+                          {h.openBy.length === 0 ? (
+                            "—"
+                          ) : (
+                            <span class="hh-presence">
+                              {h.openBy.map((o) => `${o.name}さん（${sinceText(o.since)}）`).join("、")}
+                            </span>
+                          )}
+                        </td>
+                      ) : null}
                       <td>
                         {renaming?.id === h.id ? (
                           <form
@@ -229,6 +257,14 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           復元キー
         </button>
         {p.status?.state === "ready" ? <span class="pl-sub">{p.status.recoveryAcknowledged ? "復元キーは保管済みです" : "復元キーをまだ保管していません"}</span> : null}
+        {p.onOffice !== undefined ? (
+          <>
+            <button type="button" class="link-btn" onClick={p.onOffice} data-open-office>
+              事務所の共有
+            </button>
+            <span class="pl-sub">{p.officeState === "member" ? "オン" : p.officeState === "pending" ? "承認待ち" : p.officeState === "removed" ? "外されました" : p.officeState === "unavailable" ? "使えません" : "オフ（既定）"}</span>
+          </>
+        ) : null}
         {p.onAiConnector !== undefined ? (
           <>
             <button type="button" class="link-btn" onClick={p.onAiConnector} data-open-ai-connector>

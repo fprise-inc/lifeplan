@@ -86,6 +86,13 @@ export interface StoreStatus {
   deletionsCompleted: number;
 }
 
+/** 今その世帯を開いている他のメンバー（事務所で共有しているとき。0023 の7） */
+export interface PresenceView {
+  name: string;
+  /** 開いた日時（ISO 8601） */
+  since: string;
+}
+
 /** 保存した世帯の一覧の1件（表示用の顧客番号と構成の要約だけ。氏名は持たない。0012） */
 export interface StoredHousehold {
   id: string;
@@ -93,6 +100,12 @@ export interface StoredHousehold {
   summary: string;
   createdAt: string;
   updatedAt: string;
+  /** 最後に直した人の表示名（事務所で共有しているときだけ） */
+  updatedBy: string | null;
+  /** 今開いている他のメンバー */
+  openBy: PresenceView[];
+  /** 同期サービスの衝突の写しの数 */
+  forks: number;
 }
 
 /** 開いた世帯（本文は JSON の文字列。0011 の2） */
@@ -102,6 +115,72 @@ export interface StoredOpened {
   body: string;
   readOnly: boolean;
   generation: number;
+  /** この改訂を保存した人（事務所で共有しているとき） */
+  savedBy: string | null;
+  /** 今この世帯を開いている他のメンバー */
+  othersOpen: PresenceView[];
+}
+
+/** 分岐を選ぶ画面の材料（0023 の7） */
+export interface ForkInfo {
+  savedConflict: boolean;
+  theirsSavedAt: string | null;
+  theirsBy: string | null;
+  theirsGeneration: number;
+  oursGeneration: number | null;
+  syncCopies: number;
+}
+
+// ---- 事務所での共有（0023）。共有フォルダは本体のダイアログで選ばせ、画面にはパスも鍵も渡らない ----
+
+export interface OfficeMember {
+  memberId: string;
+  name: string;
+  fingerprint: string;
+  joinedAt: string;
+  approvedBy: string | null;
+  role: string;
+  isMe: boolean;
+}
+
+/** 参加の申請（承認する人には指紋を出さない。指紋は本人から別の経路で聞いて入力する） */
+export interface OfficeRequest {
+  requestId: string;
+  name: string;
+  requestedAt: string;
+}
+
+export interface OfficeStatus {
+  state: "off" | "pending" | "member" | "removed" | "unavailable";
+  problem: string | null;
+  myName: string | null;
+  myFingerprint: string | null;
+  members: OfficeMember[];
+  removed: { name: string; removedAt: string; removedBy: string | null }[];
+  requests: OfficeRequest[];
+  officeCode: string | null;
+  syncFolder: boolean;
+  localHouseholds: number;
+  recoveryAcknowledged: boolean;
+  recoveryAcknowledgedBy: string | null;
+  recoveryAcknowledgedAt: string | null;
+}
+
+export interface OfficeHost {
+  status(): Promise<OfficeStatus>;
+  /** 共有を始める（本体がフォルダのダイアログを出す。選ばなかったら null） */
+  start(name: string): Promise<OfficeStatus | null>;
+  /** 参加の申請を置く（本体がフォルダのダイアログを出す。選ばなかったら null） */
+  join(name: string): Promise<OfficeStatus | null>;
+  /** 参加の申請を取り下げる・外された設定を片付ける */
+  cancel(): Promise<OfficeStatus>;
+  /** 承認（fingerprint は新しいメンバーから別の経路で聞いて入力した指紋） */
+  approve(requestId: string, fingerprint: string): Promise<OfficeStatus>;
+  reject(requestId: string): Promise<OfficeStatus>;
+  /** 外す（confirm は外す人の表示名） */
+  remove(memberId: string, confirm: string): Promise<OfficeStatus>;
+  /** このPCの中の世帯を共有フォルダへ移す（移した数） */
+  moveLocal(): Promise<number>;
 }
 
 /**
@@ -124,6 +203,14 @@ export interface StoreHost {
   restoreWithRecoveryKey(key: string): Promise<StoreStatus>;
   /** アプリを閉じる前の保存が済んだことを本体に知らせる（本体が閉じる） */
   closeReady(): Promise<void>;
+  /** 分岐を選ぶ画面の材料（0023 の7） */
+  forkInfo(id: string): Promise<ForkInfo>;
+  /** 分岐を選ぶ（keepOurs: こちらで上書き／false: 相手の内容を残す）。開き直した世帯を返す */
+  resolveFork(id: string, keepOurs: boolean): Promise<StoredOpened>;
+  /** 同期サービスの衝突の写しを片付ける（adopt: 一番新しい写しを今の内容にする） */
+  resolveSyncCopies(id: string, adopt: boolean): Promise<void>;
+  /** 保存した世帯から離れた（見本を開いた・削除した）: 事務所で共有しているときの自分の開いている印を消す */
+  leave(): Promise<void>;
 }
 
 // ---- AI接続口（0014・0015）。画面には鍵もパスも渡らない（接続の設定の文面は場所を伏せたもの） ----
@@ -286,6 +373,7 @@ export interface HostApi {
   sheets: SheetHost;
   store: StoreHost;
   ai: AiHost;
+  office: OfficeHost;
 }
 
 const bytesOf = (b: ArrayBuffer | Uint8Array | number[]): Uint8Array => (b instanceof Uint8Array ? b : b instanceof ArrayBuffer ? new Uint8Array(b) : Uint8Array.from(b));
@@ -318,6 +406,20 @@ export function tauriHost(): HostApi {
       testRecoveryKey: (key) => invoke<StoreStatus>("recovery_key_test", { key }),
       restoreWithRecoveryKey: (key) => invoke<StoreStatus>("recovery_key_restore", { key }),
       closeReady: () => invoke<void>("app_close_ready"),
+      forkInfo: (id) => invoke<ForkInfo>("store_fork_info", { id }),
+      resolveFork: (id, keepOurs) => invoke<StoredOpened>("store_fork_resolve", { id, keepOurs }),
+      resolveSyncCopies: (id, adopt) => invoke<void>("store_sync_copies_resolve", { id, adopt }),
+      leave: () => invoke<void>("store_leave"),
+    },
+    office: {
+      status: () => invoke<OfficeStatus>("office_status"),
+      start: (name) => invoke<OfficeStatus | null>("office_start", { name }),
+      join: (name) => invoke<OfficeStatus | null>("office_join", { name }),
+      cancel: () => invoke<OfficeStatus>("office_cancel"),
+      approve: (requestId, fingerprint) => invoke<OfficeStatus>("office_approve", { request: requestId, fingerprint }),
+      reject: (requestId) => invoke<OfficeStatus>("office_reject", { request: requestId }),
+      remove: (memberId, confirm) => invoke<OfficeStatus>("office_remove", { member: memberId, confirm }),
+      moveLocal: () => invoke<number>("office_move_local"),
     },
     ai: {
       status: () => invoke<AiStatus>("ai_status"),
@@ -346,6 +448,7 @@ async function devJson<T>(res: Response): Promise<T> {
 }
 
 const devAi = (op: string, args: Record<string, unknown> = {}) => fetch(`/__dev/ai/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
+const devOffice = (op: string, args: Record<string, unknown> = {}) => fetch(`/__dev/office/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 const devStore = (op: string, args: Record<string, string> = {}) => fetch(`/__dev/store/${op}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args) });
 
 /**
@@ -405,6 +508,21 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       testRecoveryKey: async (key) => devJson<StoreStatus>(await devStore("test", { key })),
       restoreWithRecoveryKey: async (key) => devJson<StoreStatus>(await devStore("restore", { key })),
       closeReady: async () => undefined,
+      forkInfo: async (id) => devJson<ForkInfo>(await devStore("forkInfo", { id })),
+      resolveFork: async (id, keepOurs) => devJson<StoredOpened>(await devStore("resolveFork", { id, keepOurs: keepOurs ? "1" : "" })),
+      resolveSyncCopies: async (id, adopt) => void (await devJson<unknown>(await devStore("resolveSyncCopies", { id, adopt: adopt ? "1" : "" }))),
+      leave: async () => undefined,
+    },
+    // 事務所での共有: 開発用のサーバーのメモリの中の代わり（フォルダのダイアログは出さず、架空の共有フォルダを選んだことにする）
+    office: {
+      status: async () => devJson<OfficeStatus>(await devOffice("status")),
+      start: async (name) => devJson<OfficeStatus | null>(await devOffice("start", { name })),
+      join: async (name) => devJson<OfficeStatus | null>(await devOffice("join", { name })),
+      cancel: async () => devJson<OfficeStatus>(await devOffice("cancel")),
+      approve: async (requestId, fingerprint) => devJson<OfficeStatus>(await devOffice("approve", { requestId, fingerprint })),
+      reject: async (requestId) => devJson<OfficeStatus>(await devOffice("reject", { requestId })),
+      remove: async (memberId, confirm) => devJson<OfficeStatus>(await devOffice("remove", { memberId, confirm })),
+      moveLocal: async () => devJson<number>(await devOffice("moveLocal")),
     },
     // AI接続口: 開発用のサーバーのメモリの中の代わり（本物の受け口は開けない。画面の確かめ用）
     ai: {

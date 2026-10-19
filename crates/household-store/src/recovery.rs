@@ -9,7 +9,7 @@ use zeroize::Zeroizing;
 use crate::crypto::{self, Key, KEY_LEN};
 use crate::StoreError;
 
-const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+pub(crate) const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const RAW_LEN: usize = KEY_LEN + 4;
 /// 区切りを除いた文字数（36バイト＝288ビット → 5ビットずつで58文字）
 pub const CHARS: usize = 58;
@@ -51,7 +51,7 @@ pub fn encode(master: &[u8; KEY_LEN]) -> Zeroizing<String> {
     out
 }
 
-fn value_of(c: char) -> Option<u8> {
+pub(crate) fn value_of(c: char) -> Option<u8> {
     // 全角の英数字を半角に
     let c = match c {
         '\u{FF10}'..='\u{FF19}' | '\u{FF21}'..='\u{FF3A}' | '\u{FF41}'..='\u{FF5A}' => {
@@ -70,7 +70,7 @@ fn value_of(c: char) -> Option<u8> {
         .map(|p| p as u8)
 }
 
-fn is_separator(c: char) -> bool {
+pub(crate) fn is_separator(c: char) -> bool {
     c.is_whitespace() || matches!(c, '-' | '‐' | '－' | 'ー' | '—' | '–' | '_' | '.' | '・')
 }
 

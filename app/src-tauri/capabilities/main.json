@@ -36,6 +36,18 @@
     "allow-ai-share-start",
     "allow-ai-share-stop",
     "allow-ai-candidate-decide",
+    "allow-office-status",
+    "allow-office-start",
+    "allow-office-join",
+    "allow-office-cancel",
+    "allow-office-approve",
+    "allow-office-reject",
+    "allow-office-remove",
+    "allow-office-move-local",
+    "allow-store-fork-info",
+    "allow-store-fork-resolve",
+    "allow-store-sync-copies-resolve",
+    "allow-store-leave",
     "allow-app-close-ready"
   ]
 }

@@ -22,7 +22,7 @@ pub mod source;
 pub mod wrap;
 
 pub use book::{AiCandidate, CandidateStatus, HouseholdAiView, HouseholdBook};
-pub use consent::{ConsentRecord, ExternalAiConsentInput};
+pub use consent::{Author, ConsentRecord, ExternalAiConsentInput};
 pub use endpoint::AppEndpoint;
 pub use proposal::PendingProposal;
 pub use record::{verify_append_only, AiShareRecord, EndReason};

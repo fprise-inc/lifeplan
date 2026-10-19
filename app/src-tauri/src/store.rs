@@ -201,6 +201,7 @@ mod tests {
             include_str!("store.rs"),
             include_str!("lib.rs"),
             include_str!("ai.rs"),
+            include_str!("office.rs"),
         ] {
             let mut rest = text;
             while let Some(i) = rest.find(needle) {
@@ -217,7 +218,7 @@ mod tests {
                 }
             }
         }
-        assert!(count >= 28, "命令を見つけられていない（{count}）");
+        assert!(count >= 40, "命令を見つけられていない（{count}）");
     }
 
     #[test]

@@ -37,6 +37,19 @@ const COMMANDS: &[&str] = &[
     "ai_share_start",
     "ai_share_stop",
     "ai_candidate_decide",
+    // 0023: 事務所での共有（共有フォルダは本体のダイアログで選ばせる。パスも鍵も受け取らない・返さない）
+    "office_status",
+    "office_start",
+    "office_join",
+    "office_cancel",
+    "office_approve",
+    "office_reject",
+    "office_remove",
+    "office_move_local",
+    "store_fork_info",
+    "store_fork_resolve",
+    "store_sync_copies_resolve",
+    "store_leave",
     "app_close_ready",
 ];
 

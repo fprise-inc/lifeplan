@@ -3,7 +3,7 @@
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
-import { devBrowserHost, isTauri, tauriHost, webEngine, type AiCandidate, type HostApi, type StoredHousehold, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
+import { devBrowserHost, isTauri, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
@@ -50,7 +50,10 @@ import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from 
 import { ageMarkOf, DEFAULT_DISPLAY_SETTINGS, METRIC_CHOICES, shows, verdictMetrics, type DisplaySettings, type MetricKey } from "./settings.ts";
 import { Autosaver, type SaveState } from "./store/autosave.ts";
 import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
+import { ForkPanel, type ForkChoiceUi } from "./store/ForkPanel.tsx";
 import { HouseholdPanel, storeMessage } from "./store/HouseholdPanel.tsx";
+import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
+import { OfficePanel } from "./store/OfficePanel.tsx";
 import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
 import { installUndo, undoController } from "./undo/controller.ts";
@@ -315,6 +318,17 @@ export function App() {
   const [recovery, setRecovery] = useState<RecoveryMode | null>(null);
   /** AI接続口の中央のパネル（事務所の設定・世帯の同意と共有） */
   const [aiPanel, setAiPanel] = useState<null | "connector" | "share">(null);
+  // 事務所での共有（0023）
+  const [officeStatus, setOfficeStatus] = useState<OfficeStatus | null>(null);
+  const [officeOpen, setOfficeOpen] = useState(false);
+  /** 開いた世帯を、ほかのメンバーが開いている（自動保存を止めて開いている間） */
+  const [presence, setPresence] = useState<PresenceView[] | null>(null);
+  /** 開いている人がいるので自動保存を止めているときの、保存済みの本文 */
+  const pausedBody = useRef<string | null>(null);
+  /** 分岐を選ぶ画面 */
+  const [fork, setFork] = useState<{ id: string; info: ForkInfo | null; busy: boolean; error: string | null } | null>(null);
+  /** 開いた世帯のメンバーの表示名（世帯ファイルの記録から。メモの書いた人の表示に使う） */
+  const [fileEditors, setFileEditors] = useState<Record<string, string>>({});
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const storedRef = useRef<StoredRef | null>(null);
   const autosaver = useRef<Autosaver | null>(null);
@@ -394,6 +408,7 @@ export function App() {
         } catch (e) {
           setStoreUnavailable(storeMessage(codeOf(e)));
         }
+        void h.office.status().then(setOfficeStatus, () => undefined);
         autosaver.current = new Autosaver(async (body) => {
           const sr = storedRef.current;
           const o = openedRef.current;
@@ -520,8 +535,11 @@ export function App() {
     async (id: string, hashLevers?: number[]) => {
       if (host === null) return;
       await autosaver.current?.flush();
+      // 保存した世帯から離れる: 事務所で共有しているときの、自分の開いている印を消す（0023 の7）
+      if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
       storedRef.current = null;
       setStoredInfo(null);
+      setPresence(null);
       autosaver.current?.reset(null);
       let o: Opened | null;
       if (id === BLANK) o = openedFrom(null, withRefreshedEstimates(blankHousehold(thisMonth())));
@@ -582,12 +600,12 @@ export function App() {
     [host, install, initial],
   );
 
-  /** 保存した世帯を開く（本体が復号して本文を返す） */
-  const openStored = useCallback(
-    async (id: string) => {
-      if (host === null) return;
-      await autosaver.current?.flush();
-      const r = await host.store.open(id);
+  /**
+   * 本体が返した世帯を画面に入れる（開く・分岐を選んだ後）。`stored` を渡したときは、それを保存済みの本文として、
+   * 画面の本文（r.body）との違いを自動保存で書く（分岐の「両方を残す」）
+   */
+  const loadStored = useCallback(
+    async (r: StoredOpened, stored?: string) => {
       const st = fromBody(r.body);
       const demo = st.workspace.template !== null ? (demoHousehold(st.workspace.template) ?? null) : null;
       const o = openedFrom(demo, st.wh);
@@ -600,18 +618,107 @@ export function App() {
       const shownKeys = st.workspace.shownItems.filter((k) => o.catalog.byKey.has(k));
       storedRef.current = { id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, carry: st.carry };
       setStoredInfo({ id: r.id, customerNo: r.customerNo, readOnly: r.readOnly });
+      setFileEditors(editorsOf(r.body));
       settingsRef.current = st.display;
       setSettings(st.display);
       const loaded = bodyFor(o, w, shownKeys, st.display, st.carry);
       // この画面で前に開いて保存したときと同じ中身なら、元に戻すの履歴を続きから使う（違えば空から）
       const keep = savedBodies.current.get(r.id) === loaded;
       savedBodies.current.set(r.id, loaded);
-      autosaver.current?.reset(r.readOnly ? null : loaded);
+      // ほかのメンバーが開いているときは、自動保存を止めた状態で開く（「編集を始める」で始める。0023 の7）
+      const others = r.othersOpen.length > 0 && !r.readOnly;
+      setPresence(others ? r.othersOpen : null);
+      pausedBody.current = others ? (stored ?? loaded) : null;
+      autosaver.current?.reset(r.readOnly || others ? null : (stored ?? loaded));
       if (r.readOnly) setSaveState({ kind: "error", code: "E_STORE_READ_ONLY" });
       await install(o, w, shownKeys, `stored:${r.id}`, keep);
+      if (stored !== undefined && stored !== loaded && !others) autosaver.current?.change(loaded);
     },
     [host, install],
   );
+
+  /** 保存した世帯を開く（本体が復号して本文を返す） */
+  const openStored = useCallback(
+    async (id: string) => {
+      if (host === null) return;
+      await autosaver.current?.flush();
+      await loadStored(await host.store.open(id));
+    },
+    [host, loadStored],
+  );
+
+  /** ほかのメンバーが開いている世帯で「編集を始める」（自動保存を始める。分岐になりうることは帯に書いてある） */
+  const startEditing = useCallback(() => {
+    const o = openedRef.current;
+    const sr = storedRef.current;
+    const base = pausedBody.current;
+    setPresence(null);
+    pausedBody.current = null;
+    if (o === null || sr === null || base === null) return;
+    autosaver.current?.reset(base);
+    autosaver.current?.change(bodyFor(o, workRef.current, shownRef.current, settingsRef.current, sr.carry));
+  }, []);
+
+  /** 分岐を選ぶ画面を開く（保存のときに分岐を見つけた・同期の衝突の写しがある） */
+  const openFork = useCallback(
+    async (id: string) => {
+      if (host === null) return;
+      setFork({ id, info: null, busy: false, error: null });
+      try {
+        const info = await host.store.forkInfo(id);
+        setFork({ id, info, busy: false, error: null });
+      } catch (e) {
+        setFork({ id, info: null, busy: false, error: storeMessage(codeOf(e)) });
+      }
+    },
+    [host],
+  );
+  const chooseFork = useCallback(
+    async (c: ForkChoiceUi) => {
+      if (host === null || fork === null) return;
+      setFork({ ...fork, busy: true, error: null });
+      try {
+        const o = openedRef.current;
+        const sr = storedRef.current;
+        const ours = o !== null && sr !== null ? bodyFor(o, workRef.current, shownRef.current, settingsRef.current, sr.carry) : null;
+        const r = await host.store.resolveFork(fork.id, c === "ours");
+        if (c === "both" && ours !== null) {
+          const m = mergeForkBodies(r.body, ours, () => crypto.randomUUID());
+          await loadStored({ ...r, body: m.body }, r.body);
+          say(m.added > 0 ? `相手の内容に、こちらのプランを${m.added}件足しました` : "こちらにだけあるプランはありませんでした。相手の内容を開きました");
+        } else {
+          await loadStored(r);
+          say(c === "ours" ? "こちらの内容で保存しました（相手の内容はこのPCの中に残しました）" : "相手の内容を開きました（こちらの内容はこのPCの中に残しました）");
+        }
+        setFork(null);
+        setStoredList(await host.store.list());
+      } catch (e) {
+        setFork({ ...fork, busy: false, error: storeMessage(codeOf(e)) });
+      }
+    },
+    [host, fork, loadStored, say],
+  );
+  const chooseSyncCopies = useCallback(
+    async (adopt: boolean) => {
+      if (host === null || fork === null) return;
+      setFork({ ...fork, busy: true, error: null });
+      try {
+        await host.store.resolveSyncCopies(fork.id, adopt);
+        if (storedRef.current?.id === fork.id) await loadStored(await host.store.open(fork.id));
+        setFork(null);
+        setStoredList(await host.store.list());
+        say(adopt ? "同期の衝突の写しを今の内容にしました（前の内容はこのPCの中に残しました）" : "同期の衝突の写しを片付けました（このPCの中に残しました）");
+      } catch (e) {
+        setFork({ ...fork, busy: false, error: storeMessage(codeOf(e)) });
+      }
+    },
+    [host, fork, loadStored, say],
+  );
+  // 保存のときに分岐を見つけたら、選ぶ画面を出す
+  useEffect(() => {
+    const sr = storedRef.current;
+    if (saveState.kind === "error" && saveState.code === "E_STORE_CONFLICT" && sr !== null && fork === null) void openFork(sr.id);
+  }, [saveState, openFork, fork]);
 
   /** いま開いている（保存していない）世帯を、新しい世帯として保存する */
   const persistCurrent = useCallback(async () => {
@@ -654,9 +761,11 @@ export function App() {
   const refreshStore = useCallback(async () => {
     if (host === null) return;
     try {
+      void host.office.status().then(setOfficeStatus, () => undefined);
       const st = await host.store.status();
       setStoreStatus(st);
       setStoredList(st.state === "ready" ? await host.store.list() : []);
+      setStoreUnavailable(null);
     } catch (e) {
       setStoreUnavailable(storeMessage(codeOf(e)));
     }
@@ -1226,8 +1335,8 @@ export function App() {
           </button>
         ) : null}
         {opened !== null ? (
-          <span class={`save-state ${saveText(storedInfo !== null, saveState).cls}`} role="status" data-save-state={storedInfo === null ? "unsaved" : saveState.kind}>
-            {saveText(storedInfo !== null, saveState).text}
+          <span class={`save-state ${presence !== null ? "unsaved" : saveText(storedInfo !== null, saveState).cls}`} role="status" data-save-state={storedInfo === null ? "unsaved" : presence !== null ? "paused" : saveState.kind}>
+            {presence !== null ? "編集を始めるまで保存しません" : saveText(storedInfo !== null, saveState).text}
           </span>
         ) : null}
         {storeStatus?.state === "ready" && !storeStatus.recoveryAcknowledged && recovery === null ? (
@@ -1273,6 +1382,17 @@ export function App() {
       </header>
       <AiShareBand shares={ai.status?.shares ?? []} detailed={tab === "input"} onStop={(id) => void stopShare(id)} onOpen={() => setAiPanel("connector")} />
       <main class="wrap">
+        {presence !== null && storedInfo !== null ? (
+          <div class="presence-band" role="status" data-presence-band>
+            <span>
+              <b>{presenceText(presence)}</b>。見ることはできます。同時に直すと分岐になり、どちらを残すか選ぶことになります。
+            </span>
+            <button type="button" class="btn" onClick={startEditing} data-start-editing>
+              編集を始める
+            </button>
+            <span class="pl-sub">編集を始めるまで、この画面の変更は保存しません</span>
+          </div>
+        ) : null}
         {hhOpen && host !== null ? (
           <HouseholdPanel
             status={storeStatus}
@@ -1299,6 +1419,12 @@ export function App() {
               setAiPanel("connector");
             }}
             aiEnabled={ai.status?.enabled === true}
+            onOffice={() => {
+              void host.office.status().then(setOfficeStatus, () => undefined);
+              setOfficeOpen(true);
+            }}
+            officeState={officeStatus?.state ?? "off"}
+            onForks={(id) => void openFork(id)}
             onClose={() => setHhOpen(false)}
           />
         ) : null}
@@ -1516,7 +1642,15 @@ export function App() {
           {notice}
         </div>
       ) : null}
-      {memoOpen && opened !== null ? <MemoDrawer wh={opened.wh} onEdit={edit} onClose={() => setMemoOpen(false)} /> : null}
+      {memoOpen && opened !== null ? (
+        <MemoDrawer
+          wh={opened.wh}
+          onEdit={edit}
+          onClose={() => setMemoOpen(false)}
+          me={storedInfo !== null && officeStatus?.state === "member" ? (officeStatus.members.find((m) => m.isMe)?.memberId ?? null) : null}
+          names={{ ...fileEditors, ...Object.fromEntries((officeStatus?.members ?? []).map((m) => [m.memberId, m.name])) }}
+        />
+      ) : null}
       {evidence !== null ? <EvidencePanel state={evidence} onClose={() => setEvidence(null)} /> : null}
       {aiPanel === "connector" && host !== null ? <AiConnectorPanel ai={host.ai} status={ai.status} onStatus={ai.setStatus} onChanged={() => void ai.refresh()} onClose={() => setAiPanel(null)} /> : null}
       {aiPanel === "share" && host !== null && storedInfo !== null ? (
@@ -1532,6 +1666,35 @@ export function App() {
           }}
           onOpenConnector={() => setAiPanel("connector")}
           onClose={() => setAiPanel(null)}
+        />
+      ) : null}
+      {officeOpen && host !== null ? (
+        <OfficePanel
+          office={host.office}
+          status={officeStatus}
+          onStatus={setOfficeStatus}
+          onHouseholdsChanged={() => {
+            void refreshStore();
+            // 世帯を共有フォルダへ移した: 開いていた世帯は、移した先から開き直す
+            const sr = storedRef.current;
+            if (sr !== null) void openStored(sr.id).catch((e: unknown) => setHhError(storeMessage(codeOf(e))));
+          }}
+          onRecovery={() => setRecovery("first")}
+          onClose={() => {
+            setOfficeOpen(false);
+            void refreshStore();
+          }}
+        />
+      ) : null}
+      {fork !== null && host !== null ? (
+        <ForkPanel
+          customerNo={storedList.find((h) => h.id === fork.id)?.customerNo ?? storedInfo?.customerNo ?? ""}
+          info={fork.info}
+          busy={fork.busy}
+          error={fork.error}
+          onChoose={(c) => void chooseFork(c)}
+          onSyncCopies={(adopt) => void chooseSyncCopies(adopt)}
+          onClose={() => setFork(null)}
         />
       ) : null}
       {recovery !== null && host !== null ? (

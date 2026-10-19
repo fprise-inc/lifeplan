@@ -119,6 +119,17 @@ pub struct ConsentRecord {
     pub recorded_at: String,
     #[serde(default)]
     pub origin: ConsentOrigin,
+    /// 記録を書いた人（事務所で共有しているときのメンバー。0023 の6。共有していなければ書かない）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recorded_by: Option<Author>,
+}
+
+/// 書いた人（事務所のメンバーの内部IDと表示名。表示名は FP 自身の名前で、顧客の識別子ではない。0023 の6）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Author {
+    pub member_id: String,
+    pub name: String,
 }
 
 /// 画面から届く、外部AIへの提供の同意（撤回）の入力
@@ -253,6 +264,7 @@ pub fn new_external_ai_record(
         fp_confirmed: true,
         recorded_at: now.to_owned(),
         origin: ConsentOrigin::ThisOffice,
+        recorded_by: None,
     })
 }
 
