@@ -299,6 +299,39 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence, c
     el.scrollTo({ left: Math.max(0, th.offsetLeft - stub.offsetWidth - 120), behavior: reduce ? "auto" : "smooth" });
   }, [scrollNonce]);
   const diffOn = controls?.diff.on === true && !controls.diff.disabled;
+  // 年の見出しの行（付いてくる写し）: 表は縦に全部の行を出し、縦は画面全体だけでスクロールする（表の中は横だけ）。
+  // 表の中が横にスクロールする箱だと、その中の sticky は画面に付いてこないので、見出しの行の写しを箱の外に置き、画面の上に付いてこさせる。
+  // 列の幅は本物の表から測ってそろえ、横の位置は本物の表の横のスクロールに合わせる（写しは読み上げない。本物の見出しが表の見出し）
+  const table = useRef<HTMLTableElement>(null);
+  const headIn = useRef<HTMLDivElement>(null);
+  const [head, setHead] = useState<{ cols: number[]; width: number; height: number } | null>(null);
+  useLayoutEffect(() => {
+    const t = table.current;
+    if (t === null || typeof ResizeObserver !== "function") return;
+    const measure = () => {
+      const ths = Array.from(t.querySelectorAll<HTMLElement>("thead tr.r-year > th"));
+      const cols = ths.map((th) => th.getBoundingClientRect().width);
+      const width = t.getBoundingClientRect().width;
+      const height = ths[0]?.getBoundingClientRect().height ?? 0;
+      setHead((p) => (p !== null && p.width === width && p.height === height && p.cols.length === cols.length && p.cols.every((w, i) => w === cols[i]) ? p : { cols, width, height }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(t);
+    return () => ro.disconnect();
+  }, [model]);
+  const hasHead = head !== null;
+  useEffect(() => {
+    const w = wrap.current;
+    const hd = headIn.current;
+    if (w === null || hd === null) return;
+    const sync = () => {
+      hd.scrollLeft = w.scrollLeft;
+    };
+    sync();
+    w.addEventListener("scroll", sync, { passive: true });
+    return () => w.removeEventListener("scroll", sync);
+  }, [hasHead]);
   // ライフイベントの丸の説明（グラフの下の丸と同じ部品）。表は横に動くので、画面に対して置く（動かしたら閉じる）
   const ev = useEventFocus<string>();
   const dots = useRef(new Map<string, HTMLSpanElement>());
@@ -344,105 +377,132 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence, c
           ) : null}
         </span>
       </div>
-      <div class="cf-wrap" ref={wrap}>
-        <table class="cf">
-          <thead>
-            <tr class="r-year">
-              <th class="stub" scope="col">
-                {corner ?? "年"}
-              </th>
-              {model.years.map((y) => (
-                <th scope="col" key={y} class={sel(y)} data-year={y}>
-                  <button type="button" class="ybtn" onClick={() => onSelectYear(y)}>
-                    {y}
-                  </button>
+      <div class="cf-body">
+        {head !== null ? (
+          <div class="cf-sticky" style={{ height: `${head.height}px`, marginBottom: `-${head.height}px` }} aria-hidden="true" data-cf-sticky>
+            <div class="cf-sticky-in" ref={headIn}>
+              <table class="cf cf-headcopy" style={{ width: `${head.width}px` }}>
+                <colgroup>
+                  {head.cols.map((w, i) => (
+                    <col key={i} style={{ width: `${w}px` }} />
+                  ))}
+                </colgroup>
+                <thead>
+                  <tr class="r-year">
+                    <th class="stub">{corner ?? "年"}</th>
+                    {model.years.map((y) => (
+                      <th key={y} class={sel(y)}>
+                        <button type="button" class="ybtn" tabIndex={-1} onClick={() => onSelectYear(y)}>
+                          {y}
+                        </button>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              </table>
+            </div>
+          </div>
+        ) : null}
+        <div class="cf-wrap" ref={wrap}>
+          <table class="cf" ref={table}>
+            <thead>
+              <tr class="r-year">
+                <th class="stub" scope="col">
+                  {corner ?? "年"}
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {model.rows.map((r) => {
-              if (r.kind === "group")
-                return (
-                  <tr class="r-group" key={r.key}>
-                    <th class="stub" scope="row">
-                      {r.label}
-                    </th>
-                    <td colSpan={model.years.length} />
-                  </tr>
-                );
-              if (r.kind === "age")
-                return (
-                  <tr class="r-age" key={r.key}>
-                    <th class="stub" scope="row">
-                      {r.label}
-                    </th>
-                    {r.ages.map((a, i) => (
-                      <td key={i} class={sel(model.years[i] as number)}>
-                        {a ?? ""}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              if (r.kind === "events")
-                return (
-                  <tr class="r-ev" key={r.key}>
-                    <th class="stub" scope="row">
-                      {r.label}
-                    </th>
-                    {r.events.map((chips, i) => (
-                      <td key={i} class={sel(model.years[i] as number)}>
-                        {chips.map((c, j) => {
-                          const k = `${i}:${j}`;
-                          return <EventDotHtml key={j} chip={c} on={ev.on === k} handlers={ev.bind(k)} dotRef={(el) => {
-                                if (el !== null) dots.current.set(k, el);
-                                else dots.current.delete(k);
-                              }} />;
-                        })}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              if (r.kind === "diff")
-                return (
-                  <tr class="r-diff" key={r.key} data-diff-row={r.key}>
-                    <th class="stub" scope="row">
-                      {r.label}
-                    </th>
-                    {r.cells.map((v, i) => (
-                      <td key={i} class={`${v === null ? "" : v < 0 ? "minus" : Math.round(v / 10000) === 0 ? "zero" : ""}${sel(model.years[i] as number)}`}>
-                        {v === null ? "" : manDiff(v)}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              return (
-                <tr class={r.kind === "total" ? "r-total" : ""} key={r.key}>
-                  <th class="stub" scope="row">
-                    {r.label}
+                {model.years.map((y) => (
+                  <th scope="col" key={y} class={sel(y)} data-year={y}>
+                    <button type="button" class="ybtn" onClick={() => onSelectYear(y)}>
+                      {y}
+                    </button>
                   </th>
-                  {r.cells.map((c, i) => {
-                    const y = model.years[i] as number;
-                    const cls = `${c.amount !== null && c.amount < 0 ? "neg" : ""}${c.short === true ? " short" : ""}${c.changed === true ? " chg" : ""}${sel(y)}`;
-                    if (c.amount === null || (c.amount === 0 && r.kind === "value")) return <td key={i} class={cls} />;
-                    return (
-                      <td key={i} class={cls}>
-                        {r.evidence ? (
-                          <button type="button" class="cellbtn" onClick={() => onEvidence(r.key, y)} aria-label={`${y}年 ${r.label} の根拠`}>
-                            {c.short === true ? <span class="short-lbl">不足</span> : null}
-                            {man(c.amount)}
-                          </button>
-                        ) : (
-                          man(c.amount)
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {model.rows.map((r) => {
+                if (r.kind === "group")
+                  return (
+                    <tr class="r-group" key={r.key}>
+                      <th class="stub" scope="row">
+                        {r.label}
+                      </th>
+                      <td colSpan={model.years.length} />
+                    </tr>
+                  );
+                if (r.kind === "age")
+                  return (
+                    <tr class="r-age" key={r.key}>
+                      <th class="stub" scope="row">
+                        {r.label}
+                      </th>
+                      {r.ages.map((a, i) => (
+                        <td key={i} class={sel(model.years[i] as number)}>
+                          {a ?? ""}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                if (r.kind === "events")
+                  return (
+                    <tr class="r-ev" key={r.key}>
+                      <th class="stub" scope="row">
+                        {r.label}
+                      </th>
+                      {r.events.map((chips, i) => (
+                        <td key={i} class={sel(model.years[i] as number)}>
+                          {chips.map((c, j) => {
+                            const k = `${i}:${j}`;
+                            return <EventDotHtml key={j} chip={c} on={ev.on === k} handlers={ev.bind(k)} dotRef={(el) => {
+                                  if (el !== null) dots.current.set(k, el);
+                                  else dots.current.delete(k);
+                                }} />;
+                          })}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                if (r.kind === "diff")
+                  return (
+                    <tr class="r-diff" key={r.key} data-diff-row={r.key}>
+                      <th class="stub" scope="row">
+                        {r.label}
+                      </th>
+                      {r.cells.map((v, i) => (
+                        <td key={i} class={`${v === null ? "" : v < 0 ? "minus" : Math.round(v / 10000) === 0 ? "zero" : ""}${sel(model.years[i] as number)}`}>
+                          {v === null ? "" : manDiff(v)}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                return (
+                  <tr class={r.kind === "total" ? "r-total" : ""} key={r.key}>
+                    <th class="stub" scope="row">
+                      {r.label}
+                    </th>
+                    {r.cells.map((c, i) => {
+                      const y = model.years[i] as number;
+                      const cls = `${c.amount !== null && c.amount < 0 ? "neg" : ""}${c.short === true ? " short" : ""}${c.changed === true ? " chg" : ""}${sel(y)}`;
+                      if (c.amount === null || (c.amount === 0 && r.kind === "value")) return <td key={i} class={cls} />;
+                      return (
+                        <td key={i} class={cls}>
+                          {r.evidence ? (
+                            <button type="button" class="cellbtn" onClick={() => onEvidence(r.key, y)} aria-label={`${y}年 ${r.label} の根拠`}>
+                              {c.short === true ? <span class="short-lbl">不足</span> : null}
+                              {man(c.amount)}
+                            </button>
+                          ) : (
+                            man(c.amount)
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
       {evChip !== undefined && ev.on !== null ? <TableEventTip chip={evChip} anchor={dots.current.get(ev.on) ?? null} /> : null}
     </section>

@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { DualEngine } from "../src/engine/dual.ts";
 import type { ComputeResponse, HostApi, SlotRequest } from "../src/engine/host.ts";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
-import { ChartDock, DOCK_MAX_SHARE, dockChartHeight, shouldDock } from "../src/presentation/ChartDock.tsx";
+import { ChartDock, clampFloatRect, defaultFloatRect, DOCK_MAX_SHARE, DOCK_MIN, DOCK_ROW_MARGIN, dockChartHeight, dockChartHeightLarge, floatChartHeight, FLOAT_MIN, revealDelta, shouldDock, type DockState } from "../src/presentation/ChartDock.tsx";
 import { DockedContingency, ScenarioBand, YearStrip } from "../src/presentation/ContingencyView.tsx";
 import { EVENT_R, placeFixedAbove } from "../src/presentation/EventDot.tsx";
 import { chartHeight, MainChart } from "../src/presentation/MainChart.tsx";
@@ -66,6 +66,31 @@ function countingHost(): HostApi & { calls: number; slots: number } {
   };
   return host as unknown as HostApi & { calls: number; slots: number };
 }
+
+describe("生涯キャッシュフロー表は縦に全部の行を出す（表の中は縦にスクロールしない）", () => {
+  const css = readFileSync(join(import.meta.dirname, "../src/styles/app.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rule = (sel: string) => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((m) => (m[1] as string).split(",").some((x) => x.trim() === sel)).map((m) => m[2] as string).join(";");
+
+  it("表の箱は横だけスクロールする。高さの上限を付けず、ホイールの上下を表に閉じ込めない", () => {
+    const wrap = rule(".cf-card .cf-wrap");
+    expect(wrap).toContain("overflow-x: auto");
+    expect(wrap).toContain("overflow-y: hidden");
+    expect(wrap).not.toContain("max-height");
+    expect(css).not.toMatch(/\.cf-wrap[^{]*\{[^}]*overscroll-behavior/);
+    // 表の中の見出しの行は、もう箱の中で sticky にしない（箱の外の写しが画面の上に付いてくる）
+    expect(rule(".cf-card .cf .r-year th")).toBe("");
+    expect(rule(".cf-sticky")).toContain("position: sticky");
+    expect(rule(".cf-sticky")).toMatch(/top: (-1px|0)/);
+    // 項目名の列は左に固定のまま
+    expect(rule(".cf .stub")).toContain("position: sticky");
+  });
+
+  it("描いた表は、見出しの写しと表の箱を1つの枠（.cf-body）に入れる。写しは描いたあとに測ってから出す（最初の描画には出さない）", () => {
+    const html = renderToString(h(CashflowTable, { model: pm.table, selectedYear: null, onSelectYear: noop, onEvidence: noop }));
+    expect(html).toMatch(/<div class="cf-body"><div class="cf-wrap">/);
+    expect(html).not.toContain("data-cf-sticky");
+  });
+});
 
 describe("生涯キャッシュフロー表のライフイベントの丸（グラフの下の丸と同じ部品）", () => {
   const html = renderToString(h(CashflowTable, { model: pm.table, selectedYear: null, onSelectYear: noop, onEvidence: noop }));
@@ -270,7 +295,7 @@ describe("万一のときのタブを開き直したとき（計算の結果を�
 });
 
 describe("操作中はグラフを上に表示", () => {
-  it("縮めたグラフは元の約43%。付いてくる部分は窓の高さの45%まで。低い窓では出さない", () => {
+  it("小さく: 縮めたグラフは元の約43%。付いてくる部分は窓の高さの45%まで。低い窓では出さない", () => {
     for (const ih of [700, 900, 1100]) {
       const h1 = dockChartHeight(ih, 16, 92)!;
       expect(h1).toBeGreaterThan(0);
@@ -285,6 +310,29 @@ describe("操作中はグラフを上に表示", () => {
     expect(dockChartHeight(560, 19, 165 * (19 / 16))).toBeNull();
   });
 
+  it("大きく: 付いてくる部分 ＝ 窓の高さ −（操作の欄の1行分＋余白）。元のグラフの高さが上限、低い窓では小さくの形", () => {
+    // 窓の高さ 1100px・1行 120px: 1100 − 120 − 24 − 92 = 864 → 元のグラフ（700px）が上限
+    expect(dockChartHeightLarge(1100, 16, 92, 120)).toBe(chartHeight(1100, 16));
+    // 窓の高さ 800px: 800 − 120 − 24 − 92 = 564 → 元のグラフ（550px）が上限。下に1行分と余白が残る
+    for (const [ih, row] of [[800, 120], [900, 130], [1000, 110], [1440, 120]] as const) {
+      const h1 = dockChartHeightLarge(ih, 16, 92, row)!;
+      expect(h1).toBeLessThanOrEqual(chartHeight(ih, 16));
+      expect(h1 + 92 + row + DOCK_ROW_MARGIN).toBeLessThanOrEqual(ih);
+      // 小さくより大きい
+      expect(h1).toBeGreaterThan(dockChartHeight(ih, 16, 92) ?? 0);
+    }
+    // 1行が高いと（文字「大」など）、そのぶんグラフを低くする
+    const mid = dockChartHeightLarge(700, 16, 92, 120)!;
+    const big = dockChartHeightLarge(700, 19, 92 * (19 / 16), 150)!;
+    expect(big).toBeLessThan(mid);
+    expect(big + 92 * (19 / 16) + 150 + DOCK_ROW_MARGIN * (19 / 16)).toBeLessThanOrEqual(700);
+    // 最小に届かない低い窓では、小さくの形（それも入らなければ出さない）
+    expect(dockChartHeightLarge(700, 16, 92, 500)).toBe(dockChartHeight(700, 16, 92));
+    expect(dockChartHeight(700, 16, 92)).not.toBeNull();
+    expect(dockChartHeightLarge(480, 16, 165, 200)).toBeNull();
+    expect(dockChartHeightLarge(800, 16, 92, 120)!).toBeGreaterThanOrEqual(DOCK_MIN);
+  });
+
   it("出す条件: 元のグラフが上に隠れ、操作の欄が画面に見えているとき。境目でちらつかない（出す・消すの位置をずらす）", () => {
     const base = { controlsTop: 200, controlsBottom: 1400, innerHeight: 900, dockTotal: 300 };
     expect(shouldDock({ ...base, anchorBottom: 500, docked: false })).toBe(false);
@@ -296,12 +344,60 @@ describe("操作中はグラフを上に表示", () => {
     expect(shouldDock({ ...base, anchorBottom: -900, controlsTop: -1300, controlsBottom: 200, docked: true })).toBe(false);
   });
 
-  it("付いてくる箱は、出していないときは中身を描かない。出しているときは見出し・×・縮めたグラフ（同じ部品・決めた高さ）", () => {
-    expect(renderToString(h(ChartDock, { docked: false, onClose: noop }, "X"))).toBe('<div class="chart-dock" data-chart-dock="off"></div>');
-    const html = renderToString(
-      h(ChartDock, { docked: true, head: "見出し", onClose: noop }, h(DockedResult, { model: pm, provisional: false, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop, height: 240 })),
-    );
+  it("大きくでも同じ条件: 2行目を操作している間は出し、表まで下りたら消す（表の見出しの行と重ならない）", () => {
+    // 窓 900px・付いてくる部分 742px（グラフ 650＋外 92）。対策の欄は見出し 60px＋1行 120px × 2＋追加の行 50px
+    const dockTotal = 742;
+    const at = (scrolled: number) => {
+      const anchorBottom = 700 - scrolled; // 元のグラフの枠の下端
+      const controlsTop = anchorBottom + 12;
+      return { anchorBottom, controlsTop, controlsBottom: controlsTop + 60 + 240 + 50, innerHeight: 900, dockTotal };
+    };
+    // 2行目（controlsTop+180〜+300）がグラフの下（742〜900）に見えている位置
+    expect(shouldDock({ ...at(160), docked: false })).toBe(true);
+    // 1行目をグラフの下に見せる位置（少し戻った）でも、出たまま
+    expect(shouldDock({ ...at(40), docked: true })).toBe(true);
+    // 対策の欄の下端がグラフの下に隠れたら消す（このあと表の見出しの行が画面の上に来る）
+    const past = at(420);
+    expect(past.controlsBottom).toBeLessThan(dockTotal + 40);
+    expect(shouldDock({ ...past, docked: true })).toBe(false);
+  });
+
+  it("大きく: 隠れた行を触ると、その行がグラフのすぐ下に見えるところまで戻す。見えていれば動かさない", () => {
+    const p = { dockBottom: 742, innerHeight: 900, gap: 8 };
+    // 半分隠れている → 上端がグラフの下（750）に来るまで上に戻す
+    expect(revealDelta({ ...p, rowTop: 700, rowBottom: 820 })).toBe(-50);
+    // 全部隠れている（キーボードで移った）
+    expect(revealDelta({ ...p, rowTop: 300, rowBottom: 420 })).toBe(-450);
+    // 見えている
+    expect(revealDelta({ ...p, rowTop: 760, rowBottom: 880 })).toBe(0);
+    // 窓の下にはみ出している → 上が隠れない範囲で上げる
+    expect(revealDelta({ ...p, rowTop: 820, rowBottom: 940 })).toBe(48);
+    expect(revealDelta({ ...p, rowTop: 760, rowBottom: 1000 })).toBe(10);
+  });
+
+  it("浮かせた枠: 初めは窓の右上。窓の中に収め、最小の大きさを守る。中のグラフは枠の高さに合わせる", () => {
+    for (const [vw, vh] of [[1280, 800], [1920, 1080], [2560, 1440]] as const) {
+      const r = defaultFloatRect(vw, vh);
+      expect(r.x + r.w).toBeLessThanOrEqual(vw);
+      expect(r.y + r.h).toBeLessThanOrEqual(vh);
+      expect(clampFloatRect(r, vw, vh)).toEqual(r);
+    }
+    // 窓の外へ動かした・小さくしすぎた
+    expect(clampFloatRect({ x: 1500, y: -40, w: 100, h: 50 }, 1280, 800)).toEqual({ x: 1280 - FLOAT_MIN.w, y: 0, w: FLOAT_MIN.w, h: FLOAT_MIN.h });
+    // 窓より大きくはしない
+    expect(clampFloatRect({ x: 0, y: 0, w: 3000, h: 3000 }, 1280, 800)).toEqual({ x: 0, y: 0, w: 1264, h: 784 });
+    expect(floatChartHeight(500, 16, 92)).toBe(408);
+    expect(floatChartHeight(150, 16, 92)).toBe(100);
+  });
+
+  it("付いてくる箱は、出していないときは中身を描かない。出しているときは見出し・浮かせる・×・グラフ（同じ部品・決めた高さ）", () => {
+    const st = (docked: boolean): DockState => ({ docked, height: 240, mode: "large", floating: false, extra: 92 });
+    const draw = (height: number) => h(DockedResult, { model: pm, provisional: false, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop, height });
+    expect(renderToString(h(ChartDock, { dock: st(false), onClose: noop, children: draw }))).toBe('<div class="chart-dock large" data-chart-dock="off"></div>');
+    const html = renderToString(h(ChartDock, { dock: st(true), head: "見出し", onClose: noop, children: draw }));
     expect(html).toContain("data-dock-close");
+    expect(html).toContain("data-dock-float");
+    expect(html).toContain("浮かせる");
     expect(html).toContain('height="240"');
     expect(html).toContain("main-legend");
     expect(html).toContain("line-prop");
@@ -331,20 +427,29 @@ describe("操作中はグラフを上に表示", () => {
     expect(html).not.toContain('class="yc-a"');
   });
 
-  it("表示の設定に「操作中はグラフを上に表示」（既定はオン）。世帯ファイルに書いた値を読み戻す", () => {
-    expect(DEFAULT_DISPLAY_SETTINGS.dock).toBe(true);
+  it("表示の設定の「操作中はグラフを上に表示」は 出さない／小さく／大きく（既定は大きく）。世帯ファイルに書いた値を読み戻す", () => {
+    expect(DEFAULT_DISPLAY_SETTINGS.dock).toBe("large");
     const html = renderToString(h(DisplaySettingsPanel, { value: DEFAULT_DISPLAY_SETTINGS, onChange: noop, onClose: noop, feeAvailable: true }));
     expect(html).toContain("操作中はグラフを上に表示");
-    const box = html.match(/<input[^>]*data-dock-setting[^>]*>/)?.[0] ?? "";
-    expect(box).toContain('type="checkbox"');
-    expect(box).toMatch(/checked/);
+    const radios = html.match(/<input[^>]*data-dock-setting[^>]*>/g) ?? [];
+    expect(radios.map((r) => r.match(/data-dock-setting="([^"]+)"/)?.[1])).toEqual(["off", "small", "large"]);
+    for (const r of radios) expect(r).toContain('type="radio"');
+    expect(radios[2]).toMatch(/checked/);
+    expect(radios[0]).not.toMatch(/checked/);
+    expect(html).toContain("大きく（操作の欄は1行分を残す）（既定）");
     const ws = { template: null, band: [], base: "current", selected: "current", shownItems: [] };
-    const off = bodyOf({ wh: demo.wh, workspace: ws, display: { ...DEFAULT_DISPLAY_SETTINGS, dock: false }, carry: EMPTY_CARRY });
-    expect(fromBody(off).display.dock).toBe(false);
-    // 前の版の本文（dock が無い）は既定（オン）で読む
-    const old = JSON.parse(off) as { display: Record<string, unknown> };
+    for (const mode of ["off", "small", "large"] as const) {
+      const body = bodyOf({ wh: demo.wh, workspace: ws, display: { ...DEFAULT_DISPLAY_SETTINGS, dock: mode }, carry: EMPTY_CARRY });
+      expect(fromBody(body).display.dock).toBe(mode);
+    }
+    // 前の版の本文: dock が無い → 既定、オン（true）→ 既定、オフ（false）→ 出さない
+    const old = JSON.parse(bodyOf({ wh: demo.wh, workspace: ws, display: DEFAULT_DISPLAY_SETTINGS, carry: EMPTY_CARRY })) as { display: Record<string, unknown> };
     delete old.display.dock;
-    expect(fromBody(JSON.stringify(old)).display.dock).toBe(true);
+    expect(fromBody(JSON.stringify(old)).display.dock).toBe("large");
+    old.display.dock = true;
+    expect(fromBody(JSON.stringify(old)).display.dock).toBe("large");
+    old.display.dock = false;
+    expect(fromBody(JSON.stringify(old)).display.dock).toBe("off");
   });
 });
 
