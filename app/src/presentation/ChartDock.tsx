@@ -326,11 +326,6 @@ export function ChartDock({ dock, head, onClose, children }: { dock: DockState; 
   );
 }
 
-/** 浮かせ方の案内（上の帯で移動・端で大きさ）は、アプリを開いている間に1回だけ出す */
-let floatHintShown = false;
-/** 案内を出しておく時間（ms） */
-const FLOAT_HINT_MS = 6000;
-
 const EDGE_LABEL: Record<FloatEdge, string> = { w: "左の端（横に伸縮）", e: "右の端（横に伸縮）", s: "下の端（縦に伸縮）", sw: "左下の角（縦横に伸縮）", se: "右下の角（縦横に伸縮）" };
 
 /**
@@ -341,7 +336,6 @@ function FloatPanel({ head, onClose, extra, children }: { head?: ComponentChildr
   const fs = rootFontPx() / 16;
   const [rect, setRect] = useState<FloatRect>(() => clampFloatRect(currentFloat().rect ?? defaultFloatRect(window.innerWidth, window.innerHeight), window.innerWidth, window.innerHeight, fs));
   const [active, setActive] = useState<"move" | FloatEdge | null>(null);
-  const [hint, setHint] = useState(() => !floatHintShown);
   const rectRef = useRef(rect);
   rectRef.current = rect;
   useEffect(() => {
@@ -349,17 +343,10 @@ function FloatPanel({ head, onClose, extra, children }: { head?: ComponentChildr
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-  useEffect(() => {
-    if (!hint) return;
-    floatHintShown = true;
-    const t = setTimeout(() => setHint(false), FLOAT_HINT_MS);
-    return () => clearTimeout(t);
-  }, [hint]);
   const drag = (kind: "move" | FloatEdge) => (e: PointerEvent) => {
     if (e.button !== 0) return;
     if (kind === "move" && e.target instanceof Element && e.target.closest("button, a, input, select") !== null) return;
     e.preventDefault();
-    setHint(false);
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
     setActive(kind);
@@ -390,7 +377,6 @@ function FloatPanel({ head, onClose, extra, children }: { head?: ComponentChildr
     const next = keyFloatRect(rectRef.current, e.key, e.shiftKey, window.innerWidth, window.innerHeight, rootFontPx() / 16);
     if (next === null) return;
     e.preventDefault();
-    setHint(false);
     setRect(next);
     setFloat({ on: true, rect: next });
   };
@@ -431,11 +417,6 @@ function FloatPanel({ head, onClose, extra, children }: { head?: ComponentChildr
           ×
         </button>
       </div>
-      {hint ? (
-        <div class="dock-hint" role="status" data-dock-hint>
-          上の帯をつかんで動かせます。端をつかむと大きさを変えられます
-        </div>
-      ) : null}
       {children(floatChartHeight(rect.h, fs * 16, extra * fs))}
       {(["w", "e", "s", "sw", "se"] as const).map((edge) => (
         <span key={edge} class={`dock-edge dock-edge-${edge}${active === edge ? " on" : ""}`} onPointerDown={drag(edge)} title={`ドラッグで大きさを変えられます（${EDGE_LABEL[edge]}）`} aria-hidden="true" data-dock-edge={edge} />
