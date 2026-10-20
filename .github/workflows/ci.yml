@@ -82,10 +82,20 @@ jobs:
   app:
     needs: engine
     runs-on: ubuntu-latest
+    # Tauri の依存のビルドで実行機の空き容量が尽きることがあるため、デバッグ情報と差分のビルドの置き場を作らない
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
     defaults:
       run:
         working-directory: app
     steps:
+      - name: 実行機の空き容量を増やす（使わない開発道具を消す）
+        working-directory: .
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
