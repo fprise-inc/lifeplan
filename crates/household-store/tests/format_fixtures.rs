@@ -121,6 +121,18 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "0.6 の見本にはその不動産のローンがある"
             );
         }
+        if *v == "0.7" {
+            // 0.7 から: 資産と負債のタブの並べる時点（既定の時点と、この世帯で選んだ時点。候補の鍵と決まった年）
+            let d = &now["display"];
+            assert!(d["bsPoints"]
+                .as_array()
+                .is_some_and(|a| (2..=4).contains(&a.len())));
+            let cols = d["bsColumns"]
+                .as_array()
+                .expect("0.7 の見本にはこの世帯で選んだ時点がある");
+            assert!(cols.iter().any(|c| c.get("point").is_some()));
+            assert!(cols.iter().any(|c| c["year"].is_u64()));
+        }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
         }

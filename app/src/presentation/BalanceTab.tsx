@@ -1,14 +1,14 @@
 // 資産と負債のタブ（提示層の部品。家計のバランスシートを図で見せる）。受け取るのは BalanceTabModel と手続きだけ（0016 の2）。
 // 配置（上から）: 見るもの（家計のバランスシート／合算BS（カスタマイズで追加）の入口）→ プランの帯（作業の層が渡す）→
-// バランスシートの図（1年ずつ見る／3時点を並べる／プランを並べる／前回と比べる）→ ひと言の解説と家計の体力の目安 → 年のつまみ →
-// 表で見る（既定は閉じる）→ 資産と負債の推移のグラフ（押すとその年のバランスシート）
+// バランスシートの図（1年ずつ見る／時点を並べる／プランを並べる／前回と比べる）→ 年のつまみ（図のすぐ下。図とつまみが同時に画面に収まるよう、
+// 窓の高さが低いときは図を縮める）→ ひと言の解説と家計の体力の目安 → 表で見る（既定は閉じる）→ 資産と負債の推移のグラフ（押すとその年のバランスシート）
 import type { ComponentChildren } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { BsFigure, useBoxSize } from "./BsFigure.tsx";
 import { BsTrend, TrendLegend, trendRange } from "./BsTrend.tsx";
 import { healthOf, monthsValue, scaleFor, type HealthItem } from "./bsLayout.ts";
 import { group, man, manDiff } from "./format.ts";
-import type { BalanceTabModel, BsGroupKey, BsGuide, BsPlanModel, BsYearModel, VerdictPart, Yen } from "./model.ts";
+import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsPlanModel, BsPointKey, BsYearModel, VerdictPart, Yen } from "./model.ts";
 
 export type BsView = "one" | "three" | "plans" | "prev";
 
@@ -20,6 +20,10 @@ export interface BalanceTabProps {
   onPrev: (key: string) => void;
   /** 家計の体力の目安の幅を変えた（事務所の設定） */
   onGuide: (g: BsGuide) => void;
+  /** 並べる時点をこの世帯で変えた（null は既定に戻す） */
+  onColumns: (c: BsColumn[] | null) => void;
+  /** 時点を並べるときの既定の時点を変えた（事務所の設定） */
+  onPointDefaults: (k: BsPointKey[]) => void;
   /** 画面の確かめ用の最初の状態 */
   initial?: { view?: BsView; year?: number; open?: "combined"; table?: boolean };
 }
@@ -32,10 +36,43 @@ function KindTag({ fact, year }: { fact: boolean; year?: number }) {
   return fact ? <span class="bs-kind f">事実（今・入力した値）</span> : <span class="bs-kind e">見込み{year !== undefined ? `（${year}年）` : ""}</span>;
 }
 
-/** 図の高さ（文字の大きさ 16px のとき） */
-const FIG_H = { main: 560, compact: 460 };
+/** 図の高さ（文字の大きさ 16px のとき）の上限と下限 */
+const FIG_H = { main: 560, compact: 460, min: 320 };
 
-export function BalanceTab({ model, band, onPrev, onGuide, initial }: BalanceTabProps) {
+/**
+ * 図の高さ: 図の見出しの行（head）・図・年のつまみ（bar）が同時に窓に収まる高さ（上限 max、下限 FIG_H.min。文字の大きさに比例）。
+ * つまみを動かしたときに図の変化が見えるように、窓の高さが低いときは図を縮める
+ */
+function useFitHeight(head: { current: HTMLElement | null }, bar: { current: HTMLElement | null }, max: number, deps: readonly unknown[]): number {
+  const [h, setH] = useState(max);
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (typeof window === "undefined") return;
+      const fs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const k = fs / 16;
+      const big = k > 1.1 ? 1.08 : 1;
+      const headH = head.current?.getBoundingClientRect().height ?? fs * 4;
+      const barH = bar.current?.getBoundingClientRect().height ?? fs * 7;
+      // 図の上下の余白・カードの内側の余白の分
+      const avail = window.innerHeight - headH - barH - fs * 2.6;
+      const px = Math.max(FIG_H.min * k, Math.min(max * k, avail));
+      const v = Math.round(px / big / k);
+      setH((o) => (o === v ? o : v));
+    };
+    measure();
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+    if (bar.current !== null) ro?.observe(bar.current);
+    ro?.observe(document.documentElement);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [max, ...deps]);
+  return h;
+}
+
+export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDefaults, initial }: BalanceTabProps) {
   const [sub, setSub] = useState<"home" | "combined">(initial?.open === "combined" ? "combined" : "home");
   const [view, setView] = useState<BsView>(initial?.view ?? "one");
   const plan = model.plans.find((p) => p.key === model.selected) ?? model.plans[0];
@@ -49,6 +86,11 @@ export function BalanceTab({ model, band, onPrev, onGuide, initial }: BalanceTab
   const [prevKey, setPrevKey] = useState<string | null>(null);
   const [table, setTable] = useState(initial?.table === true);
   const [adjusted, setAdjusted] = useState(false);
+  const headRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const fitMain = useFitHeight(headRef, barRef, FIG_H.main, [view]);
+  // プランを並べるときは、選ぶ欄・図の見出し・図の下の純資産の行の分だけ低くする
+  const fitPlans = Math.max(FIG_H.min, Math.min(FIG_H.compact, fitMain - 110));
   // 再生（1年ずつ見せる）
   const [play, setPlay] = useState<{ on: boolean; from: number } | null>(null);
   const yiRef = useRef(yi);
@@ -83,15 +125,15 @@ export function BalanceTab({ model, band, onPrev, onGuide, initial }: BalanceTab
   };
   const views: { key: BsView; label: string }[] = [
     { key: "one", label: "1年ずつ見る" },
-    { key: "three", label: "3時点を並べる" },
+    { key: "three", label: `${colsOf(model.columns, model.pointDefaults).length}時点を並べる` },
     ...(model.plans.length > 1 ? [{ key: "plans" as const, label: "プランを並べる" }] : []),
     ...(model.prevChoices.length > 0 ? [{ key: "prev" as const, label: "前回と比べる" }] : []),
   ];
   const range = trendRange(model.plans);
   const trendPlan = view === "plans" ? (model.plans.find((p) => p.key === lr.r) ?? plan) : plan;
   const trendBase = view === "plans" ? (lr.l !== lr.r ? (model.plans.find((p) => p.key === lr.l) ?? null) : null) : basePlan !== null && basePlan.key !== plan.key ? basePlan : null;
-  const threeIdx = threePoints(plan);
-  const trendMarks = view === "three" ? threeIdx.map((x) => x.index) : view === "prev" ? [0] : [yi];
+  const cols = resolveColumns(plan, model.columns, model.pointDefaults);
+  const trendMarks = view === "three" ? cols.map((x) => x.index) : view === "prev" ? [0] : [yi];
 
   return (
     <div class="bs-tab" data-balance-tab>
@@ -118,42 +160,45 @@ export function BalanceTab({ model, band, onPrev, onGuide, initial }: BalanceTab
         <>
           {band}
           <section class="card bs-card" aria-labelledby="h-bs">
-            <div class="bs-head">
-              <h2 id="h-bs">バランスシート（資産と負債）</h2>
-              <span class="seg-g" role="group" aria-label="見せ方">
-                {views.map((v) => (
-                  <button
-                    type="button"
-                    key={v.key}
-                    aria-pressed={view === v.key}
-                    onClick={() => {
-                      stopPlay();
-                      setView(v.key);
-                    }}
-                    data-bs-view={v.key}
-                  >
-                    {v.label}
-                  </button>
-                ))}
-              </span>
-              {model.provisional ? (
-                <span class="provisional" title="指を離すと正式な計算に置き換わります">
-                  確定前
+            <div ref={headRef}>
+              <div class="bs-head">
+                <h2 id="h-bs">バランスシート（資産と負債）</h2>
+                <span class="seg-g" role="group" aria-label="見せ方">
+                  {views.map((v) => (
+                    <button
+                      type="button"
+                      key={v.key}
+                      aria-pressed={view === v.key}
+                      onClick={() => {
+                        stopPlay();
+                        setView(v.key);
+                      }}
+                      data-bs-view={v.key}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
                 </span>
-              ) : null}
+                {model.provisional ? (
+                  <span class="provisional" title="指を離すと正式な計算に置き換わります">
+                    確定前
+                  </span>
+                ) : null}
+              </div>
+              <p class="bs-subline">箱の高さは金額に比例（1年ずつ見るときはその年がいっぱいに見える縮尺。並べるときは共通の縮尺）。箱を押すと内訳が開きます</p>
             </div>
-            <p class="bs-subline">箱の高さは金額に比例（1年ずつ見るときはその年がいっぱいに見える縮尺。並べるときは共通の縮尺）。箱を押すと内訳が開きます</p>
             {view === "one" ? (
-              <OneYear model={model} plan={plan} year={year} yi={yi} onPick={pick} onAdjusted={setAdjusted} adjusted={adjusted} onGuide={onGuide} />
+              <OneYear model={model} plan={plan} year={year} yi={yi} onPick={pick} onAdjusted={setAdjusted} height={fitMain} />
             ) : view === "three" ? (
-              <ThreeView model={model} plan={plan} points={threeIdx} onGo={(i) => pick(i)} />
+              <ThreeView model={model} plan={plan} cols={cols} onGo={(i) => pick(i)} onColumns={onColumns} onPointDefaults={onPointDefaults} height={FIG_H.compact} />
             ) : view === "plans" ? (
-              <PlansView model={model} lr={lr} onLr={setLr} yi={yi} />
+              <PlansView model={model} lr={lr} onLr={setLr} yi={yi} height={fitPlans} part="figs" />
             ) : (
               <PrevView model={model} choice={prevChoice} onChoice={(k) => setPrevKey(k)} />
             )}
             {view === "one" || view === "plans" ? (
               <YearBar
+                barRef={barRef}
                 plan={view === "plans" ? (model.plans.find((p) => p.key === lr.r) ?? plan) : plan}
                 yi={yi}
                 onYear={(i) => {
@@ -173,6 +218,8 @@ export function BalanceTab({ model, band, onPrev, onGuide, initial }: BalanceTab
                 }}
               />
             ) : null}
+            {view === "plans" ? <PlansView model={model} lr={lr} onLr={setLr} yi={yi} height={fitPlans} part="diff" /> : null}
+            {view === "one" ? <OneYearBelow model={model} plan={plan} year={year} adjusted={adjusted} onGuide={onGuide} /> : null}
             <details class="bs-tbl" open={table} onToggle={(e) => setTable((e.currentTarget as HTMLDetailsElement).open)} data-bs-table>
               <summary>
                 <b>表で見る</b>
@@ -199,48 +246,43 @@ export function BalanceTab({ model, band, onPrev, onGuide, initial }: BalanceTab
 
 // ---- 1年ずつ見る ----
 
-function OneYear({ model, plan, year, yi, onPick, onAdjusted, adjusted, onGuide }: { model: BalanceTabModel; plan: BsPlanModel; year: BsYearModel; yi: number; onPick: (i: number) => void; onAdjusted: (a: boolean) => void; adjusted: boolean; onGuide: (g: BsGuide) => void }) {
+function OneYear({ model, plan, year, yi, onPick, onAdjusted, height }: { model: BalanceTabModel; plan: BsPlanModel; year: BsYearModel; yi: number; onPick: (i: number) => void; onAdjusted: (a: boolean) => void; height: number }) {
+  return (
+    <div class="bs-one">
+      <div class="bs-fig-main">
+        <BsFigure year={year} groups={model.groups} height={height} onAdjusted={onAdjusted} label={`${year.year}年のバランスシート`} />
+      </div>
+      <aside class="bs-side">
+        <div class="bs-year num" data-bs-year={year.year}>
+          {year.year}年
+        </div>
+        <div class="bs-ages">
+          {year.members}
+          {year.fact ? "（今）" : ""}
+        </div>
+        <div class="bs-evs">
+          {year.events.length > 0 ? (
+            year.events.map((e, i) => (
+              <span key={i} class={`bs-ev k-${e.kind}`}>
+                {e.text}
+              </span>
+            ))
+          ) : (
+            <span class="bs-ev none">この年の出来事なし</span>
+          )}
+        </div>
+        <Spark plan={plan} yi={yi} onPick={onPick} />
+      </aside>
+    </div>
+  );
+}
+
+/** 1年ずつ見るときの、つまみの下（ひと言の解説・バランスシートで見えること・家計の体力の目安） */
+function OneYearBelow({ model, plan, year, adjusted, onGuide }: { model: BalanceTabModel; plan: BsPlanModel; year: BsYearModel; adjusted: boolean; onGuide: (g: BsGuide) => void }) {
   const eq = year.totalAssets === year.totalLiabilities + year.netWorth;
   return (
     <>
-      <div class="bs-one">
-        <div class="bs-fig-main">
-          <BsFigure year={year} groups={model.groups} height={FIG_H.main} onAdjusted={onAdjusted} label={`${year.year}年のバランスシート`} />
-          <div class="bs-figlegend">
-            <span>
-              <i class="f" />
-              今＝入力した事実（はっきりした色・実線）
-            </span>
-            <span>
-              <i class="e" />
-              先の年＝見込み（少し薄い色・点線の枠）
-            </span>
-            <span>左右の箱は必ず同じ高さ（資産＝負債＋純資産）</span>
-          </div>
-          {adjusted ? <p class="bs-adjnote">※小さい項目は読める高さにしているため、その箱だけ高さが金額の比例より少し大きめです</p> : null}
-        </div>
-        <aside class="bs-side">
-          <div class="bs-year num" data-bs-year={year.year}>
-            {year.year}年
-          </div>
-          <div class="bs-ages">
-            {year.members}
-            {year.fact ? "（今）" : ""}
-          </div>
-          <div class="bs-evs">
-            {year.events.length > 0 ? (
-              year.events.map((e, i) => (
-                <span key={i} class={`bs-ev k-${e.kind}`}>
-                  {e.text}
-                </span>
-              ))
-            ) : (
-              <span class="bs-ev none">この年の出来事なし</span>
-            )}
-          </div>
-          <Spark plan={plan} yi={yi} onPick={onPick} />
-        </aside>
-      </div>
+      {adjusted ? <p class="bs-adjnote">※小さい項目は読める高さにしているため、その箱だけ高さが金額の比例より少し大きめです</p> : null}
       <div class="bs-below">
         <div class="bs-talk">
           <div class="bs-say" aria-live="polite" data-bs-say>
@@ -260,6 +302,7 @@ function OneYear({ model, plan, year, yi, onPick, onAdjusted, adjusted, onGuide 
               資産 {group(Math.round(year.totalAssets / 10000))} ＝ 負債 {group(Math.round(year.totalLiabilities / 10000))} ＋ 純資産 {man(year.netWorth)}
             </span>
             {eq ? <span class="ok">✓ 合っています</span> : null}
+            <span class="bs-eqnote">左右の箱は必ず同じ高さです（資産＝負債＋純資産）</span>
           </div>
         </div>
         <HealthCard year={year} first={plan.years[0] as BsYearModel} guide={model.guide} onGuide={onGuide} />
@@ -435,7 +478,7 @@ function GuideEditor({ guide, onGuide }: { guide: BsGuide; onGuide: (g: BsGuide)
 
 // ---- 年のつまみ ----
 
-function YearBar({ plan, yi, onYear, play, onPlay, onStop }: { plan: BsPlanModel; yi: number; onYear: (i: number) => void; play: { on: boolean; from: number } | null; onPlay: () => void; onStop: () => void }) {
+function YearBar({ plan, yi, onYear, play, onPlay, onStop, barRef }: { plan: BsPlanModel; yi: number; onYear: (i: number) => void; play: { on: boolean; from: number } | null; onPlay: () => void; onStop: () => void; barRef?: { current: HTMLDivElement | null } }) {
   const { ref, w, fs } = useBoxSize<HTMLDivElement>(640);
   const n = plan.years.length;
   const y = plan.years[yi] as BsYearModel;
@@ -453,10 +496,15 @@ function YearBar({ plan, yi, onYear, play, onPlay, onStop }: { plan: BsPlanModel
   const two = marks.some((m) => m.row === 1);
   const first = plan.years[0]?.age;
   const every = pos(5) - pos(0) < fs * 3.3 ? 10 : 5;
-  const ticks = plan.years.map((yy, i) => ({ i, age: yy.age })).filter((t) => t.age !== null && (t.age as number) % every === 0);
+  // 目盛りは5歳（狭ければ10歳）ごと。右の端には表の最後の年の年齢を必ず出す（計算の期間の終わりが分かるように。近い目盛りは外す）
+  const lastAge = plan.years[n - 1]?.age ?? null;
+  const ticks = plan.years
+    .map((yy, i) => ({ i, age: yy.age, end: false }))
+    .filter((t) => t.age !== null && (t.age as number) % every === 0 && (lastAge === null || t.i === n - 1 || pos(n - 1) - pos(t.i) >= fs * 2.6));
+  if (lastAge !== null && ticks.at(-1)?.i !== n - 1) ticks.push({ i: n - 1, age: lastAge, end: true });
   const playing = play?.on === true;
   return (
-    <div class="bs-yb" data-bs-yearbar>
+    <div class="bs-yb" data-bs-yearbar ref={barRef}>
       <div class="yb-l">
         <div class="yb-year num">
           {y.year}年<small>{y.members}</small>
@@ -497,7 +545,7 @@ function YearBar({ plan, yi, onYear, play, onPlay, onStop }: { plan: BsPlanModel
         </div>
         <div class="yb-scale" aria-hidden="true">
           {ticks.map((t) => (
-            <span key={t.i} style={{ left: `${pos(t.i)}px` }}>
+            <span key={t.i} class={t.end ? "end" : undefined} style={{ left: `${pos(t.i)}px` }} title={t.end ? "表の最後の年（計算の期間の終わり）" : undefined}>
               {t.age}歳
             </span>
           ))}
@@ -512,10 +560,10 @@ function YearBar({ plan, yi, onYear, play, onPlay, onStop }: { plan: BsPlanModel
             : null}
         </div>
         <div class="yb-key">
-          <i class="f" />
-          今は事実
-          <i class="e" />
-          つまみを先に動かすと「見込み」
+          <span class="bs-kind f">事実</span>
+          今の年は入力した値
+          <span class="bs-kind e">見込み</span>
+          つまみを先に動かした年（図の左上の札で分かります）
         </div>
       </div>
       <div class="yb-r">
@@ -538,71 +586,300 @@ function YearBar({ plan, yi, onYear, play, onPlay, onStop }: { plan: BsPlanModel
   );
 }
 
-// ---- 3時点を並べる ----
+// ---- 時点を並べる（既定は3つ。2〜4つ）----
 
-/** 3時点: 今・退職の年・75歳（退職の年・75歳が無ければ10年後で埋める） */
-export function threePoints(plan: BsPlanModel): { label: string; index: number }[] {
-  const j = (k: string) => plan.jumps.find((x) => x.key === k);
-  const out: { label: string; index: number }[] = [{ label: "今", index: 0 }];
-  for (const k of ["retire", "age75", "ten"]) {
-    const x = j(k);
-    if (x !== undefined && out.length < 3 && !out.some((o) => o.index === x.index)) out.push({ label: x.label, index: x.index });
-  }
-  return out.sort((a, b) => a.index - b.index);
+const MIN_COLS = 2;
+const MAX_COLS = 4;
+/** 候補が世帯に無い時点（例: ローンの無い世帯の「ローン完済」）の代わり */
+const FALLBACK: BsPointKey[] = ["y10", "y20", "y5", "retire", "age65", "age75", "age85"];
+
+export interface ResolvedColumn {
+  /** 並べる時点の配列の中の番号（見出しから変えるときに使う） */
+  pos: number;
+  label: string;
+  index: number;
+  /** 候補がこの世帯に無いため、代わりの時点で見せている（例: 「ローン完済が無いため10年後」） */
+  note: string | null;
 }
 
-function ThreeView({ model, plan, points, onGo }: { model: BalanceTabModel; plan: BsPlanModel; points: { label: string; index: number }[]; onGo: (i: number) => void }) {
-  const ys = points.map((p) => plan.years[p.index] as BsYearModel);
+const yearLabel = (y: BsYearModel) => (y.age !== null ? `${y.age}歳` : `${y.year}年`);
+const colsOf = (columns: readonly BsColumn[] | null, defaults: readonly BsPointKey[]): BsColumn[] => (columns !== null ? [...columns] : defaults.map((k) => ({ point: k })));
+
+/**
+ * 並べる時点を、このプランの年に解く（年の順に並べる）。
+ * 候補の鍵はプランごとの年（退職の年を動かすと付いてくる）。決まった年は表の範囲に収める。候補が世帯に無ければ代わりの時点
+ */
+export function resolveColumns(plan: BsPlanModel, columns: readonly BsColumn[] | null, defaults: readonly BsPointKey[]): ResolvedColumn[] {
+  const n = plan.years.length;
+  const first = plan.years[0]?.year ?? 0;
+  const out: (ResolvedColumn & { missing: boolean })[] = colsOf(columns, defaults).map((c, pos) => {
+    if ("point" in c) {
+      const p = plan.points.find((x) => x.key === c.point);
+      return p !== undefined ? { pos, label: p.label, index: p.index, note: null, missing: false } : { pos, label: c.point, index: -1, note: null, missing: true };
+    }
+    const i = Math.max(0, Math.min(n - 1, c.year - first));
+    return { pos, label: yearLabel(plan.years[i] as BsYearModel), index: i, note: null, missing: false };
+  });
+  for (const o of out) {
+    if (!o.missing) continue;
+    const f = FALLBACK.map((k) => plan.points.find((x) => x.key === k)).find((p) => p !== undefined && !out.some((q) => !q.missing && q.index === p.index));
+    const missing = o.label;
+    const name = plan.points.find((x) => x.key === missing)?.label ?? POINT_NAME[missing as BsPointKey] ?? "";
+    o.missing = false;
+    if (f !== undefined) Object.assign(o, { label: f.label, index: f.index, note: `この世帯には「${name}」が無いため${f.label}` });
+    else Object.assign(o, { label: "今", index: 0, note: `この世帯には「${name}」が無いため今` });
+  }
+  return out.map(({ missing: _m, ...r }) => r).sort((x, y) => x.index - y.index || x.pos - y.pos);
+}
+
+/** 候補の名前（世帯に無い候補の注記に使う） */
+const POINT_NAME: Record<BsPointKey, string> = { now: "今", y5: "5年後", y10: "10年後", y20: "20年後", childIndep: "子の独立", loanEnd: "ローン完済", retire: "退職の年", pension: "年金の始まり", age65: "65歳", age70: "70歳", age75: "75歳", age80: "80歳", age85: "85歳", age90: "90歳" };
+
+/** 並べる時点を変えたあとの値（既定と同じ並びになったら null＝既定のまま） */
+export function nextColumns(cur: readonly BsColumn[], defaults: readonly BsPointKey[]): BsColumn[] | null {
+  const same = cur.length === defaults.length && cur.every((c, i) => "point" in c && c.point === defaults[i]);
+  return same ? null : [...cur];
+}
+
+function ThreeView({ model, plan, cols, onGo, onColumns, onPointDefaults, height }: { model: BalanceTabModel; plan: BsPlanModel; cols: ResolvedColumn[]; onGo: (i: number) => void; onColumns: (c: BsColumn[] | null) => void; onPointDefaults: (k: BsPointKey[]) => void; height: number }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [editDefaults, setEditDefaults] = useState(false);
+  const ys = cols.map((p) => plan.years[p.index] as BsYearModel);
   const sc = scaleFor(ys);
+  const raw = colsOf(model.columns, model.pointDefaults);
+  const put = (next: BsColumn[]) => {
+    setOpen(null);
+    onColumns(nextColumns(next, model.pointDefaults));
+  };
+  const add = () => {
+    // まだ並べていない候補のうち、最初のもの（10年後・20年後…の順）
+    const used = new Set(cols.map((c) => c.index));
+    const cand = [...FALLBACK.map((k) => plan.points.find((x) => x.key === k)), ...plan.points].find((p) => p !== undefined && !used.has(p.index));
+    if (cand !== undefined) put([...raw, { point: cand.key }]);
+  };
+  const defaultsText = model.pointDefaults.map((k) => model.pointChoices.find((c) => c.key === k)?.label ?? k).join("・");
   return (
-    <div class="bs-three" data-bs-three>
-      {points.map((p, k) => {
-        const y = ys[k] as BsYearModel;
-        const prev = k > 0 ? (ys[k - 1] as BsYearModel) : null;
-        return (
-          <div class="bs-tcard-wrap" key={p.index}>
-            {k > 0 ? (
-              <div class="arrow" aria-hidden="true">
-                →
+    <div class="bs-three-wrap">
+      <div class="bs-pick bs-cols-bar" data-bs-cols-bar>
+        <span class="k">並べる時点</span>
+        <span class="note">
+          見出しを押すと、その時点の年を変えられます（この世帯で覚えます）
+          {model.columns !== null ? <b class="bs-custom-tag">この世帯で選んだ時点</b> : null}
+        </span>
+        <span class="bs-cols-act">
+          {cols.length < MAX_COLS ? (
+            <button type="button" class="btn" onClick={add} data-bs-col-add>
+              ＋ 時点を足す
+            </button>
+          ) : null}
+          {model.columns !== null ? (
+            <button type="button" class="link-btn" onClick={() => onColumns(null)} data-bs-col-reset>
+              既定（{defaultsText}）に戻す
+            </button>
+          ) : null}
+          <button type="button" class="link-btn" aria-expanded={editDefaults} onClick={() => setEditDefaults(!editDefaults)} data-bs-defaults-open>
+            既定の時点を変える（事務所の設定）
+          </button>
+        </span>
+      </div>
+      {editDefaults ? <PointDefaultsEditor choices={model.pointChoices} value={model.pointDefaults} available={plan.points.map((p) => p.key)} onChange={onPointDefaults} /> : null}
+      <div class={`bs-three n${cols.length}`} data-bs-three={cols.length}>
+        {cols.map((p, k) => {
+          const y = ys[k] as BsYearModel;
+          const prev = k > 0 ? (ys[k - 1] as BsYearModel) : null;
+          return (
+            <div class="bs-tcard-wrap" key={p.pos}>
+              {k > 0 ? (
+                <div class="arrow" aria-hidden="true">
+                  →
+                </div>
+              ) : null}
+              <div class="bs-tcard">
+                <ColumnHead
+                  open={open === p.pos}
+                  onToggle={() => setOpen(open === p.pos ? null : p.pos)}
+                  onClose={() => setOpen(null)}
+                  plan={plan}
+                  col={p}
+                  who={model.who}
+                  canRemove={cols.length > MIN_COLS}
+                  onPick={(c) => put(raw.map((x, i) => (i === p.pos ? c : x)))}
+                  onRemove={() => put(raw.filter((_, i) => i !== p.pos))}
+                />
+                {p.note !== null ? <p class="bs-colnote">{p.note}</p> : null}
+                <BsFigure year={y} groups={model.groups} scale={sc} compact height={cols.length >= 4 ? Math.round(height * 0.9) : height} label={`${p.label}（${y.year}年）のバランスシート`} />
+                <div class="tn">
+                  純資産 <span class={`num${y.netWorth < 0 ? " neg" : ""}`}>{mn(y.netWorth)}</span>
+                </div>
+                <p class="ts">{threeSentence(y, prev)}</p>
+                <button type="button" class="link-btn go" onClick={() => onGo(p.index)} data-bs-go={p.index}>
+                  この年を1年ずつ見る →
+                </button>
               </div>
-            ) : null}
-            <div class="bs-tcard">
-              <div class="th">
-                <b>{p.label}</b>
-                <span>
-                  {y.year}年{y.age !== null ? `・${model.who}${y.age}歳` : ""}
-                </span>
-                <KindTag fact={y.fact} />
-              </div>
-              <BsFigure year={y} groups={model.groups} scale={sc} compact height={FIG_H.compact} label={`${p.label}（${y.year}年）のバランスシート`} />
-              <div class="tn">
-                純資産 <span class={`num${y.netWorth < 0 ? " neg" : ""}`}>{mn(y.netWorth)}</span>
-              </div>
-              <p class="ts">{threeSentence(y, prev, k)}</p>
-              <button type="button" class="link-btn go" onClick={() => onGo(p.index)} data-bs-go={p.index}>
-                この年を1年ずつ見る →
-              </button>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function threeSentence(y: BsYearModel, prev: BsYearModel | null, k: number): string {
+/** 時点の見出し（押すと年を選ぶ小窓: 主な年の候補・年のつまみと年の入力・この時点を外す） */
+function ColumnHead({ open, onToggle, onClose, plan, col, who, canRemove, onPick, onRemove }: { open: boolean; onToggle: () => void; onClose: () => void; plan: BsPlanModel; col: ResolvedColumn; who: string; canRemove: boolean; onPick: (c: BsColumn) => void; onRemove: () => void }) {
+  const y = plan.years[col.index] as BsYearModel;
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !(wrap.current?.contains(e.target as Node) ?? false)) onClose();
+    };
+    document.addEventListener("click", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("click", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  return (
+    <div class="th-wrap" ref={wrap}>
+      <div class="th">
+        <button type="button" class="th-btn" aria-expanded={open} aria-haspopup="dialog" onClick={onToggle} title="この時点の年を変える" data-bs-col={col.pos}>
+          <b>{col.label}</b>
+          <span>
+            {y.year}年{y.age !== null ? `・${who}${y.age}歳` : ""}
+          </span>
+          <span class="chev" aria-hidden="true">
+            ▾
+          </span>
+        </button>
+        <KindTag fact={y.fact} />
+      </div>
+      {open ? <ColumnPicker plan={plan} index={col.index} canRemove={canRemove} onPick={onPick} onRemove={onRemove} onClose={onClose} /> : null}
+    </div>
+  );
+}
+
+function ColumnPicker({ plan, index, canRemove, onPick, onRemove, onClose }: { plan: BsPlanModel; index: number; canRemove: boolean; onPick: (c: BsColumn) => void; onRemove: () => void; onClose: () => void }) {
+  const n = plan.years.length;
+  const [yi, setYi] = useState(index);
+  const y = plan.years[yi] as BsYearModel;
+  const first = plan.years[0] as BsYearModel;
+  const last = plan.years[n - 1] as BsYearModel;
+  return (
+    <div class="bs-colpick" role="dialog" aria-label="この時点の年を選ぶ" data-bs-colpick>
+      <div class="cp-h">
+        <b>この時点の年を選ぶ</b>
+        <button type="button" class="link-btn" onClick={onClose} aria-label="閉じる">
+          ×
+        </button>
+      </div>
+      <div class="cp-k">主な年</div>
+      <div class="cp-points">
+        {plan.points.map((p) => {
+          const py = plan.years[p.index] as BsYearModel;
+          return (
+            <button type="button" key={p.key} class="jb" aria-pressed={p.index === index} onClick={() => onPick({ point: p.key })} data-bs-colpoint={p.key}>
+              {p.label}
+              <small>
+                {py.year}年{py.age !== null ? `・${py.age}歳` : ""}
+              </small>
+            </button>
+          );
+        })}
+      </div>
+      <div class="cp-k">年を選ぶ</div>
+      <div class="cp-year">
+        <input
+          type="range"
+          class="yb-range"
+          min={0}
+          max={n - 1}
+          step={1}
+          value={yi}
+          style={{ "--p": `${(yi / Math.max(1, n - 1)) * 100}%` }}
+          aria-label="選ぶ年"
+          aria-valuetext={`${y.year}年 ${y.members}`}
+          onInput={(e) => setYi(Number((e.currentTarget as HTMLInputElement).value))}
+          data-bs-colrange
+        />
+        <label class="cp-num">
+          <input
+            type="number"
+            min={first.year}
+            max={last.year}
+            value={y.year}
+            onChange={(e) => {
+              const v = Number((e.currentTarget as HTMLInputElement).value);
+              if (Number.isFinite(v)) setYi(Math.max(0, Math.min(n - 1, Math.round(v) - first.year)));
+            }}
+            aria-label="年"
+            data-bs-colyear
+          />
+          年
+        </label>
+        <span class="cp-who">{y.members}</span>
+        <button type="button" class="btn primary" onClick={() => onPick({ year: y.year })} data-bs-colyear-ok>
+          この年にする
+        </button>
+      </div>
+      <p class="cp-foot">
+        主な年を選ぶと、プランごとの年になります（例: 退職の年は、プランの退職の年齢に付いてきます）。年を選ぶと、どのプランでもその年です。範囲は {first.year}年〜{last.year}年（計算の期間）。
+      </p>
+      {canRemove ? (
+        <button type="button" class="link-btn cp-remove" onClick={onRemove} data-bs-colremove>
+          この時点を外す
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** 既定の時点（事務所の設定）: 候補から2〜4つ */
+export function PointDefaultsEditor({ choices, value, available, onChange }: { choices: BalanceTabModel["pointChoices"]; value: readonly BsPointKey[]; available?: readonly BsPointKey[]; onChange: (k: BsPointKey[]) => void }) {
+  const set = new Set(value);
+  const toggle = (k: BsPointKey, on: boolean) => {
+    const next = choices.map((c) => c.key).filter((x) => (x === k ? on : set.has(x)));
+    if (next.length >= MIN_COLS && next.length <= MAX_COLS) onChange(next);
+  };
+  return (
+    <div class="bs-defaults" role="group" aria-label="既定の時点" data-bs-defaults>
+      <p>
+        見出しを変えていない世帯で並べる時点です（事務所の設定）。{MIN_COLS}〜{MAX_COLS}つ選びます（最初の値: 今・退職の年・75歳）。世帯に無い時点（例: ローンの無い世帯のローン完済）は、10年後などで埋めます。
+      </p>
+      <div class="bs-defaults-list">
+        {choices.map((c) => {
+          const on = set.has(c.key);
+          const disabled = on ? value.length <= MIN_COLS : value.length >= MAX_COLS;
+          const absent = available !== undefined && !available.includes(c.key);
+          return (
+            <label key={c.key} class={`ds-item${on ? " on" : ""}${disabled ? " off" : ""}`} title={c.note}>
+              <input type="checkbox" checked={on} disabled={disabled} onChange={(e) => toggle(c.key, (e.currentTarget as HTMLInputElement).checked)} data-bs-default={c.key} />
+              <span class="ds-l">
+                {c.label}
+                {absent ? <small>この世帯には無い</small> : c.note !== "" ? <small>{c.note}</small> : null}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function threeSentence(y: BsYearModel, prev: BsYearModel | null): string {
   const mort = g(y, "mortgage");
   if (prev === null) return `${mort > 0 ? `ローンの残り${mn(mort)}。` : ""}資産のうち換金しにくい資産は${mn(g(y, "illiquid"))}で、すぐ使えるお金は${mn(g(y, "liquid"))}。`;
   if (y.shortfall > 0) return `金融資産が尽き、資金の不足が${mn(y.shortfall)}。純資産は${mn(y.netWorth)}。`;
   const dn = y.netWorth - prev.netWorth;
-  if (k === 1) return `純資産は${k === 1 ? "今" : "前"}より${mn(Math.abs(dn))}${dn >= 0 ? "増え" : "減り"}ます。ローンの残りは${mort > 0 ? mn(mort) : "なし"}。`;
+  if (prev.fact) return `純資産は今より${mn(Math.abs(dn))}${dn >= 0 ? "増え" : "減り"}ます。ローンの残りは${mort > 0 ? mn(mort) : "なし"}。`;
   const df = y.financial - prev.financial;
   return `前の時点より金融資産が${mn(Math.abs(df))}${df < 0 ? "減り" : "増え"}、${mn(y.financial)}。ローンは${mort > 0 ? `残り${mn(mort)}` : "返し終わっています"}。`;
 }
 
 // ---- プランを並べる ----
 
-function PlansView({ model, lr, onLr, yi }: { model: BalanceTabModel; lr: { l: string; r: string }; onLr: (v: { l: string; r: string }) => void; yi: number }) {
+/** プランを並べる。part="figs" は選ぶ欄と2つの図、part="diff" は差の1文（年のつまみの下に置く） */
+function PlansView({ model, lr, onLr, yi, height, part }: { model: BalanceTabModel; lr: { l: string; r: string }; onLr: (v: { l: string; r: string }) => void; yi: number; height: number; part: "figs" | "diff" }) {
   const pl = model.plans.find((p) => p.key === lr.l) ?? (model.plans[0] as BsPlanModel);
   const pr = model.plans.find((p) => p.key === lr.r) ?? (model.plans[0] as BsPlanModel);
   const yl = pl.years[yi] as BsYearModel;
@@ -624,6 +901,21 @@ function PlansView({ model, lr, onLr, yi }: { model: BalanceTabModel; lr: { l: s
   const parts: string[] = [];
   if (Math.round(Math.abs(df) / 10000) >= 1) parts.push(`金融資産が${df > 0 ? pr.name : pl.name}の方が${mn(Math.abs(df))}多い`);
   if (Math.round(Math.abs(dl) / 10000) >= 1) parts.push(`負債が${dl > 0 ? pr.name : pl.name}の方が${mn(Math.abs(dl))}多い`);
+  if (part === "diff")
+    return (
+      <div class="bs-diff" aria-live="polite" data-bs-plan-diff>
+        {pl.key === pr.key ? (
+          "同じプランを選んでいます。左右で別のプランを選んでください。"
+        ) : Math.round(Math.abs(d) / 10000) === 0 ? (
+          `${who}では、2つのプランの純資産はほぼ同じです。`
+        ) : (
+          <>
+            {who}では、{d > 0 ? pr.name : pl.name}の純資産が <b class="num">{mn(Math.abs(d))}</b> 多くなります。
+          </>
+        )}
+        {pl.key !== pr.key && parts.length > 0 ? <span class="s2">差の中身: {parts.join("、")}。</span> : null}
+      </div>
+    );
   return (
     <>
       <div class="bs-pick">
@@ -646,7 +938,7 @@ function PlansView({ model, lr, onLr, yi }: { model: BalanceTabModel; lr: { l: s
               {p.title}
               <KindTag fact={y.fact} />
             </div>
-            <BsFigure year={y} groups={model.groups} scale={sc} compact height={FIG_H.compact} label={`${p.name}の${y.year}年のバランスシート`} />
+            <BsFigure year={y} groups={model.groups} scale={sc} compact height={height} label={`${p.name}の${y.year}年のバランスシート`} />
             <div class="pn">
               純資産 <span class={`num${y.netWorth < 0 ? " neg" : ""}`}>{mn(y.netWorth)}</span>
               <small>
@@ -655,18 +947,6 @@ function PlansView({ model, lr, onLr, yi }: { model: BalanceTabModel; lr: { l: s
             </div>
           </div>
         ))}
-      </div>
-      <div class="bs-diff" aria-live="polite" data-bs-plan-diff>
-        {pl.key === pr.key ? (
-          "同じプランを選んでいます。左右で別のプランを選んでください。"
-        ) : Math.round(Math.abs(d) / 10000) === 0 ? (
-          `${who}では、2つのプランの純資産はほぼ同じです。`
-        ) : (
-          <>
-            {who}では、{d > 0 ? pr.name : pl.name}の純資産が <b class="num">{mn(Math.abs(d))}</b> 多くなります。
-          </>
-        )}
-        {pl.key !== pr.key && parts.length > 0 ? <span class="s2">差の中身: {parts.join("、")}。</span> : null}
       </div>
     </>
   );

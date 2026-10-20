@@ -1,7 +1,7 @@
 // バランスシートの図（提示層の部品）: 左に資産、右に負債と純資産を、金額に比例した高さの箱で描く。左右の高さはいつもそろう（資産の合計＝負債の合計＋純資産）。
 // - 資産は上から「すぐ使えるお金・値動きのある運用・引き出せないお金・換金しにくい資産」。上の3つは左のかっこで「金融資産 ○万円」
 // - 小さい箱も読める最低限の高さにする（比例からずれた年は図の下に目立たない注記。bsLayout.ts の allocHeights）
-// - 今の年（事実）ははっきりした色・実線の枠、先の年（見込み）は少し薄い色・点線の枠
+// - 今の年（事実）も先の年（見込み）も同じ色・同じ実線の枠。見込みかどうかは左上の札（「事実（今・入力した値）」「見込み（○年）」）で示す
 // - 純資産のマイナスは左の下に点線・灰色の斜線、資金の不足は右（その他の負債）に薄い赤の斜線
 // - 縮尺（scale）を渡さなければその年がいっぱいの高さ。年を変えると、箱と縮尺が前の形から行き過ぎなく動く（tween.ts）
 // - 箱を押すと内訳の小窓（もう一度押す・×・Esc・外を押すと閉じる）
@@ -268,7 +268,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                   const inset = isNw || isNeg ? 1 : 0;
                   const name = compact && q.key === "insurance" ? "返戻金" : compact && q.key === "corporateDc" ? "DC" : q.label;
                   const showText = !isNw && !isNeg && q.h >= subF * 1.55;
-                  const tf = DARK.has(q.key) && !est ? "#fff" : DARK.has(q.key) && est && q.key !== "nisa" ? "#fff" : "var(--ink)";
+                  const tf = DARK.has(q.key) ? "#fff" : "var(--ink)";
                   const nmW = textW(name, subF);
                   const vW = fmt(q.value).length * subF * 0.6;
                   const ty = q.y + q.h / 2 + subF * 0.36;
@@ -281,7 +281,6 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                         width={colW - 2 * inset}
                         height={Math.max(0, q.h - 2 * inset)}
                         fill={fill}
-                        fill-opacity={est && !isNw && !isNeg ? 0.68 : undefined}
                         stroke={isNeg ? "var(--base-ink)" : isNw ? "var(--prop)" : "#fff"}
                         stroke-width={isNeg ? 1.8 : 2}
                         stroke-dasharray={isNeg ? "6 4" : undefined}
@@ -313,13 +312,13 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
               </g>
             ),
           )}
-          {/* 事実＝実線の枠、見込み＝点線の枠 */}
+          {/* 枠は今の年も先の年も同じ実線（見込みかどうかは札で示す） */}
           {[xL, xR].map((x) => (
-            <rect key={x} x={x - 1.5} y={colTop - 1.5} width={colW + 3} height={base - colTop + 3} fill="none" pointer-events="none" stroke={est ? "#59626e" : "var(--ink)"} stroke-width={est ? 1.6 : 1.4} stroke-dasharray={est ? "6 4" : undefined} />
+            <rect key={x} x={x - 1.5} y={colTop - 1.5} width={colW + 3} height={base - colTop + 3} fill="none" pointer-events="none" stroke="var(--ink)" stroke-width={1.4} />
           ))}
           {!compact && !noTag ? (
             <g data-bs-kind={est ? "est" : "fact"}>
-              <rect x="2" y="2" width={tagW} height={fs * 1.55} rx="4" fill={est ? "#fff" : "var(--ink)"} stroke={est ? "var(--ink-2)" : "var(--ink)"} stroke-width="1.5" stroke-dasharray={est ? "4 3" : undefined} />
+              <rect x="2" y="2" width={tagW} height={fs * 1.55} rx="4" fill={est ? "#fff" : "var(--ink)"} stroke={est ? "var(--ink-2)" : "var(--ink)"} stroke-width="1.5" />
               <text x="11" y={2 + fs * 1.1} font-size={fs * 0.8} font-weight="700" fill={est ? "var(--ink-2)" : "#fff"}>
                 {tag}
               </text>

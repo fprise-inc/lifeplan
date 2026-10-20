@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import type { EngineRequest } from "../src/engine/types.ts";
-import { BalanceTab, threePoints } from "../src/presentation/BalanceTab.tsx";
+import { BalanceTab, resolveColumns } from "../src/presentation/BalanceTab.tsx";
 import { BsFigure } from "../src/presentation/BsFigure.tsx";
 import { allocHeights, columnTotal, figureBoxes, healthOf, scaleFor, spreadLabels, tickStep } from "../src/presentation/bsLayout.ts";
 import { trendRange } from "../src/presentation/BsTrend.tsx";
@@ -12,7 +12,7 @@ import { CHART_MODES, type MainChartModel } from "../src/presentation/MainChart.
 import { ResultCard } from "../src/presentation/MainView.tsx";
 import type { BsYearModel } from "../src/presentation/model.ts";
 import { bsSeries } from "../../report/src/index.ts";
-import { agoText, balanceTabModel, bsPlan, bsPrev, bsYears, DEFAULT_BS_GUIDE, prevItems, readBsGuide, snapshotHasBalance } from "../src/workspace/balanceTab.ts";
+import { agoText, balanceTabModel, bsPlan, bsPrev, bsYears, DEFAULT_BS_GUIDE, DEFAULT_BS_POINTS, prevItems, readBsGuide, snapshotHasBalance } from "../src/workspace/balanceTab.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
@@ -137,7 +137,7 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
   });
 
   it("3時点は 今・退職の年・75歳", () => {
-    expect(threePoints(p).map((x) => x.label)).toEqual(["今", "退職の年", "75歳"]);
+    expect(resolveColumns(p, null, DEFAULT_BS_POINTS).map((x) => x.label)).toEqual(["今", "退職の年", "75歳"]);
   });
 
   it("推移のグラフの目盛りは全部のプランを覆う", () => {
@@ -147,8 +147,8 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
   });
 
   it("タブの部品: 図・解説・体力の目安・つまみ・推移のグラフ。控えが無ければ「前回と比べる」は出さない", () => {
-    const model = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご主人" });
-    const html = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop }));
+    const model = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご主人" });
+    const html = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop }));
     expect(html).toContain('data-bs-figure="2026"');
     expect(html).toContain("事実（今・入力した値）");
     expect(html).toContain("家計の体力の目安");
@@ -161,12 +161,12 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
     expect(html).toContain("✓ 合っています");
     // 表で見るは既定で閉じる
     expect(html).not.toContain("data-bs-sheet");
-    const withPrev = renderToString(h(BalanceTab, { model: { ...model, prevChoices: [{ key: "p1", label: "2025年10月1日の控え（手動）" }] }, band: null, onPrev: noop, onGuide: noop, initial: { year: 2046, table: true } }));
+    const withPrev = renderToString(h(BalanceTab, { model: { ...model, prevChoices: [{ key: "p1", label: "2025年10月1日の控え（手動）" }] }, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop, initial: { year: 2046, table: true } }));
     expect(withPrev).toContain('data-bs-view="prev"');
     expect(withPrev).toContain('data-bs-figure="2046"');
     expect(withPrev).toContain("見込み（2046年）");
     expect(withPrev).toContain("data-bs-sheet");
-    const combined = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, initial: { open: "combined" } }));
+    const combined = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop, initial: { open: "combined" } }));
     expect(combined).toContain("data-bs-combined");
     expect(combined).not.toContain("data-bs-figure");
   });
@@ -214,17 +214,21 @@ describe("図の置き方（縮尺・最低限の高さ）", () => {
     for (let i = 1; i < sorted.length; i++) expect(sorted[i]! - sorted[i - 1]!).toBeGreaterThanOrEqual(40 - 1e-9);
   });
 
-  it("図の部品だけでも描ける（今は実線の枠と事実の札、先の年は点線と見込みの札）", () => {
+  it("図の部品だけでも描ける（今は事実の札、先の年は見込みの札。枠はどちらも同じ実線で、色も薄くしない）", () => {
     const req = modelHousehold("salariedCoupleTwoKids");
     const p = bsPlan({ key: "A", letter: "A", name: "プランA", title: "現状", base: true, req, table: preview(req).table });
-    const groups = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "" }).groups;
+    const groups = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "" }).groups;
     const now = renderToString(h(BsFigure, { year: p.years[0]!, groups, height: 560, label: "今" }));
     expect(now).toContain('data-bs-kind="fact"');
     expect(now).toContain("金融資産");
     expect(now).toContain('data-bs-box="netWorth"');
     const later = renderToString(h(BsFigure, { year: p.years[20]!, groups, height: 560, label: "先" }));
     expect(later).toContain('data-bs-kind="est"');
-    expect(later).toContain('stroke-dasharray="6 4"');
+    expect(later).toContain("見込み（");
+    // 点線の枠・薄い色は使わない（点線は純資産のマイナスの箱だけ）
+    expect(p.years[20]!.netWorth).toBeGreaterThan(0);
+    expect(later).not.toContain("stroke-dasharray");
+    expect(later).not.toContain("fill-opacity");
   });
 });
 

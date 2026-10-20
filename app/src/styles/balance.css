@@ -61,15 +61,11 @@
 .bs-subline.inline { margin: 0; }
 .bs-kind { font-size: 0.74rem; font-weight: 700; border-radius: 4px; padding: 0 7px; white-space: nowrap; display: inline-block; }
 .bs-kind.f { background: var(--ink); color: #fff; border: 1.5px solid var(--ink); }
-.bs-kind.e { background: #fff; color: var(--ink-2); border: 1.5px dashed var(--ink-2); }
+.bs-kind.e { background: #fff; color: var(--ink-2); border: 1.5px solid var(--ink-2); }
 
 /* 1年ずつ見る */
 .bs-one { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 290px); gap: 18px; align-items: start; }
 .bs-fig-main { min-width: 0; }
-.bs-figlegend { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.78rem; color: var(--ink-2); margin-top: 4px; }
-.bs-figlegend i, .yb-key i { display: inline-block; width: 14px; height: 10px; margin-right: 5px; vertical-align: -1px; border-radius: 2px; }
-.bs-figlegend i.f, .yb-key i.f { background: var(--bs-deposit); border: 1.5px solid var(--ink); }
-.bs-figlegend i.e, .yb-key i.e { background: var(--bs-nisa); opacity: 0.7; border: 1.5px dashed var(--ink-2); }
 .bs-adjnote { font-size: 0.76rem; color: var(--ink-2); margin: 4px 0 0; }
 .bs-side { display: flex; flex-direction: column; gap: 8px; }
 .bs-year { font-size: 2.2rem; font-weight: 700; line-height: 1.1; }
@@ -113,7 +109,7 @@
 .bs-ins { border: 1px solid #cfe3d6; border-radius: 10px; background: var(--good-bg); padding: 10px 14px; font-size: 0.9rem; }
 .bs-ins .ik { display: block; font-size: 0.78rem; font-weight: 700; color: var(--good); margin-bottom: 2px; }
 .bs-ins b { color: var(--good); }
-.bs-eq { font-size: 0.84rem; color: var(--ink-2); display: flex; gap: 12px; }
+.bs-eq { font-size: 0.84rem; color: var(--ink-2); display: flex; gap: 4px 12px; flex-wrap: wrap; }
 .bs-eq .ok { color: var(--good); font-weight: 700; }
 .bs-health { border: 1px solid var(--card-line); border-radius: 10px; padding: 10px 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; }
 .bs-health .hh2 { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-weight: 700; padding-bottom: 6px; border-bottom: 1px solid var(--line-2); }
@@ -137,7 +133,7 @@
 .hg-f input { width: 4.2em; text-align: right; padding: 2px 4px; border: 1.5px solid var(--field); border-radius: 4px; }
 
 /* 年のつまみ */
-.bs-yb { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px 22px; align-items: center; border: 1px solid var(--card-line); border-radius: 10px; background: #fbfbfc; padding: 12px 16px; margin-top: 12px; }
+.bs-yb { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px 22px; align-items: center; border: 1px solid var(--card-line); border-radius: 10px; background: #fbfbfc; padding: 10px 16px; margin-top: 6px; }
 .yb-year { font-size: 1.35rem; font-weight: 700; white-space: nowrap; }
 .yb-year small { font-size: 0.72rem; margin-left: 6px; color: var(--ink-2); }
 .yb-play { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
@@ -159,8 +155,9 @@
 .yb-range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid var(--prop); }
 .yb-scale { position: relative; height: 1.3em; font-size: 0.72rem; color: var(--ink-2); }
 .yb-scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
-.yb-key { font-size: 0.72rem; color: var(--ink-2); display: flex; align-items: center; gap: 4px; }
-.yb-key i.e { margin-left: 10px; }
+.yb-key { font-size: 0.72rem; color: var(--ink-2); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 2px; }
+.yb-key .bs-kind { font-size: 0.68rem; padding: 0 5px; }
+.yb-key .bs-kind.e { margin-left: 10px; }
 .yb-r .k { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; }
 .yb-jumps { display: flex; gap: 6px; flex-wrap: wrap; }
 .jb { border: 1.5px solid var(--line); background: #fff; border-radius: 8px; padding: 3px 10px; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; line-height: 1.3; }
@@ -169,6 +166,40 @@
 
 /* 3時点・プラン・前回 */
 .bs-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px; }
+.bs-three.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bs-three.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+.bs-three.n4 .bs-tcard-wrap .arrow { left: -20px; }
+.bs-cols-bar .bs-cols-act { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.bs-custom-tag { margin-left: 8px; font-size: 0.72rem; border: 1.5px solid var(--prop); color: var(--prop-ink); background: var(--prop-bg); border-radius: 4px; padding: 0 6px; }
+.bs-defaults { border: 1px solid var(--card-line); background: #fafbfc; border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+.bs-defaults p { margin: 0 0 6px; font-size: 0.8rem; color: var(--ink-2); }
+.bs-defaults-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.bs-defaults-list .ds-item { padding: 4px 8px; }
+.bs-defaults-list .ds-l { display: flex; flex-direction: column; font-weight: 700; }
+.bs-defaults-list .ds-l small { font-weight: 400; font-size: 0.7rem; color: var(--ink-2); }
+.ds-bspoints { flex-direction: column; align-items: stretch; }
+.ds-bspoints .bs-defaults { margin: 0; }
+.th-wrap { position: relative; }
+.th-btn { display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; padding: 2px 8px; cursor: pointer; text-align: left; }
+.th-btn:hover, .th-btn[aria-expanded="true"] { border-color: var(--prop); background: var(--prop-bg); }
+.th-btn b { font-size: 1.05rem; }
+.th-btn > span:not(.chev) { color: var(--ink-2); font-weight: 700; font-size: 0.86rem; }
+.th-btn .chev { color: var(--prop-ink); font-size: 0.8rem; }
+.bs-colnote { margin: 4px 0 0; font-size: 0.76rem; color: var(--ink-2); }
+.bs-colpick { position: absolute; z-index: 15; top: calc(100% + 6px); left: 0; width: min(420px, 86vw); background: #fff; border: 1.5px solid var(--ink-2); border-radius: 10px; box-shadow: 0 12px 32px rgba(20, 30, 50, 0.22); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.bs-colpick .cp-h { display: flex; justify-content: space-between; align-items: center; }
+.bs-colpick .cp-k { font-size: 0.78rem; font-weight: 700; color: var(--ink-2); }
+.bs-colpick .cp-points { display: flex; flex-wrap: wrap; gap: 5px; }
+.bs-colpick .cp-points .jb { padding: 2px 8px; }
+.bs-colpick .cp-year { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; }
+.bs-colpick .cp-year .yb-range { grid-column: 1 / -1; }
+.bs-colpick .cp-num { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+.bs-colpick .cp-num input { width: 5.5em; font-weight: 700; padding: 2px 6px; border: 1.5px solid var(--field); border-radius: 6px; }
+.bs-colpick .cp-who { font-size: 0.82rem; color: var(--ink-2); }
+.bs-colpick .cp-year .btn { justify-self: end; }
+.bs-colpick .cp-foot { margin: 0; font-size: 0.74rem; color: var(--ink-2); }
+.bs-colpick .cp-remove { align-self: flex-start; }
+.bs-eqnote { font-size: 0.76rem; color: var(--ink-2); }
 .bs-tcard-wrap { display: flex; align-items: stretch; min-width: 0; position: relative; }
 .bs-tcard-wrap .arrow { position: absolute; left: -24px; top: 45%; color: var(--ink-2); font-size: 1.2rem; }
 .bs-tcard { flex: 1; min-width: 0; border: 1px solid var(--card-line); border-radius: 10px; padding: 10px 12px; }
@@ -257,7 +288,7 @@
   .bs-side .bs-spark-card { grid-column: 1 / -1; }
   .bs-below { grid-template-columns: minmax(0, 1fr); }
   .bs-yb { grid-template-columns: minmax(0, 1fr); }
-  .bs-three { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .bs-three, .bs-three.n2, .bs-three.n4 { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .bs-tcard-wrap .arrow { display: none; }
 }
 @media (max-width: 900px) {
@@ -269,3 +300,8 @@
   html.big .yb-r { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
   html.big .yb-r .k { margin: 0; }
 }
+/* 4つ並べるときは見出しを2行（時点の名前・年）にそろえ、図の位置を4つでそろえる */
+.bs-three.n4 .th-btn { flex-direction: column; align-items: flex-start; gap: 0; position: relative; padding-right: 20px; }
+.bs-three.n4 .th-btn .chev { position: absolute; right: 6px; top: 4px; }
+.yb-scale span.end { font-weight: 700; color: var(--ink); }
+.bs-three.n4 .bs-tcard .th { flex-direction: column; align-items: flex-start; gap: 4px; }

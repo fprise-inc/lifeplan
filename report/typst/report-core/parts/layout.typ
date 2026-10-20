@@ -248,12 +248,12 @@
 /// 1本の柱（箱を上から積む）。total はこの柱の額、h は縮尺の高さ（scale の額に当たる）
 #let bs-column(boxes, total, scale, h, w, fact, neg: 0) = {
   let colh = h * (total + neg) / scale
-  let frame = if fact { 0.9pt + ink } else { (paint: muted, thickness: 0.9pt, dash: "dashed") }
+  // 枠は今の年も先の年も同じ実線・同じ色（見込みかどうかは時点の札で示す）
+  let frame = 0.9pt + ink
   let cells = boxes.map(b => {
     let bh = colh * b.amount / (total + neg)
     let dark = b.key in bs-dark
     let fill = bs-colors.at(b.key, default: band)
-    let fill = if fact or b.key == "netWorth" { fill } else { fill.lighten(28%) }
     block(width: 100%, height: bh, fill: fill, stroke: if b.key == "netWorth" { 0.6pt + accent } else { (bottom: 0.6pt + white) }, inset: (x: 3pt), spacing: 0pt, {
       if bh >= 15pt {
         set text(size: min-size, fill: if dark { white } else { ink }, weight: "bold")
@@ -281,7 +281,7 @@
         columns: (auto, 1fr),
         column-gutter: 4pt,
         text(size: 9pt, weight: "bold", c.point.label),
-        align(right, box(inset: (x: 3pt, y: 1pt), radius: 2pt, stroke: if c.fact { 0.6pt + ink } else { (paint: muted, thickness: 0.6pt, dash: "dashed") }, fill: if c.fact { ink } else { white }, text(size: min-size, weight: "bold", fill: if c.fact { white } else { muted }, if c.fact { "事実（今）" } else { "見込み" }))),
+        align(right, box(inset: (x: 3pt, y: 1pt), radius: 2pt, stroke: if c.fact { 0.6pt + ink } else { 0.6pt + muted }, fill: if c.fact { ink } else { white }, text(size: min-size, weight: "bold", fill: if c.fact { white } else { muted }, if c.fact { "事実（今）" } else { "見込み" }))),
       )
       text(size: min-size, fill: muted, str(c.point.year) + "年末")
       v(2pt)

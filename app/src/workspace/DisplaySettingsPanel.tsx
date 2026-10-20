@@ -2,6 +2,8 @@
 // FP が主画面に出す数字と、グラフの比べ方（重ねる／左右に並べる／全部の案を色分けで重ねる）、操作中に上に付いてくるグラフの大きさ（出さない／小さく／大きく）を選ぶ。
 // 既定では何も足さず、重ねる。付いてくるグラフは大きく。
 // 事務所の設定として持てる形で、まだファイルには保存しない（settings.ts）
+import { PointDefaultsEditor } from "../presentation/BalanceTab.tsx";
+import { BS_POINT_CHOICES } from "./balanceTab.ts";
 import { AGE_OPTIONS, DEFAULT_DISPLAY_SETTINGS, DOCK_CHOICES, LAYOUT_CHOICES, METRIC_CHOICES, shows, toggleMetric, type DisplaySettings } from "./settings.ts";
 
 export function DisplaySettingsPanel({ value, onChange, onClose, feeAvailable }: { value: DisplaySettings; onChange: (s: DisplaySettings) => void; onClose: () => void; feeAvailable: boolean }) {
@@ -71,6 +73,10 @@ export function DisplaySettingsPanel({ value, onChange, onClose, feeAvailable }:
             </span>
           </label>
         ))}
+      </div>
+      <div class="ds-layout ds-bspoints" data-bs-points-setting>
+        <span class="ds-k">資産と負債の「時点を並べる」の既定</span>
+        <PointDefaultsEditor choices={BS_POINT_CHOICES} value={value.bsPoints} onChange={(k) => onChange({ ...value, bsPoints: k })} />
       </div>
     </div>
   );
