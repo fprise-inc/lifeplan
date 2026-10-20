@@ -146,6 +146,33 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
             assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
+        if *v == "0.9" {
+            // 0.9 から: 教育の目標の保育所の段の保育の時間・自治体の水準の割合（月額は空）と、給食費の選び方（0029）
+            let goals = now["household"]["request"]["input"]["household"]["goals"]
+                .as_array()
+                .unwrap();
+            let stages: Vec<&serde_json::Value> = goals
+                .iter()
+                .filter_map(|g| g["education"]["stages"].as_array())
+                .flatten()
+                .collect();
+            let nursery = stages
+                .iter()
+                .find(|s| s["stage"] == "nursery")
+                .expect("0.9 の見本には保育所の段がある");
+            assert_eq!(nursery["hours"], "short");
+            assert!(nursery["feeRatio"].is_string());
+            assert!(
+                nursery.get("monthly").is_none(),
+                "月額は空（収入から自動で計算）"
+            );
+            assert!(
+                goals
+                    .iter()
+                    .any(|g| g["education"]["schoolLunch"] == "free"),
+                "0.9 の見本には給食費の選び方がある"
+            );
+        }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
         }
