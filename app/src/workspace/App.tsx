@@ -7,7 +7,6 @@ import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCa
 import { isEngineError } from "../engine/types.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
-import { group } from "../presentation/format.ts";
 import type { ChartLayout, ChartMode } from "../presentation/MainChart.tsx";
 import { ChartPip, closePip, openPip } from "../presentation/ChartPip.tsx";
 import { CashflowTable, FeeNote, PipResult, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
@@ -42,7 +41,7 @@ import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
 import { bandShown, donutPanes, donutShown, donutYear, investChart, investVerdict, stressRequests, STRESS_KEYS, type StressKey } from "./invest/present.ts";
 import { InvestBar, DonutCard } from "./invest/InvestBar.tsx";
 import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
-import { advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
+import { advisoryFeeInCurrent, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { mixFromBuckets } from "./plans/allocation.ts";
 import { addToBand, assignColors, bandModel, cleanBand, CURRENT, MAX_BAND, planLetters, planLinesModel } from "./plans/band.ts";
@@ -83,7 +82,7 @@ export const TABS: { id: Tab; label: string }[] = [
   { id: "report", label: "提案書" },
 ];
 
-/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#add=pet,periodic（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
+/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#add=pet,periodic（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
  * #items=loan,rate,shift,mix（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
  * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）） */
 export function parseHash(hash: string): {
@@ -104,6 +103,8 @@ export function parseHash(hash: string): {
   memo?: boolean;
   /** #snapshots: 入力のホームで控えの一覧を開いて開く */
   snapshots?: boolean;
+  /** #report=takeaway: 提案書のタブを「持ち帰り用のレポート」で開く（0030） */
+  reportMode?: "pdf" | "takeaway";
   /** #cgplan=B: 万一のときの画面で見るプラン（帯の文字） */
   cgPlan?: string;
   /** 入力のホームで足して保存した状態にする項目（開発用のサーバーだけ） */
@@ -165,6 +166,7 @@ export function parseHash(hash: string): {
     if (k === "big") out.big = true;
     else if (k === "memo") out.memo = true;
     else if (k === "snapshots") out.snapshots = true;
+    else if (k === "report" && (v === "takeaway" || v === "pdf")) out.reportMode = v;
     else if (k === "selfcheck") {
       out.selfcheck = true;
       if (v === "input") out.selfcheckInput = true;
@@ -220,26 +222,7 @@ const BLANK = "__blank__";
 /** 小窓のうち、グラフの外の高さ（文字の大きさ 16px のとき。上の帯・凡例・余白） */
 const MAIN_PIP_EXTRA = 92;
 
-const manYen = (n: number) => (n % 10000 === 0 ? `${group(n / 10000)}万円` : `${group(n)}円`);
-
-/** 対策「FP顧問料」の下の一文: 契約の中身の要約（例: 単発30万円＋年額12万円（2027年1月から）） */
-export function feeSummary(req: EngineRequest): string {
-  return (req.input.household.advisoryFees ?? [])
-    .map((c) => {
-      const parts: string[] = [];
-      const one = (c.terms?.oneTime ?? []).reduce((s, o) => s + o.amount, 0);
-      if (one > 0) parts.push(`単発${manYen(one)}`);
-      const r = c.terms?.recurring;
-      if (r !== undefined) {
-        const from = r.from.at !== undefined ? `（${Number(r.from.at.slice(0, 4))}年${Number(r.from.at.slice(5))}月から）` : "";
-        if (r.annual !== undefined) parts.push(`年額${manYen(r.annual)}${from}`);
-        if (r.monthly !== undefined) parts.push(`月額${manYen(r.monthly)}${from}`);
-      }
-      return parts.join("＋");
-    })
-    .filter((x) => x !== "")
-    .join("、");
-}
+export { feeSummary };
 
 export { leverSteps };
 
@@ -1716,6 +1699,7 @@ export function App() {
             bsPoints={bsSettings.points}
             bsColumns={bsSettings.columns}
             onSnapshot={takeSnapshot}
+            {...(initial.reportMode !== undefined ? { initialMode: initial.reportMode } : {})}
           />
         ) : tab === "balance" && opened !== null ? (
           bsPlans === null || bsPlans.length === 0 || band === null || model === null ? (

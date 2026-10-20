@@ -1,0 +1,72 @@
+/* 持ち帰り用のレポート（0030）。アプリの見た目（app.css・balance.css）に、顧客向けの並べ方とスマホの縦の画面の形を足す。
+   フォントはファイルに入れない（大きさを抑えるため）。端末の日本語のフォントで表示する。外のファイルは読まない（url() を使わない） */
+.tk { max-width: 1240px; margin: 0 auto; padding: 18px 20px 32px; display: grid; gap: 14px; }
+.tk > * { min-width: 0; }
+.tk h1 { font-size: 1.45rem; margin: 0; letter-spacing: 0.02em; }
+.tk h2 { font-size: 1.05rem; margin: 0; }
+.tk-boot { padding: 32px 20px; text-align: center; color: var(--ink-2); font-weight: 700; }
+.tk-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px 24px; flex-wrap: wrap; border-bottom: 3px solid var(--prop); padding-bottom: 10px; }
+.tk-to { margin: 6px 0 0; font-size: 1.15rem; font-weight: 700; }
+.tk-sample { font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--ink-2); border-radius: 4px; padding: 1px 8px; margin-left: 10px; vertical-align: middle; }
+.tk-meta { display: flex; gap: 6px 18px; flex-wrap: wrap; margin: 0; font-size: 0.9rem; }
+.tk-meta div { display: flex; gap: 6px; }
+.tk-meta dt { color: var(--ink-2); }
+.tk-meta dd { margin: 0; font-weight: 700; }
+.tk-lead { margin: 0; color: var(--ink-2); font-size: 0.92rem; }
+.tk-hint { margin: 6px 0 0; color: var(--ink-2); font-size: 0.82rem; }
+.tk-band .band-cards { flex: 1 1 auto; }
+.tk-band .p-top { flex-wrap: wrap; row-gap: 3px; }
+.tk-band .p-name { flex: 1 1 calc(100% - 2.4rem); }
+.tk-band .p-tag.tk-prop { border-color: var(--prop); color: var(--prop-ink); background: var(--prop-bg); }
+.tk-levers .lv-head .btn { padding: 6px 14px; }
+.tk-levers .lv-grid { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+.tk .btn:disabled, .tk-gate .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.tk .btn.small { padding: 3px 10px; font-size: 0.82rem; border-width: 1.5px; }
+.tk .btn.small.on { background: var(--prop-bg); border-color: var(--prop); color: var(--prop-ink); }
+.tk-bs-year { display: grid; gap: 6px; margin-top: 8px; }
+.tk-bs-year input[type="range"] { width: 100%; accent-color: var(--prop); height: 28px; }
+.tk-jumps { display: flex; flex-wrap: wrap; gap: 6px; }
+.tk-bs-sum { margin: 8px 0 0; font-size: 0.95rem; }
+.tk-bs-sum b.neg { color: var(--short-ink); }
+.tk-cf-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.tk-cf-t { border-collapse: separate; border-spacing: 0; font-size: 0.9rem; white-space: nowrap; width: 100%; }
+.tk-cf-t th, .tk-cf-t td { padding: 5px 9px; text-align: right; border-bottom: 1px solid var(--line-2); }
+.tk-cf-t thead th { background: #f6f7f9; }
+.tk-cf-t tbody th, .tk-cf-t thead th:first-child { position: sticky; left: 0; background: #fff; text-align: left; border-right: 2px solid var(--line); z-index: 1; }
+.tk-cf-t thead th:first-child { background: #f6f7f9; }
+.tk-cf-t .tk-age td, .tk-cf-t .tk-age th { color: var(--ink-2); font-size: 0.85em; }
+.tk-cf-t .tk-strong td, .tk-cf-t .tk-strong th { font-weight: 700; }
+.tk-cf-t td.neg { color: var(--short-ink); }
+.tk-cf-t .is-pin { background-color: var(--sel-bg); }
+.tk-cf .link-btn { margin-top: 8px; }
+.tk-foot { border-top: 1px solid var(--line); padding-top: 12px; font-size: 0.85rem; color: var(--ink-2); }
+.tk-foot h2 { font-size: 0.95rem; color: var(--ink); margin-bottom: 4px; }
+.tk-foot ul { margin: 0; padding-left: 1.2em; display: grid; gap: 3px; }
+.tk-stamp { margin: 10px 0 0; font-variant-numeric: tabular-nums; }
+.tk-gate { max-width: 30rem; margin: 12vh auto 0; display: grid; gap: 12px; }
+.tk-gate label { display: grid; gap: 4px; font-weight: 700; }
+.tk-gate input { border: 1.5px solid var(--field); border-radius: 8px; padding: 8px 10px; font-size: 1.1rem; }
+.tk-gate .fatal { padding: 0; }
+/* アプリの中の見本（提案書のタブ）: 枠の中に収める */
+.tk.tk-preview { padding: 12px; max-width: none; }
+.tk-frame { flex: 1; min-height: 0; overflow: auto; background: var(--bg); border-radius: 8px; }
+.tk-pw-input { flex: 1 1 10em; min-width: 0; border: 1.5px solid var(--field); border-radius: 6px; padding: 4px 8px; font: inherit; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0.04em; }
+.rp-wrap { display: grid; gap: 12px; }
+.rp-mode { justify-self: start; }
+
+/* スマホの縦の画面: 帯は横に送る・つまみは1列・見出しは縦に積む */
+@media (max-width: 760px) {
+  .tk { padding: 12px 12px 24px; gap: 12px; }
+  .tk h1 { font-size: 1.2rem; }
+  .tk .card { padding: 12px; }
+  .tk-band { --plan-w: 11rem; --plan-min: 10rem; }
+  .tk-band .plan { padding: 7px 9px 9px; flex: none; }
+  .tk .chart-card { padding: 10px 8px 8px; }
+  .tk .verdict-line { font-size: 1rem; flex-basis: 100%; }
+  .tk .cc-tools { width: 100%; }
+  .tk .seg-g { width: 100%; display: flex; }
+  .tk .seg-g button { flex: 1 1 0; }
+  .tk-levers .lv-grid { grid-template-columns: minmax(0, 1fr); }
+  .tk-levers .lv-head .btn { flex: 1 1 auto; }
+  .tk-cf-t { font-size: 0.82rem; }
+}

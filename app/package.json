@@ -15,6 +15,7 @@
     "typecheck": "npm run prepare-assets && tsc -p tsconfig.json && tsc -p tsconfig.tools.json",
     "lint": "npm run prepare-assets && eslint .",
     "test": "npm run prepare-assets && vitest run",
+    "check:takeaway": "node --disable-warning=ExperimentalWarning scripts/check-takeaway.ts",
     "check:licenses": "node --disable-warning=ExperimentalWarning scripts/check-licenses.ts",
     "check:distribution": "node --disable-warning=ExperimentalWarning scripts/distribution.ts --check",
     "gen:distribution": "node --disable-warning=ExperimentalWarning scripts/distribution.ts",

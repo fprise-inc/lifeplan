@@ -538,6 +538,21 @@ function devHost(): Plugin {
           lastReport = null;
           return void res.end();
         }
+        // 持ち帰り用のレポート（本体の takeaway_save の代わり。0030）: 保存先は FINANCIA_DEV_SAVE_DIR だけ
+        if (path.startsWith("takeaway/save") && req.method === "POST") {
+          void (async () => {
+            const body = await readBody(req);
+            if (saveDir() === "") return void ((res.statusCode = 400), res.end("E_DEV_NO_SAVE_DIR"));
+            if (!body.subarray(0, 15).toString("utf8").toLowerCase().startsWith("<!doctype html>")) return void ((res.statusCode = 400), res.end("E_TAKEAWAY_BODY"));
+            const q = new URL(req.url ?? "", "http://localhost").searchParams;
+            const on = /^\d{4}-\d{2}-\d{2}$/.test(q.get("exportedOn") ?? "") ? `_${q.get("exportedOn")}` : "";
+            const name = `ライフプランの試算${on}${q.get("encrypted") === "1" ? "_パスワードつき" : ""}.html`;
+            writeFileSync(join(saveDir(), name), body);
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(JSON.stringify({ saved: true, fileName: name, syncFolder: false, digest: `sha256:${createHash("sha256").update(body).digest("hex")}` }));
+          })();
+          return;
+        }
         // ヒアリングシート（本体の hearing_save・hearing_open の代わり）
         if (path.startsWith("sheets/save") && req.method === "POST") {
           void (async () => {

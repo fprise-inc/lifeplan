@@ -2,6 +2,7 @@
 // いまは「現状の世帯に打ち手を当てた要求」を直接作る。0008 の5 のプランの層（提案＝差分の列）ができたら、
 // ここは「打ち手 → 差分」を作る部品に置き換える（作る差分の中身はここと同じ）。
 import type { EmploymentPeriod, EngineRequest, Member, Timepoint } from "../engine/types.ts";
+import { group } from "../presentation/format.ts";
 
 export interface LeverValues {
   /** 働く最後の年齢（この年齢に達する月の前月まで働く） */
@@ -215,4 +216,25 @@ export function applyAdvisoryFee(req: EngineRequest, on: boolean): EngineRequest
     else c.enabled = false;
   }
   return out;
+}
+
+const manYen = (n: number) => (n % 10000 === 0 ? `${group(n / 10000)}万円` : `${group(n)}円`);
+
+/** 対策「FP顧問料」の下の一文: 契約の中身の要約（例: 単発30万円＋年額12万円（2027年1月から））。料金表の写しの印（menu）は使わない */
+export function feeSummary(req: EngineRequest): string {
+  return (req.input.household.advisoryFees ?? [])
+    .map((c) => {
+      const parts: string[] = [];
+      const one = (c.terms?.oneTime ?? []).reduce((s, o) => s + o.amount, 0);
+      if (one > 0) parts.push(`単発${manYen(one)}`);
+      const r = c.terms?.recurring;
+      if (r !== undefined) {
+        const from = r.from.at !== undefined ? `（${Number(r.from.at.slice(0, 4))}年${Number(r.from.at.slice(5))}月から）` : "";
+        if (r.annual !== undefined) parts.push(`年額${manYen(r.annual)}${from}`);
+        if (r.monthly !== undefined) parts.push(`月額${manYen(r.monthly)}${from}`);
+      }
+      return parts.join("＋");
+    })
+    .filter((x) => x !== "")
+    .join("、");
 }

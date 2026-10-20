@@ -75,6 +75,12 @@ export interface SheetHost {
   open(): Promise<Uint8Array | null>;
 }
 
+/** 持ち帰り用のレポート（0030）の保存: 画面が作った HTML のバイト列を、本体の平文の書き出しの出口で保存する */
+export interface TakeawayHost {
+  /** meta.encrypted はパスワードを付けたか（本体がファイルの見出しと突き合わせて記録する） */
+  save(bytes: Uint8Array, meta: { exportedOn: string; encrypted: boolean }): Promise<SaveOutcome>;
+}
+
 /** 保存の状態（本体の household-store の Status） */
 export interface StoreStatus {
   state: "ready" | "needsRecovery";
@@ -422,6 +428,7 @@ export interface HostApi {
   evidence(requestJson: string): Promise<FullResult | EngineError>;
   report: ReportHost;
   sheets: SheetHost;
+  takeaway: TakeawayHost;
   store: StoreHost;
   ai: AiHost;
   office: OfficeHost;
@@ -443,6 +450,9 @@ export function tauriHost(): HostApi {
       pageSvg: async (page) => new TextDecoder().decode(bytesOf(await invoke<ArrayBuffer>("proposal_page", { page, scale: 1, format: "svg" }))),
       save: () => invoke<SaveOutcome>("proposal_save"),
       discard: () => invoke<void>("proposal_discard"),
+    },
+    takeaway: {
+      save: (bytes, m) => invoke<SaveOutcome>("takeaway_save", bytes, { headers: { "x-exported-on": m.exportedOn, "x-encrypted": m.encrypted ? "1" : "0" } }),
     },
     store: {
       status: () => invoke<StoreStatus>("store_status"),
@@ -651,6 +661,9 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       startShare: async (id, minutes, destination) => devJson<AiHouseholdView>(await devAi("startShare", { id, minutes, destination })),
       stopShare: async (id) => devJson<AiHouseholdView>(await devAi("stopShare", { id })),
       decide: async (id, candidate, accept, plan) => devJson<AiHouseholdView>(await devAi("decide", { id, candidate, accept, plan })),
+    },
+    takeaway: {
+      save: async (bytes, m) => devJson<SaveOutcome>(await fetch(`/__dev/takeaway/save?exportedOn=${encodeURIComponent(m.exportedOn)}&encrypted=${m.encrypted ? 1 : 0}`, { method: "POST", body: bytes as Uint8Array<ArrayBuffer> })),
     },
     sheets: {
       save: async (bytes, m) =>

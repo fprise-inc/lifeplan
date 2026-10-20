@@ -61,9 +61,19 @@ async function withSnapshot(s: BodyState): Promise<BodyState> {
     now: new Date(Date.UTC(2026, 9, 19, 5, 0, 0)),
     id: "00000000-0000-4000-8000-0000000000c1",
   });
+  // 持ち帰り用のレポートの書き出しの記録（0030。形式の版 0.10 から）: 載せたプラン・パスワードの有無だけ（パスワード・宛名は持たない）
+  const tk = await makeSnapshot({
+    wh: s.wh,
+    drafts: {},
+    draft: { trigger: "takeaway", memo: "持ち帰り用のレポート（プラン3つ・パスワードつき）", plan: { id: s.workspace.selected, letter: "C", name: "プランB＋70歳まで働く" }, takeaway: { plans: [{ letter: "A", name: "現状" }, { letter: "C", name: "プランB＋70歳まで働く" }], proposal: "C", password: true, knobs: ["retireAge", "pensionAge", "nisaMonthly", "livingMonthly"], views: ["chart", "balance", "table"], createdOn: "2026-10-21", digest: `sha256:${"0".repeat(64)}` } },
+    appVersion: "0.1.0",
+    now: new Date(Date.UTC(2026, 9, 21, 5, 0, 0)),
+    id: "00000000-0000-4000-8000-0000000000c2",
+  });
   // 作った日時は端末の時差によらない固定の値にして、指紋を作り直す
   const fixed = { ...snap, createdAt: "2026-10-19T14:00:00+09:00" };
-  return { ...s, wh: { ...s.wh, snapshots: [{ ...fixed, digest: await snapshotDigest(fixed) }] } };
+  const fixedTk = { ...tk, createdAt: "2026-10-21T14:00:00+09:00" };
+  return { ...s, wh: { ...s.wh, snapshots: [{ ...fixed, digest: await snapshotDigest(fixed) }, { ...fixedTk, digest: await snapshotDigest(fixedTk) }] } };
 }
 
 function keysOf(v: unknown, out: string[] = []): string[] {
@@ -93,11 +103,17 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const s = await withSnapshot(sample());
     const text = bodyOf(s);
     const b = JSON.parse(text) as { snapshots?: unknown[]; household: Record<string, unknown> };
-    expect(b.snapshots).toHaveLength(1);
+    expect(b.snapshots).toHaveLength(2);
     expect(b.household.snapshots).toBeUndefined();
     const back = fromBody(text);
     expect(back.wh).toEqual(s.wh);
     expect(await verifySnapshot(back.wh.snapshots![0]!)).toBe(true);
+    // 0.10 から: 持ち帰り用のレポートの書き出しの記録も読み戻す（パスワードの有無だけ。パスワード・宛名は持たない）
+    const tk = back.wh.snapshots![1]!;
+    expect(tk.trigger).toBe("takeaway");
+    expect(tk.takeaway?.password).toBe(true);
+    expect(Object.keys(tk.takeaway ?? {}).sort()).toEqual(["createdOn", "digest", "knobs", "password", "plans", "proposal", "views"]);
+    expect(await verifySnapshot(tk)).toBe(true);
     expect(JSON.parse(bodyOf(sample())).snapshots).toBeUndefined();
   });
 
