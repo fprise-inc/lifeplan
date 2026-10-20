@@ -118,7 +118,7 @@
   columns(if is-land(data) { 3 } else { 2 }, gutter: 12pt, year-table(r.table, size: 7pt, ages: false))
 }
 
-/// 資産と負債の推移（全資産・全負債）: 純資産の推移のグラフ（現状と提案）と、バランスシートの図（今・退職の年・75歳）、年の抜粋のバランスシート（提案）
+/// 資産と負債の推移（全資産・全負債）: 純資産の推移のグラフ（現状と提案）と、バランスシートの図（画面の「資産と負債」のタブで並べている時点。既定は今・退職の年・75歳。2〜4つ）、年の抜粋のバランスシート（提案）
 #let balance-page(data) = {
   let bs = data.balanceSheet
   if bs == none { return }
@@ -127,12 +127,14 @@
   let chart = line-chart(data.basis.years, (
     (label: "提案", values: bs.netWorth.proposal, stroke: 1.6pt + accent),
     (label: "現状", values: bs.netWorth.current, stroke: (paint: muted, thickness: 1.2pt, dash: "dashed")),
-  ), height: if land { 170pt } else { 170pt })
+  ), height: if land { 140pt } else { 170pt })
   section("純資産の推移（現状と提案。不動産・その他の資産を含む資産の合計−負債の合計）")
   chart
-  section("バランスシートの図（提案。今・退職の年・75歳）")
+  let who = data.members.find(m => m.key == "self")
+  let points = bs.figure.columns.map(c => bs-point-short(c.point.label, if who == none { none } else { who.label }))
+  section("バランスシートの図（提案。" + points.join("・") + "）")
   bs-figure(bs.figure, height: if land { 130pt } else { 165pt })
-  note("箱の高さは金額に比例します（3つの時点で共通の縮尺）。資産は上から、すぐ使えるお金（預金など）・値動きのある運用（NISA・課税口座など）・引き出せないお金（iDeCo・企業型DCなど）・換金しにくい資産（土地・建物・車・保険の解約返戻金など）。建物は年数とともに価値が減りますが、土地は残ります。今の年は入力した値から出した事実、先の年は見込みです。金融資産が尽きた後の足りない分は「その他の負債」に含めています。")
+  note("箱の高さは金額に比例します（" + str(bs.figure.columns.len()) + "つの時点で共通の縮尺）。資産は上から、すぐ使えるお金（預金など）・値動きのある運用（NISA・課税口座など）・引き出せないお金（iDeCo・企業型DCなど）・換金しにくい資産（土地・建物・車・保険の解約返戻金など）。建物は年数とともに価値が減りますが、土地は残ります。今の年は入力した値から出した事実、先の年は見込みです。金融資産が尽きた後の足りない分は「その他の負債」に含めています。")
   section("年の抜粋のバランスシート（提案）")
   sheet-table(bs.proposal, extra: (("純資産（現状）", bs.currentNetWorth),))
   note("金額は各年の年末の見込みです。不動産は土地と建物に分けた評価額（土地は上昇率で動かし、建物は構造の耐用年数で定額で減らし、建てた時の価値の一定の割合を下限にした見込み）で、売却の予定があれば売った年から現金（金融資産）に変わります。その他の資産は車・保険の解約返戻金などです。老後の資金が足りるかは、前のページの金融資産で見ます。")

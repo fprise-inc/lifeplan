@@ -3,7 +3,8 @@
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import { BalanceTab, nextColumns, PointDefaultsEditor, resolveColumns } from "../src/presentation/BalanceTab.tsx";
+import { BalanceTab, PointDefaultsEditor } from "../src/presentation/BalanceTab.tsx";
+import { nextColumns, resolveColumns } from "../src/presentation/bsColumns.ts";
 import type { BsColumn, BsPlanModel } from "../src/presentation/model.ts";
 import { balanceTabModel, BS_POINT_CHOICES, bsPlan, bsYears, DEFAULT_BS_GUIDE, DEFAULT_BS_POINTS, readBsColumns, readBsPoints } from "../src/workspace/balanceTab.ts";
 import { displayYears } from "../src/workspace/present.ts";

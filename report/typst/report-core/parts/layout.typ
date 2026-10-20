@@ -207,6 +207,12 @@
   )
 }
 
+/// 時点の呼び方を、名前（「退職の年」「ご主人75歳」）と、かっこの中（「ご主人65歳」。無ければ none）に分ける
+#let bs-point-parts(label) = {
+  let i = label.position("（")
+  if i == none { (label, none) } else { (label.slice(0, i), label.slice(i + "（".len()).trim("）", at: end)) }
+}
+
 /// 年の抜粋のバランスシート（行は資産・負債・純資産、列は時点。万円）。extra は表の最後に足す行（(label, amounts) の組。灰色）
 #let sheet-table(view, extra: (), size: 8pt) = {
   let cols = view.points.len()
@@ -214,7 +220,11 @@
   let group-row(label) = (table.cell(colspan: cols + 1, fill: band.lighten(40%), text(weight: "bold", size: size - 0.5pt, label)),)
   data-table(
     columns: (auto, ..range(cols).map(_ => 1fr)),
-    header: ("（万円）", ..view.points.map(p => p.label + "\n" + str(p.year) + "年")),
+    // 見出しは名前・かっこの中（年齢）・年の行に分ける（列が狭くても名前の途中で折り返さない）
+    header: ("（万円）", ..view.points.map(p => {
+      let (name, sub) = bs-point-parts(p.label)
+      name + if sub != none { "\n" + sub } else { "" } + "\n" + str(p.year) + "年"
+    })),
     size: size,
     (
       ..group-row("資産"),
@@ -270,20 +280,28 @@
   box(width: w, height: h, align(bottom, block(width: w, height: colh, stroke: frame, spacing: 0pt, stack(dir: ttb, ..cells))))
 }
 
-/// バランスシートの図（時点を横に並べる）。figure は帳票の入力の balanceSheet.figure
+/// 図の見出しの短い呼び方（例: 今・退職の年・75歳）。本人の年齢の時点は本人の呼び方を外す
+#let bs-point-short(label, who) = {
+  let name = bs-point-parts(label).at(0)
+  if who != none and name.starts-with(who) and name.ends-with("歳") { name.slice(who.len()) } else { name }
+}
+
+/// バランスシートの図（時点を横に並べる。2〜4つ）。figure は帳票の入力の balanceSheet.figure
+/// 見出しは1行目に時点の名前と札、2行目に年末とかっこの中（年齢）。4つ並べても見出しが折り返さず、図の下端がそろう
 #let bs-figure(figure, height: 150pt) = {
   let cols = figure.columns
   grid(
     columns: cols.map(_ => 1fr),
-    column-gutter: 10pt,
+    column-gutter: if cols.len() >= 4 { 7pt } else { 10pt },
     ..cols.map(c => block(width: 100%, inset: 6pt, radius: 3pt, stroke: 0.5pt + rule, {
+      let (name, sub) = bs-point-parts(c.point.label)
       grid(
-        columns: (auto, 1fr),
+        columns: (1fr, auto),
         column-gutter: 4pt,
-        text(size: 9pt, weight: "bold", c.point.label),
-        align(right, box(inset: (x: 3pt, y: 1pt), radius: 2pt, stroke: if c.fact { 0.6pt + ink } else { 0.6pt + muted }, fill: if c.fact { ink } else { white }, text(size: min-size, weight: "bold", fill: if c.fact { white } else { muted }, if c.fact { "事実（今）" } else { "見込み" }))),
+        text(size: 9pt, weight: "bold", name),
+        box(inset: (x: 3pt, y: 1pt), radius: 2pt, stroke: if c.fact { 0.6pt + ink } else { 0.6pt + muted }, fill: if c.fact { ink } else { white }, text(size: min-size, weight: "bold", fill: if c.fact { white } else { muted }, if c.fact { "事実（今）" } else { "見込み" })),
       )
-      text(size: min-size, fill: muted, str(c.point.year) + "年末")
+      text(size: min-size, fill: muted, str(c.point.year) + "年末" + if sub != none { "・" + sub } else { "" })
       v(2pt)
       grid(
         columns: (1fr, 1fr),
@@ -300,7 +318,8 @@
       v(3pt)
       text(size: 8.5pt, weight: "bold", [純資産 #text(fill: if c.netWorth < 0 { muted } else { accent }, man-unit(c.netWorth))])
       linebreak()
-      text(size: min-size, fill: muted, "金融資産 " + man-unit(c.financial) + "・負債 " + man-unit(c.totalLiabilities))
+      // 4つ並べると幅が狭いので、金融資産と負債を2行に分ける
+      text(size: min-size, fill: muted, "金融資産 " + man-unit(c.financial) + if cols.len() >= 4 { "\n" } else { "・" } + "負債 " + man-unit(c.totalLiabilities))
     })),
   )
 }

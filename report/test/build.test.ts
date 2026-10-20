@@ -233,6 +233,59 @@ describe("住まい以外の不動産（家賃収入・経費・土地と建物�
   });
 });
 
+describe("バランスシートの図の時点（画面の「資産と負債」のタブで並べている時点）", () => {
+  const s = SAMPLES.find((x) => x.id === "dualAssetsTwoKids")!;
+  const bundle = s.bundle();
+  const base = Number(bundle.proposal.request.input.baseMonth.slice(0, 4));
+  const self = bundle.proposal.request.input.household.members.find((m) => m.kind === "self")!;
+  const birthY = Number(self.birth.birthYearMonth.slice(0, 4));
+  const last = buildProposalInput(bundle).basis.years.at(-1)!;
+  const years = (bs: ProposalInput["balanceSheet"]) => bs!.figure.columns.map((c) => c.point.year);
+
+  it("並べ方を変えていない（時点の指定なし）: 今・退職の年・75歳。抜粋の表は今・10年後・退職の年・75歳・目標の年", () => {
+    const input = buildProposalInput(bundle);
+    const bs = input.balanceSheet!;
+    const labels = bs.figure.columns.map((c) => c.point.label);
+    expect(labels[0]).toBe("今");
+    expect(labels[1]).toMatch(/^退職の年（ご主人\d+歳）$/);
+    expect(labels[2]).toBe("ご主人75歳");
+    expect(years(bs)[0]).toBe(base);
+    expect(years(bs)[2]).toBe(birthY + 75);
+    expect(bs.proposal.points.map((p) => p.year)).toEqual([base, base + 10, years(bs)[1], birthY + 75, input.summary.target.year]);
+  });
+
+  it("時点を変えた世帯: 図の年が並べた時点になり（年の順・同じ年は1つ・表の範囲の中）、抜粋の表は図の時点と目標の年を必ず含む", () => {
+    const chosen = [
+      { year: birthY + 85, name: "85歳" },
+      { year: base + 8, name: "ローン完済" },
+      { year: base, name: "今" },
+      { year: birthY + 68, name: null },
+    ];
+    const input = buildProposalInput({ ...bundle, balancePoints: chosen });
+    const bs = input.balanceSheet!;
+    expect(years(bs)).toEqual([base, base + 8, birthY + 68, birthY + 85]);
+    expect(bs.figure.columns.map((c) => c.point.label)).toEqual(["今", `ローン完済（ご主人${base + 8 - birthY}歳）`, "ご主人68歳", "ご主人85歳"]);
+    expect(bs.figure.columns.map((c) => c.fact)).toEqual([true, false, false, false]);
+    const table = bs.proposal.points.map((p) => p.year);
+    for (const y of [...years(bs), input.summary.target.year]) expect(table).toContain(y);
+    expect(table.length).toBeLessThanOrEqual(5);
+    // 図の純資産は抜粋の表の同じ年の値
+    for (const c of bs.figure.columns) expect(bs.proposal.netWorth[table.indexOf(c.point.year)]).toBe(c.netWorth);
+    expect(validate(input)).toBe(true);
+  });
+
+  it("時点が2つなら図は2つ、抜粋の表は10年後で5列まで埋める。範囲の外・重なり・5つ目以降は落とす", () => {
+    const two = buildProposalInput({ ...bundle, balancePoints: [{ year: base, name: "今" }, { year: birthY + 65, name: "65歳" }, { year: birthY + 65, name: "退職の年" }, { year: last + 5, name: "90歳" }] });
+    expect(years(two.balanceSheet)).toEqual([base, birthY + 65]);
+    expect(two.balanceSheet!.proposal.points.map((p) => p.year)).toEqual([...new Set([base, base + 10, birthY + 65, two.summary.target.year])].sort((a, b) => a - b));
+    const many = buildProposalInput({ ...bundle, balancePoints: [0, 5, 10, 15, 20].map((d) => ({ year: base + d, name: null })) });
+    expect(years(many.balanceSheet)).toEqual([base, base + 5, base + 10, base + 15]);
+    // 表の範囲に1つも無ければ、既定（今・退職の年・75歳）
+    const none = buildProposalInput({ ...bundle, balancePoints: [{ year: last + 1, name: null }] });
+    expect(years(none.balanceSheet)).toEqual(years(buildProposalInput(bundle).balanceSheet));
+  });
+});
+
 describe("百分率の書式（数としては計算しない）", () => {
   it.each([
     ["0.01", "1%"],

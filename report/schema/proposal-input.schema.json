@@ -180,8 +180,8 @@
           "additionalProperties": false,
           "required": ["figure", "proposal", "currentNetWorth", "netWorth"],
           "properties": {
-            "figure": { "description": "バランスシートの図（今・退職の年・75歳の提案。共通の縮尺）", "$ref": "#/$defs/balanceFigure" },
-            "proposal": { "description": "年の抜粋（今・10年後・退職の年・75歳・目標の年）の提案のバランスシート", "$ref": "#/$defs/balanceSheetView" },
+            "figure": { "description": "バランスシートの図（提案。アプリの「資産と負債」のタブで並べている時点（2〜4つ。既定は今・退職の年・75歳）。共通の縮尺）", "$ref": "#/$defs/balanceFigure" },
+            "proposal": { "description": "年の抜粋の提案のバランスシート（図の時点と目標の年。5列に満たなければ10年後も。既定の図なら今・10年後・退職の年・75歳・目標の年）", "$ref": "#/$defs/balanceSheetView" },
             "currentNetWorth": { "description": "同じ時点の現状の純資産", "$ref": "#/$defs/yens" },
             "netWorth": {
               "description": "純資産の推移（basis.years と同じ並び）",
@@ -571,7 +571,7 @@
       "properties": { "key": { "type": "string" }, "label": { "type": "string" }, "amount": { "$ref": "#/$defs/yen" } }
     },
     "balanceFigure": {
-      "description": "バランスシートの図（時点ごとに、資産の4つの分け方と、負債と純資産。資産の合計＝負債の合計＋純資産）",
+      "description": "バランスシートの図（時点ごとに、資産の4つの分け方と、負債と純資産。資産の合計＝負債の合計＋純資産）。時点は年の順に1〜4つ（ふつうは2〜4つ）",
       "type": "object",
       "additionalProperties": false,
       "required": ["scale", "columns"],

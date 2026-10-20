@@ -128,6 +128,7 @@ export interface BalanceFigureColumn {
 export interface BalanceFigure {
   /** 共通の縮尺（いちばん高い時点の高さに当たる額） */
   scale: Yen;
+  /** 時点（年の順。1〜4つ。ふつうは2〜4つ） */
   columns: BalanceFigureColumn[];
 }
 
@@ -227,9 +228,9 @@ export interface ProposalInput {
   assets: { current: Yen[]; proposal: Yen[] };
   /** 資産と負債の推移（キャッシュフロー表の章の続き。章を外したときは null） */
   balanceSheet: {
-    /** バランスシートの図（今・退職の年・75歳の提案。アプリの「資産と負債」のタブと同じ分け方・共通の縮尺） */
+    /** バランスシートの図（提案。アプリの「資産と負債」のタブで並べている時点（2〜4つ。既定は今・退職の年・75歳）。同じ分け方・共通の縮尺） */
     figure: BalanceFigure;
-    /** 年の抜粋（今・10年後・定年・老後・目標の年）の提案のバランスシート */
+    /** 年の抜粋の提案のバランスシート（図の時点と目標の年。5列に満たなければ10年後も。既定の図なら今・10年後・退職の年・75歳・目標の年） */
     proposal: BalanceSheetView;
     /** 同じ時点の現状の純資産 */
     currentNetWorth: Yen[];

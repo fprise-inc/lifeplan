@@ -12,6 +12,8 @@ import { CURRENT } from "../plans/band.ts";
 import type { Catalog } from "../plans/items.ts";
 import type { Values } from "../plans/plans.ts";
 import type { SnapshotDraft } from "../snapshots/snapshots.ts";
+import type { BsColumn, BsPointKey } from "../../presentation/model.ts";
+import { BS_POINT_CHOICES, DEFAULT_BS_POINTS } from "../balanceTab.ts";
 import { DEFAULT_CHAPTERS, DEFAULT_LAYOUT, estimatedCards, planReport, reportInput, today, type ReportChoice } from "./assemble.ts";
 import { ReportViewer } from "./ReportViewer.tsx";
 
@@ -29,6 +31,9 @@ interface Props {
   letterOf: (id: string) => { letter: string; name: string };
   /** 表示の設定の「○歳時点」 */
   targetAge: number;
+  /** 資産と負債のタブで時点を並べるときの既定の時点と、この世帯で選んだ時点（表示の設定。提案書のバランスシートの図も同じ時点にする） */
+  bsPoints?: readonly BsPointKey[];
+  bsColumns?: readonly BsColumn[] | null;
   /** PDF を保存したときに控えを残す（App が現状とプランの写しを足して世帯に入れる） */
   onSnapshot?: (d: SnapshotDraft) => Promise<void>;
 }
@@ -69,6 +74,12 @@ const CASHFLOWS: { id: CashflowLayout; label: string; note: string }[] = [
   { id: "full", label: "全年（全部の行）", note: "内訳まですべて。ページが増えます" },
 ];
 
+/** 並べる時点の呼び方（例: 今・退職の年・75歳。年を直に選んだ時点は「2040年」） */
+export function bsPointsText(columns: readonly BsColumn[] | null, defaults: readonly BsPointKey[]): string {
+  const cols = columns ?? defaults.map((k) => ({ point: k }));
+  return cols.map((c) => ("point" in c ? (BS_POINT_CHOICES.find((x) => x.key === c.point)?.label ?? c.point) : `${c.year}年`)).join("・");
+}
+
 export function ReportTab(p: Props) {
   const slots = [CURRENT, ...p.band];
   const firstProposal = p.selected !== CURRENT ? p.selected : (p.band[0] ?? CURRENT);
@@ -96,8 +107,8 @@ export function ReportTab(p: Props) {
   useEffect(() => () => void p.host.report.discard().catch(() => undefined), [p.host]);
 
   const choice: ReportChoice = useMemo(
-    () => ({ proposal, compare: slots.filter((id) => compare.includes(id) || id === proposal), base: p.base, chapters: CHAPTERS.filter((c) => c.fixed || chapters.has(c.id)).map((c) => c.id), targetAge: p.targetAge, issuedOn: today(), preparedBy, layout: { orientation, cashflow } }),
-    [proposal, compare.join(","), p.base, [...chapters].join(","), p.targetAge, preparedBy, slots.join(","), orientation, cashflow],
+    () => ({ proposal, compare: slots.filter((id) => compare.includes(id) || id === proposal), base: p.base, chapters: CHAPTERS.filter((c) => c.fixed || chapters.has(c.id)).map((c) => c.id), targetAge: p.targetAge, issuedOn: today(), preparedBy, layout: { orientation, cashflow }, bsPoints: p.bsPoints ?? DEFAULT_BS_POINTS, bsColumns: p.bsColumns ?? null }),
+    [proposal, compare.join(","), p.base, [...chapters].join(","), p.targetAge, preparedBy, slots.join(","), orientation, cashflow, JSON.stringify(p.bsPoints ?? null), JSON.stringify(p.bsColumns ?? null)],
   );
   // 何を変えたら作り直しが要るか（宛名も PDF に入るので含める。帳票の入力そのものは保存しない）
   const key = JSON.stringify({ choice, addressee: addressee.trim(), wh: p.wh.request, values: slots.map((id) => p.valuesOf(id)) });
@@ -215,6 +226,9 @@ export function ReportTab(p: Props) {
             </select>
           </label>
           <p class="rp-note">現状は プランA（入力の値）です。目標の年齢は表示の設定の {p.targetAge}歳です。</p>
+          <p class="rp-note" data-report-bs-points>
+            バランスシートの図の時点は、資産と負債のタブで並べている時点（{bsPointsText(p.bsColumns ?? null, p.bsPoints ?? DEFAULT_BS_POINTS)}）です。提案のプランの年で並べます。
+          </p>
           <div class="rp-checks" role="group" aria-label="比較のページに載せるプラン">
             <span class="rp-sub">比較のページに載せるプラン（基準: プラン{p.letterOf(p.base).letter}）</span>
             {slots.map((id) => (
