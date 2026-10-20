@@ -70,7 +70,8 @@ export function BalanceTab({ model, band, onPrev, onGuide, initial }: BalanceTab
   // 前回と比べる: 選んだ控え（最初は一番新しい控え）を作業の層に計算してもらう
   const prevChoice = prevKey ?? model.prevChoices[0]?.key ?? null;
   useEffect(() => {
-    if (view === "prev" && prevChoice !== null && (model.prev.model?.key !== prevChoice || model.prev.status === "idle")) onPrev(prevChoice);
+    // 計算中は頼み直さない（同じ控えを二重に計算しない）
+    if (view === "prev" && prevChoice !== null && model.prev.status !== "loading" && (model.prev.model?.key !== prevChoice || model.prev.status === "idle")) onPrev(prevChoice);
   }, [view, prevChoice, model.prev.status]);
   if (plan === undefined) return <p class="loading">計算しています…</p>;
   const year = plan.years[Math.min(yi, n - 1)] as BsYearModel;
