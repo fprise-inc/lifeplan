@@ -7,8 +7,8 @@ import type { DockMode } from "../presentation/ChartDock.tsx";
 import type { ChartLayout } from "../presentation/MainChart.tsx";
 import type { AgeMark, VerdictPart } from "../presentation/model.ts";
 import type { EngineRequest } from "../engine/types.ts";
-import type { BsGuide } from "../presentation/model.ts";
-import { DEFAULT_BS_GUIDE } from "./balanceTab.ts";
+import type { BsColumn, BsGuide, BsPointKey } from "../presentation/model.ts";
+import { DEFAULT_BS_GUIDE, DEFAULT_BS_POINTS } from "./balanceTab.ts";
 import type { PlanMetrics } from "./plans/compare.ts";
 import { targetYearOf } from "./plans/compare.ts";
 
@@ -31,9 +31,13 @@ export interface DisplaySettings {
   invPeriods: boolean | null;
   /** 資産と負債のタブの「家計の体力の目安」の幅（0027。最初の値は 6〜12か月分・10〜40%・50%未満） */
   bsGuide: BsGuide;
+  /** 資産と負債のタブで時点を並べるときの既定の時点（2〜4つ。最初の値は 今・退職の年・75歳） */
+  bsPoints: BsPointKey[];
+  /** この世帯で見出しから選んだ並べる時点（2〜4つ。候補の鍵か決まった年）。null は既定のまま */
+  bsColumns: BsColumn[] | null;
 }
 
-export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", dock: "large", invBreakdown: false, invPeriods: null, bsGuide: DEFAULT_BS_GUIDE };
+export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", dock: "large", invBreakdown: false, invPeriods: null, bsGuide: DEFAULT_BS_GUIDE, bsPoints: DEFAULT_BS_POINTS, bsColumns: null };
 
 export const DOCK_CHOICES: readonly { key: DockMode; label: string; note: string }[] = [
   { key: "off", label: "出さない", note: "対策・想定の前提までスクロールしても、グラフは付いてきません" },

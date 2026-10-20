@@ -33,7 +33,8 @@ function sample(): BodyState {
   return {
     wh: b.wh,
     workspace: { template: id, band: [a.id, b.id], base: CURRENT, selected: b.id, shownItems: ["rates:shift"] },
-    display: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"], atAge: 90, layout: "side", invBreakdown: true },
+    // 0.7 から: 資産と負債のタブの時点を並べるときの既定の時点と、この世帯で選んだ時点（候補の鍵と決まった年）
+    display: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"], atAge: 90, layout: "side", invBreakdown: true, bsPoints: ["now", "loanEnd", "retire", "age80"], bsColumns: [{ point: "now" }, { year: 2042 }, { point: "age75" }] },
     carry: { extDefinitions: { "ext.exampleOffice.carCount": { type: "integer", label: "車の台数" } }, ext: { "ext.exampleOffice.carCount": 2 } },
   };
 }

@@ -5,11 +5,11 @@
 // - ひと言の解説・箱の説明・この年の出来事もここで作る（提示層は受け取った文を出すだけ）。物の ID・FP のメモは渡さない
 import type { EngineRequest, TableCell } from "../engine/types.ts";
 import { bsSeries, BS_GROUP_LABEL, BS_GROUP_SHORT, groupTotal, type BsAt, type BsGroup } from "../../../report/src/index.ts";
-import type { BalanceTabModel, BsGroupKey, BsGuide, BsMarkKind, BsPlanModel, BsPrevModel, BsYearModel, VerdictPart } from "../presentation/model.ts";
+import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsMarkKind, BsPlanModel, BsPointKey, BsPointModel, BsPrevModel, BsYearModel, VerdictPart } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { depletionYear, eventsOf } from "./present.ts";
-import { ageInYear, roles, type Role } from "./roles.ts";
+import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
 
 /** 家計の体力の目安の幅の最初の値（事務所の設定で FP が変えられる） */
 export const DEFAULT_BS_GUIDE: BsGuide = { months: [6, 12], risk: [10, 40], debt: 50 };
@@ -26,6 +26,53 @@ export function readBsGuide(v: unknown): BsGuide {
   };
   const debt = typeof o.debt === "number" && o.debt > 0 && o.debt <= 100 ? o.debt : d.debt;
   return { months: pair(o.months, d.months, 120), risk: pair(o.risk, d.risk, 100), debt };
+}
+
+/** 時点を並べるときの候補（並びは選ぶ画面の順）。年齢は本人の年齢 */
+export const BS_POINT_CHOICES: readonly { key: BsPointKey; label: string; note: string }[] = [
+  { key: "now", label: "今", note: "計算基準年の年末（入力した事実）" },
+  { key: "y5", label: "5年後", note: "" },
+  { key: "y10", label: "10年後", note: "" },
+  { key: "y20", label: "20年後", note: "" },
+  { key: "childIndep", label: "子の独立", note: "一番下の子が独立する年（子のいる世帯）" },
+  { key: "loanEnd", label: "ローン完済", note: "住宅ローンを返し終わる年（ローンのある世帯）" },
+  { key: "retire", label: "退職の年", note: "本人が退職する年" },
+  { key: "pension", label: "年金の始まり", note: "本人の年金の受け取りが始まる年" },
+  { key: "age65", label: "65歳", note: "" },
+  { key: "age70", label: "70歳", note: "" },
+  { key: "age75", label: "75歳", note: "" },
+  { key: "age80", label: "80歳", note: "" },
+  { key: "age85", label: "85歳", note: "" },
+  { key: "age90", label: "90歳", note: "" },
+];
+
+/** 時点を並べるときの既定（最初の値: 今・退職の年・75歳） */
+export const DEFAULT_BS_POINTS: BsPointKey[] = ["now", "retire", "age75"];
+/** 並べる数（2〜4つ。3つが基本） */
+export const BS_COLUMNS_MIN = 2;
+export const BS_COLUMNS_MAX = 4;
+
+const isPointKey = (v: unknown): v is BsPointKey => BS_POINT_CHOICES.some((c) => c.key === v);
+
+/** 既定の時点を読む（保存した表示の設定から。2〜4つの候補の鍵で、重なりなし。形が合わなければ最初の値） */
+export function readBsPoints(v: unknown): BsPointKey[] {
+  if (!Array.isArray(v)) return [...DEFAULT_BS_POINTS];
+  const keys = v.filter(isPointKey).filter((k, i, a) => a.indexOf(k) === i);
+  return keys.length >= BS_COLUMNS_MIN && keys.length <= BS_COLUMNS_MAX && keys.length === v.length ? keys : [...DEFAULT_BS_POINTS];
+}
+
+/** この世帯で選んだ並べる時点を読む（2〜4つ。候補の鍵か決まった年。形が合わなければ null＝既定のまま） */
+export function readBsColumns(v: unknown): BsColumn[] | null {
+  if (!Array.isArray(v) || v.length < BS_COLUMNS_MIN || v.length > BS_COLUMNS_MAX) return null;
+  const out: BsColumn[] = [];
+  for (const x of v as unknown[]) {
+    if (typeof x !== "object" || x === null) return null;
+    const o = x as Record<string, unknown>;
+    if (isPointKey(o.point)) out.push({ point: o.point });
+    else if (typeof o.year === "number" && Number.isInteger(o.year) && o.year >= 1900 && o.year <= 2300) out.push({ year: o.year });
+    else return null;
+  }
+  return out;
 }
 
 /** タブの年: 計算基準年（今）から表の最後の年まで */
@@ -125,6 +172,32 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
   if (retireYear !== null) pushJump("retire", "退職の年", idx(retireYear));
   if (self !== undefined) pushJump("age75", "75歳", idx(parseYm(self.member.birth.birthYearMonth).y + 75));
 
+  // 時点を並べるときの候補（範囲の中にあるものだけ）
+  const youngestLeaves = rs
+    .filter((r) => r.member.kind === "child")
+    .map((r) => leaveYear(r.member))
+    .filter((y): y is number => y !== null)
+    .sort((a, b) => a - b)
+    .at(-1);
+  const birthY = self !== undefined ? parseYm(self.member.birth.birthYearMonth).y : null;
+  const pointIndex: Record<BsPointKey, number> = {
+    now: 0,
+    y5: 5,
+    y10: 10,
+    y20: 20,
+    childIndep: idx(youngestLeaves ?? null),
+    loanEnd: idx(loanEnd),
+    retire: idx(retireYear),
+    pension: idx(pensionYear),
+    age65: birthY === null ? -1 : idx(birthY + 65),
+    age70: birthY === null ? -1 : idx(birthY + 70),
+    age75: birthY === null ? -1 : idx(birthY + 75),
+    age80: birthY === null ? -1 : idx(birthY + 80),
+    age85: birthY === null ? -1 : idx(birthY + 85),
+    age90: birthY === null ? -1 : idx(birthY + 90),
+  };
+  const points: BsPointModel[] = BS_POINT_CHOICES.map((c) => ({ key: c.key, label: c.label, index: pointIndex[c.key] })).filter((x) => x.index >= 0 && x.index < years.length);
+
   const lastAge = ageOf(years.at(-1) ?? 0);
   const status = dep !== null ? { text: `${ageText(dep).replace(who, "")}で資金が不足`, ok: false } : { text: `${lastAge ?? ""}歳まで足りる`, ok: true };
 
@@ -174,7 +247,7 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
       notes,
     };
   });
-  return { key: p.key, letter: p.letter, name: p.name, title: p.title, base: p.base, years: out, marks, jumps, status };
+  return { key: p.key, letter: p.letter, name: p.name, title: p.title, base: p.base, years: out, marks, jumps, points, status };
 }
 
 /** 土地と建物の一言（年に応じて）。建物が無ければ null */
@@ -333,7 +406,7 @@ export function bsPrev(o: { key: string; label: string; createdAt: string; baseM
   return { key: o.key, label: o.label, ago, expected, reason: null, actual, summary, items: prevItems(expected, actual) };
 }
 
-export function balanceTabModel(o: { plans: BsPlanModel[]; selected: string; base: string; guide: BsGuide; prevChoices: { key: string; label: string }[]; prev: BalanceTabModel["prev"]; provisional: boolean; who: string }): BalanceTabModel {
+export function balanceTabModel(o: { plans: BsPlanModel[]; selected: string; base: string; guide: BsGuide; pointDefaults: BsPointKey[]; columns: BsColumn[] | null; prevChoices: { key: string; label: string }[]; prev: BalanceTabModel["prev"]; provisional: boolean; who: string }): BalanceTabModel {
   const groups = Object.fromEntries((Object.keys(BS_GROUP_LABEL) as BsGroup[]).map((k) => [k, { name: BS_GROUP_LABEL[k], short: BS_GROUP_SHORT[k] }])) as BalanceTabModel["groups"];
-  return { ...o, groups, customViews: [] };
+  return { ...o, groups, pointChoices: BS_POINT_CHOICES, customViews: [] };
 }

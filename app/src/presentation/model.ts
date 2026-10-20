@@ -513,9 +513,29 @@ export interface BsPlanModel {
   marks: { index: number; kind: BsMarkKind; label: string }[];
   /** 主な年へ（今・10年後・退職の年・75歳）。範囲の外は入れない */
   jumps: { key: "now" | "ten" | "retire" | "age75"; label: string; index: number }[];
+  /** 時点を並べるときの候補（今・5年後・…・子の独立・ローン完済・退職の年・65歳 …）。この世帯・このプランで範囲の中にあるものだけ */
+  points: BsPointModel[];
   /** 帯の小さな状態（例: 「86歳で資金が不足」） */
   status: { text: string; ok: boolean };
 }
+
+/**
+ * 時点を並べるときの時点の候補の鍵。年齢は本人の年齢。
+ * now: 今／y5・y10・y20: ○年後／childIndep: 子の独立（一番下の子が世帯から抜ける年）／loanEnd: 住宅ローンの完済の年／
+ * retire: 退職の年／pension: 年金の受け取りが始まる年／age65 … age90: 本人がその年齢の年
+ */
+export type BsPointKey = "now" | "y5" | "y10" | "y20" | "childIndep" | "loanEnd" | "retire" | "pension" | "age65" | "age70" | "age75" | "age80" | "age85" | "age90";
+
+/** 時点の候補（このプランで解いた年）。index は years の番号 */
+export interface BsPointModel {
+  key: BsPointKey;
+  /** 例: 「退職の年」「75歳」 */
+  label: string;
+  index: number;
+}
+
+/** 並べる時点の1つ: 候補の鍵（プランごとに年を解く。退職の年を動かすと付いてくる）か、決まった年 */
+export type BsColumn = { point: BsPointKey } | { year: number };
 
 /** 家計の体力の目安の幅（事務所の設定。FP が変えられる） */
 export interface BsGuide {
@@ -567,6 +587,12 @@ export interface BalanceTabModel {
   selected: string;
   base: string;
   guide: BsGuide;
+  /** 時点を並べるときの既定の時点（事務所の設定。2〜4つ） */
+  pointDefaults: BsPointKey[];
+  /** この世帯で選んだ並べる時点（2〜4つ）。null は既定のまま */
+  columns: BsColumn[] | null;
+  /** 既定の時点の候補（選ぶ画面の順。世帯によっては無い時点もある） */
+  pointChoices: readonly { key: BsPointKey; label: string; note: string }[];
   /** 控え（新しい順）。空なら「前回と比べる」を出さない */
   prevChoices: { key: string; label: string }[];
   prev: { status: "idle" | "loading" | "ready"; model: BsPrevModel | null };

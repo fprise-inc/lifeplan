@@ -1710,6 +1710,8 @@ export function App() {
                   selected: letterOf(work.sel),
                   base: letterOf(work.base),
                   guide: settings.bsGuide,
+                  pointDefaults: settings.bsPoints,
+                  columns: settings.bsColumns,
                   prevChoices: bsPrevChoices,
                   prev: bsPrevModel,
                   provisional: model.provisional,
@@ -1718,6 +1720,8 @@ export function App() {
                 band={<PlanBand model={band} onSelect={select} onBase={setBase} onAdd={duplicate} />}
                 onPrev={onBsPrev}
                 onGuide={(g) => putSettings({ bsGuide: g })}
+                onColumns={(c) => putSettings({ bsColumns: c })}
+                onPointDefaults={(k) => putSettings({ bsPoints: k })}
                 initial={{ ...(initial.bsView !== undefined ? { view: initial.bsView } : {}), ...(initial.bsYear !== undefined ? { year: initial.bsYear } : {}), ...(initial.bsOpen !== undefined ? { open: initial.bsOpen } : {}), ...(initial.bsTable === true ? { table: true } : {}) }}
               />
             </>

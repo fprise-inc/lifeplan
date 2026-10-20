@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.6";
+pub const CURRENT: &str = "0.7";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -27,7 +27,10 @@ pub const CURRENT: &str = "0.6";
 ///   「退職の年（60〜65歳に収める）」。データは書き換えず、空のまま新しい読み方で読む（画面は「推定あり」の印を出す）
 /// - 0.6: 住まい以外の不動産の中身 `accounts[].property`（土地と建物に分ける・取得・家賃収入・経費・売却）と、その不動産のローン
 ///   `debts[].property` を足した（どれも任意。足すだけの MINOR。0028）。読み方は変えない（中身の無い不動産の器は今までどおり1行で評価する）
-pub const KNOWN: &[&str] = &["0.1", "0.2", "0.3", "0.4", "0.5", "0.6"];
+/// - 0.7: 表示の設定に、資産と負債のタブで時点を並べるときの既定の時点 `display.bsPoints` と、この世帯で選んだ時点 `display.bsColumns`
+///   （候補の鍵か決まった年）を足した（どちらも任意。無ければ既定。足すだけの MINOR。0027 の追記）。0.6 の間に足した家計の体力の目安の幅
+///   `display.bsGuide`（任意）も、この版から形式の一部として数える
+pub const KNOWN: &[&str] = &["0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7"];
 
 /// 1段分の変換
 pub struct Step {
@@ -62,6 +65,11 @@ pub const STEPS: &[Step] = &[
         from: "0.5",
         to: "0.6",
         apply: v0_5_to_0_6,
+    },
+    Step {
+        from: "0.6",
+        to: "0.7",
+        apply: v0_6_to_0_7,
     },
 ];
 
@@ -114,6 +122,16 @@ fn v0_5_to_0_6(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.6".into());
+    }
+    Ok(body)
+}
+
+/// 0.6 → 0.7: 足した欄（並べる時点の既定・この世帯で選んだ時点）はどちらも任意なので足さない（無ければ既定の 今・退職の年・75歳）。
+/// 形式の版だけを書き換える（0027 の追記）
+fn v0_6_to_0_7(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.7".into());
     }
     Ok(body)
 }
@@ -207,7 +225,8 @@ mod tests {
         assert_eq!(access("0.3").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.4").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.5").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.7").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.6").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.8").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -219,7 +238,7 @@ mod tests {
         assert_eq!(access("01.1").unwrap_err(), StoreError::FORMAT_UNKNOWN);
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
-        assert_eq!(upgrade("0.7", b.clone()).unwrap(), b);
+        assert_eq!(upgrade("0.8", b.clone()).unwrap(), b);
     }
 
     #[test]
@@ -285,8 +304,19 @@ mod tests {
         let debts = serde_json::json!([{"kind": "other", "principal": 1000000}]);
         let b = serde_json::json!({"meta": {"formatVersion": "0.5", "revisions": [], "editors": {}}, "household": {"request": {"input": {"household": {"accounts": acc, "debts": debts}}}}});
         let u = upgrade("0.5", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.6");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
         assert!(upgrade("0.5", serde_json::json!(null)).is_err());
+    }
+
+    #[test]
+    fn v0_6_keeps_display_and_adds_no_columns() {
+        // 並べる時点の欄は任意なので足さない（無ければ画面が既定で読む）。ほかの表示の設定はそのまま
+        let b = serde_json::json!({"meta": {"formatVersion": "0.6", "revisions": [], "editors": {}}, "household": {"memo": ["x"]}, "display": {"metrics": ["takeHome"], "bsGuide": {"months": [6, 12], "risk": [10, 40], "debt": 50}}});
+        let u = upgrade("0.6", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.7");
+        assert_eq!(u["display"], b["display"]);
+        assert!(u["display"].get("bsColumns").is_none());
+        assert!(upgrade("0.6", serde_json::json!(null)).is_err());
     }
 }
