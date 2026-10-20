@@ -17,6 +17,7 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { CURRENT } from "../plans/band.ts";
 import type { Proposal } from "../plans/plans.ts";
 import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
+import { readBsGuide } from "../balanceTab.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, readDockMode, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
@@ -118,6 +119,7 @@ export function fromBody(json: string): BodyState {
     dock: readDockMode(d.dock),
     invBreakdown: typeof d.invBreakdown === "boolean" ? d.invBreakdown : DEFAULT_DISPLAY_SETTINGS.invBreakdown,
     invPeriods: typeof d.invPeriods === "boolean" ? d.invPeriods : DEFAULT_DISPLAY_SETTINGS.invPeriods,
+    bsGuide: readBsGuide(d.bsGuide),
   };
   return {
     wh,

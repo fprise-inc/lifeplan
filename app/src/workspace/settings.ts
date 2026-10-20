@@ -7,6 +7,8 @@ import type { DockMode } from "../presentation/ChartDock.tsx";
 import type { ChartLayout } from "../presentation/MainChart.tsx";
 import type { AgeMark, VerdictPart } from "../presentation/model.ts";
 import type { EngineRequest } from "../engine/types.ts";
+import type { BsGuide } from "../presentation/model.ts";
+import { DEFAULT_BS_GUIDE } from "./balanceTab.ts";
 import type { PlanMetrics } from "./plans/compare.ts";
 import { targetYearOf } from "./plans/compare.ts";
 
@@ -27,9 +29,11 @@ export interface DisplaySettings {
   invBreakdown: boolean;
   /** 資産の推移の上に運用の期間の帯を出す（0026。null は「取り崩しの予定があるときだけ」） */
   invPeriods: boolean | null;
+  /** 資産と負債のタブの「家計の体力の目安」の幅（0027。最初の値は 6〜12か月分・10〜40%・50%未満） */
+  bsGuide: BsGuide;
 }
 
-export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", dock: "large", invBreakdown: false, invPeriods: null };
+export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", dock: "large", invBreakdown: false, invPeriods: null, bsGuide: DEFAULT_BS_GUIDE };
 
 export const DOCK_CHOICES: readonly { key: DockMode; label: string; note: string }[] = [
   { key: "off", label: "出さない", note: "対策・想定の前提までスクロールしても、グラフは付いてきません" },
@@ -47,7 +51,7 @@ export function readDockMode(v: unknown): DockMode {
 export const LAYOUT_CHOICES: readonly { key: ChartLayout; label: string; note: string }[] = [
   { key: "overlay", label: "重ねる", note: "1つのグラフに基準のプラン（点線）と選んだプランを重ねる（既定）" },
   { key: "side", label: "左右に並べる", note: "基準のプランと選んだプランを2つのグラフにして並べる。縦の目盛りはそろえる" },
-  { key: "all", label: "全部のプランを色分けで重ねる", note: "帯に並べた全部のプラン（現状を含め最大6本）を1つのグラフに、色で描き分ける（プランごとに色が決まっています）。収支は年間収支、資産と負債は純資産の線で比べる" },
+  { key: "all", label: "全部のプランを色分けで重ねる", note: "帯に並べた全部のプラン（現状を含め最大6本）を1つのグラフに、色で描き分ける（プランごとに色が決まっています）。収支は年間収支の線で比べる" },
 ];
 
 export const METRIC_CHOICES: readonly { key: MetricKey; label: string; note: string }[] = [

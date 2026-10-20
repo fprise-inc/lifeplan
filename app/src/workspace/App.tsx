@@ -12,6 +12,10 @@ import type { ChartLayout, ChartMode } from "../presentation/MainChart.tsx";
 import { ChartDock, useChartDock } from "../presentation/ChartDock.tsx";
 import { CashflowTable, DockedResult, FeeNote, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
 import { PlanBand } from "../presentation/PlanBand.tsx";
+import { BalanceTab, type BsView } from "../presentation/BalanceTab.tsx";
+import type { BsPlanModel, BsPrevModel } from "../presentation/model.ts";
+import { balanceTabModel, bsPlan, bsPrev } from "./balanceTab.ts";
+import { snapshotDateText, TRIGGER_TEXT } from "./snapshots/snapshots.ts";
 import { PLAN_COLORS } from "../presentation/planLines.tsx";
 import { AiCandidates } from "./ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
@@ -69,10 +73,11 @@ import { BasisLine, HouseholdNow } from "./header/HouseholdNow.tsx";
 import { barAlerts, barNotices, saveText, type AlertKind, type BarInputs, type NoticeTarget } from "./header/status.ts";
 import { TopBar } from "./header/TopBar.tsx";
 
-type Tab = "input" | "main" | "contingency" | "report";
+type Tab = "input" | "main" | "balance" | "contingency" | "report";
 export const TABS: { id: Tab; label: string }[] = [
   { id: "input", label: "入力" },
   { id: "main", label: "結果" },
+  { id: "balance", label: "資産と負債" },
   { id: "contingency", label: "万一のとき" },
   { id: "report", label: "提案書" },
 ];
@@ -114,6 +119,11 @@ export function parseHash(hash: string): {
   selfcheckWire?: boolean;
   /** 主画面のグラフ */
   chart?: ChartMode;
+  /** 資産と負債のタブの見せ方（#bsview=three など）・年（#bsyear=2046）・合算BSの入口（#bsopen=combined）・表で見る（#bstable） */
+  bsView?: BsView;
+  bsYear?: number;
+  bsOpen?: "combined";
+  bsTable?: boolean;
   /** #stress: 相場が下がった場合を重ねて開く（0026） */
   stress?: boolean;
   /** #inv=breakdown,periods（口座の内訳・運用の期間の帯を出す）・#inv=noperiods（帯を外す）。画面の確かめ用 */
@@ -157,7 +167,12 @@ export function parseHash(hash: string): {
       if (v === "contingency") out.selfcheckContingency = true;
       if (v === "plans") out.selfcheckPlans = true;
       if (v === "wire") out.selfcheckWire = true;
-    } else if (k === "chart" && (v === "flows" || v === "balance" || v === "assets")) out.chart = v;
+    } else if (k === "chart" && (v === "flows" || v === "assets")) out.chart = v;
+    else if (k === "chart" && v === "balance") out.tab = "balance";
+    else if (k === "bsview" && (v === "one" || v === "three" || v === "plans" || v === "prev")) out.bsView = v;
+    else if (k === "bsyear" && v !== undefined && /^\d{4}$/.test(v)) out.bsYear = Number(v);
+    else if (k === "bsopen" && v === "combined") out.bsOpen = "combined";
+    else if (k === "bstable") out.bsTable = true;
     else if (k === "explain" && v !== undefined && /^\d$/.test(v)) out.explain = Number(v);
     else if (k === "items" && v !== undefined) out.items = v.split(",").filter((x) => /^[a-z]+$/.test(x));
     else if (k === "seed" && v === "plans") out.seed = true;
@@ -1254,6 +1269,47 @@ export function App() {
   const band = opened === null ? null : bandModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id) => [id, resultOf(id)])), modified, base: work.base, selected: work.sel, settings, colors });
   // 全部のプランを色分けで重ねる表示: 帯の全部のプランの線（プランの名前と色の番号と数字だけ）をグラフの値に足す
   const slotResults = slots.map((id) => resultOf(id));
+  // 資産と負債のタブ（家計のバランスシート。0027）: 帯の全部のプランの、今の年から表の最後の年までのバランスシート
+  const bsPlans = useMemo(() => {
+    if (tab !== "balance" || opened === null) return null;
+    const out: BsPlanModel[] = [];
+    slots.forEach((id, i) => {
+      const r = slotResults[i];
+      if (r == null) return;
+      const req = id === work.sel ? selReq : id === work.base ? baseReq : reqOf(opened, valuesOf(opened.wh, work, id));
+      if (req === null) return;
+      const letter = letters.get(id)?.letter ?? "?";
+      out.push(bsPlan({ key: letter, letter, name: planLabel(letter), title: id === CURRENT ? "現状" : (letters.get(id)?.name ?? ""), base: id === work.base, req, table: r.table }));
+    });
+    return out;
+  }, [tab, opened, slots, work, letters, selReq, baseReq, reqOf, ...slotResults]);
+  // 前回と比べる: 控え（新しい順）。選んだ控えだけを、控えの現状の入力で計算する（結果は控えを選び直すまで持つ）
+  const bsSnaps = useMemo(() => [...(opened?.wh.snapshots ?? [])].sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0)), [opened?.wh.snapshots]);
+  const bsPrevChoices = bsSnaps.map((x, i) => ({ key: `p${i + 1}`, label: `${snapshotDateText(x.createdAt).replace(/ .*$/, "")}の控え（${TRIGGER_TEXT[x.trigger]}）` }));
+  const [bsPrevRun, setBsPrevRun] = useState<{ key: string; id: string; result: PreviewResult | null | "loading" } | null>(null);
+  const onBsPrev = useCallback(
+    (key: string) => {
+      const s = bsSnaps[Number(key.slice(1)) - 1];
+      if (s === undefined) return;
+      setBsPrevRun({ key, id: s.id, result: "loading" });
+      void computeOne(s.inputs.request).then(
+        (r) => setBsPrevRun((cur) => (cur !== null && cur.key === key && cur.id === s.id ? { ...cur, result: r } : cur)),
+        () => setBsPrevRun((cur) => (cur !== null && cur.key === key && cur.id === s.id ? { ...cur, result: null } : cur)),
+      );
+    },
+    [bsSnaps, computeOne],
+  );
+  const bsPrevModel = useMemo((): { status: "idle" | "loading" | "ready"; model: BsPrevModel | null } => {
+    if (bsPrevRun === null || opened === null || bsPlans === null) return { status: "idle", model: null };
+    const i = Number(bsPrevRun.key.slice(1)) - 1;
+    const s = bsSnaps[i];
+    const actual = bsPlans.find((p) => p.key === (letters.get(CURRENT)?.letter ?? "A"))?.years[0];
+    if (s === undefined || s.id !== bsPrevRun.id || actual === undefined) return { status: "idle", model: null };
+    if (bsPrevRun.result === "loading") return { status: "loading", model: null };
+    const r = bsPrevRun.result;
+    const snapshot = r === null ? { error: "この控えの内容は、今の計算エンジン・制度データでは計算できませんでした（控えの時点が古いなど）。" } : { req: s.inputs.request, table: r.table };
+    return { status: "ready", model: bsPrev({ key: bsPrevRun.key, label: bsPrevChoices[i]?.label ?? "控え", createdAt: s.createdAt, baseMonth: opened.wh.request.input.baseMonth, actual, snapshot }) };
+  }, [bsPrevRun, opened, bsPlans, bsSnaps, letters]);
   // 資産運用（資産の推移のとき。0026）: 口座の内訳・運用の期間の帯・相場が下がった場合の線
   const stressRes = STRESS_KEYS.map((k) => (stressOn ? resultOf(`stress:${k}`) : null));
   const investModel = useMemo(() => {
@@ -1642,6 +1698,30 @@ export function App() {
             targetAge={settings.atAge}
             onSnapshot={takeSnapshot}
           />
+        ) : tab === "balance" && opened !== null ? (
+          bsPlans === null || bsPlans.length === 0 || band === null || model === null ? (
+            fatal === null ? <p class="loading">計算しています…</p> : null
+          ) : (
+            <>
+              {basis !== null ? <BasisLine {...basis} /> : null}
+              <BalanceTab
+                model={balanceTabModel({
+                  plans: bsPlans,
+                  selected: letterOf(work.sel),
+                  base: letterOf(work.base),
+                  guide: settings.bsGuide,
+                  prevChoices: bsPrevChoices,
+                  prev: bsPrevModel,
+                  provisional: model.provisional,
+                  who: model.who,
+                })}
+                band={<PlanBand model={band} onSelect={select} onBase={setBase} onAdd={duplicate} />}
+                onPrev={onBsPrev}
+                onGuide={(g) => putSettings({ bsGuide: g })}
+                initial={{ ...(initial.bsView !== undefined ? { view: initial.bsView } : {}), ...(initial.bsYear !== undefined ? { year: initial.bsYear } : {}), ...(initial.bsOpen !== undefined ? { open: initial.bsOpen } : {}), ...(initial.bsTable === true ? { table: true } : {}) }}
+              />
+            </>
+          )
         ) : model === null || opened === null || band === null ? (
           fatal === null ? <p class="loading">計算しています…</p> : null
         ) : (

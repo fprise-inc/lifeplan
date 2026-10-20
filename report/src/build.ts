@@ -5,12 +5,14 @@
 // - 構成員の呼び方と表の行の決め方は、アプリの提示の値（app/src/workspace/roles.ts・present.ts）と同じにしている。
 import type { EngineOutput, EngineRequest, ProposalBundle, Run, TableCell } from "./bundle.ts";
 import { selectChapters } from "./chapters.ts";
+import { bsSeries, BS_GROUP_LABEL, groupTotal, type BsGroup } from "./bsGroups.ts";
 import {
   type Comparison,
   DEFAULT_LAYOUT,
   PROPOSAL_INPUT_FORMAT,
   PROPOSAL_INPUT_VERSION,
   type CfRow,
+  type BalanceFigure,
   type BalanceSheetView,
   type ColoredAmount,
   type InvestmentView,
@@ -531,11 +533,47 @@ function balancePoints(ctx: Ctx): YearPoint[] {
   return kept.sort((a, b) => a.year - b.year);
 }
 
+/** バランスシートの図の時点: 今・退職の年・75歳（無い時点は10年後で埋める。表の範囲の中だけ） */
+function figurePoints(ctx: Ctx): YearPoint[] {
+  const all = balancePoints(ctx);
+  const pick = (pred: (p: YearPoint) => boolean) => all.find(pred);
+  const out: YearPoint[] = [];
+  const now = pick((p) => p.label === "今");
+  if (now !== undefined) out.push(now);
+  for (const pr of [(p: YearPoint) => p.label.startsWith("退職の年"), (p: YearPoint) => p.label.endsWith("75歳"), (p: YearPoint) => p.label.startsWith("10年後")])
+    if (out.length < 3) {
+      const p = pick(pr);
+      if (p !== undefined && !out.some((o) => o.year === p.year)) out.push(p);
+    }
+  return out.sort((a, b) => a.year - b.year);
+}
+
+/** バランスシートの図（提案。アプリの「資産と負債」のタブと同じ分け方。共通の縮尺） */
+function balanceFigure(ctx: Ctx): BalanceFigure {
+  const points = figurePoints(ctx);
+  const h = ctx.bundle.proposal.request.input.household;
+  const at = bsSeries(ctx.bundle.proposal.result.table, points.map((p) => p.year), { residences: h.residences ?? [], debts: (h.debts ?? []).map((d) => ({ id: d.id, kind: d.kind })) });
+  const box = (a: (typeof at)[number], g: BsGroup) => ({ key: g, label: BS_GROUP_LABEL[g], amount: groupTotal(a, g) });
+  const columns = at.map((a, i) => ({
+    point: points[i] as YearPoint,
+    fact: a.year === ctx.baseYear,
+    assets: (["liquid", "market", "locked", "illiquid"] as const).map((g) => box(a, g)).filter((b) => b.amount > 0),
+    liabilities: [box(a, "mortgage"), box(a, "debt"), { key: "netWorth", label: "純資産", amount: Math.max(0, a.netWorth) }].filter((b) => b.amount > 0),
+    negative: Math.max(0, -a.netWorth),
+    totalAssets: a.totalAssets,
+    totalLiabilities: a.totalLiabilities,
+    netWorth: a.netWorth,
+    financial: a.financial,
+  }));
+  return { scale: Math.max(1, ...columns.map((c) => Math.max(c.totalAssets, c.totalLiabilities))), columns };
+}
+
 function balanceSheet(ctx: Ctx): NonNullable<ProposalInput["balanceSheet"]> {
   const points = balancePoints(ctx);
   const cur = ctx.bundle.current.result.table;
   const prop = ctx.bundle.proposal.result.table;
   return {
+    figure: balanceFigure(ctx),
     proposal: sheetOf(prop, points),
     currentNetWorth: sheetOf(cur, points).netWorth,
     netWorth: { current: netWorthOf(cur, ctx.years), proposal: netWorthOf(prop, ctx.years) },

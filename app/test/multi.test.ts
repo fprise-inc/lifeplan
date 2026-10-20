@@ -1,4 +1,4 @@
-// 比べ方「全部のプランを色分けで重ねる」: プランごとの線の色（実線・同じ丸。色はプランの内部 ID ごとに固定）、資産・収支・資産と負債の3つのグラフ、
+// 比べ方「全部のプランを色分けで重ねる」: プランごとの線の色（実線・同じ丸。色はプランの内部 ID ごとに固定）、資産・収支の2つのグラフ（資産と負債の推移は「資産と負債」のタブ）、
 // 凡例の強調と一時的に隠す（縦の目盛りはできるだけ動かさない）、年の表示（全部のプランの値を帯の順に）、帯のカードの印、説明モードでは1本のまま、
 // 提示層に渡すのはプランの名前と色の番号と数字だけ
 import { readFileSync } from "node:fs";
@@ -233,22 +233,20 @@ describe("色の番号はプランの内部 ID ごとに固定（assignColors）
 });
 
 describe("全部のプランの線の値（作業の層）", () => {
-  it("帯の順に、プランの名前と色の番号と、金融資産・年間収支・純資産の数字だけ。計算中のプランは null", () => {
+  it("帯の順に、プランの名前と色の番号と、金融資産・年間収支の数字だけ。計算中のプランは null", () => {
     const ls = lines(["c"]);
     expect(ls.map((l) => l.key)).toEqual(["A", "B", "C", "D"]);
-    for (const l of ls) expect(Object.keys(l).sort()).toEqual(["base", "colorIndex", "financial", "key", "name", "net", "netWorth", "selected", "title"]);
+    for (const l of ls) expect(Object.keys(l).sort()).toEqual(["base", "colorIndex", "financial", "key", "name", "net", "selected", "title"]);
     expect(ls[0]).toMatchObject({ name: "プランA", title: "現状", base: true, selected: false, colorIndex: 0 });
     expect(ls[1]).toMatchObject({ name: "プランB", base: false, selected: true, colorIndex: 1 });
     const n = displayYears(wh.request).length;
     expect(ls[1]!.financial).toHaveLength(n);
     expect(ls[1]!.net).toHaveLength(n);
-    expect(ls[1]!.netWorth).toHaveLength(n);
-    expect(ls[2]).toMatchObject({ financial: null, net: null, netWorth: null });
+    expect(ls[2]).toMatchObject({ financial: null, net: null });
     // 選んだプランの線は、重ねる表示の選んだプランの線と同じ数字
     const m = model(ls);
     expect(ls[1]!.financial).toEqual(m.chart.proposal);
     expect(ls[1]!.net).toEqual(m.flows.net);
-    expect(ls[1]!.netWorth).toEqual(m.balance.netWorth);
   });
 
   it("基準を替えても、色の番号は同じ", () => {
@@ -260,7 +258,7 @@ describe("全部のプランの線の値（作業の層）", () => {
 const strokeOf = (html: string, key: string) => new RegExp(`data-multi-line="${key}"><g[^>]*><path [^>]*stroke="(#[0-9a-f]{6})"`).exec(html)?.[1];
 
 describe("全部のプランを色分けで重ねるグラフ", () => {
-  for (const mode of ["assets", "flows", "balance"] as ChartMode[])
+  for (const mode of ["assets", "flows"] as ChartMode[])
     it(`${mode}: 1つのグラフに全部のプランの線（実線・同じ丸・右端の文字）。積み上げの棒・不足の塗りは描かない`, () => {
       const html = draw(mode);
       expect(html).toContain('data-chart-layout="all"');
@@ -339,7 +337,7 @@ describe("全部のプランを色分けで重ねるグラフ", () => {
   });
 
   it("縮めた表示（操作中に上に付いてくるグラフ）でも同じ線を描く", () => {
-    const html = draw("balance", { height: 260 });
+    const html = draw("flows", { height: 260 });
     expect(html).toContain("compact");
     expect(html.match(/class="multi-line"/g)).toHaveLength(4);
   });
@@ -356,7 +354,7 @@ describe("線を隠したときの縦の目盛り", () => {
   const n = 40;
   const ramp = (from: number, to: number) => Array.from({ length: n }, (_, i) => Math.round((from + ((to - from) * i) / (n - 1)) * 10000));
   const synth = (lines: Record<string, number[]>): PlanLineModel[] =>
-    Object.entries(lines).map(([k, v], i) => ({ key: k, name: `プラン${k}`, title: k, base: i === 0, selected: i === 1, colorIndex: i, financial: v, net: v, netWorth: v }));
+    Object.entries(lines).map(([k, v], i) => ({ key: k, name: `プラン${k}`, title: k, base: i === 0, selected: i === 1, colorIndex: i, financial: v, net: v }));
   // A〜C は 0〜3,000万円くらい、D だけ大きく外れて 1億2,000万円まで
   const plans = synth({ A: ramp(500, 2600), B: ramp(500, 3000), C: ramp(400, 2200), D: ramp(600, 12000) });
   const m0 = model();
@@ -418,11 +416,6 @@ describe("凡例と帯のカード", () => {
     expect(html).not.toContain("stroke-dasharray");
     expect(html.match(/<circle class="pl-mk"/g)).toHaveLength(4);
     expect(html).toContain('<span class="ml-tag">基準</span>');
-  });
-
-  it("資産と負債の推移の見出しは純資産", () => {
-    const html = renderToString(h(MultiLegend, { plans: lines(), mode: "balance", focus: null, onFocus: noop, hidden: [], onToggle: noop }));
-    expect(html).toContain("全部のプランの純資産（不動産・その他の資産を含む資産−負債）");
   });
 
   it("グラフの枠: 全部のプランを重ねるときは全部のプランの凡例（重ねる表示の凡例は出さない）", () => {

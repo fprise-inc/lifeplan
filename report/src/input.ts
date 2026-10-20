@@ -100,6 +100,37 @@ export interface BalanceSheetView {
   netWorth: Yen[];
 }
 
+/** バランスシートの図の1つの箱（分け方のまとまり。例: すぐ使えるお金・住宅ローン・純資産） */
+export interface BalanceFigureBox {
+  key: string;
+  label: string;
+  amount: Yen;
+}
+
+/** バランスシートの図の1つの時点。資産の合計＝負債の合計＋純資産（純資産がマイナスなら negative に足りない分） */
+export interface BalanceFigureColumn {
+  point: YearPoint;
+  /** 今の年（入力した値から出した事実）。先の年は見込み */
+  fact: boolean;
+  /** 上から: すぐ使えるお金・値動きのある運用・引き出せないお金・換金しにくい資産（0 の箱は入れない） */
+  assets: BalanceFigureBox[];
+  /** 上から: 住宅ローン・その他の負債（資金の不足を含む）・純資産（0 の箱は入れない） */
+  liabilities: BalanceFigureBox[];
+  /** 純資産のマイナス（0以上。資産の側の一番下に点線で置く） */
+  negative: Yen;
+  totalAssets: Yen;
+  totalLiabilities: Yen;
+  netWorth: Yen;
+  /** 金融資産（すぐ使える・値動きあり・引き出せないの合計） */
+  financial: Yen;
+}
+
+export interface BalanceFigure {
+  /** 共通の縮尺（いちばん高い時点の高さに当たる額） */
+  scale: Yen;
+  columns: BalanceFigureColumn[];
+}
+
 /** 案の比較のページ（主画面の「比較の表」と同じ数字。列は現状と案、差はいつも「その案−基準」） */
 export interface Comparison {
   /** 目標の年（本人の目標の年齢の年） */
@@ -196,6 +227,8 @@ export interface ProposalInput {
   assets: { current: Yen[]; proposal: Yen[] };
   /** 資産と負債の推移（キャッシュフロー表の章の続き。章を外したときは null） */
   balanceSheet: {
+    /** バランスシートの図（今・退職の年・75歳の提案。アプリの「資産と負債」のタブと同じ分け方・共通の縮尺） */
+    figure: BalanceFigure;
     /** 年の抜粋（今・10年後・定年・老後・目標の年）の提案のバランスシート */
     proposal: BalanceSheetView;
     /** 同じ時点の現状の純資産 */

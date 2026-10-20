@@ -1,4 +1,4 @@
-// 積み上げの棒の塗り（模様）と凡例: 収支の推移・資産と負債の推移・説明モード（描くのは MainChart.tsx）。
+// 積み上げの棒の塗り（模様）と凡例: 収支の推移・説明モード（描くのは MainChart.tsx）。
 // 系列はすべてベタ塗り（斜線や点の模様は読みにくいため使わない）。色の明るさを系列ごとに変え、凡例の名前と並び順で区別する
 import type { StackSeries } from "./model.ts";
 
@@ -16,11 +16,6 @@ export const PATTERN: Readonly<Record<string, string>> = {
   deposit: "solid",
   nisa: "solid",
   dc: "solid",
-  finOther: "solid",
-  realEstate: "solid",
-  otherAsset: "solid",
-  mortgage: "solid",
-  debtOther: "solid",
 };
 
 export function Pattern({ k }: { k: string }) {

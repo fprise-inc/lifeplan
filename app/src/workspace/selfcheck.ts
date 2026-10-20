@@ -418,13 +418,17 @@ export async function runPlansCheck(dual: () => DualEngine | null, host: string,
       baseSel.dispatchEvent(new Event("change", { bubbles: true }));
       await sleep(400);
     }
-    // 7. 収支のグラフ・資産と負債のグラフ
+    // 7. 収支のグラフ・資産と負債のタブ（家計のバランスシート）
     await click('[data-chart-tab="flows"]', 700);
     report.flows = { bars: document.querySelectorAll(".main-chart .bar").length, flags: document.querySelectorAll(".main-chart .flag-band").length, lines: document.querySelectorAll(".main-chart .net-sel, .main-chart .net-base").length };
     await stage("flows", report);
-    await click('[data-chart-tab="balance"]', 700);
-    report.balance = { bars: document.querySelectorAll(".main-chart .bar").length, lines: document.querySelectorAll(".main-chart .net-sel, .main-chart .net-base").length };
+    const tabBtn = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("nav.tabs button")].find((b) => b.textContent === label);
+    tabBtn("資産と負債")?.click();
+    await sleep(900);
+    report.balance = { figure: document.querySelectorAll("[data-bs-figure]").length, boxes: document.querySelectorAll("[data-bs-box]").length, trendBars: document.querySelectorAll("[data-bs-trend] .bst-bar").length, eq: text("[data-bs-eq]") };
     await stage("balance", report);
+    tabBtn("結果")?.click();
+    await sleep(900);
     await click('[data-chart-tab="assets"]');
     // 8. 説明モード（3段目まで進める）
     await click("[data-explain-open]");

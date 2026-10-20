@@ -1057,6 +1057,73 @@
   ]
  },
  "balanceSheet": {
+  "figure": {
+   "scale": 92575234,
+   "columns": [
+    {
+     "point": {
+      "year": 2026,
+      "label": "今"
+     },
+     "fact": true,
+     "assets": [
+      {
+       "key": "liquid",
+       "label": "すぐ使えるお金",
+       "amount": 6042602
+      },
+      {
+       "key": "market",
+       "label": "値動きのある運用",
+       "amount": 1511250
+      }
+     ],
+     "liabilities": [
+      {
+       "key": "netWorth",
+       "label": "純資産",
+       "amount": 7553852
+      }
+     ],
+     "negative": 0,
+     "totalAssets": 7553852,
+     "totalLiabilities": 0,
+     "netWorth": 7553852,
+     "financial": 7553852
+    },
+    {
+     "point": {
+      "year": 2036,
+      "label": "10年後（奥様53歳）"
+     },
+     "fact": false,
+     "assets": [
+      {
+       "key": "liquid",
+       "label": "すぐ使えるお金",
+       "amount": 83562743
+      },
+      {
+       "key": "market",
+       "label": "値動きのある運用",
+       "amount": 9012491
+      }
+     ],
+     "liabilities": [
+      {
+       "key": "netWorth",
+       "label": "純資産",
+       "amount": 92575234
+      }
+     ],
+     "negative": 0,
+     "totalAssets": 92575234,
+     "totalLiabilities": 0,
+     "netWorth": 92575234,
+     "financial": 92575234
+    }
+   ]
+  },
   "proposal": {
    "points": [
     {
