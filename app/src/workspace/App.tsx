@@ -24,6 +24,7 @@ import { AiSharePanel } from "./ai/AiSharePanel.tsx";
 import { acceptCandidate as acceptAiCandidate, aiMessage, candidatePlanName, candidateRows, candidateValues, shareState, SHARE_STATE_TEXT } from "./ai/model.ts";
 import { useAi } from "./ai/useAi.ts";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "./catalog.ts";
+import { seedDemo } from "./demoSeed.ts";
 import { ContingencyEngine } from "./contingency/engine.ts";
 import { ContingencyTab, type ContingencyUi } from "./contingency/ContingencyTab.tsx";
 import { HearingTools } from "./hearing/HearingTools.tsx";
@@ -637,6 +638,11 @@ export function App() {
         o = { ...o, wh: seeded.wh };
         band = seeded.ids.slice(0, MAX_BAND);
         shownKeys = seeded.keys;
+      } else if (o.demo !== null && (o.demo.plans !== undefined || o.demo.snapshots !== undefined)) {
+        // 見本に入れておいたプラン（帯に並べる）と控え（前回と比べるの見本）
+        const seeded = await seedDemo(o.wh, o.catalog, o.demo, { now: nowIso(), appVersion: APP_VERSION });
+        o = { ...o, wh: seeded.wh };
+        band = seeded.band.slice(0, MAX_BAND);
       } else if (Object.keys(values).length > 0) {
         const r = savePlan(o.wh, o.catalog, { name: suggestName(o.wh.proposals, values, o.wh, o.catalog), base: null, values, now: nowIso() });
         o = { ...o, wh: r.wh };
