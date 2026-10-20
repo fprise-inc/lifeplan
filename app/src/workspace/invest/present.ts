@@ -171,6 +171,14 @@ export function bandShown(setting: boolean | null, req: EngineRequest): boolean 
 
 // ---- 資産の内訳（ドーナツ）----
 
+/**
+ * 結果の画面のグラフの下に資産の内訳（ドーナツ）を出すか: グラフの上の「口座の内訳を表示」にチェックが入っているときだけ（既定は出さない）。
+ * チェックを出さない入れ方（合計）のときは出さない。入力の「貯蓄・運用」のパネルの中のドーナツはこれに関わらず出す
+ */
+export function donutShown(breakdownSetting: boolean, canBreakdown: boolean): boolean {
+  return breakdownSetting && canBreakdown;
+}
+
 const CLASS_NAME = (cls: string) => CLASSES.find((c) => c.key === cls)?.name ?? ASSET_CLASSES.find((c) => c.value === cls)?.label ?? "その他";
 const CLASS_COLOR: Record<string, string> = Object.fromEntries(CLASSES.map((c) => [c.key, c.color]));
 const EXTRA_COLORS = ["#8e7aa3", "#6f9b84", "#b8a8cf", "#c2c7ce", "#a3845c", "#9fb4d3"];

@@ -5,7 +5,8 @@ import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { accountsOf, dropDoneUnallocated, editTotal, hasUnallocated, methodOf, nisaHitOf, pooledOf, setStopAge, stepsOf, stopAgeOf, switchMethod, totalViewOf, unallocatedOf, writeSteps } from "../src/workspace/input/savings/model.ts";
 import { maxDrawdown, withDrawdown } from "../src/workspace/invest/DrawdownCalc.tsx";
-import { bandOf, breakdownOf, investVerdict, lastsAge, stressRequests } from "../src/workspace/invest/present.ts";
+import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
+import { bandOf, breakdownOf, donutShown, investVerdict, lastsAge, stressRequests } from "../src/workspace/invest/present.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { modelHousehold } from "./helpers.ts";
 
@@ -136,6 +137,13 @@ describe("資産の推移の値", () => {
       { row: "cf.balance.account.realEstate", year: 2030, amount: 999 },
     ]);
     expect(breakdownOf(r.table, [2030])).toEqual([{ key: "nisa", label: "NISA", values: [350] }]);
+  });
+
+  it("結果の画面の資産の内訳（ドーナツ）は「口座の内訳を表示」にチェックが入っているときだけ出す（既定は出さない）", () => {
+    expect(donutShown(DEFAULT_DISPLAY_SETTINGS.invBreakdown, true)).toBe(false);
+    expect(donutShown(true, true)).toBe(true);
+    // チェックを出さない入れ方（合計）では出さない
+    expect(donutShown(true, false)).toBe(false);
   });
 
   it("運用の期間の帯: 積み立てる（推定あり）・据え置く・取り崩す。積立額が変わる年に区切り", () => {

@@ -1,5 +1,6 @@
 // 資産の推移のグラフの上の切り替え（作業の層。0026）: 「□ 口座の内訳を表示」「□ 運用の期間を表示」（表示の設定として覚える）と
 // 「相場が下がった場合を重ねる」（最初は出さない。重ねると3つの線を1本ずつ外せる）。グラフの下の資産の内訳（ドーナツ）の欄
+// （「口座の内訳を表示」にチェックが入っているときだけ出す）
 import { DonutPair, type DonutPane } from "../../presentation/Donut.tsx";
 import type { InvestChartModel } from "../../presentation/model.ts";
 
