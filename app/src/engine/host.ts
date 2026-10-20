@@ -1,6 +1,6 @@
 // 本体（Rust）と画面側のエンジンへの入口
 import { invoke } from "@tauri-apps/api/core";
-import type { EngineError, EngineRequest, FullResult, PreviewResult } from "./types.ts";
+import { isEngineError, type EngineError, type EngineRequest, type FullResult, type PreviewResult } from "./types.ts";
 
 /** 画面側のエンジンのセッション（engine/src/engine/run.ts の Session。JSON の文字列で受け渡す） */
 export interface WebSession {
@@ -500,6 +500,39 @@ export function tauriHost(): HostApi {
   };
 }
 
+/** 今の処理をいったん終え、描画と入力を挟んでから続ける */
+const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/**
+ * 1件だけの正の計算（取り崩しの計算・前回の控えなど、表示の枠の外で頼む計算）。同時に頼まれても安全にする:
+ * 同じ要求が計算中ならその結果を待つ（二重に計算しない）、違う要求は1つずつ順に計算する、
+ * 本体の失敗（投げられた符号）とエンジンのエラーはどちらも null（呼び出し側が「計算しています…」のまま残らない）
+ */
+export function singleCompute(host: Pick<HostApi, "compute">): (req: EngineRequest) => Promise<PreviewResult | null> {
+  const inflight = new Map<string, Promise<PreviewResult | null>>();
+  let queue: Promise<unknown> = Promise.resolve();
+  return (req) => {
+    const request = JSON.stringify(req);
+    const same = inflight.get(request);
+    if (same !== undefined) return same;
+    const run = async (): Promise<PreviewResult | null> => {
+      try {
+        const res = await host.compute([{ id: "calc", rev: 1, request }]);
+        const r = res.slots.calc?.result;
+        return r === undefined || isEngineError(r) ? null : r;
+      } catch {
+        return null;
+      } finally {
+        inflight.delete(request);
+      }
+    };
+    const p = queue.then(run);
+    queue = p;
+    inflight.set(request, p);
+    return p;
+  };
+}
+
 /** 開発用のサーバーの答え（失敗は符号の文字列で投げる。本体の命令と同じ） */
 async function devJson<T>(res: Response): Promise<T> {
   if (!res.ok) throw (await res.text()) || `E_DEV_${res.status}`;
@@ -515,26 +548,43 @@ const devStore = (op: string, args: Record<string, string> = {}) => fetch(`/__de
  * 正の計算の代わりに画面側のエンジンで計算する（quickjs-ng ではない。数字は一致テストで同じことを確かめている）
  */
 export function devBrowserHost(engine: WebEngine): HostApi {
-  let packsText: string | null = null;
-  const packs = async (): Promise<string> => {
-    packsText ??= await (await fetch("/__dev/packs")).text();
+  let packsText: Promise<string> | null = null;
+  const packs = (): Promise<string> => {
+    // 同時に頼まれても読むのは1回（失敗したら次に読み直す）
+    packsText ??= fetch("/__dev/packs").then(
+      (r) => r.text(),
+      (e: unknown) => {
+        packsText = null;
+        throw e;
+      },
+    );
     return packsText;
   };
+  /** 計算の順番待ち（前の計算が終わってから次を始める） */
+  let queue: Promise<unknown> = Promise.resolve();
   return {
     kind: "browser-dev",
     packs,
     listHouseholds: async () => (await fetch("/__dev/households")).json() as Promise<string[]>,
     openHousehold: async (id) => (await fetch(`/__dev/households/${encodeURIComponent(id)}`)).json() as Promise<EngineRequest>,
-    compute: async (slots) => {
-      const p = await packs();
-      const t0 = performance.now();
-      const out: ComputeResponse["slots"] = {};
-      for (const s of slots) {
-        const t = performance.now();
-        const r = JSON.parse(engine.runBatch(`[${s.request}]`, p, '{"preview":true}')) as unknown;
-        out[s.id] = { rev: s.rev, ms: performance.now() - t, result: (Array.isArray(r) ? r[0] : r) as PreviewResult | EngineError };
-      }
-      return { ms: performance.now() - t0, slots: out };
+    // 画面と同じスレッドで計算するので、同時に頼まれても1つずつ順に計算し、1件ごとに描画と入力を挟む
+    // （続けて計算すると、その間ずっと画面が止まる）
+    compute: (slots) => {
+      const run = async (): Promise<ComputeResponse> => {
+        const p = await packs();
+        const t0 = performance.now();
+        const out: ComputeResponse["slots"] = {};
+        for (const s of slots) {
+          await nextTask();
+          const t = performance.now();
+          const r = JSON.parse(engine.runBatch(`[${s.request}]`, p, '{"preview":true}')) as unknown;
+          out[s.id] = { rev: s.rev, ms: performance.now() - t, result: (Array.isArray(r) ? r[0] : r) as PreviewResult | EngineError };
+        }
+        return { ms: performance.now() - t0, slots: out };
+      };
+      const res = queue.then(run);
+      queue = res.catch(() => undefined);
+      return res;
     },
     evidence: async (request) => JSON.parse(engine.run(request, await packs(), "{}")) as FullResult | EngineError,
     // 提案書の PDF とヒアリングシート: 開発用のサーバーが report-pdf のコマンドを呼ぶ・FINANCIA_DEV_SAVE_DIR に書く
