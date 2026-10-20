@@ -17,8 +17,9 @@ import { compareTable, metricsOf } from "../src/workspace/plans/compare.ts";
 import { addRate, mulRate, pctText, subRate } from "../src/workspace/plans/decimal.ts";
 import { buildCatalog, loanStarted, type Catalog } from "../src/workspace/plans/items.ts";
 import { acknowledge, applyValues, changesOf, deletePlan, dropChange, effectiveValues, normalizeValues, overwritePlan, reflectPlan, savePlan, suggestName, type Values } from "../src/workspace/plans/plans.ts";
-import { balanceChart, diffCashflowTable, displayYears, financialOf, flowChart, sumByYear, toPresentation } from "../src/workspace/present.ts";
+import { diffCashflowTable, displayYears, financialOf, flowChart, sumByYear, toPresentation } from "../src/workspace/present.ts";
 import { roles } from "../src/workspace/roles.ts";
+import { bsPlan } from "../src/workspace/balanceTab.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const NOW = "2026-10-17T10:00:00.000Z";
@@ -398,7 +399,7 @@ describe("比較の数字がエンジンの出力と一致する", () => {
   });
 });
 
-describe("収支の推移・資産と負債の推移", () => {
+describe("収支の推移・資産と負債", () => {
   const { wh, cat } = openDemo();
   const demo = demoHousehold("salariedCoupleTwoKids")!;
   const self = roles(wh.request).find((r) => r.key === "self")!.member;
@@ -425,31 +426,23 @@ describe("収支の推移・資産と負債の推移", () => {
     expect(html).toContain("net-base");
   });
 
-  it("金融資産の系列の合計は金融資産（器のマイナスは預金の不足）、負債は住宅ローンの残高、純資産は不動産・その他の資産を含む", () => {
-    const b = balanceChart(r.table, years, years.map(() => null), "資産と負債");
+  it("資産と負債（バランスシートのタブ）: 金融資産は金融資産の行の合計（器のマイナスは資金の不足）、負債は住宅ローンなど、純資産は不動産・その他の資産を含む", () => {
+    const p = bsPlan({ key: "B", letter: "B", name: "プランB", title: "", base: false, req: proposal, table: r.table });
     const finM = financialOf(r.table);
     const debt = sumByYear(r.table, (c) => under(c.row, "cf.balance.debt"));
     const realEstate = sumByYear(r.table, (c) => c.row === "cf.balance.account.realEstate");
     const others = sumByYear(r.table, (c) => ["cf.balance.account.insurance", "cf.balance.account.car", "cf.balance.account.otherAsset"].includes(c.row));
-    years.forEach((y, i) => {
-      const fin = b.assets.filter((x) => x.group === "financial").reduce((s, x) => s + x.values[i]!, 0);
-      const f = finM.get(y) ?? 0;
-      // 積み上げ（マイナスは0）＋預金の不足（0以下）＝金融資産
-      expect(fin + b.shortfall[i]!).toBe(f);
-      expect(b.assets.find((x) => x.key === "realEstate")!.values[i]).toBe(realEstate.get(y) ?? 0);
-      expect(b.assets.find((x) => x.key === "otherAsset")!.values[i]).toBe(others.get(y) ?? 0);
-      expect(b.debts.reduce((s, x) => s + x.values[i]!, 0)).toBe(debt.get(y) ?? 0);
-      expect(b.netWorth[i]).toBe(f + (realEstate.get(y) ?? 0) + (others.get(y) ?? 0) - (debt.get(y) ?? 0));
-    });
+    for (const y of p.years) {
+      const f = finM.get(y.year) ?? 0;
+      // 金融資産（マイナスは0）−資金の不足＝金融資産の行
+      expect(y.financial - y.shortfall).toBe(f);
+      expect(y.totalLiabilities - y.shortfall).toBe(debt.get(y.year) ?? 0);
+      expect(y.netWorth).toBe(f + (realEstate.get(y.year) ?? 0) + (others.get(y.year) ?? 0) - (debt.get(y.year) ?? 0));
+    }
+    // 結果のタブのグラフは資産の推移と収支の推移の2つ（資産と負債の推移はタブへ移した）
     const m: MainChartModel = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: 2031, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
-    expect(renderToString(h(MainLegend, { model: m, mode: "balance", explain: null }))).toContain("純資産");
-    expect(renderToString(h(MainChart, { model: m, mode: "balance", explain: null, ageMark: null, pinnedYear: null, onSelectYear: () => undefined }))).toContain("net-sel");
-  });
-
-  it("主画面の提示用の値に入る", () => {
-    const m = toPresentation({ base: wh.request, proposal, current: preview(wh.request), proposed: r, targetAge: 95, selectedYear: null, provisional: false });
     expect(m.flows.years).toEqual(years);
-    expect(m.balance.assets.map((s) => s.key)).toEqual(["deposit", "nisa", "dc", "finOther", "realEstate", "otherAsset"]);
+    expect("balance" in m).toBe(false);
   });
 });
 

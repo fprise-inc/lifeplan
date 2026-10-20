@@ -1,17 +1,17 @@
 // 主画面のグラフ（提示層の部品）: 幅いっぱい・上下を大きく。重ねるのは基準の案（灰の点線）と選んだ案（藍の実線）の2本だけ。
-// 切り替え: 資産の推移／収支の推移（選んだ案の積み上げ＋年間収支の線2本）／資産と負債の推移（選んだ案の積み上げ＋純資産の線2本）、
+// 切り替え: 資産の推移／収支の推移（選んだ案の積み上げ＋年間収支の線2本）（資産と負債の推移は「資産と負債」のタブ。BalanceTab.tsx）、
 // 説明モード（収入 → 年金 → 支出 → 教育 → 住宅 → 資産の推移を1段ずつ足す）。
 // 数字が変わると、線と面は前の形から新しい形へ補間して動く（tween.ts）。受け取るのは提示用の値だけ（0016 の2）。
 // 年の選び方（yearPick.ts）: カーソルを合わせた年に、線の上の○（選んだ案＝藍の塗り、基準の案＝灰の白抜き）と小さな表示を出す。クリックで固定。
 // 比べ方（表示の設定）: 重ねる（既定。1つのグラフに2本）／左右に並べる（基準の案と選んだ案を2つのグラフにし、縦の目盛り・年の選択をそろえる）／
 // 全部の案を色分けで重ねる（帯の全部の案を1つのグラフに。色・線の種類・線の端の印で描き分け、見た目は planLines.tsx。積み上げの棒は重ねられないので、
-// 収支は年間収支、資産と負債は純資産の線で比べる）。
+// 収支は年間収支の線で比べる）。
 // x 軸の上の丸は年のイベント。カーソルを合わせるかキーボードで選ぶと、年と中身の小さな表示を出す
 import type { RefObject } from "preact";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { areaAbove, areaBelow, eventRows, linePath, multiDomain, scale, scaleOf, spreadX, type Frame, type Scale } from "./chart.ts";
 import { group, man } from "./format.ts";
-import type { AgeMark, BalanceChartModel, BaseCharts, ChartModel, EventChip, ExplainModel, FlowChartModel, InvestChartModel, PlanLineModel, SeriesNames, StackSeries, Yen } from "./model.ts";
+import type { AgeMark, BaseCharts, ChartModel, EventChip, ExplainModel, FlowChartModel, InvestChartModel, PlanLineModel, SeriesNames, StackSeries, Yen } from "./model.ts";
 import { EVENT_R, EventDotSvg, EventTip, eventLabel, useEventFocus } from "./EventDot.tsx";
 import { lineOf, MULTI_WHAT, PlanMarker, PlanSwatch, planStyles, type PlanStyle } from "./planLines.tsx";
 import { PeriodBand, stackAreas, stressPaths } from "./InvestLayers.tsx";
@@ -19,11 +19,10 @@ import { Pattern, Swatch } from "./StackChart.tsx";
 import { useSwitchEase, useTween, type Series } from "./tween.ts";
 import { estimateWidth, indexAt, placeAbove, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
 
-export type ChartMode = "assets" | "flows" | "balance";
+export type ChartMode = "assets" | "flows";
 export const CHART_MODES: readonly { id: ChartMode; label: string }[] = [
   { id: "assets", label: "資産の推移" },
   { id: "flows", label: "収支の推移" },
-  { id: "balance", label: "資産と負債の推移" },
 ];
 
 /** 比べ方: 重ねる（既定。基準の案と選んだ案）／左右に並べる（基準の案と選んだ案）／全部の案を色分けで重ねる */
@@ -33,8 +32,7 @@ export type ChartLayout = "overlay" | "side" | "all";
 export interface MainChartModel {
   chart: ChartModel;
   flows: FlowChartModel;
-  balance: BalanceChartModel;
-  baseLines: { net: Yen[]; netWorth: Yen[] };
+  baseLines: { net: Yen[] };
   baseCharts: BaseCharts;
   events: EventChip[];
   names: SeriesNames;
@@ -51,8 +49,8 @@ export function multiOn(layout: ChartLayout, explain: unknown, model: MainChartM
   return layout === "all" && explain === null && (model.plans ?? []).some((p) => p.financial !== null);
 }
 
-/** 全部の案を重ねる表示の補間の系列の名前（a: 金融資産、f: 年間収支、b: 純資産） */
-const multiKey = (key: string, mode: ChartMode) => `p.${key}.${mode === "flows" ? "f" : mode === "balance" ? "b" : "a"}`;
+/** 全部の案を重ねる表示の補間の系列の名前（a: 金融資産、f: 年間収支） */
+const multiKey = (key: string, mode: ChartMode) => `p.${key}.${mode === "flows" ? "f" : "a"}`;
 
 /** グラフの高さ: 画面の高さに合わせる（ノートPCで約520px、大きい画面で最大700px。文字を大きくすると上下の帯の分を広く見る） */
 export function chartHeight(innerHeight: number, fontPx: number): number {
@@ -73,21 +71,16 @@ export function sideLayout(w: number, h: number, fs: number): { stacked: boolean
 // ---- 補間する数字の束（系列の名前 → 年ごとの値）----
 
 function flatten(m: MainChartModel, ex: ExplainModel | null): Series {
-  const out: Record<string, readonly number[]> = { "a.sel": m.chart.proposal, "a.base": m.chart.current, "f.net": m.flows.net, "f.bnet": m.baseLines.net, "b.short": m.balance.shortfall, "b.nw": m.balance.netWorth, "b.bnw": m.baseLines.netWorth, "bb.short": m.baseCharts.balance.shortfall };
+  const out: Record<string, readonly number[]> = { "a.sel": m.chart.proposal, "a.base": m.chart.current, "f.net": m.flows.net, "f.bnet": m.baseLines.net };
   for (const s of m.flows.income) out[`fi.${s.key}`] = s.values;
   for (const s of m.flows.expense) out[`fe.${s.key}`] = s.values;
-  for (const s of m.balance.assets) out[`ba.${s.key}`] = s.values;
-  for (const s of m.balance.debts) out[`bd.${s.key}`] = s.values;
   // 基準の案の積み上げ（左右に並べる表示で使う。重ねる表示でも同じ束で補間しておき、切り替えても形がつながる）
   for (const s of m.baseCharts.flows.income) out[`bfi.${s.key}`] = s.values;
   for (const s of m.baseCharts.flows.expense) out[`bfe.${s.key}`] = s.values;
-  for (const s of m.baseCharts.balance.assets) out[`bba.${s.key}`] = s.values;
-  for (const s of m.baseCharts.balance.debts) out[`bbd.${s.key}`] = s.values;
   if (ex !== null) for (const k of ["work", "pension", "living", "education", "housing", "financial"] as const) out[`x.${k}`] = ex[k];
   for (const p of m.plans ?? []) {
     if (p.financial !== null) out[multiKey(p.key, "assets")] = p.financial;
     if (p.net !== null) out[multiKey(p.key, "flows")] = p.net;
-    if (p.netWorth !== null) out[multiKey(p.key, "balance")] = p.netWorth;
   }
   return out;
 }
@@ -105,7 +98,7 @@ export function planModel(m: MainChartModel, who: PlanSide): MainChartModel {
     return {
       ...m,
       chart: { ...m.chart, current: m.chart.proposal, depletions: m.chart.depletions.filter((d) => d.series === "proposal") },
-      baseLines: { net: m.flows.net, netWorth: m.balance.netWorth },
+      baseLines: { net: m.flows.net },
       names: { ...m.names, base: m.names.selected, same: true },
     };
   const { invest: _invest, ...rest } = m;
@@ -114,7 +107,6 @@ export function planModel(m: MainChartModel, who: PlanSide): MainChartModel {
     ...rest,
     chart: { ...m.chart, proposal: m.chart.current, depletions: m.chart.depletions.filter((d) => d.series === "current").map((d) => ({ ...d, series: "proposal" as const })) },
     flows: m.baseCharts.flows,
-    balance: m.baseCharts.balance,
     events: m.baseCharts.events,
     names: { ...m.names, selected: m.names.base, same: true },
   };
@@ -123,8 +115,6 @@ export function planModel(m: MainChartModel, who: PlanSide): MainChartModel {
 const BASE_PREFIX: readonly [string, string][] = [
   ["bfi.", "fi."],
   ["bfe.", "fe."],
-  ["bba.", "ba."],
-  ["bbd.", "bd."],
 ];
 
 /** 補間した束を、その案だけのグラフの名前に読み替える（基準の案は基準の系列を選んだ案の名前で読む） */
@@ -139,8 +129,6 @@ export function planSeries(t: Series, who: PlanSide): Series {
   for (const [to, from] of [
     ["a.sel", "a.base"],
     ["f.net", "f.bnet"],
-    ["b.nw", "b.bnw"],
-    ["b.short", "bb.short"],
   ] as const)
     if (t[from] !== undefined) out[to] = t[from];
   return out;
@@ -157,27 +145,12 @@ function flowParts(m: MainChartModel, t: Series, n: number) {
   return { inc: withValues(m.flows.income, t, "fi", n), exp: withValues(m.flows.expense, t, "fe", n), net: pick(t, "f.net", n), bnet: pick(t, "f.bnet", n) };
 }
 
-function balanceParts(m: MainChartModel, t: Series, n: number) {
-  const nonZero = (list: StackSeries[]) => (x: StackSeries) => list.find((y) => y.key === x.key)?.values.some((v) => v > 0) === true;
-  return {
-    as: withValues(m.balance.assets, t, "ba", n).filter(nonZero(m.balance.assets)),
-    ds: withValues(m.balance.debts, t, "bd", n).filter(nonZero(m.balance.debts)),
-    short: pick(t, "b.short", n).map((v) => -v),
-    nw: pick(t, "b.nw", n),
-    bnw: pick(t, "b.bnw", n),
-  };
-}
-
 /** 縦の目盛りを決める系列（説明モードの外）。左右に並べる表示では、もう一方の案の分も足して目盛りをそろえる */
 export function scaleInputs(m: MainChartModel, t: Series, mode: ChartMode, n: number): number[][] {
   const same = m.names.same;
   if (mode === "flows") {
     const p = flowParts(m, t, n);
     return [totals(p.inc, n, 1), totals(p.exp, n, -1), p.net, same ? [] : p.bnet];
-  }
-  if (mode === "balance") {
-    const p = balanceParts(m, t, n);
-    return [totals(p.as, n, 1), totals(p.ds, n, -1, p.short), p.nw, same ? [] : p.bnw];
   }
   const aSel = pick(t, "a.sel", n);
   return same ? [aSel] : [aSel, pick(t, "a.base", n)];
@@ -673,23 +646,6 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         baseText: same ? null : at(model.baseLines.net),
         extra: `収入 ${man(sumAt(model.flows.income))}万円・支出 ${man(sumAt(model.flows.expense))}万円（${model.names.selected}）`,
       };
-  } else if (mode === "balance") {
-    const { as, ds, short, nw, bnw } = balanceParts(model, t, n);
-    s = scale([...scaleInputs(model, t, mode, n), ...scaleWith], n, f);
-    keys.push(...as.map((x) => x.key), ...ds.map((x) => x.key));
-    body = bars(as, ds, s, n, short);
-    if (!same) body.push(<path key="bnw" d={linePath(bnw, s)} class="net-base" />);
-    body.push(<path key="nw" d={linePath(nw, s)} class="net-sel" />);
-    zeroLabels = ["↑ 資産", "↓ 負債"];
-    if (selIdx >= 0)
-      mark = {
-        sel: s.y(nw[selIdx] ?? 0),
-        base: same ? null : s.y(bnw[selIdx] ?? 0),
-        lead: "純資産",
-        selText: at(model.balance.netWorth),
-        baseText: same ? null : at(model.baseLines.netWorth),
-        extra: `資産 ${man(sumAt(model.balance.assets))}万円（うち不動産 ${man(sumAt(model.balance.assets.filter((x) => x.group === "realEstate")))}万円）・負債 ${man(sumAt(model.balance.debts) + Math.max(0, -(model.balance.shortfall[selIdx] ?? 0)))}万円（${model.names.selected}）`,
-      };
   } else {
     const aSel = pick(t, "a.sel", n);
     const aBase = pick(t, "a.base", n);
@@ -961,7 +917,6 @@ export function MainLegend({ model, mode, explain, side = false }: { model: Main
   // 左右に並べる表示: 案の名前は各グラフの上に出すので、凡例は線・積み上げの種類だけ
   const nm = side ? { ...model.names, same: true } : model.names;
   const sel = (label: string) => (side ? label : `${label} ${nm.selected}`);
-  const anyPositive = (list: StackSeries[], other: StackSeries[]) => list.filter((x) => x.values.some((v) => v > 0) || (side && other.find((y) => y.key === x.key)?.values.some((v) => v > 0) === true));
   const base = nm.same ? null : (
     <span class="lg base">
       <i />
@@ -1009,27 +964,6 @@ export function MainLegend({ model, mode, explain, side = false }: { model: Main
         <i />
         赤字の年（▲）
       </span>,
-    ];
-  } else if (mode === "balance") {
-    items = [
-      ...anyPositive(model.balance.assets, model.baseCharts.balance.assets).map((x) => sw(x.key, x.label)),
-      ...anyPositive(model.balance.debts, model.baseCharts.balance.debts).map((x) => sw(x.key, x.label)),
-      model.balance.shortfall.some((v) => v < 0) || (side && model.baseCharts.balance.shortfall.some((v) => v < 0)) ? (
-        <span class="lg short" key="short">
-          <i />
-          預金の不足（▲）
-        </span>
-      ) : null,
-      <span class="lg net" key="nw">
-        <i />
-        {sel("純資産（不動産を含む）")}
-      </span>,
-      nm.same ? null : (
-        <span class="lg base" key="bnw">
-          <i />
-          純資産 {nm.base}（基準）
-        </span>
-      ),
     ];
   } else {
     items = [

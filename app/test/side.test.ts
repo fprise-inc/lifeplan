@@ -113,7 +113,7 @@ describe("グラフを左右に並べる表示（表示の設定）", () => {
     expect(html.match(/class="line-prop"/g)).toHaveLength(2);
   });
 
-  for (const mode of ["assets", "flows", "balance"] as ChartMode[])
+  for (const mode of ["assets", "flows"] as ChartMode[])
     it(`縦の目盛りは2つのグラフでそろえる（${mode}）。グラフの種類も同じ`, () => {
       const html = renderToString(h(MainChart, { model: model(), mode, explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop, layout: "side" }));
       const [a, b] = tickLabels(html);
@@ -124,11 +124,10 @@ describe("グラフを左右に並べる表示（表示の設定）", () => {
 
   it("目盛りは両方の案を覆う（基準の案の系列は基準の積み上げから読む）", () => {
     const m = model();
-    const t = { "a.sel": m.chart.proposal, "a.base": m.chart.current, "f.net": m.flows.net, "f.bnet": m.baseLines.net, "bb.short": m.baseCharts.balance.shortfall, "b.bnw": m.baseLines.netWorth };
+    const t = { "a.sel": m.chart.proposal, "a.base": m.chart.current, "f.net": m.flows.net, "f.bnet": m.baseLines.net };
     const base = planSeries(t, "base");
     expect(base["a.sel"]).toBe(m.chart.current);
     expect(base["f.net"]).toBe(m.baseLines.net);
-    expect(base["b.short"]).toBe(m.baseCharts.balance.shortfall);
     const pb = planModel(m, "base");
     expect(pb.names).toEqual({ selected: "プランA", base: "プランA", same: true });
     expect(pb.flows).toBe(m.baseCharts.flows);

@@ -80,6 +80,24 @@ describe("帳票の入力", () => {
           });
         }
         const bs = input.balanceSheet!;
+        // 図（今・退職の年・75歳）: 箱の合計は左右で同じ（資産の合計＝負債の合計＋純資産）、純資産は抜粋の表と同じ年の値
+        const fig = bs.figure;
+        expect(fig.columns.length).toBeGreaterThanOrEqual(2);
+        expect(fig.columns.length).toBeLessThanOrEqual(3);
+        expect(fig.columns[0]).toMatchObject({ fact: true, point: { label: "今" } });
+        expect(fig.columns.slice(1).every((c) => !c.fact)).toBe(true);
+        for (const c of fig.columns) {
+          const left = c.assets.reduce((s2, b) => s2 + b.amount, 0) + c.negative;
+          const right = c.liabilities.reduce((s2, b) => s2 + b.amount, 0);
+          expect(left).toBe(right);
+          expect(c.assets.reduce((s2, b) => s2 + b.amount, 0)).toBe(c.totalAssets);
+          expect(c.totalAssets).toBe(c.totalLiabilities + c.netWorth);
+          expect(fig.scale).toBeGreaterThanOrEqual(Math.max(c.totalAssets, c.totalLiabilities));
+          expect(c.assets.map((b) => b.key).every((k) => ["liquid", "market", "locked", "illiquid"].includes(k))).toBe(true);
+          const k = bs.proposal.points.findIndex((p) => p.year === c.point.year);
+          expect(k).toBeGreaterThanOrEqual(0);
+          expect(bs.proposal.netWorth[k]).toBe(c.netWorth);
+        }
         expect(bs.netWorth.proposal).toHaveLength(input.basis.years.length);
         const years = bs.proposal.points.map((p) => p.year);
         expect([...years].sort((a, b) => a - b)).toEqual(years);

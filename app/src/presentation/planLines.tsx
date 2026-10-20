@@ -62,12 +62,11 @@ export function PlanSwatch({ style, w = 34, h = 14 }: { style: PlanStyle; w?: nu
 export const MULTI_WHAT: Record<ChartMode, { lead: string; caption: string; zone: string }> = {
   assets: { lead: "金融資産", caption: "全部のプランの金融資産の推移（色で描き分け）", zone: "0未満は不足" },
   flows: { lead: "年間収支", caption: "全部のプランの年間収支（収入−支出）の線（積み上げの棒は出しません）", zone: "0未満は赤字" },
-  balance: { lead: "純資産", caption: "全部のプランの純資産（不動産・その他の資産を含む資産−負債）の線（積み上げの棒は出しません）", zone: "0未満は負債が上回る" },
 };
 
 /** そのプランのその種類の線（計算中は null） */
 export function lineOf(p: PlanLineModel, mode: ChartMode): readonly number[] | null {
-  return mode === "flows" ? p.net : mode === "balance" ? p.netWorth : p.financial;
+  return mode === "flows" ? p.net : p.financial;
 }
 
 export interface MultiLegendProps {

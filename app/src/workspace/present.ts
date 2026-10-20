@@ -1,7 +1,7 @@
 // 計算結果と世帯から、提示用の値（PresentationModel。0016 の2）を作る。許可した項目だけを選んで写す
 import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts";
 import { ROW_LABELS } from "../generated/labels.ts";
-import type { BalanceChartModel, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
+import type { CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
@@ -340,7 +340,6 @@ export function toPresentation(input: PresentInput): PresentationModel {
   const evs = eventsOf(proposal, proposed.table, years);
   const table = cashflowTable(proposal, proposed.table, years, custom ? "生涯キャッシュフロー表" : "生涯キャッシュフロー表（提案）", evs);
   const baseFlows = flowChart(input.baseProposal ?? base, current.table, years, custom ? `収支の推移（${names.base}）` : "収支の推移（現状）");
-  const baseBalance = balanceChart(current.table, years, chart.ages, custom ? `資産と負債の推移（${names.base}）` : "資産と負債の推移（現状）");
 
 
   const { y: by, m: bm } = parseYm(base.input.baseMonth);
@@ -353,9 +352,8 @@ export function toPresentation(input: PresentInput): PresentationModel {
     names,
     chart,
     flows: flowChart(proposal, proposed.table, years, "収支の推移（提案）"),
-    balance: balanceChart(proposed.table, years, chart.ages, "資産と負債の推移（提案）"),
-    baseLines: { net: baseFlows.net, netWorth: baseBalance.netWorth },
-    baseCharts: { flows: baseFlows, balance: baseBalance, events: eventsOf(input.baseProposal ?? base, current.table, years) },
+    baseLines: { net: baseFlows.net },
+    baseCharts: { flows: baseFlows, events: eventsOf(input.baseProposal ?? base, current.table, years) },
     who: self?.label ?? "",
     selectedYear,
     yearDetail,
@@ -444,7 +442,7 @@ export function withDiff(req: EngineRequest, table: CashflowTableModel, shown: r
   return { ...table, rows };
 }
 
-// ---- 収支の推移・資産と負債の推移 ----
+// ---- 収支の推移（資産と負債の推移は balanceTab.ts）----
 
 const series = (key: string, label: string, table: readonly TableCell[], years: readonly number[], pred: (c: TableCell) => boolean): StackSeries => {
   const m = sumByYear(table, pred);
@@ -474,47 +472,5 @@ export function flowChart(req: EngineRequest, table: readonly TableCell[], years
       series("expenseOther", "その他（税・社会保険料など）", table, years, (c) => (under(c.row, "cf.expense") && !known.some((p) => under(c.row, p))) || under(c.row, "cf.taxSi")),
     ],
     net: years.map((y) => net.get(y) ?? 0),
-  };
-}
-
-const NISA_ROWS = ["cf.balance.account.nisa", "cf.balance.account.childNisa", "cf.balance.account.juniorNisa", "cf.balance.account.legacyNisa"];
-const DC_ROWS = ["cf.balance.account.ideco", "cf.balance.account.corporateDc"];
-/** 不動産の行（持ち家の評価額と、住まい以外の不動産。金融資産の合計 cf.balance.financial には入らない） */
-export const REAL_ESTATE_ROW = "cf.balance.account.realEstate";
-/** その他の資産の行（保険の解約返戻金・車の評価額・その他の資産。金融資産の合計には入らない） */
-export const OTHER_ASSET_ROWS: readonly string[] = ["cf.balance.account.insurance", "cf.balance.account.car", "cf.balance.account.otherAsset"];
-/** 金融資産の器の行（器ごとの残高のうち、不動産・その他の資産を除いたもの。合計は cf.balance.financial と同じ） */
-export const isFinancialRow = (row: string): boolean => under(row, "cf.balance.account") && row !== REAL_ESTATE_ROW && !OTHER_ASSET_ROWS.includes(row);
-
-/**
- * 資産と負債の推移（全資産・全負債のバランスシート）: 資産（金融資産の内訳・不動産・その他の資産）を上に、負債（住宅ローン・その他）を下に積み、
- * 純資産（資産−負債。不動産・その他の資産を含む）の線を引く。金融資産の器のマイナス（預金の不足）は負債の側に斜線で積む
- */
-export function balanceChart(table: readonly TableCell[], years: number[], ages: (number | null)[], title: string): BalanceChartModel {
-  const pos = (s: StackSeries): StackSeries => ({ ...s, values: s.values.map((v) => Math.max(0, v)) });
-  const known = (row: string) => row === "cf.balance.account.deposit" || NISA_ROWS.includes(row) || DC_ROWS.includes(row);
-  const financial: StackSeries[] = [
-    series("deposit", "預金", table, years, (c) => c.row === "cf.balance.account.deposit"),
-    series("nisa", "NISA", table, years, (c) => NISA_ROWS.includes(c.row)),
-    series("dc", "iDeCo・企業型DC", table, years, (c) => DC_ROWS.includes(c.row)),
-    series("finOther", "その他の金融資産（課税口座・財形など）", table, years, (c) => isFinancialRow(c.row) && !known(c.row)),
-  ].map((x) => ({ ...x, group: "financial" as const }));
-  const others: StackSeries[] = [
-    { ...series("realEstate", "不動産", table, years, (c) => c.row === REAL_ESTATE_ROW), group: "realEstate" },
-    { ...series("otherAsset", "その他の資産（車・保険の解約返戻金など）", table, years, (c) => OTHER_ASSET_ROWS.includes(c.row)), group: "other" },
-  ];
-  const debts = [
-    series("mortgage", "住宅ローン", table, years, (c) => c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest"),
-    series("debtOther", "その他の負債", table, years, (c) => c.row === "cf.balance.debt.other"),
-  ];
-  const at = (list: StackSeries[], i: number) => list.reduce((s, x) => s + (x.values[i] ?? 0), 0);
-  return {
-    title,
-    years,
-    ages,
-    assets: [...financial, ...others].map(pos),
-    debts,
-    shortfall: years.map((_, i) => financial.reduce((s, x) => s + Math.min(0, x.values[i] ?? 0), 0)),
-    netWorth: years.map((_, i) => at(financial, i) + at(others, i) - at(debts, i)),
   };
 }

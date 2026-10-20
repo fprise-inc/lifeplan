@@ -143,10 +143,8 @@ export interface PresentationModel {
   chart: ChartModel;
   /** 収支の推移（選んだ案） */
   flows: FlowChartModel;
-  /** 資産と負債の推移（選んだ案） */
-  balance: BalanceChartModel;
-  /** 基準の案の線（年間収支・純資産）。収支・資産と負債のグラフに点線で重ねる */
-  baseLines: { net: Yen[]; netWorth: Yen[] };
+  /** 基準の案の線（年間収支）。収支のグラフに点線で重ねる */
+  baseLines: { net: Yen[] };
   /** 基準の案の積み上げと年のイベント（グラフを左右に並べる表示で、基準の案の側に使う） */
   baseCharts: BaseCharts;
   /** 本人の呼び方（例: ご主人）。グラフの年の札に使う */
@@ -162,10 +160,9 @@ export interface PresentationModel {
   provisional: boolean;
 }
 
-/** 基準の案の収支・資産と負債の積み上げと、年のイベント */
+/** 基準の案の収支の積み上げと、年のイベント */
 export interface BaseCharts {
   flows: FlowChartModel;
-  balance: BalanceChartModel;
   events: EventChip[];
 }
 
@@ -291,15 +288,13 @@ export interface ContingencyModel {
   scenario: { status: "loading" | "ready" | "error"; model: ScenarioModel | null; error: string | null; stale: boolean };
 }
 
-// ---- 主画面のグラフの切り替え（収支の推移・資産と負債の推移）----
+// ---- 主画面のグラフの切り替え（収支の推移）----
 
 /** 積み上げの1つの系列（例: 給与・生活費）。pattern は色だけに頼らないための塗りの模様の名前 */
 export interface StackSeries {
   key: string;
   label: string;
   values: Yen[];
-  /** 資産と負債の推移の資産の区分（金融資産・不動産・その他の資産）。バランスシートの表のまとめ方に使う */
-  group?: "financial" | "realEstate" | "other";
 }
 
 /** 収支の推移: 年ごとの収入（上に積む）と支出（下に積む）。赤字（年間収支がマイナス）の年は「▲」で示す */
@@ -311,19 +306,6 @@ export interface FlowChartModel {
   expense: StackSeries[];
   /** 年間収支（収入−支出−税・社会保険料） */
   net: Yen[];
-}
-
-/** 資産と負債の推移（全資産・全負債）: 資産（金融資産の内訳・不動産・その他の資産。上に積む）と負債（下に積む）、純資産（資産−負債）の線 */
-export interface BalanceChartModel {
-  title: string;
-  years: number[];
-  ages: (number | null)[];
-  assets: StackSeries[];
-  debts: StackSeries[];
-  /** 預金の不足（金融資産の器のマイナスの合計。0以下。赤の斜線で負債の側に積む） */
-  shortfall: Yen[];
-  /** 純資産（金融資産＋不動産＋その他の資産−負債） */
-  netWorth: Yen[];
 }
 
 // ---- 案の比較 ----
@@ -409,8 +391,6 @@ export interface PlanLineModel {
   financial: Yen[] | null;
   /** 年間収支 */
   net: Yen[] | null;
-  /** 純資産 */
-  netWorth: Yen[] | null;
 }
 
 export interface PlanBandModel {
@@ -468,4 +448,129 @@ export interface InvestChartModel {
   stress: StressLineModel[] | null;
   /** 表示の設定（口座の内訳・運用の期間の帯）と、一時的に外した相場の線 */
   view: { breakdown: boolean; band: boolean; stressHidden: readonly string[] };
+}
+
+// ---- 資産と負債のタブ（家計のバランスシート）----
+
+/** 資産の4つの分け方（すぐ使える・値動きあり・引き出せない・換金しにくい）と、負債の2つ（住宅ローン・その他の負債） */
+export type BsGroupKey = "liquid" | "market" | "locked" | "illiquid" | "mortgage" | "debt";
+
+/** 箱の中の項目（例: 預金・NISA・持ち家（土地・建物）・資金の不足）。key は提示用の鍵（物の ID を含まない） */
+export interface BsLineModel {
+  key: string;
+  label: string;
+  group: BsGroupKey;
+  amount: Yen;
+}
+
+/** 推移のつまみの上の札・この年の出来事の種類 */
+export type BsMarkKind = "retire" | "pension" | "loan" | "short" | "neg" | "other";
+
+/** その年の年末のバランスシート（1つのプラン） */
+export interface BsYearModel {
+  year: number;
+  /** 本人の年齢 */
+  age: number | null;
+  /** 例: 「ご主人45歳・奥様43歳」 */
+  members: string;
+  /** 今の年（入力した値から出した事実）。先の年は見込み */
+  fact: boolean;
+  /** 0 より大きい項目（分け方の順） */
+  lines: BsLineModel[];
+  totalAssets: Yen;
+  /** 負債の合計（資金の不足を含む） */
+  totalLiabilities: Yen;
+  /** 資産の合計−負債の合計 */
+  netWorth: Yen;
+  /** 金融資産（すぐ使える・値動きあり・引き出せないの合計） */
+  financial: Yen;
+  /** 資金の不足（金融資産が尽きた後の足りない分。負債の側に積む） */
+  shortfall: Yen;
+  /** その年の生活費（年額。家計の体力の目安の「何か月分」に使う） */
+  living: Yen;
+  /** この年の出来事（例: 退職・住宅ローン完済） */
+  events: { kind: BsMarkKind; text: string }[];
+  /** ひと言の解説（1行目と2行目） */
+  say: { head: VerdictPart[]; sub: VerdictPart[] };
+  /** バランスシートで見えること */
+  insight: VerdictPart[];
+  /** 箱を押したときの説明（分け方ごと・純資産・純資産のマイナス） */
+  notes: Partial<Record<BsGroupKey | "netWorth" | "neg", string>>;
+}
+
+/** 1つのプランのバランスシート（今の年から表の最後の年まで） */
+export interface BsPlanModel {
+  /** 帯の文字（提示用の鍵） */
+  key: string;
+  letter: string;
+  /** 例: 「プランB」 */
+  name: string;
+  /** 例: 「65歳まで働く」 */
+  title: string;
+  base: boolean;
+  years: BsYearModel[];
+  /** つまみの上の札（退職・ローン完済・資金が不足・純資産マイナス）。index は years の番号 */
+  marks: { index: number; kind: BsMarkKind; label: string }[];
+  /** 主な年へ（今・10年後・退職の年・75歳）。範囲の外は入れない */
+  jumps: { key: "now" | "ten" | "retire" | "age75"; label: string; index: number }[];
+  /** 帯の小さな状態（例: 「86歳で資金が不足」） */
+  status: { text: string; ok: boolean };
+}
+
+/** 家計の体力の目安の幅（事務所の設定。FP が変えられる） */
+export interface BsGuide {
+  /** すぐ使えるお金が生活費の何か月分か（下限・上限） */
+  months: [number, number];
+  /** 資産のうち値動きのある資産の割合（%。下限・上限） */
+  risk: [number, number];
+  /** 負債の重さ（負債 ÷ 資産。%）の目安の上限（未満） */
+  debt: number;
+}
+
+/** 前回と比べる: 控えで見込んでいた今と、今の実際 */
+export interface BsPrevModel {
+  key: string;
+  /** 例: 「2025年10月の控え（手動）」 */
+  label: string;
+  /** 例: 「1年前」 */
+  ago: string;
+  /** 控えで見込んでいた今のバランスシート（出せないときは null と理由） */
+  expected: BsYearModel | null;
+  reason: string | null;
+  actual: BsYearModel;
+  /** 差の1文 */
+  summary: VerdictPart[];
+  /** 差の大きい項目（例: 「預金が見込みより130万円少ない」） */
+  items: string[];
+}
+
+/**
+ * カスタマイズで足す見るもの（例: 合算BS）の差し込み口。カスタム層の計算部品が値を出し、画面は同じ図の部品で並べて描く（0027）。
+ * 今は公式の画面からは作らない（入口と考え方だけ）
+ */
+export interface BsCustomViewModel {
+  key: string;
+  /** 例: 「合算BS」 */
+  label: string;
+  /** 並べる図（例: 会社・経営者個人（家計）・合算）。共通の縮尺で描く */
+  columns: { name: string; at: BsYearModel }[];
+  note: string;
+}
+
+export interface BalanceTabModel {
+  /** 本人の呼び方（例: ご主人） */
+  who: string;
+  /** 分け方の名前と短い名前 */
+  groups: Record<BsGroupKey, { name: string; short: string }>;
+  /** 帯の順（現状を含む）。計算が済んだプランだけ */
+  plans: BsPlanModel[];
+  selected: string;
+  base: string;
+  guide: BsGuide;
+  /** 控え（新しい順）。空なら「前回と比べる」を出さない */
+  prevChoices: { key: string; label: string }[];
+  prev: { status: "idle" | "loading" | "ready"; model: BsPrevModel | null };
+  /** カスタマイズで足した見るもの（今は空） */
+  customViews: BsCustomViewModel[];
+  provisional: boolean;
 }

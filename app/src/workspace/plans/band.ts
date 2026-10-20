@@ -4,7 +4,7 @@
 // 画面の呼び方は「プラン」（表記は「プランB」）。コードの中の名前は proposal・plan のまま。以前の名前の頭の「B案」も読む
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { PlanBandModel, PlanCardModel, PlanLineModel } from "../../presentation/model.ts";
-import { balanceChart, depletionYear, displayYears, financialOf, sumByYear } from "../present.ts";
+import { depletionYear, displayYears, financialOf, sumByYear } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
 import { cardMetrics, type DisplaySettings } from "../settings.ts";
 import { metricsOf } from "./compare.ts";
@@ -99,17 +99,17 @@ export interface BandInput {
   colors: ReadonlyMap<string, number>;
 }
 
-/** 全部のプランを色分けで重ねる表示の線（帯の順。プランの名前と色の番号と、金融資産・年間収支・純資産の数字だけ） */
+/** 全部のプランを色分けで重ねる表示の線（帯の順。プランの名前と色の番号と、金融資産・年間収支の数字だけ） */
 export function planLinesModel(input: Omit<BandInput, "modified" | "settings">): PlanLineModel[] {
   const years = displayYears(input.req);
   return input.slots.map((slot) => {
     const l = input.letters.get(slot) ?? { letter: "?", name: "" };
     const r = input.results.get(slot) ?? null;
     const line = { key: l.letter, name: planLabel(l.letter), title: l.name, base: slot === input.base, selected: slot === input.selected, colorIndex: input.colors.get(slot) ?? 0 };
-    if (r === null) return { ...line, financial: null, net: null, netWorth: null };
+    if (r === null) return { ...line, financial: null, net: null };
     const fin = financialOf(r.table);
     const net = sumByYear(r.table, (c) => c.row === "cf.net");
-    return { ...line, financial: years.map((y) => fin.get(y) ?? 0), net: years.map((y) => net.get(y) ?? 0), netWorth: balanceChart(r.table, years, [], "").netWorth };
+    return { ...line, financial: years.map((y) => fin.get(y) ?? 0), net: years.map((y) => net.get(y) ?? 0) };
   });
 }
 

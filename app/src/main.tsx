@@ -7,6 +7,7 @@ import "./styles/wire.css";
 import "./styles/store.css";
 import "./styles/ai.css";
 import "./styles/invest.css";
+import "./styles/balance.css";
 import { render } from "preact";
 import { App } from "./workspace/App.tsx";
 

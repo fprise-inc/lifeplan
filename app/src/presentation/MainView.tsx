@@ -6,7 +6,6 @@ import type { AgeMark, CashflowTableModel, EventChip, ExplainModel, FeeLine, Goa
 import { EventDotHtml, EventTip, eventLabel, placeFixedAbove, useEventFocus } from "./EventDot.tsx";
 import { man, manDiff } from "./format.ts";
 import { CHART_MODES, ExplainBar, MainChart, MainLegend, multiOn, type ChartLayout, type ChartMode, type MainChartModel } from "./MainChart.tsx";
-import { BalanceSheet, type BalanceSheetPane } from "./BalanceSheet.tsx";
 import { MultiLegend } from "./planLines.tsx";
 
 export interface Selectors {
@@ -240,28 +239,9 @@ export function ResultCard(p: ResultCardProps) {
       {ex === null ? (p.bar ?? null) : null}
       <LegendAndChart {...p} />
       {ex === null ? (p.after ?? null) : null}
-      {ex === null && p.mode === "balance" ? <YearSheet {...p} /> : null}
       {ex !== null ? <ExplainBar model={ex.model} step={step} onStep={(i) => p.onExplain(i)} onClose={() => p.onExplain(null)} /> : null}
     </section>
   );
-}
-
-/** 資産と負債の推移の下に出す、その年のバランスシート（固定した年。固定していなければ既定の年）。左右に並べる表示では基準と選んだ案の2つ */
-function YearSheet(p: ResultCardProps) {
-  const m = p.model;
-  const years = m.chart.years;
-  const year = p.pinnedYear !== null && years.includes(p.pinnedYear) ? p.pinnedYear : years.includes(m.selectedYear) ? m.selectedYear : (years[0] ?? null);
-  if (year === null) return null;
-  const age = m.chart.ages[years.indexOf(year)];
-  const head = `${year}年${age != null ? `（${m.who}${age}歳）` : ""}`;
-  const side = (p.layout ?? "overlay") === "side" && !m.names.same;
-  const panes: BalanceSheetPane[] = side
-    ? [
-        { name: m.names.base, tag: "基準", model: m.baseCharts.balance },
-        { name: m.names.selected, tag: "選んだプラン", model: m.balance },
-      ]
-    : [{ name: m.names.selected, tag: null, model: m.balance }];
-  return <BalanceSheet panes={panes} year={year} head={side ? head : `${head}・${m.names.selected}`} pinned={p.pinnedYear === year} />;
 }
 
 /** 操作中に上に付いてくる縮めたグラフ（ChartDock の中身）: 元のグラフと同じ部品（凡例・グラフ・補間）を、決めた高さで描く */

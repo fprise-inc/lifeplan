@@ -178,8 +178,9 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["proposal", "currentNetWorth", "netWorth"],
+          "required": ["figure", "proposal", "currentNetWorth", "netWorth"],
           "properties": {
+            "figure": { "description": "バランスシートの図（今・退職の年・75歳の提案。共通の縮尺）", "$ref": "#/$defs/balanceFigure" },
             "proposal": { "description": "年の抜粋（今・10年後・退職の年・75歳・目標の年）の提案のバランスシート", "$ref": "#/$defs/balanceSheetView" },
             "currentNetWorth": { "description": "同じ時点の現状の純資産", "$ref": "#/$defs/yens" },
             "netWorth": {
@@ -561,6 +562,40 @@
         "assets": { "type": "array", "items": { "$ref": "#/$defs/sheetLine" } },
         "liabilities": { "type": "array", "items": { "$ref": "#/$defs/sheetLine" } },
         "netWorth": { "$ref": "#/$defs/yens" }
+      }
+    },
+    "balanceFigureBox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label", "amount"],
+      "properties": { "key": { "type": "string" }, "label": { "type": "string" }, "amount": { "$ref": "#/$defs/yen" } }
+    },
+    "balanceFigure": {
+      "description": "バランスシートの図（時点ごとに、資産の4つの分け方と、負債と純資産。資産の合計＝負債の合計＋純資産）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scale", "columns"],
+      "properties": {
+        "scale": { "$ref": "#/$defs/yen" },
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["point", "fact", "assets", "liabilities", "negative", "totalAssets", "totalLiabilities", "netWorth", "financial"],
+            "properties": {
+              "point": { "$ref": "#/$defs/yearPoint" },
+              "fact": { "type": "boolean" },
+              "assets": { "type": "array", "items": { "$ref": "#/$defs/balanceFigureBox" } },
+              "liabilities": { "type": "array", "items": { "$ref": "#/$defs/balanceFigureBox" } },
+              "negative": { "$ref": "#/$defs/yen" },
+              "totalAssets": { "$ref": "#/$defs/yen" },
+              "totalLiabilities": { "$ref": "#/$defs/yen" },
+              "netWorth": { "$ref": "#/$defs/yen" },
+              "financial": { "$ref": "#/$defs/yen" }
+            }
+          }
+        }
       }
     },
     "yearPoint": { "type": "object", "additionalProperties": false, "required": ["year", "label"], "properties": { "year": { "$ref": "#/$defs/year" }, "label": { "type": "string" } } },

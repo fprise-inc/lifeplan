@@ -4,3 +4,4 @@ export type { EngineOutput, InvestmentMaterial, ProposalBundle, Run, TableCell }
 export { DEFAULT_LAYOUT, PROPOSAL_INPUT_FORMAT, PROPOSAL_INPUT_VERSION, type CashflowLayout, type Comparison, type InvestmentView, type MarketDropView, type Orientation, type ProposalInput, type ReportLayout } from "./input.ts";
 export { CHAPTER_IDS, CHAPTERS, hasMaterial, selectChapters, type ChapterDef, type ChapterId } from "./chapters.ts";
 export { comparisonMetrics, ESTIMATED_NOTE, hasEstimatedBox, type ComparisonMetrics } from "./build.ts";
+export { bsSeries, groupTotal, BS_ASSET_GROUPS, BS_DEBT_GROUPS, BS_FINANCIAL_GROUPS, BS_GROUP_LABEL, BS_GROUP_SHORT, type BsAt, type BsGroup, type BsHousehold, type BsLine } from "./bsGroups.ts";

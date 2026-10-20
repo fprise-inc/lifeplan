@@ -227,3 +227,77 @@
     ),
   )
 }
+
+// ---- バランスシートの図（アプリの「資産と負債」のタブと同じ分け方・色。時点を並べ、共通の縮尺）----
+
+#let bs-colors = (
+  liquid: rgb("#2f4a87"),
+  market: rgb("#5f82c9"),
+  locked: rgb("#bccbe6"),
+  illiquid: rgb("#6f9478"),
+  mortgage: rgb("#8f7547"),
+  debt: rgb("#c4ae80"),
+  netWorth: rgb("#e3eaf6"),
+)
+#let bs-dark = ("liquid", "market", "illiquid", "mortgage")
+#let bs-short = (liquid: "すぐ使える", market: "値動きあり", locked: "引き出せない", illiquid: "換金しにくい", mortgage: "住宅ローン", debt: "その他の負債", netWorth: "純資産")
+
+/// 1本の柱（箱を上から積む）。total はこの柱の額、h は縮尺の高さ（scale の額に当たる）
+#let bs-column(boxes, total, scale, h, w, fact, neg: 0) = {
+  let colh = h * (total + neg) / scale
+  let frame = if fact { 0.9pt + ink } else { (paint: muted, thickness: 0.9pt, dash: "dashed") }
+  let cells = boxes.map(b => {
+    let bh = colh * b.amount / (total + neg)
+    let dark = b.key in bs-dark
+    let fill = bs-colors.at(b.key, default: band)
+    let fill = if fact or b.key == "netWorth" { fill } else { fill.lighten(28%) }
+    block(width: 100%, height: bh, fill: fill, stroke: if b.key == "netWorth" { 0.6pt + accent } else { (bottom: 0.6pt + white) }, inset: (x: 3pt), spacing: 0pt, {
+      if bh >= 15pt {
+        set text(size: min-size, fill: if dark { white } else { ink }, weight: "bold")
+        align(horizon, stack(dir: ttb, spacing: 1pt, bs-short.at(b.key, default: b.label), man(b.amount)))
+      }
+    })
+  })
+  if neg > 0 {
+    let nh = colh * neg / (total + neg)
+    cells.push(block(width: 100%, height: nh, fill: white, stroke: (paint: muted, thickness: 0.7pt, dash: "dashed"), spacing: 0pt, inset: (x: 3pt), {
+      if nh >= 15pt { align(horizon, text(size: min-size, fill: muted, weight: "bold", "足りない分\n▲" + man(neg))) }
+    }))
+  }
+  box(width: w, height: h, align(bottom, block(width: w, height: colh, stroke: frame, spacing: 0pt, stack(dir: ttb, ..cells))))
+}
+
+/// バランスシートの図（時点を横に並べる）。figure は帳票の入力の balanceSheet.figure
+#let bs-figure(figure, height: 150pt) = {
+  let cols = figure.columns
+  grid(
+    columns: cols.map(_ => 1fr),
+    column-gutter: 10pt,
+    ..cols.map(c => block(width: 100%, inset: 6pt, radius: 3pt, stroke: 0.5pt + rule, {
+      grid(
+        columns: (auto, 1fr),
+        column-gutter: 4pt,
+        text(size: 9pt, weight: "bold", c.point.label),
+        align(right, box(inset: (x: 3pt, y: 1pt), radius: 2pt, stroke: if c.fact { 0.6pt + ink } else { (paint: muted, thickness: 0.6pt, dash: "dashed") }, fill: if c.fact { ink } else { white }, text(size: min-size, weight: "bold", fill: if c.fact { white } else { muted }, if c.fact { "事実（今）" } else { "見込み" }))),
+      )
+      text(size: min-size, fill: muted, str(c.point.year) + "年末")
+      v(2pt)
+      grid(
+        columns: (1fr, 1fr),
+        column-gutter: 4pt,
+        align(center, text(size: min-size, fill: muted, "資産 " + man(c.totalAssets))),
+        align(center, text(size: min-size, fill: muted, "負債＋純資産")),
+      )
+      grid(
+        columns: (1fr, 1fr),
+        column-gutter: 4pt,
+        bs-column(c.assets, c.totalAssets, figure.scale, height, 100%, c.fact, neg: c.negative),
+        bs-column(c.liabilities, c.totalLiabilities + calc.max(0, c.netWorth), figure.scale, height, 100%, c.fact),
+      )
+      v(3pt)
+      text(size: 8.5pt, weight: "bold", [純資産 #text(fill: if c.netWorth < 0 { muted } else { accent }, man-unit(c.netWorth))])
+      linebreak()
+      text(size: min-size, fill: muted, "金融資産 " + man-unit(c.financial) + "・負債 " + man-unit(c.totalLiabilities))
+    })),
+  )
+}

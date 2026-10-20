@@ -137,17 +137,13 @@ describe("グラフの年: カーソルで○と表示、クリックで固定",
     expect(html).not.toContain("hv-dot");
   });
 
-  it("収支の推移・資産と負債の推移でも、固定した年に印（年間収支・純資産の線の上の○）と表示", () => {
+  it("収支の推移でも、固定した年に印（年間収支の線の上の○）と表示", () => {
     const m = model();
     const flows = renderToString(h(MainChart, { model: m, mode: "flows", explain: null, ageMark: null, pinnedYear: 2041, onSelectYear: noop }));
     expect(flows).toContain('class="hv-dot sel"');
     expect(flows).toContain('class="hv-dot base"');
     expect(flows).toContain("年間収支");
     expect(flows).toMatch(/収入 [\d,▲]+万円・支出 [\d,▲]+万円（プランB）/);
-    const bal = renderToString(h(MainChart, { model: m, mode: "balance", explain: null, ageMark: null, pinnedYear: 2041, onSelectYear: noop }));
-    expect(bal).toContain('class="hv-dot sel"');
-    expect(bal).toContain("純資産");
-    expect(bal).toMatch(/資産 [\d,▲]+万円（うち不動産 [\d,▲]+万円）・負債 [\d,▲]+万円（プランB）/);
   });
 
   it("説明モードでは年を選ばない（○・表示・選ぶ枠を出さない）", () => {

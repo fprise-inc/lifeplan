@@ -320,7 +320,7 @@ describe("配置の部品の組み立て", () => {
     expect(html.match(/class="line-prop"/g)).toHaveLength(1);
     expect(html.match(/class="line-base"/g)).toHaveLength(1);
     // 切り替えと説明モード
-    for (const t of ["資産の推移", "収支の推移", "資産と負債の推移", "説明モード"]) expect(html).toContain(t);
+    for (const t of ["資産の推移", "収支の推移", "説明モード"]) expect(html).toContain(t);
     // 左の「目標」の欄は出さない
     expect(html).not.toContain("<h2>目標</h2>");
   });
