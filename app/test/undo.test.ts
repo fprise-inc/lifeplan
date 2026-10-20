@@ -8,7 +8,7 @@ import { deepEqual, HistoryBook, UndoHistory } from "../src/workspace/undo/histo
 import { Grouper, keyAction, kindOf, noticeText, routeFor } from "../src/workspace/undo/input.ts";
 import { UndoButtons } from "../src/workspace/undo/UndoButtons.tsx";
 import { fromRequest } from "../src/workspace/input/household.ts";
-import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
+import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { modelHousehold } from "./helpers.ts";
 
 const num = () => new UndoHistory<number>({ same: (a, b) => a === b });
@@ -338,7 +338,7 @@ describe("キー操作", () => {
 describe("画面の大枠の状態", () => {
   const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"), { memo: [] });
   const work = { band: ["p1"], base: "__current__", sel: "p1", drafts: {} as Record<string, unknown> };
-  const snap = (over: Partial<AppSnap> = {}): AppSnap => ({ wh, work, settings: DEFAULT_DISPLAY_SETTINGS, ...over });
+  const snap = (over: Partial<AppSnap> = {}): AppSnap => ({ wh, work, settings: DEFAULT_DISPLAY_SETTINGS, bs: DEFAULT_BALANCE_SETTINGS, ...over });
   it("選んだ案・基準の案だけを替えても、中身は同じ（積まない）", () => {
     expect(sameSnap(snap(), snap({ work: { ...work, sel: "__current__", base: "p1" } }))).toBe(true);
     expect(sameSnap(snap(), snap({ work: { ...work, drafts: { p1: { "lever:retireAge": 70 } } } }))).toBe(false);

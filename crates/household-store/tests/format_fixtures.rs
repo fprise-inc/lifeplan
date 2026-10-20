@@ -121,17 +121,30 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "0.6 の見本にはその不動産のローンがある"
             );
         }
-        if *v == "0.7" {
-            // 0.7 から: 資産と負債のタブの並べる時点（既定の時点と、この世帯で選んだ時点。候補の鍵と決まった年）
-            let d = &now["display"];
-            assert!(d["bsPoints"]
+        if *v == "0.7" || *v == "0.8" {
+            // 0.7 から: 資産と負債のタブの並べる時点（既定の時点と、この世帯で選んだ時点。候補の鍵と決まった年）。
+            // 0.8 から: 表示の設定はタブごとの区画（0.7 の見本は変換で区画へ移る）
+            let d = &now["display"]["balance"];
+            assert!(d["points"]
                 .as_array()
                 .is_some_and(|a| (2..=4).contains(&a.len())));
-            let cols = d["bsColumns"]
+            let cols = d["columns"]
                 .as_array()
-                .expect("0.7 の見本にはこの世帯で選んだ時点がある");
+                .expect("0.7 からの見本にはこの世帯で選んだ時点がある");
             assert!(cols.iter().any(|c| c.get("point").is_some()));
             assert!(cols.iter().any(|c| c["year"].is_u64()));
+            assert!(d["guide"].is_object(), "{v}: 家計の体力の目安の幅");
+        }
+        // 0.8 から: 表示の設定はタブごとの区画。なくした「操作中はグラフを上に表示」（dock）は持たない
+        if now
+            .get("display")
+            .is_some_and(|d| !d.as_object().unwrap().is_empty())
+        {
+            let d = &now["display"];
+            assert!(d["result"].is_object(), "{v}: display.result");
+            assert!(d["balance"].is_object(), "{v}: display.balance");
+            assert!(d.get("dock").is_none(), "{v}: display.dock は持たない");
+            assert!(d.get("metrics").is_none(), "{v}: 結果のタブの値は区画の中");
         }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");

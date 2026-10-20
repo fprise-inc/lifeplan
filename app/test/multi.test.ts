@@ -336,7 +336,7 @@ describe("全部のプランを色分けで重ねるグラフ", () => {
     expect(multiOn("overlay", null, model())).toBe(false);
   });
 
-  it("縮めた表示（操作中に上に付いてくるグラフ）でも同じ線を描く", () => {
+  it("縮めた表示（小窓の中のグラフ）でも同じ線を描く", () => {
     const html = draw("flows", { height: 260 });
     expect(html).toContain("compact");
     expect(html.match(/class="multi-line"/g)).toHaveLength(4);

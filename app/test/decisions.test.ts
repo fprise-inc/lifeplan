@@ -21,7 +21,7 @@ import { roles } from "../src/workspace/roles.ts";
 import { SnapshotTools } from "../src/workspace/snapshots/SnapshotTools.tsx";
 import { canonicalJson, keepSnapshots, makeSnapshot, readSnapshots, verifySnapshot, type Snapshot } from "../src/workspace/snapshots/snapshots.ts";
 import { bodyOf, fromBody } from "../src/workspace/store/body.ts";
-import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
+import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { modelHousehold, preview, realEngine } from "./helpers.ts";
 
 const noop = () => undefined;
@@ -69,7 +69,7 @@ describe("控え（0009 の2）", () => {
 
   it("世帯ファイルの本文では区画 snapshots に置き（household の区画には入れない）、読むと戻る。控えが無ければ区画を作らない", async () => {
     const s = await makeSnapshot({ wh, drafts: {}, draft: { trigger: "pdf", memo: "提案書（12ページ）", plan: { id: "p1", letter: "B", name: "生活費を見直す" } }, appVersion: "0.1.0", now: NOW });
-    const state = (w: WorkingHousehold) => ({ wh: w, workspace: { template: null, band: [], base: CURRENT, selected: CURRENT, shownItems: [] }, display: DEFAULT_DISPLAY_SETTINGS, carry: { extDefinitions: {}, ext: {} } });
+    const state = (w: WorkingHousehold) => ({ wh: w, workspace: { template: null, band: [], base: CURRENT, selected: CURRENT, shownItems: [] }, display: { result: DEFAULT_DISPLAY_SETTINGS, balance: DEFAULT_BALANCE_SETTINGS }, carry: { extDefinitions: {}, ext: {} } });
     const body = bodyOf(state({ ...wh, snapshots: [s] }));
     const parsed = JSON.parse(body) as Record<string, unknown>;
     expect(Object.keys(parsed)).toContain("snapshots");

@@ -3,6 +3,7 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { AgeMark, CashflowTableModel, EventChip, ExplainModel, FeeLine, GoalsModel, Headline as HeadlineModel, ResultVerdict, Verdict as VerdictModel, VerdictPart } from "./model.ts";
+import { PipButton } from "./ChartPip.tsx";
 import { EventDotHtml, EventTip, eventLabel, placeFixedAbove, useEventFocus } from "./EventDot.tsx";
 import { man, manDiff } from "./format.ts";
 import { CHART_MODES, ExplainBar, MainChart, MainLegend, multiOn, type ChartLayout, type ChartMode, type MainChartModel } from "./MainChart.tsx";
@@ -146,7 +147,7 @@ export interface ResultCardProps {
   pinnedYear: number | null;
   /** 年を固定する・外す（null） */
   onSelectYear: (year: number | null) => void;
-  /** 右の操作の後ろに置くもの（表示の設定のボタン。作業の層が渡す） */
+  /** 右の操作の後ろ（小窓のボタンの前）に置くもの（表示の設定のボタン。作業の層が渡す） */
   tools?: ComponentChildren;
   /** 結論の下に置くもの（表示の設定の欄・FP顧問料の一文） */
   below?: ComponentChildren;
@@ -233,6 +234,7 @@ export function ResultCard(p: ResultCardProps) {
             説明モード
           </button>
           {p.tools ?? null}
+          <PipButton />
         </div>
       </div>
       {p.below ?? null}
@@ -244,10 +246,10 @@ export function ResultCard(p: ResultCardProps) {
   );
 }
 
-/** 操作中に上に付いてくる縮めたグラフ（ChartDock の中身）: 元のグラフと同じ部品（凡例・グラフ・補間）を、決めた高さで描く */
-export function DockedResult(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExplain" | "tools" | "below" | "bar" | "after"> & { height: number }) {
+/** 小窓のグラフ（ChartPip の中身）: 元のグラフと同じ部品（凡例・グラフ・補間）を、決めた高さで描く */
+export function PipResult(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExplain" | "tools" | "below" | "bar" | "after"> & { height: number }) {
   return (
-    <div class="dock-chart" data-dock-chart="main">
+    <div class="pip-chart" data-pip-chart="main">
       <LegendAndChart {...p} />
     </div>
   );

@@ -1,17 +1,14 @@
-// 表示の設定（作業の層の部品。主画面のグラフの右上の「表示の設定」で、結論の下に開く。別の窓は出さない）。
-// FP が主画面に出す数字と、グラフの比べ方（重ねる／左右に並べる／全部の案を色分けで重ねる）、操作中に上に付いてくるグラフの大きさ（出さない／小さく／大きく）を選ぶ。
-// 既定では何も足さず、重ねる。付いてくるグラフは大きく。
-// 事務所の設定として持てる形で、まだファイルには保存しない（settings.ts）
-import { PointDefaultsEditor } from "../presentation/BalanceTab.tsx";
-import { BS_POINT_CHOICES } from "./balanceTab.ts";
-import { AGE_OPTIONS, DEFAULT_DISPLAY_SETTINGS, DOCK_CHOICES, LAYOUT_CHOICES, METRIC_CHOICES, shows, toggleMetric, type DisplaySettings } from "./settings.ts";
+// 結果のタブの表示の設定（作業の層の部品。結果のグラフの右上の「表示の設定」で、結論の下に開く。別の窓は出さない）。
+// FP が結果に出す数字と、グラフの比べ方（重ねる／左右に並べる／全部の案を色分けで重ねる）を選ぶ。既定では何も足さず、重ねる。
+// 資産と負債のタブの設定（時点を並べるの既定・家計の体力の目安の幅）は、そのタブの表示の設定にある（BalanceTab.tsx）
+import { AGE_OPTIONS, LAYOUT_CHOICES, METRIC_CHOICES, shows, toggleMetric, type DisplaySettings } from "./settings.ts";
 
 export function DisplaySettingsPanel({ value, onChange, onClose, feeAvailable }: { value: DisplaySettings; onChange: (s: DisplaySettings) => void; onClose: () => void; feeAvailable: boolean }) {
   return (
     <div class="disp-settings" role="group" aria-label="表示の設定" data-display-settings>
       <div class="ds-head">
         <b>表示の設定</b>
-        <span class="ds-note">結果に出す数字とグラフの見せ方を選びます（事務所の設定。今は画面の中だけで持ち、アプリを閉じると元に戻ります）</span>
+        <span class="ds-note">結果のタブに出す数字とグラフの見せ方を選びます（世帯を保存していれば、世帯のファイルに一緒に保存します）</span>
         <button type="button" class="link-btn" onClick={onClose}>
           閉じる
         </button>
@@ -48,19 +45,6 @@ export function DisplaySettingsPanel({ value, onChange, onClose, feeAvailable }:
           );
         })}
       </div>
-      <div class="ds-layout ds-dock" role="radiogroup" aria-label="操作中はグラフを上に表示" data-dock-choices>
-        <span class="ds-k">操作中はグラフを上に表示</span>
-        {DOCK_CHOICES.map((c) => (
-          <label key={c.key} class={`ds-item${value.dock === c.key ? " on" : ""}`}>
-            <input type="radio" name="chart-dock" value={c.key} checked={value.dock === c.key} onChange={() => onChange({ ...value, dock: c.key })} data-dock-setting={c.key} />
-            <span class="ds-l">
-              {c.label}
-              {c.key === DEFAULT_DISPLAY_SETTINGS.dock ? "（既定）" : ""}
-              <small>{c.note}</small>
-            </span>
-          </label>
-        ))}
-      </div>
       <div class="ds-layout" role="radiogroup" aria-label="比べ方" data-layout-choices>
         <span class="ds-k">比べ方</span>
         {LAYOUT_CHOICES.map((c) => (
@@ -73,10 +57,6 @@ export function DisplaySettingsPanel({ value, onChange, onClose, feeAvailable }:
             </span>
           </label>
         ))}
-      </div>
-      <div class="ds-layout ds-bspoints" data-bs-points-setting>
-        <span class="ds-k">資産と負債の「時点を並べる」の既定</span>
-        <PointDefaultsEditor choices={BS_POINT_CHOICES} value={value.bsPoints} onChange={(k) => onChange({ ...value, bsPoints: k })} />
       </div>
     </div>
   );

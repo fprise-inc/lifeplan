@@ -177,8 +177,13 @@
 .bs-defaults-list .ds-item { padding: 4px 8px; }
 .bs-defaults-list .ds-l { display: flex; flex-direction: column; font-weight: 700; }
 .bs-defaults-list .ds-l small { font-weight: 400; font-size: 0.7rem; color: var(--ink-2); }
-.ds-bspoints { flex-direction: column; align-items: stretch; }
+.ds-bspoints { display: block; }
+.ds-bspoints > .ds-k { display: block; margin-bottom: 6px; }
 .ds-bspoints .bs-defaults { margin: 0; }
+/* 資産と負債のタブの表示の設定（BalanceTab.tsx の BalanceSettingsPanel）: 見出しの右端のボタンと、見出しのすぐ下の欄 */
+.bs-set-btn { margin-left: auto; }
+.bs-settings { margin: 2px 0 10px; }
+.bs-settings .bs-defaults, .bs-settings .hg-edit { margin: 0; padding: 0; border: 0; background: none; }
 .th-wrap { position: relative; }
 .th-btn { display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; padding: 2px 8px; cursor: pointer; text-align: left; }
 .th-btn:hover, .th-btn[aria-expanded="true"] { border-color: var(--prop); background: var(--prop-bg); }

@@ -4,7 +4,7 @@
 // 提案書の宛名など保存しない値は、この状態に入れないので履歴にも残らない
 import { useCallback, useMemo, useRef } from "preact/hooks";
 import type { WorkingHousehold } from "../input/household.ts";
-import type { DisplaySettings } from "../settings.ts";
+import type { BalanceSettings, DisplaySettings } from "../settings.ts";
 import { historyScope, undoController, useUndoScope, type Hint, type UndoController } from "./controller.ts";
 import { deepEqual, HistoryBook, UndoHistory } from "./history.ts";
 
@@ -19,17 +19,20 @@ export interface WorkLike {
 export interface AppSnap<W extends WorkLike = WorkLike> {
   wh: WorkingHousehold;
   work: W;
+  /** 結果のタブの表示の設定 */
   settings: DisplaySettings;
+  /** 資産と負債のタブの表示の設定 */
+  bs: BalanceSettings;
 }
 
 /** 中身（世帯・帯・保存していない変更・表示の設定）が同じか。選んだ案・基準の案は見ない */
 export function sameSnap(a: AppSnap, b: AppSnap): boolean {
-  return deepEqual(a.wh, b.wh) && deepEqual(a.work.drafts, b.work.drafts) && deepEqual(a.work.band, b.work.band) && deepEqual(a.settings, b.settings);
+  return deepEqual(a.wh, b.wh) && deepEqual(a.work.drafts, b.work.drafts) && deepEqual(a.work.band, b.work.band) && deepEqual(a.settings, b.settings) && deepEqual(a.bs, b.bs);
 }
 
 /** 知らせに出す名前: 何が変わったか（入力・案・対策・表示の設定など）＋操作した部品の名前 */
 export function describeSnap(a: AppSnap, b: AppSnap, hint: Hint): string {
-  const what = !deepEqual(a.settings, b.settings)
+  const what = !deepEqual(a.settings, b.settings) || !deepEqual(a.bs, b.bs)
     ? "表示の設定"
     : !deepEqual(a.wh.request, b.wh.request)
       ? "入力"

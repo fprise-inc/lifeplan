@@ -1,6 +1,7 @@
 // 万一のときの画面（作業の層）: 必要保障額の推移（大人ごと）・万一なし・選んだ想定を計算し、提示用の値を作って提示層の部品に渡す。
 // 配置は見通しと同じ上から下の流れ: ① 場面の帯 → ② 年ごとの結果の帯（起きる年を選ぶ・1年ずつ見せる）→ ③ 大きなグラフ（資産の推移／必要保障額の推移）
-// → ④ FP が直す前提の欄（対策の欄と同じ部品）。前提の欄までスクロールすると、②③が縮んで画面の上に付いてくる（ChartDock）。
+// → ④ FP が直す前提の欄（対策の欄と同じ部品）。グラフの見出しの「小窓」で、②③を小窓に出せる（ChartPip。前提の欄を動かしながら見る）。
+// このタブに表示の設定は無い（結果のタブの表示の設定にも頼らない）
 // 見るプラン: 既定は現状（プランA）。切り替えると、場面の帯・年ごとの結果の帯・グラフ・必要保障額をそのプラン（保存していない変更を含む今の中身）で計算する。
 // 想定の前提（遺族の生活費の割合など）は世帯に1つで、どのプランにも同じものを使う。グラフの枠の名前はプランごとに分け、プランを戻したときは前の結果をすぐ出す。
 // 計算はアプリの側が持つ ContingencyEngine で行う（タブを切り替えても結果を捨てない。同じ内容ならすぐ出す）。
@@ -8,8 +9,8 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { HostApi } from "../../engine/host.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
-import { ChartDock, useChartDock, type DockMode } from "../../presentation/ChartDock.tsx";
-import { ContingencyChartCard, ContingencyVerdict, DockedContingency, ScenarioBand, YearStrip, type ContingencyMode, type YearStripProps } from "../../presentation/ContingencyView.tsx";
+import { ChartPip } from "../../presentation/ChartPip.tsx";
+import { ContingencyChartCard, ContingencyVerdict, PipContingency, ScenarioBand, YearStrip, type ContingencyMode, type YearStripProps } from "../../presentation/ContingencyView.tsx";
 import type { ContingencyModel, ProtectionChartModel } from "../../presentation/model.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { depletionYear, displayYears } from "../present.ts";
@@ -24,8 +25,8 @@ import { adults, chartRequests, defaultYear, keptSlots, planSlot, scenarioReques
 /** 1年ずつ見せるときの、1年あたりの時間（ミリ秒） */
 export const PLAY_STEP_MS = 1000;
 
-/** 付いてくる部分のうち、グラフの外の高さ（文字の大きさ 16px のとき。見出し・年ごとの帯・凡例・余白） */
-const DOCK_EXTRA = 165;
+/** 小窓のうち、グラフの外の高さ（文字の大きさ 16px のとき。上の帯・年ごとの帯・凡例・余白） */
+const PIP_EXTRA = 165;
 
 /** 画面の外（App）で持ち続ける、万一のときの画面の状態（タブを切り替えても戻る） */
 export interface ContingencyUi {
@@ -55,10 +56,6 @@ export interface ContingencyTabProps {
   onEdit: (w: WorkingHousehold) => void;
   ui: ContingencyUi;
   onUi: (u: ContingencyUi) => void;
-  /** 操作中はグラフを上に表示（表示の設定: 出さない／小さく／大きく） */
-  dock: DockMode;
-  /** 付いてくるグラフの × */
-  onDockOff: () => void;
   /** 開いたときの想定（URL の #scenario=death:self） */
   initialScenario?: string;
   /** 見るプランの選択肢（現状 CURRENT と帯のプラン）。無ければ現状だけ */
@@ -76,7 +73,7 @@ interface Play {
   year: number;
 }
 
-export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui, onUi, dock, onDockOff, initialScenario, plans, requestOf, initialPlan }: ContingencyTabProps) {
+export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui, onUi, initialScenario, plans, requestOf, initialPlan }: ContingencyTabProps) {
   // 前提のスライダーを動かしている間は、画面の側の世帯（draft）で描いて計算する。指を離したら世帯に書く
   const [draft, setDraft] = useState<WorkingHousehold | null>(null);
   const edited = draft ?? saved;
@@ -288,31 +285,23 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
       ? { section: "cg/disability", field: oldAgeChoiceField(sc.member), note: "自動で手取りが多い組み合わせを選びます。選び直すとその組み合わせで計算します" }
       : null;
 
-  // ---- 操作中はグラフを上に表示 ----
-  const anchor = useRef<HTMLDivElement>(null);
-  const controls = useRef<HTMLDivElement>(null);
-  const docked = useChartDock(anchor, controls, dock, DOCK_EXTRA);
   const chartProps = { model, mode, pinnedYear: chartYear, onPinYear: setChartYear, onPick: pick };
   const last = engine?.openings.at(-1);
   const previews = engine?.sweep.timings.filter((t) => t.kind === "preview") ?? [];
 
   return (
     <div class="main-stack cg-stack">
-      <ChartDock dock={docked} head={<ContingencyVerdict model={model} mode={mode} />} onClose={onDockOff}>
-        {(height) => <DockedContingency {...chartProps} height={height} strip={strip} />}
-      </ChartDock>
+      <ChartPip head={<ContingencyVerdict model={model} mode={mode} />} extra={PIP_EXTRA}>
+        {(height) => <PipContingency {...chartProps} height={height} strip={strip} />}
+      </ChartPip>
       {/* ① 場面の帯 */}
       <ScenarioBand model={model} onSelect={selectScenario} {...(planChoice !== undefined ? { plan: planChoice } : {})} />
       {/* ② 年ごとの結果の帯 */}
       <YearStrip {...strip} model={model.strip} />
       {/* ③ グラフ */}
-      <div class="dock-anchor" ref={anchor}>
-        <ContingencyChartCard {...chartProps} onMode={(m) => onUi({ ...ui, mode: m })} />
-      </div>
+      <ContingencyChartCard {...chartProps} onMode={(m) => onUi({ ...ui, mode: m })} />
       {/* ④ 想定の前提 */}
-      <div class="dock-controls" ref={controls}>
-        <PremisePanel wh={edited} sections={sections} used={used} extra={extra} onDraft={setDraft} onCommit={commit} />
-      </div>
+      <PremisePanel wh={edited} sections={sections} used={used} extra={extra} onDraft={setDraft} onCommit={commit} />
       {import.meta.env.DEV ? (
         <div class="foot footnote">
           <span class="perf" data-cg-perf>

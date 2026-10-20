@@ -5,10 +5,10 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { BalanceTab, PointDefaultsEditor } from "../src/presentation/BalanceTab.tsx";
 import { nextColumns, resolveColumns } from "../src/presentation/bsColumns.ts";
-import type { BsColumn, BsPlanModel } from "../src/presentation/model.ts";
+import type { BsColumn, BsPlanModel, BsPointKey } from "../src/presentation/model.ts";
 import { balanceTabModel, BS_POINT_CHOICES, bsPlan, bsYears, DEFAULT_BS_GUIDE, DEFAULT_BS_POINTS, readBsColumns, readBsPoints } from "../src/workspace/balanceTab.ts";
 import { displayYears } from "../src/workspace/present.ts";
-import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
+import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { bodyOf, fromBody } from "../src/workspace/store/body.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { leaveYear, roles } from "../src/workspace/roles.ts";
@@ -90,11 +90,11 @@ describe("並べる時点を解く", () => {
 describe("保存（表示の設定。世帯ごと）", () => {
   it("既定の時点・この世帯で選んだ時点を保存して読み戻す", () => {
     const req = modelHousehold("dualAssetsTwoKids");
-    const display = { ...DEFAULT_DISPLAY_SETTINGS, bsPoints: ["now", "y10", "retire", "age80"] as const, bsColumns: [{ point: "now" }, { year: 2045 }] as BsColumn[] };
-    const s = { wh: fromRequest(req), workspace: { template: null, band: [], base: "current", selected: "current", shownItems: [] }, display: { ...display, bsPoints: [...display.bsPoints] }, carry: { extDefinitions: {}, ext: {} } };
+    const balance = { ...DEFAULT_BALANCE_SETTINGS, points: ["now", "y10", "retire", "age80"] as BsPointKey[], columns: [{ point: "now" }, { year: 2045 }] as BsColumn[] };
+    const s = { wh: fromRequest(req), workspace: { template: null, band: [], base: "current", selected: "current", shownItems: [] }, display: { result: DEFAULT_DISPLAY_SETTINGS, balance }, carry: { extDefinitions: {}, ext: {} } };
     const back = fromBody(bodyOf(s));
-    expect(back.display.bsPoints).toEqual(["now", "y10", "retire", "age80"]);
-    expect(back.display.bsColumns).toEqual([{ point: "now" }, { year: 2045 }]);
+    expect(back.display.balance.points).toEqual(["now", "y10", "retire", "age80"]);
+    expect(back.display.balance.columns).toEqual([{ point: "now" }, { year: 2045 }]);
   });
 
   it("無い・形の合わない値は既定（今・退職の年・75歳／既定のまま）", () => {
@@ -109,8 +109,8 @@ describe("保存（表示の設定。世帯ごと）", () => {
     expect(readBsColumns([{ point: "now" }, { year: "2040" }])).toBeNull();
     expect(readBsColumns([{ point: "now" }, { year: 2040.5 }])).toBeNull();
     expect(readBsColumns([{ point: "now" }, { year: 2040 }, { point: "age70" }, { point: "age90" }])).toEqual([{ point: "now" }, { year: 2040 }, { point: "age70" }, { point: "age90" }]);
-    expect(DEFAULT_DISPLAY_SETTINGS.bsPoints).toEqual(["now", "retire", "age75"]);
-    expect(DEFAULT_DISPLAY_SETTINGS.bsColumns).toBeNull();
+    expect(DEFAULT_BALANCE_SETTINGS.points).toEqual(["now", "retire", "age75"]);
+    expect(DEFAULT_BALANCE_SETTINGS.columns).toBeNull();
   });
 });
 
@@ -142,7 +142,7 @@ describe("タブの画面", () => {
     expect((html.match(/data-bs-col="/g) ?? []).length).toBe(3);
     expect(html).toContain("data-bs-col-add");
     expect(html).not.toContain("data-bs-col-reset");
-    expect(html).toContain("既定の時点を変える（事務所の設定）");
+    expect(html).toContain("既定の時点を変える（表示の設定）");
     // 先の年の図も点線の枠を使わない
     expect(html).not.toContain("stroke-dasharray");
     const four = renderToString(h(BalanceTab, { model: modelOf(p, [{ point: "now" }, { point: "y10" }, { year: 2042 }, { point: "age75" }]), band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop, initial: { view: "three" } }));

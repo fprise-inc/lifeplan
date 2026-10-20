@@ -1,5 +1,5 @@
 // 見通しと万一のときの直し: 表のライフイベントの丸（グラフの丸と同じ部品）・年ごとの結果の帯（計算と表示・1年ずつ見せる）・
-// 操作中はグラフを上に表示（縮めた高さ・出す条件・表示の設定）・言葉の統一・タブを開き直したときに計算し直さないこと
+// グラフを小窓で表示（見出しのボタン・小窓の位置と大きさ・中のグラフ）・言葉の統一・タブを開き直したときに計算し直さないこと
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { h } from "preact";
@@ -9,11 +9,11 @@ import { describe, expect, it } from "vitest";
 import { DualEngine } from "../src/engine/dual.ts";
 import type { ComputeResponse, HostApi, SlotRequest } from "../src/engine/host.ts";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
-import { ChartDock, clampFloatRect, defaultFloatRect, DOCK_MAX_SHARE, DOCK_MIN, DOCK_ROW_MARGIN, dockChartHeight, dockChartHeightLarge, floatChartHeight, FLOAT_KEY_STEP, FLOAT_MIN, keyFloatRect, resizeFloatRect, revealDelta, shouldDock, type DockState } from "../src/presentation/ChartDock.tsx";
-import { DockedContingency, ScenarioBand, YearStrip } from "../src/presentation/ContingencyView.tsx";
+import { ChartPip, clampPipRect, closePip, defaultPipRect, keyPipRect, openPip, PIP_KEY_STEP, PIP_LABEL, PIP_MIN, PipButton, pipChartHeight, resizePipRect } from "../src/presentation/ChartPip.tsx";
+import { ContingencyChartCard, PipContingency, ScenarioBand, YearStrip } from "../src/presentation/ContingencyView.tsx";
 import { EVENT_R, placeFixedAbove } from "../src/presentation/EventDot.tsx";
-import { chartHeight, MainChart } from "../src/presentation/MainChart.tsx";
-import { CashflowTable, DockedResult } from "../src/presentation/MainView.tsx";
+import { MainChart } from "../src/presentation/MainChart.tsx";
+import { CashflowTable, PipResult, ResultCard } from "../src/presentation/MainView.tsx";
 import type { ContingencyModel, YearStripModel } from "../src/presentation/model.ts";
 import { TABS } from "../src/workspace/App.tsx";
 import { demoHousehold } from "../src/workspace/catalog.ts";
@@ -26,7 +26,7 @@ import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { applyValues } from "../src/workspace/plans/plans.ts";
 import { depletionYear, displayYears, toPresentation } from "../src/workspace/present.ts";
 import { roles } from "../src/workspace/roles.ts";
-import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
+import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { bodyOf, EMPTY_CARRY, fromBody } from "../src/workspace/store/body.ts";
 import { modelHousehold, preview, realEngine } from "./helpers.ts";
 
@@ -294,167 +294,121 @@ describe("万一のときのタブを開き直したとき（計算の結果を�
   });
 });
 
-describe("操作中はグラフを上に表示", () => {
-  it("小さく: 縮めたグラフは元の約43%。付いてくる部分は窓の高さの45%まで。低い窓では出さない", () => {
-    for (const ih of [700, 900, 1100]) {
-      const h1 = dockChartHeight(ih, 16, 92)!;
-      expect(h1).toBeGreaterThan(0);
-      expect(h1 / chartHeight(ih, 16)).toBeLessThanOrEqual(0.45);
-      expect(h1 + 92).toBeLessThanOrEqual(ih * DOCK_MAX_SHARE + 1);
-    }
-    expect(dockChartHeight(900, 16, 92)! / chartHeight(900, 16)).toBeGreaterThan(0.4);
-    // 万一のとき（年ごとの帯も付いてくる）は、そのぶん縮める
-    expect(dockChartHeight(800, 16, 165)!).toBeLessThan(dockChartHeight(800, 16, 92)!);
-    // 低い窓・文字を大きくした低い窓では出さない
-    expect(dockChartHeight(480, 16, 165)).toBeNull();
-    expect(dockChartHeight(560, 19, 165 * (19 / 16))).toBeNull();
-  });
-
-  it("大きく: 付いてくる部分 ＝ 窓の高さ −（操作の欄の1行分＋余白）。元のグラフの高さが上限、低い窓では小さくの形", () => {
-    // 窓の高さ 1100px・1行 120px: 1100 − 120 − 24 − 92 = 864 → 元のグラフ（700px）が上限
-    expect(dockChartHeightLarge(1100, 16, 92, 120)).toBe(chartHeight(1100, 16));
-    // 窓の高さ 800px: 800 − 120 − 24 − 92 = 564 → 元のグラフ（550px）が上限。下に1行分と余白が残る
-    for (const [ih, row] of [[800, 120], [900, 130], [1000, 110], [1440, 120]] as const) {
-      const h1 = dockChartHeightLarge(ih, 16, 92, row)!;
-      expect(h1).toBeLessThanOrEqual(chartHeight(ih, 16));
-      expect(h1 + 92 + row + DOCK_ROW_MARGIN).toBeLessThanOrEqual(ih);
-      // 小さくより大きい
-      expect(h1).toBeGreaterThan(dockChartHeight(ih, 16, 92) ?? 0);
-    }
-    // 1行が高いと（文字「大」など）、そのぶんグラフを低くする
-    const mid = dockChartHeightLarge(700, 16, 92, 120)!;
-    const big = dockChartHeightLarge(700, 19, 92 * (19 / 16), 150)!;
-    expect(big).toBeLessThan(mid);
-    expect(big + 92 * (19 / 16) + 150 + DOCK_ROW_MARGIN * (19 / 16)).toBeLessThanOrEqual(700);
-    // 最小に届かない低い窓では、小さくの形（それも入らなければ出さない）
-    expect(dockChartHeightLarge(700, 16, 92, 500)).toBe(dockChartHeight(700, 16, 92));
-    expect(dockChartHeight(700, 16, 92)).not.toBeNull();
-    expect(dockChartHeightLarge(480, 16, 165, 200)).toBeNull();
-    expect(dockChartHeightLarge(800, 16, 92, 120)!).toBeGreaterThanOrEqual(DOCK_MIN);
-  });
-
-  it("出す条件: 元のグラフが上に隠れ、操作の欄が画面に見えているとき。境目でちらつかない（出す・消すの位置をずらす）", () => {
-    const base = { controlsTop: 200, controlsBottom: 1400, innerHeight: 900, dockTotal: 300 };
-    expect(shouldDock({ ...base, anchorBottom: 500, docked: false })).toBe(false);
-    expect(shouldDock({ ...base, anchorBottom: 260, docked: false })).toBe(true);
-    // 出ている間は、少し戻っても消えない
-    expect(shouldDock({ ...base, anchorBottom: 310, docked: true })).toBe(true);
-    expect(shouldDock({ ...base, anchorBottom: 310, docked: false })).toBe(false);
-    // 操作の欄を通り過ぎた（表まで下りた）ら消す
-    expect(shouldDock({ ...base, anchorBottom: -900, controlsTop: -1300, controlsBottom: 200, docked: true })).toBe(false);
-  });
-
-  it("大きくでも同じ条件: 2行目を操作している間は出し、表まで下りたら消す（表の見出しの行と重ならない）", () => {
-    // 窓 900px・付いてくる部分 742px（グラフ 650＋外 92）。対策の欄は見出し 60px＋1行 120px × 2＋追加の行 50px
-    const dockTotal = 742;
-    const at = (scrolled: number) => {
-      const anchorBottom = 700 - scrolled; // 元のグラフの枠の下端
-      const controlsTop = anchorBottom + 12;
-      return { anchorBottom, controlsTop, controlsBottom: controlsTop + 60 + 240 + 50, innerHeight: 900, dockTotal };
-    };
-    // 2行目（controlsTop+180〜+300）がグラフの下（742〜900）に見えている位置
-    expect(shouldDock({ ...at(160), docked: false })).toBe(true);
-    // 1行目をグラフの下に見せる位置（少し戻った）でも、出たまま
-    expect(shouldDock({ ...at(40), docked: true })).toBe(true);
-    // 対策の欄の下端がグラフの下に隠れたら消す（このあと表の見出しの行が画面の上に来る）
-    const past = at(420);
-    expect(past.controlsBottom).toBeLessThan(dockTotal + 40);
-    expect(shouldDock({ ...past, docked: true })).toBe(false);
-  });
-
-  it("大きく: 隠れた行を触ると、その行がグラフのすぐ下に見えるところまで戻す。見えていれば動かさない", () => {
-    const p = { dockBottom: 742, innerHeight: 900, gap: 8 };
-    // 半分隠れている → 上端がグラフの下（750）に来るまで上に戻す
-    expect(revealDelta({ ...p, rowTop: 700, rowBottom: 820 })).toBe(-50);
-    // 全部隠れている（キーボードで移った）
-    expect(revealDelta({ ...p, rowTop: 300, rowBottom: 420 })).toBe(-450);
-    // 見えている
-    expect(revealDelta({ ...p, rowTop: 760, rowBottom: 880 })).toBe(0);
-    // 窓の下にはみ出している → 上が隠れない範囲で上げる
-    expect(revealDelta({ ...p, rowTop: 820, rowBottom: 940 })).toBe(48);
-    expect(revealDelta({ ...p, rowTop: 760, rowBottom: 1000 })).toBe(10);
-  });
-
-  it("浮かせた枠: 初めは窓の右上。窓の中に収め、最小の大きさを守る。中のグラフは枠の高さに合わせる", () => {
+describe("グラフを小窓で表示", () => {
+  it("小窓: 初めは窓の右上。窓の中に収め、最小の大きさを守る。中のグラフは枠の高さに合わせる", () => {
     for (const [vw, vh] of [[1280, 800], [1920, 1080], [2560, 1440]] as const) {
-      const r = defaultFloatRect(vw, vh);
+      const r = defaultPipRect(vw, vh);
       expect(r.x + r.w).toBeLessThanOrEqual(vw);
       expect(r.y + r.h).toBeLessThanOrEqual(vh);
-      expect(clampFloatRect(r, vw, vh)).toEqual(r);
+      expect(clampPipRect(r, vw, vh)).toEqual(r);
     }
     // 窓の外へ動かした・小さくしすぎた
-    expect(clampFloatRect({ x: 1500, y: -40, w: 100, h: 50 }, 1280, 800)).toEqual({ x: 1280 - FLOAT_MIN.w, y: 0, w: FLOAT_MIN.w, h: FLOAT_MIN.h });
+    expect(clampPipRect({ x: 1500, y: -40, w: 100, h: 50 }, 1280, 800)).toEqual({ x: 1280 - PIP_MIN.w, y: 0, w: PIP_MIN.w, h: PIP_MIN.h });
     // 窓より大きくはしない
-    expect(clampFloatRect({ x: 0, y: 0, w: 3000, h: 3000 }, 1280, 800)).toEqual({ x: 0, y: 0, w: 1264, h: 784 });
-    expect(floatChartHeight(500, 16, 92)).toBe(408);
-    expect(floatChartHeight(150, 16, 92)).toBe(100);
+    expect(clampPipRect({ x: 0, y: 0, w: 3000, h: 3000 }, 1280, 800)).toEqual({ x: 0, y: 0, w: 1264, h: 784 });
+    expect(pipChartHeight(500, 16, 92)).toBe(408);
+    expect(pipChartHeight(150, 16, 92)).toBe(100);
   });
 
-  it("浮かせた枠の伸縮: 左右の端で横・下の端で縦・下の角で両方。つかんだ端だけ動き、反対側は動かない", () => {
+  it("小窓の伸縮: 左右の端で横・下の端で縦・下の角で両方。つかんだ端だけ動き、反対側は動かない", () => {
     const r = { x: 400, y: 100, w: 600, h: 400 };
     const vw = 1280;
     const vh = 800;
     // 右の端: 幅だけ変わる
-    expect(resizeFloatRect(r, "e", 120, 50, vw, vh)).toEqual({ x: 400, y: 100, w: 720, h: 400 });
+    expect(resizePipRect(r, "e", 120, 50, vw, vh)).toEqual({ x: 400, y: 100, w: 720, h: 400 });
     // 左の端: 右の端（1000）を固定したまま左へ広げる
-    expect(resizeFloatRect(r, "w", -150, 30, vw, vh)).toEqual({ x: 250, y: 100, w: 750, h: 400 });
+    expect(resizePipRect(r, "w", -150, 30, vw, vh)).toEqual({ x: 250, y: 100, w: 750, h: 400 });
     // 下の端: 高さだけ変わる
-    expect(resizeFloatRect(r, "s", 80, 60, vw, vh)).toEqual({ x: 400, y: 100, w: 600, h: 460 });
+    expect(resizePipRect(r, "s", 80, 60, vw, vh)).toEqual({ x: 400, y: 100, w: 600, h: 460 });
     // 角: 両方
-    expect(resizeFloatRect(r, "se", 40, 60, vw, vh)).toEqual({ x: 400, y: 100, w: 640, h: 460 });
-    expect(resizeFloatRect(r, "sw", -40, 60, vw, vh)).toEqual({ x: 360, y: 100, w: 640, h: 460 });
+    expect(resizePipRect(r, "se", 40, 60, vw, vh)).toEqual({ x: 400, y: 100, w: 640, h: 460 });
+    expect(resizePipRect(r, "sw", -40, 60, vw, vh)).toEqual({ x: 360, y: 100, w: 640, h: 460 });
   });
 
-  it("浮かせた枠の伸縮: 最小の大きさを守り、窓の外にははみ出さない（文字が大きいと最小も大きい）", () => {
+  it("小窓の伸縮: 最小の大きさを守り、窓の外にははみ出さない（文字が大きいと最小も大きい）", () => {
     const r = { x: 400, y: 100, w: 600, h: 400 };
     const vw = 1280;
     const vh = 800;
     // 縮めすぎ: 最小で止まる。左の端なら右の端は動かない
-    expect(resizeFloatRect(r, "e", -500, 0, vw, vh)).toEqual({ x: 400, y: 100, w: FLOAT_MIN.w, h: 400 });
-    expect(resizeFloatRect(r, "w", 500, 0, vw, vh)).toEqual({ x: 1000 - FLOAT_MIN.w, y: 100, w: FLOAT_MIN.w, h: 400 });
-    expect(resizeFloatRect(r, "s", 0, -500, vw, vh)).toEqual({ x: 400, y: 100, w: 600, h: FLOAT_MIN.h });
+    expect(resizePipRect(r, "e", -500, 0, vw, vh)).toEqual({ x: 400, y: 100, w: PIP_MIN.w, h: 400 });
+    expect(resizePipRect(r, "w", 500, 0, vw, vh)).toEqual({ x: 1000 - PIP_MIN.w, y: 100, w: PIP_MIN.w, h: 400 });
+    expect(resizePipRect(r, "s", 0, -500, vw, vh)).toEqual({ x: 400, y: 100, w: 600, h: PIP_MIN.h });
     // 伸ばしすぎ: 窓の端で止まる
-    expect(resizeFloatRect(r, "e", 2000, 0, vw, vh)).toEqual({ x: 400, y: 100, w: 880, h: 400 });
-    expect(resizeFloatRect(r, "w", -2000, 0, vw, vh)).toEqual({ x: 0, y: 100, w: 1000, h: 400 });
-    expect(resizeFloatRect(r, "s", 0, 2000, vw, vh)).toEqual({ x: 400, y: 100, w: 600, h: 700 });
+    expect(resizePipRect(r, "e", 2000, 0, vw, vh)).toEqual({ x: 400, y: 100, w: 880, h: 400 });
+    expect(resizePipRect(r, "w", -2000, 0, vw, vh)).toEqual({ x: 0, y: 100, w: 1000, h: 400 });
+    expect(resizePipRect(r, "s", 0, 2000, vw, vh)).toEqual({ x: 400, y: 100, w: 600, h: 700 });
     // 幅は窓 − 16px まで（左の端から広げても）
-    expect(resizeFloatRect({ x: 200, y: 0, w: 1080, h: 400 }, "w", -1000, 0, vw, vh)).toEqual({ x: 16, y: 0, w: 1264, h: 400 });
-    expect(resizeFloatRect({ x: 0, y: 0, w: 1200, h: 784 }, "se", 500, 500, vw, vh)).toEqual({ x: 0, y: 0, w: 1264, h: 784 });
+    expect(resizePipRect({ x: 200, y: 0, w: 1080, h: 400 }, "w", -1000, 0, vw, vh)).toEqual({ x: 16, y: 0, w: 1264, h: 400 });
+    expect(resizePipRect({ x: 0, y: 0, w: 1200, h: 784 }, "se", 500, 500, vw, vh)).toEqual({ x: 0, y: 0, w: 1264, h: 784 });
     // 文字の大きさ 1.25 倍: 最小も 1.25 倍
-    expect(resizeFloatRect(r, "se", -900, -900, vw, vh, 1.25)).toEqual({ x: 400, y: 100, w: FLOAT_MIN.w * 1.25, h: FLOAT_MIN.h * 1.25 });
+    expect(resizePipRect(r, "se", -900, -900, vw, vh, 1.25)).toEqual({ x: 400, y: 100, w: PIP_MIN.w * 1.25, h: PIP_MIN.h * 1.25 });
     // どの端をどう動かしても、窓の内側・最小以上
     for (const edge of ["w", "e", "s", "sw", "se"] as const)
       for (const d of [-3000, -200, 0, 200, 3000]) {
-        const o = resizeFloatRect(r, edge, d, d, vw, vh);
+        const o = resizePipRect(r, edge, d, d, vw, vh);
         expect(o.x).toBeGreaterThanOrEqual(0);
         expect(o.y).toBeGreaterThanOrEqual(0);
         expect(o.x + o.w).toBeLessThanOrEqual(vw);
         expect(o.y + o.h).toBeLessThanOrEqual(vh);
-        expect(o.w).toBeGreaterThanOrEqual(FLOAT_MIN.w);
-        expect(o.h).toBeGreaterThanOrEqual(FLOAT_MIN.h);
+        expect(o.w).toBeGreaterThanOrEqual(PIP_MIN.w);
+        expect(o.h).toBeGreaterThanOrEqual(PIP_MIN.h);
       }
   });
 
-  it("浮かせた枠のキーボード操作: 矢印キーで移動、Shift＋矢印で大きさ。窓の内側に収める。ほかのキーは扱わない", () => {
+  it("小窓のキーボード操作: 矢印キーで移動、Shift＋矢印で大きさ。窓の内側に収める。ほかのキーは扱わない", () => {
     const r = { x: 400, y: 100, w: 600, h: 400 };
-    const s = FLOAT_KEY_STEP;
-    expect(keyFloatRect(r, "ArrowLeft", false, 1280, 800)).toEqual({ ...r, x: 400 - s });
-    expect(keyFloatRect(r, "ArrowDown", false, 1280, 800)).toEqual({ ...r, y: 100 + s });
-    expect(keyFloatRect(r, "ArrowRight", true, 1280, 800)).toEqual({ ...r, w: 600 + s });
-    expect(keyFloatRect(r, "ArrowUp", true, 1280, 800)).toEqual({ ...r, h: 400 - s });
-    expect(keyFloatRect({ ...r, x: 0 }, "ArrowLeft", false, 1280, 800)).toEqual({ ...r, x: 0 });
-    expect(keyFloatRect(r, "ArrowRight", false, 1280, 800, 1.25)).toEqual({ ...r, x: 400 + s * 1.25 });
-    expect(keyFloatRect(r, "Enter", false, 1280, 800)).toBeNull();
+    const s = PIP_KEY_STEP;
+    expect(keyPipRect(r, "ArrowLeft", false, 1280, 800)).toEqual({ ...r, x: 400 - s });
+    expect(keyPipRect(r, "ArrowDown", false, 1280, 800)).toEqual({ ...r, y: 100 + s });
+    expect(keyPipRect(r, "ArrowRight", true, 1280, 800)).toEqual({ ...r, w: 600 + s });
+    expect(keyPipRect(r, "ArrowUp", true, 1280, 800)).toEqual({ ...r, h: 400 - s });
+    expect(keyPipRect({ ...r, x: 0 }, "ArrowLeft", false, 1280, 800)).toEqual({ ...r, x: 0 });
+    expect(keyPipRect(r, "ArrowRight", false, 1280, 800, 1.25)).toEqual({ ...r, x: 400 + s * 1.25 });
+    expect(keyPipRect(r, "Enter", false, 1280, 800)).toBeNull();
   });
 
-  it("付いてくる箱は、出していないときは中身を描かない。出しているときは見出し・浮かせる・×・グラフ（同じ部品・決めた高さ）", () => {
-    const st = (docked: boolean): DockState => ({ docked, height: 240, mode: "large", floating: false, extra: 92 });
-    const draw = (height: number) => h(DockedResult, { model: pm, provisional: false, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop, height });
-    expect(renderToString(h(ChartDock, { dock: st(false), onClose: noop, children: draw }))).toBe('<div class="chart-dock large" data-chart-dock="off"></div>');
-    const html = renderToString(h(ChartDock, { dock: st(true), head: "見出し", onClose: noop, children: draw }));
-    expect(html).toContain("data-dock-close");
-    expect(html).toContain("data-dock-float");
-    expect(html).toContain("浮かせる");
+  it("見出しのボタンはアイコンだけ（文字は出さない）。説明の札と読み上げは「グラフを小窓で表示」。出している間は「小窓を閉じる」", () => {
+    closePip();
+    const off = renderToString(h(PipButton, {}));
+    expect(off).toContain(`aria-label="${PIP_LABEL.open}"`);
+    expect(off).toContain(`data-tip="${PIP_LABEL.open}"`);
+    expect(off).toContain('data-pip-icon="pip"');
+    expect(off).toContain('aria-pressed="false"');
+    // ボタンの中に文字を出さない（アイコンの SVG だけ）
+    expect(off.replace(/<svg[\s\S]*<\/svg>/, "")).toMatch(/^<button[^>]*><\/button>$/);
+    openPip();
+    const on = renderToString(h(PipButton, {}));
+    expect(on).toContain(`aria-label="${PIP_LABEL.close}"`);
+    expect(on).toContain('data-pip-icon="back"');
+    expect(on).toContain('aria-pressed="true"');
+    closePip();
+  });
+
+  it("結果のグラフと万一のときのグラフの見出しの右上に、いつでも押せる小窓のボタン", () => {
+    closePip();
+    const card = renderToString(h(ResultCard, { model: pm, verdict: pm.result, provisional: false, mode: "assets", onMode: noop, explain: null, onExplain: noop, ageMark: null, pinnedYear: null, onSelectYear: noop, tools: h("button", { "data-settings-open": "" }, "表示の設定") }));
+    const tools = card.slice(card.indexOf('class="cc-tools"'), card.indexOf("</div>", card.indexOf('class="cc-tools"')));
+    expect(tools).toContain('data-pip-toggle="open"');
+    // 右端（表示の設定のボタンの後ろ）
+    expect(tools.indexOf("data-pip-toggle")).toBeGreaterThan(tools.indexOf("data-settings-open"));
+    const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"));
+    const protection: ContingencyModel["protection"] = { status: "loading", charts: [], error: null, ms: 0 };
+    const strip: YearStripModel = yearStripModel({ options: [{ value: 2030, age: 40 }], results: [{ state: "ready", depletion: null, source: "canonical" }], who: "ご主人", noneDepletion: null, stale: false });
+    const sc = scenarios(wh).find((x) => x.key === "death:self")!;
+    const model: ContingencyModel = { protection, scenarios: scenarioCards({ req: wh.request, scenarios: scenarios(wh), selected: sc.key, protection, grade: undefined }), selected: sc.key, year: 2030, strip, scenario: { status: "loading", model: null, error: null, stale: false } };
+    const cg = renderToString(h(ContingencyChartCard, { model, mode: "assets", onMode: noop, pinnedYear: null, onPinYear: noop, onPick: noop }));
+    expect(cg).toContain('data-pip-toggle="open"');
+  });
+
+  it("小窓は出していないときは何も描かない（元のグラフの場所を覆わない）", () => {
+    closePip();
+    const draw = (height: number) => h(PipResult, { model: pm, provisional: false, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop, height });
+    expect(renderToString(h(ChartPip, { head: "見出し", extra: 92, children: draw }))).toBe("");
+  });
+
+  it("小窓の中のグラフは、元のグラフと同じ部品を決めた高さで描く", () => {
+    const html = renderToString(h(PipResult, { model: pm, provisional: false, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop, height: 240 }));
+    expect(html).toContain('data-pip-chart="main"');
     expect(html).toContain('height="240"');
     expect(html).toContain("main-legend");
     expect(html).toContain("line-prop");
@@ -477,36 +431,23 @@ describe("操作中はグラフを上に表示", () => {
       scenario: { status: "ready", model: scenarioModel({ req, scenario: sc, year: 2030, result, none, targetAge: 95, choice: undefined }), error: null, stale: false },
     };
     const html = renderToString(
-      h(DockedContingency, { model, mode: "assets", pinnedYear: null, onPinYear: noop, onPick: noop, height: 200, strip: { selected: 2030, onSelect: noop, play: null, onPlay: noop, onPause: noop, onStop: noop } }),
+      h(PipContingency, { model, mode: "assets", pinnedYear: null, onPinYear: noop, onPick: noop, height: 200, strip: { selected: 2030, onSelect: noop, play: null, onPlay: noop, onPause: noop, onStop: noop } }),
     );
     expect(html).toContain('class="card ys compact"');
     expect(html).toContain('height="200"');
     expect(html).not.toContain('class="yc-a"');
   });
 
-  it("表示の設定の「操作中はグラフを上に表示」は 出さない／小さく／大きく（既定は大きく）。世帯ファイルに書いた値を読み戻す", () => {
-    expect(DEFAULT_DISPLAY_SETTINGS.dock).toBe("large");
+  it("表示の設定に「操作中はグラフを上に表示」は無い（付いてくるグラフはなくした）。保存した本文の dock は読み捨てる", () => {
     const html = renderToString(h(DisplaySettingsPanel, { value: DEFAULT_DISPLAY_SETTINGS, onChange: noop, onClose: noop, feeAvailable: true }));
-    expect(html).toContain("操作中はグラフを上に表示");
-    const radios = html.match(/<input[^>]*data-dock-setting[^>]*>/g) ?? [];
-    expect(radios.map((r) => r.match(/data-dock-setting="([^"]+)"/)?.[1])).toEqual(["off", "small", "large"]);
-    for (const r of radios) expect(r).toContain('type="radio"');
-    expect(radios[2]).toMatch(/checked/);
-    expect(radios[0]).not.toMatch(/checked/);
-    expect(html).toContain("大きく（操作の欄は1行分を残す）（既定）");
+    expect(html).not.toContain("操作中はグラフを上に表示");
+    expect(html).not.toContain("data-dock-setting");
+    expect(html).not.toContain("時点を並べる");
+    expect(Object.keys(DEFAULT_DISPLAY_SETTINGS)).not.toContain("dock");
     const ws = { template: null, band: [], base: "current", selected: "current", shownItems: [] };
-    for (const mode of ["off", "small", "large"] as const) {
-      const body = bodyOf({ wh: demo.wh, workspace: ws, display: { ...DEFAULT_DISPLAY_SETTINGS, dock: mode }, carry: EMPTY_CARRY });
-      expect(fromBody(body).display.dock).toBe(mode);
-    }
-    // 前の版の本文: dock が無い → 既定、オン（true）→ 既定、オフ（false）→ 出さない
-    const old = JSON.parse(bodyOf({ wh: demo.wh, workspace: ws, display: DEFAULT_DISPLAY_SETTINGS, carry: EMPTY_CARRY })) as { display: Record<string, unknown> };
-    delete old.display.dock;
-    expect(fromBody(JSON.stringify(old)).display.dock).toBe("large");
-    old.display.dock = true;
-    expect(fromBody(JSON.stringify(old)).display.dock).toBe("large");
-    old.display.dock = false;
-    expect(fromBody(JSON.stringify(old)).display.dock).toBe("off");
+    const old = JSON.parse(bodyOf({ wh: demo.wh, workspace: ws, display: { result: DEFAULT_DISPLAY_SETTINGS, balance: DEFAULT_BALANCE_SETTINGS }, carry: EMPTY_CARRY })) as { display: { result: Record<string, unknown> } };
+    old.display.result.dock = "small";
+    expect(JSON.parse(bodyOf(fromBody(JSON.stringify(old)))).display.result.dock).toBeUndefined();
   });
 });
 
