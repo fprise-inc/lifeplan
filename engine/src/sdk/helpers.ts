@@ -1,10 +1,10 @@
 // 部品が共通に使う小さな関数（公式SDK）。年齢の値（unit: years）の切り替えの月・年度・働き方の種類
 import { EngineError } from "../errors.ts";
 import type { Ctx } from "../registry/ctx.ts";
-import type { Flow } from "../engine/types.ts";
+import type { BuildingStructure, Flow, RealEstateValuationSetting } from "../engine/types.ts";
 import { numTable } from "../engine/numTable.ts";
 import { RATE_ONE, RATE_ZERO, type Rate } from "../money/rate.ts";
-import { yen, type Yen } from "../money/yen.ts";
+import { addYen, yen, type Yen } from "../money/yen.ts";
 import type { AgeSwitch } from "../time/ageSwitch.ts";
 import { formatYm, monthIndex, monthOf, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
 
@@ -448,4 +448,57 @@ export function exemptionMonths(ctx: Ctx, c: ExemptionCounts): { num: bigint; de
     [EXEMPTION_WEIGHT_IDS.full, c.exemptFull - pre.exemptFull],
   ]);
   return { num, den };
+}
+
+// ---- 不動産の評価（土地と建物に分ける。0025 の2。持ち家 housing.valuation と住まい以外の不動産 asset.realEstate で共通）----
+
+/** 構造ごとの耐用年数の目安（年。住宅用の建物の法定耐用年数） */
+export const USEFUL_LIFE: Readonly<Record<BuildingStructure, number>> = { wood: 22, lightSteel: 19, steel: 34, rc: 47 };
+/** 土地の割合の目安 */
+export const LAND_SHARE = "0.3";
+/** 建物の残りの価値の下限の目安 */
+export const RESIDUAL_FLOOR = "0.2";
+/** 売却の費用の割合の目安 */
+export const SALE_COST_RATE = "0.04";
+
+const VALUATION_RULE = "conv.asset.valuation";
+
+/** 築年数 a の年末の建物の残りの割合（下限つき） */
+function remainingShare(ctx: Ctx, age: number, life: number, floor: Rate): Rate {
+  if (age <= 0) return RATE_ONE;
+  const raw = ctx.rate.sub(RATE_ONE, ctx.rate.div(ctx.rate.of(String(age)), ctx.rate.of(String(life))));
+  return ctx.rate.compare(raw, floor) < 0 ? floor : raw;
+}
+
+/**
+ * 土地と建物に分けた年末の評価額（0025 の2）。基にする額 basis（y0 の年の値）を土地の割合で分け、土地は y0 の翌年から毎年の上昇率
+ * （growthOf）を当て（1年ごとに円未満切り捨て）、建物は構造の耐用年数で定額で減らして下限より下げない（建物＝基にする建物の額×f(その年)÷f(y0)）。
+ * 返す関数は年の昇順に呼ぶ（土地は前の年の額から伸ばす）
+ */
+export function landBuildingValuer(
+  ctx: Ctx,
+  o: { readonly basis: Yen; readonly y0: number; readonly share: string; readonly structure: BuildingStructure; readonly builtYear: number; readonly setting: RealEstateValuationSetting | undefined; readonly growthOf: (year: number) => Rate },
+): { readonly land0: Yen; readonly building0: Yen; readonly at: (year: number) => { readonly land: Yen; readonly building: Yen } } {
+  const land0 = ctx.money.mulRate(o.basis, ctx.rate.of(o.share), VALUATION_RULE);
+  const building0 = yen(o.basis - land0);
+  const life = o.setting?.usefulLife?.[o.structure] ?? USEFUL_LIFE[o.structure];
+  const floor = ctx.rate.of(o.setting?.residualFloor ?? RESIDUAL_FLOOR);
+  const f0 = remainingShare(ctx, o.y0 - o.builtYear, life, floor);
+  let land = land0;
+  let landYear = o.y0;
+  const landAt = (y: number): Yen => {
+    while (landYear < y) {
+      landYear++;
+      const g = o.growthOf(landYear);
+      if (ctx.rate.compare(g, RATE_ZERO) !== 0) land = addYen(land, ctx.money.mulRate(land, g, VALUATION_RULE));
+    }
+    return y < o.y0 ? land0 : land;
+  };
+  const buildingAt = (y: number): Yen => {
+    const f = remainingShare(ctx, y - o.builtYear, life, floor);
+    // 下限が0で、基にする年にもう耐用年数を過ぎていたときは、入れた建物の額のまま
+    if (ctx.rate.compare(f, f0) === 0 || ctx.rate.compare(f0, RATE_ZERO) === 0) return building0;
+    return ctx.money.mulRate(building0, ctx.rate.div(f, f0), VALUATION_RULE);
+  };
+  return { land0, building0, at: (y) => ({ land: landAt(y), building: buildingAt(y) }) };
 }

@@ -430,7 +430,8 @@ describe("収支の推移・資産と負債", () => {
     const p = bsPlan({ key: "B", letter: "B", name: "プランB", title: "", base: false, req: proposal, table: r.table });
     const finM = financialOf(r.table);
     const debt = sumByYear(r.table, (c) => under(c.row, "cf.balance.debt"));
-    const realEstate = sumByYear(r.table, (c) => c.row === "cf.balance.account.realEstate");
+    // 不動産は土地と建物の行に分けて出る（cf.balance.account.realEstate の下の行の合計）
+    const realEstate = sumByYear(r.table, (c) => c.row === "cf.balance.account.realEstate" || c.row.startsWith("cf.balance.account.realEstate."));
     const others = sumByYear(r.table, (c) => ["cf.balance.account.insurance", "cf.balance.account.car", "cf.balance.account.otherAsset"].includes(c.row));
     for (const y of p.years) {
       const f = finM.get(y.year) ?? 0;

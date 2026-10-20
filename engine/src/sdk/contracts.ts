@@ -86,6 +86,8 @@ export interface TotalIncomeOutput {
   readonly temporary?: Yen;
   /** 個人年金の雑所得（約束の版 1.3 の任意の欄。total に入る） */
   readonly miscellaneous?: Yen;
+  /** 不動産所得（住まい以外の不動産。損失は土地の取得のための借入の利息の分を除いて、ほかの所得から引く。約束の版 1.4 の任意の欄。total に入る。0028） */
+  readonly realEstate?: Yen;
 }
 
 /** tax.deductions: 所得控除（所得税か住民税か） */
@@ -377,6 +379,8 @@ export interface DebtScheduleOutput {
   readonly firstPayment: string;
   /** 返し終えた月（表の最後の月までに返し終えなければ null） */
   readonly payoff: string | null;
+  /** 年ごとの利息（計算基準月から。ボーナス返済の分を含む。利息の付いた年だけ・年の昇順。約束の版 1.2 の任意の欄。0028） */
+  readonly interest?: readonly { readonly year: number; readonly amount: Yen }[];
 }
 
 /** housing.residence: 住まいのお金の動きと、購入した持ち家（不動産の残高の計算に使う） */
@@ -399,6 +403,30 @@ export interface HousingValuationOutput {
 }
 
 /** asset.car: 車の年末の評価額 */
+/** asset.realEstate: 住まい以外の不動産（中身を入れた不動産の器）の年末の評価額（土地・建物）・家賃収入・経費・不動産所得・売却（0028） */
+export interface RealEstateOutput {
+  /** 家賃収入（cf.income.other.rental）・経費（cf.expense.other.realEstate）・売却の手取り（cf.income.lumpSum.realEstateSale） */
+  readonly flows: readonly Flow[];
+  readonly properties: readonly {
+    readonly object: string;
+    readonly owner: string;
+    /** 持っている年の年末の評価額（売った年は含めない。年の昇順） */
+    readonly years: readonly { readonly year: number; readonly land: Yen; readonly building: Yen; readonly value: Yen }[];
+    /** 貸している年の不動産所得の内訳（計算基準年の2年前から。年の昇順）。income＝rent−expenses−depreciation−interest（マイナスは損失） */
+    readonly income: readonly {
+      readonly year: number;
+      readonly rent: Yen;
+      readonly expenses: Yen;
+      readonly depreciation: Yen;
+      readonly interest: Yen;
+      /** 利息のうち土地の取得のための借入の分（損失のときにほかの所得から引けない分） */
+      readonly landInterest: Yen;
+      readonly income: Yen;
+    }[];
+    readonly sale: { readonly ym: string; readonly value: Yen; readonly price: Yen; readonly costs: Yen; readonly proceeds: Yen } | null;
+  }[];
+}
+
 export interface CarValuationOutput {
   readonly cars: readonly { readonly object: string; readonly owner: string; readonly years: readonly { readonly year: number; readonly value: Yen }[] }[];
 }

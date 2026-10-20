@@ -6,13 +6,16 @@ import { useBoxSize } from "./BsFigure.tsx";
 import { group, man } from "./format.ts";
 import type { BsPlanModel, BsYearModel, Yen } from "./model.ts";
 
+/** 不動産の項目（土地・建物・土地と建物に分けていない不動産） */
+const REAL_ESTATE: ReadonlySet<string> = new Set(["land", "building", "realEstateOther"]);
+
 /** 推移の積み上げの区分（上に積む資産・下に積む負債）。色は balance.css */
 export const TREND_ASSETS: readonly { key: string; label: string; of: (y: BsYearModel) => Yen }[] = [
   { key: "liquid", label: "すぐ使えるお金", of: (y) => sumWhere(y, (l) => l.group === "liquid") },
   { key: "market", label: "値動きのある運用", of: (y) => sumWhere(y, (l) => l.group === "market") },
   { key: "locked", label: "引き出せないお金", of: (y) => sumWhere(y, (l) => l.group === "locked") },
-  { key: "realEstate", label: "不動産", of: (y) => sumWhere(y, (l) => l.key === "home" || l.key === "realEstateOther") },
-  { key: "other", label: "車・その他", of: (y) => sumWhere(y, (l) => l.group === "illiquid" && l.key !== "home" && l.key !== "realEstateOther") },
+  { key: "realEstate", label: "不動産", of: (y) => sumWhere(y, (l) => REAL_ESTATE.has(l.key)) },
+  { key: "other", label: "車・その他", of: (y) => sumWhere(y, (l) => l.group === "illiquid" && !REAL_ESTATE.has(l.key)) },
 ];
 export const TREND_DEBTS: readonly { key: string; label: string; of: (y: BsYearModel) => Yen }[] = [
   { key: "mortgage", label: "住宅ローン", of: (y) => sumWhere(y, (l) => l.group === "mortgage") },

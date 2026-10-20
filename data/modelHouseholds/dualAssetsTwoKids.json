@@ -579,7 +579,38 @@
           },
           "asOf": "2026-09",
           "valueGrowth": "-0.005",
-          "contributions": []
+          "contributions": [],
+          "property": {
+            "structure": "rc",
+            "builtYear": 2008,
+            "landShare": "0.2",
+            "acquisition": {
+              "price": 21000000,
+              "at": "2016-03"
+            },
+            "rental": {
+              "monthly": {
+                "value": 95000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "vacancyRate": "0.05",
+              "growth": "-0.005"
+            },
+            "expenses": {
+              "annual": {
+                "value": 360000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "rate": "0.05",
+              "growth": "0.01"
+            }
+          }
         },
         {
           "id": "1725ba0d-ea26-4b09-81c1-9e1314d7cb9e",
@@ -825,6 +856,42 @@
           "repayment": {
             "method": "equalPayment",
             "termMonths": 60
+          }
+        },
+        {
+          "id": "5b0e8f3a-6c1d-4e2f-9a7b-3c4d5e6f7a8b",
+          "kind": "other",
+          "property": "97fdbe51-70e9-42c2-bf8f-eaa164206781",
+          "debtors": [
+            {
+              "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+              "role": "primary"
+            }
+          ],
+          "principal": 15000000,
+          "start": {
+            "at": "2016-03"
+          },
+          "balance": {
+            "value": 9500000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "balanceAsOf": "2026-09",
+          "rateSchedule": [
+            {
+              "from": {
+                "at": "2016-03"
+              },
+              "type": "fixed",
+              "rate": "0.018"
+            }
+          ],
+          "repayment": {
+            "method": "equalPayment",
+            "termMonths": 300
           }
         }
       ],

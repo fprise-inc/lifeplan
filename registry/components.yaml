@@ -38,6 +38,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: asset.realEstate
+    status: active
+    label: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: benefit.childAllowance
     status: active
     label: "児童手当"

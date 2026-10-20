@@ -19,8 +19,9 @@ import { modelHousehold } from "./helpers.ts";
 const NOW = "2026-10-18T10:00:00.000Z";
 
 function sample(): BodyState {
-  // 0.5 から: 資産運用（期間を分けた積立・積立の終わりが空・FP が入れた利回り・取り崩しの計画。0026）の見本の世帯
-  const id = "investmentCouple";
+  // 0.6 から: 住まい以外の不動産の中身（土地と建物・家賃収入・経費・取得。accounts[].property）と、その不動産のローン（debts[].property）を持つ
+  // 見本の世帯（資産運用の積立の終わりが空・取り崩しの計画も持つ。0026・0028）
+  const id = "dualAssetsTwoKids";
   const req = modelHousehold(id);
   const self = roles(req).find((r) => r.key === "self")!.member;
   const demo = demoHousehold(id) ?? null;

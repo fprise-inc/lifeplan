@@ -663,6 +663,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.expense.other.realEstate
+    status: active
+    label: "不動産の経費（貸している・持っている住まい以外の不動産の管理費・修繕積立金・固定資産税・管理委託料など）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.transfer
     status: active
     label: 器の間の移動
@@ -864,6 +870,18 @@ entries:
   - id: cf.balance.account.realEstate
     status: active
     label: "不動産"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.realEstate.land
+    status: active
+    label: "不動産（土地）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.realEstate.building
+    status: active
+    label: "不動産（建物）"
     since: draft
     aliases: []
     replacedBy: null

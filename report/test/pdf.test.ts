@@ -101,6 +101,17 @@ describe.skipIf(bin === null)("見本の PDF", () => {
         expect(normalize(page)).toContain(normalize("FP顧問料を払っても"));
       });
 
+      it("運用の期間の帯: 積立額の段の額がすべて文字として出る（箱に入らない段は帯の下の凡例に年といっしょに出す）", () => {
+        const periods = bundle.investment?.periods;
+        if (periods === undefined) return;
+        const page = r.pages.find((p) => normalize(p).includes(normalize("運用の期間")));
+        expect(page).toBeDefined();
+        const text = normalize(page as string);
+        for (const st of periods.steps) expect(text, st.label).toContain(normalize(st.label));
+        // 凡例に出すときは、段の始まりの年も書く
+        if (text.includes(normalize("積み立てる額"))) for (const st of periods.steps) expect(text).toContain(normalize(`${st.year}年〜`));
+      });
+
       it("PDF の文字に内部 ID・提供元の名前が入らない", () => {
         expect(all).not.toMatch(UUID);
         for (const bad of ["ファイナンシア", "Financia", "FPライズ", "FPRISE"]) expect(all).not.toContain(bad);

@@ -35,6 +35,10 @@
     "miscellaneous": {
       "description": "個人年金の雑所得（1.3。total に入る）",
       "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "realEstate": {
+      "description": "不動産所得（1.4。マイナスは損失。損失は土地の取得のための借入の利息の分を除いて total に入る。0028）",
+      "$ref": "urn:financia:schema:common#/$defs/yen"
     }
   }
 }

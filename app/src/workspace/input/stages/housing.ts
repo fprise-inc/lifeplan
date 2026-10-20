@@ -306,7 +306,7 @@ export function creditLifeGroups(wh: WorkingHousehold): GroupDef[] {
   });
 }
 
-function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
+export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
   const find = byId(debts, d.id);
   const firstRate: Finder = (h, w) => (getPath(find(h, w), ["rateSchedule", "0"]) as Record<string, unknown> | undefined) ?? undefined;
   const self = wh.request.input.household.members.find((m) => m.kind === "self");
@@ -472,7 +472,8 @@ export function housingStage(wh: WorkingHousehold): StageDef {
     ],
   };
   const mortgages = (h.debts ?? []).filter((d) => d.kind === "mortgage");
-  const others = (h.debts ?? []).filter((d) => d.kind !== "mortgage");
+  // 住まい以外の不動産のローン（debt.property）は、その不動産の欄（貯蓄・運用）で入れる
+  const others = (h.debts ?? []).filter((d) => d.kind !== "mortgage" && d.property === undefined);
   const newLoan = (kind: string, w: WorkingHousehold) =>
     mutate(w, (hh) => {
       if (selfId === undefined) return;

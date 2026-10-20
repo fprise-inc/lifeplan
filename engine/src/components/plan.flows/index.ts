@@ -4,6 +4,7 @@
 // 教育の目標（education.cost・education.support。子ごと）・児童手当（benefit.childAllowance）・差し込み口の支出を集め、
 // 年間収支（収入−税・社会保険料−支出。器の間の移動は含めない）を年ごとに出す。
 // 改訂6: 持ち家の売却の手取り（housing.valuation）も集める。
+// 改訂7: 住まい以外の不動産の家賃収入・経費・売却の手取り（asset.realEstate。0028）も集める。
 // 改訂5: 保険の受け取り（insurance.policy。契約ごと）・介護の費用（care.expense）・万一のときの一時のお金（contingency.lumpSum）も集める。
 // 運用益・金融資産の残高（plan.cashflow）と分けるのは、運用利回りのように案の前提だけが変わったとき、集め直さずに済むようにするため（0005 の追記）。
 // 構成員ごとに分けるのは、1人の入力を変えたとき、ほかの構成員の分を集め直さないため（0005・0006 の追記）。
@@ -29,7 +30,7 @@ export default defineComponent<Record<string, never>, Collected>({
   id: "plan.flows",
   title: "お金の動き（集める）",
   contract: "1.1",
-  revision: 6,
+  revision: 7,
   requires: {
     "insurance.policy": ">=1 <2",
     "care.expense": ">=1 <2",
@@ -44,6 +45,7 @@ export default defineComponent<Record<string, never>, Collected>({
     "debt.schedule": ">=1 <2",
     "housing.residence": ">=1 <2",
     "housing.valuation": ">=1 <2",
+    "asset.realEstate": ">=1 <2",
     "socialInsurance.nationalHealth": ">=1 <2",
     "insurance.premiumPayment": ">=1 <2",
   },
@@ -77,6 +79,7 @@ export default defineComponent<Record<string, never>, Collected>({
     for (const d of ctx.list<{ id: string }>("debt")) household.push(ctx.call<FlowsResult>("debt.schedule", { object: d.id }).flows);
     household.push(ctx.call<FlowsResult>("housing.residence", {}).flows);
     household.push(ctx.call<FlowsResult>("housing.valuation", {}).flows);
+    household.push(ctx.call<FlowsResult>("asset.realEstate", {}).flows);
     household.push(ctx.call<FlowsResult>("expense.living", {}).flows);
     household.push(ctx.call<FlowsResult>("expense.periodic", {}).flows);
     household.push(ctx.call<FlowsResult>("expense.advisoryFee", {}).flows);

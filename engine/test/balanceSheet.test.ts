@@ -22,7 +22,9 @@ const withInput = (req: Req, f: (h: Obj, input: Obj) => void): Req => {
 };
 type Cell = { row: string; year: number; amount: number; object?: string };
 const cells = (r: ReturnType<typeof full>, row: string, year: number) => (r.table as unknown as Cell[]).filter((c) => c.row === row && c.year === year).reduce((s, c) => s + c.amount, 0);
-const has = (r: ReturnType<typeof full>, row: string, year: number) => (r.table as unknown as Cell[]).some((c) => c.row === row && c.year === year);
+const has = (r: ReturnType<typeof full>, row: string, year: number) => (r.table as unknown as Cell[]).some((c) => (c.row === row || c.row.startsWith(`${row}.`)) && c.year === year);
+/** 行とその下の行（不動産は土地と建物の行に分けて出す）の合計 */
+const under = (r: ReturnType<typeof full>, row: string, year: number) => (r.table as unknown as Cell[]).filter((c) => (c.row === row || c.row.startsWith(`${row}.`)) && c.year === year).reduce((s, c) => s + c.amount, 0);
 
 const base = (o: { endYear?: number; inflation?: string } = {}) =>
   withInput(household({ members: [member("a", "self", "1985-01")], endYear: o.endYear ?? 2060, accounts: [{ id: uid("dep"), kind: "deposit", owner: A, marketValue: box(30000000), asOf: "2025-12", contributions: [] }] }), (_h, input) => {
@@ -214,15 +216,15 @@ describe("その他の資産と合計の一致", () => {
     const NOT_FINANCIAL = new Set(["cf.balance.account.realEstate", "cf.balance.account.insurance", "cf.balance.account.otherAsset", "cf.balance.account.car"]);
     for (const y of [2026, 2027, 2030, 2045]) {
       const accounts = table.filter((c) => c.year === y && c.row.startsWith("cf.balance.account."));
-      const fin = accounts.filter((c) => !NOT_FINANCIAL.has(c.row)).reduce((s, c) => s + c.amount, 0);
+      const fin = accounts.filter((c) => !NOT_FINANCIAL.has(c.row) && !c.row.startsWith("cf.balance.account.realEstate.")).reduce((s, c) => s + c.amount, 0);
       expect(fin, String(y)).toBe(cells(r, "cf.balance.financial", y));
       const assets = accounts.reduce((s, c) => s + c.amount, 0);
       const debts = table.filter((c) => c.year === y && c.row.startsWith("cf.balance.debt.")).reduce((s, c) => s + c.amount, 0);
-      const realEstate = cells(r, "cf.balance.account.realEstate", y);
+      const realEstate = under(r, "cf.balance.account.realEstate", y);
       const others = cells(r, "cf.balance.account.otherAsset", y) + cells(r, "cf.balance.account.car", y) + cells(r, "cf.balance.account.insurance", y);
       expect(assets - debts, String(y)).toBe(cells(r, "cf.balance.financial", y) + realEstate + others - debts);
     }
-    expect(cells(r, "cf.balance.account.realEstate", 2030)).toBeGreaterThan(8000000);
+    expect(under(r, "cf.balance.account.realEstate", 2030)).toBeGreaterThan(8000000);
     expect(cells(r, "cf.balance.account.car", 2026)).toBeGreaterThan(0);
     expect(cells(r, "cf.balance.debt.mortgage", 2030)).toBeGreaterThan(0);
   });

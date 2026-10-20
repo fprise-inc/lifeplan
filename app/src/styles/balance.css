@@ -13,12 +13,14 @@
   --bs-ideco: #bccbe6;
   --bs-corporateDc: #d6e0f2;
   --bs-mutualAid: #c9d6ee;
-  --bs-home: #6f9478;
-  --bs-realEstateOther: #a8c6ad;
+  --bs-land: #6f9478;
+  --bs-building: #a8c6ad;
+  --bs-realEstateOther: #c4d8c7;
   --bs-car: #b3a789;
   --bs-insurance: #dcd4c1;
   --bs-otherAsset: #cbc2aa;
   --bs-mortgage: #8f7547;
+  --bs-propertyLoan: #a88e5e;
   --bs-carLoan: #c4ae80;
   --bs-scholarship: #d3c199;
   --bs-debtOther: #b9a072;

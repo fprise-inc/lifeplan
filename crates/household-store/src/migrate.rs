@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.5";
+pub const CURRENT: &str = "0.6";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -25,7 +25,9 @@ pub const CURRENT: &str = "0.5";
 ///   `assumptions.returnShifts` を足した（どれも任意）。読み方を2つ変えた: 積立の終わり（`contributions[].to`）が空の積立は
 ///   「表の最後まで」ではなく「名義の人の退職の月まで（推定）」、iDeCo・企業型DC の受け取りの始まりが空なら「75歳」ではなく
 ///   「退職の年（60〜65歳に収める）」。データは書き換えず、空のまま新しい読み方で読む（画面は「推定あり」の印を出す）
-pub const KNOWN: &[&str] = &["0.1", "0.2", "0.3", "0.4", "0.5"];
+/// - 0.6: 住まい以外の不動産の中身 `accounts[].property`（土地と建物に分ける・取得・家賃収入・経費・売却）と、その不動産のローン
+///   `debts[].property` を足した（どれも任意。足すだけの MINOR。0028）。読み方は変えない（中身の無い不動産の器は今までどおり1行で評価する）
+pub const KNOWN: &[&str] = &["0.1", "0.2", "0.3", "0.4", "0.5", "0.6"];
 
 /// 1段分の変換
 pub struct Step {
@@ -55,6 +57,11 @@ pub const STEPS: &[Step] = &[
         from: "0.4",
         to: "0.5",
         apply: v0_4_to_0_5,
+    },
+    Step {
+        from: "0.5",
+        to: "0.6",
+        apply: v0_5_to_0_6,
     },
 ];
 
@@ -97,6 +104,16 @@ fn v0_4_to_0_5(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.5".into());
+    }
+    Ok(body)
+}
+
+/// 0.5 → 0.6: 足した欄（不動産の中身・不動産のローンの指定）はどれも任意なので足さない（中身の無い不動産の器は今までどおりの計算）。
+/// 形式の版だけを書き換える（0028）
+fn v0_5_to_0_6(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.6".into());
     }
     Ok(body)
 }
@@ -189,7 +206,8 @@ mod tests {
         assert_eq!(access("0.2").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.3").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.4").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.6").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.5").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.7").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -201,7 +219,7 @@ mod tests {
         assert_eq!(access("01.1").unwrap_err(), StoreError::FORMAT_UNKNOWN);
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
-        assert_eq!(upgrade("0.6", b.clone()).unwrap(), b);
+        assert_eq!(upgrade("0.7", b.clone()).unwrap(), b);
     }
 
     #[test]
@@ -255,8 +273,20 @@ mod tests {
         let acc = serde_json::json!([{"kind": "nisa", "contributions": [{"from": {"at": "2026-01"}, "to": null, "monthly": 30000}]}, {"kind": "ideco", "contributions": []}]);
         let b = serde_json::json!({"meta": {"formatVersion": "0.4", "revisions": [], "editors": {}}, "household": {"request": {"input": {"household": {"accounts": acc}}}}});
         let u = upgrade("0.4", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.5");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
         assert!(upgrade("0.4", serde_json::json!(null)).is_err());
+    }
+
+    #[test]
+    fn v0_5_keeps_real_estate_without_contents() {
+        // 中身（property）の無い不動産の器は、そのまま今までどおり（評価額の増減率で1行）に読む。中身もローンの指定も足さない（0028）
+        let acc = serde_json::json!([{"kind": "realEstate", "marketValue": {"value": 18000000}, "valueGrowth": "-0.005", "contributions": []}]);
+        let debts = serde_json::json!([{"kind": "other", "principal": 1000000}]);
+        let b = serde_json::json!({"meta": {"formatVersion": "0.5", "revisions": [], "editors": {}}, "household": {"request": {"input": {"household": {"accounts": acc, "debts": debts}}}}});
+        let u = upgrade("0.5", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.6");
+        assert_eq!(u["household"], b["household"]);
+        assert!(upgrade("0.5", serde_json::json!(null)).is_err());
     }
 }

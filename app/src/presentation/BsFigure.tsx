@@ -40,7 +40,7 @@ export function useBoxSize<T extends HTMLElement>(initial = 720): { ref: { curre
 /** 項目の色（CSS の変数。balance.css）。分からない項目は分け方の色 */
 export const lineColor = (key: string, g?: BsGroupKey | "netWorth" | "neg") => `var(--bs-${key}, var(--bs-g-${g ?? "illiquid"}))`;
 /** 箱の中の文字を白にする濃い色の項目 */
-const DARK = new Set(["deposit", "zaikei", "finOther", "nisa", "home", "mortgage"]);
+const DARK = new Set(["deposit", "zaikei", "finOther", "nisa", "land", "mortgage"]);
 
 /** 文字の幅の目安（全角1・半角0.6） */
 const textW = (s: string, f: number) => [...s].reduce((w, c) => w + (c.charCodeAt(0) > 255 ? 1 : 0.6), 0) * f;
@@ -266,7 +266,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                   const isNeg = q.key === "neg";
                   const fill = q.key === "short" ? `url(#${uid}-ht)` : isNeg ? `url(#${uid}-ng)` : isNw ? "var(--bs-netWorth)" : lineColor(q.key, d.box.key);
                   const inset = isNw || isNeg ? 1 : 0;
-                  const name = compact && q.key === "insurance" ? "返戻金" : compact && q.key === "corporateDc" ? "DC" : compact && q.key === "home" ? "持ち家" : q.label;
+                  const name = compact && q.key === "insurance" ? "返戻金" : compact && q.key === "corporateDc" ? "DC" : q.label;
                   const showText = !isNw && !isNeg && q.h >= subF * 1.55;
                   const tf = DARK.has(q.key) && !est ? "#fff" : DARK.has(q.key) && est && q.key !== "nisa" ? "#fff" : "var(--ink)";
                   const nmW = textW(name, subF);

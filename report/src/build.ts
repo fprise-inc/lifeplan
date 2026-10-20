@@ -178,6 +178,12 @@ function rowDefs(req: EngineRequest): RowDef[] {
   const hasCar = (req.input.household.cars ?? []).length > 0;
   const car = carExpense(req);
   const notCar = (p: (c: TableCell) => boolean) => (c: TableCell) => p(c) && !car(c);
+  // 住まい以外の不動産の家賃収入・経費があるときだけ、その行を出す（ほかの行から外す。アプリと同じ）
+  const props = (req.input.household.accounts ?? []).filter((a) => a.kind === "realEstate" && a.property !== undefined);
+  const hasRent = props.some((a) => a.property?.rental !== undefined);
+  const hasReExp = props.some((a) => a.property?.rental !== undefined || a.property?.expenses !== undefined);
+  const isRent = (c: TableCell) => hasRent && c.row === "cf.income.other.rental";
+  const isReExp = (c: TableCell) => hasReExp && c.row === "cf.expense.other.realEstate";
   for (const r of rs) defs.push({ key: `salary:${r.key}`, label: `${r.label}の給与`, group: "income", kind: "value", match: byMember("cf.income.salary", r) });
   for (const r of rs) defs.push({ key: `pension:${r.key}`, label: `${r.label}の年金`, group: "income", kind: "value", match: byMember("cf.income.pension", r) });
   const ids = new Set(rs.map((r) => r.member.id));
@@ -186,12 +192,13 @@ function rowDefs(req: EngineRequest): RowDef[] {
   defs.push(
     { key: "retirement", label: "退職金", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.lumpSum.retirement") },
     { key: "benefit", label: "児童手当・修学支援", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.benefit") },
+    ...(hasRent ? [{ key: "rent", label: "家賃収入", group: "income" as const, kind: "value" as const, match: isRent }] : []),
     {
       key: "incomeOther",
       label: "その他の収入",
       group: "income",
       kind: "value",
-      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit"),
+      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit") && !isRent(c),
     },
     { key: "incomeTotal", label: "収入合計", group: "income", kind: "total", match: (c) => under(c.row, "cf.income") },
     { key: "living", label: "基本生活費", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.living")) },
@@ -200,8 +207,9 @@ function rowDefs(req: EngineRequest): RowDef[] {
     { key: "insurance", label: "保険料", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.insurance")) },
     { key: "lumpSum", label: "一時的な支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum")) },
     ...(hasCar ? [{ key: "car", label: "車の費用", group: "expense" as const, kind: "value" as const, match: car }] : []),
+    ...(hasReExp ? [{ key: "realEstateExpense", label: "不動産の経費", group: "expense" as const, kind: "value" as const, match: isReExp }] : []),
     { key: "advisoryFee", label: "FP顧問料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.advisoryFee") },
-    { key: "expenseOther", label: "その他の支出", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense") && !known5.some((p) => under(c.row, p))) },
+    { key: "expenseOther", label: "その他の支出", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense") && !known5.some((p) => under(c.row, p)) && !isReExp(c)) },
     { key: "taxSi", label: "税・社会保険料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.taxSi") },
     { key: "expenseTotal", label: "支出合計", group: "expense", kind: "total", match: (c) => under(c.row, "cf.expense") || under(c.row, "cf.taxSi") },
     { key: "net", label: "年間収支", group: "net", kind: "total", match: (c) => c.row === "cf.net" },
@@ -478,13 +486,20 @@ export function sheetOf(table: readonly TableCell[], points: readonly YearPoint[
   const at = (pred: (c: TableCell) => boolean): Yen[] => ys.map((y) => table.reduce((s, c) => (c.year === y && pred(c) ? s + c.amount : s), 0));
   const kindOf = (row: string) => row.slice("cf.balance.account.".length);
   const present = new Set(table.filter((c) => under(c.row, "cf.balance.account") && ys.includes(c.year)).map((c) => kindOf(c.row)));
-  const finKinds = [...FINANCIAL_KINDS.filter((k) => present.has(k)), ...[...present].filter((k) => !FINANCIAL_KINDS.includes(k) && !OTHER_ASSET_KINDS.includes(k) && k !== "realEstate").sort()];
+  const isRealEstate = (k: string) => k === "realEstate" || k.startsWith("realEstate.");
+  const finKinds = [...FINANCIAL_KINDS.filter((k) => present.has(k)), ...[...present].filter((k) => !FINANCIAL_KINDS.includes(k) && !OTHER_ASSET_KINDS.includes(k) && !isRealEstate(k)).sort()];
   const fin = finKinds.map((k) => ({ label: ACCOUNT_LABEL[k] ?? "その他の金融資産", values: at((c) => c.row === `cf.balance.account.${k}`) }));
   const pos = (v: Yen) => Math.max(0, v);
   const any = (xs: readonly Yen[]) => xs.some((v) => v !== 0);
   const finPos = ys.map((_, i) => fin.reduce((s, x) => s + pos(x.values[i] ?? 0), 0));
   const short = ys.map((_, i) => fin.reduce((s, x) => s + pos(-(x.values[i] ?? 0)), 0));
-  const realEstate = at((c) => c.row === REAL_ESTATE_ROW);
+  // 不動産は土地と建物の行に分けて出る（中身の無い住まい以外の不動産は分けない1行）
+  const realEstate = at((c) => under(c.row, REAL_ESTATE_ROW));
+  const reParts = [
+    { label: "土地", values: at((c) => c.row === `${REAL_ESTATE_ROW}.land`) },
+    { label: "建物", values: at((c) => c.row === `${REAL_ESTATE_ROW}.building`) },
+    { label: "土地と建物に分けていない不動産", values: at((c) => c.row === REAL_ESTATE_ROW) },
+  ].filter((x) => any(x.values));
   const others = OTHER_ASSET_KINDS.map((k) => ({ label: OTHER_ASSET_LABEL[k] as string, values: at((c) => c.row === `cf.balance.account.${k}`) })).filter((x) => any(x.values));
   const totalAssets = ys.map((_, i) => (finPos[i] ?? 0) + (realEstate[i] ?? 0) + others.reduce((s, x) => s + (x.values[i] ?? 0), 0));
   const mortgage = at((c) => c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest");
@@ -501,6 +516,7 @@ export function sheetOf(table: readonly TableCell[], points: readonly YearPoint[
       { label: "金融資産", kind: "item", amounts: finPos },
       ...fin.filter((x) => any(x.values.map(pos))).map((x) => ({ label: x.label, kind: "sub" as const, amounts: x.values.map(pos) })),
       { label: "不動産", kind: "item", amounts: realEstate },
+      ...reParts.map((x) => ({ label: x.label, kind: "sub" as const, amounts: x.values })),
       ...others.map((x) => ({ label: x.label, kind: "item" as const, amounts: x.values })),
       { label: "資産の合計", kind: "total", amounts: totalAssets },
     ],
@@ -552,12 +568,23 @@ function figurePoints(ctx: Ctx): YearPoint[] {
 function balanceFigure(ctx: Ctx): BalanceFigure {
   const points = figurePoints(ctx);
   const h = ctx.bundle.proposal.request.input.household;
-  const at = bsSeries(ctx.bundle.proposal.result.table, points.map((p) => p.year), { residences: h.residences ?? [], debts: (h.debts ?? []).map((d) => ({ id: d.id, kind: d.kind })) });
+  const at = bsSeries(ctx.bundle.proposal.result.table, points.map((p) => p.year), { residences: h.residences ?? [], debts: (h.debts ?? []).map((d) => ({ id: d.id, kind: d.kind, ...(d.property !== undefined ? { property: d.property } : {}) })) });
   const box = (a: (typeof at)[number], g: BsGroup) => ({ key: g, label: BS_GROUP_LABEL[g], amount: groupTotal(a, g) });
+  const line = (a: (typeof at)[number], key: string) => a.lines.filter((l) => l.key === key).reduce((s, l) => s + l.amount, 0);
+  // 換金しにくい資産は、土地・建物・そのほか（車・保険の解約返戻金・分けていない不動産など）の箱に分ける（建物は年数とともに減り、土地は残る）
+  const illiquid = (a: (typeof at)[number]) => {
+    const land = line(a, "land");
+    const building = line(a, "building");
+    return [
+      { key: "land", label: "土地", amount: land },
+      { key: "building", label: "建物", amount: building },
+      { key: "illiquidOther", label: "車・その他", amount: groupTotal(a, "illiquid") - land - building },
+    ];
+  };
   const columns = at.map((a, i) => ({
     point: points[i] as YearPoint,
     fact: a.year === ctx.baseYear,
-    assets: (["liquid", "market", "locked", "illiquid"] as const).map((g) => box(a, g)).filter((b) => b.amount > 0),
+    assets: [...(["liquid", "market", "locked"] as const).map((g) => box(a, g)), ...illiquid(a)].filter((b) => b.amount > 0),
     liabilities: [box(a, "mortgage"), box(a, "debt"), { key: "netWorth", label: "純資産", amount: Math.max(0, a.netWorth) }].filter((b) => b.amount > 0),
     negative: Math.max(0, -a.netWorth),
     totalAssets: a.totalAssets,

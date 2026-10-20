@@ -3,6 +3,9 @@
 //   引き出せないお金（iDeCo・企業型DC など）／換金しにくい資産（不動産・車・保険の解約返戻金・その他の資産）。上の3つが金融資産。
 // - 負債は住宅ローンと、その他の負債（車のローン・奨学金・その他の借入、金融資産が尽きた後の「資金の不足」）。
 // - 金融資産の器のマイナス（決済口座の不足）は、資産から外して負債の側の「資金の不足」に置く。
+// - 不動産は土地と建物の項目に分ける（エンジンの cf.balance.account.realEstate.land・.building。持ち家と、中身を入れた住まい以外の不動産の合計）。
+//   土地と建物に分けていない不動産（中身の無い不動産の器）は「その他の不動産」。建物は年数とともに減り、土地は残る（0028）。
+// - 住まい以外の不動産のローン（負債の property）は「不動産のローン」。
 // - 資産の合計＝負債の合計＋純資産（純資産は資産の合計−負債の合計で出すので、どの年も必ず合う）。
 // 計算はしない（エンジンの表のマスを年ごとに分けて足すだけ。円の整数のまま）
 import type { TableCell } from "./bundle.ts";
@@ -59,10 +62,10 @@ export interface BsAt {
   shortfall: Yen;
 }
 
-/** 世帯のうち、項目の名前を決めるのに使うところ（住まいの ID と負債の種類。ID は画面・帳票に出さない） */
+/** 世帯のうち、項目の名前を決めるのに使うところ（負債の種類と、住まい以外の不動産のローンか。ID は画面・帳票に出さない） */
 export interface BsHousehold {
   residences?: readonly { id: string }[];
-  debts?: readonly { id: string; kind: string }[];
+  debts?: readonly { id: string; kind: string; property?: string }[];
 }
 
 /** 器の種類 → 分け方・項目の鍵・名前（並びは箱の中の上からの順） */
@@ -87,6 +90,7 @@ const ILLIQUID: readonly { kind: string; key: string; label: string }[] = [
 ];
 const NON_FINANCIAL = new Set(["realEstate", ...ILLIQUID.map((x) => x.kind)]);
 const DEBT_LABEL: Record<string, { key: string; label: string }> = {
+  property: { key: "propertyLoan", label: "不動産のローン" },
   car: { key: "carLoan", label: "車のローン" },
   scholarship: { key: "scholarship", label: "奨学金" },
 };
@@ -97,10 +101,12 @@ const ACCOUNT_PREFIX = "cf.balance.account.";
 const ORDER: readonly string[] = [
   ...ACCOUNT.map((x) => x.key),
   "finOther",
-  "home",
+  "land",
+  "building",
   "realEstateOther",
   ...ILLIQUID.map((x) => x.key),
   "mortgage",
+  "propertyLoan",
   "carLoan",
   "scholarship",
   "debtOther",
@@ -109,8 +115,7 @@ const ORDER: readonly string[] = [
 
 /** 年ごとのバランスシート（years の並び） */
 export function bsSeries(table: readonly TableCell[], years: readonly number[], household: BsHousehold): BsAt[] {
-  const homes = new Set((household.residences ?? []).map((r) => r.id));
-  const debtKind = new Map((household.debts ?? []).map((d) => [d.id, d.kind]));
+  const debtKind = new Map((household.debts ?? []).map((d) => [d.id, d.property !== undefined ? "property" : d.kind]));
   const index = new Map(years.map((y, i) => [y, i]));
   // 年ごと: 項目の鍵 → 額（金融資産の器は器の種類ごとに足してから、マイナスを資金の不足へ回す）
   const fin: Map<string, number>[] = years.map(() => new Map());
@@ -121,7 +126,9 @@ export function bsSeries(table: readonly TableCell[], years: readonly number[], 
     if (i === undefined) continue;
     if (c.row.startsWith(ACCOUNT_PREFIX)) {
       const kind = c.row.slice(ACCOUNT_PREFIX.length);
-      if (kind === "realEstate") add(other[i] as Map<string, number>, c.object !== undefined && homes.has(c.object) ? "home" : "realEstateOther", c.amount);
+      if (kind === "realEstate.land") add(other[i] as Map<string, number>, "land", c.amount);
+      else if (kind === "realEstate.building") add(other[i] as Map<string, number>, "building", c.amount);
+      else if (kind === "realEstate" || kind.startsWith("realEstate.")) add(other[i] as Map<string, number>, "realEstateOther", c.amount);
       else if (NON_FINANCIAL.has(kind)) add(other[i] as Map<string, number>, ILLIQUID.find((x) => x.kind === kind)?.key ?? "otherAsset", c.amount);
       else add(fin[i] as Map<string, number>, kind, c.amount);
     } else if (c.row === "cf.balance.debt.mortgage" || c.row === "cf.balance.debt.unpaidInterest") add(other[i] as Map<string, number>, "mortgage", c.amount);
@@ -151,6 +158,9 @@ export function bsSeries(table: readonly TableCell[], years: readonly number[], 
   });
 }
 
+/** 不動産の項目（土地・建物・その他の不動産） */
+export const BS_REAL_ESTATE_KEYS: readonly string[] = ["land", "building", "realEstateOther"];
+
 /** 分け方ごとの合計 */
 export function groupTotal(at: BsAt, g: BsGroup): Yen {
   return at.lines.reduce((s, l) => (l.group === g ? s + l.amount : s), 0);
@@ -166,7 +176,8 @@ function lineLabel(key: string): string {
   return (
     {
       finOther: "その他の金融資産",
-      home: "持ち家（土地・建物）",
+      land: "土地",
+      building: "建物",
       realEstateOther: "その他の不動産",
       mortgage: "住宅ローン",
       debtOther: "その他の借入",
@@ -180,6 +191,6 @@ function groupOf(key: string): BsGroup {
   if (a !== undefined) return a.group;
   if (key === "finOther") return "liquid";
   if (key === "mortgage") return "mortgage";
-  if (key === "carLoan" || key === "scholarship" || key === "debtOther" || key === "short") return "debt";
+  if (key === "propertyLoan" || key === "carLoan" || key === "scholarship" || key === "debtOther" || key === "short") return "debt";
   return "illiquid";
 }

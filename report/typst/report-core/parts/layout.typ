@@ -235,12 +235,15 @@
   market: rgb("#5f82c9"),
   locked: rgb("#bccbe6"),
   illiquid: rgb("#6f9478"),
+  land: rgb("#6f9478"),
+  building: rgb("#a8c6ad"),
+  illiquidOther: rgb("#b3a789"),
   mortgage: rgb("#8f7547"),
   debt: rgb("#c4ae80"),
   netWorth: rgb("#e3eaf6"),
 )
-#let bs-dark = ("liquid", "market", "illiquid", "mortgage")
-#let bs-short = (liquid: "すぐ使える", market: "値動きあり", locked: "引き出せない", illiquid: "換金しにくい", mortgage: "住宅ローン", debt: "その他の負債", netWorth: "純資産")
+#let bs-dark = ("liquid", "market", "illiquid", "land", "mortgage")
+#let bs-short = (liquid: "すぐ使える", market: "値動きあり", locked: "引き出せない", illiquid: "換金しにくい", land: "土地", building: "建物", illiquidOther: "車・その他", mortgage: "住宅ローン", debt: "その他の負債", netWorth: "純資産")
 
 /// 1本の柱（箱を上から積む）。total はこの柱の額、h は縮尺の高さ（scale の額に当たる）
 #let bs-column(boxes, total, scale, h, w, fact, neg: 0) = {
