@@ -159,6 +159,17 @@ export const SCHOOL_STAGES: Option[] = [
   { value: "vocational", label: "専門学校" },
 ];
 
+export const NURSERY_HOURS: Option[] = [
+  { value: "standard", label: "保育標準時間" },
+  { value: "short", label: "保育短時間" },
+];
+
+export const SCHOOL_LUNCH: Option[] = [
+  { value: "", label: "制度どおり（公立小学校は国の負担軽減）" },
+  { value: "free", label: "なし（自治体が無償化）" },
+  { value: "paid", label: "あり（全額を払う）" },
+];
+
 export const SECTORS: Option[] = [
   { value: "public", label: "公立" },
   { value: "national", label: "国立" },

@@ -56,6 +56,7 @@ import accountMutualAid from "./account.mutualAid/index.ts";
 import benefitChildAllowance from "./benefit.childAllowance/index.ts";
 import educationCost from "./education.cost/index.ts";
 import educationSupport from "./education.support/index.ts";
+import educationNurseryFee from "./education.nurseryFee/index.ts";
 import expenseAdvisoryFee from "./expense.advisoryFee/index.ts";
 import expenseCar from "./expense.car/index.ts";
 import expenseLiving from "./expense.living/index.ts";
@@ -141,6 +142,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   benefitChildAllowance,
   educationCost,
   educationSupport,
+  educationNurseryFee,
   expenseAdvisoryFee,
   expenseCar,
   expenseLiving,

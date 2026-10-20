@@ -1,0 +1,19 @@
+# 【架空の見本】テスト用。実在の制度の値ではない（製品の値の形を写したもの）
+id: test.educationSupport.nursery.fee.specified.amount
+title: 【架空の見本】educationSupport.nursery.fee.specified.amount
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2019-10-01"
+    appliesTo: null
+    enforcedOn: "2019-10-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 9000
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null

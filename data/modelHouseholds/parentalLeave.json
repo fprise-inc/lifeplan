@@ -353,6 +353,20 @@
             }
           }
         }
+      ],
+      "goals": [
+        {
+          "id": "5b0e2c7a-9d41-4f6e-8a3b-2c1d7e9f4a60",
+          "kind": "education",
+          "owner": "96953fc3-e68c-4b25-9f11-bcd37400180d",
+          "education": {
+            "stages": [
+              {
+                "stage": "nursery"
+              }
+            ]
+          }
+        }
       ]
     },
     "assumptions": {

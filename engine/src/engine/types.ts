@@ -663,6 +663,10 @@ export interface EducationStageInput {
   readonly delayYears?: number;
   readonly from?: Timepoint;
   readonly monthly?: Yen;
+  /** 保育所の保育の時間（保育標準時間・保育短時間。省略は standard） */
+  readonly hours?: "standard" | "short";
+  /** 保育料の自動の計算で、国の基準に掛ける自治体の水準の割合（省略は目安の 0.8。0029） */
+  readonly feeRatio?: string;
   readonly school?: {
     readonly school: string;
     readonly unit: string;
@@ -704,6 +708,8 @@ export interface EducationGoalInput {
   }[];
   readonly childAllowance?: boolean;
   readonly highSchoolSupport?: "eligible" | "ineligible";
+  /** 公立の小学校・中学校の学校給食費（free は自治体が無償化、paid は全額を払う。省略は制度データどおり。0029） */
+  readonly schoolLunch?: "free" | "paid";
 }
 
 export interface GoalInput {

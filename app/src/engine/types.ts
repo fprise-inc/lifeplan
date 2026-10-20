@@ -128,7 +128,10 @@ export interface EducationStage {
   living?: string;
   years?: number;
   delayYears?: number;
+  from?: Timepoint;
   monthly?: number;
+  hours?: "standard" | "short";
+  feeRatio?: string;
   exam?: { amount?: number; deposits?: number };
   [key: string]: unknown;
 }
@@ -147,7 +150,7 @@ export interface Goal {
   kind: string;
   owner?: string;
   priority?: "need" | "want" | "wish";
-  education?: { stages: EducationStage[]; lessons?: { from: Timepoint; to: Timepoint; monthly: number; label?: string }[]; gifts?: EducationGift[]; childAllowance?: boolean; [key: string]: unknown };
+  education?: { stages: EducationStage[]; lessons?: { from: Timepoint; to: Timepoint; monthly: number; label?: string }[]; gifts?: EducationGift[]; childAllowance?: boolean; schoolLunch?: "free" | "paid"; [key: string]: unknown };
   [key: string]: unknown;
 }
 

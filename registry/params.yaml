@@ -128,6 +128,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.statistics.elementary.public.schoolLunch
+    status: active
+    label: "学校給食費の年額（公立小学校。子供の学習費調査。学習費総額のうち）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.statistics.elementary.public.total
     status: active
     label: "学習費総額の年額（公立小学校。子供の学習費調査）"
@@ -191,6 +197,12 @@ entries:
   - id: education.statistics.juniorHigh.public.outOfSchool
     status: active
     label: "学校外活動費の年額（公立中学校）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: education.statistics.juniorHigh.public.schoolLunch
+    status: active
+    label: "学校給食費の年額（公立中学校。子供の学習費調査。学習費総額のうち）"
     since: draft
     aliases: []
     replacedBy: null
@@ -413,6 +425,54 @@ entries:
   - id: educationSupport.higher.waiverRatio
     status: active
     label: "修学支援の授業料・入学金の減免の割合（区分ごと）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.nursery.fee.short
+    status: active
+    label: "保育料の国の基準の上限（満3歳未満の保育認定・保育短時間。市町村民税所得割合算額の段階。月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.nursery.fee.specified.amount
+    status: active
+    label: "保育料のひとり親世帯等の軽減の額（市町村民税所得割合算額が上限未満のとき。月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.nursery.fee.specified.limit
+    status: active
+    label: "保育料のひとり親世帯等の軽減の所得の上限（市町村民税所得割合算額がこの額未満。多子の軽減の年齢の制限を外す上限も同じ額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.nursery.fee.standard
+    status: active
+    label: "保育料の国の基準の上限（満3歳未満の保育認定・保育標準時間。市町村民税所得割合算額の段階。月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.nursery.multiChild.lowIncomeLimit
+    status: active
+    label: "保育料の多子の数え方で年齢の制限を外す所得の上限（市町村民税所得割合算額がこの額未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.nursery.multiChild.secondRatio
+    status: active
+    label: "保育料の多子の軽減の割合（2番目の年長者の子。3番目以降は0円）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.schoolLunch.elementary.public.monthly
+    status: active
+    label: "学校給食費の負担軽減の基準額（公立小学校・完全給食。児童1人の月額。国と都道府県が自治体の食材費を支援）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: educationSupport.schoolLunch.months
+    status: active
+    label: "学校給食費の負担軽減の年間の月数（基準額×この月数が1年の支援の上限）"
     since: draft
     aliases: []
     replacedBy: null

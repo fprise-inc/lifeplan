@@ -7,7 +7,11 @@
 //   計算基準年の値を教育費の上昇率で伸ばす）: 幼〜高は学校の費用（学習費総額−学校外活動費。学校外活動費の値が無い区分は学習費総額を学校の費用にし、
 //   学校外活動費を足さない）を年度の12か月に分けて毎月、大学・短大は授業料＋施設設備費を4月と10月に半分ずつ、入学金を入学の前の2月
 //   （国公立は3月）に払う。annualOverride・entranceOverride で直接入れられる
-// - 保育料（nursery）: from（省略は1歳の学年の4月）から、3歳になった後の最初の4月の前の月まで月額（3歳からは幼児教育・保育の無償化で0）
+// - 保育料（nursery）: 部品 education.nurseryFee が計算する（月額の入力と、収入からの自動の計算。0029）。この部品は数えない
+// - 学校給食費（改訂3。0029）: 公立小学校は、学校給食費の負担軽減（令和8年度から。制度データ educationSupport.schoolLunch.*）の年度に、
+//   統計の学校給食費（education.statistics.<段>.public.schoolLunch を教育費の上昇率で伸ばした額）と基準額×月数（名目額）の小さい方を
+//   学校の費用から引く（基準額を超える分は保護者の負担として残す）。教育の目標の schoolLunch が free（自治体が無償化）なら公立の小学校・中学校の
+//   全年度で統計の学校給食費の全額を引き、paid なら引かない。学校の年額を直接入れた段・学費データの行の段は引かない
 // - 受験・併願の費用（exam）: 受験料を入学の前の1月、入学しなかった学校への納付金を2月に
 // - 学校外活動費（outOfSchool）: 統計の平均（幼〜高）か月額か無し。塾・習い事（lessons）は月額を足す
 // - 自宅外の生活費（boarding）: 仕送り（月額。省略は統計の年額÷12）を在学中毎月、初期費用（省略は統計）を入学の前の3月に
@@ -40,8 +44,15 @@ const START_AGE: Readonly<Record<SchoolStage, number>> = { nursery: 1, kindergar
 const YEARS: Readonly<Record<SchoolStage, number>> = { nursery: 2, kindergarten: 3, elementary: 6, juniorHigh: 3, highSchool: 3, university: 4, juniorCollege: 2, vocational: 2 };
 const K12_SECTORS = ["public", "private"] as const;
 const FIELDS = ["all", "humanities", "science", "medical"] as const;
+/** 学校給食費の負担軽減（制度）と統計の学校給食費（公立の小学校・中学校） */
+const LUNCH_MONTHLY = "educationSupport.schoolLunch.elementary.public.monthly";
+const LUNCH_MONTHS = "educationSupport.schoolLunch.months";
+const LUNCH_STAGES: ReadonlySet<SchoolStage> = new Set(["elementary", "juniorHigh"]);
 const PARAMS = [
   ...[...K12].flatMap((s) => K12_SECTORS.flatMap((x) => [`${S}.${s}.${x}.total`, `${S}.${s}.${x}.outOfSchool`])),
+  ...[...LUNCH_STAGES].map((s) => `${S}.${s}.public.schoolLunch`),
+  LUNCH_MONTHLY,
+  LUNCH_MONTHS,
   ...FIELDS.flatMap((f) => ["tuition", "admission", "facility"].map((i) => `${S}.university.private.${f}.${i}`)),
   ...["national", "public"].flatMap((x) => ["tuition", "admission"].map((i) => `${S}.university.${x}.${i}`)),
   ...["tuition", "admission", "facility"].map((i) => `${S}.juniorCollege.private.${i}`),
@@ -54,7 +65,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
   id: "education.cost",
   title: "教育費",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "debt.schedule": ">=1 <2" },
   params: PARAMS,
   reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
@@ -99,19 +110,15 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
     for (const g of ctx.list<GoalInput>("goal")) {
       if (g.kind !== "education" || g.education === undefined || g.owner !== child) continue;
       const e: EducationGoalInput = g.education;
+      const lunchChoice = e.schoolLunch;
       const push = (m: MonthIndex, row: string, amount: Yen, formula: string, member: string = child) => {
         if (amount > 0 && m >= base && m <= end) flows.push({ row, ym: formatYm(m), amount, accrualYear: yearOf(m), member, object: g.id, formula });
       };
       for (const st of e.stages) {
         const sector = st.sector ?? "public";
         const living = st.living ?? "home";
-        // 保育所
-        if (st.stage === "nursery") {
-          const free = ctx.time.ageSwitch(child, { years: 3 }, "schoolYear");
-          const from = st.from !== undefined ? ctx.time.resolve(st.from) : ctx.time.ageSwitch(child, { years: 1 }, "schoolYear");
-          for (let m = from; m < free; m = addMonths(m, 1)) push(m, "cf.expense.education.nursery", grown(yen(st.monthly ?? 0), yearOf(m)), "education.cost.nursery");
-          continue;
-        }
+        // 保育所は education.nurseryFee（0029）
+        if (st.stage === "nursery") continue;
         const start = addMonths(ctx.time.ageSwitch(child, { years: START_AGE[st.stage] }, "schoolYear"), 12 * (st.delayYears ?? 0));
         const years = st.years ?? (st.stage === "university" && st.field === "medical" ? 6 : YEARS[st.stage]);
         const fees: { fiscalYear: number; tuition: Yen; admission: Yen }[] = [];
@@ -146,11 +153,25 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
           const total = statOr0(`${S}.${st.stage}.${sec}.total`);
           const outStat = stat(`${S}.${st.stage}.${sec}.outOfSchool`);
           const schoolCost = st.annualOverride ?? (outStat === null ? total : yen(total - outStat));
+          // 学校給食費の負担軽減（公立の小学校・中学校。学校の年額を直接入れた段は引かない）
+          const lunchStat = sec === "public" && LUNCH_STAGES.has(st.stage) && st.annualOverride === undefined ? stat(`${S}.${st.stage}.public.schoolLunch`) : null;
+          const lunchOff = (fy: number): Yen => {
+            if (lunchStat === null || lunchChoice === "paid") return yen(0);
+            const lunch = grown(lunchStat, fy);
+            if (lunchChoice === "free") return lunch;
+            if (st.stage !== "elementary") return yen(0);
+            const at = ctx.at(monthIndex(fy, 4));
+            if (!at.has(LUNCH_MONTHLY)) return yen(0);
+            const cap = ctx.money.mulRatio(at.paramYen(LUNCH_MONTHLY) ?? yen(0), at.paramCount(LUNCH_MONTHS) ?? 0, 1, "conv.exact");
+            return lunch < cap ? lunch : cap;
+          };
           for (let k = 0; k < years; k++) {
             const fy = fy0 + k;
-            const parts = ctx.money.allocate(grown(schoolCost, fy), Array.from({ length: 12 }, () => 1), "conv.expense.share", "first");
-            for (let i = 0; i < 12; i++) push(addMonths(start, 12 * k + i), "cf.expense.education.school", parts[i] as Yen, "education.cost.school");
-            fees.push({ fiscalYear: fy, tuition: grown(schoolCost, fy), admission: yen(0) });
+            const off = lunchOff(fy);
+            const cost = yen(grown(schoolCost, fy) - off);
+            const parts = ctx.money.allocate(cost, Array.from({ length: 12 }, () => 1), "conv.expense.share", "first");
+            for (let i = 0; i < 12; i++) push(addMonths(start, 12 * k + i), "cf.expense.education.school", parts[i] as Yen, off > 0 ? "education.cost.schoolLunchRelief" : "education.cost.school");
+            fees.push({ fiscalYear: fy, tuition: cost, admission: yen(0) });
           }
           if (st.entranceOverride !== undefined) push(addMonths(start, -2), "cf.expense.education.entrance", grown(st.entranceOverride, fy0), "education.cost.entrance");
           // 学校外活動費（統計の値が無い区分は学習費総額に含めて数えたので足さない）

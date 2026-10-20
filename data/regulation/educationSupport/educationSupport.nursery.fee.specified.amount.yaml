@@ -1,0 +1,23 @@
+id: educationSupport.nursery.fee.specified.amount
+title: 保育料のひとり親世帯等の軽減の額（市町村民税所得割合算額が上限未満のとき。月額）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2019-10-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2019-10-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 9000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20261001_508CO0000000188?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "fd4fdce120769fbc3053f5ce7597d902ea19140bb8bc1bd824c721b3735897c1", "locator": "子ども・子育て支援法施行令 第4条第2項第6号（令和8年10月1日の版）", "quote": "市町村民税所得割合算額が七万七千百一円未満である場合における特定教育・保育給付認定保護者"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20261001_508CO0000000188?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "fd4fdce120769fbc3053f5ce7597d902ea19140bb8bc1bd824c721b3735897c1", "locator": "子ども・子育て支援法施行令 第4条第2項第7号ただし書（令和8年10月1日の版）", "quote": "ただし、特定教育・保育給付認定保護者にあっては、九千円とする。"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20191001_501CO0000000017?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "749d531cd0a8d53395c5b3eb58c4a4e3081a9992633f089c580b95b06c9b021b", "locator": "子ども・子育て支援法施行令 第4条第2項第6号（令和元年10月1日の版）", "quote": "七万七千百一円未満"}
+      - {"type": "web", "url": "https://www.cfa.go.jp/assets/contents/node/basic_page/field_ref_resources/e4b817c9-5282-4ccc-b0d5-ce15d7b5018c/0cd8a3fc/20251029_policies_hoiku_169.pdf", "retrievedAt": "2026-10-20", "sha256": "7018340c388b9fb98fff633f2a2ea5a2f1fa42e7c61b9a3c2793c22843066db0", "locator": "幼児教育・保育の無償化 利用者負担（こども家庭庁）p.5 ※1〔〕書きはひとり親世帯・在宅障害児（者）のいる世帯など", "quote": "所得割課税額57,700円未満〔77,101円未満〕（～約360万円）３０，０００円〔9,000円〕２９，６００円〔9,000円〕"}
+      - {"type": "law", "lawNumber": "平成二十六年政令第二百十三号", "egovRevisionId": "426CO0000000213_20261001_508CO0000000188"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-20", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "特定教育・保育給付認定保護者で市町村民税所得割合算額が77,101円未満のときの額（保育標準時間・短時間とも9,000円）。施行令4条2項6号・7号ただし書とこども家庭庁の表で一致"}

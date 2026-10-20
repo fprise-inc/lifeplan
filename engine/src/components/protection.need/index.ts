@@ -13,6 +13,7 @@
 // - 車（改訂2）: 万一のときの扱い（onContingency。死亡に当てるもの）を入れた車だけ、購入と維持費（ローンの返済を除く）に割合を当てる。
 //   遺族の車はその割合で残し、亡くなった人の車も割合で足す（入れていない車は今のまま: 遺族の車は続け、亡くなった人の車は数えない）
 // - 遺族年金の2028年4月の見直しは作らない（pension.survivor の知らせ）
+// - 保育料（改訂3。education.nurseryFee。0029）も教育費に含める（万一なしの計算の額。遺族の所得での額の変化は見ない）
 import {
   addMonths,
   childrenOf,
@@ -67,7 +68,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
   id: "protection.need",
   title: "必要保障額の推移（積み上げ方式・逆算方式）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {
     "plan.cashflow": ">=1 <2",
     "expense.car": ">=1 <2",
@@ -79,6 +80,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     "debt.schedule": ">=1 <2",
     "education.cost": ">=1 <2",
     "education.support": ">=1 <2",
+    "education.nurseryFee": ">=1 <2",
     "benefit.childAllowance": ">=1 <2",
     "insurance.premiumPayment": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -176,6 +178,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     for (const g of ctx.list<{ kind: string; owner: string }>("goal")) {
       if (g.kind !== "education") continue;
       for (const f of ctx.call<FlowsResult>("education.cost", { member: g.owner }).flows) edu.push(f);
+      for (const f of ctx.call<FlowsResult>("education.nurseryFee", { member: g.owner }).flows) edu.push(f);
       for (const f of ctx.call<FlowsResult>("education.support", { member: g.owner }).flows) support.push(f);
     }
     const education = prefixOf(edu);
