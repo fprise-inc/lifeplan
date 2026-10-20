@@ -1,0 +1,35 @@
+id: educationSupport.nursery.fee.standard
+title: 保育料の国の基準の上限（満3歳未満の保育認定・保育標準時間。市町村民税所得割合算額の段階。月額）
+unit: JPY
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2019-10-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2019-10-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 48599, "amount": 19500}
+      - {"upTo": 96999, "amount": 30000}
+      - {"upTo": 168999, "amount": 44500}
+      - {"upTo": 300999, "amount": 61000}
+      - {"upTo": 396999, "amount": 80000}
+      - {"upTo": null, "amount": 104000}
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20261001_508CO0000000188?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "fd4fdce120769fbc3053f5ce7597d902ea19140bb8bc1bd824c721b3735897c1", "locator": "子ども・子育て支援法施行令 第4条第2項第1号〜第5号・第7号（令和8年10月1日の版）", "quote": "十万四千円（法第二十条第三項に規定する保育必要量が少ない者として内閣府令で定める教育・保育給付認定保護者（以下「短時間認定保護者」という。）にあっては、十万二千四百円）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20261001_508CO0000000188?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "fd4fdce120769fbc3053f5ce7597d902ea19140bb8bc1bd824c721b3735897c1", "locator": "子ども・子育て支援法施行令 第4条第2項第2号（令和8年10月1日の版）", "quote": "三十九万七千円未満である場合における当該教育・保育給付認定保護者（次号から第八号までに掲げる者を除く。） 八万円（短時間認定保護者にあっては、七万八千八百円）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20261001_508CO0000000188?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "fd4fdce120769fbc3053f5ce7597d902ea19140bb8bc1bd824c721b3735897c1", "locator": "子ども・子育て支援法施行令 第4条第2項第3号（令和8年10月1日の版）", "quote": "三十万千円未満である場合における教育・保育給付認定保護者（次号から第八号までに掲げる者を除く。） 六万千円（短時間認定保護者にあっては、六万百円）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20261001_508CO0000000188?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "fd4fdce120769fbc3053f5ce7597d902ea19140bb8bc1bd824c721b3735897c1", "locator": "子ども・子育て支援法施行令 第4条第2項第4号（令和8年10月1日の版）", "quote": "十六万九千円未満である場合における教育・保育給付認定保護者（次号から第八号までに掲げる者を除く。） 四万四千五百円（短時間認定保護者にあっては、四万三千九百円）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20261001_508CO0000000188?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "fd4fdce120769fbc3053f5ce7597d902ea19140bb8bc1bd824c721b3735897c1", "locator": "子ども・子育て支援法施行令 第4条第2項第5号（令和8年10月1日の版）", "quote": "九万七千円未満である場合における教育・保育給付認定保護者（次号から第八号までに掲げる者を除く。） 三万円（短時間認定保護者にあっては、二万九千六百円）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20261001_508CO0000000188?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "fd4fdce120769fbc3053f5ce7597d902ea19140bb8bc1bd824c721b3735897c1", "locator": "子ども・子育て支援法施行令 第4条第2項第7号（令和8年10月1日の版）", "quote": "四万八千六百円未満である場合における教育・保育給付認定保護者（次号に掲げる者を除く。） 一万九千五百円（短時間認定保護者にあっては、一万九千三百円）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20191001_501CO0000000017?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "749d531cd0a8d53395c5b3eb58c4a4e3081a9992633f089c580b95b06c9b021b", "locator": "子ども・子育て支援法施行令 第4条第2項（令和元年10月1日の版。額は同じ）", "quote": "十万四千円"}
+      - {"type": "web", "url": "https://www.cfa.go.jp/assets/contents/node/basic_page/field_ref_resources/e4b817c9-5282-4ccc-b0d5-ce15d7b5018c/0cd8a3fc/20251029_policies_hoiku_169.pdf", "retrievedAt": "2026-10-20", "sha256": "7018340c388b9fb98fff633f2a2ea5a2f1fa42e7c61b9a3c2793c22843066db0", "locator": "幼児教育・保育の無償化 利用者負担（こども家庭庁）p.5 特定教育・保育施設等の利用者負担（月額）", "quote": "所得割課税額397,000円以上（1,130万円～）１０４，０００円１０２，４００円"}
+      - {"type": "web", "url": "https://www.cfa.go.jp/assets/contents/node/basic_page/field_ref_resources/e4b817c9-5282-4ccc-b0d5-ce15d7b5018c/0cd8a3fc/20251029_policies_hoiku_169.pdf", "retrievedAt": "2026-10-20", "sha256": "7018340c388b9fb98fff633f2a2ea5a2f1fa42e7c61b9a3c2793c22843066db0", "locator": "幼児教育・保育の無償化 利用者負担（こども家庭庁）p.5 特定教育・保育施設等の利用者負担（月額）", "quote": "所得割課税額301,000円未満（～約930万円）６１，０００円６０，１００円"}
+      - {"type": "web", "url": "https://www.cfa.go.jp/assets/contents/node/basic_page/field_ref_resources/e4b817c9-5282-4ccc-b0d5-ce15d7b5018c/0cd8a3fc/20251029_policies_hoiku_169.pdf", "retrievedAt": "2026-10-20", "sha256": "7018340c388b9fb98fff633f2a2ea5a2f1fa42e7c61b9a3c2793c22843066db0", "locator": "幼児教育・保育の無償化 利用者負担（こども家庭庁）p.5 特定教育・保育施設等の利用者負担（月額）", "quote": "所得割課税額48,600円未満（～約330万円）１９，５００円〔9,000円〕１９，３００円〔9,000円〕"}
+      - {"type": "law", "lawNumber": "平成二十六年政令第二百十三号", "egovRevisionId": "426CO0000000213_20261001_508CO0000000188"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-20", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "満3歳未満の保育認定子ども（満3歳に達した後の最初の3月31日までを含む）の利用者負担の上限。市町村民税所得割合算額（父母など同一世帯の合算。住宅借入金等特別税額控除などを引く前）の段階: 48,600円未満・97,000円未満・169,000円未満・301,000円未満・397,000円未満・それ以上。令和元年10月1日の版と令和8年10月1日の版で額は同じ。施行令4条2項とこども家庭庁の利用者負担の表で一致。市町村民税世帯非課税者（4条2項8号）と生活保護は0円で、部品が扱う。（保育標準時間の列）"}

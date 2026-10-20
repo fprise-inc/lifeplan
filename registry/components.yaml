@@ -98,6 +98,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: education.nurseryFee
+    status: active
+    label: "保育料（0〜2歳。収入から自動で計算）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: education.support
     status: active
     label: "教育の公的支援（就学支援金・修学支援）"

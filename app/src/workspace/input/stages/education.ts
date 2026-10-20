@@ -1,14 +1,44 @@
 // 5. 子ども・教育: 子ごとに進路（公立・私立、大学の系統・自宅か自宅外か）を選び、統計の学費で計算する（0010・0008 の6 の教育の目標）。
+// 保育園（0〜2歳）は「通う・通わない」と通い始めだけを簡易で聞き、保育料は月額を入れなければ収入から自動で計算する（目安。0029）。
 // 学校名から学費を出す検索は、学校のデータを同梱してから（今は「学校未定（平均で計算）」だけ）
 import type { EducationStage, Goal, Household, Member } from "../../../engine/types.ts";
 import { schoolEntryYear } from "../../present.ts";
-import { byId, field, getPath, plain, removeAction, timepointField, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { addMonths } from "../../levers.ts";
+import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
-import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, SCHOOL_STAGES, SECTORS, TAX_METHODS } from "../labels.ts";
+import { formatYen } from "../units.ts";
+import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_LUNCH, SCHOOL_STAGES, SECTORS, TAX_METHODS } from "../labels.ts";
 
 const goals = (h: Household) => h.goals;
 const ORDER = ["nursery", "kindergarten", "elementary", "juniorHigh", "highSchool", "university", "juniorCollege", "vocational"];
 const STAGE_AGE: Record<string, number> = { kindergarten: 3, elementary: 6, juniorHigh: 12, highSchool: 15, university: 18, juniorCollege: 18, vocational: 18 };
+
+/** 保育料が無償になる月（3歳になった後の最初の4月）。この月より前なら保育園の年齢がある */
+export function nurseryFreeMonth(child: Member): string | null {
+  const entry = schoolEntryYear(child.birth.birthYearMonth, child.birth.bornOnFirst, "elementary");
+  return entry === null ? null : `${entry - 3}-04`;
+}
+
+/** 保育園の通い始めの既定（エンジンの education.nurseryFee と同じ決まり）: その子の育児休業の終わりの翌月、無ければ1歳の学年の4月 */
+export function nurseryDefaultStart(h: Household, child: Member): { ym: string; reason: string } {
+  const children = h.members.filter((m) => m.kind === "child");
+  let end: string | null = null;
+  for (const p of h.employmentPeriods ?? []) {
+    if (p.type !== "leave" || p.leaveKind !== "childcare" || p.to === null) continue;
+    let target = p.leaveChild as string | undefined;
+    if (target === undefined) {
+      const start = resolveTimepoint(h, p.from);
+      if (start === null) continue;
+      target = children.filter((c) => c.birth.birthYearMonth <= addMonths(start, 2)).sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? 1 : -1))[0]?.id;
+    }
+    const to = resolveTimepoint(h, p.to);
+    if (target === child.id && to !== null && (end === null || to > end)) end = to;
+  }
+  if (end !== null) return { ym: addMonths(end, 1), reason: "育児休業の終わりの翌月" };
+  const [y, m] = child.birth.birthYearMonth.split("-").map(Number) as [number, number];
+  const early = m < 4 || (m === 4 && child.birth.bornOnFirst);
+  return { ym: `${y + (early ? 1 : 2)}-04`, reason: "1歳の4月" };
+}
 
 /** 進路の型（よく使う組み合わせ）。各段の公立・私立を一度に決める */
 export const COURSE_PRESETS: { value: string; label: string; sectors: Record<string, string> }[] = [
@@ -40,16 +70,35 @@ export function defaultStages(child: Member, baseMonth: string): EducationStage[
   return out;
 }
 
-function stageFields(goalId: string, i: number, s: EducationStage): FieldDef[] {
+function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart: string): FieldDef[] {
   const find: Finder = (h) => (getPath((h.goals ?? []).find((g) => g.id === goalId), ["education", "stages", String(i)]) as Record<string, unknown> | undefined) ?? undefined;
   const key = `edu/${goalId}/stage/${i}`;
   const higher = s.stage === "university" || s.stage === "juniorCollege" || s.stage === "vocational";
   const sectorOptions = s.stage === "nursery" ? [] : s.stage === "university" ? SECTORS : SECTORS.filter((o) => o.value !== "national" || s.stage === "elementary" || s.stage === "juniorHigh" || s.stage === "highSchool");
   const fields: FieldDef[] = [];
-  if (s.stage === "nursery") fields.push(plain({ key: `${key}/monthly`, item: "goal.education", label: "保育料（月額）", level: "simple", kind: "yen", basis: "monthly", find, path: ["monthly"], optional: true, help: "3歳からは無償化を自動で計算します" }));
-  else fields.push(plain({ key: `${key}/sector`, item: "goal.education", label: "公立・私立", level: "simple", kind: "select", options: sectorOptions, find, path: ["sector"], optional: true, fallback: "public" }));
+  if (s.stage === "nursery") {
+    fields.push(
+      timepointField({ key: `${key}/from`, item: "goal.education", label: "通い始める時期", level: "simple", find, path: ["from"], optional: true, absentWhenEmpty: true, nullText: `空欄: ${nurseryStart}`, help: "空欄なら、その子の育児休業の終わりの翌月（育児休業を入れていなければ1歳の学年の4月）から" }),
+      plain({
+        key: `${key}/monthly`,
+        item: "goal.education",
+        label: "保育料（月額）",
+        level: "detail",
+        kind: "yen",
+        basis: "monthly",
+        find,
+        path: ["monthly"],
+        optional: true,
+        hint: (v) => (v === null ? "推定あり: 世帯の収入（住民税の所得割）から自動で計算（国の基準 × 自治体の水準の割合。目安）" : v === 0 ? "保育料なし（自治体の無償化など）" : null),
+        help: "自治体の保育料表の額が分かれば入れてください。0 なら保育料なし。3歳からの無償化は自動で計算します",
+      }),
+      plain({ key: `${key}/hours`, item: "goal.education", label: "保育の時間", level: "detail", kind: "select", options: NURSERY_HOURS, find, path: ["hours"], optional: true, fallback: "standard", help: "共働きなどのフルタイムは保育標準時間（11時間まで）、短時間勤務などは保育短時間（8時間まで）" }),
+      plain({ key: `${key}/feeRatio`, item: "goal.education", label: "国の基準に対する自治体の水準", level: "detail", kind: "pct", find, path: ["feeRatio"], optional: true, fallback: "0.8", help: "自動の計算で国の基準の上限に掛ける割合（目安 80%）。多くの自治体は国の基準より低い保育料にしています。自治体の保育料表に合わせて変えられます" }),
+    );
+  } else fields.push(plain({ key: `${key}/sector`, item: "goal.education", label: "公立・私立", level: "simple", kind: "select", options: sectorOptions, find, path: ["sector"], optional: true, fallback: "public" }));
   if (s.stage === "university") fields.push(plain({ key: `${key}/field`, item: "goal.education", label: "系統", level: "simple", kind: "select", options: FIELDS, find, path: ["field"], optional: true, fallback: "humanities" }));
   if (higher) fields.push(plain({ key: `${key}/living`, item: "goal.education", label: "通い方", level: "simple", kind: "select", options: LIVING_PLACE, find, path: ["living"], optional: true, fallback: "home" }));
+  if (s.stage === "nursery") return fields;
   fields.push(
     field({
       key: `${key}/school`,
@@ -96,6 +145,27 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
     };
   const stages = goal.education?.stages ?? [];
   const find = byId(goals, goal.id);
+  // 保育園の年齢（3歳になった後の最初の4月より前）が計算の期間にあれば、簡易でも「保育園に通う」を聞く
+  const free = nurseryFreeMonth(child);
+  const nurseryAge = stages.some((s) => s.stage === "nursery") || (free !== null && free > wh.request.input.baseMonth);
+  const nurseryToggle = field({
+    key: `edu/${goal.id}/nursery`,
+    item: "goal.education",
+    label: "保育園に通う",
+    level: "simple",
+    kind: "bool",
+    structural: true,
+    help: "はいにすると、保育料（0〜2歳）を世帯の収入から自動で計算します（目安）。3歳からは無償化で0円",
+    get: (w) => ({ value: (((find(w.request.input.household, w) as Goal | undefined)?.education?.stages ?? []) as EducationStage[]).some((s) => s.stage === "nursery") }),
+    set: (w, v) =>
+      mutate(w, (hh) => {
+        const g = find(hh, w) as Goal | undefined;
+        if (g?.education === undefined) return;
+        const has = g.education.stages.some((s) => s.stage === "nursery");
+        if (v === true && !has) g.education.stages = [{ stage: "nursery" }, ...g.education.stages];
+        if (v !== true && has) g.education.stages = g.education.stages.filter((s) => s.stage !== "nursery");
+      }),
+  });
   const course = field({
     key: `edu/${goal.id}/preset`,
     item: "goal.education",
@@ -120,18 +190,30 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       level: "simple",
       fields: [
         course,
+        ...(nurseryAge ? [nurseryToggle] : []),
         plain({ key: `edu/${goal.id}/allowance`, item: "goal.education", label: "児童手当を計算する", level: "detail", kind: "bool", find, path: ["education", "childAllowance"], optional: true, fallback: true }),
+        plain({ key: `edu/${goal.id}/lunch`, item: "goal.education", label: "公立の小学校・中学校の給食費", level: "detail", kind: "select", options: SCHOOL_LUNCH, find, path: ["education", "schoolLunch"], optional: true, fallback: "", help: "制度どおりは、令和8年度から公立小学校の給食費を国の負担軽減の基準額（月5,200円×11か月）まで差し引きます（中学校は国の制度が決まっていないので差し引きません）。お住まいの自治体が給食費を無償にしていれば「なし」" }),
       ],
       actions: [removeAction(`edu/${goal.id}/remove`, "進路を外す", "detail", (hh) => void (hh.goals = (hh.goals ?? []).filter((g) => g.id !== goal.id)))],
     },
   ];
+  const start = nurseryDefaultStart(h, child);
   stages.forEach((s, i) => {
     const entryAge = STAGE_AGE[s.stage];
+    const nurseryNote =
+      s.stage !== "nursery"
+        ? undefined
+        : s.monthly === undefined
+          ? `保育料は世帯の収入（住民税の所得割）から自動で計算します（目安。推定あり）。月額・保育の時間・自治体の水準は「詳細」で変えられます。${free !== null ? `${free.slice(0, 4)}年4月からは無償化で0円。` : ""}`
+          : s.monthly === 0
+            ? "保育料なし（月額 0 円を入れています）"
+            : `保育料は入力した月額（${formatYen(s.monthly, "yen")}円）で計算します。空欄にすると収入から自動で計算します`;
     groups.push({
       key: `edu/${goal.id}/stage/${i}`,
       title: `${SCHOOL_STAGES.find((o) => o.value === s.stage)?.label ?? s.stage}${entryAge !== undefined ? `（${entryAge}歳から）` : ""}`,
+      ...(nurseryNote !== undefined ? { note: nurseryNote } : {}),
       level: "simple",
-      fields: stageFields(goal.id, i, s),
+      fields: stageFields(goal.id, i, s, `${start.ym}（${start.reason}）`),
       actions: [
         removeAction(`edu/${goal.id}/stage/${i}/remove`, s.stage === "university" ? "大学に行かない" : "この段を外す", "simple", (hh) => {
           const g = find(hh, wh) as Goal | undefined;
@@ -149,7 +231,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       mutate(w, (hh) => {
         const g = find(hh, w) as Goal | undefined;
         if (g?.education === undefined) return;
-        const st: EducationStage = o.value === "university" ? { stage: o.value, sector: "private", field: "humanities", living: "home" } : o.value === "nursery" ? { stage: o.value, monthly: 30000 } : { stage: o.value, sector: "public" };
+        const st: EducationStage = o.value === "university" ? { stage: o.value, sector: "private", field: "humanities", living: "home" } : o.value === "nursery" ? { stage: o.value } : { stage: o.value, sector: "public" };
         g.education.stages = [...g.education.stages, st].sort((a, b) => ORDER.indexOf(a.stage) - ORDER.indexOf(b.stage));
       }),
   }));
@@ -248,5 +330,5 @@ export function educationStage(wh: WorkingHousehold): StageDef {
   const children = h.members.filter((m) => m.kind === "child").sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1));
   const sections = children.map((c) => childSection(wh, c));
   if (sections.length === 0) sections.push({ key: "edu/none", title: "子ども", note: "子がいません（家族の段階で足せます）", level: "simple", groups: [], actions: [] });
-  return { id: "education", label: "子ども・教育", lead: "子ごとの進路。学費は統計の平均（文部科学省「子供の学習費調査」など）で計算します。", sections };
+  return { id: "education", label: "子ども・教育", lead: "子ごとの進路。学費は統計の平均（文部科学省「子供の学習費調査」など）で、保育料は世帯の収入から（国の基準と自治体の水準の目安）計算します。", sections };
 }

@@ -1,0 +1,20 @@
+id: educationSupport.schoolLunch.months
+title: 学校給食費の負担軽減の年間の月数（基準額×この月数が1年の支援の上限）
+unit: months
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 11
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/sports/syokuiku/kyu-lighten.html", "retrievedAt": "2026-10-20", "sha256": "ce41764223c504fdb8e9494c5c001421c3bbc384f5dc7c6e2f19a37226583bd8", "locator": "学校給食費の抜本的な負担軽減（文部科学省）どのくらい負担が軽くなるの？", "quote": "年間では、11か月分の支援となります"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260325-mxt_kenshoku-000048546_2.pdf", "retrievedAt": "2026-10-20", "sha256": "532da58e6fc9de1ca2ac7ea4af847810946b3e52a1382f5e30117096f57c4900", "locator": "給食費負担軽減交付金実施要領 3（2）交付金の上限額", "quote": "× 11 か月× 1/2"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-20", "tools": ["HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "年間では11か月分の支援。文部科学省の案内と実施要領（交付金の上限額＝在籍児童数×基準額×11か月×1/2）で一致"}

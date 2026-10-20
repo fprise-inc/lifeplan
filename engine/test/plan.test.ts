@@ -420,8 +420,8 @@ describe("教育費（education.cost）・公的支援（education.support）・
   });
 
   it("保育料は3歳になった後の最初の4月から無償", () => {
-    const out = flowsOf(mk([{ stage: "nursery", from: at("2027-04"), monthly: 40000 }], {}, "2025-05"));
-    const ns = (out.flows as unknown as Flow[]).filter((x) => x.row === "cf.expense.education.nursery");
+    const out = call<{ flows: Flow[] }>(mk([{ stage: "nursery", from: at("2027-04"), monthly: 40000 }], {}, "2025-05"), "education.nurseryFee", { member: C });
+    const ns = out.flows.filter((x) => x.row === "cf.expense.education.nursery");
     expect(ns[0]?.ym).toBe("2027-04");
     expect(ns.at(-1)?.ym).toBe("2029-03");
   });

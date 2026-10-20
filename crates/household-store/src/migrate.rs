@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.8";
+pub const CURRENT: &str = "0.9";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -33,7 +33,13 @@ pub const CURRENT: &str = "0.8";
 /// - 0.8: 表示の設定をタブごとの区画に分けた（`display.result`: 結果のタブ ＝ `metrics`・`atAge`・`layout`・`invBreakdown`・`invPeriods`、
 ///   `display.balance`: 資産と負債のタブ ＝ `guide`・`points`・`columns`）。なくした「操作中はグラフを上に表示」の `display.dock` は持たない。
 ///   形を変える段（0.7 → 0.8）で、直下の値を区画へ移す（`bsGuide` → `balance.guide`、`bsPoints` → `balance.points`、`bsColumns` → `balance.columns`）
-pub const KNOWN: &[&str] = &["0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8"];
+/// - 0.9: 教育の目標に、保育所の段の保育の時間 `stages[].hours`・国の基準に対する自治体の水準の割合 `stages[].feeRatio` と、
+///   公立の小学校・中学校の給食費 `education.schoolLunch` を足した（どれも任意。足すだけの MINOR。0029）。読み方を1つ変えた:
+///   保育所の段の月額（`stages[].monthly`）が空なら「0円」ではなく「世帯の収入から自動で計算した保育料（目安）」。データは書き換えず、
+///   空のまま新しい読み方で読む（月額 0 を入れた段は今までどおり保育料なし）
+pub const KNOWN: &[&str] = &[
+    "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9",
+];
 
 /// 1段分の変換
 pub struct Step {
@@ -78,6 +84,11 @@ pub const STEPS: &[Step] = &[
         from: "0.7",
         to: "0.8",
         apply: v0_7_to_0_8,
+    },
+    Step {
+        from: "0.8",
+        to: "0.9",
+        apply: v0_8_to_0_9,
     },
 ];
 
@@ -182,6 +193,16 @@ fn v0_7_to_0_8(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.8 → 0.9: 足した欄（保育の時間・自治体の水準の割合・給食費）はどれも任意なので足さない。保育所の段の空の月額は書き換えず、
+/// 新しい読み方（収入から自動で計算）で読む。形式の版だけを書き換える（0029）
+fn v0_8_to_0_9(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.9".into());
+    }
+    Ok(body)
+}
+
 /// 開き方
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Access {
@@ -273,7 +294,8 @@ mod tests {
         assert_eq!(access("0.5").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.6").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.7").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.9").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.8").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.10").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -285,7 +307,7 @@ mod tests {
         assert_eq!(access("01.1").unwrap_err(), StoreError::FORMAT_UNKNOWN);
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
-        assert_eq!(upgrade("0.9", b.clone()).unwrap(), b);
+        assert_eq!(upgrade("0.10", b.clone()).unwrap(), b);
     }
 
     #[test]
@@ -379,7 +401,7 @@ mod tests {
         });
         let b = serde_json::json!({"meta": {"formatVersion": "0.7", "revisions": [], "editors": {}}, "household": {"memo": ["x"]}, "display": display});
         let u = upgrade("0.7", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.8");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         assert_eq!(u["household"], b["household"]);
         let d = &u["display"];
         assert_eq!(
@@ -404,5 +426,17 @@ mod tests {
             serde_json::json!({"result": {"atAge": 80}, "balance": {}})
         );
         assert!(upgrade("0.7", serde_json::json!(null)).is_err());
+    }
+
+    #[test]
+    fn v0_8_keeps_nursery_stage_without_monthly() {
+        // 保育所の段の空の月額は書き換えない（新しい読み方で収入から自動で計算する）。足した欄は足さない
+        let goals = serde_json::json!([{"id": "g", "kind": "education", "owner": "c", "education": {"stages": [{"stage": "nursery"}, {"stage": "nursery", "monthly": 0}]}}]);
+        let b = serde_json::json!({"meta": {"formatVersion": "0.8", "revisions": [], "editors": {}}, "household": {"request": {"input": {"household": {"goals": goals}}}}, "display": {"result": {}, "balance": {}}});
+        let u = upgrade("0.8", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        assert_eq!(u["household"], b["household"]);
+        assert_eq!(u["display"], b["display"]);
+        assert!(upgrade("0.8", serde_json::json!(null)).is_err());
     }
 }

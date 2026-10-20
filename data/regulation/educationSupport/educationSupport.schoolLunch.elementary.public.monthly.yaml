@@ -1,0 +1,23 @@
+id: educationSupport.schoolLunch.elementary.public.monthly
+title: 学校給食費の負担軽減の基準額（公立小学校・完全給食。児童1人の月額。国と都道府県が自治体の食材費を支援）
+unit: JPY
+kind: constant
+basis: {"type": "fiscalYear", "startMonth": 4}
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5200
+    sources:
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/sports/syokuiku/kyu-lighten.html", "retrievedAt": "2026-10-20", "sha256": "ce41764223c504fdb8e9494c5c001421c3bbc384f5dc7c6e2f19a37226583bd8", "locator": "学校給食費の抜本的な負担軽減（文部科学省）どのくらい負担が軽くなるの？ 基準額", "quote": "（パン又は米飯等＋ミルク＋おかず） 5,200円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/sports/syokuiku/kyu-lighten.html", "retrievedAt": "2026-10-20", "sha256": "ce41764223c504fdb8e9494c5c001421c3bbc384f5dc7c6e2f19a37226583bd8", "locator": "学校給食費の抜本的な負担軽減（文部科学省）どんな取組？", "quote": "公立小学校※の児童の学校給食に必要な食材費について、国が地方自治体を支援する取組です"}
+      - {"type": "web", "url": "https://www.mext.go.jp/a_menu/sports/syokuiku/kyu-lighten.html", "retrievedAt": "2026-10-20", "sha256": "ce41764223c504fdb8e9494c5c001421c3bbc384f5dc7c6e2f19a37226583bd8", "locator": "学校給食費の抜本的な負担軽減（文部科学省）いつからはじまるの？", "quote": "令和8年（2026年）4月から開始します"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20260325-mxt_kenshoku-000048546_2.pdf", "retrievedAt": "2026-10-20", "sha256": "532da58e6fc9de1ca2ac7ea4af847810946b3e52a1382f5e30117096f57c4900", "locator": "給食費負担軽減交付金実施要領（令和8年3月24日決定・5月29日一部改正）3（2）交付金の上限額【基準額】", "quote": "完全給食 5,200 円"}
+      - {"type": "web", "url": "https://www.mext.go.jp/content/20251224-mxt_soseisk01-000046460_1.pdf", "retrievedAt": "2026-10-20", "sha256": "c36f05ce5b4435bc2ced50f06af0fcc8c6a73e706922a93cb4dadac57e6714af", "locator": "三党合意に基づくいわゆる教育無償化に向けた対応について（文部科学省・総務省・財務省、令和7年12月19日）2 支援の基準額等", "quote": "完全給食実施校については、令和５年実態調査における平均額に、近年の物価動向を加味し、一月当たり5,200 円"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-20", "tools": ["HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和8年4月から、給食を実施する公立の小学校（義務教育学校前期課程・特別支援学校小学部を含む）の児童に、保護者の所得によらず月5,200円（完全給食）を基準に食材費を支援（国1/2・都道府県1/2の予算補助。学校給食法は改正しない）。基準額を超える分は保護者から徴収できる。文部科学省の案内・実施要領・三省の対応方針で一致。中学校は対象外（三省の対応方針で「検討」）。基準額は毎年の調査と物価で見直す"}

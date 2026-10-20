@@ -1,0 +1,22 @@
+id: educationSupport.nursery.multiChild.secondRatio
+title: 保育料の多子の軽減の割合（2番目の年長者の子。3番目以降は0円）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2021-10-01"
+    appliesTo: null
+    enforcedOn: "2021-10-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.5"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20261001_508CO0000000188?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "fd4fdce120769fbc3053f5ce7597d902ea19140bb8bc1bd824c721b3735897c1", "locator": "子ども・子育て支援法施行令 第13条第1項第1号（令和8年10月1日の版）", "quote": "当該満三歳未満保育認定子どもに関して第四条第二項の規定により算定される額に百分の五十を乗じて得た額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/426CO0000000213_20211001_503CO0000000270?response_format=xml", "retrievedAt": "2026-10-20", "sha256": "572b253ec0b6981a52ff7659195daa69504bff164a3d4e793ee55fc40cbaee0e", "locator": "子ども・子育て支援法施行令 第14条第1号（令和3年10月1日の版）", "quote": "特定被監護者等のうち二番目の年長者である満三歳未満保育認定子ども"}
+      - {"type": "web", "url": "https://www.cfa.go.jp/assets/contents/node/basic_page/field_ref_resources/e4b817c9-5282-4ccc-b0d5-ce15d7b5018c/0cd8a3fc/20251029_policies_hoiku_169.pdf", "retrievedAt": "2026-10-20", "sha256": "7018340c388b9fb98fff633f2a2ea5a2f1fa42e7c61b9a3c2793c22843066db0", "locator": "幼児教育・保育の無償化 利用者負担（こども家庭庁）p.5 ※3", "quote": "２人目は上記の半額、３人目以降"}
+      - {"type": "law", "lawNumber": "平成二十六年政令第二百十三号", "egovRevisionId": "426CO0000000213_20261001_508CO0000000188"}
+    recordedIn: "2026.5.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-20", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "負担額算定基準子ども（小学校就学前で保育所・幼稚園・認定こども園などを使う子）の2番目の年長者は国の基準の額の100分の50、3番目以降は0（施行令13条1項）。市町村民税所得割合算額が57,700円未満の世帯は、年齢と同時の利用を問わず生計を一にする子で数える（14条。ひとり親世帯等は77,101円未満で2番目から0）。数え方は令和3年10月1日の版から今の形。施行令とこども家庭庁の表の※3で一致"}

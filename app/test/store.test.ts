@@ -23,6 +23,14 @@ function sample(): BodyState {
   // 見本の世帯（資産運用の積立の終わりが空・取り崩しの計画も持つ。0026・0028）
   const id = "dualAssetsTwoKids";
   const req = modelHousehold(id);
+  // 0.9 から: 生まれる予定の子の保育所の段（保育の時間・自治体の水準の割合。月額は空＝収入から自動で計算）と、給食費の選び方（0029）
+  const hh = req.input.household;
+  const baby = "00000000-0000-4000-8000-0000000000b9";
+  hh.members.push({ id: baby, kind: "child", birth: { birthYearMonth: "2027-06", bornOnFirst: false }, sex: "female", joins: null, leaves: null, expected: true } as (typeof hh.members)[number]);
+  hh.goals = [
+    ...(hh.goals ?? []).map((g, i) => (i === 0 && g.education !== undefined ? { ...g, education: { ...g.education, schoolLunch: "free" as const } } : g)),
+    { id: "00000000-0000-4000-8000-0000000000ba", kind: "education", owner: baby, education: { stages: [{ stage: "nursery", hours: "short", feeRatio: "0.6" }] } },
+  ];
   const self = roles(req).find((r) => r.key === "self")!.member;
   const demo = demoHousehold(id) ?? null;
   let wh: WorkingHousehold = fromRequest(req, { memo: ["架空のメモ"] });
@@ -115,7 +123,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("一覧の構成の要約は続柄と人数だけ", () => {
-    expect(summaryOf(sample().wh.request)).toBe("本人・配偶者・子2人");
+    expect(summaryOf(sample().wh.request)).toBe("本人・配偶者・子3人");
   });
 
   it("形の合わない本文は読まない", () => {

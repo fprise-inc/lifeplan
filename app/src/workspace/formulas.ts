@@ -10,6 +10,17 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   "retirement.benefit.lumpSum.lumpSum": { label: "退職一時金", text: "退職一時金 ＝ 入力した額（退職の月に受け取る）" },
   "benefit.childAllowance.monthly": { label: "児童手当", text: "児童手当 ＝ 子の年齢と人数による月額 × 月数（支給月にまとめて受け取る）" },
   "education.support.highSchool": { label: "高等学校等就学支援金", text: "就学支援金 ＝ 制度の支給額（授業料に充てる）" },
+  "education.nurseryFee.auto": {
+    label: "保育料（自動計算・目安）",
+    text: "保育料 ＝ 国の基準の上限（父母の市町村民税の所得割の合計の段階。4〜8月は前年度、9〜3月はその年度の住民税）× 多子の軽減（2人目は半額・3人目から0円）× 自治体の水準の割合（目安 80%）。住民税非課税の世帯と3歳になった後の4月からは0円",
+  },
+  "education.nurseryFee.input": { label: "保育料", text: "保育料 ＝ 入力した月額 × 教育費の上昇率での延ばし（3歳になった後の4月からは0円）" },
+  "education.cost.school": { label: "学校の費用", text: "学校の費用 ＝ 学習費総額 − 学校外活動費（子供の学習費調査の平均。教育費の上昇率で延ばす）" },
+  "education.cost.outOfSchool": { label: "学校外活動費", text: "学校外活動費 ＝ 子供の学習費調査の平均（塾・習い事など。教育費の上昇率で延ばす）" },
+  "education.cost.schoolLunchRelief": {
+    label: "学校の費用（給食費の負担軽減を引いた額）",
+    text: "学校の費用 ＝ 学習費総額 − 学校外活動費 − 学校給食費の負担軽減（公立小学校は令和8年度から国の基準額 月5,200円×11か月まで。自治体が無償化していれば全額）",
+  },
   "expense.living.monthly": { label: "基本生活費", text: "基本生活費 ＝ 毎月の生活費 × 物価上昇率での延ばし" },
   "expense.living.stage": { label: "基本生活費（段階）", text: "段階の後の生活費 ＝ 毎月の生活費 × 段階の割合（子の独立・退職・80歳など） × 物価上昇率での延ばし" },
   "expense.periodic.payment": { label: "定期的な支出", text: "定期的な支出 ＝ 1回の額（n年ごと）" },
