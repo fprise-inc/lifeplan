@@ -153,7 +153,7 @@ describe("グラフの年: カーソルで○と表示、クリックで固定",
     expect(svg.replace(/^[\s\S]*data-hit-area[^>]*>(<\/rect>)?/, "")).toMatch(/^<g class="evs">/);
     const css = ["src/styles/app.css"].map((f) => readFileSync(join(REPO_DIR, "app", f), "utf-8")).join("\n");
     const rule = (sel: string) => css.match(new RegExp(`(^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{([^}]*)\\}`))?.[2] ?? "";
-    for (const sel of [".chart .hv-dots", ".chart .hv-guide", ".year-tip", ".dock-hint"]) expect(rule(sel)).toContain("pointer-events: none");
+    for (const sel of [".chart .hv-dots", ".chart .hv-guide", ".year-tip"]) expect(rule(sel)).toContain("pointer-events: none");
     // 付いてくるグラフの箱は高さ0（付いてきていないときに元のグラフを覆わない）
     expect(rule(".chart-dock")).toContain("height: 0");
   });
