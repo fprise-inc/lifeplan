@@ -1,4 +1,4 @@
-# 計算エンジンとアプリの画面・ヒアリングシートの自動テスト（0002・0004・0005・0006・0007・0016・0017・0018・0021）
+# 計算エンジンとアプリの画面・ヒアリングシート・持ち帰り用のレポートの自動テスト（0002・0004・0005・0006・0007・0016・0017・0018・0021・0030）
 # アプリの3つの OS でのビルド（バンドル）は、手で起動するかリリースのときだけ（app-bundle.yml。実行の分数に限りがあるため）
 name: ci
 on:
@@ -115,6 +115,10 @@ jobs:
         run: npm run lint
       - name: 単体テスト
         run: npm test
+      - name: 持ち帰り用のレポートを、ネットワークを切ったヘッドレスのブラウザで開く（外への通信・CSP の違反が0件・つまみで計算し直す・パスワード。0030）
+        run: |
+          TAKEAWAY_SAMPLE_DIR="$RUNNER_TEMP/takeaway" npx vitest run test/takeaway.test.ts -t 見本のファイル
+          npm run check:takeaway -- "$RUNNER_TEMP/takeaway/見本_パスワードなし.html" "$RUNNER_TEMP/takeaway/見本_パスワードあり.html" mihon-pass-2026 --require
       - name: ビルド（Tauri のクレートが埋め込む画面）
         run: npm run build
       - name: ライセンスの検査（npm）

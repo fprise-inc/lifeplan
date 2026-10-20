@@ -752,6 +752,8 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
 
   // ---- 年の印（線の上の○・細い縦の補助線）と小さな表示 ----
   const age = selIdx >= 0 ? ages[selIdx] : undefined;
+  // 年の目盛りの数字: ふつうは5年ごと。狭い幅（スマホの縦の画面）で5年の間が文字の幅より狭いときは10年ごと
+  const labelStep = years.length > 5 && Math.abs(s.x(5) - s.x(0)) < 46 * fs ? 10 : 5;
   const head = selIdx >= 0 ? `${years[selIdx]}年${age != null ? `（${model.who}${age}歳）` : ""}` : "";
   const valueLine = mark !== null ? `${mark.lead} ● ${model.names.selected} ${mark.selText}${mark.baseText !== null ? `／○ ${model.names.base} ${mark.baseText}` : ""}` : "";
   const tipLines =
@@ -810,7 +812,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
           </>
         ) : null}
         {years.map((y, i) =>
-          y % 5 === 0 ? (
+          y % labelStep === 0 ? (
             <g key={y}>
               <text x={s.x(i)} y={f.height - 24 * fs} class="axis-label" text-anchor="middle">
                 {y}

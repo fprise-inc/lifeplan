@@ -1,5 +1,6 @@
 // 控え（0009 の2。作業の層）: 顧客に見せた時点・面談の区切りの時点の、現状とプランの写し。
-// - 作るとき: 提案書の PDF を保存したとき（きっかけ「PDF書き出し」）と、FP が「この時点を残す」を押したとき（きっかけ「手動」）
+// - 作るとき: 提案書の PDF を保存したとき（きっかけ「PDF書き出し」）、持ち帰り用のレポートを保存したとき（きっかけ「持ち帰り用のレポート」。0030）と、
+//   FP が「この時点を残す」を押したとき（きっかけ「手動」）
 // - 中身: 作った日時・きっかけ・メモ・計算の基準の月・その時点の現状とプランの全体の写し（保存していないプランの変更も含む）・アプリの版。
 //   PDF のときは、提案にしたプラン・帳票の組み方・主な結果（帳票の入力の要約）・制度データの版も写す
 // - 作った後は変えない（消すことはできる）。指紋（digest。中身の SHA-256）を持ち、一覧を開くたびに確かめる
@@ -11,9 +12,10 @@ import type { ContingencyPlan } from "../contingency/planData.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { Proposal, Values } from "../plans/plans.ts";
 
-export type SnapshotTrigger = "pdf" | "manual";
+export type SnapshotTrigger = "pdf" | "takeaway" | "manual";
 
-export const TRIGGER_TEXT: Record<SnapshotTrigger, string> = { pdf: "PDF書き出し", manual: "手動" };
+export const TRIGGER_TEXT: Record<SnapshotTrigger, string> = { pdf: "PDF書き出し", takeaway: "持ち帰り用のレポート", manual: "手動" };
+const TRIGGERS: readonly string[] = Object.keys(TRIGGER_TEXT);
 
 /** メモの長さの上限 */
 export const SNAPSHOT_MEMO_MAX = 80;
@@ -38,6 +40,11 @@ export interface Snapshot {
   };
   /** 提案書の PDF のとき: 載せた章・紙の向き・キャッシュフロー表の載せ方・目標の年齢・作成日 */
   report?: { chapters: string[]; orientation: Orientation; cashflow: CashflowLayout; targetAge: number | null; issuedOn: string };
+  /**
+   * 持ち帰り用のレポートのとき（0030）: 載せたプラン（帯の文字と名前）・FP の提案のプラン・開くときのパスワードを付けたか（パスワードそのものは持たない）・
+   * 顧客が動かせるつまみ・載せた画面・作成日・ファイルの指紋（保存先のパスは持たない。宛名・事務所名も持たない）
+   */
+  takeaway?: { plans: { letter: string; name: string }[]; proposal: string; password: boolean; knobs: string[]; views: string[]; createdOn: string; digest: string | null };
   /** 提案書の PDF のとき: 主な結果（帳票の入力の要約）と制度データの版 */
   outputs?: { summary: ProposalInput["summary"]; dataSet: ProposalInput["assumptions"]["dataSet"] };
   appVersion: string;
@@ -104,7 +111,7 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object
 /** 本文の区画 snapshots から読む（形の合わないものは捨てずに読めるものだけ。中身の確かめは verifySnapshot） */
 export function readSnapshots(v: unknown): Snapshot[] {
   if (!Array.isArray(v)) return [];
-  return v.filter((x): x is Snapshot => isObj(x) && typeof x.id === "string" && typeof x.createdAt === "string" && (x.trigger === "pdf" || x.trigger === "manual") && isObj(x.inputs));
+  return v.filter((x): x is Snapshot => isObj(x) && typeof x.id === "string" && typeof x.createdAt === "string" && typeof x.trigger === "string" && TRIGGERS.includes(x.trigger) && isObj(x.inputs));
 }
 
 /** 世帯（現状）を置き換えるときに、今の控えを持ち越す（控えは元に戻す・やり直すの対象にしない。作った後は変えない） */

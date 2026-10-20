@@ -1,4 +1,5 @@
-//! 平文の書き出しの出口（0020 の5・6）。提案書の PDF とヒアリングシート（.xlsx）は、すべてここを通してファイルに書く。
+//! 平文の書き出しの出口（0020 の5・6）。提案書の PDF・ヒアリングシート（.xlsx）・持ち帰り用のレポート（.html。0030）は、
+//! すべてここを通してファイルに書く。
 //!
 //! - 画面（WebView）はファイルを書けない（0016 の1。ファイル・ダイアログのプラグインの権限は画面に与えない）。画面は
 //!   「この PDF を保存する」「このシートを保存する」の用途ごとの命令を呼び、保存先は本体が OS の保存のダイアログで FP に選ばせる。
@@ -30,12 +31,15 @@ pub enum ExportKind {
     HearingSheet,
     /// 前回の値を記入したヒアリングシート（0018 の9。画面で毎回警告してから）
     HearingSheetPrefilled,
+    /// 持ち帰り用のレポート（0030。パスワードを付けたときは中身が暗号化されている。記録にはその有無だけ）
+    Takeaway,
 }
 
 impl ExportKind {
     fn filter(self) -> (&'static str, &'static [&'static str]) {
         match self {
             ExportKind::Proposal => ("PDF", &["pdf"]),
+            ExportKind::Takeaway => ("ブラウザで開くファイル（.html）", &["html"]),
             _ => ("表計算のブック（.xlsx）", &["xlsx"]),
         }
     }
@@ -50,6 +54,8 @@ pub struct ExportRecord {
     pub at: u64,
     pub digest: String,
     pub sync_folder: bool,
+    /// 開くときのパスワードを付けたか（持ち帰り用のレポートだけ。パスワードそのものは持たない）
+    pub password: bool,
 }
 
 #[derive(Default)]
@@ -195,6 +201,18 @@ pub async fn save<R: Runtime>(
     default_name: &str,
     bytes: &[u8],
 ) -> Result<SaveOutcome, String> {
+    save_with(app, window, kind, default_name, bytes, false).await
+}
+
+/// save と同じ。password は記録に残す「開くときのパスワードを付けたか」（持ち帰り用のレポート）
+pub async fn save_with<R: Runtime>(
+    app: &AppHandle<R>,
+    window: &WebviewWindow<R>,
+    kind: ExportKind,
+    default_name: &str,
+    bytes: &[u8],
+    password: bool,
+) -> Result<SaveOutcome, String> {
     let target = match dev_save_dir() {
         Some(dir) => dir.join(default_name),
         None => {
@@ -213,7 +231,7 @@ pub async fn save<R: Runtime>(
             }
         }
     };
-    write_checked(app, kind, &target, bytes)
+    write_checked(app, kind, &target, bytes, password)
 }
 
 fn write_checked<R: Runtime>(
@@ -221,6 +239,7 @@ fn write_checked<R: Runtime>(
     kind: ExportKind,
     target: &Path,
     bytes: &[u8],
+    password: bool,
 ) -> Result<SaveOutcome, String> {
     if let Some(code) = forbidden_of(app).reason(target) {
         return Err(code.to_owned());
@@ -235,6 +254,7 @@ fn write_checked<R: Runtime>(
                 at: now_secs(),
                 digest: digest.clone(),
                 sync_folder,
+                password,
             });
         }
     }

@@ -93,7 +93,7 @@
 .snap-table td { border-bottom: 1px solid var(--line-2); padding: 6px 8px; vertical-align: top; }
 .snap-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .snap-kind { font-size: 0.78rem; font-weight: 700; border-radius: 4px; padding: 0 6px; border: 1.5px solid var(--line); color: var(--ink-2); white-space: nowrap; }
-.snap-kind.pdf { border-color: var(--prop); color: var(--prop-ink); background: var(--prop-bg); }
+.snap-kind.pdf, .snap-kind.takeaway { border-color: var(--prop); color: var(--prop-ink); background: var(--prop-bg); }
 .snap-none { color: var(--ink-2); }
 .snap-bad { display: block; margin-top: 2px; color: var(--short-ink); font-weight: 700; font-size: 0.82rem; }
 .snap-ops { white-space: nowrap; text-align: right; }

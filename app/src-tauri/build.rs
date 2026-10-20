@@ -16,6 +16,8 @@ const COMMANDS: &[&str] = &[
     "proposal_discard",
     "hearing_save",
     "hearing_open",
+    // 0030: 持ち帰り用のレポートの保存（画面が作った HTML を受け取る。パスは受け取らない・返さない）
+    "takeaway_save",
     // 0011・0013: 世帯ファイルの保存と暗号化（パスは受け取らない。世帯は内部IDだけで指す）
     "store_status",
     "store_list",

@@ -1,6 +1,7 @@
 // 画面のビルドの前に流す（npm run prepare-assets。dev・build・typecheck・lint・test が先に呼ぶ）
 // 1. 計算エンジンのまとめた JS（engine/dist/engine.js）を public/engine/ に写す。本体（Rust）が埋め込むものと同じファイル（0005 の5: 二本立て）
 // 2. 登録簿（registry/rows.yaml・params.yaml・items.yaml）から、表の行・制度の値・入力項目の名前の表（src/generated/labels.ts）を作る
+// 3. 持ち帰り用のレポートの画面の部品を1つの JS・CSS にまとめる（scripts/build-takeaway.ts）
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
@@ -35,3 +36,6 @@ const text = [
 ].join("\n");
 const target = join(APP_DIR, "src", "generated", "labels.ts");
 if (!existsSync(target) || readFileSync(target, "utf8") !== text) writeFileSync(target, text);
+
+// 3. 持ち帰り用のレポート（0030）の画面の部品（public/takeaway/viewer.js・viewer.css）。中身が変わっていなければ作り直さない
+await (await import("./build-takeaway.ts")).buildTakeaway();

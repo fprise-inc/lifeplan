@@ -5,7 +5,8 @@
 //! - 正の計算は quickjs-ng（engine-host）で、計算ごとに新しい実行環境を作る（0005 の2・3）。画面側のエンジンは表示の先出しだけ（0005 の5）。
 //! - 世帯は、保存した世帯（store.rs。暗号化した世帯ファイル。0011・0013）と、埋め込んだ架空のモデル世帯（見本）。
 //! - アプリを閉じるときは、画面に自動保存の残りを書かせてから閉じる（`__financiaBeforeClose` → `app_close_ready`。待つのは最長4秒）。
-//! - 提案書の PDF（report.rs）とヒアリングシートの保存・取り込みは、平文の書き出しの出口（export.rs）を通す（0020 の5）。
+//! - 提案書の PDF（report.rs）・ヒアリングシートの保存・取り込み・持ち帰り用のレポート（takeaway.rs。0030）は、
+//!   平文の書き出しの出口（export.rs）を通す（0020 の5）。
 //!   画面にはファイル・ダイアログの権限を与えず、パスも受け取らない。
 //! - AI接続口（ai.rs。0014・0015）: 事務所全体の設定（既定はオフ）・世帯ごとの同意・期限つきの共有・記録・AIの候補の判断。
 //!   受け口は設定がオンのときだけ開け、画面には鍵もパスも渡さない。
@@ -24,6 +25,7 @@ mod menu;
 mod office;
 mod report;
 mod store;
+mod takeaway;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -199,6 +201,38 @@ async fn hearing_save(
     export::save(&app, &window, kind, &name, bytes).await
 }
 
+/// 持ち帰り用のレポート（0030）: 画面が作った HTML（バイト列）を、平文の書き出しの出口で保存する。
+/// 見出し: x-exported-on（YYYY-MM-DD）・x-encrypted（1 ならパスワードを付けた。ファイルの見出しと突き合わせる）
+#[tauri::command]
+async fn takeaway_save(
+    app: AppHandle,
+    window: WebviewWindow,
+    request: Request<'_>,
+) -> Result<SaveOutcome, String> {
+    let InvokeBody::Raw(bytes) = request.body() else {
+        return Err("E_TAKEAWAY_BODY".to_owned());
+    };
+    let header = |k: &str| {
+        request
+            .headers()
+            .get(k)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_owned()
+    };
+    let checked = takeaway::check(bytes, header("x-encrypted") == "1")?;
+    let name = takeaway::default_name(&header("x-exported-on"), checked.encrypted);
+    export::save_with(
+        &app,
+        &window,
+        ExportKind::Takeaway,
+        &name,
+        bytes,
+        checked.encrypted,
+    )
+    .await
+}
+
 /// 記入済みのヒアリングシートを選んで、中身を返す（取り込みは画面の hearing の部品が行う。0018 の6）。選ばなかったときは空
 #[tauri::command]
 async fn hearing_open(window: WebviewWindow) -> Result<Response, String> {
@@ -265,6 +299,7 @@ pub fn run() {
             proposal_discard,
             hearing_save,
             hearing_open,
+            takeaway_save,
             store::store_status,
             store::store_list,
             store::store_create,

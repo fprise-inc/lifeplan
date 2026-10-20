@@ -173,6 +173,17 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "0.9 の見本には給食費の選び方がある"
             );
         }
+        if *v == "0.10" {
+            // 0.10 から: 持ち帰り用のレポートの書き出しの記録（きっかけ takeaway。パスワードの有無だけ。0030）
+            let tk = now["snapshots"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|s| s["trigger"] == "takeaway")
+                .expect("0.10 の見本には持ち帰り用のレポートの控えがある");
+            assert_eq!(tk["takeaway"]["password"], true);
+            assert!(tk["takeaway"].get("addressee").is_none());
+        }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
         }

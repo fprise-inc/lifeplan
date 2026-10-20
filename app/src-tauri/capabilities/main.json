@@ -17,6 +17,7 @@
     "allow-proposal-discard",
     "allow-hearing-save",
     "allow-hearing-open",
+    "allow-takeaway-save",
     "allow-store-status",
     "allow-store-list",
     "allow-store-create",

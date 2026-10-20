@@ -3,6 +3,8 @@
 // - PDF は本体が作り、本体の中に置く。画面は見本の画像（ページごとの PNG）だけを受け取る（CSP の object-src・frame-src が none）
 // - 保存は本体の平文の書き出しの出口（OS の保存のダイアログ）。最初の保存の前に、平文の注意を出す（0020 の5）
 // - 保存したら、その時点の控え（0009 の2。きっかけ「PDF書き出し」）を残す（宛名・担当は控えに入れない）
+// - タブの上の切り替えで「持ち帰り用のレポート」（顧客に渡す HTML ファイル1つ。0030。workspace/takeaway/TakeawayPanel.tsx）も作る。
+//   どちらも「顧客に渡すもの」で、載せるプランの選び方・宛名・平文の書き出しの出口が同じなので、上のタブを増やさずに同じタブの中に置く
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { CHAPTERS, hasMaterial, type CashflowLayout, type ChapterId, type Orientation, type ProposalInput } from "../../../../report/src/index.ts";
 import type { HostApi, RenderInfo, SaveOutcome } from "../../engine/host.ts";
@@ -16,6 +18,7 @@ import type { BsColumn, BsPointKey } from "../../presentation/model.ts";
 import { BS_POINT_CHOICES, DEFAULT_BS_POINTS } from "../balanceTab.ts";
 import { DEFAULT_CHAPTERS, DEFAULT_LAYOUT, estimatedCards, planReport, reportInput, today, type ReportChoice } from "./assemble.ts";
 import { ReportViewer } from "./ReportViewer.tsx";
+import { TakeawayPanel } from "../takeaway/TakeawayPanel.tsx";
 
 interface Props {
   host: HostApi;
@@ -36,6 +39,35 @@ interface Props {
   bsColumns?: readonly BsColumn[] | null;
   /** PDF を保存したときに控えを残す（App が現状とプランの写しを足して世帯に入れる） */
   onSnapshot?: (d: SnapshotDraft) => Promise<void>;
+  /** 最初に開く形（提案書の PDF・持ち帰り用のレポート） */
+  initialMode?: "pdf" | "takeaway";
+}
+
+/** 提案書のタブ: 上の切り替えで、提案書の PDF と持ち帰り用のレポート（0030）を選ぶ */
+export function ReportTab(p: Props) {
+  const [mode, setMode] = useState<"pdf" | "takeaway">(p.initialMode ?? "pdf");
+  return (
+    <div class="rp-wrap">
+      <div class="seg-g rp-mode" role="group" aria-label="作るもの">
+        <button type="button" aria-pressed={mode === "pdf"} onClick={() => setMode("pdf")} data-report-mode="pdf">
+          提案書（PDF）
+        </button>
+        <button type="button" aria-pressed={mode === "takeaway"} onClick={() => setMode("takeaway")} data-report-mode="takeaway">
+          持ち帰り用のレポート（ブラウザで開くファイル）
+        </button>
+      </div>
+      {mode === "pdf" ? (
+        <ProposalPdf {...p} />
+      ) : p.band.length === 0 ? (
+        <section class="card rp-empty">
+          <h2>持ち帰り用のレポート</h2>
+          <p>載せるプランがありません。結果でプランを作り、帯に並べてから開いてください。</p>
+        </section>
+      ) : (
+        <TakeawayPanel host={p.host} wh={p.wh} catalog={p.catalog} band={p.band} base={p.base} selected={p.selected} valuesOf={p.valuesOf} letterOf={p.letterOf} targetAge={p.targetAge} {...(p.onSnapshot !== undefined ? { onSnapshot: p.onSnapshot } : {})} />
+      )}
+    </div>
+  );
 }
 
 export interface ReportTimings {
@@ -80,7 +112,7 @@ export function bsPointsText(columns: readonly BsColumn[] | null, defaults: read
   return cols.map((c) => ("point" in c ? (BS_POINT_CHOICES.find((x) => x.key === c.point)?.label ?? c.point) : `${c.year}年`)).join("・");
 }
 
-export function ReportTab(p: Props) {
+function ProposalPdf(p: Props) {
   const slots = [CURRENT, ...p.band];
   const firstProposal = p.selected !== CURRENT ? p.selected : (p.band[0] ?? CURRENT);
   const [proposal, setProposal] = useState(firstProposal);
