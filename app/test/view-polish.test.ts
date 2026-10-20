@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { DualEngine } from "../src/engine/dual.ts";
 import type { ComputeResponse, HostApi, SlotRequest } from "../src/engine/host.ts";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
-import { ChartPip, clampPipRect, closePip, defaultPipRect, keyPipRect, openPip, PIP_KEY_STEP, PIP_LABEL, PIP_MIN, PipButton, pipChartHeight, resizePipRect } from "../src/presentation/ChartPip.tsx";
+import { ChartPip, clampPipRect, closePip, defaultPipRect, keyPipRect, openPip, PIP_KEY_STEP, PIP_LABEL, PIP_MARGIN, PIP_MIN, PipButton, pipChartHeight, resizePipRect } from "../src/presentation/ChartPip.tsx";
 import { ContingencyChartCard, PipContingency, ScenarioBand, YearStrip } from "../src/presentation/ContingencyView.tsx";
 import { EVENT_R, placeFixedAbove } from "../src/presentation/EventDot.tsx";
 import { MainChart } from "../src/presentation/MainChart.tsx";
@@ -295,9 +295,11 @@ describe("万一のときのタブを開き直したとき（計算の結果を�
 });
 
 describe("グラフを小窓で表示", () => {
-  it("小窓: 初めは窓の右上。窓の中に収め、最小の大きさを守る。中のグラフは枠の高さに合わせる", () => {
+  it("小窓: 初めは窓の右下（右と下の端から少し余白）。窓の中に収め、最小の大きさを守る。中のグラフは枠の高さに合わせる", () => {
     for (const [vw, vh] of [[1280, 800], [1920, 1080], [2560, 1440]] as const) {
       const r = defaultPipRect(vw, vh);
+      expect(vw - (r.x + r.w)).toBe(PIP_MARGIN);
+      expect(vh - (r.y + r.h)).toBe(PIP_MARGIN);
       expect(r.x + r.w).toBeLessThanOrEqual(vw);
       expect(r.y + r.h).toBeLessThanOrEqual(vh);
       expect(clampPipRect(r, vw, vh)).toEqual(r);

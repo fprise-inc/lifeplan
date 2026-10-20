@@ -22,11 +22,18 @@ export interface PipRect {
 /** 小窓の最小の大きさ（文字の大きさ 16px のとき） */
 export const PIP_MIN = { w: 380, h: 240 };
 
-/** 初めて小窓を出すときの位置と大きさ: 窓の右上。幅は窓の45%（420〜820px）、高さは窓の55%（520px まで） */
+/** 小窓を初めて出すときの、窓の右と下の端からの余白（px） */
+export const PIP_MARGIN = 20;
+
+/**
+ * 初めて小窓を出すときの位置と大きさ: 窓の右下（右と下の端から少し余白）。グラフの見出しの右上のボタンに重ならず、
+ * グラフの下の操作の欄（対策・想定の前提）にも近い。幅は窓の45%（420〜820px）、高さは窓の55%（520px まで）。
+ * 一度動かした・大きさを変えた位置は、アプリを開いている間はそちらを使う
+ */
 export function defaultPipRect(vw: number, vh: number): PipRect {
   const w = Math.round(Math.min(820, Math.max(420, vw * 0.45)));
   const h = Math.round(Math.min(520, vh * 0.55));
-  return { x: Math.max(8, vw - w - 20), y: 12, w, h };
+  return { x: Math.max(8, vw - w - PIP_MARGIN), y: Math.max(8, vh - h - PIP_MARGIN), w, h };
 }
 
 /** 小窓を窓の中に収める（大きさは最小と窓の大きさの間。枠が窓の外に出ないよう、位置も寄せる） */
