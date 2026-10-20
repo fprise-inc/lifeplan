@@ -528,45 +528,65 @@ export function sheetOf(table: readonly TableCell[], points: readonly YearPoint[
 /** 純資産の推移（basis.years と同じ並び） */
 const netWorthOf = (table: readonly TableCell[], years: readonly number[]): Yen[] => sheetOf(table, years.map((y) => ({ year: y, label: "" }))).netWorth;
 
-/** バランスシートの年の抜粋: 今（計算基準年の年末）・10年後・本人の退職の年・本人75歳・目標の年（表の範囲の中だけ。同じ年は1つ） */
-function balancePoints(ctx: Ctx): YearPoint[] {
+/** 図に並べる時点の数の上限（紙の幅に収まる数。画面の「時点を並べる」と同じ 2〜4つ） */
+const FIGURE_POINTS_MAX = 4;
+/** 年の抜粋の表の列の数の上限（縦の紙に収まる数） */
+const SHEET_POINTS_MAX = 5;
+
+/** 本人の年齢つきの呼び方（本人がいなければ年） */
+const whoOf = (ctx: Ctx) => (y: number): string => (ctx.self !== undefined ? `${ctx.self.label}${ageInYear(ctx.self.member, y)}歳` : `${y}年`);
+
+/** 表の範囲の中（計算基準年の年末から表の最後の年まで）だけを、同じ年は先のものを残して並べる */
+function keepPoints(ctx: Ctx, points: readonly YearPoint[], max: number): YearPoint[] {
   const last = ctx.years.at(-1) ?? ctx.baseYear;
-  const self = ctx.self;
-  const who = (y: number) => (self !== undefined ? `${self.label}${ageInYear(self.member, y)}歳` : `${y}年`);
-  const out: YearPoint[] = [
-    { year: ctx.baseYear, label: "今" },
-    { year: ctx.baseYear + 10, label: `10年後（${who(ctx.baseYear + 10)}）` },
-  ];
-  if (self !== undefined) {
-    const ret = retirementMonth(ctx.bundle.proposal.request, self.member);
-    if (ret !== null) out.push({ year: parseYm(ret).y, label: `退職の年（${who(parseYm(ret).y)}）` });
-    const y75 = parseYm(self.member.birth.birthYearMonth).y + 75;
-    out.push({ year: y75, label: who(y75) });
-  }
-  out.push({ year: ctx.target.year, label: who(ctx.target.year) });
   const kept: YearPoint[] = [];
-  for (const p of out) if (p.year >= ctx.baseYear && p.year <= last && !kept.some((k) => k.year === p.year)) kept.push(p);
+  for (const p of points) if (p.year >= ctx.baseYear && p.year <= last && !kept.some((k) => k.year === p.year) && kept.length < max) kept.push(p);
   return kept.sort((a, b) => a.year - b.year);
 }
 
-/** バランスシートの図の時点: 今・退職の年・75歳（無い時点は10年後で埋める。表の範囲の中だけ） */
+/** 主な時点: 今（計算基準年の年末）・10年後・本人の退職の年・本人75歳 */
+function standardPoints(ctx: Ctx): { now: YearPoint; ten: YearPoint; retire: YearPoint | null; age75: YearPoint | null } {
+  const who = whoOf(ctx);
+  const self = ctx.self;
+  const ret = self !== undefined ? retirementMonth(ctx.bundle.proposal.request, self.member) : null;
+  const y75 = self !== undefined ? parseYm(self.member.birth.birthYearMonth).y + 75 : null;
+  return {
+    now: { year: ctx.baseYear, label: "今" },
+    ten: { year: ctx.baseYear + 10, label: `10年後（${who(ctx.baseYear + 10)}）` },
+    retire: ret !== null ? { year: parseYm(ret).y, label: `退職の年（${who(parseYm(ret).y)}）` } : null,
+    age75: y75 !== null ? { year: y75, label: who(y75) } : null,
+  };
+}
+
+/**
+ * バランスシートの図の時点。画面で並べている時点（bundle.balancePoints）があればそれ（2〜4つ）、
+ * 無ければ今・退職の年・75歳（無い時点は10年後で埋める）。表の範囲の中だけ
+ */
 function figurePoints(ctx: Ctx): YearPoint[] {
-  const all = balancePoints(ctx);
-  const pick = (pred: (p: YearPoint) => boolean) => all.find(pred);
+  const who = whoOf(ctx);
+  const given = ctx.bundle.balancePoints ?? [];
+  // 時点の名前は見出しの呼び方にする: 今／年齢の時点と年を直に選んだ時点は「ご主人75歳」／それ以外は「退職の年（ご主人65歳）」
+  const label = (year: number, name: string | null): string => (year === ctx.baseYear ? "今" : name === null || /^\d+歳$/.test(name) ? who(year) : `${name}（${who(year)}）`);
+  const chosen = keepPoints(ctx, given.map((p) => ({ year: p.year, label: label(p.year, p.name) })), FIGURE_POINTS_MAX);
+  if (chosen.length > 0) return chosen;
+  const s = standardPoints(ctx);
   const out: YearPoint[] = [];
-  const now = pick((p) => p.label === "今");
-  if (now !== undefined) out.push(now);
-  for (const pr of [(p: YearPoint) => p.label.startsWith("退職の年"), (p: YearPoint) => p.label.endsWith("75歳"), (p: YearPoint) => p.label.startsWith("10年後")])
-    if (out.length < 3) {
-      const p = pick(pr);
-      if (p !== undefined && !out.some((o) => o.year === p.year)) out.push(p);
-    }
-  return out.sort((a, b) => a.year - b.year);
+  for (const p of [s.now, s.retire, s.age75, s.ten]) if (p !== null && out.length < 3 && keepPoints(ctx, [...out, p], 3).length > out.length) out.push(p);
+  return keepPoints(ctx, out, 3);
+}
+
+/**
+ * バランスシートの年の抜粋（表）: 図の時点と目標の年を必ず入れ、5列に満たなければ10年後を足す
+ * （図の時点が今・退職の年・75歳なら、今・10年後・退職の年・75歳・目標の年。表の範囲の中だけ。同じ年は1つ）
+ */
+function balancePoints(ctx: Ctx, figure: readonly YearPoint[]): YearPoint[] {
+  const who = whoOf(ctx);
+  const base = keepPoints(ctx, [...figure, { year: ctx.target.year, label: who(ctx.target.year) }], SHEET_POINTS_MAX);
+  return keepPoints(ctx, [...base, standardPoints(ctx).ten], SHEET_POINTS_MAX);
 }
 
 /** バランスシートの図（提案。アプリの「資産と負債」のタブと同じ分け方。共通の縮尺） */
-function balanceFigure(ctx: Ctx): BalanceFigure {
-  const points = figurePoints(ctx);
+function balanceFigure(ctx: Ctx, points: readonly YearPoint[]): BalanceFigure {
   const h = ctx.bundle.proposal.request.input.household;
   const at = bsSeries(ctx.bundle.proposal.result.table, points.map((p) => p.year), { residences: h.residences ?? [], debts: (h.debts ?? []).map((d) => ({ id: d.id, kind: d.kind, ...(d.property !== undefined ? { property: d.property } : {}) })) });
   const box = (a: (typeof at)[number], g: BsGroup) => ({ key: g, label: BS_GROUP_LABEL[g], amount: groupTotal(a, g) });
@@ -596,11 +616,12 @@ function balanceFigure(ctx: Ctx): BalanceFigure {
 }
 
 function balanceSheet(ctx: Ctx): NonNullable<ProposalInput["balanceSheet"]> {
-  const points = balancePoints(ctx);
+  const figure = figurePoints(ctx);
+  const points = balancePoints(ctx, figure);
   const cur = ctx.bundle.current.result.table;
   const prop = ctx.bundle.proposal.result.table;
   return {
-    figure: balanceFigure(ctx),
+    figure: balanceFigure(ctx, figure),
     proposal: sheetOf(prop, points),
     currentNetWorth: sheetOf(cur, points).netWorth,
     netWorth: { current: netWorthOf(cur, ctx.years), proposal: netWorthOf(prop, ctx.years) },

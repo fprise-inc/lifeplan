@@ -7,6 +7,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { BsFigure, useBoxSize } from "./BsFigure.tsx";
 import { BsTrend, TrendLegend, trendRange } from "./BsTrend.tsx";
 import { healthOf, monthsValue, scaleFor, type HealthItem } from "./bsLayout.ts";
+import { FALLBACK, colsOf, resolveColumns, nextColumns, type ResolvedColumn } from "./bsColumns.ts";
 import { group, man, manDiff } from "./format.ts";
 import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsPlanModel, BsPointKey, BsYearModel, VerdictPart, Yen } from "./model.ts";
 
@@ -590,57 +591,6 @@ function YearBar({ plan, yi, onYear, play, onPlay, onStop, barRef }: { plan: BsP
 
 const MIN_COLS = 2;
 const MAX_COLS = 4;
-/** 候補が世帯に無い時点（例: ローンの無い世帯の「ローン完済」）の代わり */
-const FALLBACK: BsPointKey[] = ["y10", "y20", "y5", "retire", "age65", "age75", "age85"];
-
-export interface ResolvedColumn {
-  /** 並べる時点の配列の中の番号（見出しから変えるときに使う） */
-  pos: number;
-  label: string;
-  index: number;
-  /** 候補がこの世帯に無いため、代わりの時点で見せている（例: 「ローン完済が無いため10年後」） */
-  note: string | null;
-}
-
-const yearLabel = (y: BsYearModel) => (y.age !== null ? `${y.age}歳` : `${y.year}年`);
-const colsOf = (columns: readonly BsColumn[] | null, defaults: readonly BsPointKey[]): BsColumn[] => (columns !== null ? [...columns] : defaults.map((k) => ({ point: k })));
-
-/**
- * 並べる時点を、このプランの年に解く（年の順に並べる）。
- * 候補の鍵はプランごとの年（退職の年を動かすと付いてくる）。決まった年は表の範囲に収める。候補が世帯に無ければ代わりの時点
- */
-export function resolveColumns(plan: BsPlanModel, columns: readonly BsColumn[] | null, defaults: readonly BsPointKey[]): ResolvedColumn[] {
-  const n = plan.years.length;
-  const first = plan.years[0]?.year ?? 0;
-  const out: (ResolvedColumn & { missing: boolean })[] = colsOf(columns, defaults).map((c, pos) => {
-    if ("point" in c) {
-      const p = plan.points.find((x) => x.key === c.point);
-      return p !== undefined ? { pos, label: p.label, index: p.index, note: null, missing: false } : { pos, label: c.point, index: -1, note: null, missing: true };
-    }
-    const i = Math.max(0, Math.min(n - 1, c.year - first));
-    return { pos, label: yearLabel(plan.years[i] as BsYearModel), index: i, note: null, missing: false };
-  });
-  for (const o of out) {
-    if (!o.missing) continue;
-    const f = FALLBACK.map((k) => plan.points.find((x) => x.key === k)).find((p) => p !== undefined && !out.some((q) => !q.missing && q.index === p.index));
-    const missing = o.label;
-    const name = plan.points.find((x) => x.key === missing)?.label ?? POINT_NAME[missing as BsPointKey] ?? "";
-    o.missing = false;
-    if (f !== undefined) Object.assign(o, { label: f.label, index: f.index, note: `この世帯には「${name}」が無いため${f.label}` });
-    else Object.assign(o, { label: "今", index: 0, note: `この世帯には「${name}」が無いため今` });
-  }
-  return out.map(({ missing: _m, ...r }) => r).sort((x, y) => x.index - y.index || x.pos - y.pos);
-}
-
-/** 候補の名前（世帯に無い候補の注記に使う） */
-const POINT_NAME: Record<BsPointKey, string> = { now: "今", y5: "5年後", y10: "10年後", y20: "20年後", childIndep: "子の独立", loanEnd: "ローン完済", retire: "退職の年", pension: "年金の始まり", age65: "65歳", age70: "70歳", age75: "75歳", age80: "80歳", age85: "85歳", age90: "90歳" };
-
-/** 並べる時点を変えたあとの値（既定と同じ並びになったら null＝既定のまま） */
-export function nextColumns(cur: readonly BsColumn[], defaults: readonly BsPointKey[]): BsColumn[] | null {
-  const same = cur.length === defaults.length && cur.every((c, i) => "point" in c && c.point === defaults[i]);
-  return same ? null : [...cur];
-}
-
 function ThreeView({ model, plan, cols, onGo, onColumns, onPointDefaults, height }: { model: BalanceTabModel; plan: BsPlanModel; cols: ResolvedColumn[]; onGo: (i: number) => void; onColumns: (c: BsColumn[] | null) => void; onPointDefaults: (k: BsPointKey[]) => void; height: number }) {
   const [open, setOpen] = useState<number | null>(null);
   const [editDefaults, setEditDefaults] = useState(false);

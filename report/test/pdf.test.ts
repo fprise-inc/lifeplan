@@ -188,3 +188,42 @@ describe.skipIf(bin === null)("紙の向きとキャッシュフロー表の載�
     expect(summary.pages.length).toBeLessThan(full.pages.length);
   });
 });
+
+describe.skipIf(bin === null)("バランスシートの図の時点（画面で並べている時点）", () => {
+  const s = SAMPLES.find((x) => x.id === "dualAssetsTwoKids") as (typeof SAMPLES)[number];
+  const bundle = s.bundle();
+  const base = Number(bundle.proposal.request.input.baseMonth.slice(0, 4));
+  const self = bundle.proposal.request.input.household.members.find((m) => m.kind === "self");
+  const birthY = Number(self?.birth.birthYearMonth.slice(0, 4));
+  const pageOf = (pages: string[]) => pages.map(normalize).find((p) => p.includes(normalize("バランスシートの図（提案。")));
+
+  it("並べ方を変えていない世帯: 今・退職の年・75歳の3つ", () => {
+    const input = buildProposalInput(bundle);
+    const page = pageOf(renderAndExtract(bin as string, input, sampleFrame(bundle, input)).pages);
+    expect(page).toContain(normalize("バランスシートの図（提案。今・退職の年・75歳）"));
+    expect(page).toContain(normalize("3つの時点で共通の縮尺"));
+  });
+
+  for (const orientation of ["portrait", "landscape"] as const) {
+    it(`4つの時点（${orientation === "portrait" ? "縦" : "横"}）: 見出し・年・純資産がすべて図のページに出る`, () => {
+      const chosen = [
+        { year: base, name: "今" },
+        { year: base + 8, name: "ローン完済" },
+        { year: birthY + 68, name: "退職の年" },
+        { year: birthY + 85, name: "85歳" },
+      ];
+      const input = withLayout(buildProposalInput({ ...bundle, balancePoints: chosen }), { orientation, cashflow: "summary" });
+      const r = renderAndExtract(bin as string, input, sampleFrame(bundle, input));
+      const page = pageOf(r.pages);
+      expect(page).toBeDefined();
+      expect(page).toContain(normalize("バランスシートの図（提案。今・ローン完済・退職の年・85歳）"));
+      expect(page).toContain(normalize("4つの時点で共通の縮尺"));
+      for (const c of input.balanceSheet!.figure.columns) {
+        expect(page).toContain(normalize(`${c.point.year}年末`));
+        expect(page).toContain(normalize(`純資産 ${man(c.netWorth)}万円`));
+      }
+      // 図の後の注記まで同じページに収まる
+      expect(page).toContain(normalize("金融資産が尽きた後の足りない分"));
+    });
+  }
+});

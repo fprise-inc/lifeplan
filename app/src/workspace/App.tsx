@@ -1696,6 +1696,8 @@ export function App() {
             valuesOf={(id) => valuesOf(opened.wh, work, id)}
             letterOf={(id) => ({ letter: letterOf(id), name: id === CURRENT ? "現状" : (letters.get(id)?.name ?? "") })}
             targetAge={settings.atAge}
+            bsPoints={settings.bsPoints}
+            bsColumns={settings.bsColumns}
             onSnapshot={takeSnapshot}
           />
         ) : tab === "balance" && opened !== null ? (

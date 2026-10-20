@@ -11,6 +11,8 @@ import { mixFromBuckets } from "../src/workspace/plans/allocation.ts";
 import { effectiveValues, savePlan } from "../src/workspace/plans/plans.ts";
 import { DEFAULT_CHAPTERS, isInvestmentKey, planReport, reportInput, type ReportChoice } from "../src/workspace/report/assemble.ts";
 import { roles } from "../src/workspace/roles.ts";
+import { bsPlan, DEFAULT_BS_POINTS } from "../src/workspace/balanceTab.ts";
+import { bsPointsText } from "../src/workspace/report/ReportTab.tsx";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const NOW = "2026-10-18T10:00:00.000Z";
@@ -143,5 +145,61 @@ describe("FP顧問料つきの世帯", () => {
     expect(plan.requests.withoutFee).toBeDefined();
     const input = reportInput(plan.bundle(run(plan)));
     expect(input.changes.fee?.diffWithoutFee).not.toBeNull();
+  });
+});
+
+describe("提案書の材料: バランスシートの図の時点（資産と負債のタブで並べている時点）", () => {
+  const o = open("salariedCoupleTwoKids");
+  const figureOf = (over: Partial<ReportChoice>) => {
+    const plan = planReport(o.ctx, choice(o, over));
+    const results = run(plan);
+    const input = reportInput(plan.bundle(results));
+    const p = bsPlan({ key: "B", letter: "B", name: "", title: "", base: false, req: plan.requests.proposal!, table: results.proposal!.table });
+    return { input, p, yearOf: (k: string) => p.years[p.points.find((x) => x.key === k)!.index]!.year, labels: input.balanceSheet!.figure.columns.map((c) => c.point.label), years: input.balanceSheet!.figure.columns.map((c) => c.point.year) };
+  };
+
+  it("並べ方を変えていない世帯は、今・退職の年・75歳（画面の図と同じ年）", () => {
+    const f = figureOf({});
+    expect(f.years).toEqual([f.yearOf("now"), f.yearOf("retire"), f.yearOf("age75")]);
+    expect(f.labels[0]).toBe("今");
+    expect(f.labels[1]).toMatch(/^退職の年（ご主人\d+歳）$/);
+    expect(f.labels[2]).toBe("ご主人75歳");
+    // 表示の設定を省略しても同じ
+    const g = figureOf({ bsPoints: DEFAULT_BS_POINTS, bsColumns: null });
+    expect(g.years).toEqual(f.years);
+  });
+
+  it("既定の時点を変えた・この世帯で時点を選んだ世帯は、その時点（4つ・年を直に選んだ時点を含む）", () => {
+    const d = figureOf({ bsPoints: ["now", "childIndep", "age85"] });
+    expect(d.years).toEqual([d.yearOf("now"), d.yearOf("childIndep"), d.yearOf("age85")]);
+    expect(d.labels[1]).toMatch(/^子の独立（ご主人\d+歳）$/);
+    const c = figureOf({ bsColumns: [{ point: "age80" }, { point: "now" }, { year: 2040 }, { point: "loanEnd" }] });
+    expect(c.years).toEqual([c.yearOf("now"), 2040, c.yearOf("loanEnd"), c.yearOf("age80")].sort((a, b) => a - b));
+    expect(c.labels).toContain("ご主人80歳");
+    expect(c.labels.some((l) => l.startsWith("ローン完済（"))).toBe(true);
+    // 抜粋の表にも図の時点が入る
+    const table = c.input.balanceSheet!.proposal.points.map((x) => x.year);
+    for (const y of c.years) expect(table).toContain(y);
+  });
+
+  it("退職の年は提案のプランの年で解く（退職の年齢を変えたプランなら、そのプランの退職の年）", () => {
+    const cat = o.cat;
+    expect(cat.byKey.has("lever:retireAge")).toBe(true);
+    const now = cat.byKey.get("lever:retireAge")!.read(o.wh) as number;
+    const later = savePlan(o.wh, cat, { name: "プランD 退職を遅らせる", base: null, values: { "lever:retireAge": now + 5 }, now: NOW });
+    const letters = planLetters(later.wh.proposals);
+    const ctx = { wh: later.wh, catalog: cat, valuesOf: (pid: string) => (pid === CURRENT ? {} : effectiveValues(later.wh.proposals, pid)), letterOf: (pid: string) => letters.get(pid) ?? { letter: "?", name: "" } };
+    const base = figureOf({});
+    const plan = planReport(ctx, { ...choice(o), proposal: later.id, compare: [CURRENT, later.id] });
+    const input = reportInput(plan.bundle(run(plan)));
+    const retire = input.balanceSheet!.figure.columns.find((c) => c.point.label.startsWith("退職の年"))!;
+    // プランB（退職の年齢はそのまま）より5年遅い
+    expect(retire.point.year).toBe(base.yearOf("retire") + 5);
+    expect(retire.point.year).toBeGreaterThan(base.yearOf("retire"));
+  });
+
+  it("提案書の画面に、図の時点の呼び方を出す", () => {
+    expect(bsPointsText(null, DEFAULT_BS_POINTS)).toBe("今・退職の年・75歳");
+    expect(bsPointsText([{ point: "now" }, { year: 2040 }, { point: "loanEnd" }, { point: "age85" }], DEFAULT_BS_POINTS)).toBe("今・2040年・ローン完済・85歳");
   });
 });

@@ -2,6 +2,8 @@
 // 本体の正の計算（0005 の2。画面側の先出しの結果は使わない）の結果から ProposalBundle を組み立て、report/ の部品で帳票の入力にする。
 // - 「現状」はいつも A案（入力の値）。「提案」は FP が選んだ帯の案（既定は主画面で選んでいる案）
 // - 目標の年齢は表示の設定の「○歳時点」、比較のページの基準は主画面の基準の案（主画面の比較の表と同じ数字）
+// - バランスシートの図の時点は、資産と負債のタブで並べている時点（表示の設定。この世帯で選んだ時点か既定の時点）を、提案のプランの年に解いたもの
+//   （候補の鍵はそのプランの年。退職の年が違うプランなら、そのプランの退職の年）。画面の図と提案書の図を同じ時点にする（0027）
 // - 宛名は材料に入れない（本体が出力の PDF に重ねるだけ。0009 の3・0012）
 // - 推定の値: 提案書には「一部は統計の平均で補っています」とだけ書く。どの欄が推定かは FP 向けの画面（提案書のタブ・入力のカード）だけで示す
 import { buildProposalInput, CHAPTERS, DEFAULT_LAYOUT, type ChapterId, type ProposalBundle, type ProposalInput, type ReportLayout, type Run } from "../../../../report/src/index.ts";
@@ -14,6 +16,9 @@ import { CURRENT } from "../plans/band.ts";
 import type { Catalog } from "../plans/items.ts";
 import { applyValues, changesOfValues, type Values } from "../plans/plans.ts";
 import { METHODS, methodOf } from "../input/savings/model.ts";
+import { resolveColumns } from "../../presentation/bsColumns.ts";
+import type { BsColumn, BsPointKey } from "../../presentation/model.ts";
+import { BS_POINT_CHOICES, bsPlan, DEFAULT_BS_POINTS } from "../balanceTab.ts";
 import { bandOf, donutYear, drawdownText, stressLabel, stressRequests, STRESS_KEYS } from "../invest/present.ts";
 import { displayYears } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
@@ -36,6 +41,25 @@ export interface ReportChoice {
   preparedBy: string;
   /** 帳票の組み方（紙の向き・キャッシュフロー表の載せ方。省略は標準） */
   layout?: ReportLayout;
+  /** 資産と負債のタブで時点を並べるときの既定の時点（表示の設定。省略は今・退職の年・75歳） */
+  bsPoints?: readonly BsPointKey[];
+  /** この世帯で選んだ並べる時点（表示の設定。null・省略は既定のまま） */
+  bsColumns?: readonly BsColumn[] | null;
+}
+
+/**
+ * バランスシートの図の時点（資産と負債のタブの「時点を並べる」と同じ時点）を、そのプランの年に解く。
+ * 候補の名前（今・退職の年・75歳 …）と年。年を直に選んだ時点は名前なし。同じ年は1つ
+ */
+export function balancePointsOf(req: EngineRequest, result: PreviewResult, columns: readonly BsColumn[] | null, defaults: readonly BsPointKey[]): { year: number; name: string | null }[] {
+  const plan = bsPlan({ key: "report", letter: "", name: "", title: "", base: false, req, table: result.table });
+  const out: { year: number; name: string | null }[] = [];
+  for (const c of resolveColumns(plan, columns, defaults)) {
+    const y = plan.years[c.index];
+    if (y === undefined || out.some((o) => o.year === y.year)) continue;
+    out.push({ year: y.year, name: c.point === null ? null : (BS_POINT_CHOICES.find((x) => x.key === c.point)?.label ?? null) });
+  }
+  return out;
 }
 
 export { DEFAULT_LAYOUT };
@@ -148,6 +172,7 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
       changes: changes.map((c) => ({ label: c.label, current: c.from, proposal: c.to })),
       estimated: estimatedCards(wh).length > 0,
     };
+    if (on.has("cashflow")) b.balancePoints = balancePointsOf(proposal, results.proposal as PreviewResult, choice.bsColumns ?? null, choice.bsPoints ?? DEFAULT_BS_POINTS);
     if (steps.length > 0) b.steps = steps.map((s, i) => ({ label: s.label, investment: s.investment, run: i === steps.length - 1 ? proposalRun : run(s.key) }));
     if (requests.withoutFee !== undefined) b.proposalWithoutFee = run("withoutFee");
     if (deaths.length > 0) {
