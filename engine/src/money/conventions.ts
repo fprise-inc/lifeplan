@@ -58,6 +58,10 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.retirement.annuity": DOWN1,
   // 資産の評価額（持ち家の土地の上昇・建物の減価・売却の費用、車の評価額。円未満切り捨て）
   "conv.asset.valuation": DOWN1,
+  // 住まい以外の不動産の家賃・経費（空室を見込んだ家賃、家賃と経費の変化、家賃に対する割合の経費、利息の月割り。円未満切り捨て。0028）
+  "conv.realEstate.rent": DOWN1,
+  // 不動産の減価償却費（建物の取得価額×償却率、月割り。円未満切り捨て。法令の端数の扱いは原本で確かめる前の仮の規約。0028）
+  "conv.realEstate.depreciation": DOWN1,
   // 役員退職慰労金の見込み額（最終報酬月額×在任年数×功績倍率。円未満切り捨て）
   "conv.retirement.estimate": DOWN1,
 });

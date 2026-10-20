@@ -648,7 +648,62 @@
           "$ref": "urn:financia:schema:common#/$defs/rate"
         },
         "expectedReturn": { "title": "FP が入れた器の利回り（年率。入れたときは資産の配分の利回りの代わり。0026）", "x-item": "account.expectedReturn", "$ref": "urn:financia:schema:common#/$defs/rate" },
-        "fee": { "title": "運用の費用（信託報酬など。年率。器の利回りから引く。0026）", "x-item": "account.fee", "$ref": "urn:financia:schema:common#/$defs/rate" }
+        "fee": { "title": "運用の費用（信託報酬など。年率。器の利回りから引く。0026）", "x-item": "account.fee", "$ref": "urn:financia:schema:common#/$defs/rate" },
+        "property": {
+          "title": "不動産の中身（不動産の器だけ。評価額を土地と建物に分け、貸しているなら家賃収入・経費・不動産所得・売却を計算する。0028）",
+          "x-item": "account.property",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "structure": { "description": "建物の構造（省略は木造）", "enum": ["wood", "lightSteel", "steel", "rc"] },
+            "builtYear": { "description": "建物が建った年（省略は取得の年。取得も無ければ時価の時点の年＝新築とみなす）", "$ref": "urn:financia:schema:common#/$defs/year" },
+            "landShare": { "description": "土地の割合（0〜1。評価額と取得価額を土地と建物に分ける。省略は前提の realEstateValuation.landShare か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "acquisition": {
+              "description": "取得（減価償却の基。price は土地と建物の合計の取得価額、at は取得の年月）",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["price", "at"],
+              "properties": {
+                "price": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "at": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }
+              }
+            },
+            "rental": {
+              "description": "貸している（家賃収入）",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["monthly"],
+              "properties": {
+                "monthly": { "description": "月額の家賃（空室を見込む前）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+                "vacancyRate": { "description": "空室を見込む割合（0〜1。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "growth": { "description": "家賃の変化率（年率。マイナスも書ける。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "from": { "description": "貸し始め（省略は取得の月。取得も無ければ前から貸している）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                "to": { "description": "貸し終わり（その月まで。省略は売却の前の月か表の最後）", "$ref": "#/$defs/timepointOrNull" }
+              }
+            },
+            "expenses": {
+              "description": "経費（管理費・修繕積立金・固定資産税・管理委託料など）。年額（持っている間）と、受け取る家賃に対する割合の合計",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "annual": { "description": "年額（持っている間。月に分けて払う）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+                "rate": { "description": "受け取る家賃（空室を見込んだ後）に対する割合（管理委託料など）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "growth": { "description": "年額の変化率（年率。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+              }
+            },
+            "sale": {
+              "description": "売却の予定（その月に売り、売却価格から売却の費用を引いた手取りを現金にする）",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["at"],
+              "properties": {
+                "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                "price": { "description": "売却価格（省略はその年の評価額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "costRate": { "description": "売却の費用の割合（省略は前提の realEstateValuation.saleCostRate か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+              }
+            }
+          }
+        }
       }
     },
     "debt": {
@@ -677,6 +732,7 @@
           }
         },
         "pairWith": { "title": "ペアローンの相手のローン", "x-item": "debt.pairWith", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "property": { "title": "この借入で取得した住まい以外の不動産（不動産の器の ID。利息を不動産所得の必要経費にする。0028）", "x-item": "debt.property", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "principal": { "title": "借入額（実行の時）", "x-item": "debt.principal", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
         "start": { "title": "借入の月（最初の返済はその翌月）", "x-item": "debt.start", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
         "balance": { "title": "残高（balanceAsOf の月の返済の後。既に借りているローン）", "x-item": "debt.balance", "$ref": "urn:financia:schema:common#/$defs/boxYen" },

@@ -21,6 +21,16 @@
       }
     },
     "firstPayment": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
-    "payoff": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }] }
+    "payoff": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }] },
+    "interest": {
+      "description": "年ごとの利息（計算基準月から。約束の版 1.2 の任意の欄。0028）",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["year", "amount"],
+        "properties": { "year": { "$ref": "urn:financia:schema:common#/$defs/year" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+      }
+    }
   }
 }

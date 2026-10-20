@@ -55,7 +55,11 @@ describe("入力の中身（BS・資産運用・資産と負債のタブの機�
     const home = (h.residences ?? [])[0]!;
     expect(home.kind).toBe("own");
     expect(home.valuation).toMatchObject({ structure: "wood", builtYear: 2012 });
-    expect((h.debts ?? []).map((d) => d.kind).sort()).toEqual(["car", "mortgage"]);
+    expect((h.debts ?? []).map((d) => d.kind).sort()).toEqual(["car", "mortgage", "other"]);
+    // 賃貸に出しているマンション: 土地と建物・家賃収入・経費・取得と、そのローン（0028）
+    const condo = (h.accounts ?? []).find((a) => a.kind === "realEstate")!;
+    expect(condo.property).toMatchObject({ structure: "rc", rental: { vacancyRate: "0.05" }, expenses: { rate: "0.05" }, acquisition: { at: "2016-03" } });
+    expect((h.debts ?? []).find((d) => d.kind === "other")!.property).toBe(condo.id);
     expect((h.cars ?? []).length).toBe(2);
     expect((h.cars ?? []).some((c) => c.loan !== undefined)).toBe(true);
     expect((h.insuranceContracts ?? []).some((c) => (c as { simple?: { returnRate?: string } }).simple?.returnRate !== undefined)).toBe(true);
@@ -75,7 +79,7 @@ describe("計算の結果（数字が自然か）", () => {
 
   it("今の年のバランスシートに、全部の項目が出る（換金しにくい資産・その他の負債も）", () => {
     const keys = plan.years[0]!.lines.map((l) => l.key);
-    for (const k of ["deposit", "zaikei", "nisa", "taxable", "fxDeposit", "esop", "ideco", "corporateDc", "home", "realEstateOther", "car", "insurance", "otherAsset", "mortgage", "carLoan"]) expect(keys, k).toContain(k);
+    for (const k of ["deposit", "zaikei", "nisa", "taxable", "fxDeposit", "esop", "ideco", "corporateDc", "land", "building", "car", "insurance", "otherAsset", "mortgage", "propertyLoan", "carLoan"]) expect(keys, k).toContain(k);
     const groups = new Set(plan.years[0]!.lines.map((l) => l.group));
     expect([...groups].sort()).toEqual(["debt", "illiquid", "liquid", "locked", "market", "mortgage"]);
   });

@@ -55,6 +55,12 @@ export function rowDefs(req: EngineRequest): RowDef[] {
   const byMember = (prefix: string, role: Role) => (c: TableCell) => under(c.row, prefix) && c.member === role.member.id;
   // 車があるときだけ「車」の行を出し、車の支出はほかの行から外す（台数が増えても1行。提案書の表と同じ）
   const hasCar = (req.input.household.cars ?? []).length > 0;
+  // 住まい以外の不動産の家賃収入・経費があるときだけ、その行を出す（ほかの行から外す。0028）
+  const props = (req.input.household.accounts ?? []).filter((a) => a.kind === "realEstate" && a.property !== undefined);
+  const hasRent = props.some((a) => a.property?.rental !== undefined);
+  const hasReExp = props.some((a) => a.property?.rental !== undefined || a.property?.expenses !== undefined);
+  const isRent = (c: TableCell) => hasRent && c.row === "cf.income.other.rental";
+  const isReExp = (c: TableCell) => hasReExp && c.row === "cf.expense.other.realEstate";
   const car = carExpense(req);
   const notCar = (p: (c: TableCell) => boolean) => (c: TableCell) => p(c) && !car(c);
   for (const r of rs) defs.push({ key: `salary:${r.key}`, label: `${r.label}の給与`, group: "income", kind: "value", match: byMember("cf.income.salary", r), evidence: true });
@@ -64,12 +70,13 @@ export function rowDefs(req: EngineRequest): RowDef[] {
   defs.push(
     { key: "retirement", label: "退職金", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.lumpSum.retirement"), evidence: true },
     { key: "benefit", label: "児童手当・修学支援", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.benefit"), evidence: true },
+    ...(hasRent ? [{ key: "rent", label: "家賃収入", group: "income" as const, kind: "value" as const, match: isRent, evidence: true }] : []),
     {
       key: "incomeOther",
       label: "その他の収入",
       group: "income",
       kind: "value",
-      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit"),
+      match: (c) => under(c.row, "cf.income") && !known(c, "cf.income.salary") && !known(c, "cf.income.pension") && !under(c.row, "cf.income.lumpSum.retirement") && !under(c.row, "cf.income.benefit") && !isRent(c),
       evidence: true,
     },
     { key: "incomeTotal", label: "収入合計", group: "income", kind: "total", match: (c) => under(c.row, "cf.income"), evidence: false },
@@ -79,12 +86,13 @@ export function rowDefs(req: EngineRequest): RowDef[] {
     { key: "insurance", label: "保険料", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.insurance")), evidence: true },
     { key: "lumpSum", label: "一時的な支出（旅行など）", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.lumpSum")), evidence: true },
     ...(hasCar ? [{ key: "car", label: "車の費用", group: "expense" as const, kind: "value" as const, match: car, evidence: true }] : []),
+    ...(hasReExp ? [{ key: "realEstateExpense", label: "不動産の経費", group: "expense" as const, kind: "value" as const, match: isReExp, evidence: true }] : []),
     {
       key: "expenseOther",
       label: "その他の支出",
       group: "expense",
       kind: "value",
-      match: notCar((c) => under(c.row, "cf.expense") && !["cf.expense.living", "cf.expense.housing", "cf.expense.education", "cf.expense.insurance", "cf.expense.lumpSum"].some((p) => under(c.row, p))),
+      match: notCar((c) => under(c.row, "cf.expense") && !["cf.expense.living", "cf.expense.housing", "cf.expense.education", "cf.expense.insurance", "cf.expense.lumpSum"].some((p) => under(c.row, p)) && !isReExp(c)),
       evidence: true,
     },
     { key: "taxSi", label: "税・社会保険料", group: "expense", kind: "value", match: (c) => under(c.row, "cf.taxSi"), evidence: true },

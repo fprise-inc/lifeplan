@@ -80,6 +80,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: account.property
+    status: active
+    label: "不動産の中身（不動産の器だけ。評価額を土地と建物に分け、貸しているなら家賃収入・経費・不動産所得・売却を計算する。0028）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: account.settlement
     status: active
     label: "決済口座（年の収支が入り、赤字のとき取り崩しで補う口座。省略は最初の預金）"
@@ -449,6 +455,12 @@ entries:
   - id: debt.product
     status: active
     label: "商品（flat35 は全期間固定の住宅金融支援機構の買取型。計算は固定金利と同じ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: debt.property
+    status: active
+    label: "この借入で取得した住まい以外の不動産（不動産の器の ID。利息を不動産所得の必要経費にする。0028）"
     since: draft
     aliases: []
     replacedBy: null

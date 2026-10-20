@@ -31,11 +31,15 @@
 //   取り崩しの計画（investment.drawdown）: 始まりの月から、毎月の額（fixed）か、年の初めの金融資産×率（rate）を金融資産から使う。
 //   その年の収支の不足（年間収支−本人の掛金がマイナスの分）より多い分を「取り崩して使うお金」（cf.expense.living.drawdown）として年間収支から引く。
 //   時価の下落に資産クラス（assetClasses）を書いたときは、配分のうちその資産クラスの割合だけ下げる
+// - 改訂10: 不動産の評価額を土地と建物の行に分けた（cf.balance.account.realEstate.land・.building。持ち家は housing.valuation、住まい以外の
+//   不動産で中身 property を入れた器は asset.realEstate）。中身の無い不動産の器は、今までどおり評価額の増減率で1行（cf.balance.account.realEstate）。
+//   不動産の合計は cf.balance.account.realEstate の下の行の合計（0028）
 import {
   accountReturnRate,
   shockShare,
   type CarValuationOutput,
   type HousingValuationOutput,
+  type RealEstateOutput,
   addMonths,
   addYen,
   ageMonth,
@@ -145,7 +149,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.3",
-  revision: 9,
+  revision: 10,
   requires: {
     "plan.flows": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -159,6 +163,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "account.ideco": ">=1 <2",
     "debt.schedule": ">=1 <2",
     "housing.valuation": ">=1 <2",
+    "asset.realEstate": ">=1 <2",
     "asset.car": ">=1 <2",
   },
   params: [...Object.values(N), ...Object.values(T)],
@@ -178,6 +183,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "account.expectedReturn",
     "account.fee",
     "account.payout",
+    "account.property",
     "debt.kind",
     "debt.debtors",
     "goal.kind",
@@ -216,6 +222,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     const accs: Acc[] = [];
     for (const a of inputs) {
       if (a.kind === "ideco" || a.kind === "corporateDc" || a.kind === "smallBusinessMutualAid") continue;
+      // 中身を入れた不動産は asset.realEstate が評価する（土地と建物）
+      if (a.kind === "realEstate" && a.property !== undefined) continue;
       const value = boxValue(a.marketValue) ?? yen(0);
       const cost = a.costBasis === undefined ? value : (boxValue(a.costBasis) ?? value);
       const lots = a.lots === undefined ? null : a.lots.map((l) => ({ vintage: l.vintageYear, regime: l.regime, cost: l.costBasis, value: l.marketValue }));
@@ -323,7 +331,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       }
     }
     // 持ち家の評価額（年ごと）と車の評価額（金融資産の合計には入れない）
-    const homes = ctx.call<HousingValuationOutput>("housing.valuation", {}).properties.map((p) => ({ p, byYear: new Map(p.years.map((e) => [e.year, e.value])) }));
+    const homes = [...ctx.call<HousingValuationOutput>("housing.valuation", {}).properties, ...ctx.call<RealEstateOutput>("asset.realEstate", {}).properties].map((p) => ({ p, byYear: new Map(p.years.map((e) => [e.year, e])) }));
     const cars = ctx.call<CarValuationOutput>("asset.car", {}).cars.map((c) => ({ c, byYear: new Map(c.years.map((e) => [e.year, e.value])) }));
 
     // 積立の予定（器ごと・月ごと）
@@ -660,10 +668,12 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         financial = addYen(financial, e.closing);
         returns = addYen(returns, e.returns);
       }
-      // 持ち家（housing.valuation の年末の評価額）と車（asset.car）
+      // 不動産（持ち家は housing.valuation、住まい以外は asset.realEstate の年末の評価額。土地と建物の行に分ける）と車（asset.car）
       for (const h of homes) {
         const v = h.byYear.get(y);
-        if (v !== undefined) balanceRow("realEstate", v, h.p.owner, h.p.object);
+        if (v === undefined) continue;
+        balanceRow("realEstate.land", v.land, h.p.owner, h.p.object);
+        balanceRow("realEstate.building", v.building, h.p.owner, h.p.object);
       }
       for (const c of cars) {
         const v = c.byYear.get(y);

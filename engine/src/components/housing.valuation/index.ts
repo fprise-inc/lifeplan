@@ -13,18 +13,18 @@
 //   売った年の年末には持っていない。譲渡所得の税は計算しない（知らせ N_NOT_SUPPORTED residence.saleTax）。住宅ローンの残りは返済の予定のまま
 //   （売るときに返すなら、住宅ローンの繰上返済で入れる）
 // - 売却の無い住み終わりは、住み終わりの年まで評価に載せ、その後は消える（知らせ N_NOT_SUPPORTED residence.sale。前からの扱い）
-// 目安の根拠は設計記録 0025 に書く
+// 目安の根拠は設計記録 0025 に書く。土地と建物に分ける計算は、住まい以外の不動産（asset.realEstate）と共通の sdk の landBuildingValuer
 import {
   addYen,
   boxValue,
   defineComponent,
   formatYm,
-  RATE_ONE,
+  landBuildingValuer,
+  LAND_SHARE,
   RATE_ZERO,
+  SALE_COST_RATE,
   yearOf,
   yen,
-  type BuildingStructure,
-  type Ctx,
   type Flow,
   type HousingValuationOutput,
   type MonthIndex,
@@ -34,23 +34,7 @@ import {
   type Yen,
 } from "../../sdk/index.ts";
 
-/** 構造ごとの耐用年数の目安（年。住宅用の建物の法定耐用年数） */
-export const USEFUL_LIFE: Readonly<Record<BuildingStructure, number>> = { wood: 22, lightSteel: 19, steel: 34, rc: 47 };
-/** 土地の割合の目安 */
-export const LAND_SHARE = "0.3";
-/** 建物の残りの価値の下限の目安 */
-export const RESIDUAL_FLOOR = "0.2";
-/** 売却の費用の割合の目安 */
-export const SALE_COST_RATE = "0.04";
-
 const R = "conv.asset.valuation";
-
-/** 築年数 a の年末の建物の残りの割合（下限つき） */
-function remaining(ctx: Ctx, age: number, life: number, floor: Rate): Rate {
-  if (age <= 0) return RATE_ONE;
-  const raw = ctx.rate.sub(RATE_ONE, ctx.rate.div(ctx.rate.of(String(age)), ctx.rate.of(String(life))));
-  return ctx.rate.compare(raw, floor) < 0 ? floor : raw;
-}
 
 export default defineComponent<Record<string, never>, HousingValuationOutput>({
   id: "housing.valuation",
@@ -98,44 +82,22 @@ export default defineComponent<Record<string, never>, HousingValuationOutput>({
       const y0 = yearOf(asOf);
       const share = v?.landShare ?? setting?.landShare;
       if (share === undefined) ctx.notice("N_DEFAULT_USED", [h.id, "residence.valuation.landShare"]);
-      const land0 = ctx.money.mulRate(basis, ctx.rate.of(share ?? LAND_SHARE), R);
-      const building0 = yen(basis - land0);
-      const structure = v?.structure ?? "wood";
-      const life = setting?.usefulLife?.[structure] ?? USEFUL_LIFE[structure];
-      const floor = ctx.rate.of(setting?.residualFloor ?? RESIDUAL_FLOOR);
-      const built = v?.builtYear ?? y0;
-      const f0 = remaining(ctx, y0 - built, life, floor);
+      const valuer = landBuildingValuer(ctx, { basis, y0, share: share ?? LAND_SHARE, structure: v?.structure ?? "wood", builtYear: v?.builtYear ?? y0, setting, growthOf });
       // 評価する年: 持ち始めの年（計算基準年より前なら計算基準年）から、住み終わりの年（売るならその前の年）か表の最後の年まで
       const sold = h.sale !== undefined && to !== null && to <= end;
       const lastHeld = to === null || to > end ? endYear : yearOf(to);
       const firstYear = Math.max(baseYear, yearOf(from));
-      let land = land0;
-      let landYear = y0;
-      const landAt = (y: number): Yen => {
-        while (landYear < y) {
-          landYear++;
-          const g = growthOf(landYear);
-          if (ctx.rate.compare(g, RATE_ZERO) !== 0) land = addYen(land, ctx.money.mulRate(land, g, R));
-        }
-        return y < y0 ? land0 : land;
-      };
-      const buildingAt = (y: number): Yen => {
-        const f = remaining(ctx, y - built, life, floor);
-        // 下限が0で、基にする年にもう耐用年数を過ぎていたときは、入れた建物の額のまま
-        if (ctx.rate.compare(f, f0) === 0 || ctx.rate.compare(f0, RATE_ZERO) === 0) return building0;
-        return ctx.money.mulRate(building0, ctx.rate.div(f, f0), R);
-      };
       const years: { year: number; land: Yen; building: Yen; value: Yen }[] = [];
       for (let y = firstYear; y <= lastHeld; y++) {
         if (sold && y === lastHeld) break;
-        const l = landAt(y);
-        const b = buildingAt(y);
-        years.push({ year: y, land: l, building: b, value: addYen(l, b) });
+        const { land, building } = valuer.at(y);
+        years.push({ year: y, land, building, value: addYen(land, building) });
       }
       let sale: HousingValuationOutput["properties"][number]["sale"] = null;
       if (sold && to !== null && to >= base && yearOf(to) >= yearOf(from)) {
         const y = yearOf(to);
-        const value = addYen(landAt(y), buildingAt(y));
+        const lb = valuer.at(y);
+        const value = addYen(lb.land, lb.building);
         const price = h.sale?.price ?? value;
         const costs = ctx.money.mulRate(price, ctx.rate.of(h.sale?.costRate ?? setting?.saleCostRate ?? SALE_COST_RATE), R);
         const proceeds = yen(Math.max(0, price - costs));

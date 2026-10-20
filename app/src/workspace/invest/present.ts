@@ -194,7 +194,8 @@ export function donutYear(req: EngineRequest, years: readonly number[]): number 
 
 /** その年の内訳（口座ごと・資産の種類ごと） */
 export function donutItems(req: EngineRequest, table: readonly TableCell[], year: number, by: "account" | "class"): DonutItem[] {
-  const rows = table.filter((c) => c.year === year && c.amount > 0 && kindOf(c.row) !== null && !["realEstate", "insurance", "car", "otherAsset"].includes(kindOf(c.row) as string));
+  // 金融資産だけ（不動産は土地と建物の行 realEstate.land・realEstate.building にも分かれて出る。0028）
+  const rows = table.filter((c) => c.year === year && c.amount > 0 && kindOf(c.row) !== null && !["realEstate", "insurance", "car", "otherAsset"].includes((kindOf(c.row) as string).split(".")[0] as string));
   if (by === "account") {
     const m = new Map<string, DonutItem>();
     for (const c of rows) {

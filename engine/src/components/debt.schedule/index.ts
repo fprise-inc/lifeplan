@@ -11,6 +11,7 @@
 // - 借り換え（refinance）: その月から、残高（未払利息を含む）を新しい金利の段階・期間で返す。諸費用は払う（costsFinanced なら新しいローンに含める）
 // - 既に借りているローンは balance（balanceAsOf の月の返済の後の残高）から計算する。団信で残高が消える計算は万一の作業で使う（ここは入力まで）
 // - 約束の版 1.1: 世帯の負債の物の ID（object）のほかに、ほかの部品が作った負債（loan。車のひな形の自動車ローン・教育ローン・貸与の奨学金）も受ける
+// - 約束の版 1.2（改訂4）: 年ごとの利息（interest。計算基準月から。ボーナス返済の分を含む）を任意の欄で添える（住まい以外の不動産の不動産所得。0028）
 // - 団信（改訂3。0008 の追記 2026-10-09）: 団信の部品（debt.creditLifeEvents）が返す月の返済の後に、残高（ボーナス返済の分・未払利息を含む）を
 //   その割合だけ減らし、残りの回数で返済額を計算し直す（割合が1なら返し終わる）
 // - 変動金利の上乗せ（改訂3。ストレステスト）: 前提の loanRateShifts の月から、変動金利（variable）の段の金利に上乗せを足す
@@ -74,8 +75,8 @@ const ROWS: Readonly<Record<DebtInput["kind"], string>> = {
 export default defineComponent<{ object: string } | { loan: DebtInput }, DebtScheduleOutput>({
   id: "debt.schedule",
   title: "負債の返済",
-  contract: "1.1",
-  revision: 3,
+  contract: "1.2",
+  revision: 4,
   requires: { "debt.creditLifeEvents": ">=1 <2" },
   params: [],
   reads: [
@@ -182,6 +183,11 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
     const flows: Flow[] = [];
     const yearEnd: { year: number; balance: Yen; unpaidInterest: Yen }[] = [];
     let payoff: MonthIndex | null = null;
+    // 年ごとの利息（計算基準月から。約束の版 1.2。住まい以外の不動産の不動産所得の必要経費に使う。0028）
+    const interestByYear = new Map<number, Yen>();
+    const addInterest = (m: MonthIndex, amount: Yen) => {
+      if (amount > 0 && m >= base) interestByYear.set(yearOf(m), yen((interestByYear.get(yearOf(m)) ?? 0) + amount));
+    };
     const emit = (m: MonthIndex, r: string, amount: Yen, formula: string) => {
       if (amount <= 0 || m < base) return;
       flows.push({ row: r, ym: formatYm(m), amount, accrualYear: yearOf(m), ...(member === undefined ? {} : { member }), object: d.id, formula });
@@ -227,6 +233,7 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
       }
       // 毎月の返済
       const interest = ctx.money.mulRatio(main, step.num, step.den * 12n, "conv.loan.interest");
+      addInterest(m, interest);
       const due = yen(interest + unpaid);
       let pay: Yen;
       if (n === 1) {
@@ -252,6 +259,7 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
       // ボーナス返済
       if (bonus > 0 && bonusMonths.includes(monthOf(m))) {
         const bi = ctx.money.mulRatio(bonus, step.num, step.den * 2n, "conv.loan.interest");
+        addInterest(m, bi);
         const last = bonusLeft(m, n) <= 1;
         const principal = last ? bonus : bonusPayment - bi > 0 ? (bonusPayment - bi < bonus ? yen(bonusPayment - bi) : bonus) : yen(0);
         pay = yen(pay + principal + bi);
@@ -311,6 +319,7 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
         break;
       }
     }
-    return { flows, yearEnd, firstPayment: formatYm(addMonths(start, 1)), payoff: payoff === null ? null : formatYm(payoff) };
+    const interest = [...interestByYear.entries()].sort((a, b) => a[0] - b[0]).map(([year, amount]) => ({ year, amount }));
+    return { flows, yearEnd, firstPayment: formatYm(addMonths(start, 1)), payoff: payoff === null ? null : formatYm(payoff), ...(interest.length > 0 ? { interest } : {}) };
   },
 });

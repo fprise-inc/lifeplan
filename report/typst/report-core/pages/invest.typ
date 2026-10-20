@@ -86,24 +86,80 @@
   })
 }
 
-/// 運用の期間の図（積み立てる・据え置く・取り崩すの帯。年の幅にそろえる）
+/// 運用の期間の図（積み立てる・据え置く・取り崩すの帯。年の幅にそろえる）。
+/// 積立額の段（steps）は、アプリの画面の帯と同じく、段の年の位置に区切りの線を引き、段の幅の中に額（月○万）を置く。
+/// 文字は帯の箱に入る大きさまで縮める（下限は表の数字と同じ min-size）。それでも入らない箱は、箱の中に印（矢印・①②…）だけを置き、
+/// 帯の下の凡例に文を出す（どの段数・どの幅でも、箱から文字がはみ出さない）
 #let period-band(years, p) = {
   let n = years.len()
   if n == 0 { return none }
   let idx(y) = if y == none { n } else { let i = years.position(x => x >= y); if i == none { n } else { i } }
   let a = idx(p.accumEnd)
   let wd = if p.wdStart == none { n } else { idx(p.wdStart) }
+  let band-h = 36pt
+  let pad = 3pt
+  let sizes = (7.5pt, min-size)
+  let step-row = 10pt
+  let nums = ("①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩")
   layout(size => {
     let left-w = 46pt
     let w = size.width - left-w - 4pt
     let x(i) = left-w + w * i / n
-    block(width: 100%, height: 40pt, {
-      let seg(i0, i1, fill, stroke, body) = if i1 > i0 {
-        place(top + left, dx: x(i0), dy: 0pt, box(width: x(i1) - x(i0), height: 36pt, fill: fill, stroke: 0.8pt + stroke, radius: 2pt, inset: 3pt, clip: true, text(size: 6.5pt, body)))
+    // 幅 width・高さ height の中に入る文字の大きさ（入らなければ none）
+    let fit(body, width, height) = {
+      let got = none
+      if width > 0pt {
+        for sz in sizes {
+          if got == none and measure(block(width: width, text(size: sz, body))).height <= height { got = sz }
+        }
       }
-      seg(0, a, rgb("#e7eef9"), rgb("#4a6fb0"), [*↑ #p.accumText*#if p.estimated [（推定）] \ #p.steps.map(s => str(s.year) + "年〜 " + s.label).join("　")])
-      seg(a, wd, rgb("#eef0f2"), rgb("#7d8794"), [*→ #p.holdText* \ #p.holdSub])
-      if p.wdStart != none { seg(wd, n, rgb("#fbe9df"), rgb("#c9703f"), [*↓ #p.wdText* \ #p.wdSub]) }
+      got
+    }
+    // 積立額の段（年の位置。積み立てる帯の中だけ）
+    let steps = p.steps.enumerate().map(((k, st)) => {
+      let i0 = calc.min(idx(st.year), a)
+      let i1 = if k + 1 < p.steps.len() { calc.min(idx(p.steps.at(k + 1).year), a) } else { a }
+      (i0: i0, i1: i1, label: st.label, long: str(st.year) + "年〜 " + st.label)
+    }).filter(st => st.i1 > st.i0)
+    // 段の額を段の幅の中に置ける大きさ（すべての段に入るときだけ）
+    let step-size = none
+    for sz in sizes {
+      if step-size == none and steps.len() > 0 and steps.all(st => measure(text(size: sz, weight: "bold", st.label)).width <= x(st.i1) - x(st.i0) - 4pt) { step-size = sz }
+    }
+    let steps-inline = step-size != none
+    let acc-title = [*↑ #p.accumText*#if p.estimated [（推定）]]
+    let hold-body = [*→ #p.holdText*#if p.holdSub != "" [ \ #p.holdSub]]
+    let wd-body = [*↓ #p.wdText*#if p.wdSub != "" [ \ #p.wdSub]]
+    let inner(i0, i1) = x(i1) - x(i0) - 2 * pad
+    let acc-size = if a > 0 { fit(acc-title, inner(0, a), band-h - 2 * pad - (if steps.len() > 0 { step-row } else { 0pt })) } else { none }
+    let hold-size = if wd > a { fit(hold-body, inner(a, wd), band-h - 2 * pad) } else { none }
+    let wd-size = if p.wdStart != none and n > wd { fit(wd-body, inner(wd, n), band-h - 2 * pad) } else { none }
+    // 帯の下の凡例（箱に入らなかった文）
+    let legend = ()
+    if a > 0 and acc-size == none { legend.push(acc-title) }
+    if steps.len() > 0 and not steps-inline { legend.push([積み立てる額: #steps.enumerate().map(((k, st)) => nums.at(k, default: str(k + 1)) + " " + st.long).join("　")]) }
+    if wd > a and hold-size == none { legend.push([*→ #p.holdText*#if p.holdSub != "" [ #p.holdSub]]) }
+    if p.wdStart != none and n > wd and wd-size == none { legend.push([*↓ #p.wdText*#if p.wdSub != "" [ #p.wdSub]]) }
+    let legend-body = if legend.len() > 0 { text(size: min-size, fill: muted, legend.join([　／　])) } else { none }
+    let legend-h = if legend-body != none { measure(block(width: size.width - left-w, legend-body)).height + 4pt } else { 0pt }
+    block(width: 100%, height: band-h + 4pt + legend-h, {
+      let seg(i0, i1, fill, stroke, sz, body, mark) = if i1 > i0 {
+        place(top + left, dx: x(i0), dy: 0pt, box(width: x(i1) - x(i0), height: band-h, fill: fill, stroke: 0.8pt + stroke, radius: 2pt, inset: pad, clip: true,
+          if sz != none { text(size: sz, body) } else { text(size: min-size, weight: "bold", mark) }))
+      }
+      seg(0, a, rgb("#e7eef9"), rgb("#4a6fb0"), acc-size, acc-title, "↑")
+      seg(a, wd, rgb("#eef0f2"), rgb("#7d8794"), hold-size, hold-body, "→")
+      if p.wdStart != none { seg(wd, n, rgb("#fbe9df"), rgb("#c9703f"), wd-size, wd-body, "↓") }
+      // 段の区切りの線と、段の額（入らなければ番号。番号も入らない狭い段は線だけ）
+      for (k, st) in steps.enumerate() {
+        if k > 0 { place(top + left, dx: x(st.i0), dy: band-h - pad - step-row, line(length: step-row, angle: 90deg, stroke: (paint: rgb("#4a6fb0"), thickness: 0.6pt, dash: "dashed"))) }
+        let sw = x(st.i1) - x(st.i0)
+        let mark = if steps-inline { text(size: step-size, weight: "bold", st.label) } else { text(size: min-size, weight: "bold", nums.at(k, default: str(k + 1))) }
+        if measure(mark).width <= sw - 2pt {
+          place(top + left, dx: x(st.i0) + 1pt, dy: band-h - pad - step-row + 1pt, box(width: sw - 2pt, align(center, mark)))
+        }
+      }
+      if legend-body != none { place(top + left, dx: left-w, dy: band-h + 4pt, block(width: size.width - left-w, legend-body)) }
     })
   })
 }

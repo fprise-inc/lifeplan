@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:asset.realEstate.output",
+  "title": "住まい以外の不動産の評価額（土地・建物）・家賃収入・経費・不動産所得・売却",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "properties"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "properties": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "owner", "years", "income", "sale"],
+        "properties": {
+          "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "owner": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["year", "land", "building", "value"],
+              "properties": {
+                "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+                "land": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "building": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "value": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+              }
+            }
+          },
+          "income": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["year", "rent", "expenses", "depreciation", "interest", "landInterest", "income"],
+              "properties": {
+                "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+                "rent": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "expenses": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "depreciation": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "interest": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "landInterest": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "income": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+              }
+            }
+          },
+          "sale": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["ym", "value", "price", "costs", "proceeds"],
+                "properties": {
+                  "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+                  "value": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "price": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "costs": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "proceeds": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

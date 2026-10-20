@@ -66,7 +66,20 @@ export interface Account {
   fee?: string;
   /** iDeCo・企業型DC の受け取り（始まりが空なら退職の年。0026） */
   payout?: { start?: Timepoint; method: "lumpSum" | "annuity" | "mixed"; annuityYears?: number; lumpShare?: string; destination?: "deposit" | "invest" };
+  /** 住まい以外の不動産の中身（土地と建物・家賃収入・経費・売却。0028） */
+  property?: RealEstateProperty;
   [key: string]: unknown;
+}
+
+/** 住まい以外の不動産の中身（エンジンの accounts[].property。0028） */
+export interface RealEstateProperty {
+  structure?: string;
+  builtYear?: number;
+  landShare?: string;
+  acquisition?: { price: number; at: string };
+  rental?: { monthly: Box<number>; vacancyRate?: string; growth?: string; from?: Timepoint; to?: Timepoint | null };
+  expenses?: { annual?: Box<number>; rate?: string; growth?: string };
+  sale?: { at: Timepoint; price?: number; costRate?: string };
 }
 
 /** 資産運用の入れ方と、運用・取り崩しの前提（0026。エンジンの assumptions.investment） */
@@ -162,6 +175,8 @@ export interface Debt {
   prepayments?: { at: Timepoint; amount: number; mode: string; fee?: number }[];
   creditLife?: { covered: string[]; ratio?: string; events?: string[]; [key: string]: unknown };
   pairWith?: string;
+  /** この借入で取得した住まい以外の不動産（不動産の器の ID。0028） */
+  property?: string;
   [key: string]: unknown;
 }
 

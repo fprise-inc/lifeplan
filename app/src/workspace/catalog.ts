@@ -101,7 +101,7 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
     firstProposal: {},
     reemployment: { fromAge: 60, type: "contract", annualSalary: 6000000, standardMonthlyRemuneration: 500000 },
     notes: { retireAge: "60歳から再雇用（年収600万円）" },
-    memo: ["賃貸に出しているマンション1室の家賃収入は、まだ入れられない（架空の例）", "65歳から毎月35万円を取り崩す前提（架空の例）", "次回: 繰上返済と資産配分の見直しのどちらを先にするか相談"],
+    memo: ["賃貸に出しているマンション1室は月9.5万円で貸している（空室5%・管理費などは年36万円＋家賃の5%。架空の例）", "65歳から毎月35万円を取り崩す前提（架空の例）", "次回: 繰上返済と資産配分の見直しのどちらを先にするか相談"],
     plans: [
       { name: "プランB 住宅ローンを500万円繰上返済", tags: ["住宅"], values: { "loan:32ca6364-8bb4-4b27-a1af-55a261a6d310:prepay": 5000000 } },
       {

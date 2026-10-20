@@ -83,7 +83,8 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
   const who = self?.label ?? "";
   const ageText = (y: number) => (self !== undefined ? `${who}${ageInYear(self.member, y)}歳` : `${y}年`);
   const h = req.input.household;
-  const at: BsAt[] = bsSeries(p.table, years, { residences: h.residences ?? [], debts: (h.debts ?? []).map((d) => ({ id: d.id, kind: d.kind })) });
+  const at: BsAt[] = bsSeries(p.table, years, { residences: h.residences ?? [], debts: (h.debts ?? []).map((d) => ({ id: d.id, kind: d.kind, ...(d.property !== undefined ? { property: d.property } : {}) })) });
+  const lineOf = (i: number, key: string) => (at[i] as BsAt).lines.find((l) => l.key === key)?.amount ?? 0;
   const living = byYear(p.table, years, (c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.drawdown");
   const loanPay = byYear(p.table, years, (c) => c.row === "cf.expense.housing.loan");
   const prepay = byYear(p.table, years, (c) => c.row === "cf.expense.housing.loan.prepayment");
@@ -137,6 +138,11 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
     const events: BsYearModel["events"] = evs.filter((e) => e.year === year).map((e) => ({ kind: EVENT_KIND[e.icon] ?? "other", text: e.text }));
     if (i === negIdx) events.push({ kind: "neg", text: "純資産がマイナスに" });
     const say = sayFor({ i, a, pr, a0, at, years, ageText, mort, prMort, liquid, retireLump: retireLump[i] ?? 0, dcLump: dcLump[i] ?? 0, retired: retireYear !== null && year > retireYear, pensionStart: pensionYear !== null && year === pensionYear, depYear: dep, negIdx, sale: sale[i] ?? 0, prepay: prepay[i] ?? 0 });
+    // 土地と建物（建物は年数とともに減り、土地は残る。年に応じて一言を添える）
+    const land = lineOf(i, "land");
+    const building = lineOf(i, "building");
+    const lb = landBuildingText({ i, land, building, building0: lineOf(0, "building") });
+    if (lb !== null && a.shortfall <= 0) say.sub = [...say.sub, plain(lb)];
     const principal = i > 0 ? Math.max(0, prMort - mort - (prepay[i] ?? 0)) : 0;
     const insight = insightFor({ i, a, pr, retired: retireYear !== null && year > retireYear, prepay: prepay[i] ?? 0, dcLump: dcLump[i] ?? 0, principal, loanPay: loanPay[i] ?? 0, sale: sale[i] ?? 0 });
     const monthly = (living[i] ?? 0) / 12;
@@ -144,7 +150,7 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
       liquid: `今日・明日にでも使えるお金です。${monthly > 0 ? `生活費（月${mn(monthly)}）の${monthsText(liquid / monthly)}。` : ""}急な出費や、収入で足りない分はまずここから出ます。`,
       market: "株や投資信託など。売ればお金になりますが、そのときの相場で金額が変わります（口座に分けずにまとめて入れた金融資産も、ここに数えています）。",
       locked: "iDeCo・企業型DC・小規模企業共済など。原則として決まった年齢（iDeCo・企業型DCは60歳）まで引き出せません。受け取ると「すぐ使えるお金」に移ります。",
-      illiquid: "住んでいる家・使っている車・保険の解約返戻金など、すぐにはお金にしにくいもの。持ち家は、土地を上昇率で動かし、建物を構造の耐用年数で定額で減らして、建てたときの価値の一定の割合を下限に残した見込みです。",
+      illiquid: `住んでいる家・貸している不動産・使っている車・保険の解約返戻金など、すぐにはお金にしにくいもの。${land + building > 0 ? `不動産は土地（${mn(land)}）と建物（${mn(building)}）に分けて見込んでいます。土地は上昇率で動かし、建物は構造の耐用年数で定額で減らして、建てたときの価値の一定の割合を下限に残します。建物は年数とともに価値が減りますが、土地は残ります。` : ""}`,
       mortgage: `${(loanPay[i] ?? 0) > 0 ? `年間の返済額は${mn(loanPay[i] ?? 0)}。` : ""}${loanEnd !== null && year <= loanEnd ? `${loanEnd}年（${ageText(loanEnd)}）に返し終わる見込みです。` : ""}返済のうち元金の分は、純資産として残ります。`,
       debt: a.shortfall > 0 ? "「資金の不足」は、金融資産が尽きた後に足りない分を、借りている状態として負債に置いたものです（実際には家の売却などで補う必要があります）。" : "車のローン・奨学金など、住宅ローンのほかに借りているお金です。",
       netWorth: "持っているものを全部お金に換えて、借りているものを返したときに残る額です。家や車はすぐには使えないので、それを除いた額も添えています。",
@@ -169,6 +175,15 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
     };
   });
   return { key: p.key, letter: p.letter, name: p.name, title: p.title, base: p.base, years: out, marks, jumps, status };
+}
+
+/** 土地と建物の一言（年に応じて）。建物が無ければ null */
+export function landBuildingText(o: { i: number; land: number; building: number; building0: number }): string | null {
+  if (o.building <= 0 && o.land <= 0) return null;
+  if (o.i === 0) return o.building > 0 ? "建物は年数とともに価値が減りますが、土地は残ります。" : null;
+  const down = o.building0 - o.building;
+  if (Math.round(down / 10000) < 1) return null;
+  return `建物は年数とともに価値が減り、今より${mn(down)}少ない${mn(o.building)}ですが、土地（${mn(o.land)}）は残ります。`;
 }
 
 /** 「○か月分」（2年以上は「○年分」） */

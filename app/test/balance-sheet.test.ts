@@ -16,11 +16,12 @@ import { agoText, balanceTabModel, bsPlan, bsPrev, bsYears, DEFAULT_BS_GUIDE, pr
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { displayYears, financialOf, sumByYear, toPresentation } from "../src/workspace/present.ts";
+import { displayYears, financialOf, rowDefs as rowDefsOf, sumByYear, toPresentation } from "../src/workspace/present.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const noop = () => undefined;
-const sumRows = (r: { table: { row: string; year: number; amount: number }[] }, rows: string[], y: number) => r.table.filter((c) => c.year === y && rows.includes(c.row)).reduce((s, c) => s + c.amount, 0);
+/** 行（とその下の行。不動産は土地と建物の行に分けて出る）の合計 */
+const sumRows = (r: { table: { row: string; year: number; amount: number }[] }, rows: string[], y: number) => r.table.filter((c) => c.year === y && rows.some((x) => c.row === x || c.row.startsWith(`${x}.`))).reduce((s, c) => s + c.amount, 0);
 const grp = (y: BsYearModel, g: string) => y.lines.filter((l) => l.group === g).reduce((s, l) => s + l.amount, 0);
 
 describe("バランスシートの分け方（提案書と同じ部品）", () => {
@@ -34,7 +35,10 @@ describe("バランスシートの分け方（提案書と同じ部品）", () =
     cell("cf.balance.account.pooled", 2026, 400_000),
     cell("cf.balance.account.ideco", 2026, 900_000),
     cell("cf.balance.account.corporateDc", 2026, 2_100_000),
-    cell("cf.balance.account.realEstate", 2026, 28_000_000, "home1"),
+    cell("cf.balance.account.realEstate.land", 2026, 10_000_000, "home1"),
+    cell("cf.balance.account.realEstate.building", 2026, 18_000_000, "home1"),
+    cell("cf.balance.account.realEstate.land", 2026, 2_000_000, "rental"),
+    cell("cf.balance.account.realEstate.building", 2026, 6_000_000, "rental"),
     cell("cf.balance.account.realEstate", 2026, 10_000_000, "flat"),
     cell("cf.balance.account.car", 2026, 1_500_000, "car1"),
     cell("cf.balance.account.insurance", 2026, 600_000),
@@ -42,11 +46,13 @@ describe("バランスシートの分け方（提案書と同じ部品）", () =
     cell("cf.balance.debt.unpaidInterest", 2026, 10_000, "loan1"),
     cell("cf.balance.debt.other", 2026, 800_000, "cl"),
     cell("cf.balance.debt.other", 2026, 500_000, "sch"),
+    cell("cf.balance.debt.other", 2026, 4_000_000, "rentalLoan"),
     // 2027年: 預金がマイナス（資金の不足）
     cell("cf.balance.account.deposit", 2027, -3_000_000),
-    cell("cf.balance.account.realEstate", 2027, 27_000_000, "home1"),
+    cell("cf.balance.account.realEstate.land", 2027, 10_000_000, "home1"),
+    cell("cf.balance.account.realEstate.building", 2027, 17_000_000, "home1"),
   ];
-  const hh = { residences: [{ id: "home1" }], debts: [{ id: "loan1", kind: "mortgage" }, { id: "cl", kind: "car" }, { id: "sch", kind: "scholarship" }] };
+  const hh = { residences: [{ id: "home1" }], debts: [{ id: "loan1", kind: "mortgage" }, { id: "cl", kind: "car" }, { id: "sch", kind: "scholarship" }, { id: "rentalLoan", kind: "other", property: "rental" }] };
   const [a, b] = bsSeries(table, [2026, 2027], hh);
 
   it("資産を4つ（すぐ使える・値動きあり・引き出せない・換金しにくい）に、負債を住宅ローンとその他に分ける", () => {
@@ -58,8 +64,11 @@ describe("バランスシートの分け方（提案書と同じ部品）", () =
     expect(byKey.pooled!.group).toBe("market");
     expect(byKey.ideco!.group).toBe("locked");
     expect(byKey.corporateDc!.group).toBe("locked");
-    expect(byKey.home).toMatchObject({ group: "illiquid", label: "持ち家（土地・建物）", amount: 28_000_000 });
+    // 不動産は土地と建物に分ける（持ち家と住まい以外の不動産の合計）。分けていない不動産は「その他の不動産」
+    expect(byKey.land).toMatchObject({ group: "illiquid", label: "土地", amount: 12_000_000 });
+    expect(byKey.building).toMatchObject({ group: "illiquid", label: "建物", amount: 24_000_000 });
     expect(byKey.realEstateOther).toMatchObject({ group: "illiquid", amount: 10_000_000 });
+    expect(byKey.propertyLoan).toMatchObject({ group: "debt", label: "不動産のローン", amount: 4_000_000 });
     expect(byKey.car!.group).toBe("illiquid");
     expect(byKey.insurance).toMatchObject({ group: "illiquid", label: "保険の解約返戻金" });
     expect(byKey.mortgage).toMatchObject({ group: "mortgage", amount: 24_010_000 });
@@ -74,6 +83,7 @@ describe("バランスシートの分け方（提案書と同じ部品）", () =
     expect(b!.lines.find((l) => l.key === "short")).toMatchObject({ group: "debt", label: "資金の不足", amount: 3_000_000 });
     expect(b!.shortfall).toBe(3_000_000);
     expect(b!.netWorth).toBe(27_000_000 - 3_000_000);
+    expect(b!.lines.filter((l) => l.key === "land" || l.key === "building").map((l) => l.amount)).toEqual([10_000_000, 17_000_000]);
     expect(b!.totalAssets).toBe(b!.totalLiabilities + b!.netWorth);
   });
 });
@@ -397,5 +407,87 @@ describe("入力の画面: 持ち家の評価・売却・その他の資産", ()
     expect(wh.request.input.assumptions?.realEstateValuation).toEqual({ residualFloor: "0.1" });
     wh = byKey(fieldsOf(wh, "assumptions"), "realEstate/floor")!.set(wh, null);
     expect(wh.request.input.assumptions?.realEstateValuation).toBeUndefined();
+  });
+});
+
+describe("住まい以外の不動産（家賃収入・経費・土地と建物）", () => {
+  const fieldsOf = (wh: WorkingHousehold) => allFields(buildStage("savings", wh));
+  const key = (fs: FieldDef[], k: string) => fs.find((f) => f.key === k);
+
+  it("資産と負債のタブ: 換金しにくい資産の中を土地と建物に分け、建物は年とともに減り土地は残る。解説にも年に応じて一言", () => {
+    const req = modelHousehold("dualAssetsTwoKids");
+    const r = preview(req);
+    const p = bsPlan({ key: "A", letter: "A", name: "プランA", title: "現状", base: true, req, table: r.table });
+    const amt = (y: BsYearModel, k: string) => y.lines.find((l) => l.key === k)?.amount ?? 0;
+    const y0 = p.years[0]!;
+    const y20 = p.years[20]!;
+    expect(amt(y0, "land") + amt(y0, "building")).toBe(sumRows(r, ["cf.balance.account.realEstate"], y0.year));
+    expect(amt(y20, "building")).toBeLessThan(amt(y0, "building"));
+    expect(amt(y20, "land")).toBeGreaterThan(0);
+    expect(y0.lines.some((l) => l.key === "home")).toBe(false);
+    const text = (y: BsYearModel) => [...y.say.head, ...y.say.sub].map((x) => x.text).join("");
+    expect(text(y0)).toContain("建物は年数とともに価値が減りますが、土地は残ります");
+    expect(text(y20)).toMatch(/建物は年数とともに価値が減り、今より[\d,]+万円少ない[\d,]+万円ですが、土地（[\d,]+万円）は残ります/);
+    expect(y20.notes.illiquid).toContain("土地（");
+    // 賃貸のマンションのローンは「不動産のローン」
+    expect(y0.lines.find((l) => l.key === "propertyLoan")).toMatchObject({ group: "debt", label: "不動産のローン" });
+  });
+
+  it("結果の表に「家賃収入」「不動産の経費」の行が出て、その他の収入・支出から外れる", () => {
+    const req = modelHousehold("dualAssetsTwoKids");
+    const r = preview(req);
+    const defs = rowDefsOf(req);
+    const rent = defs.find((d) => d.key === "rent")!;
+    const exp = defs.find((d) => d.key === "realEstateExpense")!;
+    const other = defs.find((d) => d.key === "incomeOther")!;
+    const y = displayYears(req)[1]!;
+    const sum = (pred: (c: (typeof r.table)[number]) => boolean) => r.table.filter((c) => c.year === y && pred(c)).reduce((s, c) => s + c.amount, 0);
+    expect(sum(rent.match)).toBe(sumRows(r, ["cf.income.other.rental"], y));
+    expect(sum(rent.match)).toBeGreaterThan(900000);
+    expect(sum(exp.match)).toBe(sumRows(r, ["cf.expense.other.realEstate"], y));
+    expect(r.table.some((c) => c.year === y && rent.match(c) && other.match(c))).toBe(false);
+    // 不動産の無い世帯には出さない
+    expect(rowDefsOf(modelHousehold("salariedCoupleTwoKids")).some((d) => d.key === "rent" || d.key === "realEstateExpense")).toBe(false);
+  });
+
+  it("入力: 不動産を土地と建物に分け、家賃・空室・経費・取得・ローンを入れると、家賃収入と不動産所得の税が計算に入る", () => {
+    let wh = fromRequest(modelHousehold("single45"));
+    const sec = buildStage("savings", wh).sections.find((s) => s.key === "sav/others")!;
+    wh = sec.actions.find((a) => a.key === "sav/add/realEstate")!.run(wh);
+    const acc = (wh.request.input.household.accounts ?? []).find((a) => a.kind === "realEstate")!;
+    const k = `sav/${acc.id}`;
+    wh = key(fieldsOf(wh), `${k}/value`)!.set(wh, 20000000);
+    expect(key(fieldsOf(wh), `${k}/property/structure`)).toBeUndefined();
+    wh = key(fieldsOf(wh), `${k}/split`)!.set(wh, true);
+    wh = key(fieldsOf(wh), `${k}/property/structure`)!.set(wh, "rc");
+    wh = key(fieldsOf(wh), `${k}/property/landShare`)!.set(wh, "0.25");
+    wh = key(fieldsOf(wh), `${k}/property/acqPrice`)!.set(wh, 22000000);
+    // 取得価額を入れると、取得の年月は評価額の時点で埋まる（スキーマの必須）
+    expect(acc.asOf).toBeDefined();
+    expect((wh.request.input.household.accounts ?? []).find((a) => a.id === acc.id)!.property!.acquisition).toEqual({ price: 22000000, at: acc.asOf });
+    wh = key(fieldsOf(wh), `${k}/property/acqAt`)!.set(wh, "2018-04");
+    wh = key(fieldsOf(wh), `${k}/property/rented`)!.set(wh, true);
+    wh = key(fieldsOf(wh), `${k}/property/rent`)!.set(wh, 90000);
+    wh = key(fieldsOf(wh), `${k}/property/vacancy`)!.set(wh, "0.05");
+    wh = key(fieldsOf(wh), `${k}/property/expAnnual`)!.set(wh, 300000);
+    wh = key(fieldsOf(wh), `${k}/property/expRate`)!.set(wh, "0.05");
+    const stage = buildStage("savings", wh);
+    const addLoan = stage.sections.flatMap((s) => s.groups).flatMap((g) => g.actions).find((a) => a.key === `${k}/property/addLoan`)!;
+    wh = addLoan.run(wh);
+    const loan = (wh.request.input.household.debts ?? []).find((d) => d.property === acc.id)!;
+    expect(loan).toMatchObject({ kind: "other", start: { at: "2018-04" } });
+    // ローンの欄は不動産の欄の中に出る（住まい・ローンの「住宅ローン以外のローン」には出さない）
+    expect(fieldsOf(wh).some((f) => f.key === `housing/debt/${loan.id}/principal`)).toBe(true);
+    expect(allFields(buildStage("housing", wh)).some((f) => f.key === `housing/debt/${loan.id}/principal`)).toBe(false);
+    const r = preview(wh.request);
+    const y = displayYears(wh.request)[0]!;
+    expect(sumRows(r, ["cf.income.other.rental"], y)).toBe(Math.floor(90000 * 0.95) * 12);
+    expect(sumRows(r, ["cf.expense.other.realEstate"], y)).toBe((25000 + Math.floor(Math.floor(90000 * 0.95) * 0.05)) * 12);
+    expect(sumRows(r, ["cf.balance.account.realEstate.land"], y)).toBeGreaterThan(0);
+    expect(sumRows(r, ["cf.balance.account.realEstate.building"], y)).toBeGreaterThan(0);
+    // 分けるのをやめると中身が消え、ローンの不動産の指定も外れる
+    wh = key(fieldsOf(wh), `${k}/split`)!.set(wh, false);
+    expect((wh.request.input.household.accounts ?? []).find((a) => a.id === acc.id)!.property).toBeUndefined();
+    expect((wh.request.input.household.debts ?? []).find((d) => d.id === loan.id)!.property).toBeUndefined();
   });
 });

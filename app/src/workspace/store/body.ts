@@ -21,7 +21,7 @@ import { readBsGuide } from "../balanceTab.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, readDockMode, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.5";
+export const BODY_FORMAT_VERSION = "0.6";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

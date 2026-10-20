@@ -367,7 +367,8 @@ describe("住まい（housing.residence）", () => {
     expect(f("2028-04", "cf.expense.housing.propertyTax")).toBe(30001);
     expect(f("2029-02", "cf.expense.housing.propertyTax")).toBe(30000);
     expect(notices(r).some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("giftTax"))).toBe(true);
-    expect(cells(r, "cf.balance.account.realEstate", 2027)).toBe(40000000);
+    // 持ち家の評価額は土地と建物の行に分けて出す（合計＝購入の価格）
+    expect(cells(r, "cf.balance.account.realEstate.land", 2027) + cells(r, "cf.balance.account.realEstate.building", 2027)).toBe(40000000);
   });
 });
 

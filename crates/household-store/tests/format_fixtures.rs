@@ -103,6 +103,24 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "0.5 の見本には取り崩しの計画がある"
             );
         }
+        if *v == "0.6" {
+            // 0.6 から: 住まい以外の不動産の中身（土地と建物・家賃収入・経費・取得）と、その不動産のローン（0028）
+            let hh = &now["household"]["request"]["input"]["household"];
+            let accounts = hh["accounts"].as_array().unwrap();
+            let condo = accounts
+                .iter()
+                .find(|a| a["kind"] == "realEstate" && a.get("property").is_some())
+                .expect("0.6 の見本には中身を入れた不動産がある");
+            assert!(condo["property"]["rental"]["monthly"].is_object());
+            assert!(
+                hh["debts"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|d| d["property"] == condo["id"]),
+                "0.6 の見本にはその不動産のローンがある"
+            );
+        }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
         }

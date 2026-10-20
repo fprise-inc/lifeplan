@@ -224,6 +224,37 @@ export interface AccountInput {
   readonly expectedReturn?: string;
   /** 運用の費用（信託報酬など。年率。器の利回りから引く。0026） */
   readonly fee?: string;
+  /** 不動産の中身（不動産の器だけ。土地と建物に分けて評価し、貸しているなら家賃収入・経費・不動産所得を出す。asset.realEstate。0028） */
+  readonly property?: RealEstatePropertyInput;
+}
+
+/** 住まい以外の不動産の中身（0028）。入れた器は、評価額を土地と建物に分け、家賃収入・経費・売却を計算する */
+export interface RealEstatePropertyInput {
+  /** 建物の構造（省略は木造） */
+  readonly structure?: BuildingStructure;
+  /** 建物が建った年（省略は取得の年。取得も無ければ時価の時点の年＝新築とみなす） */
+  readonly builtYear?: number;
+  /** 土地の割合（評価額と取得価額を土地と建物に分ける。省略は前提の realEstateValuation.landShare か目安） */
+  readonly landShare?: string;
+  /** 取得（減価償却の基。price は土地と建物の合計の取得価額、at は取得の年月） */
+  readonly acquisition?: { readonly price: Yen; readonly at: string };
+  /** 貸している（家賃収入） */
+  readonly rental?: {
+    /** 月額の家賃（空室を見込む前） */
+    readonly monthly: ValueBox<Yen>;
+    /** 空室を見込む割合（省略は0） */
+    readonly vacancyRate?: string;
+    /** 家賃の変化率（年率。マイナスも書ける。省略は0） */
+    readonly growth?: string;
+    /** 貸し始め（省略は取得の月。取得も無ければ前から貸している） */
+    readonly from?: Timepoint;
+    /** 貸し終わり（その月まで。省略は売却の前の月か表の最後） */
+    readonly to?: Timepoint | null;
+  };
+  /** 経費（管理費・修繕積立金・固定資産税・管理委託料など）。年額（持っている間）と、受け取る家賃に対する割合の合計 */
+  readonly expenses?: { readonly annual?: ValueBox<Yen>; readonly rate?: string; readonly growth?: string };
+  /** 売却の予定（その月に売り、手取りを現金にする） */
+  readonly sale?: { readonly at: Timepoint; readonly price?: Yen; readonly costRate?: string };
 }
 
 export interface RateStep {
@@ -272,6 +303,8 @@ export interface DebtInput {
     readonly spouseJoint?: boolean;
     readonly incapacityMonths?: number;
   };
+  /** この借入で取得した住まい以外の不動産（不動産の器の ID。利息を不動産所得の必要経費にする。0028） */
+  readonly property?: string;
   readonly housing?: {
     readonly residence?: string;
     readonly moveIn: string;

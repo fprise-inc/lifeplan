@@ -201,8 +201,55 @@ export function investmentBundle(): ProposalBundle {
   };
 }
 
+/**
+ * 見本4: 共働きの夫婦と子2人・資産が多め（dualAssetsTwoKids）。持ち家（土地と建物）と、賃貸に出しているマンション1室（家賃収入・経費・ローン）。
+ * 提案は、ご主人の退職の後（60歳の年の6月）にマンションを売り、残っているマンションのローンを売ったお金で返す。
+ * 資産運用の計画の運用の期間は、積立額が3段階（狭い「積み立てる」の帯に段の額が入りきらない形）
+ */
+export function rentalPropertyBundle(): ProposalBundle {
+  const current = modelHousehold("dualAssetsTwoKids");
+  const me = self(current);
+  const proposal = clone(current);
+  const condo = proposal.input.household.accounts.find((a) => a.kind === "realEstate" && a.property !== undefined);
+  const saleAt = `${Number(ageReachedMonth(me, 60).slice(0, 4))}-06`;
+  if (condo?.property !== undefined) (condo as unknown as { property: Record<string, unknown> }).property = { ...condo.property, sale: { at: { at: saleAt } } };
+  for (const d of proposal.input.household.debts ?? []) if (condo !== undefined && d.property === condo.id) (d as { prepayments?: unknown }).prepayments = [{ at: { at: saleAt }, amount: 50000000, mode: "shortenTerm" }];
+  const retireYear = Number(addMonths(ageReachedMonth(me, 60), -1).slice(0, 4));
+  const wdYear = Number(ageReachedMonth(me, 65).slice(0, 4));
+  const runs = runAll([current, proposal]);
+  return {
+    document: { issuedOn: "2026-10-20", preparedBy: "見本FP事務所（架空）" },
+    current: runOf(runs, 0),
+    proposal: runOf(runs, 1),
+    targetAge: 95,
+    changes: [{ label: "賃貸に出しているマンション", current: "持ち続ける（家賃収入）", proposal: "60歳の年に売り、ローンを返す" }],
+    investment: {
+      method: "口座",
+      condition: "65歳から毎月35万円ずつ取り崩す場合",
+      periods: {
+        accumText: "積み立てる 49〜59歳",
+        holdText: "据え置く",
+        holdSub: "60〜64歳",
+        wdText: "取り崩す",
+        wdSub: "65歳〜 月35万円",
+        accumEnd: retireYear + 1,
+        wdStart: wdYear,
+        steps: [
+          { year: 2027, label: "月19.3万" },
+          { year: 2031, label: "月22.3万" },
+          { year: 2034, label: "月19.3万" },
+        ],
+        estimated: true,
+      },
+      donutYear: wdYear,
+      stress: [],
+    },
+  };
+}
+
 export const SAMPLES: { id: string; title: string; bundle: () => ProposalBundle }[] = [
   { id: "salariedCoupleTwoKids", title: "会社員の夫婦と子2人（生活費・NISA・FP顧問料、万一、年金の繰下げ）", bundle: salariedCoupleBundle },
   { id: "advisoryFeeProposal", title: "FP顧問料つきの提案（打ち手ごとの効果と、運用の前提の変更を除いた効果）", bundle: advisoryFeeBundle },
   { id: "investmentCouple", title: "資産運用（期間を分けた積立・取り崩しの計画、資産運用の計画と相場が下がった場合）", bundle: investmentBundle },
+  { id: "dualAssetsTwoKids", title: "資産が多めの共働き（持ち家の土地と建物、賃貸に出しているマンションの家賃収入・経費・ローンと売却、積立が3段階の運用の期間）", bundle: rentalPropertyBundle },
 ];

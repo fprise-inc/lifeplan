@@ -65,7 +65,15 @@ describe("帳票の入力", () => {
         for (const { view, run } of views) {
           const line = (list: typeof view.assets, label: string) => list.find((l) => l.label === label);
           const fin = byYear(run.result, (c) => c.row === "cf.balance.financial");
-          const re = byYear(run.result, (c) => c.row === "cf.balance.account.realEstate");
+          // 不動産は土地と建物の行に分けて出る（合計は cf.balance.account.realEstate の下の行の合計）
+          const re = byYear(run.result, (c) => c.row === "cf.balance.account.realEstate" || c.row.startsWith("cf.balance.account.realEstate."));
+          /** 項目の直後の内訳（次の項目まで） */
+          const subsOf = (list: typeof view.assets, label: string) => {
+            const i0 = list.findIndex((l) => l.label === label);
+            const out: typeof view.assets = [];
+            for (let k = i0 + 1; k < list.length && list[k]!.kind === "sub"; k++) out.push(list[k]!);
+            return out;
+          };
           const debt = byYear(run.result, (c) => c.row.startsWith("cf.balance.debt."));
           view.points.forEach((p, i) => {
             const total = line(view.assets, "資産の合計")!.amounts[i]!;
@@ -75,8 +83,10 @@ describe("帳票の入力", () => {
             expect(line(view.assets, "金融資産")!.amounts[i]! - short).toBe(fin.get(p.year) ?? 0);
             expect(line(view.assets, "不動産")!.amounts[i]).toBe(re.get(p.year) ?? 0);
             expect(liab - short).toBe(debt.get(p.year) ?? 0);
-            // 内訳の合計は金融資産
-            expect(view.assets.filter((l) => l.kind === "sub").reduce((s2, l) => s2 + l.amounts[i]!, 0)).toBe(line(view.assets, "金融資産")!.amounts[i]);
+            // 内訳の合計は金融資産・不動産（土地＋建物）
+            expect(subsOf(view.assets, "金融資産").reduce((s2, l) => s2 + l.amounts[i]!, 0)).toBe(line(view.assets, "金融資産")!.amounts[i]);
+            const reSubs = subsOf(view.assets, "不動産");
+            if (reSubs.length > 0) expect(reSubs.reduce((s2, l) => s2 + l.amounts[i]!, 0)).toBe(line(view.assets, "不動産")!.amounts[i]);
           });
         }
         const bs = input.balanceSheet!;
@@ -93,7 +103,14 @@ describe("帳票の入力", () => {
           expect(c.assets.reduce((s2, b) => s2 + b.amount, 0)).toBe(c.totalAssets);
           expect(c.totalAssets).toBe(c.totalLiabilities + c.netWorth);
           expect(fig.scale).toBeGreaterThanOrEqual(Math.max(c.totalAssets, c.totalLiabilities));
-          expect(c.assets.map((b) => b.key).every((k) => ["liquid", "market", "locked", "illiquid"].includes(k))).toBe(true);
+          // 換金しにくい資産は土地・建物・車・その他の箱に分ける
+          expect(c.assets.map((b) => b.key).every((k) => ["liquid", "market", "locked", "land", "building", "illiquidOther"].includes(k))).toBe(true);
+          const landBox = c.assets.find((b) => b.key === "land")?.amount ?? 0;
+          const buildingBox = c.assets.find((b) => b.key === "building")?.amount ?? 0;
+          const t = bundle.proposal.result.table;
+          const cell = (row: string) => t.filter((x) => x.row === row && x.year === c.point.year).reduce((s2, x) => s2 + x.amount, 0);
+          expect(landBox).toBe(cell("cf.balance.account.realEstate.land"));
+          expect(buildingBox).toBe(cell("cf.balance.account.realEstate.building"));
           const k = bs.proposal.points.findIndex((p) => p.year === c.point.year);
           expect(k).toBeGreaterThanOrEqual(0);
           expect(bs.proposal.netWorth[k]).toBe(c.netWorth);
@@ -183,6 +200,36 @@ describe("帳票の入力", () => {
     const fx = JSON.parse(readFileSync(join(REPO_DIR, "crates", "report-pdf", "tests", "fixtures", "advisoryFeeProposal.input.json"), "utf8")) as unknown;
     expect(validate(fx)).toBe(true);
     expect(JSON.stringify(fx)).not.toMatch(UUID);
+  });
+});
+
+describe("住まい以外の不動産（家賃収入・経費・土地と建物）", () => {
+  const b = built.find((x) => x.id === "dualAssetsTwoKids");
+  it("キャッシュフロー表に「家賃収入」「不動産の経費」の行があり、エンジンの行の合計と一致する。その他の収入・支出には入れない", () => {
+    expect(b).toBeDefined();
+    const { bundle, input } = b!;
+    for (const [side, run] of [["current", bundle.current], ["proposal", bundle.proposal]] as const) {
+      const rows = input.cashflow[side].rows;
+      const rent = byYear(run.result, (c) => c.row === "cf.income.other.rental");
+      const exp = byYear(run.result, (c) => c.row === "cf.expense.other.realEstate");
+      expect(rows.find((r) => r.key === "rent")?.cells).toEqual(input.basis.years.map((y) => rent.get(y) ?? null));
+      expect(rows.find((r) => r.key === "realEstateExpense")?.cells).toEqual(input.basis.years.map((y) => exp.get(y) ?? null));
+      expect([...rent.values()].some((v) => v > 0)).toBe(true);
+    }
+    // 提案（60歳の年に売る）は、売った後に家賃収入が無い
+    const sold = byYear(bundle.proposal.result, (c) => c.row === "cf.income.other.rental");
+    expect(sold.get(2045) ?? 0).toBe(0);
+    expect(byYear(bundle.current.result, (c) => c.row === "cf.income.other.rental").get(2045)).toBeGreaterThan(0);
+  });
+
+  it("バランスシートの表の不動産は土地と建物の内訳を持ち、建物は年とともに減り土地は残る", () => {
+    const { input } = b!;
+    const assets = input.balanceSheet!.proposal.assets;
+    const land = assets.find((l) => l.label === "土地")!;
+    const building = assets.find((l) => l.label === "建物")!;
+    expect(land.kind).toBe("sub");
+    expect(building.amounts.at(-1)!).toBeLessThan(building.amounts[0]!);
+    expect(land.amounts.at(-1)!).toBeGreaterThan(0);
   });
 });
 
