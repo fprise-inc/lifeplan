@@ -9,7 +9,8 @@
 //     元のグラフの高さを上限、小さくの最小の高さを下限にする（下限に届かない低い窓では小さくの形にする）。
 //     隠れた行のつまみを触る・キーボードで動かすと、その行が付いてくるグラフの下に見えるところまで少しスクロールする
 // - 小さなボタン（×）で外せる（表示の設定の「操作中はグラフを上に表示」が「出さない」になる）
-// - 「浮かせる」で、アプリの窓の中に浮いた小さな枠にできる（ドラッグで移動・右下の角で大きさを変える・どこまでスクロールしても出ている）。
+// - 「浮かせる」で、アプリの窓の中に浮いた小さな枠にできる（どこまでスクロールしても出ている）。上の帯（取っ手の印つき）をドラッグで移動、
+//   左右の端で横・下の端で縦・下の角で縦横に大きさを変える。帯にフォーカスして矢印キーで移動、Shift＋矢印で大きさ。初めて浮かせたときだけ短い案内を出す。
 //   「戻す」で付いてくる形に戻る。位置と大きさはアプリを開いている間覚える（画面には保存しない。世帯のファイルにも書かない）。別の窓（OS の窓）にはしない
 import type { ComponentChildren, RefObject } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -142,6 +143,53 @@ export function clampFloatRect(r: FloatRect, vw: number, vh: number, fs = 1): Fl
   const x = Math.round(Math.max(0, Math.min(r.x, vw - w)));
   const y = Math.round(Math.max(0, Math.min(r.y, vh - h)));
   return { x, y, w, h };
+}
+
+/** 浮かせた枠の、大きさを変える端: 左右の端（横）・下の端（縦）・下の二つの角（両方）。上の端は移動の帯なので伸縮しない */
+export type FloatEdge = "w" | "e" | "s" | "sw" | "se";
+
+/**
+ * 端をつかんで大きさを変えたあとの位置と大きさ（r0 はつかんだときの枠、dx・dy は動かした量）。
+ * つかんだ端だけが動き、反対側の端は動かない（左の端なら右の端を固定）。最小の大きさと窓の内側（端から出ない・幅は窓 − 16px まで）を守る
+ */
+export function resizeFloatRect(r0: FloatRect, edge: FloatEdge, dx: number, dy: number, vw: number, vh: number, fs = 1): FloatRect {
+  const minW = Math.min(FLOAT_MIN.w * fs, vw - 16);
+  const minH = Math.min(FLOAT_MIN.h * fs, vh - 16);
+  const maxW = vw - 16;
+  const maxH = vh - 16;
+  const y = r0.y;
+  let { x, w, h } = r0;
+  if (edge === "e" || edge === "se") {
+    const right = Math.max(x + minW, Math.min(r0.x + r0.w + dx, vw, x + maxW));
+    w = right - x;
+  }
+  if (edge === "w" || edge === "sw") {
+    const right = r0.x + r0.w;
+    const left = Math.max(0, right - maxW, Math.min(r0.x + dx, right - minW));
+    x = left;
+    w = right - left;
+  }
+  if (edge === "s" || edge === "sw" || edge === "se") {
+    const bottom = Math.max(y + minH, Math.min(r0.y + r0.h + dy, vh, y + maxH));
+    h = bottom - y;
+  }
+  return clampFloatRect({ x, y, w, h }, vw, vh, fs);
+}
+
+/** キーボードで動かす・大きさを変える1回の量（px。文字の大きさ 16px のとき） */
+export const FLOAT_KEY_STEP = 16;
+
+/**
+ * 移動の帯にフォーカスしてキーを押したときの位置と大きさ: 矢印キーで移動、Shift＋矢印で大きさ（右・下で大きく、左・上で小さく）。
+ * 扱わないキーは null
+ */
+export function keyFloatRect(r: FloatRect, key: string, shift: boolean, vw: number, vh: number, fs = 1): FloatRect | null {
+  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[key];
+  if (d === undefined) return null;
+  const step = Math.round(FLOAT_KEY_STEP * fs);
+  const [kx, ky] = d as [number, number];
+  if (shift) return resizeFloatRect(r, kx !== 0 ? "e" : "s", kx * step, ky * step, vw, vh, fs);
+  return clampFloatRect({ ...r, x: r.x + kx * step, y: r.y + ky * step }, vw, vh, fs);
 }
 
 /** 浮かせた枠の中のグラフの高さ（px）: 枠の高さから、グラフの外の分（extra）を引く。最小 100px × 文字の大きさ */
@@ -278,10 +326,16 @@ export function ChartDock({ dock, head, onClose, children }: { dock: DockState; 
   );
 }
 
-/** 浮かせた枠: アプリの窓の中に固定して置く。見出しをドラッグで移動、右下の角をドラッグで大きさを変える */
+const EDGE_LABEL: Record<FloatEdge, string> = { w: "左の端（横に伸縮）", e: "右の端（横に伸縮）", s: "下の端（縦に伸縮）", sw: "左下の角（縦横に伸縮）", se: "右下の角（縦横に伸縮）" };
+
+/**
+ * 浮かせた枠: アプリの窓の中に固定して置く。上の帯（取っ手の印つき）をドラッグで移動、左右の端で横・下の端で縦・下の角で縦横に大きさを変える。
+ * 帯にフォーカスして矢印キーで移動、Shift＋矢印で大きさを変えられる
+ */
 function FloatPanel({ head, onClose, extra, children }: { head?: ComponentChildren; onClose: () => void; extra: number; children: (height: number) => ComponentChildren }) {
   const fs = rootFontPx() / 16;
   const [rect, setRect] = useState<FloatRect>(() => clampFloatRect(currentFloat().rect ?? defaultFloatRect(window.innerWidth, window.innerHeight), window.innerWidth, window.innerHeight, fs));
+  const [active, setActive] = useState<"move" | FloatEdge | null>(null);
   const rectRef = useRef(rect);
   rectRef.current = rect;
   useEffect(() => {
@@ -289,12 +343,13 @@ function FloatPanel({ head, onClose, extra, children }: { head?: ComponentChildr
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-  const drag = (kind: "move" | "size") => (e: PointerEvent) => {
+  const drag = (kind: "move" | FloatEdge) => (e: PointerEvent) => {
     if (e.button !== 0) return;
     if (kind === "move" && e.target instanceof Element && e.target.closest("button, a, input, select") !== null) return;
     e.preventDefault();
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
+    setActive(kind);
     const sx = e.clientX;
     const sy = e.clientY;
     const r0 = rectRef.current;
@@ -303,22 +358,47 @@ function FloatPanel({ head, onClose, extra, children }: { head?: ComponentChildr
     const move = (ev: PointerEvent) => {
       const dx = ev.clientX - sx;
       const dy = ev.clientY - sy;
-      last = clampFloatRect(kind === "move" ? { ...r0, x: r0.x + dx, y: r0.y + dy } : { ...r0, w: r0.w + dx, h: r0.h + dy }, window.innerWidth, window.innerHeight, k);
+      last = kind === "move" ? clampFloatRect({ ...r0, x: r0.x + dx, y: r0.y + dy }, window.innerWidth, window.innerHeight, k) : resizeFloatRect(r0, kind, dx, dy, window.innerWidth, window.innerHeight, k);
       setRect(last);
     };
     const up = () => {
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", up);
+      setActive(null);
       setFloat({ on: true, rect: last });
     };
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
     el.addEventListener("pointercancel", up);
   };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.target !== e.currentTarget) return;
+    const next = keyFloatRect(rectRef.current, e.key, e.shiftKey, window.innerWidth, window.innerHeight, rootFontPx() / 16);
+    if (next === null) return;
+    e.preventDefault();
+    setRect(next);
+    setFloat({ on: true, rect: next });
+  };
   return (
-    <section class="dock-float card" style={{ left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.w}px`, height: `${rect.h}px` }} aria-label="浮かせたグラフ（見出しをドラッグで移動、右下の角で大きさを変えられます）" data-dock-float-panel>
-      <div class="dock-head dock-grip" onPointerDown={drag("move")} title="ドラッグで動かせます">
+    <section
+      class={`dock-float card${active === "move" ? " is-moving" : ""}${active !== null && active !== "move" ? " is-sizing" : ""}`}
+      style={{ left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.w}px`, height: `${rect.h}px` }}
+      aria-label="浮かせたグラフ（上の帯をドラッグで移動、端をドラッグで大きさを変えられます）"
+      data-dock-float-panel
+    >
+      <div
+        class="dock-head dock-grip"
+        onPointerDown={drag("move")}
+        onKeyDown={onKey}
+        tabIndex={0}
+        aria-label="グラフの枠を動かす帯（ドラッグで移動。矢印キーで移動、Shift＋矢印キーで大きさを変える）"
+        data-dock-grip
+      >
+        <span class="dock-handle" aria-hidden="true">
+          <span class="dock-handle-i">⠿</span>
+          <span class="dock-handle-t">移動</span>
+        </span>
         <div class="dock-t">{head}</div>
         <button type="button" class="dock-btn" onClick={() => setFloat({ on: false, rect: rectRef.current })} title="浮かせるのをやめて、上に付いてくる形に戻す" data-dock-unfloat>
           戻す
@@ -338,7 +418,9 @@ function FloatPanel({ head, onClose, extra, children }: { head?: ComponentChildr
         </button>
       </div>
       {children(floatChartHeight(rect.h, fs * 16, extra * fs))}
-      <span class="dock-resize" onPointerDown={drag("size")} title="ドラッグで大きさを変えられます" aria-hidden="true" data-dock-resize />
+      {(["w", "e", "s", "sw", "se"] as const).map((edge) => (
+        <span key={edge} class={`dock-edge dock-edge-${edge}${active === edge ? " on" : ""}`} onPointerDown={drag(edge)} title={`ドラッグで大きさを変えられます（${EDGE_LABEL[edge]}）`} aria-hidden="true" data-dock-edge={edge} />
+      ))}
     </section>
   );
 }

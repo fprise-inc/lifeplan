@@ -698,6 +698,8 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .year-tip.pinned { border-color: var(--base-ink); }
 .year-tip .yt-h { font-weight: 700; display: flex; align-items: center; gap: 8px; }
 .year-tip .yt-pin { font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--base-ink); border-radius: 4px; padding: 0 5px; line-height: 1.5; }
+.year-tip .yt-unpin { pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; margin-left: -4px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: var(--ink-2); font-size: 0.85rem; font-weight: 700; line-height: 1; padding: 0; }
+.year-tip .yt-unpin:hover, .year-tip .yt-unpin:focus-visible { background: var(--base-ink); border-color: var(--base-ink); color: #fff; }
 .year-tip .yt-v { display: flex; align-items: center; gap: 0 4px; }
 .year-tip .yt-lead { color: var(--ink-2); font-weight: 700; margin-right: 4px; }
 .year-tip .yt-s, .year-tip .yt-b { display: inline-flex; align-items: center; gap: 4px; }
@@ -854,10 +856,30 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .chart-dock.large .dock-in { max-height: none; }
 .dock-btn { flex: none; height: 28px; border: 1.5px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0 10px; white-space: nowrap; }
 .dock-btn:hover { border-color: var(--ink); }
-/* 浮かせた枠（アプリの窓の中に固定。別の窓にはしない）: 見出しをドラッグで移動、右下の角で大きさを変える */
+/* 浮かせた枠（アプリの窓の中に固定。別の窓にはしない）: 上の帯（取っ手の印つき・薄い色）をドラッグで移動、左右の端で横・下の端で縦・下の角で縦横に大きさを変える */
 .dock-float { position: fixed; z-index: 1; display: flex; flex-direction: column; box-sizing: border-box; margin: 0; padding: 4px 12px 6px; border: 1.5px solid var(--ink-2); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(20, 30, 50, 0.28); overflow: hidden; background: #fff; }
-.dock-grip { cursor: move; touch-action: none; user-select: none; -webkit-user-select: none; padding: 2px 0; }
-.dock-resize { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; background: linear-gradient(135deg, transparent 0 55%, var(--ink-2) 55% 62%, transparent 62% 72%, var(--ink-2) 72% 79%, transparent 79%); }
+.dock-grip { flex: none; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; margin: -4px -12px 4px; padding: 5px 12px 5px 12px; background: var(--prop-bg); border-bottom: 1px solid #d3dcec; }
+.dock-grip:hover { background: #dde5f3; }
+.dock-grip:focus-visible { outline: 3px solid var(--prop); outline-offset: -3px; }
+.dock-float.is-moving .dock-grip { cursor: grabbing; background: #d3ddf0; }
+.dock-float.is-moving, .dock-float.is-moving * { cursor: grabbing; }
+.dock-handle { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px 2px 4px; border-radius: 6px; border: 1px dashed #9fb0d0; color: var(--prop-ink); line-height: 1; }
+.dock-handle-i { font-size: 1.15rem; letter-spacing: -0.1em; }
+.dock-handle-t { font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+/* 初めて浮かせたときだけの案内（アプリを開いている間に1回。数秒で消える） */
+/* 大きさを変える端: つかめる幅は見た目（枠の線）より広く 8px。乗せると色の線で示す */
+.dock-edge { position: absolute; z-index: 3; touch-action: none; }
+.dock-edge-w { left: 0; top: 0; bottom: 14px; width: 8px; cursor: ew-resize; }
+.dock-edge-e { right: 0; top: 0; bottom: 18px; width: 8px; cursor: ew-resize; }
+.dock-edge-s { left: 14px; right: 18px; bottom: 0; height: 8px; cursor: ns-resize; }
+.dock-edge-sw { left: 0; bottom: 0; width: 14px; height: 14px; cursor: nesw-resize; }
+.dock-edge-se { right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 0 55%, var(--ink-2) 55% 62%, transparent 62% 72%, var(--ink-2) 72% 79%, transparent 79%); }
+.dock-edge-w:hover, .dock-edge-w.on { background: linear-gradient(to right, var(--prop) 0 3px, transparent 3px); }
+.dock-edge-e:hover, .dock-edge-e.on { background: linear-gradient(to left, var(--prop) 0 3px, transparent 3px); }
+.dock-edge-s:hover, .dock-edge-s.on { background: linear-gradient(to top, var(--prop) 0 3px, transparent 3px); }
+.dock-edge-sw:hover, .dock-edge-sw.on { background: linear-gradient(to right, var(--prop) 0 3px, transparent 3px), linear-gradient(to top, var(--prop) 0 3px, transparent 3px); }
+.dock-edge-se:hover, .dock-edge-se.on { background: linear-gradient(135deg, transparent 0 55%, var(--prop) 55% 62%, transparent 62% 72%, var(--prop) 72% 79%, transparent 79%), linear-gradient(to left, var(--prop) 0 3px, transparent 3px), linear-gradient(to top, var(--prop) 0 3px, transparent 3px); }
+.dock-float.is-sizing { user-select: none; -webkit-user-select: none; }
 .dock-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .dock-t { flex: 1; min-width: 0; }
 .dock-t .verdict-line { font-size: 0.95rem; flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

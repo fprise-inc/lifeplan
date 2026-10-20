@@ -110,9 +110,11 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .donut-svg { flex: none; }
 .donut-total { font-size: 15px; font-weight: 700; fill: var(--ink); font-variant-numeric: tabular-nums; }
 .donut-unit { font-size: 10px; fill: var(--ink-2); }
-.donut-legend { list-style: none; padding: 0; margin: 0; flex: 1 1 180px; min-width: 0; font-size: 0.82rem; }
-.donut-legend li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto 3em; gap: 6px; align-items: center; padding: 2px 0; }
+/* 凡例: 金額と割合は名前のすぐ右に寄せる（欄の幅いっぱいに引き伸ばさない）。列は行どうしでそろえる */
+.donut-legend { list-style: none; padding: 0; margin: 0; flex: 1 1 180px; min-width: 0; font-size: 0.82rem; display: grid; grid-template-columns: 12px minmax(0, max-content) max-content max-content; column-gap: 8px; justify-content: start; align-content: center; }
+.donut-legend li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; padding: 2px 0; }
 .donut-legend li.none { display: block; color: var(--ink-2); }
+.donut-legend .v { padding-left: 6px; }
 .donut-legend i { width: 12px; height: 12px; border-radius: 3px; }
 .donut-legend .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .donut-legend .v, .donut-legend .pc { text-align: right; }

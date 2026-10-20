@@ -38,7 +38,7 @@ import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
-import { bandShown, donutPanes, donutYear, investChart, investVerdict, stressRequests, STRESS_KEYS, type StressKey } from "./invest/present.ts";
+import { bandShown, donutPanes, donutShown, donutYear, investChart, investVerdict, stressRequests, STRESS_KEYS, type StressKey } from "./invest/present.ts";
 import { InvestBar, DonutCard } from "./invest/InvestBar.tsx";
 import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
 import { advisoryFeeInCurrent, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
@@ -1324,15 +1324,17 @@ export function App() {
     const extra = verdictMetrics(settings, { name: names.selected, m: metricsOf(opened.wh.request, selRes.table, settings.atAge) }, names.same ? null : { name: names.base, m: metricsOf(opened.wh.request, baseRes.table, settings.atAge) });
     return { ...v, sub: [...v.sub, ...extra] };
   }, [model, chartMode, opened, selReq, selRes, baseReq, baseRes, settings, names.selected, names.base, names.same]);
-  // 資産の内訳（ドーナツ）: 基準のプランと選んだプランを同じ年で（グラフで固定した年。固定していなければ取り崩しを始める年）
+  // 資産の内訳（ドーナツ）: 基準のプランと選んだプランを同じ年で（グラフで固定した年。固定していなければ取り崩しを始める年）。
+  // グラフの上の「口座の内訳を表示」にチェックが入っているときだけ出す（既定は出さない）
+  const donutOn = donutShown(settings.invBreakdown, investModel !== null && investModel.breakdown !== null);
   const donut = useMemo(() => {
-    if (model === null || selReq === null || selRes === null || baseReq === null || baseRes === null || chartMode !== "assets") return null;
+    if (!donutOn || model === null || selReq === null || selRes === null || baseReq === null || baseRes === null || chartMode !== "assets") return null;
     const fixed = selectedYear !== null && model.chart.years.includes(selectedYear) && model.selectedYear === selectedYear ? selectedYear : null;
     const year = fixed ?? donutYear(selReq, model.chart.years);
     const age = model.chart.ages[model.chart.years.indexOf(year)] ?? null;
     const panes = donutPanes({ base: { name: names.base, req: baseReq, table: baseRes.table }, sel: { name: names.selected, req: selReq, table: selRes.table }, same: names.same, year, age, who: model.who, by: donutBy });
     return <DonutCard panes={panes} by={donutBy} onBy={setDonutBy} note={fixed !== null ? "グラフで固定した年の内訳です（もう一度押すと外れます）" : "グラフで年を押して固定すると、その年の内訳になります（いまは取り崩しを始める年）"} />;
-  }, [model, selReq, selRes, baseReq, baseRes, chartMode, selectedYear, names.base, names.selected, names.same, donutBy]);
+  }, [donutOn, model, selReq, selRes, baseReq, baseRes, chartMode, selectedYear, names.base, names.selected, names.same, donutBy]);
   const multiHidden = { hidden: hiddenLines, onToggle: (k: string) => setHiddenLines((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k])) };
 
   // 表: 見る案（既定は選んだ案）と、基準との差
