@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { DualEngine } from "../src/engine/dual.ts";
 import type { ComputeResponse, HostApi, SlotRequest } from "../src/engine/host.ts";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
-import { ChartDock, clampFloatRect, defaultFloatRect, DOCK_MAX_SHARE, DOCK_MIN, DOCK_ROW_MARGIN, dockChartHeight, dockChartHeightLarge, floatChartHeight, FLOAT_MIN, revealDelta, shouldDock, type DockState } from "../src/presentation/ChartDock.tsx";
+import { ChartDock, clampFloatRect, defaultFloatRect, DOCK_MAX_SHARE, DOCK_MIN, DOCK_ROW_MARGIN, dockChartHeight, dockChartHeightLarge, floatChartHeight, FLOAT_KEY_STEP, FLOAT_MIN, keyFloatRect, resizeFloatRect, revealDelta, shouldDock, type DockState } from "../src/presentation/ChartDock.tsx";
 import { DockedContingency, ScenarioBand, YearStrip } from "../src/presentation/ContingencyView.tsx";
 import { EVENT_R, placeFixedAbove } from "../src/presentation/EventDot.tsx";
 import { chartHeight, MainChart } from "../src/presentation/MainChart.tsx";
@@ -388,6 +388,63 @@ describe("操作中はグラフを上に表示", () => {
     expect(clampFloatRect({ x: 0, y: 0, w: 3000, h: 3000 }, 1280, 800)).toEqual({ x: 0, y: 0, w: 1264, h: 784 });
     expect(floatChartHeight(500, 16, 92)).toBe(408);
     expect(floatChartHeight(150, 16, 92)).toBe(100);
+  });
+
+  it("浮かせた枠の伸縮: 左右の端で横・下の端で縦・下の角で両方。つかんだ端だけ動き、反対側は動かない", () => {
+    const r = { x: 400, y: 100, w: 600, h: 400 };
+    const vw = 1280;
+    const vh = 800;
+    // 右の端: 幅だけ変わる
+    expect(resizeFloatRect(r, "e", 120, 50, vw, vh)).toEqual({ x: 400, y: 100, w: 720, h: 400 });
+    // 左の端: 右の端（1000）を固定したまま左へ広げる
+    expect(resizeFloatRect(r, "w", -150, 30, vw, vh)).toEqual({ x: 250, y: 100, w: 750, h: 400 });
+    // 下の端: 高さだけ変わる
+    expect(resizeFloatRect(r, "s", 80, 60, vw, vh)).toEqual({ x: 400, y: 100, w: 600, h: 460 });
+    // 角: 両方
+    expect(resizeFloatRect(r, "se", 40, 60, vw, vh)).toEqual({ x: 400, y: 100, w: 640, h: 460 });
+    expect(resizeFloatRect(r, "sw", -40, 60, vw, vh)).toEqual({ x: 360, y: 100, w: 640, h: 460 });
+  });
+
+  it("浮かせた枠の伸縮: 最小の大きさを守り、窓の外にははみ出さない（文字が大きいと最小も大きい）", () => {
+    const r = { x: 400, y: 100, w: 600, h: 400 };
+    const vw = 1280;
+    const vh = 800;
+    // 縮めすぎ: 最小で止まる。左の端なら右の端は動かない
+    expect(resizeFloatRect(r, "e", -500, 0, vw, vh)).toEqual({ x: 400, y: 100, w: FLOAT_MIN.w, h: 400 });
+    expect(resizeFloatRect(r, "w", 500, 0, vw, vh)).toEqual({ x: 1000 - FLOAT_MIN.w, y: 100, w: FLOAT_MIN.w, h: 400 });
+    expect(resizeFloatRect(r, "s", 0, -500, vw, vh)).toEqual({ x: 400, y: 100, w: 600, h: FLOAT_MIN.h });
+    // 伸ばしすぎ: 窓の端で止まる
+    expect(resizeFloatRect(r, "e", 2000, 0, vw, vh)).toEqual({ x: 400, y: 100, w: 880, h: 400 });
+    expect(resizeFloatRect(r, "w", -2000, 0, vw, vh)).toEqual({ x: 0, y: 100, w: 1000, h: 400 });
+    expect(resizeFloatRect(r, "s", 0, 2000, vw, vh)).toEqual({ x: 400, y: 100, w: 600, h: 700 });
+    // 幅は窓 − 16px まで（左の端から広げても）
+    expect(resizeFloatRect({ x: 200, y: 0, w: 1080, h: 400 }, "w", -1000, 0, vw, vh)).toEqual({ x: 16, y: 0, w: 1264, h: 400 });
+    expect(resizeFloatRect({ x: 0, y: 0, w: 1200, h: 784 }, "se", 500, 500, vw, vh)).toEqual({ x: 0, y: 0, w: 1264, h: 784 });
+    // 文字の大きさ 1.25 倍: 最小も 1.25 倍
+    expect(resizeFloatRect(r, "se", -900, -900, vw, vh, 1.25)).toEqual({ x: 400, y: 100, w: FLOAT_MIN.w * 1.25, h: FLOAT_MIN.h * 1.25 });
+    // どの端をどう動かしても、窓の内側・最小以上
+    for (const edge of ["w", "e", "s", "sw", "se"] as const)
+      for (const d of [-3000, -200, 0, 200, 3000]) {
+        const o = resizeFloatRect(r, edge, d, d, vw, vh);
+        expect(o.x).toBeGreaterThanOrEqual(0);
+        expect(o.y).toBeGreaterThanOrEqual(0);
+        expect(o.x + o.w).toBeLessThanOrEqual(vw);
+        expect(o.y + o.h).toBeLessThanOrEqual(vh);
+        expect(o.w).toBeGreaterThanOrEqual(FLOAT_MIN.w);
+        expect(o.h).toBeGreaterThanOrEqual(FLOAT_MIN.h);
+      }
+  });
+
+  it("浮かせた枠のキーボード操作: 矢印キーで移動、Shift＋矢印で大きさ。窓の内側に収める。ほかのキーは扱わない", () => {
+    const r = { x: 400, y: 100, w: 600, h: 400 };
+    const s = FLOAT_KEY_STEP;
+    expect(keyFloatRect(r, "ArrowLeft", false, 1280, 800)).toEqual({ ...r, x: 400 - s });
+    expect(keyFloatRect(r, "ArrowDown", false, 1280, 800)).toEqual({ ...r, y: 100 + s });
+    expect(keyFloatRect(r, "ArrowRight", true, 1280, 800)).toEqual({ ...r, w: 600 + s });
+    expect(keyFloatRect(r, "ArrowUp", true, 1280, 800)).toEqual({ ...r, h: 400 - s });
+    expect(keyFloatRect({ ...r, x: 0 }, "ArrowLeft", false, 1280, 800)).toEqual({ ...r, x: 0 });
+    expect(keyFloatRect(r, "ArrowRight", false, 1280, 800, 1.25)).toEqual({ ...r, x: 400 + s * 1.25 });
+    expect(keyFloatRect(r, "Enter", false, 1280, 800)).toBeNull();
   });
 
   it("付いてくる箱は、出していないときは中身を描かない。出しているときは見出し・浮かせる・×・グラフ（同じ部品・決めた高さ）", () => {
