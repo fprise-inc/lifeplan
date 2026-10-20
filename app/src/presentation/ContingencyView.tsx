@@ -587,6 +587,21 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
           <div class="yt-h">
             {mark.head}
             {pinTag !== null ? <span class="yt-pin">{pinTag}</span> : null}
+            {unpin !== null && atPin ? (
+              <button
+                type="button"
+                class="yt-unpin"
+                aria-label="固定を外す"
+                title="固定を外す（Esc でも外せます）"
+                data-unpin
+                onClick={(e) => {
+                  e.stopPropagation();
+                  unpin(null);
+                }}
+              >
+                ×
+              </button>
+            ) : null}
           </div>
           {mark.lines.map((line, li) => (
             <div class="yt-v" key={li}>

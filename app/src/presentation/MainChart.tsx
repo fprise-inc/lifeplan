@@ -864,7 +864,24 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         >
           <div class="yt-h">
             {head}
-            {pinned !== null ? <span class="yt-pin">固定中</span> : null}
+            {pinned !== null ? (
+              <>
+                <span class="yt-pin">固定中</span>
+                <button
+                  type="button"
+                  class="yt-unpin"
+                  aria-label="固定を外す"
+                  title="固定を外す（Esc でも外せます）"
+                  data-unpin
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPick(pinned);
+                  }}
+                >
+                  ×
+                </button>
+              </>
+            ) : null}
           </div>
           <div class="yt-lead">{mark.lead}（帯の順）</div>
           <ul class="yt-rows">
@@ -888,7 +905,24 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         >
           <div class="yt-h">
             {head}
-            {pinned !== null ? <span class="yt-pin">固定中</span> : null}
+            {pinned !== null ? (
+              <>
+                <span class="yt-pin">固定中</span>
+                <button
+                  type="button"
+                  class="yt-unpin"
+                  aria-label="固定を外す"
+                  title="固定を外す（Esc でも外せます）"
+                  data-unpin
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPick(pinned);
+                  }}
+                >
+                  ×
+                </button>
+              </>
+            ) : null}
           </div>
           <div class="yt-v">
             {mark.lead !== "金融資産" ? <span class="yt-lead">{mark.lead}</span> : null}

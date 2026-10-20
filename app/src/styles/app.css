@@ -698,6 +698,8 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .year-tip.pinned { border-color: var(--base-ink); }
 .year-tip .yt-h { font-weight: 700; display: flex; align-items: center; gap: 8px; }
 .year-tip .yt-pin { font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--base-ink); border-radius: 4px; padding: 0 5px; line-height: 1.5; }
+.year-tip .yt-unpin { pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; margin-left: -4px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: var(--ink-2); font-size: 0.85rem; font-weight: 700; line-height: 1; padding: 0; }
+.year-tip .yt-unpin:hover, .year-tip .yt-unpin:focus-visible { background: var(--base-ink); border-color: var(--base-ink); color: #fff; }
 .year-tip .yt-v { display: flex; align-items: center; gap: 0 4px; }
 .year-tip .yt-lead { color: var(--ink-2); font-weight: 700; margin-right: 4px; }
 .year-tip .yt-s, .year-tip .yt-b { display: inline-flex; align-items: center; gap: 4px; }
