@@ -1,12 +1,15 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.7。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
+// 本文の区画（形式の版 0.8。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
 // - meta: 形式名・形式の版・保存日時・アプリの版・表示用の顧客番号、誰が直したか（保存した人・改訂の履歴・出てくるメンバーの表示名。本体が入れる。0023 の6）
 // - household: 現状の世帯（計算の要求と、画面の側の値: 呼び名・定年後の予定・FP用のメモとその行ごとの書いた人・万一の想定の前提・足した項目など）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
 // - hearing: ヒアリングの依頼・取り込み・同意の下書きの記録（0018。取り込みの記録・同意の記録への分け方は後の版）
 // - workspace: 案の帯の並び・基準の案・選んだ案・対策に足した項目・出発点にした見本
-// - display: 表示の設定（世帯ごと。出す数字・○歳時点の年齢・グラフの比べ方・操作中はグラフを上に表示・資産の推移の口座の内訳と運用の期間の帯・
-//   資産と負債のタブの家計の体力の目安の幅・時点を並べるときの既定の時点と、この世帯で選んだ時点（0.7 から））
+// - display: 表示の設定（世帯ごと。タブごとの区画に分ける。0.8 から）:
+//   - display.result: 結果のタブ（出す数字・○歳時点の年齢・グラフの比べ方・資産の推移の口座の内訳と運用の期間の帯）
+//   - display.balance: 資産と負債のタブ（家計の体力の目安の幅 guide・時点を並べるときの既定の時点 points・この世帯で選んだ時点 columns）
+//   0.7 までは display の直下に平らに置いていた（bsGuide・bsPoints・bsColumns と、なくした「操作中はグラフを上に表示」の dock）。
+//   本体の変換の段（0.7 → 0.8）が区画へ移す。画面の側も、区画の無い本文は直下の値から読む
 // - snapshots: 控え（0009 の2。PDF を書き出した時点・FP が残した時点の写し。0.3 から。控えが無ければ区画を作らない）
 // - extDefinitions / ext: 拡張領域（0011 の4。読んだものをそのまま書き戻し、失わない）
 // 保存しないもの: 提案書の宛名（0012 の2。出力のときだけ）、保存していない案の変更（「案として保存」「上書き」で保存する）、
@@ -19,12 +22,18 @@ import { CURRENT } from "../plans/band.ts";
 import type { Proposal } from "../plans/plans.ts";
 import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
 import { readBsColumns, readBsGuide, readBsPoints } from "../balanceTab.ts";
-import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, readDockMode, type DisplaySettings, type MetricKey } from "../settings.ts";
+import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.7";
+export const BODY_FORMAT_VERSION = "0.8";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
+
+/** 表示の設定（タブごとの区画。0.8 から） */
+export interface StoredDisplay {
+  result: DisplaySettings;
+  balance: BalanceSettings;
+}
 
 export interface SavedWorkspace {
   /** 出発点にした見本の世帯（目盛り・既定の値に使う）。空から作った世帯は null */
@@ -43,7 +52,7 @@ export interface HouseholdBody {
   /** 控え（0.3 から。無ければ区画ごと省く） */
   snapshots?: Snapshot[];
   workspace: SavedWorkspace;
-  display: DisplaySettings;
+  display: StoredDisplay;
   extDefinitions: Record<string, unknown>;
   ext: Record<string, unknown>;
 }
@@ -52,7 +61,7 @@ export interface HouseholdBody {
 export interface BodyState {
   wh: WorkingHousehold;
   workspace: SavedWorkspace;
-  display: DisplaySettings;
+  display: StoredDisplay;
   /** 読んだ拡張領域（書き戻すため） */
   carry: { extDefinitions: Record<string, unknown>; ext: Record<string, unknown> };
 }
@@ -110,25 +119,36 @@ export function fromBody(json: string): BodyState {
     selected: typeof w.selected === "string" ? w.selected : CURRENT,
     shownItems: strings(w.shownItems),
   };
-  const d = isObj(b.display) ? b.display : {};
-  const display: DisplaySettings = {
-    ...DEFAULT_DISPLAY_SETTINGS,
-    ...(d as Partial<DisplaySettings>),
-    metrics: strings(d.metrics).filter((k): k is MetricKey => METRIC_CHOICES.some((c) => c.key === k)),
-    atAge: typeof d.atAge === "number" ? d.atAge : DEFAULT_DISPLAY_SETTINGS.atAge,
-    layout: LAYOUT_CHOICES.some((c) => c.key === d.layout) ? (d.layout as DisplaySettings["layout"]) : DEFAULT_DISPLAY_SETTINGS.layout,
-    dock: readDockMode(d.dock),
-    invBreakdown: typeof d.invBreakdown === "boolean" ? d.invBreakdown : DEFAULT_DISPLAY_SETTINGS.invBreakdown,
-    invPeriods: typeof d.invPeriods === "boolean" ? d.invPeriods : DEFAULT_DISPLAY_SETTINGS.invPeriods,
-    bsGuide: readBsGuide(d.bsGuide),
-    bsPoints: readBsPoints(d.bsPoints),
-    bsColumns: readBsColumns(d.bsColumns),
-  };
+  const display = readDisplay(b.display);
   return {
     wh,
     workspace,
     display,
     carry: { extDefinitions: isObj(b.extDefinitions) ? b.extDefinitions : {}, ext: isObj(b.ext) ? b.ext : {} },
+  };
+}
+
+/**
+ * 表示の設定を読む（タブごとの区画 display.result・display.balance。区画の無い 0.7 までの本文は直下の値から読む）。
+ * 読めない値は既定。区画の中の知らない欄は持たない（なくした dock など）
+ */
+export function readDisplay(v: unknown): StoredDisplay {
+  const d = isObj(v) ? v : {};
+  const r = isObj(d.result) ? d.result : d;
+  const bal = isObj(d.balance) ? d.balance : null;
+  return {
+    result: {
+      metrics: strings(r.metrics).filter((k): k is MetricKey => METRIC_CHOICES.some((c) => c.key === k)),
+      atAge: typeof r.atAge === "number" ? r.atAge : DEFAULT_DISPLAY_SETTINGS.atAge,
+      layout: LAYOUT_CHOICES.some((c) => c.key === r.layout) ? (r.layout as DisplaySettings["layout"]) : DEFAULT_DISPLAY_SETTINGS.layout,
+      invBreakdown: typeof r.invBreakdown === "boolean" ? r.invBreakdown : DEFAULT_DISPLAY_SETTINGS.invBreakdown,
+      invPeriods: typeof r.invPeriods === "boolean" ? r.invPeriods : DEFAULT_DISPLAY_SETTINGS.invPeriods,
+    },
+    balance: {
+      guide: readBsGuide(bal !== null ? bal.guide : d.bsGuide),
+      points: readBsPoints(bal !== null ? bal.points : d.bsPoints),
+      columns: readBsColumns(bal !== null ? bal.columns : d.bsColumns),
+    },
   };
 }
 

@@ -9,8 +9,8 @@ import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { group } from "../presentation/format.ts";
 import type { ChartLayout, ChartMode } from "../presentation/MainChart.tsx";
-import { ChartDock, useChartDock } from "../presentation/ChartDock.tsx";
-import { CashflowTable, DockedResult, FeeNote, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
+import { ChartPip, closePip, openPip } from "../presentation/ChartPip.tsx";
+import { CashflowTable, FeeNote, PipResult, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
 import { PlanBand } from "../presentation/PlanBand.tsx";
 import { BalanceTab, type BsView } from "../presentation/BalanceTab.tsx";
 import type { BsPlanModel, BsPrevModel } from "../presentation/model.ts";
@@ -55,7 +55,7 @@ import { acknowledge, applyValues, changesOf, changesOfValues, dropChange, effec
 import { cashflowTable, displayYears, eventsOf, toPresentation, withDiff } from "./present.ts";
 import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
-import { ageMarkOf, DEFAULT_DISPLAY_SETTINGS, METRIC_CHOICES, shows, verdictMetrics, type DisplaySettings, type MetricKey } from "./settings.ts";
+import { ageMarkOf, DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, METRIC_CHOICES, shows, verdictMetrics, type BalanceSettings, type DisplaySettings, type MetricKey } from "./settings.ts";
 import { Autosaver, type SaveState } from "./store/autosave.ts";
 import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
 import { ForkPanel, type ForkChoiceUi } from "./store/ForkPanel.tsx";
@@ -120,11 +120,14 @@ export function parseHash(hash: string): {
   selfcheckWire?: boolean;
   /** 主画面のグラフ */
   chart?: ChartMode;
-  /** 資産と負債のタブの見せ方（#bsview=three など）・年（#bsyear=2046）・合算BSの入口（#bsopen=combined）・表で見る（#bstable） */
+  /** 資産と負債のタブの見せ方（#bsview=three など）・年（#bsyear=2046）・合算BSの入口（#bsopen=combined）・表で見る（#bstable）・表示の設定を開く（#bssettings） */
   bsView?: BsView;
   bsYear?: number;
   bsOpen?: "combined";
   bsTable?: boolean;
+  bsSettings?: boolean;
+  /** #pip: 開いたタブのグラフを小窓で出した状態で開く（画面の確かめ用） */
+  pip?: boolean;
   /** #stress: 相場が下がった場合を重ねて開く（0026） */
   stress?: boolean;
   /** #inv=breakdown,periods（口座の内訳・運用の期間の帯を出す）・#inv=noperiods（帯を外す）。画面の確かめ用 */
@@ -174,6 +177,8 @@ export function parseHash(hash: string): {
     else if (k === "bsyear" && v !== undefined && /^\d{4}$/.test(v)) out.bsYear = Number(v);
     else if (k === "bsopen" && v === "combined") out.bsOpen = "combined";
     else if (k === "bstable") out.bsTable = true;
+    else if (k === "bssettings") out.bsSettings = true;
+    else if (k === "pip") out.pip = true;
     else if (k === "explain" && v !== undefined && /^\d$/.test(v)) out.explain = Number(v);
     else if (k === "items" && v !== undefined) out.items = v.split(",").filter((x) => /^[a-z]+$/.test(x));
     else if (k === "seed" && v === "plans") out.seed = true;
@@ -212,8 +217,8 @@ export function parseHash(hash: string): {
 
 const BLANK = "__blank__";
 
-/** 付いてくる部分のうち、グラフの外の高さ（文字の大きさ 16px のとき。見出し・凡例・余白） */
-const MAIN_DOCK_EXTRA = 92;
+/** 小窓のうち、グラフの外の高さ（文字の大きさ 16px のとき。上の帯・凡例・余白） */
+const MAIN_PIP_EXTRA = 92;
 
 const manYen = (n: number) => (n % 10000 === 0 ? `${group(n / 10000)}万円` : `${group(n)}円`);
 
@@ -307,8 +312,8 @@ interface StoredRef {
 }
 
 /** 世帯ファイルの本文（0011 の2）: 現状・案・案の帯の並び・対策に足した項目・表示の設定（保存していない案の変更は入れない）。控え（0009）は区画 snapshots に置く */
-function bodyFor(o: Opened, w: Work, shownKeys: string[], s: DisplaySettings, carry: BodyState["carry"]): string {
-  return bodyOf({ wh: o.wh, workspace: { template: o.demo?.id ?? null, band: w.band, base: w.base, selected: w.sel, shownItems: shownKeys }, display: s, carry });
+function bodyFor(o: Opened, w: Work, shownKeys: string[], s: DisplaySettings, bs: BalanceSettings, carry: BodyState["carry"]): string {
+  return bodyOf({ wh: o.wh, workspace: { template: o.demo?.id ?? null, band: w.band, base: w.base, selected: w.sel, shownItems: shownKeys }, display: { result: s, balance: bs }, carry });
 }
 
 export function App() {
@@ -340,6 +345,8 @@ export function App() {
   const [tableKey, setTableKey] = useState<string | null>(null);
   const [showDiff, setShowDiff] = useState(initial.diff === true);
   const [settings, setSettings] = useState<DisplaySettings>({ ...DEFAULT_DISPLAY_SETTINGS, ...(initial.metrics !== undefined ? { metrics: initial.metrics } : {}), ...(initial.age !== undefined ? { atAge: initial.age } : {}), ...(initial.layout !== undefined ? { layout: initial.layout } : {}), ...(initial.inv !== undefined ? { invBreakdown: initial.inv.includes("breakdown"), invPeriods: initial.inv.includes("periods") ? true : initial.inv.includes("noperiods") ? false : null } : {}) });
+  /** 資産と負債のタブの表示の設定（結果のタブの表示の設定とは別） */
+  const [bsSettings, setBsSettings] = useState<BalanceSettings>(DEFAULT_BALANCE_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(initial.settings === true);
   const [panel, setPanel] = useState<null | "list" | "compare">(initial.compare === true ? "compare" : initial.list === true ? "list" : null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -383,6 +390,8 @@ export function App() {
   workRef.current = work;
   const settingsRef = useRef<DisplaySettings>(settings);
   settingsRef.current = settings;
+  const bsSettingsRef = useRef<BalanceSettings>(bsSettings);
+  bsSettingsRef.current = bsSettings;
   shownRef.current = shown;
   const [evidence, setEvidence] = useState<EvidenceState | null>(null);
   const [, setTick] = useState(0);
@@ -398,7 +407,7 @@ export function App() {
 
   // ---- 元に戻す・やり直す: 世帯データ・案・表示の設定を変える setter を history.track で包む（世帯ごとの履歴）----
   const history = useHistoryBook<AppSnap<Work>>({
-    read: () => (openedRef.current === null ? null : { wh: openedRef.current.wh, work: workRef.current, settings: settingsRef.current }),
+    read: () => (openedRef.current === null ? null : { wh: openedRef.current.wh, work: workRef.current, settings: settingsRef.current, bs: bsSettingsRef.current }),
     same: sameSnap,
     describe: describeSnap,
     apply: (s) => restore(s),
@@ -678,9 +687,11 @@ export function App() {
       storedRef.current = { id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, carry: st.carry };
       setStoredInfo({ id: r.id, customerNo: r.customerNo, readOnly: r.readOnly });
       setFileEditors(editorsOf(r.body));
-      settingsRef.current = st.display;
-      setSettings(st.display);
-      const loaded = bodyFor(o, w, shownKeys, st.display, st.carry);
+      settingsRef.current = st.display.result;
+      setSettings(st.display.result);
+      bsSettingsRef.current = st.display.balance;
+      setBsSettings(st.display.balance);
+      const loaded = bodyFor(o, w, shownKeys, st.display.result, st.display.balance, st.carry);
       // この画面で前に開いて保存したときと同じ中身なら、元に戻すの履歴を続きから使う（違えば空から）
       const keep = savedBodies.current.get(r.id) === loaded;
       savedBodies.current.set(r.id, loaded);
@@ -715,7 +726,7 @@ export function App() {
     pausedBody.current = null;
     if (o === null || sr === null || base === null) return;
     autosaver.current?.reset(base);
-    autosaver.current?.change(bodyFor(o, workRef.current, shownRef.current, settingsRef.current, sr.carry));
+    autosaver.current?.change(bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry));
   }, []);
 
   /** 分岐を選ぶ画面を開く（保存のときに分岐を見つけた・同期の衝突の写しがある） */
@@ -739,7 +750,7 @@ export function App() {
       try {
         const o = openedRef.current;
         const sr = storedRef.current;
-        const ours = o !== null && sr !== null ? bodyFor(o, workRef.current, shownRef.current, settingsRef.current, sr.carry) : null;
+        const ours = o !== null && sr !== null ? bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, sr.carry) : null;
         const r = await host.store.resolveFork(fork.id, c === "ours");
         if (c === "both" && ours !== null) {
           const m = mergeForkBodies(r.body, ours, () => crypto.randomUUID());
@@ -783,7 +794,7 @@ export function App() {
   const persistCurrent = useCallback(async () => {
     const o = openedRef.current;
     if (host === null || o === null) return;
-    const body = bodyFor(o, workRef.current, shownRef.current, settingsRef.current, EMPTY_CARRY);
+    const body = bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, EMPTY_CARRY);
     const r = await host.store.create(body, summaryOf(o.wh.request));
     storedRef.current = { id: r.id, customerNo: r.customerNo, readOnly: false, carry: EMPTY_CARRY };
     setStoredInfo({ id: r.id, customerNo: r.customerNo, readOnly: false });
@@ -813,8 +824,8 @@ export function App() {
   useEffect(() => {
     const sr = storedRef.current;
     if (opened === null || sr === null || sr.readOnly) return;
-    autosaver.current?.change(bodyFor(opened, workRef.current, shown, settings, sr.carry));
-  }, [opened, work.band, work.base, work.sel, shown, settings]);
+    autosaver.current?.change(bodyFor(opened, workRef.current, shown, settings, bsSettings, sr.carry));
+  }, [opened, work.band, work.base, work.sel, shown, settings, bsSettings]);
 
   // ---- 世帯の一覧の操作 ----
   const refreshStore = useCallback(async () => {
@@ -884,7 +895,7 @@ export function App() {
         say("削除しました。アプリのバックアップからも完全に読めなくなるのは30日後です");
         return null;
       } catch (e) {
-        if (isOpen && storedRef.current !== null && opened !== null) autosaver.current?.reset(bodyFor(opened, workRef.current, shownRef.current, settingsRef.current, storedRef.current.carry));
+        if (isOpen && storedRef.current !== null && opened !== null) autosaver.current?.reset(bodyFor(opened, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, storedRef.current.carry));
         return storeMessage(codeOf(e));
       }
     },
@@ -936,8 +947,10 @@ export function App() {
     reqCache.current.clear();
     openedRef.current = n;
     settingsRef.current = s.settings;
+    bsSettingsRef.current = s.bs;
     setOpened(n);
     setSettings(s.settings);
+    setBsSettings(s.bs);
     putWorkRaw(fitWork(n, s.work), n, "set");
   };
   /** 入力の画面で世帯（現状）を変えた */
@@ -1042,6 +1055,16 @@ export function App() {
         const s = { ...settingsRef.current, ...patch };
         settingsRef.current = s;
         setSettings(s);
+      }),
+    [history],
+  );
+  /** 資産と負債のタブの表示の設定を変える（元に戻すの履歴に入る） */
+  const putBsSettings = useCallback(
+    (patch: Partial<BalanceSettings>) =>
+      history.track(() => {
+        const s = { ...bsSettingsRef.current, ...patch };
+        bsSettingsRef.current = s;
+        setBsSettings(s);
       }),
     [history],
   );
@@ -1482,18 +1505,14 @@ export function App() {
     );
   }, [panel, opened, slots, work.base, settings.atAge, letters, ...compareResults]);
 
-  /** 付いてくるグラフの ×: 表示の設定の「操作中はグラフを上に表示」を外す（見通しと万一のときで同じ設定） */
-  const dockOff = useCallback(() => {
-    history.track(() => {
-      const s = { ...settingsRef.current, dock: "off" as const };
-      settingsRef.current = s;
-      setSettings(s);
-    });
-    say("グラフを上に表示するのをやめました（結果の「表示の設定」で戻せます）");
-  }, [history, say]);
-  const dockAnchor = useRef<HTMLDivElement>(null);
-  const dockControls = useRef<HTMLDivElement>(null);
-  const mainDock = useChartDock(dockAnchor, dockControls, tab === "main" ? settings.dock : "off", MAIN_DOCK_EXTRA);
+  // 小窓はタブごと: 別のタブに移ったら閉じる（各タブのグラフの見出しから出し直す。位置と大きさは覚えている）
+  const pipFirst = useRef(initial.pip === true);
+  useEffect(() => {
+    if (pipFirst.current) {
+      pipFirst.current = false;
+      openPip();
+    } else closePip();
+  }, [tab]);
 
   const drawer = memoOpen || evidence !== null;
   const ageMark = opened === null ? null : ageMarkOf(settings, opened.wh.request);
@@ -1676,8 +1695,6 @@ export function App() {
               onEdit={edit}
               ui={cgUi}
               onUi={setCgUi}
-              dock={settings.dock}
-              onDockOff={dockOff}
               {...(initial.scenario !== undefined ? { initialScenario: initial.scenario } : {})}
               plans={cgPlans}
               requestOf={cgRequestOf}
@@ -1696,8 +1713,8 @@ export function App() {
             valuesOf={(id) => valuesOf(opened.wh, work, id)}
             letterOf={(id) => ({ letter: letterOf(id), name: id === CURRENT ? "現状" : (letters.get(id)?.name ?? "") })}
             targetAge={settings.atAge}
-            bsPoints={settings.bsPoints}
-            bsColumns={settings.bsColumns}
+            bsPoints={bsSettings.points}
+            bsColumns={bsSettings.columns}
             onSnapshot={takeSnapshot}
           />
         ) : tab === "balance" && opened !== null ? (
@@ -1711,9 +1728,9 @@ export function App() {
                   plans: bsPlans,
                   selected: letterOf(work.sel),
                   base: letterOf(work.base),
-                  guide: settings.bsGuide,
-                  pointDefaults: settings.bsPoints,
-                  columns: settings.bsColumns,
+                  guide: bsSettings.guide,
+                  pointDefaults: bsSettings.points,
+                  columns: bsSettings.columns,
                   prevChoices: bsPrevChoices,
                   prev: bsPrevModel,
                   provisional: model.provisional,
@@ -1721,10 +1738,10 @@ export function App() {
                 })}
                 band={<PlanBand model={band} onSelect={select} onBase={setBase} onAdd={duplicate} />}
                 onPrev={onBsPrev}
-                onGuide={(g) => putSettings({ bsGuide: g })}
-                onColumns={(c) => putSettings({ bsColumns: c })}
-                onPointDefaults={(k) => putSettings({ bsPoints: k })}
-                initial={{ ...(initial.bsView !== undefined ? { view: initial.bsView } : {}), ...(initial.bsYear !== undefined ? { year: initial.bsYear } : {}), ...(initial.bsOpen !== undefined ? { open: initial.bsOpen } : {}), ...(initial.bsTable === true ? { table: true } : {}) }}
+                onGuide={(g) => putBsSettings({ guide: g })}
+                onColumns={(c) => putBsSettings({ columns: c })}
+                onPointDefaults={(k) => putBsSettings({ points: k })}
+                initial={{ ...(initial.bsView !== undefined ? { view: initial.bsView } : {}), ...(initial.bsYear !== undefined ? { year: initial.bsYear } : {}), ...(initial.bsOpen !== undefined ? { open: initial.bsOpen } : {}), ...(initial.bsTable === true ? { table: true } : {}), ...(initial.bsSettings === true ? { settings: true } : {}) }}
               />
             </>
           )
@@ -1733,9 +1750,9 @@ export function App() {
         ) : (
           <div class="main-stack">
             {basis !== null ? <BasisLine {...basis} /> : null}
-            <ChartDock dock={mainDock} head={<ResultVerdictView model={verdictView ?? model.result} />} onClose={dockOff}>
+            <ChartPip head={<ResultVerdictView model={verdictView ?? model.result} />} extra={MAIN_PIP_EXTRA}>
               {(height) => (
-                <DockedResult
+                <PipResult
                   model={chartModel ?? model}
                   multi={multiHidden}
                   provisional={model.provisional}
@@ -1748,7 +1765,7 @@ export function App() {
                   height={height}
                 />
               )}
-            </ChartDock>
+            </ChartPip>
             {/* ① 案の帯 */}
             <PlanBand
               model={band}
@@ -1784,126 +1801,122 @@ export function App() {
               </section>
             ) : null}
             {/* ② グラフ */}
-            <div class="dock-anchor" ref={dockAnchor}>
-              <ResultCard
-                model={chartModel ?? model}
-                multi={multiHidden}
-                verdict={verdictView ?? model.result}
-                provisional={model.provisional}
-                mode={chartMode}
-                onMode={setChartMode}
-                layout={settings.layout}
-                explain={explain !== null && explainStep !== null ? { model: explain, step: explainStep } : null}
-                onExplain={setExplainStep}
-                ageMark={ageMark}
-                pinnedYear={pinnedYear}
-                onSelectYear={pinYear}
-                {...(locked === null ? { onBand } : {})}
-                {...(investModel !== null && explain === null
-                  ? {
-                      bar: (
-                        <InvestBar
-                          invest={investModel}
-                          canBreakdown={investModel.breakdown !== null}
-                          onBreakdown={(on) => putSettings({ invBreakdown: on })}
-                          onPeriods={(on) => putSettings({ invPeriods: on })}
-                          stressOn={stressOn}
-                          onStress={toggleStress}
-                          onStressLine={(k) => setStressHidden((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k]))}
-                        />
-                      ),
-                      ...(donut !== null ? { after: donut } : {}),
-                    }
-                  : {})}
-                tools={
-                  <button type="button" class="set-btn" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)} data-settings-open>
-                    表示の設定{settings.metrics.length > 0 ? <span class="memo-n">{settings.metrics.length}</span> : null}
-                  </button>
-                }
-                below={
-                  <>
-                    {settingsOpen ? (
-                      <DisplaySettingsPanel
-                        value={settings}
-                        feeAvailable={hasAdvisoryFee(opened.wh.request)}
-                        onChange={(s) =>
-                          history.track(() => {
-                            settingsRef.current = s;
-                            setSettings(s);
-                            // FP顧問料の一文の枠（alt）を足す・外す
-                            putWork(workRef.current, openedRef.current, "set");
-                          })
-                        }
-                        onClose={() => setSettingsOpen(false)}
+            <ResultCard
+              model={chartModel ?? model}
+              multi={multiHidden}
+              verdict={verdictView ?? model.result}
+              provisional={model.provisional}
+              mode={chartMode}
+              onMode={setChartMode}
+              layout={settings.layout}
+              explain={explain !== null && explainStep !== null ? { model: explain, step: explainStep } : null}
+              onExplain={setExplainStep}
+              ageMark={ageMark}
+              pinnedYear={pinnedYear}
+              onSelectYear={pinYear}
+              {...(locked === null ? { onBand } : {})}
+              {...(investModel !== null && explain === null
+                ? {
+                    bar: (
+                      <InvestBar
+                        invest={investModel}
+                        canBreakdown={investModel.breakdown !== null}
+                        onBreakdown={(on) => putSettings({ invBreakdown: on })}
+                        onPeriods={(on) => putSettings({ invPeriods: on })}
+                        stressOn={stressOn}
+                        onStress={toggleStress}
+                        onStressLine={(k) => setStressHidden((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k]))}
                       />
-                    ) : null}
-                    {model.fee !== null ? <FeeNote model={model.fee} /> : null}
-                  </>
-                }
-              />
-            </div>
+                    ),
+                    ...(donut !== null ? { after: donut } : {}),
+                  }
+                : {})}
+              tools={
+                <button type="button" class="set-btn" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)} data-settings-open>
+                  表示の設定{settings.metrics.length > 0 ? <span class="memo-n">{settings.metrics.length}</span> : null}
+                </button>
+              }
+              below={
+                <>
+                  {settingsOpen ? (
+                    <DisplaySettingsPanel
+                      value={settings}
+                      feeAvailable={hasAdvisoryFee(opened.wh.request)}
+                      onChange={(s) =>
+                        history.track(() => {
+                          settingsRef.current = s;
+                          setSettings(s);
+                          // FP顧問料の一文の枠（alt）を足す・外す
+                          putWork(workRef.current, openedRef.current, "set");
+                        })
+                      }
+                      onClose={() => setSettingsOpen(false)}
+                    />
+                  ) : null}
+                  {model.fee !== null ? <FeeNote model={model.fee} /> : null}
+                </>
+              }
+            />
             {/* ③ 対策 */}
-            <div class="dock-controls" ref={dockControls}>
-              <LeverCard
-                selected={names.selected}
-                baseLetter={letterOf(work.base)}
-                locked={locked}
-                modified={modified.has(work.sel)}
-                levers={leverRows}
-                fee={feeToggle}
-                onSlide={slide}
-                onRelease={release}
-                onReset={resetDraft}
-                onOverwrite={work.sel !== CURRENT ? overwrite : null}
-                onSaveNew={saveNew}
-                suggested={planInfo.suggested}
-                changes={planInfo.changes}
-                onAck={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(acknowledge(opened.wh, opened.catalog, work.sel, k)) : null}
-                onDrop={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(dropChange(opened.wh, opened.catalog, work.sel, k)) : null}
-                {...(initial.save === true ? { initialSave: true } : {})}
-                {...(selReq !== null && model !== null && (selReq.input.household.accounts ?? []).length > 0
-                  ? {
-                      extra: (
-                        <DrawdownCalc
-                          key={work.sel}
-                          req={selReq}
-                          years={model.chart.years}
-                          compute={computeOne}
-                          locked={locked !== null}
-                          {...(initial.calc === true ? { initialOpen: true } : {})}
-                          onUse={(d) => {
-                            const key = d.method === "fixed" ? "inv:wAmt" : "inv:wRate";
-                            setShown((s) => [...new Set([...s, key, "inv:wStart"])]);
-                            setValue("inv:wStart", d.startAge, "slide");
-                            setValue(key, d.value, "release");
-                          }}
-                        />
-                      ),
-                    }
-                  : {})}
-                addRow={
-                  <div class="add-row">
-                    {menuOpen ? (
-                      <ItemMenu
-                        catalog={opened.catalog}
-                        shown={shownSet}
-                        onPick={(k) => {
-                          setShown((s) => [...s, k]);
-                          setMenuOpen(false);
+            <LeverCard
+              selected={names.selected}
+              baseLetter={letterOf(work.base)}
+              locked={locked}
+              modified={modified.has(work.sel)}
+              levers={leverRows}
+              fee={feeToggle}
+              onSlide={slide}
+              onRelease={release}
+              onReset={resetDraft}
+              onOverwrite={work.sel !== CURRENT ? overwrite : null}
+              onSaveNew={saveNew}
+              suggested={planInfo.suggested}
+              changes={planInfo.changes}
+              onAck={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(acknowledge(opened.wh, opened.catalog, work.sel, k)) : null}
+              onDrop={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(dropChange(opened.wh, opened.catalog, work.sel, k)) : null}
+              {...(initial.save === true ? { initialSave: true } : {})}
+              {...(selReq !== null && model !== null && (selReq.input.household.accounts ?? []).length > 0
+                ? {
+                    extra: (
+                      <DrawdownCalc
+                        key={work.sel}
+                        req={selReq}
+                        years={model.chart.years}
+                        compute={computeOne}
+                        locked={locked !== null}
+                        {...(initial.calc === true ? { initialOpen: true } : {})}
+                        onUse={(d) => {
+                          const key = d.method === "fixed" ? "inv:wAmt" : "inv:wRate";
+                          setShown((s) => [...new Set([...s, key, "inv:wStart"])]);
+                          setValue("inv:wStart", d.startAge, "slide");
+                          setValue(key, d.value, "release");
                         }}
-                        onClose={() => setMenuOpen(false)}
                       />
-                    ) : (
-                      <button type="button" class="add-item-btn" onClick={() => setMenuOpen(true)} data-add-item>
-                        ＋ 動かす項目を追加
-                      </button>
-                    )}
-                  </div>
-                }
-              >
-                {addedRows}
-              </LeverCard>
-            </div>
+                    ),
+                  }
+                : {})}
+              addRow={
+                <div class="add-row">
+                  {menuOpen ? (
+                    <ItemMenu
+                      catalog={opened.catalog}
+                      shown={shownSet}
+                      onPick={(k) => {
+                        setShown((s) => [...s, k]);
+                        setMenuOpen(false);
+                      }}
+                      onClose={() => setMenuOpen(false)}
+                    />
+                  ) : (
+                    <button type="button" class="add-item-btn" onClick={() => setMenuOpen(true)} data-add-item>
+                      ＋ 動かす項目を追加
+                    </button>
+                  )}
+                </div>
+              }
+            >
+              {addedRows}
+            </LeverCard>
             {/* ④ 生涯キャッシュフロー表 */}
             {table !== null ? (
               <CashflowTable

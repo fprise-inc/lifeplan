@@ -1,7 +1,8 @@
 // 資産と負債のタブ（提示層の部品。家計のバランスシートを図で見せる）。受け取るのは BalanceTabModel と手続きだけ（0016 の2）。
 // 配置（上から）: 見るもの（家計のバランスシート／合算BS（カスタマイズで追加）の入口）→ プランの帯（作業の層が渡す）→
 // バランスシートの図（1年ずつ見る／時点を並べる／プランを並べる／前回と比べる）→ 年のつまみ（図のすぐ下。図とつまみが同時に画面に収まるよう、
-// 窓の高さが低いときは図を縮める）→ ひと言の解説と家計の体力の目安 → 表で見る（既定は閉じる）→ 資産と負債の推移のグラフ（押すとその年のバランスシート）
+// 窓の高さが低いときは図を縮める）→ ひと言の解説と家計の体力の目安 → 表で見る（既定は閉じる）→ 資産と負債の推移のグラフ（押すとその年のバランスシート）。
+// このタブの表示の設定（図の見出しの右の「表示の設定」。結果のタブの表示の設定とは別）: 時点を並べるときの既定の時点と、家計の体力の目安の幅
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { BsFigure, useBoxSize } from "./BsFigure.tsx";
@@ -19,14 +20,14 @@ export interface BalanceTabProps {
   band: ComponentChildren;
   /** 前回と比べるで控えを選んだ（作業の層が計算する） */
   onPrev: (key: string) => void;
-  /** 家計の体力の目安の幅を変えた（事務所の設定） */
+  /** 家計の体力の目安の幅を変えた（このタブの表示の設定） */
   onGuide: (g: BsGuide) => void;
   /** 並べる時点をこの世帯で変えた（null は既定に戻す） */
   onColumns: (c: BsColumn[] | null) => void;
-  /** 時点を並べるときの既定の時点を変えた（事務所の設定） */
+  /** 時点を並べるときの既定の時点を変えた（このタブの表示の設定） */
   onPointDefaults: (k: BsPointKey[]) => void;
   /** 画面の確かめ用の最初の状態 */
-  initial?: { view?: BsView; year?: number; open?: "combined"; table?: boolean };
+  initial?: { view?: BsView; year?: number; open?: "combined"; table?: boolean; settings?: boolean };
 }
 
 const Parts = ({ parts }: { parts: readonly VerdictPart[] }) => <>{parts.map((p, i) => (p.strong === true ? <b key={i}>{p.text}</b> : <span key={i}>{p.text}</span>))}</>;
@@ -87,6 +88,18 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
   const [prevKey, setPrevKey] = useState<string | null>(null);
   const [table, setTable] = useState(initial?.table === true);
   const [adjusted, setAdjusted] = useState(false);
+  // このタブの表示の設定（図の見出しの右のボタンで、見出しのすぐ下に開く）。体力の目安・既定の時点の「変える」からも開く（開いた欄へスクロール）
+  const [settingsOpen, setSettingsOpen] = useState(initial?.settings === true);
+  const [settingsNonce, setSettingsNonce] = useState(0);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (settingsNonce === 0) return;
+    settingsRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+  }, [settingsNonce]);
+  const openSettings = () => {
+    setSettingsOpen(true);
+    setSettingsNonce((n) => n + 1);
+  };
   const headRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const fitMain = useFitHeight(headRef, barRef, FIG_H.main, [view]);
@@ -185,13 +198,21 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
                     確定前
                   </span>
                 ) : null}
+                <button type="button" class="set-btn bs-set-btn" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)} data-bs-settings-open>
+                  表示の設定
+                </button>
               </div>
               <p class="bs-subline">箱の高さは金額に比例（1年ずつ見るときはその年がいっぱいに見える縮尺。並べるときは共通の縮尺）。箱を押すと内訳が開きます</p>
             </div>
+            {settingsOpen ? (
+              <div ref={settingsRef}>
+                <BalanceSettingsPanel model={model} available={plan.points.map((p) => p.key)} onGuide={onGuide} onPointDefaults={onPointDefaults} onClose={() => setSettingsOpen(false)} />
+              </div>
+            ) : null}
             {view === "one" ? (
               <OneYear model={model} plan={plan} year={year} yi={yi} onPick={pick} onAdjusted={setAdjusted} height={fitMain} />
             ) : view === "three" ? (
-              <ThreeView model={model} plan={plan} cols={cols} onGo={(i) => pick(i)} onColumns={onColumns} onPointDefaults={onPointDefaults} height={FIG_H.compact} />
+              <ThreeView model={model} plan={plan} cols={cols} onGo={(i) => pick(i)} onColumns={onColumns} onEditDefaults={openSettings} height={FIG_H.compact} />
             ) : view === "plans" ? (
               <PlansView model={model} lr={lr} onLr={setLr} yi={yi} height={fitPlans} part="figs" />
             ) : (
@@ -220,7 +241,7 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
               />
             ) : null}
             {view === "plans" ? <PlansView model={model} lr={lr} onLr={setLr} yi={yi} height={fitPlans} part="diff" /> : null}
-            {view === "one" ? <OneYearBelow model={model} plan={plan} year={year} adjusted={adjusted} onGuide={onGuide} /> : null}
+            {view === "one" ? <OneYearBelow model={model} plan={plan} year={year} adjusted={adjusted} onEditGuide={openSettings} /> : null}
             <details class="bs-tbl" open={table} onToggle={(e) => setTable((e.currentTarget as HTMLDetailsElement).open)} data-bs-table>
               <summary>
                 <b>表で見る</b>
@@ -279,7 +300,7 @@ function OneYear({ model, plan, year, yi, onPick, onAdjusted, height }: { model:
 }
 
 /** 1年ずつ見るときの、つまみの下（ひと言の解説・バランスシートで見えること・家計の体力の目安） */
-function OneYearBelow({ model, plan, year, adjusted, onGuide }: { model: BalanceTabModel; plan: BsPlanModel; year: BsYearModel; adjusted: boolean; onGuide: (g: BsGuide) => void }) {
+function OneYearBelow({ model, plan, year, adjusted, onEditGuide }: { model: BalanceTabModel; plan: BsPlanModel; year: BsYearModel; adjusted: boolean; onEditGuide: () => void }) {
   const eq = year.totalAssets === year.totalLiabilities + year.netWorth;
   return (
     <>
@@ -306,7 +327,7 @@ function OneYearBelow({ model, plan, year, adjusted, onGuide }: { model: Balance
             <span class="bs-eqnote">左右の箱は必ず同じ高さです（資産＝負債＋純資産）</span>
           </div>
         </div>
-        <HealthCard year={year} first={plan.years[0] as BsYearModel} guide={model.guide} onGuide={onGuide} />
+        <HealthCard year={year} first={plan.years[0] as BsYearModel} guide={model.guide} onEditGuide={onEditGuide} />
       </div>
     </>
   );
@@ -389,9 +410,9 @@ const HealthText = ({ item }: { item: HealthItem }) => (
   </span>
 );
 
-export function HealthCard({ year, first, guide, onGuide }: { year: BsYearModel; first: BsYearModel; guide: BsGuide; onGuide?: (g: BsGuide) => void }) {
+/** 家計の体力の目安。onEditGuide を渡すと「目安の幅を変える」（このタブの表示の設定を開く）を出す */
+export function HealthCard({ year, first, guide, onEditGuide }: { year: BsYearModel; first: BsYearModel; guide: BsGuide; onEditGuide?: () => void }) {
   const h = healthOf(year, guide);
-  const [edit, setEdit] = useState(false);
   const mv = h.months.value !== null ? monthsValue(h.months.value) : null;
   const d = year.netWorth - first.netWorth;
   return (
@@ -435,12 +456,11 @@ export function HealthCard({ year, first, guide, onGuide }: { year: BsYearModel;
         </span>
         <span class="hn">{year.fact ? "入力した値から計算" : `今から ${manDiff(d)}万円`}</span>
       </div>
-      {onGuide !== undefined ? (
+      {onEditGuide !== undefined ? (
         <div class="hg">
-          <button type="button" class="link-btn" aria-expanded={edit} onClick={() => setEdit(!edit)} data-bs-guide-open>
-            目安の幅を変える（事務所の設定）
+          <button type="button" class="link-btn" onClick={onEditGuide} data-bs-guide-open>
+            目安の幅を変える（表示の設定）
           </button>
-          {edit ? <GuideEditor guide={guide} onGuide={onGuide} /> : null}
         </div>
       ) : null}
     </div>
@@ -465,7 +485,7 @@ function GuideEditor({ guide, onGuide }: { guide: BsGuide; onGuide: (g: BsGuide)
   );
   return (
     <div class="hg-edit" role="group" aria-label="家計の体力の目安の幅">
-      <p>FP が事務所で使う目安の幅です。どの世帯でも同じ幅で見せます（最初の値: 6〜12か月分・10〜40%・50%未満）。</p>
+      <p>家計の体力の目安で、ゲージに帯で見せる幅です（最初の値: 6〜12か月分・10〜40%・50%未満）。</p>
       <div class="hg-row">
         すぐ使えるお金 {box("下限", guide.months[0], (v) => set({ months: [v, guide.months[1]] }), "か月分", "months0")}〜{box("上限", guide.months[1], (v) => set({ months: [guide.months[0], v] }), "か月分", "months1")}
       </div>
@@ -591,9 +611,8 @@ function YearBar({ plan, yi, onYear, play, onPlay, onStop, barRef }: { plan: BsP
 
 const MIN_COLS = 2;
 const MAX_COLS = 4;
-function ThreeView({ model, plan, cols, onGo, onColumns, onPointDefaults, height }: { model: BalanceTabModel; plan: BsPlanModel; cols: ResolvedColumn[]; onGo: (i: number) => void; onColumns: (c: BsColumn[] | null) => void; onPointDefaults: (k: BsPointKey[]) => void; height: number }) {
+function ThreeView({ model, plan, cols, onGo, onColumns, onEditDefaults, height }: { model: BalanceTabModel; plan: BsPlanModel; cols: ResolvedColumn[]; onGo: (i: number) => void; onColumns: (c: BsColumn[] | null) => void; onEditDefaults: () => void; height: number }) {
   const [open, setOpen] = useState<number | null>(null);
-  const [editDefaults, setEditDefaults] = useState(false);
   const ys = cols.map((p) => plan.years[p.index] as BsYearModel);
   const sc = scaleFor(ys);
   const raw = colsOf(model.columns, model.pointDefaults);
@@ -627,12 +646,11 @@ function ThreeView({ model, plan, cols, onGo, onColumns, onPointDefaults, height
               既定（{defaultsText}）に戻す
             </button>
           ) : null}
-          <button type="button" class="link-btn" aria-expanded={editDefaults} onClick={() => setEditDefaults(!editDefaults)} data-bs-defaults-open>
-            既定の時点を変える（事務所の設定）
+          <button type="button" class="link-btn" onClick={onEditDefaults} data-bs-defaults-open>
+            既定の時点を変える（表示の設定）
           </button>
         </span>
       </div>
-      {editDefaults ? <PointDefaultsEditor choices={model.pointChoices} value={model.pointDefaults} available={plan.points.map((p) => p.key)} onChange={onPointDefaults} /> : null}
       <div class={`bs-three n${cols.length}`} data-bs-three={cols.length}>
         {cols.map((p, k) => {
           const y = ys[k] as BsYearModel;
@@ -784,7 +802,33 @@ function ColumnPicker({ plan, index, canRemove, onPick, onRemove, onClose }: { p
   );
 }
 
-/** 既定の時点（事務所の設定）: 候補から2〜4つ */
+/**
+ * 資産と負債のタブの表示の設定（図の見出しのすぐ下に開く。別の窓は出さない）: 時点を並べるときの既定の時点と、家計の体力の目安の幅。
+ * 結果のタブの表示の設定とは別に持つ
+ */
+export function BalanceSettingsPanel({ model, available, onGuide, onPointDefaults, onClose }: { model: BalanceTabModel; available?: readonly BsPointKey[]; onGuide: (g: BsGuide) => void; onPointDefaults: (k: BsPointKey[]) => void; onClose: () => void }) {
+  return (
+    <div class="disp-settings bs-settings" role="group" aria-label="資産と負債の表示の設定" data-bs-settings>
+      <div class="ds-head">
+        <b>表示の設定</b>
+        <span class="ds-note">資産と負債のタブの見せ方を選びます（結果のタブの表示の設定とは別。世帯を保存していれば、世帯のファイルに一緒に保存します）</span>
+        <button type="button" class="link-btn" onClick={onClose}>
+          閉じる
+        </button>
+      </div>
+      <div class="ds-layout ds-bspoints" data-bs-points-setting>
+        <span class="ds-k">「時点を並べる」の既定</span>
+        <PointDefaultsEditor choices={model.pointChoices} value={model.pointDefaults} {...(available !== undefined ? { available } : {})} onChange={onPointDefaults} />
+      </div>
+      <div class="ds-layout ds-bspoints" data-bs-guide-setting>
+        <span class="ds-k">家計の体力の目安の幅</span>
+        <GuideEditor guide={model.guide} onGuide={onGuide} />
+      </div>
+    </div>
+  );
+}
+
+/** 既定の時点（このタブの表示の設定）: 候補から2〜4つ */
 export function PointDefaultsEditor({ choices, value, available, onChange }: { choices: BalanceTabModel["pointChoices"]; value: readonly BsPointKey[]; available?: readonly BsPointKey[]; onChange: (k: BsPointKey[]) => void }) {
   const set = new Set(value);
   const toggle = (k: BsPointKey, on: boolean) => {
@@ -794,7 +838,7 @@ export function PointDefaultsEditor({ choices, value, available, onChange }: { c
   return (
     <div class="bs-defaults" role="group" aria-label="既定の時点" data-bs-defaults>
       <p>
-        見出しを変えていない世帯で並べる時点です（事務所の設定）。{MIN_COLS}〜{MAX_COLS}つ選びます（最初の値: 今・退職の年・75歳）。世帯に無い時点（例: ローンの無い世帯のローン完済）は、10年後などで埋めます。
+        見出しを変えていない世帯で並べる時点です。{MIN_COLS}〜{MAX_COLS}つ選びます（最初の値: 今・退職の年・75歳）。世帯に無い時点（例: ローンの無い世帯のローン完済）は、10年後などで埋めます。
       </p>
       <div class="bs-defaults-list">
         {choices.map((c) => {

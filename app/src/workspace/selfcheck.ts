@@ -449,6 +449,16 @@ export async function runPlansCheck(dual: () => DualEngine | null, host: string,
     report.settings = { mark: document.querySelector(".main-chart .m-age") !== null, cardMetrics: document.querySelectorAll(".plan .p-amt").length, verdict: text("[data-verdict]") };
     await stage("settings", report);
     await click('[data-metric="assetsAtAge"]', 300);
+    // 10b. グラフを小窓で表示: 見出しの右上のボタンで出す（ボタンは「小窓を閉じる」に変わる）。別のタブに移ると閉じる
+    await click('[data-pip-toggle="open"]', 400);
+    const pipOpened = { panel: document.querySelector("[data-pip-panel]") !== null, button: document.querySelector("[data-pip-toggle]")?.getAttribute("data-pip-toggle") ?? null };
+    await stage("pip", { ...report, pip: pipOpened });
+    tabBtn("資産と負債")?.click();
+    await sleep(600);
+    const pipAfterTab = document.querySelector("[data-pip-panel]") !== null;
+    tabBtn("結果")?.click();
+    await sleep(900);
+    report.pip = { ...pipOpened, closedOnTab: !pipAfterTab, stillClosed: document.querySelector("[data-pip-panel]") === null };
     // 11. 5案の比較: 一覧で帯の案を外してから5案を並べ直し、6枠の正の計算がそろって比較の表が出るまで
     await click("[data-open-list]");
     for (const b of [...document.querySelectorAll<HTMLInputElement>("[data-band-pick]")]) if (b.checked) b.click();

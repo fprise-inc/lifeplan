@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.7";
+pub const CURRENT: &str = "0.8";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -30,7 +30,10 @@ pub const CURRENT: &str = "0.7";
 /// - 0.7: 表示の設定に、資産と負債のタブで時点を並べるときの既定の時点 `display.bsPoints` と、この世帯で選んだ時点 `display.bsColumns`
 ///   （候補の鍵か決まった年）を足した（どちらも任意。無ければ既定。足すだけの MINOR。0027 の追記）。0.6 の間に足した家計の体力の目安の幅
 ///   `display.bsGuide`（任意）も、この版から形式の一部として数える
-pub const KNOWN: &[&str] = &["0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7"];
+/// - 0.8: 表示の設定をタブごとの区画に分けた（`display.result`: 結果のタブ ＝ `metrics`・`atAge`・`layout`・`invBreakdown`・`invPeriods`、
+///   `display.balance`: 資産と負債のタブ ＝ `guide`・`points`・`columns`）。なくした「操作中はグラフを上に表示」の `display.dock` は持たない。
+///   形を変える段（0.7 → 0.8）で、直下の値を区画へ移す（`bsGuide` → `balance.guide`、`bsPoints` → `balance.points`、`bsColumns` → `balance.columns`）
+pub const KNOWN: &[&str] = &["0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8"];
 
 /// 1段分の変換
 pub struct Step {
@@ -70,6 +73,11 @@ pub const STEPS: &[Step] = &[
         from: "0.6",
         to: "0.7",
         apply: v0_6_to_0_7,
+    },
+    Step {
+        from: "0.7",
+        to: "0.8",
+        apply: v0_7_to_0_8,
     },
 ];
 
@@ -132,6 +140,44 @@ fn v0_6_to_0_7(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.7".into());
+    }
+    Ok(body)
+}
+
+/// 表示の設定の直下の欄のうち、結果のタブの区画へ移すもの（名前は変えない）
+const RESULT_KEYS: &[&str] = &["metrics", "atAge", "layout", "invBreakdown", "invPeriods"];
+/// 資産と負債のタブの区画へ移すもの（前の名前 → 区画の中の名前）
+const BALANCE_KEYS: &[(&str, &str)] = &[
+    ("bsGuide", "guide"),
+    ("bsPoints", "points"),
+    ("bsColumns", "columns"),
+];
+
+/// 0.7 → 0.8: 表示の設定を、タブごとの区画（`display.result`・`display.balance`）へ移す。なくした `display.dock` は捨てる。
+/// 区画へ移す欄のほか（知らない欄）は、そのまま直下に残す（失わない）。表示の設定の無い本文には足さない（画面が既定で読む）
+fn v0_7_to_0_8(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(display) = obj.get_mut("display").and_then(Value::as_object_mut) {
+        if !display.contains_key("result") && !display.contains_key("balance") {
+            let mut result = serde_json::Map::new();
+            for k in RESULT_KEYS {
+                if let Some(v) = display.remove(*k) {
+                    result.insert((*k).into(), v);
+                }
+            }
+            let mut balance = serde_json::Map::new();
+            for (from, to) in BALANCE_KEYS {
+                if let Some(v) = display.remove(*from) {
+                    balance.insert((*to).into(), v);
+                }
+            }
+            display.insert("result".into(), Value::Object(result));
+            display.insert("balance".into(), Value::Object(balance));
+        }
+        display.remove("dock");
+    }
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.8".into());
     }
     Ok(body)
 }
@@ -226,7 +272,8 @@ mod tests {
         assert_eq!(access("0.4").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.5").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.6").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.8").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.7").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.9").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -238,7 +285,7 @@ mod tests {
         assert_eq!(access("01.1").unwrap_err(), StoreError::FORMAT_UNKNOWN);
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
-        assert_eq!(upgrade("0.8", b.clone()).unwrap(), b);
+        assert_eq!(upgrade("0.9", b.clone()).unwrap(), b);
     }
 
     #[test]
@@ -314,9 +361,48 @@ mod tests {
         // 並べる時点の欄は任意なので足さない（無ければ画面が既定で読む）。ほかの表示の設定はそのまま
         let b = serde_json::json!({"meta": {"formatVersion": "0.6", "revisions": [], "editors": {}}, "household": {"memo": ["x"]}, "display": {"metrics": ["takeHome"], "bsGuide": {"months": [6, 12], "risk": [10, 40], "debt": 50}}});
         let u = upgrade("0.6", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.7");
-        assert_eq!(u["display"], b["display"]);
-        assert!(u["display"].get("bsColumns").is_none());
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        // 0.7 → 0.8 で区画へ移る（中身は同じ）
+        assert_eq!(u["display"]["result"]["metrics"], b["display"]["metrics"]);
+        assert_eq!(u["display"]["balance"]["guide"], b["display"]["bsGuide"]);
+        assert!(u["display"]["balance"].get("columns").is_none());
         assert!(upgrade("0.6", serde_json::json!(null)).is_err());
+    }
+
+    #[test]
+    fn v0_7_moves_display_into_tab_sections_and_drops_dock() {
+        let display = serde_json::json!({
+            "metrics": ["takeHome"], "atAge": 90, "layout": "side", "invBreakdown": true, "invPeriods": null, "dock": "large",
+            "bsGuide": {"months": [6, 12], "risk": [10, 40], "debt": 50},
+            "bsPoints": ["now", "retire", "age75"], "bsColumns": [{"point": "now"}, {"year": 2042}],
+            "ext.unknown": 1
+        });
+        let b = serde_json::json!({"meta": {"formatVersion": "0.7", "revisions": [], "editors": {}}, "household": {"memo": ["x"]}, "display": display});
+        let u = upgrade("0.7", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], "0.8");
+        assert_eq!(u["household"], b["household"]);
+        let d = &u["display"];
+        assert_eq!(
+            d["result"],
+            serde_json::json!({"metrics": ["takeHome"], "atAge": 90, "layout": "side", "invBreakdown": true, "invPeriods": null})
+        );
+        assert_eq!(
+            d["balance"],
+            serde_json::json!({"guide": {"months": [6, 12], "risk": [10, 40], "debt": 50}, "points": ["now", "retire", "age75"], "columns": [{"point": "now"}, {"year": 2042}]})
+        );
+        assert!(d.get("dock").is_none(), "なくした設定は持たない");
+        for k in ["metrics", "bsGuide", "bsPoints", "bsColumns"] {
+            assert!(d.get(k).is_none(), "{k} は区画へ移す");
+        }
+        assert_eq!(d["ext.unknown"], 1, "知らない欄は失わない");
+        // 表示の設定の無い本文には足さない。ある値だけ移す
+        let none = upgrade("0.7", serde_json::json!({"meta": {"formatVersion": "0.7"}})).unwrap();
+        assert!(none.get("display").is_none());
+        let some = upgrade("0.7", serde_json::json!({"display": {"atAge": 80}})).unwrap();
+        assert_eq!(
+            some["display"],
+            serde_json::json!({"result": {"atAge": 80}, "balance": {}})
+        );
+        assert!(upgrade("0.7", serde_json::json!(null)).is_err());
     }
 }

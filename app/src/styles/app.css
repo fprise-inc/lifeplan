@@ -852,50 +852,50 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .lever.added .fld.is-est .fld-c input[type="text"] { border-style: solid; }
 .lever.added .badge.est { border-style: solid; }
 
-/* ---- 操作中はグラフを上に表示（ChartDock.tsx）: 縦の並びの先頭に高さ0の sticky の箱を置き、その中に縮めたグラフを描く（並びの高さは変わらない） ---- */
-.chart-dock { position: sticky; top: 0; height: 0; z-index: 20; margin-bottom: -12px; }
-.chart-dock .dock-in { position: absolute; left: 0; right: 0; top: 0; padding: 6px 14px 4px; border-radius: 0 0 var(--radius) var(--radius); border-top: 0; box-shadow: 0 6px 18px rgba(20, 30, 50, 0.16); max-height: 45vh; overflow: hidden; }
-/* 大きく: 窓の高さから操作の欄の1行分を引いた高さ（ChartDock.tsx が決める） */
-.chart-dock.large .dock-in { max-height: none; }
-.dock-btn { flex: none; height: 28px; border: 1.5px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0 10px; white-space: nowrap; }
-.dock-btn:hover { border-color: var(--ink); }
-/* 浮かせた枠（アプリの窓の中に固定。別の窓にはしない）: 上の帯（取っ手の印つき・薄い色）をドラッグで移動、左右の端で横・下の端で縦・下の角で縦横に大きさを変える */
-.dock-float { position: fixed; z-index: 1; display: flex; flex-direction: column; box-sizing: border-box; margin: 0; padding: 4px 12px 6px; border: 1.5px solid var(--ink-2); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(20, 30, 50, 0.28); overflow: hidden; background: #fff; }
-.dock-grip { flex: none; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; margin: -4px -12px 4px; padding: 5px 12px 5px 12px; background: var(--prop-bg); border-bottom: 1px solid #d3dcec; }
-.dock-grip:hover { background: #dde5f3; }
-.dock-grip:focus-visible { outline: 3px solid var(--prop); outline-offset: -3px; }
-.dock-float.is-moving .dock-grip { cursor: grabbing; background: #d3ddf0; }
-.dock-float.is-moving, .dock-float.is-moving * { cursor: grabbing; }
-.dock-handle { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px 2px 4px; border-radius: 6px; border: 1px dashed #9fb0d0; color: var(--prop-ink); line-height: 1; }
-.dock-handle-i { font-size: 1.15rem; letter-spacing: -0.1em; }
-.dock-handle-t { font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
-/* 初めて浮かせたときだけの案内（アプリを開いている間に1回。数秒で消える） */
+/* ---- グラフを小窓で表示（ChartPip.tsx）: グラフの見出しの右上の「小窓」ボタンと、アプリの窓の中に固定した小窓（別の窓にはしない） ---- */
+.pip-btn { flex: none; box-sizing: border-box; width: 1.9rem; height: 1.9rem; padding: 0; border: 2px solid var(--ink-2); color: var(--ink); background: #fff; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.pip-btn:hover { border-color: var(--ink); }
+.pip-btn:focus-visible { outline: 3px solid var(--prop); outline-offset: 1px; }
+.pip-btn[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.pip-i { flex: none; display: block; width: 1.25rem; height: 1.25rem; }
+.pip .pip-btn { width: 1.75rem; height: 1.75rem; border-width: 1.5px; }
+/* アイコンだけのボタンの説明の札（年の表示 .year-tip と同じ見た目）。乗せたとき・キーボードでフォーカスしたときに、ボタンの下・右端そろえで出す */
+.tip-btn { position: relative; }
+.tip-btn::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; pointer-events: none; white-space: nowrap; background: rgba(255, 255, 255, 0.97); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(20, 30, 50, 0.12); padding: 4px 10px 5px; font-size: 0.82rem; font-weight: 700; line-height: 1.5; color: var(--ink); opacity: 0; visibility: hidden; transition: opacity 0.12s 0.25s; }
+.tip-btn:hover::after, .tip-btn:focus-visible::after { opacity: 1; visibility: visible; }
+/* 小窓: 上の帯（取っ手の印つき・薄い色）をドラッグで移動、左右の端で横・下の端で縦・下の角で縦横に大きさを変える */
+.pip { position: fixed; z-index: 20; display: flex; flex-direction: column; box-sizing: border-box; margin: 0; padding: 4px 12px 6px; border: 1.5px solid var(--ink-2); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(20, 30, 50, 0.28); overflow: hidden; background: #fff; }
+.pip-grip { flex: none; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; margin: -4px -12px 4px; padding: 5px 12px 5px 12px; background: var(--prop-bg); border-bottom: 1px solid #d3dcec; }
+.pip-grip:hover { background: #dde5f3; }
+.pip-grip:focus-visible { outline: 3px solid var(--prop); outline-offset: -3px; }
+.pip.is-moving .pip-grip { cursor: grabbing; background: #d3ddf0; }
+.pip.is-moving, .pip.is-moving * { cursor: grabbing; }
+.pip-handle { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px 2px 4px; border-radius: 6px; border: 1px dashed #9fb0d0; color: var(--prop-ink); line-height: 1; }
+.pip-handle-i { font-size: 1.15rem; letter-spacing: -0.1em; }
+.pip-handle-t { font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
 /* 大きさを変える端: つかめる幅は見た目（枠の線）より広く 8px。乗せると色の線で示す */
-.dock-edge { position: absolute; z-index: 3; touch-action: none; }
-.dock-edge-w { left: 0; top: 0; bottom: 14px; width: 8px; cursor: ew-resize; }
-.dock-edge-e { right: 0; top: 0; bottom: 18px; width: 8px; cursor: ew-resize; }
-.dock-edge-s { left: 14px; right: 18px; bottom: 0; height: 8px; cursor: ns-resize; }
-.dock-edge-sw { left: 0; bottom: 0; width: 14px; height: 14px; cursor: nesw-resize; }
-.dock-edge-se { right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 0 55%, var(--ink-2) 55% 62%, transparent 62% 72%, var(--ink-2) 72% 79%, transparent 79%); }
-.dock-edge-w:hover, .dock-edge-w.on { background: linear-gradient(to right, var(--prop) 0 3px, transparent 3px); }
-.dock-edge-e:hover, .dock-edge-e.on { background: linear-gradient(to left, var(--prop) 0 3px, transparent 3px); }
-.dock-edge-s:hover, .dock-edge-s.on { background: linear-gradient(to top, var(--prop) 0 3px, transparent 3px); }
-.dock-edge-sw:hover, .dock-edge-sw.on { background: linear-gradient(to right, var(--prop) 0 3px, transparent 3px), linear-gradient(to top, var(--prop) 0 3px, transparent 3px); }
-.dock-edge-se:hover, .dock-edge-se.on { background: linear-gradient(135deg, transparent 0 55%, var(--prop) 55% 62%, transparent 62% 72%, var(--prop) 72% 79%, transparent 79%), linear-gradient(to left, var(--prop) 0 3px, transparent 3px), linear-gradient(to top, var(--prop) 0 3px, transparent 3px); }
-.dock-float.is-sizing { user-select: none; -webkit-user-select: none; }
-.dock-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.dock-t { flex: 1; min-width: 0; }
-.dock-t .verdict-line { font-size: 0.95rem; flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dock-t .verdict-line b { font-size: 1em; }
-.dock-t .verdict-line .v-sub { display: none; }
-.dock-x { flex: none; width: 30px; height: 28px; border: 1.5px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font-size: 1.1rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
-.dock-x:hover { border-color: var(--ink); }
-.dock-chart .main-legend { margin-top: 2px; font-size: 0.8rem; }
-.dock-chart .main-legend .hint { display: none; }
-.dock-chart .ys { margin: 2px 0 0; }
-@media (prefers-reduced-motion: no-preference) { .chart-dock.on .dock-in { animation: dock-in 0.16s ease-out; } }
-@keyframes dock-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
-.dock-anchor, .dock-controls { min-width: 0; }
+.pip-edge { position: absolute; z-index: 3; touch-action: none; }
+.pip-edge-w { left: 0; top: 0; bottom: 14px; width: 8px; cursor: ew-resize; }
+.pip-edge-e { right: 0; top: 0; bottom: 18px; width: 8px; cursor: ew-resize; }
+.pip-edge-s { left: 14px; right: 18px; bottom: 0; height: 8px; cursor: ns-resize; }
+.pip-edge-sw { left: 0; bottom: 0; width: 14px; height: 14px; cursor: nesw-resize; }
+.pip-edge-se { right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 0 55%, var(--ink-2) 55% 62%, transparent 62% 72%, var(--ink-2) 72% 79%, transparent 79%); }
+.pip-edge-w:hover, .pip-edge-w.on { background: linear-gradient(to right, var(--prop) 0 3px, transparent 3px); }
+.pip-edge-e:hover, .pip-edge-e.on { background: linear-gradient(to left, var(--prop) 0 3px, transparent 3px); }
+.pip-edge-s:hover, .pip-edge-s.on { background: linear-gradient(to top, var(--prop) 0 3px, transparent 3px); }
+.pip-edge-sw:hover, .pip-edge-sw.on { background: linear-gradient(to right, var(--prop) 0 3px, transparent 3px), linear-gradient(to top, var(--prop) 0 3px, transparent 3px); }
+.pip-edge-se:hover, .pip-edge-se.on { background: linear-gradient(135deg, transparent 0 55%, var(--prop) 55% 62%, transparent 62% 72%, var(--prop) 72% 79%, transparent 79%), linear-gradient(to left, var(--prop) 0 3px, transparent 3px), linear-gradient(to top, var(--prop) 0 3px, transparent 3px); }
+.pip.is-sizing { user-select: none; -webkit-user-select: none; }
+.pip-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pip-title { flex: 1; min-width: 0; }
+.pip-title .verdict-line { font-size: 0.95rem; flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pip-title .verdict-line b { font-size: 1em; }
+.pip-title .verdict-line .v-sub { display: none; }
+.pip-chart .main-legend { margin-top: 2px; font-size: 0.8rem; }
+.pip-chart .main-legend .hint { display: none; }
+.pip-chart .ys { margin: 2px 0 0; }
+@media (prefers-reduced-motion: no-preference) { .pip { animation: pip-in 0.16s ease-out; } }
+@keyframes pip-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 
 /* 計算の待ち（300ミリ秒未満は「計算しています」を出さず、同じくらいの高さを空けておく） */
 .cg-wait { min-height: 420px; }
@@ -969,8 +969,8 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .ml-t { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .ml-tag { flex: none; font-size: 0.72rem; border: 1px solid var(--line); color: var(--base-ink); border-radius: 4px; padding: 0 4px; line-height: 1.5; }
 .ml-tag.wait { border-style: dashed; }
-.dock-chart .multi-legend .ml-cap { display: none; }
-.dock-chart .multi-legend .ml-t { display: none; }
+.pip-chart .multi-legend .ml-cap { display: none; }
+.pip-chart .multi-legend .ml-t { display: none; }
 .year-tip.multi-tip .yt-lead { font-size: 0.78rem; }
 .year-tip .yt-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 1px 6px; align-items: center; }
 .year-tip .yt-rows li { display: contents; }
@@ -980,5 +980,5 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .year-tip .yt-rows li.sel .yt-n::after { content: "（表示中）"; font-weight: 400; color: var(--ink-2); font-size: 0.9em; }
 .p-mark { margin-left: auto; display: inline-flex; align-items: center; }
 @media (prefers-reduced-motion: reduce) { .chart .ml { transition: none; } }
-.dock-chart .multi-tip .yt-t { display: none; }
-.dock-chart .multi-tip { font-size: 0.76rem; line-height: 1.35; }
+.pip-chart .multi-tip .yt-t { display: none; }
+.pip-chart .multi-tip { font-size: 0.76rem; line-height: 1.35; }

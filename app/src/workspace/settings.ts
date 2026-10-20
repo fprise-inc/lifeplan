@@ -1,9 +1,11 @@
-// 表示の設定（事務所の設定）: 主画面に出す数字を FP が選ぶ。既定では何も足さない（「○歳時点の資産」も出さない。2026-10-17）。
-// 事務所の設定として持てる形（0016 の3 の settings/ の宣言型の設定に入れる形）にしてあるが、まだファイルには保存しない（画面の中で持つ）。
+// 表示の設定（タブごとに独立。事務所の設定として持てる形）: 結果のタブの表示の設定（DisplaySettings）と、資産と負債のタブの表示の設定（BalanceSettings）。
+// 万一のときのタブには表示の設定が無い（グラフを小窓で出すボタンはグラフの見出しにある）。
+// 結果のタブ: 主画面に出す数字を FP が選ぶ。既定では何も足さない（「○歳時点の資産」も出さない。2026-10-17）。
 // 選んだ数字は、案の帯のカード・結論の2行目・グラフ（○歳時点の印）に出す。
-// グラフの比べ方（基準の案と選んだ案を1つのグラフに重ねるか、左右に2つ並べるか、帯の全部の案を色分けで重ねるか）もここで選ぶ。既定は重ねる
+// グラフの比べ方（基準の案と選んだ案を1つのグラフに重ねるか、左右に2つ並べるか、帯の全部の案を色分けで重ねるか）もここで選ぶ。既定は重ねる。
+// 資産と負債のタブ: 家計の体力の目安の幅と、時点を並べるときの既定の時点（と、この世帯で見出しから選んだ時点）。
+// どちらも世帯ファイルの本文の display に、タブごとの区画（display.result・display.balance）で書く（形式の版 0.8 から。store/body.ts）
 import { man, manDiff } from "../presentation/format.ts";
-import type { DockMode } from "../presentation/ChartDock.tsx";
 import type { ChartLayout } from "../presentation/MainChart.tsx";
 import type { AgeMark, VerdictPart } from "../presentation/model.ts";
 import type { EngineRequest } from "../engine/types.ts";
@@ -12,10 +14,9 @@ import { DEFAULT_BS_GUIDE, DEFAULT_BS_POINTS } from "./balanceTab.ts";
 import type { PlanMetrics } from "./plans/compare.ts";
 import { targetYearOf } from "./plans/compare.ts";
 
-export type { DockMode };
-
 export type MetricKey = "assetsAtAge" | "takeHome" | "minAssets" | "feeLine";
 
+/** 結果のタブの表示の設定 */
 export interface DisplaySettings {
   /** 出す数字（並びは選択肢の順） */
   metrics: MetricKey[];
@@ -23,34 +24,25 @@ export interface DisplaySettings {
   atAge: number;
   /** グラフの比べ方: 重ねる（既定）／左右に並べる／全部の案を色分けで重ねる */
   layout: ChartLayout;
-  /** 操作中はグラフを上に表示（操作の欄までスクロールすると、グラフが画面の上に付いてくる。見通しと万一のときで同じ）: 出さない／小さく／大きく（既定） */
-  dock: DockMode;
   /** 資産の推移に口座の内訳を積み上げて出す（0026。既定は出さない） */
   invBreakdown: boolean;
   /** 資産の推移の上に運用の期間の帯を出す（0026。null は「取り崩しの予定があるときだけ」） */
   invPeriods: boolean | null;
-  /** 資産と負債のタブの「家計の体力の目安」の幅（0027。最初の値は 6〜12か月分・10〜40%・50%未満） */
-  bsGuide: BsGuide;
-  /** 資産と負債のタブで時点を並べるときの既定の時点（2〜4つ。最初の値は 今・退職の年・75歳） */
-  bsPoints: BsPointKey[];
+}
+
+export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", invBreakdown: false, invPeriods: null };
+
+/** 資産と負債のタブの表示の設定（0027） */
+export interface BalanceSettings {
+  /** 家計の体力の目安の幅（最初の値は 6〜12か月分・10〜40%・50%未満） */
+  guide: BsGuide;
+  /** 時点を並べるときの既定の時点（2〜4つ。最初の値は 今・退職の年・75歳） */
+  points: BsPointKey[];
   /** この世帯で見出しから選んだ並べる時点（2〜4つ。候補の鍵か決まった年）。null は既定のまま */
-  bsColumns: BsColumn[] | null;
+  columns: BsColumn[] | null;
 }
 
-export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { metrics: [], atAge: 95, layout: "overlay", dock: "large", invBreakdown: false, invPeriods: null, bsGuide: DEFAULT_BS_GUIDE, bsPoints: DEFAULT_BS_POINTS, bsColumns: null };
-
-export const DOCK_CHOICES: readonly { key: DockMode; label: string; note: string }[] = [
-  { key: "off", label: "出さない", note: "対策・想定の前提までスクロールしても、グラフは付いてきません" },
-  { key: "small", label: "小さく", note: "グラフを元の約4割の高さに縮めて付いてこさせます。操作の欄が多く見えます。窓の高さが低いときは出しません" },
-  { key: "large", label: "大きく（操作の欄は1行分を残す）", note: "グラフを大きく取り、その下に操作の欄の1行分（つまみ4つ）を残します。隠れた行を動かすと、その行が見えるところまで少しスクロールします" },
-];
-
-/** 保存した本文の値を読む（前の版は「上に表示する／しない」の2つ: する→既定、しない→出さない） */
-export function readDockMode(v: unknown): DockMode {
-  if (v === "off" || v === "small" || v === "large") return v;
-  if (v === false) return "off";
-  return DEFAULT_DISPLAY_SETTINGS.dock;
-}
+export const DEFAULT_BALANCE_SETTINGS: BalanceSettings = { guide: DEFAULT_BS_GUIDE, points: DEFAULT_BS_POINTS, columns: null };
 
 export const LAYOUT_CHOICES: readonly { key: ChartLayout; label: string; note: string }[] = [
   { key: "overlay", label: "重ねる", note: "1つのグラフに基準のプラン（点線）と選んだプランを重ねる（既定）" },

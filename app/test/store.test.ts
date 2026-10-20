@@ -9,7 +9,7 @@ import { CURRENT } from "../src/workspace/plans/band.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { savePlan } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
-import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
+import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { Autosaver, type SaveState, type Timers } from "../src/workspace/store/autosave.ts";
 import { makeSnapshot, snapshotDigest, verifySnapshot } from "../src/workspace/snapshots/snapshots.ts";
 import { BODY_FORMAT_VERSION, bodyObject, bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "../src/workspace/store/body.ts";
@@ -33,8 +33,12 @@ function sample(): BodyState {
   return {
     wh: b.wh,
     workspace: { template: id, band: [a.id, b.id], base: CURRENT, selected: b.id, shownItems: ["rates:shift"] },
-    // 0.7 から: 資産と負債のタブの時点を並べるときの既定の時点と、この世帯で選んだ時点（候補の鍵と決まった年）
-    display: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"], atAge: 90, layout: "side", invBreakdown: true, bsPoints: ["now", "loanEnd", "retire", "age80"], bsColumns: [{ point: "now" }, { year: 2042 }, { point: "age75" }] },
+    // 0.8 から: 表示の設定はタブごとの区画（結果のタブ・資産と負債のタブ）。資産と負債のタブは、目安の幅・時点を並べるときの既定の時点と、
+    // この世帯で選んだ時点（候補の鍵と決まった年）
+    display: {
+      result: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"], atAge: 90, layout: "side", invBreakdown: true },
+      balance: { ...DEFAULT_BALANCE_SETTINGS, guide: { months: [3, 12], risk: [10, 50], debt: 40 }, points: ["now", "loanEnd", "retire", "age80"], columns: [{ point: "now" }, { year: 2042 }, { point: "age75" }] },
+    },
     carry: { extDefinitions: { "ext.exampleOffice.carCount": { type: "integer", label: "車の台数" } }, ext: { "ext.exampleOffice.carCount": 2 } },
   };
 }
@@ -123,8 +127,12 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(s.workspace.selected).toBe(CURRENT);
     expect(s.carry).toEqual(EMPTY_CARRY);
     // 表示の設定の知らない値は既定に戻す（グラフの比べ方を含む）
-    const d = fromBody(JSON.stringify({ household: { request: sample().wh.request }, display: { metrics: ["x", "takeHome"], atAge: "9", layout: "diagonal" } })).display;
-    expect(d).toEqual({ ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"] });
+    const d = fromBody(JSON.stringify({ household: { request: sample().wh.request }, display: { result: { metrics: ["x", "takeHome"], atAge: "9", layout: "diagonal", dock: "large" }, balance: { points: ["now"] } } })).display;
+    expect(d).toEqual({ result: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"] }, balance: DEFAULT_BALANCE_SETTINGS });
+    // 区画の無い 0.7 までの形（直下に平ら）も読む。なくした「操作中はグラフを上に表示」（dock）は持たない
+    const flat = fromBody(JSON.stringify({ household: { request: sample().wh.request }, display: { metrics: ["takeHome"], layout: "side", dock: "small", bsPoints: ["now", "age90"], bsColumns: [{ point: "now" }, { year: 2040 }] } })).display;
+    expect(flat).toEqual({ result: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"], layout: "side" }, balance: { ...DEFAULT_BALANCE_SETTINGS, points: ["now", "age90"], columns: [{ point: "now" }, { year: 2040 }] } });
+    expect(JSON.stringify(flat)).not.toContain("dock");
   });
 
   it("過去のすべての形式の版の見本を、今の画面で読める（0011 の5）", async () => {

@@ -146,7 +146,7 @@ describe("グラフの年: カーソルで○と表示、クリックで固定",
     expect(flows).toMatch(/収入 [\d,▲]+万円・支出 [\d,▲]+万円（プランB）/);
   });
 
-  it("年を選ぶ見えない枠の上に、ポインタを受ける層を重ねない（○・縦の線・小さな表示・浮かせた枠の案内はポインタを通す）", () => {
+  it("年を選ぶ見えない枠の上に、ポインタを受ける層を重ねない（○・縦の線・小さな表示・ボタンの説明の札はポインタを通す）", () => {
     // ○と表示が出ている状態でも、SVG の中で見えない枠より後ろ（上）にあるのはイベントの丸だけ
     const html = renderToString(h(MainChart, { model: model(), mode: "assets", explain: null, ageMark: null, pinnedYear: 2053, onSelectYear: noop }));
     const svg = html.slice(html.indexOf("<svg"), html.indexOf("</svg>"));
@@ -154,8 +154,10 @@ describe("グラフの年: カーソルで○と表示、クリックで固定",
     const css = ["src/styles/app.css"].map((f) => readFileSync(join(REPO_DIR, "app", f), "utf-8")).join("\n");
     const rule = (sel: string) => css.match(new RegExp(`(^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{([^}]*)\\}`))?.[2] ?? "";
     for (const sel of [".chart .hv-dots", ".chart .hv-guide", ".year-tip"]) expect(rule(sel)).toContain("pointer-events: none");
-    // 付いてくるグラフの箱は高さ0（付いてきていないときに元のグラフを覆わない）
-    expect(rule(".chart-dock")).toContain("height: 0");
+    // 小窓はアプリの窓に固定した枠（並びの中に箱を置かない）。アイコンだけのボタンの説明の札はポインタを通す
+    expect(rule(".chart-dock")).toBe("");
+    expect(rule(".pip")).toContain("position: fixed");
+    expect(rule(".tip-btn::after")).toContain("pointer-events: none");
   });
 
   it("説明モードでは年を選ばない（○・表示・選ぶ枠を出さない）", () => {

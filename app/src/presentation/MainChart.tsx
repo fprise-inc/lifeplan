@@ -254,7 +254,7 @@ export interface MainChartProps {
   onSelectYear: (year: number | null) => void;
   /** 比べ方（省略は重ねる）。説明モードと、選んだ案が基準の案のときは重ねる表示（1つのグラフ） */
   layout?: ChartLayout;
-  /** 高さ（px）を決めて描く（操作中に上に付いてくる縮めた表示）。省略は画面の高さに合わせる */
+  /** 高さ（px）を決めて描く（小窓の中の表示）。省略は画面の高さに合わせる */
   height?: number;
   /** 全部の案を色分けで重ねる表示の、凡例で強調している案と一時的に隠している案 */
   multi?: MultiState;
@@ -462,7 +462,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const inv = mode === "assets" && explain === null && multi === null ? model.invest : undefined;
   const bandOn = inv !== undefined && inv.band !== null && inv.view.band && !compact;
   const fs = size.fs;
-  // 縮めた表示（上に付いてくるグラフ）では、年のイベントの丸を描かない（線と塗りの高さを残す。丸は元のグラフと表にある）
+  // 小窓の中の表示では、年のイベントの丸を描かない（線と塗りの高さを残す。丸は元のグラフと表にある）
   const evList = compact ? [] : model.events.filter((e) => years.includes(e.year));
   // 丸の横の位置は下の余白に関わらないので、先に段の数を決めてから枠を決める
   const isMulti = multi !== null && explain === null;

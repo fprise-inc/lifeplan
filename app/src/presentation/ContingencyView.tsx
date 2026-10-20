@@ -3,6 +3,7 @@
 // → グラフ（ContingencyChartCard。資産の推移／必要保障額の推移の切り替え）→ 想定の前提（作業の層の部品）。グラフは主画面と同じ幅・高さの感覚で、年の選び方（線の上の○・クリックで固定・薄いグレーの実線の補助線）と
 // 補間の動き（tween.ts）も主画面と同じ決まり（yearPick.ts）で描く。色は藍（万一の場合・必要保障額）と灰（万一なし・死亡保険金）、不足は赤のベタ塗りと「▲」
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { PipButton } from "./ChartPip.tsx";
 import { areaAbove, areaBelow, linePath, scale, type Frame, type Scale } from "./chart.ts";
 import { group, man, manDiff } from "./format.ts";
 import { chartHeight } from "./MainChart.tsx";
@@ -78,7 +79,7 @@ export interface YearStripProps {
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
-  /** 上に付いてくる縮めた表示（年齢を省く） */
+  /** 小窓の中の縮めた表示（年齢を省く） */
   compact?: boolean;
   /** 「計算しています」を出すまでの時間（ミリ秒。既定は LOADING_DELAY_MS） */
   loadingAfter?: number;
@@ -279,7 +280,7 @@ function frameOf(w: number, h: number, fs: number): Frame {
   return { width: w, height: h, left: 74 * fs, right: 24 * fs, top: 26 * fs, bottom: 48 * fs };
 }
 
-/** 万一のときの大きなグラフ（見通しのグラフと同じ大きさ・同じ年の選び方）。height を渡すとその高さで描く（上に付いてくる縮めた表示） */
+/** 万一のときの大きなグラフ（見通しのグラフと同じ大きさ・同じ年の選び方）。height を渡すとその高さで描く（小窓の中の表示） */
 export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec; height?: number }) {
   const box = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
@@ -733,7 +734,7 @@ export interface ContingencyChartCardProps {
   onPick: (key: string, year: number) => void;
 }
 
-/** グラフの枠に出すもの（枠と、上に付いてくる縮めた表示で同じ決め方） */
+/** グラフの枠に出すもの（枠と、小窓の中の表示で同じ決め方） */
 function cardView(model: ContingencyModel, mode: ContingencyMode) {
   const card = model.scenarios.find((c) => c.key === model.selected);
   const prot = card?.protection != null ? model.protection.charts.find((c) => c.key === card.protection) : undefined;
@@ -804,6 +805,7 @@ export function ContingencyChartCard({ model, mode, onMode, pinnedYear, onPinYea
               </button>
             ))}
           </span>
+          <PipButton />
         </div>
       </div>
       {m === "assets" ? (
@@ -846,11 +848,11 @@ export function ContingencyChartCard({ model, mode, onMode, pinnedYear, onPinYea
   );
 }
 
-/** 上に付いてくる縮めた表示の中身（年ごとの結果の帯・凡例・グラフ）。元の枠と同じ部品で描く */
-export function DockedContingency({ model, mode, pinnedYear, onPinYear, onPick, height, strip }: Omit<ContingencyChartCardProps, "onMode"> & { height: number; strip: Omit<YearStripProps, "model" | "compact"> }) {
+/** 小窓の中身（年ごとの結果の帯・凡例・グラフ）。元の枠と同じ部品で描く */
+export function PipContingency({ model, mode, pinnedYear, onPinYear, onPick, height, strip }: Omit<ContingencyChartCardProps, "onMode"> & { height: number; strip: Omit<YearStripProps, "model" | "compact"> }) {
   const { prot, m, protEvent, sm } = cardView(model, mode);
   return (
-    <div class="dock-chart" data-dock-chart="contingency">
+    <div class="pip-chart" data-pip-chart="contingency">
       <YearStrip {...strip} model={model.strip} compact />
       {m === "assets" && sm !== null ? (
         <>
