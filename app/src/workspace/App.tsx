@@ -3,7 +3,7 @@
 import type { EngineRequest, PreviewResult } from "../engine/types.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { DualEngine } from "../engine/dual.ts";
-import { devBrowserHost, isTauri, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
+import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
@@ -1028,16 +1028,8 @@ export function App() {
     },
     [putWorkRaw],
   );
-  /** 取り崩しの計算の1回（本体の正の計算） */
-  const computeOne = useCallback(
-    async (req: EngineRequest): Promise<PreviewResult | null> => {
-      if (host === null) return null;
-      const res = await host.compute([{ id: "calc", rev: 1, request: JSON.stringify(req) }]);
-      const r = res.slots.calc?.result;
-      return r === undefined || isEngineError(r) ? null : r;
-    },
-    [host],
-  );
+  /** 取り崩しの計算・前回の控えの1回（本体の正の計算。同時に頼まれても1つずつ・同じ要求は1回） */
+  const computeOne = useMemo(() => (host === null ? async (): Promise<PreviewResult | null> => null : singleCompute(host)), [host]);
   const putSettings = useCallback(
     (patch: Partial<DisplaySettings>) =>
       history.track(() => {
