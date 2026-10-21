@@ -369,7 +369,7 @@ function Spark({ plan, yi, onPick }: { plan: BsPlanModel; yi: number; onPick: (i
             onPick(Math.round(((e.clientX - b.left - m.l) / (b.width - m.l - m.r)) * (N - 1)));
           }}
         >
-          <path d={area} fill="var(--bs-g-locked)" fill-opacity="0.7" />
+          <path d={area} fill="var(--bs-g-market)" fill-opacity="0.45" />
           <path d={ys.map((y, i) => `${i === 0 ? "M" : "L"}${X(i).toFixed(1)} ${Y(y.netWorth).toFixed(1)}`).join(" ")} fill="none" stroke="var(--prop-ink)" stroke-width="2" />
           <line x1={m.l} x2={W - m.r} y1={Y(0)} y2={Y(0)} stroke="#9aa3ae" />
           <line x1={X(yi)} x2={X(yi)} y1={m.t - 4} y2={H - m.b} stroke="var(--ink)" stroke-width="1.5" />
