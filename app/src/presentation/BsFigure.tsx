@@ -7,6 +7,8 @@
 // - 純資産のマイナスは左の下に点線・灰色の斜線（ほかの箱と意味が違うので、ここだけ点線の枠）、資金の不足は右（その他の負債）に薄い赤の斜線
 // - 狭い画面（スマホ。narrow.ts）では、図の外の左右の札（名前と金額・金融資産のかっこ）を描かず、柱を幅いっぱいにして、
 //   名前と金額は箱の中と図の下の一覧（HTML。折り返すので画面の端で切れない）に出す
+// - 箱の中の名前と金額は、1行で間が取れるときだけ1行（名前は左・金額は右）。取れなければ金額を名前の下の行に回し、
+//   それも入らない小さな箱は、狭い画面では金額だけ（名前は図の下の一覧）、広い画面では名前だけ（金額は図の外の札）にする（boxTextFit）
 // - 縮尺（scale）を渡さなければその年がいっぱいの高さ。年を変えると、箱と縮尺が前の形から行き過ぎなく動く（tween.ts）
 // - 箱を押すと内訳の小窓（もう一度押す・×・Esc・外を押すと閉じる）
 import type { ComponentChildren } from "preact";
@@ -54,6 +56,33 @@ export const BOX_RADIUS = 4;
 /** 文字の幅の目安（全角1・半角0.6） */
 const textW = (s: string, f: number) => [...s].reduce((w, c) => w + (c.charCodeAt(0) > 255 ? 1 : 0.6), 0) * f;
 const fmt = (yen: Yen) => group(Math.round(yen / 10000));
+
+/**
+ * 箱の中の太字の幅の目安（少し広めに見積もる）。全角1・数字0.78・かんま0.36・細い英字（I・J・i・j・l）0.45・ほかの英大文字0.84・ほかの半角0.68。
+ * 図の外の札の textW（半角0.6）より広い: 箱の中は名前と金額を同じ行に置くので、狭く見積もると2つが詰まって見える
+ */
+export const boxTextW = (s: string, f: number) => [...s].reduce((w, c) => w + (c.charCodeAt(0) > 255 ? 1 : /[0-9]/.test(c) ? 0.78 : /[,.]/.test(c) ? 0.36 : /[IJijl]/.test(c) ? 0.45 : /[A-Z]/.test(c) ? 0.84 : 0.68), 0) * f;
+
+/**
+ * 箱の中の名前と金額の置き方:
+ * - "one": 名前を左・金額を右の1行（間を文字1つ分ほど空けられるとき）
+ * - "two": 名前の下の行に金額（1行では詰まるが、箱に2行分の高さがあるとき）
+ * - "value": 金額だけ（狭い画面で箱が小さいとき。名前は図の下の一覧に出す）
+ * - "name": 名前だけ（広い画面で箱が小さいとき。金額は図の外の札に出す）
+ * - "none": 何も入れない
+ */
+export type BoxTextFit = "one" | "two" | "value" | "name" | "none";
+export function boxTextFit(name: string, value: string, colW: number, h: number, f: number, narrow: boolean): BoxTextFit {
+  if (h < f * 1.55) return "none";
+  const pad = 10;
+  const nmW = boxTextW(name, f);
+  const vW = boxTextW(value, f);
+  const gap = Math.max(10, f * 0.9);
+  if (pad + nmW + gap + vW + pad <= colW) return "one";
+  if (h >= f * 3 && Math.max(nmW, vW) + 2 * pad <= colW) return "two";
+  if (narrow) return vW + 2 * pad <= colW ? "value" : "none";
+  return nmW + 2 * pad <= colW ? "name" : "none";
+}
 
 export interface BsFigureProps {
   year: BsYearModel;
@@ -290,13 +319,12 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                   const rh = Math.max(0, q.h - 2 * inset - 2 * g2);
                   const name = short && q.key === "insurance" ? "返戻金" : short && q.key === "corporateDc" ? "DC" : q.label;
                   // 純資産の箱の中は、広い図では「資産 − 負債」の説明（名前と金額は図の外の札）。狭い画面ではほかの箱と同じく名前と金額
-                  const showText = (!isNw || narrow) && !isNeg && q.h >= subF * 1.55;
+                  const showText = (!isNw || narrow) && !isNeg;
                   const tf = boxInk(q.key);
-                  const nmW = textW(name, subF);
-                  const vW = fmt(q.value).length * subF * 0.6;
                   const ty = q.y + q.h / 2 + subF * 0.36;
-                  // 狭い画面: 名前と金額が1行に入らず、箱に2行分の高さがあれば、金額を名前の下の行に
-                  const two = narrow && showText && nmW + vW + 30 > colW && nmW + 20 <= colW && vW + 20 <= colW && q.h >= subF * 3;
+                  // 名前と金額: 1行で間が取れれば1行、取れなければ金額を名前の下の行に、それも入らなければ金額だけ（狭い画面）か名前だけ
+                  const fit = showText ? boxTextFit(name, fmt(q.value), colW, q.h, subF, narrow) : "none";
+                  const two = fit === "two";
                   return (
                     <g key={q.key}>
                       <rect
@@ -311,18 +339,18 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                         stroke-width={isNeg ? 1.8 : undefined}
                         stroke-dasharray={isNeg ? "6 4" : undefined}
                       />
-                      {showText && nmW + 20 <= colW ? (
-                        <text x={d.x + 10} y={two ? ty - subF * 0.62 : ty} font-size={subF} font-weight="700" fill={tf}>
+                      {fit === "one" || fit === "two" || fit === "name" ? (
+                        <text x={d.x + 10} y={two ? ty - subF * 0.62 : ty} font-size={subF} font-weight="700" fill={tf} data-bs-text="name">
                           {name}
                         </text>
                       ) : null}
-                      {two ? (
-                        <text x={d.x + 10} y={ty + subF * 0.62} font-size={subF} font-weight="700" fill={tf} class="num">
+                      {two || fit === "value" ? (
+                        <text x={d.x + 10} y={two ? ty + subF * 0.62 : ty} font-size={subF} font-weight="700" fill={tf} class="num" data-bs-text="value">
                           {fmt(q.value)}
                         </text>
                       ) : null}
-                      {showText && nmW + vW + 30 <= colW ? (
-                        <text x={d.x + colW - 10} y={ty} text-anchor="end" font-size={subF} font-weight="700" fill={tf} class="num">
+                      {fit === "one" ? (
+                        <text x={d.x + colW - 10} y={ty} text-anchor="end" font-size={subF} font-weight="700" fill={tf} class="num" data-bs-text="value">
                           {fmt(q.value)}
                         </text>
                       ) : null}

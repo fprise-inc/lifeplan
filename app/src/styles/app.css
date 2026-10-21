@@ -169,7 +169,9 @@ html.big .lever input[type="range"] { height: 36px; }
 .tick.is-on { background: var(--prop); color: #fff; font-weight: 700; }
 .tick.is-base { text-decoration: underline solid 2px var(--base); text-underline-offset: 3px; }
 .lever-note { font-size: 0.85rem; color: var(--ink-2); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: space-between; }
-.base-tag { border: 1px solid var(--line); background: var(--base-bg); border-radius: 4px; padding: 0 6px; color: var(--base-ink); font-weight: 700; white-space: nowrap; }
+.base-tag { border: 1px solid var(--line); background: var(--base-bg); border-radius: 4px; padding: 0 6px; color: var(--base-ink); font-weight: 700; white-space: nowrap; max-width: 100%; }
+/* 狭い画面: 基準のプランの値の札は折り返す（長いプランの名前でもページが横にはみ出さない） */
+@media (max-width: 639.98px) { .base-tag { white-space: normal; } }
 .levers-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
 .reset-btn { border: 2px solid var(--ink-2); background: #fff; border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer; }
 
@@ -445,6 +447,11 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-break thead th { background: #f6f7f9; font-size: 0.85rem; }
 .cg-break tr.g-net th, .cg-break tr.g-net td { font-weight: 700; border-top: 2px solid var(--ink); }
 .cg-break td.neg { color: var(--short-ink); }
+/* 狭い画面: 項目の名前と見出しは折り返し、余白を詰める（表がページの幅を超えない。金額は折り返さない） */
+@media (max-width: 639.98px) {
+  .cg-break th, .cg-break td { padding: 5px 4px; }
+  .cg-break th[scope="row"], .cg-break thead th { white-space: normal; }
+}
 /* ③ 想定の前提（対策の欄と同じ部品。広い画面で3列、狭いと2列・1列） */
 .cg-sec { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-2); }
 .cg-sec:first-of-type { border-top: 0; padding-top: 0; }
@@ -498,6 +505,8 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 /* 動かす項目（対策の列） */
 .lever.added .lever-label { font-weight: 700; font-size: 0.95rem; }
 .added-val { margin-top: 2px; font-size: 1.1rem; }
+/* 狭い画面: 足した項目の値（「株式90%・その他10%（年4.8%）」など長い文）は折り返す（2列の対策の欄からはみ出して、ページが横にはみ出さない） */
+@media (max-width: 639.98px) { .added-val { white-space: normal; overflow-wrap: anywhere; } .amt-row > span { min-width: 0; } }
 .lever.added input[type="range"] { width: 100%; margin: 6px 0 2px; accent-color: var(--prop); height: 28px; cursor: pointer; }
 .range-scale { display: flex; justify-content: space-between; gap: 6px; font-size: 0.8rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .base-mark { border: 1px solid var(--line); background: var(--base-bg); border-radius: 4px; padding: 0 5px; color: var(--base-ink); font-weight: 700; }
@@ -589,7 +598,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 /* カードは決まった幅で左から並べ、「＋ このプランを元に作る」はそのすぐ右に置く（余った右側は空ける）。
    窓の幅に入らないときは、カードを少し縮め、それでも入らなければ帯の中だけ横にスクロールする（縦のスクロールは奪わない）。
    幅は rem（文字を大きくすると一緒に広がる） */
-.band { --plan-w: 14.5rem; --plan-min: 11.5rem; display: flex; gap: 10px; align-items: stretch; }
+.band { --plan-w: 14.5rem; --plan-min: 11.5rem; display: flex; gap: 10px; align-items: stretch; min-width: 0; max-width: 100%; }
 .band-head { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding-right: 4px; }
 .band-t { font-weight: 700; font-size: 1.05rem; }
 .band-head label { font-size: 0.82rem; font-weight: 700; display: grid; gap: 2px; color: var(--ink-2); }
@@ -666,6 +675,12 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .seg-g button[aria-pressed="true"] { background: var(--ink); color: #fff; }
 .seg-g button[aria-pressed="true"]::before { content: "● "; font-size: 0.7em; vertical-align: 0.15em; }
 .seg-g button:disabled { color: #8a939d; cursor: not-allowed; }
+/* 狭い画面（640px 未満。presentation/narrow.ts と同じ幅）: 切り替えのボタンが1行に入らなければ折り返す（ページが横にはみ出さない・ボタンが切れない）。
+   折り返した行どうし・ボタンどうしの境目の線は、各ボタンの左と上の線で描く（外の枠に重なる分は枠の内側で隠れる） */
+@media (max-width: 639.98px) {
+  .seg-g { flex-wrap: wrap; max-width: 100%; }
+  .seg-g button { flex: 1 1 auto; border-left: 2px solid var(--ink-2); border-top: 2px solid var(--ink-2); margin: -2px 0 0 -2px; }
+}
 .explain-btn, .set-btn { border: 2px solid var(--prop); color: var(--prop-ink); background: #fff; border-radius: 8px; padding: 3px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; }
 .explain-btn[aria-pressed="true"] { background: var(--prop); color: #fff; }
 .set-btn { border-color: var(--ink-2); color: var(--ink); }
