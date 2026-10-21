@@ -2,7 +2,9 @@
 // 中身は今までの入力の欄（簡易と詳細の切り替えを含む）。値は下書きに入れ、「保存」で世帯に入れる。× と Esc で閉じる（保存していない変更があれば先に知らせる）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { Level } from "./form.ts";
-import { Section, visible } from "./FieldViews.tsx";
+import { FieldSuggestions, Section, visible } from "./FieldViews.tsx";
+import { useSurplusSuggestion } from "./surplusSuggest.ts";
+import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { withRefreshedEstimates } from "./estimates.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
@@ -22,11 +24,13 @@ export interface InputPanelProps {
   onLevel: (l: Level) => void;
   onSave: (next: WorkingHousehold, itemId: string) => void;
   onClose: () => void;
+  /** 1件だけの計算（前提条件のパネルで、控えから実際の貯まり方を出すときに控えの入力を計算する。0031） */
+  computeOne?: (req: EngineRequest) => Promise<PreviewResult | null>;
 }
 
 const FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
-export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose }: InputPanelProps) {
+export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose, computeOne }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(initialDraft ?? wh);
   const [dirty, setDirty] = useState(initialDraft !== undefined);
   const [leaving, setLeaving] = useState(false);
@@ -34,6 +38,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const item = useMemo(() => inputItems(draft).find((i) => i.id === itemId) ?? null, [draft, itemId]);
   const stage = useMemo(() => itemStage(draft, itemId), [draft, itemId]);
   const adding = initialDraft !== undefined;
+  const suggestions = useSurplusSuggestion(draft, itemId === "assumptions", computeOne);
 
   // 元に戻す・やり直す: 開いている間は、このパネルの下書きの履歴を使う（裏の世帯は戻さない）
   const history = useRef<UndoHistory<WorkingHousehold> | null>(null);
@@ -165,12 +170,12 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
           {itemId === "savings" ? (
             <SavingsPanel wh={draft} level={level} onEdit={edit} />
           ) : (
-            <>
+            <FieldSuggestions.Provider value={suggestions}>
               {sections.map((s) => (
                 <Section key={s.key} section={s} wh={draft} level={level} onEdit={edit} />
               ))}
               {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます。</p> : null}
-            </>
+            </FieldSuggestions.Provider>
           )}
         </div>
         <div class="ip-foot" role={leaving ? "alert" : undefined}>

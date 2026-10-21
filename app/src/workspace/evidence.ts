@@ -7,6 +7,7 @@ import type { EvidenceView } from "../presentation/model.ts";
 import { group } from "../presentation/format.ts";
 import { FORMULA_LABELS } from "./formulas.ts";
 import { rowDefs } from "./present.ts";
+import { reserveEvidenceNote, surplusEvidenceNote } from "./surplus.ts";
 import { ageInYear, leaveYear, roles } from "./roles.ts";
 
 /** 制度の値を、表に出す文字に（表・段階は「表（n段）」） */
@@ -100,6 +101,7 @@ export function buildEvidence(full: FullResult, req: EngineRequest, rowKey: stri
         version: p.packVersion,
         appliesFrom: p.appliesFrom ?? "",
       })),
-    note: byAccrual ? null : "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。",
+    // ゆとりの支出・生活防衛資金は、何を差し引いたか・どう決めたかの一言（0031）
+    note: (rowKey === "surplusSpend" ? surplusEvidenceNote(req, full.table, year) : rowKey === "reserve" ? reserveEvidenceNote(req, full.table, year) : null) ?? (byAccrual ? null : "表は受け取った年・支払った年で集計しています（年金は偶数月に前の2か月分を受け取ります）。"),
   };
 }

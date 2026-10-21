@@ -7,6 +7,8 @@ import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
+/** ゆとりの支出の行（黒字のうち貯まらない分。0031） */
+export const SURPLUS_ROW = "cf.expense.living.surplus";
 
 /** 表に出す年: 計算基準月が年の途中なら翌年から（その年は数か月分しかないため）、表の最後の年まで */
 export function displayYears(req: EngineRequest): number[] {
@@ -25,9 +27,19 @@ export function sumByYear(table: readonly TableCell[], pred: (c: TableCell) => b
 
 export const financialOf = (t: readonly TableCell[]) => sumByYear(t, (c) => c.row === "cf.balance.financial");
 
-/** 資産が尽きる年（金融資産がはじめてマイナスになる年）。尽きなければ null */
+/** 生活防衛資金を除いて「金融資産は○歳まで持つ」を判定する表か（エンジンが判定の基の行 cf.balance.financial.usable を出している。0031） */
+export const lastingExcludesReserve = (t: readonly TableCell[]) => t.some((c) => c.row === "cf.balance.financial.usable");
+
+/** 不足の年の言い方に添える文（生活防衛資金を除いて判定しているときだけ） */
+export const reserveNote = (t: readonly TableCell[]) => (lastingExcludesReserve(t) ? "（生活防衛資金を除く）" : "");
+
+/**
+ * 資産が尽きる年（金融資産がはじめてマイナスになる年）。尽きなければ null。
+ * 生活防衛資金があるとき（0031）は、金融資産−生活防衛資金の目安（使えるお金）がはじめてマイナスになる年（判定に含める前提なら金融資産のまま）
+ */
 export function depletionYear(table: readonly TableCell[], years: readonly number[]): number | null {
-  const fin = financialOf(table);
+  const usable = sumByYear(table, (c) => c.row === "cf.balance.financial.usable");
+  const fin = usable.size > 0 ? usable : financialOf(table);
   for (const y of years) if ((fin.get(y) ?? 0) < 0) return y;
   return null;
 }
@@ -80,7 +92,9 @@ export function rowDefs(req: EngineRequest): RowDef[] {
       evidence: true,
     },
     { key: "incomeTotal", label: "収入合計", group: "income", kind: "total", match: (c) => under(c.row, "cf.income"), evidence: false },
-    { key: "living", label: ROW_LABELS["cf.expense.living"] ?? "基本生活費", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.living")), evidence: true },
+    { key: "living", label: ROW_LABELS["cf.expense.living"] ?? "基本生活費", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.living") && c.row !== SURPLUS_ROW), evidence: true },
+    // 黒字のうち貯まらない分（0031。黒字のうち貯まる割合を入れたときだけ、値のある年に出る）
+    { key: "surplusSpend", label: "ゆとりの支出", group: "expense", kind: "value", match: (c) => c.row === SURPLUS_ROW, evidence: true },
     { key: "housing", label: "住居費（ローン・税・修繕）", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.housing"), evidence: true },
     { key: "education", label: "教育費", group: "expense", kind: "value", match: (c) => under(c.row, "cf.expense.education"), evidence: true },
     { key: "insurance", label: "保険料", group: "expense", kind: "value", match: notCar((c) => under(c.row, "cf.expense.insurance")), evidence: true },
@@ -100,6 +114,8 @@ export function rowDefs(req: EngineRequest): RowDef[] {
     { key: "net", label: "年間収支", group: "net", kind: "total", match: (c) => c.row === "cf.net", evidence: false },
     { key: "nisaIn", label: "NISAへの積立", group: "assets", kind: "value", match: (c) => under(c.row, "cf.transfer.nisa"), evidence: true },
     { key: "financial", label: "金融資産残高", group: "assets", kind: "total", match: (c) => c.row === "cf.balance.financial", evidence: true },
+    // 生活防衛資金（0031。入れたときだけ）
+    { key: "reserve", label: "うち生活防衛資金", group: "assets", kind: "value", match: (c) => c.row === "cf.balance.account.reserve", evidence: true },
     { key: "debt", label: "住宅ローン残高", group: "assets", kind: "value", match: (c) => under(c.row, "cf.balance.debt"), evidence: true },
   );
   return defs;
@@ -188,10 +204,11 @@ function verdict(self: Role | undefined, depP: number | null, depC: number | nul
  * 主画面の結論の1文: 「B案は100歳まで足ります」＋2行目「A案（基準）は80歳で資産が尽きます」。
  * 選んだ案が基準の案のときは「A案（基準）：80歳で資産が尽きます」の1行。○歳時点の資産は既定では出さない（表示の設定で足す）
  */
-export function resultVerdict(names: SeriesNames, self: Role | undefined, depP: number | null, depC: number | null, endAge: number | null): ResultVerdict {
+export function resultVerdict(names: SeriesNames, self: Role | undefined, depP: number | null, depC: number | null, endAge: number | null, note = ""): ResultVerdict {
   const age = (y: number) => (self !== undefined ? ageInYear(self.member, y) : y);
   const until = endAge !== null ? `${endAge}歳まで足ります` : "最後まで足ります";
-  const st = (d: number | null) => (d === null ? until : `${age(d)}歳で資産が尽きます`);
+  // 生活防衛資金を除いて判定しているときは、その旨を添える（0031）
+  const st = (d: number | null) => (d === null ? until : `${age(d)}歳で資産が尽きます${note}`);
   if (names.same) return { tone: depP === null ? "up" : "down", parts: [{ text: `${names.selected}（基準）`, strong: true }, { text: "：" }, { text: st(depP), strong: true }], sub: [] };
   const better = depP === depC ? "flat" : depP === null ? "up" : depC === null ? "down" : depP > depC ? "up" : "down";
   return { tone: better, parts: [{ text: names.selected, strong: true }, { text: "は" }, { text: st(depP), strong: true }], sub: [{ text: `${names.base}（基準）は${st(depC)}` }] };
@@ -319,12 +336,12 @@ export function toPresentation(input: PresentInput): PresentationModel {
     amount: finP.get(targetYear) ?? 0,
     currentAmount: finC.get(targetYear) ?? 0,
     diff: (finP.get(targetYear) ?? 0) - (finC.get(targetYear) ?? 0),
-    currentNote: depC !== null ? `${self?.label ?? ""}${age(depC) ?? depC}歳で不足` : null,
+    currentNote: depC !== null ? `${self?.label ?? ""}${age(depC) ?? depC}歳で不足${reserveNote(current.table)}` : null,
   };
 
   const depletions: Depletion[] = [];
-  if (depC !== null) depletions.push({ series: "current", year: depC, label: `${custom ? "▲ " : ""}${names.base} ${age(depC) ?? depC}歳で不足` });
-  if (depP !== null) depletions.push({ series: "proposal", year: depP, label: `${custom ? "▲ " : ""}${names.selected} ${age(depP) ?? depP}歳で不足` });
+  if (depC !== null) depletions.push({ series: "current", year: depC, label: `${custom ? "▲ " : ""}${names.base} ${age(depC) ?? depC}歳で不足${reserveNote(current.table)}` });
+  if (depP !== null) depletions.push({ series: "proposal", year: depP, label: `${custom ? "▲ " : ""}${names.selected} ${age(depP) ?? depP}歳で不足${reserveNote(proposed.table)}` });
   const chart: ChartModel = {
     years,
     ages: years.map((y) => age(y)),
@@ -356,7 +373,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
     asOf: `${by}年${bm}月時点`,
     headline,
     verdict: verdict(self, depP, depC, endAge),
-    result: resultVerdict(names, self, depP, depC, endAge),
+    result: resultVerdict(names, self, depP, depC, endAge, reserveNote(proposed.table) !== "" || reserveNote(current.table) !== "" ? "（生活防衛資金を除く）" : ""),
     names,
     chart,
     flows: flowChart(proposal, proposed.table, years, "収支の推移（提案）"),

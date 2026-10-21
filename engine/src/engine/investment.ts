@@ -7,7 +7,7 @@
 // - 入れ方（assumptions.investment.method）:
 //   total: 金融資産の器を外し、まとめた金融資産の器（pooled）だけで計算する（不動産・その他の資産・保険の器は残す）。pooled が無ければ口座ごとのまま
 //   accounts・allocation: pooled は「まだ口座に分けていない分」。残高は pooled の残高−ほかの金融資産の器の残高の合計（0未満は0）、
-//   毎月の積立は月ごとに pooled の積立−ほかの器の本人の積立の合計（0未満は0）。どちらも0なら外す
+//   毎月の積立は月ごとに pooled の積立−ほかの器の本人の積立の合計（0未満は0）。どちらも0なら外す。運用しない分（uninvested）は外す（0031）
 //   allocation: 運用する器（課税口座・NISA・iDeCo・企業型DC・持株会）に、共通の資産配分と信託報酬を当てる（FP が入れた器の利回りは使わない）
 import { addMonths, formatYm, type MonthIndex } from "../time/month.ts";
 import type { Timepoint, TimeResolver } from "../time/timepoint.ts";
@@ -142,8 +142,10 @@ export function applyInvestment(input: EngineInput, time: TimeResolver, base: Mo
       const contributions = compress(monthly, base, end);
       if (rest <= 0 && contributions.length === 0) continue;
       const box = { ...a.marketValue, value: yen(rest) } as ValueBox<Yen>;
-      const { costBasis: _cost, ...restOf } = a;
+      // 運用しない分（uninvested）は合計の入れ方だけ（口座の入れ方では預金の口座に入れる。0031）
+      const { costBasis: _cost, uninvested: _idle, ...restOf } = a;
       void _cost;
+      void _idle;
       out.push({ ...restOf, marketValue: box, contributions });
     }
     accounts = out;

@@ -5,7 +5,8 @@ import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts
 import { man } from "../presentation/format.ts";
 import type { ExplainModel, ExplainStep, VerdictPart } from "../presentation/model.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
-import { depletionYear, displayYears, financialOf, sumByYear } from "./present.ts";
+import { depletionYear, displayYears, financialOf, reserveNote, SURPLUS_ROW, sumByYear } from "./present.ts";
+import { reserveOf, ruleFor, ruleText, surplusOf, yearOfTimepoint } from "./surplus.ts";
 import { ageInYear, roles } from "./roles.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
@@ -45,7 +46,8 @@ export function explainModel(req: EngineRequest, result: PreviewResult, targetAg
   const education = byYears(t, years, (c) => under(c.row, "cf.expense.education"));
   const housing = byYears(t, years, (c) => under(c.row, "cf.expense.housing"));
   const living = byYears(t, years, (c) => (under(c.row, "cf.expense") && !under(c.row, "cf.expense.education") && !under(c.row, "cf.expense.housing")) || under(c.row, "cf.taxSi"));
-  const livingOnly = byYears(t, years, (c) => under(c.row, "cf.expense.living"));
+  const livingOnly = byYears(t, years, (c) => under(c.row, "cf.expense.living") && c.row !== SURPLUS_ROW);
+  const surplusSpend = byYears(t, years, (c) => c.row === SURPLUS_ROW);
   const fin = financialOf(t);
   const financial = years.map((y) => fin.get(y) ?? 0);
   const steps: ExplainStep[] = [];
@@ -89,6 +91,22 @@ export function explainModel(req: EngineRequest, result: PreviewResult, targetAg
         : s([{ text: "支出は入っていません" }]),
   });
 
+  // 3'. 黒字のうち貯まらない分（ゆとりの支出。0031）: 入れたときだけ、何を差し引いたかを一言
+  const ss = surplusOf(req);
+  const si = surplusSpend.findIndex((v) => v > 0);
+  if (ss !== undefined && si >= 0) {
+    const y = years[si] as number;
+    const rule = ruleFor(ss, y, (tp) => yearOfTimepoint(req, tp));
+    const step = steps.find((x) => x.key === "expense");
+    if (step !== undefined)
+      step.sentence = [
+        ...step.sentence,
+        { text: "。黒字の年は、黒字のうち貯まるのは " },
+        { text: ruleText(rule), strong: true },
+        { text: `とみて、残り（${y}年は年${man(surplusSpend[si] ?? 0)}万円）を「ゆとりの支出」として支出に入れています` },
+      ];
+  }
+
   // 4. 教育
   const es = span(education, years);
   const ep = peak(education, years);
@@ -126,8 +144,8 @@ export function explainModel(req: EngineRequest, result: PreviewResult, targetAg
     title: "資産の推移",
     sentence:
       dep !== null
-        ? s([{ text: "この収入と支出のままだと、" }, { text: `${dep}年（${ageText(dep)}）に資産が尽きます`, strong: true }])
-        : s([{ text: "その結果、" }, { text: `${self !== undefined ? `${ageOf(last)}歳まで` : "最後まで"}資産が足ります`, strong: true }]),
+        ? s([{ text: "この収入と支出のままだと、" }, { text: `${dep}年（${ageText(dep)}）に資産が尽きます`, strong: true }, ...(reserveNote(t) !== "" ? [{ text: "（生活防衛資金を除いた、使えるお金で判定）" }] : [])])
+        : s([{ text: "その結果、" }, { text: `${self !== undefined ? `${ageOf(last)}歳まで` : "最後まで"}資産が足ります`, strong: true }, ...(reserveOf(req) !== undefined && reserveNote(t) !== "" ? [{ text: "（生活防衛資金には手をつけません）" }] : [])]),
   });
 
   return { title: "これからのお金の流れ", years, ages: years.map((y) => ageOf(y)), work, pension, living, education, housing, financial, steps };

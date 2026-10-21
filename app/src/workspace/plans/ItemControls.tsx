@@ -93,7 +93,7 @@ export function ItemMenu({ catalog, shown, onPick, onClose }: { catalog: Catalog
         {groups.length === 0 ? <p class="in-note">当てはまる項目がありません</p> : null}
         {groups.map(([g, items]) => (
           <section key={g}>
-            <h4>{g === "よく使う" ? "よく使う項目" : g === "資産運用" ? "資産運用" : `入力: ${g}`}</h4>
+            <h4>{g === "よく使う" ? "よく使う項目" : g === "資産運用" || g === "貯まり方" ? g : `入力: ${g}`}</h4>
             {items.map((it) => (
               <button type="button" key={it.key} disabled={shown.has(it.key)} onClick={() => onPick(it.key)} data-pick={it.key}>
                 {it.label}
@@ -376,7 +376,8 @@ export function ItemRow(props: ItemRowProps) {
           外す
         </button>
       </div>
-      {c.kind === "range" ? (
+      {/* 金額のスライダーだけ万円で直接入れる欄を添える（月数など金額でないもの（生活防衛資金の月数。0031）は文字だけ） */}
+      {c.kind === "range" && c.step % AMOUNT_STEP === 0 ? (
         <div class="lever-val added-val amt-row">
           <span>{item.text(value)}</span>
           <AmountInput

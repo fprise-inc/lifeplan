@@ -207,6 +207,41 @@
               "cap": { "$ref": "urn:financia:schema:common#/$defs/rate" }
             }
           }
+        },
+        "surplusSaving": {
+          "title": "黒字のうち貯まる割合・上限（一時金の収入を除いた年間収支が黒字の年だけ、貯まらない分を「ゆとりの支出」として支出に足す。0031）",
+          "x-item": "assumptions.surplusSaving",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ratio": { "description": "黒字のうち貯まる割合（0〜1。省略は1＝全部貯まる）", "$ref": "#/$defs/unitShare" },
+            "cap": { "description": "黒字のうち貯まる額の上限（年額。省略は上限なし。割合と両方なら、割合で出した額と上限の少ないほう）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "changes": {
+              "description": "期間で変える（from の年から、書いた組に置き換える。書いていない ratio は1、cap は上限なし）",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["from"],
+                "properties": {
+                  "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "ratio": { "$ref": "#/$defs/unitShare" },
+                  "cap": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                }
+              }
+            }
+          }
+        },
+        "emergencyReserve": {
+          "title": "生活防衛資金（取り崩さないお金。運用せず預金の利回りで持ち、取り崩しは最後。「金融資産は○歳まで持つ」の判定から除く。0031）",
+          "x-item": "assumptions.emergencyReserve",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "months": { "description": "その年の基本生活費の○か月分（amount が無いとき）", "type": "integer", "minimum": 0, "maximum": 120 },
+            "amount": { "description": "金額（書いたときは months より優先）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+            "countInLasting": { "description": "「金融資産は○歳まで持つ」の判定に生活防衛資金を含める（省略は false＝除いた残高で判定する）", "type": "boolean" }
+          }
         }
       }
     },
@@ -552,6 +587,11 @@
     "accountKind": {
       "enum": ["deposit", "taxable", "nisa", "juniorNisa", "childNisa", "legacyNisa", "ideco", "corporateDc", "zaikei", "esop", "fxDeposit", "insurance", "realEstate", "smallBusinessMutualAid", "otherAsset", "pooled"]
     },
+    "unitShare": {
+      "description": "0〜1 の割合（10進の文字列。0031）",
+      "type": "string",
+      "pattern": "^(0(\\.[0-9]{1,12})?|1(\\.0{1,12})?)$"
+    },
     "assetClass": {
       "description": "0008 の9: 資産クラス（公式の一覧）。期待リターンは前提の assetReturns で資産クラスごとに持つ",
       "enum": ["cash.deposit", "cash.foreign", "bond.domestic", "bond.global", "equity.domestic", "equity.global", "reit.domestic", "reit.global", "balanced", "commodity", "realEstate", "other"]
@@ -649,6 +689,7 @@
         },
         "expectedReturn": { "title": "FP が入れた器の利回り（年率。入れたときは資産の配分の利回りの代わり。0026）", "x-item": "account.expectedReturn", "$ref": "urn:financia:schema:common#/$defs/rate" },
         "fee": { "title": "運用の費用（信託報酬など。年率。器の利回りから引く。0026）", "x-item": "account.fee", "$ref": "urn:financia:schema:common#/$defs/rate" },
+        "uninvested": { "title": "運用しない分（金額。まとめた金融資産の器 pooled だけで使う。この額までは預金の利回り。0031）", "x-item": "account.uninvested", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
         "property": {
           "title": "不動産の中身（不動産の器だけ。評価額を土地と建物に分け、貸しているなら家賃収入・経費・不動産所得・売却を計算する。0028）",
           "x-item": "account.property",

@@ -446,6 +446,8 @@ export interface InvestChartModel {
   /** 線の札（「99歳まで持つ」）。選んだプランと基準のプラン */
   lasts: { selected: string; base: string };
   stress: StressLineModel[] | null;
+  /** 生活防衛資金の目安の線（入れたときだけ。0031） */
+  reserve?: Yen[] | null;
   /** 表示の設定（口座の内訳・運用の期間の帯）と、一時的に外した相場の線 */
   view: { breakdown: boolean; band: boolean; stressHidden: readonly string[] };
 }

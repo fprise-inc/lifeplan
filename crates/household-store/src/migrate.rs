@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.10";
+pub const CURRENT: &str = "0.11";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -40,8 +40,12 @@ pub const CURRENT: &str = "0.10";
 /// - 0.10: 控えのきっかけに `takeaway`（持ち帰り用のレポートを書き出した時点）と、その記録 `snapshots[].takeaway`（載せたプラン・
 ///   FP の提案のプラン・パスワードの有無・顧客が動かせるつまみ・載せた画面・作成日・ファイルの指紋。パスワード・宛名は持たない）を足した
 ///   （足すだけの MINOR。0030）。0.9 までのアプリは知らないきっかけの控えを読み落とすので、版を上げて閲覧だけにする
+/// - 0.11: 前提に、黒字のうち貯まる割合 `assumptions.surplusSaving`（割合・上限・期間で変える組）と生活防衛資金
+///   `assumptions.emergencyReserve`（金額か基本生活費の○か月分・「○歳まで持つ」の判定に含めるか）、まとめた金融資産の器の
+///   運用しない分 `accounts[].uninvested` を足した（どれも任意。足すだけの MINOR。0031）。読み方は変えない（無ければ今まで通り）。
+///   0.10 までのアプリの計算エンジンはこの欄を知らないので、版を上げて閲覧だけにする
 pub const KNOWN: &[&str] = &[
-    "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10",
+    "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11",
 ];
 
 /// 1段分の変換
@@ -97,6 +101,11 @@ pub const STEPS: &[Step] = &[
         from: "0.9",
         to: "0.10",
         apply: v0_9_to_0_10,
+    },
+    Step {
+        from: "0.10",
+        to: "0.11",
+        apply: v0_10_to_0_11,
     },
 ];
 
@@ -221,6 +230,15 @@ fn v0_9_to_0_10(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.10 → 0.11: 足した欄（黒字のうち貯まる割合・生活防衛資金・運用しない分）はどれも任意なので足さない。形式の版だけを書き換える（0031）
+fn v0_10_to_0_11(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.11".into());
+    }
+    Ok(body)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Access {
     /// 保存できる（今の版か、変換できる古い版）
@@ -314,7 +332,8 @@ mod tests {
         assert_eq!(access("0.8").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.9").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.10").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.11").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.11").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.12").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(

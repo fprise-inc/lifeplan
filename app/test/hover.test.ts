@@ -206,6 +206,11 @@ describe("金額のスライダーは1万円の刻み", () => {
       const cat = buildCatalog(fromRequest(req), self.member.id, null);
       for (const it of cat.items) {
         const c = it.control;
+        // 生活防衛資金の月数（0031）は金額ではないので1か月の刻み
+        if (c.kind === "range" && it.key === "reserve:months") {
+          expect(c.step, it.key).toBe(1);
+          continue;
+        }
         if (c.kind === "range") {
           ranges++;
           expect(c.step, it.key).toBe(AMOUNT_STEP);
@@ -218,7 +223,8 @@ describe("金額のスライダーは1万円の刻み", () => {
           expect(c.slider?.per, it.key).toBe(c.field.basis === "monthly" ? "月" : c.field.basis === "annual" ? "年" : "");
         }
         if (c.kind === "field" && c.field.kind !== "yen") expect(c.slider, it.key).toBeUndefined();
-        if (c.kind === "rate") expect(c.step).toBe("0.0005");
+        // 黒字のうち貯まる割合（0031）は 5% の刻み。ほかの率（利回り・金利・取り崩し率）は 0.05% の刻み
+        if (c.kind === "rate") expect(c.step, it.key).toBe(it.key === "surplus:ratio" ? "0.05" : "0.0005");
       }
     }
     expect(ranges).toBeGreaterThan(0);

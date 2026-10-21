@@ -71,6 +71,8 @@ export interface BsHousehold {
 /** 器の種類 → 分け方・項目の鍵・名前（並びは箱の中の上からの順） */
 const ACCOUNT: readonly { kinds: readonly string[]; group: BsGroup; key: string; label: string }[] = [
   { kinds: ["deposit"], group: "liquid", key: "deposit", label: "預金" },
+  // 生活防衛資金（取り崩さないお金。預金の利回りで持つ。0031）は、すぐ使えるお金の中に分けて見せる
+  { kinds: ["reserve"], group: "liquid", key: "reserve", label: "生活防衛資金" },
   { kinds: ["zaikei"], group: "liquid", key: "zaikei", label: "財形貯蓄" },
   { kinds: ["nisa", "legacyNisa"], group: "market", key: "nisa", label: "NISA" },
   { kinds: ["childNisa", "juniorNisa"], group: "market", key: "childNisa", label: "子どものNISA" },

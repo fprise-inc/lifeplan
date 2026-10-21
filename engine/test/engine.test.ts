@@ -38,7 +38,9 @@ describe("モデル世帯（架空）", () => {
       const req = modelHousehold(m);
       const r = run(req);
       // 不動産・保険・その他の資産は金融資産の合計に入れない（plan.cashflow）
-      let prev = req.input.household.accounts.filter((a) => a.kind !== "realEstate" && a.kind !== "insurance" && a.kind !== "otherAsset").reduce((s, a) => s + (a.marketValue.value ?? 0), 0);
+      // 合計の入れ方（0026 の1）は、まとめた金融資産の器だけで計算する
+      const total = req.input.assumptions.investment?.method === "total" && req.input.household.accounts.some((a) => a.kind === "pooled");
+      let prev = req.input.household.accounts.filter((a) => a.kind !== "realEstate" && a.kind !== "insurance" && a.kind !== "otherAsset" && (!total || a.kind === "pooled")).reduce((s, a) => s + (a.marketValue.value ?? 0), 0);
       for (const y of [2026, 2027]) {
         const end = annual(r, "cf.balance.financial", y);
         // 企業型DC の事業主掛金は世帯の収支の外から器に入る（cf.transfer.ideco.employer）
