@@ -17,7 +17,7 @@ import type { Catalog } from "../plans/items.ts";
 import { applyValues, changesOfValues, type Values } from "../plans/plans.ts";
 import { METHODS, methodOf } from "../input/savings/model.ts";
 import { resolveColumns } from "../../presentation/bsColumns.ts";
-import type { BsColumn, BsPointKey } from "../../presentation/model.ts";
+import type { BsColumn, BsPointKey, MoneyThreeSettings } from "../../presentation/model.ts";
 import { BS_POINT_CHOICES, bsPlan, DEFAULT_BS_POINTS } from "../balanceTab.ts";
 import { bandOf, donutYear, drawdownText, stressLabel, stressRequests, STRESS_KEYS } from "../invest/present.ts";
 import { displayYears } from "../present.ts";
@@ -45,6 +45,8 @@ export interface ReportChoice {
   bsPoints?: readonly BsPointKey[];
   /** この世帯で選んだ並べる時点（表示の設定。null・省略は既定のまま） */
   bsColumns?: readonly BsColumn[] | null;
+  /** お金の3つの分け方の何か月分・何年先まで・呼び方（資産と負債のタブの表示の設定。省略は既定。0032） */
+  moneyThree?: MoneyThreeSettings;
 }
 
 /**
@@ -172,6 +174,7 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
       changes: changes.map((c) => ({ label: c.label, current: c.from, proposal: c.to })),
       estimated: estimatedCards(wh).length > 0,
     };
+    if (choice.moneyThree !== undefined) b.moneyThree = { ...choice.moneyThree };
     if (on.has("cashflow")) b.balancePoints = balancePointsOf(proposal, results.proposal as PreviewResult, choice.bsColumns ?? null, choice.bsPoints ?? DEFAULT_BS_POINTS);
     if (steps.length > 0) b.steps = steps.map((s, i) => ({ label: s.label, investment: s.investment, run: i === steps.length - 1 ? proposalRun : run(s.key) }));
     if (requests.withoutFee !== undefined) b.proposalWithoutFee = run("withoutFee");

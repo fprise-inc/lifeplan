@@ -3,6 +3,7 @@
 import type { EngineRequest } from "../../engine/src/engine/types.ts";
 import type { ChapterId } from "./chapters.ts";
 import type { ReportLayout } from "./input.ts";
+import type { MoneyThreeSettings } from "./moneyThree.ts";
 
 export type { EngineRequest };
 
@@ -82,6 +83,8 @@ export interface ProposalBundle {
   comparison?: { base: number; plans: { letter: string; name: string; run: Run }[] };
   /** 載せる章（省略はすべて。chapters.ts） */
   chapters?: ChapterId[];
+  /** お金の3つの分け方の何か月分・何年先まで・呼び方（資産と負債のタブの表示の設定。省略は既定。0032） */
+  moneyThree?: MoneyThreeSettings;
   /** 帳票の組み方（紙の向き・キャッシュフロー表の載せ方。省略は標準） */
   layout?: ReportLayout;
   /**

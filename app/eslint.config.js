@@ -87,7 +87,7 @@ export default tseslint.config(
         "error",
         {
           patterns: [
-            { regex: "(^|/)workspace/(?!(levers|present|roles|balanceTab)\\.ts$)", message: "持ち帰り用のレポートは、作業の層のうち levers・present・roles・balanceTab だけを読める（0030）" },
+            { regex: "(^|/)workspace/(?!(levers|present|roles|balanceTab|moneyThree)\\.ts$)", message: "持ち帰り用のレポートは、作業の層のうち levers・present・roles・balanceTab・moneyThree だけを読める（0030・0032）" },
             { regex: "(^|/)engine/(host|dual)(\\.ts)?$", message: "持ち帰り用のレポートは本体の命令・二本立ての部品を読めない（0030）" },
             { regex: "(^|/)App(\\.tsx)?$", message: "持ち帰り用のレポートは画面の大枠を読み込めない（0030）" },
             { regex: "^@tauri-apps/", message: "持ち帰り用のレポートは本体の命令を呼べない（0030）" },

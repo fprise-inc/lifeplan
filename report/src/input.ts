@@ -7,6 +7,7 @@
 // 帳票（Typst）の側は表示の書式（3桁区切り・万円への丸め・▲）だけを行い、計算し直さない。
 
 import type { ChapterId } from "./chapters.ts";
+import type { MoneyThreeModel } from "./moneyThree.ts";
 
 /** 円（整数） */
 export type Yen = number;
@@ -287,6 +288,8 @@ export interface ProposalInput {
   investment?: InvestmentView | null;
   /** 相場が下がった場合（0026。省略・null は載せない） */
   marketDrop?: MarketDropView | null;
+  /** お金の3つの分け方（説明用の図。提案のプランの今の時点。アプリの区画と同じ値・同じ言葉。0032。省略・null は載せない） */
+  moneyThree?: MoneyThreeModel | null;
 }
 
 /** 内訳の1つ（色つき） */

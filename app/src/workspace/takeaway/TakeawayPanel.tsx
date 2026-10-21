@@ -5,6 +5,7 @@
 // - 保存は本体の平文の書き出しの出口（0020 の5）。パスワードなしのときは毎回、平文の注意を出す。保存したら控え（きっかけ「持ち帰り用のレポート」）を残す
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { webEngine, type HostApi, type SaveOutcome } from "../../engine/host.ts";
+import type { MoneyThreeSettings } from "../../presentation/model.ts";
 import type { TakeawayData, TakeawayLeverKey } from "../../takeaway/model.ts";
 import { TakeawayView } from "../../takeaway/viewer/TakeawayView.tsx";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -16,6 +17,7 @@ import { today } from "../report/assemble.ts";
 import type { SnapshotDraft } from "../snapshots/snapshots.ts";
 import { buildPayload, dataSetLabel, type TakeawayChoice, type TakeawayKnob } from "./build.ts";
 import { loadAssets, makeTakeawayFile } from "./file.ts";
+import { DEFAULT_MONEY_THREE } from "../moneyThree.ts";
 
 interface Props {
   host: HostApi;
@@ -27,6 +29,8 @@ interface Props {
   valuesOf: (id: string) => Values;
   letterOf: (id: string) => { letter: string; name: string };
   targetAge: number;
+  /** お金の3つの分け方の何か月分・何年先まで・呼び方（資産と負債のタブの表示の設定。0032） */
+  moneyThree?: MoneyThreeSettings;
   onSnapshot?: (d: SnapshotDraft) => Promise<void>;
 }
 
@@ -58,7 +62,8 @@ export function TakeawayPanel(p: Props) {
   const [proposal, setProposal] = useState(firstProposal);
   const [compare, setCompare] = useState<string[]>(slots);
   const [excluded, setExcluded] = useState<Set<TakeawayKnob>>(new Set());
-  const [views, setViews] = useState({ balance: true, table: true });
+  const [views, setViews] = useState({ balance: true, table: true, moneyThree: true });
+  const m3 = p.moneyThree ?? DEFAULT_MONEY_THREE;
   const [addressee, setAddressee] = useState("");
   const [office, setOffice] = useState(remembered.office);
   const [usePw, setUsePw] = useState(false);
@@ -91,9 +96,9 @@ export function TakeawayPanel(p: Props) {
   }, [office]);
 
   const knobs: TakeawayKnob[] = [...(["retireAge", "pensionAge", "nisaMonthly", "livingMonthly"] as TakeawayLeverKey[]).filter((k) => p.catalog.byKey.has(`lever:${k}`)), ...(hasAdvisoryFee(p.wh.request) && p.catalog.byKey.has("lever:fee") ? (["fee"] as const) : [])];
-  const choice: TakeawayChoice = { proposal, compare, base: p.base, band: p.band, excluded, views, addressee, office, targetAge: p.targetAge, createdOn: today(), dataSet: dataSet ?? "" };
+  const choice: TakeawayChoice = { proposal, compare, base: p.base, band: p.band, excluded, views, moneyThree: m3, addressee, office, targetAge: p.targetAge, createdOn: today(), dataSet: dataSet ?? "" };
   const ctx = { wh: p.wh, catalog: p.catalog, valuesOf: p.valuesOf, letterOf: p.letterOf };
-  const payload = useMemo(() => (proposal === CURRENT ? null : buildPayload(ctx, choice)), [p.wh, p.catalog, proposal, compare.join(","), p.base, p.band.join(","), [...excluded].join(","), views.balance, views.table, addressee, office, p.targetAge, dataSet, ...slots.map((id) => JSON.stringify(p.valuesOf(id)))]);
+  const payload = useMemo(() => (proposal === CURRENT ? null : buildPayload(ctx, choice)), [p.wh, p.catalog, proposal, compare.join(","), p.base, p.band.join(","), [...excluded].join(","), views.balance, views.table, views.moneyThree, m3.months, m3.years, m3.wording, addressee, office, p.targetAge, dataSet, ...slots.map((id) => JSON.stringify(p.valuesOf(id)))]);
   const preview: TakeawayData | null = useMemo(() => (payload === null || packsJson === null ? null : { payload, packs: JSON.parse(packsJson) as unknown[] }), [payload, packsJson]);
   const pwOk = !usePw || password.length >= PASSWORD_MIN;
   const busy = status.kind === "busy";
@@ -117,7 +122,7 @@ export function TakeawayPanel(p: Props) {
             trigger: "takeaway",
             memo: `持ち帰り用のレポート（プラン${payload.plans.length}つ${usePw ? "・パスワードつき" : ""}）`,
             plan: { id: proposal, letter: l.letter, name: l.name },
-            takeaway: { plans: payload.plans.map((x) => ({ letter: x.letter, name: x.name })), proposal: payload.proposal, password: usePw, knobs: [...payload.levers.items.map((i) => i.key), ...(payload.levers.fee !== null ? ["fee"] : [])], views: ["chart", ...(views.balance ? ["balance"] : []), ...(views.table ? ["table"] : [])], createdOn: payload.createdOn, digest: r.digest },
+            takeaway: { plans: payload.plans.map((x) => ({ letter: x.letter, name: x.name })), proposal: payload.proposal, password: usePw, knobs: [...payload.levers.items.map((i) => i.key), ...(payload.levers.fee !== null ? ["fee"] : [])], views: ["chart", ...(views.balance ? ["balance"] : []), ...(views.moneyThree ? ["moneyThree"] : []), ...(views.table ? ["table"] : [])], createdOn: payload.createdOn, digest: r.digest },
           })
           .catch(() => undefined);
       }
@@ -224,6 +229,13 @@ export function TakeawayPanel(p: Props) {
             <label class="rp-check">
               <input type="checkbox" checked={views.balance} onChange={(e) => setViews({ ...views, balance: (e.currentTarget as HTMLInputElement).checked })} data-takeaway-view="balance" />
               資産と負債の図
+            </label>
+            <label class="rp-check">
+              <input type="checkbox" checked={views.moneyThree} onChange={(e) => setViews({ ...views, moneyThree: (e.currentTarget as HTMLInputElement).checked })} data-takeaway-view="moneyThree" />
+              お金の3つの分け方
+              <small>
+                （{m3.months}か月分・{m3.years}年先まで。資産と負債のタブの値）
+              </small>
             </label>
             <label class="rp-check">
               <input type="checkbox" checked={views.table} onChange={(e) => setViews({ ...views, table: (e.currentTarget as HTMLInputElement).checked })} data-takeaway-view="table" />

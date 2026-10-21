@@ -3,14 +3,15 @@
 // 結果のタブ: 主画面に出す数字を FP が選ぶ。既定では何も足さない（「○歳時点の資産」も出さない。2026-10-17）。
 // 選んだ数字は、案の帯のカード・結論の2行目・グラフ（○歳時点の印）に出す。
 // グラフの比べ方（基準の案と選んだ案を1つのグラフに重ねるか、左右に2つ並べるか、帯の全部の案を色分けで重ねるか）もここで選ぶ。既定は重ねる。
-// 資産と負債のタブ: 家計の体力の目安の幅と、時点を並べるときの既定の時点（と、この世帯で見出しから選んだ時点）。
+// 資産と負債のタブ: 家計の体力の目安の幅と、時点を並べるときの既定の時点（と、この世帯で見出しから選んだ時点）、お金の3つの分け方（0032）。
 // どちらも世帯ファイルの本文の display に、タブごとの区画（display.result・display.balance）で書く（形式の版 0.8 から。store/body.ts）
 import { man, manDiff } from "../presentation/format.ts";
 import type { ChartLayout } from "../presentation/MainChart.tsx";
 import type { AgeMark, VerdictPart } from "../presentation/model.ts";
 import type { EngineRequest } from "../engine/types.ts";
-import type { BsColumn, BsGuide, BsPointKey } from "../presentation/model.ts";
+import type { BsColumn, BsGuide, BsPointKey, MoneyThreeSettings } from "../presentation/model.ts";
 import { DEFAULT_BS_GUIDE, DEFAULT_BS_POINTS } from "./balanceTab.ts";
+import { DEFAULT_MONEY_THREE } from "./moneyThree.ts";
 import type { PlanMetrics } from "./plans/compare.ts";
 import { targetYearOf } from "./plans/compare.ts";
 
@@ -40,9 +41,11 @@ export interface BalanceSettings {
   points: BsPointKey[];
   /** この世帯で見出しから選んだ並べる時点（2〜4つ。候補の鍵か決まった年）。null は既定のまま */
   columns: BsColumn[] | null;
+  /** お金の3つの分け方（何か月分・何年先まで・呼び方。0032。形式の版 0.13 から） */
+  moneyThree: MoneyThreeSettings;
 }
 
-export const DEFAULT_BALANCE_SETTINGS: BalanceSettings = { guide: DEFAULT_BS_GUIDE, points: DEFAULT_BS_POINTS, columns: null };
+export const DEFAULT_BALANCE_SETTINGS: BalanceSettings = { guide: DEFAULT_BS_GUIDE, points: DEFAULT_BS_POINTS, columns: null, moneyThree: DEFAULT_MONEY_THREE };
 
 export const LAYOUT_CHOICES: readonly { key: ChartLayout; label: string; note: string }[] = [
   { key: "overlay", label: "重ねる", note: "1つのグラフに基準のプラン（点線）と選んだプランを重ねる（既定）" },

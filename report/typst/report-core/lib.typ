@@ -15,6 +15,7 @@
 #import "pages/invest.typ": investment, market-drop
 #import "pages/changes.typ": changes
 #import "pages/compare.typ": comparison
+#import "pages/money3.typ": money-three
 
 #let supported = "0.1.0"
 
@@ -51,6 +52,7 @@
     assets-page(data)
     balance-page(data)
   }
+  if on("moneyThree") and data.at("moneyThree", default: none) != none { money-three(data) }
   if on("education") and data.education != none { education(data) }
   if on("housing") and data.housingLoan != none { housing(data) }
   if on("retirement") and data.retirement != none { retirement(data) }

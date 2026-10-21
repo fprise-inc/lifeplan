@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.12。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
+// 本文の区画（形式の版 0.13。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
 // - meta: 形式名・形式の版・保存日時・アプリの版・表示用の顧客番号、誰が直したか（保存した人・改訂の履歴・出てくるメンバーの表示名。本体が入れる。0023 の6）
 // - household: 現状の世帯（計算の要求と、画面の側の値: 呼び名・定年後の予定・FP用のメモとその行ごとの書いた人・万一の想定の前提・足した項目など）。
 //   0.9 から: 教育の目標の保育所の段の保育の時間・自治体の水準の割合と、給食費の選び方（0029。保育所の段の空の月額は収入から自動で計算する読み方）
@@ -10,7 +10,8 @@
 // - workspace: 案の帯の並び・基準の案・選んだ案・対策に足した項目・出発点にした見本
 // - display: 表示の設定（世帯ごと。タブごとの区画に分ける。0.8 から）:
 //   - display.result: 結果のタブ（出す数字・○歳時点の年齢・グラフの比べ方・資産の推移の口座の内訳と運用の期間の帯）
-//   - display.balance: 資産と負債のタブ（家計の体力の目安の幅 guide・時点を並べるときの既定の時点 points・この世帯で選んだ時点 columns）
+//   - display.balance: 資産と負債のタブ（家計の体力の目安の幅 guide・時点を並べるときの既定の時点 points・この世帯で選んだ時点 columns、
+//     0.13 から お金の3つの分け方 moneyThree（何か月分 months・何年先まで years・呼び方 wording。0032））
 //   0.7 までは display の直下に平らに置いていた（bsGuide・bsPoints・bsColumns と、なくした「操作中はグラフを上に表示」の dock）。
 //   本体の変換の段（0.7 → 0.8）が区画へ移す。画面の側も、区画の無い本文は直下の値から読む
 // - snapshots: 控え（0009 の2。PDF を書き出した時点・FP が残した時点の写し。0.3 から。控えが無ければ区画を作らない）。
@@ -26,10 +27,11 @@ import { CURRENT } from "../plans/band.ts";
 import type { Proposal } from "../plans/plans.ts";
 import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
 import { readBsColumns, readBsGuide, readBsPoints } from "../balanceTab.ts";
+import { readMoneyThree } from "../moneyThree.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.12";
+export const BODY_FORMAT_VERSION = "0.13";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -152,6 +154,7 @@ export function readDisplay(v: unknown): StoredDisplay {
       guide: readBsGuide(bal !== null ? bal.guide : d.bsGuide),
       points: readBsPoints(bal !== null ? bal.points : d.bsPoints),
       columns: readBsColumns(bal !== null ? bal.columns : d.bsColumns),
+      moneyThree: readMoneyThree(bal !== null ? bal.moneyThree : undefined),
     },
   };
 }

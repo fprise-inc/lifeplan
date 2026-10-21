@@ -10,9 +10,17 @@ import { BsTrend, TrendLegend, trendRange } from "./BsTrend.tsx";
 import { healthOf, monthsValue, scaleFor, type HealthItem } from "./bsLayout.ts";
 import { FALLBACK, colsOf, resolveColumns, nextColumns, type ResolvedColumn } from "./bsColumns.ts";
 import { group, man, manDiff } from "./format.ts";
-import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsPlanModel, BsPointKey, BsYearModel, VerdictPart, Yen } from "./model.ts";
+import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsPlanModel, BsPointKey, BsYearModel, MoneyThreeModel, MoneyThreeWording, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
+import { MoneyThreeSection } from "./MoneyThree.tsx";
 
 export type BsView = "one" | "three" | "plans" | "prev";
+
+/** お金の3つの分け方の呼び方の選択肢（作業の層が渡す） */
+export interface MoneyThreeNameChoice {
+  key: MoneyThreeWording;
+  names: [string, string, string];
+  note: string;
+}
 
 export interface BalanceTabProps {
   model: BalanceTabModel;
@@ -26,6 +34,8 @@ export interface BalanceTabProps {
   onColumns: (c: BsColumn[] | null) => void;
   /** 時点を並べるときの既定の時点を変えた（このタブの表示の設定） */
   onPointDefaults: (k: BsPointKey[]) => void;
+  /** お金の3つの分け方（図の下の区画。0032）。flash が変わると区画へ移って光らせる（結果のタブの知らせから来たとき） */
+  moneyThree?: { model: MoneyThreeModel | null; onSettings: (s: Partial<MoneyThreeSettings>) => void; flash: number; nameChoices: readonly MoneyThreeNameChoice[] };
   /** 画面の確かめ用の最初の状態 */
   initial?: { view?: BsView; year?: number; open?: "combined"; table?: boolean; settings?: boolean };
 }
@@ -74,7 +84,7 @@ function useFitHeight(head: { current: HTMLElement | null }, bar: { current: HTM
   return h;
 }
 
-export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDefaults, initial }: BalanceTabProps) {
+export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDefaults, moneyThree, initial }: BalanceTabProps) {
   const [sub, setSub] = useState<"home" | "combined">(initial?.open === "combined" ? "combined" : "home");
   const [view, setView] = useState<BsView>(initial?.view ?? "one");
   const plan = model.plans.find((p) => p.key === model.selected) ?? model.plans[0];
@@ -206,7 +216,14 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
             </div>
             {settingsOpen ? (
               <div ref={settingsRef}>
-                <BalanceSettingsPanel model={model} available={plan.points.map((p) => p.key)} onGuide={onGuide} onPointDefaults={onPointDefaults} onClose={() => setSettingsOpen(false)} />
+                <BalanceSettingsPanel
+                  model={model}
+                  available={plan.points.map((p) => p.key)}
+                  onGuide={onGuide}
+                  onPointDefaults={onPointDefaults}
+                  {...(moneyThree?.model != null ? { moneyThree: { value: moneyThree.model.settings.wording, choices: moneyThree.nameChoices, onChange: (n: MoneyThreeWording) => moneyThree.onSettings({ wording: n }) } } : {})}
+                  onClose={() => setSettingsOpen(false)}
+                />
               </div>
             ) : null}
             {view === "one" ? (
@@ -250,6 +267,7 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
               {table ? <SheetTable plan={view === "plans" ? (model.plans.find((p) => p.key === lr.r) ?? plan) : plan} yi={view === "three" || view === "prev" ? 0 : yi} groups={model.groups} /> : null}
             </details>
           </section>
+          {moneyThree?.model != null ? <MoneyThreeSection model={moneyThree.model} onSettings={moneyThree.onSettings} flash={moneyThree.flash} /> : null}
           <section class="card bs-trend-card" aria-labelledby="h-bst">
             <div class="bs-head">
               <h2 id="h-bst">資産と負債の推移</h2>
@@ -806,7 +824,22 @@ function ColumnPicker({ plan, index, canRemove, onPick, onRemove, onClose }: { p
  * 資産と負債のタブの表示の設定（図の見出しのすぐ下に開く。別の窓は出さない）: 時点を並べるときの既定の時点と、家計の体力の目安の幅。
  * 結果のタブの表示の設定とは別に持つ
  */
-export function BalanceSettingsPanel({ model, available, onGuide, onPointDefaults, onClose }: { model: BalanceTabModel; available?: readonly BsPointKey[]; onGuide: (g: BsGuide) => void; onPointDefaults: (k: BsPointKey[]) => void; onClose: () => void }) {
+export function BalanceSettingsPanel({
+  model,
+  available,
+  onGuide,
+  onPointDefaults,
+  moneyThree,
+  onClose,
+}: {
+  model: BalanceTabModel;
+  available?: readonly BsPointKey[];
+  onGuide: (g: BsGuide) => void;
+  onPointDefaults: (k: BsPointKey[]) => void;
+  /** お金の3つの分け方の呼び方（0032） */
+  moneyThree?: { value: MoneyThreeWording; choices: readonly MoneyThreeNameChoice[]; onChange: (n: MoneyThreeWording) => void };
+  onClose: () => void;
+}) {
   return (
     <div class="disp-settings bs-settings" role="group" aria-label="資産と負債の表示の設定" data-bs-settings>
       <div class="ds-head">
@@ -824,6 +857,20 @@ export function BalanceSettingsPanel({ model, available, onGuide, onPointDefault
         <span class="ds-k">家計の体力の目安の幅</span>
         <GuideEditor guide={model.guide} onGuide={onGuide} />
       </div>
+      {moneyThree !== undefined ? (
+        <div class="ds-layout" role="radiogroup" aria-label="お金の3つの分け方の呼び方" data-m3-names-setting>
+          <span class="ds-k">お金の3つの分け方の呼び方</span>
+          {moneyThree.choices.map((c) => (
+            <label key={c.key} class={`ds-item${moneyThree.value === c.key ? " on" : ""}`}>
+              <input type="radio" name="m3-names" value={c.key} checked={moneyThree.value === c.key} onChange={() => moneyThree.onChange(c.key)} data-m3-names={c.key} />
+              <span class="ds-l">
+                {c.names.join("・")}
+                <small>{c.note}。何か月分・何年先までは、区画の欄で変えます</small>
+              </span>
+            </label>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
