@@ -1,0 +1,375 @@
+{
+  "trace": "none",
+  "input": {
+    "baseMonth": "2026-10",
+    "endYear": 2094,
+    "calcConventions": {
+      "aggregation": "cash",
+      "investmentTiming": "midYear",
+      "compatibility": null
+    },
+    "household": {
+      "members": [
+        {
+          "id": "aa730172-1ead-44fc-9479-4e2ef6ef73c9",
+          "kind": "self",
+          "birth": {
+            "birthYearMonth": "1999-06",
+            "bornOnFirst": false
+          },
+          "sex": "female",
+          "joins": null,
+          "leaves": null,
+          "expected": false
+        }
+      ],
+      "relations": [],
+      "events": [],
+      "employmentPeriods": [
+        {
+          "id": "877d1b64-1250-4482-b861-98909f838ee4",
+          "member": "aa730172-1ead-44fc-9479-4e2ef6ef73c9",
+          "from": {
+            "at": "2022-04"
+          },
+          "to": {
+            "at": "2064-05"
+          },
+          "type": "regular",
+          "healthInsurance": {
+            "kind": "kyokaikenpo",
+            "insurer": "kyokaikenpo.13"
+          },
+          "pensionCategory": "employee1",
+          "employer": {
+            "size": 120,
+            "weeklyHours": "40"
+          },
+          "salary": {
+            "annual": {
+              "value": 3900000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "bonus": {
+              "value": 700000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          },
+          "standardMonthlyRemuneration": {
+            "health": {
+              "value": 320000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "pension": {
+              "value": 320000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        }
+      ],
+      "accounts": [
+        {
+          "id": "583063a4-441d-4ea5-b0d4-d9e697317843",
+          "kind": "deposit",
+          "owner": "aa730172-1ead-44fc-9479-4e2ef6ef73c9",
+          "marketValue": {
+            "value": 1500000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "asOf": "2026-09",
+          "contributions": []
+        },
+        {
+          "id": "c56999bb-ffaf-4ec6-99fe-b9e275516acf",
+          "kind": "nisa",
+          "owner": "aa730172-1ead-44fc-9479-4e2ef6ef73c9",
+          "marketValue": {
+            "value": 600000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "costBasis": {
+            "value": 520000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "asOf": "2026-09",
+          "assetMix": [
+            {
+              "assetClass": "equity.global",
+              "share": "1"
+            }
+          ],
+          "contributions": [
+            {
+              "from": {
+                "at": "2026-10"
+              },
+              "to": null,
+              "monthly": 20000
+            }
+          ]
+        }
+      ],
+      "insuranceContracts": [],
+      "residentTaxAssessments": [
+        {
+          "id": "8cc78887-37db-43ec-9a52-fe70626dabfd",
+          "member": "aa730172-1ead-44fc-9479-4e2ef6ef73c9",
+          "fiscalYear": 2026,
+          "amount": {
+            "value": 170000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          }
+        }
+      ],
+      "premiumRates": [
+        {
+          "id": "639c4033-193d-4185-ab54-903967695e46",
+          "kind": "nationalHealth",
+          "parts": {
+            "medical": {
+              "incomeRate": {
+                "value": "0.077",
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perCapita": {
+                "value": 47000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perHousehold": {
+                "value": 0,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            },
+            "elderlySupport": {
+              "incomeRate": {
+                "value": "0.028",
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perCapita": {
+                "value": 16000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perHousehold": {
+                "value": 0,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            },
+            "care": {
+              "incomeRate": {
+                "value": "0.025",
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perCapita": {
+                "value": 17000,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perHousehold": {
+                "value": 0,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            },
+            "childSupport": {
+              "incomeRate": {
+                "value": "0.0024",
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perCapita": {
+                "value": 1100,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              },
+              "perHousehold": {
+                "value": 0,
+                "state": "confirmed",
+                "origin": {
+                  "kind": "manual"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "residences": [
+        {
+          "id": "6294bdac-1a3f-44dc-accd-931df4492b70",
+          "kind": "rent",
+          "from": {
+            "at": "2022-04"
+          },
+          "to": null,
+          "rent": {
+            "monthly": {
+              "value": 85000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "growth": "0",
+            "renewalFee": "1",
+            "renewalEveryMonths": 24
+          }
+        }
+      ],
+      "livingExpenses": [
+        {
+          "id": "1fee4b5e-110e-4d14-8b78-d2958b202c83",
+          "mode": "total",
+          "monthly": {
+            "value": 170000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          },
+          "stages": [
+            {
+              "at": {
+                "at": "2064-06"
+              },
+              "label": "retirement",
+              "ratio": "0.9"
+            },
+            {
+              "at": {
+                "memberAge": {
+                  "member": "aa730172-1ead-44fc-9479-4e2ef6ef73c9",
+                  "years": 80,
+                  "months": 0
+                }
+              },
+              "label": "age80",
+              "ratio": "0.8"
+            }
+          ]
+        }
+      ],
+      "periodicExpenses": [
+        {
+          "id": "ad97b335-5409-41af-a05e-ad1b6e5ebb51",
+          "row": "cf.expense.lumpSum.other",
+          "from": {
+            "at": "2027-08"
+          },
+          "to": {
+            "at": "2074-06"
+          },
+          "everyYears": 2,
+          "amount": {
+            "value": 150000,
+            "state": "confirmed",
+            "origin": {
+              "kind": "manual"
+            }
+          }
+        }
+      ],
+      "pensionRecords": [
+        {
+          "id": "c5ca614d-2a02-4c67-b1e2-7deb5aeea539",
+          "member": "aa730172-1ead-44fc-9479-4e2ef6ef73c9",
+          "kind": "statementUnder50",
+          "asOf": "2026-06",
+          "months": {
+            "basic": 83,
+            "employee": 50
+          },
+          "amounts": {
+            "basic": {
+              "value": 143800,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            },
+            "employee": {
+              "value": 98000,
+              "state": "confirmed",
+              "origin": {
+                "kind": "manual"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "assumptions": {
+      "investmentReturn": {
+        "default": "0.01"
+      },
+      "wageGrowth": {
+        "default": "0.01"
+      },
+      "inflation": {
+        "default": "0.01"
+      },
+      "pensionMacroSlide": {
+        "default": "0.004"
+      },
+      "assetReturns": {
+        "equity.global": {
+          "default": "0.04"
+        },
+        "cash.deposit": {
+          "default": "0.001"
+        }
+      }
+    }
+  }
+}

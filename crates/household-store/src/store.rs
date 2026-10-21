@@ -32,6 +32,7 @@ use crate::container::{self, HouseholdHeader};
 use crate::crypto::{self, purpose, Key, NONCE_LEN};
 use crate::member::MemberKeys;
 use crate::migrate::{self, Access};
+use crate::numbering::{self, Category, CategoryEdit, Label, SampleInfo, SampleRequest};
 use crate::office::{self, Author, Roster};
 use crate::recovery;
 use crate::secret::SecretStore;
@@ -107,6 +108,9 @@ struct CatalogEntry {
     summary: String,
     created_at: String,
     updated_at: String,
+    /// 番号の中身（区分・通し番号・枝番・見本。0033）。欄の無い古い事務所データは区分なしの自由な番号
+    #[serde(flatten)]
+    label: Label,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -133,9 +137,12 @@ struct OfficeData {
     last_opened: Option<String>,
     recovery: RecoveryRecord,
     deletions: Vec<Deletion>,
-    /// 表示用の顧客番号の接頭辞（PCごと。0012 の1）と次の連番
+    /// 前の採番（PCごとの接頭辞と次の連番。0012 の1）。0033 からは使わないが、古い版のアプリが同じデータフォルダを読めるよう残す
     customer_no_prefix: String,
     customer_no_next: u32,
+    /// 顧客番号の区分と次の通し番号（0033。この欄の無い古い事務所データは既定の区分・1番から）
+    #[serde(default)]
+    numbering: Numbering,
     /// AI接続口を使うかどうか（事務所全体の設定。0015。既定はオフ。この欄の無い古い事務所データもオフとして読む）
     #[serde(default)]
     ai_connector: AiConnectorSetting,
@@ -168,6 +175,24 @@ struct SharingSetting {
     usage: Option<String>,
 }
 
+/// 顧客番号の区分と次の通し番号（0033）。事務所で共有しているときは、区分は名簿の値を使い、
+/// 通し番号は共有フォルダの世帯の札の番号も見て、事務所全体で重ならないようにする
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Numbering {
+    categories: Vec<Category>,
+    next_serial: u32,
+}
+
+impl Default for Numbering {
+    fn default() -> Numbering {
+        Numbering {
+            categories: numbering::default_categories(),
+            next_serial: 1,
+        }
+    }
+}
+
 /// AI接続口の事務所全体の設定（0015）。既定はオフ
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -178,7 +203,7 @@ struct AiConnectorSetting {
 
 impl OfficeData {
     fn new(device_id: &str) -> OfficeData {
-        // 接頭辞の初期値は PCのID から決める（0012 の1。書式は未確定のため仮: 英大文字1字＋4桁）
+        // 前の採番の接頭辞（PCのID から決める。0012 の1）。0033 からは使わないが、古い版のアプリのために書く
         let b = crypto::hex_decode(&device_id.replace('-', "")[..2])
             .map(|v| v[0])
             .unwrap_or(0);
@@ -190,6 +215,7 @@ impl OfficeData {
             deletions: vec![],
             customer_no_prefix: ((b'A' + b % 26) as char).to_string(),
             customer_no_next: 1,
+            numbering: Numbering::default(),
             ai_connector: AiConnectorSetting::default(),
             sharing: None,
         }
@@ -233,6 +259,9 @@ pub struct HouseholdEntry {
     pub open_by: Vec<PresenceView>,
     /// 同期サービスの衝突の写しの数（0023 の7）
     pub forks: usize,
+    /// 番号の中身（区分・通し番号・枝番・見本。0033）
+    #[serde(flatten)]
+    pub label: Label,
 }
 
 /// 開いた世帯（本文は JSON の文字列）
@@ -249,6 +278,9 @@ pub struct Opened {
     pub saved_by: Option<String>,
     /// 今この世帯を開いている他のメンバー（事務所で共有しているとき。0023 の7）
     pub others_open: Vec<PresenceView>,
+    /// 番号の中身（区分・通し番号・枝番・見本。0033）
+    #[serde(flatten)]
+    pub label: Label,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -271,6 +303,18 @@ pub struct RenameOutcome {
 pub struct CreateRequest {
     pub body: String,
     pub summary: String,
+}
+
+/// 新しい世帯の番号の付け方（0033）。既定は見込み客（P）の区分の次の通し番号
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateOptions {
+    /// 区分の記号（無ければ既定の区分）
+    #[serde(default)]
+    pub category: Option<String>,
+    /// 見本として作る（顧客番号を持たず、見本番号を振る）
+    #[serde(default)]
+    pub sample: Option<SampleRequest>,
 }
 
 struct Session {
@@ -919,10 +963,12 @@ impl Store {
                 .map(str::to_owned)
         };
         let saved = text("savedAt").unwrap_or_default();
+        let customer_no = text("customerNo")
+            .filter(|c| valid_customer_no(c))
+            .unwrap_or_else(|| "NO-NUMBER".into());
         Some(CatalogEntry {
-            customer_no: text("customerNo")
-                .filter(|c| valid_customer_no(c))
-                .unwrap_or_else(|| "NO-NUMBER".into()),
+            label: numbering::label_from_no(&customer_no),
+            customer_no,
             summary: String::new(),
             created_at: saved.clone(),
             updated_at: saved,
@@ -1007,8 +1053,28 @@ impl Store {
         }
     }
 
-    /// 世帯の一覧（新しく保存した順）
+    /// 顧客の世帯の一覧（新しく保存した順。見本は入れない。0033）
     pub fn list(&self) -> Result<Vec<HouseholdEntry>, StoreError> {
+        Ok(self
+            .entries()?
+            .into_iter()
+            .filter(|e| !e.label.is_sample())
+            .collect())
+    }
+
+    /// 見本の棚（FP が作った見本の世帯。見本番号の順。0033）
+    pub fn list_samples(&self) -> Result<Vec<HouseholdEntry>, StoreError> {
+        let mut v: Vec<HouseholdEntry> = self
+            .entries()?
+            .into_iter()
+            .filter(|e| e.label.is_sample())
+            .collect();
+        v.sort_by(|a, b| a.customer_no.cmp(&b.customer_no));
+        Ok(v)
+    }
+
+    /// 世帯の一覧（顧客と見本の両方。新しく保存した順）
+    fn entries(&self) -> Result<Vec<HouseholdEntry>, StoreError> {
         let mut g = self.lock();
         let now = self.now();
         let s = Self::session(&mut g)?;
@@ -1029,6 +1095,7 @@ impl Store {
                         created_at: c.created_at,
                         updated_at: c.updated_at,
                         updated_by: c.updated_by.map(|a| a.name),
+                        label: c.label,
                     })
                     .collect()
             }
@@ -1045,9 +1112,16 @@ impl Store {
                     updated_by: None,
                     open_by: vec![],
                     forks: copies.get(id).map_or(0, Vec::len),
+                    label: e.label.clone(),
                 })
                 .collect(),
         };
+        // 共有の事務所でほかの PC が振った通し番号を見たら、この PC の次の番号をその先へ進める（使い回さない。0033）
+        let seen = v.iter().filter_map(|e| e.label.serial).max().unwrap_or(0);
+        if seen >= s.data.numbering.next_serial && seen < numbering::MAX_SERIAL {
+            s.data.numbering.next_serial = seen + 1;
+            self.write_office(s)?;
+        }
         v.sort_by(|a, b| {
             b.updated_at
                 .cmp(&a.updated_at)
@@ -1056,22 +1130,94 @@ impl Store {
         Ok(v)
     }
 
-    fn next_customer_no(data: &mut OfficeData) -> String {
-        Self::next_customer_no_avoiding(data, &std::collections::HashSet::new())
+    /// 区分の一覧（事務所で共有しているときは名簿の値。名簿に無ければこの PC の設定）
+    fn categories_of(s: &Session) -> Vec<Category> {
+        s.shared
+            .as_ref()
+            .and_then(|sh| sh.roster.categories.clone())
+            .unwrap_or_else(|| s.data.numbering.categories.clone())
     }
 
-    /// 次の顧客番号（PCごとの接頭辞＋連番。0012 の1）。`taken` は共有の事務所の世帯の番号
-    fn next_customer_no_avoiding(
-        data: &mut OfficeData,
-        taken: &std::collections::HashSet<String>,
-    ) -> String {
-        loop {
-            let c = format!("{}{:04}", data.customer_no_prefix, data.customer_no_next);
-            data.customer_no_next += 1;
-            if !data.households.values().any(|e| e.customer_no == c) && !taken.contains(&c) {
-                return c;
-            }
+    /// すべての世帯の (内部ID, 表示の番号, 番号の中身)（事務所で共有しているときは共有フォルダの世帯の札）
+    fn all_labels(s: &Session) -> Vec<(String, String, Label)> {
+        match &s.shared {
+            Some(sh) => sh
+                .list_cards()
+                .into_iter()
+                .map(|(id, c)| (id, c.customer_no, c.label))
+                .collect(),
+            None => s
+                .data
+                .households
+                .iter()
+                .map(|(id, e)| (id.clone(), e.customer_no.clone(), e.label.clone()))
+                .collect(),
         }
+    }
+
+    /// 次の通し番号（0033）。この PC の次の番号と、すべての世帯の通し番号の最大の次の大きい方。
+    /// 同じ表示の番号（自由な番号を含む）がある番号は飛ばす。振った番号は使い回さない（`data` の次の番号を進める）
+    fn next_serial(
+        data: &mut OfficeData,
+        labels: &[(String, String, Label)],
+        code: &str,
+    ) -> Result<u32, StoreError> {
+        let max_used = labels
+            .iter()
+            .filter_map(|(_, _, l)| l.serial)
+            .max()
+            .unwrap_or(0);
+        let mut n = data.numbering.next_serial.max(max_used + 1).max(1);
+        loop {
+            if n > numbering::MAX_SERIAL {
+                return Err(StoreError::CUSTOMER_NO);
+            }
+            let shown = numbering::format_no(code, n, None);
+            if !labels.iter().any(|(_, c, _)| *c == shown) {
+                data.numbering.next_serial = n + 1;
+                return Ok(n);
+            }
+            n += 1;
+        }
+    }
+
+    /// 新しい世帯の区分（指定が無ければ見込み客。見込み客の区分を消していれば最初の区分）
+    fn pick_category(cats: &[Category], want: Option<&str>) -> Result<String, StoreError> {
+        match want {
+            Some(c) if cats.iter().any(|x| x.code == c) => Ok(c.to_owned()),
+            Some(_) => Err(StoreError::CATEGORY),
+            None => cats
+                .iter()
+                .find(|x| x.code == numbering::DEFAULT_CATEGORY)
+                .or_else(|| cats.first())
+                .map(|x| x.code.clone())
+                .ok_or(StoreError::CATEGORY),
+        }
+    }
+
+    /// 見本の番号の中身（家族の形・年代の次の空き番号。10〜）
+    fn new_sample(
+        labels: &[(String, String, Label)],
+        req: &SampleRequest,
+    ) -> Result<(String, Label), StoreError> {
+        numbering::check_sample_request(req)?;
+        let used = labels
+            .iter()
+            .filter_map(|(_, _, l)| l.sample.as_ref().map(|x| x.no.as_str()));
+        let order =
+            numbering::next_sample_order(req.family, req.age, used).ok_or(StoreError::SAMPLE)?;
+        let no = numbering::sample_no(req.family, req.age, order);
+        Ok((
+            no.clone(),
+            Label {
+                sample: Some(SampleInfo {
+                    no,
+                    name: req.name.clone(),
+                    traits: req.traits.clone(),
+                }),
+                ..Label::default()
+            },
+        ))
     }
 
     /// 本文の meta（形式名・形式の版・保存日時・保存したアプリの版・表示用の顧客番号）を入れる（0011 の2）。
@@ -1149,8 +1295,17 @@ impl Store {
         serde_json::to_vec(&Value::Object(body)).expect("本文の JSON")
     }
 
-    /// 新しい世帯を作って保存し、開いた状態にする（世帯の内部IDと世帯の鍵はここで作る）
+    /// 新しい世帯を作って保存し、開いた状態にする（世帯の内部IDと世帯の鍵はここで作る）。番号は見込み客の区分の次の通し番号
     pub fn create(&self, req: CreateRequest) -> Result<Opened, StoreError> {
+        self.create_with(req, CreateOptions::default())
+    }
+
+    /// 新しい世帯を、区分を選んで（または見本として）作る（0033）
+    pub fn create_with(
+        &self,
+        req: CreateRequest,
+        opts: CreateOptions,
+    ) -> Result<Opened, StoreError> {
         let body = parse_body(&req.body)?;
         if !valid_summary(&req.summary) {
             return Err(StoreError::BODY);
@@ -1158,10 +1313,26 @@ impl Store {
         let mut g = self.lock();
         let fail = g.fail;
         let now = self.now();
-        let (id, customer_no, bytes, carry, plain, others) = {
+        let (id, customer_no, label, bytes, carry, plain, others) = {
             let s = Self::session(&mut g)?;
             Self::usable(s)?;
             self.refresh_shared(s)?;
+            let mut data = s.data.clone();
+            let labels = Self::all_labels(s);
+            let (customer_no, label) = match &opts.sample {
+                Some(req) => Self::new_sample(&labels, req)?,
+                None => {
+                    let code =
+                        Self::pick_category(&Self::categories_of(s), opts.category.as_deref())?;
+                    let serial = Self::next_serial(&mut data, &labels, &code)?;
+                    let label = Label {
+                        category: Some(code),
+                        serial: Some(serial),
+                        ..Label::default()
+                    };
+                    (label.display().expect("体系の番号"), label)
+                }
+            };
             let id = crypto::new_uuid();
             let author = s.shared.as_ref().map(|sh| sh.me.clone());
             let (key_id, key) = match &s.shared {
@@ -1177,11 +1348,6 @@ impl Store {
                     }
                     (key_id, key)
                 }
-            };
-            let mut data = s.data.clone();
-            let customer_no = match &s.shared {
-                Some(sh) => Self::next_customer_no_avoiding(&mut data, &sh.customer_nos()),
-                None => Self::next_customer_no(&mut data),
             };
             let saved_at = iso_of(now);
             let mut carry = MetaCarry::default();
@@ -1218,6 +1384,7 @@ impl Store {
                         updated_at: saved_at.clone(),
                         updated_by: author.clone(),
                         generation: 1,
+                        label: label.clone(),
                     },
                 )?,
                 None => {
@@ -1228,6 +1395,7 @@ impl Store {
                             summary: req.summary.clone(),
                             created_at: saved_at.clone(),
                             updated_at: saved_at,
+                            label: label.clone(),
                         },
                     );
                 }
@@ -1239,7 +1407,7 @@ impl Store {
                 Some(sh) => sh.enter(&id, now),
                 None => vec![],
             };
-            (id, customer_no, bytes, carry, plain, others)
+            (id, customer_no, label, bytes, carry, plain, others)
         };
         g.opened.insert(
             id.clone(),
@@ -1260,6 +1428,7 @@ impl Store {
             generation: 1,
             saved_by,
             others_open: others,
+            label,
         })
     }
 
@@ -1282,15 +1451,19 @@ impl Store {
             let s = Self::session(&mut g)?;
             Self::usable(s)?;
             self.refresh_shared(s)?;
-            let customer_no = match &s.shared {
-                Some(sh) => sh.read_card(id)?.customer_no,
-                None => s
-                    .data
-                    .households
-                    .get(id)
-                    .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?
-                    .customer_no
-                    .clone(),
+            let (customer_no, label) = match &s.shared {
+                Some(sh) => {
+                    let c = sh.read_card(id)?;
+                    (c.customer_no, c.label)
+                }
+                None => {
+                    let e = s
+                        .data
+                        .households
+                        .get(id)
+                        .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?;
+                    (e.customer_no.clone(), e.label.clone())
+                }
             };
             let bytes = match fs::read(self.hh_path(s, id)) {
                 Ok(b) => b,
@@ -1334,6 +1507,7 @@ impl Store {
                     generation: h.generation,
                     saved_by,
                     others_open: others,
+                    label,
                 },
                 OpenState {
                     parent_revision: crypto::digest(&bytes),
@@ -1479,7 +1653,73 @@ impl Store {
         ))
     }
 
-    /// 表示用の顧客番号を変える（内部IDは変わらない。同じ番号があっても止めない。0012 の1）
+    /// 世帯の表示の番号と番号の中身
+    fn label_of(s: &Session, id: &str) -> Result<(String, Label), StoreError> {
+        match &s.shared {
+            Some(sh) => {
+                let c = sh.read_card(id)?;
+                Ok((c.customer_no, c.label))
+            }
+            None => s
+                .data
+                .households
+                .get(id)
+                .map(|e| (e.customer_no.clone(), e.label.clone()))
+                .ok_or(StoreError::UNKNOWN_HOUSEHOLD),
+        }
+    }
+
+    /// 世帯の表示の番号と番号の中身を書く（事務所で共有しているときは世帯の札。この PC の事務所データも書く）
+    fn put_label(
+        &self,
+        s: &mut Session,
+        id: &str,
+        customer_no: &str,
+        label: Label,
+    ) -> Result<(), StoreError> {
+        match &s.shared {
+            Some(sh) => {
+                let mut card = sh.read_card(id)?;
+                card.customer_no = customer_no.to_owned();
+                card.label = label;
+                sh.write_card(id, &card)?;
+            }
+            None => {
+                let e = s
+                    .data
+                    .households
+                    .get_mut(id)
+                    .ok_or(StoreError::UNKNOWN_HOUSEHOLD)?;
+                e.customer_no = customer_no.to_owned();
+                e.label = label;
+            }
+        }
+        self.write_office(s)
+    }
+
+    /// 開いて使える状態の世帯の操作の前置き
+    fn ready_session<'a>(&self, g: &'a mut Inner) -> Result<&'a mut Session, StoreError> {
+        let s = Self::session(g)?;
+        Self::usable(s)?;
+        self.refresh_shared(s)?;
+        Ok(s)
+    }
+
+    /// ほかの顧客の世帯に同じ番号（または同じ通し番号と枝番）があるか
+    fn duplicate_of(labels: &[(String, String, Label)], id: &str, no: &str, label: &Label) -> bool {
+        labels.iter().any(|(k, c, l)| {
+            k != id
+                && !l.is_sample()
+                && (c == no
+                    || (label.serial.is_some()
+                        && l.serial == label.serial
+                        && l.branch == label.branch))
+        })
+    }
+
+    /// 表示用の顧客番号を変える（内部IDは変わらない。同じ番号があっても止めない。0012 の1）。
+    /// 区分の記号＋通し番号（枝番つきを含む）の形なら体系の番号として持ち、そうでなければ自由な番号として持つ（区分はそのまま。0033）。
+    /// 見本の番号は変えられない
     pub fn rename(&self, id: &str, customer_no: &str) -> Result<RenameOutcome, StoreError> {
         let c = customer_no.trim();
         if !valid_customer_no(c) {
@@ -1489,38 +1729,215 @@ impl Store {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
         }
         let mut g = self.lock();
-        let s = Self::session(&mut g)?;
-        Self::usable(s)?;
-        self.refresh_shared(s)?;
-        if let Some(sh) = &s.shared {
-            let mut card = sh.read_card(id)?;
-            let duplicate = sh
-                .list_cards()
-                .iter()
-                .any(|(k, e)| k != id && e.customer_no == c);
-            card.customer_no = c.to_owned();
-            sh.write_card(id, &card)?;
-            return Ok(RenameOutcome {
-                customer_no: c.to_owned(),
-                duplicate,
-            });
+        let s = self.ready_session(&mut g)?;
+        let (_, old) = Self::label_of(s, id)?;
+        if old.is_sample() {
+            return Err(StoreError::SAMPLE);
         }
-        if !s.data.households.contains_key(id) {
-            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        let (no, label) = match numbering::parse_structured(c, &Self::categories_of(s)) {
+            Some((code, serial, branch)) => {
+                let l = Label {
+                    category: Some(code),
+                    serial: Some(serial),
+                    branch,
+                    sample: None,
+                };
+                (l.display().expect("体系の番号"), l)
+            }
+            None => (
+                c.to_owned(),
+                Label {
+                    category: old.category.clone(),
+                    ..Label::default()
+                },
+            ),
+        };
+        let labels = Self::all_labels(s);
+        let duplicate = Self::duplicate_of(&labels, id, &no, &label);
+        // FP が先の通し番号を入れたら、次に振る番号をその先へ進める（使い回さない）
+        if let Some(n) = label.serial {
+            if n >= s.data.numbering.next_serial {
+                s.data.numbering.next_serial = n.saturating_add(1);
+            }
         }
-        let duplicate = s
-            .data
-            .households
-            .iter()
-            .any(|(k, e)| k != id && e.customer_no == c);
-        if let Some(e) = s.data.households.get_mut(id) {
-            e.customer_no = c.to_owned();
-        }
-        self.write_office(s)?;
+        self.put_label(s, id, &no, label)?;
         Ok(RenameOutcome {
-            customer_no: c.to_owned(),
+            customer_no: no,
             duplicate,
         })
+    }
+
+    /// 世帯の区分を変える（0033）。体系の番号は記号だけが変わり、通し番号と枝番はそのまま（P0042 → M0042）。
+    /// 自由な番号は番号を変えない（区分だけを持つ）
+    pub fn set_category(&self, id: &str, code: &str) -> Result<RenameOutcome, StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        let mut g = self.lock();
+        let s = self.ready_session(&mut g)?;
+        if !Self::categories_of(s).iter().any(|c| c.code == code) {
+            return Err(StoreError::CATEGORY);
+        }
+        let (old_no, mut label) = Self::label_of(s, id)?;
+        if label.is_sample() {
+            return Err(StoreError::SAMPLE);
+        }
+        label.category = Some(code.to_owned());
+        let no = label.display().unwrap_or(old_no);
+        let duplicate = Self::duplicate_of(&Self::all_labels(s), id, &no, &label);
+        self.put_label(s, id, &no, label)?;
+        Ok(RenameOutcome {
+            customer_no: no,
+            duplicate,
+        })
+    }
+
+    /// 自由な番号（今までの「PCの接頭辞＋連番」の番号を含む）の世帯に、区分の記号＋新しい通し番号を付ける（一方向。0033）。
+    /// 区分が無ければ見込み客。既に体系の番号なら何もしない
+    pub fn assign_serial(&self, id: &str) -> Result<RenameOutcome, StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        let mut g = self.lock();
+        let s = self.ready_session(&mut g)?;
+        let (old_no, mut label) = Self::label_of(s, id)?;
+        if label.is_sample() {
+            return Err(StoreError::SAMPLE);
+        }
+        if label.serial.is_some() {
+            return Ok(RenameOutcome {
+                customer_no: old_no,
+                duplicate: false,
+            });
+        }
+        let cats = Self::categories_of(s);
+        let code = match label
+            .category
+            .as_deref()
+            .filter(|c| cats.iter().any(|x| x.code == *c))
+        {
+            Some(c) => c.to_owned(),
+            None => Self::pick_category(&cats, None)?,
+        };
+        let labels = Self::all_labels(s);
+        let mut data = s.data.clone();
+        let serial = Self::next_serial(&mut data, &labels, &code)?;
+        s.data = data;
+        label = Label {
+            category: Some(code),
+            serial: Some(serial),
+            branch: None,
+            sample: None,
+        };
+        let no = label.display().expect("体系の番号");
+        self.put_label(s, id, &no, label)?;
+        Ok(RenameOutcome {
+            customer_no: no,
+            duplicate: false,
+        })
+    }
+
+    /// 顧客の世帯を見本の棚へ移す（中身は架空であることを FP が確かめた後に呼ぶ。0033）。顧客番号は外れ、見本番号（10〜）が付く。
+    /// 外れた通し番号は使い回さない
+    pub fn make_sample(&self, id: &str, req: &SampleRequest) -> Result<RenameOutcome, StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        let mut g = self.lock();
+        let s = self.ready_session(&mut g)?;
+        let (_, label) = Self::label_of(s, id)?;
+        if label.is_sample() {
+            return Err(StoreError::SAMPLE);
+        }
+        let (no, label) = Self::new_sample(&Self::all_labels(s), req)?;
+        self.put_label(s, id, &no, label)?;
+        Ok(RenameOutcome {
+            customer_no: no,
+            duplicate: false,
+        })
+    }
+
+    /// 見本の名前と絞り込みの項目を直す（見本番号は変えない。0033）
+    pub fn update_sample(&self, id: &str, name: &str, traits: &[String]) -> Result<(), StoreError> {
+        if !crypto::is_uuid(id) {
+            return Err(StoreError::UNKNOWN_HOUSEHOLD);
+        }
+        let mut g = self.lock();
+        let s = self.ready_session(&mut g)?;
+        let (no, mut label) = Self::label_of(s, id)?;
+        let Some(info) = label.sample.as_mut() else {
+            return Err(StoreError::SAMPLE);
+        };
+        let (family, age, _) = numbering::parse_sample_no(&info.no).ok_or(StoreError::SAMPLE)?;
+        numbering::check_sample_request(&SampleRequest {
+            family,
+            age,
+            name: name.to_owned(),
+            traits: traits.to_vec(),
+        })?;
+        info.name = name.to_owned();
+        info.traits = traits.to_vec();
+        self.put_label(s, id, &no, label)
+    }
+
+    /// 区分の一覧（0033）
+    pub fn categories(&self) -> Result<Vec<Category>, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        // 事務所で共有しているときは、名簿がほかの PC で書き換えられていれば読み直す（読めなければ手元の値）
+        let _ = self.refresh_shared(s);
+        Ok(Self::categories_of(s))
+    }
+
+    /// 区分の設定を変える（足す・名前を変える・記号を変える・使っていない区分を消す。0033）。
+    /// 記号を変えた区分の世帯は、体系の番号の記号も付け替える（通し番号はそのまま）。事務所で共有しているときは名簿に書く
+    pub fn set_categories(&self, edits: &[CategoryEdit]) -> Result<Vec<Category>, StoreError> {
+        let mut g = self.lock();
+        let s = self.ready_session(&mut g)?;
+        let current = Self::categories_of(s);
+        let labels = Self::all_labels(s);
+        let in_use: std::collections::HashSet<String> = labels
+            .iter()
+            .filter(|(_, _, l)| !l.is_sample())
+            .filter_map(|(_, _, l)| l.category.clone())
+            .collect();
+        let (cats, renames) = numbering::apply_category_edits(&current, edits, &in_use)?;
+        if let Some(sh) = s.shared.as_mut() {
+            let mut r = sh.roster.clone();
+            r.categories = Some(cats.clone());
+            r.updated_at = iso_of(self.now());
+            r.updated_by = Some(sh.me.member_id.clone());
+            let m = sh.master.clone();
+            sh.write_roster(r, &m)?;
+        }
+        s.data.numbering.categories = cats.clone();
+        let renamed: HashMap<&str, &str> = renames
+            .iter()
+            .map(|(a, b)| (a.as_str(), b.as_str()))
+            .collect();
+        for (id, no, mut label) in labels {
+            let Some(to) = label.category.as_deref().and_then(|c| renamed.get(c)) else {
+                continue;
+            };
+            label.category = Some((*to).to_owned());
+            let shown = label.display().unwrap_or(no);
+            match &s.shared {
+                Some(sh) => {
+                    let mut card = sh.read_card(&id)?;
+                    card.customer_no = shown;
+                    card.label = label;
+                    sh.write_card(&id, &card)?;
+                }
+                None => {
+                    if let Some(e) = s.data.households.get_mut(&id) {
+                        e.customer_no = shown;
+                        e.label = label;
+                    }
+                }
+            }
+        }
+        self.write_office(s)?;
+        Ok(cats)
     }
 
     /// 完全削除（0013 の5）: 世帯ファイル・直前の世代・アプリが管理するバックアップの写しを消し、鍵置き場からその世帯の鍵を消す。
@@ -2059,8 +2476,28 @@ mod tests {
         assert!(!valid_customer_no("山田"));
         assert!(!valid_customer_no("../x"));
         assert!(!valid_customer_no("A0000000000000000"));
+        // 次の通し番号: この PC の次の番号と、使われている通し番号の最大の次の大きい方。同じ表示の番号（自由な番号）は飛ばす
         let mut d = OfficeData::new(&crypto::new_uuid());
-        let a = Store::next_customer_no(&mut d);
-        assert!(a.ends_with("0001") && a.len() == 5, "{a}");
+        assert_eq!(Store::next_serial(&mut d, &[], "P").unwrap(), 1);
+        assert_eq!(d.numbering.next_serial, 2);
+        let used = |serial: Option<u32>, no: &str| {
+            (
+                crypto::new_uuid(),
+                no.to_owned(),
+                Label {
+                    serial,
+                    ..Label::default()
+                },
+            )
+        };
+        let labels = [used(Some(7), "M0007"), used(None, "P0008")];
+        assert_eq!(Store::next_serial(&mut d, &labels, "P").unwrap(), 9);
+        assert_eq!(Store::next_serial(&mut d, &labels, "M").unwrap(), 10);
+        // 古い事務所データ（番号の欄が無い）は既定の区分・1番から
+        let mut v = serde_json::to_value(OfficeData::new(&crypto::new_uuid())).unwrap();
+        v.as_object_mut().unwrap().remove("numbering");
+        let old: OfficeData = serde_json::from_value(v).unwrap();
+        assert_eq!(old.numbering.next_serial, 1);
+        assert_eq!(old.numbering.categories, numbering::default_categories());
     }
 }

@@ -14,7 +14,7 @@ import { storageNoticeText, SYNC_MESSAGES, syncMessage } from "../src/workspace/
 
 const no = async () => Promise.reject("E");
 const office: OfficeHost = { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] };
-const store: StoreHost = { status: no, list: no, create: no, open: no, save: no, rename: no, remove: no, recoveryKey: no, acknowledgeRecovery: no, testRecoveryKey: no, restoreWithRecoveryKey: no, closeReady: async () => undefined, forkInfo: no, resolveFork: no, resolveSyncCopies: no, leave: async () => undefined, devFileKeys: async () => false };
+const store: StoreHost = { status: no, list: no, create: no, open: no, save: no, rename: no, remove: no, recoveryKey: no, acknowledgeRecovery: no, testRecoveryKey: no, restoreWithRecoveryKey: no, closeReady: async () => undefined, forkInfo: no, resolveFork: no, resolveSyncCopies: no, leave: async () => undefined, devFileKeys: async () => false, listSamples: no, setCategory: no, assignSerial: no, makeSample: no, updateSample: no, categories: no, setCategories: no };
 
 const ready = (over: Partial<StoreStatus> = {}): StoreStatus => ({ state: "ready", firstRun: false, recoveryAcknowledged: true, recoveryVerifiedAt: null, lastOpened: null, deletionsPending: 0, deletionsCompleted: 0, ...over });
 
@@ -139,7 +139,7 @@ describe("保存先のパネル: 同期フォルダ（1人で2台の PC）", () 
 
 describe("世帯の一覧", () => {
   const list: StoredHousehold[] = [{ id: "1", customerNo: "A0001", summary: "本人", createdAt: "2026-10-19T00:00:00Z", updatedAt: "2026-10-19T01:00:00Z", updatedBy: "自宅のノート", openBy: [{ name: "自宅のノート", since: new Date(Date.now() - 3 * 60_000).toISOString() }], forks: 0 }];
-  const base = { status: ready(), unavailable: null, error: null, list, currentId: null, demos: [], unsavedTitle: null, onOpen: () => undefined, onCreate: () => undefined, onViewDemo: () => undefined, onSaveCurrent: () => undefined, onRename: async () => null, onDelete: async () => null, onRecovery: () => undefined, onClose: () => undefined, onOffice: () => undefined, onStorage: () => undefined };
+  const base = { status: ready(), unavailable: null, error: null, list, currentId: null, categories: [{ code: "M", name: "顧問契約" }, { code: "T", name: "単発相談" }, { code: "P", name: "見込み客" }], shelf: [], currentSample: null, currentShape: null, unsavedTitle: null, onOpen: () => undefined, onCreate: () => undefined, onSaveCurrent: () => undefined, onRename: async () => null, onSetCategory: async () => null, onAssignSerial: async () => null, onMakeSample: async () => null, onSaveCategories: async () => null, onOpenSample: () => undefined, onCustomerFromSample: () => undefined, onCopySample: () => undefined, onUpdateSample: async () => null, onDelete: async () => null, onRecovery: () => undefined, onClose: () => undefined, onOffice: () => undefined, onStorage: () => undefined };
   it("同期フォルダのときは PC の言葉で出し、保存先は「同期フォルダ」", () => {
     const html = renderToString(h(HouseholdPanel, { ...base, officeState: "member", usage: "personal" as const, storageNotices: [notice("syncCopies", { count: 1 })] }));
     expect(html).toContain("同期フォルダに自動で保存します（2台のPCで使えます）");

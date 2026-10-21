@@ -239,13 +239,6 @@ impl Shared {
         out
     }
 
-    pub(super) fn customer_nos(&self) -> HashSet<String> {
-        self.list_cards()
-            .into_iter()
-            .map(|(_, c)| c.customer_no)
-            .collect()
-    }
-
     fn write_keys(
         &self,
         master_key_id: &str,
@@ -452,7 +445,7 @@ impl Shared {
     }
 
     /// 名簿を書く（読んだ後にほかの PC が書き換えていたら書かない）
-    fn write_roster(&mut self, r: Roster, master: &Key) -> Result<(), StoreError> {
+    pub(super) fn write_roster(&mut self, r: Roster, master: &Key) -> Result<(), StoreError> {
         if digest_of(&self.paths.members()).as_deref() != Some(self.members_digest.as_str()) {
             return Err(StoreError::OFFICE_BUSY);
         }
@@ -981,6 +974,8 @@ impl Store {
                 }
                 .to_owned(),
             ),
+            // 区分は、始めた PC の設定を事務所の設定にする（0033）
+            categories: Some(s.data.numbering.categories.clone()),
             updated_at: at.clone(),
             updated_by: Some(member_id.clone()),
         };
@@ -1433,6 +1428,7 @@ impl Store {
                 summary: c.summary,
                 created_at: c.created_at,
                 updated_at: c.updated_at,
+                label: c.label,
             },
             Err(_) => {
                 let v: Value = serde_json::from_slice(&plain).map_err(|_| StoreError::CORRUPT)?;
@@ -1442,10 +1438,12 @@ impl Store {
                         .map(str::to_owned)
                 };
                 let saved = text("savedAt").unwrap_or_default();
+                let customer_no = text("customerNo")
+                    .filter(|c| valid_customer_no(c))
+                    .unwrap_or_else(|| "NO-NUMBER".into());
                 CatalogEntry {
-                    customer_no: text("customerNo")
-                        .filter(|c| valid_customer_no(c))
-                        .unwrap_or_else(|| "NO-NUMBER".into()),
+                    label: crate::numbering::label_from_no(&customer_no),
+                    customer_no,
                     summary: String::new(),
                     created_at: saved.clone(),
                     updated_at: saved,
@@ -1739,6 +1737,7 @@ impl Store {
                         updated_at: entry.updated_at.clone(),
                         updated_by: None,
                         generation: header.generation + 1,
+                        label: entry.label.clone(),
                     },
                 )?;
             }

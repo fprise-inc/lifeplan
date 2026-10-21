@@ -216,12 +216,13 @@ describe("画面にファイルの道（パス）を渡さない（0016 の1）"
     expect(Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).filter((k) => k.startsWith("@tauri-apps/plugin-"))).toEqual([]);
   });
 
-  it("保存・事務所の共有の命令に渡すのは、内部ID・本文・要約・顧客番号・確認・復元キー・分岐の選び方・表示名・申請と指紋だけ", () => {
+  it("保存・事務所の共有の命令に渡すのは、内部ID・本文・要約・顧客番号・区分・見本の指定・確認・復元キー・分岐の選び方・表示名・申請と指紋だけ", () => {
     const host = readFileSync(join(APP_DIR, "src", "engine", "host.ts"), "utf8");
     const calls = [...host.matchAll(/invoke<[^>]*>\("((?:store|recovery_key|app|office)_[a-z_]+)"(?:, \{ ([^}]*) \})?\)/g)];
     expect(calls.length).toBeGreaterThanOrEqual(23);
     // 0023: 共有フォルダは本体のダイアログで選ばせるので、パス・フォルダの引数は無い
-    const allowed = new Set(["id", "body", "summary", "customerNo", "confirm", "key", "keepOurs", "adopt", "name", "request: requestId", "fingerprint", "member: memberId"]);
+    // 0033: 区分の記号・区分の設定・見本の指定（家族の形・年代・名前・絞り込みの項目）
+    const allowed = new Set(["id", "body", "summary", "customerNo", "confirm", "key", "keepOurs", "adopt", "name", "request: requestId", "fingerprint", "member: memberId", "category", "category: opts?.category ?? null", "sample", "sample: opts?.sample ?? null", "traits", "edits"]);
     for (const c of calls) {
       const args = (c[2] ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "");
       for (const a of args) expect(allowed.has(a), `${c[1]} の引数 ${a}`).toBe(true);

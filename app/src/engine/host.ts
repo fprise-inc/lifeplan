@@ -81,6 +81,45 @@ export interface TakeawayHost {
   save(bytes: Uint8Array, meta: { exportedOn: string; encrypted: boolean }): Promise<SaveOutcome>;
 }
 
+// ---- 顧客番号の区分と通し番号・見本の棚（0033。本体の numbering） ----
+
+/** 区分（記号は英大文字1〜2字） */
+export interface Category {
+  code: string;
+  name: string;
+}
+
+/** 区分の設定の変更の1行（from は今の記号。新しく足す区分は無し） */
+export interface CategoryEdit {
+  from?: string;
+  code: string;
+  name: string;
+}
+
+/** 見本の中身の説明 */
+export interface SampleInfo {
+  /** 見本番号（家族の形-年代-順番。例 3-4-01） */
+  no: string;
+  name: string;
+  traits: string[];
+}
+
+/** 見本を作る・登録するときの指定 */
+export interface SampleRequest {
+  family: number;
+  age: number;
+  name: string;
+  traits: string[];
+}
+
+/** 一覧の札・開いた世帯の番号の中身（本体の Label） */
+export interface NumberLabel {
+  category?: string;
+  serial?: number;
+  branch?: string;
+  sample?: SampleInfo;
+}
+
 /** 保存の状態（本体の household-store の Status） */
 export interface StoreStatus {
   state: "ready" | "needsRecovery";
@@ -99,8 +138,8 @@ export interface PresenceView {
   since: string;
 }
 
-/** 保存した世帯の一覧の1件（表示用の顧客番号と構成の要約だけ。氏名は持たない。0012） */
-export interface StoredHousehold {
+/** 保存した世帯の一覧の1件（表示用の顧客番号と構成の要約だけ。氏名は持たない。0012）。番号の中身（区分・通し番号・枝番・見本）は 0033 */
+export interface StoredHousehold extends NumberLabel {
   id: string;
   customerNo: string;
   summary: string;
@@ -115,7 +154,7 @@ export interface StoredHousehold {
 }
 
 /** 開いた世帯（本文は JSON の文字列。0011 の2） */
-export interface StoredOpened {
+export interface StoredOpened extends NumberLabel {
   id: string;
   customerNo: string;
   body: string;
@@ -244,8 +283,10 @@ export interface OfficeHost {
  */
 export interface StoreHost {
   status(): Promise<StoreStatus>;
+  /** 顧客の世帯の一覧（見本は入れない） */
   list(): Promise<StoredHousehold[]>;
-  create(body: string, summary: string): Promise<StoredOpened>;
+  /** 新しい世帯（opts.category は区分の記号。無ければ見込み客。opts.sample があれば見本として作る。0033） */
+  create(body: string, summary: string, opts?: { category?: string; sample?: SampleRequest }): Promise<StoredOpened>;
   open(id: string): Promise<StoredOpened>;
   save(id: string, body: string, summary: string): Promise<{ generation: number; savedAt: string }>;
   rename(id: string, customerNo: string): Promise<{ customerNo: string; duplicate: boolean }>;
@@ -268,6 +309,18 @@ export interface StoreHost {
   leave(): Promise<void>;
   /** 開発用のビルドで、鍵を OS の保管庫ではなくファイルに置いているか（画面に小さな札を出す） */
   devFileKeys(): Promise<boolean>;
+  // ---- 顧客番号の区分と通し番号・見本の棚（0033） ----
+  /** 見本の棚（FP が作った見本） */
+  listSamples(): Promise<StoredHousehold[]>;
+  /** 区分を変える（体系の番号は記号だけが変わる） */
+  setCategory(id: string, category: string): Promise<{ customerNo: string; duplicate: boolean }>;
+  /** 自由な番号の世帯に、区分の記号＋新しい通し番号を付ける */
+  assignSerial(id: string): Promise<{ customerNo: string; duplicate: boolean }>;
+  /** 顧客の世帯を見本の棚へ移す（「中身は架空です」を確かめた後） */
+  makeSample(id: string, sample: SampleRequest): Promise<{ customerNo: string; duplicate: boolean }>;
+  updateSample(id: string, name: string, traits: string[]): Promise<void>;
+  categories(): Promise<Category[]>;
+  setCategories(edits: CategoryEdit[]): Promise<Category[]>;
 }
 
 // ---- AI接続口（0014・0015）。画面には鍵もパスも渡らない（接続の設定の文面は場所を伏せたもの） ----
@@ -457,7 +510,7 @@ export function tauriHost(): HostApi {
     store: {
       status: () => invoke<StoreStatus>("store_status"),
       list: () => invoke<StoredHousehold[]>("store_list"),
-      create: (body, summary) => invoke<StoredOpened>("store_create", { body, summary }),
+      create: (body, summary, opts) => invoke<StoredOpened>("store_create", { body, summary, category: opts?.category ?? null, sample: opts?.sample ?? null }),
       open: (id) => invoke<StoredOpened>("store_open", { id }),
       save: (id, body, summary) => invoke<{ generation: number; savedAt: string }>("store_save", { id, body, summary }),
       rename: (id, customerNo) => invoke<{ customerNo: string; duplicate: boolean }>("store_rename", { id, customerNo }),
@@ -472,6 +525,13 @@ export function tauriHost(): HostApi {
       resolveSyncCopies: (id, adopt) => invoke<void>("store_sync_copies_resolve", { id, adopt }),
       leave: () => invoke<void>("store_leave"),
       devFileKeys: () => invoke<boolean>("store_keystore"),
+      listSamples: () => invoke<StoredHousehold[]>("store_list_samples"),
+      setCategory: (id, category) => invoke<{ customerNo: string; duplicate: boolean }>("store_set_category", { id, category }),
+      assignSerial: (id) => invoke<{ customerNo: string; duplicate: boolean }>("store_assign_serial", { id }),
+      makeSample: (id, sample) => invoke<{ customerNo: string; duplicate: boolean }>("store_make_sample", { id, sample }),
+      updateSample: (id, name, traits) => invoke<void>("store_update_sample", { id, name, traits }),
+      categories: () => invoke<Category[]>("store_categories"),
+      setCategories: (edits) => invoke<Category[]>("store_set_categories", { edits }),
     },
     office: {
       status: () => invoke<OfficeStatus>("office_status"),
@@ -617,7 +677,7 @@ export function devBrowserHost(engine: WebEngine): HostApi {
     store: {
       status: async () => devJson<StoreStatus>(await devStore("status")),
       list: async () => devJson<StoredHousehold[]>(await devStore("list")),
-      create: async (body, summary) => devJson<StoredOpened>(await devStore("create", { body, summary })),
+      create: async (body, summary, opts) => devJson<StoredOpened>(await devStore("create", { body, summary, ...(opts?.category !== undefined ? { category: opts.category } : {}), ...(opts?.sample !== undefined ? { sample: JSON.stringify(opts.sample) } : {}) })),
       open: async (id) => devJson<StoredOpened>(await devStore("open", { id })),
       save: async (id, body, summary) => devJson<{ generation: number; savedAt: string }>(await devStore("save", { id, body, summary })),
       rename: async (id, customerNo) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("rename", { id, customerNo })),
@@ -632,6 +692,13 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       resolveSyncCopies: async (id, adopt) => void (await devJson<unknown>(await devStore("resolveSyncCopies", { id, adopt: adopt ? "1" : "" }))),
       leave: async () => undefined,
       devFileKeys: async () => false,
+      listSamples: async () => devJson<StoredHousehold[]>(await devStore("listSamples")),
+      setCategory: async (id, category) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("setCategory", { id, category })),
+      assignSerial: async (id) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("assignSerial", { id })),
+      makeSample: async (id, sample) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("makeSample", { id, sample: JSON.stringify(sample) })),
+      updateSample: async (id, name, traits) => void (await devJson<unknown>(await devStore("updateSample", { id, name, traits: JSON.stringify(traits) }))),
+      categories: async () => devJson<Category[]>(await devStore("categories")),
+      setCategories: async (edits) => devJson<Category[]>(await devStore("setCategories", { edits: JSON.stringify(edits) })),
     },
     // 事務所での共有: 開発用のサーバーのメモリの中の代わり（フォルダのダイアログは出さず、架空の共有フォルダを選んだことにする）
     office: {

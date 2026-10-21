@@ -8,6 +8,7 @@
 //! - 保存は一時ファイルに書いてディスクへ同期してから差し替え、直前の世代を1つ残す（0011 の7。[`atomic`]）。
 //! - 形式の版と一方向の移行（0011 の5。[`migrate`]）。
 //! - 世帯の一覧・作成・開く・保存・顧客番号の変更・完全削除・自動バックアップは [`Store`]。
+//! - 顧客番号の区分と通し番号、見本の番号（0033）は [`numbering`]。
 //! - 事務所での共有（0023。既定はオフ）: メンバーごとの X25519 の鍵の組で事務所の親鍵を包む名簿・世帯ごとの鍵の札と世帯の札・
 //!   開いている印は [`office`]、鍵の組・親鍵の包み・指紋は [`member`]。共有フォルダの場所は [`Store`] が事務所データに持ち、外に返さない。
 //! - 1人の FP が複数の PC で使う同期フォルダ（0024）: 事務所での共有と同じ仕組みに「メンバー＝PC」として乗せる（名簿の使い方の欄が
@@ -21,18 +22,20 @@ pub mod container;
 pub mod crypto;
 pub mod member;
 pub mod migrate;
+pub mod numbering;
 pub mod office;
 pub mod recovery;
 pub mod secret;
 mod store;
 pub mod vault;
 
+pub use numbering::{Category, CategoryEdit, Label, SampleInfo, SampleRequest};
 pub use office::Author;
 pub use secret::{MemorySecretStore, SecretStore};
 pub use store::{
-    Clock, CreateRequest, ForkChoice, ForkInfo, HouseholdEntry, MemberView, NoticeView,
-    OfficeStatus, Opened, PresenceView, RemovedView, RenameOutcome, RequestView, Saved, Status,
-    StatusState, StorageNotice, Store, SystemClock,
+    Clock, CreateOptions, CreateRequest, ForkChoice, ForkInfo, HouseholdEntry, MemberView,
+    NoticeView, OfficeStatus, Opened, PresenceView, RemovedView, RenameOutcome, RequestView, Saved,
+    Status, StatusState, StorageNotice, Store, SystemClock,
 };
 
 #[cfg(feature = "os-keyring")]
@@ -96,6 +99,12 @@ impl StoreError {
     pub const BODY: StoreError = StoreError("E_STORE_BODY");
     /// 表示用の顧客番号の書式が違う
     pub const CUSTOMER_NO: StoreError = StoreError("E_STORE_CUSTOMER_NO");
+    /// 区分の記号・名前の書式が違う、知らない区分（0033）
+    pub const CATEGORY: StoreError = StoreError("E_STORE_CATEGORY");
+    /// 世帯が使っている区分は消せない（0033）
+    pub const CATEGORY_IN_USE: StoreError = StoreError("E_STORE_CATEGORY_IN_USE");
+    /// 見本の指定が違う・見本にはできない操作・見本の番号の空きが無い（0033）
+    pub const SAMPLE: StoreError = StoreError("E_STORE_SAMPLE");
     /// 完全削除の確認（顧客番号の入力）が合わない
     pub const CONFIRM: StoreError = StoreError("E_STORE_CONFIRM");
     /// 復元キーの打ち間違い（確かめ用の4バイトが合わない・文字数が違う・使えない文字）

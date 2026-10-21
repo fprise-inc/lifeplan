@@ -395,6 +395,7 @@ fn forged_roster_is_rejected() {
         events: vec![],
         closed: None,
         usage: None,
+        categories: None,
         updated_at: "x".into(),
         updated_by: None,
     };
@@ -812,6 +813,7 @@ fn stray_keys_written_by_a_lagging_pc_are_adopted_with_a_new_key() {
         updated_at: "2026-10-19T09:01:00Z".into(),
         updated_by: None,
         generation: 1,
+        label: Default::default(),
     };
     std::fs::write(
         root.card(&id),

@@ -30,12 +30,15 @@ function readBody(req: import("node:http").IncomingMessage): Promise<Buffer> {
 }
 
 /** 開発用のサーバーの世帯の保存（メモリの中だけ。再起動で消える） */
+type DevLabel = { category?: string; serial?: number; branch?: string; sample?: { no: string; name: string; traits: string[] } };
 const devStore = {
-  households: new Map<string, { customerNo: string; summary: string; createdAt: string; updatedAt: string; body: string; generation: number; updatedBy?: string | null; openBy?: { name: string; since: string }[]; forks?: number; conflict?: boolean }>(),
+  households: new Map<string, { customerNo: string; summary: string; createdAt: string; updatedAt: string; body: string; generation: number; updatedBy?: string | null; openBy?: { name: string; since: string }[]; forks?: number; conflict?: boolean; label: DevLabel }>(),
+  // 顧客番号の区分と次の通し番号（本体の numbering と同じ決まり。0033）
+  categories: [{ code: "M", name: "顧問契約" }, { code: "T", name: "単発相談" }, { code: "P", name: "見込み客" }],
+  nextSerial: 1,
   lastOpened: null as string | null,
   acknowledgedAt: null as string | null,
   verifiedAt: null as string | null,
-  next: 1,
   // 見本の復元キー（開発用。本物の親鍵ではない）
   recoveryKey: Array.from({ length: 58 }, (_, i) => "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[(i * 7 + 3) % 32]).join("").replace(/(.{4})(?=.)/g, "$1-"),
   deletions: 0,
@@ -52,22 +55,100 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
   const withMeta = (body: string, customerNo: string) => JSON.stringify({ ...(JSON.parse(body) as object), meta: { format: "lifeplan.household", formatVersion: "0.2", savedAt: now, appVersion: "dev", customerNo, revisions: [], editors } });
   const me = devOffice.state === "member" ? (devOffice.members.find((m) => m.isMe)?.name ?? null) : null;
   const h = a.id !== undefined ? s.households.get(a.id) : undefined;
+  const fmt = (code: string, serial: number, branch?: string) => `${code}${String(serial).padStart(4, "0")}${branch !== undefined ? `-${branch}` : ""}`;
+  const entry = (id: string, e: NonNullable<typeof h>) => ({ id, customerNo: e.customerNo, summary: e.summary, createdAt: e.createdAt, updatedAt: e.updatedAt, updatedBy: e.updatedBy ?? null, openBy: e.openBy ?? [], forks: e.forks ?? 0, ...e.label });
+  const opened = (id: string, e: NonNullable<typeof h>) => ({ id, customerNo: e.customerNo, body: withMeta(e.body, e.customerNo), readOnly: false, generation: e.generation, savedBy: e.updatedBy ?? null, othersOpen: e.openBy ?? [], ...e.label });
+  const nextSerial = () => {
+    const max = Math.max(0, ...[...s.households.values()].map((e) => e.label.serial ?? 0));
+    s.nextSerial = Math.max(s.nextSerial, max + 1);
+    return s.nextSerial++;
+  };
+  const newSample = (raw: string | undefined): DevLabel | null => {
+    const r = JSON.parse(raw ?? "null") as { family: number; age: number; name: string; traits: string[] } | null;
+    if (r === null || !(r.family >= 1 && r.family <= 5 && r.age >= 2 && r.age <= 7) || r.name.trim() === "" || r.name.length > 40) return null;
+    const used = new Set([...s.households.values()].flatMap((e) => (e.label.sample !== undefined ? [e.label.sample.no] : [])));
+    for (let o = 10; o <= 99; o++) {
+      const no = `${r.family}-${r.age}-${String(o).padStart(2, "0")}`;
+      if (!used.has(no)) return { sample: { no, name: r.name, traits: r.traits } };
+    }
+    return null;
+  };
   switch (op) {
     case "status":
       return { ok: true, value: status() };
     case "list":
-      return { ok: true, value: [...s.households.entries()].map(([id, e]) => ({ id, customerNo: e.customerNo, summary: e.summary, createdAt: e.createdAt, updatedAt: e.updatedAt, updatedBy: e.updatedBy ?? null, openBy: e.openBy ?? [], forks: e.forks ?? 0 })).sort((x, y) => (x.updatedAt < y.updatedAt ? 1 : -1)) };
+    case "listSamples":
+      return { ok: true, value: [...s.households.entries()].filter(([, e]) => (e.label.sample !== undefined) === (op === "listSamples")).map(([id, e]) => entry(id, e)).sort((x, y) => (op === "listSamples" ? (x.customerNo < y.customerNo ? -1 : 1) : x.updatedAt < y.updatedAt ? 1 : -1)) };
     case "create": {
       const id = crypto.randomUUID();
-      const customerNo = `D${String(s.next++).padStart(4, "0")}`;
-      s.households.set(id, { customerNo, summary: a.summary ?? "", createdAt: now, updatedAt: now, body: a.body ?? "{}", generation: 1, updatedBy: me });
+      let label: DevLabel;
+      if (a.sample !== undefined) {
+        const l = newSample(a.sample);
+        if (l === null) return { ok: false, code: "E_STORE_SAMPLE" };
+        label = l;
+      } else {
+        const code = a.category ?? (s.categories.some((c) => c.code === "P") ? "P" : (s.categories[0]?.code ?? "P"));
+        if (!s.categories.some((c) => c.code === code)) return { ok: false, code: "E_STORE_CATEGORY" };
+        label = { category: code, serial: nextSerial() };
+      }
+      const customerNo = label.sample?.no ?? fmt(label.category as string, label.serial as number);
+      const e = { customerNo, summary: a.summary ?? "", createdAt: now, updatedAt: now, body: a.body ?? "{}", generation: 1, updatedBy: me, label };
+      s.households.set(id, e);
       s.lastOpened = id;
-      return { ok: true, value: { id, customerNo, body: withMeta(a.body ?? "{}", customerNo), readOnly: false, generation: 1, savedBy: me, othersOpen: [] } };
+      return { ok: true, value: opened(id, e) };
     }
     case "open":
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
       s.lastOpened = a.id ?? null;
-      return { ok: true, value: { id: a.id, customerNo: h.customerNo, body: withMeta(h.body, h.customerNo), readOnly: false, generation: h.generation, savedBy: h.updatedBy ?? null, othersOpen: h.openBy ?? [] } };
+      return { ok: true, value: opened(a.id as string, h) };
+    case "categories":
+      return { ok: true, value: s.categories };
+    case "setCategories": {
+      const edits = JSON.parse(a.edits ?? "[]") as { from?: string; code: string; name: string }[];
+      if (edits.length === 0 || edits.some((e) => !/^[A-Z]{1,2}$/.test(e.code) || e.name.trim() === "" || e.name.length > 20) || new Set(edits.map((e) => e.code)).size !== edits.length) return { ok: false, code: "E_STORE_CATEGORY" };
+      const used = new Set([...s.households.values()].flatMap((e) => (e.label.sample === undefined && e.label.category !== undefined ? [e.label.category] : [])));
+      if ([...used].some((c) => !edits.some((e) => e.from === c))) return { ok: false, code: "E_STORE_CATEGORY_IN_USE" };
+      for (const e of edits) {
+        if (e.from === undefined || e.from === e.code) continue;
+        for (const x of s.households.values()) {
+          if (x.label.category !== e.from || x.label.sample !== undefined) continue;
+          x.label.category = e.code;
+          if (x.label.serial !== undefined) x.customerNo = fmt(e.code, x.label.serial, x.label.branch);
+        }
+      }
+      s.categories = edits.map((e) => ({ code: e.code, name: e.name }));
+      return { ok: true, value: s.categories };
+    }
+    case "setCategory":
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      if (h.label.sample !== undefined) return { ok: false, code: "E_STORE_SAMPLE" };
+      if (!s.categories.some((c) => c.code === a.category)) return { ok: false, code: "E_STORE_CATEGORY" };
+      h.label.category = a.category;
+      if (h.label.serial !== undefined) h.customerNo = fmt(a.category as string, h.label.serial, h.label.branch);
+      return { ok: true, value: { customerNo: h.customerNo, duplicate: false } };
+    case "assignSerial":
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      if (h.label.sample !== undefined) return { ok: false, code: "E_STORE_SAMPLE" };
+      if (h.label.serial === undefined) {
+        const code = h.label.category !== undefined && s.categories.some((c) => c.code === h.label.category) ? h.label.category : "P";
+        h.label = { category: code, serial: nextSerial() };
+        h.customerNo = fmt(code, h.label.serial as number);
+      }
+      return { ok: true, value: { customerNo: h.customerNo, duplicate: false } };
+    case "makeSample": {
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      if (h.label.sample !== undefined) return { ok: false, code: "E_STORE_SAMPLE" };
+      const l = newSample(a.sample);
+      if (l === null) return { ok: false, code: "E_STORE_SAMPLE" };
+      h.label = l;
+      h.customerNo = l.sample?.no as string;
+      return { ok: true, value: { customerNo: h.customerNo, duplicate: false } };
+    }
+    case "updateSample":
+      if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
+      if (h.label.sample === undefined || (a.name ?? "").trim() === "") return { ok: false, code: "E_STORE_SAMPLE" };
+      h.label.sample = { ...h.label.sample, name: a.name as string, traits: JSON.parse(a.traits ?? "[]") as string[] };
+      return { ok: true };
     case "save":
       if (h === undefined) return { ok: false, code: "E_STORE_NOT_OPEN" };
       if (h.conflict === true) return { ok: false, code: "E_STORE_CONFLICT" };
@@ -80,16 +161,28 @@ function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: 
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
       if (h.conflict !== true && a.keepOurs === "1") return { ok: false, code: "E_STORE_NO_FORK" };
       h.conflict = false;
-      return { ok: true, value: { id: a.id, customerNo: h.customerNo, body: withMeta(h.body, h.customerNo), readOnly: false, generation: h.generation, savedBy: h.updatedBy ?? null, othersOpen: h.openBy ?? [] } };
+      return { ok: true, value: opened(a.id as string, h) };
     case "resolveSyncCopies":
       if (h === undefined || (h.forks ?? 0) === 0) return { ok: false, code: "E_STORE_NO_FORK" };
       h.forks = 0;
       return { ok: true };
-    case "rename":
+    case "rename": {
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
-      if (!/^[A-Za-z0-9_-]{1,16}$/.test((a.customerNo ?? "").trim())) return { ok: false, code: "E_STORE_CUSTOMER_NO" };
-      h.customerNo = (a.customerNo ?? "").trim();
-      return { ok: true, value: { customerNo: h.customerNo, duplicate: [...s.households.entries()].some(([k, e]) => k !== a.id && e.customerNo === h.customerNo) } };
+      if (h.label.sample !== undefined) return { ok: false, code: "E_STORE_SAMPLE" };
+      const c = (a.customerNo ?? "").trim();
+      if (!/^[A-Za-z0-9_-]{1,16}$/.test(c)) return { ok: false, code: "E_STORE_CUSTOMER_NO" };
+      // 区分の記号＋通し番号[-枝番]なら体系の番号、そうでなければ自由な番号（区分はそのまま）
+      const m = /^([A-Z]{1,2})(\d{1,6})(?:-([1-9]\d?|C))?$/.exec(c);
+      if (m !== null && s.categories.some((x) => x.code === m[1]) && Number(m[2]) > 0) {
+        h.label = { category: m[1] as string, serial: Number(m[2]), ...(m[3] !== undefined ? { branch: m[3] } : {}) };
+        h.customerNo = fmt(m[1] as string, Number(m[2]), m[3]);
+        s.nextSerial = Math.max(s.nextSerial, Number(m[2]) + 1);
+      } else {
+        h.label = h.label.category !== undefined ? { category: h.label.category } : {};
+        h.customerNo = c;
+      }
+      return { ok: true, value: { customerNo: h.customerNo, duplicate: [...s.households.entries()].some(([k, e]) => k !== a.id && e.label.sample === undefined && (e.customerNo === h.customerNo || (h.label.serial !== undefined && e.label.serial === h.label.serial && e.label.branch === h.label.branch))) } };
+    }
     case "delete":
       if (h === undefined) return { ok: false, code: "E_STORE_UNKNOWN_HOUSEHOLD" };
       if ((a.confirm ?? "").trim() !== h.customerNo) return { ok: false, code: "E_STORE_CONFIRM" };
