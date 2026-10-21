@@ -70,7 +70,15 @@ function Actions({ actions, wh, onEdit, note }: { actions: ActionDef[]; wh: Work
     <div class="in-actions">
       {note !== undefined ? <span class="in-note">{note}</span> : null}
       {actions.map((a) => (
-        <button type="button" key={a.key} class={a.danger === true ? "link-btn danger" : "add-btn"} onClick={() => onEdit(a.run(wh))} data-action={a.key}>
+        <button
+          type="button"
+          key={a.key}
+          class={a.danger === true ? "link-btn danger" : "add-btn"}
+          onClick={() => onEdit(a.run(wh))}
+          data-action={a.key}
+          {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})}
+          {...(a.title !== undefined ? { title: a.title } : {})}
+        >
           {a.label}
         </button>
       ))}

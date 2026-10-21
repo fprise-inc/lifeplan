@@ -69,6 +69,10 @@ export interface ActionDef {
   level: Level;
   run: (wh: WorkingHousehold) => WorkingHousehold;
   danger?: boolean;
+  /** 選んでいる状態を見せるボタン（目安の選択など。aria-pressed） */
+  pressed?: boolean;
+  /** ボタンに添える補足（ツールチップ） */
+  title?: string;
 }
 
 /** まとまり（物1件、または区画の中の1組の欄） */

@@ -24,7 +24,7 @@ export interface InputPanelProps {
   onLevel: (l: Level) => void;
   onSave: (next: WorkingHousehold, itemId: string) => void;
   onClose: () => void;
-  /** 1件だけの計算（前提条件のパネルで、控えから実際の貯まり方を出すときに控えの入力を計算する。0031） */
+  /** 1件だけの計算（基本生活費のパネルで、控えから実際の貯まり方を出すときに控えの入力を計算する。0031） */
   computeOne?: (req: EngineRequest) => Promise<PreviewResult | null>;
 }
 
@@ -38,7 +38,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const item = useMemo(() => inputItems(draft).find((i) => i.id === itemId) ?? null, [draft, itemId]);
   const stage = useMemo(() => itemStage(draft, itemId), [draft, itemId]);
   const adding = initialDraft !== undefined;
-  const suggestions = useSurplusSuggestion(draft, itemId === "assumptions", computeOne);
+  const suggestions = useSurplusSuggestion(draft, itemId === "living", computeOne);
 
   // 元に戻す・やり直す: 開いている間は、このパネルの下書きの履歴を使う（裏の世帯は戻さない）
   const history = useRef<UndoHistory<WorkingHousehold> | null>(null);

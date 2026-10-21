@@ -648,7 +648,14 @@
         }
       },
       "investment": {
-        "method": "total"
+        "method": "total",
+        "drawdown": {
+          "start": {
+            "at": "2040-04"
+          },
+          "method": "fixed",
+          "monthly": 100000
+        }
       },
       "surplusSaving": {
         "ratio": "0.6",
@@ -660,9 +667,6 @@
             "ratio": "0.8"
           }
         ]
-      },
-      "emergencyReserve": {
-        "months": 6
       }
     }
   }

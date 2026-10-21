@@ -52,6 +52,7 @@ import { amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, ty
 import { PlanList } from "./plans/PlanList.tsx";
 import { acknowledge, applyValues, changesOf, changesOfValues, dropChange, effectiveValues, headLetter, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
 import { cashflowTable, displayYears, eventsOf, toPresentation, withDiff } from "./present.ts";
+import { withoutRemovedAssumptions } from "./surplus.ts";
 import { roles } from "./roles.ts";
 import { runContingencyCheck, runInputCheck, runPlansCheck, runSelfCheck } from "./selfcheck.ts";
 import { ageMarkOf, DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, METRIC_CHOICES, shows, verdictMetrics, type BalanceSettings, type DisplaySettings, type MetricKey } from "./settings.ts";
@@ -83,7 +84,7 @@ export const TABS: { id: Tab; label: string }[] = [
 ];
 
 /** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#add=pet,periodic（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
- * #items=loan,rate,shift,mix,surplus,reserve（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
+ * #items=loan,rate,shift,mix,surplus（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
  * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）） */
 export function parseHash(hash: string): {
   /** 文字を大きくした状態で開く */
@@ -1296,7 +1297,7 @@ export function App() {
       const s = bsSnaps[Number(key.slice(1)) - 1];
       if (s === undefined) return;
       setBsPrevRun({ key, id: s.id, result: "loading" });
-      void computeOne(s.inputs.request).then(
+      void computeOne(withoutRemovedAssumptions(s.inputs.request)).then(
         (r) => setBsPrevRun((cur) => (cur !== null && cur.key === key && cur.id === s.id ? { ...cur, result: r } : cur)),
         () => setBsPrevRun((cur) => (cur !== null && cur.key === key && cur.id === s.id ? { ...cur, result: null } : cur)),
       );
@@ -1311,7 +1312,7 @@ export function App() {
     if (s === undefined || s.id !== bsPrevRun.id || actual === undefined) return { status: "idle", model: null };
     if (bsPrevRun.result === "loading") return { status: "loading", model: null };
     const r = bsPrevRun.result;
-    const snapshot = r === null ? { error: "この控えの内容は、今の計算エンジン・制度データでは計算できませんでした（控えの時点が古いなど）。" } : { req: s.inputs.request, table: r.table };
+    const snapshot = r === null ? { error: "この控えの内容は、今の計算エンジン・制度データでは計算できませんでした（控えの時点が古いなど）。" } : { req: withoutRemovedAssumptions(s.inputs.request), table: r.table };
     return { status: "ready", model: bsPrev({ key: bsPrevRun.key, label: bsPrevChoices[i]?.label ?? "控え", createdAt: s.createdAt, baseMonth: opened.wh.request.input.baseMonth, actual, snapshot }) };
   }, [bsPrevRun, opened, bsPlans, bsSnaps, letters]);
   // 資産運用（資産の推移のとき。0026）: 口座の内訳・運用の期間の帯・相場が下がった場合の線
@@ -2059,11 +2060,11 @@ export function App() {
   );
 }
 
-/** 画面の確かめ用（開発用のサーバーだけ）: #items=loan,rate,shift,mix,surplus,reserve で、よく使う項目を対策に足す */
+/** 画面の確かめ用（開発用のサーバーだけ）: #items=loan,rate,shift,mix,surplus で、よく使う項目を対策に足す */
 function devItems(cat: Catalog, kinds: string[]): string[] {
   const out: string[] = [];
   for (const k of kinds) {
-    const it = cat.items.find((x) => (k === "loan" ? /^loan:.*:(principal|prepay)$/.test(x.key) : k === "rate" ? /^loan:.*:rate$/.test(x.key) : k === "shift" ? x.key === "rates:shift" : k === "mix" ? x.key.startsWith("mix:") && x.control.kind === "mix" && x.control.accountKind !== "deposit" : k === "surplus" ? x.key === "surplus:ratio" : k === "reserve" ? x.key === "reserve:months" : false));
+    const it = cat.items.find((x) => (k === "loan" ? /^loan:.*:(principal|prepay)$/.test(x.key) : k === "rate" ? /^loan:.*:rate$/.test(x.key) : k === "shift" ? x.key === "rates:shift" : k === "mix" ? x.key.startsWith("mix:") && x.control.kind === "mix" && x.control.accountKind !== "deposit" : k === "surplus" ? x.key === "surplus:ratio" : false));
     if (it !== undefined) out.push(it.key);
   }
   return out;

@@ -120,11 +120,20 @@ fn uuids(v: &Value, out: &mut BTreeSet<String>) {
 
 #[test]
 fn allowlist_matches_the_registry() {
-    // 入力項目を足したら、縮約版に入れるか文章の項目として外すかを決める（決めないとここで止まる）
+    // 入力項目を足したら、縮約版に入れるか文章の項目として外すかを決める（決めないとここで止まる）。
+    // なくした項目（status: removed。欠番。0004 の3）はもう現れないので数えない
     let yaml = std::fs::read_to_string(repo().join("registry/items.yaml")).unwrap();
-    let registered: BTreeSet<String> = yaml
-        .lines()
-        .filter_map(|l| l.strip_prefix("  - id: ").map(str::to_owned))
+    let lines: Vec<&str> = yaml.lines().collect();
+    let registered: BTreeSet<String> = lines
+        .iter()
+        .enumerate()
+        .filter_map(|(n, l)| {
+            let id = l.strip_prefix("  - id: ")?;
+            let removed = lines
+                .get(n + 1)
+                .is_some_and(|s| s.trim() == "status: removed");
+            (!removed).then(|| id.to_owned())
+        })
         .collect();
     let allow = &allowlist().items;
     assert!(allowlist().version.starts_with("reduced@"));

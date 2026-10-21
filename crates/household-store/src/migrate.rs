@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.11";
+pub const CURRENT: &str = "0.12";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -44,8 +44,11 @@ pub const CURRENT: &str = "0.11";
 ///   `assumptions.emergencyReserve`（金額か基本生活費の○か月分・「○歳まで持つ」の判定に含めるか）、まとめた金融資産の器の
 ///   運用しない分 `accounts[].uninvested` を足した（どれも任意。足すだけの MINOR。0031）。読み方は変えない（無ければ今まで通り）。
 ///   0.10 までのアプリの計算エンジンはこの欄を知らないので、版を上げて閲覧だけにする
+/// - 0.12: 生活防衛資金をなくした（0031 の追記）。前提の `assumptions.emergencyReserve` と、プランの差分のうちその前提を動かすもの
+///   （動かす項目 `reserve:months`）・対策に足した項目の `reserve:months` を、変換の段で捨てる（形を変える MINOR）。控えの中身は変えない。
+///   0.11 のアプリは前提が無ければ今まで通りに読むが、捨てた値を書き戻さないよう版を上げる
 pub const KNOWN: &[&str] = &[
-    "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11",
+    "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12",
 ];
 
 /// 1段分の変換
@@ -106,6 +109,11 @@ pub const STEPS: &[Step] = &[
         from: "0.10",
         to: "0.11",
         apply: v0_10_to_0_11,
+    },
+    Step {
+        from: "0.11",
+        to: "0.12",
+        apply: v0_11_to_0_12,
     },
 ];
 
@@ -239,6 +247,47 @@ fn v0_10_to_0_11(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// なくした生活防衛資金の前提の入力項目ID・動かす項目のキー（0031 の追記）
+const REMOVED_RESERVE_ITEM: &str = "assumptions.emergencyReserve";
+const REMOVED_RESERVE_KEY: &str = "reserve:months";
+
+/// 0.11 → 0.12: なくした生活防衛資金を捨てる（0031 の追記）。現状の前提 `household.request.input.assumptions.emergencyReserve`、
+/// プランの差分のうちその前提を動かすもの（入力項目が `assumptions.emergencyReserve` か、キーが `reserve:months`）、
+/// 対策に足した項目（`workspace.shownItems`）の `reserve:months`。控え（`snapshots`）の中身は変えない（画面が計算するときに無視する）
+fn v0_11_to_0_12(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(a) = obj
+        .get_mut("household")
+        .and_then(|h| h.get_mut("request"))
+        .and_then(|r| r.get_mut("input"))
+        .and_then(|i| i.get_mut("assumptions"))
+        .and_then(Value::as_object_mut)
+    {
+        a.remove("emergencyReserve");
+    }
+    if let Some(list) = obj.get_mut("proposals").and_then(Value::as_array_mut) {
+        for p in list {
+            if let Some(diffs) = p.get_mut("diffs").and_then(Value::as_array_mut) {
+                diffs.retain(|d| {
+                    d.get("item").and_then(Value::as_str) != Some(REMOVED_RESERVE_ITEM)
+                        && d.get("key").and_then(Value::as_str) != Some(REMOVED_RESERVE_KEY)
+                });
+            }
+        }
+    }
+    if let Some(shown) = obj
+        .get_mut("workspace")
+        .and_then(|w| w.get_mut("shownItems"))
+        .and_then(Value::as_array_mut)
+    {
+        shown.retain(|k| k.as_str() != Some(REMOVED_RESERVE_KEY));
+    }
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.12".into());
+    }
+    Ok(body)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Access {
     /// 保存できる（今の版か、変換できる古い版）
@@ -333,7 +382,8 @@ mod tests {
         assert_eq!(access("0.9").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.10").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.11").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.12").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.12").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.13").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -346,10 +396,48 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.11", b.clone()).unwrap(),
+            upgrade("0.13", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
+    }
+
+    #[test]
+    fn v0_11_drops_the_removed_emergency_reserve() {
+        // 生活防衛資金（0031 の追記でなくした）の前提・プランの差分・対策に足した項目を捨て、ほかの前提・差分・控えは変えない
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.11", "revisions": [], "editors": {}},
+            "household": {"request": {"input": {"assumptions": {"surplusSaving": {"ratio": "0.6"}, "emergencyReserve": {"months": 6}}}}},
+            "proposals": [{"id": "p1", "diffs": [
+                {"key": "surplus:ratio", "item": "assumptions.surplusSaving"},
+                {"key": "reserve:months", "item": "assumptions.emergencyReserve"},
+                {"key": "x", "item": "assumptions.emergencyReserve"}
+            ]}, {"id": "p2"}],
+            "workspace": {"shownItems": ["surplus:ratio", "reserve:months"]},
+            "snapshots": [{"inputs": {"request": {"input": {"assumptions": {"emergencyReserve": {"months": 6}}}}}}]
+        });
+        let u = upgrade("0.11", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        let a = &u["household"]["request"]["input"]["assumptions"];
+        assert!(a.get("emergencyReserve").is_none());
+        assert_eq!(a["surplusSaving"]["ratio"], "0.6");
+        assert_eq!(
+            u["proposals"][0]["diffs"],
+            serde_json::json!([{"key": "surplus:ratio", "item": "assumptions.surplusSaving"}])
+        );
+        assert_eq!(u["proposals"][1], b["proposals"][1]);
+        assert_eq!(
+            u["workspace"]["shownItems"],
+            serde_json::json!(["surplus:ratio"])
+        );
+        assert_eq!(u["snapshots"], b["snapshots"], "控えの中身は変えない");
+        // 前提・プラン・対策の無い本文もそのまま
+        let bare = serde_json::json!({"meta": {"formatVersion": "0.11"}, "household": {}});
+        assert_eq!(
+            upgrade("0.11", bare).unwrap()["household"],
+            serde_json::json!({})
+        );
+        assert!(upgrade("0.11", serde_json::json!(null)).is_err());
     }
 
     #[test]

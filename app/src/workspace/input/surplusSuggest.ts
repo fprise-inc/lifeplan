@@ -1,10 +1,10 @@
-// 前提条件の「黒字のうち貯まる割合」の横に出す、控えから見た実際の割合の提案（作業の層。0031）。
+// 基本生活費のカードの「毎年の黒字のうち、貯金に回る割合」の横に出す、控えから見た実際の割合の提案（作業の層。0031）。
 // - 控え（新しい順）のうち、作ってから6か月以上たった最初の控えを、控えの入力で計算する（計算は1回。控えを選び直すまで結果を持つ）
 // - 今の下書きの金融資産と比べて割合を出し、押すと値が入るボタンと根拠を返す（自動では入れない）
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { parseYm } from "../levers.ts";
-import { ACTUAL_MIN_MONTHS, actualSavingRatio, ratioString, type ActualRatio } from "../surplus.ts";
+import { ACTUAL_MIN_MONTHS, actualSavingRatio, ratioString, withoutRemovedAssumptions, type ActualRatio } from "../surplus.ts";
 import type { FieldSuggestion } from "./FieldViews.tsx";
 import type { WorkingHousehold } from "./household.ts";
 
@@ -18,7 +18,7 @@ export function suggestSnapshot(wh: WorkingHousehold): { id: string; createdAt: 
     const m = /^(\d{4})-(\d{2})/.exec(s.createdAt);
     if (m === null) continue;
     const months = (now.y - Number(m[1])) * 12 + (now.m - Number(m[2]));
-    if (months >= ACTUAL_MIN_MONTHS) return { id: s.id, createdAt: s.createdAt, req: s.inputs.request };
+    if (months >= ACTUAL_MIN_MONTHS) return { id: s.id, createdAt: s.createdAt, req: withoutRemovedAssumptions(s.inputs.request) };
   }
   return null;
 }
@@ -56,6 +56,6 @@ export function useSurplusSuggestion(draft: WorkingHousehold, active: boolean, c
   return useMemo((): Record<string, FieldSuggestion> => {
     if (snap === null || res === null || res.id !== snap.id || res.table === null) return {};
     const a = actualSavingRatio({ snapshot: { createdAt: snap.createdAt, req: snap.req, table: res.table }, current: draft.request });
-    return { "assume/surplus/ratio": suggestionOf(a, draft.request.input.assumptions?.surplusSaving?.ratio ?? null) };
+    return { "living/surplus/ratio": suggestionOf(a, draft.request.input.assumptions?.surplusSaving?.ratio ?? null) };
   }, [snap, res, draft.request]);
 }

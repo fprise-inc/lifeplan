@@ -184,14 +184,25 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert_eq!(tk["takeaway"]["password"], true);
             assert!(tk["takeaway"].get("addressee").is_none());
         }
-        if *v == "0.11" {
-            // 0.11 から: 黒字のうち貯まる割合（期間で変える組つき）と生活防衛資金（基本生活費の○か月分）（0031）
+        if *v == "0.11" || *v == "0.12" {
+            // 0.11 から: 黒字のうち貯まる割合（期間で変える組つき）（0031）
             let a = &now["household"]["request"]["input"]["assumptions"];
             assert_eq!(a["surplusSaving"]["ratio"], "0.6");
             assert!(a["surplusSaving"]["changes"]
                 .as_array()
                 .is_some_and(|c| !c.is_empty()));
-            assert_eq!(a["emergencyReserve"]["months"], 6);
+            // 0.12 から: 生活防衛資金は持たない（0.11 の見本の値は変換の段で捨てる。0031 の追記）
+            if *v == "0.11" {
+                assert_eq!(
+                    expected["household"]["request"]["input"]["assumptions"]["emergencyReserve"]
+                        ["months"],
+                    6
+                );
+            }
+            assert!(
+                a.get("emergencyReserve").is_none(),
+                "{v}: 生活防衛資金は捨てる"
+            );
         }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");

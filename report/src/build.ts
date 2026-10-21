@@ -129,10 +129,8 @@ const seriesOf = (m: Map<number, number>, years: readonly number[]): Yen[] => ye
 
 const total = (m: Map<number, number>, years: readonly number[]): Yen => years.reduce((s, y) => s + (m.get(y) ?? 0), 0);
 
-/** 金融資産が不足する年。生活防衛資金を除いて判定する表（cf.balance.financial.usable がある。0031）は、使えるお金がマイナスになる年 */
 function depletionYear(r: EngineOutput, years: readonly number[]): number | null {
-  const usable = sumByYear(r.table, (c) => c.row === "cf.balance.financial.usable");
-  const fin = usable.size > 0 ? usable : financialOf(r);
+  const fin = financialOf(r);
   for (const y of years) if ((fin.get(y) ?? 0) < 0) return y;
   return null;
 }
@@ -219,8 +217,6 @@ function rowDefs(req: EngineRequest): RowDef[] {
     { key: "net", label: "年間収支", group: "net", kind: "total", match: (c) => c.row === "cf.net" },
     { key: "nisaIn", label: "NISAへの積立", group: "assets", kind: "value", match: (c) => under(c.row, "cf.transfer.nisa") },
     { key: "financial", label: "金融資産残高", group: "assets", kind: "total", match: (c) => c.row === "cf.balance.financial" },
-    // 生活防衛資金（0031。入れたときだけ）
-    { key: "reserve", label: "うち生活防衛資金", group: "assets", kind: "value", match: (c) => c.row === "cf.balance.account.reserve" },
     { key: "debt", label: "住宅ローン残高", group: "assets", kind: "value", match: (c) => under(c.row, "cf.balance.debt") },
   );
   return defs;
@@ -895,14 +891,6 @@ export function surplusText(s: EngineRequest["input"]["assumptions"]["surplusSav
   return `${[head || "100%", ...changes].join("、")}（黒字の年だけ。貯まらない分は「ゆとりの支出」として支出に入れています）`;
 }
 
-/** 生活防衛資金の文（入れていなければ null。0031） */
-export function reserveText(r: EngineRequest["input"]["assumptions"]["emergencyReserve"]): string | null {
-  if (r === undefined) return null;
-  const how = r.amount !== undefined ? (r.amount > 0 ? `${group(Math.round(r.amount / 10000))}万円` : null) : (r.months ?? 0) > 0 ? `基本生活費の${r.months}か月分` : null;
-  if (how === null) return null;
-  return `${how}（運用せず、ほかのお金を使い切るまで取り崩さない前提。「金融資産が不足する年」は${r.countInLasting === true ? "生活防衛資金を含めて" : "生活防衛資金を除いて"}判定）`;
-}
-
 function assumptions(ctx: Ctx): ProposalInput["assumptions"] {
   const a = ctx.bundle.proposal.request.input.assumptions;
   const rates: { label: string; value: string }[] = [];
@@ -916,11 +904,9 @@ function assumptions(ctx: Ctx): ProposalInput["assumptions"] {
   rate("賃金上昇率", a.wageGrowth);
   rate("教育費の上昇率", a.educationInflation);
   rate("公的年金の調整率（マクロ経済スライド）", a.pensionMacroSlide);
-  // 黒字のうち貯まる割合と生活防衛資金（0031）
+  // 黒字のうち貯まる割合（0031）
   const surplus = surplusText(a.surplusSaving);
   if (surplus !== null) rates.push({ label: "黒字のうち貯まる割合", value: surplus });
-  const reserve = reserveText(a.emergencyReserve);
-  if (reserve !== null) rates.push({ label: "生活防衛資金", value: reserve });
   const dataSet = (ctx.bundle.proposal.result.header.data ?? []).map((d) => ({ label: PACK_LABEL[d.packId] ?? d.packId, version: d.version, fictional: d.fictional === true }));
   let survivor: ProposalInput["assumptions"]["survivor"] = null;
   const hasContingency = (ctx.bundle.contingencies ?? []).length > 0 || ctx.bundle.protection !== undefined;

@@ -376,8 +376,7 @@ export function ItemRow(props: ItemRowProps) {
           外す
         </button>
       </div>
-      {/* 金額のスライダーだけ万円で直接入れる欄を添える（月数など金額でないもの（生活防衛資金の月数。0031）は文字だけ） */}
-      {c.kind === "range" && c.step % AMOUNT_STEP === 0 ? (
+      {c.kind === "range" ? (
         <div class="lever-val added-val amt-row">
           <span>{item.text(value)}</span>
           <AmountInput

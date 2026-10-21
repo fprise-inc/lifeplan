@@ -796,14 +796,14 @@ entries:
     aliases: []
     replacedBy: null
   - id: cf.balance.financial.usable
-    status: active
-    label: "使えるお金（金融資産−生活防衛資金の目安。「金融資産は○歳まで持つ」の判定の基。0031）"
+    status: removed
+    label: "使えるお金（金融資産−生活防衛資金の目安。「金融資産は○歳まで持つ」の判定の基。0031。2026-10-21 になくした（0031 の追記）。欠番）"
     since: draft
     aliases: []
     replacedBy: null
   - id: cf.balance.financial.reserveTarget
-    status: active
-    label: "生活防衛資金の目安（金額か、その年の基本生活費の○か月分。0031）"
+    status: removed
+    label: "生活防衛資金の目安（金額か、その年の基本生活費の○か月分。0031。2026-10-21 になくした（0031 の追記）。欠番）"
     since: draft
     aliases: []
     replacedBy: null
@@ -922,8 +922,8 @@ entries:
     aliases: []
     replacedBy: null
   - id: cf.balance.account.reserve
-    status: active
-    label: "生活防衛資金（取り崩しは最後。0031）"
+    status: removed
+    label: "生活防衛資金（取り崩しは最後。0031。2026-10-21 になくした（0031 の追記）。欠番）"
     since: draft
     aliases: []
     replacedBy: null

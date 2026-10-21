@@ -43,7 +43,6 @@ export type {
   MarketShock,
   InvestmentSetting,
   SurplusSavingSetting,
-  EmergencyReserveSetting,
   ReturnShift,
   IncomeShock,
   ProtectionRequest,

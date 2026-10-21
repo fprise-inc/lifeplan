@@ -120,8 +120,8 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
         },
       },
       { name: "プランD 65歳まで働く（60歳から再雇用）", tags: ["老後"], values: { "lever:retireAge": 65 } },
-      // 現場の FP の声から: 黒字は全部は貯まらない（6割）・生活防衛資金（生活費6か月分）は取り崩さない（0031）
-      { name: "プランE 黒字の6割が貯まる・生活防衛資金6か月分", tags: ["老後"], values: { "surplus:ratio": "0.6", "reserve:months": 6 } },
+      // 現場の FP の声から: 黒字は全部は貯まらない（6割。0031）
+      { name: "プランE 黒字の6割が貯まる", tags: ["老後"], values: { "surplus:ratio": "0.6" } },
     ],
     snapshots: [
       {
