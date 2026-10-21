@@ -16,8 +16,8 @@
 use std::sync::Arc;
 
 use household_store::{
-    CreateRequest, HouseholdEntry, Opened, OsSecretStore, RenameOutcome, Saved, SecretStore,
-    Status, Store, StoreError, SystemClock,
+    Category, CategoryEdit, CreateOptions, CreateRequest, HouseholdEntry, Opened, OsSecretStore,
+    RenameOutcome, SampleRequest, Saved, SecretStore, Status, Store, StoreError, SystemClock,
 };
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -147,26 +147,100 @@ async fn with_ai<T: Send + 'static>(
     .map_err(|_| "E_HOST_THREAD".to_owned())?
 }
 
-fn summary_of(s: &Store, id: &str) -> String {
+/// 顧客の世帯と見本の世帯の一覧から、その世帯の行
+fn entry_of(s: &Store, id: &str) -> Option<HouseholdEntry> {
+    let find = |l: Vec<HouseholdEntry>| l.into_iter().find(|e| e.id == id);
     s.list()
         .ok()
-        .and_then(|l| l.into_iter().find(|e| e.id == id).map(|e| e.summary))
-        .unwrap_or_default()
+        .and_then(find)
+        .or_else(|| s.list_samples().ok().and_then(find))
 }
 
-/// 新しい世帯を作る（世帯の内部IDと世帯の鍵は本体が作る）
+fn summary_of(s: &Store, id: &str) -> String {
+    entry_of(s, id).map(|e| e.summary).unwrap_or_default()
+}
+
+/// 新しい世帯を作る（世帯の内部IDと世帯の鍵は本体が作る）。`category` は区分の記号（無ければ見込み客）、
+/// `sample` があれば見本として作る（顧客番号を持たず、見本番号を振る。0033）
 #[tauri::command]
-pub async fn store_create(app: AppHandle, body: String, summary: String) -> Result<Opened, String> {
+pub async fn store_create(
+    app: AppHandle,
+    body: String,
+    summary: String,
+    category: Option<String>,
+    sample: Option<SampleRequest>,
+) -> Result<Opened, String> {
     with_ai(app, move |s, ai| {
         let o = s
-            .create(CreateRequest {
-                body,
-                summary: summary.clone(),
-            })
+            .create_with(
+                CreateRequest {
+                    body,
+                    summary: summary.clone(),
+                },
+                CreateOptions { category, sample },
+            )
             .map_err(code)?;
         ai.on_opened(o, summary)
     })
     .await
+}
+
+/// 見本の棚（FP が作った見本の世帯。0033）
+#[tauri::command]
+pub async fn store_list_samples(app: AppHandle) -> Result<Vec<HouseholdEntry>, String> {
+    blocking(app, |s| s.list_samples()).await
+}
+
+/// 世帯の区分を変える（体系の番号は記号だけが変わる。0033）
+#[tauri::command]
+pub async fn store_set_category(
+    app: AppHandle,
+    id: String,
+    category: String,
+) -> Result<RenameOutcome, String> {
+    blocking(app, move |s| s.set_category(&id, &category)).await
+}
+
+/// 自由な番号の世帯に、区分の記号＋新しい通し番号を付ける（一方向。0033）
+#[tauri::command]
+pub async fn store_assign_serial(app: AppHandle, id: String) -> Result<RenameOutcome, String> {
+    blocking(app, move |s| s.assign_serial(&id)).await
+}
+
+/// 顧客の世帯を見本の棚へ移す（画面で「中身は架空です」を確かめた後。0033）
+#[tauri::command]
+pub async fn store_make_sample(
+    app: AppHandle,
+    id: String,
+    sample: SampleRequest,
+) -> Result<RenameOutcome, String> {
+    blocking(app, move |s| s.make_sample(&id, &sample)).await
+}
+
+/// 見本の名前と絞り込みの項目を直す（0033）
+#[tauri::command]
+pub async fn store_update_sample(
+    app: AppHandle,
+    id: String,
+    name: String,
+    traits: Vec<String>,
+) -> Result<(), String> {
+    blocking(app, move |s| s.update_sample(&id, &name, &traits)).await
+}
+
+/// 区分の一覧（0033）
+#[tauri::command]
+pub async fn store_categories(app: AppHandle) -> Result<Vec<Category>, String> {
+    blocking(app, |s| s.categories()).await
+}
+
+/// 区分の設定を変える（0033）
+#[tauri::command]
+pub async fn store_set_categories(
+    app: AppHandle,
+    edits: Vec<CategoryEdit>,
+) -> Result<Vec<Category>, String> {
+    blocking(app, move |s| s.set_categories(&edits)).await
 }
 
 #[tauri::command]
@@ -204,11 +278,7 @@ pub async fn store_rename(
 pub async fn store_delete(app: AppHandle, id: String, confirm: String) -> Result<(), String> {
     with_ai(app, move |s, ai| {
         // 確認の顧客番号が合うときだけ、共有を取り消して帳面を捨てる
-        let matches = s
-            .list()
-            .ok()
-            .and_then(|l| l.into_iter().find(|e| e.id == id))
-            .is_some_and(|e| e.customer_no == confirm.trim());
+        let matches = entry_of(s, &id).is_some_and(|e| e.customer_no == confirm.trim());
         if matches {
             ai.on_deleting(&id);
         }

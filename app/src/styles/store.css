@@ -14,6 +14,30 @@
 .hh-delete { max-width: 46em; align-items: center; }
 .hh-delete input { border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; width: 9em; }
 .hh-delete .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* 顧客と見本の切り替え・探す・絞り込み・区分の設定・見本の棚（0033） */
+.hh-tabs { margin: 2px 0 6px; border-bottom: 1px solid var(--line-2); }
+.hh-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 4px 0 8px; font-size: 0.88rem; }
+.hh-tools input[type="search"] { border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 8px; width: 11em; }
+.hh-sel { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 4px; background: #fff; font: inherit; }
+.hh-traits { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.hh-trait { border: 1.5px solid var(--line); background: #fff; border-radius: 99px; padding: 1px 9px; font-size: 0.8rem; cursor: pointer; color: var(--ink-2); }
+.hh-trait.on { border-color: var(--prop); background: var(--prop-bg); color: var(--ink); font-weight: 700; }
+.hh-tags { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+.hh-tag { font-size: 0.75rem; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; color: var(--ink-2); white-space: nowrap; }
+.hh-free, .hh-app { font-weight: 400; }
+.hh-nowrap { white-space: nowrap; }
+.hh-sample-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.hh-sample-fields input { border: 1.5px solid var(--field); border-radius: 6px; padding: 3px 6px; width: 16em; }
+.hh-make-sample { max-width: 52em; align-items: center; }
+.hh-fictional { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.hh-fictional input { width: 16px; height: 16px; }
+.hh-make-sample .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.hh-cats { max-width: 40em; }
+.hh-cat-list input { border: 1.5px solid var(--field); border-radius: 6px; padding: 2px 6px; }
+.hh-shelf-note { margin: 4px 0 8px; }
+/* 見本を開いているときの帯（動かしても見本は変わらない） */
+.sample-band { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border: 1.5px dashed var(--prop); background: var(--prop-bg); border-radius: 8px; padding: 8px 14px; margin: 0 0 12px; }
+.sample-band .btn { padding: 4px 14px; }
 .hh-foot { display: flex; gap: 10px; align-items: baseline; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line-2); }
 
 /* 復元キーの中央のパネル */

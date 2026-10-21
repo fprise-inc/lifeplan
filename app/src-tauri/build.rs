@@ -31,6 +31,14 @@ const COMMANDS: &[&str] = &[
     "recovery_key_test",
     "recovery_key_restore",
     "store_keystore",
+    // 0033: 顧客番号の区分と通し番号・見本の棚（世帯は内部IDだけで指す）
+    "store_list_samples",
+    "store_set_category",
+    "store_assign_serial",
+    "store_make_sample",
+    "store_update_sample",
+    "store_categories",
+    "store_set_categories",
     // 0014・0015: AI接続口（事務所の設定・世帯ごとの同意・共有・記録・候補の判断。パスも鍵も受け取らない・返さない）
     "ai_status",
     "ai_set_enabled",

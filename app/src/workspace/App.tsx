@@ -59,8 +59,9 @@ import { ageMarkOf, DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS, METRIC_C
 import { Autosaver, type SaveState } from "./store/autosave.ts";
 import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./store/body.ts";
 import { ForkPanel, type ForkChoiceUi } from "./store/ForkPanel.tsx";
-import { HouseholdPanel, storeMessage } from "./store/HouseholdPanel.tsx";
+import { HouseholdPanel, storeMessage, copyRequest, defaultCategory } from "./store/HouseholdPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
+import { guessShape, sampleNoText, shelfItems, type Category, type CategoryEdit, type SampleInfo, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
 import { OfficePanel } from "./store/OfficePanel.tsx";
 import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
@@ -291,6 +292,8 @@ interface StoredRef {
   id: string;
   customerNo: string;
   readOnly: boolean;
+  /** 見本の世帯（自分で作った見本。0033） */
+  sample?: SampleInfo;
   /** 読んだ拡張領域（書き戻して失わない。0011 の4） */
   carry: BodyState["carry"];
 }
@@ -342,6 +345,13 @@ export function App() {
   const [storeChecked, setStoreChecked] = useState(false);
   const [storedList, setStoredList] = useState<StoredHousehold[]>([]);
   const [storedInfo, setStoredInfo] = useState<Omit<StoredRef, "carry"> | null>(null);
+  /** 区分の一覧と、自分で作った見本の棚（0033） */
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [storedSamples, setStoredSamples] = useState<StoredHousehold[]>([]);
+  /** 自分で作った見本を開いている: view＝動かしても保存しない（閉じれば元どおり）、edit＝「この見本を直す」で保存している */
+  const [sampleMode, setSampleMode] = useState<null | "view" | "edit">(null);
+  /** 開いたときに見せる世帯の一覧のタブ */
+  const [hhTab, setHhTab] = useState<"customers" | "samples">("customers");
   const [hhOpen, setHhOpen] = useState(false);
   const [hhError, setHhError] = useState<string | null>(null);
   const [recovery, setRecovery] = useState<RecoveryMode | null>(null);
@@ -435,7 +445,11 @@ export function App() {
         try {
           const st = await h.store.status();
           setStoreStatus(st);
-          if (st.state === "ready") setStoredList(await h.store.list());
+          if (st.state === "ready") {
+            setStoredList(await h.store.list());
+            void h.store.listSamples().then(setStoredSamples, () => undefined);
+            void h.store.categories().then(setCategories, () => undefined);
+          }
           if (st.state === "needsRecovery") setRecovery("restore");
           else if (st.firstRun && !st.recoveryAcknowledged) setRecovery("first");
         } catch (e) {
@@ -587,6 +601,7 @@ export function App() {
       storedRef.current = null;
       setStoredInfo(null);
       setPresence(null);
+      setSampleMode(null);
       autosaver.current?.reset(null);
       let o: Opened | null;
       if (id === BLANK) o = openedFrom(null, withRefreshedEstimates(blankHousehold(thisMonth())));
@@ -668,8 +683,9 @@ export function App() {
       const inBand = (x: string) => x === CURRENT || band.includes(x);
       const w: Work = { band, base: inBand(st.workspace.base) ? st.workspace.base : CURRENT, sel: inBand(st.workspace.selected) ? st.workspace.selected : (band[0] ?? CURRENT), drafts: {} };
       const shownKeys = st.workspace.shownItems.filter((k) => o.catalog.byKey.has(k));
-      storedRef.current = { id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, carry: st.carry };
-      setStoredInfo({ id: r.id, customerNo: r.customerNo, readOnly: r.readOnly });
+      const sample = r.sample;
+      storedRef.current = { id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, carry: st.carry, ...(sample !== undefined ? { sample } : {}) };
+      setStoredInfo({ id: r.id, customerNo: r.customerNo, readOnly: r.readOnly, ...(sample !== undefined ? { sample } : {}) });
       setFileEditors(editorsOf(r.body));
       settingsRef.current = st.display.result;
       setSettings(st.display.result);
@@ -681,12 +697,15 @@ export function App() {
       savedBodies.current.set(r.id, loaded);
       // ほかのメンバーが開いているときは、自動保存を止めた状態で開く（「編集を始める」で始める。0023 の7）
       const others = r.othersOpen.length > 0 && !r.readOnly;
-      setPresence(others ? r.othersOpen : null);
-      pausedBody.current = others ? (stored ?? loaded) : null;
-      autosaver.current?.reset(r.readOnly || others ? null : (stored ?? loaded));
+      // 自分で作った見本は、開いても保存しない（動かしても見本は変わらない。「この見本を直す」で保存を始める。0033）
+      const viewSample = sample !== undefined;
+      setSampleMode(viewSample ? "view" : null);
+      setPresence(others && !viewSample ? r.othersOpen : null);
+      pausedBody.current = others || viewSample ? (stored ?? loaded) : null;
+      autosaver.current?.reset(r.readOnly || others || viewSample ? null : (stored ?? loaded));
       if (r.readOnly) setSaveState({ kind: "error", code: "E_STORE_READ_ONLY" });
       await install(o, w, shownKeys, `stored:${r.id}`, keep);
-      if (stored !== undefined && stored !== loaded && !others) autosaver.current?.change(loaded);
+      if (stored !== undefined && stored !== loaded && !others && !viewSample) autosaver.current?.change(loaded);
     },
     [host, install],
   );
@@ -701,12 +720,16 @@ export function App() {
     [host, loadStored],
   );
 
+  /** 見本を開く（アプリの見本は保存しない世帯として、自分で作った見本は保存しないで開く。動かしても見本は変わらない。0033） */
+  const openSample = useCallback(async (item: ShelfItem) => (item.kind === "app" ? open(item.id) : openStored(item.id)), [open, openStored]);
+
   /** ほかのメンバーが開いている世帯で「編集を始める」（自動保存を始める。分岐になりうることは帯に書いてある） */
   const startEditing = useCallback(() => {
     const o = openedRef.current;
     const sr = storedRef.current;
     const base = pausedBody.current;
     setPresence(null);
+    setSampleMode((m) => (m === "view" ? "edit" : m));
     pausedBody.current = null;
     if (o === null || sr === null || base === null) return;
     autosaver.current?.reset(base);
@@ -774,19 +797,32 @@ export function App() {
     if (saveState.kind === "error" && saveState.code === "E_STORE_CONFLICT" && sr !== null && fork === null) void openFork(sr.id);
   }, [saveState, openFork, fork]);
 
-  /** いま開いている（保存していない）世帯を、新しい世帯として保存する */
-  const persistCurrent = useCallback(async () => {
-    const o = openedRef.current;
-    if (host === null || o === null) return;
-    const body = bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, EMPTY_CARRY);
-    const r = await host.store.create(body, summaryOf(o.wh.request));
-    storedRef.current = { id: r.id, customerNo: r.customerNo, readOnly: false, carry: EMPTY_CARRY };
-    setStoredInfo({ id: r.id, customerNo: r.customerNo, readOnly: false });
-    savedBodies.current.set(r.id, body);
-    autosaver.current?.reset(body, nowIso());
-    setStoredList(await host.store.list());
-    say(`世帯 ${r.customerNo} として保存しました。これからは自動で保存します`);
-  }, [host, say]);
+  /**
+   * いま開いている世帯（保存していない世帯・見本）を、新しい世帯として保存する。category は区分の記号、sample があれば見本として作る（0033）。
+   * 見本から作るときも元の見本は変わらない（今の画面の中身を写した新しい世帯を作る）
+   */
+  const persistCurrent = useCallback(
+    async (category?: string, sample?: SampleRequest) => {
+      const o = openedRef.current;
+      if (host === null || o === null) return;
+      await autosaver.current?.flush();
+      const body = bodyFor(o, workRef.current, shownRef.current, settingsRef.current, bsSettingsRef.current, EMPTY_CARRY);
+      if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
+      const r = await host.store.create(body, summaryOf(o.wh.request), { ...(category !== undefined ? { category } : {}), ...(sample !== undefined ? { sample } : {}) });
+      const info = { id: r.id, customerNo: r.customerNo, readOnly: false, ...(r.sample !== undefined ? { sample: r.sample } : {}) };
+      storedRef.current = { ...info, carry: EMPTY_CARRY };
+      setStoredInfo(info);
+      setPresence(null);
+      pausedBody.current = null;
+      setSampleMode(r.sample !== undefined ? "edit" : null);
+      savedBodies.current.set(r.id, body);
+      autosaver.current?.reset(body, nowIso());
+      setStoredList(await host.store.list());
+      void host.store.listSamples().then(setStoredSamples, () => undefined);
+      say(r.sample !== undefined ? `見本 ${r.customerNo} を作りました。手直しは自動で保存します` : `世帯 ${r.customerNo} として保存しました。これからは自動で保存します`);
+    },
+    [host, say],
+  );
 
   // 起動: 前回の世帯を開く（無ければ見本）。画面の確かめ用の # があるときは見本
   const initialOnce = useRef(false);
@@ -820,6 +856,10 @@ export function App() {
       const st = await host.store.status();
       setStoreStatus(st);
       setStoredList(st.state === "ready" ? await host.store.list() : []);
+      if (st.state === "ready") {
+        setStoredSamples(await host.store.listSamples());
+        setCategories(await host.store.categories());
+      }
       setStoreUnavailable(null);
     } catch (e) {
       setStoreUnavailable(storeMessage(codeOf(e)));
@@ -860,6 +900,26 @@ export function App() {
       }
     },
     [host, say],
+  );
+  /** 区分を変える・通し番号を付ける・見本に登録する（番号が変わったら、開いている世帯の札も直す。0033） */
+  const numberOp = useCallback(
+    async (id: string, fn: () => Promise<{ customerNo: string; duplicate: boolean }>, done: (no: string) => string): Promise<string | null> => {
+      if (host === null) return null;
+      try {
+        const r = await fn();
+        const sr = storedRef.current;
+        if (sr !== null && sr.id === id) {
+          sr.customerNo = r.customerNo;
+          setStoredInfo({ id, customerNo: r.customerNo, readOnly: sr.readOnly });
+        }
+        await refreshStore();
+        say(r.duplicate ? `${done(r.customerNo)}（同じ番号の世帯がほかにもあります）` : done(r.customerNo));
+        return null;
+      } catch (e) {
+        return storeMessage(codeOf(e));
+      }
+    },
+    [host, say, refreshStore],
   );
   const deleteStored = useCallback(
     async (id: string, confirm: string): Promise<string | null> => {
@@ -1498,12 +1558,18 @@ export function App() {
     } else closePip();
   }, [tab]);
 
+  // 見本の棚（アプリの見本と自分で作った見本）と、いま開いている見本（0033）
+  const shelf = useMemo(() => shelfItems(households, storedSamples), [households, storedSamples]);
+  const currentSample = storedInfo?.sample !== undefined ? storedInfo.id : storedInfo === null && opened?.demo != null ? opened.demo.id : null;
+  const sampleItem: ShelfItem | null = currentSample === null ? null : (shelf.find((i) => i.id === currentSample) ?? null);
+  /** 保存している（見本を保存しないで開いているときは、保存していない扱い） */
+  const savingStored = storedInfo !== null && sampleMode !== "view";
   const drawer = memoOpen || evidence !== null;
   const ageMark = opened === null ? null : ageMarkOf(settings, opened.wh.request);
   // 上の帯の札と通知（ふだんは出さない。header/status.ts）
   const barIn: BarInputs = {
     opened: opened !== null,
-    stored: storedInfo !== null,
+    stored: savingStored,
     save: saveState,
     paused: presence !== null,
     aiSharing: aiShare === "sharing",
@@ -1514,6 +1580,8 @@ export function App() {
   };
   const toggleHousehold = () => {
     setHhError(null);
+    // 自分で作った見本を開いているときは、見本の一覧から見せる（アプリの見本は起動したときにも開くので、顧客の一覧から）
+    if (!hhOpen) setHhTab(storedInfo?.sample !== undefined ? "samples" : "customers");
     if (!hhOpen) void refreshStore();
     setHhOpen(!hhOpen);
   };
@@ -1537,7 +1605,7 @@ export function App() {
     setStorageOpen("default");
   };
   const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence };
-  const save = saveText(storedInfo !== null, saveState, storeMessage, presence !== null);
+  const save = saveText(savingStored, saveState, storeMessage, presence !== null);
   const basis = model === null ? null : { members: model.members.map((m) => `${m.label} ${m.age}歳`).join("・"), asOf: model.asOf };
   return (
     <div class={`app${drawer ? " has-drawer" : ""}`}>
@@ -1548,8 +1616,8 @@ export function App() {
         household={
           host !== null
             ? {
-                no: storedInfo !== null ? storedInfo.customerNo : opened?.demo != null ? "見本" : "新しい世帯",
-                sub: storedInfo !== null ? (opened !== null ? summaryOf(opened.wh.request) : "") : (opened?.demo?.title ?? ""),
+                no: storedInfo?.sample !== undefined ? `見本 ${storedInfo.sample.no}` : storedInfo !== null ? storedInfo.customerNo : opened?.demo != null ? `見本 ${opened.demo.sampleNo}` : "新しい世帯",
+                sub: storedInfo?.sample !== undefined ? storedInfo.sample.name : storedInfo !== null ? (opened !== null ? summaryOf(opened.wh.request) : "") : (opened?.demo?.title ?? ""),
                 open: hhOpen,
                 onToggle: toggleHousehold,
               }
@@ -1592,12 +1660,39 @@ export function App() {
             <span class="pl-sub">編集を始めるまで、この画面の変更は保存しません</span>
           </div>
         ) : null}
+        {sampleItem !== null && opened !== null && host !== null ? (
+          <div class="sample-band" role="status" data-sample-band={sampleItem.no}>
+            <span>
+              <b>
+                見本 {sampleItem.no}「{sampleItem.name}」
+              </b>
+              （{sampleNoText(sampleItem.no)}・架空）を開いています。{sampleMode === "edit" ? "手直しは自動で保存します。" : "動かしても見本は変わりません（閉じれば元どおり。「最初に戻す」も使えます）。"}
+            </span>
+            {storeStatus?.state === "ready" && storeUnavailable === null ? (
+              <>
+                <button type="button" class="btn" onClick={() => void guard(() => persistCurrent(defaultCategory(categories)))} data-band-customer>
+                  この見本をもとに顧客を作る
+                </button>
+                {sampleMode !== "edit" ? (
+                  <button type="button" class="link-btn" onClick={() => void guard(async () => { const req = copyRequest(sampleItem); if (req !== null) await persistCurrent(undefined, req); })} data-band-copy>
+                    写して手直しする
+                  </button>
+                ) : null}
+                {sampleItem.kind === "own" && sampleMode === "view" ? (
+                  <button type="button" class="link-btn" onClick={startEditing} data-band-edit>
+                    この見本を直す
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        ) : null}
         {hhOpen && host !== null && opened !== null ? (
           <HouseholdNow
-            title={storedInfo !== null ? `顧客番号 ${storedInfo.customerNo}` : (opened.demo?.title ?? "新しい世帯")}
+            title={storedInfo?.sample !== undefined ? `見本 ${storedInfo.sample.no}` : storedInfo !== null ? `顧客番号 ${storedInfo.customerNo}` : opened.demo !== null ? `見本 ${opened.demo.sampleNo}（${opened.demo.title}）` : "新しい世帯"}
             members={basis?.members ?? null}
             asOf={basis?.asOf ?? null}
-            save={{ ...save, state: storedInfo === null ? "unsaved" : presence !== null ? "paused" : saveState.kind }}
+            save={{ ...save, state: !savingStored ? "unsaved" : presence !== null ? "paused" : saveState.kind }}
             ai={ai.status?.enabled === true ? { text: SHARE_STATE_TEXT[aiShare].long, sharing: aiShare === "sharing", onOpen: storedInfo !== null ? openAiShare : null } : null}
           />
         ) : null}
@@ -1608,19 +1703,77 @@ export function App() {
             error={hhError}
             list={storedList}
             currentId={storedInfo?.id ?? null}
-            demos={households.map((h) => ({ id: h.id, title: h.title }))}
-            unsavedTitle={opened !== null && storedInfo === null ? (opened.demo?.title ?? "新しい世帯") : null}
+            categories={categories}
+            shelf={shelf}
+            currentSample={currentSample}
+            currentShape={opened !== null ? guessShape(opened.wh.request) : null}
+            unsavedTitle={opened !== null && storedInfo === null && opened.demo === null ? "新しい世帯" : null}
+            initialTab={hhTab}
             onOpen={(id) => void guard(() => openStored(id))}
-            onCreate={(from) =>
+            onCreate={(category) =>
               void guard(async () => {
-                await open(from ?? BLANK);
-                await persistCurrent();
+                await open(BLANK);
+                await persistCurrent(category);
               })
             }
-            onViewDemo={(id) => void guard(() => open(id))}
-            onSaveCurrent={() => void guard(persistCurrent)}
+            onSaveCurrent={(category) => void guard(() => persistCurrent(category))}
             onRename={renameStored}
+            onSetCategory={(id, code) => numberOp(id, () => host.store.setCategory(id, code), (no) => `区分を変えました（${no}）`)}
+            onAssignSerial={(id) => numberOp(id, () => host.store.assignSerial(id), (no) => `通し番号を付けました（${no}）`)}
+            onMakeSample={async (id, req) => {
+              const err = await numberOp(id, () => host.store.makeSample(id, req), (no) => `見本 ${no} として見本の棚へ移しました`);
+              // 開いている世帯を見本にしたときは、見本として開き直す（動かしても保存しない）
+              if (err === null && storedRef.current?.id === id) await openStored(id).catch(() => undefined);
+              return err;
+            }}
+            onSaveCategories={async (edits: CategoryEdit[]) => {
+              try {
+                setCategories(await host.store.setCategories(edits));
+                await refreshStore();
+                const sr = storedRef.current;
+                if (sr !== null) {
+                  const now = (await host.store.list()).find((h) => h.id === sr.id);
+                  if (now !== undefined && now.customerNo !== sr.customerNo) {
+                    sr.customerNo = now.customerNo;
+                    setStoredInfo({ id: sr.id, customerNo: now.customerNo, readOnly: sr.readOnly });
+                  }
+                }
+                say("区分を保存しました");
+                return null;
+              } catch (e) {
+                return storeMessage(codeOf(e));
+              }
+            }}
             onDelete={deleteStored}
+            onOpenSample={(item) => void guard(() => openSample(item))}
+            onCustomerFromSample={(item, category) =>
+              void guard(async () => {
+                await openSample(item);
+                await persistCurrent(category);
+              })
+            }
+            onCopySample={(item) =>
+              void guard(async () => {
+                const req = copyRequest(item);
+                if (req === null) return;
+                await openSample(item);
+                await persistCurrent(undefined, req);
+              })
+            }
+            onUpdateSample={async (id, name, traits) => {
+              try {
+                await host.store.updateSample(id, name, traits);
+                setStoredSamples(await host.store.listSamples());
+                const sr = storedRef.current;
+                if (sr !== null && sr.id === id && sr.sample !== undefined) {
+                  sr.sample = { ...sr.sample, name, traits };
+                  setStoredInfo({ id, customerNo: sr.customerNo, readOnly: sr.readOnly, sample: sr.sample });
+                }
+                return null;
+              } catch (e) {
+                return storeMessage(codeOf(e));
+              }
+            }}
             onRecovery={() => setRecovery(storeStatus?.state === "needsRecovery" ? "restore" : "manage")}
             onAiConnector={() => {
               void ai.refresh();

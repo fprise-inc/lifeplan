@@ -22,6 +22,7 @@ use zeroize::Zeroizing;
 use crate::container;
 use crate::crypto::{self, purpose, Key, KEY_LEN, NONCE_LEN};
 use crate::member::{self, MemberKeys, Wrap};
+use crate::numbering::{Category, Label};
 use crate::StoreError;
 
 /// 選んだフォルダの中に作る事務所のフォルダの名前
@@ -273,6 +274,8 @@ pub struct Roster {
     pub closed: Option<ClosedMark>,
     /// 使い方（[`USAGE_PERSONAL`]・[`USAGE_OFFICE`]）。無ければ事務所での共有（0024）
     pub usage: Option<String>,
+    /// 顧客番号の区分（事務所全体で1つ。0033）。無ければ各 PC の設定を使う
+    pub categories: Option<Vec<Category>>,
     pub updated_at: String,
     pub updated_by: Option<String>,
 }
@@ -362,6 +365,9 @@ struct MembersBody {
     /// 使い方（足した欄。無い名簿は事務所での共有として読む。0024）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     usage: Option<String>,
+    /// 顧客番号の区分（足した欄。0033）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    categories: Option<Vec<Category>>,
     updated_at: String,
     updated_by: Option<String>,
 }
@@ -414,6 +420,7 @@ pub fn encode_roster(r: &Roster, master: &[u8; KEY_LEN]) -> Result<Vec<u8>, Stor
             events: r.events.clone(),
             closed: r.closed.clone(),
             usage: r.usage.clone(),
+            categories: r.categories.clone(),
             updated_at: r.updated_at.clone(),
             updated_by: r.updated_by.clone(),
         })
@@ -469,6 +476,7 @@ pub fn open_roster_with_master(bytes: &[u8], master: &[u8; KEY_LEN]) -> Result<R
         events: b.events,
         closed: b.closed,
         usage: b.usage,
+        categories: b.categories,
         updated_at: b.updated_at,
         updated_by: b.updated_by,
     })
@@ -730,6 +738,9 @@ pub struct Card {
     #[serde(default)]
     pub updated_by: Option<Author>,
     pub generation: u64,
+    /// 番号の中身（区分・通し番号・枝番・見本。0033）。欄の無い札は区分なしの自由な番号
+    #[serde(flatten)]
+    pub label: Label,
 }
 
 pub fn encode_card(
@@ -882,6 +893,7 @@ mod tests {
             events: vec![],
             closed: None,
             usage: None,
+            categories: None,
             updated_at: "2026-10-19T00:00:00Z".into(),
             updated_by: None,
         }
@@ -1024,6 +1036,12 @@ mod tests {
                 name: "Aさん".into(),
             }),
             generation: 3,
+            label: Label {
+                category: Some("M".into()),
+                serial: Some(1),
+                branch: None,
+                sample: None,
+            },
         };
         let b = encode_card(&office, &mk, &h, &card, &m);
         let mm = m.clone();

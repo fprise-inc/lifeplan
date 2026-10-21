@@ -1,4 +1,5 @@
-// 開ける世帯の一覧（当面は、リポジトリの架空のモデル世帯だけ。入力画面・保存・暗号化は次の回）
+// アプリに入っている見本の世帯（すべて架空。data/modelHouseholds の世帯に、打ち手の目盛り・最初の提案・プランを添えたもの）。
+// 見本は顧客番号を持たず、見本番号（家族の形-本人の年代-順番。順番 01〜09 はアプリの見本、10〜 は FP が作った見本）で並べる（0033）
 import type { LeverValues, Reemployment } from "./levers.ts";
 import type { Values } from "./plans/plans.ts";
 import type { SnapshotTrigger } from "./snapshots/snapshots.ts";
@@ -37,7 +38,12 @@ export interface DemoSnapshot {
 export interface DemoHousehold {
   /** data/modelHouseholds/<id>.json */
   id: string;
+  /** 見本番号（家族の形 1 単身・2 夫婦のみ・3 夫婦と子・4 ひとり親・5 シニア - 本人の年代 2〜7 - 順番 01〜09） */
+  sampleNo: string;
+  /** 見本の名前（共働き/片働き・会社員/自営業などは番号に入れず、名前と絞り込みの項目で見分ける） */
   title: string;
+  /** 絞り込みの項目（store/numbering.ts の SAMPLE_TRAITS） */
+  traits: readonly string[];
   /** 主役の数字を出す年齢（世帯の「本人」の年齢） */
   targetAge: number;
   steps: LeverSteps;
@@ -57,7 +63,9 @@ export interface DemoHousehold {
 export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
   {
     id: "salariedCoupleTwoKids",
+    sampleNo: "3-4-01",
     title: "会社員の夫婦と子2人",
+    traits: ["会社員", "片働き", "持ち家", "住宅ローン", "教育費"],
     targetAge: 95,
     steps: {
       retireAge: [60, 62, 65, 68, 70],
@@ -76,7 +84,9 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
   },
   {
     id: "investmentCouple",
+    sampleNo: "3-4-02",
     title: "資産運用の見本（会社員の夫婦と子2人）",
+    traits: ["会社員", "片働き", "持ち家", "住宅ローン", "教育費", "資産運用"],
     targetAge: 95,
     steps: {
       retireAge: [60, 62, 65, 68, 70],
@@ -90,7 +100,9 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
   },
   {
     id: "dualAssetsTwoKids",
+    sampleNo: "3-4-03",
     title: "共働きの夫婦と子2人（資産が多め）",
+    traits: ["会社員", "共働き", "持ち家", "住宅ローン", "教育費", "資産運用"],
     targetAge: 95,
     steps: {
       retireAge: [60, 62, 65, 68, 70],
@@ -153,7 +165,9 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
   },
   {
     id: "lifetime100Plan",
+    sampleNo: "3-3-01",
     title: "共働きの夫婦と子1人（100年分）",
+    traits: ["会社員", "共働き", "持ち家", "住宅ローン", "教育費"],
     targetAge: 95,
     steps: {
       retireAge: [60, 62, 65, 68, 70],
@@ -164,7 +178,98 @@ export const DEMO_HOUSEHOLDS: readonly DemoHousehold[] = [
     firstProposal: {},
     memo: ["速さの計測に使う100年分の世帯（架空）"],
   },
+
+  // ここから下は 2026-10-21 に足した見本（すべて架空。data/modelHouseholds/sample*.json。0033）
+  {
+    id: "sampleSingle20s",
+    sampleNo: "1-2-01",
+    title: "単身・20代の会社員",
+    traits: ["会社員", "賃貸"],
+    targetAge: 95,
+    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 10000, 20000, 30000, 50000], livingMonthly: [150000, 160000, 170000, 180000] },
+    firstProposal: { retireAge: 65, pensionAge: 65, nisaMonthly: 30000, livingMonthly: 160000 },
+    notes: { retireAge: "65歳まで正社員で働く想定", nisaMonthly: "働いている間、毎月積み立てる", livingMonthly: "家賃（月8.5万円）は別。退職後は90%、80歳から80%" },
+    memo: ["NISA は全世界株の積立（架空の例）", "次回: 勤め先の退職金の制度を確認"],
+  },
+  {
+    id: "sampleSingle40s",
+    sampleNo: "1-4-01",
+    title: "単身・40代の会社員（持ち家）",
+    traits: ["会社員", "持ち家", "住宅ローン"],
+    targetAge: 95,
+    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 10000, 30000, 50000], livingMonthly: [160000, 170000, 180000, 200000] },
+    firstProposal: { retireAge: 65, pensionAge: 65, nisaMonthly: 50000, livingMonthly: 170000 },
+    reemployment: { fromAge: 60, type: "contract", annualSalary: 3600000, standardMonthlyRemuneration: 300000 },
+    notes: { retireAge: "60歳から再雇用（年収360万円）", nisaMonthly: "60歳の定年まで毎月積み立てる", livingMonthly: "住宅ローン・管理費は別。退職後は85%、80歳から80%" },
+    memo: ["退職金1,200万円は勤め先の規程からの見込み（架空の例）", "住宅ローンは変動金利。金利の上昇を気にしている（架空の例）"],
+    plans: [
+      { name: "プランB 生活費とNISAの見直し", tags: ["老後"], values: { "lever:livingMonthly": 170000, "lever:nisaMonthly": 50000 } },
+      { name: "プランC 65歳まで働く（60歳から再雇用）", tags: ["老後"], values: { "lever:retireAge": 65 } },
+    ],
+  },
+  {
+    id: "sampleCoupleNoKids",
+    sampleNo: "2-3-01",
+    title: "共働きの夫婦・30代（子なし）",
+    traits: ["会社員", "共働き", "賃貸"],
+    targetAge: 95,
+    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 30000, 50000, 80000], livingMonthly: [290000, 310000, 330000, 350000] },
+    firstProposal: { retireAge: 65, pensionAge: 65, nisaMonthly: 50000, livingMonthly: 310000 },
+    notes: { retireAge: "妻は60歳まで働く想定", nisaMonthly: "夫の分（妻も月2万円を積み立てている）", livingMonthly: "家賃（月14万円）は別。退職後は85%、80歳から75%" },
+    memo: ["5年以内に住宅の購入を考えている（架空の例）", "妻は60歳で退職する意向（架空の例）", "次回: 購入の予算と頭金を相談"],
+  },
+  {
+    id: "sampleSingleParent",
+    sampleNo: "4-3-01",
+    title: "ひとり親と子2人・30代",
+    traits: ["会社員", "賃貸", "教育費"],
+    targetAge: 95,
+    steps: { retireAge: [60, 62, 65, 68, 70], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 10000, 20000, 30000], livingMonthly: [145000, 155000, 165000, 175000] },
+    firstProposal: { retireAge: 65, pensionAge: 65, nisaMonthly: 20000, livingMonthly: 155000 },
+    notes: { nisaMonthly: "働いている間、毎月積み立てる", livingMonthly: "家賃（月7.2万円）は別。子の独立後は70%、退職後は95%、80歳から85%" },
+    memo: ["ひとり親の手当（児童扶養手当など）は計算に入れていない。児童手当は入る（架空の例）", "長女は国立大学（自宅）、長男は専門学校を希望（架空の例）"],
+  },
+  {
+    id: "sampleSelfEmployedFamily",
+    sampleNo: "3-4-04",
+    title: "自営業の夫婦と子2人・40代",
+    traits: ["自営業", "片働き", "持ち家", "住宅ローン", "教育費"],
+    targetAge: 95,
+    steps: { retireAge: [65, 68, 70, 72, 75], pensionAge: [60, 65, 68, 70, 75], nisaMonthly: [0, 30000, 50000, 70000], livingMonthly: [240000, 250000, 270000, 290000] },
+    firstProposal: { retireAge: 70, pensionAge: 68, nisaMonthly: 50000, livingMonthly: 250000 },
+    notes: { retireAge: "定年は無い。働く最後の年齢まで事業の所得が続く想定", pensionAge: "夫婦とも国民年金（老齢基礎年金）が中心", livingMonthly: "子の独立後は80%、仕事をやめた後は85%、80歳から80%" },
+    memo: ["事業の所得は年850万円の想定（架空の例）", "付加年金・小規模企業共済にはまだ入っていない（架空の例）", "次回: 長女の私立高校と自宅外の大学の費用を確認"],
+  },
+  {
+    id: "sampleSeniorCouple",
+    sampleNo: "5-6-01",
+    title: "シニア夫婦・60代（年金の繰下げ）",
+    traits: ["年金生活", "持ち家", "資産運用"],
+    targetAge: 95,
+    steps: { retireAge: [67, 68, 70, 72], pensionAge: [67, 68, 70, 72, 75], nisaMonthly: [0, 10000, 30000, 50000], livingMonthly: [260000, 280000, 300000, 320000] },
+    firstProposal: { retireAge: 70, pensionAge: 70, nisaMonthly: 30000, livingMonthly: 280000 },
+    notes: { retireAge: "嘱託（週30時間・年収240万円）で働き続ける", pensionAge: "夫の年金は68歳まで繰り下げる予定（妻は65歳から）", nisaMonthly: "働いている間、毎月積み立てる", livingMonthly: "仕事をやめた後は90%、80歳から80%" },
+    memo: ["夫は70歳まで嘱託で働く意向（架空の例）", "持ち家の住宅ローンは完済している（架空の例）"],
+  },
+  {
+    id: "sampleExecutive",
+    sampleNo: "3-5-01",
+    title: "会社の役員の夫婦と子1人・50代",
+    traits: ["役員", "片働き", "持ち家", "教育費", "資産運用"],
+    targetAge: 95,
+    steps: { retireAge: [65, 68, 70, 72, 75], pensionAge: [65, 68, 70, 72, 75], nisaMonthly: [0, 30000, 50000, 100000], livingMonthly: [420000, 450000, 500000, 550000] },
+    firstProposal: { retireAge: 70, pensionAge: 70, nisaMonthly: 100000, livingMonthly: 480000 },
+    notes: { retireAge: "役員を退く年齢（退くときに役員退職慰労金）", pensionAge: "役員報酬が高い間は、在職老齢年金で止まる分がある", livingMonthly: "子の独立後は85%、退任後は85%、80歳から75%" },
+    memo: ["役員退職慰労金は最終報酬月額120万円×在任年数×1.5倍の見込み（架空の例）", "小規模企業共済は70歳で半分を一時金、残りを10年の分割で受け取る想定（架空の例）", "長女は私立大学の理系・自宅外（架空の例）"],
+    plans: [
+      { name: "プランB 年金を70歳から受け取る", tags: ["老後"], values: { "lever:pensionAge": 70 } },
+      { name: "プランC 65歳で役員を退く", tags: ["老後"], values: { "lever:retireAge": 65 } },
+    ],
+  },
 ];
+
+/** アプリの見本を見本番号の順に */
+export const DEMO_BY_NUMBER: readonly DemoHousehold[] = [...DEMO_HOUSEHOLDS].sort((a, b) => (a.sampleNo < b.sampleNo ? -1 : a.sampleNo > b.sampleNo ? 1 : 0));
 
 export function demoHousehold(id: string): DemoHousehold | undefined {
   return DEMO_HOUSEHOLDS.find((d) => d.id === id);
