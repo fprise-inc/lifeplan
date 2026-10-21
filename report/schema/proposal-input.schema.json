@@ -447,7 +447,7 @@
       "description": "載せる章（帳票の並び）。省略はすべての章。cover・assumptions は必ず入れる（宛名欄と必須の記載の欄。0009 の3・6）",
       "type": "array",
       "uniqueItems": true,
-      "items": { "enum": ["cover", "assumptions", "summary", "basics", "events", "cashflow", "education", "housing", "retirement", "investment", "marketDrop", "contingency", "insurance", "changes", "comparison"] },
+      "items": { "enum": ["cover", "assumptions", "summary", "basics", "events", "cashflow", "moneyThree", "education", "housing", "retirement", "investment", "marketDrop", "contingency", "insurance", "changes", "comparison"] },
       "allOf": [{ "contains": { "const": "cover" } }, { "contains": { "const": "assumptions" } }]
     },
     "investment": {
@@ -498,6 +498,30 @@
         "proposal": { "$ref": "#/$defs/yens" },
         "lasts": { "type": "string" },
         "lines": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["label", "lasts", "values"], "properties": { "label": { "type": "string" }, "lasts": { "type": "string" }, "values": { "$ref": "#/$defs/yens" } } } }
+      }
+    },
+    "moneyThree": {
+      "description": "お金の3つの分け方（説明用の図。0032）: 提案のプランの今の時点の金融資産を、使うお金（ふだんの支出の○か月分）・貯めるお金（今後○年のできごとの支出のうち、その年の収入で賄えない分）・増やすお金（残り）に分け、今の置き場所と並べる。アプリの区画と同じ値・同じ言葉（report/src/moneyThree.ts）。キャッシュフロー表・結果の計算には混ぜない。省略・null は載せない",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["year", "settings", "limits", "names", "boxes", "spendMonthly", "range", "clipped", "table", "place", "status", "gap", "need", "overFinancial", "say", "notice"],
+      "properties": {
+        "year": {"$ref": "#/$defs/year"},
+        "settings": {"type": "object", "additionalProperties": false, "required": ["months", "years", "wording"], "properties": {"months": {"type": "integer", "minimum": 1, "maximum": 24}, "years": {"type": "integer", "minimum": 1, "maximum": 30}, "wording": {"enum": ["use", "time"]}}},
+        "limits": {"type": "object", "additionalProperties": false, "required": ["months", "years"], "properties": {"months": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}, "years": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}}},
+        "names": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 3},
+        "boxes": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["key", "name", "amount", "formula", "items", "rest", "note"], "properties": {"key": {"enum": ["spend", "save", "grow"]}, "name": {"type": "string"}, "amount": {"type": "integer", "minimum": 0}, "formula": {"type": "string"}, "items": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["lead", "label", "amount", "per"], "properties": {"lead": {"type": "string"}, "label": {"type": "string"}, "amount": {"type": "integer"}, "per": {"type": "string"}}}}, "rest": {"type": ["object", "null"], "additionalProperties": false, "required": ["count", "amount"], "properties": {"count": {"type": "integer", "minimum": 1}, "amount": {"type": "integer"}}}, "note": {"type": ["string", "null"]}}}, "minItems": 3, "maxItems": 3},
+        "spendMonthly": {"type": "integer"},
+        "range": {"type": "string"},
+        "clipped": {"type": ["string", "null"]},
+        "table": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["year", "label", "expense", "leftover", "uncovered"], "properties": {"year": {"$ref": "#/$defs/year"}, "label": {"type": "string"}, "expense": {"type": "integer"}, "leftover": {"type": "integer"}, "uncovered": {"type": "integer", "minimum": 0}}}},
+        "place": {"type": "object", "additionalProperties": false, "required": ["lines", "total", "liquid", "liquidName"], "properties": {"lines": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["key", "label", "group", "amount", "liquid"], "properties": {"key": {"type": "string"}, "label": {"type": "string"}, "group": {"enum": ["liquid", "market", "locked"]}, "amount": {"type": "integer"}, "liquid": {"type": "boolean"}}}}, "total": {"type": "integer"}, "liquid": {"type": "integer"}, "liquidName": {"type": "string"}}},
+        "status": {"enum": ["over", "short", "even"]},
+        "gap": {"type": "integer"},
+        "need": {"type": "integer"},
+        "overFinancial": {"type": "integer", "minimum": 0},
+        "say": {"type": "object", "additionalProperties": false, "required": ["head", "sub", "eq"], "properties": {"head": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["text"], "properties": {"text": {"type": "string"}, "strong": {"type": "boolean"}}}}, "sub": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["text"], "properties": {"text": {"type": "string"}, "strong": {"type": "boolean"}}}}, "eq": {"type": ["string", "null"]}}},
+        "notice": {"oneOf": [{"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["text"], "properties": {"text": {"type": "string"}, "strong": {"type": "boolean"}}}}, {"type": "null"}]}
       }
     },
     "comparison": {

@@ -5,6 +5,7 @@
 //   事務所の設定（料金表の写し）・カスタム計算の印・ファイルのパス
 // - 計算の要求は、主画面と同じ当て方（plans.ts の applyValues。保存していない変更を含む今の中身）で作る
 import type { EngineRequest } from "../../engine/types.ts";
+import type { MoneyThreeSettings } from "../../presentation/model.ts";
 import { TAKEAWAY_FORMAT, TAKEAWAY_LEVER_KEYS, TAKEAWAY_VERSION, type TakeawayLever, type TakeawayLeverKey, type TakeawayPayload } from "../../takeaway/model.ts";
 import { applyTry, type LeverConfig, type TryValues } from "../../takeaway/levers.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -35,7 +36,9 @@ export interface TakeawayChoice {
   band: readonly string[];
   /** 顧客が動かせないようにするつまみ */
   excluded: ReadonlySet<TakeawayKnob>;
-  views: { balance: boolean; table: boolean };
+  views: { balance: boolean; table: boolean; moneyThree: boolean };
+  /** お金の3つの分け方の何か月分・何年先まで・呼び方（資産と負債のタブの表示の設定。0032） */
+  moneyThree: MoneyThreeSettings;
   addressee: string;
   office: string;
   targetAge: number;
@@ -129,7 +132,8 @@ export function buildPayload(ctx: TakeawayContext, choice: TakeawayChoice, notic
     proposal: letter(choice.proposal),
     base: order.includes(choice.base) ? letter(choice.base) : "A",
     levers,
-    views: { balance: choice.views.balance, table: choice.views.table },
+    views: { balance: choice.views.balance, table: choice.views.table, moneyThree: choice.views.moneyThree },
+    ...(choice.views.moneyThree ? { moneyThree: { months: choice.moneyThree.months, years: choice.moneyThree.years, wording: choice.moneyThree.wording } } : {}),
   };
 }
 

@@ -14,7 +14,7 @@ import { CURRENT } from "../plans/band.ts";
 import type { Catalog } from "../plans/items.ts";
 import type { Values } from "../plans/plans.ts";
 import type { SnapshotDraft } from "../snapshots/snapshots.ts";
-import type { BsColumn, BsPointKey } from "../../presentation/model.ts";
+import type { BsColumn, BsPointKey, MoneyThreeSettings } from "../../presentation/model.ts";
 import { BS_POINT_CHOICES, DEFAULT_BS_POINTS } from "../balanceTab.ts";
 import { DEFAULT_CHAPTERS, DEFAULT_LAYOUT, estimatedCards, planReport, reportInput, today, type ReportChoice } from "./assemble.ts";
 import { ReportViewer } from "./ReportViewer.tsx";
@@ -37,6 +37,8 @@ interface Props {
   /** 資産と負債のタブで時点を並べるときの既定の時点と、この世帯で選んだ時点（表示の設定。提案書のバランスシートの図も同じ時点にする） */
   bsPoints?: readonly BsPointKey[];
   bsColumns?: readonly BsColumn[] | null;
+  /** お金の3つの分け方（資産と負債のタブの表示の設定。0032） */
+  moneyThree?: MoneyThreeSettings;
   /** PDF を保存したときに控えを残す（App が現状とプランの写しを足して世帯に入れる） */
   onSnapshot?: (d: SnapshotDraft) => Promise<void>;
   /** 最初に開く形（提案書の PDF・持ち帰り用のレポート） */
@@ -64,7 +66,7 @@ export function ReportTab(p: Props) {
           <p>載せるプランがありません。結果でプランを作り、帯に並べてから開いてください。</p>
         </section>
       ) : (
-        <TakeawayPanel host={p.host} wh={p.wh} catalog={p.catalog} band={p.band} base={p.base} selected={p.selected} valuesOf={p.valuesOf} letterOf={p.letterOf} targetAge={p.targetAge} {...(p.onSnapshot !== undefined ? { onSnapshot: p.onSnapshot } : {})} />
+        <TakeawayPanel host={p.host} wh={p.wh} catalog={p.catalog} band={p.band} base={p.base} selected={p.selected} valuesOf={p.valuesOf} letterOf={p.letterOf} targetAge={p.targetAge} {...(p.moneyThree !== undefined ? { moneyThree: p.moneyThree } : {})} {...(p.onSnapshot !== undefined ? { onSnapshot: p.onSnapshot } : {})} />
       )}
     </div>
   );
@@ -139,8 +141,8 @@ function ProposalPdf(p: Props) {
   useEffect(() => () => void p.host.report.discard().catch(() => undefined), [p.host]);
 
   const choice: ReportChoice = useMemo(
-    () => ({ proposal, compare: slots.filter((id) => compare.includes(id) || id === proposal), base: p.base, chapters: CHAPTERS.filter((c) => c.fixed || chapters.has(c.id)).map((c) => c.id), targetAge: p.targetAge, issuedOn: today(), preparedBy, layout: { orientation, cashflow }, bsPoints: p.bsPoints ?? DEFAULT_BS_POINTS, bsColumns: p.bsColumns ?? null }),
-    [proposal, compare.join(","), p.base, [...chapters].join(","), p.targetAge, preparedBy, slots.join(","), orientation, cashflow, JSON.stringify(p.bsPoints ?? null), JSON.stringify(p.bsColumns ?? null)],
+    () => ({ proposal, compare: slots.filter((id) => compare.includes(id) || id === proposal), base: p.base, chapters: CHAPTERS.filter((c) => c.fixed || chapters.has(c.id)).map((c) => c.id), targetAge: p.targetAge, issuedOn: today(), preparedBy, layout: { orientation, cashflow }, bsPoints: p.bsPoints ?? DEFAULT_BS_POINTS, bsColumns: p.bsColumns ?? null, ...(p.moneyThree !== undefined ? { moneyThree: p.moneyThree } : {}) }),
+    [proposal, compare.join(","), p.base, [...chapters].join(","), p.targetAge, preparedBy, slots.join(","), orientation, cashflow, JSON.stringify(p.bsPoints ?? null), JSON.stringify(p.bsColumns ?? null), JSON.stringify(p.moneyThree ?? null)],
   );
   // 何を変えたら作り直しが要るか（宛名も PDF に入るので含める。帳票の入力そのものは保存しない）
   const key = JSON.stringify({ choice, addressee: addressee.trim(), wh: p.wh.request, values: slots.map((id) => p.valuesOf(id)) });

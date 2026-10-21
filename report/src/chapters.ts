@@ -2,7 +2,7 @@
 // 表紙と「前提条件と注意書き」は外せない（宛名欄の宣言と、必須の記載の決まった欄があるため。0009 の3・6）
 import type { ProposalInput } from "./input.ts";
 
-export type ChapterId = "cover" | "assumptions" | "summary" | "basics" | "events" | "cashflow" | "education" | "housing" | "retirement" | "investment" | "marketDrop" | "contingency" | "insurance" | "changes" | "comparison";
+export type ChapterId = "cover" | "assumptions" | "summary" | "basics" | "events" | "cashflow" | "moneyThree" | "education" | "housing" | "retirement" | "investment" | "marketDrop" | "contingency" | "insurance" | "changes" | "comparison";
 
 export interface ChapterDef {
   id: ChapterId;
@@ -19,6 +19,7 @@ export const CHAPTERS: readonly ChapterDef[] = [
   { id: "basics", label: "基本項目", fixed: false },
   { id: "events", label: "ライフイベント表", fixed: false },
   { id: "cashflow", label: "キャッシュフロー表（資産残高のグラフ・資産と負債の推移を含む）", fixed: false },
+  { id: "moneyThree", label: "お金の3つの分け方（説明用の図）", fixed: false },
   { id: "education", label: "教育費の推移", fixed: false },
   { id: "housing", label: "住宅ローン", fixed: false },
   { id: "retirement", label: "老後の必要資金と年金の受取予想", fixed: false },
@@ -53,6 +54,8 @@ export function hasMaterial(input: ProposalInput, id: ChapterId): boolean {
       return input.investment != null;
     case "marketDrop":
       return input.marketDrop != null;
+    case "moneyThree":
+      return input.moneyThree != null;
     default:
       return true;
   }
@@ -75,5 +78,6 @@ export function selectChapters(input: ProposalInput, chosen: readonly ChapterId[
   if (!on.has("comparison")) out.comparison = null;
   if (!on.has("investment")) out.investment = null;
   if (!on.has("marketDrop")) out.marketDrop = null;
+  if (!on.has("moneyThree")) out.moneyThree = null;
   return out;
 }

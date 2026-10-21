@@ -11,6 +11,8 @@ import { CHART_MODES, MainChart, MainLegend, type ChartMode } from "../../presen
 import { ResultVerdictView } from "../../presentation/MainView.tsx";
 import type { BsGroupKey, CashflowTableModel, TableRowModel } from "../../presentation/model.ts";
 import { bsPlan } from "../../workspace/balanceTab.ts";
+import { MoneyThreeCards, MoneyThreeFigure, MoneyThreeLegend, MoneyThreeSay } from "../../presentation/MoneyThree.tsx";
+import { moneyThreeModel } from "../../workspace/moneyThree.ts";
 import { depletionYear, displayYears, toPresentation } from "../../workspace/present.ts";
 import { ageInYear, roles } from "../../workspace/roles.ts";
 import { BS_GROUP_LABEL, BS_GROUP_SHORT, type BsGroup } from "../../../../report/src/index.ts";
@@ -89,6 +91,15 @@ export function TakeawayView({ data, engine, preview = false }: TakeawayViewProp
   const error = selRes !== undefined && !selRes.ok ? selRes.code : baseRes !== undefined && !baseRes.ok ? baseRes.code : null;
 
   const bs = useMemo(() => (selRes?.ok === true && p.views.balance ? bsPlan({ key: sel, letter: sel, name: planLabel(sel), title: planOf(sel).name, base: sel === p.base, req: requests[sel] as EngineRequest, table: selRes.result.table }) : null), [selRes, sel]);
+  // お金の3つの分け方（0032）: 見ているプランの今の時点。何か月分・何年先までは FP が決めた値（顧客は変えられない）
+  const m3 = useMemo(() => {
+    if (selRes?.ok !== true || p.views.moneyThree !== true || p.moneyThree === undefined) return null;
+    try {
+      return moneyThreeModel({ req: requests[sel] as EngineRequest, table: selRes.result.table, settings: p.moneyThree });
+    } catch {
+      return null;
+    }
+  }, [selRes, sel]);
   const bsYear = bs === null ? null : (bs.years[Math.max(0, Math.min(bs.years.length - 1, bsIdx))] ?? null);
   // グラフで年を固定したら、資産と負債の図もその年にする
   useEffect(() => {
@@ -263,6 +274,25 @@ export function TakeawayView({ data, engine, preview = false }: TakeawayViewProp
           <p class="tk-bs-sum num">
             純資産 <b class={bsYear.netWorth < 0 ? "neg" : ""}>{man(bsYear.netWorth)}万円</b>（資産 {man(bsYear.totalAssets)}万円・負債 {man(bsYear.totalLiabilities)}万円）
           </p>
+        </section>
+      ) : null}
+
+      {m3 !== null ? (
+        <section class="card tk-m3" aria-labelledby="tk-m3h" data-takeaway-m3>
+          <div class="card-h">
+            <h2 id="tk-m3h">お金の3つの分け方（{planLabel(sel)}）</h2>
+            <span class="aside">{m3.year}年の時点</span>
+          </div>
+          <p class="tk-m3-lead">これからの予定をもとに、金融資産を使う時期で3つに分けて、今の置き場所と並べました。</p>
+          <MoneyThreeSay model={m3} />
+          <div class="m3-grid">
+            <div>
+              <MoneyThreeFigure model={m3} />
+              <MoneyThreeLegend model={m3} />
+            </div>
+            <MoneyThreeCards model={m3} />
+          </div>
+          <p class="m3-note">この図は説明のためのものです。キャッシュフロー表や結果の計算には使っていません。</p>
         </section>
       ) : null}
 

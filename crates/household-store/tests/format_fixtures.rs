@@ -204,6 +204,18 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 生活防衛資金は捨てる"
             );
         }
+        if *v == "0.13" {
+            // 0.13 から: 資産と負債のタブの表示の設定に、お金の3つの分け方（何か月分・何年先まで・呼び方。0032）
+            let m = &now["display"]["balance"]["moneyThree"];
+            assert_eq!(m["months"], 3);
+            assert_eq!(m["years"], 15);
+            assert_eq!(m["wording"], "time");
+        } else {
+            assert!(
+                now["display"]["balance"].get("moneyThree").is_none(),
+                "{v}: お金の3つの分け方の設定は 0.13 から（変換の段では足さない）"
+            );
+        }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
         }

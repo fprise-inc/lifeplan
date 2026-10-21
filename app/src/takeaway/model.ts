@@ -4,6 +4,7 @@
 // 氏名・顧客番号・世帯の内部ID などの識別子。計算の要求（EngineRequest）は sanitize.ts で自由記述と識別子を外し、物の ID を付け替えたもの。
 // 宛名と事務所名は、書き出すときに FP が入れたものだけ（保存しない）。
 import type { EngineRequest } from "../engine/types.ts";
+import type { MoneyThreeSettings } from "../presentation/model.ts";
 
 /** ファイルの形式の名前と版（中身の形を変えたら版を上げる） */
 export const TAKEAWAY_FORMAT = "financia.takeaway";
@@ -76,8 +77,13 @@ export interface TakeawayPayload {
     /** FP顧問料の入れる・入れないを顧客が切り替えられるとき（契約の要約） */
     fee: { note: string } | null;
   };
-  /** 載せる画面（結果のグラフはいつも載せる） */
-  views: { balance: boolean; table: boolean };
+  /** 載せる画面（結果のグラフはいつも載せる）。moneyThree（お金の3つの分け方。0032）は後から足した任意の欄（無ければ載せない） */
+  views: { balance: boolean; table: boolean; moneyThree?: boolean };
+  /**
+   * お金の3つの分け方の何か月分・何年先まで・呼び方（FP が資産と負債のタブで決めた値。顧客は変えられない。0032）。
+   * 後から足した任意の欄（画面の部品は同じファイルに入るので、版は 1 のまま）
+   */
+  moneyThree?: MoneyThreeSettings;
 }
 
 /** ファイルの中のデータ（パスワードを付けたときは、これを丸ごと暗号化する） */

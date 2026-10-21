@@ -86,3 +86,22 @@ describe("帳票の組み方（紙の向き・キャッシュフロー表の載�
     expect(validate({ ...land, layout: { orientation: "sideways", cashflow: "full" } })).toBe(false);
   });
 });
+
+describe("お金の3つの分け方の章（0032）", () => {
+  it("提案のプランの今の時点で、アプリの区画と同じ部品が作る。何か月分・何年先まで・呼び方は材料の値。JSON Schema に合う", () => {
+    const m = full.moneyThree;
+    expect(m).not.toBeNull();
+    if (m == null) return;
+    expect(m.settings).toEqual({ months: 6, years: 10, wording: "use" });
+    expect(m.boxes.map((b) => b.key)).toEqual(["spend", "save", "grow"]);
+    if (m.boxes[2].amount > 0) expect(m.boxes.reduce((a, b) => a + b.amount, 0)).toBe(m.place.total);
+    expect(m.boxes[1].items.reduce((a, x) => a + x.amount, 0) + (m.boxes[1].rest?.amount ?? 0)).toBe(m.boxes[1].amount);
+    const other = buildProposalInput({ ...bundle, moneyThree: { months: 3, years: 5, wording: "time" } }).moneyThree;
+    expect(other?.names).toEqual(["すぐ使うお金", "近いうちに使うお金", "しばらく使わないお金"]);
+    expect(other?.boxes[0].formula).toMatch(/× 3か月$/);
+    expect(validate(full), JSON.stringify(validate.errors)).toBe(true);
+    // 章を外すと材料も渡さない
+    expect(selectChapters(full, ["summary"]).moneyThree).toBeNull();
+    expect(hasMaterial(selectChapters(full, ["moneyThree"]), "moneyThree")).toBe(true);
+  });
+});

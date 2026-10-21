@@ -104,7 +104,7 @@ describe("持ち帰り用のレポート: 内部情報を入れない", () => {
     expect(text).not.toContain('"ai"');
     for (const id of ids) expect(text, id).not.toContain(id);
     // 許可した項目だけ（型に無い項目が紛れ込まない）
-    expect(Object.keys(payload).sort()).toEqual(["addressee", "base", "createdOn", "dataSet", "format", "levers", "notices", "office", "plans", "proposal", "targetAge", "version", "views"]);
+    expect(Object.keys(payload).sort()).toEqual(["addressee", "base", "createdOn", "dataSet", "format", "levers", "moneyThree", "notices", "office", "plans", "proposal", "targetAge", "version", "views"]);
     for (const p of payload.plans) expect(Object.keys(p).sort()).toEqual(["letter", "name", "request"]);
     expect(payload.addressee).toBe("見本 花子");
     // ID を付け替え、自由記述を外しても、計算の数字は同じ

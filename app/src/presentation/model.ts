@@ -600,3 +600,7 @@ export interface BalanceTabModel {
   customViews: BsCustomViewModel[];
   provisional: boolean;
 }
+
+// ---- お金の3つの分け方（説明用の図。0032）----
+// 形は提案書と共用の部品（report/src/moneyThree.ts）が決める（アプリの区画・持ち帰り用のレポート・提案書で同じ並び・同じ言葉にするため）
+export type { MoneyThreeBox, MoneyThreeItem, MoneyThreeKey, MoneyThreeModel, MoneyThreePlace, MoneyThreeRow, MoneyThreeSettings, MoneyThreeWording } from "../../../report/src/moneyThree.ts";

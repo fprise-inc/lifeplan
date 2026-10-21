@@ -27,6 +27,19 @@ describe.skipIf(bin === null)("見本の PDF", () => {
       const r = renderAndExtract(bin as string, input, frame);
       const all = normalize(r.pages.join("\n"));
 
+      it("お金の3つの分け方の章（0032）: 3つの箱の名前と額（万円）、中身の一文が載る", () => {
+        const m = input.moneyThree;
+        if (m == null) return;
+        const page = r.pages.find((p) => normalize(p).includes(normalize("使う時期で分けると")));
+        expect(page).toBeDefined();
+        const t = normalize(page as string);
+        for (const b of m.boxes) {
+          expect(t).toContain(normalize(b.name));
+          expect(t).toContain(normalize(man(b.amount)));
+        }
+        expect(t).toContain(normalize(m.boxes[0].formula));
+      });
+
       it("PDF ができ、各ページに刻印がある", () => {
         expect(r.pdf.subarray(0, 5).toString()).toBe("%PDF-");
         expect(r.meta.pages).toBe(r.pages.length);

@@ -44,10 +44,10 @@ function sample(): BodyState {
     wh: b.wh,
     workspace: { template: id, band: [a.id, b.id], base: CURRENT, selected: b.id, shownItems: ["rates:shift"] },
     // 0.8 から: 表示の設定はタブごとの区画（結果のタブ・資産と負債のタブ）。資産と負債のタブは、目安の幅・時点を並べるときの既定の時点と、
-    // この世帯で選んだ時点（候補の鍵と決まった年）
+    // この世帯で選んだ時点（候補の鍵と決まった年）。0.13 から: お金の3つの分け方（何か月分・何年先まで・呼び方。0032）
     display: {
       result: { ...DEFAULT_DISPLAY_SETTINGS, metrics: ["takeHome"], atAge: 90, layout: "side", invBreakdown: true },
-      balance: { ...DEFAULT_BALANCE_SETTINGS, guide: { months: [3, 12], risk: [10, 50], debt: 40 }, points: ["now", "loanEnd", "retire", "age80"], columns: [{ point: "now" }, { year: 2042 }, { point: "age75" }] },
+      balance: { ...DEFAULT_BALANCE_SETTINGS, guide: { months: [3, 12], risk: [10, 50], debt: 40 }, points: ["now", "loanEnd", "retire", "age80"], columns: [{ point: "now" }, { year: 2042 }, { point: "age75" }], moneyThree: { months: 3, years: 15, wording: "time" } },
     },
     carry: { extDefinitions: { "ext.exampleOffice.carCount": { type: "integer", label: "車の台数" } }, ext: { "ext.exampleOffice.carCount": 2 } },
   };
@@ -123,7 +123,18 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const back = fromBody(bodyOf(sample()));
     expect(back.wh.request.input.assumptions?.surplusSaving).toEqual({ ratio: "0.6", changes: [{ from: { at: "2038-04" }, ratio: "0.8" }] });
     expect((back.wh.request.input.assumptions as Record<string, unknown> | undefined)?.emergencyReserve).toBeUndefined();
-    expect(BODY_FORMAT_VERSION).toBe("0.12");
+  });
+
+  it("お金の3つの分け方の表示の設定（0.13 から。0032）を保存して読み戻す。無い・形が合わないときは既定", () => {
+    expect(BODY_FORMAT_VERSION).toBe("0.13");
+    const text = bodyOf(sample());
+    expect((JSON.parse(text) as { display: { balance: { moneyThree: unknown } } }).display.balance.moneyThree).toEqual({ months: 3, years: 15, wording: "time" });
+    expect(fromBody(text).display.balance.moneyThree).toEqual({ months: 3, years: 15, wording: "time" });
+    const odd = JSON.parse(text) as { display: { balance: Record<string, unknown> } };
+    odd.display.balance.moneyThree = { months: 0, years: 99, wording: "other" };
+    expect(fromBody(JSON.stringify(odd)).display.balance.moneyThree).toEqual({ months: 6, years: 10, wording: "use" });
+    delete odd.display.balance.moneyThree;
+    expect(fromBody(JSON.stringify(odd)).display.balance.moneyThree).toEqual({ months: 6, years: 10, wording: "use" });
   });
 
   it("案の数に上限は無い", () => {

@@ -12,8 +12,10 @@ import { ChartPip, closePip, openPip } from "../presentation/ChartPip.tsx";
 import { CashflowTable, FeeNote, PipResult, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
 import { PlanBand } from "../presentation/PlanBand.tsx";
 import { BalanceTab, type BsView } from "../presentation/BalanceTab.tsx";
+import { MoneyThreeNotice } from "../presentation/MoneyThree.tsx";
 import type { BsPlanModel, BsPrevModel } from "../presentation/model.ts";
 import { balanceTabModel, bsPlan, bsPrev } from "./balanceTab.ts";
+import { MONEY_THREE_NAME_CHOICES, moneyThreeModel } from "./moneyThree.ts";
 import { snapshotDateText, TRIGGER_TEXT } from "./snapshots/snapshots.ts";
 import { PLAN_COLORS } from "../presentation/planLines.tsx";
 import { AiCandidates } from "./ai/AiCandidates.tsx";
@@ -129,6 +131,8 @@ export function parseHash(hash: string): {
   bsOpen?: "combined";
   bsTable?: boolean;
   bsSettings?: boolean;
+  /** #bsm3: 資産と負債のタブのお金の3つの分け方の区画へ移って開く（0032。画面の確かめ用） */
+  bsM3?: boolean;
   /** #pip: 開いたタブのグラフを小窓で出した状態で開く（画面の確かめ用） */
   pip?: boolean;
   /** #stress: 相場が下がった場合を重ねて開く（0026） */
@@ -182,6 +186,7 @@ export function parseHash(hash: string): {
     else if (k === "bsopen" && v === "combined") out.bsOpen = "combined";
     else if (k === "bstable") out.bsTable = true;
     else if (k === "bssettings") out.bsSettings = true;
+    else if (k === "bsm3") out.bsM3 = true;
     else if (k === "pip") out.pip = true;
     else if (k === "explain" && v !== undefined && /^\d$/.test(v)) out.explain = Number(v);
     else if (k === "items" && v !== undefined) out.items = v.split(",").filter((x) => /^[a-z]+$/.test(x));
@@ -1400,6 +1405,24 @@ export function App() {
   // 資産の内訳（ドーナツ）: 基準のプランと選んだプランを同じ年で（グラフで固定した年。固定していなければ取り崩しを始める年）。
   // グラフの上の「口座の内訳を表示」にチェックが入っているときだけ出す（既定は出さない）
   const donutOn = donutShown(settings.invBreakdown, investModel !== null && investModel.breakdown !== null);
+  // お金の3つの分け方（説明用。0032）: 選んでいるプランの、今の時点。資産と負債のタブの区画と、結果のタブの一行の知らせで同じ値
+  const m3Model = useMemo(() => {
+    if ((tab !== "balance" && tab !== "main") || selReq === null || selRes === null) return null;
+    try {
+      return moneyThreeModel({ req: selReq, table: selRes.table, settings: bsSettings.moneyThree });
+    } catch {
+      return null;
+    }
+  }, [tab, selReq, selRes, bsSettings.moneyThree]);
+  const [m3Flash, setM3Flash] = useState(initial.bsM3 === true ? 1 : 0);
+  useEffect(() => {
+    if (tab !== "balance" && m3Flash !== 0) setM3Flash(0);
+  }, [tab]);
+  const goMoneyThree = useCallback(() => {
+    setTab("balance");
+    setM3Flash((n) => n + 1);
+  }, []);
+  const m3Notice = m3Model !== null && m3Model.notice !== null ? <MoneyThreeNotice model={m3Model} onGo={goMoneyThree} /> : null;
   const donut = useMemo(() => {
     if (!donutOn || model === null || selReq === null || selRes === null || baseReq === null || baseRes === null || chartMode !== "assets") return null;
     const fixed = selectedYear !== null && model.chart.years.includes(selectedYear) && model.selectedYear === selectedYear ? selectedYear : null;
@@ -1853,6 +1876,7 @@ export function App() {
             targetAge={settings.atAge}
             bsPoints={bsSettings.points}
             bsColumns={bsSettings.columns}
+            moneyThree={bsSettings.moneyThree}
             onSnapshot={takeSnapshot}
             {...(initial.reportMode !== undefined ? { initialMode: initial.reportMode } : {})}
           />
@@ -1880,6 +1904,7 @@ export function App() {
                 onGuide={(g) => putBsSettings({ guide: g })}
                 onColumns={(c) => putBsSettings({ columns: c })}
                 onPointDefaults={(k) => putBsSettings({ points: k })}
+                moneyThree={{ model: m3Model, onSettings: (x) => putBsSettings({ moneyThree: { ...bsSettingsRef.current.moneyThree, ...x } }), flash: m3Flash, nameChoices: MONEY_THREE_NAME_CHOICES }}
                 initial={{ ...(initial.bsView !== undefined ? { view: initial.bsView } : {}), ...(initial.bsYear !== undefined ? { year: initial.bsYear } : {}), ...(initial.bsOpen !== undefined ? { open: initial.bsOpen } : {}), ...(initial.bsTable === true ? { table: true } : {}), ...(initial.bsSettings === true ? { settings: true } : {}) }}
               />
             </>
@@ -1970,6 +1995,7 @@ export function App() {
                     ...(donut !== null ? { after: donut } : {}),
                   }
                 : {})}
+              {...(m3Notice !== null ? { after: investModel !== null && explain === null && donut !== null ? <>{donut}{m3Notice}</> : m3Notice } : {})}
               tools={
                 <button type="button" class="set-btn" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)} data-settings-open>
                   表示の設定{settings.metrics.length > 0 ? <span class="memo-n">{settings.metrics.length}</span> : null}

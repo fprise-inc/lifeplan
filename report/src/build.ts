@@ -6,6 +6,7 @@
 import type { EngineOutput, EngineRequest, ProposalBundle, Run, TableCell } from "./bundle.ts";
 import { selectChapters } from "./chapters.ts";
 import { bsSeries, BS_GROUP_LABEL, groupTotal, type BsGroup } from "./bsGroups.ts";
+import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
 import {
   type Comparison,
   DEFAULT_LAYOUT,
@@ -85,21 +86,28 @@ export function displayYears(req: EngineRequest): number[] {
 
 // ---- 構成員の呼び方（顧客の名前は持たない・出さない。0012）----
 
-export interface Role {
+export interface Role<M = Member> {
   key: string;
   label: string;
-  member: Member;
+  member: M;
+}
+
+/** 呼び方を決めるのに使う構成員の欄（アプリの画面の型でも渡せるように、要るところだけ） */
+export interface RoleMember {
+  kind: string;
+  sex: string;
+  birth: { birthYearMonth: string };
 }
 
 const ORDINAL_SON = ["長男", "次男", "三男", "四男", "五男"];
 const ORDINAL_DAUGHTER = ["長女", "次女", "三女", "四女", "五女"];
 
-export function roles(req: EngineRequest): Role[] {
+export function roles<M extends RoleMember = Member>(req: { input: { household: { members: readonly M[] } } }): Role<M>[] {
   const ms = req.input.household.members;
   const self = ms.find((m) => m.kind === "self");
   const spouse = ms.find((m) => m.kind === "spouse");
-  const out: Role[] = [];
-  const coupleLabel = (m: Member) => (m.sex === "female" ? "奥様" : "ご主人");
+  const out: Role<M>[] = [];
+  const coupleLabel = (m: M) => (m.sex === "female" ? "奥様" : "ご主人");
   if (self !== undefined) out.push({ key: "self", label: spouse !== undefined ? coupleLabel(self) : "ご本人", member: self });
   if (spouse !== undefined) out.push({ key: "spouse", label: coupleLabel(spouse), member: spouse });
   const children = ms.filter((m) => m.kind === "child").sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1));
@@ -1117,6 +1125,15 @@ function marketDrop(ctx: Ctx): MarketDropView | null {
   };
 }
 
+/** お金の3つの分け方（提案のプランの今の時点。説明用の図。0032）。出せないときは null */
+function moneyThreeOf(ctx: Ctx): MoneyThreeModel | null {
+  try {
+    return moneyThreeModel({ req: ctx.bundle.proposal.request, table: ctx.bundle.proposal.result.table, settings: ctx.bundle.moneyThree ?? DEFAULT_MONEY_THREE });
+  } catch {
+    return null;
+  }
+}
+
 export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
   const req = bundle.proposal.request;
   const years = displayYears(req);
@@ -1157,6 +1174,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     comparison: comparison(ctx),
     investment: investment(ctx),
     marketDrop: marketDrop(ctx),
+    moneyThree: moneyThreeOf(ctx),
     layout: { ...DEFAULT_LAYOUT, ...bundle.layout },
   };
   return bundle.chapters !== undefined ? selectChapters(input, bundle.chapters) : input;
