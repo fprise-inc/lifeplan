@@ -2,6 +2,7 @@
 // - 狭い画面では、資産の推移のグラフの中の「○歳で不足」の文字を出さない（0の線の△と縦の点線は残す）。広い画面では今のまま
 // - グラフの使い方の文は、狭い画面・タッチの端末では短い文（「クリック」「Esc」を言わない）
 // - バランスシートの図: 純資産もほかの箱と同じ枠線なしのベタ塗り。柱を囲む枠は描かない。狭い画面では図の外の札を出さず、図の下の一覧に出す
+// - バランスシートの図: 箱の中の文字はどれも白（色は白い文字が読める濃さ）。下の線は1本（目盛りの「0」の印と重ねない）
 // - 持ち帰り用のレポートの「1つ前に戻す」「最初に戻す」と、アプリの対策の「変更を取り消す」
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -74,38 +75,39 @@ describe("狭い画面: 資産の推移のグラフ", () => {
   });
 });
 
-describe("バランスシートの図: 純資産の箱と狭い画面", () => {
-  const groups = {
-    liquid: { name: "すぐ使えるお金", short: "すぐ使える" },
-    market: { name: "値動きのある運用", short: "値動きあり" },
-    locked: { name: "引き出せないお金", short: "引き出せない" },
-    illiquid: { name: "換金しにくい資産", short: "換金しにくい" },
-    mortgage: { name: "住宅ローン", short: "住宅ローン" },
-    debt: { name: "その他の負債", short: "その他の負債" },
-  };
-  const year = (lines: BsYearModel["lines"], netWorth: number): BsYearModel => {
-    const assets = lines.filter((l) => l.group !== "mortgage" && l.group !== "debt").reduce((s, l) => s + l.amount, 0);
-    return { year: 2026, age: 45, members: "", fact: true, lines, totalAssets: assets, totalLiabilities: assets - netWorth, netWorth, financial: 0, shortfall: 0, living: 3_600_000, events: [], say: { head: [], sub: [] }, insight: [], notes: {} };
-  };
-  const plus = year(
-    [
-      { key: "deposit", label: "預金", group: "liquid", amount: 8_600_000 },
-      { key: "nisa", label: "NISA", group: "market", amount: 2_510_000 },
-      { key: "land", label: "土地", group: "illiquid", amount: 14_690_000 },
-      { key: "building", label: "建物", group: "illiquid", amount: 13_470_000 },
-      { key: "mortgage", label: "住宅ローン", group: "mortgage", amount: 22_190_000 },
-    ],
-    17_080_000,
-  );
-  const minus = year(
-    [
-      { key: "land", label: "土地", group: "illiquid", amount: 12_000_000 },
-      { key: "mortgage", label: "住宅ローン", group: "mortgage", amount: 9_000_000 },
-      { key: "short", label: "資金の不足", group: "debt", amount: 7_000_000 },
-    ],
-    -4_000_000,
-  );
+// バランスシートの図の見本（今の年: 土地・建物・住宅ローンあり／先の年: 純資産のマイナス）
+const groups = {
+  liquid: { name: "すぐ使えるお金", short: "すぐ使える" },
+  market: { name: "値動きのある運用", short: "値動きあり" },
+  locked: { name: "引き出せないお金", short: "引き出せない" },
+  illiquid: { name: "換金しにくい資産", short: "換金しにくい" },
+  mortgage: { name: "住宅ローン", short: "住宅ローン" },
+  debt: { name: "その他の負債", short: "その他の負債" },
+};
+const year = (lines: BsYearModel["lines"], netWorth: number): BsYearModel => {
+  const assets = lines.filter((l) => l.group !== "mortgage" && l.group !== "debt").reduce((s, l) => s + l.amount, 0);
+  return { year: 2026, age: 45, members: "", fact: true, lines, totalAssets: assets, totalLiabilities: assets - netWorth, netWorth, financial: 0, shortfall: 0, living: 3_600_000, events: [], say: { head: [], sub: [] }, insight: [], notes: {} };
+};
+const plus = year(
+  [
+    { key: "deposit", label: "預金", group: "liquid", amount: 8_600_000 },
+    { key: "nisa", label: "NISA", group: "market", amount: 2_510_000 },
+    { key: "land", label: "土地", group: "illiquid", amount: 14_690_000 },
+    { key: "building", label: "建物", group: "illiquid", amount: 13_470_000 },
+    { key: "mortgage", label: "住宅ローン", group: "mortgage", amount: 22_190_000 },
+  ],
+  17_080_000,
+);
+const minus = year(
+  [
+    { key: "land", label: "土地", group: "illiquid", amount: 12_000_000 },
+    { key: "mortgage", label: "住宅ローン", group: "mortgage", amount: 9_000_000 },
+    { key: "short", label: "資金の不足", group: "debt", amount: 7_000_000 },
+  ],
+  -4_000_000,
+);
 
+describe("バランスシートの図: 純資産の箱と狭い画面", () => {
   it("純資産はほかの箱と同じ枠線なしのベタ塗り（白い区切りだけ）。柱を囲む枠は描かない", () => {
     const html = renderToString(h(BsFigure, { year: plus, groups, height: 420, label: "今" }));
     const nw = /<g[^>]*data-bs-box="netWorth"[\s\S]*?<rect class="bsf-seg"([^>]*)>/.exec(html)?.[1] ?? "";
@@ -134,6 +136,89 @@ describe("バランスシートの図: 純資産の箱と狭い画面", () => {
     expect(small).toMatch(/data-bs-box="netWorth"[\s\S]*?>純資産<\/text>/);
     const neg = narrow(() => renderToString(h(BsFigure, { year: minus, groups, height: 300, compact: true, label: "先" })));
     expect(neg).toMatch(/data-bs-list="neg"[\s\S]*?▲[\s\S]*?400/);
+  });
+});
+
+describe("バランスシートの図: 箱の文字の色と下の線", () => {
+  // いろいろな項目の箱（薄い色だった項目も入れる）
+  const rich = year(
+    [
+      { key: "deposit", label: "預金", group: "liquid", amount: 6_000_000 },
+      { key: "taxable", label: "課税口座", group: "market", amount: 4_000_000 },
+      { key: "ideco", label: "iDeCo", group: "locked", amount: 4_000_000 },
+      { key: "land", label: "土地", group: "illiquid", amount: 9_000_000 },
+      { key: "building", label: "建物", group: "illiquid", amount: 8_000_000 },
+      { key: "car", label: "車", group: "illiquid", amount: 3_000_000 },
+      { key: "insurance", label: "保険の解約返戻金", group: "illiquid", amount: 3_000_000 },
+      { key: "mortgage", label: "住宅ローン", group: "mortgage", amount: 12_000_000 },
+      { key: "carLoan", label: "車のローン", group: "debt", amount: 3_000_000 },
+    ],
+    22_000_000,
+  );
+  const draws = (y: BsYearModel) => [
+    renderToString(h(BsFigure, { year: y, groups, height: 560, label: "広い" })),
+    renderToString(h(BsFigure, { year: y, groups, height: 300, compact: true, label: "並べる" })),
+    narrow(() => renderToString(h(BsFigure, { year: y, groups, height: 380, label: "狭い" }))),
+    narrow(() => renderToString(h(BsFigure, { year: y, groups, height: 300, compact: true, label: "狭い・並べる" }))),
+  ];
+  /** 箱ごとの中身（次の箱か、下の線の手前まで） */
+  const boxes = (html: string) =>
+    html
+      .split(/(?=<g[^>]*data-bs-box=")/)
+      .slice(1)
+      .map((c) => ({ key: /data-bs-box="([^"]+)"/.exec(c)?.[1] ?? "", body: c.split("data-bs-baseline")[0] as string }));
+
+  it("箱の中の文字はどれも白（建物も）。資金の不足の斜線・純資産のマイナスだけ濃い文字", () => {
+    for (const y of [plus, rich, minus]) {
+      for (const html of draws(y)) {
+        for (const b of boxes(html)) {
+          const fills = [...b.body.matchAll(/<text[^>]*fill="([^"]+)"/g)].map((m) => m[1]);
+          if (b.key === "neg" || (b.key === "debt" && y === minus)) continue;
+          expect(fills.every((f) => f === "#fff"), `${b.key}: ${fills.join(",")}`).toBe(true);
+        }
+      }
+    }
+    const small = narrow(() => renderToString(h(BsFigure, { year: plus, groups, height: 380, label: "狭い" })));
+    expect(small).toMatch(/data-bs-box="illiquid"[\s\S]*?fill="#fff"[^>]*>建物<\/text>/);
+  });
+
+  it("箱の色はどれも白い文字との差 4.5:1 以上（画面の balance.css と提案書の Typst）。建物は土地より明るい", () => {
+    const lum = (hex: string) => {
+      const [r, g2, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)) as [number, number, number];
+      return 0.2126 * r + 0.7152 * g2 + 0.0722 * b;
+    };
+    const ratio = (hex: string) => 1.05 / (lum(hex) + 0.05);
+    const css = readFileSync(join(APP_DIR, "src", "styles", "balance.css"), "utf8");
+    const root = css.slice(0, css.indexOf("}"));
+    const vars = [...root.matchAll(/--bs-([\w-]+):\s*(#[0-9a-f]{6})/g)].filter((m) => !["short", "short-line", "netWorth-ink"].includes(m[1] as string));
+    expect(vars.length).toBeGreaterThan(30);
+    for (const [, k, c] of vars) expect(ratio(c as string), `--bs-${k} ${c}`).toBeGreaterThanOrEqual(4.5);
+    const typ = readFileSync(join(APP_DIR, "..", "report", "typst", "report-core", "parts", "layout.typ"), "utf8");
+    const tcol = /#let bs-colors = \(([\s\S]*?)\n\)/.exec(typ)?.[1] ?? "";
+    const tvars = [...tcol.matchAll(/(\w+): rgb\("(#[0-9a-f]{6})"\)/g)];
+    expect(tvars.length).toBe(10);
+    for (const [, k, c] of tvars) expect(ratio(c as string), `Typst ${k} ${c}`).toBeGreaterThanOrEqual(4.5);
+    const get = (k: string) => (vars.find((m) => m[1] === k)?.[2] ?? "") as string;
+    expect(lum(get("building"))).toBeGreaterThan(lum(get("land")) * 1.3);
+  });
+
+  it("下の線は箱の後に1本だけ（箱の白い縁に隠れて途切れない）。「0」の目盛りの印は重ねて描かない", () => {
+    for (const y of [plus, rich, minus]) {
+      for (const html of draws(y)) {
+        expect(html.match(/data-bs-baseline/g)?.length).toBe(1);
+        expect(html.indexOf("data-bs-baseline")).toBeGreaterThan(html.lastIndexOf("data-bs-box="));
+        const lines = [...html.matchAll(/<line([^>]*)>/g)].map((m) => {
+          const a = (n: string) => Number(new RegExp(` ${n}="([^"]+)"`).exec(m[1] as string)?.[1]);
+          return { base: (m[1] as string).includes("data-bs-baseline"), x1: a("x1"), x2: a("x2"), y1: a("y1"), y2: a("y2") };
+        });
+        const bl = lines.find((l) => l.base)!;
+        expect(bl.y1).toBe(bl.y2);
+        expect(bl.x1).toBeGreaterThanOrEqual(0);
+        // 下の線と同じ高さ（太さの中）に、ほかの横の線が無い
+        const near = lines.filter((l) => !l.base && l.y1 === l.y2 && Math.abs(l.y1 - bl.y1) < 2);
+        expect(near).toEqual([]);
+      }
+    }
   });
 });
 
