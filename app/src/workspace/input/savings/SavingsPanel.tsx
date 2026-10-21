@@ -4,7 +4,6 @@ import { useState } from "preact/hooks";
 import type { Account, EngineRequest } from "../../../engine/types.ts";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
 import { ageAt } from "../../levers.ts";
-import { reserveOf } from "../../surplus.ts";
 import { Section, visible } from "../FieldViews.tsx";
 import type { Level } from "../form.ts";
 import { confirmedBox, mutate, type WorkingHousehold } from "../household.ts";
@@ -334,7 +333,6 @@ function TotalSection({ wh, onEdit, stopAge }: { wh: WorkingHousehold; onEdit: (
         </div>
         <p class="help">
           預金のまま置いておくお金など。この額には平均の利回りをかけず、預金の利回り（前提条件の「現金・預金」の利回り）で計算します。空欄なら全部に平均の利回り。
-          {reserveOf(req) !== undefined ? "前提条件の生活防衛資金は、この中から分けて取り崩さないお金にします（運用しない分の内に数えます）。" : "生活防衛資金（取り崩さないお金）は前提条件で入れます。"}
         </p>
       </div>
     </section>

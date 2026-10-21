@@ -206,11 +206,6 @@ describe("金額のスライダーは1万円の刻み", () => {
       const cat = buildCatalog(fromRequest(req), self.member.id, null);
       for (const it of cat.items) {
         const c = it.control;
-        // 生活防衛資金の月数（0031）は金額ではないので1か月の刻み
-        if (c.kind === "range" && it.key === "reserve:months") {
-          expect(c.step, it.key).toBe(1);
-          continue;
-        }
         if (c.kind === "range") {
           ranges++;
           expect(c.step, it.key).toBe(AMOUNT_STEP);

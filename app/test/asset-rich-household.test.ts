@@ -126,7 +126,7 @@ describe("開いたときに入れるプランと控え", () => {
     for (const s of demo.snapshots ?? []) for (const id of Object.keys(s.balances)) expect(ids.has(id), id).toBe(true);
   });
 
-  it("プラン4つ（繰上返済・資産配分の見直し・65歳まで働く・黒字の6割と生活防衛資金）を帯に並べ、どれも現状と違う結果になる", async () => {
+  it("プラン4つ（繰上返済・資産配分の見直し・65歳まで働く・黒字の6割が貯まる）を帯に並べ、どれも現状と違う結果になる", async () => {
     const seeded = await seedDemo(wh, cat, demo, { now: "2026-10-20T00:00:00.000Z", appVersion: "0.1.0" });
     expect(seeded.band.length).toBe(4);
     const letters = planLetters(seeded.wh.proposals);

@@ -36,11 +36,9 @@
 //   不動産の合計は cf.balance.account.realEstate の下の行の合計（0028）
 // - 改訂11（0031）: 黒字のうち貯まる割合（前提 surplusSaving）。年間収支から一時金の収入（cf.income.lumpSum）を除いた額が黒字の年だけ、
 //   黒字×割合（上限 cap。期間で変える changes）を貯まる額とし、残りを「ゆとりの支出」（cf.expense.living.surplus）として年間収支から引く（取り崩しの計画の前）。
-//   生活防衛資金（前提 emergencyReserve。金額か、その年の基本生活費の○か月分）: 計算の始めに決済口座 → ほかの預金 → まとめた金融資産の順に
-//   分けて「生活防衛資金」の器（cf.balance.account.reserve。金融資産に入る）に置き、預金の利回りで増やす。取り崩しは最後。
-//   毎年、目安より多い分は決済口座へ戻し、足りない分は決済口座の余り（残す額より多い分）から足す。定率の取り崩しの計画の基は生活防衛資金を除く。
-//   「金融資産は○歳まで持つ」の判定の基として、金融資産−生活防衛資金の目安（cf.balance.financial.usable）を出す（判定に含める前提なら出さない）。
-//   まとめた金融資産の器の運用しない分（uninvested。生活防衛資金に分けた分を引く）は預金の利回りで、残りに器の利回りをかける
+//   まとめた金融資産の器の運用しない分（uninvested）は預金の利回りで、残りに器の利回りをかける
+// - 改訂12（0031 の追記）: 生活防衛資金（改訂11の前提 emergencyReserve・器 reserve・行 cf.balance.financial.reserveTarget／usable）をなくした。
+//   取り崩しの計画（investment.drawdown）がある年（始まりの年から）は、ゆとりの支出を差し引かない（計画が使うお金を決めているので二重に引かない）
 import {
   accountReturnRate,
   shockShare,
@@ -80,7 +78,6 @@ import {
   type MutualAidOutput,
   type Rate,
   type SurplusSavingSetting,
-  type EmergencyReserveSetting,
   type Yen,
 } from "../../sdk/index.ts";
 
@@ -143,7 +140,7 @@ interface Acc {
   ret: Yen;
   /** 入力の無い器（エンジンが作った課税口座・NISA）の利回りの元にする器（0026） */
   like?: AccountInput | null;
-  /** まとめた金融資産の器の運用しない分（生活防衛資金に分けた分を引いた額。0031） */
+  /** まとめた金融資産の器の運用しない分（0031） */
   uninvested?: Yen;
 }
 
@@ -155,14 +152,14 @@ interface Frame {
 }
 
 /** 時価の下落の既定で下げない器 */
-const SHOCK_EXEMPT: ReadonlySet<string> = new Set(["deposit", "fxDeposit", "zaikei", "realEstate", "insurance", "smallBusinessMutualAid", "otherAsset", "reserve"]);
+const SHOCK_EXEMPT: ReadonlySet<string> = new Set(["deposit", "fxDeposit", "zaikei", "realEstate", "insurance", "smallBusinessMutualAid", "otherAsset"]);
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
 
 export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[]; parts: readonly (readonly Flow[])[]; details?: CashflowDetails }>({
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.3",
-  revision: 11,
+  revision: 12,
   requires: {
     "plan.flows": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -209,7 +206,6 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "assumptions.investment",
     "assumptions.returnShifts",
     "assumptions.surplusSaving",
-    "assumptions.emergencyReserve",
     "insurance.template",
     "insurance.policyholder",
     "insurance.insured",
@@ -377,8 +373,6 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         const hits = "object" in o ? accs.filter((x) => x.id === o.object && x.input !== null) : accs.filter((x) => (x.input === null ? x.kind : x.input.kind) === o.kind);
         for (const h of hits) if (h !== D && !order.includes(h) && !NEVER_WITHDRAWN.has(h.input?.kind ?? h.kind)) order.push(h);
       }
-      // 生活防衛資金は、ほかの器をすべて取り崩した後（0031）
-      if (RES !== null) order.push(RES);
       return order;
     };
     const minimum = setting?.minimumDeposit ?? yen(0);
@@ -409,39 +403,6 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     const surplusOn = surplusRules.some((r) => (r.ratio !== null && ctx.rate.compare(r.ratio, RATE_ONE) < 0) || r.cap !== null);
     // 黒字から除く一時金の収入（退職金・満期金・相続・不動産の売却など。全部が貯まる）
     const lumpIncome = surplusOn ? netByYear(collected.flows.filter((f) => under(f.row, "cf.income.lumpSum")), ctx.conventions.aggregation, base, end) : new Map<number, Yen>();
-    // 生活防衛資金（0031）: 金額か、その年の基本生活費の○か月分
-    const reserveSet = ctx.setting<EmergencyReserveSetting>("emergencyReserve");
-    const reserveOn = reserveSet !== undefined && (reserveSet.amount !== undefined ? reserveSet.amount > 0 : (reserveSet.months ?? 0) > 0);
-    const livingByYear = reserveOn && reserveSet?.amount === undefined ? netByYear(collected.flows.filter((f) => under(f.row, "cf.expense.living")), ctx.conventions.aggregation, base, end) : null;
-    const reserveTarget = (y: number): Yen => {
-      if (!reserveOn || reserveSet === undefined) return yen(0);
-      if (reserveSet.amount !== undefined) return reserveSet.amount;
-      const living = -(livingByYear?.get(y) ?? 0);
-      const months = y === baseYear ? 13 - monthOf(base) : 12;
-      return living <= 0 ? yen(0) : ctx.money.mulRatio(yen(living), BigInt(reserveSet.months ?? 0), BigInt(months), "conv.reserve.target");
-    };
-    const reserveCounted = reserveSet?.countInLasting === true;
-    // 生活防衛資金の器（入力の無い器。決済口座 → ほかの預金 → まとめた金融資産の順に、計算の始めの目安の額を分けて置く）
-    let RES: Acc | null = null;
-    if (reserveOn) {
-      const res: Acc = { id: null, input: null, kind: "reserve", owner: null, value: yen(0), cost: yen(0), growthCost: yen(0), lots: null, inflow: yen(0), ret: yen(0) };
-      let rest = reserveTarget(baseYear);
-      for (const x of [D, ...accs.filter((a) => a !== D && a.kind === "deposit"), ...accs.filter((a) => a.kind === "pooled")]) {
-        if (rest <= 0) break;
-        const lock = x.input?.withdrawalLockedUntil;
-        if (lock !== undefined && lock !== null && ctx.time.resolve(lock) >= base) continue;
-        const t = yen(Math.min(rest, x.value));
-        if (t <= 0) continue;
-        x.cost = yen(Math.max(0, x.cost - ctx.money.mulRatio(x.cost, t, x.value, "conv.account.cost")));
-        x.value = yen(x.value - t);
-        if (x.uninvested !== undefined) x.uninvested = yen(Math.max(0, x.uninvested - t));
-        res.value = addYen(res.value, t);
-        res.cost = addYen(res.cost, t);
-        rest = yen(rest - t);
-      }
-      accs.push(res);
-      RES = res;
-    }
     const depositRate = (y: number): Rate => accountReturnRate(ctx, { kind: "deposit" }, y);
     // 保険契約（解約返戻金・保障内容一覧・払込保険料の推移）
     const contracts = ctx.list<Pick<InsuranceContractInput, "id" | "template" | "policyholder" | "insured" | "coverages">>("insurance");
@@ -572,7 +533,9 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         if (rest > 0) move(taxableOf(r.owner, nisa, like), "cf.transfer.investment", m, rest, r.owner, "plan.cashflow.payoutReinvest");
       }
       // 黒字のうち貯まる割合: 一時金の収入を除いた年間収支が黒字の年だけ、貯まらない分を「ゆとりの支出」として年間収支から引く（0031）
-      if (surplusOn) {
+      // 取り崩しの計画がある年（始まりの年から）は差し引かない（計画が使うお金を決めているので、二重に差し引かない。0031 の追記）
+      const drawdownYear = dd !== undefined && ddStart !== null && yearOf(ddStart) <= y;
+      if (surplusOn && !drawdownYear) {
         const rule = surplusRuleOf(y);
         const n0 = net.get(y) ?? 0;
         const surplus = n0 - (lumpIncome.get(y) ?? 0);
@@ -596,11 +559,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         let want = yen(0);
         if (ddMonths > 0) {
           if (dd.method === "fixed") want = ctx.money.mulRatio(dd.monthly ?? yen(0), BigInt(ddMonths), 1n, "conv.flow.allocate");
-          else {
-            // 定率の基は、年の初めの金融資産から生活防衛資金の目安を除いた額（0031）
-            const ddBase = yen(Math.max(0, openingFinancial - reserveTarget(y)));
-            if (dd.rate !== undefined && ddBase > 0) want = ctx.money.mulRatio(ctx.money.mulRate(ddBase, ctx.rate.of(dd.rate), "conv.flow.allocate"), BigInt(ddMonths), 12n, "conv.flow.allocate");
-          }
+          else if (dd.rate !== undefined && openingFinancial > 0) want = ctx.money.mulRatio(ctx.money.mulRate(openingFinancial, ctx.rate.of(dd.rate), "conv.flow.allocate"), BigInt(ddMonths), 12n, "conv.flow.allocate");
         }
         const shortage = Math.max(0, -((net.get(y) ?? 0) - (selfPaid.get(y) ?? 0)));
         const extra = yen(Math.max(0, want - shortage));
@@ -616,7 +575,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       for (const x of accs) {
         const opening = x.value;
         const spec = x.input ?? x.like ?? null;
-        const r: Rate = x === RES ? depositRate(y) : x.input !== null ? rateOf(x.input, y) : accountReturnRate(ctx, { ...(x.like ?? {}), kind: x.kind }, y);
+        const r: Rate = x.input !== null ? rateOf(x.input, y) : accountReturnRate(ctx, { ...(x.like ?? {}), kind: x.kind }, y);
         // まとめた金融資産の器の運用しない分は預金の利回り、残りに器の利回り（0031）
         const idle = x.uninvested !== undefined && x.uninvested > 0 ? yen(Math.min(x.uninvested, Math.max(0, opening))) : yen(0);
         x.ret = idle > 0 ? addYen(annualReturn(ctx, yen(opening - idle), x.inflow, r, months), annualReturn(ctx, idle, yen(0), depositRate(y), months)) : annualReturn(ctx, opening, x.inflow, r, months);
@@ -665,15 +624,6 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
           flow("cf.transfer.rollover", dec, l.value, x.owner, x.id, "plan.cashflow.rollover");
         }
         x.lots = keep;
-      }
-      // 生活防衛資金: 目安より多い分は決済口座へ戻す（0031）
-      const target = reserveTarget(y);
-      if (RES !== null && RES.value > target) {
-        const back = yen(RES.value - target);
-        RES.value = target;
-        RES.cost = target;
-        D.value = addYen(D.value, back);
-        D.cost = addYen(D.cost, back);
       }
       // 5. 取り崩し
       let gainsTax = yen(0);
@@ -744,14 +694,6 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
           need = yen(need - proceeds);
         }
       }
-      // 生活防衛資金: 目安に足りない分は、決済口座の余り（残す額より多い分）から足す（0031）
-      if (RES !== null && RES.value < target && D.value > minimum) {
-        const t = yen(Math.min(target - RES.value, D.value - minimum));
-        D.value = yen(D.value - t);
-        D.cost = yen(Math.max(0, D.cost - t));
-        RES.value = addYen(RES.value, t);
-        RES.cost = addYen(RES.cost, t);
-      }
       // 6. 年ごとの行
       const n = yen((net.get(y) ?? 0) - gainsTax);
       let financial = yen(0);
@@ -811,11 +753,6 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         { row: "cf.balance.financial", year: y, amount: financial, formula: "plan.cashflow.closing" },
       );
       if (D.value < 0) annual.push({ row: "cf.balance.shortfall", year: y, amount: yen(-D.value), formula: "plan.cashflow.shortfall" });
-      // 生活防衛資金の目安と、「金融資産は○歳まで持つ」の判定の基（金融資産−生活防衛資金の目安。判定に含める前提なら出さない。0031）
-      if (RES !== null) {
-        annual.push({ row: "cf.balance.financial.reserveTarget", year: y, amount: target, formula: "plan.cashflow.reserveTarget" });
-        if (!reserveCounted) annual.push({ row: "cf.balance.financial.usable", year: y, amount: yen(financial - target), formula: "plan.cashflow.usable" });
-      }
     }
     if (cappedNotice) ctx.notice("N_LIMIT_APPLIED", ["nisa.annualLimit"]);
     // parts は plan.flows のまま渡し、この部品の出したお金の動き（積立・取り崩し・譲渡益の税・移管）を足す（エンジンが表の集計を部品ごとに使い回す）

@@ -291,6 +291,9 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-actions { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 8px; align-items: center; }
 .add-btn { border: 1.5px solid var(--prop); color: var(--prop); background: #fff; border-radius: 7px; padding: 4px 10px; font-weight: 700; font-size: 0.86rem; cursor: pointer; }
 .add-btn:hover { background: var(--prop-bg); }
+/* 選んでいる状態を見せるボタン（黒字のうち貯金に回る割合の目安など） */
+.add-btn[aria-pressed="true"] { background: var(--prop); color: #fff; }
+.add-btn[aria-pressed="true"]::before { content: "● "; font-size: 0.7em; vertical-align: 0.15em; }
 .link-btn { background: none; border: 0; padding: 2px 4px; font-size: 0.82rem; cursor: pointer; text-decoration: underline; color: var(--ink-2); }
 .link-btn.danger { color: var(--short-ink); }
 

@@ -6,12 +6,11 @@ import type { InvestBandModel, InvestChartModel, ResultVerdict, SeriesNames, Sta
 import { ASSET_CLASSES } from "../input/labels.ts";
 import { CLASSES, drawdownOf, INVEST_KINDS, investmentOf, KIND_INFO, methodOf, retireAgeOf, RISKY_CLASSES, selfOf, stopAgeOf, totalViewOf } from "../input/savings/model.ts";
 import { ageReachedMonth, parseYm } from "../levers.ts";
-import { depletionYear, lastingExcludesReserve } from "../present.ts";
+import { depletionYear } from "../present.ts";
 import { ageInYear } from "../roles.ts";
 
 /** 口座の内訳のまとまり（下から積む順） */
 export const GROUPS: readonly { key: string; label: string; kinds: readonly string[] }[] = [
-  { key: "res", label: "生活防衛資金", kinds: ["reserve"] },
   { key: "dep", label: "預金", kinds: ["deposit", "fxDeposit", "zaikei"] },
   { key: "un", label: "まだ分けていない", kinds: ["pooled"] },
   { key: "dc", label: "iDeCo・企業型DC", kinds: ["ideco", "corporateDc"] },
@@ -56,25 +55,12 @@ export function drawdownText(req: EngineRequest): string {
   return d.method === "fixed" ? `${d.startAge}歳から毎月${manText(d.monthly)}万円ずつ取り崩す場合` : `${d.startAge}歳から毎年${(Number(d.rate) * 100).toFixed(1)}%ずつ取り崩す場合`;
 }
 
-/** 生活防衛資金を除いて判定しているときの文（例: 「生活防衛資金（生活費の6か月分・今は約180万円）を除いて判定」。0031） */
-export function reserveText(req: EngineRequest, table: readonly TableCell[]): string | null {
-  if (!lastingExcludesReserve(table)) return null;
-  const r = req.input.assumptions?.emergencyReserve;
-  const first = table.filter((c) => c.row === "cf.balance.financial.reserveTarget").sort((x, y) => x.year - y.year)[0];
-  const now = first === undefined ? "" : `約${manText(first.amount)}万円`;
-  const how = r?.amount !== undefined ? `${manText(r.amount)}万円` : r?.months !== undefined ? `生活費の${r.months}か月分${now !== "" ? `・今は${now}` : ""}` : now;
-  return `生活防衛資金（${how}）を除いて判定`;
-}
-
 /** 結論の1文（資産の推移のとき）: 「金融資産は 99歳 まで持ちます」＋条件、基準のプランは2行目 */
 export function investVerdict(names: SeriesNames, sel: { req: EngineRequest; table: readonly TableCell[] }, base: { req: EngineRequest; table: readonly TableCell[] } | null, years: readonly number[]): ResultVerdict {
   const a = lastsAge(sel.req, sel.table, years);
   const b = base === null ? null : lastsAge(base.req, base.table, years);
   const parts: VerdictPart[] = [{ text: names.same ? "金融資産は " : `${names.selected}では、金融資産は ` }, { text: a === null ? "—" : `${a}歳`, strong: true }, { text: " まで持ちます" }];
   const sub: VerdictPart[] = [{ text: drawdownText(sel.req) }];
-  // 生活防衛資金を除いて判定しているとき（0031）
-  const reserve = reserveText(sel.req, sel.table);
-  if (reserve !== null) sub.push({ text: `・${reserve}` });
   if (!names.same && b !== null) sub.push({ text: `／${names.base}（基準）は${b}歳まで` });
   const tone = names.same || b === null || a === null ? "flat" : a > b ? "up" : a < b ? "down" : "flat";
   return { tone, parts, sub };
@@ -174,16 +160,8 @@ export function investChart(input: {
     band: bandOf(sel.req, ages),
     lasts: { selected: a === null ? "" : `${a}歳まで持つ`, base: b === null ? "" : `${b}歳まで持つ` },
     stress: input.stress === null ? null : stressLines(sel.req, input.stress, years),
-    reserve: reserveLine(sel.res.table, years),
     view: input.view,
   };
-}
-
-/** 生活防衛資金の目安の線（年ごと。入れていなければ null。0031） */
-export function reserveLine(table: readonly TableCell[], years: readonly number[]): number[] | null {
-  const m = new Map<number, number>();
-  for (const c of table) if (c.row === "cf.balance.financial.reserveTarget") m.set(c.year, (m.get(c.year) ?? 0) + c.amount);
-  return m.size === 0 ? null : years.map((y) => m.get(y) ?? 0);
 }
 
 /** 運用の期間の帯を出すか（表示の設定。空は「取り崩しの予定があるときだけ」） */

@@ -64,8 +64,6 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.realEstate.depreciation": DOWN1,
   // 黒字のうち貯まる額（黒字×貯まる割合。円未満切り捨て。残りは「ゆとりの支出」。0031）
   "conv.surplus.saving": DOWN1,
-  // 生活防衛資金の目安（その年の基本生活費×月数÷その年の月数。円未満切り捨て。0031）
-  "conv.reserve.target": DOWN1,
   // 役員退職慰労金の見込み額（最終報酬月額×在任年数×功績倍率。円未満切り捨て）
   "conv.retirement.estimate": DOWN1,
 });

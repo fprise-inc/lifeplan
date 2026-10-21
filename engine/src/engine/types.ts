@@ -746,8 +746,6 @@ export interface EngineInput {
     readonly returnShifts?: readonly ReturnShift[];
     /** 黒字のうち貯まる割合・上限（黒字の年だけ、貯まらない分を「ゆとりの支出」として支出に足す。0031） */
     readonly surplusSaving?: SurplusSavingSetting;
-    /** 生活防衛資金（取り崩さないお金。運用せず、取り崩しは最後。「金融資産は○歳まで持つ」の判定から除く。0031） */
-    readonly emergencyReserve?: EmergencyReserveSetting;
   };
   readonly contingencies?: readonly ContingencyInput[];
   readonly stressTest?: StressTestInput;
@@ -805,14 +803,6 @@ export interface SurplusSavingRule {
 /** 黒字のうち貯まる割合（0031）。changes は from の年から書いた組に置き換える（書いていない ratio は 1、cap は上限なし） */
 export interface SurplusSavingSetting extends SurplusSavingRule {
   readonly changes?: readonly (SurplusSavingRule & { readonly from: Timepoint })[];
-}
-
-/** 生活防衛資金（0031）。amount があれば金額、無ければその年の基本生活費の months か月分 */
-export interface EmergencyReserveSetting {
-  readonly months?: number;
-  readonly amount?: Yen;
-  /** 「金融資産は○歳まで持つ」の判定に生活防衛資金を含める（省略は false＝除いた残高で判定する） */
-  readonly countInLasting?: boolean;
 }
 
 /** 運用の利回りの書き換え（運用する器だけ。from〜to の年。add を足し、cap より高ければ cap にする。0026） */

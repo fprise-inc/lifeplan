@@ -298,19 +298,19 @@ describe("百分率の書式（数としては計算しない）", () => {
   ])("%s → %s", (a, b) => expect(percent(a)).toBe(b));
 });
 
-describe("黒字のうち貯まる割合と生活防衛資金（0031）", () => {
+describe("黒字のうち貯まる割合（0031）", () => {
   const base = SAMPLES[0]!.bundle();
   const src = structuredClone(base.proposal.request);
-  const req = { ...src, input: { ...src.input, assumptions: { ...src.input.assumptions, surplusSaving: { ratio: "0.6" }, emergencyReserve: { months: 6 } } } };
+  const req = { ...src, input: { ...src.input, assumptions: { ...src.input.assumptions, surplusSaving: { ratio: "0.6", changes: [{ from: { at: "2040-04" }, ratio: "0.8" }] } } } };
   const bundle: ProposalBundle = { ...base, proposal: run(req) };
   const input = buildProposalInput(bundle);
 
-  it("キャッシュフロー表に「ゆとりの支出」と「うち生活防衛資金」の行。基本生活費には混ぜない。合計はエンジンの出力と一致", () => {
+  it("キャッシュフロー表に「ゆとりの支出」の行。基本生活費には混ぜない。合計はエンジンの出力と一致。生活防衛資金の行は無い", () => {
     const rows = input.cashflow.proposal.rows;
     const spend = rows.find((r) => r.key === "surplusSpend");
     expect(spend?.label).toBe("ゆとりの支出");
     expect(spend?.cells).toEqual(input.basis.years.map((y) => byYear(bundle.proposal.result, (c) => c.row === "cf.expense.living.surplus").get(y) ?? null));
-    expect(rows.find((r) => r.key === "reserve")?.label).toBe("うち生活防衛資金");
+    expect(rows.some((r) => r.key === "reserve")).toBe(false);
     const living = rows.find((r) => r.key === "living")!;
     const y = input.basis.years.find((yy, i) => (spend?.cells[i] ?? 0) !== 0)!;
     const i = input.basis.years.indexOf(y);
@@ -320,12 +320,12 @@ describe("黒字のうち貯まる割合と生活防衛資金（0031）", () => 
     expect(validate(input)).toBe(true);
   });
 
-  it("前提の一覧に割合と生活防衛資金。不足する年は生活防衛資金を除いて判定する", () => {
+  it("前提の一覧に割合（期間で変える組つき）。不足する年は金融資産で判定する", () => {
     const labels = input.assumptions.rates.map((r) => `${r.label}:${r.value}`).join("\n");
-    expect(labels).toContain("黒字のうち貯まる割合:60%");
-    expect(labels).toContain("生活防衛資金:基本生活費の6か月分");
-    const usable = byYear(bundle.proposal.result, (c) => c.row === "cf.balance.financial.usable");
-    const dep = input.basis.years.find((yy) => (usable.get(yy) ?? 0) < 0) ?? null;
+    expect(labels).toContain("黒字のうち貯まる割合:60%、2040年から80%");
+    expect(labels).not.toContain("生活防衛資金");
+    const fin = byYear(bundle.proposal.result, (c) => c.row === "cf.balance.financial");
+    const dep = input.basis.years.find((yy) => (fin.get(yy) ?? 0) < 0) ?? null;
     expect(input.summary.proposal.depletion?.year ?? null).toBe(dep);
   });
 });

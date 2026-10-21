@@ -21,7 +21,7 @@ interface Props {
   initialOpen?: string;
   /** 進み具合の下に置く道具（ヒアリングシートの書き出しと取り込み）。カードの並びの上に出す */
   tools?: ComponentChildren;
-  /** 1件だけの計算（前提条件のパネルの、控えから見た実際の貯まり方。0031） */
+  /** 1件だけの計算（基本生活費のパネルの、控えから見た実際の貯まり方。0031） */
   computeOne?: (req: EngineRequest) => Promise<PreviewResult | null>;
 }
 

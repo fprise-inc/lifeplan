@@ -1,11 +1,13 @@
 // 4. 基本生活費: 月額の総額＋変動率＋節目（末子独立後・退職後・高齢期）。内訳（費目別）は詳細で。
-// 住居費・教育費・保険料・車両費は含めない（それぞれの段階で入れる）
+// 住居費・教育費・保険料・車両費は含めない（それぞれの段階で入れる）。
+// あわせて「毎年の黒字のうち、貯金に回る割合」（貯まらない分＝ゆとりの支出。0031。stages/surplusSaving.ts）
 import type { Household, LivingExpense, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageReachedMonth, readLevers } from "../../levers.ts";
 import { livingEstimate } from "../estimates.ts";
 import { byId, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type StageDef } from "../form.ts";
 import { estimatedBox, mutate, newId, type WorkingHousehold } from "../household.ts";
 import { GROWTH_KINDS, LIVING_CATEGORIES, LIVING_STAGE_LABELS } from "../labels.ts";
+import { surplusSection } from "./surplusSaving.ts";
 
 const livings = (h: Household) => h.livingExpenses;
 const NOTE = "住居費・教育費・保険料・車両費は含めません（それぞれの段階で入れます）";
@@ -202,6 +204,7 @@ export function livingStage(wh: WorkingHousehold): StageDef {
             },
           ],
         },
+        surplusSection(wh),
       ],
     };
   return {
@@ -216,6 +219,7 @@ export function livingStage(wh: WorkingHousehold): StageDef {
         groups: list.flatMap((l, i) => livingGroups(wh, l, i)),
         actions: [],
       },
+      surplusSection(wh),
     ],
   };
 }

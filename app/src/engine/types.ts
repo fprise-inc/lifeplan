@@ -104,14 +104,6 @@ export interface SurplusSavingSetting extends SurplusSavingRule {
   changes?: (SurplusSavingRule & { from: Timepoint })[];
 }
 
-/** 生活防衛資金（0031。エンジンの assumptions.emergencyReserve）。amount があれば金額、無ければその年の基本生活費の months か月分 */
-export interface EmergencyReserveSetting {
-  months?: number;
-  amount?: number;
-  /** 「金融資産は○歳まで持つ」の判定に含める（省略は除く） */
-  countInLasting?: boolean;
-}
-
 /** 運用の利回りの書き換え（0026） */
 export interface ReturnShift {
   from: number;
@@ -417,7 +409,7 @@ export interface EngineRequest {
     baseMonth: string;
     endYear: number;
     household: Household;
-    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; investment?: InvestmentSetting; assetVolatility?: Record<string, string>; returnShifts?: ReturnShift[]; surplusSaving?: SurplusSavingSetting; emergencyReserve?: EmergencyReserveSetting; withdrawal?: { order?: ({ kind: string } | { object: string })[]; minimumDeposit?: number }; marketShocks?: { year: number; drop: string; kinds?: string[]; assetClasses?: string[] }[]; [key: string]: unknown };
+    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; investment?: InvestmentSetting; assetVolatility?: Record<string, string>; returnShifts?: ReturnShift[]; surplusSaving?: SurplusSavingSetting; withdrawal?: { order?: ({ kind: string } | { object: string })[]; minimumDeposit?: number }; marketShocks?: { year: number; drop: string; kinds?: string[]; assetClasses?: string[] }[]; [key: string]: unknown };
     contingencies?: Contingency[];
     protection?: ProtectionRequest;
     [key: string]: unknown;

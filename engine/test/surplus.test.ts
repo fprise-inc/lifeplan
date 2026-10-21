@@ -1,4 +1,4 @@
-// 黒字のうち貯まる割合（ゆとりの支出）と生活防衛資金・まとめた金融資産の運用しない分（0031）のテスト（L1）。
+// 黒字のうち貯まる割合（ゆとりの支出）・取り崩しの計画と重なる年・まとめた金融資産の運用しない分（0031）のテスト（L1）。
 // 【架空の見本】の制度データで、何も入れない世帯と比べて確かめる
 import { describe, expect, it } from "vitest";
 import { runEngine } from "../src/engine/run.ts";
@@ -93,70 +93,31 @@ describe("黒字のうち貯まる割合（ゆとりの支出。0031）", () => 
   });
 });
 
-describe("生活防衛資金（0031）", () => {
-  const tx = (v: number) => ({ id: uid("tx"), kind: "taxable", owner: A, marketValue: box(v), costBasis: box(v), asOf: "2025-12", assetMix: [{ assetClass: "equity.global", share: "1" }], contributions: [] });
-
-  it("金額: 計算の始めに預金から分けて「生活防衛資金」の器に置き、預金の利回りで増やす（金融資産の合計は同じ）", () => {
-    const b = full(mk([dep(3000000), tx(10000000)]));
-    const r = full(mk([dep(3000000), tx(10000000)], assume({ emergencyReserve: { amount: 1200000 } })));
-    expect(cells(r, "cf.balance.account.reserve", 2026)).toBe(1200000);
-    expect(cells(r, "cf.balance.financial.reserveTarget", 2026)).toBe(1200000);
-    // 預金だけから分けたので、預金の利回りは同じ（金融資産の合計は変わらない）
-    expect(cells(r, "cf.balance.financial", 2026)).toBe(cells(b, "cf.balance.financial", 2026));
-    expect(cells(r, "cf.balance.financial.usable", 2026)).toBe(cells(r, "cf.balance.financial", 2026) - 1200000);
-  });
-
-  it("基本生活費の○か月分: その年の基本生活費÷その年の月数×月数（基準の年の生活費が変われば目安も動く）", () => {
-    const r = full(mk([dep(3000000)], assume({ emergencyReserve: { months: 6 } })));
-    const livingY = -table(r).filter((c) => c.row.startsWith("cf.expense.living") && c.year === 2027).reduce((s, c) => s - c.amount, 0);
-    expect(cells(r, "cf.balance.financial.reserveTarget", 2027)).toBe(Math.floor((Math.abs(livingY) * 6) / 12));
-  });
-
-  it("取り崩しは最後: 赤字の年は、ほかの器（課税口座）を先に取り崩し、生活防衛資金は残る", () => {
-    const r = full(mk([dep(1000000), tx(20000000)], assume({ emergencyReserve: { amount: 3000000 } }), 2075));
-    // 退職の後、課税口座が残る間は生活防衛資金を取り崩さない
-    const y = 2045;
-    expect(cells(r, "cf.balance.account.taxable", y)).toBeGreaterThan(0);
-    expect(cells(r, "cf.balance.account.reserve", y)).toBe(3000000);
-  });
-
-  it("「金融資産は○歳まで持つ」の判定の基（使えるお金）が先にマイナスになり、資金の不足は生活防衛資金を使い切った後", () => {
-    const big = (h: Obj) => (h.livingExpenses = [living(400000)]);
-    const r = full(mk([dep(1000000), tx(20000000)], (h, input) => {
-      big(h);
-      Object.assign(input.assumptions as Obj, { emergencyReserve: { amount: 5000000 } });
-    }, 2080));
-    const years = [...new Set(table(r).map((c) => c.year))].sort((a, b) => a - b);
-    const firstUsable = years.find((y) => cells(r, "cf.balance.financial.usable", y) < 0);
-    const firstFinancial = years.find((y) => cells(r, "cf.balance.financial", y) < 0);
-    expect(firstUsable).toBeDefined();
-    expect(firstFinancial).toBeDefined();
-    expect(firstUsable as number).toBeLessThan(firstFinancial as number);
-    // 資金の不足（cf.balance.shortfall）は金融資産がマイナスになる年から
-    expect(cells(r, "cf.balance.shortfall", (firstFinancial as number) - 1)).toBe(0);
-    // 生活防衛資金を何も入れない世帯の「尽きる年」と、生活防衛資金を含めて判定するときの資金の不足の年は同じ
-    const b = full(mk([dep(1000000), tx(20000000)], big, 2080));
-    const bDep = years.find((y) => cells(b, "cf.balance.financial", y) < 0);
-    expect(Math.abs((bDep as number) - (firstFinancial as number))).toBeLessThanOrEqual(1);
-    // 判定に含める前提なら、使えるお金の行は出さない
-    const c = full(mk([dep(1000000), tx(20000000)], (h, input) => {
-      big(h);
-      Object.assign(input.assumptions as Obj, { emergencyReserve: { amount: 5000000, countInLasting: true } });
-    }, 2080));
-    expect(has(c, "cf.balance.financial.usable")).toBe(false);
-    expect(has(c, "cf.balance.financial.reserveTarget")).toBe(true);
-  });
-
-  it("定率の取り崩しの計画の基は、生活防衛資金を除いた金融資産", () => {
-    const plan = { drawdown: { start: at("2040-01"), method: "rate", rate: "0.04" } };
-    const r = full(mk([dep(100000000)], assume({ investment: plan, emergencyReserve: { amount: 20000000 } })));
-    const b = full(mk([dep(100000000)], assume({ investment: plan })));
-    expect(cells(b, "cf.expense.living.drawdown", 2041)).toBeGreaterThan(0);
-    expect(cells(r, "cf.expense.living.drawdown", 2041)).toBeLessThan(cells(b, "cf.expense.living.drawdown", 2041));
+describe("取り崩しの計画と重なる年（0031 の追記）", () => {
+  it("取り崩しの計画がある年（始まりの年から）は、黒字でもゆとりの支出を差し引かない", () => {
+    // 2033年4月から毎月10万円を取り崩す計画（まだ働いていて黒字の年）
+    const plan = { drawdown: { start: at("2033-04"), method: "fixed", monthly: 100000 } };
+    const r = full(mk([dep(5000000)], assume({ investment: plan, surplusSaving: { ratio: "0.6" } })));
+    const d = full(mk([dep(5000000)], assume({ investment: plan })));
+    // 計画の前の年は、今まで通り差し引く
+    expect(cells(r, "cf.expense.living.surplus", 2032)).toBeGreaterThan(0);
+    // 計画の始まりの年とその後は差し引かない（計画の額だけを使う）
+    for (const y of [2033, 2034, 2035]) {
+      expect(cells(d, "cf.net", y)).toBeGreaterThan(0);
+      expect(cells(r, "cf.expense.living.surplus", y)).toBe(0);
+      expect(cells(r, "cf.expense.living.drawdown", y)).toBe(cells(d, "cf.expense.living.drawdown", y));
+      expect(cells(r, "cf.net", y)).toBe(cells(d, "cf.net", y));
+    }
   });
 });
 
-describe("合計の入れ方: 運用しない分と生活防衛資金（0031）", () => {
+describe("生活防衛資金をなくした（0031 の追記）", () => {
+  it("前提の生活防衛資金（emergencyReserve）は入力として受け付けない（世帯ファイルは変換の段で捨てる）", () => {
+    expect(() => full(mk([dep(3000000)], assume({ emergencyReserve: { months: 6 } })))).toThrow();
+  });
+});
+
+describe("合計の入れ方: 運用しない分（0031）", () => {
   const pooled = (o: Obj = {}) => ({ id: uid("pool"), kind: "pooled", owner: A, marketValue: box(20000000), asOf: "2025-12", expectedReturn: "0.04", contributions: [], ...o });
   const total = (o: Obj = {}) => assume({ investment: { method: "total" }, ...o });
 
@@ -168,14 +129,6 @@ describe("合計の入れ方: 運用しない分と生活防衛資金（0031）"
     // 2,000万円×4% ＝ 80万円 → 1,500万円×4%＋500万円×0.1% ＝ 60.5万円
     expect(retB).toBe(800000);
     expect(retR).toBe(605000);
-  });
-
-  it("生活防衛資金は、預金が無ければまとめた金融資産から分ける（運用しない分の内に数える）", () => {
-    const r = full(mk([pooled({ uninvested: 5000000 })], total({ emergencyReserve: { amount: 2000000 } }), 2030));
-    // 目安は金額なので、預金の利息は年末に決済口座へ戻る
-    expect(cells(r, "cf.balance.account.reserve", 2026)).toBe(2000000);
-    // まとめた器は 1,800万円（うち運用しない分 300万円）: 1,500万円×4%＋300万円×0.1%
-    expect(cells(r, "cf.balance.account.pooled", 2026)).toBe(18000000 + 600000 + 3000);
   });
 
   it("口座の入れ方と整合する: 合計 2,000万円（うち運用しない分 500万円）と、預金 500万円＋課税口座 1,500万円は、最初の年の金融資産が同じ", () => {

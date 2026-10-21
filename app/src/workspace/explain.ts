@@ -5,8 +5,8 @@ import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts
 import { man } from "../presentation/format.ts";
 import type { ExplainModel, ExplainStep, VerdictPart } from "../presentation/model.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
-import { depletionYear, displayYears, financialOf, reserveNote, SURPLUS_ROW, sumByYear } from "./present.ts";
-import { reserveOf, ruleFor, ruleText, surplusOf, yearOfTimepoint } from "./surplus.ts";
+import { depletionYear, displayYears, financialOf, SURPLUS_ROW, sumByYear } from "./present.ts";
+import { ruleFor, ruleText, surplusOf, yearOfTimepoint } from "./surplus.ts";
 import { ageInYear, roles } from "./roles.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
@@ -144,8 +144,8 @@ export function explainModel(req: EngineRequest, result: PreviewResult, targetAg
     title: "資産の推移",
     sentence:
       dep !== null
-        ? s([{ text: "この収入と支出のままだと、" }, { text: `${dep}年（${ageText(dep)}）に資産が尽きます`, strong: true }, ...(reserveNote(t) !== "" ? [{ text: "（生活防衛資金を除いた、使えるお金で判定）" }] : [])])
-        : s([{ text: "その結果、" }, { text: `${self !== undefined ? `${ageOf(last)}歳まで` : "最後まで"}資産が足ります`, strong: true }, ...(reserveOf(req) !== undefined && reserveNote(t) !== "" ? [{ text: "（生活防衛資金には手をつけません）" }] : [])]),
+        ? s([{ text: "この収入と支出のままだと、" }, { text: `${dep}年（${ageText(dep)}）に資産が尽きます`, strong: true }])
+        : s([{ text: "その結果、" }, { text: `${self !== undefined ? `${ageOf(last)}歳まで` : "最後まで"}資産が足ります`, strong: true }]),
   });
 
   return { title: "これからのお金の流れ", years, ages: years.map((y) => ageOf(y)), work, pension, living, education, housing, financial, steps };

@@ -231,17 +231,6 @@
               }
             }
           }
-        },
-        "emergencyReserve": {
-          "title": "生活防衛資金（取り崩さないお金。運用せず預金の利回りで持ち、取り崩しは最後。「金融資産は○歳まで持つ」の判定から除く。0031）",
-          "x-item": "assumptions.emergencyReserve",
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "months": { "description": "その年の基本生活費の○か月分（amount が無いとき）", "type": "integer", "minimum": 0, "maximum": 120 },
-            "amount": { "description": "金額（書いたときは months より優先）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-            "countInLasting": { "description": "「金融資産は○歳まで持つ」の判定に生活防衛資金を含める（省略は false＝除いた残高で判定する）", "type": "boolean" }
-          }
         }
       }
     },

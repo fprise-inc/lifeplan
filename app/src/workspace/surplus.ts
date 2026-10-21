@@ -1,9 +1,10 @@
-// 黒字のうち貯まる割合（ゆとりの支出）と生活防衛資金（0031）の、画面の側の読み書きと説明の材料（作業の層）。
-// - 前提の読み書き（assumptions.surplusSaving・assumptions.emergencyReserve）。空にすると前提ごと外す（今まで通りの計算に戻る）
-// - 根拠・説明モードの文の材料（その年の黒字・貯まる額・ゆとりの支出、生活防衛資金の目安）
+// 黒字のうち貯まる割合（ゆとりの支出。0031）の、画面の側の読み書きと説明の材料（作業の層）。
+// - 前提の読み書き（assumptions.surplusSaving）。空にすると前提ごと外す（今まで通りの計算に戻る）
+// - 時期で割合を変える目安（ずっと同じ・子育て中と子の独立後・退職の前後）: その世帯の末子の独立・退職の時点で期間を入れる
+// - 根拠・説明モードの文の材料（その年の黒字・貯まる額・ゆとりの支出）
 // - 控えから実際の貯まり方を出す: 控えの時点の金融資産＋その間の見込みの黒字と、今の実際の金融資産を比べる（自動では入れない）
-import type { EmergencyReserveSetting, EngineRequest, SurplusSavingRule, SurplusSavingSetting, TableCell, Timepoint } from "../engine/types.ts";
-import { parseYm } from "./levers.ts";
+import type { EngineRequest, SurplusSavingRule, SurplusSavingSetting, TableCell, Timepoint } from "../engine/types.ts";
+import { addMonths, ageReachedMonth, parseYm } from "./levers.ts";
 import { SURPLUS_ROW } from "./present.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
@@ -11,10 +12,9 @@ const under = (row: string, prefix: string) => row === prefix || row.startsWith(
 // ---- 前提の読み書き ----
 
 export const surplusOf = (req: EngineRequest): SurplusSavingSetting | undefined => req.input.assumptions?.surplusSaving;
-export const reserveOf = (req: EngineRequest): EmergencyReserveSetting | undefined => req.input.assumptions?.emergencyReserve;
 
 /** 前提の欄を書き換えた写し（空の前提は外す） */
-function withAssumption(req: EngineRequest, name: "surplusSaving" | "emergencyReserve", v: object | undefined): EngineRequest {
+function withAssumption(req: EngineRequest, name: "surplusSaving", v: object | undefined): EngineRequest {
   const request = structuredClone(req);
   const a = (request.input.assumptions ??= { investmentReturn: { default: "0.01" } }) as Record<string, unknown>;
   const empty = v === undefined || Object.values(v).every((x) => x === undefined || (Array.isArray(x) && x.length === 0));
@@ -25,10 +25,6 @@ function withAssumption(req: EngineRequest, name: "surplusSaving" | "emergencyRe
 
 export function setSurplus(req: EngineRequest, next: SurplusSavingSetting | undefined): EngineRequest {
   return withAssumption(req, "surplusSaving", next);
-}
-
-export function setReserve(req: EngineRequest, next: EmergencyReserveSetting | undefined): EngineRequest {
-  return withAssumption(req, "emergencyReserve", next);
 }
 
 /** 今の割合（入れていなければ null＝100%） */
@@ -42,11 +38,73 @@ export function setSurplusRatio(req: EngineRequest, ratio: string | null): Engin
   return setSurplus(req, ratio === null ? rest : { ...rest, ratio });
 }
 
-/** 生活防衛資金の月数（金額で入れているとき・入れていないときは null） */
-export const reserveMonthsOf = (req: EngineRequest): number | null => {
-  const r = reserveOf(req);
-  return r === undefined || r.amount !== undefined ? null : (r.months ?? null);
+/** なくした前提（生活防衛資金 emergencyReserve。0031 の追記）を外した要求。控え（変換で中身を変えない）を今のエンジンで計算するときに使う */
+export function withoutRemovedAssumptions(req: EngineRequest): EngineRequest {
+  const a = req.input.assumptions as Record<string, unknown> | undefined;
+  if (a === undefined || !("emergencyReserve" in a)) return req;
+  const request = structuredClone(req);
+  delete (request.input.assumptions as Record<string, unknown>).emergencyReserve;
+  return request;
+}
+
+// ---- 時期で割合を変える目安（0031 の追記）----
+
+/** 目安の種類: ずっと同じ・子育て中と子の独立後で分ける・退職の前後で分ける */
+export type SurplusPreset = "same" | "children" | "retirement";
+
+/**
+ * 目安の初期値（割合。FP が直す前提）。公的な統計に「ソフトが見込む黒字のうち実際に貯まる割合」に当たるものは無いので、目安として置く
+ * （家計の調査の黒字率・貯蓄率は可処分所得に対する割合で、ここで使う「見込みの黒字に対する割合」とは別のもの）
+ */
+export const PRESET_RATIOS: Readonly<Record<SurplusPreset, { before: string; after: string | null }>> = {
+  same: { before: "0.6", after: null },
+  children: { before: "0.5", after: "0.8" },
+  retirement: { before: "0.6", after: "0.8" },
 };
+
+/** 目安の期間の区切り: 末子の独立（子の独立の月の最も遅いもの。独立が空なら22歳）と、本人の退職（働く最後の月の翌月）。今より前・無いときは null */
+export function presetPoints(req: EngineRequest): { children: string | null; retirement: string | null } {
+  const h = req.input.household;
+  const now = req.input.baseMonth;
+  const kids = h.members.filter((m) => m.kind === "child");
+  const indep = kids.map((m) => m.leaves?.at ?? ageReachedMonth(m, 22)).sort().at(-1) ?? null;
+  const self = h.members.find((m) => m.kind === "self");
+  const lastWork = self === undefined ? undefined : (h.employmentPeriods ?? []).filter((e) => e.member === self.id).map((e) => e.to?.at ?? null).filter((x): x is string => x !== null).sort().at(-1);
+  const retire = lastWork === undefined ? null : addMonths(lastWork, 1);
+  return { children: indep !== null && indep > now ? indep : null, retirement: retire !== null && retire > now ? retire : null };
+}
+
+/** 今の割合の組が、どの目安の形か（入れていなければ null、目安に当てはまらなければ "custom"） */
+export function presetOf(req: EngineRequest): SurplusPreset | "custom" | null {
+  const s = surplusOf(req);
+  if (s === undefined) return null;
+  const changes = s.changes ?? [];
+  if (changes.length === 0) return "same";
+  if (changes.length === 1) {
+    const at = changes[0]?.from.at;
+    const pts = presetPoints(req);
+    if (at !== undefined && at === pts.children) return "children";
+    if (at !== undefined && at === pts.retirement) return "retirement";
+  }
+  return "custom";
+}
+
+/**
+ * 目安を当てる: 期間の区切りをその世帯の末子の独立・退職の時点で入れ、割合は目安の初期値（はじめの割合は、入れてあればそのまま）。
+ * 上限（cap）は始まりの組のものを残す。区切りの時点が無い目安は当てない（そのまま返す）
+ */
+export function applyPreset(req: EngineRequest, preset: SurplusPreset): EngineRequest {
+  const cur = surplusOf(req) ?? {};
+  const v = PRESET_RATIOS[preset];
+  const before = cur.ratio ?? v.before;
+  const { changes: _c, ...head } = cur;
+  void _c;
+  if (preset === "same") return setSurplus(req, { ...head, ratio: before });
+  const at = presetPoints(req)[preset];
+  if (at === null || v.after === null) return req;
+  const keep = cur.changes?.length === 1 && cur.changes[0]?.from.at === at ? cur.changes[0].ratio : undefined;
+  return setSurplus(req, { ...head, ratio: before, changes: [{ from: { at }, ratio: keep ?? v.after }] });
+}
 
 // ---- 根拠・説明の材料 ----
 
@@ -92,15 +150,6 @@ export function surplusEvidenceNote(req: EngineRequest, table: readonly TableCel
   const lump = b.lump > 0 ? `（年間収支 ${man(b.net)} − 退職金などの一時金 ${man(b.lump)}）` : "";
   if (b.surplus <= 0) return `${year}年は黒字ではないので、ゆとりの支出はありません。`;
   return `${year}年の黒字 ${man(b.surplus)}${lump}のうち、貯まる割合（${ruleText(rule)}）で貯まるのは ${man(b.saved)}。残りの ${man(b.spend)} を、実際には使ってしまう「ゆとりの支出」として支出に入れています（赤字の年は入れません）。`;
-}
-
-/** 根拠の表示の一言（生活防衛資金のマス） */
-export function reserveEvidenceNote(req: EngineRequest, table: readonly TableCell[], year: number): string | null {
-  const r = reserveOf(req);
-  if (r === undefined) return null;
-  const target = sumRow(table, year, (row) => row === "cf.balance.financial.reserveTarget");
-  const how = r.amount !== undefined ? `入れた金額 ${man(r.amount)}` : `その年の基本生活費の${r.months ?? 0}か月分 ${man(target)}`;
-  return `生活防衛資金の目安は${how}。運用せず預金の利回りで持ち、ほかのお金を使い切るまで取り崩しません。「金融資産は○歳まで持つ」は${r.countInLasting === true ? "生活防衛資金を含めて" : "生活防衛資金を除いて"}判定します。`;
 }
 
 /** 年月・年齢・できごとの時点の年（年月と年齢だけ。できごとは null） */

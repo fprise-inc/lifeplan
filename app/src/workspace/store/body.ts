@@ -1,9 +1,10 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.11。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
+// 本文の区画（形式の版 0.12。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
 // - meta: 形式名・形式の版・保存日時・アプリの版・表示用の顧客番号、誰が直したか（保存した人・改訂の履歴・出てくるメンバーの表示名。本体が入れる。0023 の6）
 // - household: 現状の世帯（計算の要求と、画面の側の値: 呼び名・定年後の予定・FP用のメモとその行ごとの書いた人・万一の想定の前提・足した項目など）。
 //   0.9 から: 教育の目標の保育所の段の保育の時間・自治体の水準の割合と、給食費の選び方（0029。保育所の段の空の月額は収入から自動で計算する読み方）
-//   0.11 から: 前提の黒字のうち貯まる割合（surplusSaving）・生活防衛資金（emergencyReserve）と、まとめた金融資産の器の運用しない分（uninvested。0031）
+//   0.11 から: 前提の黒字のうち貯まる割合（surplusSaving）と、まとめた金融資産の器の運用しない分（uninvested。0031）。
+//   0.12 から: 生活防衛資金（0.11 の前提 emergencyReserve）をなくした（本体の変換の段で捨てる。控えの中身は残り、計算するときに外す。0031 の追記）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
 // - hearing: ヒアリングの依頼・取り込み・同意の下書きの記録（0018。取り込みの記録・同意の記録への分け方は後の版）
 // - workspace: 案の帯の並び・基準の案・選んだ案・対策に足した項目・出発点にした見本
@@ -28,7 +29,7 @@ import { readBsColumns, readBsGuide, readBsPoints } from "../balanceTab.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.11";
+export const BODY_FORMAT_VERSION = "0.12";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
