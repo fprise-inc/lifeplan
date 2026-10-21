@@ -1,7 +1,7 @@
 // 持ち帰り用のレポート（0030）を、ネットワークを切ったヘッドレスのブラウザで開いて確かめる（npm の依存なし。ブラウザの DevTools の口（CDP）を Node の WebSocket で使う）。
 // - 外への通信: ページが出したリクエストのうち、file:・blob:・data: 以外が1件でもあれば失敗（ネットワークは切ってあるので、届きはしないが試みも数える）
 // - CSP の違反（securitypolicyviolation）が1件でもあれば失敗
-// - グラフが出る・つまみを動かすと計算し直す（結論の文と線が変わる）・元に戻す・FP の提案に戻す
+// - グラフが出る・つまみを動かすと計算し直す（結論の文と線が変わる）・1つ前に戻す・最初に戻す（FP の提案の値）
 // - パスワードありのファイル: 違うパスワードで開かない・正しいパスワードで開く
 // - スマホの幅（375px）でも、グラフ・つまみが出て、横にはみ出さない
 // 使い方: node scripts/check-takeaway.ts <パスワードなしの HTML> [<パスワードありの HTML> <パスワード>] [--shots <写真の置き場>]
@@ -148,12 +148,12 @@ async function commonChecks(p: Page, label: string) {
   check(`${label}: つまみ（${key}）で計算し直す`, l1 !== l0, `${v0} → ${v1}`);
   await p.eval("document.querySelector('[data-takeaway-undo]').click()");
   await sleep(1200);
-  check(`${label}: 元に戻す`, (await linePath(p)) === l0);
+  check(`${label}: 1つ前に戻す`, (await linePath(p)) === l0);
   await slide(p, key, "min");
   await sleep(600);
   await p.eval("document.querySelector('[data-takeaway-reset]').click()");
   await sleep(1200);
-  check(`${label}: FPの提案に戻す`, (await linePath(p)) === l0);
+  check(`${label}: 最初に戻す`, (await linePath(p)) === l0);
   const overflow = await p.eval<number>("document.documentElement.scrollWidth - document.documentElement.clientWidth");
   check(`${label}: 横にはみ出さない`, overflow <= 1, `はみ出し ${overflow}px`);
 }

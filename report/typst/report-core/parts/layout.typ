@@ -250,21 +250,21 @@
   illiquidOther: rgb("#b3a789"),
   mortgage: rgb("#8f7547"),
   debt: rgb("#c4ae80"),
-  netWorth: rgb("#e3eaf6"),
+  // 純資産: ほかの箱と同じベタ塗り（灰がかった藍。資産の藍・住宅ローンの茶と分かれ、白い文字が読める。画面の balance.css と同じ色）
+  netWorth: rgb("#565d8c"),
 )
-#let bs-dark = ("liquid", "market", "illiquid", "land", "mortgage")
+#let bs-dark = ("liquid", "market", "illiquid", "land", "mortgage", "netWorth")
 #let bs-short = (liquid: "すぐ使える", market: "値動きあり", locked: "引き出せない", illiquid: "換金しにくい", land: "土地", building: "建物", illiquidOther: "車・その他", mortgage: "住宅ローン", debt: "その他の負債", netWorth: "純資産")
 
 /// 1本の柱（箱を上から積む）。total はこの柱の額、h は縮尺の高さ（scale の額に当たる）
 #let bs-column(boxes, total, scale, h, w, fact, neg: 0) = {
   let colh = h * (total + neg) / scale
-  // 枠は今の年も先の年も同じ実線・同じ色（見込みかどうかは時点の札で示す）
-  let frame = 0.9pt + ink
+  // 箱はどれも枠線なしのベタ塗り（純資産も同じ）。柱を囲む枠も描かない（見込みかどうかは時点の札で示す）
   let cells = boxes.map(b => {
     let bh = colh * b.amount / (total + neg)
     let dark = b.key in bs-dark
     let fill = bs-colors.at(b.key, default: band)
-    block(width: 100%, height: bh, fill: fill, stroke: if b.key == "netWorth" { 0.6pt + accent } else { (bottom: 0.6pt + white) }, inset: (x: 3pt), spacing: 0pt, {
+    block(width: 100%, height: bh, fill: fill, stroke: (bottom: 0.6pt + white), inset: (x: 3pt), spacing: 0pt, {
       if bh >= 15pt {
         set text(size: min-size, fill: if dark { white } else { ink }, weight: "bold")
         align(horizon, stack(dir: ttb, spacing: 1pt, bs-short.at(b.key, default: b.label), man(b.amount)))
@@ -277,7 +277,7 @@
       if nh >= 15pt { align(horizon, text(size: min-size, fill: muted, weight: "bold", "足りない分\n▲" + man(neg))) }
     }))
   }
-  box(width: w, height: h, align(bottom, block(width: w, height: colh, stroke: frame, spacing: 0pt, stack(dir: ttb, ..cells))))
+  box(width: w, height: h, align(bottom, block(width: w, height: colh, spacing: 0pt, stack(dir: ttb, ..cells))))
 }
 
 /// 図の見出しの短い呼び方（例: 今・退職の年・75歳）。本人の年齢の時点は本人の呼び方を外す

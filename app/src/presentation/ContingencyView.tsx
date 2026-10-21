@@ -6,8 +6,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { PipButton } from "./ChartPip.tsx";
 import { areaAbove, areaBelow, linePath, scale, type Frame, type Scale } from "./chart.ts";
 import { group, man, manDiff } from "./format.ts";
-import { chartHeight } from "./MainChart.tsx";
+import { chartHeight, TOUCH_HINT } from "./MainChart.tsx";
 import type { ChartModel, ContingencyModel, ProtectionChartModel, ScenarioModel, VerdictPart, YearStripModel } from "./model.ts";
+import { useNarrow } from "./narrow.ts";
 import { useTween, type Series } from "./tween.ts";
 import { estimateWidth, indexAt, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
 
@@ -288,6 +289,8 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
   const [hover, setHover] = useState<number | null>(null);
   const [tipSize, setTipSize] = useState<{ w: number; h: number } | null>(null);
   const [size, setSize] = useState<{ w: number; h: number; fs: number }>({ w: 1100, h: 520, fs: 1 });
+  // 狭い画面では、資産が尽きる年の文字を出さない（0の線の△と縦の点線は残す）
+  const narrow = useNarrow();
   useLayoutEffect(() => {
     const el = box.current;
     if (el === null) return;
@@ -403,9 +406,11 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
         <g key={`dep-${d.series}`}>
           <line x1={x} x2={x} y1={y0} y2={f.height - f.bottom} class="dep-line" />
           <path d={`M${x} ${y0 - 11} l8 13 h-16 z`} class={`dep-tri${d.series === "current" ? " base" : ""}`} />
-          <text x={right ? x - 10 : x + 10} y={y0 - 8 - dy} class="dep-txt" text-anchor={right ? "end" : "start"}>
-            {d.label}
-          </text>
+          {narrow ? null : (
+            <text x={right ? x - 10 : x + 10} y={y0 - 8 - dy} class="dep-txt" text-anchor={right ? "end" : "start"}>
+              {d.label}
+            </text>
+          )}
         </g>,
       );
     }
@@ -637,7 +642,10 @@ export function ScenarioLegend() {
         <i />
         不足（▲）
       </span>
-      <span class="hint">グラフに合わせるとその年の数字。クリックで固定（もう一度クリックか Esc で外す）</span>
+      <span class="hint">
+        <span class="hint-long">グラフに合わせるとその年の数字。クリックで固定（もう一度クリックか Esc で外す）</span>
+        <span class="hint-short">{TOUCH_HINT}</span>
+      </span>
     </div>
   );
 }

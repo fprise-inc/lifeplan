@@ -1,5 +1,5 @@
 // 対策（作業の層の部品。主画面のグラフの下）: 選んだ案にだけ効くスライダー。基準の案（と現状）を選んでいるときは動かせず、理由を出す。
-// 各項目に基準の案の値を札（薄いグレーの実線の枠）で出す。「＋ 動かす項目を追加」「元に戻す」「上書き保存」「案として保存」（名前の欄はその場に開く。別の窓は出さない）。
+// 各項目に基準の案の値を札（薄いグレーの実線の枠）で出す。「＋ 動かす項目を追加」「変更を取り消す」（保存していない変更を全部取り消す。1つずつ戻すのは上部の ↶）「上書き保存」「案として保存」（名前の欄はその場に開く。別の窓は出さない）。
 // 動かしている間（input）は画面側の先出し、指を離したら（change・pointerup・keyup）正の計算（0005 の5）
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
@@ -124,8 +124,8 @@ export function LeverCard(p: LeverCardProps) {
           </button>
         ) : null}
         <span class="lv-gap" />
-        <button type="button" class="btn" disabled={!p.modified} onClick={p.onReset} data-plan-reset>
-          元に戻す
+        <button type="button" class="btn" disabled={!p.modified} onClick={p.onReset} title="保存していない変更を全部取り消し、保存した状態に戻します（1つずつ戻すのは上部の ↶）" data-plan-reset>
+          変更を取り消す
         </button>
         <button type="button" class="btn" disabled={!p.modified || p.onOverwrite === null} onClick={() => p.onOverwrite?.()} data-plan-overwrite>
           上書き保存
