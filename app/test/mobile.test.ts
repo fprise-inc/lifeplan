@@ -4,12 +4,14 @@
 // - バランスシートの図: 純資産もほかの箱と同じ枠線なしのベタ塗り（箱の間に細い余白・角を少し丸める）。柱を囲む枠は描かない。狭い画面では図の外の札を出さず、図の下の一覧に出す
 // - バランスシートの図: 箱の中の文字はどれも白（色は白い文字が読める濃さ）。下の線は1本（目盛りの「0」の印と重ねない）
 // - 持ち帰り用のレポートの「1つ前に戻す」「最初に戻す」と、アプリの対策の「変更を取り消す」
+// - バランスシートの図: 箱の中の名前と金額は詰めない（1行で間が取れなければ2行・金額だけ・名前だけ）
+// - 狭い画面で横にはみ出す元になっていた部品（選ぶ欄・切り替えのボタン・万一の内訳の表・基準のプランの札・足した項目の値・プランの帯）
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import { BsFigure } from "../src/presentation/BsFigure.tsx";
+import { boxTextFit, boxTextW, BsFigure } from "../src/presentation/BsFigure.tsx";
 import { MainChart, MainLegend, TOUCH_HINT } from "../src/presentation/MainChart.tsx";
 import type { BsYearModel } from "../src/presentation/model.ts";
 import { NARROW_QUERY } from "../src/presentation/narrow.ts";
@@ -235,5 +237,113 @@ describe("戻すボタンの言葉", () => {
   it("アプリの対策: 保存していない変更を全部取り消すボタンは「変更を取り消す」（上部の ↶ と紛れない）", () => {
     const t = src("workspace/LeverPanel.tsx");
     expect(t).toMatch(/data-plan-reset>\s*変更を取り消す/);
+  });
+});
+
+describe("バランスシートの図: 箱の中の名前と金額を詰めない", () => {
+  // ブラウザで測った太字の幅（文字の大きさに対する割合。画面の書体）。見積もりはこれより狭くならない
+  const measured: Record<string, number> = { NISA: 2.79, iDeCo: 3.37, DC: 1.66, 預金: 2, 返戻金: 3, "3,940": 3.37, "8,274": 3.37, "951": 2.15, "1,234": 3.24, "12,345": 4.0 };
+
+  it("幅の見積もりは、実際の太字の幅より狭くない", () => {
+    for (const [s, em] of Object.entries(measured)) expect(boxTextW(s, 1), s).toBeGreaterThanOrEqual(em);
+  });
+
+  it("1行に置くのは、実際の幅で名前と金額の間が文字の大きさの0.6倍以上あるときだけ。入らなければ2行・金額だけ（狭い画面）・名前だけ（広い画面）", () => {
+    const f = 11.5;
+    for (const [name, value] of [["NISA", "3,940"], ["iDeCo", "951"], ["預金", "12,345"], ["返戻金", "1,234"], ["DC", "8,274"]] as const) {
+      for (let colW = 30; colW <= 200; colW += 1) {
+        for (const narrow of [true, false]) {
+          const fit = boxTextFit(name, value, colW, f * 2.2, f, narrow);
+          if (fit === "one") expect(colW - 20 - ((measured[name] as number) + (measured[value] as number)) * f, `${name}|${value} ${colW}`).toBeGreaterThanOrEqual(f * 0.6);
+          expect(fit).not.toBe("two"); // 1行分の高さでは2行にしない
+          if (fit !== "one") expect(fit).toBe(narrow ? (boxTextW(value, f) + 20 <= colW ? "value" : "none") : boxTextW(name, f) + 20 <= colW ? "name" : "none");
+        }
+        // 2行分の高さがあれば、名前の下の行に金額
+        const tall = boxTextFit(name, value, colW, f * 3.2, f, true);
+        if (tall !== "one" && Math.max(boxTextW(name, f), boxTextW(value, f)) + 20 <= colW) expect(tall).toBe("two");
+      }
+    }
+    // 前に詰まって見えた幅（375px の「3時点を並べる」の柱の幅）: 1行にしない
+    expect(boxTextFit("NISA", "3,940", 95, 30, 11.5, true)).not.toBe("one");
+    expect(boxTextFit("NISA", "3,940", 95, 40, 11.5, true)).toBe("two");
+    expect(boxTextFit("NISA", "3,940", 95, 25, 11.5, true)).toBe("value");
+    expect(boxTextFit("NISA", "3,940", 95, 25, 11.5, false)).toBe("name");
+    expect(boxTextFit("NISA", "3,940", 95, 15, 11.5, true)).toBe("none");
+  });
+
+  it("描いた図でも、1行の名前と金額の間が空き、2行のときは上下に重ならない（広い・並べる・狭い・狭い並べる）", () => {
+    const dual = year(
+      [
+        { key: "deposit", label: "預金", group: "liquid", amount: 11_180_000 },
+        { key: "nisa", label: "NISA", group: "market", amount: 39_400_000 },
+        { key: "taxable", label: "課税口座", group: "market", amount: 8_274_000 },
+        { key: "ideco", label: "iDeCo", group: "locked", amount: 9_510_000 },
+        { key: "land", label: "土地", group: "illiquid", amount: 33_490_000 },
+        { key: "building", label: "建物", group: "illiquid", amount: 23_850_000 },
+        { key: "mortgage", label: "住宅ローン", group: "mortgage", amount: 23_330_000 },
+      ],
+      102_374_000,
+    );
+    const draws = [
+      renderToString(h(BsFigure, { year: dual, groups, height: 560, label: "広い" })),
+      renderToString(h(BsFigure, { year: dual, groups, height: 300, compact: true, label: "並べる" })),
+      narrow(() => renderToString(h(BsFigure, { year: dual, groups, height: 380, label: "狭い" }))),
+      narrow(() => renderToString(h(BsFigure, { year: dual, groups, height: 300, compact: true, label: "狭い・並べる" }))),
+    ];
+    let ones = 0;
+    for (const html of draws) {
+      const texts = [...html.matchAll(/<text([^>]*data-bs-text="(name|value)"[^>]*)>([^<]*)<\/text>/g)].map((m) => {
+        const a = (n: string) => Number(new RegExp(` ${n}="([^"]+)"`).exec(m[1] as string)?.[1]);
+        return { kind: m[2], end: (m[1] as string).includes('text-anchor="end"'), x: a("x"), y: a("y"), f: a("font-size"), s: m[3] as string };
+      });
+      expect(texts.length).toBeGreaterThan(0);
+      for (const n of texts.filter((t) => t.kind === "name")) {
+        const same = texts.find((t) => t.kind === "value" && t.end && t.y === n.y);
+        const below = texts.find((t) => t.kind === "value" && !t.end && t.x === n.x && t.y > n.y && t.y - n.y < n.f * 2);
+        if (same !== undefined) {
+          ones++;
+          expect(same.x - boxTextW(same.s, same.f) - (n.x + boxTextW(n.s, n.f)), `${n.s}|${same.s}`).toBeGreaterThanOrEqual(Math.max(10, n.f * 0.9) - 0.01);
+        }
+        if (below !== undefined) expect(below.y - n.y, `${n.s}|${below.s}`).toBeGreaterThanOrEqual(n.f * 1.2);
+      }
+    }
+    expect(ones).toBeGreaterThan(0);
+  });
+});
+
+describe("狭い画面で横にはみ出さない（CSS の決まり）", () => {
+  const app = readFileSync(join(APP_DIR, "src", "styles", "app.css"), "utf8");
+  const bal = readFileSync(join(APP_DIR, "src", "styles", "balance.css"), "utf8");
+  /** 狭い画面の @media の中身（同じ幅の決まりの塊をすべてつなぐ） */
+  const narrowCss = [...app.matchAll(/@media \(max-width: 639\.98px\) \{/g)]
+    .map((m) => {
+      let depth = 0;
+      for (let i = (m.index as number) + m[0].length - 1; i < app.length; i++) {
+        if (app[i] === "{") depth++;
+        if (app[i] === "}" && --depth === 0) return app.slice((m.index as number) + m[0].length, i);
+      }
+      return "";
+    })
+    .join("\n");
+
+  it("プランを並べる・前回と比べるの選ぶ欄は枠の幅を超えない（長いプランの名前でも）", () => {
+    expect(bal).toMatch(/\.bs-pick select \{[^}]*max-width: min\(22em, 100%\);[^}]*min-width: 0;/);
+  });
+  it("切り替えのボタンは狭い画面で折り返す（ページの幅を超えない）", () => {
+    expect(narrowCss).toMatch(/\.seg-g \{ flex-wrap: wrap; max-width: 100%; \}/);
+  });
+  it("万一の内訳の表は、狭い画面で項目の名前と見出しを折り返す", () => {
+    expect(narrowCss).toMatch(/\.cg-break th\[scope="row"\], \.cg-break thead th \{ white-space: normal; \}/);
+  });
+  it("基準のプランの値の札は、狭い画面で折り返す", () => {
+    expect(app).toMatch(/\.base-tag \{[^}]*max-width: 100%;/);
+    expect(app).toMatch(/@media \(max-width: 639\.98px\) \{ \.base-tag \{ white-space: normal; \} \}/);
+  });
+  it("足した項目の値（長い文）は、狭い画面で折り返す", () => {
+    expect(narrowCss).toMatch(/\.added-val \{ white-space: normal; overflow-wrap: anywhere; \}/);
+  });
+  it("プランの帯: 帯はページの幅を超えず、カードの並びは帯の中だけ横にスクロールする（縦のスクロールは奪わない）", () => {
+    expect(app).toMatch(/\.band \{[^}]*min-width: 0; max-width: 100%;/);
+    expect(app).toMatch(/\.band-cards \{[^}]*min-width: 0;[^}]*overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;/);
   });
 });

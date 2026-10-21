@@ -243,7 +243,8 @@
 .bs-tab .num.neg { color: var(--ink-2) !important; }
 .bs-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .bs-pick .k { font-weight: 700; }
-.bs-pick select { font-weight: 700; padding: 3px 8px; border: 1.5px solid var(--field); border-radius: 6px; background: #fff; max-width: 22em; }
+/* 選ぶ欄は、長いプランの名前でも枠の幅を超えない（狭い画面でページが横にはみ出さない。選んだ名前は欄の中で切れる） */
+.bs-pick select { font-weight: 700; padding: 3px 8px; border: 1.5px solid var(--field); border-radius: 6px; background: #fff; max-width: min(22em, 100%); min-width: 0; text-overflow: ellipsis; }
 .bs-pick .note { font-size: 0.8rem; color: var(--ink-2); }
 .bs-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .bs-pair.many { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
