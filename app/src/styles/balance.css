@@ -1,29 +1,29 @@
 /* 資産と負債のタブ（家計のバランスシート）。色は app.css の変数と、ここで決めるバランスシートの色（ベタ塗り。すぐ使えるほど濃い藍、不動産は緑、車・その他は砂色、負債は茶、純資産は灰がかった藍） */
 :root {
-  /* 項目の色 */
+  /* 項目の色: 箱の中の文字はどれも白なので、どの色も白い文字との差 4.5:1 以上（すぐ使えるほど濃く、建物は土地より明るい緑で「減っていく資産」と分かるように） */
   --bs-deposit: #2f4a87;
-  --bs-zaikei: #3d5a98;
-  --bs-finOther: #4a67a6;
-  --bs-nisa: #5f82c9;
-  --bs-childNisa: #7091d0;
-  --bs-taxable: #86a2da;
-  --bs-fxDeposit: #95aedf;
-  --bs-esop: #a3b9e3;
-  --bs-pooled: #7a97d4;
-  --bs-ideco: #bccbe6;
-  --bs-corporateDc: #d6e0f2;
-  --bs-mutualAid: #c9d6ee;
-  --bs-land: #6f9478;
-  --bs-building: #a8c6ad;
-  --bs-realEstateOther: #c4d8c7;
-  --bs-car: #b3a789;
-  --bs-insurance: #dcd4c1;
-  --bs-otherAsset: #cbc2aa;
-  --bs-mortgage: #8f7547;
-  --bs-propertyLoan: #a88e5e;
-  --bs-carLoan: #c4ae80;
-  --bs-scholarship: #d3c199;
-  --bs-debtOther: #b9a072;
+  --bs-zaikei: #36528f;
+  --bs-finOther: #3d5896;
+  --bs-nisa: #3a5eac;
+  --bs-childNisa: #4063aa;
+  --bs-taxable: #4e6aa6;
+  --bs-fxDeposit: #546fa5;
+  --bs-esop: #5a72a2;
+  --bs-pooled: #4a67a9;
+  --bs-ideco: #3a7390;
+  --bs-corporateDc: #52798e;
+  --bs-mutualAid: #46768f;
+  --bs-land: #3c6646;
+  --bs-building: #577c5c;
+  --bs-realEstateOther: #467263;
+  --bs-car: #756647;
+  --bs-insurance: #7e735e;
+  --bs-otherAsset: #796c53;
+  --bs-mortgage: #7c5e2f;
+  --bs-propertyLoan: #806434;
+  --bs-carLoan: #856e40;
+  --bs-scholarship: #85724a;
+  --bs-debtOther: #846a3b;
   --bs-short: #f7dcd8;
   --bs-short-line: #c2867f;
   /* 純資産: ほかの箱と同じベタ塗り。資産の藍（預金・NISA）より灰に寄せた落ち着いた藍で、住宅ローンの茶とも分かれ、白い文字が読める（白地との差 6:1 以上） */
@@ -31,15 +31,15 @@
   --bs-netWorth-ink: #434970; /* 図の外の純資産の金額の文字 */
   /* 分け方の色（推移のグラフ・分からない項目） */
   --bs-g-liquid: #2f4a87;
-  --bs-g-market: #5f82c9;
-  --bs-g-locked: #bccbe6;
-  --bs-g-illiquid: #6f9478;
-  --bs-g-realEstate: #6f9478;
-  --bs-g-other: #b3a789;
-  --bs-g-mortgage: #8f7547;
-  --bs-g-debt: #c4ae80;
-  --bs-t-mortgage: #8f7547;
-  --bs-t-debt: #c4ae80;
+  --bs-g-market: #3a5eac;
+  --bs-g-locked: #3a7390;
+  --bs-g-illiquid: #3c6646;
+  --bs-g-realEstate: #3c6646;
+  --bs-g-other: #756647;
+  --bs-g-mortgage: #7c5e2f;
+  --bs-g-debt: #856e40;
+  --bs-t-mortgage: #7c5e2f;
+  --bs-t-debt: #856e40;
 }
 
 .bs-tab { display: flex; flex-direction: column; gap: 14px; }

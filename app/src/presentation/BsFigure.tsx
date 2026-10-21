@@ -2,6 +2,7 @@
 // - 資産は上から「すぐ使えるお金・値動きのある運用・引き出せないお金・換金しにくい資産」。上の3つは左のかっこで「金融資産 ○万円」
 // - 小さい箱も読める最低限の高さにする（比例からずれた年は図の下に目立たない注記。bsLayout.ts の allocHeights）
 // - 箱はどれも枠線なしのベタ塗りの長方形（純資産も同じ。色は灰がかった藍）。左右の柱を囲む枠も描かない。
+//   箱の中の文字はどれも白（色はどれも白い文字が読める濃さ。balance.css）。下の線（0 の線）は箱の後に1本だけ描く
 //   今の年（事実）も先の年（見込み）も同じ見た目で、見込みかどうかは左上の札（「事実（今・入力した値）」「見込み（○年）」）で示す
 // - 純資産のマイナスは左の下に点線・灰色の斜線（ほかの箱と意味が違うので、ここだけ点線の枠）、資金の不足は右（その他の負債）に薄い赤の斜線
 // - 狭い画面（スマホ。narrow.ts）では、図の外の左右の札（名前と金額・金融資産のかっこ）を描かず、柱を幅いっぱいにして、
@@ -43,8 +44,8 @@ export function useBoxSize<T extends HTMLElement>(initial = 720): { ref: { curre
 
 /** 項目の色（CSS の変数。balance.css）。分からない項目は分け方の色 */
 export const lineColor = (key: string, g?: BsGroupKey | "netWorth" | "neg") => `var(--bs-${key}, var(--bs-g-${g ?? "illiquid"}))`;
-/** 箱の中の文字を白にする濃い色の項目 */
-const DARK = new Set(["deposit", "zaikei", "finOther", "nisa", "land", "mortgage", "netWorth"]);
+/** 箱の中の文字の色: どの箱も白（色は白い文字が読める濃さにそろえてある。balance.css）。資金の不足の斜線だけ濃い文字 */
+const boxInk = (key: string) => (key === "short" ? "var(--ink)" : "#fff");
 
 /** 文字の幅の目安（全角1・半角0.6） */
 const textW = (s: string, f: number) => [...s].reduce((w, c) => w + (c.charCodeAt(0) > 255 ? 1 : 0.6), 0) * f;
@@ -131,8 +132,8 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
   const H = Math.round(height * (px / 16 > 1.1 ? 1.08 : 1));
   const est = !year.fact;
   const headH = fs * (compact ? 2.7 : 3.4);
-  // 狭い画面では、目盛りの「0」が図の下の端で切れないよう少し上げる
-  const base = H - 2 - (narrow ? fs * 0.45 : 0);
+  // 目盛りの「0」（下の線の高さに文字の中ほど）が図の下の端で切れないよう、下の線を少し上げる（どの幅でも）
+  const base = H - 2 - fs * 0.45;
   const plotH = base - headH;
   const padL = narrow ? 2 : compact ? 0 : fs * 1.7;
   const axW = fs * (narrow ? 3.0 : compact ? 3.2 : 4.4);
@@ -215,11 +216,11 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
               <line x1="0" y1="0" x2="0" y2="8" stroke="#b5bcc6" stroke-width="2" />
             </pattern>
           </defs>
-          {/* 目盛り（右端） */}
+          {/* 目盛り（右端）。「0」の印は下の線が兼ねる（重ねて描くと線が太く見えるため） */}
           <line x1={axL} x2={axL} y1={base - plotH} y2={base} stroke="var(--line)" />
           {ticks.map((v) => (
             <g key={v}>
-              <line x1={axL} x2={axL + 5} y1={base - v * kLin} y2={base - v * kLin} stroke="#9aa3ae" />
+              {v > 0 ? <line x1={axL} x2={axL + 5} y1={base - v * kLin} y2={base - v * kLin} stroke="#9aa3ae" /> : null}
               <text x={axX} y={base - v * kLin + fs * 0.27} text-anchor="end" font-size={fs * 0.7} fill="var(--ink-2)">
                 {fmt(v)}
               </text>
@@ -246,7 +247,6 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
           <text x={(xL + colW + xR) / 2} y={hy2} text-anchor="middle" font-size={amF} font-weight="700" fill="var(--ink-2)">
             ＝
           </text>
-          <line x1={xL - 8} x2={xR + colW + 8} y1={base + 0.5} y2={base + 0.5} stroke="#9aa3ae" stroke-width="1.2" />
           {/* 箱 */}
           {drawn.map((d) =>
             d.bot - d.top < 0.3 ? null : (
@@ -278,7 +278,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                   const name = short && q.key === "insurance" ? "返戻金" : short && q.key === "corporateDc" ? "DC" : q.label;
                   // 純資産の箱の中は、広い図では「資産 − 負債」の説明（名前と金額は図の外の札）。狭い画面ではほかの箱と同じく名前と金額
                   const showText = (!isNw || narrow) && !isNeg && q.h >= subF * 1.55;
-                  const tf = DARK.has(q.key) ? "#fff" : "var(--ink)";
+                  const tf = boxInk(q.key);
                   const nmW = textW(name, subF);
                   const vW = fmt(q.value).length * subF * 0.6;
                   const ty = q.y + q.h / 2 + subF * 0.36;
@@ -329,6 +329,9 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
               </g>
             ),
           )}
+          {/* 下の線（0 の線）: 箱の後に1本で描く。箱の白い縁の下に隠れて、柱の間・両端だけが太く・点のように見えないように。
+              右端は目盛りの「0」の印まで延ばす（印は描かない） */}
+          <line data-bs-baseline x1={Math.max(0.5, xL - 8)} x2={axL + 5} y1={base + 0.6} y2={base + 0.6} stroke="#9aa3ae" stroke-width="1.2" />
           {!compact && !noTag && !narrow ? (
             <g data-bs-kind={est ? "est" : "fact"}>
               <rect x="2" y="2" width={tagW} height={fs * 1.55} rx="4" fill={est ? "#fff" : "var(--ink)"} stroke={est ? "var(--ink-2)" : "var(--ink)"} stroke-width="1.5" />
