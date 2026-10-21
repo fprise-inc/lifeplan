@@ -83,7 +83,7 @@ export const TABS: { id: Tab; label: string }[] = [
 ];
 
 /** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#add=pet,periodic（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
- * #items=loan,rate,shift,mix（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
+ * #items=loan,rate,shift,mix,surplus,reserve（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
  * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）） */
 export function parseHash(hash: string): {
   /** 文字を大きくした状態で開く */
@@ -2059,11 +2059,11 @@ export function App() {
   );
 }
 
-/** 画面の確かめ用（開発用のサーバーだけ）: #items=loan,rate,shift,mix で、よく使う項目を対策に足す */
+/** 画面の確かめ用（開発用のサーバーだけ）: #items=loan,rate,shift,mix,surplus,reserve で、よく使う項目を対策に足す */
 function devItems(cat: Catalog, kinds: string[]): string[] {
   const out: string[] = [];
   for (const k of kinds) {
-    const it = cat.items.find((x) => (k === "loan" ? /^loan:.*:(principal|prepay)$/.test(x.key) : k === "rate" ? /^loan:.*:rate$/.test(x.key) : k === "shift" ? x.key === "rates:shift" : k === "mix" ? x.key.startsWith("mix:") && x.control.kind === "mix" && x.control.accountKind !== "deposit" : false));
+    const it = cat.items.find((x) => (k === "loan" ? /^loan:.*:(principal|prepay)$/.test(x.key) : k === "rate" ? /^loan:.*:rate$/.test(x.key) : k === "shift" ? x.key === "rates:shift" : k === "mix" ? x.key.startsWith("mix:") && x.control.kind === "mix" && x.control.accountKind !== "deposit" : k === "surplus" ? x.key === "surplus:ratio" : k === "reserve" ? x.key === "reserve:months" : false));
     if (it !== undefined) out.push(it.key);
   }
   return out;

@@ -302,8 +302,8 @@ function reserveGroup(wh: WorkingHousehold): GroupDef {
         level: "detail",
         kind: "select",
         options: [
-          { value: "exclude", label: "生活防衛資金を除いて判定（既定）" },
-          { value: "include", label: "生活防衛資金も含めて判定" },
+          { value: "exclude", label: "除いて判定（既定）" },
+          { value: "include", label: "含めて判定" },
         ],
         help: "除いて判定すると、生活防衛資金に手をつけ始める年を「足りなくなる年」として見せます（資金の不足が出るのは、生活防衛資金も使い切った後）",
         get: (w) => ({ value: reserveOf(w.request)?.countInLasting === true ? "include" : "exclude" }),
