@@ -215,7 +215,7 @@ describe("図の置き方（縮尺・最低限の高さ）", () => {
     for (let i = 1; i < sorted.length; i++) expect(sorted[i]! - sorted[i - 1]!).toBeGreaterThanOrEqual(40 - 1e-9);
   });
 
-  it("図の部品だけでも描ける（今は事実の札、先の年は見込みの札。枠はどちらも同じ実線で、色も薄くしない）", () => {
+  it("図の部品だけでも描ける（今は事実の札、先の年は見込みの札。どちらも同じベタ塗りで柱の枠は描かず、色も薄くしない）", () => {
     const req = modelHousehold("salariedCoupleTwoKids");
     const p = bsPlan({ key: "A", letter: "A", name: "プランA", title: "現状", base: true, req, table: preview(req).table });
     const groups = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "" }).groups;

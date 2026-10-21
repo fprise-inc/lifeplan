@@ -18,8 +18,12 @@ import { PeriodBand, stackAreas, stressPaths } from "./InvestLayers.tsx";
 import { Pattern, Swatch } from "./StackChart.tsx";
 import { useSwitchEase, useTween, type Series } from "./tween.ts";
 import { estimateWidth, indexAt, placeAbove, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
+import { useNarrow } from "./narrow.ts";
 
 export type ChartMode = "assets" | "flows";
+
+/** 狭い画面・タッチの端末でのグラフの使い方の文（長い文の代わり。app.css の .hint-short） */
+export const TOUCH_HINT = "グラフを押すとその年の数字が出ます";
 export const CHART_MODES: readonly { id: ChartMode; label: string }[] = [
   { id: "assets", label: "資産の推移" },
   { id: "flows", label: "収支の推移" },
@@ -451,6 +455,8 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const evOn = evFocus.on;
   const tipSize = useBoxSize(tip);
   const evTipSize = useBoxSize(evTipEl);
+  // 狭い画面（スマホ）では、資産が尽きる年の文字を出さない（線に重なって読みにくい。見出しの文が同じことを言い、0の線の△と縦の点線は残す）
+  const narrow = useNarrow();
 
   const n = model.chart.years.length;
   const ex = explain?.model ?? null;
@@ -692,9 +698,11 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         <g key={`dep-${d.series}`}>
           <line x1={x} x2={x} y1={y0} y2={f.height - f.bottom} class="dep-line" />
           <path d={`M${x} ${y0 - 11} l8 13 h-16 z`} class={`dep-tri${d.series === "current" ? " base" : ""}`} />
+          {narrow ? null : (
           <text x={x > f.width - f.right - 180 * fs ? x - 10 : x + 10} y={y0 - 8 - dy} class="dep-txt" text-anchor={x > f.width - f.right - 180 * fs ? "end" : "start"}>
             {inv !== undefined ? (d.series === "proposal" ? `${same ? "" : `${model.names.selected} `}${inv.lasts.selected}` : `${model.names.base} ${inv.lasts.base}`) : d.label}
           </text>
+          )}
         </g>,
       );
     }
@@ -1020,7 +1028,12 @@ export function MainLegend({ model, mode, explain, side = false }: { model: Main
       <span class="hint">
         {explain !== null
           ? "説明モード: 「次へ」で1段ずつ足します"
-          : `${side ? "2つのグラフは縦の目盛りをそろえています。" : ""}グラフに合わせるとその年の数字。クリックで固定（下の表の同じ年が光る。もう一度クリックか Esc で外す）。下の丸はその年のできごと`}
+          : (
+            <>
+              <span class="hint-long">{`${side ? "2つのグラフは縦の目盛りをそろえています。" : ""}グラフに合わせるとその年の数字。クリックで固定（下の表の同じ年が光る。もう一度クリックか Esc で外す）。下の丸はその年のできごと`}</span>
+              <span class="hint-short">{TOUCH_HINT}</span>
+            </>
+          )}
       </span>
     </div>
   );

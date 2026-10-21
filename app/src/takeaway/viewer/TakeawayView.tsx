@@ -1,6 +1,6 @@
 // 持ち帰り用のレポートの画面（0030）: アプリの結果の画面を顧客向けに簡単にしたもの。
 // - 上から: 見出し（宛名・作成日・事務所名）→ プランの帯 → 大きなグラフ（資産の推移・収支の推移。ホバーで○・クリックで固定）→
-//   試してみる（FP が許したつまみだけ。元に戻す・FP の提案に戻す）→ 資産と負債の図 → キャッシュフロー表の要約 → 注意書き
+//   試してみる（FP が許したつまみだけ。1つ前に戻す・最初に戻す＝FP の提案の値）→ 資産と負債の図 → キャッシュフロー表の要約 → 注意書き
 // - グラフ・帯の見た目・資産と負債の図は、アプリの提示層の部品（MainChart・BsFigure）と同じもの。数字はファイルの中の計算エンジンで計算する
 // - 受け取るのは TakeawayData（model.ts の許可した値）と計算エンジンだけ
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -220,7 +220,7 @@ export function TakeawayView({ data, engine, preview = false }: TakeawayViewProp
           </>
         ) : (
           <p class="fatal" role="alert">
-            この条件では計算できませんでした（{error ?? "計算しています"}）。「元に戻す」か「FPの提案に戻す」を押してください。
+            この条件では計算できませんでした（{error ?? "計算しています"}）。「1つ前に戻す」か「最初に戻す」を押してください。
           </p>
         )}
       </section>
@@ -315,11 +315,11 @@ function Levers(p: LeversProps) {
         <h2 id="tk-lev">試してみる</h2>
         <span class="lv-who">{locked ? <>{planLabel(p.sel)}を表示中</> : <><b>{planLabel(p.sel)}</b>に効きます</>}</span>
         <span class="lv-gap" />
-        <button type="button" class="btn" disabled={!p.canUndo} onClick={p.onUndo} data-takeaway-undo>
-          元に戻す
+        <button type="button" class="btn" disabled={!p.canUndo} onClick={p.onUndo} title="最後に動かした1つだけを戻します" data-takeaway-undo>
+          <span aria-hidden="true">↶ </span>1つ前に戻す
         </button>
-        <button type="button" class="btn" disabled={!p.canReset} onClick={p.onReset} data-takeaway-reset>
-          FPの提案に戻す
+        <button type="button" class="btn" disabled={!p.canReset} onClick={p.onReset} title="動かしたものを全部戻し、FPの提案の値にします" data-takeaway-reset>
+          最初に戻す
         </button>
       </div>
       {locked ? (
