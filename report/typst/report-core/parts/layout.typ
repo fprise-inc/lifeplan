@@ -240,30 +240,40 @@
 
 // ---- バランスシートの図（アプリの「資産と負債」のタブと同じ分け方・色。時点を並べ、共通の縮尺）----
 
-// 箱の中の文字はどれも白。どの色も白い文字との差 4.5:1 以上（建物は土地より明るい緑で「減っていく資産」と分かるように）
+// 箱の中の文字はどれも白（7pt の太字で小さい文字なので、どの色も白い文字との差 4.5:1 以上）。色は画面の balance.css と同じ（意味で色相を分ける:
+// 資産は青の仲間で、すぐ使えるお金ほどあざやか・換金しにくい資産は灰色がかった青、負債は茶、純資産はアプリの藍の仲間）。
+// 隣り合う箱は明るさを交互にして、白黒で印刷しても分かれる（建物は土地より明るい: 年数とともに減っていく資産）
 #let bs-colors = (
-  liquid: rgb("#2f4a87"),
-  market: rgb("#3a5eac"),
-  locked: rgb("#3a7390"),
-  illiquid: rgb("#3c6646"),
-  land: rgb("#3c6646"),
-  building: rgb("#577c5c"),
-  illiquidOther: rgb("#756647"),
-  mortgage: rgb("#7c5e2f"),
-  debt: rgb("#856e40"),
-  // 純資産: ほかの箱と同じベタ塗り（灰がかった藍。資産の藍・住宅ローンの茶と分かれ、白い文字が読める。画面の balance.css と同じ色）
-  netWorth: rgb("#565d8c"),
+  liquid: rgb("#0f61a5"),
+  market: rgb("#007fa4"),
+  locked: rgb("#00524d"),
+  illiquid: rgb("#4f6079"),
+  land: rgb("#4f6079"),
+  building: rgb("#6a7780"),
+  illiquidOther: rgb("#414f5a"),
+  mortgage: rgb("#a46738"),
+  debt: rgb("#65411f"),
+  netWorth: rgb("#355ba4"),
 )
+// 箱の形: 箱の間に細い余白を空け、角を少し丸める（画面の図と同じ形）
+#let bs-gap = 1.5pt
+#let bs-radius = 3pt
 #let bs-short = (liquid: "すぐ使える", market: "値動きあり", locked: "引き出せない", illiquid: "換金しにくい", land: "土地", building: "建物", illiquidOther: "車・その他", mortgage: "住宅ローン", debt: "その他の負債", netWorth: "純資産")
 
 /// 1本の柱（箱を上から積む）。total はこの柱の額、h は縮尺の高さ（scale の額に当たる）
 #let bs-column(boxes, total, scale, h, w, fact, neg: 0) = {
   let colh = h * (total + neg) / scale
-  // 箱はどれも枠線なしのベタ塗り（純資産も同じ）。柱を囲む枠も描かない（見込みかどうかは時点の札で示す）
+  // 箱はどれも枠線なしのベタ塗り（純資産も同じ）。箱の間に細い余白、角は少し丸める。柱を囲む枠は描かない（見込みかどうかは時点の札で示す）
+  // 外の箱は金額に比例した高さ（余白を含む）、中の箱はその高さから余白を引いた形。ごく薄い箱は余白で消えないよう余白なし
+  let tile(bh, fill, stroke: none, body) = {
+    let g = if bh > bs-gap * 2.5 { bs-gap / 2 } else { 0pt }
+    block(width: 100%, height: bh, inset: (y: g), spacing: 0pt,
+      block(width: 100%, height: 100%, fill: fill, stroke: stroke, radius: calc.min(bs-radius, bh / 2 - g), inset: (x: 3pt), spacing: 0pt, body))
+  }
   let cells = boxes.map(b => {
     let bh = colh * b.amount / (total + neg)
     let fill = bs-colors.at(b.key, default: band)
-    block(width: 100%, height: bh, fill: fill, stroke: (bottom: 0.6pt + white), inset: (x: 3pt), spacing: 0pt, {
+    tile(bh, fill, {
       if bh >= 15pt {
         set text(size: min-size, fill: if b.key in bs-colors { white } else { ink }, weight: "bold")
         align(horizon, stack(dir: ttb, spacing: 1pt, bs-short.at(b.key, default: b.label), man(b.amount)))
@@ -272,7 +282,7 @@
   })
   if neg > 0 {
     let nh = colh * neg / (total + neg)
-    cells.push(block(width: 100%, height: nh, fill: white, stroke: (paint: muted, thickness: 0.7pt, dash: "dashed"), spacing: 0pt, inset: (x: 3pt), {
+    cells.push(tile(nh, white, stroke: (paint: muted, thickness: 0.7pt, dash: "dashed"), {
       if nh >= 15pt { align(horizon, text(size: min-size, fill: muted, weight: "bold", "足りない分\n▲" + man(neg))) }
     }))
   }

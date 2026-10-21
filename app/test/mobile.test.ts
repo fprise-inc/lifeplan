@@ -1,7 +1,7 @@
 // 狭い画面（スマホ）での見え方と、バランスシートの図の純資産の箱:
 // - 狭い画面では、資産の推移のグラフの中の「○歳で不足」の文字を出さない（0の線の△と縦の点線は残す）。広い画面では今のまま
 // - グラフの使い方の文は、狭い画面・タッチの端末では短い文（「クリック」「Esc」を言わない）
-// - バランスシートの図: 純資産もほかの箱と同じ枠線なしのベタ塗り。柱を囲む枠は描かない。狭い画面では図の外の札を出さず、図の下の一覧に出す
+// - バランスシートの図: 純資産もほかの箱と同じ枠線なしのベタ塗り（箱の間に細い余白・角を少し丸める）。柱を囲む枠は描かない。狭い画面では図の外の札を出さず、図の下の一覧に出す
 // - バランスシートの図: 箱の中の文字はどれも白（色は白い文字が読める濃さ）。下の線は1本（目盛りの「0」の印と重ねない）
 // - 持ち帰り用のレポートの「1つ前に戻す」「最初に戻す」と、アプリの対策の「変更を取り消す」
 import { readFileSync } from "node:fs";
@@ -108,16 +108,17 @@ const minus = year(
 );
 
 describe("バランスシートの図: 純資産の箱と狭い画面", () => {
-  it("純資産はほかの箱と同じ枠線なしのベタ塗り（白い区切りだけ）。柱を囲む枠は描かない", () => {
+  it("純資産はほかの箱と同じ枠線なしのベタ塗り（角を少し丸めた形）。柱を囲む枠は描かない", () => {
     const html = renderToString(h(BsFigure, { year: plus, groups, height: 420, label: "今" }));
     const nw = /<g[^>]*data-bs-box="netWorth"[\s\S]*?<rect class="bsf-seg"([^>]*)>/.exec(html)?.[1] ?? "";
     expect(nw).toContain('fill="var(--bs-netWorth)"');
-    expect(nw).toContain('stroke="#fff"');
+    expect(nw).not.toContain("stroke=");
+    expect(nw).toContain('rx="4"');
     expect(html).not.toContain('stroke="var(--prop)"');
     expect(html).not.toMatch(/<rect[^>]*fill="none"[^>]*stroke="var\(--ink\)"/);
     // 白い文字が読める濃さ（前の薄い色ではない）
     const css = readFileSync(join(APP_DIR, "src", "styles", "balance.css"), "utf8");
-    expect(css).toMatch(/--bs-netWorth: #565d8c;/);
+    expect(css).toMatch(/--bs-netWorth: #355ba4;/);
     // 純資産のマイナスは意味が違うので、点線の枠のまま
     const neg = renderToString(h(BsFigure, { year: minus, groups, height: 420, label: "先" }));
     expect(neg).toContain('data-bs-box="neg"');

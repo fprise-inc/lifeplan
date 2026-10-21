@@ -1,8 +1,8 @@
 // バランスシートの図（提示層の部品）: 左に資産、右に負債と純資産を、金額に比例した高さの箱で描く。左右の高さはいつもそろう（資産の合計＝負債の合計＋純資産）。
 // - 資産は上から「すぐ使えるお金・値動きのある運用・引き出せないお金・換金しにくい資産」。上の3つは左のかっこで「金融資産 ○万円」
 // - 小さい箱も読める最低限の高さにする（比例からずれた年は図の下に目立たない注記。bsLayout.ts の allocHeights）
-// - 箱はどれも枠線なしのベタ塗りの長方形（純資産も同じ。色は灰がかった藍）。左右の柱を囲む枠も描かない。
-//   箱の中の文字はどれも白（色はどれも白い文字が読める濃さ。balance.css）。下の線（0 の線）は箱の後に1本だけ描く
+// - 箱はどれも枠線なしのベタ塗りで、箱の間に細い余白（BOX_GAP）を空け、角を少し丸める（BOX_RADIUS）。純資産も同じ（色はアプリの藍の仲間）。
+//   左右の柱を囲む枠は描かない。箱の中の文字はどれも白（色はどれも白い文字が読める濃さ。balance.css）。下の線（0 の線）は箱の後に1本だけ描く
 //   今の年（事実）も先の年（見込み）も同じ見た目で、見込みかどうかは左上の札（「事実（今・入力した値）」「見込み（○年）」）で示す
 // - 純資産のマイナスは左の下に点線・灰色の斜線（ほかの箱と意味が違うので、ここだけ点線の枠）、資金の不足は右（その他の負債）に薄い赤の斜線
 // - 狭い画面（スマホ。narrow.ts）では、図の外の左右の札（名前と金額・金融資産のかっこ）を描かず、柱を幅いっぱいにして、
@@ -46,6 +46,10 @@ export function useBoxSize<T extends HTMLElement>(initial = 720): { ref: { curre
 export const lineColor = (key: string, g?: BsGroupKey | "netWorth" | "neg") => `var(--bs-${key}, var(--bs-g-${g ?? "illiquid"}))`;
 /** 箱の中の文字の色: どの箱も白（色は白い文字が読める濃さにそろえてある。balance.css）。資金の不足の斜線だけ濃い文字 */
 const boxInk = (key: string) => (key === "short" ? "var(--ink)" : "#fff");
+
+/** 箱の間の余白と角の丸み（図の座標。文字の大きさ 16px のときの px） */
+export const BOX_GAP = 2;
+export const BOX_RADIUS = 4;
 
 /** 文字の幅の目安（全角1・半角0.6） */
 const textW = (s: string, f: number) => [...s].reduce((w, c) => w + (c.charCodeAt(0) > 255 ? 1 : 0.6), 0) * f;
@@ -136,7 +140,10 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
   const base = H - 2 - fs * 0.45;
   const plotH = base - headH;
   const padL = narrow ? 2 : compact ? 0 : fs * 1.7;
-  const axW = fs * (narrow ? 3.0 : compact ? 3.2 : 4.4);
+  // 目盛りの幅: 一番大きい目盛りの数字（1億円を超えると「15,000」の5桁）が、目盛りの線と印に重ならず右の柱にも触れない幅
+  const step = tickStep(SC, compact ? 4 : 6);
+  const tickF = fs * 0.7;
+  const axW = Math.max(fs * (narrow ? 3.0 : compact ? 3.2 : 4.4), textW(fmt(Math.floor(SC / step) * step), tickF) + fs * 0.6 + 8);
   const labW = narrow ? 0 : compact ? Math.max(fs * 6.4, (W - axW) * 0.26) : Math.max(130, Math.min(250, (W - padL - axW) * 0.22));
   const gap = narrow ? fs * 1.5 : compact ? fs * 1.4 : Math.max(36, fs * 2.6);
   const colW = Math.max(fs * 3.4, Math.min(narrow ? 240 : compact ? 190 : 320, (W - padL - axW - 2 * labW - gap) / 2));
@@ -176,7 +183,6 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
   // 純資産のマイナスは、並べる小さな図では「純資産」（金額に▲が付くので「純資産 ▲○万円」と読める。長い名前は枠の左で切れる）
   const nameOf = (b: FigBox) => (b.key === "netWorth" ? "純資産" : b.key === "neg" ? (compact ? "純資産" : "純資産のマイナス") : compact ? groups[b.key].short : groups[b.key].name);
 
-  const step = tickStep(SC, compact ? 4 : 6);
   const axL = xR + colW + labW + fs * (narrow ? 0.4 : 0.6);
   const axX = axL + axW - fs * 0.6;
   const ticks: number[] = [];
@@ -184,7 +190,11 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
   const hy2 = colTop - fs * 0.55;
   const hy1 = hy2 - fs * (compact ? 1.2 : 1.55);
   const nmF = fs * (compact ? 0.76 : 0.9);
-  const amF = fs * (compact ? 1.05 : 1.45);
+  // 見出しの合計の金額: 1億円を超えて桁が増えても、左右の金額が真ん中の「＝」に触れないよう、入らなければ文字を小さくする
+  const amF0 = fs * (compact ? 1.05 : 1.45);
+  const headW = (v: number) => textW(fmt(v), amF0) + textW("万円", amF0 * 0.6);
+  const headRoom = colW + gap - textW("＝", amF0) - fs * 0.9;
+  const amF = amF0 * Math.max(0.62, Math.min(1, headRoom / Math.max(headW(A), headW(L + Math.max(0, nw)), 1)));
   const subF = fs * (compact ? 0.78 : 0.86);
   const lh = fs * (compact ? 2.5 : 3.2);
   const fg = drawn.filter((d) => FINANCIAL_GROUPS.includes(d.box.key as BsGroupKey) && d.bot - d.top >= 0.3);
@@ -221,7 +231,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
           {ticks.map((v) => (
             <g key={v}>
               {v > 0 ? <line x1={axL} x2={axL + 5} y1={base - v * kLin} y2={base - v * kLin} stroke="#9aa3ae" /> : null}
-              <text x={axX} y={base - v * kLin + fs * 0.27} text-anchor="end" font-size={fs * 0.7} fill="var(--ink-2)">
+              <text x={axX} y={base - v * kLin + fs * 0.27} text-anchor="end" font-size={tickF} fill="var(--ink-2)">
                 {fmt(v)}
               </text>
             </g>
@@ -275,6 +285,9 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                   const isNeg = q.key === "neg";
                   const fill = q.key === "short" ? `url(#${uid}-ht)` : isNeg ? `url(#${uid}-ng)` : isNw ? "var(--bs-netWorth)" : lineColor(q.key, d.box.key);
                   const inset = isNeg ? 1 : 0;
+                  // 箱の間の余白（上下に半分ずつ）。ごく薄い箱は余白で消えないよう、余白なしで描く
+                  const g2 = q.h > BOX_GAP * 2.5 ? BOX_GAP / 2 : 0;
+                  const rh = Math.max(0, q.h - 2 * inset - 2 * g2);
                   const name = short && q.key === "insurance" ? "返戻金" : short && q.key === "corporateDc" ? "DC" : q.label;
                   // 純資産の箱の中は、広い図では「資産 − 負債」の説明（名前と金額は図の外の札）。狭い画面ではほかの箱と同じく名前と金額
                   const showText = (!isNw || narrow) && !isNeg && q.h >= subF * 1.55;
@@ -289,12 +302,13 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                       <rect
                         class="bsf-seg"
                         x={d.x + inset}
-                        y={q.y + inset}
+                        y={q.y + inset + g2}
                         width={colW - 2 * inset}
-                        height={Math.max(0, q.h - 2 * inset)}
+                        height={rh}
+                        rx={Math.min(BOX_RADIUS, rh / 2, colW / 2)}
                         fill={fill}
-                        stroke={isNeg ? "var(--base-ink)" : "#fff"}
-                        stroke-width={isNeg ? 1.8 : 2}
+                        stroke={isNeg ? "var(--base-ink)" : undefined}
+                        stroke-width={isNeg ? 1.8 : undefined}
                         stroke-dasharray={isNeg ? "6 4" : undefined}
                       />
                       {showText && nmW + 20 <= colW ? (
@@ -325,7 +339,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                     足りない分
                   </text>
                 ) : null}
-                {open === d.box.key ? <rect x={d.x - 3} y={d.top - 3} width={colW + 6} height={d.bot - d.top + 6} fill="none" stroke="var(--ink)" stroke-width="2.5" rx="2" /> : null}
+                {open === d.box.key ? <rect x={d.x - 3} y={d.top - 3} width={colW + 6} height={d.bot - d.top + 6} fill="none" stroke="var(--ink)" stroke-width="2.5" rx={BOX_RADIUS + 2} /> : null}
               </g>
             ),
           )}
@@ -366,8 +380,12 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
             const tx = Ls ? xL - 16 : xR + colW + 16;
             const anc = Ls ? "end" : "start";
             const by = Math.min(Math.max(y, d.top + 1), d.bot - 1);
-            const nF = fs * (compact ? 0.8 : 1.0);
-            const aF = fs * (compact ? 1.1 : 1.6);
+            // 札が枠の外で欠けないよう、入る幅（左は枠の左端まで、右は目盛りまで）に収まらなければ文字を小さくする（純資産のマイナスの「▲」など）
+            const room = Ls ? tx - 2 : axL - tx - 4;
+            const need = Math.max(textW(nameOf(d.box), fs * (compact ? 0.8 : 1.0)), textW(`${d.box.key === "neg" ? "▲" : ""}${fmt(d.box.value)}`, fs * (compact ? 1.1 : 1.6)) + textW("万円", fs * (compact ? 1.1 : 1.6) * 0.55));
+            const fit = Math.max(0.6, Math.min(1, room / Math.max(need, 1)));
+            const nF = fs * (compact ? 0.8 : 1.0) * fit;
+            const aF = fs * (compact ? 1.1 : 1.6) * fit;
             return (
               <g key={`lb-${d.box.key}`} class="bsf-label" data-bs-label={d.box.key}>
                 <path d={`M${ex + (Ls ? -2 : 2)} ${by} L${tx + (Ls ? 5 : -5)} ${y}`} stroke="#9aa3ae" fill="none" />
