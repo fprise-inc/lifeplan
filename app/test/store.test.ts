@@ -31,6 +31,8 @@ function sample(): BodyState {
     ...(hh.goals ?? []).map((g, i) => (i === 0 && g.education !== undefined ? { ...g, education: { ...g.education, schoolLunch: "free" as const } } : g)),
     { id: "00000000-0000-4000-8000-0000000000ba", kind: "education", owner: baby, education: { stages: [{ stage: "nursery", hours: "short", feeRatio: "0.6" }] } },
   ];
+  // 0.11 から: 黒字のうち貯まる割合（期間で変える組つき）と生活防衛資金（基本生活費の6か月分）（0031）
+  Object.assign(req.input.assumptions ?? {}, { surplusSaving: { ratio: "0.6", changes: [{ from: { at: "2038-04" }, ratio: "0.8" }] }, emergencyReserve: { months: 6 } });
   const self = roles(req).find((r) => r.key === "self")!.member;
   const demo = demoHousehold(id) ?? null;
   let wh: WorkingHousehold = fromRequest(req, { memo: ["架空のメモ"] });
@@ -115,6 +117,13 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(Object.keys(tk.takeaway ?? {}).sort()).toEqual(["createdOn", "digest", "knobs", "password", "plans", "proposal", "views"]);
     expect(await verifySnapshot(tk)).toBe(true);
     expect(JSON.parse(bodyOf(sample())).snapshots).toBeUndefined();
+  });
+
+  it("黒字のうち貯まる割合と生活防衛資金（0.11 から。0031）を保存して読み戻す", () => {
+    const back = fromBody(bodyOf(sample()));
+    expect(back.wh.request.input.assumptions?.surplusSaving).toEqual({ ratio: "0.6", changes: [{ from: { at: "2038-04" }, ratio: "0.8" }] });
+    expect(back.wh.request.input.assumptions?.emergencyReserve).toEqual({ months: 6 });
+    expect(BODY_FORMAT_VERSION).toBe("0.11");
   });
 
   it("案の数に上限は無い", () => {

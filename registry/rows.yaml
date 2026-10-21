@@ -423,6 +423,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.expense.living.surplus
+    status: active
+    label: "ゆとりの支出（黒字のうち貯まらない分。0031）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.expense.housing
     status: active
     label: 住居関連費
@@ -789,6 +795,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.balance.financial.usable
+    status: active
+    label: "使えるお金（金融資産−生活防衛資金の目安。「金融資産は○歳まで持つ」の判定の基。0031）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.financial.reserveTarget
+    status: active
+    label: "生活防衛資金の目安（金額か、その年の基本生活費の○か月分。0031）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.balance.account
     status: active
     label: 器ごとの残高
@@ -900,6 +918,12 @@ entries:
   - id: cf.balance.account.pooled
     status: active
     label: "まとめた金融資産（合計で入れた金融資産・まだ口座に分けていない分）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.balance.account.reserve
+    status: active
+    label: "生活防衛資金（取り崩しは最後。0031）"
     since: draft
     aliases: []
     replacedBy: null

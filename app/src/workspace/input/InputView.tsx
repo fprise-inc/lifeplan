@@ -3,6 +3,7 @@
 // 項目が増えたら、まとまりの見出しで区切る（items.ts の GROUP_HEADINGS_FROM）。「＋ 項目を追加」で FP が項目を足せる
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
@@ -20,6 +21,8 @@ interface Props {
   initialOpen?: string;
   /** 進み具合の下に置く道具（ヒアリングシートの書き出しと取り込み）。カードの並びの上に出す */
   tools?: ComponentChildren;
+  /** 1件だけの計算（前提条件のパネルの、控えから見た実際の貯まり方。0031） */
+  computeOne?: (req: EngineRequest) => Promise<PreviewResult | null>;
 }
 
 function Card({ item, onOpen, flash }: { item: InputItem; onOpen: (id: string) => void; flash: boolean }) {
@@ -91,7 +94,7 @@ function AddCard({ open, onOpen, onPick }: { open: boolean; onOpen: (v: boolean)
   );
 }
 
-export function InputView({ wh, onSave, level, onLevel, initialOpen, tools }: Props) {
+export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, computeOne }: Props) {
   const items = useMemo(() => inputItems(wh), [wh]);
   const groups = useMemo(() => groupedItems(items), [items]);
   const p = progressOf(items);
@@ -198,6 +201,7 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools }: Pr
           onLevel={onLevel}
           onSave={save}
           onClose={close}
+          {...(computeOne !== undefined ? { computeOne } : {})}
         />
       ) : null}
       <div class={`toast${toast !== null ? " on" : ""}`} role="status" aria-live="polite">

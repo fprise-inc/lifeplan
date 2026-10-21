@@ -8,7 +8,7 @@ import { bsSeries, BS_GROUP_LABEL, BS_GROUP_SHORT, groupTotal, type BsAt, type B
 import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsMarkKind, BsPlanModel, BsPointKey, BsPointModel, BsPrevModel, BsYearModel, VerdictPart } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
-import { depletionYear, eventsOf } from "./present.ts";
+import { depletionYear, eventsOf, SURPLUS_ROW } from "./present.ts";
 import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
 
 /** 家計の体力の目安の幅の最初の値（事務所の設定で FP が変えられる） */
@@ -132,7 +132,7 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
   const h = req.input.household;
   const at: BsAt[] = bsSeries(p.table, years, { residences: h.residences ?? [], debts: (h.debts ?? []).map((d) => ({ id: d.id, kind: d.kind, ...(d.property !== undefined ? { property: d.property } : {}) })) });
   const lineOf = (i: number, key: string) => (at[i] as BsAt).lines.find((l) => l.key === key)?.amount ?? 0;
-  const living = byYear(p.table, years, (c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.drawdown");
+  const living = byYear(p.table, years, (c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.drawdown" && c.row !== SURPLUS_ROW);
   const loanPay = byYear(p.table, years, (c) => c.row === "cf.expense.housing.loan");
   const prepay = byYear(p.table, years, (c) => c.row === "cf.expense.housing.loan.prepayment");
   const retireLump = byYear(p.table, years, (c) => under(c.row, "cf.income.lumpSum.retirement") || under(c.row, "cf.income.lumpSum.db"));
@@ -220,7 +220,7 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
     const insight = insightFor({ i, a, pr, retired: retireYear !== null && year > retireYear, prepay: prepay[i] ?? 0, dcLump: dcLump[i] ?? 0, principal, loanPay: loanPay[i] ?? 0, sale: sale[i] ?? 0 });
     const monthly = (living[i] ?? 0) / 12;
     const notes: BsYearModel["notes"] = {
-      liquid: `今日・明日にでも使えるお金です。${monthly > 0 ? `生活費（月${mn(monthly)}）の${monthsText(liquid / monthly)}。` : ""}急な出費や、収入で足りない分はまずここから出ます。`,
+      liquid: `今日・明日にでも使えるお金です。${monthly > 0 ? `生活費（月${mn(monthly)}）の${monthsText(liquid / monthly)}。` : ""}急な出費や、収入で足りない分はまずここから出ます。${lineOf(i, "reserve") > 0 ? `そのうち生活防衛資金（${mn(lineOf(i, "reserve"))}）は、運用せずに取り崩さないお金として分けています（ほかのお金を使い切るまで手をつけない前提）。` : ""}`,
       market: "株や投資信託など。売ればお金になりますが、そのときの相場で金額が変わります（口座に分けずにまとめて入れた金融資産も、ここに数えています）。",
       locked: "iDeCo・企業型DC・小規模企業共済など。原則として決まった年齢（iDeCo・企業型DCは60歳）まで引き出せません。受け取ると「すぐ使えるお金」に移ります。",
       illiquid: `住んでいる家・貸している不動産・使っている車・保険の解約返戻金など、すぐにはお金にしにくいもの。${land + building > 0 ? `不動産は土地（${mn(land)}）と建物（${mn(building)}）に分けて見込んでいます。土地は上昇率で動かし、建物は構造の耐用年数で定額で減らして、建てたときの価値の一定の割合を下限に残します。建物は年数とともに価値が減りますが、土地は残ります。` : ""}`,

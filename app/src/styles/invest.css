@@ -122,12 +122,16 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 
 /* 資産の推移: 口座の内訳の面 */
 .chart .inv-area { stroke: #fff; stroke-width: 0.6; }
+.inv-res { fill: #b7d3cf; background: #b7d3cf; }
 .inv-dep { fill: #cad2dd; background: #cad2dd; }
 .inv-un { fill: #ddd6e8; background: #ddd6e8; }
 .inv-dc { fill: #a8c59e; background: #a8c59e; }
 .inv-nisa { fill: #8ea7d5; background: #8ea7d5; }
 .inv-tax { fill: #e2cd9b; background: #e2cd9b; }
 .chart .period-line { stroke: #9aa3ae; stroke-width: 1; }
+/* 生活防衛資金の目安の線（0031） */
+.chart .reserve-line { fill: none; stroke: #3f7f78; stroke-width: 1.5; stroke-dasharray: 5 4; }
+.chart .reserve-txt { font-size: 12px; fill: #3f7f78; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
 /* 相場が下がった場合の線（色と線の種類で見分ける） */
 .chart .stress-line { fill: none; stroke-width: 2; }
 .chart .stress-line.s-drop { stroke: var(--s1); }

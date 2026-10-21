@@ -4,6 +4,7 @@ import { useState } from "preact/hooks";
 import type { Account, EngineRequest } from "../../../engine/types.ts";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
 import { ageAt } from "../../levers.ts";
+import { reserveOf } from "../../surplus.ts";
 import { Section, visible } from "../FieldViews.tsx";
 import type { Level } from "../form.ts";
 import { confirmedBox, mutate, type WorkingHousehold } from "../household.ts";
@@ -323,7 +324,18 @@ function TotalSection({ wh, onEdit, stopAge }: { wh: WorkingHousehold; onEdit: (
           <NumBox value={t.rate} unit="pct" size="s" label="平均の利回り" data="total-rate" onCommit={(v) => typeof v === "string" && onEdit(editTotal(wh, { rate: v }))} />
           <span class="u">%</span>
         </div>
-        <p class="help">預金も含めた全体の平均。迷ったら、預金が多いほど低めに。</p>
+        <p class="help">{t.uninvested !== null ? "運用しない分を除いた、運用する分の平均。" : "預金も含めた全体の平均。迷ったら、預金が多いほど低めに。"}</p>
+      </div>
+      <div class="sv-fld">
+        <span class="lbl">運用しない分（金額）</span>
+        <div class="ctl">
+          <NumBox value={t.uninvested} unit="man" optional placeholder="0" label="運用しない分" data="total-uninvested" onCommit={(v) => (v === null || typeof v === "number") && onEdit(editTotal(wh, { uninvested: v }))} />
+          <span class="u">万円</span>
+        </div>
+        <p class="help">
+          預金のまま置いておくお金など。この額には平均の利回りをかけず、預金の利回り（前提条件の「現金・預金」の利回り）で計算します。空欄なら全部に平均の利回り。
+          {reserveOf(req) !== undefined ? "前提条件の生活防衛資金は、この中から分けて取り崩さないお金にします（運用しない分の内に数えます）。" : "生活防衛資金（取り崩さないお金）は前提条件で入れます。"}
+        </p>
       </div>
     </section>
   );

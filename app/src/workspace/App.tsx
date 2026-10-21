@@ -1650,6 +1650,7 @@ export function App() {
             <InputView
               wh={opened.wh}
               onSave={edit}
+              computeOne={computeOne}
               level={level}
               onLevel={setLevel}
               {...(initial.open !== undefined ? { initialOpen: initial.open } : {})}

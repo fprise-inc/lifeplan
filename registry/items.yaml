@@ -92,6 +92,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: account.uninvested
+    status: active
+    label: "運用しない分（金額。まとめた金融資産の器 pooled だけで使う。この額までは預金の利回り。0031）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: account.valueGrowth
     status: active
     label: "評価額の増減率（年率。不動産・その他の資産だけで使う。マイナスも書ける。入れたときは資産の配分の利回りの代わり。省略は不動産は資産クラスの利回り、その他の資産は0）"
@@ -143,6 +149,12 @@ entries:
   - id: assumptions.educationInflation
     status: active
     label: "教育費の上昇率（年率。省略は物価上昇率。学費・学校外活動費に使い、公的支援には使わない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.emergencyReserve
+    status: active
+    label: "生活防衛資金（取り崩さないお金。運用せず預金の利回りで持ち、取り崩しは最後。「金融資産は○歳まで持つ」の判定から除く。0031）"
     since: draft
     aliases: []
     replacedBy: null
@@ -203,6 +215,12 @@ entries:
   - id: assumptions.returnShifts
     status: active
     label: "運用の利回りの書き換え（運用する器だけ。from〜to の年。add を足し、cap より高ければ cap にする。0026）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: assumptions.surplusSaving
+    status: active
+    label: "黒字のうち貯まる割合・上限（一時金の収入を除いた年間収支が黒字の年だけ、貯まらない分を「ゆとりの支出」として支出に足す。0031）"
     since: draft
     aliases: []
     replacedBy: null

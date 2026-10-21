@@ -42,6 +42,8 @@ export type {
   ScheduleRowInput,
   MarketShock,
   InvestmentSetting,
+  SurplusSavingSetting,
+  EmergencyReserveSetting,
   ReturnShift,
   IncomeShock,
   ProtectionRequest,

@@ -16,6 +16,7 @@ import { roles } from "../roles.ts";
 import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
 import { addRate, cmpRate, nonNegative, pctText, subRate } from "./decimal.ts";
 import { ageAt } from "../levers.ts";
+import { reserveMonthsOf, reserveOf, setReserve, setSurplusRatio, surplusRatioOf } from "../surplus.ts";
 import { accountsOf, drawdownOf, INVEST_KINDS, methodOf, NOT_FINANCIAL, portfolioOf, rateOf, rateText, retireAgeOf, setDrawdown, setStopAge, stopAgeOf, totalViewOf, valueOf } from "../input/savings/model.ts";
 
 /** 変動金利の上乗せ（前提の assumptions.loanRateShifts の1件） */
@@ -409,6 +410,58 @@ function investItems(wh: WorkingHousehold): MovableItem[] {
   return out;
 }
 
+// ---- 黒字の貯まり方と生活防衛資金（0031）: 黒字のうち貯まる割合・生活防衛資金（基本生活費の○か月分）----
+
+function surplusItems(wh: WorkingHousehold): MovableItem[] {
+  const h = wh.request.input.household;
+  if (!h.members.some((m) => m.kind === "self")) return [];
+  const plan = { plan: "assumptions" } as const;
+  const ratioNow = (w: WorkingHousehold) => surplusRatioOf(w.request) ?? "1";
+  const monthsNow = (w: WorkingHousehold) => reserveMonthsOf(w.request) ?? 0;
+  return [
+    {
+      key: "surplus:ratio",
+      item: "assumptions.surplusSaving",
+      target: plan,
+      label: "黒字のうち貯まる割合",
+      short: "貯まる割合",
+      group: "貯まり方",
+      builtin: false,
+      phase: "field",
+      control: { kind: "rate", min: "0", max: "1", step: "0.05" },
+      read: ratioNow,
+      apply: (w, v) => {
+        if (typeof v !== "string" || sameRate(v, ratioNow(w))) return w;
+        return { ...w, request: setSurplusRatio(w.request, cmpRate(v, "1") >= 0 ? null : v) };
+      },
+      text: (v) => (typeof v !== "string" ? "—" : cmpRate(v, "1") >= 0 ? "100%（全部貯まる）" : pctText(v, 0)),
+      same: (a, b) => (typeof a === "string" && typeof b === "string" ? sameRate(a, b) : a === b),
+      note: () => "黒字の年だけ、貯まらない分を「ゆとりの支出」として支出に入れます（赤字の年・退職金などの一時金は対象外）",
+    },
+    {
+      key: "reserve:months",
+      item: "assumptions.emergencyReserve",
+      target: plan,
+      label: "生活防衛資金（基本生活費の○か月分）",
+      short: "生活防衛資金",
+      group: "貯まり方",
+      builtin: false,
+      phase: "field",
+      control: { kind: "range", min: 0, max: 24, step: 1, ticks: [0, 6, 12, 24], tick: (v) => (v === 0 ? "なし" : `${v}か月`), per: "" },
+      read: monthsNow,
+      apply: (w, v) => {
+        if (typeof v !== "number" || v === monthsNow(w)) return w;
+        const cur = reserveOf(w.request);
+        const count = cur?.countInLasting === true ? { countInLasting: true } : {};
+        return { ...w, request: setReserve(w.request, v <= 0 ? undefined : { months: Math.round(v), ...count }) };
+      },
+      text: (v) => (typeof v !== "number" ? "—" : v <= 0 ? "入れない" : `生活費の${v}か月分`),
+      same: jsonSame,
+      note: () => "運用せず、ほかのお金を使い切るまで取り崩さないお金。「金融資産は○歳まで持つ」はこのお金を除いて判定します",
+    },
+  ];
+}
+
 // ---- よく使う項目 ----
 
 function loanLabel(wh: WorkingHousehold, d: Debt, mortgages: Debt[]): string {
@@ -679,7 +732,10 @@ export function buildCatalog(wh: WorkingHousehold, selfId: string, demo: DemoHou
   }
   // 資産運用の項目と同じものを動かす入力の欄（積立をやめる年齢・まとめた器の欄）は重ねて出さない
   skip.add("sav/stopAge");
-  const items = [...leverItems(wh, selfId, demo), ...feeItem(wh), ...investItems(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), skip)];
+  // 黒字の貯まり方・生活防衛資金の項目と同じ欄（0031）
+  skip.add("assume/surplus/ratio");
+  skip.add("assume/reserve/months");
+  const items = [...leverItems(wh, selfId, demo), ...feeItem(wh), ...investItems(wh), ...surplusItems(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), skip)];
   return { selfId, items, byKey: new Map(items.map((i) => [i.key, i])) };
 }
 

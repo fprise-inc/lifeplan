@@ -1,11 +1,24 @@
 // 入力の欄の部品（作業の層）: 区画・まとまり・欄。欄は段階の定義（form.ts・stages/）だけを見て描く。
 // 値を変えるたびに世帯を作り直して onEdit に渡す（入力のパネルでは下書きに、万一の画面では世帯にそのまま入れる）
-import { useState } from "preact/hooks";
+import { createContext } from "preact";
+import { useContext, useState } from "preact/hooks";
 import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, Val } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
+
+/** 欄の横に出す提案（例: 控えから見た実際の割合。押すと value が入る。value が null ならボタンを出さない。0031） */
+export interface FieldSuggestion {
+  text: string;
+  action: string;
+  value: Val;
+  /** 根拠（開いて見る） */
+  detail: string[];
+}
+
+/** 欄のキー → 提案（入力のパネルが計算して渡す） */
+export const FieldSuggestions = createContext<Readonly<Record<string, FieldSuggestion>>>({});
 
 export function Section({ section, wh, level, onEdit }: { section: SectionDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void }) {
   const actions = section.actions.filter((a) => visible(level, a.level));
@@ -68,6 +81,7 @@ function Actions({ actions, wh, onEdit, note }: { actions: ActionDef[]; wh: Work
 /** 欄1つ。打っている間は下書きの文字を持ち、読める値になったらすぐ世帯に入れる（計算は親が間引く） */
 export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   const state = f.get(wh);
+  const sug = useContext(FieldSuggestions)[f.key];
   const [draft, setDraft] = useState<string | null>(null);
   const [unit, setUnit] = useState<YenUnit>(f.kind === "yen" ? (f.unit ?? "man") : "man");
   const [period, setPeriod] = useState<YenPeriod>(f.kind === "yen" && f.basis === "annual" ? "annual" : "monthly");
@@ -190,6 +204,26 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
         {unitControls}
         {hint !== null ? <span class="fld-hint">{hint}</span> : null}
       </div>
+      {sug !== undefined ? (
+        <div class="fld-suggest" data-suggest={f.key}>
+          <span>{sug.text}</span>
+          {sug.value !== null && sug.action !== "" ? (
+            <button type="button" class="link-btn" onClick={() => commit(sug.value)} data-suggest-apply>
+              （{sug.action}）
+            </button>
+          ) : null}
+          {sug.detail.length > 0 ? (
+            <details>
+              <summary>根拠</summary>
+              <ul>
+                {sug.detail.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </div>
+      ) : null}
       {state.derived != null ? <div class="fld-help warn">{state.derived}</div> : null}
       {state.estimated != null ? <div class="fld-help est-basis">推定: {state.estimated}</div> : null}
       {f.readOnly !== undefined ? <div class="fld-help">{f.readOnly}</div> : f.help !== undefined ? <div class="fld-help">{f.help}</div> : null}

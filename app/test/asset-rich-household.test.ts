@@ -1,6 +1,6 @@
 // 見本の世帯「共働きの夫婦と子2人（資産が多め）」（data/modelHouseholds/dualAssetsTwoKids.json）: 資産と負債のタブ・資産運用・前回と比べるの
 // 機能が全部働く見本。入力の中身（口座の種類・資産配分・受け取り方・車・保険・住まい以外の不動産）、計算の結果（資産の合計＝負債の合計＋純資産・
-// 不足やマイナスが出ない）、開いたときに入れるプラン3つと控え2つ（指紋・前回と比べる）を確かめる
+// 不足やマイナスが出ない）、開いたときに入れるプラン4つと控え2つ（指紋・前回と比べる）を確かめる
 import { describe, expect, it } from "vitest";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { agoText, bsPlan, bsPrev } from "../src/workspace/balanceTab.ts";
@@ -126,11 +126,11 @@ describe("開いたときに入れるプランと控え", () => {
     for (const s of demo.snapshots ?? []) for (const id of Object.keys(s.balances)) expect(ids.has(id), id).toBe(true);
   });
 
-  it("プラン3つ（繰上返済・資産配分の見直し・65歳まで働く）を帯に並べ、どれも現状と違う結果になる", async () => {
+  it("プラン4つ（繰上返済・資産配分の見直し・65歳まで働く・黒字の6割と生活防衛資金）を帯に並べ、どれも現状と違う結果になる", async () => {
     const seeded = await seedDemo(wh, cat, demo, { now: "2026-10-20T00:00:00.000Z", appVersion: "0.1.0" });
-    expect(seeded.band.length).toBe(3);
+    expect(seeded.band.length).toBe(4);
     const letters = planLetters(seeded.wh.proposals);
-    expect(seeded.band.map((id) => letters.get(id)?.letter)).toEqual(["B", "C", "D"]);
+    expect(seeded.band.map((id) => letters.get(id)?.letter)).toEqual(["B", "C", "D", "E"]);
     const base = financialOf(r.table).get(2040)!;
     for (const id of seeded.band) {
       const p = seeded.wh.proposals.find((x) => x.id === id)!;

@@ -224,6 +224,8 @@ export interface AccountInput {
   readonly expectedReturn?: string;
   /** 運用の費用（信託報酬など。年率。器の利回りから引く。0026） */
   readonly fee?: string;
+  /** 運用しない分（金額。まとめた金融資産の器 pooled だけで使う。この額までは預金の利回りで、残りに器の利回りをかける。0031） */
+  readonly uninvested?: Yen;
   /** 不動産の中身（不動産の器だけ。土地と建物に分けて評価し、貸しているなら家賃収入・経費・不動産所得を出す。asset.realEstate。0028） */
   readonly property?: RealEstatePropertyInput;
 }
@@ -742,6 +744,10 @@ export interface EngineInput {
     /** 資産クラスごとの値動きの大きさ（年率の標準偏差。計算には使わない。結果の幅の計算の材料。0026） */
     readonly assetVolatility?: Readonly<Record<string, string>>;
     readonly returnShifts?: readonly ReturnShift[];
+    /** 黒字のうち貯まる割合・上限（黒字の年だけ、貯まらない分を「ゆとりの支出」として支出に足す。0031） */
+    readonly surplusSaving?: SurplusSavingSetting;
+    /** 生活防衛資金（取り崩さないお金。運用せず、取り崩しは最後。「金融資産は○歳まで持つ」の判定から除く。0031） */
+    readonly emergencyReserve?: EmergencyReserveSetting;
   };
   readonly contingencies?: readonly ContingencyInput[];
   readonly stressTest?: StressTestInput;
@@ -788,6 +794,25 @@ export interface InvestmentSetting {
   readonly taxableTax?: "onSale" | "annual";
   /** 取り崩しの計画（start の月から、毎月の額か、毎年の初めの残高の率を金融資産から使う） */
   readonly drawdown?: { readonly start: Timepoint; readonly method: "fixed" | "rate"; readonly monthly?: Yen; readonly rate?: string };
+}
+
+/** 黒字のうち貯まる割合・上限の1組（0031）。ratio は 0〜1（省略は 1）、cap は貯まる額の年の上限（省略は上限なし） */
+export interface SurplusSavingRule {
+  readonly ratio?: string;
+  readonly cap?: Yen;
+}
+
+/** 黒字のうち貯まる割合（0031）。changes は from の年から書いた組に置き換える（書いていない ratio は 1、cap は上限なし） */
+export interface SurplusSavingSetting extends SurplusSavingRule {
+  readonly changes?: readonly (SurplusSavingRule & { readonly from: Timepoint })[];
+}
+
+/** 生活防衛資金（0031）。amount があれば金額、無ければその年の基本生活費の months か月分 */
+export interface EmergencyReserveSetting {
+  readonly months?: number;
+  readonly amount?: Yen;
+  /** 「金融資産は○歳まで持つ」の判定に生活防衛資金を含める（省略は false＝除いた残高で判定する） */
+  readonly countInLasting?: boolean;
 }
 
 /** 運用の利回りの書き換え（運用する器だけ。from〜to の年。add を足し、cap より高ければ cap にする。0026） */

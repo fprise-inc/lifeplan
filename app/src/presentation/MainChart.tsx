@@ -687,6 +687,18 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
     body.push(<path key="ls" d={linePath(aSel, s)} class="line-prop" />);
     // 相場が下がった場合（重ねたときだけ）
     if (inv?.stress != null) body.push(...stressPaths(inv.stress, inv.view.stressHidden, s, n, fs, f.top));
+    // 生活防衛資金の目安の線（入れたときだけ。この線より下は取り崩さないお金。0031）
+    if (inv?.reserve != null && inv.reserve.some((v) => v > 0)) {
+      const rv = inv.reserve;
+      body.push(
+        <g key="reserve" data-reserve-line>
+          <path d={rv.map((v, i) => `${i === 0 ? "M" : "L"}${s.x(i).toFixed(1)} ${s.y(v).toFixed(1)}`).join(" ")} class="reserve-line" />
+          <text x={s.x(0)} y={s.y(rv[0] ?? 0) - 5 * fs} class="reserve-txt">
+            生活防衛資金（目安）
+          </text>
+        </g>,
+      );
+    }
     // 資産が尽きる年
     for (const d of model.chart.depletions) {
       const i = years.indexOf(d.year);

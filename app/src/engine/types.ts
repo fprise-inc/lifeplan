@@ -64,6 +64,8 @@ export interface Account {
   expectedReturn?: string;
   /** 運用の費用（信託報酬など。年率。0026） */
   fee?: string;
+  /** 運用しない分（金額。まとめた金融資産の器だけ。この額までは預金の利回り。0031） */
+  uninvested?: number;
   /** iDeCo・企業型DC の受け取り（始まりが空なら退職の年。0026） */
   payout?: { start?: Timepoint; method: "lumpSum" | "annuity" | "mixed"; annuityYears?: number; lumpShare?: string; destination?: "deposit" | "invest" };
   /** 住まい以外の不動産の中身（土地と建物・家賃収入・経費・売却。0028） */
@@ -89,6 +91,25 @@ export interface InvestmentSetting {
   nisaOverflow?: "deposit" | "taxable";
   taxableTax?: "onSale" | "annual";
   drawdown?: { start: Timepoint; method: "fixed" | "rate"; monthly?: number; rate?: string };
+}
+
+/** 黒字のうち貯まる割合・上限の1組（0031。エンジンの assumptions.surplusSaving） */
+export interface SurplusSavingRule {
+  ratio?: string;
+  cap?: number;
+}
+
+/** 黒字のうち貯まる割合（0031）。changes は from の年から書いた組に置き換える */
+export interface SurplusSavingSetting extends SurplusSavingRule {
+  changes?: (SurplusSavingRule & { from: Timepoint })[];
+}
+
+/** 生活防衛資金（0031。エンジンの assumptions.emergencyReserve）。amount があれば金額、無ければその年の基本生活費の months か月分 */
+export interface EmergencyReserveSetting {
+  months?: number;
+  amount?: number;
+  /** 「金融資産は○歳まで持つ」の判定に含める（省略は除く） */
+  countInLasting?: boolean;
 }
 
 /** 運用の利回りの書き換え（0026） */
@@ -396,7 +417,7 @@ export interface EngineRequest {
     baseMonth: string;
     endYear: number;
     household: Household;
-    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; investment?: InvestmentSetting; assetVolatility?: Record<string, string>; returnShifts?: ReturnShift[]; withdrawal?: { order?: ({ kind: string } | { object: string })[]; minimumDeposit?: number }; marketShocks?: { year: number; drop: string; kinds?: string[]; assetClasses?: string[] }[]; [key: string]: unknown };
+    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; investment?: InvestmentSetting; assetVolatility?: Record<string, string>; returnShifts?: ReturnShift[]; surplusSaving?: SurplusSavingSetting; emergencyReserve?: EmergencyReserveSetting; withdrawal?: { order?: ({ kind: string } | { object: string })[]; minimumDeposit?: number }; marketShocks?: { year: number; drop: string; kinds?: string[]; assetClasses?: string[] }[]; [key: string]: unknown };
     contingencies?: Contingency[];
     protection?: ProtectionRequest;
     [key: string]: unknown;

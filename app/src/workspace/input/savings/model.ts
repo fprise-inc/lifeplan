@@ -248,12 +248,14 @@ export interface TotalView {
   value: number;
   steps: Step[];
   rate: string;
+  /** 運用しない分（金額。合計の入れ方のときだけ。入れていなければ null。0031） */
+  uninvested: number | null;
 }
 
 export function totalViewOf(req: EngineRequest): TotalView {
   const h = req.input.household;
   const p = pooledOf(h);
-  if (methodOf(req) === "total" && p !== undefined) return { value: valueOf(p), steps: stepsOf(h, req.input.baseMonth, p), rate: p.expectedReturn ?? "0.02" };
+  if (methodOf(req) === "total" && p !== undefined) return { value: valueOf(p), steps: stepsOf(h, req.input.baseMonth, p), rate: p.expectedReturn ?? "0.02", uninvested: p.uninvested ?? null };
   const base = req.input.baseMonth;
   const end = `${req.input.endYear}-12`;
   const stopAge = stopAgeOf(h) ?? retireAgeOf(req) ?? 65;
@@ -275,7 +277,7 @@ export function totalViewOf(req: EngineRequest): TotalView {
   if (un !== null) parts.push({ v: unValue, r: Number(un.rate) });
   const wsum = parts.reduce((s, x) => s + x.v, 0);
   const avg = parts.length === 0 ? 0.02 : wsum > 0 ? parts.reduce((s, x) => s + x.v * x.r, 0) / wsum : parts.reduce((s, x) => s + x.r, 0) / parts.length;
-  return { value, steps: stepsFromMonthly(h, base, monthly, stopAge), rate: rateText(avg) };
+  return { value, steps: stepsFromMonthly(h, base, monthly, stopAge), rate: rateText(avg), uninvested: null };
 }
 
 /** 率の小数（0.0374…）を、0.1% の刻みの10進の文字列にする */
@@ -319,7 +321,7 @@ export function dropDoneUnallocated(h: Household, req: EngineRequest): boolean {
 }
 
 /** 合計の入れ方の値を書き換える（まとめた器が無ければ作る） */
-export function editTotal(wh: WorkingHousehold, patch: { value?: number; rate?: string; steps?: Step[] }): WorkingHousehold {
+export function editTotal(wh: WorkingHousehold, patch: { value?: number; rate?: string; steps?: Step[]; uninvested?: number | null }): WorkingHousehold {
   return mutate(wh, (h, req) => {
     let p = pooledOf(h);
     if (p === undefined) {
@@ -332,6 +334,11 @@ export function editTotal(wh: WorkingHousehold, patch: { value?: number; rate?: 
     if (patch.value !== undefined) p.marketValue = confirmedBox(Math.max(0, Math.round(patch.value)));
     if (patch.rate !== undefined) p.expectedReturn = patch.rate;
     if (patch.steps !== undefined) writeSteps(h, req.input.baseMonth, p, "all", patch.steps, stopAgeOf(h));
+    // 運用しない分（0031。0 と空は外す）
+    if (patch.uninvested !== undefined) {
+      if (patch.uninvested === null || patch.uninvested <= 0) delete p.uninvested;
+      else p.uninvested = Math.round(patch.uninvested);
+    }
   });
 }
 
