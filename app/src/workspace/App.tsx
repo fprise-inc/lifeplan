@@ -46,7 +46,7 @@ import { DrawdownCalc } from "./invest/DrawdownCalc.tsx";
 import { advisoryFeeInCurrent, feeSummary, hasAdvisoryFee, LEVER_KEYS, type LeverKey } from "./levers.ts";
 import { MemoDrawer } from "./MemoDrawer.tsx";
 import { mixFromBuckets } from "./plans/allocation.ts";
-import { addToBand, assignColors, bandModel, cleanBand, CURRENT, MAX_BAND, planLetters, planLinesModel } from "./plans/band.ts";
+import { addToBand, assignColors, bandModel, cleanBand, CURRENT, MAX_BAND, planLetters, planLinesModel, removeFromBand } from "./plans/band.ts";
 import { compareTable, metricsOf } from "./plans/compare.ts";
 import { addRate } from "./plans/decimal.ts";
 import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
@@ -341,7 +341,8 @@ export function App() {
   const [bsSettings, setBsSettings] = useState<BalanceSettings>(DEFAULT_BALANCE_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(initial.settings === true);
   const [panel, setPanel] = useState<null | "list" | "compare">(initial.compare === true ? "compare" : initial.list === true ? "list" : null);
-  const [notice, setNotice] = useState<string | null>(null);
+  /** 画面下の知らせ。undo のときは「元に戻す」を添える（帯のカードの × でプランを外したときなど） */
+  const [notice, setNotice] = useState<{ text: string; undo: boolean } | null>(null);
   const [level, setLevel] = useState<Level>(initial.level ?? "simple");
   const [memoOpen, setMemoOpen] = useState(initial.memo === true);
   // 世帯の保存（0011・0013）
@@ -417,15 +418,20 @@ export function App() {
     setSelectedYear(y);
     if (y !== null) setScrollNonce((n) => n + 1);
   }, []);
-  const say = useCallback((msg: string) => {
-    setNotice(msg);
+  const say = useCallback((msg: string, undo = false) => {
+    setNotice({ text: msg, undo });
     if (noticeTimer.current !== null) clearTimeout(noticeTimer.current);
-    noticeTimer.current = setTimeout(() => setNotice(null), 3200);
+    noticeTimer.current = setTimeout(() => setNotice(null), undo ? 6000 : 3200);
   }, []);
   useEffect(() => {
     undoController.notify = say;
     return installUndo(undoController);
   }, [say]);
+  // 「元に戻す」を添えた知らせの後に別の変更が入ったら、「元に戻す」を引っ込める（その別の変更を戻してしまわない）
+  useEffect(() => {
+    if (notice?.undo !== true) return;
+    return undoController.subscribe(() => setNotice((n) => (n !== null && n.undo ? { ...n, undo: false } : n)));
+  }, [notice]);
 
   // 文字を大きくする: html の class の切り替えは上の帯（TopBar）が行う（切り替えた直後に帯の詰め方を測り直すため）
 
@@ -1287,6 +1293,25 @@ export function App() {
     },
     [putWork],
   );
+  /** 帯のカードの × でプランを外す（確認の窓は出さず、知らせの「元に戻す」か ⌘Z で戻す。表示していたら基準のプランに戻す） */
+  const removePlan = useCallback(
+    (letter: string) => {
+      const o = openedRef.current;
+      const w = workRef.current;
+      if (o === null) return;
+      const id = slotOfLetter(planLetters(o.wh.proposals), [CURRENT, ...w.band], letter);
+      const r = id === undefined ? null : removeFromBand(o.wh, w, id);
+      if (r === null) return;
+      if (r.sel !== w.sel) {
+        const v = valuesOf(o.wh, w, r.sel);
+        setShown((s) => [...new Set([...s, ...Object.keys(v).filter((k) => o.catalog.byKey.get(k)?.builtin === false)])]);
+        setTableKey(null);
+      }
+      setPlans(r.wh, { ...w, band: r.band, sel: r.sel });
+      say(r.message, true);
+    },
+    [setPlans, say],
+  );
   const reflect = useCallback(
     (planId: string) => {
       const o = openedRef.current;
@@ -1899,7 +1924,7 @@ export function App() {
                   provisional: model.provisional,
                   who: model.who,
                 })}
-                band={<PlanBand model={band} onSelect={select} onBase={setBase} onAdd={duplicate} />}
+                band={<PlanBand model={band} onSelect={select} onBase={setBase} onAdd={duplicate} onRemove={removePlan} />}
                 onPrev={onBsPrev}
                 onGuide={(g) => putBsSettings({ guide: g })}
                 onColumns={(c) => putBsSettings({ columns: c })}
@@ -1937,6 +1962,7 @@ export function App() {
               onSelect={select}
               onBase={setBase}
               onAdd={duplicate}
+              {...(explainStep === null ? { onRemove: removePlan } : {})}
               links={
                 <span class="band-links">
                   <button type="button" class="link-btn" aria-expanded={panel === "list"} onClick={() => setPanel(panel === "list" ? null : "list")} data-open-list>
@@ -2116,7 +2142,12 @@ export function App() {
       </main>
       {notice !== null ? (
         <div class="toast on" role="status">
-          {notice}
+          {notice.text}
+          {notice.undo ? (
+            <button type="button" class="toast-act" onClick={() => undoController.run("undo")} data-toast-undo>
+              元に戻す
+            </button>
+          ) : null}
         </div>
       ) : null}
       {memoOpen && opened !== null ? (
