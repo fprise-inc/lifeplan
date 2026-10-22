@@ -9,8 +9,9 @@ import { areaAbove, areaBelow, linePath, scale, type Frame, type Scale } from ".
 import { group, man, manDiff } from "./format.ts";
 import { chartHeight, TOUCH_HINT } from "./MainChart.tsx";
 import type { ChartModel, ContingencyModel, ProtectionChartModel, ScenarioModel, VerdictPart, YearStripModel } from "./model.ts";
+import { AgeAxisSvg, ageExtra, yearHead } from "./AgeAxis.tsx";
 import { useEventFocus } from "./EventDot.tsx";
-import { SHORT_R, SHORT_ROW, ShortDotsSvg, ShortLinesSvg, ShortTip, shortCenter, shortText, shortXs, type ShortSource } from "./ShortMark.tsx";
+import { crossIndex, SHORT_R, SHORT_ROW, ShortDotsSvg, ShortLinesSvg, ShortTip, shortCenter, shortText, shortXs, type ShortSource } from "./ShortMark.tsx";
 import { useTween, type Series } from "./tween.ts";
 import { estimateWidth, indexAt, placeAbove, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
 
@@ -279,9 +280,9 @@ interface YearMark {
   lines: TipItem[][];
 }
 
-/** short: 「!」の段を設ける（グラフの面のすぐ下。その分だけ下の余白を広げ、年の目盛りの位置は変えない） */
-function frameOf(w: number, h: number, fs: number, short = false): Frame {
-  return { width: w, height: h, left: 74 * fs, right: 24 * fs, top: 26 * fs, bottom: (48 + (short ? SHORT_ROW : 0)) * fs };
+/** short: 「!」の段を設ける（グラフの面のすぐ下。その分だけ下の余白を広げ、年の目盛りの位置は変えない）。ages: 年齢の段の数（夫婦は2段。AgeAxis.tsx） */
+function frameOf(w: number, h: number, fs: number, short = false, ages = 1): Frame {
+  return { width: w, height: h, left: 74 * fs, right: 24 * fs, top: 26 * fs, bottom: (48 + (short ? SHORT_ROW : 0) + ageExtra(ages)) * fs };
 }
 
 /** 「!」を出すもの: 万一の場合と万一なし（万一なしは白抜き） */
@@ -292,6 +293,7 @@ function contingencySources(cm: ChartModel): ShortSource[] {
     .map((d) => ({
       key: d.series,
       year: d.year,
+      cross: crossIndex(d.series === "proposal" ? cm.proposal : cm.current, cm.years.indexOf(d.year)),
       text: shortText(d.year, cm.ages[cm.years.indexOf(d.year)], d.series === "proposal" ? "万一の場合" : "万一なし"),
       ...(d.series === "current" ? { base: true } : {}),
     }));
@@ -337,7 +339,8 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
   // 金融資産が足りなくなる所（資産の推移だけ）。小窓の中の表示（縮めた表示）では「!」の段を設けず、点線だけを面の下の端まで引く
   const skList = spec.kind === "assets" ? contingencySources(spec.model) : [];
   const shortRow = height === undefined && skList.length > 0;
-  const f = frameOf(size.w, height ?? size.h, fs, shortRow);
+  const axis = m.axis;
+  const f = frameOf(size.w, height ?? size.h, fs, shortRow, axis.length);
   const hv = hover !== null && years.includes(hover) ? hover : null;
   const event = spec.eventYear !== null && years.includes(spec.eventYear) ? spec.eventYear : null;
   // 資産の推移: 主画面と同じ（固定していればその年、なければカーソルの年）。
@@ -424,7 +427,7 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
           { y: s.y(base[selIdx] ?? 0), cls: "base" },
           { y: s.y(sel[selIdx] ?? 0), cls: "sel" },
         ],
-        head: `${years[selIdx]}年${age != null ? `（${spec.who}${age}歳）` : ""}`,
+        head: yearHead(years[selIdx] as number, cm.family[selIdx] ?? (age != null ? `${spec.who}${age}歳` : undefined)),
         lines: [
           [
             { dot: "sel", label: "万一の場合", value: yen(ps), neg: ps < 0 },
@@ -484,7 +487,8 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
     }
   }
 
-  const skXs = skList.map((m) => s.x(years.indexOf(m.year)));
+  // 横の位置: 線が0を切る所
+  const skXs = skList.map((m) => s.x(m.cross));
   const skAt = shortRow ? shortXs(skXs, fs, f.left, f.width - f.right) : null;
   const skRowTop = f.height - f.bottom;
   const skCy = shortCenter(skRowTop, fs);
@@ -501,6 +505,8 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
     if (w > 0 && h > 0 && (skTipSize === null || Math.abs(skTipSize.w - w) > 0.5 || Math.abs(skTipSize.h - h) > 0.5)) setSkTipSize({ w, h });
   });
 
+  // 年の目盛りの数字: 5年ごと。狭い幅で5年の間が文字の幅より狭いときは10年ごと（主画面のグラフと同じ決まり）
+  const labelStep = years.length > 5 && Math.abs(s.x(5) - s.x(0)) < 46 * fs ? 10 : 5;
   const pinTag = atPin ? (spec.kind === "assets" ? "固定中" : "選んだ年") : null;
   const tipLines = mark !== null ? [`${mark.head}${pinTag !== null ? ` ${pinTag}` : ""}`, ...mark.lines.map((l) => l.map((x) => `／${x.label} ${x.value}`).join(""))] : [];
   const tw = tipSize?.w ?? estimateWidth(tipLines, 13 * fs);
@@ -560,20 +566,7 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
         {body}
         {skList.length > 0 ? <ShortLinesSvg list={skList} xs={skXs} at={skAt} top={s.y(0)} rowTop={skRowTop} fs={fs} /> : null}
         {mark !== null ? <line x1={mx} x2={mx} y1={f.top - 4} y2={f.height - f.bottom} class={`hv-guide${atPin ? " pinned" : ""}`} /> : null}
-        {years.map((y, i) =>
-          y % 5 === 0 ? (
-            <g key={y}>
-              <text x={s.x(i)} y={f.height - 28 * fs} class="axis-label" text-anchor="middle">
-                {y}
-              </text>
-              {ages[i] != null ? (
-                <text x={s.x(i)} y={f.height - 12 * fs} class="axis-label sub" text-anchor="middle">
-                  {ages[i]}歳
-                </text>
-              ) : null}
-            </g>
-          ) : null,
-        )}
+        <AgeAxisSvg years={years} axis={axis} x={s.x} show={(y) => y % labelStep === 0} yearY={f.height - (28 + ageExtra(axis.length)) * fs} left={f.left} fs={fs} />
         {mark !== null ? (
           <g class="hv-dots" data-year-mark>
             {mark.dots.map((d) => (

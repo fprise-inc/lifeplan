@@ -102,6 +102,9 @@ b { font-weight: 700; }
 .chart .axis-label.sub { font-size: 11px; }
 html.big .chart .axis-label { font-size: 14px; }
 html.big .chart .axis-label.sub { font-size: 13px; }
+/* 年齢の段の頭の呼び方（「ご主人」「奥様」。AgeAxis.tsx） */
+.chart .axis-who { fill: var(--ink-2); font-size: 10px; }
+html.big .chart .axis-who { font-size: 12px; }
 .chart .unit { fill: var(--ink-2); font-weight: 700; font-size: 12px; }
 .chart .area-prop { fill: var(--prop-area); }
 .chart .area-short { fill: url(#hatch-short); stroke: var(--short); stroke-width: 1; }
@@ -729,6 +732,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .side-pane.selected .side-tag { color: #fff; background: var(--prop); border: 1px solid var(--prop); }
 .chart .axis-label { font-size: 0.8rem; }
 .chart .axis-label.sub { font-size: 0.74rem; }
+.chart .axis-who { font-size: 0.66rem; }
 .chart .unit { font-size: 0.78rem; }
 /* 年の印: 細い縦の補助線（薄いグレー）と線の上の○（選んだ案＝藍の塗り、基準の案＝灰の白抜き。色だけに頼らず形・塗りで分ける） */
 .chart .hit-area { fill: transparent; cursor: crosshair; touch-action: manipulation; }

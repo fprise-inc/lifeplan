@@ -8,7 +8,7 @@ import { bsSeries, BS_GROUP_LABEL, BS_GROUP_SHORT, groupTotal, type BsAt, type B
 import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsMarkKind, BsPlanModel, BsPointKey, BsPointModel, BsPrevModel, BsYearModel, VerdictPart } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
-import { depletionYear, eventsOf, SURPLUS_ROW } from "./present.ts";
+import { ageAxis, depletionYear, eventsOf, SURPLUS_ROW } from "./present.ts";
 import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
 
 /** 家計の体力の目安の幅の最初の値（事務所の設定で FP が変えられる） */
@@ -231,7 +231,7 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
       notes,
     };
   });
-  return { key: p.key, letter: p.letter, name: p.name, title: p.title, base: p.base, years: out, marks, jumps, points, status };
+  return { key: p.key, letter: p.letter, name: p.name, title: p.title, base: p.base, years: out, axis: ageAxis(rs, years), marks, jumps, points, status };
 }
 
 /** 「○か月分」（2年以上は「○年分」） */

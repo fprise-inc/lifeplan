@@ -19,7 +19,8 @@ import { PeriodBand, stackAreas, stressPaths } from "./InvestLayers.tsx";
 import { Pattern, Swatch } from "./StackChart.tsx";
 import { useSwitchEase, useTween, type Series } from "./tween.ts";
 import { estimateWidth, indexAt, placeAbove, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
-import { SHORT_R, SHORT_ROW, ShortDotsSvg, ShortLinesSvg, ShortTip, shortCenter, shortText, shortXs, type ShortSource } from "./ShortMark.tsx";
+import { AgeAxisSvg, ageExtra, yearHead } from "./AgeAxis.tsx";
+import { crossIndex, SHORT_R, SHORT_ROW, ShortDotsSvg, ShortLinesSvg, ShortTip, shortCenter, shortText, shortXs, type ShortSource } from "./ShortMark.tsx";
 
 export type ChartMode = "assets" | "flows";
 
@@ -170,11 +171,12 @@ const eventGap = (fs: number) => (2 * EVENT_R + 3) * fs;
 
 /**
  * right: 右の余白（文字の大きさ 16px のとき）。rows: 年のイベントの丸の段の数（2段のときは下の余白を1段分広げる）。
- * short: 「!」の段を設ける（できごとの丸の段のすぐ上。その分だけ下の余白を広げ、できごとの丸の段と年の目盛りの位置・大きさは変えない）
+ * short: 「!」の段を設ける（できごとの丸の段のすぐ上。その分だけ下の余白を広げ、できごとの丸の段と年の目盛りの位置・大きさは変えない）。
+ * ages: 年齢の段の数（夫婦は2段。増えた段の分だけ下の余白を広げる。AgeAxis.tsx）
  */
-function frameOf(w: number, h: number, fs: number, right: number, rows = 1, short = false): Frame {
+function frameOf(w: number, h: number, fs: number, right: number, rows = 1, short = false, ages = 1): Frame {
   // rows = 0: 年のイベントの丸を描かない（縮めた表示。年と年齢の目盛りの分だけ空ける。「!」の段も設けない）
-  return { width: w, height: h, left: 64 * fs, right: right * fs, top: 26 * fs, bottom: (rows === 0 ? 44 : 70 + (rows - 1) * (2 * EVENT_R + 3) + (short ? SHORT_ROW : 0)) * fs };
+  return { width: w, height: h, left: 64 * fs, right: right * fs, top: 26 * fs, bottom: ((rows === 0 ? 44 : 70 + (rows - 1) * (2 * EVENT_R + 3) + (short ? SHORT_ROW : 0)) + ageExtra(ages)) * fs };
 }
 
 /** 一番下の「!」の段の上の端（グラフの面の下の端）。できごとの丸の段はこの段の下 */
@@ -198,7 +200,7 @@ export function shortSources(model: MainChartModel, opt: { explain: boolean; mul
       const i = p.financial === null ? -1 : firstShort(p.financial);
       const y = years[i];
       if (i < 0 || y === undefined || opt.multi?.hidden.includes(p.key) === true) return [];
-      return [{ key: `p-${p.key}`, year: y, text: shortText(y, ages[i], p.name), color: (styles.get(p.key) as PlanStyle).color }];
+      return [{ key: `p-${p.key}`, year: y, cross: crossIndex(p.financial ?? [], i), text: shortText(y, ages[i], p.name), color: (styles.get(p.key) as PlanStyle).color }];
     });
   }
   const same = model.names.same;
@@ -208,6 +210,7 @@ export function shortSources(model: MainChartModel, opt: { explain: boolean; mul
     .map((d) => ({
       key: d.series,
       year: d.year,
+      cross: crossIndex(d.series === "proposal" ? model.chart.proposal : model.chart.current, years.indexOf(d.year)),
       text: shortText(d.year, at(d.year), same || opt.explain ? undefined : d.series === "proposal" ? model.names.selected : model.names.base),
       ...(d.series === "current" && !same && !opt.explain ? { base: true } : {}),
     }));
@@ -532,7 +535,8 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   // 全部のプランを重ねる表示で、目盛りが動いている途中に線が枠からはみ出さないように切り抜く
   const clipId = `mc-clip-${useId().replace(/[^A-Za-z0-9_-]/g, "")}`;
   const evLay = eventLayout(evList, years, frameOf(size.w, size.h, fs, right), fs);
-  const f = frameOf(size.w, size.h, fs, right, compact ? 0 : evLay.rows, shortRow);
+  const axis = model.chart.axis;
+  const f = frameOf(size.w, size.h, fs, right, compact ? 0 : evLay.rows, shortRow, axis.length);
   const selIdx = shown === null ? -1 : years.indexOf(shown);
 
   /** カーソル・指の位置から年を読む（SVG の座標に直す） */
@@ -797,7 +801,8 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   // ---- 金融資産が足りなくなる所: 「!」の段の丸と、線が0を切る所からの赤い点線（点線は資産の推移の線があるときだけ）----
   const skList = shortSources(model, { explain: explain !== null, multi: isMulti ? multi : null }).filter((m) => years.includes(m.year));
   const skLine = explain !== null && ex !== null ? ex.steps.findIndex((x) => x.key === "assets") <= explain.step : mode === "assets";
-  const skXs = skList.map((m) => s.x(years.indexOf(m.year)));
+  // 横の位置: 線が0を切る所（資産の線が無い収支の推移では、足りなくなる年の位置）
+  const skXs = skList.map((m) => s.x(skLine ? m.cross : years.indexOf(m.year)));
   const skAt = shortRow ? shortXs(skXs, fs, f.left, f.width - f.right) : null;
   const skRowTop = shortRowTop(f);
   const skNow = skFocus.on !== null ? skList[skFocus.on] : undefined;
@@ -811,7 +816,8 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const age = selIdx >= 0 ? ages[selIdx] : undefined;
   // 年の目盛りの数字: ふつうは5年ごと。狭い幅（スマホの縦の画面）で5年の間が文字の幅より狭いときは10年ごと
   const labelStep = years.length > 5 && Math.abs(s.x(5) - s.x(0)) < 46 * fs ? 10 : 5;
-  const head = selIdx >= 0 ? `${years[selIdx]}年${age != null ? `（${model.who}${age}歳）` : ""}` : "";
+  // 札の見出し: 年と家族全員の年齢（例: 「2045年 ご主人64歳・奥様62歳・長女35歳」。yearHead）
+  const head = selIdx >= 0 ? yearHead(years[selIdx] as number, model.chart.family[selIdx] ?? (age != null ? `${model.who}${age}歳` : undefined)) : "";
   const valueLine = mark !== null ? `${mark.lead} ● ${model.names.selected} ${mark.selText}${mark.baseText !== null ? `／○ ${model.names.base} ${mark.baseText}` : ""}` : "";
   const tipLines =
     mark === null ? [] : multiRows !== null ? [`${head}${pinned !== null ? " 固定中" : ""}`, mark.lead, ...multiRows.map((r) => `●● ${r.name} ${r.title} ${r.text}`)] : [`${head}${pinned !== null ? " 固定中" : ""}`, valueLine, ...(mark.extra !== null ? [mark.extra] : [])];
@@ -869,20 +875,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
             </text>
           </>
         ) : null}
-        {years.map((y, i) =>
-          y % labelStep === 0 ? (
-            <g key={y}>
-              <text x={s.x(i)} y={f.height - 24 * fs} class="axis-label" text-anchor="middle">
-                {y}
-              </text>
-              {ages[i] != null ? (
-                <text x={s.x(i)} y={f.height - 8 * fs} class="axis-label sub" text-anchor="middle">
-                  {ages[i]}歳
-                </text>
-              ) : null}
-            </g>
-          ) : null,
-        )}
+        <AgeAxisSvg years={years} axis={axis} x={s.x} show={(y) => y % labelStep === 0} yearY={f.height - (24 + ageExtra(axis.length)) * fs} left={f.left} fs={fs} />
         {mark !== null && multiRows !== null ? (
           <g class="hv-dots" data-year-mark>
             {multiRows.map((r) => (

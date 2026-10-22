@@ -1,6 +1,7 @@
 // 資産と負債の推移（提示層の部品。資産と負債のタブの図の下）: 年ごとに資産を上・負債を下に積んだ棒と、純資産の線。基準のプランの純資産を点線で重ねる。
 // 今の年は事実（はっきりした色）、先の年は見込み（少し薄い色）。押すとその年のバランスシートに（← → キーでも動かせる）。
-// 縦の目盛りは全部のプランの中で決める（プランを切り替えても目盛りが動かない）
+// 縦の目盛りは全部のプランの中で決める（プランを切り替えても目盛りが動かない）。
+// 年の目盛りの下の年齢は、夫婦の世帯は本人・配偶者の2段、単身の世帯は1段。段の頭に呼び方を小さく書く（主画面のグラフと同じ形。AgeAxis.tsx）
 import { useState } from "preact/hooks";
 import { useBoxSize } from "./BsFigure.tsx";
 import { group, man } from "./format.ts";
@@ -88,9 +89,12 @@ export function BsTrend({ plan, base, range, marks, onPick, height }: BsTrendPro
   const fs = px;
   const W = Math.max(400, w);
   const H = Math.round(height * (px / 16 > 1.1 ? 1.08 : 1));
-  const m = { l: fs * 3.6, r: 12, t: fs * 1.4, b: fs * 2.6 };
+  const axis = plan.axis;
+  // 年齢の段が増えた分だけ下の余白を広げる（1段あたり 0.9 文字分）
+  const m = { l: fs * 3.6, r: 12, t: fs * 1.4, b: fs * (2.6 + 0.9 * Math.max(0, axis.length - 1)) };
   const pw = W - m.l - m.r;
   const ph = H - m.t - m.b;
+  const rowY = (r: number) => m.t + ph + fs * (2.0 + 0.9 * r);
   const ys = plan.years;
   const N = ys.length;
   const X = (i: number) => m.l + (pw * (i + 0.5)) / N;
@@ -176,14 +180,22 @@ export function BsTrend({ plan, base, range, marks, onPick, height }: BsTrendPro
               <text x={X(i)} y={m.t + ph + fs * 1.05} text-anchor="middle" font-size={fs * 0.72} fill="var(--ink-2)">
                 {y.year}
               </text>
-              {y.age !== null ? (
-                <text x={X(i)} y={m.t + ph + fs * 2.0} text-anchor="middle" font-size={fs * 0.66} fill="var(--ink-2)">
-                  {y.age}歳
-                </text>
-              ) : null}
+              {axis.map((row, r) => {
+                const a = row.ages[i];
+                return a != null ? (
+                  <text key={r} x={X(i)} y={rowY(r)} text-anchor="middle" font-size={fs * 0.66} fill="var(--ink-2)" data-age-row={r}>
+                    {a}歳
+                  </text>
+                ) : null;
+              })}
             </g>
           ) : null,
         )}
+        {axis.map((row, r) => (
+          <text key={`who${r}`} x={m.l - fs * 1.1} y={rowY(r)} text-anchor="end" font-size={fs * 0.6} fill="var(--ink-2)" data-age-who={r}>
+            {row.label}
+          </text>
+        ))}
         <rect x={m.l} y={m.t} width={pw} height={ph} fill="none" stroke="var(--line)" />
         {marks.map((si) => {
           const y = ys[si];

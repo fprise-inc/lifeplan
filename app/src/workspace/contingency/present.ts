@@ -4,7 +4,7 @@ import type { EngineRequest, OldAgeChoice, PreviewResult, ProtectionOutput, Tabl
 import type { BreakdownRowModel, ChartModel, ContingencyModel, Depletion, ProtectionChartModel, ScenarioCardModel, ScenarioModel, Verdict, YearCellModel, YearStripModel } from "../../presentation/model.ts";
 import { man } from "../../presentation/format.ts";
 import { parseYm } from "../levers.ts";
-import { depletionYear, displayYears, financialOf, sumByYear } from "../present.ts";
+import { ageAxis, depletionYear, displayYears, familyText, financialOf, sumByYear } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
 import { OLD_AGE_CHOICE_LABEL } from "./inputs.ts";
 import type { ContingencyPlan } from "./planData.ts";
@@ -41,6 +41,7 @@ export function protectionChart(req: EngineRequest, out: ProtectionOutput, resul
     sub: `${until}${horizon !== undefined ? `（${horizon}年）` : ""}までの資金。遺族は${surv?.label ?? "お子さま"}`,
     years,
     ages: years.map((y) => ageInYear(who.member, y)),
+    axis: ageAxis(rs, years),
     need: m.years.map((y) => y.need),
     needWithAssets: m.years.map((y) => y.needWithAssets),
     coverage: m.years.map((y) => y.coverage),
@@ -140,7 +141,9 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
   const depletions: Depletion[] = [];
   if (depN !== null) depletions.push({ series: "current", year: depN });
   if (depS !== null) depletions.push({ series: "proposal", year: depS });
-  const chart: ChartModel = { years, ages: years.map((y) => age(y)), proposal: years.map((y) => finS.get(y) ?? 0), current: years.map((y) => finN.get(y) ?? 0), depletions };
+  // 年齢の段と年の札: 亡くなった人は、亡くなった年の翌年から空ける
+  const gone = sc.kind === "death" && target !== undefined ? { key: target.key, year } : undefined;
+  const chart: ChartModel = { years, ages: years.map((y) => age(y)), axis: ageAxis(rs, years, gone), family: years.map((y) => familyText(rs, y, gone)), proposal: years.map((y) => finS.get(y) ?? 0), current: years.map((y) => finN.get(y) ?? 0), depletions };
 
   // 内訳（万一なしとの差）: 万一の翌年と、万一の年から最後の年までの累計
   const first = Math.min(year + 1, lastYear);
@@ -165,7 +168,6 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
   }
   const notices: string[] = [];
   if (sc.kind === "death" && hasReformNotice(result)) notices.push(REFORM_TEXT);
-  void target;
   return {
     title: event,
     who: self?.label ?? "",

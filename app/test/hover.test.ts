@@ -110,7 +110,7 @@ describe("グラフの年: カーソルで○と表示、クリックで固定",
     expect(html).toContain('class="hv-dot sel"');
     expect(html).toContain('class="hv-dot base"');
     expect(html).toContain("data-year-tip");
-    expect(html).toContain("2053年（ご主人72歳）");
+    expect(html).toContain("2053年　ご主人72歳・奥様70歳");
     expect(html).toContain("固定中");
     const i = m.chart.years.indexOf(2053);
     const man = (n: number) => `${n < 0 ? "▲" : ""}${Math.round(Math.abs(n) / 10000).toLocaleString("en-US")}万円`;
