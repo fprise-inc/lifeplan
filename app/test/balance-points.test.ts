@@ -117,18 +117,25 @@ describe("保存（表示の設定。世帯ごと）", () => {
 describe("タブの画面", () => {
   const p = planOf("dualAssetsTwoKids");
 
-  it("1年ずつ見る: 年のつまみは図のすぐ下（解説・家計の体力の目安・表で見るはその下）", () => {
+  it("1年ずつ見る: 年のつまみは図のすぐ下（家計の体力の目安を横いっぱいに・表で見るはその下）。図の下に要約・解説の文は置かない", () => {
     const html = renderToString(h(BalanceTab, { model: modelOf(p), band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop }));
     const at = (s: string) => html.indexOf(s);
     expect(at("data-bs-figure")).toBeGreaterThan(0);
     expect(at("data-bs-yearbar")).toBeGreaterThan(at("data-bs-figure"));
-    expect(at("data-bs-say")).toBeGreaterThan(at("data-bs-yearbar"));
     expect(at("data-bs-health")).toBeGreaterThan(at("data-bs-yearbar"));
     expect(at("data-bs-table")).toBeGreaterThan(at("data-bs-health"));
     expect(at("data-bs-trend")).toBeGreaterThan(at("data-bs-table"));
-    // 図とつまみの間に解説・体力の目安を挟まない
+    // 家計の体力の目安は横いっぱい（4つを横に並べる形）
+    expect(html).toContain('class="bs-health wide"');
+    expect((html.match(/data-health="/g) ?? []).length).toBe(4);
+    // 要約の箱・「バランスシートで見えること」・左右の合計の確かめの行は出さない（FP が口頭で説明する）
+    for (const gone of ["data-bs-say", "data-bs-eq", "バランスシートで見えること", "合っています", "左右の箱は必ず同じ高さです"]) expect(html).not.toContain(gone);
+    // 箱（項目）ごとにカーソルの札を付ける。まとまりの読み上げには内訳の名前と金額も入れる（薄い箱も読める）
+    expect(html).toContain("箱にカーソルを合わせると名前と金額、押すと内訳が開きます");
+    expect(html).toContain('data-bs-part="deposit"');
+    expect(html).toMatch(/aria-label="換金しにくい資産 [\d,]+万円（[^"）]+ [\d,]+万円、[^"）]+ [\d,]+万円[^"]*）。押すと内訳"/);
+    // 図とつまみの間に体力の目安を挟まない
     const between = html.slice(at("data-bs-figure"), at("data-bs-yearbar"));
-    expect(between).not.toContain("data-bs-say");
     expect(between).not.toContain("data-bs-health");
     // 凡例は点線に触れない
     expect(html).not.toContain("点線の枠");

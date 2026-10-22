@@ -121,18 +121,15 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
     expect(grp(y0, "mortgage")).toBe(sumRows(r, ["cf.balance.debt.mortgage", "cf.balance.debt.unpaidInterest"], 2026));
   });
 
-  it("今の年の生活費は1年分（計算基準年が年の途中なら翌年の値）。解説・箱の説明・主な年・札がある", () => {
+  it("今の年の生活費は1年分（計算基準年が年の途中なら翌年の値）。箱の説明・主な年・札がある", () => {
     const y0 = p.years[0]!;
     expect(y0.living).toBe(p.years[1]!.living);
     expect(y0.living).toBeGreaterThan(2_000_000);
-    expect(y0.say.head.map((x) => x.text).join("")).toMatch(/住宅ローンの残りが[\d,]+万円あり、今の純資産は/);
-    expect(y0.insight.map((x) => x.text).join("")).toContain("事実");
     expect(Object.keys(y0.notes).sort()).toEqual(["debt", "illiquid", "liquid", "locked", "market", "mortgage", "neg", "netWorth"]);
     expect(p.jumps.map((j) => j.key)).toEqual(["now", "ten", "retire", "age75"]);
     expect(p.marks.some((m) => m.kind === "retire")).toBe(true);
-    // ローンを返している年: 元金の分は純資産として残る
-    const paying = p.years.find((y) => !y.fact && y.insight.some((x) => x.text.includes("借りているお金も")));
-    expect(paying).toBeDefined();
+    // ローンを返している年: 元金の分は純資産として残る（箱を押したときの説明）
+    expect(y0.notes.mortgage).toContain("元金の分は、純資産として残ります");
     // 物の ID・FP のメモは入らない
     expect(JSON.stringify(p)).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/);
   });
@@ -147,7 +144,7 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
     expect(rg.min).toBeLessThanOrEqual(Math.min(...p.years.map((y) => Math.min(-y.totalLiabilities, y.netWorth))));
   });
 
-  it("タブの部品: 図・解説・体力の目安・つまみ・推移のグラフ。控えが無ければ「前回と比べる」は出さない", () => {
+  it("タブの部品: 図・体力の目安・つまみ・推移のグラフ。控えが無ければ「前回と比べる」は出さない", () => {
     const model = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご主人" });
     const html = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop }));
     expect(html).toContain('data-bs-figure="2026"');
@@ -159,7 +156,7 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
     expect(html).toContain('data-bs-view="three"');
     expect(html).not.toContain('data-bs-view="plans"');
     expect(html).not.toContain('data-bs-view="prev"');
-    expect(html).toContain("✓ 合っています");
+    expect(html).not.toContain("✓ 合っています");
     // 表で見るは既定で閉じる
     expect(html).not.toContain("data-bs-sheet");
     const withPrev = renderToString(h(BalanceTab, { model: { ...model, prevChoices: [{ key: "p1", label: "2025年10月1日の控え（手動）" }] }, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop, initial: { year: 2046, table: true } }));
@@ -235,7 +232,7 @@ describe("図の置き方（縮尺・最低限の高さ）", () => {
 
 describe("家計の体力の目安", () => {
   const year = (o: Partial<BsYearModel>): BsYearModel => ({
-    year: 2026, age: 45, members: "", fact: true, totalAssets: 0, totalLiabilities: 0, netWorth: 0, financial: 0, shortfall: 0, living: 3_600_000, events: [], say: { head: [], sub: [] }, insight: [], notes: {}, lines: [], ...o,
+    year: 2026, age: 45, members: "", fact: true, totalAssets: 0, totalLiabilities: 0, netWorth: 0, financial: 0, shortfall: 0, living: 3_600_000, events: [], notes: {}, lines: [], ...o,
   });
   const y = year({
     lines: [
@@ -323,7 +320,7 @@ describe("前回と比べる（控え）", () => {
   });
 
   it("差の項目と「○年前」", () => {
-    const y = (lines: BsYearModel["lines"]): BsYearModel => ({ year: 2026, age: null, members: "", fact: false, totalAssets: 0, totalLiabilities: 0, netWorth: 0, financial: 0, shortfall: 0, living: 0, events: [], say: { head: [], sub: [] }, insight: [], notes: {}, lines });
+    const y = (lines: BsYearModel["lines"]): BsYearModel => ({ year: 2026, age: null, members: "", fact: false, totalAssets: 0, totalLiabilities: 0, netWorth: 0, financial: 0, shortfall: 0, living: 0, events: [], notes: {}, lines });
     const items = prevItems(
       y([{ key: "deposit", label: "預金", group: "liquid", amount: 6_900_000 }, { key: "mortgage", label: "住宅ローン", group: "mortgage", amount: 24_000_000 }]),
       y([{ key: "deposit", label: "預金", group: "liquid", amount: 5_600_000 }, { key: "mortgage", label: "住宅ローン", group: "mortgage", amount: 24_500_000 }, { key: "nisa", label: "NISA", group: "market", amount: 3_000 }]),
@@ -419,7 +416,7 @@ describe("住まい以外の不動産（家賃収入・経費・土地と建物�
   const fieldsOf = (wh: WorkingHousehold) => allFields(buildStage("savings", wh));
   const key = (fs: FieldDef[], k: string) => fs.find((f) => f.key === k);
 
-  it("資産と負債のタブ: 換金しにくい資産の中を土地と建物に分け、建物は年とともに減り土地は残る。解説にも年に応じて一言", () => {
+  it("資産と負債のタブ: 換金しにくい資産の中を土地と建物に分け、建物は年とともに減り土地は残る。箱の説明にも土地と建物", () => {
     const req = modelHousehold("dualAssetsTwoKids");
     const r = preview(req);
     const p = bsPlan({ key: "A", letter: "A", name: "プランA", title: "現状", base: true, req, table: r.table });
@@ -430,9 +427,7 @@ describe("住まい以外の不動産（家賃収入・経費・土地と建物�
     expect(amt(y20, "building")).toBeLessThan(amt(y0, "building"));
     expect(amt(y20, "land")).toBeGreaterThan(0);
     expect(y0.lines.some((l) => l.key === "home")).toBe(false);
-    const text = (y: BsYearModel) => [...y.say.head, ...y.say.sub].map((x) => x.text).join("");
-    expect(text(y0)).toContain("建物は年数とともに価値が減りますが、土地は残ります");
-    expect(text(y20)).toMatch(/建物は年数とともに価値が減り、今より[\d,]+万円少ない[\d,]+万円ですが、土地（[\d,]+万円）は残ります/);
+    expect(y0.notes.illiquid).toContain("建物は年数とともに価値が減りますが、土地は残ります");
     expect(y20.notes.illiquid).toContain("土地（");
     // 賃貸のマンションのローンは「不動産のローン」
     expect(y0.lines.find((l) => l.key === "propertyLoan")).toMatchObject({ group: "debt", label: "不動産のローン" });

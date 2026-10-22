@@ -974,8 +974,12 @@ impl Store {
                 }
                 .to_owned(),
             ),
-            // 区分は、始めた PC の設定を事務所の設定にする（0033）
-            categories: Some(s.data.numbering.categories.clone()),
+            // 区分は、始めた PC の設定を事務所の設定にする（0033）。まだ決めていなければ書かず、事務所で1回決める
+            categories: s
+                .data
+                .numbering
+                .decided
+                .then(|| s.data.numbering.categories.clone()),
             updated_at: at.clone(),
             updated_by: Some(member_id.clone()),
         };

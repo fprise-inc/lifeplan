@@ -89,6 +89,12 @@ export interface Category {
   name: string;
 }
 
+/** 区分の設定（本体の CategorySettings）。decided が false なら、初めて世帯の一覧を使うときに「区分を使いますか？」と聞く。決めた後で空なら区分を使わない */
+export interface CategorySettings {
+  categories: Category[];
+  decided: boolean;
+}
+
 /** 区分の設定の変更の1行（from は今の記号。新しく足す区分は無し） */
 export interface CategoryEdit {
   from?: string;
@@ -285,7 +291,7 @@ export interface StoreHost {
   status(): Promise<StoreStatus>;
   /** 顧客の世帯の一覧（見本は入れない） */
   list(): Promise<StoredHousehold[]>;
-  /** 新しい世帯（opts.category は区分の記号。無ければ見込み客。opts.sample があれば見本として作る。0033） */
+  /** 新しい世帯（opts.category は区分の記号。無ければ見込み客（区分を使わないときは通し番号だけ）。opts.sample があれば見本として作る。0033） */
   create(body: string, summary: string, opts?: { category?: string; sample?: SampleRequest }): Promise<StoredOpened>;
   open(id: string): Promise<StoredOpened>;
   save(id: string, body: string, summary: string): Promise<{ generation: number; savedAt: string }>;
@@ -319,8 +325,9 @@ export interface StoreHost {
   /** 顧客の世帯を見本の棚へ移す（「中身は架空です」を確かめた後） */
   makeSample(id: string, sample: SampleRequest): Promise<{ customerNo: string; duplicate: boolean }>;
   updateSample(id: string, name: string, traits: string[]): Promise<void>;
-  categories(): Promise<Category[]>;
-  setCategories(edits: CategoryEdit[]): Promise<Category[]>;
+  categories(): Promise<CategorySettings>;
+  /** 区分の設定を変える（空は「区分を使わない」。初めの「区分を使いますか？」の答えもこれで書く） */
+  setCategories(edits: CategoryEdit[]): Promise<CategorySettings>;
 }
 
 // ---- AI接続口（0014・0015）。画面には鍵もパスも渡らない（接続の設定の文面は場所を伏せたもの） ----
@@ -530,8 +537,8 @@ export function tauriHost(): HostApi {
       assignSerial: (id) => invoke<{ customerNo: string; duplicate: boolean }>("store_assign_serial", { id }),
       makeSample: (id, sample) => invoke<{ customerNo: string; duplicate: boolean }>("store_make_sample", { id, sample }),
       updateSample: (id, name, traits) => invoke<void>("store_update_sample", { id, name, traits }),
-      categories: () => invoke<Category[]>("store_categories"),
-      setCategories: (edits) => invoke<Category[]>("store_set_categories", { edits }),
+      categories: () => invoke<CategorySettings>("store_categories"),
+      setCategories: (edits) => invoke<CategorySettings>("store_set_categories", { edits }),
     },
     office: {
       status: () => invoke<OfficeStatus>("office_status"),
@@ -697,8 +704,8 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       assignSerial: async (id) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("assignSerial", { id })),
       makeSample: async (id, sample) => devJson<{ customerNo: string; duplicate: boolean }>(await devStore("makeSample", { id, sample: JSON.stringify(sample) })),
       updateSample: async (id, name, traits) => void (await devJson<unknown>(await devStore("updateSample", { id, name, traits: JSON.stringify(traits) }))),
-      categories: async () => devJson<Category[]>(await devStore("categories")),
-      setCategories: async (edits) => devJson<Category[]>(await devStore("setCategories", { edits: JSON.stringify(edits) })),
+      categories: async () => devJson<CategorySettings>(await devStore("categories")),
+      setCategories: async (edits) => devJson<CategorySettings>(await devStore("setCategories", { edits: JSON.stringify(edits) })),
     },
     // 事務所での共有: 開発用のサーバーのメモリの中の代わり（フォルダのダイアログは出さず、架空の共有フォルダを選んだことにする）
     office: {

@@ -1,7 +1,8 @@
 // 資産と負債のタブ（提示層の部品。家計のバランスシートを図で見せる）。受け取るのは BalanceTabModel と手続きだけ（0016 の2）。
 // 配置（上から）: 見るもの（家計のバランスシート／合算BS（カスタマイズで追加）の入口）→ プランの帯（作業の層が渡す）→
 // バランスシートの図（1年ずつ見る／時点を並べる／プランを並べる／前回と比べる）→ 年のつまみ（図のすぐ下。図とつまみが同時に画面に収まるよう、
-// 窓の高さが低いときは図を縮める）→ ひと言の解説と家計の体力の目安 → 表で見る（既定は閉じる）→ 資産と負債の推移のグラフ（押すとその年のバランスシート）。
+// 窓の高さが低いときは図を縮める）→ 家計の体力の目安（横いっぱいに4つ並べる）→ 表で見る（既定は閉じる）→ 資産と負債の推移のグラフ（押すとその年のバランスシート）。
+// 図の読み方・その年の解説は FP が口頭でする前提で、図の下に要約・解説の文は置かない。
 // このタブの表示の設定（図の見出しの右の「表示の設定」。結果のタブの表示の設定とは別）: 時点を並べるときの既定の時点と、家計の体力の目安の幅
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
@@ -212,7 +213,7 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
                   表示の設定
                 </button>
               </div>
-              <p class="bs-subline">箱の高さは金額に比例（1年ずつ見るときはその年がいっぱいに見える縮尺。並べるときは共通の縮尺）。箱を押すと内訳が開きます</p>
+              <p class="bs-subline">箱の高さは金額に比例（1年ずつ見るときはその年がいっぱいに見える縮尺。並べるときは共通の縮尺）。箱にカーソルを合わせると名前と金額、押すと内訳が開きます</p>
             </div>
             {settingsOpen ? (
               <div ref={settingsRef}>
@@ -317,36 +318,12 @@ function OneYear({ model, plan, year, yi, onPick, onAdjusted, height }: { model:
   );
 }
 
-/** 1年ずつ見るときの、つまみの下（ひと言の解説・バランスシートで見えること・家計の体力の目安） */
+/** 1年ずつ見るときの、つまみの下（家計の体力の目安。横いっぱいに広げる） */
 function OneYearBelow({ model, plan, year, adjusted, onEditGuide }: { model: BalanceTabModel; plan: BsPlanModel; year: BsYearModel; adjusted: boolean; onEditGuide: () => void }) {
-  const eq = year.totalAssets === year.totalLiabilities + year.netWorth;
   return (
     <>
       {adjusted ? <p class="bs-adjnote">※小さい項目は読める高さにしているため、その箱だけ高さが金額の比例より少し大きめです</p> : null}
-      <div class="bs-below">
-        <div class="bs-talk">
-          <div class="bs-say" aria-live="polite" data-bs-say>
-            <Parts parts={year.say.head} />
-            {year.say.sub.length > 0 ? (
-              <span class="s2">
-                <Parts parts={year.say.sub} />
-              </span>
-            ) : null}
-          </div>
-          <div class="bs-ins">
-            <span class="ik">バランスシートで見えること</span>
-            <Parts parts={year.insight} />
-          </div>
-          <div class="bs-eq" data-bs-eq>
-            <span class="num">
-              資産 {group(Math.round(year.totalAssets / 10000))} ＝ 負債 {group(Math.round(year.totalLiabilities / 10000))} ＋ 純資産 {man(year.netWorth)}
-            </span>
-            {eq ? <span class="ok">✓ 合っています</span> : null}
-            <span class="bs-eqnote">左右の箱は必ず同じ高さです（資産＝負債＋純資産）</span>
-          </div>
-        </div>
-        <HealthCard year={year} first={plan.years[0] as BsYearModel} guide={model.guide} onEditGuide={onEditGuide} />
-      </div>
+      <HealthCard year={year} first={plan.years[0] as BsYearModel} guide={model.guide} onEditGuide={onEditGuide} wide />
     </>
   );
 }
@@ -428,13 +405,13 @@ const HealthText = ({ item }: { item: HealthItem }) => (
   </span>
 );
 
-/** 家計の体力の目安。onEditGuide を渡すと「目安の幅を変える」（このタブの表示の設定を開く）を出す */
-export function HealthCard({ year, first, guide, onEditGuide }: { year: BsYearModel; first: BsYearModel; guide: BsGuide; onEditGuide?: () => void }) {
+/** 家計の体力の目安。onEditGuide を渡すと「目安の幅を変える」（このタブの表示の設定を開く）を出す。wide は横いっぱいに4つ並べる（狭い幅では折り返す） */
+export function HealthCard({ year, first, guide, onEditGuide, wide = false }: { year: BsYearModel; first: BsYearModel; guide: BsGuide; onEditGuide?: () => void; wide?: boolean }) {
   const h = healthOf(year, guide);
   const mv = h.months.value !== null ? monthsValue(h.months.value) : null;
   const d = year.netWorth - first.netWorth;
   return (
-    <div class="bs-health" data-bs-health>
+    <div class={`bs-health${wide ? " wide" : ""}`} data-bs-health>
       <div class="hh2">
         家計の体力の目安 <KindTag fact={year.fact} />
         <small>{year.living > 0 ? `生活費 月${man(year.living / 12)}万円で計算` : ""}</small>

@@ -490,10 +490,6 @@ export interface BsYearModel {
   living: Yen;
   /** この年の出来事（例: 退職・住宅ローン完済） */
   events: { kind: BsMarkKind; text: string }[];
-  /** ひと言の解説（1行目と2行目） */
-  say: { head: VerdictPart[]; sub: VerdictPart[] };
-  /** バランスシートで見えること */
-  insight: VerdictPart[];
   /** 箱を押したときの説明（分け方ごと・純資産・純資産のマイナス） */
   notes: Partial<Record<BsGroupKey | "netWorth" | "neg", string>>;
 }

@@ -425,7 +425,7 @@ export async function runPlansCheck(dual: () => DualEngine | null, host: string,
     const tabBtn = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("nav.tabs button")].find((b) => b.textContent === label);
     tabBtn("資産と負債")?.click();
     await sleep(900);
-    report.balance = { figure: document.querySelectorAll("[data-bs-figure]").length, boxes: document.querySelectorAll("[data-bs-box]").length, trendBars: document.querySelectorAll("[data-bs-trend] .bst-bar").length, eq: text("[data-bs-eq]") };
+    report.balance = { figure: document.querySelectorAll("[data-bs-figure]").length, boxes: document.querySelectorAll("[data-bs-box]").length, trendBars: document.querySelectorAll("[data-bs-trend] .bst-bar").length, health: document.querySelectorAll("[data-bs-health] [data-health]").length };
     await stage("balance", report);
     tabBtn("結果")?.click();
     await sleep(900);

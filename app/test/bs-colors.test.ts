@@ -163,7 +163,7 @@ const groups = {
 };
 const year = (lines: BsYearModel["lines"], netWorth: number): BsYearModel => {
   const assets = lines.filter((l) => l.group !== "mortgage" && l.group !== "debt").reduce((s, l) => s + l.amount, 0);
-  return { year: 2056, age: 75, members: "", fact: false, lines, totalAssets: assets, totalLiabilities: assets - netWorth, netWorth, financial: 0, shortfall: 0, living: 3_600_000, events: [], say: { head: [], sub: [] }, insight: [], notes: {} };
+  return { year: 2056, age: 75, members: "", fact: false, lines, totalAssets: assets, totalLiabilities: assets - netWorth, netWorth, financial: 0, shortfall: 0, living: 3_600_000, events: [], notes: {} };
 };
 const rects = (html: string) =>
   [...html.matchAll(/<rect class="bsf-seg"([^>]*)>/g)].map((m) => {

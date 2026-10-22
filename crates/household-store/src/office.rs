@@ -1037,7 +1037,7 @@ mod tests {
             }),
             generation: 3,
             label: Label {
-                category: Some("M".into()),
+                category: Some("A".into()),
                 serial: Some(1),
                 branch: None,
                 sample: None,

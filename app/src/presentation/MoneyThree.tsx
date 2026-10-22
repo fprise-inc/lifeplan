@@ -1,11 +1,14 @@
 // お金の3つの分け方（説明用の図。0032。提示層の部品）。受け取るのは MoneyThreeModel だけ（0016 の2）。
 // - 資産と負債のタブの区画（何か月分・何年先までの欄つき）・持ち帰り用のレポートの1ページ（欄なし。FP が決めた値を文で書く）で同じ部品を使う。
 // - 図: 左＝使う時期で分けた3つの箱（上ほどすぐ使う。薄い色＋同じ色相の枠）、右＝今の置き場所（資産と負債のタブと同じ色のベタ塗り）。左右は同じ縮尺。
-//   左の「使う＋貯める」の下端を右の列まで点線でのばし、ずれている分に斜線と点線の枠と札を付ける。
-// - 箱の横の3枚のカードは同じ形: 名前と額 → 中身の一文 → いつも見える中身の一覧 → まとめ（ほか○件）→ ひと言。貯めるお金の全部の表は「内訳を見る」で開く
+//   分け方と置き場所のずれ（預金などのままの分・足りない分）は図に描かず、区画の上の一文で示す（図を指しながら FP が説明する前提）。
+//   箱にカーソルを合わせる・キーボードで選ぶ・押すと、名前・金額・一言の札（FigTip.tsx）。
+// - 箱の横の3枚のカードは同じ形: 名前と額 → 中身の一文 → 中身の一覧 → まとめ（ほか○件）→ ひと言。画面の貯めるお金は、一覧を最初は出さず
+//   件数と「内訳を見る」（小窓で一覧と全部の年の表）にする。持ち帰り用のレポートは一覧のまま
 import type { JSX } from "preact";
-import { useEffect, useId, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { useBoxSize } from "./BsFigure.tsx";
+import { FigTip, useFigTip, type FigTipData } from "./FigTip.tsx";
 import { group, man } from "./format.ts";
 import type { MoneyThreeBox, MoneyThreeModel, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
 
@@ -33,27 +36,40 @@ function Amount({ x, y, v, fs, anchor = "start", fill = "var(--ink)" }: { x: num
   );
 }
 
-/** 図（左右の2列。幅に合わせて描き直す） */
-export function MoneyThreeFigure({ model }: { model: MoneyThreeModel }) {
+/** 箱の札の中身: 貯めるお金は年・できごと・賄えない分の一覧（右のカードの「内訳を見る」と同じ）、ほかは中身の一文 */
+function tipBody(b: MoneyThreeBox): Pick<FigTipData, "note" | "rows"> {
+  if (b.key !== "save") return { note: b.formula };
+  const rows = [...b.items.map((it) => ({ label: `${it.lead} ${it.label}`.trim(), amount: it.amount })), ...(b.rest !== null ? [{ label: `ほか${b.rest.count}件`, amount: b.rest.amount }] : [])];
+  return { rows, note: b.note ?? b.formula };
+}
+
+/** 置き場所の分け方の名前（札の補足。資産と負債のタブの分け方と同じ言葉） */
+const PLACE_GROUP: Record<string, string> = { liquid: "すぐ使えるお金", market: "値動きのある運用", locked: "引き出せないお金" };
+
+/**
+ * 図（左右の2列。幅に合わせて描き直す）。箱にカーソルを合わせる・キーボードで選ぶ・押すと、名前・金額・一言の札を出す（FigTip.tsx）。
+ * list を渡すと、箱に書ききれない名前と金額を図の下に一覧で出す（持ち帰り用のレポート。画面では札で見るので出さない）
+ */
+export function MoneyThreeFigure({ model, list = false }: { model: MoneyThreeModel; list?: boolean }) {
   const { ref, w: W, fs } = useBoxSize<HTMLDivElement>(560);
   const nar = W < 560;
   const [s, v, g] = model.boxes;
   const total = Math.max(model.place.total, model.need, 1);
   const H = nar ? 260 : 300;
   const k = H / total;
-  const top = fs * 3.5;
+  // 見出しの行（柱の名前）と額の行を分けて、その下から箱を積む（文字「大」・狭い幅でも重ならない）
+  const top = fs * 4.1;
   const base = top + H;
   const mid = nar ? 26 : 56;
-  const calW = nar ? 0 : fs * 11.5;
-  const colW = nar ? (W - mid) / 2 : Math.min(220, (W - mid - calW) / 2);
-  const off = nar ? 0 : Math.max(0, (W - (colW * 2 + mid + calW)) / 2);
+  const colW = nar ? (W - mid) / 2 : Math.min(220, (W - mid) / 2);
+  const off = nar ? 0 : Math.max(0, (W - (colW * 2 + mid)) / 2);
   const xL = off;
   const xR = xL + colW + mid;
   const GAP = 2;
   const pad = 8;
+  const figTip = useFigTip({ pinTap: true });
   const hidden: { name: string; val: Yen; fill: string; line: string | null }[] = [];
   const els: JSX.Element[] = [];
-  const hatch = `${useId()}-hx`;
   let key = 0;
   const label = (x: number, y0: number, h: number, name: string, val: Yen, ink: string, fill: string, line: string | null) => {
     if (val <= 0) return;
@@ -62,10 +78,10 @@ export function MoneyThreeFigure({ model }: { model: MoneyThreeModel }) {
     const aW = tw(group(Math.round(val / 10000)), fs * 0.8);
     if (!nar && h >= fs * 1.1 && nW + aW + pad * 3 <= colW) {
       els.push(
-        <text key={key++} x={x + pad} y={cy} font-size={fs * 0.8} font-weight="700" fill={ink} dominant-baseline="central">
+        <text key={key++} x={x + pad} y={cy} font-size={fs * 0.8} font-weight="700" fill={ink} dominant-baseline="central" pointer-events="none">
           {name}
         </text>,
-        <text key={key++} x={x + colW - pad} y={cy} font-size={fs * 0.8} font-weight="700" fill={ink} dominant-baseline="central" text-anchor="end" class="num">
+        <text key={key++} x={x + colW - pad} y={cy} font-size={fs * 0.8} font-weight="700" fill={ink} dominant-baseline="central" text-anchor="end" class="num" pointer-events="none">
           {man(val)}
         </text>,
       );
@@ -73,19 +89,21 @@ export function MoneyThreeFigure({ model }: { model: MoneyThreeModel }) {
     }
     if (h >= fs * 2.3 && nW * 0.92 + pad * 2 <= colW) {
       els.push(
-        <text key={key++} x={x + pad} y={cy - fs * 0.55} font-size={fs * 0.74} font-weight="700" fill={ink} dominant-baseline="central">
+        <text key={key++} x={x + pad} y={cy - fs * 0.55} font-size={fs * 0.74} font-weight="700" fill={ink} dominant-baseline="central" pointer-events="none">
           {name}
         </text>,
-        <Amount key={key++} x={x + pad} y={cy + fs * 0.6} v={val} fs={fs * 0.95} fill={ink} />,
+        <g key={key++} pointer-events="none">
+          <Amount x={x + pad} y={cy + fs * 0.6} v={val} fs={fs * 0.95} fill={ink} />
+        </g>,
       );
       return;
     }
     if (h >= fs * 1.05 && tw(`${name} ${man(val)}`, fs * 0.72) + pad * 2 <= colW) {
       els.push(
-        <text key={key++} x={x + pad} y={cy} font-size={fs * 0.72} font-weight="700" fill={ink} dominant-baseline="central">
+        <text key={key++} x={x + pad} y={cy} font-size={fs * 0.72} font-weight="700" fill={ink} dominant-baseline="central" pointer-events="none">
           {name}
         </text>,
-        <text key={key++} x={x + colW - pad} y={cy} font-size={fs * 0.72} font-weight="700" fill={ink} dominant-baseline="central" text-anchor="end" class="num">
+        <text key={key++} x={x + colW - pad} y={cy} font-size={fs * 0.72} font-weight="700" fill={ink} dominant-baseline="central" text-anchor="end" class="num" pointer-events="none">
           {man(val)}
         </text>,
       );
@@ -93,166 +111,116 @@ export function MoneyThreeFigure({ model }: { model: MoneyThreeModel }) {
     }
     hidden.push({ name, val, fill, line });
   };
+  /** 薄い箱は、カーソルを合わせやすいよう、見えない当たりの帯（HIT の高さ）を最後に重ねる */
+  const HIT = 9;
+  const hits: JSX.Element[] = [];
+  /** 箱（札つき。フォーカスでき、押すと札を固定する） */
+  const box = (d: FigTipData, body: JSX.Element, at?: { x: number; y: number; h: number }) => {
+    if (at !== undefined && at.h < HIT) hits.push(<rect key={`h${key++}`} class="m3-hit" x={at.x} y={at.y + at.h / 2 - HIT / 2} width={colW} height={HIT} fill="transparent" {...figTip.hover(d)} />);
+    return (
+      <g key={key++} class="m3-box" tabIndex={0} role="button" aria-label={`${d.title} ${man(d.amount)}万円${d.note !== undefined ? `。${d.note}` : ""}`} data-m3-fig-box={d.key} {...figTip.hover(d)} {...figTip.focus(d)}>
+        {body}
+      </g>
+    );
+  };
 
-  // 見出し
-  const hdr = (cx: number, t: string, val: Yen) => (
-    <g key={key++}>
-      <text x={cx} y={fs * 0.75} font-size={fs * 0.8} font-weight="700" fill="var(--ink-2)" text-anchor="middle" dominant-baseline="central">
-        {t}
-      </text>
-      <Amount x={cx} y={fs * 2.15} v={val} fs={fs * (nar ? 1.2 : 1.35)} anchor="middle" />
-    </g>
-  );
-  els.push(hdr(xL + colW / 2, nar ? "使う時期で分けると" : "使う時期で分けると（説明用）", s.amount + v.amount + g.amount));
-  els.push(hdr(xR + colW / 2, nar ? "今の置き場所" : "今の置き場所（入力した値）", model.place.total));
+  // 見出し（1行目＝柱の名前、2行目＝合計の額。柱の幅に入らなければ文字を小さくする）
+  const hdr = (cx: number, t: string, val: Yen) => {
+    const tf = Math.min(fs * 0.8, (colW - 4) / Math.max(1, tw(t, 1)));
+    const af0 = fs * (nar ? 1.2 : 1.35);
+    const af = Math.min(af0, (colW - 4) / Math.max(1, tw(man(val), 1) + 0.55 * 2));
+    return (
+      <g key={key++} data-m3-head>
+        <text x={cx} y={fs * 0.95} font-size={tf} font-weight="700" fill="var(--ink-2)" text-anchor="middle">
+          {t}
+        </text>
+        <Amount x={cx} y={fs * 1.55 + af * 0.55} v={val} fs={af} anchor="middle" />
+      </g>
+    );
+  };
+  els.push(hdr(xL + colW / 2, "いつ使うお金か", s.amount + v.amount + g.amount));
+  els.push(hdr(xR + colW / 2, "今どこにあるか", model.place.total));
 
-  // 左: 上から 使う・貯める・増やす
+  // 左: 上から 使う・貯める・増やす（札は右の列の側に出す）
   let y = top;
   model.boxes.forEach((b, i) => {
     const h = b.amount * k;
     if (h > 0.3) {
-      els.push(<rect key={key++} x={xL + 0.75} y={y + GAP / 2 + 0.75} width={Math.max(0, colW - 1.5)} height={Math.max(0, h - GAP - 1.5)} rx="4" fill={`var(--m3-${KC[i]})`} stroke={`var(--m3-${KC[i]}-line)`} stroke-width="1.5" />);
+      els.push(
+        box(
+          { key: b.key, title: b.name, amount: b.amount, ...tipBody(b), swatch: `var(--m3-${KC[i]}-line)`, x: xL + colW + 6, y: y + h / 2, side: "r" },
+          <rect x={xL + 0.75} y={y + GAP / 2 + 0.75} width={Math.max(0, colW - 1.5)} height={Math.max(0, h - GAP - 1.5)} rx="4" fill={`var(--m3-${KC[i]})`} stroke={`var(--m3-${KC[i]}-line)`} stroke-width="1.5" />,
+          { x: xL, y, h },
+        ),
+      );
       label(xL, y, h - GAP, b.name, b.amount, "var(--ink)", `var(--m3-${KC[i]})`, `var(--m3-${KC[i]}-line)`);
     }
     y += h;
   });
 
-  // 差の部分（右の列）
-  const yNeed = top + model.need * k;
-  const yLiq = top + model.place.liquid * k;
+  // 右: 置き場所（札は左の列の側に出す）
   const yF = top + model.place.total * k;
-  const showGap = model.status !== "even";
-  const hz1 = showGap ? Math.min(yNeed, yLiq) : 0;
-  const hz2 = showGap ? Math.max(yNeed, yLiq) : 0;
-
-  // 右: 置き場所
   y = top;
   for (const l of model.place.lines) {
     const h = l.amount * k;
     if (h > 0.3) {
       const fill = placeColor(l.key, l.group);
-      els.push(<rect key={key++} x={xR} y={y + GAP / 2} width={colW} height={Math.max(0, h - GAP)} rx="4" fill={fill} />);
-      // 斜線の上に名前が重ならないよう、斜線の外の広い方に置く
-      const e = y + h;
-      const overlap = showGap && hz2 > y && hz1 < e;
-      const up: [number, number] = [y, Math.min(e, hz1)];
-      const dn: [number, number] = [Math.max(y, hz2), e];
-      const part = up[1] - up[0] >= dn[1] - dn[0] ? up : dn;
-      if (overlap && part[1] - part[0] >= fs * 1.5) label(xR, part[0] + 2, part[1] - part[0] - 4, l.label, l.amount, "#fff", fill, null);
-      else label(xR, y, h - GAP, l.label, l.amount, "#fff", fill, null);
+      const note = l.liquid ? (l.key === "pooledCash" ? "運用しない分は預金などに数えます" : `${PLACE_GROUP.liquid}（預金など）`) : PLACE_GROUP[l.group];
+      els.push(box({ key: `p.${l.key}`, title: l.label, amount: l.amount, ...(note !== undefined ? { note } : {}), swatch: fill, x: xR - 6, y: y + h / 2, side: "l" }, <rect x={xR} y={y + GAP / 2} width={colW} height={Math.max(0, h - GAP)} rx="4" fill={fill} />, { x: xR, y, h }));
+      label(xR, y, h - GAP, l.label, l.amount, "#fff", fill, null);
     }
     y += h;
   }
   // 金融資産の合計でも届かない分（右の列の下に点線の空箱）
   if (model.overFinancial > 0) {
     const h = model.overFinancial * k;
-    els.push(<rect key={key++} x={xR + 0.75} y={yF + GAP / 2 + 0.75} width={colW - 1.5} height={Math.max(0, h - GAP - 1.5)} rx="4" fill="#fff" stroke="var(--ink-2)" stroke-width="1.5" stroke-dasharray="5 3" />);
+    els.push(
+      box(
+        { key: "over", title: "金融資産で足りない分", amount: model.overFinancial, note: `「${model.names[0]}」と「${model.names[1]}」の分に、金融資産の合計でも届かない分`, x: xR - 6, y: yF + h / 2, side: "l" },
+        <rect x={xR + 0.75} y={yF + GAP / 2 + 0.75} width={colW - 1.5} height={Math.max(0, h - GAP - 1.5)} rx="4" fill="#fff" stroke="var(--ink-2)" stroke-width="1.5" stroke-dasharray="5 3" />,
+      ),
+    );
     if (h > fs * 1.2)
       els.push(
-        <text key={key++} x={xR + colW / 2} y={yF + h / 2} font-size={fs * 0.72} font-weight="700" fill="var(--ink-2)" text-anchor="middle" dominant-baseline="central">
+        <text key={key++} x={xR + colW / 2} y={yF + h / 2} font-size={fs * 0.72} font-weight="700" fill="var(--ink-2)" text-anchor="middle" dominant-baseline="central" pointer-events="none">
           金融資産で足りない分
         </text>,
       );
   }
-  // 境目: 左の「使う＋貯める」の下端を右の列まで点線で
-  els.push(<line key={key++} x1={xL + colW + 3} y1={yNeed} x2={xR - 3} y2={yNeed} stroke="var(--ink-2)" stroke-width="1.5" stroke-dasharray="4 3" />);
-  els.push(<circle key={key++} cx={xL + colW + 3} cy={yNeed} r="2.6" fill="var(--ink-2)" />);
+  els.push(<line key={key++} x1={xL - 4} y1={base + 0.5} x2={xR + colW + 4} y2={base + 0.5} stroke="#9aa3ae" />, ...hits);
 
-  let callout: { y1: number; y2: number; t1: string; v: Yen; t3: string[] } | null = null;
-  if (showGap) {
-    const y2 = Math.min(hz2, yF);
-    if (y2 - hz1 > 0.5) els.push(<rect key={key++} x={xR} y={hz1} width={colW} height={y2 - hz1} fill={`url(#${hatch})`} />);
-    els.push(<rect key={key++} x={xR - 3} y={hz1 - 3} width={colW + 6} height={hz2 - hz1 + 6} rx="6" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="6 3" />);
-    const [n0, n1, n2] = model.names;
-    callout =
-      model.status === "over"
-        ? { y1: hz1, y2: hz2, t1: `${model.place.liquidName}のまま`, v: model.gap, t3: [`「${n2}」の分`] }
-        : { y1: hz1, y2: hz2, t1: `${model.place.liquidName}で足りない分`, v: -model.gap, t3: [`「${n0}」と`, `「${n1}」の分`] };
-    if (!nar) {
-      const x = xR + colW + 10;
-      const cy = (callout.y1 + callout.y2) / 2;
-      els.push(<path key={key++} d={`M${x} ${callout.y1}h6V${callout.y2}h-6M${x + 6} ${cy}h8`} fill="none" stroke="var(--ink)" stroke-width="1.5" />);
-      const lx = x + 18;
-      const h0 = cy - (fs * 1.0 + fs * 1.5 + callout.t3.length * fs * 1.05) / 2;
-      els.push(
-        <text key={key++} x={lx} y={h0 + fs * 0.5} font-size={fs * 0.84} font-weight="700" fill="var(--ink)" dominant-baseline="central">
-          {callout.t1}
-        </text>,
-        <Amount key={key++} x={lx} y={h0 + fs * 1.75} v={callout.v} fs={fs * 1.35} fill="var(--prop-ink)" />,
-        ...callout.t3.map((t, i) => (
-          <text key={key++} x={lx} y={h0 + fs * 2.95 + i * fs * 1.05} font-size={fs * 0.74} fill="var(--ink-2)" dominant-baseline="central">
-            {t}
-          </text>
-        )),
-      );
-    }
-  }
-  els.push(<line key={key++} x1={xL - 4} y1={base + 0.5} x2={xR + colW + 4} y2={base + 0.5} stroke="#9aa3ae" />);
-
-  // 狭い幅: 入りきらない箱の名前と、差の札を図の下に
+  // 入りきらない箱の名前と金額は、持ち帰り用のレポートだけ図の下に一覧で（画面では札で見る）
   let hh = Math.max(base, yF + model.overFinancial * k) + 8;
-  // 入りきらない箱の名前は図の下に一覧で（広い幅でも）
-  if (!nar && hidden.length > 0) {
+  if (list && hidden.length > 0) {
     let yy = hh + fs * 0.9;
-    const colw = Math.max(fs * 12, (colW * 2 + mid) / 2);
+    const cols = nar ? 1 : 2;
+    const colw = nar ? W : Math.max(fs * 12, (colW * 2 + mid) / 2);
+    const x0 = nar ? 0 : xL;
     hidden.forEach((it, i) => {
-      const x = xL + (i % 2) * colw;
+      const x = x0 + (i % cols) * colw;
       els.push(
         <rect key={key++} x={x} y={yy - fs * 0.42} width={fs * 0.84} height={fs * 0.84} rx="2" fill={it.fill} {...(it.line !== null ? { stroke: it.line, "stroke-width": 1.2 } : {})} />,
         <text key={key++} x={x + fs * 1.2} y={yy} font-size={fs * 0.78} font-weight="700" fill="var(--ink-2)" dominant-baseline="central">
           {it.name}
         </text>,
-        <Amount key={key++} x={x + colw - fs * 0.8} y={yy} v={it.val} fs={fs * 0.86} anchor="end" />,
+        <Amount key={key++} x={x + colw - (nar ? 2 : fs * 0.8)} y={yy} v={it.val} fs={fs * 0.86} anchor="end" />,
       );
-      if (i % 2 === 1 || i === hidden.length - 1) yy += fs * 1.5;
+      if (i % cols === cols - 1 || i === hidden.length - 1) yy += fs * 1.5;
     });
     hh = yy;
   }
-  if (nar) {
-    let yy = hh + fs * 0.9;
-    const rowH = fs * 1.5;
-    for (const it of hidden) {
-      els.push(
-        <rect key={key++} x="0" y={yy - fs * 0.42} width={fs * 0.84} height={fs * 0.84} rx="2" fill={it.fill} {...(it.line !== null ? { stroke: it.line, "stroke-width": 1.2 } : {})} />,
-        <text key={key++} x={fs * 1.3} y={yy} font-size={fs * 0.78} font-weight="700" fill="var(--ink-2)" dominant-baseline="central">
-          {it.name}
-        </text>,
-        <Amount key={key++} x={W - 2} y={yy} v={it.val} fs={fs * 0.86} anchor="end" />,
-      );
-      yy += rowH;
-    }
-    if (callout !== null) {
-      els.push(
-        <rect key={key++} x="0" y={yy - fs * 0.5} width={fs * 0.84} height={fs} fill={model.status === "over" ? "var(--bs-deposit)" : "var(--bs-nisa)"} />,
-        <rect key={key++} x="0" y={yy - fs * 0.5} width={fs * 0.84} height={fs} fill={`url(#${hatch})`} />,
-        <rect key={key++} x="-2" y={yy - fs * 0.5 - 2} width={fs * 0.84 + 4} height={fs + 4} rx="3" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="3 2" />,
-        <text key={key++} x={fs * 1.3} y={yy} font-size={fs * 0.78} font-weight="700" fill="var(--ink)" dominant-baseline="central">
-          {callout.t1}
-        </text>,
-        <Amount key={key++} x={W - 2} y={yy} v={callout.v} fs={fs * 1.05} anchor="end" fill="var(--prop-ink)" />,
-      );
-      yy += fs * 1.25;
-      els.push(
-        <text key={key++} x={fs * 1.3} y={yy} font-size={fs * 0.7} fill="var(--ink-2)" dominant-baseline="central">
-          {callout.t3.join("")}
-        </text>,
-      );
-      yy += rowH * 0.8;
-    }
-    hh = yy;
-  }
   const [n0, n1, n2] = model.names;
-  const aria = `${n0}${mn(s.amount)}、${n1}${mn(v.amount)}、${n2}${mn(g.amount)}。今の置き場所は${model.place.lines.map((l) => `${l.label}${mn(l.amount)}`).join("、")}`;
+  const aria = `いつ使うお金か: ${n0}${mn(s.amount)}、${n1}${mn(v.amount)}、${n2}${mn(g.amount)}。今どこにあるか: ${model.place.lines.map((l) => `${l.label}${mn(l.amount)}`).join("、")}`;
+  const HH = Math.ceil(hh);
   return (
-    <div class="m3-fig" ref={ref}>
-      <svg viewBox={`0 0 ${Math.round(W)} ${Math.ceil(hh)}`} width={Math.round(W)} height={Math.ceil(hh)} role="img" aria-label={aria}>
-        <defs>
-          <pattern id={hatch} patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
-            <rect width="2.6" height="6" fill="rgba(255,255,255,.55)" />
-          </pattern>
-        </defs>
+    <div class="m3-fig" ref={(el) => {
+      ref.current = el;
+      figTip.wrap.current = el;
+    }}>
+      <svg viewBox={`0 0 ${Math.round(W)} ${HH}`} width={Math.round(W)} height={HH} role="group" aria-label={aria}>
         {els}
       </svg>
+      {figTip.tip !== null ? <FigTip d={figTip.tip} W={Math.round(W)} H={HH} pinned={figTip.pinned} /> : null}
     </div>
   );
 }
@@ -363,9 +331,69 @@ export function SaveTable({ model }: { model: MoneyThreeModel }) {
   );
 }
 
-/** 3枚のカード（使う・貯める・増やす）。edit があれば何か月分・何年先までの欄を出す */
-export function MoneyThreeCards({ model, edit }: { model: MoneyThreeModel; edit?: (s: Partial<MoneyThreeSettings>) => void }) {
+/**
+ * 貯めるお金の「内訳を見る」と小窓（カードの横に重ねて出す。外を押す・Esc・× で閉じる）: 年・できごと・賄えない分の一覧と、全部の年の表
+ */
+function SavePop({ model }: { model: MoneyThreeModel }) {
+  const v = model.boxes[1];
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !(wrap.current?.contains(e.target as Node) ?? false)) {
+        setOpen(false);
+        if (e instanceof KeyboardEvent) btn.current?.focus();
+      }
+    };
+    document.addEventListener("click", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("click", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  return (
+    <div class="m3-popwrap" ref={wrap}>
+      <button type="button" class="link-btn m3-open" aria-expanded={open} onClick={() => setOpen(!open)} ref={btn} data-m3-save-open>
+        内訳を見る
+      </button>
+      {open ? (
+        <div class="m3-pop" role="dialog" aria-label={`${v.name}の内訳`} data-m3-save-pop>
+          <div class="m3-pop-h">
+            <i class="m3-sw k2" aria-hidden="true" />
+            <b>{v.name}の内訳</b>
+            <span class="m3-am num">
+              {man(v.amount)}
+              <small>万円</small>
+            </span>
+            <button type="button" class="x" aria-label="閉じる" onClick={() => setOpen(false)}>
+              ×
+            </button>
+          </div>
+          <p class="m3-note">{v.formula}</p>
+          <BoxList box={v} />
+          {model.table.length > 0 ? (
+            <details class="m3-more" data-m3-table>
+              <summary>全部の年の表</summary>
+              <SaveTable model={model} />
+            </details>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * 3枚のカード（使う・貯める・増やす）。edit があれば何か月分・何年先までの欄を出す。
+ * savePop（画面）は貯めるお金の一覧を最初は出さず、件数と「内訳を見る」の小窓にする（持ち帰り用のレポートは一覧のまま）
+ */
+export function MoneyThreeCards({ model, edit, savePop = false }: { model: MoneyThreeModel; edit?: (s: Partial<MoneyThreeSettings>) => void; savePop?: boolean }) {
   const [s, v, g] = model.boxes;
+  // 賄えない分のある年の数（一覧の行とまとめた行）
+  const saveCount = v.items.length + (v.rest?.count ?? 0);
   const sw = (i: number) => <i class={`m3-sw k${i + 1}`} aria-hidden="true" />;
   const am = (b: MoneyThreeBox) => (
     <span class="m3-am num">
@@ -403,16 +431,20 @@ export function MoneyThreeCards({ model, edit }: { model: MoneyThreeModel; edit?
             <>
               今後
               <Stepper value={model.settings.years} min={model.limits.years[0]} max={model.limits.years[1]} label="何年先まで" attr="years" onChange={(n) => edit({ years: n })} />
-              年（{model.range}）のできごとの支出のうち、その年の収入で賄えない分の合計
+              {savePop ? <span data-m3-save-count>年（{model.range}）の できごと {saveCount}件</span> : `年（${model.range}）のできごとの支出のうち、その年の収入で賄えない分の合計`}
             </>
+          ) : savePop ? (
+            <span data-m3-save-count>
+              今後{model.settings.years}年（{model.range}）の できごと {saveCount}件
+            </span>
           ) : (
             v.formula
           )}
           {model.clipped !== null ? <span class="m3-clip">{model.clipped}</span> : null}
         </div>
         <div class="m3-body-in">
-          <BoxList box={v} />
-          {model.table.length > 0 ? (
+          {savePop ? <SavePop model={model} /> : <BoxList box={v} />}
+          {!savePop && model.table.length > 0 ? (
             <details class="m3-more" data-m3-table>
               <summary>内訳を見る（全部の年の表）</summary>
               <SaveTable model={model} />
@@ -450,28 +482,6 @@ export function MoneyThreeSay({ model, eq = true }: { model: MoneyThreeModel; eq
   );
 }
 
-/** 凡例 */
-export function MoneyThreeLegend({ model }: { model: MoneyThreeModel }) {
-  return (
-    <div class="m3-legend">
-      <span>
-        <i class="plan" />
-        左＝ライフプランから出した分け方（説明用）
-      </span>
-      <span>
-        <i class="fact" />
-        右＝今の置き場所（入力した値）
-      </span>
-      {model.status !== "even" ? (
-        <span>
-          <i class="hx" />
-          分け方と置き場所がずれている分
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
 /** 資産と負債のタブの区画（主の置き場所）。flash が変わったら区画へ移って光らせる */
 export function MoneyThreeSection({ model, onSettings, flash = 0 }: { model: MoneyThreeModel; onSettings: (s: Partial<MoneyThreeSettings>) => void; flash?: number }) {
   const ref = useRef<HTMLElement>(null);
@@ -495,9 +505,8 @@ export function MoneyThreeSection({ model, onSettings, flash = 0 }: { model: Mon
       <div class="m3-grid">
         <div>
           <MoneyThreeFigure model={model} />
-          <MoneyThreeLegend model={model} />
         </div>
-        <MoneyThreeCards model={model} edit={onSettings} />
+        <MoneyThreeCards model={model} edit={onSettings} savePop />
       </div>
     </section>
   );
