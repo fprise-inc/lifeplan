@@ -32,7 +32,9 @@ use crate::container::{self, HouseholdHeader};
 use crate::crypto::{self, purpose, Key, NONCE_LEN};
 use crate::member::MemberKeys;
 use crate::migrate::{self, Access};
-use crate::numbering::{self, Category, CategoryEdit, Label, SampleInfo, SampleRequest};
+use crate::numbering::{
+    self, Category, CategoryEdit, CategorySettings, Label, SampleInfo, SampleRequest,
+};
 use crate::office::{self, Author, Roster};
 use crate::recovery;
 use crate::secret::SecretStore;
@@ -176,19 +178,29 @@ struct SharingSetting {
 }
 
 /// 顧客番号の区分と次の通し番号（0033）。事務所で共有しているときは、区分は名簿の値を使い、
-/// 通し番号は共有フォルダの世帯の札の番号も見て、事務所全体で重ならないようにする
+/// 通し番号は共有フォルダの世帯の札の番号も見て、事務所全体で重ならないようにする。
+/// 区分は最初から入れない: 初めて世帯の一覧を使うときに「区分を使いますか？」と聞き、決めたら `decided`（0033 の追記）
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Numbering {
     categories: Vec<Category>,
     next_serial: u32,
+    /// 区分を使うかを決めた。この欄の無い事務所データ（区分を最初から入れていた開発中の版）は、決めたものとして読む（聞き直さない）
+    #[serde(default = "decided_by_default")]
+    decided: bool,
 }
 
+fn decided_by_default() -> bool {
+    true
+}
+
+/// 番号の欄が無い事務所データ（0033 の前）と、新しい事務所データは、区分なし・まだ決めていない・1番から
 impl Default for Numbering {
     fn default() -> Numbering {
         Numbering {
-            categories: numbering::default_categories(),
+            categories: vec![],
             next_serial: 1,
+            decided: false,
         }
     }
 }
@@ -305,7 +317,7 @@ pub struct CreateRequest {
     pub summary: String,
 }
 
-/// 新しい世帯の番号の付け方（0033）。既定は見込み客（P）の区分の次の通し番号
+/// 新しい世帯の番号の付け方（0033）。既定は見込み客（C）の区分の次の通し番号（区分を使わないときは通し番号だけ）
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateOptions {
@@ -1138,6 +1150,14 @@ impl Store {
             .unwrap_or_else(|| s.data.numbering.categories.clone())
     }
 
+    /// 区分を使うかを決めたか（事務所で共有しているときは、名簿に区分の欄があれば決めたもの。空の一覧は「使わない」）
+    fn decided_of(s: &Session) -> bool {
+        s.shared
+            .as_ref()
+            .is_some_and(|sh| sh.roster.categories.is_some())
+            || s.data.numbering.decided
+    }
+
     /// すべての世帯の (内部ID, 表示の番号, 番号の中身)（事務所で共有しているときは共有フォルダの世帯の札）
     fn all_labels(s: &Session) -> Vec<(String, String, Label)> {
         match &s.shared {
@@ -1181,17 +1201,16 @@ impl Store {
         }
     }
 
-    /// 新しい世帯の区分（指定が無ければ見込み客。見込み客の区分を消していれば最初の区分）
-    fn pick_category(cats: &[Category], want: Option<&str>) -> Result<String, StoreError> {
+    /// 新しい世帯の区分（指定が無ければ見込み客。見込み客の区分を消していれば最初の区分。区分を使わないときは None）
+    fn pick_category(cats: &[Category], want: Option<&str>) -> Result<Option<String>, StoreError> {
         match want {
-            Some(c) if cats.iter().any(|x| x.code == c) => Ok(c.to_owned()),
+            Some(c) if cats.iter().any(|x| x.code == c) => Ok(Some(c.to_owned())),
             Some(_) => Err(StoreError::CATEGORY),
-            None => cats
+            None => Ok(cats
                 .iter()
                 .find(|x| x.code == numbering::DEFAULT_CATEGORY)
                 .or_else(|| cats.first())
-                .map(|x| x.code.clone())
-                .ok_or(StoreError::CATEGORY),
+                .map(|x| x.code.clone())),
         }
     }
 
@@ -1324,9 +1343,10 @@ impl Store {
                 None => {
                     let code =
                         Self::pick_category(&Self::categories_of(s), opts.category.as_deref())?;
-                    let serial = Self::next_serial(&mut data, &labels, &code)?;
+                    let serial =
+                        Self::next_serial(&mut data, &labels, code.as_deref().unwrap_or(""))?;
                     let label = Label {
-                        category: Some(code),
+                        category: code,
                         serial: Some(serial),
                         ..Label::default()
                     };
@@ -1730,14 +1750,23 @@ impl Store {
         }
         let mut g = self.lock();
         let s = self.ready_session(&mut g)?;
-        let (_, old) = Self::label_of(s, id)?;
+        let (old_no, old) = Self::label_of(s, id)?;
         if old.is_sample() {
             return Err(StoreError::SAMPLE);
+        }
+        // 同じ番号をそのまま入れたときは何も変えない（今までの「PCの接頭辞＋連番」の番号 `A0001` を、
+        // 番号を変える欄を開いて閉じただけで区分 A の体系の番号と読み替えない）
+        if c == old_no {
+            let duplicate = Self::duplicate_of(&Self::all_labels(s), id, &old_no, &old);
+            return Ok(RenameOutcome {
+                customer_no: old_no,
+                duplicate,
+            });
         }
         let (no, label) = match numbering::parse_structured(c, &Self::categories_of(s)) {
             Some((code, serial, branch)) => {
                 let l = Label {
-                    category: Some(code),
+                    category: code,
                     serial: Some(serial),
                     branch,
                     sample: None,
@@ -1767,7 +1796,7 @@ impl Store {
         })
     }
 
-    /// 世帯の区分を変える（0033）。体系の番号は記号だけが変わり、通し番号と枝番はそのまま（P0042 → M0042）。
+    /// 世帯の区分を変える（0033）。体系の番号は記号だけが変わり、通し番号と枝番はそのまま（C0042 → A0042。区分なしの 0042 → A0042）。
     /// 自由な番号は番号を変えない（区分だけを持つ）
     pub fn set_category(&self, id: &str, code: &str) -> Result<RenameOutcome, StoreError> {
         if !crypto::is_uuid(id) {
@@ -1793,7 +1822,7 @@ impl Store {
     }
 
     /// 自由な番号（今までの「PCの接頭辞＋連番」の番号を含む）の世帯に、区分の記号＋新しい通し番号を付ける（一方向。0033）。
-    /// 区分が無ければ見込み客。既に体系の番号なら何もしない
+    /// 区分が無ければ見込み客（区分を使わないときは通し番号だけ）。既に体系の番号なら何もしない
     pub fn assign_serial(&self, id: &str) -> Result<RenameOutcome, StoreError> {
         if !crypto::is_uuid(id) {
             return Err(StoreError::UNKNOWN_HOUSEHOLD);
@@ -1816,15 +1845,15 @@ impl Store {
             .as_deref()
             .filter(|c| cats.iter().any(|x| x.code == *c))
         {
-            Some(c) => c.to_owned(),
+            Some(c) => Some(c.to_owned()),
             None => Self::pick_category(&cats, None)?,
         };
         let labels = Self::all_labels(s);
         let mut data = s.data.clone();
-        let serial = Self::next_serial(&mut data, &labels, &code)?;
+        let serial = Self::next_serial(&mut data, &labels, code.as_deref().unwrap_or(""))?;
         s.data = data;
         label = Label {
-            category: Some(code),
+            category: code,
             serial: Some(serial),
             branch: None,
             sample: None,
@@ -1880,18 +1909,22 @@ impl Store {
         self.put_label(s, id, &no, label)
     }
 
-    /// 区分の一覧（0033）
-    pub fn categories(&self) -> Result<Vec<Category>, StoreError> {
+    /// 区分の設定（区分の一覧と、区分を使うかを決めたか。0033）
+    pub fn categories(&self) -> Result<CategorySettings, StoreError> {
         let mut g = self.lock();
         let s = Self::session(&mut g)?;
         // 事務所で共有しているときは、名簿がほかの PC で書き換えられていれば読み直す（読めなければ手元の値）
         let _ = self.refresh_shared(s);
-        Ok(Self::categories_of(s))
+        Ok(CategorySettings {
+            categories: Self::categories_of(s),
+            decided: Self::decided_of(s),
+        })
     }
 
     /// 区分の設定を変える（足す・名前を変える・記号を変える・使っていない区分を消す。0033）。
-    /// 記号を変えた区分の世帯は、体系の番号の記号も付け替える（通し番号はそのまま）。事務所で共有しているときは名簿に書く
-    pub fn set_categories(&self, edits: &[CategoryEdit]) -> Result<Vec<Category>, StoreError> {
+    /// 記号を変えた区分の世帯は、体系の番号の記号も付け替える（通し番号はそのまま）。事務所で共有しているときは名簿に書く。
+    /// 空の変更は「区分を使わない」。どちらでも、区分を使うかを決めたことになる（初めの「区分を使いますか？」の答えもこれで書く）
+    pub fn set_categories(&self, edits: &[CategoryEdit]) -> Result<CategorySettings, StoreError> {
         let mut g = self.lock();
         let s = self.ready_session(&mut g)?;
         let current = Self::categories_of(s);
@@ -1911,6 +1944,7 @@ impl Store {
             sh.write_roster(r, &m)?;
         }
         s.data.numbering.categories = cats.clone();
+        s.data.numbering.decided = true;
         let renamed: HashMap<&str, &str> = renames
             .iter()
             .map(|(a, b)| (a.as_str(), b.as_str()))
@@ -1937,7 +1971,10 @@ impl Store {
             }
         }
         self.write_office(s)?;
-        Ok(cats)
+        Ok(CategorySettings {
+            categories: cats,
+            decided: true,
+        })
     }
 
     /// 完全削除（0013 の5）: 世帯ファイル・直前の世代・アプリが管理するバックアップの写しを消し、鍵置き場からその世帯の鍵を消す。
@@ -2478,7 +2515,7 @@ mod tests {
         assert!(!valid_customer_no("A0000000000000000"));
         // 次の通し番号: この PC の次の番号と、使われている通し番号の最大の次の大きい方。同じ表示の番号（自由な番号）は飛ばす
         let mut d = OfficeData::new(&crypto::new_uuid());
-        assert_eq!(Store::next_serial(&mut d, &[], "P").unwrap(), 1);
+        assert_eq!(Store::next_serial(&mut d, &[], "C").unwrap(), 1);
         assert_eq!(d.numbering.next_serial, 2);
         let used = |serial: Option<u32>, no: &str| {
             (
@@ -2490,14 +2527,30 @@ mod tests {
                 },
             )
         };
-        let labels = [used(Some(7), "M0007"), used(None, "P0008")];
-        assert_eq!(Store::next_serial(&mut d, &labels, "P").unwrap(), 9);
-        assert_eq!(Store::next_serial(&mut d, &labels, "M").unwrap(), 10);
-        // 古い事務所データ（番号の欄が無い）は既定の区分・1番から
+        let labels = [used(Some(7), "A0007"), used(None, "C0008")];
+        assert_eq!(Store::next_serial(&mut d, &labels, "C").unwrap(), 9);
+        assert_eq!(Store::next_serial(&mut d, &labels, "A").unwrap(), 10);
+        // 今までの「PCの接頭辞＋連番」の番号（自由な番号）と同じ表示になる番号は飛ばす（区分 A の 1 番が A0001 とぶつからない）
+        let mut d = OfficeData::new(&crypto::new_uuid());
+        let old_prefix = [used(None, "A0001")];
+        assert_eq!(Store::next_serial(&mut d, &old_prefix, "A").unwrap(), 2);
+        // 区分を使わないときは通し番号だけ（0001 は今までの番号と形が違うので、そのまま 1 番から）
+        let mut d = OfficeData::new(&crypto::new_uuid());
+        assert_eq!(Store::next_serial(&mut d, &old_prefix, "").unwrap(), 1);
+        // 古い事務所データ（番号の欄が無い）は区分なし・まだ決めていない・1番から
         let mut v = serde_json::to_value(OfficeData::new(&crypto::new_uuid())).unwrap();
         v.as_object_mut().unwrap().remove("numbering");
         let old: OfficeData = serde_json::from_value(v).unwrap();
         assert_eq!(old.numbering.next_serial, 1);
-        assert_eq!(old.numbering.categories, numbering::default_categories());
+        assert!(old.numbering.categories.is_empty());
+        assert!(!old.numbering.decided);
+        // 開発中の版の事務所データ（区分 M・T・P が入っていて、決めたかの欄が無い）は、聞かずにそのまま使う
+        let mut v = serde_json::to_value(OfficeData::new(&crypto::new_uuid())).unwrap();
+        v["numbering"] = serde_json::json!({"categories": [{"code": "M", "name": "顧問契約"}, {"code": "T", "name": "単発相談"}, {"code": "P", "name": "見込み客"}], "nextSerial": 5});
+        let dev: OfficeData = serde_json::from_value(v).unwrap();
+        assert!(dev.numbering.decided);
+        assert_eq!(dev.numbering.categories.len(), 3);
+        assert_eq!(dev.numbering.categories[2].code, "P");
+        assert_eq!(dev.numbering.next_serial, 5);
     }
 }

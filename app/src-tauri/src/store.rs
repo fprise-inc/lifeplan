@@ -16,8 +16,9 @@
 use std::sync::Arc;
 
 use household_store::{
-    Category, CategoryEdit, CreateOptions, CreateRequest, HouseholdEntry, Opened, OsSecretStore,
-    RenameOutcome, SampleRequest, Saved, SecretStore, Status, Store, StoreError, SystemClock,
+    CategoryEdit, CategorySettings, CreateOptions, CreateRequest, HouseholdEntry, Opened,
+    OsSecretStore, RenameOutcome, SampleRequest, Saved, SecretStore, Status, Store, StoreError,
+    SystemClock,
 };
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -228,18 +229,18 @@ pub async fn store_update_sample(
     blocking(app, move |s| s.update_sample(&id, &name, &traits)).await
 }
 
-/// 区分の一覧（0033）
+/// 区分の設定（区分の一覧と、区分を使うかを決めたか。0033）
 #[tauri::command]
-pub async fn store_categories(app: AppHandle) -> Result<Vec<Category>, String> {
+pub async fn store_categories(app: AppHandle) -> Result<CategorySettings, String> {
     blocking(app, |s| s.categories()).await
 }
 
-/// 区分の設定を変える（0033）
+/// 区分の設定を変える（0033）。空の変更は「区分を使わない」
 #[tauri::command]
 pub async fn store_set_categories(
     app: AppHandle,
     edits: Vec<CategoryEdit>,
-) -> Result<Vec<Category>, String> {
+) -> Result<CategorySettings, String> {
     blocking(app, move |s| s.set_categories(&edits)).await
 }
 

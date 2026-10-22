@@ -1,9 +1,10 @@
 // 世帯の一覧（上の帯の「世帯」から開く）: 顧客の世帯を開く・新しく作る・顧客番号と区分を変える・完全削除（0013 の5）と、
 // 見本の棚（アプリに入っている見本と、自分で作った見本。顧客番号を持たず、顧客の一覧には混ぜない。0033）。
-// 一覧に出すのは表示用の顧客番号（区分の記号＋通し番号）と構成の要約（続柄と人数）だけ。氏名は持たない（0012）
+// 一覧に出すのは表示用の顧客番号（区分の記号＋通し番号。区分を使わないときは通し番号だけ）と構成の要約（続柄と人数）だけ。氏名は持たない（0012）。
+// 区分を使うかは、初めて世帯の一覧を使うときに1回だけ聞く（区分の設定がまだ一度も決まっていないとき。0033 の追記）
 import { useEffect, useState } from "preact/hooks";
 import type { StorageNotice, StoredHousehold, StoreStatus } from "../../engine/host.ts";
-import { AGE_BANDS, CATEGORY_CODE, FAMILY_SHAPES, NO_CATEGORY, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, parseSampleNo, sampleNoText, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
+import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGORY, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, parseSampleNo, sampleNoText, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
 import { OFFICE_MESSAGES, sinceText } from "./office.ts";
 import { storageNoticeText } from "./storage.ts";
 
@@ -19,8 +20,10 @@ export interface HouseholdPanelProps {
   list: StoredHousehold[];
   /** 開いている保存した世帯（見本を開いているときは見本の世帯） */
   currentId: string | null;
-  /** 区分の一覧 */
+  /** 区分の一覧（空は区分を使わない） */
   categories: Category[];
+  /** 区分を使うかを決めたか（false なら「区分を使いますか？」を1回だけ聞く。省略は決めたもの） */
+  categoriesDecided?: boolean;
   /** 見本の棚（アプリの見本と自分で作った見本。見本番号の順） */
   shelf: ShelfItem[];
   /** 開いている見本（アプリの見本の名前か、自分で作った見本の内部ID） */
@@ -31,9 +34,9 @@ export interface HouseholdPanelProps {
   unsavedTitle: string | null;
   initialTab?: HouseholdTab;
   onOpen: (id: string) => void;
-  /** 空から作る（区分を選ぶ） */
-  onCreate: (category: string) => void;
-  onSaveCurrent: (category: string) => void;
+  /** 空から作る（区分を選ぶ。区分を使わないときは undefined） */
+  onCreate: (category: string | undefined) => void;
+  onSaveCurrent: (category: string | undefined) => void;
   onRename: (id: string, customerNo: string) => Promise<string | null>;
   onSetCategory: (id: string, category: string) => Promise<string | null>;
   onAssignSerial: (id: string) => Promise<string | null>;
@@ -43,7 +46,7 @@ export interface HouseholdPanelProps {
   /** 見本を開く（動かしても見本は変わらない） */
   onOpenSample: (item: ShelfItem) => void;
   /** 見本をもとに顧客を作る（見本は変わらない） */
-  onCustomerFromSample: (item: ShelfItem, category: string) => void;
+  onCustomerFromSample: (item: ShelfItem, category: string | undefined) => void;
   /** 見本を写して手直しする（次の空き番号の新しい見本） */
   onCopySample: (item: ShelfItem) => void;
   onUpdateSample: (id: string, name: string, traits: string[]) => Promise<string | null>;
@@ -98,8 +101,11 @@ export const storeMessage = (code: string) => STORE_MESSAGES[code] ?? `保存の
 /** 見本に登録するときの「中身は架空です」の確認の文 */
 export const FICTIONAL_CONFIRM = "中身は架空です（実在のお客さまの情報を入れていません）";
 
-/** 区分を選ぶ欄の既定（見込み客。無ければ最初の区分） */
-export const defaultCategory = (cats: readonly Category[]) => (cats.some((c) => c.code === "P") ? "P" : (cats[0]?.code ?? "P"));
+/** 区分を選ぶ欄の既定（見込み客 C。無ければ最初の区分。区分を使わないときは undefined） */
+export const defaultCategory = (cats: readonly Category[]): string | undefined => (cats.some((c) => c.code === "C") ? "C" : cats[0]?.code);
+
+/** 初めの「区分を使いますか？」の、あとから変えられることの一文 */
+export const CATEGORY_LATER = "あとから世帯の一覧の下の「区分を設定する」でいつでも変えられます。番号の数字（通し番号）は変わりません。";
 
 /** 見本の写しの指定（同じ家族の形・年代。名前に「写し」を付ける） */
 export function copyRequest(item: ShelfItem): SampleRequest | null {
@@ -108,7 +114,8 @@ export function copyRequest(item: ShelfItem): SampleRequest | null {
   return { family: p.family, age: p.age, name: `${item.name}（写し）`.slice(0, 40), traits: [...item.traits] };
 }
 
-function CategorySelect(p: { categories: readonly Category[]; value: string; onChange: (v: string) => void; label: string }) {
+function CategorySelect(p: { categories: readonly Category[]; value: string | undefined; onChange: (v: string) => void; label: string }) {
+  if (p.categories.length === 0) return null;
   return (
     <select class="hh-sel" value={p.value} aria-label={p.label} onChange={(e) => p.onChange((e.currentTarget as HTMLSelectElement).value)}>
       {p.categories.map((c) => (
@@ -174,8 +181,8 @@ function SampleFields(p: { value: SampleRequest; onChange: (v: SampleRequest) =>
 }
 
 /** 区分の設定（足す・名前と記号を変える・使っていない区分を消す） */
-function CategoryEditor(p: { categories: readonly Category[]; inUse: ReadonlySet<string>; onSave: (edits: CategoryEdit[]) => Promise<string | null>; onClose: () => void }) {
-  const [rows, setRows] = useState<CategoryEdit[]>(p.categories.map((c) => ({ from: c.code, code: c.code, name: c.name })));
+function CategoryEditor(p: { categories: readonly Category[]; inUse: ReadonlySet<string>; onSave: (edits: CategoryEdit[]) => Promise<string | null>; onClose: () => void; initial?: CategoryEdit[]; saveLabel?: string }) {
+  const [rows, setRows] = useState<CategoryEdit[]>(p.initial ?? p.categories.map((c) => ({ from: c.code, code: c.code, name: c.name })));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const put = (i: number, r: Partial<CategoryEdit>) => setRows(rows.map((x, j) => (j === i ? { ...x, ...r } : x)));
@@ -195,7 +202,10 @@ function CategoryEditor(p: { categories: readonly Category[]; inUse: ReadonlySet
         });
       }}
     >
-      <p class="pl-sub">区分の記号（英大文字1〜2字）は顧客番号の頭に付きます。記号を変えると、その区分の世帯の顧客番号の記号も付け替えます（通し番号はそのまま。自由な番号の世帯は付け替えません）。</p>
+      <p class="pl-sub">
+        区分の記号（英大文字1〜2字）は顧客番号の頭に付きます。記号を変えると、その区分の世帯の顧客番号の記号も付け替えます（通し番号はそのまま。自由な番号の世帯は付け替えません）。
+        {p.categories.length === 0 ? "区分を使わずに付けた番号（0042 など）は区分なしのまま残ります。必要なら1件ずつ「区分を変える」で付けられます（通し番号は変わりません）。" : "区分をすべて消すと、区分を使わない形（番号は通し番号だけ）になります。"}
+      </p>
       <table class="plan-list hh-cat-list">
         <thead>
           <tr>
@@ -230,8 +240,13 @@ function CategoryEditor(p: { categories: readonly Category[]; inUse: ReadonlySet
         <button type="button" class="link-btn" onClick={() => setRows([...rows, { code: "", name: "" }])} data-category-add>
           ＋ 区分を足す
         </button>
-        <button type="submit" class="btn primary" disabled={busy || rows.length === 0} data-category-save>
-          区分を保存
+        {rows.length === 0 ? (
+          <button type="button" class="link-btn" onClick={() => setRows(DEFAULT_CATEGORIES.map((c) => ({ code: c.code, name: c.name })))} data-category-defaults>
+            A 顧問契約・B 単発相談・C 見込み客 を入れる
+          </button>
+        ) : null}
+        <button type="submit" class="btn primary" disabled={busy} data-category-save>
+          {p.saveLabel ?? (rows.length === 0 ? "区分を使わないで保存" : "区分を保存")}
         </button>
         <button type="button" class="link-btn" onClick={p.onClose}>
           キャンセル
@@ -256,11 +271,20 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   const [catFilter, setCatFilter] = useState("");
   const [editCats, setEditCats] = useState(false);
   const [newCat, setNewCat] = useState(defaultCategory(p.categories));
+  /** 初めの「区分を使いますか？」: 「使う」を押したら、既定の区分をその場で直せる欄を出す */
+  const [choosing, setChoosing] = useState(false);
+  const [choiceError, setChoiceError] = useState<string | null>(null);
+  const useCats = p.categories.length > 0;
+  const decided = p.categoriesDecided !== false;
+  // 区分の一覧が変わったら（使う・使わないを決めた・区分を消した）、新しい世帯の区分の既定を合わせる
+  useEffect(() => {
+    if (newCat === undefined || !p.categories.some((c) => c.code === newCat)) setNewCat(defaultCategory(p.categories));
+  }, [p.categories]);
   // 見本の棚の絞り込みと操作
   const [shelfFamily, setShelfFamily] = useState(0);
   const [shelfAge, setShelfAge] = useState(0);
   const [shelfTraits, setShelfTraits] = useState<string[]>([]);
-  const [fromSample, setFromSample] = useState<{ item: ShelfItem; category: string } | null>(null);
+  const [fromSample, setFromSample] = useState<{ item: ShelfItem; category: string | undefined } | null>(null);
   const [sampleEdit, setSampleEdit] = useState<{ id: string; name: string; traits: string[]; error: string | null } | null>(null);
   const [sampleDelete, setSampleDelete] = useState<{ id: string; value: string; error: string | null } | null>(null);
 
@@ -316,7 +340,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
               変える
             </button>
             {cancel}
-            <span class="pl-sub">区分の記号＋通し番号（M0042）、関係する世帯は枝番（M0042-1・M0042-C）。ほかの形は自由な番号として持ちます。英数字・ハイフン・下線の16字まで。お名前は入れないでください</span>
+            <span class="pl-sub">{useCats ? "区分の記号＋通し番号（A0042）、関係する世帯は枝番（A0042-1・A0042-C）。" : "通し番号（0042）、関係する世帯は枝番（0042-1・0042-C）。"}ほかの形は自由な番号として持ちます。英数字・ハイフン・下線の16字まで。お名前は入れないでください</span>
             {err}
           </form>
         );
@@ -399,6 +423,42 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           </button>
         </div>
       ) : null}
+      {ready && !decided ? (
+        <div class="hh-choice" data-category-choice>
+          <h3 class="hh-h">区分を使いますか？</h3>
+          <p>
+            顧客番号の頭に区分の記号を付けると、番号を見ただけで顧問契約・単発相談・見込み客の別が分かります（例 A0042・C0043）。使わないときは通し番号だけです（例 0042）。
+          </p>
+          <p class="hh-choice-later" data-category-later>
+            {CATEGORY_LATER}
+          </p>
+          {choosing ? (
+            <CategoryEditor categories={[]} inUse={new Set()} initial={DEFAULT_CATEGORIES.map((c) => ({ code: c.code, name: c.name }))} saveLabel="この区分で始める" onSave={p.onSaveCategories} onClose={() => setChoosing(false)} />
+          ) : (
+            <div class="hh-new">
+              <button type="button" class="btn primary" onClick={() => setChoosing(true)} data-category-choice-use>
+                使う（A 顧問契約・B 単発相談・C 見込み客）
+              </button>
+              <button
+                type="button"
+                class="btn"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  void p.onSaveCategories([]).then((err) => {
+                    setBusy(false);
+                    setChoiceError(err);
+                  });
+                }}
+                data-category-choice-none
+              >
+                使わない（通し番号だけ）
+              </button>
+              {choiceError !== null ? <span class="hh-err">{choiceError}</span> : null}
+            </div>
+          )}
+        </div>
+      ) : null}
       {ready ? (
         <>
           <h3 class="hh-h">顧客の世帯（{p.list.length}）</h3>
@@ -407,8 +467,9 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
             <div class="hh-tools">
               <label>
                 番号で探す{" "}
-                <input type="search" value={query} placeholder="例: 42、M0042" onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)} data-household-search />
+                <input type="search" value={query} placeholder={useCats ? "例: 42、C0042" : "例: 42、0042"} onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)} data-household-search />
               </label>
+              {useCats ? (
               <label>
                 区分{" "}
                 <select class="hh-sel" value={catFilter} onChange={(e) => setCatFilter((e.currentTarget as HTMLSelectElement).value)} data-category-filter>
@@ -421,6 +482,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                   <option value={NO_CATEGORY}>区分なし</option>
                 </select>
               </label>
+              ) : null}
               {query !== "" || catFilter !== "" ? <span class="pl-sub">{shown.length}件</span> : null}
             </div>
           ) : null}
@@ -430,7 +492,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                 <thead>
                   <tr>
                     <th>顧客番号</th>
-                    <th>区分</th>
+                    {useCats ? <th>区分</th> : null}
                     <th>家族</th>
                     <th>最後に保存</th>
                     {shared ? <th>{personal ? "最後に直したPC" : "最後に直した人"}</th> : null}
@@ -444,7 +506,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                       <td>
                         <b>{h.customerNo}</b>
                         {h.serial === undefined ? (
-                          <span class="pl-tag hh-free" title="区分の記号＋通し番号の形でない番号（区分を変えても付け替えません）">
+                          <span class="pl-tag hh-free" title={useCats ? "区分の記号＋通し番号の形でない番号（区分を変えても付け替えません）" : "通し番号の形でない番号"}>
                             自由な番号
                           </span>
                         ) : null}
@@ -455,7 +517,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                           </button>
                         ) : null}
                       </td>
-                      <td data-household-category={h.category ?? ""}>{categoryText(p.categories, h.category)}</td>
+                      {useCats ? <td data-household-category={h.category ?? ""}>{categoryText(p.categories, h.category)}</td> : null}
                       <td>{h.summary || "—"}</td>
                       <td class="num">{shortDate(h.updatedAt)}</td>
                       {shared ? <td data-household-editor>{h.updatedBy ?? "—"}</td> : null}
@@ -478,14 +540,16 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                                 開く
                               </button>
                             ) : null}
-                            <button type="button" class="link-btn" onClick={() => setForm({ kind: "category", id: h.id, value: h.category ?? defaultCategory(p.categories), error: null })} data-change-category={h.customerNo}>
-                              区分を変える
-                            </button>
+                            {useCats ? (
+                              <button type="button" class="link-btn" onClick={() => setForm({ kind: "category", id: h.id, value: h.category ?? defaultCategory(p.categories) ?? "", error: null })} data-change-category={h.customerNo}>
+                                区分を変える
+                              </button>
+                            ) : null}
                             <button type="button" class="link-btn" onClick={() => setForm({ kind: "rename", id: h.id, value: h.customerNo, error: null })}>
                               顧客番号を変える
                             </button>
                             {h.serial === undefined ? (
-                              <button type="button" class="link-btn" onClick={() => run({ kind: "rename", id: h.id, value: h.customerNo, error: null }, () => p.onAssignSerial(h.id))} title="区分の記号＋新しい通し番号に付け替えます（元の番号には戻りません）" data-assign-serial={h.customerNo}>
+                              <button type="button" class="link-btn" onClick={() => run({ kind: "rename", id: h.id, value: h.customerNo, error: null }, () => p.onAssignSerial(h.id))} title={useCats ? "区分の記号＋新しい通し番号に付け替えます（元の番号には戻りません）" : "新しい通し番号に付け替えます（元の番号には戻りません）"} data-assign-serial={h.customerNo}>
                                 通し番号を付ける
                               </button>
                             ) : null}
@@ -509,6 +573,8 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           {p.status !== null && p.status.deletionsPending > 0 ? (
             <p class="in-note">完全削除した世帯が {p.status.deletionsPending}件 あります。アプリのバックアップからも読めなくなるまで、削除の日から30日かかります。</p>
           ) : null}
+          {decided ? (
+            <>
           <h3 class="hh-h">新しく作る</h3>
           <div class="hh-new">
             <CategorySelect categories={p.categories} value={newCat} onChange={setNewCat} label="新しい世帯の区分" />
@@ -518,7 +584,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
             <button type="button" class="link-btn" onClick={() => setTab("samples")}>
               見本から作る
             </button>
-            <span class="pl-sub">顧客番号は「区分の記号＋通し番号」で自動で付きます（例 P0042）。区分を変えても通し番号はそのままです。</span>
+            <span class="pl-sub">{useCats ? "顧客番号は「区分の記号＋通し番号」で自動で付きます（例 C0042）。区分を変えても通し番号はそのままです。" : "顧客番号は通し番号で自動で付きます（例 0042）。"}</span>
           </div>
           <h3 class="hh-h">区分</h3>
           {editCats ? (
@@ -526,13 +592,15 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           ) : (
             <div class="hh-new">
               <span class="pl-sub" data-category-list>
-                {p.categories.map((c) => `${c.code} ${c.name}`).join("・")}
+                {useCats ? p.categories.map((c) => `${c.code} ${c.name}`).join("・") : "区分を使っていません（番号は通し番号だけ）"}
               </span>
               <button type="button" class="link-btn" onClick={() => setEditCats(true)} data-edit-categories>
                 区分を設定する
               </button>
             </div>
           )}
+            </>
+          ) : null}
         </>
       ) : null}
     </>

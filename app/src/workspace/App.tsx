@@ -63,7 +63,7 @@ import { bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "./stor
 import { ForkPanel, type ForkChoiceUi } from "./store/ForkPanel.tsx";
 import { HouseholdPanel, storeMessage, copyRequest, defaultCategory } from "./store/HouseholdPanel.tsx";
 import { editorsOf, mergeForkBodies, presenceText } from "./store/office.ts";
-import { guessShape, sampleNoText, shelfItems, type Category, type CategoryEdit, type SampleInfo, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
+import { guessShape, sampleNoText, shelfItems, type Category, type CategoryEdit, type CategorySettings, type SampleInfo, type SampleRequest, type ShelfItem } from "./store/numbering.ts";
 import { OfficePanel } from "./store/OfficePanel.tsx";
 import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
@@ -353,6 +353,12 @@ export function App() {
   const [storedInfo, setStoredInfo] = useState<Omit<StoredRef, "carry"> | null>(null);
   /** 区分の一覧と、自分で作った見本の棚（0033） */
   const [categories, setCategories] = useState<Category[]>([]);
+  /** 区分を使うかを決めたか（まだなら世帯の一覧で1回だけ聞く。読む前は聞かない） */
+  const [categoriesDecided, setCategoriesDecided] = useState(true);
+  const applyCategories = useCallback((c: CategorySettings) => {
+    setCategories(c.categories);
+    setCategoriesDecided(c.decided);
+  }, []);
   const [storedSamples, setStoredSamples] = useState<StoredHousehold[]>([]);
   /** 自分で作った見本を開いている: view＝動かしても保存しない（閉じれば元どおり）、edit＝「この見本を直す」で保存している */
   const [sampleMode, setSampleMode] = useState<null | "view" | "edit">(null);
@@ -459,7 +465,7 @@ export function App() {
           if (st.state === "ready") {
             setStoredList(await h.store.list());
             void h.store.listSamples().then(setStoredSamples, () => undefined);
-            void h.store.categories().then(setCategories, () => undefined);
+            void h.store.categories().then(applyCategories, () => undefined);
           }
           if (st.state === "needsRecovery") setRecovery("restore");
           else if (st.firstRun && !st.recoveryAcknowledged) setRecovery("first");
@@ -869,7 +875,7 @@ export function App() {
       setStoredList(st.state === "ready" ? await host.store.list() : []);
       if (st.state === "ready") {
         setStoredSamples(await host.store.listSamples());
-        setCategories(await host.store.categories());
+        applyCategories(await host.store.categories());
       }
       setStoreUnavailable(null);
     } catch (e) {
@@ -1752,6 +1758,7 @@ export function App() {
             list={storedList}
             currentId={storedInfo?.id ?? null}
             categories={categories}
+            categoriesDecided={categoriesDecided}
             shelf={shelf}
             currentSample={currentSample}
             currentShape={opened !== null ? guessShape(opened.wh.request) : null}
@@ -1776,7 +1783,7 @@ export function App() {
             }}
             onSaveCategories={async (edits: CategoryEdit[]) => {
               try {
-                setCategories(await host.store.setCategories(edits));
+                applyCategories(await host.store.setCategories(edits));
                 await refreshStore();
                 const sr = storedRef.current;
                 if (sr !== null) {

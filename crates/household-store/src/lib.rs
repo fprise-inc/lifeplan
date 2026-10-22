@@ -29,7 +29,7 @@ pub mod secret;
 mod store;
 pub mod vault;
 
-pub use numbering::{Category, CategoryEdit, Label, SampleInfo, SampleRequest};
+pub use numbering::{Category, CategoryEdit, CategorySettings, Label, SampleInfo, SampleRequest};
 pub use office::Author;
 pub use secret::{MemorySecretStore, SecretStore};
 pub use store::{

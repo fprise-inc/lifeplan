@@ -1,10 +1,12 @@
 //! 顧客番号の区分と通し番号、見本の番号（0033）。
 //!
-//! - 顧客番号は「区分の記号＋通し番号」（例 `M0042`）。区分の記号は英大文字1〜2字で、既定は M（顧問契約）・T（単発相談）・P（見込み客）。
+//! - 顧客番号は「区分の記号＋通し番号」（例 `A0042`）。区分の記号は英大文字1〜2字で、既定は A（顧問契約）・B（単発相談）・C（見込み客）。
 //!   記号と名前は FP が設定で足す・変える。通し番号は一度付けたら変えず、使い回さない（事務所で共有しているときは事務所全体で1本）。
-//! - 区分を変えると記号だけが変わり、通し番号はそのまま（`P0042` → `M0042`）。
-//! - 関係する世帯は枝番（`M0042-1`）。法人と家計を並べる用途の枝番 `-C` も書式として許す。
+//! - 区分を変えると記号だけが変わり、通し番号はそのまま（`C0042` → `A0042`）。
+//! - 関係する世帯は枝番（`A0042-1`）。法人と家計を並べる用途の枝番 `-C` も書式として許す。
 //! - 自分の番号体系を持つ FP 向けに、自由な番号（英数字・ハイフン・下線の16字。0012）も入れられる。自由な番号は区分を変えても付け替えない。
+//! - 今までの「PCの接頭辞＋連番」の番号（接頭辞は A〜Z）は、番号の中身の欄が無いので自由な番号として読む。接頭辞が区分の記号と同じ
+//!   （`A0001` など）でも、形だけを見て体系の番号とは読まない。
 //! - 見本の世帯は顧客番号を持たず、見本番号「家族の形-年代-順番」（例 `3-4-01`）を持つ。順番 01〜09 はアプリに入っている見本、
 //!   10〜 は FP が作った見本。
 
@@ -21,7 +23,7 @@ pub const MAX_CATEGORIES: usize = 20;
 /// 区分の名前の長さの上限（文字）
 pub const MAX_CATEGORY_NAME: usize = 20;
 /// 新しい世帯の既定の区分（見込み客）
-pub const DEFAULT_CATEGORY: &str = "P";
+pub const DEFAULT_CATEGORY: &str = "C";
 /// 見本の名前の長さの上限（文字）
 pub const MAX_SAMPLE_NAME: usize = 40;
 /// 見本の絞り込みの項目の数と長さの上限
@@ -42,7 +44,7 @@ pub struct Category {
 
 /// 既定の区分
 pub fn default_categories() -> Vec<Category> {
-    [("M", "顧問契約"), ("T", "単発相談"), ("P", "見込み客")]
+    [("A", "顧問契約"), ("B", "単発相談"), ("C", "見込み客")]
         .into_iter()
         .map(|(c, n)| Category {
             code: c.into(),
@@ -83,11 +85,12 @@ pub struct SampleRequest {
 }
 
 /// 世帯の番号の中身（一覧の札・事務所データに持つ）。
-/// - 体系の番号: `category` と `serial` があり、表示の番号は `記号＋通し番号[-枝番]`
+/// - 体系の番号: `serial` があり、表示の番号は `記号＋通し番号[-枝番]`。区分を使わないときは `category` が無く、表示の番号は通し番号だけ（`0001`）
 /// - 自由な番号: `serial` が無い（`category` はあってもよい。区分で絞り込むため）
 /// - 見本: `sample` がある（顧客番号を持たない。表示の番号は見本番号）
 ///
-/// 欄の無い古い札・事務所データは、区分なしの自由な番号として読む（今までの「PCの接頭辞＋連番」の番号は壊さない）
+/// 欄の無い古い札・事務所データは、区分なしの自由な番号として読む（今までの「PCの接頭辞＋連番」の番号は壊さない。
+/// 接頭辞が区分の記号と同じでも、表示の番号の形から体系の番号を作り直さない）
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Label {
@@ -105,14 +108,23 @@ impl Label {
     pub fn is_sample(&self) -> bool {
         self.sample.is_some()
     }
-    /// 体系の番号の表示（体系の番号でなければ None）
+    /// 体系の番号の表示（体系の番号でなければ None）。区分が無ければ通し番号だけ
     pub fn display(&self) -> Option<String> {
         Some(format_no(
-            self.category.as_deref()?,
+            self.category.as_deref().unwrap_or(""),
             self.serial?,
             self.branch.as_deref(),
         ))
     }
+}
+
+/// 区分の設定（区分の一覧と、区分を使うかを決めたか）。`decided` が false の間は、画面が初めて世帯の一覧を使うときに
+/// 「区分を使いますか？」と1回だけ聞く。決めた後で区分が空なら、区分を使わない（番号は通し番号だけ。例 `0001`）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CategorySettings {
+    pub categories: Vec<Category>,
+    pub decided: bool,
 }
 
 /// 区分の記号の書式（英大文字1〜2字）
@@ -134,7 +146,7 @@ pub fn valid_branch(b: &str) -> bool {
             && b.bytes().all(|c| c.is_ascii_digit()))
 }
 
-/// 表示の番号（`M0042`・`M0042-1`・`M0042-C`）
+/// 表示の番号（`A0042`・`A0042-1`・`A0042-C`。区分を使わないときは記号が空で `0042`）
 pub fn format_no(code: &str, serial: u32, branch: Option<&str>) -> String {
     let base = format!("{code}{serial:0width$}", width = SERIAL_DIGITS);
     match branch {
@@ -143,8 +155,13 @@ pub fn format_no(code: &str, serial: u32, branch: Option<&str>) -> String {
     }
 }
 
-/// 体系の番号として読めるか（記号が区分にあるときだけ）。`M42` も `M0042` と読む
-pub fn parse_structured(s: &str, categories: &[Category]) -> Option<(String, u32, Option<String>)> {
+/// 体系の番号として読めるか（記号が区分にあるときだけ）。`A42` も `A0042` と読む。
+/// 区分を使わないとき（区分が空）は、数字だけ（`42`・`0042-1`）を区分なしの通し番号と読む（区分の記号は None）。
+/// FP が入れた番号を読むときだけに使う（保存してある古い番号を読み直すのには使わない。`label_from_no`）
+pub fn parse_structured(
+    s: &str,
+    categories: &[Category],
+) -> Option<(Option<String>, u32, Option<String>)> {
     let (main, branch) = match s.split_once('-') {
         Some((m, b)) => (m, Some(b)),
         None => (s, None),
@@ -156,11 +173,15 @@ pub fn parse_structured(s: &str, categories: &[Category]) -> Option<(String, u32
     }
     let split = main.find(|c: char| c.is_ascii_digit())?;
     let (code, digits) = main.split_at(split);
-    if !valid_code(code)
+    let known = if code.is_empty() {
+        categories.is_empty()
+    } else {
+        valid_code(code) && categories.iter().any(|c| c.code == code)
+    };
+    if !known
         || digits.is_empty()
         || digits.len() > 6
         || !digits.bytes().all(|c| c.is_ascii_digit())
-        || !categories.iter().any(|c| c.code == code)
     {
         return None;
     }
@@ -168,7 +189,11 @@ pub fn parse_structured(s: &str, categories: &[Category]) -> Option<(String, u32
     if serial == 0 {
         return None;
     }
-    Some((code.to_owned(), serial, branch.map(str::to_owned)))
+    Some((
+        (!code.is_empty()).then(|| code.to_owned()),
+        serial,
+        branch.map(str::to_owned),
+    ))
 }
 
 /// 見本番号（`3-4-01`）
@@ -226,13 +251,14 @@ pub fn next_sample_order<'a>(
 pub type CategoryChange = (Vec<Category>, Vec<(String, String)>);
 
 /// 区分の設定の変更を当てる。使っている区分（`in_use` の記号）を消すことはできない（記号を変えるのはよい）。
+/// 空の変更は「区分を使わない」（使っている区分があれば消せないので同じく止める）。
 /// 返すのは新しい区分の一覧と、記号の付け替え（前の記号 → 新しい記号）
 pub fn apply_category_edits(
     current: &[Category],
     edits: &[CategoryEdit],
     in_use: &std::collections::HashSet<String>,
 ) -> Result<CategoryChange, StoreError> {
-    if edits.is_empty() || edits.len() > MAX_CATEGORIES {
+    if edits.len() > MAX_CATEGORIES {
         return Err(StoreError::CATEGORY);
     }
     let mut seen_code = std::collections::HashSet::new();
@@ -270,7 +296,7 @@ pub fn apply_category_edits(
 }
 
 /// 世帯ファイルの本文から一覧を作り直すとき（事務所データが古い世代に戻ったなど）の番号の中身。
-/// 見本番号の形なら見本として戻す（名前は番号から仮に付ける）。それ以外は自由な番号として戻す
+/// 見本番号の形なら見本として戻す（名前は番号から仮に付ける）。それ以外は自由な番号として戻す（区分の記号の形でも体系の番号にしない）
 pub fn label_from_no(customer_no: &str) -> Label {
     match parse_sample_no(customer_no) {
         Some(_) => Label {
@@ -291,39 +317,59 @@ mod tests {
 
     #[test]
     fn numbers() {
-        assert_eq!(format_no("M", 42, None), "M0042");
-        assert_eq!(format_no("MK", 42, Some("1")), "MK0042-1");
-        assert_eq!(format_no("P", 12345, Some("C")), "P12345-C");
+        assert_eq!(format_no("A", 42, None), "A0042");
+        assert_eq!(format_no("AK", 42, Some("1")), "AK0042-1");
+        assert_eq!(format_no("C", 12345, Some("C")), "C12345-C");
         let cats = default_categories();
         assert_eq!(
-            parse_structured("M0042", &cats),
-            Some(("M".into(), 42, None))
-        );
-        assert_eq!(parse_structured("M42", &cats), Some(("M".into(), 42, None)));
-        assert_eq!(
-            parse_structured("T0042-1", &cats),
-            Some(("T".into(), 42, Some("1".into())))
+            parse_structured("A0042", &cats),
+            Some((Some("A".into()), 42, None))
         );
         assert_eq!(
-            parse_structured("P0042-C", &cats),
-            Some(("P".into(), 42, Some("C".into())))
+            parse_structured("A42", &cats),
+            Some((Some("A".into()), 42, None))
         );
-        // 区分に無い記号・今までの PC の接頭辞の番号・枝番の形が違う・0番は自由な番号
+        assert_eq!(
+            parse_structured("B0042-1", &cats),
+            Some((Some("B".into()), 42, Some("1".into())))
+        );
+        assert_eq!(
+            parse_structured("C0042-C", &cats),
+            Some((Some("C".into()), 42, Some("C".into())))
+        );
+        // 区分に無い記号・枝番の形が違う・0番は自由な番号
         for s in [
-            "A0001",
-            "m0042",
-            "M0042-0",
-            "M0042-01",
-            "M0042-100",
-            "M0042-X",
-            "M0000",
-            "M",
+            "Z0001",
+            "a0042",
+            "A0042-0",
+            "A0042-01",
+            "A0042-100",
+            "A0042-X",
+            "A0000",
+            "A",
             "0042",
-            "MKZ0042",
-            "M1234567",
+            "AKZ0042",
+            "A1234567",
         ] {
             assert_eq!(parse_structured(s, &cats), None, "{s}");
         }
+        // 区分を使わないとき: 数字だけを区分なしの通し番号と読む。記号つき（今までの PC の接頭辞の番号を含む）は自由な番号
+        assert_eq!(format_no("", 1, None), "0001");
+        assert_eq!(parse_structured("42", &[]), Some((None, 42, None)));
+        assert_eq!(
+            parse_structured("0042-1", &[]),
+            Some((None, 42, Some("1".into())))
+        );
+        for s in ["A0001", "0000", "1234567", "0042-X"] {
+            assert_eq!(parse_structured(s, &[]), None, "{s}");
+        }
+        // 区分を使うときは、数字だけは自由な番号のまま
+        assert_eq!(parse_structured("0042", &cats), None);
+        let plain = Label {
+            serial: Some(7),
+            ..Label::default()
+        };
+        assert_eq!(plain.display().as_deref(), Some("0007"));
     }
 
     #[test]
@@ -389,13 +435,13 @@ mod tests {
             code: code.into(),
             name: name.into(),
         };
-        let used: std::collections::HashSet<String> = ["M".to_owned(), "P".to_owned()].into();
-        // 名前を変え、記号を変え（P → MI）、足す。使っていない T は消してよい
+        let used: std::collections::HashSet<String> = ["A".to_owned(), "C".to_owned()].into();
+        // 名前を変え、記号を変え（C → MI）、足す。使っていない B は消してよい
         let (cats, renames) = apply_category_edits(
             &cur,
             &[
-                e(Some("M"), "M", "顧問"),
-                e(Some("P"), "MI", "見込み"),
+                e(Some("A"), "A", "顧問"),
+                e(Some("C"), "MI", "見込み"),
                 e(None, "S", "セミナー"),
             ],
             &used,
@@ -403,22 +449,30 @@ mod tests {
         .unwrap();
         assert_eq!(
             cats.iter().map(|c| c.code.as_str()).collect::<Vec<_>>(),
-            ["M", "MI", "S"]
+            ["A", "MI", "S"]
         );
-        assert_eq!(renames, [("P".to_owned(), "MI".to_owned())]);
+        assert_eq!(renames, [("C".to_owned(), "MI".to_owned())]);
         // 使っている区分は消せない
         assert_eq!(
-            apply_category_edits(&cur, &[e(Some("M"), "M", "顧問")], &used),
+            apply_category_edits(&cur, &[e(Some("A"), "A", "顧問")], &used),
+            Err(StoreError::CATEGORY_IN_USE)
+        );
+        // 空の変更は「区分を使わない」。使っている区分があれば止める
+        assert_eq!(
+            apply_category_edits(&cur, &[], &Default::default()),
+            Ok((vec![], vec![]))
+        );
+        assert_eq!(
+            apply_category_edits(&cur, &[], &used),
             Err(StoreError::CATEGORY_IN_USE)
         );
         // 記号の書式・重なり・空の名前・知らない元の記号
         for bad in [
             vec![e(None, "m", "x")],
             vec![e(None, "ABC", "x")],
-            vec![e(None, "A", "x"), e(None, "A", "y")],
-            vec![e(None, "A", "")],
-            vec![e(Some("Z"), "A", "x")],
-            vec![],
+            vec![e(None, "K", "x"), e(None, "K", "y")],
+            vec![e(None, "K", "")],
+            vec![e(Some("Z"), "K", "x")],
         ] {
             assert_eq!(
                 apply_category_edits(&cur, &bad, &Default::default()),
@@ -433,18 +487,24 @@ mod tests {
         let l: Label = serde_json::from_str("{}").unwrap();
         assert_eq!(l, Label::default());
         assert_eq!(l.display(), None);
-        assert_eq!(label_from_no("A0001"), Label::default());
+        // 今までの「PCの接頭辞＋連番」の番号は、接頭辞が既定の区分の記号（A・B・C）と同じでも体系の番号にしない
+        for old in ["A0001", "B0042", "C0007", "Z0001"] {
+            assert_eq!(label_from_no(old), Label::default(), "{old}");
+        }
         assert!(label_from_no("3-4-10").is_sample());
         let s = Label {
-            category: Some("M".into()),
+            category: Some("A".into()),
             serial: Some(42),
             branch: Some("C".into()),
             sample: None,
         };
-        assert_eq!(s.display().as_deref(), Some("M0042-C"));
+        assert_eq!(s.display().as_deref(), Some("A0042-C"));
         assert_eq!(
             serde_json::to_string(&s).unwrap(),
-            r#"{"category":"M","serial":42,"branch":"C"}"#
+            r#"{"category":"A","serial":42,"branch":"C"}"#
         );
+        // 開発中に保存した M・T・P の区分はそのまま区分として読む
+        let dev: Label = serde_json::from_str(r#"{"category":"P","serial":3}"#).unwrap();
+        assert_eq!(dev.display().as_deref(), Some("P0003"));
     }
 }

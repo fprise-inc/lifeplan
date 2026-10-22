@@ -3,9 +3,16 @@
 import type { Category, NumberLabel } from "../../engine/host.ts";
 import type { EngineRequest } from "../../engine/types.ts";
 
-export type { Category, CategoryEdit, NumberLabel, SampleInfo, SampleRequest } from "../../engine/host.ts";
+export type { Category, CategoryEdit, CategorySettings, NumberLabel, SampleInfo, SampleRequest } from "../../engine/host.ts";
 
 export const CATEGORY_CODE = /^[A-Z]{1,2}$/;
+
+/** 「区分を使う」と答えたときに入れる区分（A 顧問契約・B 単発相談・C 見込み客。FP がその場で直せる） */
+export const DEFAULT_CATEGORIES: readonly Category[] = [
+  { code: "A", name: "顧問契約" },
+  { code: "B", name: "単発相談" },
+  { code: "C", name: "見込み客" },
+];
 
 /** 家族の形（見本番号の1つ目） */
 export const FAMILY_SHAPES: readonly { n: number; name: string }[] = [
@@ -49,7 +56,7 @@ function structured(q: string): { code: string; serial: number; branch: string |
 }
 
 /**
- * 一覧で番号を探す: 数字だけ（「0042」「42」）なら通し番号で（枝番の世帯も出す）、区分の記号つき（「M42」「m0042-1」）なら
+ * 一覧で番号を探す: 数字だけ（「0042」「42」）なら通し番号で（枝番の世帯も出す。区分を使わない番号 0042 も同じ）、区分の記号つき（「A42」「a0042-1」）なら
  * 区分と通し番号で、それ以外は番号の一部で探す（自由な番号は数字だけでも一部で探す）
  */
 export function matchesNumber(h: { customerNo: string } & NumberLabel, query: string): boolean {
