@@ -4,7 +4,8 @@ import { renderToString } from "preact-render-to-string";
 import { h } from "preact";
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, TableCell } from "../src/engine/types.ts";
-import { MoneyThreeCards, MoneyThreeNotice, MoneyThreeSection } from "../src/presentation/MoneyThree.tsx";
+import { FigTip } from "../src/presentation/FigTip.tsx";
+import { MoneyThreeCards, MoneyThreeFigure, MoneyThreeNotice, MoneyThreeSection } from "../src/presentation/MoneyThree.tsx";
 import type { MoneyThreeModel } from "../src/presentation/model.ts";
 import { DEFAULT_MONEY_THREE, MONEY_THREE_LIST_MAX, moneyThreeModel, placementOf, readMoneyThree } from "../src/workspace/moneyThree.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -121,6 +122,23 @@ describe("お金の3つの分け方の提示用の値（0032）", () => {
     expect(moneyThreeModel({ req, table, settings: DEFAULT_MONEY_THREE }).place.liquidName).toBe("預金など");
   });
 
+  it("画面の貯めるお金は、一覧を最初は出さず件数と「内訳を見る」（小窓）。持ち帰り用は一覧のまま。図の箱の札も同じ一覧", () => {
+    const events: [number, number][] = [[2027, 300 * MAN], [2029, 400 * MAN]];
+    const m = moneyThreeModel({ ...synthetic({ deposit: 100 * MAN, nisa: 900 * MAN, events }), settings: DEFAULT_MONEY_THREE });
+    const sec = renderToString(h(MoneyThreeSection, { model: m, onSettings: () => {} }));
+    const save = sec.slice(sec.indexOf('data-m3-box="save"'), sec.indexOf('data-m3-box="grow"'));
+    expect(save).not.toContain('data-m3-items="save"');
+    expect(save).toContain("data-m3-save-open");
+    expect(save).toContain("内訳を見る");
+    expect(save).toMatch(/の できごと 2件/);
+    expect(save).not.toContain("<details");
+    // 使うお金・増やすお金の一覧は出したまま
+    expect(sec).toContain('data-m3-items="spend"');
+    expect(sec).toContain('data-m3-items="grow"');
+    // 図の貯めるお金の箱の読み上げ・札の中身（年・できごと・賄えない分）
+    expect(renderToString(h(MoneyThreeFigure, { model: m }))).toContain('data-m3-fig-box="save"');
+  });
+
   it("画面: 3枚のカードは同じ形（名前と額・中身の一文・いつも見える一覧）で、全部の表は「内訳を見る」の中。知らせは区画へ移るボタンつき", () => {
     const events: [number, number][] = [[2027, 300 * MAN], [2029, 400 * MAN]];
     const m = moneyThreeModel({ ...synthetic({ deposit: 100 * MAN, nisa: 900 * MAN, events }), settings: DEFAULT_MONEY_THREE });
@@ -138,5 +156,50 @@ describe("お金の3つの分け方の提示用の値（0032）", () => {
     expect(ro).toContain("ふだんの支出 月32万円 × 6か月");
     expect(renderToString(h(MoneyThreeNotice, { model: m, onGo: () => {} }))).toContain("資産と負債で見る →");
     expect(renderToString(h(MoneyThreeSection, { model: m, onSettings: () => {} }))).toContain("説明用の図です。キャッシュフロー表・結果の計算には混ぜません");
+  });
+  it("図: ずれている分の斜線・点線の枠・札・左右をつなぐ点線は描かない（区画の上の一文で示す）。箱はどれもフォーカスでき、名前と金額を札で読める", () => {
+    const events: [number, number][] = [[2027, 300 * MAN]];
+    for (const deposit of [1000, 100]) {
+      const m = moneyThreeModel({ ...synthetic({ deposit: deposit * MAN, nisa: 500 * MAN, events }), settings: DEFAULT_MONEY_THREE });
+      expect(m.status).not.toBe("even");
+      const fig = renderToString(h(MoneyThreeFigure, { model: m }));
+      expect(fig).not.toContain("stroke-dasharray");
+      expect(fig).not.toContain("<pattern");
+      expect(fig).not.toContain("<circle");
+      expect(fig).not.toContain("のまま");
+      expect(fig).not.toContain("足りない分");
+      for (const k of ["spend", "save", "grow", "p.deposit", "p.nisa"]) expect(fig).toContain(`data-m3-fig-box="${k}"`);
+      expect((fig.match(/tabindex="0"/gi) ?? []).length).toBe(5);
+      expect(fig).toContain(`aria-label="預金 ${deposit.toLocaleString("en-US")}万円。すぐ使えるお金（預金など）"`);
+      // 区画の上の一文は残す。凡例（左＝…・右＝…・ずれている分）は出さない
+      const sec = renderToString(h(MoneyThreeSection, { model: m, onSettings: () => {} }));
+      expect(sec).toContain(deposit === 1000 ? "が預金のままです" : "足りません");
+      for (const gone of ["ずれている", "m3-legend", "左＝", "右＝", "（説明用）", "（入力した値）"]) expect(sec).not.toContain(gone);
+      // 柱の見出しは「いつ使うお金か」「今どこにあるか」
+      expect(fig).toContain(">いつ使うお金か<");
+      expect(fig).toContain(">今どこにあるか<");
+    }
+  });
+
+  it("図: 箱に書ききれない名前と金額は、画面では札で見る（図の下の一覧は持ち帰り用のレポートだけ）", () => {
+    const m = moneyThreeModel({ ...synthetic({ deposit: 1000 * MAN, nisa: 4 * MAN, events: [] }), settings: DEFAULT_MONEY_THREE });
+    const screen = renderToString(h(MoneyThreeFigure, { model: m }));
+    const take = renderToString(h(MoneyThreeFigure, { model: m, list: true }));
+    expect(screen).toContain('data-m3-fig-box="p.nisa"');
+    expect(screen).not.toContain(">NISA<");
+    expect(take).toContain(">NISA<");
+  });
+
+  it("札: 名前・金額・一言の補足（年の札と同じ見た目）。内訳があれば並べる", () => {
+    const html = renderToString(h(FigTip, { d: { key: "p.nisa", title: "NISA", amount: 4 * MAN, note: "値動きのある運用", x: 50, y: 20, side: "r" }, W: 200, H: 100 }));
+    expect(html).toContain("year-tip fig-tip");
+    expect(html).toContain("NISA");
+    expect(html).toContain("4<small>万円</small>");
+    expect(html).toContain("値動きのある運用");
+    expect(html).toMatch(/left: ?25\.000%/);
+    expect(html).toContain('aria-hidden="true"');
+    const rows = renderToString(h(FigTip, { d: { key: "g.liquid", title: "すぐ使えるお金", amount: 120 * MAN, rows: [{ label: "預金", amount: 100 * MAN }, { label: "外貨預金", amount: 20 * MAN }], x: 150, y: 20, side: "l" }, W: 200, H: 100 }));
+    expect(rows).toContain("外貨預金");
+    expect(rows).toMatch(/translate\(-100%, ?-50%\)/);
   });
 });

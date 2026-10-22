@@ -1,12 +1,12 @@
 // お金の3つの分け方（説明用の図。0032）: アプリの「資産と負債」のタブの区画と同じ値・同じ言葉（帳票の入力の moneyThree。report/src/moneyThree.ts が作る）。
 // 左＝使う時期で分けた3つの箱（上ほどすぐ使う。薄い色＋同じ色相の枠）、右＝今の置き場所（バランスシートの図と同じ色）。左右は同じ縮尺。
+// 分け方と置き場所のずれ（預金などのままの分・足りない分）は図に描かず、上の囲みの文で示す（アプリの画面と同じ）。
 // 3つの箱の中身は同じ形（名前と額・中身の一文・中身の一覧・まとめ・ひと言）で、貯めるお金の全部の年の表を下に置く。計算し直さず、書式だけを当てる
 #import "../parts/format.typ": *
 #import "../parts/layout.typ": *
 
 #let m3-fill = (rgb("#f4e4cc"), rgb("#dfeadb"), rgb("#dde5f3"))
 #let m3-line = (rgb("#b98a4a"), rgb("#6f9a68"), rgb("#7088b8"))
-#let m3-hatch = tiling(size: (4pt, 4pt), place(line(start: (0%, 100%), end: (100%, 0%), stroke: 1.2pt + white.transparentize(35%))))
 
 /// 文の並び（strong は太字・藍）
 #let m3-parts(ps) = ps.map(p => if p.at("strong", default: false) { text(weight: "bold", fill: accent, p.text) } else { p.text }).join()
@@ -28,15 +28,14 @@
       place(dx: x, dy: y + g, rect(width: colw, height: bh - g * 2, fill: fill, stroke: stroke, radius: calc.min(bs-radius, bh / 2), inset: (x: 3pt), body))
     }
   }
-  // 右の列の名前は箱の上の端に寄せる（ずれている分の斜線と重なりにくい）
-  let label(bh, name, amount, color, upper: false) = if bh >= 13pt {
+  let label(bh, name, amount, color) = if bh >= 13pt {
     set text(size: min-size, weight: "bold", fill: color)
-    if upper { pad(top: 3pt, grid(columns: (1fr, auto), name, man(amount))) } else { align(horizon, grid(columns: (1fr, auto), name, man(amount))) }
+    align(horizon, grid(columns: (1fr, auto), name, man(amount)))
   }
   let yF = top + k * m.place.total
   box(width: w, height: top + h + 6pt, {
-    place(dx: 0pt, dy: 0pt, box(width: colw, align(center, text(size: min-size, fill: muted, "使う時期で分けると（説明用）") + linebreak() + text(size: 9pt, weight: "bold", man-unit(sum)))))
-    place(dx: xr, dy: 0pt, box(width: colw, align(center, text(size: min-size, fill: muted, "今の置き場所（入力した値）") + linebreak() + text(size: 9pt, weight: "bold", man-unit(m.place.total)))))
+    place(dx: 0pt, dy: 0pt, box(width: colw, align(center, text(size: min-size, fill: muted, "いつ使うお金か") + linebreak() + text(size: 9pt, weight: "bold", man-unit(sum)))))
+    place(dx: xr, dy: 0pt, box(width: colw, align(center, text(size: min-size, fill: muted, "今どこにあるか") + linebreak() + text(size: 9pt, weight: "bold", man-unit(m.place.total)))))
     let y = top
     for (i, b) in m.boxes.enumerate() {
       let bh = k * b.amount
@@ -46,25 +45,13 @@
     y = top
     for l in m.place.lines {
       let bh = k * l.amount
-      tile(xr, y, bh, m3-place-color(l), none, label(bh, l.label, l.amount, white, upper: true))
+      tile(xr, y, bh, m3-place-color(l), none, label(bh, l.label, l.amount, white))
       y += bh
     }
     // 金融資産の合計でも足りない分（右の列の下に点線の空箱）
     if m.overFinancial > 0 {
       let bh = k * m.overFinancial
       tile(xr, yF, bh, white, (paint: muted, thickness: 0.7pt, dash: "dashed"), if bh >= 13pt { align(horizon + center, text(size: min-size, fill: muted, weight: "bold", "金融資産で足りない分")) })
-    }
-    // 境目: 左の「使う＋貯める」の下端を右の列まで点線で
-    let yn = top + k * m.need
-    place(dx: colw, dy: yn, line(length: mid, stroke: (paint: muted, thickness: 0.8pt, dash: "dashed")))
-    // ずれている分（斜線と点線の枠）
-    if m.status != "even" {
-      let yl = top + k * m.place.liquid
-      let y1 = calc.min(yn, yl)
-      let y2 = calc.max(yn, yl)
-      let y2f = calc.min(y2, yF)
-      if y2f - y1 > 0.5pt { place(dx: xr, dy: y1, rect(width: colw, height: y2f - y1, fill: m3-hatch, stroke: none)) }
-      place(dx: xr - 1.5pt, dy: y1 - 1.5pt, rect(width: colw + 3pt, height: y2 - y1 + 3pt, fill: none, stroke: (paint: ink, thickness: 1pt, dash: "dashed"), radius: 2pt))
     }
     place(dx: 0pt, dy: top + h + 1pt, line(length: w, stroke: 0.5pt + rule))
   })
@@ -115,9 +102,8 @@
       m3-figure(m, w: if land { 100mm } else { 82mm }, h: if land { 150pt } else { 190pt })
       v(4pt)
       text(size: 7pt, fill: muted, {
-        "左＝ライフプランから出した分け方（説明用）。右＝今の置き場所（入力した値）："
+        "今どこにあるか："
         m.place.lines.map(l => l.label + " " + man-unit(l.amount)).join("・")
-        if m.status != "even" { "。点線の枠＝分け方と置き場所がずれている分" }
       })
     },
     stack(dir: ttb, spacing: 5pt, ..m.boxes.enumerate().map(((i, b)) => m3-card(b, i))),

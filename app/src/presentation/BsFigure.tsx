@@ -11,9 +11,12 @@
 //   それも入らない小さな箱は、狭い画面では金額だけ（名前は図の下の一覧）、広い画面では名前だけ（金額は図の外の札）にする（boxTextFit）
 // - 縮尺（scale）を渡さなければその年がいっぱいの高さ。年を変えると、箱と縮尺が前の形から行き過ぎなく動く（tween.ts）
 // - 箱を押すと内訳の小窓（もう一度押す・×・Esc・外を押すと閉じる）
+// - 箱（項目）にカーソルを合わせると、名前・金額・どの分け方のうちかの札（FigTip.tsx）。キーボードで箱のまとまりを選んだときは、
+//   まとまりの名前・合計・内訳の札。薄くて名前や金額を書けない箱も、これで読める。タッチでは押すと内訳の小窓が開く
 import type { ComponentChildren } from "preact";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { allocHeights, figureBoxes, spreadLabels, tickStep, FINANCIAL_GROUPS, type FigBox } from "./bsLayout.ts";
+import { FigTip, useFigTip, type FigTipData } from "./FigTip.tsx";
 import { group, man } from "./format.ts";
 import { useNarrow } from "./narrow.ts";
 import type { BsGroupKey, BsYearModel, Yen } from "./model.ts";
@@ -51,6 +54,8 @@ const boxInk = (key: string) => (key === "short" ? "var(--ink)" : "#fff");
 
 /** 箱の間の余白と角の丸み（図の座標。文字の大きさ 16px のときの px） */
 export const BOX_GAP = 2;
+/** 薄い項目の見えない当たりの帯の高さ */
+const HIT_H = 9;
 export const BOX_RADIUS = 4;
 
 /** 文字の幅の目安（全角1・半角0.6） */
@@ -144,6 +149,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
 
   const [open, setOpen] = useState<string | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
+  const figTip = useFigTip();
   useEffect(() => {
     if (open === null) return;
     const close = (e: Event) => {
@@ -241,6 +247,30 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
   const tagW = textW(tag, fs * 0.8) + 18;
 
   const openBox = drawn.find((d) => d.box.key === open && d.box.value > 0.5) ?? null;
+  // 札の中身は描いている値（補間の途中）ではなく、その年の値
+  const amountOf = (key: string) => (key === "netWorth" || key === "neg" ? Math.abs(year.netWorth) : (year.lines.find((l) => l.key === key)?.amount ?? 0));
+  const tipAt = (d: Drawn, y: number): Pick<FigTipData, "x" | "y" | "side"> => (d.box.side === "L" ? { x: d.x + colW + 6, y, side: "r" } : { x: d.x - 6, y, side: "l" });
+  const partTip = (d: Drawn, q: Drawn["parts"][number]): FigTipData => {
+    const isNw = q.key === "netWorth";
+    const isNeg = q.key === "neg";
+    const gname = d.box.key === "netWorth" || d.box.key === "neg" ? "" : groups[d.box.key].name;
+    const many = d.parts.filter((x) => x.value > 0.5).length > 1;
+    const note = isNw ? "資産 − 負債" : isNeg ? "資産より負債が多い分（債務超過）" : q.key === "short" ? "金融資産が尽きた後の足りない分" : many ? `${gname}のうち` : gname !== q.label ? gname : undefined;
+    return {
+      key: q.key,
+      title: isNw ? "純資産" : isNeg ? "純資産のマイナス" : q.label,
+      amount: amountOf(q.key),
+      ...(note !== undefined ? { note } : {}),
+      swatch: isNw ? "var(--bs-netWorth)" : isNeg ? "#b5bcc6" : q.key === "short" ? "var(--bs-short-line)" : lineColor(q.key, d.box.key),
+      ...tipAt(d, q.y + q.h / 2),
+    };
+  };
+  const boxTip = (d: Drawn): FigTipData => {
+    const k = d.box.key;
+    if (k === "netWorth" || k === "neg") return partTip(d, d.parts[0] as Drawn["parts"][number]);
+    const ls = year.lines.filter((l) => l.group === k);
+    return { key: `g.${k}`, title: groups[k].name, amount: ls.reduce((a, l) => a + l.amount, 0), ...(ls.length > 1 ? { rows: ls.map((l) => ({ label: l.label, amount: l.amount })) } : {}), swatch: lineColor(ls[0]?.key ?? k, k), ...tipAt(d, (d.top + d.bot) / 2) };
+  };
   return (
     <div class={`bsf${compact ? " compact" : ""}${est ? " est" : " fact"}`} ref={wrap} data-bs-figure={year.year}>
       <div class="bsf-svg" ref={ref}>
@@ -296,17 +326,20 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                 tabIndex={0}
                 role="button"
                 aria-expanded={open === d.box.key}
-                aria-label={`${nameOf(d.box)} ${d.box.key === "neg" ? "▲" : ""}${fmt(d.box.value)}万円。押すと内訳`}
+                aria-label={`${nameOf(d.box)} ${d.box.key === "neg" ? "▲" : ""}${fmt(d.box.value)}万円${d.parts.length > 1 ? `（${d.parts.map((q) => `${q.label} ${fmt(q.value)}万円`).join("、")}）` : ""}。押すと内訳`}
                 onClick={(e) => {
                   e.stopPropagation();
+                  figTip.hide();
                   setOpen(open === d.box.key ? null : d.box.key);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
+                    figTip.hide();
                     setOpen(open === d.box.key ? null : d.box.key);
                   }
                 }}
+                {...figTip.focus(boxTip(d))}
               >
                 {d.parts.map((q) => {
                   if (q.h < 0.3) return null;
@@ -326,7 +359,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                   const fit = showText ? boxTextFit(name, fmt(q.value), colW, q.h, subF, narrow) : "none";
                   const two = fit === "two";
                   return (
-                    <g key={q.key}>
+                    <g key={q.key} {...(open === null ? figTip.hover(partTip(d, q)) : {})} data-bs-part={q.key}>
                       <rect
                         class="bsf-seg"
                         x={d.x + inset}
@@ -371,6 +404,30 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
               </g>
             ),
           )}
+          {/* 薄い項目（読める高さより低い箱）は、カーソルを合わせやすいよう見えない当たりの帯を箱の上に重ねる（押すとその箱の内訳） */}
+          {open === null
+            ? drawn.flatMap((d) =>
+                d.parts
+                  .filter((q) => q.h >= 0.3 && q.h < HIT_H)
+                  .map((q) => (
+                    <rect
+                      key={`hit-${q.key}`}
+                      class="bsf-hit"
+                      x={d.x}
+                      y={q.y + q.h / 2 - HIT_H / 2}
+                      width={colW}
+                      height={HIT_H}
+                      fill="transparent"
+                      {...figTip.hover(partTip(d, q))}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        figTip.hide();
+                        setOpen(d.box.key);
+                      }}
+                    />
+                  )),
+              )
+            : null}
           {/* 下の線（0 の線）: 箱の後に1本で描く。箱の白い縁の下に隠れて、柱の間・両端だけが太く・点のように見えないように。
               右端は目盛りの「0」の印まで延ばす（印は描かない） */}
           <line data-bs-baseline x1={Math.max(0.5, xL - 8)} x2={axL + 5} y1={base + 0.6} y2={base + 0.6} stroke="#9aa3ae" stroke-width="1.2" />
@@ -429,6 +486,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
             );
           })}
         </svg>
+        {figTip.tip !== null && openBox === null ? <FigTip d={figTip.tip} W={W} H={H} /> : null}
       </div>
       {narrow ? <BoxList year={year} groups={groups} /> : null}
       {openBox !== null ? <BoxPop d={openBox} year={year} name={nameOf(openBox.box)} colW={colW} xL={xL} xR={xR} W={W} onClose={() => setOpen(null)} /> : null}

@@ -95,7 +95,7 @@
 
 /* 図（BsFigure） */
 .bsf { position: relative; }
-.bsf-svg { width: 100%; }
+.bsf-svg { width: 100%; position: relative; }
 .bsf-svg svg { display: block; max-width: 100%; height: auto; }
 .bsf-box { cursor: pointer; outline: none; }
 .bsf-box:focus-visible .bsf-seg { stroke: #f0b400; stroke-width: 3; }
@@ -125,17 +125,7 @@
 .bsf-list li.sub { color: var(--ink-2); }
 .bsf-list li.sub .am { font-size: 0.9rem; color: var(--ink-2); }
 
-/* 解説と体力の目安 */
-.bs-below { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; margin-top: 12px; align-items: start; }
-.bs-talk { display: flex; flex-direction: column; gap: 10px; }
-.bs-say { border: 1px solid var(--card-line); border-radius: 10px; background: #f7f8fb; padding: 12px 14px; font-size: 1.05rem; font-weight: 700; }
-.bs-say b { color: var(--prop-ink); }
-.bs-say .s2 { display: block; font-weight: 400; font-size: 0.88rem; color: var(--ink-2); margin-top: 4px; }
-.bs-ins { border: 1px solid #cfe3d6; border-radius: 10px; background: var(--good-bg); padding: 10px 14px; font-size: 0.9rem; }
-.bs-ins .ik { display: block; font-size: 0.78rem; font-weight: 700; color: var(--good); margin-bottom: 2px; }
-.bs-ins b { color: var(--good); }
-.bs-eq { font-size: 0.84rem; color: var(--ink-2); display: flex; gap: 4px 12px; flex-wrap: wrap; }
-.bs-eq .ok { color: var(--good); font-weight: 700; }
+/* 家計の体力の目安（1年ずつ見るときは図の下に横いっぱい。wide は4つを横に並べ、狭い幅では2つ・1つに折り返す） */
 .bs-health { border: 1px solid var(--card-line); border-radius: 10px; padding: 10px 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; }
 .bs-health .hh2 { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-weight: 700; padding-bottom: 6px; border-bottom: 1px solid var(--line-2); }
 .bs-health .hh2 small { margin-left: auto; font-weight: 400; color: var(--ink-2); font-size: 0.78rem; }
@@ -150,6 +140,12 @@
 .bs-health .gauge .band { position: absolute; top: 0; bottom: 0; background: #b9c7e2; border-radius: 4px; }
 .bs-health .gauge .mk { position: absolute; top: -4px; width: 4px; height: 16px; margin-left: -2px; background: var(--prop-ink); border-radius: 2px; }
 .bs-health .hg { grid-column: 1 / -1; font-size: 0.82rem; }
+.bs-health.wide { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 12px; gap: 6px 22px; }
+.bs-health.wide .hm { border-bottom: none; align-content: start; }
+@media (max-width: 560px) {
+  .bs-tab .bs-health.wide { grid-template-columns: minmax(0, 1fr); }
+  .bs-tab .bs-health.wide .hm { border-bottom: 1px solid var(--line-2); }
+}
 .hg-edit { margin-top: 6px; padding: 8px 10px; border: 1.5px dashed var(--field); border-radius: 8px; background: #fafbfc; display: flex; flex-direction: column; gap: 6px; }
 .hg-edit p { margin: 0; color: var(--ink-2); font-size: 0.78rem; }
 .hg-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 700; }
@@ -229,7 +225,6 @@
 .bs-colpick .cp-year .btn { justify-self: end; }
 .bs-colpick .cp-foot { margin: 0; font-size: 0.74rem; color: var(--ink-2); }
 .bs-colpick .cp-remove { align-self: flex-start; }
-.bs-eqnote { font-size: 0.76rem; color: var(--ink-2); }
 .bs-tcard-wrap { display: flex; align-items: stretch; min-width: 0; position: relative; }
 .bs-tcard-wrap .arrow { position: absolute; left: -24px; top: 45%; color: var(--ink-2); font-size: 1.2rem; }
 .bs-tcard { flex: 1; min-width: 0; border: 1px solid var(--card-line); border-radius: 10px; padding: 10px 12px; }
@@ -317,7 +312,7 @@
   .bs-one { grid-template-columns: minmax(0, 1fr); }
   .bs-side { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: center; }
   .bs-side .bs-spark-card { grid-column: 1 / -1; }
-  .bs-below { grid-template-columns: minmax(0, 1fr); }
+  .bs-health.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bs-yb { grid-template-columns: minmax(0, 1fr); }
   .bs-three, .bs-three.n2, .bs-three.n4 { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .bs-tcard-wrap .arrow { display: none; }
@@ -357,7 +352,9 @@
 .m3-say .eq { margin: 4px 0 0; font-size: 0.82rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .m3-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 400px); gap: 18px 24px; align-items: start; margin-top: 12px; }
 .m3-grid > * { min-width: 0; }
-.m3-fig { width: 100%; min-width: 0; }
+.m3-fig { width: 100%; min-width: 0; position: relative; }
+.m3-fig .m3-box { cursor: default; outline: none; }
+.m3-fig .m3-box:focus-visible rect { stroke: #f0b400; stroke-width: 3; }
 .m3-fig svg { display: block; overflow: visible; }
 .m3-fig .num { font-variant-numeric: tabular-nums; }
 .m3-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.78rem; color: var(--ink-2); margin: 8px 0 0; }
@@ -365,7 +362,6 @@
 .m3-legend i { width: 18px; height: 12px; border-radius: 3px; display: inline-block; flex: none; }
 .m3-legend i.plan { background: var(--m3-3); border: 1.5px solid var(--m3-3-line); }
 .m3-legend i.fact { background: var(--bs-deposit); }
-.m3-legend i.hx { background: repeating-linear-gradient(45deg, #0f61a5 0 3px, #8fb3d6 3px 6px); outline: 2px dashed var(--ink); outline-offset: 1px; }
 .m3-cards { display: grid; gap: 8px; }
 .m3-card { border: 1px solid var(--line-2); border-radius: 10px; padding: 9px 12px; display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; column-gap: 9px; row-gap: 3px; align-items: baseline; background: var(--card); }
 .m3-sw { width: 14px; height: 14px; border-radius: 3px; align-self: center; display: inline-block; }
@@ -402,6 +398,14 @@
 .m3-evt td.r, .m3-evt th.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .m3-evt td.z { color: #8a929c; }
 .m3-evt tfoot td { font-weight: 700; border-bottom: 0; }
+/* 貯めるお金の「内訳を見る」の小窓（広い幅ではカードの左に、図の上に重ねて出す。狭い幅ではカードの下に重ねる） */
+.m3-card { position: relative; }
+.m3-open { font-size: 0.84rem; font-weight: 700; margin-top: 2px; }
+.m3-pop { position: absolute; z-index: 8; top: 0; right: calc(100% + 10px); width: min(440px, 92vw); max-height: min(70vh, 560px); overflow: auto; background: #fff; border: 1.5px solid var(--ink-2); border-radius: 10px; box-shadow: 0 6px 18px rgba(20, 30, 50, 0.18); padding: 10px 12px; }
+.m3-pop-h { display: flex; align-items: center; gap: 8px; }
+.m3-pop-h .m3-am { margin-left: auto; font-size: 1.1rem; }
+.m3-pop-h .x { border: none; background: none; font-size: 1.1rem; cursor: pointer; line-height: 1; padding: 0 4px; color: var(--ink-2); }
+@media (max-width: 980px) { .m3-pop { right: 0; left: 0; top: auto; width: auto; margin-top: 4px; } }
 /* 結果のタブの一行の知らせ */
 .m3-notice { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; border: 1px solid #c9d4ea; background: var(--prop-bg); border-radius: 8px; padding: 7px 12px; font-size: 0.92rem; margin-top: 10px; }
 .m3-notice .ic { width: 18px; height: 18px; border-radius: 50%; background: var(--prop); color: #fff; display: inline-grid; place-items: center; font-size: 0.72rem; font-weight: 700; flex: none; }

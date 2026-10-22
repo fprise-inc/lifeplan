@@ -754,6 +754,16 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .year-tip .yt-dot.sel { background: var(--prop); }
 .year-tip .yt-dot.base { background: #fff; border: 2px solid var(--base-ink); }
 .year-tip .yt-x { color: var(--ink-2); font-size: 0.78rem; }
+/* 図の箱の札（FigTip.tsx。バランスシートの図・お金の3つの分け方の図）: 年の札と同じ見た目。名前・金額・一言の補足 */
+.year-tip.fig-tip { z-index: 6; }
+.fig-tip .yt-h { gap: 6px; }
+.fig-tip .ft-sw { flex: none; display: inline-block; width: 0.75em; height: 0.75em; border-radius: 2px; }
+.fig-tip .ft-am { margin-left: 6px; font-size: 1rem; }
+.fig-tip .ft-am small, .fig-tip .ft-rows small { font-size: 0.68em; margin-left: 1px; font-weight: 700; }
+.fig-tip .ft-rows { list-style: none; margin: 2px 0 0; padding: 0; display: grid; grid-template-columns: auto auto; gap: 0 12px; }
+.fig-tip .ft-rows li { display: contents; }
+.fig-tip .ft-rows b { text-align: right; }
+.fig-tip .ft-note { white-space: normal; max-width: 17em; }
 .chart .net-sel { fill: none; stroke: var(--prop-ink); stroke-width: var(--lw-base); stroke-linejoin: round; }
 .chart .net-base { fill: none; stroke: var(--base-ink); stroke-width: 2.5; stroke-dasharray: 7 5; stroke-linejoin: round; }
 .chart .m-age { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 2 3; }

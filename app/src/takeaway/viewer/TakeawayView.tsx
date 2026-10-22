@@ -11,7 +11,7 @@ import { CHART_MODES, MainChart, MainLegend, type ChartMode } from "../../presen
 import { ResultVerdictView } from "../../presentation/MainView.tsx";
 import type { BsGroupKey, CashflowTableModel, TableRowModel } from "../../presentation/model.ts";
 import { bsPlan } from "../../workspace/balanceTab.ts";
-import { MoneyThreeCards, MoneyThreeFigure, MoneyThreeLegend, MoneyThreeSay } from "../../presentation/MoneyThree.tsx";
+import { MoneyThreeCards, MoneyThreeFigure, MoneyThreeSay } from "../../presentation/MoneyThree.tsx";
 import { moneyThreeModel } from "../../workspace/moneyThree.ts";
 import { depletionYear, displayYears, toPresentation } from "../../workspace/present.ts";
 import { ageInYear, roles } from "../../workspace/roles.ts";
@@ -283,12 +283,11 @@ export function TakeawayView({ data, engine, preview = false }: TakeawayViewProp
             <h2 id="tk-m3h">お金の3つの分け方（{planLabel(sel)}）</h2>
             <span class="aside">{m3.year}年の時点</span>
           </div>
-          <p class="tk-m3-lead">これからの予定をもとに、金融資産を使う時期で3つに分けて、今の置き場所と並べました。</p>
+          <p class="tk-m3-lead">これからの予定をもとに、金融資産をいつ使うお金かで3つに分けて、今どこにあるかと並べました。</p>
           <MoneyThreeSay model={m3} />
           <div class="m3-grid">
             <div>
-              <MoneyThreeFigure model={m3} />
-              <MoneyThreeLegend model={m3} />
+              <MoneyThreeFigure model={m3} list />
             </div>
             <MoneyThreeCards model={m3} />
           </div>

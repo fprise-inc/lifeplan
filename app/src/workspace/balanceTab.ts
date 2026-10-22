@@ -134,10 +134,6 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
   const lineOf = (i: number, key: string) => (at[i] as BsAt).lines.find((l) => l.key === key)?.amount ?? 0;
   const living = byYear(p.table, years, (c) => under(c.row, "cf.expense.living") && c.row !== "cf.expense.living.drawdown" && c.row !== SURPLUS_ROW);
   const loanPay = byYear(p.table, years, (c) => c.row === "cf.expense.housing.loan");
-  const prepay = byYear(p.table, years, (c) => c.row === "cf.expense.housing.loan.prepayment");
-  const retireLump = byYear(p.table, years, (c) => under(c.row, "cf.income.lumpSum.retirement") || under(c.row, "cf.income.lumpSum.db"));
-  const dcLump = byYear(p.table, years, (c) => under(c.row, "cf.income.lumpSum.dc") || under(c.row, "cf.income.lumpSum.ideco") || under(c.row, "cf.income.lumpSum.smallBusiness"));
-  const sale = byYear(p.table, years, (c) => under(c.row, "cf.income.lumpSum.realEstateSale"));
   // 計算基準年が年の途中から始まるとき、その年のお金の動きは数か月分しかないので、生活費と返済額は翌年（1年分）の値で見る
   if (parseYm(req.input.baseMonth).m > 1 && years.length > 1) {
     living[0] = living[1] as number;
@@ -203,21 +199,11 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
 
   const out: BsYearModel[] = years.map((year, i) => {
     const a = at[i] as BsAt;
-    const pr = at[Math.max(0, i - 1)] as BsAt;
-    const a0 = at[0] as BsAt;
-    const mort = g(i, "mortgage");
-    const prMort = g(Math.max(0, i - 1), "mortgage");
     const liquid = g(i, "liquid");
     const events: BsYearModel["events"] = evs.filter((e) => e.year === year).map((e) => ({ kind: EVENT_KIND[e.icon] ?? "other", text: e.text }));
     if (i === negIdx) events.push({ kind: "neg", text: "純資産がマイナスに" });
-    const say = sayFor({ i, a, pr, a0, at, years, ageText, mort, prMort, liquid, retireLump: retireLump[i] ?? 0, dcLump: dcLump[i] ?? 0, retired: retireYear !== null && year > retireYear, pensionStart: pensionYear !== null && year === pensionYear, depYear: dep, negIdx, sale: sale[i] ?? 0, prepay: prepay[i] ?? 0 });
-    // 土地と建物（建物は年数とともに減り、土地は残る。年に応じて一言を添える）
     const land = lineOf(i, "land");
     const building = lineOf(i, "building");
-    const lb = landBuildingText({ i, land, building, building0: lineOf(0, "building") });
-    if (lb !== null && a.shortfall <= 0) say.sub = [...say.sub, plain(lb)];
-    const principal = i > 0 ? Math.max(0, prMort - mort - (prepay[i] ?? 0)) : 0;
-    const insight = insightFor({ i, a, pr, retired: retireYear !== null && year > retireYear, prepay: prepay[i] ?? 0, dcLump: dcLump[i] ?? 0, principal, loanPay: loanPay[i] ?? 0, sale: sale[i] ?? 0 });
     const monthly = (living[i] ?? 0) / 12;
     const notes: BsYearModel["notes"] = {
       liquid: `今日・明日にでも使えるお金です。${monthly > 0 ? `生活費（月${mn(monthly)}）の${monthsText(liquid / monthly)}。` : ""}急な出費や、収入で足りない分はまずここから出ます。`,
@@ -242,108 +228,16 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
       shortfall: a.shortfall,
       living: living[i] ?? 0,
       events,
-      say,
-      insight,
       notes,
     };
   });
   return { key: p.key, letter: p.letter, name: p.name, title: p.title, base: p.base, years: out, marks, jumps, points, status };
 }
 
-/** 土地と建物の一言（年に応じて）。建物が無ければ null */
-export function landBuildingText(o: { i: number; land: number; building: number; building0: number }): string | null {
-  if (o.building <= 0 && o.land <= 0) return null;
-  if (o.i === 0) return o.building > 0 ? "建物は年数とともに価値が減りますが、土地は残ります。" : null;
-  const down = o.building0 - o.building;
-  if (Math.round(down / 10000) < 1) return null;
-  return `建物は年数とともに価値が減り、今より${mn(down)}少ない${mn(o.building)}ですが、土地（${mn(o.land)}）は残ります。`;
-}
-
 /** 「○か月分」（2年以上は「○年分」） */
 export function monthsText(m: number): string {
   if (!Number.isFinite(m)) return "";
   return m >= 24 ? `${(m / 12).toFixed(1)}年分` : `${m.toFixed(1)}か月分`;
-}
-
-interface SayIn {
-  i: number;
-  a: BsAt;
-  pr: BsAt;
-  a0: BsAt;
-  at: readonly BsAt[];
-  years: readonly number[];
-  ageText: (y: number) => string;
-  mort: number;
-  prMort: number;
-  liquid: number;
-  retireLump: number;
-  dcLump: number;
-  retired: boolean;
-  pensionStart: boolean;
-  depYear: number | null;
-  negIdx: number;
-  sale: number;
-  prepay: number;
-}
-
-/** 純資産が次の1,000万円の区切りを超える年 */
-function crossNext(at: readonly BsAt[], years: readonly number[], i: number): { year: number; th: number } | null {
-  const th = (Math.floor(Math.max(0, (at[i] as BsAt).netWorth) / 10_000_000) + 1) * 10_000_000;
-  for (let k = i + 1; k < at.length; k++) if ((at[k] as BsAt).netWorth >= th) return { year: years[k] as number, th };
-  return null;
-}
-
-/** ひと言の解説（年に応じて。1行目と2行目） */
-function sayFor(s: SayIn): { head: VerdictPart[]; sub: VerdictPart[] } {
-  const { i, a, pr, a0, ageText, years } = s;
-  const nw = a.netWorth;
-  const cx = crossNext(s.at, years, i);
-  const cxs = cx !== null ? `${cx.year}年（${ageText(cx.year)}）に純資産が${mn(cx.th)}を超えます。` : "";
-  const futNeg = s.negIdx > i ? (years[s.negIdx] as number) : null;
-  const futShort = s.depYear !== null && s.depYear > years[i]! ? s.depYear : null;
-  const diff0 = nw - a0.netWorth;
-  const fromNow = `今より${mn(Math.abs(diff0))}${diff0 >= 0 ? "多い" : "少ない"}`;
-  if (nw < 0) return { head: [plain(`資金の不足が${mn(a.shortfall)}にふくらみ、純資産がマイナス（`), strong(mn(nw)), plain("）です。")], sub: [plain("家や持ち物を全部お金に換えても、借りている分を返しきれない状態（債務超過）です。")] };
-  if (a.shortfall > 0) {
-    if (pr.shortfall <= 0 || i === 0) return { head: [plain(`金融資産が尽き、足りない分（資金の不足 ${mn(a.shortfall)}）が負債に積み上がり始めます。`)], sub: [plain(`純資産 ${mn(nw)} の多くは換金しにくい資産（${mn(groupTotal(a, "illiquid"))}）で、すぐには使えないお金です。`)] };
-    return { head: [plain(`資金の不足が${mn(a.shortfall)}に増え、純資産は`), strong(mn(nw)), plain("に減っています。")], sub: [plain(futNeg !== null ? `このままだと${futNeg}年（${ageText(futNeg)}）に純資産がマイナスになります。` : "換金しにくい資産の分で、純資産はまだプラスを保っています。")] };
-  }
-  if (i === 0) {
-    if (s.mort > 0) return { head: [plain(`住宅ローンの残りが${mn(s.mort)}あり、今の純資産は`), strong(mn(nw)), plain("です。")], sub: cxs !== "" ? [plain(`ローンの残りが減っていき、${cxs}`)] : [] };
-    return { head: [plain("今の純資産は"), strong(mn(nw)), plain(`です（資産${mn(a.totalAssets)}・負債${mn(a.totalLiabilities)}）。`)], sub: cxs !== "" ? [plain(cxs)] : [] };
-  }
-  if (s.retireLump > 0 || s.dcLump > 0) {
-    const what = [s.retireLump > 0 ? `退職金${mn(s.retireLump)}` : "", s.dcLump > 0 ? `iDeCo・企業型DCなど（${mn(s.dcLump)}）` : ""].filter((x) => x !== "").join("と");
-    return { head: [plain(`${what}が入り、すぐ使えるお金が${mn(s.liquid)}になります${s.prepay > 0 ? "（住宅ローンを繰り上げて返した後）" : ""}。`)], sub: [plain(`純資産は${fromNow}${mn(nw)}です。`)] };
-  }
-  if (s.sale > 0) return { head: [plain(`家を売り、手取り${mn(s.sale)}がすぐ使えるお金に入ります。`)], sub: [plain(`換金しにくい資産が現金に変わり、純資産は${mn(nw)}です（売却の費用などの分だけ動きます）。`)] };
-  if (s.prMort > 0 && s.mort <= 0) return { head: [plain(`住宅ローンを返し終わり、負債が${a.totalLiabilities <= 0 ? "なくなります" : `${mn(a.totalLiabilities)}になります`}。`)], sub: [plain("純資産は"), strong(mn(nw)), plain(`です${a.totalLiabilities <= 0 ? "（資産の合計と同じ）" : ""}。`)] };
-  if (s.pensionStart) return { head: [plain("年金の受け取りが始まります。")], sub: [plain("純資産は"), strong(mn(nw)), plain("。ここから先は、年金で足りない分を金融資産から取り崩します。")] };
-  if (s.retired && a.financial < pr.financial) {
-    return {
-      head: [plain(`収入で足りない分を取り崩し、金融資産は1年で${mn(pr.financial - a.financial)}減って${mn(a.financial)}になります。`)],
-      sub: [plain(futShort !== null ? `このままだと${futShort}年（${ageText(futShort)}）に金融資産が尽きます。` : `${ageText(years.at(-1) as number)}まで金融資産は残る見込みです。`)],
-    };
-  }
-  if (s.mort > 0) return { head: [plain(`住宅ローンの残りが${mn(s.mort)}に減り、純資産は${fromNow}`), strong(mn(nw)), plain("です。")], sub: cxs !== "" ? [plain(cxs)] : [] };
-  return { head: [plain("純資産は"), strong(mn(nw)), plain(`（${fromNow}）です。`)], sub: cxs !== "" ? [plain(cxs)] : futShort !== null ? [plain(`${futShort}年（${ageText(futShort)}）に金融資産が尽きる見込みです。`)] : [] };
-}
-
-/** バランスシートで見えること（年に応じて） */
-function insightFor(s: { i: number; a: BsAt; pr: BsAt; retired: boolean; prepay: number; dcLump: number; principal: number; loanPay: number; sale: number }): VerdictPart[] {
-  const { i, a, pr } = s;
-  if (i === 0) return [plain("今の年のバランスシートは、入力した値から出した"), strong("事実"), plain("です。先の年は"), strong("見込み"), plain("で、毎年の見直しのときに「前回と比べる」で答え合わせができます。")];
-  if (s.prepay > 0) return [plain(`住宅ローンを${mn(s.prepay)}繰り上げて返すと、手元のお金は同じだけ減りますが、借りているお金も同じだけ減るので、`), strong("純資産は変わりません"), plain("。浮くのはこの先の利息です。")];
-  if (s.dcLump > 0) return [plain(`iDeCo・企業型DCなど（${mn(s.dcLump)}）を受け取ると、「引き出せないお金」が「すぐ使えるお金」に移ります。`), strong("資産の合計は変わらず"), plain("、使える形に変わるだけです。")];
-  if (s.sale > 0) return [plain("家を売ると、換金しにくい資産がすぐ使えるお金に変わります。"), strong("純資産が動くのは、売却の費用と評価額との差の分だけ"), plain("です。")];
-  if (s.principal > 0 && s.loanPay > 0) {
-    const intr = Math.max(0, s.loanPay - s.principal);
-    return [plain(`ローンの返済で手元のお金は年に${mn(s.loanPay)}減りますが、借りているお金も${mn(s.principal)}減るので、`), strong("その分は純資産として残っています"), plain(`（消えるのは利息の約${mn(intr)}だけ）。キャッシュフロー表では支出にしか見えない部分です。`)];
-  }
-  if (a.shortfall > 0 && a.netWorth < 0) return [plain("「資金の不足」が資産の合計を上回り、"), strong("純資産がマイナス"), plain("です。家を売っても借りている分を返しきれない状態で、キャッシュフロー表の「残高のマイナス」だけでは見えにくい点です。")];
-  if (a.shortfall > 0) return [plain("「資金の不足」は借りている状態として負債に積んでいます。換金しにくい資産があるので純資産はまだプラスでも、"), strong("すぐ使えるお金はありません"), plain("。")];
-  if (s.retired && a.financial < pr.financial) return [plain("生活費のための取り崩しは、資産が減った分だけ"), strong("純資産も減ります"), plain("。ローンの返済（借りているお金も減る）との違いです。")];
-  return [plain("純資産は「資産 − 負債」。どの年も左右の箱の高さが同じになることで、計算が合っていることが分かります。")];
 }
 
 // ---- 前回と比べる（控え）----
