@@ -102,7 +102,8 @@
 }
 
 // ---- 金融資産が足りなくなる所の印（アプリの画面のグラフと同じ形）----
-// 「!」の丸を、グラフの面のすぐ下（年の目盛りのすぐ上）の専用の段に置き、線が0を切る所（足りなくなる年の位置の0の線）から赤い点線でつなぐ。
+// 「!」の丸を、グラフの面のすぐ下（年の目盛りのすぐ上）の専用の段に置き、線が0を切る所（前の年の金額と足りなくなる年の金額を直線で結んで0になる所）から赤い点線でつなぐ。
+// 丸も同じ横の位置を基準に置く。図の下の説明の年・年齢は初めて足りなくなる年
 // 選んだプラン（提案・万一の場合）は赤の塗りに白い「!」、基準のプラン（現状・万一なし）は白抜きに赤い「!」。
 // 白黒で刷っても分かれるように、白抜きの枠は太めにし、点線は丸い点の並び（系列の破線とも目盛りの細い線とも違う形）にする
 
@@ -149,11 +150,22 @@
   out
 }
 
-/// 現状と提案の「!」（帳票の入力の summary から。現状は白抜き）
-#let plan-shorts(s) = {
+/// 線が0を切る所の位置（年の番号を小数で）: 前の年（i − 1）の金額と初めて足りなくなる年（i）の金額を直線で結び、0 になる所。
+/// 前の年が無い（最初の年からマイナス）・前の年もマイナスのとき（金額の並びが無いときも）は i。アプリの画面のグラフ（presentation の ShortMark.tsx の crossIndex）と同じ決め方
+#let cross-index(v, i) = {
+  if v == none or i <= 0 or i >= v.len() { return i }
+  let a = v.at(i - 1)
+  let b = v.at(i)
+  if a < 0 or b >= 0 { return i }
+  i - 1 + a / (a - b)
+}
+
+/// 現状と提案の「!」（帳票の入力の summary と資産の推移の金額から。現状は白抜き）
+#let plan-shorts(data) = {
+  let s = data.summary
   let out = ()
-  if s.current.depletion != none { out.push((year: s.current.depletion.year, base: true, label: "現状 " + s.current.depletion.label)) }
-  if s.proposal.depletion != none { out.push((year: s.proposal.depletion.year, base: false, label: "提案 " + s.proposal.depletion.label)) }
+  if s.current.depletion != none { out.push((year: s.current.depletion.year, values: data.assets.current, base: true, label: "現状 " + s.current.depletion.label)) }
+  if s.proposal.depletion != none { out.push((year: s.proposal.depletion.year, values: data.assets.proposal, base: false, label: "提案 " + s.proposal.depletion.label)) }
   out
 }
 
@@ -174,7 +186,8 @@
 
 /// 折れ線のグラフ（年を横軸、金額を縦軸。万円の目盛り）。
 /// series: ((label: "提案", values: (…円…), stroke: 線, mark: "●")…)。値の縮尺を合わせるだけで、値は変えない。
-/// shorts: 金融資産が足りなくなる所の「!」（(year: 年, base: 白抜きか, label: 図の下の説明の文)…。年が表の期間に無いものは描かない）
+/// shorts: 金融資産が足りなくなる所の「!」（(year: 初めて足りなくなる年, values: その線の金額の並び, base: 白抜きか, label: 図の下の説明の文)…。
+/// 年が表の期間に無いものは描かない。点線と丸の横の位置は、values の線が0を切る所（cross-index）
 #let line-chart(years, series, height: 150pt, shorts: ()) = {
   let n = years.len()
   if n == 0 { return none }
@@ -218,9 +231,9 @@
           place(top + left, curve(stroke: s.stroke, curve.move(pts.at(0)), ..pts.slice(1).map(p => curve.line(p))))
         }
       }
-      // 金融資産が足りなくなる所: 0の線から面の下の端までまっすぐ下ろし、そこから「!」の丸へ折る点線と、段の丸（同じ年の丸は横に並べる）
+      // 金融資産が足りなくなる所: 線が0を切る所から面の下の端までまっすぐ下ろし、そこから「!」の丸へ折る点線と、段の丸（近い丸は横に並べる）
       if shorts.len() > 0 {
-        let x0 = shorts.map(m => xs(years.position(y => y == m.year)))
+        let x0 = shorts.map(m => xs(cross-index(m.at("values", default: none), years.position(y => y == m.year))))
         let at = spread-x(x0, 2 * short-r + 1.5pt, left-w + short-r, left-w + w - short-r)
         let cy = ht + 3pt + short-r
         for (j, m) in shorts.enumerate() {
