@@ -6,13 +6,10 @@
   pagebreak(weak: true)
   let land = is-land(data)
   let s = data.summary
-  let marks = ()
-  if s.current.depletion != none { marks.push((year: s.current.depletion.year, label: "現状 不足")) }
-  if s.proposal.depletion != none { marks.push((year: s.proposal.depletion.year, label: "提案 不足")) }
   let chart = line-chart(data.basis.years, (
     (label: "提案", values: data.assets.proposal, stroke: 1.6pt + accent),
     (label: "現状", values: data.assets.current, stroke: (paint: muted, thickness: 1.2pt, dash: "dashed")),
-  ), height: if land { 260pt } else { 230pt }, marks: marks)
+  ), height: if land { 260pt } else { 230pt }, shorts: plan-shorts(s))
   let idx = data.basis.years.enumerate().filter(((i, y)) => calc.rem(y, 5) == 0 or i == 0 or i == data.basis.years.len() - 1).map(((i, y)) => i)
   let table5 = data-table(
     columns: (auto, auto, 1fr, 1fr),

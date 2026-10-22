@@ -44,13 +44,10 @@
     ).map(((l, c, p)) => (l, man-unit(c), man-unit(p))).flatten(),
   )
   let totals-note = note("表の期間（計算基準月から" + str(data.basis.years.last()) + "年まで）の合計。万円未満は四捨五入しています。")
-  let marks = ()
-  if s.current.depletion != none { marks.push((year: s.current.depletion.year, label: "現状 不足")) }
-  if s.proposal.depletion != none { marks.push((year: s.proposal.depletion.year, label: "提案 不足")) }
   let chart(h) = line-chart(data.basis.years, (
     (label: "提案", values: data.assets.proposal, stroke: 1.6pt + accent),
     (label: "現状", values: data.assets.current, stroke: (paint: muted, thickness: 1.2pt, dash: "dashed")),
-  ), height: h, marks: marks)
+  ), height: h, shorts: plan-shorts(s))
   if is-land(data) {
     // 横の紙: 合計の表とグラフを左右に並べる
     grid(

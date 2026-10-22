@@ -10,10 +10,15 @@
     section(s.title)
     let land = is-land(data)
     let head = callout(if s.depletion == none [この場合も、表の期間の最後まで金融資産は不足しません。] else [この場合、*#s.depletion.label* に金融資産が不足します。], color: if s.depletion == none { accent } else { warn })
+    // 金融資産が足りなくなる所の「!」: 万一の場合は赤の塗り、万一なし（提案と同じ線）は白抜き
+    let base-dep = data.summary.proposal.depletion
+    let shorts = ()
+    if base-dep != none { shorts.push((year: base-dep.year, base: true, label: "万一なし " + base-dep.label)) }
+    if s.depletion != none { shorts.push((year: s.depletion.year, base: false, label: "万一の場合 " + s.depletion.label)) }
     let chart = line-chart(data.basis.years, (
       (label: "万一の場合", values: s.withEvent, stroke: 1.6pt + warn),
       (label: "万一が無い場合（提案）", values: s.withoutEvent, stroke: (paint: muted, thickness: 1.2pt, dash: "dashed")),
-    ), height: if land { 170pt } else { 140pt })
+    ), height: if land { 170pt } else { 140pt }, shorts: shorts)
     let diff = {
       section("万一が無い場合との差（表の期間の合計）")
       data-table(columns: (1fr, auto), header: ("", "差"), s.breakdown.map(b => (b.label, man-diff(b.amount))).flatten())
