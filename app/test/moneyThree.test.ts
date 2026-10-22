@@ -5,7 +5,7 @@ import { h } from "preact";
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, TableCell } from "../src/engine/types.ts";
 import { FigTip } from "../src/presentation/FigTip.tsx";
-import { MoneyThreeCards, MoneyThreeFigure, MoneyThreeNotice, MoneyThreeSection, SavePopBody } from "../src/presentation/MoneyThree.tsx";
+import { MoneyThreeCards, MoneyThreeFigure, MoneyThreeSection, SavePopBody } from "../src/presentation/MoneyThree.tsx";
 import type { MoneyThreeModel } from "../src/presentation/model.ts";
 import { DEFAULT_MONEY_THREE, MONEY_THREE_LIST_MAX, moneyThreeModel, placementOf, readMoneyThree } from "../src/workspace/moneyThree.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -80,20 +80,19 @@ describe("お金の3つの分け方の提示用の値（0032）", () => {
     expect(m.table.find((x) => x.year === 2028)?.uncovered).toBe(0);
   });
 
-  it("預金のまま・足りない・ほぼ同じの文は事実だけ（勧める言葉は書かない）。ほぼ同じのときは結果のタブに知らせを出さない", () => {
+  it("預金のまま・足りない・ほぼ同じの文は事実だけ（勧める言葉は書かない）。ほぼ同じのときは差を書かない", () => {
     const events: [number, number][] = [[2027, 300 * MAN]];
     // 使う 192 ＋ 貯める 184 ＝ 376万円
     const over = moneyThreeModel({ ...synthetic({ deposit: 1000 * MAN, nisa: 500 * MAN, events }), settings: DEFAULT_MONEY_THREE });
     expect(over.status).toBe("over");
     expect(over.say.head.map((p) => p.text).join("")).toBe("「増やすお金」1,124万円のうち、624万円 が預金のままです。");
-    expect(over.notice?.map((p) => p.text).join("")).toBe("「増やすお金」のうち 624万円 が預金のままです");
     const short = moneyThreeModel({ ...synthetic({ deposit: 100 * MAN, nisa: 500 * MAN, events }), settings: DEFAULT_MONEY_THREE });
     expect(short.status).toBe("short");
     expect(short.say.head.map((p) => p.text).join("")).toBe("預金だけでは、「使うお金」と「貯めるお金」の分が 276万円 足りません。");
     expect(short.say.sub.map((p) => p.text).join("")).toBe("この2つの分の範囲に、NISA 276万円 が入っています。");
     const even = moneyThreeModel({ ...synthetic({ deposit: 390 * MAN, nisa: 500 * MAN, events }), settings: DEFAULT_MONEY_THREE });
     expect(even.status).toBe("even");
-    expect(even.notice).toBeNull();
+    expect(even.say.eq).toBeNull();
     const neg = moneyThreeModel({ ...synthetic({ deposit: 100 * MAN, nisa: 100 * MAN, events }), settings: DEFAULT_MONEY_THREE });
     expect(neg.boxes[2].amount).toBe(0);
     expect(neg.boxes[2].note).toBe("「使うお金」と「貯めるお金」が金融資産より176万円多いので、0 としています。");
@@ -161,7 +160,6 @@ describe("お金の3つの分け方の提示用の値（0032）", () => {
     const ro = renderToString(h(MoneyThreeCards, { model: m }));
     expect(ro).not.toContain("data-m3-step");
     expect(ro).toContain("ふだんの支出 月32万円 × 6か月");
-    expect(renderToString(h(MoneyThreeNotice, { model: m, onGo: () => {} }))).toContain("資産と負債で見る →");
     expect(renderToString(h(MoneyThreeSection, { model: m, onSettings: () => {} }))).toContain("説明用の図です。キャッシュフロー表・結果の計算には混ぜません");
   });
   it("貯めるお金の小窓: 最初から全部の年の表（賄えない分が 0 の年も・合計の行・収入の残りの説明）。折りたたみは無い", () => {

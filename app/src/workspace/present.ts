@@ -327,8 +327,8 @@ export function toPresentation(input: PresentInput): PresentationModel {
   };
 
   const depletions: Depletion[] = [];
-  if (depC !== null) depletions.push({ series: "current", year: depC, label: `${custom ? "▲ " : ""}${names.base} ${age(depC) ?? depC}歳で不足` });
-  if (depP !== null) depletions.push({ series: "proposal", year: depP, label: `${custom ? "▲ " : ""}${names.selected} ${age(depP) ?? depP}歳で不足` });
+  if (depC !== null) depletions.push({ series: "current", year: depC });
+  if (depP !== null) depletions.push({ series: "proposal", year: depP });
   const chart: ChartModel = {
     years,
     ages: years.map((y) => age(y)),

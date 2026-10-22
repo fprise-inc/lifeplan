@@ -136,7 +136,7 @@ describe("基準の切り替え", () => {
     expect(m.result.tone).toBe("up");
     expect(m.chart.current).toEqual(years.map((y) => financialOf(rA.table).get(y) ?? 0));
     expect(m.chart.proposal).toEqual(years.map((y) => financialOf(rB.table).get(y) ?? 0));
-    expect(m.chart.depletions).toEqual([{ series: "current", year: 2061, label: "▲ プランA 80歳で不足" }]);
+    expect(m.chart.depletions).toEqual([{ series: "current", year: 2061 }]);
     // 基準の案の線（年間収支・純資産）も基準の案の結果から
     expect(m.baseLines.net).toEqual(years.map((y) => sumByYear(rA.table, (c) => c.row === "cf.net").get(y) ?? 0));
   });

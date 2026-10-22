@@ -138,8 +138,8 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
       parts: [{ text: `${event}、資産は ` }, { text: `${depS}年（${watcher?.label ?? ""}${wAge(depS) ?? ""}歳）に尽きます`, strong: true }, { text: depN === null ? "（万一なしは尽きません）" : `（万一なしは${depN}年）` }],
     };
   const depletions: Depletion[] = [];
-  if (depN !== null) depletions.push({ series: "current", year: depN, label: `万一なし ${age(depN) ?? depN}歳で不足` });
-  if (depS !== null) depletions.push({ series: "proposal", year: depS, label: `万一の場合 ${age(depS) ?? depS}歳で不足` });
+  if (depN !== null) depletions.push({ series: "current", year: depN });
+  if (depS !== null) depletions.push({ series: "proposal", year: depS });
   const chart: ChartModel = { years, ages: years.map((y) => age(y)), proposal: years.map((y) => finS.get(y) ?? 0), current: years.map((y) => finN.get(y) ?? 0), depletions };
 
   // 内訳（万一なしとの差）: 万一の翌年と、万一の年から最後の年までの累計

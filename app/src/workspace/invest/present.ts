@@ -146,19 +146,15 @@ export function stressLines(req: EngineRequest, results: Partial<Record<StressKe
 /** 資産の推移に重ねる値 */
 export function investChart(input: {
   sel: { req: EngineRequest; res: PreviewResult };
-  base: { req: EngineRequest; res: PreviewResult } | null;
   years: readonly number[];
   ages: readonly (number | null)[];
   stress: Partial<Record<StressKey, PreviewResult | null>> | null;
   view: InvestChartModel["view"];
 }): InvestChartModel {
-  const { sel, base, years, ages } = input;
-  const a = lastsAge(sel.req, sel.res.table, years);
-  const b = base === null ? null : lastsAge(base.req, base.res.table, years);
+  const { sel, years, ages } = input;
   return {
     breakdown: methodOf(sel.req) === "total" ? null : breakdownOf(sel.res.table, years),
     band: bandOf(sel.req, ages),
-    lasts: { selected: a === null ? "" : `${a}歳まで持つ`, base: b === null ? "" : `${b}歳まで持つ` },
     stress: input.stress === null ? null : stressLines(sel.req, input.stress, years),
     view: input.view,
   };

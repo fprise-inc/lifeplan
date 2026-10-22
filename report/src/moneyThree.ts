@@ -115,8 +115,6 @@ export interface MoneyThreeModel {
   overFinancial: Yen;
   /** 区画の上の文（事実だけ。勧める言葉は書かない） */
   say: { head: TextPart[]; sub: TextPart[]; eq: string | null };
-  /** 結果のタブの一行の知らせ（ほぼ同じのときは null） */
-  notice: TextPart[] | null;
 }
 
 export const DEFAULT_MONEY_THREE: MoneyThreeSettings = { months: MONEY_THREE_MONTHS.default, years: MONEY_THREE_YEARS.default, wording: "use" };
@@ -365,14 +363,12 @@ export function moneyThreeModel(o: MoneyThreeInput): MoneyThreeModel {
   // 文（事実だけ）
   const both = `${q(N[0])}と${q(N[1])}`;
   let say: MoneyThreeModel["say"];
-  let notice: TextPart[] | null;
   if (r.status === "over") {
     say = {
       head: [plain(`${q(N[2])}${mn(Math.max(0, r.grow))}のうち、`), strong(mn(r.gap)), plain(` が${liquidName}のままです。`)],
       sub: [plain(`${liquidName} ${mn(r.placement.liquid)} は、${both}の分（合計 ${mn(r.need)}）より ${mn(r.gap)} 多くなっています。`)],
       eq: `${liquidName} ${man(r.placement.liquid)} − ${N[0]} ${man(r.spend.amount)} − ${N[1]} ${man(r.save.amount)} ＝ ${man(r.gap)}（万円）`,
     };
-    notice = [plain(`${q(N[2])}のうち `), strong(mn(r.gap)), plain(` が${liquidName}のままです`)];
   } else if (r.status === "short") {
     const ins = inNeed(lines, r.need);
     const sub: TextPart[] = [];
@@ -383,14 +379,12 @@ export function moneyThreeModel(o: MoneyThreeInput): MoneyThreeModel {
       sub,
       eq: `${N[0]} ${man(r.spend.amount)} ＋ ${N[1]} ${man(r.save.amount)} − ${liquidName} ${man(r.placement.liquid)} ＝ ${man(-r.gap)}（万円）`,
     };
-    notice = [plain(`${liquidName}だけでは${both}の分が `), strong(mn(-r.gap)), plain(" 足りません")];
   } else {
     say = {
       head: [plain(`今の${liquidName}（${mn(r.placement.liquid)}）は、${both}の分（${mn(r.need)}）と`), strong("ほぼ同じ"), plain("です。")],
       sub: [plain(`差は ${mn(Math.abs(r.gap))} で、ふだんの支出の1か月分（${mn(r.threshold)}）より小さい差です。`)],
       eq: null,
     };
-    notice = null;
   }
 
   return {
@@ -409,6 +403,5 @@ export function moneyThreeModel(o: MoneyThreeInput): MoneyThreeModel {
     need: r.need,
     overFinancial: r.overFinancial,
     say,
-    notice,
   };
 }
