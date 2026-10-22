@@ -1,7 +1,7 @@
 // 計算結果と世帯から、提示用の値（PresentationModel。0016 の2）を作る。許可した項目だけを選んで写す
 import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts";
 import { ROW_LABELS } from "../generated/labels.ts";
-import type { CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
+import type { AgeAxisRow, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
@@ -32,6 +32,26 @@ export function depletionYear(table: readonly TableCell[], years: readonly numbe
   const fin = financialOf(table);
   for (const y of years) if ((fin.get(y) ?? 0) < 0) return y;
   return null;
+}
+
+/** その年に世帯にいるか（生まれていて、独立などで抜けていない。gone: 亡くなった人の鍵と亡くなる年。翌年からいない） */
+export function inHousehold(r: Role, y: number, gone?: { key: string; year: number }): boolean {
+  if (gone !== undefined && r.key === gone.key && y > gone.year) return false;
+  const leave = leaveYear(r.member);
+  return ageInYear(r.member, y) >= 0 && (leave === null || y <= leave);
+}
+
+/** 年の目盛りの下の年齢の段: 本人と配偶者（単身の世帯は本人だけ）。いない年は null */
+export function ageAxis(rs: readonly Role[], years: readonly number[], gone?: { key: string; year: number }): AgeAxisRow[] {
+  return rs.filter((r) => r.key === "self" || r.key === "spouse").map((r) => ({ label: r.label, ages: years.map((y) => (inHousehold(r, y, gone) ? ageInYear(r.member, y) : null)) }));
+}
+
+/** その年の家族全員の年齢の文字（例: 「ご主人64歳・奥様62歳・長女35歳」。世帯にいる人だけ） */
+export function familyText(rs: readonly Role[], y: number, gone?: { key: string; year: number }): string {
+  return rs
+    .filter((r) => inHousehold(r, y, gone))
+    .map((r) => `${r.label}${ageInYear(r.member, y)}歳`)
+    .join("・");
 }
 
 /** 表の行の決め方。key は提示層に渡す鍵（物の ID を含まない） */
@@ -332,17 +352,19 @@ export function toPresentation(input: PresentInput): PresentationModel {
   const chart: ChartModel = {
     years,
     ages: years.map((y) => age(y)),
+    axis: ageAxis(rs, years),
+    family: years.map((y) => familyText(rs, y)),
     proposal: years.map((y) => finP.get(y) ?? 0),
     current: years.map((y) => finC.get(y) ?? 0),
     depletions,
   };
 
   const selectedYear = input.selectedYear !== null && years.includes(input.selectedYear) ? input.selectedYear : (years[Math.min(4, years.length - 1)] ?? lastYear);
-  const present = (r: Role, y: number) => ageInYear(r.member, y) >= 0 && (leaveYear(r.member) === null || y <= (leaveYear(r.member) as number));
+  const present = (r: Role, y: number) => inHousehold(r, y);
   const sumYear = (pred: (c: TableCell) => boolean, y: number) => proposed.table.reduce((s, c) => (c.year === y && pred(c) ? s + c.amount : s), 0);
   const yearDetail: YearDetail = {
     year: selectedYear,
-    members: rs.filter((r) => present(r, selectedYear)).map((r) => `${r.label}${ageInYear(r.member, selectedYear)}歳`).join("・"),
+    members: familyText(rs, selectedYear),
     income: sumYear((c) => under(c.row, "cf.income"), selectedYear),
     expense: sumYear((c) => under(c.row, "cf.expense") || under(c.row, "cf.taxSi"), selectedYear),
     net: sumYear((c) => c.row === "cf.net", selectedYear),
@@ -381,8 +403,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
 
 /** 年齢の行（世帯にいる年だけ） */
 function ageRows(req: EngineRequest, years: readonly number[]): TableRowModel[] {
-  const present = (r: Role, y: number) => ageInYear(r.member, y) >= 0 && (leaveYear(r.member) === null || y <= (leaveYear(r.member) as number));
-  return roles(req).map((r) => ({ kind: "age", key: `age:${r.key}`, label: r.label, ages: years.map((y) => (present(r, y) ? ageInYear(r.member, y) : null)) }));
+  return roles(req).map((r) => ({ kind: "age", key: `age:${r.key}`, label: r.label, ages: years.map((y) => (inHousehold(r, y) ? ageInYear(r.member, y) : null)) }));
 }
 
 /** 生涯キャッシュフロー表の提示用の値（1つの案）。evs を渡すとライフイベントの行も出す */

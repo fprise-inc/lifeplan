@@ -39,10 +39,24 @@ export interface Depletion {
   year: number;
 }
 
+/**
+ * 年の目盛りの下の年齢の段（1人分）。夫婦の世帯は本人・配偶者の2段、単身の世帯は本人の1段（どの世帯でもこの形。表示の切り替えは無い）。
+ * いない年（亡くなったあと・まだ生まれていない年）は null（その人の段を空ける）
+ */
+export interface AgeAxisRow {
+  /** 段の頭に小さく書く呼び方（例: 「ご主人」「奥様」「ご本人」） */
+  label: string;
+  ages: (number | null)[];
+}
+
 export interface ChartModel {
   years: number[];
-  /** x 軸の下に添える年齢（本人） */
+  /** 本人の年齢（「!」の札の文などに使う） */
   ages: (number | null)[];
+  /** x 軸の下に添える年齢の段（本人・配偶者） */
+  axis: AgeAxisRow[];
+  /** 年ごとの家族全員の年齢（例: 「ご主人64歳・奥様62歳・長女35歳」）。年を指したとき・固定したときの札に出す */
+  family: string[];
   proposal: Yen[];
   current: Yen[];
   depletions: Depletion[];
@@ -196,6 +210,8 @@ export interface ProtectionChartModel {
   years: number[];
   /** 亡くなる人の年齢（各年12月末） */
   ages: (number | null)[];
+  /** x 軸の下に添える年齢の段（本人・配偶者） */
+  axis: AgeAxisRow[];
   /** 金融資産を含まない必要保障額 */
   need: Yen[];
   /** 金融資産を含む（差し引いた）必要保障額 */
@@ -503,6 +519,8 @@ export interface BsPlanModel {
   title: string;
   base: boolean;
   years: BsYearModel[];
+  /** 推移の年の目盛りの下に添える年齢の段（本人・配偶者。years と同じ並び） */
+  axis: AgeAxisRow[];
   /** つまみの上の札（退職・ローン完済・資金が不足・純資産マイナス）。index は years の番号 */
   marks: { index: number; kind: BsMarkKind; label: string }[];
   /** 主な年へ（今・10年後・退職の年・75歳）。範囲の外は入れない */

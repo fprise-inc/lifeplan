@@ -2,6 +2,7 @@
 // - 線が0を切る所の△と「○歳まで持つ」「○歳で不足」の文字はグラフに描かない
 // - 「!」はできごとの丸の段のすぐ上の専用の段に置く（できごとと同じ年でも上下に分かれて重ならない。いつも同じ高さ）。できごとの丸の段の大きさは変えない
 // - 線が0を切る所から「!」まで赤い点線。同じ年の「!」は横にずらす。足りなくならなければ何も出さない
+// - 点線の上端と「!」の横の位置は、線が実際に0を切る所（前の年と足りなくなる年の金額を直線で結んで0になる所）。札の文の年・年齢は初めて足りなくなる年
 // - 札の文は「○歳（○年）で金融資産が足りなくなります」。説明モード・全部のプランを重ねる表示（プランの色）・左右に並べる表示・万一のときのグラフでも同じ形
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
@@ -11,7 +12,7 @@ import { EVENT_R } from "../src/presentation/EventDot.tsx";
 import { MainChart, shortSources, type MainChartModel } from "../src/presentation/MainChart.tsx";
 import type { EventChip, ExplainModel, PlanLineModel } from "../src/presentation/model.ts";
 import { colorStyle } from "../src/presentation/planLines.tsx";
-import { SHORT_R, SHORT_ROW, ShortTip, shortText, shortXs } from "../src/presentation/ShortMark.tsx";
+import { crossIndex, SHORT_R, SHORT_ROW, ShortTip, shortText, shortXs } from "../src/presentation/ShortMark.tsx";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
@@ -52,6 +53,17 @@ const shorts = (html: string) => [...html.matchAll(/<g class="sk[^"]*" transform
 /** できごとの丸（x, y, 年） */
 const events = (html: string) => [...html.matchAll(/<g class="ev[^"]*" transform="translate\(([\d.]+),([\d.]+)\)"[^>]*data-ev="(\d+)"/g)].map((x) => ({ x: num(x[1]), y: num(x[2]), year: num(x[3]) }));
 const lines = (html: string) => [...html.matchAll(/<path d="M([\d.]+) ([\d.]+)V([\d.]+)(?:L([\d.]+) ([\d.]+))?" class="dep-line" data-short-line="(\d+)"/g)].map((x) => ({ x: num(x[1]), top: num(x[2]), row: num(x[3]), ex: x[4] === undefined ? null : num(x[4]), ey: x[5] === undefined ? null : num(x[5]), year: num(x[6]) }));
+/** 線の点（「M x y L x y …」）。cls はその線の class */
+const pathPts = (html: string, cls: string) => {
+  const d = new RegExp(`<path d="([^"]+)" class="${cls}"`).exec(html)?.[1] ?? "";
+  return [...d.matchAll(/[ML]([\d.]+) ([\d.]+)/g)].map((x) => ({ x: num(x[1]), y: num(x[2]) }));
+};
+/** 線の点 i − 1 と i を直線で結んで、高さ y0 になる x */
+const crossX = (pts: { x: number; y: number }[], i: number, y0: number) => {
+  const a = pts[i - 1]!;
+  const b = pts[i]!;
+  return a.x + ((b.x - a.x) * (y0 - a.y)) / (b.y - a.y);
+};
 const zeroY = (html: string) => num(/<line x1="[\d.]+" x2="[\d.]+" y1="([\d.]+)" y2="[\d.]+" class="axis0"/.exec(html)?.[1]);
 
 describe("金融資産が足りなくなる所の印（主画面のグラフ）", () => {
@@ -66,9 +78,16 @@ describe("金融資産が足りなくなる所の印（主画面のグラフ）"
     expect(html).toContain(`class="sk base"`);
     const age = m0.chart.ages[m0.chart.years.indexOf(DEP)];
     expect(html).toContain(`aria-label="プランA ${age}歳（${DEP}年）で金融資産が足りなくなります"`);
-    // 点線: 上端は線が0を切る所（年の位置の0の線）、下は「!」の丸の上の端まで
+    // 点線: 上端は線が0を切る所（前の年と足りなくなる年の金額を直線で結んで0になる所。足りなくなる年の目盛りより左）、下は「!」の丸の上の端まで
     const [ln] = lines(html);
     expect(ln?.top).toBeCloseTo(zeroY(html), 0);
+    const i = m0.chart.years.indexOf(DEP);
+    const pts = pathPts(html, "line-base");
+    expect(ln!.x).toBeCloseTo(crossX(pts, i, zeroY(html)), 0);
+    expect(ln!.x).toBeLessThan(pts[i]!.x);
+    expect(ln!.x).toBeGreaterThan(pts[i - 1]!.x);
+    // 「!」の丸も同じ x（重ならなければずらさない）
+    expect(sk[0]!.x).toBeCloseTo(ln!.x, 1);
     expect(ln?.ex).toBeCloseTo(sk[0]!.x, 1);
     expect(ln?.ey).toBeCloseTo(sk[0]!.y - SHORT_R, 1);
     // できごとの丸の段には「!」を置かない
@@ -122,6 +141,8 @@ describe("金融資産が足りなくなる所の印（主画面のグラフ）"
     const html = draw(m0, { mode: "flows" });
     expect(shorts(html)).toHaveLength(1);
     expect(lines(html)).toHaveLength(0);
+    // 資産の線が無いので、「!」は今まで通り足りなくなる年の位置（資産の推移のときより右）
+    expect(shorts(html)[0]!.x).toBeGreaterThan(shorts(draw(m0))[0]!.x);
   });
 
   it("説明モード（お客さまに見せる画面）も同じ形: 選んだプランの「!」。金融資産の段から点線を引く", () => {
@@ -148,6 +169,14 @@ describe("金融資産が足りなくなる所の印（主画面のグラフ）"
     expect(html).toContain(`aria-label="プランD ${m0.chart.ages[m0.chart.years.indexOf(DEP - 5)]}歳（${DEP - 5}年）で金融資産が足りなくなります"`);
     const same = sk.filter((s) => s.year === DEP);
     expect(Math.abs(same[0]!.x - same[1]!.x)).toBeGreaterThanOrEqual(2 * SHORT_R);
+    // 点線の上端は線が0を切る所（この見本は前の年 +100万円・その年 −100万円なので、2つの年の目盛りのちょうど真ん中）。重なる「!」は真ん中を挟んで左右に並ぶ
+    const iD = m0.chart.years.indexOf(DEP - 5);
+    const lD = lines(html).find((l) => l.year === DEP - 5)!;
+    const pD = pathPts(html.split('data-multi-line="D"')[1]!, "multi-line");
+    expect(lD.x).toBeCloseTo((pD[iD - 1]!.x + pD[iD]!.x) / 2, 0);
+    expect(sk.find((s) => s.key === "p-D")!.x).toBeCloseTo(lD.x, 1);
+    const lA = lines(html).find((l) => l.year === DEP)!;
+    expect((same[0]!.x + same[1]!.x) / 2).toBeCloseTo(lA.x, 0);
     // 隠したプランの「!」は出さないが、段は残す（隠しても高さが動かない）
     const hidden = draw(model, { layout: "all", multi: { focus: null, hidden: ["D", "A", "B"] } });
     expect(shorts(hidden)).toHaveLength(0);
@@ -164,6 +193,12 @@ describe("金融資産が足りなくなる所の印（主画面のグラフ）"
     expect(evY[0]).toBe(evY[1]);
     expect(shorts(panes[0]!)).toHaveLength(1);
     expect(shorts(panes[1]!)).toHaveLength(0);
+    // 点線の上端と「!」は、そのグラフの線が0を切る所
+    const iB = m0.chart.years.indexOf(DEP);
+    const pB = pathPts(panes[0]!, "line-prop");
+    const lB = lines(panes[0]!)[0]!;
+    expect(lB.x).toBeCloseTo(crossX(pB, iB, zeroY(panes[0]!)), 0);
+    expect(shorts(panes[0]!)[0]!.x).toBeCloseTo(lB.x, 1);
     // 左右のグラフでは名前は各グラフの上に出すので、札の文に名前を添えない
     expect(panes[0]).toContain(`aria-label="${shortText(DEP, m0.chart.ages[m0.chart.years.indexOf(DEP)])}"`);
   });
@@ -178,6 +213,12 @@ describe("金融資産が足りなくなる所の印（主画面のグラフ）"
   it("札の文と、近い「!」のずらし方", () => {
     expect(shortText(2058, 79)).toBe("79歳（2058年）で金融資産が足りなくなります");
     expect(shortText(2058, null, "プランB")).toBe("プランB 2058年で金融資産が足りなくなります");
+    // 線が0を切る所: 前の年と足りなくなる年の金額を直線で結んで0になる所。最初の年からマイナス・前の年もマイナスのときはその年
+    expect(crossIndex([300, 100, -100, -300], 2)).toBeCloseTo(1.5, 9);
+    expect(crossIndex([300, 300, -100], 2)).toBeCloseTo(1.75, 9);
+    expect(crossIndex([0, -100], 1)).toBe(0);
+    expect(crossIndex([-100, -200], 0)).toBe(0);
+    expect(crossIndex([-100, -200], 1)).toBe(1);
     const xs = shortXs([100, 100, 300], 1, 0, 1000);
     expect(xs[1]! - xs[0]!).toBeGreaterThanOrEqual(2 * SHORT_R);
     expect((xs[0]! + xs[1]!) / 2).toBeCloseTo(100, 5);
@@ -200,9 +241,15 @@ describe("金融資産が足りなくなる所の印（万一のときのグラ�
     expect(html).toContain('class="sk base"');
     expect(html).toContain(`aria-label="万一の場合 ${m0.chart.ages[m0.chart.years.indexOf(DEP - 4)]}歳（${DEP - 4}年）で金融資産が足りなくなります"`);
     expect(lines(html)).toHaveLength(2);
-    // 年の目盛りは下の端から同じ位置（520 − 28）
-    expect(html).toMatch(/<text x="[\d.]+" y="492" class="axis-label" text-anchor="middle">/);
+    // 点線の上端は線が0を切る所（万一なしの線が DEP 年に0を切る）
+    const iC = m0.chart.years.indexOf(DEP);
+    const lC = lines(html).find((l) => l.year === DEP)!;
+    const pC = pathPts(html, "line-base");
+    expect(lC.x).toBeCloseTo(crossX(pC, iC, zeroY(html)), 0);
+    expect(lC.x).toBeLessThan(pC[iC]!.x);
+    // 年の目盛りは下の端から同じ位置（夫婦の世帯は年齢が2段なので 520 − 28 − 14）
+    expect(html).toMatch(/<text x="[\d.]+" y="478" class="axis-label" text-anchor="middle">/);
     // 「!」は年の目盛りより上
-    expect(sk[0]!.y + SHORT_R).toBeLessThan(492 - 12);
+    expect(sk[0]!.y + SHORT_R).toBeLessThan(478 - 12);
   });
 });
