@@ -17,6 +17,8 @@ export interface FigTipData {
   note?: string;
   /** 内訳（キーボードで箱のまとまりを選んだとき） */
   rows?: { label: string; amount: Yen }[];
+  /** 札の最後の小さな一言（例: 全部の内訳をどこで見るか） */
+  hint?: string;
   /** 札の色見本（CSS の色） */
   swatch?: string;
   /** 札を置く位置（図の座標）。side が "r" なら x の右に、"l" なら x の左に置く。y は札の縦の真ん中 */
@@ -104,6 +106,7 @@ export function FigTip({ d, W, H, pinned = false }: { d: FigTipData; W: number; 
         </ul>
       ) : null}
       {d.note !== undefined && d.note !== "" ? <div class="yt-x ft-note">{d.note}</div> : null}
+      {d.hint !== undefined ? <div class="yt-x ft-hint">{d.hint}</div> : null}
     </div>
   );
 }

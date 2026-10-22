@@ -4,11 +4,12 @@
 //   分け方と置き場所のずれ（預金などのままの分・足りない分）は図に描かず、区画の上の一文で示す（図を指しながら FP が説明する前提）。
 //   箱にカーソルを合わせる・キーボードで選ぶ・押すと、名前・金額・一言の札（FigTip.tsx）。
 // - 箱の横の3枚のカードは同じ形: 名前と額 → 中身の一文 → 中身の一覧 → まとめ（ほか○件）→ ひと言。画面の貯めるお金は、一覧を最初は出さず
-//   件数と「内訳を見る」（小窓で一覧と全部の年の表）にする。持ち帰り用のレポートは一覧のまま
+//   件数と「内訳を見る」にする。持ち帰り用のレポートは一覧のまま。「内訳を見る」はどちらも小窓（全部の年の表）を開く
 import type { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useBoxSize } from "./BsFigure.tsx";
 import { FigTip, useFigTip, type FigTipData } from "./FigTip.tsx";
+import { PipIcon } from "./ChartPip.tsx";
 import { group, man } from "./format.ts";
 import type { MoneyThreeBox, MoneyThreeModel, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
 
@@ -36,11 +37,11 @@ function Amount({ x, y, v, fs, anchor = "start", fill = "var(--ink)" }: { x: num
   );
 }
 
-/** 箱の札の中身: 貯めるお金は年・できごと・賄えない分の一覧（右のカードの「内訳を見る」と同じ）、ほかは中身の一文 */
-function tipBody(b: MoneyThreeBox): Pick<FigTipData, "note" | "rows"> {
+/** 箱の札の中身: 貯めるお金は年・できごと・賄えない分の短い一覧（全部の年の表はカードの「内訳を見る」の小窓）、ほかは中身の一文 */
+function tipBody(b: MoneyThreeBox): Pick<FigTipData, "note" | "rows" | "hint"> {
   if (b.key !== "save") return { note: b.formula };
   const rows = [...b.items.map((it) => ({ label: `${it.lead} ${it.label}`.trim(), amount: it.amount })), ...(b.rest !== null ? [{ label: `ほか${b.rest.count}件`, amount: b.rest.amount }] : [])];
-  return { rows, note: b.note ?? b.formula };
+  return { rows, note: b.note ?? b.formula, hint: "内訳はカードの「内訳を見る」から" };
 }
 
 /** 置き場所の分け方の名前（札の補足。資産と負債のタブの分け方と同じ言葉） */
@@ -331,16 +332,45 @@ export function SaveTable({ model }: { model: MoneyThreeModel }) {
   );
 }
 
+/** 貯めるお金の小窓の中身: 見出し（名前・額・閉じる）と、中身の一文と、全部の年の表（賄えない分が 0 の年も・合計の行・収入の残りの説明つき） */
+export function SavePopBody({ model, onClose }: { model: MoneyThreeModel; onClose?: () => void }) {
+  const v = model.boxes[1];
+  return (
+    <>
+      <div class="m3-pop-h">
+        <i class="m3-sw k2" aria-hidden="true" />
+        <b>{v.name}の内訳</b>
+        <span class="m3-am num">
+          {man(v.amount)}
+          <small>万円</small>
+        </span>
+        {onClose !== undefined ? (
+          <button type="button" class="x" aria-label="閉じる" onClick={onClose}>
+            ×
+          </button>
+        ) : null}
+      </div>
+      <div class="m3-pop-b" data-m3-table>
+        <p class="m3-note">{v.formula}</p>
+        <SaveTable model={model} />
+      </div>
+    </>
+  );
+}
+
 /**
- * 貯めるお金の「内訳を見る」と小窓（カードの横に重ねて出す。外を押す・Esc・× で閉じる）: 年・できごと・賄えない分の一覧と、全部の年の表
+ * 貯めるお金の「内訳を見る」と小窓（カードの横に重ねて出す。外を押す・Esc・× で閉じる）。小窓には全部の年の表を最初から出す。
+ * 開いたら小窓が見える所までスクロールする（小窓の高さは画面の高さまで。行が多いときは小窓の中だけ縦にスクロール）
  */
 function SavePop({ model }: { model: MoneyThreeModel }) {
   const v = model.boxes[1];
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
+    pop.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
     const close = (e: Event) => {
       if (e instanceof KeyboardEvent ? e.key === "Escape" : !(wrap.current?.contains(e.target as Node) ?? false)) {
         setOpen(false);
@@ -356,30 +386,13 @@ function SavePop({ model }: { model: MoneyThreeModel }) {
   }, [open]);
   return (
     <div class="m3-popwrap" ref={wrap}>
-      <button type="button" class="link-btn m3-open" aria-expanded={open} onClick={() => setOpen(!open)} ref={btn} data-m3-save-open>
+      <button type="button" class="link-btn m3-open" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)} ref={btn} data-m3-save-open>
         内訳を見る
+        <PipIcon />
       </button>
       {open ? (
-        <div class="m3-pop" role="dialog" aria-label={`${v.name}の内訳`} data-m3-save-pop>
-          <div class="m3-pop-h">
-            <i class="m3-sw k2" aria-hidden="true" />
-            <b>{v.name}の内訳</b>
-            <span class="m3-am num">
-              {man(v.amount)}
-              <small>万円</small>
-            </span>
-            <button type="button" class="x" aria-label="閉じる" onClick={() => setOpen(false)}>
-              ×
-            </button>
-          </div>
-          <p class="m3-note">{v.formula}</p>
-          <BoxList box={v} />
-          {model.table.length > 0 ? (
-            <details class="m3-more" data-m3-table>
-              <summary>全部の年の表</summary>
-              <SaveTable model={model} />
-            </details>
-          ) : null}
+        <div class="m3-pop" role="dialog" aria-label={`${v.name}の内訳`} ref={pop} data-m3-save-pop>
+          <SavePopBody model={model} onClose={() => setOpen(false)} />
         </div>
       ) : null}
     </div>
@@ -388,7 +401,8 @@ function SavePop({ model }: { model: MoneyThreeModel }) {
 
 /**
  * 3枚のカード（使う・貯める・増やす）。edit があれば何か月分・何年先までの欄を出す。
- * savePop（画面）は貯めるお金の一覧を最初は出さず、件数と「内訳を見る」の小窓にする（持ち帰り用のレポートは一覧のまま）
+ * 貯めるお金の全部の年の表は、どちらも「内訳を見る」の小窓で見る。savePop（画面）は貯めるお金の一覧を最初は出さず件数だけにする
+ * （持ち帰り用のレポートは一覧も出したまま）
  */
 export function MoneyThreeCards({ model, edit, savePop = false }: { model: MoneyThreeModel; edit?: (s: Partial<MoneyThreeSettings>) => void; savePop?: boolean }) {
   const [s, v, g] = model.boxes;
@@ -443,13 +457,8 @@ export function MoneyThreeCards({ model, edit, savePop = false }: { model: Money
           {model.clipped !== null ? <span class="m3-clip">{model.clipped}</span> : null}
         </div>
         <div class="m3-body-in">
-          {savePop ? <SavePop model={model} /> : <BoxList box={v} />}
-          {!savePop && model.table.length > 0 ? (
-            <details class="m3-more" data-m3-table>
-              <summary>内訳を見る（全部の年の表）</summary>
-              <SaveTable model={model} />
-            </details>
-          ) : null}
+          {savePop ? null : <BoxList box={v} />}
+          <SavePop model={model} />
         </div>
       </div>
       <div class="m3-card" data-m3-box="grow">
