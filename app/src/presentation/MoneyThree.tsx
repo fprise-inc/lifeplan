@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { useBoxSize } from "./BsFigure.tsx";
 import { FigTip, useFigTip, type FigTipData } from "./FigTip.tsx";
 import { group, man } from "./format.ts";
+import { PopIcon } from "./icons.tsx";
 import type { MoneyThreeBox, MoneyThreeModel, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
 
 const Parts = ({ parts }: { parts: readonly VerdictPart[] }) => <>{parts.map((p, i) => (p.strong === true ? <b key={i}>{p.text}</b> : <span key={i}>{p.text}</span>))}</>;
@@ -45,17 +46,6 @@ function tipBody(b: MoneyThreeBox): Pick<FigTipData, "note" | "rows" | "hint"> {
 
 /** 置き場所の分け方の名前（札の補足。資産と負債のタブの分け方と同じ言葉） */
 const PLACE_GROUP: Record<string, string> = { liquid: "すぐ使えるお金", market: "値動きのある運用", locked: "引き出せないお金" };
-
-/** 「内訳を見る」の印（四角から斜めの矢印が出る形。押すと小窓が開くことを示す） */
-function PopIcon() {
-  return (
-    <svg class="pip-i" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" data-pop-icon fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M11 5H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
-      <path d="M13 11l7-7" />
-      <path d="M15 4h5v5" />
-    </svg>
-  );
-}
 
 /**
  * 図（左右の2列。幅に合わせて描き直す）。箱にカーソルを合わせる・キーボードで選ぶ・押すと、名前・金額・一言の札を出す（FigTip.tsx）。

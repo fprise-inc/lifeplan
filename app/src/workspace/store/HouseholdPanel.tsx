@@ -3,6 +3,7 @@
 // 一覧に出すのは表示用の顧客番号（区分の記号＋通し番号。区分を使わないときは通し番号だけ）と構成の要約（続柄と人数）だけ。氏名は持たない（0012）。
 // 区分を使うかは、初めて世帯の一覧を使うときに1回だけ聞く（区分の設定がまだ一度も決まっていないとき。0033 の追記）
 import { useEffect, useState } from "preact/hooks";
+import { PopIcon } from "../../presentation/icons.tsx";
 import type { StorageNotice, StoredHousehold, StoreStatus } from "../../engine/host.ts";
 import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGORY, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, parseSampleNo, sampleNoText, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
 import { OFFICE_MESSAGES, sinceText } from "./office.ts";
@@ -514,6 +515,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                         {h.forks > 0 ? (
                           <button type="button" class="link-btn danger hh-fork" onClick={() => p.onForks?.(h.id)} data-household-forks={h.forks}>
                             同期の衝突の写しがあります
+                            <PopIcon />
                           </button>
                         ) : null}
                       </td>
@@ -816,10 +818,12 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
               {p.onStorage !== undefined && personal ? (
                 <button type="button" class="link-btn" onClick={p.onStorage}>
                   保存先を開く
+                  <PopIcon />
                 </button>
               ) : p.onOffice !== undefined && n.scope === "office" ? (
                 <button type="button" class="link-btn" onClick={p.onOffice}>
                   事務所の共有を開く
+                  <PopIcon />
                 </button>
               ) : null}
             </li>
@@ -836,6 +840,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           この PC の資格情報の保管庫に、事務所の鍵が見つかりません。
           <button type="button" class="link-btn" onClick={p.onRecovery}>
             復元キーを入れる
+            <PopIcon />
           </button>
         </p>
       ) : null}
@@ -843,12 +848,14 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
       <div class="hh-foot">
         <button type="button" class="link-btn" onClick={p.onRecovery} data-open-recovery>
           復元キー
+          <PopIcon />
         </button>
         {p.status?.state === "ready" ? <span class="pl-sub">{p.status.recoveryAcknowledged ? "復元キーは保管済みです" : "復元キーをまだ保管していません"}</span> : null}
         {p.onStorage !== undefined ? (
           <>
             <button type="button" class="link-btn" onClick={p.onStorage} data-open-storage>
               保存先
+              <PopIcon />
             </button>
             <span class="pl-sub" data-storage-label>{storageLabel}</span>
           </>
@@ -857,6 +864,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           <>
             <button type="button" class="link-btn" onClick={p.onOffice} data-open-office>
               事務所の共有
+              <PopIcon />
             </button>
             <span class="pl-sub">{personal ? "オフ（同期フォルダで1人で使っています）" : p.officeState === "member" ? "オン" : p.officeState === "pending" ? "承認待ち" : p.officeState === "removed" ? "外されました" : p.officeState === "unavailable" ? "使えません" : "オフ（既定）"}</span>
           </>
@@ -865,6 +873,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
           <>
             <button type="button" class="link-btn" onClick={p.onAiConnector} data-open-ai-connector>
               AI接続口
+              <PopIcon />
             </button>
             <span class="pl-sub">{p.aiEnabled === true ? "オン" : "オフ（既定）"}</span>
           </>

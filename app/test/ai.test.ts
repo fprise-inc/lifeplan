@@ -118,6 +118,8 @@ describe("AI接続口の状態（既定はオフ・同意が無ければ渡さ�
     expect(brief).toContain("AIに渡しています（1件）");
     expect(brief).not.toContain("A0001");
     expect(brief).not.toContain("共有中の世帯A");
+    // 「AI接続口の設定」はパネルを開くので、小窓が開く印を付ける
+    for (const x of [html, brief]) expect(x.slice(x.indexOf("data-ai-band-open"))).toMatch(/^[^<]*AI接続口の設定<svg [^>]*data-pop-icon/);
   });
 });
 

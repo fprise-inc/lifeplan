@@ -512,6 +512,8 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .pl-tag { border-color: var(--ink-2); margin-left: 6px; }
 .pb-note { flex-basis: 100%; font-size: 0.86rem; color: var(--est-ink); display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .link-btn { background: none; border: 0; padding: 0; color: var(--prop); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+/* 小窓・パネルが開く印（icons.tsx の PopIcon）: 文字の右に、文字の大きさに合わせて */
+.pop-i { display: inline-block; flex: none; width: 1.1em; height: 1.1em; margin-left: 0.25em; vertical-align: -0.16em; }
 .link-btn.danger { color: var(--short-ink); }
 .plans-note { margin: 0 0 8px; }
 
@@ -909,7 +911,7 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .pip-btn:hover { border-color: var(--ink); }
 .pip-btn:focus-visible { outline: 3px solid var(--prop); outline-offset: 1px; }
 .pip-btn[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
-.pip-i { flex: none; display: block; width: 1.25rem; height: 1.25rem; }
+.pip-i, .pip-btn .pop-i { flex: none; display: block; width: 1.25rem; height: 1.25rem; margin: 0; }
 .pip .pip-btn { width: 1.75rem; height: 1.75rem; border-width: 1.5px; }
 /* アイコンだけのボタンの説明の札（年の表示 .year-tip と同じ見た目）。乗せたとき・キーボードでフォーカスしたときに、ボタンの下・右端そろえで出す */
 .tip-btn { position: relative; }

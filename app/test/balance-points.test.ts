@@ -147,6 +147,8 @@ describe("タブの画面", () => {
     expect(html).toContain('data-bs-three="3"');
     expect(html).toContain("3時点を並べる");
     expect((html.match(/data-bs-col="/g) ?? []).length).toBe(3);
+    // 見出しのボタンは年を選ぶ小窓が開くので、小窓が開く印（3つとも）
+    expect((html.match(/data-bs-col="[^"]*">(?:(?!<\/button>)[\s\S])*data-pop-icon/g) ?? []).length).toBe(3);
     expect(html).toContain("data-bs-col-add");
     expect(html).not.toContain("data-bs-col-reset");
     expect(html).toContain("既定の時点を変える（表示の設定）");

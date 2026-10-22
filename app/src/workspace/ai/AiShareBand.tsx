@@ -2,6 +2,7 @@
 // 顧客に見せる提示の層（src/presentation/）には出さない（0016 の2）。顧客と一緒に見ることのある画面（入力の画面のほか）では、
 // どの世帯かが分かる顧客番号・仮名を出さず、件数と残り時間だけを出す（0015 の8）
 import type { AiShareStatus } from "../../engine/host.ts";
+import { PopIcon } from "../../presentation/icons.tsx";
 import { remainingText } from "./model.ts";
 
 export function AiShareBand({ shares, detailed, onStop, onOpen }: { shares: readonly AiShareStatus[]; detailed: boolean; onStop: (householdId: string) => void; onOpen: () => void }) {
@@ -14,6 +15,7 @@ export function AiShareBand({ shares, detailed, onStop, onOpen }: { shares: read
         <span>{remainingText(Math.min(...shares.map((s) => s.expiresInSec)))}</span>
         <button type="button" class="link-btn" onClick={onOpen} data-ai-band-open>
           AI接続口の設定
+          <PopIcon />
         </button>
       </div>
     );
@@ -31,6 +33,7 @@ export function AiShareBand({ shares, detailed, onStop, onOpen }: { shares: read
       ))}
       <button type="button" class="link-btn" onClick={onOpen} data-ai-band-open>
         AI接続口の設定
+        <PopIcon />
       </button>
     </div>
   );

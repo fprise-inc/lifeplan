@@ -216,6 +216,17 @@ describe("世帯の一覧", () => {
     expect(html).toContain("このPCのアプリのデータの場所に自動で保存します");
     expect(html).toContain("オフ（既定）");
   });
+  it("一覧の下のパネルを開くリンク（復元キー・保存先・事務所の共有・AI接続口）と同期の衝突の写しには、小窓が開く印を文字の右に付ける", () => {
+    const html = renderToString(h(HouseholdPanel, { ...base, officeState: "member", onOffice: () => undefined, onStorage: () => undefined, onAiConnector: () => undefined, onForks: () => undefined }));
+    const button = (attr: string) => {
+      const i = html.indexOf(attr);
+      expect(i, attr).toBeGreaterThan(-1);
+      return html.slice(i, html.indexOf("</button>", i));
+    };
+    for (const attr of ["data-open-recovery", "data-open-storage", "data-open-office", "data-open-ai-connector", 'data-household-forks="1"']) expect(button(attr), attr).toMatch(/>[^<]+<svg [^>]*data-pop-icon/);
+    // 閉じるボタンには付けない
+    expect(html.slice(0, html.indexOf("閉じる</button>")).split("<button").at(-1)).not.toContain("data-pop-icon");
+  });
 });
 
 describe("分岐を選ぶ画面", () => {
