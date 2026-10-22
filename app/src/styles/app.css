@@ -924,20 +924,25 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .pip-btn[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
 .pip-i, .pip-btn .pop-i { flex: none; display: block; width: 1.25rem; height: 1.25rem; margin: 0; }
 .pip .pip-btn { width: 1.75rem; height: 1.75rem; border-width: 1.5px; }
+/* 小窓の帯の閉じるボタン: ほかの閉じると同じ「×」の字（太字・補助の文字の色） */
+.pip-x { font-size: 1.1rem; font-weight: 700; line-height: 1; color: var(--ink-2); }
+.pip-x:hover { color: var(--ink); }
 /* アイコンだけのボタンの説明の札（年の表示 .year-tip と同じ見た目）。乗せたとき・キーボードでフォーカスしたときに、ボタンの下・右端そろえで出す */
 .tip-btn { position: relative; }
 .tip-btn::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; pointer-events: none; white-space: nowrap; background: rgba(255, 255, 255, 0.97); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(20, 30, 50, 0.12); padding: 4px 10px 5px; font-size: 0.82rem; font-weight: 700; line-height: 1.5; color: var(--ink); opacity: 0; visibility: hidden; transition: opacity 0.12s 0.25s; }
 .tip-btn:hover::after, .tip-btn:focus-visible::after { opacity: 1; visibility: visible; }
 /* 小窓: 上の帯（取っ手の印つき・薄い色）をドラッグで移動、左右の端で横・下の端で縦・下の角で縦横に大きさを変える */
 .pip { position: fixed; z-index: 20; display: flex; flex-direction: column; box-sizing: border-box; margin: 0; padding: 4px 12px 6px; border: 1.5px solid var(--ink-2); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(20, 30, 50, 0.28); overflow: hidden; background: #fff; }
-.pip-grip { flex: none; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; margin: -4px -12px 4px; padding: 5px 12px 5px 12px; background: var(--prop-bg); border-bottom: 1px solid #d3dcec; }
-.pip-grip:hover { background: #dde5f3; }
-.pip-grip:focus-visible { outline: 3px solid var(--prop); outline-offset: -3px; }
-.pip.is-moving .pip-grip { cursor: grabbing; background: #d3ddf0; }
-.pip.is-moving, .pip.is-moving * { cursor: grabbing; }
-.pip-handle { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px 2px 4px; border-radius: 6px; border: 1px dashed #9fb0d0; color: var(--prop-ink); line-height: 1; }
-.pip-handle-i { font-size: 1.15rem; letter-spacing: -0.1em; }
-.pip-handle-t { font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+/* つかんで動かす帯（grip.tsx。グラフの小窓と貯めるお金の内訳の小窓で同じ見た目）: 薄い色の帯・つかめる形のカーソル・左に取っ手の印（⠿ 移動） */
+.grip { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; background: var(--prop-bg); border-bottom: 1px solid #d3dcec; }
+.grip:hover { background: #dde5f3; }
+.grip:focus-visible { outline: 3px solid var(--prop); outline-offset: -3px; }
+.is-moving .grip { cursor: grabbing; background: #d3ddf0; }
+.is-moving, .is-moving * { cursor: grabbing; }
+.grip-mark { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px 2px 4px; border-radius: 6px; border: 1px dashed #9fb0d0; color: var(--prop-ink); line-height: 1; }
+.grip-mark-i { font-size: 1.15rem; letter-spacing: -0.1em; }
+.grip-mark-t { font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+.pip-grip { flex: none; margin: -4px -12px 4px; padding: 5px 12px 5px 12px; }
 /* 大きさを変える端: つかめる幅は見た目（枠の線）より広く 8px。乗せると色の線で示す */
 .pip-edge { position: absolute; z-index: 3; touch-action: none; }
 .pip-edge-w { left: 0; top: 0; bottom: 14px; width: 8px; cursor: ew-resize; }

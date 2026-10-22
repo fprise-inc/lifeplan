@@ -7,6 +7,7 @@ import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import { APP_DIR } from "../scripts/lib.ts";
 import { chooseFit, FIT_MAX } from "../src/workspace/header/fit.ts";
+import { DROP_MAX_W, dropPlace, HouseholdDrop } from "../src/workspace/header/HouseholdDrop.tsx";
 import { BasisLine, HouseholdNow } from "../src/workspace/header/HouseholdNow.tsx";
 import type { StorageNotice } from "../src/engine/host.ts";
 import { barAlerts, barNotices, noticeTarget, saveText, type BarInputs } from "../src/workspace/header/status.ts";
@@ -247,5 +248,62 @@ describe("帯を詰める段（見切れさせない）", () => {
     // 以前の決めどおり、上の帯は画面の上に固定しない
     const app = readFileSync(join(APP_DIR, "src/styles/app.css"), "utf-8");
     expect(app).not.toMatch(/\.top\s*\{[^}]*position:\s*(sticky|fixed)/);
+  });
+});
+
+describe("世帯の選択の出方（箱のすぐ下から一覧が下へ伸びる）", () => {
+  const box = { left: 140, bottom: 48, width: 300 };
+  it("左の端は箱の左にそろえ、上は箱の下（三角の分だけ下）。三角は箱のまん中を指す。高さは窓の下の端まで", () => {
+    const pl = dropPlace(box, 1440, 900);
+    expect(pl.left).toBe(140);
+    expect(pl.top).toBe(60);
+    expect(pl.width).toBe(DROP_MAX_W);
+    expect(pl.arrow).toBe(150);
+    expect(pl.maxHeight).toBe(900 - 60 - 12);
+  });
+  it("窓の外に出ない（右の端で寄せる）。狭い窓は両端 8px で窓いっぱい。三角は一覧の中に収める", () => {
+    const pl = dropPlace({ left: 600, bottom: 48, width: 300 }, 1200, 800);
+    expect(pl.left + pl.width).toBe(1200 - 16);
+    expect(pl.arrow).toBe(600 + 150 - pl.left);
+    const nar = dropPlace({ left: 40, bottom: 96, width: 200 }, 375, 700);
+    expect(nar).toMatchObject({ left: 8, width: 375 - 16, top: 108 });
+    const far = dropPlace({ left: 0, bottom: 40, width: 10 }, 1440, 900);
+    expect(far.arrow).toBe(18);
+    // 文字「大」では一覧の幅も広げる（窓に収まる分まで）
+    expect(dropPlace(box, 1600, 900, 1.25).width).toBe(1350);
+    // 低い窓でも最低の高さは残す（一覧の中で縦に送る）
+    expect(dropPlace(box, 1440, 120).maxHeight).toBe(160);
+  });
+  it("開いているとき: 後ろを薄く暗くする幕と、見出しで名前を付けた一覧（dialog）。閉じているときは何も描かない", () => {
+    const html = renderToString(h(HouseholdDrop, { open: true, onClose: noop }, h("p", null, "中身")));
+    expect(html).toContain("data-household-scrim");
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain('aria-labelledby="hh-title"');
+    expect(html).toContain('tabindex="-1"');
+    expect(html).toContain('data-household-drop="open"');
+    expect(html).toContain('class="hh-drop-in"');
+    expect(html).toContain("中身");
+    expect(html.indexOf("data-household-scrim")).toBeLessThan(html.indexOf('role="dialog"'));
+    expect(renderToString(h(HouseholdDrop, { open: false, onClose: noop }, h("p", null, "中身")))).toBe("");
+  });
+  it("箱の ▼ は開いている間 ▲。押すと一覧（dialog）が開くことを読み上げで伝える", () => {
+    const bar = (open: boolean) => renderToString(h(TopBar, { tabs: [{ id: "main", label: "結果" }], tab: "main", onTab: noop, household: { no: "D0001", sub: "", open, onToggle: noop }, alerts: [], notices: [], tools: null, big: false, onBig: noop }));
+    const btn = (html: string) => html.slice(html.indexOf("data-household-button"), html.indexOf("</button>", html.indexOf("data-household-button")));
+    expect(btn(bar(false))).toContain("▼");
+    expect(btn(bar(false))).not.toContain("▲");
+    expect(btn(bar(true))).toContain("▲");
+    expect(bar(true)).toContain('aria-expanded="true"');
+    expect(bar(true)).toContain('aria-haspopup="dialog"');
+  });
+  it("出るとき・閉じるときの動きは短く（150〜200ms）、OS の「視差効果を減らす」のときは動かさない", () => {
+    const css = readFileSync(join(APP_DIR, "src/styles/header.css"), "utf-8");
+    const motion = css.slice(css.indexOf("@media (prefers-reduced-motion: no-preference)"));
+    const block = motion.slice(0, motion.indexOf("}\n}") + 3);
+    expect(block).toContain(".hh-drop { animation: hh-drop-in 0.18s");
+    expect(block).toContain(".hh-drop.is-out { animation: hh-drop-out 0.15s");
+    // 動きの指定は「視差効果を減らす」でないときの中だけ
+    expect(css.replace(block, "")).not.toMatch(/\.hh-(drop|scrim)[^{]*\{[^}]*animation/);
+    // 一覧の中だけ縦に送る（後ろの画面へスクロールをつなげない）
+    expect(css).toMatch(/\.hh-drop-in \{[^}]*overflow-y: auto[^}]*overscroll-behavior: contain/);
   });
 });

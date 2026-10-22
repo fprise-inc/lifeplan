@@ -91,6 +91,40 @@
 .save-state.unsaved { color: var(--est-ink); }
 .hh-now-ai.on { color: var(--est-ink); font-weight: 700; }
 
+/* 世帯の選択の出方（header/HouseholdDrop.tsx）: 箱のすぐ下から一覧が下へ伸びて出る。後ろの画面は薄く暗くして残す（箱だけは暗くしない）。
+   上端の小さな三角が箱を指す（--arrow-x）。高さが窓に収まらないときは .hh-drop-in の中だけ縦に送る。位置・幅・高さは部品が箱から測って決める */
+.hh-scrim { position: fixed; inset: 0; z-index: 32; background: rgba(20, 26, 38, 0.34); }
+.hh-btn[aria-expanded="true"] { position: relative; z-index: 36; box-shadow: 0 0 0 3px #fff; }
+.hh-drop { position: fixed; z-index: 34; top: 64px; left: 16px; width: min(1080px, calc(100vw - 32px)); box-sizing: border-box; background: #fff; border: 1.5px solid var(--prop); border-radius: 10px; box-shadow: 0 16px 44px rgba(10, 20, 40, 0.3); transform-origin: var(--arrow-x, 40px) 0; }
+/* 開いたときに一覧そのものへフォーカスを移す（枠の色で一覧と分かるので、フォーカスの線は重ねない。中の欄・ボタンには線が出る） */
+.hh-drop:focus { outline: none; }
+.hh-drop::before { content: ""; position: absolute; top: -8px; left: calc(var(--arrow-x, 40px) - 7px); width: 14px; height: 14px; box-sizing: border-box; background: #fff; border-left: 1.5px solid var(--prop); border-top: 1.5px solid var(--prop); border-top-left-radius: 2px; transform: rotate(45deg); z-index: 3; }
+.hh-drop-in { max-height: calc(100vh - 88px); overflow-y: auto; overscroll-behavior: contain; border-radius: 10px; }
+.hh-drop.is-out, .hh-scrim.is-out { pointer-events: none; }
+/* 一覧（世帯の一覧の部品）は枠を外して中に置く。頭の「世帯を選ぶ」と × は、縦に送っても上に残す */
+.hh-drop .hh-panel { margin: 0; border: none; border-radius: 10px; padding-top: 0; }
+.hh-drop .hh-head { position: sticky; top: 0; z-index: 2; align-items: center; justify-content: flex-start; gap: 4px 14px; margin: 0 -18px 10px; padding: 12px 12px 10px 18px; background: #fff; border-bottom: 1px solid var(--line-2); border-radius: 10px 10px 0 0; }
+.hh-head .aside { flex: 1 1 18em; min-width: 0; }
+.hh-x { flex: none; margin-left: auto; width: 2rem; height: 2rem; display: inline-grid; place-items: center; border: 1.5px solid var(--line); background: #fff; border-radius: 8px; font-size: 1.1rem; font-weight: 700; line-height: 1; cursor: pointer; color: var(--ink-2); padding: 0; }
+.hh-x:hover { border-color: var(--ink); color: var(--ink); }
+.hh-x:focus-visible { outline: 3px solid var(--prop); outline-offset: 1px; }
+.hh-drop .hh-now { border: none; border-radius: 8px; background: var(--base-bg); padding: 8px 14px; }
+@media (max-width: 600px) {
+  .hh-drop .hh-panel { padding-left: 12px; padding-right: 12px; }
+  .hh-drop .hh-head { margin: 0 -12px 8px; padding: 10px 8px 8px 12px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hh-drop { animation: hh-drop-in 0.18s ease-out; }
+  .hh-drop.is-out { animation: hh-drop-out 0.15s ease-in forwards; }
+  .hh-scrim { animation: hh-fade-in 0.18s ease-out; }
+  .hh-scrim.is-out { animation: hh-fade-out 0.15s ease-in forwards; }
+}
+/* 上から下へ伸びて薄く現れる（三角と影は切らない）。閉じるときは逆に上へ縮む */
+@keyframes hh-drop-in { from { opacity: 0.2; clip-path: inset(-12px -48px 100% -48px); transform: translateY(-4px); } to { opacity: 1; clip-path: inset(-12px -48px -64px -48px); transform: none; } }
+@keyframes hh-drop-out { from { opacity: 1; clip-path: inset(-12px -48px -64px -48px); } to { opacity: 0; clip-path: inset(-12px -48px 100% -48px); transform: translateY(-4px); } }
+@keyframes hh-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hh-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
 /* 結果・万一のときの画面の頭: 計算の前提の世帯の年齢と基準の月 */
 .basis-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 auto 8px; max-width: 1680px; font-size: 0.86rem; color: var(--ink-2); }
 .main-stack > .basis-line { margin: 0 0 -4px; }

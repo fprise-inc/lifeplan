@@ -216,6 +216,15 @@ describe("世帯の一覧", () => {
     expect(html).toContain("このPCのアプリのデータの場所に自動で保存します");
     expect(html).toContain("オフ（既定）");
   });
+  it("一覧の頭: 「世帯を選ぶ」の見出し（一覧の名前）と ×。開いている世帯の状態はそのすぐ下", () => {
+    const html = renderToString(h(HouseholdPanel, { ...base, now: h("section", { "data-household-now": true }, "状態") }));
+    expect(html).toContain('<h2 id="hh-title">世帯を選ぶ</h2>');
+    const i = html.indexOf("data-household-close");
+    expect(html.slice(i, html.indexOf("</button>", i))).toContain(">×");
+    expect(html.slice(html.lastIndexOf("<button", i), i)).toContain('aria-label="閉じる"');
+    expect(html.indexOf("hh-title")).toBeLessThan(html.indexOf("data-household-now"));
+    expect(html.indexOf("data-household-now")).toBeLessThan(html.indexOf("data-hh-tab"));
+  });
   it("一覧の下のパネルを開くリンク（復元キー・保存先・事務所の共有・AI接続口）と同期の衝突の写しには、小窓が開く印を文字の右に付ける", () => {
     const html = renderToString(h(HouseholdPanel, { ...base, officeState: "member", onOffice: () => undefined, onStorage: () => undefined, onAiConnector: () => undefined, onForks: () => undefined }));
     const button = (attr: string) => {
@@ -224,8 +233,8 @@ describe("世帯の一覧", () => {
       return html.slice(i, html.indexOf("</button>", i));
     };
     for (const attr of ["data-open-recovery", "data-open-storage", "data-open-office", "data-open-ai-connector", 'data-household-forks="1"']) expect(button(attr), attr).toMatch(/>[^<]+<svg [^>]*data-pop-icon/);
-    // 閉じるボタンには付けない
-    expect(html.slice(0, html.indexOf("閉じる</button>")).split("<button").at(-1)).not.toContain("data-pop-icon");
+    // 閉じるボタン（一覧の頭の ×）には付けない
+    expect(button("data-household-close")).not.toContain("data-pop-icon");
   });
 });
 

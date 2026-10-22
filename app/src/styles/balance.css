@@ -402,10 +402,13 @@
 .m3-card { position: relative; }
 .m3-open { display: inline-flex; align-items: center; gap: 4px; font-size: 0.84rem; font-weight: 700; margin-top: 2px; }
 .m3-open .pop-i { width: 1.3em; height: 1.3em; margin-left: 0; }
-.m3-pop { position: absolute; z-index: 8; top: 0; right: calc(100% + 10px); width: min(480px, calc(100vw - 32px)); max-height: min(calc(100vh - 24px), 720px); max-height: min(calc(100dvh - 24px), 720px); box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; scroll-margin: 12px; background: #fff; border: 1.5px solid var(--ink-2); border-radius: 10px; box-shadow: 0 6px 18px rgba(20, 30, 50, 0.18); padding: 10px 0 0; }
-.m3-pop-h { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px 6px; border-bottom: 1px solid var(--line-2); }
+.m3-pop { position: absolute; z-index: 8; top: 0; right: calc(100% + 10px); width: min(480px, calc(100vw - 32px)); max-height: min(calc(100vh - 24px), 720px); max-height: min(calc(100dvh - 24px), 720px); box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; scroll-margin: 12px; background: #fff; border: 1.5px solid var(--ink-2); border-radius: 10px; box-shadow: 0 6px 18px rgba(20, 30, 50, 0.18); padding: 0; }
+.m3-pop-h { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 12px 6px; border-bottom: 1px solid var(--line-2); }
+/* 見出しの行はつかんで動かす帯（app.css の .grip。グラフの小窓と同じ）。帯の下の表との間を少し空ける */
+.m3-pop-h.grip { padding: 5px 10px 5px 12px; border-bottom-color: #d3dcec; margin-bottom: 8px; }
+.m3-pop.is-moving { box-shadow: 0 12px 32px rgba(20, 30, 50, 0.28); }
 .m3-pop-h .m3-am { margin-left: auto; font-size: 1.1rem; }
-.m3-pop-h .x { border: none; background: none; font-size: 1.1rem; cursor: pointer; line-height: 1; padding: 0 4px; color: var(--ink-2); }
+.m3-pop-h .x { border: none; background: none; font-size: 1.1rem; font-weight: 700; cursor: pointer; line-height: 1; padding: 0 4px; color: var(--ink-2); }
 .m3-pop-b { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 0 12px 10px; }
 .m3-pop .m3-evt td:nth-child(2) { overflow-wrap: anywhere; }
 .m3-pop .m3-evt thead th { position: sticky; top: 0; background: #fff; }
@@ -414,6 +417,9 @@
 @media (max-width: 600px) {
   .m3-pop { left: -6px; right: -6px; }
   .m3-pop-h, .m3-pop-b { padding-left: 8px; padding-right: 8px; }
+  /* 帯の取っ手の印は「⠿」だけにして、名前を1行に収める */
+  .m3-pop-h .grip-mark-t { display: none; }
+  .m3-pop-h b { white-space: nowrap; }
   .m3-pop .m3-evt th { white-space: normal; vertical-align: bottom; }
   .m3-pop .m3-evt th, .m3-pop .m3-evt td { padding: 3px 2px; }
 }

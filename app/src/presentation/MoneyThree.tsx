@@ -4,12 +4,14 @@
 //   分け方と置き場所のずれ（預金などのままの分・足りない分）は図に描かず、区画の上の一文で示す（図を指しながら FP が説明する前提）。
 //   箱にカーソルを合わせる・キーボードで選ぶ・押すと、名前・金額・一言の札（FigTip.tsx）。
 // - 箱の横の3枚のカードは同じ形: 名前と額 → 中身の一文 → 中身の一覧 → まとめ（ほか○件）→ ひと言。画面の貯めるお金は、一覧を最初は出さず
-//   件数と「内訳を見る」にする。持ち帰り用のレポートは一覧のまま。「内訳を見る」はどちらも小窓（全部の年の表）を開く
+//   件数と「内訳を見る」にする。持ち帰り用のレポートは一覧のまま。「内訳を見る」はどちらも小窓（全部の年の表）を開く。
+//   小窓は見出しの行をつかんで動かせる（グラフの小窓と同じ帯。grip.tsx）
 import type { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useBoxSize } from "./BsFigure.tsx";
 import { FigTip, useFigTip, type FigTipData } from "./FigTip.tsx";
 import { group, man } from "./format.ts";
+import { arrowDelta, clampShift, GRIP_KEY_STEP, GripMark, gripLabel, rootFontScale, useDrag, type Box } from "./grip.tsx";
 import { PopIcon } from "./icons.tsx";
 import type { MoneyThreeBox, MoneyThreeModel, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
 
@@ -332,12 +334,14 @@ export function SaveTable({ model }: { model: MoneyThreeModel }) {
   );
 }
 
-/** 貯めるお金の小窓の中身: 見出し（名前・額・閉じる）と、中身の一文と、全部の年の表（賄えない分が 0 の年も・合計の行・収入の残りの説明つき） */
-export function SavePopBody({ model, onClose }: { model: MoneyThreeModel; onClose?: () => void }) {
+/** 貯めるお金の小窓の中身: 見出し（名前・額・閉じる）と、中身の一文と、全部の年の表（賄えない分が 0 の年も・合計の行・収入の残りの説明つき）。
+ * grip を渡すと、見出しの行をつかんで動かす帯にする（グラフの小窓と同じ取っ手の印・カーソル・読み上げ。× は押せるまま） */
+export function SavePopBody({ model, onClose, grip }: { model: MoneyThreeModel; onClose?: () => void; grip?: { onPointerDown: (e: PointerEvent) => void; onKeyDown: (e: KeyboardEvent) => void } }) {
   const v = model.boxes[1];
   return (
     <>
-      <div class="m3-pop-h">
+      <div class={grip !== undefined ? "m3-pop-h grip" : "m3-pop-h"} {...(grip !== undefined ? { onPointerDown: grip.onPointerDown, onKeyDown: grip.onKeyDown, tabIndex: 0, "aria-label": gripLabel(), "data-m3-grip": true } : {})}>
+        {grip !== undefined ? <GripMark /> : null}
         <i class="m3-sw k2" aria-hidden="true" />
         <b>{v.name}の内訳</b>
         <span class="m3-am num">
@@ -360,11 +364,17 @@ export function SavePopBody({ model, onClose }: { model: MoneyThreeModel; onClos
 
 /**
  * 貯めるお金の「内訳を見る」と小窓（カードの横に重ねて出す。外を押す・Esc・× で閉じる）。小窓には全部の年の表を最初から出す。
- * 開いたら小窓が見える所までスクロールする（小窓の高さは画面の高さまで。行が多いときは小窓の中だけ縦にスクロール）
+ * 開いたら小窓が見える所までスクロールする（小窓の高さは画面の高さまで。行が多いときは小窓の中だけ縦にスクロール）。
+ * 見出しの行（名前・額・×）をつかんで動かせる（ドラッグ・タッチ・帯にフォーカスして矢印キー。grip.tsx の共通の部品）。窓の外には出さない。
+ * 動かした位置は覚えない（閉じて開き直したら元の位置。窓の幅が変わったときも元の位置に戻す）
  */
 function SavePop({ model }: { model: MoneyThreeModel }) {
   const v = model.boxes[1];
   const [open, setOpen] = useState(false);
+  const [off, setOff] = useState({ x: 0, y: 0 });
+  const offRef = useRef(off);
+  offRef.current = off;
+  const { active, start } = useDrag<"move">();
   const wrap = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
@@ -377,22 +387,72 @@ function SavePop({ model }: { model: MoneyThreeModel }) {
         if (e instanceof KeyboardEvent) btn.current?.focus();
       }
     };
+    // 窓の幅が変わったら元の位置へ（スマホでスクロールしてアドレスの欄が出入りするときの高さの変わりでは戻さない）
+    let vw = window.innerWidth;
+    const home = () => {
+      if (window.innerWidth === vw) return;
+      vw = window.innerWidth;
+      setOff({ x: 0, y: 0 });
+    };
     document.addEventListener("click", close);
     document.addEventListener("keydown", close);
+    window.addEventListener("resize", home);
     return () => {
       document.removeEventListener("click", close);
       document.removeEventListener("keydown", close);
+      window.removeEventListener("resize", home);
     };
   }, [open]);
+  /** 今の位置から dx・dy だけ動かす（窓の外に出る分は止める） */
+  const shiftFrom = (r: Box, o: { x: number; y: number }, dx: number, dy: number) => {
+    const [cx, cy] = clampShift(r, dx, dy, window.innerWidth, window.innerHeight);
+    setOff({ x: o.x + cx, y: o.y + cy });
+  };
+  const box = (): Box | null => {
+    const r = pop.current?.getBoundingClientRect();
+    return r === undefined ? null : { left: r.left, top: r.top, width: r.width, height: r.height };
+  };
+  const grip = {
+    onPointerDown: start("move", () => {
+      const r0 = box();
+      const o0 = offRef.current;
+      return {
+        move: (dx, dy) => {
+          if (r0 !== null) shiftFrom(r0, o0, dx, dy);
+        },
+      };
+    }),
+    onKeyDown: (e: KeyboardEvent) => {
+      if (e.target !== e.currentTarget) return;
+      const d = arrowDelta(e.key);
+      const r = box();
+      if (d === null || r === null) return;
+      e.preventDefault();
+      const step = Math.round(GRIP_KEY_STEP * rootFontScale());
+      shiftFrom(r, offRef.current, d[0] * step, d[1] * step);
+    },
+  };
+  const moved = off.x !== 0 || off.y !== 0;
   return (
     <div class="m3-popwrap" ref={wrap}>
-      <button type="button" class="link-btn m3-open" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)} ref={btn} data-m3-save-open>
+      <button
+        type="button"
+        class="link-btn m3-open"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => {
+          if (!open) setOff({ x: 0, y: 0 });
+          setOpen(!open);
+        }}
+        ref={btn}
+        data-m3-save-open
+      >
         内訳を見る
         <PopIcon />
       </button>
       {open ? (
-        <div class="m3-pop" role="dialog" aria-label={`${v.name}の内訳`} ref={pop} data-m3-save-pop>
-          <SavePopBody model={model} onClose={() => setOpen(false)} />
+        <div class={`m3-pop${active !== null ? " is-moving" : ""}`} role="dialog" aria-label={`${v.name}の内訳`} ref={pop} style={moved ? { transform: `translate(${off.x}px, ${off.y}px)` } : undefined} data-m3-save-pop>
+          <SavePopBody model={model} onClose={() => setOpen(false)} grip={grip} />
         </div>
       ) : null}
     </div>

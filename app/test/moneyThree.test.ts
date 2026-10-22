@@ -176,6 +176,25 @@ describe("お金の3つの分け方の提示用の値（0032）", () => {
     expect(pop).toContain("収入の残り＝");
     expect(pop).toContain('aria-label="閉じる"');
   });
+  it("貯めるお金の小窓: 見出しの行（名前・額・×）をつかんで動かす帯（グラフの小窓と同じ取っ手の印・読み上げ）。× は押せるまま", () => {
+    const events: [number, number][] = [[2027, 300 * MAN]];
+    const m = moneyThreeModel({ ...synthetic({ deposit: 100 * MAN, nisa: 900 * MAN, events }), settings: DEFAULT_MONEY_THREE });
+    const pop = renderToString(h(SavePopBody, { model: m, onClose: () => {}, grip: { onPointerDown: () => {}, onKeyDown: () => {} } }));
+    const head = pop.slice(0, pop.indexOf("data-m3-table"));
+    expect(head).toContain('class="m3-pop-h grip"');
+    expect(head).toContain("data-m3-grip");
+    expect(head).toContain('tabindex="0"');
+    expect(head).toContain('aria-label="小窓を動かす帯（ドラッグで移動。矢印キーで移動）"');
+    expect(head).toContain('class="grip-mark"');
+    // 名前・額・× は帯の中（× は押せるボタンのまま）
+    expect(head).toContain("の内訳</b>");
+    expect(head).toContain('aria-label="閉じる"');
+    expect(head.indexOf("grip-mark")).toBeLessThan(head.indexOf('aria-label="閉じる"'));
+    // grip を渡さないとき（部品だけ描くとき）は帯にしない
+    const plain = renderToString(h(SavePopBody, { model: m }));
+    expect(plain).not.toContain("grip");
+    expect(plain).not.toContain("tabindex");
+  });
   it("図: ずれている分の斜線・点線の枠・札・左右をつなぐ点線は描かない（区画の上の一文で示す）。箱はどれもフォーカスでき、名前と金額を札で読める", () => {
     const events: [number, number][] = [[2027, 300 * MAN]];
     for (const deposit of [1000, 100]) {

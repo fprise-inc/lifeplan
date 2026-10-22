@@ -1,7 +1,8 @@
-// 世帯の一覧（上の帯の「世帯」から開く）: 顧客の世帯を開く・新しく作る・顧客番号と区分を変える・完全削除（0013 の5）と、
+// 世帯の一覧（上の帯の世帯の箱から、下へ伸びて開く。出方は header/HouseholdDrop.tsx。頭に「世帯を選ぶ」と ×）: 顧客の世帯を開く・新しく作る・顧客番号と区分を変える・完全削除（0013 の5）と、
 // 見本の棚（アプリに入っている見本と、自分で作った見本。顧客番号を持たず、顧客の一覧には混ぜない。0033）。
 // 一覧に出すのは表示用の顧客番号（区分の記号＋通し番号。区分を使わないときは通し番号だけ）と構成の要約（続柄と人数）だけ。氏名は持たない（0012）。
 // 区分を使うかは、初めて世帯の一覧を使うときに1回だけ聞く（区分の設定がまだ一度も決まっていないとき。0033 の追記）
+import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { PopIcon } from "../../presentation/icons.tsx";
 import type { StorageNotice, StoredHousehold, StoreStatus } from "../../engine/host.ts";
@@ -34,6 +35,8 @@ export interface HouseholdPanelProps {
   /** 開いているのが保存していない空の世帯なら、その名前（見本を開いているときは null） */
   unsavedTitle: string | null;
   initialTab?: HouseholdTab;
+  /** 一覧の頭の見出しのすぐ下に出す、開いている世帯の状態（header/HouseholdNow.tsx） */
+  now?: ComponentChildren;
   onOpen: (id: string) => void;
   /** 空から作る（区分を選ぶ。区分を使わないときは undefined） */
   onCreate: (category: string | undefined) => void;
@@ -793,13 +796,14 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
 
   return (
     <section class="card hh-panel" aria-label="世帯の一覧" data-household-panel>
-      <div class="card-h">
-        <h2>世帯</h2>
+      <div class="card-h hh-head">
+        <h2 id="hh-title">世帯を選ぶ</h2>
         <span class="aside">{shared ? (personal ? "世帯ごとに暗号化して、同期フォルダに自動で保存します（2台のPCで使えます）" : "世帯ごとに暗号化して、事務所の共有フォルダに自動で保存します") : "世帯ごとに暗号化して、このPCのアプリのデータの場所に自動で保存します"}</span>
-        <button type="button" class="btn" onClick={p.onClose}>
-          閉じる
+        <button type="button" class="x hh-x" aria-label="閉じる" title="閉じる" onClick={p.onClose} data-household-close>
+          ×
         </button>
       </div>
+      {p.now}
       <div class="tabs hh-tabs" role="tablist" aria-label="世帯の一覧の切り替え">
         <button type="button" role="tab" aria-selected={tab === "customers"} class={tab === "customers" ? "on" : ""} onClick={() => setTab("customers")} data-hh-tab="customers">
           顧客（{p.list.length}）

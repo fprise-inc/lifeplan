@@ -9,7 +9,8 @@ import { describe, expect, it } from "vitest";
 import { DualEngine } from "../src/engine/dual.ts";
 import type { ComputeResponse, HostApi, SlotRequest } from "../src/engine/host.ts";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
-import { ChartPip, clampPipRect, closePip, defaultPipRect, keyPipRect, openPip, PIP_KEY_STEP, PIP_LABEL, PIP_MARGIN, PIP_MIN, PipButton, pipChartHeight, resizePipRect } from "../src/presentation/ChartPip.tsx";
+import { ChartPip, clampPipRect, closePip, defaultPipRect, keyPipRect, openPip, PIP_KEY_STEP, PIP_LABEL, PIP_MARGIN, PIP_MIN, PipButton, PipCloseButton, pipChartHeight, resizePipRect } from "../src/presentation/ChartPip.tsx";
+import { arrowDelta, clampShift, GRIP_KEY_STEP, GripMark, gripLabel } from "../src/presentation/grip.tsx";
 import { ContingencyChartCard, PipContingency, ScenarioBand, YearStrip } from "../src/presentation/ContingencyView.tsx";
 import { EVENT_R, placeFixedAbove } from "../src/presentation/EventDot.tsx";
 import { MainChart } from "../src/presentation/MainChart.tsx";
@@ -387,6 +388,45 @@ describe("グラフを小窓で表示", () => {
     expect(on).not.toContain("data-pop-icon");
     expect(on).toContain('aria-pressed="true"');
     closePip();
+  });
+
+  it("小窓の帯の右端の閉じるボタンは、ほかの閉じると同じ「×」の字（元に戻す印は使わない）。読み上げと札は「小窓を閉じる」", () => {
+    const x = renderToString(h(PipCloseButton, {}));
+    expect(x).toMatch(/^<button[^>]*>×<\/button>$/);
+    expect(x).toContain(`aria-label="${PIP_LABEL.close}"`);
+    expect(x).toContain(`data-tip="${PIP_LABEL.close}"`);
+    expect(x).toContain("data-pip-close");
+    expect(x).not.toContain("data-pip-icon");
+    expect(PIP_LABEL.close).toBe("小窓を閉じる");
+  });
+
+  it("つかんで動かす帯（グラフの小窓と内訳の小窓で共通）: 矢印キーの向き・取っ手の印・読み上げの名前", () => {
+    expect(arrowDelta("ArrowLeft")).toEqual([-1, 0]);
+    expect(arrowDelta("ArrowDown")).toEqual([0, 1]);
+    expect(arrowDelta("Enter")).toBeNull();
+    expect(PIP_KEY_STEP).toBe(GRIP_KEY_STEP);
+    // 取っ手の印は読み上げない（帯の名前で伝える）
+    const mark = renderToString(h(GripMark, {}));
+    expect(mark).toContain('aria-hidden="true"');
+    expect(mark).toContain("⠿");
+    expect(mark).toContain("移動");
+    // 大きさを変えられる小窓（グラフ）は Shift＋矢印キーの説明つき。内訳の小窓は移動だけ
+    expect(gripLabel(true)).toBe("小窓を動かす帯（ドラッグで移動。矢印キーで移動、Shift＋矢印キーで大きさを変える）");
+    expect(gripLabel()).toBe("小窓を動かす帯（ドラッグで移動。矢印キーで移動）");
+  });
+
+  it("つかんで動かす帯: 窓の外に出ないよう端で止める（はみ出している向きへはそれ以上動かさない・戻す向きへは動かせる）", () => {
+    const r = { left: 100, top: 50, width: 400, height: 300 };
+    expect(clampShift(r, 30, 40, 1280, 800)).toEqual([30, 40]);
+    // 左・上の端で止まる
+    expect(clampShift(r, -500, -500, 1280, 800)).toEqual([-100, -50]);
+    // 右・下の端で止まる
+    expect(clampShift(r, 2000, 2000, 1280, 800)).toEqual([1280 - 500, 800 - 350]);
+    // 窓より高い枠: 下へは動かさない・上へも（すでに上に出ていない分しか）動かさない
+    expect(clampShift({ left: 0, top: 0, width: 300, height: 900 }, 0, 50, 1280, 800)).toEqual([0, 0]);
+    // 左にはみ出している枠: さらに左へは動かさない、右へは動かせる
+    expect(clampShift({ left: -20, top: 0, width: 300, height: 200 }, -10, 0, 1280, 800)).toEqual([0, 0]);
+    expect(clampShift({ left: -20, top: 0, width: 300, height: 200 }, 15, 0, 1280, 800)).toEqual([15, 0]);
   });
 
   it("結果のグラフと万一のときのグラフの見出しの右上に、いつでも押せる小窓のボタン", () => {
