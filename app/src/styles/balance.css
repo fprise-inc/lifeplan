@@ -209,8 +209,8 @@
 .th-btn { display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; padding: 2px 8px; cursor: pointer; text-align: left; }
 .th-btn:hover, .th-btn[aria-expanded="true"] { border-color: var(--prop); background: var(--prop-bg); }
 .th-btn b { font-size: 1.05rem; }
-.th-btn > span:not(.chev) { color: var(--ink-2); font-weight: 700; font-size: 0.86rem; }
-.th-btn .chev { color: var(--prop-ink); font-size: 0.8rem; }
+.th-btn > span { color: var(--ink-2); font-weight: 700; font-size: 0.86rem; }
+.th-btn .pop-i { align-self: center; margin-left: 0; color: var(--prop-ink); }
 .bs-colnote { margin: 4px 0 0; font-size: 0.76rem; color: var(--ink-2); }
 .bs-colpick { position: absolute; z-index: 15; top: calc(100% + 6px); left: 0; width: min(420px, 86vw); background: #fff; border: 1.5px solid var(--ink-2); border-radius: 10px; box-shadow: 0 12px 32px rgba(20, 30, 50, 0.22); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
 .bs-colpick .cp-h { display: flex; justify-content: space-between; align-items: center; }
@@ -328,7 +328,7 @@
 }
 /* 4つ並べるときは見出しを2行（時点の名前・年）にそろえ、図の位置を4つでそろえる */
 .bs-three.n4 .th-btn { flex-direction: column; align-items: flex-start; gap: 0; position: relative; padding-right: 20px; }
-.bs-three.n4 .th-btn .chev { position: absolute; right: 6px; top: 4px; }
+.bs-three.n4 .th-btn .pop-i { position: absolute; right: 5px; top: 5px; width: 0.95em; height: 0.95em; }
 .yb-scale span.end { font-weight: 700; color: var(--ink); }
 .bs-three.n4 .bs-tcard .th { flex-direction: column; align-items: flex-start; gap: 4px; }
 
@@ -397,11 +397,11 @@
 .m3-evt td.z { color: #8a929c; }
 .m3-evt tfoot td { font-weight: 700; border-bottom: 0; }
 /* 貯めるお金の「内訳を見る」の小窓（広い幅ではカードの左に、図の上に重ねて出す。狭い幅ではカードの下に重ねる）。
-   ボタンは文字の右に小窓の印（ChartPip.tsx の PipIcon。グラフを小窓で出すボタンと同じ印）。
+   ボタンは文字の右に小窓が開く共通の印（icons.tsx の PopIcon。グラフを小窓で出すボタンと同じ印）。
    小窓の高さは画面の高さまで（見出しは止めたまま、表の所だけ縦にスクロール）。表は横にはスクロールさせない（できごとの名前を折り返す） */
 .m3-card { position: relative; }
 .m3-open { display: inline-flex; align-items: center; gap: 4px; font-size: 0.84rem; font-weight: 700; margin-top: 2px; }
-.m3-open .pip-i { display: inline-block; width: 1.3em; height: 1.3em; }
+.m3-open .pop-i { width: 1.3em; height: 1.3em; margin-left: 0; }
 .m3-pop { position: absolute; z-index: 8; top: 0; right: calc(100% + 10px); width: min(480px, calc(100vw - 32px)); max-height: min(calc(100vh - 24px), 720px); max-height: min(calc(100dvh - 24px), 720px); box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; scroll-margin: 12px; background: #fff; border: 1.5px solid var(--ink-2); border-radius: 10px; box-shadow: 0 6px 18px rgba(20, 30, 50, 0.18); padding: 10px 0 0; }
 .m3-pop-h { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px 6px; border-bottom: 1px solid var(--line-2); }
 .m3-pop-h .m3-am { margin-left: auto; font-size: 1.1rem; }

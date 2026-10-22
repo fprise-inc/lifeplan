@@ -11,6 +11,7 @@ import { BsTrend, TrendLegend, trendRange } from "./BsTrend.tsx";
 import { healthOf, monthsValue, scaleFor, type HealthItem } from "./bsLayout.ts";
 import { FALLBACK, colsOf, resolveColumns, nextColumns, type ResolvedColumn } from "./bsColumns.ts";
 import { group, man, manDiff } from "./format.ts";
+import { PopIcon } from "./icons.tsx";
 import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsPlanModel, BsPointKey, BsYearModel, MoneyThreeModel, MoneyThreeWording, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
 import { MoneyThreeSection } from "./MoneyThree.tsx";
 
@@ -711,9 +712,7 @@ function ColumnHead({ open, onToggle, onClose, plan, col, who, canRemove, onPick
           <span>
             {y.year}年{y.age !== null ? `・${who}${y.age}歳` : ""}
           </span>
-          <span class="chev" aria-hidden="true">
-            ▾
-          </span>
+          <PopIcon />
         </button>
         <KindTag fact={y.fact} />
       </div>

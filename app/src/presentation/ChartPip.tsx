@@ -1,14 +1,15 @@
 // グラフを小窓で表示（提示層の共通の部品。結果と万一のときで同じ部品・同じ動き）:
 // グラフの見出しの右上の「小窓」ボタンで、グラフをアプリの窓の中に浮いた小さな枠（小窓）に出す。どこまでスクロールしても出ているので、
 // 操作の欄（結果の「対策」・万一のときの「想定の前提」）を動かしながらグラフを見られる（線・塗り・凡例・補間の動きは元のグラフと同じ部品で描く）。
-// - ボタンはピクチャー・イン・ピクチャーのアイコンだけ（文字は出さない。説明はカーソルを乗せたときの小さな札と読み上げ）。
-//   小窓を出している間は、元のグラフの見出しのボタンが「小窓を閉じる」（逆向きのアイコン）に変わる。小窓の上の帯の「元に戻す」でも閉じる
+// - ボタンはアイコンだけ（文字は出さない。説明はカーソルを乗せたときの小さな札と読み上げ）。開くときは小窓が開く共通の印（icons.tsx の PopIcon）。
+//   小窓を出している間は、元のグラフの見出しのボタンが「小窓を閉じる」（元に戻す印。PipBackIcon）に変わる。小窓の上の帯の「元に戻す」でも閉じる
 // - 上の帯（取っ手の印つき）をドラッグで移動、左右の端で横・下の端で縦・下の角で縦横に大きさを変える。帯にフォーカスして矢印キーで移動、
 //   Shift＋矢印で大きさ
 // - 位置と大きさはアプリを開いている間覚える（画面には保存しない。世帯のファイルにも書かない）。別の窓（OS の窓）にはしない
 // - 小窓はタブごとのもの: 別のタブに移ると閉じる（各タブで出し直す。作業の層がタブの切り替えで closePip を呼ぶ）
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { PopIcon } from "./icons.tsx";
 
 // ---- 小窓の位置と大きさ（純粋な計算） ----
 
@@ -140,14 +141,14 @@ export function usePipOn(): boolean {
 // ---- 部品 ----
 
 /**
- * ピクチャー・イン・ピクチャーの印（大きな四角の右下に小さな四角が重なった形）。back は逆向き（小さな四角が左上。元に戻す）。
+ * 小窓を閉じて元に戻す印（大きな四角の左上に小さな四角が重なった形）。開くときの印（icons.tsx の PopIcon）と見分けがつく形のまま残す。
  * 文字の色で描く。読み上げない（ボタンの名前で伝える）
  */
-export function PipIcon({ back = false }: { back?: boolean }) {
+export function PipBackIcon() {
   return (
-    <svg class="pip-i" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" data-pip-icon={back ? "back" : "pip"}>
+    <svg class="pip-i" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" data-pip-icon="back">
       <rect x="2.5" y="4.5" width="19" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-      {back ? <rect x="5.5" y="7.5" width="8.5" height="6" rx="1" fill="currentColor" /> : <rect x="10" y="10.5" width="8.5" height="6" rx="1" fill="currentColor" />}
+      <rect x="5.5" y="7.5" width="8.5" height="6" rx="1" fill="currentColor" />
     </svg>
   );
 }
@@ -156,7 +157,7 @@ export function PipIcon({ back = false }: { back?: boolean }) {
 export const PIP_LABEL = { open: "グラフを小窓で表示", close: "小窓を閉じる", back: "元に戻す（小窓を閉じる）" } as const;
 
 /**
- * グラフの見出しの右上に置く小窓のボタン（アイコンだけ。文字は出さない）。小窓を出している間は「小窓を閉じる」（逆向きのアイコン）。
+ * グラフの見出しの右上に置く小窓のボタン（アイコンだけ。文字は出さない。小窓が開く共通の印）。小窓を出している間は「小窓を閉じる」（元に戻す印）。
  * 説明は小さな札（data-tip。CSS で年の表示と同じ見た目に出す）と aria-label。OS の title の吹き出しとは二重にしない
  */
 export function PipButton() {
@@ -164,7 +165,7 @@ export function PipButton() {
   const label = on ? PIP_LABEL.close : PIP_LABEL.open;
   return (
     <button type="button" class="pip-btn tip-btn" aria-pressed={on} onClick={() => (on ? closePip() : openPip())} aria-label={label} data-tip={label} data-pip-toggle={on ? "close" : "open"}>
-      <PipIcon back={on} />
+      {on ? <PipBackIcon /> : <PopIcon />}
     </button>
   );
 }
@@ -251,7 +252,7 @@ function PipPanel({ head, extra, children }: { head?: ComponentChildren; extra: 
         </span>
         <div class="pip-title">{head}</div>
         <button type="button" class="pip-btn tip-btn" onClick={closePip} aria-label={PIP_LABEL.back} data-tip={PIP_LABEL.back} data-pip-close>
-          <PipIcon back />
+          <PipBackIcon />
         </button>
       </div>
       {children(pipChartHeight(rect.h, fs * 16, extra * fs))}

@@ -9,8 +9,8 @@ import type { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useBoxSize } from "./BsFigure.tsx";
 import { FigTip, useFigTip, type FigTipData } from "./FigTip.tsx";
-import { PipIcon } from "./ChartPip.tsx";
 import { group, man } from "./format.ts";
+import { PopIcon } from "./icons.tsx";
 import type { MoneyThreeBox, MoneyThreeModel, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
 
 const Parts = ({ parts }: { parts: readonly VerdictPart[] }) => <>{parts.map((p, i) => (p.strong === true ? <b key={i}>{p.text}</b> : <span key={i}>{p.text}</span>))}</>;
@@ -388,7 +388,7 @@ function SavePop({ model }: { model: MoneyThreeModel }) {
     <div class="m3-popwrap" ref={wrap}>
       <button type="button" class="link-btn m3-open" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)} ref={btn} data-m3-save-open>
         内訳を見る
-        <PipIcon />
+        <PopIcon />
       </button>
       {open ? (
         <div class="m3-pop" role="dialog" aria-label={`${v.name}の内訳`} ref={pop} data-m3-save-pop>

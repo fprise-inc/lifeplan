@@ -1,0 +1,21 @@
+// 画面の共通の印（提示の層と作業の層の両方で使う）
+
+/**
+ * 小窓が開く印（角が開いた四角から斜めの矢印が出る形）。文字の色で描く。読み上げない（ボタンの名前で伝える）。
+ *
+ * 決まり: 押すと小窓・パネル（role="dialog" のもの）が開くボタン・文字のリンクには、基本この印を付ける（文字の右に、文字の大きさに合わせて）。
+ * 例: グラフを小窓で出すボタン・お金の3つの分け方の「内訳を見る」・資産と負債の時点の年を選ぶボタン・世帯の一覧の下の
+ * 「復元キー」「保存先」「事務所の共有」「AI接続口」。
+ * 付けないもの: 通知のベル（専用の印）、閉じる（×）と小窓を閉じて元に戻すボタン（ChartPip.tsx の PipBackIcon）、
+ * その場で開閉する折りたたみ（▶▼）や、すぐ下に欄が開くボタン、カーソルで出る札（FigTip）、図の箱そのものを押して出る内訳（印を置く場所が無い）、
+ * 開いている小窓・パネルの中で別のパネルに移るリンク（今の窓を閉じて入れ替わる）
+ */
+export function PopIcon() {
+  return (
+    <svg class="pop-i" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" data-pop-icon fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 5H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+      <path d="M13 11l7-7" />
+      <path d="M15 4h5v5" />
+    </svg>
+  );
+}

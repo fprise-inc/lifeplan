@@ -374,7 +374,9 @@ describe("グラフを小窓で表示", () => {
     const off = renderToString(h(PipButton, {}));
     expect(off).toContain(`aria-label="${PIP_LABEL.open}"`);
     expect(off).toContain(`data-tip="${PIP_LABEL.open}"`);
-    expect(off).toContain('data-pip-icon="pip"');
+    // 開くときは小窓が開く共通の印（icons.tsx の PopIcon）。閉じるときの印とは別の形
+    expect(off).toContain("data-pop-icon");
+    expect(off).not.toContain("data-pip-icon");
     expect(off).toContain('aria-pressed="false"');
     // ボタンの中に文字を出さない（アイコンの SVG だけ）
     expect(off.replace(/<svg[\s\S]*<\/svg>/, "")).toMatch(/^<button[^>]*><\/button>$/);
@@ -382,6 +384,7 @@ describe("グラフを小窓で表示", () => {
     const on = renderToString(h(PipButton, {}));
     expect(on).toContain(`aria-label="${PIP_LABEL.close}"`);
     expect(on).toContain('data-pip-icon="back"');
+    expect(on).not.toContain("data-pop-icon");
     expect(on).toContain('aria-pressed="true"');
     closePip();
   });

@@ -131,7 +131,7 @@ describe("お金の3つの分け方の提示用の値（0032）", () => {
     expect(save).toContain("data-m3-save-open");
     expect(save).toContain("内訳を見る");
     // 小窓が開くことが分かる印（グラフを小窓で出すボタンと同じ印）と、読み上げの手がかり
-    expect(save).toContain('data-pip-icon="pip"');
+    expect(save).toContain("data-pop-icon");
     expect(save).toContain('aria-haspopup="dialog"');
     expect(save).toContain('aria-expanded="false"');
     expect(save).toMatch(/の できごと 2件/);
@@ -155,7 +155,7 @@ describe("お金の3つの分け方の提示用の値（0032）", () => {
     expect(save).toContain("2027");
     // 全部の年の表は、画面と同じ「内訳を見る」の小窓（同じ印）
     expect(save).toContain("data-m3-save-open");
-    expect(save).toContain('data-pip-icon="pip"');
+    expect(save).toContain("data-pop-icon");
     expect(html).toContain('data-m3-step="months"');
     // 持ち帰り用（欄なし）は文で書く
     const ro = renderToString(h(MoneyThreeCards, { model: m }));
