@@ -504,7 +504,7 @@
       "description": "お金の3つの分け方（説明用の図。0032）: 提案のプランの今の時点の金融資産を、使うお金（ふだんの支出の○か月分）・貯めるお金（今後○年のできごとの支出のうち、その年の収入で賄えない分）・増やすお金（残り）に分け、今の置き場所と並べる。アプリの区画と同じ値・同じ言葉（report/src/moneyThree.ts）。キャッシュフロー表・結果の計算には混ぜない。省略・null は載せない",
       "type": ["object", "null"],
       "additionalProperties": false,
-      "required": ["year", "settings", "limits", "names", "boxes", "spendMonthly", "range", "clipped", "table", "place", "status", "gap", "need", "overFinancial", "say", "notice"],
+      "required": ["year", "settings", "limits", "names", "boxes", "spendMonthly", "range", "clipped", "table", "place", "status", "gap", "need", "overFinancial", "say"],
       "properties": {
         "year": {"$ref": "#/$defs/year"},
         "settings": {"type": "object", "additionalProperties": false, "required": ["months", "years", "wording"], "properties": {"months": {"type": "integer", "minimum": 1, "maximum": 24}, "years": {"type": "integer", "minimum": 1, "maximum": 30}, "wording": {"enum": ["use", "time"]}}},
@@ -520,8 +520,7 @@
         "gap": {"type": "integer"},
         "need": {"type": "integer"},
         "overFinancial": {"type": "integer", "minimum": 0},
-        "say": {"type": "object", "additionalProperties": false, "required": ["head", "sub", "eq"], "properties": {"head": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["text"], "properties": {"text": {"type": "string"}, "strong": {"type": "boolean"}}}}, "sub": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["text"], "properties": {"text": {"type": "string"}, "strong": {"type": "boolean"}}}}, "eq": {"type": ["string", "null"]}}},
-        "notice": {"oneOf": [{"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["text"], "properties": {"text": {"type": "string"}, "strong": {"type": "boolean"}}}}, {"type": "null"}]}
+        "say": {"type": "object", "additionalProperties": false, "required": ["head", "sub", "eq"], "properties": {"head": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["text"], "properties": {"text": {"type": "string"}, "strong": {"type": "boolean"}}}}, "sub": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["text"], "properties": {"text": {"type": "string"}, "strong": {"type": "boolean"}}}}, "eq": {"type": ["string", "null"]}}}
       }
     },
     "comparison": {

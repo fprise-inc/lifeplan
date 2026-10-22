@@ -6,7 +6,8 @@
 // 比べ方（表示の設定）: 重ねる（既定。1つのグラフに2本）／左右に並べる（基準の案と選んだ案を2つのグラフにし、縦の目盛り・年の選択をそろえる）／
 // 全部の案を色分けで重ねる（帯の全部の案を1つのグラフに。色・線の種類・線の端の印で描き分け、見た目は planLines.tsx。積み上げの棒は重ねられないので、
 // 収支は年間収支の線で比べる）。
-// x 軸の上の丸は年のイベント。カーソルを合わせるかキーボードで選ぶと、年と中身の小さな表示を出す
+// x 軸の上の丸は年のイベント。カーソルを合わせるかキーボードで選ぶと、年と中身の小さな表示を出す。
+// 金融資産が足りなくなる所は、できごとの丸の段のすぐ上の「!」の段に丸を置き、線が0を切る所から赤い点線でつなぐ（ShortMark.tsx）
 import type { RefObject } from "preact";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { areaAbove, areaBelow, eventRows, linePath, multiDomain, scale, scaleOf, spreadX, type Frame, type Scale } from "./chart.ts";
@@ -18,7 +19,7 @@ import { PeriodBand, stackAreas, stressPaths } from "./InvestLayers.tsx";
 import { Pattern, Swatch } from "./StackChart.tsx";
 import { useSwitchEase, useTween, type Series } from "./tween.ts";
 import { estimateWidth, indexAt, placeAbove, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
-import { useNarrow } from "./narrow.ts";
+import { SHORT_R, SHORT_ROW, ShortDotsSvg, ShortLinesSvg, ShortTip, shortCenter, shortText, shortXs, type ShortSource } from "./ShortMark.tsx";
 
 export type ChartMode = "assets" | "flows";
 
@@ -167,10 +168,49 @@ export { EVENT_R };
 /** 丸と丸の間（中心の間隔） */
 const eventGap = (fs: number) => (2 * EVENT_R + 3) * fs;
 
-/** right: 右の余白（文字の大きさ 16px のとき）。rows: 年のイベントの丸の段の数（2段のときは下の余白を1段分広げる） */
-function frameOf(w: number, h: number, fs: number, right: number, rows = 1): Frame {
-  // rows = 0: 年のイベントの丸を描かない（縮めた表示。年と年齢の目盛りの分だけ空ける）
-  return { width: w, height: h, left: 64 * fs, right: right * fs, top: 26 * fs, bottom: (rows === 0 ? 44 : 70 + (rows - 1) * (2 * EVENT_R + 3)) * fs };
+/**
+ * right: 右の余白（文字の大きさ 16px のとき）。rows: 年のイベントの丸の段の数（2段のときは下の余白を1段分広げる）。
+ * short: 「!」の段を設ける（できごとの丸の段のすぐ上。その分だけ下の余白を広げ、できごとの丸の段と年の目盛りの位置・大きさは変えない）
+ */
+function frameOf(w: number, h: number, fs: number, right: number, rows = 1, short = false): Frame {
+  // rows = 0: 年のイベントの丸を描かない（縮めた表示。年と年齢の目盛りの分だけ空ける。「!」の段も設けない）
+  return { width: w, height: h, left: 64 * fs, right: right * fs, top: 26 * fs, bottom: (rows === 0 ? 44 : 70 + (rows - 1) * (2 * EVENT_R + 3) + (short ? SHORT_ROW : 0)) * fs };
+}
+
+/** 一番下の「!」の段の上の端（グラフの面の下の端）。できごとの丸の段はこの段の下 */
+const shortRowTop = (f: Frame) => f.height - f.bottom;
+/** できごとの丸の段の上の端（「!」の段があればその下） */
+const eventRowTop = (f: Frame, short: boolean, fs: number) => f.height - f.bottom + (short ? SHORT_ROW * fs : 0);
+
+/** 資産が尽きる年（金融資産がはじめてマイナスになる年の番号。尽きなければ -1） */
+const firstShort = (v: readonly number[]) => v.findIndex((x) => x < 0);
+
+/**
+ * 「!」を出すもの（金融資産が足りなくなる所）。説明モードは選んだプランだけ、全部のプランを重ねる表示は各プラン（プランの色。隠したプランは出さない）、
+ * それ以外は選んだプランと基準のプラン（基準は白抜き。同じプランのときは1つ）
+ */
+export function shortSources(model: MainChartModel, opt: { explain: boolean; multi: MultiState | null }): ShortSource[] {
+  const { years, ages } = model.chart;
+  const at = (y: number) => ages[years.indexOf(y)];
+  if (opt.multi !== null && !opt.explain) {
+    const styles = planStyles(model.plans ?? []);
+    return (model.plans ?? []).flatMap((p) => {
+      const i = p.financial === null ? -1 : firstShort(p.financial);
+      const y = years[i];
+      if (i < 0 || y === undefined || opt.multi?.hidden.includes(p.key) === true) return [];
+      return [{ key: `p-${p.key}`, year: y, text: shortText(y, ages[i], p.name), color: (styles.get(p.key) as PlanStyle).color }];
+    });
+  }
+  const same = model.names.same;
+  return model.chart.depletions
+    .filter((d) => (opt.explain ? d.series === "proposal" : !(same && d.series === "current")))
+    .sort((a, b) => (a.series === b.series ? 0 : a.series === "current" ? -1 : 1))
+    .map((d) => ({
+      key: d.series,
+      year: d.year,
+      text: shortText(d.year, at(d.year), same || opt.explain ? undefined : d.series === "proposal" ? model.names.selected : model.names.base),
+      ...(d.series === "current" && !same && !opt.explain ? { base: true } : {}),
+    }));
 }
 
 /** 年のイベントの丸の置き場所（x と段）。x は年の位置から、重なる丸は横に並べ直す（狭いグラフでは2段にする） */
@@ -323,6 +363,12 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
   const all = multiOn(layout, explain, model);
   const pinned = pinnedYear !== null && years.includes(pinnedYear) ? pinnedYear : null;
   const shown = explain === null ? shownYear(pinned, hover !== null && years.includes(hover) ? hover : null) : null;
+  // 「!」の段: 出す「!」があるときだけ設ける（左右に並べる表示では、どちらかに出れば両方に設けて高さをそろえる。全部のプランを重ねる表示は、隠したプランも数えて隠しても高さが動かない）
+  const shortRow =
+    !compact &&
+    (side
+      ? (["base", "selected"] as const).some((who) => shortSources(planModel(model, who), { explain: false, multi: null }).length > 0)
+      : shortSources(model, { explain: explain !== null, multi: all ? { focus: null, hidden: [] } : null }).length > 0);
 
   const onKey = (e: KeyboardEvent) => {
     if (explain !== null) return;
@@ -361,6 +407,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
     pinned,
     shown,
     compact,
+    shortRow,
     ...(onBand !== undefined ? { onBand } : {}),
     ...(bandLock !== undefined ? { bandLock } : {}),
     onHover: (y: number | null) => setHover((h) => (h === y ? h : y)),
@@ -429,6 +476,8 @@ interface ChartPlotProps {
   live: boolean;
   /** 縮めた表示（年のイベントの丸を描かない） */
   compact?: boolean;
+  /** 「!」の段を設ける（MainChart が決める） */
+  shortRow: boolean;
   /** 全部の案を色分けで重ねる表示（それ以外は null） */
   multi?: MultiState | null;
   onBand?: MainChartProps["onBand"];
@@ -451,7 +500,7 @@ interface MultiRow {
 }
 
 /** 1つのグラフ（SVG と、年の表示・イベントの表示） */
-function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scaleWith, label, live, compact = false, multi = null, onBand, bandLock, onHover, onPick }: ChartPlotProps) {
+function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scaleWith, label, live, compact = false, shortRow, multi = null, onBand, bandLock, onHover, onPick }: ChartPlotProps) {
   const svg = useRef<SVGSVGElement>(null);
   const tip = useRef<HTMLDivElement>(null);
   const evTipEl = useRef<HTMLDivElement>(null);
@@ -459,8 +508,9 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const evOn = evFocus.on;
   const tipSize = useBoxSize(tip);
   const evTipSize = useBoxSize(evTipEl);
-  // 狭い画面（スマホ）では、資産が尽きる年の文字を出さない（線に重なって読みにくい。見出しの文が同じことを言い、0の線の△と縦の点線は残す）
-  const narrow = useNarrow();
+  const skTipEl = useRef<HTMLDivElement>(null);
+  const skFocus = useEventFocus<number>();
+  const skTipSize = useBoxSize(skTipEl);
 
   const n = model.chart.years.length;
   const ex = explain?.model ?? null;
@@ -472,8 +522,9 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   const inv = mode === "assets" && explain === null && multi === null ? model.invest : undefined;
   const bandOn = inv !== undefined && inv.band !== null && inv.view.band && !compact;
   const fs = size.fs;
-  // 小窓の中の表示では、年のイベントの丸を描かない（線と塗りの高さを残す。丸は元のグラフと表にある）
-  const evList = compact ? [] : model.events.filter((e) => years.includes(e.year));
+  // 小窓の中の表示では、年のイベントの丸を描かない（線と塗りの高さを残す。丸は元のグラフと表にある）。
+  // 資産が尽きる年の「!」はできごとの丸の段に置かず、すぐ上の「!」の段に置く
+  const evList = compact ? [] : model.events.filter((e) => years.includes(e.year) && e.icon !== "！");
   // 丸の横の位置は下の余白に関わらないので、先に段の数を決めてから枠を決める
   const isMulti = multi !== null && explain === null;
   // 右の余白: ○歳時点の印の数字（重ねる表示）か、線の右端のプランの文字と「基準」の札（全部のプランを重ねる表示）の分
@@ -481,7 +532,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   // 全部のプランを重ねる表示で、目盛りが動いている途中に線が枠からはみ出さないように切り抜く
   const clipId = `mc-clip-${useId().replace(/[^A-Za-z0-9_-]/g, "")}`;
   const evLay = eventLayout(evList, years, frameOf(size.w, size.h, fs, right), fs);
-  const f = frameOf(size.w, size.h, fs, right, compact ? 0 : evLay.rows);
+  const f = frameOf(size.w, size.h, fs, right, compact ? 0 : evLay.rows, shortRow);
   const selIdx = shown === null ? -1 : years.indexOf(shown);
 
   /** カーソル・指の位置から年を読む（SVG の座標に直す） */
@@ -691,25 +742,6 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
     body.push(<path key="ls" d={linePath(aSel, s)} class="line-prop" />);
     // 相場が下がった場合（重ねたときだけ）
     if (inv?.stress != null) body.push(...stressPaths(inv.stress, inv.view.stressHidden, s, n, fs, f.top));
-    // 資産が尽きる年
-    for (const d of model.chart.depletions) {
-      const i = years.indexOf(d.year);
-      if (i < 0 || (same && d.series === "current")) continue;
-      const x = s.x(i);
-      const y0 = s.y(0);
-      const dy = d.series === "current" && !same ? 18 * fs : 0;
-      body.push(
-        <g key={`dep-${d.series}`}>
-          <line x1={x} x2={x} y1={y0} y2={f.height - f.bottom} class="dep-line" />
-          <path d={`M${x} ${y0 - 11} l8 13 h-16 z`} class={`dep-tri${d.series === "current" ? " base" : ""}`} />
-          {narrow ? null : (
-          <text x={x > f.width - f.right - 180 * fs ? x - 10 : x + 10} y={y0 - 8 - dy} class="dep-txt" text-anchor={x > f.width - f.right - 180 * fs ? "end" : "start"}>
-            {inv !== undefined ? (d.series === "proposal" ? `${same ? "" : `${model.names.selected} `}${inv.lasts.selected}` : `${model.names.base} ${inv.lasts.base}`) : d.label}
-          </text>
-          )}
-        </g>,
-      );
-    }
     if (showMark && ageMark !== null) {
       const i = years.indexOf(ageMark.year);
       if (i >= 0) {
@@ -758,9 +790,22 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
   // ---- 年のイベント（x 軸のすぐ下の丸）: 重なる丸は横に並べ直す。カーソル・フォーカスで年と中身を出す ----
   const evR = EVENT_R * fs;
   const evX = evLay.x;
-  const evYs = evLay.row.map((r) => f.height - f.bottom + 4 * fs + evR + r * eventGap(fs));
+  const evYs = evLay.row.map((r) => eventRowTop(f, shortRow, fs) + 4 * fs + evR + r * eventGap(fs));
   const evNow = evOn !== null ? evList[evOn] : undefined;
   const evs = evList.map((e, j) => <EventDotSvg key={`${e.year}-${e.icon}-${j}`} chip={e} x={evX[j] as number} y={evYs[j] as number} r={evR} on={evOn === j} handlers={evFocus.bind(j)} />);
+
+  // ---- 金融資産が足りなくなる所: 「!」の段の丸と、線が0を切る所からの赤い点線（点線は資産の推移の線があるときだけ）----
+  const skList = shortSources(model, { explain: explain !== null, multi: isMulti ? multi : null }).filter((m) => years.includes(m.year));
+  const skLine = explain !== null && ex !== null ? ex.steps.findIndex((x) => x.key === "assets") <= explain.step : mode === "assets";
+  const skXs = skList.map((m) => s.x(years.indexOf(m.year)));
+  const skAt = shortRow ? shortXs(skXs, fs, f.left, f.width - f.right) : null;
+  const skRowTop = shortRowTop(f);
+  const skNow = skFocus.on !== null ? skList[skFocus.on] : undefined;
+  const skCy = shortCenter(skRowTop, fs);
+  const skPlace =
+    skNow !== undefined && skAt !== null && skFocus.on !== null
+      ? placeAbove(skAt[skFocus.on] as number, skCy - SHORT_R * fs, skCy + SHORT_R * fs, skTipSize?.w ?? estimateWidth([skNow.text], 13 * fs), skTipSize?.h ?? 30 * fs, f.width, f.height)
+      : null;
 
   // ---- 年の印（線の上の○・細い縦の補助線）と小さな表示 ----
   const age = selIdx >= 0 ? ages[selIdx] : undefined;
@@ -811,6 +856,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
           </g>
         ))}
         {body}
+        {skLine && skList.length > 0 ? <ShortLinesSvg list={skList} xs={skXs} at={skAt} top={s.y(0)} rowTop={skRowTop} fs={fs} /> : null}
         {mark !== null ? <line x1={mx} x2={mx} y1={f.top - 4} y2={f.height - f.bottom} class={`hv-guide${pinned !== null ? " pinned" : ""}`} /> : null}
         {evNow !== undefined ? <line x1={s.x(years.indexOf(evNow.year))} x2={s.x(years.indexOf(evNow.year))} y1={f.top - 4} y2={f.height - f.bottom} class="hv-guide ev-guide" /> : null}
         {zeroLabels !== null ? (
@@ -867,6 +913,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         ) : null}
         {/* イベントの丸は、年を読む面より上に置く（カーソルを合わせられるように） */}
         <g class="evs">{evs}</g>
+        {skAt !== null && skList.length > 0 ? <ShortDotsSvg list={skList} at={skAt} rowTop={skRowTop} fs={fs} focus={skFocus} /> : null}
       </svg>
       {mark !== null && place !== null && multiRows !== null ? (
         <div
@@ -955,6 +1002,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
         </div>
       ) : null}
       {evNow !== undefined && evPlace !== null ? <EventTip chip={evNow} tipRef={evTipEl} style={{ left: pct(evPlace.left, f.width), top: pct(evPlace.top, f.height) }} /> : null}
+      {skNow !== undefined && skPlace !== null ? <ShortTip text={skNow.text} tipRef={skTipEl} style={{ left: pct(skPlace.left, f.width), top: pct(skPlace.top, f.height) }} /> : null}
     </div>
     </>
   );

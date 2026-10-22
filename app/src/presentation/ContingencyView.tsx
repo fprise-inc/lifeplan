@@ -1,16 +1,18 @@
 // 提示層の部品（万一のときの画面）。受け取るのは提示用の値（ContingencyModel とその一部）と、場面・年を選ぶ手続きだけ（0016 の2）。
 // 配置（上から。見通しと同じ流れ）: 場面の帯（ScenarioBand。見通しの案の帯と同じ見た目）→ 年ごとの結果の帯（YearStrip。起きる年を1年ずつ選ぶ・1年ずつ見せる）
 // → グラフ（ContingencyChartCard。資産の推移／必要保障額の推移の切り替え）→ 想定の前提（作業の層の部品）。グラフは主画面と同じ幅・高さの感覚で、年の選び方（線の上の○・クリックで固定・薄いグレーの実線の補助線）と
-// 補間の動き（tween.ts）も主画面と同じ決まり（yearPick.ts）で描く。色は藍（万一の場合・必要保障額）と灰（万一なし・死亡保険金）、不足は赤のベタ塗りと「▲」
+// 補間の動き（tween.ts）も主画面と同じ決まり（yearPick.ts）で描く。色は藍（万一の場合・必要保障額）と灰（万一なし・死亡保険金）、不足は赤のベタ塗りと「▲」。
+// 金融資産が足りなくなる所は主画面と同じ「!」の段と赤い点線（ShortMark.tsx）
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { PipButton } from "./ChartPip.tsx";
 import { areaAbove, areaBelow, linePath, scale, type Frame, type Scale } from "./chart.ts";
 import { group, man, manDiff } from "./format.ts";
 import { chartHeight, TOUCH_HINT } from "./MainChart.tsx";
 import type { ChartModel, ContingencyModel, ProtectionChartModel, ScenarioModel, VerdictPart, YearStripModel } from "./model.ts";
-import { useNarrow } from "./narrow.ts";
+import { useEventFocus } from "./EventDot.tsx";
+import { SHORT_R, SHORT_ROW, ShortDotsSvg, ShortLinesSvg, ShortTip, shortCenter, shortText, shortXs, type ShortSource } from "./ShortMark.tsx";
 import { useTween, type Series } from "./tween.ts";
-import { estimateWidth, indexAt, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
+import { estimateWidth, indexAt, placeAbove, placeTip, shownYear, stepYear, togglePin } from "./yearPick.ts";
 
 // ---- ① 場面の帯 ----
 
@@ -277,8 +279,22 @@ interface YearMark {
   lines: TipItem[][];
 }
 
-function frameOf(w: number, h: number, fs: number): Frame {
-  return { width: w, height: h, left: 74 * fs, right: 24 * fs, top: 26 * fs, bottom: 48 * fs };
+/** short: 「!」の段を設ける（グラフの面のすぐ下。その分だけ下の余白を広げ、年の目盛りの位置は変えない） */
+function frameOf(w: number, h: number, fs: number, short = false): Frame {
+  return { width: w, height: h, left: 74 * fs, right: 24 * fs, top: 26 * fs, bottom: (48 + (short ? SHORT_ROW : 0)) * fs };
+}
+
+/** 「!」を出すもの: 万一の場合と万一なし（万一なしは白抜き） */
+function contingencySources(cm: ChartModel): ShortSource[] {
+  return cm.depletions
+    .filter((d) => cm.years.includes(d.year))
+    .sort((a, b) => (a.series === b.series ? 0 : a.series === "current" ? -1 : 1))
+    .map((d) => ({
+      key: d.series,
+      year: d.year,
+      text: shortText(d.year, cm.ages[cm.years.indexOf(d.year)], d.series === "proposal" ? "万一の場合" : "万一なし"),
+      ...(d.series === "current" ? { base: true } : {}),
+    }));
 }
 
 /** 万一のときの大きなグラフ（見通しのグラフと同じ大きさ・同じ年の選び方）。height を渡すとその高さで描く（小窓の中の表示） */
@@ -289,8 +305,9 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
   const [hover, setHover] = useState<number | null>(null);
   const [tipSize, setTipSize] = useState<{ w: number; h: number } | null>(null);
   const [size, setSize] = useState<{ w: number; h: number; fs: number }>({ w: 1100, h: 520, fs: 1 });
-  // 狭い画面では、資産が尽きる年の文字を出さない（0の線の△と縦の点線は残す）
-  const narrow = useNarrow();
+  const skFocus = useEventFocus<number>();
+  const skTip = useRef<HTMLDivElement>(null);
+  const [skTipSize, setSkTipSize] = useState<{ w: number; h: number } | null>(null);
   useLayoutEffect(() => {
     const el = box.current;
     if (el === null) return;
@@ -317,7 +334,10 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
   const n = years.length;
   const t = useTween(spec.kind === "assets" ? { "a.sel": spec.model.proposal, "a.base": spec.model.current } : { "p.need": spec.model.need, "p.nwa": spec.model.needWithAssets, "p.cov": spec.model.coverage });
   const fs = size.fs;
-  const f = frameOf(size.w, height ?? size.h, fs);
+  // 金融資産が足りなくなる所（資産の推移だけ）。小窓の中の表示（縮めた表示）では「!」の段を設けず、点線だけを面の下の端まで引く
+  const skList = spec.kind === "assets" ? contingencySources(spec.model) : [];
+  const shortRow = height === undefined && skList.length > 0;
+  const f = frameOf(size.w, height ?? size.h, fs, shortRow);
   const hv = hover !== null && years.includes(hover) ? hover : null;
   const event = spec.eventYear !== null && years.includes(spec.eventYear) ? spec.eventYear : null;
   // 資産の推移: 主画面と同じ（固定していればその年、なければカーソルの年）。
@@ -395,25 +415,6 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
     eventMark(s, `万一（${spec.eventYear}年）`);
     body.push(<path key="lb" d={linePath(base, s)} class="line-base" />);
     body.push(<path key="ls" d={linePath(sel, s)} class="line-prop" />);
-    for (const d of cm.depletions) {
-      const i = years.indexOf(d.year);
-      if (i < 0) continue;
-      const x = s.x(i);
-      const y0 = s.y(0);
-      const dy = d.series === "current" ? 18 * fs : 0;
-      const right = i > n * 0.75;
-      body.push(
-        <g key={`dep-${d.series}`}>
-          <line x1={x} x2={x} y1={y0} y2={f.height - f.bottom} class="dep-line" />
-          <path d={`M${x} ${y0 - 11} l8 13 h-16 z`} class={`dep-tri${d.series === "current" ? " base" : ""}`} />
-          {narrow ? null : (
-            <text x={right ? x - 10 : x + 10} y={y0 - 8 - dy} class="dep-txt" text-anchor={right ? "end" : "start"}>
-              {d.label}
-            </text>
-          )}
-        </g>,
-      );
-    }
     if (selIdx >= 0) {
       const age = ages[selIdx];
       const ps = cm.proposal[selIdx] ?? 0;
@@ -483,6 +484,23 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
     }
   }
 
+  const skXs = skList.map((m) => s.x(years.indexOf(m.year)));
+  const skAt = shortRow ? shortXs(skXs, fs, f.left, f.width - f.right) : null;
+  const skRowTop = f.height - f.bottom;
+  const skCy = shortCenter(skRowTop, fs);
+  const skNow = skFocus.on !== null ? skList[skFocus.on] : undefined;
+  const skPlace =
+    skNow !== undefined && skAt !== null && skFocus.on !== null
+      ? placeAbove(skAt[skFocus.on] as number, skCy - SHORT_R * fs, skCy + SHORT_R * fs, skTipSize?.w ?? estimateWidth([skNow.text], 13 * fs), skTipSize?.h ?? 30 * fs, f.width, f.height)
+      : null;
+  useLayoutEffect(() => {
+    const el = skTip.current;
+    if (el === null) return;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    if (w > 0 && h > 0 && (skTipSize === null || Math.abs(skTipSize.w - w) > 0.5 || Math.abs(skTipSize.h - h) > 0.5)) setSkTipSize({ w, h });
+  });
+
   const pinTag = atPin ? (spec.kind === "assets" ? "固定中" : "選んだ年") : null;
   const tipLines = mark !== null ? [`${mark.head}${pinTag !== null ? ` ${pinTag}` : ""}`, ...mark.lines.map((l) => l.map((x) => `／${x.label} ${x.value}`).join(""))] : [];
   const tw = tipSize?.w ?? estimateWidth(tipLines, 13 * fs);
@@ -540,15 +558,16 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
           </g>
         ))}
         {body}
+        {skList.length > 0 ? <ShortLinesSvg list={skList} xs={skXs} at={skAt} top={s.y(0)} rowTop={skRowTop} fs={fs} /> : null}
         {mark !== null ? <line x1={mx} x2={mx} y1={f.top - 4} y2={f.height - f.bottom} class={`hv-guide${atPin ? " pinned" : ""}`} /> : null}
         {years.map((y, i) =>
           y % 5 === 0 ? (
             <g key={y}>
-              <text x={s.x(i)} y={f.height - f.bottom + 20 * fs} class="axis-label" text-anchor="middle">
+              <text x={s.x(i)} y={f.height - 28 * fs} class="axis-label" text-anchor="middle">
                 {y}
               </text>
               {ages[i] != null ? (
-                <text x={s.x(i)} y={f.height - f.bottom + 36 * fs} class="axis-label sub" text-anchor="middle">
+                <text x={s.x(i)} y={f.height - 12 * fs} class="axis-label sub" text-anchor="middle">
                   {ages[i]}歳
                 </text>
               ) : null}
@@ -581,6 +600,8 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
             choose(spec.kind === "assets" ? togglePin(pinned, y) : y);
           }}
         />
+        {/* 「!」の丸は、年を読む面より上に置く（カーソルを合わせられるように） */}
+        {skAt !== null ? <ShortDotsSvg list={skList} at={skAt} rowTop={skRowTop} fs={fs} focus={skFocus} /> : null}
       </svg>
       {mark !== null && place !== null ? (
         <div
@@ -621,6 +642,9 @@ export function ContingencyChart({ spec, height }: { spec: ContingencyChartSpec;
             </div>
           ))}
         </div>
+      ) : null}
+      {skNow !== undefined && skPlace !== null ? (
+        <ShortTip text={skNow.text} tipRef={skTip} style={{ left: `${((skPlace.left / f.width) * 100).toFixed(3)}%`, top: `${((skPlace.top / f.height) * 100).toFixed(3)}%` }} />
       ) : null}
     </div>
   );

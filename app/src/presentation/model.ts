@@ -33,10 +33,10 @@ export interface Verdict {
   parts: VerdictPart[];
 }
 
+/** 資産が尽きる年（グラフの「!」の段に出す。札の文はグラフの側で年と年齢から作る） */
 export interface Depletion {
   series: "proposal" | "current";
   year: number;
-  label: string;
 }
 
 export interface ChartModel {
@@ -443,8 +443,6 @@ export interface InvestChartModel {
   /** 口座の内訳（選んだプラン。下から 預金・まだ分けていない・iDeCo/DC・NISA・課税口座など）。合計の入れ方のときは null */
   breakdown: StackSeries[] | null;
   band: InvestBandModel | null;
-  /** 線の札（「99歳まで持つ」）。選んだプランと基準のプラン */
-  lasts: { selected: string; base: string };
   stress: StressLineModel[] | null;
   /** 表示の設定（口座の内訳・運用の期間の帯）と、一時的に外した相場の線 */
   view: { breakdown: boolean; band: boolean; stressHidden: readonly string[] };

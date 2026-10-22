@@ -520,22 +520,3 @@ export function MoneyThreeSection({ model, onSettings, flash = 0 }: { model: Mon
     </section>
   );
 }
-
-/** 結果のタブの一行の知らせ（ほぼ同じのときは出さない） */
-export function MoneyThreeNotice({ model, onGo }: { model: MoneyThreeModel; onGo: () => void }) {
-  if (model.notice === null) return null;
-  return (
-    <div class="m3-notice" data-m3-notice>
-      <span class="ic" aria-hidden="true">
-        i
-      </span>
-      <span class="tx">
-        <Parts parts={model.notice} />
-        <span class="when">（今の時点・お金の3つの分け方）</span>
-      </span>
-      <button type="button" class="go" onClick={onGo} data-m3-go>
-        資産と負債で見る →
-      </button>
-    </div>
-  );
-}

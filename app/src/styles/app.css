@@ -110,9 +110,8 @@ html.big .chart .axis-label.sub { font-size: 13px; }
 .chart .line-prop { fill: none; stroke: var(--prop); stroke-width: var(--lw-prop); stroke-linejoin: round; }
 .chart .line-base { fill: none; stroke: var(--base); stroke-width: var(--lw-base); stroke-dasharray: 9 6; stroke-linejoin: round; }
 .chart .hit { fill: transparent; cursor: pointer; }
-.chart .dep-line { stroke: var(--short); stroke-width: 2; stroke-dasharray: 4 3; }
+.chart .dep-line { fill: none; stroke: var(--short); stroke-width: 2; stroke-dasharray: 4 3; pointer-events: none; }
 .chart .dep-tri { fill: var(--short); }
-.chart .dep-tri.base { fill: #fff; stroke: var(--short); stroke-width: 2; }
 .chart .dep-txt { fill: var(--short-ink); font-weight: 700; font-size: 13px; paint-order: stroke; stroke: #fff; stroke-width: 4px; }
 html.big .chart .dep-txt { font-size: 15px; }
 
@@ -787,6 +786,14 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .chart .ev.short.on circle { stroke: var(--short-ink); }
 .chart .ev:focus-visible circle { stroke: var(--prop); stroke-width: 3.5; }
 .chart .ev-guide { stroke: var(--ink-2); stroke-dasharray: 3 3; }
+/* 金融資産が足りなくなる所の「!」（できごとの丸の段のすぐ上の段。ShortMark.tsx）: 赤の塗り。基準のプラン・万一なしは白抜き。全部のプランを重ねる表示はプランの色（style で渡す） */
+.chart .sk { cursor: default; outline: none; }
+.chart .sk circle { fill: var(--short); stroke: var(--short); stroke-width: 2; }
+.chart .sk text { font-weight: 700; fill: #fff; font-size: 0.8rem; dominant-baseline: central; pointer-events: none; }
+.chart .sk.base circle { fill: #fff; }
+.chart .sk.base text { fill: var(--short-ink); }
+.chart .sk.on circle { stroke: var(--short-ink); stroke-width: 3; }
+.chart .sk:focus-visible circle { stroke: var(--prop); stroke-width: 3.5; }
 .year-tip.ev-tip .yt-h { gap: 6px; }
 /* 表の丸の説明は画面に対して置く（表は横に動くため） */
 .year-tip.fixed { position: fixed; z-index: 30; }

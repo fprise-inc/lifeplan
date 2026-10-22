@@ -36,7 +36,7 @@ export interface BalanceTabProps {
   onColumns: (c: BsColumn[] | null) => void;
   /** 時点を並べるときの既定の時点を変えた（このタブの表示の設定） */
   onPointDefaults: (k: BsPointKey[]) => void;
-  /** お金の3つの分け方（図の下の区画。0032）。flash が変わると区画へ移って光らせる（結果のタブの知らせから来たとき） */
+  /** お金の3つの分け方（図の下の区画。0032）。flash が変わると区画へ移って光らせる（#bsm3 で開いたとき） */
   moneyThree?: { model: MoneyThreeModel | null; onSettings: (s: Partial<MoneyThreeSettings>) => void; flash: number; nameChoices: readonly MoneyThreeNameChoice[] };
   /** 画面の確かめ用の最初の状態 */
   initial?: { view?: BsView; year?: number; open?: "combined"; table?: boolean; settings?: boolean };

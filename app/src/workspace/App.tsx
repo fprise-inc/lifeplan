@@ -12,7 +12,6 @@ import { ChartPip, closePip, openPip } from "../presentation/ChartPip.tsx";
 import { CashflowTable, FeeNote, PipResult, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
 import { PlanBand } from "../presentation/PlanBand.tsx";
 import { BalanceTab, type BsView } from "../presentation/BalanceTab.tsx";
-import { MoneyThreeNotice } from "../presentation/MoneyThree.tsx";
 import type { BsPlanModel, BsPrevModel } from "../presentation/model.ts";
 import { balanceTabModel, bsPlan, bsPrev } from "./balanceTab.ts";
 import { MONEY_THREE_NAME_CHOICES, moneyThreeModel } from "./moneyThree.ts";
@@ -1422,10 +1421,9 @@ export function App() {
   const stressRes = STRESS_KEYS.map((k) => (stressOn ? resultOf(`stress:${k}`) : null));
   const investModel = useMemo(() => {
     if (model === null || selReq === null || selRes === null || chartMode !== "assets") return null;
-    const base = names.same || baseReq === null || baseRes === null ? null : { req: baseReq, res: baseRes };
     const stress = stressOn ? (Object.fromEntries(STRESS_KEYS.map((k, i) => [k, stressRes[i] ?? null])) as Record<StressKey, PreviewResult | null>) : null;
-    return investChart({ sel: { req: selReq, res: selRes }, base, years: model.chart.years, ages: model.chart.ages, stress, view: { breakdown: settings.invBreakdown, band: bandShown(settings.invPeriods, selReq), stressHidden } });
-  }, [model, selReq, selRes, baseReq, baseRes, chartMode, stressOn, settings.invBreakdown, settings.invPeriods, stressHidden, names.same, ...stressRes]);
+    return investChart({ sel: { req: selReq, res: selRes }, years: model.chart.years, ages: model.chart.ages, stress, view: { breakdown: settings.invBreakdown, band: bandShown(settings.invPeriods, selReq), stressHidden } });
+  }, [model, selReq, selRes, chartMode, stressOn, settings.invBreakdown, settings.invPeriods, stressHidden, ...stressRes]);
   const chartModel = useMemo(() => {
     if (model === null || opened === null) return model;
     const m = investModel === null ? model : { ...model, invest: investModel };
@@ -1443,9 +1441,9 @@ export function App() {
   // 資産の内訳（ドーナツ）: 基準のプランと選んだプランを同じ年で（グラフで固定した年。固定していなければ取り崩しを始める年）。
   // グラフの上の「口座の内訳を表示」にチェックが入っているときだけ出す（既定は出さない）
   const donutOn = donutShown(settings.invBreakdown, investModel !== null && investModel.breakdown !== null);
-  // お金の3つの分け方（説明用。0032）: 選んでいるプランの、今の時点。資産と負債のタブの区画と、結果のタブの一行の知らせで同じ値
+  // お金の3つの分け方（説明用。0032）: 選んでいるプランの、今の時点。資産と負債のタブの区画で使う
   const m3Model = useMemo(() => {
-    if ((tab !== "balance" && tab !== "main") || selReq === null || selRes === null) return null;
+    if (tab !== "balance" || selReq === null || selRes === null) return null;
     try {
       return moneyThreeModel({ req: selReq, table: selRes.table, settings: bsSettings.moneyThree });
     } catch {
@@ -1456,11 +1454,6 @@ export function App() {
   useEffect(() => {
     if (tab !== "balance" && m3Flash !== 0) setM3Flash(0);
   }, [tab]);
-  const goMoneyThree = useCallback(() => {
-    setTab("balance");
-    setM3Flash((n) => n + 1);
-  }, []);
-  const m3Notice = m3Model !== null && m3Model.notice !== null ? <MoneyThreeNotice model={m3Model} onGo={goMoneyThree} /> : null;
   const donut = useMemo(() => {
     if (!donutOn || model === null || selReq === null || selRes === null || baseReq === null || baseRes === null || chartMode !== "assets") return null;
     const fixed = selectedYear !== null && model.chart.years.includes(selectedYear) && model.selectedYear === selectedYear ? selectedYear : null;
@@ -2035,7 +2028,6 @@ export function App() {
                     ...(donut !== null ? { after: donut } : {}),
                   }
                 : {})}
-              {...(m3Notice !== null ? { after: investModel !== null && explain === null && donut !== null ? <>{donut}{m3Notice}</> : m3Notice } : {})}
               tools={
                 <button type="button" class="set-btn" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)} data-settings-open>
                   表示の設定{settings.metrics.length > 0 ? <span class="memo-n">{settings.metrics.length}</span> : null}

@@ -1,5 +1,5 @@
 // 狭い画面（スマホ）での見え方と、バランスシートの図の純資産の箱:
-// - 狭い画面では、資産の推移のグラフの中の「○歳で不足」の文字を出さない（0の線の△と縦の点線は残す）。広い画面では今のまま
+// - 資産の推移のグラフの資産が尽きる所は、狭い画面でも広い画面と同じ「!」の段と点線（文字はどちらも出さない。short-mark.test.ts）
 // - グラフの使い方の文は、狭い画面・タッチの端末では短い文（「クリック」「Esc」を言わない）
 // - バランスシートの図: 純資産もほかの箱と同じ枠線なしのベタ塗り（箱の間に細い余白・角を少し丸める）。柱を囲む枠は描かない。狭い画面では図の外の札を出さず、図の下の一覧に出す
 // - バランスシートの図: 箱の中の文字はどれも白（色は白い文字が読める濃さ）。下の線は1本（目盛りの「0」の印と重ねない）
@@ -55,14 +55,15 @@ describe("狭い画面: 資産の推移のグラフ", () => {
   const m = chartModel();
   const draw = () => renderToString(h(MainChart, { model: m, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop }));
 
-  it("広い画面では「○歳で不足」の文字を出す。狭い画面では出さず、△と縦の点線は残す", () => {
+  it("資産が尽きる所は、狭い画面でも広い画面と同じ「!」と点線（「○歳で不足」の文字と△はどちらも出さない）", () => {
     expect(m.chart.depletions.length).toBeGreaterThan(0);
     const wide = draw();
-    expect(wide).toContain('class="dep-txt"');
     const small = narrow(draw);
-    expect(small).not.toContain('class="dep-txt"');
-    expect(small).toContain("dep-tri");
+    expect(small).toBe(wide);
+    expect(small).not.toContain("dep-txt");
+    expect(small).not.toContain("dep-tri");
     expect(small).toContain('class="dep-line"');
+    expect(small).toContain("data-short=");
   });
 
   it("使い方の文は長い文と短い文の両方を持ち、狭い画面・タッチの端末では短い文だけを見せる（CSS）", () => {

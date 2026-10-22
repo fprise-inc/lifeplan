@@ -417,13 +417,6 @@
   .m3-pop .m3-evt th { white-space: normal; vertical-align: bottom; }
   .m3-pop .m3-evt th, .m3-pop .m3-evt td { padding: 3px 2px; }
 }
-/* 結果のタブの一行の知らせ */
-.m3-notice { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; border: 1px solid #c9d4ea; background: var(--prop-bg); border-radius: 8px; padding: 7px 12px; font-size: 0.92rem; margin-top: 10px; }
-.m3-notice .ic { width: 18px; height: 18px; border-radius: 50%; background: var(--prop); color: #fff; display: inline-grid; place-items: center; font-size: 0.72rem; font-weight: 700; flex: none; }
-.m3-notice .tx { flex: 1 1 16em; min-width: 0; }
-.m3-notice .tx b { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.m3-notice .when { font-size: 0.76rem; color: var(--ink-2); margin-left: 4px; }
-.m3-notice .go { border: 0; background: none; color: var(--prop-ink); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; padding: 2px 0; white-space: nowrap; }
 @media (max-width: 980px) { .m3-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 600px) {
   .m3-memo { margin-left: 0; }
