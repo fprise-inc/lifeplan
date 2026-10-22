@@ -4,6 +4,7 @@
 // - 箱はどれも枠線なしのベタ塗りで、箱の間に細い余白（BOX_GAP）を空け、角を少し丸める（BOX_RADIUS）。純資産も同じ（色はアプリの藍の仲間）。
 //   左右の柱を囲む枠は描かない。箱の中の文字はどれも白（色はどれも白い文字が読める濃さ。balance.css）。下の線（0 の線）は箱の後に1本だけ描く
 //   今の年（事実）も先の年（見込み）も同じ見た目で、見込みかどうかは左上の札（「事実（今・入力した値）」「見込み（○年）」）で示す
+//   試作: URL の #bs=outlined では、箱を「薄い塗り＋同じ色相の枠線＋濃い文字」で描く（お金の3つの分け方の図の左の柱と同じ考え。bsStyle.ts）
 // - 純資産のマイナスは左の下に点線・灰色の斜線（ほかの箱と意味が違うので、ここだけ点線の枠）、資金の不足は右（その他の負債）に薄い赤の斜線
 // - 狭い画面（スマホ。narrow.ts）では、図の外の左右の札（名前と金額・金融資産のかっこ）を描かず、柱を幅いっぱいにして、
 //   名前と金額は箱の中と図の下の一覧（HTML。折り返すので画面の端で切れない）に出す
@@ -19,6 +20,7 @@ import { allocHeights, figureBoxes, spreadLabels, tickStep, FINANCIAL_GROUPS, ty
 import { FigTip, useFigTip, type FigTipData } from "./FigTip.tsx";
 import { group, man } from "./format.ts";
 import { useNarrow } from "./narrow.ts";
+import { edgeOf, tintOf, useBsBoxStyle, EDGE_W } from "./bsStyle.ts";
 import type { BsGroupKey, BsYearModel, Yen } from "./model.ts";
 import { useTween } from "./tween.ts";
 
@@ -49,8 +51,8 @@ export function useBoxSize<T extends HTMLElement>(initial = 720): { ref: { curre
 
 /** 項目の色（CSS の変数。balance.css）。分からない項目は分け方の色 */
 export const lineColor = (key: string, g?: BsGroupKey | "netWorth" | "neg") => `var(--bs-${key}, var(--bs-g-${g ?? "illiquid"}))`;
-/** 箱の中の文字の色: どの箱も白（色は白い文字が読める濃さにそろえてある。balance.css）。資金の不足の斜線だけ濃い文字 */
-const boxInk = (key: string) => (key === "short" ? "var(--ink)" : "#fff");
+/** 箱の中の文字の色: どの箱も白（色は白い文字が読める濃さにそろえてある。balance.css）。資金の不足の斜線と、枠線ありの版（薄い塗り）は濃い文字 */
+const boxInk = (key: string, outlined: boolean) => (outlined || key === "short" ? "var(--ink)" : "#fff");
 
 /** 箱の間の余白と角の丸み（図の座標。文字の大きさ 16px のときの px） */
 export const BOX_GAP = 2;
@@ -127,6 +129,9 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
   const { ref, w, fs: px } = useBoxSize<HTMLDivElement>(compact ? 420 : 760);
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const narrow = useNarrow();
+  const outlined = useBsBoxStyle() === "outlined";
+  /** 札・一覧の色の見本: 枠線ありの版は枠線の色（お金の3つの分け方の図と同じ） */
+  const sw = (c: string) => (outlined ? edgeOf(c) : c);
   const seen = useRef(new Map<string, { label: string; group: BsGroupKey }>());
   for (const l of year.lines) seen.current.set(l.key, { label: l.label, group: l.group });
   const total = Math.max(year.totalAssets, year.totalLiabilities, 1);
@@ -261,7 +266,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
       title: isNw ? "純資産" : isNeg ? "純資産のマイナス" : q.label,
       amount: amountOf(q.key),
       ...(note !== undefined ? { note } : {}),
-      swatch: isNw ? "var(--bs-netWorth)" : isNeg ? "#b5bcc6" : q.key === "short" ? "var(--bs-short-line)" : lineColor(q.key, d.box.key),
+      swatch: isNw ? sw("var(--bs-netWorth)") : isNeg ? "#b5bcc6" : q.key === "short" ? "var(--bs-short-line)" : sw(lineColor(q.key, d.box.key)),
       ...tipAt(d, q.y + q.h / 2),
     };
   };
@@ -269,10 +274,10 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
     const k = d.box.key;
     if (k === "netWorth" || k === "neg") return partTip(d, d.parts[0] as Drawn["parts"][number]);
     const ls = year.lines.filter((l) => l.group === k);
-    return { key: `g.${k}`, title: groups[k].name, amount: ls.reduce((a, l) => a + l.amount, 0), ...(ls.length > 1 ? { rows: ls.map((l) => ({ label: l.label, amount: l.amount })) } : {}), swatch: lineColor(ls[0]?.key ?? k, k), ...tipAt(d, (d.top + d.bot) / 2) };
+    return { key: `g.${k}`, title: groups[k].name, amount: ls.reduce((a, l) => a + l.amount, 0), ...(ls.length > 1 ? { rows: ls.map((l) => ({ label: l.label, amount: l.amount })) } : {}), swatch: sw(lineColor(ls[0]?.key ?? k, k)), ...tipAt(d, (d.top + d.bot) / 2) };
   };
   return (
-    <div class={`bsf${compact ? " compact" : ""}${est ? " est" : " fact"}`} ref={wrap} data-bs-figure={year.year}>
+    <div class={`bsf${compact ? " compact" : ""}${est ? " est" : " fact"}${outlined ? " outlined" : ""}`} ref={wrap} data-bs-figure={year.year} data-bs-style={outlined ? "outlined" : "filled"}>
       <div class="bsf-svg" ref={ref}>
         <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={`${label}。資産${fmt(year.totalAssets)}万円＝負債${fmt(year.totalLiabilities)}万円＋純資産${man(year.netWorth)}万円`}>
           <defs>
@@ -345,15 +350,20 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                   if (q.h < 0.3) return null;
                   const isNw = q.key === "netWorth";
                   const isNeg = q.key === "neg";
-                  const fill = q.key === "short" ? `url(#${uid}-ht)` : isNeg ? `url(#${uid}-ng)` : isNw ? "var(--bs-netWorth)" : lineColor(q.key, d.box.key);
-                  const inset = isNeg ? 1 : 0;
+                  const color = isNw ? "var(--bs-netWorth)" : lineColor(q.key, d.box.key);
                   // 箱の間の余白（上下に半分ずつ）。ごく薄い箱は余白で消えないよう、余白なしで描く
                   const g2 = q.h > BOX_GAP * 2.5 ? BOX_GAP / 2 : 0;
+                  // 枠線ありの版: 枠線が箱の外にはみ出さないよう、枠線の太さの半分だけ内側に描く（お金の3つの分け方の図と同じ）。
+                  // 枠線を描ける高さが無いごく薄い箱は、枠線の色のベタ塗りの細い線にする（薄い塗りだと見えなくなるため）
+                  const edged = outlined && !isNeg && q.h - 2 * g2 >= EDGE_W * 2;
+                  const thin = outlined && !isNeg && !edged;
+                  const fill = q.key === "short" ? `url(#${uid}-ht)` : isNeg ? `url(#${uid}-ng)` : thin ? edgeOf(color) : outlined ? tintOf(color) : color;
+                  const inset = isNeg ? 1 : edged ? EDGE_W / 2 : 0;
                   const rh = Math.max(0, q.h - 2 * inset - 2 * g2);
                   const name = short && q.key === "insurance" ? "返戻金" : short && q.key === "corporateDc" ? "DC" : q.label;
                   // 純資産の箱の中は、広い図では「資産 − 負債」の説明（名前と金額は図の外の札）。狭い画面ではほかの箱と同じく名前と金額
                   const showText = (!isNw || narrow) && !isNeg;
-                  const tf = boxInk(q.key);
+                  const tf = boxInk(q.key, outlined);
                   const ty = q.y + q.h / 2 + subF * 0.36;
                   // 名前と金額: 1行で間が取れれば1行、取れなければ金額を名前の下の行に、それも入らなければ金額だけ（狭い画面）か名前だけ
                   const fit = showText ? boxTextFit(name, fmt(q.value), colW, q.h, subF, narrow) : "none";
@@ -368,8 +378,8 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                         height={rh}
                         rx={Math.min(BOX_RADIUS, rh / 2, colW / 2)}
                         fill={fill}
-                        stroke={isNeg ? "var(--base-ink)" : undefined}
-                        stroke-width={isNeg ? 1.8 : undefined}
+                        stroke={isNeg ? "var(--base-ink)" : edged ? (q.key === "short" ? "var(--bs-short-line)" : edgeOf(color)) : undefined}
+                        stroke-width={isNeg ? 1.8 : edged ? EDGE_W : undefined}
                         stroke-dasharray={isNeg ? "6 4" : undefined}
                       />
                       {fit === "one" || fit === "two" || fit === "name" ? (
@@ -391,7 +401,7 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
                   );
                 })}
                 {d.box.key === "netWorth" && d.bot - d.top >= fs * 2.4 && !compact && !narrow ? (
-                  <text x={d.x + colW / 2} y={(d.top + d.bot) / 2 + fs * 0.32} text-anchor="middle" font-size={fs * 0.86} fill="#fff" font-weight="700">
+                  <text x={d.x + colW / 2} y={(d.top + d.bot) / 2 + fs * 0.32} text-anchor="middle" font-size={fs * 0.86} fill={outlined ? "var(--ink-2)" : "#fff"} font-weight="700">
                     資産 − 負債
                   </text>
                 ) : null}
@@ -488,14 +498,17 @@ export function BsFigure({ year, groups, scale, compact = false, height, noTag =
         </svg>
         {figTip.tip !== null && openBox === null ? <FigTip d={figTip.tip} W={W} H={H} /> : null}
       </div>
-      {narrow ? <BoxList year={year} groups={groups} /> : null}
-      {openBox !== null ? <BoxPop d={openBox} year={year} name={nameOf(openBox.box)} colW={colW} xL={xL} xR={xR} W={W} onClose={() => setOpen(null)} /> : null}
+      {narrow ? <BoxList year={year} groups={groups} outlined={outlined} /> : null}
+      {openBox !== null ? <BoxPop d={openBox} year={year} name={nameOf(openBox.box)} colW={colW} xL={xL} xR={xR} W={W} outlined={outlined} onClose={() => setOpen(null)} /> : null}
     </div>
   );
 }
 
+/** 小窓・一覧の色の見本の形: 枠線ありの版は薄い塗り＋枠線（お金の3つの分け方の図の見本と同じ） */
+const swatchStyle = (color: string, outlined: boolean) => (outlined ? { background: tintOf(color), border: `1.5px solid ${edgeOf(color)}`, boxSizing: "border-box" as const } : { background: color });
+
 /** 箱を押したときの内訳の小窓 */
-function BoxPop({ d, year, name, colW, xL, xR, W, onClose }: { d: Drawn; year: BsYearModel; name: string; colW: number; xL: number; xR: number; W: number; onClose: () => void }) {
+function BoxPop({ d, year, name, colW, xL, xR, W, outlined, onClose }: { d: Drawn; year: BsYearModel; name: string; colW: number; xL: number; xR: number; W: number; outlined: boolean; onClose: () => void }) {
   const el = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 340, h: 160 });
   useLayoutEffect(() => {
@@ -507,7 +520,7 @@ function BoxPop({ d, year, name, colW, xL, xR, W, onClose }: { d: Drawn; year: B
   const row = (key: string, label: string, v: Yen, cls = "", sw?: string) => (
     <div class={`r ${cls}`} key={key}>
       <span>
-        {sw !== undefined ? <i style={{ background: sw }} class={key === "short" ? "ht" : ""} /> : null}
+        {sw !== undefined ? <i style={swatchStyle(sw, outlined)} class={key === "short" ? "ht" : ""} /> : null}
         {label}
       </span>
       <span class="num">{man(v)}万円</span>
@@ -531,7 +544,7 @@ function BoxPop({ d, year, name, colW, xL, xR, W, onClose }: { d: Drawn; year: B
   return (
     <div class={`bsf-pop ${leftSide ? "to-r" : "to-l"}`} ref={el} style={{ left: `${left}px`, top: `${top}px` }} role="dialog" aria-label={`${name}の内訳`} data-bs-pop={k} onClick={(e) => e.stopPropagation()}>
       <div class="pt">
-        <span class="sw" style={{ background: k === "netWorth" ? "var(--bs-netWorth)" : k === "neg" ? "#fff" : lineColor(lines[0]?.key ?? k, k) }} />
+        <span class="sw" style={k === "neg" ? { background: "#fff" } : swatchStyle(k === "netWorth" ? "var(--bs-netWorth)" : lineColor(lines[0]?.key ?? k, k), outlined)} />
         {name}
         <span class="py num">{year.year}年</span>
         <button type="button" class="x" aria-label="閉じる" onClick={onClose}>
@@ -545,7 +558,7 @@ function BoxPop({ d, year, name, colW, xL, xR, W, onClose }: { d: Drawn; year: B
 }
 
 /** 狭い画面で図の下に出す、箱の名前と金額の一覧（左: 資産、右: 負債と純資産。その年の値。補間の途中の値は出さない） */
-function BoxList({ year, groups }: { year: BsYearModel; groups: Record<BsGroupKey, { name: string; short: string }> }) {
+function BoxList({ year, groups, outlined }: { year: BsYearModel; groups: Record<BsGroupKey, { name: string; short: string }>; outlined: boolean }) {
   const { left, right } = figureBoxes(year);
   const fin = year.lines.filter((l) => FINANCIAL_GROUPS.includes(l.group)).reduce((s, l) => s + l.amount, 0);
   const item = (b: FigBox) => {
@@ -554,7 +567,7 @@ function BoxList({ year, groups }: { year: BsYearModel; groups: Record<BsGroupKe
     const sw = nw ? "var(--bs-netWorth)" : ng ? undefined : lineColor(b.parts[0]?.key ?? b.key, b.key as BsGroupKey);
     return (
       <li key={b.key} class={nw ? "nw" : ng ? "ng" : ""} data-bs-list={b.key}>
-        <i class={ng ? "ng" : b.parts[0]?.key === "short" ? "ht" : ""} style={sw !== undefined ? { background: sw } : undefined} aria-hidden="true" />
+        <i class={ng ? "ng" : b.parts[0]?.key === "short" ? "ht" : ""} style={sw !== undefined ? swatchStyle(sw, outlined) : undefined} aria-hidden="true" />
         <span class="nm">{nw ? "純資産" : ng ? "純資産のマイナス" : groups[b.key as BsGroupKey].name}</span>
         <span class="am num">
           {ng ? "▲" : ""}
