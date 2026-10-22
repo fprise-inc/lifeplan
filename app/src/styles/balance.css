@@ -390,22 +390,33 @@
 .m3-stp button:disabled { color: #a3a9b1; cursor: default; }
 .m3-stp input { width: 3em; border: 0; text-align: center; font-weight: 700; font-size: 1rem; padding: 3px 0; -moz-appearance: textfield; appearance: textfield; background: #fff; color: var(--ink); font-variant-numeric: tabular-nums; }
 .m3-stp input::-webkit-outer-spin-button, .m3-stp input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.m3-more { margin-top: 6px; font-size: 0.84rem; }
-.m3-more summary { cursor: pointer; color: var(--prop-ink); font-weight: 700; }
 .m3-evt { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 0.8rem; }
 .m3-evt th, .m3-evt td { padding: 3px 4px; border-bottom: 1px solid var(--line-2); text-align: left; vertical-align: top; }
 .m3-evt th { font-weight: 700; color: var(--ink-2); white-space: nowrap; }
 .m3-evt td.r, .m3-evt th.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .m3-evt td.z { color: #8a929c; }
 .m3-evt tfoot td { font-weight: 700; border-bottom: 0; }
-/* 貯めるお金の「内訳を見る」の小窓（広い幅ではカードの左に、図の上に重ねて出す。狭い幅ではカードの下に重ねる） */
+/* 貯めるお金の「内訳を見る」の小窓（広い幅ではカードの左に、図の上に重ねて出す。狭い幅ではカードの下に重ねる）。
+   ボタンは文字の右に小窓の印（ChartPip.tsx の PipIcon。グラフを小窓で出すボタンと同じ印）。
+   小窓の高さは画面の高さまで（見出しは止めたまま、表の所だけ縦にスクロール）。表は横にはスクロールさせない（できごとの名前を折り返す） */
 .m3-card { position: relative; }
-.m3-open { font-size: 0.84rem; font-weight: 700; margin-top: 2px; }
-.m3-pop { position: absolute; z-index: 8; top: 0; right: calc(100% + 10px); width: min(440px, 92vw); max-height: min(70vh, 560px); overflow: auto; background: #fff; border: 1.5px solid var(--ink-2); border-radius: 10px; box-shadow: 0 6px 18px rgba(20, 30, 50, 0.18); padding: 10px 12px; }
-.m3-pop-h { display: flex; align-items: center; gap: 8px; }
+.m3-open { display: inline-flex; align-items: center; gap: 4px; font-size: 0.84rem; font-weight: 700; margin-top: 2px; }
+.m3-open .pip-i { display: inline-block; width: 1.3em; height: 1.3em; }
+.m3-pop { position: absolute; z-index: 8; top: 0; right: calc(100% + 10px); width: min(480px, calc(100vw - 32px)); max-height: min(calc(100vh - 24px), 720px); max-height: min(calc(100dvh - 24px), 720px); box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; scroll-margin: 12px; background: #fff; border: 1.5px solid var(--ink-2); border-radius: 10px; box-shadow: 0 6px 18px rgba(20, 30, 50, 0.18); padding: 10px 0 0; }
+.m3-pop-h { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px 6px; border-bottom: 1px solid var(--line-2); }
 .m3-pop-h .m3-am { margin-left: auto; font-size: 1.1rem; }
 .m3-pop-h .x { border: none; background: none; font-size: 1.1rem; cursor: pointer; line-height: 1; padding: 0 4px; color: var(--ink-2); }
+.m3-pop-b { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 0 12px 10px; }
+.m3-pop .m3-evt td:nth-child(2) { overflow-wrap: anywhere; }
+.m3-pop .m3-evt thead th { position: sticky; top: 0; background: #fff; }
 @media (max-width: 980px) { .m3-pop { right: 0; left: 0; top: auto; width: auto; margin-top: 4px; } }
+/* 狭い幅（文字「大」も）: 小窓をカードの枠いっぱいまで広げ、表の見出しは折り返す（横にはみ出さない） */
+@media (max-width: 600px) {
+  .m3-pop { left: -6px; right: -6px; }
+  .m3-pop-h, .m3-pop-b { padding-left: 8px; padding-right: 8px; }
+  .m3-pop .m3-evt th { white-space: normal; vertical-align: bottom; }
+  .m3-pop .m3-evt th, .m3-pop .m3-evt td { padding: 3px 2px; }
+}
 /* 結果のタブの一行の知らせ */
 .m3-notice { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; border: 1px solid #c9d4ea; background: var(--prop-bg); border-radius: 8px; padding: 7px 12px; font-size: 0.92rem; margin-top: 10px; }
 .m3-notice .ic { width: 18px; height: 18px; border-radius: 50%; background: var(--prop); color: #fff; display: inline-grid; place-items: center; font-size: 0.72rem; font-weight: 700; flex: none; }

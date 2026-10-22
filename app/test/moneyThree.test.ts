@@ -5,7 +5,7 @@ import { h } from "preact";
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, TableCell } from "../src/engine/types.ts";
 import { FigTip } from "../src/presentation/FigTip.tsx";
-import { MoneyThreeCards, MoneyThreeFigure, MoneyThreeNotice, MoneyThreeSection } from "../src/presentation/MoneyThree.tsx";
+import { MoneyThreeCards, MoneyThreeFigure, MoneyThreeNotice, MoneyThreeSection, SavePopBody } from "../src/presentation/MoneyThree.tsx";
 import type { MoneyThreeModel } from "../src/presentation/model.ts";
 import { DEFAULT_MONEY_THREE, MONEY_THREE_LIST_MAX, moneyThreeModel, placementOf, readMoneyThree } from "../src/workspace/moneyThree.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -130,6 +130,10 @@ describe("お金の3つの分け方の提示用の値（0032）", () => {
     expect(save).not.toContain('data-m3-items="save"');
     expect(save).toContain("data-m3-save-open");
     expect(save).toContain("内訳を見る");
+    // 小窓が開くことが分かる印（グラフを小窓で出すボタンと同じ印）と、読み上げの手がかり
+    expect(save).toContain('data-pip-icon="pip"');
+    expect(save).toContain('aria-haspopup="dialog"');
+    expect(save).toContain('aria-expanded="false"');
     expect(save).toMatch(/の できごと 2件/);
     expect(save).not.toContain("<details");
     // 使うお金・増やすお金の一覧は出したまま
@@ -146,9 +150,12 @@ describe("お金の3つの分け方の提示用の値（0032）", () => {
     for (const k of ["spend", "save", "grow"]) expect(html).toContain(`data-m3-items="${k}"`);
     // 貯めるお金の一覧は details の外（いつも見える）
     const save = html.slice(html.indexOf('data-m3-box="save"'), html.indexOf('data-m3-box="grow"'));
-    expect(save.indexOf('data-m3-items="save"')).toBeLessThan(save.indexOf("<details"));
+    expect(save).toContain('data-m3-items="save"');
+    expect(save).not.toContain("<details");
     expect(save).toContain("2027");
-    expect(save).toContain("内訳を見る");
+    // 全部の年の表は、画面と同じ「内訳を見る」の小窓（同じ印）
+    expect(save).toContain("data-m3-save-open");
+    expect(save).toContain('data-pip-icon="pip"');
     expect(html).toContain('data-m3-step="months"');
     // 持ち帰り用（欄なし）は文で書く
     const ro = renderToString(h(MoneyThreeCards, { model: m }));
@@ -156,6 +163,20 @@ describe("お金の3つの分け方の提示用の値（0032）", () => {
     expect(ro).toContain("ふだんの支出 月32万円 × 6か月");
     expect(renderToString(h(MoneyThreeNotice, { model: m, onGo: () => {} }))).toContain("資産と負債で見る →");
     expect(renderToString(h(MoneyThreeSection, { model: m, onSettings: () => {} }))).toContain("説明用の図です。キャッシュフロー表・結果の計算には混ぜません");
+  });
+  it("貯めるお金の小窓: 最初から全部の年の表（賄えない分が 0 の年も・合計の行・収入の残りの説明）。折りたたみは無い", () => {
+    // 2028 年は収入で賄える（賄えない分 0）
+    const events: [number, number][] = [[2027, 300 * MAN], [2028, 1 * MAN], [2029, 400 * MAN]];
+    const m = moneyThreeModel({ ...synthetic({ deposit: 100 * MAN, nisa: 900 * MAN, events }), settings: DEFAULT_MONEY_THREE });
+    const pop = renderToString(h(SavePopBody, { model: m, onClose: () => {} }));
+    expect(pop).not.toContain("<details");
+    for (const th of ["年", "できごと", "支出", "収入の残り", "賄えない分"]) expect(pop).toContain(`>${th}</th>`);
+    for (const y of m.table.map((r) => r.year)) expect(pop).toContain(`>${y}</td>`);
+    expect(m.table.some((r) => r.uncovered === 0)).toBe(true);
+    expect(pop).toContain('class="r z"');
+    expect(pop).toContain("合計（万円）");
+    expect(pop).toContain("収入の残り＝");
+    expect(pop).toContain('aria-label="閉じる"');
   });
   it("図: ずれている分の斜線・点線の枠・札・左右をつなぐ点線は描かない（区画の上の一文で示す）。箱はどれもフォーカスでき、名前と金額を札で読める", () => {
     const events: [number, number][] = [[2027, 300 * MAN]];
