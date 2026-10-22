@@ -2,7 +2,7 @@
 // report-pdf をビルドしていなければ飛ばす（CI では REPORT_PDF_REQUIRED=1 で必須にする）
 import { describe, expect, it } from "vitest";
 import { buildProposalInput } from "../src/build.ts";
-import type { ProposalInput, ReportLayout } from "../src/input.ts";
+import type { ProposalInput, ReportLayout, ScenarioView } from "../src/input.ts";
 import { renderAndExtract, reportPdfBin, sampleFrame } from "../scripts/reportPdf.ts";
 import { SAMPLES } from "../scripts/sampleBundles.ts";
 import { byYear, man, normalize, ROWS, UUID, yenText } from "./helpers.ts";
@@ -17,6 +17,26 @@ const withLayout = (input: ProposalInput, layout: ReportLayout): ProposalInput =
 
 /** meta.json の各ページの大きさから向き（L・P）を並べる */
 const orientations = (r: { meta: { sizes: [number, number][] } }): string => r.meta.sizes.map(([w, h]) => (w > h ? "L" : "P")).join("");
+
+/** 資産の推移の図の「!」（図の下の説明に出す文）。帳票の側（layout.typ の plan-shorts）と同じ決め方 */
+const shortsOf = (input: ProposalInput): string[] => [
+  ...(input.summary.proposal.depletion !== null ? [`提案 ${input.summary.proposal.depletion.label}`] : []),
+  ...(input.summary.current.depletion !== null ? [`現状 ${input.summary.current.depletion.label}`] : []),
+];
+/** 万一のときの図の「!」（万一の場合と、万一なし＝提案の線） */
+const contingencyShortsOf = (input: ProposalInput, sc: ScenarioView): string[] => [
+  ...(sc.depletion !== null ? [`万一の場合 ${sc.depletion.label}`] : []),
+  ...(input.summary.proposal.depletion !== null ? [`万一なし ${input.summary.proposal.depletion.label}`] : []),
+];
+/** ページの「!」が、段の丸と図の下の説明の丸で、印の数の2倍だけある。説明の一行は印があるときだけ。以前の「提案 不足」の札は無い */
+function expectShorts(page: string, labels: string[]): void {
+  const t = normalize(page);
+  expect(tokens(page).filter((x) => x === "!").length).toBe(labels.length * 2);
+  if (labels.length === 0) expect(t).not.toContain(normalize("金融資産が足りなくなる年"));
+  else expect(t).toContain(normalize(`金融資産が足りなくなる年 ! ${labels.join(" ! ")}`));
+  // 以前の札（「提案 不足」「現状 不足」）。要約の札の「現状 不足しない」は別の文
+  expect(t).not.toMatch(/(提案|現状)不足(?!しない)/);
+}
 
 describe.skipIf(bin === null)("見本の PDF", () => {
   for (const s of SAMPLES) {
@@ -127,6 +147,21 @@ describe.skipIf(bin === null)("見本の PDF", () => {
         for (const st of periods.steps) expect(text, st.label).toContain(normalize(st.label));
         // 凡例に出すときは、段の始まりの年も書く
         if (text.includes(normalize("積み立てる額"))) for (const st of periods.steps) expect(text).toContain(normalize(`${st.year}年〜`));
+      });
+
+      it("資産の推移の図（世帯サマリー・資産残高の推移・万一のとき）: 足りなくなる年に「!」が出て、図の下に年の説明が出る。足りなくならなければ出ない。「不足」の札は出さない", () => {
+        const plan = shortsOf(input);
+        // 世帯サマリーのページ（表の期間の合計の表といっしょ）と、資産残高の推移のページ（5年ごとの表といっしょ）。目次のページは除く
+        for (const head of ["表の期間の合計", "5年ごとの金融資産残高"]) {
+          const page = r.pages.find((p) => normalize(p).includes(normalize(head)));
+          expect(page, head).toBeDefined();
+          expectShorts(page as string, plan);
+        }
+        for (const sc of input.contingency?.scenarios ?? []) {
+          const page = r.pages.find((p) => normalize(p).includes(normalize(sc.title)) && normalize(p).includes(normalize("万一が無い場合（提案）")));
+          expect(page, sc.title).toBeDefined();
+          expectShorts(page as string, contingencyShortsOf(input, sc));
+        }
       });
 
       it("PDF の文字に内部 ID・提供元の名前が入らない", () => {
@@ -243,4 +278,34 @@ describe.skipIf(bin === null)("バランスシートの図の時点（画面で�
       expect(page).toContain(normalize("金融資産が尽きた後の足りない分"));
     });
   }
+});
+
+describe.skipIf(bin === null)("資産が足りなくなる所の「!」（年を変えた帳票の入力）", () => {
+  const s = SAMPLES.find((x) => x.id === "salariedCoupleTwoKids") as (typeof SAMPLES)[number];
+  const bundle = s.bundle();
+  const input = buildProposalInput(bundle);
+  const summaryPage = (x: ProposalInput) => {
+    const r = renderAndExtract(bin as string, x, sampleFrame(bundle, x));
+    return r.pages.find((p) => normalize(p).includes(normalize("表の期間の合計"))) as string;
+  };
+
+  it("見本の世帯は現状も提案も足りなくなる（以下の確かめの前提）", () => {
+    expect(input.summary.current.depletion).not.toBeNull();
+    expect(input.summary.proposal.depletion).not.toBeNull();
+  });
+
+  it("現状と提案が同じ年に足りなくなるときも、丸を2つ出す（横に並べる）", () => {
+    const same = { ...input, summary: { ...input.summary, current: { ...input.summary.current, depletion: input.summary.proposal.depletion } } };
+    expectShorts(summaryPage(same), shortsOf(same));
+  });
+
+  it("提案だけが足りなくならないときは、現状の丸（白抜き）だけを出す", () => {
+    const only = { ...input, summary: { ...input.summary, proposal: { ...input.summary.proposal, depletion: null } } };
+    expectShorts(summaryPage(only), [`現状 ${(input.summary.current.depletion as { label: string }).label}`]);
+  });
+
+  it("どちらも足りなくならないときは、丸も説明の一行も出さない", () => {
+    const none = { ...input, summary: { ...input.summary, current: { ...input.summary.current, depletion: null }, proposal: { ...input.summary.proposal, depletion: null } } };
+    expectShorts(summaryPage(none), []);
+  });
 });

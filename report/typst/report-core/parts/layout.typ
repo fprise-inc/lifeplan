@@ -101,11 +101,86 @@
   m * mag
 }
 
+// ---- 金融資産が足りなくなる所の印（アプリの画面のグラフと同じ形）----
+// 「!」の丸を、グラフの面のすぐ下（年の目盛りのすぐ上）の専用の段に置き、線が0を切る所（足りなくなる年の位置の0の線）から赤い点線でつなぐ。
+// 選んだプラン（提案・万一の場合）は赤の塗りに白い「!」、基準のプラン（現状・万一なし）は白抜きに赤い「!」。
+// 白黒で刷っても分かれるように、白抜きの枠は太めにし、点線は丸い点の並び（系列の破線とも目盛りの細い線とも違う形）にする
+
+/// 「!」の丸の半径と、段の高さ（丸の直径と、上の余白 3pt・下の余白 2pt）
+#let short-r = 4.6pt
+#let short-row = 2 * short-r + 5pt
+/// 線が0を切る所から「!」までの点線
+#let short-stroke = (paint: warn, thickness: 1.2pt, dash: "dotted", cap: "round")
+
+/// 「!」の丸（base: 基準のプランの白抜き）。グラフの段と、図の下の説明の両方で使う
+#let short-dot(base: false) = box(width: 2 * short-r, height: 2 * short-r, {
+  place(top + left, circle(radius: short-r, fill: if base { white } else { warn }, stroke: (if base { 1.1pt } else { 0.6pt }) + warn))
+  place(center + horizon, text(size: 7pt, weight: "bold", fill: if base { warn } else { white }, "!"))
+})
+
+/// 丸の x を、重ならないように並べ直す（近い丸はまとめて、元の位置の平均を中心に gap の間隔で並べる。lo〜hi の中に収める）。
+/// アプリの画面のグラフ（presentation の chart.ts の spreadX）と同じ決め方
+#let spread-x(xs, gap, lo, hi) = {
+  let order = range(xs.len()).sorted(key: i => xs.at(i).pt())
+  let left-of(ids, sum) = {
+    let span = (ids.len() - 1) * gap
+    calc.max(lo, calc.min(hi - span, sum / ids.len() - span / 2))
+  }
+  let groups = ()
+  for i in order {
+    let x = xs.at(i)
+    groups.push((ids: (i,), sum: x, left: left-of((i,), x)))
+    // 前のまとまりと重なる間は1つにまとめる
+    while groups.len() >= 2 {
+      let b = groups.at(-1)
+      let a = groups.at(-2)
+      if a.left + a.ids.len() * gap <= b.left + 0.01pt { break }
+      let ids = a.ids + b.ids
+      let sum = a.sum + b.sum
+      let _ = groups.pop()
+      let _ = groups.pop()
+      groups.push((ids: ids, sum: sum, left: left-of(ids, sum)))
+    }
+  }
+  let out = xs.map(_ => 0pt)
+  for g in groups {
+    for (k, id) in g.ids.enumerate() { out.at(id) = g.left + k * gap }
+  }
+  out
+}
+
+/// 現状と提案の「!」（帳票の入力の summary から。現状は白抜き）
+#let plan-shorts(s) = {
+  let out = ()
+  if s.current.depletion != none { out.push((year: s.current.depletion.year, base: true, label: "現状 " + s.current.depletion.label)) }
+  if s.proposal.depletion != none { out.push((year: s.proposal.depletion.year, base: false, label: "提案 " + s.proposal.depletion.label)) }
+  out
+}
+
+/// 図の下の説明（紙ではカーソルの札が出せないので、画面の札と同じ言葉で年を書く）。選んだプランを先に書く
+#let short-note(shorts) = {
+  if shorts.len() == 0 { return none }
+  block({
+    set text(size: 7pt, fill: ink)
+    [金融資産が足りなくなる年]
+    for m in shorts.sorted(key: m => if m.base { 1 } else { 0 }) {
+      h(8pt)
+      box(baseline: 1.9pt, short-dot(base: m.base))
+      h(2.5pt)
+      m.label
+    }
+  })
+}
+
 /// 折れ線のグラフ（年を横軸、金額を縦軸。万円の目盛り）。
-/// series: ((label: "提案", values: (…円…), stroke: 線, mark: "●")…)。値の縮尺を合わせるだけで、値は変えない
-#let line-chart(years, series, height: 150pt, marks: ()) = {
+/// series: ((label: "提案", values: (…円…), stroke: 線, mark: "●")…)。値の縮尺を合わせるだけで、値は変えない。
+/// shorts: 金融資産が足りなくなる所の「!」（(year: 年, base: 白抜きか, label: 図の下の説明の文)…。年が表の期間に無いものは描かない）
+#let line-chart(years, series, height: 150pt, shorts: ()) = {
   let n = years.len()
   if n == 0 { return none }
+  let shorts = shorts.filter(m => years.contains(m.year))
+  // 「!」の段（あるときだけ、面と年の目盛りの間に設ける）
+  let row = if shorts.len() > 0 { short-row } else { 0pt }
   let all = series.map(s => s.values).flatten().map(v => v / 10000)
   let lo = calc.min(0, ..all)
   let hi = calc.max(0, ..all)
@@ -113,13 +188,13 @@
   lo = calc.floor(lo / step) * step
   hi = calc.ceil(hi / step) * step
   if hi == lo { hi = lo + step }
-  layout(size => {
+  let chart = layout(size => {
     let left-w = 46pt
     let w = size.width - left-w - 4pt
     let ht = height
     let xs(i) = left-w + (if n == 1 { w / 2 } else { w * i / (n - 1) })
     let ys(v) = ht - ht * (v / 10000 - lo) / (hi - lo)
-    block(width: 100%, height: ht + 44pt, inset: (top: 14pt), {
+    block(width: 100%, height: ht + row + 44pt, inset: (top: 14pt), {
       // 目盛りの線と数字
       let t = lo
       while t <= hi + step / 1000 {
@@ -133,7 +208,7 @@
       for (i, y) in years.enumerate() {
         let last-near = i == n - 1 and calc.rem(y, 5) != 0 and calc.rem(y, 5) <= 2 and n > 5
         if calc.rem(y, 5) == 0 or i == 0 or (i == n - 1 and not last-near) {
-          place(top + left, dx: xs(i) - 12pt, dy: ht + 3pt, box(width: 24pt, align(center, text(size: 6.5pt, fill: muted, str(y)))))
+          place(top + left, dx: xs(i) - 12pt, dy: ht + row + 3pt, box(width: 24pt, align(center, text(size: 6.5pt, fill: muted, str(y)))))
         }
       }
       // 系列
@@ -143,16 +218,20 @@
           place(top + left, curve(stroke: s.stroke, curve.move(pts.at(0)), ..pts.slice(1).map(p => curve.line(p))))
         }
       }
-      // 印（資産が尽きる年など）
-      for m in marks {
-        let i = years.position(y => y == m.year)
-        if i != none {
-          place(top + left, dx: xs(i) - 0.4pt, dy: 0pt, line(start: (0pt, 0pt), end: (0pt, ht), stroke: (paint: warn, thickness: 0.6pt, dash: "dashed")))
-          place(top + left, dx: xs(i) + 2pt, dy: 2pt, text(size: 6.5pt, fill: warn, m.label))
+      // 金融資産が足りなくなる所: 0の線から面の下の端までまっすぐ下ろし、そこから「!」の丸へ折る点線と、段の丸（同じ年の丸は横に並べる）
+      if shorts.len() > 0 {
+        let x0 = shorts.map(m => xs(years.position(y => y == m.year)))
+        let at = spread-x(x0, 2 * short-r + 1.5pt, left-w + short-r, left-w + w - short-r)
+        let cy = ht + 3pt + short-r
+        for (j, m) in shorts.enumerate() {
+          place(top + left, curve(stroke: short-stroke, curve.move((x0.at(j), ys(0))), curve.line((x0.at(j), ht)), curve.line((at.at(j), cy - short-r))))
+        }
+        for (j, m) in shorts.enumerate() {
+          place(top + left, dx: at.at(j) - short-r, dy: cy - short-r, short-dot(base: m.base))
         }
       }
       // 凡例
-      place(top + left, dx: left-w, dy: ht + 16pt, {
+      place(top + left, dx: left-w, dy: ht + row + 16pt, {
         set text(size: 7pt)
         for s in series {
           box(baseline: -2.5pt, line(length: 16pt, stroke: s.stroke))
@@ -163,6 +242,8 @@
       })
     })
   })
+  // 図の下の説明は図とひとかたまりにする（図と説明の間は詰め、説明の後ろは「!」が無いときの図と同じ間隔）
+  if shorts.len() == 0 { chart } else { stack(dir: ttb, spacing: 2pt, chart, short-note(shorts)) }
 }
 
 /// 年を行にした縦の表（YearTable）。列の数が多いときは文字を小さくする
