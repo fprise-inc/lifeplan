@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { buildProposalInput } from "../src/build.ts";
 import type { ProposalInput, ReportLayout, ScenarioView } from "../src/input.ts";
-import { renderAndExtract, reportPdfBin, sampleFrame } from "../scripts/reportPdf.ts";
+import { type RenderResult, renderAndExtract, reportPdfBin, sampleFrame } from "../scripts/reportPdf.ts";
 import { SAMPLES } from "../scripts/sampleBundles.ts";
 import { byYear, man, normalize, ROWS, UUID, yenText } from "./helpers.ts";
 
@@ -280,14 +280,139 @@ describe.skipIf(bin === null)("バランスシートの図の時点（画面で�
   }
 });
 
+// ---- 図の線の位置（見本の SVG から取り出す）----
+type Pt = [number, number];
+interface SvgLine {
+  stroke: string;
+  dash: string | null;
+  transform: string;
+  pts: Pt[];
+}
+/** SVG の線（折れ線だけ。d の「M 0 0」の後の相対の m・l・h・v を足していく。曲線を含む線は除く） */
+function svgLines(svg: string): SvgLine[] {
+  const out: SvgLine[] = [];
+  for (const m of svg.matchAll(/<path [^>]*>/g)) {
+    const tag = m[0];
+    const attr = (k: string): string | null => new RegExp(` ${k}="([^"]*)"`).exec(tag)?.[1] ?? null;
+    const stroke = attr("stroke");
+    const d = attr("d");
+    if (stroke === null || d === null || /[^MmLlHhVv\d\s.eE+-]/.test(d)) continue;
+    const pts: Pt[] = [];
+    let x = 0;
+    let y = 0;
+    for (const c of d.matchAll(/([MmLlHhVv])([^MmLlHhVv]*)/g)) {
+      const n = (c[2] as string).trim().split(/\s+/).filter((t) => t !== "").map(Number);
+      const op = c[1] as string;
+      if (op === "M") [x, y] = [n[0] as number, n[1] as number];
+      else if (op === "m" || op === "l") [x, y] = [x + (n[0] as number), y + (n[1] as number)];
+      else if (op === "h") x += n[0] as number;
+      else if (op === "v") y += n[0] as number;
+      else continue;
+      // 最初の「M 0 0」は起点を決めるだけ
+      if (op !== "M") pts.push([x, y]);
+    }
+    out.push({ stroke, dash: attr("stroke-dasharray"), transform: attr("transform") ?? "", pts });
+  }
+  return out;
+}
+/** 「!」の点線（赤の丸い点の並び）と、資産の推移の線（選んだプランの実線と基準のプランの破線。点の数が年の数のもの） */
+function shortLines(svg: string, n: number): { dotted: SvgLine[]; solid: SvgLine; dashed: SvgLine } {
+  const lines = svgLines(svg);
+  const dotted = lines.filter((l) => l.stroke === "#b42318" && l.dash === "1.2 2");
+  const series = lines.filter((l) => l.pts.length === n && l.transform === dotted[0]?.transform);
+  const solid = series.filter((l) => l.dash === null);
+  const dashed = series.filter((l) => l.dash === "3 3");
+  expect(solid.length).toBe(1);
+  expect(dashed.length).toBe(1);
+  return { dotted, solid: solid[0] as SvgLine, dashed: dashed[0] as SvgLine };
+}
+/** 線が0を切る所（前の年と足りなくなる年の金額を直線で結んで0になる所）の、図の上の点。前の年が無い・前の年もマイナスのときは、その年の点の x と y: null */
+function crossAt(line: SvgLine, values: readonly number[], i: number): { x: number; y: number | null } {
+  const a = values[i - 1];
+  const b = values[i] as number;
+  const p = line.pts[i] as Pt;
+  if (i <= 0 || a === undefined || a < 0 || b >= 0) return { x: p[0], y: null };
+  const q = line.pts[i - 1] as Pt;
+  const t = a / (a - b);
+  return { x: q[0] + (p[0] - q[0]) * t, y: q[1] + (p[1] - q[1]) * t };
+}
+/**
+ * ページの「!」の点線の上端が、線が0を切る所にある（y は、その所の線の高さ＝0の線）。
+ * 点線の下の端（丸の上の端）は、近い丸を並べ直したときも、元の位置（0を切る所）の平均を中心に置く
+ */
+function expectShortCross(svg: string, years: readonly number[], marks: { year: number; values: readonly number[]; base: boolean }[]): void {
+  const { dotted, solid, dashed } = shortLines(svg, years.length);
+  expect(dotted.length).toBe(marks.length);
+  const want = marks.map((m) => crossAt(m.base ? dashed : solid, m.values, years.indexOf(m.year)));
+  const tops = dotted.map((l) => l.pts[0] as Pt).sort((p, q) => p[0] - q[0]);
+  const sorted = [...want].sort((p, q) => p.x - q.x);
+  sorted.forEach((w, k) => {
+    const top = tops[k] as Pt;
+    expect(top[0]).toBeCloseTo(w.x, 2);
+    if (w.y !== null) expect(top[1]).toBeCloseTo(w.y, 2);
+  });
+  const ends = dotted.map((l) => (l.pts.at(-1) as Pt)[0]);
+  const mean = (v: number[]): number => v.reduce((a, b) => a + b, 0) / v.length;
+  expect(mean(ends)).toBeCloseTo(mean(want.map((w) => w.x)), 2);
+}
+
 describe.skipIf(bin === null)("資産が足りなくなる所の「!」（年を変えた帳票の入力）", () => {
   const s = SAMPLES.find((x) => x.id === "salariedCoupleTwoKids") as (typeof SAMPLES)[number];
   const bundle = s.bundle();
   const input = buildProposalInput(bundle);
+  const years = input.basis.years;
+  const render = (x: ProposalInput) => renderAndExtract(bin as string, x, sampleFrame(bundle, x), { svg: true });
+  const pageOf = (r: RenderResult, head: string): number => r.pages.findIndex((p) => normalize(p).includes(normalize(head)));
   const summaryPage = (x: ProposalInput) => {
     const r = renderAndExtract(bin as string, x, sampleFrame(bundle, x));
     return r.pages.find((p) => normalize(p).includes(normalize("表の期間の合計"))) as string;
   };
+  /** 資産の推移の図の「!」（帳票の側の plan-shorts と同じ） */
+  const planMarks = (x: ProposalInput) => [
+    ...(x.summary.current.depletion !== null ? [{ year: x.summary.current.depletion.year, values: x.assets.current, base: true }] : []),
+    ...(x.summary.proposal.depletion !== null ? [{ year: x.summary.proposal.depletion.year, values: x.assets.proposal, base: false }] : []),
+  ];
+
+  it("点線の上端と丸の基準の横の位置は、線が0を切る所（前の年と足りなくなる年の金額を結んだ直線が0になる所）。足りなくなる年の目盛りの位置ではない", () => {
+    const r = render(input);
+    const svgs = r.svgs as string[];
+    for (const head of ["表の期間の合計", "5年ごとの金融資産残高"]) {
+      const k = pageOf(r, head);
+      expect(k, head).toBeGreaterThanOrEqual(0);
+      expectShortCross(svgs[k] as string, years, planMarks(input));
+    }
+    // 見本では0を切る所が足りなくなる年の目盛りより左にある（前の年はまだプラス）
+    for (const m of planMarks(input)) {
+      const i = years.indexOf(m.year);
+      expect(m.values[i - 1] as number).toBeGreaterThan(0);
+    }
+    for (const sc of input.contingency?.scenarios ?? []) {
+      const k = r.pages.findIndex((p) => normalize(p).includes(normalize(sc.title)) && normalize(p).includes(normalize("万一が無い場合（提案）")));
+      expect(k, sc.title).toBeGreaterThanOrEqual(0);
+      const base = input.summary.proposal.depletion;
+      expectShortCross(svgs[k] as string, years, [
+        ...(base !== null ? [{ year: base.year, values: sc.withoutEvent, base: true }] : []),
+        ...(sc.depletion !== null ? [{ year: sc.depletion.year, values: sc.withEvent, base: false }] : []),
+      ]);
+    }
+  });
+
+  it("前の年もマイナスのときは、点線をその年の位置に置く（図の下の説明の年はそのまま）", () => {
+    const dep = input.summary.current.depletion as { year: number; label: string };
+    const i = years.indexOf(dep.year) + 1;
+    expect(input.assets.current[i - 1] as number).toBeLessThan(0);
+    const later = { ...input, summary: { ...input.summary, current: { ...input.summary.current, depletion: { ...dep, year: years[i] as number } } } };
+    const r = render(later);
+    const k = pageOf(r, "表の期間の合計");
+    expectShortCross((r.svgs as string[])[k] as string, years, planMarks(later));
+    expect(normalize(r.pages[k] as string)).toContain(normalize(`現状 ${dep.label}`));
+  });
+
+  it("現状と提案が同じ年に足りなくなるときも、点線はそれぞれの線が0を切る所から下ろし、丸はその平均を中心に横に並べる", () => {
+    const same = { ...input, summary: { ...input.summary, current: { ...input.summary.current, depletion: input.summary.proposal.depletion } } };
+    const r = render(same);
+    expectShortCross((r.svgs as string[])[pageOf(r, "表の期間の合計")] as string, years, planMarks(same));
+  });
 
   it("見本の世帯は現状も提案も足りなくなる（以下の確かめの前提）", () => {
     expect(input.summary.current.depletion).not.toBeNull();

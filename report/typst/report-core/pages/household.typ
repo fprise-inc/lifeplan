@@ -47,7 +47,7 @@
   let chart(h) = line-chart(data.basis.years, (
     (label: "提案", values: data.assets.proposal, stroke: 1.6pt + accent),
     (label: "現状", values: data.assets.current, stroke: (paint: muted, thickness: 1.2pt, dash: "dashed")),
-  ), height: h, shorts: plan-shorts(s))
+  ), height: h, shorts: plan-shorts(data))
   if is-land(data) {
     // 横の紙: 合計の表とグラフを左右に並べる
     grid(

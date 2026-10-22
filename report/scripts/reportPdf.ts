@@ -49,14 +49,18 @@ export interface RenderResult {
   pdf: Buffer;
   meta: { pages: number; bytes: number; addressee: { page: number } | null; noticesPageAdded: boolean; sizes: [number, number][] };
   pages: string[];
+  /** 各ページの見本の SVG（svg: true のときだけ。図の線の位置を確かめるテスト用） */
+  svgs?: string[];
 }
 
-/** 帳票の入力と外枠から PDF を作り、各ページの文字を抜き出す */
-export function renderAndExtract(bin: string, input: ProposalInput, frame: FrameJson): RenderResult {
+/** 帳票の入力と外枠から PDF を作り、各ページの文字を抜き出す（svg: true なら各ページの見本の SVG も作る。縮小一覧の PNG も小さく書かれる） */
+export function renderAndExtract(bin: string, input: ProposalInput, frame: FrameJson, opts: { svg?: boolean } = {}): RenderResult {
   const dir = mkdtempSync(join(tmpdir(), "report-pdf-"));
   writeFileSync(join(dir, "input.json"), JSON.stringify(input));
   writeFileSync(join(dir, "frame.json"), JSON.stringify(frame));
-  execFileSync(bin, ["render", "--input", join(dir, "input.json"), "--frame", join(dir, "frame.json"), "--out", join(dir, "out.pdf"), "--meta", join(dir, "meta.json"), "--debug"]);
+  const extra = opts.svg === true ? ["--pages-dir", dir, "--scale", "0.2"] : [];
+  execFileSync(bin, ["render", "--input", join(dir, "input.json"), "--frame", join(dir, "frame.json"), "--out", join(dir, "out.pdf"), "--meta", join(dir, "meta.json"), ...extra, "--debug"]);
   const pages = JSON.parse(execFileSync(bin, ["text", join(dir, "out.pdf")], { maxBuffer: 64 * 1024 * 1024 }).toString("utf8")) as string[];
-  return { pdf: readFileSync(join(dir, "out.pdf")), meta: JSON.parse(readFileSync(join(dir, "meta.json"), "utf8")) as RenderResult["meta"], pages };
+  const svgs = opts.svg === true ? pages.map((_, i) => readFileSync(join(dir, `page-${i + 1}.svg`), "utf8")) : undefined;
+  return { pdf: readFileSync(join(dir, "out.pdf")), meta: JSON.parse(readFileSync(join(dir, "meta.json"), "utf8")) as RenderResult["meta"], pages, ...(svgs !== undefined ? { svgs } : {}) };
 }
