@@ -3,6 +3,8 @@
 // 基準のプラン＝薄いグレーの実線の枠・灰の背景と「基準」の札、見ているプラン＝藍の太い枠と「表示中」の札、保存していない変更＝「変更あり」。色だけで区別しない。
 // カードは決まった幅で左から並べ、「＋ このプランを元に作る」はそのすぐ右に置く（プランが少なくても間延びしない。幅は app.css の .band）。
 // 比べ方が「全部のプランを色分けで重ねる」のときだけ、各カードにグラフの線と同じ色の小さな印（実線と丸）を付けて、どの線がどのプランか分かるようにする。
+// FP の操作画面では、外せるカード（現状 A と基準のプランを除く）の右上に小さな「×」を付ける（onRemove を渡したときだけ。提示用には出さない）。
+// カードはボタンなので、× はカードの中に入れず、カードと同じ枠（.plan-cell）の右上に重ねる。
 // 受け取るのは PlanBandModel だけ（カードの鍵は A・B…の文字。物の ID は受け取らない。0016 の2）
 import type { ComponentChildren } from "preact";
 import type { PlanBandModel } from "./model.ts";
@@ -17,9 +19,14 @@ export interface PlanBandProps {
   links?: ComponentChildren;
   /** グラフの線と同じ色の印を各カードに付ける（全部のプランを色分けで重ねる表示のときだけ） */
   lineMarks?: boolean;
+  /** カードの「×」でプランを外す（渡したときだけ × を出す。現状 A と基準のプランには出さない） */
+  onRemove?: (key: string) => void;
 }
 
-export function PlanBand({ model, onSelect, onBase, onAdd, links, lineMarks = false }: PlanBandProps) {
+/** そのカードに「×」を出すか（現状 A と基準のプランは外せない） */
+export const removable = (c: { letter: string; base: boolean }): boolean => c.letter !== "A" && !c.base;
+
+export function PlanBand({ model, onSelect, onBase, onAdd, links, lineMarks = false, onRemove }: PlanBandProps) {
   const many = model.cards.length > 4;
   const styles = lineMarks ? planStyles(model.cards) : null;
   return (
@@ -38,46 +45,65 @@ export function PlanBand({ model, onSelect, onBase, onAdd, links, lineMarks = fa
         {links ?? null}
       </div>
       <div class="band-cards" role="group" aria-label="グラフに出すプラン">
-        {model.cards.map((c) => (
-          <button
-            type="button"
-            key={c.key}
-            class={`plan${c.shown ? " is-sel" : ""}${c.base ? " is-base" : ""}`}
-            aria-pressed={c.shown}
-            title={`プラン${c.letter} ${c.name}`}
-            onClick={() => onSelect(c.key)}
-            data-plan-card={c.key}
-          >
-            <span class="p-top">
-              <span class="p-letter">{c.letter}</span>
-              <span class="p-name">{c.name}</span>
-              {c.base ? <span class="p-tag base">基準</span> : null}
-              {c.shown ? <span class="p-tag show">表示中</span> : null}
-            </span>
-            <span class="p-nums">
-              {c.shortAge === undefined ? (
-                <span class="p-st wait">{c.status}</span>
-              ) : c.shortAge === null ? (
-                <span class="p-st ok">{c.status}</span>
-              ) : (
-                <span class="p-st ng">{c.status}</span>
-              )}
-              {c.modified ? <span class="p-mod">変更あり</span> : null}
-              {styles !== null ? (
-                <span class="p-mark" title={`グラフの線: ${(styles.get(c.key) as PlanStyle).colorName}`} data-plan-mark={c.key}>
-                  <PlanSwatch style={styles.get(c.key) as PlanStyle} w={30} h={12} />
+        {model.cards.map((c) => {
+          const x = onRemove !== undefined && removable(c);
+          return (
+            <div class="plan-cell" key={c.key}>
+              <button
+                type="button"
+                class={`plan${c.shown ? " is-sel" : ""}${c.base ? " is-base" : ""}${x ? " has-x" : ""}`}
+                aria-pressed={c.shown}
+                title={`プラン${c.letter} ${c.name}`}
+                onClick={() => onSelect(c.key)}
+                data-plan-card={c.key}
+              >
+                <span class="p-top">
+                  <span class="p-letter">{c.letter}</span>
+                  <span class="p-name">{c.name}</span>
+                  {c.base ? <span class="p-tag base">基準</span> : null}
+                  {c.shown ? <span class="p-tag show">表示中</span> : null}
                 </span>
+                <span class="p-nums">
+                  {c.shortAge === undefined ? (
+                    <span class="p-st wait">{c.status}</span>
+                  ) : c.shortAge === null ? (
+                    <span class="p-st ok">{c.status}</span>
+                  ) : (
+                    <span class="p-st ng">{c.status}</span>
+                  )}
+                  {c.modified ? <span class="p-mod">変更あり</span> : null}
+                  {styles !== null ? (
+                    <span class="p-mark" title={`グラフの線: ${(styles.get(c.key) as PlanStyle).colorName}`} data-plan-mark={c.key}>
+                      <PlanSwatch style={styles.get(c.key) as PlanStyle} w={30} h={12} />
+                    </span>
+                  ) : null}
+                </span>
+                {c.metrics.map((m) => (
+                  <span class="p-amt" key={m.label}>
+                    <span class="p-k">{m.label}</span>
+                    <span class={`p-v num${m.neg ? " neg" : ""}`}>{m.text}</span>
+                  </span>
+                ))}
+                <span class="p-line" aria-hidden="true" />
+              </button>
+              {x ? (
+                <button
+                  type="button"
+                  class="plan-x"
+                  aria-label="このプランを外す"
+                  title="このプランを外す"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(c.key);
+                  }}
+                  data-plan-remove={c.key}
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
               ) : null}
-            </span>
-            {c.metrics.map((m) => (
-              <span class="p-amt" key={m.label}>
-                <span class="p-k">{m.label}</span>
-                <span class={`p-v num${m.neg ? " neg" : ""}`}>{m.text}</span>
-              </span>
-            ))}
-            <span class="p-line" aria-hidden="true" />
-          </button>
-        ))}
+            </div>
+          );
+        })}
       </div>
       <button type="button" class="plan-add" onClick={onAdd} data-plan-dup>
         <span>＋ このプランを元に作る</span>

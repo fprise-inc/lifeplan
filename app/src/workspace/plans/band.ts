@@ -8,7 +8,8 @@ import { depletionYear, displayYears, financialOf, sumByYear } from "../present.
 import { ageInYear, roles } from "../roles.ts";
 import { cardMetrics, type DisplaySettings } from "../settings.ts";
 import { metricsOf } from "./compare.ts";
-import { HEAD, modernPlanName, planLabel, type Proposal } from "./plans.ts";
+import type { WorkingHousehold } from "../input/household.ts";
+import { deletePlan, HEAD, modernPlanName, planLabel, type Proposal } from "./plans.ts";
 
 /** 現状（入力）の枠の名前。プランの ID と重ならない */
 export const CURRENT = "current";
@@ -77,6 +78,34 @@ export function addToBand(band: readonly string[], id: string, keep: readonly st
   if (band.length < MAX_BAND) return { band: [...band, id], dropped: null };
   const drop = [...band].reverse().find((x) => !keep.includes(x)) ?? (band.at(-1) as string);
   return { band: [...band.filter((x) => x !== drop), id], dropped: drop };
+}
+
+/** 帯のカードの「×」でプランを外した結果: 新しい世帯（案の一覧）・帯・表示するプランと、知らせの文 */
+export interface BandRemoval {
+  wh: WorkingHousehold;
+  band: string[];
+  sel: string;
+  /** 例: 「プランD を外しました。プランE は中身を引き継ぎます」 */
+  message: string;
+}
+
+/**
+ * 帯のカードの「×」でプランを外す（確認の窓は出さない。元に戻すで戻せる）。
+ * 一覧からも外し、このプランを元にしたプランは中身を引き継ぐ（deletePlan と同じ決まり）。
+ * 表示していたプランを外したら、表示は基準のプランに戻す。現状と基準のプランは外せない（null）
+ */
+export function removeFromBand(wh: WorkingHousehold, w: { band: readonly string[]; base: string; sel: string }, id: string): BandRemoval | null {
+  if (id === CURRENT || id === w.base || !wh.proposals.some((p) => p.id === id)) return null;
+  const ls = planLetters(wh.proposals);
+  const heirs = wh.proposals.filter((p) => p.base === id).map((p) => planLabel(ls.get(p.id)?.letter ?? ""));
+  const band = w.band.filter((x) => x !== id);
+  const head = `${planLabel(ls.get(id)?.letter ?? "")} を外しました`;
+  return {
+    wh: deletePlan(wh, id),
+    band,
+    sel: w.sel === id ? w.base : w.sel,
+    message: heirs.length > 0 ? `${head}。${heirs.join("・")} は中身を引き継ぎます` : head,
+  };
 }
 
 /** 帯を今のプランの一覧に合わせる（消えたプランを外し、5つまでにする） */
