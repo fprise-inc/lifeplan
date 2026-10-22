@@ -159,6 +159,8 @@ export interface ResultCardProps {
   after?: ComponentChildren;
   /** 運用の期間の帯の切れ目を動かした */
   onBand?: (which: "stop" | "wd", age: number, phase: "slide" | "release") => void;
+  /** 運用の期間の帯の切れ目を動かせない理由（つまみの札。動かせるときは省略） */
+  bandLock?: string;
 }
 
 export interface MultiHidden {
@@ -193,6 +195,7 @@ function LegendAndChart(p: Omit<ResultCardProps, "verdict" | "onMode" | "onExpla
         multi={{ focus: focus !== null && !hidden.includes(focus) ? focus : null, hidden }}
         {...(p.height !== undefined ? { height: p.height } : {})}
         {...(p.onBand !== undefined ? { onBand: p.onBand } : {})}
+        {...(p.bandLock !== undefined ? { bandLock: p.bandLock } : {})}
       />
     </>
   );

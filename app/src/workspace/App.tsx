@@ -280,6 +280,13 @@ export function lockReason(w: Work, letter: (id: string) => string): string | nu
   return null;
 }
 
+/** 運用の期間の帯の切れ目を動かせないときの短い理由（グラフの上のつまみの札。動かせるときは null。lockReason と同じ決まり） */
+export function bandLockNote(w: Work): string | null {
+  if (w.sel === CURRENT) return "現状は入力の画面で直します。別のプランを選ぶか『＋ このプランを元に作る』で動かせます";
+  if (w.sel === w.base) return "基準のプランは動かせません。別のプランを選ぶか『＋ このプランを元に作る』で動かせます";
+  return null;
+}
+
 /** 帯の文字 → 枠（案の ID か現状） */
 export const slotOfLetter = (letters: Map<string, { letter: string }>, slots: readonly string[], letter: string): string | undefined => slots.find((id) => letters.get(id)?.letter === letter);
 
@@ -2011,7 +2018,7 @@ export function App() {
               ageMark={ageMark}
               pinnedYear={pinnedYear}
               onSelectYear={pinYear}
-              {...(locked === null ? { onBand } : {})}
+              {...(locked === null ? { onBand } : { bandLock: bandLockNote(work) ?? locked })}
               {...(investModel !== null && explain === null
                 ? {
                     bar: (

@@ -264,6 +264,8 @@ export interface MainChartProps {
   multi?: MultiState;
   /** 運用の期間の帯の切れ目を動かした（動かせないときは省略。0026） */
   onBand?: (which: "stop" | "wd", age: number, phase: "slide" | "release") => void;
+  /** 運用の期間の帯の切れ目を動かせない理由（つまみの札。動かせるときは省略） */
+  bandLock?: string;
 }
 
 export interface MultiState {
@@ -285,7 +287,7 @@ interface YearMark {
   extra: string | null;
 }
 
-export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectYear, layout = "overlay", height, multi, onBand }: MainChartProps) {
+export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectYear, layout = "overlay", height, multi, onBand, bandLock }: MainChartProps) {
   const box = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [size, setSize] = useState<{ w: number; h: number; fs: number }>({ w: 1100, h: 520, fs: 1 });
@@ -360,6 +362,7 @@ export function MainChart({ model, mode, explain, ageMark, pinnedYear, onSelectY
     shown,
     compact,
     ...(onBand !== undefined ? { onBand } : {}),
+    ...(bandLock !== undefined ? { bandLock } : {}),
     onHover: (y: number | null) => setHover((h) => (h === y ? h : y)),
     onPick: (y: number) => {
       setHover(y);
@@ -429,6 +432,7 @@ interface ChartPlotProps {
   /** 全部の案を色分けで重ねる表示（それ以外は null） */
   multi?: MultiState | null;
   onBand?: MainChartProps["onBand"];
+  bandLock?: string;
   onHover: (year: number | null) => void;
   onPick: (year: number) => void;
 }
@@ -447,7 +451,7 @@ interface MultiRow {
 }
 
 /** 1つのグラフ（SVG と、年の表示・イベントの表示） */
-function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scaleWith, label, live, compact = false, multi = null, onBand, onHover, onPick }: ChartPlotProps) {
+function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scaleWith, label, live, compact = false, multi = null, onBand, bandLock, onHover, onPick }: ChartPlotProps) {
   const svg = useRef<SVGSVGElement>(null);
   const tip = useRef<HTMLDivElement>(null);
   const evTipEl = useRef<HTMLDivElement>(null);
@@ -778,7 +782,7 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
 
   return (
     <>
-    {bandOn && inv?.band != null ? <PeriodBand band={inv.band} s={s} n={n} left={f.left} width={f.width} ages={ages} {...(onBand !== undefined ? { onBand } : {})} /> : null}
+    {bandOn && inv?.band != null ? <PeriodBand band={inv.band} s={s} n={n} left={f.left} width={f.width} ages={ages} {...(onBand !== undefined ? { onBand } : {})} {...(bandLock !== undefined ? { lock: bandLock } : {})} /> : null}
     <div class="plot">
       <svg ref={svg} viewBox={`0 0 ${f.width} ${f.height}`} width={f.width} height={f.height} role="img" aria-label={label} data-multi-scale={isMulti ? (rescaled ? "fit" : "all") : undefined}>
         <defs>
