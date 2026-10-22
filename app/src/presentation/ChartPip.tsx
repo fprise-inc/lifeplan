@@ -2,13 +2,14 @@
 // グラフの見出しの右上の「小窓」ボタンで、グラフをアプリの窓の中に浮いた小さな枠（小窓）に出す。どこまでスクロールしても出ているので、
 // 操作の欄（結果の「対策」・万一のときの「想定の前提」）を動かしながらグラフを見られる（線・塗り・凡例・補間の動きは元のグラフと同じ部品で描く）。
 // - ボタンはアイコンだけ（文字は出さない。説明はカーソルを乗せたときの小さな札と読み上げ）。開くときは小窓が開く共通の印（icons.tsx の PopIcon）。
-//   小窓を出している間は、元のグラフの見出しのボタンが「小窓を閉じる」（元に戻す印。PipBackIcon）に変わる。小窓の上の帯の「元に戻す」でも閉じる
-// - 上の帯（取っ手の印つき）をドラッグで移動、左右の端で横・下の端で縦・下の角で縦横に大きさを変える。帯にフォーカスして矢印キーで移動、
+//   小窓を出している間は、元のグラフの見出しのボタンが「小窓を閉じる」（元に戻す印。PipBackIcon）に変わる。小窓の上の帯の右端の「×」でも閉じる
+// - 上の帯（取っ手の印つき。つかんで動かす帯は grip.tsx の共通の部品）をドラッグで移動、左右の端で横・下の端で縦・下の角で縦横に大きさを変える。帯にフォーカスして矢印キーで移動、
 //   Shift＋矢印で大きさ
 // - 位置と大きさはアプリを開いている間覚える（画面には保存しない。世帯のファイルにも書かない）。別の窓（OS の窓）にはしない
 // - 小窓はタブごとのもの: 別のタブに移ると閉じる（各タブで出し直す。作業の層がタブの切り替えで closePip を呼ぶ）
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { arrowDelta, GRIP_KEY_STEP, GripMark, gripLabel, rootFontScale, useDrag } from "./grip.tsx";
 import { PopIcon } from "./icons.tsx";
 
 // ---- 小窓の位置と大きさ（純粋な計算） ----
@@ -78,17 +79,17 @@ export function resizePipRect(r0: PipRect, edge: PipEdge, dx: number, dy: number
 }
 
 /** キーボードで動かす・大きさを変える1回の量（px。文字の大きさ 16px のとき） */
-export const PIP_KEY_STEP = 16;
+export const PIP_KEY_STEP = GRIP_KEY_STEP;
 
 /**
  * 移動の帯にフォーカスしてキーを押したときの位置と大きさ: 矢印キーで移動、Shift＋矢印で大きさ（右・下で大きく、左・上で小さく）。
  * 扱わないキーは null
  */
 export function keyPipRect(r: PipRect, key: string, shift: boolean, vw: number, vh: number, fs = 1): PipRect | null {
-  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[key];
-  if (d === undefined) return null;
+  const d = arrowDelta(key);
+  if (d === null) return null;
   const step = Math.round(PIP_KEY_STEP * fs);
-  const [kx, ky] = d as [number, number];
+  const [kx, ky] = d;
   if (shift) return resizePipRect(r, kx !== 0 ? "e" : "s", kx * step, ky * step, vw, vh, fs);
   return clampPipRect({ ...r, x: r.x + kx * step, y: r.y + ky * step }, vw, vh, fs);
 }
@@ -98,7 +99,7 @@ export function pipChartHeight(panelHeight: number, fontPx: number, extra: numbe
   return Math.max(Math.round(100 * (fontPx / 16)), Math.floor(panelHeight - extra));
 }
 
-const rootFontPx = () => (typeof window === "undefined" ? 16 : parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+const rootFontPx = () => rootFontScale() * 16;
 
 // ---- 出しているか・位置と大きさ（アプリを開いている間、画面の中で覚える。画面には保存しない・世帯のファイルにも書かない） ----
 
@@ -141,8 +142,9 @@ export function usePipOn(): boolean {
 // ---- 部品 ----
 
 /**
- * 小窓を閉じて元に戻す印（大きな四角の左上に小さな四角が重なった形）。開くときの印（icons.tsx の PopIcon）と見分けがつく形のまま残す。
- * 文字の色で描く。読み上げない（ボタンの名前で伝える）
+ * 小窓を閉じて元に戻す印（大きな四角の左上に小さな四角が重なった形）。グラフの見出しの切り替えボタン（PipButton）が、小窓を出している間に使う
+ * （押した状態の切り替えなので、カードそのものを閉じるように見える「×」にはしない。小窓の帯の閉じるボタンは「×」）。
+ * 開くときの印（icons.tsx の PopIcon）と見分けがつく形のまま残す。文字の色で描く。読み上げない（ボタンの名前で伝える）
  */
 export function PipBackIcon() {
   return (
@@ -154,7 +156,19 @@ export function PipBackIcon() {
 }
 
 /** 小窓のボタンの説明（カーソルを乗せたとき・フォーカスしたときの小さな札と、読み上げ） */
-export const PIP_LABEL = { open: "グラフを小窓で表示", close: "小窓を閉じる", back: "元に戻す（小窓を閉じる）" } as const;
+export const PIP_LABEL = { open: "グラフを小窓で表示", close: "小窓を閉じる" } as const;
+
+/**
+ * 小窓の上の帯の右端の閉じるボタン: ほかの閉じる（年の札の固定を外す・内訳の小窓・世帯の一覧）と同じ「×」の字（app.css の .pip-x）。
+ * 説明は小さな札（data-tip）と aria-label の「小窓を閉じる」
+ */
+export function PipCloseButton() {
+  return (
+    <button type="button" class="pip-btn pip-x tip-btn" onClick={closePip} aria-label={PIP_LABEL.close} data-tip={PIP_LABEL.close} data-pip-close>
+      ×
+    </button>
+  );
+}
 
 /**
  * グラフの見出しの右上に置く小窓のボタン（アイコンだけ。文字は出さない。小窓が開く共通の印）。小窓を出している間は「小窓を閉じる」（元に戻す印）。
@@ -189,7 +203,7 @@ export function ChartPip({ head, extra, children }: { head?: ComponentChildren; 
 function PipPanel({ head, extra, children }: { head?: ComponentChildren; extra: number; children: (height: number) => ComponentChildren }) {
   const fs = rootFontPx() / 16;
   const [rect, setRect] = useState<PipRect>(() => clampPipRect(pipState.rect ?? defaultPipRect(window.innerWidth, window.innerHeight), window.innerWidth, window.innerHeight, fs));
-  const [active, setActive] = useState<"move" | PipEdge | null>(null);
+  const { active, start } = useDrag<"move" | PipEdge>();
   const rectRef = useRef(rect);
   rectRef.current = rect;
   useEffect(() => {
@@ -201,35 +215,23 @@ function PipPanel({ head, extra, children }: { head?: ComponentChildren; extra: 
   const remember = (r: PipRect) => {
     pipState = { ...pipState, rect: r };
   };
-  const drag = (kind: "move" | PipEdge) => (e: PointerEvent) => {
-    if (e.button !== 0) return;
-    if (kind === "move" && e.target instanceof Element && e.target.closest("button, a, input, select") !== null) return;
-    e.preventDefault();
-    const el = e.currentTarget as HTMLElement;
-    el.setPointerCapture(e.pointerId);
-    setActive(kind);
-    const sx = e.clientX;
-    const sy = e.clientY;
-    const r0 = rectRef.current;
-    let last = r0;
-    const k = rootFontPx() / 16;
-    const move = (ev: PointerEvent) => {
-      const dx = ev.clientX - sx;
-      const dy = ev.clientY - sy;
-      last = kind === "move" ? clampPipRect({ ...r0, x: r0.x + dx, y: r0.y + dy }, window.innerWidth, window.innerHeight, k) : resizePipRect(r0, kind, dx, dy, window.innerWidth, window.innerHeight, k);
-      setRect(last);
-    };
-    const up = () => {
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", up);
-      setActive(null);
-      remember(last);
-    };
-    el.addEventListener("pointermove", move);
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", up);
-  };
+  const drag = (kind: "move" | PipEdge) =>
+    start(
+      kind,
+      () => {
+        const r0 = rectRef.current;
+        let last = r0;
+        const k = rootFontPx() / 16;
+        return {
+          move: (dx, dy) => {
+            last = kind === "move" ? clampPipRect({ ...r0, x: r0.x + dx, y: r0.y + dy }, window.innerWidth, window.innerHeight, k) : resizePipRect(r0, kind, dx, dy, window.innerWidth, window.innerHeight, k);
+            setRect(last);
+          },
+          end: () => remember(last),
+        };
+      },
+      kind !== "move",
+    );
   const onKey = (e: KeyboardEvent) => {
     if (e.target !== e.currentTarget) return;
     const next = keyPipRect(rectRef.current, e.key, e.shiftKey, window.innerWidth, window.innerHeight, rootFontPx() / 16);
@@ -245,15 +247,10 @@ function PipPanel({ head, extra, children }: { head?: ComponentChildren; extra: 
       aria-label="小窓のグラフ（上の帯をドラッグで移動、端をドラッグで大きさを変えられます）"
       data-pip-panel
     >
-      <div class="pip-head pip-grip" onPointerDown={drag("move")} onKeyDown={onKey} tabIndex={0} aria-label="小窓を動かす帯（ドラッグで移動。矢印キーで移動、Shift＋矢印キーで大きさを変える）" data-pip-grip>
-        <span class="pip-handle" aria-hidden="true">
-          <span class="pip-handle-i">⠿</span>
-          <span class="pip-handle-t">移動</span>
-        </span>
+      <div class="pip-head pip-grip grip" onPointerDown={drag("move")} onKeyDown={onKey} tabIndex={0} aria-label={gripLabel(true)} data-pip-grip>
+        <GripMark />
         <div class="pip-title">{head}</div>
-        <button type="button" class="pip-btn tip-btn" onClick={closePip} aria-label={PIP_LABEL.back} data-tip={PIP_LABEL.back} data-pip-close>
-          <PipBackIcon />
-        </button>
+        <PipCloseButton />
       </div>
       {children(pipChartHeight(rect.h, fs * 16, extra * fs))}
       {(["w", "e", "s", "sw", "se"] as const).map((edge) => (

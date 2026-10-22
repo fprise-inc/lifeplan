@@ -144,6 +144,16 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
     expect(rg.min).toBeLessThanOrEqual(Math.min(...p.years.map((y) => Math.min(-y.totalLiabilities, y.netWorth))));
   });
 
+  it("見せ方の切り替え: プランが2つ以上なら「プランを比較」（「プランを並べる」とは書かない）", () => {
+    const q = bsPlan({ key: "B", letter: "B", name: "プランB", title: "65歳まで働く", base: false, req, table: r.table });
+    const model = balanceTabModel({ plans: [p, q], selected: "B", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご主人" });
+    const html = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop }));
+    const i = html.indexOf('data-bs-view="plans"');
+    expect(i).toBeGreaterThan(-1);
+    expect(html.slice(i, html.indexOf("</button>", i))).toContain(">プランを比較");
+    expect(html).not.toContain("プランを並べる");
+  });
+
   it("タブの部品: 図・体力の目安・つまみ・推移のグラフ。控えが無ければ「前回と比べる」は出さない", () => {
     const model = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご主人" });
     const html = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop }));

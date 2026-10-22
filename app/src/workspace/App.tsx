@@ -72,6 +72,7 @@ import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/app
 import { version as APP_VERSION } from "../../package.json";
 import { installUndo, undoController } from "./undo/controller.ts";
 import { UndoButtons } from "./undo/UndoButtons.tsx";
+import { HouseholdDrop } from "./header/HouseholdDrop.tsx";
 import { BasisLine, HouseholdNow } from "./header/HouseholdNow.tsx";
 import { barAlerts, barNotices, saveText, type AlertKind, type BarInputs, type NoticeTarget } from "./header/status.ts";
 import { TopBar } from "./header/TopBar.tsx";
@@ -1639,6 +1640,7 @@ export function App() {
     if (!hhOpen) void refreshStore();
     setHhOpen(!hhOpen);
   };
+  const closeHousehold = () => setHhOpen(false);
   /** 世帯の選択のメニューを開いて、保存の状態の詳しい文を見せる */
   const showHousehold = () => {
     if (!hhOpen) toggleHousehold();
@@ -1741,114 +1743,118 @@ export function App() {
             ) : null}
           </div>
         ) : null}
-        {hhOpen && host !== null && opened !== null ? (
-          <HouseholdNow
-            title={storedInfo?.sample !== undefined ? `見本 ${storedInfo.sample.no}` : storedInfo !== null ? `顧客番号 ${storedInfo.customerNo}` : opened.demo !== null ? `見本 ${opened.demo.sampleNo}（${opened.demo.title}）` : "新しい世帯"}
-            members={basis?.members ?? null}
-            asOf={basis?.asOf ?? null}
-            save={{ ...save, state: !savingStored ? "unsaved" : presence !== null ? "paused" : saveState.kind }}
-            ai={ai.status?.enabled === true ? { text: SHARE_STATE_TEXT[aiShare].long, sharing: aiShare === "sharing", onOpen: storedInfo !== null ? openAiShare : null } : null}
-          />
-        ) : null}
-        {hhOpen && host !== null ? (
-          <HouseholdPanel
-            status={storeStatus}
-            unavailable={storeUnavailable}
-            error={hhError}
-            list={storedList}
-            currentId={storedInfo?.id ?? null}
-            categories={categories}
-            categoriesDecided={categoriesDecided}
-            shelf={shelf}
-            currentSample={currentSample}
-            currentShape={opened !== null ? guessShape(opened.wh.request) : null}
-            unsavedTitle={opened !== null && storedInfo === null && opened.demo === null ? "新しい世帯" : null}
-            initialTab={hhTab}
-            onOpen={(id) => void guard(() => openStored(id))}
-            onCreate={(category) =>
-              void guard(async () => {
-                await open(BLANK);
-                await persistCurrent(category);
-              })
-            }
-            onSaveCurrent={(category) => void guard(() => persistCurrent(category))}
-            onRename={renameStored}
-            onSetCategory={(id, code) => numberOp(id, () => host.store.setCategory(id, code), (no) => `区分を変えました（${no}）`)}
-            onAssignSerial={(id) => numberOp(id, () => host.store.assignSerial(id), (no) => `通し番号を付けました（${no}）`)}
-            onMakeSample={async (id, req) => {
-              const err = await numberOp(id, () => host.store.makeSample(id, req), (no) => `見本 ${no} として見本の棚へ移しました`);
-              // 開いている世帯を見本にしたときは、見本として開き直す（動かしても保存しない）
-              if (err === null && storedRef.current?.id === id) await openStored(id).catch(() => undefined);
-              return err;
-            }}
-            onSaveCategories={async (edits: CategoryEdit[]) => {
-              try {
-                applyCategories(await host.store.setCategories(edits));
-                await refreshStore();
-                const sr = storedRef.current;
-                if (sr !== null) {
-                  const now = (await host.store.list()).find((h) => h.id === sr.id);
-                  if (now !== undefined && now.customerNo !== sr.customerNo) {
-                    sr.customerNo = now.customerNo;
-                    setStoredInfo({ id: sr.id, customerNo: now.customerNo, readOnly: sr.readOnly });
+        {host !== null ? (
+          <HouseholdDrop open={hhOpen} onClose={closeHousehold}>
+            <HouseholdPanel
+              now={
+                opened !== null ? (
+                  <HouseholdNow
+                    title={storedInfo?.sample !== undefined ? `見本 ${storedInfo.sample.no}` : storedInfo !== null ? `顧客番号 ${storedInfo.customerNo}` : opened.demo !== null ? `見本 ${opened.demo.sampleNo}（${opened.demo.title}）` : "新しい世帯"}
+                    members={basis?.members ?? null}
+                    asOf={basis?.asOf ?? null}
+                    save={{ ...save, state: !savingStored ? "unsaved" : presence !== null ? "paused" : saveState.kind }}
+                    ai={ai.status?.enabled === true ? { text: SHARE_STATE_TEXT[aiShare].long, sharing: aiShare === "sharing", onOpen: storedInfo !== null ? openAiShare : null } : null}
+                  />
+                ) : null
+              }
+              status={storeStatus}
+              unavailable={storeUnavailable}
+              error={hhError}
+              list={storedList}
+              currentId={storedInfo?.id ?? null}
+              categories={categories}
+              categoriesDecided={categoriesDecided}
+              shelf={shelf}
+              currentSample={currentSample}
+              currentShape={opened !== null ? guessShape(opened.wh.request) : null}
+              unsavedTitle={opened !== null && storedInfo === null && opened.demo === null ? "新しい世帯" : null}
+              initialTab={hhTab}
+              onOpen={(id) => void guard(() => openStored(id))}
+              onCreate={(category) =>
+                void guard(async () => {
+                  await open(BLANK);
+                  await persistCurrent(category);
+                })
+              }
+              onSaveCurrent={(category) => void guard(() => persistCurrent(category))}
+              onRename={renameStored}
+              onSetCategory={(id, code) => numberOp(id, () => host.store.setCategory(id, code), (no) => `区分を変えました（${no}）`)}
+              onAssignSerial={(id) => numberOp(id, () => host.store.assignSerial(id), (no) => `通し番号を付けました（${no}）`)}
+              onMakeSample={async (id, req) => {
+                const err = await numberOp(id, () => host.store.makeSample(id, req), (no) => `見本 ${no} として見本の棚へ移しました`);
+                // 開いている世帯を見本にしたときは、見本として開き直す（動かしても保存しない）
+                if (err === null && storedRef.current?.id === id) await openStored(id).catch(() => undefined);
+                return err;
+              }}
+              onSaveCategories={async (edits: CategoryEdit[]) => {
+                try {
+                  applyCategories(await host.store.setCategories(edits));
+                  await refreshStore();
+                  const sr = storedRef.current;
+                  if (sr !== null) {
+                    const now = (await host.store.list()).find((h) => h.id === sr.id);
+                    if (now !== undefined && now.customerNo !== sr.customerNo) {
+                      sr.customerNo = now.customerNo;
+                      setStoredInfo({ id: sr.id, customerNo: now.customerNo, readOnly: sr.readOnly });
+                    }
                   }
+                  say("区分を保存しました");
+                  return null;
+                } catch (e) {
+                  return storeMessage(codeOf(e));
                 }
-                say("区分を保存しました");
-                return null;
-              } catch (e) {
-                return storeMessage(codeOf(e));
+              }}
+              onDelete={deleteStored}
+              onOpenSample={(item) => void guard(() => openSample(item))}
+              onCustomerFromSample={(item, category) =>
+                void guard(async () => {
+                  await openSample(item);
+                  await persistCurrent(category);
+                })
               }
-            }}
-            onDelete={deleteStored}
-            onOpenSample={(item) => void guard(() => openSample(item))}
-            onCustomerFromSample={(item, category) =>
-              void guard(async () => {
-                await openSample(item);
-                await persistCurrent(category);
-              })
-            }
-            onCopySample={(item) =>
-              void guard(async () => {
-                const req = copyRequest(item);
-                if (req === null) return;
-                await openSample(item);
-                await persistCurrent(undefined, req);
-              })
-            }
-            onUpdateSample={async (id, name, traits) => {
-              try {
-                await host.store.updateSample(id, name, traits);
-                setStoredSamples(await host.store.listSamples());
-                const sr = storedRef.current;
-                if (sr !== null && sr.id === id && sr.sample !== undefined) {
-                  sr.sample = { ...sr.sample, name, traits };
-                  setStoredInfo({ id, customerNo: sr.customerNo, readOnly: sr.readOnly, sample: sr.sample });
+              onCopySample={(item) =>
+                void guard(async () => {
+                  const req = copyRequest(item);
+                  if (req === null) return;
+                  await openSample(item);
+                  await persistCurrent(undefined, req);
+                })
+              }
+              onUpdateSample={async (id, name, traits) => {
+                try {
+                  await host.store.updateSample(id, name, traits);
+                  setStoredSamples(await host.store.listSamples());
+                  const sr = storedRef.current;
+                  if (sr !== null && sr.id === id && sr.sample !== undefined) {
+                    sr.sample = { ...sr.sample, name, traits };
+                    setStoredInfo({ id, customerNo: sr.customerNo, readOnly: sr.readOnly, sample: sr.sample });
+                  }
+                  return null;
+                } catch (e) {
+                  return storeMessage(codeOf(e));
                 }
-                return null;
-              } catch (e) {
-                return storeMessage(codeOf(e));
-              }
-            }}
-            onRecovery={() => setRecovery(storeStatus?.state === "needsRecovery" ? "restore" : "manage")}
-            onAiConnector={() => {
-              void ai.refresh();
-              setAiPanel("connector");
-            }}
-            aiEnabled={ai.status?.enabled === true}
-            onOffice={() => {
-              void host.office.status().then(setOfficeStatus, () => undefined);
-              setOfficeOpen(true);
-            }}
-            officeState={officeStatus?.state ?? "off"}
-            usage={officeStatus?.usage ?? null}
-            storageNotices={storageNotices}
-            onStorage={() => {
-              void host.office.status().then(setOfficeStatus, () => undefined);
-              setStorageOpen("default");
-            }}
-            onForks={(id) => void openFork(id)}
-            onClose={() => setHhOpen(false)}
-          />
+              }}
+              onRecovery={() => setRecovery(storeStatus?.state === "needsRecovery" ? "restore" : "manage")}
+              onAiConnector={() => {
+                void ai.refresh();
+                setAiPanel("connector");
+              }}
+              aiEnabled={ai.status?.enabled === true}
+              onOffice={() => {
+                void host.office.status().then(setOfficeStatus, () => undefined);
+                setOfficeOpen(true);
+              }}
+              officeState={officeStatus?.state ?? "off"}
+              usage={officeStatus?.usage ?? null}
+              storageNotices={storageNotices}
+              onStorage={() => {
+                void host.office.status().then(setOfficeStatus, () => undefined);
+                setStorageOpen("default");
+              }}
+              onForks={(id) => void openFork(id)}
+              onClose={closeHousehold}
+            />
+          </HouseholdDrop>
         ) : null}
         {fatal !== null ? <p class="fatal">起動できませんでした（{fatal}）</p> : null}
         {error !== null && tab !== "input" ? <p class="fatal">計算できませんでした（{error}）</p> : null}

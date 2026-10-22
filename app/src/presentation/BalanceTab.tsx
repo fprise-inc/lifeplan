@@ -152,7 +152,7 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
   const views: { key: BsView; label: string }[] = [
     { key: "one", label: "1年ずつ見る" },
     { key: "three", label: `${colsOf(model.columns, model.pointDefaults).length}時点を並べる` },
-    ...(model.plans.length > 1 ? [{ key: "plans" as const, label: "プランを並べる" }] : []),
+    ...(model.plans.length > 1 ? [{ key: "plans" as const, label: "プランを比較" }] : []),
     ...(model.prevChoices.length > 0 ? [{ key: "prev" as const, label: "前回と比べる" }] : []),
   ];
   const range = trendRange(model.plans);

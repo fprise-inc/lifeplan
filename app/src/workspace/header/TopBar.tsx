@@ -88,11 +88,11 @@ export function TopBar<T extends string>(p: TopBarProps<T>) {
           <span class="brand-name">ファイナンシア</span>
         </span>
         {p.household !== null ? (
-          <button type="button" class="hh-btn" aria-expanded={p.household.open} aria-label={`世帯の選択（${p.household.no}）`} title={p.household.sub !== "" ? `${p.household.no} ${p.household.sub}` : p.household.no} onClick={p.household.onToggle} data-household-button>
+          <button type="button" class="hh-btn" aria-expanded={p.household.open} aria-haspopup="dialog" aria-label={`世帯の選択（${p.household.no}）`} title={p.household.sub !== "" ? `${p.household.no} ${p.household.sub}` : p.household.no} onClick={p.household.onToggle} data-household-button>
             <span class="hh-no">{p.household.no}</span>
             {p.household.sub !== "" ? <span class="hh-sub">{p.household.sub}</span> : null}
             <span class="caret" aria-hidden="true">
-              ▼
+              {p.household.open ? "▲" : "▼"}
             </span>
           </button>
         ) : null}
