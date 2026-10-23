@@ -2,7 +2,7 @@
 // 中身は今までの入力の欄（簡易と詳細の切り替えを含む）。値は下書きに入れ、「保存」で世帯に入れる。× と Esc で閉じる（保存していない変更があれば先に知らせる）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { Level } from "./form.ts";
-import { FieldSuggestions, Section, visible } from "./FieldViews.tsx";
+import { FieldSuggestions, Section, SectionLinks, visible, type SectionLink } from "./FieldViews.tsx";
 import { useSurplusSuggestion } from "./surplusSuggest.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { withRefreshedEstimates } from "./estimates.ts";
@@ -26,14 +26,20 @@ export interface InputPanelProps {
   onClose: () => void;
   /** 1件だけの計算（基本生活費のパネルで、控えから実際の貯まり方を出すときに控えの入力を計算する。0031） */
   computeOne?: (req: EngineRequest) => Promise<PreviewResult | null>;
+  /** 基本生活費のパネルの「明細から出す」（0034）。保存していない変更を保存してから開くときは、保存する世帯を渡す */
+  onStatement?: (saved?: WorkingHousehold) => void;
 }
+
+const NO_LINKS: Record<string, SectionLink> = {};
 
 const FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
-export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose, computeOne }: InputPanelProps) {
+export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose, computeOne, onStatement }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(initialDraft ?? wh);
   const [dirty, setDirty] = useState(initialDraft !== undefined);
   const [leaving, setLeaving] = useState(false);
+  /** 知らせが「明細のパネルを開く前に保存する」か（false なら「閉じると変更が消える」） */
+  const [toStatement, setToStatement] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const item = useMemo(() => inputItems(draft).find((i) => i.id === itemId) ?? null, [draft, itemId]);
   const stage = useMemo(() => itemStage(draft, itemId), [draft, itemId]);
@@ -54,6 +60,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
     setDraft(n);
     setDirty(true);
     setLeaving(false);
+    setToStatement(false);
   };
   useUndoScope(
     historyScope(
@@ -64,17 +71,36 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
         setDraft(s);
         setDirty(true);
         setLeaving(false);
+        setToStatement(false);
       },
     ),
   );
   const tryClose = () => {
-    if (dirty && !leaving) {
+    if (dirty && (!leaving || toStatement)) {
       setLeaving(true);
+      setToStatement(false);
       return;
     }
     onClose();
   };
   const save = () => onSave(saveItem(draft, itemId), itemId);
+  // 基本生活費の見出しの横の「明細から出す」（0034）。保存していない変更があれば、先に保存するかを聞く
+  const links = useMemo<Record<string, SectionLink>>(() => {
+    if (itemId !== "living" || onStatement === undefined) return NO_LINKS;
+    const link: SectionLink = {
+      label: "明細から出す",
+      title: "カード・銀行の明細から月平均を出し、候補として入れます",
+      onClick: () => {
+        if (dirty) {
+          setLeaving(true);
+          setToStatement(true);
+          return;
+        }
+        onStatement();
+      },
+    };
+    return { "living/main": link, "living/none": link };
+  }, [itemId, onStatement, dirty]);
 
   // 開いた直後: 最初の欄（無ければ閉じるボタン）に移る。背景はスクロールさせない
   useEffect(() => {
@@ -100,8 +126,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
 
   // 知らせが出たら、その中のボタンに移る
   useEffect(() => {
-    if (leaving) panel.current?.querySelector<HTMLElement>("[data-discard]")?.focus();
-  }, [leaving]);
+    if (leaving) panel.current?.querySelector<HTMLElement>("[data-discard], [data-save-statement]")?.focus();
+  }, [leaving, toStatement]);
 
   if (item === null || stage === null) return null;
   const sections = stage.sections.filter((s) => visible(level, s.level));
@@ -171,15 +197,30 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             <SavingsPanel wh={draft} level={level} onEdit={edit} />
           ) : (
             <FieldSuggestions.Provider value={suggestions}>
-              {sections.map((s) => (
-                <Section key={s.key} section={s} wh={draft} level={level} onEdit={edit} />
-              ))}
-              {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます。</p> : null}
+              <SectionLinks.Provider value={links}>
+                {sections.map((s) => (
+                  <Section key={s.key} section={s} wh={draft} level={level} onEdit={edit} />
+                ))}
+                {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます。</p> : null}
+              </SectionLinks.Provider>
             </FieldSuggestions.Provider>
           )}
         </div>
         <div class="ip-foot" role={leaving ? "alert" : undefined}>
-          {leaving ? (
+          {leaving && toStatement && onStatement !== undefined ? (
+            <>
+              <p class="ip-note warn">保存していない変更があります。明細のパネルを開く前に、この変更を保存します。</p>
+              <button type="button" class="btn" onClick={() => {
+                  setLeaving(false);
+                  setToStatement(false);
+                }}>
+                入力に戻る
+              </button>
+              <button type="button" class="btn primary" onClick={() => onStatement(saveItem(draft, itemId))} data-save-statement>
+                保存して明細を開く
+              </button>
+            </>
+          ) : leaving ? (
             <>
               <p class="ip-note warn">保存していない変更があります。閉じると、この変更は消えます。</p>
               <button type="button" class="btn" onClick={() => setLeaving(false)}>

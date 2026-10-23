@@ -68,7 +68,7 @@ import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
 import { keepSnapshots, makeSnapshot, type Snapshot, type SnapshotDraft } from "./snapshots/snapshots.ts";
 import { keepStatements, withLog } from "./statement/model.ts";
-import { StatementPanel, StatementTools } from "./statement/StatementPanel.tsx";
+import { StatementPanel } from "./statement/StatementPanel.tsx";
 import type { StatementLog } from "../../../statement/src/index.ts";
 import { SnapshotTools } from "./snapshots/SnapshotTools.tsx";
 import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
@@ -110,7 +110,7 @@ export function parseHash(hash: string): {
   memo?: boolean;
   /** #snapshots: 入力のホームで控えの一覧を開いて開く */
   snapshots?: boolean;
-  /** #statement=review: 入力のホームで明細のパネルをその手順で開く（0034。画面の確かめ用） */
+  /** #statement=review: 入力で明細のパネルをその手順で開く（閉じると基本生活費のパネルに戻る。0034。画面の確かめ用） */
   statement?: "accounts" | "import" | "review" | "result";
   /** #report=takeaway: 提案書のタブを「持ち帰り用のレポート」で開く（0030） */
   reportMode?: "pdf" | "takeaway";
@@ -385,8 +385,8 @@ export function App() {
   // 事務所での共有（0023）
   const [officeStatus, setOfficeStatus] = useState<OfficeStatus | null>(null);
   const [officeOpen, setOfficeOpen] = useState(false);
-  /** 明細のパネル（入力のホーム。0034）を開いている手順 */
-  const [statementOpen, setStatementOpen] = useState<"accounts" | "import" | "review" | "result" | "auto" | null>(initial.statement ?? null);
+  /** 明細のパネル（0034）を最初に開く手順（URL の #statement=review など。最初の1回だけ使う） */
+  const statementStep = useRef(initial.statement);
   // 保存先（1人で2台の PC の同期フォルダ。0024）: パネル（"open" は2台目の PC として開く節を先に出す）と、保存先と同期の知らせ
   const [storageOpen, setStorageOpen] = useState<null | "default" | "open">(null);
   const [storageNotices, setStorageNotices] = useState<StorageNotice[]>([]);
@@ -1887,6 +1887,34 @@ export function App() {
               level={level}
               onLevel={setLevel}
               {...(initial.open !== undefined ? { initialOpen: initial.open } : {})}
+              {...(host !== null
+                ? {
+                    statement: {
+                      initialOpen: initial.statement !== undefined,
+                      render: (back: (approved?: number) => void) => (
+                        <StatementPanel
+                          wh={opened.wh}
+                          host={host.statements}
+                          {...(statementStep.current !== undefined ? { initialStep: statementStep.current } : {})}
+                          onLog={(log) => putStatements(withLog(opened.wh, log).statements)}
+                          onApprove={(next) => {
+                            // 取り込んだ記録（区画 statements）を先に入れ、現状の値は元に戻せる変更として入れる
+                            putStatements(next.statements);
+                            edit(next);
+                          }}
+                          onApproved={(n) => {
+                            statementStep.current = undefined;
+                            back(n);
+                          }}
+                          onClose={() => {
+                            statementStep.current = undefined;
+                            back();
+                          }}
+                        />
+                      ),
+                    },
+                  }
+                : {})}
               tools={
                 <>
                   <SnapshotTools
@@ -1897,24 +1925,9 @@ export function App() {
                     {...(initial.snapshots === true ? { initialOpen: true } : {})}
                   />
                   {host !== null ? <HearingTools wh={opened.wh} sheets={host.sheets} onSave={edit} /> : null}
-                  {host !== null ? <StatementTools wh={opened.wh} onOpen={() => setStatementOpen("auto")} /> : null}
                 </>
               }
             />
-            {host !== null && statementOpen !== null ? (
-              <StatementPanel
-                wh={opened.wh}
-                host={host.statements}
-                {...(statementOpen !== "auto" ? { initialStep: statementOpen } : {})}
-                onLog={(log) => putStatements(withLog(opened.wh, log).statements)}
-                onApprove={(next) => {
-                  // 取り込んだ記録（区画 statements）を先に入れ、現状の値は元に戻せる変更として入れる
-                  putStatements(next.statements);
-                  edit(next);
-                }}
-                onClose={() => setStatementOpen(null)}
-              />
-            ) : null}
           </>
         ) : tab === "contingency" && opened !== null ? (
           <>

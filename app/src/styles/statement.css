@@ -1,5 +1,4 @@
-/* 明細から生活費を出す（入力のホームのパネル。0034）。入力のパネル（.ipanel.wide）の中に、手順の札と、お客さまに見せながら押せる大きめのボタンを置く */
-.st-tools-n { font-size: 0.85rem; color: var(--ink-2); }
+/* 明細から生活費を出す（基本生活費のパネルから開くパネル。0034）。入力のパネル（.ipanel.wide）の中に、手順の札と、お客さまに見せながら押せる大きめのボタンを置く */
 .st-panel { --c: var(--prop); }
 .st-head { grid-template-columns: auto minmax(0, 1fr) auto; }
 .st-head h2 { font-size: 1.2rem; }

@@ -23,6 +23,11 @@ interface Props {
   tools?: ComponentChildren;
   /** 1件だけの計算（基本生活費のパネルの、控えから見た実際の貯まり方。0031） */
   computeOne?: (req: EngineRequest) => Promise<PreviewResult | null>;
+  /**
+   * 明細から生活費を出すパネル（0034）。入口は基本生活費のパネルの見出しの横の「明細から出す」だけ。
+   * render の back は、閉じたとき（承認したときは入れた件数つき）に呼ぶ。基本生活費のパネルに戻る
+   */
+  statement?: { render: (back: (approved?: number) => void) => ComponentChildren; initialOpen?: boolean };
 }
 
 function Card({ item, onOpen, flash }: { item: InputItem; onOpen: (id: string) => void; flash: boolean }) {
@@ -94,7 +99,7 @@ function AddCard({ open, onOpen, onPick }: { open: boolean; onOpen: (v: boolean)
   );
 }
 
-export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, computeOne }: Props) {
+export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, computeOne, statement }: Props) {
   const items = useMemo(() => inputItems(wh), [wh]);
   const groups = useMemo(() => groupedItems(items), [items]);
   const p = progressOf(items);
@@ -103,6 +108,7 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
   const [addMenu, setAddMenu] = useState(false);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [statementOpen, setStatementOpen] = useState(statement?.initialOpen === true);
   const backTo = useRef<string | null>(null);
 
   // パネルを閉じたら、押したカードに戻る
@@ -139,6 +145,20 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
     setAddMenu(false);
     setAddDraft(r.wh);
     setOpenId(r.itemId);
+  };
+  // 基本生活費のパネル → 明細のパネル → 基本生活費のパネル（承認した値が見えるように、保存した世帯から開き直す）
+  const openStatement = (saved?: WorkingHousehold) => {
+    if (saved !== undefined) onSave(saved);
+    backTo.current = null;
+    setOpenId(null);
+    setAddDraft(null);
+    setStatementOpen(true);
+  };
+  const backFromStatement = (approved?: number) => {
+    setStatementOpen(false);
+    setAddDraft(null);
+    setOpenId("living");
+    if (approved !== undefined) setToast(`明細から${approved}件を入れました`);
   };
   const save = (next: WorkingHousehold, id: string) => {
     const label = inputItems(next).find((i) => i.id === id)?.label;
@@ -202,8 +222,10 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
           onSave={save}
           onClose={close}
           {...(computeOne !== undefined ? { computeOne } : {})}
+          {...(openId === "living" && statement !== undefined ? { onStatement: openStatement } : {})}
         />
       ) : null}
+      {statement !== undefined && statementOpen ? statement.render(backFromStatement) : null}
       <div class={`toast${toast !== null ? " on" : ""}`} role="status" aria-live="polite">
         {toast ?? ""}
       </div>

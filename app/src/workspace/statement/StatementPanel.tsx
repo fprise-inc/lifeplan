@@ -1,4 +1,4 @@
-// 入力のホームの「明細から生活費を出す」（作業の層。0034）。ヒアリングシートの道具の並びに置き、押すと大きなパネルが開く。
+// 「明細から生活費を出す」（作業の層。0034）。基本生活費のパネルの見出しの横の「明細から出す」で開く大きなパネル。閉じる・承認すると基本生活費のパネルに戻る。
 //   1 口座・カード: 呼び名・持ち主・カード会社（カード番号・口座番号は書かない）
 //   2 明細の取り込み: 本体の開くダイアログで選んだ CSV・PDF を PC の中で読み、列の対応付けを確かめて（選び直して・覚えて）取り込む。期間を直す
 //   3 ヒアリング: 迷う行をお客さまに画面を見せながらボタンで決める（持ち主の働き方で選べる区分を変える）。世帯の決まり・働き方の選び直し
@@ -7,7 +7,6 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { CARD_ISSUERS, COLUMN_ROLES, LIVING_LABELS, ROLE_LABELS, WORK_STYLE_LABELS, type Bucket, type ColumnMapping, type ColumnRole, type Issue, type ReviewItem, type SourceKind, type StatementCandidate, type StatementCategory, type StatementLog } from "../../../../statement/src/index.ts";
 import type { StatementHost, StatementOfficeData } from "../../engine/host.ts";
-import { PopIcon } from "../../presentation/icons.tsx";
 import { approvalTime } from "../hearing/sheet.ts";
 import { newId, type WorkingHousehold } from "../input/household.ts";
 import {
@@ -71,6 +70,8 @@ interface PanelProps {
   onLog: (log: StatementLog) => void;
   /** 候補を承認した世帯（現状の値と取り込んだ記録） */
   onApprove: (next: WorkingHousehold) => void;
+  /** 承認した後（入れた件数）。渡すと、パネルの中に知らせを出す代わりにこちらを呼ぶ（基本生活費のパネルに戻る） */
+  onApproved?: (n: number) => void;
   onClose: () => void;
   initialStep?: Step;
 }
@@ -1001,7 +1002,7 @@ function ResultStep({ wh, log, an, onApprove }: { wh: WorkingHousehold; log: Sta
 
 // ---- パネル ----
 
-export function StatementPanel({ wh, host, onLog, onApprove, onClose, initialStep }: PanelProps) {
+export function StatementPanel({ wh, host, onLog, onApprove, onApproved, onClose, initialStep }: PanelProps) {
   const log = logOf(wh);
   const [step, setStep] = useState<Step>(initialStep ?? (log.accounts.length === 0 ? "accounts" : log.imports.length === 0 ? "import" : "review"));
   const [office, setOffice] = useState<StatementOfficeData | null>(null);
@@ -1116,6 +1117,10 @@ export function StatementPanel({ wh, host, onLog, onApprove, onClose, initialSte
               an={an}
               onApprove={(next, n) => {
                 onApprove(next);
+                if (onApproved !== undefined) {
+                  onApproved(n);
+                  return;
+                }
                 setMsg(`${n}件を現状に入れました。入力の「基本生活費」などで確かめられます`);
                 panel.current?.querySelector(".ip-body")?.scrollTo({ top: 0 });
               }}
@@ -1130,21 +1135,5 @@ export function StatementPanel({ wh, host, onLog, onApprove, onClose, initialSte
         </div>
       </div>
     </>
-  );
-}
-
-/** 入力のホームの道具の並びに置くボタン（ヒアリングシートの隣） */
-export function StatementTools({ wh, onOpen }: { wh: WorkingHousehold; onOpen: () => void }) {
-  const log = logOf(wh);
-  const rows = log.imports.reduce((n, i) => n + i.rows.length, 0);
-  return (
-    <div class="hs-tools" role="group" aria-label="明細">
-      <span class="hs-tools-h">明細</span>
-      {log.imports.length > 0 ? <span class="st-tools-n">{`取り込み ${log.imports.length}件・${rows}行`}</span> : null}
-      <button type="button" class="btn" onClick={onOpen} data-statement-open-panel>
-        明細から生活費を出す
-        <PopIcon />
-      </button>
-    </div>
   );
 }

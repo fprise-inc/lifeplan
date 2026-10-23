@@ -220,6 +220,32 @@ describe("候補の承認", () => {
     const list = candidatesOf(wh, an.summary, "00000000-0000-4000-8000-0000000000cc", seq);
     expect(approve(wh, list, new Set(), an.summary, "00000000-0000-4000-8000-0000000000cc", AT)).toBe(wh);
   });
+
+  it("承認して入れた名前を付けた支出と同じ候補は、次から出さない（承認していないもの・消したもの・直したものは出す）", async () => {
+    const { wh } = await imported();
+    const an = analyze(wh, []);
+    const list = candidatesOf(wh, an.summary, "00000000-0000-4000-8000-0000000000dd", seq);
+    const annuals = list.filter((c) => c.collection === "periodicExpenses");
+    expect(annuals.length).toBeGreaterThan(0);
+    const picked = annuals[0]!;
+    const label = (picked.value as { label: string }).label;
+    const next = approve(wh, list, new Set([picked.id]), an.summary, "00000000-0000-4000-8000-0000000000dd", AT);
+    const titles = (w: WorkingHousehold) => candidatesOf(w, analyze(w, []).summary, "00000000-0000-4000-8000-0000000000ee", seq).filter((c) => c.collection === "periodicExpenses").map((c) => c.title);
+    // 承認したものは出ない。承認していない一時的支出の候補は今までどおり出る
+    expect(titles(next)).not.toContain(picked.title);
+    expect(titles(next)).toEqual(annuals.filter((c) => c !== picked).map((c) => c.title));
+    // 承認して入れた支出を消したら、また候補に出る
+    const h = next.request.input.household;
+    const removed: WorkingHousehold = { ...next, request: { ...next.request, input: { ...next.request.input, household: { ...h, periodicExpenses: h.periodicExpenses!.filter((p) => p.label !== label) } } } };
+    expect(titles(removed)).toContain(picked.title);
+    // FP が金額を直したら（明細の値でなくなったら）、また候補に出る（同じ名前の支出があるので要確認）
+    const edited: WorkingHousehold = {
+      ...next,
+      request: { ...next.request, input: { ...next.request.input, household: { ...h, periodicExpenses: h.periodicExpenses!.map((p) => (p.label === label ? { ...p, amount: { value: 1, state: "confirmed", origin: { kind: "manual" } } } : p)) } } },
+    };
+    const again = candidatesOf(edited, analyze(edited, []).summary, "00000000-0000-4000-8000-0000000000ff", seq).find((c) => c.title === picked.title);
+    expect(again?.status).toBe("needsReview");
+  });
 });
 
 describe("元に戻す・やり直すの対象にしない", () => {

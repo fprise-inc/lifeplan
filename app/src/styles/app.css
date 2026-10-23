@@ -254,7 +254,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .level-switch button { flex: 1; background: #fff; border: 0; padding: 5px 12px; font-weight: 700; cursor: pointer; color: var(--ink-2); }
 .level-switch button.on { background: var(--ink); color: #fff; }
 .in-section { margin-top: 14px; }
-.in-section > h3 { font-size: 1rem; margin: 0 0 4px; border-left: 4px solid var(--prop); padding-left: 8px; }
+.in-section > h3, .in-section-h > h3 { font-size: 1rem; margin: 0 0 4px; border-left: 4px solid var(--prop); padding-left: 8px; }
+.in-section-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .in-note { font-size: 0.85rem; color: var(--ink-2); margin: 2px 0 8px; }
 .in-group { border: 1px solid var(--card-line); border-radius: 9px; padding: 10px 12px 12px; margin: 8px 0; background: #fcfcfb; }
 .in-group-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
@@ -517,6 +518,9 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 /* 小窓・パネルが開く印（icons.tsx の PopIcon）: 文字の右に、文字の大きさに合わせて */
 .pop-i { display: inline-block; flex: none; width: 1.1em; height: 1.1em; margin-left: 0.25em; vertical-align: -0.16em; }
 .link-btn.danger { color: var(--short-ink); }
+/* 区画の見出しの横の控えめなリンク（基本生活費の「明細から出す」。0034） */
+.in-section-link { font-size: 0.82rem; font-weight: 400; color: var(--ink-2); white-space: nowrap; }
+.in-section-link:hover { color: var(--prop); }
 .plans-note { margin: 0 0 8px; }
 
 /* 動かす項目（対策の列） */
