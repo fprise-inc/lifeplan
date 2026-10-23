@@ -345,3 +345,4 @@
 - 2026-10-21（黒字のうち貯まる割合と生活防衛資金。0031）: 前提に `surplusSaving`（黒字のうち貯まる割合 `ratio`・上限 `cap`・期間で変える組 `changes`）と `emergencyReserve`（金額 `amount` か基本生活費の `months` か月分・「○歳まで持つ」の判定に含める `countInLasting`）を、まとめた金融資産の器に `uninvested`（運用しない分）を足した。どれも任意で、無ければ今まで通り。
 - 2026-10-21（生活防衛資金をなくした。0031 の追記）: 前提の `emergencyReserve` をなくした（世帯ファイルの形式 `0.12` の変換の段で捨てる）。`surplusSaving`・`uninvested` は残す。
 - 2026-10-20（住まい以外の不動産。0028）: 値の追加として、不動産の器に中身 `property`（`structure`・`builtYear`・`landShare`・取得 `acquisition`（`price`・`at`）・貸している `rental`（`monthly`（値の箱）・`vacancyRate`・`growth`・`from`・`to`）・経費 `expenses`（`annual`（値の箱）・`rate`・`growth`）・売却の予定 `sale`（`at`・`price`・`costRate`））と、負債に `property`（その借入で取得した不動産の器の ID）を足した（どれも任意。骨格は変わらない）。入力の画面は、貯蓄・運用の「不動産（住まい以外）」に「土地と建物に分ける」と、土地と建物・家賃収入・経費・売却・この不動産のローンの欄を足した（そのローンは「住まい・ローン」の住宅ローン以外のローンには出さない）。
+- 2026-10-23（明細の取り込み。0034 の追記）: 値の箱の推定の出し方 `estimate.method` に `statementAverage`（明細の月平均）・`statementAnnual`（明細の年1回の支払い）を足した（スキーマ `common.json` の列挙）。

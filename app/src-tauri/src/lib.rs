@@ -10,6 +10,8 @@
 //!   画面にはファイル・ダイアログの権限を与えず、パスも受け取らない。
 //! - AI接続口（ai.rs。0014・0015）: 事務所全体の設定（既定はオフ）・世帯ごとの同意・期限つきの共有・記録・AIの候補の判断。
 //!   受け口は設定がオンのときだけ開け、画面には鍵もパスも渡さない。
+//! - 明細の取り込み（statement.rs。0034）: 明細のファイルは本体のダイアログで選ばせ、大きさを確かめて中身だけを画面に返す（元のファイルは残さない）。
+//!   覚えた辞書と形は事務所データ（household-store）に持つ。
 //! - 事務所での共有（office.rs。0023）: 共有フォルダは本体のダイアログで選ばせ、パスを画面に渡さない。参加の承認は指紋の入力が必須。
 //!   開いている印は裏で定期的に新しくし、閉じるときに消す。
 //! - macOS のメニュー（menu.rs）: 標準の編集メニューを付け、元に戻す・やり直すは画面のアプリ全体の履歴へ渡す。
@@ -24,6 +26,7 @@ mod export;
 mod menu;
 mod office;
 mod report;
+mod statement;
 mod store;
 mod takeaway;
 
@@ -319,6 +322,9 @@ pub fn run() {
             store::store_update_sample,
             store::store_categories,
             store::store_set_categories,
+            statement::statement_office,
+            statement::statement_learn,
+            statement::statement_open,
             ai::ai_status,
             ai::ai_set_enabled,
             ai::ai_setup_copy,

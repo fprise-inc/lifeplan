@@ -1,5 +1,6 @@
 // 本体（Rust）と画面側のエンジンへの入口
 import { invoke } from "@tauri-apps/api/core";
+import type { DictionaryEntry, LearnedFormat } from "../../../statement/src/index.ts";
 import { isEngineError, type EngineError, type EngineRequest, type FullResult, type PreviewResult } from "./types.ts";
 
 /** 画面側のエンジンのセッション（engine/src/engine/run.ts の Session。JSON の文字列で受け渡す） */
@@ -72,6 +73,22 @@ export interface ReportHost {
 export interface SheetHost {
   save(bytes: Uint8Array, meta: { customerNo: string; exportedOn: string; prefilled: boolean }): Promise<SaveOutcome>;
   /** 選ばなかったときは null */
+  open(): Promise<Uint8Array | null>;
+}
+
+/** 事務所で覚えた明細の辞書と形（0034。本体の household-store の StatementOffice。店の鍵と項目・列の対応付けだけで、金額・日付は持たない） */
+export interface StatementOfficeData {
+  dictionary: DictionaryEntry[];
+  formats: (LearnedFormat & { by?: string })[];
+}
+
+/** 明細の取り込み（0034）: 明細のファイルを開く・覚えた辞書と形の読み書き。読む・仕分けるは画面の statement/ の部品が PC の中で行う */
+export interface StatementHost {
+  /** 覚えた辞書と形（事務所で共有しているときは全員の分を合わせたもの） */
+  office(): Promise<StatementOfficeData>;
+  /** FP が直した結果を覚える（直した人は本体が決める）。合わせた後の辞書と形を返す */
+  learn(entries: readonly DictionaryEntry[], formats: readonly LearnedFormat[]): Promise<StatementOfficeData>;
+  /** 本体の開くダイアログで選んだ明細のファイルの中身（10MB まで。パス・ファイル名は渡らない）。選ばなかったときは null */
   open(): Promise<Uint8Array | null>;
 }
 
@@ -492,6 +509,7 @@ export interface HostApi {
   store: StoreHost;
   ai: AiHost;
   office: OfficeHost;
+  statements: StatementHost;
 }
 
 const bytesOf = (b: ArrayBuffer | Uint8Array | number[]): Uint8Array => (b instanceof Uint8Array ? b : b instanceof ArrayBuffer ? new Uint8Array(b) : Uint8Array.from(b));
@@ -566,6 +584,14 @@ export function tauriHost(): HostApi {
       startShare: (id, minutes, destination) => invoke<AiHouseholdView>("ai_share_start", { id, minutes, destination }),
       stopShare: (id) => invoke<AiHouseholdView>("ai_share_stop", { id }),
       decide: (id, candidate, accept, plan) => invoke<AiHouseholdView>("ai_candidate_decide", { id, candidate, accept, plan }),
+    },
+    statements: {
+      office: () => invoke<StatementOfficeData>("statement_office"),
+      learn: (entries, formats) => invoke<StatementOfficeData>("statement_learn", { entries, formats }),
+      open: async () => {
+        const b = bytesOf(await invoke<ArrayBuffer>("statement_open"));
+        return b.length === 0 ? null : b;
+      },
     },
     sheets: {
       save: (bytes, m) => invoke<SaveOutcome>("hearing_save", bytes, { headers: { "x-customer-no": m.customerNo, "x-exported-on": m.exportedOn, "x-prefilled": m.prefilled ? "1" : "0" } }),
@@ -735,6 +761,17 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       startShare: async (id, minutes, destination) => devJson<AiHouseholdView>(await devAi("startShare", { id, minutes, destination })),
       stopShare: async (id) => devJson<AiHouseholdView>(await devAi("stopShare", { id })),
       decide: async (id, candidate, accept, plan) => devJson<AiHouseholdView>(await devAi("decide", { id, candidate, accept, plan })),
+    },
+    // 明細の取り込み: 覚えた辞書と形は開発用のサーバーのメモリの中だけ。開くは架空の明細（statement/test/fixtures）を順に返す
+    statements: {
+      office: async () => devJson<StatementOfficeData>(await fetch("/__dev/statement/office", { method: "POST" })),
+      learn: async (entries, formats) => devJson<StatementOfficeData>(await fetch("/__dev/statement/learn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ entries, formats }) })),
+      open: async () => {
+        const res = await fetch("/__dev/statement/open");
+        if (res.status === 204) return null;
+        if (!res.ok) throw (await res.text()) || `E_DEV_${res.status}`;
+        return new Uint8Array(await res.arrayBuffer());
+      },
     },
     takeaway: {
       save: async (bytes, m) => devJson<SaveOutcome>(await fetch(`/__dev/takeaway/save?exportedOn=${encodeURIComponent(m.exportedOn)}&encrypted=${m.encrypted ? 1 : 0}`, { method: "POST", body: bytes as Uint8Array<ArrayBuffer> })),

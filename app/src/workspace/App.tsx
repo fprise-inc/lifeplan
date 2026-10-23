@@ -67,6 +67,9 @@ import { OfficePanel } from "./store/OfficePanel.tsx";
 import { RecoveryPanel, type RecoveryMode } from "./store/RecoveryPanel.tsx";
 import { StoragePanel } from "./store/StoragePanel.tsx";
 import { keepSnapshots, makeSnapshot, type Snapshot, type SnapshotDraft } from "./snapshots/snapshots.ts";
+import { keepStatements, withLog } from "./statement/model.ts";
+import { StatementPanel, StatementTools } from "./statement/StatementPanel.tsx";
+import type { StatementLog } from "../../../statement/src/index.ts";
 import { SnapshotTools } from "./snapshots/SnapshotTools.tsx";
 import { describeSnap, sameSnap, useHistoryBook, type AppSnap } from "./undo/appHistory.ts";
 import { version as APP_VERSION } from "../../package.json";
@@ -107,6 +110,8 @@ export function parseHash(hash: string): {
   memo?: boolean;
   /** #snapshots: 入力のホームで控えの一覧を開いて開く */
   snapshots?: boolean;
+  /** #statement=review: 入力のホームで明細のパネルをその手順で開く（0034。画面の確かめ用） */
+  statement?: "accounts" | "import" | "review" | "result";
   /** #report=takeaway: 提案書のタブを「持ち帰り用のレポート」で開く（0030） */
   reportMode?: "pdf" | "takeaway";
   /** #cgplan=B: 万一のときの画面で見るプラン（帯の文字） */
@@ -172,6 +177,7 @@ export function parseHash(hash: string): {
     if (k === "big") out.big = true;
     else if (k === "memo") out.memo = true;
     else if (k === "snapshots") out.snapshots = true;
+    else if (k === "statement" && (v === "accounts" || v === "import" || v === "review" || v === "result")) out.statement = v;
     else if (k === "report" && (v === "takeaway" || v === "pdf")) out.reportMode = v;
     else if (k === "selfcheck") {
       out.selfcheck = true;
@@ -379,6 +385,8 @@ export function App() {
   // 事務所での共有（0023）
   const [officeStatus, setOfficeStatus] = useState<OfficeStatus | null>(null);
   const [officeOpen, setOfficeOpen] = useState(false);
+  /** 明細のパネル（入力のホーム。0034）を開いている手順 */
+  const [statementOpen, setStatementOpen] = useState<"accounts" | "import" | "review" | "result" | "auto" | null>(initial.statement ?? null);
   // 保存先（1人で2台の PC の同期フォルダ。0024）: パネル（"open" は2台目の PC として開く節を先に出す）と、保存先と同期の知らせ
   const [storageOpen, setStorageOpen] = useState<null | "default" | "open">(null);
   const [storageNotices, setStorageNotices] = useState<StorageNotice[]>([]);
@@ -990,7 +998,7 @@ export function App() {
       history.track(() => {
         const o = openedRef.current;
         if (o === null || dual.current === null) return;
-        const n = openedFrom(o.demo, withRefreshedEstimates(keepSnapshots(next, o.wh)));
+        const n = openedFrom(o.demo, withRefreshedEstimates(keepStatements(keepSnapshots(next, o.wh), o.wh)));
         if (n === null) return;
         reqCache.current.clear();
         const w = fitWork(n, nextWork ?? workRef.current);
@@ -1009,7 +1017,7 @@ export function App() {
     const o = openedRef.current;
     if (o === null) return;
     // 控えは元に戻す・やり直すの対象にしない（作った後は変えない）。今の控えを持ち越す
-    const sw = keepSnapshots(s.wh, o.wh);
+    const sw = keepStatements(keepSnapshots(s.wh, o.wh), o.wh);
     const n = sw === o.wh ? o : sw.request === o.wh.request ? { ...o, wh: sw } : openedFrom(o.demo, sw);
     if (n === null) return;
     reqCache.current.clear();
@@ -1035,6 +1043,16 @@ export function App() {
     openedRef.current = n;
     setOpened(n);
   }, []);
+  /** 明細の取り込みの記録を変える（元に戻す・やり直すの対象にしない。控えと同じ。0034） */
+  const putStatements = useCallback((log: StatementLog | undefined) => {
+    const o = openedRef.current;
+    if (o === null) return;
+    const { statements: _old, ...rest } = o.wh;
+    void _old;
+    const n: Opened = { ...o, wh: log !== undefined ? { ...rest, statements: log } : rest };
+    openedRef.current = n;
+    setOpened(n);
+  }, []);
   /** 控えを作る（その時点の現状・プラン・保存していないプランの変更の写し。0009 の2） */
   const takeSnapshot = useCallback(
     async (draft: SnapshotDraft) => {
@@ -1054,7 +1072,7 @@ export function App() {
       history.track(() => {
         const o = openedRef.current;
         if (o === null) return;
-        const n = { ...o, wh: keepSnapshots(next, o.wh) };
+        const n = { ...o, wh: keepStatements(keepSnapshots(next, o.wh), o.wh) };
         reqCache.current.clear();
         openedRef.current = n;
         setOpened(n);
@@ -1879,9 +1897,24 @@ export function App() {
                     {...(initial.snapshots === true ? { initialOpen: true } : {})}
                   />
                   {host !== null ? <HearingTools wh={opened.wh} sheets={host.sheets} onSave={edit} /> : null}
+                  {host !== null ? <StatementTools wh={opened.wh} onOpen={() => setStatementOpen("auto")} /> : null}
                 </>
               }
             />
+            {host !== null && statementOpen !== null ? (
+              <StatementPanel
+                wh={opened.wh}
+                host={host.statements}
+                {...(statementOpen !== "auto" ? { initialStep: statementOpen } : {})}
+                onLog={(log) => putStatements(withLog(opened.wh, log).statements)}
+                onApprove={(next) => {
+                  // 取り込んだ記録（区画 statements）を先に入れ、現状の値は元に戻せる変更として入れる
+                  putStatements(next.statements);
+                  edit(next);
+                }}
+                onClose={() => setStatementOpen(null)}
+              />
+            ) : null}
           </>
         ) : tab === "contingency" && opened !== null ? (
           <>

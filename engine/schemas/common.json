@@ -156,7 +156,7 @@
           "additionalProperties": false,
           "required": ["method", "basis"],
           "properties": {
-            "method": { "enum": ["statistic", "derived", "officeDefault"] },
+            "method": { "description": "推定の出し方: statistic（統計の値）・derived（他の値からの逆算）・officeDefault（事務所のひな形）・statementAverage（明細の月平均）・statementAnnual（明細の年1回の支払い。0034）", "enum": ["statistic", "derived", "officeDefault", "statementAverage", "statementAnnual"] },
             "basis": { "type": "string", "minLength": 1 }
           }
         }

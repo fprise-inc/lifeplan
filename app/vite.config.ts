@@ -2,7 +2,7 @@
 // 画面のビルド（Vite）と単体テスト（Vitest）の設定
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineConfig, type Plugin } from "vite";
@@ -44,6 +44,11 @@ const devStore = {
   recoveryKey: Array.from({ length: 58 }, (_, i) => "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[(i * 7 + 3) % 32]).join("").replace(/(.{4})(?=.)/g, "$1-"),
   deletions: 0,
 };
+
+/** 開発用のサーバーの、覚えた明細の辞書と形（メモリの中だけ。本体の事務所データの代わり。0034） */
+type DevDictEntry = { key: string; category: string; at: string; annual?: boolean; by?: string; removed?: boolean };
+type DevFormat = { fingerprint: string; kind: string; mapping: unknown; label?: string; at: string };
+const devStatement = { data: { dictionary: [] as DevDictEntry[], formats: [] as DevFormat[] }, next: 0 };
 
 function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: unknown } | { ok: false; code: string } {
   const s = devStore;
@@ -671,6 +676,51 @@ function devHost(): Plugin {
           const f = process.env.FINANCIA_DEV_OPEN_FILE || join(REPO_DIR, "hearing", "samples", "basic-1-sample.xlsx");
           res.setHeader("content-type", "application/octet-stream");
           return void res.end(readFileSync(f));
+        }
+        // 明細の取り込み（本体の statement_office・statement_learn・statement_open の代わり。0034）: 覚えた辞書と形はメモリの中だけ。
+        // 開くは FINANCIA_DEV_OPEN_STATEMENT（カンマ区切りのパス）か、架空の明細（statement/test/fixtures）を順に返す。statement/reset で最初に戻す
+        const sm = /^statement\/([a-z]+)$/.exec(path);
+        if (sm !== null) {
+          void (async () => {
+            const op = sm[1] as string;
+            const json = (v: unknown) => {
+              res.setHeader("content-type", "application/json; charset=utf-8");
+              res.end(JSON.stringify(v));
+            };
+            if (op === "office") return json(devStatement.data);
+            if (op === "learn" && req.method === "POST") {
+              const a = JSON.parse((await readBody(req)).toString("utf8") || "{}") as { entries?: DevDictEntry[]; formats?: DevFormat[] };
+              const dict = new Map(devStatement.data.dictionary.map((e) => [e.key, e]));
+              for (const e of a.entries ?? []) {
+                const cur = dict.get(e.key);
+                if (cur === undefined || e.at > cur.at || (e.at === cur.at && e.removed === true)) dict.set(e.key, e);
+              }
+              const fm = new Map(devStatement.data.formats.map((f) => [`${f.kind}\u001f${f.fingerprint}`, f]));
+              for (const f of a.formats ?? []) {
+                const k = `${f.kind}\u001f${f.fingerprint}`;
+                const cur = fm.get(k);
+                if (cur === undefined || f.at >= cur.at) fm.set(k, f);
+              }
+              devStatement.data = { dictionary: [...dict.values()].sort((x, y) => (x.key < y.key ? -1 : 1)), formats: [...fm.values()] };
+              return json(devStatement.data);
+            }
+            if (op === "reset") {
+              devStatement.next = 0;
+              return void res.end();
+            }
+            if (op === "open") {
+              const env = process.env.FINANCIA_DEV_OPEN_STATEMENT ?? "";
+              const fx = join(REPO_DIR, "statement", "test", "fixtures");
+              const list = env !== "" ? env.split(",") : ["card-year-utf8bom.csv", "bank-utf8.csv", "card-statement.pdf", "app-utf8bom.csv"].map((f) => join(fx, f));
+              const f = list[devStatement.next++ % list.length] as string;
+              if (statSync(f).size > 10 * 1024 * 1024) return void ((res.statusCode = 400), res.end("E_IMPORT_TOO_LARGE"));
+              res.setHeader("content-type", "application/octet-stream");
+              return void res.end(readFileSync(f));
+            }
+            res.statusCode = 404;
+            res.end();
+          })();
+          return;
         }
         // 世帯の保存（本体の store_*・recovery_key_* の代わり）: 開発用のサーバーのメモリの中だけ。暗号化もファイルへの保存もしない
         const st = /^store\/([a-zA-Z]+)$/.exec(path);

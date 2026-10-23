@@ -301,6 +301,37 @@ pub async fn open_sheet<R: Runtime>(
     read_limited(&path, max_bytes).map(Some)
 }
 
+/// 明細のファイル（CSV・TSV・文字の入った PDF。0034）を選んで中身を返す。選ばなかったときは None。
+/// パス・ファイル名は返さない。開発用のビルドだけ、環境変数 `FINANCIA_DEV_OPEN_STATEMENT` のファイルをダイアログの代わりに読む
+pub async fn open_statement<R: Runtime>(
+    window: &WebviewWindow<R>,
+    max_bytes: u64,
+) -> Result<Option<Vec<u8>>, String> {
+    let dev = if cfg!(debug_assertions) {
+        std::env::var_os("FINANCIA_DEV_OPEN_STATEMENT")
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+    } else {
+        None
+    };
+    let path = match dev {
+        Some(p) => p,
+        None => {
+            let picked = rfd::AsyncFileDialog::new()
+                .set_title("明細のファイルを選ぶ（CSV・PDF）")
+                .add_filter("明細（CSV・TSV・PDF）", &["csv", "tsv", "txt", "pdf"])
+                .set_parent(window)
+                .pick_file()
+                .await;
+            match picked {
+                Some(h) => h.path().to_path_buf(),
+                None => return Ok(None),
+            }
+        }
+    };
+    read_limited(&path, max_bytes).map(Some)
+}
+
 fn read_limited(path: &Path, max_bytes: u64) -> Result<Vec<u8>, String> {
     let meta = std::fs::metadata(path).map_err(|_| "E_IMPORT_READ".to_owned())?;
     if !meta.is_file() {
