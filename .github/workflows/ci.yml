@@ -1,4 +1,4 @@
-# 計算エンジンとアプリの画面・ヒアリングシート・明細の取り込み・持ち帰り用のレポートの自動テスト（0002・0004・0005・0006・0007・0016・0017・0018・0021・0030・0034）
+# 計算エンジンとアプリの画面・ヒアリングシート・明細の取り込み・表計算のファイルの土台・持ち帰り用のレポートの自動テスト（0002・0004・0005・0006・0007・0016・0017・0018・0021・0030・0034）
 # アプリの3つの OS でのビルド（バンドル）は、手で起動するかリリースのときだけ（app-bundle.yml。実行の分数に限りがあるため）
 name: ci
 on:
@@ -251,7 +251,32 @@ jobs:
         run: npm run typecheck
       - name: lint（src/ は Node の組み込みと外への通信を使わない）
         run: npm run lint
-      - name: 単体テスト（番号が残らないこと・二重に数えないこと・区分・候補の数字）
+      - name: 単体テスト（番号が残らないこと・二重に数えないこと・区分・候補の数字・確認シートの書き出しと読み込み）
+        run: npm test
+      - name: ライセンスの検査（npm）
+        run: npm run check:licenses
+
+  # 表計算のファイル（.xlsx）の土台（ヒアリングシート 0018 と明細の確認シート 0034 で使う）: 型の検査・lint・単体テスト（読み戻し・返ってきたファイルを信用しない読み込み）・npm の依存のライセンス
+  xlsx:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: xlsx
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: xlsx/package-lock.json
+      - run: npm ci
+      - name: 型の検査
+        run: npm run typecheck
+      - name: lint（src/ は Node の組み込みと外への通信を使わない）
+        run: npm run lint
+      - name: 単体テスト（読み戻し・管理の値・返ってきたファイルを信用しない読み込み）
         run: npm test
       - name: ライセンスの検査（npm）
         run: npm run check:licenses

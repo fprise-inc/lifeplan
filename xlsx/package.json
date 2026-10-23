@@ -1,0 +1,25 @@
+{
+  "name": "@financia/xlsx",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ファイナンシアの表計算のファイル（.xlsx）の書き出しと読み込みの土台（zip・XML・書式・入力規則・管理の値を3か所に書く・返ってきたファイルを信用しない読み込み。ヒアリングシート 0018 と明細の確認シート 0034 で使う）",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.tools.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check:licenses": "node --disable-warning=ExperimentalWarning scripts/check-licenses.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.4",
+    "eslint": "10.12.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vitest": "5.0.3"
+  }
+}

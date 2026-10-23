@@ -144,24 +144,7 @@ export function answerCells(def: SheetDefinition): { key: string; index?: number
   return out;
 }
 
-/** 列の文字（A・B…）を 0 から数えた番号に */
-export function colIndex(col: string): number {
-  let n = 0;
-  for (const ch of col) n = n * 26 + (ch.charCodeAt(0) - 64);
-  return n - 1;
-}
-
-/** 0 から数えた番号を列の文字に */
-export function colLetter(i: number): string {
-  let s = "";
-  let n = i + 1;
-  while (n > 0) {
-    const r = (n - 1) % 26;
-    s = String.fromCharCode(65 + r) + s;
-    n = Math.floor((n - 1) / 26);
-  }
-  return s;
-}
+export { colIndex, colLetter } from "../../xlsx/src/cells.ts";
 
 /** 西暦の年の選択肢の言葉（和暦を併記。0018 の4） */
 export function yearLabel(y: number): string {

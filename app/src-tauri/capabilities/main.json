@@ -40,6 +40,8 @@
     "allow-statement-office",
     "allow-statement-learn",
     "allow-statement-open",
+    "allow-statement-sheet-save",
+    "allow-statement-sheet-open",
     "allow-ai-status",
     "allow-ai-set-enabled",
     "allow-ai-setup-copy",

@@ -47,7 +47,7 @@ const NO_FILES: Pick<HostApi, "report" | "sheets" | "takeaway" | "store" | "ai" 
   store: { status: no, list: no, create: no, open: no, save: no, rename: no, remove: no, recoveryKey: no, acknowledgeRecovery: no, testRecoveryKey: no, restoreWithRecoveryKey: no, closeReady: async () => undefined, forkInfo: no, resolveFork: no, resolveSyncCopies: no, leave: async () => undefined, devFileKeys: async () => false, listSamples: no, setCategory: no, assignSerial: no, makeSample: no, updateSample: no, categories: no, setCategories: no },
   ai: { status: no, setEnabled: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no },
   office: { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] },
-  statements: { office: no, learn: no, open: async () => null },
+  statements: { office: no, learn: no, open: async () => null, saveSheet: no, openSheet: async () => null },
 };
 
 /** 本体の代わり: 結果は要求の n×10（正の計算）。応答は手で返す */

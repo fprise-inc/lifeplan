@@ -1,6 +1,8 @@
 // 世帯ファイルに持つ明細の取り込みの記録（本文の区画 statements。世帯ファイルの形式 0.14。0034 の6）。
 // - 元のファイルは持たない。持つのは、元のファイルの指紋と大きさ、使った読み手と列の対応付け、取り込んだ行（番号を消した後）、
 //   FP が決めたこと（行ごとの項目・区分・割合・持ち主）、世帯の決まり（「この世帯の通信は事業60%」など）、候補を取り込んだ記録
+// - 前もってお客さまに印を付けてもらう確認シート（表計算のファイル）の依頼の記録（いつ書き出したか・書き出したファイルの指紋・
+//   シートの番号と行の対応・取り込んだか）。シートには世帯の内部ID・取り込みの ID を書かず、番号だけで結ぶ（0034 の9。形式 0.15 から）
 // - 自動の仕分け（辞書・年1回の検出・カードの引き落とし）の結果は持たない。毎回、行と FP の決めたことから作り直す
 //   （辞書が良くなれば、まだ決めていない行の仕分けも良くなる）
 import { merchantKey } from "./merchant.ts";
@@ -85,6 +87,41 @@ export interface StatementApplication {
   readonly basis: { readonly from: string; readonly to: string; readonly months: string };
 }
 
+/** ファイルの指紋と大きさ（ファイルそのものは持たない） */
+export interface FileMark {
+  readonly sha256: string;
+  readonly bytes: number;
+}
+
+/** 確認シートを取り込んだ記録（返ってきたファイルの指紋と、FP が承認して入れた行の数） */
+export interface StatementReceipt {
+  readonly at: string;
+  readonly file: FileMark;
+  readonly decided: number;
+}
+
+/**
+ * 前もってお客さまに印を付けてもらう確認シートの依頼の記録（0034 の9）。シートの行は依頼ごとの番号（1〜）だけを持ち、
+ * 番号 → 取り込みの ID と行の ID の対応はここ（暗号化した世帯ファイルの中）にだけ置く
+ */
+export interface StatementRequest {
+  /** 依頼番号（依頼ごとの乱数。M-XXXXXX。シートの管理の値と同じ） */
+  readonly id: string;
+  /** 書き出した日時 */
+  readonly at: string;
+  /** 書き出したファイルの指紋と大きさ */
+  readonly file: FileMark;
+  /** シートの番号 → 取り込みの ID と行の ID */
+  readonly rows: readonly { readonly no: number; readonly import: string; readonly row: string }[];
+  /** 取り込んだ記録（まだなら空） */
+  readonly received: readonly StatementReceipt[];
+}
+
+/** 残す依頼の記録の数（古いものから外す） */
+export const MAX_REQUESTS = 20;
+/** 1つの依頼に載せる行の上限 */
+export const MAX_REQUEST_ROWS = 500;
+
 export interface StatementLog {
   readonly version: number;
   readonly accounts: readonly StatementAccount[];
@@ -93,6 +130,20 @@ export interface StatementLog {
   /** 構成員ごとに FP が選んだ働き方（無ければ働き方の期間から） */
   readonly styles?: Readonly<Record<string, readonly WorkStyle[]>>;
   readonly applied: readonly StatementApplication[];
+  /** 確認シートの依頼の記録（形式 0.15 から。書き出していなければ無い） */
+  readonly requests?: readonly StatementRequest[];
+}
+
+/** 依頼の記録を足す（同じ依頼番号は置き換え、古いものから MAX_REQUESTS を超えた分を外す） */
+export function addRequest(log: StatementLog, r: StatementRequest): StatementLog {
+  const list = [...(log.requests ?? []).filter((x) => x.id !== r.id), r].slice(-MAX_REQUESTS);
+  return { ...log, requests: list };
+}
+
+/** 取り込んだ記録を依頼に足す（依頼が無ければそのまま） */
+export function addReceipt(log: StatementLog, requestId: string, receipt: StatementReceipt): StatementLog {
+  if (!(log.requests ?? []).some((r) => r.id === requestId)) return log;
+  return { ...log, requests: (log.requests ?? []).map((r) => (r.id === requestId ? { ...r, received: [...r.received, receipt] } : r)) };
 }
 
 export const emptyLog = (): StatementLog => ({ version: STATEMENT_LOG_VERSION, accounts: [], imports: [], rules: [], applied: [] });
@@ -204,5 +255,30 @@ export function readLog(v: unknown): StatementLog {
       ? [{ id: a.id, at: a.at, by: "fp", imports: a.imports.filter((x): x is string => str(x, 64)), items: a.items.filter(isObj).map((x) => ({ candidate: String(x.candidate), item: String(x.item), target: x.target })), basis: { from: String(a.basis.from), to: String(a.basis.to), months: String(a.basis.months) } }]
       : [],
   );
-  return { version: STATEMENT_LOG_VERSION, accounts, imports, rules, ...(Object.keys(styles).length > 0 ? { styles } : {}), applied };
+  const requests = (Array.isArray(v.requests) ? v.requests : []).flatMap(readRequest).slice(-MAX_REQUESTS);
+  return { version: STATEMENT_LOG_VERSION, accounts, imports, rules, ...(Object.keys(styles).length > 0 ? { styles } : {}), applied, ...(requests.length > 0 ? { requests } : {}) };
+}
+
+const SHA = /^sha256:[0-9a-f]{64}$/u;
+
+function readFileMark(v: unknown): FileMark | null {
+  return isObj(v) && str(v.sha256, 80) && SHA.test(v.sha256) && Number.isSafeInteger(v.bytes) && (v.bytes as number) >= 0 ? { sha256: v.sha256, bytes: v.bytes as number } : null;
+}
+
+function readRequest(v: unknown): StatementRequest[] {
+  if (!isObj(v) || !str(v.id, 20) || !/^M-[2-9A-HJ-NP-Z]{6}$/u.test(v.id) || !str(v.at, 40) || !Array.isArray(v.rows) || v.rows.length > MAX_REQUEST_ROWS) return [];
+  const file = readFileMark(v.file);
+  if (file === null) return [];
+  const seen = new Set<number>();
+  const rows = v.rows.flatMap((r): StatementRequest["rows"][number][] => {
+    if (!isObj(r) || !Number.isInteger(r.no) || (r.no as number) < 1 || (r.no as number) > MAX_REQUEST_ROWS || seen.has(r.no as number) || !str(r.import, 64) || !str(r.row, 40)) return [];
+    seen.add(r.no as number);
+    return [{ no: r.no as number, import: r.import, row: r.row }];
+  });
+  const received = (Array.isArray(v.received) ? v.received : []).flatMap((x): StatementReceipt[] => {
+    if (!isObj(x) || !str(x.at, 40) || !Number.isInteger(x.decided) || (x.decided as number) < 0) return [];
+    const f = readFileMark(x.file);
+    return f === null ? [] : [{ at: x.at, file: f, decided: x.decided as number }];
+  });
+  return [{ id: v.id, at: v.at, file, rows, received }];
 }

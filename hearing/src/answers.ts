@@ -1,6 +1,7 @@
 // 記入済みのシートの中身（回答の一覧）と管理の値。Excel から読んだ結果と、世帯データから書き出す前の形の両方に使う。
 // 形式は schema/filled-sheet.schema.json。Excel の配置に頼らない形なので、紙で返ってきたものを FP が入力するときや、
 // 将来の Web フォーム（0018 の未確定）でも同じ受け皿を使える
+import type { CellValue } from "../../xlsx/src/cells.ts";
 
 /** 埋め込みの形式名と形式の版（0018 の2。β公開までは 0.x。0011 の追記） */
 export const HEARING_FORMAT = "fprise-lifeplan-hearing";
@@ -23,8 +24,8 @@ export interface Management {
   readonly exportedOn: string;
 }
 
-/** セルから読んだ生の値（数は文字のまま持つ: 10進の桁を失わないため） */
-export type RawValue = { readonly kind: "number"; readonly text: string } | { readonly kind: "text"; readonly text: string } | { readonly kind: "bool"; readonly value: boolean };
+/** セルから読んだ生の値（数は文字のまま持つ: 10進の桁を失わないため。表計算のファイルの土台 xlsx/ のセルの値と同じ形） */
+export type RawValue = CellValue;
 
 /** 回答の状態（値／未回答／わからない／該当なし。0018 の4） */
 export type AnswerStatus = "value" | "blank" | "unknown" | "notApplicable";

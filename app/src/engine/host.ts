@@ -90,6 +90,10 @@ export interface StatementHost {
   learn(entries: readonly DictionaryEntry[], formats: readonly LearnedFormat[]): Promise<StatementOfficeData>;
   /** 本体の開くダイアログで選んだ明細のファイルの中身（10MB まで。パス・ファイル名は渡らない）。選ばなかったときは null */
   open(): Promise<Uint8Array | null>;
+  /** 確認シート（画面の statement/ の部品が作った .xlsx）を、本体の平文の書き出しの出口で保存する（0034 の9） */
+  saveSheet(bytes: Uint8Array, meta: { customerNo: string; exportedOn: string }): Promise<SaveOutcome>;
+  /** お客さまが印を付けた確認シートを選んで、中身を返す（10MB まで。パス・ファイル名は渡らない）。選ばなかったときは null */
+  openSheet(): Promise<Uint8Array | null>;
 }
 
 /** 持ち帰り用のレポート（0030）の保存: 画面が作った HTML のバイト列を、本体の平文の書き出しの出口で保存する */
@@ -592,6 +596,11 @@ export function tauriHost(): HostApi {
         const b = bytesOf(await invoke<ArrayBuffer>("statement_open"));
         return b.length === 0 ? null : b;
       },
+      saveSheet: (bytes, m) => invoke<SaveOutcome>("statement_sheet_save", bytes, { headers: { "x-customer-no": m.customerNo, "x-exported-on": m.exportedOn } }),
+      openSheet: async () => {
+        const b = bytesOf(await invoke<ArrayBuffer>("statement_sheet_open"));
+        return b.length === 0 ? null : b;
+      },
     },
     sheets: {
       save: (bytes, m) => invoke<SaveOutcome>("hearing_save", bytes, { headers: { "x-customer-no": m.customerNo, "x-exported-on": m.exportedOn, "x-prefilled": m.prefilled ? "1" : "0" } }),
@@ -768,6 +777,14 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       learn: async (entries, formats) => devJson<StatementOfficeData>(await fetch("/__dev/statement/learn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ entries, formats }) })),
       open: async () => {
         const res = await fetch("/__dev/statement/open");
+        if (res.status === 204) return null;
+        if (!res.ok) throw (await res.text()) || `E_DEV_${res.status}`;
+        return new Uint8Array(await res.arrayBuffer());
+      },
+      saveSheet: async (bytes, m) =>
+        devJson<SaveOutcome>(await fetch(`/__dev/statement/sheetsave?customerNo=${encodeURIComponent(m.customerNo)}&exportedOn=${encodeURIComponent(m.exportedOn)}`, { method: "POST", body: bytes as Uint8Array<ArrayBuffer> })),
+      openSheet: async () => {
+        const res = await fetch("/__dev/statement/sheetopen");
         if (res.status === 204) return null;
         if (!res.ok) throw (await res.text()) || `E_DEV_${res.status}`;
         return new Uint8Array(await res.arrayBuffer());

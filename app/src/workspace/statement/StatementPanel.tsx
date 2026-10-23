@@ -1,13 +1,15 @@
 // 「明細から生活費を出す」（作業の層。0034）。基本生活費のパネルの見出しの横の「明細から出す」で開く大きなパネル。閉じる・承認すると基本生活費のパネルに戻る。
 //   1 口座・カード: 呼び名・持ち主・カード会社（カード番号・口座番号は書かない）
 //   2 明細の取り込み: 本体の開くダイアログで選んだ CSV・PDF を PC の中で読み、列の対応付けを確かめて（選び直して・覚えて）取り込む。期間を直す
-//   3 ヒアリング: 迷う行をお客さまに画面を見せながらボタンで決める（持ち主の働き方で選べる区分を変える）。世帯の決まり・働き方の選び直し
+//   3 ヒアリング: 迷う行をお客さまに画面を見せながらボタンで決める（持ち主の働き方で選べる区分を変える）。世帯の決まり・働き方の選び直し。
+//     前もってお客さまに印を付けてもらう確認シート（表計算のファイル）の書き出しと、返ってきたシートの印を確かめて入れること
 //   4 生活費の候補: 月平均・一時的支出・注意を見せ、FP がチェックした候補だけを現状に入れる（承認の記録と取り込んだ記録 applied を残す）
 // 明細のファイルのバイト列はこのパネルの中で読むときだけ持ち、閉じれば捨てる（世帯にも事務所データにも残さない）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { CARD_ISSUERS, COLUMN_ROLES, LIVING_LABELS, ROLE_LABELS, WORK_STYLE_LABELS, type Bucket, type ColumnMapping, type ColumnRole, type Issue, type ReviewItem, type SourceKind, type StatementCandidate, type StatementCategory, type StatementLog } from "../../../../statement/src/index.ts";
-import type { StatementHost, StatementOfficeData } from "../../engine/host.ts";
-import { approvalTime } from "../hearing/sheet.ts";
+import { version as APP_VERSION } from "../../../package.json";
+import { CARD_ISSUERS, COLUMN_ROLES, LIVING_LABELS, markSheetWarnings, ROLE_LABELS, WORK_STYLE_LABELS, type Bucket, type ColumnMapping, type ColumnRole, type Issue, type ReviewItem, type SourceKind, type StatementCandidate, type StatementCategory, type StatementLog } from "../../../../statement/src/index.ts";
+import type { SaveOutcome, StatementHost, StatementOfficeData } from "../../engine/host.ts";
+import { approvalTime, randomBytes } from "../hearing/sheet.ts";
 import { newId, type WorkingHousehold } from "../input/household.ts";
 import {
   accountLabelProblem,
@@ -15,6 +17,7 @@ import {
   addImport,
   analyze,
   approve,
+  approveMarks,
   beforeText,
   BUCKET_BUTTONS,
   candidatesOf,
@@ -23,15 +26,19 @@ import {
   decide,
   decidedRows,
   defaultCandidateSelection,
+  defaultMarkSelection,
+  exportMarkSheet,
   formatToLearn,
   KIND_LABELS,
   logOf,
+  markText,
   otherReview,
   ownerOptions,
   percentText,
   periodProblem,
   putRule,
   readFile,
+  readSheet,
   removeAccount,
   removeImport,
   removeRule,
@@ -44,10 +51,12 @@ import {
   STYLE_CHOICES,
   styleRows,
   updateAccount,
+  withSheetRequest,
   yen,
   type AccountDraft,
   type Analysis,
   type ReadOk,
+  type SheetRead,
 } from "./model.ts";
 
 type Step = "accounts" | "import" | "review" | "result";
@@ -74,6 +83,8 @@ interface PanelProps {
   onApproved?: (n: number) => void;
   onClose: () => void;
   initialStep?: Step;
+  /** 表示用の顧客番号（確認シートの管理欄とファイル名に出す。英数字だけ） */
+  customerNo?: string;
 }
 
 function IssueList({ issues, info = false }: { issues: readonly Issue[]; info?: boolean }) {
@@ -642,7 +653,204 @@ function ReviewCard({ item, label, owners, onDecide }: { item: ReviewItem; label
   );
 }
 
-function ReviewStep({ wh, log, an, office, onLog, onLearn, onNext }: { wh: WorkingHousehold; log: StatementLog; an: Analysis; office: StatementOfficeData; onLog: (l: StatementLog) => void; onLearn: (e: ReturnType<typeof decide>["learn"]) => void; onNext: () => void }) {
+// ---- 3 の中: 確認シート（前もってお客さまに印を付けてもらう表計算のファイル） ----
+
+function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }: { wh: WorkingHousehold; log: StatementLog; an: Analysis; office: StatementOfficeData; host: StatementHost; customerNo?: string; onLog: (l: StatementLog) => void; onLearn: (e: ReturnType<typeof decide>["learn"]) => void }) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<SaveOutcome | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [read, setRead] = useState<SheetRead | null>(null);
+  const [failed, setFailed] = useState<readonly Issue[] | null>(null);
+  const [sel, setSel] = useState<Set<number>>(new Set());
+  const [msg, setMsg] = useState<string | null>(null);
+  const rest = an.review.length;
+  const requests = log.requests ?? [];
+  const write = async () => {
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const at = approvalTime();
+      const r = await exportMarkSheet(wh, an, { random: randomBytes(), at, appVersion: APP_VERSION, ...(customerNo !== undefined ? { customerNo } : {}) });
+      const out = await host.saveSheet(r.bytes, { customerNo: customerNo ?? "", exportedOn: at.slice(0, 10) });
+      setSaved(out);
+      // 依頼の記録は保存したときだけ残す（取り込むときに、これを正にして読む）
+      if (out.saved) onLog(withSheetRequest(log, r.request));
+      setAsking(false);
+    } catch (e) {
+      setErr(typeof e === "string" ? e : e instanceof Error ? e.message : "E_STATEMENT_SHEET_EXPORT");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const open = async () => {
+    setBusy(true);
+    setFailed(null);
+    setMsg(null);
+    setSaved(null);
+    try {
+      const bytes = await host.openSheet();
+      if (bytes === null) return;
+      const r = await readSheet(bytes, wh, an);
+      if (!r.ok) {
+        setFailed(r.issues);
+        setRead(null);
+        return;
+      }
+      setRead(r);
+      setSel(defaultMarkSelection(r.candidates));
+    } catch (e) {
+      setFailed([{ level: "error", code: "S_SHEET_FILE", message: e === "E_IMPORT_TOO_LARGE" ? "ファイルが大きすぎます（10MBまで）" : `読み込めませんでした（${typeof e === "string" ? e : "E_STATEMENT_SHEET_OPEN"}）` }]);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const take = () => {
+    if (read === null) return;
+    const r = approveMarks(log, read, sel, office.dictionary, approvalTime());
+    onLog(r.log);
+    if (r.learn.length > 0) onLearn(r.learn);
+    setMsg(`お客さまの印 ${r.decided}行を仕分けに入れました${read.unmarked > 0 ? `（印の無い ${read.unmarked}行は迷う行のまま残っています）` : ""}`);
+    setRead(null);
+  };
+  const toggle = (no: number, on: boolean) =>
+    setSel((x) => {
+      const n = new Set(x);
+      if (on) n.add(no);
+      else n.delete(no);
+      return n;
+    });
+  return (
+    <section class="st-sec st-sheet" aria-label="確認シート" data-statement-sheet>
+      <h3 class="st-h3">
+        確認シート（お客さまに前もって印を付けてもらう）<small>迷う行を表計算のファイル（.xlsx）に書き出し、お客さまが選んだ印を読み込みます。読み込んだ印は、ここで確かめてから入れます</small>
+      </h3>
+      <div class="rp-actions">
+        <button type="button" class="btn" disabled={busy || rest === 0} onClick={() => setAsking(true)} data-statement-sheet-export>
+          確認シートを書き出す（{rest}行）
+        </button>
+        <button type="button" class="btn" disabled={busy || requests.length === 0} onClick={() => void open()} data-statement-sheet-open>
+          {busy && !asking ? "読んでいます…" : "印の付いたシートを読み込む"}
+        </button>
+      </div>
+      {asking ? (
+        <div class="st-sheet-ask" role="alert" data-statement-sheet-warn>
+          <IssueList issues={markSheetWarnings(rest)} />
+          <p class="rp-note">シートには、使った日・店の名前・金額・カード／口座の呼び名・お使いになった方と、選ぶ欄（何に使ったか・どこに入るか・事業の割合・メモ）だけが載ります。お名前・世帯の番号は載りません。</p>
+          <div class="rp-actions">
+            <button type="button" class="btn primary" disabled={busy} onClick={() => void write()} data-statement-sheet-go>
+              {busy ? "作っています…" : "分かったうえで書き出す"}
+            </button>
+            <button type="button" class="btn" onClick={() => setAsking(false)}>
+              やめる
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {err !== null ? <p class="fatal">書き出せませんでした（{err}）</p> : null}
+      {saved !== null ? (
+        <p class={`rp-note${saved.syncFolder ? " warn" : ""}`} role="status" data-statement-sheet-saved={saved.saved ? "1" : "0"}>
+          {saved.saved ? `「${saved.fileName ?? ""}」を保存しました。${saved.syncFolder ? "同期フォルダの中です。" : ""}お客さまに送ってください。返ってきたら「印の付いたシートを読み込む」から読みます。` : "保存しませんでした。"}
+        </p>
+      ) : null}
+      {msg !== null ? (
+        <p class="hs-msg st-msg" role="status" data-statement-sheet-msg>
+          {msg}
+        </p>
+      ) : null}
+      {failed !== null ? (
+        <div class="st-failed" role="alert" data-statement-sheet-failed>
+          <b>読み込めませんでした</b>
+          <IssueList issues={failed} />
+        </div>
+      ) : null}
+      {requests.length > 0 ? (
+        <ul class="hs-list st-requests">
+          {[...requests].reverse().map((r) => (
+            <li key={r.id}>
+              {r.id}: {dateText(r.at.slice(0, 10))} に {r.rows.length}行を書き出し
+              {r.received.length > 0 ? `・${dateText((r.received.at(-1)?.at ?? "").slice(0, 10))} に取り込み（${r.received.at(-1)?.decided ?? 0}行）` : "・まだ返っていません"}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {read !== null ? (
+        <div class="st-marks" data-statement-marks>
+          <h3 class="st-h3">
+            お客さまの印（依頼 {read.request.id}）<small>チェックした行だけを仕分けに入れます。要確認の行は、理由を見てからチェックしてください</small>
+          </h3>
+          <IssueList issues={read.issues} />
+          {read.candidates.length > 0 ? (
+            <table class="st-decided st-marks-t">
+              <thead>
+                <tr>
+                  <th />
+                  <th>番号</th>
+                  <th>使った日</th>
+                  <th>店</th>
+                  <th class="num">金額</th>
+                  <th>お客さまの印</th>
+                  <th>メモ・確かめること</th>
+                </tr>
+              </thead>
+              <tbody>
+                {read.candidates.map((c) => (
+                  <tr key={c.no} class={c.status === "needsReview" ? "attn" : ""} data-statement-mark={c.status}>
+                    <td>
+                      <input type="checkbox" checked={sel.has(c.no)} aria-label={`${c.no}番を入れる`} onChange={(e) => toggle(c.no, (e.currentTarget as HTMLInputElement).checked)} />
+                    </td>
+                    <td class="num">{c.no}</td>
+                    <td>{dateText(c.date)}</td>
+                    <td>{c.merchant}</td>
+                    <td class="num">{yen(c.amount)}</td>
+                    <td>
+                      <b>{markText(c)}</b>
+                      {c.status === "needsReview" ? <span class="hs-kind review">要確認</span> : null}
+                    </td>
+                    <td>
+                      {c.memo !== undefined ? <span class="st-memo">「{c.memo}」</span> : null}
+                      {c.notes.map((n, i) => (
+                        <small key={i} class="st-note">
+                          {n}
+                        </small>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p class="rp-note">印の付いた行はありませんでした。</p>
+          )}
+          {read.memos.length > 0 ? (
+            <>
+              <h3 class="st-h3">メモだけの行（迷う行のまま）</h3>
+              <ul class="hs-list">
+                {read.memos.map((m) => (
+                  <li key={m.no}>
+                    {m.no}番 {dateText(m.date)} {m.merchant} {yen(m.amount)}: 「{m.memo}」
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          <p class="rp-note">メモは画面に出すだけで、保存しません。印の無い行（{read.unmarked}行）は迷う行のまま残ります。</p>
+          <div class="rp-actions">
+            <button type="button" class="btn primary" disabled={sel.size === 0} onClick={take} data-statement-marks-approve>
+              承認して仕分けに入れる（{sel.size}行）
+            </button>
+            <button type="button" class="btn" onClick={() => setRead(null)}>
+              やめる
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ReviewStep({ wh, log, an, office, host, customerNo, onLog, onLearn, onNext }: { wh: WorkingHousehold; log: StatementLog; an: Analysis; office: StatementOfficeData; host: StatementHost; customerNo?: string; onLog: (l: StatementLog) => void; onLearn: (e: ReturnType<typeof decide>["learn"]) => void; onNext: () => void }) {
   const [asRule, setAsRule] = useState(false);
   const [showDecided, setShowDecided] = useState(false);
   const [rule, setRule] = useState<{ category: StatementCategory; owner: string; bucket: Bucket; share: string }>({ category: "communication", owner: "", bucket: "business", share: "50" });
@@ -671,6 +879,8 @@ function ReviewStep({ wh, log, an, office, onLog, onLearn, onNext }: { wh: Worki
         {rest === 0 ? "迷う行はありません。「生活費の候補」で数を確かめてください" : `迷う行 あと ${rest}行`}
         <small>（取り込んだ行 {an.rows.length}・決めた行 {decided.length}）</small>
       </div>
+
+      <SheetSection wh={wh} log={log} an={an} office={office} host={host} {...(customerNo !== undefined ? { customerNo } : {})} onLog={onLog} onLearn={onLearn} />
 
       <section class="st-sec" aria-label="働き方">
         <h3 class="st-h3">
@@ -1002,7 +1212,7 @@ function ResultStep({ wh, log, an, onApprove }: { wh: WorkingHousehold; log: Sta
 
 // ---- パネル ----
 
-export function StatementPanel({ wh, host, onLog, onApprove, onApproved, onClose, initialStep }: PanelProps) {
+export function StatementPanel({ wh, host, onLog, onApprove, onApproved, onClose, initialStep, customerNo }: PanelProps) {
   const log = logOf(wh);
   const [step, setStep] = useState<Step>(initialStep ?? (log.accounts.length === 0 ? "accounts" : log.imports.length === 0 ? "import" : "review"));
   const [office, setOffice] = useState<StatementOfficeData | null>(null);
@@ -1109,7 +1319,7 @@ export function StatementPanel({ wh, host, onLog, onApprove, onApproved, onClose
           ) : step === "import" ? (
             <ImportStep wh={wh} log={log} office={office} host={host} onLog={onLog} onOffice={setOffice} onNext={() => setStep("review")} onAccounts={() => setStep("accounts")} />
           ) : step === "review" ? (
-            <ReviewStep wh={wh} log={log} an={an} office={office} onLog={onLog} onLearn={learn} onNext={() => setStep("result")} />
+            <ReviewStep wh={wh} log={log} an={an} office={office} host={host} {...(customerNo !== undefined ? { customerNo } : {})} onLog={onLog} onLearn={learn} onNext={() => setStep("result")} />
           ) : (
             <ResultStep
               wh={wh}
