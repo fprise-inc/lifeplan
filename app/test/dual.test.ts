@@ -40,13 +40,14 @@ function fakeSession() {
 
 /** 提案書・ヒアリングシート・世帯の保存の命令（この試験では使わない） */
 const no = async () => Promise.reject("E");
-const NO_FILES: Pick<HostApi, "report" | "sheets" | "takeaway" | "store" | "ai" | "office"> = {
+const NO_FILES: Pick<HostApi, "report" | "sheets" | "takeaway" | "store" | "ai" | "office" | "statements"> = {
   report: { render: no, page: no, pageSvg: no, save: no, discard: async () => undefined },
   sheets: { save: no, open: async () => null },
   takeaway: { save: no },
   store: { status: no, list: no, create: no, open: no, save: no, rename: no, remove: no, recoveryKey: no, acknowledgeRecovery: no, testRecoveryKey: no, restoreWithRecoveryKey: no, closeReady: async () => undefined, forkInfo: no, resolveFork: no, resolveSyncCopies: no, leave: async () => undefined, devFileKeys: async () => false, listSamples: no, setCategory: no, assignSerial: no, makeSample: no, updateSample: no, categories: no, setCategories: no },
   ai: { status: no, setEnabled: no, copySetup: no, household: no, recordConsent: no, startShare: no, stopShare: no, decide: no },
   office: { status: no, start: no, join: no, cancel: no, approve: no, reject: no, remove: no, moveLocal: no, recover: no, end: no, dismissNotices: no, syncStart: no, syncOpen: no, syncEnd: no, notices: async () => [] },
+  statements: { office: no, learn: no, open: async () => null },
 };
 
 /** 本体の代わり: 結果は要求の n×10（正の計算）。応答は手で返す */

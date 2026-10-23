@@ -112,7 +112,7 @@ fn code(e: StoreError) -> String {
 }
 
 /// 保存の処理は画面の動きを止めないよう、別のスレッドで行う
-async fn blocking<T: Send + 'static>(
+pub(crate) async fn blocking<T: Send + 'static>(
     app: AppHandle,
     f: impl FnOnce(&Store) -> Result<T, StoreError> + Send + 'static,
 ) -> Result<T, String> {
