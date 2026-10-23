@@ -67,14 +67,31 @@ export function reviewList(rows: readonly ClassifiedRow[]): ReviewItem[] {
     .sort((a, b) => PRIORITY[a.reasons[0] as Flag] - PRIORITY[b.reasons[0] as Flag] || Math.abs(b.amount) - Math.abs(a.amount));
 }
 
-/** 辞書で分からない店を、店の鍵ごとにまとめる（同じ店の行を1回で決められるように） */
-export function unknownMerchants(rows: readonly ClassifiedRow[]): { key: string; label: string; count: number; total: number; rows: { importId: string; rowId: string }[] }[] {
-  const m = new Map<string, { key: string; label: string; count: number; total: number; rows: { importId: string; rowId: string }[] }>();
+/** 辞書で分からない店のまとめ（画面のヒアリング） */
+export interface UnknownMerchant {
+  readonly key: string;
+  readonly label: string;
+  readonly count: number;
+  readonly total: number;
+  /** 使った日の最初と最後 */
+  readonly from: string;
+  readonly to: string;
+  readonly rows: readonly { readonly importId: string; readonly rowId: string }[];
+}
+
+/**
+ * 辞書で分からない店を、店の鍵ごとにまとめる（同じ店の行を1回で決められるように）。確認シートの店ごとにまとめた行（sheet/plan.ts）と
+ * 同じ店の鍵を使う。ここで決めるのは項目（何に使ったか）だけなので、持ち主・カード／口座をまたいでまとめる（シートは区分も選ぶので分ける）
+ */
+export function unknownMerchants(rows: readonly ClassifiedRow[]): UnknownMerchant[] {
+  const m = new Map<string, { key: string; label: string; count: number; total: number; from: string; to: string; rows: { importId: string; rowId: string }[] }>();
   for (const r of rows) {
     if (!r.counted || !r.flags.includes("unknownMerchant") || r.row.decidedAt !== undefined) continue;
-    const g = m.get(r.row.key) ?? { key: r.row.key, label: r.row.merchant, count: 0, total: 0, rows: [] };
+    const g = m.get(r.row.key) ?? { key: r.row.key, label: r.row.merchant, count: 0, total: 0, from: r.row.date, to: r.row.date, rows: [] };
     g.count++;
     g.total += r.row.amount;
+    if (r.row.date < g.from) g.from = r.row.date;
+    if (r.row.date > g.to) g.to = r.row.date;
     g.rows.push({ importId: r.importId, rowId: r.row.id });
     m.set(r.row.key, g);
   }

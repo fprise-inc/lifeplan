@@ -23,6 +23,7 @@ import {
   maskText,
   memberStyles,
   parseShare,
+  planMarkSheet,
   readMarkSheet,
   readStatement,
   removeRule,
@@ -44,6 +45,7 @@ import {
   type ReadOutcome,
   type ReviewItem,
   type RowDecision,
+  type SheetPlan,
   type SourceKind,
   type StatementAccount,
   type StatementApplication,
@@ -421,6 +423,16 @@ export function exportMarkSheet(wh: WorkingHousehold, an: Analysis, o: SheetExpo
   });
 }
 
+/** 確認シートに載せる行（店単位で答えられる同じ店の行は1行にまとめる。書き出す前の行の数・知らせに使う） */
+export function sheetPlan(an: Analysis): SheetPlan {
+  return planMarkSheet(an.review);
+}
+
+/** 依頼で書き出したシートの行の数（まとめた店の行は1と数える）と明細の行の数 */
+export function requestSize(r: StatementRequest): { lines: number; rows: number } {
+  return { lines: new Set(r.rows.map((x) => x.no)).size, rows: r.rows.length };
+}
+
 /** 書き出した依頼の記録を残す（保存したときだけ） */
 export function withSheetRequest(log: StatementLog, request: StatementRequest): StatementLog {
   return addRequest(log, request);
@@ -438,17 +450,27 @@ export function defaultMarkSelection(list: readonly MarkCandidate[]): Set<number
   return new Set(list.filter((c) => c.status === "pending").map((c) => c.no));
 }
 
-/** 承認した印を仕分けに入れ、取り込んだ記録を依頼に残す。FP がチェックしたものだけを入れる */
-export function approveMarks(log: StatementLog, read: SheetRead, selected: ReadonlySet<number>, office: readonly DictionaryEntry[], at: string): DecideResult & { decided: number } {
+/** 承認した印を仕分けに入れ、取り込んだ記録を依頼に残す。FP がチェックしたものだけを入れる（まとめた店の行は、その店の行すべて）。
+ * decided は入れた明細の行の数、lines はシートの行の数 */
+export function approveMarks(log: StatementLog, read: SheetRead, selected: ReadonlySet<number>, office: readonly DictionaryEntry[], at: string): DecideResult & { decided: number; lines: number } {
   const chosen = read.candidates.filter((c) => selected.has(c.no));
-  const r = decide(log, chosen.map((c) => c.decision), office, at);
-  return { log: addReceipt(r.log, read.request.id, { at, file: read.file, decided: chosen.length }), learn: r.learn, decided: chosen.length };
+  const decisions = chosen.flatMap((c) => c.decisions);
+  const r = decide(log, decisions, office, at);
+  return { log: addReceipt(r.log, read.request.id, { at, file: read.file, decided: decisions.length }), learn: r.learn, decided: decisions.length, lines: chosen.length };
 }
 
 /** 印の文（「教養娯楽・家計」「事業の経費 60%」） */
 export function markText(c: MarkCandidate): string {
   const parts: string[] = [];
-  if (c.decision.category != null) parts.push(categoryShort(c.decision.category));
-  if (c.decision.bucket != null) parts.push(`${BUCKET_BUTTONS[c.decision.bucket]}${c.decision.bucket === "business" && c.decision.share != null ? ` ${percentText(c.decision.share)}` : ""}`);
+  if (c.mark.category !== undefined) parts.push(categoryShort(c.mark.category));
+  if (c.mark.bucket !== undefined) parts.push(`${BUCKET_BUTTONS[c.mark.bucket]}${c.mark.bucket === "business" && c.mark.share !== undefined ? ` ${percentText(c.mark.share)}` : ""}`);
   return parts.join("・");
+}
+
+const dateText = (d: string) => d.replace(/-/gu, "/");
+
+/** シートの行の使った日の文（まとめた店の行は「2025/10/10〜2026/09/10・12回」） */
+export function markDateText(c: Pick<MarkCandidate, "kind" | "date" | "to" | "count">): string {
+  if (c.kind === "row") return dateText(c.date);
+  return `${c.date === c.to ? dateText(c.date) : `${dateText(c.date)}〜${dateText(c.to)}`}・${c.count}回`;
 }

@@ -2,7 +2,9 @@
 // - 管理の値を3か所（隠したシート・文書のプロパティ・見える管理欄）から読み、食い違えば止める
 // - 依頼番号で、開いている世帯の依頼の記録を探す。無ければ止める（別の世帯のファイル・記録の無い書き出しを取り違えて読まない）。
 //   古い依頼・もう取り込んだ依頼は知らせる。同じファイルは2回取り込まない
-// - 行は番号の欄で依頼の記録と結び、使った日・金額が記録の行と合わない行は読まない（番号の書き換え・別の書き出しの行の混ざりを防ぐ）
+// - 行は番号の欄で依頼の記録と結び、使った日・金額が記録の行と合わない行は読まない（番号の書き換え・別の書き出しの行の混ざりを防ぐ）。
+//   店ごとにまとめた行（依頼の記録で同じ番号に複数の行がある）は、期間（最初と最後の日）・回数・合計が記録の行と合うときだけ読み、
+//   答えをその番号の行すべてに当てる。行の一部が無くなっていれば照らし合わせられないので読まない
 // - 読むのは、番号の行の「何に使ったか」「どこに入るか」「事業の割合」「メモ」だけ。印が無い・読めない行は迷う行のまま残す
 // - 読んだ印は「決めたことの候補」にするだけ。FP が画面で確かめて承認したものだけを applyDecisions に渡す（候補の流れと同じ）
 import { Book, problemOf, type FileProblem, type Sheet } from "../../../xlsx/src/read.ts";
@@ -30,6 +32,7 @@ import {
   MANAGE_ROWS,
   MANAGE_VALUE_COL,
   MEMO_MAX,
+  parseRange,
   SCAN_ROWS,
   SHEET_BUCKET_LABELS,
   SHEET_FORMAT,
@@ -45,18 +48,31 @@ export interface ReadMarkSheetOptions {
   readonly limits?: ZipLimits;
 }
 
-/** 読んだ印からできた「決めたことの候補」（1行ぶん） */
+/** お客さまの印（項目・区分・割合。選ばなかった欄は無い） */
+export interface Mark {
+  readonly category?: StatementCategory;
+  readonly bucket?: Bucket;
+  readonly share?: string;
+}
+
+/** 読んだ印からできた「決めたことの候補」（シートの1行ぶん。まとめた店の行は、その店の行すべて） */
 export interface MarkCandidate {
   /** シートの番号 */
   readonly no: number;
-  readonly importId: string;
-  readonly rowId: string;
+  /** row: 明細の1行。shop: 店ごとにまとめた行 */
+  readonly kind: "row" | "shop";
+  /** 使った日（まとめた行は最初と最後） */
   readonly date: string;
+  readonly to: string;
+  /** 明細の行の数 */
+  readonly count: number;
   readonly merchant: string;
+  /** 金額（まとめた行は合計） */
   readonly amount: number;
   readonly owner: string | null;
-  /** 承認したら applyDecisions に渡す決めたこと（項目・区分・割合） */
-  readonly decision: RowDecision;
+  readonly mark: Mark;
+  /** 承認したら applyDecisions に渡す決めたこと（明細の行ごと。まとめた行は同じ印を行の数だけ） */
+  readonly decisions: readonly RowDecision[];
   /** お客さまのメモ（番号らしき数字は消した後。保存しない） */
   readonly memo?: string;
   /** pending は最初にチェックしておく。needsReview は FP が確かめてからチェックする */
@@ -68,7 +84,10 @@ export interface MarkCandidate {
 /** 印は無いがメモだけが書かれた行 */
 export interface MarkMemo {
   readonly no: number;
+  readonly kind: "row" | "shop";
   readonly date: string;
+  readonly to: string;
+  readonly count: number;
   readonly merchant: string;
   readonly amount: number;
   readonly memo: string;
@@ -82,7 +101,7 @@ export type ReadMarkSheetResult =
       readonly file: FileMark;
       readonly candidates: readonly MarkCandidate[];
       readonly memos: readonly MarkMemo[];
-      /** 印が無かった行の数（迷う行のまま残る） */
+      /** 印が無かった明細の行の数（迷う行のまま残る。まとめた行は明細の行の数で数える） */
       readonly unmarked: number;
       readonly issues: readonly Issue[];
     }
@@ -161,7 +180,8 @@ async function readBook(book: Book, bytes: Uint8Array, o: ReadMarkSheetOptions, 
   if (sheet === null) return fail(issues, issue("error", "S_SHEET_NOT_OURS", "明細のご確認のシートが見つかりません"));
 
   // ---- 行 ----
-  const byNo = new Map(request.rows.map((r) => [r.no, r]));
+  const byNo = new Map<number, StatementRequest["rows"][number][]>();
+  for (const x of request.rows) byNo.set(x.no, [...(byNo.get(x.no) ?? []), x]);
   const rowsByKey = new Map(o.rows.map((r) => [`${r.importId}\u001f${r.row.id}`, r]));
   const seen = new Set<number>();
   const candidates: MarkCandidate[] = [];
@@ -172,8 +192,8 @@ async function readBook(book: Book, bytes: Uint8Array, o: ReadMarkSheetOptions, 
     if (noCell === null) continue;
     const no = noCell.kind === "number" ? Number(noCell.text) : noCell.kind === "text" ? Number(nfkc(noCell.text)) : Number.NaN;
     if (!Number.isInteger(no)) continue;
-    const ref = byNo.get(no);
-    if (ref === undefined) {
+    const refs = byNo.get(no);
+    if (refs === undefined) {
       issues.push(issue("warning", "S_SHEET_ROW_UNKNOWN", `${no}番の行は、この依頼の記録にありません（読みませんでした）`));
       continue;
     }
@@ -182,39 +202,65 @@ async function readBook(book: Book, bytes: Uint8Array, o: ReadMarkSheetOptions, 
       continue;
     }
     seen.add(no);
-    const row = rowsByKey.get(`${ref.import}\u001f${ref.row}`);
-    if (row === undefined) {
-      issues.push(issue("info", "S_SHEET_ROW_GONE", `${no}番の行は、明細の取り込みを外したか仕分けに使っていないため読みませんでした`));
+    const found = refs.map((x) => rowsByKey.get(`${x.import}\u001f${x.row}`));
+    const rows = found.filter((x): x is ClassifiedRow => x !== undefined).sort((a, b) => (a.row.date < b.row.date ? -1 : a.row.date > b.row.date ? 1 : 0));
+    const shop = refs.length > 1;
+    if (rows.length < refs.length) {
+      issues.push(
+        issue(
+          "info",
+          "S_SHEET_ROW_GONE",
+          shop
+            ? `${no}番（同じ店をまとめた行）のうち ${refs.length - rows.length}行は、明細の取り込みを外したか仕分けに使っていないため、照らし合わせられません（読みませんでした。迷う行のまま残ります）`
+            : `${no}番の行は、明細の取り込みを外したか仕分けに使っていないため読みませんでした`,
+        ),
+      );
       continue;
     }
-    const st = row.row;
-    if (!sameDate(book.cell(sheet, `${COLS.date}${r}`).raw, st.date) || !sameAmount(book.cell(sheet, `${COLS.amount}${r}`).raw, st.amount)) {
-      issues.push(issue("warning", "S_SHEET_ROW_CHANGED", `${no}番の行の使った日・金額が、書き出した明細（${dateText(st.date)}・${st.amount.toLocaleString("ja-JP")}円）と合いません（読みませんでした）`));
+    const head = rows[0] as ClassifiedRow;
+    const from = head.row.date;
+    const to = (rows[rows.length - 1] as ClassifiedRow).row.date;
+    const total = rows.reduce((n, x) => n + x.row.amount, 0);
+    const dateRaw = book.cell(sheet, `${COLS.date}${r}`).raw;
+    const amountRaw = book.cell(sheet, `${COLS.amount}${r}`).raw;
+    if (!shop && (!sameDate(dateRaw, from) || !sameAmount(amountRaw, total))) {
+      issues.push(issue("warning", "S_SHEET_ROW_CHANGED", `${no}番の行の使った日・金額が、書き出した明細（${dateText(from)}・${total.toLocaleString("ja-JP")}円）と合いません（読みませんでした）`));
       continue;
     }
-    const mark = readMarks(book, sheet, r, no, row, request, issues);
+    if (shop && (!sameRange(dateRaw, from, to, rows.length) || !sameAmount(amountRaw, total))) {
+      issues.push(issue("warning", "S_SHEET_ROW_CHANGED", `${no}番（同じ店をまとめた行）の期間・回数・合計が、書き出した明細（${dateText(from)}〜${dateText(to)}・${rows.length}回・合計 ${total.toLocaleString("ja-JP")}円）と合いません（読みませんでした）`));
+      continue;
+    }
+    const mark = readMarks(book, sheet, r, no, rows, request, issues);
     if (mark === "unreadable") continue;
-    const base = { no, date: st.date, merchant: st.merchant, amount: st.amount };
-    if (mark.decision === null) {
-      unmarked++;
+    const base = { no, kind: shop ? ("shop" as const) : ("row" as const), date: from, to, count: rows.length, merchant: head.row.merchant, amount: total };
+    if (mark.mark === null) {
+      unmarked += rows.length;
       if (mark.memo !== undefined) memos.push({ ...base, memo: mark.memo });
       continue;
     }
+    const m = mark.mark;
     candidates.push({
       ...base,
-      importId: row.importId,
-      rowId: st.id,
-      owner: row.owner,
-      decision: mark.decision,
+      owner: head.owner,
+      mark: m,
+      decisions: rows.map((x) => ({ importId: x.importId, rowId: x.row.id, ...m })),
       ...(mark.memo !== undefined ? { memo: mark.memo } : {}),
       status: mark.notes.length > 0 ? "needsReview" : "pending",
       notes: mark.notes,
     });
   }
   const missing = request.rows.filter((x) => !seen.has(x.no)).length;
-  if (missing > 0) issues.push(issue("info", "S_SHEET_ROW_GONE", `書き出した行のうち ${missing}行がシートに見つかりませんでした（迷う行のまま残ります）`));
+  if (missing > 0) issues.push(issue("info", "S_SHEET_ROW_GONE", `書き出した明細の行のうち ${missing}行がシートに見つかりませんでした（迷う行のまま残ります）`));
   if (candidates.length === 0) issues.push(issue("info", "S_SHEET_NO_MARKS", "印の付いた行はありませんでした"));
   return { ok: true, request, file, candidates, memos, unmarked, issues };
+}
+
+/** まとめた行のご利用日の欄が、記録の行の期間と回数と同じか（rangeText の形） */
+function sameRange(raw: ReturnType<Book["cell"]>["raw"], from: string, to: string, count: number): boolean {
+  if (raw === null || raw.kind !== "text") return false;
+  const p = parseRange(nfkc(raw.text));
+  return p !== null && p.count === count && sameDateText(p.from, from) && sameDateText(p.to, to);
 }
 
 /** シートの日付の欄が、記録の行の日付と同じか（文字 2026/10/03・2026-10-03、日付の通し番号のどれでもよい） */
@@ -227,7 +273,12 @@ function sameDate(raw: ReturnType<Book["cell"]>["raw"], date: string): boolean {
     const d = new Date(Date.UTC(1899, 11, 30) + n * 86400000).toISOString().slice(0, 10);
     return d === date;
   }
-  const t = nfkc(raw.text).replace(/[/.年月]/gu, "-").replace(/日$/u, "");
+  return sameDateText(raw.text, date);
+}
+
+/** 日付の文字（2026/10/03・2026-10-03・2026年10月3日）が、記録の行の日付と同じか */
+function sameDateText(text: string, date: string): boolean {
+  const t = nfkc(text).replace(/[/.年月]/gu, "-").replace(/日$/u, "");
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/u.exec(t);
   return m !== null && `${m[1]}-${(m[2] as string).padStart(2, "0")}-${(m[3] as string).padStart(2, "0")}` === date;
 }
@@ -239,11 +290,13 @@ function sameAmount(raw: ReturnType<Book["cell"]>["raw"], amount: number): boole
   return /^-?\d+(?:\.0+)?$/u.test(t) && Number(t) === amount;
 }
 
-type Marks = { decision: RowDecision | null; memo?: string; notes: string[] } | "unreadable";
+type Marks = { mark: Mark | null; memo?: string; notes: string[] } | "unreadable";
 
-/** 1行の印を読む（読めない欄が1つでもあれば、その行は読まない） */
-function readMarks(book: Book, sheet: Sheet, r: number, no: number, row: ClassifiedRow, request: StatementRequest, issues: Issue[]): Marks {
+/** シートの1行の印を読む（読めない欄が1つでもあれば、その行は読まない）。rows はその番号の明細の行（まとめた行は複数） */
+function readMarks(book: Book, sheet: Sheet, r: number, no: number, rows: readonly ClassifiedRow[], request: StatementRequest, issues: Issue[]): Marks {
   const notes: string[] = [];
+  // 選べる区分は、行すべてで選べるもの（書き出した後に FP が持ち主を直した行があっても、選べない区分を入れない）
+  const allowed = (rows[0] as ClassifiedRow).allowed.filter((b) => rows.every((x) => x.allowed.includes(b)));
   const cell = (col: string) => {
     const c = book.cell(sheet, `${col}${r}`);
     if (c.noValue) return { text: null as string | null, formula: true, empty: false };
@@ -274,7 +327,7 @@ function readMarks(book: Book, sheet: Sheet, r: number, no: number, row: Classif
       issues.push(issue("warning", "S_SHEET_VALUE", `${no}番の行の「どこに入るか」の「${clip(buc.text)}」は選択肢にありません（この行は読みませんでした）`));
       return "unreadable";
     }
-    if (!row.allowed.includes(b)) {
+    if (!allowed.includes(b)) {
       if (category === undefined) {
         issues.push(issue("warning", "S_SHEET_VALUE", `${no}番の行の「${SHEET_BUCKET_LABELS[b]}」は、お使いになった方の働き方では選べません（この行は読みませんでした）`));
         return "unreadable";
@@ -291,16 +344,12 @@ function readMarks(book: Book, sheet: Sheet, r: number, no: number, row: Classif
     } else share = p;
   }
   const memo = memoCell.text === null ? undefined : maskText(memoCell.text).text.slice(0, MEMO_MAX);
-  if (category === undefined && bucket === undefined) return { decision: null, ...(memo !== undefined ? { memo } : {}), notes };
-  if (row.row.decidedAt !== undefined && row.row.decidedAt > request.at) notes.push("書き出した後に FP が決めた行です（今の決めたことを置き換えます）");
-  const decision: RowDecision = {
-    importId: row.importId,
-    rowId: row.row.id,
-    ...(category !== undefined ? { category } : {}),
-    ...(bucket !== undefined ? { bucket } : {}),
-    ...(share !== undefined ? { share } : {}),
-  };
-  return { decision, ...(memo !== undefined ? { memo } : {}), notes };
+  if (category === undefined && bucket === undefined) return { mark: null, ...(memo !== undefined ? { memo } : {}), notes };
+  const later = rows.filter((x) => x.row.decidedAt !== undefined && x.row.decidedAt > request.at).length;
+  if (later > 0) notes.push(rows.length > 1 ? `書き出した後に FP が決めた行が ${later}行あります（今の決めたことを置き換えます）` : "書き出した後に FP が決めた行です（今の決めたことを置き換えます）");
+  if (rows.length > 1 && memo !== undefined) notes.push("まとめた店の行にメモがあります（回によって違うことがないか、メモを確かめてください）");
+  const mark: Mark = { ...(category !== undefined ? { category } : {}), ...(bucket !== undefined ? { bucket } : {}), ...(share !== undefined ? { share } : {}) };
+  return { mark, ...(memo !== undefined ? { memo } : {}), notes };
 }
 
 const clip = (s: string) => (s.length > 20 ? `${s.slice(0, 20)}…` : s);
