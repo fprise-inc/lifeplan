@@ -15,6 +15,7 @@ import {
   emptyLog,
   includedImports,
   learnFromDecisions,
+  looseKey,
   maskText,
   memberStyles,
   parseShare,
@@ -317,9 +318,33 @@ function sameAsNow(c: StatementCandidate): boolean {
   return now.length === next.length && next.every((x) => now.some((y) => y.category === x.category && (y.monthly?.value === x.monthly?.value)));
 }
 
-/** 候補（今の値と同じ生活費の候補は出さない） */
+type PeriodicLike = { id: string; label?: string; everyYears?: number; amount?: BoxLike };
+
+/** 承認して入れた名前を付けた支出（取り込んだ記録 applied の対象のうち、今も世帯にあるもの） */
+function approvedPeriodics(wh: WorkingHousehold): PeriodicLike[] {
+  const ids = new Set(
+    logOf(wh)
+      .applied.flatMap((a) => a.items)
+      .filter((i) => i.item === "periodicExpense.amount")
+      .map((i) => (i.target as { object?: unknown } | null)?.object)
+      .filter((x): x is string => typeof x === "string"),
+  );
+  if (ids.size === 0) return [];
+  return ((wh.request.input.household as Household).periodicExpenses ?? []).filter((p) => ids.has(p.id)) as PeriodicLike[];
+}
+
+/** 名前を付けた支出の候補が、承認して入れたものと同じか（名前・何年に1回・金額が同じ。承認した後にもう一度出さない） */
+function sameAsApproved(c: StatementCandidate, approved: readonly PeriodicLike[]): boolean {
+  if (c.collection !== "periodicExpenses" || c.op !== "add" || approved.length === 0) return false;
+  const v = c.value as PeriodicLike;
+  const key = looseKey(v.label ?? "");
+  return approved.some((p) => looseKey(p.label ?? "") === key && p.everyYears === v.everyYears && sameBox(p.amount, v.amount));
+}
+
+/** 候補（今の値と同じ生活費の候補と、承認して入れたものと同じ名前を付けた支出の候補は出さない） */
 export function candidatesOf(wh: WorkingHousehold, summary: StatementSummary, ref: string, newId: () => string): StatementCandidate[] {
-  return buildCandidates(summary, wh.request.input.household as never, { ref, baseMonth: wh.request.input.baseMonth, newId }).filter((c) => !sameAsNow(c));
+  const approved = approvedPeriodics(wh);
+  return buildCandidates(summary, wh.request.input.household as never, { ref, baseMonth: wh.request.input.baseMonth, newId }).filter((c) => !sameAsNow(c) && !sameAsApproved(c, approved));
 }
 
 /** 変える候補の今の値の文（「今は 月○円」）。足す候補は null */

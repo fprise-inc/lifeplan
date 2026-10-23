@@ -21,4 +21,5 @@ export { coveredDays, FULL_YEAR_DAYS, MIN_DAYS_FOR_CANDIDATE, monthlyAverage, mo
 export { checkMapping, COLUMN_ROLES, guessMapping, headerFingerprint, ROLE_LABELS, tableToRows, type ColumnMapping, type ColumnRole, type LearnedFormat, type ReadRow, type SourceKind, type Table } from "./table.ts";
 export { decodeText, type Decoded, type Encoding } from "./text/decode.ts";
 export { MASK, maskCell, maskText } from "./text/mask.ts";
+export { looseKey } from "./text/normalize.ts";
 export { parseAmount, parseDate, parsePlan, parseUser, parseYearMonth, type PaymentPlan } from "./text/values.ts";

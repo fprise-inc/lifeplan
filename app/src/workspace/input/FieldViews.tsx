@@ -2,6 +2,7 @@
 // 値を変えるたびに世帯を作り直して onEdit に渡す（入力のパネルでは下書きに、万一の画面では世帯にそのまま入れる）
 import { createContext } from "preact";
 import { useContext, useState } from "preact/hooks";
+import { PopIcon } from "../../presentation/icons.tsx";
 import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, Val } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
@@ -20,11 +21,33 @@ export interface FieldSuggestion {
 /** 欄のキー → 提案（入力のパネルが計算して渡す） */
 export const FieldSuggestions = createContext<Readonly<Record<string, FieldSuggestion>>>({});
 
+/** 区画の見出しの横に出す小さな文字のリンク。別のパネルを開く（例: 基本生活費の「明細から出す」。0034） */
+export interface SectionLink {
+  label: string;
+  title?: string;
+  onClick: () => void;
+}
+
+/** 区画のキー → 見出しの横のリンク（入力のパネルが渡す） */
+export const SectionLinks = createContext<Readonly<Record<string, SectionLink>>>({});
+
 export function Section({ section, wh, level, onEdit }: { section: SectionDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void }) {
   const actions = section.actions.filter((a) => visible(level, a.level));
+  const link = useContext(SectionLinks)[section.key];
   return (
     <section class="in-section" aria-label={section.title}>
-      <h3>{section.title}</h3>
+      {link !== undefined ? (
+        <div class="in-section-h">
+          <h3>{section.title}</h3>
+          {/* 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため） */}
+          <button type="button" class="link-btn in-section-link" onMouseDown={(e) => e.preventDefault()} onClick={link.onClick} {...(link.title !== undefined ? { title: link.title } : {})} data-section-link={section.key}>
+            {link.label}
+            <PopIcon />
+          </button>
+        </div>
+      ) : (
+        <h3>{section.title}</h3>
+      )}
       {section.note !== undefined ? <p class="in-note">{section.note}</p> : null}
       {section.groups
         .filter((g) => visible(level, g.level))
