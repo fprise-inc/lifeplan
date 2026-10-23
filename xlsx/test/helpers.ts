@@ -102,7 +102,7 @@ export function toSharedStrings(files: Map<string, Uint8Array>): void {
 /** セルの値を書き換える（顧客の記入）。値が null なら空にする */
 export function setCell(files: Map<string, Uint8Array>, sheetPath: string, ref: string, xml: string | null): void {
   let s = text(files.get(sheetPath));
-  const re = new RegExp(`<c r="${ref}" s="(\\d+)"(?: t="[a-zA-Z]+")?(?:/>|>.*?</c>)`);
+  const re = new RegExp(`<c r="${ref}" s="(\\d+)"(?: t="[a-zA-Z]+")?(?:/>|>[\\s\\S]*?</c>)`);
   const m = re.exec(s);
   if (m === null) throw new Error(`セルが無い: ${ref}`);
   const st = m[1] as string;

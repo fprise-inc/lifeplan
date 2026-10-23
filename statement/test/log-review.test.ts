@@ -82,7 +82,7 @@ describe("迷う行の一覧と、FP が決めたこと", () => {
     expect(list.map((x) => x.merchant)).toContain("振込（相手の名前は残しません）");
     expect(list.every((x) => x.reasonText !== "")).toBe(true);
     const unknown = unknownMerchants(rows);
-    expect(unknown).toEqual([{ key: merchantKey("振込（相手の名前は残しません）"), label: "振込（相手の名前は残しません）", count: 1, total: 20000, rows: [expect.objectContaining({ importId: log.imports[0]?.id })] }]);
+    expect(unknown).toEqual([{ key: merchantKey("振込（相手の名前は残しません）"), label: "振込（相手の名前は残しません）", count: 1, total: 20000, from: "2026-04-05", to: "2026-04-05", rows: [expect.objectContaining({ importId: log.imports[0]?.id })] }]);
   });
 
   it("決めたことを行に書き、迷う行から外す。null は取り消し。事業でない区分では割合を持たない", async () => {

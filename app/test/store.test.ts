@@ -72,6 +72,7 @@ function sampleStatements(owner: string): StatementLog {
         rows: [
           { id: "r2", line: 2, date: "2026-09-03", merchant: "架空スーパー", key: "架空スーパー", amount: 3200 },
           { id: "r3", line: 3, date: "2026-09-10", merchant: "架空の店 ●●●●", key: "架空ノ店", amount: 4500, category: "recreation", bucket: "household", decidedAt: "2026-10-20T10:05:00+09:00" },
+          { id: "r4", line: 4, date: "2026-09-17", merchant: "架空スーパー", key: "架空スーパー", amount: 3300 },
         ],
         include: true,
       },
@@ -86,6 +87,17 @@ function sampleStatements(owner: string): StatementLog {
         file: { sha256: `sha256:${"2".repeat(64)}`, bytes: 9876 },
         rows: [{ no: 1, import: "imp-1", row: "r2" }],
         received: [{ at: "2026-10-22T10:00:00+09:00", file: { sha256: `sha256:${"3".repeat(64)}`, bytes: 10234 }, decided: 1 }],
+      },
+      // 0.16 から: 店ごとにまとめたシートの1行は、同じ番号に複数の行（架空）
+      {
+        id: "M-5R8T2W",
+        at: "2026-10-23T09:00:00+09:00",
+        file: { sha256: `sha256:${"4".repeat(64)}`, bytes: 9900 },
+        rows: [
+          { no: 1, import: "imp-1", row: "r2" },
+          { no: 1, import: "imp-1", row: "r4" },
+        ],
+        received: [],
       },
     ],
   };
@@ -163,8 +175,8 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect((back.wh.request.input.assumptions as Record<string, unknown> | undefined)?.emergencyReserve).toBeUndefined();
   });
 
-  it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.15");
+  it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
+    expect(BODY_FORMAT_VERSION).toBe("0.16");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -175,7 +187,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect((JSON.parse(bodyOf(none)) as Record<string, unknown>).statements).toBeUndefined();
     const odd = JSON.parse(text) as { statements: { imports: { rows: unknown[] }[] } };
     odd.statements.imports[0]?.rows.push({ id: "bad", line: 9, date: "2026/09/30", merchant: "x", amount: 1 });
-    expect(fromBody(JSON.stringify(odd)).wh.statements?.imports[0]?.rows.map((r) => r.id)).toEqual(["r2", "r3"]);
+    expect(fromBody(JSON.stringify(odd)).wh.statements?.imports[0]?.rows.map((r) => r.id)).toEqual(["r2", "r3", "r4"]);
     const { statements: _drop, ...without } = obj;
     void _drop;
     expect(fromBody(JSON.stringify(without)).wh.statements).toBeUndefined();

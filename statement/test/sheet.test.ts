@@ -2,7 +2,27 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { addReceipt, addRequest, applyDecisions, classify, createMarkSheet, emptyLog, percentShare, readLog, readMarkSheet, reviewList, sheetRequestId, type MarkSheetResult, type ReadMarkSheetResult, type StatementLog } from "../src/index.ts";
+import {
+  addReceipt,
+  addRequest,
+  applyDecisions,
+  classify,
+  createMarkSheet,
+  emptyLog,
+  markSheetWarnings,
+  merchantKey,
+  percentShare,
+  planMarkSheet,
+  readLog,
+  readMarkSheet,
+  reviewList,
+  sheetRequestId,
+  type MarkSheetResult,
+  type ReadMarkSheetResult,
+  type StatementAccount,
+  type StatementLog,
+  type StatementRow,
+} from "../src/index.ts";
 import { HEADER_ROW } from "../src/sheet/layout.ts";
 import { editXlsx, setCell, text, toSharedStrings, unzip } from "../../xlsx/test/helpers.ts";
 import { BASE_MONTH, buildLog, HOUSEHOLD, SELF, SPOUSE } from "./helpers.ts";
@@ -127,13 +147,13 @@ describe("読み込み", () => {
     const r = ok(await readMarkSheet(filled, { log, rows: classified(log) }));
     expect(r.request.id).toBe(RID);
     expect(r.unmarked).toBe(2);
-    expect(r.candidates.map((c) => [c.merchant, c.decision.category, c.decision.bucket, c.decision.share, c.status])).toEqual([
+    expect(r.candidates.map((c) => [c.merchant, c.mark.category, c.mark.bucket, c.mark.share, c.status])).toEqual([
       ["架空の謎の店", "recreation", "household", undefined, "pending"],
       ["架空ブックス", undefined, "business", "0.6", "pending"],
     ]);
     expect(r.candidates[1]?.memo).toBe("仕事の本です。カード ●●●●");
     expect(r.file.sha256).not.toBe(sheet.request.file.sha256);
-    const next = applyDecisions(log, r.candidates.map((c) => c.decision), "2026-10-22T10:00:00+09:00");
+    const next = applyDecisions(log, r.candidates.flatMap((c) => c.decisions), "2026-10-22T10:00:00+09:00");
     const left = reviewList(classified(next)).map((x) => x.merchant);
     expect(left).not.toContain("架空の謎の店");
     expect(left).not.toContain("架空ブックス");
@@ -170,7 +190,7 @@ describe("読み込み", () => {
     });
     const r2 = ok(await readMarkSheet(resaved, { log, rows: classified(log) }));
     expect(codes(r2)).toContain("S_SHEET_PARTLY_LOST");
-    expect(r2.candidates.map((c) => c.decision.category)).toEqual(["food"]);
+    expect(r2.candidates.map((c) => c.mark.category)).toEqual(["food"]);
   });
 
   it("使った日・金額が書き出した行と合わない行・選択肢に無い言葉の行は読まず、迷う行のまま残す", async () => {
@@ -184,7 +204,7 @@ describe("読み込み", () => {
     expect(codes(r)).toContain("S_SHEET_ROW_CHANGED");
     expect(codes(r)).toContain("S_SHEET_VALUE");
     // 事業の経費で割合が無ければ 100% にして要確認
-    expect(r.candidates.map((c) => [c.merchant, c.decision.share, c.status])).toEqual([["架空ブックス", "1", "needsReview"]]);
+    expect(r.candidates.map((c) => [c.merchant, c.mark.share, c.status])).toEqual([["架空ブックス", "1", "needsReview"]]);
     expect(r.candidates[0]?.notes.join("")).toContain("100%");
   });
 
@@ -195,7 +215,7 @@ describe("読み込み", () => {
       { merchant: "架空リボショップ", bucket: "会社の経費" },
     ]);
     const r = ok(await readMarkSheet(filled, { log, rows: classified(log) }));
-    expect(r.candidates.map((c) => [c.merchant, c.decision.category, c.decision.bucket, c.status])).toEqual([["架空の謎の店", "food", undefined, "needsReview"]]);
+    expect(r.candidates.map((c) => [c.merchant, c.mark.category, c.mark.bucket, c.status])).toEqual([["架空の謎の店", "food", undefined, "needsReview"]]);
     expect(codes(r).filter((c) => c === "S_SHEET_VALUE")).toHaveLength(1);
   });
 
@@ -232,10 +252,17 @@ describe("依頼の記録（区画 statements の requests）", () => {
     const withReceipt = addReceipt(log, RID, { at: "2026-10-22T10:00:00+09:00", file: { sha256: `sha256:${"b".repeat(64)}`, bytes: 10 }, decided: 1 });
     expect(readLog(JSON.parse(JSON.stringify(withReceipt)))).toEqual(withReceipt);
     const odd = JSON.parse(JSON.stringify(withReceipt)) as { requests: unknown[] };
-    odd.requests.push({ id: "R-ABCDEF", at: "x", file: { sha256: "sha256:00", bytes: 1 }, rows: [] }, { id: RID2, at: "x", file: { sha256: `sha256:${"c".repeat(64)}`, bytes: 1 }, rows: [{ no: 0, import: "i", row: "r" }, { no: 1, import: "i", row: "r" }, { no: 1, import: "i", row: "r2" }], received: [{ at: "x", file: null, decided: 1 }] });
+    odd.requests.push(
+      { id: "R-ABCDEF", at: "x", file: { sha256: "sha256:00", bytes: 1 }, rows: [] },
+      { id: RID2, at: "x", file: { sha256: `sha256:${"c".repeat(64)}`, bytes: 1 }, rows: [{ no: 0, import: "i", row: "r" }, { no: 1, import: "i", row: "r" }, { no: 1, import: "i", row: "r2" }, { no: 2, import: "i", row: "r" }, { no: 501, import: "i", row: "r3" }], received: [{ at: "x", file: null, decided: 1 }] },
+    );
     const back = readLog(odd);
     expect(back.requests?.map((r) => r.id)).toEqual([RID, RID2]);
-    expect(back.requests?.[1]?.rows).toEqual([{ no: 1, import: "i", row: "r" }]);
+    // 同じ番号に複数の行は店ごとにまとめた行（形式 0.16 から）。同じ行の2つ目・番号の上限を超えたものは捨てる
+    expect(back.requests?.[1]?.rows).toEqual([
+      { no: 1, import: "i", row: "r" },
+      { no: 1, import: "i", row: "r2" },
+    ]);
     expect(back.requests?.[1]?.received).toEqual([]);
     expect(readLog(emptyLog()).requests).toBeUndefined();
   });
@@ -244,5 +271,199 @@ describe("依頼の記録（区画 statements の requests）", () => {
     let log = emptyLog();
     for (let i = 0; i < 25; i++) log = addRequest(log, { id: sheetRequestId(new Uint8Array([i, i, i, i, i, i])), at: `2026-10-${String(i + 1).padStart(2, "0")}T00:00:00+09:00`, file: { sha256: `sha256:${"d".repeat(64)}`, bytes: 1 }, rows: [], received: [] });
     expect(log.requests).toHaveLength(20);
+  });
+});
+
+// ---- 店ごとにまとめる（辞書で分からない毎月の店などを1行にして、お客さまが同じ答えを何度も選ばなくてよいように） ----
+
+type RowIn = Partial<StatementRow> & { date: string; merchant: string; amount: number };
+
+/** 架空の行から記録を作る（口座ごとに1つの取り込み） */
+function synth(accounts: (StatementAccount & { rows: RowIn[] })[]): StatementLog {
+  return {
+    ...emptyLog(),
+    accounts: accounts.map(({ rows, ...a }) => (void rows, a)),
+    imports: accounts.map((a, k) => {
+      const rows: StatementRow[] = a.rows.map((r, i) => ({ line: i + 1, id: `r${i + 1}`, key: merchantKey(r.merchant), ...r }));
+      return {
+        id: `imp-${a.id}`,
+        kind: "statement" as const,
+        at: `2026-10-20T10:00:0${k}+09:00`,
+        account: a.id,
+        file: { sha256: `sha256:${a.id}`, bytes: 1 },
+        reader: { id: "csv", version: 1 },
+        format: { fingerprint: "sha256:f", mapping: { headerRow: 0, columns: { date: 0, merchant: 1, amount: 2 }, sign: "expensePositive" as const }, source: "fp" as const },
+        period: { from: "2025-10-01", to: "2026-09-30" },
+        rows,
+        include: true,
+      };
+    }),
+  };
+}
+
+const months = (merchant: string, amount: (i: number) => number, n = 12, day = 10): RowIn[] =>
+  Array.from({ length: n }, (_, i) => ({ date: `${2025 + Math.floor((9 + i) / 12)}-${String(((9 + i) % 12) + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`, merchant, amount: amount(i) }));
+
+function shopLog(): StatementLog {
+  return synth([
+    {
+      id: "cardA",
+      kind: "card",
+      label: "ご主人のカード",
+      owner: SELF,
+      rows: [
+        ...months("架空モバイル通信", () => 3300),
+        ...months("架空の謎の工房", (i) => 2000 + i * 100, 2, 15),
+        { date: "2026-03-20", merchant: "架空の謎の工房", amount: 150000 },
+        { date: "2026-04-01", merchant: "架空の一度きりの店", amount: 4800 },
+      ],
+    },
+    { id: "cardB", kind: "card", label: "奥様のカード", owner: SPOUSE, rows: [...months("架空モバイル通信", () => 2200, 2), ...months("架空の携帯電話料", () => 6000, 3, 25)] },
+  ]);
+}
+
+async function shopSheet() {
+  const base = shopLog();
+  const items = reviewList(classified(base));
+  const sheet = await createMarkSheet({
+    items,
+    accounts: new Map(base.accounts.map((a) => [a.id, a.label])),
+    owners: new Map([
+      [SELF, "ご主人"],
+      [SPOUSE, "奥様"],
+    ]),
+    requestId: RID,
+    exportedAt: AT,
+    appVersion: "0.1.0",
+  });
+  return { log: addRequest(base, sheet.request), items, sheet };
+}
+
+/** シートの行（店の名前の欄が merchant で始まる行）の行番号 */
+async function lineOf(bytes: Uint8Array, merchant: string): Promise<number> {
+  const s = text((await unzip(bytes)).get(SHEET));
+  const m = new RegExp(`<c r="C(\\d+)"[^>]*t="inlineStr"><is><t xml:space="preserve">${merchant}`).exec(s);
+  if (m === null) throw new Error(`行が無い: ${merchant}`);
+  return Number(m[1]);
+}
+
+const cellText = (ws: string, ref: string) => new RegExp(`<c r="${ref}"[^>]*>(?:<is><t xml:space="preserve">([^<]*)</t></is>|<v>([^<]*)</v>)`).exec(ws)?.slice(1).find((x) => x !== undefined);
+
+describe("店ごとにまとめる", () => {
+  it("店単位で答えられる同じ店の行（同じ持ち主・同じカード）は1行に、1件ずつ判断が要る行と1回だけの店は1行ずつ", async () => {
+    const { items } = await shopSheet();
+    const plan = planMarkSheet(items);
+    const view = plan.lines.map((l) => [l.items[0]?.merchant, l.items[0]?.account, l.kind, l.items.length, l.total]);
+    expect(view).toEqual(
+      expect.arrayContaining([
+        ["架空モバイル通信", "cardA", "shop", 12, 39600],
+        ["架空モバイル通信", "cardB", "shop", 2, 4400],
+        ["架空の謎の工房", "cardA", "shop", 2, 4100],
+        ["架空の謎の工房", "cardA", "row", 1, 150000],
+        ["架空の一度きりの店", "cardA", "row", 1, 4800],
+        // 区分だけが迷う行（店は分かるが、個人事業主の通信が事業の分か）も店ごとに
+        ["架空の携帯電話料", "cardB", "shop", 3, 18000],
+      ]),
+    );
+    expect(plan.lines).toHaveLength(6);
+    expect(plan).toMatchObject({ items: 21, shops: 4, grouped: 19, overflow: 0 });
+    // 高額の行は重いので先に載る
+    expect(plan.lines[0]?.total).toBe(150000);
+    expect(markSheetWarnings(items).map((i) => i.code)).toEqual(["S_SHEET_PLAINTEXT", "S_SHEET_GROUPED"]);
+  });
+
+  it("まとめた行は、ご利用日の欄に期間と回数、金額の欄に合計、店の名前の下に1回あたりの目安。依頼の記録は同じ番号に行の数だけ", async () => {
+    const { sheet } = await shopSheet();
+    expect(sheet.rows).toBe(6);
+    expect(sheet.entries).toBe(21);
+    const ws = text((await unzip(sheet.bytes)).get(SHEET));
+    const r = await lineOf(sheet.bytes, "架空モバイル通信");
+    expect(cellText(ws, `B${r}`)).toBe("2025/10/10〜2026/09/10\n12回");
+    expect(cellText(ws, `D${r}`)).toBe("39600");
+    expect(cellText(ws, `C${r}`)).toBe("架空モバイル通信\n毎回 3,300円");
+    const k = await lineOf(sheet.bytes, "架空の謎の工房\n");
+    expect(cellText(ws, `C${k}`)).toBe("架空の謎の工房\n1回あたり 約2,050円");
+    const no = Number(cellText(ws, `A${r}`));
+    expect(sheet.request.rows.filter((x) => x.no === no)).toHaveLength(12);
+    expect(sheet.request.rows).toHaveLength(21);
+    expect(new Set(sheet.request.rows.map((x) => x.no)).size).toBe(6);
+    expect(ws).toContain("同じお店を何度もお使いの分は、1行にまとめています");
+    // 並び: カード・口座ごとに、まとめた店 → 1行ずつの行
+    const merchants = [...ws.matchAll(/<c r="C(\d+)"[^>]*t="inlineStr"><is><t xml:space="preserve">([^<\n]*)/g)].filter((m) => Number(m[1]) > HEADER_ROW).map((m) => m[2]);
+    expect(merchants).toEqual(["架空モバイル通信", "架空の謎の工房", "架空の謎の工房", "架空の一度きりの店", "架空モバイル通信", "架空の携帯電話料"]);
+    // 依頼の記録は形を確かめて読み戻せる
+    expect(readLog(JSON.parse(JSON.stringify(addRequest(emptyLog(), sheet.request)))).requests?.[0]?.rows).toEqual(sheet.request.rows);
+  });
+
+  it("まとめた行の答えは、その店の行すべての候補になり、承認するとまとめて決まる", async () => {
+    const { log, sheet, items } = await shopSheet();
+    const filled = await mark(sheet.bytes, []);
+    const a = await lineOf(filled, "架空モバイル通信\n毎回 3,300円");
+    const p = await lineOf(filled, "架空の携帯電話料");
+    const edited = await editXlsx(filled, (f) => {
+      setCell(f, SHEET, `H${a}`, str("通信"));
+      setCell(f, SHEET, `I${a}`, str("家計（ふだんの暮らし）"));
+      setCell(f, SHEET, `I${p}`, str("事業の経費"));
+      setCell(f, SHEET, `J${p}`, "<c><v>60</v></c>");
+    });
+    const r = ok(await readMarkSheet(edited, { log, rows: classified(log) }));
+    expect(r.candidates.map((c) => [c.merchant, c.kind, c.count, c.amount, c.date, c.to, c.mark.category, c.mark.bucket, c.mark.share, c.status])).toEqual([
+      ["架空モバイル通信", "shop", 12, 39600, "2025-10-10", "2026-09-10", "communication", "household", undefined, "pending"],
+      ["架空の携帯電話料", "shop", 3, 18000, "2025-10-25", "2025-12-25", undefined, "business", "0.6", "pending"],
+    ]);
+    expect(r.candidates[0]?.decisions).toHaveLength(12);
+    expect(new Set(r.candidates[0]?.decisions.map((d) => d.rowId)).size).toBe(12);
+    expect(r.candidates[1]?.decisions.every((d) => d.bucket === "business" && d.share === "0.6")).toBe(true);
+    // 印の無い行は明細の行の数で数える（21 − 12 − 3）
+    expect(r.unmarked).toBe(6);
+    const next = applyDecisions(log, r.candidates.flatMap((c) => c.decisions), "2026-10-22T10:00:00+09:00");
+    expect(reviewList(classified(next))).toHaveLength(items.length - 15);
+    // 別のカードの同じ店（奥様のカードの架空モバイル通信）には当てない
+    expect(reviewList(classified(next)).filter((x) => x.merchant === "架空モバイル通信").map((x) => x.account)).toEqual(["cardB", "cardB"]);
+  });
+
+  it("まとめた行の期間・回数・合計が書き出したものと合わなければ読まない。行の一部が無くなっていれば照らし合わせられないので読まない", async () => {
+    const { log, sheet } = await shopSheet();
+    const a = await lineOf(sheet.bytes, "架空モバイル通信\n毎回 3,300円");
+    const k = await lineOf(sheet.bytes, "架空の謎の工房\n");
+    const p = await lineOf(sheet.bytes, "架空の携帯電話料");
+    const edited = await editXlsx(sheet.bytes, (f) => {
+      setCell(f, SHEET, `H${a}`, str("通信"));
+      setCell(f, SHEET, `B${a}`, str("2025/10/10〜2026/09/10 11回"));
+      setCell(f, SHEET, `H${k}`, str("教養娯楽"));
+      setCell(f, SHEET, `D${k}`, "<c><v>4000</v></c>");
+      setCell(f, SHEET, `H${p}`, str("通信"));
+    });
+    const rows = classified(log);
+    const r = ok(await readMarkSheet(edited, { log, rows }));
+    expect(codes(r).filter((c) => c === "S_SHEET_ROW_CHANGED")).toHaveLength(2);
+    expect(r.candidates.map((c) => c.merchant)).toEqual(["架空の携帯電話料"]);
+    // 期間の欄が別の書き方（全角・括弧つき）でも、日付と回数が合えば読む
+    const respelled = await editXlsx(sheet.bytes, (f) => {
+      setCell(f, SHEET, `H${a}`, str("通信"));
+      setCell(f, SHEET, `B${a}`, str("２０２５/１０/１０ ～ ２０２６/９/１０（１２回）"));
+    });
+    expect(ok(await readMarkSheet(respelled, { log, rows })).candidates.map((c) => c.count)).toEqual([12]);
+    // 取り込みを外すなどで、まとめた行の一部が仕分けに無い
+    const partial = rows.filter((x) => !(x.row.merchant === "架空の携帯電話料" && x.row.date === "2025-11-25"));
+    const g = ok(await readMarkSheet(edited, { log, rows: partial }));
+    expect(g.candidates).toEqual([]);
+    expect(g.issues.find((i) => i.code === "S_SHEET_ROW_GONE")?.message).toContain("照らし合わせられません");
+  });
+
+  it("まとめた行のメモ・書き出した後に FP が決めた行は要確認にする", async () => {
+    const { log, sheet } = await shopSheet();
+    const a = await lineOf(sheet.bytes, "架空モバイル通信\n毎回 3,300円");
+    const edited = await editXlsx(sheet.bytes, (f) => {
+      setCell(f, SHEET, `H${a}`, str("通信"));
+      setCell(f, SHEET, `K${a}`, str("3月だけ仕事用の端末代が入っています"));
+    });
+    const one = reviewList(classified(log)).find((x) => x.merchant === "架空モバイル通信" && x.account === "cardA");
+    const decided = applyDecisions(log, [{ importId: one?.importId as string, rowId: one?.rowId as string, category: "communication" }], "2026-10-21T12:00:00+09:00");
+    const r = ok(await readMarkSheet(edited, { log: decided, rows: classified(decided) }));
+    expect(r.candidates[0]?.status).toBe("needsReview");
+    expect(r.candidates[0]?.notes.join("")).toContain("メモ");
+    expect(r.candidates[0]?.notes.join("")).toContain("書き出した後に FP が決めた行が 1行");
+    expect(r.candidates[0]?.decisions).toHaveLength(12);
   });
 });

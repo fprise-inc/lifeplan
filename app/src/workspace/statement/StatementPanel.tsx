@@ -31,6 +31,7 @@ import {
   formatToLearn,
   KIND_LABELS,
   logOf,
+  markDateText,
   markText,
   otherReview,
   ownerOptions,
@@ -42,12 +43,14 @@ import {
   removeAccount,
   removeImport,
   removeRule,
+  requestSize,
   rowsSpan,
   setInclude,
   setPeriod,
   setStyles,
   SHARE_CHOICES,
   shareOfPercent,
+  sheetPlan,
   STYLE_CHOICES,
   styleRows,
   updateAccount,
@@ -665,6 +668,7 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [msg, setMsg] = useState<string | null>(null);
   const rest = an.review.length;
+  const plan = useMemo(() => sheetPlan(an), [an]);
   const requests = log.requests ?? [];
   const write = async () => {
     setBusy(true);
@@ -711,7 +715,7 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
     const r = approveMarks(log, read, sel, office.dictionary, approvalTime());
     onLog(r.log);
     if (r.learn.length > 0) onLearn(r.learn);
-    setMsg(`お客さまの印 ${r.decided}行を仕分けに入れました${read.unmarked > 0 ? `（印の無い ${read.unmarked}行は迷う行のまま残っています）` : ""}`);
+    setMsg(`お客さまの印 ${r.lines}行${r.decided !== r.lines ? `（明細の ${r.decided}行）` : ""}を仕分けに入れました${read.unmarked > 0 ? `（印の無い ${read.unmarked}行は迷う行のまま残っています）` : ""}`);
     setRead(null);
   };
   const toggle = (no: number, on: boolean) =>
@@ -728,7 +732,7 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
       </h3>
       <div class="rp-actions">
         <button type="button" class="btn" disabled={busy || rest === 0} onClick={() => setAsking(true)} data-statement-sheet-export>
-          確認シートを書き出す（{rest}行）
+          確認シートを書き出す（{plan.lines.length}行）
         </button>
         <button type="button" class="btn" disabled={busy || requests.length === 0} onClick={() => void open()} data-statement-sheet-open>
           {busy && !asking ? "読んでいます…" : "印の付いたシートを読み込む"}
@@ -736,8 +740,8 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
       </div>
       {asking ? (
         <div class="st-sheet-ask" role="alert" data-statement-sheet-warn>
-          <IssueList issues={markSheetWarnings(rest)} />
-          <p class="rp-note">シートには、使った日・店の名前・金額・カード／口座の呼び名・お使いになった方と、選ぶ欄（何に使ったか・どこに入るか・事業の割合・メモ）だけが載ります。お名前・世帯の番号は載りません。</p>
+          <IssueList issues={markSheetWarnings(plan)} info />
+          <p class="rp-note">シートには、使った日・店の名前・金額・カード／口座の呼び名・お使いになった方と、選ぶ欄（何に使ったか・どこに入るか・事業の割合・メモ）だけが載ります。お名前・世帯の番号は載りません。辞書で分からない店・区分だけが迷う店・カードの引き落としは、同じ持ち主・同じカード／口座の同じ店を1行にまとめ（期間・回数・合計を載せます）、答えをその店の行すべてに当てます。高額の行などは1行ずつ載せます。</p>
           <div class="rp-actions">
             <button type="button" class="btn primary" disabled={busy} onClick={() => void write()} data-statement-sheet-go>
               {busy ? "作っています…" : "分かったうえで書き出す"}
@@ -769,7 +773,7 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
         <ul class="hs-list st-requests">
           {[...requests].reverse().map((r) => (
             <li key={r.id}>
-              {r.id}: {dateText(r.at.slice(0, 10))} に {r.rows.length}行を書き出し
+              {r.id}: {dateText(r.at.slice(0, 10))} に {requestSize(r).lines}行{requestSize(r).rows !== requestSize(r).lines ? `（明細の ${requestSize(r).rows}行）` : ""}を書き出し
               {r.received.length > 0 ? `・${dateText((r.received.at(-1)?.at ?? "").slice(0, 10))} に取り込み（${r.received.at(-1)?.decided ?? 0}行）` : "・まだ返っていません"}
             </li>
           ))}
@@ -787,7 +791,7 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
                 <tr>
                   <th />
                   <th>番号</th>
-                  <th>使った日</th>
+                  <th>使った日（まとめた店は期間・回数）</th>
                   <th>店</th>
                   <th class="num">金額</th>
                   <th>お客さまの印</th>
@@ -801,9 +805,12 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
                       <input type="checkbox" checked={sel.has(c.no)} aria-label={`${c.no}番を入れる`} onChange={(e) => toggle(c.no, (e.currentTarget as HTMLInputElement).checked)} />
                     </td>
                     <td class="num">{c.no}</td>
-                    <td>{dateText(c.date)}</td>
-                    <td>{c.merchant}</td>
-                    <td class="num">{yen(c.amount)}</td>
+                    <td>{markDateText(c)}</td>
+                    <td>
+                      {c.merchant}
+                      {c.kind === "shop" ? <small class="st-note">同じ店の {c.count}行にまとめて入れます</small> : null}
+                    </td>
+                    <td class="num">{c.kind === "shop" ? `合計 ${yen(c.amount)}` : yen(c.amount)}</td>
                     <td>
                       <b>{markText(c)}</b>
                       {c.status === "needsReview" ? <span class="hs-kind review">要確認</span> : null}
@@ -829,13 +836,13 @@ function SheetSection({ wh, log, an, office, host, customerNo, onLog, onLearn }:
               <ul class="hs-list">
                 {read.memos.map((m) => (
                   <li key={m.no}>
-                    {m.no}番 {dateText(m.date)} {m.merchant} {yen(m.amount)}: 「{m.memo}」
+                    {m.no}番 {markDateText(m)} {m.merchant} {m.kind === "shop" ? `合計 ${yen(m.amount)}` : yen(m.amount)}: 「{m.memo}」
                   </li>
                 ))}
               </ul>
             </>
           ) : null}
-          <p class="rp-note">メモは画面に出すだけで、保存しません。印の無い行（{read.unmarked}行）は迷う行のまま残ります。</p>
+          <p class="rp-note">メモは画面に出すだけで、保存しません。印の無い明細の行（{read.unmarked}行）は迷う行のまま残ります。同じ店をまとめた行の印は、書き出したときのその店の行すべてに入ります（書き出した後に取り込んだ行には入りません）。</p>
           <div class="rp-actions">
             <button type="button" class="btn primary" disabled={sel.size === 0} onClick={take} data-statement-marks-approve>
               承認して仕分けに入れる（{sel.size}行）
@@ -937,7 +944,8 @@ function ReviewStep({ wh, log, an, office, host, customerNo, onLog, onLearn, onN
                 <div class="st-item-h">
                   <b class="st-merchant">{u.label}</b>
                   <span class="st-amt">
-                    {u.count}回・{yen(u.total)}
+                    {u.count}回・{u.count > 1 ? `${dateText(u.from)}〜${dateText(u.to)}・合計 ` : `${dateText(u.from)}・`}
+                    {yen(u.total)}
                   </span>
                 </div>
                 <CategoryButtons compact current={null} onPick={(c) => apply(u.rows.map((r) => ({ importId: r.importId, rowId: r.rowId, category: c })))} />

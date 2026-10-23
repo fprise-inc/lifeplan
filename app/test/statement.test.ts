@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { StatementCandidate } from "../../statement/src/index.ts";
+import { SHEET_HEADER_ROW, type StatementCandidate } from "../../statement/src/index.ts";
 import { approvalTime } from "../src/workspace/hearing/sheet.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
@@ -23,12 +23,15 @@ import {
   formatToLearn,
   keepStatements,
   logOf,
+  markDateText,
   markText,
   otherReview,
   periodProblem,
   putRule,
   readFile,
   readSheet,
+  requestSize,
+  sheetPlan,
   removeAccount,
   setPeriod,
   setStyles,
@@ -278,7 +281,11 @@ describe("確認シート（前もってお客さまに印を付けてもらう�
 
   it("迷う行を書き出す。シートに世帯の内部ID・口座の ID・カード番号は載らず、依頼の記録は世帯ファイルの区画 statements に残る", async () => {
     const { wh, an, sheet, self } = await exported();
-    expect(sheet.rows).toBe(an.review.length);
+    // 店単位で答えられる同じ店の行は1行にまとめる（明細の行は全部載る）
+    expect(sheet.rows).toBe(sheetPlan(an).lines.length);
+    expect(sheet.rows).toBeLessThan(an.review.length);
+    expect(sheet.entries).toBe(an.review.length);
+    expect(requestSize(sheet.request)).toEqual({ lines: sheet.rows, rows: an.review.length });
     const all = [...(await unzip(sheet.bytes)).values()].map(utf8).join("\n");
     for (const needle of [self, "acc-card", "acc-bank", wh.request.input.household.members[0]!.id]) expect(all).not.toContain(needle);
     expect(all).toContain("ご主人のカード（Aカード）");
@@ -310,6 +317,30 @@ describe("確認シート（前もってお客さまに印を付けてもらう�
     // 別の世帯（依頼の記録の無い世帯）では読まない
     const other = await readSheet(filled, household(), analyze(household(), []));
     expect(other.ok ? [] : other.issues.map((i) => i.code)).toEqual(["S_SHEET_OTHER_HOUSEHOLD"]);
+  });
+});
+
+describe("確認シートの店ごとにまとめた行", () => {
+  const SHEET = "xl/worksheets/sheet1.xml";
+  it("まとめた行の印を承認すると、その店の行すべてが決まり、取り込んだ記録には明細の行の数が残る", async () => {
+    const { wh: base } = await imported();
+    const an = analyze(base, []);
+    const sheet = await exportMarkSheet(base, an, { random: new Uint8Array([2, 7, 1, 8, 2, 8]), at: AT, appVersion: "0.1.0" });
+    const wh = withLog(base, withSheetRequest(logOf(base), sheet.request));
+    const shop = sheetPlan(an).lines.find((l) => l.kind === "shop" && l.items.length >= 3)!;
+    const no = sheet.request.rows.find((x) => x.row === shop.items[0]!.rowId && x.import === shop.items[0]!.importId)!.no;
+    const row = SHEET_HEADER_ROW + no;
+    const filled = await editXlsx(sheet.bytes, (f) => setCell(f, SHEET, `H${row}`, '<c t="inlineStr"><is><t>通信</t></is></c>'));
+    const r = await readSheet(filled, wh, analyze(wh, []));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.candidates).toHaveLength(1);
+    const c = r.candidates[0]!;
+    expect([c.kind, c.count, c.amount]).toEqual(["shop", shop.items.length, shop.total]);
+    expect(markDateText(c)).toBe(`${shop.from.replace(/-/g, "/")}〜${shop.to.replace(/-/g, "/")}・${shop.items.length}回`);
+    const done = approveMarks(logOf(wh), r, defaultMarkSelection(r.candidates), [], AT);
+    expect([done.lines, done.decided]).toEqual([1, shop.items.length]);
+    expect(analyze(withLog(wh, done.log), []).review.length).toBe(an.review.length - shop.items.length);
+    expect(logOf(withLog(wh, done.log)).requests?.[0]?.received[0]?.decided).toBe(shop.items.length);
   });
 });
 

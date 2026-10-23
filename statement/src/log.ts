@@ -2,7 +2,8 @@
 // - 元のファイルは持たない。持つのは、元のファイルの指紋と大きさ、使った読み手と列の対応付け、取り込んだ行（番号を消した後）、
 //   FP が決めたこと（行ごとの項目・区分・割合・持ち主）、世帯の決まり（「この世帯の通信は事業60%」など）、候補を取り込んだ記録
 // - 前もってお客さまに印を付けてもらう確認シート（表計算のファイル）の依頼の記録（いつ書き出したか・書き出したファイルの指紋・
-//   シートの番号と行の対応・取り込んだか）。シートには世帯の内部ID・取り込みの ID を書かず、番号だけで結ぶ（0034 の9。形式 0.15 から）
+//   シートの番号と行の対応・取り込んだか）。シートには世帯の内部ID・取り込みの ID を書かず、番号だけで結ぶ（0034 の9。形式 0.15 から。
+//   形式 0.16 から、店ごとにまとめたシートの1行は、同じ番号に複数の行を対応させる）
 // - 自動の仕分け（辞書・年1回の検出・カードの引き落とし）の結果は持たない。毎回、行と FP の決めたことから作り直す
 //   （辞書が良くなれば、まだ決めていない行の仕分けも良くなる）
 import { merchantKey } from "./merchant.ts";
@@ -111,7 +112,10 @@ export interface StatementRequest {
   readonly at: string;
   /** 書き出したファイルの指紋と大きさ */
   readonly file: FileMark;
-  /** シートの番号 → 取り込みの ID と行の ID */
+  /**
+   * シートの番号 → 取り込みの ID と行の ID。店ごとにまとめたシートの1行は、同じ番号が並ぶ（形式 0.16 から）。
+   * 同じ取り込みの同じ行は1回だけ
+   */
   readonly rows: readonly { readonly no: number; readonly import: string; readonly row: string }[];
   /** 取り込んだ記録（まだなら空） */
   readonly received: readonly StatementReceipt[];
@@ -119,8 +123,10 @@ export interface StatementRequest {
 
 /** 残す依頼の記録の数（古いものから外す） */
 export const MAX_REQUESTS = 20;
-/** 1つの依頼に載せる行の上限 */
+/** 1つの依頼に載せるシートの行の上限（番号の上限） */
 export const MAX_REQUEST_ROWS = 500;
+/** 1つの依頼の行の対応（明細の行）の上限（店ごとにまとめた行は、明細の行の数だけ対応を持つ） */
+export const MAX_REQUEST_ENTRIES = 5000;
 
 export interface StatementLog {
   readonly version: number;
@@ -266,13 +272,16 @@ function readFileMark(v: unknown): FileMark | null {
 }
 
 function readRequest(v: unknown): StatementRequest[] {
-  if (!isObj(v) || !str(v.id, 20) || !/^M-[2-9A-HJ-NP-Z]{6}$/u.test(v.id) || !str(v.at, 40) || !Array.isArray(v.rows) || v.rows.length > MAX_REQUEST_ROWS) return [];
+  if (!isObj(v) || !str(v.id, 20) || !/^M-[2-9A-HJ-NP-Z]{6}$/u.test(v.id) || !str(v.at, 40) || !Array.isArray(v.rows) || v.rows.length > MAX_REQUEST_ENTRIES) return [];
   const file = readFileMark(v.file);
   if (file === null) return [];
-  const seen = new Set<number>();
+  // 同じ番号は店ごとにまとめた行（形式 0.16 から）。同じ取り込みの同じ行が2つあれば2つ目を捨てる
+  const seen = new Set<string>();
   const rows = v.rows.flatMap((r): StatementRequest["rows"][number][] => {
-    if (!isObj(r) || !Number.isInteger(r.no) || (r.no as number) < 1 || (r.no as number) > MAX_REQUEST_ROWS || seen.has(r.no as number) || !str(r.import, 64) || !str(r.row, 40)) return [];
-    seen.add(r.no as number);
+    if (!isObj(r) || !Number.isInteger(r.no) || (r.no as number) < 1 || (r.no as number) > MAX_REQUEST_ROWS || !str(r.import, 64) || !str(r.row, 40)) return [];
+    const k = `${r.import}\u001f${r.row}`;
+    if (seen.has(k)) return [];
+    seen.add(k);
     return [{ no: r.no as number, import: r.import, row: r.row }];
   });
   const received = (Array.isArray(v.received) ? v.received : []).flatMap((x): StatementReceipt[] => {

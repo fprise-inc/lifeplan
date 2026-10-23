@@ -34,6 +34,7 @@ export type IssueCode =
   // 前もってお客さまに印を付けてもらう確認シート（0034 の9）
   | "S_SHEET_PLAINTEXT"
   | "S_SHEET_OVERFLOW"
+  | "S_SHEET_GROUPED"
   | "S_SHEET_EMPTY"
   | "S_SHEET_FILE"
   | "S_SHEET_IGNORED"

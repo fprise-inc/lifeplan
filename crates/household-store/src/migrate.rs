@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.15";
+pub const CURRENT: &str = "0.16";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -57,9 +57,11 @@ pub const CURRENT: &str = "0.15";
 /// - 0.15: 区画 `statements` に、前もってお客さまに印を付けてもらう確認シートの依頼の記録 `requests`（依頼番号・書き出した日時・
 ///   書き出したファイルの指紋と大きさ・シートの番号 → 取り込みの ID と行の ID・取り込んだ記録 `received`）を足した（任意。書き出して
 ///   いなければ無い。足すだけの MINOR。0034 の9）。0.14 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
+/// - 0.16: 確認シートの依頼の記録 `requests` の行の対応 `rows` で、同じ番号に複数の行を対応させられるようにした（店ごとにまとめた
+///   シートの1行。0034 の9）。欄は足していない。0.15 のアプリは同じ番号の2つ目からを捨てて書き戻すので、版を上げて閲覧だけにする
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
-    "0.14", "0.15",
+    "0.14", "0.15", "0.16",
 ];
 
 /// 1段分の変換
@@ -140,6 +142,11 @@ pub const STEPS: &[Step] = &[
         from: "0.14",
         to: "0.15",
         apply: v0_14_to_0_15,
+    },
+    Step {
+        from: "0.15",
+        to: "0.16",
+        apply: v0_15_to_0_16,
     },
 ];
 
@@ -341,6 +348,15 @@ fn v0_14_to_0_15(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
+/// 0.15 → 0.16: 0.15 の依頼の記録は番号ごとに1行なので、そのまま 0.16 の形として読める。形式の版だけを書き換える（0034 の9）
+fn v0_15_to_0_16(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.16".into());
+    }
+    Ok(body)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Access {
     /// 保存できる（今の版か、変換できる古い版）
@@ -439,7 +455,8 @@ mod tests {
         assert_eq!(access("0.13").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.14").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.15").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.16").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.16").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.17").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -452,7 +469,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.16", b.clone()).unwrap(),
+            upgrade("0.17", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );

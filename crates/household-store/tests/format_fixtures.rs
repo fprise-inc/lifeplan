@@ -250,6 +250,24 @@ fn every_format_version_has_a_fixture_and_opens() {
                 assert!(r["id"].as_str().unwrap().starts_with("M-"));
                 assert_eq!(r["file"].as_object().unwrap().len(), 2);
                 assert!(r["rows"][0]["no"].is_u64());
+                // 0.16 から: 店ごとにまとめたシートの1行は、同じ番号に複数の行（見本は 0.16 から持つ）
+                let grouped = reqs.as_array().unwrap().iter().any(|q| {
+                    let nos: Vec<u64> = q["rows"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|x| x["no"].as_u64().unwrap())
+                        .collect();
+                    let mut uniq = nos.clone();
+                    uniq.sort_unstable();
+                    uniq.dedup();
+                    uniq.len() < nos.len()
+                });
+                assert_eq!(
+                    grouped,
+                    migrate::parse(v).unwrap() >= (0, 16),
+                    "{v}: 店ごとにまとめた行の依頼の記録は 0.16 の見本から"
+                );
             } else {
                 assert!(
                     migrate::parse(v).unwrap() < (0, 15),

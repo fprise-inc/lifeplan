@@ -4,9 +4,14 @@ import { CATEGORIES, type StatementCategory } from "../classify/categories.ts";
 import { BUCKET_LABELS, type Bucket } from "../classify/work.ts";
 import { looseKey } from "../text/normalize.ts";
 
-/** 埋め込みの形式名と形式の版（β公開までは 0.x） */
+/**
+ * 埋め込みの形式名と形式の版（β公開までは 0.x）。
+ * - 0.1: 迷う行を1行ずつ載せる
+ * - 0.2: 店単位で答えられる同じ店の行を1行にまとめる（ご利用日の欄に期間と回数、金額の欄に合計）。列の並び・管理の値の置き場所は 0.1 と同じで、
+ *   0.1 のシートもそのまま読める（どの番号がまとめた行かは、シートではなく依頼の記録で決める）
+ */
 export const SHEET_FORMAT = "fprise-lifeplan-statement-check";
-export const SHEET_FORMAT_VERSION = "0.1";
+export const SHEET_FORMAT_VERSION = "0.2";
 /** ヒアリングシートの形式名（取り違えて読んだときに案内する） */
 export const HEARING_SHEET_FORMAT = "fprise-lifeplan-hearing";
 
@@ -34,9 +39,9 @@ export const COLS = { no: "A", date: "B", merchant: "C", amount: "D", account: "
 /** 列の見出し */
 export const HEADERS: Readonly<Record<keyof typeof COLS, string>> = {
   no: "番号",
-  date: "ご利用日",
+  date: "ご利用日（まとめたお店は期間と回数）",
   merchant: "お店・内容",
-  amount: "金額（円）",
+  amount: "金額（円。まとめたお店は合計）",
   account: "カード・口座",
   owner: "お使いになった方",
   guess: "いまの見立て",
@@ -47,7 +52,7 @@ export const HEADERS: Readonly<Record<keyof typeof COLS, string>> = {
 };
 
 /** 列の幅 */
-export const WIDTHS = [6, 12, 30, 12, 26, 16, 22, 26, 30, 11, 30] as const;
+export const WIDTHS = [6, 22, 30, 14, 26, 16, 22, 26, 30, 11, 30] as const;
 
 /** メモの欄の文字数の上限 */
 export const MEMO_MAX = 200;
@@ -98,3 +103,13 @@ export const SHEET_REQUEST_ID = /^M-[2-9A-HJ-NP-Z]{6}$/u;
 
 /** 日付の表示（2026/10/03） */
 export const dateText = (d: string): string => d.replace(/-/gu, "/");
+
+/** まとめた行のご利用日の欄（2025/10/10〜2026/09/10 と、次の行に 12回） */
+export const rangeText = (from: string, to: string, count: number): string => `${from === to ? dateText(from) : `${dateText(from)}〜${dateText(to)}`}\n${count}回`;
+
+/** まとめた行のご利用日の欄を読む（rangeText の形。空白・全角はそろえてから渡す。読めなければ null） */
+export function parseRange(t: string): { from: string; to: string; count: number } | null {
+  const m = /^(\S+?)(?:\s*[〜~～]\s*(\S+?))?\s*[(（]?(\d{1,5})回[)）]?$/u.exec(t.replace(/\s+/gu, " ").trim());
+  if (m === null) return null;
+  return { from: m[1] as string, to: m[2] ?? (m[1] as string), count: Number(m[3]) };
+}
