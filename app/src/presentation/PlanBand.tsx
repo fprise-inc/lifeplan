@@ -72,12 +72,12 @@ export function PlanBand({ model, onSelect, onBase, onAdd, links, lineMarks = fa
                     <span class="p-st ng">{c.status}</span>
                   )}
                   {c.modified ? <span class="p-mod">変更あり</span> : null}
-                  {styles !== null ? (
-                    <span class="p-mark" title={`グラフの線: ${(styles.get(c.key) as PlanStyle).colorName}`} data-plan-mark={c.key}>
-                      <PlanSwatch style={styles.get(c.key) as PlanStyle} w={30} h={12} />
-                    </span>
-                  ) : null}
                 </span>
+                {styles !== null ? (
+                  <span class="p-mark" title={`グラフの線: ${(styles.get(c.key) as PlanStyle).colorName}`} data-plan-mark={c.key}>
+                    <PlanSwatch style={styles.get(c.key) as PlanStyle} w={30} h={12} />
+                  </span>
+                ) : null}
                 {c.metrics.map((m) => (
                   <span class="p-amt" key={m.label}>
                     <span class="p-k">{m.label}</span>

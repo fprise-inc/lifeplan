@@ -578,7 +578,7 @@ export interface BsPrevModel {
 
 /**
  * カスタマイズで足す見るもの（例: 合算BS）の差し込み口。カスタム層の計算部品が値を出し、画面は同じ図の部品で並べて描く（0027）。
- * 今は公式の画面からは作らない（入口と考え方だけ）
+ * 今は公式の画面からは作らない。何も足していなければ、タブの上の「見るもの」の切り替えは行ごと出さない
  */
 export interface BsCustomViewModel {
   key: string;
@@ -608,7 +608,7 @@ export interface BalanceTabModel {
   /** 控え（新しい順）。空なら「前回と比べる」を出さない */
   prevChoices: { key: string; label: string }[];
   prev: { status: "idle" | "loading" | "ready"; model: BsPrevModel | null };
-  /** カスタマイズで足した見るもの（今は空） */
+  /** カスタマイズで足した見るもの（今は空。空なら「見るもの」の切り替えを出さない） */
   customViews: BsCustomViewModel[];
   provisional: boolean;
 }

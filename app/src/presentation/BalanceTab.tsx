@@ -1,5 +1,5 @@
 // 資産と負債のタブ（提示層の部品。家計のバランスシートを図で見せる）。受け取るのは BalanceTabModel と手続きだけ（0016 の2）。
-// 配置（上から）: 見るもの（家計のバランスシート／合算BS（カスタマイズで追加）の入口）→ プランの帯（作業の層が渡す）→
+// 配置（上から）: 見るもの（家計のバランスシート／カスタマイズで足した見るもの。足したものが無ければ行ごと出さない）→ プランの帯（作業の層が渡す）→
 // バランスシートの図（1年ずつ見る／時点を並べる／プランを並べる／前回と比べる）→ 年のつまみ（図のすぐ下。図とつまみが同時に画面に収まるよう、
 // 窓の高さが低いときは図を縮める）→ 家計の体力の目安（横いっぱいに4つ並べる）→ 表で見る（既定は閉じる）→ 資産と負債の推移のグラフ（押すとその年のバランスシート）。
 // 図の読み方・その年の解説は FP が口頭でする前提で、図の下に要約・解説の文は置かない。
@@ -12,7 +12,7 @@ import { healthOf, monthsValue, scaleFor, type HealthItem } from "./bsLayout.ts"
 import { FALLBACK, colsOf, resolveColumns, nextColumns, type ResolvedColumn } from "./bsColumns.ts";
 import { group, man, manDiff } from "./format.ts";
 import { PopIcon } from "./icons.tsx";
-import type { BalanceTabModel, BsColumn, BsGroupKey, BsGuide, BsPlanModel, BsPointKey, BsYearModel, MoneyThreeModel, MoneyThreeWording, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
+import type { BalanceTabModel, BsColumn, BsCustomViewModel, BsGroupKey, BsGuide, BsPlanModel, BsPointKey, BsYearModel, MoneyThreeModel, MoneyThreeWording, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
 import { MoneyThreeSection } from "./MoneyThree.tsx";
 
 export type BsView = "one" | "three" | "plans" | "prev";
@@ -38,7 +38,7 @@ export interface BalanceTabProps {
   onPointDefaults: (k: BsPointKey[]) => void;
   /** お金の3つの分け方（図の下の区画。0032）。flash が変わると区画へ移って光らせる（#bsm3 で開いたとき） */
   moneyThree?: { model: MoneyThreeModel | null; onSettings: (s: Partial<MoneyThreeSettings>) => void; flash: number; nameChoices: readonly MoneyThreeNameChoice[] };
-  /** 画面の確かめ用の最初の状態 */
+  /** 画面の確かめ用の最初の状態（open: "combined" はカスタマイズで足した最初の見るものを開く。足したものが無ければ家計のバランスシート） */
   initial?: { view?: BsView; year?: number; open?: "combined"; table?: boolean; settings?: boolean };
 }
 
@@ -87,7 +87,10 @@ function useFitHeight(head: { current: HTMLElement | null }, bar: { current: HTM
 }
 
 export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDefaults, moneyThree, initial }: BalanceTabProps) {
-  const [sub, setSub] = useState<"home" | "combined">(initial?.open === "combined" ? "combined" : "home");
+  // 見るもの: 家計のバランスシート（"home"）か、カスタマイズで足した見るもの（その key）
+  const [subKey, setSub] = useState<string>(initial?.open === "combined" ? (model.customViews[0]?.key ?? "home") : "home");
+  const custom = model.customViews.find((c) => c.key === subKey) ?? null;
+  const sub = custom === null ? "home" : custom.key;
   const [view, setView] = useState<BsView>(initial?.view ?? "one");
   const plan = model.plans.find((p) => p.key === model.selected) ?? model.plans[0];
   const basePlan = model.plans.find((p) => p.key === model.base) ?? null;
@@ -163,25 +166,21 @@ export function BalanceTab({ model, band, onPrev, onGuide, onColumns, onPointDef
 
   return (
     <div class="bs-tab" data-balance-tab>
-      <div class="bs-views" role="group" aria-label="見るもの">
-        <span class="k">見るもの</span>
-        <button type="button" class="bs-vbtn" aria-pressed={sub === "home"} onClick={() => setSub("home")} data-bs-sub="home">
-          家計のバランスシート
-        </button>
-        {model.customViews.map((c) => (
-          <button type="button" key={c.key} class="bs-vbtn" aria-pressed={sub === "combined"} onClick={() => setSub("combined")} data-bs-sub={c.key}>
-            {c.label}
+      {model.customViews.length > 0 ? (
+        <div class="bs-views" role="group" aria-label="見るもの">
+          <span class="k">見るもの</span>
+          <button type="button" class="bs-vbtn" aria-pressed={sub === "home"} onClick={() => setSub("home")} data-bs-sub="home">
+            家計のバランスシート
           </button>
-        ))}
-        {model.customViews.length === 0 ? (
-          <button type="button" class="bs-vbtn custom" aria-pressed={sub === "combined"} onClick={() => setSub("combined")} data-bs-sub="combined">
-            合算BS<span class="bs-ctag">カスタマイズで追加</span>
-          </button>
-        ) : null}
-        <span class="bs-vnote">会社と経営者個人を合わせて見る画面を、カスタマイズでここに足せます</span>
-      </div>
-      {sub === "combined" ? (
-        <CombinedIntro model={model} onBack={() => setSub("home")} />
+          {model.customViews.map((c) => (
+            <button type="button" key={c.key} class="bs-vbtn" aria-pressed={sub === c.key} onClick={() => setSub(c.key)} data-bs-sub={c.key}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {custom !== null ? (
+        <CustomView model={model} view={custom} />
       ) : (
         <>
           {band}
@@ -1117,70 +1116,26 @@ function SheetTable({ plan, yi, groups }: { plan: BsPlanModel; yi: number; group
   );
 }
 
-// ---- 合算BS（カスタマイズで追加）の入口 ----
+// ---- カスタマイズで足した見るもの（例: 合算BS） ----
 
-function CombinedIntro({ model, onBack }: { model: BalanceTabModel; onBack: () => void }) {
-  const cv = model.customViews[0];
-  if (cv !== undefined) {
-    const sc = scaleFor(cv.columns.map((c) => c.at));
-    return (
-      <section class="card bs-card" data-bs-custom={cv.key}>
-        <div class="bs-head">
-          <h2>{cv.label}</h2>
-        </div>
-        <div class="bs-pair many">
-          {cv.columns.map((c) => (
-            <div class="bs-pane" key={c.name}>
-              <div class="ph">
-                <b>{c.name}</b>
-              </div>
-              <BsFigure year={c.at} groups={model.groups} scale={sc} compact height={FIG_H.compact} label={`${c.name}のバランスシート`} />
-            </div>
-          ))}
-        </div>
-        <p class="bs-subline">{cv.note}</p>
-      </section>
-    );
-  }
+function CustomView({ model, view: cv }: { model: BalanceTabModel; view: BsCustomViewModel }) {
+  const sc = scaleFor(cv.columns.map((c) => c.at));
   return (
-    <section class="card bs-combined" data-bs-combined>
-      <div class="bs-cb-text">
-        <h2>
-          合算BS <span class="bs-ctag">カスタマイズで追加</span>
-        </h2>
-        <p>会社のバランスシートと、経営者個人の家計のバランスシートを合わせて見る画面を、カスタマイズでここに足します。今は入口と考え方だけです（会社の数字の計算はありません）。</p>
-        <ul>
-          <li>左右に「会社」「経営者個人」、右端に「合算」を並べる（家計と同じ縮尺・同じ色の約束）</li>
-          <li>会社と個人の間の貸し借り（役員借入金・役員貸付金）は、合わせるときに相殺する</li>
-          <li>経営者が持つ自社株は、合算では会社の純資産と置き換える（二重に数えない）</li>
-          <li>役員報酬・退職金を動かすと、会社と家計の箱が同時に動く</li>
-        </ul>
-        <button type="button" class="btn" onClick={onBack} data-bs-back>
-          ← 家計のバランスシートに戻る
-        </button>
+    <section class="card bs-card" data-bs-custom={cv.key}>
+      <div class="bs-head">
+        <h2>{cv.label}</h2>
       </div>
-      <div class="bs-cb-fig" aria-hidden="true">
-        <div class="cols">
-          {[
-            { name: "会社", a: [70], r: [36, 34], c: "co" },
-            { name: "経営者個人（家計）", a: [42], r: [20, 22], c: "hh" },
-            { name: "合算", a: [100], r: [40, 60], c: "sum" },
-          ].map((x, i) => (
-            <div class="col" key={x.name}>
-              {i > 0 ? <span class="op">{i === 1 ? "＋" : "＝"}</span> : null}
-              <div class="nm">{x.name}</div>
-              <div class="bars">
-                <span class={`a ${x.c}`} style={{ height: `${x.a[0]}%` }} />
-                <span class="r">
-                  <span class="d" style={{ height: `${x.r[0]}%` }} />
-                  <span class="n" style={{ height: `${x.r[1]}%` }} />
-                </span>
-              </div>
+      <div class="bs-pair many">
+        {cv.columns.map((c) => (
+          <div class="bs-pane" key={c.name}>
+            <div class="ph">
+              <b>{c.name}</b>
             </div>
-          ))}
-        </div>
-        <small>（図はイメージ。貸し借り・自社株は相殺して合わせる）</small>
+            <BsFigure year={c.at} groups={model.groups} scale={sc} compact height={FIG_H.compact} label={`${c.name}のバランスシート`} />
+          </div>
+        ))}
       </div>
+      <p class="bs-subline">{cv.note}</p>
     </section>
   );
 }

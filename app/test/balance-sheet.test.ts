@@ -162,7 +162,11 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
     expect(html).toContain("家計の体力の目安");
     expect(html).toContain("data-bs-range");
     expect(html).toContain("data-bs-trend");
-    expect(html).toContain("合算BS");
+    // カスタマイズで見るものを足していなければ、「見るもの」の切り替えは行ごと出さない（家計のバランスシートだけ）
+    expect(html).not.toContain("合算BS");
+    expect(html).not.toContain("見るもの");
+    expect(html).not.toContain("data-bs-sub");
+    expect(html).not.toContain("カスタマイズで追加");
     expect(html).toContain('data-bs-view="three"');
     expect(html).not.toContain('data-bs-view="plans"');
     expect(html).not.toContain('data-bs-view="prev"');
@@ -174,9 +178,27 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
     expect(withPrev).toContain('data-bs-figure="2046"');
     expect(withPrev).toContain("見込み（2046年）");
     expect(withPrev).toContain("data-bs-sheet");
-    const combined = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop, initial: { open: "combined" } }));
-    expect(combined).toContain("data-bs-combined");
-    expect(combined).not.toContain("data-bs-figure");
+    // 足したものが無ければ、#bsopen=combined で開いても家計のバランスシート
+    const opened = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop, initial: { open: "combined" } }));
+    expect(opened).toContain('data-bs-figure="2026"');
+    expect(opened).not.toContain("data-bs-sub");
+  });
+
+  it("カスタマイズで見るもの（例: 合算BS）を足したときだけ、タブの上に「見るもの」の切り替えを出す。押すとその図を共通の縮尺で並べる", () => {
+    const base = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご主人" });
+    const at = p.years[0]!;
+    const model = { ...base, customViews: [{ key: "combined", label: "合算BS", columns: [{ name: "会社", at }, { name: "家計", at }, { name: "合算", at }], note: "注記" }] };
+    const html = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop }));
+    expect(html).toContain("見るもの");
+    expect(html).toMatch(/data-bs-sub="home"[^>]*>家計のバランスシート/);
+    expect(html).toMatch(/aria-pressed="true"[^>]*data-bs-sub="home"/);
+    expect(html).toMatch(/data-bs-sub="combined"[^>]*>合算BS/);
+    expect(html).not.toContain("カスタマイズで追加");
+    expect(html).toContain('data-bs-figure="2026"');
+    const opened = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop, initial: { open: "combined" } }));
+    expect(opened).toContain('data-bs-custom="combined"');
+    expect(opened).toMatch(/aria-pressed="true"[^>]*data-bs-sub="combined"/);
+    expect(opened).not.toContain('id="h-bs"');
   });
 });
 

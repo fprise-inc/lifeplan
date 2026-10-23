@@ -7,7 +7,7 @@ import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCa
 import { isEngineError } from "../engine/types.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
-import type { ChartLayout, ChartMode } from "../presentation/MainChart.tsx";
+import { multiOn, type ChartLayout, type ChartMode } from "../presentation/MainChart.tsx";
 import { ChartPip, closePip, openPip } from "../presentation/ChartPip.tsx";
 import { CashflowTable, FeeNote, PipResult, ResultCard, ResultVerdictView } from "../presentation/MainView.tsx";
 import { PlanBand } from "../presentation/PlanBand.tsx";
@@ -130,7 +130,7 @@ export function parseHash(hash: string): {
   selfcheckWire?: boolean;
   /** 主画面のグラフ */
   chart?: ChartMode;
-  /** 資産と負債のタブの見せ方（#bsview=three など）・年（#bsyear=2046）・合算BSの入口（#bsopen=combined）・表で見る（#bstable）・表示の設定を開く（#bssettings） */
+  /** 資産と負債のタブの見せ方（#bsview=three など）・年（#bsyear=2046）・カスタマイズで足した最初の見るもの（#bsopen=combined。足したものが無ければ家計のバランスシート）・表で見る（#bstable）・表示の設定を開く（#bssettings） */
   bsView?: BsView;
   bsYear?: number;
   bsOpen?: "combined";
@@ -1449,6 +1449,9 @@ export function App() {
     if (settings.layout !== "all") return m;
     return { ...m, plans: planLinesModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id, i) => [id, slotResults[i] ?? null])), base: work.base, selected: work.sel, colors }) };
   }, [model, investModel, opened, settings.layout, slots, letters, work.base, work.sel, colors, ...slotResults]);
+  // 全部のプランを色分けで重ねる表示か（グラフと同じ決まり）。この表示では、グラフの上の資産運用の切り替え（口座の内訳・運用の期間・相場が下がった場合）と
+  // 資産の内訳（ドーナツ）を出さない。グラフもこの表示では口座の内訳・運用の期間の帯・相場が下がった場合の線を描かない（表示の設定の値はそのまま覚えておく）
+  const multiView = chartModel !== null && multiOn(settings.layout, explain, chartModel);
   /** 結論の1文: 資産の推移のときは「金融資産は○歳まで持ちます」（0026） */
   const verdictView = useMemo(() => {
     if (model === null) return null;
@@ -1459,7 +1462,7 @@ export function App() {
   }, [model, chartMode, opened, selReq, selRes, baseReq, baseRes, settings, names.selected, names.base, names.same]);
   // 資産の内訳（ドーナツ）: 基準のプランと選んだプランを同じ年で（グラフで固定した年。固定していなければ取り崩しを始める年）。
   // グラフの上の「口座の内訳を表示」にチェックが入っているときだけ出す（既定は出さない）
-  const donutOn = donutShown(settings.invBreakdown, investModel !== null && investModel.breakdown !== null);
+  const donutOn = donutShown(settings.invBreakdown, investModel !== null && investModel.breakdown !== null, multiView);
   // お金の3つの分け方（説明用。0032）: 選んでいるプランの、今の時点。資産と負債のタブの区画で使う
   const m3Model = useMemo(() => {
     if (tab !== "balance" || selReq === null || selRes === null) return null;
@@ -2065,7 +2068,7 @@ export function App() {
               pinnedYear={pinnedYear}
               onSelectYear={pinYear}
               {...(locked === null ? { onBand } : { bandLock: bandLockNote(work) ?? locked })}
-              {...(investModel !== null && explain === null
+              {...(investModel !== null && explain === null && !multiView
                 ? {
                     bar: (
                       <InvestBar

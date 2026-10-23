@@ -19,6 +19,7 @@ import { fromRequest } from "../src/workspace/input/household.ts";
 import { assignColors, CURRENT, planLinesModel } from "../src/workspace/plans/band.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { applyValues, type Values } from "../src/workspace/plans/plans.ts";
+import { investChart } from "../src/workspace/invest/present.ts";
 import { displayYears, toPresentation } from "../src/workspace/present.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES } from "../src/workspace/settings.ts";
@@ -334,6 +335,26 @@ describe("全部のプランを色分けで重ねるグラフ", () => {
     expect(multiOn("all", null, model(lines(["a", CURRENT, "b", "c", "d"])))).toBe(false);
     expect(multiOn("all", null, model())).toBe(true);
     expect(multiOn("overlay", null, model())).toBe(false);
+  });
+
+  it("口座の内訳・運用の期間の帯・相場が下がった場合の線は、表示の設定がオンのままでもこの表示には描かない（重ねる表示では描く）", () => {
+    const m = model();
+    const sel = { req: reqs.b!, res: results.get("b")! };
+    const stress = { drop: sel.res, low: sel.res, minus1: sel.res };
+    const invest = investChart({ sel, years: m.chart.years, ages: m.chart.ages, stress, view: { breakdown: true, band: true, stressHidden: [] } });
+    expect(invest.breakdown?.length ?? 0).toBeGreaterThan(0);
+    expect(invest.band).not.toBeNull();
+    expect(invest.stress?.length ?? 0).toBeGreaterThan(0);
+    const drawWith = (layout: "all" | "overlay") => renderToString(h(MainChart, { model: { ...m, invest }, mode: "assets", explain: null, ageMark: null, pinnedYear: null, onSelectYear: noop, layout }));
+    const all = drawWith("all");
+    expect(all).toContain("multi-line");
+    expect(all).not.toContain("data-inv-area");
+    expect(all).not.toContain("data-period-band");
+    expect(all).not.toContain("data-stress-line");
+    const overlay = drawWith("overlay");
+    expect(overlay).toContain("data-inv-area");
+    expect(overlay).toContain("data-period-band");
+    expect(overlay).toContain("data-stress-line");
   });
 
   it("縮めた表示（小窓の中のグラフ）でも同じ線を描く", () => {
