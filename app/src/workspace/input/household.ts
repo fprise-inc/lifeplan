@@ -7,6 +7,7 @@ import { emptyPlan, planFromRequest, type ContingencyPlan } from "../contingency
 import { livingEstimate } from "./estimates.ts";
 import type { Proposal } from "../plans/plans.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
+import type { StatementLog } from "../../../../statement/src/index.ts";
 import type { Snapshot } from "../snapshots/snapshots.ts";
 
 /** 定年の後に働くときの条件（D: 入力画面の「定年後の予定」。主画面の「働く最後の年齢」を延ばすときにも使う） */
@@ -51,6 +52,11 @@ export interface WorkingHousehold {
    * （App.tsx の bodyFor。household の区画には入れない）。元に戻す・やり直すの対象にしない
    */
   snapshots?: Snapshot[];
+  /**
+   * 明細の取り込みの記録（0034。口座・カードの呼び名と持ち主、取り込んだ行（番号を消した後）と FP が決めたこと、世帯の決まり）。
+   * 世帯ファイルでは本文の区画 statements に置く（形式の版 0.14 から）。元のファイルは持たない。元に戻す・やり直すの対象にしない
+   */
+  statements?: StatementLog;
 }
 
 /** FP が足した項目（今あるデータの型の物1件を、別のカードにする） */

@@ -1,0 +1,27 @@
+{
+  "name": "@financia/statement",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ファイナンシアの明細の取り込みと仕分け（CSV・文字の入った PDF の読み取り・列の対応付け・店の名前の辞書・区分・候補。0034）",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.tools.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "fixtures": "node --disable-warning=ExperimentalWarning scripts/fixtures.ts",
+    "fixtures:check": "node --disable-warning=ExperimentalWarning scripts/fixtures.ts --check",
+    "check:licenses": "node --disable-warning=ExperimentalWarning scripts/check-licenses.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.4",
+    "eslint": "10.12.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vitest": "5.0.3"
+  }
+}

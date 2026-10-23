@@ -204,7 +204,7 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 生活防衛資金は捨てる"
             );
         }
-        if *v == "0.13" {
+        if migrate::parse(v).unwrap() >= (0, 13) {
             // 0.13 から: 資産と負債のタブの表示の設定に、お金の3つの分け方（何か月分・何年先まで・呼び方。0032）
             let m = &now["display"]["balance"]["moneyThree"];
             assert_eq!(m["months"], 3);
@@ -218,6 +218,33 @@ fn every_format_version_has_a_fixture_and_opens() {
         }
         if *v == "0.3" {
             assert!(now.get("snapshots").is_some(), "0.3 の見本には控えがある");
+        }
+        // 0.14 から: 明細の取り込みの記録（任意。0034）。中身は変換で変えない。元のファイルは持たない（指紋と大きさだけ）
+        if let Some(st) = now.get("statements") {
+            assert!(
+                migrate::parse(v).unwrap() >= (0, 14),
+                "{v}: 0.14 より前の版に明細の取り込みの記録は無い"
+            );
+            assert_eq!(
+                st, &expected["statements"],
+                "{v}: 明細の取り込みの記録の中身は変えない"
+            );
+            let imp = &st["imports"][0];
+            assert!(imp["file"]["sha256"]
+                .as_str()
+                .unwrap()
+                .starts_with("sha256:"));
+            assert!(imp["file"].get("bytes").is_some());
+            assert_eq!(
+                imp["file"].as_object().unwrap().len(),
+                2,
+                "{v}: 元のファイルの中身は持たない"
+            );
+        } else {
+            assert!(
+                migrate::parse(v).unwrap() < (0, 14),
+                "{v}: 0.14 の見本には明細の取り込みの記録がある"
+            );
         }
         // 鍵が違えば開かない
         let mut wrong = key;

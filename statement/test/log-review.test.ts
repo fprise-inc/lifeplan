@@ -1,0 +1,139 @@
+import { describe, expect, it } from "vitest";
+import { addRule, applyDecisions, classify, createImport, DecisionError, emptyLog, forgetEntry, learnFromDecisions, merchantKey, readLog, reviewList, unknownMerchants, type StatementLog } from "../src/index.ts";
+import { BASE_MONTH, buildLog, HOUSEHOLD, read, SELF, SPOUSE } from "./helpers.ts";
+
+const classified = (log: StatementLog) => classify({ log, household: HOUSEHOLD, baseMonth: BASE_MONTH, office: [] });
+
+describe("取り込みの記録（世帯ファイルの本文の区画 statements）", () => {
+  it("同じファイルは2回取り込まない（元のファイルの指紋で見分ける）", async () => {
+    const out = await read("card-sjis-2026-05.csv", "card");
+    const base = { ...emptyLog(), accounts: [{ id: "a", kind: "card" as const, label: "A", owner: SELF }] };
+    const imp = createImport(base, out, { id: "i1", account: "a", at: "2026-10-20T10:00:00+09:00" });
+    expect(imp).not.toBeNull();
+    expect(imp?.period).toEqual({ from: "2026-04-20", to: "2026-05-25" });
+    expect(imp?.rows[0]).toMatchObject({ id: "r2", key: merchantKey("ｶｸｳﾃﾞﾝｷ ﾎﾝﾃﾝ") });
+    const log = { ...base, imports: [imp as NonNullable<typeof imp>] };
+    expect(createImport(log, out, { id: "i2", account: "a", at: "2026-10-20T10:00:00+09:00" })).toBeNull();
+  });
+
+  it("明細の期間は FP が直せる", async () => {
+    const out = await read("card-sjis-2026-05.csv", "card");
+    const imp = createImport(emptyLog(), out, { id: "i1", account: "a", at: "x", period: { from: "2026-05-01", to: "2026-05-31" } });
+    expect(imp?.period).toEqual({ from: "2026-05-01", to: "2026-05-31" });
+  });
+
+  it("保存の形を読み戻すと同じになる（JSON の往復）", async () => {
+    const log = await buildLog([
+      { name: "card-year-utf8bom.csv", kind: "card", account: "cardA", owner: SELF },
+      { name: "bank-utf8.csv", kind: "bank", account: "bank", owner: null },
+    ]);
+    const withRules = addRule({ ...log, styles: { [SELF]: ["employee", "selfEmployed"] } }, { id: "r1", match: { category: "communication" }, owner: SPOUSE, bucket: "business", share: "0.6", at: "2026-10-21T00:00:00+09:00" });
+    const json = JSON.parse(JSON.stringify(withRules));
+    expect(readLog(json)).toEqual(withRules);
+  });
+
+  it("形の合わないものは捨てて読む（返ってきた本文を信用しない）", () => {
+    const bad = {
+      version: 1,
+      accounts: [{ id: "a", kind: "card", label: "A", owner: null }, { id: "b", kind: "weird", label: "B" }, "x"],
+      imports: [
+        {
+          id: "i",
+          at: "x",
+          account: "a",
+          file: { sha256: "sha256:00", bytes: 10 },
+          reader: { id: "csv", version: 1 },
+          format: { fingerprint: "f", mapping: { headerRow: 0, columns: { date: 0, merchant: 1, amount: 2, bogus: 9 }, sign: "x" }, source: "x" },
+          period: { from: "2026-01-01", to: "2026-01-31" },
+          rows: [
+            { id: "r1", line: 1, date: "2026-01-05", merchant: "架空", amount: 100, category: "nope", bucket: "nope", plan: { kind: "installment", count: 500 } },
+            { id: "r2", line: 2, date: "2026/01/05", merchant: "架空", amount: 100 },
+            { id: "r3", line: 3, date: "2026-01-06", merchant: "架空", amount: 1.5 },
+          ],
+        },
+        { id: "j" },
+      ],
+      rules: [{ id: "r", match: { key: "A" }, bucket: "business", at: "x" }, { id: "s", match: {}, bucket: "household", at: "x" }],
+      applied: [{ nope: true }],
+      styles: { m: ["employee", "boss"] },
+    };
+    const log = readLog(bad);
+    expect(log.accounts.map((a) => a.id)).toEqual(["a"]);
+    expect(log.imports).toHaveLength(1);
+    expect(log.imports[0]?.rows.map((r) => r.id)).toEqual(["r1"]);
+    expect(log.imports[0]?.rows[0]).not.toHaveProperty("category");
+    expect(log.imports[0]?.rows[0]).not.toHaveProperty("plan");
+    expect(log.imports[0]?.format.mapping).toEqual({ headerRow: 0, columns: { date: 0, merchant: 1, amount: 2 }, sign: "expensePositive" });
+    expect(log.imports[0]?.format.source).toBe("guessed");
+    expect(log.rules.map((r) => r.id)).toEqual(["r"]);
+    expect(log.applied).toEqual([]);
+    expect(log.styles).toEqual({ m: ["employee"] });
+    expect(readLog(null)).toEqual(emptyLog());
+    expect(readLog("x")).toEqual(emptyLog());
+  });
+});
+
+describe("迷う行の一覧と、FP が決めたこと", () => {
+  it("迷う行を重い印から並べ、分からない店は店ごとにまとめる", async () => {
+    const log = await buildLog([{ name: "bank-utf8.csv", kind: "bank", account: "bank", owner: SELF }]);
+    const rows = classified(log);
+    const list = reviewList(rows);
+    expect(list[0]?.reasons[0]).toBe("cardPaymentKept");
+    expect(list.map((x) => x.merchant)).toContain("振込（相手の名前は残しません）");
+    expect(list.every((x) => x.reasonText !== "")).toBe(true);
+    const unknown = unknownMerchants(rows);
+    expect(unknown).toEqual([{ key: merchantKey("振込（相手の名前は残しません）"), label: "振込（相手の名前は残しません）", count: 1, total: 20000, rows: [expect.objectContaining({ importId: log.imports[0]?.id })] }]);
+  });
+
+  it("決めたことを行に書き、迷う行から外す。null は取り消し。事業でない区分では割合を持たない", async () => {
+    const log = await buildLog([{ name: "card-year-utf8bom.csv", kind: "card", account: "cardA", owner: SPOUSE }]);
+    const imp = log.imports[0] as StatementLog["imports"][number];
+    const mystery = imp.rows.find((r) => r.merchant === "架空の謎の店") as StatementLog["imports"][number]["rows"][number];
+    const at = "2026-10-21T10:00:00+09:00";
+    const next = applyDecisions(log, [{ importId: imp.id, rowId: mystery.id, category: "recreation", bucket: "business", share: "0.5" }], at);
+    const row = next.imports[0]?.rows.find((r) => r.id === mystery.id);
+    expect(row).toMatchObject({ category: "recreation", bucket: "business", share: "0.5", decidedAt: at });
+    const c = classified(next).find((r) => r.row.id === mystery.id);
+    expect(c).toMatchObject({ review: false, parts: { business: 2250, household: 2250 } });
+    const changed = applyDecisions(next, [{ importId: imp.id, rowId: mystery.id, bucket: "household" }], at);
+    expect(changed.imports[0]?.rows.find((r) => r.id === mystery.id)).not.toHaveProperty("share");
+    const undone = applyDecisions(changed, [{ importId: imp.id, rowId: mystery.id, category: null, bucket: null }], at);
+    const u = undone.imports[0]?.rows.find((r) => r.id === mystery.id);
+    expect(u).not.toHaveProperty("category");
+    expect(u).not.toHaveProperty("decidedAt");
+    expect(() => applyDecisions(log, [{ importId: imp.id, rowId: mystery.id, bucket: "business", share: "60%" }], at)).toThrow(DecisionError);
+  });
+
+  it("項目を直したら店の鍵で覚える辞書の行を作る（同梱と同じ答えは覚えない・年会費は年1回の印つき）", async () => {
+    const log = await buildLog([{ name: "card-year-utf8bom.csv", kind: "card", account: "cardA", owner: SELF }]);
+    const imp = log.imports[0] as StatementLog["imports"][number];
+    const id = (m: string) => (imp.rows.find((r) => r.merchant.startsWith(m)) as { id: string }).id;
+    const entries = learnFromDecisions(
+      log,
+      [
+        { importId: imp.id, rowId: id("架空の謎の店"), category: "recreation" },
+        { importId: imp.id, rowId: id("セブン-イレブン"), category: "food" },
+        { importId: imp.id, rowId: id("架空リボショップ"), category: "cardFee" },
+        { importId: imp.id, rowId: id("架空ベーカリー"), bucket: "oneOff" },
+      ],
+      [],
+      "2026-10-21T10:00:00Z",
+      "m1",
+    );
+    expect(entries).toEqual([
+      { key: merchantKey("架空の謎の店"), category: "recreation", at: "2026-10-21T10:00:00Z", by: "m1" },
+      { key: merchantKey("架空リボショップ"), category: "cardFee", annual: true, at: "2026-10-21T10:00:00Z", by: "m1" },
+    ]);
+    // 覚えた辞書は次の仕分けで使う（別の世帯でも）
+    const other = await buildLog([{ name: "card-year-utf8bom.csv", kind: "card", account: "x", owner: null }]);
+    const rows = classify({ log: other, household: HOUSEHOLD, baseMonth: BASE_MONTH, office: entries });
+    expect(rows.find((r) => r.row.merchant === "架空の謎の店")).toMatchObject({ category: "recreation", categorySource: "office", review: false });
+    // 消した行は使わない
+    const forgot = classify({ log: other, household: HOUSEHOLD, baseMonth: BASE_MONTH, office: [...entries, forgetEntry(merchantKey("架空の謎の店"), "2026-10-22T00:00:00Z")] });
+    expect(forgot.find((r) => r.row.merchant === "架空の謎の店")?.category).toBeNull();
+  });
+
+  it("世帯の決まりの割合が読めなければ止める", () => {
+    expect(() => addRule(emptyLog(), { id: "r", match: { category: "communication" }, bucket: "business", share: "abc", at: "x" })).toThrow(DecisionError);
+  });
+});

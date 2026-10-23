@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.13。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
+// 本文の区画（形式の版 0.14。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
 // - meta: 形式名・形式の版・保存日時・アプリの版・表示用の顧客番号、誰が直したか（保存した人・改訂の履歴・出てくるメンバーの表示名。本体が入れる。0023 の6）
 // - household: 現状の世帯（計算の要求と、画面の側の値: 呼び名・定年後の予定・FP用のメモとその行ごとの書いた人・万一の想定の前提・足した項目など）。
 //   0.9 から: 教育の目標の保育所の段の保育の時間・自治体の水準の割合と、給食費の選び方（0029。保育所の段の空の月額は収入から自動で計算する読み方）
@@ -16,6 +16,9 @@
 //   本体の変換の段（0.7 → 0.8）が区画へ移す。画面の側も、区画の無い本文は直下の値から読む
 // - snapshots: 控え（0009 の2。PDF を書き出した時点・FP が残した時点の写し。0.3 から。控えが無ければ区画を作らない）。
 //   0.10 から: 持ち帰り用のレポートを書き出した時点の写し（きっかけ takeaway と、載せたプラン・パスワードの有無だけの記録 takeaway。0030）
+// - statements: 明細の取り込みの記録（0034。0.14 から。取り込んでいない世帯は区画を作らない）。元のファイルは持たず、指紋・読み手・
+//   列の対応付け・期間・番号を消した後の行と FP が決めたこと・世帯の決まり・働き方・候補を取り込んだ記録だけ。読むときは statement/ の
+//   readLog で形を確かめる（形の合わないものは捨てる）
 // - extDefinitions / ext: 拡張領域（0011 の4。読んだものをそのまま書き戻し、失わない）
 // 保存しないもの: 提案書の宛名（0012 の2。出力のときだけ）、保存していない案の変更（「案として保存」「上書き」で保存する）、
 // 画面の一時的な状態（開いているタブ・パネル・文字の大きさなど）
@@ -28,10 +31,11 @@ import type { Proposal } from "../plans/plans.ts";
 import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
 import { readBsColumns, readBsGuide, readBsPoints } from "../balanceTab.ts";
 import { readMoneyThree } from "../moneyThree.ts";
+import { readLog, type StatementLog } from "../../../../statement/src/index.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.13";
+export const BODY_FORMAT_VERSION = "0.14";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -52,11 +56,13 @@ export interface SavedWorkspace {
 
 export interface HouseholdBody {
   meta?: Record<string, unknown>;
-  household: Omit<WorkingHousehold, "proposals" | "hearing" | "snapshots">;
+  household: Omit<WorkingHousehold, "proposals" | "hearing" | "snapshots" | "statements">;
   proposals: StoredProposal[];
   hearing: HearingLog | null;
   /** 控え（0.3 から。無ければ区画ごと省く） */
   snapshots?: Snapshot[];
+  /** 明細の取り込みの記録（0.14 から。取り込んでいなければ区画ごと省く。0034） */
+  statements?: StatementLog;
   workspace: SavedWorkspace;
   display: StoredDisplay;
   extDefinitions: Record<string, unknown>;
@@ -75,17 +81,23 @@ export interface BodyState {
 export const EMPTY_CARRY: BodyState["carry"] = { extDefinitions: {}, ext: {} };
 
 export function bodyObject(s: BodyState): HouseholdBody {
-  const { proposals, hearing, snapshots, ...household } = s.wh;
+  const { proposals, hearing, snapshots, statements, ...household } = s.wh;
   return {
     household,
     proposals: proposals.map(({ name, ...p }) => ({ ...p, title: name })),
     hearing: hearing ?? null,
     ...(snapshots !== undefined && snapshots.length > 0 ? { snapshots } : {}),
+    ...(statements !== undefined && hasStatements(statements) ? { statements } : {}),
     workspace: s.workspace,
     display: s.display,
     extDefinitions: s.carry.extDefinitions,
     ext: s.carry.ext,
   };
+}
+
+/** 明細の取り込みの記録に、残す中身があるか（空の記録は区画を作らない） */
+function hasStatements(l: StatementLog): boolean {
+  return l.accounts.length > 0 || l.imports.length > 0 || l.rules.length > 0 || l.applied.length > 0 || Object.keys(l.styles ?? {}).length > 0;
 }
 
 /** 本文の JSON（本体の store_create・store_save に渡す） */
@@ -100,8 +112,9 @@ const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is
 export function fromBody(json: string): BodyState {
   const b = JSON.parse(json) as unknown;
   if (!isObj(b) || !isObj(b.household) || !isObj(b.household.request)) throw new Error("E_BODY_SHAPE");
-  const { snapshots: _inHousehold, ...h } = b.household as unknown as Partial<WorkingHousehold> & { request: EngineRequest };
+  const { snapshots: _inHousehold, statements: _st, ...h } = b.household as unknown as Partial<WorkingHousehold> & { request: EngineRequest };
   void _inHousehold;
+  void _st;
   const proposals: Proposal[] = (Array.isArray(b.proposals) ? (b.proposals as StoredProposal[]) : []).map(({ title, ...p }) => ({ ...p, name: title }));
   const wh: WorkingHousehold = {
     labelsByMember: {},
@@ -117,6 +130,10 @@ export function fromBody(json: string): BodyState {
   };
   const snapshots = readSnapshots(b.snapshots);
   if (snapshots.length > 0) wh.snapshots = snapshots;
+  if (isObj(b.statements)) {
+    const statements = readLog(b.statements);
+    if (hasStatements(statements)) wh.statements = statements;
+  }
   const w = isObj(b.workspace) ? b.workspace : {};
   const workspace: SavedWorkspace = {
     template: typeof w.template === "string" ? w.template : null,

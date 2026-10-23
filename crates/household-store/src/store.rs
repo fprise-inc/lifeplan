@@ -151,6 +151,13 @@ struct OfficeData {
     /// 事務所での共有（0023。既定はオフ＝無し。この欄の無い古い事務所データもオフとして読む）
     #[serde(default)]
     sharing: Option<SharingSetting>,
+    /// 明細の取り込みで覚えた辞書と形（0034。この欄の無い古い事務所データは空として読む）。事務所で共有しているときも、
+    /// 共有フォルダの全員のファイルと合わせた写しをここに持つ（共有フォルダが使えないときも手元で使える）
+    #[serde(
+        default,
+        skip_serializing_if = "crate::statement_dict::StatementOffice::is_empty"
+    )]
+    statement: crate::statement_dict::StatementOffice,
 }
 
 /// 事務所での共有の設定（このPCの事務所データに暗号化して持つ。共有フォルダの場所は画面に渡さない。0023 の8）
@@ -230,6 +237,7 @@ impl OfficeData {
             numbering: Numbering::default(),
             ai_connector: AiConnectorSetting::default(),
             sharing: None,
+            statement: Default::default(),
         }
     }
 }
@@ -2077,6 +2085,58 @@ impl Store {
         let mut g = self.lock();
         let s = Self::session(&mut g)?;
         Ok(s.data.ai_connector.enabled)
+    }
+
+    /// 明細の取り込みで覚えた辞書と形（0034）。事務所で共有しているときは、共有フォルダの全員のファイルと手元の写しを合わせる
+    pub fn statement_office(&self) -> Result<crate::statement_dict::StatementOffice, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        let _ = self.refresh_shared(s);
+        Ok(Self::statement_merged(s))
+    }
+
+    fn statement_merged(s: &Session) -> crate::statement_dict::StatementOffice {
+        let mut parts = vec![s.data.statement.clone()];
+        if let Some(sh) = &s.shared {
+            parts.extend(sh.read_statement_dicts());
+        }
+        crate::statement_dict::merge(&parts.iter().collect::<Vec<_>>())
+    }
+
+    /// FP が直した結果を覚える（店の鍵 → 項目、見出しの並びの指紋 → 列の対応付け。0034）。1つでも形が合わなければ何も覚えない。
+    /// 直した人（`by`）は呼んだ側の値を使わず、事務所で共有しているときは自分のメンバーID、1人のときは無しにする。
+    /// 事務所で共有しているときは、共有フォルダの自分のファイルにも書く
+    pub fn statement_learn(
+        &self,
+        entries: &[crate::statement_dict::DictionaryEntry],
+        formats: &[crate::statement_dict::LearnedFormat],
+    ) -> Result<crate::statement_dict::StatementOffice, StoreError> {
+        let mut g = self.lock();
+        let s = self.ready_session(&mut g)?;
+        let by = s.shared.as_ref().map(|sh| sh.me.member_id.clone());
+        let add = crate::statement_dict::StatementOffice {
+            dictionary: entries
+                .iter()
+                .map(|e| crate::statement_dict::DictionaryEntry {
+                    by: by.clone(),
+                    ..e.clone()
+                })
+                .collect(),
+            formats: formats
+                .iter()
+                .map(|f| crate::statement_dict::LearnedFormat {
+                    by: by.clone(),
+                    ..f.clone()
+                })
+                .collect(),
+        };
+        crate::statement_dict::check_learn(&add.dictionary, &add.formats)?;
+        if let Some(sh) = &s.shared {
+            sh.write_statement_dict(&add)?;
+        }
+        s.data.statement = crate::statement_dict::merge(&[&s.data.statement, &add]);
+        self.write_office(s)?;
+        Ok(Self::statement_merged(s))
     }
 
     /// AI接続口を使うかどうかを変える（FPがアプリの設定の画面で操作したときだけ呼ぶ）

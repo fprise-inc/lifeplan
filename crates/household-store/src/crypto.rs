@@ -117,6 +117,8 @@ pub mod purpose {
     pub const PRESENCE: &str = "lifeplan/presence/v1";
     pub const OFFICE_CODE: &str = "lifeplan/office-code/v1";
     pub const MEMBER_WRAP: &str = "lifeplan/member-wrap/v1";
+    // 明細の取り込みで覚えた辞書と形（0034）
+    pub const STATEMENT_DICT: &str = "lifeplan/statement-dictionary/v1";
 }
 
 /// ファイル全体の指紋（0011 の1 の改訂のID）。`sha256:<16進>`

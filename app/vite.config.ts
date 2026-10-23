@@ -751,8 +751,8 @@ function devHost(): Plugin {
 export default defineConfig({
   clearScreen: false,
   plugins: [devHost()],
-  // hearing/・report/ の部品（npm の依存なしの TypeScript）を画面から読む
-  server: { port: 1420, strictPort: true, fs: { allow: [APP_DIR, join(REPO_DIR, "hearing"), join(REPO_DIR, "report"), join(REPO_DIR, "engine", "src")] } },
+  // hearing/・report/・statement/ の部品（npm の依存なしの TypeScript）を画面から読む
+  server: { port: 1420, strictPort: true, fs: { allow: [APP_DIR, join(REPO_DIR, "hearing"), join(REPO_DIR, "report"), join(REPO_DIR, "statement"), join(REPO_DIR, "engine", "src")] } },
   oxc: { jsx: { runtime: "automatic", importSource: "preact" } },
   build: {
     target: "es2022",
