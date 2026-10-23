@@ -39,10 +39,12 @@ const COMMANDS: &[&str] = &[
     "store_update_sample",
     "store_categories",
     "store_set_categories",
-    // 0034: 明細の取り込み（明細のファイルを開く・覚えた辞書と形。パスもファイル名も受け取らない・返さない）
+    // 0034: 明細の取り込み（明細のファイルを開く・覚えた辞書と形・確認シートの保存と読み込み。パスもファイル名も受け取らない・返さない）
     "statement_office",
     "statement_learn",
     "statement_open",
+    "statement_sheet_save",
+    "statement_sheet_open",
     // 0014・0015: AI接続口（事務所の設定・世帯ごとの同意・共有・記録・候補の判断。パスも鍵も受け取らない・返さない）
     "ai_status",
     "ai_set_enabled",

@@ -1,9 +1,12 @@
 // 明細の取り込みとヒアリング（0034）を入力のホームにつなぐ部分（作業の層）。読む・仕分ける・数えるは statement/ の部品が PC の中で行い、
 // ここは「世帯の記録（区画 statements）を直す」「仕分けた結果を画面の形にする」「承認した候補を現状に入れる」を受け持つ。
 // - 明細のファイルのバイト列は読むときだけ使い、世帯にも事務所データにも残さない（残すのは指紋と取り込んだ行。createImport）
-// - 明細の値（店の名前・金額）を外へ送る道は作らない。覚える辞書（事務所データ）に送るのは店の鍵と項目だけ（learnFromDecisions）
+// - 明細の値（店の名前・金額）を外へ送る道は作らない。覚える辞書（事務所データ）に送るのは店の鍵と項目だけ（learnFromDecisions）。
+//   確認シート（迷う行を前もってお客さまに印を付けてもらう表計算のファイル）は、FP が警告を見てから本体の平文の書き出しの出口で保存する
 // - 明細の取り込みの記録は、元に戻す・やり直すの対象にしない（控えと同じ。keepStatements）。候補の承認で入れた現状の値は対象にする
 import {
+  addReceipt,
+  addRequest,
   addRule,
   applyCandidates,
   applyDecisions,
@@ -12,6 +15,7 @@ import {
   CATEGORIES,
   classify,
   createImport,
+  createMarkSheet,
   emptyLog,
   includedImports,
   learnFromDecisions,
@@ -19,9 +23,11 @@ import {
   maskText,
   memberStyles,
   parseShare,
+  readMarkSheet,
   readStatement,
   removeRule,
   reviewList,
+  sheetRequestId,
   summarize,
   unknownMerchants,
   workStyleAt,
@@ -32,6 +38,9 @@ import {
   type HouseholdLike,
   type HouseholdRule,
   type LearnedFormat,
+  type MarkCandidate,
+  type MarkSheetResult,
+  type ReadMarkSheetResult,
   type ReadOutcome,
   type ReviewItem,
   type RowDecision,
@@ -41,6 +50,7 @@ import {
   type StatementCandidate,
   type StatementCategory,
   type StatementLog,
+  type StatementRequest,
   type StatementSummary,
   type WorkStyle,
 } from "../../../../statement/src/index.ts";
@@ -88,7 +98,7 @@ export function logOf(wh: WorkingHousehold): StatementLog {
   return wh.statements ?? emptyLog();
 }
 
-const isEmpty = (l: StatementLog) => l.accounts.length === 0 && l.imports.length === 0 && l.rules.length === 0 && l.applied.length === 0 && (l.styles === undefined || Object.keys(l.styles).length === 0);
+const isEmpty = (l: StatementLog) => l.accounts.length === 0 && l.imports.length === 0 && l.rules.length === 0 && l.applied.length === 0 && (l.styles === undefined || Object.keys(l.styles).length === 0) && (l.requests ?? []).length === 0;
 
 /** 記録を入れた世帯（空なら区画ごと外す） */
 export function withLog(wh: WorkingHousehold, log: StatementLog): WorkingHousehold {
@@ -384,3 +394,61 @@ export function approve(wh: WorkingHousehold, list: readonly StatementCandidate[
 
 /** 円の表示（1,234円） */
 export const yen = (n: number) => `${n.toLocaleString("ja-JP")}円`;
+
+// ---- 確認シート（前もってお客さまに印を付けてもらう表計算のファイル。0034 の9） ----
+
+export interface SheetExportInput {
+  /** 依頼番号の乱数（6バイト。本体・画面の暗号の乱数） */
+  random: Uint8Array;
+  /** 書き出した日時（ISO 8601） */
+  at: string;
+  appVersion: string;
+  /** 表示用の顧客番号（英数字。無くてよい） */
+  customerNo?: string;
+}
+
+/** 迷う行から確認シートを作る（保存したら withSheetRequest で依頼の記録を残す） */
+export function exportMarkSheet(wh: WorkingHousehold, an: Analysis, o: SheetExportInput): Promise<MarkSheetResult> {
+  const log = logOf(wh);
+  return createMarkSheet({
+    items: an.review,
+    accounts: new Map(log.accounts.map((a) => [a.id, a.label])),
+    owners: new Map(ownerOptions(wh).map((x) => [x.value, x.label])),
+    requestId: sheetRequestId(o.random),
+    ...(o.customerNo !== undefined ? { customerNo: o.customerNo } : {}),
+    exportedAt: o.at,
+    appVersion: o.appVersion,
+  });
+}
+
+/** 書き出した依頼の記録を残す（保存したときだけ） */
+export function withSheetRequest(log: StatementLog, request: StatementRequest): StatementLog {
+  return addRequest(log, request);
+}
+
+/** 返ってきた確認シートを読む（開いている世帯の依頼の記録を正にする。印は決めたことの候補にするだけ） */
+export function readSheet(bytes: Uint8Array, wh: WorkingHousehold, an: Analysis): Promise<ReadMarkSheetResult> {
+  return readMarkSheet(bytes, { log: logOf(wh), rows: an.rows });
+}
+
+export type SheetRead = Extract<ReadMarkSheetResult, { ok: true }>;
+
+/** 最初にチェックしておく候補（要確認でないもの）。番号で持つ */
+export function defaultMarkSelection(list: readonly MarkCandidate[]): Set<number> {
+  return new Set(list.filter((c) => c.status === "pending").map((c) => c.no));
+}
+
+/** 承認した印を仕分けに入れ、取り込んだ記録を依頼に残す。FP がチェックしたものだけを入れる */
+export function approveMarks(log: StatementLog, read: SheetRead, selected: ReadonlySet<number>, office: readonly DictionaryEntry[], at: string): DecideResult & { decided: number } {
+  const chosen = read.candidates.filter((c) => selected.has(c.no));
+  const r = decide(log, chosen.map((c) => c.decision), office, at);
+  return { log: addReceipt(r.log, read.request.id, { at, file: read.file, decided: chosen.length }), learn: r.learn, decided: chosen.length };
+}
+
+/** 印の文（「教養娯楽・家計」「事業の経費 60%」） */
+export function markText(c: MarkCandidate): string {
+  const parts: string[] = [];
+  if (c.decision.category != null) parts.push(categoryShort(c.decision.category));
+  if (c.decision.bucket != null) parts.push(`${BUCKET_BUTTONS[c.decision.bucket]}${c.decision.bucket === "business" && c.decision.share != null ? ` ${percentText(c.decision.share)}` : ""}`);
+  return parts.join("・");
+}

@@ -30,7 +30,30 @@ export type IssueCode =
   | "S_REVOLVING"
   | "S_REFUND_UNMATCHED"
   | "S_DUPLICATE_ROWS"
-  | "S_LOG_SHAPE";
+  | "S_LOG_SHAPE"
+  // 前もってお客さまに印を付けてもらう確認シート（0034 の9）
+  | "S_SHEET_PLAINTEXT"
+  | "S_SHEET_OVERFLOW"
+  | "S_SHEET_EMPTY"
+  | "S_SHEET_FILE"
+  | "S_SHEET_IGNORED"
+  | "S_SHEET_NOT_OURS"
+  | "S_SHEET_HEARING"
+  | "S_SHEET_NEWER"
+  | "S_SHEET_MANAGE_MISMATCH"
+  | "S_SHEET_PARTLY_LOST"
+  | "S_SHEET_OTHER_HOUSEHOLD"
+  | "S_SHEET_OLD_REQUEST"
+  | "S_SHEET_ALREADY"
+  | "S_SHEET_RECEIVED_BEFORE"
+  | "S_SHEET_UNCHANGED"
+  | "S_SHEET_ROW_UNKNOWN"
+  | "S_SHEET_ROW_DUPLICATE"
+  | "S_SHEET_ROW_CHANGED"
+  | "S_SHEET_ROW_GONE"
+  | "S_SHEET_VALUE"
+  | "S_SHEET_FORMULA"
+  | "S_SHEET_NO_MARKS";
 
 export interface Issue {
   readonly level: IssueLevel;

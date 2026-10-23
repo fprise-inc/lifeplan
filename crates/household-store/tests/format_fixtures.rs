@@ -240,6 +240,22 @@ fn every_format_version_has_a_fixture_and_opens() {
                 2,
                 "{v}: 元のファイルの中身は持たない"
             );
+            // 0.15 から: 確認シートの依頼の記録（任意。0034 の9）。シートの番号 → 行の対応と、ファイルの指紋と大きさだけ
+            if let Some(reqs) = st.get("requests") {
+                assert!(
+                    migrate::parse(v).unwrap() >= (0, 15),
+                    "{v}: 0.15 より前の版に確認シートの依頼の記録は無い"
+                );
+                let r = &reqs[0];
+                assert!(r["id"].as_str().unwrap().starts_with("M-"));
+                assert_eq!(r["file"].as_object().unwrap().len(), 2);
+                assert!(r["rows"][0]["no"].is_u64());
+            } else {
+                assert!(
+                    migrate::parse(v).unwrap() < (0, 15),
+                    "{v}: 0.15 の見本には確認シートの依頼の記録がある"
+                );
+            }
         } else {
             assert!(
                 migrate::parse(v).unwrap() < (0, 14),

@@ -1895,6 +1895,7 @@ export function App() {
                         <StatementPanel
                           wh={opened.wh}
                           host={host.statements}
+                          {...(storedInfo !== null && storedInfo.sample === undefined ? { customerNo: storedInfo.customerNo } : {})}
                           {...(statementStep.current !== undefined ? { initialStep: statementStep.current } : {})}
                           onLog={(log) => putStatements(withLog(opened.wh, log).statements)}
                           onApprove={(next) => {

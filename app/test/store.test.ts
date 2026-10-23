@@ -78,6 +78,16 @@ function sampleStatements(owner: string): StatementLog {
     ],
     rules: [{ id: "rule-1", match: { category: "communication" }, owner, bucket: "household", at: "2026-10-20T10:06:00+09:00" }],
     applied: [],
+    // 0.15 から: 確認シートの依頼の記録（架空。シートの番号 → 行の対応と、書き出したファイル・返ってきたファイルの指紋だけ。0034 の9）
+    requests: [
+      {
+        id: "M-3K7P9Q",
+        at: "2026-10-21T09:00:00+09:00",
+        file: { sha256: `sha256:${"2".repeat(64)}`, bytes: 9876 },
+        rows: [{ no: 1, import: "imp-1", row: "r2" }],
+        received: [{ at: "2026-10-22T10:00:00+09:00", file: { sha256: `sha256:${"3".repeat(64)}`, bytes: 10234 }, decided: 1 }],
+      },
+    ],
   };
 }
 
@@ -153,8 +163,8 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect((back.wh.request.input.assumptions as Record<string, unknown> | undefined)?.emergencyReserve).toBeUndefined();
   });
 
-  it("明細の取り込みの記録（0.14 から。0034）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.14");
+  it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
+    expect(BODY_FORMAT_VERSION).toBe("0.15");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };

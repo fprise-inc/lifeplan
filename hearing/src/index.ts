@@ -12,7 +12,7 @@ import { layoutDigest } from "./layout.ts";
 import type { EngineRequest } from "./types.ts";
 import { readSheetXlsx, type HearingRequest } from "./xlsx/read.ts";
 import { writeSheetXlsx, type OfficeInfo } from "./xlsx/write.ts";
-import type { ZipLimits } from "./xlsx/zip.ts";
+import type { ZipLimits } from "../../xlsx/src/zip.ts";
 
 export { HEARING_FORMAT, HEARING_FORMAT_VERSION, requestIdFrom, REQUEST_ID_PATTERN, type Answer, type FilledSheet, type Management, type RawValue } from "./answers.ts";
 export { checkDefinition, type SheetDefinition, type SheetItem } from "./definition.ts";
@@ -22,7 +22,7 @@ export type { Issue, IssueCode, IssueLevel } from "./issues.ts";
 export { layoutDigest } from "./layout.ts";
 export { readSheetXlsx, type HearingRequest, type ReadOptions, type ReadResult } from "./xlsx/read.ts";
 export { writeSheetXlsx, type OfficeInfo, type WriteOptions } from "./xlsx/write.ts";
-export { DEFAULT_LIMITS, type ZipLimits } from "./xlsx/zip.ts";
+export { DEFAULT_LIMITS, type ZipLimits } from "../../xlsx/src/zip.ts";
 
 /** アプリに同梱する公式のシート定義（公開したすべての版を残し続ける。0018 の7） */
 export const OFFICIAL_SHEETS: readonly SheetDefinition[] = [basic1 as unknown as SheetDefinition];

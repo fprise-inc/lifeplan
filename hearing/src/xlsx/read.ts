@@ -5,11 +5,12 @@
 // - 回答のセルは名前の定義で探し、シート定義の固定の位置と照らし合わせる。食い違いは「要確認」にして黙って使わない
 import { HEARING_FORMAT, HEARING_FORMAT_VERSION, type Answer, type AnswerStatus, type FilledSheet, type Management, type RawValue } from "../answers.ts";
 import { STATE_LABELS, answerCells, cellName, colIndex, colLetter, itemByKey, type SheetDefinition } from "../definition.ts";
-import { issue, type Issue } from "../issues.ts";
+import { issue, type Issue, type IssueCode } from "../issues.ts";
 import { MANAGE_LABEL_COL, MANAGE_ROWS, MANAGE_VALUE_COL, layoutDigest } from "../layout.ts";
 import { MANAGE_KEYS, META_SHEET, PROPERTY_PREFIX } from "./write.ts";
-import { child, childrenNamed, parseXml, textOf, XmlError, type XmlElement } from "./xml.ts";
-import { DEFAULT_LIMITS, ZipError, ZipReader, type ZipLimits } from "./zip.ts";
+import { parseRef } from "../../../xlsx/src/cells.ts";
+import { Book, problemOf, type FileNoteCode, type FileProblem, type FileProblemCode } from "../../../xlsx/src/read.ts";
+import { DEFAULT_LIMITS, type ZipLimits } from "../../../xlsx/src/zip.ts";
 
 /** アプリの側に残す依頼の記録（0018 の2・5。世帯ファイルの取り込みの記録に暗号化して置く） */
 export interface HearingRequest {
@@ -35,112 +36,38 @@ export type ReadResult =
   | { readonly ok: true; readonly definition: SheetDefinition; readonly filled: FilledSheet; readonly request: HearingRequest | null; readonly issues: readonly Issue[] }
   | { readonly ok: false; readonly issues: readonly Issue[] };
 
-interface RawCell {
-  readonly t?: string;
-  readonly v?: string;
-  readonly f: boolean;
-  readonly inline?: string;
-}
-
-type Sheet = Map<string, RawCell>;
-
 const fail = (issues: Issue[], i: Issue): ReadResult => ({ ok: false, issues: [...issues, i] });
 
-/** ファイルの先頭のバイトから、.xlsx 以外の形を見分ける */
-function sniff(bytes: Uint8Array): Issue | null {
-  if (bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04) return null;
-  if (bytes.length >= 4 && bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0) {
-    return issue("error", "H_FILE_XLS", "古い Excel の形式（.xls）か、パスワードの付いたファイルです。パスワードを外し、「Excel ブック（.xlsx）」で保存し直してから取り込んでください");
-  }
-  return issue("error", "H_FILE_NOT_XLSX", "Excel のファイル（.xlsx）ではありません。「Excel ブック（.xlsx）」で保存し直してから取り込んでください");
-}
-
-function zipIssue(e: unknown): Issue {
-  if (e instanceof ZipError) {
-    if (e.kind === "tooLarge") return issue("error", "H_FILE_TOO_LARGE", `ファイルが大きすぎるため読みませんでした（${e.message}）`);
-    if (e.kind === "encrypted") return issue("error", "H_FILE_ENCRYPTED", "暗号化されたファイルは読みません。パスワードを外して保存し直してください");
-    return issue("error", "H_FILE_BROKEN", `ファイルが壊れているため読めません（${e.message}）`);
-  }
-  if (e instanceof XmlError) return issue("error", "H_FILE_BROKEN", `ファイルの中身が壊れているため読めません（${e.message}）`);
-  return issue("error", "H_FILE_BROKEN", "ファイルを読めませんでした");
-}
+/** 表計算のファイルの土台（xlsx/）の読めなかった理由・知らせを、ヒアリングシートの知らせの符号にする */
+const PROBLEM_CODES: Record<FileProblemCode, IssueCode> = { xls: "H_FILE_XLS", notXlsx: "H_FILE_NOT_XLSX", ods: "H_FILE_ODS", numbers: "H_FILE_NUMBERS", tooLarge: "H_FILE_TOO_LARGE", encrypted: "H_FILE_ENCRYPTED", broken: "H_FILE_BROKEN" };
+const NOTE_CODES: Record<FileNoteCode, IssueCode> = { macro: "H_FILE_MACRO_IGNORED", external: "H_FILE_EXTERNAL_IGNORED", embedded: "H_FILE_EMBEDDED_IGNORED" };
+const problemIssue = (p: FileProblem): Issue => issue("error", PROBLEM_CODES[p.code], p.message);
 
 /** 返ってきた .xlsx を読み、回答の一覧にする */
 export async function readSheetXlsx(bytes: Uint8Array, options: ReadOptions): Promise<ReadResult> {
-  const issues: Issue[] = [];
-  const s = sniff(bytes);
-  if (s !== null) return fail(issues, s);
+  const opened = await Book.open(bytes, options.limits ?? DEFAULT_LIMITS);
+  const issues: Issue[] = opened.notes.map((n) => issue("info", NOTE_CODES[n.code], n.message));
+  if (!opened.ok) return fail(issues, problemIssue(opened.problem));
   try {
-    return await readZip(new ZipReader(bytes, options.limits ?? DEFAULT_LIMITS), options, issues);
+    return await readBook(opened.book, options, issues);
   } catch (e) {
-    return fail(issues, zipIssue(e));
+    return fail(issues, problemIssue(problemOf(e)));
   }
 }
 
-async function readZip(zip: ZipReader, options: ReadOptions, issues: Issue[]): Promise<ReadResult> {
-  const names = zip.names();
-  if (zip.has("mimetype")) {
-    const mt = await zip.readText("mimetype");
-    if (mt?.includes("opendocument") === true) return fail(issues, issue("error", "H_FILE_ODS", "OpenDocument の形式（.ods）です。「Excel ブック（.xlsx）」で保存し直してから取り込んでください"));
-  }
-  if (names.some((n) => n.startsWith("Index/") && n.endsWith(".iwa"))) return fail(issues, issue("error", "H_FILE_NUMBERS", "Numbers の形式です。Numbers の「書き出す」から Excel（.xlsx）を選んで保存し直してください"));
-  if (!zip.has("xl/workbook.xml")) return fail(issues, issue("error", "H_FILE_NOT_XLSX", "Excel のファイル（.xlsx）ではありません"));
-  if (names.some((n) => /vbaProject\.bin$/i.test(n))) issues.push(issue("info", "H_FILE_MACRO_IGNORED", "マクロが入っていましたが、読まず・実行もしていません"));
-  if (names.some((n) => n.startsWith("xl/externalLinks/"))) issues.push(issue("info", "H_FILE_EXTERNAL_IGNORED", "ほかのファイルへのリンクが入っていましたが、読んでいません"));
-  if (names.some((n) => n.startsWith("xl/embeddings/") || n.startsWith("xl/activeX/"))) issues.push(issue("info", "H_FILE_EMBEDDED_IGNORED", "埋め込みのオブジェクトが入っていましたが、読んでいません"));
-
-  // ブックの目次
-  const wb = parseXml((await zip.readText("xl/workbook.xml")) as string);
-  const rels = await readRels(zip, "xl/_rels/workbook.xml.rels");
-  const sheetEls = childrenNamed(child(wb, "sheets") ?? wb, "sheet");
-  const sheets = sheetEls.map((e) => ({ name: e.attrs.name ?? "", state: e.attrs.state ?? "visible", path: rels.get(e.attrs.id ?? "")?.path ?? null }));
-  const definedNames = new Map<string, string>();
-  for (const d of childrenNamed(child(wb, "definedNames") ?? wb, "definedName")) {
-    if (d.attrs.localSheetId !== undefined) continue;
-    definedNames.set((d.attrs.name ?? "").toLowerCase(), textOf(d).trim());
-  }
-  const sstPath = [...rels.values()].find((r) => r.type.endsWith("/sharedStrings"))?.path ?? "xl/sharedStrings.xml";
-  const shared = await readShared(zip, sstPath);
-  const cache = new Map<string, Sheet | null>();
-  const sheetByName = async (name: string): Promise<Sheet | null> => {
-    if (cache.has(name)) return cache.get(name) ?? null;
-    const sh = sheets.find((x) => x.name === name);
-    const loaded = sh?.path == null ? null : await readSheet(zip, sh.path);
-    cache.set(name, loaded);
-    return loaded;
-  };
-  const textAt = (sheet: Sheet | null, ref: string): string | null => {
-    const c = sheet?.get(ref);
-    if (c === undefined) return null;
-    const r = cellRaw(c, shared);
-    return r === null ? null : r.kind === "bool" ? String(r.value) : r.text;
-  };
+async function readBook(book: Book, options: ReadOptions, issues: Issue[]): Promise<ReadResult> {
+  const sheetByName = (name: string) => book.sheet(name);
+  const textAt = (sheet: Awaited<ReturnType<typeof sheetByName>>, ref: string): string | null => book.text(sheet, ref);
 
   // 管理の値（3か所）
   const sources: { where: string; values: Partial<Record<(typeof MANAGE_KEYS)[number], string>> }[] = [];
-  const meta = await sheetByName(META_SHEET);
-  if (meta !== null) {
-    const values: Record<string, string> = {};
-    for (let r = 1; r <= 50; r++) {
-      const k = textAt(meta, `A${r}`);
-      if (k !== null && (MANAGE_KEYS as readonly string[]).includes(k)) values[k] = textAt(meta, `B${r}`) ?? "";
-    }
-    sources.push({ where: "隠したシート", values });
-  }
-  const custom = await zip.readText("docProps/custom.xml");
-  if (custom !== null) {
-    const values: Record<string, string> = {};
-    for (const p of childrenNamed(parseXml(custom), "property")) {
-      const n = p.attrs.name ?? "";
-      if (!n.startsWith(PROPERTY_PREFIX)) continue;
-      const k = n.slice(PROPERTY_PREFIX.length);
-      if ((MANAGE_KEYS as readonly string[]).includes(k)) values[k] = textOf(p).trim();
-    }
-    if (Object.keys(values).length > 0) sources.push({ where: "文書のプロパティ", values });
-  }
-  const firstVisible = sheets.find((x) => x.state === "visible");
+  const meta = await book.keyValues(META_SHEET, MANAGE_KEYS);
+  if (meta !== null) sources.push({ where: "隠したシート", values: meta });
+  const props = await book.properties(PROPERTY_PREFIX, MANAGE_KEYS);
+  if (Object.keys(props).length > 0) sources.push({ where: "文書のプロパティ", values: props });
+  const firstVisible = book.firstVisible();
   if (firstVisible !== undefined) {
-    const sh = await sheetByName(firstVisible.name);
+    const sh = await sheetByName(firstVisible);
     const sv = textAt(sh, `${MANAGE_VALUE_COL}${MANAGE_ROWS.sheet}`);
     const label = textAt(sh, `${MANAGE_LABEL_COL}${MANAGE_ROWS.sheet}`);
     if (sv !== null && label === "シートの種類と版") {
@@ -219,7 +146,7 @@ async function readZip(zip: ZipReader, options: ReadOptions, issues: Issue[]): P
     const fixed = { sheet: cell.sheet, col: valueCol, row: cell.row };
     const review: string[] = [];
     let pos = fixed;
-    const named = parseRef(definedNames.get(cellName(cell.key, cell.index).toLowerCase()));
+    const named = parseRef(book.definedNames.get(cellName(cell.key, cell.index).toLowerCase()));
     const sheet0 = await sheetByName(cell.sheet);
     if (named !== null) {
       if (named.sheet !== fixed.sheet || named.col !== fixed.col || named.row !== fixed.row) {
@@ -242,10 +169,7 @@ async function readZip(zip: ZipReader, options: ReadOptions, issues: Issue[]): P
     }
     const offset = (c: string) => colIndex(c) - valueCol;
     const read = (dc: number): { raw: RawValue | null; formula: boolean; noValue: boolean } => {
-      const c = sh.get(`${colLetter(pos.col + dc)}${pos.row}`);
-      if (c === undefined) return { raw: null, formula: false, noValue: false };
-      const raw = cellRaw(c, shared);
-      return { raw, formula: c.f, noValue: c.f && raw === null };
+      return book.cell(sh, `${colLetter(pos.col + dc)}${pos.row}`);
     };
     const v1 = read(0);
     const v2 = item.type === "yearMonth" ? read(offset(col.value2)) : { raw: null, formula: false, noValue: false };
@@ -279,78 +203,4 @@ async function readZip(zip: ZipReader, options: ReadOptions, issues: Issue[]): P
   }
   if (missingNames > 0) issues.push(issue("info", "H_NAME_MISSING", `回答のセルの名前の定義が ${missingNames} か所で見つからないため、決まった位置で読みました（質問の文が合うかを確かめています）`));
   return { ok: true, definition: def, filled: { management, answers }, request: record, issues };
-}
-
-/** 名前の定義の参照（'シート'!$C$12）を読む。範囲・#REF! は null */
-function parseRef(ref: string | undefined): { sheet: string; col: number; row: number } | null {
-  if (ref === undefined) return null;
-  const m = /^(?:'((?:[^']|'')+)'|([^'!]+))!\$?([A-Z]{1,3})\$?(\d+)$/.exec(ref.trim());
-  if (m === null) return null;
-  const sheet = m[1] !== undefined ? m[1].replace(/''/g, "'") : (m[2] as string);
-  return { sheet, col: colIndex(m[3] as string), row: Number(m[4]) };
-}
-
-async function readRels(zip: ZipReader, path: string): Promise<Map<string, { path: string; type: string }>> {
-  const out = new Map<string, { path: string; type: string }>();
-  const t = await zip.readText(path);
-  if (t === null) return out;
-  for (const r of childrenNamed(parseXml(t), "Relationship")) {
-    if (r.attrs.TargetMode === "External") continue;
-    const target = r.attrs.Target ?? "";
-    const p = target.startsWith("/") ? target.slice(1) : `xl/${target}`.replace(/\/\.\//g, "/");
-    out.set(r.attrs.Id ?? "", { path: p, type: r.attrs.Type ?? "" });
-  }
-  return out;
-}
-
-async function readShared(zip: ZipReader, path: string): Promise<string[]> {
-  const t = await zip.readText(path);
-  if (t === null) return [];
-  return childrenNamed(parseXml(t), "si").map(textOf);
-}
-
-async function readSheet(zip: ZipReader, path: string): Promise<Sheet> {
-  const t = await zip.readText(path);
-  const out: Sheet = new Map();
-  if (t === null) return out;
-  const root = parseXml(t);
-  const data = child(root, "sheetData");
-  if (data === undefined) return out;
-  for (const row of childrenNamed(data, "row")) {
-    for (const c of childrenNamed(row, "c")) {
-      const ref = c.attrs.r;
-      if (ref === undefined) continue;
-      const v = child(c, "v");
-      const is = child(c, "is");
-      out.set(ref, {
-        ...(c.attrs.t !== undefined ? { t: c.attrs.t } : {}),
-        ...(v !== undefined ? { v: textOf(v) } : {}),
-        f: child(c, "f") !== undefined,
-        ...(is !== undefined ? { inline: textOf(is as XmlElement) } : {}),
-      });
-    }
-  }
-  return out;
-}
-
-/** セルの生の値（空なら null）。数式は評価せず、保存されている結果だけを見る */
-function cellRaw(c: RawCell, shared: readonly string[]): RawValue | null {
-  switch (c.t) {
-    case "s": {
-      const s = c.v === undefined ? undefined : shared[Number(c.v)];
-      return s === undefined || s.trim() === "" ? null : { kind: "text", text: s };
-    }
-    case "inlineStr":
-      return c.inline === undefined || c.inline.trim() === "" ? null : { kind: "text", text: c.inline };
-    case "str":
-      return c.v === undefined || c.v.trim() === "" ? null : { kind: "text", text: c.v };
-    case "b":
-      return c.v === undefined ? null : { kind: "bool", value: c.v === "1" };
-    case "e":
-      return c.v === undefined ? null : { kind: "text", text: c.v };
-    case "d":
-      return c.v === undefined ? null : { kind: "text", text: c.v };
-    default:
-      return c.v === undefined || c.v.trim() === "" ? null : { kind: "number", text: c.v.trim() };
-  }
 }

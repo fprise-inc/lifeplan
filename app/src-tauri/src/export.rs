@@ -1,4 +1,5 @@
-//! 平文の書き出しの出口（0020 の5・6）。提案書の PDF・ヒアリングシート（.xlsx）・持ち帰り用のレポート（.html。0030）は、
+//! 平文の書き出しの出口（0020 の5・6）。提案書の PDF・ヒアリングシート（.xlsx）・明細の確認シート（.xlsx。0034）・
+//! 持ち帰り用のレポート（.html。0030）は、
 //! すべてここを通してファイルに書く。
 //!
 //! - 画面（WebView）はファイルを書けない（0016 の1。ファイル・ダイアログのプラグインの権限は画面に与えない）。画面は
@@ -33,6 +34,8 @@ pub enum ExportKind {
     HearingSheetPrefilled,
     /// 持ち帰り用のレポート（0030。パスワードを付けたときは中身が暗号化されている。記録にはその有無だけ）
     Takeaway,
+    /// 明細の確認シート（0034 の9。迷う行の店の名前・金額が載る。画面で毎回警告してから）
+    StatementSheet,
 }
 
 impl ExportKind {
@@ -272,8 +275,38 @@ pub async fn open_sheet<R: Runtime>(
     window: &WebviewWindow<R>,
     max_bytes: u64,
 ) -> Result<Option<Vec<u8>>, String> {
+    open_book(
+        window,
+        max_bytes,
+        "記入済みのヒアリングシートを選ぶ",
+        "FINANCIA_DEV_OPEN_FILE",
+    )
+    .await
+}
+
+/// 開く（明細の確認シートの取り込み。0034 の9）。開発のときだけ: 環境変数 FINANCIA_DEV_OPEN_STATEMENT_SHEET のファイルを読む
+pub async fn open_statement_sheet<R: Runtime>(
+    window: &WebviewWindow<R>,
+    max_bytes: u64,
+) -> Result<Option<Vec<u8>>, String> {
+    open_book(
+        window,
+        max_bytes,
+        "お客さまが印を付けた確認シートを選ぶ",
+        "FINANCIA_DEV_OPEN_STATEMENT_SHEET",
+    )
+    .await
+}
+
+/// 表計算のブックを選んで中身を返す（パス・ファイル名は返さない）
+async fn open_book<R: Runtime>(
+    window: &WebviewWindow<R>,
+    max_bytes: u64,
+    title: &str,
+    dev_env: &str,
+) -> Result<Option<Vec<u8>>, String> {
     let dev = if cfg!(debug_assertions) {
-        std::env::var_os("FINANCIA_DEV_OPEN_FILE")
+        std::env::var_os(dev_env)
             .filter(|v| !v.is_empty())
             .map(PathBuf::from)
     } else {
@@ -284,7 +317,7 @@ pub async fn open_sheet<R: Runtime>(
         None => {
             // .xls・.ods なども選べるようにして、読む側で「.xlsx で保存し直してください」と案内する（0018 の6）
             let picked = rfd::AsyncFileDialog::new()
-                .set_title("記入済みのヒアリングシートを選ぶ")
+                .set_title(title)
                 .add_filter(
                     "表計算のブック（.xlsx）",
                     &["xlsx", "xlsm", "xls", "ods", "numbers"],

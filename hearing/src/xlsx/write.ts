@@ -4,11 +4,12 @@
 // - 入力規則（選択肢・数・文字数）、記入例、転記の手引きを入れる。回答のセル以外を保護する（パスワードなし）
 // - 管理の値を3か所に書く: 隠したシート _lifeplan（非常に隠す）・文書のユーザー設定のプロパティ・1枚目の管理欄
 // - 世帯の内部ID・名前の欄・聞かない項目の欄は作らない（0012）
-import { HEARING_FORMAT, answerKey, type Answer, type Management, type RawValue } from "../answers.ts";
-import { MONTH_LABELS, STATE_LABELS, colIndex, colLetter, itemByKey, yearLabel, type LayoutRow, type SheetDefinition, type SheetItem } from "../definition.ts";
+import { HEARING_FORMAT, answerKey, type Answer, type Management } from "../answers.ts";
+import { MONTH_LABELS, STATE_LABELS, itemByKey, yearLabel, type LayoutRow, type SheetDefinition, type SheetItem } from "../definition.ts";
 import { ANSWER_HEADER_ROW, MANAGE_LABEL_COL, MANAGE_ROWS, MANAGE_VALUE_COL } from "../layout.ts";
-import { escapeXml } from "./xml.ts";
-import { writeZip } from "./zip.ts";
+import { text } from "../../../xlsx/src/cells.ts";
+import { escapeXml } from "../../../xlsx/src/xml.ts";
+import { buildStyles, lines, Lists, LIST_SHEET, META_SHEET, metaSheetXml, PROPERTY_PREFIX, SheetBuilder, STYLE, validation, writeBook } from "../../../xlsx/src/write.ts";
 
 /** 1枚目に出す事務所の情報（FP の事務所の設定から） */
 export interface OfficeInfo {
@@ -22,104 +23,13 @@ export interface WriteOptions {
   readonly office: OfficeInfo;
 }
 
-/** 隠したシートの名前（形式で固定） */
-export const META_SHEET = "_lifeplan";
-const LIST_SHEET = "_lists";
+export { META_SHEET, PROPERTY_PREFIX };
 
 /** 管理の値のキー（隠したシート・ユーザー設定のプロパティで共通） */
 export const MANAGE_KEYS = ["format", "formatVersion", "sheetId", "sheetVersion", "requestId", "customerNo", "layoutDigest", "appVersion", "exportedOn"] as const;
-/** ユーザー設定のプロパティの名前の接頭辞 */
-export const PROPERTY_PREFIX = "lifeplan.";
 
-// 書式の番号（styles.xml の cellXfs の並び）
-const S = { title: 1, section: 2, group: 3, label: 4, input: 5, small: 6, heading: 7, text: 8, manageLabel: 9, manageValue: 10, inputText: 11, no: 12, colHead: 13, locked: 14 } as const;
-
-const enc = new TextEncoder();
-const XML_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
-const NS_MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-const NS_R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-
-interface Cell {
-  readonly col: string;
-  readonly style: number;
-  readonly value?: RawValue;
-}
-
-class SheetBuilder {
-  readonly rows = new Map<number, Cell[]>();
-  readonly heights = new Map<number, number>();
-  readonly merges: string[] = [];
-  readonly validations: string[] = [];
-  set(row: number, col: string, style: number, value?: RawValue): void {
-    const list = this.rows.get(row) ?? [];
-    list.push({ col, style, ...(value !== undefined ? { value } : {}) });
-    this.rows.set(row, list);
-  }
-  height(row: number, h: number): void {
-    this.heights.set(row, Math.max(this.heights.get(row) ?? 0, h));
-  }
-  xml(opts: { widths: readonly number[]; protect: boolean; freezeRows?: number; landscape?: boolean }): string {
-    const rows = [...this.rows.keys()].sort((a, b) => a - b);
-    const body = rows
-      .map((r) => {
-        const cells = (this.rows.get(r) as Cell[]).sort((a, b) => colIndex(a.col) - colIndex(b.col));
-        const ht = this.heights.get(r);
-        const attrs = ht === undefined ? "" : ` ht="${ht}" customHeight="1"`;
-        return `<row r="${r}"${attrs}>${cells.map((c) => cellXml(`${c.col}${r}`, c)).join("")}</row>`;
-      })
-      .join("");
-    const cols = opts.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("");
-    const pane = opts.freezeRows === undefined ? "" : `<pane ySplit="${opts.freezeRows}" topLeftCell="A${opts.freezeRows + 1}" activePane="bottomLeft" state="frozen"/>`;
-    return (
-      XML_HEAD +
-      `<worksheet xmlns="${NS_MAIN}" xmlns:r="${NS_R}">` +
-      `<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>` +
-      `<sheetViews><sheetView workbookViewId="0" showGridLines="0">${pane}</sheetView></sheetViews>` +
-      `<sheetFormatPr defaultRowHeight="18"/>` +
-      `<cols>${cols}</cols>` +
-      `<sheetData>${body}</sheetData>` +
-      (opts.protect ? `<sheetProtection sheet="1" objects="1" scenarios="1" formatColumns="0" formatRows="0"/>` : "") +
-      (this.merges.length > 0 ? `<mergeCells count="${this.merges.length}">${this.merges.map((m) => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>` : "") +
-      (this.validations.length > 0 ? `<dataValidations count="${this.validations.length}">${this.validations.join("")}</dataValidations>` : "") +
-      `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>` +
-      `<pageSetup paperSize="9" orientation="${opts.landscape === true ? "landscape" : "portrait"}" fitToWidth="1" fitToHeight="0"/>` +
-      `</worksheet>`
-    );
-  }
-}
-
-function cellXml(ref: string, c: Cell): string {
-  if (c.value === undefined) return `<c r="${ref}" s="${c.style}"/>`;
-  if (c.value.kind === "number") return `<c r="${ref}" s="${c.style}"><v>${escapeXml(c.value.text)}</v></c>`;
-  if (c.value.kind === "bool") return `<c r="${ref}" s="${c.style}" t="b"><v>${c.value.value ? 1 : 0}</v></c>`;
-  return `<c r="${ref}" s="${c.style}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(c.value.text)}</t></is></c>`;
-}
-
-const text = (t: string): RawValue => ({ kind: "text", text: t });
-
-/** 全角の文字の幅で、行の数を見積もる（結合したセル・折り返しの行の高さ用） */
-function lines(t: string, width: number): number {
-  let w = 0;
-  for (const ch of t) w += ch.charCodeAt(0) > 0xff ? 2 : 1;
-  return Math.max(1, Math.ceil(w / Math.max(1, width - 2)));
-}
-
-/** 選択肢の一覧（_lists シートの列）をまとめる */
-class Lists {
-  readonly columns: string[][] = [];
-  private readonly index = new Map<string, number>();
-  ref(values: readonly string[]): string {
-    const key = values.join("\u0000");
-    let i = this.index.get(key);
-    if (i === undefined) {
-      i = this.columns.length;
-      this.columns.push([...values]);
-      this.index.set(key, i);
-    }
-    const col = colLetter(i);
-    return `'${LIST_SHEET}'!$${col}$1:$${col}$${values.length}`;
-  }
-}
+// 書式の番号（共通の書式の並び。xlsx/ の STYLE）
+const S = STYLE;
 
 function unitText(item: SheetItem): string {
   if (item.type === "money" && item.unit !== undefined) {
@@ -128,10 +38,6 @@ function unitText(item: SheetItem): string {
   }
   if (item.type === "percent") return "%";
   return item.unitLabel ?? "";
-}
-
-function validation(sqref: string, body: string, error: string): string {
-  return `<dataValidation ${body} allowBlank="1" showErrorMessage="1" errorTitle="ご記入の内容" error="${escapeXml(error)}" sqref="${sqref}">`;
 }
 
 function itemValidations(def: SheetDefinition, item: SheetItem, row: number, lists: Lists): string[] {
@@ -266,83 +172,21 @@ export function writeSheetXlsx(def: SheetDefinition, answers: readonly Answer[],
     }
   }
 
-  // 選択肢の一覧のシート（隠す）
-  const listSheet = new SheetBuilder();
-  lists.columns.forEach((col, i) => col.forEach((v, j) => listSheet.set(j + 1, colLetter(i), 0, text(v))));
-  // 管理の値のシート（非常に隠す）
-  const meta = new SheetBuilder();
-  MANAGE_KEYS.forEach((k, i) => {
-    meta.set(i + 1, "A", 0, text(k));
-    meta.set(i + 1, "B", 0, text(String(m[k])));
-  });
-
   const sheets = [
-    { name: def.layout.introSheet, xml: intro.xml({ widths, protect: true }), state: "" },
-    { name: def.layout.answerSheet, xml: ans.xml({ widths, protect: true, freezeRows: ANSWER_HEADER_ROW }), state: "" },
-    { name: LIST_SHEET, xml: listSheet.xml({ widths: [30], protect: true }), state: ' state="hidden"' },
-    { name: META_SHEET, xml: meta.xml({ widths: [20, 70], protect: true }), state: ' state="veryHidden"' },
+    { name: def.layout.introSheet, xml: intro.xml({ widths, protect: true }) },
+    { name: def.layout.answerSheet, xml: ans.xml({ widths, protect: true, freezeRows: ANSWER_HEADER_ROW }) },
+    { name: LIST_SHEET, xml: lists.sheetXml(), state: "hidden" as const },
+    { name: META_SHEET, xml: metaSheetXml(MANAGE_KEYS.map((k) => [k, String(m[k])] as const)), state: "veryHidden" as const },
   ];
-  const definedNames = names
-    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-    .map(([n, ref]) => `<definedName name="${escapeXml(n)}">${escapeXml(ref)}</definedName>`)
-    .join("");
-  const workbook =
-    XML_HEAD +
-    `<workbook xmlns="${NS_MAIN}" xmlns:r="${NS_R}"><workbookPr/><bookViews><workbookView activeTab="0"/></bookViews><sheets>` +
-    sheets.map((s, i) => `<sheet name="${escapeXml(s.name)}" sheetId="${i + 1}"${s.state} r:id="rId${i + 1}"/>`).join("") +
-    `</sheets><definedNames>${definedNames}</definedNames></workbook>`;
-  const wbRels =
-    XML_HEAD +
-    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-    sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="${NS_R}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("") +
-    `<Relationship Id="rId${sheets.length + 1}" Type="${NS_R}/styles" Target="styles.xml"/></Relationships>`;
-  const props = MANAGE_KEYS.map(
-    (k, i) => `<property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="${i + 2}" name="${PROPERTY_PREFIX}${k}"><vt:lpwstr>${escapeXml(String(m[k]))}</vt:lpwstr></property>`,
-  ).join("");
-  const files: [string, string][] = [
-    [
-      "[Content_Types].xml",
-      XML_HEAD +
-        `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
-        `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>` +
-        `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
-        sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("") +
-        `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
-        `<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>` +
-        `<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>` +
-        `<Override PartName="/docProps/custom.xml" ContentType="application/vnd.openxmlformats-officedocument.custom-properties+xml"/>` +
-        `</Types>`,
-    ],
-    [
-      "_rels/.rels",
-      XML_HEAD +
-        `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-        `<Relationship Id="rId1" Type="${NS_R}/officeDocument" Target="xl/workbook.xml"/>` +
-        `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>` +
-        `<Relationship Id="rId3" Type="${NS_R}/extended-properties" Target="docProps/app.xml"/>` +
-        `<Relationship Id="rId4" Type="${NS_R}/custom-properties" Target="docProps/custom.xml"/>` +
-        `</Relationships>`,
-    ],
-    [
-      "docProps/core.xml",
-      XML_HEAD +
-        `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` +
-        `<dc:title>${escapeXml(def.title)}</dc:title></cp:coreProperties>`,
-    ],
-    ["docProps/app.xml", XML_HEAD + `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>${escapeXml(HEARING_FORMAT)}</Application></Properties>`],
-    [
-      "docProps/custom.xml",
-      XML_HEAD + `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">${props}</Properties>`,
-    ],
-    ["xl/workbook.xml", workbook],
-    ["xl/_rels/workbook.xml.rels", wbRels],
-    ["xl/styles.xml", STYLES],
-    ...sheets.map((s, i): [string, string] => [`xl/worksheets/sheet${i + 1}.xml`, s.xml]),
-  ];
-  return writeZip(
-    files.map(([name, body]) => ({ name, data: enc.encode(body) })),
-    m.exportedOn,
-  );
+  return writeBook({
+    sheets,
+    definedNames: names,
+    styles: STYLES,
+    title: def.title,
+    application: HEARING_FORMAT,
+    properties: MANAGE_KEYS.map((k) => [k, String(m[k])] as const),
+    date: m.exportedOn,
+  });
 }
 
 function writeItem(def: SheetDefinition, b: SheetBuilder, r: Extract<LayoutRow, { kind: "item" }>, item: SheetItem, a: Answer | undefined, no: number, lists: Lists, names: [string, string][], widths: readonly number[]): void {
@@ -373,43 +217,4 @@ function writeItem(def: SheetDefinition, b: SheetBuilder, r: Extract<LayoutRow, 
   b.validations.push(...itemValidations(def, item, row, lists));
 }
 
-const FONT = '<name val="游ゴシック"/><family val="3"/><charset val="128"/>';
-const STYLES =
-  XML_HEAD +
-  `<styleSheet xmlns="${NS_MAIN}">` +
-  `<fonts count="5">` +
-  `<font><sz val="11"/>${FONT}</font>` +
-  `<font><b/><sz val="11"/>${FONT}</font>` +
-  `<font><b/><sz val="14"/>${FONT}</font>` +
-  `<font><sz val="9"/><color rgb="FF595959"/>${FONT}</font>` +
-  `<font><b/><sz val="12"/><color rgb="FFFFFFFF"/>${FONT}</font>` +
-  `</fonts>` +
-  `<fills count="6">` +
-  `<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>` +
-  `<fill><patternFill patternType="solid"><fgColor rgb="FFFFF7D6"/><bgColor indexed="64"/></patternFill></fill>` +
-  `<fill><patternFill patternType="solid"><fgColor rgb="FF2F5597"/><bgColor indexed="64"/></patternFill></fill>` +
-  `<fill><patternFill patternType="solid"><fgColor rgb="FFDDEBF7"/><bgColor indexed="64"/></patternFill></fill>` +
-  `<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>` +
-  `</fills>` +
-  `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>` +
-  `<border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border></borders>` +
-  `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-  `<cellXfs count="15">` +
-  `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` + // 0 既定
-  `<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>` + // 1 題名
-  `<xf numFmtId="0" fontId="4" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 2 章
-  `<xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/>` + // 3 まとまり
-  `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>` + // 4 質問
-  `<xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1"><alignment vertical="center" wrapText="1"/><protection locked="0"/></xf>` + // 5 記入欄
-  `<xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>` + // 6 単位・手引き
-  `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>` + // 7 見出し
-  `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 8 文
-  `<xf numFmtId="0" fontId="1" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>` + // 9 管理欄の見出し
-  `<xf numFmtId="49" fontId="0" fillId="5" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"/>` + // 10 管理欄の値
-  `<xf numFmtId="49" fontId="0" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1"><alignment vertical="top" wrapText="1"/><protection locked="0"/></xf>` + // 11 記入欄（文字）
-  `<xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 12 番号
-  `<xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` + // 13 列の見出し
-  `<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>` + // 14 使わない欄
-  `</cellXfs>` +
-  `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
-  `</styleSheet>`;
+const STYLES = buildStyles();

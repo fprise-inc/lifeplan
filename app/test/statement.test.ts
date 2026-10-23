@@ -13,17 +13,22 @@ import {
   addImport,
   analyze,
   approve,
+  approveMarks,
   beforeText,
   candidatesOf,
   decide,
   defaultCandidateSelection,
+  defaultMarkSelection,
+  exportMarkSheet,
   formatToLearn,
   keepStatements,
   logOf,
+  markText,
   otherReview,
   periodProblem,
   putRule,
   readFile,
+  readSheet,
   removeAccount,
   setPeriod,
   setStyles,
@@ -31,8 +36,11 @@ import {
   percentText,
   styleRows,
   withLog,
+  withSheetRequest,
   type ReadOk,
 } from "../src/workspace/statement/model.ts";
+import { bodyOf, EMPTY_CARRY, fromBody } from "../src/workspace/store/body.ts";
+import { editXlsx, setCell, text as utf8, unzip } from "../../xlsx/test/helpers.ts";
 import { APP_DIR, REPO_DIR } from "../scripts/lib.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -258,11 +266,61 @@ describe("元に戻す・やり直すの対象にしない", () => {
   });
 });
 
+describe("確認シート（前もってお客さまに印を付けてもらう表計算のファイル。0034 の9）", () => {
+  const SHEET = "xl/worksheets/sheet1.xml";
+  const RANDOM = new Uint8Array([3, 1, 4, 1, 5, 9]);
+  async function exported() {
+    const { wh, self } = await imported();
+    const an = analyze(wh, []);
+    const sheet = await exportMarkSheet(wh, an, { random: RANDOM, at: AT, appVersion: "0.1.0", customerNo: "A0042" });
+    return { wh: withLog(wh, withSheetRequest(logOf(wh), sheet.request)), an, sheet, self };
+  }
+
+  it("迷う行を書き出す。シートに世帯の内部ID・口座の ID・カード番号は載らず、依頼の記録は世帯ファイルの区画 statements に残る", async () => {
+    const { wh, an, sheet, self } = await exported();
+    expect(sheet.rows).toBe(an.review.length);
+    const all = [...(await unzip(sheet.bytes)).values()].map(utf8).join("\n");
+    for (const needle of [self, "acc-card", "acc-bank", wh.request.input.household.members[0]!.id]) expect(all).not.toContain(needle);
+    expect(all).toContain("ご主人のカード（Aカード）");
+    const body = JSON.parse(bodyOf({ wh, workspace: { template: null, selected: "current", band: [] } as never, display: {} as never, carry: EMPTY_CARRY })) as { statements: { requests: unknown[] } };
+    expect(body.statements.requests).toHaveLength(1);
+    expect(fromBody(JSON.stringify(body)).wh.statements?.requests?.[0]?.id).toBe(sheet.request.id);
+  });
+
+  it("返ってきた印を確かめて入れると、迷う行が減り、取り込んだ記録が依頼に残る。別の世帯では読まない", async () => {
+    const { wh, an, sheet } = await exported();
+    const target = an.review.find((r) => r.reasons.includes("unknownMerchant"))!;
+    const ws = utf8((await unzip(sheet.bytes)).get(SHEET));
+    const row = Number(new RegExp(`<c r="C(\\d+)"[^>]*><is><t xml:space="preserve">${target.merchant}</t>`).exec(ws)?.[1]);
+    const filled = await editXlsx(sheet.bytes, (f) => {
+      setCell(f, SHEET, `H${row}`, '<c t="inlineStr"><is><t>教養娯楽</t></is></c>');
+      setCell(f, SHEET, `I${row}`, '<c t="inlineStr"><is><t>家計（ふだんの暮らし）</t></is></c>');
+    });
+    const r = await readSheet(filled, wh, analyze(wh, []));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.candidates.map((c) => c.merchant)).toEqual([target.merchant]);
+    expect(markText(r.candidates[0]!)).toBe("教養娯楽・家計");
+    const sel = defaultMarkSelection(r.candidates);
+    const done = approveMarks(logOf(wh), r, sel, [], AT);
+    expect(done.decided).toBe(1);
+    expect(done.learn.map((e) => e.category)).toEqual(["recreation"]);
+    const next = withLog(wh, done.log);
+    expect(analyze(next, []).review.length).toBe(an.review.length - 1);
+    expect(logOf(next).requests?.[0]?.received).toEqual([{ at: AT, file: r.file, decided: 1 }]);
+    // 別の世帯（依頼の記録の無い世帯）では読まない
+    const other = await readSheet(filled, household(), analyze(household(), []));
+    expect(other.ok ? [] : other.issues.map((i) => i.code)).toEqual(["S_SHEET_OTHER_HOUSEHOLD"]);
+  });
+});
+
 describe("本体の命令（0016 の1）", () => {
   it("明細の命令に渡すのは、覚える辞書の行と形だけ（パス・ファイル名を渡さない・受け取らない）", () => {
     const host = readFileSync(join(APP_DIR, "src", "engine", "host.ts"), "utf8");
     const calls = [...host.matchAll(/invoke<[^>]*>\("(statement_[a-z_]+)"(?:, \{ ([^}]*) \})?\)/g)];
-    expect(calls.map((c) => c[1]).sort()).toEqual(["statement_learn", "statement_office", "statement_open"]);
+    expect(calls.map((c) => c[1]).sort()).toEqual(["statement_learn", "statement_office", "statement_open", "statement_sheet_open"]);
+    // 確認シートの保存に渡すのは、シートのバイト列と、顧客番号・書き出した日の見出しだけ
+    const save = /invoke<SaveOutcome>\("statement_sheet_save", bytes, \{ headers: \{ ([^}]*) \} \}\)/.exec(host);
+    expect(save?.[1]?.split(",").map((x) => x.trim().split(":")[0])).toEqual(['"x-customer-no"', '"x-exported-on"']);
     for (const c of calls) expect((c[2] ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "").every((a) => a === "entries" || a === "formats")).toBe(true);
     const rust = readFileSync(join(APP_DIR, "src-tauri", "src", "statement.rs"), "utf8");
     expect(rust).not.toMatch(/std::fs::write|File::create/);

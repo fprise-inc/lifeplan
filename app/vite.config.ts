@@ -48,7 +48,7 @@ const devStore = {
 /** 開発用のサーバーの、覚えた明細の辞書と形（メモリの中だけ。本体の事務所データの代わり。0034） */
 type DevDictEntry = { key: string; category: string; at: string; annual?: boolean; by?: string; removed?: boolean };
 type DevFormat = { fingerprint: string; kind: string; mapping: unknown; label?: string; at: string };
-const devStatement = { data: { dictionary: [] as DevDictEntry[], formats: [] as DevFormat[] }, next: 0 };
+const devStatement = { data: { dictionary: [] as DevDictEntry[], formats: [] as DevFormat[] }, next: 0, sheet: null as Buffer | null };
 
 function devStoreOp(op: string, a: Record<string, string>): { ok: true; value?: unknown } | { ok: false; code: string } {
   const s = devStore;
@@ -679,7 +679,7 @@ function devHost(): Plugin {
         }
         // 明細の取り込み（本体の statement_office・statement_learn・statement_open の代わり。0034）: 覚えた辞書と形はメモリの中だけ。
         // 開くは FINANCIA_DEV_OPEN_STATEMENT（カンマ区切りのパス）か、架空の明細（statement/test/fixtures）を順に返す。statement/reset で最初に戻す
-        const sm = /^statement\/([a-z]+)$/.exec(path);
+        const sm = /^statement\/([a-z]+)(?:\?|$)/.exec(path);
         if (sm !== null) {
           void (async () => {
             const op = sm[1] as string;
@@ -707,6 +707,26 @@ function devHost(): Plugin {
             if (op === "reset") {
               devStatement.next = 0;
               return void res.end();
+            }
+            // 確認シートの保存（本体の statement_sheet_save の代わり）: 保存先は FINANCIA_DEV_SAVE_DIR だけ。最後に保存したシートを覚え、
+            // 開く（sheetopen）は FINANCIA_DEV_OPEN_STATEMENT_SHEET のファイルか、最後に保存したシートを返す
+            if (op === "sheetsave" && req.method === "POST") {
+              const body = await readBody(req);
+              if (body.subarray(0, 4).toString("binary") !== "PK\x03\x04") return void ((res.statusCode = 400), res.end("E_STATEMENT_SHEET_BODY"));
+              const q = new URL(req.url ?? "", "http://localhost").searchParams;
+              const no = /^[A-Za-z0-9_-]{1,16}$/.test(q.get("customerNo") ?? "") ? `_${q.get("customerNo")}` : "";
+              const on = /^\d{4}-\d{2}-\d{2}$/.test(q.get("exportedOn") ?? "") ? `_${q.get("exportedOn")}` : "";
+              const name = `明細の確認シート${no}${on}.xlsx`;
+              devStatement.sheet = body;
+              if (saveDir() !== "") writeFileSync(join(saveDir(), name), body);
+              return json({ saved: true, fileName: name, syncFolder: false, digest: `sha256:${createHash("sha256").update(body).digest("hex")}` });
+            }
+            if (op === "sheetopen") {
+              const f = process.env.FINANCIA_DEV_OPEN_STATEMENT_SHEET ?? "";
+              const b = f !== "" && existsSync(f) ? readFileSync(f) : devStatement.sheet;
+              if (b === null) return void ((res.statusCode = 204), res.end());
+              res.setHeader("content-type", "application/octet-stream");
+              return void res.end(b);
             }
             if (op === "open") {
               const env = process.env.FINANCIA_DEV_OPEN_STATEMENT ?? "";
@@ -801,8 +821,8 @@ function devHost(): Plugin {
 export default defineConfig({
   clearScreen: false,
   plugins: [devHost()],
-  // hearing/・report/・statement/ の部品（npm の依存なしの TypeScript）を画面から読む
-  server: { port: 1420, strictPort: true, fs: { allow: [APP_DIR, join(REPO_DIR, "hearing"), join(REPO_DIR, "report"), join(REPO_DIR, "statement"), join(REPO_DIR, "engine", "src")] } },
+  // hearing/・report/・statement/・xlsx/ の部品（npm の依存なしの TypeScript）を画面から読む
+  server: { port: 1420, strictPort: true, fs: { allow: [APP_DIR, join(REPO_DIR, "hearing"), join(REPO_DIR, "report"), join(REPO_DIR, "statement"), join(REPO_DIR, "xlsx", "src"), join(REPO_DIR, "engine", "src")] } },
   oxc: { jsx: { runtime: "automatic", importSource: "preact" } },
   build: {
     target: "es2022",
