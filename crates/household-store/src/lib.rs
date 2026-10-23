@@ -26,6 +26,7 @@ pub mod numbering;
 pub mod office;
 pub mod recovery;
 pub mod secret;
+pub mod statement_dict;
 mod store;
 pub mod vault;
 
@@ -152,6 +153,8 @@ impl StoreError {
     pub const OFFICE_WAITING_SYNC: StoreError = StoreError("E_OFFICE_WAITING_SYNC");
     /// 選ぶ分岐が無い
     pub const NO_FORK: StoreError = StoreError("E_STORE_NO_FORK");
+    /// 明細の取り込みの辞書・形の行の形が合わない（0034）
+    pub const STATEMENT_DICT: StoreError = StoreError("E_STORE_STATEMENT_DICT");
     // ---- 1人の FP が複数の PC で使う同期フォルダ（0024） ----
     /// 保存先を同期フォルダにする前に、復元キーを保管する（2台目の PC で開くときに要る。0013 の3）
     pub const SYNC_RECOVERY_REQUIRED: StoreError = StoreError("E_SYNC_RECOVERY_REQUIRED");

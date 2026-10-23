@@ -14,6 +14,7 @@ import { Autosaver, type SaveState, type Timers } from "../src/workspace/store/a
 import { makeSnapshot, snapshotDigest, verifySnapshot } from "../src/workspace/snapshots/snapshots.ts";
 import { BODY_FORMAT_VERSION, bodyObject, bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "../src/workspace/store/body.ts";
 import { keyLines } from "../src/workspace/store/RecoveryPanel.tsx";
+import type { StatementLog } from "../../statement/src/index.ts";
 import { modelHousehold } from "./helpers.ts";
 
 const NOW = "2026-10-18T10:00:00.000Z";
@@ -36,7 +37,7 @@ function sample(): BodyState {
   const self = roles(req).find((r) => r.key === "self")!.member;
   const demo = demoHousehold(id) ?? null;
   let wh: WorkingHousehold = fromRequest(req, { memo: ["架空のメモ"] });
-  wh = { ...wh, labelsByMember: { [self.id]: "ご主人" } };
+  wh = { ...wh, labelsByMember: { [self.id]: "ご主人" }, statements: sampleStatements(self.id) };
   const cat = buildCatalog(wh, self.id, demo);
   const a = savePlan(wh, cat, { name: "プランB 生活費を28万円に", base: null, values: { "lever:livingMonthly": 280000 }, now: NOW });
   const b = savePlan(a.wh, cat, { name: "プランC プランB＋70歳まで働く", tags: ["老後"], base: a.id, values: { "lever:livingMonthly": 280000, "lever:retireAge": 70 }, now: NOW });
@@ -50,6 +51,33 @@ function sample(): BodyState {
       balance: { ...DEFAULT_BALANCE_SETTINGS, guide: { months: [3, 12], risk: [10, 50], debt: 40 }, points: ["now", "loanEnd", "retire", "age80"], columns: [{ point: "now" }, { year: 2042 }, { point: "age75" }], moneyThree: { months: 3, years: 15, wording: "time" } },
     },
     carry: { extDefinitions: { "ext.exampleOffice.carCount": { type: "integer", label: "車の台数" } }, ext: { "ext.exampleOffice.carCount": 2 } },
+  };
+}
+
+/** 0.14 から: 明細の取り込みの記録（架空。元のファイルは持たず、指紋と番号を消した後の行・FP が決めたこと・世帯の決まりだけ。0034） */
+function sampleStatements(owner: string): StatementLog {
+  return {
+    version: 1,
+    accounts: [{ id: "acc-1", kind: "card", label: "ご主人のカード（架空）", owner, issuer: "smbc" }],
+    imports: [
+      {
+        id: "imp-1",
+        kind: "statement",
+        at: "2026-10-20T10:00:00+09:00",
+        account: "acc-1",
+        file: { sha256: `sha256:${"0".repeat(64)}`, bytes: 1234 },
+        reader: { id: "csv", version: 1 },
+        format: { fingerprint: `sha256:${"1".repeat(64)}`, mapping: { headerRow: 0, columns: { date: 0, merchant: 1, amount: 2 }, sign: "expensePositive" }, source: "fp" },
+        period: { from: "2026-09-01", to: "2026-09-30" },
+        rows: [
+          { id: "r2", line: 2, date: "2026-09-03", merchant: "架空スーパー", key: "架空スーパー", amount: 3200 },
+          { id: "r3", line: 3, date: "2026-09-10", merchant: "架空の店 ●●●●", key: "架空ノ店", amount: 4500, category: "recreation", bucket: "household", decidedAt: "2026-10-20T10:05:00+09:00" },
+        ],
+        include: true,
+      },
+    ],
+    rules: [{ id: "rule-1", match: { category: "communication" }, owner, bucket: "household", at: "2026-10-20T10:06:00+09:00" }],
+    applied: [],
   };
 }
 
@@ -125,8 +153,25 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect((back.wh.request.input.assumptions as Record<string, unknown> | undefined)?.emergencyReserve).toBeUndefined();
   });
 
+  it("明細の取り込みの記録（0.14 から。0034）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
+    expect(BODY_FORMAT_VERSION).toBe("0.14");
+    const s = sample();
+    const text = bodyOf(s);
+    const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
+    expect(obj.statements).toEqual(s.wh.statements);
+    expect(obj.household.statements).toBeUndefined();
+    expect(fromBody(text).wh.statements).toEqual(s.wh.statements);
+    const none = { ...s, wh: { ...s.wh, statements: { version: 1, accounts: [], imports: [], rules: [], applied: [] } } };
+    expect((JSON.parse(bodyOf(none)) as Record<string, unknown>).statements).toBeUndefined();
+    const odd = JSON.parse(text) as { statements: { imports: { rows: unknown[] }[] } };
+    odd.statements.imports[0]?.rows.push({ id: "bad", line: 9, date: "2026/09/30", merchant: "x", amount: 1 });
+    expect(fromBody(JSON.stringify(odd)).wh.statements?.imports[0]?.rows.map((r) => r.id)).toEqual(["r2", "r3"]);
+    const { statements: _drop, ...without } = obj;
+    void _drop;
+    expect(fromBody(JSON.stringify(without)).wh.statements).toBeUndefined();
+  });
+
   it("お金の3つの分け方の表示の設定（0.13 から。0032）を保存して読み戻す。無い・形が合わないときは既定", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.13");
     const text = bodyOf(sample());
     expect((JSON.parse(text) as { display: { balance: { moneyThree: unknown } } }).display.balance.moneyThree).toEqual({ months: 3, years: 15, wording: "time" });
     expect(fromBody(text).display.balance.moneyThree).toEqual({ months: 3, years: 15, wording: "time" });

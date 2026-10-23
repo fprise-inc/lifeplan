@@ -42,6 +42,14 @@ fn body(id: &str) -> String {
         },
         "proposals": [],
         "workspace": { "band": [] },
+        // 明細の取り込みの記録（0034）は、どの版でも AI に渡さない（取り込みの記録の元データ。0015 の6）
+        "statements": {
+            "version": 1,
+            "accounts": [{ "id": "acc-1", "kind": "card", "label": "目印のカード", "owner": null }],
+            "imports": [{ "id": "imp-1", "kind": "statement", "rows": [{ "id": "r1", "line": 1, "date": "2026-09-01", "merchant": "目印の店", "amount": 1234 }] }],
+            "rules": [],
+            "applied": []
+        },
     })
     .to_string()
 }
@@ -185,6 +193,8 @@ fn the_reduced_view_has_no_identifiers_or_memos() {
         "目印",
         "labelsByMember",
         "memo",
+        "statements",
+        "目印の店",
     ] {
         assert!(!out.contains(needle), "縮約版に {needle} が入っている");
     }

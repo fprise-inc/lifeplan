@@ -315,6 +315,41 @@ impl Shared {
         Err(StoreError::NO_KEY)
     }
 
+    /// 明細の取り込みで覚えた辞書と形: 名簿にいるメンバー全員のファイル（読めないファイルは飛ばす。0034）
+    pub(super) fn read_statement_dicts(&self) -> Vec<crate::statement_dict::StatementOffice> {
+        self.roster
+            .members
+            .iter()
+            .filter_map(|m| {
+                let b = fs::read(self.paths.statement_dict(&m.member_id)).ok()?;
+                office::open_statement_dict(&b, &m.member_id, |mk| self.master_for(mk)).ok()
+            })
+            .collect()
+    }
+
+    /// 自分のファイルに、自分が覚えた行を足して書く（自分のファイルだけを書く。2人が同じファイルを書き合わない）
+    pub(super) fn write_statement_dict(
+        &self,
+        add: &crate::statement_dict::StatementOffice,
+    ) -> Result<(), StoreError> {
+        let me = &self.me.member_id;
+        let current = fs::read(self.paths.statement_dict(me))
+            .ok()
+            .and_then(|b| office::open_statement_dict(&b, me, |mk| self.master_for(mk)).ok())
+            .unwrap_or_default();
+        let next = crate::statement_dict::merge(&[&current, add]);
+        let bytes = office::encode_statement_dict(
+            &self.office_id,
+            &self.roster.master_key_id,
+            me,
+            &next,
+            &self.master,
+        );
+        fs::create_dir_all(self.paths.statement_dict_dir()).map_err(|_| StoreError::IO)?;
+        atomic::replace_no_prev(&self.paths.statement_dict(me), &bytes)?;
+        Ok(())
+    }
+
     fn read_presence(&self, hid: &str, mid: &str) -> Option<Presence> {
         let b = fs::read(self.paths.presence(hid, mid)).ok()?;
         office::open_presence(&b, hid, mid, |mk| self.master_for(mk)).ok()

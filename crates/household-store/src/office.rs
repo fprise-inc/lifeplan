@@ -9,6 +9,7 @@
 //!   cards/<世帯ID>.lpcd                      世帯の札（一覧に出す顧客番号・要約・最後に直した人。"LPCD"）
 //!   households/<世帯ID>.lphf                 世帯ファイル（今までと同じ封筒。0011）
 //!   presence/<世帯ID>.<メンバーID>.lpop       開いている印（"LPOP"）
+//!   statement-dict/<メンバーID>.lpsd          明細の取り込みでそのメンバーが覚えた辞書と形（"LPSD"。0034）
 //! ```
 //!
 //! どのファイルも 0011 の1 と同じ容器（識別の印・容器の版・見出しの長さ・見出しの JSON・暗号文）で、見出し全体を改ざん検出の対象にする。
@@ -33,6 +34,7 @@ pub const KEYS_FORMAT: &str = "lifeplan.householdKeys";
 pub const CARD_FORMAT: &str = "lifeplan.householdCard";
 pub const PRESENCE_FORMAT: &str = "lifeplan.presence";
 pub const REQUEST_FORMAT: &str = "lifeplan.joinRequest";
+pub const STATEMENT_DICT_FORMAT: &str = "lifeplan.statementDictionary";
 /// 共有フォルダの中のファイルの形式の版（β公開までは 0.x）
 pub const SHARED_FORMAT_VERSION: &str = "0.1";
 
@@ -40,6 +42,9 @@ const MEMBERS_MAGIC: &[u8; 4] = b"LPMB";
 const KEYS_MAGIC: &[u8; 4] = b"LPHK";
 const CARD_MAGIC: &[u8; 4] = b"LPCD";
 const PRESENCE_MAGIC: &[u8; 4] = b"LPOP";
+const STATEMENT_DICT_MAGIC: &[u8; 4] = b"LPSD";
+/// 明細の取り込みの辞書のファイルの見出しの世帯ID の欄（世帯のファイルではないので決まった値）
+const STATEMENT_DICT_SCOPE: &str = "statement-dictionary";
 
 /// 役割（今は「すべての操作ができる」だけ。知らない役割は閲覧だけとして扱う。0023 の2）
 pub const ROLE_MEMBER: &str = "member";
@@ -117,6 +122,13 @@ impl Paths {
         debug_assert!(crypto::is_uuid(household_id) && crypto::is_uuid(member_id));
         self.presence_dir()
             .join(format!("{household_id}.{member_id}.lpop"))
+    }
+    pub fn statement_dict_dir(&self) -> PathBuf {
+        self.root.join("statement-dict")
+    }
+    pub fn statement_dict(&self, member_id: &str) -> PathBuf {
+        debug_assert!(crypto::is_uuid(member_id));
+        self.statement_dict_dir().join(format!("{member_id}.lpsd"))
     }
 }
 
@@ -836,6 +848,43 @@ pub fn open_presence(
         return Err(StoreError::CORRUPT);
     }
     Ok(p)
+}
+
+/// 明細の取り込みでそのメンバーが覚えた辞書と形のファイル（0034）
+pub fn encode_statement_dict(
+    office_id: &str,
+    master_key_id: &str,
+    member_id: &str,
+    v: &crate::statement_dict::StatementOffice,
+    master: &[u8; KEY_LEN],
+) -> Vec<u8> {
+    seal_small(
+        STATEMENT_DICT_MAGIC,
+        STATEMENT_DICT_FORMAT,
+        purpose::STATEMENT_DICT,
+        office_id,
+        master_key_id,
+        STATEMENT_DICT_SCOPE,
+        Some(member_id),
+        v,
+        master,
+    )
+}
+
+pub fn open_statement_dict(
+    bytes: &[u8],
+    member_id: &str,
+    master_for: impl Fn(&str) -> Option<Key>,
+) -> Result<crate::statement_dict::StatementOffice, StoreError> {
+    open_small(
+        STATEMENT_DICT_MAGIC,
+        STATEMENT_DICT_FORMAT,
+        purpose::STATEMENT_DICT,
+        bytes,
+        STATEMENT_DICT_SCOPE,
+        Some(member_id),
+        master_for,
+    )
 }
 
 /// `presence/` のファイル名から（世帯ID, メンバーID）
