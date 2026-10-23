@@ -140,10 +140,12 @@ describe("資産の推移の値", () => {
   });
 
   it("結果の画面の資産の内訳（ドーナツ）は「口座の内訳を表示」にチェックが入っているときだけ出す（既定は出さない）", () => {
-    expect(donutShown(DEFAULT_DISPLAY_SETTINGS.invBreakdown, true)).toBe(false);
-    expect(donutShown(true, true)).toBe(true);
+    expect(donutShown(DEFAULT_DISPLAY_SETTINGS.invBreakdown, true, false)).toBe(false);
+    expect(donutShown(true, true, false)).toBe(true);
     // チェックを出さない入れ方（合計）では出さない
-    expect(donutShown(true, false)).toBe(false);
+    expect(donutShown(true, false, false)).toBe(false);
+    // 全部のプランを色分けで重ねる表示では、チェックがオンのままでも出さない（チェックそのものを出さない）
+    expect(donutShown(true, true, true)).toBe(false);
   });
 
   it("運用の期間の帯: 積み立てる（推定あり）・据え置く・取り崩す。積立額が変わる年に区切り", () => {

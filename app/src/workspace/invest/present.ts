@@ -169,10 +169,11 @@ export function bandShown(setting: boolean | null, req: EngineRequest): boolean 
 
 /**
  * 結果の画面のグラフの下に資産の内訳（ドーナツ）を出すか: グラフの上の「口座の内訳を表示」にチェックが入っているときだけ（既定は出さない）。
- * チェックを出さない入れ方（合計）のときは出さない。入力の「貯蓄・運用」のパネルの中のドーナツはこれに関わらず出す
+ * チェックを出さない入れ方（合計）のときと、全部のプランを色分けで重ねる表示（チェックそのものを出さない）のときは出さない。
+ * 入力の「貯蓄・運用」のパネルの中のドーナツはこれに関わらず出す
  */
-export function donutShown(breakdownSetting: boolean, canBreakdown: boolean): boolean {
-  return breakdownSetting && canBreakdown;
+export function donutShown(breakdownSetting: boolean, canBreakdown: boolean, multi: boolean): boolean {
+  return breakdownSetting && canBreakdown && !multi;
 }
 
 const CLASS_NAME = (cls: string) => CLASSES.find((c) => c.key === cls)?.name ?? ASSET_CLASSES.find((c) => c.value === cls)?.label ?? "その他";

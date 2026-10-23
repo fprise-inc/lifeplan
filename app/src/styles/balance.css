@@ -54,15 +54,11 @@
 .bs-tab { display: flex; flex-direction: column; gap: 14px; }
 .bs-tab .num { font-variant-numeric: tabular-nums; }
 
-/* 見るもの（家計のバランスシート／合算BS） */
+/* 見るもの（家計のバランスシート／カスタマイズで足した見るもの。足したものがあるときだけ出す） */
 .bs-views { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .bs-views .k { font-size: 0.85rem; font-weight: 700; color: var(--ink-2); }
 .bs-vbtn { border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; padding: 5px 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
 .bs-vbtn[aria-pressed="true"] { border-color: var(--prop); color: var(--prop-ink); background: var(--prop-bg); }
-.bs-vbtn.custom { border-style: dashed; border-color: var(--field); }
-.bs-vbtn.custom[aria-pressed="true"] { border-color: var(--prop); }
-.bs-ctag { font-size: 0.72rem; font-weight: 700; border: 1.2px dashed var(--field); border-radius: 4px; padding: 0 5px; color: var(--ink-2); background: #fff; }
-.bs-vnote { margin-left: auto; font-size: 0.8rem; color: var(--ink-2); }
 
 /* 図の枠 */
 .bs-card { padding: 16px 20px 12px; }
@@ -290,23 +286,6 @@
 .bst-tip .r.tot { font-weight: 700; border-top: 1px solid var(--line-2); margin-top: 2px; padding-top: 2px; }
 .bst-tip .pin { color: var(--ink-2); font-size: 0.74rem; margin-top: 4px; }
 
-/* 合算BS の入口 */
-.bs-combined { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: 24px; align-items: center; }
-.bs-cb-text h2 { font-size: 1.15rem; display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
-.bs-cb-text ul { padding-left: 1.2em; font-size: 0.9rem; }
-.bs-cb-fig { border: 1.5px dashed var(--field); border-radius: 12px; padding: 14px; text-align: center; color: var(--ink-2); }
-.bs-cb-fig .cols { display: flex; justify-content: center; gap: 18px; align-items: flex-end; }
-.bs-cb-fig .col { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.bs-cb-fig .op { position: absolute; left: -16px; bottom: 40%; font-size: 1.4rem; font-weight: 700; }
-.bs-cb-fig .nm { font-size: 0.8rem; font-weight: 700; color: var(--ink); }
-.bs-cb-fig .bars { display: flex; gap: 3px; height: 140px; align-items: flex-end; }
-.bs-cb-fig .bars .a { width: 32px; background: #cfd5dd; }
-.bs-cb-fig .bars .a.hh { background: var(--bs-nisa); }
-.bs-cb-fig .bars .a.sum { background: #b6c1d6; }
-.bs-cb-fig .bars .r { width: 32px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
-.bs-cb-fig .bars .d { background: var(--bs-carLoan); }
-.bs-cb-fig .bars .n { background: var(--bs-netWorth); }
-
 /* 狭い窓・文字「大」 */
 @media (max-width: 1180px) {
   .bs-one { grid-template-columns: minmax(0, 1fr); }
@@ -318,8 +297,7 @@
   .bs-tcard-wrap .arrow { display: none; }
 }
 @media (max-width: 900px) {
-  .bs-pair, .bs-tbl-in, .bs-combined { grid-template-columns: minmax(0, 1fr); }
-  .bs-vnote { margin-left: 0; }
+  .bs-pair, .bs-tbl-in { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 1400px) {
   html.big .bs-yb { grid-template-columns: auto minmax(0, 1fr); }
