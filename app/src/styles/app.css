@@ -652,7 +652,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .p-st { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 0.82rem; border-radius: 99px; padding: 0 8px 0 3px; white-space: nowrap; line-height: 1.6; }
 .p-st::before { display: inline-grid; place-items: center; width: 1.3em; height: 1.3em; border-radius: 50%; color: #fff; font-size: 0.82em; }
 .p-st.ok { background: var(--good-bg); color: var(--good); }
-.p-st.ok::before { content: "✓"; background: var(--good); }
+.p-st.ok::before { content: "✓"; background: var(--good); box-sizing: border-box; padding-bottom: 0.12em; }
 .p-st.ng { background: var(--short-bg); color: var(--short-ink); }
 .p-st.ng::before { content: "!"; background: var(--short); }
 .p-st.wait { color: var(--ink-2); padding-left: 8px; }
@@ -1052,7 +1052,7 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .year-tip .yt-rows .yt-t { color: var(--ink-2); max-width: 11em; overflow: hidden; text-overflow: ellipsis; }
 .year-tip .yt-rows b { text-align: right; }
 .year-tip .yt-rows li.sel .yt-n::after { content: "（表示中）"; font-weight: 400; color: var(--ink-2); font-size: 0.9em; }
-.p-mark { margin-left: auto; display: inline-flex; align-items: center; }
+.p-mark { justify-self: end; display: inline-flex; align-items: center; }
 @media (prefers-reduced-motion: reduce) { .chart .ml { transition: none; } }
 .pip-chart .multi-tip .yt-t { display: none; }
 .pip-chart .multi-tip { font-size: 0.76rem; line-height: 1.35; }
