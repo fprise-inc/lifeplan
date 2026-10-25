@@ -3,7 +3,7 @@
 // 本物のエンジンで計算する（②は額を半分ずつ絞り込む。1回ごとに一生分を計算する）。「この額を使う」で対策の「毎月の取り崩し額」に入れる
 import { useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
-import { drawdownOf, retireAgeOf, selfOf } from "../input/savings/model.ts";
+import { drawdownOf, drawdownStartDefault, nextAgeOf, selfOf } from "../input/savings/model.ts";
 import { ageReachedMonth } from "../levers.ts";
 import { lastsAge } from "./present.ts";
 
@@ -53,10 +53,11 @@ export interface DrawdownCalcProps {
 
 export function DrawdownCalc(p: DrawdownCalcProps) {
   const now = drawdownOf(p.req);
-  const retire = retireAgeOf(p.req) ?? 65;
   const [open, setOpen] = useState(p.initialOpen === true);
   const [method, setMethod] = useState<"fixed" | "rate">(now.method === "rate" ? "rate" : "fixed");
-  const [start, setStart] = useState(now.method === "none" ? Math.max(65, retire) : now.startAge);
+  // 初めの値は過ぎた年齢にしない（75歳の世帯で65歳から、にならない）
+  const [start, setStart] = useState(drawdownStartDefault(p.req));
+  const minStart = nextAgeOf(p.req) ?? 40;
   const [target, setTarget] = useState(95);
   const [amount, setAmount] = useState(now.method === "fixed" ? Math.round(now.monthly / 10000) : 15);
   const [permille, setPermille] = useState(now.method === "rate" ? Math.round(Number(now.rate) * 1000) : 40);
@@ -105,7 +106,7 @@ export function DrawdownCalc(p: DrawdownCalcProps) {
           </button>
         </span>
         <label>
-          始める年齢 <input type="number" class="dd-n" min={40} max={90} value={start} onInput={(e) => setStart(Number((e.currentTarget as HTMLInputElement).value) || start)} /> 歳
+          始める年齢 <input type="number" class="dd-n" min={minStart} max={Math.max(90, start)} value={start} onInput={(e) => setStart(Number((e.currentTarget as HTMLInputElement).value) || start)} /> 歳
         </label>
       </div>
       <div class="dd-row">

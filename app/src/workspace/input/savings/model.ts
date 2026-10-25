@@ -637,6 +637,25 @@ export function drawdownOf(req: EngineRequest): DrawdownView {
   return { method: dd.method, startAge: ageAt(self, at), monthly: dd.monthly ?? 15 * MAN, rate: dd.rate ?? "0.04" };
 }
 
+/** 本人が次に迎える年齢（その年齢に達する月が計算の基準の月より前なら、次の年齢）。取り崩しを始める年齢の下限 */
+export function nextAgeOf(req: EngineRequest): number | null {
+  const self = selfOf(req.input.household);
+  if (self === undefined) return null;
+  const now = ageAt(self, req.input.baseMonth);
+  return ageReachedMonth(self, now) >= req.input.baseMonth ? now : now + 1;
+}
+
+/**
+ * 取り崩しを始める年齢の初めの値: 予定があればその年齢、無ければ65歳か退職の年齢の遅い方。
+ * どちらも過ぎた年齢（受給中の世帯など）なら、次に迎える年齢にする
+ */
+export function drawdownStartDefault(req: EngineRequest): number {
+  const d = drawdownOf(req);
+  const age = d.method === "none" ? Math.max(65, retireAgeOf(req) ?? 65) : d.startAge;
+  const next = nextAgeOf(req);
+  return next !== null && age < next ? next : age;
+}
+
 export function setDrawdown(req: EngineRequest, v: DrawdownView): void {
   const self = selfOf(req.input.household);
   if (v.method === "none" || self === undefined) {

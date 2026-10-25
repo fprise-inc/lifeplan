@@ -10,6 +10,7 @@ import { memberLabel } from "./labels.ts";
 import { upkeepAnnual } from "./stages/cars.ts";
 import { careGroup, periodicGroup } from "./stages/events.ts";
 import { buildStage, stageStatus, STAGE_ORDER } from "./stages/index.ts";
+import { statementMonthsMissing } from "./stages/pension.ts";
 import { currentPeriod } from "./stages/work.ts";
 
 /** カードの状態: 入力済み・推定あり・未入力 */
@@ -102,6 +103,8 @@ function pensionSummary(h: Household): Summary | null {
   const selfRec = recs.find((r) => r.member === self?.id);
   const at = selfRec?.claim?.basic?.at;
   const age = self !== undefined && at !== undefined ? ageAt(self, addMonths(at, -1)) : 65;
+  // 定期便の加入月数が0か月のままなら、写した見込額を出さない（そのままでは年金を0円・少なく計算するため）
+  if (recs.some(statementMonthsMissing)) return { main: "加入月数", unit: "が未入力" };
   if (recs.every((r) => EXPECTED_KINDS.has(r.kind) && r.amounts !== undefined)) {
     const annual = recs.reduce((s, r) => s + (r.amounts?.basic?.value ?? 0) + (r.amounts?.employee?.value ?? 0) + (r.amounts?.transitional?.value ?? 0) + (r.amounts?.special?.value ?? 0), 0);
     return { pre: "月", main: manText(Math.round(annual / 12)), unit: `万円（${age}歳から）` };

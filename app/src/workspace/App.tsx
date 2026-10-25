@@ -38,6 +38,7 @@ import { blankHousehold, fromRequest, type WorkingHousehold } from "./input/hous
 import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
+import { pensionNotices } from "./input/stages/pension.ts";
 import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
 import { bandShown, donutPanes, donutShown, donutYear, investChart, investVerdict, stressRequests, STRESS_KEYS, type StressKey } from "./invest/present.ts";
 import { InvestBar, DonutCard } from "./invest/InvestBar.tsx";
@@ -2107,6 +2108,12 @@ export function App() {
                     />
                   ) : null}
                   {model.fee !== null ? <FeeNote model={model.fee} /> : null}
+                  {pensionNotices(opened.wh).map((t) => (
+                    <div class="fee-note input-notice" key={t} role="note" data-input-notice>
+                      <span class="fee-tag">入力の確認</span>
+                      <span>{t}</span>
+                    </div>
+                  ))}
                 </>
               }
             />

@@ -8,7 +8,43 @@ import { earners, HISTORY_CATEGORIES, memberLabel, PENSION_KINDS } from "../labe
 
 const records = (h: Household) => h.pensionRecords;
 const recordOf = (h: Household, memberId: string) => (h.pensionRecords ?? []).find((r) => r.member === memberId);
-const UNENTERED = "未入力（0円で計算。定期便の額を入れてください）";
+/** 額をまだ入れていないときの印（0円の推定）の文。入れ方ごとに、写す書類を言う */
+const UNENTERED: Record<string, string> = {
+  statementUnder50: "未入力（0円で計算。ねんきん定期便の額を入れてください）",
+  statementOver50: "未入力（0円で計算。ねんきん定期便の見込額を入れてください）",
+  receiving: "未入力（0円で計算。年金額改定通知書の年金額（年額）を入れてください）",
+  projection: "未入力（0円で計算。見込額（年額）を入れてください）",
+};
+const UNENTERED_TEXTS = new Set([...Object.values(UNENTERED), "未入力（0円で計算。定期便の額を入れてください）"]);
+const unentered = (kind: string) => UNENTERED[kind] ?? UNENTERED.statementUnder50 as string;
+/** まだ額を入れていない印のままの箱（入れ方を変えたら、新しい入れ方の文に入れ替える） */
+const isUnentered = (b: PensionAmount | undefined) => b !== undefined && b.state === "estimated" && b.value === 0 && UNENTERED_TEXTS.has((b as { estimate?: { basis?: string } }).estimate?.basis ?? "");
+type PensionAmount = NonNullable<NonNullable<PensionRecord["amounts"]>["basic"]>;
+
+/** ねんきん定期便の入れ方で、加入月数が国民年金・厚生年金とも0か月のまま（写していない） */
+export function statementMonthsMissing(rec: PensionRecord | undefined): boolean {
+  if (rec === undefined || (rec.kind !== "statementUnder50" && rec.kind !== "statementOver50")) return false;
+  return (rec.months?.basic ?? 0) === 0 && (rec.months?.employee ?? 0) === 0;
+}
+
+/** 加入月数が0か月のままのときの知らせ（年金のパネル・入力のカード・結果のタブで同じ文を使う） */
+export function monthsMissingText(kind: string): string {
+  return kind === "statementOver50"
+    ? "加入月数が0か月のままです。このままでは受給資格期間（10年）に届かないため、見込額を入れても年金は0円で計算します。定期便の「加入期間」の月数を写してください（月数が分からないときは、入れ方を「見込額だけ」にします）"
+    : "加入月数が0か月のままです。このままでは、これまでの加入の分を数えずに年金を少なく計算します（受給資格期間の10年に届かなければ0円）。定期便の「加入期間」の月数を写してください";
+}
+
+/** 結果のタブに出す、年金の入力の知らせ（加入月数が0か月のままの人） */
+export function pensionNotices(wh: WorkingHousehold): string[] {
+  const h = wh.request.input.household;
+  return earners(h)
+    .filter((m) => m.kind === "self" || m.kind === "spouse")
+    .flatMap((m) => {
+      const rec = recordOf(h, m.id);
+      if (rec === undefined || !statementMonthsMissing(rec)) return [];
+      return [`${memberLabel(wh, m.id)}の年金: ねんきん定期便の加入月数が0か月のままです。${rec.kind === "statementOver50" ? "年金を0円で計算しています" : "年金を少なく計算しています"}。入力の「年金」で加入月数を入れてください`];
+    });
+}
 
 /** 受け取り開始の月 ↔ 年齢（その年齢に達した月の翌月から。0003・年金の決まり） */
 const claimMonth = (m: Member, age: number) => addMonths(ageReachedMonth(m, age), 1);
@@ -33,7 +69,9 @@ export function convertRecord(h: Household, m: Member, rec: PensionRecord | unde
   if (kind === "") return null;
   const asOf = rec?.asOf ?? addMonths(baseMonth, -1);
   const out: PensionRecord = { id: rec?.id ?? newId(), member: m.id, kind, asOf };
-  const amounts = { basic: rec?.amounts?.basic ?? estimatedBox(0, UNENTERED), employee: rec?.amounts?.employee ?? estimatedBox(0, UNENTERED) };
+  // まだ額を入れていない印のままの箱は、新しい入れ方の文（写す書類）に入れ替える
+  const placeholder = (b: PensionAmount | undefined) => (b === undefined || isUnentered(b) ? estimatedBox(0, unentered(kind)) : b);
+  const amounts = { basic: placeholder(rec?.amounts?.basic), employee: placeholder(rec?.amounts?.employee) };
   if (kind === "statementUnder50" || kind === "statementOver50") {
     out.months = rec?.months ?? { basic: 0, employee: 0 };
     out.amounts = { ...rec?.amounts, ...amounts };
@@ -52,6 +90,13 @@ const AMOUNT_LABEL: Record<string, [string, string]> = {
   statementOver50: ["老齢基礎年金（65歳からの見込額）", "老齢厚生年金（65歳からの見込額）"],
   receiving: ["老齢基礎年金（今の年額）", "老齢厚生年金（今の年額・報酬比例部分）"],
   projection: ["老齢基礎年金（見込額）", "老齢厚生年金（見込額）"],
+};
+
+/** 額の欄の説明（写す書類の欄） */
+const AMOUNT_HELP: Record<string, string> = {
+  statementUnder50: "ねんきん定期便の「これまでの加入実績に応じた年金額」の欄の額",
+  statementOver50: "ねんきん定期便の「老齢年金の見込額」の欄の額（65歳から受け取る額）",
+  receiving: "年金額改定通知書の年金額（年額）。年金振込通知書の額（2か月分・税などを引いた後）ではありません",
 };
 
 function claimFields(m: Member, rec: PensionRecord, find: Finder, prefix: string): FieldDef[] {
@@ -161,23 +206,33 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     plain({ key: `${prefix}/asOf`, item: "pensionRecord.asOf", label: rec.kind === "history" ? "加入歴の終わりの月" : "書類の作成年月", level: "simple", kind: "ym", find, path: ["asOf"], help: "この月より後の加入は、働き方の期間から足します" }),
   ];
   if (rec.kind === "statementUnder50" || rec.kind === "statementOver50") {
+    // 加入月数が0か月のままなら「仮」の印を付ける（カードは「推定あり」になる）
+    const missing = (f: FieldDef): FieldDef => ({
+      ...f,
+      get: (w) => {
+        const st = f.get(w);
+        return statementMonthsMissing(recordOf(w.request.input.household, m.id)) ? { ...st, assumed: "未入力（0か月のまま。定期便の加入月数を写してください）" } : st;
+      },
+    });
     fields.push(
-      plain({ key: `${prefix}/months/basic`, item: "pensionRecord.months", label: "国民年金の加入月数（年金額に反映する月）", level: "simple", kind: "int", suffix: "か月", min: 0, max: 600, find, path: ["months", "basic"], help: "定期便の「加入期間」の欄の国民年金（計）。免除・猶予の月は含めません" }),
-      plain({ key: `${prefix}/months/employee`, item: "pensionRecord.months", label: "厚生年金の加入月数", level: "simple", kind: "int", suffix: "か月", min: 0, max: 900, find, path: ["months", "employee"] }),
+      ...[
+        plain({ key: `${prefix}/months/basic`, item: "pensionRecord.months", label: "国民年金の加入月数（年金額に反映する月）", level: "simple", kind: "int", suffix: "か月", min: 0, max: 600, find, path: ["months", "basic"], help: "定期便の「加入期間」の欄の国民年金（計）。免除・猶予の月は含めません" }),
+        plain({ key: `${prefix}/months/employee`, item: "pensionRecord.months", label: "厚生年金の加入月数", level: "simple", kind: "int", suffix: "か月", min: 0, max: 900, find, path: ["months", "employee"] }),
+      ].map(missing),
       plain({ key: `${prefix}/months/qualifying`, item: "pensionRecord.months", label: "受給資格期間の月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 900, find, path: ["months", "qualifying"], optional: true, help: "空欄なら、加入月数と免除・猶予の月数の合計" }),
     );
   }
   const labels = AMOUNT_LABEL[rec.kind];
   if (labels !== undefined) {
     fields.push(
-      yenBox({ key: `${prefix}/amounts/basic`, item: "pensionRecord.amounts", label: labels[0], level: "simple", basis: "annual", find, path: ["amounts", "basic"], optional: true }),
-      yenBox({ key: `${prefix}/amounts/employee`, item: "pensionRecord.amounts", label: labels[1], level: "simple", basis: "annual", find, path: ["amounts", "employee"], optional: true }),
+      yenBox({ key: `${prefix}/amounts/basic`, item: "pensionRecord.amounts", label: labels[0], level: "simple", basis: "annual", find, path: ["amounts", "basic"], optional: true, ...(AMOUNT_HELP[rec.kind] !== undefined ? { help: AMOUNT_HELP[rec.kind] as string } : {}) }),
+      yenBox({ key: `${prefix}/amounts/employee`, item: "pensionRecord.amounts", label: labels[1], level: "simple", basis: "annual", find, path: ["amounts", "employee"], optional: true, ...(AMOUNT_HELP[rec.kind] !== undefined ? { help: AMOUNT_HELP[rec.kind] as string } : {}) }),
       yenBox({ key: `${prefix}/amounts/transitional`, item: "pensionRecord.amounts", label: "経過的加算", level: "detail", basis: "annual", find, path: ["amounts", "transitional"], optional: true }),
       yenBox({ key: `${prefix}/amounts/special`, item: "pensionRecord.amounts", label: "特別支給の老齢厚生年金（報酬比例部分）", level: "detail", basis: "annual", find, path: ["amounts", "special"], optional: true }),
     );
   }
   fields.push(...claimFields(m, rec, find, prefix));
-  const groups: GroupDef[] = [{ key: `pension/${m.id}`, title: `${who}の公的年金`, level: "simple", fields, actions: [] }];
+  const groups: GroupDef[] = [{ key: `pension/${m.id}`, title: `${who}の公的年金`, ...(statementMonthsMissing(rec) ? { note: monthsMissingText(rec.kind) } : {}), level: "simple", fields, actions: [] }];
 
   if (rec.kind === "statementUnder50" || rec.kind === "statementOver50") {
     const c1 = rec.months?.category1;

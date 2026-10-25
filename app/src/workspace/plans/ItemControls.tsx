@@ -27,11 +27,16 @@ export function manInputText(yen: number): string {
 /** スライダーの横の数値の欄。打って Enter か欄を離れたら確定（正の計算）。per は「月」「年」 */
 export function AmountInput({ value, onCommit, label, per, id }: { value: number; onCommit: (yen: number) => void; label: string; per: "月" | "年" | ""; id?: string }) {
   const [draft, setDraft] = useState<string | null>(null);
+  /** 使えない文字のまま離れたときの知らせ（前の値のままにしたこと） */
+  const [rejected, setRejected] = useState<string | null>(null);
   const shown = manInputText(value);
   const bad = draft !== null && parseManInput(draft) === null;
+  const reason = (t: string) => (/^-/.test(normalizeNumberText(t)) ? "マイナスの額は入れられません" : "0 以上の数字（万円）で入れてください");
+  const problem = bad ? reason(draft) : rejected;
   const commit = (t: string) => {
     const v = parseManInput(t);
     setDraft(null);
+    if (v === null) setRejected(`「${t}」は入れられないため、前の値のままです。${reason(t)}`);
     if (v !== null && v !== value) onCommit(v);
   };
   return (
@@ -47,7 +52,10 @@ export function AmountInput({ value, onCommit, label, per, id }: { value: number
         aria-invalid={bad ? true : undefined}
         data-amount-input
         onFocus={() => setDraft(shown)}
-        onInput={(e) => setDraft((e.currentTarget as HTMLInputElement).value)}
+        onInput={(e) => {
+          setDraft((e.currentTarget as HTMLInputElement).value);
+          setRejected(null);
+        }}
         onBlur={(e) => commit((e.currentTarget as HTMLInputElement).value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
@@ -58,6 +66,11 @@ export function AmountInput({ value, onCommit, label, per, id }: { value: number
         }}
       />
       <span class="amt-u">万円</span>
+      {problem !== null ? (
+        <span class="amt-bad" role="alert" data-amount-problem>
+          {problem}
+        </span>
+      ) : null}
     </span>
   );
 }

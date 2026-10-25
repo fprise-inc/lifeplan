@@ -109,11 +109,45 @@ function Actions({ actions, wh, onEdit, note }: { actions: ActionDef[]; wh: Work
   );
 }
 
+/**
+ * 入れた文字を使えない理由（欄のすぐ下に言葉で出す。赤い枠だけにしない）。使える文字なら null。
+ * 円の欄は万円か円か（unit）で読む
+ */
+export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): string | null {
+  const t = normalizeNumberText(text);
+  if (t === "") return f.optional === true ? null : "空にはできません。値を入れてください";
+  switch (f.kind) {
+    case "yen": {
+      const v = parseYen(text, unit);
+      if (v === null) return `数字で入れてください（例: ${unit === "man" ? "12.5" : "125000"}）`;
+      return v < 0 ? "マイナスの額は入れられません。0 以上の額を入れてください" : null;
+    }
+    case "int": {
+      const v = parseInteger(text);
+      if (v === null) return "整数で入れてください";
+      const out = (f.min !== undefined && v < f.min) || (f.max !== undefined && v > f.max);
+      if (!out) return null;
+      const u = (f.suffix ?? "").replace(/(まで|から)$/, "");
+      return f.min !== undefined && f.max !== undefined ? `${f.min}${u}〜${f.max}${u}の範囲で入れてください` : f.min !== undefined ? `${f.min}${u}以上で入れてください` : `${f.max ?? ""}${u}以下で入れてください`;
+    }
+    case "pct":
+      return rateFromPct(text) === null ? "数字で入れてください（例: 1.5）" : null;
+    case "decimal":
+      return /^\d+(\.\d+)?$/.test(t) ? null : "0 以上の数字で入れてください";
+    case "ym":
+      return parseYearMonth(text) === null ? "年月は「2041-06」のように西暦の年と月で入れてください" : null;
+    default:
+      return null;
+  }
+}
+
 /** 欄1つ。打っている間は下書きの文字を持ち、読める値になったらすぐ世帯に入れる（計算は親が間引く） */
 export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   const state = f.get(wh);
   const sug = useContext(FieldSuggestions)[f.key];
   const [draft, setDraft] = useState<string | null>(null);
+  /** 使えない文字のまま欄を離れたときの知らせ（前の値のままにしたこと）。次に打つまで出す */
+  const [rejected, setRejected] = useState<string | null>(null);
   const [unit, setUnit] = useState<YenUnit>(f.kind === "yen" ? (f.unit ?? "man") : "man");
   const [period, setPeriod] = useState<YenPeriod>(f.kind === "yen" && f.basis === "annual" ? "annual" : "monthly");
   const id = `fld-${f.key.replace(/[^A-Za-z0-9_-]/g, "_")}`;
@@ -130,6 +164,8 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
     ) : null;
 
   let control;
+  /** 入れた文字を使えない理由（打っている間）か、使えないまま離れた知らせ */
+  let problem: string | null = null;
   if (f.readOnly !== undefined) {
     control = <span class="ro">{f.kind === "select" ? (f.options.find((o) => o.value === state.value)?.label ?? "") : state.value === null ? "—" : String(state.value)}</span>;
   } else if (f.kind === "select") {
@@ -176,6 +212,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
       return text;
     };
     const bad = draft !== null && parse(draft) === undefined;
+    problem = bad ? (rejectReason(f, draft, unit) ?? "この値は入れられません") : rejected;
     control = (
       <input
         id={id}
@@ -185,10 +222,12 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
         value={draft ?? shown}
         placeholder={f.kind === "ym" ? "例: 2041-06" : f.kind === "text" ? (f.placeholder ?? "") : state.estimated != null ? "空欄＝推定" : ""}
         aria-invalid={bad ? true : undefined}
+        aria-describedby={problem !== null ? `${id}-problem` : undefined}
         onFocus={() => setDraft(shown)}
         onInput={(e) => {
           const t = (e.currentTarget as HTMLInputElement).value;
           setDraft(t);
+          setRejected(null);
           if (f.kind === "text") return;
           const v = parse(t);
           if (v !== undefined) commit(v);
@@ -197,6 +236,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
           const t = (e.currentTarget as HTMLInputElement).value;
           const v = parse(t);
           if (v !== undefined) commit(v);
+          else setRejected(`「${t}」は入れられないため、前の値のままです。${rejectReason(f, t, unit) ?? ""}`);
           setDraft(null);
         }}
         onKeyDown={(e) => {
@@ -253,6 +293,11 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
               </ul>
             </details>
           ) : null}
+        </div>
+      ) : null}
+      {problem !== null ? (
+        <div class="fld-help bad" id={`${id}-problem`} role="alert" data-field-problem={f.key}>
+          {problem}
         </div>
       ) : null}
       {state.derived != null ? <div class="fld-help warn">{state.derived}</div> : null}

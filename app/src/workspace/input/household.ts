@@ -188,3 +188,41 @@ export function standardEndYear(h: Household): number {
   const adults = h.members.filter((m) => m.kind === "self" || m.kind === "spouse");
   return Math.max(...adults.map((m) => parseYm(ageReachedMonth(m, 100)).y));
 }
+
+/** 子の独立の標準の年齢（子を足したときの初めの値） */
+export const CHILD_LEAVES_AGE = 22;
+
+/** 子の独立の標準の時点: 22歳になる月 */
+export const standardLeaves = (child: Member): string => ageReachedMonth(child, CHILD_LEAVES_AGE);
+
+/**
+ * 標準の値を追いかける（0008 の追記 2026-10-25）: 家族の生年月・続柄を変えた・家族を足した・外した後に、
+ * 変える前に標準の値のままだった値（表の最後の年・子の独立の年月）を、変えた後の標準の値に入れ直す。
+ * 「人が入れた値か、まだ標準の値か」は世帯データに持たないので、今の値が変える前の標準の値と同じなら標準の値とみなす。
+ * 標準と違う値（人が入れた値）と、この変更そのものが書き換えた値は変えない
+ */
+export function followStandards(before: WorkingHousehold, after: WorkingHousehold): WorkingHousehold {
+  const hb = before.request.input.household;
+  const ha = after.request.input.household;
+  const endBefore = before.request.input.endYear;
+  const stdBefore = standardEndYear(hb);
+  const stdAfter = standardEndYear(ha);
+  const fixEnd = Number.isFinite(stdBefore) && Number.isFinite(stdAfter) && endBefore === stdBefore && after.request.input.endYear === endBefore && stdAfter !== endBefore;
+  const kids: { id: string; at: string }[] = [];
+  for (const m of ha.members) {
+    const old = hb.members.find((x) => x.id === m.id);
+    if (old === undefined || old.kind !== "child" || m.kind !== "child") continue;
+    const was = old.leaves?.at;
+    if (was === undefined || was !== standardLeaves(old) || JSON.stringify(m.leaves) !== JSON.stringify(old.leaves)) continue;
+    const next = standardLeaves(m);
+    if (next !== was) kids.push({ id: m.id, at: next });
+  }
+  if (!fixEnd && kids.length === 0) return after;
+  return mutate(after, (h, req) => {
+    if (fixEnd) req.input.endYear = stdAfter;
+    for (const k of kids) {
+      const m = h.members.find((x) => x.id === k.id);
+      if (m !== undefined) m.leaves = { at: k.at };
+    }
+  });
+}
