@@ -184,14 +184,20 @@ describe("公的年金", () => {
     expect(basic.slice(0, 4)).toEqual([["2026-08", 141333], ["2026-10", 141333], ["2026-12", 141333], ["2027-02", 141334]]);
   });
 
-  it("基礎と厚生を別々に繰上げ・繰下げる（増額率 0.7%/月、減額率 0.4%/月）", () => {
-    const req = setH(household({ baseMonth: "2026-04", endYear: 2032, members: [member("h", "self", "1961-05", { sex: "male" })] }), "pensionRecords", [
-      rec("h", "projection", { asOf: "2026-04", amounts: { basic: box(800000), employee: box(1000000) }, claim: { basic: { at: "2031-06" }, employee: { at: "2024-06" } } }),
-    ]);
-    const o = entry<PensionOutput>(req, "pension.oldAge", { member: H });
-    expect(monthOf(o, "2026-06")?.employee).toBe(904000); // 24か月の繰上げ: 1−0.096
-    expect(monthOf(o, "2026-06")?.basic).toBe(0);
-    expect(monthOf(o, "2031-06")?.basic).toBe(1136000); // 60か月の繰下げ: 1.42
+  it("繰上げ（減額率 0.4%/月）は基礎と厚生を同時に、繰下げ（増額率 0.7%/月）は別々に", () => {
+    const plan = (claim: Record<string, unknown>) =>
+      setH(household({ baseMonth: "2026-04", endYear: 2032, members: [member("h", "self", "1961-05", { sex: "male" })] }), "pensionRecords", [
+        rec("h", "projection", { asOf: "2026-04", amounts: { basic: box(800000), employee: box(1000000) }, claim }),
+      ]);
+    // 厚生だけを繰り上げる入力: 繰上げは同時に請求する決まり（国民年金法附則9条の2第2項）なので、基礎も同じ月から
+    const early = entry<PensionOutput>(plan({ basic: { at: "2031-06" }, employee: { at: "2024-06" } }), "pension.oldAge", { member: H });
+    expect(monthOf(early, "2026-06")?.employee).toBe(904000); // 24か月の繰上げ: 1−0.096
+    expect(monthOf(early, "2026-06")?.basic).toBe(723200);
+    // 基礎だけを繰り下げる
+    const late = entry<PensionOutput>(plan({ basic: { at: "2031-06" } }), "pension.oldAge", { member: H });
+    expect(monthOf(late, "2026-06")?.employee).toBe(1000000);
+    expect(monthOf(late, "2026-06")?.basic).toBe(0);
+    expect(monthOf(late, "2031-06")?.basic).toBe(1136000); // 60か月の繰下げ: 1.42
   });
 
   it("在職老齢年金: 基本月額20万円＋標準報酬40万円が調整額50万円を超える分の半分（月5万円）を止める", () => {

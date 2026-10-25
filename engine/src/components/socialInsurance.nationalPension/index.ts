@@ -1,12 +1,14 @@
 // 国民年金の保険料（第1号被保険者。全国一律の月額。年度ごとの値）。納付期限は翌月末なので翌月に払う。
 // 産前産後の免除の月は払わない。制度データの後の年度は、最後の値に賃金上昇率（前提）を掛けて10円単位に丸めて延ばす（0007 の7）
-// 障害の想定で1・2級の障害基礎年金を受ける月（障害認定日の翌月から）は払わない（法定免除。改訂3。免除の月の老齢基礎年金の額の減り（国庫負担の分）は扱わない）
+// 障害の想定で1・2級の障害基礎年金を受ける月（障害認定日の翌月から）は払わない（法定免除。改訂3）。その月は老齢基礎年金の額では全額免除の月として数える
+// （pension.oldAgeBase。期間は SDK の legalExemptionWindow で共通）
 import {
   addMonths,
   defineComponent,
   fiscalYearOf,
   fiscalYearStart,
   formatYm,
+  legalExemptionWindow,
   monthIndex,
   paidByYear,
   parseYm,
@@ -65,8 +67,9 @@ export default defineComponent<{ member: string; fromYear: number }, PremiumOutp
     const flows: Flow[] = [];
     // 法定免除（障害1・2級の想定。働けるようになる月の前まで）
     const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: input.member }).event;
-    const exemptFrom = ev !== null && ev.kind === "disability" && ev.grade !== undefined && ev.grade <= 2 && ev.recognition !== undefined ? addMonths(parseYm(ev.recognition), 1) : null;
-    const exemptTo = ev?.recovery === undefined ? null : parseYm(ev.recovery);
+    const lw = legalExemptionWindow(ev);
+    const exemptFrom = lw === null ? null : lw.from;
+    const exemptTo = lw === null ? null : lw.to;
     for (const c of months) {
       if (c.category !== "1" || c.premiumExempt) continue;
       const m = parseYm(c.month);

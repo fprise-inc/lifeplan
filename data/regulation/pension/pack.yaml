@@ -21,9 +21,13 @@
 #   （e-Gov の国民年金法・厚生年金保険法のデータに抜き出しの形で入っている昭和60年改正法の附則12条・57条・61条・73条と附則別表第三・第九、日本年金機構の老齢年金ガイド・
 #   年金給付の経過措置一覧（令和8年度）・遺族厚生年金の案内）と2つの読み方で照らし合わせ、reviewed の行を足した（照合: claude、2026-10-10）。古い行には supersededIn を書いた。
 #   値は変えていない。新しい値・期間は無いので訂正番号を上げた。2026.9.0 の note の「e-Gov に改正法の附則の本文が無い」は誤りだったので直した
+# 2026.10.0: 令和10年4月以後に加算された老齢厚生年金の配偶者の加給年金額（pension.spouseSupplement.reform2028.*: 202,200円・特別加算 149,200円×改定率）と、
+#   障害厚生年金の配偶者の加給年金額（pension.disability.spouseSupplement.baseAmount。見直さない）を新しいファイルで足した。在職老齢年金の支給停止調整額
+#   （pension.workingAdjustment.threshold）は毎年度改定されるので、令和8年度の行の適用を令和8年度に限った行（r4）で置き換え（r3 に supersededIn）、
+#   linkage indexed と改定の端数処理（pension.workingAdjustment.threshold.rounding）を足した。どれも原本と2つの読み方で照らし合わせた（reviewed）
 packId: regulation.pension
 formatVersion: "0.1"
-version: "2026.9.1"
+version: "2026.10.0"
 features: []
 title: 公的年金
 requires:
