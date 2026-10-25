@@ -155,6 +155,37 @@ describe("補足的老齢年金生活者支援給付金（B-4。【架空の見�
     expect(benefit(950000).dec).toBe(0);
   });
 
+  it("判定の年は、計算基準月に払っている住民税の年度より前にしない（計算基準月が6〜9月の年の9月までの分。改訂6）", () => {
+    // 計算基準月 2026年7月: 7〜9月の分は本来は2025年度の住民税の非課税で判定するが、表に載る最初の年度の2026年度で判定する
+    const req = household({ baseMonth: "2026-07", endYear: 2027, members: [member("pt.a", "self", "1958-01", { sex: "male" })] });
+    const months = ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"].map((month) => ({ month, basic: 800000, employee: 0, special: 0, suspended: 0 }));
+    const paid = (exemptYear: number) => {
+      const r = runEngine(req, fictionalPacks(), {
+        checkInternal: true,
+        entry: { component: "pension.supplementaryBenefit", input: { member: A } },
+        stubs: {
+          "pension.oldAge": () => ({ flows: [], payments: [], months }),
+          "pension.record": () => ({ kind: "projection", fiscalYear: 2026, asOf: "2026-04", basicMonths: 480, employeeMonths: 0, employee2059Months: 0, qualifyingMonths: 480, amounts: { basic: null, employee: null, transitional: null, special: null }, months: [] }),
+          "residentTax.exemption": (i) => {
+            const exempt = (i as { fiscalYear: number }).fiscalYear === exemptYear;
+            return { perCapitaExempt: exempt, incomeLevyExempt: exempt, persons: 1 };
+          },
+          "tax.totalIncome": () => ({ total: 0, employment: 0, publicPension: 0 }),
+          "tax.publicPensionIncome": () => ({ revenue: 780000, deduction: 780000, income: 0 }),
+        },
+      });
+      return (r.entryOutput as { flows: { ym: string; amount: number }[] }).flows.map((f) => [f.ym, f.amount]);
+    };
+    // 2025年度だけ非課税なら払わない。2026年度が非課税なら7月分から（8月に6・7月分のうち計算基準月からの7月分。12月分は翌年2月）
+    expect(paid(2025)).toEqual([]);
+    expect(paid(2026)).toEqual([
+      ["2026-08", 5000],
+      ["2026-10", 10000],
+      ["2026-12", 10000],
+      ["2027-02", 5000],
+    ]);
+  });
+
   it("補足的所得基準額が制度データに無ければ、所得基準額を超える年は計算せずに知らせる", () => {
     const packs = fictionalPacks().map((p) => ({ ...p, values: (p as unknown as { values: { id: string }[] }).values.filter((v) => !v.id.endsWith("supplementaryIncomeLimit")) })) as never;
     const r = benefit(850000, packs);

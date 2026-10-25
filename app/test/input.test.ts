@@ -6,7 +6,7 @@ import { REPO_DIR } from "../scripts/lib.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { addMonths, readLevers } from "../src/workspace/levers.ts";
-import { allFields, type FieldDef, type StageDef, type Val } from "../src/workspace/input/form.ts";
+import { allFields, type FieldDef, type StageDef, type StageId, type Val } from "../src/workspace/input/form.ts";
 import { contingencyInputSections } from "../src/workspace/contingency/inputs.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { buildStage, buildStages, STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
@@ -186,6 +186,38 @@ describe("段階の操作（足す・外す・選ぶ）", () => {
     expect(() => preview(w4.request)).not.toThrow();
   });
 
+  it("大学在学中（19歳以上）の子に進路を入れても計算できる。年収700万円の世帯には修学支援が出ない（50代の夫婦と大学生の子）", () => {
+    // 前は、修学支援の判定が計算基準月より前の年度（2025年度）の住民税を引き、2024年の所得の制度の値が無く E_PARAM_NO_VALUE で止まった
+    let wh = addMember(addMember(blankHousehold("2026-10"), "spouse"), "child");
+    const idOf = (kind: string) => wh.request.input.household.members.find((m) => m.kind === kind)!.id;
+    const [self, spouse, child] = [idOf("self"), idOf("spouse"), idOf("child")];
+    const set = (stage: StageId, key: string, v: Val) => {
+      const f = allFields(buildStage(stage, wh)).find((x) => x.key === key);
+      if (f === undefined) throw new Error(key);
+      wh = withRefreshedEstimates(f.set(wh, v));
+    };
+    const act = (stage: StageId, key: string) => {
+      const a = buildStage(stage, wh).sections.flatMap((s) => [...s.actions, ...s.groups.flatMap((g) => g.actions)]).find((x) => x.key === key);
+      if (a === undefined) throw new Error(key);
+      wh = withRefreshedEstimates(a.run(wh));
+    };
+    set("family", `family/${self}/birth`, "1973-04");
+    set("family", `family/${spouse}/birth`, "1975-04");
+    set("family", `family/${child}/birth`, "2006-04");
+    act("work", `work/${self}/start`);
+    act("work", `work/${spouse}/start`);
+    set("work", `work/${spouse}/now/type`, "partTime");
+    set("work", `work/${self}/now/annual`, 5800000);
+    set("work", `work/${self}/now/bonus`, 1200000);
+    set("work", `work/${spouse}/now/annual`, 1000000);
+    set("work", `work/${spouse}/now/bonus`, 0);
+    act("education", `edu/${child}/add`);
+    expect(wh.request.input.household.goals?.[0]?.education?.stages.map((s) => s.stage)).toEqual(["university"]);
+    const r = preview(wh.request);
+    expect(r.table.filter((c) => c.row === "cf.expense.education" || c.row.startsWith("cf.expense.education.")).reduce((s, c) => s + c.amount, 0)).toBeGreaterThan(0);
+    expect(r.table.filter((c) => c.row === "cf.income.benefit.education").reduce((s, c) => s + c.amount, 0)).toBe(0);
+  });
+
   it("すべての段階の「足す」操作の後も計算できる（空の世帯・モデル世帯）", () => {
     for (const start of [blankHousehold("2026-10"), open("salariedCoupleTwoKids"), open("housingGiftFromParents")]) {
       let wh = addMember(addMember(start, "spouse"), "child");
@@ -208,13 +240,9 @@ describe("段階の操作（足す・外す・選ぶ）", () => {
         if (f.kind !== "select" || f.structural !== true) continue;
         for (const o of f.options) {
           const w = f.set(wh, o.value);
-          try {
-            preview(w.request);
-          } catch (e) {
-            // 既知の制限: 国民健康保険の所得割の基礎控除の制度データが2025年度からなので、
-            // 2024年度以前に国保の月がある世帯（過去から自営業の期間など）は計算エンジンが値なしで止まる（PR に書いた残り）
-            expect(String(e), `${f.key}=${o.value}`).toContain("socialInsurance.nationalHealth.incomeDeduction");
-          }
+          // 過去から自営業の期間がある世帯（前の年の社会保険料控除のために、2024年度の国民健康保険料を計算する）も止まらない。
+          // 計算基準月の年度より前の年度は、計算基準月の年度の所得と制度の値で計算する（前は2024年度の基礎控除の値が無く止まり、既知の制限にしていた）
+          expect(() => preview(w.request), `${f.key}=${o.value}`).not.toThrow();
         }
       }
     }

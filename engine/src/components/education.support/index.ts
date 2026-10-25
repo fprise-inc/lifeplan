@@ -10,6 +10,10 @@
 //   学生だけ（施行規則10条2項4号）。減免の額は割合を掛けた額の100円未満を切り上げる（施行令2条1項2号。制度データの端数処理）。
 //   高等学校等就学支援金は、教育の目標で対象外（highSchoolSupport: ineligible。令和8年4月からの国籍・在留資格の要件）とした子には出さない。
 //   入れていない子は対象とみなし、令和8年度以後は知らせる（N_ASSUMED）
+// 改訂3: 計算基準月より前に終わる年度・半期は判定しない（お金の動きが表に載らない。就学支援金も同じ）。判定に使う住民税の年度は、計算基準月に払っている
+//   住民税の年度（residentTaxYearOf）より前にしない（それより前の年度は表に無く、その所得の年の制度の値は制度データに無いことがある。
+//   計算基準月が6〜9月の年の4〜9月の分は、その年度の住民税で判定する）。住民税の決定額だけを入れた年度は、決定額の10分の6（市町村民税の
+//   標準の割合）を、調整控除の後の市町村民税の所得割（課税標準額×6%−調整控除の額）とみなす（均等割の分だけ多め。保育料と同じ。0029 の3）
 // 支援の額は名目額で、教育費の上昇率を当てない（0010 の5）
 import {
   addMonths,
@@ -19,6 +23,7 @@ import {
   formatYm,
   monthIndex,
   RATE_ZERO,
+  residentTaxYearOf,
   yearOf,
   yen,
   type Flow,
@@ -59,7 +64,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
   id: "education.support",
   title: "教育の公的支援（就学支援金・修学支援）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "education.cost": ">=1 <2", "residentTax.annual": ">=1 <2" },
   params: Object.values(P),
   reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "goal.kind", "goal.owner", "goal.education"],
@@ -70,6 +75,8 @@ export default defineComponent<{ member: string }, FlowsResult>({
     const enrollments = ctx.call<EducationCostOutput>("education.cost", { member: child }).enrollments;
     if (!enrollments.some((e) => e.stage === "highSchool" || e.stage === "university" || e.stage === "juniorCollege" || e.stage === "vocational")) return { flows: [] };
     const { base, end } = ctx.time;
+    // 判定に使う住民税の最初の年度（計算基準月に払っている住民税の年度）
+    const firstTaxYear = residentTaxYearOf(base);
     const members = ctx.list<MemberInput>("member");
     const relations = ctx.list<RelationInput>("relation");
     const parents = relations.filter((r): r is Extract<RelationInput, { type: "parentOf" }> => r.type === "parentOf" && r.child === child).map((r) => r.parent);
@@ -90,7 +97,12 @@ export default defineComponent<{ member: string }, FlowsResult>({
       let sum = 0;
       for (const id of earners) {
         const rt = ctx.call<ResidentTaxOutput>("residentTax.annual", { member: id, fiscalYear: fy });
-        if (rt.assessed) ctx.notice("N_APPROXIMATED", ["educationSupport.higher.assessedResidentTax"]);
+        if (rt.assessed) {
+          // 決定額だけが入っているとき: 課税標準額の内訳が無いので、決定額の10分の6（市町村民税の標準の割合）を課税標準額×6%−調整控除の額とみなす
+          if (rt.total > 0) ctx.notice("N_APPROXIMATED", ["educationSupport.higher.assessedResidentTax"]);
+          sum += ctx.money.mulRatio(rt.total, 6, 10, "conv.expense.share");
+          continue;
+        }
         sum += ctx.money.mulRate(rt.taxable, r, "conv.tax.exact") - rt.adjustmentCredit.municipal;
       }
       const basis = at.money.round(yen(sum > 0 ? sum : 0), P.calcRounding);
@@ -116,6 +128,8 @@ export default defineComponent<{ member: string }, FlowsResult>({
       const from = ctx.time.resolve({ at: e.from });
       if (e.stage === "highSchool") {
         for (const f of e.fees) {
+          // 計算基準月より前に終わる年度は判定しない（お金の動きが表に載らず、制度データに無い年度を知らせない）
+          if (monthIndex(f.fiscalYear + 1, 3) < base) continue;
           const at = ctx.at(monthIndex(f.fiscalYear, 4));
           const id = e.sector === "private" ? P.hsPrivate : P.hsPublic;
           if (!at.has(id)) {
@@ -141,6 +155,8 @@ export default defineComponent<{ member: string }, FlowsResult>({
       }
       const publicSector = e.sector !== "private";
       for (const f of e.fees) {
+        // 計算基準月より前に終わる年度は判定しない（お金の動きが表に載らない）
+        if (monthIndex(f.fiscalYear + 1, 3) < base) continue;
         const at = ctx.at(monthIndex(f.fiscalYear, 4));
         if (!at.has(P.categories)) continue;
         const multiMin = at.has(P.multiChild) ? at.paramCount(P.multiChild) : null;
@@ -151,14 +167,17 @@ export default defineComponent<{ member: string }, FlowsResult>({
         const tuitionHalves = ctx.money.allocate(f.tuition, [1, 1], "conv.expense.share", "first");
         const capHalves = ctx.money.allocate(capT, [1, 1], "conv.expense.share", "first");
         for (let h = 0; h < 2; h++) {
-          const cat = categoryOf(h === 0 ? f.fiscalYear - 1 : f.fiscalYear);
+          const halfStart = monthIndex(f.fiscalYear, h === 0 ? 4 : 10);
+          // 計算基準月より前に終わる半期は判定しない
+          if (addMonths(halfStart, 5) < base) continue;
+          // 4〜9月は前年度、10〜3月はその年度の住民税で判定する（判定に使う住民税の最初の年度より前にしない）
+          const cat = categoryOf(Math.max(h === 0 ? f.fiscalYear - 1 : f.fiscalYear, firstTaxYear));
           const eligible = cat >= 1 && cat <= 4;
           // 第IV区分の減免は、多子世帯でなければ理工農系の学生だけ
           const waived = eligible && (cat <= 3 || e.scienceAgriculture);
           const ratio = multi ? ctx.rate.of("1") : waived ? (bracketFor(at.paramBrackets(P.waiverRatio) ?? [], yen(cat)).rate ?? RATE_ZERO) : RATE_ZERO;
           // 減免の額の端数（100円未満を切り上げ。全額のときは端数が出ない）
           const waiverOf = (x: Yen): Yen => (at.has(P.waiverRounding) ? at.money.mulRate(x, ratio, P.waiverRounding) : ctx.money.mulRate(x, ratio, "conv.expense.share"));
-          const halfStart = monthIndex(f.fiscalYear, h === 0 ? 4 : 10);
           const t = tuitionHalves[h] as Yen;
           const c = capHalves[h] as Yen;
           push(halfStart, waiverOf(t < c ? t : c), "education.support.tuitionWaiver");

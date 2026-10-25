@@ -22,6 +22,15 @@ export function fiscalYearOf(m: MonthIndex): number {
   return monthOf(m) >= 4 ? yearOf(m) : yearOf(m) - 1;
 }
 
+/**
+ * その月に払っている住民税の年度（6月から翌年5月。前年の所得に対する年度分。0003 の2）。計算基準月のこの年度が、計算が住民税を求める
+ * 最初の年度（plan.memberFlows）。それより前の年度の住民税で決まる判定（修学支援・保育料・年金生活者支援給付金）は、この年度の住民税で行う
+ * （前の年度の所得の年の制度の値は制度データに無いことがある。0007 の追記: 最初の行より前の日は値が無い）
+ */
+export function residentTaxYearOf(m: MonthIndex): number {
+  return monthOf(m) >= 6 ? yearOf(m) : yearOf(m) - 1;
+}
+
 /** 年度の最初の月（4月）と最後の月（翌年3月） */
 export function fiscalYearStart(fy: number): MonthIndex {
   return monthIndex(fy, 4);
@@ -109,9 +118,12 @@ export function rateOverride<T extends { readonly kind: string; readonly fromFis
 /** 年金から保険料・住民税を差し引く（特別徴収）年金の年額の下限の値ID。読む部品は params と requires（pension.oldAge）に書く */
 export const PENSION_SPECIAL_MINIMUM = "socialInsurance.specialCollection.minimumPension";
 
-/** その年度（4月〜翌年3月）に払う年金が、特別徴収の下限（年18万円）以上か */
-export function pensionSpecial(ctx: Ctx, member: string, fy: number): boolean {
-  const min = ctx.at(fiscalYearStart(fy)).paramYen(PENSION_SPECIAL_MINIMUM);
+/**
+ * その年度（4月〜翌年3月）に払う年金が、特別徴収の下限（年18万円）以上か。下限は valuesFy の年度の値（計算基準月の年度より前の年度を、
+ * 計算基準月の年度の制度の値で計算する保険料の部品のため。省略はその年度）
+ */
+export function pensionSpecial(ctx: Ctx, member: string, fy: number, valuesFy: number = fy): boolean {
+  const min = ctx.at(fiscalYearStart(valuesFy)).paramYen(PENSION_SPECIAL_MINIMUM);
   if (min === null) return false;
   let s = 0;
   // その年度の支払いだけを読む（ほかの年度の年金が変わっても、呼んだ部品を計算し直さない）

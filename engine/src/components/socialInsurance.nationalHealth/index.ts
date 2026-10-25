@@ -54,7 +54,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.nationalHealth",
   title: "国民健康保険料",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -77,9 +77,11 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   output: "flows.output",
   compute(input, ctx) {
     const fy = input.fiscalYear;
-    // 判定に使う所得の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得で判定する（PR の提案）
+    // 判定に使う所得と制度の値の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得と
+    // 制度の値で計算する（PR の提案。制度の値は改訂3から: その年度の値は制度データに無いことがある）
     const jy = Math.max(fy, fiscalYearOf(ctx.time.base));
     const start = fiscalYearStart(fy);
+    const valuesAt = fiscalYearStart(jy);
     const ageAt = start < ctx.time.base ? ctx.time.base : start;
     const members = ctx.list<MemberInput>("member");
     const head = members.find((m) => m.kind === "self")?.id ?? (members[0] as MemberInput).id;
@@ -97,7 +99,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       const amount = boxValue((given as PremiumAssessmentInput).amount) ?? yen(0);
       return { flows: installmentFlows(ctx, fy, false, head, [{ row: "cf.taxSi.health", amount, formula: "socialInsurance.nationalHealth.assessed" }]) };
     }
-    const at = ctx.at(start);
+    const at = ctx.at(valuesAt);
     const override = rateOverride(ctx.list<PremiumRateInput>("premiumRate"), "nationalHealth", fy);
     const totalOf = (id: string) => ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year: jy - 1 }).total;
     const deduction = at.paramYen(`${PREFIX}.incomeDeduction`) ?? yen(0);
@@ -115,7 +117,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
       if (salary || pension) earners++;
     }
-    const keep = ctx.rate.sub(RATE_ONE, reductionRatio(ctx, start, PREFIX, judged, earners, insured.length));
+    const keep = ctx.rate.sub(RATE_ONE, reductionRatio(ctx, valuesAt, PREFIX, judged, earners, insured.length));
     const parts: { row: string; amount: Yen; formula: string }[] = [];
     let missing = false;
     for (const { part, row } of PARTS) {

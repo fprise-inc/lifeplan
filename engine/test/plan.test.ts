@@ -437,6 +437,35 @@ describe("教育費（education.cost）・公的支援（education.support）・
     expect(f.every((x) => x.row === "cf.income.benefit.education" && x.member === A)).toBe(true);
   });
 
+  it("修学支援: 住民税の決定額だけの年度は、決定額の10分の6を支給額算定基準額とみなす（知らせ。改訂3）", () => {
+    // 大学の1年目（2031年度）。4〜9月は2030年度の住民税（収入なしで非課税 → 第I区分）、10〜3月は2031年度の決定額 40,000円 → 24,000円（第II区分）。
+    // 前は課税標準額を0円とみなし、決定額がいくらでも第I区分になっていた
+    const req = edit(mk([{ stage: "university", sector: "private", living: "home" }], {}, "2012-06", 0), (h) => {
+      h.residentTaxAssessments = [{ id: uid("rt"), member: A, fiscalYear: 2031, amount: box(40000) }];
+    });
+    const r = runEngine(req, fictionalPacks(), { checkInternal: true, entry: { component: "education.support", input: { member: C } } });
+    const f = (r.entryOutput as { flows: Flow[] }).flows;
+    expect(sumFlows(f, (x) => x.formula === "education.support.grant" && x.ym === "2031-05")).toBe(38300);
+    expect(sumFlows(f, (x) => x.formula === "education.support.grant" && x.ym === "2031-11")).toBe(25600);
+    expect(notices(r)).toContainEqual({ code: "N_APPROXIMATED", ids: ["education.support", "educationSupport.higher.assessedResidentTax"] });
+    // 決定額 300,000円 → 180,000円（対象外）
+    const high = edit(req, (h) => ((h.residentTaxAssessments as Obj[])[0]!.amount = box(300000)));
+    expect(sumFlows(call<{ flows: Flow[] }>(high, "education.support", { member: C }).flows, (x) => x.ym >= "2031-10" && x.ym <= "2032-03")).toBe(0);
+  });
+
+  it("修学支援: 計算基準月より前に終わる半期は判定しない。計算基準月が6〜9月の年の4〜9月の分は、計算基準月に払っている住民税の年度で判定する（改訂3）", () => {
+    // 2008年6月生まれは2027年4月に大学。計算基準月 2027年7月: 7〜9月の分は本来は2026年度の住民税（収入なしで非課税）で判定するが、
+    // 表に載る最初の年度の2027年度の住民税（決定額 300,000円 → 対象外）で判定する
+    const req = edit(mk([{ stage: "university", sector: "private", living: "home" }], {}, "2008-06", 0), (h, input) => {
+      input.baseMonth = "2027-07";
+      h.residentTaxAssessments = [{ id: uid("rt"), member: A, fiscalYear: 2027, amount: box(300000) }];
+    });
+    const f = call<{ flows: Flow[] }>(req, "education.support", { member: C }).flows;
+    expect(sumFlows(f, (x) => x.ym <= "2028-03")).toBe(0);
+    // 2028年度の10〜3月は2028年度の住民税（収入なしで非課税 → 第I区分）
+    expect(sumFlows(f, (x) => x.formula === "education.support.grant" && x.ym === "2028-11")).toBe(38300);
+  });
+
   it("児童手当: 3歳未満15,000円・3歳から10,000円・第3子30,000円、偶数月に前2か月分", () => {
     const req = edit(
       household({ members: [member("a", "self", "1985-01"), member("c1", "child", "2010-05"), member("c2", "child", "2016-05"), member("c3", "child", "2026-03")], baseMonth: "2027-01", endYear: 2030 }),
