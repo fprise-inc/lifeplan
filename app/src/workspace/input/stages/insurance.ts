@@ -38,12 +38,46 @@ function payUntilField(find: Finder, k: string): FieldDef {
   });
 }
 
+/** 計算に使う給付（受け取りを計算する種類。入院日額・手術・がん一時金・その他は保障内容に載せるだけ） */
+const COMPUTED = new Set(["death", "incomeProtection", "incapacity", "highDisability", "maturity", "annuity", "survival"]);
+/** 保険の種類ごとに、主契約に持てる計算に使う給付 */
+const MAIN_BENEFITS: Readonly<Record<string, readonly string[]>> = {
+  "insurance.term": ["death", "highDisability"],
+  "insurance.wholeLife": ["death", "highDisability"],
+  "insurance.incomeProtection": ["incomeProtection", "highDisability", "incapacity"],
+  "insurance.medical": [],
+  "insurance.cancer": [],
+  "insurance.education": ["maturity", "survival"],
+  "insurance.privateAnnuity": ["annuity"],
+  "insurance.foreignCurrency": ["death", "highDisability", "maturity", "annuity"],
+  "insurance.variable": ["death", "highDisability", "maturity"],
+  "insurance.nonLife": [],
+};
+/** 主契約が死亡保障の種類（死亡保険金の欄を出す） */
+const DEATH_MAIN = new Set(["insurance.term", "insurance.wholeLife", "insurance.foreignCurrency", "insurance.variable"]);
+
+/**
+ * 種類を変えたときの保障の始末（住まいの種類を変えたときと同じく、形の変わる選択）: 主契約の保障のうち、その種類に無い計算に使う給付
+ * （医療保険・がん保険の死亡保険金など）を外す。特約は残す（医療保険に死亡の特約を付けることもある）。主契約が死亡保障の種類にして
+ * 主契約の保障が無くなっていれば、死亡保険金0円の主契約を置く（簡易に死亡保険金の欄を出す）
+ */
+export function fitCoverages(c: InsuranceContract, template: string): void {
+  const allowed = new Set(MAIN_BENEFITS[template] ?? [...COMPUTED]);
+  if (c.coverages !== undefined) {
+    c.coverages = c.coverages.filter((x) => !(x.role === "main" && COMPUTED.has(x.benefit) && !allowed.has(x.benefit)));
+    if (c.coverages.length === 0) delete c.coverages;
+  }
+  if (DEATH_MAIN.has(template) && !(c.coverages ?? []).some((x) => x.role === "main")) {
+    (c.coverages ??= []).unshift({ id: newId(), role: "main", benefit: "death", amount: 0, from: { at: c.contractDate }, to: template === "insurance.term" ? (c.premium.payUntil ?? null) : null });
+  }
+}
+
 function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): GroupDef[] {
   const find = byId(contracts, c.id);
   const k = `ins/${c.id}`;
   const deathIdx = (c.coverages ?? []).findIndex((x) => x.role === "main" && x.benefit === "death");
   const fields: FieldDef[] = [
-    plain({ key: `${k}/template`, item: "insurance.template", label: "種類", level: "simple", kind: "select", options: INSURANCE_TEMPLATES, find, path: ["template"] }),
+    plain({ key: `${k}/template`, item: "insurance.template", label: "種類", level: "simple", kind: "select", options: INSURANCE_TEMPLATES, find, path: ["template"], structural: true, after: (_h, t, v) => fitCoverages(t as InsuranceContract, String(v)) }),
     plain({ key: `${k}/holder`, item: "insurance.policyholder", label: "契約者（保険料を払う人）", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["policyholder"] }),
     plain({ key: `${k}/insured`, item: "insurance.insured", label: "被保険者", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["insured"] }),
     plain({ key: `${k}/date`, item: "insurance.contractDate", label: "契約年月", level: "simple", kind: "ym", find, path: ["contractDate"] }),

@@ -193,7 +193,20 @@ export interface Debt {
   pairWith?: string;
   /** この借入で取得した住まい以外の不動産（不動産の器の ID。0028） */
   property?: string;
+  /** 住宅ローン控除に使う住宅の情報（tax.housingLoanCredit。入居は名前つきイベント kind moveIn） */
+  housing?: DebtHousing;
   [key: string]: unknown;
+}
+
+export interface DebtHousing {
+  residence?: string;
+  moveIn: string;
+  propertyType: "certified" | "zeh" | "energySaving" | "other";
+  newBuild: boolean;
+  acquisitionCost?: number;
+  ownership?: { member: string; share: string }[];
+  childRearing?: boolean;
+  creditDisabled?: boolean;
 }
 
 export interface Gift {

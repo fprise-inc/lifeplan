@@ -108,6 +108,42 @@ describe("取り込み", () => {
     expect(r.checklist.find((c) => c.key === "hs.income.salary")?.reason).toBe("invalid");
   });
 
+  it("住宅ローンは、シートで聞かない住宅ローン控除の条件を仮の条件にして、控除を計算する（「仮」の印）", () => {
+    const loan = (start: string) => [
+      a("hs.work.type", "regular", 1),
+      a("hs.income.salary", 6000000, 1),
+      a("hs.income.bonus", 0, 1),
+      a("hs.housing.type", "own"),
+      a("hs.loan.debtor", "adult.1", 1),
+      a("hs.loan.principal", 30000000, 1),
+      a("hs.loan.start", start, 1),
+      a("hs.loan.termYears", 35, 1),
+      a("hs.loan.rate", "0.008", 1),
+    ];
+    const base = minimal.filter((x) => x.key !== "hs.housing.type");
+    const r = run(...base, ...loan("2024-04"));
+    const h = r.request.input.household;
+    const d = h.debts?.[0];
+    const own = h.residences?.find((x) => x.kind === "own");
+    expect(d?.housing).toMatchObject({ residence: own?.id, propertyType: "energySaving", newBuild: true });
+    expect(h.events).toEqual([{ id: d?.housing?.moveIn, kind: "moveIn", at: { at: "2024-04" } }]);
+    expect(r.assumed[`housing/debt/${d?.id}/credit`]).toContain("仮の条件");
+    const cand = r.candidates.find((c) => c.collection === "debts");
+    expect(cand?.note).toContain("仮の条件で控除を計算します");
+    expect(cand?.fields.find((f) => f.item === "debt.housing")?.state).toBe("assumed");
+    if (engineAvailable()) {
+      const tax = (req: typeof r.request) => ((preview(approveAll({ ...r, request: req }, "2026-10-17T10:00:00+09:00")).table as { row: string; year: number; amount: number }[]) ?? []).filter((c) => c.row === "cf.taxSi.incomeTax" && c.year === 2027).reduce((s, c) => s + c.amount, 0);
+      const none = structuredClone(r.request);
+      delete none.input.household.debts?.[0]?.housing;
+      expect(tax(none) - tax(r.request)).toBeGreaterThan(100000);
+    }
+    // 令和3年以前に借りたローンは、控除の制度データが無いので条件を置かない
+    const old = run(...base, ...loan("2020-04"));
+    expect(old.request.input.household.debts?.[0]?.housing).toBeUndefined();
+    expect(old.request.input.household.events).toEqual([]);
+    expect(old.candidates.find((c) => c.collection === "debts")?.note).toContain("2021年以前に借りたローンの控除は計算しません");
+  });
+
   it("住宅ローンの必須の欄が足りなければ、そのローンは取り込まない", () => {
     const r = run(...minimal, a("hs.loan.debtor", "adult.1", 1), a("hs.loan.principal", 30000000, 1));
     expect(r.request.input.household.debts ?? []).toEqual([]);
