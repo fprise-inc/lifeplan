@@ -466,6 +466,60 @@ describe("教育費（education.cost）・公的支援（education.support）・
     expect(sumFlows(f, (x) => x.formula === "education.support.grant" && x.ym === "2028-11")).toBe(38300);
   });
 
+  describe("大学の修学支援の多子世帯は、住民税の扶養で数える（日本学生支援機構: 前期は前々年・後期は前年の12月31日の扶養）", () => {
+    // 親（年収1,000万円。所得では区分の対象外）・上の子 e・大学に入る子 c（2012年6月生まれ。2031年4月に私立大学）・下の子 y
+    const E = uid("e");
+    const mkMulti = (eBirth: string, eJob?: { from: string; annual: number }) =>
+      edit(
+        household({
+          members: [member("a", "self", "1975-01"), member("e", "child", eBirth), member("c", "child", "2012-06"), member("y", "child", "2015-06")],
+          relations: [E, C, uid("y")].map((child) => ({ type: "parentOf", parent: A, child })),
+          periods: [
+            period("p", { member: "a", from: "2000-04", annual: 10000000, std: [650000, 650000] }),
+            ...(eJob
+              ? [period("pe", { member: "e", from: eJob.from, type: "partTime", annual: eJob.annual, pensionCategory: "none", healthInsurance: { kind: "dependent" }, extra: { employmentInsuranceCovered: false } })]
+              : []),
+          ],
+          baseMonth: "2027-01",
+          endYear: 2036,
+        }),
+        (h) => {
+          h.goals = [{ id: uid("g"), kind: "education", owner: C, education: { stages: [{ stage: "university", sector: "private" }] } }];
+        },
+      );
+    const waiver = (req: Req, ym: string) => {
+      const f = runEngine(req, realPacks(), { checkInternal: true, entry: { component: "education.support", input: { member: C } } }).entryOutput as { flows: Flow[] };
+      return sumFlows(f.flows, (x) => x.formula === "education.support.tuitionWaiver" && x.ym === ym);
+    };
+
+    it("上の子が22歳を過ぎても、所得が無く扶養に残っていれば（浪人・大学院など）数える", () => {
+      const req = mkMulti("2004-06");
+      expect(waiver(req, "2031-04") + waiver(req, "2031-10")).toBe(700000);
+    });
+
+    it("上の子が18歳で就職して扶養を外れたら数えない", () => {
+      const req = mkMulti("2010-06", { from: "2029-04", annual: 3000000 });
+      expect(waiver(req, "2031-04") + waiver(req, "2031-10")).toBe(0);
+    });
+
+    it("前期（4〜9月）は前々年、後期（10〜3月）は前年の12月31日の扶養で数える", () => {
+      // 上の子が2030年4月に就職: 2029年12月31日は扶養（前期は多子世帯）、2030年12月31日は扶養を外れる（後期は対象外）
+      const req = mkMulti("2007-06", { from: "2030-04", annual: 3000000 });
+      expect(waiver(req, "2031-04")).toBe(350000);
+      expect(waiver(req, "2031-10")).toBe(0);
+    });
+
+    it("特定親族特別控除の年齢（19〜22歳）で合計所得金額が95万円以下の子も数える", () => {
+      // 給与150万円（所得は扶養の上限58万円を超え、95万円以下）: 数える
+      const within = mkMulti("2010-06", { from: "2029-04", annual: 1500000 });
+      expect(waiver(within, "2031-04") + waiver(within, "2031-10")).toBe(700000);
+      // 給与200万円: 2029年（4〜12月の150万円）は95万円以下で数え、2030年（200万円）は95万円を超えるので数えない
+      const over = mkMulti("2010-06", { from: "2029-04", annual: 2000000 });
+      expect(waiver(over, "2031-04")).toBe(350000);
+      expect(waiver(over, "2031-10")).toBe(0);
+    });
+  });
+
   it("児童手当: 3歳未満15,000円・3歳から10,000円・第3子30,000円、偶数月に前2か月分", () => {
     const req = edit(
       household({ members: [member("a", "self", "1985-01"), member("c1", "child", "2010-05"), member("c2", "child", "2016-05"), member("c3", "child", "2026-03")], baseMonth: "2027-01", endYear: 2030 }),

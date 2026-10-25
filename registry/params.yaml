@@ -392,6 +392,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: educationSupport.higher.multiChild.specifiedRelativeIncomeLimit
+    status: active
+    label: "多子世帯の判定で「子ども」に数える特定親族（特定親族特別控除の年齢の子）の合計所得金額の上限（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: educationSupport.higher.waiver.national.admission
     status: active
     label: "修学支援の入学金の減免の上限（国公立の大学）"

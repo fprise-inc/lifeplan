@@ -262,10 +262,30 @@ describe("住民税の徴収", () => {
       periods: [period("p", { member: "a", from: "2020-04", to, annual: 4800000, std: [400000, 400000] })],
       ...(assessments ? { residentTaxAssessments: assessments } : {}),
     }));
-  it("給与を受けている間は特別徴収、辞めた後の残りは最後の給与の月にまとめる", () => {
+  it("6〜12月に辞めたら、残りは普通徴収に切り替わり、特別徴収が止まった月以後の普通徴収の納期に分けて払う（地方税法321条の5第2項・321条の7）", () => {
     const r = mk("2027-09");
     const fy = r.flows.filter((f) => f.row === "cf.taxSi.residentTax" && f.accrualYear === 2026);
-    expect(fy.map((f) => f.ym)).toEqual(["2027-06", "2027-07", "2027-08", "2027-09", "2027-09"]);
+    // 6〜9月は給与から（年税額237,000円の12分の1を100円未満で切り捨てた19,700円ずつ。端数600円は6月）。
+    // 残り8か月分（157,600円）は10月・翌年1月の普通徴収（78,800円の1,000円未満を切り捨てた78,000円ずつ。端数1,600円は最初の納期）
+    expect(fy.map((f) => [f.ym, f.formula])).toEqual([
+      ["2027-06", "residentTax.special.installment"],
+      ["2027-07", "residentTax.special.installment"],
+      ["2027-08", "residentTax.special.installment"],
+      ["2027-09", "residentTax.special.installment"],
+      ["2027-10", "residentTax.ordinary.installment"],
+      ["2028-01", "residentTax.ordinary.installment"],
+    ]);
+    expect(fy.map((f) => f.amount)).toEqual([20300, 19700, 19700, 19700, 79600, 78000]);
+    expect(total(fy)).toBe(237000);
+    // 12月に辞めたら、残りは翌年1月の納期に
+    const dec = mk("2027-12").flows.filter((f) => f.row === "cf.taxSi.residentTax" && f.accrualYear === 2026);
+    expect(dec.filter((f) => f.formula === "residentTax.ordinary.installment").map((f) => f.ym)).toEqual(["2028-01"]);
+    expect(total(dec)).toBe(237000);
+  });
+  it("翌年1〜4月に辞めたら、5月分までの残りは最後の給与の月にまとめる（一括徴収。地方税法321条の5第2項ただし書）", () => {
+    const r = mk("2028-02");
+    const fy = r.flows.filter((f) => f.row === "cf.taxSi.residentTax" && f.accrualYear === 2026);
+    expect(fy.map((f) => f.ym)).toEqual(["2027-06", "2027-07", "2027-08", "2027-09", "2027-10", "2027-11", "2027-12", "2028-01", "2028-02", "2028-02"]);
     expect(fy.at(-1)?.formula).toBe("residentTax.special.lumpSum");
     expect(total(fy)).toBe(237000);
   });

@@ -349,6 +349,40 @@ describe("医療費（medical.highCost）・介護（care.expense）", () => {
   });
 });
 
+describe("亡くなった年の配偶者控除・扶養控除（所得税法85条3項・地方税法314条の2第8項: 死亡の時の現況で判定）", () => {
+  type Ded = { spouse: number; spouseSpecial: number; dependents: number };
+  const P = uid("p");
+  /** 夫（会社員）・専業主婦の妻・同居して扶養する夫の母 */
+  const withParent = (birth: string) =>
+    edit(family({ endYear: 2034, children: false }), (h) => {
+      (h.members as Obj[]).push(member("p", "parent", birth, { support: { dependent: true, cohabiting: true } }));
+    });
+  const ded = (req: Req, year: number, regime: "incomeTax" | "residentTax" = "incomeTax") =>
+    call<Ded>(req, "tax.deductions", { member: H, year, regime });
+
+  it("配偶者が亡くなった年は配偶者控除を受けられる（所得税・翌年度の住民税）。翌年からは受けない", () => {
+    for (const ym of ["2030-01", "2030-06", "2030-12"]) {
+      const req = death(family({ endYear: 2034, children: false }), ym, W);
+      expect(ded(req, 2030).spouse).toBe(380000);
+      expect(ded(req, 2030, "residentTax").spouse).toBe(330000);
+      expect(ded(req, 2031).spouse).toBe(0);
+      expect(ded(req, 2031, "residentTax").spouse).toBe(0);
+    }
+  });
+
+  it("扶養する親が亡くなった年は扶養控除を受けられる。老人扶養親族かどうかも死亡の時に判定する", () => {
+    // 1950年生まれ（80歳）の同居の母が2030年3月に亡くなる: 同居老親等（58万円）
+    const elder = death(withParent("1950-04"), "2030-03", P);
+    expect(ded(elder, 2030).dependents).toBe(580000);
+    expect(ded(elder, 2030, "residentTax").dependents).toBe(450000);
+    expect(ded(elder, 2031).dependents).toBe(0);
+    // 1960年10月生まれの母が2030年3月（69歳）に亡くなる: 12月31日なら70歳だが、死亡の時は70歳未満なので一般（38万円）
+    const young = death(withParent("1960-10"), "2030-03", P);
+    expect(ded(young, 2030).dependents).toBe(380000);
+    expect(ded(young, 2030, "residentTax").dependents).toBe(330000);
+  });
+});
+
 describe("ストレステスト（stressTest）", () => {
   it("収入の減少: 指定の構成員の給与が3年間2割減り、見出しに展開の後の値を返す", () => {
     const base = family({ endYear: 2034 });
