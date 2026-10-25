@@ -39,6 +39,7 @@ import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
 import { pensionNotices } from "./input/stages/pension.ts";
+import { withProvisionalHousing } from "./input/housingCredit.ts";
 import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
 import { bandShown, donutPanes, donutShown, donutYear, investChart, investVerdict, stressRequests, STRESS_KEYS, type StressKey } from "./invest/present.ts";
 import { InvestBar, DonutCard } from "./invest/InvestBar.tsx";
@@ -250,7 +251,12 @@ interface Opened {
   catalog: Catalog;
 }
 
-function openedFrom(demo: DemoHousehold | null, wh: WorkingHousehold): Opened | null {
+/**
+ * 開いた世帯・入れ直した現状から、画面の状態を作る。住宅ローン控除の条件が無い住宅ローンには、ここで仮の条件を置く
+ * （「仮」の印つき。開いた世帯でも置く。0008 の 2026-10-25 の追記）
+ */
+function openedFrom(demo: DemoHousehold | null, wh0: WorkingHousehold): Opened | null {
+  const wh = withProvisionalHousing(wh0);
   const self = roles(wh.request).find((r) => r.key === "self");
   if (self === undefined) return null;
   return { demo, wh, selfId: self.member.id, catalog: buildCatalog(wh, self.member.id, demo) };

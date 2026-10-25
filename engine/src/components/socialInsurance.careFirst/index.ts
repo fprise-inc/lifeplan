@@ -39,7 +39,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.careFirst",
   title: "介護保険料（第1号被保険者）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "residentTax.exemption": ">=1 <2", "tax.totalIncome": ">=1 <2", "tax.publicPensionIncome": ">=1 <2", "pension.oldAge": ">=1 <2" },
   params: [...Object.values(P), PENSION_SPECIAL_MINIMUM],
   reads: [
@@ -59,7 +59,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   output: "flows.output",
   compute(input, ctx) {
     const { member, fiscalYear: fy } = input;
-    // 判定に使う所得の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得で判定する（PR の提案）
+    // 判定に使う所得と制度の値の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得と
+    // 制度の値で計算する（PR の提案。制度の値は改訂3から: その年度の値は制度データに無いことがある）
     const jy = Math.max(fy, fiscalYearOf(ctx.time.base));
     const start = fiscalYearStart(fy);
     // 年齢の値は、計算基準月より前の年度では計算基準月の値を使う
@@ -69,13 +70,13 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     let months = 0;
     for (let m = start; m <= fiscalYearEnd(fy); m = (m + 1) as typeof m) if (m >= from && (leaves === null || m < leaves)) months++;
     if (months === 0) return { flows: [] };
-    const special = pensionSpecial(ctx, member, fy);
+    const special = pensionSpecial(ctx, member, fy, jy);
     const given = assessedPremium(ctx.list<PremiumAssessmentInput>("premiumAssessment"), "careFirst", member, fy);
     if (given !== undefined) {
       const amount = boxValue((given as PremiumAssessmentInput).amount) ?? yen(0);
       return { flows: installmentFlows(ctx, fy, special, member, [{ row: "cf.taxSi.care", amount, formula: "socialInsurance.careFirst.assessed" }]) };
     }
-    const at = ctx.at(start);
+    const at = ctx.at(fiscalYearStart(jy));
     const override = rateOverride(ctx.list<PremiumRateInput>("premiumRate"), "careFirst", fy);
     const base = (override?.baseMonthly !== undefined ? boxValue(override.baseMonthly) : null) ?? at.paramYen(P.base) ?? yen(0);
     if (override?.baseMonthly === undefined) ctx.notice("N_DEFAULT_USED", [`${PREFIX}.nationalAverage`]);

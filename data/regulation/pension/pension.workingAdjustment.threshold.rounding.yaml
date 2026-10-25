@@ -1,0 +1,21 @@
+id: pension.workingAdjustment.threshold.rounding
+title: 在職老齢年金の支給停止調整額の改定の端数処理（1万円未満四捨五入）
+unit: rounding
+kind: rounding
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "HALF_UP", unit: 10000}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-25", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第46条第3項", quote: "六十二万円に令和七年度以後の各年度の物価変動率に第四十三条の二第一項第二号に掲げる率を乗じて得た率をそれぞれ乗じて得た額（その額に五千円未満の端数が生じたときは、これを切り捨て、五千円以上一万円未満の端数が生じたときは、これを一万円に切り上げるものとする。"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/417CO0000000092_20260401_508CO0000000075?response_format=xml", retrievedAt: "2026-10-08", sha256: "5434dc732c04790db8a6fa473dcdebbe60c2db87105f1cf1a487f9a49f5383dc", locator: "国民年金法による改定率の改定等に関する政令 第5条", quote: "同条第三項本文中「六十二万円」とあるのは、「六十五万円」と読み替えて"}
+      - {type: "law", lawNumber: "令和七年法律第七十四号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-25", tools: ["e-Gov法令API（条文の XML）", "原本の指紋（sha256）の計算"], note: "支給停止調整額の改定（62万円×令和7年度以後の名目賃金変動率）の端数処理。条文の端数処理と、政令で改定された令和8年度の額（65万円。1万円単位）が一致。施行日は令和7年法律第74号の施行日（令和8年4月1日。改正前の46条3項も同じ端数処理）。部品は、制度データの後の年度の額を、値のある最後の年度の額×賃金の伸び（前提）からこの端数処理で出す（0007 の追記 2026-10-25）。照合: Claude Opus 5.5（原本の本文・sha256 を機械で計算）"}

@@ -226,17 +226,19 @@ describe("不動産所得の税と社会保険への反映", () => {
       edit(
         base({ baseMonth: "2026-10", periods: [{ id: uid("biz"), member: A, from: at("2010-04"), to: null, type: "selfEmployed", business: { income: box(3000000) } }], ...(accounts !== undefined ? { accounts } : {}), endYear: 2030 }),
         (h) => {
-          h.premiumRates = [{ id: uid("pr"), kind: "nationalHealth", parts: { medical: { incomeRate: box("0.07"), perCapita: box(40000), perHousehold: box(20000) } } }];
+          const part = (r: string) => ({ incomeRate: box(r), perCapita: box(40000), perHousehold: box(20000) });
+          h.premiumRates = [{ id: uid("pr"), kind: "nationalHealth", parts: { medical: part("0.07"), elderlySupport: part("0.02"), care: part("0.02") } }];
           h.residentTaxAssessments = [{ id: uid("rta"), member: A, fiscalYear: 2026, amount: box(150000) }];
         },
       );
     const r0 = full(nh([]), realPacks());
     const r1 = full(nh(), realPacks());
     const e = out(nh()).properties[0]?.income.find((x) => x.year === 2027);
-    // 2028年度（2028年4月〜）は2027年の所得で決まる。所得割の差＝不動産所得×7%（100円未満の切り捨てなどの差は小さい）
-    const d = cells(r1, "cf.taxSi.health", 2029) - cells(r0, "cf.taxSi.health", 2029);
+    // 2028年度（2028年4月〜）は2027年の所得で決まる。所得割の差＝不動産所得×（医療7%＋支援金2%＋介護2%）（100円未満の切り捨てなどの差は小さい）
+    const health = (r: ReturnType<typeof full>) => cells(r, "cf.taxSi.health", 2029) + cells(r, "cf.taxSi.care", 2029);
+    const d = health(r1) - health(r0);
     expect(d).toBeGreaterThan(0);
-    expect(Math.abs(d - (e?.income ?? 0) * 0.07)).toBeLessThan(e === undefined ? 0 : e.income * 0.07 * 0.1);
+    expect(Math.abs(d - (e?.income ?? 0) * 0.11)).toBeLessThan(e === undefined ? 0 : e.income * 0.11 * 0.1);
   });
 });
 

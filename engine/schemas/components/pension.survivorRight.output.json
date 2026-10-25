@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:pension.survivorRight.output",
+  "title": "遺族年金の受給権（受給権を得た月と、終わる月。終わりが無ければ null）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["rights"],
+  "properties": {
+    "rights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "from", "to"],
+        "properties": {
+          "kind": { "enum": ["basic", "employee"] },
+          "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "to": { "oneOf": [{ "$ref": "urn:financia:schema:common#/$defs/yearMonth" }, { "type": "null" }] }
+        }
+      }
+    }
+  }
+}

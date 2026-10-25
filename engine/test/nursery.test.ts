@@ -105,6 +105,18 @@ describe("保育料の自動の計算（education.nurseryFee）", () => {
     expect(fee(r, "2027-12")).toBe(30000);
   });
 
+  it("所得割の年度は、計算基準月に払っている住民税の年度より前にしない（計算基準月が6〜8月の年の、その月から8月までの分。改訂2）", () => {
+    // 計算基準月 2027年7月: 7・8月の分は本来は2026年度の住民税だが、表に載る最初の年度の2027年度の住民税で決める
+    const req = mk([{ ...C, stages: auto({ from: at("2027-04") }) }], { baseMonth: "2027-07" });
+    // 2026年度 50,000円（30,000円の段）、2027年度 200,000円（61,000円の段）
+    const levy: Levy = (m, fy) => (m === A ? (fy <= 2026 ? 50000 : 200000) : 0);
+    const r = nursery(req, "c", levy);
+    expect(fee(r, "2027-06")).toBe(0);
+    expect(fee(r, "2027-07")).toBe(61000);
+    expect(fee(r, "2027-08")).toBe(61000);
+    expect(fee(r, "2027-09")).toBe(61000);
+  });
+
   it("父母がみな住民税を課されない（非課税）なら0円。所得割が0円でも均等割がかかれば一番下の段", () => {
     const req = mk([{ ...C, stages: auto() }]);
     expect(flowsOf(nursery(req, "c", flat(null, null)))).toEqual([]);

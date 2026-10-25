@@ -1,9 +1,13 @@
 // 扶養控除・特定親族特別控除（所得税・住民税）。その年の12月31日の現況で判定する（tax.deductions から呼ぶ）。
+// その年の中途に万一の想定で亡くなった親族は、死亡の時の現況で判定する（所得税法85条3項ただし書・地方税法314条の2第8項。改訂4）。
+// 亡くなった年は扶養控除・特定親族特別控除を受けられ（月割りしない）、合計所得金額は死亡の時までの所得、年齢の区分（16歳以上・
+// 特定扶養親族・老人扶養親族）は死亡の時の年齢で判定する。翌年からは受けない
 // 子と、扶養している親・祖父母。夫婦のうち所得の多い方が受ける。23歳未満の扶養親族がいるか（生命保険料控除の特例）も返す。
 // 他の構成員の所得で決まる部分を小さな部品に分けておくと、配偶者の所得が変わっても控除の額が同じなら、所得控除（tax.deductions）と
 // それを使う税の部品を計算し直さない（0006 の追記）
 import {
   bracketFor,
+  deathMonthIn,
   defineComponent,
   fail,
   monthIndex,
@@ -53,8 +57,8 @@ export default defineComponent<
   id: "tax.dependentDeduction",
   title: "扶養控除・特定親族特別控除",
   contract: "1.0",
-  revision: 3,
-  requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2" },
+  revision: 4,
+  requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [
     ...(["incomeTax", "residentTax"] as const).flatMap((p) => Object.values(ids(p))),
     ...Object.values(AGE),
@@ -67,7 +71,7 @@ export default defineComponent<
     const { member, year, regime } = input;
     const P = IDS[regime];
     const resident = regime === "residentTax";
-    // 所得税はその年分の値、住民税は翌年度（6月から）の値。判定はどちらもその年の12月31日の現況
+    // 所得税はその年分の値、住民税は翌年度（6月から）の値。判定はどちらもその年の12月31日（その年に亡くなった親族は死亡の月）の現況
     const at = ctx.at(resident ? monthIndex(year + 1, 6) : monthIndex(year, 1));
     const ageAt = ctx.at(monthIndex(year, 1));
     const dec: MonthIndex = monthIndex(year, 12);
@@ -84,33 +88,37 @@ export default defineComponent<
       return t;
     };
     const members = ctx.list<MemberInput>("member");
-    const present = (m: MemberInput) =>
-      parseYm(m.birth.birthYearMonth) <= dec &&
-      (m.joins === null || ctx.time.resolve(m.joins) <= dec) &&
-      (m.leaves === null || ctx.time.resolve(m.leaves) > dec);
-    const ageReached = (id: string, ageParam: string) => {
+    const present = (m: MemberInput, j: MonthIndex) =>
+      parseYm(m.birth.birthYearMonth) <= j &&
+      (m.joins === null || ctx.time.resolve(m.joins) <= j) &&
+      (m.leaves === null || ctx.time.resolve(m.leaves) > j);
+    const ageReached = (id: string, ageParam: string, j: MonthIndex) => {
       const sel = ageAt.param(ageParam);
       const years = ageAt.paramCount(ageParam);
       if (years === null || sel.def.ageSwitch === null) fail("E_PARAM_KIND", [ageParam]);
-      return ctx.time.ageSwitch(id, { years }, sel.def.ageSwitch as never) <= dec;
+      return ctx.time.ageSwitch(id, { years }, sel.def.ageSwitch as never) <= j;
     };
+    // 判定の時: その年に亡くなった構成員は死亡の月、ほかは12月31日
+    const judgedAt = (id: string): MonthIndex => deathMonthIn(ctx, id, year) ?? dec;
     const diffs: Yen[] = [];
     const diff = (id: string) => {
       if (resident) diffs.push(at.paramYen(id) ?? yen(0));
     };
     const limit = at.paramYen(P.incomeLimit) ?? yen(0);
-    // 配偶者（法律婚・その年の12月31日にいる）は扶養親族にしない
+    // 配偶者（法律婚・その年の12月31日にいる。その年に亡くなった配偶者は死亡の時に配偶者）は扶養親族にしない
     const spouses = new Set<string>();
     for (const r of ctx.list<RelationInput>("relation")) {
       if (r.type !== "spouse" || r.marriage !== "legal" || (r.a !== member && r.b !== member)) continue;
-      if ((r.from !== null && ctx.time.resolve(r.from) > dec) || (r.to !== null && ctx.time.resolve(r.to) <= dec)) continue;
       const other = r.a === member ? r.b : r.a;
+      const j = judgedAt(other);
+      if (r.from !== null && ctx.time.resolve(r.from) > j) continue;
+      if (r.to !== null && (j !== dec ? ctx.time.resolve(r.to) < j : ctx.time.resolve(r.to) <= dec)) continue;
       const om = members.find((m) => m.id === other);
-      if (om === undefined || !present(om)) continue;
+      if (om === undefined || !present(om, j)) continue;
       spouses.add(other);
     }
     // 夫婦のうち所得の多い方（同じなら本人、次に ID の小さい方）が受ける。所得の額ではなく大小だけを読む（tax.incomeOrder）
-    const earners = members.filter((m) => (m.kind === "self" || m.kind === "spouse") && present(m));
+    const earners = members.filter((m) => (m.kind === "self" || m.kind === "spouse") && present(m, dec));
     let claimant: MemberInput | undefined;
     for (const m of earners) {
       if (claimant === undefined) {
@@ -127,16 +135,18 @@ export default defineComponent<
     let youngDependent = false;
     if (claimant?.id === member) {
       for (const d of members) {
-        if (d.id === member || spouses.has(d.id) || !present(d)) continue;
+        if (d.id === member || spouses.has(d.id)) continue;
+        const j = judgedAt(d.id);
+        if (!present(d, j)) continue;
         const isChild = d.kind === "child";
         const isElder = (d.kind === "parent" || d.kind === "grandparent") && d.support?.dependent === true;
         if (!isChild && !isElder) continue;
         const dt = totalOf(d.id);
-        const specifiedAge = ageReached(d.id, AGE.specifiedFrom) && !ageReached(d.id, AGE.specifiedUntil);
+        const specifiedAge = ageReached(d.id, AGE.specifiedFrom, j) && !ageReached(d.id, AGE.specifiedUntil, j);
         if (dt <= limit) {
-          if (!ageReached(d.id, AGE.youngDependentUntil)) youngDependent = true;
-          if (!ageReached(d.id, AGE.dependentMin)) continue;
-          if (ageReached(d.id, AGE.elderly)) {
+          if (!ageReached(d.id, AGE.youngDependentUntil, j)) youngDependent = true;
+          if (!ageReached(d.id, AGE.dependentMin, j)) continue;
+          if (ageReached(d.id, AGE.elderly, j)) {
             const cohabiting = isElder && d.support?.cohabiting === true;
             dependents = yen(dependents + (at.paramYen(cohabiting ? P.depElderlyCohabiting : P.depElderly) ?? 0));
             diff(cohabiting ? DIFF.depElderlyCohabiting : DIFF.depElderly);

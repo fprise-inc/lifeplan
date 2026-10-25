@@ -84,6 +84,8 @@ export interface Debt {
   rateSchedule: RateStep[];
   repayment: { method: "equalPayment" | "equalPrincipal"; termMonths: number };
   creditLife?: { covered: string[] };
+  /** 住宅ローン控除に使う住宅の情報（入居は名前つきイベント kind moveIn） */
+  housing?: { residence?: string; moveIn: string; propertyType: "certified" | "zeh" | "energySaving" | "other"; newBuild: boolean };
 }
 
 export interface Residence {

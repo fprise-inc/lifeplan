@@ -149,9 +149,8 @@ describe("年金: 定期便の加入月数が0か月のままを黙って0円に
     expect(pensionTotal(wh)).toBe(0);
     const stage = buildStage("pension", wh);
     expect(stage.sections[0]!.groups[0]!.note).toContain("加入月数が0か月のままです");
-    expect(fieldOf(wh, "pension", "/months/basic").get(wh).assumed).toContain("未入力");
+    expect(fieldOf(wh, "pension", "/months/basic").get(wh).warn).toContain("0か月のままです");
     const card = inputItems(wh).find((i) => i.id === "pension")!;
-    expect(card.status).toBe("est");
     expect(card.summary).toEqual({ main: "加入月数", unit: "が未入力" });
     expect(pensionNotices(wh)).toEqual(["ご本人の年金: ねんきん定期便の加入月数が0か月のままです。年金を0円で計算しています。入力の「年金」で加入月数を入れてください"]);
   });
@@ -161,7 +160,7 @@ describe("年金: 定期便の加入月数が0か月のままを黙って0円に
     let w = set(wh, "pension", "/months/basic", 400);
     w = set(w, "pension", "/months/employee", 380);
     expect(pensionNotices(w)).toEqual([]);
-    expect(fieldOf(w, "pension", "/months/basic").get(w).assumed).toBeNull();
+    expect(fieldOf(w, "pension", "/months/basic").get(w).warn).toBeUndefined();
     expect(buildStage("pension", w).sections[0]!.groups[0]!.note).toBeUndefined();
     expect(inputItems(w).find((i) => i.id === "pension")!.summary?.main).toBe("16.9");
     expect(pensionTotal(w)).toBeGreaterThan(0);

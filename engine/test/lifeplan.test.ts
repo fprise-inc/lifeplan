@@ -72,6 +72,85 @@ describe("被保険者の種別と適用拡大（決定2）", () => {
     const full = partTime({ student: true, employer: { size: 40, weeklyHours: "32" } });
     expect(entry<CategoryOutput>(full, "pension.category", { member: W }).months.find((m) => m.month === "2027-01")?.category).toBe("2");
   });
+  describe("健康保険の扶養の判定（収入がある者についての被扶養者の認定）", () => {
+    const C = uid("c");
+    const P = uid("p");
+    const kind = (req: Req, who: string, ym: string, stubs?: Record<string, (i: unknown) => unknown>) =>
+      entry<HealthStatusOutput>(req, "socialInsurance.healthStatus", { member: who }, stubs, realPacks()).months.find((m) => m.month === ym);
+    // 偶数月に年額の6分の1ずつ払う年金（stubs 用）
+    const yearly = (amount: number) => Array.from({ length: 6 }, (_, k) => 2026 + k).flatMap((y) => [2, 4, 6, 8, 10, 12].map((mo) => ({ ym: `${y}-${String(mo).padStart(2, "0")}`, amount: Math.floor(amount / 6), accrualYear: y })));
+    const pensionStub = (who: string, amount: number) => (i: unknown) =>
+      (i as { member: string }).member === who ? { flows: [], months: [], payments: yearly(amount).map((x) => ({ ...x, part: "basic" })) } : { flows: [], months: [], payments: [] };
+    it("扶養する人は本人・配偶者に限らない（勤める子の扶養に入る60歳以上の親）。同居なら子の収入の2分の1の未満のときだけ", () => {
+      const req = (childAnnual: number) =>
+        household({
+          baseMonth: "2027-01",
+          endYear: 2028,
+          members: [member("h", "self", "1965-03", { sex: "male" }), member("c", "child", "1998-05")],
+          periods: [
+            { id: uid("ph"), member: H, from: { at: "1990-04" }, to: null, type: "unemployed" },
+            period("pc", { member: "c", from: "2021-04", annual: childAnnual, std: [Math.floor(childAnnual / 12), Math.floor(childAnnual / 12)] }),
+          ],
+        });
+      const stubs = { "pension.oldAge": pensionStub(H, 1500000) };
+      // 年金 150万円 ＜ 180万円（60歳以上）、150万円 ×2 ＜ 子の年収 400万円 → 子の扶養
+      expect(kind(req(4000000), H, "2027-06", stubs)).toEqual({ month: "2027-06", kind: "dependent", supporter: C });
+      // 子の年収 250万円の2分の1 ≦ 150万円 → 国民健康保険
+      expect(kind(req(2500000), H, "2027-06", stubs)?.kind).toBe("national");
+    });
+    it("収入の見込みに遺族年金・障害年金を入れる。障害年金を受ける人は180万円の基準", () => {
+      const req = household({
+        baseMonth: "2027-01",
+        endYear: 2028,
+        members: [member("h", "self", "1975-03", { sex: "male" }), member("p", "parent", "1955-02", { support: { dependent: true, cohabiting: true } })],
+        periods: [period("ph", { member: "h", from: "1998-04", annual: 8000000, std: [650000, 650000] })],
+      });
+      const survivor = (amount: number) => (i: unknown) => ((i as { member: string }).member === P ? { flows: yearly(amount).map((x) => ({ ...x, row: "cf.income.pension.survivor", member: P, formula: "pension.survivor.payment" })), months: [], deceased: null, death: null, lumpSum: 0 } : { flows: [], months: [], deceased: null, death: null, lumpSum: 0 });
+      // 老齢年金 70万円＋遺族年金 150万円 ≧ 180万円 → 国民健康保険（遺族年金を入れなければ扶養になっていた）
+      expect(kind(req, P, "2027-06", { "pension.oldAge": pensionStub(P, 700000), "pension.survivor": survivor(1500000) })?.kind).toBe("national");
+      expect(kind(req, P, "2027-06", { "pension.oldAge": pensionStub(P, 700000), "pension.survivor": survivor(1000000) })?.kind).toBe("dependent");
+      // 59歳の配偶者の障害年金 150万円: 130万円以上だが、障害年金を受ける人の基準 180万円の未満 → 扶養
+      const couple = household({
+        baseMonth: "2027-01",
+        endYear: 2028,
+        members: [member("h", "self", "1968-03", { sex: "male" }), member("w", "spouse", "1968-06")],
+        relations: [spouse],
+        periods: [period("ph", { member: "h", from: "1990-04", annual: 8000000, std: [650000, 650000] })],
+      });
+      const disability = (i: unknown) => ((i as { member: string }).member === W ? { flows: yearly(1500000).map((x) => ({ ...x, row: "cf.income.pension.disability", member: W, formula: "pension.disability.payment" })), months: [], choices: [] } : { flows: [], months: [], choices: [] });
+      expect(kind(couple, W, "2027-06", { "pension.disability": disability })?.kind).toBe("dependent");
+      expect(kind(couple, W, "2027-06", { "pension.oldAge": pensionStub(W, 1500000) })?.kind).toBe("national");
+    });
+    it("親・祖父母は扶養していると入れたときだけ。別居なら仕送りの額の未満。19〜22歳の150万円の基準は配偶者に使わない", () => {
+      const req = (support?: Record<string, unknown>) =>
+        household({
+          baseMonth: "2027-01",
+          endYear: 2028,
+          members: [member("h", "self", "1975-03", { sex: "male" }), member("p", "parent", "1955-02", support === undefined ? {} : { support })],
+          periods: [period("ph", { member: "h", from: "1998-04", annual: 8000000, std: [650000, 650000] })],
+        });
+      const stubs = { "pension.oldAge": pensionStub(P, 1000000) };
+      expect(kind(req(), P, "2027-06", stubs)?.kind).toBe("national");
+      expect(kind(req({ dependent: true, cohabiting: true }), P, "2027-06", stubs)?.kind).toBe("dependent");
+      // 別居: 年金 100万円 ≧ 仕送り 月5万円×12 → 国民健康保険。仕送り 月10万円なら扶養
+      expect(kind(req({ dependent: true, cohabiting: false, allowance: 50000 }), P, "2027-06", stubs)?.kind).toBe("national");
+      expect(kind(req({ dependent: true, cohabiting: false, allowance: 100000 }), P, "2027-06", stubs)?.kind).toBe("dependent");
+      // 20歳の配偶者の収入 140万円: 配偶者は130万円の基準 → 国民健康保険。20歳の子なら150万円の基準 → 扶養
+      const young = household({
+        baseMonth: "2027-01",
+        endYear: 2028,
+        members: [member("h", "self", "1985-03", { sex: "male" }), member("w", "spouse", "2007-02"), member("c", "child", "2007-02")],
+        relations: [spouse],
+        periods: [
+          period("ph", { member: "h", from: "2005-04", annual: 8000000, std: [650000, 650000] }),
+          ...["w", "c"].map((who) => period(`p${who}`, { member: who, from: "2026-04", type: "partTime", annual: 1400000, pensionCategory: "none", extra: { employer: { size: 10, weeklyHours: "20" }, employmentInsuranceCovered: false } })),
+        ],
+      });
+      expect(kind(young, W, "2027-06")?.kind).toBe("national");
+      expect(kind(young, C, "2027-06")?.kind).toBe("dependent");
+    });
+  });
+
   it("夫が退職すると、60歳未満の妻は第3号でなくなり第1号の国民年金保険料（翌月払い）がかかる", () => {
     const req = household({
       baseMonth: "2027-01",
@@ -105,14 +184,20 @@ describe("公的年金", () => {
     expect(basic.slice(0, 4)).toEqual([["2026-08", 141333], ["2026-10", 141333], ["2026-12", 141333], ["2027-02", 141334]]);
   });
 
-  it("基礎と厚生を別々に繰上げ・繰下げる（増額率 0.7%/月、減額率 0.4%/月）", () => {
-    const req = setH(household({ baseMonth: "2026-04", endYear: 2032, members: [member("h", "self", "1961-05", { sex: "male" })] }), "pensionRecords", [
-      rec("h", "projection", { asOf: "2026-04", amounts: { basic: box(800000), employee: box(1000000) }, claim: { basic: { at: "2031-06" }, employee: { at: "2024-06" } } }),
-    ]);
-    const o = entry<PensionOutput>(req, "pension.oldAge", { member: H });
-    expect(monthOf(o, "2026-06")?.employee).toBe(904000); // 24か月の繰上げ: 1−0.096
-    expect(monthOf(o, "2026-06")?.basic).toBe(0);
-    expect(monthOf(o, "2031-06")?.basic).toBe(1136000); // 60か月の繰下げ: 1.42
+  it("繰上げ（減額率 0.4%/月）は基礎と厚生を同時に、繰下げ（増額率 0.7%/月）は別々に", () => {
+    const plan = (claim: Record<string, unknown>) =>
+      setH(household({ baseMonth: "2026-04", endYear: 2032, members: [member("h", "self", "1961-05", { sex: "male" })] }), "pensionRecords", [
+        rec("h", "projection", { asOf: "2026-04", amounts: { basic: box(800000), employee: box(1000000) }, claim }),
+      ]);
+    // 厚生だけを繰り上げる入力: 繰上げは同時に請求する決まり（国民年金法附則9条の2第2項）なので、基礎も同じ月から
+    const early = entry<PensionOutput>(plan({ basic: { at: "2031-06" }, employee: { at: "2024-06" } }), "pension.oldAge", { member: H });
+    expect(monthOf(early, "2026-06")?.employee).toBe(904000); // 24か月の繰上げ: 1−0.096
+    expect(monthOf(early, "2026-06")?.basic).toBe(723200);
+    // 基礎だけを繰り下げる
+    const late = entry<PensionOutput>(plan({ basic: { at: "2031-06" } }), "pension.oldAge", { member: H });
+    expect(monthOf(late, "2026-06")?.employee).toBe(1000000);
+    expect(monthOf(late, "2026-06")?.basic).toBe(0);
+    expect(monthOf(late, "2031-06")?.basic).toBe(1136000); // 60か月の繰下げ: 1.42
   });
 
   it("在職老齢年金: 基本月額20万円＋標準報酬40万円が調整額50万円を超える分の半分（月5万円）を止める", () => {
@@ -250,12 +335,91 @@ describe("国民健康保険・後期高齢者医療・介護保険（第1号）
     const assessed = setH(base(), "premiumAssessments", [{ id: uid("pa"), member: H, kind: "nationalHealth", fiscalYear: 2026, amount: box(400000) }]);
     const f = entry<{ flows: { amount: number }[] }>(assessed, "socialInsurance.nationalHealth", { fiscalYear: 2026 }).flows;
     expect(f.reduce((s, x) => s + x.amount, 0)).toBe(400000);
-    // 製品のデータには全国の標準的な料率がまだ無い → 世帯の入力が無ければ計算せずに N_INPUT_REQUIRED
-    const r = run(base(), realPacks());
+    // 制度データに全国の目安の料率が無ければ、世帯の入力が無いときは計算せずに N_INPUT_REQUIRED（目安の値を抜いたパックで確かめる）
+    const RATE_ID = /^socialInsurance\.nationalHealth\.(medical|elderlySupport|care|childSupport)\.(incomeRate|perCapita|perHousehold)$/;
+    const noDefault = realPacks().map((p) => ({ ...p, values: p.values.filter((v) => !RATE_ID.test(String(v.id))) }));
+    const r = run(base(), noDefault);
     expect(notices(r)).toContainEqual({ code: "N_INPUT_REQUIRED", ids: ["socialInsurance.nationalHealth", "socialInsurance.nationalHealth.rates"] });
+    expect(r.flows.some((x) => x.formula.startsWith("socialInsurance.nationalHealth."))).toBe(false);
     const rated = setH(base(), "premiumRates", [{ id: uid("pr"), kind: "nationalHealth", parts: { medical: { incomeRate: box("0.07"), perCapita: box(40000), perHousehold: box(20000) } } }]);
     const r2 = run(rated, realPacks());
     expect(r2.flows.some((x) => x.formula === "socialInsurance.nationalHealth.medical")).toBe(true);
+  });
+
+  it("国民健康保険: 製品のデータの全国の目安の料率で計算し（0円にしない）、目安を使ったことを知らせる", () => {
+    const req = household({
+      baseMonth: "2026-04",
+      endYear: 2027,
+      members: [member("h", "self", "1981-01")],
+      periods: [{ id: uid("p"), member: H, from: { at: "2010-04" }, to: null, type: "selfEmployed", business: { income: box(3000000) } }],
+    });
+    const stubs = {
+      "tax.totalIncome": () => ({ total: 3000000, employment: 0, publicPension: 0, other: 3000000 }),
+      "tax.publicPensionIncome": () => ({ revenue: 0, deduction: 0, income: 0 }),
+    };
+    const out = runEngine(req, realPacks(), { checkInternal: true, entry: { component: "socialInsurance.nationalHealth", input: { fiscalYear: 2026 } }, stubs });
+    const f = (out.entryOutput as { flows: { formula: string; amount: number }[] }).flows;
+    const sum = (formula: string) => f.filter((x) => x.formula === formula).reduce((s, x) => s + x.amount, 0);
+    // 基礎（所得）2,570,000。医療 7.77%＝199,689＋29,349＋16,429、支援金 2.70%＝69,390＋10,625＋5,269、介護（45歳）2.09%＝53,713＋12,473＋3,238
+    expect(sum("socialInsurance.nationalHealth.medical")).toBe(245467);
+    expect(sum("socialInsurance.nationalHealth.elderlySupport")).toBe(85284);
+    expect(sum("socialInsurance.nationalHealth.care")).toBe(69424);
+    expect(notices(out)).toContainEqual({ code: "N_DEFAULT_USED", ids: ["socialInsurance.nationalHealth", "socialInsurance.nationalHealth.nationalStandard"] });
+    expect(notices(out).some((n) => n.code === "N_INPUT_REQUIRED")).toBe(false);
+    // 子ども・子育て支援金分（令和8年度から）の全国の目安はまだ無いので、入れずに計算したことを知らせる
+    expect(notices(out)).toContainEqual({ code: "N_PARAM_MISSING", ids: ["socialInsurance.nationalHealth", "socialInsurance.nationalHealth.childSupport.nationalStandard"] });
+    // 料率の入力の区分は入力の欄だけを使い（平等割の無い市町村）、入力の無い区分は全国の目安で計算して知らせる
+    const rated = setH(JSON.parse(JSON.stringify(req)) as Req, "premiumRates", [{ id: uid("pr"), kind: "nationalHealth", parts: { medical: { incomeRate: box("0.07"), perCapita: box(40000) } } }]);
+    const o2 = runEngine(rated, realPacks(), { checkInternal: true, entry: { component: "socialInsurance.nationalHealth", input: { fiscalYear: 2026 } }, stubs });
+    const f2 = (o2.entryOutput as { flows: { formula: string; amount: number }[] }).flows;
+    const sum2 = (formula: string) => f2.filter((x) => x.formula === formula).reduce((s, x) => s + x.amount, 0);
+    expect(sum2("socialInsurance.nationalHealth.medical")).toBe(179900 + 40000);
+    expect(sum2("socialInsurance.nationalHealth.elderlySupport")).toBe(85284);
+    expect(notices(o2)).toContainEqual({ code: "N_DEFAULT_USED", ids: ["socialInsurance.nationalHealth", "socialInsurance.nationalHealth.nationalStandard"] });
+    // 世帯全体の計算でも、国民健康保険料が表に載る（前の年度の住民税は決定通知書の額で入れる）
+    const all = run(
+      household({
+        baseMonth: "2026-06",
+        endYear: 2027,
+        members: [member("h", "self", "1981-01")],
+        periods: [{ id: uid("p"), member: H, from: { at: "2010-04" }, to: null, type: "selfEmployed", business: { income: box(3000000) } }],
+        residentTaxAssessments: [{ id: uid("rta"), member: H, fiscalYear: 2026, amount: box(150000) }],
+      }),
+      realPacks(),
+    );
+    expect(all.flows.filter((x) => x.formula === "socialInsurance.nationalHealth.medical" && x.accrualYear === 2026).reduce((s, x) => s + x.amount, 0)).toBeGreaterThan(0);
+  });
+
+  it("健康保険の任意継続: 資格を失ったときの標準報酬月額（協会けんぽは上限32万円）×保険料率（折半しない）を毎月払い、2年を過ぎたら国民健康保険", () => {
+    const req = (hi: Record<string, unknown> = { kind: "kyokaikenpo", insurer: "kyokaikenpo.13" }) =>
+      household({
+        baseMonth: "2026-06",
+        endYear: 2029,
+        members: [member("h", "self", "1976-01")],
+        periods: [
+          period("p1", { member: "h", from: "2000-04", to: "2026-03", annual: 4800000, std: [400000, 400000], healthInsurance: hi }),
+          { id: uid("p2"), member: H, from: { at: "2026-04" }, to: null, type: "unemployed", healthInsurance: { kind: "continuation" } },
+        ],
+        residentTaxAssessments: [{ id: uid("rta"), member: H, fiscalYear: 2026, amount: box(200000) }],
+      });
+    const r = run(req(), realPacks());
+    const at = (formula: string, ym: string) => flowsOf(r, (f) => f.formula === formula && f.ym === ym).reduce((s, f) => s + f.amount, 0);
+    // 50歳・東京: 320,000×(9.85%＋介護1.62%＋支援金0.23%)＝37,440（円未満切り捨て）。介護 5,184・支援金 736・健康保険 31,520
+    expect(at("socialInsurance.continuation.health", "2026-07")).toBe(31520);
+    expect(at("socialInsurance.continuation.care", "2026-07")).toBe(5184);
+    expect(at("socialInsurance.continuation.childSupport", "2026-07")).toBe(736);
+    const hs = entry<HealthStatusOutput>(req(), "socialInsurance.healthStatus", { member: H }, undefined, realPacks()).months;
+    expect(hs.find((m) => m.month === "2028-03")?.kind).toBe("continuation");
+    expect(hs.find((m) => m.month === "2028-04")?.kind).toBe("national");
+    expect(flowsOf(r, (f) => f.formula.startsWith("socialInsurance.continuation.") && f.ym >= "2028-04")).toEqual([]);
+    expect(flowsOf(r, (f) => f.formula === "socialInsurance.nationalHealth.medical" && f.ym >= "2028-06").length).toBeGreaterThan(0);
+    // 任意継続の保険料は社会保険料控除に入る
+    const paid = entry<{ amount: number }>(req(), "tax.socialInsurancePaid", { member: H, year: 2027 }, undefined, realPacks()).amount;
+    expect(paid).toBeGreaterThanOrEqual(37440 * 12);
+    // 健保組合の任意継続は料率・上限が組合ごとなので計算せずに知らせる
+    const u = run(req({ kind: "union", employeeRate: box("0.05") }), realPacks());
+    expect(flowsOf(u, (f) => f.formula.startsWith("socialInsurance.continuation."))).toEqual([]);
+    expect(notices(u)).toContainEqual({ code: "N_INPUT_REQUIRED", ids: ["socialInsurance.continuation", "socialInsurance.continuation.rates"] });
   });
 
   it("後期高齢者医療: 所得割＋均等割（軽減の判定は65歳以上の年金の所得から15万円を引く）、区分ごとに100円未満を切り捨て、年金から6回", () => {
@@ -326,6 +490,62 @@ describe("休業（決定5）", () => {
     expect(flowsOf(r, (f) => f.formula === "benefit.employment.postBirth" && f.member === F).map((f) => f.amount)).toEqual([58240]);
     expect(flowsOf(r, (f) => f.formula === "benefit.employment.childcareLeave" && f.member === F).map((f) => f.amount)).toEqual([321600]);
   });
+  it("介護休業給付金: 通算93日・3回までは対象の家族ごとに数える（母の介護の後の義父の介護も出る。同じ家族の4回目は出ない）", () => {
+    const P1 = uid("p1");
+    const P2 = uid("p2");
+    const leave = (n: string, from: string, to: string) => ({ id: uid(n), member: H, from: { at: from }, to: { at: to }, type: "leave", leaveKind: "care" });
+    const work = (n: string, from: string, to: string | null) => period(n, { member: "h", from, to, annual: 4800000, std: [400000, 400000] });
+    const req = household({
+      baseMonth: "2026-10",
+      endYear: 2032,
+      members: [member("h", "self", "1980-01"), member("p1", "parent", "1950-01"), member("p2", "other", "1948-01")],
+      periods: [
+        work("w1", "2010-04", "2026-12"),
+        leave("l1", "2027-01", "2027-03"),
+        work("w2", "2027-04", "2028-05"),
+        leave("l2", "2028-06", "2028-08"),
+        work("w3", "2028-09", "2029-06"),
+        leave("l3", "2029-07", "2029-07"),
+        work("w4", "2029-08", null),
+      ],
+      residentTaxAssessments: [{ id: uid("rta"), member: H, fiscalYear: 2026, amount: box(200000) }],
+    });
+    setH(req, "careExpenses", [
+      { id: uid("care1"), member: P1, from: { at: "2027-01" }, months: 36, otherMonthly: box(10000), initial: box(0) },
+      { id: uid("care2"), member: P2, from: { at: "2028-06" }, months: 24, otherMonthly: box(10000), initial: box(0) },
+    ]);
+    const amounts = () => flowsOf(run(req, realPacks()), (f) => f.formula === "benefit.employment.careLeave").map((f) => [f.object, f.amount] as const);
+    const got = new Map(amounts());
+    // 母（P1）の介護で90日、義父（P2）の介護でも90日（人ごとに数えると3日だけになっていた）
+    expect(got.get(uid("l1"))).toBeGreaterThan(0);
+    expect(got.get(uid("l2"))).toBe(got.get(uid("l1")));
+    // 母の介護の2回目は、30日のうち通算93日の残りの3日分だけ
+    expect(got.get(uid("l3"))).toBeGreaterThan(0);
+    expect(got.get(uid("l3"))).toBeLessThan((got.get(uid("l1")) as number) / 10);
+    // 同じ家族の4回目からは出ない（1か月ずつ4回）
+    const four = household({
+      baseMonth: "2026-10",
+      endYear: 2032,
+      members: [member("h", "self", "1980-01"), member("p1", "parent", "1950-01")],
+      periods: [
+        work("v1", "2010-04", "2026-12"),
+        leave("k1", "2027-01", "2027-01"),
+        work("v2", "2027-02", "2027-12"),
+        leave("k2", "2028-01", "2028-01"),
+        work("v3", "2028-02", "2028-12"),
+        leave("k3", "2029-01", "2029-01"),
+        work("v4", "2029-02", "2029-12"),
+        leave("k4", "2030-01", "2030-01"),
+        work("v5", "2030-02", null),
+      ],
+      residentTaxAssessments: [{ id: uid("rta"), member: H, fiscalYear: 2026, amount: box(200000) }],
+    });
+    setH(four, "careExpenses", [{ id: uid("care1"), member: P1, from: { at: "2027-01" }, months: 60, otherMonthly: box(10000), initial: box(0) }]);
+    const g4 = new Map(flowsOf(run(four, realPacks()), (f) => f.formula === "benefit.employment.careLeave").map((f) => [f.object, f.amount] as const));
+    expect([uid("k1"), uid("k2"), uid("k3")].every((k) => (g4.get(k) ?? 0) > 0)).toBe(true);
+    expect(g4.has(uid("k4"))).toBe(false);
+  });
+
   it("傷病手当金（最初の月は待期3日を除く。翌月に払う）", () => {
     const req = household({
       baseMonth: "2026-04",
@@ -339,6 +559,23 @@ describe("休業（決定5）", () => {
     });
     // 300,000÷30＝10,000 ×2/3＝6,667
     expect(flowsOf(run(req), (f) => f.formula === "benefit.health.sicknessAllowance").map((f) => [f.ym, f.amount])).toEqual([["2026-10", 6667 * 27], ["2026-11", 6667 * 30]]);
+  });
+
+  it("傷病手当金: 計算基準年の前の年に始まった休業も、休業の前12か月の標準報酬月額で日額を出す", () => {
+    const req = household({
+      baseMonth: "2026-10",
+      endYear: 2027,
+      members: [member("h", "self", "1980-01")],
+      periods: [
+        period("p1", { member: "h", from: "2010-04", to: "2025-09", annual: 3600000, std: [300000, 300000] }),
+        { id: uid("p2"), member: H, from: { at: "2025-10" }, to: { at: "2026-12" }, type: "leave", leaveKind: "sick" },
+        period("p3", { member: "h", from: "2027-01", annual: 3600000, std: [300000, 300000] }),
+      ],
+      residentTaxAssessments: [{ id: uid("rta"), member: H, fiscalYear: 2026, amount: box(150000) }],
+    });
+    const f = flowsOf(run(req, realPacks()), (x) => x.formula === "benefit.health.sicknessAllowance");
+    // 300,000÷30＝10,000 ×2/3＝6,667。計算基準月（2026年10月）からの休業の月も払う
+    expect(f.filter((x) => x.ym >= "2026-11").map((x) => [x.ym, x.amount])).toEqual([["2026-11", 6667 * 30], ["2026-12", 6667 * 30], ["2027-01", 6667 * 30]]);
   });
 });
 

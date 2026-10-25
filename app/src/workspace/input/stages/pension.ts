@@ -206,12 +206,12 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     plain({ key: `${prefix}/asOf`, item: "pensionRecord.asOf", label: rec.kind === "history" ? "加入歴の終わりの月" : "書類の作成年月", level: "simple", kind: "ym", find, path: ["asOf"], help: "この月より後の加入は、働き方の期間から足します" }),
   ];
   if (rec.kind === "statementUnder50" || rec.kind === "statementOver50") {
-    // 加入月数が0か月のままなら「仮」の印を付ける（カードは「推定あり」になる）
+    // 加入月数が0か月のままなら、欄の下に知らせ（warn。ほかの入力と合わないときの知らせと同じ形）を出す
     const missing = (f: FieldDef): FieldDef => ({
       ...f,
       get: (w) => {
         const st = f.get(w);
-        return statementMonthsMissing(recordOf(w.request.input.household, m.id)) ? { ...st, assumed: "未入力（0か月のまま。定期便の加入月数を写してください）" } : st;
+        return statementMonthsMissing(recordOf(w.request.input.household, m.id)) ? { ...st, warn: "0か月のままです。見込額を入れても、定期便の加入月数を写すまでは年金を正しく計算できません" } : st;
       },
     });
     fields.push(

@@ -72,5 +72,16 @@ export { netByYear, tableYear } from "../engine/aggregate.ts";
 export { boxValue } from "./box.ts";
 export type * from "./contracts.ts";
 export { fail } from "./fail.ts";
-export { ageMonth, annualReturn, accountReturnRate, shockShare, INVEST_KINDS, monthsIn, paymentsIn, paymentsInYear, paidByYear, amountInYear, fiscalYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS, grownByYear, monthlyParts, evenMonthPayments, spousesAt, childrenOf, contingencyRatio, exemptionMonths, EXEMPTION_WEIGHT_IDS, EXEMPTION_WEIGHT_DENOMINATOR, landBuildingValuer, USEFUL_LIFE, LAND_SHARE, RESIDUAL_FLOOR, SALE_COST_RATE } from "./helpers.ts";
+export { ageMonth, annualReturn, accountReturnRate, shockShare, INVEST_KINDS, monthsIn, paymentsIn, paymentsInYear, paidByYear, amountInYear, fiscalYearOf, residentTaxYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS, grownByYear, monthlyParts, evenMonthPayments, spousesAt, childrenOf, deathMonthIn, contingencyRatio, exemptionMonths, EXEMPTION_WEIGHT_IDS, EXEMPTION_WEIGHT_DENOMINATOR, landBuildingValuer, USEFUL_LIFE, LAND_SHARE, RESIDUAL_FLOOR, SALE_COST_RATE } from "./helpers.ts";
 export type { ExemptionCounts } from "./helpers.ts";
+export {
+  legalExemptionWindow,
+  oldAgeClaimMonths,
+  recordEmployeeMonths,
+  specialOldAgeStart,
+  survivorBasis,
+  survivorDeath,
+  SPECIAL_OLD_AGE_PARAMS,
+  SURVIVOR_BASIS_PARAMS,
+  type SurvivorBasis,
+} from "./pension.ts";

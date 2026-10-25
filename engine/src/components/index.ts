@@ -50,6 +50,7 @@ import socialInsuranceEmployeeStatus from "./socialInsurance.employeeStatus/inde
 import socialInsuranceHealthStatus from "./socialInsurance.healthStatus/index.ts";
 import socialInsuranceLateElderly from "./socialInsurance.lateElderly/index.ts";
 import socialInsuranceNationalHealth from "./socialInsurance.nationalHealth/index.ts";
+import socialInsuranceContinuation from "./socialInsurance.continuation/index.ts";
 import socialInsuranceNationalPension from "./socialInsurance.nationalPension/index.ts";
 import taxPublicPensionIncome from "./tax.publicPensionIncome/index.ts";
 import accountMutualAid from "./account.mutualAid/index.ts";
@@ -77,6 +78,7 @@ import insuranceTerm from "./insurance.term/index.ts";
 import medicalHighCost from "./medical.highCost/index.ts";
 import pensionDisability from "./pension.disability/index.ts";
 import pensionSurvivor from "./pension.survivor/index.ts";
+import pensionSurvivorRight from "./pension.survivorRight/index.ts";
 import protectionNeed from "./protection.need/index.ts";
 import taxSurvivorStatus from "./tax.survivorStatus/index.ts";
 
@@ -136,6 +138,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   socialInsuranceHealthStatus,
   socialInsuranceLateElderly,
   socialInsuranceNationalHealth,
+  socialInsuranceContinuation,
   socialInsuranceNationalPension,
   taxPublicPensionIncome,
   accountMutualAid,
@@ -163,6 +166,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   medicalHighCost,
   pensionDisability,
   pensionSurvivor,
+  pensionSurvivorRight,
   protectionNeed,
   taxSurvivorStatus,
 ] as never;

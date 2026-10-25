@@ -272,6 +272,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.survivorRight
+    status: active
+    label: "遺族年金の受給権"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: plan.cashflow
     status: active
     label: "キャッシュフロー表"
@@ -323,6 +329,12 @@ entries:
   - id: socialInsurance.careFirst
     status: active
     label: "介護保険料（第1号被保険者）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.continuation
+    status: active
+    label: "健康保険の任意継続の保険料"
     since: draft
     aliases: []
     replacedBy: null

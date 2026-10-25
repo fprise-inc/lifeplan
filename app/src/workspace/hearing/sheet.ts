@@ -154,7 +154,8 @@ function plain(v: unknown): unknown {
   const o = v as Record<string, unknown>;
   if ("state" in o && "origin" in o) return o.state === "confirmed" || o.state === "estimated" ? plain(o.value) : o.state;
   const out: Record<string, unknown> = {};
-  for (const k of Object.keys(o).sort()) if (k !== "id" && k !== "origin" && k !== "approval" && k !== "estimate") out[k] = plain(o[k]);
+  // 住宅ローン控除の仮の条件の入居のイベント（moveIn）の ID は、取り込みのたびに新しくなるので比べない
+  for (const k of Object.keys(o).sort()) if (k !== "id" && k !== "origin" && k !== "approval" && k !== "estimate" && k !== "moveIn") out[k] = plain(o[k]);
   return out;
 }
 
@@ -335,6 +336,7 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
   let added = 0;
   let replaced = 0;
   const viewOf = new Map(view.candidates.map((c) => [c.id, c]));
+  const dropped = new Set<string>();
   for (const c of chosen) {
     const src = (impLists[c.collection] ?? []).find((o) => o.id === c.target.object);
     if (src === undefined) continue;
@@ -346,6 +348,15 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
     }
     const list = (curLists[c.collection] ??= []);
     const at = list.findIndex((o) => o.id === obj.id);
+    // 住宅ローンの入居のイベント（住宅ローン控除の条件 debt.housing が指す）は、ローンといっしょに入れる。置き換えたローンの前のイベントは外す
+    const moveIn = (o: Obj | undefined) => ((o?.housing as { moveIn?: string } | undefined)?.moveIn ?? null);
+    if (c.collection === "debts") {
+      const ev = moveIn(obj);
+      const src = ev === null ? undefined : (approved.input.household.events ?? []).find((e) => e.id === ev);
+      if (src !== undefined && !(h.events ?? []).some((e) => e.id === src.id)) (h.events ??= []).push(remap(src, ids));
+      const old = at >= 0 ? moveIn(list[at]) : null;
+      if (old !== null && old !== ev) dropped.add(old);
+    }
     if (at >= 0) {
       list[at] = obj;
       replaced++;
@@ -361,6 +372,11 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
         if (!rels.some((x) => JSON.stringify(x) === JSON.stringify(rr))) rels.push(rr);
       }
     }
+  }
+  // 置き換えたローンの入居のイベントのうち、ほかから指されていないものを外す
+  if (dropped.size > 0) {
+    const rest = JSON.stringify({ ...h, events: [] });
+    h.events = (h.events ?? []).filter((e) => !dropped.has(e.id) || rest.includes(e.id));
   }
   // 表の最後の年: 大人が入れ替わったら、一番若い大人が100歳になる年まで（0008 の3）
   if (chosen.some((c) => c.collection === "members")) request.input.endYear = standardEndYear(h);

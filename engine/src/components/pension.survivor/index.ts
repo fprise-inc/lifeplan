@@ -18,13 +18,17 @@
 //   36月以上で、遺族基礎年金を受ける人がいないとき。寡婦年金と両方を受けられるときは総額の多い方。第1号の内訳は加入の記録（加入歴・定期便の category1）から。
 //   内訳が無い記録では第3号の月と区別できないので、厚生年金の月を除いた20〜59歳の月を納付済とみなす近似（知らせ）。記録の後の第1号の月は、
 //   死亡の月の前月まで数える（49条・52条の2「死亡日の属する月の前月まで」。改訂2）
+// - 一人一年金（国民年金法20条・厚生年金保険法38条）: 寡婦年金と遺族厚生年金（＋中高齢寡婦加算）を両方受けられる月は、多い方の一方だけ。
+//   死亡一時金と寡婦年金の選択は、寡婦年金を選んで増える総額と比べる。妻が繰上げで老齢基礎年金を受け始めると寡婦年金の受給権は消える
+//   （附則9条の2第5項。夫の死亡より前から受けていれば寡婦年金は無い）（改訂3）
+// - 受給権の判定（誰が・いつ・どの遺族年金の受給権を得るか）は SDK の survivorBasis（pension.survivorRight と共通）
+// - 65歳になる前の、遺族厚生年金と自分の特別支給の老齢厚生年金・繰上げの老齢年金との選択は扱わない（両方を足す）
 // - 2028年4月からの遺族年金の見直し（有期化・子の加算の見直しなど）は作らない。2028年4月以後の死亡の想定には知らせ（N_REFORM_NOT_REFLECTED）を必ず出す
 //   （制度データの行の扱いは 0007 の追記 2026-10-10: 見直し後の値は別の値IDで持ち、この部品が読む値IDの行は見直し前の値のまま続ける）
 import {
   addMonths,
   ageMonth,
   bracketFor,
-  childrenOf,
   defineComponent,
   exemptionMonths,
   EXEMPTION_WEIGHT_DENOMINATOR,
@@ -38,21 +42,19 @@ import {
   rate,
   RATE_ONE,
   RATE_ZERO,
-  spousesAt,
+  survivorBasis,
+  survivorDeath,
   yearOf,
   yen,
   type CategoryOutput,
-  type ContingencyEventOutput,
   type Flow,
   type MemberInput,
   type MonthCtx,
   type MonthIndex,
   type PensionOutput,
   type Rate,
-  type RecordOutput,
   type RelationInput,
   type RevisionOutput,
-  type SurvivorPensionMonth,
   type SurvivorPensionOutput,
   type Yen,
 } from "../../sdk/index.ts";
@@ -115,7 +117,7 @@ export default defineComponent<Input, SurvivorPensionOutput>({
   id: "pension.survivor",
   title: "遺族年金（遺族基礎年金・遺族厚生年金・中高齢寡婦加算・寡婦年金・死亡一時金）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {
     "contingency.event": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -133,71 +135,23 @@ export default defineComponent<Input, SurvivorPensionOutput>({
     const empty: SurvivorPensionOutput = { flows: [], months: [], deceased: null, death: null, lumpSum: yen(0) };
     const members = ctx.list<MemberInput>("member");
     const relations = ctx.list<RelationInput>("relation");
-    // 亡くなった構成員（配偶者か親）と死亡の月
-    let X: string | null = null;
-    let D: MonthIndex | null = null;
-    if (input.death !== undefined) {
-      X = input.death.member;
-      D = parseYm(input.death.month);
-    } else {
-      const candidates = [
-        ...relations.flatMap((r) => (r.type === "spouse" && (r.a === Y || r.b === Y) ? [(r.a === Y ? r.b : r.a) as string] : [])),
-        ...relations.flatMap((r) => (r.type === "parentOf" && r.child === Y ? [r.parent as string] : [])),
-      ];
-      // 関係に親が無いときは、子（kind child）から見た本人・配偶者
-      const me0 = members.find((m) => m.id === Y);
-      if (me0?.kind === "child" && !relations.some((r) => r.type === "parentOf")) for (const m of members) if (m.kind === "self" || m.kind === "spouse") candidates.push(m.id);
-      for (const c of [...new Set(candidates)]) {
-        const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: c }).event;
-        if (ev !== null && ev.kind === "death") {
-          X = c;
-          D = parseYm(ev.month);
-          break;
-        }
-      }
-    }
-    if (X === null || D === null) return empty;
-    const deceased = X;
-    const death = D;
-    if (death >= REFORM_2028) ctx.notice("N_REFORM_NOT_REFLECTED", ["survivorPension.reform2028"]);
-    const me = members.find((m) => m.id === Y) as MemberInput;
-    const dm = members.find((m) => m.id === deceased);
-    if (dm === undefined) return empty;
-    const isSpouse = spousesAt(ctx, relations, deceased, death).includes(Y);
-    const kidsAll = childrenOf(members, relations, deceased).filter((c) => parseYm(c.birth.birthYearMonth) <= addMonths(death, 10));
-    const isChild = kidsAll.some((c) => c.id === Y);
-    if (!isSpouse && !isChild) return empty;
-    // 子だけが受け取るのは、死亡の当時に配偶者がいないとき（いれば配偶者が受け取り、子の分は止まる）
-    const hasSpouse = spousesAt(ctx, relations, deceased, death).length > 0;
-    if (isChild && hasSpouse) return empty;
-    // 受け取る子は、受けられる子のうち最も年上の子（お金の動きはその子に載せる）
-    const m0 = death < base ? base : death;
+    // 亡くなった構成員（配偶者か親）と死亡の月・受給権の要件（pension.survivorRight と同じ判定。SDK の survivorBasis）
+    const d = survivorDeath(ctx, Y, members, relations, input.death);
+    if (d === null) return empty;
+    if (d.death >= REFORM_2028) ctx.notice("N_REFORM_NOT_REFLECTED", ["survivorPension.reform2028"]);
+    const sb = survivorBasis(ctx, Y, d, members, relations);
+    if (sb === null) return empty;
+    const { deceased, death, me, isSpouse, isChild, kidsAll, childUntil, m0, rec, recMonths, empMonths, shortTerm, employeeOk, basicOk, kidsAtDeath, lastKid, empFrom, empUntil } = sb;
     const at0 = ctx.at(m0);
-    const childUntil = new Map(kidsAll.map((c) => [c.id, ageMonth(ctx, m0, P.childAge, c.id)]));
     const kidsAt = (m: MonthIndex) => kidsAll.filter((c) => parseYm(c.birth.birthYearMonth) <= m && m <= (childUntil.get(c.id) as MonthIndex));
-    if (isChild) {
-      const eldest = [...kidsAll].filter((c) => (childUntil.get(c.id) as MonthIndex) > death).sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1))[0];
-      if (eldest === undefined || eldest.id !== Y) return empty;
-    }
 
     // 亡くなった人の記録（死亡の月まで）
-    const rec = ctx.call<RecordOutput>("pension.record", { member: deceased });
     const rvX = ctx.call<RevisionOutput>("pension.revision", { member: deceased });
     const rvY = ctx.call<RevisionOutput>("pension.revision", { member: Y });
     const EX = revisionTable(rvX, "employee");
     const RY = revisionTable(rvY, "rate");
     const K = rec.fiscalYear;
     const EK = EX(K);
-    const recMonths = rec.months.filter((x) => parseYm(x.month) <= death);
-    const futureCount = rec.months.filter((x) => x.basic || x.employee).length;
-    const qualifying = rec.qualifyingMonths - futureCount + recMonths.filter((x) => x.basic || x.employee).length;
-    const empMonths = rec.employeeMonths + recMonths.filter((x) => x.employee).length;
-    const insuredAtDeath = recMonths.some((x) => x.month === formatYm(death) && x.employee);
-    const longOk = qualifying >= (at0.paramCount(P.qual) ?? 300);
-    const shortTerm = insuredAtDeath;
-    const employeeOk = empMonths > 0 && (shortTerm || longOk);
-    // 遺族基礎年金の要件: 65歳になる前の死亡（被保険者・60〜64歳の国内居住）か、受給資格期間25年以上
-    const basicOk = longOk || death < ageMonth(ctx, m0, P.start, deceased);
     // 報酬比例（記録の年度の水準の分母 10^12 の整数）。記録の額（定期便・通知・見込額）があればそれから
     let num = BigInt(rec.amounts.employee ?? 0) * DEN;
     for (const x of recMonths) {
@@ -232,21 +186,7 @@ export default defineComponent<Input, SurvivorPensionOutput>({
 
     const female = me.sex === "female";
     const ageAt = (id: string, years: string) => ageMonth(ctx, m0, years, id);
-    // 遺族厚生年金を受ける期間
-    const kidsAtDeath = kidsAt(addMonths(death, 1)).length > 0;
-    let empFrom: MonthIndex = addMonths(death, 1);
-    let empUntil: MonthIndex | null = null;
-    if (isSpouse && employeeOk) {
-      if (female) {
-        if (!kidsAtDeath && death < ageAt(Y, P.youngAge)) empUntil = addMonths(death, at0.paramCount(P.youngMonths) ?? 60);
-      } else if (death < ageAt(Y, P.husbandAge)) empFrom = addMonths(end, 1);
-      else {
-        const from60 = ageAt(Y, P.husbandFrom);
-        if (from60 > empFrom) empFrom = from60;
-      }
-    }
     // 中高齢寡婦加算: 遺族基礎年金が終わった月（子が無ければ死亡の月の翌月）に40歳以上
-    const lastKid = kidsAll.length === 0 ? death : kidsAll.reduce((mx, c) => ((childUntil.get(c.id) as MonthIndex) > mx ? (childUntil.get(c.id) as MonthIndex) : mx), death);
     const addStart = isSpouse && basicOk && kidsAtDeath ? addMonths(lastKid, 1) : addMonths(death, 1);
     // 中高齢者の期間短縮の特例（夫の生年月日で必要な月数。制度データに行の無い生年月日は特例なし）
     let middleOk = false;
@@ -271,10 +211,12 @@ export default defineComponent<Input, SurvivorPensionOutput>({
     const twDen = twOk ? (at0.paramCount(P.twDen, { member: Y }) ?? 1) : 1;
     // 65歳からの自分の老齢厚生年金
     const N = ageAt(Y, P.start);
-    let own: Map<string, Yen> | null = null;
+    let own: PensionOutput["months"] | null = null;
+    let ownEmp: Map<string, Yen> | null = null;
+    const ownMonths = () => (own ??= ctx.call<PensionOutput>("pension.oldAge", { member: Y }).months);
     const ownAt = (m: MonthIndex): Yen => {
-      if (own === null) own = new Map(ctx.call<PensionOutput>("pension.oldAge", { member: Y }).months.map((x) => [x.month, x.employee]));
-      return own.get(formatYm(m)) ?? yen(0);
+      ownEmp ??= new Map(ownMonths().map((x) => [x.month, x.employee]));
+      return ownEmp.get(formatYm(m)) ?? yen(0);
     };
 
     // 寡婦年金・死亡一時金（第1号の月数）
@@ -313,15 +255,26 @@ export default defineComponent<Input, SurvivorPensionOutput>({
     const receivingOldAge = rec.kind === "receiving" || death >= ageAt(deceased, P.start);
     const spouseRel = relations.find((r) => r.type === "spouse" && ((r.a === Y && r.b === deceased) || (r.b === Y && r.a === deceased)));
     const marriedFrom = spouseRel === undefined || spouseRel.type !== "spouse" || spouseRel.from === null ? null : ctx.time.resolve(spouseRel.from);
-    const wpOk =
+    let wpOk =
       isSpouse && female && !receivingOldAge && wpMonthsOk && cat1 >= (at0.paramCount(P.wpMonths) ?? 120) && (marriedFrom === null || death - marriedFrom >= (at0.paramCount(P.wpMarriage) ?? 120));
+    // 妻の繰上げ（65歳になる前に老齢基礎年金を受け始める月）: 寡婦年金の受給権はその請求で消える（国民年金法附則9条の2第5項。消えた月まで支給）。
+    // 夫の死亡より前から受けていれば、寡婦年金は無い
+    let wpEnd: MonthIndex | null = null;
+    if (wpOk) {
+      const early = ownMonths().find((x) => x.basic > 0 && parseYm(x.month) < N);
+      if (early !== undefined) {
+        wpEnd = parseYm(early.month);
+        if (wpEnd <= death) wpOk = false;
+      }
+    }
     const wpFrom = ageAt(Y, P.wpFrom) > addMonths(death, 1) ? ageAt(Y, P.wpFrom) : addMonths(death, 1);
     const wpUntil = ageAt(Y, P.wpUntil);
     const maxMonths = at0.paramCount(P.maxMonths) ?? 480;
 
-    const months: SurvivorPensionMonth[] = [];
-    let wpTotal = 0;
-    const wpMonthsList: SurvivorPensionMonth[] = [];
+    type Row = { month: string; basic: Yen; employee: Yen; widowAddition: Yen; widowPension: Yen };
+    const months: Row[] = [];
+    // 寡婦年金を受けられる月（額は選ぶ前。寡婦年金と遺族厚生年金・中高齢寡婦加算は同じ月に受けず、どちらかを選ぶ（一人一年金。国民年金法20条））
+    const wpRows: { row: Row; wp: Yen }[] = [];
     const startM = addMonths(death, 1) > base ? addMonths(death, 1) : base;
     for (let m = addMonths(death, 1); m <= end; m = addMonths(m, 1)) {
       const fy = fiscalYearOf(m);
@@ -355,27 +308,38 @@ export default defineComponent<Input, SurvivorPensionOutput>({
         }
       }
       const widowAddition = addOk && basic === 0 && m >= addStart && m < addUntil ? v.add : transitional;
-      let widowPension = yen(0);
-      if (wpOk && basic === 0 && m >= wpFrom && m < wpUntil) {
+      let wp = yen(0);
+      if (wpOk && basic === 0 && m >= wpFrom && m < wpUntil && (wpEnd === null || m < wpEnd)) {
         const capped = wpAmountW.num > BigInt(maxMonths) * wpAmountW.den ? BigInt(maxMonths) * wpAmountW.den : wpAmountW.num;
         const full = v.at.money.mulRatio(v.basic, capped, wpAmountW.den * BigInt(maxMonths), P.round);
-        widowPension = v.at.money.mulRate(full, v.at.paramRate(P.wpRatio) ?? RATE_ZERO, P.round);
-        wpTotal += widowPension;
+        wp = v.at.money.mulRate(full, v.at.paramRate(P.wpRatio) ?? RATE_ZERO, P.round);
       }
-      const row = { month: formatYm(m), basic, employee, widowAddition, widowPension };
-      if (widowPension > 0) wpMonthsList.push(row);
-      if (basic > 0 || employee > 0 || widowAddition > 0 || widowPension > 0) months.push(row);
+      const row: Row = { month: formatYm(m), basic, employee, widowAddition, widowPension: yen(0) };
+      if (wp > 0) wpRows.push({ row, wp });
+      if (basic > 0 || employee > 0 || widowAddition > 0 || wp > 0) months.push(row);
     }
-    // 死亡一時金（遺族基礎年金を受ける人がいないとき）。寡婦年金と両方なら総額（年額÷12 の月の合計）の多い方
+    // 寡婦年金を選んだときに増える額（寡婦年金が遺族厚生年金＋中高齢寡婦加算より多い月の差。年額の合計）
+    let gain = 0;
+    for (const r of wpRows) {
+      const other = r.row.employee + r.row.widowAddition;
+      if (r.wp > other) gain += r.wp - other;
+    }
+    // 死亡一時金（遺族基礎年金を受ける人がいないとき）。寡婦年金と両方を受けられるときはどちらかを選ぶ（52条の6）: 寡婦年金を選んで増える総額
+    // （年額÷12 の月の合計）より死亡一時金が多ければ、死亡一時金を受けて寡婦年金は受けない
     let lumpSum = yen(0);
     const anyBasic = basicOk && kidsAtDeath;
     if (!anyBasic && !receivingOldAge && lumpW.num >= BigInt(at0.paramCount(P.lumpMonths) ?? 36) * lumpW.den) {
       const table = at0.paramBrackets(P.lump);
       const amount = table === null ? yen(0) : (bracketFor(table, yen(lumpMonthsN)).amount ?? yen(0));
-      const wpSum = ctx.money.divInt(yen(wpTotal), 12, "conv.exact");
-      if (amount > wpSum) {
-        lumpSum = amount;
-        for (const r of wpMonthsList) (r as { widowPension: Yen }).widowPension = yen(0);
+      if (amount > ctx.money.divInt(yen(gain), 12, "conv.exact")) lumpSum = amount;
+    }
+    // 寡婦年金を受けるなら、寡婦年金の方が多い月だけ寡婦年金を選び、その月の遺族厚生年金・中高齢寡婦加算は受けない
+    if (lumpSum === 0) {
+      for (const r of wpRows) {
+        if (r.wp <= r.row.employee + r.row.widowAddition) continue;
+        r.row.widowPension = r.wp;
+        r.row.employee = yen(0);
+        r.row.widowAddition = yen(0);
       }
     }
     const kept = months.filter((r) => r.basic > 0 || r.employee > 0 || r.widowAddition > 0 || r.widowPension > 0);

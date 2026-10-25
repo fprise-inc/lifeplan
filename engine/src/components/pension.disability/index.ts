@@ -55,7 +55,8 @@ const P = {
   child12: "pension.childSupplement.firstTwoBaseAmount",
   child3: "pension.childSupplement.thirdBaseAmount",
   childAge: "pension.childSupplement.childUntilAge",
-  supBase: "pension.spouseSupplement.baseAmount",
+  // 障害厚生年金の配偶者の加給年金額（50条の2）。老齢厚生年金の額（44条2項）は令和10年4月から下がるが、障害厚生年金は見直さないので別の値ID
+  supBase: "pension.disability.spouseSupplement.baseAmount",
   spouseAge: "pension.spouseSupplement.spouseUntilAge",
   start: "pension.normalStartAge",
   basic1: "pension.disability.basicGrade1Ratio",
@@ -89,7 +90,7 @@ export default defineComponent<{ member: string }, DisabilityPensionOutput>({
   id: "pension.disability",
   title: "障害年金（障害基礎年金・障害厚生年金）",
   contract: "1.1",
-  revision: 3,
+  revision: 4,
   requires: { "contingency.event": ">=1 <2", "pension.record": ">=1 <2", "pension.revision": ">=1 <2", "pension.oldAgeBase": ">=1 <2" },
   params: [...Object.values(P), ...Object.values(T)],
   reads: ["member.kind", "member.birth", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "relation.parent", "relation.child"],

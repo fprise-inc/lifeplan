@@ -392,6 +392,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: educationSupport.higher.multiChild.specifiedRelativeIncomeLimit
+    status: active
+    label: "多子世帯の判定で「子ども」に数える特定親族（特定親族特別控除の年齢の子）の合計所得金額の上限（以下）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: educationSupport.higher.waiver.national.admission
     status: active
     label: "修学支援の入学金の減免の上限（国公立の大学）"
@@ -479,6 +485,12 @@ entries:
   - id: employmentInsurance.careLeaveBenefit.maxDays
     status: active
     label: "介護休業給付金の支給の日数の上限（対象の家族1人につき通算93日）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.careLeaveBenefit.maxTimes
+    status: active
+    label: "介護休業給付金を受けられる介護休業の回数（対象の家族1人につき3回まで）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1580,6 +1592,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.disability.spouseSupplement.baseAmount
+    status: active
+    label: "障害厚生年金（1級・2級）の加給年金額（配偶者）の基準額（224,700円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.earlyClaim.maxMonths
     status: active
     label: "繰上げの上限の月数（60歳から）"
@@ -1697,6 +1715,18 @@ entries:
   - id: pension.spouseSupplement.baseAmount
     status: active
     label: "加給年金額（配偶者）の基準額（224,700円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.spouseSupplement.reform2028.baseAmount
+    status: active
+    label: "加給年金額（配偶者）の基準額（令和10年4月以後に加算された老齢厚生年金。202,200円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.spouseSupplement.reform2028.specialAddition
+    status: active
+    label: "配偶者の加給年金額の特別加算の基準額（令和10年4月以後に加算された老齢厚生年金。生年月日によらず 149,200円×改定率）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1907,6 +1937,12 @@ entries:
   - id: pension.workingAdjustment.threshold
     status: active
     label: "在職老齢年金の支給停止調整額（月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.workingAdjustment.threshold.rounding
+    status: active
+    label: "在職老齢年金の支給停止調整額の改定の端数処理（1万円未満四捨五入）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2378,6 +2414,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.care.highCostService.exemptPersonalIncomeLimit
+    status: active
+    label: "高額介護サービス費の個人の上限（15,000円）の基準額（前年の公的年金等の収入金額とその他の合計所得金額の合計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.highCostService.exemptPersonalLimit
+    status: active
+    label: "高額介護サービス費の負担の上限（月額。個人。世帯全員が住民税非課税で、公的年金等の収入金額とその他の合計所得金額の合計が基準以下の人）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.care.highCostService.limit
     status: active
     label: "高額介護サービス費の負担の上限（月額。住民税の課税世帯。前年の課税所得の段階）"
@@ -2501,6 +2549,18 @@ entries:
   - id: socialInsurance.employeeShare.rounding
     status: active
     label: "健康保険料・介護保険料・支援金・厚生年金保険料の被保険者負担分を給与から控除するときの端数（50銭以下切り捨て、50銭超切り上げ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.health.continuation.maxMonths
+    status: active
+    label: "健康保険の任意継続被保険者でいられる月数（任意継続被保険者となった日から2年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.health.kyokaikenpo.continuationLimit
+    status: active
+    label: "協会けんぽの任意継続被保険者の標準報酬月額の上限（全被保険者の標準報酬月額の平均に当たる等級の額）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2702,9 +2762,27 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.nationalHealth.care.incomeRate
+    status: active
+    label: "国民健康保険の介護納付金賦課額（40〜64歳）の所得割の率（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.nationalHealth.care.limit
     status: active
     label: "国民健康保険の賦課限度額（介護納付金賦課額。政令の基準）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.care.perCapita
+    status: active
+    label: "国民健康保険の介護納付金賦課額（40〜64歳）の被保険者均等割額（年額。1人あたり）（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.care.perHousehold
+    status: active
+    label: "国民健康保険の介護納付金賦課額（40〜64歳）の世帯別平等割額（年額。1世帯あたり）（全国の目安。既定）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2720,9 +2798,27 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.nationalHealth.elderlySupport.incomeRate
+    status: active
+    label: "国民健康保険の後期高齢者支援金等賦課額の所得割の率（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.nationalHealth.elderlySupport.limit
     status: active
     label: "国民健康保険の賦課限度額（後期高齢者支援金等賦課額。政令の基準）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.elderlySupport.perCapita
+    status: active
+    label: "国民健康保険の後期高齢者支援金等賦課額の被保険者均等割額（年額。1人あたり）（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.elderlySupport.perHousehold
+    status: active
+    label: "国民健康保険の後期高齢者支援金等賦課額の世帯別平等割額（年額。1世帯あたり）（全国の目安。既定）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2732,9 +2828,27 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.nationalHealth.medical.incomeRate
+    status: active
+    label: "国民健康保険の基礎賦課額（医療分）の所得割の率（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.nationalHealth.medical.limit
     status: active
     label: "国民健康保険の賦課限度額（基礎賦課額（医療分）。政令の基準）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.medical.perCapita
+    status: active
+    label: "国民健康保険の基礎賦課額（医療分）の被保険者均等割額（年額。1人あたり）（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.medical.perHousehold
+    status: active
+    label: "国民健康保険の基礎賦課額（医療分）の世帯別平等割額（年額。1世帯あたり）（全国の目安。既定）"
     since: draft
     aliases: []
     replacedBy: null

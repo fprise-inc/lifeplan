@@ -599,6 +599,11 @@ export interface SurvivorPensionOutput {
   readonly lumpSum: Yen;
 }
 
+/** pension.survivorRight: 遺族年金の受給権（受け取る構成員ごと）。from は受給権を得た月（死亡の月）、to は終わる月（無ければ null） */
+export interface SurvivorRightOutput {
+  readonly rights: readonly { readonly kind: "basic" | "employee"; readonly from: string; readonly to: string | null }[];
+}
+
 export interface DisabilityPensionMonth {
   readonly month: string;
   readonly basic: Yen;

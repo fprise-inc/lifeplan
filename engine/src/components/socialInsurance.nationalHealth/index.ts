@@ -1,7 +1,8 @@
 // 国民健康保険の保険料（年度。世帯主＝本人の構成員が納める）。区分（医療・後期高齢者支援金等・介護（40〜64歳）・子ども・子育て支援金）ごとに
 // 所得割（総所得金額等−基礎控除）×率＋均等割×人数＋平等割（均等割・平等割は軽減の後）を、賦課限度額まで。加入の月数で按分する。
-// 市町村ごとの値を持たない方針（0007 の6）。全国の標準的な料率は制度データに持つ（値が入るまでは、世帯の入力が無ければ計算せず
-// 見出しの notices に N_INPUT_REQUIRED を出す）。世帯の入力（決定通知書の年額 premiumAssessments、または料率 premiumRates）で上書きする。
+// 市町村ごとの値を持たない方針（0007 の6）。全国の目安の料率（公式の統計の全国の平均。制度データ）を既定にし、使ったときは見出しの notices に
+// N_DEFAULT_USED（nationalStandard）を出す。制度データに目安が無い区分があれば、世帯の入力が無いときは計算せず N_INPUT_REQUIRED を出す。
+// 世帯の入力（決定通知書の年額 premiumAssessments、または料率 premiumRates）で上書きする。
 // 子ども・子育て支援金の区分は18歳未満の均等割をかけない。未就学児の均等割の軽減・産前産後の免除はまだ入れていない（notices）
 import {
   addYen,
@@ -54,7 +55,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.nationalHealth",
   title: "国民健康保険料",
   contract: "1.0",
-  revision: 2,
+  revision: 4,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -77,9 +78,11 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   output: "flows.output",
   compute(input, ctx) {
     const fy = input.fiscalYear;
-    // 判定に使う所得の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得で判定する（PR の提案）
+    // 判定に使う所得と制度の値の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得と
+    // 制度の値で計算する（PR の提案。制度の値は改訂3から: その年度の値は制度データに無いことがある）
     const jy = Math.max(fy, fiscalYearOf(ctx.time.base));
     const start = fiscalYearStart(fy);
+    const valuesAt = fiscalYearStart(jy);
     const ageAt = start < ctx.time.base ? ctx.time.base : start;
     const members = ctx.list<MemberInput>("member");
     const head = members.find((m) => m.kind === "self")?.id ?? (members[0] as MemberInput).id;
@@ -97,7 +100,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       const amount = boxValue((given as PremiumAssessmentInput).amount) ?? yen(0);
       return { flows: installmentFlows(ctx, fy, false, head, [{ row: "cf.taxSi.health", amount, formula: "socialInsurance.nationalHealth.assessed" }]) };
     }
-    const at = ctx.at(start);
+    const at = ctx.at(valuesAt);
     const override = rateOverride(ctx.list<PremiumRateInput>("premiumRate"), "nationalHealth", fy);
     const totalOf = (id: string) => ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year: jy - 1 }).total;
     const deduction = at.paramYen(`${PREFIX}.incomeDeduction`) ?? yen(0);
@@ -115,22 +118,30 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
       if (salary || pension) earners++;
     }
-    const keep = ctx.rate.sub(RATE_ONE, reductionRatio(ctx, start, PREFIX, judged, earners, insured.length));
+    const keep = ctx.rate.sub(RATE_ONE, reductionRatio(ctx, valuesAt, PREFIX, judged, earners, insured.length));
     const parts: { row: string; amount: Yen; formula: string }[] = [];
     let missing = false;
+    let childSupportMissing = false;
+    // 料率の入力が無い区分・欄に全国の目安を使ったか
+    let defaultUsed = false;
     for (const { part, row } of PARTS) {
       const o = override?.parts?.[part];
+      // 料率の入力にその区分があれば入力の欄だけを使い（無い欄は0。平等割の無い市町村など）、区分が無ければ全国の目安を使う
       const pick = <T>(given: T | null, id: string, read: (id: string) => T | null): T | null => {
-        if (given !== null) return given;
-        return at.has(id) ? read(id) : null;
+        if (o !== undefined) return given;
+        if (!at.has(id)) return null;
+        defaultUsed = true;
+        return read(id);
       };
       const ir = o?.incomeRate !== undefined ? boxValue(o.incomeRate) : null;
       const incomeRate = pick<Rate>(ir === null ? null : rate(ir), `${PREFIX}.${part}.incomeRate`, (id) => at.paramRate(id));
       const perCapita = pick<Yen>(o?.perCapita !== undefined ? boxValue(o.perCapita) : null, `${PREFIX}.${part}.perCapita`, (id) => at.paramYen(id));
       const perHousehold = pick<Yen>(o?.perHousehold !== undefined ? boxValue(o.perHousehold) : null, `${PREFIX}.${part}.perHousehold`, (id) => at.paramYen(id));
       if (incomeRate === null && perCapita === null && perHousehold === null) {
-        // 子ども・子育て支援金の区分は令和8年度から（それより前は値が無い）
+        // 子ども・子育て支援金の区分は令和8年度から（それより前は値が無い）。令和8年度からの全国の目安はまだ制度データに無いので、
+        // 入れずに計算し、目安が無いことを知らせる
         if (part !== "childSupport" || override !== undefined) missing ||= part !== "childSupport";
+        else if (at.has(`${PREFIX}.childSupport.limit`) && at.paramYen(`${PREFIX}.childSupport.limit`) !== null) childSupportMissing = true;
         continue;
       }
       let total = yen(0);
@@ -164,7 +175,8 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       parts.push({ row, amount: total, formula: `socialInsurance.nationalHealth.${part}` });
     }
     if (missing) ctx.notice("N_INPUT_REQUIRED", [`${PREFIX}.rates`]);
-    else if (override === undefined) ctx.notice("N_DEFAULT_USED", [`${PREFIX}.nationalStandard`]);
+    else if (defaultUsed) ctx.notice("N_DEFAULT_USED", [`${PREFIX}.nationalStandard`]);
+    if (!missing && childSupportMissing) ctx.notice("N_PARAM_MISSING", [`${PREFIX}.childSupport.nationalStandard`]);
     ctx.notice("N_NOT_SUPPORTED", [`${PREFIX}.preschoolReduction`, `${PREFIX}.maternityExemption`]);
     return { flows: installmentFlows(ctx, fy, false, head, parts) };
   },

@@ -45,7 +45,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.lateElderly",
   title: "後期高齢者医療の保険料",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -68,19 +68,20 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   output: "flows.output",
   compute(input, ctx) {
     const { member, fiscalYear: fy } = input;
-    // 判定に使う所得の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得で判定する（PR の提案）
+    // 判定に使う所得と制度の値の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得と
+    // 制度の値で計算する（PR の提案。制度の値は改訂3から: その年度の値は制度データに無いことがある）
     const jy = Math.max(fy, fiscalYearOf(ctx.time.base));
     // その年度の月だけを読む（ほかの月の状態が変わっても計算し直さない）
     const statusIn = (id: string) => ctx.callMonths<HealthStatusOutput["months"][number]>("socialInsurance.healthStatus", { member: id }, "months", fiscalYearStart(fy), monthIndex(fy + 1, 3));
     const months = statusIn(member).filter((x) => x.kind === "lateElderly").length;
     if (months === 0) return { flows: [] };
-    const special = pensionSpecial(ctx, member, fy);
+    const special = pensionSpecial(ctx, member, fy, jy);
     const given = assessedPremium(ctx.list<PremiumAssessmentInput>("premiumAssessment"), "lateElderly", member, fy);
     if (given !== undefined) {
       const amount = boxValue((given as PremiumAssessmentInput).amount) ?? yen(0);
       return { flows: installmentFlows(ctx, fy, special, member, [{ row: "cf.taxSi.health", amount, formula: "socialInsurance.lateElderly.assessed" }]) };
     }
-    const at = ctx.at(fiscalYearStart(fy));
+    const at = ctx.at(fiscalYearStart(jy));
     const override = rateOverride(ctx.list<PremiumRateInput>("premiumRate"), "lateElderly", fy);
     if (override === undefined) ctx.notice("N_DEFAULT_USED", [`${PREFIX}.nationalAverage`]);
     const totalOf = (id: string) => ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year: jy - 1 }).total;
@@ -109,7 +110,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
       if (salary || pension) earners++;
     }
-    const start0 = fiscalYearStart(fy);
+    const start0 = fiscalYearStart(jy);
     const reductionOf = (part: PremiumPart) =>
       reductionRatio(ctx, start0, PREFIX, judged, earners, insured.length, part === "childSupport" ? `${PREFIX}.childSupport.reductionRatioSeventy` : undefined);
     const parts: { row: string; amount: Yen; formula: string }[] = [];
