@@ -22,7 +22,11 @@
 //   死亡一時金と寡婦年金の選択は、寡婦年金を選んで増える総額と比べる。妻が繰上げで老齢基礎年金を受け始めると寡婦年金の受給権は消える
 //   （附則9条の2第5項。夫の死亡より前から受けていれば寡婦年金は無い）（改訂3）
 // - 受給権の判定（誰が・いつ・どの遺族年金の受給権を得るか）は SDK の survivorBasis（pension.survivorRight と共通）
-// - 65歳になる前の、遺族厚生年金と自分の特別支給の老齢厚生年金・繰上げの老齢年金との選択は扱わない（両方を足す）
+// - 65歳になる前は、遺族年金（遺族基礎年金・遺族厚生年金・中高齢寡婦加算・寡婦年金）と自分の老齢年金（特別支給の老齢厚生年金・繰上げの
+//   老齢基礎年金と老齢厚生年金）を同じ月に受けない（一人一年金。国民年金法20条・附則9条の2の4、厚生年金保険法38条・附則17条）。
+//   年額の多い方を選ぶとみなし（知らせ N_ASSUMED）、自分の老齢年金が多ければその月の遺族年金を0に、遺族年金が多ければ自分の老齢年金の額を
+//   遺族年金から引く（世帯の受け取りは遺族年金の額。自分の老齢年金は止めずに表に残すので、税・保険料は自分の老齢年金を受ける前提の近似。
+//   65歳からの自分の老齢厚生年金との調整と同じ形。改訂4）
 // - 2028年4月からの遺族年金の見直し（有期化・子の加算の見直しなど）は作らない。2028年4月以後の死亡の想定には知らせ（N_REFORM_NOT_REFLECTED）を必ず出す
 //   （制度データの行の扱いは 0007 の追記 2026-10-10: 見直し後の値は別の値IDで持ち、この部品が読む値IDの行は見直し前の値のまま続ける）
 import {
@@ -117,7 +121,7 @@ export default defineComponent<Input, SurvivorPensionOutput>({
   id: "pension.survivor",
   title: "遺族年金（遺族基礎年金・遺族厚生年金・中高齢寡婦加算・寡婦年金・死亡一時金）",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {
     "contingency.event": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -342,6 +346,25 @@ export default defineComponent<Input, SurvivorPensionOutput>({
         r.row.widowAddition = yen(0);
       }
     }
+    // 65歳になる前の、遺族年金と自分の老齢年金の選択（多い方。一人一年金）
+    let ownTotals: Map<string, number> | null = null;
+    let chose = false;
+    for (const r of months) {
+      if (parseYm(r.month) >= N) break;
+      ownTotals ??= new Map(ownMonths().map((x) => [x.month, x.basic + x.employee + x.special]));
+      const o = ownTotals.get(r.month) ?? 0;
+      const sv = r.basic + r.employee + r.widowAddition + r.widowPension;
+      if (o <= 0 || sv <= 0) continue;
+      chose = true;
+      // 自分の老齢年金の額を、遺族厚生年金 → 中高齢寡婦加算 → 寡婦年金 → 遺族基礎年金 の順に引く（多ければ全部0）
+      let cut = o;
+      for (const k of ["employee", "widowAddition", "widowPension", "basic"] as const) {
+        const take = Math.min(cut, r[k]);
+        r[k] = yen(r[k] - take);
+        cut -= take;
+      }
+    }
+    if (chose) ctx.notice("N_ASSUMED", ["pension.survivor.ownPensionBefore65", Y]);
     const kept = months.filter((r) => r.basic > 0 || r.employee > 0 || r.widowAddition > 0 || r.widowPension > 0);
     const totals = kept.map((r) => ({ month: r.month, amount: yen(r.basic + r.employee + r.widowAddition + r.widowPension) }));
     const flows: Flow[] = [];

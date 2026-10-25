@@ -170,10 +170,57 @@ export function setStopAge(h: Household, base: string, age: number | null): void
   }
 }
 
-/** 退職の年齢（本人。積立をやめる年の推定） */
+/** 退職の年齢（本人） */
 export function retireAgeOf(req: EngineRequest): number | null {
   const self = selfOf(req.input.household);
   return self === undefined ? null : (readLevers(req, self.id).retireAge ?? null);
+}
+
+const WORKING: ReadonlySet<string> = new Set(["regular", "contract", "partTime", "civilServant", "executive", "selfEmployed"]);
+
+/** 本人の退職の月（エンジンと同じ読み方: 退職のイベントか、最後の働き方の期間の終わり。終わりの無い働き方なら null、分からなければ undefined） */
+function retirementMonthOf(h: Household, member: string): string | null | undefined {
+  const ev = (h.events ?? []).find((e) => e.kind === "retirement" && e.member === member);
+  if (ev !== undefined) return resolveTimepoint(h, ev.at) ?? undefined;
+  let last: string | undefined;
+  for (const p of h.employmentPeriods ?? []) {
+    if (p.member !== member || !WORKING.has(p.type)) continue;
+    const t = resolveTimepoint(h, p.to);
+    if (t === null) return null;
+    if (last === undefined || t > last) last = t;
+  }
+  return last;
+}
+
+/** 積立をやめる年齢（本人）が空欄のときの推定と、その説明（0026。エンジンの読み方と同じ） */
+export interface StopEstimate {
+  age: number;
+  /** もう退職している（退職の月が計算基準月より前） */
+  retired: boolean;
+  /** 「〜まで積み立てる」の「〜」 */
+  until: string;
+}
+
+export function stopEstimateOf(req: EngineRequest): StopEstimate {
+  const h = req.input.household;
+  const self = selfOf(h);
+  const r = retireAgeOf(req) ?? 65;
+  const base = req.input.baseMonth;
+  const ret = self === undefined ? undefined : retirementMonthOf(h, self.id);
+  if (self === undefined || ret === undefined || ret === null || ret >= base) return { age: r, retired: false, until: `退職の年（${r}歳）` };
+  // もう退職した人: 取り崩しを始める前まで。取り崩しの予定が無いか、始まりが今より前なら表の最後まで
+  const dd = investmentOf(req).drawdown;
+  const start = dd === undefined ? null : resolveTimepoint(h, dd.start);
+  if (start !== null && start > base) {
+    const age = ageAt(self, start);
+    return { age, retired: true, until: `取り崩しを始める前（${age}歳）` };
+  }
+  return { age: ageAt(self, `${req.input.endYear}-12`) + 1, retired: true, until: "最後" };
+}
+
+/** 積立をやめる年齢（本人）。空欄なら推定 */
+export function stopAgeOrEstimate(req: EngineRequest): number {
+  return stopAgeOf(req.input.household) ?? stopEstimateOf(req).age;
 }
 
 // ---- 利回り ----
@@ -228,7 +275,7 @@ export function unallocatedOf(req: EngineRequest): Unallocated | null {
   if (p === undefined) return null;
   const base = req.input.baseMonth;
   const end = `${req.input.endYear}-12`;
-  const stopAge = stopAgeOf(h) ?? retireAgeOf(req) ?? 65;
+  const stopAge = stopAgeOrEstimate(req);
   const stop = stopMonth(h, stopAge);
   const others = accountsOf(h);
   const value = Math.max(0, valueOf(p) - others.reduce((s, a) => s + valueOf(a), 0));
@@ -258,7 +305,7 @@ export function totalViewOf(req: EngineRequest): TotalView {
   if (methodOf(req) === "total" && p !== undefined) return { value: valueOf(p), steps: stepsOf(h, req.input.baseMonth, p), rate: p.expectedReturn ?? "0.02", uninvested: p.uninvested ?? null };
   const base = req.input.baseMonth;
   const end = `${req.input.endYear}-12`;
-  const stopAge = stopAgeOf(h) ?? retireAgeOf(req) ?? 65;
+  const stopAge = stopAgeOrEstimate(req);
   const list = accountsOf(h);
   const un = unallocatedOf(req);
   const unValue = un?.value ?? 0;
@@ -492,7 +539,7 @@ export function nisaHitOf(req: EngineRequest): NisaHit | null {
   const h = req.input.household;
   const base = req.input.baseMonth;
   const end = `${req.input.endYear}-12`;
-  const stop = stopMonth(h, stopAgeOf(h) ?? retireAgeOf(req));
+  const stop = stopMonth(h, stopAgeOrEstimate(req));
   let best: NisaHit | null = null;
   for (const a of (h.accounts ?? []).filter((x) => x.kind === "nisa")) {
     const owner = ownerOf(h, a);

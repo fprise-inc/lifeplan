@@ -373,6 +373,107 @@ describe("医療費（medical.highCost）・介護（care.expense）", () => {
   });
 });
 
+describe("介護の自己負担割合・高額介護サービス費の判定の年と世帯（介護保険法施行令22条の2・22条の2の2）", () => {
+  /** 年金生活の夫婦（夫1955年生まれ・妻1957年生まれ。2030年にどちらも65歳以上）。介護を受けるのは who */
+  const couple = (who: string, service: number, extra: (h: Obj) => void = () => undefined) =>
+    edit(household({ baseMonth: "2026-10", endYear: 2032, members: [member("h", "self", "1955-05", { sex: "male" }), member("w", "spouse", "1957-08")], relations: [spouse] }), (h, input) => {
+      (input.assumptions as Obj).inflation = { default: "0" };
+      h.careExpenses = [{ id: uid("care"), member: who, from: at("2030-01"), months: 24, serviceMonthly: box(service) }];
+      extra(h);
+    });
+  type Stub = {
+    /** 構成員×年の合計所得金額（公的年金等の雑所得は0とみなし、年金の収入も0にする。年金収入＋その他の合計所得＝合計所得金額） */
+    total?: (member: string, year: number) => number;
+    /** 構成員×年の課税所得 */
+    taxable?: (member: string, year: number) => number;
+    /** 構成員×年度の住民税の非課税 */
+    exempt?: (member: string, fiscalYear: number) => boolean;
+  };
+  const stubs = (s: Stub) => ({
+    "tax.totalIncome": (i: unknown) => {
+      const { member: m, year } = i as { member: string; year: number };
+      return { total: s.total?.(m, year) ?? 0, employment: 0, publicPension: 0 };
+    },
+    "incomeTax.annual": (i: unknown) => {
+      const { member: m, year } = i as { member: string; year: number };
+      return { flows: [], total: 0, taxable: s.taxable?.(m, year) ?? 0, computedTax: 0, reconstructionSurtax: 0, defenseSurtax: 0 };
+    },
+    "residentTax.exemption": (i: unknown) => {
+      const { member: m, fiscalYear } = i as { member: string; fiscalYear: number };
+      const e = s.exempt?.(m, fiscalYear) ?? false;
+      return { perCapitaExempt: e, incomeLevyExempt: e, persons: 1 };
+    },
+    "pension.oldAge": () => ({ flows: [], months: [], payments: [] }),
+  });
+  const copay = (req: Req, s: Stub, ym: string) => {
+    const fs = (runEngine(req, realPacks(), { checkInternal: true, entry: { component: "care.expense", input: {} }, stubs: stubs(s) }).entryOutput as { flows: Flow[] }).flows;
+    return sumFlows(fs, (f) => f.ym === ym && f.formula === "care.expense.service");
+  };
+
+  it("自己負担割合: 1〜7月のサービスは前々年、8〜12月は前年の所得で判定する（22条の2第1項）", () => {
+    // 夫が介護を受ける。合計所得金額は2028年だけ400万円（2割の段。3割は夫婦の合計463万円に届かない）
+    const req = couple(H, 100000);
+    const s: Stub = { total: (m, y) => (m === H && y === 2028 ? 4000000 : 0) };
+    expect(copay(req, s, "2030-03")).toBe(20000);
+    expect(copay(req, s, "2030-07")).toBe(20000);
+    expect(copay(req, s, "2030-08")).toBe(10000);
+    expect(copay(req, s, "2031-03")).toBe(10000);
+  });
+
+  it("自己負担割合の2割・3割は、世帯の65歳以上の人の年金収入＋その他の合計所得金額の合計で判定する（22条の2第4項1号・第7項1号）", () => {
+    // 夫200万円・妻150万円: 夫だけでは346万円に届かないが、夫婦の合計350万円で2割
+    const req = couple(H, 100000);
+    expect(copay(req, { total: (m) => (m === H ? 2000000 : 1500000) }, "2030-09")).toBe(20000);
+    // 夫300万円・妻170万円: 夫婦の合計470万円で3割（夫の合計所得金額が220万円以上）
+    expect(copay(req, { total: (m) => (m === H ? 3000000 : 1700000) }, "2030-09")).toBe(30000);
+    // 妻が65歳未満なら、一人の基準（280万円）で見て、妻の所得は足さない: 夫200万円 ＜ 280万円で1割
+    const young = edit(req, (h) => ((h.members as Obj[])[1] = member("w", "spouse", "1970-08")));
+    expect(copay(young, { total: (m) => (m === H ? 2000000 : 1500000) }, "2030-09")).toBe(10000);
+  });
+
+  it("住民税が非課税の人は、所得があっても1割（22条の2第4項2号）", () => {
+    const req = couple(H, 100000);
+    expect(copay(req, { total: () => 4000000, exempt: (m) => m === H }, "2030-09")).toBe(10000);
+  });
+
+  it("24,600円の段は、世帯の全員が住民税非課税のときだけ。介護を受ける妻が非課税でも、夫が課税なら44,400円（22条の2の2第7項1号）", () => {
+    const req = couple(W, 600000);
+    expect(copay(req, { exempt: (m) => m === W }, "2030-09")).toBe(44400);
+    // 夫婦とも非課税で、妻の年金収入等が基準以下なら個人の上限15,000円。基準を超えれば24,600円
+    expect(copay(req, { exempt: () => true }, "2030-09")).toBe(15000);
+    expect(copay(req, { exempt: () => true, total: () => 1000000 }, "2030-09")).toBe(24600);
+  });
+
+  it("住民税の非課税は、4〜7月のサービスは前年度、8月からはその年度で見る（22条の2の2第7項1号）", () => {
+    const req = couple(W, 600000);
+    // 2029年度は夫婦とも非課税、2030年度は夫が課税
+    const s: Stub = { total: () => 1000000, exempt: (m, fy) => m === W || fy <= 2029 };
+    expect(copay(req, s, "2030-03")).toBe(24600);
+    expect(copay(req, s, "2030-05")).toBe(24600);
+    expect(copay(req, s, "2030-07")).toBe(24600);
+    expect(copay(req, s, "2030-08")).toBe(44400);
+  });
+
+  it("課税の段（93,000円・140,100円）は、世帯の65歳以上の人のいずれかの課税所得で、1〜7月は前々年で判定する（22条の2の2第5項・第6項）", () => {
+    // 妻が介護を受ける。夫の課税所得が2028年は400万円、2029年は700万円
+    const req = couple(W, 2000000);
+    const s: Stub = { taxable: (m, y) => (m === H ? (y === 2028 ? 4000000 : y === 2029 ? 7000000 : 0) : 0) };
+    expect(copay(req, s, "2030-03")).toBe(93000);
+    expect(copay(req, s, "2030-09")).toBe(140100);
+    expect(copay(req, s, "2031-09")).toBe(44400);
+  });
+
+  it("世帯は、同居していない親・祖父母を分ける（別の世帯）", () => {
+    // 同居していない母が介護を受ける: 母の世帯は母だけ（子の夫婦が課税でも24,600円）
+    const P = uid("p");
+    const req = couple(P, 600000, (h) => (h.members as Obj[]).push(member("p", "parent", "1935-03")));
+    expect(copay(req, { total: () => 1000000, exempt: (m) => m === P }, "2030-09")).toBe(24600);
+    // 同居している母なら、子の夫婦も同じ世帯: 夫が課税なら44,400円
+    const living = couple(P, 600000, (h) => (h.members as Obj[]).push(member("p", "parent", "1935-03", { support: { dependent: false, cohabiting: true } })));
+    expect(copay(living, { total: () => 1000000, exempt: (m) => m === P }, "2030-09")).toBe(44400);
+  });
+});
+
 describe("亡くなった年の配偶者控除・扶養控除（所得税法85条3項・地方税法314条の2第8項: 死亡の時の現況で判定）", () => {
   type Ded = { spouse: number; spouseSpecial: number; dependents: number };
   const P = uid("p");

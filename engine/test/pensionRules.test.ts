@@ -281,3 +281,102 @@ describe("障害の想定の法定免除の月は、老齢基礎年金の額で�
     expect(Math.abs(healthy - disabled - (847300 * 105) / 2 / 480)).toBeLessThanOrEqual(1);
   });
 });
+
+describe("65歳になる前の遺族年金と自分の老齢年金（特別支給・繰上げ）は一方だけ（国民年金法20条・附則9条の2の4、厚生年金保険法38条・附則17条）", () => {
+  // 夫 A（1962年生まれ）は厚生年金300月。2026年12月に亡くなる。妻 B（1964年生まれ）は2026年9月から繰上げで老齢年金を受ける
+  const husband = record("a", A, { months: { basic: 480, employee: 300 }, amounts: { basic: box(800000), employee: box(1000000) } });
+  const wife = (employee: number, early: boolean) =>
+    record("b", B, {
+      months: { basic: 480, employee: employee > 0 ? 120 : 0 },
+      amounts: { basic: box(780000), ...(employee > 0 ? { employee: box(employee) } : {}) },
+      ...(early ? { claim: { basic: at("2026-09"), employee: at("2026-09") } } : {}),
+    });
+  const plan = (employee: number, early = true) =>
+    couple({ end: 2031, aBirth: "1962-05", bBirth: "1964-08", records: [husband, wife(employee, early)], contingencies: [{ id: uid("pr.cg"), kind: "death", member: A, occurs: at("2026-12") }] });
+  const survivorAt = (req: Req, ym: string) => {
+    const r = call<SurvivorPensionOutput>(req, "pension.survivor", { member: B }).months.find((m) => m.month === ym);
+    return r === undefined ? 0 : r.basic + r.employee + r.widowAddition + r.widowPension;
+  };
+  const ownAt = (req: Req, ym: string) => {
+    const r = call<PensionOutput>(req, "pension.oldAge", { member: B }).months.find((m) => m.month === ym);
+    return r === undefined ? 0 : r.basic + r.employee + r.special;
+  };
+
+  it("遺族年金の方が多ければ、受け取りは遺族年金の額（自分の老齢年金との差を遺族年金の行に出す）。知らせ（N_ASSUMED）を出す", () => {
+    const req = plan(0);
+    const full = survivorAt(plan(0, false), "2027-06");
+    expect(ownAt(req, "2027-06")).toBeGreaterThan(0);
+    expect(full).toBeGreaterThan(ownAt(req, "2027-06"));
+    expect(survivorAt(req, "2027-06") + ownAt(req, "2027-06")).toBe(full);
+    expect(notices(result(req, "pension.survivor", { member: B }))).toContainEqual({ code: "N_ASSUMED", ids: ["pension.survivor", "pension.survivor.ownPensionBefore65", B] });
+    // 65歳から（2029年8月）は今までどおり（遺族厚生年金と自分の老齢年金の調整）
+    expect(survivorAt(req, "2029-09")).toBeGreaterThan(0);
+  });
+
+  it("自分の老齢年金の方が多ければ、65歳になるまで遺族年金は受けない", () => {
+    const req = plan(3000000);
+    expect(ownAt(req, "2027-06")).toBeGreaterThan(survivorAt(plan(3000000, false), "2027-06"));
+    expect(survivorAt(req, "2027-06")).toBe(0);
+    expect(survivorAt(req, "2029-07")).toBe(0);
+  });
+});
+
+describe("繰上げの後の障害年金（国民年金法附則9条の2の3・厚生年金保険法附則16条の3）", () => {
+  // 本人 A（1965年生まれ）は2026年6月から繰上げで老齢年金を受ける。2026年7月が初診日の障害（2級）の想定
+  const rec = record("a", A, { months: { basic: 480, employee: 300 }, amounts: { basic: box(800000), employee: box(1000000) }, claim: { basic: at("2026-06"), employee: at("2026-06") } });
+  const plan = (working: boolean) =>
+    couple({
+      end: 2031,
+      aBirth: "1965-05",
+      bBirth: "1966-08",
+      records: [rec, record("b", B, { months: { basic: 480, employee: 0 }, amounts: { basic: box(780000) } })],
+      ...(working ? { periods: [period("pr.pa", { member: "pr.a", from: "2000-04", annual: 4000000, std: [320000, 320000] })] } : {}),
+      contingencies: [{ id: uid("pr.cg"), kind: "disability", member: A, occurs: at("2026-07"), grade: 2 }],
+    });
+
+  it("初診日に厚生年金に入っていなければ、繰上げの後の初診日の障害年金は無い。知らせ（N_NOT_ENTITLED）を出す", () => {
+    const req = plan(false);
+    expect(call<DisabilityPensionOutput>(req, "pension.disability", { member: A }).months).toEqual([]);
+    expect(notices(result(req, "pension.disability", { member: A }))).toContainEqual({ code: "N_NOT_ENTITLED", ids: ["pension.disability", "pension.disability.afterEarlyClaim", A] });
+  });
+
+  it("初診日に厚生年金に入っていれば障害年金を受けられるが、65歳になるまでは繰上げの老齢年金と一方だけ", () => {
+    const req = plan(true);
+    const dis = call<DisabilityPensionOutput>(req, "pension.disability", { member: A }).months;
+    const old = call<PensionOutput>(req, "pension.oldAge", { member: A }).months;
+    expect(dis.length).toBeGreaterThan(0);
+    for (const ym of ["2028-06", "2029-06", "2030-03"]) {
+      const d = dis.find((x) => x.month === ym);
+      const o = old.find((x) => x.month === ym);
+      const both = (d?.basic ?? 0) + (d?.employee ?? 0) > 0 && (o?.basic ?? 0) + (o?.employee ?? 0) + (o?.special ?? 0) > 0;
+      expect(both, ym).toBe(false);
+    }
+  });
+});
+
+describe("配偶者が障害年金を受ける間は、配偶者の加給年金を止める（厚生年金保険法46条6項）", () => {
+  const husband = record("a", A, { months: { basic: 480, employee: 300 }, amounts: { basic: box(800000), employee: box(1000000) } });
+  const wife = record("b", B, { months: { basic: 400, employee: 0 }, amounts: { basic: box(700000) } });
+  const plan = (disabled: boolean) =>
+    couple({
+      end: 2030,
+      aBirth: "1961-05",
+      bBirth: "1965-08",
+      records: [husband, wife],
+      ...(disabled ? { contingencies: [{ id: uid("pr.cg"), kind: "disability", member: B, occurs: at("2026-06"), grade: 2 }] } : {}),
+    });
+
+  it("妻の障害基礎年金の支払いが始まる月（障害認定日の翌月）から、夫の老齢厚生年金の配偶者の加給年金が止まる", () => {
+    const req = plan(true);
+    const base = (ym: string) => call<PensionOutput>(req, "pension.oldAgeBase", { member: A }).months.find((x) => x.month === ym);
+    const paid = (ym: string) => call<PensionOutput>(req, "pension.oldAge", { member: A }).months.find((x) => x.month === ym)?.employee ?? 0;
+    const first = call<DisabilityPensionOutput>(req, "pension.disability", { member: B }).months[0]?.month;
+    expect(first).toBe("2028-01");
+    expect(paid("2027-12")).toBe(base("2027-12")?.employee);
+    const sup = (base("2028-06") as { spouseSupplement?: number } | undefined)?.spouseSupplement ?? 0;
+    expect(sup).toBeGreaterThan(400000);
+    expect(paid("2028-06")).toBe((base("2028-06")?.employee ?? 0) - sup);
+    // 障害の想定が無ければ止めない
+    expect(call<PensionOutput>(plan(false), "pension.oldAge", { member: A }).months.find((x) => x.month === "2028-06")?.employee).toBe(base("2028-06")?.employee);
+  });
+});

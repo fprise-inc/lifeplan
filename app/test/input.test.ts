@@ -309,4 +309,28 @@ describe("入力の段階", () => {
   });
 });
 
+describe("支出に入らない欄・既定で足している費用の説明", () => {
+  const groupsOf = (stage: StageDef) => stage.sections.flatMap((x) => x.groups);
+
+  it("家族の「仕送り（月額）」は支出に入らない（扶養の判定に使う）と説明し、値がある世帯にはその家族のまとまりで知らせる", () => {
+    const wh = open("parentCare");
+    const parent = wh.request.input.household.members.find((m) => m.kind === "parent")!;
+    const field = allFields(buildStage("family", wh)).find((f) => f.key === `family/${parent.id}/allowance`);
+    expect(field?.help).toContain("支出には入りません");
+    expect(field?.help).toContain("扶養の判定");
+    expect(groupsOf(buildStage("family", wh)).find((g) => g.key === `family/${parent.id}`)?.note).toBeUndefined();
+    const withAllowance = field!.set(wh, 50000);
+    expect(groupsOf(buildStage("family", withAllowance)).find((g) => g.key === `family/${parent.id}`)?.note).toContain("支出には入っていません");
+  });
+
+  it("塾・習い事の月謝は、統計の平均の学校外活動費（塾・習い事を含む）の上に足すと説明する", () => {
+    const wh = open("educationTwoKids");
+    const stage = buildStage("education", wh);
+    const monthly = allFields(stage).find((f) => /\/lesson\/0\/monthly$/.test(f.key));
+    expect(monthly?.help).toContain("学校外活動費");
+    expect(monthly?.help).toContain("その上に足されます");
+    expect(groupsOf(stage).find((g) => /\/lesson\/0$/.test(g.key))?.note).toContain("塾・習い事を含む");
+  });
+});
+
 void ({} as EngineRequest);

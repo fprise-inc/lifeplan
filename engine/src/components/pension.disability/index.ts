@@ -13,6 +13,11 @@
 // - FP が組み合わせを選び直したとき（万一の想定の oldAgeChoice。改訂3）は、65歳からの月はその組み合わせにする。障害基礎年金を含む組み合わせで
 //   障害基礎年金を受けない月（3級など）は、その月だけ自動の選び方に戻す
 // - 働けるようになる月（recovery）が障害認定日より前なら払わない。後なら、その前の月まで
+// - 繰上げの後（改訂5）: 繰上げで老齢年金を受け始めた後に初診日がある障害は、初診日に厚生年金に入っていなければ障害年金を受けられない
+//   （国民年金法附則9条の2の3で30条1項2号を当てない。障害厚生年金は初診日に被保険者であることが要る。知らせ N_NOT_ENTITLED）。
+//   事後重症（30条の2・厚生年金保険法47条の2）も当てない（附則9条の2の3・厚生年金保険法附則16条の3）が、この部品は障害認定日の障害だけを扱う
+// - 65歳になる前に老齢年金（繰上げ・特別支給の老齢厚生年金）と障害年金の両方を受けられる月は一方だけ（一人一年金。国民年金法20条・
+//   附則9条の2の4、厚生年金保険法38条・附則17条）: 65歳からと同じ手取りの見積もり（65歳未満の公的年金等控除）で多い方を選ぶ
 import {
   addMonths,
   ageMonth,
@@ -67,6 +72,7 @@ const P = {
 // 老齢年金の手取りの見積もりに使う税の値
 const T = {
   ppd: "incomeTax.publicPensionDeduction.over65.tier1",
+  ppdU: "incomeTax.publicPensionDeduction.under65.tier1",
   itBasic: "incomeTax.basicDeduction",
   itRate: "incomeTax.taxRateTable",
   itRound: "incomeTax.taxableIncome.rounding",
@@ -90,7 +96,7 @@ export default defineComponent<{ member: string }, DisabilityPensionOutput>({
   id: "pension.disability",
   title: "障害年金（障害基礎年金・障害厚生年金）",
   contract: "1.1",
-  revision: 4,
+  revision: 5,
   requires: { "contingency.event": ">=1 <2", "pension.record": ">=1 <2", "pension.revision": ">=1 <2", "pension.oldAgeBase": ">=1 <2" },
   params: [...Object.values(P), ...Object.values(T)],
   reads: ["member.kind", "member.birth", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "relation.parent", "relation.child"],
@@ -156,20 +162,29 @@ export default defineComponent<{ member: string }, DisabilityPensionOutput>({
       }
       return v;
     };
-    let old: Map<string, { basic: Yen; employee: Yen }> | null = null;
-    const oldAt = (m: MonthIndex): { basic: Yen; employee: Yen } => {
-      if (old === null) old = new Map(ctx.call<{ months: PensionOutput["months"] }>("pension.oldAgeBase", { member: X }).months.map((x) => [x.month, { basic: x.basic, employee: x.employee }]));
-      return old.get(formatYm(m)) ?? { basic: yen(0), employee: yen(0) };
+    let oldMonths: PensionOutput["months"] | null = null;
+    const oldList = () => (oldMonths ??= ctx.call<{ months: PensionOutput["months"] }>("pension.oldAgeBase", { member: X }).months);
+    let old: Map<string, { basic: Yen; employee: Yen; special: Yen }> | null = null;
+    const oldAt = (m: MonthIndex): { basic: Yen; employee: Yen; special: Yen } => {
+      old ??= new Map(oldList().map((x) => [x.month, { basic: x.basic, employee: x.employee, special: x.special }]));
+      return old.get(formatYm(m)) ?? { basic: yen(0), employee: yen(0), special: yen(0) };
     };
+    // 繰上げで老齢年金を受け始めた後の初診日: 初診日に厚生年金に入っていなければ障害年金は無い（国民年金法附則9条の2の3）
+    const early = oldList().find((x) => (x.basic > 0 || x.employee > 0) && parseYm(x.month) < N);
+    if (early !== undefined && parseYm(early.month) <= D && !employeeOk) {
+      ctx.notice("N_NOT_ENTITLED", ["pension.disability.afterEarlyClaim", X]);
+      return empty;
+    }
     // 老齢年金（年額）にかかる所得税・住民税の見積もり（その年金だけを収入とみなす）
     const taxCache = new Map<string, number>();
-    const taxOn = (revenue: number, year: number): number => {
+    const taxOn = (revenue: number, year: number, under65 = false): number => {
       if (revenue <= 0) return 0;
-      const key = `${year}|${revenue}`;
+      const key = `${year}|${revenue}|${under65 ? 1 : 0}`;
       const hit = taxCache.get(key);
       if (hit !== undefined) return hit;
       const at = ctx.at(monthIndex(year, 1));
-      const b = at.has(T.ppd) ? bracketFor(at.paramBrackets(T.ppd) ?? [], yen(revenue)) : null;
+      const ppd = under65 ? T.ppdU : T.ppd;
+      const b = at.has(ppd) ? bracketFor(at.paramBrackets(ppd) ?? [], yen(revenue)) : null;
       const ded = b === null ? 0 : (b.rate === undefined ? 0 : ctx.money.mulRate(yen(revenue), b.rate, "conv.tax.fractionalDeduction")) + (b.amount ?? 0);
       const income = Math.max(0, revenue - ded);
       let tax = 0;
@@ -219,6 +234,26 @@ export default defineComponent<{ member: string }, DisabilityPensionOutput>({
               break;
             }
           }
+        }
+      }
+      // 65歳になる前: 老齢年金（繰上げ・特別支給）と障害年金は一方だけ。手取りの多い方
+      if (m < N && (basic > 0 || employee > 0)) {
+        const o = oldAt(m);
+        const oldTotal = o.basic + o.employee + o.special;
+        if (oldTotal > 0) {
+          if (!noticed) {
+            ctx.notice("N_ESTIMATED", ["pension.disability.oldAgeChoice", X]);
+            noticed = true;
+          }
+          const c: Combination = oldTotal - taxOn(oldTotal, Math.floor(m / 12), true) > basic + employee ? "oldAge" : "disability";
+          if (c === "oldAge") {
+            basic = yen(0);
+            employee = yen(0);
+          }
+          const ym = formatYm(m);
+          const lastC = choices[choices.length - 1];
+          if (lastC !== undefined && lastC.combination === c && lastC.to === formatYm(addMonths(m, -1))) lastC.to = ym;
+          else choices.push({ from: ym, to: ym, combination: c });
         }
       }
       // 65歳から: 手取りが多い組み合わせ

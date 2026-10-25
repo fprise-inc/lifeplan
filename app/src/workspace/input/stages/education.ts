@@ -70,6 +70,10 @@ export function defaultStages(child: Member, baseMonth: string): EducationStage[
   return out;
 }
 
+/** 幼稚園〜高校の学費の統計（学習費総額）の学校外活動費は、塾・習い事を含む平均で、既定で足している。塾・習い事の月謝はその上に足す */
+const LESSONS_HELP = "幼稚園〜高校の間は、統計の平均の学校外活動費（塾・習い事・家庭での学習などを含む）がすでに入っています。ここに入れた月謝は、その上に足されます";
+const LESSONS_NOTE = "幼稚園〜高校の間は、統計の平均の学校外活動費（塾・習い事を含む）が既定で入っています。この月謝はその上に足すので、平均より多くかかる分だけを入れると二重になりません";
+
 function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart: string): FieldDef[] {
   const find: Finder = (h) => (getPath((h.goals ?? []).find((g) => g.id === goalId), ["education", "stages", String(i)]) as Record<string, unknown> | undefined) ?? undefined;
   const key = `edu/${goalId}/stage/${i}`;
@@ -245,10 +249,11 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
     groups.push({
       key: k,
       title: l.label ?? "塾・習い事",
+      note: LESSONS_NOTE,
       level: "detail",
       fields: [
         plain({ key: `${k}/label`, item: "goal.education", label: "名前", level: "detail", kind: "text", find: findL, path: ["label"], optional: true }),
-        plain({ key: `${k}/monthly`, item: "goal.education", label: "月謝（月額）", level: "detail", kind: "yen", basis: "monthly", find: findL, path: ["monthly"] }),
+        plain({ key: `${k}/monthly`, item: "goal.education", label: "月謝（月額）", level: "detail", kind: "yen", basis: "monthly", find: findL, path: ["monthly"], help: LESSONS_HELP }),
         timepointField({ key: `${k}/from`, item: "goal.education", label: "始まり", level: "detail", find: findL, path: ["from"], ageOf: (hh) => hh.members.find((m) => m.id === child.id) }),
         timepointField({ key: `${k}/to`, item: "goal.education", label: "終わり", level: "detail", find: findL, path: ["to"], ageOf: (hh) => hh.members.find((m) => m.id === child.id) }),
       ],
@@ -302,6 +307,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
         key: `edu/${goal.id}/addLesson`,
         label: "＋ 塾・習い事",
         level: "detail",
+        title: LESSONS_HELP,
         run: (w) =>
           mutate(w, (hh) => {
             const g = find(hh, w) as Goal | undefined;

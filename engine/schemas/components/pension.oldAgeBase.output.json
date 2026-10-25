@@ -17,7 +17,8 @@
           "basic": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
           "employee": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
           "special": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-          "suspended": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+          "suspended": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "spouseSupplement": { "description": "約束の版 1.1: employee に含む配偶者の加給年金額（年額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
         }
       }
     }

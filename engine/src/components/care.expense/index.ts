@@ -1,9 +1,17 @@
 // 介護の費用（6.10。本人・親）: 月額×期間＋一時費用。0008 の追記 2026-10-09 の決定6。
-// - 介護保険の対象の費用（serviceMonthly。10割）には自己負担割合（65歳以上は前年の所得で1〜3割、65歳未満は1割）を掛け、高額介護サービス費の
-//   上限（住民税が非課税なら24,600円、課税なら前年の課税所得で44,400円・93,000円・140,100円。月額。制度データ）で止める（介護を受ける人ごとの近似。
-//   世帯の合算はしない）。非課税で、前年（1〜7月のサービスは前々年）の公的年金等の収入金額と、合計所得金額から公的年金等の雑所得を除いた額の
-//   合計が基準（80万円。令和7年8月から80万9千円、令和8年8月から82万6,500円）以下の人は、個人の上限15,000円（介護保険法施行令22条の2の2第9項）。自己負担割合の判定は、本人の合計所得金額と「年金収入＋その他の合計所得金額」（配偶者がいれば2人以上の世帯の基準。
-//   配偶者の額は足さない近似）
+// - 介護保険の対象の費用（serviceMonthly。10割）には自己負担割合（65歳以上は所得で1〜3割、65歳未満は1割）を掛け、高額介護サービス費の
+//   上限（月額。制度データ）で止める（介護を受ける人ごとの近似。同じ世帯の2人が同じ月に介護を受けるときの合算はしない）。
+// - 判定の年（介護保険法施行令22条の2第1項・第4項2号、22条の2の2第5項・第7項1号）: 所得はサービスの月の前年（1〜7月は前々年）、
+//   住民税の非課税はその年度（4〜7月は前年度）。どちらも8月で切り替わる（計算基準年の前々年の所得・計算基準月に払っている住民税の年度より
+//   前の年度は持たないので、その年・年度で判定する）
+// - 世帯: その月に世帯にいる構成員（生まれる前・加わる前・離れた後・亡くなった後の人は除く）。同居していない親・祖父母
+//   （member.support.cohabiting が true でない）は別の世帯で、その人と、同じく同居していない配偶者だけの世帯とみなす
+// - 自己負担割合（22条の2第3項〜第7項）: 本人が65歳以上（第1号）で住民税が課税され、本人の合計所得金額が160万円（220万円）以上で、
+//   世帯の65歳以上の人全員の「公的年金等の収入金額＋合計所得金額から公的年金等の雑所得を除いた額」の合計が346万円（463万円。
+//   世帯にほかに65歳以上の人がいなければ280万円（340万円））以上なら2割（3割）
+// - 高額介護サービス費の上限（22条の2の2）: 世帯の全員が住民税非課税なら24,600円（そのうえ本人の年金収入等が基準（80万円。令和7年8月から
+//   80万9千円、令和8年8月から82万6,500円）以下なら個人の上限15,000円。同条第9項）。そうでなければ、世帯の65歳以上の人のいずれかの
+//   課税所得で44,400円・93,000円・140,100円
 // - 保険の対象外の費用（otherMonthly。居住費・食費など）と一時費用（initial）はそのまま
 // - 何も入れないときは、統計の既定（master.care.statistics: 月額・期間・一時費用。在宅・施設の別）を保険の対象外の費用として使う（知らせ N_DEFAULT_USED。
 //   統計の月額は自己負担の総額なので、自己負担割合・上限は掛けない）
@@ -21,6 +29,7 @@ import {
   grownByYear,
   monthIndex,
   monthOf,
+  parseYm,
   RATE_ZERO,
   spousesAt,
   yearOf,
@@ -31,6 +40,7 @@ import {
   type Flow,
   type FlowsResult,
   type IncomeTaxOutput,
+  type MemberInput,
   type MonthIndex,
   type Rate,
   type RelationInput,
@@ -66,7 +76,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "care.expense",
   title: "介護の費用（自己負担割合・高額介護サービス費）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {
     "contingency.event": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -86,6 +96,11 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     "care.initial",
     "care.growth",
     "care.onContingency",
+    "member.kind",
+    "member.birth",
+    "member.joins",
+    "member.leaves",
+    "member.support",
     "relation.type",
     "relation.a",
     "relation.b",
@@ -101,7 +116,31 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     const list = ctx.list<CareExpenseInput>("care");
     if (list.length === 0) return { flows };
     const relations = ctx.list<RelationInput>("relation");
-    // 自己負担割合と上限（介護を受ける人×年・年度・8月の前後。前年の所得による）
+    const members = ctx.list<MemberInput>("member");
+    // 同居していない親・祖父母（別の世帯）
+    const apart = (x: MemberInput) => (x.kind === "parent" || x.kind === "grandparent") && x.support?.cohabiting !== true;
+    // その月に世帯にいるか（亡くなった人は、亡くなった月の翌月から世帯を離れる）
+    const present = (x: MemberInput, m: MonthIndex): boolean => {
+      if (ctx.time.resolve({ at: x.birth.birthYearMonth }) > m) return false;
+      if (x.joins !== null && ctx.time.resolve(x.joins) > m) return false;
+      if (x.leaves !== null && ctx.time.resolve(x.leaves) <= m) return false;
+      const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: x.id }).event;
+      return ev === null || ev.kind !== "death" || parseYm(ev.month) >= m;
+    };
+    /** 月 m に member と同じ世帯の構成員（member を含む。ID の順） */
+    const householdOf = (member: string, m: MonthIndex): string[] => {
+      const me = members.find((x) => x.id === member);
+      if (me === undefined) return [member];
+      const ids =
+        apart(me)
+          ? [member, ...spousesAt(ctx, relations, member, m).filter((id) => {
+              const x = members.find((y) => y.id === id);
+              return x !== undefined && apart(x) && present(x, m);
+            })]
+          : [member, ...members.filter((x) => x.id !== member && !apart(x) && present(x, m)).map((x) => x.id)];
+      return [...new Set(ids)].sort();
+    };
+    // 自己負担割合と上限（介護を受ける人×判定の年・年度×世帯の顔ぶれと65歳以上の人）
     const cache = new Map<string, { ratio: Rate; cap: Yen | null }>();
     // 公的年金等の収入金額＋（合計所得金額−公的年金等の雑所得）（その年）
     const pensionAndOther = (member: string, year: number): number => {
@@ -112,34 +151,45 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     };
     const ruleOf = (member: string, m: MonthIndex): { ratio: Rate; cap: Yen | null } => {
       const y = yearOf(m);
-      const key = `${member}|${y}|${fiscalYearOf(m)}|${monthOf(m) >= 8 ? 1 : 0}`;
+      const late = monthOf(m) >= 8;
+      // 所得は前年（1〜7月は前々年）、住民税の非課税はその年度（4〜7月は前年度。1〜3月はもともと前の年度）。
+      // 計算基準年の前々年の所得と、計算基準月に払っている住民税の年度より前の年度は持たないので、それより前にはしない（0003 の追記と同じ）
+      const incomeYear = Math.max(late ? y - 1 : y - 2, yearOf(base) - 1);
+      const fiscalYear = Math.max(late ? y : y - 1, fiscalYearOf(base));
+      const house = householdOf(member, m);
+      // 世帯の65歳以上（第1号被保険者）の人
+      const firsts = house.filter((id) => ageMonth(ctx, m, P.firstAge, id) <= m);
+      const key = `${member}|${incomeYear}|${fiscalYear}|${house.join(",")}|${firsts.join(",")}`;
       const hit = cache.get(key);
       if (hit !== undefined) return hit;
       const at = ctx.at(m);
+      const exempt = (id: string) => ctx.call<ExemptionOutput>("residentTax.exemption", { member: id, fiscalYear }).perCapitaExempt;
       let ratio = at.paramRate(P.r1) ?? RATE_ZERO;
-      // 65歳以上（第1号）だけ所得で判定
-      if (ageMonth(ctx, m, P.firstAge, member) <= m) {
-        const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: y - 1 });
-        const measure = pensionAndOther(member, y - 1);
-        const couple = spousesAt(ctx, relations, member, m).length > 0;
+      // 65歳以上（第1号）で住民税が課税される人だけ所得で判定（22条の2第4項2号・第7項2号）
+      if (firsts.includes(member) && !exempt(member)) {
+        const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: incomeYear });
+        const measure = firsts.reduce((sum, id) => sum + pensionAndOther(id, incomeYear), 0);
+        const couple = firsts.length > 1;
         const v = (id: string) => at.paramYen(id) ?? yen(Number.MAX_SAFE_INTEGER);
         if (inc.total >= v(P.i3) && measure >= v(couple ? P.c3 : P.s3)) ratio = at.paramRate(P.r3) ?? ratio;
         else if (inc.total >= v(P.i2) && measure >= v(couple ? P.c2 : P.s2)) ratio = at.paramRate(P.r2) ?? ratio;
       }
-      // 高額介護サービス費の上限（住民税が非課税か、前年の課税所得）
-      const ex = ctx.call<ExemptionOutput>("residentTax.exemption", { member, fiscalYear: fiscalYearOf(m) });
+      // 高額介護サービス費の上限
       let cap: Yen | null;
-      if (ex.perCapitaExempt) {
+      if (house.every(exempt)) {
+        // 世帯の全員が住民税非課税（22条の2の2第7項1号）
         cap = at.paramYen(P.capExempt);
-        // 個人の上限（15,000円）: 前年（1〜7月のサービスは前々年）の公的年金等の収入金額＋その他の合計所得金額が基準以下
-        // （計算基準年の前々年の所得は持たないので、前年の所得で判定する）
+        // 個人の上限（15,000円）: 本人の年金収入等が基準以下（同条第9項）
         const personal = at.has(P.capPersonal) ? at.paramYen(P.capPersonal) : null;
         const limit = at.has(P.personalIncome) ? at.paramYen(P.personalIncome) : null;
-        if (personal !== null && limit !== null && (cap === null || personal < cap) && pensionAndOther(member, Math.max(monthOf(m) >= 8 ? y - 1 : y - 2, yearOf(base) - 1)) <= limit) cap = personal;
+        if (personal !== null && limit !== null && (cap === null || personal < cap) && pensionAndOther(member, incomeYear) <= limit) cap = personal;
       } else {
+        // 世帯の65歳以上の人のいずれかの課税所得（同条第5項・第6項）。所得税の年税額は計算基準年からしか計算しないので、
+        // 計算基準年の前年の所得で判定する月は計算基準年の課税所得で近似する
         const table = at.paramBrackets(P.cap);
-        const taxable = ctx.call<IncomeTaxOutput>("incomeTax.annual", { member, year: y - 1 }).taxable;
-        cap = table === null ? null : (bracketFor(table, taxable).amount ?? null);
+        const taxYear = Math.max(incomeYear, yearOf(base));
+        const taxable = firsts.reduce((top, id) => Math.max(top, ctx.call<IncomeTaxOutput>("incomeTax.annual", { member: id, year: taxYear }).taxable), 0);
+        cap = table === null ? null : (bracketFor(table, yen(taxable)).amount ?? null);
       }
       const out = { ratio, cap };
       cache.set(key, out);
