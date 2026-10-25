@@ -1,9 +1,13 @@
 // 配偶者控除・配偶者特別控除（所得税・住民税）。その年の12月31日の現況で判定する（tax.deductions から呼ぶ）。
+// その年の中途に万一の想定で亡くなった配偶者は、死亡の時の現況で判定する（所得税法85条3項ただし書・地方税法314条の2第8項。改訂4）。
+// 亡くなった年は配偶者控除・配偶者特別控除を受けられ（月割りしない）、配偶者の合計所得金額は死亡の時までの所得（tax.totalIncome の
+// その年の額。重ねで死亡の月に働き方・年金が止まる）、老人控除対象配偶者かは死亡の時の年齢で判定する。翌年からは受けない
 // 法律婚の配偶者。夫婦の両方が受けることはないので、所得の多い方（同じなら関係の a の側）だけが受ける。
 // 他の構成員の所得で決まる部分を小さな部品に分けておくと、配偶者の所得が変わっても控除の額が同じなら、所得控除（tax.deductions）と
 // それを使う税の部品を計算し直さない（0006 の追記: 依存は小さく、結果が同じなら下流は使い回す）
 import {
   bracketFor,
+  deathMonthIn,
   defineComponent,
   fail,
   monthIndex,
@@ -39,8 +43,8 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
   id: "tax.spouseDeduction",
   title: "配偶者控除・配偶者特別控除",
   contract: "1.0",
-  revision: 3,
-  requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2" },
+  revision: 4,
+  requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [
     ...(["incomeTax", "residentTax"] as const).flatMap((p) => {
       const i = ids(p);
@@ -56,7 +60,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     const { member, year, regime } = input;
     const P = IDS[regime];
     const resident = regime === "residentTax";
-    // 所得税はその年分の値、住民税は翌年度（6月から）の値。判定はどちらもその年の12月31日の現況
+    // 所得税はその年分の値、住民税は翌年度（6月から）の値。判定はどちらもその年の12月31日（その年に亡くなった配偶者は死亡の月）の現況
     const at = ctx.at(resident ? monthIndex(year + 1, 6) : monthIndex(year, 1));
     const ageAt = ctx.at(monthIndex(year, 1));
     const dec: MonthIndex = monthIndex(year, 12);
@@ -66,15 +70,15 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
       return resident ? t.total : yen(t.total + (t.retirement ?? 0));
     };
     const members = ctx.list<MemberInput>("member");
-    const present = (m: MemberInput) =>
-      parseYm(m.birth.birthYearMonth) <= dec &&
-      (m.joins === null || ctx.time.resolve(m.joins) <= dec) &&
-      (m.leaves === null || ctx.time.resolve(m.leaves) > dec);
-    const ageReached = (id: string, ageParam: string) => {
+    const present = (m: MemberInput, j: MonthIndex) =>
+      parseYm(m.birth.birthYearMonth) <= j &&
+      (m.joins === null || ctx.time.resolve(m.joins) <= j) &&
+      (m.leaves === null || ctx.time.resolve(m.leaves) > j);
+    const ageReached = (id: string, ageParam: string, j: MonthIndex) => {
       const sel = ageAt.param(ageParam);
       const years = ageAt.paramCount(ageParam);
       if (years === null || sel.def.ageSwitch === null) fail("E_PARAM_KIND", [ageParam]);
-      return ctx.time.ageSwitch(id, { years }, sel.def.ageSwitch as never) <= dec;
+      return ctx.time.ageSwitch(id, { years }, sel.def.ageSwitch as never) <= j;
     };
     const diffs: Yen[] = [];
     const diff = (id: string) => {
@@ -88,10 +92,14 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     let spouseSpecial = yen(0);
     for (const r of ctx.list<RelationInput>("relation")) {
       if (r.type !== "spouse" || r.marriage !== "legal" || (r.a !== member && r.b !== member)) continue;
-      if ((r.from !== null && ctx.time.resolve(r.from) > dec) || (r.to !== null && ctx.time.resolve(r.to) <= dec)) continue;
       const other = r.a === member ? r.b : r.a;
+      // 判定の時: その年に亡くなった配偶者は死亡の月（重ねで配偶者の関係はその月で終わる）、ほかは12月31日
+      const died = deathMonthIn(ctx, other, year);
+      const j = died ?? dec;
+      if (r.from !== null && ctx.time.resolve(r.from) > j) continue;
+      if (r.to !== null && (died !== null ? ctx.time.resolve(r.to) < died : ctx.time.resolve(r.to) <= dec)) continue;
       const om = members.find((m) => m.id === other);
-      if (om === undefined || !present(om)) continue;
+      if (om === undefined || !present(om, j)) continue;
       // 所得の少ない方は受けない（額ではなく大小だけを読む。tax.incomeOrder）
       const order = ctx.call<{ order: -1 | 0 | 1 }>("tax.incomeOrder", { a: member, b: other, year }).order;
       if (order < 0 || (order === 0 && r.a !== member)) continue;
@@ -99,7 +107,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
       const st = totalOf(other);
       const general = at.paramBrackets(P.spouseGeneral);
       if (st <= limit) {
-        const elderly = ageReached(other, SPOUSE_ELDERLY_AGE);
+        const elderly = ageReached(other, SPOUSE_ELDERLY_AGE, j);
         spouse = amountIn(at.paramBrackets(elderly ? P.spouseElderly : P.spouseGeneral), own);
         if (spouse > 0) diffIn(elderly ? DIFF.spouseElderly : DIFF.spouseGeneral, own);
       } else if (general !== null && st <= (at.paramYen(P.spouseSpecialLimit) ?? yen(0))) {

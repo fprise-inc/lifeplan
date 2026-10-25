@@ -361,6 +361,18 @@ export function evenMonthPayments(ctx: Ctx, months: readonly { readonly month: s
 
 const addMonthsLocal = (m: MonthIndex, k: number): MonthIndex => (m + k) as MonthIndex;
 
+/**
+ * その年の中途に万一の想定（死亡）で亡くなった構成員の死亡の月（その年に亡くならなければ null）。
+ * 控除対象配偶者・扶養親族などに当たるかは12月31日の現況で判定するが、その時までに亡くなった人は死亡の時の現況で判定する
+ * （所得税法85条3項ただし書・地方税法314条の2第8項）。呼ぶ部品は requires に contingency.event を書く
+ */
+export function deathMonthIn(ctx: Ctx, member: string, year: number): MonthIndex | null {
+  const ev = ctx.call<{ event: { kind: string; month: string } | null }>("contingency.event", { member }).event;
+  if (ev === null || ev.kind !== "death") return null;
+  const m = parseYm(ev.month);
+  return yearOf(m) === year ? m : null;
+}
+
 /** 関係の辺から、月 m に member の配偶者である構成員（from・to は解決した月で比べる） */
 export function spousesAt(
   ctx: Ctx,

@@ -1,0 +1,21 @@
+id: educationSupport.higher.multiChild.specifiedRelativeIncomeLimit
+title: 多子世帯の判定で「子ども」に数える特定親族（特定親族特別控除の年齢の子）の合計所得金額の上限（以下）
+unit: JPY
+kind: constant
+basis: {type: "priorYearIncome", switchMonth: 6}
+entries:
+  - rev: 1
+    appliesFrom: "2026-06-01"
+    appliesTo: null
+    enforcedOn: "2026-06-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 950000
+    sources:
+      - {type: "web", url: "https://www.jasso.go.jp/shogakukin/about/kyufu/kakei/r7tashikakudai/arataniumaretako.html", retrievedAt: "2026-10-25", sha256: "0669518113b18c8d806b1621fdf30aaacba35827ff34dc704d045533d730c991", locator: "【既進学者】多子世帯支援における子どもの数の申告が別途必要な場合の申告方法等について（日本学生支援機構）", quote: "合計所得金額が 95 万円（他に所得がない場合において給与収入で 160 万円）以下の者"}
+      - {type: "web", url: "https://www.jasso.go.jp/shogakukin/about/kyufu/kakei/r7tashikakudai/arataniumaretako.html", retrievedAt: "2026-10-25", sha256: "0669518113b18c8d806b1621fdf30aaacba35827ff34dc704d045533d730c991", locator: "同「特定親族等の子」の条件", quote: "令和8年度住民税を用いる判定から"}
+      - {type: "web", url: "https://www.jasso.go.jp/shogakukin/saiyochu/kyufu/tekikaku_kakei/tsujo/shienkubun.html", retrievedAt: "2026-10-25", sha256: "66186679a2bc95faf4ce341ab227ebeb8210d2816d5076f4ed2dc0bbed0d61a0", locator: "適格認定（家計）による支援区分の見直し（日本学生支援機構）", quote: "合計所得金額58万円超95万円以下（年収123万円超160万円以下）の者です"}
+    recordedIn: "2026.6.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-25", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和8年度住民税（令和7年の所得）を用いる判定から、特定親族特別控除の対象の学生世代（19歳以上23歳未満）の子のうち合計所得金額が95万円以下の者を多子世帯の「子ども」に数える（日本学生支援機構の2つの公表資料で一致）。18歳の早生まれの者の扱いは値に含まれない"}

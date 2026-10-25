@@ -1,6 +1,9 @@
 // 住民税（所得割・均等割）と森林環境税。前年の所得に対して、6月から翌年5月に払う（0003 の2）
 // 所得割は全国一律の標準税率（市町村民税・道府県民税）で計算し、調整控除を引いて、それぞれ100円未満を切り捨てる。
-// 給与所得者（その年度の6月に給与を受ける人）は特別徴収（6月〜翌年5月の12回）。辞めた後の残りは最後の給与の月にまとめる。
+// 給与所得者（その年度の6月に給与を受ける人）は特別徴収（6月〜翌年5月の12回）。給与を受けなくなった後の残り（改訂8）:
+// - 翌年1月〜4月に辞めた（最後の給与がその月）: 5月分までの残りを最後の給与の月にまとめる（一括徴収。地方税法321条の5第2項ただし書）
+// - 6月〜12月に辞めた: 残りは普通徴収に切り替わり、特別徴収が止まった月以後に来る普通徴収の納期（6月・8月・10月・翌年1月）に分けて払う
+//   （321条の7。年の合計は変わらず、払う時期が変わる）。本人が申し出て一括で引いてもらう形（321条の5第2項ただし書）は扱わない
 // それ以外は普通徴収（6月・8月・10月・翌年1月の4回）。
 // 非課税限度額（residentTax.exemption）以下なら均等割・所得割をかけない。指定都市の税率の配分・超過課税は扱わない（notices）。
 // 住宅借入金等特別税額控除: 前年分の所得税から引ききれなかった住宅借入金等特別控除（incomeTax.annual の creditRemainder）を、
@@ -29,6 +32,7 @@ import {
   type IncomeTaxOutput,
   type Flow,
   type LevyPair,
+  type MonthIndex,
   type ResidentTaxAssessmentInput,
   type ResidentTaxOutput,
   type SalaryOutput,
@@ -120,7 +124,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
   id: "residentTax.annual",
   title: "住民税・森林環境税",
   contract: "1.1",
-  revision: 7,
+  revision: 8,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "tax.housingLoanCreditYears": ">=1 <2",
@@ -256,13 +260,22 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
     if (firstUnpaid !== 0) {
       const parts = at.money.allocate(remaining, installments.map(() => 1), SPECIAL, "first");
       const stop = firstUnpaid < 0 ? 12 : firstUnpaid;
-      // 給与が無くなった後の残りは、最後の給与の月にまとめて徴収する（一括徴収）
       let rest = yen(0);
       for (let i = stop; i < 12; i++) rest = yen(rest + (parts[i] as Yen));
+      // 最後の給与が翌年1〜4月（installments の7〜10番目）なら、残りは最後の給与の月にまとめて徴収する（一括徴収）
+      const lumpSum = stop - 1 >= 7;
       for (let i = 0; i < stop; i++) {
         const ym = formatYm(installments[i] as never);
         push(ym, parts[i] as Yen, "residentTax.special.installment");
-        if (i === stop - 1) push(ym, rest, "residentTax.special.lumpSum");
+        if (lumpSum && i === stop - 1) push(ym, rest, "residentTax.special.lumpSum");
+      }
+      if (!lumpSum && rest > 0) {
+        // 6〜12月に辞めた: 特別徴収が止まった月（最初に給与の無い月）以後の普通徴収の納期に分ける（無ければその月に。321条の7）
+        const stopped = installments[stop] as MonthIndex;
+        const regular = [monthIndex(fiscalYear, 6), monthIndex(fiscalYear, 8), monthIndex(fiscalYear, 10), monthIndex(fiscalYear + 1, 1)].filter((mm) => mm >= stopped);
+        const ms = regular.length > 0 ? regular : [stopped];
+        const ordinary = at.money.allocate(rest, ms.map(() => 1), ORDINARY, "first");
+        ms.forEach((mm, i) => push(formatYm(mm), ordinary[i] as Yen, "residentTax.ordinary.installment"));
       }
     } else {
       const ms = [monthIndex(fiscalYear, 6), monthIndex(fiscalYear, 8), monthIndex(fiscalYear, 10), monthIndex(fiscalYear + 1, 1)];
