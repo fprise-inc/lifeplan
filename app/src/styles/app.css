@@ -287,6 +287,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-suggest summary { cursor: pointer; font-size: 0.78rem; }
 .fld-suggest ul { margin: 4px 0 0; padding-left: 1.2em; }
 .fld-help.warn { color: #7a5800; }
+.fld-help.bad { color: var(--short-ink); font-weight: 700; }
 .fld-help.est-basis { color: var(--base-ink); }
 .ro { font-size: 0.92rem; color: var(--ink-2); }
 .badge { font-size: 0.7rem; font-weight: 700; border-radius: 4px; padding: 0 5px; }
@@ -836,6 +837,9 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .ds-layout .ds-k { font-weight: 700; font-size: 0.9rem; align-self: center; min-width: 4em; }
 .ds-layout .ds-item { flex: 1 1 260px; }
 .chart-card .fee-note { margin: 6px 0 0; }
+/* 結果のタブの入力の確認（例: 定期便の加入月数が0か月のまま） */
+.fee-note.input-notice { border-color: #c99a30; background: #fffaf0; }
+.fee-note.input-notice .fee-tag { border-color: #7a5800; color: #7a5800; }
 
 /* ③ 対策 */
 .levers { padding: 12px 18px 14px; }
@@ -913,6 +917,8 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .amt-in input { width: 4.2em; text-align: right; font: inherit; font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; border: 1.5px solid var(--field); border-radius: 6px; padding: 1px 6px; background: #fff; color: var(--ink); }
 .amt-in input:focus { outline: 2px solid var(--prop); outline-offset: 1px; }
 .amt-in input.bad { border-color: var(--short); background: var(--short-bg); }
+.amt-in { position: relative; }
+.amt-bad { position: absolute; top: calc(100% + 2px); right: 0; z-index: 3; width: max-content; max-width: 16em; white-space: normal; font-size: 0.78rem; font-weight: 700; color: var(--short-ink); background: #fff; border: 1.5px solid var(--short); border-radius: 6px; padding: 2px 6px; }
 .amt-per, .amt-u { font-size: 0.85rem; color: var(--ink-2); }
 .lever.changed .amt-in input { color: var(--prop); border-color: var(--prop); }
 .amt-row { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }

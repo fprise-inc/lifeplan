@@ -17,7 +17,7 @@ import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
 import { addRate, cmpRate, nonNegative, pctText, subRate } from "./decimal.ts";
 import { ageAt } from "../levers.ts";
 import { setSurplusRatio, surplusRatioOf } from "../surplus.ts";
-import { accountsOf, drawdownOf, INVEST_KINDS, methodOf, NOT_FINANCIAL, portfolioOf, rateOf, rateText, retireAgeOf, setDrawdown, setStopAge, stopAgeOf, totalViewOf, valueOf } from "../input/savings/model.ts";
+import { accountsOf, drawdownOf, drawdownStartDefault, INVEST_KINDS, methodOf, NOT_FINANCIAL, portfolioOf, rateOf, rateText, retireAgeOf, setDrawdown, setStopAge, stopAgeOf, totalViewOf, valueOf } from "../input/savings/model.ts";
 
 /** 変動金利の上乗せ（前提の assumptions.loanRateShifts の1件） */
 export interface RateShift {
@@ -121,6 +121,18 @@ export function leverSteps(demo: DemoHousehold | null, base: Partial<LeverValues
 /** 年金の受け取り開始の年齢の範囲（繰上げ60歳〜繰下げ75歳。制度は1か月単位だが、対策のスライダーは1歳ずつ） */
 export const PENSION_AGE_RANGE = { min: 60, max: 75 } as const;
 
+/** 働く最後の年齢のスライダーの広さ: 目盛りの外でも、50歳（まだ来ていなければ次の年齢）から75歳までは選べる */
+export const RETIRE_AGE_REACH = { min: 50, max: 75 } as const;
+
+/** 働く最後の年齢のスライダー: 目盛り（見本の世帯の段）より広く、今の年齢の次から選べる（早期退職の55歳など） */
+export function retireAgeControl(steps: readonly number[], tick: (v: number) => string, nowAge: number | null): Control & { kind: "age" } {
+  const lo = Math.max(RETIRE_AGE_REACH.min, nowAge === null ? RETIRE_AGE_REACH.min : nowAge + 1);
+  const min = Math.min(Math.min(...steps), lo);
+  const max = Math.max(Math.max(...steps), RETIRE_AGE_REACH.max);
+  // 目盛りの数字は、見本の世帯の段に範囲の両端を足す（目盛りの外でも選べることが見えるように）
+  return { kind: "age", min, max, ticks: [...new Set([min, ...steps, max])].sort((a, b) => a - b), tick };
+}
+
 /** 年齢のスライダー: 目盛りの最小〜最大を1歳ずつ（limit があればその中に収める）。目盛りの数字は今の段を残す */
 export function ageControl(steps: readonly number[], tick: (v: number) => string, limit: { min: number; max: number } | null): Control & { kind: "age" } {
   let min = Math.min(...steps);
@@ -180,7 +192,11 @@ function leverItems(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | 
   // 年齢は1歳ずつ、金額（NISA・生活費）は1万円の刻みのスライダー。範囲は目盛りの最小から最大まで（今の考え方のまま）
   const controlOf = (k: LeverKey): Control => {
     const tick = (v: number) => leverTick(k, v);
-    if (k === "retireAge" || k === "pensionAge") return ageControl(steps[k], tick, k === "pensionAge" ? PENSION_AGE_RANGE : null);
+    if (k === "retireAge") {
+      const self = h.members.find((m) => m.id === selfId);
+      return retireAgeControl(steps[k], tick, self === undefined ? null : ageAt(self, wh.request.input.baseMonth));
+    }
+    if (k === "pensionAge") return ageControl(steps[k], tick, PENSION_AGE_RANGE);
     const r = amountRange(Math.min(...steps[k]), Math.max(...steps[k]));
     return { kind: "range", min: r.min, max: r.max, step: AMOUNT_STEP, ticks: steps[k], tick, per: "月" };
   };
@@ -351,11 +367,11 @@ function investItems(wh: WorkingHousehold): MovableItem[] {
       builtin: false,
       phase: "field",
       control: ageControl(ageTicks(Math.max(nowAge + 1, 55), 85), (v) => String(v), { min: nowAge + 1, max: 90 }),
-      read: (w) => wStart(w) ?? Math.max(65, retire),
+      read: (w) => wStart(w) ?? drawdownStartDefault(w.request),
       apply: (w, v) => {
         if (typeof v !== "number") return w;
         const d = drawdownOf(w.request);
-        if (d.method !== "none" ? d.startAge === v : v === Math.max(65, retireAgeOf(w.request) ?? 65)) return w;
+        if (d.method !== "none" ? d.startAge === v : v === drawdownStartDefault(w.request)) return w;
         return mutate(w, (_h, r) => setDrawdown(r, { ...d, method: d.method === "none" ? "fixed" : d.method, startAge: v }));
       },
       text: (v) => (typeof v === "number" ? `${v}歳から` : "—"),
@@ -378,7 +394,7 @@ function investItems(wh: WorkingHousehold): MovableItem[] {
         const d = drawdownOf(w.request);
         if (d.method === "fixed" && d.monthly === v) return w;
         if (v <= 0) return d.method === "fixed" ? mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "none" })) : w;
-        return mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "fixed", monthly: v, startAge: d.method === "none" ? Math.max(65, retire) : d.startAge }));
+        return mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "fixed", monthly: v, startAge: d.method === "none" ? drawdownStartDefault(w.request) : d.startAge }));
       },
       text: (v) => (typeof v === "number" ? (v === 0 ? "予定なし" : `月${manDecimal(v)}`) : "—"),
       same: jsonSame,
@@ -400,7 +416,7 @@ function investItems(wh: WorkingHousehold): MovableItem[] {
         const d = drawdownOf(w.request);
         if (d.method === "rate" && sameRate(d.rate, v)) return w;
         if (cmpRate(v, "0") <= 0) return d.method === "rate" ? mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "none" })) : w;
-        return mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "rate", rate: v, startAge: d.method === "none" ? Math.max(65, retire) : d.startAge }));
+        return mutate(w, (_h, r) => setDrawdown(r, { ...d, method: "rate", rate: v, startAge: d.method === "none" ? drawdownStartDefault(w.request) : d.startAge }));
       },
       text: (v) => (typeof v === "string" ? (cmpRate(v, "0") <= 0 ? "予定なし" : `年${pctText(v, 1)}`) : "—"),
       same: (a, b) => (typeof a === "string" && typeof b === "string" ? sameRate(a, b) : a === b),
@@ -712,6 +728,9 @@ export function buildCatalog(wh: WorkingHousehold, selfId: string, demo: DemoHou
   skip.add("sav/stopAge");
   // 黒字の貯まり方の項目と同じ欄（0031。基本生活費のカードの欄）
   skip.add("living/surplus/ratio");
+  // 本人の「働く最後の年齢（現状の予定）」の欄は、対策の「働く最後の年齢」と同じものを動かす。欄を足すと同じ値の部品が2つ並び、
+  // 欄で入れた値は対策のつまみの値（欄の後に当てる）で上書きされて効かないため、一覧に出さない
+  if (base.retireAge !== undefined) skip.add(`work/${selfId}/retireAge`);
   const items = [...leverItems(wh, selfId, demo), ...feeItem(wh), ...investItems(wh), ...surplusItems(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), skip)];
   return { selfId, items, byKey: new Map(items.map((i) => [i.key, i])) };
 }

@@ -20,21 +20,44 @@ export function currentPeriod(h: Household, memberId: string, baseMonth: string)
   );
 }
 
-/** 働き方の種類を変える: その種類に要る欄を足し、要らない欄を外す（0008 の4・スキーマの条件） */
+/** 給与の種類ごとの初めの値（健康保険・厚生年金・勤め先）。種類を変えたとき、前の種類の初めの値のままの欄はこの値に入れ替える */
+function salariedDefaults(type: string): Pick<EmploymentPeriod, "healthInsurance" | "pensionCategory" | "employer"> {
+  return {
+    healthInsurance: fixHealthInsurance({ kind: type === "civilServant" ? "mutualAid" : type === "partTime" ? "dependent" : "kyokaikenpo" }),
+    pensionCategory: type === "civilServant" ? "employee3" : type === "partTime" ? "none" : "employee1",
+    employer: { size: type === "partTime" ? 50 : 100, weeklyHours: type === "partTime" ? "20" : "40" },
+  };
+}
+
+/** 自動で入れた推定の値（出どころ auto のまま。FP が入れた値・確定の値ではない） */
+const isAutoBox = (b: { state?: string; origin?: { kind?: string } } | undefined): boolean => b !== undefined && b.state === "estimated" && b.origin?.kind === "auto";
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * 働き方の種類を変える: その種類に要る欄を足し、要らない欄を外す（0008 の4・スキーマの条件）。
+ * 給与の種類どうし（正社員→パートなど）で変えたときは、推定のままの年収・賞与・標準報酬月額を新しい種類の推定に入れ替え、
+ * 前の種類の初めの値のままの健康保険・厚生年金・勤め先も新しい種類の初めの値に入れ替える。FP が入れた値は残す（0008 の追記 2026-10-11 の2・2026-10-25）
+ */
 export function convertPeriod(p: EmploymentPeriod, type: string, member: Member | undefined): EmploymentPeriod {
   const { salary, business, healthInsurance, pensionCategory, employer, standardMonthlyRemuneration, leaveKind, leaveChild, childcareShortHours, corporatePension, employmentInsuranceCovered, employeeInsurance, ...rest } = p;
   const out: EmploymentPeriod = { ...rest, type };
   const sex = member?.sex ?? "male";
   if (SALARIED.has(type)) {
     const est = salaryEstimate(type, sex);
-    out.healthInsurance = healthInsurance ?? fixHealthInsurance({ kind: type === "civilServant" ? "mutualAid" : type === "partTime" ? "dependent" : "kyokaikenpo" });
-    out.pensionCategory = pensionCategory ?? (type === "civilServant" ? "employee3" : type === "partTime" ? "none" : "employee1");
-    out.employer = employer ?? { size: type === "partTime" ? 50 : 100, weeklyHours: type === "partTime" ? "20" : "40" };
-    out.salary = salary ?? {
-      annual: est !== null ? estimatedBox(est.annual.value, est.annual.basis) : estimatedBox(0, "未入力"),
-      bonus: est !== null ? estimatedBox(est.bonus.value, est.bonus.basis) : estimatedBox(0, "未入力"),
-    };
-    out.standardMonthlyRemuneration = standardMonthlyRemuneration ?? smrEstimate(out.salary.annual.value ?? 0);
+    const was = SALARIED.has(p.type) && p.type !== type ? salariedDefaults(p.type) : null;
+    const now = salariedDefaults(type);
+    const keep = <T,>(cur: T | undefined, before: T | undefined, next: T): T => (cur === undefined || (was !== null && sameJson(cur, before)) ? next : cur);
+    out.healthInsurance = keep(healthInsurance, was?.healthInsurance, now.healthInsurance as NonNullable<EmploymentPeriod["healthInsurance"]>);
+    out.pensionCategory = keep(pensionCategory, was?.pensionCategory, now.pensionCategory as NonNullable<EmploymentPeriod["pensionCategory"]>);
+    out.employer = keep(employer, was?.employer, now.employer as NonNullable<EmploymentPeriod["employer"]>);
+    const annual = est !== null ? estimatedBox(est.annual.value, est.annual.basis) : estimatedBox(0, "未入力");
+    const bonus = est !== null ? estimatedBox(est.bonus.value, est.bonus.basis) : estimatedBox(0, "未入力");
+    out.salary =
+      salary === undefined
+        ? { annual, bonus }
+        : { ...salary, annual: isAutoBox(salary.annual) ? annual : salary.annual, ...(isAutoBox(salary.bonus) ? { bonus } : {}) };
+    const smr = standardMonthlyRemuneration;
+    out.standardMonthlyRemuneration = smr !== undefined && !(isAutoBox(smr.health) && isAutoBox(smr.pension)) ? smr : smrEstimate(out.salary.annual.value ?? 0);
     if (corporatePension !== undefined) out.corporatePension = corporatePension;
     if (employmentInsuranceCovered !== undefined) out.employmentInsuranceCovered = employmentInsuranceCovered;
     if (employeeInsurance !== undefined) out.employeeInsurance = employeeInsurance;

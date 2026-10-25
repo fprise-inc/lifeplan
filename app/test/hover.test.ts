@@ -183,15 +183,16 @@ describe("金額のスライダーは1万円の刻み", () => {
     }
   });
 
-  it("年齢の項目（働く最後の年齢・年金の受け取り開始）は1歳ずつ。範囲は今の目盛りの最小〜最大、目盛りの数字は今の段", () => {
+  it("年齢の項目（働く最後の年齢・年金の受け取り開始）は1歳ずつ。年金の範囲は今の目盛りの最小〜最大、目盛りの数字は今の段", () => {
     const steps = leverSteps(demoHousehold("salariedCoupleTwoKids")!, readLevers(demo.wh.request, demo.selfId));
     for (const k of ["retireAge", "pensionAge"] as const) {
       const c = demo.cat.byKey.get(`lever:${k}`)!.control;
       expect(c.kind).toBe("age");
       if (c.kind !== "age") continue;
-      expect(c.min).toBe(Math.min(...steps[k]));
-      expect(c.max).toBe(Math.max(...steps[k]));
-      expect(c.ticks).toEqual(steps[k]);
+      // 働く最後の年齢は目盛りの外（50歳〜75歳。45歳の本人）も選べる（早期退職の55歳など）
+      expect(c.min).toBe(k === "retireAge" ? 50 : Math.min(...steps[k]));
+      expect(c.max).toBe(k === "retireAge" ? 75 : Math.max(...steps[k]));
+      expect(c.ticks).toEqual(k === "retireAge" ? [50, ...steps[k], 75] : steps[k]);
     }
   });
 

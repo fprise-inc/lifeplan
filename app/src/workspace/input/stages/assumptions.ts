@@ -103,9 +103,19 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     suffix: "年",
     min: 2000,
     max: 2200,
-    help: "標準は、本人・配偶者のうち若い方が100歳になる年",
-    get: (w) => ({ value: w.request.input.endYear, hint: `標準は ${standardEndYear(w.request.input.household)}年` }),
-    set: (w, v) => (v === null ? w : mutate(w, (_h: Household, req) => void (req.input.endYear = Number(v)))),
+    optional: true,
+    help: "標準は、本人・配偶者のうち若い方が100歳になる年。標準のままなら、家族の生年月を直すと合わせて変わります。空にすると標準に戻します",
+    get: (w) => {
+      const std = standardEndYear(w.request.input.household);
+      const v = w.request.input.endYear;
+      return { value: v, hint: Number.isFinite(std) ? (v === std ? "標準の年" : `標準は ${std}年`) : null };
+    },
+    set: (w, v) =>
+      mutate(w, (h: Household, req) => {
+        const std = standardEndYear(h);
+        if (v !== null) req.input.endYear = Number(v);
+        else if (Number.isFinite(std)) req.input.endYear = std;
+      }),
   });
   const baseMonth = field({
     key: "assume/baseMonth",

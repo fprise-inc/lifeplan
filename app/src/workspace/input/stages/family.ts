@@ -1,16 +1,23 @@
 // 1. 家族: 続柄・呼び名（任意）・生年月（生年月＋1日生まれか。0012）・性別・独立の時期。贈与する人（親・祖父母）もここでまとめて登録する
 import type { Household, Member } from "../../../engine/types.ts";
-import { ageAt, ageReachedMonth } from "../../levers.ts";
+import { ageAt } from "../../levers.ts";
 import { roles } from "../../roles.ts";
 import { byId, field, plain, removeAction, timepointField, type ActionDef, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { mutate, newId, standardEndYear, type WorkingHousehold } from "../household.ts";
+import { followStandards, mutate, newId, standardLeaves, type WorkingHousehold } from "../household.ts";
 import { DONOR_KINDS, KIND_OPTIONS, memberLabel, memberOptions, SEX_OPTIONS } from "../labels.ts";
 import { wareki } from "../units.ts";
 
 const members = (h: Household) => h.members;
 
+/** 欄を書いた後に、標準のままの値（表の最後の年・子の独立の年月）を新しい標準に合わせる（household.ts の followStandards） */
+const following = (f: FieldDef): FieldDef => ({ ...f, set: (w, v) => followStandards(w, f.set(w, v)) });
+
 /** 構成員を外す: その人を指す物もいっしょに外す（名義・当事者は構成員 ID で指すため。0008 の1） */
 export function removeMember(wh: WorkingHousehold, id: string): WorkingHousehold {
+  return followStandards(wh, removeMemberRaw(wh, id));
+}
+
+function removeMemberRaw(wh: WorkingHousehold, id: string): WorkingHousehold {
   const next = mutate(wh, (h) => {
     h.members = h.members.filter((m) => m.id !== id);
     h.relations = (h.relations ?? []).filter((r) => (r.type === "spouse" ? r.a !== id && r.b !== id : r.parent !== id && r.child !== id));
@@ -55,20 +62,25 @@ export function addMember(wh: WorkingHousehold, kind: "spouse" | "child" | "pare
   const birthYear = kind === "spouse" ? selfYear + 2 : kind === "child" ? Math.min(by, selfYear + 32) : kind === "parent" ? selfYear - 30 : selfYear - 55;
   const sex = kind === "spouse" ? (self?.sex === "female" ? "male" : "female") : "male";
   const m: Member = { id: newMemberId, kind, birth: { birthYearMonth: `${birthYear}-04`, bornOnFirst: false }, sex, joins: null, leaves: null, expected: false };
-  if (kind === "child") m.leaves = { at: ageReachedMonth(m, 22) };
+  if (kind === "child") m.leaves = { at: standardLeaves(m) };
   let next = mutate(wh, (h) => {
     h.members.push(m);
     h.relations ??= [];
     if (kind === "spouse" && self !== undefined) h.relations.push({ type: "spouse", a: self.id, b: m.id, marriage: "legal", from: null, to: null });
     if (kind === "child") for (const p of [self, spouse]) if (p !== undefined) h.relations.push({ type: "parentOf", parent: p.id, child: m.id });
   });
-  if (kind === "spouse") next = mutate(next, (h, req) => void (req.input.endYear = Math.max(req.input.endYear, standardEndYear(h))));
+  // 表の最後の年は、標準のままなら配偶者を入れた標準に合わせる（人が入れた年は変えない）
+  next = followStandards(wh, next);
   return { ...next, assumed: { ...next.assumed, [`family/${newMemberId}/birth`]: "仮の値", [`family/${newMemberId}/sex`]: "仮の値" } };
 }
 
 function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const find = byId(members, m.id);
-  const ageNow = (ym: string) => `${ageAt(m, wh.request.input.baseMonth)}歳（${wareki(ym)}）`;
+  // まだ生まれていない（生年月が計算の基準の月より後）なら、マイナスの年齢ではなく「生まれる予定」と出す
+  const ageNow = (ym: string) => {
+    const age = ageAt({ ...m, birth: { ...m.birth, birthYearMonth: ym } }, wh.request.input.baseMonth);
+    return age < 0 ? `これから生まれる予定（${wareki(ym)}）` : `${age}歳（${wareki(ym)}）`;
+  };
   const fields: FieldDef[] = [
     field({
       key: `family/${m.id}/nickname`,
@@ -89,7 +101,7 @@ function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   ];
   if (m.kind !== "self")
     fields.push(
-      plain({
+      following(plain({
         key: `family/${m.id}/kind`,
         item: "member.kind",
         label: "続柄",
@@ -99,10 +111,10 @@ function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
         structural: true,
         find,
         path: ["kind"],
-      }),
+      })),
     );
   fields.push(
-    plain({
+    following(plain({
       key: `family/${m.id}/birth`,
       item: "member.birth",
       label: "生年月",
@@ -112,8 +124,8 @@ function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
       path: ["birth", "birthYearMonth"],
       help: "日は聞きません。1日生まれだけ下で選びます",
       hint: (v) => (typeof v === "string" ? ageNow(v) : null),
-    }),
-    plain({ key: `family/${m.id}/bornOnFirst`, item: "member.birth", label: "1日生まれ", level: "simple", kind: "bool", find, path: ["birth", "bornOnFirst"], help: "年齢に達する月が1か月早くなります（年金・定年などの時期）" }),
+    })),
+    following(plain({ key: `family/${m.id}/bornOnFirst`, item: "member.birth", label: "1日生まれ", level: "simple", kind: "bool", find, path: ["birth", "bornOnFirst"], help: "年齢に達する月が1か月早くなります（年金・定年などの時期）" })),
     plain({ key: `family/${m.id}/sex`, item: "member.sex", label: "性別", level: "simple", kind: "select", options: SEX_OPTIONS, find, path: ["sex"], help: "遺族年金などの計算に使います" }),
   );
   if (m.kind === "child")
@@ -128,7 +140,7 @@ function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
         ageOf: (h) => h.members.find((x) => x.id === m.id),
         optional: true,
         nullText: "独立しない・未定",
-        help: "就職などで家計から離れる年月。生活費の「末子独立後」の目安にも使います",
+        help: "就職などで家計から離れる年月。生活費の「末子独立後」の目安にも使います。標準（22歳になる月）のままなら、生年月を直すと合わせて変わります",
       }),
     );
   fields.push(

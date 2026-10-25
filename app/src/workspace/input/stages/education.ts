@@ -54,7 +54,7 @@ export function presetOf(stages: readonly EducationStage[]): string {
   return "";
 }
 
-/** 今からの進路の初めの形: 子の年齢から、まだ終わっていない段だけ（大学は私立・文系・自宅） */
+/** 今からの進路の初めの形: 子の年齢から、まだ終わっていない段だけ。進路の型の「大学だけ私立」（幼稚園〜高校は公立、大学は私立・文系・自宅。0010 の追記 2026-10-25） */
 export function defaultStages(child: Member, baseMonth: string): EducationStage[] {
   const [by, bm] = baseMonth.split("-").map(Number) as [number, number];
   const schoolYear = bm >= 4 ? by : by - 1;
@@ -137,7 +137,8 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       actions: [
         {
           key: `edu/${child.id}/add`,
-          label: "＋ 進路を入れる（公立から始める）",
+          // ボタンの名前は、入る進路の型の名前から作る（名前と入る型をずらさない）
+          label: `＋ 進路を入れる（${COURSE_PRESETS.find((p) => p.value === presetOf(defaultStages(child, wh.request.input.baseMonth)))?.label ?? "公立・私立は後で選ぶ"}で始める）`,
           level: "simple",
           run: (w) => mutate(w, (hh) => void (hh.goals ??= []).push({ id: newId(), kind: "education", owner: child.id, education: { stages: defaultStages(child, w.request.input.baseMonth) } })),
         },
