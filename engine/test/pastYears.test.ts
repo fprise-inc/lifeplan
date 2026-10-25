@@ -106,8 +106,8 @@ describe("保育料・年金生活者支援給付金: 計算基準月より前�
 
   it("年金生活者支援給付金: 計算基準月が2026年6〜9月でも止まらない（前は2025年度の住民税の非課税の判定で、扶養の所得の上限の値が無く止まった）", () => {
     for (const base of ["2026-06", "2026-07", "2026-09"]) {
-      const req = modelHousehold("pensionCouple");
-      req.input.baseMonth = base;
+      const model = modelHousehold("pensionCouple");
+      const req: Req = { ...model, input: { ...model.input, baseMonth: base } };
       expect(() => run(req), base).not.toThrow();
     }
   });
