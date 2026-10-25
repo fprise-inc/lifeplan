@@ -1580,6 +1580,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.disability.spouseSupplement.baseAmount
+    status: active
+    label: "障害厚生年金（1級・2級）の加給年金額（配偶者）の基準額（224,700円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: pension.earlyClaim.maxMonths
     status: active
     label: "繰上げの上限の月数（60歳から）"
@@ -1697,6 +1703,18 @@ entries:
   - id: pension.spouseSupplement.baseAmount
     status: active
     label: "加給年金額（配偶者）の基準額（224,700円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.spouseSupplement.reform2028.baseAmount
+    status: active
+    label: "加給年金額（配偶者）の基準額（令和10年4月以後に加算された老齢厚生年金。202,200円×改定率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.spouseSupplement.reform2028.specialAddition
+    status: active
+    label: "配偶者の加給年金額の特別加算の基準額（令和10年4月以後に加算された老齢厚生年金。生年月日によらず 149,200円×改定率）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1907,6 +1925,12 @@ entries:
   - id: pension.workingAdjustment.threshold
     status: active
     label: "在職老齢年金の支給停止調整額（月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.workingAdjustment.threshold.rounding
+    status: active
+    label: "在職老齢年金の支給停止調整額の改定の端数処理（1万円未満四捨五入）"
     since: draft
     aliases: []
     replacedBy: null

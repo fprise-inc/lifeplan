@@ -272,6 +272,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: pension.survivorRight
+    status: active
+    label: "遺族年金の受給権"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: plan.cashflow
     status: active
     label: "キャッシュフロー表"

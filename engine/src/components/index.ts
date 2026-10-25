@@ -77,6 +77,7 @@ import insuranceTerm from "./insurance.term/index.ts";
 import medicalHighCost from "./medical.highCost/index.ts";
 import pensionDisability from "./pension.disability/index.ts";
 import pensionSurvivor from "./pension.survivor/index.ts";
+import pensionSurvivorRight from "./pension.survivorRight/index.ts";
 import protectionNeed from "./protection.need/index.ts";
 import taxSurvivorStatus from "./tax.survivorStatus/index.ts";
 
@@ -163,6 +164,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   medicalHighCost,
   pensionDisability,
   pensionSurvivor,
+  pensionSurvivorRight,
   protectionNeed,
   taxSurvivorStatus,
 ] as never;
