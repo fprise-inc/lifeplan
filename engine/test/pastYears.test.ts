@@ -142,6 +142,7 @@ describe("国民健康保険・介護保険（第1号）・後期高齢者医療
     (req.input.household as unknown as Obj).premiumRates = [{ id: uid("pr"), kind: "nationalHealth", parts: { medical: { incomeRate: box("0.07"), perCapita: box(40000), perHousehold: box(20000) } } }];
     const amounts = (fiscalYear: number) => entry<{ flows: Flow[] }>(req, "socialInsurance.nationalHealth", { fiscalYear }).flows.map((f) => [f.formula, Number(f.ym.slice(0, 4)) - fiscalYear, f.ym.slice(5), f.amount]);
     expect(amounts(2024)).toEqual(amounts(2026));
-    expect(amounts(2026).length).toBe(10);
+    // 医療分（入力の料率）・後期高齢者支援金分と介護分（入力が無いので全国の目安）の3区分×10回の納期
+    expect(amounts(2026).length).toBe(30);
   });
 });

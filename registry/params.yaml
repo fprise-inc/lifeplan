@@ -488,6 +488,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: employmentInsurance.careLeaveBenefit.maxTimes
+    status: active
+    label: "介護休業給付金を受けられる介護休業の回数（対象の家族1人につき3回まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: employmentInsurance.careLeaveBenefit.monthlyLimit
     status: active
     label: "介護休業給付金の支給の上限額（支給日数30日あたり。毎年8月1日に改定）"
@@ -2384,6 +2390,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.care.highCostService.exemptPersonalIncomeLimit
+    status: active
+    label: "高額介護サービス費の個人の上限（15,000円）の基準額（前年の公的年金等の収入金額とその他の合計所得金額の合計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.care.highCostService.exemptPersonalLimit
+    status: active
+    label: "高額介護サービス費の負担の上限（月額。個人。世帯全員が住民税非課税で、公的年金等の収入金額とその他の合計所得金額の合計が基準以下の人）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.care.highCostService.limit
     status: active
     label: "高額介護サービス費の負担の上限（月額。住民税の課税世帯。前年の課税所得の段階）"
@@ -2507,6 +2525,18 @@ entries:
   - id: socialInsurance.employeeShare.rounding
     status: active
     label: "健康保険料・介護保険料・支援金・厚生年金保険料の被保険者負担分を給与から控除するときの端数（50銭以下切り捨て、50銭超切り上げ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.health.continuation.maxMonths
+    status: active
+    label: "健康保険の任意継続被保険者でいられる月数（任意継続被保険者となった日から2年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.health.kyokaikenpo.continuationLimit
+    status: active
+    label: "協会けんぽの任意継続被保険者の標準報酬月額の上限（全被保険者の標準報酬月額の平均に当たる等級の額）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2708,9 +2738,27 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.nationalHealth.care.incomeRate
+    status: active
+    label: "国民健康保険の介護納付金賦課額（40〜64歳）の所得割の率（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.nationalHealth.care.limit
     status: active
     label: "国民健康保険の賦課限度額（介護納付金賦課額。政令の基準）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.care.perCapita
+    status: active
+    label: "国民健康保険の介護納付金賦課額（40〜64歳）の被保険者均等割額（年額。1人あたり）（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.care.perHousehold
+    status: active
+    label: "国民健康保険の介護納付金賦課額（40〜64歳）の世帯別平等割額（年額。1世帯あたり）（全国の目安。既定）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2726,9 +2774,27 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.nationalHealth.elderlySupport.incomeRate
+    status: active
+    label: "国民健康保険の後期高齢者支援金等賦課額の所得割の率（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.nationalHealth.elderlySupport.limit
     status: active
     label: "国民健康保険の賦課限度額（後期高齢者支援金等賦課額。政令の基準）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.elderlySupport.perCapita
+    status: active
+    label: "国民健康保険の後期高齢者支援金等賦課額の被保険者均等割額（年額。1人あたり）（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.elderlySupport.perHousehold
+    status: active
+    label: "国民健康保険の後期高齢者支援金等賦課額の世帯別平等割額（年額。1世帯あたり）（全国の目安。既定）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2738,9 +2804,27 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.nationalHealth.medical.incomeRate
+    status: active
+    label: "国民健康保険の基礎賦課額（医療分）の所得割の率（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.nationalHealth.medical.limit
     status: active
     label: "国民健康保険の賦課限度額（基礎賦課額（医療分）。政令の基準）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.medical.perCapita
+    status: active
+    label: "国民健康保険の基礎賦課額（医療分）の被保険者均等割額（年額。1人あたり）（全国の目安。既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: socialInsurance.nationalHealth.medical.perHousehold
+    status: active
+    label: "国民健康保険の基礎賦課額（医療分）の世帯別平等割額（年額。1世帯あたり）（全国の目安。既定）"
     since: draft
     aliases: []
     replacedBy: null

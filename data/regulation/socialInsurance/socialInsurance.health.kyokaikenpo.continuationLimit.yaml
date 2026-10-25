@@ -1,0 +1,23 @@
+id: socialInsurance.health.kyokaikenpo.continuationLimit
+title: 協会けんぽの任意継続被保険者の標準報酬月額の上限（全被保険者の標準報酬月額の平均に当たる等級の額）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: "2025-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 320000
+    sources:
+      - {"type": "web", "url": "https://www.kyoukaikenpo.or.jp/faq/voluntary_continuation/005/", "retrievedAt": "2026-10-25", "sha256": "f7f5ca646d267edbed49d59c039f8dde275951841953b578b3a0289915eb9789", "locator": "協会けんぽ「よくあるご質問（任意継続）保険料について」", "quote": "（令和7年3月分までは30万円）"}
+      - {"type": "web", "url": "https://www.kyoukaikenpo.or.jp/shibu/okayama/assets/ninnikeizokuhokennryourituichiranhyou_r7.pdf", "retrievedAt": "2026-10-25", "sha256": "f1a99f860719530fd90227f4575c0bd94829e4397f348c546450a1de3329ceb3", "locator": "協会けんぽ岡山支部「任意継続健康保険料額一覧表」令和７年度（令和７年４月分から令和８年３月分）", "quote": "上限32万円"}
+      - {"type": "web", "url": "https://www.kyoukaikenpo.or.jp/news/r07_dec/1259.html", "retrievedAt": "2026-10-25", "sha256": "21678d3c80f2bdd388d837c460b36bcbad822d89817f38d320daa1dfd8b332fe", "locator": "協会けんぽ「令和8年度の任意継続被保険者の標準報酬月額の上限について」", "quote": "上限は、32万円となります"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", "retrievedAt": "2026-10-25", "sha256": "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", "locator": "健康保険法 第47条第1項（令和8年10月1日の版）", "quote": "次の各号に掲げる額のうちいずれか少ない額をもって、その者の標準報酬月額とする"}
+      - {"type": "law", "lawNumber": "大正十一年法律第七十号", "egovRevisionId": "211AC0000000070_20261001_507AC0000000087"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-25", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "任意継続被保険者の標準報酬月額は、資格を失ったときの標準報酬月額と、前年（1〜3月は前々年）9月30日の全被保険者の標準報酬月額の平均に当たる額の少ないほう（健康保険法47条1項）。協会けんぽは令和7年度（令和7年4月分から）32万円、令和8年度も32万円（令和7年9月30日の平均318,100円が第23級32万円）。令和7年3月分までは30万円（値のパックは令和7年度から）。協会けんぽのよくあるご質問・岡山支部の令和7年度の保険料額一覧表・令和8年度のお知らせで一致。健保組合・共済の上限は組合の規約で決まるので持たない"}

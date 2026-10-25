@@ -1,5 +1,5 @@
 // 社会保険料控除の基にする、その年に本人が払った社会保険料（給与から控除された被用者保険・国民年金・後期高齢者医療・介護保険（第1号）、
-// 世帯主として払う国民健康保険）と国民年金基金の掛金（retirement.benefit）。所得控除（tax.deductions）が所得税・住民税の両方で使うので、構成員×年で1回だけ集める
+// 世帯主として払う国民健康保険・健康保険の任意継続）と国民年金基金の掛金（retirement.benefit）。所得控除（tax.deductions）が所得税・住民税の両方で使うので、構成員×年で1回だけ集める
 import {
   ageMonth,
   amountInYear,
@@ -21,7 +21,7 @@ export default defineComponent<{ member: string; year: number }, { amount: Yen }
   id: "tax.socialInsurancePaid",
   title: "その年に払った社会保険料",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {
     "retirement.benefit": ">=1 <2",
     "socialInsurance.health": ">=1 <2",
@@ -29,6 +29,7 @@ export default defineComponent<{ member: string; year: number }, { amount: Yen }
     "socialInsurance.employment": ">=1 <2",
     "socialInsurance.nationalPension": ">=1 <2",
     "socialInsurance.nationalHealth": ">=1 <2",
+    "socialInsurance.continuation": ">=1 <2",
     "socialInsurance.lateElderly": ">=1 <2",
     "socialInsurance.careFirst": ">=1 <2",
   },
@@ -60,6 +61,7 @@ export default defineComponent<{ member: string; year: number }, { amount: Yen }
       if (ageMonth(ctx, base, AGE.late, member) <= last) addPaid(ctx.call<FlowsResult>("socialInsurance.lateElderly", { member, fiscalYear: fy }).flows);
       if (ageMonth(ctx, start < base ? base : start, AGE.care, member) <= last) addPaid(ctx.call<FlowsResult>("socialInsurance.careFirst", { member, fiscalYear: fy }).flows);
       addPaid(ctx.call<FlowsResult>("socialInsurance.nationalHealth", { fiscalYear: fy }).flows);
+      addPaid(ctx.call<FlowsResult>("socialInsurance.continuation", { fiscalYear: fy }).flows);
     }
     for (const p of ctx.callMonths<{ ym: string; amount: Yen }>("retirement.benefit", { member }, "fundPaid", monthIndex(year, 1), monthIndex(year, 12))) amount = yen(amount + p.amount);
     return { amount };

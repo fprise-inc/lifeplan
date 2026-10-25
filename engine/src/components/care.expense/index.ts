@@ -1,7 +1,8 @@
 // 介護の費用（6.10。本人・親）: 月額×期間＋一時費用。0008 の追記 2026-10-09 の決定6。
 // - 介護保険の対象の費用（serviceMonthly。10割）には自己負担割合（65歳以上は前年の所得で1〜3割、65歳未満は1割）を掛け、高額介護サービス費の
 //   上限（住民税が非課税なら24,600円、課税なら前年の課税所得で44,400円・93,000円・140,100円。月額。制度データ）で止める（介護を受ける人ごとの近似。
-//   世帯の合算はしない）。自己負担割合の判定は、本人の合計所得金額と「年金収入＋その他の合計所得金額」（配偶者がいれば2人以上の世帯の基準。
+//   世帯の合算はしない）。非課税で、前年（1〜7月のサービスは前々年）の公的年金等の収入金額と、合計所得金額から公的年金等の雑所得を除いた額の
+//   合計が基準（80万円。令和7年8月から80万9千円、令和8年8月から82万6,500円）以下の人は、個人の上限15,000円（介護保険法施行令22条の2の2第9項）。自己負担割合の判定は、本人の合計所得金額と「年金収入＋その他の合計所得金額」（配偶者がいれば2人以上の世帯の基準。
 //   配偶者の額は足さない近似）
 // - 保険の対象外の費用（otherMonthly。居住費・食費など）と一時費用（initial）はそのまま
 // - 何も入れないときは、統計の既定（master.care.statistics: 月額・期間・一時費用。在宅・施設の別）を保険の対象外の費用として使う（知らせ N_DEFAULT_USED。
@@ -57,13 +58,15 @@ const P = {
   c3: "socialInsurance.care.copay.threeTenths.pensionCouple",
   cap: "socialInsurance.care.highCostService.limit",
   capExempt: "socialInsurance.care.highCostService.exemptLimit",
+  capPersonal: "socialInsurance.care.highCostService.exemptPersonalLimit",
+  personalIncome: "socialInsurance.care.highCostService.exemptPersonalIncomeLimit",
 };
 
 export default defineComponent<Record<string, never>, FlowsResult>({
   id: "care.expense",
   title: "介護の費用（自己負担割合・高額介護サービス費）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "contingency.event": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -98,11 +101,18 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     const list = ctx.list<CareExpenseInput>("care");
     if (list.length === 0) return { flows };
     const relations = ctx.list<RelationInput>("relation");
-    // 自己負担割合と上限（介護を受ける人×年。前年の所得による）
+    // 自己負担割合と上限（介護を受ける人×年・年度・8月の前後。前年の所得による）
     const cache = new Map<string, { ratio: Rate; cap: Yen | null }>();
+    // 公的年金等の収入金額＋（合計所得金額−公的年金等の雑所得）（その年）
+    const pensionAndOther = (member: string, year: number): number => {
+      const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year });
+      let revenue = 0;
+      for (const p of ctx.callMonths<{ ym: string; amount: Yen }>("pension.oldAge", { member }, "payments", monthIndex(year, 1), monthIndex(year, 12))) revenue += p.amount;
+      return revenue + inc.total - (inc.publicPension ?? 0);
+    };
     const ruleOf = (member: string, m: MonthIndex): { ratio: Rate; cap: Yen | null } => {
       const y = yearOf(m);
-      const key = `${member}|${y}`;
+      const key = `${member}|${y}|${fiscalYearOf(m)}|${monthOf(m) >= 8 ? 1 : 0}`;
       const hit = cache.get(key);
       if (hit !== undefined) return hit;
       const at = ctx.at(m);
@@ -110,9 +120,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       // 65歳以上（第1号）だけ所得で判定
       if (ageMonth(ctx, m, P.firstAge, member) <= m) {
         const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year: y - 1 });
-        let revenue = 0;
-        for (const p of ctx.callMonths<{ ym: string; amount: Yen }>("pension.oldAge", { member }, "payments", monthIndex(y - 1, 1), monthIndex(y - 1, 12))) revenue += p.amount;
-        const measure = revenue + inc.total - (inc.publicPension ?? 0);
+        const measure = pensionAndOther(member, y - 1);
         const couple = spousesAt(ctx, relations, member, m).length > 0;
         const v = (id: string) => at.paramYen(id) ?? yen(Number.MAX_SAFE_INTEGER);
         if (inc.total >= v(P.i3) && measure >= v(couple ? P.c3 : P.s3)) ratio = at.paramRate(P.r3) ?? ratio;
@@ -121,8 +129,14 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       // 高額介護サービス費の上限（住民税が非課税か、前年の課税所得）
       const ex = ctx.call<ExemptionOutput>("residentTax.exemption", { member, fiscalYear: fiscalYearOf(m) });
       let cap: Yen | null;
-      if (ex.perCapitaExempt) cap = at.paramYen(P.capExempt);
-      else {
+      if (ex.perCapitaExempt) {
+        cap = at.paramYen(P.capExempt);
+        // 個人の上限（15,000円）: 前年（1〜7月のサービスは前々年）の公的年金等の収入金額＋その他の合計所得金額が基準以下
+        // （計算基準年の前々年の所得は持たないので、前年の所得で判定する）
+        const personal = at.has(P.capPersonal) ? at.paramYen(P.capPersonal) : null;
+        const limit = at.has(P.personalIncome) ? at.paramYen(P.personalIncome) : null;
+        if (personal !== null && limit !== null && (cap === null || personal < cap) && pensionAndOther(member, Math.max(monthOf(m) >= 8 ? y - 1 : y - 2, yearOf(base) - 1)) <= limit) cap = personal;
+      } else {
         const table = at.paramBrackets(P.cap);
         const taxable = ctx.call<IncomeTaxOutput>("incomeTax.annual", { member, year: y - 1 }).taxable;
         cap = table === null ? null : (bracketFor(table, taxable).amount ?? null);
