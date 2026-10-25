@@ -3,7 +3,7 @@
 // - 月額を入れていない段は、世帯の収入から自動で計算する（目安）: 国の基準の上限（子ども・子育て支援法施行令4条2項。保育標準時間・短時間の表）を、
 //   市町村民税所得割合算額（父母の市町村民税の所得割の合計。住宅借入金等特別税額控除などを引く前）の段階で引き、多子の軽減（13条・14条）と
 //   ひとり親世帯等の軽減（4条2項6号・7号ただし書）を当て、自治体の水準として「国の基準に対する割合」（段の feeRatio。省略は目安の 0.8）を掛ける
-//   - 所得割の年度: 4〜8月分は前年度、9〜3月分はその年度の住民税（施行令4条2項2号）
+//   - 所得割の年度: 4〜8月分は前年度、9〜3月分はその年度の住民税（施行令4条2項2号）。計算基準月に払っている住民税の年度より前にしない（改訂2）
 //   - 父母がみな住民税（均等割）を課されない年度は0円（市町村民税世帯非課税者。4条2項8号）
 //   - 多子の軽減: 小学校就学前で保育所・幼稚園などに通う子（負担額算定基準子ども）の年長の順で、2番目は国の基準の額×割合（0.5）、3番目以降は0円（13条）。
 //     市町村民税所得割合算額が所得の上限（57,700円。ひとり親世帯等は77,101円）未満なら、年齢と通っているかを問わず世帯の子の年長の順で数える（14条。
@@ -21,6 +21,7 @@ import {
   grownByYear,
   monthIndex,
   monthOf,
+  residentTaxYearOf,
   yearOf,
   yen,
   type Ctx,
@@ -77,7 +78,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
   id: "education.nurseryFee",
   title: "保育料（0〜2歳。収入から自動で計算）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "residentTax.annual": ">=1 <2" },
   params: [...Object.values(P), LEVY_ROUNDING],
   reads: [
@@ -149,11 +150,16 @@ export default defineComponent<{ member: string }, FlowsResult>({
       levyCache.set(fy, r);
       return r;
     };
-    /** その月の保育料の所得割の年度（4〜8月は前年度、9〜3月はその年度） */
+    /**
+     * その月の保育料の所得割の年度（4〜8月は前年度、9〜3月はその年度）。計算基準月に払っている住民税の年度（residentTaxYearOf）より前にしない
+     * （計算基準月が6〜8月の年の、その月から8月までの分は、その年度の住民税で決める。それより前の年度の住民税は表に無い）
+     */
+    const firstTaxYear = residentTaxYearOf(base);
     const taxYearOf = (m: MonthIndex): number => {
       const mo = monthOf(m);
       const fy = mo >= 4 ? yearOf(m) : yearOf(m) - 1;
-      return mo >= 4 && mo <= 8 ? fy - 1 : fy;
+      const y = mo >= 4 && mo <= 8 ? fy - 1 : fy;
+      return y < firstTaxYear ? firstTaxYear : y;
     };
     const birthKey = (m: MemberInput) => ctx.time.resolve({ at: m.birth.birthYearMonth });
     const childOrder = members.filter((m) => m.kind === "child");

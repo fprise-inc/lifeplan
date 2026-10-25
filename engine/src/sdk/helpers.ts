@@ -22,6 +22,15 @@ export function fiscalYearOf(m: MonthIndex): number {
   return monthOf(m) >= 4 ? yearOf(m) : yearOf(m) - 1;
 }
 
+/**
+ * その月に払っている住民税の年度（6月から翌年5月。前年の所得に対する年度分。0003 の2）。計算基準月のこの年度が、計算が住民税を求める
+ * 最初の年度（plan.memberFlows）。それより前の年度の住民税で決まる判定（修学支援・保育料・年金生活者支援給付金）は、この年度の住民税で行う
+ * （前の年度の所得の年の制度の値は制度データに無いことがある。0007 の追記: 最初の行より前の日は値が無い）
+ */
+export function residentTaxYearOf(m: MonthIndex): number {
+  return monthOf(m) >= 6 ? yearOf(m) : yearOf(m) - 1;
+}
+
 /** 年度の最初の月（4月）と最後の月（翌年3月） */
 export function fiscalYearStart(fy: number): MonthIndex {
   return monthIndex(fy, 4);
@@ -109,9 +118,12 @@ export function rateOverride<T extends { readonly kind: string; readonly fromFis
 /** 年金から保険料・住民税を差し引く（特別徴収）年金の年額の下限の値ID。読む部品は params と requires（pension.oldAge）に書く */
 export const PENSION_SPECIAL_MINIMUM = "socialInsurance.specialCollection.minimumPension";
 
-/** その年度（4月〜翌年3月）に払う年金が、特別徴収の下限（年18万円）以上か */
-export function pensionSpecial(ctx: Ctx, member: string, fy: number): boolean {
-  const min = ctx.at(fiscalYearStart(fy)).paramYen(PENSION_SPECIAL_MINIMUM);
+/**
+ * その年度（4月〜翌年3月）に払う年金が、特別徴収の下限（年18万円）以上か。下限は valuesFy の年度の値（計算基準月の年度より前の年度を、
+ * 計算基準月の年度の制度の値で計算する保険料の部品のため。省略はその年度）
+ */
+export function pensionSpecial(ctx: Ctx, member: string, fy: number, valuesFy: number = fy): boolean {
+  const min = ctx.at(fiscalYearStart(valuesFy)).paramYen(PENSION_SPECIAL_MINIMUM);
   if (min === null) return false;
   let s = 0;
   // その年度の支払いだけを読む（ほかの年度の年金が変わっても、呼んだ部品を計算し直さない）
@@ -348,6 +360,18 @@ export function evenMonthPayments(ctx: Ctx, months: readonly { readonly month: s
 }
 
 const addMonthsLocal = (m: MonthIndex, k: number): MonthIndex => (m + k) as MonthIndex;
+
+/**
+ * その年の中途に万一の想定（死亡）で亡くなった構成員の死亡の月（その年に亡くならなければ null）。
+ * 控除対象配偶者・扶養親族などに当たるかは12月31日の現況で判定するが、その時までに亡くなった人は死亡の時の現況で判定する
+ * （所得税法85条3項ただし書・地方税法314条の2第8項）。呼ぶ部品は requires に contingency.event を書く
+ */
+export function deathMonthIn(ctx: Ctx, member: string, year: number): MonthIndex | null {
+  const ev = ctx.call<{ event: { kind: string; month: string } | null }>("contingency.event", { member }).event;
+  if (ev === null || ev.kind !== "death") return null;
+  const m = parseYm(ev.month);
+  return yearOf(m) === year ? m : null;
+}
 
 /** 関係の辺から、月 m に member の配偶者である構成員（from・to は解決した月で比べる） */
 export function spousesAt(

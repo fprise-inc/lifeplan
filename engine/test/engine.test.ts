@@ -67,8 +67,8 @@ describe("モデル世帯（架空）", () => {
   it("未対応の制度は見出しの notices に ID だけで出す", () => {
     const r = run(modelHousehold("jobLeaver"));
     const notices = (r.header as { notices: { code: string; ids: string[] }[] }).notices;
-    // 国民健康保険の全国の標準的な料率がまだ無く、世帯の入力も無いので計算せずに知らせる
-    expect(notices).toContainEqual({ code: "N_INPUT_REQUIRED", ids: ["socialInsurance.nationalHealth", "socialInsurance.nationalHealth.rates"] });
+    // 国民健康保険は世帯の入力が無いので、全国の目安の料率で計算したことを知らせる
+    expect(notices).toContainEqual({ code: "N_DEFAULT_USED", ids: ["socialInsurance.nationalHealth", "socialInsurance.nationalHealth.nationalStandard"] });
     // 指定都市の配分・超過課税は扱わない（決定8）
     expect(notices).toContainEqual({ code: "N_NOT_SUPPORTED", ids: ["residentTax.annual", "residentTax.designatedCityAllocation", "residentTax.excessTaxation"] });
   });

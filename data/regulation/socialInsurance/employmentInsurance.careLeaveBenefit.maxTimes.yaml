@@ -1,0 +1,22 @@
+id: employmentInsurance.careLeaveBenefit.maxTimes
+title: 介護休業給付金を受けられる介護休業の回数（対象の家族1人につき3回まで）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2017-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 3
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-25", "sha256": "69db3a60873d47999b6f5d4ad13e0b804eb87792ee84b5c0a89bda9b1f48dfdc", "locator": "雇用保険法 第61条の4第6項第1号（令和8年5月13日の版）", "quote": "四回以上の介護休業をした場合における四回目以後の介護休業"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20170401_428AC0000000063?response_format=xml", "retrievedAt": "2026-10-25", "sha256": "6b8d12ec93da11852efe2ddb864bc61a7cd6637619348baf6fd5c8d67ec3d03a", "locator": "雇用保険法 第61条の6第6項第1号（平成29年4月1日の版）", "quote": "四回以上の介護休業をした場合における四回目以後の介護休業"}
+      - {"type": "web", "url": "https://jsite.mhlw.go.jp/okinawa-roudoukyoku/content/contents/000819703.pdf", "retrievedAt": "2026-10-25", "sha256": "cddfcfe3a8829844f1cf21eee99307222ba30e842cd2f4bede63278aea3161fe", "locator": "沖縄労働局 雇用保険業務取扱 第12章 介護休業給付について", "quote": "３回までの分割取得が可能となりました"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-25", "tools": ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "同じ対象家族について4回目以後の介護休業には介護休業給付金を支給しない（3回まで）。雇用保険法（平成29年4月・令和8年5月の版）と労働局の資料で一致。適用開始は通算93日（employmentInsurance.careLeaveBenefit.maxDays）と同じ分割取得の始まり。施行日は e-Gov の最初の版より前なので notAfter"}

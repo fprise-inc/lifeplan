@@ -332,6 +332,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: socialInsurance.continuation
+    status: active
+    label: "健康保険の任意継続の保険料"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: socialInsurance.coverage
     status: active
     label: "被用者保険の資格と標準報酬"

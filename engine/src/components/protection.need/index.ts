@@ -68,7 +68,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
   id: "protection.need",
   title: "必要保障額の推移（積み上げ方式・逆算方式）",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {
     "plan.cashflow": ">=1 <2",
     "expense.car": ">=1 <2",
@@ -86,6 +86,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     "insurance.policy": ">=1 <2",
     "care.expense": ">=1 <2",
     "socialInsurance.nationalHealth": ">=1 <2",
+    "socialInsurance.continuation": ">=1 <2",
     "pension.survivor": ">=1 <2",
     "retirement.receipts": ">=1 <2",
     "account.ideco": ">=1 <2",
@@ -170,7 +171,10 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     const housing = prefixOf(ctx.call<FlowsResult>("housing.residence", {}).flows);
     const care = prefixOf(ctx.call<FlowsResult>("care.expense", {}).flows);
     const health: Flow[] = [];
-    for (let fy = baseYear - 1; fy <= endYear; fy++) for (const f of ctx.call<FlowsResult>("socialInsurance.nationalHealth", { fiscalYear: fy }).flows) health.push(f);
+    for (let fy = baseYear - 1; fy <= endYear; fy++) {
+      for (const f of ctx.call<FlowsResult>("socialInsurance.nationalHealth", { fiscalYear: fy }).flows) health.push(f);
+      for (const f of ctx.call<FlowsResult>("socialInsurance.continuation", { fiscalYear: fy }).flows) health.push(f);
+    }
     const nationalHealth = prefixOf(health);
     const debts = ctx.list<Pick<DebtInput, "id" | "debtors" | "creditLife">>("debt").map((d) => ({ d, p: prefixOf(ctx.call<FlowsResult>("debt.schedule", { object: d.id }).flows) }));
     const edu: Flow[] = [];

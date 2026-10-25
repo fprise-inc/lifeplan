@@ -341,11 +341,69 @@ describe("医療費（medical.highCost）・介護（care.expense）", () => {
     expect(sumFlows(fs, (f) => f.ym.startsWith("2031"))).toBe(0);
   });
 
+  it("高額介護サービス費: 住民税が非課税で、年金収入等が基準（令和8年8月から82万6,500円）以下の人は個人の上限15,000円。1〜7月のサービスは前々年の所得で判定する", () => {
+    const P = uid("p");
+    const req = edit(family({ endYear: 2032 }), (h, input) => {
+      (input.assumptions as Obj).inflation = { default: "0" };
+      (h.members as Obj[]).push(member("p", "parent", "1950-03"));
+      h.careExpenses = [{ id: uid("care"), member: P, from: at("2030-01"), months: 12, serviceMonthly: box(300000) }];
+    });
+    // 親: 公的年金等の収入 年70万円（偶数月に11万6,666円ほど）。2029年だけ、ほかに合計所得金額20万円
+    const stubs = (pension: number) => ({
+      "residentTax.exemption": (i: unknown) => ({ perCapitaExempt: (i as { member: string }).member === P, incomeLevyExempt: true, persons: 1 }),
+      "tax.totalIncome": (i: unknown) => ({ total: (i as { year: number }).year === 2029 ? 200000 : 0, employment: 0, publicPension: 0 }),
+      "pension.oldAge": () => ({ flows: [], months: [], payments: Array.from({ length: 8 }, (_, k) => 2026 + k).flatMap((y) => [2, 4, 6, 8, 10, 12].map((mo) => ({ ym: `${y}-${String(mo).padStart(2, "0")}`, part: "basic", amount: pension / 6, accrualYear: y }))) }),
+    });
+    const care = (pension: number) => runEngine(req, realPacks(), { checkInternal: true, entry: { component: "care.expense", input: {} }, stubs: stubs(pension) }).entryOutput as { flows: Flow[] };
+    const month = (fs: { flows: Flow[] }, ym: string) => sumFlows(fs.flows, (f) => f.ym === ym && f.formula === "care.expense.service");
+    const low = care(700002);
+    // 2030年3月のサービス: 前々年（2028年）の 70万円 ≦ 80万9千円 → 個人15,000円（1割の30,000円から）
+    expect(month(low, "2030-03")).toBe(15000);
+    // 2030年9月のサービス: 前年（2029年）の 70万円＋20万円 ＞ 82万6,500円 → 世帯の上限24,600円
+    expect(month(low, "2030-09")).toBe(24600);
+    // 年金収入が基準を超える人は、非課税でも24,600円
+    expect(month(care(900000), "2030-03")).toBe(24600);
+  });
+
   it("何も入れなければ統計の既定（知らせ）", () => {
     const req = edit(family({ endYear: 2040 }), (h) => (h.careExpenses = [{ id: uid("care"), member: W, from: at("2030-01") }]));
     const r = run(req);
     expect(notices(r)).toContainEqual(expect.objectContaining({ code: "N_DEFAULT_USED" }));
     expect(sumFlows(r.flows, (f) => f.object === uid("care"))).toBeGreaterThan(0);
+  });
+});
+
+describe("亡くなった年の配偶者控除・扶養控除（所得税法85条3項・地方税法314条の2第8項: 死亡の時の現況で判定）", () => {
+  type Ded = { spouse: number; spouseSpecial: number; dependents: number };
+  const P = uid("p");
+  /** 夫（会社員）・専業主婦の妻・同居して扶養する夫の母 */
+  const withParent = (birth: string) =>
+    edit(family({ endYear: 2034, children: false }), (h) => {
+      (h.members as Obj[]).push(member("p", "parent", birth, { support: { dependent: true, cohabiting: true } }));
+    });
+  const ded = (req: Req, year: number, regime: "incomeTax" | "residentTax" = "incomeTax") =>
+    call<Ded>(req, "tax.deductions", { member: H, year, regime });
+
+  it("配偶者が亡くなった年は配偶者控除を受けられる（所得税・翌年度の住民税）。翌年からは受けない", () => {
+    for (const ym of ["2030-01", "2030-06", "2030-12"]) {
+      const req = death(family({ endYear: 2034, children: false }), ym, W);
+      expect(ded(req, 2030).spouse).toBe(380000);
+      expect(ded(req, 2030, "residentTax").spouse).toBe(330000);
+      expect(ded(req, 2031).spouse).toBe(0);
+      expect(ded(req, 2031, "residentTax").spouse).toBe(0);
+    }
+  });
+
+  it("扶養する親が亡くなった年は扶養控除を受けられる。老人扶養親族かどうかも死亡の時に判定する", () => {
+    // 1950年生まれ（80歳）の同居の母が2030年3月に亡くなる: 同居老親等（58万円）
+    const elder = death(withParent("1950-04"), "2030-03", P);
+    expect(ded(elder, 2030).dependents).toBe(580000);
+    expect(ded(elder, 2030, "residentTax").dependents).toBe(450000);
+    expect(ded(elder, 2031).dependents).toBe(0);
+    // 1960年10月生まれの母が2030年3月（69歳）に亡くなる: 12月31日なら70歳だが、死亡の時は70歳未満なので一般（38万円）
+    const young = death(withParent("1960-10"), "2030-03", P);
+    expect(ded(young, 2030).dependents).toBe(380000);
+    expect(ded(young, 2030, "residentTax").dependents).toBe(330000);
   });
 });
 

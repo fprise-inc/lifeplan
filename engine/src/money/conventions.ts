@@ -36,6 +36,8 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.premium.local": DOWN1,
   // 年額を納期に分ける（端数は最初の納期）
   "conv.premium.installment": DOWN1,
+  // 健康保険の任意継続の保険料（標準報酬月額×保険料率。円未満切り捨て。協会けんぽの任意継続の保険料額表の額と一致する。法令の端数の扱いは原本で確かめる前の仮の規約）
+  "conv.premium.continuation": DOWN1,
   // 雇用保険の給付の賃金日額・給付額（法令の端数の扱いは原本で確かめる前の仮の規約）
   "conv.benefit.daily": DOWN1,
   // ローンの返済額（元利均等の返済額・元金均等の元金。円未満切り捨て。端数は最後の回で精算する。金融機関で違うので規約にする）

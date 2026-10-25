@@ -5,6 +5,7 @@
 // 補足的老齢年金生活者支援給付金: 所得が所得基準額を超え補足的所得基準額以下なら、給付基準額×納付済の月数/480×調整支給率
 // （（補足的所得基準額−所得）÷（補足的所得基準額−所得基準額））。補足的所得基準額が制度データに無いときは計算せず、
 // 対象かもしれない年（世帯全員が非課税で、所得が所得基準額を超える）を見出しの notices（N_PARAM_MISSING）で知らせる
+// 改訂6: 判定の年は、計算基準月に払っている住民税の年度（residentTaxYearOf）より前にしない（計算基準月が6〜9月の年の9月までの分は、その年度で判定する）
 import {
   addMonths,
   ageMonth,
@@ -15,6 +16,7 @@ import {
   monthIndex,
   monthOf,
   parseYm,
+  residentTaxYearOf,
   yearOf,
   yen,
   type Ctx,
@@ -100,7 +102,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "pension.supplementaryBenefit",
   title: "年金生活者支援給付金",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: {
     "pension.oldAge": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -116,6 +118,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
   compute(input, ctx) {
     const member = input.member;
     const { base, end } = ctx.time;
+    const firstTaxYear = residentTaxYearOf(base);
     const pension = ctx.call<PensionOutput>("pension.oldAge", { member });
     const basicMonths = new Set(pension.months.filter((x) => x.basic > 0).map((x) => x.month));
     if (basicMonths.size === 0) return { flows: [] };
@@ -176,7 +179,8 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
       for (const seg of ctx.segments(start, end, { params: [[P.base, { member }], P.maxMonths, P.round, P.basicBase, P.fullRound, P.shareQuarter, P.shareOther, P.shareDen], breaks, every: "fiscalYear" })) {
         const m = seg.from;
         if (!basicMonths.has(formatYm(m))) continue;
-        const judge = monthOf(m) >= 10 ? yearOf(m) : yearOf(m) - 1;
+        // 判定の年は、計算基準月に払っている住民税の年度より前にしない（計算基準月が6〜9月の年の9月までの分。前の年度の住民税は表に無い）
+        const judge = Math.max(monthOf(m) >= 10 ? yearOf(m) : yearOf(m) - 1, firstTaxYear);
         const ratio = eligible(judge);
         if (ratio === null) continue;
         const b = indexed(ctx, seg.at, fiscalYearOf(m), P.base, member, R, projected, backs, conds);

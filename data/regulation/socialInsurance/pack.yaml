@@ -15,9 +15,16 @@
 # 2026.7.1: 高額療養費の年間上限の計算し直し（socialInsurance.highCostMedical.under70.annualLimitRetroactive）を原本（令和8年政令第240号の附則:
 #   健康保険法施行令の附則19条1項・国民健康保険法施行令の附則25条1項、令和9年8月1日の版の健康保険法施行令42条11項4号と、厚生労働省の資料）と照らし合わせ、
 #   reviewed の行を足した（照合: claude、2026-10-10）。古い行には supersededIn を書いた。値は変えていない。新しい値・期間は無いので訂正番号を上げた
+# 2026.8.0: 国民健康保険の全国の目安の料率（医療分・後期高齢者支援金分・介護分の所得割・均等割・平等割。socialInsurance.nationalHealth.<区分>.incomeRate・perCapita・perHousehold）を
+#   新しいファイルで足した。公式の統計（国民健康保険実態調査（令和6年度）の市町村国保の保険料（税）算定額）の合計から作った値で、原本での確認待ち（pendingReview）。
+#   子ども・子育て支援金分（令和8年度から）の全国の目安は、公式の統計がまだ無いので置いていない。
+#   高額介護サービス費の個人の上限15,000円（socialInsurance.care.highCostService.exemptPersonalLimit）と、その基準額（80万円→80万9千円（令和7年8月）→82万6,500円（令和8年8月）。
+#   socialInsurance.care.highCostService.exemptPersonalIncomeLimit）と、介護休業給付金を受けられる回数（同じ対象家族について3回まで。
+#   employmentInsurance.careLeaveBenefit.maxTimes）、健康保険の任意継続の月数（2年。socialInsurance.health.continuation.maxMonths）と
+#   協会けんぽの任意継続の標準報酬月額の上限（令和7年度から32万円。socialInsurance.health.kyokaikenpo.continuationLimit）を新しいファイルで足した（既存のファイルは変えていない）
 packId: regulation.socialInsurance
 formatVersion: "0.1"
-version: "2026.7.1"
+version: "2026.8.0"
 features: []
 title: 社会保険（被用者保険・国民年金・国民健康保険・後期高齢者医療・介護保険・休業の給付）
 requires:
@@ -31,6 +38,7 @@ requires:
   socialInsurance.healthStatus: ">=1 <2"
   socialInsurance.nationalPension: ">=1 <2"
   socialInsurance.nationalHealth: ">=1 <2"
+  socialInsurance.continuation: ">=1 <2"
   socialInsurance.lateElderly: ">=1 <2"
   socialInsurance.careFirst: ">=1 <2"
   benefit.health: ">=1 <2"
