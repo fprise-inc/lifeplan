@@ -55,4 +55,11 @@ describe("科目の木", () => {
     expect(() => checkRow("income.salary")).toThrow("E_ID_FORMAT");
     expect(canonicalRow("cf.income.salary")).toBe("cf.income.salary");
   });
+
+  it("雇用保険の給付の行（育児休業・介護休業などの給付）の名前は、計算しない基本手当（失業の給付）と読めない", () => {
+    const label = rowEntries().find((e) => e.id === "cf.income.benefit.employment")?.label ?? "";
+    expect(label).not.toContain("基本手当");
+    expect(label).toContain("育児休業");
+    expect(label).toContain("介護休業");
+  });
 });

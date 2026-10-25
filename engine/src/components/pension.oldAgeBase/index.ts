@@ -144,8 +144,8 @@ function claimFactor(ctx: Ctx, at: MonthIndex, member: string, d: number): Rate 
 export default defineComponent<{ member: string }, Out>({
   id: "pension.oldAgeBase",
   title: "老齢年金の月ごとの額（障害年金と選ぶ前）",
-  contract: "1.0",
-  revision: 3,
+  contract: "1.1",
+  revision: 4,
   requires: {
     "pension.record": ">=1 <2",
     "pension.revision": ">=1 <2",
@@ -489,10 +489,11 @@ export default defineComponent<{ member: string }, Out>({
       }
       return spouseSince;
     };
-    const supplementOf = (at: MonthCtx, fy: number, m: MonthIndex, cut: MonthIndex): Yen => {
+    /** 加給年金（年額）と、そのうち配偶者の分 */
+    const supplementOf = (at: MonthCtx, fy: number, m: MonthIndex, cut: MonthIndex): { total: Yen; spouse: Yen } => {
       const months = employeeMonthsOf(rec, cut, monthCache);
       const childOk = months >= childMonthsAt(at);
-      if (months < supMonths && !childOk) return yen(0);
+      if (months < supMonths && !childOk) return { total: yen(0), spouse: yen(0) };
       const r = NA(fy);
       let total = 0;
       if (months >= supMonths && spouseEligibleAt(m)) {
@@ -506,12 +507,13 @@ export default defineComponent<{ member: string }, Out>({
           if (special !== null) total += mulRateM(at, special, r, P.fullRound);
         }
       }
+      const spouse = yen(total);
       if (childOk) {
         if (childFixedAt === null) childFixedAt = m;
         const n = childrenAt(m, childFixedAt).length;
         for (let k = 0; k < n; k++) total += mulRateM(at, at.paramYen(k < 2 ? P.child12 : P.child3) ?? yen(0), r, P.fullRound);
       }
-      return yen(total);
+      return { total: yen(total), spouse };
     };
     // 老齢基礎年金の子の加算（令和10年4月から。値の行がある月だけ）: 子の加給年金を受けない子の分（同じ子の加算を両方では受けないとみなす）。
     // 振替加算と同じく繰上げ・繰下げで増減しない。保険料納付済期間などの月数（老齢基礎年金の額に反映する月数で近似）が fullMonths（300）に
@@ -588,6 +590,7 @@ export default defineComponent<{ member: string }, Out>({
       let employee = yen(0);
       let special = yen(0);
       let suspended = yen(0);
+      let spouseSupplement = yen(0);
       // 子の加給年金を厚生年金で受ける月か（受けない子の分は老齢基礎年金の子の加算）
       let childByEmployee = false;
       if (m >= CE) {
@@ -607,9 +610,10 @@ export default defineComponent<{ member: string }, Out>({
         suspended = stop;
         const full = stop >= propPaid && propPaid > 0;
         const supplementPaid = !(full || (m < N && !receiving));
-        const supplement = supplementPaid ? supplementOf(at, fy, m, cut) : yen(0);
+        const supplement = supplementPaid ? supplementOf(at, fy, m, cut) : { total: yen(0), spouse: yen(0) };
         childByEmployee = supplementPaid && employeeMonthsOf(rec, cut, monthCache) >= childMonthsAt(at);
-        employee = yen(propPaid - stop + transPaid + increase + supplement);
+        employee = yen(propPaid - stop + transPaid + increase + supplement.total);
+        spouseSupplement = supplement.spouse;
       } else if (SA !== null && m >= SA && m < N) {
         const prop = rec.amounts.special !== null ? round1(at, rec.amounts.special, ratioE(fy)) : proportional(at, fy, cutoff(m, SA, false));
         const stop = suspension(at, m, prop);
@@ -621,7 +625,7 @@ export default defineComponent<{ member: string }, Out>({
         if (m >= N || receiving) basic = yen(basic + transferOf(at, fy) + basicChildOf(at, fy, m, childByEmployee));
       }
       if (basic > 0 || employee > 0 || special > 0 || suspended > 0) {
-        for (let k = seg.from; k <= seg.to && (lastMonth === null || k <= lastMonth); k = addMonths(k, 1)) months.push({ month: formatYm(k), basic, employee, special, suspended });
+        for (let k = seg.from; k <= seg.to && (lastMonth === null || k <= lastMonth); k = addMonths(k, 1)) months.push({ month: formatYm(k), basic, employee, special, suspended, ...(spouseSupplement > 0 ? { spouseSupplement } : {}) });
       }
     }
 

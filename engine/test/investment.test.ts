@@ -43,6 +43,27 @@ describe("積立の終わりの既定（0026）", () => {
     expect(cells(r, "cf.transfer.investment", 2036, (c) => c.member === S)).toBe(0);
   });
 
+  it("退職の月が計算基準月より前なら、積立の終わりが空の積立は取り崩しの計画の始まりの前の月まで（計画が無ければ表の最後まで）。知らせを出す", () => {
+    // 2020年12月に退職した人（計算基準月は2026年1月）が、課税口座に月3万円を積み立てる
+    const tx = { id: uid("tx"), kind: "taxable", owner: A, marketValue: box(0), asOf: "2025-12", contributions: [{ from: at("2026-01"), to: null, monthly: 30000 }] };
+    const retired = (f: (h: Obj, input: Obj) => void = () => {}) =>
+      withInput(mk([dep(30000000), tx]), (h, input) => {
+        (h.employmentPeriods as Obj[])[0] = period("p", { member: "a", from: "2003-04", to: "2020-12", annual: 8000000, std: [620000, 620000] });
+        f(h, input);
+      });
+    const r = full(retired());
+    expect(cells(r, "cf.transfer.investment", 2026)).toBe(360000);
+    expect(cells(r, "cf.transfer.investment", 2050)).toBe(360000);
+    const notices = (r.header as { notices: { code: string; ids: string[] }[] }).notices;
+    expect(notices).toContainEqual({ code: "N_ASSUMED", ids: ["account.contributions.afterRetirement", uid("tx")] });
+    // 取り崩しの計画が2030年1月からなら、2029年12月まで
+    const planned = full(retired((_h, input) => ((input.assumptions as Obj).investment = { drawdown: { start: at("2030-01"), method: "fixed", monthly: 100000 } })));
+    expect(cells(planned, "cf.transfer.investment", 2029)).toBe(360000);
+    expect(cells(planned, "cf.transfer.investment", 2030)).toBe(0);
+    // 退職がこれからの人には知らせを出さない
+    expect((full(mk([dep(5000000), tx])).header as { notices: { code: string; ids: string[] }[] }).notices).not.toContainEqual(expect.objectContaining({ ids: ["account.contributions.afterRetirement", uid("tx")] }));
+  });
+
   it("期間を分けた積立（45〜49歳 月3万円 → 50〜54歳 月5万円）は、期間ごとの額で積み立てる", () => {
     const r = full(mk([dep(5000000), nisa({ contributions: [{ from: at("2026-01"), to: at("2030-05"), monthly: 30000 }, { from: at("2030-06"), to: null, monthly: 50000 }] })]));
     expect(cells(r, "cf.transfer.nisa.tsumitate", 2027)).toBe(360000);

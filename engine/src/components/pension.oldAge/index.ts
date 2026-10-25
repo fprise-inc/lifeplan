@@ -3,6 +3,8 @@
 // - 障害の想定で65歳から障害年金と選ぶとき（0008 の追記 2026-10-10 の決定2）: pension.disability が手取りの多い組み合わせ（障害基礎＋障害厚生・
 //   老齢基礎＋老齢厚生・障害基礎＋老齢厚生）を選ぶので、選ばれなかった老齢年金の部分（基礎・厚生）をその月から止める（改訂6）。
 //   pension.disability は選ぶ前の額を pension.oldAgeBase から読む（循環しない）
+// - 配偶者が障害年金（障害基礎年金・障害厚生年金）を受ける月は、配偶者の加給年金額（pension.oldAgeBase の spouseSupplement）を止める
+//   （厚生年金保険法46条6項。改訂7）。配偶者が65歳から老齢年金を選んで障害年金を受けない月は止めない
 // - 支払い: 偶数月に前2か月分。各支払いの1円未満を切り捨て、年度の切り捨ての合計を2月の支払いに足す
 import {
   addMonths,
@@ -11,6 +13,7 @@ import {
   monthIndex,
   monthOf,
   parseYm,
+  spousesAt,
   yearOf,
   yen,
   type ContingencyEventOutput,
@@ -18,6 +21,7 @@ import {
   type Flow,
   type PensionMonth,
   type PensionPayment,
+  type RelationInput,
 } from "../../sdk/index.ts";
 
 const PAY_ROUND = "pension.payment.rounding";
@@ -28,14 +32,14 @@ export default defineComponent<{ member: string }, Out>({
   id: "pension.oldAge",
   title: "老齢年金",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: {
     "pension.oldAgeBase": ">=1 <2",
     "pension.disability": ">=1 <2",
     "contingency.event": ">=1 <2",
   },
   params: [PAY_ROUND],
-  reads: [],
+  reads: ["relation.type", "relation.a", "relation.b", "relation.from", "relation.to"],
   input: "member.input",
   output: "pension.oldAge.output",
   compute(input, ctx) {
@@ -51,13 +55,33 @@ export default defineComponent<{ member: string }, Out>({
         const comboAt = (ym: string) => choice.find((c) => c.from <= ym && ym <= c.to)?.combination ?? null;
         months = months.map((x) => {
           const c = comboAt(x.month);
-          if (c === "disability") return { ...x, basic: yen(0), employee: yen(0) };
+          if (c === "disability") return { ...x, basic: yen(0), employee: yen(0), special: yen(0) };
           if (c === "disabilityBasicOldAgeEmployee") return { ...x, basic: yen(0) };
           return x;
         });
       }
     }
 
+    // 配偶者が障害年金を受ける月は、配偶者の加給年金額を止める（46条6項）
+    if (months.some((x) => (x.spouseSupplement ?? 0) > 0)) {
+      const relations = ctx.list<RelationInput>("relation");
+      const disabled = new Map<string, Set<string>>();
+      const receives = (sp: string, ym: string): boolean => {
+        let set = disabled.get(sp);
+        if (set === undefined) {
+          set = new Set(ctx.call<DisabilityPensionOutput>("pension.disability", { member: sp }).months.filter((x) => x.basic + x.employee > 0).map((x) => x.month));
+          disabled.set(sp, set);
+        }
+        return set.has(ym);
+      };
+      months = months.map((x) => {
+        const sup = x.spouseSupplement ?? 0;
+        if (sup <= 0 || !spousesAt(ctx, relations, member, parseYm(x.month)).some((sp) => receives(sp, x.month))) return x;
+        return { ...x, employee: yen(Math.max(0, x.employee - sup)) };
+      });
+    }
+    // 出力の月は約束の欄だけ（配偶者の加給年金額の内訳は出さない）
+    months = months.map((x) => ({ month: x.month, basic: x.basic, employee: x.employee, special: x.special, suspended: x.suspended }));
     // 支払い: 偶数月に前2か月分。各支払いは1円未満を切り捨て、3月から翌年2月までの支払いの切り捨ての合計（1円未満は切り捨て）を
     // 2月の支払い（無ければその期間の最後の支払い）に足す（国民年金法18条の2）
     const payments: PensionPayment[] = [];

@@ -38,7 +38,6 @@ import {
   PAYOUT_METHODS,
   portfolioOf,
   rateOf,
-  retireAgeOf,
   selfOf,
   setDrawdown,
   setInvestment,
@@ -46,6 +45,8 @@ import {
   setStopAge,
   stepsOf,
   stopAgeOf,
+  stopAgeOrEstimate,
+  stopEstimateOf,
   switchMethod,
   totalViewOf,
   unallocatedOf,
@@ -54,6 +55,7 @@ import {
   type DrawdownView,
   type Method,
   type Step,
+  type StopEstimate,
   type Tranche,
 } from "./model.ts";
 
@@ -190,8 +192,8 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
   const self = selfOf(h);
   const now = self === undefined ? 0 : ageAt(self, base);
   const stopAge = stopAgeOf(h);
-  const retire = retireAgeOf(req);
-  const stopShown = stopAge ?? retire ?? 65;
+  const estimate = stopEstimateOf(req);
+  const stopShown = stopAge ?? estimate.age;
 
   /** 口座の入れ方の編集: 書き換えた後に、まだ分けていない分が0になったら外して知らせる */
   const editAcc = (fn: (hh: typeof h, r: EngineRequest) => void) => {
@@ -243,7 +245,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
       ) : null}
 
       {method === "total" ? (
-        <TotalSection wh={wh} onEdit={onEdit} stopAge={stopAge} />
+        <TotalSection wh={wh} onEdit={onEdit} />
       ) : (
         <section class="sv-sec" aria-label="口座ごとの残高・積立額・利回り">
           <h3>口座ごとの残高・積立額{method === "accounts" ? "・利回り" : ""}</h3>
@@ -268,7 +270,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
       <section class="sv-sec" aria-label="運用の期間">
         <h3>運用の期間</h3>
         <p class="sv-note">結果の画面のグラフの上の帯と同じです（帯の切れ目をドラッグしても、プランごとに動かせます）。</p>
-        <PeriodSection wh={wh} onEdit={onEdit} now={now} stopAge={stopAge} stopShown={stopShown} retire={retire} />
+        <PeriodSection wh={wh} onEdit={onEdit} now={now} stopAge={stopAge} stopShown={stopShown} estimate={estimate} />
       </section>
 
       {others !== undefined && visible(level, others.level) ? <Section section={others} wh={wh} level={level} onEdit={onEdit} /> : null}
@@ -296,7 +298,7 @@ function CarryNote({ req, carry }: { req: EngineRequest; carry: { from: Method; 
   );
 }
 
-function TotalSection({ wh, onEdit, stopAge }: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; stopAge: number | null }) {
+function TotalSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   const req = wh.request;
   const t = totalViewOf(req);
   const sumAcc = accountsOf(req.input.household).reduce((s, a) => s + valueOf(a), 0);
@@ -314,7 +316,7 @@ function TotalSection({ wh, onEdit, stopAge }: { wh: WorkingHousehold; onEdit: (
       </div>
       <div class="sv-fld top">
         <span class="lbl">毎月の積立額</span>
-        <StepsEditor steps={t.steps} now={t.steps[0]?.fromAge ?? 0} stopAge={stopAge ?? retireAgeOf(req)} label="合計" onChange={(steps) => onEdit(editTotal(wh, { steps }))} />
+        <StepsEditor steps={t.steps} now={t.steps[0]?.fromAge ?? 0} stopAge={stopAgeOrEstimate(req)} label="合計" onChange={(steps) => onEdit(editTotal(wh, { steps }))} />
         <p class="help">預金への積立も含めます（会社が出す企業型DC の掛金は含めません）。年齢で額を変えるときは「＋期間を追加」。</p>
       </div>
       <div class="sv-fld">
@@ -357,7 +359,7 @@ function AccountsTable(p: { wh: WorkingHousehold; level: Level; method: Method; 
     <StepsEditor
       steps={stepsOf(h, base, a, t)}
       now={now}
-      stopAge={stopAge ?? retireAgeOf(req)}
+      stopAge={stopAgeOrEstimate(req)}
       noStop={DC_KINDS.has(a.kind)}
       label={label}
       onChange={(s) => editAcc((hh) => writeSteps(hh, base, find(hh, a.id), t, s, stopAge))}
@@ -797,8 +799,8 @@ function PayoutSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: Worki
   );
 }
 
-function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; now: number; stopAge: number | null; stopShown: number; retire: number | null }) {
-  const { wh, onEdit, now, stopAge, stopShown, retire } = p;
+function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; now: number; stopAge: number | null; stopShown: number; estimate: StopEstimate }) {
+  const { wh, onEdit, now, stopAge, stopShown, estimate } = p;
   const req = wh.request;
   const dd = drawdownOf(req);
   const wOn = dd.method !== "none";
@@ -817,7 +819,7 @@ function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) 
               size="s"
               optional
               est={est}
-              placeholder={String(retire ?? 65)}
+              placeholder={String(estimate.age)}
               label="積立をやめる年齢"
               data="stop-age"
               onCommit={(v) =>
@@ -834,7 +836,7 @@ function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) 
           </div>
           {est ? (
             <div class="pv">
-              <EstTag text={`推定あり: 退職の年（${retire ?? 65}歳）まで`} />
+              <EstTag text={estimate.retired ? `推定あり: 退職はもう過ぎているので、${estimate.until}まで` : `推定あり: ${estimate.until}まで`} />
             </div>
           ) : null}
         </div>

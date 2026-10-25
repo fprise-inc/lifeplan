@@ -1,6 +1,8 @@
 // 0026: 資産運用の入れ方と既定の値を、計算の前に入力に重ねる（overlay.ts の万一・ストレスと同じく、エンジンの1か所だけで行う）。
 // - 積立の終わり（contributions[].to）が空の積立は、名義の人の退職の月まで（退職のイベントか、最後の働き方の期間の終わり。
 //   働き方の期間が無い人は本人の退職の月。終わりの無い働き方の人と、どちらも分からないときは、今までどおり表の最後まで）。
+//   退職の月が計算基準月より前（もう退職した人）なら、取り崩しの計画の始まりの前の月まで（計画が無いか、始まりが計算基準月以前なら
+//   表の最後まで）積み立て、知らせ N_ASSUMED（account.contributions.afterRetirement・器の ID）を出す。
 //   iDeCo・企業型DC の掛金は ideco.contribution が加入の決まりで止めるので書き換えない
 // - iDeCo・企業型DC の受け取りの始まりが空なら、名義の人の退職の月の翌月を、60歳に達する月〜65歳に達する月に収めた月（受け取り方も空なら一時金）。
 //   退職の月が分からなければ65歳に達する月
@@ -95,20 +97,34 @@ function compress(byMonth: Map<number, number>, base: MonthIndex, end: MonthInde
   return out;
 }
 
-/** 入れ方と既定の値を重ねた入力（重ねるものが無ければ同じ物を返す） */
-export function applyInvestment(input: EngineInput, time: TimeResolver, base: MonthIndex, end: MonthIndex): EngineInput {
+/** 入れ方と既定の値を重ねた入力（重ねるものが無ければ同じ物を返す）と、見出しに出す知らせ */
+export function applyInvestment(
+  input: EngineInput,
+  time: TimeResolver,
+  base: MonthIndex,
+  end: MonthIndex,
+): { input: EngineInput; notices: { code: string; ids: string[] }[] } {
   const h = input.household;
   const setting = input.assumptions.investment;
   const method = setting?.method ?? "accounts";
   let changed = false;
+  const notices: { code: string; ids: string[] }[] = [];
   const stops = new Map<string, MonthIndex | null>();
+  // もう退職した人の積立の終わり: 取り崩しの計画の始まりの前の月（無いか、計算基準月以前なら表の最後まで＝null）
+  const drawStart = setting?.drawdown === undefined ? null : time.resolve(setting.drawdown.start);
+  const afterRetirement = drawStart !== null && drawStart > base ? addMonths(drawStart, -1) : null;
   let accounts: AccountInput[] = h.accounts.map((a0) => {
     let a = a0;
     // 積立の終わりが空なら退職の月まで
     if (!DC_KINDS.has(a.kind) && a.contributions.some((c) => c.to === null)) {
-      const stop = stopMonthOf(input, a.owner, time, stops);
+      let stop = stopMonthOf(input, a.owner, time, stops);
+      if (stop !== null && stop < base) {
+        notices.push({ code: "N_ASSUMED", ids: ["account.contributions.afterRetirement", a.id] });
+        stop = afterRetirement;
+      }
       if (stop !== null) {
-        a = { ...a, contributions: a.contributions.map((c) => (c.to === null ? { ...c, to: at(stop) } : c)) };
+        const s = stop;
+        a = { ...a, contributions: a.contributions.map((c) => (c.to === null ? { ...c, to: at(s) } : c)) };
         changed = true;
       }
     }
@@ -161,7 +177,7 @@ export function applyInvestment(input: EngineInput, time: TimeResolver, base: Mo
     });
     changed = true;
   }
-  if (!changed) return input;
+  if (!changed) return { input, notices };
   const household = { ...h, accounts } as Mutable<EngineInput["household"]>;
-  return { ...input, household };
+  return { input: { ...input, household }, notices };
 }

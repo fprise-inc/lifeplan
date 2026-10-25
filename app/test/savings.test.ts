@@ -3,7 +3,9 @@
 import { describe, expect, it } from "vitest";
 import type { EngineRequest, PreviewResult } from "../src/engine/types.ts";
 import { fromRequest } from "../src/workspace/input/household.ts";
-import { accountsOf, dropDoneUnallocated, editTotal, hasUnallocated, methodOf, nisaHitOf, pooledOf, setStopAge, stepsOf, stopAgeOf, switchMethod, totalViewOf, unallocatedOf, writeSteps } from "../src/workspace/input/savings/model.ts";
+import { accountsOf, dropDoneUnallocated, editTotal, hasUnallocated, methodOf, nisaHitOf, pooledOf, setStopAge, stepsOf, stopAgeOf, stopEstimateOf, switchMethod, totalViewOf, unallocatedOf, writeSteps } from "../src/workspace/input/savings/model.ts";
+import { allFields } from "../src/workspace/input/form.ts";
+import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { maxDrawdown, withDrawdown } from "../src/workspace/invest/DrawdownCalc.tsx";
 import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { bandOf, breakdownOf, donutShown, investVerdict, lastsAge, stressRequests } from "../src/workspace/invest/present.ts";
@@ -181,5 +183,42 @@ describe("取り崩しの計算（○歳まで持たせるなら毎月いくら�
     expect(await maxDrawdown(compute, req, years, "fixed", 65, 99)).toBe(100);
     expect(withDrawdown(req, { method: "fixed", startAge: 65, monthly: 50000 }).input.assumptions?.investment?.drawdown?.monthly).toBe(50000);
     expect(await maxDrawdown(async () => resultOf({ 2080: -1 }), req, years, "fixed", 65, 100)).toBeNull();
+  });
+});
+
+describe("もう退職した人の積立をやめる年（エンジンの読み方と同じ）", () => {
+  /** 本人が2020年12月に退職した世帯（計算基準月は2026年10月） */
+  const retired = (drawdown = true) => {
+    const req = structuredClone(modelHousehold("investmentCouple"));
+    const p = (req.input.household.employmentPeriods ?? []).find((x) => x.member === selfId(req));
+    if (p !== undefined) p.to = { at: "2020-12" };
+    const inv = req.input.assumptions?.investment;
+    if (!drawdown && inv !== undefined) delete inv.drawdown;
+    return req;
+  };
+  const stopField = (req: EngineRequest) => {
+    const wh = fromRequest(req);
+    const stage = buildStage("savings", wh);
+    const f = allFields(stage).find((x) => x.key === "sav/stopAge");
+    const group = stage.sections.flatMap((s) => s.groups).find((g) => g.key === "sav/period");
+    return { state: f?.get(wh), note: group?.note };
+  };
+
+  it("退職がこれからなら、空欄は退職の年まで", () => {
+    expect(stopEstimateOf(modelHousehold("investmentCouple"))).toEqual({ age: 60, retired: false, until: "退職の年（60歳）" });
+  });
+
+  it("もう退職していれば、空欄は取り崩しを始める前まで（取り崩しの予定が無ければ最後まで）。欄にそう書く", () => {
+    expect(stopEstimateOf(retired())).toEqual({ age: 65, retired: true, until: "取り崩しを始める前（65歳）" });
+    expect(stopField(retired()).state?.estimated).toBe("退職の年はもう過ぎているので、空欄は取り崩しを始める前（65歳）まで積み立てる計算");
+    expect(stopEstimateOf(retired(false))).toMatchObject({ retired: true, until: "最後" });
+    expect(stopField(retired(false)).state?.hint).toBe("最後まで（推定）");
+  });
+
+  it("積立をやめる年齢が今の年齢以下なら、積立が計算に入っていないことを知らせる", () => {
+    expect(stopField(retired()).note).toBeUndefined();
+    const req = retired();
+    setStopAge(req.input.household, req.input.baseMonth, 40);
+    expect(stopField(req).note).toContain("積立は計算に入っていません");
   });
 });

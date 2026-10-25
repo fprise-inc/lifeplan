@@ -197,7 +197,7 @@ entries:
     replacedBy: null
   - id: cf.income.benefit.employment
     status: active
-    label: "雇用保険の基本手当"
+    label: "雇用保険の給付（育児休業・介護休業など）"
     since: draft
     aliases: []
     replacedBy: null

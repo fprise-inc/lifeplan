@@ -17,7 +17,7 @@ import { bucketShares, expectedReturn, type MixPart } from "./allocation.ts";
 import { addRate, cmpRate, nonNegative, pctText, subRate } from "./decimal.ts";
 import { ageAt } from "../levers.ts";
 import { setSurplusRatio, surplusRatioOf } from "../surplus.ts";
-import { accountsOf, drawdownOf, drawdownStartDefault, INVEST_KINDS, methodOf, NOT_FINANCIAL, portfolioOf, rateOf, rateText, retireAgeOf, setDrawdown, setStopAge, stopAgeOf, totalViewOf, valueOf } from "../input/savings/model.ts";
+import { accountsOf, drawdownOf, drawdownStartDefault, INVEST_KINDS, methodOf, NOT_FINANCIAL, portfolioOf, rateOf, rateText, setDrawdown, setStopAge, stopAgeOf, stopAgeOrEstimate, stopEstimateOf, totalViewOf, valueOf } from "../input/savings/model.ts";
 
 /** 変動金利の上乗せ（前提の assumptions.loanRateShifts の1件） */
 export interface RateShift {
@@ -291,7 +291,6 @@ function investItems(wh: WorkingHousehold): MovableItem[] {
   const self = h.members.find((m) => m.kind === "self");
   if (self === undefined || !(h.accounts ?? []).some((a) => !NOT_FINANCIAL.has(a.kind))) return [];
   const nowAge = ageAt(self, req.input.baseMonth);
-  const retire = retireAgeOf(req) ?? 65;
   const monthly = investMonthlyNow(req);
   const rate = investRateNow(req);
   const dd = drawdownOf(req);
@@ -348,11 +347,11 @@ function investItems(wh: WorkingHousehold): MovableItem[] {
       builtin: false,
       phase: "field",
       control: ageControl(ageTicks(Math.max(nowAge + 1, 50), 75), (v) => String(v), { min: nowAge + 1, max: 80 }),
-      read: (w) => stopAgeOf(w.request.input.household) ?? retireAgeOf(w.request) ?? 65,
-      apply: (w, v) => (typeof v === "number" && v !== (stopAgeOf(w.request.input.household) ?? retireAgeOf(w.request) ?? 65) ? mutate(w, (hh, r) => setStopAge(hh, r.input.baseMonth, v)) : w),
+      read: (w) => stopAgeOrEstimate(w.request),
+      apply: (w, v) => (typeof v === "number" && v !== stopAgeOrEstimate(w.request) ? mutate(w, (hh, r) => setStopAge(hh, r.input.baseMonth, v)) : w),
       text: (v) => (typeof v === "number" ? `${v}歳でやめる` : "—"),
       same: jsonSame,
-      note: () => (stopAgeOf(h) === null ? `入力は空欄（退職の年 ${retire}歳まで・推定）` : null),
+      note: () => (stopAgeOf(h) === null ? `入力は空欄（${stopEstimateOf(req).until}まで・推定）` : null),
     },
   ];
   const wStart = (w: WorkingHousehold) => (drawdownOf(w.request).method === "none" ? null : drawdownOf(w.request).startAge);

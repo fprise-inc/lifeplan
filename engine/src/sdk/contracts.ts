@@ -244,6 +244,8 @@ export interface PensionMonth {
   readonly special: Yen;
   /** 在職老齢年金で止めた額（年額） */
   readonly suspended: Yen;
+  /** employee に含む配偶者の加給年金額（特別加算を含む。年額）。pension.oldAgeBase の約束の版 1.1 で足した任意の欄 */
+  readonly spouseSupplement?: Yen;
 }
 
 export interface PensionOutput {

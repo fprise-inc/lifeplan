@@ -262,3 +262,7 @@ export default defineComponent({
   - 約束の版を上げた部品（任意の欄を足しただけ）: `pension.employeeMonths` 1.0→**1.1**（`longFrom`: 厚生年金240月以上の老齢厚生年金の受給権を持つ最初の月。配偶者の加給年金はこの月から止まる（46条6項）。これまでは計画の全体の月数が240以上なら最初から止めていた）。欄の無い 1.0 の差し替えは、使う側がこれまでどおり全体の月数で決める。
   - 改訂を上げた部品: `pension.oldAgeBase`（3。加給年金の停止の時期・令和10年4月からの配偶者の加給年金額・支給停止調整額の延ばし方・遺族年金の受給権と繰下げ・繰上げの同時請求・障害の想定の法定免除の月）、`pension.survivor`（3。寡婦年金と遺族厚生年金の選択・妻の繰上げで寡婦年金が消える）、`pension.disability`（4。配偶者の加給年金額の値ID を分けた。額は変わらない）、`pension.employeeMonths`（2）。
   - SDK に `survivorDeath`・`survivorBasis`（遺族年金の受給権の判定）、`specialOldAgeStart`（特別支給の老齢厚生年金の開始）、`oldAgeClaimMonths`（受給を始める月。繰上げは同時にそろえる）、`legalExemptionWindow`（障害の想定の法定免除の期間。`socialInsurance.nationalPension` と `pension.oldAgeBase` で共通）、`recordEmployeeMonths` を足した（`engine/src/sdk/pension.ts`）。
+- 2026-10-26（介護の判定・65歳前の年金の選択・繰上げの後の障害年金・配偶者が障害年金を受けるときの加給年金。0008 の追記 2026-10-26）:
+  - 約束の版を上げた部品（任意の欄を足しただけ）: `pension.oldAgeBase` 1.0→**1.1**（月ごとの `spouseSupplement`: `employee` に含む配偶者の加給年金額（特別加算を含む。年額。無い月は欄を省く））。`pension.oldAge` はこの欄で、配偶者が障害年金を受ける月の加給年金を止める。欄の無い 1.0 の差し替えでは止めない（今までどおり）。`pension.oldAge` の出力の月には、この欄を出さない。
+  - 改訂を上げた部品: `care.expense`（3。判定の年・世帯）、`pension.survivor`（4。65歳前の老齢年金との選択）、`pension.disability`（5。繰上げの後の障害年金・65歳前の老齢年金との選択）、`pension.oldAgeBase`（4。配偶者の加給年金額の欄）、`pension.oldAge`（7。配偶者が障害年金を受けるときの加給年金の停止・65歳前に障害年金を選んだ月の特別支給の老齢厚生年金の停止）。
+  - 表の行 `cf.income.benefit.employment` の名前を「雇用保険の給付（育児休業・介護休業など）」にした（中身は育児休業給付・出生後休業支援給付・育児時短就業給付・介護休業給付で、基本手当は計算しない。行IDは変えない）。

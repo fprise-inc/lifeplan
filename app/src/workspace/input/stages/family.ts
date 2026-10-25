@@ -74,6 +74,10 @@ export function addMember(wh: WorkingHousehold, kind: "spouse" | "child" | "pare
   return { ...next, assumed: { ...next.assumed, [`family/${newMemberId}/birth`]: "仮の値", [`family/${newMemberId}/sex`]: "仮の値" } };
 }
 
+/** 家族の「仕送り（月額）」は健康保険の扶養の判定（別居の親・祖父母）にだけ使い、支出の行にはしない（同じ仕送りを支出でも入れた世帯が二重にならないように） */
+const ALLOWANCE_HELP = "支出には入りません（健康保険の扶養の判定に使います）。仕送りの支出は「基本生活費」の内訳の「仕送り」か、「ライフイベント」の支出で入れてください";
+const ALLOWANCE_NOTE = "仕送り（月額）は健康保険の扶養の判定にだけ使い、支出には入っていません。仕送りを支出に入れるなら、「基本生活費」の内訳の「仕送り」か、「ライフイベント」の支出で入れてください";
+
 function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const find = byId(members, m.id);
   // まだ生まれていない（生年月が計算の基準の月より後）なら、マイナスの年齢ではなく「生まれる予定」と出す
@@ -151,10 +155,22 @@ function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
     fields.push(
       plain({ key: `family/${m.id}/dependent`, item: "member.support", label: "扶養している", level: "detail", kind: "bool", find, path: ["support", "dependent"], optional: true, fallback: false }),
       plain({ key: `family/${m.id}/cohabiting`, item: "member.support", label: "同居している", level: "detail", kind: "bool", find, path: ["support", "cohabiting"], optional: true, fallback: false }),
-      plain({ key: `family/${m.id}/allowance`, item: "member.support", label: "仕送り（月額）", level: "detail", kind: "yen", basis: "monthly", find, path: ["support", "allowance"], optional: true }),
+      plain({
+        key: `family/${m.id}/allowance`,
+        item: "member.support",
+        label: "仕送り（月額）",
+        level: "detail",
+        kind: "yen",
+        basis: "monthly",
+        find,
+        path: ["support", "allowance"],
+        optional: true,
+        help: ALLOWANCE_HELP,
+      }),
     );
   const actions: ActionDef[] = m.kind === "self" ? [] : [{ key: `family/${m.id}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
-  return { key: `family/${m.id}`, title: memberLabel(wh, m.id), level: "simple", fields, actions };
+  const allowance = m.kind === "parent" || m.kind === "grandparent" ? (m.support?.allowance ?? 0) : 0;
+  return { key: `family/${m.id}`, title: memberLabel(wh, m.id), level: "simple", ...(allowance > 0 ? { note: ALLOWANCE_NOTE } : {}), fields, actions };
 }
 
 function donorGroups(wh: WorkingHousehold): GroupDef[] {

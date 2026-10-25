@@ -4,7 +4,7 @@ import type { Account, EngineRequest, PreviewResult, TableCell } from "../../eng
 import type { DonutItem, DonutPane } from "../../presentation/Donut.tsx";
 import type { InvestBandModel, InvestChartModel, ResultVerdict, SeriesNames, StackSeries, StressLineModel, VerdictPart } from "../../presentation/model.ts";
 import { ASSET_CLASSES } from "../input/labels.ts";
-import { CLASSES, drawdownOf, INVEST_KINDS, investmentOf, KIND_INFO, methodOf, retireAgeOf, RISKY_CLASSES, selfOf, stopAgeOf, totalViewOf } from "../input/savings/model.ts";
+import { CLASSES, drawdownOf, INVEST_KINDS, investmentOf, KIND_INFO, methodOf, retireAgeOf, RISKY_CLASSES, selfOf, stopAgeOf, stopAgeOrEstimate, stopEstimateOf, totalViewOf } from "../input/savings/model.ts";
 import { ageReachedMonth, parseYm } from "../levers.ts";
 import { depletionYear } from "../present.ts";
 import { ageInYear } from "../roles.ts";
@@ -72,7 +72,7 @@ export function bandOf(req: EngineRequest, ages: readonly (number | null)[]): In
   const self = selfOf(h);
   if (self === undefined || !(h.accounts ?? []).some((a) => a.kind !== "realEstate" && a.kind !== "otherAsset")) return null;
   const stopEst = stopAgeOf(h);
-  const stopAge = stopEst ?? retireAgeOf(req) ?? 65;
+  const stopAge = stopEst ?? stopEstimateOf(req).age;
   const d = drawdownOf(req);
   const wdAge = d.method === "none" ? null : d.startAge;
   const at = (age: number) => {
@@ -184,7 +184,7 @@ const EXTRA_COLORS = ["#8e7aa3", "#6f9b84", "#b8a8cf", "#c2c7ce", "#a3845c", "#9
 export function donutYear(req: EngineRequest, years: readonly number[]): number {
   const self = selfOf(req.input.household);
   const d = drawdownOf(req);
-  const age = d.method !== "none" ? d.startAge : (stopAgeOf(req.input.household) ?? retireAgeOf(req) ?? 65);
+  const age = d.method !== "none" ? d.startAge : stopAgeOrEstimate(req);
   const y = self === undefined ? (years[0] ?? 0) : parseYm(ageReachedMonth(self, age)).y;
   return years.includes(y) ? y : (years.at(-1) ?? y);
 }

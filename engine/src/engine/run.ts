@@ -373,7 +373,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
   const time = new TimeResolver(given.household.members, given.household.events);
   // 0026: 資産運用の入れ方と既定の値（積立の終わり・iDeCo の受け取りの始まり）を、ストレス・万一より先に重ねる
   const invested = applyInvestment(given, time, parseYm(given.baseMonth), decemberOf(given.endYear));
-  const stressed = applyStress(invested, time);
+  const stressed = applyStress(invested.input, time);
   const overlaid = applyContingency(stressed.input, time);
   const input = overlaid.input;
   const h = input.household;
@@ -581,6 +581,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     // 計算に反映していないこと（未対応の制度など）と、延長の仮定で使った値（値の行・最初の年・最後の年）。ID だけ
     notices: [
       ...mergeProjected([...state.notices.values()]),
+      ...invested.notices,
       ...[...state.extended.entries()].map(([ref, r]) => ({ code: "N_PARAM_EXTENDED", ids: [ref, String(r.first), String(r.last)] })),
     ].sort((a, b) => cmp(`${a.code}|${a.ids.join(",")}`, `${b.code}|${b.ids.join(",")}`)) as unknown as Json[],
   };
