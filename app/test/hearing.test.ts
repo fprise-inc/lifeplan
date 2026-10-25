@@ -137,6 +137,36 @@ describe("書き出しから取り込みまでの往復（画面の中の流れ�
     expect(family.filter((c) => c.kind === "same").length).toBeGreaterThan(0);
   });
 
+  it("住宅ローンは仮の住宅ローン控除の条件と入居のイベントつきで入り、取り込み直しても「同じ」になる", async () => {
+    // 2024年4月に借りた住宅ローン（控除の条件なし）の世帯から、前回の値入りで書き出す
+    const req = modelHousehold("salariedCoupleTwoKids");
+    for (const d of req.input.household.debts ?? []) {
+      if (d.kind !== "mortgage") continue;
+      d.start = { at: "2024-04" };
+      d.rateSchedule = [{ ...d.rateSchedule[0]!, from: { at: "2024-04" } }];
+      delete d.housing;
+      delete d.balance;
+      delete d.balanceAsOf;
+    }
+    const sheet = await exportOf(fromRequest(req), true);
+    const wh = withRequest(blank(), sheet.request);
+    const r = await importSheet(sheet.bytes, wh, seq);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const out = applyImport(wh, r.view, new Set(r.view.candidates.map((c) => c.id)), AT);
+    const h = out.wh.request.input.household;
+    const d = (h.debts ?? []).find((x) => x.kind === "mortgage");
+    expect(d?.housing?.moveIn).toBeDefined();
+    expect(h.events?.find((e) => e.id === d?.housing?.moveIn)).toMatchObject({ kind: "moveIn", at: { at: "2024-04" } });
+    expect(out.wh.assumed[`housing/debt/${d?.id}/credit`]).toContain("仮の条件");
+    expect(preview(withRefreshedEstimates(out.wh).request).table.length).toBeGreaterThan(0);
+    // 同じシートを取り込み直すと、住宅ローンは「同じ」（入居のイベントの ID は比べない）で、入居のイベントは増えない
+    const again = await importSheet(sheet.bytes, out.wh, seq);
+    if (!again.ok) throw new Error("取り込めない");
+    expect(again.view.candidates.find((c) => c.group === "住宅ローン")?.kind).toBe("same");
+    const out2 = applyImport(out.wh, again.view, new Set(again.view.candidates.map((c) => c.id)), AT);
+    expect(out2.wh.request.input.household.events?.filter((e) => e.kind === "moveIn")).toHaveLength(1);
+  });
+
   it("空欄のシート（前回の値なし）は値を載せず、名前の欄も無い", async () => {
     const src = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const sheet = await exportOf(src, false);

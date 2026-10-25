@@ -1,9 +1,11 @@
 // 6. 住まい・ローン: 住まいの期間（賃貸・持ち家・購入の予定と援助）、住宅ローン（借入額・金利・返済期間・今の残高・団信）、ほかのローン
-import type { Debt, Household, Residence } from "../../../engine/types.ts";
+import type { Debt, Household, Residence, YearSeries } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
-import { byId, field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, type WorkingHousehold } from "../household.ts";
-import { BUILDING_STRUCTURES, DEBT_KINDS, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, RESIDENCE_KINDS, TAX_METHODS, VALUATION_DEFAULTS } from "../labels.ts";
+import { creditKey, CREDIT_DATA_FROM_YEAR, dropProvisionalEvent, estimatedPrincipal, isHomeLoan, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, withProvisionalHousing } from "../housingCredit.ts";
+import { BUILDING_STRUCTURES, DEBT_KINDS, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, RESIDENCE_KINDS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
+import { formatYearMonth, formatYen } from "../units.ts";
 
 const residences = (h: Household) => h.residences;
 const debts = (h: Household) => h.debts;
@@ -133,6 +135,39 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   return groups;
 }
 
+const seriesAt = (v: YearSeries | undefined, year: number): number | null => {
+  const r = v?.byYear?.[String(year)] ?? v?.default;
+  return r === undefined ? null : Number(r);
+};
+
+/**
+ * 今住んでいる持ち家の、計算基準年の評価額の目安（その額の時点が前の年のとき。計算エンジンの housing.valuation と同じ決まり:
+ * 土地は前提の上昇率（空欄なら物価上昇率）で毎年伸ばし、建物は構造の耐用年数で定額で減らして下限より下げない）。画面の補助なので、端数の扱いは目安
+ */
+export function valuationHint(wh: WorkingHousehold, r: Residence): string | null {
+  const v = r.valuation;
+  const value = v?.value?.value;
+  if (r.purchase !== undefined || value == null || v?.asOf === undefined) return null;
+  const base = wh.request.input.baseMonth;
+  const baseYear = Number(base.slice(0, 4));
+  const y0 = Number(v.asOf.slice(0, 4));
+  if (y0 >= baseYear) return null;
+  const a = wh.request.input.assumptions;
+  const setting = a?.realEstateValuation;
+  const share = Number(v.landShare ?? setting?.landShare ?? VALUATION_DEFAULTS.landShare);
+  let land = Math.floor(value * share);
+  const building0 = value - land;
+  for (let y = y0 + 1; y <= baseYear; y++) land = Math.floor(land * (1 + (seriesAt(setting?.landGrowth, y) ?? seriesAt(a?.inflation, y) ?? 0)));
+  const structure = v.structure ?? "wood";
+  const life = (setting?.usefulLife as Record<string, number> | undefined)?.[structure] ?? USEFUL_LIFE[structure] ?? 22;
+  const floor = Number(setting?.residualFloor ?? VALUATION_DEFAULTS.residualFloor);
+  const built = v.builtYear ?? y0;
+  const f = (age: number) => (age <= 0 ? 1 : Math.max(floor, 1 - age / life));
+  const f0 = f(y0 - built);
+  const building = f0 === 0 || f(baseYear - built) === f0 ? building0 : Math.floor((building0 * f(baseYear - built)) / f0);
+  return `${baseYear}年の評価額の目安: 約${formatYen(Math.round((land + building) / 10000) * 10000, "man")}万円（土地 ${formatYen(Math.round(land / 10000) * 10000, "man")}万円・建物 ${formatYen(Math.round(building / 10000) * 10000, "man")}万円）`;
+}
+
 /**
  * 持ち家の評価（資産と負債の推移・提案書のバランスシートに使う）と売却。土地は前提の上昇率で、建物は構造の耐用年数で減らす（計算エンジンの housing.valuation）。
  * 購入の予定がある持ち家は物件の価格から、今住んでいる持ち家は評価額（または購入の価格と時点）から評価する
@@ -144,6 +179,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
   const base = wh.request.input.baseMonth;
   const setting = wh.request.input.assumptions?.realEstateValuation;
   const asOf = r.valuation?.asOf ?? r.purchase?.at?.at ?? base;
+  const asOfYear = Number(asOf.slice(0, 4));
   const groups: GroupDef[] = [
     {
       key: kv,
@@ -161,10 +197,26 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
           path: ["valuation", "value"],
           optional: true,
           help: bought ? "空欄なら物件の価格を購入の月の評価額にします" : "土地と建物の合計。購入の価格を入れたときは、時点に購入の年月を入れます",
+          hint: (w) => valuationHint(w, r),
         }),
         plain({ key: `${kv}/asOf`, item: "residence.valuation", label: bought ? "その額の時点" : "その額の時点（購入の年月）", level: "detail", kind: "ym", find, path: ["valuation", "asOf"], optional: true, fallback: asOf }),
         plain({ key: `${kv}/structure`, item: "residence.valuation", label: "建物の構造", level: bought ? "detail" : "simple", kind: "select", options: BUILDING_STRUCTURES, find, path: ["valuation", "structure"], optional: true, fallback: "wood", help: "建物を耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で減らします" }),
-        plain({ key: `${kv}/builtYear`, item: "residence.valuation", label: "建物が建った年", level: bought ? "detail" : "simple", kind: "int", suffix: "年", min: 1900, max: 2200, find, path: ["valuation", "builtYear"], optional: true, fallback: Number(asOf.slice(0, 4)), help: "空欄なら新築とみなします（その額の時点の年）" }),
+        // 購入の予定の持ち家は、空欄を購入の年（その額の時点の年）の新築として見せる。今住んでいる持ち家は空欄のまま見せる（今年を建った年と見せない）
+        plain({
+          key: `${kv}/builtYear`,
+          item: "residence.valuation",
+          label: "建物が建った年",
+          level: bought ? "detail" : "simple",
+          kind: "int",
+          suffix: "年",
+          min: 1900,
+          max: 2200,
+          find,
+          path: ["valuation", "builtYear"],
+          optional: true,
+          ...(bought ? { fallback: asOfYear } : {}),
+          help: bought ? "空欄なら新築とみなします（その額の時点の年）" : `空欄なら、その額の時点（${asOfYear}年）に新築とみなします。わかれば建った年を入れてください`,
+        }),
         plain({ key: `${kv}/landShare`, item: "residence.valuation", label: "土地の割合", level: "detail", kind: "pct", find, path: ["valuation", "landShare"], optional: true, fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare, help: "空欄なら前提条件の目安。土地は前提条件の上昇率（空欄なら物価上昇率）で動きます" }),
       ],
       actions: [],
@@ -306,13 +358,91 @@ export function creditLifeGroups(wh: WorkingHousehold): GroupDef[] {
   });
 }
 
+/**
+ * 住宅ローンの借入額。購入の予定とつながるローン（借入の年月＝購入の月）は、空欄で「物件の価格−頭金」の推定に戻り、推定の間は価格・頭金に合わせて
+ * 入れ直す（housingCredit.ts）。購入の予定と合わないときは知らせる
+ */
+function principalField(wh: WorkingHousehold, d: Debt, k: string): FieldDef {
+  const find = byId(debts, d.id);
+  const key = `${k}/principal`;
+  const linked = estimatedPrincipal(wh.request.input.household, d) !== null;
+  return field({
+    key,
+    item: "debt.principal",
+    label: "借入額",
+    level: "simple",
+    kind: "yen",
+    basis: "once",
+    ...(linked ? { optional: true, blankIsEstimate: true } : {}),
+    get: (w) => {
+      const h = w.request.input.household;
+      const x = find(h, w) as Debt | undefined;
+      return { value: x?.principal ?? null, estimated: w.assumed[key] ?? null, warn: x === undefined ? null : principalMismatch(h, x) };
+    },
+    set: (w, v) => {
+      let est = false;
+      const next = mutate(w, (h) => {
+        const x = find(h, w) as Debt | undefined;
+        if (x === undefined) return;
+        if (v === null) {
+          const e = estimatedPrincipal(h, x);
+          if (e === null) return;
+          x.principal = e;
+          est = true;
+        } else x.principal = Number(v);
+      });
+      if (v === null && !est) return w;
+      const assumed = { ...next.assumed };
+      if (est) assumed[key] = PRINCIPAL_ESTIMATE;
+      else delete assumed[key];
+      return { ...next, assumed };
+    },
+  });
+}
+
+const PROPERTY_TYPES: Record<string, string> = { certified: "認定住宅", zeh: "ZEH水準省エネ住宅", energySaving: "省エネ基準適合住宅", other: "一般の住宅" };
+
+/** 住宅ローン控除の条件（見せるだけ。仮の条件なら「仮」の印） */
+function creditField(d: Debt): FieldDef {
+  const key = creditKey(d.id);
+  return field({
+    key,
+    item: "debt.housing",
+    label: "住宅ローン控除の条件",
+    level: "simple",
+    kind: "text",
+    readOnly: "住宅ローン控除の計算に使う条件です。「仮」は借入の年月と住まいから置いた条件です。控除の額・期間は入居の年の制度で決まります",
+    get: (w) => {
+      const h = w.request.input.household;
+      const x = (h.debts ?? []).find((y) => y.id === d.id);
+      const hs = x?.housing;
+      if (x === undefined || hs === undefined) {
+        const ym = x === undefined ? null : resolveTimepoint(h, x.start);
+        return { value: ym !== null && Number(ym.slice(0, 4)) < CREDIT_DATA_FROM_YEAR ? `${CREDIT_DATA_FROM_YEAR - 1}年以前に借りたローンの控除は計算しません` : "控除は計算しません" };
+      }
+      if (hs.creditDisabled === true) return { value: "控除を受けない" };
+      const ev = (h.events ?? []).find((e) => e.id === hs.moveIn);
+      const moveIn = resolveTimepoint(h, ev?.at);
+      const own = hs.ownership === undefined || hs.ownership.length === 0 ? "持分は債務者が100%" : `持分 ${hs.ownership.map((o) => `${memberLabelOf(h, o.member)} ${Math.round(Number(o.share) * 1000) / 10}%`).join("・")}`;
+      const value = [moveIn === null ? null : `入居 ${formatYearMonth(moveIn)}`, hs.newBuild ? "新築" : "中古", PROPERTY_TYPES[hs.propertyType] ?? hs.propertyType, own].filter((s) => s !== null).join("・");
+      return { value, assumed: w.assumed[key] ?? null };
+    },
+    set: (w) => w,
+  });
+}
+
+const memberLabelOf = (h: Household, id: string): string => {
+  const m = h.members.find((x) => x.id === id);
+  return m?.kind === "self" ? "本人" : m?.kind === "spouse" ? "配偶者" : "家族";
+};
+
 export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
   const find = byId(debts, d.id);
   const firstRate: Finder = (h, w) => (getPath(find(h, w), ["rateSchedule", "0"]) as Record<string, unknown> | undefined) ?? undefined;
   const self = wh.request.input.household.members.find((m) => m.kind === "self");
   const ageOf = self !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === self.id) } : {};
   const fields: FieldDef[] = [
-    plain({ key: `${k}/principal`, item: "debt.principal", label: "借入額", level: "simple", kind: "yen", basis: "once", find, path: ["principal"] }),
+    isHomeLoan(d) ? principalField(wh, d, k) : plain({ key: `${k}/principal`, item: "debt.principal", label: "借入額", level: "simple", kind: "yen", basis: "once", find, path: ["principal"] }),
     timepointField({ key: `${k}/start`, item: "debt.start", label: "借入の年月", level: "simple", find, path: ["start"], ...ageOf }),
     plain({ key: `${k}/rate`, item: "debt.rateSchedule", label: "金利（当初・年）", level: "simple", kind: "pct", find: firstRate, path: ["rate"] }),
     plain({ key: `${k}/rateType`, item: "debt.rateSchedule", label: "金利の種類", level: "simple", kind: "select", options: RATE_TYPES, find: firstRate, path: ["type"] }),
@@ -346,6 +476,7 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
       plain({ key: `${k}/cap125`, item: "debt.repayment", label: "125%ルール（見直しの上限）", level: "detail", kind: "bool", find, path: ["repayment", "variableRules", "cap125"], optional: true, fallback: false }),
       ...creditLifeFields(wh, d),
     );
+    if (isHomeLoan(d)) fields.push(creditField(d));
   }
   if (d.pairWith !== undefined) fields.push(field({ key: `${k}/pair`, item: "debt.pairWith", label: "ペアローン", level: "simple", kind: "text", readOnly: "もう1本のローンは、そのローンの欄で入れます", get: () => ({ value: "もう1本のローンと組（ペアローン）" }), set: (w) => w }));
   return fields;
@@ -361,7 +492,13 @@ function loanGroups(wh: WorkingHousehold, d: Debt, i: number): GroupDef[] {
       title,
       level: d.kind === "mortgage" ? "simple" : "detail",
       fields: loanFields(wh, d, k),
-      actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.debts = (h.debts ?? []).filter((x) => x.id !== d.id)))],
+      actions: [
+        removeAction(`${k}/remove`, "外す", "simple", (h, w) => {
+          h.debts = (h.debts ?? []).filter((x) => x.id !== d.id);
+          dropProvisionalEvent(h, d, w);
+          return withProvisionalHousing({ ...w, request: { ...w.request, input: { ...w.request.input, household: h } } });
+        }),
+      ],
     },
   ];
   d.rateSchedule.slice(1).forEach((_, j) => {
@@ -474,13 +611,17 @@ export function housingStage(wh: WorkingHousehold): StageDef {
   const mortgages = (h.debts ?? []).filter((d) => d.kind === "mortgage");
   // 住まい以外の不動産のローン（debt.property）は、その不動産の欄（貯蓄・運用）で入れる
   const others = (h.debts ?? []).filter((d) => d.kind !== "mortgage" && d.property === undefined);
-  const newLoan = (kind: string, w: WorkingHousehold) =>
-    mutate(w, (hh) => {
+  const newLoan = (kind: string, w: WorkingHousehold) => {
+    const id = newId();
+    let estimated = false;
+    const next = mutate(w, (hh) => {
       if (selfId === undefined) return;
       const own = (hh.residences ?? []).find((r) => r.kind === "own");
-      const start = own?.purchase?.at?.at ?? base;
-      (hh.debts ??= []).push({
-        id: newId(),
+      // 住宅ローンは、購入の予定がある持ち家（後に足したもの）の購入の月に借りる
+      const bought = kind === "mortgage" ? (hh.residences ?? []).filter((r) => r.kind === "own" && r.purchase !== undefined).at(-1) : undefined;
+      const start = (bought !== undefined ? purchaseMonth(hh, bought) : null) ?? own?.purchase?.at?.at ?? base;
+      const d: Debt = {
+        id,
         kind,
         debtors: [{ member: selfId, role: "primary" }],
         principal: kind === "mortgage" ? 30000000 : 2000000,
@@ -488,8 +629,17 @@ export function housingStage(wh: WorkingHousehold): StageDef {
         rateSchedule: [{ from: { at: start }, type: kind === "mortgage" ? "variable" : "fixed", rate: kind === "mortgage" ? "0.008" : "0.02" }],
         repayment: { method: "equalPayment", termMonths: kind === "mortgage" ? 420 : 60, ...(kind === "mortgage" ? { variableRules: { fiveYear: true, cap125: true } } : {}) },
         ...(kind === "mortgage" ? { creditLife: { covered: [selfId], events: ["death", "highDisability"] } } : {}),
-      });
+      };
+      (hh.debts ??= []).push(d);
+      // 購入の予定とつながるなら、借入額は物件の価格−頭金（推定）
+      const e = kind === "mortgage" ? estimatedPrincipal(hh, d) : null;
+      if (e !== null) {
+        d.principal = e;
+        estimated = true;
+      }
     });
+    return withProvisionalHousing(estimated ? { ...next, assumed: { ...next.assumed, [principalKey(id)]: PRINCIPAL_ESTIMATE } } : next);
+  };
   const loanSection: SectionDef = {
     key: "housing/loans",
     title: "住宅ローン",

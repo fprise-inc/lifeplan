@@ -256,6 +256,11 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
         </div>
       ) : null}
       {state.derived != null ? <div class="fld-help warn">{state.derived}</div> : null}
+      {state.warn != null ? (
+        <div class="fld-help warn" data-field-warn>
+          {state.warn}
+        </div>
+      ) : null}
       {state.estimated != null ? <div class="fld-help est-basis">推定: {state.estimated}</div> : null}
       {f.readOnly !== undefined ? <div class="fld-help">{f.readOnly}</div> : f.help !== undefined ? <div class="fld-help">{f.help}</div> : null}
       {f.sideEffects !== undefined ? <div class="fld-help">{f.sideEffects}</div> : null}

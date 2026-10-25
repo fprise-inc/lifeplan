@@ -800,6 +800,7 @@ function importHousing(c: Ctx, h: Household, adults: Adults, asOf: string, baseM
   const rent = c.get<number>("hs.housing.rent");
   const loanAxis = c.def.axes.find((a) => a.id === "loan");
   const hasLoan = Array.from({ length: loanAxis?.count ?? 0 }, (_, i) => c.get("hs.loan.debtor", i + 1).status === "value").some(Boolean);
+  let ownId: string | null = null;
   if (type.status !== "value") {
     c.missing("hs.housing.type", undefined, "お住まいの種類がありません（住居費なしとして計算します）");
   } else {
@@ -836,14 +837,22 @@ function importHousing(c: Ctx, h: Household, adults: Adults, asOf: string, baseM
       if (ok) {
         (h.residences ??= []).push(r);
         c.candidate("residences", "residence.kind", r);
+        if (r.kind === "own") ownId = r.id;
       }
     }
   }
 
-  for (let n = 1; n <= (loanAxis?.count ?? 0); n++) importLoan(c, h, adults, n, asOf, baseMonth);
+  for (let n = 1; n <= (loanAxis?.count ?? 0); n++) importLoan(c, h, adults, n, asOf, baseMonth, ownId);
 }
 
-function importLoan(c: Ctx, h: Household, adults: Adults, n: number, asOf: string, baseMonth: string): void {
+/**
+ * 住宅ローン控除の仮の条件を置く最初の入居の年（令和4年。計算エンジンの控除の制度データがこの年の入居から。入力の画面の
+ * app/src/workspace/input/housingCredit.ts と同じ決まり）
+ */
+const CREDIT_DATA_FROM_YEAR = 2022;
+const CREDIT_ASSUMED = "仮の条件（入居は借入の年月・新築は省エネ基準適合住宅、中古は一般の住宅・持分は債務者が100%）で住宅ローン控除を計算しています";
+
+function importLoan(c: Ctx, h: Household, adults: Adults, n: number, asOf: string, baseMonth: string, ownId: string | null): void {
   const debtor = c.get<string>("hs.loan.debtor", n);
   const others = ["hs.loan.principal", "hs.loan.start", "hs.loan.termYears", "hs.loan.rate"];
   if (debtor.status !== "value") {
@@ -911,8 +920,17 @@ function importLoan(c: Ctx, h: Household, adults: Adults, n: number, asOf: strin
   }
   if (ymIndex(start) > ymIndex(baseMonth)) c.contradiction("hs.loan.start", n, "借りた年月が計算基準月より後です");
   if (ymIndex(start) + years * 12 <= ymIndex(baseMonth)) c.contradiction("hs.loan.termYears", n, "返済期間がもう終わっています");
+  // 住宅ローン控除の条件（入居の年月・住宅の種類・持分）はシートで聞かないので、仮の条件で計算する（入力の画面と同じ。「仮」の印）
+  let note = "住宅ローン控除の条件（入居の年月・住宅の種類・持分）はシートで聞いていません。";
+  if (Number(start.slice(0, 4)) >= CREDIT_DATA_FROM_YEAR) {
+    const ev = { id: c.newId(), kind: "moveIn", at: { at: start } };
+    h.events.push(ev);
+    d.housing = { ...(ownId !== null ? { residence: ownId } : {}), moveIn: ev.id, propertyType: "energySaving", newBuild: true };
+    c.assume(`housing/debt/${id}/credit`, CREDIT_ASSUMED, at("hs.loan.start", "debt.housing", "/housing"));
+    note += "入居は借りた年月・新築の省エネ基準適合住宅・借りている方の持分100%とした仮の条件で控除を計算します（入力の画面では「仮」の印が付きます）。違うときは面談で確かめてください";
+  } else note += `${CREDIT_DATA_FROM_YEAR - 1}年以前に借りたローンの控除は計算しません`;
   (h.debts ??= []).push(d);
-  c.candidate("debts", "debt.kind", d, undefined, "住宅ローン控除の条件（入居の年月・住宅の種類）はシートで聞いていません。面談で確かめて入力してください");
+  c.candidate("debts", "debt.kind", d, undefined, note);
 }
 
 // ---- 教育 ----

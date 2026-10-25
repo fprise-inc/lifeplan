@@ -27,6 +27,8 @@ export interface FieldState {
   hint?: string | null;
   /** 省略時の既定の値を見せている（書き戻すと省略に戻る） */
   implicit?: boolean;
+  /** ほかの入力と合わないときの知らせ（例: 住宅ローンの借入額と購入の予定の価格−頭金） */
+  warn?: string | null;
 }
 
 interface FieldBase {
@@ -181,6 +183,8 @@ export function yenBox(o: {
   /** 空にしたときの推定の値 */
   estimate?: (h: Household, wh: WorkingHousehold) => Estimate | null;
   optional?: boolean;
+  /** 欄の横に添える補助（目安など） */
+  hint?: (wh: WorkingHousehold) => string | null;
 }): FieldDef {
   return field({
     key: o.key,
@@ -196,7 +200,7 @@ export function yenBox(o: {
     get: (wh) => {
       const box = getPath(o.find(wh.request.input.household, wh), o.path) as Box<number> | undefined;
       const value = box?.value ?? (box?.state === "unknown" ? ((box as { substitute?: Box<number> }).substitute?.value ?? null) : null);
-      return { value, estimated: boxBasis(box) ?? (box?.state === "unknown" ? "わからない（代わりの値）" : null) };
+      return { value, estimated: boxBasis(box) ?? (box?.state === "unknown" ? "わからない（代わりの値）" : null), ...(o.hint !== undefined ? { hint: o.hint(wh) } : {}) };
     },
     set: (wh, v) =>
       mutate(wh, (h, req) => {

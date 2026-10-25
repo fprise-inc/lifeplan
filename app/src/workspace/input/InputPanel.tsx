@@ -6,6 +6,7 @@ import { FieldSuggestions, Section, SectionLinks, visible, type SectionLink } fr
 import { useSurplusSuggestion } from "./surplusSuggest.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { withRefreshedEstimates } from "./estimates.ts";
+import { withProvisionalHousing } from "./housingCredit.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { inputItems, itemStage, saveItem } from "./items.ts";
@@ -54,7 +55,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const edit = (next: WorkingHousehold) => {
     const cur = latest.current;
     if (next === cur) return;
-    const n = withRefreshedEstimates(next);
+    const n = withProvisionalHousing(withRefreshedEstimates(next));
     if (history.current !== null) undoController.record(history.current, cur, n, (h) => h.control ?? item?.label ?? "入力");
     latest.current = n;
     setDraft(n);
