@@ -5,8 +5,9 @@
 //   最初の月に賃金日額×28日×13%
 // - 育児時短就業給付: 2歳未満の子のための短時間勤務の期間に、時短の前より下がった給与の月、その月の給与×10%（支給限度額まで）
 // - 介護休業給付金（改訂3。6.10）: 介護休業（leaveKind: care）の期間に、休業開始時賃金日額（休業の前6か月の給与÷180。上限は介護休業の値）×
-//   休業の日数（月×30日。対象の家族1人につき通算93日まで。家族を区別しないので構成員ごとの通算）×率（67%）を、休業の終わりの翌月に払う
-//   （30日あたりの支給の上限額（制度データ）を日数で按分した額まで）。
+//   休業の日数（月×30日。対象の家族1人につき通算93日・3回まで）×率（67%）を、休業の終わりの翌月に払う
+//   （30日あたりの支給の上限額（制度データ）を日数で按分した額まで）。対象の家族は、休業の始まりに続いている介護の費用（care）の
+//   介護を受ける人（本人を除く。始まりが最も近いもの）。重なる介護が無い休業は、対象の家族が分からないので1人の家族として通算する
 //   雇用保険に入っていない月（役員・公務員）の休業は出ない
 // 日数は月単位の近似で1か月を30日とみなす（PR の提案）。給付金は2か月分ずつ、その2か月の次の月に払う。時短の給付は翌月
 import {
@@ -21,6 +22,7 @@ import {
   RATE_ZERO,
   yearOf,
   yen,
+  type CareExpenseInput,
   type EmployeeStatusOutput,
   type EmploymentPeriodInput,
   type Flow,
@@ -46,6 +48,7 @@ const P = {
   careRate: "employmentInsurance.careLeaveBenefit.rate",
   careDays: "employmentInsurance.careLeaveBenefit.maxDays",
   careMax: "employmentInsurance.careLeaveBenefit.monthlyLimit",
+  careTimes: "employmentInsurance.careLeaveBenefit.maxTimes",
 };
 const DAYS_PER_MONTH = 30;
 
@@ -53,7 +56,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "benefit.employment",
   title: "雇用保険の育児・介護の給付",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -72,6 +75,9 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
     "employment.leaveChild",
     "employment.childcareShortHours",
     "employment.salary.annual",
+    "care.member",
+    "care.from",
+    "care.months",
   ],
   memberScope: ["employment"],
   input: "member.input",
@@ -155,19 +161,37 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
         if (x.amount > 0) flows.push({ row: "cf.income.benefit", ym: formatYm(paid), amount: x.amount, accrualYear: yearOf(x.m), member, object: p.id, formula: x.formula });
       }
     }
-    // 介護休業給付金
-    let careUsed = 0;
+    // 介護休業給付金（対象の家族1人につき通算93日・3回まで）
+    const cares = ctx
+      .list<CareExpenseInput>("care")
+      .filter((c) => c.member !== member)
+      .map((c) => {
+        const f = ctx.time.resolve(c.from);
+        return { member: c.member, from: f, last: c.months === undefined ? null : addMonths(f, c.months - 1) };
+      });
+    const careTarget = (from: MonthIndex, to: MonthIndex): string => {
+      const overlapping = cares.filter((c) => c.from <= to && (c.last === null || c.last >= from));
+      // 休業の始まりまでに始まった介護のうち最も近いもの、無ければ休業の間に始まる最初のもの
+      const started = overlapping.filter((c) => c.from <= from).sort((a, b) => b.from - a.from)[0];
+      const later = overlapping.filter((c) => c.from > from).sort((a, b) => a.from - b.from)[0];
+      return (started ?? later)?.member ?? "";
+    };
+    const careUsed = new Map<string, { days: number; times: number }>();
     for (const { p, from, to } of periods) {
       if (p.type !== "leave" || p.leaveKind !== "care" || !insured.has(formatYm(from))) continue;
       const at = ctx.at(from);
       const maxDays = at.paramCount(P.careDays);
       const r = at.paramRate(P.careRate);
       if (maxDays === null || r === null) continue;
+      const target = careTarget(from, to);
+      const used = careUsed.get(target) ?? { days: 0, times: 0 };
+      const maxTimes = at.paramCount(P.careTimes);
+      if (maxTimes !== null && used.times >= maxTimes) continue;
       let sum = 0;
       for (let k = 1; k <= 6; k++) sum += salary.get(formatYm(addMonths(from, -k))) ?? 0;
       const daily = ctx.money.mulRatio(yen(sum), 1, 180, "conv.benefit.daily");
-      const days = Math.min((to - from + 1) * DAYS_PER_MONTH, Math.max(0, maxDays - careUsed));
-      careUsed += days;
+      const days = Math.min((to - from + 1) * DAYS_PER_MONTH, Math.max(0, maxDays - used.days));
+      careUsed.set(target, { days: used.days + days, times: used.times + 1 });
       let amount = ctx.money.mulRate(ctx.money.mulRatio(daily, days, 1, "conv.exact"), r, "conv.benefit.daily");
       const limit = at.paramYen(P.careMax);
       if (limit !== null) {

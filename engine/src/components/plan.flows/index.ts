@@ -31,7 +31,7 @@ export default defineComponent<Record<string, never>, Collected>({
   id: "plan.flows",
   title: "お金の動き（集める）",
   contract: "1.1",
-  revision: 8,
+  revision: 9,
   requires: {
     "insurance.policy": ">=1 <2",
     "care.expense": ">=1 <2",
@@ -49,6 +49,7 @@ export default defineComponent<Record<string, never>, Collected>({
     "housing.valuation": ">=1 <2",
     "asset.realEstate": ">=1 <2",
     "socialInsurance.nationalHealth": ">=1 <2",
+    "socialInsurance.continuation": ">=1 <2",
     "insurance.premiumPayment": ">=1 <2",
   },
   params: [],
@@ -73,6 +74,7 @@ export default defineComponent<Record<string, never>, Collected>({
     const household: (readonly Flow[])[] = [];
     for (let fy = monthOf(base) <= 3 ? baseYear - 1 : baseYear; fy <= endYear; fy++) {
       household.push(ctx.call<FlowsResult>("socialInsurance.nationalHealth", { fiscalYear: fy }).flows);
+      household.push(ctx.call<FlowsResult>("socialInsurance.continuation", { fiscalYear: fy }).flows);
     }
     household.push(ctx.call<PaymentsOutput>("insurance.premiumPayment", {}).flows);
     for (const c of ctx.list<{ id: string }>("insurance")) household.push(ctx.call<FlowsResult>("insurance.policy", { object: c.id }).flows);

@@ -1,0 +1,21 @@
+id: socialInsurance.nationalHealth.medical.perHousehold
+title: 国民健康保険の基礎賦課額（医療分）の世帯別平等割額（年額。1世帯あたり）（全国の目安。既定）
+unit: JPY
+kind: constant
+basis: "fiscalYear"
+entries:
+  - rev: 1
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: "2026-03-31"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 16429
+    sources:
+      - {type: "web", url: "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040442411&fileKind=4", retrievedAt: "2026-10-25", sha256: "d2832e6cd9734e8b718c25a7ddac80e67aa6ae586c6a077af761d9adabf18693", locator: "厚生労働省「国民健康保険実態調査（令和6年度）」統計表（世帯票） 全国の行の医療給付費分の世帯別平等割額 259,020,052千円 ÷ 世帯数 15,766,500世帯", quote: "第13表－１　都道府県別、保険料（税）算定状況（市町村）　－全世帯－"}
+      - {type: "web", url: "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040442411&fileKind=4", retrievedAt: "2026-10-25", sha256: "d2832e6cd9734e8b718c25a7ddac80e67aa6ae586c6a077af761d9adabf18693", locator: "厚生労働省「国民健康保険実態調査（令和6年度）」統計表（世帯票） 合計の行（第13表と同じ合計）", quote: "第５表－１－１　世帯人員別、固定資産税の有無別、保険料（税）算定状況・賦課状況　　－全世帯－"}
+      - {type: "law", lawNumber: "昭和三十三年政令第三百六十二号", egovRevisionId: "333CO0000000362_20260801_508CO0000000240"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "全国の目安（既定の値）。市町村ごとの料率は世帯の入力で上書きする（0007 の6）。公式の統計の令和6年度の市町村国保の医療給付費分の保険料（税）算定額（軽減・賦課限度額の前）から作った: 世帯別平等割額（軽減の前の算定額）の合計÷世帯数＝16,428.5円を1円単位に四捨五入。平等割の無い市町村（2方式）の世帯も分母に入る全国の平均。資産割（4方式の市町村だけ。算定額の0.2%）は入れていない。統計の値は令和6年度なので、令和7年度以後の既定として使う（新しい統計が出たら行を足す）。施行日の欄は統計の公表日（e-Stat の公開日）。照合: Claude Opus 5.5（Excel の表を機械で読み、合計から計算）"}

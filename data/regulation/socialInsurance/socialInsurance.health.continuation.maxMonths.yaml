@@ -1,0 +1,22 @@
+id: socialInsurance.health.continuation.maxMonths
+title: 健康保険の任意継続被保険者でいられる月数（任意継続被保険者となった日から2年）
+unit: months
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2017-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 24
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", "retrievedAt": "2026-10-25", "sha256": "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", "locator": "健康保険法 第38条第1号（令和8年10月1日の版）", "quote": "任意継続被保険者となった日から起算して二年を経過したとき"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20170401_427AC0000000031?response_format=xml", "retrievedAt": "2026-10-25", "sha256": "ce633df7c49779d737573896f34039991d562edd7c152dab42d5de3da6d73327", "locator": "健康保険法 第38条第1号（平成29年4月1日の版）", "quote": "任意継続被保険者となった日から起算して二年を経過したとき"}
+      - {"type": "web", "url": "https://www.kyoukaikenpo.or.jp/g3/sb3270/", "retrievedAt": "2026-10-25", "sha256": "ad3279c6f7e15f51bcf328150e6dbbaf7a51d055b31eabedac89088c1addd849", "locator": "協会けんぽ「任意継続」（任意継続の被保険者期間）", "quote": "2年間です"}
+      - {"type": "law", "lawNumber": "大正十一年法律第七十号", "egovRevisionId": "211AC0000000070_20261001_507AC0000000087"}
+    recordedIn: "2026.8.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-25", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "任意継続被保険者となった日から起算して2年を経過したときに資格を失う（健康保険法38条1号）。月数で24。適用開始は社会保険の値の行の始まりにそろえた。健康保険法（平成29年4月・令和8年10月の版）と協会けんぽの案内で一致。施行日は e-Gov の最初の版より前なので notAfter"}

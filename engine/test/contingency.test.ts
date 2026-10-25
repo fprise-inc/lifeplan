@@ -341,6 +341,30 @@ describe("医療費（medical.highCost）・介護（care.expense）", () => {
     expect(sumFlows(fs, (f) => f.ym.startsWith("2031"))).toBe(0);
   });
 
+  it("高額介護サービス費: 住民税が非課税で、年金収入等が基準（令和8年8月から82万6,500円）以下の人は個人の上限15,000円。1〜7月のサービスは前々年の所得で判定する", () => {
+    const P = uid("p");
+    const req = edit(family({ endYear: 2032 }), (h, input) => {
+      (input.assumptions as Obj).inflation = { default: "0" };
+      (h.members as Obj[]).push(member("p", "parent", "1950-03"));
+      h.careExpenses = [{ id: uid("care"), member: P, from: at("2030-01"), months: 12, serviceMonthly: box(300000) }];
+    });
+    // 親: 公的年金等の収入 年70万円（偶数月に11万6,666円ほど）。2029年だけ、ほかに合計所得金額20万円
+    const stubs = (pension: number) => ({
+      "residentTax.exemption": (i: unknown) => ({ perCapitaExempt: (i as { member: string }).member === P, incomeLevyExempt: true, persons: 1 }),
+      "tax.totalIncome": (i: unknown) => ({ total: (i as { year: number }).year === 2029 ? 200000 : 0, employment: 0, publicPension: 0 }),
+      "pension.oldAge": () => ({ flows: [], months: [], payments: Array.from({ length: 8 }, (_, k) => 2026 + k).flatMap((y) => [2, 4, 6, 8, 10, 12].map((mo) => ({ ym: `${y}-${String(mo).padStart(2, "0")}`, part: "basic", amount: pension / 6, accrualYear: y }))) }),
+    });
+    const care = (pension: number) => runEngine(req, realPacks(), { checkInternal: true, entry: { component: "care.expense", input: {} }, stubs: stubs(pension) }).entryOutput as { flows: Flow[] };
+    const month = (fs: { flows: Flow[] }, ym: string) => sumFlows(fs.flows, (f) => f.ym === ym && f.formula === "care.expense.service");
+    const low = care(700002);
+    // 2030年3月のサービス: 前々年（2028年）の 70万円 ≦ 80万9千円 → 個人15,000円（1割の30,000円から）
+    expect(month(low, "2030-03")).toBe(15000);
+    // 2030年9月のサービス: 前年（2029年）の 70万円＋20万円 ＞ 82万6,500円 → 世帯の上限24,600円
+    expect(month(low, "2030-09")).toBe(24600);
+    // 年金収入が基準を超える人は、非課税でも24,600円
+    expect(month(care(900000), "2030-03")).toBe(24600);
+  });
+
   it("何も入れなければ統計の既定（知らせ）", () => {
     const req = edit(family({ endYear: 2040 }), (h) => (h.careExpenses = [{ id: uid("care"), member: W, from: at("2030-01") }]));
     const r = run(req);

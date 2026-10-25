@@ -50,6 +50,7 @@ import socialInsuranceEmployeeStatus from "./socialInsurance.employeeStatus/inde
 import socialInsuranceHealthStatus from "./socialInsurance.healthStatus/index.ts";
 import socialInsuranceLateElderly from "./socialInsurance.lateElderly/index.ts";
 import socialInsuranceNationalHealth from "./socialInsurance.nationalHealth/index.ts";
+import socialInsuranceContinuation from "./socialInsurance.continuation/index.ts";
 import socialInsuranceNationalPension from "./socialInsurance.nationalPension/index.ts";
 import taxPublicPensionIncome from "./tax.publicPensionIncome/index.ts";
 import accountMutualAid from "./account.mutualAid/index.ts";
@@ -136,6 +137,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   socialInsuranceHealthStatus,
   socialInsuranceLateElderly,
   socialInsuranceNationalHealth,
+  socialInsuranceContinuation,
   socialInsuranceNationalPension,
   taxPublicPensionIncome,
   accountMutualAid,

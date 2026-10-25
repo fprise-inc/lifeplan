@@ -122,8 +122,9 @@ function maternity(first6: number, last6: number): number {
     endYear: 2027,
     members: [member("l2p.a", "self", "1992-01")],
     periods: [
-      period("l2p.p1", { member: "l2p.a", from: "2015-04", to: "2026-05", annual: first6 * 12, std: [first6, first6] }),
-      period("l2p.p2", { member: "l2p.a", from: "2026-06", to: "2026-11", annual: last6 * 12, std: [last6, last6] }),
+      // 支給を始める月（休業の始まりの2026年12月）以前の12か月: 2026年1〜6月が first6、7〜12月（12月は休業で引き継ぐ）が last6
+      period("l2p.p1", { member: "l2p.a", from: "2015-04", to: "2026-06", annual: first6 * 12, std: [first6, first6] }),
+      period("l2p.p2", { member: "l2p.a", from: "2026-07", to: "2026-11", annual: last6 * 12, std: [last6, last6] }),
       { id: uid("l2p.l"), member: A, from: { at: "2026-12" }, to: { at: "2027-02" }, type: "leave", leaveKind: "maternity" },
     ],
   });

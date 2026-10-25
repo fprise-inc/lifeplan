@@ -1,6 +1,12 @@
 // 計算式ID（エンジンの出力のお金の動きの formula）の、根拠の表示での名前と説明。
 // 計算式IDの名前はまだ登録簿に無いので、画面の側に置く（登録簿 registry/ に formulas を足すことを提案している）。
 // 載っていない計算式IDは、IDのまま表示する
+
+// 国民健康保険料の区分ごとの説明。料率の入力が無いときは全国の目安で計算する（目安であることを根拠の表示で示す）
+const NATIONAL_HEALTH = (part: string) =>
+  `${part} ＝ 前年の所得（基礎控除の後）× 所得割の率 ＋ 均等割 × 人数 ＋ 平等割（低所得の軽減の後。賦課限度額まで）。料率の入力が無いときは全国の目安（公式の統計の全国の平均）で計算する。お住まいの市区町村の料率で変わる`;
+const CONTINUATION = "任意継続の保険料 ＝ 退職したときの標準報酬月額（協会けんぽは全被保険者の平均の額が上限）× 保険料率（健康保険・40〜64歳の介護保険・支援金。全額を本人が払う）。最長2年";
+
 export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: string }>> = {
   "income.salary.monthly": { label: "月々の給与", text: "月々の給与 ＝ 年収（賞与を除く）÷ 12 を、昇給率で毎年延ばしたもの" },
   "income.salary.bonus": { label: "賞与", text: "賞与 ＝ 年間の賞与を支給月に分けたもの（昇給率で毎年延ばす）" },
@@ -48,4 +54,12 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   "socialInsurance.care.monthly": { label: "介護保険料", text: "介護保険料 ＝ 標準報酬月額 × 保険料率（40〜64歳）" },
   "socialInsurance.employment.monthly": { label: "雇用保険料", text: "雇用保険料 ＝ 賃金 × 保険料率" },
   "socialInsurance.childSupport.monthly": { label: "子ども・子育て支援金", text: "支援金 ＝ 標準報酬月額 × 支援金率" },
+  "socialInsurance.nationalHealth.medical": { label: "国民健康保険料（医療分）", text: NATIONAL_HEALTH("医療分") },
+  "socialInsurance.nationalHealth.elderlySupport": { label: "国民健康保険料（後期高齢者支援金分）", text: NATIONAL_HEALTH("後期高齢者支援金分") },
+  "socialInsurance.nationalHealth.care": { label: "国民健康保険料（介護分）", text: NATIONAL_HEALTH("介護分（40〜64歳）") },
+  "socialInsurance.nationalHealth.childSupport": { label: "国民健康保険料（子ども・子育て支援金分）", text: NATIONAL_HEALTH("子ども・子育て支援金分") },
+  "socialInsurance.nationalHealth.assessed": { label: "国民健康保険料（決定通知書の額）", text: "国民健康保険料 ＝ 入力した決定通知書の年額（納期に分ける）" },
+  "socialInsurance.continuation.health": { label: "健康保険料（任意継続）", text: CONTINUATION },
+  "socialInsurance.continuation.care": { label: "介護保険料（任意継続）", text: CONTINUATION },
+  "socialInsurance.continuation.childSupport": { label: "子ども・子育て支援金（任意継続）", text: CONTINUATION },
 };
