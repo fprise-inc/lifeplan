@@ -1712,6 +1712,72 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: inheritanceTax.adoptedChildren.withNatural
+    status: active
+    label: "法定相続人の数に入れる養子の数（実子がいるとき。1人）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.adoptedChildren.withoutNatural
+    status: active
+    label: "法定相続人の数に入れる養子の数（実子がいないとき。2人）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.basicDeduction.base
+    status: active
+    label: "相続税の遺産に係る基礎控除額の定額の部分（3,000万円）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.basicDeduction.perHeir
+    status: active
+    label: "相続税の遺産に係る基礎控除額の法定相続人1人あたりの額（600万円）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.lifeInsurance.exemptionPerHeir
+    status: active
+    label: "相続税の死亡保険金の非課税限度額の法定相続人1人あたりの額（500万円）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.rateTable
+    status: active
+    label: "相続税の速算表（法定相続分に応ずる取得金額の段階、rate は税率、amount は控除額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.retirementAllowance.exemptionPerHeir
+    status: active
+    label: "相続税の死亡退職金の非課税限度額の法定相続人1人あたりの額（500万円）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.spouseReduction.floor
+    status: active
+    label: "配偶者に対する相続税額の軽減の、法定相続分の額と比べる下限（1億6,000万円）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.tax.rounding
+    status: active
+    label: "各人の納付すべき相続税額の端数（100円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.taxable.rounding
+    status: active
+    label: "相続税の課税価格・法定相続分に応ずる取得金額の端数（1,000円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: inheritanceTax.total.rounding
+    status: active
+    label: "相続税の総額の端数（100円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: lifeTable.lifeExpectancy
     status: active
     label: "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）"

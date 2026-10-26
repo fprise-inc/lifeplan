@@ -18,6 +18,8 @@
 // - 段階と例外の年（改訂2。0040）: 家賃（月ごと）と経費の年額（年ごと）に、元の額の代わりに段の額（割合の段は元の額×割合）を使い、
 //   同じ変化率をそのまま重ねる（家賃は貸し始めの年〔計算基準年より前なら計算基準年〕から、経費は計算基準年からの年数）。例外の年は、その年だけ
 //   例外の額（元の額と同じ基準。変化率は重ねる。0円はその年に受け取らない・払わない）。家賃に対する割合の経費は、受け取る家賃に掛ける
+// - 改訂3（0039）: 持ち始める時点（property.holdFrom。相続・贈与で受け取る不動産）。その月から評価額（その年の年末から）・家賃収入・経費・
+//   減価償却に入れる。受け取るときの支払いは無い（買うなら住まいの購入か出るお金の行で入れる）。時価は asOf の時点の額で、上昇率で動かす
 // 計算基準年の2年前から計算する（前の年の所得で決まる住民税・国民健康保険料のため。お金の動きは計算基準月から）
 import {
   addMonths,
@@ -81,7 +83,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
   id: "asset.realEstate",
   title: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "debt.schedule": ">=1 <2" },
   params: [],
   reads: ["account.kind", "account.owner", "account.marketValue", "account.asOf", "account.valueGrowth", "account.property", "debt.property", "debt.principal", "assumptions.inflation", "assumptions.realEstateValuation"],
@@ -119,10 +121,13 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const sold = saleAt !== null && saleAt <= end;
       // 持っている最後の月（売るならその前の月）
       const holdEnd: MonthIndex = sold && saleAt !== null ? addMonths(saleAt, -1) : end;
+      // 持ち始める月（省略は前から持っている）
+      const holdStart: MonthIndex | null = p.holdFrom === undefined ? null : ctx.time.resolve(p.holdFrom);
       const years: { year: number; land: Yen; building: Yen; value: Yen }[] = [];
       if (holdEnd >= base) {
         for (let y = baseYear; y <= endYear; y++) {
           if (monthIndex(y, 12) > holdEnd) break;
+          if (holdStart !== null && monthIndex(y, 12) < holdStart) continue;
           const { land, building } = valuer.at(y);
           years.push({ year: y, land, building, value: addYen(land, building) });
         }
@@ -142,7 +147,8 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
 
       // 貸している月（rFrom〜rTo。計算は計算基準年の2年前から）
       const r = p.rental;
-      const rFrom: MonthIndex | null = r === undefined ? null : r.from !== undefined ? ctx.time.resolve(r.from) : (acqAt ?? calcStart);
+      const rFrom0: MonthIndex | null = r === undefined ? null : r.from !== undefined ? ctx.time.resolve(r.from) : (acqAt ?? calcStart);
+      const rFrom: MonthIndex | null = rFrom0 !== null && holdStart !== null ? maxM(rFrom0, holdStart) : rFrom0;
       const rTo: MonthIndex | null = r === undefined ? null : r.to === undefined || r.to === null ? holdEnd : minM(ctx.time.resolve(r.to), holdEnd);
       const rented = (y: number) => (rFrom === null || rTo === null ? 0 : monthsIn(y, maxM(rFrom, calcStart), rTo));
       const keep = ctx.rate.sub(RATE_ONE, ctx.rate.of(r?.vacancyRate ?? "0"));
@@ -204,7 +210,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         for (let mo = 1; mo <= 12; mo++) {
           const m = monthIndex(y, mo);
           if (m > holdEnd) break;
-          if (m < calcStart) continue;
+          if (m < calcStart || (holdStart !== null && m < holdStart)) continue;
           const isRented = rFrom !== null && rTo !== null && m >= rFrom && m <= rTo;
           let exp = fixedParts === null ? yen(0) : (fixedParts[mo - 1] as Yen);
           const rentM = isRented ? rentOf(m) : yen(0);

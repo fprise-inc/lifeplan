@@ -73,6 +73,7 @@ import contingencyLumpSum from "./contingency.lumpSum/index.ts";
 import debtCreditLife from "./debt.creditLifeEvents/index.ts";
 import giftReceived from "./gift.received/index.ts";
 import giftTax from "./gift.tax/index.ts";
+import inheritanceEstimate from "./inheritance.estimate/index.ts";
 import insuranceIncome from "./insurance.income/index.ts";
 import insurancePolicy from "./insurance.policy/index.ts";
 import insuranceTerm from "./insurance.term/index.ts";
@@ -162,6 +163,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   debtCreditLife,
   giftReceived,
   giftTax,
+  inheritanceEstimate,
   insuranceIncome,
   insurancePolicy,
   insuranceTerm,
@@ -180,3 +182,6 @@ export const ROOT_COMPONENT = "plan.cashflow";
 
 /** 必要保障額の推移（input.protection を指定したときに、根の部品の後に呼ぶ部品） */
 export const PROTECTION_COMPONENT = "protection.need";
+
+/** 相続税の目安（input.inheritanceTax を指定したときに、根の部品の後に呼ぶ部品。0039） */
+export const INHERITANCE_COMPONENT = "inheritance.estimate";

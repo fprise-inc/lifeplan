@@ -698,6 +698,11 @@ export interface GiftTaxOutput {
   /** 相続時精算課税の特別控除の残り（年末。贈与者ごと） */
   readonly settlementRemaining: readonly { readonly giver: string; readonly remaining: Yen }[];
   readonly inCashflow: boolean;
+  /**
+   * 約束の版 1.1（0039）: その年の相続時精算課税の贈与の、贈与者ごとの額（住宅取得等資金の非課税と基礎控除の後。贈与者が亡くなったときに
+   * 相続税の課税価格に足す額）と贈与税。member は世帯の贈与者（払う人。省略は世帯の外か払う人の指定なし）、objects は贈与の物。精算課税の贈与のある年だけ
+   */
+  readonly settlementByGiver?: readonly { readonly giver: string; readonly member?: string; readonly objects: readonly string[]; readonly amount: Yen; readonly tax: Yen }[];
 }
 
 /** plan.cashflow の details（約束の版 1.2 の任意の欄。エンジンが出力の summary に写す） */

@@ -2270,10 +2270,22 @@
     "kind"
    ]
   },
+  "donor.leaves": {
+   "collection": "donor",
+   "path": [
+    "leaves"
+   ]
+  },
   "donor.of": {
    "collection": "donor",
    "path": [
     "of"
+   ]
+  },
+  "donor.relative": {
+   "collection": "donor",
+   "path": [
+    "relative"
    ]
   },
   "employment.business.growth": {

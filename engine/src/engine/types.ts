@@ -258,6 +258,8 @@ export interface RealEstatePropertyInput {
   readonly builtYear?: number;
   /** 土地の割合（評価額と取得価額を土地と建物に分ける。省略は前提の realEstateValuation.landShare か目安） */
   readonly landShare?: string;
+  /** 持ち始める時点（相続・贈与で受け取る不動産。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い。省略は前から持っている。0039） */
+  readonly holdFrom?: Timepoint;
   /** 取得（減価償却の基。price は土地と建物の合計の取得価額、at は取得の年月） */
   readonly acquisition?: { readonly price: Yen; readonly at: string };
   /** 貸している（家賃収入） */
@@ -517,6 +519,10 @@ export interface DonorInput {
   readonly kind: "parent" | "grandparent" | "other";
   /** 誰の親・祖父母か（構成員の ID）。省略は受け取る人の親・祖父母とみなす */
   readonly of?: string;
+  /** 0039: 家族の種類（世帯の外の家族から作った贈与者に、構成員の kind を写す。相続人の数え方に使う） */
+  readonly relative?: "parent" | "grandparent" | "sibling" | "child" | "grandchild" | "other";
+  /** 0039: 亡くなる見込み（世帯の外の家族から作った贈与者に、構成員の leaves を写す） */
+  readonly leaves?: Timepoint | null;
 }
 
 /** 6.10: 介護の費用 */
@@ -810,6 +816,24 @@ export interface EngineInput {
   readonly contingencies?: readonly ContingencyInput[];
   readonly stressTest?: StressTestInput;
   readonly protection?: ProtectionRequest;
+  /** 相続税の目安（0039。指定したときだけ計算し、出力の inheritanceTax に出す。お金の流れには入れない） */
+  readonly inheritanceTax?: InheritanceTaxRequest;
+}
+
+export type InheritancePoint = "now" | "bothAfter" | "contingency";
+
+/** 相続税の目安の要求（0039） */
+export interface InheritanceTaxRequest {
+  readonly points?: readonly InheritancePoint[];
+  readonly members?: readonly string[];
+  readonly lastSurvivor?: string;
+  readonly realEstateRatio?: string;
+  readonly unassignedShare?: string;
+  readonly funeral?: Yen;
+  readonly adopted?: readonly string[];
+  readonly heirCounts?: readonly { readonly decedent: string; readonly count: number }[];
+  readonly retirementAllowances?: readonly { readonly decedent: string; readonly amount: Yen }[];
+  readonly overrides?: readonly { readonly point: InheritancePoint; readonly decedent?: string; readonly amount: Yen }[];
 }
 
 /** 持ち家の評価の前提（世帯ごと・事務所の標準で変えられる。省略した項目は housing.valuation の目安） */

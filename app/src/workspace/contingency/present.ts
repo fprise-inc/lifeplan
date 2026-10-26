@@ -14,6 +14,20 @@ const under = (row: string, prefix: string) => row === prefix || row.startsWith(
 export const REFORM_NOTICE = "N_REFORM_NOT_REFLECTED";
 const REFORM_TEXT = "遺族年金は2028年4月の見直し前の制度で計算しています（2028年4月以後に亡くなる想定）";
 
+/**
+ * 相続税の目安の一文（死亡の想定の時点。0039）。お金の流れには入れていない（表示だけ）ことと、含めていない特例を添える。
+ * 目安を求めていない結果・計算できない結果は null
+ */
+export function inheritanceText(r: PreviewResult): string | null {
+  const p = r.inheritanceTax?.points.find((x) => x.point === "contingency");
+  if (p === undefined || p.status === "noData") return null;
+  const tail = "（目安。お金の流れには入れていません。小規模宅地等の特例・2割加算などは含めていません）";
+  if (p.status === "noHeirs") return `相続税の目安: 相続人がいないので出していません${tail}`;
+  if (p.state === "confirmed") return `相続税: ${manText(p.amount)}（FP が入れた額）`;
+  if (p.noTax) return `相続税の目安: かからない見込み（基礎控除 ${manText(p.basicDeduction)} ${p.margin > 0 ? "＞" : "＝"} 財産 ${manText(p.assets.taxablePrice)}）${tail}`;
+  return `相続税の目安: 約${manText(p.payable)}（財産 ${manText(p.assets.taxablePrice)}、基礎控除 ${manText(p.basicDeduction)}）${tail}`;
+}
+
 export function hasReformNotice(r: PreviewResult): boolean {
   return (r.header.notices ?? []).some((n) => n.code === REFORM_NOTICE);
 }
@@ -168,6 +182,8 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
   }
   const notices: string[] = [];
   if (sc.kind === "death" && hasReformNotice(result)) notices.push(REFORM_TEXT);
+  const inherit = sc.kind === "death" ? inheritanceText(result) : null;
+  if (inherit !== null) notices.push(inherit);
   return {
     title: event,
     who: self?.label ?? "",

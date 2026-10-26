@@ -1,7 +1,7 @@
 // 0005 の6: 一致テスト。同じ入力を Node（V8）・Rust 組込みの quickjs-ng・JavaScriptCore（Bun）で計算し、出力の SHA-256 を比べる。
 // quickjs-ng は製品と同じ形（まとめた JS を engine-host --compile でバイトコードにして読み込み、パックの形は先に1回だけ確かめる）で動かす
 // 使い方: node scripts/parity.ts [engine-host のパス] [--jsc]（--jsc は Bun が無ければ失敗にする。無指定なら Bun があるときだけ比べる）
-// 入力は、モデル世帯（data/modelHouseholds）すべてと test/fixtures/parity（エラーになる入力）× 根拠の記録3種。
+// 入力は、モデル世帯（data/modelHouseholds）すべてと test/fixtures/parity（エラーになる入力 error-*・相続税の目安の要求を足したモデル世帯 inheritance-*。0039）× 根拠の記録3種。
 // まとめて計算（runBatch。0005 の7・追記）も、モデル世帯すべての1回と、100年分の1案×4想定の先出し（preview）の1回を比べる
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";

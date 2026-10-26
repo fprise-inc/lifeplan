@@ -1,6 +1,6 @@
 // エンジン全体の計算: 入力の検査 → 部品表の組み立て → 時点の解決 → 部品の呼び出し → 出力の検査
 import buildInfo from "../generated/build-info.json" with { type: "json" };
-import { OFFICIAL_COMPONENTS, PROTECTION_COMPONENT, ROOT_COMPONENT } from "../components/index.ts";
+import { INHERITANCE_COMPONENT, OFFICIAL_COMPONENTS, PROTECTION_COMPONENT, ROOT_COMPONENT } from "../components/index.ts";
 import { EngineError } from "../errors.ts";
 import { checkRow, isUnder } from "../ids/cfTree.ts";
 import { check, checkOutput } from "../io/validate.ts";
@@ -68,6 +68,8 @@ export interface EngineResult {
   readonly trace: Json;
   /** 必要保障額の推移（input.protection を指定したときだけ） */
   readonly protection?: Json;
+  /** 相続税の目安（input.inheritanceTax を指定したときだけ。0039） */
+  readonly inheritanceTax?: Json;
   /** options.entry のときだけ: その部品の出力 */
   readonly entryOutput?: unknown;
 }
@@ -346,13 +348,24 @@ function checkPackRequires(packs: readonly unknown[], assembly: Assembly): void 
  * 生年月のある世帯の外の家族は構成員として読み、世帯の外の家族の決まりで計算する（収入・税・社会保険料は家計を1つにする期間のうち
  * 収入を世帯に入れる期間だけ世帯に入れる・世帯の判定の顔ぶれに入れない、など。部品が sdk の isOutside・sameHousehold で見る）
  */
+const RELATIVE_KINDS: ReadonlySet<string> = new Set(["parent", "grandparent", "sibling", "child", "grandchild"]);
+
 export function readOutsideFamily(input: EngineInput): EngineInput {
   const members = input.household.members;
   const asDonor = members.filter((m) => m.outside !== undefined && (m as { readonly birth?: unknown }).birth === undefined);
   if (asDonor.length === 0) return input;
   const donors: DonorInput[] = [
     ...(input.household.donors ?? []),
-    ...asDonor.map((m): DonorInput => ({ id: m.id, kind: m.kind === "parent" || m.kind === "grandparent" ? m.kind : "other", ...(m.outside?.of !== undefined ? { of: m.outside.of } : {}) })),
+    ...asDonor.map(
+      (m): DonorInput => ({
+        id: m.id,
+        kind: m.kind === "parent" || m.kind === "grandparent" ? m.kind : "other",
+        ...(m.outside?.of !== undefined ? { of: m.outside.of } : {}),
+        // 0039: 相続人の数え方に使う（家族の種類と亡くなる見込み）。贈与の計算は読まない
+        relative: RELATIVE_KINDS.has(m.kind) ? (m.kind as NonNullable<DonorInput["relative"]>) : "other",
+        ...(m.leaves !== null ? { leaves: m.leaves } : {}),
+      }),
+    ),
   ];
   return { ...input, household: { ...input.household, members: members.filter((m) => !asDonor.includes(m)), donors } };
 }
@@ -433,6 +446,12 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     ...(h.goals ?? []).flatMap((g) => (g.education?.gifts ?? []).flatMap((x) => (x.donor !== undefined ? [x.donor] : []))),
   ];
   if (donorRefs.some((id) => !donorIds.has(id))) throw new EngineError("E_ARGUMENT", ["household.donor"]);
+  // 相続税の目安の要求が指す人は、構成員か世帯の外の家族（贈与者として読んだ人を含む。0039）
+  const it = input.inheritanceTax;
+  if (it !== undefined) {
+    const itRefs = [...(it.members ?? []), ...(it.lastSurvivor !== undefined ? [it.lastSurvivor] : []), ...(it.adopted ?? []), ...(it.heirCounts ?? []).map((x) => x.decedent), ...(it.retirementAllowances ?? []).map((x) => x.decedent), ...(it.overrides ?? []).flatMap((x) => (x.decedent !== undefined ? [x.decedent] : []))];
+    if (itRefs.some((id) => !memberIds.has(id) && !donorIds.has(id))) throw new EngineError("E_ARGUMENT", ["inheritanceTax.member"]);
+  }
   // 年金の加入の記録は構成員ごとに1件まで
   const recordMembers = (h.pensionRecords ?? []).map((r) => r.member);
   if (new Set(recordMembers).size !== recordMembers.length) throw new EngineError("E_ARGUMENT", ["household.pensionRecords.member"]);
@@ -494,8 +513,16 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     protectionRes = invoke(state, impl, { request: input.protection });
     if (sharing) collectEffects(state, protectionRes);
   }
+  // 相続税の目安（指定したときだけ。0039）: 根の部品の後に、同じ要求の中で求める（表示だけで、お金の流れには入れない）
+  let inheritanceRes: ReturnType<typeof invoke> | null = null;
+  if (input.inheritanceTax !== undefined && options.entry === undefined) {
+    const impl = assembly.impls.get(INHERITANCE_COMPONENT);
+    if (impl === undefined) throw new EngineError("E_COMPONENT_UNKNOWN", [INHERITANCE_COMPONENT]);
+    inheritanceRes = invoke(state, impl, { request: input.inheritanceTax });
+    if (sharing) collectEffects(state, inheritanceRes);
+  }
   if (batch !== undefined) {
-    const used = [rootRes.variant, protectionRes?.variant ?? null].filter((v): v is Variant => v !== null);
+    const used = [rootRes.variant, protectionRes?.variant ?? null, inheritanceRes?.variant ?? null].filter((v): v is Variant => v !== null);
     batch.lastUsed = rootRes.variant === null ? null : used;
     if (sharing) keepLane(state);
   }
@@ -613,6 +640,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     summary,
     trace: stripUndefined(trace),
     ...(protectionRes !== null ? { protection: protectionRes.output as Json } : {}),
+    ...(inheritanceRes !== null ? { inheritanceTax: inheritanceRes.output as Json } : {}),
   };
   return options.entry === undefined ? result : { ...result, entryOutput: output };
 }
@@ -951,7 +979,13 @@ function runChecked(request: unknown, packs: readonly unknown[], opts: { checkIn
       return r;
     }
     // 年ごとの行（annual）は表（table）にも入っているので、先出しでは返さない（0005 の追記（3回目の見直し）: 先出しの出力を小さく）
-    const p = { header: r.header, table: r.table, summary: r.summary, ...(r.protection !== undefined ? { protection: r.protection } : {}) };
+    const p = {
+      header: r.header,
+      table: r.table,
+      summary: r.summary,
+      ...(r.protection !== undefined ? { protection: r.protection } : {}),
+      ...(r.inheritanceTax !== undefined ? { inheritanceTax: r.inheritanceTax } : {}),
+    };
     check("engine.preview", p, "E_OUTPUT_SCHEMA");
     return p;
   } catch (e) {

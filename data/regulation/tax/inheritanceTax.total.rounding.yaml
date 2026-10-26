@@ -1,0 +1,19 @@
+id: inheritanceTax.total.rounding
+title: 相続税の総額の端数（100円未満切り捨て）
+unit: rounding
+kind: rounding
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "DOWN", "unit": 100}
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/law/tsutatsu/kihon/sisan/sozoku2/02/05.htm", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "相続税法基本通達 16-3（相続税の総額の計算の端数）", "note": "検索の要約（ページの文字の符号が読めず、本文の抜粋は取れなかった）。相続税の総額の100円未満を切り捨てて差し支えない"}
+    recordedIn: "2026.12.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "相続税法基本通達16-3（切り捨てて差し支えない）。この行は平成27年1月1日以後の相続（平成25年度の改正の後）の範囲だけを書く。それより前の期間は確かめていない"}

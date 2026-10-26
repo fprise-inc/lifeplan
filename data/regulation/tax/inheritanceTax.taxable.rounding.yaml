@@ -1,0 +1,21 @@
+id: inheritanceTax.taxable.rounding
+title: 相続税の課税価格・法定相続分に応ずる取得金額の端数（1,000円未満切り捨て）
+unit: rounding
+kind: rounding
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "DOWN", "unit": 1000}
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4152.htm", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "No.4152 相続税の計算（令和8年4月1日現在法令等）", "quote": "各法定相続人の法定相続分に応ずる取得金額（千円未満切捨て）", "note": "WebFetch で読んだ公式のページの本文の抜粋（原本の指紋は無い。原本での確認待ち）"}
+      - {"type": "web", "url": "https://www.nta.go.jp/law/tsutatsu/kihon/sisan/sozoku2/02/05.htm", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "相続税法基本通達 16-3（相続税の総額の計算の端数）", "note": "検索の要約（ページの文字の符号が読めず、本文の抜粋は取れなかった）。取得金額の1,000円未満を切り捨てて差し支えない"}
+      - {"type": "law", "lawNumber": "昭和三十七年法律第六十六号"}
+    recordedIn: "2026.12.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "課税価格は国税通則法118条1項、法定相続分に応ずる取得金額は相続税法基本通達16-3と国税庁 No.4152。この行は平成27年1月1日以後の相続（平成25年度の改正の後）の範囲だけを書く。それより前の期間は確かめていない"}

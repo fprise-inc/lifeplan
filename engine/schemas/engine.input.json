@@ -290,6 +290,58 @@
         }
       }
     },
+    "inheritanceTax": {
+      "description": "相続税の目安（0039）。指定したときだけ計算し、出力の inheritanceTax に出す。お金の流れ（キャッシュフロー表）には入れない（表示だけ）。万一の想定（死亡）のある要求ではその想定の時点、無い要求では「いま本人・配偶者が亡くなったら」と「二人とも亡くなった後（表の最後の年）」",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "points": {
+          "description": "出す時点（省略は要求に合うものすべて）: now はいま亡くなったら、bothAfter は二人とも亡くなった後、contingency は万一の想定（死亡）の時点",
+          "type": "array",
+          "items": { "enum": ["now", "bothAfter", "contingency"] }
+        },
+        "members": { "description": "「いま亡くなったら」を出す構成員（省略は本人と配偶者）", "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/uuid" } },
+        "lastSurvivor": { "description": "二人とも亡くなった後の、後に亡くなる人（省略は年下の人。同じなら配偶者）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "realEstateRatio": { "description": "不動産の評価の割合（時価に掛ける。省略は 0.8＝時価の80%の推定。事務所の既定値で上書きできる）", "$ref": "#/$defs/unitShare" },
+        "unassignedShare": { "description": "名義の無い財産（名義を入れていない預金・持ち家など）のうち、亡くなる人の分の割合（省略は夫婦なら 0.5、一人なら 1）", "$ref": "#/$defs/unitShare" },
+        "funeral": { "description": "葬式の費用（財産から引く。省略は引かない）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+        "adopted": { "description": "養子の構成員（法定相続人の数で、実子がいれば1人・いなければ2人まで数える）", "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/uuid" } },
+        "heirCounts": {
+          "description": "法定相続人の数を直す（代襲・放棄など、自動の数え方と違うとき）。亡くなる人ごと",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["decedent", "count"],
+            "properties": { "decedent": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "count": { "type": "integer", "minimum": 0, "maximum": 30 } }
+          }
+        },
+        "retirementAllowances": {
+          "description": "いま亡くなったときの死亡退職金の額（亡くなる人ごと。省略は退職給付の見込みを勤続の月数で按分した額。万一の想定の時点は想定の死亡退職金を使う）",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["decedent", "amount"],
+            "properties": { "decedent": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+          }
+        },
+        "overrides": {
+          "description": "FP が入れた額（税理士の試算など）。時点（と亡くなる人）ごとに、目安より優先する",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["point", "amount"],
+            "properties": {
+              "point": { "enum": ["now", "bothAfter", "contingency"] },
+              "decedent": { "description": "亡くなる人（省略はその時点のすべて）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+            }
+          }
+        }
+      }
+    },
     "protection": {
       "description": "6.3: 必要保障額の推移（「この年に亡くなったら」を1年ずつずらす）を求める。指定したときだけ計算し、出力の protection に出す",
       "type": "object",
@@ -784,6 +836,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "holdFrom": { "description": "持ち始める時点（相続・贈与で受け取る不動産。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い。省略は前から持っている。0039）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
             "structure": { "description": "建物の構造（省略は木造）", "enum": ["wood", "lightSteel", "steel", "rc"] },
             "builtYear": { "description": "建物が建った年（省略は取得の年。取得も無ければ時価の時点の年＝新築とみなす）", "$ref": "urn:financia:schema:common#/$defs/year" },
             "landShare": { "description": "土地の割合（0〜1。評価額と取得価額を土地と建物に分ける。省略は前提の realEstateValuation.landShare か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" },
@@ -1292,7 +1345,9 @@
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "kind": { "title": "贈与者の区分（親・祖父母は直系尊属。特例税率・住宅取得等資金の非課税の判定に使う）", "x-item": "donor.kind", "enum": ["parent", "grandparent", "other"] },
-        "of": { "title": "誰の親・祖父母か（構成員）。省略は受け取る人の親・祖父母とみなす", "x-item": "donor.of", "$ref": "urn:financia:schema:common#/$defs/uuid" }
+        "of": { "title": "誰の親・祖父母か（構成員）。省略は受け取る人の親・祖父母とみなす", "x-item": "donor.of", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "relative": { "title": "家族の種類（世帯の外の家族から作った贈与者に、構成員の kind を写す。相続人の数え方に使う。0039）", "x-item": "donor.relative", "enum": ["parent", "grandparent", "sibling", "child", "grandchild", "other"] },
+        "leaves": { "title": "亡くなる見込み（世帯の外の家族から作った贈与者に、構成員の leaves を写す。相続人の数え方に使う。0039）", "x-item": "donor.leaves", "$ref": "#/$defs/timepointOrNull" }
       }
     },
     "careExpense": {
