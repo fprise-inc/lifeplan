@@ -156,10 +156,11 @@
           "additionalProperties": false,
           "required": ["method", "basis"],
           "properties": {
-            "method": { "description": "推定の出し方: statistic（統計の値）・derived（他の値からの逆算）・officeDefault（事務所のひな形）・statementAverage（明細の月平均）・statementAnnual（明細の年1回の支払い。0034）", "enum": ["statistic", "derived", "officeDefault", "statementAverage", "statementAnnual"] },
+            "method": { "description": "推定の出し方: statistic（統計の値）・derived（他の値からの逆算）・officeDefault（事務所のひな形）・statementAverage（明細の月平均）・statementAnnual（明細の年1回の支払い。0034）・standard（標準の値・目安のボタン・仮の値。0035 の3）", "enum": ["statistic", "derived", "officeDefault", "statementAverage", "statementAnnual", "standard"] },
             "basis": { "type": "string", "minLength": 1 }
           }
-        }
+        },
+        "certainty": { "description": "0035 の3: 値の確かさ（document 書類で確認・declared 本人の申告・rough 概算）。計算には使わない", "enum": ["document", "declared", "rough"] }
       },
       "allOf": [
         { "if": { "properties": { "state": { "const": "confirmed" } } }, "then": { "required": ["value"] } },
@@ -181,6 +182,7 @@
         "origin": true,
         "approval": true,
         "estimate": true,
+        "certainty": true,
         "substitute": { "allOf": [{ "$ref": "#/$defs/boxYen" }, { "properties": { "state": { "const": "estimated" } } }] }
       },
       "additionalProperties": false
@@ -194,6 +196,7 @@
         "origin": true,
         "approval": true,
         "estimate": true,
+        "certainty": true,
         "substitute": { "allOf": [{ "$ref": "#/$defs/boxBoolean" }, { "properties": { "state": { "const": "estimated" } } }] }
       },
       "additionalProperties": false
@@ -207,9 +210,36 @@
         "origin": true,
         "approval": true,
         "estimate": true,
+        "certainty": true,
         "substitute": { "allOf": [{ "$ref": "#/$defs/boxRate" }, { "properties": { "state": { "const": "estimated" } } }] }
       },
       "additionalProperties": false
+    },
+    "valueState": {
+      "description": "0035 の3: 値の箱を持たない値の状態の1行（値の箱から value・substitute を除いた形）。わからないの行は、欄に入れた代わりの値の根拠として estimate を持つ",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "origin"],
+      "properties": {
+        "state": { "enum": ["confirmed", "unknown", "notApplicable", "estimated"] },
+        "origin": { "$ref": "#/$defs/valueBoxMeta/properties/origin" },
+        "approval": { "$ref": "#/$defs/valueBoxMeta/properties/approval" },
+        "estimate": { "$ref": "#/$defs/valueBoxMeta/properties/estimate" },
+        "certainty": { "$ref": "#/$defs/valueBoxMeta/properties/certainty" }
+      },
+      "allOf": [
+        { "if": { "properties": { "state": { "enum": ["estimated", "unknown"] } } }, "then": { "required": ["estimate"] } },
+        {
+          "if": { "properties": { "origin": { "properties": { "kind": { "enum": ["hearing", "import", "ai"] } } } } },
+          "then": { "required": ["approval"] }
+        }
+      ]
+    },
+    "valueStates": {
+      "description": "0035 の3: 値の状態の欄。鍵は「入力項目ID」か「入力項目ID/場所」（場所は 0036 の2 の at を / でつないだもの）。値の箱を持つ値は箱の中に持ち、ここには書かない。計算には使わない",
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)+(/[^/]+)*$" },
+      "additionalProperties": { "$ref": "#/$defs/valueState" }
     },
     "flow": {
       "description": "0003 の2: 支払月ごとのお金の動き1件",

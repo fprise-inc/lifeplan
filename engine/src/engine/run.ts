@@ -18,7 +18,7 @@ import { deepFreeze } from "./freeze.ts";
 import { numTable, type NumTable } from "./numTable.ts";
 import { applyInvestment } from "./investment.ts";
 import { applyContingency, applyStress } from "./overlay.ts";
-import type { AnnualRow, CalcConventions, EngineRequest, Flow } from "./types.ts";
+import type { AnnualRow, CalcConventions, DonorInput, EngineInput, EngineRequest, Flow } from "./types.ts";
 
 export interface RunOptions {
   /** 公式部品どうしの呼び出しの入出力も検査する（CI とテスト。0006 の5） */
@@ -340,10 +340,26 @@ function checkPackRequires(packs: readonly unknown[], assembly: Assembly): void 
   }
 }
 
+/**
+ * 0035 の4: 世帯ファイルの形式 0.17 では、贈与者を世帯の外の家族の構成員（`outside`。生年月・性別なし）で持つ。
+ * 世帯の外の家族の計算を入れる回までは、生年月の無い世帯の外の家族を贈与者（donors）として読み、構成員の計算には使わない
+ * （0.16 の贈与者と同じ結果）。生年月のある世帯の外の家族は、今までの構成員と同じに読む
+ */
+export function readOutsideFamily(input: EngineInput): EngineInput {
+  const members = input.household.members;
+  const asDonor = members.filter((m) => m.outside !== undefined && (m as { readonly birth?: unknown }).birth === undefined);
+  if (asDonor.length === 0) return input;
+  const donors: DonorInput[] = [
+    ...(input.household.donors ?? []),
+    ...asDonor.map((m): DonorInput => ({ id: m.id, kind: m.kind === "parent" || m.kind === "grandparent" ? m.kind : "other", ...(m.outside?.of !== undefined ? { of: m.outside.of } : {}) })),
+  ];
+  return { ...input, household: { ...input.household, members: members.filter((m) => !asDonor.includes(m)), donors } };
+}
+
 export function runEngine(request: unknown, packs: readonly unknown[], options: RunOptions = {}): EngineResult {
   check("engine.request", request, "E_INPUT_SCHEMA");
   const req = deepFreeze(request as EngineRequest);
-  const given = req.input;
+  const given = readOutsideFamily(req.input);
   const batch = options.batch;
   if (batch === undefined) checkPackSchemas(packs, options.packsChecked);
 

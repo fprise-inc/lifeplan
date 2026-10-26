@@ -9,6 +9,7 @@
   "properties": {
     "baseMonth": { "title": "計算の基準の月", "x-item": "plan.baseMonth", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
     "endYear": { "title": "表の最後の年", "x-item": "plan.endYear", "$ref": "urn:financia:schema:common#/$defs/year" },
+    "valueStates": { "description": "0035 の3: 物の外の値（表の最後の年・前提条件）の値の状態", "$ref": "urn:financia:schema:common#/$defs/valueStates" },
     "calcConventions": {
       "description": "0003 の7: 計算方式の設定",
       "type": "object",
@@ -82,6 +83,7 @@
             "additionalProperties": false,
             "required": ["year", "drop"],
             "properties": {
+              "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
               "drop": { "description": "下がる割合（0.3 は3割下がる）", "$ref": "urn:financia:schema:common#/$defs/rate" },
               "kinds": { "description": "下げる器の種類（省略は預金・外貨預金・財形・不動産・保険・小規模企業共済を除く器）", "type": "array", "items": { "$ref": "#/$defs/accountKind" } },
@@ -98,6 +100,7 @@
             "additionalProperties": false,
             "required": ["from", "add"],
             "properties": {
+              "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
               "add": { "$ref": "urn:financia:schema:common#/$defs/rate" }
             }
@@ -135,6 +138,7 @@
             "additionalProperties": false,
             "required": ["member", "from", "to", "ratio"],
             "properties": {
+              "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
               "to": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
@@ -201,6 +205,7 @@
             "additionalProperties": false,
             "required": ["from"],
             "properties": {
+              "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "from": { "$ref": "urn:financia:schema:common#/$defs/year" },
               "to": { "$ref": "urn:financia:schema:common#/$defs/year" },
               "add": { "$ref": "urn:financia:schema:common#/$defs/rate" },
@@ -224,6 +229,7 @@
                 "additionalProperties": false,
                 "required": ["from"],
                 "properties": {
+                  "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                   "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "ratio": { "$ref": "#/$defs/unitShare" },
                   "cap": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
@@ -351,7 +357,7 @@
         "retirementBenefits": { "description": "0008 の追記: 退職給付", "type": "array", "x-collection": "retirementBenefit", "x-owner": ["member"], "items": { "$ref": "#/$defs/retirementBenefit" } },
         "goals": { "description": "0008 の6: 目標", "type": "array", "x-collection": "goal", "x-owner": ["owner"], "items": { "$ref": "#/$defs/goal" } },
         "careExpenses": { "description": "6.10: 介護（本人・親）の費用。月額×期間＋一時費用", "type": "array", "x-collection": "care", "x-owner": ["member", "payer"], "items": { "$ref": "#/$defs/careExpense" } },
-        "donors": { "description": "0008 の追記（2026-10-10）: 贈与者（世帯の外の親族。親・祖父母など）。同じ贈与者からの贈与を、相続時精算課税の特別控除・暦年課税で合わせて数える", "type": "array", "x-collection": "donor", "items": { "$ref": "#/$defs/donor" } }
+        "donors": { "description": "0008 の追記（2026-10-10）: 贈与者（世帯の外の親族。親・祖父母など）。同じ贈与者からの贈与を、相続時精算課税の特別控除・暦年課税で合わせて数える。世帯ファイルの形式 0.17 からは世帯の外の家族の構成員（outside）で持ち、ここは読むだけ（エンジンは両方を読む。0035 の4）", "type": "array", "x-collection": "donor", "items": { "$ref": "#/$defs/donor" } }
       }
     },
     "timepointOrNull": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/timepoint" }] },
@@ -359,15 +365,44 @@
       "description": "0008 の3: 構成員",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "kind", "birth", "sex", "joins", "leaves", "expected"],
+      "required": ["id", "kind", "joins", "leaves", "expected"],
+      "allOf": [{ "if": { "not": { "required": ["outside"] } }, "then": { "required": ["birth", "sex"] } }],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
-        "kind": { "title": "家族の種類", "x-item": "member.kind", "enum": ["self", "spouse", "child", "parent", "grandparent", "other"] },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
+        "kind": { "title": "家族の種類", "x-item": "member.kind", "enum": ["self", "spouse", "child", "parent", "grandparent", "sibling", "grandchild", "other"] },
         "birth": { "title": "生年月と1日生まれか", "x-item": "member.birth", "$ref": "urn:financia:schema:common#/$defs/birth" },
         "sex": { "title": "性別", "x-item": "member.sex", "enum": ["female", "male"] },
         "joins": { "title": "世帯に加わる時点（null は最初から）", "x-item": "member.joins", "$ref": "#/$defs/timepointOrNull" },
         "leaves": { "title": "世帯から離れる時点（null は最後まで）", "x-item": "member.leaves", "$ref": "#/$defs/timepointOrNull" },
         "expected": { "title": "まだいない家族か（出産予定・結婚予定）", "x-item": "member.expected", "type": "boolean" },
+        "outside": {
+          "title": "世帯の外の家族（0035 の4。家計を世帯と別にする家族。生年月・性別を省ける）",
+          "x-item": "member.outside",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["periods"],
+          "properties": {
+            "of": { "description": "誰の家族か（構成員）。贈与者から作った人で元に無ければ省く（贈与を受ける人の家族と読む）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "periods": {
+              "description": "家計を1つにする期間（空なら家計はいつも別）。living は生活費の人数に入れる、income は年金・給与などの収入を世帯に入れる",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "from", "to"],
+                "properties": {
+                  "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                  "from": { "$ref": "#/$defs/timepointOrNull" },
+                  "to": { "$ref": "#/$defs/timepointOrNull" },
+                  "living": { "type": "boolean" },
+                  "income": { "type": "boolean" }
+                }
+              }
+            },
+            "employeeInsurance": { "description": "勤め先の健康保険に入っている（世帯の人をその人の扶養に入れられる）", "type": "boolean" }
+          }
+        },
         "support": {
           "title": "親・祖父母の扶養と同居",
           "x-item": "member.support",
@@ -390,6 +425,8 @@
           "additionalProperties": false,
           "required": ["type", "a", "b", "marriage", "from", "to"],
           "properties": {
+            "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
             "type": { "title": "関係の種類", "x-item": "relation.type", "const": "spouse" },
             "a": { "title": "配偶者の一方", "x-item": "relation.a", "$ref": "urn:financia:schema:common#/$defs/uuid" },
             "b": { "title": "配偶者の他方", "x-item": "relation.b", "$ref": "urn:financia:schema:common#/$defs/uuid" },
@@ -403,6 +440,8 @@
           "additionalProperties": false,
           "required": ["type", "parent", "child"],
           "properties": {
+            "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+            "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
             "type": { "x-item": "relation.type", "const": "parentOf" },
             "parent": { "title": "親", "x-item": "relation.parent", "$ref": "urn:financia:schema:common#/$defs/uuid" },
             "child": { "title": "子", "x-item": "relation.child", "$ref": "urn:financia:schema:common#/$defs/uuid" }
@@ -417,6 +456,7 @@
       "required": ["id", "kind", "at"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "kind": { "title": "イベントの種類", "x-item": "event.kind", "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" },
         "member": { "title": "イベントの構成員", "x-item": "event.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "at": { "title": "イベントの時点", "x-item": "event.at", "$ref": "urn:financia:schema:common#/$defs/timepoint" }
@@ -429,6 +469,7 @@
       "required": ["id", "member", "from", "to", "type"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "member": { "title": "働く構成員", "x-item": "employment.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "from": { "title": "期間の始まり（その月を含む）", "x-item": "employment.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
         "to": { "title": "期間の終わり（その月を含む。null は最後まで）", "x-item": "employment.to", "$ref": "#/$defs/timepointOrNull" },
@@ -608,6 +649,7 @@
       "required": ["id", "kind", "owner", "marketValue", "asOf", "contributions"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "kind": { "title": "器の種類", "x-item": "account.kind", "$ref": "#/$defs/accountKind" },
         "owner": { "title": "名義の構成員", "x-item": "account.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "marketValue": { "title": "時価", "x-item": "account.marketValue", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
@@ -636,6 +678,7 @@
             "additionalProperties": false,
             "required": ["from", "to", "monthly"],
             "properties": {
+              "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
               "to": { "$ref": "#/$defs/timepointOrNull" },
               "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
@@ -759,6 +802,7 @@
       "required": ["id", "kind", "debtors", "principal", "start", "rateSchedule", "repayment"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "kind": { "title": "負債の種類", "x-item": "debt.kind", "enum": ["mortgage", "car", "scholarship", "other"] },
         "product": { "title": "商品（flat35 は全期間固定の住宅金融支援機構の買取型。計算は固定金利と同じ）", "x-item": "debt.product", "enum": ["bank", "flat35"] },
         "debtors": {
@@ -793,6 +837,7 @@
             "additionalProperties": false,
             "required": ["from", "type", "rate"],
             "properties": {
+              "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "from": { "description": "この金利になる月（その月の返済から）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
               "type": { "enum": ["fixed", "variable", "fixedPeriod"] },
               "rate": { "description": "年利", "$ref": "urn:financia:schema:common#/$defs/rate" }
@@ -827,6 +872,7 @@
             "additionalProperties": false,
             "required": ["at", "amount", "mode"],
             "properties": {
+              "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
               "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
               "mode": { "enum": ["shortenTerm", "reducePayment"] },
@@ -893,6 +939,7 @@
       "required": ["id", "kind", "from", "to"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "kind": { "title": "住まいの種類", "x-item": "residence.kind", "enum": ["rent", "own"] },
         "from": { "title": "住み始め", "x-item": "residence.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
         "to": { "title": "住み終わり（その月まで。null は最後まで）", "x-item": "residence.to", "$ref": "#/$defs/timepointOrNull" },
@@ -923,7 +970,7 @@
             "gifts": {
               "description": "親・祖父母からの資金援助（受け取る構成員と額。贈与税は贈与の作業で扱う）",
               "type": "array",
-              "items": { "type": "object", "additionalProperties": false, "required": ["recipient", "amount"], "properties": { "recipient": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "giver": { "enum": ["parent", "grandparent", "other"] }, "donor": { "description": "贈与者（donors の ID）。同じ贈与者からの贈与を合わせて数える（省略は援助ごとに別の贈与者）", "$ref": "urn:financia:schema:common#/$defs/uuid" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }, "taxMethod": { "description": "贈与税の課税の方法（省略は暦年課税）", "enum": ["calendar", "settlement"] }, "housingExemption": { "description": "住宅取得等資金の非課税を使うか・住宅の種類（省略は使う・省エネ等住宅でない）", "enum": ["energySaving", "other", "none"] } } }
+              "items": { "type": "object", "additionalProperties": false, "required": ["recipient", "amount"], "properties": { "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" }, "recipient": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "giver": { "enum": ["parent", "grandparent", "other"] }, "donor": { "description": "贈与者（donors の ID）。同じ贈与者からの贈与を合わせて数える（省略は援助ごとに別の贈与者）", "$ref": "urn:financia:schema:common#/$defs/uuid" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }, "taxMethod": { "description": "贈与税の課税の方法（省略は暦年課税）", "enum": ["calendar", "settlement"] }, "housingExemption": { "description": "住宅取得等資金の非課税を使うか・住宅の種類（省略は使う・省エネ等住宅でない）", "enum": ["energySaving", "other", "none"] } } }
             }
           }
         },
@@ -981,6 +1028,7 @@
       "required": ["id", "template", "policyholder", "insured", "contractDate", "currency", "premium", "deductionCategory"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "template": { "title": "保険の種類のひな形", "x-item": "insurance.template", "type": "string", "pattern": "^insurance\\.[a-z][a-zA-Z0-9]*$" },
         "policyholder": { "title": "契約者", "x-item": "insurance.policyholder", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "insured": { "title": "被保険者", "x-item": "insurance.insured", "$ref": "urn:financia:schema:common#/$defs/uuid" },
@@ -1024,7 +1072,7 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["at", "premium"],
-            "properties": { "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }, "premium": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+            "properties": { "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" }, "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }, "premium": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
           }
         },
         "coverages": {
@@ -1198,6 +1246,7 @@
       "required": ["id", "member", "from"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "member": { "title": "介護を受ける構成員（本人・親など）", "x-item": "care.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "payer": { "title": "払う構成員（省略は介護を受ける人）", "x-item": "care.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "from": { "title": "始まり", "x-item": "care.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
@@ -1217,6 +1266,7 @@
       "required": ["id", "member", "kind", "asOf"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "member": { "title": "加入者", "x-item": "pensionRecord.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "kind": { "title": "記録の型", "x-item": "pensionRecord.kind", "enum": ["statementUnder50", "statementOver50", "receiving", "history", "projection"] },
         "asOf": { "title": "記録の時点（定期便の作成の月・通知の年月・加入歴の終わりの月）。この月より後はエンジンが働き方の期間から足す", "x-item": "pensionRecord.asOf", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
@@ -1306,6 +1356,7 @@
       "required": ["id", "member", "kind", "fiscalYear", "amount"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "member": { "title": "納める構成員（国民健康保険は世帯主）", "x-item": "premiumAssessment.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "kind": { "title": "保険料の種類", "x-item": "premiumAssessment.kind", "enum": ["nationalHealth", "lateElderly", "careFirst"] },
         "fiscalYear": { "title": "年度", "x-item": "premiumAssessment.fiscalYear", "$ref": "urn:financia:schema:common#/$defs/year" },
@@ -1318,6 +1369,7 @@
       "required": ["id", "kind"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "kind": { "title": "保険料の種類", "x-item": "premiumRate.kind", "enum": ["nationalHealth", "lateElderly", "careFirst"] },
         "fromFiscalYear": { "title": "この年度から（省略は最初から）", "x-item": "premiumRate.fromFiscalYear", "$ref": "urn:financia:schema:common#/$defs/year" },
         "parts": {
@@ -1344,6 +1396,7 @@
       "required": ["id", "member", "fiscalYear", "amount"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "member": { "title": "納税する構成員", "x-item": "residentTaxAssessment.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "fiscalYear": { "title": "年度", "x-item": "residentTaxAssessment.fiscalYear", "$ref": "urn:financia:schema:common#/$defs/year" },
         "amount": { "title": "住民税の年税額（森林環境税を含む）", "x-item": "residentTaxAssessment.amount", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
@@ -1382,6 +1435,7 @@
       "required": ["id", "mode"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "mode": { "title": "入れ方（総額／費目別）", "x-item": "livingExpense.mode", "enum": ["total", "byCategory"] },
         "from": { "title": "始まり（省略は計算基準月）", "x-item": "livingExpense.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
         "to": { "title": "終わり（その月まで。null・省略は最後まで）", "x-item": "livingExpense.to", "$ref": "#/$defs/timepointOrNull" },
@@ -1394,7 +1448,7 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["category", "monthly"],
-            "properties": { "category": { "$ref": "#/$defs/livingCategory" }, "monthly": { "$ref": "urn:financia:schema:common#/$defs/boxYen" } }
+            "properties": { "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" }, "category": { "$ref": "#/$defs/livingCategory" }, "monthly": { "$ref": "urn:financia:schema:common#/$defs/boxYen" } }
           }
         },
         "growth": { "title": "伸び方（省略は前提の物価上昇率）", "x-item": "livingExpense.growth", "$ref": "#/$defs/growth" },
@@ -1407,6 +1461,7 @@
             "additionalProperties": false,
             "required": ["at"],
             "properties": {
+              "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
               "label": { "enum": ["childIndependence", "retirement", "age70", "age80", "other"] },
               "ratio": { "$ref": "urn:financia:schema:common#/$defs/rate" },
@@ -1424,6 +1479,7 @@
       "required": ["id", "row", "from", "everyYears", "amount"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "label": { "title": "見出し（表示用）", "x-item": "periodicExpense.label", "type": "string", "maxLength": 80 },
         "row": {
           "title": "載せる行",
@@ -1454,6 +1510,7 @@
       "required": ["id", "owner", "purchase"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "owner": { "title": "名義（構成員）", "x-item": "car.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "purchase": {
           "title": "買い替え（最初の購入の月・周期・車両の価格・下取り）",
@@ -1551,7 +1608,7 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["at", "amount"],
-            "properties": { "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+            "properties": { "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" }, "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
           }
         },
         "recurring": {
@@ -1577,6 +1634,7 @@
                     "additionalProperties": false,
                     "required": ["at"],
                     "properties": {
+                      "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                       "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                       "annual": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                       "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
@@ -1597,6 +1655,7 @@
       "required": ["id", "payer"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "payer": { "title": "払う構成員（個人が払う分は所得から差し引かない）", "x-item": "advisoryFee.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "enabled": { "title": "この案で計算に入れるか（省略は入れる。案ごとに ON/OFF）", "x-item": "advisoryFee.enabled", "type": "boolean" },
         "menu": {
@@ -1626,6 +1685,7 @@
       "required": ["id", "year", "actualSavings", "treatment"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "year": { "title": "検算する年（計算基準年以後）", "x-item": "savingsCheck.year", "$ref": "urn:financia:schema:common#/$defs/year" },
         "actualSavings": { "title": "実際の年間の貯蓄額（その年の12か月分）", "x-item": "savingsCheck.actualSavings", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "treatment": { "title": "差（使途不明金）の扱い", "x-item": "savingsCheck.treatment", "enum": ["addToLiving", "keepUnexplained"] },
@@ -1639,6 +1699,7 @@
       "required": ["id", "member", "kind"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "member": { "title": "受け取る構成員", "x-item": "retirementBenefit.member", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "kind": {
           "title": "種類",
@@ -1747,6 +1808,7 @@
       "required": ["id", "kind", "owner"],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "kind": { "title": "目標の種類（この版は education だけを計算する）", "x-item": "goal.kind", "enum": ["education", "housing", "retirement", "other"] },
         "owner": { "title": "目標の構成員（教育は子）", "x-item": "goal.owner", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "education": {
@@ -1763,6 +1825,7 @@
                 "additionalProperties": false,
                 "required": ["stage"],
                 "properties": {
+                  "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                   "stage": { "enum": ["nursery", "kindergarten", "elementary", "juniorHigh", "highSchool", "university", "juniorCollege", "vocational"] },
                   "sector": { "enum": ["public", "national", "private"], "description": "公立・国立・私立（保育所は使わない）" },
                   "field": { "enum": ["humanities", "science", "medical", "other"], "description": "大学の系統（文科系・理科系・医歯系・その他）" },
@@ -1818,6 +1881,7 @@
                 "additionalProperties": false,
                 "required": ["from", "to", "monthly"],
                 "properties": {
+                  "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                   "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "to": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
@@ -1833,6 +1897,7 @@
                 "additionalProperties": false,
                 "required": ["monthly", "from", "to", "rate", "termMonths"],
                 "properties": {
+                  "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                   "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "to": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
@@ -1851,6 +1916,7 @@
                 "additionalProperties": false,
                 "required": ["at", "amount", "rate", "termMonths", "borrower"],
                 "properties": {
+                  "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                   "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" },
@@ -1867,6 +1933,7 @@
                 "additionalProperties": false,
                 "required": ["at", "amount", "purpose"],
                 "properties": {
+                  "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
                   "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "purpose": { "enum": ["wedding", "housing", "other"] },

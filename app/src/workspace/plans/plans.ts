@@ -21,7 +21,10 @@ interface ValueBox {
   origin: { kind: "manual" };
 }
 
-/** 差分（0008 の5 の共通の形）。key は画面の側の「動かす項目」のキーで、当て方を決める */
+/**
+ * 差分（0008 の5 の共通の形）。key は画面の側の「動かす項目」のキーで、当て方を決める。
+ * 世帯ファイル（形式 0.17）には、key ではなく当て先（向き先＋入力項目ID＋場所。0036）で書く（store/format017.ts が読み替える）
+ */
 export interface PlanDiff {
   id: string;
   key: string;
@@ -37,6 +40,10 @@ export interface PlanDiff {
   /** 外から来た値（AI）は、FP が承認した記録を持つ（0008 の2） */
   approval?: { by: "fp"; at: string; candidate: string };
   note: string | null;
+  /** 形式 0.16 から読み替えた差分の、もとの手がかり（世帯ファイルに書き戻す。0036 の4） */
+  legacy?: { key: string; target: unknown; item: unknown };
+  /** 世帯ファイルの差分のうち、動かす項目のキーに戻せないもの（足す・外すなど）。当てずに、読んだ形のまま書き戻す（store/format017.ts） */
+  stored?: unknown;
 }
 
 /** 差分の出どころ。`ai` の `ref` は候補の ID、`connector` は AI のアプリが名乗った名前（自己申告） */

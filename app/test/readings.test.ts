@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { READING_ENTRIES } from "../src/generated/readings.ts";
 import { REPO_DIR } from "../scripts/lib.ts";
-import { matchKey, migrationId, readAt, resolveAssumedKey, resolveKey, sha256, unbox, type AtStep, type Reading, type ReadingEntry } from "../src/workspace/store/readings.ts";
+import { keyOf, matchKey, migrationId, readAt, resolveAssumedKey, resolveKey, sha256, unbox, type AtStep, type Reading, type ReadingEntry } from "../src/workspace/store/readings.ts";
 
 const FROZEN = join(REPO_DIR, "crates", "household-store", "tests", "fixtures", "readings", "0.16");
 const FORMAT = join(REPO_DIR, "crates", "household-store", "tests", "fixtures", "household-format");
@@ -52,8 +52,8 @@ describe("読み替え表と凍結した見本（0035 の9・12）", () => {
     }
     const id = migrationId("3f2b8c1e-9a4d-4e7b-8c21-5d0f6a9b7e10/rateSchedule/0");
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-    // 本体の変換の段も同じ ID を作る（同じ値を本体のテストでも確かめる）
-    expect(id).toBe(migrationId("3f2b8c1e-9a4d-4e7b-8c21-5d0f6a9b7e10/rateSchedule/0"));
+    // 本体の変換の段も同じ ID を作る（同じ固定の値を本体のテスト crates/household-store/tests/readings.rs でも確かめる）
+    expect(id).toBe("7c511b6c-4f38-4475-ac92-7c43676cfba5");
     expect(id).not.toBe(migrationId("3f2b8c1e-9a4d-4e7b-8c21-5d0f6a9b7e10/rateSchedule/1"));
     const digest = createHash("sha256").update("lifeplan.migrate.0.17:3f2b8c1e-9a4d-4e7b-8c21-5d0f6a9b7e10/rateSchedule/0", "utf8").digest();
     const b = Buffer.from(digest.subarray(0, 16));
@@ -92,6 +92,21 @@ describe("読み替え表と凍結した見本（0035 の9・12）", () => {
     }
     // 表の行はどれも、凍結した見本で確かめてある
     expect(READING_ENTRIES.map((e) => e.from).filter((f) => !used.has(f))).toEqual([]);
+  });
+
+  it.runIf(existsSync(join(FROZEN, "records.json")))("当て先・合成の対策から鍵へ戻せ、戻した鍵を読み直すと同じ当て先になる（形式 0.17 の世帯ファイルを画面の鍵で読むため）", () => {
+    const inputs = new Map<string, Json>();
+    for (const r of readFrozen()) {
+      if (r.reading.kind === "unresolved") continue;
+      const input = inputs.get(r.household) ?? frozenInput(r.household);
+      inputs.set(r.household, input);
+      const assumed = r.key.startsWith("assumed:");
+      const key = keyOf(r.reading, input, assumed ? "assumed" : "item");
+      expect(key, `${r.household} ${r.key}`).not.toBeNull();
+      const back = assumed ? resolveAssumedKey(key as string, input) : resolveKey(key as string, input);
+      if (r.reading.kind === "address") expect(back?.kind === "address" ? back.address : back, `${r.household} ${r.key}`).toEqual(r.reading.address);
+      else expect(back, `${r.household} ${r.key}`).toEqual(r.reading);
+    }
   });
 
   it.runIf(process.env.WRITE_READINGS !== undefined)("0.16 の欄の定義から、読み替え表と凍結した見本を作る", async () => {

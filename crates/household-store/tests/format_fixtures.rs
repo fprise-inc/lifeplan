@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use household_store::container::{self, HouseholdHeader};
 use household_store::{crypto, migrate};
+use serde_json::Value;
 
 fn base() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -279,6 +280,71 @@ fn every_format_version_has_a_fixture_and_opens() {
                 migrate::parse(v).unwrap() < (0, 14),
                 "{v}: 0.14 の見本には明細の取り込みの記録がある"
             );
+        }
+        // 0.17 から（0035・0036）: 贈与者は世帯の外の家族の構成員に、親・祖父母は世帯の外の家族の印を持ち、差分は当て先の形で、
+        // 関係などの並びの要素は ID を持つ（古い版の見本は変換の段で）
+        let hh = &now["household"]["request"]["input"]["household"];
+        assert!(
+            hh.get("donors").is_none(),
+            "{v}: 贈与者は世帯の外の家族の構成員にする"
+        );
+        for m in hh["members"].as_array().unwrap() {
+            if matches!(m["kind"].as_str(), Some("parent" | "grandparent")) {
+                assert!(m["outside"].is_object(), "{v}: 親・祖父母は世帯の外の家族");
+            }
+        }
+        for r in hh["relations"].as_array().unwrap() {
+            assert!(r["id"].is_string(), "{v}: 関係は ID を持つ");
+        }
+        for p in now["proposals"].as_array().unwrap() {
+            for d in p["diffs"].as_array().into_iter().flatten() {
+                assert!(
+                    d.get("key").is_none(),
+                    "{v}: 差分に動かす項目のキーを書かない"
+                );
+                assert!(matches!(d["op"].as_str(), Some("set" | "add" | "remove")));
+            }
+        }
+        assert!(
+            !now["workspace"]["shownItems"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(Value::is_string),
+            "{v}: 対策に足した項目は当て先で持つ"
+        );
+        if *v == "0.17" {
+            // 0.17 の見本は、画面の中の形では作れない形も持つ（0035 の12）
+            let spouses = hh["relations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|r| r["type"] == "spouse")
+                .count();
+            assert_eq!(spouses, 2, "期間を分けた2本の配偶者の関係");
+            assert!(hh["members"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|m| m["kind"] == "sibling" && m["outside"]["periods"][0]["living"] == true));
+            assert!(hh["members"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|m| m["outside"].is_object() && m.get("birth").is_none()));
+            assert_eq!(
+                hh["debts"][0]["valueStates"]["debt.principal"]["state"],
+                "unknown"
+            );
+            assert_eq!(now["household"]["notices"][0]["kind"], "outsideFamily");
+            let ops: Vec<&str> = now["proposals"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|p| p["diffs"].as_array().unwrap().iter())
+                .filter_map(|d| d["op"].as_str())
+                .collect();
+            assert!(ops.contains(&"add") && ops.contains(&"remove"));
         }
         // 鍵が違えば開かない
         let mut wrong = key;
