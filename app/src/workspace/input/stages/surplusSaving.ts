@@ -9,6 +9,8 @@ import { applyPreset, presetOf, presetPoints, PRESET_RATIOS, setSurplus, surplus
 import { field, resolveTimepoint, type ActionDef, type FieldDef, type GroupDef, type SectionDef } from "../form.ts";
 import type { WorkingHousehold } from "../household.ts";
 import { readLine } from "../readLines.ts";
+import { memberLabel } from "../labels.ts";
+import { accountName, settlementOf } from "../savings/model.ts";
 
 const ITEM = "assumptions.surplusSaving";
 /** 期間を変える組の数の上限 */
@@ -144,6 +146,13 @@ function nextChange(wh: WorkingHousehold): { from: Timepoint; ratio: string } | 
   return { from: { memberAge: { member: self.id, years: age, months: 0 } }, ratio: "0.8" };
 }
 
+/** 黒字の行き先（貯蓄・運用のカードの「収支が入る口座」） */
+function destinationText(wh: WorkingHousehold): string {
+  const h = wh.request.input.household;
+  const a = settlementOf(h);
+  return a === undefined ? "収支が入る口座（預金）" : `収支が入る口座: ${accountName(a, memberLabel(wh, a.owner))}`;
+}
+
 /** 「毎年の黒字のうち、貯金に回る割合」の区画 */
 export function surplusSection(wh: WorkingHousehold): SectionDef {
   const req = wh.request;
@@ -208,7 +217,7 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
           return withReq(w, setSurplus(w.request, v === null ? rest : { ...rest, cap: Number(v) }));
         },
       }),
-      readLine("living/surplus/destination", "黒字の行き先", "決済口座（預金）", "貯蓄・運用"),
+      readLine("living/surplus/destination", "黒字の行き先", destinationText(wh), "貯蓄・運用"),
     ],
     actions: [],
   };

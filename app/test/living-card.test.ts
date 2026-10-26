@@ -346,7 +346,9 @@ describe("区画（0048 の3〜5）", () => {
     const wh = family();
     const fields = allFields(stage(wh));
     expect(fields.find((f) => f.key === "living/surplus/cap")!.level).toBe("detail");
-    expect(fields.find((f) => f.key === "ro/living/surplus/destination")!.readOnly).toBeDefined();
+    const dest = fields.find((f) => f.key === "ro/living/surplus/destination")!;
+    expect(dest.readOnly).toBeDefined();
+    expect(dest.get(wh).value).toContain("収支が入る口座");
     const l = living(wh);
     expect(fields.find((f) => f.key === `ro/living/${l.id}/survivor`)!.get(wh).value).toContain("70%");
     for (const f of fields.filter((x) => x.key.startsWith(`living/${l.id}`) && x.readOnly === undefined)) expect(f.address, f.key).toBeDefined();
