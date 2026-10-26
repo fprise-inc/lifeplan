@@ -461,6 +461,11 @@ export function changesOf(list: readonly Proposal[], id: string, wh: WorkingHous
     }
     const now = it.read(w);
     const v = unbox(diff.value) as ItemValue;
+    // 当てられなかった差分（指す物・要素を土台のプランで外したなど。0036 の7）は、一覧にある項目でもその要確認を出す
+    if (rv.state !== "ok" && rv.state !== "changed") {
+      out.push({ key: k, label: it.label, from: it.text(now), to: it.text(v), inherited, state: rv.state, reviewNote: rv.note });
+      continue;
+    }
     const changed = !it.same(unbox(diff.before) as ItemValue, now);
     out.push({
       key: k,
