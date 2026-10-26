@@ -32,6 +32,7 @@ import {
   type CardLayout,
   type InputItem,
 } from "../src/workspace/input/items.ts";
+import { addExpense, addIncome, addInheritedDebt, expenseCard, incomeCard, kindsOf } from "../src/workspace/input/moneyRows.ts";
 import { STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
 import { fromBody } from "../src/workspace/store/body.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
@@ -177,6 +178,36 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     for (const f of ro) expect(f.set(wh, "x")).toBe(wh);
     const edu = open("educationTwoKids");
     expect(allFields(itemStage(edu, "inheritance") as StageDef).some((f) => f.readOnly === "子ども・教育のカードで入れます")).toBe(true);
+  });
+
+  it("介護・親（仕送り・援助）と相続・贈与（受け取る予定・あげる贈与・受け継ぐ借金）のお金の行は、それぞれのカードの区画に出す（ライフイベントには出さない）", () => {
+    let wh = open("parentCare");
+    for (const card of ["care", "inherit"] as const) {
+      const k = kindsOf(card);
+      for (const x of k.incomes) wh = addIncome(wh, x.kind);
+      for (const x of k.outs) wh = addExpense(wh, x.kind);
+    }
+    wh = addInheritedDebt(wh);
+    const h0 = wh.request.input.household;
+    const stageId = (c: string) => (c === "inherit" ? "inheritance" : c);
+    for (const f of h0.incomeFlows ?? []) {
+      const c = incomeCard(f);
+      if (c !== "care" && c !== "inherit") continue;
+      expect(editableKeys(wh, stageId(c)).some((k) => k.startsWith(`in/${f.id}/`)), f.kind).toBe(true);
+      expect(editableKeys(wh, "events").some((k) => k.startsWith(`in/${f.id}/`)), f.kind).toBe(false);
+    }
+    for (const p of h0.periodicExpenses ?? []) {
+      const c = expenseCard(h0, p);
+      if (c !== "care" && c !== "inherit") continue;
+      expect(groupKeys(wh, stageId(c)), String(p.kind)).toContain(`ev/${p.id}`);
+      expect(groupKeys(wh, "events"), String(p.kind)).not.toContain(`ev/${p.id}`);
+    }
+    const debt = h0.debts!.find((d) => d.inheritedFrom !== undefined)!;
+    expect(groupKeys(wh, "inheritance")).toContain(`inherit/debt/${debt.id}`);
+    const acts = (itemStage(wh, "inheritance") as StageDef).sections.flatMap((s) => s.actions.map((x) => x.key));
+    expect(acts).toEqual(expect.arrayContaining(["money/inherit/addDebt", "money/inherit/addGrandchild"]));
+    expect((itemStage(wh, "events") as StageDef).sections.map((s) => s.key)).toEqual(["ev/periodic", "money/events/in"]);
+    expect(byId(inputItems(wh), "inheritance").summary?.unit).toMatch(/受け取る予定/);
   });
 
   it("読むだけの1行は、確かめの一覧・プランの動かす項目に出ない", () => {

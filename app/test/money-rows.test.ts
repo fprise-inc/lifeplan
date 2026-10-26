@@ -28,7 +28,8 @@ const withRows = (req: EngineRequest, o: { incomes?: IncomeFlow[]; expenses?: Pe
 };
 const base = () => modelHousehold("dualNoKids");
 /** お金の行の区画を置くカード（介護・親と相続・贈与はライフイベントの区画） */
-const stageOf = (c: MoneyCard): StageId => (c === "care" || c === "inherit" ? "events" : c);
+// 介護・親・相続・贈与の行は、それぞれのカード（0045）
+const stageOf = (c: MoneyCard): StageId => (c === "inherit" ? "inheritance" : c);
 
 describe("基本の計算に入れない物（0035 の7・0036 の6）", () => {
   it("見込みが不確かな受け取る相続・遺贈・贈与だけを外す（includeInBase で入れる。ほかの種類は不確かでも入れる）。世帯のデータは変えない", () => {
@@ -189,7 +190,7 @@ describe("プランで足す・外す・基本の計算に入れる（0036）", 
     const { wh, cat } = setup(withRows(base(), { incomes: [income(1, { likelihood: "uncertain" })] }));
     expect(forEngine(wh.request).input.household.incomeFlows).toEqual([]);
     const view = planView(wh, cat, "B");
-    const f = allFields(buildStage("events", view)).find((x) => x.key === `in/${id(1)}/includeInBase`) as FieldDef;
+    const f = allFields(buildStage("inheritance", view)).find((x) => x.key === `in/${id(1)}/includeInBase`) as FieldDef;
     const w = recordPlanEdit(wh, cat, "B", view, f.set(view, true));
     const d = w.proposals[0]!.diffs;
     expect(d.map((x) => [x.op, x.item, x.at])).toEqual([["set", "incomeFlow.includeInBase", []]]);
