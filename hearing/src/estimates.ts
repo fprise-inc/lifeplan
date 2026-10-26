@@ -375,3 +375,77 @@ export function retirementLumpSumEstimate(o: { reason: RetirementReason; yearsOf
   const v = Array.isArray(table) ? bracketStep(table as readonly BracketStep[], o.yearsOfService)?.amount : undefined;
   return v === undefined ? null : { value: v, basis: `${titleOf(id)}・勤続${String(o.yearsOfService)}年${pendingOf(id)}` };
 }
+
+// ---- 介護・親 ----
+
+const LIFE_ID = (sex: "male" | "female") => `lifeTable.lifeExpectancy.${sex}`;
+
+/**
+ * 平均余命（年。小数）。簡易生命表の主な年齢の平均余命を、段の年齢の間は直線で補う（計算エンジンの必要保障額と同じ読み方）。
+ * 性別が分からないときは男女の平均。値が無ければ null
+ */
+export function lifeExpectancy(age: number, sex: string | undefined): Estimate | null {
+  const one = (s: "male" | "female"): number | null => {
+    const table = masterValue(LIFE_ID(s))?.value;
+    if (!Array.isArray(table)) return null;
+    const steps = (table as readonly BracketStep[]).filter((x): x is BracketStep & { upTo: number; rate: string } => x.upTo !== null && x.rate !== undefined);
+    const first = steps[0];
+    const last = steps.at(-1);
+    if (first === undefined || last === undefined) return null;
+    if (age <= first.upTo) return Number(first.rate);
+    if (age >= last.upTo) return Number(last.rate);
+    for (let i = 1; i < steps.length; i++) {
+      const a = steps[i - 1] as (typeof steps)[number];
+      const b = steps[i] as (typeof steps)[number];
+      if (age <= b.upTo) return Number(a.rate) + ((Number(b.rate) - Number(a.rate)) * (age - a.upTo)) / (b.upTo - a.upTo);
+    }
+    return null;
+  };
+  const sexes: ("male" | "female")[] = sex === "male" || sex === "female" ? [sex] : ["male", "female"];
+  const vals = sexes.map(one);
+  if (vals.some((v) => v === null)) return null;
+  const value = (vals as number[]).reduce((s, v) => s + v, 0) / vals.length;
+  const id = LIFE_ID(sexes[0] as "male" | "female");
+  return { value, basis: `厚生労働省「簡易生命表」の${String(age)}歳の平均余命${sexes.length === 2 ? "（男女の平均）" : sex === "female" ? "（女）" : "（男）"}${pendingOf(id)}` };
+}
+
+/** 介護の費用の統計の目安（期間・月額・一時費用）。生命保険文化センター「生命保険に関する全国実態調査」 */
+export function careEstimate(place: "home" | "facility"): { months: number; monthly: number; initial: number; basis: string } | null {
+  const months = masterAmount("care.statistics.months");
+  const monthly = masterAmount(place === "facility" ? "care.statistics.monthlyFacility" : "care.statistics.monthlyHome");
+  const initial = masterAmount("care.statistics.initial");
+  if (months === null || monthly === null || initial === null) return null;
+  const ids = ["care.statistics.months", place === "facility" ? "care.statistics.monthlyFacility" : "care.statistics.monthlyHome", "care.statistics.initial"];
+  const pending = ids.some((id) => pendingOf(id) !== "") ? PENDING : "";
+  return { months, monthly, initial, basis: `生命保険文化センター「生命保険に関する全国実態調査」2024年度の平均（${place === "facility" ? "施設" : "在宅"}）${pending}` };
+}
+
+/** 親の扶養の境目（目安）。age はその年の年齢、date はその日（制度の値を選ぶ） */
+export interface DependentLimits {
+  /** 税の扶養（扶養控除）: 合計所得金額の上限（以下） */
+  taxIncome: number;
+  /** 税の扶養: 公的年金だけの人の年金の年額の上限（以下。公的年金等控除の最低額を足した額） */
+  taxPension: number;
+  /** 健康保険の扶養: 年収の基準（未満）。後期高齢者医療の年齢からは入れない（null） */
+  health: number | null;
+  /** 健康保険の扶養に入れなくなる年齢（後期高齢者医療） */
+  lateElderlyAge: number;
+}
+
+export function dependentLimits(age: number, date: string): DependentLimits | null {
+  const num = (id: string): number | null => {
+    const v = regulationValue(id, date);
+    return typeof v === "number" ? v : null;
+  };
+  const taxIncome = num("incomeTax.dependentIncomeLimit");
+  const elderAge = num("incomeTax.publicPensionDeduction.elderlyAge");
+  const lateAge = num("socialInsurance.health.lateElderlyAge");
+  const healthAge = num("socialInsurance.dependent.elderlyAge");
+  const limit = num("socialInsurance.dependent.incomeLimit");
+  const limitElder = num("socialInsurance.dependent.incomeLimitElderly");
+  if (taxIncome === null || elderAge === null || lateAge === null || healthAge === null || limit === null || limitElder === null) return null;
+  const table = regulationValue(age >= elderAge ? "incomeTax.publicPensionDeduction.over65.tier1" : "incomeTax.publicPensionDeduction.under65.tier1", date);
+  const minDeduction = Array.isArray(table) ? (table as readonly BracketStep[])[0]?.amount : undefined;
+  if (minDeduction === undefined) return null;
+  return { taxIncome, taxPension: taxIncome + minDeduction, health: age >= lateAge ? null : age >= healthAge ? limitElder : limit, lateElderlyAge: lateAge };
+}

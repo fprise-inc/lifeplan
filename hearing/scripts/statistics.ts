@@ -12,7 +12,9 @@ const REPO = join(import.meta.dirname, "..", "..");
 const TARGET = join(import.meta.dirname, "..", "src", "statistics.generated.ts");
 
 /** マスタデータのうち、推定の目安に使うパック（フォルダの値をすべて写す） */
-const MASTER_PACKS = ["wageStats", "retirementBenefit", "living.statistics", "education.statistics"];
+const MASTER_PACKS = ["wageStats", "retirementBenefit", "living.statistics", "education.statistics", "care.statistics"];
+/** マスタデータのうち、条件（性別など）ごとの行を写す値（id に「.<条件の値>」を付けて写す。例: lifeTable.lifeExpectancy.male） */
+const CONDITIONED_MASTER: readonly [string, string, string][] = [["lifeTable", "lifeTable.lifeExpectancy", "sex"]];
 /** 制度データのうち、推定の目安の式と入力の画面の知らせ（退職所得の控除の重なりの年数など）に使う値（適用期間ごとの行を写す） */
 const REGULATION_VALUES: readonly [string, string][] = [
   ["tax", "incomeTax.employmentIncomeDeduction"],
@@ -26,6 +28,15 @@ const REGULATION_VALUES: readonly [string, string][] = [
   ["tax", "forestEnvironmentTax.amount"],
   ["socialInsurance", "socialInsurance.health.standardMonthlyRemuneration"],
   ["socialInsurance", "socialInsurance.pension.standardMonthlyRemuneration"],
+  // 親の扶養の境目（介護・親のカードの1行）
+  ["socialInsurance", "socialInsurance.dependent.incomeLimit"],
+  ["socialInsurance", "socialInsurance.dependent.incomeLimitElderly"],
+  ["socialInsurance", "socialInsurance.dependent.elderlyAge"],
+  ["socialInsurance", "socialInsurance.health.lateElderlyAge"],
+  ["tax", "incomeTax.dependentIncomeLimit"],
+  ["tax", "incomeTax.publicPensionDeduction.over65.tier1"],
+  ["tax", "incomeTax.publicPensionDeduction.under65.tier1"],
+  ["tax", "incomeTax.publicPensionDeduction.elderlyAge"],
 ];
 /** 保険者（協会けんぽの支部）ごとの行を写す制度データの値（管轄 insurer の行。code を持たせる） */
 const INSURER_VALUES: readonly [string, string][] = [["socialInsurance", "socialInsurance.health.kyokaikenpo.rate"]];
@@ -63,6 +74,21 @@ function build(): string {
       };
     }
   }
+  for (const [pack, id, key] of CONDITIONED_MASTER) {
+    const v = readValue(join(REPO, "data", "master", pack, `${id}.yaml`));
+    const live = (v.entries as Obj[]).filter((e) => e.status === "enacted" && e.supersededIn === null && e.jurisdiction === "national");
+    const byValue = new Map<string, Obj>();
+    for (const e of live) {
+      const conds = e.conditions as Obj[];
+      if (conds.length !== 1 || conds[0]?.key !== key) continue;
+      const cur = byValue.get(String(conds[0].equals));
+      if (cur === undefined || (cur.appliesFrom as string) <= (e.appliesFrom as string)) byValue.set(String(conds[0].equals), e);
+    }
+    for (const [val, e] of [...byValue].sort(([a], [b]) => (a < b ? -1 : 1))) {
+      const sources = e.sources as Obj[];
+      master[`${id}.${val}`] = { title: v.title, value: e.value, rev: e.rev, reviewed: (e.approval as Obj | undefined)?.method === "reviewed", retrievedAt: sources[0]?.retrievedAt ?? null };
+    }
+  }
   const regulation: Record<string, unknown> = {};
   for (const [area, id] of REGULATION_VALUES) {
     const path = join(REPO, "data", "regulation", area, `${id}.yaml`);
@@ -79,7 +105,7 @@ function build(): string {
   }
   return [
     "// 自動生成（hearing/scripts/statistics.ts。npm run statistics）。手で書き換えない。",
-    "// 正本は data/master（wageStats・retirementBenefit・living.statistics・education.statistics）と data/regulation の YAML（0007）。推定の目安の数の写し",
+    "// 正本は data/master（wageStats・retirementBenefit・living.statistics・education.statistics・care.statistics・lifeTable）と data/regulation の YAML（0007）。推定の目安の数の写し",
     'import type { DatedValue, MasterValue } from "./statistics.ts";',
     "",
     `export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = ${JSON.stringify(master, null, 1)};`,

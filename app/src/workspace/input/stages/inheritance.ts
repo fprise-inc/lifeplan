@@ -6,12 +6,12 @@
 import type { Household } from "../../../engine/types.ts";
 import { resolveTimepoint, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import type { WorkingHousehold } from "../household.ts";
-import { GIFT_PURPOSES, memberLabel } from "../labels.ts";
+import { donorLabel, GIFT_PURPOSES, memberLabel } from "../labels.ts";
 import { manYen, readGroup, readLine } from "../readLines.ts";
 import { formatYearMonth } from "../units.ts";
 import { addInheritedDebt, addOutsideGrandchild, inheritedDebtGroups, moneySections } from "../moneyRows.ts";
 import { NONE_CLAIMED } from "./events.ts";
-import { addDonorActions, donorGroups } from "./family.ts";
+import { addDonorActions } from "./family.ts";
 
 const purposeText = (p: string) => GIFT_PURPOSES.find((o) => o.value === p)?.label ?? "援助";
 const whenText = (h: Household, at: Parameters<typeof resolveTimepoint>[1]) => {
@@ -38,6 +38,17 @@ export function giftLines(wh: WorkingHousehold): { receive: FieldDef[]; give: Fi
       receive.push(readLine(`inherit/housing/${r.id}/${i}`, `住宅資金の援助（${memberLabel(wh, g.recipient)}が受け取る）`, `${manYen(g.amount)}${r.purchase !== undefined ? whenText(h, r.purchase.at) : ""}`, "住まい・ローン"));
     });
   return { receive, give };
+}
+
+/** 贈与する人（物と欄は介護・親のカードの世帯の外の家族。ここは読むだけの1行）と、世帯の外の家族のうち贈与の相手・相続人になりうる人 */
+export function donorLines(wh: WorkingHousehold): FieldDef[] {
+  const h = wh.request.input.household;
+  return (h.donors ?? []).map((d) => {
+    let used = 0;
+    for (const r of h.residences ?? []) for (const g of r.purchase?.gifts ?? []) if (g.donor === d.id) used++;
+    for (const goal of h.goals ?? []) for (const g of goal.education?.gifts ?? []) if (g.donor === d.id) used++;
+    return readLine(`inherit/donor/${d.id}`, `贈与する人（${donorLabel(wh, d)}）`, used > 0 ? `援助 ${String(used)} 件で選ばれています` : "まだ援助で選ばれていません", "介護・親");
+  });
 }
 
 export function inheritanceStage(wh: WorkingHousehold): StageDef {
@@ -73,9 +84,9 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "family/donors",
       title: "贈与する人（親・祖父母）",
-      note: "世帯の外の親・祖父母をここでまとめて登録すると、住宅資金・教育資金などの援助で選べます。同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます",
+      note: "世帯の外の親・祖父母を贈与する人として足すと、住宅資金・教育資金などの援助で選べます。同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます。足した人は、介護・親のカードの世帯の外の家族に並びます",
       level: "simple",
-      groups: donorGroups(wh),
+      groups: groupsOf(readGroup("inherit/donors", undefined, donorLines(wh))),
       actions: addDonorActions(wh),
     },
   ];

@@ -502,6 +502,10 @@ export interface CareExpense {
   serviceMonthly?: Box<number>;
   otherMonthly?: Box<number>;
   initial?: Box<number>;
+  /** 伸び方（省略は物価上昇率） */
+  growth?: { kind: string; rate?: string };
+  /** 万一のときの扱い（払う人の万一） */
+  onContingency?: OnContingency;
   [key: string]: unknown;
 }
 

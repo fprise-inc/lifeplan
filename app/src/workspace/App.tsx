@@ -40,6 +40,7 @@ import { blankHousehold, fromRequest, withElementIds, type WorkingHousehold } fr
 import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
+import { applyCareDefaults } from "./input/fill.ts";
 import { pensionNotices } from "./input/stages/pension.ts";
 import { withProvisionalHousing } from "./input/housingCredit.ts";
 import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
@@ -657,7 +658,8 @@ export function App() {
       setSampleMode(null);
       autosaver.current?.reset(null);
       let o: Opened | null;
-      if (id === BLANK) o = openedFrom(null, withRefreshedEstimates(blankHousehold(thisMonth())));
+      // 新しい世帯には事務所の設定の既定を当てる（本人・配偶者の介護は、既定では自動で入れない。事務所の設定を作る回に設定を渡す）
+      if (id === BLANK) o = openedFrom(null, applyCareDefaults(withRefreshedEstimates(blankHousehold(thisMonth()))));
       else {
         const demo = demoHousehold(id);
         if (demo === undefined) return;
