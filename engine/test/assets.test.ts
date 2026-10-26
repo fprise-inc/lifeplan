@@ -4,7 +4,7 @@ import Decimal from "decimal.js";
 import { describe, expect, it } from "vitest";
 import { runEngine } from "../src/engine/run.ts";
 import type { DebtScheduleOutput, HousingLoanCreditOutput, IdecoAccountOutput, IdecoContributionOutput } from "../src/sdk/contracts.ts";
-import { box, fictionalPacks, household, member, period, uid } from "./helpers.ts";
+import { box, clone, fictionalPacks, household, member, modelHousehold, period, realPacks, uid } from "./helpers.ts";
 
 type Req = ReturnType<typeof household>;
 type Obj = Record<string, unknown>;
@@ -192,10 +192,81 @@ describe("住宅借入金等特別控除（tax.housingLoanCredit）と所得税�
     expect(notices(r).some((n) => n.code === "N_PARAM_MISSING")).toBe(false);
   });
 
-  it("値の無い入居の年（令和3年以前）は計算せず知らせる", () => {
-    const req = withInput(mk({ start: at("2020-03") }), (h) => ((h.events as Obj[])[0] = { id: uid("mv"), kind: "moveIn", at: at("2020-04") }));
-    const r = full(req);
-    expect(notices(r).some((n) => n.code === "N_PARAM_MISSING" && n.ids.includes("incomeTax.housingLoanCredit.rate"))).toBe(true);
+  /** 入居の年月 ym に借りて住み始めたローン */
+  const past = (ym: string, h: Obj = {}, o: Obj = {}) =>
+    withInput(mk({ start: at(ym), rateSchedule: [{ from: at(ym), type: "fixed", rate: "0.012" }], ...o }, h), (hh) => ((hh.events as Obj[])[0] = { id: uid("mv"), kind: "moveIn", at: at(ym) }));
+  const creditOf = (req: Req, year: number) => call<HousingLoanCreditOutput>(req, "tax.housingLoanCredit", { member: A, year });
+  const has = (r: { header: unknown }, code: string, id: string) => notices(r).some((n) => n.code === code && n.ids.includes(id));
+  const entryNotices = (req: Req, year: number) => notices(runEngine(req, fictionalPacks(), { checkInternal: true, entry: { component: "tax.housingLoanCredit", input: { member: A, year } } }));
+
+  it("値の無い入居の年（平成25年以前）は計算せず知らせる", () => {
+    const ns = entryNotices(past("2013-04"), 2020);
+    expect(ns.some((n) => n.code === "N_PARAM_MISSING" && n.ids.includes("incomeTax.housingLoanCredit.rate"))).toBe(true);
+  });
+
+  it("平成26〜令和3年の入居: 控除率1%・10年。新築は特定取得（一般4,000万円・認定住宅5,000万円）とみなして知らせる", () => {
+    const general = past("2018-04", { propertyType: "other" }, { principal: 70000000 });
+    const bal = (req: Req, year: number) => call<DebtScheduleOutput>(req, "debt.schedule", { object: uid("loan") }).yearEnd.find((y) => y.year === year)?.balance as number;
+    expect(bal(general, 2027)).toBeGreaterThan(50000000);
+    expect(creditOf(general, 2026).credit).toBe(400000); // 4,000万円×1%
+    expect(creditOf(general, 2027).credit).toBe(400000); // 10年目
+    expect(creditOf(general, 2028).credit).toBe(0); // 11年目
+    const certified = past("2018-04", {}, { principal: 70000000 });
+    expect(creditOf(certified, 2026).credit).toBe(500000); // 5,000万円×1%
+    // 住民税は特定取得の7%・136,500円
+    expect(creditOf(general, 2026).residentRate).toBe("0.07");
+    expect(creditOf(general, 2026).residentLimit).toBe(136500);
+    const r = full(general);
+    expect(has(r, "N_ASSUMED", "incomeTax.housingLoanCredit.specifiedAcquisition")).toBe(true);
+    expect(has(r, "N_PARAM_MISSING", "incomeTax.housingLoanCredit.rate")).toBe(false);
+    // 所得税の控除が入る（控除の無い年と比べて減る）
+    const none = withInput(general, (h) => (((h.debts as Obj[])[0] as Obj).housing = { ...((((h.debts as Obj[])[0] as Obj).housing as Obj) ?? {}), creditDisabled: true }));
+    expect(cells(r, "cf.taxSi.incomeTax", 2027)).toBeLessThan(cells(full(none), "cf.taxSi.incomeTax", 2027));
+  });
+
+  it("平成26〜令和3年の既存住宅は、特定取得でない取得（2,000万円・住民税5%・97,500円）とみなす", () => {
+    const c = creditOf(past("2018-04", { propertyType: "other", newBuild: false }, { principal: 70000000 }), 2026);
+    expect(c.credit).toBe(200000);
+    expect(c.residentRate).toBe("0.05");
+    expect(c.residentLimit).toBe(97500);
+  });
+
+  it("消費税10%の取得の13年の特例（令和元年10月〜令和3年の新築）の11〜13年目は、計算せず知らせる", () => {
+    const req = past("2020-04", { propertyType: "other" });
+    expect(creditOf(req, 2029).credit).toBeGreaterThan(0); // 10年目
+    expect(creditOf(req, 2030).credit).toBe(0); // 11年目
+    expect(call<{ from: number; to: number }>(req, "tax.housingLoanCreditYears", { member: A })).toEqual({ from: 2020, to: 2032 });
+    expect(has(full(req), "N_NOT_SUPPORTED", "incomeTax.housingLoanCredit.period.specialSpecified")).toBe(true);
+    // 既存住宅（特定取得でない取得とみなす）には特例が無い
+    const used = past("2020-04", { propertyType: "other", newBuild: false });
+    expect(call<{ from: number; to: number }>(used, "tax.housingLoanCreditYears", { member: A })).toEqual({ from: 2020, to: 2029 });
+    expect(has(full(used), "N_NOT_SUPPORTED", "incomeTax.housingLoanCredit.period.specialSpecified")).toBe(false);
+  });
+
+  it("制度の外の入居の年・区分は「対象外」として知らせる（値が無いのとは分ける）", () => {
+    // 令和13年以後の入居（控除率が制度なし）
+    const later = full(past("2031-04"));
+    expect(has(later, "N_NOT_ELIGIBLE", "incomeTax.housingLoanCredit.rate")).toBe(true);
+    expect(has(later, "N_PARAM_MISSING", "incomeTax.housingLoanCredit.rate")).toBe(false);
+    // 令和6年以後の入居の新築のその他の住宅（借入限度額0円）
+    const other = mk({}, { propertyType: "other" });
+    expect(creditOf(other, 2026).credit).toBe(0);
+    expect(has(full(other), "N_NOT_ELIGIBLE", "incomeTax.housingLoanCredit.limit.new.other")).toBe(true);
+    // 対象の区分には出さない
+    expect(notices(full(mk())).some((n) => n.code === "N_NOT_ELIGIBLE" || n.code === "N_ASSUMED")).toBe(false);
+  });
+
+  it("見本の世帯（平成30年・令和元年の入居）: 制度データの値で控除を計算し、値の無い知らせを出さない", () => {
+    for (const name of ["sampleSingle40s", "sampleSelfEmployedFamily", "investmentCouple"]) {
+      const r = runEngine(modelHousehold(name), realPacks(), { checkInternal: true });
+      expect(has(r, "N_PARAM_MISSING", "incomeTax.housingLoanCredit.rate")).toBe(false);
+    }
+    const single = runEngine(modelHousehold("sampleSingle40s"), realPacks(), { checkInternal: true });
+    expect(has(single, "N_ASSUMED", "incomeTax.housingLoanCredit.specifiedAcquisition")).toBe(true);
+    const off = clone(modelHousehold("sampleSingle40s"));
+    for (const d of (off.input.household as unknown as { debts: { housing?: Obj }[] }).debts) if (d.housing !== undefined) d.housing.creditDisabled = true;
+    const without = runEngine(off, realPacks(), { checkInternal: true });
+    expect(cells(single, "cf.taxSi.incomeTax", 2027)).toBeLessThan(cells(without, "cf.taxSi.incomeTax", 2027));
   });
 });
 

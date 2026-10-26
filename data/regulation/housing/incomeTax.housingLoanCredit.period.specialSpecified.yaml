@@ -1,0 +1,64 @@
+id: incomeTax.housingLoanCredit.period.specialSpecified
+title: 住宅借入金等特別控除の控除期間の特例（消費税10%の取得（特別特定取得・特別特例取得）。11〜13年目は建物の取得対価の2%÷3が上限。年）
+unit: count
+kind: constant
+basis: {"type": "anchor", "anchor": "moveIn"}
+entries:
+  - rev: 1
+    appliesFrom: "2014-01-01"
+    appliesTo: "2019-09-30"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20210401_503AC0000000011?response_format=xml&elm=MainProvision-Article_41", "retrievedAt": "2026-10-27", "retrievedVia": "searchExcerpt", "locator": "租税特別措置法 第41条第13項（令和3年4月1日の版）", "quote": "令和元年十月一日から令和二年十二月三十一日までの間", "note": "e-Gov法令APIで第41条だけを取り出した条文を読んだ（原本の写しと指紋は未取得）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20210401_503AC0000000011"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和元年9月以前の入居に13年の特例は無い。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2019-10-01"
+    appliesTo: "2020-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 13
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20210401_503AC0000000011?response_format=xml&elm=MainProvision-Article_41", "retrievedAt": "2026-10-27", "retrievedVia": "searchExcerpt", "locator": "租税特別措置法 第41条第13項（令和3年4月1日の版）", "quote": "居住年から十年目に該当する年以後居住年から十二年目に該当する年までの各年", "note": "e-Gov法令APIで第41条だけを取り出した条文を読んだ（原本の写しと指紋は未取得）"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1212.htm", "retrievedAt": "2026-10-27", "retrievedVia": "searchExcerpt", "locator": "国税庁 No.1212 控除期間と控除限度額", "note": "公式のページの本文を読み取りの道具で読んだ（原本の写しと指紋は未取得）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20210401_503AC0000000011"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "13年（令和元年10月〜令和2年12月入居の特別特定取得。11〜13年目は年末残高×1%と（建物の取得対価−消費税）×2%÷3の少ない方）。原本での確認待ち"}
+  - rev: 3
+    appliesFrom: "2021-01-01"
+    appliesTo: "2021-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 13
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/502AC0000000025_20210401_503AC0000000011?response_format=xml&elm=MainProvision-Article_6_2", "retrievedAt": "2026-10-27", "retrievedVia": "searchExcerpt", "locator": "新型コロナウイルス感染症等の影響に対応するための国税関係法律の臨時特例に関する法律 第6条の2第1項（令和3年4月1日の版）", "quote": "令和三年一月一日から令和四年十二月三十一日までの間", "note": "e-Gov法令APIで第6条の2だけを取り出した条文を読んだ（原本の写しと指紋は未取得）"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1212.htm", "retrievedAt": "2026-10-27", "retrievedVia": "searchExcerpt", "locator": "国税庁 No.1212 控除期間と控除限度額", "note": "公式のページの本文を読み取りの道具で読んだ（原本の写しと指紋は未取得）"}
+      - {"type": "law", "lawNumber": "令和二年法律第二十五号", "egovRevisionId": "502AC0000000025_20210401_503AC0000000011"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "13年（令和3年入居の特別特例取得。契約の期限（注文住宅は令和3年9月30日、分譲・既存などは同年11月30日まで）を満たすもの）。令和4年入居の特別特例取得は扱わない。原本での確認待ち"}
+  - rev: 4
+    appliesFrom: "2022-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1211-1.htm", "retrievedAt": "2026-10-27", "retrievedVia": "searchExcerpt", "locator": "国税庁 No.1211-1 控除期間", "note": "公式のページの本文を読み取りの道具で読んだ（原本の写しと指紋は未取得）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20210401_503AC0000000011"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和4年以後の入居は、この区分ではなく令和4年度改正の控除期間で決まる。原本での確認待ち"}
