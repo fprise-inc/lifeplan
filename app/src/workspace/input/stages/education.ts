@@ -9,6 +9,7 @@ import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import { formatYen } from "../units.ts";
 import { educationStagesAddress } from "../fill.ts";
 import { rowAt } from "../rows.ts";
+import { childOfPeriodic, periodicGroup, periodicStageGroups } from "./events.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_LUNCH, SCHOOL_STAGES, SECTORS, TAX_METHODS } from "../labels.ts";
 
 const goals = (h: Household) => h.goals;
@@ -151,7 +152,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       title: who,
       note: "進路が入っていないので、教育費は計算していません",
       level: "simple",
-      groups: [],
+      groups: (h.periodicExpenses ?? []).filter((x) => childOfPeriodic(h, x) === child.id).flatMap((p) => [periodicGroup(wh, p), ...periodicStageGroups(wh, p)]),
       actions: [
         {
           key: `edu/${child.id}/add`,
@@ -320,6 +321,8 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       ],
     });
   });
+  // 子の年齢で始まる一時的な支出（「＋ 項目を追加」の留学で子を選んだときなど。物はライフイベントと同じ周期的な支出で、ここにだけ出す）
+  for (const p of (h.periodicExpenses ?? []).filter((x) => childOfPeriodic(h, x) === child.id)) groups.push(periodicGroup(wh, p), ...periodicStageGroups(wh, p));
   groups.push({
     key: `edu/${goal.id}/addMore`,
     level: "simple",

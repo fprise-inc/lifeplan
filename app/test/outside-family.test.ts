@@ -14,7 +14,8 @@ import { diffRows, fieldMark, planView, recordPlanEdit, revertField } from "../s
 import { roles } from "../src/workspace/roles.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
-const groups = (wh: WorkingHousehold): GroupDef[] => buildStage("family", wh).sections.flatMap((s) => s.groups);
+// 世帯の外の家族は介護・親のカードに出す（家族のカードは読むだけの1行。0045）
+const groups = (wh: WorkingHousehold): GroupDef[] => buildStage("care", wh).sections.flatMap((s) => s.groups);
 
 describe("家族のカードの世帯の外の家族", () => {
   it("親を足すと世帯の外の家族の印（本人の家族・家計を1つにする期間なし）が付く", () => {
@@ -33,7 +34,7 @@ describe("家族のカードの世帯の外の家族", () => {
     expect(g.note).toContain("世帯の外の家族");
     const add = g.actions.find((a) => a.key === `family/${parent.id}/outside/addPeriod`)!;
     const withPeriod = add.run(wh);
-    const fields = allFields(buildStage("family", withPeriod));
+    const fields = allFields(buildStage("care", withPeriod));
     const income = fields.find((f) => f.key === `family/${parent.id}/outside/income`)!;
     const on = income.set(withPeriod, true);
     expect(on.request.input.household.members.find((m) => m.id === parent.id)!.outside!.periods[0]).toMatchObject({ living: true, income: true });

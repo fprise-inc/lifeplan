@@ -2,7 +2,7 @@
 // 中身は今までの入力の欄（簡易と詳細の切り替えを含む）。値は下書きに入れ、「保存」で世帯に入れる。× と Esc で閉じる（保存していない変更があれば先に知らせる）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { allFields, type Level } from "./form.ts";
-import { fieldDomId, FieldStateOps, FieldSuggestions, PlanMarksContext, Section, SectionLinks, visible, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
+import { fieldDomId, FieldStateOps, FieldSuggestions, PinControls, PlanMarksContext, Section, SectionLinks, visible, type PinControl, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
 import { dropStaleRows } from "./rows.ts";
 import { applyStateOp, confirmAll, fieldStatus, planStateOp, type StateOp } from "./valueState.ts";
 import type { FieldDef } from "./form.ts";
@@ -15,7 +15,8 @@ import { withRefreshedEstimates } from "./estimates.ts";
 import { withProvisionalHousing } from "./housingCredit.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
-import { inputItems, itemStage, saveItem } from "./items.ts";
+import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
+import { inheritanceLines, inheritanceSummary, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { StatusBadge } from "./StatusBadge.tsx";
 import { SavingsPanel } from "./savings/SavingsPanel.tsx";
 import { historyScope, undoController, useUndoScope } from "../undo/controller.ts";
@@ -65,7 +66,9 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const panel = useRef<HTMLDivElement>(null);
   /** 欄に見せる世帯: 現状を直すときは下書き、プランを直すときは下書きにそのプランを当てた作業中の世帯 */
   const shown = useMemo(() => (plan === undefined ? draft : planView(draft, plan.cat, plan.id)), [draft, plan]);
-  const item = useMemo(() => inputItems(shown).find((i) => i.id === itemId) ?? null, [shown, itemId]);
+  /** 相続・贈与のカードの相続税の目安（計算の結果から読むだけ） */
+  const inheritance = useInheritanceEstimate(shown, itemId === "inheritance", computeOne);
+  const item = useMemo(() => itemOf(shown, itemId, { inheritance: inheritanceSummary(inheritance) }), [shown, itemId, inheritance]);
   const stage = useMemo(() => itemStage(shown, itemId), [shown, itemId]);
   const adding = initialDraft !== undefined;
   const suggestions = useSurplusSuggestion(shown, itemId === "living", computeOne);
@@ -145,6 +148,18 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
     [plan, draft],
   );
   const rows = useMemo(() => (plan === undefined ? [] : diffRows(draft, plan.cat, plan.id)), [draft, plan]);
+  // まとまりの「📌 ホームに出す」: ピンは画面の側の印（addedItems）なので、プランを直しているときも下書きの世帯にそのまま書く（差分にしない）
+  const pins = useMemo<PinControl>(
+    () => ({
+      refOf: (k) => pinOfGroup(k)?.ref ?? null,
+      pinned: (ref) => isPinned(latest.current, ref),
+      toggle: (k) => {
+        const p = pinOfGroup(k);
+        if (p !== null) commit(togglePin(latest.current, p));
+      },
+    }),
+    [draft],
+  );
   const removedHere = plan === undefined ? [] : removedRows(rows, itemId);
   useUndoScope(
     historyScope(
@@ -240,14 +255,16 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const note = leaving
     ? null
     : removed
-      ? "保存すると、このカードがなくなります。"
+      ? "保存すると、このピンがなくなります。"
       : item.estimated > 0
-        ? `推定・仮の値のままの欄が ${item.estimated}つ あります。保存しても、推定の欄が残る間はカードは「推定あり」のままです。`
+        ? `推定・仮の値のままの欄が ${item.estimated}つ あります。保存しても、推定の欄が残る間はカードは「推定で計算中」のままです。`
         : plan !== undefined
           ? `保存すると、${plan.label}の差分になります（現状は変わりません）。`
           : adding
-            ? "保存すると、カードが足されます（キャンセルすると足しません）。"
-            : "保存すると、このカードは「入力済み」になります。";
+            ? "保存すると、物が足され、ホームにピンが出ます（キャンセルすると足しません）。"
+            : item.added !== null
+              ? "保存すると、この物に入れた値が世帯に入ります。"
+              : "保存すると、このカードは「入力済み」になります（何も入れずに保存すると「当てはまらない」）。";
 
   return (
     <>
@@ -287,7 +304,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
           </div>
           <h2 id="ip-title">
             {item.label}
-            {item.added !== null ? <span class="fp-tag">FPが追加</span> : null}
+            {item.added !== null ? <span class="fp-tag">📌 ピン</span> : null}
             <StatusBadge item={item} />
           </h2>
           <div class="ip-tools">
@@ -357,6 +374,18 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
               ))}
             </ul>
           ) : null}
+          {itemId === "inheritance" && inheritanceLines(shown, inheritance).length > 0 ? (
+            <div class="ip-inherit" role="note" data-inheritance-line>
+              <p>
+                <b>相続税の目安</b>（表示だけ。お金の流れには入れていません。小規模宅地等の特例・2割加算などは含めていません）
+              </p>
+              <ul>
+                {inheritanceLines(shown, inheritance).map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {gaps.length > 0 ? (
             <div class="ip-gaps" role="note" data-gaps>
               <p>未入力（0円で計算中）の所があります。</p>
@@ -395,6 +424,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
           ) : null}
         </div>
         <div class="ip-body">
+          <PinControls.Provider value={pins}>
           {itemId === "savings" ? (
             <PlanMarksContext.Provider value={marks}>
               <SavingsPanel wh={shown} level={level} onEdit={edit} />
@@ -413,6 +443,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             </FieldStateOps.Provider>
             </PlanMarksContext.Provider>
           )}
+          </PinControls.Provider>
         </div>
         <div class="ip-foot" role={leaving ? "alert" : undefined}>
           {leaving && toStatement && onStatement !== undefined ? (

@@ -216,7 +216,8 @@ describe("キャッシュフロー表の車の行（何台でも1行）", () => 
 describe("提案書の推定の値", () => {
   it("推定・仮の値の欄が残るカードを FP 向けの画面に出す（提案書には欄を書かない）", () => {
     const blank = blankHousehold("2026-10", () => crypto.randomUUID());
-    expect(estimatedCards(blank).map((c) => c.label)).toEqual(["家族", "基本生活費"]);
+    // 年金は記録が無いので、働き方の期間から推計している（物の単位の推定）
+    expect(estimatedCards(blank).map((c) => c.label)).toEqual(["家族", "年金", "基本生活費"]);
     expect(estimatedCards(fromRequest(modelHousehold("salariedCoupleTwoKids")))).toEqual([]);
   });
 });

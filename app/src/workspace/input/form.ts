@@ -155,7 +155,8 @@ export interface SectionDef {
   actions: ActionDef[];
 }
 
-export type StageId = "family" | "work" | "pension" | "living" | "education" | "housing" | "insurance" | "savings" | "events" | "car" | "fee" | "assumptions";
+/** 段階（カード）の ID。fee は前提条件の中の欄のまとまり（カードにしない） */
+export type StageId = "family" | "work" | "retirement" | "pension" | "living" | "education" | "housing" | "insurance" | "savings" | "events" | "car" | "care" | "inheritance" | "fee" | "assumptions";
 
 export interface StageDef {
   id: StageId;

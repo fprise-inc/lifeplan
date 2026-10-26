@@ -100,6 +100,27 @@ export interface SectionLink {
 /** 区画のキー → 見出しの横のリンク（入力のパネルが渡す） */
 export const SectionLinks = createContext<Readonly<Record<string, SectionLink>>>({});
 
+/** まとまりの見出しの「📌 ホームに出す」（入力のパネルが渡す。ピンにできる物のまとまりだけに出す。items.ts の pinOfGroup） */
+export interface PinControl {
+  /** ピンにできる物のまとまりなら、その物の ID */
+  refOf: (groupKey: string) => string | null;
+  pinned: (ref: string) => boolean;
+  toggle: (groupKey: string) => void;
+}
+export const PinControls = createContext<PinControl | null>(null);
+
+function PinButton({ group }: { group: GroupDef }) {
+  const pc = useContext(PinControls);
+  const ref = pc?.refOf(group.key) ?? null;
+  if (pc === null || ref === null) return null;
+  const on = pc.pinned(ref);
+  return (
+    <button type="button" class="link-btn pin-btn" aria-pressed={on} onClick={() => pc.toggle(group.key)} data-pin-toggle={group.key} title={on ? "ホームのピンを外します（物は残ります）" : "入力のホームにピンとして出します（押すと、この物だけを開けます）"}>
+      {on ? "📌 ホームから外す" : "📌 ホームに出す"}
+    </button>
+  );
+}
+
 /**
  * 入力の画面の区画の中か。年齢・年数の整数の欄（定年・年金の受け取り開始など）は、区画の中でだけ時点の部品で描く
  * （結果のタブの「動かす項目」は、同じ欄を整数のまま描く。動かす項目の値は整数で持つため）
@@ -109,6 +130,8 @@ const InSection = createContext(false);
 export function Section({ section, wh, level, onEdit }: { section: SectionDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void }) {
   const actions = section.actions.filter((a) => visible(level, a.level));
   const link = useContext(SectionLinks)[section.key];
+  // 空の区画（お金の行などがまだ入らない置き場所）は出さない
+  if (section.note === undefined && actions.length === 0 && !section.groups.some((g) => visible(level, g.level))) return null;
   return (
     <InSection.Provider value={true}>
       <section class="in-section" aria-label={section.title}>
@@ -148,6 +171,7 @@ function Group({ group, wh, level, onEdit }: { group: GroupDef; wh: WorkingHouse
         <div class="in-group-h">
           <h4>{group.title}</h4>
           <PlanGroupTag group={group} wh={wh} />
+          <PinButton group={group} />
           {actions.filter((a) => a.danger === true).map((a) => (
             <button type="button" key={a.key} class="link-btn danger" onClick={() => onEdit(a.run(wh))}>
               {a.label}

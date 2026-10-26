@@ -1,4 +1,4 @@
-// 2. 働き方と収入: 今の働き方と年収（簡易）、定年後の予定（再雇用の年収・何歳まで）、退職金、働き方の期間の一覧（詳細）。
+// 2. 働き方と収入: 今の働き方と年収（簡易）、定年後の予定（再雇用の年収・何歳まで）、働き方の期間の一覧（詳細）。退職金・企業年金は 3. のカード（retirement.ts）。ここは読むだけの1行
 // 被保険者の種別（第1〜3号）は入れない（エンジンが働き方の期間から導く。0008 の4）
 import type { EmploymentPeriod, Household, Member } from "../../../engine/types.ts";
 import type { Timepoint } from "../../../engine/types.ts";
@@ -11,6 +11,7 @@ import { estimatedBox, mutate, newId, periodsOf, reemploymentOf, type PostRetire
 import { ensureRetirement, fillRetirement, retirementNotApplicable } from "../fill.ts";
 import { earners, EMPLOYMENT_TYPES, HEALTH_INSURANCE, KYOKAI_BRANCHES, LEAVE_KINDS, memberLabel, PENSION_CATEGORY, POST_RETIREMENT_TYPES } from "../labels.ts";
 import { formatYearMonth } from "../units.ts";
+import { readGroup, readLine } from "../readLines.ts";
 
 /** 働き方の期間の時点は年月で持つ（定年・再雇用の見つけ方などが年月で読むため。0038） */
 const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・今からで入れても、その年月にします）";
@@ -546,7 +547,8 @@ function growthField(wh: WorkingHousehold, p: EmploymentPeriod, find: Finder, pr
   };
 }
 
-function benefitGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
+/** 退職金・企業年金のまとまり（人ごと。退職金・企業年金のカードに出す） */
+export function benefitGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const h = wh.request.input.household;
   const list = (h.retirementBenefits ?? []).filter((b) => b.member === m.id);
   const who = memberLabel(wh, m.id);
@@ -612,6 +614,23 @@ function addPeriodAction(wh: WorkingHousehold, m: Member): ActionDef {
   };
 }
 
+/** 「＋ 退職金を入れる」（その人の退職金がまだ無く、今の働き方があるとき）。正社員・公務員は目安（推定）で入れ、目安を作れない働き方は額を入れてもらう（未入力の0円） */
+export function addBenefitAction(wh: WorkingHousehold, m: Member): ActionDef | null {
+  const h = wh.request.input.household;
+  const main = currentPeriod(h, m.id, wh.request.input.baseMonth);
+  if ((h.retirementBenefits ?? []).some((b) => b.member === m.id) || main === undefined) return null;
+  return {
+    key: `work/${m.id}/addBenefit`,
+    label: retirementNotApplicable(wh, m.id) ? "＋ 退職金を入れる（今は「該当なし」）" : "＋ 退職金を入れる",
+    level: "simple",
+    run: (w) => {
+      const filled = fillRetirement(w, m.id);
+      if (filled !== w) return filled;
+      return mutate(w, (hh) => void (hh.retirementBenefits ??= []).push({ id: newId(), member: m.id, kind: "lumpSum", employment: main.id, amount: estimatedBox(0, "未入力（0円で計算）") }));
+    },
+  };
+}
+
 export function workStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const people = earners(h);
@@ -619,31 +638,11 @@ export function workStage(wh: WorkingHousehold): StageDef {
     const groups: GroupDef[] = [nowGroup(wh, m)];
     const r = retirementGroup(wh, m);
     if (r !== null) groups.push(r);
-    groups.push(...benefitGroups(wh, m));
-    const hasBenefit = (h.retirementBenefits ?? []).some((b) => b.member === m.id);
-    const main = currentPeriod(h, m.id, wh.request.input.baseMonth);
-    return {
-      key: `work/${m.id}`,
-      title: memberLabel(wh, m.id),
-      level: "simple",
-      groups,
-      actions:
-        !hasBenefit && main !== undefined
-          ? [
-              {
-                key: `work/${m.id}/addBenefit`,
-                label: retirementNotApplicable(wh, m.id) ? "＋ 退職金を入れる（今は「該当なし」）" : "＋ 退職金を入れる",
-                level: "simple",
-                // 正社員・公務員は目安（推定）で入れる。目安を作れない働き方は、額を入れてもらう（未入力の0円）
-                run: (w) => {
-                  const filled = fillRetirement(w, m.id);
-                  if (filled !== w) return filled;
-                  return mutate(w, (hh) => void (hh.retirementBenefits ??= []).push({ id: newId(), member: m.id, kind: "lumpSum", employment: main.id, amount: estimatedBox(0, "未入力（0円で計算）") }));
-                },
-              },
-            ]
-          : [],
-    };
+    const benefits = (h.retirementBenefits ?? []).filter((b) => b.member === m.id);
+    // 退職金・企業年金は退職金・企業年金のカードに出す（ここは読むだけの1行）
+    const ro = readGroup(`work/${m.id}/benefits`, undefined, benefits.length > 0 ? [readLine(`work/${m.id}/benefits`, "退職金・企業年金", `${benefits.length}件`, "退職金・企業年金")] : []);
+    if (ro !== null) groups.push(ro);
+    return { key: `work/${m.id}`, title: memberLabel(wh, m.id), level: "simple", groups, actions: [] };
   });
   const detail: SectionDef = {
     key: "work/periods",
