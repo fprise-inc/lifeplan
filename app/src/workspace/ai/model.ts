@@ -7,6 +7,7 @@ import { ITEM_LABELS } from "../../generated/labels.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { Catalog, DiffTarget, ItemValue, MovableItem } from "../plans/items.ts";
 import { savePlan, suggestName, type Values } from "../plans/plans.ts";
+import { resolveKey } from "../store/readings.ts";
 
 /** 本体の失敗の符号 → FP に見せる文 */
 export const AI_MESSAGES: Record<string, string> = {
@@ -175,7 +176,15 @@ const short = (v: unknown): string => {
 export function candidateRows(c: AiCandidate, wh: WorkingHousehold, cat: Catalog): CandidateRow[] {
   return c.diffs.map((d) => {
     const base = { diffId: d.id, note: d.note };
-    const matches = cat.items.filter((it) => it.phase === "field" && it.item === d.item && sameTarget(it.target, d.target));
+    // 当て先を正にする（0036 の9）: 欄の当て先の向き先と入力項目ID が候補と同じ欄。合成の対策の欄は、その欄の向き先と入力項目ID で比べる。
+    // 候補はまだ場所（at）を持たないので、当てはまる欄が1つに決まらなければ取り込まない
+    const input = wh.request.input as unknown as Record<string, unknown>;
+    const matches = cat.items.filter((it) => {
+      if (it.phase !== "field") return false;
+      const r = resolveKey(it.key, input);
+      if (r !== null && r.kind === "address") return r.address.item === d.item && sameTarget(r.address.target as DiffTarget, d.target);
+      return it.item === d.item && sameTarget(it.target, d.target);
+    });
     if (matches.length !== 1) {
       return { ...base, label: itemName(d.item), from: "—", to: short(unbox(d.value)), key: null, value: null, reason: matches.length === 0 ? "「結果」の画面のプランでは動かせない項目です（取り込みません。必要なら入力で直してください）" : "対応する欄が複数あるため、取り込みません" };
     }

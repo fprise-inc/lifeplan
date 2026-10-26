@@ -13,7 +13,7 @@ import { ITEM_LABELS } from "../../generated/labels.ts";
 import { ITEM_PLACES } from "../../generated/readings.ts";
 import { newId, type WorkingHousehold } from "../input/household.ts";
 import { applyAdvisoryFee, applyLevers, LEVER_KEYS, type LeverValues } from "../levers.ts";
-import { keyOf, readAt, resolveKey, unbox, type Reading } from "../store/readings.ts";
+import { findObject, keyOf, readAt, resolveKey, unbox, type Reading } from "../store/readings.ts";
 import type { MixPart } from "./allocation.ts";
 import { pctText } from "./decimal.ts";
 import { addAt, addressOf, collectionOf, isLever, removeAt, removedNow, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
@@ -172,7 +172,6 @@ export interface Applied {
   reviews: Map<string, Review>;
 }
 
-const leverId = (d: PlanDiff) => (isLever(d.target) ? `${d.target.lever}|${d.target.object ?? ""}|${d.target.member ?? ""}` : d.id);
 const shortText = (v: unknown): string => {
   const x = unbox(v);
   const s = x === undefined || x === null ? "なし" : typeof x === "string" ? x : JSON.stringify(x);
@@ -180,15 +179,26 @@ const shortText = (v: unknown): string => {
 };
 
 /**
- * 差分を現状に当てる（0036 の6）: プランごとに 外す → 足す → 値を変える（合成の対策を除く）、同じ当て先は後のプランが勝つ。
- * 次に合成の対策（同じ名前と物は後のプランが勝つ）を、欄 → 対策 → FP顧問料の順で当てる。`levers` は結果のタブで動かしている値（最後に勝つ）。
- * 要確認（0036 の7）は、当て先・外す物を作業中の世帯で、作った時点の値を現状で比べる
+ * 差分を現状に当てる（0036 の6）: 土台のいちばん下からプランごとに 外す → 足す → 値を変える。そのあと、動かす項目のキーに戻せる
+ * 値の差分（当て先の set）と合成の対策を、同じキーは後のプランが勝つように重ね、欄 → 対策 → FP顧問料の順（欄どうしは動かす項目の
+ * 一覧の順）で1回ずつ当てる（合成の対策は今の値からの増減で当てるものがあるので、0.16 と同じ順に当てる）。`extra` は結果のタブで
+ * 動かしている値（最後に勝つ）。要確認（0036 の7）は、当て先・外す物を作業中の世帯で、作った時点の値を現状で比べる
  */
-export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; diffs: readonly PlanDiff[] }[], cat: Catalog, levers: Values = {}): Applied {
+export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; diffs: readonly PlanDiff[] }[], cat: Catalog, extra: Values = {}): Applied {
   const now = inputOf(wh);
   const input = structuredClone(now);
   const reviews = new Map<string, Review>();
-  const leverDiffs = new Map<string, PlanDiff>();
+  /** 動かす項目のキー → 値と、その値の差分（結果のタブの値は差分を持たない） */
+  const keyed = new Map<string, { value: ItemValue; diff: PlanDiff | null }>();
+  const setOne = (d: PlanDiff, target: Input): void => {
+    const a = addressOf(d);
+    if (a === null) return void reviews.set(d.id, review("missing"));
+    if (ITEM_PLACES[a.item]?.status !== "active") return void reviews.set(d.id, review("retired"));
+    if (!writeAt(target, a, d.value as DiffBox)) return void reviews.set(d.id, review("missing"));
+    const base = readAt(now, a);
+    const changed = d.before !== null && d.before !== undefined && !sameJson(unbox(base), unbox(d.before));
+    reviews.set(d.id, changed ? review("changed", `入力（現状）が ${shortText(d.before)}→${shortText(base)} に変わりました`) : review("ok"));
+  };
   for (const p of plans) {
     const live = p.diffs.filter((d) => d.enabled);
     for (const d of live) if (d.unresolved === true) reviews.set(d.id, review("unresolved"));
@@ -208,51 +218,54 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
       reviews.set(d.id, r === "ok" ? review("ok") : r === "exists" ? review("exists") : r === "noOwner" ? review("noOwner") : review("missing", "足す先がありません"));
     }
     for (const d of ok.filter((x) => x.op === "set")) {
-      if (isLever(d.target)) {
-        leverDiffs.delete(leverId(d));
-        leverDiffs.set(leverId(d), d);
+      const k = diffKey(d, wh);
+      if (k !== null && cat.byKey.has(k)) {
+        keyed.set(k, { value: unbox(d.value) as ItemValue, diff: d });
         continue;
       }
-      const a = addressOf(d);
-      if (a === null) {
-        reviews.set(d.id, review("missing"));
-        continue;
-      }
-      if (ITEM_PLACES[a.item]?.status !== "active") {
-        reviews.set(d.id, review("retired"));
-        continue;
-      }
-      if (!writeAt(input, a, d.value as DiffBox)) {
-        reviews.set(d.id, review("missing"));
-        continue;
-      }
-      const base = readAt(now, a);
-      const changed = d.before !== null && d.before !== undefined && !sameJson(unbox(base), unbox(d.before));
-      reviews.set(d.id, changed ? review("changed", `入力（現状）が ${shortText(d.before)}→${shortText(base)} に変わりました`) : review("ok"));
+      if (isLever(d.target)) reviews.set(d.id, review("missing"));
+      else setOne(d, input);
     }
+  }
+  for (const [k, v] of Object.entries(extra)) {
+    if (cat.byKey.has(k)) {
+      keyed.set(k, { value: v, diff: null });
+      continue;
+    }
+    // 動かす項目の一覧に無い欄の値（入力画面で直した欄など）は、当て先へそのまま書く
+    const r = k === PLAN_SLOT ? null : resolveKey(k, now);
+    if (r !== null && r.kind === "address") writeAt(input, r.address, box(v));
   }
   let w: WorkingHousehold = { ...wh, request: { ...wh.request, input: input as unknown as EngineRequest["input"] } };
-  // 合成の対策は、動かす項目のキーに戻して 0.16 の当て方で当てる（入力画面の作り直しで当て先に寄せる。0036 の3）
-  const values: Values = {};
-  for (const d of leverDiffs.values()) {
-    const k = keyOf(readingOf(d) as Reading, input);
-    if (k === null || !cat.byKey.has(k)) reviews.set(d.id, review("missing"));
-    else {
-      values[k] = unbox(d.value) as ItemValue;
-      reviews.set(d.id, review("ok"));
+  for (const it of cat.items) {
+    const e = it.phase === "field" ? keyed.get(it.key) : undefined;
+    if (e === undefined) continue;
+    // 当て先の項目は当て先へ書く。合成の対策は 0.16 の当て方で（入力画面の作り直しで当て先に寄せる。0036 の3）
+    const d = e.diff ?? diffFromValue(it, e.value, wh, undefined);
+    if (d !== null && !isLever(d.target)) {
+      const req = structuredClone(w.request);
+      setOne(d, req.input as unknown as Input);
+      if (reviews.get(d.id)?.state !== "missing") {
+        w = { ...w, request: req };
+        continue;
+      }
+      // 並びの要素がまだ無いなど、当て先へ書けない値は 0.16 の当て方で当てる（向き先の物が無ければ何もしない）
+      if (e.diff !== null && "object" in d.target && findObject(inputOf(w), d.target.object) === undefined) continue;
+      reviews.delete(d.id);
     }
+    w = it.apply(w, e.value);
+    if (e.diff !== null && !reviews.has(e.diff.id)) reviews.set(e.diff.id, review("ok"));
   }
-  Object.assign(values, levers);
-  for (const it of cat.items) if (it.phase === "field" && Object.hasOwn(values, it.key)) w = it.apply(w, values[it.key] ?? null);
   const lv: Partial<LeverValues> = {};
   for (const k of LEVER_KEYS) {
-    const v = values[`lever:${k}`];
-    if (typeof v === "number" && cat.byKey.has(`lever:${k}`)) lv[k] = v;
+    const e = keyed.get(`lever:${k}`);
+    if (e !== undefined && typeof e.value === "number") lv[k] = e.value;
   }
   const r = reemploymentFor(wh, cat.selfId);
   let req = Object.keys(lv).length > 0 ? applyLevers(w.request, cat.selfId, lv, r !== undefined ? { reemployment: r } : {}) : w.request;
-  const fee = values["lever:fee"];
-  if (typeof fee === "boolean" && cat.byKey.has("lever:fee")) req = applyAdvisoryFee(req, fee);
+  const fee = keyed.get("lever:fee")?.value;
+  if (typeof fee === "boolean") req = applyAdvisoryFee(req, fee);
+  for (const [k, e] of keyed) if (e.diff !== null && !reviews.has(e.diff.id) && cat.byKey.get(k)?.phase !== "field") reviews.set(e.diff.id, review("ok"));
   return { request: req, reviews };
 }
 
@@ -263,22 +276,12 @@ export function applyPlan(wh: WorkingHousehold, id: string | null, cat: Catalog)
 
 /**
  * 動かした値を現状に当てて、計算の要求を作る（現状は変えない）。`@plan` があれば、そのプランのキーに戻せない差分を先に当てる。
- * 動かす項目の値は、当て先の項目は当て先の差分として、合成の対策は対策として当てる（今の一覧に無い項目は当てない）
+ * 今の一覧に無い項目は当てない
  */
 export function applyValues(wh: WorkingHousehold, values: Values, cat: Catalog): EngineRequest {
   const planId = values[PLAN_SLOT];
-  const plans: { id: string; diffs: PlanDiff[] }[] = typeof planId === "string" ? chainOf(wh.proposals, planId).map((p) => ({ id: p.id, diffs: p.diffs.filter((d) => d.enabled && diffKey(d, wh) === null) })) : [];
-  const sets: PlanDiff[] = [];
-  const levers: Values = {};
-  for (const it of cat.items) {
-    if (!Object.hasOwn(values, it.key)) continue;
-    const v = values[it.key] ?? null;
-    const d = it.phase === "field" ? diffFromValue(it, v, wh, undefined) : null;
-    if (d !== null && !isLever(d.target)) sets.push(d);
-    else levers[it.key] = v;
-  }
-  plans.push({ id: "values", diffs: sets });
-  return applyDiffs(wh, plans, cat, levers).request;
+  const plans = typeof planId === "string" ? chainOf(wh.proposals, planId).map((p) => ({ id: p.id, diffs: p.diffs.filter((d) => d.enabled && diffKey(d, wh) === null) })) : [];
+  return applyDiffs(wh, plans, cat, values).request;
 }
 
 /** 項目の今の値（動かした値があればそれ、無ければ現状） */
