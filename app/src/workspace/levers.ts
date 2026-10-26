@@ -101,7 +101,8 @@ export function derivedId(base: string, salt: string): string {
     h1 = Math.imul(h1 ^ ch.charCodeAt(0), 16777619) >>> 0;
     h2 = Math.imul(h2 ^ ch.charCodeAt(0), 2246822519) >>> 0;
   }
-  const hex = (h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0") + (h1 ^ h2).toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0")).slice(0, 32);
+  // h1 ^ h2 は符号つきの32ビットになるので、符号なしにしてから16進にする（負の数の「-」が ID に入らないように）
+  const hex = (h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0") + ((h1 ^ h2) >>> 0).toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0")).slice(0, 32);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 

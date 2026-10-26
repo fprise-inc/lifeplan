@@ -1,9 +1,11 @@
 // 働き方と収入のカード: 辞め方・失業給付・高年齢雇用継続給付の欄（おまかせ＝推定は新しく作った期間だけ・期間が変わると入れ直す）、
 // 新しい世帯の定年と定年後の再雇用の推定（公務員の定年・年収の割合）、古い世帯の確かめの一覧、働き方のお金の区画
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { estimateUnemploymentClaim } from "../../engine/src/sdk/helpers.ts";
+import { REPO_DIR } from "../scripts/lib.ts";
 import type { EmploymentPeriod, EngineRequest } from "../src/engine/types.ts";
-import { continuationApplies, CONTINUATION_ITEM, isEstimated, missingUnemployment, unemploymentEstimate, UNEMPLOYMENT_ITEM } from "../src/workspace/input/claims.ts";
+import { continuationApplies, CONTINUATION_ITEM, ELDERLY_AGE, isEstimated, MIN_IDLE_MONTHS, missingUnemployment, unemploymentEstimate, UNEMPLOYMENT_ITEM } from "../src/workspace/input/claims.ts";
 import { fillAll, gapsOf } from "../src/workspace/input/fill.ts";
 import { allFields, type FieldDef, type StageDef, type Val } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -46,6 +48,13 @@ function newWorker(birth = "1980-06"): { wh: WorkingHousehold; self: string } {
 }
 
 describe("推定の決まりはエンジンの SDK と同じ", () => {
+  it("SDK の estimateUnemploymentClaim の決まり（3か月・65歳・休業のまま辞める）を写している", () => {
+    // エンジンの SDK は画面の型の検査に入れない（生成物が要る）ので、本文の決まりの数と式を読んで突き合わせる
+    const src = readFileSync(join(REPO_DIR, "engine", "src", "sdk", "helpers.ts"), "utf8");
+    expect(src).toContain(`export const UNEMPLOYMENT_ESTIMATE_MIN_IDLE_MONTHS = ${MIN_IDLE_MONTHS};`);
+    expect(src).toContain(`return o.ageAtLeaving < (o.elderlyAge ?? ${ELDERLY_AGE}) && o.idleMonths >= UNEMPLOYMENT_ESTIMATE_MIN_IDLE_MONTHS && o.endsWith !== "sickLeave";`);
+  });
+
   it.each([
     [59, 120, undefined, true],
     [59, 2, undefined, false],
@@ -54,7 +63,6 @@ describe("推定の決まりはエンジンの SDK と同じ", () => {
     [50, 12, "sickLeave", false],
     [50, 12, "involuntary", true],
   ] as const)("辞めた年齢 %i・次に働くまで %i か月・辞め方 %s", (age, idle, endsWith, want) => {
-    expect(estimateUnemploymentClaim({ ageAtLeaving: age, idleMonths: idle, ...(endsWith !== undefined ? { endsWith } : {}) })).toBe(want);
     // 画面の推定: 本人の期間を、その年齢で辞めて idle か月後に次の勤めを始める形にして同じ答えになる
     const { wh, self } = newWorker("1970-06");
     const h = structuredClone(wh.request.input.household);
@@ -270,5 +278,13 @@ describe("働き方のお金の行", () => {
     const sec = stage(wh).sections.find((s) => s.key === "money/work/in")!;
     expect(sec.level).toBe("simple");
     expect(sec.actions.find((a) => a.key.endsWith("/unemployment"))!.label).toContain("教育訓練給付");
+  });
+});
+
+describe("打ち手が足す期間の決まった ID", () => {
+  it("どの元の ID からも UUID の形になる（符号つきの数で「-」が入らない）", async () => {
+    const { derivedId } = await import("../src/workspace/levers.ts");
+    const re = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/;
+    for (let i = 0; i < 2000; i++) expect(derivedId(`00000000-0000-4000-8000-${String(i).padStart(12, "0")}`, "reemployment")).toMatch(re);
   });
 });
