@@ -31,7 +31,7 @@ const withPlanE = async () => {
   const demo = demoHousehold(ID) as DemoHousehold;
   const seeded = await seedDemo(wh0, cat, demo, { now: "2026-10-20T00:00:00.000Z", appVersion: "0.1.0" });
   const e = seeded.wh.proposals.find((p) => p.name.startsWith("プランE"));
-  return { seeded, e: e!, req: applyValues(seeded.wh, effectiveValues(seeded.wh.proposals, e!.id), cat) as EngineRequest };
+  return { seeded, e: e!, req: applyValues(seeded.wh, effectiveValues(seeded.wh, e!.id), cat) as EngineRequest };
 };
 
 describe("基本生活費のカードの欄（毎年の黒字のうち、貯金に回る割合）", () => {

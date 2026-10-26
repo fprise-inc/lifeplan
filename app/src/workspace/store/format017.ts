@@ -1,15 +1,14 @@
 // 世帯ファイルの形式 0.17（0035・0036）と、画面の中の形の読み替え。
 // 入力画面を作り直す（欄の定義が当て先を持ち、差分を当て先で作る）までは、画面の中では 0.16 と同じ形を使う:
-// - プランの差分は動かす項目のキー（key）で持ち、動かす項目の一覧で当てる（plans/plans.ts）
+// - プランの差分は世帯ファイルと同じ当て先の形（0036 の4）で持つ（plans/plans.ts・diffs.ts）。直さない
 // - 仮の印は欄のキーで持つ（household.assumed）
 // - 贈与者は donors で持つ
 // 世帯ファイルとの読み書きの所（body.ts の fromBody・bodyObject）で、次のように直す（どれも読み替え表 registry/readings.yaml で）:
-// - 差分: 鍵 ⇄ 当て先・合成の対策（0036 の4）。鍵に戻せない差分は、読んだ形のまま持って書き戻す（失わない）
+// - 差分: 動かす項目のキー（key）で持つ古い形の差分（形式 0.16 の画面の中の形）が来たら、当て先・合成の対策に直す（0036 の4）
 // - 仮の印 ⇄ 物の値の状態の欄（valueStates の推定の行。0035 の3）
 // - 贈与者 ⇄ 世帯の外の家族の構成員（生年月・性別なし。0035 の4）
 // - 対策に足した項目: 鍵 ⇄ 当て先
 // - 保存するときに、ID の無い並びの要素に ID を振る（0035 の5。場所から決まった ID で、保存のたびに同じになる）
-import type { PlanDiff } from "../plans/plans.ts";
 import { findObject, keyOf, migrationId, readAt, resolveKey, type Address, type Reading, type Target } from "./readings.ts";
 
 type Json = Record<string, unknown>;
@@ -201,7 +200,7 @@ function readingOfStored(s: { target: Json; item: string | null; at: string[] | 
 }
 
 /** 当て先の形にする。合成の対策が物を持たないときは、画面の差分の向き先（その対策が動かす物・構成員）を書いておく（読み戻すときに使う） */
-function storedTarget(r: Reading, item: string | null, memory?: PlanDiff["target"]): { target: Json; item: string | null; at: string[] } | null {
+function storedTarget(r: Reading, item: string | null, memory?: Json): { target: Json; item: string | null; at: string[] } | null {
   if (r.kind === "address") return { target: r.address.target as unknown as Json, item: r.address.item, at: r.address.at };
   if (r.kind === "lever") {
     const own = r.object !== undefined || r.member !== undefined;
@@ -211,38 +210,23 @@ function storedTarget(r: Reading, item: string | null, memory?: PlanDiff["target
   return null;
 }
 
-/** 世帯ファイルの差分を、画面の中の差分（動かす項目のキー）に */
-function memoryDiff(s: StoredDiff, input: Json): PlanDiff {
-  const legacy = s.legacy;
-  const r = s.unresolved === true || s.op !== "set" ? null : readingOfStored(s);
-  let key = r === null ? null : keyOf(r, input);
-  if (key === null && s.unresolved === true && legacy !== undefined) key = legacy.key;
-  key ??= `stored:${s.id}`;
-  const lt = legacy?.target;
-  const t = s.target;
-  const own = typeof t.object === "string" ? { object: t.object } : typeof t.member === "string" ? { member: t.member } : null;
-  const target = (isObj(lt) ? lt : own ?? (typeof t.plan === "string" ? { plan: "assumptions" } : { plan: "assumptions" })) as PlanDiff["target"];
-  return {
-    id: s.id,
-    key,
-    target,
-    item: s.item ?? (typeof legacy?.item === "string" ? legacy.item : "screen"),
-    op: "set",
-    value: s.value as PlanDiff["value"],
-    before: s.before as PlanDiff["before"],
-    enabled: s.enabled,
-    origin: s.origin as PlanDiff["origin"],
-    ...(s.approval !== undefined ? { approval: s.approval as NonNullable<PlanDiff["approval"]> } : {}),
-    note: s.note,
-    ...(legacy !== undefined ? { legacy } : {}),
-    // 鍵に戻せない差分・値を変える差分でないもの（足す・外す）は、読んだ形のまま書き戻す
-    ...(r === null || key.startsWith("stored:") ? { stored: s } : {}),
-  };
+/** 動かす項目のキーで持つ古い形の差分（画面の中の形 0.16） */
+interface KeyedDiff {
+  id: string;
+  key: string;
+  target: Json;
+  item: string;
+  value: unknown;
+  before: unknown;
+  enabled: boolean;
+  origin: unknown;
+  approval?: unknown;
+  note: string | null;
+  legacy?: { key: string; target: unknown; item: unknown };
 }
 
-/** 画面の中の差分を、世帯ファイルの差分に */
-function storedDiff(d: PlanDiff, input: Json): StoredDiff {
-  if (d.stored !== undefined && (d.key.startsWith("stored:") || (d.stored as StoredDiff).op !== "set")) return { ...(d.stored as StoredDiff), enabled: d.enabled };
+/** 古い形の差分を、当て先・合成の対策の形にする（表に無い鍵は、読み替えられなかった差分として残す。0036 の5） */
+function fromKeyed(d: KeyedDiff, input: Json): StoredDiff {
   const base = {
     id: d.id,
     op: "set" as const,
@@ -257,8 +241,10 @@ function storedDiff(d: PlanDiff, input: Json): StoredDiff {
   const r = resolveKey(d.key, input);
   const t = r === null ? null : storedTarget(r, d.item, d.target);
   if (t !== null) return { ...base, ...t };
-  return { ...base, target: d.target as unknown as Json, item: d.item, at: null, unresolved: true, legacy: d.legacy ?? { key: d.key, target: d.target, item: d.item } };
+  return { ...base, target: d.target, item: d.item, at: null, unresolved: true, legacy: d.legacy ?? { key: d.key, target: d.target, item: d.item } };
 }
+
+const keyedToStored = (d: unknown, input: Json): unknown => (isObj(d) && typeof d.key === "string" ? fromKeyed(d as unknown as KeyedDiff, input) : d);
 
 // ---- 本文の全体 ----
 
@@ -274,7 +260,7 @@ export function fromStoredBody(body: Json): Json {
   if (Array.isArray(b.proposals)) {
     for (const p of b.proposals) {
       if (!isObj(p) || !Array.isArray(p.diffs)) continue;
-      p.diffs = p.diffs.map((d) => (isObj(d) && typeof d.key !== "string" ? memoryDiff(d as unknown as StoredDiff, input) : d));
+      p.diffs = p.diffs.map((d) => keyedToStored(d, input));
     }
   }
   if (isObj(b.workspace) && Array.isArray(b.workspace.shownItems)) {
@@ -300,7 +286,7 @@ export function toStoredBody(body: Json): Json {
   if (Array.isArray(b.proposals)) {
     for (const p of b.proposals) {
       if (!isObj(p) || !Array.isArray(p.diffs)) continue;
-      p.diffs = p.diffs.map((d) => storedDiff(d as PlanDiff, input));
+      p.diffs = p.diffs.map((d) => keyedToStored(d, input));
     }
   }
   if (isObj(b.workspace) && Array.isArray(b.workspace.shownItems)) {

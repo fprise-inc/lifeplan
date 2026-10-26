@@ -32,7 +32,7 @@ function open(id: string) {
   const c = savePlan(wh, cat, { name: "プランC 生活費と配分", base: null, values: { "lever:livingMonthly": living - 20000, [mix.key]: mixFromBuckets(undefined, 80, 10) }, now: NOW });
   wh = c.wh;
   const letters = planLetters(wh.proposals);
-  const ctx = { wh, catalog: cat, valuesOf: (pid: string) => (pid === CURRENT ? {} : effectiveValues(wh.proposals, pid)), letterOf: (pid: string) => letters.get(pid) ?? { letter: "?", name: "" } };
+  const ctx = { wh, catalog: cat, valuesOf: (pid: string) => (pid === CURRENT ? {} : effectiveValues(wh, pid)), letterOf: (pid: string) => letters.get(pid) ?? { letter: "?", name: "" } };
   return { wh, cat, ctx, b: b.id, c: c.id };
 }
 
@@ -188,7 +188,7 @@ describe("提案書の材料: バランスシートの図の時点（資産と�
     const now = cat.byKey.get("lever:retireAge")!.read(o.wh) as number;
     const later = savePlan(o.wh, cat, { name: "プランD 退職を遅らせる", base: null, values: { "lever:retireAge": now + 5 }, now: NOW });
     const letters = planLetters(later.wh.proposals);
-    const ctx = { wh: later.wh, catalog: cat, valuesOf: (pid: string) => (pid === CURRENT ? {} : effectiveValues(later.wh.proposals, pid)), letterOf: (pid: string) => letters.get(pid) ?? { letter: "?", name: "" } };
+    const ctx = { wh: later.wh, catalog: cat, valuesOf: (pid: string) => (pid === CURRENT ? {} : effectiveValues(later.wh, pid)), letterOf: (pid: string) => letters.get(pid) ?? { letter: "?", name: "" } };
     const base = figureOf({});
     const plan = planReport(ctx, { ...choice(o), proposal: later.id, compare: [CURRENT, later.id] });
     const input = reportInput(plan.bundle(run(plan)));

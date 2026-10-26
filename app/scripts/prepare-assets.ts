@@ -45,9 +45,40 @@ const places: Record<string, { collection: string | null; path: string[]; status
 for (const e of itemDoc.entries) if (e.path !== undefined) places[e.id] = { collection: e.collection ?? null, path: e.path, status: e.status, replacedBy: e.replacedBy ?? null };
 const readingDoc = parse(readFileSync(join(REPO_DIR, "registry", "readings.yaml"), "utf8")) as { kind: string; entries: unknown[] };
 if (readingDoc.kind !== "reading") throw new Error("registry/readings.yaml: kind は reading");
+// 物の集まりの名前（エンジンの入力のスキーマの x-collection）→ 世帯の欄の名前と、構成員を指す欄（x-owner。プランの差分の足す先と相手の確かめ。0036 の2・7）
+const engineInput = JSON.parse(readFileSync(join(REPO_DIR, "engine", "schemas", "engine.input.json"), "utf8")) as { $defs: { household: { properties: Record<string, { "x-collection"?: string; "x-owner"?: string[] }> } } };
+const collections: Record<string, { field: string; owners: string[] }> = {};
+for (const [field, def] of Object.entries(engineInput.$defs.household.properties)) if (def["x-collection"] !== undefined) collections[def["x-collection"]] = { field, owners: def["x-owner"] ?? [] };
+// 入力項目の値の中で値の箱を持つ場所（並びの要素は *。"" は入力項目の値そのもの）。値の無い欄へ差分を書くときに箱で書くかを決める（0036 の4）
+type SchemaNode = { $ref?: string; properties?: Record<string, SchemaNode>; items?: SchemaNode; oneOf?: SchemaNode[]; anyOf?: SchemaNode[]; allOf?: SchemaNode[]; then?: SchemaNode; "x-item"?: string };
+const schemaDefs = (engineInput as unknown as { $defs: Record<string, SchemaNode> }).$defs;
+const boxed: Record<string, Set<string>> = {};
+function walkBoxes(node: SchemaNode | undefined, item: string, path: string[], depth: number): void {
+  if (node === undefined || depth > 12) return;
+  if (node.$ref !== undefined) {
+    if (/common#\/\$defs\/box[A-Z]/.test(node.$ref)) (boxed[item] ??= new Set()).add(path.join("/"));
+    else if (node.$ref.startsWith("#/$defs/")) walkBoxes(schemaDefs[node.$ref.slice("#/$defs/".length)], item, path, depth + 1);
+  }
+  for (const [k, v] of Object.entries(node.properties ?? {})) walkBoxes(v, item, [...path, k], depth + 1);
+  if (node.items !== undefined) walkBoxes(node.items, item, [...path, "*"], depth + 1);
+  for (const v of [...(node.oneOf ?? []), ...(node.anyOf ?? []), ...(node.allOf ?? []), ...(node.then !== undefined ? [node.then] : [])]) walkBoxes(v, item, path, depth + 1);
+}
+function findItems(node: SchemaNode | undefined, depth: number, seen: Set<SchemaNode>): void {
+  if (node === undefined || depth > 30 || seen.has(node)) return;
+  seen.add(node);
+  if (node["x-item"] !== undefined) walkBoxes(node, node["x-item"], [], 0);
+  for (const v of Object.values(node.properties ?? {})) findItems(v, depth + 1, seen);
+  if (node.items !== undefined) findItems(node.items, depth + 1, seen);
+  for (const v of [...(node.oneOf ?? []), ...(node.anyOf ?? []), ...(node.allOf ?? []), ...(node.then !== undefined ? [node.then] : [])]) findItems(v, depth + 1, seen);
+}
+const seenNodes = new Set<SchemaNode>();
+for (const d of Object.values(schemaDefs)) findItems(d, 0, seenNodes);
+const boxedOut = Object.fromEntries(Object.entries(boxed).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => [k, [...v].sort()]));
 const readingsText = [
   "// 自動生成（scripts/prepare-assets.ts）。手で書き換えない。登録簿（registry/items.yaml・readings.yaml。0035 の6・9）",
   'import type { ReadingEntry } from "../workspace/store/readings.ts";',
+  `export const BOXED_PLACES: Readonly<Record<string, readonly string[]>> = ${JSON.stringify(boxedOut, null, 1)};`,
+  `export const COLLECTIONS: Readonly<Record<string, { field: string; owners: readonly string[] }>> = ${JSON.stringify(collections, null, 1)};`,
   `export const ITEM_PLACES: Readonly<Record<string, { collection: string | null; path: readonly string[]; status: string; replacedBy: string | null }>> = ${JSON.stringify(places, null, 1)};`,
   `export const READING_ENTRIES: readonly ReadingEntry[] = ${JSON.stringify(readingDoc.entries, null, 1)} as unknown as readonly ReadingEntry[];`,
   "",

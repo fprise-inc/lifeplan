@@ -276,7 +276,7 @@ export interface Work {
 const EMPTY_WORK: Work = { band: [], base: CURRENT, sel: CURRENT, drafts: {} };
 
 /** 案の保存した中身（現状は空） */
-export const savedValues = (wh: WorkingHousehold, id: string): Values => (id === CURRENT ? {} : effectiveValues(wh.proposals, id));
+export const savedValues = (wh: WorkingHousehold, id: string): Values => (id === CURRENT ? {} : effectiveValues(wh, id));
 /** 案の今の中身（保存していない変更があればそれ） */
 export const valuesOf = (wh: WorkingHousehold, w: Work, id: string): Values => w.drafts[id] ?? savedValues(wh, id);
 /** 保存していない変更がある案 */
@@ -2366,7 +2366,7 @@ function seedPlans(o: Opened, first: Values): { wh: WorkingHousehold; ids: strin
   let wh = o.wh;
   const ids: string[] = [];
   const save = (name: string, values: Values, base: string | null, tags: string[]) => {
-    const r = savePlan(wh, cat, { name, tags, base, values: normalizeValues(values, base === null ? {} : effectiveValues(wh.proposals, base), wh, cat), now: nowIso() });
+    const r = savePlan(wh, cat, { name, tags, base, values: normalizeValues(values, base === null ? {} : effectiveValues(wh, base), wh, cat), now: nowIso() });
     wh = r.wh;
     ids.push(r.id);
     return r.id;
