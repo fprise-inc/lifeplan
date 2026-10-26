@@ -1,0 +1,19 @@
+id: wageStats.partTimeHourly.female
+title: 賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり賃金（女・年齢計・企業規模計）
+unit: JPY
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-03-24"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1418
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/itiran/roudou/chingin/kouzou/z2025/dl/14.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "令和7年賃金構造基本統計調査の概況 短時間労働者の賃金", "quote": "短時間労働者の１時間当たり賃金は、男女計1,518 円、男性1,769 円、女性1,418 円となっている。", "note": "公式のドメイン（mhlw.go.jp）に限った検索の抜粋（原本の PDF は未取得）。令和7年6月分"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "短時間労働者の1時間当たり賃金（女）1418円（検索の抜粋）"}

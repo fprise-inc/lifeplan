@@ -1,0 +1,19 @@
+id: wageStats.business.operatingProfit
+title: 個人企業経済調査（総務省）2025年調査 1企業当たりの年間営業利益（2024年の実績・産業計）
+unit: JPY
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-03-02"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 2180000
+    sources:
+      - {"type": "web", "url": "https://www.stat.go.jp/data/kojinke/kekka/pdf/2025gaiyou.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "2025年（令和7年）個人企業経済調査 結果の概要（令和8年3月2日 総務省） 1 営業状況", "quote": "2024年の１企業当たりの年間売上高は1398万9000円で、前年（1376万3000円）に比べ1.6％", "note": "公式のドメイン（stat.go.jp）に限った検索の抜粋（原本の PDF は未取得）。年間営業利益 218万円（前年比2.4％増）は検索の要約で読んだ"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "1企業当たりの年間営業利益 218万円（検索の要約）。原本の結果の概要で確かめる"}

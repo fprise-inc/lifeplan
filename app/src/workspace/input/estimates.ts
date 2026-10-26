@@ -1,17 +1,19 @@
 // 空欄を補う目安の値（0008 の2 の「推定」。出どころは auto、estimate に統計名と年度を書く）。
-// どれも原本での確かめの前の仮の値で、画面には「推定」の印と根拠の文を出す。
-// 制度データ・マスタデータ（0007）に移すまでの置き場所（形は値と根拠の文だけ）
-import type { Box, EmploymentPeriod, Household } from "../../engine/types.ts";
+// 目安の数と純粋な計算は、ヒアリングシートの取り込みと同じ hearing/src/estimates.ts（正本は data/ の YAML の写し。0008 の追記 2026-10-26）。
+// ここには世帯（Household）を見て当てる部分と、元の入力が変わったときの入れ直しだけを置く
+import type { Box, EmploymentPeriod, Household, Member } from "../../engine/types.ts";
 import { ageAt } from "../levers.ts";
+import {
+  livingEstimate as livingBySize,
+  residentTaxEstimate,
+  residentTaxYear,
+  salaryEstimate,
+  smrEstimate as smrBoxes,
+  type Estimate,
+} from "../../../../hearing/src/estimates.ts";
 
-export interface Estimate {
-  value: number;
-  basis: string;
-}
-
-/** 基本生活費の目安（月額・円）。住居費・教育費・保険料・車両費を除く。世帯の人数ごと */
-const LIVING_BY_SIZE: readonly number[] = [0, 140000, 250000, 280000, 300000];
-const LIVING_BASIS = "家計調査（総務省）2024年の消費支出から住居・教育を除いた目安（仮の値。原本での確かめ前）";
+export type { Estimate };
+export { businessEstimate, careerStartMonth, CAR_ESTIMATE, residentTaxEstimate, residentTaxYear, salaryEstimate } from "../../../../hearing/src/estimates.ts";
 
 /** 今（計算基準月）世帯にいる人の数 */
 export function householdSize(h: Household, baseMonth: string): number {
@@ -23,53 +25,12 @@ export function householdSize(h: Household, baseMonth: string): number {
 }
 
 export function livingEstimate(h: Household, baseMonth: string): Estimate {
-  const n = Math.max(1, householdSize(h, baseMonth));
-  const value = LIVING_BY_SIZE[Math.min(n, LIVING_BY_SIZE.length - 1)] as number;
-  return { value, basis: `${LIVING_BASIS}・${n >= 4 ? "4人以上" : `${n}人`}の世帯` };
+  return livingBySize(householdSize(h, baseMonth));
 }
 
-/** 給与（賞与を除く年額）と賞与の目安。性別・雇用の形ごと（年齢・企業規模の区分は昇給カーブのマスタができてから） */
-const SALARY: Record<string, { male: [number, number]; female: [number, number] }> = {
-  regular: { male: [4300000, 1000000], female: [3300000, 700000] },
-  civilServant: { male: [4500000, 1600000], female: [4000000, 1400000] },
-  contract: { male: [3200000, 300000], female: [2600000, 200000] },
-  partTime: { male: [1500000, 0], female: [1000000, 0] },
-  executive: { male: [6000000, 0], female: [4800000, 0] },
-};
-const SALARY_BASIS = "賃金構造基本統計調査（厚生労働省）2024年の平均の目安（仮の値。原本での確かめ前）";
-
-export function salaryEstimate(type: string, sex: string): { annual: Estimate; bonus: Estimate } | null {
-  const row = SALARY[type];
-  if (row === undefined) return null;
-  const [annual, bonus] = sex === "female" ? row.female : row.male;
-  const label = `${SALARY_BASIS}・${sex === "female" ? "女性" : "男性"}`;
-  return { annual: { value: annual, basis: label }, bonus: { value: bonus, basis: label } };
-}
-
-/** 自営業の事業所得の目安 */
-export function businessEstimate(): Estimate {
-  return { value: 3000000, basis: "個人企業経済調査（総務省）の営業利益の目安（仮の値。原本での確かめ前）" };
-}
-
-/** 車の目安（1台。計算基準年の価格）。買い替えの周期・車両の価格（下取りを引く前）・維持費の年額 */
-const CAR_BASIS = "自動車の保有・維持費の調査の目安（仮の値。原本での確かめ前）";
-export const CAR_ESTIMATE = {
-  everyYears: { value: 8, basis: `${CAR_BASIS}・乗り換えの間隔` },
-  price: { value: 2500000, basis: `${CAR_BASIS}・新車の価格` },
-  tradeIn: { value: 500000, basis: `${CAR_BASIS}・下取り` },
-  /** 維持費の合計（自動車税・保険・車検・駐車場・燃料） */
-  upkeep: { value: 360000, basis: `${CAR_BASIS}・維持費の合計（自動車税・保険・車検・駐車場・燃料）` },
-  tax: { value: 36000, basis: `${CAR_BASIS}・自動車税（排気量1.5〜2リットル）` },
-  insurance: { value: 70000, basis: `${CAR_BASIS}・任意保険` },
-  inspection: { value: 100000, basis: `${CAR_BASIS}・車検1回（法定費用と整備）` },
-  parking: { value: 0, basis: `${CAR_BASIS}・駐車場（自宅に置く）` },
-  fuel: { value: 100000, basis: `${CAR_BASIS}・燃料` },
-} as const satisfies Record<string, Estimate>;
-
-/** 今の年齢から見た、ふつうの働き始め（22歳）。過去の期間の始まりの目安 */
-export function careerStartMonth(birthYearMonth: string): string {
-  const [y] = birthYearMonth.split("-");
-  return `${Number(y) + 22}-04`;
+/** 給与の推定に使う年齢: その期間の始まりと計算基準月の遅いほうの月の年齢 */
+export function salaryAge(m: Member, p: Pick<EmploymentPeriod, "from">, baseMonth: string): number {
+  return ageAt(m, smrMonth(p, baseMonth));
 }
 
 /** 年齢の目安の文（画面の補助） */
@@ -78,13 +39,15 @@ export function ageNote(h: Household, memberId: string, month: string): string |
   return m === undefined ? null : `${ageAt(m, month)}歳`;
 }
 
-const SMR_BASIS = "年収（賞与を除く）÷12 からの目安";
+/** 標準報酬月額の目安（年収÷12 を、その月の等級表に当てた額。hearing/src/estimates.ts の smrEstimate） */
+export function smrEstimate(annual: number, month: string): { health: Box<number>; pension: Box<number> } {
+  return smrBoxes(annual, month) as { health: Box<number>; pension: Box<number> };
+}
 
-/** 標準報酬月額の目安（等級表で決まる額は計算エンジンが丸める前の近似。給与の入力から） */
-export function smrEstimate(annual: number): { health: Box<number>; pension: Box<number> } {
-  const v = Math.max(58000, Math.round(annual / 12 / 1000) * 1000);
-  const box = () => ({ value: v, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: SMR_BASIS } });
-  return { health: box(), pension: box() };
+/** 標準報酬月額の目安の等級表を引く月: その期間の始まりと計算基準月の遅いほう */
+export function smrMonth(p: Pick<EmploymentPeriod, "from">, baseMonth: string): string {
+  const at = p.from.at;
+  return at !== undefined && at > baseMonth ? at : baseMonth;
 }
 
 const isAuto = (b: Box<number> | undefined) => b !== undefined && b.state === "estimated" && b.origin.kind === "auto";
@@ -100,18 +63,33 @@ export function refreshEstimates(h: Household, baseMonth: string): void {
       l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } as Box<number>;
     }
   }
-  for (const a of (h.residentTaxAssessments ?? []) as { member: string; amount: Box<number> }[]) {
+  // 給与・賞与の統計の推定（年齢・性別・働き方の種類で決まる。統計の目安が新しくなったときも入れ直す）
+  for (const p of h.employmentPeriods ?? []) {
+    const m = h.members.find((x) => x.id === p.member);
+    if (m === undefined || p.salary === undefined) continue;
+    const est = salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, baseMonth) });
+    if (est === null) continue;
+    const redo = (b: Box<number> | undefined, e: Estimate): Box<number> | undefined => {
+      const cur = (b as { estimate?: { method?: string; basis?: string } } | undefined)?.estimate;
+      return b !== undefined && isAuto(b) && cur?.method === "statistic" && (b.value !== e.value || cur.basis !== e.basis) ? ({ ...b, value: e.value, estimate: { method: "statistic", basis: e.basis } } as Box<number>) : b;
+    };
+    const annual = redo(p.salary.annual, est.annual) as Box<number>;
+    const bonus = redo(p.salary.bonus, est.bonus);
+    if (annual !== p.salary.annual || bonus !== p.salary.bonus) p.salary = { ...p.salary, annual, ...(bonus !== undefined ? { bonus } : {}) };
+  }
+  const fy = residentTaxYear(baseMonth);
+  for (const a of (h.residentTaxAssessments ?? []) as { member: string; fiscalYear?: number; amount: Box<number> }[]) {
     if (!isAuto(a.amount)) continue;
     const inc = incomeBefore(h, a.member, baseMonth);
-    const e = residentTaxEstimate(inc.salary, inc.business);
+    const e = residentTaxEstimate(inc.salary, inc.business, (a.fiscalYear ?? fy) - 1);
     if (a.amount.value !== e.value) a.amount = { ...a.amount, value: e.value };
   }
   for (const p of h.employmentPeriods ?? []) {
     const smr = (p as EmploymentPeriod).standardMonthlyRemuneration;
     const annual = p.salary?.annual.value;
     if (smr !== undefined && annual != null && isAuto(smr.health) && isAuto(smr.pension)) {
-      const e = smrEstimate(annual);
-      if (smr.health.value !== e.health.value) p.standardMonthlyRemuneration = e;
+      const e = smrEstimate(annual, smrMonth(p, baseMonth));
+      if (smr.health.value !== e.health.value || smr.pension.value !== e.pension.value) p.standardMonthlyRemuneration = e;
     }
   }
 }
@@ -125,24 +103,6 @@ export function withRefreshedEstimates<T extends { request: { input: { household
 }
 
 // ---- 住民税（今年度の決定額。置き換え口 residentTaxAssessments）----
-
-/** 計算基準月が入る住民税の年度（6月から翌年5月） */
-export function residentTaxYear(baseMonth: string): number {
-  const [y, m] = baseMonth.split("-").map(Number) as [number, number];
-  return m >= 6 ? y : y - 1;
-}
-
-const RESIDENT_BASIS = "前の年の給与・事業の所得からの概算（住民税の決定通知書の年税額を入れると置き換わります）";
-
-/** 給与（賞与込み）または事業所得からの住民税の概算（所得割10%＋均等割。社会保険料は収入の15%とみなす） */
-export function residentTaxEstimate(salary: number, business: number): Estimate {
-  const s = salary;
-  const ded = s <= 1625000 ? 550000 : s <= 1800000 ? s * 0.4 - 100000 : s <= 3600000 ? s * 0.3 + 80000 : s <= 6600000 ? s * 0.2 + 440000 : s <= 8500000 ? s * 0.1 + 1100000 : 1950000;
-  const income = Math.max(0, s - ded) + business;
-  const taxable = income - 430000 - (s + business) * 0.15;
-  const value = taxable <= 0 ? 0 : Math.round((taxable * 0.1 + 5000) / 100) * 100;
-  return { value, basis: RESIDENT_BASIS };
-}
 
 /** その人の今の収入（給与は賞与込み・事業所得）。計算基準月の前の年にかかる期間から */
 function incomeBefore(h: Household, memberId: string, baseMonth: string): { salary: number; business: number; any: boolean } {
@@ -172,7 +132,7 @@ export function ensureResidentTax(h: Household, memberId: string, baseMonth: str
   if (list.some((a) => a.member === memberId && a.fiscalYear === fy)) return;
   const inc = incomeBefore(h, memberId, baseMonth);
   if (!inc.any) return;
-  const e = residentTaxEstimate(inc.salary, inc.business);
+  const e = residentTaxEstimate(inc.salary, inc.business, fy - 1);
   h.residentTaxAssessments ??= [];
   (h.residentTaxAssessments as unknown[]).push({ id: id(), member: memberId, fiscalYear: fy, amount: { value: e.value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: e.basis } } });
 }

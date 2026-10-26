@@ -2312,6 +2312,36 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: retirementBenefit.mandatory.highSchoolManual
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.mandatory.highSchoolOffice
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.mandatory.university
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.prevalence
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 退職給付（一時金・年金）制度がある企業の割合（企業規模計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.prevalence.bySize
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 退職給付（一時金・年金）制度がある企業の割合（企業規模別。upTo は常用労働者数の上限、rate が割合）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: smallBusinessMutualAid.contribution.monthlyMax
     status: active
     label: "小規模企業共済の掛金月額の上限"
@@ -2987,6 +3017,48 @@ entries:
   - id: socialInsurance.standardBonus.rounding
     status: active
     label: "標準賞与額（賞与額の1,000円未満の切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.business.operatingProfit
+    status: active
+    label: "個人企業経済調査（総務省）2025年調査 1企業当たりの年間営業利益（2024年の実績・産業計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.partTimeHourly.female
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり賃金（女・年齢計・企業規模計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.partTimeHourly.male
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり賃金（男・年齢計・企業規模計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.scheduledMonthly.nonRegular.female
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額の月額（正社員・正職員以外・女・年齢計・企業規模計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.scheduledMonthly.nonRegular.male
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額の月額（正社員・正職員以外・男・年齢計・企業規模計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.scheduledMonthly.regular.female
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額の月額（正社員・正職員・女・年齢計・企業規模計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.scheduledMonthly.regular.male
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額の月額（正社員・正職員・男・年齢計・企業規模計）"
     since: draft
     aliases: []
     replacedBy: null

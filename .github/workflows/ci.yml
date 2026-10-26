@@ -226,6 +226,8 @@ jobs:
         run: npm run registry:check
       - name: 見本のシート（架空の記入例）が記入例の JSON から作り直したものと同じこと（0018 の7）
         run: npm run sample:check
+      - name: 推定の目安の写し（src/statistics.generated.ts）が正本の YAML（data/master・data/regulation）から作り直したものと同じこと（0007・0008）
+        run: npm run statistics:check
       - name: 単体テスト（往復・取り込み・読み込みの安全）
         run: npm test
       - name: ライセンスの検査（npm）

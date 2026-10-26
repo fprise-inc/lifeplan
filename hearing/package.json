@@ -18,6 +18,8 @@
     "registry:check": "node --disable-warning=ExperimentalWarning scripts/registry.ts --check",
     "sample": "node --disable-warning=ExperimentalWarning scripts/sample.ts",
     "sample:check": "node --disable-warning=ExperimentalWarning scripts/sample.ts --check",
+    "statistics": "node --disable-warning=ExperimentalWarning scripts/statistics.ts",
+    "statistics:check": "node --disable-warning=ExperimentalWarning scripts/statistics.ts --check",
     "check:licenses": "node --disable-warning=ExperimentalWarning scripts/check-licenses.ts"
   },
   "devDependencies": {

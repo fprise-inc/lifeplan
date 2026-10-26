@@ -106,7 +106,7 @@ describe("働き方: 給与の種類どうしで変えたら推定を入れ替�
 
   it("正社員→パート: 推定のままの年収・賞与・健康保険・厚生年金はパートの推定・初めの値になる", () => {
     const { wh, spouse, f } = start();
-    expect(periodOf(wh, spouse.id).salary?.annual.value).toBe(3300000);
+    expect(periodOf(wh, spouse.id).salary?.annual.value).toBe(304900 * 12);
     const w2 = f("/type").set(wh, "partTime");
     const p = periodOf(w2, spouse.id);
     expect(p.type).toBe("partTime");
@@ -115,7 +115,7 @@ describe("働き方: 給与の種類どうしで変えたら推定を入れ替�
     expect(p.healthInsurance?.kind).toBe("dependent");
     expect(p.pensionCategory).toBe("none");
     expect(p.employer).toEqual({ size: 50, weeklyHours: "20" });
-    expect(p.standardMonthlyRemuneration?.health.value).toBe(83000);
+    expect(p.standardMonthlyRemuneration?.health.value).toBe(88000);
     expect(() => preview(w2.request)).not.toThrow();
   });
 

@@ -1,0 +1,16 @@
+# 賃金と事業所得の公的統計の目安（0007 の1: マスタデータ master.wageStats。入力の画面とヒアリングの推定の目安に使う）
+# 2026.1.0: 最初の版。厚生労働省「賃金構造基本統計調査」（令和7年。令和8年3月24日公表）の雇用形態・性別の所定内給与額（年齢計・企業規模計）と
+#   短時間労働者の1時間当たり賃金、総務省「個人企業経済調査」（2025年調査。2024年の実績。令和8年3月2日公表）の1企業当たりの営業利益。
+#   原本（公表資料の PDF・統計表の Excel）をこの作業で取得していないので、公式のドメインに限った検索の抜粋で読んだ値で、すべて原本での確認待ち（pendingReview）。
+#   年齢階級別の表（きまって支給する現金給与額・年間賞与その他特別給与額）は統計表の Excel にしかないので、まだ入れていない。入れるときの値IDの形は
+#   wageStats.byAge.<contractualMonthly|annualBonus>.<regular|nonRegular>.<male|female>.<all|large|medium|small>（段階表。upTo が年齢階級の上限の年齢、amount が額）。
+#   昇給カーブ wageStats.default（income.salary が読む）も同じ表から作る（まだ無い）
+packId: master.wageStats
+formatVersion: "0.1"
+version: "2026.1.0"
+features: []
+title: 賃金と事業所得の公的統計の目安
+requires: {}
+license:
+  values: CC0-1.0
+  sources: 出典ごとの条件（各値の sources に記載。政府統計は出典を示して利用する。加工した旨を表示する）

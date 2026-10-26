@@ -1,0 +1,23 @@
+id: retirementBenefit.prevalence.bySize
+title: 就労条件総合調査（厚生労働省）令和5年 退職給付（一時金・年金）制度がある企業の割合（企業規模別。upTo は常用労働者数の上限、rate が割合）
+unit: rate
+kind: bracketTable
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2023-11-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 99}
+      - {"upTo": 299, "rate": "0.847"}
+      - {"upTo": 999, "rate": "0.888"}
+      - {"upTo": null, "rate": "0.901"}
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/itiran/roudou/jikan/syurou/23/dl/gaiyou03.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "令和5年就労条件総合調査の概況 第16表 退職給付（一時金・年金）制度の有無・形態別企業割合", "quote": "「1,000 人以上」が90.1％、「300～999 人」が88.8％、「100～299 人」が84.7％", "note": "公式のドメイン（mhlw.go.jp）に限った検索の抜粋（原本の PDF は未取得）。30〜99人の段は抜粋で読めなかったので値を書いていない（値を確かめられなかった段）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "30〜99人の段は未確認。30人未満の企業は調査の対象外"}

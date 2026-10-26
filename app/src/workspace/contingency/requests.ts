@@ -117,7 +117,7 @@ export function survivorWorkPeriod(h: Household, survivor: Member, w: SurvivorWo
   if (w.type === "none") return { id, member: survivor.id, from: { at: from }, to: null, type: "unemployed" };
   const last = addMonths(ageReachedMonth(survivor, w.untilAge ?? 65), -1);
   if (last < from) return null;
-  const p = convertPeriod({ id, member: survivor.id, from: { at: from }, to: { at: last }, type: "regular" }, w.type, survivor);
+  const p = convertPeriod({ id, member: survivor.id, from: { at: from }, to: { at: last }, type: "regular" }, w.type, survivor, from);
   if (SALARIED.has(w.type)) {
     // 配偶者が亡くなった後は扶養に入れないので、パートは国民健康保険・国民年金にする
     if (w.type === "partTime") {
@@ -126,7 +126,7 @@ export function survivorWorkPeriod(h: Household, survivor: Member, w: SurvivorWo
     }
     if (w.annualSalary !== undefined && p.salary !== undefined) {
       p.salary = { ...p.salary, annual: confirmedBox(w.annualSalary), bonus: confirmedBox(0) };
-      if (w.type !== "partTime") p.standardMonthlyRemuneration = smrEstimate(w.annualSalary);
+      if (w.type !== "partTime") p.standardMonthlyRemuneration = smrEstimate(w.annualSalary, from);
     }
     if (w.type === "partTime") delete p.standardMonthlyRemuneration;
   } else if (w.type === "selfEmployed" && w.annualSalary !== undefined) p.business = { income: confirmedBox(w.annualSalary) };

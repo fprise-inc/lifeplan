@@ -2,7 +2,8 @@
 // 被保険者の種別（第1〜3号）は入れない（エンジンが働き方の期間から導く。0008 の4）
 import type { EmploymentPeriod, Household, Member } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, applyLevers, readLevers } from "../../levers.ts";
-import { businessEstimate, careerStartMonth, ensureResidentTax, residentTaxEstimate, residentTaxYear, salaryEstimate, smrEstimate } from "../estimates.ts";
+import { businessEstimate, careerStartMonth, ensureResidentTax, residentTaxEstimate, residentTaxYear, salaryAge, salaryEstimate, smrEstimate, smrMonth } from "../estimates.ts";
+import { healthRateEstimate } from "../../../../../hearing/src/estimates.ts";
 import { byId, field, plain, rateBox, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { estimatedBox, mutate, newId, periodsOf, reemploymentOf, type PostRetirement, type WorkingHousehold } from "../household.ts";
 import { earners, EMPLOYMENT_TYPES, HEALTH_INSURANCE, KYOKAI_BRANCHES, LEAVE_KINDS, memberLabel, PENSION_CATEGORY, POST_RETIREMENT_TYPES } from "../labels.ts";
@@ -38,12 +39,13 @@ const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringif
  * 給与の種類どうし（正社員→パートなど）で変えたときは、推定のままの年収・賞与・標準報酬月額を新しい種類の推定に入れ替え、
  * 前の種類の初めの値のままの健康保険・厚生年金・勤め先も新しい種類の初めの値に入れ替える。FP が入れた値は残す（0008 の追記 2026-10-11 の2・2026-10-25）
  */
-export function convertPeriod(p: EmploymentPeriod, type: string, member: Member | undefined): EmploymentPeriod {
+export function convertPeriod(p: EmploymentPeriod, type: string, member: Member | undefined, baseMonth: string): EmploymentPeriod {
   const { salary, business, healthInsurance, pensionCategory, employer, standardMonthlyRemuneration, leaveKind, leaveChild, childcareShortHours, corporatePension, employmentInsuranceCovered, employeeInsurance, ...rest } = p;
   const out: EmploymentPeriod = { ...rest, type };
   const sex = member?.sex ?? "male";
   if (SALARIED.has(type)) {
-    const est = salaryEstimate(type, sex);
+    // 推定の年齢は、その期間の始まりと計算基準月の遅いほう（勤め先の規模は推定に使わない。規模は詳細で入れたときだけの決まり）
+    const est = salaryEstimate(type, sex, member === undefined ? {} : { age: salaryAge(member, p, baseMonth) });
     const was = SALARIED.has(p.type) && p.type !== type ? salariedDefaults(p.type) : null;
     const now = salariedDefaults(type);
     const keep = <T,>(cur: T | undefined, before: T | undefined, next: T): T => (cur === undefined || (was !== null && sameJson(cur, before)) ? next : cur);
@@ -57,7 +59,7 @@ export function convertPeriod(p: EmploymentPeriod, type: string, member: Member 
         ? { annual, bonus }
         : { ...salary, annual: isAutoBox(salary.annual) ? annual : salary.annual, ...(isAutoBox(salary.bonus) ? { bonus } : {}) };
     const smr = standardMonthlyRemuneration;
-    out.standardMonthlyRemuneration = smr !== undefined && !(isAutoBox(smr.health) && isAutoBox(smr.pension)) ? smr : smrEstimate(out.salary.annual.value ?? 0);
+    out.standardMonthlyRemuneration = smr !== undefined && !(isAutoBox(smr.health) && isAutoBox(smr.pension)) ? smr : smrEstimate(out.salary.annual.value ?? 0, smrMonth(p, baseMonth));
     if (corporatePension !== undefined) out.corporatePension = corporatePension;
     if (employmentInsuranceCovered !== undefined) out.employmentInsuranceCovered = employmentInsuranceCovered;
     if (employeeInsurance !== undefined) out.employeeInsurance = employeeInsurance;
@@ -72,8 +74,11 @@ export function convertPeriod(p: EmploymentPeriod, type: string, member: Member 
   return out;
 }
 
-/** 健保組合・共済の料率が分からないときの目安（被保険者の負担分） */
-const UNION_RATE = { value: "0.046", state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic", basis: "健康保険組合の平均の保険料率の半分の目安（仮の値。原本での確かめ前）" } };
+/** 健保組合・共済の料率が分からないときの目安（被保険者の負担分。ヒアリングシートの取り込みと同じ hearing/src/estimates.ts の目安） */
+const unionRate = (kind: "union" | "mutualAid") => {
+  const e = healthRateEstimate(kind);
+  return { value: e.value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic", basis: e.basis } };
+};
 
 /** 健康保険の種類に要る欄をそろえる: 協会けんぽは支部、健保組合・共済は料率（スキーマの条件） */
 export function fixHealthInsurance(hi: { kind: string; [key: string]: unknown }, defaultBranch = "kyokaikenpo.13"): { kind: string; [key: string]: unknown } {
@@ -84,7 +89,7 @@ export function fixHealthInsurance(hi: { kind: string; [key: string]: unknown },
     delete hi.childSupportEmployeeRate;
   } else {
     delete hi.insurer;
-    if (hi.kind === "union" || hi.kind === "mutualAid") hi.employeeRate ??= structuredClone(UNION_RATE);
+    if (hi.kind === "union" || hi.kind === "mutualAid") hi.employeeRate ??= unionRate(hi.kind);
     else {
       delete hi.employeeRate;
       delete hi.careEmployeeRate;
@@ -176,7 +181,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
           const cur = w.postRetirement[m.id];
           if (cur === undefined) return w;
           const type = (v === "" || v === null ? null : v) as PostRetirement["type"];
-          const est = type === null ? null : type === "selfEmployed" ? businessEstimate().value : (salaryEstimate(type, m.sex)?.annual.value ?? null);
+          const est = type === null ? null : type === "selfEmployed" ? businessEstimate().value : (salaryEstimate(type, m.sex, { age: cur.fromAge })?.annual.value ?? null);
           const nextPost: PostRetirement = { ...cur, type, annualSalary: type === null ? null : (cur.annualSalary ?? est) };
           let next: WorkingHousehold = { ...w, postRetirement: { ...w.postRetirement, [m.id]: nextPost } };
           const pp = postPeriod(next.request.input.household, m, nextPost);
@@ -188,7 +193,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
               next = mutate(next, (hh) => {
                 const list = hh.employmentPeriods ?? [];
                 const i = list.findIndex((p) => p.id === pp.id);
-                const conv = convertPeriod(list[i] as EmploymentPeriod, type, m);
+                const conv = convertPeriod(list[i] as EmploymentPeriod, type, m, next.request.input.baseMonth);
                 if (nextPost.annualSalary !== null) {
                   if (conv.salary !== undefined) conv.salary = { ...conv.salary, annual: { value: nextPost.annualSalary, state: "confirmed", origin: { kind: "manual" } } };
                   if (conv.business !== undefined) conv.business = { income: { value: nextPost.annualSalary, state: "confirmed", origin: { kind: "manual" } } };
@@ -290,7 +295,7 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
           run: (w) => {
             const from = careerStartMonth(m.birth.birthYearMonth);
             const to = addMonths(ageReachedMonth(m, 60), -1);
-            const p = convertPeriod({ id: newId(), member: m.id, from: { at: from < base ? from : base }, to: { at: to }, type: "regular" }, "regular", m);
+            const p = convertPeriod({ id: newId(), member: m.id, from: { at: from < base ? from : base }, to: { at: to }, type: "regular" }, "regular", m, base);
             const next = mutate(w, (hh) => {
               (hh.employmentPeriods ??= []).push(p);
               ensureResidentTax(hh, m.id, base, newId);
@@ -304,7 +309,7 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
           level: "simple",
           run: (w) => {
             const from = careerStartMonth(m.birth.birthYearMonth);
-            const p = convertPeriod({ id: newId(), member: m.id, from: { at: from < base ? from : base }, to: null, type: "selfEmployed" }, "selfEmployed", m);
+            const p = convertPeriod({ id: newId(), member: m.id, from: { at: from < base ? from : base }, to: null, type: "selfEmployed" }, "selfEmployed", m, base);
             return mutate(w, (hh) => {
               (hh.employmentPeriods ??= []).push(p);
               ensureResidentTax(hh, m.id, base, newId);
@@ -335,7 +340,7 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
       },
       estimate: (hh) => {
         const p = currentPeriod(hh, m.id, base);
-        return residentTaxEstimate((p?.salary?.annual.value ?? 0) + (p?.salary?.bonus?.value ?? 0), p?.business?.income.value ?? 0);
+        return residentTaxEstimate((p?.salary?.annual.value ?? 0) + (p?.salary?.bonus?.value ?? 0), p?.business?.income.value ?? 0, fy - 1);
       },
       help: "住民税の決定通知書（給与明細の住民税×12）の額。空欄なら前の年の所得から概算します",
     }),
@@ -368,7 +373,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
         mutate(w, (h, req) => {
           const list = h.employmentPeriods ?? [];
           const i = list.findIndex((x) => x.id === p.id);
-          if (i >= 0 && v !== null) list[i] = convertPeriod(list[i] as EmploymentPeriod, String(v), m);
+          if (i >= 0 && v !== null) list[i] = convertPeriod(list[i] as EmploymentPeriod, String(v), m, req.input.baseMonth);
           ensureResidentTax(h, m.id, req.input.baseMonth, newId);
         }),
     }),
@@ -376,8 +381,8 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
   if (p.type === "leave") fields.push(plain({ key: `${prefix}/leaveKind`, item: "employment.leaveKind", label: "休業の種類", level, kind: "select", options: LEAVE_KINDS, find, path: ["leaveKind"] }));
   if (SALARIED.has(p.type)) {
     fields.push(
-      yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex)?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額。空欄なら統計の目安で計算します" }),
-      yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex)?.bonus ?? null }),
+      yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額。空欄なら統計の目安で計算します" }),
+      yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null }),
       plain({
         key: `${prefix}/hi`,
         item: "employment.healthInsurance.kind",
@@ -468,7 +473,7 @@ function addPeriodAction(wh: WorkingHousehold, m: Member): ActionDef {
       const ps = periodsOf(w.request.input.household, m.id);
       const lastEnd = ps.map((p) => p.to?.at).filter((x): x is string => x !== undefined).sort().at(-1);
       const from = lastEnd !== undefined ? addMonths(lastEnd, 1) : w.request.input.baseMonth;
-      const p = convertPeriod({ id: newId(), member: m.id, from: { at: from }, to: { at: addMonths(ageReachedMonth(m, 65), -1) < from ? from : addMonths(ageReachedMonth(m, 65), -1) }, type: "partTime" }, "partTime", m);
+      const p = convertPeriod({ id: newId(), member: m.id, from: { at: from }, to: { at: addMonths(ageReachedMonth(m, 65), -1) < from ? from : addMonths(ageReachedMonth(m, 65), -1) }, type: "partTime" }, "partTime", m, w.request.input.baseMonth);
       return mutate(w, (hh, req) => {
         (hh.employmentPeriods ??= []).push(p);
         ensureResidentTax(hh, m.id, req.input.baseMonth, newId);

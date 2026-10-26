@@ -1,0 +1,20 @@
+id: wageStats.scheduledMonthly.regular.male
+title: 賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額の月額（正社員・正職員・男・年齢計・企業規模計）
+unit: JPY
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-03-24"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 387400
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/itiran/roudou/chingin/kouzou/z2025/dl/06.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "令和7年賃金構造基本統計調査 結果の概況 (6) 雇用形態別にみた賃金", "quote": "雇用形態別に賃金をみると、男女計では、正社員・正職員358.8 千円に対し、正社員・正職員以外268.1 千円、女性では、正社員・正職員304.9 千円に対し、正社員・正職員以外218.4 千円", "note": "公式のドメイン（mhlw.go.jp）に限った検索の抜粋（原本の PDF は未取得）。令和7年6月分の所定内給与額（一般労働者・年齢計・企業規模計）"}
+      - {"type": "web", "url": "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00450091&tstat=000001011429&cycle=0&tclass1=000001229845&tclass2=000001229849&tclass3=000001229870&layout=datalist&tclass4val=0", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "e-Stat 令和7年賃金構造基本統計調査 一般労働者 雇用形態別 第1表（公開日 2026-03-24）", "note": "統計表の一覧のページで公開日を確かめた（表の Excel は未取得）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "正社員・正職員・男の所定内給与額 387.4千円（検索の抜粋）。原本（概況の第6-1表、e-Stat の第1表）で確かめる"}
