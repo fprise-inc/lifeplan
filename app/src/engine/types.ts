@@ -460,9 +460,19 @@ export interface RetirementBenefit {
   id: string;
   member: string;
   kind: string;
+  /** 0057: 名前と学歴（表示と退職一時金の目安の元だけ。計算には使わない） */
+  label?: string;
+  education?: "university" | "highSchoolOffice" | "highSchoolManual";
   employment?: string;
+  service?: { from: Timepoint; to: Timepoint };
+  officerService?: { from: Timepoint; to: Timepoint };
   amount?: Box<number>;
   paidAt?: Timepoint;
+  estimate?: { finalMonthly?: number; reason?: "retirementAge" | "voluntary"; multiplier?: string };
+  receipt?: { method?: "lumpSum" | "annuity" | "mixed"; lumpShare?: string; start?: Timepoint; years?: number | null; guaranteeYears?: number; perYear?: 1 | 2 | 4 | 6 | 12; annualAmount?: number; conversionRate?: string };
+  contributions?: { monthly: number; from: Timepoint; to?: Timepoint | null };
+  disability?: boolean;
+  valueStates?: Record<string, unknown>;
   [key: string]: unknown;
 }
 

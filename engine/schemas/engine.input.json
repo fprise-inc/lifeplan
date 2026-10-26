@@ -2040,6 +2040,8 @@
           "x-item": "retirementBenefit.kind",
           "enum": ["lumpSum", "db", "civilServantAllowance", "civilServantPension", "nationalPensionFund", "officerAllowance"]
         },
+        "label": { "title": "名前（表示用。計算には使わない。0057）", "x-item": "retirementBenefit.label", "type": "string", "maxLength": 80 },
+        "education": { "title": "学歴（退職一時金の目安の元だけ。計算には使わない。0057）", "x-item": "retirementBenefit.education", "enum": ["university", "highSchoolOffice", "highSchoolManual"] },
         "employment": { "title": "勤め先の働き方の期間（勤続期間と支給の月の既定）", "x-item": "retirementBenefit.employment", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "service": {
           "title": "勤続期間（省略は働き方の期間）",

@@ -1969,6 +1969,14 @@ entries:
     replacedBy: null
     collection: retirementBenefit
     path: [disability]
+  - id: retirementBenefit.education
+    status: active
+    label: "学歴（退職一時金の目安の元だけ。計算には使わない。0057）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: retirementBenefit
+    path: [education]
   - id: retirementBenefit.employment
     status: active
     label: "勤め先の働き方の期間（勤続期間と支給の月の既定）"
@@ -1993,6 +2001,14 @@ entries:
     replacedBy: null
     collection: retirementBenefit
     path: [kind]
+  - id: retirementBenefit.label
+    status: active
+    label: "名前（表示用。計算には使わない。0057）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: retirementBenefit
+    path: [label]
   - id: retirementBenefit.member
     status: active
     label: "受け取る構成員"

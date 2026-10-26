@@ -500,6 +500,29 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.21 より前の版に建て方は無い"
             );
         }
+        // 0.22 から（0057）: 退職給付の名前と学歴（どれも任意。計算には使わない）
+        if migrate::parse(v).unwrap() >= (0, 22) {
+            let list = hh["retirementBenefits"]
+                .as_array()
+                .expect("0.22 の見本には退職給付がある");
+            assert!(
+                list.iter()
+                    .any(|b| b["kind"] == "db" && b["label"].is_string()),
+                "{v}: 退職給付の名前"
+            );
+            assert!(
+                list.iter().any(|b| b["education"] == "highSchoolOffice"),
+                "{v}: 退職給付の学歴"
+            );
+        } else {
+            assert!(
+                hh["retirementBenefits"]
+                    .as_array()
+                    .map(|bs| bs.iter().all(|b| b.get("education").is_none()))
+                    .unwrap_or(true),
+                "{v}: 0.22 より前の版に学歴は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;
