@@ -240,11 +240,11 @@ describe("カードの状態（4つ）", () => {
     expect(statusOf({ ...base, hasData: false })).toBe("missing");
   });
 
-  it("モデル世帯（会社員の夫婦と子2人）: 働き方と収入（定年で辞めた後の失業給付を入れていない）・車・介護・親・相続・贈与が未入力。ほかは入力済み", () => {
+  it("モデル世帯（会社員の夫婦と子2人）: 働き方と収入（定年で辞めた後の失業給付を入れていない）・保険（終身保険の死亡保険金が無い。0055）・車・介護・親・相続・贈与が未入力。ほかは入力済み", () => {
     const wh = open("salariedCoupleTwoKids");
     const items = inputItems(wh);
-    expect(items.filter((i) => i.status === "missing").map((i) => i.id)).toEqual(["work", "car", "care", "inheritance"]);
-    expect(progressOf(items)).toEqual({ total: 14, done: 10, est: 0, missing: 4, na: 0 });
+    expect(items.filter((i) => i.status === "missing").map((i) => i.id)).toEqual(["work", "insurance", "car", "care", "inheritance"]);
+    expect(progressOf(items)).toEqual({ total: 14, done: 9, est: 0, missing: 5, na: 0 });
     // 失業給付を「受け取らない」と決めると、働き方と収入は入力済み
     const decided = notApplicableCard(wh, "work");
     expect(byId(inputItems(decided), "work").status).toBe("done");
@@ -345,7 +345,7 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     const wh = notApplicableCard(open("salariedCoupleTwoKids", ["MEMO-MARK-home"]), "work");
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", onLevel: () => undefined }));
     expect(html).not.toContain("data-first-guide");
-    expect(html).toContain('data-progress-missing="3"');
+    expect(html).toContain('data-progress-missing="4"');
     expect(html).not.toContain("MEMO-MARK-home");
     expect(html).toContain("項目を追加");
   });

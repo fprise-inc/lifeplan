@@ -560,6 +560,41 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.24 より前の版に遺したい額は無い"
             );
         }
+        // 0.25 から（0054・0055）: 保険の種類の細目と名前・保障の行の被保険者と限度日数・円の目安の形・病気の想定（どれも任意）
+        let contracts = hh["insuranceContracts"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        if migrate::parse(v).unwrap() >= (0, 25) {
+            assert!(
+                contracts.iter().any(|c| c["subtype"] == "medical"
+                    && c["label"].is_string()
+                    && c["coverages"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|x| x["insured"].is_string())
+                    && c["coverages"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|x| x["maxDays"].is_number())),
+                "{v}: 種類の細目・名前・保障の行の被保険者と限度日数"
+            );
+            assert!(
+                contracts.iter().any(|c| c["simple"]["estimate"] == true),
+                "{v}: 円の目安の形"
+            );
+            assert!(
+                now["household"]["contingency"]["illness"]["disease"].is_string(),
+                "{v}: 病気の想定"
+            );
+        } else {
+            assert!(
+                contracts.iter().all(|c| c.get("subtype").is_none()),
+                "{v}: 0.25 より前の版に保険の種類の細目は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

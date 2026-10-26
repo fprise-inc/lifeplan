@@ -59,6 +59,8 @@ export const PRESET_VALUES: Readonly<Record<string, { values: readonly { value: 
   "periodicExpense.amount": { values: [{ value: 500000, label: "一時的支出" }, { value: 300000, label: "家電の買い替え" }], what: "一時的支出 50万円・家電の買い替え 30万円" },
   "debt.principal": { values: [{ value: 30000000 }], what: "住宅ローンの借入額 3,000万円" },
   "insurance.premium": { values: [{ value: 5000 }], what: "保険料 月5,000円" },
+  // 0055 の前の「＋ 保険契約」「＋ 保障」のボタンが入れた値（死亡保険金 1,000万円・特約の入院日額 5,000円）
+  "insurance.coverages": { values: [{ value: 10000000 }, { value: 5000 }], what: "死亡保険金 1,000万円・入院日額 5,000円" },
 };
 
 /** 目安のボタンと同じ確定の値か（FP が明示に確定した値・外から来た値・数でない欄は除く） */

@@ -1,6 +1,6 @@
 // 万一の画面の要求を作る（作業の層）: 万一なし（現状）・必要保障額の推移（構成員ごと）・選んだ想定（死亡・障害）。
 // どれも現状の世帯（入力の値）に「層」を重ねる形で、世帯（現状）は変えない（0008 の5・7）
-import type { Contingency, EmploymentPeriod, EngineRequest, Household, Member, OldAgeChoice, ProtectionRequest, SurvivorAssumptions } from "../../engine/types.ts";
+import type { Contingency, EmploymentPeriod, EngineRequest, Household, Illness, Member, OldAgeChoice, ProtectionRequest, SurvivorAssumptions } from "../../engine/types.ts";
 import { confirmedBox, type WorkingHousehold } from "../input/household.ts";
 import { smrEstimate } from "../input/estimates.ts";
 import { convertPeriod } from "../input/stages/work.ts";
@@ -11,7 +11,19 @@ import type { SurvivorWork } from "./planData.ts";
 export type ScenarioKind = "death" | "disability" | "illness" | "market";
 
 /** 大きな病気のときの目安（仮の値。事務所で根拠を確かめて直す前提）。医療費は保険診療の10割で、自己負担は高額療養費で計算する */
-export const ILLNESS_DEFAULT = { months: 12, medicalMonthly: 600_000, medicalMonths: 6 } as const;
+export const ILLNESS_DEFAULT = { months: 12, medicalMonthly: 600_000, medicalMonths: 6, disease: "cancer", surgeries: 1 } as const;
+/**
+ * 病気の種類ごとの入院の日数の目安（0055。患者調査〔厚生労働省〕の退院患者の平均在院日数の水準を丸めた仮の値。出典の版と値を確かめて直す前提）。
+ * 保険の医療・がんの給付（入院日額×日数）の見込みに使う
+ */
+export const HOSPITAL_DAYS_DEFAULT: Readonly<Record<"cancer" | "heartStroke" | "other", number>> = { cancer: 20, heartStroke: 30, other: 10 };
+
+/** 大きな病気のときの病気の想定（病気の種類・入院の日数・手術の回数。省略は目安） */
+export function illnessOf(plan: ContingencyPlanIllness | undefined): Illness {
+  const disease = plan?.disease ?? ILLNESS_DEFAULT.disease;
+  return { disease, hospitalDays: plan?.hospitalDays ?? HOSPITAL_DAYS_DEFAULT[disease], surgeries: plan?.surgeries ?? ILLNESS_DEFAULT.surgeries };
+}
+type ContingencyPlanIllness = NonNullable<import("./planData.ts").ContingencyPlan["illness"]>;
 /** 相場が下がったときの下がる幅の既定（3割）と、下げる資産の種類（株・REIT） */
 export const MARKET_DROP_DEFAULT = "0.3";
 const RISKY = ["equity.domestic", "equity.global", "reit.domestic", "reit.global"];
@@ -178,10 +190,19 @@ export function scenarioRequest(wh: WorkingHousehold, sc: Scenario, year: number
     return req;
   }
   if (sc.kind === "illness") {
-    // 大きな病気のとき: その月から働けない（会社員は休業して傷病手当金）、決めた月数の後に元の働き方に戻る。医療費は高額療養費で止める
+    // 大きな病気のとき: その月から働けない（会社員は休業して傷病手当金）、決めた月数の後に元の働き方に戻る。医療費は高額療養費で止める。
+    // 病気の想定（病気の種類・入院の日数・手術の回数）で、保険の医療・がんの給付を受け取る（0054・0055）
     const il = { ...ILLNESS_DEFAULT, ...(plan.illness ?? {}) };
     req.input.contingencies = [
-      { id: derivedId(sc.member, "contingency:illness"), kind: "incapacity", member: sc.member, occurs: { at: occurs }, recovery: { at: addMonths(occurs, il.months) }, medical: { monthly: il.medicalMonthly, months: il.medicalMonths } },
+      {
+        id: derivedId(sc.member, "contingency:illness"),
+        kind: "incapacity",
+        member: sc.member,
+        occurs: { at: occurs },
+        recovery: { at: addMonths(occurs, il.months) },
+        medical: { monthly: il.medicalMonthly, months: il.medicalMonths },
+        illness: illnessOf(plan.illness),
+      },
     ];
     return req;
   }

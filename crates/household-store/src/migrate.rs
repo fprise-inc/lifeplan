@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.24";
+pub const CURRENT: &str = "0.25";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -84,9 +84,13 @@ pub const CURRENT: &str = "0.24";
 ///   0.22 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
 /// - 0.24: 相続・贈与のカード（0060・0061）。計算の要求の入力に、相続税の目安の設定 `inheritanceTax`（時点を入れない設定だけ）と
 ///   遺したい額 `legacy` を足した（どれも任意。足すだけの MINOR）。0.23 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
+/// - 0.25: 保険のカード（0054・0055）。保険の種類の細目 `insuranceContracts[].subtype`・名前 `label`、保障の行の被保険者
+///   `coverages[].insured`・入院の1回の限度日数 `coverages[].maxDays`・給付の種類 `threeMajorLump`、円の目安の形 `simple.estimate`、
+///   画面の側の万一の前提の病気の想定 `household.contingency.illness` の `disease`・`hospitalDays`・`surgeries` を足した
+///   （どれも任意。足すだけの MINOR）。0.24 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
-    "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24",
+    "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
 ];
 
 /// 1段分の変換
@@ -212,6 +216,11 @@ pub const STEPS: &[Step] = &[
         from: "0.23",
         to: "0.24",
         apply: v0_23_to_0_24,
+    },
+    Step {
+        from: "0.24",
+        to: "0.25",
+        apply: v0_24_to_0_25,
     },
 ];
 
@@ -484,6 +493,16 @@ fn v0_23_to_0_24(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.24".into());
+    }
+    Ok(body)
+}
+
+/// 0.24 → 0.25: 足した欄（保険の種類の細目と名前・保障の行の被保険者と限度日数・円の目安の形・病気の想定。0054・0055）は任意なので
+/// 足さない。形式の版だけを書き換える
+fn v0_24_to_0_25(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.25".into());
     }
     Ok(body)
 }
@@ -1007,7 +1026,8 @@ mod tests {
         assert_eq!(access("0.22").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.23").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.24").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.25").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.25").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.26").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -1020,7 +1040,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.25", b.clone()).unwrap(),
+            upgrade("0.26", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );

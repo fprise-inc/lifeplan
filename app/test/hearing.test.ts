@@ -88,10 +88,11 @@ describe("見本の記入済みシートを空の世帯に取り込む", () => {
     const after = inputItems(withRefreshedEstimates(fillAll(out.wh, "work").wh));
     const none = (xs: typeof before) => xs.filter((i) => i.status === "missing").map((i) => i.id);
     expect(none(after).length).toBeLessThan(none(before).length);
-    for (const id of ["work", "insurance"]) {
-      expect(before.find((i) => i.id === id)?.status, id).toBe("missing");
-      expect(after.find((i) => i.id === id)?.status, id).not.toBe("missing");
-    }
+    expect(before.find((i) => i.id === "work")?.status).toBe("missing");
+    expect(after.find((i) => i.id === "work")?.status).not.toBe("missing");
+    // 保険: 契約は入るが、シートに無い主な保障の額（医療保険の入院日額・学資保険の満期金）は未入力の警告で残る（0055）
+    const insMissing = allFields(buildStage("insurance", withRefreshedEstimates(out.wh))).filter((f) => fieldStatus(f, withRefreshedEstimates(out.wh)).status === "missing").map((f) => f.label);
+    expect(insMissing).toEqual(["入院日額（1日）", "満期金"]);
     // 住まい: 住まいとローンが入る。シートに無い持ち家の評価額だけが未入力の警告で残る（0052）
     expect(before.find((i) => i.id === "housing")?.status).toBe("missing");
     const housingMissing = allFields(buildStage("housing", withRefreshedEstimates(out.wh))).filter((f) => fieldStatus(f, withRefreshedEstimates(out.wh)).status === "missing").map((f) => f.key.split("/").slice(-2).join("/"));
