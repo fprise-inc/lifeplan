@@ -9,6 +9,8 @@ import { fittedRateText, monthlyPayment, monthsFromPayment, principalFromPayment
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { principalRow, rateRow, termRow } from "../src/workspace/input/stages/housingLoans.ts";
 import { confirmAll, fieldStatus } from "../src/workspace/input/valueState.ts";
+import { checkList } from "../src/workspace/input/checkRows.ts";
+import { inputItems } from "../src/workspace/input/items.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const BASE = "2026-10";
@@ -316,6 +318,31 @@ describe("住宅ローン控除の条件の欄", () => {
     expect(w.assumed[`housing/debt/${id}/credit`]).toBeUndefined();
     expect(status(w, `${id}/credit`)).toBe("confirmed");
     expect(status(w, `${id}/rate`)).toBe("confirmed");
+  });
+
+  it("今の残高から入れたローンで入居の年月が空なら、黙って控除を0円にせず未入力の警告（確かめの一覧にも出る）。当てはまらなければ「該当なし」で消せる", () => {
+    let wh = action(action(salaried(), "housing/addOwn"), "housing/addMortgage");
+    wh = set(wh, "/valuation/value", 30000000);
+    const id = debtsOf(wh)[0]!.id;
+    expect(status(wh, `${id}/credit/moveIn`)).toBe("missing");
+    expect(fieldStatus(fieldOf(wh, `${id}/credit/moveIn`), wh).basis).toContain("入居の年月を入れると住宅ローン控除を計算します");
+    expect(fieldOf(wh, `${id}/credit/moveIn`).level).toBe("simple");
+    expect(checkList(wh).some((r) => r.fieldKey === `housing/debt/${id}/credit/moveIn` && r.kind === "missing")).toBe(true);
+    expect(inputItems(wh).find((i) => i.id === "housing")?.status).toBe("missing");
+    // 該当なし（入居から13年を過ぎたなど）
+    wh = action(wh, `housing/debt/${id}/creditNa`);
+    expect(status(wh, `${id}/credit/moveIn`)).toBe("notApplicable");
+    expect(String(fieldOf(wh, `${id}/creditSummary`).get(wh).value)).toContain("該当なし");
+    expect(inputItems(wh).find((i) => i.id === "housing")?.status).not.toBe("missing");
+    expect(() => preview(wh.request)).not.toThrow();
+    // 外すと警告に戻り、入居の年月を入れると控除の条件を置いて「該当なし」の行は消える
+    expect(status(action(wh, `housing/debt/${id}/creditNa`), `${id}/credit/moveIn`)).toBe("missing");
+    wh = set(wh, `${id}/credit/moveIn`, "2024-04");
+    expect(debtsOf(wh)[0]!.housing).toBeDefined();
+    expect(debtsOf(wh)[0]!.valueStates?.["debt.housing"]).toBeUndefined();
+    // 借入額から入れたローン・古い世帯には出さない
+    const old = fromRequest(modelHousehold("protectionNeed"));
+    for (const d of old.request.input.household.debts ?? []) if (d.kind === "mortgage") expect(status(old, `${d.id}/credit/moveIn`)).not.toBe("missing");
   });
 
   it("今の残高から入れたローンも、入居の年月を入れると控除を計算する（住宅の種類は控えめの既定）", () => {

@@ -591,7 +591,7 @@ function loanGroups(wh: WorkingHousehold, d: Debt, i: number): GroupDef[] {
   });
   const more = loanMoreActions(wh, d, k);
   const simpleMore = more.filter((a) => a.level === "simple");
-  if (simpleMore.length > 0) groups.push({ key: `${k}/pairAdd`, level: "simple", fields: [], actions: simpleMore });
+  if (simpleMore.length > 0) groups.push({ key: `${k}/simpleActions`, level: "simple", fields: [], actions: simpleMore });
   groups.push({ key: `${k}/more`, level: "detail", fields: [], actions: more.filter((a) => a.level !== "simple") });
   return groups;
 }
