@@ -210,6 +210,8 @@
     "periodicExpense.to",
     "plan.baseMonth",
     "plan.endYear",
+    "plan.inheritanceTax",
+    "plan.legacy",
     "premiumAssessment.amount",
     "premiumAssessment.fiscalYear",
     "premiumAssessment.kind",

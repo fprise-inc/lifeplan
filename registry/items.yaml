@@ -1697,6 +1697,22 @@ entries:
     replacedBy: null
     collection: null
     path: [endYear]
+  - id: plan.inheritanceTax
+    status: active
+    label: "相続税の目安の要求と設定（不動産の評価の割合・名義の無い財産の分け方・葬式の費用・養子・法定相続人の数を直す口・FP が入れた額。0039・0060）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: null
+    path: [inheritanceTax]
+  - id: plan.legacy
+    status: active
+    label: "遺したい額（表示だけ。計算には使わない。表の最後の年の金融資産と比べて見せる。0060）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: null
+    path: [legacy]
   - id: premiumAssessment.amount
     status: active
     label: "年額"

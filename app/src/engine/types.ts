@@ -703,6 +703,8 @@ export interface EngineRequest {
     contingencies?: Contingency[];
     protection?: ProtectionRequest;
     inheritanceTax?: InheritanceTaxRequest;
+    /** 遺したい額（0060。表示だけ。計算には使わない） */
+    legacy?: { amount?: Box<number> };
     [key: string]: unknown;
   };
   [key: string]: unknown;
