@@ -34,7 +34,7 @@ import { DisplaySettingsPanel } from "./DisplaySettingsPanel.tsx";
 import { buildEvidence } from "./evidence.ts";
 import { explainModel } from "./explain.ts";
 import type { Level } from "./input/form.ts";
-import { blankHousehold, fromRequest, type WorkingHousehold } from "./input/household.ts";
+import { blankHousehold, fromRequest, withElementIds, type WorkingHousehold } from "./input/household.ts";
 import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
@@ -256,7 +256,10 @@ interface Opened {
  * （「仮」の印つき。開いた世帯でも置く。0008 の 2026-10-25 の追記）
  */
 function openedFrom(demo: DemoHousehold | null, wh0: WorkingHousehold): Opened | null {
-  const wh = withProvisionalHousing(wh0);
+  // 画面で新しく足した並びの要素に ID を振る（乱数。番号で当てないため。0035 の5）
+  const wh1 = withProvisionalHousing(wh0);
+  const request = withElementIds(wh1.request, true);
+  const wh = request === wh1.request ? wh1 : { ...wh1, request };
   const self = roles(wh.request).find((r) => r.key === "self");
   if (self === undefined) return null;
   return { demo, wh, selfId: self.member.id, catalog: buildCatalog(wh, self.member.id, demo) };

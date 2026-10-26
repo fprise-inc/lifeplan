@@ -1,7 +1,7 @@
 // プランの差分（0036）: 3つの種類（値を変える set・物を足す add・物を外す remove）と当て先（向き先＋入力項目ID＋場所）。
 // ここは世帯の要求の入力（エンジンの入力の形）に1件ずつ当てる部品だけを持つ。当てる順番・合成の対策・要確認の一覧は plans.ts。
 // 当て先の歩き方（並びの要素は ID、ID の無い要素は決まった ID）は読み替え表と同じ（store/readings.ts）
-import { BOXED_PLACES, COLLECTIONS, ITEM_PLACES } from "../../generated/readings.ts";
+import { BOXED_PLACES, COLLECTIONS, ITEM_PLACES, REQUIRED_PLACES } from "../../generated/readings.ts";
 import { findObject, readAt, unbox, type Address, type Target } from "../store/readings.ts";
 
 type Obj = Record<string, unknown>;
@@ -125,6 +125,37 @@ function locate(input: Obj, a: Address, create: boolean): { holder: Obj | unknow
   return null;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * 当て先の物と、道の中の並びの要素が世帯にあるか（欄の値そのものは無くてもよい）。外した要素・物への差分を、0.16 の番号で当てる
+ * 逃げ道に回さないために使う（0036 の7）
+ */
+export function placeExists(input: Obj, a: Address): boolean {
+  const place = ITEM_PLACES[a.item];
+  if (place === undefined) return false;
+  const t = a.target;
+  const owner = "plan" in t ? (t.plan === "contingency" ? undefined : input) : findObject(input, "object" in t ? t.object : t.member);
+  if (owner === undefined) return false;
+  const steps = [...place.path, ...a.at];
+  let node: unknown = owner;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i] as string;
+    if (Array.isArray(node)) {
+      const prefix = steps.slice(place.path.length, i);
+      const arr = node;
+      const el = arr.find((e) => (isObj(e) && e.id === step) || (!(isObj(e) && typeof e.id === "string") && readAt(input, { target: a.target, item: a.item, at: [...prefix, step] }) === e));
+      if (el === undefined) return false;
+      node = el;
+      continue;
+    }
+    const next: unknown = isObj(node) ? node[step] : undefined;
+    if (next === undefined) return !steps.slice(i + 1).some((x) => UUID.test(x));
+    node = next;
+  }
+  return true;
+}
+
 /** 当て先の今の値（値の箱ならその箱）。無ければ undefined */
 export function currentAt(input: Obj, a: Address): unknown {
   return readAt(input, a);
@@ -149,8 +180,11 @@ export function writeAt(input: Obj, a: Address, box: DiffBox): boolean {
     else holder[key as string] = structuredClone(box);
     return true;
   }
-  const value = box.state === "unknown" ? (isObj(box.substitute) ? box.substitute.value : undefined) : box.state === "notApplicable" ? undefined : box.value;
-  if (Array.isArray(holder)) holder[key as number] = structuredClone(value);
+  // わからないは代わりの値を、該当なしは欄を省く（省けない欄は 0。0035 の3）
+  const sub = isObj(box.substitute) ? box.substitute : null;
+  const mustKeep = Array.isArray(holder) || (REQUIRED_PLACES[a.item] ?? []).includes(pattern);
+  const value = box.state === "unknown" ? sub?.value : box.state === "notApplicable" ? (mustKeep ? 0 : undefined) : box.value;
+  if (Array.isArray(holder)) holder[key as number] = structuredClone(value ?? 0);
   else if (value === undefined) delete holder[key as string];
   else holder[key as string] = structuredClone(value);
   const states = isObj(owner.valueStates) ? owner.valueStates : null;
@@ -163,11 +197,37 @@ export function writeAt(input: Obj, a: Address, box: DiffBox): boolean {
     const { value: _v, substitute: _s, ...row } = box;
     void _v;
     void _s;
+    // わからないの行は、欄に入れた代わりの値の根拠を持つ（0035 の3）
+    if (box.state === "unknown" && row.estimate === undefined && sub !== null && isObj(sub.estimate)) row.estimate = structuredClone(sub.estimate);
     const next = states ?? {};
     next[stateKey(a)] = row;
     owner.valueStates = next;
   }
   return true;
+}
+
+/**
+ * 当て先の今の値を値の箱で（差分の value・before はいつも値の箱。0036 の4）。値の箱を持つ欄はその箱。値の箱を持たない欄は、
+ * 欄の値と向き先の物の `valueStates` の行から組み立てる（行が無ければ記録の無い確定）。値が無ければ null
+ */
+export function boxAt(input: Obj, a: Address): DiffBox | null {
+  const cur = readAt(input, a);
+  if (isBox(cur)) return structuredClone(cur);
+  const t = a.target;
+  const owner = "plan" in t ? input : findObject(input, "object" in t ? t.object : t.member);
+  const row = owner !== undefined && isObj(owner.valueStates) ? owner.valueStates[stateKey(a)] : undefined;
+  if (isObj(row) && typeof row.state === "string" && isObj(row.origin)) {
+    const r = structuredClone(row) as DiffBox;
+    if (r.state === "notApplicable") return r;
+    if (cur === undefined) return null;
+    if (r.state === "unknown") {
+      const { estimate, ...rest } = r;
+      return { ...rest, substitute: { value: structuredClone(cur), state: "estimated", origin: { kind: "auto" }, ...(estimate !== undefined ? { estimate } : {}) } };
+    }
+    return { ...r, value: structuredClone(cur) };
+  }
+  if (cur === undefined) return null;
+  return { value: structuredClone(cur), state: "confirmed", origin: { kind: "manual" } };
 }
 
 /** 物を足す差分を当てる（0036 の4）。足せたら "ok"、同じ ID がもうあれば "exists"、足す先・相手が無ければ "noTarget"・"noOwner" */

@@ -6,7 +6,7 @@ import type { EngineRequest } from "../src/engine/types.ts";
 import { agoText, bsPlan, bsPrev } from "../src/workspace/balanceTab.ts";
 import { DEMO_HOUSEHOLDS, demoHousehold, type DemoHousehold } from "../src/workspace/catalog.ts";
 import { seedDemo, withBalances } from "../src/workspace/demoSeed.ts";
-import { fromRequest } from "../src/workspace/input/household.ts";
+import { fromRequest, withElementIds } from "../src/workspace/input/household.ts";
 import { bandOf, breakdownOf, lastsAge, stressRequests, STRESS_KEYS } from "../src/workspace/invest/present.ts";
 import { planLetters } from "../src/workspace/plans/band.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
@@ -147,7 +147,8 @@ describe("開いたときに入れるプランと控え", () => {
     expect(snaps.map((s) => s.createdAt)).toEqual(["2024-10-12T10:00:00+09:00", "2025-10-18T14:00:00+09:00"]);
     for (const s of snaps) {
       expect(await verifySnapshot(s)).toBe(true);
-      expect(s.inputs.request).toEqual(withBalances(req, (demo.snapshots ?? []).find((d) => d.id === s.id)!.balances));
+      // 画面の中の世帯は並びの要素に ID を持つ（0035 の5）ので、控えの要求も ID を持つ
+      expect(s.inputs.request).toEqual(withElementIds(withBalances(req, (demo.snapshots ?? []).find((d) => d.id === s.id)!.balances)));
       const t = preview(s.inputs.request).table;
       const m = bsPrev({ key: "p1", label: "控え", createdAt: s.createdAt, baseMonth: req.input.baseMonth, actual: plan.years[0]!, snapshot: { req: s.inputs.request, table: t } });
       expect(m.reason).toBeNull();

@@ -176,15 +176,21 @@ const short = (v: unknown): string => {
 export function candidateRows(c: AiCandidate, wh: WorkingHousehold, cat: Catalog): CandidateRow[] {
   return c.diffs.map((d) => {
     const base = { diffId: d.id, note: d.note };
-    // 当て先を正にする（0036 の9）: 欄の当て先の向き先と入力項目ID が候補と同じ欄。合成の対策の欄は、その欄の向き先と入力項目ID で比べる。
-    // 候補はまだ場所（at）を持たないので、当てはまる欄が1つに決まらなければ取り込まない
+    // 当て先を正にする（0036 の9）: 欄の当て先の向き先と入力項目ID が候補と同じ欄。今までの向き先（働き方の欄は構成員など、欄の
+    // 一覧の向き先）で送る AI のアプリも当てはまるよう、どちらで合っても当てはめる。候補はまだ場所（at）を持たないので、当てはまる欄が
+    // 1つに決まらなければ取り込まない
     const input = wh.request.input as unknown as Record<string, unknown>;
-    const matches = cat.items.filter((it) => {
-      if (it.phase !== "field") return false;
+    const found = cat.items.filter((it) => {
+      if (it.phase !== "field" || it.item !== d.item) return false;
       const r = resolveKey(it.key, input);
-      if (r !== null && r.kind === "address") return r.address.item === d.item && sameTarget(r.address.target as DiffTarget, d.target);
-      return it.item === d.item && sameTarget(it.target, d.target);
+      return (r !== null && r.kind === "address" && sameTarget(r.address.target as DiffTarget, d.target)) || sameTarget(it.target, d.target);
     });
+    // 同じ値を指す欄（今の働き方の期間の欄と、その期間の欄など）は1つに数える
+    const placeOf = (it: MovableItem) => {
+      const r = resolveKey(it.key, input);
+      return r !== null && r.kind === "address" ? JSON.stringify(r.address) : it.key;
+    };
+    const matches = found.filter((it, i) => found.findIndex((x) => placeOf(x) === placeOf(it)) === i);
     if (matches.length !== 1) {
       return { ...base, label: itemName(d.item), from: "—", to: short(unbox(d.value)), key: null, value: null, reason: matches.length === 0 ? "「結果」の画面のプランでは動かせない項目です（取り込みません。必要なら入力で直してください）" : "対応する欄が複数あるため、取り込みません" };
     }

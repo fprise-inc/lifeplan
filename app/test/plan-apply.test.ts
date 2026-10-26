@@ -13,6 +13,8 @@ import { roles } from "../src/workspace/roles.ts";
 import { resolveKey } from "../src/workspace/store/readings.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
+/** 欄の並びを問わずに比べる JSON */
+const canon = (v: unknown): string => JSON.stringify(v, (_k, x: unknown) => (x !== null && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : 1))) : x));
 const ids = readdirSync(join(REPO_DIR, "data", "modelHouseholds")).filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, ""));
 
 /** 数の値を少し動かした値（同じ型のまま） */
@@ -40,7 +42,7 @@ describe("当て先で書いた値が、0.16 の欄の書き方と同じ", () =>
       const want = it.apply(wh, v).request;
       const input = structuredClone(wh.request.input) as unknown as Record<string, unknown>;
       const ok = writeAt(input, r.address, { value: v, state: "confirmed", origin: { kind: "manual" } });
-      if (!ok || JSON.stringify(input) !== JSON.stringify(want.input)) bad.push(it.key);
+      if (!ok || canon(input) !== canon(want.input)) bad.push(it.key);
     }
     expect(bad).toEqual([]);
   });
@@ -74,7 +76,7 @@ describe("動かす項目の値を当て先の差分で当てても、0.16 の�
       const v = nudge(it.read(wh));
       if (v !== undefined) values[it.key] = v;
     }
-    expect(JSON.stringify(applyValues(wh, values, cat))).toBe(JSON.stringify(legacyApply(wh, values, cat)));
+    expect(canon(applyValues(wh, values, cat))).toBe(canon(legacyApply(wh, values, cat)));
   });
 });
 

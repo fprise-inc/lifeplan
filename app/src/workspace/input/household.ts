@@ -9,6 +9,7 @@ import type { Proposal } from "../plans/plans.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
 import type { StatementLog } from "../../../../statement/src/index.ts";
 import type { Snapshot } from "../snapshots/snapshots.ts";
+import { giveElementIds, lacksElementIds, randomId } from "../store/elementIds.ts";
 
 /** 定年の後に働くときの条件（D: 入力画面の「定年後の予定」。主画面の「働く最後の年齢」を延ばすときにも使う） */
 export interface PostRetirement {
@@ -96,6 +97,18 @@ export function mutate(wh: WorkingHousehold, fn: (h: Household, req: EngineReque
   return { ...wh, request };
 }
 
+/**
+ * 並びの要素に ID を振った要求（0035 の5。ID の無い要素が無ければそのまま）。`random` は画面で新しく足した要素（乱数の ID）、
+ * 省くと ID の無い古いデータ（場所から決まった ID）
+ */
+export function withElementIds(request: EngineRequest, random = false): EngineRequest {
+  const input = request.input as unknown as Record<string, unknown>;
+  if (!lacksElementIds(input)) return request;
+  const out = structuredClone(request);
+  giveElementIds(out.input as unknown as Record<string, unknown>, random ? randomId : undefined);
+  return out;
+}
+
 export function memberById(wh: WorkingHousehold, id: string): Member | undefined {
   return wh.request.input.household.members.find((m) => m.id === id);
 }
@@ -133,7 +146,8 @@ export function reemploymentOf(p: PostRetirement | undefined): Reemployment | un
 }
 
 /** 世帯の要求から、画面の中で編集する世帯を作る */
-export function fromRequest(request: EngineRequest, extras: { memo?: string[]; postRetirement?: Record<string, PostRetirement> } = {}): WorkingHousehold {
+export function fromRequest(request0: EngineRequest, extras: { memo?: string[]; postRetirement?: Record<string, PostRetirement> } = {}): WorkingHousehold {
+  const request = withElementIds(request0);
   const h = request.input.household;
   const post: Record<string, PostRetirement> = {};
   for (const m of h.members) {

@@ -463,6 +463,75 @@ pub fn entry_count() -> usize {
     table().entries.len()
 }
 
+/// 入力項目ID が登録簿にあるか（値の場所を持つ項目。0035 の12 の検査）
+pub fn item_known(item: &str) -> bool {
+    table().places.contains_key(item)
+}
+
+/// 値の状態の欄（valueStates）の鍵の誤り（0035 の3・12 の検査）: 鍵の入力項目ID が登録簿に無い、同じ値を値の箱と行の両方に書いている、
+/// 値の無い場所に行を書いている。input は 0.17 の世帯の要求の `input`。戻り値は誤りの説明
+pub fn value_state_problems(input: &Value) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut check = |states: &Value, target: Value, owner: &str| {
+        for key in states.as_object().into_iter().flat_map(|m| m.keys()) {
+            let mut parts = key.split('/');
+            let item = parts.next().unwrap_or("");
+            if !item_known(item) {
+                out.push(format!(
+                    "{owner}: valueStates の鍵 {key} の入力項目ID が登録簿にありません"
+                ));
+                continue;
+            }
+            let at: Vec<Value> = parts.map(|p| Value::String(p.to_owned())).collect();
+            let target = match &target {
+                Value::String(s) if s == "plan" => {
+                    serde_json::json!({"plan": if item.starts_with("assumptions.") { "assumptions" } else { "input" }})
+                }
+                t => t.clone(),
+            };
+            let address = serde_json::json!({"target": target, "item": item, "at": at});
+            match read_at(input, &address) {
+                None | Some(Value::Null) => {
+                    let row = &states[key.as_str()];
+                    if row["state"] != "notApplicable" {
+                        out.push(format!(
+                            "{owner}: valueStates の鍵 {key} の場所に値がありません"
+                        ));
+                    }
+                }
+                Some(v)
+                    if v.get("state").is_some_and(Value::is_string)
+                        && v.get("origin").is_some_and(Value::is_object) =>
+                {
+                    out.push(format!(
+                        "{owner}: {key} は値の箱と valueStates の両方に状態を書いています"
+                    ));
+                }
+                Some(_) => {}
+            }
+        }
+    };
+    if let Some(states) = input.get("valueStates") {
+        check(states, Value::String("plan".into()), "要求の入力");
+    }
+    if let Some(h) = input.get("household").and_then(Value::as_object) {
+        for (coll, list) in h {
+            for obj in list.as_array().into_iter().flatten() {
+                let (Some(states), Some(id)) = (obj.get("valueStates"), obj["id"].as_str()) else {
+                    continue;
+                };
+                let target = if coll == "members" {
+                    serde_json::json!({"member": id})
+                } else {
+                    serde_json::json!({"object": id})
+                };
+                check(states, target, &format!("{coll}/{id}"));
+            }
+        }
+    }
+    out
+}
+
 /// 表の行の型の一覧（テスト用）
 pub fn entry_froms() -> Vec<&'static str> {
     table().entries.iter().map(|e| e.from.as_str()).collect()

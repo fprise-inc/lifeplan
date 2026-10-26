@@ -29,14 +29,14 @@
 import type { EngineRequest } from "../../engine/types.ts";
 import { emptyPlan } from "../contingency/planData.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
-import type { WorkingHousehold } from "../input/household.ts";
+import { withElementIds, type WorkingHousehold } from "../input/household.ts";
 import { CURRENT } from "../plans/band.ts";
 import type { Proposal } from "../plans/plans.ts";
 import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
 import { readBsColumns, readBsGuide, readBsPoints } from "../balanceTab.ts";
 import { readMoneyThree } from "../moneyThree.ts";
 import { readLog, type StatementLog } from "../../../../statement/src/index.ts";
-import { fromStoredBody, toStoredBody } from "./format017.ts";
+import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
@@ -79,8 +79,8 @@ export interface BodyState {
   wh: WorkingHousehold;
   workspace: SavedWorkspace;
   display: StoredDisplay;
-  /** 読んだ拡張領域（書き戻すため） */
-  carry: { extDefinitions: Record<string, unknown>; ext: Record<string, unknown> };
+  /** 読んだ拡張領域（書き戻すため）。outside は贈与者に戻した世帯の外の家族の元の構成員（format017.ts の OUTSIDE_KEPT） */
+  carry: { extDefinitions: Record<string, unknown>; ext: Record<string, unknown>; outside?: Record<string, unknown> };
 }
 
 export const EMPTY_CARRY: BodyState["carry"] = { extDefinitions: {}, ext: {} };
@@ -97,6 +97,7 @@ export function bodyObject(s: BodyState): HouseholdBody {
     display: s.display,
     extDefinitions: s.carry.extDefinitions,
     ext: s.carry.ext,
+    ...(s.carry.outside !== undefined && Object.keys(s.carry.outside).length > 0 ? { [OUTSIDE_KEPT]: s.carry.outside } : {}),
   } as unknown as Record<string, unknown>) as unknown as HouseholdBody;
 }
 
@@ -132,6 +133,8 @@ export function fromBody(json: string): BodyState {
     confirmed: [],
     contingency: emptyPlan(),
     ...h,
+    // 並びの要素に ID を振る（ID の無い古いデータは場所から決まった ID。0035 の5）
+    request: withElementIds(h.request),
     proposals,
     ...(isObj(b.hearing) ? { hearing: b.hearing as unknown as HearingLog } : {}),
   };
@@ -154,7 +157,7 @@ export function fromBody(json: string): BodyState {
     wh,
     workspace,
     display,
-    carry: { extDefinitions: isObj(b.extDefinitions) ? b.extDefinitions : {}, ext: isObj(b.ext) ? b.ext : {} },
+    carry: { extDefinitions: isObj(b.extDefinitions) ? b.extDefinitions : {}, ext: isObj(b.ext) ? b.ext : {}, ...(isObj(b[OUTSIDE_KEPT]) ? { outside: b[OUTSIDE_KEPT] } : {}) },
   };
 }
 

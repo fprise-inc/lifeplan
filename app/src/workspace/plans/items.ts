@@ -708,8 +708,20 @@ function fieldItems(wh: WorkingHousehold, stages: StageDef[], skip: Set<string>)
   return out;
 }
 
+/** 現状の世帯の要求の入力 → 動かす項目のキー（差分を動かす項目のキーに戻すとき、一覧にある鍵を選ぶため。plans.ts の diffKey） */
+const CATALOG_KEYS = new WeakMap<object, ReadonlySet<string>>();
+export function catalogKeysOf(input: object): ReadonlySet<string> | undefined {
+  return CATALOG_KEYS.get(input);
+}
+
 /** 動かす項目の一覧を作る（現状の世帯から。現状が変わったら作り直す） */
 export function buildCatalog(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | null): Catalog {
+  const cat = buildCatalogOf(wh, selfId, demo);
+  CATALOG_KEYS.set(wh.request.input, new Set(cat.items.map((i) => i.key)));
+  return cat;
+}
+
+function buildCatalogOf(wh: WorkingHousehold, selfId: string, demo: DemoHousehold | null): Catalog {
   const h = wh.request.input.household;
   const base = readLevers(wh.request, selfId);
   // 対策・よく使う項目と同じものを動かす入力の欄は、一覧に重ねて出さない
