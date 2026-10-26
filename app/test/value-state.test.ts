@@ -445,9 +445,12 @@ describe("確かめの一覧", () => {
     const wh0 = blankHousehold(BASE, ids());
     const self = wh0.request.input.household.members[0]!;
     const wh = runAction(wh0, "work", `work/${self.id}/start`);
-    const salary = checkList(wh).filter((r) => r.card === "work" && r.label.includes("年収"));
+    // 今の勤め先の年収の行は1つ（定年後の再雇用の年収の推定は、別の値なので別の行）
+    const main = wh.request.input.household.employmentPeriods![0]!.id;
+    const salary = checkList(wh).filter((r) => r.card === "work" && r.label.includes("年収") && !r.label.includes("定年後"));
     expect(salary).toHaveLength(1);
     expect(salary[0]!.fieldKey).toBe(`work/${self.id}/now/annual`);
+    expect(checkList(wh).filter((r) => r.fieldKey === `work/period/${main}/annual`)).toHaveLength(0);
   });
 
   it("一覧はカードの順で、どのカードの行も STAGE_ORDER のカード", () => {

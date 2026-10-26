@@ -139,7 +139,8 @@ describe("働き方: 給与の種類どうしで変えたら推定を入れ替�
   it("人が入れた年収・健康保険は残す", () => {
     const { wh, spouse, f } = start();
     let w = f("/annual").set(wh, 2400000);
-    w = allFields(buildStage("work", w)).find((x) => x.key.startsWith(`work/${spouse.id}/now`) && x.key.endsWith("/hi"))!.set(w, "union");
+    // 健康保険の種類は詳細（働き方の期間）の欄
+    w = allFields(buildStage("work", w)).find((x) => x.key === `work/period/${periodOf(w, spouse.id).id}/hi`)!.set(w, "union");
     const w2 = allFields(buildStage("work", w)).find((x) => x.key.startsWith(`work/${spouse.id}/now`) && x.key.endsWith("/type"))!.set(w, "partTime");
     const p = periodOf(w2, spouse.id);
     expect(p.salary?.annual).toMatchObject({ value: 2400000, state: "confirmed" });
@@ -153,6 +154,8 @@ describe("年金: 定期便の加入月数が0か月のままを黙って0円に
     let wh = set(blankHousehold(BASE, ids()), "family", "/birth", "1973-01");
     const self = member(wh, "self")[0]!;
     wh = run(wh, "work", `work/${self.id}/start`).wh;
+    // 定年後は働かない（再雇用の推定の5年で受給資格期間に届かないように）
+    wh = set(wh, "work", "/postType", "");
     wh = fieldOf(wh, "pension", `pension/${self.id}/kind`).set(wh, "statementOver50");
     wh = set(wh, "pension", "/amounts/basic", 780000);
     wh = set(wh, "pension", "/amounts/employee", 1250000);

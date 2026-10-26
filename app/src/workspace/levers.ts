@@ -101,7 +101,8 @@ export function derivedId(base: string, salt: string): string {
     h1 = Math.imul(h1 ^ ch.charCodeAt(0), 16777619) >>> 0;
     h2 = Math.imul(h2 ^ ch.charCodeAt(0), 2246822519) >>> 0;
   }
-  const hex = (h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0") + (h1 ^ h2).toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0")).slice(0, 32);
+  // h1 ^ h2 は符号つきの32ビットになるので、符号なしにしてから16進にする（負の数の「-」が ID に入らないように）
+  const hex = (h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0") + ((h1 ^ h2) >>> 0).toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0")).slice(0, 32);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
@@ -162,10 +163,9 @@ function retireAt(req: EngineRequest, memberId: string, lastMonth: string, stage
     } else if (r !== undefined) {
       // 定年の後: 再雇用などの働き方で、その年齢まで
       const smr = r.standardMonthlyRemuneration;
-      const { standardMonthlyRemuneration: _smr, corporatePension: _cp, business: _b, ...rest } = tail;
-      void _smr;
-      void _cp;
-      void _b;
+      // 今の勤め先の期間の辞め方・失業の給付の欄と値の状態の行は写さない（定年後の期間は、画面がその期間の推定を入れ直す。0037）
+      const { standardMonthlyRemuneration: _smr, corporatePension: _cp, business: _b, endsWith: _e, unemploymentClaim: _u, elderlyContinuationClaim: _c, valueStates: _v, ...rest } = tail;
+      void [_smr, _cp, _b, _e, _u, _c, _v];
       kept.push({
         ...rest,
         id: derivedId(tail.id, "reemployment"),
