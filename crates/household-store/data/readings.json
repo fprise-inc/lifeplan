@@ -2283,6 +2283,12 @@
     "corporatePension"
    ]
   },
+  "employment.elderlyContinuationClaim": {
+   "collection": "employment",
+   "path": [
+    "elderlyContinuationClaim"
+   ]
+  },
   "employment.employeeInsurance": {
    "collection": "employment",
    "path": [
@@ -2470,6 +2476,12 @@
    "collection": "employment",
    "path": [
     "type"
+   ]
+  },
+  "employment.unemploymentClaim": {
+   "collection": "employment",
+   "path": [
+    "unemploymentClaim"
    ]
   },
   "event.at": {
