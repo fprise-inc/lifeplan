@@ -1,4 +1,5 @@
 # 0004 の5: 入力項目IDの登録簿。正本は engine/schemas/engine.input.json の x-item（scripts/registry.ts が作る。手で書き換えない）
+# collection・path は値の場所（物の集まりと、物の中の欄の道。collection が null なら要求の入力から）。当て先から値を引くのに使う（0035 の6・9）
 # since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする
 kind: item
 entries:
@@ -8,150 +9,200 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [asOf]
   - id: account.assetMix
     status: active
     label: "資産クラスの配分（率の合計は1。省略は預金・外貨預金なら cash、ほかは運用利回り）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [assetMix]
   - id: account.contributions
     status: active
     label: "積立・掛金"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [contributions]
   - id: account.costBasis
     status: active
     label: "取得価額（省略は時価と同じ）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [costBasis]
   - id: account.enrolledSince
     status: active
     label: "iDeCo・企業型DC の加入者等期間の始まり（受給開始の年齢を判定する）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [enrolledSince]
   - id: account.expectedReturn
     status: active
     label: "FP が入れた器の利回り（年率。入れたときは資産の配分の利回りの代わり。0026）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [expectedReturn]
   - id: account.fee
     status: active
     label: "運用の費用（信託報酬など。年率。器の利回りから引く。0026）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [fee]
   - id: account.frame
     status: active
     label: "NISA の非課税保有限度額の消化（簿価。asOfYear の年末の値）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [frame]
   - id: account.kind
     status: active
     label: "器の種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [kind]
   - id: account.lots
     status: active
     label: "旧NISA・ジュニアNISA の買付の年ごとの内訳（非課税期間の終わりを判定する）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [lots]
   - id: account.marketValue
     status: active
     label: "時価"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [marketValue]
   - id: account.owner
     status: active
     label: "名義の構成員"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [owner]
   - id: account.payout
     status: active
     label: "iDeCo・企業型DC の受け取り"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [payout]
   - id: account.property
     status: active
     label: "不動産の中身（不動産の器だけ。評価額を土地と建物に分け、貸しているなら家賃収入・経費・不動産所得・売却を計算する。0028）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [property]
   - id: account.settlement
     status: active
     label: "決済口座（年の収支が入り、赤字のとき取り崩しで補う口座。省略は最初の預金）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [settlement]
   - id: account.uninvested
     status: active
     label: "運用しない分（金額。まとめた金融資産の器 pooled だけで使う。この額までは預金の利回り。0031）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [uninvested]
   - id: account.valueGrowth
     status: active
     label: "評価額の増減率（年率。不動産・その他の資産だけで使う。マイナスも書ける。入れたときは資産の配分の利回りの代わり。省略は不動産は資産クラスの利回り、その他の資産は0）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [valueGrowth]
   - id: account.withdrawalLockedUntil
     status: active
     label: "引き出せない期間の終わり（その月まで。iDeCo・企業型DC は省略すると制度から導く）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: account
+    path: [withdrawalLockedUntil]
   - id: advisoryFee.enabled
     status: active
     label: "この案で計算に入れるか（省略は入れる。案ごとに ON/OFF）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: advisoryFee
+    path: [enabled]
   - id: advisoryFee.menu
     status: active
     label: "事務所の標準の料金表から写したときのメニュー"
     since: draft
     aliases: []
     replacedBy: null
+    collection: advisoryFee
+    path: [menu]
   - id: advisoryFee.payer
     status: active
     label: "払う構成員（個人が払う分は所得から差し引かない）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: advisoryFee
+    path: [payer]
   - id: advisoryFee.terms
     status: active
     label: "料金"
     since: draft
     aliases: []
     replacedBy: null
+    collection: advisoryFee
+    path: [terms]
   - id: assumptions.assetReturns
     status: active
     label: "資産クラスごとの利回り（年率の年ごとの列。器の assetMix の資産クラスに使う。無い資産クラスは運用利回り、不動産は0）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, assetReturns]
   - id: assumptions.assetVolatility
     status: active
     label: "資産クラスごとの値動きの大きさ（年率の標準偏差。計算には使わない。0026）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, assetVolatility]
   - id: assumptions.educationInflation
     status: active
     label: "教育費の上昇率（年率。省略は物価上昇率。学費・学校外活動費に使い、公的支援には使わない）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, educationInflation]
   - id: assumptions.emergencyReserve
     status: removed
     label: "生活防衛資金（取り崩さないお金。運用せず預金の利回りで持ち、取り崩しは最後。「金融資産は○歳まで持つ」の判定から除く。0031。2026-10-21 になくした（0031 の追記）。欠番）"
@@ -164,1137 +215,1533 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, incomeShocks]
   - id: assumptions.inflation
     status: active
     label: "物価上昇率（年率。省略は0。年金額の改定に使う）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, inflation]
   - id: assumptions.investment
     status: active
     label: "資産運用の入れ方と、運用・取り崩しの前提（0026）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, investment]
   - id: assumptions.investmentReturn
     status: active
     label: "運用利回り（年率）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, investmentReturn]
   - id: assumptions.loanRateShifts
     status: active
     label: "変動金利の上乗せ（ストレステスト。from の月から、変動金利の段の金利に add を足す）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, loanRateShifts]
   - id: assumptions.marketShocks
     status: active
     label: "資産の時価の下落（ストレステスト。その年の年末に、器の時価をその割合だけ下げる）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, marketShocks]
   - id: assumptions.pensionMacroSlide
     status: active
     label: "年金額のマクロ経済スライドの調整率（年度ごと。正の率で書き、改定率から引く。省略は0）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, pensionMacroSlide]
   - id: assumptions.pensionMacroSlideEmployee
     status: active
     label: "厚生年金（報酬比例）のマクロ経済スライドの調整率（省略は基礎年金と同じ）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, pensionMacroSlideEmployee]
   - id: assumptions.realEstateValuation
     status: active
     label: "持ち家の評価の前提（土地の上昇率・土地の割合・構造ごとの耐用年数・建物の残りの価値の下限・売却の費用。省略した項目は目安）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, realEstateValuation]
   - id: assumptions.returnShifts
     status: active
     label: "運用の利回りの書き換え（運用する器だけ。from〜to の年。add を足し、cap より高ければ cap にする。0026）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, returnShifts]
   - id: assumptions.surplusSaving
     status: active
     label: "黒字のうち貯まる割合・上限（一時金の収入を除いた年間収支が黒字の年だけ、貯まらない分を「ゆとりの支出」として支出に足す。0031）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, surplusSaving]
   - id: assumptions.wageGrowth
     status: active
     label: "賃金上昇率（年率。省略は0）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, wageGrowth]
   - id: assumptions.withdrawal
     status: active
     label: "年の収支が赤字のときの取り崩し（順序と、決済口座に残す額。省略は既定の順序）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: null
+    path: [assumptions, withdrawal]
   - id: car.fuel
     status: active
     label: "燃料代（ガソリンなど）の年額（毎月12分の1）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [fuel]
   - id: car.growth
     status: active
     label: "価格・維持費の伸び方（省略は前提の物価上昇率）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [growth]
   - id: car.inspection
     status: active
     label: "車検（購入から何年後が最初か・その後の周期・1回の額）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [inspection]
   - id: car.insurance
     status: active
     label: "自動車保険の年額（購入の月に毎年）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [insurance]
   - id: car.loan
     status: active
     label: "自動車ローン（購入のたびに借りる）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [loan]
   - id: car.onContingency
     status: active
     label: "万一のときの扱い（万一の月の翌月からの買い替え・維持費に当てる。組んだローンの返済は続く）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [onContingency]
   - id: car.owner
     status: active
     label: "名義（構成員）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [owner]
   - id: car.parking
     status: active
     label: "駐車場代の年額（毎月12分の1）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [parking]
   - id: car.purchase
     status: active
     label: "買い替え（最初の購入の月・周期・車両の価格・下取り）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [purchase]
   - id: car.tax
     status: active
     label: "自動車税の年額（毎年5月）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [tax]
   - id: car.until
     status: active
     label: "手放す月（その月まで。null・省略は最後まで）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [until]
   - id: car.upkeep
     status: active
     label: "維持費の合計の年額（車検・保険・税・駐車場・燃料などをまとめて入れるとき。毎月12分の1。行は cf.expense.living.car）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: car
+    path: [upkeep]
   - id: care.from
     status: active
     label: "始まり"
     since: draft
     aliases: []
     replacedBy: null
+    collection: care
+    path: [from]
   - id: care.growth
     status: active
     label: "伸び方（省略は物価上昇率）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: care
+    path: [growth]
   - id: care.initial
     status: active
     label: "一時費用（住宅の改修・介護用品など）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: care
+    path: [initial]
   - id: care.member
     status: active
     label: "介護を受ける構成員（本人・親など）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: care
+    path: [member]
   - id: care.months
     status: active
     label: "期間の月数（省略は統計の既定）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: care
+    path: [months]
   - id: care.onContingency
     status: active
     label: "万一のときの扱い（払う人の万一）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: care
+    path: [onContingency]
   - id: care.otherMonthly
     status: active
     label: "介護保険の対象外の費用（月額。居住費・食費・日常の費用。計算基準年の価格）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: care
+    path: [otherMonthly]
   - id: care.payer
     status: active
     label: "払う構成員（省略は介護を受ける人）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: care
+    path: [payer]
   - id: care.place
     status: active
     label: "在宅か施設か（統計の既定の月額を選ぶ）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: care
+    path: [place]
   - id: care.serviceMonthly
     status: active
     label: "介護保険の対象の費用（月額・10割。計算基準年の価格）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: care
+    path: [serviceMonthly]
   - id: contingency.grade
     status: active
     label: "障害等級（該当した場合の仮定。1〜3級。障害年金・団信・保険の判定だけに使う）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: contingency
+    path: [grade]
   - id: contingency.kind
     status: active
     label: "万一の種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: contingency
+    path: [kind]
   - id: contingency.medical
     status: active
     label: "医療費（就業不能・障害のとき。高額療養費で自己負担を簡易に計算する）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: contingency
+    path: [medical]
   - id: contingency.member
     status: active
     label: "対象の構成員"
     since: draft
     aliases: []
     replacedBy: null
+    collection: contingency
+    path: [member]
   - id: contingency.occurs
     status: active
     label: "起きる月（死亡の月・初診日の月・働けなくなった月）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: contingency
+    path: [occurs]
   - id: contingency.oldAgeChoice
     status: active
     label: "障害年金の65歳からの組み合わせ（FP が選び直したとき。省略は月ごとに手取りが多い組み合わせを自動で選ぶ）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: contingency
+    path: [oldAgeChoice]
   - id: contingency.recovery
     status: active
     label: "働けるようになる月（その月から元の働き方に戻る。省略は戻らない）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: contingency
+    path: [recovery]
   - id: contingency.survivor
     status: active
     label: "遺族の側の前提（死亡）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: contingency
+    path: [survivor]
   - id: debt.balance
     status: active
     label: "残高（balanceAsOf の月の返済の後。既に借りているローン）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [balance]
   - id: debt.balanceAsOf
     status: active
     label: "残高の時点"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [balanceAsOf]
   - id: debt.creditLife
     status: active
     label: "団体信用生命保険（万一の想定で、団信の部品 debt.creditLifeEvents が残高の消える月と割合を返し、debt.schedule がその月以後の残高と返済を減らす）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [creditLife]
   - id: debt.debtors
     status: active
     label: "債務者（主債務者・連帯債務者・連帯保証人）と負担割合"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [debtors]
   - id: debt.housing
     status: active
     label: "住宅ローン控除に使う住宅の情報"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [housing]
   - id: debt.kind
     status: active
     label: "負債の種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [kind]
   - id: debt.pairWith
     status: active
     label: "ペアローンの相手のローン"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [pairWith]
   - id: debt.prepayments
     status: active
     label: "繰上返済"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [prepayments]
   - id: debt.principal
     status: active
     label: "借入額（実行の時）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [principal]
   - id: debt.product
     status: active
     label: "商品（flat35 は全期間固定の住宅金融支援機構の買取型。計算は固定金利と同じ）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [product]
   - id: debt.property
     status: active
     label: "この借入で取得した住まい以外の不動産（不動産の器の ID。利息を不動産所得の必要経費にする。0028）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [property]
   - id: debt.rateSchedule
     status: active
     label: "金利の段階（固定・変動・期間選択）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [rateSchedule]
   - id: debt.refinance
     status: active
     label: "借り換え（その月に残高を新しいローンで返す）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [refinance]
   - id: debt.repayment
     status: active
     label: "返済の方法"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [repayment]
   - id: debt.start
     status: active
     label: "借入の月（最初の返済はその翌月）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: debt
+    path: [start]
   - id: donor.kind
     status: active
     label: "贈与者の区分（親・祖父母は直系尊属。特例税率・住宅取得等資金の非課税の判定に使う）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: donor
+    path: [kind]
   - id: donor.of
     status: active
     label: "誰の親・祖父母か（構成員）。省略は受け取る人の親・祖父母とみなす"
     since: draft
     aliases: []
     replacedBy: null
+    collection: donor
+    path: [of]
   - id: employment.business.income
     status: active
     label: "事業所得（年額）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [business, income]
   - id: employment.childcareShortHours
     status: active
     label: "育児のための短時間勤務（2歳未満の子。育児時短就業給付）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [childcareShortHours]
   - id: employment.corporatePension
     status: active
     label: "勤め先の企業年金（iDeCo の拠出限度額の判定に使う。企業型DC の事業主掛金は器の積立に書く）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [corporatePension]
   - id: employment.elderlyContinuationClaim
     status: active
     label: "この期間の60〜64歳の月に雇用保険の高年齢雇用継続給付を受け取るか（省略は受け取らない。要件と額はエンジンが判定する）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [elderlyContinuationClaim]
   - id: employment.employeeInsurance
     status: active
     label: "上書き: 被用者保険（健康保険・厚生年金）に入るか（省略はエンジンが働き方から導く）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [employeeInsurance]
   - id: employment.employer.fullTimeWeeklyHours
     status: active
     label: "通常の労働者の週の所定労働時間（4分の3の基準。省略は40）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [employer, fullTimeWeeklyHours]
   - id: employment.employer.industry
     status: active
     label: "雇用保険の事業の種類（省略は一般）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [employer, industry]
   - id: employment.employer.size
     status: active
     label: "勤務先の従業員数（被保険者の数。適用拡大の企業規模の要件）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [employer, size]
   - id: employment.employer.weeklyHours
     status: active
     label: "週の所定労働時間"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [employer, weeklyHours]
   - id: employment.employmentInsuranceCovered
     status: active
     label: "上書き: 雇用保険の被保険者か（省略はエンジンが週の所定労働時間などから導く）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [employmentInsuranceCovered]
   - id: employment.endsOnMonthEnd
     status: active
     label: "期間の最後の月の末日に辞めるか（省略は真）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [endsOnMonthEnd]
   - id: employment.endsWith
     status: active
     label: "期間の終わり方"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [endsWith]
   - id: employment.from
     status: active
     label: "期間の始まり（その月を含む）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [from]
   - id: employment.healthInsurance.careEmployeeRate
     status: active
     label: "介護保険料率の被保険者負担分（健保組合・共済）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [healthInsurance, careEmployeeRate]
   - id: employment.healthInsurance.childSupportEmployeeRate
     status: active
     label: "子ども・子育て支援金率の被保険者負担分（健保組合・共済。省略は全国一律の率の半分）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [healthInsurance, childSupportEmployeeRate]
   - id: employment.healthInsurance.employeeRate
     status: active
     label: "健康保険料率の被保険者負担分（健保組合・共済）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [healthInsurance, employeeRate]
   - id: employment.healthInsurance.insurer
     status: active
     label: "保険者（協会けんぽの支部 kyokaikenpo.01〜47）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [healthInsurance, insurer]
   - id: employment.healthInsurance.kind
     status: active
     label: "健康保険の種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [healthInsurance, kind]
   - id: employment.leaveChild
     status: active
     label: "産前産後休業・育児休業の対象の子（省略は休業の始まりに近い子から決める）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [leaveChild]
   - id: employment.leaveKind
     status: active
     label: "休業の種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [leaveKind]
   - id: employment.member
     status: active
     label: "働く構成員"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [member]
   - id: employment.pensionCategory
     status: active
     label: "厚生年金の種別（none は厚生年金に入らない勤め先）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [pensionCategory]
   - id: employment.retirementBenefit
     status: active
     label: "退職給付"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [retirementBenefit]
   - id: employment.salary.annual
     status: active
     label: "給与（賞与を除く年額。期間の最初の年の額）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [salary, annual]
   - id: employment.salary.bonus
     status: active
     label: "賞与（年間の合計）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [salary, bonus]
   - id: employment.salary.bonusMonths
     status: active
     label: "賞与の支給月（省略は6月・12月）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [salary, bonusMonths]
   - id: employment.salary.commutingMonthly
     status: active
     label: "非課税の通勤手当（月額）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [salary, commutingMonthly]
   - id: employment.salary.contractualMonthly
     status: active
     label: "所定内賃金の月額（適用拡大の賃金の要件。省略は給与の年額の12分の1）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [salary, contractualMonthly]
   - id: employment.salary.growth
     status: active
     label: "昇給の仕方（省略は賃金上昇率だけ。curve は昇給カーブのマスタデータの値ID）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [salary, growth]
   - id: employment.standardMonthlyRemuneration
     status: active
     label: "置き換え口: 標準報酬月額（健康保険・厚生年金。給与明細・決定通知の額）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [standardMonthlyRemuneration]
   - id: employment.student
     status: active
     label: "学生か（短時間労働者の適用拡大・雇用保険の対象から外れる）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [student]
   - id: employment.to
     status: active
     label: "期間の終わり（その月を含む。null は最後まで）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [to]
   - id: employment.type
     status: active
     label: "働き方"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [type]
   - id: employment.unemploymentClaim
     status: active
     label: "辞めた後に雇用保険の失業の給付（基本手当・高年齢求職者給付金）を受け取るか（省略は受け取らない。新しい世帯に入れる推定は SDK の estimateUnemploymentClaim）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: employment
+    path: [unemploymentClaim]
   - id: event.at
     status: active
     label: "イベントの時点"
     since: draft
     aliases: []
     replacedBy: null
+    collection: event
+    path: [at]
   - id: event.kind
     status: active
     label: "イベントの種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: event
+    path: [kind]
   - id: event.member
     status: active
     label: "イベントの構成員"
     since: draft
     aliases: []
     replacedBy: null
+    collection: event
+    path: [member]
   - id: goal.education
     status: active
     label: "教育の目標（進路パターンと学校）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: goal
+    path: [education]
   - id: goal.kind
     status: active
     label: "目標の種類（この版は education だけを計算する）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: goal
+    path: [kind]
   - id: goal.owner
     status: active
     label: "目標の構成員（教育は子）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: goal
+    path: [owner]
   - id: insurance.annuitant
     status: active
     label: "満期金・年金・祝金の受取人（省略は契約者）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [annuitant]
   - id: insurance.beneficiaries
     status: active
     label: "死亡保険金の受取人（構成員、または構成員でない受取人の続柄）と割合"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [beneficiaries]
   - id: insurance.contractDate
     status: active
     label: "契約の年月"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [contractDate]
   - id: insurance.coverages
     status: active
     label: "主契約と特約の明細（給付の種類ごとの金額と期間）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [coverages]
   - id: insurance.currency
     status: active
     label: "契約の通貨"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [currency]
   - id: insurance.deductionCategory
     status: active
     label: "保険料控除の区分"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [deductionCategory]
   - id: insurance.insured
     status: active
     label: "被保険者"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [insured]
   - id: insurance.policyholder
     status: active
     label: "契約者"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [policyholder]
   - id: insurance.premium
     status: active
     label: "保険料"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [premium]
   - id: insurance.renewals
     status: active
     label: "更新（その月から更新後の保険料）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [renewals]
   - id: insurance.schedule
     status: active
     label: "年次の数表（保険年度ごと。主契約・特約ごと）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [schedule]
   - id: insurance.simple
     status: active
     label: "数表の無い契約を型（ひな形）から計算するための簡易の入力"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [simple]
   - id: insurance.surrender
     status: active
     label: "解約する月（解約返戻金を受け取り、保障と払込が終わる）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [surrender]
   - id: insurance.template
     status: active
     label: "保険の種類のひな形"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [template]
   - id: insurance.waiver
     status: active
     label: "保険料の払込免除（障害・就業不能の想定で払込が止まる）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: insurance
+    path: [waiver]
   - id: livingExpense.categories
     status: active
     label: "費目別の月額（計算基準年の価格）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: livingExpense
+    path: [categories]
   - id: livingExpense.from
     status: active
     label: "始まり（省略は計算基準月）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: livingExpense
+    path: [from]
   - id: livingExpense.growth
     status: active
     label: "伸び方（省略は前提の物価上昇率）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: livingExpense
+    path: [growth]
   - id: livingExpense.mode
     status: active
     label: "入れ方（総額／費目別）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: livingExpense
+    path: [mode]
   - id: livingExpense.monthly
     status: active
     label: "月額（総額。計算基準年の価格）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: livingExpense
+    path: [monthly]
   - id: livingExpense.onContingency
     status: active
     label: "万一のときの扱い"
     since: draft
     aliases: []
     replacedBy: null
+    collection: livingExpense
+    path: [onContingency]
   - id: livingExpense.stages
     status: active
     label: "段階（子の独立・退職後・70代・80代など）。その月から、最初の額に対する割合か、月額（計算基準年の価格）に変える"
     since: draft
     aliases: []
     replacedBy: null
+    collection: livingExpense
+    path: [stages]
   - id: livingExpense.to
     status: active
     label: "終わり（その月まで。null・省略は最後まで）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: livingExpense
+    path: [to]
   - id: member.birth
     status: active
     label: "生年月と1日生まれか"
     since: draft
     aliases: []
     replacedBy: null
+    collection: member
+    path: [birth]
   - id: member.expected
     status: active
     label: "まだいない家族か（出産予定・結婚予定）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: member
+    path: [expected]
   - id: member.joins
     status: active
     label: "世帯に加わる時点（null は最初から）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: member
+    path: [joins]
   - id: member.kind
     status: active
     label: "家族の種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: member
+    path: [kind]
   - id: member.leaves
     status: active
     label: "世帯から離れる時点（null は最後まで）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: member
+    path: [leaves]
   - id: member.sex
     status: active
     label: "性別"
     since: draft
     aliases: []
     replacedBy: null
+    collection: member
+    path: [sex]
   - id: member.support
     status: active
     label: "親・祖父母の扶養と同居"
     since: draft
     aliases: []
     replacedBy: null
+    collection: member
+    path: [support]
   - id: pensionRecord.amounts
     status: active
     label: "置き換え口: 記録の年金額（年額）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: pensionRecord
+    path: [amounts]
   - id: pensionRecord.asOf
     status: active
     label: "記録の時点（定期便の作成の月・通知の年月・加入歴の終わりの月）。この月より後はエンジンが働き方の期間から足す"
     since: draft
     aliases: []
     replacedBy: null
+    collection: pensionRecord
+    path: [asOf]
   - id: pensionRecord.claim
     status: active
     label: "受給を始める月（基礎と厚生を別々に。繰上げ・繰下げ。省略は65歳に達した月の翌月）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: pensionRecord
+    path: [claim]
   - id: pensionRecord.history
     status: active
     label: "加入歴（history の型）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: pensionRecord
+    path: [history]
   - id: pensionRecord.kind
     status: active
     label: "記録の型"
     since: draft
     aliases: []
     replacedBy: null
+    collection: pensionRecord
+    path: [kind]
   - id: pensionRecord.member
     status: active
     label: "加入者"
     since: draft
     aliases: []
     replacedBy: null
+    collection: pensionRecord
+    path: [member]
   - id: pensionRecord.months
     status: active
     label: "加入期間の月数（定期便の加入期間の欄）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: pensionRecord
+    path: [months]
   - id: periodicExpense.amount
     status: active
     label: "1回の額（計算基準年の価格）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: periodicExpense
+    path: [amount]
   - id: periodicExpense.everyYears
     status: active
     label: "何年ごとか（1は毎年）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: periodicExpense
+    path: [everyYears]
   - id: periodicExpense.from
     status: active
     label: "最初の支払いの月"
     since: draft
     aliases: []
     replacedBy: null
+    collection: periodicExpense
+    path: [from]
   - id: periodicExpense.growth
     status: active
     label: "伸び方（省略は前提の物価上昇率）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: periodicExpense
+    path: [growth]
   - id: periodicExpense.label
     status: active
     label: "見出し（表示用）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: periodicExpense
+    path: [label]
   - id: periodicExpense.onContingency
     status: active
     label: "万一のときの扱い"
     since: draft
     aliases: []
     replacedBy: null
+    collection: periodicExpense
+    path: [onContingency]
   - id: periodicExpense.row
     status: active
     label: "載せる行"
     since: draft
     aliases: []
     replacedBy: null
+    collection: periodicExpense
+    path: [row]
   - id: periodicExpense.to
     status: active
     label: "終わり（その月まで。null・省略は最後まで）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: periodicExpense
+    path: [to]
+  - id: plan.baseMonth
+    status: active
+    label: "計算の基準の月"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: null
+    path: [baseMonth]
+  - id: plan.endYear
+    status: active
+    label: "表の最後の年"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: null
+    path: [endYear]
   - id: premiumAssessment.amount
     status: active
     label: "年額"
     since: draft
     aliases: []
     replacedBy: null
+    collection: premiumAssessment
+    path: [amount]
   - id: premiumAssessment.fiscalYear
     status: active
     label: "年度"
     since: draft
     aliases: []
     replacedBy: null
+    collection: premiumAssessment
+    path: [fiscalYear]
   - id: premiumAssessment.kind
     status: active
     label: "保険料の種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: premiumAssessment
+    path: [kind]
   - id: premiumAssessment.member
     status: active
     label: "納める構成員（国民健康保険は世帯主）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: premiumAssessment
+    path: [member]
   - id: premiumRate.baseMonthly
     status: active
     label: "介護保険（第1号）の基準額（月額）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: premiumRate
+    path: [baseMonthly]
   - id: premiumRate.fromFiscalYear
     status: active
     label: "この年度から（省略は最初から）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: premiumRate
+    path: [fromFiscalYear]
   - id: premiumRate.kind
     status: active
     label: "保険料の種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: premiumRate
+    path: [kind]
   - id: premiumRate.parts
     status: active
     label: "賦課の区分ごとの料率（国民健康保険は medical・elderlySupport・care・childSupport、後期高齢者医療は medical・childSupport）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: premiumRate
+    path: [parts]
   - id: relation.a
     status: active
     label: "配偶者の一方"
     since: draft
     aliases: []
     replacedBy: null
+    collection: relation
+    path: [a]
   - id: relation.b
     status: active
     label: "配偶者の他方"
     since: draft
     aliases: []
     replacedBy: null
+    collection: relation
+    path: [b]
   - id: relation.child
     status: active
     label: "子"
     since: draft
     aliases: []
     replacedBy: null
+    collection: relation
+    path: [child]
   - id: relation.from
     status: active
     label: "関係の始まり（null は最初から）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: relation
+    path: [from]
   - id: relation.marriage
     status: active
     label: "法律婚か事実婚か"
     since: draft
     aliases: []
     replacedBy: null
+    collection: relation
+    path: [marriage]
   - id: relation.parent
     status: active
     label: "親"
     since: draft
     aliases: []
     replacedBy: null
+    collection: relation
+    path: [parent]
   - id: relation.to
     status: active
     label: "関係の終わり（null は最後まで）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: relation
+    path: [to]
   - id: relation.type
     status: active
     label: "関係の種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: relation
+    path: [type]
   - id: residence.from
     status: active
     label: "住み始め"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residence
+    path: [from]
   - id: residence.kind
     status: active
     label: "住まいの種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residence
+    path: [kind]
   - id: residence.maintenance
     status: active
     label: "修繕費・管理費（月額と上昇率）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residence
+    path: [maintenance]
   - id: residence.ownership
     status: active
     label: "持ち家の名義と持分"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residence
+    path: [ownership]
   - id: residence.propertyTax
     status: active
     label: "固定資産税・都市計画税（年額と上昇率。4・7・12・2月の4回に分けて払う）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residence
+    path: [propertyTax]
   - id: residence.purchase
     status: active
     label: "購入（物件価格・頭金・諸費用・親からの資金援助）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residence
+    path: [purchase]
   - id: residence.rent
     status: active
     label: "家賃と更新料"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residence
+    path: [rent]
   - id: residence.sale
     status: active
     label: "売却（住み終わりの月に売り、売却価格から売却の費用を引いた手取りを現金にする。住み終わりが無ければ使わない）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residence
+    path: [sale]
   - id: residence.to
     status: active
     label: "住み終わり（その月まで。null は最後まで）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residence
+    path: [to]
   - id: residence.valuation
     status: active
     label: "持ち家の評価（土地と建物に分け、土地は上昇率で、建物は構造の耐用年数で減らす）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residence
+    path: [valuation]
   - id: residentTaxAssessment.amount
     status: active
     label: "住民税の年税額（森林環境税を含む）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residentTaxAssessment
+    path: [amount]
   - id: residentTaxAssessment.collection
     status: active
     label: "徴収の方法（省略は働き方から決める）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residentTaxAssessment
+    path: [collection]
   - id: residentTaxAssessment.fiscalYear
     status: active
     label: "年度"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residentTaxAssessment
+    path: [fiscalYear]
   - id: residentTaxAssessment.member
     status: active
     label: "納税する構成員"
     since: draft
     aliases: []
     replacedBy: null
+    collection: residentTaxAssessment
+    path: [member]
   - id: retirementBenefit.amount
     status: active
     label: "一時金の見込み額（DB は一時金で受けた場合の額）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: retirementBenefit
+    path: [amount]
   - id: retirementBenefit.contributions
     status: active
     label: "本人の掛金（国民年金基金は社会保険料控除）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: retirementBenefit
+    path: [contributions]
   - id: retirementBenefit.disability
     status: active
     label: "障害者になったことによる退職（退職所得控除の加算）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: retirementBenefit
+    path: [disability]
   - id: retirementBenefit.employment
     status: active
     label: "勤め先の働き方の期間（勤続期間と支給の月の既定）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: retirementBenefit
+    path: [employment]
   - id: retirementBenefit.estimate
     status: active
     label: "見込み額の計算（公務員の退職手当: 俸給月額×支給率／役員退職慰労金: 最終報酬月額×在任年数×功績倍率）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: retirementBenefit
+    path: [estimate]
   - id: retirementBenefit.kind
     status: active
     label: "種類"
     since: draft
     aliases: []
     replacedBy: null
+    collection: retirementBenefit
+    path: [kind]
   - id: retirementBenefit.member
     status: active
     label: "受け取る構成員"
     since: draft
     aliases: []
     replacedBy: null
+    collection: retirementBenefit
+    path: [member]
   - id: retirementBenefit.officerService
     status: active
     label: "役員等の勤続期間（特定役員退職手当等の判定）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: retirementBenefit
+    path: [officerService]
   - id: retirementBenefit.paidAt
     status: active
     label: "支給の月（省略は勤続期間の終わりの翌月）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: retirementBenefit
+    path: [paidAt]
   - id: retirementBenefit.receipt
     status: active
     label: "受け取り方"
     since: draft
     aliases: []
     replacedBy: null
+    collection: retirementBenefit
+    path: [receipt]
   - id: retirementBenefit.service
     status: active
     label: "勤続期間（省略は働き方の期間）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: retirementBenefit
+    path: [service]
   - id: savingsCheck.actualSavings
     status: active
     label: "実際の年間の貯蓄額（その年の12か月分）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: savingsCheck
+    path: [actualSavings]
   - id: savingsCheck.treatment
     status: active
     label: "差（使途不明金）の扱い"
     since: draft
     aliases: []
     replacedBy: null
+    collection: savingsCheck
+    path: [treatment]
   - id: savingsCheck.until
     status: active
     label: "差を見込む終わり（その月まで。null・省略は最後まで）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: savingsCheck
+    path: [until]
   - id: savingsCheck.year
     status: active
     label: "検算する年（計算基準年以後）"
     since: draft
     aliases: []
     replacedBy: null
+    collection: savingsCheck
+    path: [year]

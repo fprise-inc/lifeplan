@@ -7,8 +7,8 @@
   "additionalProperties": false,
   "required": ["baseMonth", "endYear", "calcConventions", "household", "assumptions"],
   "properties": {
-    "baseMonth": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
-    "endYear": { "$ref": "urn:financia:schema:common#/$defs/year" },
+    "baseMonth": { "title": "計算の基準の月", "x-item": "plan.baseMonth", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+    "endYear": { "title": "表の最後の年", "x-item": "plan.endYear", "$ref": "urn:financia:schema:common#/$defs/year" },
     "calcConventions": {
       "description": "0003 の7: 計算方式の設定",
       "type": "object",

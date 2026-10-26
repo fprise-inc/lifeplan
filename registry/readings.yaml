@@ -1,0 +1,496 @@
+# 0035 の9: 読み替え表。世帯ファイルの形式 0.16 までに保存された鍵（差分の key・対策に足した項目・仮の印の欄のキー）を、
+# 当て先（向き先＋入力項目ID＋場所。0036 の2）か合成の対策（0036 の3）に読み替える。本体の変換の段・画面・テストが同じ表を読む。
+# 0.16 の欄の定義から app/test/readings.test.ts の作る手順で作った（手で書き換えない。凍結した見本で確かめる）。
+# from の {object}・{member}・{id} は ID、{n} は並びの番号。at の {n: k} は from の k 番目の番号の要素、{nth: i} は i 番目の要素、
+# {id: k} は from の k 番目の {id} の要素、{where: …} は欄の値が合う最初の要素（ID の無い要素は、変換の段が振る決まった ID で指す）。
+# find: currentPeriod は、構成員の計算基準月の働き方の期間（無ければ次に始まる期間、それも無ければ最後の期間）。
+# lever は合成の対策（0036 の3。object・member は鍵の ID を、element は鍵の番号の要素の ID を物として持つ）。1つの値をそのまま書かない欄
+# （単位を直す・時点に直す・物を作る・複数の値を動かす）も、0.16 の欄の書き方で当てる合成の対策にした。unresolved は読み替えずに要確認で残す（0036 の5）
+kind: reading
+entries:
+  - from: "assumed:family/{member}/birth"
+    until: "0.16"
+    to: {target: member, item: member.birth, at: [], method: standard}
+  - from: "assumed:family/{member}/sex"
+    until: "0.16"
+    to: {target: member, item: member.sex, at: [], method: standard}
+  - from: "assumed:housing/debt/{object}/credit"
+    until: "0.16"
+    to: {target: object, item: debt.housing, at: [], method: standard}
+  - from: "assumed:housing/debt/{object}/principal"
+    until: "0.16"
+    to: {target: object, item: debt.principal, at: [], method: derived}
+  - from: "field:assume/assetReturns/balanced/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["balanced", "default"]}
+  - from: "field:assume/assetReturns/bond.domestic/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["bond.domestic", "default"]}
+  - from: "field:assume/assetReturns/bond.global/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["bond.global", "default"]}
+  - from: "field:assume/assetReturns/cash.deposit/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["cash.deposit", "default"]}
+  - from: "field:assume/assetReturns/cash.foreign/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["cash.foreign", "default"]}
+  - from: "field:assume/assetReturns/commodity/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["commodity", "default"]}
+  - from: "field:assume/assetReturns/equity.domestic/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["equity.domestic", "default"]}
+  - from: "field:assume/assetReturns/equity.global/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["equity.global", "default"]}
+  - from: "field:assume/assetReturns/other/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["other", "default"]}
+  - from: "field:assume/assetReturns/realEstate/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["realEstate", "default"]}
+  - from: "field:assume/assetReturns/reit.domestic/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["reit.domestic", "default"]}
+  - from: "field:assume/assetReturns/reit.global/default"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.assetReturns, at: ["reit.global", "default"]}
+  - from: "field:assume/educationInflation"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.educationInflation, at: ["default"]}
+  - from: "field:assume/endYear"
+    until: "0.16"
+    to: {target: input, item: plan.endYear, at: []}
+  - from: "field:assume/inflation"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.inflation, at: ["default"]}
+  - from: "field:assume/investmentReturn"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.investmentReturn, at: ["default"]}
+  - from: "field:assume/pensionMacroSlide"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.pensionMacroSlide, at: ["default"]}
+  - from: "field:assume/realEstate/floor"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.realEstateValuation, at: ["residualFloor"]}
+  - from: "field:assume/realEstate/landGrowth"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.realEstateValuation, at: ["landGrowth", "default"]}
+  - from: "field:assume/realEstate/landShare"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.realEstateValuation, at: ["landShare"]}
+  - from: "field:assume/realEstate/life/lightSteel"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.realEstateValuation, at: ["usefulLife", "lightSteel"]}
+  - from: "field:assume/realEstate/life/rc"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.realEstateValuation, at: ["usefulLife", "rc"]}
+  - from: "field:assume/realEstate/life/steel"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.realEstateValuation, at: ["usefulLife", "steel"]}
+  - from: "field:assume/realEstate/life/wood"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.realEstateValuation, at: ["usefulLife", "wood"]}
+  - from: "field:assume/realEstate/saleCost"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.realEstateValuation, at: ["saleCostRate"]}
+  - from: "field:assume/wageGrowth"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.wageGrowth, at: ["default"]}
+  - from: "field:edu/{object}/gift/{n}/amount"
+    until: "0.16"
+    to: {target: object, item: goal.education, at: ["gifts", {n: 1}, "amount"]}
+  - from: "field:edu/{object}/lesson/{n}/monthly"
+    until: "0.16"
+    to: {target: object, item: goal.education, at: ["lessons", {n: 1}, "monthly"]}
+  - from: "field:edu/{object}/stage/{n}/delay"
+    until: "0.16"
+    to: {target: object, item: goal.education, at: ["stages", {n: 1}, "delayYears"]}
+  - from: "field:edu/{object}/stage/{n}/exam"
+    until: "0.16"
+    to: {target: object, item: goal.education, at: ["stages", {n: 1}, "exam", "amount"]}
+  - from: "field:edu/{object}/stage/{n}/feeRatio"
+    until: "0.16"
+    to: {target: object, item: goal.education, at: ["stages", {n: 1}, "feeRatio"]}
+  - from: "field:edu/{object}/stage/{n}/monthly"
+    until: "0.16"
+    to: {target: object, item: goal.education, at: ["stages", {n: 1}, "monthly"]}
+  - from: "field:edu/{object}/stage/{n}/years"
+    until: "0.16"
+    to: {target: object, item: goal.education, at: ["stages", {n: 1}, "years"]}
+  - from: "field:ev/car/{object}/down"
+    until: "0.16"
+    to: {lever: carDownPayment, object: true}
+  - from: "field:ev/car/{object}/every"
+    until: "0.16"
+    to: {target: object, item: car.purchase, at: ["everyYears"]}
+  - from: "field:ev/car/{object}/firstIn"
+    until: "0.16"
+    to: {lever: carFirstPurchase, object: true}
+  - from: "field:ev/car/{object}/fuel"
+    until: "0.16"
+    to: {target: object, item: car.fuel, at: ["annual"]}
+  - from: "field:ev/car/{object}/inspEvery"
+    until: "0.16"
+    to: {target: object, item: car.inspection, at: ["everyYears"]}
+  - from: "field:ev/car/{object}/inspFirst"
+    until: "0.16"
+    to: {target: object, item: car.inspection, at: ["firstAfterYears"]}
+  - from: "field:ev/car/{object}/inspection"
+    until: "0.16"
+    to: {target: object, item: car.inspection, at: ["amount"]}
+  - from: "field:ev/car/{object}/insurance"
+    until: "0.16"
+    to: {target: object, item: car.insurance, at: ["annual"]}
+  - from: "field:ev/car/{object}/parking"
+    until: "0.16"
+    to: {target: object, item: car.parking, at: ["annual"]}
+  - from: "field:ev/car/{object}/price"
+    until: "0.16"
+    to: {target: object, item: car.purchase, at: ["price"]}
+  - from: "field:ev/car/{object}/rate"
+    until: "0.16"
+    to: {target: object, item: car.loan, at: ["rate"]}
+  - from: "field:ev/car/{object}/tax"
+    until: "0.16"
+    to: {target: object, item: car.tax, at: ["annual"]}
+  - from: "field:ev/car/{object}/term"
+    until: "0.16"
+    to: {lever: carLoanYears, object: true}
+  - from: "field:ev/car/{object}/tradeIn"
+    until: "0.16"
+    to: {target: object, item: car.purchase, at: ["tradeIn"]}
+  - from: "field:ev/car/{object}/untilAge"
+    until: "0.16"
+    to: {lever: carUntilAge, object: true}
+  - from: "field:ev/car/{object}/upkeep"
+    until: "0.16"
+    to: {target: object, item: car.upkeep, at: ["annual"]}
+  - from: "field:ev/care/{object}/initial"
+    until: "0.16"
+    to: {target: object, item: care.initial, at: []}
+  - from: "field:ev/care/{object}/months"
+    until: "0.16"
+    to: {target: object, item: care.months, at: []}
+  - from: "field:ev/care/{object}/other"
+    until: "0.16"
+    to: {target: object, item: care.otherMonthly, at: []}
+  - from: "field:ev/care/{object}/service"
+    until: "0.16"
+    to: {target: object, item: care.serviceMonthly, at: []}
+  - from: "field:ev/fee/{object}/one/{n}/amount"
+    until: "0.16"
+    to: {target: object, item: advisoryFee.terms, at: ["oneTime", {n: 1}, "amount"]}
+  - from: "field:ev/fee/{object}/rec/annual"
+    until: "0.16"
+    to: {target: object, item: advisoryFee.terms, at: ["recurring", "annual"]}
+  - from: "field:ev/fee/{object}/rec/rate"
+    until: "0.16"
+    to: {target: object, item: advisoryFee.terms, at: ["recurring", "revision", "rate"]}
+  - from: "field:ev/{object}/amount"
+    until: "0.16"
+    to: {target: object, item: periodicExpense.amount, at: []}
+  - from: "field:ev/{object}/every"
+    until: "0.16"
+    to: {target: object, item: periodicExpense.everyYears, at: []}
+  - from: "field:family/{member}/allowance"
+    until: "0.16"
+    to: {target: member, item: member.support, at: ["allowance"]}
+  - from: "field:housing/debt/{object}/balance"
+    until: "0.16"
+    to: {target: object, item: debt.balance, at: []}
+  - from: "field:housing/debt/{object}/bonus"
+    until: "0.16"
+    to: {target: object, item: debt.repayment, at: ["bonusShare"]}
+  - from: "field:housing/debt/{object}/clRatio"
+    until: "0.16"
+    to: {target: object, item: debt.creditLife, at: ["ratio"]}
+  - from: "field:housing/debt/{object}/prepay/{n}/amount"
+    until: "0.16"
+    to: {target: object, item: debt.prepayments, at: [{n: 1}, "amount"]}
+  - from: "field:housing/debt/{object}/principal"
+    until: "0.16"
+    to: {target: object, item: debt.principal, at: []}
+  - from: "field:housing/debt/{object}/rate"
+    until: "0.16"
+    to: {target: object, item: debt.rateSchedule, at: [{nth: 0}, "rate"]}
+  - from: "field:housing/debt/{object}/rate/{n}/rate"
+    until: "0.16"
+    to: {target: object, item: debt.rateSchedule, at: [{n: 1}, "rate"]}
+  - from: "field:housing/debt/{object}/term"
+    until: "0.16"
+    to: {lever: loanTermYears, object: true}
+  - from: "field:housing/res/{object}/maint"
+    until: "0.16"
+    to: {target: object, item: residence.maintenance, at: ["monthly"]}
+  - from: "field:housing/res/{object}/maintGrowth"
+    until: "0.16"
+    to: {target: object, item: residence.maintenance, at: ["growth"]}
+  - from: "field:housing/res/{object}/purchase/costs"
+    until: "0.16"
+    to: {target: object, item: residence.purchase, at: ["costs"]}
+  - from: "field:housing/res/{object}/purchase/down"
+    until: "0.16"
+    to: {target: object, item: residence.purchase, at: ["downPayment"]}
+  - from: "field:housing/res/{object}/purchase/gift/{n}/amount"
+    until: "0.16"
+    to: {target: object, item: residence.purchase, at: ["gifts", {n: 1}, "amount"]}
+  - from: "field:housing/res/{object}/purchase/price"
+    until: "0.16"
+    to: {target: object, item: residence.purchase, at: ["price"]}
+  - from: "field:housing/res/{object}/renewalFee"
+    until: "0.16"
+    to: {target: object, item: residence.rent, at: ["renewalFee"]}
+  - from: "field:housing/res/{object}/rent"
+    until: "0.16"
+    to: {target: object, item: residence.rent, at: ["monthly"]}
+  - from: "field:housing/res/{object}/rentGrowth"
+    until: "0.16"
+    to: {target: object, item: residence.rent, at: ["growth"]}
+  - from: "field:housing/res/{object}/tax"
+    until: "0.16"
+    to: {target: object, item: residence.propertyTax, at: ["annual"]}
+  - from: "field:housing/res/{object}/valuation/builtYear"
+    until: "0.16"
+    to: {target: object, item: residence.valuation, at: ["builtYear"]}
+  - from: "field:housing/res/{object}/valuation/landShare"
+    until: "0.16"
+    to: {target: object, item: residence.valuation, at: ["landShare"]}
+  - from: "field:housing/res/{object}/valuation/value"
+    until: "0.16"
+    to: {target: object, item: residence.valuation, at: ["value"]}
+  - from: "field:ins/{object}/cov/{id}/amount"
+    until: "0.16"
+    to: {target: object, item: insurance.coverages, at: [{id: 1}, "amount"]}
+  - from: "field:ins/{object}/death"
+    until: "0.16"
+    to: {target: object, item: insurance.coverages, at: [{where: {role: "main", benefit: "death"}}, "amount"]}
+  - from: "field:ins/{object}/payUntil"
+    until: "0.16"
+    to: {lever: insurancePayUntilAge, object: true}
+  - from: "field:ins/{object}/premium"
+    until: "0.16"
+    to: {target: object, item: insurance.premium, at: ["amount"]}
+  - from: "field:living/surplus/cap"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.surplusSaving, at: ["cap"]}
+  - from: "field:living/surplus/change/{n}/age"
+    until: "0.16"
+    to: {lever: surplusChangeAge, element: {target: assumptions, item: assumptions.surplusSaving, at: ["changes", {n: 1}]}}
+  - from: "field:living/surplus/change/{n}/cap"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.surplusSaving, at: ["changes", {n: 1}, "cap"]}
+  - from: "field:living/surplus/change/{n}/ratio"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.surplusSaving, at: ["changes", {n: 1}, "ratio"]}
+  - from: "field:living/surplus/ratio"
+    until: "0.16"
+    to: {target: assumptions, item: assumptions.surplusSaving, at: ["ratio"]}
+  - from: "field:living/{object}/cat/{n}"
+    until: "0.16"
+    to: {target: object, item: livingExpense.categories, at: [{n: 1}, "monthly"]}
+  - from: "field:living/{object}/monthly"
+    until: "0.16"
+    to: {target: object, item: livingExpense.monthly, at: []}
+  - from: "field:living/{object}/stage/{n}/ratio"
+    until: "0.16"
+    to: {target: object, item: livingExpense.stages, at: [{n: 1}, "ratio"]}
+  - from: "field:pension/{object}/amounts/basic"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.amounts, at: ["basic"]}
+  - from: "field:pension/{object}/amounts/employee"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.amounts, at: ["employee"]}
+  - from: "field:pension/{object}/amounts/special"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.amounts, at: ["special"]}
+  - from: "field:pension/{object}/amounts/transitional"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.amounts, at: ["transitional"]}
+  - from: "field:pension/{object}/c1/deferred"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.months, at: ["category1", "deferred"]}
+  - from: "field:pension/{object}/c1/exemptFull"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.months, at: ["category1", "exemptFull"]}
+  - from: "field:pension/{object}/c1/exemptHalf"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.months, at: ["category1", "exemptHalf"]}
+  - from: "field:pension/{object}/c1/exemptQuarter"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.months, at: ["category1", "exemptQuarter"]}
+  - from: "field:pension/{object}/c1/exemptThreeQuarters"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.months, at: ["category1", "exemptThreeQuarters"]}
+  - from: "field:pension/{object}/c1/paid"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.months, at: ["category1", "paid"]}
+  - from: "field:pension/{object}/claim"
+    until: "0.16"
+    to: {lever: pensionClaimAge, object: true}
+  - from: "field:pension/{object}/claim/basic"
+    until: "0.16"
+    to: {lever: pensionClaimAgeBasic, object: true}
+  - from: "field:pension/{object}/claim/employee"
+    until: "0.16"
+    to: {lever: pensionClaimAgeEmployee, object: true}
+  - from: "field:pension/{object}/months/basic"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.months, at: ["basic"]}
+  - from: "field:pension/{object}/months/employee"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.months, at: ["employee"]}
+  - from: "field:pension/{object}/months/qualifying"
+    until: "0.16"
+    to: {target: object, item: pensionRecord.months, at: ["qualifying"]}
+  - from: "field:sav/stopAge"
+    until: "0.16"
+    to: {lever: investStopAge}
+  - from: "field:sav/{object}/cost"
+    until: "0.16"
+    to: {target: object, item: account.costBasis, at: []}
+  - from: "field:sav/{object}/growth"
+    until: "0.16"
+    to: {target: object, item: account.valueGrowth, at: []}
+  - from: "field:sav/{object}/mix/{n}/share"
+    until: "0.16"
+    to: {target: object, item: account.assetMix, at: [{n: 1}, "share"]}
+  - from: "field:sav/{object}/monthly"
+    until: "0.16"
+    to: {lever: firstContributionMonthly, object: true}
+  - from: "field:sav/{object}/payoutAge"
+    until: "0.16"
+    to: {lever: payoutAge, object: true}
+  - from: "field:sav/{object}/property/acqPrice"
+    until: "0.16"
+    to: {target: object, item: account.property, at: ["acquisition", "price"]}
+  - from: "field:sav/{object}/property/builtYear"
+    until: "0.16"
+    to: {target: object, item: account.property, at: ["builtYear"]}
+  - from: "field:sav/{object}/property/expAnnual"
+    until: "0.16"
+    to: {target: object, item: account.property, at: ["expenses", "annual"]}
+  - from: "field:sav/{object}/property/expGrowth"
+    until: "0.16"
+    to: {target: object, item: account.property, at: ["expenses", "growth"]}
+  - from: "field:sav/{object}/property/expRate"
+    until: "0.16"
+    to: {target: object, item: account.property, at: ["expenses", "rate"]}
+  - from: "field:sav/{object}/property/landShare"
+    until: "0.16"
+    to: {target: object, item: account.property, at: ["landShare"]}
+  - from: "field:sav/{object}/property/rent"
+    until: "0.16"
+    to: {target: object, item: account.property, at: ["rental", "monthly"]}
+  - from: "field:sav/{object}/property/rentGrowth"
+    until: "0.16"
+    to: {target: object, item: account.property, at: ["rental", "growth"]}
+  - from: "field:sav/{object}/property/vacancy"
+    until: "0.16"
+    to: {target: object, item: account.property, at: ["rental", "vacancyRate"]}
+  - from: "field:sav/{object}/rate"
+    until: "0.16"
+    to: {target: object, item: account.expectedReturn, at: []}
+  - from: "field:sav/{object}/value"
+    until: "0.16"
+    to: {target: object, item: account.marketValue, at: []}
+  - from: "field:work/benefit/{object}/amount"
+    until: "0.16"
+    to: {target: object, item: retirementBenefit.amount, at: []}
+  - from: "field:work/period/{object}/annual"
+    until: "0.16"
+    to: {target: object, item: employment.salary.annual, at: []}
+  - from: "field:work/period/{object}/bonus"
+    until: "0.16"
+    to: {target: object, item: employment.salary.bonus, at: []}
+  - from: "field:work/period/{object}/business"
+    until: "0.16"
+    to: {target: object, item: employment.business.income, at: []}
+  - from: "field:work/period/{object}/hiRate"
+    until: "0.16"
+    to: {target: object, item: employment.healthInsurance.employeeRate, at: []}
+  - from: "field:work/period/{object}/hours"
+    until: "0.16"
+    to: {target: object, item: employment.employer.weeklyHours, at: []}
+  - from: "field:work/period/{object}/size"
+    until: "0.16"
+    to: {target: object, item: employment.employer.size, at: []}
+  - from: "field:work/period/{object}/smrH"
+    until: "0.16"
+    to: {target: object, item: employment.standardMonthlyRemuneration, at: ["health"]}
+  - from: "field:work/period/{object}/smrP"
+    until: "0.16"
+    to: {target: object, item: employment.standardMonthlyRemuneration, at: ["pension"]}
+  - from: "field:work/{member}/mainEnd"
+    until: "0.16"
+    to: {lever: mainEndAge, member: true}
+  - from: "field:work/{member}/now/annual"
+    until: "0.16"
+    to: {target: object, find: currentPeriod, item: employment.salary.annual, at: []}
+  - from: "field:work/{member}/now/bonus"
+    until: "0.16"
+    to: {target: object, find: currentPeriod, item: employment.salary.bonus, at: []}
+  - from: "field:work/{member}/now/business"
+    until: "0.16"
+    to: {target: object, find: currentPeriod, item: employment.business.income, at: []}
+  - from: "field:work/{member}/now/hiRate"
+    until: "0.16"
+    to: {target: object, find: currentPeriod, item: employment.healthInsurance.employeeRate, at: []}
+  - from: "field:work/{member}/residentTax"
+    until: "0.16"
+    to: {lever: residentTaxThisYear, member: true}
+  - from: "field:work/{member}/retireAge"
+    until: "0.16"
+    to: {lever: workEndAge, member: true}
+  - from: "inv:monthly"
+    until: "0.16"
+    to: {lever: investMonthly}
+  - from: "inv:rate"
+    until: "0.16"
+    to: {lever: investReturnShift}
+  - from: "inv:stop"
+    until: "0.16"
+    to: {lever: investStopAge}
+  - from: "inv:wAmt"
+    until: "0.16"
+    to: {lever: drawdownAmount}
+  - from: "inv:wRate"
+    until: "0.16"
+    to: {lever: drawdownRate}
+  - from: "inv:wStart"
+    until: "0.16"
+    to: {lever: drawdownStart}
+  - from: "lever:fee"
+    until: "0.16"
+    to: {lever: advisoryFee}
+  - from: "lever:livingMonthly"
+    until: "0.16"
+    to: {lever: livingMonthly}
+  - from: "lever:nisaMonthly"
+    until: "0.16"
+    to: {lever: nisaMonthly}
+  - from: "lever:pensionAge"
+    until: "0.16"
+    to: {lever: pensionAge}
+  - from: "lever:retireAge"
+    until: "0.16"
+    to: {lever: retireAge}
+  - from: "loan:{object}:prepay"
+    until: "0.16"
+    to: {lever: loanPrepay, object: true}
+  - from: "loan:{object}:principal"
+    until: "0.16"
+    to: {target: object, item: debt.principal, at: []}
+  - from: "loan:{object}:rate"
+    until: "0.16"
+    to: {lever: loanRate, object: true}
+  - from: "mix:{object}"
+    until: "0.16"
+    to: {target: object, item: account.assetMix, at: []}
+  - from: "rates:shift"
+    until: "0.16"
+    to: {lever: loanRateShift}
+  - from: "surplus:ratio"
+    until: "0.16"
+    to: {lever: surplusRatio}

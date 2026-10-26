@@ -1,0 +1,437 @@
+{
+ "trace": "none",
+ "input": {
+  "baseMonth": "2026-10",
+  "endYear": 2040,
+  "calcConventions": {
+   "aggregation": "cash",
+   "investmentTiming": "midYear",
+   "compatibility": null
+  },
+  "household": {
+   "members": [
+    {
+     "id": "63b7666f-644b-48e7-8826-87671c5f6664",
+     "kind": "self",
+     "birth": {
+      "birthYearMonth": "1988-01",
+      "bornOnFirst": false
+     },
+     "sex": "male",
+     "joins": null,
+     "leaves": null,
+     "expected": false
+    },
+    {
+     "id": "19dc8f55-5306-42e1-b749-574c60c1c2b9",
+     "kind": "spouse",
+     "birth": {
+      "birthYearMonth": "1990-06",
+      "bornOnFirst": false
+     },
+     "sex": "female",
+     "joins": null,
+     "leaves": null,
+     "expected": false
+    }
+   ],
+   "relations": [
+    {
+     "type": "spouse",
+     "a": "63b7666f-644b-48e7-8826-87671c5f6664",
+     "b": "19dc8f55-5306-42e1-b749-574c60c1c2b9",
+     "marriage": "legal",
+     "from": null,
+     "to": null
+    }
+   ],
+   "events": [],
+   "employmentPeriods": [
+    {
+     "id": "9124fec8-e552-4e59-9f51-190a7c971466",
+     "member": "63b7666f-644b-48e7-8826-87671c5f6664",
+     "from": {
+      "at": "2010-04"
+     },
+     "to": null,
+     "type": "regular",
+     "healthInsurance": {
+      "kind": "kyokaikenpo",
+      "insurer": "kyokaikenpo.13"
+     },
+     "pensionCategory": "employee1",
+     "employer": {
+      "size": 300,
+      "weeklyHours": "40"
+     },
+     "salary": {
+      "annual": {
+       "value": 5200000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "bonus": {
+       "value": 1000000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      }
+     },
+     "standardMonthlyRemuneration": {
+      "health": {
+       "value": 360000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "pension": {
+       "value": 360000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      }
+     }
+    },
+    {
+     "id": "95f68cf8-3f26-4def-9546-a92dd128870f",
+     "member": "19dc8f55-5306-42e1-b749-574c60c1c2b9",
+     "from": {
+      "at": "2013-04"
+     },
+     "to": null,
+     "type": "regular",
+     "healthInsurance": {
+      "kind": "kyokaikenpo",
+      "insurer": "kyokaikenpo.13"
+     },
+     "pensionCategory": "employee1",
+     "employer": {
+      "size": 300,
+      "weeklyHours": "40"
+     },
+     "salary": {
+      "annual": {
+       "value": 4200000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "bonus": {
+       "value": 800000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      }
+     },
+     "standardMonthlyRemuneration": {
+      "health": {
+       "value": 300000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "pension": {
+       "value": 300000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      }
+     }
+    }
+   ],
+   "accounts": [
+    {
+     "id": "3f86a6cd-fb63-49c4-9155-02ee02277abf",
+     "kind": "deposit",
+     "owner": "63b7666f-644b-48e7-8826-87671c5f6664",
+     "marketValue": {
+      "value": 2500000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-10",
+     "settlement": true,
+     "contributions": []
+    }
+   ],
+   "insuranceContracts": [],
+   "residentTaxAssessments": [
+    {
+     "id": "02660c03-16d9-49c5-8d7d-773c58f8cb1c",
+     "member": "63b7666f-644b-48e7-8826-87671c5f6664",
+     "fiscalYear": 2026,
+     "amount": {
+      "value": 240000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     }
+    },
+    {
+     "id": "c4ca599b-c637-4f7e-a2c9-14ebcf8c9a53",
+     "member": "19dc8f55-5306-42e1-b749-574c60c1c2b9",
+     "fiscalYear": 2026,
+     "amount": {
+      "value": 190000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     }
+    }
+   ],
+   "livingExpenses": [
+    {
+     "id": "e2e1eca6-9487-4eab-9127-9b626bc40c7e",
+     "mode": "byCategory",
+     "categories": [
+      {
+       "category": "food",
+       "monthly": {
+        "value": 85000,
+        "state": "confirmed",
+        "origin": {
+         "kind": "manual"
+        }
+       }
+      },
+      {
+       "category": "utilities",
+       "monthly": {
+        "value": 22000,
+        "state": "confirmed",
+        "origin": {
+         "kind": "manual"
+        }
+       }
+      },
+      {
+       "category": "furniture",
+       "monthly": {
+        "value": 10000,
+        "state": "confirmed",
+        "origin": {
+         "kind": "manual"
+        }
+       }
+      },
+      {
+       "category": "clothing",
+       "monthly": {
+        "value": 12000,
+        "state": "confirmed",
+        "origin": {
+         "kind": "manual"
+        }
+       }
+      },
+      {
+       "category": "health",
+       "monthly": {
+        "value": 8000,
+        "state": "confirmed",
+        "origin": {
+         "kind": "manual"
+        }
+       }
+      },
+      {
+       "category": "transport",
+       "monthly": {
+        "value": 30000,
+        "state": "confirmed",
+        "origin": {
+         "kind": "manual"
+        }
+       }
+      },
+      {
+       "category": "recreation",
+       "monthly": {
+        "value": 35000,
+        "state": "confirmed",
+        "origin": {
+         "kind": "manual"
+        }
+       }
+      },
+      {
+       "category": "otherConsumption",
+       "monthly": {
+        "value": 40000,
+        "state": "confirmed",
+        "origin": {
+         "kind": "manual"
+        }
+       }
+      }
+     ],
+     "stages": [
+      {
+       "at": {
+        "memberAge": {
+         "member": "63b7666f-644b-48e7-8826-87671c5f6664",
+         "years": 70,
+         "months": 0
+        }
+       },
+       "label": "age70",
+       "ratio": "0.85"
+      }
+     ]
+    }
+   ],
+   "periodicExpenses": [
+    {
+     "id": "07ef1e51-8d61-44be-9624-484aa28a3e9f",
+     "label": "家族旅行",
+     "row": "cf.expense.lumpSum.other",
+     "from": {
+      "at": "2027-08"
+     },
+     "everyYears": 1,
+     "amount": {
+      "value": 300000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     }
+    },
+    {
+     "id": "a6e1f01d-16c1-4f61-a059-6b324ff57f0d",
+     "label": "家電の買い替え",
+     "row": "cf.expense.lumpSum.other",
+     "from": {
+      "at": "2028-03"
+     },
+     "to": null,
+     "everyYears": 8,
+     "amount": {
+      "value": 400000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "growth": {
+      "kind": "rate",
+      "rate": "0.005"
+     }
+    }
+   ],
+   "cars": [
+    {
+     "id": "2508e050-74e9-471f-a10a-6b49b44adb91",
+     "owner": "63b7666f-644b-48e7-8826-87671c5f6664",
+     "purchase": {
+      "first": {
+       "at": "2029-04"
+      },
+      "everyYears": 7,
+      "price": 3200000,
+      "tradeIn": 600000,
+      "owned": true
+     },
+     "until": {
+      "memberAge": {
+       "member": "63b7666f-644b-48e7-8826-87671c5f6664",
+       "years": 75,
+       "months": 0
+      }
+     },
+     "loan": {
+      "share": "0.6",
+      "rate": "0.025",
+      "termMonths": 60
+     },
+     "inspection": {
+      "amount": 120000,
+      "firstAfterYears": 3,
+      "everyYears": 2
+     },
+     "insurance": {
+      "annual": 90000
+     },
+     "tax": {
+      "annual": 36000
+     }
+    }
+   ],
+   "debts": [
+    {
+     "id": "713d14b4-9883-41af-8b81-d9fb89095049",
+     "kind": "scholarship",
+     "debtors": [
+      {
+       "member": "19dc8f55-5306-42e1-b749-574c60c1c2b9",
+       "role": "primary"
+      }
+     ],
+     "principal": 2880000,
+     "start": {
+      "at": "2013-03"
+     },
+     "balance": {
+      "value": 1300000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "balanceAsOf": "2026-09",
+     "rateSchedule": [
+      {
+       "from": {
+        "at": "2013-03"
+       },
+       "type": "fixed",
+       "rate": "0.003"
+      }
+     ],
+     "repayment": {
+      "method": "equalPayment",
+      "termMonths": 240
+     }
+    }
+   ],
+   "savingsChecks": [
+    {
+     "id": "af8b961d-6a00-447d-a621-37ac2597c19b",
+     "year": 2026,
+     "actualSavings": {
+      "value": 3600000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "treatment": "keepUnexplained"
+    }
+   ]
+  },
+  "assumptions": {
+   "investmentReturn": {
+    "default": "0.02"
+   },
+   "inflation": {
+    "default": "0.01"
+   },
+   "wageGrowth": {
+    "default": "0.01"
+   }
+  }
+ }
+}
