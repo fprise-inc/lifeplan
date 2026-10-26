@@ -13,10 +13,14 @@ const TARGET = join(import.meta.dirname, "..", "src", "statistics.generated.ts")
 
 /** マスタデータのうち、推定の目安に使うパック（フォルダの値をすべて写す） */
 const MASTER_PACKS = ["wageStats", "retirementBenefit", "living.statistics"];
-/** 制度データのうち、推定の目安の式に使う値（適用期間ごとの行を写す） */
+/** 制度データのうち、推定の目安の式と入力の画面の知らせ（退職所得の控除の重なりの年数など）に使う値（適用期間ごとの行を写す） */
 const REGULATION_VALUES: readonly [string, string][] = [
   ["tax", "incomeTax.employmentIncomeDeduction"],
   ["tax", "residentTax.basicDeduction"],
+  ["tax", "incomeTax.retirementIncome.overlap.lookbackYears"],
+  ["tax", "incomeTax.retirementIncome.overlap.lookbackYearsAfterDc"],
+  ["tax", "incomeTax.retirementIncome.overlap.lookbackYearsForDc"],
+  ["tax", "inheritanceTax.retirementAllowance.exemptionPerHeir"],
   ["tax", "residentTax.perCapita.municipal"],
   ["tax", "residentTax.perCapita.prefectural"],
   ["tax", "forestEnvironmentTax.amount"],

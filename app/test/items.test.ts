@@ -118,8 +118,8 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     const benefits = wh.request.input.household.retirementBenefits!;
     expect(benefits.length).toBeGreaterThan(0);
     for (const b of benefits) {
-      expect(groupKeys(wh, "retirement")).toContain(`work/benefit/${b.id}`);
-      expect(groupKeys(wh, "work")).not.toContain(`work/benefit/${b.id}`);
+      expect(groupKeys(wh, "retirement")).toContain(`retirement/${b.id}`);
+      expect(groupKeys(wh, "work").some((k) => k.includes(b.id))).toBe(false);
     }
     const workRo = allFields(itemStage(wh, "work") as StageDef).filter((f) => f.readOnly !== undefined && f.label === "退職金・企業年金");
     expect(workRo.length).toBeGreaterThan(0);
@@ -130,11 +130,11 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     expect(dc).toBeDefined();
     expect(dc!.groups[0]!.fields.every((f) => f.readOnly === "貯蓄・運用のカードで入れます")).toBe(true);
     expect(dc!.groups[0]!.fields[0]!.get(ideco).value).toMatch(/から$/);
-    // 「＋ 退職金を入れる」も退職金・企業年金のカード
+    // 「＋ 退職金・企業年金を足す」も退職金・企業年金のカード
     const civil = open("civilServant");
     const acts = (itemStage(civil, "retirement") as StageDef).sections.flatMap((s) => s.actions.map((a) => a.key));
-    expect(acts.some((k) => k.endsWith("/addBenefit"))).toBe(true);
-    expect((itemStage(civil, "work") as StageDef).sections.flatMap((s) => s.actions.map((a) => a.key)).some((k) => k.endsWith("/addBenefit"))).toBe(false);
+    expect(acts.some((k) => k.endsWith("/add") && k.startsWith("retirement/"))).toBe(true);
+    expect((itemStage(civil, "work") as StageDef).sections.flatMap((s) => s.actions.map((a) => a.key)).some((k) => k.startsWith("retirement/"))).toBe(false);
   });
 
   it("介護・親: 世帯の外の家族は家族のカードから、介護の費用はライフイベントから移す（もとのカードは読むだけの1行）", () => {

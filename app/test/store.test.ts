@@ -157,6 +157,21 @@ function sample021(): BodyState {
   return { ...s, wh: { ...s.wh, request: req, ...(loan !== undefined ? { loanEntry: { [loan.id]: "balance" as const } } : {}) } };
 }
 
+/**
+ * 0.22 の見本の世帯（0057）: sample021() に、退職給付の名前と学歴（退職一時金の目安の元）を足す。名前を付けた確定給付企業年金（年金で受け取る）も1件
+ */
+function sample022(): BodyState {
+  const s = sample021();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const list = (hh.retirementBenefits ??= []);
+  const lump = list.find((b) => b.member === self.id && b.kind === "lumpSum");
+  if (lump !== undefined) Object.assign(lump, { education: "highSchoolOffice" });
+  list.push({ id: "00000000-0000-4000-8000-00000000a501", member: self.id, kind: "db", label: "架空の企業年金基金", ...(lump?.employment !== undefined ? { employment: lump.employment } : {}), amount: { value: 6000000, state: "confirmed", origin: { kind: "manual" } }, receipt: { method: "annuity", years: 10 } });
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -280,7 +295,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.21");
+    expect(BODY_FORMAT_VERSION).toBe("0.22");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -412,6 +427,22 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
     writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample018())), null, 2) + "\n");
+  });
+
+  it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
+    const s = sample022();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const list = stored.household.request.input.household.retirementBenefits ?? [];
+    expect(list.find((b) => b.label === "架空の企業年金基金")).toMatchObject({ kind: "db", receipt: { method: "annuity", years: 10 } });
+    expect(list.some((b) => b.education === "highSchoolOffice")).toBe(true);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const plain = structuredClone(back.wh.request);
+    for (const b of plain.input.household.retirementBenefits ?? []) {
+      delete b.label;
+      delete b.education;
+    }
+    expect(preview(back.wh.request).table).toEqual(preview(plain).table);
   });
 
   it("0.21 の形（0052・0053）: 建て方・譲渡所得の税の額・ローンの名前と種類の細目・ローンの入れ方の区分を保存して読み戻す", () => {

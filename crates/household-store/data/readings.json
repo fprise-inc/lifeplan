@@ -3241,6 +3241,12 @@
     "disability"
    ]
   },
+  "retirementBenefit.education": {
+   "collection": "retirementBenefit",
+   "path": [
+    "education"
+   ]
+  },
   "retirementBenefit.employment": {
    "collection": "retirementBenefit",
    "path": [
@@ -3257,6 +3263,12 @@
    "collection": "retirementBenefit",
    "path": [
     "kind"
+   ]
+  },
+  "retirementBenefit.label": {
+   "collection": "retirementBenefit",
+   "path": [
+    "label"
    ]
   },
   "retirementBenefit.member": {

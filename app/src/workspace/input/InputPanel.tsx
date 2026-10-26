@@ -17,6 +17,7 @@ import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
 import { inheritanceLines, inheritanceSummary, useInheritanceEstimate } from "./inheritanceLine.ts";
+import { RetirementLineup } from "./RetirementLineup.tsx";
 import { StatusBadge } from "./StatusBadge.tsx";
 import { SavingsPanel } from "./savings/SavingsPanel.tsx";
 import { historyScope, undoController, useUndoScope } from "../undo/controller.ts";
@@ -440,6 +441,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                   <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />
                 ))}
                 {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます。</p> : null}
+                {/* 退職金・企業年金: カードの下に受け取りの並び（読むだけ。0058） */}
+                {itemId === "retirement" ? <RetirementLineup wh={shown} {...(computeOne !== undefined ? { computeOne } : {})} /> : null}
               </SectionLinks.Provider>
             </FieldSuggestions.Provider>
             </FieldStateOps.Provider>

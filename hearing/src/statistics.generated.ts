@@ -2904,6 +2904,50 @@ export const REGULATION_VALUES: Readonly<Record<string, readonly DatedValue[]>> 
    ]
   }
  ],
+ "incomeTax.retirementIncome.overlap.lookbackYears": [
+  {
+   "from": "2013-01-01",
+   "to": null,
+   "rev": 2,
+   "value": 4
+  }
+ ],
+ "incomeTax.retirementIncome.overlap.lookbackYearsAfterDc": [
+  {
+   "from": "2013-01-01",
+   "to": "2025-12-31",
+   "rev": 3,
+   "value": 4
+  },
+  {
+   "from": "2026-01-01",
+   "to": null,
+   "rev": 4,
+   "value": 9
+  }
+ ],
+ "incomeTax.retirementIncome.overlap.lookbackYearsForDc": [
+  {
+   "from": "2013-01-01",
+   "to": "2022-03-31",
+   "rev": 3,
+   "value": 14
+  },
+  {
+   "from": "2022-04-01",
+   "to": null,
+   "rev": 4,
+   "value": 19
+  }
+ ],
+ "inheritanceTax.retirementAllowance.exemptionPerHeir": [
+  {
+   "from": "2015-01-01",
+   "to": null,
+   "rev": 1,
+   "value": 5000000
+  }
+ ],
  "residentTax.perCapita.municipal": [
   {
    "from": "2025-06-01",
