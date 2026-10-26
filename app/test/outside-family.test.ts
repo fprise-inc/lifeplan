@@ -1,4 +1,4 @@
-// 世帯の外の家族（0035 の4・8）: 家族のカードで足した親の印・家計を1つにする期間の欄・生活費の目安の人数・開いたときの知らせ
+// 世帯の外の家族（0035 の4・8）: 介護・親のカードで足した親の印・家計を1つにする期間の欄・生活費の目安の人数・開いたときの知らせ
 import { describe, expect, it } from "vitest";
 import { barNotices, type BarInputs } from "../src/workspace/header/status.ts";
 import { allFields, type GroupDef } from "../src/workspace/input/form.ts";
@@ -17,7 +17,7 @@ import { modelHousehold, preview } from "./helpers.ts";
 // 世帯の外の家族は介護・親のカードに出す（家族のカードは読むだけの1行。0045）
 const groups = (wh: WorkingHousehold): GroupDef[] => buildStage("care", wh).sections.flatMap((s) => s.groups);
 
-describe("家族のカードの世帯の外の家族", () => {
+describe("介護・親のカードの世帯の外の家族", () => {
   it("親を足すと世帯の外の家族の印（本人の家族・家計を1つにする期間なし）が付く", () => {
     const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const self = wh.request.input.household.members.find((m) => m.kind === "self")!;
@@ -63,7 +63,7 @@ describe("世帯の外の家族のお金（0042）", () => {
     const next = addMember(wh, "parent");
     const p = next.request.input.household.members.at(-1)!;
     expect(p.wallet).toEqual({});
-    const fields = allFields(buildStage("family", next));
+    const fields = allFields(buildStage("care", next));
     for (const k of ["balance", "living"]) expect(fieldStatus(fields.find((f) => f.key === `family/${p.id}/wallet/${k}`)!, next).status).toBe("missing");
     expect(fieldStatus(fields.find((f) => f.key === `family/${p.id}/wallet/pension`)!, next).status).not.toBe("missing");
     expect(preview(next.request).summary).toEqual(preview(addMember(wh, "parent").request).summary);
@@ -75,7 +75,7 @@ describe("世帯の外の家族のお金（0042）", () => {
     expect(parent.wallet).toBeUndefined();
     const g = groups(wh).find((x) => x.key === `family/${parent.id}`)!;
     const opened = g.actions.find((a) => a.key === `family/${parent.id}/wallet/add`)!.run(wh);
-    const f = (w: WorkingHousehold, k: string) => allFields(buildStage("family", w)).find((x) => x.key === `family/${parent.id}/wallet/${k}`)!;
+    const f = (w: WorkingHousehold, k: string) => allFields(buildStage("care", w)).find((x) => x.key === `family/${parent.id}/wallet/${k}`)!;
     let w = f(opened, "balance").set(opened, 3000000);
     w = f(w, "living").set(w, 200000);
     const before = preview(wh.request);
@@ -96,7 +96,7 @@ describe("世帯の外の家族のお金（0042）", () => {
   it("お金の欄は当て先（構成員・member.wallet・場所）を持ち、プランの差分で指せる。一時の入金を足して外せる", () => {
     const wh = fromRequest(modelHousehold("parentMoney"));
     const parent = wh.request.input.household.members.find((m) => m.kind === "parent")!;
-    const fields = allFields(buildStage("family", wh));
+    const fields = allFields(buildStage("care", wh));
     const balance = fields.find((x) => x.key === `family/${parent.id}/wallet/balance`)!;
     const a = fieldAddress(balance, wh)!;
     expect(a).toEqual({ target: { member: parent.id }, item: "member.wallet", at: ["balance"] });
@@ -110,7 +110,7 @@ describe("世帯の外の家族のお金（0042）", () => {
     const added = acts.find((x) => x.key === `family/${parent.id}/wallet/addLump`)!.run(wh);
     const ls = added.request.input.household.members.find((m) => m.id === parent.id)!.wallet!.lumpSums!;
     expect(ls).toHaveLength(2);
-    expect(fieldStatus(allFields(buildStage("family", added)).find((x) => x.key === `family/${parent.id}/wallet/lump/${ls[1]!.id}/amount`)!, added).status).toBe("missing");
+    expect(fieldStatus(allFields(buildStage("care", added)).find((x) => x.key === `family/${parent.id}/wallet/lump/${ls[1]!.id}/amount`)!, added).status).toBe("missing");
     const gone = groups(added).find((x) => x.key === `family/${parent.id}`)!.actions.find((x) => x.key === `family/${parent.id}/wallet/lump/${lump.id}/remove`)!.run(added);
     expect(gone.request.input.household.members.find((m) => m.id === parent.id)!.wallet!.lumpSums!.map((l) => l.id)).toEqual([ls[1]!.id]);
   });
@@ -125,7 +125,7 @@ describe("世帯の外の家族のお金をプランで直す（0043）", () => 
     const parent = wh.request.input.household.members.find((m) => m.kind === "parent")!;
     return { wh, cat, parent };
   };
-  const fieldOf = (w: WorkingHousehold, key: string) => allFields(buildStage("family", w)).find((x) => x.key === key)!;
+  const fieldOf = (w: WorkingHousehold, key: string) => allFields(buildStage("care", w)).find((x) => x.key === key)!;
 
   it("預金を直すとそのプランの差分（構成員・member.wallet・balance）になり、欄に印が付き、戻すと消える。現状は変わらない", () => {
     const { wh, cat, parent } = setup();
@@ -172,7 +172,7 @@ describe("開いたときの知らせ（0035 の8）", () => {
     const i: BarInputs = { opened: true, stored: true, save: { kind: "idle" } as never, paused: false, aiSharing: false, storage: [], showing: { recovery: false, office: false, storage: false }, presence: null, message: (c) => c, household: [{ id: "n1", kind: "outsideFamily" }] };
     const ns = barNotices(i);
     expect(ns).toHaveLength(1);
-    expect(ns[0]).toMatchObject({ id: "household:n1", target: "family", action: "家族のカード" });
+    expect(ns[0]).toMatchObject({ id: "household:n1", target: "family", action: "介護・親のカード" });
     expect(ns[0]!.text).toContain("世帯の外の家族");
   });
 });
