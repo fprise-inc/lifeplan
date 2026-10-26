@@ -52,18 +52,25 @@ describe("車の入力", () => {
     expect(wh.request.input.household.cars![0]!.loan).toEqual({ share: "0.75", rate: "0.025", termMonths: 60 });
     wh = fieldOf(wh, "/term").set(wh, 7);
     expect(wh.request.input.household.cars![0]!.loan!.termMonths).toBe(84);
-    // 合計 → 内訳（年額の合計は変えない）→ 合計
+    // ローンの目安は推定の印（借入8割・5年・年2.5%）。打った欄は印が外れる
+    expect(fieldOf(wh, "/rate").get(wh).assumed).toContain("年2.5%");
+    expect(fieldOf(wh, "/down").get(wh).assumed).toBeNull();
+    // 合計 → 内訳（年額の合計は変えない。合計の値は残す。0069）→ 合計（内訳の値は残す）
     const total = upkeepAnnual(wh.request.input.household.cars![0]!);
     wh = fieldOf(wh, "/upkeepMode").set(wh, "detail");
     const c1 = wh.request.input.household.cars![0]!;
-    expect(c1.upkeep).toBeUndefined();
+    expect(c1.upkeepMode).toBe("detail");
+    expect(c1.upkeep).toEqual({ annual: total });
     expect(upkeepAnnual(c1)).toBe(total);
     expect(fieldOf(wh, "/upkeepSum").get(wh).value).toBe(total);
+    expect(fieldOf(wh, "/tax").get(wh).estimated).not.toBeNull();
     wh = fieldOf(wh, "/parking").set(wh, 120000);
     expect(upkeepAnnual(wh.request.input.household.cars![0]!)).toBe(total + 120000);
     expect(() => preview(wh.request)).not.toThrow();
     wh = fieldOf(wh, "/upkeepMode").set(wh, "total");
-    expect(wh.request.input.household.cars![0]!.upkeep).toEqual({ annual: total + 120000 });
+    expect(wh.request.input.household.cars![0]!.upkeep).toEqual({ annual: total });
+    expect(wh.request.input.household.cars![0]!.parking).toEqual({ annual: 120000 });
+    expect(upkeepAnnual(wh.request.input.household.cars![0]!)).toBe(total);
     // 手放す年齢は名義の人の年齢
     wh = fieldOf(wh, "/untilAge").set(wh, 75);
     const c2 = wh.request.input.household.cars![0]!;

@@ -4,7 +4,10 @@
 // - 自動車ローン: 購入のたびに debt.schedule（約束の版 1.1 の loan）で返済を計算する（固定金利・購入の月の翌月から）
 // - 車検: 購入から firstAfterYears 年後（省略は3年）、その後 everyYears 年ごと（省略は2年）。次の買い替え・手放す月の前まで（cf.expense.living.car）
 // - 自動車保険: 年額を、持っている間の毎年の購入の月に（cf.expense.insurance.nonLife）。自動車税: 年額を、持っている間の毎年5月に（cf.expense.living.car）
-// - 維持費の合計（upkeep）・駐車場代（parking）・燃料代（fuel）: 年額の12分の1を、持っている間の毎月（cf.expense.living.car。改訂2）
+// - 維持費の合計（upkeep）・駐車場代（parking）・燃料代（fuel）・内訳の名前つきの行（upkeepOther。改訂3）: 年額の12分の1を、持っている間の毎月
+//   （cf.expense.living.car。改訂2）
+// - 維持費の入れ方（upkeepMode。改訂3・0069）: total は合計（upkeep）だけを数え、内訳（車検・保険・税・駐車場代・燃料代・名前つきの行）は数えない。
+//   detail は内訳だけを数え、合計は数えない（入れ方を切り替えても、もう片方の値は世帯に残る）。省略は前の形（入っている物を全部数える）
 // - 万一のときの扱い（onContingency。改訂2）: 世帯の万一の想定（contingency.event）の月の翌月から、購入（下取りを引いた額）と維持費（車検・保険・税・
 //   維持費の合計・駐車場代・燃料代）に割合を当てる（止まるは0）。それまでに組んだ自動車ローンの返済は続ける。止まるとき・割合が0のときは、その後の購入でローンを組まない
 // 車を持っている期間は、最初の購入の月（owned なら計算基準月）から手放す月まで
@@ -34,10 +37,10 @@ export default defineComponent<{ member: string }, CarOutput>({
   id: "expense.car",
   title: "車（買い替え・ローン・車検・保険・自動車税）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "debt.schedule": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
-  reads: ["member.kind", "car.owner", "car.purchase", "car.until", "car.loan", "car.inspection", "car.insurance", "car.tax", "car.upkeep", "car.parking", "car.fuel", "car.growth", "car.onContingency", "assumptions.inflation"],
+  reads: ["member.kind", "car.owner", "car.purchase", "car.until", "car.loan", "car.inspection", "car.insurance", "car.tax", "car.upkeep", "car.parking", "car.fuel", "car.upkeepOther", "car.upkeepMode", "car.growth", "car.onContingency", "assumptions.inflation"],
   memberScope: ["car"],
   input: "member.input",
   output: "expense.car.output",
@@ -62,12 +65,18 @@ export default defineComponent<{ member: string }, CarOutput>({
       const g = (amount: Yen) => grownByYear(ctx, amount, c.growth, yearOf(base), yearOf(end));
       const price = g(c.purchase.price);
       const tradeIn = g(yen(c.purchase.tradeIn ?? 0));
-      const inspection = c.inspection === undefined ? null : g(c.inspection.amount);
-      const insurance = c.insurance === undefined ? null : g(c.insurance.annual);
-      const tax = c.tax === undefined ? null : g(c.tax.annual);
-      const monthly = ([["upkeep", c.upkeep], ["parking", c.parking], ["fuel", c.fuel]] as const)
-        .filter((x): x is readonly ["upkeep" | "parking" | "fuel", { readonly annual: Yen }] => x[1] !== undefined)
-        .map(([k, v]) => ({ formula: `expense.car.${k}`, byYear: g(v.annual) }));
+      // 維持費の入れ方: 合計だけ（total）・内訳だけ（detail）・省略は入っている物を全部
+      const total = c.upkeepMode !== "detail";
+      const detail = c.upkeepMode !== "total";
+      const inspection = c.inspection === undefined || !detail ? null : g(c.inspection.amount);
+      const insurance = c.insurance === undefined || !detail ? null : g(c.insurance.annual);
+      const tax = c.tax === undefined || !detail ? null : g(c.tax.annual);
+      const monthly = [
+        ...(total && c.upkeep !== undefined ? [{ formula: "expense.car.upkeep", key: "upkeep", byYear: g(c.upkeep.annual) }] : []),
+        ...(detail && c.parking !== undefined ? [{ formula: "expense.car.parking", key: "parking", byYear: g(c.parking.annual) }] : []),
+        ...(detail && c.fuel !== undefined ? [{ formula: "expense.car.fuel", key: "fuel", byYear: g(c.fuel.annual) }] : []),
+        ...(detail ? (c.upkeepOther ?? []).map((o) => ({ formula: "expense.car.other", key: `other:${o.id}`, byYear: g(o.annual) })) : []),
+      ];
       // 万一の後の割合（null はそのまま）
       const ratioAt = (m: MonthIndex) => contingencyRatio(ctx, c.onContingency, ev, m);
       const push = (m: MonthIndex, row: string, amount0: Yen, formula: string) => {
@@ -128,7 +137,7 @@ export default defineComponent<{ member: string }, CarOutput>({
         const parts = new Map<string, Yen[]>();
         for (let m: MonthIndex = ownedFrom < base ? base : ownedFrom; m <= until && m <= end; m = addMonths(m, 1)) {
           for (const x of monthly) {
-            const key = `${x.formula}|${yearOf(m)}`;
+            const key = `${x.key}|${yearOf(m)}`;
             let p = parts.get(key);
             if (p === undefined) {
               p = monthlyParts(ctx, at(x.byYear, m));

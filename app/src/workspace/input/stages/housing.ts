@@ -597,8 +597,11 @@ function loanGroups(wh: WorkingHousehold, d: Debt, i: number): GroupDef[] {
   return groups;
 }
 
-/** 自動車ローン（今返している分。車のカードに移すまで、ここで入れる）。目安のボタンの値は推定（0041） */
-function newCarLoan(wh: WorkingHousehold): WorkingHousehold {
+/** 今返している自動車ローンのまとまり（車のカードに出す。0069）。欄はほかのローンと同じ */
+export const carLoanGroups = (wh: WorkingHousehold, d: Debt, i: number): GroupDef[] => loanGroups(wh, d, i);
+
+/** 自動車ローン（今返している分。車のカードで入れる。0069）。目安のボタンの値は推定（0041） */
+export function newCarLoan(wh: WorkingHousehold): WorkingHousehold {
   const base = wh.request.input.baseMonth;
   return mutate(wh, (hh) => {
     const self = hh.members.find((m) => m.kind === "self");
@@ -622,7 +625,10 @@ function educationDebtLines(wh: WorkingHousehold): GroupDef[] {
     loans += (g.education?.loans ?? []).length;
     scholarships += (g.education?.scholarships ?? []).filter((x) => x.debtor === "parent").length;
   }
+  // 今返している自動車ローンは車のカードで入れる（0069）
+  const carLoans = (wh.request.input.household.debts ?? []).filter((d) => d.kind === "car" && d.property === undefined && d.inheritedFrom === undefined).length;
   const lines = [
+    ...(carLoans > 0 ? [readLine("housing/carLoans", "自動車ローン（今返している）", `${carLoans}件`, "車")] : []),
     ...(loans > 0 ? [readLine("housing/eduLoans", "教育ローン", `${loans}件`, "子ども・教育")] : []),
     ...(scholarships > 0 ? [readLine("housing/eduScholarships", "子の貸与の奨学金（親が返す）", `${scholarships}件`, "子ども・教育")] : []),
   ];
@@ -687,7 +693,8 @@ export function housingStage(wh: WorkingHousehold): StageDef {
   };
   const mortgages = (h.debts ?? []).filter((d) => d.kind === "mortgage" && d.property === undefined);
   // 住まい以外の不動産のローン（debt.property）は、その不動産の欄（貯蓄・運用）で入れる
-  const others = (h.debts ?? []).filter((d) => d.kind !== "mortgage" && d.property === undefined && d.inheritedFrom === undefined);
+  // 今返している自動車ローンは車のカード（0069。ここは読むだけの1行）
+  const others = (h.debts ?? []).filter((d) => d.kind !== "mortgage" && d.kind !== "car" && d.property === undefined && d.inheritedFrom === undefined);
   const inherited = (h.debts ?? []).filter((d) => d.kind !== "mortgage" && d.property === undefined && d.inheritedFrom !== undefined);
   const loanSection: SectionDef = {
     key: "housing/loans",
@@ -704,7 +711,6 @@ export function housingStage(wh: WorkingHousehold): StageDef {
     groups: [...[...others, ...inherited].flatMap((d, i) => loanGroups(wh, d, i)), ...educationDebtLines(wh)],
     actions: [
       ...LOAN_SUBTYPES.filter((s) => s.value !== "policyLoan" && s.value !== "personal").map((s) => ({ key: `housing/add/${s.value}`, label: `＋ ${s.label}`, level: s.value === "cardLoan" || s.value === "scholarship" ? ("simple" as const) : ("detail" as const), run: (w: WorkingHousehold) => newOtherLoan(w, s.value) })),
-      { key: "housing/addCarLoan", label: "＋ 自動車ローン（今返している）", level: "detail", run: (w) => newCarLoan(w) },
     ],
   };
   return { id: "housing", label: "住まい・ローン", lead: "賃貸か持ち家か、購入の予定、住宅ローンとほかのローン。", sections: [resSection, loanSection, otherSection] };

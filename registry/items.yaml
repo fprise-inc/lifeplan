@@ -425,6 +425,22 @@ entries:
     replacedBy: null
     collection: car
     path: [upkeep]
+  - id: car.upkeepMode
+    status: active
+    label: "維持費の入れ方（total: 合計 upkeep だけを数える／detail: 内訳〔自動車税・保険・車検・駐車場・燃料・名前つきの行〕だけを数える。省略は入っている物を全部数える。0069）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: car
+    path: [upkeepMode]
+  - id: car.upkeepOther
+    status: active
+    label: "維持費の内訳の名前つきの行（タイヤ・防錆など。年額の12分の1を毎月。行は cf.expense.living.car。0069）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: car
+    path: [upkeepOther]
   - id: care.from
     status: active
     label: "始まり"

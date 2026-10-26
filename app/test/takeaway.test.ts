@@ -113,7 +113,7 @@ describe("持ち帰り用のレポート: 内部情報を入れない", () => {
     expect(sums(preview(prop.request).table)).toEqual(sums(preview(raw).table));
   });
 
-  it("学校コード・保険の商品の参照・習い事の見出しを外す", () => {
+  it("学校コード・保険の商品の参照・習い事の見出し・車の維持費の内訳の行の名前を外す", () => {
     const req = modelHousehold("educationTwoKids");
     const h = req.input.household as unknown as Record<string, unknown>;
     const goals = (h.goals ?? []) as { education?: { stages: Record<string, unknown>[]; lessons?: Record<string, unknown>[] } }[];
@@ -123,6 +123,8 @@ describe("持ち帰り用のレポート: 内部情報を入れない", () => {
     (ed!.stages[0] as Record<string, unknown>).school = { school: "A123456789012", unit: "A123456789012/d001", track: `${MARK}-track`, rows: [], source: { pack: "master.education.tuition", version: "1" } };
     const contracts = (h.insuranceContracts ?? []) as Record<string, unknown>[];
     contracts.push({ schedule: { source: { productRef: `${MARK}-product`, digest: `sha256:${"0".repeat(64)}` }, rows: [] } });
+    // 車の維持費の内訳の名前つきの行の名前（0069）
+    h.cars = [{ id: "00000000-0000-4000-8000-0000000000c1", owner: "x", purchase: { first: { at: "2030-04" }, everyYears: 8, price: 1 }, upkeepMode: "detail", upkeepOther: [{ id: "00000000-0000-4000-8000-0000000000c2", label: `${MARK}-tire`, annual: 24000 }] }];
     const out = JSON.stringify(sanitizeRequest(req, new IdMap()));
     expect(out).not.toContain(MARK);
     expect(out).not.toContain("A123456789012");

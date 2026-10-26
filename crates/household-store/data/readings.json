@@ -2066,6 +2066,18 @@
     "upkeep"
    ]
   },
+  "car.upkeepMode": {
+   "collection": "car",
+   "path": [
+    "upkeepMode"
+   ]
+  },
+  "car.upkeepOther": {
+   "collection": "car",
+   "path": [
+    "upkeepOther"
+   ]
+  },
   "care.from": {
    "collection": "care",
    "path": [

@@ -815,6 +815,13 @@ export interface CarInput {
   readonly upkeep?: { readonly annual: Yen };
   readonly parking?: { readonly annual: Yen };
   readonly fuel?: { readonly annual: Yen };
+  /** 維持費の内訳の名前つきの行（タイヤ・防錆・その他など。年額の12分の1を毎月。0069） */
+  readonly upkeepOther?: readonly { readonly id: string; readonly label?: string; readonly annual: Yen }[];
+  /**
+   * 維持費の入れ方（0069）: total は合計（upkeep）だけ、detail は内訳（自動車税・保険・車検・駐車場・燃料・名前つきの行）だけを数える。
+   * 省略は前の形（入っている物を全部数える）
+   */
+  readonly upkeepMode?: "total" | "detail";
   readonly growth?: GrowthInput;
   readonly onContingency?: OnContingencyInput;
 }

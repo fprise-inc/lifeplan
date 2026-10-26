@@ -13,7 +13,7 @@ import { educationStagesAddress, fillAll, gapsOf, retirementNotApplicable, type 
 import { mutate, newId, standardBox, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { earners, memberLabel } from "./labels.ts";
 import { rowAt } from "./rows.ts";
-import { upkeepAnnual } from "./stages/cars.ts";
+import { carDebts, upkeepAnnual } from "./stages/cars.ts";
 import { outsideMembers } from "./stages/care.ts";
 import { expenseCard, incomeCard, type MoneyCard } from "./moneyRows.ts";
 import { childOfPeriodic, eventExpenses } from "./stages/events.ts";
@@ -291,8 +291,12 @@ function baseSummary(id: StageId, wh: WorkingHousehold, inheritance: Summary | n
       const n = moneyRows(h, "events");
       return n === 0 ? null : { main: String(n), unit: "件" };
     }
-    case "car":
-      return carSummary(h.cars ?? []);
+    case "car": {
+      const s = carSummary(h.cars ?? []);
+      if (s !== null) return s;
+      const n = moneyRows(h, "car") + carDebts(h).length;
+      return n === 0 ? null : { main: String(n), unit: "件" };
+    }
     case "care": {
       const n = (h.careExpenses ?? []).length;
       const k = outsideMembers(wh).length;
@@ -349,7 +353,8 @@ function baseHasData(id: StageId, wh: WorkingHousehold): boolean {
     case "events":
       return moneyRows(h, "events") > 0;
     case "car":
-      return (h.cars ?? []).length > 0;
+      // 車・車のカードのお金の行（カーシェアなど）・今返している自動車ローン（0069）
+      return (h.cars ?? []).length > 0 || moneyRows(h, "car") > 0 || carDebts(h).length > 0;
     case "care":
       return (h.careExpenses ?? []).length > 0 || outsideMembers(wh).length > 0 || moneyRows(h, "care") > 0;
     case "inheritance": {

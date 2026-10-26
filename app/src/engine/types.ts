@@ -578,8 +578,13 @@ export interface Car {
   upkeep?: { annual: number };
   parking?: { annual: number };
   fuel?: { annual: number };
+  /** 維持費の内訳の名前つきの行（0069） */
+  upkeepOther?: { id: string; label?: string; annual: number }[];
+  /** 維持費の入れ方（0069。合計だけ／内訳だけを数える。省略は入っている物を全部） */
+  upkeepMode?: "total" | "detail";
   growth?: { kind: string; rate?: string };
   onContingency?: OnContingency;
+  valueStates?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
