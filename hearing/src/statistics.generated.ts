@@ -2535,6 +2535,254 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.clothing": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の被服及び履物（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 7257
+   },
+   {
+    "upTo": 3,
+    "amount": 10034
+   },
+   {
+    "upTo": 4,
+    "amount": 13523
+   },
+   {
+    "upTo": 5,
+    "amount": 14629
+   },
+   {
+    "upTo": null,
+    "amount": 15115
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.food": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の食料（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 79340
+   },
+   {
+    "upTo": 3,
+    "amount": 92240
+   },
+   {
+    "upTo": 4,
+    "amount": 103384
+   },
+   {
+    "upTo": 5,
+    "amount": 112019
+   },
+   {
+    "upTo": null,
+    "amount": 123241
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.furniture": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の家具・家事用品（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 11564
+   },
+   {
+    "upTo": 3,
+    "amount": 13475
+   },
+   {
+    "upTo": 4,
+    "amount": 14292
+   },
+   {
+    "upTo": 5,
+    "amount": 16021
+   },
+   {
+    "upTo": null,
+    "amount": 14003
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.health": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の保健医療（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 16280
+   },
+   {
+    "upTo": 3,
+    "amount": 16445
+   },
+   {
+    "upTo": 4,
+    "amount": 14392
+   },
+   {
+    "upTo": 5,
+    "amount": 14007
+   },
+   {
+    "upTo": null,
+    "amount": 12876
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.otherConsumption": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月のその他の消費支出（仕送り金を含む）（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 54799
+   },
+   {
+    "upTo": 3,
+    "amount": 58525
+   },
+   {
+    "upTo": 4,
+    "amount": 51025
+   },
+   {
+    "upTo": 5,
+    "amount": 45298
+   },
+   {
+    "upTo": null,
+    "amount": 46976
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.recreation": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の教養娯楽（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 28411
+   },
+   {
+    "upTo": 3,
+    "amount": 29433
+   },
+   {
+    "upTo": 4,
+    "amount": 36710
+   },
+   {
+    "upTo": 5,
+    "amount": 35859
+   },
+   {
+    "upTo": null,
+    "amount": 36390
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.transport": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の交通・通信から自動車等関係費を除いた額（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 14883
+   },
+   {
+    "upTo": 3,
+    "amount": 18677
+   },
+   {
+    "upTo": 4,
+    "amount": 20428
+   },
+   {
+    "upTo": 5,
+    "amount": 19250
+   },
+   {
+    "upTo": null,
+    "amount": 21069
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
+ },
+ "living.statistics.categoryMonthly.utilities": {
+  "title": "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の光熱・水道（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）",
+  "value": [
+   {
+    "upTo": 1
+   },
+   {
+    "upTo": 2,
+    "amount": 22691
+   },
+   {
+    "upTo": 3,
+    "amount": 25626
+   },
+   {
+    "upTo": 4,
+    "amount": 25942
+   },
+   {
+    "upTo": 5,
+    "amount": 28271
+   },
+   {
+    "upTo": null,
+    "amount": 33534
+   }
+  ],
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-26"
  }
 };
 

@@ -9,6 +9,7 @@ import { addMonths, ageAt, ageReachedMonth } from "../levers.ts";
 import { resolveTimepoint, type StageId } from "./form.ts";
 import { estimatedBox, mutate, newId, type WorkingHousehold } from "./household.ts";
 import { livingEstimate } from "./estimates.ts";
+import { startLiving } from "./livingStages.ts";
 import { memberLabel } from "./labels.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
 import { defaultStages } from "./stages/education.ts";
@@ -214,7 +215,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
       card: "living",
       label: "基本生活費",
       note: "基本生活費が入っていないので、0円で計算しています",
-      fill: (w) => mutate(w, (hh) => void (hh.livingExpenses ??= []).push({ id: newId(), mode: "total", monthly: estimatedBox(livingEstimate(hh, base).value, livingEstimate(hh, base).basis) })),
+      fill: (w) => mutate(w, (hh, req) => void (hh.livingExpenses ??= []).push(startLiving(hh, base, req.input.endYear, newId()))),
       basis: est.basis,
     });
   }

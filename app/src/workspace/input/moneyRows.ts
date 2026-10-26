@@ -78,6 +78,12 @@ export const OUT_ROWS: Option[] = [
   { value: "cf.expense.living.car", label: "車の維持費" },
 ];
 
+/** 基本生活費のカードの出るお金の行（年払い・数年おきの暮らしの支出）が選べる表の行 */
+export const LIVING_OUT_ROWS: Option[] = OUT_ROWS.filter((o) => o.value === "cf.expense.living" || o.value === "cf.expense.care.medical" || o.value === "cf.expense.other");
+
+/** 医療費の窓口負担の説明（自動では変えない。段階で額を変える） */
+export const MEDICAL_HELP = "医療費の窓口負担は、70〜74歳は2割、75歳以上は1割（所得によって2〜3割）に下がります。計算では自動で変えないので、額を変えるときは段階で入れてください";
+
 /** 入るお金の行が選べる表の行（エンジンの incomeFlow.row） */
 export const IN_ROWS: Option[] = [
   "cf.income.lumpSum.other",
@@ -489,7 +495,8 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   if (c === "repeat") fields.push(plain({ key: `${k}/every`, item: "periodicExpense.everyYears", label: "何年ごと", level: "simple", kind: "int", suffix: "年ごと", min: 1, max: 50, find, path: ["everyYears"], help: "1は毎年です" }));
   if (!once) fields.push(timepointField({ key: `${k}/to`, item: "periodicExpense.to", label: "終わり", level: "simple", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで", ...ageOf }));
   fields.push(expensePriorityField(p));
-  fields.push(plain({ key: `${k}/row`, item: "periodicExpense.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: OUT_ROWS, find, path: ["row"] }));
+  const rows = card === "living" ? (LIVING_OUT_ROWS.some((o) => o.value === p.row) ? LIVING_OUT_ROWS : [...LIVING_OUT_ROWS, ...OUT_ROWS.filter((o) => o.value === p.row)]) : OUT_ROWS;
+  fields.push(plain({ key: `${k}/row`, item: "periodicExpense.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: rows, find, path: ["row"], ...(card === "living" ? { help: `「医療・介護」の行にすると、結果の表で医療費として分けて見られます。${MEDICAL_HELP}` } : {}) }));
   const badge = stagedBadge(p as unknown as Record<string, unknown>, ["stages"], ["exceptions"]);
   const name = p.label !== undefined && p.label !== "" ? p.label : once ? "一時的支出" : "n年ごとの支出";
   const details = [...(p.payer !== undefined ? ["払う人"] : []), ...(p.growth !== undefined ? ["伸び方"] : []), ...(badge !== null ? [`1回の額の${badge}`] : [])];

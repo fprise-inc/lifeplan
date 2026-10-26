@@ -2,7 +2,8 @@
 // - 候補の形は差分と同じ: {id, target, item, op, value, before, enabled, origin, source, sourceRef, status, confidence?}
 // - 出どころは origin.kind = "import"（明細の取り込み）、ref は取り込んだ記録（StatementApplication）の ID。値の箱は推定
 //   （method: statementAverage・statementAnnual、basis: 期間と月の数）。承認するまで計算エンジンは受け付けない（承認の記録が要る）
-// - 取り込む先: 基本生活費（今の欄が内訳なら内訳を、合計なら合計を置き換える。無ければ足す）、年1回の支払い（名前を付けた支出として足す）。
+// - 取り込む先: 基本生活費（今の欄が内訳なら内訳を、合計なら合計を置き換える。無ければ足す）、年1回の支払い（基本生活費のカードの「年払い・数年おきの
+//   暮らしの支出」の行として足す。車・住まいの修繕は一時的支出の行）。
 //   住居・教育・保険・車は、それぞれの入力の欄で入れるので候補にしない（summary.reference の参考の値）
 import { categoryInfo, LIVING_LABELS, periodicRowOf, type LivingCategory } from "./classify/categories.ts";
 import { monthsText, MIN_DAYS_FOR_CANDIDATE, type StatementSummary } from "./summary.ts";
@@ -117,6 +118,9 @@ export function buildCandidates(summary: StatementSummary, household: CandidateH
     const at = nextOccurrence(last.date, it.annual.everyYears, o.baseMonth);
     const dupName = existing.has(looseKey(it.label));
     const n = [`${it.occurrences.map((x) => `${x.date} ${x.amount.toLocaleString("ja-JP")}円`).join("・")}`, it.annual.everyYears === 2 ? "2年に1回" : "年1回", ...(dupName ? ["同じ名前の支出がすでにあります"] : [])].join("。");
+    // 車・住まいの修繕は今までどおり一時的支出の行（それぞれのカードの物と見比べる）。ほかは基本生活費のカードの「年払い・数年おきの暮らしの支出」（表の行は基本生活費に含める。医療は医療・介護）
+    const row = it.category === null ? "cf.expense.lumpSum.other" : periodicRowOf(it.category, it.label);
+    const annual = row !== "cf.expense.lumpSum.car" && row !== "cf.expense.housing.maintenance";
     out.push({
       ...base,
       id: o.newId(),
@@ -124,11 +128,20 @@ export function buildCandidates(summary: StatementSummary, household: CandidateH
       collection: "periodicExpenses",
       item: "periodicExpense.amount",
       op: "add",
-      value: { id, label: it.label.slice(0, 40), row: it.category === null ? "cf.expense.lumpSum.other" : periodicRowOf(it.category, it.label), from: { at }, to: null, everyYears: it.annual.everyYears, amount: box(it.amount, o.ref, "statementAnnual", `明細の取り込み（${it.occurrences.map((x) => x.date).join("・")}）`) },
+      value: {
+        id,
+        label: it.label.slice(0, 40),
+        ...(annual ? { kind: "livingAnnual" } : {}),
+        row: annual ? (row === "cf.expense.care.medical" ? row : "cf.expense.living") : row,
+        from: { at },
+        to: null,
+        everyYears: it.annual.everyYears,
+        amount: box(it.amount, o.ref, "statementAnnual", `明細の取り込み（${it.occurrences.map((x) => x.date).join("・")}）`),
+      },
       before: null,
       status: dupName || it.annual.confidence !== "high" || short ? "needsReview" : "pending",
       confidence: it.annual.confidence,
-      title: `一時的支出: ${it.label.slice(0, 40)}`,
+      title: `${annual ? "年払いの暮らしの支出" : "一時的支出"}: ${it.label.slice(0, 40)}`,
       note: n,
     });
   }

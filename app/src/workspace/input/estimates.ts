@@ -1,13 +1,14 @@
 // 空欄を補う目安の値（0008 の2 の「推定」。出どころは auto、estimate に統計名と年度を書く）。
 // 目安の数と純粋な計算は、ヒアリングシートの取り込みと同じ hearing/src/estimates.ts（正本は data/ の YAML の写し。0008 の追記 2026-10-26）。
 // ここには世帯（Household）を見て当てる部分と、元の入力が変わったときの入れ直しだけを置く
-import type { Box, EmploymentPeriod, Household, Member } from "../../engine/types.ts";
+import type { Box, EmploymentPeriod, Household, LivingExpense, Member } from "../../engine/types.ts";
 import { ageAt } from "../levers.ts";
-import { resolveTimepoint } from "../timepoint.ts";
 import { refreshEducation } from "./fill.ts";
+import { applyAutoStages, countAt } from "./livingStages.ts";
 import {
   livingEstimate as livingBySize,
   residentTaxEstimate,
+  splitLiving,
   residentTaxYear,
   salaryEstimate,
   smrEstimate as smrBoxes,
@@ -17,19 +18,12 @@ import {
 export type { Estimate };
 export { businessEstimate, careerStartMonth, CAR_ESTIMATE, residentTaxEstimate, residentTaxYear, salaryEstimate } from "../../../../hearing/src/estimates.ts";
 
-/** 今（計算基準月）世帯にいる人の数。世帯の外の家族は、家計を1つにする期間で生活費の人数に入れる（living）ときだけ数える（0035 の4） */
+/**
+ * 今（計算基準月）世帯で暮らしている人の数（生活費の人数）。予定の子・生年月が計算基準月より後の子・離れた人・自宅外の在学中の子・施設の介護の人は数えない。
+ * 世帯の外の家族は、家計を1つにする期間で生活費の人数に入れる（living）ときだけ数える（0035 の4・0049）
+ */
 export function householdSize(h: Household, baseMonth: string): number {
-  return h.members.filter((m) => {
-    if (m.expected === true) return false;
-    const leaves = resolveTimepoint(h, m.leaves);
-    if (leaves !== null && leaves <= baseMonth) return false;
-    if (m.outside === undefined) return true;
-    return (m.outside.periods ?? []).some((p) => {
-      const from = resolveTimepoint(h, p.from);
-      const to = resolveTimepoint(h, p.to);
-      return (from === null || from <= baseMonth) && (to === null || to >= baseMonth) && p.living !== false;
-    });
-  }).length;
+  return countAt(h, baseMonth, { now: true });
 }
 
 export function livingEstimate(h: Household, baseMonth: string): Estimate {
@@ -71,8 +65,9 @@ const statSubstitute = (b: Box<number> | undefined): Box<number> | undefined => 
  * 自動で入れた推定の値を、ほかの入力に合わせて入れ直す（FP が入れた値・確定の値は変えない）。
  * 「推定は入力の時点で世帯に入れ、元の入力が変わったら入れ直す」（0008 の未確定の決定）
  */
-export function refreshEstimates(h: Household, baseMonth: string): void {
+export function refreshEstimates(h: Household, baseMonth: string, endYear?: number): void {
   for (const l of h.livingExpenses ?? []) {
+    refreshSplit(h, baseMonth, l);
     if (l.mode === "total" && isAuto(l.monthly)) {
       const e = livingEstimate(h, baseMonth);
       l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } as Box<number>;
@@ -105,6 +100,9 @@ export function refreshEstimates(h: Household, baseMonth: string): void {
   }
   // 推定のままの子の進路（標準の進路の型。fill.ts）は、子の生年月・計算基準月に合わせて入れ直す
   refreshEducation(h, baseMonth);
+  // 生活費の推定の段階（人数の変化と年齢から。推定のままの段だけ。livingStages.ts）。進路の後に（自宅外の在学を読むため）
+  const last = endYear ?? Number(baseMonth.slice(0, 4)) + 80;
+  for (const l of h.livingExpenses ?? []) applyAutoStages(h, baseMonth, last, l);
   for (const p of h.employmentPeriods ?? []) {
     const smr = (p as EmploymentPeriod).standardMonthlyRemuneration;
     const annual = p.salary?.annual.value;
@@ -115,10 +113,45 @@ export function refreshEstimates(h: Household, baseMonth: string): void {
   }
 }
 
+// ---- 費目の按分（総額を家計調査の同じ人数の世帯の割合で分けた推定。0048）----
+
+/** 按分の推定の根拠の文の頭（この頭の箱を「按分のまま」と読む） */
+export const SPLIT_BASIS = "総額を費目に分けた目安";
+/** 9費目の並び（家計調査の区分。仕送りは0円の推定） */
+export const LIVING_CATEGORY_ORDER = ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption", "allowance"] as const;
+const splitBox = (value: number, basis: string): Box<number> => ({ value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis } }) as Box<number>;
+
+/** 総額（月額）を9費目に分けた推定の箱（仕送りは0円。端は「その他の消費」） */
+export function splitCategories(h: Household, baseMonth: string, total: number, id: () => string, keep?: readonly { id?: string; category: string }[]): { id: string; category: string; monthly: Box<number> }[] {
+  const size = householdSize(h, baseMonth);
+  const sp = splitLiving(total, size);
+  const basis = `${SPLIT_BASIS}（${sp?.basis ?? "割合の表がありません"}）`;
+  return LIVING_CATEGORY_ORDER.map((category) => {
+    const v = category === "allowance" ? 0 : sp === null ? (category === "otherConsumption" ? total : 0) : sp.parts[category];
+    const old = keep?.find((c) => c.category === category)?.id;
+    return { id: old ?? id(), category, monthly: splitBox(v, category === "allowance" ? `${SPLIT_BASIS}（仕送りは子ども・教育、介護・親のカードで入れるので0円）` : basis) };
+  });
+}
+
+/** 費目がどれも按分の推定のまま（FP が直していない）か */
+export function isPureSplit(l: Pick<LivingExpense, "categories">): boolean {
+  const cs = l.categories ?? [];
+  return cs.length > 0 && cs.every((c) => c.monthly.state === "estimated" && c.monthly.origin.kind === "auto" && ((c.monthly as { estimate?: { basis?: string } }).estimate?.basis ?? "").startsWith(SPLIT_BASIS));
+}
+
+/** 費目で入れていて、費目が按分のまま・総額が統計の推定のままなら、総額と按分を入れ直す（人数が変わったとき） */
+function refreshSplit(h: Household, baseMonth: string, l: LivingExpense): void {
+  if (l.mode !== "byCategory" || !isPureSplit(l) || !isAuto(l.monthly)) return;
+  const e = livingEstimate(h, baseMonth);
+  l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } as Box<number>;
+  const next = splitCategories(h, baseMonth, e.value, () => crypto.randomUUID(), l.categories);
+  if (JSON.stringify(next) !== JSON.stringify(l.categories)) l.categories = next;
+}
+
 /** 推定を入れ直した世帯（変わらなければ同じものを返す） */
 export function withRefreshedEstimates<T extends { request: { input: { household: Household; baseMonth: string } } }>(wh: T): T {
   const h = structuredClone(wh.request.input.household);
-  refreshEstimates(h, wh.request.input.baseMonth);
+  refreshEstimates(h, wh.request.input.baseMonth, (wh.request.input as { endYear?: number }).endYear);
   if (JSON.stringify(h) === JSON.stringify(wh.request.input.household)) return wh;
   return { ...wh, request: { ...wh.request, input: { ...wh.request.input, household: h } } };
 }

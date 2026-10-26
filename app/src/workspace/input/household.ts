@@ -4,7 +4,7 @@
 import type { Box, EmploymentPeriod, EngineRequest, Household, Member, Timepoint } from "../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, parseYm, type Reemployment } from "../levers.ts";
 import { emptyPlan, planFromRequest, type ContingencyPlan } from "../contingency/planData.ts";
-import { livingEstimate } from "./estimates.ts";
+import { startLiving } from "./livingStages.ts";
 import type { Proposal } from "../plans/plans.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
 import type { StatementLog } from "../../../../statement/src/index.ts";
@@ -202,9 +202,8 @@ export function blankHousehold(baseMonth: string, id: () => string = newId): Wor
       assumptions: structuredClone(DEFAULT_ASSUMPTIONS),
     },
   };
-  // 基本生活費は統計の目安（推定）から始める（空欄でも計算できるように）
-  const living = livingEstimate(request.input.household, baseMonth);
-  request.input.household.livingExpenses = [{ id: id(), mode: "total", monthly: estimatedBox(living.value, living.basis) }];
+  // 基本生活費は統計の目安（推定）と、推定の段階（退職・70歳・80歳。家族を足すと子の誕生・独立なども）から始める（空欄でも計算できるように。0049）
+  request.input.household.livingExpenses = [startLiving(request.input.household, baseMonth, request.input.endYear, id())];
   return {
     request,
     labelsByMember: {},
