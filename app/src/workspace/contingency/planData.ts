@@ -33,8 +33,11 @@ export interface ContingencyPlan {
   year?: number;
   /** 相場が下がったときの前提（下がる幅。省略は3割。0026） */
   market?: { drop?: string };
-  /** 大きな病気のときの前提（働けない月数・医療費（1か月・10割）と月数。省略は目安。0026） */
-  illness?: { months?: number; medicalMonthly?: number; medicalMonths?: number };
+  /**
+   * 大きな病気のときの前提（働けない月数・医療費（1か月・10割）と月数。省略は目安。0026）。病気の種類・入院の日数・手術の回数（0055。
+   * 保険の医療・がんの給付の見込みに使う。省略は推定: がん・病気の種類ごとの入院の日数の目安・1回）
+   */
+  illness?: { months?: number; medicalMonthly?: number; medicalMonths?: number; disease?: "cancer" | "heartStroke" | "other"; hospitalDays?: number; surgeries?: number };
 }
 
 export function emptyPlan(): ContingencyPlan {

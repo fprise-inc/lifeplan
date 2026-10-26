@@ -6,7 +6,14 @@ import type { WorkingHousehold } from "../input/household.ts";
 import { memberLabel } from "../input/labels.ts";
 import { creditLifeGroups } from "../input/stages/housing.ts";
 import type { ContingencyPlan } from "./planData.ts";
-import { adults, ILLNESS_DEFAULT, MARKET_DROP_DEFAULT } from "./requests.ts";
+import { adults, HOSPITAL_DAYS_DEFAULT, ILLNESS_DEFAULT, MARKET_DROP_DEFAULT } from "./requests.ts";
+
+/** 病気の種類（0055） */
+const DISEASES: Option[] = [
+  { value: "cancer", label: "がん" },
+  { value: "heartStroke", label: "心疾患・脳卒中" },
+  { value: "other", label: "そのほか" },
+];
 
 /** 相場が下がったときの下がる幅（2〜5割） */
 const DROPS: Option[] = [
@@ -249,6 +256,20 @@ export function contingencyInputSections(wh: WorkingHousehold): SectionDef[] {
             planField({ key: "cg/illness/months", label: "働けない期間", kind: "int", suffix: "か月", min: 1, max: 60, path: ["illness", "months"], fallback: ILLNESS_DEFAULT.months }),
             planField({ key: "cg/illness/medical", label: "医療費（1か月・10割）", kind: "yen", basis: "monthly", path: ["illness", "medicalMonthly"], fallback: ILLNESS_DEFAULT.medicalMonthly, maxYen: 300 * MAN }),
             planField({ key: "cg/illness/medicalMonths", label: "医療費の月数", kind: "int", suffix: "か月", min: 1, max: 60, path: ["illness", "medicalMonths"], fallback: ILLNESS_DEFAULT.medicalMonths }),
+            // 0055: 保険の医療・がんの給付（入院日額・手術・がん一時金・三大疾病一時金）を受け取る見込みに使う
+            planField({ key: "cg/illness/disease", label: "病気の種類", kind: "select", options: DISEASES, path: ["illness", "disease"], fallback: ILLNESS_DEFAULT.disease, help: "がん一時金はがん、三大疾病一時金はがん・心疾患・脳卒中のときに受け取ります" }),
+            planField({
+              key: "cg/illness/hospitalDays",
+              label: "入院の日数（1回）",
+              kind: "int",
+              suffix: "日",
+              min: 0,
+              max: 365,
+              path: ["illness", "hospitalDays"],
+              fallback: HOSPITAL_DAYS_DEFAULT[plan.illness?.disease ?? ILLNESS_DEFAULT.disease],
+              help: "空欄は病気の種類ごとの目安（患者調査の平均在院日数の水準。仮の値）",
+            }),
+            planField({ key: "cg/illness/surgeries", label: "手術の回数", kind: "int", suffix: "回", min: 0, max: 10, path: ["illness", "surgeries"], fallback: ILLNESS_DEFAULT.surgeries }),
           ],
           actions: [],
         },

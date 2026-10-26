@@ -157,6 +157,64 @@ function sample021(): BodyState {
   return { ...s, wh: { ...s.wh, request: req, ...(loan !== undefined ? { loanEntry: { [loan.id]: "balance" as const } } : {}) } };
 }
 
+/**
+ * 0.22 の見本の世帯（0054・0055）: sample021() に、種類の細目と名前のある医療保険（三大疾病一時金・限度日数・配偶者が被保険者の
+ * 入院日額の特約）、円の目安の形の変額保険（解約の月の額の数表の行）、逓減定期（保障の ID のある死亡保障の数表の行）と、
+ * 万一の前提の病気の想定（病気の種類・入院の日数・手術の回数）を足す
+ */
+function sample022(): BodyState {
+  const s = sample021();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const spouse = roles(req).find((r) => r.key === "spouse")?.member ?? self;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000001${String(n).padStart(2, "0")}`;
+  const base = { policyholder: self.id, insured: self.id, currency: "JPY" };
+  hh.insuranceContracts = [
+    ...(hh.insuranceContracts ?? []),
+    {
+      ...base,
+      id: id(1),
+      template: "insurance.medical",
+      subtype: "medical",
+      label: "架空の医療保険",
+      contractDate: "2021-04",
+      premium: { amount: 4000, frequency: "monthly", payUntil: null },
+      deductionCategory: { type: "careMedical", regime: "new" },
+      coverages: [
+        { id: id(2), role: "main", benefit: "hospitalDaily", amount: 10000, maxDays: 60, from: { at: "2021-04" }, to: null },
+        { id: id(3), role: "rider", benefit: "threeMajorLump", amount: 500000, from: { at: "2021-04" }, to: null },
+        { id: id(4), role: "rider", benefit: "hospitalDaily", amount: 5000, insured: spouse.id, from: { at: "2021-04" }, to: null },
+      ],
+    },
+    {
+      ...base,
+      id: id(5),
+      template: "insurance.variable",
+      subtype: "variable",
+      contractDate: "2019-07",
+      premium: { amount: 20000, frequency: "monthly", payUntil: { at: "2039-07" } },
+      deductionCategory: { type: "general", regime: "new" },
+      coverages: [{ id: id(6), role: "main", benefit: "death", amount: 8000000, from: { at: "2019-07" }, to: null }],
+      simple: { estimate: true },
+      surrender: { at: "2035-07" },
+      schedule: { rows: [{ policyYear: 16, surrenderValue: 5200000 }] },
+    },
+    {
+      ...base,
+      id: id(7),
+      template: "insurance.term",
+      subtype: "decreasingTerm",
+      contractDate: "2022-04",
+      premium: { amount: 3000, frequency: "monthly", payUntil: { at: "2042-04" } },
+      deductionCategory: { type: "general", regime: "new" },
+      coverages: [{ id: id(8), role: "main", benefit: "death", amount: 20000000, from: { at: "2022-04" }, to: { at: "2042-03" } }],
+      schedule: { rows: Array.from({ length: 20 }, (_, i) => ({ coverage: id(8), policyYear: i + 1, deathBenefit: 20000000 - 1000000 * i })) },
+    },
+  ] as typeof hh.insuranceContracts;
+  return { ...s, wh: { ...s.wh, request: req, contingency: { ...s.wh.contingency, illness: { disease: "heartStroke", hospitalDays: 25, surgeries: 2 } } } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -280,7 +338,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.21");
+    expect(BODY_FORMAT_VERSION).toBe("0.22");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -411,7 +469,21 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample018())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample022())), null, 2) + "\n");
+  });
+
+  it("0.22 の形（0054・0055）: 保険の種類の細目と名前・保障の行の被保険者と限度日数・円の目安の形・保障の ID のある数表の行・病気の想定を保存して読み戻す", () => {
+    const s = sample022();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request; contingency?: { illness?: unknown } } };
+    const list = stored.household.request.input.household.insuranceContracts ?? [];
+    expect(list.find((c) => c.subtype === "medical")).toMatchObject({ label: "架空の医療保険", coverages: [{ maxDays: 60 }, { benefit: "threeMajorLump" }, { insured: expect.any(String) }] });
+    expect(list.find((c) => c.subtype === "variable")?.simple).toEqual({ estimate: true });
+    expect(list.find((c) => c.subtype === "decreasingTerm")?.schedule?.rows[0]).toMatchObject({ policyYear: 1, deathBenefit: 20000000 });
+    expect(stored.household.contingency?.illness).toEqual({ disease: "heartStroke", hospitalDays: 25, surgeries: 2 });
+    const back = fromBody(JSON.stringify(stored));
+    expect(back.wh.contingency.illness).toEqual({ disease: "heartStroke", hospitalDays: 25, surgeries: 2 });
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    preview(back.wh.request);
   });
 
   it("0.21 の形（0052・0053）: 建て方・譲渡所得の税の額・ローンの名前と種類の細目・ローンの入れ方の区分を保存して読み戻す", () => {
