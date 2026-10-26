@@ -135,7 +135,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       ? plain({ key: `${k}/rec/monthly`, item: "advisoryFee.terms", label: "継続の顧問料（月額・税込）", level: "simple", kind: "yen", basis: "monthly", find: findRec, path: ["monthly"] })
       : plain({ key: `${k}/rec/annual`, item: "advisoryFee.terms", label: "継続の顧問料（年額・税込）", level: "simple", kind: "yen", basis: "annual", find: findRec, path: ["annual"] }),
     timepointField({ key: `${k}/rec/from`, item: "advisoryFee.terms", label: "始まり", level: "simple", find: findRec, path: ["from"] }),
-    timepointField({ key: `${k}/rec/to`, item: "advisoryFee.terms", label: "終わり", level: "simple", find: findRec, path: ["to"], optional: true, absentWhenEmpty: true, nullText: "最後まで" }),
+    timepointField({ key: `${k}/rec/to`, item: "advisoryFee.terms", label: "終わり", level: "simple", find: findRec, path: ["to"], startPath: ["from"], optional: true, absentWhenEmpty: true, nullText: "最後まで" }),
     plain({ key: `${k}/rec/rate`, item: "advisoryFee.terms", label: "値上げの率（年）", level: "simple", kind: "pct", find: findRec, path: ["revision", "rate"], optional: true, help: "毎年、始まりの月からこの率で上げます（空欄は上げない）" }),
     ...onContingencyFields({ key: `${k}/rec/on`, item: "advisoryFee.terms", find: findRec, path: ["onContingency"], help: "払う人などの万一の月の翌月から当てます（単発の料金には当てません）" }),
     ...onContingencyDetailFields({ key: `${k}/rec/on`, item: "advisoryFee.terms", find: findRec, path: ["onContingency"], on: r.onContingency }),

@@ -7,10 +7,14 @@ export interface Box<T> {
   origin: { kind: string };
 }
 
+/** 時点（0003 の6）: 絶対の年月・構成員の年齢・名前つきイベントから。3つの形のどれか1つだけを持つ */
 export interface Timepoint {
   at?: string;
   event?: string;
-  memberAge?: { member: string; years: number; months: number };
+  /** 出来事からのずらし（負も可） */
+  offset?: { years?: number; months?: number };
+  /** 年齢: months は 0〜11（省略は0）。ageSwitch の省略は reachMonth（年齢に達する月） */
+  memberAge?: { member: string; years: number; months?: number; ageSwitch?: string };
 }
 
 export interface Member {

@@ -167,8 +167,8 @@ function propertyGroups(wh: WorkingHousehold, a: Account, k: string): GroupDef[]
       yenBox({ key: `${kp}/rent`, item: "account.property", label: "家賃（月額・空室を見込む前）", level: "simple", basis: "monthly", find: findP, path: ["rental", "monthly"] }),
       plain({ key: `${kp}/vacancy`, item: "account.property", label: "空室を見込む割合", level: "simple", kind: "pct", find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: "例: 1年のうち平均して半月空くなら 4%。受け取る家賃＝家賃×(1−この割合)" }),
       plain({ key: `${kp}/rentGrowth`, item: "account.property", label: "家賃の変化率（年）", level: "detail", kind: "pct", find: findP, path: ["rental", "growth"], optional: true, fallback: "0", help: "古くなって家賃が下がる見込みはマイナスで入れます" }),
-      timepointField({ key: `${kp}/rentFrom`, item: "account.property", label: "貸し始め", level: "detail", find: findP, path: ["rental", "from"], optional: true, absentWhenEmpty: true, nullText: p.acquisition !== undefined ? "取得の月から" : "前から貸している", ...ageOf }),
-      timepointField({ key: `${kp}/rentTo`, item: "account.property", label: "貸し終わり", level: "detail", find: findP, path: ["rental", "to"], optional: true, absentWhenEmpty: true, nullText: p.sale !== undefined ? "売るまで" : "最後まで", ...ageOf }),
+      timepointField({ key: `${kp}/rentFrom`, item: "account.property", label: "貸し始め", level: "detail", find: findP, path: ["rental", "from"], mode: "ym", optional: true, absentWhenEmpty: true, nullText: p.acquisition !== undefined ? "取得の月から" : "前から貸している", ...ageOf }),
+      timepointField({ key: `${kp}/rentTo`, item: "account.property", label: "貸し終わり", level: "detail", find: findP, path: ["rental", "to"], startPath: ["rental", "from"], optional: true, absentWhenEmpty: true, nullText: p.sale !== undefined ? "売るまで" : "最後まで", ...ageOf }),
     );
   groups.push({ key: `${kp}/rental`, title: "家賃収入", level: "simple", ...(p.rental !== undefined && p.acquisition === undefined ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
   // 経費
@@ -205,7 +205,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account, k: string): GroupDef[]
   ];
   if (p.sale !== undefined)
     saleFields.push(
-      timepointField({ key: `${kp}/saleAt`, item: "account.property", label: "売る年月", level: "simple", find: findP, path: ["sale", "at"], ...ageOf }),
+      timepointField({ key: `${kp}/saleAt`, item: "account.property", label: "売る時期", level: "simple", find: findP, path: ["sale", "at"], ...ageOf }),
       plain({ key: `${kp}/salePrice`, item: "account.property", label: "売却価格", level: "simple", kind: "yen", basis: "once", find: findP, path: ["sale", "price"], optional: true, help: "空欄ならその年の評価額で売るとみなします" }),
       plain({ key: `${kp}/saleCost`, item: "account.property", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find: findP, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など。ローンが残るときは、売る月の繰上返済で返します" }),
     );
@@ -307,7 +307,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     );
   if (DC_KIND.has(a.kind)) fields.push(...payoutFields(wh, a, k));
   if ((a.contributions ?? []).length > 0)
-    fields.push(timepointField({ key: `${k}/until`, item: "account.contributions", label: "積立の終わり（最後の月）", level: "detail", find: firstContribution, path: ["to"], optional: true, nullText: "退職の年まで（推定）", ...(owner !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === owner.id) } : {}) }));
+    fields.push(timepointField({ key: `${k}/until`, item: "account.contributions", label: "積立の終わり（最後の月）", level: "detail", find: firstContribution, path: ["to"], startPath: ["from"], ageMeans: "before", optional: true, nullText: "退職の年まで（推定）", ...(owner !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === owner.id) } : {}) }));
   const groups: GroupDef[] = [
     {
       key: k,

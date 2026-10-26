@@ -171,7 +171,7 @@ export function bsPlan(p: BsPlanInput): BsPlanModel {
   // 時点を並べるときの候補（範囲の中にあるものだけ）
   const youngestLeaves = rs
     .filter((r) => r.member.kind === "child")
-    .map((r) => leaveYear(r.member))
+    .map((r) => leaveYear(r))
     .filter((y): y is number => y !== null)
     .sort((a, b) => a - b)
     .at(-1);

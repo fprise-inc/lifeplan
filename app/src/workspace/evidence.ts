@@ -85,7 +85,7 @@ export function buildEvidence(full: FullResult, req: EngineRequest, rowKey: stri
   for (const c of calls) for (const p of collectParams(full.trace.nodes, c)) if (!params.has(p.ref) && params.size < MAX_PARAMS) params.set(p.ref, p);
   const rs = roles(req);
   const context = rs
-    .filter((r) => ageInYear(r.member, year) >= 0 && (leaveYear(r.member) === null || year <= (leaveYear(r.member) as number)))
+    .filter((r) => ageInYear(r.member, year) >= 0 && (leaveYear(r) === null || year <= (leaveYear(r) as number)))
     .map((r) => `${r.label}${ageInYear(r.member, year)}歳`)
     .join("・");
   return {

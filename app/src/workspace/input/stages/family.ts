@@ -1,10 +1,12 @@
 // 1. 家族: 続柄・呼び名（任意）・生年月（生年月＋1日生まれか。0012）・性別・独立の時期。贈与する人（親・祖父母）もここでまとめて登録する
 import type { Household, Member } from "../../../engine/types.ts";
-import { ageAt } from "../../levers.ts";
+import { addMonths, ageAt } from "../../levers.ts";
 import { roles } from "../../roles.ts";
 import { byId, field, plain, removeAction, timepointField, type ActionDef, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { followStandards, mutate, newId, standardLeaves, type WorkingHousehold } from "../household.ts";
+import { creditKey } from "../housingCredit.ts";
 import { DONOR_KINDS, KIND_OPTIONS, memberLabel, memberOptions, SEX_OPTIONS } from "../labels.ts";
+import { EVENT_KIND_LABEL, eventName, FP_EVENT_KINDS, freezeTimepoints, refsTo, whenPeople } from "../namedEvents.ts";
 import { wareki } from "../units.ts";
 
 const members = (h: Household) => h.members;
@@ -19,6 +21,10 @@ export function removeMember(wh: WorkingHousehold, id: string): WorkingHousehold
 
 function removeMemberRaw(wh: WorkingHousehold, id: string): WorkingHousehold {
   const next = mutate(wh, (h) => {
+    // その人の年齢・その人の出来事で決めた時点は、外す前の年月に直す（外した後に解けない時点を残さない。0038）
+    const gone = new Set((h.events ?? []).filter((e) => e.member === id).map((e) => e.id));
+    freezeTimepoints(h, (t) => t.memberAge?.member === id || (t.event !== undefined && gone.has(t.event)));
+    h.events = (h.events ?? []).filter((e) => !gone.has(e.id));
     h.members = h.members.filter((m) => m.id !== id);
     h.relations = (h.relations ?? []).filter((r) => (r.type === "spouse" ? r.a !== id && r.b !== id : r.parent !== id && r.child !== id));
     h.employmentPeriods = (h.employmentPeriods ?? []).filter((e) => e.member !== id);
@@ -142,14 +148,15 @@ function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
         find,
         path: ["leaves"],
         ageOf: (h) => h.members.find((x) => x.id === m.id),
+        anchor: "independence",
         optional: true,
         nullText: "独立しない・未定",
-        help: "就職などで家計から離れる年月。生活費の「末子独立後」の目安にも使います。標準（22歳になる月）のままなら、生年月を直すと合わせて変わります",
+        help: "就職などで家計から離れる時点（例: 22歳・22歳の年度末・2048年4月）。生活費の「末子独立後」の目安にも使います。年齢で入れると、生年月を直したとき合わせて動きます",
       }),
     );
   fields.push(
     plain({ key: `family/${m.id}/expected`, item: "member.expected", label: "これから加わる（出産・結婚の予定）", level: "detail", kind: "bool", find, path: ["expected"] }),
-    timepointField({ key: `family/${m.id}/joins`, item: "member.joins", label: "加わる時期", level: "detail", find, path: ["joins"], optional: true, nullText: "最初から" }),
+    timepointField({ key: `family/${m.id}/joins`, item: "member.joins", label: "加わる時期", level: "detail", find, path: ["joins"], mode: "ym", optional: true, nullText: "最初から" }),
   );
   if (m.kind === "parent" || m.kind === "grandparent")
     fields.push(
@@ -171,6 +178,48 @@ function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const actions: ActionDef[] = m.kind === "self" ? [] : [{ key: `family/${m.id}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
   const allowance = m.kind === "parent" || m.kind === "grandparent" ? (m.support?.allowance ?? 0) : 0;
   return { key: `family/${m.id}`, title: memberLabel(wh, m.id), level: "simple", ...(allowance > 0 ? { note: ALLOWANCE_NOTE } : {}), fields, actions };
+}
+
+// ---- 出来事（0003 の6・0038）----
+
+/** 住宅ローン控除の仮の条件のために置いた入居（借入の年月に合わせて入れ直すので、ここでは直さない） */
+const provisional = (wh: WorkingHousehold, id: string) => (wh.request.input.household.debts ?? []).some((d) => d.housing?.moveIn === id && wh.assumed[creditKey(d.id)] !== undefined);
+
+/** 出来事ごとのまとまり: 種類・誰の・時点。時点を直すと、この出来事を指す物（独立・入居・受け取り開始など）が全部動く */
+function eventGroups(wh: WorkingHousehold): GroupDef[] {
+  const h = wh.request.input.household;
+  const people = whenPeople(wh);
+  return (h.events ?? []).map((e) => {
+    const find = byId((hh) => hh.events, e.id);
+    const k = `family/event/${e.id}`;
+    const refs = refsTo(h, e.id);
+    const fp = FP_EVENT_KINDS.includes(e.kind);
+    const fields: FieldDef[] = [];
+    if (fp)
+      fields.push(plain({ key: `${k}/kind`, item: "event.kind", label: "出来事", level: "simple", kind: "select", options: FP_EVENT_KINDS.map((x) => ({ value: x, label: EVENT_KIND_LABEL[x] ?? x })), find, path: ["kind"] }));
+    if (fp) fields.push(plain({ key: `${k}/member`, item: "event.member", label: "誰の", level: "simple", kind: "select", options: [{ value: "", label: "（世帯の）" }, ...memberOptions(wh)], find, path: ["member"], optional: true, fallback: "" }));
+    const atField = timepointField({
+      key: `${k}/at`,
+      item: "event.at",
+      label: "時点",
+      level: "simple",
+      find,
+      path: ["at"],
+      ageOf: (hh) => hh.members.find((x) => x.id === (hh.events ?? []).find((y) => y.id === e.id)?.member) ?? hh.members.find((x) => x.kind === "self"),
+      mode: e.member !== undefined ? "age" : "ym",
+      modes: ["age", "ym", "now"],
+      help: "出来事の時点は年月か人の年齢で入れます（出来事から出来事は作りません）",
+    });
+    fields.push(provisional(wh, e.id) ? { ...atField, time: undefined, readOnly: "住宅ローン控除の仮の条件の入居です。借入の年月に合わせます" } : atField);
+    return {
+      key: k,
+      title: eventName(wh, e, people),
+      note: refs > 0 ? `この出来事を指している物が ${refs} 件あります。時点を直すと、全部いっしょに動きます` : "まだどの物からも指されていません。時点の欄の「出来事から」で選べます",
+      level: "simple",
+      fields,
+      actions: refs > 0 ? [] : [removeAction(`${k}/remove`, "外す", "simple", (hh) => void (hh.events = (hh.events ?? []).filter((x) => x.id !== e.id)))],
+    };
+  });
 }
 
 function donorGroups(wh: WorkingHousehold): GroupDef[] {
@@ -253,6 +302,21 @@ export function familyStage(wh: WorkingHousehold): StageDef {
           label: "＋ 祖父母を足す",
           level: "simple",
           run: (w) => mutate(w, (hh) => void (hh.donors ??= []).push({ id: newId(), kind: "grandparent", ...(selfId !== undefined ? { of: selfId } : {}) })),
+        },
+      ],
+    },
+    {
+      key: "family/events",
+      title: "出来事",
+      note: "子の独立・入居・年金の受け取り開始・介護の始まりは、時点の欄の「出来事から」で選ぶと、ここに出来事として並びます。出来事の時点を直すと、指している物が全部いっしょに動きます。結婚・転職などは ＋ で足せます",
+      level: "detail",
+      groups: eventGroups(wh),
+      actions: [
+        {
+          key: "family/add/event",
+          label: "＋ 出来事を足す",
+          level: "detail",
+          run: (w) => mutate(w, (hh, req) => void (hh.events ??= []).push({ id: newId(), kind: "other", at: { at: addMonths(req.input.baseMonth, 12) } })),
         },
       ],
     },

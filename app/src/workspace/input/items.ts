@@ -4,6 +4,7 @@
 // 以前の「＋ 項目を追加」で足した車・FP顧問料の記録（AddedItem の kind が car・fee）は、別のカードにせず「車」「前提条件」のカードに入れて見せる
 import type { AdvisoryFee, Car, CareExpense, Household, Member, PeriodicExpense } from "../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth } from "../levers.ts";
+import { resolveTimepoint } from "../timepoint.ts";
 import type { StageDef, StageId } from "./form.ts";
 import { estimatedBox, mutate, newId, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { memberLabel } from "./labels.ts";
@@ -101,8 +102,8 @@ function pensionSummary(h: Household): Summary | null {
   if (recs.length === 0) return null;
   const self = h.members.find((m) => m.kind === "self");
   const selfRec = recs.find((r) => r.member === self?.id);
-  const at = selfRec?.claim?.basic?.at;
-  const age = self !== undefined && at !== undefined ? ageAt(self, addMonths(at, -1)) : 65;
+  const at = resolveTimepoint(h, selfRec?.claim?.basic);
+  const age = self !== undefined && at !== null ? ageAt(self, addMonths(at, -1)) : 65;
   // 定期便の加入月数が0か月のままなら、写した見込額を出さない（そのままでは年金を0円・少なく計算するため）
   if (recs.some(statementMonthsMissing)) return { main: "加入月数", unit: "が未入力" };
   if (recs.every((r) => EXPECTED_KINDS.has(r.kind) && r.amounts !== undefined)) {
@@ -166,9 +167,9 @@ export function carSummary(list: readonly Car[]): Summary | null {
   return { main: String(list.length), unit: `台・維持費 年${manText(upkeep)}万円` };
 }
 
-function periodicSummary(p: PeriodicExpense): Summary {
+function periodicSummary(h: Household, p: PeriodicExpense): Summary {
   const amount = p.amount.value ?? 0;
-  const once = p.everyYears === 1 && p.to?.at !== undefined && p.to.at === p.from.at;
+  const once = p.everyYears === 1 && p.to != null && resolveTimepoint(h, p.to) !== null && resolveTimepoint(h, p.to) === resolveTimepoint(h, p.from);
   if (once) return { main: manText(amount), unit: "万円（1回）" };
   if (p.everyYears === 1) return { pre: "年", main: manText(amount), unit: "万円" };
   return { main: manText(amount), unit: `万円（${p.everyYears}年ごと）` };
@@ -270,8 +271,8 @@ function addedLabel(wh: WorkingHousehold, o: AddedObject): string {
   return `介護（${memberLabel(wh, o.obj.member)}）`;
 }
 
-function addedSummary(o: AddedObject): Summary {
-  if (o.kind === "periodic") return periodicSummary(o.obj);
+function addedSummary(h: Household, o: AddedObject): Summary {
+  if (o.kind === "periodic") return periodicSummary(h, o.obj);
   return o.obj.months !== undefined ? { main: String(o.obj.months), unit: "か月" } : { main: "期間は目安" };
 }
 
@@ -335,7 +336,7 @@ export function inputItems(wh: WorkingHousehold): InputItem[] {
       added: a,
       status: statusOf(st.estimated, o !== null, confirmed.has(a.id)),
       estimated: st.estimated,
-      summary: o === null ? null : addedSummary(o),
+      summary: o === null ? null : addedSummary(h, o),
     });
   }
   return out;

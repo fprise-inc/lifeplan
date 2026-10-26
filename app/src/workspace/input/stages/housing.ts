@@ -45,8 +45,8 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
         }
       },
     }),
-    timepointField({ key: `${k}/from`, item: "residence.from", label: "住み始め", level: "detail", find, path: ["from"], ...ageOf }),
-    timepointField({ key: `${k}/to`, item: "residence.to", label: "住み終わり", level: "detail", find, path: ["to"], optional: true, nullText: "最後まで", ...ageOf }),
+    timepointField({ key: `${k}/from`, item: "residence.from", label: "住み始め", level: "detail", find, path: ["from"], mode: "ym", anchor: "moveIn", ...ageOf }),
+    timepointField({ key: `${k}/to`, item: "residence.to", label: "住み終わり", level: "detail", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで", ...ageOf }),
   ];
   if (r.kind === "rent") {
     fields.push(
@@ -78,7 +78,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       title: "住宅の購入",
       level: "simple",
       fields: [
-        timepointField({ key: `${kp}/at`, item: "residence.purchase", label: "購入の年月", level: "simple", find, path: ["purchase", "at"], ...ageOf }),
+        timepointField({ key: `${kp}/at`, item: "residence.purchase", label: "購入の時期", level: "simple", find, path: ["purchase", "at"], mode: "ym", ...ageOf }),
         plain({ key: `${kp}/price`, item: "residence.purchase", label: "物件の価格", level: "simple", kind: "yen", basis: "once", find, path: ["purchase", "price"] }),
         plain({ key: `${kp}/down`, item: "residence.purchase", label: "頭金", level: "simple", kind: "yen", basis: "once", find, path: ["purchase", "downPayment"], optional: true }),
         plain({ key: `${kp}/costs`, item: "residence.purchase", label: "諸費用", level: "simple", kind: "yen", basis: "once", find, path: ["purchase", "costs"], optional: true, help: "目安は新築で価格の3〜7%、中古で6〜10%" }),
@@ -178,7 +178,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
   const bought = r.purchase !== undefined;
   const base = wh.request.input.baseMonth;
   const setting = wh.request.input.assumptions?.realEstateValuation;
-  const asOf = r.valuation?.asOf ?? r.purchase?.at?.at ?? base;
+  const asOf = r.valuation?.asOf ?? (r.purchase !== undefined ? resolveTimepoint(wh.request.input.household, r.purchase.at) : null) ?? base;
   const asOfYear = Number(asOf.slice(0, 4));
   const groups: GroupDef[] = [
     {
@@ -443,7 +443,7 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
   const ageOf = self !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === self.id) } : {};
   const fields: FieldDef[] = [
     isHomeLoan(d) ? principalField(wh, d, k) : plain({ key: `${k}/principal`, item: "debt.principal", label: "借入額", level: "simple", kind: "yen", basis: "once", find, path: ["principal"] }),
-    timepointField({ key: `${k}/start`, item: "debt.start", label: "借入の年月", level: "simple", find, path: ["start"], ...ageOf }),
+    timepointField({ key: `${k}/start`, item: "debt.start", label: "借入の年月", level: "simple", find, path: ["start"], mode: "ym", ...ageOf }),
     plain({ key: `${k}/rate`, item: "debt.rateSchedule", label: "金利（当初・年）", level: "simple", kind: "pct", find: firstRate, path: ["rate"] }),
     plain({ key: `${k}/rateType`, item: "debt.rateSchedule", label: "金利の種類", level: "simple", kind: "select", options: RATE_TYPES, find: firstRate, path: ["type"] }),
     field({
@@ -619,7 +619,7 @@ export function housingStage(wh: WorkingHousehold): StageDef {
       const own = (hh.residences ?? []).find((r) => r.kind === "own");
       // 住宅ローンは、購入の予定がある持ち家（後に足したもの）の購入の月に借りる
       const bought = kind === "mortgage" ? (hh.residences ?? []).filter((r) => r.kind === "own" && r.purchase !== undefined).at(-1) : undefined;
-      const start = (bought !== undefined ? purchaseMonth(hh, bought) : null) ?? own?.purchase?.at?.at ?? base;
+      const start = (bought !== undefined ? purchaseMonth(hh, bought) : null) ?? (own?.purchase !== undefined ? resolveTimepoint(hh, own.purchase.at) : null) ?? base;
       const d: Debt = {
         id,
         kind,

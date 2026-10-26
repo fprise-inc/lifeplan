@@ -1,11 +1,13 @@
 // 入力の欄の部品（作業の層）: 区画・まとまり・欄。欄は段階の定義（form.ts・stages/）だけを見て描く。
 // 値を変えるたびに世帯を作り直して onEdit に渡す（入力のパネルでは下書きに、万一の画面では世帯にそのまま入れる）
-import { createContext } from "preact";
+import { createContext, type ComponentChildren } from "preact";
 import { useContext, useState } from "preact/hooks";
 import { PopIcon } from "../../presentation/icons.tsx";
-import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, Val } from "./form.ts";
+import type { Timepoint } from "../../engine/types.ts";
+import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, TimeView, Val, WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
+import { convertWhen, modeOf, parseWhen, readWhen, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
 
@@ -31,31 +33,39 @@ export interface SectionLink {
 /** 区画のキー → 見出しの横のリンク（入力のパネルが渡す） */
 export const SectionLinks = createContext<Readonly<Record<string, SectionLink>>>({});
 
+/**
+ * 入力の画面の区画の中か。年齢・年数の整数の欄（定年・年金の受け取り開始など）は、区画の中でだけ時点の部品で描く
+ * （結果のタブの「動かす項目」は、同じ欄を整数のまま描く。動かす項目の値は整数で持つため）
+ */
+const InSection = createContext(false);
+
 export function Section({ section, wh, level, onEdit }: { section: SectionDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void }) {
   const actions = section.actions.filter((a) => visible(level, a.level));
   const link = useContext(SectionLinks)[section.key];
   return (
-    <section class="in-section" aria-label={section.title}>
-      {link !== undefined ? (
-        <div class="in-section-h">
+    <InSection.Provider value={true}>
+      <section class="in-section" aria-label={section.title}>
+        {link !== undefined ? (
+          <div class="in-section-h">
+            <h3>{section.title}</h3>
+            {/* 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため） */}
+            <button type="button" class="link-btn in-section-link" onMouseDown={(e) => e.preventDefault()} onClick={link.onClick} {...(link.title !== undefined ? { title: link.title } : {})} data-section-link={section.key}>
+              {link.label}
+              <PopIcon />
+            </button>
+          </div>
+        ) : (
           <h3>{section.title}</h3>
-          {/* 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため） */}
-          <button type="button" class="link-btn in-section-link" onMouseDown={(e) => e.preventDefault()} onClick={link.onClick} {...(link.title !== undefined ? { title: link.title } : {})} data-section-link={section.key}>
-            {link.label}
-            <PopIcon />
-          </button>
-        </div>
-      ) : (
-        <h3>{section.title}</h3>
-      )}
-      {section.note !== undefined ? <p class="in-note">{section.note}</p> : null}
-      {section.groups
-        .filter((g) => visible(level, g.level))
-        .map((g) => (
-          <Group key={g.key} group={g} wh={wh} level={level} onEdit={onEdit} />
-        ))}
-      {actions.length > 0 ? <Actions actions={actions} wh={wh} onEdit={onEdit} /> : null}
-    </section>
+        )}
+        {section.note !== undefined ? <p class="in-note">{section.note}</p> : null}
+        {section.groups
+          .filter((g) => visible(level, g.level))
+          .map((g) => (
+            <Group key={g.key} group={g} wh={wh} level={level} onEdit={onEdit} />
+          ))}
+        {actions.length > 0 ? <Actions actions={actions} wh={wh} onEdit={onEdit} /> : null}
+      </section>
+    </InSection.Provider>
   );
 }
 
@@ -135,7 +145,7 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
     case "decimal":
       return /^\d+(\.\d+)?$/.test(t) ? null : "0 以上の数字で入れてください";
     case "ym":
-      return parseYearMonth(text) === null ? "年月は「2041-06」のように西暦の年と月で入れてください" : null;
+      return parseYearMonth(text) === null ? "年月は「2041-06」「令和23年6月」のように、西暦か和暦の年と月で入れてください" : null;
     default:
       return null;
   }
@@ -145,6 +155,7 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
 export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   const state = f.get(wh);
   const sug = useContext(FieldSuggestions)[f.key];
+  const inSection = useContext(InSection);
   const [draft, setDraft] = useState<string | null>(null);
   /** 使えない文字のまま欄を離れたときの知らせ（前の値のままにしたこと）。次に打つまで出す */
   const [rejected, setRejected] = useState<string | null>(null);
@@ -166,6 +177,9 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   let control;
   /** 入れた文字を使えない理由（打っている間）か、使えないまま離れた知らせ */
   let problem: string | null = null;
+  if (f.time !== undefined && f.readOnly === undefined && (f.kind === "when" || inSection)) {
+    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} help={f.help} warn={state.warn ?? null} />;
+  }
   if (f.readOnly !== undefined) {
     control = <span class="ro">{f.kind === "select" ? (f.options.find((o) => o.value === state.value)?.label ?? "") : state.value === null ? "—" : String(state.value)}</span>;
   } else if (f.kind === "select") {
@@ -308,6 +322,150 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
       ) : null}
       {state.estimated != null ? <div class="fld-help est-basis">推定: {state.estimated}</div> : null}
       {f.readOnly !== undefined ? <div class="fld-help">{f.readOnly}</div> : f.help !== undefined ? <div class="fld-help">{f.help}</div> : null}
+      {f.sideEffects !== undefined ? <div class="fld-help">{f.sideEffects}</div> : null}
+    </div>
+  );
+}
+
+/** 入れ方の選び方の並び（欄で使える入れ方だけ） */
+const MODE_ORDER: readonly WhenMode[] = ["age", "ym", "event", "now"];
+const PLACEHOLDER: Record<WhenMode, string> = { age: "例: 60歳", ym: "例: 2041年6月", event: "例: 10年後・翌月", now: "例: 5年後" };
+
+/** 時点の欄の読み取り（欄の決まりの範囲の確かめを含む） */
+function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: string): { tp: Timepoint | null } | { reason: string } {
+  const r = parseWhen(text, ctx);
+  if (!r.ok) return { reason: r.reason };
+  const bad = time.when.check?.(wh, r.tp) ?? null;
+  return bad !== null ? { reason: bad } : { tp: r.tp };
+}
+
+/**
+ * 時点の部品（0038）: 1つの文字の欄に、年月・人の年齢・出来事から・今から のどれで打ってもよい。
+ * 横の「入れ方」で見せ方を選び直せる（同じ月のまま形を変える）。読み替えた形と、読めない理由を欄の下に1行で出す。
+ * 打っている間は世帯を変えず、欄を離れたとき（Enter）に入れる
+ */
+function WhenField({ f, time, state, label, badge, id, wh, onEdit, help, warn }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; help: string | undefined; warn: string | null }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const [rejected, setRejected] = useState<string | null>(null);
+  const [picked, setPicked] = useState<WhenMode | null>(null);
+  // 出来事が正本の欄は、出来事の時点を見せて直す（出来事を指していることは下の行で知らせる）
+  const shownRaw = state.linked?.at ?? state.raw;
+  const mode = picked ?? modeOf(shownRaw, state.ctx);
+  const ctx: WhenCtx = { ...state.ctx, mode, current: shownRaw };
+  const shown = showWhen(shownRaw, ctx);
+  const live = draft !== null && draft !== shown ? readText(time, wh, ctx, draft) : null;
+  const problem = live !== null && "reason" in live ? live.reason : rejected;
+  const reading = live !== null && "tp" in live ? `→ ${readWhen(live.tp, ctx, time.when.nullText)}` : state.read;
+  const commit = (tp: Timepoint | null, how: "auto" | "this") => onEdit(time.setWhen(wh, tp, how));
+  const modes = MODE_ORDER.filter((m) => state.ctx.modes.includes(m));
+  const pickMode = (m: WhenMode) => {
+    setRejected(null);
+    setPicked(m);
+    if (m === "event" || shownRaw === null) return;
+    const next = convertWhen(shownRaw, m, state.ctx);
+    if (next === null) {
+      setRejected(m === "age" ? "この時点は年齢に直せません（生まれる前の月・家族の生年月が無いなど）" : "この入れ方には直せません");
+      return;
+    }
+    // 出来事が正本の欄は、出来事の時点の形を変える（出来事を指したまま）。ほかの欄は、この欄だけ
+    commit(next, state.linked !== null ? "auto" : "this");
+  };
+  const person = shownRaw?.memberAge?.member ?? state.ctx.person;
+  const evId = mode === "event" ? state.raw?.event : undefined;
+  const leave = (text: string) => {
+    setDraft(null);
+    if (text === shown) return;
+    const r = readText(time, wh, ctx, text);
+    if ("reason" in r) {
+      setRejected(`「${text}」は入れられないため、前の値のままです。${r.reason}`);
+      return;
+    }
+    setRejected(null);
+    setPicked(null);
+    commit(r.tp, "auto");
+  };
+  return (
+    <div class={`fld when${badge !== null ? " is-est" : ""}`} data-when={f.key}>
+      <label for={id} class="fld-l">
+        {label}
+        {badge}
+      </label>
+      <div class="fld-c">
+        <input
+          id={id}
+          type="text"
+          class={`when-in${problem !== null && live !== null ? " bad" : ""}`}
+          value={draft ?? shown}
+          placeholder={state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : PLACEHOLDER[mode]}
+          aria-invalid={live !== null && "reason" in live ? true : undefined}
+          aria-describedby={`${id}-read`}
+          onFocus={() => setDraft(shown)}
+          onInput={(e) => {
+            setDraft((e.currentTarget as HTMLInputElement).value);
+            setRejected(null);
+          }}
+          onBlur={(e) => leave((e.currentTarget as HTMLInputElement).value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+          }}
+        />
+        {modes.length > 1 ? (
+          <select class="when-mode" aria-label={`${label}の入れ方`} value={mode} onChange={(e) => pickMode((e.currentTarget as HTMLSelectElement).value as WhenMode)} data-when-mode>
+            {modes.map((m) => (
+              <option value={m} key={m}>
+                {WHEN_MODE_LABEL[m]}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        {mode === "age" && state.ctx.people.length > 1 ? (
+          <select class="when-who" aria-label={`${label}は誰の年齢で`} value={person ?? ""} onChange={(e) => commit(withPerson(shownRaw, (e.currentTarget as HTMLSelectElement).value, state.ctx), state.linked !== null ? "auto" : "this")} data-when-who>
+            {person === null ? <option value="">（誰の年齢か）</option> : null}
+            {state.ctx.people.map((p) => (
+              <option value={p.id} key={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        {mode === "event" ? (
+          <select class="when-event" aria-label={`${label}の出来事`} value={evId ?? ""} onChange={(e) => {
+              const v = (e.currentTarget as HTMLSelectElement).value;
+              if (v !== "") commit({ event: v }, "this");
+            }}
+            data-when-event
+          >
+            {evId === undefined || !state.ctx.events.some((x) => x.id === evId) ? <option value="">（出来事を選ぶ）</option> : null}
+            {state.ctx.events.map((x) => (
+              <option value={x.id} key={x.id}>
+                {x.label}
+                {x.ym !== null ? `（${formatYearMonth(x.ym)}${x.candidate === true ? "・選ぶと出来事にします" : ""}）` : ""}
+              </option>
+            ))}
+          </select>
+        ) : null}
+      </div>
+      <div class="fld-help when-read" id={`${id}-read`} data-when-read={f.key}>
+        {reading}
+      </div>
+      {mode === "event" && state.ctx.events.length === 0 ? <div class="fld-help">選べる出来事がまだありません（子の独立・持ち家の入居・年金の受け取り開始・介護の始まりや、家族のカードの「出来事」から選べます）</div> : null}
+      {state.linked !== null ? (
+        <div class="fld-help warn" data-when-linked>
+          「{state.linked.label}」の出来事の時点です。ここを直すと出来事が動き、{state.linked.refs > 1 ? `この出来事を指すほかの${state.linked.refs - 1}件も一緒に動きます` : "この出来事を指す物も一緒に動きます"}
+        </div>
+      ) : null}
+      {time.when.monthOnly !== undefined && state.raw !== null ? <div class="fld-help">{time.when.monthOnly}</div> : null}
+      {warn !== null ? (
+        <div class="fld-help warn" data-field-warn>
+          {warn}
+        </div>
+      ) : null}
+      {problem !== null ? (
+        <div class="fld-help bad" id={`${id}-problem`} role="alert" data-field-problem={f.key}>
+          {problem}
+        </div>
+      ) : null}
+      {help !== undefined ? <div class="fld-help">{help}</div> : null}
       {f.sideEffects !== undefined ? <div class="fld-help">{f.sideEffects}</div> : null}
     </div>
   );

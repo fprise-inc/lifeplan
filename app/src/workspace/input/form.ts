@@ -2,13 +2,19 @@
 // 欄は「入力項目ID（0004・registry/items.yaml）・名前・単位・読み方・書き方」をまとめた定義で、画面の部品はこの定義だけを見て描く。
 // 欄の読み方（get）と書き方（set）は世帯の要求（0008 の形）を直接読み書きする。書き方は元の値を変えず新しい世帯を返す
 import type { Box, Household, Member, Timepoint } from "../../engine/types.ts";
-import { addMonths, ageAt, ageReachedMonth } from "../levers.ts";
+import { ageAt } from "../levers.ts";
+import { resolveTimepoint } from "../timepoint.ts";
 import type { Estimate } from "./estimates.ts";
-import { boxBasis, confirmedBox, estimatedBox, mutate, type WorkingHousehold } from "./household.ts";
+import { boxBasis, confirmedBox, estimatedBox, mutate, newId, type WorkingHousehold } from "./household.ts";
+import { eventChoices, materializeEvent, pointsToCandidate, refsTo, whenPeople } from "./namedEvents.ts";
 import { sameRate, type YenBasis, type YenUnit } from "./units.ts";
+import { readWhen, sameWhen, WHEN_MODES, type AgeMeans, type WhenCtx, type WhenMode } from "./when.ts";
+
+export { resolveTimepoint };
 
 export type Level = "simple" | "detail";
-export type Val = number | string | boolean | null;
+/** 欄の値。時点の欄（kind "when"）は時点の型（0003 の6）そのものも受ける（年月の文字は {at} として読む） */
+export type Val = number | string | boolean | null | Timepoint;
 
 export interface Option {
   value: string;
@@ -29,6 +35,43 @@ export interface FieldState {
   implicit?: boolean;
   /** ほかの入力と合わないときの知らせ（例: 住宅ローンの借入額と購入の予定の価格−頭金） */
   warn?: string | null;
+  /** 時点の欄（kind "when"）の、入れた形のままの時点と読み方 */
+  when?: WhenState;
+}
+
+/** 時点の欄の状態（時点の部品が描くのに使う） */
+export interface WhenState {
+  /** 世帯に入っている形のままの時点（空は null） */
+  raw: Timepoint | null;
+  /** 読み取り・見せ方の文脈（人・出来事の一覧・入れ方） */
+  ctx: WhenCtx;
+  /** 欄の下に出す読み替えた形 */
+  read: string;
+  /** この欄が出来事そのものの時点（出来事が正本）。直すと出来事が動き、指している物も動く。at は出来事の時点（欄にはこれを見せる） */
+  linked: { event: string; label: string; refs: number; at: Timepoint } | null;
+}
+
+/** 時点の部品で入れる欄の、読み書き（0038） */
+export interface TimeView {
+  when: WhenSpec;
+  state: (wh: WorkingHousehold) => WhenState;
+  /** 時点を書く。how "auto" は出来事が正本の欄なら出来事を動かし、"this" はこの欄だけ（出来事から切り離す。入れ方を選び直したとき） */
+  setWhen: (wh: WorkingHousehold, tp: Timepoint | null, how: "auto" | "this") => WorkingHousehold;
+}
+
+/** 時点の欄の決まり（欄ごと。0038） */
+export interface WhenSpec {
+  defaultMode: WhenMode;
+  modes: readonly WhenMode[];
+  ageMeans: AgeMeans;
+  /** 空（null）のときの意味（例: 「最後まで」） */
+  nullText?: string;
+  /** この欄が正本になる出来事の種類（子の独立 independence・入居 moveIn など）。出来事を指しているとき、直すと出来事を動かす */
+  anchor?: string;
+  /** 年月にして持つ欄（読む所が年月の形を前提にしている）。その理由（欄の下に出す） */
+  monthOnly?: string;
+  /** 入れられない時点の理由（欄ごとの範囲など）。入れられれば null */
+  check?: (wh: WorkingHousehold, tp: Timepoint | null) => string | null;
 }
 
 interface FieldBase {
@@ -49,6 +92,11 @@ interface FieldBase {
   readOnly?: string;
   /** ほかの値もいっしょに変える欄（例: 働く最後の年齢は、退職後の生活費の節目・積立の終わりも合わせる）。その説明 */
   sideEffects?: string;
+  /**
+   * 時点の部品（0038）で入れる欄。kind "when" の欄（時点そのものの欄）と、年齢・年数の整数の欄（定年・働く最後・年金の受け取り開始・
+   * 車を手放す年齢など。結果のタブで動かす項目は整数のまま）が持つ。入力の画面はこれがあれば時点の部品で描く
+   */
+  time?: TimeView;
   get: (wh: WorkingHousehold) => FieldState;
   set: (wh: WorkingHousehold, v: Val) => WorkingHousehold;
 }
@@ -61,6 +109,7 @@ export type FieldDef = FieldBase &
     | { kind: "decimal"; suffix?: string }
     | { kind: "select"; options: Option[] }
     | { kind: "ym" }
+    | { kind: "when" }
     | { kind: "bool" }
     | { kind: "text"; placeholder?: string }
   );
@@ -110,6 +159,7 @@ export interface StageDef {
 
 export function sameVal(a: Val, b: Val, kind: FieldDef["kind"]): boolean {
   if (kind === "pct" || kind === "decimal") return sameRate(a as string | null, b as string | null);
+  if ((a !== null && typeof a === "object") || (b !== null && typeof b === "object")) return sameWhen(a as Timepoint | null, b as Timepoint | null);
   return a === b;
 }
 
@@ -120,7 +170,9 @@ export function field(def: FieldDef): FieldDef {
     ...def,
     set: (wh, v) => {
       const cur = def.get(wh);
-      if (sameVal(cur.value, v, def.kind) && cur.estimated == null && cur.assumed == null) return wh;
+      // 時点の欄は、時点の形で渡されたら入っている形と比べる（年月の文字なら年月で比べる）
+      const now = def.kind === "when" && typeof v === "object" ? (cur.when?.raw ?? null) : cur.value;
+      if (sameVal(now, v, def.kind) && cur.estimated == null && cur.assumed == null) return wh;
       const next = raw(wh, v);
       if (cur.assumed != null && wh.assumed[def.key] !== undefined) {
         const { [def.key]: _drop, ...rest } = next.assumed;
@@ -294,67 +346,185 @@ export function plain(o: {
   });
 }
 
-// ---- 時点（0003 の6）----
+// ---- 時点（0003 の6）・時点の部品（0038）----
 
-/** 時点を年月にする（年齢・イベントで決めた時点も解く）。解けなければ null */
-export function resolveTimepoint(h: Household, t: Timepoint | null | undefined): string | null {
-  if (t == null) return null;
-  if (t.at !== undefined) return t.at;
-  if (t.memberAge !== undefined) {
-    const m = h.members.find((x) => x.id === t.memberAge?.member);
-    return m === undefined ? null : addMonths(ageReachedMonth(m, t.memberAge.years), t.memberAge.months ?? 0);
-  }
-  if (t.event !== undefined) {
-    const e = (h.events ?? []).find((x) => x.id === t.event);
-    const base = resolveTimepoint(h, e?.at);
-    const off = (t as { offset?: { years?: number; months?: number } }).offset;
-    return base === null ? null : addMonths(base, (off?.years ?? 0) * 12 + (off?.months ?? 0));
-  }
-  return null;
+/** 欄の値を時点にする（年月の文字は {at}。読めなければ undefined） */
+export function toTimepoint(v: Val): Timepoint | null | undefined {
+  if (v === null || v === "") return null;
+  if (typeof v === "object") return v;
+  if (typeof v === "string" && /^\d{4}-\d{2}$/.test(v)) return { at: v };
+  return undefined;
 }
 
-/** 時点の欄（年月で入れる。年齢・イベントで決めた時点は年月で見せ、書き換えると年月の形にする） */
-export function timepointField(o: {
-  key: string;
-  item: string;
-  label: string;
-  level: Level;
-  find: Finder;
-  path: readonly string[];
-  /** 年齢を添える構成員 */
+/** 時点の欄の読み取りの文脈（人・出来事の一覧・既定の入れ方） */
+export function whenContext(wh: WorkingHousehold, spec: WhenSpec, o: { person?: string | null; optional?: boolean; start?: Timepoint | null; current?: Timepoint | null; excludeEvent?: string }): WhenCtx {
+  const h = wh.request.input.household;
+  return {
+    h,
+    baseMonth: wh.request.input.baseMonth,
+    people: whenPeople(wh),
+    person: o.person ?? null,
+    events: spec.modes.includes("event") ? eventChoices(wh, o.excludeEvent !== undefined ? { exclude: o.excludeEvent } : {}) : [],
+    modes: spec.modes,
+    defaultMode: spec.defaultMode,
+    ageMeans: spec.ageMeans,
+    optional: o.optional === true,
+    ...(o.start !== undefined ? { start: o.start } : {}),
+    ...(o.current !== undefined ? { current: o.current } : {}),
+  };
+}
+
+/** 出来事が正本の欄の、今指している出来事（ずらしの無い出来事の形で、種類が欄の正本の種類と同じとき） */
+function linkedEvent(h: Household, spec: WhenSpec, t: Timepoint | null | undefined) {
+  if (spec.anchor === undefined || t?.event === undefined || (t.offset?.years ?? 0) * 12 + (t.offset?.months ?? 0) !== 0) return undefined;
+  const e = (h.events ?? []).find((x) => x.id === t.event);
+  return e !== undefined && e.kind === spec.anchor ? e : undefined;
+}
+
+/** 時点の部品の欄の決まり（timepointField・timeView に共通） */
+export interface WhenOptions {
+  /** 年齢で入れるときの既定の人（年齢を添える構成員） */
   ageOf?: (h: Household) => Member | undefined;
   optional?: boolean;
-  help?: string;
   /** 空（null）のときの意味（例: 「最後まで」） */
   nullText?: string;
-  /** 空にしたら欄ごと消す（null を書かない項目） */
-  absentWhenEmpty?: boolean;
-  after?: (h: Household, target: Obj, v: Val, wh: WorkingHousehold) => void;
-}): FieldDef {
+  /** 既定の入れ方（既定: 人がいれば年齢、いなければ年月） */
+  mode?: WhenMode;
+  /** 使える入れ方（既定: 4つとも） */
+  modes?: readonly WhenMode[];
+  /** 「60歳」がどの月か（既定 reach）。働く最後のような「○歳まで」の欄は before、年金の受け取り開始は after */
+  ageMeans?: AgeMeans;
+  anchor?: string;
+  monthOnly?: string;
+  check?: (wh: WorkingHousehold, tp: Timepoint | null) => string | null;
+  /** 空のときに、読み替えた形の代わりに見せる省略のときの時点（例: 年金の受け取り開始は65歳になった翌月） */
+  fallback?: (h: Household) => Timepoint | null;
+}
+
+const specOf = (o: WhenOptions): WhenSpec => ({
+  defaultMode: o.mode ?? (o.ageOf !== undefined ? "age" : "ym"),
+  modes: o.modes ?? WHEN_MODES,
+  ageMeans: o.ageMeans ?? "reach",
+  ...(o.nullText !== undefined ? { nullText: o.nullText } : {}),
+  ...(o.anchor !== undefined ? { anchor: o.anchor } : {}),
+  ...(o.monthOnly !== undefined ? { monthOnly: o.monthOnly } : {}),
+  ...(o.check !== undefined ? { check: o.check } : {}),
+});
+
+/**
+ * 時点の部品の読み書きを作る（0038）。read は欄に入っている形のままの時点、write はその時点を欄に書く（出来事のことは知らなくてよい）。
+ * 出来事が正本の欄で出来事を指しているときに年月・年齢を入れたら出来事のほうを動かし、まだ出来事でない物を選んだら出来事にしてから書く
+ */
+export function timeView(o: WhenOptions & { read: (wh: WorkingHousehold) => Timepoint | null; write: (wh: WorkingHousehold, tp: Timepoint | null) => WorkingHousehold; start?: (wh: WorkingHousehold) => Timepoint | null | undefined }): TimeView {
+  const spec = specOf(o);
+  const state = (wh: WorkingHousehold): WhenState => {
+    const h = wh.request.input.household;
+    const t = o.read(wh);
+    const start = o.start?.(wh);
+    const ctx = whenContext(wh, spec, { person: o.ageOf?.(h)?.id ?? null, optional: o.optional === true, current: t, ...(start !== undefined ? { start } : {}) });
+    const ev = linkedEvent(h, spec, t);
+    const linked = ev === undefined ? null : { event: ev.id, label: ctx.events.find((e) => e.id === ev.id)?.label ?? "出来事", refs: refsTo(h, ev.id), at: ev.at };
+    const fb = t === null ? (o.fallback?.(h) ?? null) : null;
+    const read = fb !== null ? `${o.nullText ?? "空欄"}: ${readWhen(fb, ctx)}` : linked !== null ? readWhen(linked.at, { ...ctx, current: linked.at }) : readWhen(t, ctx, o.nullText);
+    return { raw: t, ctx, read, linked };
+  };
+  const setWhen = (wh: WorkingHousehold, tp: Timepoint | null, how: "auto" | "this"): WorkingHousehold => {
+    const h0 = wh.request.input.household;
+    const cur = o.read(wh);
+    let want = tp;
+    if (want !== null && o.monthOnly !== undefined && want.at === undefined && !pointsToCandidate(want)) {
+      const ym = resolveTimepoint(h0, want);
+      if (ym === null) return wh;
+      want = { at: ym };
+    }
+    // 出来事が正本の欄: 出来事を指したまま年月・年齢を入れたら、出来事のほうを動かす（指している物が全部動く）
+    const ev = how === "auto" && want !== null && want.event === undefined ? linkedEvent(h0, spec, cur) : undefined;
+    if (ev !== undefined && want !== null) {
+      if (sameWhen(ev.at, want)) return wh;
+      const next = want;
+      return mutate(wh, (h) => {
+        const e = (h.events ?? []).find((x) => x.id === ev.id);
+        if (e !== undefined) e.at = structuredClone(next);
+      });
+    }
+    // 同じ時点を入れ直しても世帯を変えない
+    if (!pointsToCandidate(want) && sameWhen(cur, want)) return wh;
+    // まだ出来事でない物（子の独立など）を選んだら、出来事にしてから指す
+    if (want !== null && pointsToCandidate(want)) {
+      let made: Timepoint | null = null;
+      const w1 = mutate(wh, (h) => {
+        made = materializeEvent(h, want as Timepoint, newId);
+      });
+      if (made === null) return wh;
+      return o.write(w1, made);
+    }
+    return o.write(wh, want === null ? null : structuredClone(want));
+  };
+  return { when: spec, state, setWhen };
+}
+
+/**
+ * 時点の欄（0038 の時点の部品）。どの「いつ」の欄も同じ部品で入れる: 年月・人の年齢・出来事から・今から。
+ * 書く値はエンジンの時点の型のまま（年齢・出来事で入れた時点は年齢・出来事で持つ。今からは年月にする）。
+ * 欄の値（value）は年月に解いた "YYYY-MM"（ほかの読み手のため）、入っている形のままの時点は when.raw
+ */
+export function timepointField(
+  o: WhenOptions & {
+    key: string;
+    item: string;
+    label: string;
+    level: Level;
+    find: Finder;
+    path: readonly string[];
+    help?: string;
+    /** 空にしたら欄ごと消す（null を書かない項目） */
+    absentWhenEmpty?: boolean;
+    after?: (h: Household, target: Obj, v: Val, wh: WorkingHousehold) => void;
+    /** 終わりの欄: 同じ物の中の始まりの時点の場所（「10年間」で入れられる） */
+    startPath?: readonly string[];
+    /** ほかの入力と合わないときの知らせ */
+    warn?: (wh: WorkingHousehold) => string | null;
+  },
+): FieldDef {
+  const read = (wh: WorkingHousehold) => (getPath(o.find(wh.request.input.household, wh), o.path) as Timepoint | null | undefined) ?? null;
+  const time = timeView({
+    ...o,
+    read,
+    write: (wh, tp) =>
+      mutate(wh, (h, req) => {
+        const target = o.find(h, { ...wh, request: req });
+        if (target === undefined) return;
+        setPath(target, o.path, tp === null ? (o.optional === true && o.absentWhenEmpty !== true ? null : undefined) : tp);
+        o.after?.(h, target, tp, wh);
+      }),
+    ...(o.startPath !== undefined ? { start: (wh: WorkingHousehold) => (getPath(o.find(wh.request.input.household, wh), o.startPath as readonly string[]) as Timepoint | null | undefined) ?? null } : {}),
+  });
   return field({
     key: o.key,
     item: o.item,
     label: o.label,
     level: o.level,
-    kind: "ym",
+    kind: "when",
+    time,
     ...(o.help !== undefined ? { help: o.help } : {}),
     ...(o.optional === true ? { optional: true } : {}),
     get: (wh) => {
       const h = wh.request.input.household;
-      const t = getPath(o.find(h, wh), o.path) as Timepoint | null | undefined;
-      const ym = resolveTimepoint(h, t);
+      const t = read(wh);
+      const ym = resolveTimepoint(h, t ?? o.fallback?.(h));
       const who = o.ageOf?.(h);
-      const age = ym !== null && who !== undefined ? `${ageAt(who, ym)}歳` : null;
-      const derived = t != null && t.at === undefined ? (t.memberAge !== undefined ? "年齢で決めた時点" : "イベントで決めた時点") : null;
-      return { value: ym, hint: ym === null ? (o.nullText ?? null) : age, derived, ...(ym === null && o.optional === true ? { implicit: true } : {}) };
+      return {
+        value: ym,
+        hint: ym === null ? (o.nullText ?? null) : who !== undefined ? `${ageAt(who, ym)}歳` : null,
+        when: time.state(wh),
+        ...(t === null && o.optional === true ? { implicit: true } : {}),
+        ...(o.warn !== undefined ? { warn: o.warn(wh) } : {}),
+      };
     },
-    set: (wh, v) =>
-      mutate(wh, (h, req) => {
-        const target = o.find(h, { ...wh, request: req });
-        if (target === undefined) return;
-        setPath(target, o.path, v === null ? (o.optional === true && o.absentWhenEmpty !== true ? null : undefined) : { at: String(v) });
-        o.after?.(h, target, v, wh);
-      }),
+    set: (wh, v) => {
+      const tp = toTimepoint(v);
+      return tp === undefined ? wh : time.setWhen(wh, tp, "auto");
+    },
   });
 }
 

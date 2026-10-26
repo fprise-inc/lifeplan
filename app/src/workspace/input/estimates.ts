@@ -3,6 +3,7 @@
 // ここには世帯（Household）を見て当てる部分と、元の入力が変わったときの入れ直しだけを置く
 import type { Box, EmploymentPeriod, Household, Member } from "../../engine/types.ts";
 import { ageAt } from "../levers.ts";
+import { resolveTimepoint } from "../timepoint.ts";
 import {
   livingEstimate as livingBySize,
   residentTaxEstimate,
@@ -19,8 +20,8 @@ export { businessEstimate, careerStartMonth, CAR_ESTIMATE, residentTaxEstimate, 
 export function householdSize(h: Household, baseMonth: string): number {
   return h.members.filter((m) => {
     if (m.expected === true) return false;
-    const leaves = m.leaves?.at;
-    return leaves === undefined || leaves > baseMonth;
+    const leaves = resolveTimepoint(h, m.leaves);
+    return leaves === null || leaves > baseMonth;
   }).length;
 }
 

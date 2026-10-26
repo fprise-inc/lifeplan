@@ -3,7 +3,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { REPO_DIR } from "../scripts/lib.ts";
-import type { EngineRequest } from "../src/engine/types.ts";
+import type { EngineRequest, Timepoint } from "../src/engine/types.ts";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { addMonths, readLevers } from "../src/workspace/levers.ts";
 import { allFields, type FieldDef, type StageDef, type StageId, type Val } from "../src/workspace/input/form.ts";
@@ -13,6 +13,7 @@ import { buildStage, buildStages, STAGE_ORDER } from "../src/workspace/input/sta
 import { addMember, removeMember } from "../src/workspace/input/stages/family.ts";
 import { formatYen, fromPeriod, parseYearMonth, parseYen, pctFromRate, rateFromPct, sameRate, shiftDecimal, toPeriod, wareki } from "../src/workspace/input/units.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
+import { sameWhen } from "../src/workspace/input/when.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const MODELS = readdirSync(join(REPO_DIR, "data", "modelHouseholds"))
@@ -52,6 +53,20 @@ function perturb(f: FieldDef, v: Val, wh: WorkingHousehold): Val | undefined {
       return o?.value;
     }
   }
+}
+
+/** 時点を1か月ずらす（同じ形のまま） */
+function perturbWhen(t: Timepoint | null, wh: WorkingHousehold): Timepoint {
+  if (t === null) return { at: addMonths(wh.request.input.baseMonth, 12) };
+  if (t.at !== undefined) return { at: addMonths(t.at, 1) };
+  if (t.memberAge !== undefined) {
+    const total = t.memberAge.years * 12 + (t.memberAge.months ?? 0) + 1;
+    const { months: _m, ...rest } = t.memberAge;
+    void _m;
+    return { memberAge: { ...rest, years: Math.floor(total / 12), ...(total % 12 !== 0 ? { months: total % 12 } : {}) } };
+  }
+  const off = (t.offset?.years ?? 0) * 12 + (t.offset?.months ?? 0) + 1;
+  return { event: t.event as string, offset: { months: off } };
 }
 
 const roundTripable = (f: FieldDef, s: ReturnType<FieldDef["get"]>) => !(s.value === null && f.blankIsEstimate === true) && f.readOnly === undefined && f.structural !== true && f.sideEffects === undefined && s.derived == null && s.implicit !== true && s.estimated == null && s.assumed == null;
@@ -115,6 +130,17 @@ describe("モデル世帯の往復（世帯データ → 入力の表示 → 世
         if (f.kind === "ym" && typeof s.value === "string") expect(parseYearMonth(s.value)).toBe(s.value);
         // 値を変えて戻すと、元の世帯データに戻る（入力 → 世帯データ → 入力）
         if (!roundTripable(f, s)) continue;
+        // 時点の欄（0038）は、入っている形のままの時点で往復する（年齢・出来事の形を年月に直さない）
+        if (f.kind === "when") {
+          const raw = s.when?.raw ?? null;
+          const t2 = perturbWhen(raw, wh);
+          const w1 = f.time!.setWhen(wh, t2, "this");
+          expect(sameWhen(f.time!.state(w1).raw, t2) || f.time!.when.monthOnly !== undefined, f.key).toBe(true);
+          expect(JSON.stringify(w1), f.key).not.toBe(JSON.stringify(wh));
+          expect(f.time!.setWhen(w1, raw, "this"), f.key).toEqual(wh);
+          moved++;
+          continue;
+        }
         const v2 = perturb(f, s.value, wh);
         if (v2 === undefined) continue;
         const w1 = f.set(wh, v2);
