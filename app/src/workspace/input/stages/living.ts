@@ -3,6 +3,7 @@
 // あわせて「毎年の黒字のうち、貯金に回る割合」（貯まらない分＝ゆとりの支出。0031。stages/surplusSaving.ts）
 import type { Household, LivingExpense, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageReachedMonth, readLevers } from "../../levers.ts";
+import { resolveTimepoint } from "../../timepoint.ts";
 import { livingEstimate } from "../estimates.ts";
 import { byId, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type StageDef } from "../form.ts";
 import { estimatedBox, mutate, newId, type WorkingHousehold } from "../household.ts";
@@ -17,8 +18,14 @@ export function stageDefaultAt(wh: WorkingHousehold, label: string): Timepoint {
   const h = wh.request.input.household;
   const self = h.members.find((m) => m.kind === "self");
   if (label === "childIndependence") {
-    const leaves = h.members.filter((m) => m.kind === "child").map((m) => m.leaves?.at).filter((x): x is string => x !== undefined).sort().at(-1);
-    if (leaves !== undefined) return { at: leaves };
+    // 一番遅い子の独立。年齢・出来事で決めた独立なら、その形のまま指す（独立が動くと節目も動く。0038）
+    const last = h.members
+      .filter((m) => m.kind === "child" && m.leaves != null)
+      .map((m) => ({ t: m.leaves as Timepoint, ym: resolveTimepoint(h, m.leaves) }))
+      .filter((x): x is { t: Timepoint; ym: string } => x.ym !== null)
+      .sort((a, b) => (a.ym < b.ym ? -1 : 1))
+      .at(-1);
+    if (last !== undefined) return last.t.at !== undefined ? { at: last.ym } : structuredClone(last.t);
   }
   if (label === "retirement" && self !== undefined) {
     const age = readLevers(wh.request, self.id).retireAge ?? 65;
@@ -136,9 +143,11 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
     plain({ key: `${key}/growth`, item: "livingExpense.growth", label: "変動率", level: "simple", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, help: "物価上昇率は「前提条件」で決めます", after: (_h, t, v) => fixGrowth(t, v) }),
   );
   if (l.growth?.kind === "rate") main.push(plain({ key: `${key}/growthRate`, item: "livingExpense.growth", label: "決まった変動率（年）", level: "simple", kind: "pct", find, path: ["growth", "rate"] }));
+  const selfId = wh.request.input.household.members.find((m) => m.kind === "self")?.id;
+  const selfAge = selfId !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === selfId), mode: "ym" as const } : {};
   main.push(
-    timepointField({ key: `${key}/from`, item: "livingExpense.from", label: "始まり", level: "detail", find, path: ["from"], optional: true, absentWhenEmpty: true, nullText: "計算の初めから" }),
-    timepointField({ key: `${key}/to`, item: "livingExpense.to", label: "終わり", level: "detail", find, path: ["to"], optional: true, absentWhenEmpty: true, nullText: "最後まで" }),
+    timepointField({ key: `${key}/from`, item: "livingExpense.from", label: "始まり", level: "detail", find, path: ["from"], ...selfAge, optional: true, absentWhenEmpty: true, nullText: "計算の初めから" }),
+    timepointField({ key: `${key}/to`, item: "livingExpense.to", label: "終わり", level: "detail", find, path: ["to"], startPath: ["from"], ...selfAge, optional: true, absentWhenEmpty: true, nullText: "最後まで" }),
   );
   const groups: GroupDef[] = [
     {

@@ -1,14 +1,14 @@
 // 7. 保険: 保険契約の基本（種類・契約者・被保険者・契約年月・保険料と払い方・払込の終わり・死亡保険金）。保障の明細と控除の区分は詳細で
 import type { Coverage, Household, InsuranceContract, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt } from "../../levers.ts";
-import { byId, field, getPath, plain, removeAction, timepointField, type FieldDef, type Finder, type GroupDef, type StageDef } from "../form.ts";
+import { byId, field, getPath, plain, removeAction, timepointField, timeView, type FieldDef, type Finder, type GroupDef, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import { BENEFITS, DEDUCTION_TYPES, INSURANCE_TEMPLATES, memberLabel, memberOptions, PREMIUM_FREQUENCY } from "../labels.ts";
 
 const contracts = (h: Household) => h.insuranceContracts;
 
 /** 払込の終わり: 被保険者の年齢（memberAge）で見せる。null は終身払い */
-function payUntilField(find: Finder, k: string): FieldDef {
+function payUntilField(find: Finder, k: string, id: string): FieldDef {
   return field({
     key: `${k}/payUntil`,
     item: "insurance.premium",
@@ -35,6 +35,18 @@ function payUntilField(find: Finder, k: string): FieldDef {
         if (x === undefined) return;
         x.premium.payUntil = v === null ? null : ({ memberAge: { member: x.insured, years: Number(v), months: 0 } } as Timepoint);
       }),
+    // 時点の部品（0038）: 被保険者の年齢（既定）・年月・出来事から（住宅ローンの完済など）。空欄は終身払い
+    time: timeView({
+      ageOf: (h) => h.members.find((m) => m.id === (h.insuranceContracts ?? []).find((x) => x.id === id)?.insured),
+      optional: true,
+      nullText: "終身払い（一時払いは不要）",
+      read: (w) => (find(w.request.input.household, w) as InsuranceContract | undefined)?.premium.payUntil ?? null,
+      write: (w, tp) =>
+        mutate(w, (h) => {
+          const x = find(h, w) as InsuranceContract | undefined;
+          if (x !== undefined) x.premium.payUntil = tp;
+        }),
+    }),
   });
 }
 
@@ -74,6 +86,7 @@ export function fitCoverages(c: InsuranceContract, template: string): void {
 
 function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): GroupDef[] {
   const find = byId(contracts, c.id);
+  const insured = (h: Household) => h.members.find((m) => m.id === (h.insuranceContracts ?? []).find((x) => x.id === c.id)?.insured);
   const k = `ins/${c.id}`;
   const deathIdx = (c.coverages ?? []).findIndex((x) => x.role === "main" && x.benefit === "death");
   const fields: FieldDef[] = [
@@ -83,7 +96,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
     plain({ key: `${k}/date`, item: "insurance.contractDate", label: "契約年月", level: "simple", kind: "ym", find, path: ["contractDate"] }),
     plain({ key: `${k}/premium`, item: "insurance.premium", label: "保険料（1回の額）", level: "simple", kind: "yen", basis: "once", find, path: ["premium", "amount"] }),
     plain({ key: `${k}/freq`, item: "insurance.premium", label: "払い方", level: "simple", kind: "select", options: PREMIUM_FREQUENCY, find, path: ["premium", "frequency"] }),
-    payUntilField(find, k),
+    payUntilField(find, k, c.id),
   ];
   if (deathIdx >= 0) {
     const findCov: Finder = (h, w) => (getPath(find(h, w), ["coverages", String(deathIdx)]) as Record<string, unknown> | undefined) ?? undefined;
@@ -125,8 +138,8 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       fields: [
         plain({ key: `${kc}/benefit`, item: "insurance.coverages", label: "給付の種類", level: "detail", kind: "select", options: BENEFITS, find: findCov, path: ["benefit"] }),
         plain({ key: `${kc}/amount`, item: "insurance.coverages", label: "金額", level: "detail", kind: "yen", basis: "once", find: findCov, path: ["amount"] }),
-        timepointField({ key: `${kc}/from`, item: "insurance.coverages", label: "保障の始まり", level: "detail", find: findCov, path: ["from"] }),
-        timepointField({ key: `${kc}/to`, item: "insurance.coverages", label: "保障の終わり", level: "detail", find: findCov, path: ["to"], optional: true, nullText: "終身" }),
+        timepointField({ key: `${kc}/from`, item: "insurance.coverages", label: "保障の始まり", level: "detail", find: findCov, path: ["from"], ageOf: insured, mode: "ym" }),
+        timepointField({ key: `${kc}/to`, item: "insurance.coverages", label: "保障の終わり", level: "detail", find: findCov, path: ["to"], startPath: ["from"], ageOf: insured, optional: true, nullText: "終身" }),
       ],
       actions: [
         removeAction(`${kc}/remove`, "外す", "detail", (h, w) => {

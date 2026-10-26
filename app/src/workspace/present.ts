@@ -5,6 +5,7 @@ import type { AgeAxisRow, CashflowTableModel, ChartModel, Depletion, EventChip, 
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
+import { resolveTimepoint } from "./timepoint.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
 /** ゆとりの支出の行（黒字のうち貯まらない分。0031） */
@@ -37,7 +38,7 @@ export function depletionYear(table: readonly TableCell[], years: readonly numbe
 /** その年に世帯にいるか（生まれていて、独立などで抜けていない。gone: 亡くなった人の鍵と亡くなる年。翌年からいない） */
 export function inHousehold(r: Role, y: number, gone?: { key: string; year: number }): boolean {
   if (gone !== undefined && r.key === gone.key && y > gone.year) return false;
-  const leave = leaveYear(r.member);
+  const leave = leaveYear(r);
   return ageInYear(r.member, y) >= 0 && (leave === null || y <= leave);
 }
 
@@ -166,7 +167,7 @@ export function eventsOf(req: EngineRequest, proposed: readonly TableCell[], yea
     }
   }
   for (const r of rs) {
-    const ly = leaveYear(r.member);
+    const ly = leaveYear(r);
     if (ly !== null && r.member.kind === "child") add(ly, "独", `${r.label} 独立（${r.label}${ageInYear(r.member, ly)}歳）`);
   }
   const lv = (r: Role) => readLevers(req, r.member.id);
@@ -268,7 +269,7 @@ function goals(req: EngineRequest, proposed: readonly TableCell[], years: readon
   cards.push({ category: "退職", priority: "必要", title: "老後の生活資金", when: self !== undefined ? `${self.label}${ageInYear(self.member, last)}歳まで` : `${last}年まで`, amount: null, ...status(last) });
   for (const p of h.periodicExpenses ?? []) {
     const amount = p.amount.value ?? 0;
-    const to = (p as { to?: { at?: string } }).to?.at;
+    const to = resolveTimepoint(h, p.to) ?? undefined;
     cards.push({ category: "その他", priority: "希望", title: ROW_LABELS[p.row] === undefined || p.row === "cf.expense.lumpSum.other" ? "定期的な支出（旅行など）" : (ROW_LABELS[p.row] as string), when: `${p.everyYears}年ごとに ${man(amount)}万円`, amount: null, ...status(to !== undefined ? parseYm(to).y : last) });
   }
   cards.push({ category: "夢", priority: "夢", title: "まだ入れていません", when: "例: 夫婦で海外旅行、車の買い替え", amount: null, ready: null, shortNote: null });

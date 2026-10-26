@@ -1,22 +1,30 @@
 // 構成員の呼び方（顧客の名前は持たない・出さない。0012）: ご主人・奥様・長男・長女 など
 import type { EngineRequest, Member } from "../engine/types.ts";
 import { parseYm } from "./levers.ts";
+import { resolveTimepoint } from "./timepoint.ts";
 
 export interface Role {
   /** 提示用の鍵（物の ID を提示層に渡さないため）: self・spouse・child1 … */
   key: string;
   label: string;
   member: Member;
+  /** 世帯から抜ける月（独立など。年齢・出来事で決めた時点も解いた年月）。抜けない人は null */
+  leaves: string | null;
 }
 
 const ORDINAL_SON = ["長男", "次男", "三男", "四男", "五男"];
 const ORDINAL_DAUGHTER = ["長女", "次女", "三女", "四女", "五女"];
 
 export function roles(req: EngineRequest): Role[] {
+  const h = req.input.household;
+  return rolesOf(req).map((r) => ({ ...r, leaves: resolveTimepoint(h, r.member.leaves) }));
+}
+
+function rolesOf(req: EngineRequest): Omit<Role, "leaves">[] {
   const ms = req.input.household.members;
   const self = ms.find((m) => m.kind === "self");
   const spouse = ms.find((m) => m.kind === "spouse");
-  const out: Role[] = [];
+  const out: Omit<Role, "leaves">[] = [];
   const coupleLabel = (m: Member) => (m.sex === "female" ? "奥様" : "ご主人");
   if (self !== undefined) out.push({ key: "self", label: spouse !== undefined ? coupleLabel(self) : "ご本人", member: self });
   if (spouse !== undefined) out.push({ key: "spouse", label: coupleLabel(spouse), member: spouse });
@@ -36,8 +44,8 @@ export function ageInYear(m: Member, year: number): number {
   return year - parseYm(m.birth.birthYearMonth).y;
 }
 
-/** 世帯から抜ける年（独立など）。抜けない人は null */
-export function leaveYear(m: Member): number | null {
-  const at = m.leaves?.at;
-  return at === undefined ? null : parseYm(at).y;
+/** 世帯から抜ける年（独立など）。抜けない人は null。年齢・出来事で決めた時点も解く（構成員だけを渡すと、本人の年齢と年月の形だけ解く） */
+export function leaveYear(r: Role | Member): number | null {
+  const at = "member" in r ? r.leaves : resolveTimepoint({ members: [r], events: [] }, r.leaves);
+  return at === null ? null : parseYm(at).y;
 }

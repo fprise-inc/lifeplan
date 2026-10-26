@@ -1,8 +1,9 @@
 // 打ち手（主画面の右のスライダー）を世帯の入力に当てはめる。
 // いまは「現状の世帯に打ち手を当てた要求」を直接作る。0008 の5 のプランの層（提案＝差分の列）ができたら、
 // ここは「打ち手 → 差分」を作る部品に置き換える（作る差分の中身はここと同じ）。
-import type { EmploymentPeriod, EngineRequest, Member, Timepoint } from "../engine/types.ts";
+import type { EmploymentPeriod, EngineRequest, Household, Member, Timepoint } from "../engine/types.ts";
 import { group } from "../presentation/format.ts";
+import { resolveTimepoint } from "./timepoint.ts";
 
 export interface LeverValues {
   /** 働く最後の年齢（この年齢に達する月の前月まで働く） */
@@ -46,9 +47,9 @@ export function ageReachedMonth(member: Member, age: number): string {
   return addMonths(ym(y + age, m), member.birth.bornOnFirst ? -1 : 0);
 }
 
-/** 月の時点の比較用（"YYYY-MM" は文字列のまま比べられる） */
-function atOf(t: Timepoint | null | undefined): string | null {
-  return t?.at ?? null;
+/** 月の時点の比較用（"YYYY-MM" は文字列のまま比べられる）。年齢・出来事で決めた時点も年月に解く */
+function atOf(h: Household, t: Timepoint | null | undefined): string | null {
+  return resolveTimepoint(h, t);
 }
 
 /** 年齢（その月の時点の満年齢） */
@@ -70,16 +71,16 @@ export function readLevers(req: EngineRequest, memberId: string): Partial<LeverV
   const h = req.input.household;
   const member = memberOf(req, memberId);
   const out: Partial<LeverValues> = {};
-  const ends = (h.employmentPeriods ?? []).filter((e) => e.member === memberId).map((e) => atOf(e.to)).filter((x): x is string => x !== null).sort();
+  const ends = (h.employmentPeriods ?? []).filter((e) => e.member === memberId).map((e) => atOf(h, e.to)).filter((x): x is string => x !== null).sort();
   const lastEnd = ends.at(-1);
   if (lastEnd !== undefined) out.retireAge = ageAt(member, addMonths(lastEnd, 1));
   const rec = (h.pensionRecords ?? []).find((r) => r.member === memberId);
   if (rec !== undefined) {
-    const claim = atOf(rec.claim?.basic);
+    const claim = atOf(h, rec.claim?.basic);
     out.pensionAge = claim === null ? 65 : ageAt(member, addMonths(claim, -1));
   }
   const nisa = (h.accounts ?? []).find((a) => a.kind === "nisa" && a.owner === memberId);
-  if (nisa !== undefined) out.nisaMonthly = (nisa.contributions ?? []).filter((c) => c.tranche !== "growth").sort((x, y) => ((atOf(x.from) ?? "") < (atOf(y.from) ?? "") ? -1 : 1))[0]?.monthly ?? 0;
+  if (nisa !== undefined) out.nisaMonthly = (nisa.contributions ?? []).filter((c) => c.tranche !== "growth").sort((x, y) => ((atOf(h, x.from) ?? "") < (atOf(h, y.from) ?? "") ? -1 : 1))[0]?.monthly ?? 0;
   const living = (h.livingExpenses ?? []).find((l) => l.mode === "total");
   if (living?.monthly?.value != null) out.livingMonthly = living.monthly.value;
   return out;
@@ -113,57 +114,9 @@ export function applyLevers(base: EngineRequest, memberId: string, values: Parti
 
   if (values.retireAge !== undefined && values.retireAge !== current.retireAge) {
     const lastMonth = addMonths(ageReachedMonth(member, values.retireAge), -1);
-    const mine = (h.employmentPeriods ?? []).filter((e) => e.member === memberId);
-    const others = (h.employmentPeriods ?? []).filter((e) => e.member !== memberId);
-    // その月より後に始まる期間は外し、またぐ期間はその月で終える
-    const kept: EmploymentPeriod[] = [];
-    for (const e of mine) {
-      const from = atOf(e.from);
-      if (from !== null && from > lastMonth) continue;
-      const to = atOf(e.to);
-      kept.push(to === null || to > lastMonth ? { ...e, to: { at: lastMonth } } : e);
-    }
-    const lastEnd = kept.map((e) => atOf(e.to)).filter((x): x is string => x !== null).sort().at(-1);
-    if (lastEnd !== undefined && lastEnd < lastMonth) {
-      const r = opts.reemployment;
-      const tail = kept.find((e) => atOf(e.to) === lastEnd) as EmploymentPeriod;
-      if (r !== undefined && r.type === "selfEmployed") {
-        // 定年の後に自営業: 事業の所得で、その年齢まで（健康保険・年金の種類はエンジンが導く）
-        kept.push({ id: derivedId(tail.id, "reemployment"), member: memberId, from: { at: addMonths(lastEnd, 1) }, to: { at: lastMonth }, type: "selfEmployed", business: { income: box(r.annualSalary) } });
-      } else if (r !== undefined) {
-        // 定年の後: 再雇用などの働き方で、その年齢まで
-        const smr = r.standardMonthlyRemuneration;
-        const { standardMonthlyRemuneration: _smr, corporatePension: _cp, business: _b, ...rest } = tail;
-        void _smr;
-        void _cp;
-        void _b;
-        kept.push({
-          ...rest,
-          id: derivedId(tail.id, "reemployment"),
-          from: { at: addMonths(lastEnd, 1) },
-          to: { at: lastMonth },
-          type: r.type,
-          healthInsurance: rest.healthInsurance ?? { kind: "kyokaikenpo" },
-          pensionCategory: rest.pensionCategory ?? "employee1",
-          employer: rest.employer ?? { size: 50, weeklyHours: "30" },
-          salary: { annual: box(r.annualSalary), bonus: box(0) },
-          ...(smr !== undefined ? { standardMonthlyRemuneration: { health: box(smr), pension: box(smr) } } : {}),
-        });
-      } else {
-        kept[kept.indexOf(tail)] = { ...tail, to: { at: lastMonth } };
-      }
-    }
-    h.employmentPeriods = [...others, ...kept];
-    // 退職の段階の生活費・NISA の積立の終わりも、退職に合わせる
-    for (const l of h.livingExpenses ?? []) {
-      for (const s of l.stages ?? []) if (s.label === "retirement") s.at = { at: ageReachedMonth(member, values.retireAge) };
-    }
     // 積立の終わりが退職の月だった積立だけ、新しい退職の月に合わせる（空の終わりは、エンジンが退職の月まで積み立てる。0026）
     const oldEnd = current.retireAge !== undefined ? addMonths(ageReachedMonth(member, current.retireAge), -1) : null;
-    for (const a of h.accounts ?? []) {
-      if (a.kind !== "nisa" || a.owner !== memberId) continue;
-      for (const c of a.contributions ?? []) if (c.to !== null && atOf(c.to) === oldEnd) c.to = { at: lastMonth };
-    }
+    retireAt(req, memberId, lastMonth, ageReachedMonth(member, values.retireAge), oldEnd, opts);
   }
 
   if (values.pensionAge !== undefined && values.pensionAge !== current.pensionAge) {
@@ -171,7 +124,77 @@ export function applyLevers(base: EngineRequest, memberId: string, values: Parti
     const claim: Timepoint = { at: addMonths(ageReachedMonth(member, values.pensionAge), 1) };
     for (const r of h.pensionRecords ?? []) if (r.member === memberId) r.claim = { basic: claim, employee: claim };
   }
+  return applyRest(req, memberId, values, current);
+}
 
+/**
+ * 働く最後の月を、年齢の整数でない月にする（入力の画面の「働く最後」を年月で入れたとき。例: 60歳の年度末まで）。
+ * 打ち手の「働く最後の年齢」と同じ決まりで働き方の期間を終え・足し、退職の段階の生活費は翌月から、積立の終わりは今の働く最後の月だったものを合わせる
+ */
+export function applyRetireMonth(base: EngineRequest, memberId: string, lastMonth: string, opts: { reemployment?: Reemployment } = {}): EngineRequest {
+  const req = structuredClone(base);
+  const h = req.input.household;
+  const oldEnd = (h.employmentPeriods ?? []).filter((e) => e.member === memberId).map((e) => atOf(h, e.to)).filter((x): x is string => x !== null).sort().at(-1) ?? null;
+  retireAt(req, memberId, lastMonth, addMonths(lastMonth, 1), oldEnd, opts);
+  return req;
+}
+
+/** 働く最後の月で、働き方の期間・退職の段階の生活費・NISA の積立の終わりを直す（req を書き換える） */
+function retireAt(req: EngineRequest, memberId: string, lastMonth: string, stageAt: string, oldEnd: string | null, opts: { reemployment?: Reemployment }): void {
+  const h = req.input.household;
+  const mine = (h.employmentPeriods ?? []).filter((e) => e.member === memberId);
+  const others = (h.employmentPeriods ?? []).filter((e) => e.member !== memberId);
+  // その月より後に始まる期間は外し、またぐ期間はその月で終える
+  const kept: EmploymentPeriod[] = [];
+  for (const e of mine) {
+    const from = atOf(h, e.from);
+    if (from !== null && from > lastMonth) continue;
+    const to = atOf(h, e.to);
+    kept.push(to === null || to > lastMonth ? { ...e, to: { at: lastMonth } } : e);
+  }
+  const lastEnd = kept.map((e) => atOf(h, e.to)).filter((x): x is string => x !== null).sort().at(-1);
+  if (lastEnd !== undefined && lastEnd < lastMonth) {
+    const r = opts.reemployment;
+    const tail = kept.find((e) => atOf(h, e.to) === lastEnd) as EmploymentPeriod;
+    if (r !== undefined && r.type === "selfEmployed") {
+      // 定年の後に自営業: 事業の所得で、その年齢まで（健康保険・年金の種類はエンジンが導く）
+      kept.push({ id: derivedId(tail.id, "reemployment"), member: memberId, from: { at: addMonths(lastEnd, 1) }, to: { at: lastMonth }, type: "selfEmployed", business: { income: box(r.annualSalary) } });
+    } else if (r !== undefined) {
+      // 定年の後: 再雇用などの働き方で、その年齢まで
+      const smr = r.standardMonthlyRemuneration;
+      const { standardMonthlyRemuneration: _smr, corporatePension: _cp, business: _b, ...rest } = tail;
+      void _smr;
+      void _cp;
+      void _b;
+      kept.push({
+        ...rest,
+        id: derivedId(tail.id, "reemployment"),
+        from: { at: addMonths(lastEnd, 1) },
+        to: { at: lastMonth },
+        type: r.type,
+        healthInsurance: rest.healthInsurance ?? { kind: "kyokaikenpo" },
+        pensionCategory: rest.pensionCategory ?? "employee1",
+        employer: rest.employer ?? { size: 50, weeklyHours: "30" },
+        salary: { annual: box(r.annualSalary), bonus: box(0) },
+        ...(smr !== undefined ? { standardMonthlyRemuneration: { health: box(smr), pension: box(smr) } } : {}),
+      });
+    } else {
+      kept[kept.indexOf(tail)] = { ...tail, to: { at: lastMonth } };
+    }
+  }
+  h.employmentPeriods = [...others, ...kept];
+  // 退職の段階の生活費・NISA の積立の終わりも、退職に合わせる
+  for (const l of h.livingExpenses ?? []) {
+    for (const s of l.stages ?? []) if (s.label === "retirement") s.at = { at: stageAt };
+  }
+  for (const a of h.accounts ?? []) {
+    if (a.kind !== "nisa" || a.owner !== memberId) continue;
+    for (const c of a.contributions ?? []) if (c.to !== null && atOf(h, c.to) === oldEnd) c.to = { at: lastMonth };
+  }
+}
+
+function applyRest(req: EngineRequest, memberId: string, values: Partial<LeverValues>, current: Partial<LeverValues>): EngineRequest {
+  const h = req.input.household;
   if (values.nisaMonthly !== undefined && values.nisaMonthly !== current.nisaMonthly) {
     // 期間を分けた積立は、どの期間も同じだけ増減する（0026）。積立が無ければ今から（終わりは空＝退職の年まで）
     const delta = values.nisaMonthly - (current.nisaMonthly ?? 0);
@@ -229,7 +252,8 @@ export function feeSummary(req: EngineRequest): string {
       if (one > 0) parts.push(`単発${manYen(one)}`);
       const r = c.terms?.recurring;
       if (r !== undefined) {
-        const from = r.from.at !== undefined ? `（${Number(r.from.at.slice(0, 4))}年${Number(r.from.at.slice(5))}月から）` : "";
+        const at = resolveTimepoint(req.input.household, r.from);
+        const from = at !== null ? `（${Number(at.slice(0, 4))}年${Number(at.slice(5))}月から）` : "";
         if (r.annual !== undefined) parts.push(`年額${manYen(r.annual)}${from}`);
         if (r.monthly !== undefined) parts.push(`月額${manYen(r.monthly)}${from}`);
       }

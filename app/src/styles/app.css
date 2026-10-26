@@ -268,6 +268,9 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-c input.num { width: 9.5em; text-align: right; font-variant-numeric: tabular-nums; }
 .fld-c input.txt { width: 100%; max-width: 18em; }
 .fld-c input.ym { width: 7.5em; font-variant-numeric: tabular-nums; }
+.fld-c input.when-in { width: 10.5em; max-width: 100%; font-variant-numeric: tabular-nums; }
+.fld-c select.when-mode, .fld-c select.when-who, .fld-c select.when-event { font-size: 0.85rem; padding: 4px 6px; }
+.fld-help.when-read { color: var(--ink); }
 .in-group.compact { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 8px 12px; }
 .in-group.compact .in-group-h { margin: 0; flex-direction: column; align-items: flex-start; gap: 0; }
 .in-group.compact .fields { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }

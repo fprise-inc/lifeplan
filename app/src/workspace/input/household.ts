@@ -1,7 +1,7 @@
 // 画面の中で編集する世帯（作業の層）。計算エンジンに渡す要求（0008 の形の世帯と前提条件）と、
 // エンジンに渡さない画面の側の値（FP が付ける呼び名・定年後の予定の条件・FP用のメモ・万一の想定の前提・FPが足した項目・保存した項目）を1つにまとめる。
 // 保存・暗号化はまだ無い（次の回。世帯ファイルの封筒 0011 に入れる）。アプリを閉じると消える
-import type { Box, EmploymentPeriod, EngineRequest, Household, Member } from "../../engine/types.ts";
+import type { Box, EmploymentPeriod, EngineRequest, Household, Member, Timepoint } from "../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, parseYm, type Reemployment } from "../levers.ts";
 import { emptyPlan, planFromRequest, type ContingencyPlan } from "../contingency/planData.ts";
 import { livingEstimate } from "./estimates.ts";
@@ -222,21 +222,31 @@ export function followStandards(before: WorkingHousehold, after: WorkingHousehol
   const stdBefore = standardEndYear(hb);
   const stdAfter = standardEndYear(ha);
   const fixEnd = Number.isFinite(stdBefore) && Number.isFinite(stdAfter) && endBefore === stdBefore && after.request.input.endYear === endBefore && stdAfter !== endBefore;
-  const kids: { id: string; at: string }[] = [];
+  // 独立の時点が子の独立の出来事を指している（出来事が正本。0038）なら、出来事の年月を見る
+  const leavesAt = (h: Household, m: Member): Timepoint | null | undefined => {
+    const t = m.leaves;
+    if (t?.event === undefined || (t.offset?.years ?? 0) * 12 + (t.offset?.months ?? 0) !== 0) return t;
+    return (h.events ?? []).find((e) => e.id === t.event)?.at;
+  };
+  const kids: { id: string; at: string; event?: string }[] = [];
   for (const m of ha.members) {
     const old = hb.members.find((x) => x.id === m.id);
     if (old === undefined || old.kind !== "child" || m.kind !== "child") continue;
-    const was = old.leaves?.at;
-    if (was === undefined || was !== standardLeaves(old) || JSON.stringify(m.leaves) !== JSON.stringify(old.leaves)) continue;
+    const was = leavesAt(hb, old)?.at;
+    if (was === undefined || was !== standardLeaves(old) || JSON.stringify(m.leaves) !== JSON.stringify(old.leaves) || JSON.stringify(leavesAt(ha, m)) !== JSON.stringify(leavesAt(hb, old))) continue;
     const next = standardLeaves(m);
-    if (next !== was) kids.push({ id: m.id, at: next });
+    if (next !== was) kids.push({ id: m.id, at: next, ...(m.leaves?.event !== undefined ? { event: m.leaves.event } : {}) });
   }
   if (!fixEnd && kids.length === 0) return after;
   return mutate(after, (h, req) => {
     if (fixEnd) req.input.endYear = stdAfter;
     for (const k of kids) {
-      const m = h.members.find((x) => x.id === k.id);
-      if (m !== undefined) m.leaves = { at: k.at };
+      const e = k.event === undefined ? undefined : (h.events ?? []).find((x) => x.id === k.event);
+      if (e !== undefined) e.at = { at: k.at };
+      else {
+        const m = h.members.find((x) => x.id === k.id);
+        if (m !== undefined) m.leaves = { at: k.at };
+      }
     }
   });
 }

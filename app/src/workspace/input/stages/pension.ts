@@ -2,7 +2,10 @@
 // 加入歴を細かく入れる形は「詳しく入れる」で開く。受け取り開始（繰上げ・繰下げ）も入れる
 import type { Household, Member, PensionRecord, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth } from "../../levers.ts";
-import { byId, field, plain, removeAction, yenBox, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { ageSwitchMonth } from "../../timepoint.ts";
+import { byId, field, plain, removeAction, resolveTimepoint, timeView, yenBox, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { formatYearMonth } from "../units.ts";
+import { sameWhen } from "../when.ts";
 import { estimatedBox, mutate, newId, periodsOf, type WorkingHousehold } from "../household.ts";
 import { earners, HISTORY_CATEGORIES, memberLabel, PENSION_KINDS } from "../labels.ts";
 
@@ -100,8 +103,50 @@ const AMOUNT_HELP: Record<string, string> = {
 };
 
 function claimFields(m: Member, rec: PensionRecord, find: Finder, prefix: string): FieldDef[] {
-  const tpAge = (t: Timepoint | undefined) => (t?.at !== undefined ? claimAge(m, t.at) : null);
-  const derived = (t: Timepoint | undefined) => (t === undefined ? null : t.at === undefined ? "年齢・イベントで決めた時点" : claimMonth(m, claimAge(m, t.at)) !== t.at ? "月で決めた時点（年齢に直すとずれる）" : null);
+  const tpAge = (h: Household, t: Timepoint | undefined) => {
+    const ym = t === undefined ? null : resolveTimepoint(h, t);
+    return ym !== null ? claimAge(m, ym) : null;
+  };
+  // 整数の年齢で書き換えると年月の形になる時点（年齢・出来事で決めた時点、月まで決めた時点）の印。入力の画面は時点の部品で入れるので出さない
+  const derived = (h: Household, t: Timepoint | undefined) => {
+    if (t === undefined) return null;
+    if (t.at === undefined) return "年齢・出来事で決めた時点";
+    const ym = resolveTimepoint(h, t);
+    return ym !== null && claimMonth(m, claimAge(m, ym)) !== ym ? "月まで決めた時点（年齢の整数に直すとずれる）" : null;
+  };
+  // 時点の部品（0038）: 既定は本人の年齢で「65歳」＝65歳になった翌月から。「66歳3か月」のように月まで、年月・出来事からでも入れられる。
+  // 空欄は65歳から（標準）。60歳になった翌月から75歳になった翌月までの間だけ。結果のタブで動かす項目は年齢の整数のまま
+  const lo = ageSwitchMonth(m, 60, 0, "monthAfterReach");
+  const hi = ageSwitchMonth(m, 75, 0, "monthAfterReach");
+  const std = (): Timepoint => ({ memberAge: { member: m.id, years: 65, ageSwitch: "monthAfterReach" } });
+  const check = (w: WorkingHousehold, tp: Timepoint | null): string | null => {
+    const ym = tp === null ? null : resolveTimepoint(w.request.input.household, tp);
+    return ym !== null && (ym < lo || ym > hi) ? `受け取り開始は、60歳になった翌月（${formatYearMonth(lo)}）から75歳になった翌月（${formatYearMonth(hi)}）までの間で入れてください` : null;
+  };
+  /** 標準（65歳になった翌月）と同じ月の、出来事でない時点は省く（省略は標準） */
+  const tidy = (h: Household, r: PensionRecord) => {
+    const claim = r.claim;
+    if (claim === undefined) return;
+    for (const part of ["basic", "employee"] as const) {
+      const t = claim[part];
+      if (t !== undefined && t.event === undefined && resolveTimepoint(h, t) === claimMonth(m, 65)) delete claim[part];
+    }
+    if (claim.basic === undefined && claim.employee === undefined) delete r.claim;
+  };
+  const rec0 = (w: WorkingHousehold) => find(w.request.input.household, w) as PensionRecord | undefined;
+  const common = { ageOf: (h: Household) => h.members.find((x) => x.id === m.id), mode: "age" as const, ageMeans: "after" as const, optional: true, nullText: "65歳から（標準）", fallback: () => std(), check };
+  const writeClaim = (parts: readonly ("basic" | "employee")[]) => (w: WorkingHousehold, tp: Timepoint | null) =>
+    mutate(w, (h) => {
+      const r = find(h, w) as PensionRecord | undefined;
+      if (r === undefined) return;
+      const claim = { ...r.claim };
+      for (const part of parts) {
+        if (tp === null) delete claim[part];
+        else claim[part] = structuredClone(tp);
+      }
+      r.claim = claim;
+      tidy(h, r);
+    });
   const both = field({
     key: `${prefix}/claim`,
     item: "pensionRecord.claim",
@@ -111,12 +156,15 @@ function claimFields(m: Member, rec: PensionRecord, find: Finder, prefix: string
     suffix: "歳から",
     min: 60,
     max: 75,
-    help: "65歳より前は繰上げ（減額）、後は繰下げ（増額）。結果の対策でも動かせます",
+    help: "65歳より前は繰上げ（減額）、後は繰下げ（増額）。「66歳3か月」のように月まで入れられます。結果の対策でも動かせます",
+    time: timeView({ ...common, anchor: "pensionStart", read: (w) => rec0(w)?.claim?.basic ?? null, write: writeClaim(["basic", "employee"]) }),
     get: (w) => {
-      const r = find(w.request.input.household, w) as PensionRecord | undefined;
-      const age = tpAge(r?.claim?.basic) ?? 65;
-      const split = r?.claim?.basic?.at !== r?.claim?.employee?.at;
-      return { value: age, derived: derived(r?.claim?.basic) ?? (split ? "基礎と厚生で別の年齢（詳しく入れるで見られます）" : null), ...(r?.claim === undefined ? { implicit: true } : {}) };
+      const h = w.request.input.household;
+      const r = rec0(w);
+      const age = tpAge(h, r?.claim?.basic) ?? 65;
+      const split = r?.claim !== undefined && !sameWhen(r.claim.basic ?? std(), r.claim.employee ?? std());
+      const splitText = "基礎と厚生で別の時点です（詳しく入れるで見られます）。ここを直すと両方そろえます";
+      return { value: age, derived: derived(h, r?.claim?.basic) ?? (split ? splitText : null), ...(split ? { warn: splitText } : {}), ...(r?.claim === undefined ? { implicit: true } : {}) };
     },
     set: (w, v) =>
       mutate(w, (h) => {
@@ -136,9 +184,11 @@ function claimFields(m: Member, rec: PensionRecord, find: Finder, prefix: string
       suffix: "歳から",
       min: 60,
       max: 75,
+      time: timeView({ ...common, read: (w) => rec0(w)?.claim?.[part] ?? null, write: writeClaim([part]) }),
       get: (w) => {
-        const r = find(w.request.input.household, w) as PensionRecord | undefined;
-        return { value: tpAge(r?.claim?.[part]) ?? 65, derived: derived(r?.claim?.[part]), ...(r?.claim?.[part] === undefined ? { implicit: true } : {}) };
+        const h = w.request.input.household;
+        const r = rec0(w);
+        return { value: tpAge(h, r?.claim?.[part]) ?? 65, derived: derived(h, r?.claim?.[part]), ...(r?.claim?.[part] === undefined ? { implicit: true } : {}) };
       },
       set: (w, v) =>
         mutate(w, (h) => {

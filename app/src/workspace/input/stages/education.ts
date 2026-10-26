@@ -82,7 +82,19 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   const fields: FieldDef[] = [];
   if (s.stage === "nursery") {
     fields.push(
-      timepointField({ key: `${key}/from`, item: "goal.education", label: "通い始める時期", level: "simple", find, path: ["from"], optional: true, absentWhenEmpty: true, nullText: `空欄: ${nurseryStart}`, help: "空欄なら、その子の育児休業の終わりの翌月（育児休業を入れていなければ1歳の学年の4月）から" }),
+      timepointField({
+        key: `${key}/from`,
+        item: "goal.education",
+        label: "通い始める時期",
+        level: "simple",
+        find,
+        path: ["from"],
+        ageOf: (h) => h.members.find((m) => m.id === (h.goals ?? []).find((g) => g.id === goalId)?.owner),
+        optional: true,
+        absentWhenEmpty: true,
+        nullText: `空欄: ${nurseryStart}`,
+        help: "空欄なら、その子の育児休業の終わりの翌月（育児休業を入れていなければ1歳の学年の4月）から。「1歳の4月」のように子の年齢でも入れられます",
+      }),
       plain({
         key: `${key}/monthly`,
         item: "goal.education",
@@ -255,7 +267,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
         plain({ key: `${k}/label`, item: "goal.education", label: "名前", level: "detail", kind: "text", find: findL, path: ["label"], optional: true }),
         plain({ key: `${k}/monthly`, item: "goal.education", label: "月謝（月額）", level: "detail", kind: "yen", basis: "monthly", find: findL, path: ["monthly"], help: LESSONS_HELP }),
         timepointField({ key: `${k}/from`, item: "goal.education", label: "始まり", level: "detail", find: findL, path: ["from"], ageOf: (hh) => hh.members.find((m) => m.id === child.id) }),
-        timepointField({ key: `${k}/to`, item: "goal.education", label: "終わり", level: "detail", find: findL, path: ["to"], ageOf: (hh) => hh.members.find((m) => m.id === child.id) }),
+        timepointField({ key: `${k}/to`, item: "goal.education", label: "終わり", level: "detail", find: findL, path: ["to"], startPath: ["from"], ageOf: (hh) => hh.members.find((m) => m.id === child.id) }),
       ],
       actions: [
         removeAction(`${k}/remove`, "外す", "detail", (hh) => {

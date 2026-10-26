@@ -1,12 +1,24 @@
 // 2. 働き方と収入: 今の働き方と年収（簡易）、定年後の予定（再雇用の年収・何歳まで）、退職金、働き方の期間の一覧（詳細）。
 // 被保険者の種別（第1〜3号）は入れない（エンジンが働き方の期間から導く。0008 の4）
 import type { EmploymentPeriod, Household, Member } from "../../../engine/types.ts";
-import { addMonths, ageAt, ageReachedMonth, applyLevers, readLevers } from "../../levers.ts";
+import type { Timepoint } from "../../../engine/types.ts";
+import { addMonths, ageAt, ageReachedMonth, applyLevers, applyRetireMonth, readLevers } from "../../levers.ts";
+import { resolveTimepoint } from "../../timepoint.ts";
 import { businessEstimate, careerStartMonth, ensureResidentTax, residentTaxEstimate, residentTaxYear, salaryAge, salaryEstimate, smrEstimate, smrMonth } from "../estimates.ts";
 import { healthRateEstimate } from "../../../../../hearing/src/estimates.ts";
-import { byId, field, plain, rateBox, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { byId, field, plain, rateBox, removeAction, timepointField, timeView, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { estimatedBox, mutate, newId, periodsOf, reemploymentOf, type PostRetirement, type WorkingHousehold } from "../household.ts";
 import { earners, EMPLOYMENT_TYPES, HEALTH_INSURANCE, KYOKAI_BRANCHES, LEAVE_KINDS, memberLabel, PENSION_CATEGORY, POST_RETIREMENT_TYPES } from "../labels.ts";
+import { formatYearMonth } from "../units.ts";
+
+/** 働き方の期間の時点は年月で持つ（定年・再雇用の見つけ方などが年月で読むため。0038） */
+const PERIOD_MONTH_ONLY = "働き方の期間は年月で持ちます（年齢・今からで入れても、その年月にします）";
+
+/** 「○歳になる前の月まで」と言える月なら、その年齢（働く最後・定年の欄）。言えなければ null */
+function ageBefore(m: Member, lastMonth: string): number | null {
+  const age = ageAt(m, addMonths(lastMonth, 1));
+  return addMonths(ageReachedMonth(m, age), -1) === lastMonth ? age : null;
+}
 
 const SALARIED = new Set(["regular", "contract", "partTime", "civilServant", "executive"]);
 const periods = (h: Household) => h.employmentPeriods;
@@ -147,6 +159,17 @@ function postPeriod(h: Household, m: Member, post: PostRetirement | undefined): 
 }
 
 function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
+  /** 働く最後の月（その人の働き方の期間の、いちばん遅い終わり） */
+  const lastEnd = (w: WorkingHousehold): Timepoint | null => {
+    const hh = w.request.input.household;
+    return (
+      periodsOf(hh, m.id)
+        .map((p) => p.to)
+        .filter((t): t is Timepoint => t !== null && resolveTimepoint(hh, t) !== null)
+        .sort((a, b) => ((resolveTimepoint(hh, a) as string) < (resolveTimepoint(hh, b) as string) ? -1 : 1))
+        .at(-1) ?? null
+    );
+  };
   const h = wh.request.input.household;
   const ps = periodsOf(h, m.id);
   if (ps.length === 0) return null;
@@ -168,6 +191,30 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
         help: "この年齢になる月の前月まで今の勤め先で働きます",
         get: (w) => ({ value: w.postRetirement[m.id]?.fromAge ?? null }),
         set: (w, v) => (v === null ? w : setMainEnd(w, m, Number(v))),
+        // 時点の部品（0038）: 「60歳」＝60歳になる前の月まで。年月でも入れられる（○歳になる前の月に当たる年月だけ）
+        time: timeView({
+          ageOf: (hh) => hh.members.find((x) => x.id === m.id),
+          mode: "age",
+          modes: ["age", "ym"],
+          ageMeans: "before",
+          read: (w) => {
+            const fromAge = w.postRetirement[m.id]?.fromAge;
+            return fromAge === undefined ? null : { at: addMonths(ageReachedMonth(m, fromAge), -1) };
+          },
+          check: (w, tp) => {
+            const ym = tp === null ? null : resolveTimepoint(w.request.input.household, tp);
+            if (tp === null) return "空にはできません。年齢を入れてください";
+            if (ym === null) return null;
+            if (ageBefore(m, ym) === null) return `定年は「○歳になる前の月まで」で決めます（${formatYearMonth(ym)}は${ageAt(m, ym)}歳の途中です）。月まで決めるときは、詳しく入れるの働き方の期間の終わりで入れてください`;
+            const age = ageBefore(m, ym) as number;
+            return age < 40 || age > 80 ? "定年は40歳〜80歳の範囲で入れてください" : null;
+          },
+          write: (w, tp) => {
+            const ym = tp === null ? null : resolveTimepoint(w.request.input.household, tp);
+            const age = ym === null ? null : ageBefore(m, ym);
+            return age === null ? w : setMainEnd(w, m, age);
+          },
+        }),
       }),
       field({
         key: `work/${m.id}/postType`,
@@ -249,6 +296,32 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
         return { value: v, hint: v === null ? "終わりを決めていない（最後まで）" : null };
       },
       set: (w, v) => (v === null ? w : setRetireAge(w, m, Number(v))),
+      // 時点の部品（0038）: 「65歳」＝65歳になる前の月まで働く。年月（60歳の年度末など）・今からでも入れられる
+      time: timeView({
+        ageOf: (hh) => hh.members.find((x) => x.id === m.id),
+        mode: "age",
+        modes: ["age", "ym", "now"],
+        ageMeans: "before",
+        nullText: "終わりを決めていない（最後まで）",
+        read: (w) => lastEnd(w),
+        check: (w, tp) => {
+          if (tp === null) return "空にはできません（終わりを外すときは、詳しく入れるの働き方の期間で）";
+          const ym = resolveTimepoint(w.request.input.household, tp);
+          if (ym === null) return null;
+          const age = ageAt(m, addMonths(ym, 1));
+          return age < 40 || age > 90 ? "働く最後は40歳〜90歳の範囲で入れてください" : null;
+        },
+        write: (w, tp) => {
+          const ym = tp === null ? null : resolveTimepoint(w.request.input.household, tp);
+          const now = lastEnd(w);
+          // 同じ月なら何もしない（形だけ違う時点を入れ直しても、働き方の期間・生活費の節目を作り直さない）
+          if (ym === null || (now !== null && resolveTimepoint(w.request.input.household, now) === ym)) return w;
+          const age = ageBefore(m, ym);
+          if (age !== null) return setRetireAge(w, m, age);
+          const r = reemploymentOf(w.postRetirement[m.id]);
+          return { ...w, request: applyRetireMonth(w.request, m.id, ym, r !== undefined ? { reemployment: r } : {}) };
+        },
+      }),
     }),
   );
   return {
@@ -355,8 +428,22 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
   const d = "detail" as const;
   if (level === "detail") {
     fields.push(
-      timepointField({ key: `${prefix}/from`, item: "employment.from", label: "始まり", level: "detail", find, path: ["from"], ageOf: (h) => h.members.find((x) => x.id === m.id) }),
-      timepointField({ key: `${prefix}/to`, item: "employment.to", label: "終わり（最後の月）", level: "detail", find, path: ["to"], ageOf: (h) => h.members.find((x) => x.id === m.id), optional: true, nullText: "終わりを決めていない" }),
+      timepointField({ key: `${prefix}/from`, item: "employment.from", label: "始まり", level: "detail", find, path: ["from"], ageOf: (h) => h.members.find((x) => x.id === m.id), modes: ["age", "ym", "now"], monthOnly: PERIOD_MONTH_ONLY }),
+      timepointField({
+        key: `${prefix}/to`,
+        item: "employment.to",
+        label: "終わり（最後の月）",
+        level: "detail",
+        find,
+        path: ["to"],
+        ageOf: (h) => h.members.find((x) => x.id === m.id),
+        modes: ["age", "ym", "now"],
+        ageMeans: "before",
+        startPath: ["from"],
+        monthOnly: PERIOD_MONTH_ONLY,
+        optional: true,
+        nullText: "終わりを決めていない",
+      }),
     );
   }
   fields.push(
@@ -445,7 +532,7 @@ function benefitGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
           path: ["kind"],
         }),
         yenBox({ key: `work/benefit/${b.id}/amount`, item: "retirementBenefit.amount", label: "見込み額（一時金）", level: "simple", basis: "once", find, path: ["amount"], optional: true, help: "空欄のときは、見込みの計算（公務員の支給率など）を使います" }),
-        timepointField({ key: `work/benefit/${b.id}/paidAt`, item: "retirementBenefit.paidAt", label: "受け取る年月", level: "detail", find, path: ["paidAt"], ageOf: (hh) => hh.members.find((x) => x.id === m.id), optional: true, absentWhenEmpty: true, nullText: "勤め先を辞めた翌月" }),
+        timepointField({ key: `work/benefit/${b.id}/paidAt`, item: "retirementBenefit.paidAt", label: "受け取る年月", level: "detail", find, path: ["paidAt"], ageOf: (hh) => hh.members.find((x) => x.id === m.id), mode: "ym", optional: true, absentWhenEmpty: true, nullText: "勤め先を辞めた翌月" }),
       ],
       actions: [removeAction(`work/benefit/${b.id}/remove`, "外す", "simple", (hh) => void (hh.retirementBenefits = (hh.retirementBenefits ?? []).filter((x) => x.id !== b.id)))],
     };

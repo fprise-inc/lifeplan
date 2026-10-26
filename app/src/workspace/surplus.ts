@@ -5,6 +5,7 @@
 // - 控えから実際の貯まり方を出す: 控えの時点の金融資産＋その間の見込みの黒字と、今の実際の金融資産を比べる（自動では入れない）
 import type { EngineRequest, SurplusSavingRule, SurplusSavingSetting, TableCell, Timepoint } from "../engine/types.ts";
 import { addMonths, ageReachedMonth, parseYm } from "./levers.ts";
+import { resolveTimepoint } from "./timepoint.ts";
 import { SURPLUS_ROW } from "./present.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
@@ -67,9 +68,9 @@ export function presetPoints(req: EngineRequest): { children: string | null; ret
   const h = req.input.household;
   const now = req.input.baseMonth;
   const kids = h.members.filter((m) => m.kind === "child");
-  const indep = kids.map((m) => m.leaves?.at ?? ageReachedMonth(m, 22)).sort().at(-1) ?? null;
+  const indep = kids.map((m) => resolveTimepoint(h, m.leaves) ?? ageReachedMonth(m, 22)).sort().at(-1) ?? null;
   const self = h.members.find((m) => m.kind === "self");
-  const lastWork = self === undefined ? undefined : (h.employmentPeriods ?? []).filter((e) => e.member === self.id).map((e) => e.to?.at ?? null).filter((x): x is string => x !== null).sort().at(-1);
+  const lastWork = self === undefined ? undefined : (h.employmentPeriods ?? []).filter((e) => e.member === self.id).map((e) => resolveTimepoint(h, e.to)).filter((x): x is string => x !== null).sort().at(-1);
   const retire = lastWork === undefined ? null : addMonths(lastWork, 1);
   return { children: indep !== null && indep > now ? indep : null, retirement: retire !== null && retire > now ? retire : null };
 }

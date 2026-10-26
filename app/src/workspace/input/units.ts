@@ -113,14 +113,44 @@ export function parseInteger(text: string): number | null {
   return Number.isSafeInteger(n) ? n : null;
 }
 
-/** 年月の入力（2041-06・2041/6・2041年6月・204106）→ "YYYY-MM"。読めなければ null */
+/** 年月の入力（2041-06・2041/6・2041年6月・204106・令和23年6月・R23.6）→ "YYYY-MM"。読めなければ null */
 export function parseYearMonth(text: string): string | null {
+  const w = parseWareki(text);
+  if (w !== null) return w;
   const t = normalizeNumberText(text).replace(/[／/.年]/g, "-").replace(/月$/, "");
   const m = /^(\d{4})-?(\d{1,2})$/.exec(t);
   if (m === null) return null;
   const mo = Number(m[2]);
   if (mo < 1 || mo > 12) return null;
   return `${m[1]}-${String(mo).padStart(2, "0")}`;
+}
+
+/** 元号の初めの年の前の年（西暦＝これ＋和暦の年） */
+const ERAS: readonly (readonly [RegExp, number])[] = [
+  [/^(令和|令|r)/i, 2018],
+  [/^(平成|平|h)/i, 1988],
+  [/^(昭和|昭|s)/i, 1925],
+  [/^(大正|大|t)/i, 1911],
+  [/^(明治|明|m)/i, 1867],
+];
+
+/**
+ * 和暦の年月（令和23年6月・R23.6・r23/6・平成元年4月・H31.4）→ "YYYY-MM"。和暦でなければ null。
+ * 年は元号の初めの年からの足し算で読む（平成31年5月・令和元年4月のような、改元をまたいだ書き方もそのまま足す）
+ */
+export function parseWareki(text: string): string | null {
+  const t = text.normalize("NFKC").replace(/\s/g, "");
+  for (const [re, base] of ERAS) {
+    const head = re.exec(t);
+    if (head === null) continue;
+    const m = /^(元|\d{1,2})(?:年|[.\-/])(\d{1,2})月?$/.exec(t.slice(head[0].length));
+    if (m === null) return null;
+    const n = m[1] === "元" ? 1 : Number(m[1]);
+    const mo = Number(m[2]);
+    if (n < 1 || mo < 1 || mo > 12) return null;
+    return `${base + n}-${String(mo).padStart(2, "0")}`;
+  }
+  return null;
 }
 
 /** 年月を「2041年6月」と書く */

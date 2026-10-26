@@ -3,7 +3,7 @@
 import type { Car, Household, Member } from "../../../engine/types.ts";
 import { addMonths, ageAt, parseYm } from "../../levers.ts";
 import { CAR_ESTIMATE, type Estimate } from "../estimates.ts";
-import { byId, field, getPath, plain, resolveTimepoint, setPath, timepointField, type FieldDef, type Finder, type GroupDef, type Level, type StageDef } from "../form.ts";
+import { byId, field, getPath, plain, resolveTimepoint, setPath, timepointField, timeView, type FieldDef, type Finder, type GroupDef, type Level, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import { GROWTH_KINDS, memberLabel, memberOptions } from "../labels.ts";
 import { oneMinus } from "../units.ts";
@@ -84,7 +84,7 @@ export function carGroup(wh: WorkingHousehold, c: Car, i: number): GroupDef {
       fallback: false,
       help: "持っているときは、下の年月から買い替えます（その前の車検も数えます）",
     }),
-    timepointField({ key: `${k}/first`, item: "car.purchase", label: c.purchase.owned === true ? "次の買い替えの年月" : "購入の年月", level: "simple", find, path: ["purchase", "first"], ageOf: owner }),
+    timepointField({ key: `${k}/first`, item: "car.purchase", label: c.purchase.owned === true ? "次の買い替えの時期" : "購入の時期", level: "simple", find, path: ["purchase", "first"], ageOf: owner, mode: "now" }),
     field({
       key: `${k}/firstIn`,
       item: "car.purchase",
@@ -275,6 +275,21 @@ export function carGroup(wh: WorkingHousehold, c: Car, i: number): GroupDef {
             if (x.until !== undefined) x.until = null;
           } else x.until = { memberAge: { member: x.owner, years: Number(v), months: 0 } };
         }),
+      // 時点の部品（0038）: 名義の人の年齢（既定）・年月・今から・出来事からで入れる。結果のタブで動かす項目は年齢の整数のまま
+      time: timeView({
+        ageOf: owner,
+        optional: true,
+        nullText: "最後まで",
+        read: (w) => car(w.request.input.household, w)?.until ?? null,
+        write: (w, tp) =>
+          mutate(w, (h, req) => {
+            const x = car(h, { ...w, request: req });
+            if (x === undefined) return;
+            if (tp === null) {
+              if (x.until !== undefined) x.until = null;
+            } else x.until = tp;
+          }),
+      }),
     }),
     plain({ key: `${k}/growth`, item: "car.growth", label: "価格・維持費の伸び方", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, after: (_h, t, v) => fixGrowth(t, v) }),
   );
