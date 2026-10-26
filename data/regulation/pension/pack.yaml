@@ -25,9 +25,11 @@
 #   障害厚生年金の配偶者の加給年金額（pension.disability.spouseSupplement.baseAmount。見直さない）を新しいファイルで足した。在職老齢年金の支給停止調整額
 #   （pension.workingAdjustment.threshold）は毎年度改定されるので、令和8年度の行の適用を令和8年度に限った行（r4）で置き換え（r3 に supersededIn）、
 #   linkage indexed と改定の端数処理（pension.workingAdjustment.threshold.rounding）を足した。どれも原本と2つの読み方で照らし合わせた（reviewed）
+# 2026.11.0: 高年齢雇用継続給付を受ける月に65歳前の老齢厚生年金から止める最大の割合（6%→4%（令和7年4月）。pension.employmentBenefitAdjustment.maxStopRate）を
+#   新しいファイルで足した（日本年金機構のページで読んだ値で、原本での確認待ち）
 packId: regulation.pension
 formatVersion: "0.1"
-version: "2026.10.0"
+version: "2026.11.0"
 features: []
 title: 公的年金
 requires:
@@ -38,6 +40,7 @@ requires:
   pension.record: ">=1 <2"
   pension.oldAge: ">=1 <2"
   pension.supplementaryBenefit: ">=1 <2"
+  benefit.unemployment: ">=1 <2"
 license:
   values: CC0-1.0
   sources: 出典ごとの条件（各値の sources に記載。日本年金機構・厚生労働省などの公表資料）

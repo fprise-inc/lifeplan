@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:benefit.unemployment.output",
+  "title": "benefit.unemployment の出力（雇用保険の失業の給付・高年齢雇用継続給付と、65歳前の老齢厚生年金を止める月）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "receipts", "pensionStops"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "receipts": {
+      "description": "基本手当を受ける日のある月（日数は1か月を30日とみなす近似）と基本手当日額",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["month", "days", "daily"],
+        "properties": {
+          "month": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "days": { "type": "integer", "minimum": 1, "maximum": 31 },
+          "daily": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
+    },
+    "pensionStops": {
+      "description": "65歳前の老齢厚生年金（特別支給・繰上げ）を止める月。basicAllowance は全額、continuation は amount（月額）を在職老齢年金の停止に加えて止める",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["month", "kind"],
+        "properties": {
+          "month": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+          "kind": { "enum": ["basicAllowance", "continuation"] },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
+    }
+  }
+}

@@ -482,6 +482,300 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: employmentInsurance.basicAllowance.ageBand.from30
+    status: active
+    label: "基本手当の離職の日の年齢の区切り（30歳に達した日以後に離職）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.ageBand.from35
+    status: active
+    label: "基本手当の離職の日の年齢の区切り（35歳に達した日以後に離職）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.ageBand.from45
+    status: active
+    label: "基本手当の離職の日の年齢の区切り（45歳に達した日以後に離職）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.dailyWageMax.from30
+    status: active
+    label: "基本手当の賃金日額の上限額（離職の日の年齢 30歳以上45歳未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.dailyWageMax.from45
+    status: active
+    label: "基本手当の賃金日額の上限額（離職の日の年齢 45歳以上60歳未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.dailyWageMax.from60
+    status: active
+    label: "基本手当の賃金日額の上限額（離職の日の年齢 60歳以上65歳未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.dailyWageMax.under30
+    status: active
+    label: "基本手当の賃金日額の上限額（離職の日の年齢 30歳未満（65歳以上の高年齢求職者給付金も同じ））"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.dailyWageMin
+    status: active
+    label: "基本手当の賃金日額の下限額（全年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.general.from10
+    status: active
+    label: "基本手当の所定給付日数（一般の離職者・被保険者であった期間 10年以上20年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.general.from20
+    status: active
+    label: "基本手当の所定給付日数（一般の離職者・被保険者であった期間 20年以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.general.under10
+    status: active
+    label: "基本手当の所定給付日数（一般の離職者・被保険者であった期間 10年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from30.from1
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 30歳以上35歳未満・被保険者であった期間 1年以上5年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from30.from10
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 30歳以上35歳未満・被保険者であった期間 10年以上20年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from30.from20
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 30歳以上35歳未満・被保険者であった期間 20年以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from30.from5
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 30歳以上35歳未満・被保険者であった期間 5年以上10年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from35.from1
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 35歳以上45歳未満・被保険者であった期間 1年以上5年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from35.from10
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 35歳以上45歳未満・被保険者であった期間 10年以上20年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from35.from20
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 35歳以上45歳未満・被保険者であった期間 20年以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from35.from5
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 35歳以上45歳未満・被保険者であった期間 5年以上10年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from45.from1
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 45歳以上60歳未満・被保険者であった期間 1年以上5年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from45.from10
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 45歳以上60歳未満・被保険者であった期間 10年以上20年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from45.from20
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 45歳以上60歳未満・被保険者であった期間 20年以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from45.from5
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 45歳以上60歳未満・被保険者であった期間 5年以上10年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from60.from1
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 60歳以上65歳未満・被保険者であった期間 1年以上5年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from60.from10
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 60歳以上65歳未満・被保険者であった期間 10年以上20年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from60.from20
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 60歳以上65歳未満・被保険者であった期間 20年以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.from60.from5
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 60歳以上65歳未満・被保険者であった期間 5年以上10年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.under1
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・被保険者であった期間1年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.under30.from1
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 30歳未満・被保険者であった期間 1年以上5年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.under30.from10
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 30歳未満・被保険者であった期間 10年以上20年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.under30.from20
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 30歳未満・被保険者であった期間 20年以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.days.specific.under30.from5
+    status: active
+    label: "基本手当の所定給付日数（特定受給資格者・離職の日の年齢 30歳未満・被保険者であった期間 5年以上10年未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.elderlyAge
+    status: active
+    label: "基本手当の離職の日の年齢の区切り（65歳に達した日以後に離職）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.elderlyAlt.baseRate
+    status: active
+    label: "60歳以上65歳未満の基本手当の日額のもう一方の式の、45%になる賃金日額に掛ける率（百分の四十）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.elderlyAlt.wageRate
+    status: active
+    label: "60歳以上65歳未満の基本手当の日額のもう一方の式の、賃金日額に掛ける率（百分の五）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.rate.high
+    status: active
+    label: "基本手当の給付率（賃金日額が低い区分。百分の八十）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.rate.low
+    status: active
+    label: "基本手当の給付率（賃金日額が高い区分。百分の五十）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.rate.lowElderly
+    status: active
+    label: "基本手当の給付率（60歳以上65歳未満の賃金日額が高い区分。百分の四十五）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.rateBreak.elderly
+    status: active
+    label: "基本手当の給付率が45%になる賃金日額（60歳以上65歳未満。この額を超えると45%）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.rateBreak.full
+    status: active
+    label: "基本手当の給付率が80%から下がり始める賃金日額（この額未満は80%）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.rateBreak.half
+    status: active
+    label: "基本手当の給付率が50%になる賃金日額（60歳未満。この額を超えると50%）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.receiptMonths
+    status: active
+    label: "基本手当の受給期間（離職の日の翌日から1年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.requiredMonths.general
+    status: active
+    label: "基本手当の受給資格の被保険者期間（離職の日以前2年間に12か月以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.requiredMonths.specific
+    status: active
+    label: "特定受給資格者の受給資格の被保険者期間（離職の日以前1年間に6か月以上。高年齢求職者給付金も同じ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.restrictionMonths.voluntary
+    status: active
+    label: "正当な理由のない自己都合の離職の給付制限の期間（月。離職の日で決まる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.seniorAge
+    status: active
+    label: "基本手当の離職の日の年齢の区切り（60歳に達した日以後に離職）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.waitingDays
+    status: active
+    label: "基本手当の待期（失業している日が通算して7日に満たない間は支給しない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.windowMonths.general
+    status: active
+    label: "基本手当の受給資格の被保険者期間を数える期間（離職の日以前2年間）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.basicAllowance.windowMonths.specific
+    status: active
+    label: "特定受給資格者の受給資格の被保険者期間を数える期間（離職の日以前1年間）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: employmentInsurance.careLeaveBenefit.maxDays
     status: active
     label: "介護休業給付金の支給の日数の上限（対象の家族1人につき通算93日）"
@@ -539,6 +833,66 @@ entries:
   - id: employmentInsurance.coverage.weeklyHours
     status: active
     label: "雇用保険の被保険者になる週の所定労働時間（以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.elderlyContinuation.fromAge
+    status: active
+    label: "高年齢雇用継続基本給付金の支給の始まりの年齢（60歳に達した月から）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.elderlyContinuation.fullRateRatio
+    status: active
+    label: "高年齢雇用継続基本給付金が最大の率になる賃金の割合（60歳に達した日で決まる。この割合未満は最大の率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.elderlyContinuation.maxRate
+    status: active
+    label: "高年齢雇用継続基本給付金の最大の率（賃金に掛ける。60歳に達した日で決まる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.elderlyContinuation.minimumAmount
+    status: active
+    label: "高年齢雇用継続給付の最低限度額（算定した額がこの額以下なら支給しない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.elderlyContinuation.monthlyLimit
+    status: active
+    label: "高年齢雇用継続給付の支給限度額（賃金＋給付の上限。月額）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.elderlyContinuation.requiredMonths
+    status: active
+    label: "高年齢雇用継続基本給付金の被保険者であった期間の要件（5年以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.elderlyContinuation.thresholdRatio
+    status: active
+    label: "高年齢雇用継続基本給付金の支給の要件（賃金が60歳到達時の賃金月額の75%未満）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.elderlyContinuation.untilAge
+    status: active
+    label: "高年齢雇用継続基本給付金の支給の終わりの年齢（65歳に達する月まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.elderlyJobSeeker.days.from1
+    status: active
+    label: "高年齢求職者給付金の日数（被保険者であった期間 1年以上。基本手当の日額の50日分）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: employmentInsurance.elderlyJobSeeker.days.under1
+    status: active
+    label: "高年齢求職者給付金の日数（被保険者であった期間 1年未満。基本手当の日額の30日分）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1637,6 +1991,12 @@ entries:
   - id: pension.employee.revisionFactor
     status: active
     label: "報酬比例（厚生年金）の年度の改定の比（スライド調整の率が基礎年金と違う年度だけ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: pension.employmentBenefitAdjustment.maxStopRate
+    status: active
+    label: "高年齢雇用継続給付を受ける月に65歳前の老齢厚生年金から止める最大の割合（標準報酬月額に掛ける。60歳に達した日で決まる）"
     since: draft
     aliases: []
     replacedBy: null

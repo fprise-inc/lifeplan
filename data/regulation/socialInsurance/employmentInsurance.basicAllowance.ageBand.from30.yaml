@@ -1,0 +1,22 @@
+id: employmentInsurance.basicAllowance.ageBand.from30
+title: 基本手当の離職の日の年齢の区切り（30歳に達した日以後に離職）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2017-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 30
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "雇用保険法 第16条第2項・第17条第4項・第23条第1項・第37条の2（令和8年5月13日の版）", "quote": "30歳", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.hellowork.mhlw.go.jp/insurance/insurance_benefitdays.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "ハローワーク「基本手当の所定給付日数」の離職時の年齢の区分", "quote": "30歳", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "所定給付日数（特定受給資格者）と賃金日額の上限の年齢区分。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

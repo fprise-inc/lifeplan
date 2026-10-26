@@ -1,0 +1,36 @@
+id: employmentInsurance.elderlyContinuation.fullRateRatio
+title: 高年齢雇用継続基本給付金が最大の率になる賃金の割合（60歳に達した日で決まる。この割合未満は最大の率）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2003-05-01"
+    appliesTo: "2025-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.61"
+    sources:
+      - {"type": "web", "url": "https://www.hellowork.mhlw.go.jp/insurance/insurance_continue.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "ハローワーク「高年齢雇用継続給付について」支給額", "quote": "令和7年3月31日以前に60歳に達した方: 61％以下の場合は各月の賃金の15％相当額", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/koyou-chosei/20140421-02.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "日本年金機構「年金と雇用保険の高年齢雇用継続給付との調整」", "quote": "令和7年3月31日以前に支給要件を満たす方は新賃金の15％相当", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "60歳に達した日（5年を満たした日）が令和7年3月31日以前の人。部品は60歳に達した月の値を読む。照合: claude（2026-10-26。原本との指紋の照合は未了）"}
+  - rev: 2
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: "2025-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.64"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "雇用保険法 第61条第5項（令和8年5月13日の版）", "quote": "みなし賃金日額に三十を乗じて得た額の百分の六十四に相当する額未満であるとき　百分の十", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.hellowork.mhlw.go.jp/insurance/insurance_continue.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "ハローワーク「高年齢雇用継続給付について」支給額", "quote": "64％以下の場合は、各月の賃金の10％相当額", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "60歳に達した日（5年を満たした日）が令和7年4月1日以後の人。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

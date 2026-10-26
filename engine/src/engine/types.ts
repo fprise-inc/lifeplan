@@ -98,6 +98,8 @@ export interface EmploymentPeriodInput {
   readonly retirementBenefit?: string;
   readonly corporatePension?: { readonly db?: boolean; readonly dbEquivalentMonthly?: Yen };
   readonly endsWith?: string;
+  /** 辞めた後に雇用保険の失業の給付を受け取るか（省略は推定。benefit.unemployment） */
+  readonly unemploymentClaim?: boolean;
 }
 
 /** 第1号の期間の内訳の月数 */

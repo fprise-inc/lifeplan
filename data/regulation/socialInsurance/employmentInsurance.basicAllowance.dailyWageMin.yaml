@@ -1,0 +1,36 @@
+id: employmentInsurance.basicAllowance.dailyWageMin
+title: 基本手当の賃金日額の下限額（全年齢）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-08-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: "2025-08-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 3014
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/newpage_59748.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省「雇用保険の基本手当日額の変更」（令和7年8月1日から）", "quote": "最低額 2,295円→2,411円（1,055円×20÷7×0.8）", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726936.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省 参考1 基本手当日額の計算式及び金額（令和8年8月1日〜）の前の額", "quote": "3,014円", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和7年8月〜令和8年7月の額。基本手当日額の最低額 2,411円＝3,014円×0.8（切り捨て）と合う。照合: claude（2026-10-26。原本との指紋の照合は未了）"}
+  - rev: 2
+    appliesFrom: "2026-08-01"
+    appliesTo: "2027-07-31"
+    enforcedOn: "2026-08-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 3203
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726936.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省 参考1 基本手当日額の計算式及び金額（令和8年8月1日〜）", "quote": "3,203円以上5,480円未満 y=0.8w", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/newpage_74837.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省「雇用保険の基本手当日額の変更」（令和8年8月1日から）", "quote": "最低額 2,411円→2,562円（1,121円×20÷7×0.8）", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和8年8月〜令和9年7月の額。基本手当日額の最低額 2,562円＝3,203円×0.8（切り捨て）と合う。令和9年8月以後は延長の仮定。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

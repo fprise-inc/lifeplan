@@ -1,0 +1,37 @@
+id: employmentInsurance.basicAllowance.dailyWageMax.from60
+title: 基本手当の賃金日額の上限額（離職の日の年齢 60歳以上65歳未満）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-08-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: "2025-08-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 16940
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/newpage_59748.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省「雇用保険の基本手当日額の変更」（令和7年8月1日から）の基本手当日額の最高額", "quote": "60歳以上65歳未満: 7,623円", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001520021.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省 賃金日額の上限額の新旧（令和7年8月1日）", "quote": "16,940", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和7年8月〜令和8年7月の額。基本手当日額の最高額 7,623円＝16,940円×45%。照合: claude（2026-10-26。原本との指紋の照合は未了）"}
+  - rev: 2
+    appliesFrom: "2026-08-01"
+    appliesTo: "2027-07-31"
+    enforcedOn: "2026-08-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 17400
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/newpage_74837.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省「雇用保険の基本手当日額の変更」（令和8年8月1日から）の基本手当日額の最高額", "quote": "60歳以上65歳未満: 7,623円→7,830円", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.hellowork.mhlw.go.jp/insurance/insurance_basicbenefit.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "ハローワーク「基本手当について」基本手当日額の上限額（令和8年8月1日現在）", "quote": "7,830円", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726934.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省 賃金日額の上限額の新旧（令和8年8月1日）", "quote": "17,400", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和8年8月〜令和9年7月の額。基本手当日額の最高額 7,830円＝17,400円×45%。令和9年8月以後は延長の仮定。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

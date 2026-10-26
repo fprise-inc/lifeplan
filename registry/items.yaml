@@ -710,6 +710,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: employment.unemploymentClaim
+    status: active
+    label: "辞めた後に雇用保険の失業の給付（基本手当・高年齢求職者給付金）を受け取るか（省略は、65歳未満で辞めて次に働くまで3か月以上あれば受け取る）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: event.at
     status: active
     label: "イベントの時点"

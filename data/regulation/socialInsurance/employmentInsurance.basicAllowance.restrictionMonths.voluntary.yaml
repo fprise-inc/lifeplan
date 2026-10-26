@@ -1,0 +1,37 @@
+id: employmentInsurance.basicAllowance.restrictionMonths.voluntary
+title: 正当な理由のない自己都合の離職の給付制限の期間（月。離職の日で決まる）
+unit: months
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2020-10-01"
+    appliesTo: "2025-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 2
+    sources:
+      - {"type": "web", "url": "https://jsite.mhlw.go.jp/gunma-roudoukyoku/content/contents/002182062.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "群馬労働局「令和7年4月1日以降に離職された方は…給付制限期間が原則1か月」", "quote": "離職日が令和７年３月３１日以前である場合は原則2か月", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "雇用保険法 第33条第1項（令和8年5月13日の版）", "quote": "一箇月以上三箇月以内の間で公共職業安定所長の定める期間は、基本手当を支給しない", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和2年10月1日から令和7年3月31日までに離職した人は原則2か月（5年間に3回以上の自己都合の離職の3か月は入れていない）。照合: claude（2026-10-26。原本との指紋の照合は未了）"}
+  - rev: 2
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: "2025-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 1
+    sources:
+      - {"type": "web", "url": "https://jsite.mhlw.go.jp/gunma-roudoukyoku/content/contents/002182062.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "群馬労働局「令和7年4月1日以降に離職された方は…給付制限期間が原則1か月」", "quote": "給付制限期間が原則１か月となります", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000160564_00045.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省「令和7年4月以降に教育訓練等を受ける場合、給付制限が解除され、基本手当を受給できます」", "quote": "令和7年4月以降に教育訓練等を受ける場合、給付制限が解除され", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "雇用保険法 第33条第1項（令和8年5月13日の版）", "quote": "一箇月以上三箇月以内の間で公共職業安定所長の定める期間", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和7年4月1日以後に離職した人は原則1か月（5年間に3回以上の自己都合の離職の3か月・教育訓練による解除は入れていない）。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

@@ -1,6 +1,7 @@
 // 月ごとの国民年金の被保険者の種別（0008 の4: 入力させず、エンジンが導く）
 // 第2号: 厚生年金に入る月（65歳に達した後は老齢年金の受給権があるとみなして第2号にしない）。
 // 第3号: 20〜59歳で、配偶者（事実婚を含む）が第2号、本人のその月からの1年の収入の見込み（給与・事業）が被扶養者の基準の未満。
+//   雇用保険の基本手当を受ける月は、基本手当日額×360 が基準以上なら第3号にしない（改訂3。0037）
 // 第1号: それ以外の20〜59歳。保険料は納めたとみなす（免除・未納は加入の記録で入れる）。第1号の母は、出産の月の前の月から
 // 4か月の保険料が免除され、納めた月として数える（産前産後期間の免除）。
 // 世帯から離れた月（leaves。万一の重ねで亡くなった月の翌月から）は、どの種別でもない（改訂2）
@@ -21,6 +22,7 @@ import {
   type MonthIndex,
   type RelationInput,
   type SalaryOutput,
+  type UnemploymentOutput,
   type Yen,
 } from "../../sdk/index.ts";
 
@@ -33,12 +35,15 @@ const P = {
   exemptMonths: "socialInsurance.nationalPension.maternityExemption.months",
 };
 
+/** 雇用保険の給付の日額を年額に直す日数（被扶養者の認定と同じく日額×360 と基準を比べる） */
+const DAYS_PER_YEAR = 360;
+
 export default defineComponent<{ member: string }, { months: CategoryMonth[] }>({
   id: "pension.category",
   title: "国民年金の被保険者の種別",
   contract: "1.0",
-  revision: 2,
-  requires: { "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2", "income.business": ">=1 <2" },
+  revision: 3,
+  requires: { "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2", "income.business": ">=1 <2", "benefit.unemployment": ">=1 <2" },
   params: Object.values(P),
   reads: [
     "member.kind",
@@ -104,6 +109,8 @@ export default defineComponent<{ member: string }, { months: CategoryMonth[] }>(
       const b1 = business.get(y0 + 1) ?? yen(0);
       return addYen(addYen(s, ctx.money.mulRatio(b0, k0, 12, "conv.salary.monthly")), ctx.money.mulRatio(b1, 12 - k0, 12, "conv.salary.monthly"));
     };
+    // 基本手当を受ける月の日額
+    const allowanceDaily = new Map(ctx.call<UnemploymentOutput>("benefit.unemployment", { member }).receipts.map((x) => [x.month, x.daily]));
     // 第1号の母の産前産後の免除: 子の出生の月の前の月から
     const exemptMonths = new Set<string>();
     if (me.sex === "female") {
@@ -133,7 +140,9 @@ export default defineComponent<{ member: string }, { months: CategoryMonth[] }>(
       if (s.pension && m < until65) category = "2";
       else if (npAge) {
         const limit = ctx.at(m < base ? base : m).paramYen(P.limit);
-        const third = spouseAt(m).some((sp) => isSecond(sp, s.month)) && (limit === null || prospective(m) < limit);
+        const daily = allowanceDaily.get(s.month);
+        const byAllowance = daily !== undefined && limit !== null && ctx.money.mulRatio(daily, DAYS_PER_YEAR, 1, "conv.exact") >= limit;
+        const third = spouseAt(m).some((sp) => isSecond(sp, s.month)) && (limit === null || prospective(m) < limit) && !byAllowance;
         category = third ? "3" : "1";
       }
       const exempt = category === "1" && exemptMonths.has(s.month);

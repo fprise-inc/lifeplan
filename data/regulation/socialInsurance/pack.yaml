@@ -22,9 +22,14 @@
 #   socialInsurance.care.highCostService.exemptPersonalIncomeLimit）と、介護休業給付金を受けられる回数（同じ対象家族について3回まで。
 #   employmentInsurance.careLeaveBenefit.maxTimes）、健康保険の任意継続の月数（2年。socialInsurance.health.continuation.maxMonths）と
 #   協会けんぽの任意継続の標準報酬月額の上限（令和7年度から32万円。socialInsurance.health.kyokaikenpo.continuationLimit）を新しいファイルで足した（既存のファイルは変えていない）
+# 2026.9.0: 雇用保険の基本手当（賃金日額の上限・下限、給付率と変わり目の賃金日額、待期、受給資格の被保険者期間、受給期間、自己都合の給付制限（令和7年4月から原則1か月）、
+#   所定給付日数（一般の離職者・特定受給資格者）、離職の日の年齢の区切り。employmentInsurance.basicAllowance.*）、高年齢求職者給付金の日数（employmentInsurance.elderlyJobSeeker.*）、
+#   高年齢雇用継続基本給付金（年齢・5年の要件・75%・最大の率の61%→64%と15%→10%（令和7年4月）・支給限度額・最低限度額。employmentInsurance.elderlyContinuation.*）を
+#   新しいファイルで足した（既存のファイルは変えていない）。公式のページの本文と検索の要約で読んだ値で、すべて原本での確認待ち（pendingReview）。
+#   給付率の変わり目の賃金日額（rateBreak.*）は令和8年8月からの額だけを置いた（令和7年8月〜令和8年7月の額は原本の PDF でしか読めないため）
 packId: regulation.socialInsurance
 formatVersion: "0.1"
-version: "2026.8.0"
+version: "2026.9.0"
 features: []
 title: 社会保険（被用者保険・国民年金・国民健康保険・後期高齢者医療・介護保険・休業の給付）
 requires:
@@ -43,6 +48,7 @@ requires:
   socialInsurance.careFirst: ">=1 <2"
   benefit.health: ">=1 <2"
   benefit.employment: ">=1 <2"
+  benefit.unemployment: ">=1 <2"
 license:
   values: CC0-1.0
   sources: 出典ごとの条件（各値の sources に記載。協会けんぽ・日本年金機構・厚生労働省・こども家庭庁の公表資料）

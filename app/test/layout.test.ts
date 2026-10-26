@@ -95,11 +95,11 @@ describe("帯の案の選択", () => {
     const b = resultOf(wh, cat, wh.proposals[0]!.diffs.reduce((o, d) => ({ ...o, [d.key]: d.value.value }), {} as Values));
     const m = bandModel({ req: wh.request, slots: [CURRENT, ...ids], letters, results: new Map([[CURRENT, cur], [ids[0]!, b], [ids[1]!, null]]), modified: new Set([ids[0]!]), base: CURRENT, selected: ids[0]!, settings: DEFAULT_DISPLAY_SETTINGS, colors: new Map() });
     expect(m.cards.map((c) => [c.letter, c.status, c.base, c.shown, c.modified])).toEqual([
-      ["A", "77歳で不足", true, false, false],
+      ["A", "79歳で不足", true, false, false],
       ["B", "100歳まで足りる", false, true, true],
       ["C", "計算しています", false, false, false],
     ]);
-    expect(m.cards[0]!.shortAge).toBe(77);
+    expect(m.cards[0]!.shortAge).toBe(79);
     expect(m.cards[1]!.shortAge).toBeNull();
     expect(m.cards[2]!.shortAge).toBeUndefined();
     // 既定では○歳時点の資産を出さない
@@ -129,14 +129,14 @@ describe("基準の切り替え", () => {
   const rC = resultOf(wh, cat, valuesC);
   const years = displayYears(wh.request);
 
-  it("基準の案は灰の点線（current）、選んだ案は藍の実線（proposal）。1文は「プランBは100歳まで足ります」と「プランA（基準）は77歳で…」", () => {
+  it("基準の案は灰の点線（current）、選んだ案は藍の実線（proposal）。1文は「プランBは100歳まで足ります」と「プランA（基準）は79歳で…」", () => {
     const m = toPresentation({ base: wh.request, proposal: applyValues(wh, valuesB, cat), current: rA, proposed: rB, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "プランB", base: "プランA", same: false } });
     expect(m.result.parts.map((p) => p.text).join("")).toBe("プランBは100歳まで足ります");
-    expect(m.result.sub.map((p) => p.text).join("")).toBe("プランA（基準）は77歳で資産が尽きます");
+    expect(m.result.sub.map((p) => p.text).join("")).toBe("プランA（基準）は79歳で資産が尽きます");
     expect(m.result.tone).toBe("up");
     expect(m.chart.current).toEqual(years.map((y) => financialOf(rA.table).get(y) ?? 0));
     expect(m.chart.proposal).toEqual(years.map((y) => financialOf(rB.table).get(y) ?? 0));
-    expect(m.chart.depletions).toEqual([{ series: "current", year: 2058 }]);
+    expect(m.chart.depletions).toEqual([{ series: "current", year: 2060 }]);
     // 基準の案の線（年間収支・純資産）も基準の案の結果から
     expect(m.baseLines.net).toEqual(years.map((y) => sumByYear(rA.table, (c) => c.row === "cf.net").get(y) ?? 0));
   });
@@ -154,7 +154,7 @@ describe("基準の切り替え", () => {
     expect(lockReason({ band: ids, base: ids[0]!, sel: ids[0]!, drafts: {} }, letter)).toContain("基準のプランは動かせません");
     expect(lockReason({ band: ids, base: ids[0]!, sel: CURRENT, drafts: {} }, letter)).toContain("プランA（現状）は入力の画面で直します");
     const same = toPresentation({ base: wh.request, proposal: wh.request, current: rA, proposed: rA, targetAge: 95, selectedYear: null, provisional: false, names: { selected: "プランA", base: "プランA", same: true } });
-    expect(same.result.parts.map((p) => p.text).join("")).toBe("プランA（基準）：77歳で資産が尽きます");
+    expect(same.result.parts.map((p) => p.text).join("")).toBe("プランA（基準）：79歳で資産が尽きます");
     expect(same.result.sub).toEqual([]);
   });
 

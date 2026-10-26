@@ -1,0 +1,21 @@
+id: employmentInsurance.basicAllowance.rate.low
+title: 基本手当の給付率（賃金日額が高い区分。百分の五十）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2017-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.5"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "雇用保険法 第16条第1項・第2項（令和8年5月13日の版）", "quote": "基本手当の日額は、賃金日額に百分の五十", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726936.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省 参考1 基本手当日額の計算式及び金額（令和8年8月1日〜）", "quote": "y=0.8w／y=0.5w／60歳以上65歳未満は0.45w", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "60歳未満（と65歳以上の高年齢求職者給付金）。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

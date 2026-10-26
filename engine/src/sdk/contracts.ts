@@ -723,3 +723,26 @@ export interface CashflowDetails {
     readonly inCashflow: boolean;
   }[];
 }
+
+/** benefit.unemployment: 雇用保険の基本手当・高年齢求職者給付金を受ける日のある月（日数は30日を1か月とみなす近似。日額は基本手当日額） */
+export interface UnemploymentReceipt {
+  readonly month: string;
+  readonly days: number;
+  readonly daily: Yen;
+}
+
+/**
+ * benefit.unemployment: 65歳前の老齢厚生年金（特別支給・繰上げ）を止める月。basicAllowance は基本手当との調整（全額を止める）、
+ * continuation は高年齢雇用継続給付との調整（amount は止める額の月額。在職老齢年金の停止に加えて止める）
+ */
+export interface UnemploymentPensionStop {
+  readonly month: string;
+  readonly kind: "basicAllowance" | "continuation";
+  readonly amount?: Yen;
+}
+
+export interface UnemploymentOutput {
+  readonly flows: readonly Flow[];
+  readonly receipts: readonly UnemploymentReceipt[];
+  readonly pensionStops: readonly UnemploymentPensionStop[];
+}

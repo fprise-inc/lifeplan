@@ -5,6 +5,9 @@
 //   pension.disability は選ぶ前の額を pension.oldAgeBase から読む（循環しない）
 // - 配偶者が障害年金（障害基礎年金・障害厚生年金）を受ける月は、配偶者の加給年金額（pension.oldAgeBase の spouseSupplement）を止める
 //   （厚生年金保険法46条6項。改訂7）。配偶者が65歳から老齢年金を選んで障害年金を受けない月は止めない
+// - 雇用保険との調整（改訂8。0037）: 基本手当を受ける月（benefit.unemployment の pensionStops の basicAllowance）は65歳前の老齢厚生年金
+//   （特別支給・繰上げの老齢厚生年金）を全額止め（厚生年金保険法 附則7条の4・11条の5）、高年齢雇用継続給付を受ける月（continuation）は
+//   その月額を在職老齢年金の停止に加えて止める（附則11条の6。特別支給から先に、残りを繰上げの老齢厚生年金から）。老齢基礎年金は止めない
 // - 支払い: 偶数月に前2か月分。各支払いの1円未満を切り捨て、年度の切り捨ての合計を2月の支払いに足す
 import {
   addMonths,
@@ -22,6 +25,7 @@ import {
   type PensionMonth,
   type PensionPayment,
   type RelationInput,
+  type UnemploymentOutput,
 } from "../../sdk/index.ts";
 
 const PAY_ROUND = "pension.payment.rounding";
@@ -32,11 +36,12 @@ export default defineComponent<{ member: string }, Out>({
   id: "pension.oldAge",
   title: "老齢年金",
   contract: "1.0",
-  revision: 7,
+  revision: 8,
   requires: {
     "pension.oldAgeBase": ">=1 <2",
     "pension.disability": ">=1 <2",
     "contingency.event": ">=1 <2",
+    "benefit.unemployment": ">=1 <2",
   },
   params: [PAY_ROUND],
   reads: ["relation.type", "relation.a", "relation.b", "relation.from", "relation.to"],
@@ -60,6 +65,23 @@ export default defineComponent<{ member: string }, Out>({
           return x;
         });
       }
+    }
+
+    // 雇用保険との調整（65歳前の老齢厚生年金。月の額は年額）
+    const stops = ctx.call<UnemploymentOutput>("benefit.unemployment", { member }).pensionStops;
+    if (stops.length > 0) {
+      const byMonth = new Map<string, UnemploymentOutput["pensionStops"][number][]>();
+      for (const s of stops) byMonth.set(s.month, [...(byMonth.get(s.month) ?? []), s]);
+      months = months.map((x) => {
+        const list = byMonth.get(x.month);
+        if (list === undefined || x.special + x.employee <= 0) return x;
+        if (list.some((s) => s.kind === "basicAllowance")) return { ...x, employee: yen(0), special: yen(0) };
+        let cut = 0;
+        for (const s of list) cut += ctx.money.mulRatio(s.amount ?? yen(0), 12, 1, "conv.exact");
+        const fromSpecial = Math.min(cut, x.special);
+        const fromEmployee = Math.min(cut - fromSpecial, x.employee);
+        return { ...x, special: yen(x.special - fromSpecial), employee: yen(x.employee - fromEmployee) };
+      });
     }
 
     // 配偶者が障害年金を受ける月は、配偶者の加給年金額を止める（46条6項）
