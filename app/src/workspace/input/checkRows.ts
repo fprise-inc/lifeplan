@@ -10,7 +10,7 @@ import { noticeMeta } from "../engineNotices.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf } from "./rows.ts";
-import { applyStateOp, confirmAll, fieldAddress, fieldStatus, type FieldStatus } from "./valueState.ts";
+import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, type FieldStatus } from "./valueState.ts";
 
 export type CheckKind = "missing" | "unknown" | "notice" | "calc" | "estimated";
 
@@ -148,7 +148,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
           if (s.status === "missing") rows.push({ ...base, id: `field:${f.key}`, kind: "missing", detail: s.basis ?? "空欄（0円で計算しています）", impact: 0, actions: [] });
           else if (s.status === "unknown") rows.push({ ...base, id: `field:${f.key}`, kind: "unknown", detail: s.basis !== null ? `代わりの値: ${s.basis}` : "代わりの値で計算しています", impact: impactOf(f, wh), actions: [] });
           else if (s.status === "estimated")
-            rows.push({ ...base, id: `field:${f.key}`, kind: "estimated", detail: s.basis, impact: impactOf(f, wh), actions: [{ key: "confirm", label: "✓ 確定", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] });
+            rows.push({ ...base, id: `field:${f.key}`, kind: "estimated", detail: s.basis, impact: impactOf(f, wh), actions: availableOps(f, wh, s).includes("confirm") ? [{ key: "confirm", label: "✓ 確定", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] : [] });
           else if (isPresetCandidate(f, wh, s)) {
             const what = PRESET_VALUES[f.item as string]?.what ?? "目安";
             const std = asStandard(f, what);

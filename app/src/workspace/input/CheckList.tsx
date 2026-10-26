@@ -33,7 +33,8 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES }: Props) {
   const shown = card === "" ? rows : rows.filter((r) => r.card === card);
   const counts = checkCounts(rows);
   const fillable = shown.filter((r) => r.kind === "missing" && r.actions.some((a) => a.key === "fill")).length;
-  const estimated = rows.filter((r) => r.kind === "estimated").length;
+  // まとめて確定にできる推定（推定が値でなく決まりの欄は「✓ 確定」を持たない）
+  const estimated = rows.filter((r) => r.kind === "estimated" && r.actions.some((a) => a.key === "confirm")).length;
   const run = (r: CheckRow, key: string) => {
     const a = r.actions.find((x) => x.key === key);
     if (a === undefined) return;

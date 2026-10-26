@@ -6,7 +6,7 @@ import { PopIcon } from "../../presentation/icons.tsx";
 import type { Timepoint } from "../../engine/types.ts";
 import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, TimeView, Val, WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
-import { availableOps, fieldStatus, OP_LABELS, STATUS_LABELS, type StateOp, type ValueStatus } from "./valueState.ts";
+import { availableOps, fieldStatus, OP_LABELS, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
@@ -265,6 +265,8 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   const [period, setPeriod] = useState<YenPeriod>(f.kind === "yen" && f.basis === "annual" ? "annual" : "monthly");
   const id = fieldDomId(f.key);
   const commit = (v: Val) => onEdit(f.set(wh, v));
+  /** 打って入れる（未入力の欄に打った値は、0円でも確定。valueState.ts の typeValue。0041 の追記） */
+  const commitTyped = (v: Val) => onEdit(typeValue(f, wh, v));
   const runOp = (op: StateOp) => {
     if (stateOps === null) return;
     setOpsOpen(false);
@@ -334,8 +336,10 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   } else if (f.kind === "bool") {
     control = <input id={id} type="checkbox" checked={state.value === true} onChange={(e) => commit((e.currentTarget as HTMLInputElement).checked)} />;
   } else {
+    // 未入力（0円で計算中）の欄は空で見せる（印の0円を見せない。打てば確定になる）
+    const missingNow = (status ?? fieldStatus(f, wh)).status === "missing";
     const shown = (() => {
-      if (state.value === null) return "";
+      if (state.value === null || missingNow) return "";
       if (f.kind === "yen") {
         const v = toPeriod(state.value as number, f.basis, period);
         return v === null ? formatYen(state.value as number, unit) : formatYen(v, unit);
@@ -385,14 +389,14 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
           setRejected(null);
           if (f.kind === "text") return;
           const v = parse(t);
-          if (v !== undefined) commit(v);
+          if (v !== undefined) commitTyped(v);
         }}
         onBlur={(e) => {
           const t = (e.currentTarget as HTMLInputElement).value;
           // 入ったときと同じ文字のまま離れたら、何も書かない（欄に入って離れる・Tab で通るだけで値も状態も変えない。0041）
           if (shouldCommitOnBlur(startText, t)) {
             const v = parse(t);
-            if (v !== undefined) commit(v);
+            if (v !== undefined) commitTyped(v);
             else setRejected(`「${t}」は入れられないため、前の値のままです。${rejectReason(f, t, unit) ?? ""}`);
           }
           setDraft(null);
