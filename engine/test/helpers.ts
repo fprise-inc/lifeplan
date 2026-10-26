@@ -2,19 +2,19 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildPack, packDirs, type PackJson } from "../scripts/regulation.ts";
-import { ENGINE_DIR, REPO_DIR } from "../scripts/lib.ts";
+import { inject } from "vitest";
+import type { PackJson } from "../scripts/regulation.ts";
+import { REPO_DIR } from "../scripts/lib.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 
 let real: PackJson[] | undefined;
 let fictional: PackJson[] | undefined;
 
-/** 製品の制度データ（data/regulation。原本での確認待ちの値を含む） */
-export const realPacks = (): PackJson[] => (real ??= packDirs().map(buildPack));
+/** 製品の制度データ（data/regulation。原本での確認待ちの値を含む）。組み立ては流す前に1回だけ（test/global-setup.ts） */
+export const realPacks = (): PackJson[] => (real ??= inject("realPacks"));
 
-/** 【架空の見本】テスト用の制度データ（値ID の test. を外して製品のパックの代わりに引く） */
-export const fictionalPacks = (): PackJson[] =>
-  (fictional ??= ["testTax", "testSocialInsurance", "testPension", "testWageStats", "testNisaIdeco", "testHousing", "testRetirement", "testEducationSupport", "testEducationStatistics"].map((n) => buildPack(join(ENGINE_DIR, "test", "fixtures", "regulation", n))));
+/** 【架空の見本】テスト用の制度データ（値ID の test. を外して製品のパックの代わりに引く。test/global-setup.ts） */
+export const fictionalPacks = (): PackJson[] => (fictional ??= inject("fictionalPacks"));
 
 /** 架空のモデル世帯（data/modelHouseholds。CC0） */
 export function modelHousehold(name: string): EngineRequest {
