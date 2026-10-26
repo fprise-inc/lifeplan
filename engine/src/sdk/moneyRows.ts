@@ -1,6 +1,9 @@
 // お金の行（0044）: 出るお金の行（periodicExpenses）と入るお金の行（incomeFlows）に共通の、支払い・受け取りの月と額の解き方と、
 // 入るお金の種類ごとの既定（課税の扱い・表の行）。画面の側の既定（app/src/workspace/input/moneyRows.ts）は同じ表を持つ（テストで突き合わせる）
-import type { AmountExceptionInput, AmountStageInput, GrowthInput, IncomeFlowInput, IncomeFlowKind, IncomeTaxTreatment, OnContingencyInput, ValueBox } from "../engine/types.ts";
+import type { AmountExceptionInput, AmountStageInput, GrowthInput, IncomeFlowInput, IncomeTaxTreatment, OnContingencyInput, ValueBox } from "../engine/types.ts";
+import { INCOME_KIND_DEFAULTS } from "./incomeKinds.ts";
+
+export { INCOME_KIND_DEFAULTS };
 import type { Ctx } from "../registry/ctx.ts";
 import type { ContingencyEvent } from "./contracts.ts";
 import { boxValue } from "./box.ts";
@@ -10,33 +13,6 @@ import { addMonths, yearOf, type MonthIndex } from "../time/month.ts";
 import type { Timepoint } from "../time/timepoint.ts";
 import { yen, type Yen } from "../money/yen.ts";
 import type { Rate } from "../money/rate.ts";
-
-/** 入るお金の種類ごとの既定: 課税の扱い・1回の行の表の行・くり返す行の表の行 */
-export const INCOME_KIND_DEFAULTS: Readonly<Record<IncomeFlowKind, { readonly tax: IncomeTaxTreatment; readonly once: string; readonly repeat: string }>> = {
-  inheritance: { tax: "inheritance", once: "cf.income.lumpSum.inheritance", repeat: "cf.income.lumpSum.inheritance" },
-  giftReceived: { tax: "gift", once: "cf.income.lumpSum.gift", repeat: "cf.income.lumpSum.gift" },
-  support: { tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.other" },
-  educationSupport: { tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.other" },
-  childSupport: { tax: "nonTaxable", once: "cf.income.other", repeat: "cf.income.other" },
-  propertyDivision: { tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.other" },
-  householdContribution: { tax: "nonTaxable", once: "cf.income.other", repeat: "cf.income.other" },
-  benefit: { tax: "nonTaxable", once: "cf.income.benefit", repeat: "cf.income.benefit" },
-  unemployment: { tax: "nonTaxable", once: "cf.income.benefit.unemployment", repeat: "cf.income.benefit.unemployment" },
-  survivorPension: { tax: "nonTaxable", once: "cf.income.pension", repeat: "cf.income.pension" },
-  foreignPension: { tax: "miscOther", once: "cf.income.pension", repeat: "cf.income.pension" },
-  scholarshipGrant: { tax: "nonTaxable", once: "cf.income.benefit.education", repeat: "cf.income.benefit.education" },
-  childPays: { tax: "nonTaxable", once: "cf.income.other", repeat: "cf.income.other" },
-  sideJob: { tax: "miscBusiness", once: "cf.income.other.sideJob", repeat: "cf.income.other.sideJob" },
-  otherWork: { tax: "salary", once: "cf.income.salary", repeat: "cf.income.salary" },
-  saleBusiness: { tax: "capitalGains", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other" },
-  saleGoods: { tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other" },
-  temporary: { tax: "temporary", once: "cf.income.lumpSum.other", repeat: "cf.income.other" },
-  celebration: { tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other" },
-  subsidy: { tax: "temporary", once: "cf.income.lumpSum.other", repeat: "cf.income.other" },
-  powerSale: { tax: "miscOther", once: "cf.income.other", repeat: "cf.income.other" },
-  insuranceBenefit: { tax: "nonTaxable", once: "cf.income.other.insuranceBenefit", repeat: "cf.income.other.insuranceBenefit" },
-  other: { tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.other" },
-};
 
 /** 1回だけの行か（月額でなく、終わりが始まりと同じ月） */
 export function isOnceRow(ctx: Ctx, r: { readonly from: Timepoint; readonly to?: Timepoint | null; readonly monthly?: boolean }): boolean {

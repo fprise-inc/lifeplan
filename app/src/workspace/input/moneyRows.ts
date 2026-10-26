@@ -23,7 +23,7 @@ type Obj = Record<string, unknown>;
 /** お金の行を置くカード（介護・親 care と相続・贈与 inherit は、カードを組み直すまでライフイベントの区画） */
 export type MoneyCard = "family" | "work" | "pension" | "living" | "education" | "housing" | "insurance" | "savings" | "events" | "car" | "care" | "inherit";
 
-/** 入るお金の種類: 名前・課税の扱いの既定・1回の行とくり返す行の表の行の既定（エンジンの engine/src/sdk/moneyRows.ts と同じ。テストで突き合わせる）・置くカード・既定の時期 */
+/** 入るお金の種類: 名前・課税の扱いの既定・1回の行とくり返す行の表の行の既定（エンジンの engine/src/sdk/incomeKinds.ts と同じ。テストで突き合わせる）・置くカード・既定の時期 */
 export const INCOME_KINDS: readonly { kind: IncomeFlowKind; label: string; tax: IncomeTaxTreatment; once: string; repeat: string; card: MoneyCard; cadence: Cadence }[] = [
   { kind: "inheritance", label: "相続・遺贈", tax: "inheritance", once: "cf.income.lumpSum.inheritance", repeat: "cf.income.lumpSum.inheritance", card: "inherit", cadence: "once" },
   { kind: "giftReceived", label: "贈与を受ける", tax: "gift", once: "cf.income.lumpSum.gift", repeat: "cf.income.lumpSum.gift", card: "inherit", cadence: "once" },

@@ -1,7 +1,7 @@
 // お金の行（0044）の画面の側: 基本の計算に入れない物（不確かな受け取る相続・贈与と受け継ぐ借金）を要求から外す・確実な分だけで見る・
 // 種類の既定（エンジンと同じ表）・カードごとの区画・欄の往復・古い周期的な支出がそのまま読めること・プランでの足す外すと「基本の計算に入れる」
 import { describe, expect, it } from "vitest";
-import { INCOME_KIND_DEFAULTS } from "../../engine/src/sdk/moneyRows.ts";
+import { INCOME_KIND_DEFAULTS } from "../../engine/src/sdk/incomeKinds.ts";
 import { certainOnly, certainOnlyCounts, forEngine } from "../src/engine/moneyRows.ts";
 import type { EngineRequest, IncomeFlow, PeriodicExpense } from "../src/engine/types.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
