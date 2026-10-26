@@ -20,6 +20,8 @@ export const FREE_TEXT: Readonly<Record<string, "drop" | "generic" | "keep">> = 
   "engine.input#/$defs/incomeFlow/properties/label": "generic",
   // ローンの名前（FP が書いた文。外す。種類の細目から見せる。0052）
   "engine.input#/$defs/debt/properties/label": "drop",
+  // 保険の名前（FP が書いた文。外す。種類の細目から見せる。0054）
+  "engine.input#/$defs/insuranceContract/properties/label": "drop",
   // 口座の間の移し替えの見出し（入れ物だけ。外す）
   "engine.input#/$defs/transfer/properties/label": "drop",
   // 事務所の料金表から写したメニュー（事務所の設定。メニューごと外す）
@@ -104,6 +106,8 @@ function walk(v: Json, ids: IdMap, path: readonly string[]): Json {
   if (parent === "advisoryFees" || grand === "advisoryFees") delete o.menu;
   // 保険の数表の出どころ（商品の参照）
   if (parent === "insuranceContracts" && isObj(o.schedule)) delete o.schedule.source;
+  // 保険の名前
+  if (parent === "insuranceContracts") delete o.label;
   // 塾・習い事の見出し
   if (parent === "lessons" || grand === "lessons") delete o.label;
   // 学校が決まっているときの学費の行: 学校コードとコースを外す

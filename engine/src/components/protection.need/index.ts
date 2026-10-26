@@ -14,6 +14,11 @@
 //   遺族の車はその割合で残し、亡くなった人の車も割合で足す（入れていない車は今のまま: 遺族の車は続け、亡くなった人の車は数えない）
 // - 遺族年金の2028年4月の見直しは作らない（pension.survivor の知らせ）
 // - 保育料（改訂3。education.nurseryFee。0029）も教育費に含める（万一なしの計算の額。遺族の所得での額の変化は見ない）
+// - 内訳（改訂5・約束の版 1.1。0054）: 年ごとに、必要な資金を生活費・住居費・教育費・保険料・介護・税と社会保険料・そのほか（毎年の分）と
+//   整理資金・予備の生活資金（一時の分）に、準備できる資金を遺族年金・遺族の収入・児童手当と教育の公的支援（毎年の分）と死亡退職金・
+//   確定拠出年金の死亡一時金・弔慰金（一時の分）に分けて出す（breakdown。合計は expenses・resources と同じ）。団信で消える住宅ローンの
+//   返済の額（住居費から除いた額）も添える。加入中の死亡保険金は契約ごとの内訳（coverageBy）も出し、家族特約など契約の被保険者でない
+//   人が被保険者の保障（insurance.policy の others）も、その人の死亡保障に数える
 import {
   addMonths,
   childrenOf,
@@ -51,7 +56,17 @@ const LIFE = "lifeTable.lifeExpectancy";
 const START = "pension.normalStartAge";
 const NOT_FINANCIAL: ReadonlySet<string> = new Set(["realEstate", "insurance"]);
 
+type Breakdown = {
+  expenses: { living: Yen; housing: Yen; education: Yen; premiums: Yen; care: Yen; taxSi: Yen; other: Yen };
+  lump: { funeral: Yen; reserve: Yen };
+  resources: { survivorPension: Yen; survivorIncome: Yen; publicSupport: Yen };
+  lumpResources: { retirementAllowance: Yen; dcLump: Yen; condolence: Yen };
+  creditLife: Yen;
+};
+
 type Year = {
+  breakdown: Breakdown;
+  coverageBy?: { object: string; amount: Yen }[];
   year: number;
   death: string;
   horizon: number;
@@ -67,8 +82,8 @@ type Year = {
 export default defineComponent<{ request: ProtectionRequest }, { method: "accumulation" | "reverse"; members: { member: string; survivor?: string; years: Year[] }[] }>({
   id: "protection.need",
   title: "必要保障額の推移（積み上げ方式・逆算方式）",
-  contract: "1.0",
-  revision: 4,
+  contract: "1.1",
+  revision: 5,
   requires: {
     "plan.cashflow": ">=1 <2",
     "expense.car": ">=1 <2",
@@ -191,7 +206,7 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
     const contracts = ctx.list<Pick<InsuranceContractInput, "id" | "insured">>("insurance");
     const premiumFlows = ctx.call<PaymentsOutput>("insurance.premiumPayment", {}).flows;
     const premiums = contracts.map((c) => ({ insured: c.insured, p: prefixOf(premiumFlows, (f) => f.object === c.id) }));
-    const policies = contracts.map((c) => ({ insured: c.insured, years: ctx.call<InsurancePolicyOutput>("insurance.policy", { object: c.id }).years }));
+    const policies = contracts.map((c) => ({ id: c.id, insured: c.insured, years: ctx.call<InsurancePolicyOutput>("insurance.policy", { object: c.id }).years }));
     // 遺族の収入・税と社会保険料・支出（万一なしの構成員ごとのお金の動き）
     const memberCache = new Map<string, { income: number[]; tax: number[]; expense: number[] }>();
     const ownOf = (z: string) => {
@@ -312,19 +327,24 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
         // 年ごとの必要な資金と準備できる資金（死亡の月の翌月から H まで）
         const sp = ctx.call<SurvivorPensionOutput>("pension.survivor", { member: Z, death: { member: X, month: formatYm(D) } }).flows;
         const yearly: { year: number; exp: number; res: number }[] = [];
+        const part = { living: 0, housing: 0, education: 0, premiums: 0, care: 0, taxSi: 0, other: 0, survivorPension: 0, survivorIncome: 0, publicSupport: 0, creditLife: 0 };
         const survivorOwn = spouse !== undefined ? ownOf(spouse) : null;
         for (let t = yearOf(A); t <= yearOf(H); t++) {
           const a = (t === yearOf(A) ? A : monthIndex(t, 1)) as MonthIndex;
           const b = (t === yearOf(H) ? H : monthIndex(t, 12)) as MonthIndex;
-          let exp = 0;
+          let living = 0;
           // 生活費（段階の後に遺族の割合）
           const cut = indep < a ? a : indep > b ? addMonths(b, 1) : indep;
-          if (cut > a) exp += ctx.money.mulRate(yen(sum(livingDefault, a, addMonths(cut, -1))), before, "conv.expense.share");
-          if (cut <= b) exp += ctx.money.mulRate(yen(sum(livingDefault, cut, b)), after, "conv.expense.share");
-          for (const g of livingExplicit) exp += scaled(g.p, g.factor, a, b);
-          for (const g of periodic) exp += scaled(g.p, g.factor, a, b);
-          for (const g of advisory) exp += scaled(g.p, g.factor, a, b);
-          exp += sum(housing, a, b) + sum(care, a, b) + sum(education, a, b) + sum(nationalHealth, a, b);
+          if (cut > a) living += ctx.money.mulRate(yen(sum(livingDefault, a, addMonths(cut, -1))), before, "conv.expense.share");
+          if (cut <= b) living += ctx.money.mulRate(yen(sum(livingDefault, cut, b)), after, "conv.expense.share");
+          for (const g of livingExplicit) living += scaled(g.p, g.factor, a, b);
+          let other = 0;
+          for (const g of periodic) other += scaled(g.p, g.factor, a, b);
+          for (const g of advisory) other += scaled(g.p, g.factor, a, b);
+          let housingY = sum(housing, a, b);
+          const careY = sum(care, a, b);
+          const educationY = sum(education, a, b);
+          let taxSi = sum(nationalHealth, a, b);
           for (const { d, p } of debts) {
             const cl = d.creditLife;
             let factor: string | null = null;
@@ -333,44 +353,64 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
               const ratio = cl.spouseJoint === true ? "1" : (cl.ratio ?? (d.debtors.length > 1 && share !== undefined ? share : "1"));
               factor = ctx.rate.toString(ctx.rate.sub(ctx.rate.of("1"), ctx.rate.of(ratio)));
             }
-            exp += scaled(p, factor, a, b);
+            const v = scaled(p, factor, a, b);
+            housingY += v;
+            part.creditLife += sum(p, a, b) - v;
           }
-          for (const pr of premiums) if (pr.insured !== X) exp += sum(pr.p, a, b);
-          let res = sum(educationSupport, a, b) + sum(allowance, a, b);
+          let premiumsY = 0;
+          for (const pr of premiums) if (pr.insured !== X) premiumsY += sum(pr.p, a, b);
+          const support = sum(educationSupport, a, b) + sum(allowance, a, b);
+          let income = 0;
           if (survivorOwn !== null) {
-            exp += sum(survivorOwn.tax, a, b) + sum(survivorOwn.expense, a, b);
-            res += sum(survivorOwn.income, a, b);
+            taxSi += sum(survivorOwn.tax, a, b);
+            other += sum(survivorOwn.expense, a, b);
+            income += sum(survivorOwn.income, a, b);
             // 遺族の車: 万一の扱いの割合に置き換える
-            for (const g of carGroups.get(spouse as string) ?? []) exp += scaled(g.p, g.factor, a, b) - sum(g.p, a, b);
+            for (const g of carGroups.get(spouse as string) ?? []) other += scaled(g.p, g.factor, a, b) - sum(g.p, a, b);
           }
           // 亡くなった人の車: 万一の扱いを入れたものだけ、割合で足す
-          for (const g of carGroups.get(X) ?? []) exp += scaled(g.p, g.factor, a, b);
+          for (const g of carGroups.get(X) ?? []) other += scaled(g.p, g.factor, a, b);
+          let pension = 0;
           for (const f of sp) {
             const m = parseYm(f.ym);
-            if (m >= a && m <= b) res += f.amount;
+            if (m >= a && m <= b) pension += f.amount;
           }
-          yearly.push({ year: t, exp, res });
+          part.living += living;
+          part.housing += housingY;
+          part.education += educationY;
+          part.premiums += premiumsY;
+          part.care += careY;
+          part.taxSi += taxSi;
+          part.other += other;
+          part.survivorPension += pension;
+          part.survivorIncome += income;
+          part.publicSupport += support;
+          yearly.push({ year: t, exp: living + other + housingY + careY + educationY + taxSi + premiumsY, res: support + income + pension });
         }
         // 一時の資金: 死亡退職金（勤続の月数で按分）・確定拠出年金の死亡一時金・弔慰金と、整理資金・予備の生活資金
-        let lumpRes = 0;
+        let retirementAllowance = 0;
         const given = req.survivor?.deathBenefits;
-        if (given?.retirementAllowance !== undefined) lumpRes += given.retirementAllowance;
+        if (given?.retirementAllowance !== undefined) retirementAllowance += given.retirementAllowance;
         else {
           for (const r of ctx.call<{ receipts: readonly RetirementReceipt[] }>("retirement.receipts", { member: X }).receipts) {
             const m = parseYm(r.ym);
             if (r.source !== "retirement" || m <= D) continue;
             const f = parseYm(r.serviceFrom);
             const tt = parseYm(r.serviceTo);
-            lumpRes += tt > D && D >= f ? ctx.money.mulRatio(r.amount, D - f + 1, tt - f + 1, "conv.retirement.estimate") : r.amount;
+            retirementAllowance += tt > D && D >= f ? ctx.money.mulRatio(r.amount, D - f + 1, tt - f + 1, "conv.retirement.estimate") : r.amount;
           }
         }
+        let dcLump = 0;
         for (const acc of ctx.call<IdecoAccountOutput>("account.ideco", { member: X }).accounts) {
           const prev = acc.years.find((e) => e.year === y - 1);
-          if (prev !== undefined) lumpRes += prev.closing;
+          if (prev !== undefined) dcLump += prev.closing;
         }
-        lumpRes += given?.condolence ?? 0;
+        const condolence = given?.condolence ?? 0;
+        const lumpRes = retirementAllowance + dcLump + condolence;
         const reserveMonthly = ctx.money.mulRate(yen(sum(livingDefault, A, A)), indep > A ? before : after, "conv.expense.share");
-        const lumpCost = (req.survivor?.funeral ?? 0) + ctx.money.mulRatio(reserveMonthly, req.survivor?.reserveMonths ?? 0, 1, "conv.exact");
+        const funeral = req.survivor?.funeral ?? 0;
+        const reserve = ctx.money.mulRatio(reserveMonthly, req.survivor?.reserveMonths ?? 0, 1, "conv.exact");
+        const lumpCost = funeral + reserve;
         const totalExp = yearly.reduce((s, x) => s + x.exp, 0);
         const totalRes = yearly.reduce((s, x) => s + x.res, 0);
         const assets = assetsAt(y);
@@ -411,9 +451,22 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
           need = solve(0);
           needWithAssets = solve(assets);
         }
-        // 加入中の死亡保険金（亡くなる人が被保険者の契約の、その年の死亡保障額）
+        // 加入中の死亡保険金（亡くなる人が被保険者の契約の、その年の死亡保障額。家族特約などで X が被保険者の保障も。0054）
         let coverage = 0;
-        for (const p of policies) if (p.insured === X) coverage += p.years.find((e) => e.year === y)?.deathBenefit ?? 0;
+        const coverageBy: { object: string; amount: Yen }[] = [];
+        for (const p of policies) {
+          const e = p.years.find((x) => x.year === y);
+          const v = (p.insured === X ? (e?.deathBenefit ?? 0) : 0) + (e?.others?.find((o) => o.member === X)?.deathBenefit ?? 0);
+          coverage += v;
+          if (v > 0) coverageBy.push({ object: p.id, amount: yen(v) });
+        }
+        const breakdown: Breakdown = {
+          expenses: { living: yen(part.living), housing: yen(part.housing), education: yen(part.education), premiums: yen(part.premiums), care: yen(part.care), taxSi: yen(part.taxSi), other: yen(part.other) },
+          lump: { funeral: yen(funeral), reserve: yen(reserve) },
+          resources: { survivorPension: yen(part.survivorPension), survivorIncome: yen(part.survivorIncome), publicSupport: yen(part.publicSupport) },
+          lumpResources: { retirementAllowance: yen(retirementAllowance), dcLump: yen(dcLump), condolence: yen(condolence) },
+          creditLife: yen(part.creditLife),
+        };
         years.push({
           year: y,
           death: formatYm(D),
@@ -425,6 +478,8 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
           resources: yen(totalRes + lumpRes),
           lumpSum: yen(lumpCost),
           assets: yen(assets),
+          breakdown,
+          ...(coverageBy.length > 0 ? { coverageBy } : {}),
         });
       }
       out.push({ member: X, ...(survivorId !== undefined ? { survivor: survivorId } : {}), years });

@@ -44,6 +44,7 @@
 //   資産クラスを書いた時価の下落は、その年の段の配分で割合を出す
 // - 改訂14（約束の版 1.4。0042）: 世帯の外の家族のお金（member.wallet）を入れた人ごとの、尽きる見込みの月（outside.wallet）を details に出す
 //   （エンジンが summary の outsideWallets に写す）
+// - 改訂15（約束の版 1.5。0054）: details の保険の一覧に、年末までの払込保険料の累計（paid）・家族特約の人ごとの死亡保障額（others）・保障の行の被保険者（insured）を添える
 import {
   accountReturnRate,
   accountMixAt,
@@ -165,8 +166,8 @@ const under = (row: string, prefix: string) => row === prefix || row.startsWith(
 export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[]; parts: readonly (readonly Flow[])[]; details?: CashflowDetails }>({
   id: "plan.cashflow",
   title: "キャッシュフロー表",
-  contract: "1.4",
-  revision: 14,
+  contract: "1.5",
+  revision: 15,
   requires: {
     "plan.flows": ">=1 <2",
     "outside.wallet": ">=1 <2",
@@ -787,9 +788,12 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
             amount: x.amount,
             ...(x.from !== undefined ? { from: formatYm(ctx.time.resolve(x.from)) } : {}),
             ...(x.to !== undefined && x.to !== null ? { to: formatYm(ctx.time.resolve(x.to)) } : {}),
+            ...(x.insured !== undefined && x.insured !== c.insured ? { insured: x.insured } : {}),
           })),
         })),
-        byYear: policies.flatMap(({ c, out }) => out.years.map((e) => ({ year: e.year, object: c.id, premium: e.premium, deathBenefit: e.deathBenefit, surrenderValue: e.surrenderValue }))),
+        byYear: policies.flatMap(({ c, out }) =>
+          out.years.map((e) => ({ year: e.year, object: c.id, premium: e.premium, deathBenefit: e.deathBenefit, surrenderValue: e.surrenderValue, paid: e.paid, ...(e.others !== undefined ? { others: e.others } : {}) })),
+        ),
       };
     }
     const gifts: NonNullable<CashflowDetails["gifts"]>[number][] = [];

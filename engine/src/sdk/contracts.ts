@@ -574,6 +574,8 @@ export interface ContingencyEvent {
     readonly deathBenefits?: { readonly retirementAllowance?: Yen; readonly condolence?: Yen; readonly workRelated?: boolean };
   };
   readonly medical?: { readonly monthly: Yen; readonly months: number; readonly from?: unknown };
+  /** 病気の想定（0054） */
+  readonly illness?: { readonly disease: "cancer" | "heartStroke" | "other"; readonly hospitalDays?: number; readonly surgeries?: number };
 }
 
 export interface ContingencyEventOutput {
@@ -638,7 +640,8 @@ export interface InsuranceReceipt {
   readonly coverage: string | null;
   /** 受け取る構成員（構成員でない受取人は null） */
   readonly member: string | null;
-  readonly kind: "death" | "incomeProtection" | "incapacity" | "highDisability" | "maturity" | "surrender" | "annuity" | "survival";
+  /** medical: 医療・がんの給付（入院日額・手術・がん一時金・三大疾病一時金。0054） */
+  readonly kind: "death" | "incomeProtection" | "incapacity" | "highDisability" | "maturity" | "surrender" | "annuity" | "survival" | "medical";
   readonly amount: Yen;
   /** 課税の区分: inheritance 相続税の対象（みなし相続財産）・temporary 一時所得・miscellaneous 雑所得（年金）・gift 贈与税・none 非課税 */
   readonly taxClass: "inheritance" | "temporary" | "miscellaneous" | "gift" | "none";
@@ -648,13 +651,25 @@ export interface InsuranceReceipt {
   readonly giver?: string;
 }
 
+export interface InsurancePolicyYear {
+  readonly year: number;
+  readonly premium: Yen;
+  readonly deathBenefit: Yen;
+  readonly surrenderValue: Yen;
+  readonly paid: Yen;
+  readonly others?: readonly { readonly member: string; readonly deathBenefit: Yen }[];
+}
+
 /** insurance.policy: 保険契約1件の受け取り・保険年度ごとの値（数表か型から） */
 export interface InsurancePolicyOutput {
   readonly flows: readonly Flow[];
   /** 受け取り（支払月の昇順） */
   readonly receipts: readonly InsuranceReceipt[];
-  /** 年末の値（解約返戻金・死亡保障額）と、その年の払込保険料 */
-  readonly years: readonly { readonly year: number; readonly premium: Yen; readonly deathBenefit: Yen; readonly surrenderValue: Yen }[];
+  /**
+   * 年末の値（解約返戻金・死亡保障額）と、その年の払込保険料。約束の版 1.1（0054）: paid は年末までの払込保険料の累計（契約の月から）、
+   * deathBenefit は契約の被保険者の分だけで、ほかの人が被保険者の保障（家族特約）の死亡保障額は others に人ごと
+   */
+  readonly years: readonly InsurancePolicyYear[];
   /** 保障と払込が終わる月（解約・満期・被保険者の死亡。無ければ null） */
   readonly endsAt: string | null;
 }
@@ -742,9 +757,9 @@ export interface CashflowDetails {
       readonly template: string;
       readonly policyholder: string;
       readonly insured: string;
-      readonly coverages: readonly { readonly id: string; readonly role: string; readonly benefit: string; readonly amount: Yen; readonly from?: string; readonly to?: string }[];
+      readonly coverages: readonly { readonly id: string; readonly role: string; readonly benefit: string; readonly amount: Yen; readonly from?: string; readonly to?: string; readonly insured?: string }[];
     }[];
-    readonly byYear: readonly { readonly year: number; readonly object: string; readonly premium: Yen; readonly deathBenefit: Yen; readonly surrenderValue: Yen }[];
+    readonly byYear: readonly { readonly year: number; readonly object: string; readonly premium: Yen; readonly deathBenefit: Yen; readonly surrenderValue: Yen; readonly paid?: Yen; readonly others?: readonly { readonly member: string; readonly deathBenefit: Yen }[] }[];
   };
   gifts?: readonly {
     readonly year: number;

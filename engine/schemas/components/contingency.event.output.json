@@ -33,7 +33,8 @@
                 "spouseWork": { "type": "array" }
               }
             },
-            "medical": { "$ref": "urn:financia:schema:engine.input#/$defs/contingency/properties/medical" }
+            "medical": { "$ref": "urn:financia:schema:engine.input#/$defs/contingency/properties/medical" },
+            "illness": { "$ref": "urn:financia:schema:engine.input#/$defs/contingency/properties/illness" }
           }
         }
       ]

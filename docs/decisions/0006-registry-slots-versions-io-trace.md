@@ -269,3 +269,6 @@ export default defineComponent({
 - 2026-10-26（雇用保険の失業の給付と高年齢雇用継続給付。0037）:
   - 新しい部品 `benefit.unemployment`（約束の版 1.0。出力は `flows`・`receipts`・`pensionStops`）を足し、`plan.memberFlows` が集める。表の行 `cf.income.benefit.unemployment`（雇用保険の失業の給付など）を足した。行 `cf.income.benefit.employment` は育児休業・介護休業などの給付のまま（基本手当はこの新しい行）。
   - 改訂を上げた部品: `pension.oldAge`（8。基本手当・高年齢雇用継続給付を受ける月の65歳前の老齢厚生年金の停止）、`socialInsurance.healthStatus`（4。基本手当を受ける月の被扶養者の判定）、`pension.category`（3。同じく第3号の判定）、`plan.memberFlows`（6）。どれも出力の形は変えていない。
+- 2026-10-26（保険の計算の足し。0054）:
+  - 約束の版を上げた部品（欄を足しただけ）: `contingency.event` 1.0→**1.1**（判定の結果に病気の想定 `illness`）、`insurance.policy` 1.0→**1.1**（受け取りの種類 `medical`、年の値に払込保険料の累計 `paid` と家族特約の人ごとの死亡保障額 `others`。`deathBenefit` は契約の被保険者の分だけ）、`plan.cashflow` 1.4→**1.5**（details の保険の一覧に `paid`・`others`・保障の行の `insured`）、`protection.need` 1.0→**1.1**（年の値に内訳 `breakdown` と契約ごとの死亡保険金 `coverageBy`）。
+  - 改訂を上げた部品: `contingency.event`（3）、`insurance.policy`（2。医療・がんの給付・保障の行の被保険者・円の目安の形・保障の ID のある数表の死亡保障の行）、`plan.cashflow`（15）、`protection.need`（5。家族特約の死亡保障を数える）。

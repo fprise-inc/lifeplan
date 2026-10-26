@@ -23,6 +23,7 @@ pub const TEXT_ITEMS: &[(&str, &str)] = &[
     ("incomeFlow.label", "FP（見出し）"),
     ("transfer.label", "FP（見出し）"),
     ("debt.label", "FP（ローンの名前）"),
+    ("insurance.label", "FP（保険の名前）"),
 ];
 
 /// 画面の側の文章の項目。既定で外す

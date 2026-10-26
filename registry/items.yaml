@@ -513,6 +513,14 @@ entries:
     replacedBy: null
     collection: contingency
     path: [grade]
+  - id: contingency.illness
+    status: active
+    label: "病気の想定（就業不能・障害のとき。医療・がんの給付を受け取る見込みの計算に使う。0054）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: contingency
+    path: [illness]
   - id: contingency.kind
     status: active
     label: "万一の種類"
@@ -1297,6 +1305,14 @@ entries:
     replacedBy: null
     collection: insurance
     path: [insured]
+  - id: insurance.label
+    status: active
+    label: "名前（表示用。計算には使わない。0054）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: insurance
+    path: [label]
   - id: insurance.policyholder
     status: active
     label: "契約者"
@@ -1337,6 +1353,14 @@ entries:
     replacedBy: null
     collection: insurance
     path: [simple]
+  - id: insurance.subtype
+    status: active
+    label: "保険の種類の細目（画面のひな形。表示と推定の元だけ。計算には使わない。計算の型は template。0054）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: insurance
+    path: [subtype]
   - id: insurance.surrender
     status: active
     label: "解約する月（解約返戻金を受け取り、保障と払込が終わる）"

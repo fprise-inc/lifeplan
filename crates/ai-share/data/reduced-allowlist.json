@@ -1,6 +1,6 @@
 {
   "$comment": "0015 の6: 縮約版（AIに渡す既定の範囲）の許可リスト。入力項目ID（0004・registry/items.yaml）で選ぶ。版を変えたら version を上げる。入力項目を足したら、ここに入れるか（計算に要る）・文章の項目として既定で外すか（crates/ai-share/src/reduce.rs の TEXT_ITEMS）を決める（テストで止まる）",
-  "version": "reduced@13",
+  "version": "reduced@14",
   "items": [
     "account.asOf",
     "account.assetMix",
@@ -65,6 +65,7 @@
     "care.place",
     "care.serviceMonthly",
     "contingency.grade",
+    "contingency.illness",
     "contingency.kind",
     "contingency.medical",
     "contingency.member",
@@ -166,6 +167,7 @@
     "insurance.renewals",
     "insurance.schedule",
     "insurance.simple",
+    "insurance.subtype",
     "insurance.surrender",
     "insurance.template",
     "insurance.waiver",
