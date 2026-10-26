@@ -562,7 +562,23 @@
             "dbEquivalentMonthly": { "description": "他制度掛金相当額（月額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
           }
         },
-        "endsWith": { "title": "期間の終わり方", "x-item": "employment.endsWith", "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" }
+        "endsWith": {
+          "title": "期間の終わり方",
+          "description": "雇用保険の失業の給付（benefit.unemployment）が読む値: retirement（定年）・voluntary（自己都合。給付制限がある）・involuntary（会社都合。特定受給資格者の日数）・contractEnd（契約満了。一般の日数で給付制限なし）・sickLeave（休業のまま辞める。失業の給付を出さない）。省略は、期間の終わりが60歳に達した月以後か定年の出来事（event.kind retirement）なら定年、それ以外は自己都合とみなす。ほかの値は自己都合として扱う",
+          "x-item": "employment.endsWith",
+          "type": "string",
+          "pattern": "^[a-z][a-zA-Z0-9]*$"
+        },
+        "unemploymentClaim": {
+          "title": "辞めた後に雇用保険の失業の給付（基本手当・高年齢求職者給付金）を受け取るか（省略は受け取らない。新しい世帯に入れる推定は SDK の estimateUnemploymentClaim）",
+          "x-item": "employment.unemploymentClaim",
+          "type": "boolean"
+        },
+        "elderlyContinuationClaim": {
+          "title": "この期間の60〜64歳の月に雇用保険の高年齢雇用継続給付を受け取るか（省略は受け取らない。要件と額はエンジンが判定する）",
+          "x-item": "employment.elderlyContinuationClaim",
+          "type": "boolean"
+        }
       },
       "allOf": [
         { "if": { "properties": { "type": { "const": "leave" } } }, "then": { "required": ["leaveKind"] } },

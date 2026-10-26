@@ -1,0 +1,21 @@
+id: employmentInsurance.basicAllowance.days.general.from20
+title: 基本手当の所定給付日数（一般の離職者・被保険者であった期間 20年以上）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2017-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 150
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "雇用保険法 第22条第1項・第23条第1項（令和8年5月13日の版）", "quote": "20年以上 150日", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.hellowork.mhlw.go.jp/insurance/insurance_benefitdays.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "ハローワーク「基本手当の所定給付日数」", "quote": "20年以上 150日", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "自己都合・定年・契約満了など（特定受給資格者でない離職者。全年齢）。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

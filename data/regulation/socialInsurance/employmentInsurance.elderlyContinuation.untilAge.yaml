@@ -1,0 +1,22 @@
+id: employmentInsurance.elderlyContinuation.untilAge
+title: 高年齢雇用継続基本給付金の支給の終わりの年齢（65歳に達する月まで）
+unit: years
+kind: constant
+basis: "month"
+ageSwitch: reachMonth
+entries:
+  - rev: 1
+    appliesFrom: "2017-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 65
+    sources:
+      - {"type": "web", "url": "https://www.hellowork.mhlw.go.jp/insurance/insurance_continue.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "ハローワーク「高年齢雇用継続給付について」支給期間", "quote": "被保険者が60歳に達した月から65歳に達する月まで", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "雇用保険法 第61条第2項（令和8年5月13日の版）", "quote": "六十五歳に達する日の属する月", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "65歳に達する月まで（その月を含む）。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

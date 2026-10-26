@@ -201,6 +201,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.income.benefit.unemployment
+    status: active
+    label: "雇用保険の失業の給付など（基本手当・高年齢求職者給付金・高年齢雇用継続給付）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.income.benefit.medical
     status: active
     label: "高額療養費などの医療の給付"

@@ -98,6 +98,10 @@ export interface EmploymentPeriodInput {
   readonly retirementBenefit?: string;
   readonly corporatePension?: { readonly db?: boolean; readonly dbEquivalentMonthly?: Yen };
   readonly endsWith?: string;
+  /** 辞めた後に雇用保険の失業の給付を受け取るか（省略は受け取らない。benefit.unemployment） */
+  readonly unemploymentClaim?: boolean;
+  /** この期間の60〜64歳の月に高年齢雇用継続給付を受け取るか（省略は受け取らない。benefit.unemployment） */
+  readonly elderlyContinuationClaim?: boolean;
 }
 
 /** 第1号の期間の内訳の月数 */

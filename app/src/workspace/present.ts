@@ -91,7 +91,7 @@ export function rowDefs(req: EngineRequest): RowDef[] {
   const known = (c: TableCell, p: string) => under(c.row, p) && c.member !== undefined && ids.has(c.member);
   defs.push(
     { key: "retirement", label: "退職金", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.lumpSum.retirement"), evidence: true },
-    { key: "benefit", label: "児童手当・修学支援", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.benefit"), evidence: true },
+    { key: "benefit", label: "給付・手当", group: "income", kind: "value", match: (c) => under(c.row, "cf.income.benefit"), evidence: true },
     ...(hasRent ? [{ key: "rent", label: "家賃収入", group: "income" as const, kind: "value" as const, match: isRent, evidence: true }] : []),
     {
       key: "incomeOther",

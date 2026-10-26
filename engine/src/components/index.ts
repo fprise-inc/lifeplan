@@ -35,6 +35,7 @@ import taxSpouseDeduction from "./tax.spouseDeduction/index.ts";
 import taxEmploymentIncome from "./tax.employmentIncome/index.ts";
 import taxTotalIncome from "./tax.totalIncome/index.ts";
 import benefitEmployment from "./benefit.employment/index.ts";
+import benefitUnemployment from "./benefit.unemployment/index.ts";
 import benefitHealth from "./benefit.health/index.ts";
 import incomeBusiness from "./income.business/index.ts";
 import pensionCategory from "./pension.category/index.ts";
@@ -123,6 +124,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   taxEmploymentIncome,
   taxTotalIncome,
   benefitEmployment,
+  benefitUnemployment,
   benefitHealth,
   incomeBusiness,
   pensionCategory,

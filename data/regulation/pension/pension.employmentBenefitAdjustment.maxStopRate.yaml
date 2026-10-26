@@ -1,0 +1,35 @@
+id: pension.employmentBenefitAdjustment.maxStopRate
+title: 高年齢雇用継続給付を受ける月に65歳前の老齢厚生年金から止める最大の割合（標準報酬月額に掛ける。60歳に達した日で決まる）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2003-05-01"
+    appliesTo: "2025-03-31"
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.06"
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/koyou-chosei/20140421-02.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "日本年金機構「年金と雇用保険の高年齢雇用継続給付との調整」", "quote": "年金の支給停止額は標準報酬月額の最大6％相当", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号", "egovRevisionId": "329AC0000000115_20261001_507AC0000000074"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "60歳に達した日が令和7年3月31日以前で高年齢雇用継続基本給付金を受ける人（厚生年金保険法 附則第11条の6）。給付の率に6/15を掛けた率で止める。照合: claude（2026-10-26。原本との指紋の照合は未了）"}
+  - rev: 2
+    appliesFrom: "2025-04-01"
+    appliesTo: null
+    enforcedOn: "2025-04-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.04"
+    sources:
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/seido/roureinenkin/koyou-chosei/20140421-02.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "日本年金機構「年金と雇用保険の高年齢雇用継続給付との調整」", "quote": "支給停止額は最高で標準報酬月額の4％相当", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.nenkin.go.jp/service/jukyu/tetsuduki/rourei/jukyu/20140716.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "日本年金機構「失業給付・高年齢雇用継続給付を受けるとき」", "quote": "在職による年金の停止に加えて、年金の一部がさらに支給停止", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "law", "lawNumber": "昭和二十九年法律第百十五号", "egovRevisionId": "329AC0000000115_20261001_507AC0000000074"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "60歳に達した日が令和7年4月1日以後の人（厚生年金保険法 附則第11条の6）。在職老齢年金の停止に加えて止める。給付の率に4/10を掛けた率で止める（最大の率どうしの比。逓減の区分も同じ比とみなす近似）。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

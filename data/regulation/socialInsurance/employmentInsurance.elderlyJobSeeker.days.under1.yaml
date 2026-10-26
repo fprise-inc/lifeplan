@@ -1,0 +1,22 @@
+id: employmentInsurance.elderlyJobSeeker.days.under1
+title: 高年齢求職者給付金の日数（被保険者であった期間 1年未満。基本手当の日額の30日分）
+unit: count
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2017-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 30
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "雇用保険法 第37条の4第1項（令和8年5月13日の版）", "quote": "1年未満 30日", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.hellowork.mhlw.go.jp/insurance/insurance_basicbenefit.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "ハローワーク「基本手当について」高年齢求職者給付金", "quote": "被保険者であった期間が1年未満なら基本手当日額の30日分", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://jsite.mhlw.go.jp/hokkaido-hellowork/list/sapporo/kyusyokusya/hokenzyukyu/kourei/4.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "北海道労働局 札幌「高年齢求職者給付金の額は」", "quote": "1年未満 30日分", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "65歳以上で離職した高年齢被保険者の一時金。基本手当の日額は60歳未満の式・30歳未満の上限で計算する。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

@@ -4,6 +4,7 @@
 // 配偶者の入力を変えたとき、本人の分は集め直さない）。parts は集めた部品の出力の配列のまま（エンジンが表の集計を部品ごとに使い回す）
 // 改訂5（万一・医療・贈与）: 遺族年金（pension.survivor）・障害年金（pension.disability）・万一の医療費（medical.highCost）・
 // 受け取る贈与の税（gift.tax。贈与を受け取る年だけ）を集める
+// 改訂6（0037）: 雇用保険の失業の給付・高年齢雇用継続給付（benefit.unemployment）を集める
 import {
   ageMonth,
   defineComponent,
@@ -26,7 +27,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
   id: "plan.memberFlows",
   title: "お金の動き（構成員ごとに集める）",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: {
     "pension.survivor": ">=1 <2",
     "pension.disability": ">=1 <2",
@@ -46,6 +47,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
     "pension.supplementaryBenefit": ">=1 <2",
     "benefit.health": ">=1 <2",
     "benefit.employment": ">=1 <2",
+    "benefit.unemployment": ">=1 <2",
     "socialInsurance.nationalPension": ">=1 <2",
     "socialInsurance.lateElderly": ">=1 <2",
     "socialInsurance.careFirst": ">=1 <2",
@@ -74,6 +76,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; net: { year:
       "pension.disability",
       "benefit.health",
       "benefit.employment",
+      "benefit.unemployment",
       "medical.highCost",
       "ideco.contribution",
       "account.ideco",

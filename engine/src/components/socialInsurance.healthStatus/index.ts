@@ -6,6 +6,8 @@
 // - 同居なら、扶養する人の収入の見込みの2分の1の未満。別居（親・祖父母で member.support.cohabiting が false）なら、仕送りの年額
 //   （support.allowance の12か月分。入力が無いときは確かめない）の未満
 // - 親・祖父母は、扶養していること（member.support.dependent）を入れたときだけ
+// - 雇用保険の基本手当を受ける月（日の分を受ける月。待期・給付制限の月を除く）は、基本手当日額×360 が被扶養者の基準以上なら扶養にしない
+//   （改訂4。0037。日額 3,612円以上（60歳以上は 5,000円以上）で扶養から外れる扱い）
 // 自営・無職・休業の期間に healthInsurance.kind を書いたときは、それを使う（FP の上書き。任意継続もこれで表す。任意継続は始まりの月から
 // 2年（socialInsurance.health.continuation.maxMonths）までで、その後は上の決まりで導く。健康保険法38条1号）
 import {
@@ -29,6 +31,7 @@ import {
   type PensionOutput,
   type SalaryOutput,
   type SurvivorPensionOutput,
+  type UnemploymentOutput,
   type Yen,
 } from "../../sdk/index.ts";
 
@@ -43,11 +46,14 @@ const P = {
   continuationMonths: "socialInsurance.health.continuation.maxMonths",
 };
 
+/** 雇用保険の給付の日額を年額に直す日数（被扶養者の認定で日額×360 と基準を比べる） */
+const DAYS_PER_YEAR = 360;
+
 export default defineComponent<{ member: string }, { months: HealthStatusMonth[] }>({
   id: "socialInsurance.healthStatus",
   title: "健康保険の種類（導く）",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {
     "socialInsurance.employeeStatus": ">=1 <2",
     "income.salary": ">=1 <2",
@@ -55,6 +61,7 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
     "pension.oldAge": ">=1 <2",
     "pension.survivor": ">=1 <2",
     "pension.disability": ">=1 <2",
+    "benefit.unemployment": ">=1 <2",
   },
   params: Object.values(P),
   reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "employment.healthInsurance.kind", "employment.type"],
@@ -126,6 +133,8 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
       return out;
     };
     const mine = incomeOf(member);
+    // 基本手当を受ける月の日額
+    const allowanceDaily = new Map(ctx.call<UnemploymentOutput>("benefit.unemployment", { member }).receipts.map((x) => [x.month, x.daily]));
     const months: HealthStatusMonth[] = [];
     // 任意継続を入れた月の続きの始まりの月と、最後に任意継続を入れた月
     let continuationFrom: MonthIndex | null = null;
@@ -169,6 +178,8 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
             const young = !x.spouse && m >= youngFrom && m < youngUntil ? at.paramYen(P.limitYoung) : null;
             const limit = m >= elderly || mine.disabled(m) ? at.paramYen(P.limitElderly) : (young ?? at.paramYen(P.limit));
             if (limit !== null && income >= limit) return false;
+            const daily = allowanceDaily.get(s.month);
+            if (daily !== undefined && limit !== null && ctx.money.mulRatio(daily, DAYS_PER_YEAR, 1, "conv.exact") >= limit) return false;
             // 同居なら扶養する人の収入の2分の1の未満、別居なら仕送りの額の未満
             if (cohabiting) return ctx.money.mulRatio(income, 2, 1, "conv.exact") < incomeOf(x.id).prospective(m);
             return allowance === null || income < allowance;

@@ -1,0 +1,37 @@
+id: employmentInsurance.elderlyContinuation.monthlyLimit
+title: 高年齢雇用継続給付の支給限度額（賃金＋給付の上限。月額）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2025-08-01"
+    appliesTo: "2026-07-31"
+    enforcedOn: "2025-08-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 386922
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/11600000/001282595.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省・ハローワーク「高年齢雇用継続給付の内容及び支給申請手続について」（PL070801保05）", "quote": "令和7年8月1日以降の支給限度額は386,922円", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/11607000/001729233.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省 報道発表「雇用保険の基本手当日額の変更」（令和8年8月1日）", "quote": "高年齢雇用継続給付の支給限度額 386,922円→397,369円", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和7年8月〜令和8年7月の額。照合: claude（2026-10-26。原本との指紋の照合は未了）"}
+  - rev: 2
+    appliesFrom: "2026-08-01"
+    appliesTo: "2027-07-31"
+    enforcedOn: "2026-08-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 397369
+    sources:
+      - {"type": "web", "url": "https://www.hellowork.mhlw.go.jp/insurance/insurance_continue.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "ハローワーク「高年齢雇用継続給付について」支給限度額", "quote": "各月の賃金が397,369円を超える場合は支給されません", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.hellowork.mhlw.go.jp/doc/kounenrei.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "ハローワーク「高年齢雇用継続給付の内容及び支給申請手続について」（PL080801保05）", "quote": "397,369円", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/11607000/001729233.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省 報道発表「雇用保険の基本手当日額の変更」（令和8年8月1日）", "quote": "386,922円→397,369円", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "令和8年8月〜令和9年7月の額。令和9年8月以後は延長の仮定。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

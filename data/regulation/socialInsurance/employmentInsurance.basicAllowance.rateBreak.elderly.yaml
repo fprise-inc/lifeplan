@@ -1,0 +1,20 @@
+id: employmentInsurance.basicAllowance.rateBreak.elderly
+title: 基本手当の給付率が45%になる賃金日額（60歳以上65歳未満。この額を超えると45%）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2026-08-01"
+    appliesTo: "2027-07-31"
+    enforcedOn: "2026-08-01"
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: 12120
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726936.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省 参考1 基本手当日額の計算式及び金額（令和8年8月1日〜）", "quote": "5,480円以上12,120円以下 y=0.8w−0.35{(w−5,480)/(12,120−5,480)}w", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和8年8月〜令和9年7月の額（60歳以上65歳未満の表）。12,120円で 0.8w−0.35w＝0.05w＋0.4×12,120 になり、16条2項の式と合う。令和7年8月〜令和8年7月の額は原本（PDF）でしか読めず、まだ置いていない（部品は後の期間の値で計算して知らせる）。令和9年8月以後は延長の仮定。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

@@ -62,6 +62,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: benefit.unemployment
+    status: active
+    label: "雇用保険の失業の給付・高年齢雇用継続給付"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: care.expense
     status: active
     label: "介護の費用（自己負担割合・高額介護サービス費）"

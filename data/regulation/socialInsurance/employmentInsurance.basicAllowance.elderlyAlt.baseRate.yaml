@@ -1,0 +1,21 @@
+id: employmentInsurance.basicAllowance.elderlyAlt.baseRate
+title: 60歳以上65歳未満の基本手当の日額のもう一方の式の、45%になる賃金日額に掛ける率（百分の四十）
+unit: rate
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2017-04-01"
+    appliesTo: null
+    enforcedOn: null
+    status: "enacted"
+    jurisdiction: "national"
+    conditions: []
+    value: "0.4"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "雇用保険法 第16条第1項・第2項（令和8年5月13日の版）", "quote": "百分の四十を乗じて得た額を加えた額", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/content/001726936.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省 参考1 基本手当日額の計算式及び金額（令和8年8月1日〜）", "quote": "y=0.8w／y=0.5w／60歳以上65歳未満は0.45w", "note": "検索の要約で読んだ（原本の PDF は未取得）"}
+      - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
+    recordedIn: "2026.9.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "60歳以上65歳未満の中間の区分（12,120円×40%＝4,848円。令和8年8月の額）。照合: claude（2026-10-26。原本との指紋の照合は未了）"}
