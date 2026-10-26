@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.23";
+pub const CURRENT: &str = "0.24";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -82,9 +82,11 @@ pub const CURRENT: &str = "0.23";
 /// - 0.23: 子ども・教育のカード（0062・0063）。教育の目標の学校外の費用の入れ方 `goals[].education.outOfSchoolMode` と、塾・習い事の行の種類
 ///   `goals[].education.lessons[].kind` を足した（どれも任意。足すだけの MINOR。入れ方の無い目標は前の形のまま計算する）。
 ///   0.22 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
+/// - 0.24: 相続・贈与のカード（0060・0061）。計算の要求の入力に、相続税の目安の設定 `inheritanceTax`（時点を入れない設定だけ）と
+///   遺したい額 `legacy` を足した（どれも任意。足すだけの MINOR）。0.23 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
-    "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23",
+    "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24",
 ];
 
 /// 1段分の変換
@@ -205,6 +207,11 @@ pub const STEPS: &[Step] = &[
         from: "0.22",
         to: "0.23",
         apply: v0_22_to_0_23,
+    },
+    Step {
+        from: "0.23",
+        to: "0.24",
+        apply: v0_23_to_0_24,
     },
 ];
 
@@ -468,6 +475,15 @@ fn v0_22_to_0_23(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.23".into());
+    }
+    Ok(body)
+}
+
+/// 0.23 → 0.24: 足した欄（相続税の目安の設定・遺したい額。0060・0061）は任意なので足さない。形式の版だけを書き換える
+fn v0_23_to_0_24(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.24".into());
     }
     Ok(body)
 }
@@ -990,7 +1006,8 @@ mod tests {
         assert_eq!(access("0.21").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.22").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.23").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.24").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.24").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.25").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -1003,7 +1020,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.24", b.clone()).unwrap(),
+            upgrade("0.25", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );

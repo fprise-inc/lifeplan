@@ -502,6 +502,10 @@ export interface CareExpense {
   serviceMonthly?: Box<number>;
   otherMonthly?: Box<number>;
   initial?: Box<number>;
+  /** 伸び方（省略は物価上昇率） */
+  growth?: { kind: string; rate?: string };
+  /** 万一のときの扱い（払う人の万一） */
+  onContingency?: OnContingency;
   [key: string]: unknown;
 }
 
@@ -699,6 +703,8 @@ export interface EngineRequest {
     contingencies?: Contingency[];
     protection?: ProtectionRequest;
     inheritanceTax?: InheritanceTaxRequest;
+    /** 遺したい額（0060。表示だけ。計算には使わない） */
+    legacy?: { amount?: Box<number> };
     [key: string]: unknown;
   };
   [key: string]: unknown;

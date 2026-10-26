@@ -39,6 +39,14 @@ export function baseRequest(req: EngineRequest): EngineRequest {
   return out;
 }
 
+/** 世帯に保存した相続税の目安の設定（時点・亡くなる人の選び方を除く） */
+function storedSettings(req: EngineRequest): NonNullable<EngineRequest["input"]["inheritanceTax"]> {
+  const { points: _p, members: _m, ...rest } = req.input.inheritanceTax ?? {};
+  void _p;
+  void _m;
+  return rest;
+}
+
 /** 世帯の大人（本人・配偶者）と、その配偶者（いれば） */
 export function adults(h: Household): { member: Member; spouse: Member | undefined }[] {
   const ms = h.members.filter((m) => m.kind === "self" || m.kind === "spouse");
@@ -145,7 +153,8 @@ export function chartRequests(wh: WorkingHousehold, plan: string, protMembers: r
   if (sc !== undefined) {
     const req = scenarioRequest(wh, sc, year);
     // 死亡の想定の結果に、相続税の目安を1行だけ出す（表示だけで、お金の流れには入れない。0039）
-    if (sc.kind === "death") req.input.inheritanceTax = { points: ["contingency"] };
+    // 世帯に保存した相続税の目安の設定（不動産の評価の割合・FP が入れた額など。0060）はそのまま使う
+    if (sc.kind === "death") req.input.inheritanceTax = { ...storedSettings(wh.request), points: ["contingency"] };
     r[planSlot(plan, "sc")] = req;
   }
   return r;

@@ -3,7 +3,9 @@
 //   FP が「推定で埋める」（1件ごと・カードごと・まとめて）を押したときだけ入れる。無いと決めたら「該当なし」
 // - 新しく入れるとき（子を足す・会社員として入れる・働き方を正社員や公務員にする）は、最初から推定で入れる（ensure*）
 // - 推定の目安は今ある関数（hearing/src/estimates.ts・教育の標準の進路の型）で作れる範囲だけ。作れない物は「推定で埋める」を出さない
-import type { Box, EducationStage, EmploymentPeriod, Household, Member, RetirementBenefit } from "../../engine/types.ts";
+import type { Box, CareExpense, EducationStage, EmploymentPeriod, Household, Member, RetirementBenefit, Timepoint } from "../../engine/types.ts";
+import { careEstimate, lifeExpectancy } from "../../../../hearing/src/estimates.ts";
+import { addMonths, ageAt } from "../levers.ts";
 import { resolveTimepoint, type StageId } from "./form.ts";
 import { mutate, newId, type WorkingHousehold } from "./household.ts";
 import { livingEstimate } from "./estimates.ts";
@@ -16,6 +18,8 @@ import { missingUnemployment, putEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM
 import { AUTO_TYPES, autoKindOf, civilEstimate, COMPUTED, finalMonthlyAt, initialBenefit, isAutoBenefit, isUnenteredBox, KIND_SHORT, prevalenceText, reasonAt, rowOfBenefit, type BenefitKind } from "./retirementBenefits.ts";
 
 type Obj = Record<string, unknown>;
+/** 生年月を持つか（世帯の外の家族は生年月を省ける。0035 の4） */
+export const hasBirth = (m: Member): boolean => (m.birth as Member["birth"] | undefined)?.birthYearMonth !== undefined;
 const inputOf = (wh: WorkingHousehold): Obj => wh.request.input as unknown as Obj;
 
 /** 計算基準月にしている働き方の期間（無ければ次に始まる期間、それも無ければ最後の期間。stages/work.ts の currentPeriod と同じ決まり） */
@@ -251,6 +255,75 @@ function fillHousing(wh: WorkingHousehold): WorkingHousehold {
   return mutate(wh, (hh, req) => void (hh.residences ??= []).push({ id: newId(), kind: "rent", from: { at: req.input.baseMonth }, to: null, rent: { monthly: { value: RENT_STANDARD, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: RENT_BASIS } } } } as never));
 }
 
+// ---- 介護（本人・配偶者は自動で入れない。未入力の警告と「目安で入れる」。介護・親のカード） ----
+
+/** 亡くなる見込みの推定: 今の年齢の平均余命を足した年齢（年齢の時点で持つので、生年月を直すと合わせて動く）。生年月が無ければ null */
+export function deathEstimate(m: Member, baseMonth: string): { point: Timepoint; age: number; basis: string } | null {
+  if (!hasBirth(m)) return null;
+  const age = Math.max(0, ageAt(m, baseMonth));
+  const le = lifeExpectancy(age, m.sex);
+  if (le === null) return null;
+  const years = Math.floor(age + le.value);
+  return { point: { memberAge: { member: m.id, years } }, age: years, basis: `推定（${le.basis}から ${String(years)}歳ごろ）` };
+}
+
+/** 亡くなる見込みの年月（入っていれば入れた時点、無ければ平均余命の推定） */
+function deathMonth(h: Household, m: Member, baseMonth: string): string | null {
+  const own = m.leaves !== null && m.leaves !== undefined ? resolveTimepoint(h, m.leaves) : null;
+  if (own !== null) return own;
+  const est = deathEstimate(m, baseMonth);
+  return est === null ? null : resolveTimepoint({ ...h, members: [m] }, est.point);
+}
+
+/** その月が、その人の年齢の何か月目か（0〜11） */
+function monthsInto(m: Member, ym: string): number {
+  const [by, bm] = m.birth.birthYearMonth.split("-").map(Number) as [number, number];
+  const [y, mo] = ym.split("-").map(Number) as [number, number];
+  const diff = (y - by) * 12 + (mo - bm) + (m.birth.bornOnFirst ? 1 : 0);
+  return ((diff % 12) + 12) % 12;
+}
+
+/** 介護の目安の物（統計の期間で、亡くなる見込みの前に置く。今より前なら今の翌月から。額は空欄＝統計の目安で計算） */
+export function careTemplate(h: Household, m: Member, baseMonth: string, id: string = newId()): CareExpense {
+  const months = careEstimate("home")?.months ?? 55;
+  const death = deathMonth(h, m, baseMonth);
+  const start = death === null ? addMonths(baseMonth, 12) : addMonths(death, -months);
+  const from: Timepoint = start <= baseMonth ? { at: addMonths(baseMonth, 1) } : hasBirth(m) ? { memberAge: { member: m.id, years: Math.max(0, ageAt(m, start)), months: monthsInto(m, start) } } : { at: start };
+  return { id, member: m.id, from, months, place: "home" };
+}
+
+/** この人の介護の目安を入れる（この人の介護がもう有れば同じ世帯） */
+export function fillCareFor(wh: WorkingHousehold, memberId: string): WorkingHousehold {
+  const h = wh.request.input.household;
+  const m = h.members.find((x) => x.id === memberId);
+  if (m === undefined || (h.careExpenses ?? []).some((c) => c.member === memberId)) return wh;
+  return mutate(wh, (hh, req) => void (hh.careExpenses ??= []).push(careTemplate(hh, m, req.input.baseMonth)));
+}
+
+/** 本人・配偶者のうち、介護の費用がまだ無い人 */
+export function adultsWithoutCare(h: Household): Member[] {
+  return h.members.filter((m) => (m.kind === "self" || m.kind === "spouse") && m.expected !== true && !(h.careExpenses ?? []).some((c) => c.member === m.id));
+}
+
+/** 本人・配偶者の介護の目安を入れる（まだ無い人だけ） */
+export function fillAdultsCare(wh: WorkingHousehold): WorkingHousehold {
+  return adultsWithoutCare(wh.request.input.household).reduce((w, m) => fillCareFor(w, m.id), wh);
+}
+
+/**
+ * 本人・配偶者の介護の費用の入れ方の既定（事務所の設定で変えられる形。保存の場所は事務所の設定を作る回に決める。items.ts の CardLayout と同じ）。
+ * warn: 自動で入れない（未入力の警告と「目安で入れる」の1押し）、fill: 新しい世帯では最初から目安で入れる
+ */
+export interface CareDefaults {
+  selfAndSpouse: "warn" | "fill";
+}
+export const DEFAULT_CARE_DEFAULTS: CareDefaults = { selfAndSpouse: "warn" };
+
+/** 新しい世帯に、事務所の設定の既定を当てる（warn なら何もしない。古い世帯には当てない） */
+export function applyCareDefaults(wh: WorkingHousehold, d: CareDefaults = DEFAULT_CARE_DEFAULTS): WorkingHousehold {
+  return d.selfAndSpouse === "fill" ? fillAdultsCare(wh) : wh;
+}
+
 // ---- 一覧 ----
 
 /** 入っていない物の一覧（古い世帯を開いたとき、自動で入れずにここに出す） */
@@ -319,6 +392,21 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
   }
   if ((h.residences ?? []).length === 0 && !(h.debts ?? []).some((d) => d.kind === "mortgage") && !confirmed.has("housing"))
     out.push({ id: "housing", card: "housing", label: "住居費", note: "住まいが入っていないので、住居費を0円で計算しています", fill: fillHousing, basis: RENT_BASIS, none: (w) => markCard(w, "housing"), noneLabel: "住居費なし" });
+  // 本人・配偶者の介護の費用（自動で入れない。外れると大きく誤るので、未入力の警告と「目安で入れる」。入れないと決めたらカードを保存）
+  if (!confirmed.has("care")) {
+    const est = careEstimate("home");
+    for (const m of adultsWithoutCare(h))
+      out.push({
+        id: `care/${m.id}`,
+        card: "care",
+        label: `${memberLabel(wh, m.id)}の介護の費用`,
+        note: "介護の費用が入っていないので、0円で計算しています（自動では入れません）",
+        fill: (w) => fillCareFor(w, m.id),
+        ...(est !== null ? { basis: `${est.basis}・亡くなる見込み（簡易生命表の平均余命）の前の期間` } : {}),
+        none: (w) => markCard(w, "care"),
+        noneLabel: "介護の費用を入れない",
+      });
+  }
   if ((h.insuranceContracts ?? []).length === 0 && !confirmed.has("insurance"))
     out.push({ id: "insurance", card: "insurance", label: "保険", note: "保険が入っていません（保険料・保障を0円で計算しています。保障の額は目安で入れません）", none: (w) => markCard(w, "insurance"), noneLabel: "保険に入っていない" });
   return out;

@@ -3037,6 +3037,18 @@
     "endYear"
    ]
   },
+  "plan.inheritanceTax": {
+   "collection": null,
+   "path": [
+    "inheritanceTax"
+   ]
+  },
+  "plan.legacy": {
+   "collection": null,
+   "path": [
+    "legacy"
+   ]
+  },
   "premiumAssessment.amount": {
    "collection": "premiumAssessment",
    "path": [

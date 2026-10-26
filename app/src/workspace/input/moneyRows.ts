@@ -247,7 +247,7 @@ function badgeField(key: string, item: string, label: string, options: Option[],
 }
 
 /** 伸び方の欄（物価に合わせる＝既定／決まった率〔マイナスも〕／変えない） */
-function growthFields(key: string, item: string, find: Finder, id: string, cur: { kind: string; rate?: string } | undefined): FieldDef[] {
+export function growthFields(key: string, item: string, find: Finder, id: string, cur: { kind: string; rate?: string } | undefined): FieldDef[] {
   const out = [withAddress(plain({ key: `${key}/growth`, item, label: "伸び方（変動率）", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, structural: true, after: (_h, t, v) => fixGrowth(t, v), help: "額は今の値段（計算の基準の年の価格）で入れます。既定は前提条件の物価上昇率で伸ばします" }), address(id, item, ["kind"]))];
   if (cur?.kind === "rate") out.push(withAddress(plain({ key: `${key}/growthRate`, item, label: "決まった変動率（年。マイナスも入れられます）", level: "detail", kind: "pct", find, path: ["growth", "rate"] }), address(id, item, ["rate"])));
   return out;

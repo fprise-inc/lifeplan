@@ -6,7 +6,8 @@ import { addMonths } from "../../levers.ts";
 import { byId, plain, removeAction, timepointField, yenBox, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { CARE_PLACE, memberLabel, memberOptions } from "../labels.ts";
-import { expenseCard, moneySections, periodicGroups } from "../moneyRows.ts";
+import { expenseCard, growthFields, moneySections, periodicGroups } from "../moneyRows.ts";
+import { onContingencyDetailFields, onContingencyFields } from "./onContingency.ts";
 import { readGroup, readLine } from "../readLines.ts";
 
 // 出るお金の行のまとまり（周期的な支出）は、どのカードでも同じ形（moneyRows.ts。0044）
@@ -27,10 +28,13 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
       timepointField({ key: `${k}/from`, item: "care.from", label: "始まり", level: "simple", find, path: ["from"], ageOf: (h) => h.members.find((m) => m.id === (h.careExpenses ?? []).find((x) => x.id === c.id)?.member), anchor: "careStart" }),
       plain({ key: `${k}/months`, item: "care.months", label: "期間", level: "simple", kind: "int", suffix: "か月", min: 1, max: 600, find, path: ["months"], optional: true }),
       plain({ key: `${k}/place`, item: "care.place", label: "在宅か施設か", level: "simple", kind: "select", options: CARE_PLACE, find, path: ["place"], optional: true, fallback: "home" }),
-      yenBox({ key: `${k}/service`, item: "care.serviceMonthly", label: "介護保険の対象の費用（月額・1割負担の前）", level: "detail", basis: "monthly", find, path: ["serviceMonthly"], optional: true }),
-      yenBox({ key: `${k}/other`, item: "care.otherMonthly", label: "対象外の費用（月額）", level: "detail", basis: "monthly", find, path: ["otherMonthly"], optional: true }),
-      yenBox({ key: `${k}/initial`, item: "care.initial", label: "一時費用（住宅改修・介護用品など）", level: "detail", basis: "once", find, path: ["initial"], optional: true }),
-      plain({ key: `${k}/payer`, item: "care.payer", label: "払う人", level: "detail", kind: "select", options: [{ value: "", label: "介護を受ける人" }, ...memberOptions(wh)], find, path: ["payer"], optional: true, fallback: "" }),
+      yenBox({ key: `${k}/other`, item: "care.otherMonthly", label: "月々の費用（自己負担の合計）", level: "simple", basis: "monthly", find, path: ["otherMonthly"], optional: true, help: "空欄は統計の目安（在宅・施設の平均の月額）で計算します。施設の請求書の額などで入れてください。介護保険の1割負担の前の額が分かれば、詳細の「介護保険の対象の費用」に分けて入れます" }),
+      yenBox({ key: `${k}/service`, item: "care.serviceMonthly", label: "介護保険の対象の費用（月額・1割負担の前の10割）", level: "detail", basis: "monthly", find, path: ["serviceMonthly"], optional: true, help: "入れると、所得に応じた自己負担の割合（1〜3割）と高額介護サービス費の上限を当てます。空欄は上の月々の費用だけで計算します" }),
+      yenBox({ key: `${k}/initial`, item: "care.initial", label: "一時費用（住宅の改修・入居金など）", level: "detail", basis: "once", find, path: ["initial"], optional: true, help: "空欄は統計の目安（一時費用の平均）で計算します" }),
+      plain({ key: `${k}/payer`, item: "care.payer", label: "払う人", level: "detail", kind: "select", options: [{ value: "", label: "介護を受ける人" }, ...memberOptions(wh)], find, path: ["payer"], optional: true, fallback: "", help: "介護を受ける人が世帯の外の家族で、その人のお金を見ているときは、まずその人のお金から払い、尽きた月からここで選んだ人が払います" }),
+      ...growthFields(k, "care.growth", find, c.id, c.growth),
+      ...onContingencyFields({ key: `${k}/on`, item: "care.onContingency", find, path: ["onContingency"], level: "detail", help: "払う人の万一（死亡など）が起きた月の翌月から当てます" }).map((x) => ({ ...x, address: () => ({ target: { object: c.id }, item: "care.onContingency", at: [] }) })),
+      ...onContingencyDetailFields({ key: `${k}/on`, item: "care.onContingency", find, path: ["onContingency"], on: c.onContingency, level: "detail" }).map((x) => ({ ...x, address: () => ({ target: { object: c.id }, item: "care.onContingency", at: [] }) })),
     ],
     actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.careExpenses = (h.careExpenses ?? []).filter((x) => x.id !== c.id)))],
   };

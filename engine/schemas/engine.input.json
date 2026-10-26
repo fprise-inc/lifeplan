@@ -291,6 +291,8 @@
       }
     },
     "inheritanceTax": {
+      "title": "相続税の目安の要求と設定（不動産の評価の割合・名義の無い財産の分け方・葬式の費用・養子・法定相続人の数を直す口・FP が入れた額。0039・0060）",
+      "x-item": "plan.inheritanceTax",
       "description": "相続税の目安（0039）。指定したときだけ計算し、出力の inheritanceTax に出す。お金の流れ（キャッシュフロー表）には入れない（表示だけ）。万一の想定（死亡）のある要求ではその想定の時点、無い要求では「いま本人・配偶者が亡くなったら」と「二人とも亡くなった後（表の最後の年）」",
       "type": "object",
       "additionalProperties": false,
@@ -340,6 +342,15 @@
             }
           }
         }
+      }
+    },
+    "legacy": {
+      "title": "遺したい額（表示だけ。計算には使わない。表の最後の年の金融資産と比べて見せる。0060）",
+      "x-item": "plan.legacy",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "amount": { "description": "遺したい額（今の値段。値の箱）", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
       }
     },
     "protection": {

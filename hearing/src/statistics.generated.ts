@@ -1,5 +1,5 @@
 // 自動生成（hearing/scripts/statistics.ts。npm run statistics）。手で書き換えない。
-// 正本は data/master（wageStats・retirementBenefit・living.statistics・education.statistics）と data/regulation の YAML（0007）。推定の目安の数の写し
+// 正本は data/master（wageStats・retirementBenefit・living.statistics・education.statistics・care.statistics・lifeTable）と data/regulation の YAML（0007）。推定の目安の数の写し
 import type { DatedValue, MasterValue } from "./statistics.ts";
 
 export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
@@ -3056,6 +3056,161 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 2,
   "reviewed": true,
   "retrievedAt": "2026-10-09"
+ },
+ "care.statistics.initial": {
+  "title": "介護の一時的な費用の平均",
+  "value": 472000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "care.statistics.monthly": {
+  "title": "介護の月々の費用の平均（自己負担。在宅・施設の全体）",
+  "value": 90000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "care.statistics.monthlyFacility": {
+  "title": "介護の月々の費用の平均（施設）",
+  "value": 138000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "care.statistics.monthlyHome": {
+  "title": "介護の月々の費用の平均（在宅）",
+  "value": 52000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "care.statistics.months": {
+  "title": "介護の期間の平均（月数）",
+  "value": 55,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "lifeTable.lifeExpectancy.female": {
+  "title": "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）",
+  "value": [
+   {
+    "upTo": 0,
+    "rate": "87.33"
+   },
+   {
+    "upTo": 20,
+    "rate": "67.67"
+   },
+   {
+    "upTo": 30,
+    "rate": "57.85"
+   },
+   {
+    "upTo": 40,
+    "rate": "48.05"
+   },
+   {
+    "upTo": 50,
+    "rate": "38.41"
+   },
+   {
+    "upTo": 60,
+    "rate": "29.07"
+   },
+   {
+    "upTo": 65,
+    "rate": "24.52"
+   },
+   {
+    "upTo": 70,
+    "rate": "20.10"
+   },
+   {
+    "upTo": 75,
+    "rate": "15.88"
+   },
+   {
+    "upTo": 80,
+    "rate": "11.95"
+   },
+   {
+    "upTo": 85,
+    "rate": "8.47"
+   },
+   {
+    "upTo": 90,
+    "rate": "5.66"
+   },
+   {
+    "upTo": null,
+    "rate": "5.66"
+   }
+  ],
+  "rev": 4,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "lifeTable.lifeExpectancy.male": {
+  "title": "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）",
+  "value": [
+   {
+    "upTo": 0,
+    "rate": "81.35"
+   },
+   {
+    "upTo": 20,
+    "rate": "61.72"
+   },
+   {
+    "upTo": 30,
+    "rate": "51.98"
+   },
+   {
+    "upTo": 40,
+    "rate": "42.29"
+   },
+   {
+    "upTo": 50,
+    "rate": "32.82"
+   },
+   {
+    "upTo": 60,
+    "rate": "23.86"
+   },
+   {
+    "upTo": 65,
+    "rate": "19.68"
+   },
+   {
+    "upTo": 70,
+    "rate": "15.78"
+   },
+   {
+    "upTo": 75,
+    "rate": "12.24"
+   },
+   {
+    "upTo": 80,
+    "rate": "9.10"
+   },
+   {
+    "upTo": 85,
+    "rate": "6.44"
+   },
+   {
+    "upTo": 90,
+    "rate": "4.38"
+   },
+   {
+    "upTo": null,
+    "rate": "4.38"
+   }
+  ],
+  "rev": 3,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
  }
 };
 
@@ -4386,6 +4541,124 @@ export const REGULATION_VALUES: Readonly<Record<string, readonly DatedValue[]>> 
      "below": null
     }
    ]
+  }
+ ],
+ "socialInsurance.dependent.incomeLimit": [
+  {
+   "from": "2025-04-01",
+   "to": null,
+   "rev": 1,
+   "value": 1300000
+  }
+ ],
+ "socialInsurance.dependent.incomeLimitElderly": [
+  {
+   "from": "2025-04-01",
+   "to": null,
+   "rev": 1,
+   "value": 1800000
+  }
+ ],
+ "socialInsurance.dependent.elderlyAge": [
+  {
+   "from": "2025-04-01",
+   "to": null,
+   "rev": 1,
+   "value": 60
+  }
+ ],
+ "socialInsurance.health.lateElderlyAge": [
+  {
+   "from": "2025-01-01",
+   "to": null,
+   "rev": 1,
+   "value": 75
+  }
+ ],
+ "incomeTax.dependentIncomeLimit": [
+  {
+   "from": "2025-01-01",
+   "to": null,
+   "rev": 1,
+   "value": 580000
+  },
+  {
+   "from": "2026-01-01",
+   "to": null,
+   "rev": 2,
+   "value": 620000
+  }
+ ],
+ "incomeTax.publicPensionDeduction.over65.tier1": [
+  {
+   "from": "2020-01-01",
+   "to": null,
+   "rev": 1,
+   "value": [
+    {
+     "upTo": 3300000,
+     "amount": 1100000
+    },
+    {
+     "upTo": 4100000,
+     "rate": "0.25",
+     "amount": 275000
+    },
+    {
+     "upTo": 7700000,
+     "rate": "0.15",
+     "amount": 685000
+    },
+    {
+     "upTo": 10000000,
+     "rate": "0.05",
+     "amount": 1455000
+    },
+    {
+     "upTo": null,
+     "amount": 1955000
+    }
+   ]
+  }
+ ],
+ "incomeTax.publicPensionDeduction.under65.tier1": [
+  {
+   "from": "2020-01-01",
+   "to": null,
+   "rev": 1,
+   "value": [
+    {
+     "upTo": 1300000,
+     "amount": 600000
+    },
+    {
+     "upTo": 4100000,
+     "rate": "0.25",
+     "amount": 275000
+    },
+    {
+     "upTo": 7700000,
+     "rate": "0.15",
+     "amount": 685000
+    },
+    {
+     "upTo": 10000000,
+     "rate": "0.05",
+     "amount": 1455000
+    },
+    {
+     "upTo": null,
+     "amount": 1955000
+    }
+   ]
+  }
+ ],
+ "incomeTax.publicPensionDeduction.elderlyAge": [
+  {
+   "from": "2020-01-01",
+   "to": null,
+   "rev": 1,
+   "value": 65
   }
  ],
  "socialInsurance.health.kyokaikenpo.rate": [

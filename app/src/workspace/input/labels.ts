@@ -4,7 +4,18 @@ import { roles } from "../roles.ts";
 import type { Option } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 
-const KIND_LABEL: Record<string, string> = { parent: "親", grandparent: "祖父母", other: "ご家族" };
+const KIND_LABEL: Record<string, string> = { parent: "親", grandparent: "祖父母", sibling: "兄弟姉妹", grandchild: "孫", other: "ご家族" };
+
+/** 親・祖父母の呼び方（性別と、配偶者の親か）: 父・母・義父・義母・祖父・祖母。性別が仮の値のあいだは「親」「祖父母」 */
+function elderLabel(wh: WorkingHousehold, m: Member): string | undefined {
+  const h = wh.request.input.household;
+  if ((m.kind !== "parent" && m.kind !== "grandparent") || wh.assumed[`family/${m.id}/sex`] !== undefined) return undefined;
+  const spouse = h.members.find((x) => x.kind === "spouse");
+  const inLaw = spouse !== undefined && m.outside?.of === spouse.id;
+  if (m.sex !== "male" && m.sex !== "female") return undefined;
+  if (m.kind === "grandparent") return m.sex === "male" ? "祖父" : "祖母";
+  return `${inLaw ? "義" : ""}${m.sex === "male" ? "父" : "母"}`;
+}
 
 /** 構成員の呼び方: 続柄（ご主人・奥様・長男…）と、FP が付けた呼び名（任意） */
 export function memberLabels(wh: WorkingHousehold): Map<string, string> {
@@ -12,11 +23,11 @@ export function memberLabels(wh: WorkingHousehold): Map<string, string> {
   const h = wh.request.input.household;
   const rs = roles(wh.request);
   for (const r of rs) {
-    const base = KIND_LABEL[r.member.kind] ?? r.label;
+    const base = elderLabel(wh, r.member) ?? KIND_LABEL[r.member.kind] ?? r.label;
     const nick = wh.labelsByMember[r.member.id];
     out.set(r.member.id, nick !== undefined && nick !== "" ? `${base}（${nick}）` : base);
   }
-  for (const m of h.members) if (!out.has(m.id)) out.set(m.id, KIND_LABEL[m.kind] ?? "ご家族");
+  for (const m of h.members) if (!out.has(m.id)) out.set(m.id, elderLabel(wh, m) ?? KIND_LABEL[m.kind] ?? "ご家族");
   return out;
 }
 
