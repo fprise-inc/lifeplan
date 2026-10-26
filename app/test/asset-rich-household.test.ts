@@ -135,7 +135,7 @@ describe("開いたときに入れるプランと控え", () => {
     for (const id of seeded.band) {
       const p = seeded.wh.proposals.find((x) => x.id === id)!;
       expect(p.diffs.length, p.name).toBeGreaterThan(0);
-      const pr = preview(applyValues(seeded.wh, effectiveValues(seeded.wh.proposals, id), cat) as EngineRequest);
+      const pr = preview(applyValues(seeded.wh, effectiveValues(seeded.wh, id), cat) as EngineRequest);
       expect(financialOf(pr.table).get(2040), p.name).not.toBe(base);
     }
   });

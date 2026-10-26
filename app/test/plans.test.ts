@@ -16,7 +16,7 @@ import { bucketShares, expectedReturn, mixFromBuckets } from "../src/workspace/p
 import { compareTable, metricsOf } from "../src/workspace/plans/compare.ts";
 import { addRate, mulRate, pctText, subRate } from "../src/workspace/plans/decimal.ts";
 import { buildCatalog, loanStarted, type Catalog } from "../src/workspace/plans/items.ts";
-import { acknowledge, applyValues, changesOf, deletePlan, dropChange, effectiveValues, normalizeValues, overwritePlan, reflectPlan, savePlan, suggestName, type Values } from "../src/workspace/plans/plans.ts";
+import { acknowledge, applyValues, changesOf, deletePlan, diffKey, dropChange, effectiveValues, normalizeValues, overwritePlan, reflectPlan, savePlan, suggestName, type Values } from "../src/workspace/plans/plans.ts";
 import { diffCashflowTable, displayYears, financialOf, flowChart, sumByYear, toPresentation } from "../src/workspace/present.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { bsPlan } from "../src/workspace/balanceTab.ts";
@@ -125,15 +125,17 @@ describe("案: 差分の作成と適用", () => {
     // 生活費は現状と同じ値なので差分にしない
     expect(p.diffs).toHaveLength(1);
     const d = p.diffs[0]!;
-    expect(d).toMatchObject({ key: prepay, item: "debt.prepayments", op: "set", enabled: true, origin: { kind: "manual" }, note: null });
-    expect(d.target).toEqual({ object: wh.request.input.household.debts![0]!.id });
+    expect(diffKey(d, w1)).toBe(prepay);
+    expect(d).toMatchObject({ item: "debt.prepayments", op: "set", at: [], enabled: true, origin: { kind: "manual" }, note: null });
+    // 繰上返済で借入を減らす対策は、そのローンを物として持つ合成の対策（0036 の3）
+    expect(d.target).toEqual({ lever: "loanPrepay", object: wh.request.input.household.debts![0]!.id });
     expect(d.value).toEqual({ value: 5_000_000, state: "confirmed", origin: { kind: "manual" } });
-    expect(d.before.value).toBe(0);
+    expect((d.before as { value: unknown }).value).toBe(0);
     expect(d.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     // 入力（現状）は変わらない
     expect(w1.request).toBe(wh.request);
     // 当てると繰上返済が入り、計算が変わる
-    const req = applyValues(w1, effectiveValues(w1.proposals, id), cat);
+    const req = applyValues(w1, effectiveValues(w1, id), cat);
     expect(req.input.household.debts![0]!.prepayments).toEqual([{ at: { at: "2026-11" }, amount: 5_000_000, mode: "shortenTerm" }]);
     expect(fin(preview(req), 2050)).not.toBe(fin(preview(wh.request), 2050));
   });
@@ -149,8 +151,8 @@ describe("案: 差分の作成と適用", () => {
     const before = w1.proposals[0]!.diffs[0]!;
     const w2 = overwritePlan(w1, cat, id, { [prepay]: 5_000_000, [rate]: "0.008" }, "2026-10-17T11:00:00.000Z");
     const p = w2.proposals[0]!;
-    expect(p.diffs.find((d) => d.key === prepay)!.id).toBe(before.id);
-    expect(p.diffs.map((d) => d.key).sort()).toEqual([prepay, rate].sort());
+    expect(p.diffs.find((d) => diffKey(d, w2) === prepay)!.id).toBe(before.id);
+    expect(p.diffs.map((d) => diffKey(d, w2)).sort()).toEqual([prepay, rate].sort());
     expect(p.updatedAt).toBe("2026-10-17T11:00:00.000Z");
     expect(p.createdAt).toBe(NOW);
   });
@@ -175,8 +177,8 @@ describe("案: 重ね（土台の案に案を重ねる）", () => {
   it("重ねた案は土台から変えた差分だけを持ち、中身は土台＋自分", () => {
     const pc = w.proposals.find((p) => p.id === c.id)!;
     expect(pc.base).toBe(b.id);
-    expect(pc.diffs.map((d) => d.key)).toEqual([rate]);
-    expect(effectiveValues(w.proposals, c.id)).toEqual({ [prepay]: 5_000_000, [rate]: "0.0115" });
+    expect(pc.diffs.map((d) => diffKey(d, w))).toEqual([rate]);
+    expect(effectiveValues(w, c.id)).toEqual({ [prepay]: 5_000_000, [rate]: "0.0115" });
     const ch = changesOf(w.proposals, c.id, w, cat);
     expect(ch.map((x) => [x.key, x.inherited])).toEqual([
       [prepay, true],
@@ -186,26 +188,26 @@ describe("案: 重ね（土台の案に案を重ねる）", () => {
 
   it("土台を直すと、重ねた案にも反映される", () => {
     const w2 = overwritePlan(w, cat, b.id, { [prepay]: 8_000_000 }, NOW);
-    expect(effectiveValues(w2.proposals, c.id)[prepay]).toBe(8_000_000);
+    expect(effectiveValues(w2, c.id)[prepay]).toBe(8_000_000);
   });
 
   it("土台から引き継いだ差分を外すと、この案だけで現状に戻す差分を足す", () => {
     const w2 = dropChange(w, cat, c.id, prepay);
-    expect(effectiveValues(w2.proposals, c.id)[prepay]).toBe(0);
-    expect(effectiveValues(w2.proposals, b.id)[prepay]).toBe(5_000_000);
-    expect(JSON.stringify(applyValues(w2, effectiveValues(w2.proposals, c.id), cat).input.household.debts![0]!.prepayments)).toBe("[]");
+    expect(effectiveValues(w2, c.id)[prepay]).toBe(0);
+    expect(effectiveValues(w2, b.id)[prepay]).toBe(5_000_000);
+    expect(JSON.stringify(applyValues(w2, effectiveValues(w2, c.id), cat).input.household.debts![0]!.prepayments)).toBe("[]");
   });
 
   it("土台の案を外しても、重ねた案の中身は変わらない", () => {
     const w2 = deletePlan(w, b.id);
     const pc = w2.proposals.find((p) => p.id === c.id)!;
     expect(pc.base).toBeNull();
-    expect(effectiveValues(w2.proposals, c.id)).toEqual({ [prepay]: 5_000_000, [rate]: "0.0115" });
+    expect(effectiveValues(w2, c.id)).toEqual({ [prepay]: 5_000_000, [rate]: "0.0115" });
   });
 
   it("土台が巡回していても止まる", () => {
     const loop = w.proposals.map((p) => (p.id === b.id ? { ...p, base: c.id } : p));
-    expect(Object.keys(effectiveValues(loop, c.id)).sort()).toEqual([prepay, rate].sort());
+    expect(Object.keys(effectiveValues({ ...w, proposals: loop }, c.id)).sort()).toEqual([prepay, rate].sort());
   });
 });
 
@@ -219,7 +221,7 @@ describe("案: 現状への反映", () => {
   const w = d.wh;
 
   it("案の差分（土台を含む）を入力（現状）に取り込み、反映した案は差分が無くなる", () => {
-    const expected = applyValues(w, effectiveValues(w.proposals, c.id), cat);
+    const expected = applyValues(w, effectiveValues(w, c.id), cat);
     const r = reflectPlan(w, cat, c.id, NOW);
     expect(r.request).toEqual(expected);
     const pc = r.proposals.find((p) => p.id === c.id)!;
@@ -230,7 +232,7 @@ describe("案: 現状への反映", () => {
     const self = roles(r.request).find((x) => x.key === "self")!.member.id;
     expect(self).toBe(selfId);
     const cat2 = buildCatalog(r, self, demoHousehold("salariedCoupleTwoKids")!);
-    expect(JSON.stringify(preview(applyValues(r, effectiveValues(r.proposals, c.id), cat2)).table)).toBe(JSON.stringify(preview(expected).table));
+    expect(JSON.stringify(preview(applyValues(r, effectiveValues(r, c.id), cat2)).table)).toBe(JSON.stringify(preview(expected).table));
     // ほかの案は差分のまま。現状が変わった項目は「要確認」
     const dch = changesOf(r.proposals, d.id, r, cat2);
     expect(dch).toHaveLength(1);
@@ -254,7 +256,7 @@ describe("案: 入力（現状）を直したときの全案への反映と「�
     const raised = it.apply(w, (it.read(w) as number) + 1_000_000);
     const cat2 = buildCatalog(raised, selfId, demo);
     for (const p of raised.proposals) {
-      const req = applyValues(raised, effectiveValues(raised.proposals, p.id), cat2);
+      const req = applyValues(raised, effectiveValues(raised, p.id), cat2);
       expect(cat2.byKey.get(salaryKey)!.read({ ...raised, request: req })).toBe((it.read(w) as number) + 1_000_000);
       expect(changesOf(raised.proposals, p.id, raised, cat2).every((x) => x.state === "ok")).toBe(true);
     }
@@ -268,7 +270,7 @@ describe("案: 入力（現状）を直したときの全案への反映と「�
     const ch = changesOf(now.proposals, c.id, now, cat2);
     expect(ch[0]).toMatchObject({ key: rate, state: "changed", from: "当初0.75%", to: "当初1.15%" });
     // 案の値は案のまま当たる（段階も、新しい現状からの幅で動く）
-    expect(applyValues(now, effectiveValues(now.proposals, c.id), cat2).input.household.debts![0]!.rateSchedule[0]!.rate).toBe("0.0115");
+    expect(applyValues(now, effectiveValues(now, c.id), cat2).input.household.debts![0]!.rateSchedule[0]!.rate).toBe("0.0115");
     const ok = acknowledge(now, cat2, c.id, rate);
     expect(changesOf(ok.proposals, c.id, ok, cat2)[0]!.state).toBe("ok");
   });
@@ -279,7 +281,7 @@ describe("案: 入力（現状）を直したときの全案への反映と「�
     const ch = changesOf(gone.proposals, b.id, gone, cat2);
     expect(ch.find((x) => x.key === prepay)).toMatchObject({ state: "missing" });
     expect(ch.find((x) => x.key === "lever:livingMonthly")).toMatchObject({ state: "ok" });
-    const req = applyValues(gone, effectiveValues(gone.proposals, b.id), cat2);
+    const req = applyValues(gone, effectiveValues(gone, b.id), cat2);
     expect(req.input.household.debts).toEqual([]);
     expect(req.input.household.livingExpenses![0]!.monthly!.value).toBe(280000);
     // 外すと消える

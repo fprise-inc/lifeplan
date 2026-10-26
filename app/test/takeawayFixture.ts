@@ -32,7 +32,7 @@ export function openHousehold(id: string, opts: { marks?: boolean } = {}) {
   const c = savePlan(wh, cat, { name: "プランC 67歳まで働く", base: null, values: { "lever:retireAge": 67 }, now: NOW });
   wh = c.wh;
   const letters = planLetters(wh.proposals);
-  const ctx = { wh, catalog: cat, valuesOf: (pid: string) => (pid === CURRENT ? {} : effectiveValues(wh.proposals, pid)), letterOf: (pid: string) => letters.get(pid) ?? { letter: "?", name: "" } };
+  const ctx = { wh, catalog: cat, valuesOf: (pid: string) => (pid === CURRENT ? {} : effectiveValues(wh, pid)), letterOf: (pid: string) => letters.get(pid) ?? { letter: "?", name: "" } };
   return { wh, cat, ctx, b: b.id, c: c.id, self };
 }
 

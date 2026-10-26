@@ -14,7 +14,7 @@ import { demoHousehold } from "../src/workspace/catalog.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { addToBand, bandModel, cleanBand, CURRENT, MAX_BAND, planLetters } from "../src/workspace/plans/band.ts";
 import { buildCatalog, type Catalog } from "../src/workspace/plans/items.ts";
-import { applyValues, savePlan, type Values } from "../src/workspace/plans/plans.ts";
+import { applyValues, effectiveValues, savePlan, type Values } from "../src/workspace/plans/plans.ts";
 import { cashflowTable, displayYears, financialOf, sumByYear, toPresentation, withDiff } from "../src/workspace/present.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { ageMarkOf, cardMetrics, DEFAULT_DISPLAY_SETTINGS, toggleMetric, verdictMetrics } from "../src/workspace/settings.ts";
@@ -92,7 +92,7 @@ describe("帯の案の選択", () => {
     const { wh, cat, ids } = withPlans(2);
     const letters = planLetters(wh.proposals);
     const cur = resultOf(wh, cat, {});
-    const b = resultOf(wh, cat, wh.proposals[0]!.diffs.reduce((o, d) => ({ ...o, [d.key]: d.value.value }), {} as Values));
+    const b = resultOf(wh, cat, effectiveValues(wh, wh.proposals[0]!.id));
     const m = bandModel({ req: wh.request, slots: [CURRENT, ...ids], letters, results: new Map([[CURRENT, cur], [ids[0]!, b], [ids[1]!, null]]), modified: new Set([ids[0]!]), base: CURRENT, selected: ids[0]!, settings: DEFAULT_DISPLAY_SETTINGS, colors: new Map() });
     expect(m.cards.map((c) => [c.letter, c.status, c.base, c.shown, c.modified])).toEqual([
       ["A", "77歳で不足", true, false, false],

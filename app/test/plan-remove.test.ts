@@ -7,7 +7,7 @@ import { demoHousehold } from "../src/workspace/catalog.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { bandModel, CURRENT, planLetters, removeFromBand } from "../src/workspace/plans/band.ts";
 import { buildCatalog, type Catalog } from "../src/workspace/plans/items.ts";
-import { savePlan } from "../src/workspace/plans/plans.ts";
+import { diffKey, savePlan } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { sameSnap, type AppSnap } from "../src/workspace/undo/appHistory.ts";
@@ -120,7 +120,7 @@ describe("帯のカードからプランを外す", () => {
     expect(r.message).toBe("プランC を外しました。プランD は中身を引き継ぎます");
     const d = r.wh.proposals.find((p) => p.id === ids[2])!;
     expect(d.base).toBeNull();
-    expect(d.diffs.map((x) => x.key).sort()).toEqual(["lever:livingMonthly", "lever:nisaMonthly"]);
+    expect(d.diffs.map((x) => diffKey(x, r.wh)).sort()).toEqual(["lever:livingMonthly", "lever:nisaMonthly"]);
   });
 
   it("現状と基準のプランは外せない", () => {
