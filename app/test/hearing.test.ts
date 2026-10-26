@@ -5,6 +5,9 @@ import { describe, expect, it } from "vitest";
 import { applyImport, approvalTime, defaultSelection, defaultSheet, exportSheet, importSheet, logOf, withRequest } from "../src/workspace/hearing/sheet.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { inputItems } from "../src/workspace/input/items.ts";
+import { allFields } from "../src/workspace/input/form.ts";
+import { buildStage } from "../src/workspace/input/stages/index.ts";
+import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
 import { REPO_DIR } from "../scripts/lib.ts";
 import { modelHousehold, preview } from "./helpers.ts";
@@ -81,10 +84,14 @@ describe("見本の記入済みシートを空の世帯に取り込む", () => {
     const after = inputItems(withRefreshedEstimates(out.wh));
     const none = (xs: typeof before) => xs.filter((i) => i.status === "missing").map((i) => i.id);
     expect(none(after).length).toBeLessThan(none(before).length);
-    for (const id of ["work", "housing", "insurance"]) {
+    for (const id of ["work", "insurance"]) {
       expect(before.find((i) => i.id === id)?.status, id).toBe("missing");
       expect(after.find((i) => i.id === id)?.status, id).not.toBe("missing");
     }
+    // 住まい: 住まいとローンが入る。シートに無い持ち家の評価額だけが未入力の警告で残る（0052）
+    expect(before.find((i) => i.id === "housing")?.status).toBe("missing");
+    const housingMissing = allFields(buildStage("housing", withRefreshedEstimates(out.wh))).filter((f) => fieldStatus(f, withRefreshedEstimates(out.wh)).status === "missing").map((f) => f.key.split("/").slice(-2).join("/"));
+    expect(housingMissing).toEqual(["valuation/value"]);
   });
 
   it("承認しなかった家族を指す物は入れない", async () => {

@@ -546,6 +546,18 @@ export function recordPlanEdit(wh: WorkingHousehold, cat: Catalog, pid: string, 
   if (labels.length > 0) w = { ...w, labelsByMember: { ...w.labelsByMember, ...Object.fromEntries(labels) } };
   const items = after.addedItems.filter((a) => !w.addedItems.some((x) => x.id === a.id));
   if (items.length > 0) w = { ...w, addedItems: [...w.addedItems, ...items] };
+  // ローンの入れ方の区分（見せ方。0052）は世帯に1つ: プランで直しても世帯の側に書く
+  if (JSON.stringify(after.loanEntry ?? {}) !== JSON.stringify(before.loanEntry ?? {})) {
+    const next = { ...(w.loanEntry ?? {}) };
+    for (const id of new Set([...Object.keys(before.loanEntry ?? {}), ...Object.keys(after.loanEntry ?? {})])) {
+      const v = after.loanEntry?.[id];
+      if (v === undefined) delete next[id];
+      else next[id] = v;
+    }
+    const { loanEntry: _old, ...rest } = w;
+    void _old;
+    w = Object.keys(next).length === 0 ? rest : { ...rest, loanEntry: next };
+  }
   if (w.proposals !== wh.proposals) {
     const t = new Date().toISOString();
     w = { ...w, proposals: w.proposals.map((p) => (p.id === pid && p !== findPlan(wh.proposals, pid) ? { ...p, updatedAt: t } : p)) };

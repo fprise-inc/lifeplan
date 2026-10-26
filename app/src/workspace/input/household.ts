@@ -50,6 +50,11 @@ export interface WorkingHousehold {
   /** FP が入力のパネルで保存した項目（カードの ID）。物が無い項目でも「入力済み（なし）」にするために使う */
   confirmed: string[];
   /**
+   * ローンの入れ方の区分（0052。負債の ID → 借入額から principal・毎月の返済額から payment・今の残高から balance）。画面の見せ方と逆算の
+   * 決まりだけで、計算の要求には入れない。無いローンは「借入額から」
+   */
+  loanEntry?: Record<string, LoanEntry>;
+  /**
    * 案（0008 の5 のプランの層の「提案」）。現状からの差分だけを持ち、数に上限は付けない。保存の回で世帯ファイル（0011）の
    * 世帯データの proposals に入れる（いまは画面の中で持ち、アプリを閉じると消える）
    */
@@ -72,6 +77,9 @@ export interface WorkingHousehold {
    */
   statements?: StatementLog;
 }
+
+/** ローンの入れ方の区分（0052） */
+export type LoanEntry = "principal" | "payment" | "balance";
 
 /** FP が足した項目（今あるデータの型の物1件を、別のカードにする） */
 export interface AddedItem {

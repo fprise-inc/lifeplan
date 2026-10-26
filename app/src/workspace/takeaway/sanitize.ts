@@ -18,6 +18,8 @@ export const FREE_TEXT: Readonly<Record<string, "drop" | "generic" | "keep">> = 
   // 周期的な支出（出るお金の行）・入るお金の行の見出し（FP が書いた文。決まった言葉に置き換える。0044）
   "engine.input#/$defs/periodicExpense/properties/label": "generic",
   "engine.input#/$defs/incomeFlow/properties/label": "generic",
+  // ローンの名前（FP が書いた文。外す。種類の細目から見せる。0052）
+  "engine.input#/$defs/debt/properties/label": "drop",
   // 口座の間の移し替えの見出し（入れ物だけ。外す）
   "engine.input#/$defs/transfer/properties/label": "drop",
   // 事務所の料金表から写したメニュー（事務所の設定。メニューごと外す）
@@ -96,6 +98,8 @@ function walk(v: Json, ids: IdMap, path: readonly string[]): Json {
     if (typeof o.label === "string") o.label = GENERIC_TEXT.incomeFlow;
   }
   if (parent === "transfers" || grand === "transfers") delete o.label;
+  // ローンの名前
+  if (parent === "debts") delete o.label;
   // FP顧問料の契約: 料金表から写したメニューを外す
   if (parent === "advisoryFees" || grand === "advisoryFees") delete o.menu;
   // 保険の数表の出どころ（商品の参照）

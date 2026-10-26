@@ -2222,6 +2222,12 @@
     "kind"
    ]
   },
+  "debt.label": {
+   "collection": "debt",
+   "path": [
+    "label"
+   ]
+  },
   "debt.likelihood": {
    "collection": "debt",
    "path": [
@@ -2280,6 +2286,12 @@
    "collection": "debt",
    "path": [
     "start"
+   ]
+  },
+  "debt.subtype": {
+   "collection": "debt",
+   "path": [
+    "subtype"
    ]
   },
   "donor.kind": {
@@ -3167,6 +3179,12 @@
    "collection": "residence",
    "path": [
     "sale"
+   ]
+  },
+  "residence.style": {
+   "collection": "residence",
+   "path": [
+    "style"
    ]
   },
   "residence.to": {

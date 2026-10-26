@@ -10,8 +10,11 @@
 //   （建物＝基にする建物の額×f(その年の築年数)÷f(基にする年の築年数)）
 // - 売却（sale。住み終わり to があるときだけ）: 住み終わりの月に、売却価格（省略はその年の評価額）から売却の費用（売却価格×費用の割合。
 //   sale.costRate → 前提 saleCostRate → 目安 0.04）を引いた手取りを、名義の人の一時金の収入にする（cf.income.lumpSum.realEstateSale）。
-//   売った年の年末には持っていない。譲渡所得の税は計算しない（知らせ N_NOT_SUPPORTED residence.saleTax）。住宅ローンの残りは返済の予定のまま
-//   （売るときに返すなら、住宅ローンの繰上返済で入れる）
+//   売った年の年末には持っていない。住宅ローンの残りは返済の予定のまま（売るときに返すなら、住宅ローンの繰上返済で入れる）
+// - 譲渡所得の税（改訂2。0053）: 税は計算しない。入れた額（sale.tax。所得税・住民税の合計）があれば、売った月に名義の人の出るお金にする
+//   （売った年の年分の税として数える）。表の行は所得税・住民税の明細（cf.taxSi.incomeTax.realEstateSale・cf.taxSi.residentTax.realEstateSale）に、
+//   長期譲渡の税率の比（15.315対5）で分ける（合計は入れた額のまま）。額の無い売却は税0円のまま知らせ N_NOT_SUPPORTED residence.saleTax を出す
+//   （「わからない」の代わりの値も額として使い、該当なしは0円で知らせを出さない）
 // - 売却の無い住み終わりは、住み終わりの年まで評価に載せ、その後は消える（知らせ N_NOT_SUPPORTED residence.sale。前からの扱い）
 // 目安の根拠は設計記録 0025 に書く。土地と建物に分ける計算は、住まい以外の不動産（asset.realEstate）と共通の sdk の landBuildingValuer
 import {
@@ -39,8 +42,8 @@ const R = "conv.asset.valuation";
 export default defineComponent<Record<string, never>, HousingValuationOutput>({
   id: "housing.valuation",
   title: "持ち家の評価額と売却",
-  contract: "1.0",
-  revision: 1,
+  contract: "1.1",
+  revision: 2,
   requires: {},
   params: [],
   reads: [
@@ -101,9 +104,17 @@ export default defineComponent<Record<string, never>, HousingValuationOutput>({
         const price = h.sale?.price ?? value;
         const costs = ctx.money.mulRate(price, ctx.rate.of(h.sale?.costRate ?? setting?.saleCostRate ?? SALE_COST_RATE), R);
         const proceeds = yen(Math.max(0, price - costs));
-        sale = { ym: formatYm(to), value, price, costs, proceeds };
+        const taxBox = h.sale?.tax;
+        const tax = taxBox === undefined ? yen(0) : (boxValue(taxBox) ?? yen(0));
+        sale = { ym: formatYm(to), value, price, costs, proceeds, tax };
         if (proceeds > 0) flows.push({ row: "cf.income.lumpSum.realEstateSale", ym: formatYm(to), amount: proceeds, accrualYear: y, ...(owner === null ? {} : { member: owner }), object: h.id, formula: "housing.valuation.sale" });
-        ctx.notice("N_NOT_SUPPORTED", ["residence.saleTax"]);
+        if (tax > 0) {
+          // 所得税と住民税の行に、長期譲渡の税率の比（所得税15.315%・住民税5%）で分ける（表の行のため。合計は入れた額のまま）
+          const [incomePart, residentPart] = ctx.money.allocate(tax, [15315, 5000], "conv.tax.allocate", "first") as [Yen, Yen];
+          const at = { ym: formatYm(to), accrualYear: y, ...(owner === null ? {} : { member: owner }), object: h.id, formula: "housing.valuation.saleTax" };
+          flows.push({ row: "cf.taxSi.incomeTax.realEstateSale", amount: incomePart, ...at }, { row: "cf.taxSi.residentTax.realEstateSale", amount: residentPart, ...at });
+        }
+        if (taxBox === undefined) ctx.notice("N_NOT_SUPPORTED", ["residence.saleTax"]);
       } else if (to !== null && to < end && h.sale === undefined) ctx.notice("N_NOT_SUPPORTED", ["residence.sale"]);
       properties.push({ object: h.id, owner, years, sale });
     }

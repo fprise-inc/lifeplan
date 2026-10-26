@@ -124,7 +124,7 @@ describe("持ち家の評価（housing.valuation）", () => {
     const e = expected({ basis: 40000000, share: "0.3", life: 22, floor: "0.2", y0: 2027, built: 2027, growth: "0" }, 2040);
     const value = e.land + e.building;
     const costs = floorYen(new Decimal(value).mul("0.04"));
-    expect(p?.sale).toEqual({ ym: "2040-06", value, price: value, costs, proceeds: value - costs });
+    expect(p?.sale).toEqual({ ym: "2040-06", value, price: value, costs, proceeds: value - costs, tax: 0 });
     expect(p?.years.at(-1)?.year).toBe(2039);
     expect(out.flows).toEqual([{ row: "cf.income.lumpSum.realEstateSale", ym: "2040-06", amount: value - costs, accrualYear: 2040, member: A, object: uid("home"), formula: "housing.valuation.sale" }]);
     const r = full(req);
@@ -142,6 +142,30 @@ describe("持ち家の評価（housing.valuation）", () => {
   it("売却価格・費用の割合を入れたときはその額で", () => {
     const req = withInput(base(), (h) => (h.residences = [home({ to: at("2035-03"), sale: { price: 35000000, costRate: "0.05" } })]));
     expect(valuation(req).properties[0]?.sale).toMatchObject({ price: 35000000, costs: 1750000, proceeds: 33250000 });
+  });
+
+  it("譲渡所得の税の額（0053）: 入れた額を売った月に名義の人の出るお金にし、知らせは出さない。該当なし・0円は税なし", () => {
+    const sold = (sale: Obj) => withInput(base(), (h) => (h.residences = [home({ to: at("2035-03"), sale: { price: 60000000, ...sale } })]));
+    const none = full(sold({}));
+    const taxed = sold({ tax: box(4200000) });
+    const out = valuation(taxed);
+    expect(out.properties[0]?.sale).toMatchObject({ price: 60000000, tax: 4200000 });
+    // 所得税と住民税の明細に、長期譲渡の税率の比（15.315対5）で分ける（合計は入れた額。端数は所得税の側）
+    const income = 4200000 - floorYen(new Decimal(4200000).mul(5000).div(20315));
+    expect(out.flows.filter((f) => f.formula === "housing.valuation.saleTax")).toEqual([
+      { row: "cf.taxSi.incomeTax.realEstateSale", amount: income, ym: "2035-03", accrualYear: 2035, member: A, object: uid("home"), formula: "housing.valuation.saleTax" },
+      { row: "cf.taxSi.residentTax.realEstateSale", amount: 4200000 - income, ym: "2035-03", accrualYear: 2035, member: A, object: uid("home"), formula: "housing.valuation.saleTax" },
+    ]);
+    const r = full(taxed);
+    expect(cells(r, "cf.taxSi.incomeTax.realEstateSale", 2035) + cells(r, "cf.taxSi.residentTax.realEstateSale", 2035)).toBe(4200000);
+    expect(cells(none, "cf.net", 2035) - cells(r, "cf.net", 2035)).toBe(4200000);
+    expect(notices(r).some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("residence.saleTax"))).toBe(false);
+    expect(notices(none).some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("residence.saleTax"))).toBe(true);
+    // 該当なし（税はかからないと FP が決めた）は0円で、知らせも出さない
+    const na = full(sold({ tax: { state: "notApplicable", origin: { kind: "manual" } } }));
+    expect(has(na, "cf.taxSi.incomeTax.realEstateSale", 2035)).toBe(false);
+    expect(notices(na).some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("residence.saleTax"))).toBe(false);
+    expect(cells(na, "cf.net", 2035)).toBe(cells(none, "cf.net", 2035));
   });
 });
 

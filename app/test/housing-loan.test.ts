@@ -45,19 +45,32 @@ const withoutHousing = (req: EngineRequest): EngineRequest => {
   return r;
 };
 
+/** 今住んでいる持ち家の住宅ローンを「借入額から」で入れる（今の残高からのローンには控除の仮の条件を置かないため） */
+const ownLoanByPrincipal = (wh0: WorkingHousehold): WorkingHousehold => {
+  const wh = action(action(wh0, "housing/addOwn"), "housing/addMortgage");
+  const d = loans(wh)[0]!;
+  return withProvisionalHousing(fieldOf(wh, "housing", `${d.id}/entry`).set(wh, "principal"));
+};
+
 describe("住宅ローン控除の仮の条件", () => {
-  it("「＋ 住宅ローン」で足したローンは、仮の条件で住宅ローン控除を計算し、「仮」の印を出す", () => {
-    const wh = action(action(salaried(), "housing/addOwn"), "housing/addMortgage");
+  it("「借入額から」入れたローンは、仮の条件で住宅ローン控除を計算し、「仮」の印を出す", () => {
+    const wh = ownLoanByPrincipal(salaried());
     const d = loans(wh)[0]!;
     expect(d.housing).toMatchObject({ propertyType: "energySaving", newBuild: true });
     const ev = wh.request.input.household.events?.find((e) => e.id === d.housing?.moveIn);
     expect(ev).toMatchObject({ kind: "moveIn", at: { at: BASE } });
+    const summary = fieldOf(wh, "housing", `${d.id}/creditSummary`);
+    expect(summary.readOnly).toBeDefined();
+    expect(summary.get(wh).assumed).toContain("仮の条件");
+    expect(String(summary.get(wh).value)).toContain("入居 2026年10月");
+    // 印は住宅の種類の欄（簡易）が持つ
     const credit = fieldOf(wh, "housing", `${d.id}/credit`);
-    expect(credit.readOnly).toBeDefined();
+    expect(credit.get(wh)).toMatchObject({ value: "energySaving" });
     expect(credit.get(wh).assumed).toContain("仮の条件");
-    expect(String(credit.get(wh).value)).toContain("入居 2026年10月");
-    // カードは「推定あり」
-    expect(inputItems(wh).find((i) => i.id === "housing")?.status).toBe("est");
+    // 今の持ち家の評価額は未入力の警告（0円で数えている）。入れるとカードは「推定あり」
+    expect(inputItems(wh).find((i) => i.id === "housing")?.status).toBe("missing");
+    const valued = fieldOf(wh, "housing", "/valuation/value").set(wh, 35000000);
+    expect(inputItems(valued).find((i) => i.id === "housing")?.status).toBe("est");
     // 控除の分だけ所得税が下がる（2027年分。年末残高×0.7%）
     const r = preview(wh.request);
     const none = preview(withoutHousing(wh.request));
@@ -65,7 +78,7 @@ describe("住宅ローン控除の仮の条件", () => {
   });
 
   it("借入の年月を直すと、仮の条件の入居の年月もついていく。直すまでは印が残る", () => {
-    let wh = action(action(salaried(), "housing/addOwn"), "housing/addMortgage");
+    let wh = ownLoanByPrincipal(salaried());
     const d = loans(wh)[0]!;
     wh = withProvisionalHousing(fieldOf(wh, "housing", `${d.id}/start`).set(wh, "2026-04"));
     const d2 = loans(wh)[0]!;
@@ -74,7 +87,7 @@ describe("住宅ローン控除の仮の条件", () => {
   });
 
   it("持ち家の建った年が入居より前なら中古の一般の住宅、購入の予定なら物件の価格を取得対価にする", () => {
-    let wh = action(action(salaried(), "housing/addOwn"), "housing/addMortgage");
+    let wh = ownLoanByPrincipal(salaried());
     wh = withProvisionalHousing(fieldOf(wh, "housing", "/valuation/builtYear").set(wh, 2005));
     expect(loans(wh)[0]!.housing).toMatchObject({ propertyType: "other", newBuild: false });
     const p = action(action(salaried(), "housing/addPurchase"), "housing/addMortgage");
@@ -83,7 +96,7 @@ describe("住宅ローン控除の仮の条件", () => {
   });
 
   it("ローンを外すと、仮の条件のために置いた入居のイベントと印も外れる", () => {
-    const wh = action(action(salaried(), "housing/addOwn"), "housing/addMortgage");
+    const wh = ownLoanByPrincipal(salaried());
     const d = loans(wh)[0]!;
     const w = action(wh, `housing/debt/${d.id}/remove`);
     expect(w.request.input.household.events ?? []).toEqual([]);
@@ -105,7 +118,7 @@ describe("住宅ローン控除の仮の条件", () => {
     // 2021年3月に借りたローン（制度データの前）は置かない
     const old = fromRequest(modelHousehold("protectionNeed"));
     expect(withProvisionalHousing(old)).toBe(old);
-    expect(String(fieldOf(old, "housing", "/credit").get(old).value)).toContain("2021年以前");
+    expect(String(fieldOf(old, "housing", "/creditSummary").get(old).value)).toContain("2021年以前");
   });
 });
 
@@ -123,26 +136,31 @@ describe("住宅ローンの借入額と購入の予定", () => {
   it("推定の間は価格・頭金に合わせて入れ直し、FP が入れると確定になって、合わなければ知らせる", () => {
     let wh = action(action(salaried(), "housing/addPurchase"), "housing/addMortgage");
     const id = loans(wh)[0]!.id;
+    // 頭金も推定（物件の価格の1割）なので、価格に合わせて入れ直る
     wh = withProvisionalHousing(fieldOf(wh, "housing", "/purchase/price").set(wh, 50000000));
-    expect(loans(wh)[0]!.principal).toBe(46000000);
+    expect(wh.request.input.household.residences!.find((r) => r.purchase !== undefined)!.purchase!.downPayment).toBe(5000000);
+    expect(loans(wh)[0]!.principal).toBe(45000000);
     const f = fieldOf(wh, "housing", `${id}/principal`);
     wh = f.set(wh, 30000000);
     expect(f.get(wh).estimated).toBeNull();
-    expect(f.get(wh).warn).toContain("1,600万円ずれています");
+    expect(f.get(wh).warn).toContain("1,500万円ずれています");
     wh = withProvisionalHousing(fieldOf(wh, "housing", "/purchase/price").set(wh, 45000000));
     expect(loans(wh)[0]!.principal).toBe(30000000);
     // 空にすると推定に戻る
     wh = f.set(wh, null);
-    expect(loans(wh)[0]!.principal).toBe(41000000);
+    expect(loans(wh)[0]!.principal).toBe(40500000);
     expect(f.get(wh).estimated).toContain("物件の価格から頭金");
     expect(() => preview(wh.request)).not.toThrow();
   });
 
-  it("今住んでいる持ち家の住宅ローンは、これまでどおり3,000万円で借入の年月は計算基準月", () => {
-    const wh = action(action(salaried(), "housing/addOwn"), "housing/addMortgage");
+  it("今住んでいる持ち家の住宅ローンは「今の残高から」: 今の残高3,000万円（目安）で、借りた年と借入額は仮、控除の仮の条件は置かない", () => {
+    const wh = withProvisionalHousing(action(action(salaried(), "housing/addOwn"), "housing/addMortgage"));
     const d = loans(wh)[0]!;
-    expect(d).toMatchObject({ principal: 30000000, start: { at: BASE } });
+    expect(wh.loanEntry?.[d.id]).toBe("balance");
+    expect(d).toMatchObject({ principal: 30000000, start: { at: BASE }, balance: { value: 30000000, state: "estimated" }, balanceAsOf: BASE });
+    expect(d.housing).toBeUndefined();
     expect(fieldOf(wh, "housing", `${d.id}/principal`).get(wh)).toMatchObject({ estimated: null, warn: null });
+    expect(String(fieldOf(wh, "housing", `${d.id}/creditSummary`).get(wh).value)).toContain("借りた年が分からない");
   });
 });
 

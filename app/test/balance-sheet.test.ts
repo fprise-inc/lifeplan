@@ -402,17 +402,17 @@ describe("入力の画面: 持ち家の評価・売却・その他の資産", ()
   it("住み終わりがある持ち家だけ「売る」が出て、売ると売却の欄が出る", () => {
     const req = modelHousehold("salariedCoupleTwoKids") as EngineRequest;
     let wh = fromRequest(req);
-    expect(byKey(fieldsOf(wh, "housing"), "/sale/on")).toBeUndefined();
+    expect(byKey(fieldsOf(wh, "housing"), "/after")).toBeUndefined();
     wh = byKey(fieldsOf(wh, "housing"), "/to")!.set(wh, "2050-03");
-    const on = byKey(fieldsOf(wh, "housing"), "/sale/on")!;
-    expect(on.get(wh).value).toBe(false);
-    wh = on.set(wh, true);
+    const on = byKey(fieldsOf(wh, "housing"), "/after")!;
+    expect(on.get(wh).value).toBe("keep");
+    wh = on.set(wh, "sell");
     expect(byKey(fieldsOf(wh, "housing"), "/sale/price")).toBeDefined();
     expect(byKey(fieldsOf(wh, "housing"), "/sale/cost")!.get(wh)).toMatchObject({ value: "0.04", implicit: true });
     const r = preview(wh.request);
     expect(sumRows(r, ["cf.income.lumpSum.realEstateSale"], 2050)).toBeGreaterThan(0);
     expect(sumRows(r, ["cf.balance.account.realEstate"], 2050)).toBe(0);
-    wh = byKey(fieldsOf(wh, "housing"), "/sale/on")!.set(wh, false);
+    wh = byKey(fieldsOf(wh, "housing"), "/after")!.set(wh, "keep");
     expect((wh.request.input.household.residences ?? []).find((x) => x.kind === "own")!.sale).toBeUndefined();
   });
 

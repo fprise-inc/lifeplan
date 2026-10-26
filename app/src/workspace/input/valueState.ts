@@ -86,7 +86,7 @@ export function fieldStatus(f: FieldDef, wh: WorkingHousehold): FieldStatus {
     const row = a === null ? undefined : rowAt(input(wh), a);
     if (row !== undefined) {
       const basis = row.estimate?.basis ?? null;
-      if (row.state === "estimated") return plainStatus("estimated", basis ?? "推定");
+      if (row.state === "estimated") return isUnenteredBasis(basis) ? plainStatus("missing", basis) : plainStatus("estimated", basis ?? "推定");
       if (row.state === "unknown") return plainStatus("unknown", basis);
       if (row.state === "notApplicable") return plainStatus("notApplicable");
       return plainStatus("confirmed", basis, basis !== null, row.approval !== undefined);

@@ -1,6 +1,6 @@
 {
   "$comment": "0015 の6: 縮約版（AIに渡す既定の範囲）の許可リスト。入力項目ID（0004・registry/items.yaml）で選ぶ。版を変えたら version を上げる。入力項目を足したら、ここに入れるか（計算に要る）・文章の項目として既定で外すか（crates/ai-share/src/reduce.rs の TEXT_ITEMS）を決める（テストで止まる）",
-  "version": "reduced@12",
+  "version": "reduced@13",
   "items": [
     "account.asOf",
     "account.assetMix",
@@ -90,6 +90,7 @@
     "debt.refinance",
     "debt.repayment",
     "debt.start",
+    "debt.subtype",
     "donor.kind",
     "donor.leaves",
     "donor.of",
@@ -233,6 +234,7 @@
     "residence.purchase",
     "residence.rent",
     "residence.sale",
+    "residence.style",
     "residence.to",
     "residence.valuation",
     "residentTaxAssessment.amount",

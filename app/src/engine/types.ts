@@ -340,11 +340,14 @@ export interface Debt {
   start: Timepoint;
   balance?: Box<number>;
   balanceAsOf?: string;
-  rateSchedule: { from: Timepoint; type: string; rate: string }[];
+  rateSchedule: { id?: string; from: Timepoint; type: string; rate: string }[];
   repayment: { method: string; termMonths: number; bonusShare?: string; variableRules?: { fiveYear?: boolean; cap125?: boolean }; [key: string]: unknown };
   prepayments?: { at: Timepoint; amount: number; mode: string; fee?: number }[];
   creditLife?: { covered: string[]; ratio?: string; events?: string[]; [key: string]: unknown };
   pairWith?: string;
+  /** 0052: 名前と種類の細目（表示と推定の元だけ。計算には使わない） */
+  label?: string;
+  subtype?: "cardLoan" | "scholarship" | "renovation" | "policyLoan" | "personal" | "other";
   /** この借入で取得した住まい以外の不動産（不動産の器の ID。0028） */
   property?: string;
   /** 0044: 相続で受け継ぐ借金の元の借り手・見込み・基本の計算に入れるか（計算には使わない。不確かなら要求から外す） */
@@ -380,6 +383,8 @@ export interface Residence {
   kind: "rent" | "own" | string;
   from: Timepoint;
   to: Timepoint | null;
+  /** 0052: 建て方（持ち家。表示と推定の元だけ） */
+  style?: "house" | "condo";
   rent?: { monthly: Box<number>; stages?: AmountStage[]; exceptions?: AmountException[]; [key: string]: unknown };
   purchase?: { at: Timepoint; price: number; downPayment?: number; costs?: number; gifts?: Gift[] };
   propertyTax?: { annual: Box<number>; growth?: string } & Staged;
@@ -387,8 +392,8 @@ export interface Residence {
   ownership?: { member: string; share: string }[];
   /** 持ち家の評価（housing.valuation） */
   valuation?: { value?: Box<number>; asOf?: string; structure?: string; builtYear?: number; landShare?: string };
-  /** 住み終わりの月に売る */
-  sale?: { price?: number; costRate?: string };
+  /** 住み終わりの月に売る。tax は譲渡所得の税の額（0053。入れた額を売った月に払う） */
+  sale?: { price?: number; costRate?: string; tax?: Box<number> };
   [key: string]: unknown;
 }
 

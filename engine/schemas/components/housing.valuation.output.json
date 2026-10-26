@@ -36,13 +36,14 @@
               {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["ym", "value", "price", "costs", "proceeds"],
+                "required": ["ym", "value", "price", "costs", "proceeds", "tax"],
                 "properties": {
                   "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
                   "value": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "price": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "costs": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-                  "proceeds": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                  "proceeds": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "tax": { "description": "入れた譲渡所得の税の額（入れていなければ0。0053）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
                 }
               }
             ]
