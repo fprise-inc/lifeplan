@@ -486,6 +486,11 @@ fn convert_outside_family(input: &mut Value) -> Vec<String> {
         .filter(|m| !converts(m) && m.get("outside").is_none())
         .filter_map(|m| m["id"].as_str())
         .collect();
+    let self_id: Option<String> = members
+        .iter()
+        .find(|m| m["kind"] == "self")
+        .and_then(|m| m["id"].as_str())
+        .map(str::to_owned);
     let mut changed = Vec::new();
     if let Some(list) = h.get_mut("members").and_then(Value::as_array_mut) {
         for m in list.iter_mut() {
@@ -504,10 +509,15 @@ fn convert_outside_family(input: &mut Value) -> Vec<String> {
                         .collect()
                 })
                 .unwrap_or_default();
-            let of = inside.iter().find(|i| children.contains(i));
+            // 誰の家族か: 世帯の中に残る子（親とする関係）、無ければ本人（0035 の4。省けるのは贈与者から作った人だけ）
+            let of = inside
+                .iter()
+                .find(|i| children.contains(i))
+                .copied()
+                .or(self_id.as_deref());
             let mut outside = serde_json::json!({"periods": []});
             if let Some(of) = of {
-                outside["of"] = Value::String((*of).to_owned());
+                outside["of"] = Value::String(of.to_owned());
             }
             m["outside"] = outside;
             changed.push(id);
@@ -592,8 +602,10 @@ fn move_assumed(screen: &mut Map<String, Value>, input: &mut Value, read: &Value
             continue;
         };
         let address = &r["address"];
-        if is_box(readings::read_at(read, address)) {
-            continue; // 値の箱を持つ値は、箱の状態が正
+        let cur = readings::read_at(read, address);
+        // 値の無い場所（無くなった要素・まだ入れていない欄）には行を書かない。値の箱を持つ値は、箱の状態が正
+        if cur.is_none_or(Value::is_null) || is_box(cur) {
+            continue;
         }
         let (Some(key), Some(obj)) = (state_key(address), target_mut(input, &address["target"]))
         else {
@@ -1190,5 +1202,40 @@ mod tests {
         assert!(stages[0]["id"].is_string() && stages[1]["id"].is_string());
         assert_eq!(u["display"], b["display"]);
         assert!(upgrade("0.8", serde_json::json!(null)).is_err());
+    }
+
+    #[test]
+    fn v0_16_parent_without_relation_is_family_of_self_and_no_state_for_missing_places() {
+        // 親とする関係の無い親・祖父母は本人の家族（0035 の4。省けるのは贈与者から作った人だけ）。
+        // 無い要素・まだ入れていない欄への仮の印は、値の状態の行にしない（0035 の3）
+        let s = "11111111-1111-4111-8111-111111111111";
+        let g = "22222222-2222-4222-8222-222222222222";
+        let l = "33333333-3333-4333-8333-333333333333";
+        let birth = serde_json::json!({"birthYearMonth": "1950-04", "bornOnFirst": false});
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.16", "revisions": [], "editors": {}},
+            "household": {
+                "request": {"trace": "none", "input": {"baseMonth": "2026-10", "endYear": 2080, "household": {
+                    "members": [
+                        {"id": s, "kind": "self", "birth": birth, "sex": "male", "joins": null, "leaves": null, "expected": false},
+                        {"id": g, "kind": "grandparent", "birth": birth, "sex": "female", "joins": null, "leaves": null, "expected": false}
+                    ],
+                    "relations": [], "events": [], "employmentPeriods": [], "accounts": [], "insuranceContracts": [],
+                    "livingExpenses": [{"id": l, "mode": "total", "monthly": {"value": 250000, "state": "confirmed", "origin": {"kind": "manual"}}, "stages": [{"at": {"at": "2040-04"}, "ratio": "0.8"}]}]
+                }}},
+                "assumed": {format!("living/{l}/stage/0/ratio"): "仮の割合", format!("living/{l}/stage/3/ratio"): "無い段"}
+            },
+            "proposals": []
+        });
+        let u = upgrade("0.16", b).unwrap();
+        let h = &u["household"]["request"]["input"]["household"];
+        assert_eq!(h["members"][1]["outside"]["of"], s);
+        let states = &h["livingExpenses"][0]["valueStates"];
+        let keys: Vec<&String> = states.as_object().unwrap().keys().collect();
+        assert_eq!(keys.len(), 1, "{keys:?}");
+        assert!(u["household"].get("assumed").is_none());
+        assert!(
+            crate::readings::value_state_problems(&u["household"]["request"]["input"]).is_empty()
+        );
     }
 }

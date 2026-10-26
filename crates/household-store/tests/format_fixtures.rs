@@ -305,6 +305,10 @@ fn every_format_version_has_a_fixture_and_opens() {
                 assert!(matches!(d["op"].as_str(), Some("set" | "add" | "remove")));
             }
         }
+        // 0035 の12 の検査: valueStates の鍵の入力項目ID が登録簿にあり、同じ値を値の箱と行の両方に書かず、値の無い場所に行を書かない
+        let problems =
+            household_store::readings::value_state_problems(&now["household"]["request"]["input"]);
+        assert!(problems.is_empty(), "{v}: {problems:?}");
         assert!(
             !now["workspace"]["shownItems"]
                 .as_array()

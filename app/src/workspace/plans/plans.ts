@@ -153,7 +153,7 @@ export function effectiveValues(wh: WorkingHousehold, id: string | null): Values
 
 // ---- 当てる（0036 の6・7） ----
 
-export type ReviewState = "ok" | "changed" | "missing" | "gone" | "exists" | "noOwner" | "retired" | "unresolved";
+export type ReviewState = "ok" | "changed" | "missing" | "gone" | "exists" | "noOwner" | "retired" | "unresolved" | "pending";
 
 export interface Review {
   state: ReviewState;
@@ -167,6 +167,7 @@ const REVIEW_NOTES: Record<Exclude<ReviewState, "ok" | "changed">, string> = {
   noOwner: "足す物の相手がありません",
   retired: "意味の変わった欄です",
   unresolved: "読み替えられなかった差分です",
+  pending: "万一の前提の差分は、まだ計算に当てられません（万一の前提をプランごとに変えられるようにする回で当てます）",
 };
 const review = (state: ReviewState, note: string | null = null): Review => ({ state, note: state === "ok" || state === "changed" ? note : (note ?? REVIEW_NOTES[state]) });
 
@@ -197,6 +198,8 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
   const setOne = (d: PlanDiff, target: Input): void => {
     const a = addressOf(d);
     if (a === null) return void reviews.set(d.id, review("missing"));
+    // 万一の前提（全プラン共通の前提をこのプランだけ上書きする。0036 の6 の3）は、まだ当てる所が無い
+    if ("plan" in a.target && a.target.plan === "contingency") return void reviews.set(d.id, review("pending"));
     if (ITEM_PLACES[a.item]?.status !== "active") return void reviews.set(d.id, review("retired"));
     if (!writeAt(target, a, d.value as DiffBox)) return void reviews.set(d.id, review("missing"));
     const base = readAt(now, a);

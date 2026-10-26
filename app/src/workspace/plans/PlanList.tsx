@@ -5,7 +5,10 @@ import { useState } from "preact/hooks";
 import type { WorkingHousehold } from "../input/household.ts";
 import { MAX_BAND } from "./band.ts";
 import type { Catalog } from "./items.ts";
-import { changesOf, deletePlan, modernPlanName, planLabel, renamePlan } from "./plans.ts";
+import { changesOf, deletePlan, modernPlanName, planLabel, renamePlan, type ReviewState } from "./plans.ts";
+
+/** 現状に反映すると入る差分の要確認の状態（現状が変わった差分は、プランの値で入る） */
+const APPLIED: ReadonlySet<ReviewState> = new Set(["ok", "changed"]);
 
 export interface PlanListProps {
   wh: WorkingHousehold;
@@ -72,6 +75,8 @@ export function PlanList(p: PlanListProps) {
               {rows.map((x) => {
                 const ch = changesOf(plans, x.id, wh, cat);
                 const review = ch.filter((c) => c.state !== "ok").length;
+                // 現状に反映しても入らない差分（指す物が無い・読み替えられなかったなど。0036 の7）
+                const skipped = ch.filter((c) => !APPLIED.has(c.state)).length;
                 const on = p.band.includes(x.id);
                 const l = p.letters.get(x.id);
                 const baseName = x.base !== null ? p.letters.get(x.base) : undefined;
@@ -117,7 +122,9 @@ export function PlanList(p: PlanListProps) {
                     <td class="pl-ops">
                       {confirm?.id === x.id ? (
                         <span class="pl-confirm">
-                          {confirm.kind === "delete" ? "このプランを外しますか（このプランを元にしたプランは、中身を引き継ぎます）" : "このプランを入力（現状）に取り込みますか（ほかのプランは、現状が変わった項目が「要確認」になります）"}
+                          {confirm.kind === "delete"
+                            ? "このプランを外しますか（このプランを元にしたプランは、中身を引き継ぎます）"
+                            : `このプランを入力（現状）に取り込みますか（ほかのプランは、現状が変わった項目が「要確認」になります）${skipped > 0 ? `。要確認の差分 ${skipped}件（指す物が無い・読み替えられなかったなど）は取り込まれず、このプランから消えます` : ""}`}
                           <button
                             type="button"
                             class="link-btn danger"

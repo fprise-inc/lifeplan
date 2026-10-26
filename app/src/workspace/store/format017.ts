@@ -90,7 +90,9 @@ function assumedToStates(input: Json, assumed: Record<string, string>): Record<s
       kept[k] = basis;
       continue;
     }
-    if (isBox(readAt(input, r.address))) continue;
+    const cur = readAt(input, r.address);
+    // 値の無い場所（無くなった要素・まだ入れていない欄）には行を書かない。値の箱を持つ値は、箱の状態が正
+    if (cur === undefined || cur === null || isBox(cur)) continue;
     const t = r.address.target;
     const holder = "plan" in t ? input : findObject(input, "object" in t ? t.object : t.member);
     if (holder === undefined) {
@@ -109,34 +111,76 @@ function resolveKeyAssumed(key: string, input: Json): Reading | null {
 
 // ---- 贈与者 ⇄ 世帯の外の家族 ----
 
-/** 生年月の無い世帯の外の家族を、画面の中の贈与者（donors）に戻す */
-function outsideToDonors(input: Json): void {
+/**
+ * 本文の中で、贈与者に戻した世帯の外の家族の元の構成員を持ち運ぶ欄（画面の中だけ。保存するときに戻して消す）。贈与者の形
+ * （ID・種類・誰の家族か）に入らない欄（性別・期間・勤め先の健康保険・値の状態など）を失わないため
+ */
+export const OUTSIDE_KEPT = "outsideKept";
+
+const donorKind = (k: unknown): string => (k === "parent" || k === "grandparent" ? k : "other");
+
+/** 生年月の無い世帯の外の家族を、画面の中の贈与者（donors）に戻す。戻り値は元の構成員（ID → 構成員） */
+function outsideToDonors(input: Json): Record<string, Json> {
+  const kept: Record<string, Json> = {};
   const h = input.household;
-  if (!isObj(h) || !Array.isArray(h.members)) return;
+  if (!isObj(h) || !Array.isArray(h.members)) return kept;
   const donors: Json[] = Array.isArray(h.donors) ? [...(h.donors as Json[])] : [];
   const members: unknown[] = [];
   for (const m of h.members as unknown[]) {
-    if (isObj(m) && isObj(m.outside) && m.birth === undefined) {
+    if (isObj(m) && isObj(m.outside) && m.birth === undefined && typeof m.id === "string") {
       const of = m.outside.of;
-      donors.push({ id: m.id, kind: m.kind === "parent" || m.kind === "grandparent" ? m.kind : "other", ...(typeof of === "string" ? { of } : {}) });
+      donors.push({ id: m.id, kind: donorKind(m.kind), ...(typeof of === "string" ? { of } : {}) });
+      kept[m.id] = structuredClone(m);
     } else members.push(m);
   }
-  if (donors.length === 0) return;
+  if (donors.length === 0) return kept;
   h.members = members;
   h.donors = donors;
+  return kept;
 }
 
-/** 画面の中の贈与者を、世帯の外の家族の構成員（生年月・性別なし）にする */
-function donorsToOutside(input: Json): void {
+/** 画面の中の贈与者を、世帯の外の家族の構成員（生年月・性別なし）にする。元の構成員があれば、それに贈与者の種類・誰の家族かを当てる */
+function donorsToOutside(input: Json, kept: Record<string, unknown>): void {
   const h = input.household;
   if (!isObj(h) || !Array.isArray(h.donors)) return;
   const members = Array.isArray(h.members) ? (h.members as unknown[]) : [];
   for (const d of h.donors as unknown[]) {
     if (!isObj(d)) continue;
+    const before = typeof d.id === "string" ? kept[d.id] : undefined;
+    if (isObj(before) && isObj(before.outside)) {
+      const m = structuredClone(before);
+      if (donorKind(m.kind) !== d.kind) m.kind = d.kind;
+      const outside = m.outside as Json;
+      if (typeof d.of === "string") outside.of = d.of;
+      else delete outside.of;
+      members.push(m);
+      continue;
+    }
     members.push({ id: d.id, kind: d.kind, joins: null, leaves: null, expected: false, outside: { ...(typeof d.of === "string" ? { of: d.of } : {}), periods: [] } });
   }
   h.members = members;
   delete h.donors;
+}
+
+/**
+ * 画面で足した親・祖父母（世帯の外の家族の印が無い）に、保存するとき世帯の外の家族の印を付ける（0035 の4。変換の段と同じ決まり:
+ * 誰の家族かは、親とする関係の子のうち世帯の中にいる人、無ければ本人）。生年月のある世帯の外の家族は、世帯の外の家族の計算を
+ * 入れるまで今までの構成員と同じに読むので、計算は変わらない
+ */
+function markOutsideFamily(input: Json): void {
+  const h = input.household;
+  if (!isObj(h) || !Array.isArray(h.members)) return;
+  const members = h.members.filter(isObj);
+  const rels = Array.isArray(h.relations) ? h.relations.filter(isObj) : [];
+  const converts = (m: Json) => (m.kind === "parent" || m.kind === "grandparent") && m.outside === undefined;
+  const inside = new Set(members.filter((m) => !converts(m) && m.outside === undefined).map((m) => m.id));
+  const self = members.find((m) => m.kind === "self")?.id;
+  for (const m of members) {
+    if (!converts(m)) continue;
+    const child = rels.find((r) => r.type === "parentOf" && r.parent === m.id && inside.has(r.child))?.child;
+    const of = typeof child === "string" ? child : typeof self === "string" ? self : undefined;
+    m.outside = { ...(of !== undefined ? { of } : {}), periods: [] };
+  }
 }
 
 // ---- 差分・対策に足した項目 ⇄ 鍵 ----
@@ -222,7 +266,8 @@ export function fromStoredBody(body: Json): Json {
     });
     b.workspace.shownItems = [...new Set(b.workspace.shownItems as string[])];
   }
-  outsideToDonors(input);
+  const kept = outsideToDonors(input);
+  if (Object.keys(kept).length > 0) b[OUTSIDE_KEPT] = kept;
   return b;
 }
 
@@ -255,6 +300,8 @@ export function toStoredBody(body: Json): Json {
     if (Object.keys(kept).length > 0) h.assumed = kept;
     else delete h.assumed;
   }
-  donorsToOutside(input);
+  markOutsideFamily(input);
+  donorsToOutside(input, isObj(b[OUTSIDE_KEPT]) ? (b[OUTSIDE_KEPT] as Record<string, unknown>) : {});
+  delete b[OUTSIDE_KEPT];
   return b;
 }
