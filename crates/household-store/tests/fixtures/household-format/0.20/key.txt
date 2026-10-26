@@ -1,0 +1,3 @@
+lifeplan household-format fixture 0.20 (test key, not a secret)
+
+試験用の鍵は、1行目の文字列（UTF-8）の SHA-256。秘密ではない。中身は架空のモデル世帯。

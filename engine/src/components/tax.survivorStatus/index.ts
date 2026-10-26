@@ -4,6 +4,7 @@
 // - 寡婦: ひとり親でない女性で、本人の合計所得金額が上限以下（死別は扶養親族の要件なし）
 // 離婚・未婚のひとり親は、死亡の万一の想定ではないので扱わない（入力に離婚・未婚の形が無い）
 // 改訂2: 世帯の外の家族（0035 の4）の子は生計を一にする子にしない
+// 改訂（0044）: 合計所得金額の判定に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
 import {
   childrenOf,
   defineComponent,
@@ -27,7 +28,7 @@ export default defineComponent<{ member: string; year: number }, { widow: boolea
   id: "tax.survivorStatus",
   title: "ひとり親・寡婦の判定（配偶者と死別した人）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "contingency.event": ">=1 <2", "tax.totalIncome": ">=1 <2" },
   params: Object.values(P),
   reads: ["member.outside", "member.kind", "member.sex", "member.birth", "member.leaves", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "relation.parent", "relation.child"],
@@ -51,7 +52,7 @@ export default defineComponent<{ member: string; year: number }, { widow: boolea
     const me = members.find((m) => m.id === member) as MemberInput;
     const at = ctx.at(monthIndex(year, 1));
     const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year });
-    const own = inc.total + (inc.retirement ?? 0);
+    const own = inc.total + (inc.retirement ?? 0) + (inc.separate ?? 0);
     // 生計を一にする子（その年の末に世帯にいて、生まれている子）
     const childLimit = at.paramYen(P.childLimit);
     // 世帯の外の子は生計を一にする子にしない（0035 の4）

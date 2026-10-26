@@ -2204,10 +2204,28 @@
     "housing"
    ]
   },
+  "debt.includeInBase": {
+   "collection": "debt",
+   "path": [
+    "includeInBase"
+   ]
+  },
+  "debt.inheritedFrom": {
+   "collection": "debt",
+   "path": [
+    "inheritedFrom"
+   ]
+  },
   "debt.kind": {
    "collection": "debt",
    "path": [
     "kind"
+   ]
+  },
+  "debt.likelihood": {
+   "collection": "debt",
+   "path": [
+    "likelihood"
    ]
   },
   "debt.pairWith": {
@@ -2551,6 +2569,120 @@
     "owner"
    ]
   },
+  "incomeFlow.amount": {
+   "collection": "incomeFlow",
+   "path": [
+    "amount"
+   ]
+  },
+  "incomeFlow.cost": {
+   "collection": "incomeFlow",
+   "path": [
+    "cost"
+   ]
+  },
+  "incomeFlow.counterparty": {
+   "collection": "incomeFlow",
+   "path": [
+    "counterparty"
+   ]
+  },
+  "incomeFlow.everyYears": {
+   "collection": "incomeFlow",
+   "path": [
+    "everyYears"
+   ]
+  },
+  "incomeFlow.exceptions": {
+   "collection": "incomeFlow",
+   "path": [
+    "exceptions"
+   ]
+  },
+  "incomeFlow.from": {
+   "collection": "incomeFlow",
+   "path": [
+    "from"
+   ]
+  },
+  "incomeFlow.giftMethod": {
+   "collection": "incomeFlow",
+   "path": [
+    "giftMethod"
+   ]
+  },
+  "incomeFlow.growth": {
+   "collection": "incomeFlow",
+   "path": [
+    "growth"
+   ]
+  },
+  "incomeFlow.includeInBase": {
+   "collection": "incomeFlow",
+   "path": [
+    "includeInBase"
+   ]
+  },
+  "incomeFlow.kind": {
+   "collection": "incomeFlow",
+   "path": [
+    "kind"
+   ]
+  },
+  "incomeFlow.label": {
+   "collection": "incomeFlow",
+   "path": [
+    "label"
+   ]
+  },
+  "incomeFlow.likelihood": {
+   "collection": "incomeFlow",
+   "path": [
+    "likelihood"
+   ]
+  },
+  "incomeFlow.monthly": {
+   "collection": "incomeFlow",
+   "path": [
+    "monthly"
+   ]
+  },
+  "incomeFlow.onContingency": {
+   "collection": "incomeFlow",
+   "path": [
+    "onContingency"
+   ]
+  },
+  "incomeFlow.recipient": {
+   "collection": "incomeFlow",
+   "path": [
+    "recipient"
+   ]
+  },
+  "incomeFlow.row": {
+   "collection": "incomeFlow",
+   "path": [
+    "row"
+   ]
+  },
+  "incomeFlow.stages": {
+   "collection": "incomeFlow",
+   "path": [
+    "stages"
+   ]
+  },
+  "incomeFlow.taxTreatment": {
+   "collection": "incomeFlow",
+   "path": [
+    "taxTreatment"
+   ]
+  },
+  "incomeFlow.to": {
+   "collection": "incomeFlow",
+   "path": [
+    "to"
+   ]
+  },
   "insurance.annuitant": {
    "collection": "insurance",
    "path": [
@@ -2791,6 +2923,12 @@
     "amount"
    ]
   },
+  "periodicExpense.counterparty": {
+   "collection": "periodicExpense",
+   "path": [
+    "counterparty"
+   ]
+  },
   "periodicExpense.everyYears": {
    "collection": "periodicExpense",
    "path": [
@@ -2809,10 +2947,22 @@
     "from"
    ]
   },
+  "periodicExpense.gift": {
+   "collection": "periodicExpense",
+   "path": [
+    "gift"
+   ]
+  },
   "periodicExpense.growth": {
    "collection": "periodicExpense",
    "path": [
     "growth"
+   ]
+  },
+  "periodicExpense.kind": {
+   "collection": "periodicExpense",
+   "path": [
+    "kind"
    ]
   },
   "periodicExpense.label": {
@@ -2821,10 +2971,28 @@
     "label"
    ]
   },
+  "periodicExpense.monthly": {
+   "collection": "periodicExpense",
+   "path": [
+    "monthly"
+   ]
+  },
   "periodicExpense.onContingency": {
    "collection": "periodicExpense",
    "path": [
     "onContingency"
+   ]
+  },
+  "periodicExpense.payer": {
+   "collection": "periodicExpense",
+   "path": [
+    "payer"
+   ]
+  },
+  "periodicExpense.priority": {
+   "collection": "periodicExpense",
+   "path": [
+    "priority"
    ]
   },
   "periodicExpense.row": {
@@ -3125,6 +3293,42 @@
    "collection": "savingsCheck",
    "path": [
     "year"
+   ]
+  },
+  "transfer.at": {
+   "collection": "transfer",
+   "path": [
+    "at"
+   ]
+  },
+  "transfer.from": {
+   "collection": "transfer",
+   "path": [
+    "from"
+   ]
+  },
+  "transfer.how": {
+   "collection": "transfer",
+   "path": [
+    "how"
+   ]
+  },
+  "transfer.label": {
+   "collection": "transfer",
+   "path": [
+    "label"
+   ]
+  },
+  "transfer.linked": {
+   "collection": "transfer",
+   "path": [
+    "linked"
+   ]
+  },
+  "transfer.to": {
+   "collection": "transfer",
+   "path": [
+    "to"
    ]
   }
  }

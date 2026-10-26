@@ -9,7 +9,8 @@ import type { StageDef, StageId } from "./form.ts";
 import { mutate, newId, standardBox, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { memberLabel } from "./labels.ts";
 import { upkeepAnnual } from "./stages/cars.ts";
-import { careGroup, periodicGroup, periodicStageGroups } from "./stages/events.ts";
+import { expenseCard, incomeCard, periodicGroups, type MoneyCard } from "./moneyRows.ts";
+import { careGroup } from "./stages/events.ts";
 import { buildStage, stageStatus, STAGE_ORDER } from "./stages/index.ts";
 import { statementMonthsMissing } from "./stages/pension.ts";
 import { currentPeriod } from "./stages/work.ts";
@@ -175,6 +176,14 @@ function periodicSummary(h: Household, p: PeriodicExpense): Summary {
   return { main: manText(amount), unit: `万円（${p.everyYears}年ごと）` };
 }
 
+/** ライフイベントのカードのお金の行の数（介護・親と相続・贈与の区画を含む。ほかのカードに属する行は数えない。0044） */
+const EVENT_CARDS: ReadonlySet<MoneyCard> = new Set(["events", "care", "inherit"]);
+function eventRows(h: Household, claimed: ReadonlySet<string>): number {
+  const out = (h.periodicExpenses ?? []).filter((p) => !claimed.has(p.id) && EVENT_CARDS.has(expenseCard(h, p))).length;
+  const inc = (h.incomeFlows ?? []).filter((f) => !claimed.has(f.id) && EVENT_CARDS.has(incomeCard(f))).length;
+  return out + inc;
+}
+
 function baseSummary(id: StageId, wh: WorkingHousehold): Summary | null {
   const h = wh.request.input.household;
   const claimed = claimedRefs(wh);
@@ -200,7 +209,7 @@ function baseSummary(id: StageId, wh: WorkingHousehold): Summary | null {
       return list.length === 0 ? null : { main: manText(list.reduce((s, a) => s + (a.marketValue?.value ?? 0), 0)), unit: "万円" };
     }
     case "events": {
-      const n = (h.periodicExpenses ?? []).filter((p) => !claimed.has(p.id)).length + (h.careExpenses ?? []).filter((c) => !claimed.has(c.id)).length;
+      const n = eventRows(h, claimed) + (h.careExpenses ?? []).filter((c) => !claimed.has(c.id)).length;
       return n === 0 ? null : { main: String(n), unit: "件" };
     }
     case "car":
@@ -239,7 +248,7 @@ function baseHasData(id: StageId, wh: WorkingHousehold): boolean {
     case "savings":
       return (h.accounts ?? []).length > 0;
     case "events":
-      return (h.periodicExpenses ?? []).some((p) => !claimed.has(p.id)) || (h.careExpenses ?? []).some((c) => !claimed.has(c.id));
+      return eventRows(h, claimed) > 0 || (h.careExpenses ?? []).some((c) => !claimed.has(c.id));
     case "car":
       return (h.cars ?? []).length > 0;
     case "fee":
@@ -286,7 +295,7 @@ function addedStage(wh: WorkingHousehold, a: AddedItem): StageDef {
   const h = wh.request.input.household;
   const o = addedObject(h, a);
   const label = o === null ? "外した項目" : addedLabel(wh, o);
-  const groups = o === null ? [] : o.kind === "periodic" ? [periodicGroup(wh, o.obj), ...periodicStageGroups(wh, o.obj)] : [careGroup(wh, o.obj)];
+  const groups = o === null ? [] : o.kind === "periodic" ? periodicGroups(wh, o.obj) : [careGroup(wh, o.obj)];
   return {
     id: "events",
     label,

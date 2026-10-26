@@ -417,7 +417,9 @@
         "debts": { "description": "0008 の9: 負債（住宅ローン・車・奨学金・その他）", "type": "array", "x-collection": "debt", "items": { "$ref": "#/$defs/debt" } },
         "residences": { "description": "住まい（賃貸・持ち家）の期間", "type": "array", "x-collection": "residence", "items": { "$ref": "#/$defs/residence" } },
         "livingExpenses": { "description": "0008 の追記: 生活費", "type": "array", "x-collection": "livingExpense", "items": { "$ref": "#/$defs/livingExpense" } },
-        "periodicExpenses": { "description": "0008 の追記: 周期的な支出", "type": "array", "x-collection": "periodicExpense", "items": { "$ref": "#/$defs/periodicExpense" } },
+        "periodicExpenses": { "description": "0008 の追記: 周期的な支出（出るお金の行。0044）", "type": "array", "x-collection": "periodicExpense", "x-owner": ["payer", "counterparty"], "items": { "$ref": "#/$defs/periodicExpense" } },
+        "incomeFlows": { "description": "0044: 入るお金の行（出るお金の行と同じ形の土台。向きは物の集まりで決める）", "type": "array", "x-collection": "incomeFlow", "x-owner": ["recipient", "counterparty"], "items": { "$ref": "#/$defs/incomeFlow" } },
+        "transfers": { "description": "0044: 口座の間の移し替え（入れ物だけ。計算に入れるまで、あればエンジンは知らせ N_NOT_SUPPORTED（transfers）を出して計算に入れない）", "type": "array", "x-collection": "transfer", "items": { "$ref": "#/$defs/transfer" } },
         "cars": { "description": "0008 の追記: 車", "type": "array", "x-collection": "car", "x-owner": ["owner"], "items": { "$ref": "#/$defs/car" } },
         "advisoryFees": { "description": "0008 の追記: FP顧問料の契約", "type": "array", "x-collection": "advisoryFee", "x-owner": ["payer"], "items": { "$ref": "#/$defs/advisoryFee" } },
         "savingsChecks": { "description": "0008 の追記: 現状の検算（1件まで）", "type": "array", "maxItems": 1, "x-collection": "savingsCheck", "items": { "$ref": "#/$defs/savingsCheck" } },
@@ -948,6 +950,9 @@
         },
         "pairWith": { "title": "ペアローンの相手のローン", "x-item": "debt.pairWith", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "property": { "title": "この借入で取得した住まい以外の不動産（不動産の器の ID。利息を不動産所得の必要経費にする。0028）", "x-item": "debt.property", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "inheritedFrom": { "title": "相続で受け継ぐ借金の、元の借り手（構成員。多くは世帯の外の家族。計算には使わない。見込みが不確かなら、アプリが要求から外す。0044）", "x-item": "debt.inheritedFrom", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "likelihood": { "title": "見込み（相続で受け継ぐ借金だけ。計算には使わない。0035 の7）", "x-item": "debt.likelihood", "$ref": "#/$defs/likelihood" },
+        "includeInBase": { "title": "基本の計算に入れる（相続で受け継ぐ借金だけ。true で、見込みが不確かでも入れる。計算には使わない）", "x-item": "debt.includeInBase", "type": "boolean" },
         "principal": { "title": "借入額（実行の時）", "x-item": "debt.principal", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
         "start": { "title": "借入の月（最初の返済はその翌月）", "x-item": "debt.start", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
         "balance": { "title": "残高（balanceAsOf の月の返済の後。既に借りているローン）", "x-item": "debt.balance", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
@@ -1687,7 +1692,9 @@
             "cf.expense.living",
             "cf.expense.other",
             "cf.expense.housing.maintenance",
-            "cf.expense.care.medical"
+            "cf.expense.care.medical",
+            "cf.expense.education",
+            "cf.expense.living.car"
           ]
         },
         "from": { "title": "最初の支払いの月", "x-item": "periodicExpense.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
@@ -1697,7 +1704,133 @@
         "growth": { "title": "伸び方（省略は前提の物価上昇率）", "x-item": "periodicExpense.growth", "$ref": "#/$defs/growth" },
         "stages": { "title": "1回の額の段階（0040。その時点から額を変える。段の数に上限なし）", "x-item": "periodicExpense.stages", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
         "exceptions": { "title": "例外の年（0040。その年の支払いだけ別の額・0円）", "x-item": "periodicExpense.exceptions", "type": "array", "items": { "$ref": "#/$defs/amountException" } },
-        "onContingency": { "title": "万一のときの扱い", "x-item": "periodicExpense.onContingency", "$ref": "#/$defs/onContingency" }
+        "onContingency": { "title": "万一のときの扱い（払う人を入れたときは、その人の万一だけに当てる）", "x-item": "periodicExpense.onContingency", "$ref": "#/$defs/onContingency" },
+        "monthly": { "title": "額は月額（最初の月から終わりの月まで毎月。何年ごとは1だけ。0044）", "x-item": "periodicExpense.monthly", "type": "boolean" },
+        "kind": { "title": "出るお金の種類（表示と表の行の既定。計算はあげる贈与 gift だけが変える。0044）", "x-item": "periodicExpense.kind", "$ref": "#/$defs/moneyOutKind" },
+        "counterparty": { "title": "相手（誰へ。構成員。多くは世帯の外の家族。0044）", "x-item": "periodicExpense.counterparty", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "payer": { "title": "払う人（世帯の中の構成員。万一のときの扱いは、この人の万一だけに当てる。省略は世帯。0044）", "x-item": "periodicExpense.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "priority": { "title": "優先度（必要・希望・夢。計算には使わない。0044）", "x-item": "periodicExpense.priority", "$ref": "#/$defs/priority" },
+        "gift": {
+          "title": "あげる贈与（相手は世帯の外の家族。贈与税は受け取る人が払うので世帯から出さず、要約に出す。0044）",
+          "x-item": "periodicExpense.gift",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "method": { "description": "課税の方法（暦年課税・相続時精算課税。省略は暦年課税）", "enum": ["calendar", "settlement"] },
+            "purpose": { "description": "使い道（general: 暦年・精算課税で見る／housing: 住宅取得等資金の非課税を使う／asNeeded: 生活費・教育費をその都度払う＝非課税。省略は general）", "enum": ["general", "housing", "asNeeded"] }
+          }
+        }
+      },
+      "allOf": [{ "if": { "required": ["monthly"], "properties": { "monthly": { "const": true } } }, "then": { "properties": { "everyYears": { "const": 1 } } } }]
+    },
+    "moneyOutKind": {
+      "description": "0044: 出るお金の種類（general 一時的支出・その他／allowance 仕送り／childSupport 養育費を払う／gift あげる贈与／education 塾・習い事・留学／repair 修繕・リフォーム／realEstateCost 不動産の一時の経費／livingAnnual 年払い・数年おきの暮らしの支出／car 車の修理・用品など／other その他）",
+      "enum": ["general", "allowance", "childSupport", "gift", "education", "repair", "realEstateCost", "livingAnnual", "car", "other"]
+    },
+    "priority": { "description": "0044: 優先度（need 必要・want 希望・wish 夢）", "enum": ["need", "want", "wish"] },
+    "likelihood": { "description": "0044: 見込み（certain 確実・likely たぶん・uncertain 不確か。省略は「たぶん」と読む）", "enum": ["certain", "likely", "uncertain"] },
+    "incomeFlow": {
+      "description": "0044: 入るお金の行（名前・種類・課税の扱い・額・時期・受け取る人・相手・見込み・伸び方・段階・例外の年・万一のときの扱い・表の行）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "from", "everyYears", "amount"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
+        "label": { "title": "名前（表示用）", "x-item": "incomeFlow.label", "type": "string", "maxLength": 80 },
+        "kind": {
+          "title": "種類（課税の扱いと表の行の既定を決める）",
+          "x-item": "incomeFlow.kind",
+          "enum": [
+            "inheritance",
+            "giftReceived",
+            "support",
+            "educationSupport",
+            "childSupport",
+            "propertyDivision",
+            "householdContribution",
+            "benefit",
+            "unemployment",
+            "survivorPension",
+            "foreignPension",
+            "scholarshipGrant",
+            "childPays",
+            "sideJob",
+            "otherWork",
+            "saleBusiness",
+            "saleGoods",
+            "temporary",
+            "celebration",
+            "subsidy",
+            "powerSale",
+            "insuranceBenefit",
+            "other"
+          ]
+        },
+        "taxTreatment": {
+          "title": "課税の扱い（省略は種類の既定。nonTaxable 非課税／temporary 一時所得／miscBusiness 雑所得（業務）／miscOther 雑所得（その他）／salary 給与（社会保険なし。本業と合わせる）／business 事業／capitalGains 譲渡所得（分離。一般株式等の税率）／inheritance 相続税で見る（所得税・住民税なし）／gift 贈与税で見る）",
+          "x-item": "incomeFlow.taxTreatment",
+          "enum": ["nonTaxable", "temporary", "miscBusiness", "miscOther", "salary", "business", "capitalGains", "inheritance", "gift"]
+        },
+        "row": {
+          "title": "載せる行（省略は種類の既定）",
+          "x-item": "incomeFlow.row",
+          "enum": [
+            "cf.income.lumpSum.other",
+            "cf.income.lumpSum.gift",
+            "cf.income.lumpSum.inheritance",
+            "cf.income.other",
+            "cf.income.other.sideJob",
+            "cf.income.other.insuranceBenefit",
+            "cf.income.salary",
+            "cf.income.business",
+            "cf.income.pension",
+            "cf.income.benefit",
+            "cf.income.benefit.unemployment",
+            "cf.income.benefit.education"
+          ]
+        },
+        "from": { "title": "最初に受け取る月", "x-item": "incomeFlow.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "to": { "title": "終わり（その月まで。null・省略は最後まで）", "x-item": "incomeFlow.to", "$ref": "#/$defs/timepointOrNull" },
+        "everyYears": { "title": "何年ごとか（1は毎年）", "x-item": "incomeFlow.everyYears", "type": "integer", "minimum": 1, "maximum": 50 },
+        "monthly": { "title": "額は月額（最初の月から終わりの月まで毎月。何年ごとは1だけ）", "x-item": "incomeFlow.monthly", "type": "boolean" },
+        "amount": { "title": "1回の額（月額の行は月額。計算基準年の価格）", "x-item": "incomeFlow.amount", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "cost": { "title": "必要経費・取得費（1回の額と同じ基準。一時所得・雑所得・事業・譲渡所得の所得から引く。額と同じ伸び方で伸ばす）", "x-item": "incomeFlow.cost", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "growth": { "title": "伸び方（省略は前提の物価上昇率）", "x-item": "incomeFlow.growth", "$ref": "#/$defs/growth" },
+        "stages": { "title": "1回の額の段階（0040 と同じ形）", "x-item": "incomeFlow.stages", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
+        "exceptions": { "title": "例外の年（0040 と同じ形。その年の受け取りだけ別の額・0円）", "x-item": "incomeFlow.exceptions", "type": "array", "items": { "$ref": "#/$defs/amountException" } },
+        "onContingency": { "title": "万一のときの扱い（受け取る人を入れたときは、その人の万一だけに当てる）", "x-item": "incomeFlow.onContingency", "$ref": "#/$defs/onContingency" },
+        "recipient": { "title": "受け取る人（世帯の中の構成員。省略は世帯。課税の扱いのある行の税は、省略なら本人）", "x-item": "incomeFlow.recipient", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "counterparty": { "title": "相手（誰から。構成員。多くは世帯の外の家族）", "x-item": "incomeFlow.counterparty", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "likelihood": { "title": "見込み（計算には使わない。不確かな受け取る相続・贈与は、アプリが要求から外す。0035 の7・0036 の6）", "x-item": "incomeFlow.likelihood", "$ref": "#/$defs/likelihood" },
+        "includeInBase": { "title": "基本の計算に入れる（true で、見込みが不確かでも入れる。省略は見込みで決める。計算には使わない）", "x-item": "incomeFlow.includeInBase", "type": "boolean" },
+        "giftMethod": { "title": "贈与税で見るときの課税の方法（省略は暦年課税）", "x-item": "incomeFlow.giftMethod", "enum": ["calendar", "settlement"] }
+      },
+      "allOf": [{ "if": { "required": ["monthly"], "properties": { "monthly": { "const": true } } }, "then": { "properties": { "everyYears": { "const": 1 } } } }]
+    },
+    "transfer": {
+      "description": "0044: 口座の間の移し替え（いつ・どの口座から・どの口座へ・いくら、と結び付けたお金の行）。入れ物だけで、計算に入れるまで、あればエンジンは知らせを出して計算に入れない",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "from", "to", "how"],
+      "properties": {
+        "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
+        "label": { "title": "名前（表示用）", "x-item": "transfer.label", "type": "string", "maxLength": 80 },
+        "at": { "title": "移す時点", "x-item": "transfer.at", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "from": { "title": "移す元の口座", "x-item": "transfer.from", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "to": { "title": "移す先の口座", "x-item": "transfer.to", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "how": {
+          "title": "いくら（額・割合・全部・残高が決めた額を超えた分）",
+          "x-item": "transfer.how",
+          "oneOf": [
+            { "type": "object", "additionalProperties": false, "required": ["kind", "amount"], "properties": { "kind": { "const": "amount" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/boxYen" } } },
+            { "type": "object", "additionalProperties": false, "required": ["kind", "ratio"], "properties": { "kind": { "const": "ratio" }, "ratio": { "$ref": "urn:financia:schema:common#/$defs/rate" } } },
+            { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "const": "all" } } },
+            { "type": "object", "additionalProperties": false, "required": ["kind", "threshold"], "properties": { "kind": { "const": "over" }, "threshold": { "$ref": "urn:financia:schema:common#/$defs/boxYen" } } }
+          ]
+        },
+        "linked": { "title": "結び付けたお金の行（入るお金・出るお金の行の ID）", "x-item": "transfer.linked", "$ref": "urn:financia:schema:common#/$defs/uuid" }
       }
     },
     "car": {

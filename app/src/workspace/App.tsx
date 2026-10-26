@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 import { DualEngine } from "../engine/dual.ts";
 import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
+import { certainOnly, forEngine } from "../engine/moneyRows.ts";
+import { CertainOnlyBar } from "./CertainOnlyBar.tsx";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { multiOn, type ChartLayout, type ChartMode } from "../presentation/MainChart.tsx";
@@ -544,11 +546,15 @@ export function App() {
 
   // ---- 計算の要求（枠: 現状・帯の案。表示の設定で FP顧問料の一文を出すときは、選んだ案の顧問料を入れ替えた枠 alt も）----
   const reqCache = useRef(new Map<string, EngineRequest>());
+  /** 確実な分だけで見る（保存しない自動の差分。見込みが不確かな入るお金と、優先度が希望・夢の出るお金を外した要求で、全部の枠を計算する。0044） */
+  const certainRef = useRef(false);
+  const [certainOn, setCertainOn] = useState(false);
   const reqOf = useCallback((o: Opened, values: Values): EngineRequest => {
-    const key = JSON.stringify(values);
+    const key = `${certainRef.current ? "certain:" : ""}${JSON.stringify(values)}`;
     const hit = reqCache.current.get(key);
     if (hit !== undefined) return hit;
-    const r = applyValues(o.wh, values, o.catalog);
+    const applied = applyValues(o.wh, values, o.catalog);
+    const r = certainRef.current ? certainOnly(applied) : applied;
     if (reqCache.current.size > 64) reqCache.current.clear();
     reqCache.current.set(key, r);
     return r;
@@ -564,7 +570,7 @@ export function App() {
   );
   const requestsFor = useCallback(
     (o: Opened, w: Work, s: DisplaySettings): Record<string, EngineRequest> => {
-      const out: Record<string, EngineRequest> = { [CURRENT]: o.wh.request };
+      const out: Record<string, EngineRequest> = { [CURRENT]: certainRef.current ? certainOnly(o.wh.request) : o.wh.request };
       for (const id of w.band) out[id] = reqOf(o, valuesOf(o.wh, w, id));
       const alt = altFor(o, w, s);
       if (alt !== null) out.alt = alt;
@@ -1138,6 +1144,15 @@ export function App() {
     },
     [setValue],
   );
+  /** 確実な分だけで見る・やめる（全部の枠の要求を入れ替えて計算し直す） */
+  const toggleCertain = useCallback(
+    (on: boolean) => {
+      certainRef.current = on;
+      setCertainOn(on);
+      putWorkRaw(workRef.current, openedRef.current, "set");
+    },
+    [putWorkRaw],
+  );
   /** 相場が下がった場合を重ねる・やめる（枠を足す・外す） */
   const toggleStress = useCallback(
     (on: boolean) => {
@@ -1418,8 +1433,8 @@ export function App() {
   const selView = views.get(work.sel) ?? null;
   const altRes = dual.current?.view("alt").result ?? null;
   const selValues = opened === null ? {} : valuesOf(opened.wh, work, work.sel);
-  const selReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.sel))), [opened, work, reqOf]);
-  const baseReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.base))), [opened, work, reqOf]);
+  const selReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.sel))), [opened, work, reqOf, certainOn]);
+  const baseReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.base))), [opened, work, reqOf, certainOn]);
   const feeOn = opened !== null && hasAdvisoryFee(opened.wh.request) ? feeOf(opened, selValues) : false;
   const names = { selected: planLabel(letterOf(work.sel)), base: planLabel(letterOf(work.base)), same: work.sel === work.base };
   const feeShown = opened !== null && shows(settings, "feeLine") && hasAdvisoryFee(opened.wh.request) && work.sel !== CURRENT;
@@ -1555,7 +1570,7 @@ export function App() {
       setMemoOpen(false);
       setEvidence({ status: "loading", title: `${year}年` });
       try {
-        const full = await host.evidence(JSON.stringify(req));
+        const full = await host.evidence(JSON.stringify(forEngine(req)));
         if (isEngineError(full)) return setEvidence({ status: "error", title: `${year}年`, code: full.error.code });
         const view = buildEvidence(full, req, rowKey, year);
         setEvidence(view === null ? { status: "error", title: `${year}年`, code: "E_NO_EVIDENCE" } : { status: "ready", view });
@@ -2270,6 +2285,8 @@ export function App() {
             >
               {addedRows}
             </LeverCard>
+            {/* 確実な分だけで見る（0044。見込みが不確かな入るお金・優先度が希望／夢の出るお金がある世帯だけ） */}
+            <CertainOnlyBar req={opened.wh.request} on={certainOn} onToggle={toggleCertain} />
             {/* ④ 生涯キャッシュフロー表 */}
             {table !== null ? (
               <CashflowTable

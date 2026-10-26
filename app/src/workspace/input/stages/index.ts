@@ -15,6 +15,7 @@ import { livingStage } from "./living.ts";
 import { pensionStage } from "./pension.ts";
 import { savingsStage } from "./savings.ts";
 import { workStage } from "./work.ts";
+import { moneySections, type MoneyCard } from "../moneyRows.ts";
 
 export const STAGE_ORDER: readonly { id: StageId; label: string }[] = [
   { id: "family", label: "家族" },
@@ -45,8 +46,15 @@ const BUILDERS: Record<StageId, (wh: WorkingHousehold) => StageDef> = {
   assumptions: assumptionsStage,
 };
 
+/** お金の行（入るお金・出るお金。0044）の区画を後ろに置くカード（ライフイベントは自分の区画の中に置く） */
+const MONEY_CARDS: ReadonlySet<StageId> = new Set(["family", "work", "pension", "living", "education", "housing", "insurance", "savings", "car"]);
+
 export function buildStage(id: StageId, wh: WorkingHousehold): StageDef {
-  return BUILDERS[id](wh);
+  const stage = BUILDERS[id](wh);
+  if (!MONEY_CARDS.has(id)) return stage;
+  const claimed = new Set(wh.addedItems.map((a) => a.ref));
+  const money = moneySections(wh, id as MoneyCard, { claimed });
+  return money.length === 0 ? stage : { ...stage, sections: [...stage.sections, ...money] };
 }
 
 export function buildStages(wh: WorkingHousehold): StageDef[] {

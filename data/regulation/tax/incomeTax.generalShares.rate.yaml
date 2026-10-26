@@ -1,0 +1,20 @@
+id: incomeTax.generalShares.rate
+title: 一般株式等に係る譲渡所得等の所得税の税率（申告分離課税。復興特別所得税・防衛特別所得税は基準所得税額に掛けて別に足す）
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2016-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.15"
+    sources:
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/1463.htm", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "株式等の譲渡所得等の申告分離課税（一般株式等）", "note": "検索の要約（原本は未取得）"}
+    recordedIn: "2026.13.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "租税特別措置法 第37条の10第1項。15%（所得税。上場株式等と同じ率）。平成28年1月1日以後の一般株式等の譲渡から（上場株式等と区分した改正の施行）。原本での確認待ち"}

@@ -88,6 +88,8 @@ export interface TotalIncomeOutput {
   readonly miscellaneous?: Yen;
   /** 不動産所得（住まい以外の不動産。損失は土地の取得のための借入の利息の分を除いて、ほかの所得から引く。約束の版 1.4 の任意の欄。total に入る。0028） */
   readonly realEstate?: Yen;
+  /** 分離課税の譲渡所得（入るお金の行の譲渡所得。約束の版 1.5 の任意の欄。total には入らない。合計所得金額の判定で足す。0044） */
+  readonly separate?: Yen;
 }
 
 /** tax.deductions: 所得控除（所得税か住民税か） */
@@ -664,12 +666,38 @@ export interface InsuranceIncomeOutput {
   readonly temporaryIncluded: Yen;
   /** 公的年金等以外の雑所得（個人年金） */
   readonly miscellaneous: Yen;
+  /** 約束の版 1.1（0044）: 一時所得の総収入−支出（特別控除の前）。入るお金の行の一時所得と合わせて特別控除を引くため */
+  readonly temporaryGross?: Yen;
+}
+
+/** income.flows の税を受ける人×年の所得（0044。課税の扱いのある入るお金の行だけ） */
+export interface IncomeFlowsTaxRow {
+  readonly member: string;
+  readonly year: number;
+  /** 一時所得の総収入−支出（特別控除の前） */
+  readonly temporary: Yen;
+  /** 雑所得（業務）の収入−必要経費 */
+  readonly miscBusiness: Yen;
+  /** 雑所得（その他）の収入−必要経費 */
+  readonly miscOther: Yen;
+  /** 給与の収入（給与所得控除の前。社会保険料はかけない） */
+  readonly salary: Yen;
+  /** 事業所得の収入−必要経費 */
+  readonly business: Yen;
+  /** 分離課税の譲渡所得（収入−取得費） */
+  readonly capitalGains: Yen;
+}
+
+/** income.flows: 入るお金の行のお金の動きと、税を受ける人×年の所得（0044） */
+export interface IncomeFlowsOutput {
+  readonly flows: readonly Flow[];
+  readonly byMember: readonly IncomeFlowsTaxRow[];
 }
 
 /** gift.received: 構成員が受け取る贈与（受け取る月の昇順） */
 export interface GiftReceived {
   readonly ym: string;
-  readonly source: "housingPurchase" | "education" | "insurance";
+  readonly source: "housingPurchase" | "education" | "insurance" | "incomeFlow" | "periodicExpense";
   readonly object: string;
   readonly amount: Yen;
   /** 贈与者の区分（特例税率は直系尊属から） */

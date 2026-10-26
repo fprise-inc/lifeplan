@@ -5,6 +5,7 @@
 // 法律婚の配偶者。夫婦の両方が受けることはないので、所得の多い方（同じなら関係の a の側）だけが受ける。
 // 他の構成員の所得で決まる部分を小さな部品に分けておくと、配偶者の所得が変わっても控除の額が同じなら、所得控除（tax.deductions）と
 // それを使う税の部品を計算し直さない（0006 の追記: 依存は小さく、結果が同じなら下流は使い回す）
+// 改訂（0044）: 合計所得金額の判定に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
 import {
   bracketFor,
   deathMonthIn,
@@ -43,7 +44,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
   id: "tax.spouseDeduction",
   title: "配偶者控除・配偶者特別控除",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [
     ...(["incomeTax", "residentTax"] as const).flatMap((p) => {
@@ -67,7 +68,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     // 所得税の合計所得金額は、分離課税の退職所得の金額を含む（住民税は、現年分離課税の退職所得を含めない）
     const totalOf = (id: string): Yen => {
       const t = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year });
-      return resident ? t.total : yen(t.total + (t.retirement ?? 0));
+      return yen((resident ? t.total : t.total + (t.retirement ?? 0)) + (t.separate ?? 0));
     };
     const members = ctx.list<MemberInput>("member");
     const present = (m: MemberInput, j: MonthIndex) =>

@@ -609,6 +609,22 @@ entries:
     replacedBy: null
     collection: debt
     path: [housing]
+  - id: debt.includeInBase
+    status: active
+    label: "基本の計算に入れる（相続で受け継ぐ借金だけ。true で、見込みが不確かでも入れる。計算には使わない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: debt
+    path: [includeInBase]
+  - id: debt.inheritedFrom
+    status: active
+    label: "相続で受け継ぐ借金の、元の借り手（構成員。多くは世帯の外の家族。計算には使わない。見込みが不確かなら、アプリが要求から外す。0044）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: debt
+    path: [inheritedFrom]
   - id: debt.kind
     status: active
     label: "負債の種類"
@@ -617,6 +633,14 @@ entries:
     replacedBy: null
     collection: debt
     path: [kind]
+  - id: debt.likelihood
+    status: active
+    label: "見込み（相続で受け継ぐ借金だけ。計算には使わない。0035 の7）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: debt
+    path: [likelihood]
   - id: debt.pairWith
     status: active
     label: "ペアローンの相手のローン"
@@ -1049,6 +1073,158 @@ entries:
     replacedBy: null
     collection: goal
     path: [owner]
+  - id: incomeFlow.amount
+    status: active
+    label: "1回の額（月額の行は月額。計算基準年の価格）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [amount]
+  - id: incomeFlow.cost
+    status: active
+    label: "必要経費・取得費（1回の額と同じ基準。一時所得・雑所得・事業・譲渡所得の所得から引く。額と同じ伸び方で伸ばす）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [cost]
+  - id: incomeFlow.counterparty
+    status: active
+    label: "相手（誰から。構成員。多くは世帯の外の家族）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [counterparty]
+  - id: incomeFlow.everyYears
+    status: active
+    label: "何年ごとか（1は毎年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [everyYears]
+  - id: incomeFlow.exceptions
+    status: active
+    label: "例外の年（0040 と同じ形。その年の受け取りだけ別の額・0円）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [exceptions]
+  - id: incomeFlow.from
+    status: active
+    label: "最初に受け取る月"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [from]
+  - id: incomeFlow.giftMethod
+    status: active
+    label: "贈与税で見るときの課税の方法（省略は暦年課税）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [giftMethod]
+  - id: incomeFlow.growth
+    status: active
+    label: "伸び方（省略は前提の物価上昇率）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [growth]
+  - id: incomeFlow.includeInBase
+    status: active
+    label: "基本の計算に入れる（true で、見込みが不確かでも入れる。省略は見込みで決める。計算には使わない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [includeInBase]
+  - id: incomeFlow.kind
+    status: active
+    label: "種類（課税の扱いと表の行の既定を決める）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [kind]
+  - id: incomeFlow.label
+    status: active
+    label: "名前（表示用）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [label]
+  - id: incomeFlow.likelihood
+    status: active
+    label: "見込み（計算には使わない。不確かな受け取る相続・贈与は、アプリが要求から外す。0035 の7・0036 の6）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [likelihood]
+  - id: incomeFlow.monthly
+    status: active
+    label: "額は月額（最初の月から終わりの月まで毎月。何年ごとは1だけ）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [monthly]
+  - id: incomeFlow.onContingency
+    status: active
+    label: "万一のときの扱い（受け取る人を入れたときは、その人の万一だけに当てる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [onContingency]
+  - id: incomeFlow.recipient
+    status: active
+    label: "受け取る人（世帯の中の構成員。省略は世帯。課税の扱いのある行の税は、省略なら本人）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [recipient]
+  - id: incomeFlow.row
+    status: active
+    label: "載せる行（省略は種類の既定）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [row]
+  - id: incomeFlow.stages
+    status: active
+    label: "1回の額の段階（0040 と同じ形）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [stages]
+  - id: incomeFlow.taxTreatment
+    status: active
+    label: "課税の扱い（省略は種類の既定。nonTaxable 非課税／temporary 一時所得／miscBusiness 雑所得（業務）／miscOther 雑所得（その他）／salary 給与（社会保険なし。本業と合わせる）／business 事業／capitalGains 譲渡所得（分離。一般株式等の税率）／inheritance 相続税で見る（所得税・住民税なし）／gift 贈与税で見る）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [taxTreatment]
+  - id: incomeFlow.to
+    status: active
+    label: "終わり（その月まで。null・省略は最後まで）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [to]
   - id: insurance.annuitant
     status: active
     label: "満期金・年金・祝金の受取人（省略は契約者）"
@@ -1369,6 +1545,14 @@ entries:
     replacedBy: null
     collection: periodicExpense
     path: [amount]
+  - id: periodicExpense.counterparty
+    status: active
+    label: "相手（誰へ。構成員。多くは世帯の外の家族。0044）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: periodicExpense
+    path: [counterparty]
   - id: periodicExpense.everyYears
     status: active
     label: "何年ごとか（1は毎年）"
@@ -1393,6 +1577,14 @@ entries:
     replacedBy: null
     collection: periodicExpense
     path: [from]
+  - id: periodicExpense.gift
+    status: active
+    label: "あげる贈与（相手は世帯の外の家族。贈与税は受け取る人が払うので世帯から出さず、要約に出す。0044）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: periodicExpense
+    path: [gift]
   - id: periodicExpense.growth
     status: active
     label: "伸び方（省略は前提の物価上昇率）"
@@ -1401,6 +1593,14 @@ entries:
     replacedBy: null
     collection: periodicExpense
     path: [growth]
+  - id: periodicExpense.kind
+    status: active
+    label: "出るお金の種類（表示と表の行の既定。計算はあげる贈与 gift だけが変える。0044）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: periodicExpense
+    path: [kind]
   - id: periodicExpense.label
     status: active
     label: "見出し（表示用）"
@@ -1409,14 +1609,38 @@ entries:
     replacedBy: null
     collection: periodicExpense
     path: [label]
+  - id: periodicExpense.monthly
+    status: active
+    label: "額は月額（最初の月から終わりの月まで毎月。何年ごとは1だけ。0044）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: periodicExpense
+    path: [monthly]
   - id: periodicExpense.onContingency
     status: active
-    label: "万一のときの扱い"
+    label: "万一のときの扱い（払う人を入れたときは、その人の万一だけに当てる）"
     since: draft
     aliases: []
     replacedBy: null
     collection: periodicExpense
     path: [onContingency]
+  - id: periodicExpense.payer
+    status: active
+    label: "払う人（世帯の中の構成員。万一のときの扱いは、この人の万一だけに当てる。省略は世帯。0044）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: periodicExpense
+    path: [payer]
+  - id: periodicExpense.priority
+    status: active
+    label: "優先度（必要・希望・夢。計算には使わない。0044）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: periodicExpense
+    path: [priority]
   - id: periodicExpense.row
     status: active
     label: "載せる行"
@@ -1817,3 +2041,51 @@ entries:
     replacedBy: null
     collection: savingsCheck
     path: [year]
+  - id: transfer.at
+    status: active
+    label: "移す時点"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: transfer
+    path: [at]
+  - id: transfer.from
+    status: active
+    label: "移す元の口座"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: transfer
+    path: [from]
+  - id: transfer.how
+    status: active
+    label: "いくら（額・割合・全部・残高が決めた額を超えた分）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: transfer
+    path: [how]
+  - id: transfer.label
+    status: active
+    label: "名前（表示用）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: transfer
+    path: [label]
+  - id: transfer.linked
+    status: active
+    label: "結び付けたお金の行（入るお金・出るお金の行の ID）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: transfer
+    path: [linked]
+  - id: transfer.to
+    status: active
+    label: "移す先の口座"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: transfer
+    path: [to]

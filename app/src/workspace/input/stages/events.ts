@@ -1,59 +1,16 @@
 // ライフイベント（一時的な収支）: 一時的支出・n年ごとの支出（旅行・家電・結婚の援助など）、介護の費用。
 // 車（cars.ts）・FP顧問料（fees.ts）は別の項目。FP が別のカードに足した物（items.ts の addedItems）は、ここには出さない
-import type { CareExpense, Household, PeriodicExpense } from "../../../engine/types.ts";
+import type { CareExpense, Household } from "../../../engine/types.ts";
 import { addMonths, ageReachedMonth } from "../../levers.ts";
-import { byId, plain, removeAction, resolveTimepoint, timepointField, yenBox, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { byId, plain, removeAction, timepointField, yenBox, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
-import { CARE_PLACE, memberLabel, memberOptions, PERIODIC_ROWS } from "../labels.ts";
-import { stagedBadge, stagedGroups } from "../staged.ts";
+import { CARE_PLACE, memberLabel, memberOptions } from "../labels.ts";
+import { addInheritedDebt, addOutsideGrandchild, expenseCard, inheritedDebtGroups, moneySections, periodicGroups } from "../moneyRows.ts";
 
-const periodic = (h: Household) => h.periodicExpenses;
+// 出るお金の行のまとまり（周期的な支出）は、どのカードでも同じ形（moneyRows.ts。0044）
+export { periodicGroup, periodicGroups, periodicStageGroups } from "../moneyRows.ts";
+
 const cares = (h: Household) => h.careExpenses;
-
-export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense): GroupDef {
-  const find = byId(periodic, p.id);
-  const k = `ev/${p.id}`;
-  const self = wh.request.input.household.members.find((m) => m.kind === "self");
-  const ageOf = self !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === self.id) } : {};
-  const h0 = wh.request.input.household;
-  const once = p.everyYears === 1 && p.to != null && resolveTimepoint(h0, p.to) !== null && resolveTimepoint(h0, p.to) === resolveTimepoint(h0, p.from);
-  const fields: FieldDef[] = [
-    plain({ key: `${k}/label`, item: "periodicExpense.label", label: "名前", level: "simple", kind: "text", find, path: ["label"], optional: true }),
-    yenBox({ key: `${k}/amount`, item: "periodicExpense.amount", label: "1回の額", level: "simple", basis: "once", find, path: ["amount"] }),
-    timepointField({ key: `${k}/from`, item: "periodicExpense.from", label: once ? "時期" : "初め", level: "simple", find, path: ["from"], ...ageOf }),
-    plain({ key: `${k}/every`, item: "periodicExpense.everyYears", label: "何年ごと", level: "simple", kind: "int", suffix: "年ごと", min: 1, max: 50, find, path: ["everyYears"], help: "1回だけのときは、終わりを初めと同じ年月にします" }),
-    timepointField({ key: `${k}/to`, item: "periodicExpense.to", label: "終わり", level: "simple", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで", ...ageOf }),
-    plain({ key: `${k}/row`, item: "periodicExpense.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: PERIODIC_ROWS, find, path: ["row"] }),
-  ];
-  const badge = stagedBadge(p as unknown as Record<string, unknown>, ["stages"], ["exceptions"]);
-  return {
-    key: k,
-    title: `${p.label ?? (once ? "一時的支出" : "n年ごとの支出")}${once ? "（1回）" : `（${p.everyYears}年ごと）`}`,
-    ...(badge !== null ? { note: `1回の額の${badge}（詳細で直せます）` } : {}),
-    level: "simple",
-    fields,
-    actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.periodicExpenses = (h.periodicExpenses ?? []).filter((x) => x.id !== p.id)))],
-  };
-}
-
-/** 周期的な支出の1回の額の段階と例外の年（0040。1回だけの支出には出さない） */
-export function periodicStageGroups(wh: WorkingHousehold, p: PeriodicExpense): GroupDef[] {
-  const h0 = wh.request.input.household;
-  const once = p.everyYears === 1 && p.to != null && resolveTimepoint(h0, p.to) !== null && resolveTimepoint(h0, p.to) === resolveTimepoint(h0, p.from);
-  if (once && (p.stages ?? []).length + (p.exceptions ?? []).length === 0) return [];
-  const self = h0.members.find((m) => m.kind === "self");
-  return stagedGroups(wh, {
-    key: `ev/${p.id}`,
-    find: byId(periodic, p.id),
-    target: { object: p.id },
-    stages: { path: ["stages"], item: "periodicExpense.stages", at: [] },
-    exceptions: { path: ["exceptions"], item: "periodicExpense.exceptions", at: [] },
-    basis: "once",
-    what: "1回の額",
-    base: (h) => (h.periodicExpenses ?? []).find((x) => x.id === p.id)?.amount.value ?? null,
-    ...(self !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === self.id) } : {}),
-  });
-}
 
 export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
   const find = byId(cares, c.id);
@@ -88,7 +45,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
       title: "一時的支出・n年ごとの支出",
       note: "旅行・家電の買い替え・リフォーム・結婚の援助など。毎月の基本生活費とは別に入れます",
       level: "simple",
-      groups: (h.periodicExpenses ?? []).filter((p) => !claimed.has(p.id)).flatMap((p) => [periodicGroup(wh, p), ...periodicStageGroups(wh, p)]),
+      groups: (h.periodicExpenses ?? []).filter((p) => !claimed.has(p.id) && expenseCard(h, p) === "events").flatMap((p) => periodicGroups(wh, p)),
       actions: [
         {
           key: "ev/addOnce",
@@ -107,6 +64,8 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
         },
       ],
     },
+    // 入るお金（祝い金・一時所得・動産の売却・その他の入金。0044）
+    ...moneySections(wh, "events", { claimed, level: "simple", inTitle: "入るお金（祝い金・一時の入金など）" }).filter((x) => x.key.endsWith("/in")),
     {
       key: "ev/care",
       title: "介護",
@@ -127,6 +86,24 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
         },
       ],
     },
+    // 介護・親（親からの援助・親への仕送り）と、相続・贈与（受け取る予定・あげる贈与・受け継ぐ借金）。カードを組み直すまでここに置く（0044）
+    ...moneySections(wh, "care", { claimed, inTitle: "親からの援助・仕送り（入るお金）", outTitle: "親への仕送り（出るお金）" }),
+    ...moneySections(wh, "inherit", {
+      claimed,
+      level: "simple",
+      inTitle: "相続・贈与で受け取る予定（入るお金）",
+      outTitle: "あげる贈与（出るお金）",
+      note: "孫などへの贈与。贈与税は受け取る人が払うので、世帯からは出さず、結果の要約に出します",
+    }).map((sec) =>
+      sec.key.endsWith("/in")
+        ? {
+            ...sec,
+            note: "見込みが「不確か」の受け取る相続・贈与は、基本の計算に入れません（行は残ります）。相手は世帯の外の家族（家族のカード）から選びます",
+            groups: [...sec.groups, ...inheritedDebtGroups(wh)],
+            actions: [...sec.actions, { key: "money/inherit/addDebt", label: "＋ 相続で受け継ぐ借金", level: "detail" as const, run: (w: WorkingHousehold) => addInheritedDebt(w) }],
+          }
+        : { ...sec, actions: [...sec.actions, { key: "money/inherit/addGrandchild", label: "＋ 孫（世帯の外の家族）を足す", level: "detail" as const, run: (w: WorkingHousehold) => addOutsideGrandchild(w) }] },
+    ),
   ];
-  return { id: "events", label: "ライフイベント", lead: "一時的な収支（旅行・買い替え・援助など）と介護。", sections };
+  return { id: "events", label: "ライフイベント", lead: "一時的な収支（旅行・買い替え・援助など）と介護。介護・親と相続・贈与のお金の行もここで入れます。", sections };
 }

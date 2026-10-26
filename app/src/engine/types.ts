@@ -241,6 +241,89 @@ export interface PeriodicExpense {
   /** 1回の額の段階・例外の年（0040） */
   stages?: AmountStage[];
   exceptions?: AmountException[];
+  growth?: { kind: "inflation" | "rate" | "none"; rate?: string };
+  onContingency?: OnContingency;
+  /** お金の行（0044）: 額は月額（最初の月から終わりの月まで毎月。何年ごとは1だけ） */
+  monthly?: boolean;
+  /** お金の行（0044）: 出るお金の種類・相手・払う人・優先度・あげる贈与 */
+  kind?: MoneyOutKind;
+  counterparty?: string;
+  payer?: string;
+  priority?: Priority;
+  gift?: { method?: "calendar" | "settlement"; purpose?: "general" | "housing" | "asNeeded" };
+  [key: string]: unknown;
+}
+
+/** お金の行（0044）の見込み・優先度 */
+export type Likelihood = "certain" | "likely" | "uncertain";
+export type Priority = "need" | "want" | "wish";
+
+/** 出るお金の種類（0044。エンジンの moneyOutKind） */
+export type MoneyOutKind = "general" | "allowance" | "childSupport" | "gift" | "education" | "repair" | "realEstateCost" | "livingAnnual" | "car" | "other";
+
+/** 入るお金の種類（0044。エンジンの incomeFlow.kind） */
+export type IncomeFlowKind =
+  | "inheritance"
+  | "giftReceived"
+  | "support"
+  | "educationSupport"
+  | "childSupport"
+  | "propertyDivision"
+  | "householdContribution"
+  | "benefit"
+  | "unemployment"
+  | "survivorPension"
+  | "foreignPension"
+  | "scholarshipGrant"
+  | "childPays"
+  | "sideJob"
+  | "otherWork"
+  | "saleBusiness"
+  | "saleGoods"
+  | "temporary"
+  | "celebration"
+  | "subsidy"
+  | "powerSale"
+  | "insuranceBenefit"
+  | "other";
+
+/** 入るお金の課税の扱い（0044） */
+export type IncomeTaxTreatment = "nonTaxable" | "temporary" | "miscBusiness" | "miscOther" | "salary" | "business" | "capitalGains" | "inheritance" | "gift";
+
+/** 入るお金の行（0044。出るお金の行と同じ形の土台） */
+export interface IncomeFlow {
+  id: string;
+  label?: string;
+  kind: IncomeFlowKind;
+  taxTreatment?: IncomeTaxTreatment;
+  row?: string;
+  from: Timepoint;
+  to?: Timepoint | null;
+  everyYears: number;
+  monthly?: boolean;
+  amount: Box<number>;
+  cost?: Box<number>;
+  growth?: { kind: "inflation" | "rate" | "none"; rate?: string };
+  stages?: AmountStage[];
+  exceptions?: AmountException[];
+  onContingency?: OnContingency;
+  recipient?: string;
+  counterparty?: string;
+  likelihood?: Likelihood;
+  includeInBase?: boolean;
+  giftMethod?: "calendar" | "settlement";
+  [key: string]: unknown;
+}
+
+/** 口座の間の移し替え（0044。入れ物だけ。画面には出さない） */
+export interface Transfer {
+  id: string;
+  label?: string;
+  at: Timepoint;
+  from: string;
+  to: string;
+  how: { kind: "amount"; amount: Box<number> } | { kind: "ratio"; ratio: string } | { kind: "all" } | { kind: "over"; threshold: Box<number> };
+  linked?: string;
   [key: string]: unknown;
 }
 
@@ -259,6 +342,10 @@ export interface Debt {
   pairWith?: string;
   /** この借入で取得した住まい以外の不動産（不動産の器の ID。0028） */
   property?: string;
+  /** 0044: 相続で受け継ぐ借金の元の借り手・見込み・基本の計算に入れるか（計算には使わない。不確かなら要求から外す） */
+  inheritedFrom?: string;
+  likelihood?: Likelihood;
+  includeInBase?: boolean;
   /** 住宅ローン控除に使う住宅の情報（tax.housingLoanCredit。入居は名前つきイベント kind moveIn） */
   housing?: DebtHousing;
   [key: string]: unknown;
@@ -512,6 +599,10 @@ export interface Household {
   pensionRecords?: PensionRecord[];
   goals?: Goal[];
   periodicExpenses?: PeriodicExpense[];
+  /** 入るお金の行（0044） */
+  incomeFlows?: IncomeFlow[];
+  /** 口座の間の移し替え（0044。入れ物だけ） */
+  transfers?: Transfer[];
   debts?: Debt[];
   residences?: Residence[];
   donors?: Donor[];

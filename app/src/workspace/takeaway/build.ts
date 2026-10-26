@@ -4,6 +4,7 @@
 // - 写さないもの: FP用のメモ・呼び名・控え・ヒアリングの記録・AIの記録・案の差分（作った日時・出どころ・承認・注記）・世帯の内部ID・顧客番号・
 //   事務所の設定（料金表の写し）・カスタム計算の印・ファイルのパス
 // - 計算の要求は、主画面と同じ当て方（plans.ts の applyValues。保存していない変更を含む今の中身）で作る
+import { forEngine } from "../../engine/moneyRows.ts";
 import type { EngineRequest } from "../../engine/types.ts";
 import type { MoneyThreeSettings } from "../../presentation/model.ts";
 import { TAKEAWAY_FORMAT, TAKEAWAY_LEVER_KEYS, TAKEAWAY_VERSION, type TakeawayLever, type TakeawayLeverKey, type TakeawayPayload } from "../../takeaway/model.ts";
@@ -106,7 +107,8 @@ export function probeRequests(payload: TakeawayPayload): EngineRequest[] {
 /** 持ち帰り用のレポートの中身を作る。ids は書き出し1回分の ID の付け替え（テストで決まった値を渡せる） */
 export function buildPayload(ctx: TakeawayContext, choice: TakeawayChoice, notices: readonly string[] = STANDARD_NOTICES, ids: IdMap = new IdMap()): TakeawayPayload {
   const order = planIds(choice);
-  const raw = order.map((id) => applyValues(ctx.wh, ctx.valuesOf(id), ctx.catalog));
+  // 基本の計算に入れない物（不確かな受け取る相続・贈与など）は、レポートの中で計算する要求から外す（0044）
+  const raw = order.map((id) => forEngine(applyValues(ctx.wh, ctx.valuesOf(id), ctx.catalog)));
   const plans = order.map((id, i) => {
     const l = ctx.letterOf(id);
     return { letter: l.letter, name: (id === CURRENT ? "現状" : cleanText(l.name, 60)) ?? `プラン${l.letter}`, request: sanitizeRequest(raw[i] as EngineRequest, ids) };

@@ -12,8 +12,11 @@
 //   （家計が1つなので、今の決まりどおり）。生活費の人数に入れる月（living）は、生活費が世帯の生活費に入るので、このお金から引かない。
 //   一時の入金はいつもこのお金に入る。期間の間も残高はそのまま持ち越す
 // - 尽きる月: その月の入るお金を足した残高で、生活費・税・社会保険料・介護の費用を払いきれない最初の月。払いきれない介護の費用は世帯が払い、
-//   残高は0円にする（生活費の足りない分は数えない。仕送りなどのお金の行は後の回）。その後も入るお金が出るお金より多い月は、また積む
+//   残高は0円にする（生活費の足りない分は数えない）。その後も入るお金が出るお金より多い月は、また積む
 // - 計算する期間: 計算基準月から、表の最後の月・亡くなる見込み（leaves）の前の月・万一の想定で亡くなる月のいちばん早い月まで
+// - 改訂2（0044）: 1本のお金の行を両側で読む。世帯の出るお金の行のうち相手がこの人の行（仕送りなど。expense.periodic の支払い）は
+//   このお金に入れ、世帯の入るお金の行のうち相手がこの人の行（援助など。income.flows の受け取り）はこのお金から引く（世帯の側は行のまま）。
+//   収入を世帯に入れる月（家計が1つの月）は世帯の中のお金の移し替えなので読まない。このお金が尽きても、世帯が受け取る援助は行のとおり入る
 import {
   addMonths,
   boxValue,
@@ -49,14 +52,16 @@ export default defineComponent<{ member: string }, OutsideWalletOutput>({
   id: "outside.wallet",
   title: "世帯の外の家族のお金（簡易の家計）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {
     "plan.memberFlows": ">=1 <2",
+    "expense.periodic": ">=1 <2",
+    "income.flows": ">=1 <2",
     "care.expense": ">=1 <2",
     "contingency.event": ">=1 <2",
   },
   params: [],
-  reads: ["member.wallet", "member.outside", "member.leaves", "care.member", "assumptions.inflation"],
+  reads: ["member.wallet", "member.outside", "member.leaves", "care.member", "periodicExpense.counterparty", "incomeFlow.counterparty", "assumptions.inflation"],
   input: "member.input",
   output: "outside.wallet.output",
   compute(input, ctx) {
@@ -100,6 +105,12 @@ export default defineComponent<{ member: string }, OutsideWalletOutput>({
       const v = boxValue(l.amount);
       if (v !== null && v > 0) add(lump, ctx.time.resolve(l.at), v);
     }
+    // 1本のお金の行を両側で読む（0044）: 世帯からこの人へ（仕送りなど）は入り、この人から世帯へ（援助など）は出る
+    const rows = new Map<MonthIndex, number>();
+    const toThem = new Set(ctx.list<{ id: string; counterparty?: string }>("periodicExpense").filter((e) => e.counterparty === m.id).map((e) => e.id));
+    if (toThem.size > 0) for (const f of ctx.call<FlowsResult>("expense.periodic", {}).flows) if (f.object !== undefined && toThem.has(f.object)) add(rows, parseYm(f.ym), f.amount);
+    const fromThem = new Set(ctx.list<{ id: string; counterparty?: string }>("incomeFlow").filter((x) => x.counterparty === m.id).map((x) => x.id));
+    if (fromThem.size > 0) for (const f of ctx.call<FlowsResult>("income.flows", {}).flows) if (f.object !== undefined && fromThem.has(f.object) && !isUnder(f.row, "cf.taxSi")) add(rows, parseYm(f.ym), -f.amount);
     // この人が介護を受ける費用（月ごと。払う人の行のまま）
     const mine = new Set(ctx.list<CareExpenseInput>("care").filter((c) => c.member === m.id).map((c) => c.id));
     const care = new Map<MonthIndex, Flow[]>();
@@ -119,7 +130,7 @@ export default defineComponent<{ member: string }, OutsideWalletOutput>({
       const shared = outsidePeriodAt(ctx, m, k);
       const incomeShared = shared?.income === true;
       let avail = balance + (lump.get(k) ?? 0);
-      if (!incomeShared) avail += (own.get(k) ?? 0) + (pensionMonthly === null ? 0 : (pensionMonthly[monthOf(k) - 1] ?? 0));
+      if (!incomeShared) avail += (own.get(k) ?? 0) + (pensionMonthly === null ? 0 : (pensionMonthly[monthOf(k) - 1] ?? 0)) + (rows.get(k) ?? 0);
       if (shared?.living !== true) avail -= livingAt(k);
       // 収入を世帯に入れる月は、介護の費用も世帯が払う（今の決まりどおり）
       const due = incomeShared ? [] : (care.get(k) ?? []);

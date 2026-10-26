@@ -6,6 +6,7 @@
 // 他の構成員の所得で決まる部分を小さな部品に分けておくと、配偶者の所得が変わっても控除の額が同じなら、所得控除（tax.deductions）と
 // それを使う税の部品を計算し直さない（0006 の追記）
 // 改訂5: 世帯の外の家族（0035 の4）は、扶養していると入れたときだけ扶養親族に数える
+// 改訂（0044）: 合計所得金額の判定に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
 import {
   bracketFor,
   deathMonthIn,
@@ -59,7 +60,7 @@ export default defineComponent<
   id: "tax.dependentDeduction",
   title: "扶養控除・特定親族特別控除",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [
     ...(["incomeTax", "residentTax"] as const).flatMap((p) => Object.values(ids(p))),
@@ -84,7 +85,7 @@ export default defineComponent<
       if (t === undefined) {
         // 所得税の合計所得金額は、分離課税の退職所得の金額を含む（住民税は含めない）
         const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year });
-        t = resident ? inc.total : yen(inc.total + (inc.retirement ?? 0));
+        t = yen((resident ? inc.total : inc.total + (inc.retirement ?? 0)) + (inc.separate ?? 0));
         totals.set(id, t);
       }
       return t;

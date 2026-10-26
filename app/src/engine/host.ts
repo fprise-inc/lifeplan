@@ -1,6 +1,7 @@
 // 本体（Rust）と画面側のエンジンへの入口
 import { invoke } from "@tauri-apps/api/core";
 import type { DictionaryEntry, LearnedFormat } from "../../../statement/src/index.ts";
+import { forEngine } from "./moneyRows.ts";
 import { isEngineError, type EngineError, type EngineRequest, type FullResult, type PreviewResult } from "./types.ts";
 
 /** 画面側のエンジンのセッション（engine/src/engine/run.ts の Session。JSON の文字列で受け渡す） */
@@ -624,7 +625,7 @@ export function singleCompute(host: Pick<HostApi, "compute">): (req: EngineReque
   const inflight = new Map<string, Promise<PreviewResult | null>>();
   let queue: Promise<unknown> = Promise.resolve();
   return (req) => {
-    const request = JSON.stringify(req);
+    const request = JSON.stringify(forEngine(req));
     const same = inflight.get(request);
     if (same !== undefined) return same;
     const run = async (): Promise<PreviewResult | null> => {

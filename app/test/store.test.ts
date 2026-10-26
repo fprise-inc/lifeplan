@@ -24,7 +24,7 @@ function withIds<T extends { request: { input: unknown } }>(wh: T): T {
 }
 import { keyLines } from "../src/workspace/store/RecoveryPanel.tsx";
 import type { StatementLog } from "../../statement/src/index.ts";
-import { modelHousehold } from "./helpers.ts";
+import { modelHousehold, preview } from "./helpers.ts";
 
 const NOW = "2026-10-18T10:00:00.000Z";
 
@@ -109,6 +109,34 @@ function sample018(): BodyState {
   req.input.assumptions!.investment = { ...inv, allocation: { mix: [{ assetClass: "equity.global", share: "0.8" }, { assetClass: "bond.global", share: "0.2" }], stages: [{ id: id(14), at: { memberAge: { member: self.id, years: 60 } }, mix: [{ assetClass: "equity.global", share: "0.4" }, { assetClass: "bond.global", share: "0.6" }] }] } };
   const job = hh.employmentPeriods?.find((p) => p.member === self.id && p.salary !== undefined);
   if (job?.salary !== undefined) job.salary.growth = { rate: "0.015" };
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
+/**
+ * 0.20 の見本の世帯（0044）: sample018() に、入るお金の行（相続〔不確か・基本の計算に入れる〕・副業〔必要経費・段階・例外の年〕・月額の援助）、
+ * 出るお金の行に足した欄（月額・種類・相手・払う人・優先度・あげる贈与）、口座の間の移し替えの入れ物、相続で受け継ぐ借金の欄を足す
+ */
+function sample020(): BodyState {
+  const s = sample018();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const id = (n: number) => `00000000-0000-4000-8000-00000000f${String(n).padStart(3, "0")}`;
+  const est = (value: number) => ({ value, state: "confirmed" as const, origin: { kind: "manual" as const } });
+  hh.incomeFlows = [
+    { id: id(1), label: "父からの相続", kind: "inheritance", from: { memberAge: { member: self.id, years: 60 } }, to: { memberAge: { member: self.id, years: 60 } }, everyYears: 1, amount: est(20000000), likelihood: "uncertain", includeInBase: true },
+    { id: id(2), kind: "sideJob", from: { at: "2027-04" }, to: { at: "2035-03" }, everyYears: 1, amount: est(1200000), cost: est(200000), recipient: self.id, stages: [{ id: id(3), at: { at: "2030-04" }, ratio: "0.5" }], exceptions: [{ id: id(4), year: 2029, amount: est(0) }], growth: { kind: "none" } },
+    { id: id(5), kind: "support", from: { at: "2027-01" }, to: { at: "2028-12" }, everyYears: 1, monthly: true, amount: est(50000), taxTreatment: "nonTaxable", likelihood: "certain", onContingency: { mode: "stop" } },
+  ];
+  hh.periodicExpenses = [
+    ...(hh.periodicExpenses ?? []),
+    { id: id(6), label: "孫への贈与", kind: "gift", row: "cf.expense.lumpSum.gift", from: { at: "2028-04" }, to: { at: "2028-04" }, everyYears: 1, amount: est(1100000), payer: self.id, priority: "want", gift: { method: "calendar", purpose: "general" } },
+    { id: id(7), label: "仕送り", kind: "allowance", row: "cf.expense.other", from: { at: "2027-01" }, to: null, everyYears: 1, monthly: true, amount: est(30000), priority: "need" },
+  ];
+  const accs = (hh.accounts ?? []).filter((a) => a.kind === "deposit" || a.kind === "nisa");
+  if (accs.length >= 2) hh.transfers = [{ id: id(8), at: { at: "2030-01" }, from: accs[0]!.id, to: accs[1]!.id, how: { kind: "amount", amount: est(1000000) }, linked: id(2) }];
+  const other = (hh.debts ?? [])[0];
+  if (other !== undefined) Object.assign(other, { likelihood: "likely", includeInBase: false });
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
@@ -235,7 +263,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.19");
+    expect(BODY_FORMAT_VERSION).toBe("0.20");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -367,6 +395,19 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
     writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample018())), null, 2) + "\n");
+  });
+
+  it("0.20 の形（0044）: 入るお金の行・出るお金の行に足した欄・口座の間の移し替え・受け継ぐ借金の欄を保存して読み戻す（要素の ID もそのまま）", () => {
+    const s = sample020();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const h = stored.household.request.input.household;
+    expect(h.incomeFlows?.map((f) => f.id)).toEqual(["00000000-0000-4000-8000-00000000f001", "00000000-0000-4000-8000-00000000f002", "00000000-0000-4000-8000-00000000f005"]);
+    expect(h.incomeFlows?.[1]?.stages?.[0]?.id).toBe("00000000-0000-4000-8000-00000000f003");
+    expect(h.periodicExpenses?.find((p) => p.kind === "gift")?.gift).toEqual({ method: "calendar", purpose: "general" });
+    const back = fromBody(JSON.stringify(stored));
+    expect(back.wh.request.input.household.incomeFlows).toEqual(withIds(s.wh).request.input.household.incomeFlows);
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    preview(back.wh.request);
   });
 
   it("0.18 の形（0040）: 段階・例外の年・器の利回りの段階・資産配分の段階・期間ごとの伸びを保存して読み戻す（要素の ID もそのまま）", () => {
