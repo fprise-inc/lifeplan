@@ -5,6 +5,7 @@ import type { Box, EmploymentPeriod, Household, LivingExpense, Member } from "..
 import { ageAt } from "../levers.ts";
 import { refreshClaims } from "./claims.ts";
 import { refreshEducation } from "./fill.ts";
+import { refreshRetirement } from "./retirementBenefits.ts";
 import { applyAutoStages, countAt } from "./livingStages.ts";
 import {
   livingEstimate as livingBySize,
@@ -101,6 +102,8 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   }
   // 推定のままの子の進路（標準の進路の型。fill.ts）は、子の生年月・計算基準月に合わせて入れ直す
   refreshEducation(h, baseMonth);
+  // 推定のままの退職給付（退職一時金の目安・見込みの計算の最終の月給と理由）は、勤続・辞め方・学歴・年収に合わせて入れ直す（0057）
+  refreshRetirement(h);
   // 生活費の推定の段階（人数の変化と年齢から。推定のままの段だけ。livingStages.ts）。進路の後に（自宅外の在学を読むため）
   const last = endYear ?? Number(baseMonth.slice(0, 4)) + 80;
   for (const l of h.livingExpenses ?? []) applyAutoStages(h, baseMonth, last, l);

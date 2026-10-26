@@ -221,7 +221,44 @@ export interface EducationStage {
   hours?: "standard" | "short";
   feeRatio?: string;
   exam?: { amount?: number; deposits?: number };
+  annualOverride?: number;
+  entranceOverride?: number;
+  boarding?: { monthly?: number; initial?: number };
+  scienceAgriculture?: boolean;
+  outOfSchool?: "statistics" | "none" | { monthly: number };
   [key: string]: unknown;
+}
+
+/** 学校外の費用の行（塾・習い事など。0062） */
+export interface EducationLesson {
+  id?: string;
+  from: Timepoint;
+  to: Timepoint;
+  monthly: number;
+  label?: string;
+  kind?: "cram" | "lesson" | "other";
+}
+
+/** 貸与の奨学金（0062。エンジンの scholarships） */
+export interface EducationScholarship {
+  id?: string;
+  monthly: number;
+  from: Timepoint;
+  to: Timepoint;
+  rate: string;
+  termMonths: number;
+  repaymentStart?: Timepoint;
+  debtor?: "child" | "parent";
+}
+
+/** 教育ローン（0062。エンジンの loans） */
+export interface EducationLoan {
+  id?: string;
+  at: Timepoint;
+  amount: number;
+  rate: string;
+  termMonths: number;
+  borrower: string;
 }
 
 export interface EducationGift {
@@ -238,7 +275,19 @@ export interface Goal {
   kind: string;
   owner?: string;
   priority?: "need" | "want" | "wish";
-  education?: { stages: EducationStage[]; lessons?: { from: Timepoint; to: Timepoint; monthly: number; label?: string }[]; gifts?: EducationGift[]; childAllowance?: boolean; schoolLunch?: "free" | "paid"; [key: string]: unknown };
+  education?: {
+    stages: EducationStage[];
+    /** 学校外の費用の入れ方（0062。省略は前の形: 統計の平均に行を足す） */
+    outOfSchoolMode?: "statistics" | "rows";
+    lessons?: EducationLesson[];
+    scholarships?: EducationScholarship[];
+    loans?: EducationLoan[];
+    gifts?: EducationGift[];
+    childAllowance?: boolean;
+    highSchoolSupport?: "eligible" | "ineligible";
+    schoolLunch?: "free" | "paid";
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
 }
 
@@ -483,6 +532,10 @@ export interface CareExpense {
   serviceMonthly?: Box<number>;
   otherMonthly?: Box<number>;
   initial?: Box<number>;
+  /** 伸び方（省略は物価上昇率） */
+  growth?: { kind: string; rate?: string };
+  /** 万一のときの扱い（払う人の万一） */
+  onContingency?: OnContingency;
   [key: string]: unknown;
 }
 
@@ -490,9 +543,19 @@ export interface RetirementBenefit {
   id: string;
   member: string;
   kind: string;
+  /** 0057: 名前と学歴（表示と退職一時金の目安の元だけ。計算には使わない） */
+  label?: string;
+  education?: "university" | "highSchoolOffice" | "highSchoolManual";
   employment?: string;
+  service?: { from: Timepoint; to: Timepoint };
+  officerService?: { from: Timepoint; to: Timepoint };
   amount?: Box<number>;
   paidAt?: Timepoint;
+  estimate?: { finalMonthly?: number; reason?: "retirementAge" | "voluntary"; multiplier?: string };
+  receipt?: { method?: "lumpSum" | "annuity" | "mixed"; lumpShare?: string; start?: Timepoint; years?: number | null; guaranteeYears?: number; perYear?: 1 | 2 | 4 | 6 | 12; annualAmount?: number; conversionRate?: string };
+  contributions?: { monthly: number; from: Timepoint; to?: Timepoint | null };
+  disability?: boolean;
+  valueStates?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -692,6 +755,8 @@ export interface EngineRequest {
     contingencies?: Contingency[];
     protection?: ProtectionRequest;
     inheritanceTax?: InheritanceTaxRequest;
+    /** 遺したい額（0060。表示だけ。計算には使わない） */
+    legacy?: { amount?: Box<number> };
     [key: string]: unknown;
   };
   [key: string]: unknown;

@@ -753,7 +753,8 @@ export function addItem(wh: WorkingHousehold, key: string, id: () => string = ne
       head === "pet"
         ? { id: ref, label: "ペット", row: "cf.expense.other", from: { at }, to: { at: addMonths(at, 14 * 12) }, everyYears: 1, amount: standardBox(180000, PRESET_BASIS) }
         : head === "abroad"
-          ? { id: ref, label: "留学", row: "cf.expense.lumpSum.other", from: childAt ?? { at }, to: childAt ?? { at }, everyYears: 1, amount: standardBox(3500000, PRESET_BASIS) }
+          ? // 子を選んだ留学は子ども・教育の出るお金の行（種類 教育費。0062）
+            { id: ref, label: "留学", ...(childAt !== null ? { kind: "education" as const, row: "cf.expense.education" } : { row: "cf.expense.lumpSum.other" }), from: childAt ?? { at }, to: childAt ?? { at }, everyYears: 1, amount: standardBox(3500000, PRESET_BASIS) }
           : { id: ref, label: "新しい支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: standardBox(300000, PRESET_BASIS) };
     next = mutate(wh, (hh) => void (hh.periodicExpenses ??= []).push(p));
   } else {

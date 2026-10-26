@@ -500,6 +500,66 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.21 より前の版に建て方は無い"
             );
         }
+        // 0.22 から（0057）: 退職給付の名前と学歴（どれも任意。計算には使わない）
+        if migrate::parse(v).unwrap() >= (0, 22) {
+            let list = hh["retirementBenefits"]
+                .as_array()
+                .expect("0.22 の見本には退職給付がある");
+            assert!(
+                list.iter()
+                    .any(|b| b["kind"] == "db" && b["label"].is_string()),
+                "{v}: 退職給付の名前"
+            );
+            assert!(
+                list.iter().any(|b| b["education"] == "highSchoolOffice"),
+                "{v}: 退職給付の学歴"
+            );
+        } else {
+            assert!(
+                hh["retirementBenefits"]
+                    .as_array()
+                    .map(|bs| bs.iter().all(|b| b.get("education").is_none()))
+                    .unwrap_or(true),
+                "{v}: 0.22 より前の版に学歴は無い"
+            );
+        }
+        // 0.23 から（0063）: 教育の目標の学校外の費用の入れ方と、塾・習い事の行の種類（どれも任意）
+        let goals = hh["goals"].as_array().cloned().unwrap_or_default();
+        let rows_mode = goals
+            .iter()
+            .any(|g| g["education"]["outOfSchoolMode"] == "rows");
+        let kinds = goals.iter().any(|g| {
+            g["education"]["lessons"]
+                .as_array()
+                .map(|ls| ls.iter().any(|l| l["kind"] == "cram"))
+                .unwrap_or(false)
+        });
+        if migrate::parse(v).unwrap() >= (0, 23) {
+            assert!(rows_mode && kinds, "{v}: 学校外の費用の入れ方と行の種類");
+        } else {
+            assert!(
+                !rows_mode && !kinds,
+                "{v}: 0.23 より前の版に学校外の費用の入れ方は無い"
+            );
+        }
+        // 0.24 から（0060・0061）: 計算の要求の入力の、相続税の目安の設定と遺したい額（どれも任意）
+        let input = &now["household"]["request"]["input"];
+        if migrate::parse(v).unwrap() >= (0, 24) {
+            assert!(
+                input["inheritanceTax"]["realEstateRatio"].is_string()
+                    && input["inheritanceTax"].get("points").is_none(),
+                "{v}: 相続税の目安の設定（時点は入れない）"
+            );
+            assert!(
+                input["legacy"]["amount"]["value"].is_number(),
+                "{v}: 遺したい額"
+            );
+        } else {
+            assert!(
+                input.get("legacy").is_none(),
+                "{v}: 0.24 より前の版に遺したい額は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;
