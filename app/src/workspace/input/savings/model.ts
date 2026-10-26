@@ -6,7 +6,7 @@ import type { Account, EngineRequest, Household, InvestmentSetting, Member, Time
 import { addMonths, ageAt, ageReachedMonth, parseYm, readLevers } from "../../levers.ts";
 import { expectedReturn } from "../../plans/allocation.ts";
 import { resolveTimepoint } from "../form.ts";
-import { confirmedBox, mutate, newId, type WorkingHousehold } from "../household.ts";
+import { confirmedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
 
 export type Method = "total" | "accounts" | "allocation";
 export const METHODS: readonly { id: Method; label: string; lead: string }[] = [
@@ -41,6 +41,9 @@ export const KIND_INFO: Record<string, { name: string; memo: string; color: stri
 const KIND_ORDER = ["deposit", "nisa", "childNisa", "legacyNisa", "juniorNisa", "ideco", "corporateDc", "taxable", "zaikei", "esop", "fxDeposit", "smallBusinessMutualAid"];
 
 const MAN = 10000;
+
+/** 足したばかりの口座の残高・入れていない金融資産の合計（0円で計算中の印。打つと確定になる。0041） */
+export const UNENTERED_BALANCE = "未入力（残高を入れてください。0円で計算中）";
 
 export const isFinancial = (a: Account) => !NOT_FINANCIAL.has(a.kind);
 export const accountsOf = (h: Household) => (h.accounts ?? []).filter((a) => isFinancial(a) && a.kind !== "pooled").sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
@@ -348,7 +351,9 @@ export function switchMethod(wh: WorkingHousehold, to: Method): WorkingHousehold
         p = { id: newId(), kind: "pooled", owner: self?.id ?? h.members[0]?.id ?? "", marketValue: confirmedBox(0), asOf: req.input.baseMonth, contributions: [] };
         (h.accounts ??= []).push(p);
       }
-      p.marketValue = confirmedBox(Math.round(view.value));
+      // 口座が無く合計が0円なら、未入力の印で始める（0円のまま黙って計算しない）
+      const none = Math.round(view.value) === 0 && accountsOf(h).length === 0;
+      p.marketValue = none ? standardBox(0, UNENTERED_BALANCE) : confirmedBox(Math.round(view.value));
       p.expectedReturn = view.rate;
       writeSteps(h, req.input.baseMonth, p, "all", view.steps, stopAgeOf(h));
     }
@@ -374,7 +379,8 @@ export function editTotal(wh: WorkingHousehold, patch: { value?: number; rate?: 
     if (p === undefined) {
       const view = totalViewOf(req);
       const self = selfOf(h);
-      p = { id: newId(), kind: "pooled", owner: self?.id ?? h.members[0]?.id ?? "", marketValue: confirmedBox(Math.round(view.value)), asOf: req.input.baseMonth, expectedReturn: view.rate, contributions: [] };
+      const none = Math.round(view.value) === 0 && accountsOf(h).length === 0;
+      p = { id: newId(), kind: "pooled", owner: self?.id ?? h.members[0]?.id ?? "", marketValue: none ? standardBox(0, UNENTERED_BALANCE) : confirmedBox(Math.round(view.value)), asOf: req.input.baseMonth, expectedReturn: view.rate, contributions: [] };
       writeSteps(h, req.input.baseMonth, p, "all", view.steps, stopAgeOf(h));
       (h.accounts ??= []).push(p);
     }
@@ -488,35 +494,103 @@ export function editAllocation(req: EngineRequest, patch: { mix?: { assetClass: 
   setInvestment(req, { allocation: next });
 }
 
-// ---- 取り崩しの順番 ----
+// ---- お金の行き先（取り崩す順番・取り崩さない口座・決済口座・預金に残しておく額。0026 の追記）----
 
-/** 取り崩しの順番の3つのまとまり（器の種類） */
-export const ORDER_GROUPS: Record<string, { name: string; kinds: string[] }> = {
-  dep: { name: "預金", kinds: ["deposit", "fxDeposit", "zaikei"] },
-  tax: { name: "課税口座", kinds: ["taxable", "esop"] },
-  nisa: { name: "NISA", kinds: ["legacyNisa", "nisa"] },
-};
-export const DEFAULT_ORDER = ["dep", "tax", "nisa"];
+/** エンジンの標準の取り崩しの順番（器の種類） */
+export const STANDARD_ORDER_KINDS: readonly string[] = ["deposit", "fxDeposit", "zaikei", "taxable", "esop", "legacyNisa", "nisa"];
+/** 取り崩す順番に並べない器（受け取りの決まりで預金に入る器・まとめた金融資産の器。エンジンも順番では取り崩さない） */
+const NOT_ORDERED: ReadonlySet<string> = new Set(["ideco", "corporateDc", "smallBusinessMutualAid", "pooled"]);
 
-export function orderOf(req: EngineRequest): string[] {
-  const o = req.input.assumptions?.withdrawal?.order;
-  if (o === undefined) return [...DEFAULT_ORDER];
-  const out: string[] = [];
-  for (const x of o) {
-    const g = "kind" in x ? Object.entries(ORDER_GROUPS).find(([, v]) => v.kinds.includes(x.kind))?.[0] : undefined;
-    if (g !== undefined && !out.includes(g)) out.push(g);
-  }
-  for (const g of DEFAULT_ORDER) if (!out.includes(g)) out.push(g);
-  return out;
+/** 決済口座（収支が入る口座。印のある器、無ければ最初の預金。エンジンと同じ読み方） */
+export function settlementOf(h: Household): Account | undefined {
+  const list = (h.accounts ?? []).filter(isFinancial);
+  return list.find((a) => a.settlement === true) ?? list.find((a) => a.kind === "deposit");
 }
 
-export function setOrder(req: EngineRequest, groups: readonly string[]): void {
+/** 決済口座を選ぶ（選んだ口座に印を付け、ほかの口座の印を外す。今の決済口座を選び直したときは何も変えない） */
+export function setSettlement(h: Household, id: string): void {
+  if (settlementOf(h)?.id === id) return;
+  for (const a of h.accounts ?? []) {
+    if (a.id === id) a.settlement = true;
+    else delete a.settlement;
+  }
+}
+
+export interface WithdrawView {
+  /** 決済口座（順番には入れない。年の収支が入り、ここが足りなくなるとほかの口座から取り崩す） */
+  settlement: Account | undefined;
+  /** 取り崩す口座（取り崩す順） */
+  included: Account[];
+  /** 取り崩さない口座（順番に無い器） */
+  excluded: Account[];
+  /** 順番を入れていない（エンジンの標準の順番） */
+  standard: boolean;
+  /** 口座ごとの順番（物の ID で書いた順番）。false はまとまり（器の種類）の順番 */
+  byAccount: boolean;
+}
+
+/** 取り崩す順番の見え方（エンジンの取り崩しと同じ決まりで、口座ごとに並べる。書かなかった器は取り崩さない） */
+export function withdrawViewOf(req: EngineRequest): WithdrawView {
+  const h = req.input.household;
+  const settlement = settlementOf(h);
+  const cands = (h.accounts ?? []).filter((a) => isFinancial(a) && !NOT_ORDERED.has(a.kind) && a !== settlement);
+  const order = req.input.assumptions?.withdrawal?.order;
+  const included: Account[] = [];
+  for (const o of order ?? STANDARD_ORDER_KINDS.map((kind) => ({ kind }))) {
+    const hits = "object" in o ? cands.filter((a) => a.id === o.object) : cands.filter((a) => a.kind === o.kind);
+    for (const a of hits) if (!included.includes(a)) included.push(a);
+  }
+  return { settlement, included, excluded: cands.filter((a) => !included.includes(a)), standard: order === undefined, byAccount: (order ?? []).some((o) => "object" in o) };
+}
+
+/**
+ * 取り崩す順番を口座ごとに書く: 選んだ口座を物の ID の順に並べ、その後に、取り崩さない口座の無い器の種類を標準の順で足す
+ * （後から足した口座と、エンジンが作る器〔NISA の枠を超えた分の課税口座など〕を最後に取り崩すため）。標準と同じになったら順番を消す
+ */
+export function setWithdrawOrder(req: EngineRequest, includedIds: readonly string[]): void {
   const a = (req.input.assumptions ??= { investmentReturn: { default: "0.01" } });
   const w = { ...(a.withdrawal ?? {}) };
-  if (groups.join() === DEFAULT_ORDER.join()) delete w.order;
-  else w.order = groups.flatMap((g) => (ORDER_GROUPS[g]?.kinds ?? []).map((kind) => ({ kind })));
+  const h = req.input.household;
+  const settlement = settlementOf(h);
+  const cands = (h.accounts ?? []).filter((x) => isFinancial(x) && !NOT_ORDERED.has(x.kind) && x !== settlement);
+  const ids = includedIds.filter((id) => cands.some((x) => x.id === id));
+  const off = new Set(cands.filter((x) => !ids.includes(x.id)).map((x) => x.kind));
+  const order = [...ids.map((object) => ({ object })), ...STANDARD_ORDER_KINDS.filter((k) => !off.has(k)).map((kind) => ({ kind }))];
+  // 標準の順番と同じ並び（取り崩さない口座が無く、口座の並びが標準どおり）なら順番を消す
+  const std = withdrawViewOf({ ...req, input: { ...req.input, assumptions: { ...a, withdrawal: { ...w, order: undefined } } } } as EngineRequest);
+  if (off.size === 0 && std.included.map((x) => x.id).join() === ids.join()) delete w.order;
+  else w.order = order;
+  if (w.order === undefined) delete w.order;
   if (Object.keys(w).length === 0) delete a.withdrawal;
   else a.withdrawal = w;
+}
+
+/** 取り崩す順番を標準に戻す */
+export function resetWithdrawOrder(req: EngineRequest): void {
+  const a = req.input.assumptions;
+  if (a?.withdrawal === undefined) return;
+  const w = { ...a.withdrawal };
+  delete w.order;
+  if (Object.keys(w).length === 0) delete a.withdrawal;
+  else a.withdrawal = w;
+}
+
+/** 器の呼び名（種類と名義。例「NISA（夫）」） */
+export const accountName = (a: Account, owner: string): string => `${(KIND_INFO[a.kind]?.name ?? "口座").replace(/（[^）]*）$/, "")}（${owner}）`;
+
+/** 今の基本生活費の月額（最初の生活費の物。合計の入れ方は合計、費目の入れ方は費目の合計） */
+export function livingMonthlyOf(h: Household): number | null {
+  const l = (h.livingExpenses ?? [])[0];
+  if (l === undefined) return null;
+  return l.mode === "total" ? (l.monthly?.value ?? null) : (l.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0);
+}
+
+/** 預金に残しておく額の目安（押した時の基本生活費の月数分。生活費を追いかけない）。基本生活費が無ければ null */
+export function reservePreset(h: Household, months: 6 | 12): { value: number; basis: string } | null {
+  const m = livingMonthlyOf(h);
+  if (m === null || m <= 0) return null;
+  const value = Math.round((m * months) / MAN) * MAN;
+  return { value, basis: `目安のボタンの値（基本生活費 月${(m / MAN).toFixed(1).replace(/\.0$/, "")}万円の${months === 6 ? "6か月分" : "1年分"}。押した時の額で、生活費を変えても追いかけません）` };
 }
 
 // ---- NISA の枠の見込み ----
@@ -596,8 +670,8 @@ export function nisaHitOf(req: EngineRequest): NisaHit | null {
 export type PayoutMethod = "lumpSum" | "annuity" | "mixed";
 export const PAYOUT_METHODS: readonly { id: PayoutMethod; label: string }[] = [
   { id: "lumpSum", label: "一時金" },
-  { id: "annuity", label: "年金（10年）" },
-  { id: "mixed", label: "併用（半分ずつ）" },
+  { id: "annuity", label: "年金" },
+  { id: "mixed", label: "併用" },
 ];
 
 /** 受け取りを始める年齢の推定（退職の年。60〜65歳に収める） */
@@ -628,7 +702,7 @@ export function editPayout(h: Household, a: Account, patch: { method?: PayoutMet
   const next: NonNullable<Account["payout"]> = { ...cur };
   if (patch.method !== undefined) {
     next.method = patch.method;
-    if (patch.method === "mixed") next.lumpShare = "0.5";
+    if (patch.method === "mixed") next.lumpShare ??= "0.5";
     else delete next.lumpShare;
     if (patch.method !== "lumpSum") next.annuityYears ??= 10;
     else delete next.annuityYears;
@@ -661,7 +735,7 @@ export function payoutEstimate(req: EngineRequest, a: Account): { age: number; b
   for (let x = now; x < age; x++) v = v * (1 + r) + monthlyAt(steps, x) * 12 * (1 + r / 2);
   const method = a.payout?.method ?? "lumpSum";
   const years = a.payout?.annuityYears ?? 10;
-  const lump = method === "lumpSum" ? v : method === "mixed" ? v / 2 : 0;
+  const lump = method === "lumpSum" ? v : method === "mixed" ? v * Number(a.payout?.lumpShare ?? "0.5") : 0;
   const annual = method === "lumpSum" ? 0 : ((v - lump) / years) * 0.95;
   return { age, balance: v, lump, annual, years };
 }

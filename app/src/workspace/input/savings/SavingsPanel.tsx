@@ -4,11 +4,13 @@ import { useState } from "preact/hooks";
 import type { Account, EngineRequest } from "../../../engine/types.ts";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
 import { ageAt } from "../../levers.ts";
-import { Section, visible } from "../FieldViews.tsx";
-import type { Level } from "../form.ts";
-import { confirmedBox, mutate, type WorkingHousehold } from "../household.ts";
+import { Field, fieldDomId, Section, shouldCommitOnBlur, visible } from "../FieldViews.tsx";
+import { FieldStateBadge, FieldStateLine } from "../FieldStateLine.tsx";
+import { allFields, type FieldDef, type GroupDef, type Level, type SectionDef } from "../form.ts";
+import { mutate, type WorkingHousehold } from "../household.ts";
 import { memberLabel, memberOptions } from "../labels.ts";
-import { savingsStage } from "../stages/savings.ts";
+import { buildStage } from "../stages/index.ts";
+import { MAIN_ADD_KINDS } from "../stages/savings.ts";
 import { formatYen, normalizeNumberText, parseInteger, parseYen, pctFromRate, rateFromPct } from "../units.ts";
 import {
   accountMonthlyAt,
@@ -18,6 +20,7 @@ import {
   DC_KINDS,
   defaultPayoutAge,
   drawdownOf,
+  drawdownStartDefault,
   dropDoneUnallocated,
   editAllocation,
   editPayout,
@@ -31,18 +34,19 @@ import {
   mixFromWeights,
   monthlyAt,
   nisaHitOf,
-  ORDER_GROUPS,
-  orderOf,
+  accountName,
   payoutAgeOf,
   payoutEstimate,
+  pooledOf,
   PAYOUT_METHODS,
   portfolioOf,
   rateOf,
   selfOf,
   setDrawdown,
+  resetWithdrawOrder,
   setInvestment,
-  setOrder,
   setStopAge,
+  setWithdrawOrder,
   stepsOf,
   stopAgeOf,
   stopAgeOrEstimate,
@@ -51,6 +55,7 @@ import {
   totalViewOf,
   unallocatedOf,
   valueOf,
+  withdrawViewOf,
   writeSteps,
   type DrawdownView,
   type Method,
@@ -68,9 +73,13 @@ const pct1 = (r: number) => (Math.round(r * 1000) / 10).toFixed(1);
 
 type Unit = "man" | "pct" | "age" | "num";
 
-/** 数の欄: 打っている間は下書きの文字を持ち、読める値になったらすぐ入れる。空欄は null（optional のとき） */
-function NumBox(p: { value: number | string | null; unit: Unit; onCommit: (v: number | string | null) => void; optional?: boolean; placeholder?: string; est?: boolean; label: string; size?: "s" | "xs"; data?: string }) {
+/**
+ * 数の欄: 打っている間は下書きの文字を持ち、読める値になったらすぐ入れる。空欄は null（optional のとき）。
+ * 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041）
+ */
+function NumBox(p: { value: number | string | null; unit: Unit; onCommit: (v: number | string | null) => void; optional?: boolean; placeholder?: string; est?: boolean; label: string; size?: "s" | "xs"; data?: string; id?: string }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const [start, setStart] = useState<string | null>(null);
   const shown = p.value === null ? "" : p.unit === "man" ? formatYen(p.value as number, "man") : p.unit === "pct" ? pctFromRate(String(p.value)) : String(p.value);
   const parse = (t: string): number | string | null | undefined => {
     if (normalizeNumberText(t) === "") return p.optional === true ? null : undefined;
@@ -97,7 +106,11 @@ function NumBox(p: { value: number | string | null; unit: Unit; onCommit: (v: nu
       aria-label={p.label}
       aria-invalid={bad ? true : undefined}
       data-sv={p.data}
-      onFocus={() => setDraft(shown)}
+      {...(p.id !== undefined ? { id: p.id } : {})}
+      onFocus={() => {
+        setDraft(shown);
+        setStart(shown);
+      }}
       onInput={(e) => {
         const t = (e.currentTarget as HTMLInputElement).value;
         setDraft(t);
@@ -105,9 +118,13 @@ function NumBox(p: { value: number | string | null; unit: Unit; onCommit: (v: nu
         if (v !== undefined && t.trim() !== "") p.onCommit(v);
       }}
       onBlur={(e) => {
-        const v = parse((e.currentTarget as HTMLInputElement).value);
-        if (v !== undefined) p.onCommit(v);
+        const t = (e.currentTarget as HTMLInputElement).value;
+        if (shouldCommitOnBlur(start, t)) {
+          const v = parse(t);
+          if (v !== undefined) p.onCommit(v);
+        }
         setDraft(null);
+        setStart(null);
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
@@ -182,6 +199,12 @@ export interface SavingsPanelProps {
   onEdit: (next: WorkingHousehold) => void;
 }
 
+/** 段階の定義の欄をキーで引く（専用の部品に値の状態の印・操作を添えるため） */
+export type FieldMap = ReadonlyMap<string, FieldDef>;
+
+/** 口座の表で入れる欄（口座ごとの詳細の区画には出さない） */
+const IN_TABLE = /\/(kind|owner|value|monthly|rate|cost|payout|payoutAge|payoutDest|payoutAt|payoutYears|lumpShare|enrolled)$/;
+
 export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
   const req = wh.request;
   const h = req.input.household;
@@ -189,6 +212,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
   const method = methodOf(req);
   const [carry, setCarry] = useState<{ from: Method; to: Method } | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [moreKinds, setMoreKinds] = useState(false);
   const self = selfOf(h);
   const now = self === undefined ? 0 : ageAt(self, base);
   const stopAge = stopAgeOf(h);
@@ -205,12 +229,56 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
     if (dropped) setNote("合計をすべて口座に分けました（「まだ分けていない」の行が消えます）");
     onEdit(next);
   };
+  /**
+   * 欄の定義で書く。数の欄は打ったとき（と、文字を変えて離れたとき）だけ呼ぶので、同じ値でも書く（未入力の0円に0を打つと確定。0041 の2）。
+   * まだ分けていない分が0になったら外す
+   */
+  const editField = (f: FieldDef | undefined, v: number | string | null) => {
+    if (f === undefined) return;
+    const next = (f.write ?? f.set)(wh, v);
+    if (next === wh) return;
+    let dropped = false;
+    const out = mutate(next, (hh, r) => {
+      dropped = dropDoneUnallocated(hh, r);
+    });
+    if (dropped) setNote("合計をすべて口座に分けました（「まだ分けていない」の行が消えます）");
+    onEdit(dropped ? out : next);
+  };
   const find = (hh: typeof h, id: string) => (hh.accounts ?? []).find((a) => a.id === id) as Account;
-  const stage = savingsStage(wh);
-  const addActions = stage.sections[0]?.actions ?? [];
-  const others = stage.sections[1];
+  const stage = buildStage("savings", wh);
+  const fields: FieldMap = new Map(allFields(stage).map((f) => [f.key, f]));
+  const sectionOf = (key: string) => stage.sections.find((x) => x.key === key);
+  const accountsSec = sectionOf("sav/accounts");
+  const addActions = (accountsSec?.actions ?? []).filter((a) => visible(level, a.level) || (moreKinds && !MAIN_ADD_KINDS.has(a.key.replace("sav/add/", ""))));
+  const others = sectionOf("sav/others");
   // 利回りの段階・例外の年（詳細。0040）
-  const returns = stage.sections[2];
+  const returns = sectionOf("sav/returns");
+  const flow = sectionOf("sav/flow");
+  // お金の行（不動産の一時の経費。0044）
+  const money = stage.sections.filter((x) => x.key.startsWith("money/"));
+  const hasRealEstate = (h.accounts ?? []).some((a) => a.kind === "realEstate");
+  // 口座ごとの詳細（表で入れる欄を除いた、残高の時点・運用の費用・積立の終わり・引き出せない期間・旧NISA の内訳・資産の配分）
+  const details: SectionDef | null =
+    method === "total" || accountsSec === undefined
+      ? null
+      : {
+          key: "sav/details",
+          title: "口座ごとの詳細",
+          note: "残高の時点・積立の終わり・引き出せない期間・資産の配分など。空欄は推定（残高の時点は計算の基準の月、積立の終わりは退職の年まで）で計算します",
+          level: "detail",
+          groups: accountsSec.groups
+            .filter((g) => !g.key.startsWith("sav/period") && !g.key.endsWith("/addMix") && !/\/mix\/\d+$/.test(g.key) && !(h.accounts ?? []).some((a) => a.kind === "pooled" && g.key === `sav/${a.id}`))
+            .map((g): GroupDef => ({ ...g, fields: g.fields.filter((f) => !IN_TABLE.test(f.key)), actions: g.actions.filter((a) => !a.key.endsWith("/remove") || /\/lot\/\d+\/remove$/.test(a.key)) }))
+            .flatMap((g) => {
+              const id = g.key.match(/^sav\/([^/]+)$/)?.[1];
+              if (id === undefined) return [g];
+              // 口座の資産の配分は、その口座のまとまりの後ろに並べる（資産配分の入れ方の運用する口座は、共通の割合を使うので出さない）
+              const acc = (h.accounts ?? []).find((a) => a.id === id);
+              const mixes = method === "allocation" && acc !== undefined && INVEST_KINDS.has(acc.kind) ? [] : accountsSec.groups.filter((x) => x.key.startsWith(`sav/${id}/mix/`) || x.key === `sav/${id}/addMix`);
+              return [g, ...mixes];
+            }),
+          actions: [],
+        };
 
   return (
     <div class="sv" data-savings>
@@ -239,6 +307,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
         </span>
         <span class="d">{METHODS.find((m) => m.id === method)?.lead}</span>
       </div>
+      {method !== "total" && (h.accounts ?? []).every((a) => !isFinancialShown(a)) ? <p class="sv-note" data-total-hint>合計しか分からないときは「合計」（金融資産の合計の1欄）で入れられます。</p> : null}
       {carry !== null ? <CarryNote req={req} carry={carry} /> : null}
       {note !== null ? (
         <div class="sv-carry" role="status">
@@ -247,37 +316,158 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
       ) : null}
 
       {method === "total" ? (
-        <TotalSection wh={wh} onEdit={onEdit} />
+        <TotalSection wh={wh} level={level} fields={fields} onEdit={onEdit} />
       ) : (
         <section class="sv-sec" aria-label="口座ごとの残高・積立額・利回り">
           <h3>口座ごとの残高・積立額{method === "accounts" ? "・利回り" : ""}</h3>
-          <p class="sv-note">残高は今の時価。{method === "accounts" ? "利回りは年の見込み（FPが入れる値。空欄は前提条件の利回り）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。</p>
-          <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} find={find} />
+          <p class="sv-note">残高は今の時価。{method === "accounts" ? "利回りは年の見込み（FPが入れる値。運用の費用を引く前。空欄は前提条件の利回り）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。</p>
+          <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} editField={editField} find={find} fields={fields} onEdit={onEdit} />
           <div class="sv-add">
-            {addActions
-              .filter((a) => visible(level, a.level))
-              .map((a) => (
-                <button type="button" class="add-btn" key={a.key} onClick={() => onEdit(a.run(wh))} data-action={a.key}>
-                  {a.label}
-                </button>
-              ))}
+            {addActions.map((a) => (
+              <button type="button" class="add-btn" key={a.key} onClick={() => onEdit(a.run(wh))} data-action={a.key}>
+                {a.label}
+              </button>
+            ))}
+            {level === "simple" ? (
+              <button type="button" class="link-btn" aria-expanded={moreKinds} onClick={() => setMoreKinds(!moreKinds)} data-more-kinds>
+                {moreKinds ? "そのほかを閉じる" : "そのほか ▾（財形・企業型DC・外貨預金・持株会・小規模企業共済・旧NISA など）"}
+              </button>
+            ) : null}
           </div>
           <NisaNote wh={wh} onEdit={onEdit} />
         </section>
       )}
 
+      {details !== null && visible(level, details.level) ? <Section section={details} wh={wh} level={level} onEdit={onEdit} /> : null}
       {method === "allocation" ? <AllocationSection wh={wh} onEdit={onEdit} /> : null}
-      {method !== "total" ? <PayoutSection wh={wh} onEdit={onEdit} /> : null}
+      {method !== "total" ? <PayoutSection wh={wh} level={level} fields={fields} onEdit={onEdit} /> : null}
 
       <section class="sv-sec" aria-label="運用の期間">
         <h3>運用の期間</h3>
         <p class="sv-note">結果の画面のグラフの上の帯と同じです（帯の切れ目をドラッグしても、プランごとに動かせます）。</p>
-        <PeriodSection wh={wh} onEdit={onEdit} now={now} stopAge={stopAge} stopShown={stopShown} estimate={estimate} />
+        <PeriodSection wh={wh} onEdit={onEdit} now={now} stopAge={stopAge} stopShown={stopShown} estimate={estimate} fields={fields} />
       </section>
 
+      {method !== "total" ? <FlowSection wh={wh} level={level} flow={flow} onEdit={onEdit} /> : (
+        <p class="sv-note" data-flow-total>
+          取り崩す順番・預金に残しておく額などのお金の行き先は、合計の入れ方では使いません（口座の入れ方に戻すと効きます）。
+        </p>
+      )}
       {others !== undefined && visible(level, others.level) ? <Section section={others} wh={wh} level={level} onEdit={onEdit} /> : null}
+      {money
+        .filter((m) => visible(level, m.level) && (hasRealEstate || m.groups.length > 0))
+        .map((m) => (
+          <Section key={m.key} section={{ ...m, title: "不動産の一時の経費（出るお金）", note: `${m.groups.length === 0 ? "まだありません。" : ""}大規模修繕・原状回復など、不動産にかかる一時の支出です。家計の支出として出ます（不動産所得の経費には、まだ入れていません。毎年かかる経費は不動産の「経費」の年額で入れます）` }} wh={wh} level={level} onEdit={onEdit} />
+        ))}
       {returns !== undefined && visible(level, returns.level) && returns.groups.length > 0 ? <Section section={returns} wh={wh} level={level} onEdit={onEdit} /> : null}
     </div>
+  );
+}
+
+/** 口座の表に出す金融資産か（まとめた器・不動産・その他の資産・保険を除く） */
+const isFinancialShown = (a: Account) => !["pooled", "realEstate", "otherAsset", "insurance"].includes(a.kind);
+
+/** 区画「お金の行き先」: 簡易は札と1文、詳細は取り崩す順番（口座ごとの並べ替えと取り崩さない）・決済口座・預金に残しておく額 */
+function FlowSection({ wh, level, flow, onEdit }: { wh: WorkingHousehold; level: Level; flow: SectionDef | undefined; onEdit: (w: WorkingHousehold) => void }) {
+  const req = wh.request;
+  const h = req.input.household;
+  const v = withdrawViewOf(req);
+  const name = (a: Account) => accountName(a, memberLabel(wh, a.owner));
+  const min = req.input.assumptions?.withdrawal?.minimumDeposit;
+  const summary = `取り崩す順番: ${v.settlement !== undefined ? `${name(v.settlement)}［収支が入る口座］ → ` : ""}${v.included.map(name).join(" → ") || "なし"}${v.standard ? "（標準）" : ""}${v.excluded.length > 0 ? `。取り崩さない: ${v.excluded.map(name).join("・")}` : ""}${min !== undefined && min > 0 ? `。預金に残しておく額 ${(min / 10000).toLocaleString("ja-JP")}万円` : ""}`;
+  if (level === "simple")
+    return (
+      <section class="sv-sec" aria-label="お金の行き先">
+        <h3>
+          お金の行き先 <span class="sv-est">詳細あり</span>
+        </h3>
+        <p class="sv-note" data-flow-summary>
+          {summary}。「詳細」で直せます。
+        </p>
+      </section>
+    );
+  const write = (ids: string[]) => onEdit(mutate(wh, (_h, r) => setWithdrawOrder(r, ids)));
+  const ids = v.included.map((a) => a.id);
+  const move = (i: number, d: -1 | 1) => {
+    const j = i + d;
+    if (j < 0 || j >= ids.length) return;
+    const next = [...ids];
+    [next[i], next[j]] = [next[j] as string, next[i] as string];
+    write(next);
+  };
+  return (
+    <section class="sv-sec" aria-label="お金の行き先" data-flow>
+      <h3>お金の行き先</h3>
+      <p class="sv-note">収支が足りない年に、どの口座から取り崩すか。iDeCo・企業型DC・小規模企業共済は、受け取り方に沿って預金に入ります（順番には入れません）。まだ口座に分けていない分は、収支が入る口座の次に取り崩します。</p>
+      <div class="sv-fld top">
+        <span class="lbl">取り崩す順番</span>
+        <ol class="sv-order acc" data-withdraw-order>
+          {v.settlement !== undefined ? (
+            <li class="settle" data-settlement>
+              <span class="k">−</span>
+              {name(v.settlement)}
+              <small>収支が入る口座（ここが足りなくなると、下の順に取り崩します）</small>
+            </li>
+          ) : null}
+          {v.included.map((a, i) => (
+            <li key={a.id} data-order-account={a.id}>
+              <span class="k">{i + 1}</span>
+              {name(a)}
+              <button type="button" aria-label={`${name(a)}を前へ`} disabled={i === 0} onClick={() => move(i, -1)}>
+                ▲
+              </button>
+              <button type="button" aria-label={`${name(a)}を後ろへ`} disabled={i === ids.length - 1} onClick={() => move(i, 1)}>
+                ▼
+              </button>
+              <label class="sv-keep">
+                <input type="checkbox" checked={false} onChange={() => write(ids.filter((x) => x !== a.id))} data-keep={a.id} />
+                取り崩さない
+              </label>
+            </li>
+          ))}
+          {v.excluded.map((a) => (
+            <li key={a.id} class="off" data-order-account={a.id}>
+              <span class="k">−</span>
+              {name(a)}
+              <label class="sv-keep">
+                <input type="checkbox" checked={true} onChange={() => write([...ids, a.id])} data-keep={a.id} />
+                取り崩さない
+              </label>
+            </li>
+          ))}
+        </ol>
+        <p class="help">
+          {v.standard ? "標準の順番（預金→外貨預金→財形→課税口座→持株会→旧NISA→NISA）です。" : v.byAccount ? "口座ごとの順番です。後から足した口座は最後に取り崩します。" : "口座の種類の順番です。口座を動かすと、口座ごとの順番になります。"}
+          「取り崩さない」にした口座は、残高が残っていても取り崩しに使いません（使う年が決まっている取り置きなど）。こどもNISA・ジュニアNISA は標準では取り崩しません。
+        </p>
+        {!v.standard ? (
+          <button type="button" class="link-btn" onClick={() => onEdit(mutate(wh, (_h, r) => resetWithdrawOrder(r)))} data-order-reset>
+            標準の順番に戻す
+          </button>
+        ) : null}
+      </div>
+      {flow !== undefined
+        ? flow.groups.map((g) => (
+            <div class="in-group" key={g.key}>
+              <div class="fields">
+                {g.fields.map((f) => (
+                  <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
+                ))}
+              </div>
+              {g.actions.length > 0 ? (
+                <div class="in-actions">
+                  {g.actions.map((a) => (
+                    <button type="button" key={a.key} class="add-btn" onClick={() => onEdit(a.run(wh))} data-action={a.key} {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})} {...(a.title !== undefined ? { title: a.title } : {})}>
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ))
+        : null}
+      {(h.accounts ?? []).filter((a) => a.kind === "deposit").length === 0 ? <p class="sv-note">預金の口座が無いときは、名義の無い預金（0円から）に収支が入ります。</p> : null}
+    </section>
   );
 }
 
@@ -301,51 +491,114 @@ function CarryNote({ req, carry }: { req: EngineRequest; carry: { from: Method; 
   );
 }
 
-function TotalSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+/** 利回りの選び方（合計の入れ方。事務所の標準の値。どれも仮の値で、商品のおすすめではない。押すと平均の利回りに入る） */
+export const RATE_PRESETS: readonly { id: string; label: string; rate: string }[] = [
+  { id: "low", label: "控えめ", rate: "0.01" },
+  { id: "mid", label: "ふつう", rate: "0.02" },
+  { id: "high", label: "積極的", rate: "0.03" },
+];
+
+function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; level: Level; fields: FieldMap; onEdit: (w: WorkingHousehold) => void }) {
   const req = wh.request;
   const t = totalViewOf(req);
   const sumAcc = accountsOf(req.input.household).reduce((s, a) => s + valueOf(a), 0);
+  const p = pooledOf(req.input.household);
+  const fValue = p === undefined ? undefined : fields.get(`sav/${p.id}/value`);
+  const fRate = p === undefined ? undefined : fields.get(`sav/${p.id}/rate`);
+  const fUn = p === undefined ? undefined : fields.get(`sav/${p.id}/uninvested`);
+  const preset = RATE_PRESETS.find((x) => sameRateText(x.rate, t.rate));
+  const [byRate, setByRate] = useState(false);
+  const showRate = level === "detail" || byRate || preset === undefined;
+  const setRate = (rate: string) => (fRate !== undefined ? onEdit(fRate.set(wh, rate)) : onEdit(editTotal(wh, { rate })));
   return (
     <section class="sv-sec" aria-label="金融資産">
       <h3>金融資産</h3>
       <p class="sv-note">預金・NISA・iDeCo・企業型DC・課税口座などを、すべて足した額で入れます。</p>
       <div class="sv-fld">
-        <span class="lbl">金融資産の合計</span>
+        <span class="lbl">
+          金融資産の合計
+          <FieldStateBadge f={fValue} wh={wh} />
+        </span>
         <div class="ctl">
-          <NumBox value={t.value} unit="man" label="金融資産の合計" data="total-value" onCommit={(v) => typeof v === "number" && onEdit(editTotal(wh, { value: v }))} />
+          <NumBox value={t.value} unit="man" label="金融資産の合計" data="total-value" {...(fValue !== undefined ? { id: fieldDomId(fValue.key) } : {})} onCommit={(v) => typeof v === "number" && (fValue !== undefined ? onEdit((fValue.write ?? fValue.set)(wh, v)) : onEdit(editTotal(wh, { value: v })))} />
           <span class="u">万円</span>
         </div>
+        <FieldStateLine f={fValue} wh={wh} onEdit={onEdit} />
         {sumAcc > 0 ? <p class="help">口座ごとに入れた値（合計 {man1(sumAcc)}万円）は残っています。合計を増やした分は、口座の入れ方で「まだ分けていない」に入ります。</p> : null}
       </div>
       <div class="sv-fld top">
         <span class="lbl">毎月の積立額</span>
         <StepsEditor steps={t.steps} now={t.steps[0]?.fromAge ?? 0} stopAge={stopAgeOrEstimate(req)} label="合計" onChange={(steps) => onEdit(editTotal(wh, { steps }))} />
-        <p class="help">預金への積立も含めます（会社が出す企業型DC の掛金は含めません）。年齢で額を変えるときは「＋期間を追加」。</p>
+        <p class="help">預金への積立も含めます（会社が出す企業型DC の掛金は含めません）。空欄（0円）なら積み立てず、黒字は預金に貯まります。年齢で額を変えるときは「＋期間を追加」。</p>
       </div>
       <div class="sv-fld">
-        <span class="lbl">平均の利回り（年）</span>
+        <span class="lbl">利回りの選び方</span>
         <div class="ctl">
-          <NumBox value={t.rate} unit="pct" size="s" label="平均の利回り" data="total-rate" onCommit={(v) => typeof v === "string" && onEdit(editTotal(wh, { rate: v }))} />
-          <span class="u">%</span>
+          <span class="seg-g sm" role="group" aria-label="利回りの選び方">
+            {RATE_PRESETS.map((x) => (
+              <button type="button" key={x.id} aria-pressed={preset?.id === x.id && !byRate} onClick={() => {
+                  setByRate(false);
+                  setRate(x.rate);
+                }} data-rate-preset={x.id}>
+                {x.label}（{pct1(Number(x.rate))}%）
+              </button>
+            ))}
+            <button type="button" aria-pressed={byRate || preset === undefined} onClick={() => setByRate(true)} data-rate-preset="own">
+              率で入れる
+            </button>
+          </span>
         </div>
-        <p class="help">{t.uninvested !== null ? "運用しない分を除いた、運用する分の平均。" : "預金も含めた全体の平均。迷ったら、預金が多いほど低めに。"}</p>
+        <p class="help">長い期間の平均の年率の目安です（事務所の標準の値。いまは仮の値）。商品のおすすめではありません。</p>
       </div>
-      <div class="sv-fld">
-        <span class="lbl">運用しない分（金額）</span>
-        <div class="ctl">
-          <NumBox value={t.uninvested} unit="man" optional placeholder="0" label="運用しない分" data="total-uninvested" onCommit={(v) => (v === null || typeof v === "number") && onEdit(editTotal(wh, { uninvested: v }))} />
-          <span class="u">万円</span>
+      {showRate ? (
+        <div class="sv-fld">
+          <span class="lbl">
+            平均の利回り（年）
+            <FieldStateBadge f={fRate} wh={wh} />
+          </span>
+          <div class="ctl">
+            <NumBox value={t.rate} unit="pct" size="s" label="平均の利回り" data="total-rate" {...(fRate !== undefined ? { id: fieldDomId(fRate.key) } : {})} onCommit={(v) => typeof v === "string" && setRate(v)} />
+            <span class="u">%</span>
+          </div>
+          <FieldStateLine f={fRate} wh={wh} onEdit={onEdit} />
+          <p class="help">{t.uninvested !== null ? "運用しない分を除いた、運用する分の平均。" : "預金も含めた全体の平均。迷ったら、預金が多いほど低めに。"}</p>
         </div>
-        <p class="help">
-          預金のまま置いておくお金など。この額には平均の利回りをかけず、預金の利回り（前提条件の「現金・預金」の利回り）で計算します。空欄なら全部に平均の利回り。
-        </p>
-      </div>
+      ) : null}
+      {level === "detail" ? (
+        <div class="sv-fld">
+          <span class="lbl">
+            運用しない分（金額）
+            <FieldStateBadge f={fUn} wh={wh} />
+          </span>
+          <div class="ctl">
+            <NumBox value={t.uninvested} unit="man" optional placeholder="0" label="運用しない分" data="total-uninvested" {...(fUn !== undefined ? { id: fieldDomId(fUn.key) } : {})} onCommit={(v) => (v === null || typeof v === "number") && onEdit(editTotal(wh, { uninvested: v }))} />
+            <span class="u">万円</span>
+          </div>
+          <FieldStateLine f={fUn} wh={wh} onEdit={onEdit} />
+          <p class="help">
+            預金のまま置いておくお金など。この額には平均の利回りをかけず、預金の利回り（前提条件の「現金・預金」の利回り）で計算します。空欄なら全部に平均の利回り。
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function AccountsTable(p: { wh: WorkingHousehold; level: Level; method: Method; stopAge: number | null; editAcc: (fn: (h: EngineRequest["input"]["household"], r: EngineRequest) => void) => void; find: (h: EngineRequest["input"]["household"], id: string) => Account }) {
-  const { wh, level, method, stopAge, editAcc, find } = p;
+/** 率の文字（10進）が同じか */
+const sameRateText = (a: string, b: string) => Math.abs(Number(a) - Number(b)) < 1e-9;
+
+function AccountsTable(p: {
+  wh: WorkingHousehold;
+  level: Level;
+  method: Method;
+  stopAge: number | null;
+  editAcc: (fn: (h: EngineRequest["input"]["household"], r: EngineRequest) => void) => void;
+  editField: (f: FieldDef | undefined, v: number | string | null) => void;
+  find: (h: EngineRequest["input"]["household"], id: string) => Account;
+  fields: FieldMap;
+  onEdit: (w: WorkingHousehold) => void;
+}) {
+  const { wh, level, method, stopAge, editAcc, editField, find, fields, onEdit } = p;
   const req = wh.request;
   const h = req.input.household;
   const base = req.input.baseMonth;
@@ -432,14 +685,14 @@ function AccountsTable(p: { wh: WorkingHousehold; level: Level; method: Method; 
                   </span>
                 </td>
                 <td>
-                  <NumBox value={valueOf(a)} unit="man" label={`${name}の残高`} data={`bal-${a.kind}`} onCommit={(v) => typeof v === "number" && editAcc((hh) => void (find(hh, a.id).marketValue = confirmedBox(v)))} /> 万円
+                  <NumBox value={valueOf(a)} unit="man" label={`${name}の残高`} data={`bal-${a.kind}`} id={fieldDomId(`sav/${a.id}/value`)} onCommit={(v) => typeof v === "number" && editField(fields.get(`sav/${a.id}/value`), v)} /> 万円
+                  <FieldStateBadge f={fields.get(`sav/${a.id}/value`)} wh={wh} />
+                  <FieldStateLine f={fields.get(`sav/${a.id}/value`)} wh={wh} onEdit={onEdit} compact />
                   {level === "detail" && WITH_COST.has(a.kind) ? (
                     <div class="sv-sub">
-                      取得価額 <NumBox value={a.costBasis?.value ?? null} unit="man" size="s" optional placeholder="時価" label={`${name}の取得価額`} onCommit={(v) => editAcc((hh) => {
-                        const x = find(hh, a.id);
-                        if (v === null) delete x.costBasis;
-                        else if (typeof v === "number") x.costBasis = confirmedBox(v);
-                      })} /> 万円
+                      取得価額 <NumBox value={a.costBasis?.value ?? null} unit="man" size="s" optional placeholder="時価" label={`${name}の取得価額`} id={fieldDomId(`sav/${a.id}/cost`)} onCommit={(v) => editField(fields.get(`sav/${a.id}/cost`), v)} /> 万円
+                      <FieldStateBadge f={fields.get(`sav/${a.id}/cost`)} wh={wh} />
+                      <FieldStateLine f={fields.get(`sav/${a.id}/cost`)} wh={wh} onEdit={onEdit} compact />
                     </div>
                   ) : null}
                 </td>
@@ -471,11 +724,18 @@ function AccountsTable(p: { wh: WorkingHousehold; level: Level; method: Method; 
                     </span>
                   ) : (
                     <>
-                      <NumBox value={a.expectedReturn ?? null} unit="pct" size="s" optional placeholder={pctFromRate(rateOf(req, { ...a, expectedReturn: undefined } as Account))} label={`${name}の利回り`} data={`rate-${a.kind}`} onCommit={(v) => editAcc((hh) => {
-                        const x = find(hh, a.id);
-                        if (v === null) delete x.expectedReturn;
-                        else if (typeof v === "string") x.expectedReturn = v;
-                      })} /> %
+                      <NumBox value={a.expectedReturn ?? null} unit="pct" size="s" optional placeholder={pctFromRate(rateOf(req, { ...a, expectedReturn: undefined } as Account))} label={`${name}の利回り`} data={`rate-${a.kind}`} id={fieldDomId(`sav/${a.id}/rate`)} onCommit={(v) =>
+                          fields.has(`sav/${a.id}/rate`)
+                            ? editField(fields.get(`sav/${a.id}/rate`), v)
+                            : editAcc((hh) => {
+                                const x = find(hh, a.id);
+                                if (v === null) delete x.expectedReturn;
+                                else if (typeof v === "string") x.expectedReturn = v;
+                              })
+                        }
+                      /> %
+                      <FieldStateBadge f={fields.get(`sav/${a.id}/rate`)} wh={wh} />
+                      <FieldStateLine f={fields.get(`sav/${a.id}/rate`)} wh={wh} onEdit={onEdit} compact />
                     </>
                   )}
                 </td>
@@ -562,7 +822,6 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
   const sumW = rows.reduce((s, r) => s + r.weight, 0);
   const port = portfolioOf(req);
   const inv = investmentOf(req);
-  const order = orderOf(req);
   const [by, setBy] = useState<"account" | "class">("class");
   const edit = (fn: (r: EngineRequest) => void) => onEdit(mutate(wh, (_h, r) => fn(r)));
   const setWeight = (key: string, w: number) => edit((r) => editAllocation(r, { mix: mixFromWeights(classRows(r).map((x) => ({ key: x.key, weight: x.key === key ? w : x.weight }))) }));
@@ -678,26 +937,8 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
         </div>
         <DonutPair panes={panes} />
       </section>
-      <section class="sv-sec" aria-label="取り崩しの順番・税・リバランス">
-        <h3>取り崩しの順番・税・リバランス</h3>
-        <div class="sv-fld">
-          <span class="lbl">取り崩す口座の順番</span>
-          <ol class="sv-order">
-            {order.map((k, i) => (
-              <li key={k}>
-                <span class="k">{i + 1}</span>
-                {ORDER_GROUPS[k]?.name}
-                <button type="button" aria-label={`${ORDER_GROUPS[k]?.name}を前へ`} disabled={i === 0} onClick={() => edit((r) => setOrder(r, order.map((x, j) => (j === i - 1 ? k : j === i ? (order[i - 1] as string) : x))))}>
-                  ◀
-                </button>
-                <button type="button" aria-label={`${ORDER_GROUPS[k]?.name}を後ろへ`} disabled={i === order.length - 1} onClick={() => edit((r) => setOrder(r, order.map((x, j) => (j === i + 1 ? k : j === i ? (order[i + 1] as string) : x))))}>
-                  ▶
-                </button>
-              </li>
-            ))}
-          </ol>
-          <p class="help">まだ口座に分けていない分は、預金の次に取り崩します。iDeCo・企業型DCは、受け取り方に沿って預金に入ります（順番には入れません）。</p>
-        </div>
+      <section class="sv-sec" aria-label="課税口座の税・リバランス">
+        <h3>課税口座の税・リバランス</h3>
         <div class="sv-fld">
           <span class="lbl">課税口座の税</span>
           <span class="seg-g sm" role="group" aria-label="課税口座の税">
@@ -725,16 +966,28 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
   );
 }
 
-function PayoutSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
+function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; level: Level; fields: FieldMap; onEdit: (w: WorkingHousehold) => void }) {
   const req = wh.request;
   const h = req.input.household;
   const dcs = accountsOf(h).filter((a) => DC_KINDS.has(a.kind));
-  if (dcs.length === 0) return null;
+  const aids = accountsOf(h).filter((a) => a.kind === "smallBusinessMutualAid");
+  if (dcs.length === 0 && aids.length === 0) return null;
+  /** 欄の定義で描く欄（受け取りの詳細・小規模企業共済） */
+  const generic = (a: Account, keys: readonly string[]) => (
+    <div class="fields">
+      {keys
+        .map((k) => fields.get(`sav/${a.id}/${k}`))
+        .filter((f): f is FieldDef => f !== undefined && visible(level, f.level))
+        .map((f) => (
+          <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
+        ))}
+    </div>
+  );
   const edit = (id: string, patch: Parameters<typeof editPayout>[2]) => onEdit(mutate(wh, (hh) => editPayout(hh, (hh.accounts ?? []).find((a) => a.id === id) as Account, patch)));
   return (
-    <section class="sv-sec" aria-label="iDeCo・企業型DC の受け取り方">
-      <h3>iDeCo・企業型DC の受け取り方</h3>
-      <p class="sv-note">空欄は「退職の年（60〜65歳）に一時金」で計算します（推定）。受け取ったお金は、預金に入れるか、運用を続けるかを選べます。</p>
+    <section class="sv-sec" aria-label="iDeCo・企業型DC・小規模企業共済の受け取り方">
+      <h3>{aids.length > 0 ? "iDeCo・企業型DC・小規模企業共済の受け取り方" : "iDeCo・企業型DC の受け取り方"}</h3>
+      {dcs.length > 0 ? <p class="sv-note">空欄は「退職の年（60〜65歳）に一時金」で計算します（推定）。受け取ったお金は、預金に入れるか、運用を続けるかを選べます。年金で受け取る年数（空欄は10年）・併用の一時金の割合（空欄は半分）は詳細で。</p> : null}
       {dcs.map((a) => {
         const est = a.payout === undefined;
         const ageEst = payoutAgeOf(h, a) === null;
@@ -766,7 +1019,7 @@ function PayoutSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: Worki
             <div class="sv-fld">
               <span class="lbl">受け取りを始める年齢</span>
               <div class="ctl">
-                <NumBox value={payoutAgeOf(h, a)} unit="age" size="s" optional est={ageEst} placeholder={String(defaultPayoutAge(req, a))} label={`${name}の受け取りを始める年齢`} onCommit={(v) => edit(a.id, { age: typeof v === "number" ? Math.min(75, Math.max(60, v)) : null })} />
+                <NumBox value={payoutAgeOf(h, a)} unit="age" size="s" optional est={ageEst} placeholder={String(defaultPayoutAge(req, a))} label={`${name}の受け取りを始める年齢`} id={fieldDomId(`sav/${a.id}/payoutAge`)} onCommit={(v) => edit(a.id, { age: typeof v === "number" ? Math.min(75, Math.max(60, v)) : null })} />
                 <span class="u">歳</span>
                 {ageEst ? <EstTag text={`推定あり: 退職の年（${defaultPayoutAge(req, a)}歳）`} /> : null}
               </div>
@@ -795,19 +1048,28 @@ function PayoutSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: Worki
                     : `${e.age}歳で一時金 約${man1(e.lump)}万円 ＋ ${e.age}〜${e.age + e.years - 1}歳に 毎年 約${man1(e.annual)}万円`}
               </div>
             </div>
+            {level === "detail" ? generic(a, ["payoutYears", "lumpShare", "enrolled"]) : null}
           </div>
         );
       })}
+      {aids.map((a) => (
+        <div class="sv-dc" key={a.id} data-payout={a.kind}>
+          <h4>{`${KIND_INFO[a.kind]?.name ?? ""}（${memberLabel(wh, a.owner)}）`}</h4>
+          <p class="sv-note">受け取りを始める時期（廃業・退職など）を入れると、その月に受け取ります。空欄なら受け取らずに残高のまま持ちます。一括は退職所得、分割は公的年金等の雑所得として税を計算します。</p>
+          {generic(a, ["payout", "payoutAt", "payoutYears", "lumpShare", "enrolled"])}
+        </div>
+      ))}
     </section>
   );
 }
 
-function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; now: number; stopAge: number | null; stopShown: number; estimate: StopEstimate }) {
-  const { wh, onEdit, now, stopAge, stopShown, estimate } = p;
+function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; now: number; stopAge: number | null; stopShown: number; estimate: StopEstimate; fields: FieldMap }) {
+  const { wh, onEdit, now, stopAge, stopShown, estimate, fields } = p;
   const req = wh.request;
   const dd = drawdownOf(req);
   const wOn = dd.method !== "none";
-  const setDd = (v: Partial<DrawdownView>) => onEdit(mutate(wh, (_h, r) => setDrawdown(r, { ...dd, ...v })));
+  // 予定なしから定額・定率にしたときの始める年齢は、65歳か退職の遅い方（過ぎていれば次に迎える年齢。0026 の追記）
+  const setDd = (v: Partial<DrawdownView>) => onEdit(mutate(wh, (_h, r) => setDrawdown(r, { ...dd, ...(dd.method === "none" && v.method !== undefined && v.method !== "none" ? { startAge: drawdownStartDefault(req) } : {}), ...v })));
   const est = stopAge === null;
   return (
     <>
@@ -825,6 +1087,7 @@ function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) 
               placeholder={String(estimate.age)}
               label="積立をやめる年齢"
               data="stop-age"
+              id={fieldDomId("sav/stopAge")}
               onCommit={(v) =>
                 onEdit(
                   mutate(wh, (hh, r) => {
@@ -842,6 +1105,7 @@ function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) 
               <EstTag text={estimate.retired ? `推定あり: 退職はもう過ぎているので、${estimate.until}まで` : `推定あり: ${estimate.until}まで`} />
             </div>
           ) : null}
+          <FieldStateLine f={fields.get("sav/stopAge")} wh={wh} onEdit={onEdit} noBasis />
         </div>
         <div class={`per-c ${wOn ? "hold" : "off"}`}>
           <div class="pt">→ 据え置く</div>
@@ -877,7 +1141,7 @@ function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) 
             </button>
           </span>
         </div>
-        <p class="help">予定なしは、収支が足りない年だけ預金→課税口座→NISA の順に取り崩します。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</p>
+        <p class="help">予定なしは、収支が足りない年だけ取り崩します（順番は「お金の行き先」。標準は預金→課税口座→NISA）。定額・定率は、その額を金融資産から使います（収支の不足のほうが大きい年は不足の分）。</p>
       </div>
       {dd.method === "fixed" ? (
         <div class="sv-fld">

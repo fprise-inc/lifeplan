@@ -138,6 +138,8 @@ export interface Account {
 
 /** 住まい以外の不動産の中身（エンジンの accounts[].property。0028） */
 export interface RealEstateProperty {
+  /** 持ち始める時点（相続・贈与で受け取る不動産。0039） */
+  holdFrom?: Timepoint;
   structure?: string;
   builtYear?: number;
   landShare?: string;

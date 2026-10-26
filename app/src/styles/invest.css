@@ -201,3 +201,21 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .donut-pair:not(.two) { max-width: 680px; }
 .sv-fld > .seg-g { justify-self: start; }
 .dd-calc.closed .add-item-btn { width: auto; padding-left: 18px; padding-right: 18px; }
+
+/* 専用の部品の欄の値の状態の印と操作（0041） */
+.sv-state { margin-top: 2px; }
+.sv-state .fld-help { margin-top: 2px; }
+.sv-state .fld-ops { display: flex; flex-wrap: wrap; gap: 2px 10px; justify-content: inherit; }
+.sv-state.compact { font-size: 0.78rem; }
+.sv-state.compact .fld-ops { justify-content: flex-end; }
+.sv-acc td.l .sv-state.compact .fld-ops { justify-content: flex-start; }
+.sv-more { min-width: 1.6em; text-align: center; }
+.sv-acc .badge { margin-left: 4px; vertical-align: middle; }
+/* お金の行き先: 取り崩す順番（口座ごとの縦の並び） */
+.sv-order.acc { flex-direction: column; flex-wrap: nowrap; align-items: stretch; max-width: 560px; }
+.sv-order.acc li { display: flex; gap: 8px; font-weight: 600; }
+.sv-order.acc li small { font-weight: 400; color: var(--ink-2); }
+.sv-order.acc li.settle { background: var(--base-bg); }
+.sv-order.acc li.off { opacity: 0.75; border-style: dashed; }
+.sv-order.acc li.off .k { background: var(--base); }
+.sv-order.acc .sv-keep { margin-left: auto; font-weight: 400; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; }
