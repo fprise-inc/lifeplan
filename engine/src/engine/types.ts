@@ -876,9 +876,17 @@ export interface EducationStageInput {
   readonly scienceAgriculture?: boolean;
 }
 
+/** 学校外の費用の行の種類（塾・習い事・その他。表示と既定の名前だけ。0062） */
+export type LessonKind = "cram" | "lesson" | "other";
+
 export interface EducationGoalInput {
   readonly stages: readonly EducationStageInput[];
-  readonly lessons?: readonly { readonly from: Timepoint; readonly to: Timepoint; readonly monthly: Yen; readonly label?: string }[];
+  /**
+   * 学校外の費用の入れ方（0062）: statistics は幼稚園〜高校の統計の平均の学校外活動費だけ（塾・習い事の行は使わない）、rows は塾・習い事の行
+   * だけ（統計の平均は足さない）。省略は前の形（統計の平均に行を足す）
+   */
+  readonly outOfSchoolMode?: "statistics" | "rows";
+  readonly lessons?: readonly { readonly from: Timepoint; readonly to: Timepoint; readonly monthly: Yen; readonly label?: string; readonly kind?: LessonKind }[];
   readonly scholarships?: readonly {
     readonly monthly: Yen;
     readonly from: Timepoint;

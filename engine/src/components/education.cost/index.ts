@@ -14,6 +14,9 @@
 //   全年度で統計の学校給食費の全額を引き、paid なら引かない。学校の年額を直接入れた段・学費データの行の段は引かない
 // - 受験・併願の費用（exam）: 受験料を入学の前の1月、入学しなかった学校への納付金を2月に
 // - 学校外活動費（outOfSchool）: 統計の平均（幼〜高）か月額か無し。塾・習い事（lessons）は月額を足す
+// - 改訂4（0062）: 学校外の費用の入れ方（outOfSchoolMode）。statistics は段の学校外活動費だけを数え、塾・習い事の行は数えない（行は残す）。
+//   rows は塾・習い事の行だけを数え、段の学校外活動費（統計の平均・月額）は数えない（統計の平均は塾・習い事を含むので、行と二重にしない）。
+//   省略は前の形（段の学校外活動費に行を足す）
 // - 自宅外の生活費（boarding）: 仕送り（月額。省略は統計の年額÷12）を在学中毎月、初期費用（省略は統計）を入学の前の3月に
 // - 貸与の奨学金（scholarships）: 在学中に受け取り（cf.income.other.scholarship）、返済は debt.schedule（返す人は既定で子。返済の始まりの
 //   既定は受け取りの終わりの7か月後）。教育ローン（loans）は借りる月に受け取り、翌月から返す
@@ -65,7 +68,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
   id: "education.cost",
   title: "教育費",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "debt.schedule": ">=1 <2" },
   params: PARAMS,
   reads: ["goal.kind", "goal.owner", "goal.education", "member.kind", "relation.type", "relation.parent", "relation.child", "assumptions.inflation", "assumptions.educationInflation"],
@@ -111,6 +114,7 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
       if (g.kind !== "education" || g.education === undefined || g.owner !== child) continue;
       const e: EducationGoalInput = g.education;
       const lunchChoice = e.schoolLunch;
+      const mode = e.outOfSchoolMode;
       const push = (m: MonthIndex, row: string, amount: Yen, formula: string, member: string = child) => {
         if (amount > 0 && m >= base && m <= end) flows.push({ row, ym: formatYm(m), amount, accrualYear: yearOf(m), member, object: g.id, formula });
       };
@@ -175,7 +179,8 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
           }
           if (st.entranceOverride !== undefined) push(addMonths(start, -2), "cf.expense.education.entrance", grown(st.entranceOverride, fy0), "education.cost.entrance");
           // 学校外活動費（統計の値が無い区分は学習費総額に含めて数えたので足さない）
-          const out = st.outOfSchool ?? "statistics";
+          // 行で入れるときは、段の学校外活動費を数えない（0062）
+          const out = mode === "rows" ? "none" : (st.outOfSchool ?? "statistics");
           const outMonthly: Yen | null = out === "none" ? null : out === "statistics" ? (outStat === null ? null : outStat) : ctx.money.mulRatio(out.monthly, 12, 1, "conv.exact");
           if (outMonthly !== null) {
             for (let k = 0; k < years; k++) {
@@ -233,8 +238,8 @@ export default defineComponent<{ member: string }, EducationCostOutput>({
         }
         enrollments.push({ stage: st.stage, sector, living, from: formatYm(start), years, scienceAgriculture: st.scienceAgriculture === true, fees });
       }
-      // 塾・習い事
-      for (const l of e.lessons ?? []) {
+      // 塾・習い事（統計の平均で入れるときは数えない。0062）
+      for (const l of mode === "statistics" ? [] : (e.lessons ?? [])) {
         const from = ctx.time.resolve(l.from);
         const to = ctx.time.resolve(l.to);
         for (let m = from; m <= to; m = addMonths(m, 1)) push(m, "cf.expense.education.outOfSchool", grown(l.monthly, yearOf(m)), "education.cost.lessons");

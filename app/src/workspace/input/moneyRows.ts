@@ -56,7 +56,7 @@ export const OUT_KINDS: readonly { kind: MoneyOutKind; label: string; row: strin
   { kind: "childSupport", label: "養育費を払う", row: "cf.expense.other", card: "family", cadence: "monthly", amount: 40000, preset: "養育費 月4万円" },
   { kind: "allowance", label: "仕送り", row: "cf.expense.other", card: "care", cadence: "monthly", amount: 30000, preset: "仕送り 月3万円" },
   { kind: "gift", label: "あげる贈与（孫などへ）", row: "cf.expense.lumpSum.gift", card: "inherit", cadence: "once", amount: 1100000, preset: "贈与 110万円" },
-  { kind: "education", label: "塾・習い事・留学など", row: "cf.expense.education", card: "education", cadence: "monthly", amount: 20000, preset: "塾 月2万円" },
+  { kind: "education", label: "留学・寮費・部活などの教育費", row: "cf.expense.education", card: "education", cadence: "repeat", amount: 100000, everyYears: 1, preset: "その他の教育費 年10万円" },
   { kind: "repair", label: "修繕・リフォーム", row: "cf.expense.housing.maintenance", card: "housing", cadence: "repeat", amount: 1000000, everyYears: 10, preset: "修繕 10年ごとに100万円" },
   { kind: "realEstateCost", label: "不動産の一時の経費（大規模修繕・原状回復など）", row: "cf.expense.other", card: "savings", cadence: "once", amount: 1000000, preset: "不動産の一時の経費 100万円" },
   { kind: "livingAnnual", label: "年払い・数年おきの暮らしの支出", row: "cf.expense.living", card: "living", cadence: "repeat", amount: 100000, everyYears: 1, preset: "年払いの支出 年10万円" },

@@ -523,6 +523,25 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.22 より前の版に学歴は無い"
             );
         }
+        // 0.23 から（0063）: 教育の目標の学校外の費用の入れ方と、塾・習い事の行の種類（どれも任意）
+        let goals = hh["goals"].as_array().cloned().unwrap_or_default();
+        let rows_mode = goals
+            .iter()
+            .any(|g| g["education"]["outOfSchoolMode"] == "rows");
+        let kinds = goals.iter().any(|g| {
+            g["education"]["lessons"]
+                .as_array()
+                .map(|ls| ls.iter().any(|l| l["kind"] == "cram"))
+                .unwrap_or(false)
+        });
+        if migrate::parse(v).unwrap() >= (0, 23) {
+            assert!(rows_mode && kinds, "{v}: 学校外の費用の入れ方と行の種類");
+        } else {
+            assert!(
+                !rows_mode && !kinds,
+                "{v}: 0.23 より前の版に学校外の費用の入れ方は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;
