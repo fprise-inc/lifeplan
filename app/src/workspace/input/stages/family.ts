@@ -1,4 +1,5 @@
-// 1. 家族: 続柄・呼び名（任意）・生年月（生年月＋1日生まれか。0012）・性別・独立の時期。贈与する人（親・祖父母）もここでまとめて登録する
+// 1. 家族: 続柄・呼び名（任意）・生年月（生年月＋1日生まれか。0012）・性別・独立の時期。家計を1つにする人だけを出す。
+// 世帯の外の家族（親・祖父母など）は介護・親のカード（care.ts）、贈与する人は相続・贈与のカード（inheritance.ts）に出し、ここは読むだけの1行
 import type { Household, Member } from "../../../engine/types.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { roles } from "../../roles.ts";
@@ -9,6 +10,7 @@ import { fillEducation } from "../fill.ts";
 import { DONOR_KINDS, KIND_OPTIONS, memberLabel, memberOptions, SEX_OPTIONS } from "../labels.ts";
 import { EVENT_KIND_LABEL, eventName, FP_EVENT_KINDS, freezeTimepoints, refsTo, whenPeople } from "../namedEvents.ts";
 import { wareki } from "../units.ts";
+import { readGroup, readLine } from "../readLines.ts";
 
 const members = (h: Household) => h.members;
 
@@ -107,7 +109,8 @@ function allowanceRow(wh: WorkingHousehold, member: string, monthly: number): Wo
   });
 }
 
-function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
+/** 構成員1人のまとまり（世帯の外の家族は介護・親のカードに出す。care.ts） */
+export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const find = byId(members, m.id);
   // まだ生まれていない（生年月が計算の基準の月より後）なら、マイナスの年齢ではなく「生まれる予定」と出す
   const ageNow = (ym: string) => {
@@ -369,7 +372,8 @@ function eventGroups(wh: WorkingHousehold): GroupDef[] {
   });
 }
 
-function donorGroups(wh: WorkingHousehold): GroupDef[] {
+/** 贈与する人（親・祖父母）のまとまり（相続・贈与のカードに出す。inheritance.ts） */
+export function donorGroups(wh: WorkingHousehold): GroupDef[] {
   return (wh.request.input.household.donors ?? []).map((d, i) => {
     const find = byId((h) => h.donors, d.id);
     const used = usesOfDonor(wh.request.input.household, d.id);
@@ -413,44 +417,59 @@ function usesOfDonor(h: Household, id: string): number {
   return n;
 }
 
+/**
+ * 世帯の外の家族（親・祖父母と、世帯の外の印のある人）。家族のカードは「家計を1つにする人」だけにし、この人たちは介護・親のカードに出す
+ * （家計を1つにする期間を入れた人も、物は介護・親のカードに属する）
+ */
+export const outsidePerson = (m: Member): boolean => m.outside !== undefined || m.kind === "parent" || m.kind === "grandparent";
+
+/** 世帯の外の家族を足す（介護・親のカードの「＋ 親を足す」） */
+export const addOutsideActions = (): ActionDef[] => [
+  { key: "family/add/parent", label: "＋ 親を足す", level: "simple", run: (w) => addMember(w, "parent") },
+  { key: "family/add/grandparent", label: "＋ 祖父母を足す", level: "detail", run: (w) => addMember(w, "grandparent") },
+];
+
+/** 贈与する人を足す（相続・贈与のカード） */
+export function addDonorActions(wh: WorkingHousehold): ActionDef[] {
+  const selfId = wh.request.input.household.members.find((m) => m.kind === "self")?.id;
+  return [
+    {
+      key: "family/add/donor-parent",
+      label: "＋ 親を足す",
+      level: "simple",
+      run: (w) => mutate(w, (hh) => void (hh.donors ??= []).push({ id: newId(), kind: "parent", ...(selfId !== undefined ? { of: selfId } : {}) })),
+    },
+    {
+      key: "family/add/donor-grandparent",
+      label: "＋ 祖父母を足す",
+      level: "simple",
+      run: (w) => mutate(w, (hh) => void (hh.donors ??= []).push({ id: newId(), kind: "grandparent", ...(selfId !== undefined ? { of: selfId } : {}) })),
+    },
+  ];
+}
+
 export function familyStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const order = roles(wh.request).map((r) => r.member);
   const hasSpouse = h.members.some((m) => m.kind === "spouse");
-  const selfId = h.members.find((m) => m.kind === "self")?.id;
+  const outside = h.members.filter(outsidePerson);
+  const donors = h.donors ?? [];
+  // 世帯の外の家族・贈与する人は、介護・親／相続・贈与のカードで入れる（ここは読むだけの1行）
+  const ro = readGroup("family/elsewhere", undefined, [
+    ...(outside.length > 0 ? [readLine("family/outside", "世帯の外の家族", outside.map((m) => memberLabel(wh, m.id)).join("・"), "介護・親")] : []),
+    ...(donors.length > 0 ? [readLine("family/donors", "贈与する人（親・祖父母）", `${donors.length}人`, "相続・贈与")] : []),
+  ]);
   const sections: SectionDef[] = [
     {
       key: "family/members",
       title: "家族の構成",
       note: "お名前の欄はありません。続柄と、必要なら FP が付ける呼び名で表します",
       level: "simple",
-      groups: order.map((m) => memberGroup(wh, m)),
+      groups: [...order.filter((m) => !outsidePerson(m)).map((m) => memberGroup(wh, m)), ...(ro !== null ? [ro] : [])],
       actions: [
         ...(hasSpouse ? [] : [{ key: "family/add/spouse", label: "＋ 配偶者を足す", level: "simple" as const, run: (w: WorkingHousehold) => addMember(w, "spouse") }]),
         // 新しく足す子は、進路を最初から推定（標準の進路の型）で入れる（古い世帯の子に黙って入れることはしない。fill.ts）
         { key: "family/add/child", label: "＋ 子を足す", level: "simple", run: (w) => addChildWithEducation(w) },
-        { key: "family/add/parent", label: "＋ 親（同居・扶養）を足す", level: "detail", run: (w) => addMember(w, "parent") },
-      ],
-    },
-    {
-      key: "family/donors",
-      title: "贈与する人（親・祖父母）",
-      note: "世帯の外の親・祖父母をここでまとめて登録すると、住宅資金・教育資金などの援助で選べます。同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます",
-      level: "simple",
-      groups: donorGroups(wh),
-      actions: [
-        {
-          key: "family/add/donor-parent",
-          label: "＋ 親を足す",
-          level: "simple",
-          run: (w) => mutate(w, (hh) => void (hh.donors ??= []).push({ id: newId(), kind: "parent", ...(selfId !== undefined ? { of: selfId } : {}) })),
-        },
-        {
-          key: "family/add/donor-grandparent",
-          label: "＋ 祖父母を足す",
-          level: "simple",
-          run: (w) => mutate(w, (hh) => void (hh.donors ??= []).push({ id: newId(), kind: "grandparent", ...(selfId !== undefined ? { of: selfId } : {}) })),
-        },
       ],
     },
     {

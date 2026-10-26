@@ -305,8 +305,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-ops { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; }
 .fld-ops .link-btn { font-size: 0.78rem; }
 .fld-ops .fld-confirm { color: var(--prop); font-weight: 700; }
-.ip-bulk { margin-top: 4px; }
-.ip-gaps { margin-top: 6px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--short); background: var(--short-bg); color: var(--short-ink); font-size: 0.86rem; }
+.ip-bulk { grid-column: 1 / -1; margin-top: 4px; }
+.ip-gaps { grid-column: 1 / -1; margin-top: 6px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--short); background: var(--short-bg); color: var(--short-ink); font-size: 0.86rem; }
 .ip-gaps p { margin: 0 0 2px; font-weight: 700; }
 .ip-gaps ul { margin: 0; padding-left: 1.1em; }
 .ip-gaps li { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
@@ -336,45 +336,63 @@ html.big .lever input[type="range"] { height: 36px; }
 .link-btn { background: none; border: 0; padding: 2px 4px; font-size: 0.82rem; cursor: pointer; text-decoration: underline; color: var(--ink-2); }
 .link-btn.danger { color: var(--short-ink); }
 
-/* 入力のホーム: 項目ごとのカードを同じ大きさのグリッドで（広い画面で4列。狭いとき・文字を大きくしたときは3列以下） */
+/* 入力のホーム: 14枚のカードを同じ大きさのグリッドで（広い画面で7列＝7×2。狭いとき・文字を大きくしたときは列を減らす） */
 .ih { max-width: 1520px; margin: 0 auto; }
 .ih-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap; margin: 0 0 16px; }
 .ih-head h1 { font-size: 1.45rem; margin: 0 0 4px; letter-spacing: 0.02em; }
 .ih-lead { margin: 0; color: var(--ink-2); font-size: 0.92rem; max-width: 62em; }
 .ih-prog { display: grid; gap: 6px; min-width: min(300px, 100%); }
-.ih-prog-line { font-size: 1rem; font-weight: 700; }
+.ih-prog-line { font-size: 1rem; font-weight: 700; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
 .ih-prog-line .n { font-size: 1.3em; color: var(--prop); font-variant-numeric: tabular-nums; }
+/* 未入力（0円の所あり）の数は左に強く（0なら控えめに） */
+.ih-prog-miss { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 4px; border-radius: 8px; border: 1.5px solid var(--line); }
+.ih-prog-miss .n { color: var(--ink-2); }
+.ih-prog-miss.on { border: 2px solid var(--short); background: var(--short-bg); }
+.ih-prog-miss.on .n { color: var(--short-ink); font-size: 1.6em; }
 .ih-prog-bar { display: flex; gap: 3px; height: 12px; }
 .ih-prog-bar i { flex: 1; border-radius: 3px; border: 1.5px solid var(--prop); background: #fff; }
 .ih-prog-bar i.done { background: var(--prop); }
 .ih-prog-bar i.est { background: var(--est-band); border-color: var(--est); }
-.ih-prog-bar i.none { border-style: dashed; border-color: var(--field); }
-.ih-prog-key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.86rem; }
-.ih-prog-key > span { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+.ih-prog-bar i.missing { border: 2px solid var(--short); background: var(--short-bg); }
+.ih-prog-bar i.na { border-color: var(--base); background: var(--base-bg); }
 .ih-group + .ih-group { margin-top: 22px; }
 .ih-gh { font-size: 1.02rem; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
 .ih-gh::after { content: ""; flex: 1; border-top: 1px solid var(--card-line); }
-.ih-cards { display: grid; gap: 18px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-@media (max-width: 1180px) { .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.ih-cards { display: grid; gap: 12px; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+@media (max-width: 1340px) { .ih-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (max-width: 1060px) { .ih-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 820px) { .ih-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .ih-cards { grid-template-columns: minmax(0, 1fr); } }
-html.big .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-@media (max-width: 1180px) { html.big .ih-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+html.big .ih-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1340px) { html.big .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1000px) { html.big .ih-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) { html.big .ih-cards { grid-template-columns: minmax(0, 1fr); } }
 
-/* カード: イラスト＋名前＋要約の数字1つ＋状態 */
-.ih-card { --c: #888; --tint: color-mix(in srgb, var(--c) 11%, #fff); position: relative; display: flex; flex-direction: column; text-align: left; padding: 0; margin: 0; background: #fff; border: 1px solid var(--card-line); border-radius: 12px; overflow: hidden; cursor: pointer; box-shadow: 0 1px 2px rgba(20, 30, 50, 0.05); transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s; min-height: 100%; }
+/* カード: イラスト＋名前＋要約の数字1つ＋状態（押す所はカードの中のボタン。下に1行の案内と1押し） */
+.ih-card { --c: #888; --tint: color-mix(in srgb, var(--c) 11%, #fff); position: relative; display: flex; flex-direction: column; text-align: left; padding: 0; margin: 0; background: #fff; border: 1px solid var(--card-line); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(20, 30, 50, 0.05); transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s; min-height: 100%; }
+.ih-open { all: unset; box-sizing: border-box; position: relative; display: flex; flex-direction: column; flex: 1; cursor: pointer; text-align: left; min-width: 0; }
+.ih-open:focus-visible { outline: 3px solid #f0b400; outline-offset: -3px; border-radius: 12px; }
+.ih-hint { padding: 0 12px 14px; font-size: 0.82rem; color: var(--ink-2); display: grid; gap: 6px; }
+.ih-hint p { margin: 0; }
+.ih-hint-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn.small { padding: 2px 10px; font-size: 0.8rem; border-width: 1.5px; }
+.first-tag { display: inline-block; font-size: 0.72rem; font-weight: 700; border-radius: 4px; padding: 0 5px; background: var(--prop); color: #fff; white-space: nowrap; }
+.ih-card.first { border: 2px solid var(--prop); }
+.ih-guide { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--prop); background: var(--prop-bg); }
+.ih-guide p { margin: 0; flex: 1 1 30em; }
 .ih-card:hover { box-shadow: 0 6px 18px rgba(20, 30, 50, 0.1); transform: translateY(-2px); border-color: #c4cad2; }
 .ih-ill { position: relative; display: block; background: #fff; aspect-ratio: 16 / 9; overflow: hidden; flex: none; transition: background 0.3s; }
 html.big .ih-ill { aspect-ratio: 2 / 1; }
 .ih-ill img { display: block; width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; transition: filter 0.3s, opacity 0.3s; }
-.ih-body { padding: 12px 16px 20px; display: grid; gap: 2px; align-content: start; min-width: 0; flex: 1; }
-.ih-name { font-weight: 700; font-size: 1.02rem; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.ih-body { padding: 10px 12px 18px; display: grid; gap: 2px; align-content: start; min-width: 0; flex: 1; }
+.ih-name { font-weight: 700; font-size: 0.98rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ih-name::before { content: ""; width: 0.7em; height: 0.7em; border-radius: 3px; background: var(--c); flex: none; }
-.ih-sum { font-weight: 700; font-size: 1.42rem; line-height: 1.3; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ih-sum { font-weight: 700; font-size: 1.3rem; line-height: 1.3; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .ih-sum small { font-size: 0.62em; font-weight: 700; margin: 0 0.1em; }
 .ih-sum .yet { font-size: 0.74em; color: var(--ink-2); letter-spacing: 0; }
-.ih-card > .ih-st { position: absolute; top: 10px; right: 10px; z-index: 2; }
+/* 状態の印は名前と要約の下（7列でも絵に重ならない） */
+.ih-body > .ih-st { justify-self: start; margin-top: 4px; white-space: normal; }
 .ih-band { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; }
 .fp-tag { display: inline-block; font-size: 0.72rem; font-weight: 700; border: 1.5px solid var(--ink-2); border-radius: 4px; padding: 0 5px; color: var(--ink-2); white-space: nowrap; }
 /* 入力済み: 下の縁に項目の色の帯＋イラストに薄く色 */
@@ -383,29 +401,36 @@ html.big .ih-ill { aspect-ratio: 2 / 1; }
 /* 推定あり: 薄いオレンジの帯（斜線は使わない）＋イラストにごく薄く色 */
 .ih-card.s-est .ih-ill { background: color-mix(in srgb, var(--c) 6%, #fff); }
 .ih-card.s-est .ih-band { background: var(--est-band); }
-/* 未入力: 点線の枠。イラストは色を抜く（名前の文字は濃いまま） */
-.ih-card.s-none { border: 1.5px dashed var(--field); box-shadow: none; background: #fcfcfd; }
-.ih-card.s-none .ih-ill { background: transparent; }
-.ih-card.s-none .ih-ill img { filter: grayscale(1); opacity: 0.5; }
-.ih-card.s-none .ih-band { display: none; }
+/* 未入力（0円の所あり）: 赤の点線の枠。イラストは色を抜く（名前の文字は濃いまま） */
+.ih-card.s-missing { border: 2px dashed var(--short); box-shadow: none; background: #fcfcfd; }
+.ih-card.s-missing .ih-ill { background: transparent; }
+.ih-card.s-missing .ih-ill img { filter: grayscale(1); opacity: 0.5; }
+.ih-card.s-missing .ih-band { display: none; }
+/* 当てはまらない: 灰の実線の枠と灰の帯。イラストは薄く */
+.ih-card.s-na { border: 1.5px solid var(--line); box-shadow: none; background: var(--base-bg); }
+.ih-card.s-na .ih-ill { background: transparent; }
+.ih-card.s-na .ih-ill img { filter: grayscale(1); opacity: 0.35; }
+.ih-card.s-na .ih-band { background: var(--base); height: 4px; }
 .ih-card.flash { animation: ih-flash 1.4s ease-out; }
 @keyframes ih-flash { 0% { box-shadow: 0 0 0 6px rgba(240, 180, 0, 0.8); } 100% { box-shadow: 0 0 0 0 rgba(240, 180, 0, 0); } }
 @media (prefers-reduced-motion: reduce) { .ih-card, .ih-ill, .ih-ill img { transition: none; } .ih-card.flash { animation: none; } }
 
-/* 状態の印（✓／!／点線の丸と文字） */
+/* 状態の印（✓／!／0／− と文字） */
 .ih-st { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: 0.82rem; border-radius: 99px; padding: 2px 10px 2px 4px; white-space: nowrap; line-height: 1.3; }
 .ih-st::before { display: inline-grid; place-items: center; width: 1.35em; height: 1.35em; border-radius: 50%; font-size: 0.85em; flex: none; box-sizing: border-box; }
 .ih-st.done { background: #fff; color: var(--prop); border: 1.5px solid var(--prop); }
 .ih-st.done::before { content: "✓"; background: var(--prop); color: #fff; }
 .ih-st.est { background: var(--est-bg); color: var(--est-ink); border: 1.5px solid var(--est); }
 .ih-st.est::before { content: "!"; background: var(--est); color: #fff; }
-.ih-st.none { background: #fff; color: var(--ink-2); border: 1.5px dashed var(--field); }
-.ih-st.none::before { content: ""; border: 2px solid var(--field); width: 0.9em; height: 0.9em; margin: 0 0.2em; }
+.ih-st.missing { background: var(--short-bg); color: var(--short-ink); border: 1.5px dashed var(--short); }
+.ih-st.missing::before { content: "0"; background: var(--short); color: #fff; }
+.ih-st.na { background: #fff; color: var(--base-ink); border: 1.5px solid var(--base); }
+.ih-st.na::before { content: "−"; background: var(--base); color: #fff; }
 .ih-st.mini { font-size: 0.8rem; padding: 0 8px 0 3px; }
 h2 .ih-st { font-size: 0.8rem; }
 
 /* ＋ 項目を追加 */
-.ih-card.ih-add { border: 2px dashed var(--field); background: #fff; box-shadow: none; cursor: default; min-height: 240px; }
+.ih-card.ih-add { border: 2px dashed var(--field); background: #fff; box-shadow: none; cursor: default; min-height: 200px; }
 .ih-card.ih-add:hover { transform: none; box-shadow: none; }
 .ih-add-main { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; padding: 18px; text-align: center; font-weight: 700; font-size: 1.02rem; color: var(--prop); }
 .ih-add-main:focus-visible { outline: 3px solid #f0b400; outline-offset: -4px; }
@@ -418,6 +443,21 @@ h2 .ih-st { font-size: 0.8rem; }
 .ih-add-menu button:hover { background: var(--prop-bg); }
 .ih-add-menu button:disabled { border-style: dashed; border-color: var(--field); color: var(--ink-2); cursor: not-allowed; background: #fff; }
 .ih-add-menu .cancel { border-color: var(--ink-2); color: var(--ink); }
+
+/* ピン（ホームに出した物）: カードの下に小さく並べる。押すとその物だけを開く */
+.ih-pins { margin-top: 18px; }
+.ih-pin-list { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+.ih-pin { --c: #888; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--card-line); border-left: 6px solid var(--c); border-radius: 8px; background: #fff; padding: 2px 8px 2px 0; }
+.ih-pin.s-missing { border-color: var(--short); border-left-color: var(--short); }
+.ih-pin-open { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 4px 8px; }
+.ih-pin-open:focus-visible { outline: 3px solid #f0b400; border-radius: 6px; }
+.ih-pin-name { font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+.ih-pin-sum { font-variant-numeric: tabular-nums; }
+.ih-pin-sum small { color: var(--ink-2); margin-left: 4px; }
+.pin-btn { font-size: 0.78rem; font-weight: 400; margin-left: auto; }
+.ip-inherit { grid-column: 1 / -1; margin-top: 6px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--base-bg); font-size: 0.86rem; }
+.ip-inherit p { margin: 0 0 2px; }
+.ip-inherit ul { margin: 0; padding-left: 1.1em; }
 
 /* 入力のパネル: 画面の中央に開き、背景を暗くする（別の窓は出さない）。保存のボタンは下に固定 */
 .scrim { position: fixed; inset: 0; background: rgba(20, 26, 38, 0.48); z-index: 40; }

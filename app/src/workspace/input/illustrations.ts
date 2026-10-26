@@ -16,4 +16,5 @@ import savings from "../../assets/illustrations/savings.webp";
 import work from "../../assets/illustrations/work.webp";
 import type { Art } from "./items.ts";
 
-export const ILLUSTRATIONS: Record<Art, string> = { family, work, pension, living, education, housing, insurance, savings, events, car, fee, assumptions, pet, abroad };
+// 退職金・企業年金・介護・親・相続・贈与の専用の絵ができるまでは、近い絵を使う（働く人・年配の二人・相談の場面）
+export const ILLUSTRATIONS: Record<Art, string> = { family, work, retirement: work, pension, living, education, housing, insurance, savings, events, car, care: pension, inheritance: fee, fee, assumptions, pet, abroad };

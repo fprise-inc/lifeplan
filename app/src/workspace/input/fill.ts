@@ -199,7 +199,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
     const est = retirementEstimate(h, m, p);
     out.push({
       id: `work/retirement/${m.id}`,
-      card: "work",
+      card: "retirement",
       label: `${memberLabel(wh, m.id)}の退職金`,
       note: "退職金が入っていないので、0円で計算しています",
       ...(est !== null ? { fill: (w: WorkingHousehold) => fillRetirement(w, m.id), basis: est.basis } : {}),

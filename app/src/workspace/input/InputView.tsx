@@ -1,6 +1,7 @@
-// 入力のホーム（作業の層の部品）: 項目ごとのカードを同じ大きさのグリッドで並べ、押すと中央に入力のパネルが開く。
-// カードに出すのは「イラスト＋名前＋要約の数字1つ＋状態」まで。上部に「○項目中○項目 入力済み」と項目ごとのマスの進み具合。
-// 項目が増えたら、まとまりの見出しで区切る（items.ts の GROUP_HEADINGS_FROM）。「＋ 項目を追加」で FP が項目を足せる
+// 入力のホーム（作業の層の部品）: 14枚のカードを同じ大きさのグリッドで並べ、押すと中央に入力のパネルが開く。
+// カードに出すのは「イラスト＋名前＋要約の数字1つ＋状態（4つ）」まで。最初の5枚のほかのカードは、未入力・推定のときに何で計算しているかの1行と、
+// 「当てはまらない」「目安で入れる」の1押しを出す。上部に進み具合（未入力〔0円の所あり〕の数を左に強く、続けて入力済み・推定で計算中・当てはまらない）。
+// カードの下にピン（ホームに出した物。押すとその物だけを開く。進み具合に数えない）。「＋ 項目を追加」で足した物は属するカードに入り、ピンが出る
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
@@ -8,7 +9,9 @@ import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { InputPanel } from "./InputPanel.tsx";
-import { ADD_OPTIONS, addItem, groupedItems, inputItems, progressOf, type InputItem } from "./items.ts";
+import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, groupedItems, inputItems, itemOf, notApplicableCard, pinItems, progressOf, togglePin, type AddOption, type CardLayout, type InputItem, type PinItem } from "./items.ts";
+import { inheritanceSummary, useInheritanceEstimate } from "./inheritanceLine.ts";
+import { STAGE_ORDER } from "./stages/index.ts";
 import { StatusBadge, statusText } from "./StatusBadge.tsx";
 import { CheckList, checkSummary } from "./CheckList.tsx";
 import { DiffList, DiffListToggle, PlanTarget, type PlanEditProps } from "./PlanEdit.tsx";
@@ -36,46 +39,110 @@ interface Props {
    * 取り込み・ヒアリング・明細の承認・確かめの一覧は、プランを選んでいても現状を直す
    */
   plans?: PlanEditProps;
+  /** カードの並びと最初の5枚（事務所の設定。省くと標準） */
+  layout?: CardLayout;
 }
 
-function Card({ item, onOpen, flash, diffs }: { item: InputItem; onOpen: (id: string) => void; flash: boolean; diffs?: { label: string; n: number } | undefined }) {
+interface CardActions {
+  /** 「当てはまらない」の1押し（プランの編集中は出さない） */
+  onNa?: (id: string) => void;
+  /** 「目安で入れる」の1押し */
+  onFill?: (id: string) => void;
+}
+
+function Card({ item, onOpen, flash, diffs, firstMark, acts }: { item: InputItem; onOpen: (id: string) => void; flash: boolean; diffs?: { label: string; n: number } | undefined; firstMark: boolean; acts: CardActions }) {
   const s = item.summary;
+  const showNa = item.canNa && acts.onNa !== undefined;
+  const showFill = item.canFill && acts.onFill !== undefined;
   return (
-    <button type="button" class={`ih-card s-${item.status}${flash ? " flash" : ""}`} style={{ "--c": item.color }} data-card={item.id} aria-label={`${item.label}（${statusText(item)}）を開く`} onClick={() => onOpen(item.id)}>
-      <span class="ih-ill" aria-hidden="true">
-        <img src={ILLUSTRATIONS[item.art]} alt="" />
-      </span>
-      <span class="ih-body">
-        <span class="ih-name">
-          {item.label}
-          {item.added !== null ? <span class="fp-tag">FPが追加</span> : null}
-          {diffs !== undefined && diffs.n > 0 ? (
-            <span class="plan-count" data-plan-count={diffs.n}>
-              {diffs.label}: {diffs.n}か所
-            </span>
+    <div class={`ih-card s-${item.status}${flash ? " flash" : ""}${firstMark ? " first" : ""}`} style={{ "--c": item.color }}>
+      <button type="button" class="ih-open" data-card={item.id} aria-label={`${item.label}（${statusText(item)}）を開く`} onClick={() => onOpen(item.id)}>
+        <span class="ih-ill" aria-hidden="true">
+          <img src={ILLUSTRATIONS[item.art]} alt="" />
+        </span>
+        <span class="ih-body">
+          <span class="ih-name">
+            {item.label}
+            {firstMark ? (
+              <span class="first-tag" data-first>
+                最初の5枚
+              </span>
+            ) : null}
+            {diffs !== undefined && diffs.n > 0 ? (
+              <span class="plan-count" data-plan-count={diffs.n}>
+                {diffs.label}: {diffs.n}か所
+              </span>
+            ) : null}
+          </span>
+          <span class="ih-sum">
+            {s === null ? (
+              <span class="yet">{item.status === "na" ? "なし" : "まだ入っていません"}</span>
+            ) : (
+              <>
+                {s.pre !== undefined ? <small>{s.pre}</small> : null}
+                {s.main}
+                {s.unit !== undefined ? <small>{s.unit}</small> : null}
+              </>
+            )}
+          </span>
+          <StatusBadge item={item} mini />
+        </span>
+      </button>
+      {item.hint !== null ? (
+        <div class="ih-hint" data-hint={item.id}>
+          <p>{item.hint}</p>
+          {showNa || showFill ? (
+            <div class="ih-hint-acts">
+              {showFill ? (
+                <button type="button" class="btn small" onClick={() => acts.onFill?.(item.id)} data-card-fill={item.id}>
+                  目安で入れる
+                </button>
+              ) : null}
+              {showNa ? (
+                <button type="button" class="btn small" onClick={() => acts.onNa?.(item.id)} data-card-na={item.id}>
+                  当てはまらない
+                </button>
+              ) : null}
+            </div>
           ) : null}
-        </span>
-        <span class="ih-sum">
-          {item.status === "none" ? (
-            <span class="yet">まだ入っていません</span>
-          ) : s === null ? (
-            <span class="yet">なし</span>
-          ) : (
-            <>
-              {s.pre !== undefined ? <small>{s.pre}</small> : null}
-              {s.main}
-              {s.unit !== undefined ? <small>{s.unit}</small> : null}
-            </>
-          )}
-        </span>
-      </span>
-      <StatusBadge item={item} />
+        </div>
+      ) : null}
       <span class="ih-band" aria-hidden="true" />
-    </button>
+    </div>
   );
 }
 
-function AddCard({ open, onOpen, onPick }: { open: boolean; onOpen: (v: boolean) => void; onPick: (key: string) => void }) {
+/** ピン（ホームに出した物）: 押すとその物のまとまりだけを開く。「外す」はピンだけを外す（物は残る） */
+function PinCard({ pin, onOpen, onUnpin, planLabel }: { pin: PinItem; onOpen: (id: string) => void; onUnpin?: ((p: PinItem) => void) | undefined; planLabel: string | null }) {
+  const s = pin.summary;
+  const where = STAGE_ORDER.find((x) => x.id === pin.owner)?.label ?? "";
+  return (
+    <div class={`ih-pin s-${pin.status}`} style={{ "--c": pin.color }}>
+      <button type="button" class="ih-pin-open" data-pin={pin.id} aria-label={`ピン: ${pin.label}（${statusText(pin)}。物は${where}のカード）を開く`} onClick={() => onOpen(pin.id)}>
+        <span class="ih-pin-name">
+          <span aria-hidden="true">📌</span> {pin.label}
+          {pin.planOnly && planLabel !== null ? (
+            <span class="plan-count" data-pin-plan>
+              {planLabel}で足した
+            </span>
+          ) : null}
+        </span>
+        <span class="ih-pin-sum">
+          {s === null ? "" : `${s.pre ?? ""}${s.main}${s.unit ?? ""}`}
+          <small>（{where}）</small>
+        </span>
+        <StatusBadge item={pin} mini />
+      </button>
+      {onUnpin !== undefined ? (
+        <button type="button" class="link-btn" onClick={() => onUnpin(pin)} data-unpin={pin.id} title="ピンだけを外します（物は残ります）">
+          外す
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function AddCard({ open, onOpen, onPick, options }: { open: boolean; onOpen: (v: boolean) => void; onPick: (key: string) => void; options: readonly AddOption[] }) {
   if (!open)
     return (
       <div class="ih-card ih-add">
@@ -85,7 +152,7 @@ function AddCard({ open, onOpen, onPick }: { open: boolean; onOpen: (v: boolean)
           </span>
           <span>
             項目を追加
-            <small>ペット・留学・名前を付けた支出・介護など、FPが項目を足せます</small>
+            <small>ペット・留学・名前を付けた支出・介護など。物は属するカードに入り、ホームにピンが出ます</small>
           </span>
         </button>
       </div>
@@ -94,7 +161,7 @@ function AddCard({ open, onOpen, onPick }: { open: boolean; onOpen: (v: boolean)
     <div class="ih-card ih-add">
       <div class="ih-add-menu" role="group" aria-label="足す項目を選ぶ">
         <p>どの項目を足しますか</p>
-        {ADD_OPTIONS.map((o) => (
+        {options.map((o) => (
           <button type="button" key={o.key} onClick={() => onPick(o.key)} data-add={o.key}>
             <span class="nm">{o.label}</span>
             <small>{o.note}</small>
@@ -112,7 +179,7 @@ function AddCard({ open, onOpen, onPick }: { open: boolean; onOpen: (v: boolean)
   );
 }
 
-export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, computeOne, statement, plans }: Props) {
+export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -121,10 +188,16 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
   const rows = useMemo(() => (editing === null || pcat === undefined ? [] : diffRows(wh, pcat, editing.id, planIndex([wh, shown]))), [wh, editing, pcat, shown]);
   const counts = useMemo(() => countsByCard(rows), [rows]);
   const [diffOpen, setDiffOpen] = useState(false);
-  const items = useMemo(() => inputItems(shown), [shown]);
+  /** 相続・贈与のカードの要約（相続税の目安。計算の結果から読むだけ） */
+  const inheritance = useInheritanceEstimate(shown, true, computeOne);
+  const items = useMemo(() => inputItems(shown, { layout, inheritance: inheritanceSummary(inheritance) }), [shown, layout, inheritance]);
+  const pins = useMemo(() => pinItems(shown, editing !== null ? wh : undefined), [shown, editing, wh]);
   const groups = useMemo(() => groupedItems(items), [items]);
   const p = progressOf(items);
-  const [openId, setOpenId] = useState<string | null>(initialOpen !== undefined && items.some((i) => i.id === initialOpen) ? initialOpen : null);
+  /** ざっくり派の案内（最初の5枚に未入力が残る間。閉じられる） */
+  const [guideClosed, setGuideClosed] = useState(false);
+  const guide = !guideClosed && items.some((i) => i.first && i.status === "missing");
+  const [openId, setOpenId] = useState<string | null>(initialOpen !== undefined && (items.some((i) => i.id === initialOpen) || wh.addedItems.some((a) => a.id === initialOpen)) ? initialOpen : null);
   const [addDraft, setAddDraft] = useState<WorkingHousehold | null>(null);
   const [addMenu, setAddMenu] = useState(false);
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -195,8 +268,28 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
     setOpenId("living");
     if (approved !== undefined) setToast(`明細から${approved}件を入れました`);
   };
+  // カードの上の1押し（現状を直す。プランの編集中は出さない）
+  const cardActs: CardActions =
+    editing !== null
+      ? {}
+      : {
+          onNa: (id) => {
+            onSave(notApplicableCard(wh, id));
+            setFlashId(id);
+            setToast(`「${items.find((i) => i.id === id)?.label ?? ""}」を当てはまらないにしました`);
+          },
+          onFill: (id) => {
+            onSave(fillCard(wh, id));
+            setFlashId(id);
+            setToast(`「${items.find((i) => i.id === id)?.label ?? ""}」を目安で入れました（推定の印）`);
+          },
+        };
+  const unpin = (pin: PinItem) => {
+    onSave(togglePin(wh, pin.added));
+    setToast(`「${pin.label}」のピンを外しました（物は残ります）`);
+  };
   const save = (next: WorkingHousehold, id: string) => {
-    const label = inputItems(next).find((i) => i.id === id)?.label;
+    const label = itemOf(next, id)?.label;
     if (editing !== null && plans !== undefined) plans.onSavePlan(next);
     else onSave(next);
     backTo.current = id;
@@ -211,27 +304,21 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
       <div class="ih-head">
         <div>
           <h1>入力</h1>
-          <p class="ih-lead">カードを押すと、入力のパネルが開きます。空欄は統計の目安などで補って計算します（「推定あり」の印）。保存した世帯は、世帯ごとに暗号化して自動で保存します（見本の世帯は保存しません。上の「世帯」から保存できます）。</p>
+          <p class="ih-lead">カードを押すと、入力のパネルが開きます。空欄は統計の目安などで補って計算します（「推定で計算中」の印）。保存した世帯は、世帯ごとに暗号化して自動で保存します（見本の世帯は保存しません。上の「世帯」から保存できます）。</p>
         </div>
         <div class="ih-prog" aria-live="polite">
           <div class="ih-prog-line" data-progress>
-            {p.total}項目中 <span class="n">{p.done}</span>項目 入力済み
+            <span class={`ih-prog-miss${p.missing > 0 ? " on" : ""}`} data-progress-missing={p.missing}>
+              <span class="ih-st missing mini">未入力（0円の所あり）</span> <span class="n">{p.missing}</span>
+            </span>
+            <span class="ih-prog-rest">
+              {p.total}項目中 入力済み <span class="n">{p.done}</span>・推定で計算中 <span class="n">{p.est}</span>・当てはまらない <span class="n">{p.na}</span>
+            </span>
           </div>
           <div class="ih-prog-bar" aria-hidden="true">
             {items.map((i) => (
               <i key={i.id} class={i.status} />
             ))}
-          </div>
-          <div class="ih-prog-key">
-            <span>
-              <StatusBadge item={{ status: "done", estimated: 0 }} mini /> {p.done}
-            </span>
-            <span>
-              <span class="ih-st est mini">推定あり</span> {p.est}
-            </span>
-            <span>
-              <StatusBadge item={{ status: "none", estimated: 0 }} mini /> {p.none}
-            </span>
           </div>
         </div>
       </div>
@@ -263,17 +350,37 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
           }}
         />
       ) : null}
+      {guide ? (
+        <div class="ih-guide" role="note" data-first-guide>
+          <p>
+            まず<b>最初の5枚</b>（{items.filter((i) => i.first).map((i) => i.label).join("・")}）を入れてください。ほかのカードは、推定か「当てはまらない」「目安で入れる」の1押しで進められます。
+          </p>
+          <button type="button" class="link-btn" onClick={() => setGuideClosed(true)} data-first-guide-close>
+            閉じる
+          </button>
+        </div>
+      ) : null}
       {groups.map((g, gi) => (
         <section class="ih-group" key={g.group?.id ?? "all"} aria-label={g.group?.label ?? "入力の項目"}>
           {g.group !== null ? <h2 class="ih-gh">{g.group.label}</h2> : null}
           <div class="ih-cards">
             {g.items.map((i) => (
-              <Card key={i.id} item={i} onOpen={open} flash={flashId === i.id} diffs={editing !== null ? { label: editing.label, n: counts.get(i.id) ?? 0 } : undefined} />
+              <Card key={i.id} item={i} onOpen={open} flash={flashId === i.id} diffs={editing !== null ? { label: editing.label, n: counts.get(i.id) ?? 0 } : undefined} firstMark={guide && i.first} acts={cardActs} />
             ))}
-            {gi === groups.length - 1 ? <AddCard open={addMenu} onOpen={setAddMenu} onPick={pick} /> : null}
+            {gi === groups.length - 1 ? <AddCard open={addMenu} onOpen={setAddMenu} onPick={pick} options={addOptions(shown)} /> : null}
           </div>
         </section>
       ))}
+      {pins.length > 0 ? (
+        <section class="ih-pins" aria-label="ホームに出した物（ピン）" data-pins>
+          <h2 class="ih-gh">ピン（ホームに出した物。進み具合には数えません）</h2>
+          <div class="ih-pin-list">
+            {pins.map((x) => (
+              <PinCard key={x.id} pin={x} onOpen={open} onUnpin={x.planOnly ? undefined : unpin} planLabel={editing?.label ?? null} />
+            ))}
+          </div>
+        </section>
+      ) : null}
       {openId !== null ? (
         <InputPanel
           key={`${openId}:${editing?.id ?? ""}`}

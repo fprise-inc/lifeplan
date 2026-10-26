@@ -1,11 +1,13 @@
-// ライフイベント（一時的な収支）: 一時的支出・n年ごとの支出（旅行・家電・結婚の援助など）、介護の費用。
-// 車（cars.ts）・FP顧問料（fees.ts）は別の項目。FP が別のカードに足した物（items.ts の addedItems）は、ここには出さない
-import type { CareExpense, Household } from "../../../engine/types.ts";
-import { addMonths, ageReachedMonth } from "../../levers.ts";
+// ライフイベント（一時的な収支）: 一時的支出・n年ごとの支出（旅行・家電・結婚の援助など）と、入るお金（祝い金・一時の入金など）。
+// 車（cars.ts）・FP顧問料（fees.ts）は別の項目。介護の費用は介護・親のカード（care.ts。careGroup はここに置いたまま使う）、子の年齢で始まる支出は
+// 子ども・教育のカード、介護・親と相続・贈与のお金の行はそれぞれのカードに出す（ここは読むだけの1行）。FP が「＋ 項目を追加」で足した物もここに出る（ホームのピンは見せ方だけ。items.ts）
+import type { CareExpense, Household, PeriodicExpense } from "../../../engine/types.ts";
+import { addMonths } from "../../levers.ts";
 import { byId, plain, removeAction, timepointField, yenBox, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { CARE_PLACE, memberLabel, memberOptions } from "../labels.ts";
-import { addInheritedDebt, addOutsideGrandchild, expenseCard, inheritedDebtGroups, moneySections, periodicGroups } from "../moneyRows.ts";
+import { expenseCard, moneySections, periodicGroups } from "../moneyRows.ts";
+import { readGroup, readLine } from "../readLines.ts";
 
 // 出るお金の行のまとまり（周期的な支出）は、どのカードでも同じ形（moneyRows.ts。0044）
 export { periodicGroup, periodicGroups, periodicStageGroups } from "../moneyRows.ts";
@@ -34,18 +36,35 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
   };
 }
 
+/**
+ * 周期的な支出のうち、子の年齢で始まる物の子（その物は子ども・教育のカードの、その子の所に出す。留学など）。無ければ null
+ */
+export function childOfPeriodic(h: Household, p: PeriodicExpense): string | null {
+  // ほかのカードに属する種類のお金の行（仕送り・贈与など）は、その種類のカードのまま
+  if (expenseCard(h, p) !== "events") return null;
+  const id = p.from.memberAge?.member;
+  return id !== undefined && h.members.some((m) => m.id === id && m.kind === "child") ? id : null;
+}
+
+/** ライフイベントのカードに出す出るお金の行（種類がライフイベントの行。子の年齢で始まる行は除く） */
+export const eventExpenses = (h: Household): PeriodicExpense[] => (h.periodicExpenses ?? []).filter((p) => expenseCard(h, p) === "events" && childOfPeriodic(h, p) === null);
+
+/** ピンにした物も、属するカードに出す（ピンは見せ方だけ。0045） */
+export const NONE_CLAIMED: ReadonlySet<string> = new Set();
+
 export function eventsStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const base = wh.request.input.baseMonth;
-  const self = h.members.find((m) => m.kind === "self");
-  const claimed = new Set(wh.addedItems.map((a) => a.ref));
+  const cares = h.careExpenses ?? [];
+  // 介護の費用は介護・親のカードで入れる（ここは読むだけの1行）
+  const careLine = readGroup("ev/care", undefined, cares.length > 0 ? [readLine("ev/care", "介護の費用", `${cares.length}件（${[...new Set(cares.map((c) => memberLabel(wh, c.member)))].join("・")}）`, "介護・親")] : []);
   const sections: SectionDef[] = [
     {
       key: "ev/periodic",
       title: "一時的支出・n年ごとの支出",
       note: "旅行・家電の買い替え・リフォーム・結婚の援助など。毎月の基本生活費とは別に入れます",
       level: "simple",
-      groups: (h.periodicExpenses ?? []).filter((p) => !claimed.has(p.id) && expenseCard(h, p) === "events").flatMap((p) => periodicGroups(wh, p)),
+      groups: [...eventExpenses(h).flatMap((p) => periodicGroups(wh, p)), ...(careLine !== null ? [careLine] : [])],
       actions: [
         {
           key: "ev/addOnce",
@@ -65,45 +84,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
       ],
     },
     // 入るお金（祝い金・一時所得・動産の売却・その他の入金。0044）
-    ...moneySections(wh, "events", { claimed, level: "simple", inTitle: "入るお金（祝い金・一時の入金など）" }).filter((x) => x.key.endsWith("/in")),
-    {
-      key: "ev/care",
-      title: "介護",
-      level: "simple",
-      groups: (h.careExpenses ?? []).filter((c) => !claimed.has(c.id)).map((c) => careGroup(wh, c)),
-      actions: [
-        {
-          key: "ev/addCare",
-          label: "＋ 介護の費用",
-          level: "simple",
-          run: (w) =>
-            mutate(w, (hh) => {
-              const who = hh.members.find((m) => m.kind === "parent") ?? self;
-              if (who === undefined) return;
-              const at = who.kind === "self" ? ageReachedMonth(who, 80) : addMonths(base, 60);
-              (hh.careExpenses ??= []).push({ id: newId(), member: who.id, from: { at }, months: 61, place: "home" });
-            }),
-        },
-      ],
-    },
-    // 介護・親（親からの援助・親への仕送り）と、相続・贈与（受け取る予定・あげる贈与・受け継ぐ借金）。カードを組み直すまでここに置く（0044）
-    ...moneySections(wh, "care", { claimed, inTitle: "親からの援助・仕送り（入るお金）", outTitle: "親への仕送り（出るお金）" }),
-    ...moneySections(wh, "inherit", {
-      claimed,
-      level: "simple",
-      inTitle: "相続・贈与で受け取る予定（入るお金）",
-      outTitle: "あげる贈与（出るお金）",
-      note: "孫などへの贈与。贈与税は受け取る人が払うので、世帯からは出さず、結果の要約に出します",
-    }).map((sec) =>
-      sec.key.endsWith("/in")
-        ? {
-            ...sec,
-            note: "見込みが「不確か」の受け取る相続・贈与は、基本の計算に入れません（行は残ります）。相手は世帯の外の家族（家族のカード）から選びます",
-            groups: [...sec.groups, ...inheritedDebtGroups(wh)],
-            actions: [...sec.actions, { key: "money/inherit/addDebt", label: "＋ 相続で受け継ぐ借金", level: "detail" as const, run: (w: WorkingHousehold) => addInheritedDebt(w) }],
-          }
-        : { ...sec, actions: [...sec.actions, { key: "money/inherit/addGrandchild", label: "＋ 孫（世帯の外の家族）を足す", level: "detail" as const, run: (w: WorkingHousehold) => addOutsideGrandchild(w) }] },
-    ),
+    ...moneySections(wh, "events", { claimed: NONE_CLAIMED, level: "simple", inTitle: "入るお金（祝い金・一時の入金など）" }).filter((x) => x.key.endsWith("/in")),
   ];
-  return { id: "events", label: "ライフイベント", lead: "一時的な収支（旅行・買い替え・援助など）と介護。介護・親と相続・贈与のお金の行もここで入れます。", sections };
+  return { id: "events", label: "ライフイベント", lead: "一時的な収支（旅行・買い替え・援助など）。", sections };
 }

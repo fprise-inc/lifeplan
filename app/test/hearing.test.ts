@@ -79,11 +79,11 @@ describe("見本の記入済みシートを空の世帯に取り込む", () => {
     expect(res.table.length).toBeGreaterThan(0);
     // 入力のホームのカード: 未入力が減り、仕事・住まい・保険などが入る
     const after = inputItems(withRefreshedEstimates(out.wh));
-    const none = (xs: typeof before) => xs.filter((i) => i.status === "none").map((i) => i.id);
+    const none = (xs: typeof before) => xs.filter((i) => i.status === "missing").map((i) => i.id);
     expect(none(after).length).toBeLessThan(none(before).length);
     for (const id of ["work", "housing", "insurance"]) {
-      expect(before.find((i) => i.id === id)?.status, id).toBe("none");
-      expect(after.find((i) => i.id === id)?.status, id).not.toBe("none");
+      expect(before.find((i) => i.id === id)?.status, id).toBe("missing");
+      expect(after.find((i) => i.id === id)?.status, id).not.toBe("missing");
     }
   });
 

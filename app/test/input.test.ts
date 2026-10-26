@@ -302,10 +302,10 @@ describe("段階の操作（足す・外す・選ぶ）", () => {
     expect(w3.request.input.household.employmentPeriods!.filter((e) => e.member === self.id).at(-1)!.salary?.annual.value).toBe(3000000);
   });
 
-  it("贈与する人を家族の段階で登録し、住宅資金の援助で選べる", () => {
+  it("贈与する人を相続・贈与の段階で登録し、住宅資金の援助で選べる", () => {
     let wh = open("housingPurchase");
-    const fam = buildStage("family", wh);
-    wh = fam.sections[1]!.actions[0]!.run(wh);
+    const inherit = buildStage("inheritance", wh);
+    wh = inherit.sections.find((s) => s.key === "family/donors")!.actions[0]!.run(wh);
     const donor = wh.request.input.household.donors![0]!;
     const housing = buildStage("housing", wh);
     const addGift = housing.sections[0]!.groups.flatMap((g) => g.actions).find((a) => a.key.endsWith("/addGiftAction"));
@@ -318,8 +318,8 @@ describe("段階の操作（足す・外す・選ぶ）", () => {
 });
 
 describe("入力の段階", () => {
-  it("11項目が決まった順番で並ぶ（FP顧問料は前提条件の中）", () => {
-    expect(buildStages(open("salariedCoupleTwoKids")).map((s) => s.label)).toEqual(["家族", "働き方と収入", "年金", "基本生活費", "子ども・教育", "住まい・ローン", "保険", "貯蓄・運用", "ライフイベント", "車", "前提条件"]);
+  it("14項目が決まった順番で並ぶ（FP顧問料は前提条件の中）", () => {
+    expect(buildStages(open("salariedCoupleTwoKids")).map((s) => s.label)).toEqual(["家族", "働き方と収入", "退職金・企業年金", "年金", "基本生活費", "子ども・教育", "住まい・ローン", "保険", "貯蓄・運用", "ライフイベント", "車", "介護・親", "相続・贈与", "前提条件"]);
   });
   it("簡易の欄がどの段階にもある（子のいない世帯の教育を除く）", () => {
     const wh = open("salariedCoupleTwoKids");
@@ -341,13 +341,14 @@ describe("支出に入らない欄・既定で足している費用の説明", (
   it("家族の「仕送り（月額）」は支出に入らない（扶養の判定に使う）と説明し、値がある世帯にはその家族のまとまりで知らせる", () => {
     const wh = open("parentCare");
     const parent = wh.request.input.household.members.find((m) => m.kind === "parent")!;
-    const field = allFields(buildStage("family", wh)).find((f) => f.key === `family/${parent.id}/allowance`);
+    // 親（世帯の外の家族）は介護・親のカードに出す
+    const field = allFields(buildStage("care", wh)).find((f) => f.key === `family/${parent.id}/allowance`);
     expect(field?.help).toContain("支出には入りません");
     expect(field?.help).toContain("扶養の判定");
     // 親は世帯の外の家族（0035 の4）なので、その説明だけ。仕送りを入れると仕送りの知らせも出る
-    expect(groupsOf(buildStage("family", wh)).find((g) => g.key === `family/${parent.id}`)?.note).not.toContain("支出には入っていません");
+    expect(groupsOf(buildStage("care", wh)).find((g) => g.key === `family/${parent.id}`)?.note).not.toContain("支出には入っていません");
     const withAllowance = field!.set(wh, 50000);
-    expect(groupsOf(buildStage("family", withAllowance)).find((g) => g.key === `family/${parent.id}`)?.note).toContain("支出には入っていません");
+    expect(groupsOf(buildStage("care", withAllowance)).find((g) => g.key === `family/${parent.id}`)?.note).toContain("支出には入っていません");
   });
 
   it("塾・習い事の月謝は、統計の平均の学校外活動費（塾・習い事を含む）の上に足すと説明する", () => {
