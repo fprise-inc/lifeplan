@@ -349,6 +349,15 @@ fn every_format_version_has_a_fixture_and_opens() {
                 .filter_map(|d| d["op"].as_str())
                 .collect();
             assert!(ops.contains(&"add") && ops.contains(&"remove"));
+            // 0.16 の鍵から読み替えた前提の差分（legacy つきで当て先に読めたもの）
+            assert!(now["proposals"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|p| p["diffs"].as_array().unwrap().iter())
+                .any(|d| d["target"]["plan"] == "assumptions"
+                    && d["legacy"].is_object()
+                    && d.get("unresolved").is_none()));
         }
         // 鍵が違えば開かない
         let mut wrong = key;

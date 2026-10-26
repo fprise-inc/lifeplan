@@ -1577,7 +1577,7 @@
             "value": 480000
           },
           "enabled": true,
-          "id": "94351dad-36c9-425e-879c-21fb6bf7d802",
+          "id": "c54fcf35-953b-4426-b9f9-6c3c3c3b1e5e",
           "item": "livingExpense.monthly",
           "note": null,
           "op": "set",
@@ -1585,8 +1585,7 @@
             "kind": "manual"
           },
           "target": {
-            "lever": "livingMonthly",
-            "object": "be4b5672-eb4d-47c6-a10e-d054bcbeed82"
+            "lever": "livingMonthly"
           },
           "value": {
             "origin": {
@@ -1597,13 +1596,13 @@
           }
         }
       ],
-      "id": "f22516d3-0270-449c-9d66-9a77ebe088cd",
+      "id": "3ecac582-9dfc-4b19-8a01-2d1decad1a8a",
       "tags": [],
       "title": "プランB 生活費を28万円に",
       "updatedAt": "2026-10-18T10:00:00.000Z"
     },
     {
-      "base": "f22516d3-0270-449c-9d66-9a77ebe088cd",
+      "base": "3ecac582-9dfc-4b19-8a01-2d1decad1a8a",
       "createdAt": "2026-10-18T10:00:00.000Z",
       "diffs": [
         {
@@ -1616,7 +1615,7 @@
             "value": 60
           },
           "enabled": true,
-          "id": "a971d32c-23a6-434c-b90c-680dc077c5f3",
+          "id": "786c9e7a-202d-4d4a-8826-d0af1e5c2177",
           "item": "employment.to",
           "note": null,
           "op": "set",
@@ -1624,8 +1623,7 @@
             "kind": "manual"
           },
           "target": {
-            "lever": "retireAge",
-            "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e"
+            "lever": "retireAge"
           },
           "value": {
             "origin": {
@@ -1636,7 +1634,7 @@
           }
         }
       ],
-      "id": "2719c8c2-42cc-4555-81e0-9a104828ab11",
+      "id": "d5b36be0-a00c-4266-965c-230b682ae68e",
       "tags": [
         "老後"
       ],
@@ -1657,7 +1655,7 @@
             "value": 2078
           },
           "enabled": true,
-          "id": "3cc35fb5-f9de-4cbf-9f50-39a126c18ad3",
+          "id": "7d61cf2e-e06a-4ae7-b932-e3de43db69de",
           "item": "plan.endYear",
           "note": null,
           "op": "set",
@@ -1685,7 +1683,7 @@
             "value": 7200000
           },
           "enabled": true,
-          "id": "73d60ca3-488f-4c29-b63f-f2256db4dd67",
+          "id": "4264ee50-eae7-41bf-aa1f-2ecfecb2e27c",
           "item": "account.marketValue",
           "note": null,
           "op": "set",
@@ -1704,7 +1702,7 @@
           }
         }
       ],
-      "id": "dce888ee-535b-4fae-bc3a-c222afef6b71",
+      "id": "e53d4c12-32fa-4e34-89f2-31579af97128",
       "tags": [],
       "title": "プランD 資産を足す・表を2085年まで",
       "updatedAt": "2026-10-18T10:00:00.000Z"
@@ -1878,6 +1876,43 @@
           "value": null
         },
         {
+          "at": [
+            "default"
+          ],
+          "before": {
+            "origin": {
+              "kind": "manual"
+            },
+            "state": "confirmed",
+            "value": "0.01"
+          },
+          "enabled": true,
+          "id": "00000000-0000-4000-8000-0000000000f6",
+          "item": "assumptions.inflation",
+          "legacy": {
+            "item": "assumptions.inflation",
+            "key": "field:assume/inflation",
+            "target": {
+              "plan": "assumptions"
+            }
+          },
+          "note": null,
+          "op": "set",
+          "origin": {
+            "kind": "manual"
+          },
+          "target": {
+            "plan": "assumptions"
+          },
+          "value": {
+            "origin": {
+              "kind": "manual"
+            },
+            "state": "confirmed",
+            "value": "0.015"
+          }
+        },
+        {
           "at": null,
           "before": {
             "origin": {
@@ -1925,7 +1960,7 @@
       "appVersion": "0.1.0",
       "baseMonth": "2026-10",
       "createdAt": "2026-10-19T14:00:00+09:00",
-      "digest": "sha256:a6ddae6b15ac01a1c8813b690d0165b7de6489441e4df73af15ef925223d0b38",
+      "digest": "sha256:7453f5a5196742268a56d5e6c84f3f62433873c205a8a320b3fc0b3b7f8b0042",
       "id": "00000000-0000-4000-8000-0000000000c1",
       "inputs": {
         "contingency": {
@@ -1939,6 +1974,7 @@
             "createdAt": "2026-10-18T10:00:00.000Z",
             "diffs": [
               {
+                "at": [],
                 "before": {
                   "origin": {
                     "kind": "manual"
@@ -1947,16 +1983,15 @@
                   "value": 480000
                 },
                 "enabled": true,
-                "id": "94351dad-36c9-425e-879c-21fb6bf7d802",
+                "id": "c54fcf35-953b-4426-b9f9-6c3c3c3b1e5e",
                 "item": "livingExpense.monthly",
-                "key": "lever:livingMonthly",
                 "note": null,
                 "op": "set",
                 "origin": {
                   "kind": "manual"
                 },
                 "target": {
-                  "object": "be4b5672-eb4d-47c6-a10e-d054bcbeed82"
+                  "lever": "livingMonthly"
                 },
                 "value": {
                   "origin": {
@@ -1967,16 +2002,17 @@
                 }
               }
             ],
-            "id": "f22516d3-0270-449c-9d66-9a77ebe088cd",
+            "id": "3ecac582-9dfc-4b19-8a01-2d1decad1a8a",
             "name": "プランB 生活費を28万円に",
             "tags": [],
             "updatedAt": "2026-10-18T10:00:00.000Z"
           },
           {
-            "base": "f22516d3-0270-449c-9d66-9a77ebe088cd",
+            "base": "3ecac582-9dfc-4b19-8a01-2d1decad1a8a",
             "createdAt": "2026-10-18T10:00:00.000Z",
             "diffs": [
               {
+                "at": [],
                 "before": {
                   "origin": {
                     "kind": "manual"
@@ -1985,16 +2021,15 @@
                   "value": 60
                 },
                 "enabled": true,
-                "id": "a971d32c-23a6-434c-b90c-680dc077c5f3",
+                "id": "786c9e7a-202d-4d4a-8826-d0af1e5c2177",
                 "item": "employment.to",
-                "key": "lever:retireAge",
                 "note": null,
                 "op": "set",
                 "origin": {
                   "kind": "manual"
                 },
                 "target": {
-                  "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e"
+                  "lever": "retireAge"
                 },
                 "value": {
                   "origin": {
@@ -2005,7 +2040,7 @@
                 }
               }
             ],
-            "id": "2719c8c2-42cc-4555-81e0-9a104828ab11",
+            "id": "d5b36be0-a00c-4266-965c-230b682ae68e",
             "name": "プランC プランB＋70歳まで働く",
             "tags": [
               "老後"
@@ -2017,6 +2052,7 @@
             "createdAt": "2026-10-18T10:00:00.000Z",
             "diffs": [
               {
+                "at": [],
                 "before": {
                   "origin": {
                     "kind": "manual"
@@ -2025,16 +2061,15 @@
                   "value": 2078
                 },
                 "enabled": true,
-                "id": "3cc35fb5-f9de-4cbf-9f50-39a126c18ad3",
+                "id": "7d61cf2e-e06a-4ae7-b932-e3de43db69de",
                 "item": "plan.endYear",
-                "key": "field:assume/endYear",
                 "note": null,
                 "op": "set",
                 "origin": {
                   "kind": "manual"
                 },
                 "target": {
-                  "plan": "assumptions"
+                  "plan": "input"
                 },
                 "value": {
                   "origin": {
@@ -2045,6 +2080,7 @@
                 }
               },
               {
+                "at": [],
                 "before": {
                   "origin": {
                     "kind": "manual"
@@ -2053,9 +2089,8 @@
                   "value": 7200000
                 },
                 "enabled": true,
-                "id": "73d60ca3-488f-4c29-b63f-f2256db4dd67",
+                "id": "4264ee50-eae7-41bf-aa1f-2ecfecb2e27c",
                 "item": "account.marketValue",
-                "key": "field:sav/b6088c23-3c27-45c8-99a5-ce3b42939948/value",
                 "note": null,
                 "op": "set",
                 "origin": {
@@ -2073,7 +2108,7 @@
                 }
               }
             ],
-            "id": "dce888ee-535b-4fae-bc3a-c222afef6b71",
+            "id": "e53d4c12-32fa-4e34-89f2-31579af97128",
             "name": "プランD 資産を足す・表を2085年まで",
             "tags": [],
             "updatedAt": "2026-10-18T10:00:00.000Z"
@@ -2135,6 +2170,7 @@
                     "from": {
                       "at": "2038-04"
                     },
+                    "id": "cdd6b973-8d6b-4e9c-92a6-b930c0fea70d",
                     "ratio": "0.8"
                   }
                 ],
@@ -2203,6 +2239,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "3e9a9a2e-8715-453c-8a59-2c551b4f8fdf",
                       "monthly": 50000,
                       "to": {
                         "at": "2031-04"
@@ -2212,6 +2249,7 @@
                       "from": {
                         "at": "2031-05"
                       },
+                      "id": "5bebaeed-ad1c-4575-b210-164955343d40",
                       "monthly": 80000,
                       "to": null
                     },
@@ -2219,6 +2257,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "3a56c542-9f55-49dd-9af1-a1e3b102d6fb",
                       "monthly": 30000,
                       "to": {
                         "at": "2033-12"
@@ -2265,6 +2304,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "706308ba-ca32-4844-af2c-64b0fea22abe",
                       "monthly": 40000,
                       "to": null
                     }
@@ -2308,6 +2348,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "8f09b66a-4d30-4432-825a-119ad68a3ee2",
                       "monthly": 20000,
                       "to": null
                     }
@@ -2347,6 +2388,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "efa4b4c7-7c3a-43bf-8793-68173fe995b4",
                       "monthly": 23000,
                       "to": null
                     }
@@ -2388,6 +2430,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "ea820737-c7e6-439a-a5b0-745b10e35221",
                       "monthly": 30000,
                       "payer": "employer",
                       "to": null
@@ -2460,6 +2503,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "0d6b351c-a0b5-43f4-b8f0-15b4db2802e4",
                       "monthly": 10000,
                       "to": null
                     }
@@ -2489,6 +2533,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "01011af0-ff99-4b25-a10a-cf907a1fcf63",
                       "monthly": 20000,
                       "to": null
                     }
@@ -2682,6 +2727,7 @@
                       "from": {
                         "at": "2012-04"
                       },
+                      "id": "6281d3f0-710b-45c5-8287-305bf1734854",
                       "rate": "0.006",
                       "type": "variable"
                     },
@@ -2689,6 +2735,7 @@
                       "from": {
                         "at": "2031-04"
                       },
+                      "id": "ed502a98-e7e0-426a-baea-340c2f7c8c03",
                       "rate": "0.01",
                       "type": "variable"
                     },
@@ -2696,6 +2743,7 @@
                       "from": {
                         "at": "2036-04"
                       },
+                      "id": "8f0ac2af-94d9-4f29-b958-da744df58e2b",
                       "rate": "0.015",
                       "type": "variable"
                     }
@@ -2736,6 +2784,7 @@
                       "from": {
                         "at": "2024-04"
                       },
+                      "id": "20b6cd8b-49ee-4a74-b8e9-311b9ead7266",
                       "rate": "0.029",
                       "type": "fixed"
                     }
@@ -2772,6 +2821,7 @@
                       "from": {
                         "at": "2016-03"
                       },
+                      "id": "ebfa902a-9384-44c9-b9c9-0d148258a99a",
                       "rate": "0.018",
                       "type": "fixed"
                     }
@@ -2921,6 +2971,7 @@
                         "from": {
                           "at": "2026-10"
                         },
+                        "id": "5c57b94b-4692-4448-9205-1e5937555be9",
                         "label": "塾",
                         "monthly": 35000,
                         "to": {
@@ -2931,6 +2982,7 @@
                     "schoolLunch": "free",
                     "stages": [
                       {
+                        "id": "b723f795-0823-4478-91eb-4190573678c6",
                         "sector": "private",
                         "stage": "highSchool"
                       },
@@ -2939,6 +2991,7 @@
                           "amount": 300000
                         },
                         "field": "science",
+                        "id": "aede970f-967e-4178-9d1e-4c26f30611fe",
                         "living": "home",
                         "sector": "private",
                         "stage": "university"
@@ -2956,6 +3009,7 @@
                         "from": {
                           "at": "2026-10"
                         },
+                        "id": "845ee756-69fe-44da-91ee-c2c30574e276",
                         "label": "塾",
                         "monthly": 50000,
                         "to": {
@@ -2965,6 +3019,7 @@
                     ],
                     "stages": [
                       {
+                        "id": "ee42a62d-2094-48ab-9856-622f9e23ea0c",
                         "sector": "public",
                         "stage": "elementary"
                       },
@@ -2972,14 +3027,17 @@
                         "exam": {
                           "amount": 200000
                         },
+                        "id": "9464e848-9a31-4549-b8b0-facbc622e0bd",
                         "sector": "private",
                         "stage": "juniorHigh"
                       },
                       {
+                        "id": "62ec4aab-9f76-4e17-8a1b-a6bf847045dc",
                         "sector": "private",
                         "stage": "highSchool"
                       },
                       {
+                        "id": "89707eeb-324c-4973-a56e-c64106ce5f7b",
                         "living": "away",
                         "sector": "national",
                         "stage": "university"
@@ -2996,6 +3054,7 @@
                       {
                         "feeRatio": "0.6",
                         "hours": "short",
+                        "id": "c5fa1139-115a-4ff0-a5c2-b1031ee78d98",
                         "stage": "nursery"
                       }
                     ]
@@ -3063,6 +3122,7 @@
                       "at": {
                         "at": "2037-04"
                       },
+                      "id": "6c4ef9b0-9c6b-4a85-9294-8a630e960a3a",
                       "label": "childIndependence",
                       "ratio": "0.85"
                     },
@@ -3070,6 +3130,7 @@
                       "at": {
                         "at": "2038-05"
                       },
+                      "id": "bf03b1db-94c5-41ca-8cb2-f8cf6cdda719",
                       "label": "retirement",
                       "ratio": "0.8"
                     },
@@ -3081,6 +3142,7 @@
                           "years": 80
                         }
                       },
+                      "id": "1f82791b-e79c-4d3a-86f9-da835d183003",
                       "label": "age80",
                       "ratio": "0.7"
                     }
@@ -3252,27 +3314,32 @@
                   "a": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
                   "b": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
                   "from": null,
+                  "id": "2dfa2139-6091-4b32-8dba-dffba8b4cee6",
                   "marriage": "legal",
                   "to": null,
                   "type": "spouse"
                 },
                 {
                   "child": "28536514-9823-41fe-acbc-8e2252f312cc",
+                  "id": "1ef81a10-553b-4abb-9bc9-0784e53ecc56",
                   "parent": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
                   "type": "parentOf"
                 },
                 {
                   "child": "28536514-9823-41fe-acbc-8e2252f312cc",
+                  "id": "8ec901e2-7705-47c3-b9ea-d2b2056c85a7",
                   "parent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
                   "type": "parentOf"
                 },
                 {
                   "child": "9433a3cf-6bc6-48b8-abe9-10d32087e8d5",
+                  "id": "480093fb-a89b-4c5a-80ff-855d1ec48b74",
                   "parent": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
                   "type": "parentOf"
                 },
                 {
                   "child": "9433a3cf-6bc6-48b8-abe9-10d32087e8d5",
+                  "id": "e5fa226f-c405-480b-aec9-86b6a8570b60",
                   "parent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
                   "type": "parentOf"
                 },
@@ -3393,7 +3460,7 @@
       },
       "memo": "提案書（16ページ）",
       "plan": {
-        "id": "2719c8c2-42cc-4555-81e0-9a104828ab11",
+        "id": "d5b36be0-a00c-4266-965c-230b682ae68e",
         "letter": "C",
         "name": "プランB＋70歳まで働く"
       },
@@ -3403,7 +3470,7 @@
       "appVersion": "0.1.0",
       "baseMonth": "2026-10",
       "createdAt": "2026-10-21T14:00:00+09:00",
-      "digest": "sha256:3a03289989c1256da0e17ddd0c13adb02fb4b6d6f6e89f9fc3f5a5507d36eca9",
+      "digest": "sha256:4aeee6d7f8c6f41b21a8cb550d0f2a76f8b7bf0c57ef280265737574ce5e13a6",
       "id": "00000000-0000-4000-8000-0000000000c2",
       "inputs": {
         "contingency": {
@@ -3417,6 +3484,7 @@
             "createdAt": "2026-10-18T10:00:00.000Z",
             "diffs": [
               {
+                "at": [],
                 "before": {
                   "origin": {
                     "kind": "manual"
@@ -3425,16 +3493,15 @@
                   "value": 480000
                 },
                 "enabled": true,
-                "id": "94351dad-36c9-425e-879c-21fb6bf7d802",
+                "id": "c54fcf35-953b-4426-b9f9-6c3c3c3b1e5e",
                 "item": "livingExpense.monthly",
-                "key": "lever:livingMonthly",
                 "note": null,
                 "op": "set",
                 "origin": {
                   "kind": "manual"
                 },
                 "target": {
-                  "object": "be4b5672-eb4d-47c6-a10e-d054bcbeed82"
+                  "lever": "livingMonthly"
                 },
                 "value": {
                   "origin": {
@@ -3445,16 +3512,17 @@
                 }
               }
             ],
-            "id": "f22516d3-0270-449c-9d66-9a77ebe088cd",
+            "id": "3ecac582-9dfc-4b19-8a01-2d1decad1a8a",
             "name": "プランB 生活費を28万円に",
             "tags": [],
             "updatedAt": "2026-10-18T10:00:00.000Z"
           },
           {
-            "base": "f22516d3-0270-449c-9d66-9a77ebe088cd",
+            "base": "3ecac582-9dfc-4b19-8a01-2d1decad1a8a",
             "createdAt": "2026-10-18T10:00:00.000Z",
             "diffs": [
               {
+                "at": [],
                 "before": {
                   "origin": {
                     "kind": "manual"
@@ -3463,16 +3531,15 @@
                   "value": 60
                 },
                 "enabled": true,
-                "id": "a971d32c-23a6-434c-b90c-680dc077c5f3",
+                "id": "786c9e7a-202d-4d4a-8826-d0af1e5c2177",
                 "item": "employment.to",
-                "key": "lever:retireAge",
                 "note": null,
                 "op": "set",
                 "origin": {
                   "kind": "manual"
                 },
                 "target": {
-                  "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e"
+                  "lever": "retireAge"
                 },
                 "value": {
                   "origin": {
@@ -3483,7 +3550,7 @@
                 }
               }
             ],
-            "id": "2719c8c2-42cc-4555-81e0-9a104828ab11",
+            "id": "d5b36be0-a00c-4266-965c-230b682ae68e",
             "name": "プランC プランB＋70歳まで働く",
             "tags": [
               "老後"
@@ -3495,6 +3562,7 @@
             "createdAt": "2026-10-18T10:00:00.000Z",
             "diffs": [
               {
+                "at": [],
                 "before": {
                   "origin": {
                     "kind": "manual"
@@ -3503,16 +3571,15 @@
                   "value": 2078
                 },
                 "enabled": true,
-                "id": "3cc35fb5-f9de-4cbf-9f50-39a126c18ad3",
+                "id": "7d61cf2e-e06a-4ae7-b932-e3de43db69de",
                 "item": "plan.endYear",
-                "key": "field:assume/endYear",
                 "note": null,
                 "op": "set",
                 "origin": {
                   "kind": "manual"
                 },
                 "target": {
-                  "plan": "assumptions"
+                  "plan": "input"
                 },
                 "value": {
                   "origin": {
@@ -3523,6 +3590,7 @@
                 }
               },
               {
+                "at": [],
                 "before": {
                   "origin": {
                     "kind": "manual"
@@ -3531,9 +3599,8 @@
                   "value": 7200000
                 },
                 "enabled": true,
-                "id": "73d60ca3-488f-4c29-b63f-f2256db4dd67",
+                "id": "4264ee50-eae7-41bf-aa1f-2ecfecb2e27c",
                 "item": "account.marketValue",
-                "key": "field:sav/b6088c23-3c27-45c8-99a5-ce3b42939948/value",
                 "note": null,
                 "op": "set",
                 "origin": {
@@ -3551,7 +3618,7 @@
                 }
               }
             ],
-            "id": "dce888ee-535b-4fae-bc3a-c222afef6b71",
+            "id": "e53d4c12-32fa-4e34-89f2-31579af97128",
             "name": "プランD 資産を足す・表を2085年まで",
             "tags": [],
             "updatedAt": "2026-10-18T10:00:00.000Z"
@@ -3613,6 +3680,7 @@
                     "from": {
                       "at": "2038-04"
                     },
+                    "id": "cdd6b973-8d6b-4e9c-92a6-b930c0fea70d",
                     "ratio": "0.8"
                   }
                 ],
@@ -3681,6 +3749,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "3e9a9a2e-8715-453c-8a59-2c551b4f8fdf",
                       "monthly": 50000,
                       "to": {
                         "at": "2031-04"
@@ -3690,6 +3759,7 @@
                       "from": {
                         "at": "2031-05"
                       },
+                      "id": "5bebaeed-ad1c-4575-b210-164955343d40",
                       "monthly": 80000,
                       "to": null
                     },
@@ -3697,6 +3767,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "3a56c542-9f55-49dd-9af1-a1e3b102d6fb",
                       "monthly": 30000,
                       "to": {
                         "at": "2033-12"
@@ -3743,6 +3814,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "706308ba-ca32-4844-af2c-64b0fea22abe",
                       "monthly": 40000,
                       "to": null
                     }
@@ -3786,6 +3858,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "8f09b66a-4d30-4432-825a-119ad68a3ee2",
                       "monthly": 20000,
                       "to": null
                     }
@@ -3825,6 +3898,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "efa4b4c7-7c3a-43bf-8793-68173fe995b4",
                       "monthly": 23000,
                       "to": null
                     }
@@ -3866,6 +3940,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "ea820737-c7e6-439a-a5b0-745b10e35221",
                       "monthly": 30000,
                       "payer": "employer",
                       "to": null
@@ -3938,6 +4013,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "0d6b351c-a0b5-43f4-b8f0-15b4db2802e4",
                       "monthly": 10000,
                       "to": null
                     }
@@ -3967,6 +4043,7 @@
                       "from": {
                         "at": "2026-10"
                       },
+                      "id": "01011af0-ff99-4b25-a10a-cf907a1fcf63",
                       "monthly": 20000,
                       "to": null
                     }
@@ -4160,6 +4237,7 @@
                       "from": {
                         "at": "2012-04"
                       },
+                      "id": "6281d3f0-710b-45c5-8287-305bf1734854",
                       "rate": "0.006",
                       "type": "variable"
                     },
@@ -4167,6 +4245,7 @@
                       "from": {
                         "at": "2031-04"
                       },
+                      "id": "ed502a98-e7e0-426a-baea-340c2f7c8c03",
                       "rate": "0.01",
                       "type": "variable"
                     },
@@ -4174,6 +4253,7 @@
                       "from": {
                         "at": "2036-04"
                       },
+                      "id": "8f0ac2af-94d9-4f29-b958-da744df58e2b",
                       "rate": "0.015",
                       "type": "variable"
                     }
@@ -4214,6 +4294,7 @@
                       "from": {
                         "at": "2024-04"
                       },
+                      "id": "20b6cd8b-49ee-4a74-b8e9-311b9ead7266",
                       "rate": "0.029",
                       "type": "fixed"
                     }
@@ -4250,6 +4331,7 @@
                       "from": {
                         "at": "2016-03"
                       },
+                      "id": "ebfa902a-9384-44c9-b9c9-0d148258a99a",
                       "rate": "0.018",
                       "type": "fixed"
                     }
@@ -4399,6 +4481,7 @@
                         "from": {
                           "at": "2026-10"
                         },
+                        "id": "5c57b94b-4692-4448-9205-1e5937555be9",
                         "label": "塾",
                         "monthly": 35000,
                         "to": {
@@ -4409,6 +4492,7 @@
                     "schoolLunch": "free",
                     "stages": [
                       {
+                        "id": "b723f795-0823-4478-91eb-4190573678c6",
                         "sector": "private",
                         "stage": "highSchool"
                       },
@@ -4417,6 +4501,7 @@
                           "amount": 300000
                         },
                         "field": "science",
+                        "id": "aede970f-967e-4178-9d1e-4c26f30611fe",
                         "living": "home",
                         "sector": "private",
                         "stage": "university"
@@ -4434,6 +4519,7 @@
                         "from": {
                           "at": "2026-10"
                         },
+                        "id": "845ee756-69fe-44da-91ee-c2c30574e276",
                         "label": "塾",
                         "monthly": 50000,
                         "to": {
@@ -4443,6 +4529,7 @@
                     ],
                     "stages": [
                       {
+                        "id": "ee42a62d-2094-48ab-9856-622f9e23ea0c",
                         "sector": "public",
                         "stage": "elementary"
                       },
@@ -4450,14 +4537,17 @@
                         "exam": {
                           "amount": 200000
                         },
+                        "id": "9464e848-9a31-4549-b8b0-facbc622e0bd",
                         "sector": "private",
                         "stage": "juniorHigh"
                       },
                       {
+                        "id": "62ec4aab-9f76-4e17-8a1b-a6bf847045dc",
                         "sector": "private",
                         "stage": "highSchool"
                       },
                       {
+                        "id": "89707eeb-324c-4973-a56e-c64106ce5f7b",
                         "living": "away",
                         "sector": "national",
                         "stage": "university"
@@ -4474,6 +4564,7 @@
                       {
                         "feeRatio": "0.6",
                         "hours": "short",
+                        "id": "c5fa1139-115a-4ff0-a5c2-b1031ee78d98",
                         "stage": "nursery"
                       }
                     ]
@@ -4541,6 +4632,7 @@
                       "at": {
                         "at": "2037-04"
                       },
+                      "id": "6c4ef9b0-9c6b-4a85-9294-8a630e960a3a",
                       "label": "childIndependence",
                       "ratio": "0.85"
                     },
@@ -4548,6 +4640,7 @@
                       "at": {
                         "at": "2038-05"
                       },
+                      "id": "bf03b1db-94c5-41ca-8cb2-f8cf6cdda719",
                       "label": "retirement",
                       "ratio": "0.8"
                     },
@@ -4559,6 +4652,7 @@
                           "years": 80
                         }
                       },
+                      "id": "1f82791b-e79c-4d3a-86f9-da835d183003",
                       "label": "age80",
                       "ratio": "0.7"
                     }
@@ -4730,27 +4824,32 @@
                   "a": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
                   "b": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
                   "from": null,
+                  "id": "2dfa2139-6091-4b32-8dba-dffba8b4cee6",
                   "marriage": "legal",
                   "to": null,
                   "type": "spouse"
                 },
                 {
                   "child": "28536514-9823-41fe-acbc-8e2252f312cc",
+                  "id": "1ef81a10-553b-4abb-9bc9-0784e53ecc56",
                   "parent": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
                   "type": "parentOf"
                 },
                 {
                   "child": "28536514-9823-41fe-acbc-8e2252f312cc",
+                  "id": "8ec901e2-7705-47c3-b9ea-d2b2056c85a7",
                   "parent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
                   "type": "parentOf"
                 },
                 {
                   "child": "9433a3cf-6bc6-48b8-abe9-10d32087e8d5",
+                  "id": "480093fb-a89b-4c5a-80ff-855d1ec48b74",
                   "parent": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
                   "type": "parentOf"
                 },
                 {
                   "child": "9433a3cf-6bc6-48b8-abe9-10d32087e8d5",
+                  "id": "e5fa226f-c405-480b-aec9-86b6a8570b60",
                   "parent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
                   "type": "parentOf"
                 },
@@ -4871,7 +4970,7 @@
       },
       "memo": "持ち帰り用のレポート（プラン3つ・パスワードつき）",
       "plan": {
-        "id": "2719c8c2-42cc-4555-81e0-9a104828ab11",
+        "id": "d5b36be0-a00c-4266-965c-230b682ae68e",
         "letter": "C",
         "name": "プランB＋70歳まで働く"
       },
@@ -5042,11 +5141,11 @@
   },
   "workspace": {
     "band": [
-      "f22516d3-0270-449c-9d66-9a77ebe088cd",
-      "2719c8c2-42cc-4555-81e0-9a104828ab11"
+      "3ecac582-9dfc-4b19-8a01-2d1decad1a8a",
+      "d5b36be0-a00c-4266-965c-230b682ae68e"
     ],
     "base": "current",
-    "selected": "2719c8c2-42cc-4555-81e0-9a104828ab11",
+    "selected": "d5b36be0-a00c-4266-965c-230b682ae68e",
     "shownItems": [
       {
         "at": [],

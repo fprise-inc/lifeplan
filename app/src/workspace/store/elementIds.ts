@@ -73,12 +73,17 @@ export function giveElementIds(input: Json, make: MakeId = placeId): void {
   for (const p of ASSUMPTION_LISTS) giveIds(getPath(input.assumptions, p), `assumptions/${p.join("/")}`, make);
 }
 
-/** ID の無い要素があるか（無ければ写しを作らずに済ませるため） */
+const FOUND = Symbol("ID の無い要素");
+
+/** ID の無い要素があるか（無ければ写しを作らずに済ませるため。世帯は書き換えない: 最初の1つで止める） */
 export function lacksElementIds(input: Json): boolean {
-  let missing = false;
-  giveElementIds(structuredClone(input), (place, used) => {
-    missing = true;
-    return placeId(place, used);
-  });
-  return missing;
+  try {
+    giveElementIds(input, () => {
+      throw FOUND;
+    });
+  } catch (e) {
+    if (e === FOUND) return true;
+    throw e;
+  }
+  return false;
 }
