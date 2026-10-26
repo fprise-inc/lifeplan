@@ -64,7 +64,7 @@ export function buildStage(id: StageId, wh: WorkingHousehold): StageDef {
   const stage = BUILDERS[id](wh);
   if (!MONEY_CARDS.has(id)) return stage;
   // ピンにした物も属するカードに出す（ピンは見せ方だけ。0045）
-  const money = moneySections(wh, id as MoneyCard, { claimed: NONE_CLAIMED });
+  const money = moneySections(wh, id as MoneyCard, { claimed: NONE_CLAIMED, ...(id === "work" ? { level: "simple" as const, inTitle: "入るお金（副業・その他の働く収入・売却代金など）" } : {}) });
   return money.length === 0 ? stage : { ...stage, sections: [...stage.sections, ...money] };
 }
 

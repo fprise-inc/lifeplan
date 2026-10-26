@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyImport, approvalTime, defaultSelection, defaultSheet, exportSheet, importSheet, logOf, withRequest } from "../src/workspace/hearing/sheet.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { fillAll, gapsOf } from "../src/workspace/input/fill.ts";
 import { inputItems } from "../src/workspace/input/items.ts";
 import { allFields } from "../src/workspace/input/form.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
@@ -80,8 +81,11 @@ describe("見本の記入済みシートを空の世帯に取り込む", () => {
     // 計算エンジンが受け付ける（出どころ「ヒアリング」の値は承認の記録が要る）
     const res = preview(withRefreshedEstimates(out.wh).request);
     expect(res.table.length).toBeGreaterThan(0);
-    // 入力のホームのカード: 未入力が減り、仕事・住まい・保険などが入る
-    const after = inputItems(withRefreshedEstimates(out.wh));
+    // 入力のホームのカード: 未入力が減り、仕事・住まい・保険などが入る。取り込んだ働き方の失業給付は推定で入れない（確かめの一覧の
+    // 「失業給付を入れていません」だけが残る）ので、推定で埋めてから見る
+    const workGaps = gapsOf(out.wh).filter((g) => g.card === "work");
+    expect(workGaps.every((g) => g.id.startsWith("work/unemployment/"))).toBe(true);
+    const after = inputItems(withRefreshedEstimates(fillAll(out.wh, "work").wh));
     const none = (xs: typeof before) => xs.filter((i) => i.status === "missing").map((i) => i.id);
     expect(none(after).length).toBeLessThan(none(before).length);
     for (const id of ["work", "insurance"]) {
