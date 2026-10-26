@@ -66,8 +66,9 @@ export function fillEducation(wh: WorkingHousehold, childId: string): WorkingHou
   const stages = defaultStages(child, wh.request.input.baseMonth);
   if (stages.length === 0) return wh;
   const id = newId();
+  // 新しく入れる進路は、学校外の費用を「統計の平均で」で始める（行を足すときは「行で入れる」に切り替える。0062）
   return mutate(wh, (hh, req) => {
-    (hh.goals ??= []).push({ id, kind: "education", owner: childId, education: { stages } });
+    (hh.goals ??= []).push({ id, kind: "education", owner: childId, education: { stages: stages.map((s) => ({ id: newId(), ...s })), outOfSchoolMode: "statistics" } });
     putRow(req.input as unknown as Obj, educationStagesAddress(id), estimatedRow("standard", EDUCATION_BASIS));
   });
 }
@@ -94,7 +95,7 @@ export function refreshEducation(h: Household, baseMonth: string): void {
     if (child === undefined) continue;
     const next = defaultStages(child, baseMonth);
     const strip = (s: readonly EducationStage[]) => JSON.stringify(s.map(({ id: _id, ...rest }) => rest));
-    if (strip(next) !== strip(g.education.stages)) g.education.stages = next;
+    if (strip(next) !== strip(g.education.stages)) g.education.stages = next.map((s) => ({ id: newId(), ...s }));
   }
 }
 

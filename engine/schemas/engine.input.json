@@ -2209,8 +2209,12 @@
                 }
               }
             },
+            "outOfSchoolMode": {
+              "description": "学校外の費用の入れ方（0062）: statistics は段の学校外活動費（統計の平均）だけで、塾・習い事の行は数えない。rows は塾・習い事の行だけで、段の学校外活動費は数えない。省略は前の形（段の学校外活動費に行を足す）",
+              "enum": ["statistics", "rows"]
+            },
             "lessons": {
-              "description": "塾・習い事（統計の学校外活動費に足す）",
+              "description": "塾・習い事（学校外の費用の行。入れ方 outOfSchoolMode が省略なら統計の学校外活動費に足す、rows なら行だけ、statistics なら数えない）",
               "type": "array",
               "items": {
                 "type": "object",
@@ -2221,7 +2225,8 @@
                   "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "to": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-                  "label": { "type": "string", "maxLength": 80 }
+                  "label": { "type": "string", "maxLength": 80 },
+                  "kind": { "enum": ["cram", "lesson", "other"], "description": "行の種類（塾・習い事・その他。表示と既定の名前だけで、計算には使わない。0062）" }
                 }
               }
             },

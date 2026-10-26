@@ -1,5 +1,5 @@
 // 自動生成（hearing/scripts/statistics.ts。npm run statistics）。手で書き換えない。
-// 正本は data/master（wageStats・retirementBenefit・living.statistics）と data/regulation の YAML（0007）。推定の目安の数の写し
+// 正本は data/master（wageStats・retirementBenefit・living.statistics・education.statistics）と data/regulation の YAML（0007）。推定の目安の数の写し
 import type { DatedValue, MasterValue } from "./statistics.ts";
 
 export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
@@ -2783,6 +2783,279 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
+ },
+ "education.statistics.boarding.annual": {
+  "title": "自宅外通学の仕送りの年額（教育費負担の実態調査）",
+  "value": 958000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.boarding.initial": {
+  "title": "自宅外通学を始めるための費用（教育費負担の実態調査）",
+  "value": 387000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.elementary.private.outOfSchool": {
+  "title": "学校外活動費の年額（私立小学校）",
+  "value": 709667,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.elementary.private.total": {
+  "title": "学習費総額の年額（私立小学校。子供の学習費調査）",
+  "value": 1741516,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.elementary.public.outOfSchool": {
+  "title": "学校外活動費の年額（公立小学校）",
+  "value": 256489,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.elementary.public.schoolLunch": {
+  "title": "学校給食費の年額（公立小学校。子供の学習費調査。学習費総額のうち）",
+  "value": 35774,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-20"
+ },
+ "education.statistics.elementary.public.total": {
+  "title": "学習費総額の年額（公立小学校。子供の学習費調査）",
+  "value": 366599,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.highSchool.private.outOfSchool": {
+  "title": "学校外活動費の年額（私立高校）",
+  "value": 346611,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.highSchool.private.total": {
+  "title": "学習費総額の年額（私立高等学校（全日制）。子供の学習費調査）",
+  "value": 1179261,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.highSchool.public.outOfSchool": {
+  "title": "学校外活動費の年額（公立高校）",
+  "value": 245431,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.highSchool.public.total": {
+  "title": "学習費総額の年額（公立高等学校（全日制）。子供の学習費調査）",
+  "value": 596954,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorCollege.private.admission": {
+  "title": "私立短期大学の入学料の平均（令和7年度入学者）",
+  "value": 236054,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorCollege.private.facility": {
+  "title": "私立短期大学の施設設備費の平均（令和7年度入学者）",
+  "value": 170132,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorCollege.private.tuition": {
+  "title": "私立短期大学の授業料の平均（令和7年度入学者）",
+  "value": 734328,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorHigh.private.outOfSchool": {
+  "title": "学校外活動費の年額（私立中学校）",
+  "value": 422981,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorHigh.private.total": {
+  "title": "学習費総額の年額（私立中学校。子供の学習費調査）",
+  "value": 1560359,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorHigh.public.outOfSchool": {
+  "title": "学校外活動費の年額（公立中学校）",
+  "value": 356018,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorHigh.public.schoolLunch": {
+  "title": "学校給食費の年額（公立中学校。子供の学習費調査。学習費総額のうち）",
+  "value": 35671,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-20"
+ },
+ "education.statistics.juniorHigh.public.total": {
+  "title": "学習費総額の年額（公立中学校。子供の学習費調査）",
+  "value": 542450,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.kindergarten.private.outOfSchool": {
+  "title": "学校外活動費の年額（私立幼稚園）",
+  "value": 157535,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.kindergarten.private.total": {
+  "title": "学習費総額の年額（私立幼稚園。子供の学習費調査）",
+  "value": 347338,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.kindergarten.public.outOfSchool": {
+  "title": "学校外活動費の年額（公立幼稚園）",
+  "value": 100049,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.kindergarten.public.total": {
+  "title": "学習費総額の年額（公立幼稚園。子供の学習費調査）",
+  "value": 184646,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.national.admission": {
+  "title": "国立大学の入学料の標準額",
+  "value": 282000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.national.tuition": {
+  "title": "国立大学の授業料の標準額（年額）",
+  "value": 535800,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.all.admission": {
+  "title": "私立大学の入学料の平均（全体。令和7年度入学者）",
+  "value": 240365,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.all.facility": {
+  "title": "私立大学の施設設備費の平均（全体。令和7年度入学者）",
+  "value": 172550,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.all.tuition": {
+  "title": "私立大学の授業料の平均（全体。令和7年度入学者）",
+  "value": 968069,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.humanities.admission": {
+  "title": "私立大学の入学料の平均（文科系。令和7年度入学者）",
+  "value": 219951,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.humanities.facility": {
+  "title": "私立大学の施設設備費の平均（文科系。令和7年度入学者）",
+  "value": 141892,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.humanities.tuition": {
+  "title": "私立大学の授業料の平均（文科系。令和7年度入学者）",
+  "value": 850392,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.medical.admission": {
+  "title": "私立大学の入学料の平均（医歯系。令和7年度入学者）",
+  "value": 1088248,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.medical.facility": {
+  "title": "私立大学の施設設備費の平均（医歯系。令和7年度入学者）",
+  "value": 865535,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.medical.tuition": {
+  "title": "私立大学の授業料の平均（医歯系。令和7年度入学者）",
+  "value": 2825359,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.science.admission": {
+  "title": "私立大学の入学料の平均（理科系。令和7年度入学者）",
+  "value": 245362,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.science.facility": {
+  "title": "私立大学の施設設備費の平均（理科系。令和7年度入学者）",
+  "value": 161378,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.science.tuition": {
+  "title": "私立大学の授業料の平均（理科系。令和7年度入学者）",
+  "value": 1195313,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.public.admission": {
+  "title": "公立大学の入学料の平均（地域外。令和5年度）",
+  "value": 374371,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.public.tuition": {
+  "title": "公立大学の授業料の平均（年額。令和5年度）",
+  "value": 536191,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
  }
 };
 

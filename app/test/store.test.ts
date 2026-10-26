@@ -172,6 +172,18 @@ function sample022(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/** 0.23 の見本の世帯（0062）: sample022() に、教育の目標の学校外の費用の入れ方（行で入れる）と、塾・習い事の行の種類を足す */
+function sample023(): BodyState {
+  const s = sample022();
+  const req = structuredClone(s.wh.request);
+  const goal = (req.input.household.goals ?? []).find((g) => (g.education?.lessons ?? []).length > 0);
+  if (goal?.education !== undefined) {
+    goal.education.outOfSchoolMode = "rows";
+    goal.education.lessons = (goal.education.lessons ?? []).map((l, i) => ({ ...l, kind: i === 0 ? "cram" : "lesson" }));
+  }
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -295,7 +307,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.22");
+    expect(BODY_FORMAT_VERSION).toBe("0.23");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -443,6 +455,17 @@ describe("世帯ファイルの本文（0011 の2）", () => {
       delete b.education;
     }
     expect(preview(back.wh.request).table).toEqual(preview(plain).table);
+  });
+
+  it("0.23 の形（0062）: 学校外の費用の入れ方と塾・習い事の行の種類を保存して読み戻す。行で入れると統計の平均を足さない", () => {
+    const s = sample023();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const goal = (stored.household.request.input.household.goals ?? []).find((g) => g.education?.outOfSchoolMode === "rows");
+    expect(goal?.education?.lessons?.map((l) => l.kind)).toEqual(goal?.education?.lessons?.map((_, i) => (i === 0 ? "cram" : "lesson")));
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const sum = (r: ReturnType<typeof preview>) => r.table.filter((c) => c.row === "cf.expense.education.outOfSchool").reduce((x, c) => x + c.amount, 0);
+    expect(sum(preview(back.wh.request))).toBeLessThan(sum(preview(sample022().wh.request)));
   });
 
   it("0.21 の形（0052・0053）: 建て方・譲渡所得の税の額・ローンの名前と種類の細目・ローンの入れ方の区分を保存して読み戻す", () => {

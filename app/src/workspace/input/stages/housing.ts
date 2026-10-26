@@ -10,6 +10,7 @@ import { dropProvisionalEvent, withProvisionalHousing } from "../housingCredit.t
 import { BUILDING_STRUCTURES, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import type { StateRow } from "../rows.ts";
 import { formatYen } from "../units.ts";
+import { readGroup, readLine } from "../readLines.ts";
 import { stagedBadge, stagedGroups, type StagedSpec } from "../staged.ts";
 import { at, creditLifeFields, creditLifeGroups, estRow, loanFields, loanMoreActions, loanTitle, LOAN_SUBTYPES, newMortgage, newOtherLoan, otherLoanHeadFields, withEntry } from "./housingLoans.ts";
 
@@ -613,6 +614,22 @@ function newCarLoan(wh: WorkingHousehold): WorkingHousehold {
   });
 }
 
+/** 子の教育ローン・貸与の奨学金（子ども・教育のカードで入れる。ここは読むだけの1行） */
+function educationDebtLines(wh: WorkingHousehold): GroupDef[] {
+  let loans = 0;
+  let scholarships = 0;
+  for (const g of wh.request.input.household.goals ?? []) {
+    loans += (g.education?.loans ?? []).length;
+    scholarships += (g.education?.scholarships ?? []).filter((x) => x.debtor === "parent").length;
+  }
+  const lines = [
+    ...(loans > 0 ? [readLine("housing/eduLoans", "教育ローン", `${loans}件`, "子ども・教育")] : []),
+    ...(scholarships > 0 ? [readLine("housing/eduScholarships", "子の貸与の奨学金（親が返す）", `${scholarships}件`, "子ども・教育")] : []),
+  ];
+  const g = readGroup("housing/eduDebts", undefined, lines);
+  return g === null ? [] : [g];
+}
+
 export function housingStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const selfId = h.members.find((m) => m.kind === "self")?.id;
@@ -684,7 +701,7 @@ export function housingStage(wh: WorkingHousehold): StageDef {
     title: "ほかのローン（カードローン・奨学金など）",
     ...(inherited.length > 0 ? { note: `相続で受け継ぐ借金（${inherited.length}件）の返済の欄もここに出します。元の借り手と見込みは相続・贈与のカードで直します` } : {}),
     level: "simple",
-    groups: [...others, ...inherited].flatMap((d, i) => loanGroups(wh, d, i)),
+    groups: [...[...others, ...inherited].flatMap((d, i) => loanGroups(wh, d, i)), ...educationDebtLines(wh)],
     actions: [
       ...LOAN_SUBTYPES.filter((s) => s.value !== "policyLoan" && s.value !== "personal").map((s) => ({ key: `housing/add/${s.value}`, label: `＋ ${s.label}`, level: s.value === "cardLoan" || s.value === "scholarship" ? ("simple" as const) : ("detail" as const), run: (w: WorkingHousehold) => newOtherLoan(w, s.value) })),
       { key: "housing/addCarLoan", label: "＋ 自動車ローン（今返している）", level: "detail", run: (w) => newCarLoan(w) },
