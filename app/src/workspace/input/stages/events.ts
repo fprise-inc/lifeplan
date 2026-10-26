@@ -5,6 +5,7 @@ import { addMonths, ageReachedMonth } from "../../levers.ts";
 import { byId, plain, removeAction, resolveTimepoint, timepointField, yenBox, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { CARE_PLACE, memberLabel, memberOptions, PERIODIC_ROWS } from "../labels.ts";
+import { stagedBadge, stagedGroups } from "../staged.ts";
 
 const periodic = (h: Household) => h.periodicExpenses;
 const cares = (h: Household) => h.careExpenses;
@@ -24,13 +25,34 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense): GroupDe
     timepointField({ key: `${k}/to`, item: "periodicExpense.to", label: "終わり", level: "simple", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで", ...ageOf }),
     plain({ key: `${k}/row`, item: "periodicExpense.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: PERIODIC_ROWS, find, path: ["row"] }),
   ];
+  const badge = stagedBadge(p as unknown as Record<string, unknown>, ["stages"], ["exceptions"]);
   return {
     key: k,
     title: `${p.label ?? (once ? "一時的支出" : "n年ごとの支出")}${once ? "（1回）" : `（${p.everyYears}年ごと）`}`,
+    ...(badge !== null ? { note: `1回の額の${badge}（詳細で直せます）` } : {}),
     level: "simple",
     fields,
     actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.periodicExpenses = (h.periodicExpenses ?? []).filter((x) => x.id !== p.id)))],
   };
+}
+
+/** 周期的な支出の1回の額の段階と例外の年（0040。1回だけの支出には出さない） */
+export function periodicStageGroups(wh: WorkingHousehold, p: PeriodicExpense): GroupDef[] {
+  const h0 = wh.request.input.household;
+  const once = p.everyYears === 1 && p.to != null && resolveTimepoint(h0, p.to) !== null && resolveTimepoint(h0, p.to) === resolveTimepoint(h0, p.from);
+  if (once && (p.stages ?? []).length + (p.exceptions ?? []).length === 0) return [];
+  const self = h0.members.find((m) => m.kind === "self");
+  return stagedGroups(wh, {
+    key: `ev/${p.id}`,
+    find: byId(periodic, p.id),
+    target: { object: p.id },
+    stages: { path: ["stages"], item: "periodicExpense.stages", at: [] },
+    exceptions: { path: ["exceptions"], item: "periodicExpense.exceptions", at: [] },
+    basis: "once",
+    what: "1回の額",
+    base: (h) => (h.periodicExpenses ?? []).find((x) => x.id === p.id)?.amount.value ?? null,
+    ...(self !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === self.id) } : {}),
+  });
 }
 
 export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
@@ -66,7 +88,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
       title: "一時的支出・n年ごとの支出",
       note: "旅行・家電の買い替え・リフォーム・結婚の援助など。毎月の基本生活費とは別に入れます",
       level: "simple",
-      groups: (h.periodicExpenses ?? []).filter((p) => !claimed.has(p.id)).map((p) => periodicGroup(wh, p)),
+      groups: (h.periodicExpenses ?? []).filter((p) => !claimed.has(p.id)).flatMap((p) => [periodicGroup(wh, p), ...periodicStageGroups(wh, p)]),
       actions: [
         {
           key: "ev/addOnce",

@@ -7,6 +7,7 @@ import { RENT_BASIS, RENT_STANDARD } from "../fill.ts";
 import { creditKey, CREDIT_DATA_FROM_YEAR, dropProvisionalEvent, estimatedPrincipal, isHomeLoan, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, withProvisionalHousing } from "../housingCredit.ts";
 import { BUILDING_STRUCTURES, DEBT_KINDS, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, RESIDENCE_KINDS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
+import { stagedBadge, stagedGroups, type StagedSpec } from "../staged.ts";
 
 const residences = (h: Household) => h.residences;
 const debts = (h: Household) => h.debts;
@@ -62,15 +63,43 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       plain({ key: `${k}/maintGrowth`, item: "residence.maintenance", label: "修繕費の変動率（年）", level: "detail", kind: "pct", find, path: ["maintenance", "growth"], optional: true }),
     );
   }
+  // 家賃・修繕費・固定資産税の段階と例外の年（0040。詳細）
+  const staged = (part: "rent" | "maintenance" | "propertyTax", what: string, basis: StagedSpec["basis"], value: (x: Residence) => number | null, yearly = false): GroupDef[] =>
+    stagedGroups(wh, {
+      key: `${k}/${part}`,
+      find,
+      target: { object: r.id },
+      stages: { path: [part, "stages"], item: `residence.${part}`, at: ["stages"] },
+      exceptions: { path: [part, "exceptions"], item: `residence.${part}`, at: ["exceptions"] },
+      basis,
+      what,
+      base: (h) => {
+        const x = (h.residences ?? []).find((y) => y.id === r.id);
+        return x === undefined ? null : value(x);
+      },
+      ...ageOf,
+      ...(yearly ? { yearly: true } : {}),
+    });
+  const stagedParts = r.kind === "rent" ? (r.rent !== undefined ? [["rent", "家賃"]] : []) : [...(r.maintenance !== undefined ? [["maintenance", "修繕費"]] : []), ...(r.propertyTax !== undefined ? [["propertyTax", "固定資産税"]] : [])];
+  const badges = stagedParts.map(([part, what]) => {
+    const b = stagedBadge(r as unknown as Record<string, unknown>, [part as string, "stages"], [part as string, "exceptions"]);
+    return b === null ? null : `${what as string}: ${b}`;
+  }).filter((x) => x !== null);
   const groups: GroupDef[] = [
     {
       key: k,
       title: `住まい ${i + 1}（${r.kind === "rent" ? "賃貸" : "持ち家"}）`,
+      ...(badges.length > 0 ? { note: `${badges.join("、")}（詳細で直せます）` } : {}),
       level: "simple",
       fields,
       actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.residences = (h.residences ?? []).filter((x) => x.id !== r.id)))],
     },
   ];
+  if (r.kind === "rent" && r.rent !== undefined) groups.push(...staged("rent", "家賃", "monthly", (x) => x.rent?.monthly.value ?? null));
+  if (r.kind === "own") {
+    if (r.maintenance !== undefined) groups.push(...staged("maintenance", "修繕費", "monthly", (x) => x.maintenance?.monthly.value ?? null));
+    if (r.propertyTax !== undefined) groups.push(...staged("propertyTax", "固定資産税", "annual", (x) => x.propertyTax?.annual.value ?? null, true));
+  }
   if (r.kind === "own") groups.push(...valuationGroups(wh, r, k));
   if (r.purchase !== undefined) {
     const kp = `${k}/purchase`;

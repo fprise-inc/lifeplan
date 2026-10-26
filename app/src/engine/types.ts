@@ -55,10 +55,45 @@ export interface EmploymentPeriod {
   healthInsurance?: { kind: string; insurer?: string; [key: string]: unknown };
   pensionCategory?: string;
   employer?: { size?: number; weeklyHours?: string; [key: string]: unknown };
-  salary?: { annual: Box<number>; bonus?: Box<number>; [key: string]: unknown };
-  business?: { income: Box<number> };
+  salary?: { annual: Box<number>; bonus?: Box<number>; growth?: SalaryGrowth; [key: string]: unknown };
+  /** 事業所得。growth.rate はこの期間の伸び（年率。省略は前提の賃金上昇率。0040） */
+  business?: { income: Box<number>; growth?: { rate: string } };
   standardMonthlyRemuneration?: { health: Box<number>; pension: Box<number> };
   [key: string]: unknown;
+}
+
+/** 給与の昇給の仕方（どちらか1つ。0040）: curve は昇給カーブの値ID、rate はこの期間の伸び（年率。前提の賃金上昇率の代わり） */
+export type SalaryGrowth = { curve: string; rate?: undefined } | { rate: string; curve?: undefined };
+
+/** 額の段階の1段（0040）。at の時点から、元の額の代わりに amount（元の欄と同じ基準）か元の額×ratio。rampYears はここから次の段まで何年かけて移すか */
+export interface AmountStage {
+  id: string;
+  at: Timepoint;
+  amount?: Box<number>;
+  ratio?: string;
+  rampYears?: number;
+}
+
+/** 例外の年（0040）。その年だけ amount（元の欄と同じ基準。0円はその年に動かない） */
+export interface AmountException {
+  id: string;
+  year: number;
+  amount: Box<number>;
+}
+
+/** 段階と例外の年を持てる額の欄（0040） */
+export interface Staged {
+  stages?: AmountStage[];
+  exceptions?: AmountException[];
+}
+
+/** 器の利回りの段階の1段（0040）。その時点の属する年から、器の利回りか資産の配分のどちらか一方 */
+export interface ReturnStage {
+  id: string;
+  at: Timepoint;
+  expectedReturn?: string;
+  assetMix?: { assetClass: string; share: string }[];
+  rampYears?: number;
 }
 
 export interface Account {
@@ -74,6 +109,9 @@ export interface Account {
   valueGrowth?: string;
   /** FP が入れた器の利回り（年率。0026） */
   expectedReturn?: string;
+  /** 利回りの段階・例外の年（0040） */
+  returnStages?: ReturnStage[];
+  returnExceptions?: { id: string; year: number; expectedReturn: string }[];
   /** 運用の費用（信託報酬など。年率。0026） */
   fee?: string;
   /** 運用しない分（金額。まとめた金融資産の器だけ。この額までは預金の利回り。0031） */
@@ -91,15 +129,15 @@ export interface RealEstateProperty {
   builtYear?: number;
   landShare?: string;
   acquisition?: { price: number; at: string };
-  rental?: { monthly: Box<number>; vacancyRate?: string; growth?: string; from?: Timepoint; to?: Timepoint | null };
-  expenses?: { annual?: Box<number>; rate?: string; growth?: string };
+  rental?: { monthly: Box<number>; vacancyRate?: string; growth?: string; from?: Timepoint; to?: Timepoint | null } & Staged;
+  expenses?: { annual?: Box<number>; rate?: string; growth?: string } & Staged;
   sale?: { at: Timepoint; price?: number; costRate?: string };
 }
 
 /** 資産運用の入れ方と、運用・取り崩しの前提（0026。エンジンの assumptions.investment） */
 export interface InvestmentSetting {
   method?: "total" | "accounts" | "allocation";
-  allocation?: { mix: { assetClass: string; share: string }[]; fee?: string; rebalance?: boolean };
+  allocation?: { mix: { assetClass: string; share: string }[]; fee?: string; rebalance?: boolean; stages?: { id: string; at: Timepoint; mix: { assetClass: string; share: string }[]; rampYears?: number }[] };
   nisaOverflow?: "deposit" | "taxable";
   taxableTax?: "onSale" | "annual";
   drawdown?: { start: Timepoint; method: "fixed" | "rate"; monthly?: number; rate?: string };
@@ -187,6 +225,9 @@ export interface PeriodicExpense {
   to?: Timepoint | null;
   everyYears: number;
   amount: Box<number>;
+  /** 1回の額の段階・例外の年（0040） */
+  stages?: AmountStage[];
+  exceptions?: AmountException[];
   [key: string]: unknown;
 }
 
@@ -234,10 +275,10 @@ export interface Residence {
   kind: "rent" | "own" | string;
   from: Timepoint;
   to: Timepoint | null;
-  rent?: { monthly: Box<number>; [key: string]: unknown };
+  rent?: { monthly: Box<number>; stages?: AmountStage[]; exceptions?: AmountException[]; [key: string]: unknown };
   purchase?: { at: Timepoint; price: number; downPayment?: number; costs?: number; gifts?: Gift[] };
-  propertyTax?: { annual: Box<number>; growth?: string };
-  maintenance?: { monthly: Box<number>; growth?: string };
+  propertyTax?: { annual: Box<number>; growth?: string } & Staged;
+  maintenance?: { monthly: Box<number>; growth?: string } & Staged;
   ownership?: { member: string; share: string }[];
   /** 持ち家の評価（housing.valuation） */
   valuation?: { value?: Box<number>; asOf?: string; structure?: string; builtYear?: number; landShare?: string };

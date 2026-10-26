@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.17";
+pub const CURRENT: &str = "0.18";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -64,9 +64,13 @@ pub const CURRENT: &str = "0.17";
 ///   （親・祖父母の構成員に付け、開いたときの知らせを書く。贈与者 `donors` は同じ ID の世帯の外の家族にして区画をなくす）、
 ///   値の状態の欄 `valueStates`（仮の印 `household.assumed` を読み替え表で移す）、プランの差分を当て先の形に（0036）、
 ///   対策に足した項目 `workspace.shownItems` を当て先に。控え・ヒアリング・明細の取り込み・拡張領域は変えない
+/// - 0.18: 段階と例外の年（周期的な支出・家賃・修繕費・固定資産税・住まい以外の不動産の家賃と経費の `stages`・`exceptions`、
+///   器の利回りの `returnStages`・`returnExceptions`、資産配分の `allocation.stages`）と、働き方の期間ごとの伸び（給与の
+///   `salary.growth.rate`・事業所得の `business.growth`）を足した（足すだけの MINOR。0040）。0.17 のアプリは知らない欄を読み落として
+///   書き戻すので、版を上げて閲覧だけにする
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
-    "0.14", "0.15", "0.16", "0.17",
+    "0.14", "0.15", "0.16", "0.17", "0.18",
 ];
 
 /// 1段分の変換
@@ -157,6 +161,11 @@ pub const STEPS: &[Step] = &[
         from: "0.16",
         to: "0.17",
         apply: v0_16_to_0_17,
+    },
+    Step {
+        from: "0.17",
+        to: "0.18",
+        apply: v0_17_to_0_18,
     },
 ];
 
@@ -363,6 +372,16 @@ fn v0_15_to_0_16(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.16".into());
+    }
+    Ok(body)
+}
+
+/// 0.17 → 0.18: 足した欄（段階・例外の年・器の利回りの段階・資産配分の段階・期間ごとの伸び）は任意なので足さない。
+/// 形式の版だけを書き換える（0040）
+fn v0_17_to_0_18(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.18".into());
     }
     Ok(body)
 }
@@ -879,7 +898,8 @@ mod tests {
         assert_eq!(access("0.15").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.16").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.17").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.18").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.18").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.19").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -892,7 +912,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.18", b.clone()).unwrap(),
+            upgrade("0.19", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
@@ -1099,7 +1119,7 @@ mod tests {
             "ext": {"ext.a.b": 1}
         });
         let u = upgrade("0.16", b.clone()).unwrap();
-        assert_eq!(u["meta"]["formatVersion"], "0.17");
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
         let h = &u["household"]["request"]["input"]["household"];
         // 世帯の外の家族: 親は印を付け（of は親とする関係の子）、贈与者は同じ ID の構成員になる。donors は無くなる
         let ms = h["members"].as_array().unwrap();
