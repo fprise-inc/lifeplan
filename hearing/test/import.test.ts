@@ -48,7 +48,7 @@ describe("取り込み", () => {
   it("「わからない」は値の状態 unknown（代わりの値つき）にして、面談のチェックリストに載せる", () => {
     const r = run(...minimal, a("hs.work.type", "regular", 1), a("hs.income.salary", "unknown", 1), a("hs.expense.living", "unknown"));
     const p = r.request.input.household.employmentPeriods[0];
-    expect(p?.salary?.annual).toMatchObject({ state: "unknown", origin: { kind: "hearing" }, substitute: { state: "estimated", value: 3658800 } });
+    expect(p?.salary?.annual).toMatchObject({ state: "unknown", origin: { kind: "hearing" }, substitute: { state: "estimated", value: 4120800 } });
     expect(r.request.input.household.livingExpenses?.[0]?.monthly).toMatchObject({ state: "unknown", substitute: { value: 140000 } });
     expect(r.checklist.filter((c) => c.reason === "unknown").map((c) => c.key)).toEqual(["hs.income.salary", "hs.expense.living"]);
     expect(r.checklist.find((c) => c.key === "hs.income.salary")?.label).toBe("ご本人 給与の年収（賞与を含む）");

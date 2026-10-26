@@ -15,5 +15,19 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.stat.go.jp/data/kojinke/kekka/pdf/2025gaiyou.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "2025年（令和7年）個人企業経済調査 結果の概要（令和8年3月2日 総務省） 1 営業状況", "quote": "2024年の１企業当たりの年間売上高は1398万9000円で、前年（1376万3000円）に比べ1.6％", "note": "公式のドメイン（stat.go.jp）に限った検索の抜粋（原本の PDF は未取得）。年間営業利益 218万円（前年比2.4％増）は検索の要約で読んだ"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "1企業当たりの年間営業利益 218万円（検索の要約）。原本の結果の概要で確かめる"}
+  - rev: 2
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: "2026-03-02"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 2180000
+    sources:
+      - {"type": "web", "url": "https://www.stat.go.jp/data/kojinke/kekka/pdf/2025gaiyou.pdf", "retrievedAt": "2026-10-26", "sha256": "1dc85682db17c74a0d29506af22dfb9e8e427c644a4e7446970c796fc37e44e3", "locator": "2025年（令和7年）個人企業経済調査 結果の概要 1 営業状況（本文）", "quote": "の増加となっている。年間営業利益は218万円で、前年（212万8000円）に比べ2.4％の増加と"}
+      - {"type": "web", "url": "https://www.stat.go.jp/data/kojinke/kekka/pdf/2025gaiyou.pdf", "retrievedAt": "2026-10-26", "sha256": "1dc85682db17c74a0d29506af22dfb9e8e427c644a4e7446970c796fc37e44e3", "locator": "同 表１－１ 産業別１企業当たりの年間売上高、年間営業利益及び年間営業利益率（産業計。千円）"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-26", "tools": ["PDF の本文（公表資料）", "PDF の表（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "年間営業利益 218万円。本文と表1-1（2,180千円）が一致"}

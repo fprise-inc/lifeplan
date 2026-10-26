@@ -168,7 +168,7 @@ describe("段階の操作（足す・外す・選ぶ）", () => {
     expect(lv.get(w1).estimated).toContain("家計調査");
     expect(lv.get(w1).value).toBe(140000);
     const w2 = withRefreshedEstimates(addMember(w1, "spouse"));
-    expect(lv.get(w2).value).toBe(250000);
+    expect(lv.get(w2).value).toBe(235225);
     // 消すと「目安で入れる」が出る
     const w2b = buildStage("living", w2).sections[0]!.groups[0]!;
     expect(w2b.fields.length).toBeGreaterThan(0);

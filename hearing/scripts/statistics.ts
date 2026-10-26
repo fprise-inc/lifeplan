@@ -12,7 +12,7 @@ const REPO = join(import.meta.dirname, "..", "..");
 const TARGET = join(import.meta.dirname, "..", "src", "statistics.generated.ts");
 
 /** マスタデータのうち、推定の目安に使うパック（フォルダの値をすべて写す） */
-const MASTER_PACKS = ["wageStats", "retirementBenefit"];
+const MASTER_PACKS = ["wageStats", "retirementBenefit", "living.statistics"];
 /** 制度データのうち、推定の目安の式に使う値（適用期間ごとの行を写す） */
 const REGULATION_VALUES: readonly [string, string][] = [
   ["tax", "incomeTax.employmentIncomeDeduction"],
@@ -23,6 +23,8 @@ const REGULATION_VALUES: readonly [string, string][] = [
   ["socialInsurance", "socialInsurance.health.standardMonthlyRemuneration"],
   ["socialInsurance", "socialInsurance.pension.standardMonthlyRemuneration"],
 ];
+/** 保険者（協会けんぽの支部）ごとの行を写す制度データの値（管轄 insurer の行。code を持たせる） */
+const INSURER_VALUES: readonly [string, string][] = [["socialInsurance", "socialInsurance.health.kyokaikenpo.rate"]];
 
 type Obj = Record<string, unknown>;
 
@@ -64,9 +66,16 @@ function build(): string {
     const v = readValue(path);
     regulation[id] = liveEntries(v).map((e) => ({ from: e.appliesFrom, to: e.appliesTo, rev: e.rev, value: e.value }));
   }
+  for (const [area, id] of INSURER_VALUES) {
+    const v = readValue(join(REPO, "data", "regulation", area, `${id}.yaml`));
+    regulation[id] = (v.entries as Obj[])
+      .filter((e) => e.status === "enacted" && e.supersededIn === null && (e.conditions as unknown[]).length === 0 && typeof e.jurisdiction === "object" && (e.jurisdiction as Obj).level === "insurer")
+      .sort((a, b) => ((a.appliesFrom as string) < (b.appliesFrom as string) ? -1 : 1))
+      .map((e) => ({ from: e.appliesFrom, to: e.appliesTo, rev: e.rev, insurer: (e.jurisdiction as Obj).code, value: e.value }));
+  }
   return [
     "// 自動生成（hearing/scripts/statistics.ts。npm run statistics）。手で書き換えない。",
-    "// 正本は data/master（wageStats・retirementBenefit）と data/regulation の YAML（0007）。推定の目安の数の写し",
+    "// 正本は data/master（wageStats・retirementBenefit・living.statistics）と data/regulation の YAML（0007）。推定の目安の数の写し",
     'import type { DatedValue, MasterValue } from "./statistics.ts";',
     "",
     `export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = ${JSON.stringify(master, null, 1)};`,

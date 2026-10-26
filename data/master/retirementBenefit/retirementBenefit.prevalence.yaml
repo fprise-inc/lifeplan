@@ -1,5 +1,5 @@
 id: retirementBenefit.prevalence
-title: 就労条件総合調査（厚生労働省）令和5年 退職給付（一時金・年金）制度がある企業の割合（企業規模計）
+title: 就労条件総合調査（厚生労働省）令和5年 退職給付（一時金・年金）制度がある企業の割合（企業規模計。常用労働者30人以上の民営企業）
 unit: rate
 kind: constant
 basis: {"type": "month"}
@@ -15,5 +15,19 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/itiran/roudou/jikan/syurou/23/dl/gaiyou03.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "令和5年就労条件総合調査の概況 3 退職給付（一時金・年金）制度 (1) 退職給付制度の有無及び形態", "note": "公式のドメイン（mhlw.go.jp）に限った検索の抜粋（原本の PDF は未取得）。74.9%は検索の要約で読んだ。常用労働者30人以上の民営企業"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "退職給付制度がある企業の割合 74.9%（検索の要約）。公表日は未確認"}
+  - rev: 2
+    appliesFrom: "2023-11-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2026-10-26"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.749"
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/itiran/roudou/jikan/syurou/23/xls/zuhyou.xlsx", "retrievedAt": "2026-10-26", "sha256": "ab4ab4892d19d70234a8af4e8feeeb5c8fdd0a6fe30ca2f301e6062dc599408a", "locator": "令和5年就労条件総合調査 表章データ 第16表 令和５年調査計"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/itiran/roudou/jikan/syurou/23/dl/gaikyou.pdf", "retrievedAt": "2026-10-26", "sha256": "4f6be65c84731f07c9877794d5a14c433ac27ec347985b564ae040d4b179a3eb", "locator": "令和5年就労条件総合調査の概況 3 退職給付（一時金・年金）制度", "quote": "退職給付（一時金・年金）制度がある企業割合は74.9％となっている。企業規模別にみる"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-26", "tools": ["Excel（公表の統計表）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "74.9%。表章データ（74.9）と概況の本文が一致。公表日は手元の原本に無いので、施行日の欄は取得日（遅くともこの日には公表済み）"}

@@ -1,0 +1,19 @@
+id: wageStats.civilServant.monthly
+title: 国家公務員給与等実態調査（人事院）令和7年 行政職俸給表（一）の平均給与月額（年齢計・学歴計）
+unit: JPY
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2026-04-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2026-10-26"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 414480
+    sources:
+      - {"type": "web", "url": "https://www.jinji.go.jp/content/000005498.csv", "retrievedAt": "2026-10-26", "sha256": "ae5859318a9bd5bfa1ac9c21e139be6fcd4b3137c876ba53d0049a97d10e3124", "locator": "令和7年国家公務員給与等実態調査 〔参考１〕行政職俸給表（一）の年齢階層別、給与決定上の学歴別人員及び平均給与月額 計の行", "quote": "計,139580,414480"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-26", "tools": ["CSV（公表の統計表）", "表の内訳から計算し直した結果", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和7年4月1日現在。公表日は原本に無いので、施行日の欄は取得日（遅くともこの日には公表済み）。平均給与月額（俸給と諸手当。超過勤務手当・通勤手当などを除く）。2つ目の読み方: 年齢階層の値を人員で重み付けした平均 414480.3円が計 414480円と一致（人員の計も一致）"}

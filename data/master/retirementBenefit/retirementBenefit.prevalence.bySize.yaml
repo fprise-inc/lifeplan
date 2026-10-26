@@ -19,5 +19,23 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/itiran/roudou/jikan/syurou/23/dl/gaiyou03.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "令和5年就労条件総合調査の概況 第16表 退職給付（一時金・年金）制度の有無・形態別企業割合", "quote": "「1,000 人以上」が90.1％、「300～999 人」が88.8％、「100～299 人」が84.7％", "note": "公式のドメイン（mhlw.go.jp）に限った検索の抜粋（原本の PDF は未取得）。30〜99人の段は抜粋で読めなかったので値を書いていない（値を確かめられなかった段）"}
     recordedIn: "2026.1.0"
-    supersededIn: null
+    supersededIn: "2026.2.0"
     approval: {"method": "pendingReview", "paths": 1, "note": "30〜99人の段は未確認。30人未満の企業は調査の対象外"}
+  - rev: 2
+    appliesFrom: "2023-11-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2026-10-26"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 99, "rate": "0.701"}
+      - {"upTo": 299, "rate": "0.847"}
+      - {"upTo": 999, "rate": "0.888"}
+      - {"upTo": null, "rate": "0.901"}
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/itiran/roudou/jikan/syurou/23/xls/zuhyou.xlsx", "retrievedAt": "2026-10-26", "sha256": "ab4ab4892d19d70234a8af4e8feeeb5c8fdd0a6fe30ca2f301e6062dc599408a", "locator": "令和5年就労条件総合調査 表章データ 第16表 企業規模別"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/itiran/roudou/jikan/syurou/23/dl/gaikyou.pdf", "retrievedAt": "2026-10-26", "sha256": "4f6be65c84731f07c9877794d5a14c433ac27ec347985b564ae040d4b179a3eb", "locator": "令和5年就労条件総合調査の概況 3 退職給付（一時金・年金）制度", "quote": "人」が70.1％となっている。産業別にみると、「複合サービス事業」が97.9％と最も高く、次い"}
+    recordedIn: "2026.2.0"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-26", "tools": ["Excel（公表の統計表）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "企業規模別の割合。表章データと概況の本文・第16表が一致。30人未満の企業は調査の対象外なので、30〜99人の段の値をそのまま使う"}

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { runEngine, type EngineResult } from "../src/engine/run.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 import type { CategoryOutput, HealthStatusOutput, PensionOutput, RevisionOutput } from "../src/sdk/contracts.ts";
-import { box, fictionalPacks, household, member, period, realPacks, uid } from "./helpers.ts";
+import { box, fictionalPacks, household, member, modelHousehold, period, realPacks, uid } from "./helpers.ts";
 
 type Req = ReturnType<typeof household>;
 const H = uid("h");
@@ -588,6 +588,20 @@ describe("昇給カーブ（決定7）", () => {
     const y = (yy: number) => flowsOf(r, (f) => f.row === "cf.income.salary" && f.ym.startsWith(`${yy}`)).reduce((s, f) => s + f.amount, 0);
     expect(y(2026)).toBe(4000000);
     expect(y(2027)).toBe(4869565);
+  });
+
+  it("実在の統計の昇給カーブ（wageStats.default。賃金構造基本統計調査 令和7年）: 書いた期間だけ、29歳→30歳で係数の比 1.8261/1.5989 を掛ける", () => {
+    const base = modelHousehold("single25");
+    (base.input as { endYear: number }).endYear = 2032;
+    const curved = structuredClone(base);
+    (curved.input.household.employmentPeriods[0] as unknown as { salary: Record<string, unknown> }).salary.growth = { curve: "wageStats.default" };
+    const y = (r: ReturnType<typeof run>, yy: number) => flowsOf(r, (f) => f.row === "cf.income.salary" && f.ym.startsWith(`${yy}`)).reduce((s, f) => s + f.amount, 0);
+    const a = run(curved as Req, realPacks());
+    const b = run(base as Req, realPacks());
+    // 25歳→26歳は同じ階級（25〜29歳）なので、賃金上昇率だけの伸びと同じ
+    expect(y(a, 2027) / y(a, 2026)).toBeCloseTo(y(b, 2027) / y(b, 2026), 4);
+    // 29歳（2030年）→30歳（2031年）は階級が変わる
+    expect((y(a, 2031) / y(a, 2030)) / (y(b, 2031) / y(b, 2030))).toBeCloseTo(18261 / 15989, 3);
   });
 });
 

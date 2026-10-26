@@ -17,8 +17,8 @@ describe("推定の目安（入力の画面）", () => {
     const wh = blankHousehold(BASE, () => "self-1");
     const self = wh.request.input.household.members[0]!;
     const p = convertPeriod({ id: "p1", member: self.id, from: { at: "2008-04" }, to: null, type: "regular" } as EmploymentPeriod, "partTime", self, BASE);
-    expect(p.salary?.annual).toMatchObject({ value: 1500000, state: "estimated", origin: { kind: "auto" } });
-    expect(p.standardMonthlyRemuneration?.health.value).toBe(126000);
+    expect(p.salary?.annual).toMatchObject({ value: 1769 * 15 * 52, state: "estimated", origin: { kind: "auto" } });
+    expect(p.standardMonthlyRemuneration?.health.value).toBe(118000);
     expect(smrEstimate(600000, BASE).pension.value).toBe(88000);
   });
 
@@ -32,9 +32,9 @@ describe("推定の目安（入力の画面）", () => {
     ];
     refreshEstimates(h, BASE);
     const [p1, p2] = h.employmentPeriods;
-    expect(p1?.salary?.annual.value).toBe(387400 * 12);
+    expect(p1?.salary?.annual.value).toBe(449200 * 12);
     expect((p1?.salary?.annual as { estimate?: { basis: string } }).estimate?.basis).toContain("賃金構造基本統計調査");
-    expect(p1?.salary?.bonus?.value).toBe(1000000);
+    expect(p1?.salary?.bonus?.value).toBe(1427600);
     expect(p2?.salary?.annual.value).toBe(2000000);
   });
 });
