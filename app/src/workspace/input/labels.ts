@@ -123,7 +123,7 @@ export const HISTORY_CATEGORIES: Option[] = [
 ];
 
 export const LIVING_STAGE_LABELS: Option[] = [
-  { value: "childIndependence", label: "末子独立後" },
+  { value: "childIndependence", label: "子の独立の後" },
   { value: "retirement", label: "退職後" },
   { value: "age70", label: "70歳から" },
   { value: "age80", label: "80歳から" },

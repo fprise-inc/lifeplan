@@ -8,6 +8,7 @@ import { ageAt, parseYm } from "../../levers.ts";
 import { applyPreset, presetOf, presetPoints, PRESET_RATIOS, setSurplus, surplusOf, yearOfTimepoint, type SurplusPreset } from "../../surplus.ts";
 import { field, resolveTimepoint, type ActionDef, type FieldDef, type GroupDef, type SectionDef } from "../form.ts";
 import type { WorkingHousehold } from "../household.ts";
+import { readLine } from "../readLines.ts";
 
 const ITEM = "assumptions.surplusSaving";
 /** 期間を変える組の数の上限 */
@@ -194,7 +195,7 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
         key: "living/surplus/cap",
         item: ITEM,
         label: "貯金に回る額の上限（年）",
-        level: "simple",
+        level: "detail",
         kind: "yen",
         basis: "annual",
         optional: true,
@@ -207,6 +208,7 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
           return withReq(w, setSurplus(w.request, v === null ? rest : { ...rest, cap: Number(v) }));
         },
       }),
+      readLine("living/surplus/destination", "黒字の行き先", "決済口座（預金）", "貯蓄・運用"),
     ],
     actions: [],
   };

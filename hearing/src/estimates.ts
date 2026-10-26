@@ -35,6 +35,49 @@ export function livingEstimate(size: number): Estimate {
   return { value: amount, basis: `${titleOf(LIVING_ID)}・${n >= 6 ? "6人以上" : `${n}人`}の世帯${pendingOf(LIVING_ID)}` };
 }
 
+/** 総額を費目に分けるときの費目（家計調査の区分。仕送りは教育・介護・親のカードで入れるので0円にし、端は「その他の消費」） */
+export const LIVING_SPLIT_CATEGORIES = ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption"] as const;
+export type LivingSplitCategory = (typeof LIVING_SPLIT_CATEGORIES)[number];
+const livingCategoryId = (c: LivingSplitCategory) => `living.statistics.categoryMonthly.${c}`;
+
+/**
+ * 基本生活費の費目の目安（月額・円）。家計調査の同じ世帯人員の世帯の費目の額（交通・通信は自動車等関係費を除く。その他の消費は仕送り金を含む）。
+ * 1人の世帯は表に無いので2人の世帯の額を使う。値が無ければ null
+ */
+export function livingCategoryAverages(size: number): { amounts: Readonly<Record<LivingSplitCategory, number>>; basis: string } | null {
+  const n = Math.max(2, size);
+  const out: Partial<Record<LivingSplitCategory, number>> = {};
+  for (const c of LIVING_SPLIT_CATEGORIES) {
+    const table = masterValue(livingCategoryId(c))?.value;
+    const amount = Array.isArray(table) ? bracketStep(table as readonly BracketStep[], n)?.amount : undefined;
+    if (amount === undefined) return null;
+    out[c] = amount;
+  }
+  const label = n >= 6 ? "6人以上" : `${n}人`;
+  const pending = LIVING_SPLIT_CATEGORIES.some((c) => pendingOf(livingCategoryId(c)) !== "") ? PENDING : "";
+  return {
+    amounts: out as Record<LivingSplitCategory, number>,
+    basis: `家計調査（総務省）2025年・${label}の世帯の費目の割合${size < 2 ? "（1人の世帯は表に無いので2人の世帯）" : ""}${pending}`,
+  };
+}
+
+/** 総額（月額）を費目に分ける（家計調査の同じ人数の世帯の割合。円未満は切り捨て、端は「その他の消費」）。割合の表が無ければ null */
+export function splitLiving(total: number, size: number): { parts: Readonly<Record<LivingSplitCategory, number>>; basis: string } | null {
+  const avg = livingCategoryAverages(size);
+  if (avg === null) return null;
+  const sum = LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + avg.amounts[c], 0);
+  const parts: Partial<Record<LivingSplitCategory, number>> = {};
+  let used = 0;
+  for (const c of LIVING_SPLIT_CATEGORIES) {
+    if (c === "otherConsumption") continue;
+    const v = sum > 0 ? Math.floor((total * avg.amounts[c]) / sum) : 0;
+    parts[c] = v;
+    used += v;
+  }
+  parts.otherConsumption = total - used;
+  return { parts: parts as Record<LivingSplitCategory, number>, basis: avg.basis };
+}
+
 // ---- 給与・賞与 ----
 
 /** 賃金構造基本統計調査の雇用形態（正社員・正職員／正社員・正職員以外）。働き方の種類から */

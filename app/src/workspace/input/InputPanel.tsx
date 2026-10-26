@@ -199,7 +199,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
         onStatement();
       },
     };
-    return { "living/main": link, "living/none": link };
+    return { "living/main": link, "living/none": link, "money/living/out": link };
   }, [itemId, onStatement, dirty]);
 
   // 開いた直後: 最初の欄（無ければ閉じるボタン）に移る。確かめの一覧から来たときは、その欄に移る。背景はスクロールさせない

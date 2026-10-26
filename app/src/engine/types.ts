@@ -181,9 +181,12 @@ export interface LivingExpense {
   id: string;
   mode: string;
   monthly?: Box<number>;
-  categories?: { category: string; monthly: Box<number> }[];
+  categories?: { id?: string; category: string; monthly: Box<number> }[];
   growth?: { kind: string; rate?: string };
-  stages?: { at: Timepoint; label: string; ratio?: string; monthly?: Box<number> }[];
+  stages?: { id?: string; at: Timepoint; label: string; ratio?: string; monthly?: Box<number> }[];
+  from?: Timepoint;
+  to?: Timepoint | null;
+  onContingency?: OnContingency;
   [key: string]: unknown;
 }
 

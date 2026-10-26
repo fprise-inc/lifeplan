@@ -1796,6 +1796,54 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: living.statistics.categoryMonthly.clothing
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の被服及び履物（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: living.statistics.categoryMonthly.food
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の食料（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: living.statistics.categoryMonthly.furniture
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の家具・家事用品（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: living.statistics.categoryMonthly.health
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の保健医療（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: living.statistics.categoryMonthly.otherConsumption
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月のその他の消費支出（仕送り金を含む）（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: living.statistics.categoryMonthly.recreation
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の教養娯楽（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: living.statistics.categoryMonthly.transport
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の交通・通信から自動車等関係費を除いた額（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: living.statistics.categoryMonthly.utilities
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の光熱・水道（基本生活費の費目の割合の目安。upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: nisa.annualLimit.growth
     status: active
     label: "NISA の成長投資枠の年間投資枠"

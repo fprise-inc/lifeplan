@@ -249,7 +249,8 @@ describe("カードの状態（4つ）", () => {
   it("空の世帯: 家族・年金（働き方から推計）・基本生活費は推定で計算中、子がいないので子ども・教育は当てはまらない、前提条件は入力済み", () => {
     const items = inputItems(blankHousehold("2026-10", seq()));
     expect(byId(items, "family")).toMatchObject({ status: "est", estimated: 2 });
-    expect(byId(items, "living")).toMatchObject({ status: "est", estimated: 1 });
+    // 基本生活費は月額の推定と、推定の段階（退職・70歳・80歳）の3段
+    expect(byId(items, "living")).toMatchObject({ status: "est", estimated: 4 });
     expect(byId(items, "pension")).toMatchObject({ status: "est", estimated: 1 });
     expect(byId(items, "education").status).toBe("na");
     expect(byId(items, "assumptions").status).toBe("done");
