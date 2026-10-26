@@ -12,9 +12,14 @@
 #   総務省の事務連絡、国税庁 No.1199）と照らし合わせ、reviewed の行を足した（照合: claude、2026-10-09）。施行日は令和8年4月1日（令和8年度分から）。値は変えていない
 # 2026.5.0: 住宅取得等資金の贈与税の非課税（省エネ等住宅1,000万円・それ以外500万円・令和8年12月31日まで・受贈者の合計所得金額2,000万円以下）を
 #   新しいファイルで足した（既存のファイルは変えていない。検索の要約で読んだ値で、原本での確認待ち）
+# 2026.7.0: 平成26〜令和3年入居（措置法41条の令和3年4月1日の版）の控除率1%・控除期間10年・合計所得金額3,000万円・借入限度額（特定取得（消費税8%・10%の
+#   かかった取得）は認定住宅5,000万円・一般4,000万円）を既存のファイルに行として足した。特定取得でない取得の借入限度額2,000万円
+#   （incomeTax.housingLoanCredit.limit.nonSpecified）と住民税の5%・97,500円（residentTax.housingLoanCredit.rate.nonSpecified・limit.nonSpecified）、
+#   消費税10%の取得の13年の特例（incomeTax.housingLoanCredit.period.specialSpecified）は新しいファイル。e-Gov法令APIの条文と国税庁の資料で読んだが、
+#   原本の写しと指紋は取っていないので、すべて原本での確認待ち（pendingReview）。平成25年以前の入居の値は入れていない
 packId: regulation.housing
 formatVersion: "0.1"
-version: "2026.6.0"
+version: "2026.7.0"
 features: []
 title: 住宅ローン控除
 requires:

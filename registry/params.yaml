@@ -1304,6 +1304,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.housingLoanCredit.limit.nonSpecified
+    status: active
+    label: "住宅借入金等特別控除の借入限度額（特定取得でない取得。消費税8%・10%のかからない取得（個人からの既存住宅の取得など）。平成26〜令和3年入居だけの区分）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.housingLoanCredit.limit.used.certified
     status: active
     label: "同（既存住宅の認定住宅・ZEH水準省エネ住宅）"
@@ -1343,6 +1349,12 @@ entries:
   - id: incomeTax.housingLoanCredit.period.newOther
     status: active
     label: "住宅借入金等特別控除の控除期間（新築・買取再販のその他の住宅。年）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.housingLoanCredit.period.specialSpecified
+    status: active
+    label: "住宅借入金等特別控除の控除期間の特例（消費税10%の取得（特別特定取得・特別特例取得）。11〜13年目は建物の取得対価の2%÷3が上限。年）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2642,9 +2654,21 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: residentTax.housingLoanCredit.limit.nonSpecified
+    status: active
+    label: "住民税の住宅借入金等特別税額控除の上限額（特定取得でない取得。平成26〜令和3年入居だけの区分）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: residentTax.housingLoanCredit.rate
     status: active
     label: "住民税の住宅借入金等特別税額控除の上限の率（所得税の課税総所得金額等に掛ける）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.housingLoanCredit.rate.nonSpecified
+    status: active
+    label: "住民税の住宅借入金等特別税額控除の上限の率（特定取得でない取得。平成26〜令和3年入居だけの区分）"
     since: draft
     aliases: []
     replacedBy: null

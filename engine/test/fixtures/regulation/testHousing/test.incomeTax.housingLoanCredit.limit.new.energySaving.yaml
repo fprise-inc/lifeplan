@@ -65,3 +65,15 @@ entries:
       - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
     recordedIn: "2026.1.0"
     supersededIn: null
+  - rev: 6
+    appliesFrom: "2014-01-01"
+    appliesTo: "2021-12-31"
+    enforcedOn: "2014-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 40000000
+    sources:
+      - {type: "fictional", note: "架空の見本データ（実在の制度ではない）"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
