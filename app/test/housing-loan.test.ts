@@ -104,7 +104,7 @@ describe("住宅ローン控除の仮の条件", () => {
     expect(() => preview(w.request)).not.toThrow();
   });
 
-  it("開いた世帯の、控除の条件の無いローンにも仮の条件を置く（令和3年以前に借りたローンには置かない）", () => {
+  it("開いた世帯の、控除の条件の無いローンにも仮の条件を置く（平成25年以前に借りたローンには置かない）", () => {
     const req = modelHousehold("housingPurchase");
     const d = req.input.household.debts![0]!;
     delete d.housing;
@@ -115,10 +115,16 @@ describe("住宅ローン控除の仮の条件", () => {
     // 条件の入っているローンは変えない
     const kept = fromRequest(modelHousehold("housingPurchase"));
     expect(withProvisionalHousing(kept)).toBe(kept);
-    // 2021年3月に借りたローン（制度データの前）は置かない
-    const old = fromRequest(modelHousehold("protectionNeed"));
+    // 2013年3月に借りたローン（制度データの前）は置かない
+    const early = modelHousehold("protectionNeed");
+    early.input.household.debts![0]!.start = { at: "2013-03" };
+    const old = fromRequest(early);
     expect(withProvisionalHousing(old)).toBe(old);
-    expect(String(fieldOf(old, "housing", "/creditSummary").get(old).value)).toContain("2021年以前");
+    expect(String(fieldOf(old, "housing", "/creditSummary").get(old).value)).toContain("2013年以前");
+    // 2021年3月に借りたローン（平成26〜令和3年の制度データ）には置く
+    const r3 = withProvisionalHousing(fromRequest(modelHousehold("protectionNeed")));
+    expect(loans(r3)[0]!.housing).toMatchObject({ propertyType: "energySaving", newBuild: true });
+    expect(() => preview(r3.request)).not.toThrow();
   });
 });
 

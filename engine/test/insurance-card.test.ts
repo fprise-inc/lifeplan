@@ -224,8 +224,8 @@ describe("必要保障額の内訳", () => {
       expect(total(y.breakdown.resources) + total(y.breakdown.lumpResources)).toBe(y.resources);
       expect(y.breakdown.lump.funeral).toBe(2000000);
       expect(y.breakdown.lumpResources.condolence).toBe(500000);
-      expect(y.breakdown.expenses.living > 0).toBe(true);
-      expect(y.breakdown.resources.survivorPension > 0).toBe(true);
+      expect((y.breakdown.expenses.living ?? 0) > 0).toBe(true);
+      expect((y.breakdown.resources.survivorPension ?? 0) > 0).toBe(true);
     }
   });
 });

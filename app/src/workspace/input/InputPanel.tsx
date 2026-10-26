@@ -16,7 +16,8 @@ import { withProvisionalHousing } from "./housingCredit.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
-import { inheritanceLines, inheritanceSummary, useInheritanceEstimate } from "./inheritanceLine.ts";
+import { inheritanceSummary, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
+import { RetirementLineup } from "./RetirementLineup.tsx";
 import { StatusBadge } from "./StatusBadge.tsx";
 import { SavingsPanel } from "./savings/SavingsPanel.tsx";
 import { InsuranceOverview } from "./InsuranceOverview.tsx";
@@ -378,16 +379,43 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
               ))}
             </ul>
           ) : null}
-          {itemId === "inheritance" && inheritanceLines(shown, inheritance).length > 0 ? (
+          {itemId === "inheritance" && (inheritanceView(shown, inheritance).points.length > 0 || legacyLine(shown, inheritance) !== null) ? (
             <div class="ip-inherit" role="note" data-inheritance-line>
-              <p>
-                <b>相続税の目安</b>（表示だけ。お金の流れには入れていません。小規模宅地等の特例・2割加算などは含めていません）
-              </p>
-              <ul>
-                {inheritanceLines(shown, inheritance).map((t) => (
-                  <li key={t}>{t}</li>
-                ))}
-              </ul>
+              {legacyLine(shown, inheritance) !== null ? (
+                <p data-legacy-line>
+                  <b>遺したい額</b>: {legacyLine(shown, inheritance)}
+                </p>
+              ) : null}
+              {inheritanceView(shown, inheritance).points.length > 0 ? (
+                <>
+                  <p>
+                    <b>相続税の目安</b>（表示だけ。お金の流れには入れていません）
+                  </p>
+                  <ul>
+                    {inheritanceView(shown, inheritance).points.map((p) => (
+                      <li key={p.title} data-inheritance-point>
+                        {p.title}: {p.answer}
+                        {p.details.length > 0 || p.cautions.length > 0 ? (
+                          <details>
+                            <summary>内訳</summary>
+                            <ul>
+                              {p.details.map((d) => (
+                                <li key={d}>{d}</li>
+                              ))}
+                              {p.cautions.map((c) => (
+                                <li key={c} class="ip-inherit-caution">
+                                  注意: {c}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {inheritanceView(shown, inheritance).notIncluded.length > 0 ? <p class="ip-inherit-note">含めていないもの: {inheritanceView(shown, inheritance).notIncluded.join("・")}。額が分かれば、詳細の「相続税の目安の設定」の「税理士などの出した額」で直せます</p> : null}
+                </>
+              ) : null}
             </div>
           ) : null}
           {gaps.length > 0 ? (
@@ -445,6 +473,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                   <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />
                 ))}
                 {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます。</p> : null}
+                {/* 退職金・企業年金: カードの下に受け取りの並び（読むだけ。0058） */}
+                {itemId === "retirement" ? <RetirementLineup wh={shown} {...(computeOne !== undefined ? { computeOne } : {})} /> : null}
               </SectionLinks.Provider>
             </FieldSuggestions.Provider>
             </FieldStateOps.Provider>

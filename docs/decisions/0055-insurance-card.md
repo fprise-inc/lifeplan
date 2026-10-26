@@ -1,4 +1,4 @@
-# 0055. 保険のカードの中身（簡易の5欄とひな形・保険料と保障の額の未入力・証券どおりの詳細・保障の見え方・病気の想定）と世帯ファイルの形式 0.22
+# 0055. 保険のカードの中身（簡易の5欄とひな形・保険料と保障の額の未入力・証券どおりの詳細・保障の見え方・病気の想定）と世帯ファイルの形式 0.25
 
 - 状態: 採用（一部未確定）（2026-10-27）
 - 固定の強さ: β公開から変えない（骨格）。簡易を1契約5欄（種類・被保険者・保険料と払い方・主な保障の額・終わり）にすること、種類はひな形（種類の細目 `insurance.subtype`）で選び計算の型 `template` はひな形から決まること、保険料と保障の額は新しい契約でも目安を作らず未入力の警告にすること、ひな形の既定の値を推定（値の状態の行）で持ち推定のままの値だけを入れ直すこと、外貨建て・変額は円の目安の形だけにすること、病気の想定を万一の前提の大きな病気に持つことは骨格。ひな形の一覧と既定の値（終わりの年齢・払込の終わり・手術の倍率・入院の日数）・欄の並び・文言・保障の見え方の見せ方は後から変えてよい（変えたら追記に書く）
@@ -72,10 +72,10 @@
 
 - 万一の前提の「大きな病気のときの前提」に、**病気の種類**（がん／心疾患・脳卒中／そのほか。既定はがん）・**入院の日数**（1回。空欄は病気の種類ごとの目安: がん20日・心疾患と脳卒中30日・そのほか10日。患者調査の平均在院日数の水準を丸めた仮の値）・**手術の回数**（既定1回）を足した（画面の側の `household.contingency.illness`）。大きな病気の想定の要求に病気の想定（0054 の `contingency.illness`）として入れる。
 
-### 7. 世帯ファイルの形式 0.22
+### 7. 世帯ファイルの形式 0.25
 
-- 足すだけの MINOR（0035 の1）。版の番号は取り込みの順で振り直す（同じ時期に形を足すほかのカードの回がある。番号を変えても中身は同じ）。足した欄: 保険の種類の細目 `insuranceContracts[].subtype`・名前 `label`、保障の行の被保険者 `coverages[].insured`・入院の1回の限度日数 `maxDays`・給付の種類 `threeMajorLump`、円の目安の形 `simple.estimate`（0054）、画面の側の万一の前提の病気の想定 `household.contingency.illness` の `disease`・`hospitalDays`・`surgeries`。どれも任意。
-- `0.21` → `0.22` の変換の段は版だけを書き換える。見本 `crates/household-store/tests/fixtures/household-format/0.22/`（0.21 の見本に、種類の細目と名前のある医療保険〔三大疾病一時金・限度日数・配偶者の入院日額の特約〕、円の目安の形の変額保険〔解約の月の額の数表の行〕、逓減定期〔保障の ID のある数表の行〕、病気の想定を足した）。
+- 足すだけの MINOR（0035 の1）。足した欄: 保険の種類の細目 `insuranceContracts[].subtype`・名前 `label`、保障の行の被保険者 `coverages[].insured`・入院の1回の限度日数 `maxDays`・給付の種類 `threeMajorLump`、円の目安の形 `simple.estimate`（0054）、画面の側の万一の前提の病気の想定 `household.contingency.illness` の `disease`・`hospitalDays`・`surgeries`。どれも任意。
+- `0.24` → `0.25` の変換の段は版だけを書き換える。見本 `crates/household-store/tests/fixtures/household-format/0.25/`（0.24 の見本に、種類の細目と名前のある医療保険〔三大疾病一時金・限度日数・配偶者の入院日額の特約〕、円の目安の形の変額保険〔解約の月の額の数表の行〕、逓減定期〔保障の ID のある数表の行〕、病気の想定を足した）。
 
 ### 8. プランと持ち帰り
 
@@ -98,7 +98,7 @@
 
 - **画面**: 保険のカード（`input/stages/insurance.ts`）、ひな形と推定（`input/insuranceKinds.ts`）、保障の見え方（`input/insuranceView.ts`・`input/InsuranceOverview.tsx`・パネル）、万一の前提の病気の想定（`contingency/inputs.ts`・`requests.ts`・`planData.ts`）、確かめの一覧の前のボタンの値、世帯ファイルの本文の版。
 - **見本の世帯の結果**: 変わらない（開いただけでは書き換えない）。入力のホームのカードの状態は、主な保障の無い保険契約を持つ見本（会社員の夫婦と子2人など）で保険が「未入力」になる。万一のタブの大きな病気の想定は、医療・がんの給付のある世帯で給付の分だけ収入が増える（見本の世帯には医療保険の給付の明細が無いので変わらない）。
-- **テスト**: `app/test/insurance-card.test.ts`、`app/test/housing-loan.test.ts`（種類を変えたときの保障をひな形に合わせた）、`app/test/items.test.ts`・`app/test/hearing.test.ts`（主な保障の未入力）、`app/test/store.test.ts`（0.22 の形）、`crates/household-store/tests/format_fixtures.rs`。
+- **テスト**: `app/test/insurance-card.test.ts`、`app/test/housing-loan.test.ts`（種類を変えたときの保障をひな形に合わせた）、`app/test/items.test.ts`・`app/test/hearing.test.ts`（主な保障の未入力）、`app/test/store.test.ts`（0.25 の形）、`crates/household-store/tests/format_fixtures.rs`。
 
 ## 未確定
 

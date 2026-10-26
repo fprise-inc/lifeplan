@@ -16,6 +16,11 @@ import { modelHousehold, preview } from "./helpers.ts";
 
 // 世帯の外の家族は介護・親のカードに出す（家族のカードは読むだけの1行。0045）
 const groups = (wh: WorkingHousehold): GroupDef[] => buildStage("care", wh).sections.flatMap((s) => s.groups);
+// 親のお金の操作は区画「親のお金が持つか」（見ていない人の「＋ 見る」は区画の操作、見ている人の操作はその人のお金のまとまり）
+const walletActions = (wh: WorkingHousehold, id: string) => {
+  const sec = buildStage("care", wh).sections.find((s) => s.key === "care/wallet")!;
+  return [...sec.actions, ...(sec.groups.find((g) => g.key === `care/wallet/${id}`)?.actions ?? [])];
+};
 
 describe("介護・親のカードの世帯の外の家族", () => {
   it("親を足すと世帯の外の家族の印（本人の家族・家計を1つにする期間なし）が付く", () => {
@@ -73,8 +78,7 @@ describe("世帯の外の家族のお金（0042）", () => {
     const wh = fromRequest(modelHousehold("parentCare"));
     const parent = wh.request.input.household.members.find((m) => m.kind === "parent")!;
     expect(parent.wallet).toBeUndefined();
-    const g = groups(wh).find((x) => x.key === `family/${parent.id}`)!;
-    const opened = g.actions.find((a) => a.key === `family/${parent.id}/wallet/add`)!.run(wh);
+    const opened = walletActions(wh, parent.id).find((a) => a.key === `family/${parent.id}/wallet/add`)!.run(wh);
     const f = (w: WorkingHousehold, k: string) => allFields(buildStage("care", w)).find((x) => x.key === `family/${parent.id}/wallet/${k}`)!;
     let w = f(opened, "balance").set(opened, 3000000);
     w = f(w, "living").set(w, 200000);
@@ -89,7 +93,7 @@ describe("世帯の外の家族のお金（0042）", () => {
     expect(chips).toHaveLength(1);
     expect(chips[0]!.text).toContain("お母さまのお金が尽きる見込み");
     // 外すと元に戻る
-    const removed = groups(w).find((x) => x.key === `family/${parent.id}`)!.actions.find((a) => a.key === `family/${parent.id}/wallet/remove`)!.run(w);
+    const removed = walletActions(w, parent.id).find((a) => a.key === `family/${parent.id}/wallet/remove`)!.run(w);
     expect(careByHousehold(preview(removed.request))).toBe(careByHousehold(before));
   });
 
@@ -106,12 +110,12 @@ describe("世帯の外の家族のお金（0042）", () => {
     expect(boxAt(input, a)?.value).toBe(4000000);
     const lump = parent.wallet!.lumpSums![0]!;
     expect(fieldAddress(fields.find((x) => x.key === `family/${parent.id}/wallet/lump/${lump.id}/amount`)!, wh)).toEqual({ target: { member: parent.id }, item: "member.wallet", at: ["lumpSums", lump.id, "amount"] });
-    const acts = groups(wh).find((x) => x.key === `family/${parent.id}`)!.actions;
+    const acts = walletActions(wh, parent.id);
     const added = acts.find((x) => x.key === `family/${parent.id}/wallet/addLump`)!.run(wh);
     const ls = added.request.input.household.members.find((m) => m.id === parent.id)!.wallet!.lumpSums!;
     expect(ls).toHaveLength(2);
     expect(fieldStatus(allFields(buildStage("care", added)).find((x) => x.key === `family/${parent.id}/wallet/lump/${ls[1]!.id}/amount`)!, added).status).toBe("missing");
-    const gone = groups(added).find((x) => x.key === `family/${parent.id}`)!.actions.find((x) => x.key === `family/${parent.id}/wallet/lump/${lump.id}/remove`)!.run(added);
+    const gone = walletActions(added, parent.id).find((x) => x.key === `family/${parent.id}/wallet/lump/${lump.id}/remove`)!.run(added);
     expect(gone.request.input.household.members.find((m) => m.id === parent.id)!.wallet!.lumpSums!.map((l) => l.id)).toEqual([ls[1]!.id]);
   });
 });
@@ -151,14 +155,13 @@ describe("世帯の外の家族のお金をプランで直す（0043）", () => 
   it("一時の入金をプランで足すと、並びの要素を足す差分になる。お金を外すと、その人のお金の欄の差分になる", () => {
     const { wh, cat, parent } = setup();
     const view = planView(wh, cat, "B");
-    const g = groups(view).find((x) => x.key === `family/${parent.id}`)!;
-    const added = g.actions.find((a) => a.key === `family/${parent.id}/wallet/addLump`)!.run(view);
+    const added = walletActions(view, parent.id).find((a) => a.key === `family/${parent.id}/wallet/addLump`)!.run(view);
     const w = recordPlanEdit(wh, cat, "B", view, added);
     expect(w.request).toEqual(wh.request);
     const ds = w.proposals[0]!.diffs;
     expect(ds.map((d) => [d.op, d.item, d.at])).toEqual([["add", "member.wallet", ["lumpSums"]]]);
     expect(planView(w, cat, "B").request.input.household.members.find((m) => m.id === parent.id)!.wallet!.lumpSums).toHaveLength(2);
-    const removed = groups(view).find((x) => x.key === `family/${parent.id}`)!.actions.find((a) => a.key === `family/${parent.id}/wallet/remove`)!.run(view);
+    const removed = walletActions(view, parent.id).find((a) => a.key === `family/${parent.id}/wallet/remove`)!.run(view);
     const w2 = recordPlanEdit(wh, cat, "B", view, removed);
     expect(w2.request).toEqual(wh.request);
     expect(w2.proposals[0]!.diffs.length).toBeGreaterThan(0);

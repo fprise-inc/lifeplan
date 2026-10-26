@@ -5,6 +5,7 @@
 // - 確実な分だけで見る（保存しない自動の差分。0036 の6）: 見込みが「不確か」の入るお金の行のすべてと、優先度が「希望」「夢」の出るお金の行を外す
 //   （外す差分 remove を当てたのと同じ要求）
 // どちらも差分を当てた後の作業中の世帯から作る要求に当てるので、プランでの見込み・includeInBase・優先度の set が効く
+// - 世帯に保存した表示だけの設定（相続税の目安の設定・遺したい額。0060）も、エンジンへ渡すときに外す（withoutStoredSettings）
 import type { Debt, EngineRequest, Household, IncomeFlow, IncomeFlowKind, PeriodicExpense } from "./types.ts";
 
 /** 不確かなら基本の計算に入れない入るお金の種類（受け取る相続・遺贈・贈与） */
@@ -31,7 +32,8 @@ const withHousehold = (req: EngineRequest, h: Household): EngineRequest => ({ ..
  * エンジンへ渡す要求（基本の計算に入れない物を外す）。外す物が無ければ同じ物を返す（要求の文字列が変わらず、計算し直さない）。
  * 外した入るお金の行・負債を指す物は無い（贈与・移し替えの結び付けは外した行を指しても計算に使わない）
  */
-export function forEngine(req: EngineRequest): EngineRequest {
+export function forEngine(req0: EngineRequest): EngineRequest {
+  const req = withoutStoredSettings(req0);
   const h = req.input.household;
   const incomes = h.incomeFlows ?? [];
   const debts = h.debts ?? [];
@@ -43,6 +45,20 @@ export function forEngine(req: EngineRequest): EngineRequest {
     ...(dropIncome ? { incomeFlows: incomes.filter((f) => !excludedIncome(f)) } : {}),
     ...(dropDebt ? { debts: debts.filter((d) => !excludedDebt(d)) } : {}),
   });
+}
+
+/**
+ * 世帯に保存した表示だけの設定を外す（0060）: 相続税の目安の設定（時点 points の無い inheritanceTax。目安を求める要求は時点を入れる。
+ * inheritanceLine.ts・万一の死亡の想定）と、遺したい額（legacy）。どちらも計算のお金の流れに効かないので、外しても結果は同じで、
+ * 設定を直しても計算し直さない。外す物が無ければ同じ物を返す
+ */
+export function withoutStoredSettings(req: EngineRequest): EngineRequest {
+  const dropTax = req.input.inheritanceTax !== undefined && req.input.inheritanceTax.points === undefined;
+  const dropLegacy = req.input.legacy !== undefined;
+  if (!dropTax && !dropLegacy) return req;
+  const { inheritanceTax, legacy: _legacy, ...rest } = req.input;
+  void _legacy;
+  return { ...req, input: { ...rest, ...(dropTax || inheritanceTax === undefined ? {} : { inheritanceTax }) } as EngineRequest["input"] };
 }
 
 /** 確実な分だけで見るときに外す行か（入るお金は見込みが不確か、出るお金は優先度が希望・夢） */

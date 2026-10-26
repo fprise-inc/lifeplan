@@ -224,7 +224,7 @@ describe("教育: 進路を入れるボタンの名前と入る型が同じ", ()
     const { label, wh: w2 } = run(wh, "education", `edu/${child.id}/add`);
     const goal = (w2.request.input.household.goals ?? []).find((g) => g.owner === child.id)!;
     expect(presetOf(goal.education!.stages)).toBe("univPrivate");
-    expect(label).toBe("＋ 進路を入れる（大学だけ私立で始める）");
+    expect(label).toBe("推定の進路で埋める（大学だけ私立〔文系・自宅〕）");
   });
 });
 

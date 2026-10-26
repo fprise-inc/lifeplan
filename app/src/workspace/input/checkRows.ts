@@ -3,7 +3,7 @@
 // - 同じ値を2つの欄が見せる（今の働き方の欄と、働き方の期間の欄など）ときは、当て先で1行にまとめる
 // - 一覧は世帯の物と欄の定義から毎回作る（保存しない）
 import { allFields, type FieldDef, type Level } from "./form.ts";
-import { fillAll, gapsOf, type Gap } from "./fill.ts";
+import { fillAll, gapsOf, retirementNotices, type Gap } from "./fill.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf } from "./rows.ts";
@@ -115,6 +115,8 @@ export function checkList(wh: WorkingHousehold): CheckRow[] {
   const items = inputItems(wh);
   const labels = new Map(items.map((i) => [i.id, i.label]));
   for (const g of gapsOf(wh)) rows.push(gapRow(g, labels.get(g.card) ?? g.card));
+  // 目安で自動で足した退職金（制度の無い勤め先もある）・公務員と役員の0円の額は、確かめの注意に（推定より上に出す。0057）
+  for (const n of retirementNotices(wh)) rows.push({ id: `notice:${n.id}`, kind: "notice", card: "retirement", cardLabel: labels.get("retirement") ?? "退職金・企業年金", label: n.label, detail: n.detail, fieldKey: null, level: "simple", impact: 0, actions: n.actions });
   const seen = new Set<string>();
   items.forEach((item) => {
     const stage = itemStage(wh, item.id);

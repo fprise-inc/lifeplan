@@ -467,6 +467,17 @@ h2 .ih-st { font-size: 0.8rem; }
 .ins-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 .ins-break summary { cursor: pointer; font-size: 0.86rem; }
 .ins-notices li { color: var(--warn, #9a5b00); }
+.ip-inherit details { margin: 2px 0 4px; }
+.ip-inherit details summary { cursor: pointer; color: var(--ink-2); }
+.ip-inherit-note { margin: 4px 0 0; font-size: 0.8rem; }
+.ip-inherit-caution { font-weight: 600; }
+.ip-lineup { grid-column: 1 / -1; margin-top: 12px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--base-bg); font-size: 0.86rem; }
+.ip-lineup p { margin: 0 0 2px; }
+.ip-lineup .who { font-weight: 600; margin-top: 4px; }
+.ip-lineup table { border-collapse: collapse; width: 100%; }
+.ip-lineup th, .ip-lineup td { text-align: left; padding: 2px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ip-lineup .sub { color: var(--muted, inherit); font-size: 0.8rem; }
+.ip-lineup .notes { margin: 4px 0 0; padding-left: 1.1em; }
 
 /* 入力のパネル: 画面の中央に開き、背景を暗くする（別の窓は出さない）。保存のボタンは下に固定 */
 .scrim { position: fixed; inset: 0; background: rgba(20, 26, 38, 0.48); z-index: 40; }

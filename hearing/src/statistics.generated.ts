@@ -1,5 +1,5 @@
 // 自動生成（hearing/scripts/statistics.ts。npm run statistics）。手で書き換えない。
-// 正本は data/master（wageStats・retirementBenefit・living.statistics）と data/regulation の YAML（0007）。推定の目安の数の写し
+// 正本は data/master（wageStats・retirementBenefit・living.statistics・education.statistics・care.statistics・lifeTable）と data/regulation の YAML（0007）。推定の目安の数の写し
 import type { DatedValue, MasterValue } from "./statistics.ts";
 
 export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
@@ -2783,6 +2783,434 @@ export const MASTER_VALUES: Readonly<Record<string, MasterValue>> = {
   "rev": 1,
   "reviewed": true,
   "retrievedAt": "2026-10-26"
+ },
+ "education.statistics.boarding.annual": {
+  "title": "自宅外通学の仕送りの年額（教育費負担の実態調査）",
+  "value": 958000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.boarding.initial": {
+  "title": "自宅外通学を始めるための費用（教育費負担の実態調査）",
+  "value": 387000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.elementary.private.outOfSchool": {
+  "title": "学校外活動費の年額（私立小学校）",
+  "value": 709667,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.elementary.private.total": {
+  "title": "学習費総額の年額（私立小学校。子供の学習費調査）",
+  "value": 1741516,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.elementary.public.outOfSchool": {
+  "title": "学校外活動費の年額（公立小学校）",
+  "value": 256489,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.elementary.public.schoolLunch": {
+  "title": "学校給食費の年額（公立小学校。子供の学習費調査。学習費総額のうち）",
+  "value": 35774,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-20"
+ },
+ "education.statistics.elementary.public.total": {
+  "title": "学習費総額の年額（公立小学校。子供の学習費調査）",
+  "value": 366599,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.highSchool.private.outOfSchool": {
+  "title": "学校外活動費の年額（私立高校）",
+  "value": 346611,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.highSchool.private.total": {
+  "title": "学習費総額の年額（私立高等学校（全日制）。子供の学習費調査）",
+  "value": 1179261,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.highSchool.public.outOfSchool": {
+  "title": "学校外活動費の年額（公立高校）",
+  "value": 245431,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.highSchool.public.total": {
+  "title": "学習費総額の年額（公立高等学校（全日制）。子供の学習費調査）",
+  "value": 596954,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorCollege.private.admission": {
+  "title": "私立短期大学の入学料の平均（令和7年度入学者）",
+  "value": 236054,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorCollege.private.facility": {
+  "title": "私立短期大学の施設設備費の平均（令和7年度入学者）",
+  "value": 170132,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorCollege.private.tuition": {
+  "title": "私立短期大学の授業料の平均（令和7年度入学者）",
+  "value": 734328,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorHigh.private.outOfSchool": {
+  "title": "学校外活動費の年額（私立中学校）",
+  "value": 422981,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorHigh.private.total": {
+  "title": "学習費総額の年額（私立中学校。子供の学習費調査）",
+  "value": 1560359,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorHigh.public.outOfSchool": {
+  "title": "学校外活動費の年額（公立中学校）",
+  "value": 356018,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.juniorHigh.public.schoolLunch": {
+  "title": "学校給食費の年額（公立中学校。子供の学習費調査。学習費総額のうち）",
+  "value": 35671,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-20"
+ },
+ "education.statistics.juniorHigh.public.total": {
+  "title": "学習費総額の年額（公立中学校。子供の学習費調査）",
+  "value": 542450,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.kindergarten.private.outOfSchool": {
+  "title": "学校外活動費の年額（私立幼稚園）",
+  "value": 157535,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.kindergarten.private.total": {
+  "title": "学習費総額の年額（私立幼稚園。子供の学習費調査）",
+  "value": 347338,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.kindergarten.public.outOfSchool": {
+  "title": "学校外活動費の年額（公立幼稚園）",
+  "value": 100049,
+  "rev": 1,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.kindergarten.public.total": {
+  "title": "学習費総額の年額（公立幼稚園。子供の学習費調査）",
+  "value": 184646,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.national.admission": {
+  "title": "国立大学の入学料の標準額",
+  "value": 282000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.national.tuition": {
+  "title": "国立大学の授業料の標準額（年額）",
+  "value": 535800,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.all.admission": {
+  "title": "私立大学の入学料の平均（全体。令和7年度入学者）",
+  "value": 240365,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.all.facility": {
+  "title": "私立大学の施設設備費の平均（全体。令和7年度入学者）",
+  "value": 172550,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.all.tuition": {
+  "title": "私立大学の授業料の平均（全体。令和7年度入学者）",
+  "value": 968069,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.humanities.admission": {
+  "title": "私立大学の入学料の平均（文科系。令和7年度入学者）",
+  "value": 219951,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.humanities.facility": {
+  "title": "私立大学の施設設備費の平均（文科系。令和7年度入学者）",
+  "value": 141892,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.humanities.tuition": {
+  "title": "私立大学の授業料の平均（文科系。令和7年度入学者）",
+  "value": 850392,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.medical.admission": {
+  "title": "私立大学の入学料の平均（医歯系。令和7年度入学者）",
+  "value": 1088248,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.medical.facility": {
+  "title": "私立大学の施設設備費の平均（医歯系。令和7年度入学者）",
+  "value": 865535,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.medical.tuition": {
+  "title": "私立大学の授業料の平均（医歯系。令和7年度入学者）",
+  "value": 2825359,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.science.admission": {
+  "title": "私立大学の入学料の平均（理科系。令和7年度入学者）",
+  "value": 245362,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.science.facility": {
+  "title": "私立大学の施設設備費の平均（理科系。令和7年度入学者）",
+  "value": 161378,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.private.science.tuition": {
+  "title": "私立大学の授業料の平均（理科系。令和7年度入学者）",
+  "value": 1195313,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.public.admission": {
+  "title": "公立大学の入学料の平均（地域外。令和5年度）",
+  "value": 374371,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "education.statistics.university.public.tuition": {
+  "title": "公立大学の授業料の平均（年額。令和5年度）",
+  "value": 536191,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "care.statistics.initial": {
+  "title": "介護の一時的な費用の平均",
+  "value": 472000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "care.statistics.monthly": {
+  "title": "介護の月々の費用の平均（自己負担。在宅・施設の全体）",
+  "value": 90000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "care.statistics.monthlyFacility": {
+  "title": "介護の月々の費用の平均（施設）",
+  "value": 138000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "care.statistics.monthlyHome": {
+  "title": "介護の月々の費用の平均（在宅）",
+  "value": 52000,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "care.statistics.months": {
+  "title": "介護の期間の平均（月数）",
+  "value": 55,
+  "rev": 2,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "lifeTable.lifeExpectancy.female": {
+  "title": "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）",
+  "value": [
+   {
+    "upTo": 0,
+    "rate": "87.33"
+   },
+   {
+    "upTo": 20,
+    "rate": "67.67"
+   },
+   {
+    "upTo": 30,
+    "rate": "57.85"
+   },
+   {
+    "upTo": 40,
+    "rate": "48.05"
+   },
+   {
+    "upTo": 50,
+    "rate": "38.41"
+   },
+   {
+    "upTo": 60,
+    "rate": "29.07"
+   },
+   {
+    "upTo": 65,
+    "rate": "24.52"
+   },
+   {
+    "upTo": 70,
+    "rate": "20.10"
+   },
+   {
+    "upTo": 75,
+    "rate": "15.88"
+   },
+   {
+    "upTo": 80,
+    "rate": "11.95"
+   },
+   {
+    "upTo": 85,
+    "rate": "8.47"
+   },
+   {
+    "upTo": 90,
+    "rate": "5.66"
+   },
+   {
+    "upTo": null,
+    "rate": "5.66"
+   }
+  ],
+  "rev": 4,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
+ },
+ "lifeTable.lifeExpectancy.male": {
+  "title": "主な年齢の平均余命（簡易生命表。upTo は年齢、rate は平均余命の年数。最後の段は90歳の値）",
+  "value": [
+   {
+    "upTo": 0,
+    "rate": "81.35"
+   },
+   {
+    "upTo": 20,
+    "rate": "61.72"
+   },
+   {
+    "upTo": 30,
+    "rate": "51.98"
+   },
+   {
+    "upTo": 40,
+    "rate": "42.29"
+   },
+   {
+    "upTo": 50,
+    "rate": "32.82"
+   },
+   {
+    "upTo": 60,
+    "rate": "23.86"
+   },
+   {
+    "upTo": 65,
+    "rate": "19.68"
+   },
+   {
+    "upTo": 70,
+    "rate": "15.78"
+   },
+   {
+    "upTo": 75,
+    "rate": "12.24"
+   },
+   {
+    "upTo": 80,
+    "rate": "9.10"
+   },
+   {
+    "upTo": 85,
+    "rate": "6.44"
+   },
+   {
+    "upTo": 90,
+    "rate": "4.38"
+   },
+   {
+    "upTo": null,
+    "rate": "4.38"
+   }
+  ],
+  "rev": 3,
+  "reviewed": true,
+  "retrievedAt": "2026-10-09"
  }
 };
 
@@ -2902,6 +3330,50 @@ export const REGULATION_VALUES: Readonly<Record<string, readonly DatedValue[]>> 
      "amount": 0
     }
    ]
+  }
+ ],
+ "incomeTax.retirementIncome.overlap.lookbackYears": [
+  {
+   "from": "2013-01-01",
+   "to": null,
+   "rev": 2,
+   "value": 4
+  }
+ ],
+ "incomeTax.retirementIncome.overlap.lookbackYearsAfterDc": [
+  {
+   "from": "2013-01-01",
+   "to": "2025-12-31",
+   "rev": 3,
+   "value": 4
+  },
+  {
+   "from": "2026-01-01",
+   "to": null,
+   "rev": 4,
+   "value": 9
+  }
+ ],
+ "incomeTax.retirementIncome.overlap.lookbackYearsForDc": [
+  {
+   "from": "2013-01-01",
+   "to": "2022-03-31",
+   "rev": 3,
+   "value": 14
+  },
+  {
+   "from": "2022-04-01",
+   "to": null,
+   "rev": 4,
+   "value": 19
+  }
+ ],
+ "inheritanceTax.retirementAllowance.exemptionPerHeir": [
+  {
+   "from": "2015-01-01",
+   "to": null,
+   "rev": 1,
+   "value": 5000000
   }
  ],
  "residentTax.perCapita.municipal": [
@@ -4069,6 +4541,124 @@ export const REGULATION_VALUES: Readonly<Record<string, readonly DatedValue[]>> 
      "below": null
     }
    ]
+  }
+ ],
+ "socialInsurance.dependent.incomeLimit": [
+  {
+   "from": "2025-04-01",
+   "to": null,
+   "rev": 1,
+   "value": 1300000
+  }
+ ],
+ "socialInsurance.dependent.incomeLimitElderly": [
+  {
+   "from": "2025-04-01",
+   "to": null,
+   "rev": 1,
+   "value": 1800000
+  }
+ ],
+ "socialInsurance.dependent.elderlyAge": [
+  {
+   "from": "2025-04-01",
+   "to": null,
+   "rev": 1,
+   "value": 60
+  }
+ ],
+ "socialInsurance.health.lateElderlyAge": [
+  {
+   "from": "2025-01-01",
+   "to": null,
+   "rev": 1,
+   "value": 75
+  }
+ ],
+ "incomeTax.dependentIncomeLimit": [
+  {
+   "from": "2025-01-01",
+   "to": null,
+   "rev": 1,
+   "value": 580000
+  },
+  {
+   "from": "2026-01-01",
+   "to": null,
+   "rev": 2,
+   "value": 620000
+  }
+ ],
+ "incomeTax.publicPensionDeduction.over65.tier1": [
+  {
+   "from": "2020-01-01",
+   "to": null,
+   "rev": 1,
+   "value": [
+    {
+     "upTo": 3300000,
+     "amount": 1100000
+    },
+    {
+     "upTo": 4100000,
+     "rate": "0.25",
+     "amount": 275000
+    },
+    {
+     "upTo": 7700000,
+     "rate": "0.15",
+     "amount": 685000
+    },
+    {
+     "upTo": 10000000,
+     "rate": "0.05",
+     "amount": 1455000
+    },
+    {
+     "upTo": null,
+     "amount": 1955000
+    }
+   ]
+  }
+ ],
+ "incomeTax.publicPensionDeduction.under65.tier1": [
+  {
+   "from": "2020-01-01",
+   "to": null,
+   "rev": 1,
+   "value": [
+    {
+     "upTo": 1300000,
+     "amount": 600000
+    },
+    {
+     "upTo": 4100000,
+     "rate": "0.25",
+     "amount": 275000
+    },
+    {
+     "upTo": 7700000,
+     "rate": "0.15",
+     "amount": 685000
+    },
+    {
+     "upTo": 10000000,
+     "rate": "0.05",
+     "amount": 1455000
+    },
+    {
+     "upTo": null,
+     "amount": 1955000
+    }
+   ]
+  }
+ ],
+ "incomeTax.publicPensionDeduction.elderlyAge": [
+  {
+   "from": "2020-01-01",
+   "to": null,
+   "rev": 1,
+   "value": 65
   }
  ],
  "socialInsurance.health.kyokaikenpo.rate": [

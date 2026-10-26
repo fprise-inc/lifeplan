@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.22";
+pub const CURRENT: &str = "0.25";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -76,13 +76,21 @@ pub const CURRENT: &str = "0.22";
 /// - 0.21: 住まい・ローンのカード（0052・0053）。住まいの建て方 `residences[].style`、譲渡所得の税の額 `residences[].sale.tax`、
 ///   負債の名前 `debts[].label` と種類の細目 `debts[].subtype`、画面の側のローンの入れ方の区分 `household.loanEntry` を足した
 ///   （どれも任意。足すだけの MINOR）。0.20 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
-/// - 0.22: 保険のカード（0054・0055）。保険の種類の細目 `insuranceContracts[].subtype`・名前 `label`、保障の行の被保険者
+/// - 0.22: 退職金・企業年金のカード（0057）。退職給付の名前 `retirementBenefits[].label` と学歴 `retirementBenefits[].education`
+///   （退職一時金の目安の元）を足した（どれも任意。計算には使わない。足すだけの MINOR）。0.21 のアプリは知らない欄を読み落として
+///   書き戻すので、版を上げて閲覧だけにする
+/// - 0.23: 子ども・教育のカード（0062・0063）。教育の目標の学校外の費用の入れ方 `goals[].education.outOfSchoolMode` と、塾・習い事の行の種類
+///   `goals[].education.lessons[].kind` を足した（どれも任意。足すだけの MINOR。入れ方の無い目標は前の形のまま計算する）。
+///   0.22 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
+/// - 0.24: 相続・贈与のカード（0060・0061）。計算の要求の入力に、相続税の目安の設定 `inheritanceTax`（時点を入れない設定だけ）と
+///   遺したい額 `legacy` を足した（どれも任意。足すだけの MINOR）。0.23 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
+/// - 0.25: 保険のカード（0054・0055）。保険の種類の細目 `insuranceContracts[].subtype`・名前 `label`、保障の行の被保険者
 ///   `coverages[].insured`・入院の1回の限度日数 `coverages[].maxDays`・給付の種類 `threeMajorLump`、円の目安の形 `simple.estimate`、
 ///   画面の側の万一の前提の病気の想定 `household.contingency.illness` の `disease`・`hospitalDays`・`surgeries` を足した
-///   （どれも任意。足すだけの MINOR）。0.21 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
+///   （どれも任意。足すだけの MINOR）。0.24 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
-    "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22",
+    "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
 ];
 
 /// 1段分の変換
@@ -198,6 +206,21 @@ pub const STEPS: &[Step] = &[
         from: "0.21",
         to: "0.22",
         apply: v0_21_to_0_22,
+    },
+    Step {
+        from: "0.22",
+        to: "0.23",
+        apply: v0_22_to_0_23,
+    },
+    Step {
+        from: "0.23",
+        to: "0.24",
+        apply: v0_23_to_0_24,
+    },
+    Step {
+        from: "0.24",
+        to: "0.25",
+        apply: v0_24_to_0_25,
     },
 ];
 
@@ -446,12 +469,40 @@ fn v0_20_to_0_21(mut body: Value) -> Result<Value, StoreError> {
     Ok(body)
 }
 
-/// 0.21 → 0.22: 足した欄（保険の種類の細目と名前・保障の行の被保険者と限度日数・円の目安の形・病気の想定。0054・0055）は任意なので
-/// 足さない。形式の版だけを書き換える
+/// 0.21 → 0.22: 足した欄（退職給付の名前と学歴。0057）は任意なので足さない。形式の版だけを書き換える
 fn v0_21_to_0_22(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.22".into());
+    }
+    Ok(body)
+}
+
+/// 0.22 → 0.23: 足した欄（教育の目標の学校外の費用の入れ方・塾・習い事の行の種類。0063）は任意なので足さない。
+/// 入れ方の無い目標は前の形（統計の平均に行を足す）で計算するので、黙って書き換えない。形式の版だけを書き換える
+fn v0_22_to_0_23(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.23".into());
+    }
+    Ok(body)
+}
+
+/// 0.23 → 0.24: 足した欄（相続税の目安の設定・遺したい額。0060・0061）は任意なので足さない。形式の版だけを書き換える
+fn v0_23_to_0_24(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.24".into());
+    }
+    Ok(body)
+}
+
+/// 0.24 → 0.25: 足した欄（保険の種類の細目と名前・保障の行の被保険者と限度日数・円の目安の形・病気の想定。0054・0055）は任意なので
+/// 足さない。形式の版だけを書き換える
+fn v0_24_to_0_25(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.25".into());
     }
     Ok(body)
 }
@@ -973,7 +1024,10 @@ mod tests {
         assert_eq!(access("0.20").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.21").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.22").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.23").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.23").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.24").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.25").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.26").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -986,7 +1040,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.23", b.clone()).unwrap(),
+            upgrade("0.26", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );

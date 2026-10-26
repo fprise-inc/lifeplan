@@ -23,6 +23,7 @@ pub const TEXT_ITEMS: &[(&str, &str)] = &[
     ("incomeFlow.label", "FP（見出し）"),
     ("transfer.label", "FP（見出し）"),
     ("debt.label", "FP（ローンの名前）"),
+    ("retirementBenefit.label", "FP（退職給付の名前）"),
     ("insurance.label", "FP（保険の名前）"),
 ];
 

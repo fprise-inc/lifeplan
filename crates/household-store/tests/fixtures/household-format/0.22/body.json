@@ -59,11 +59,6 @@
     "addedItems": [],
     "confirmed": [],
     "contingency": {
-      "illness": {
-        "disease": "heartStroke",
-        "hospitalDays": 25,
-        "surgeries": 2
-      },
       "oldAgeChoice": {},
       "survivor": {},
       "work": {}
@@ -1319,243 +1314,6 @@
                 "returnRate": "1.05"
               },
               "template": "insurance.wholeLife"
-            },
-            {
-              "contractDate": "2021-04",
-              "coverages": [
-                {
-                  "amount": 10000,
-                  "benefit": "hospitalDaily",
-                  "from": {
-                    "at": "2021-04"
-                  },
-                  "id": "00000000-0000-4000-8000-000000000102",
-                  "maxDays": 60,
-                  "role": "main",
-                  "to": null
-                },
-                {
-                  "amount": 500000,
-                  "benefit": "threeMajorLump",
-                  "from": {
-                    "at": "2021-04"
-                  },
-                  "id": "00000000-0000-4000-8000-000000000103",
-                  "role": "rider",
-                  "to": null
-                },
-                {
-                  "amount": 5000,
-                  "benefit": "hospitalDaily",
-                  "from": {
-                    "at": "2021-04"
-                  },
-                  "id": "00000000-0000-4000-8000-000000000104",
-                  "insured": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
-                  "role": "rider",
-                  "to": null
-                }
-              ],
-              "currency": "JPY",
-              "deductionCategory": {
-                "regime": "new",
-                "type": "careMedical"
-              },
-              "id": "00000000-0000-4000-8000-000000000101",
-              "insured": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
-              "label": "架空の医療保険",
-              "policyholder": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
-              "premium": {
-                "amount": 4000,
-                "frequency": "monthly",
-                "payUntil": null
-              },
-              "subtype": "medical",
-              "template": "insurance.medical"
-            },
-            {
-              "contractDate": "2019-07",
-              "coverages": [
-                {
-                  "amount": 8000000,
-                  "benefit": "death",
-                  "from": {
-                    "at": "2019-07"
-                  },
-                  "id": "00000000-0000-4000-8000-000000000106",
-                  "role": "main",
-                  "to": null
-                }
-              ],
-              "currency": "JPY",
-              "deductionCategory": {
-                "regime": "new",
-                "type": "general"
-              },
-              "id": "00000000-0000-4000-8000-000000000105",
-              "insured": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
-              "policyholder": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
-              "premium": {
-                "amount": 20000,
-                "frequency": "monthly",
-                "payUntil": {
-                  "at": "2039-07"
-                }
-              },
-              "schedule": {
-                "rows": [
-                  {
-                    "policyYear": 16,
-                    "surrenderValue": 5200000
-                  }
-                ]
-              },
-              "simple": {
-                "estimate": true
-              },
-              "subtype": "variable",
-              "surrender": {
-                "at": "2035-07"
-              },
-              "template": "insurance.variable"
-            },
-            {
-              "contractDate": "2022-04",
-              "coverages": [
-                {
-                  "amount": 20000000,
-                  "benefit": "death",
-                  "from": {
-                    "at": "2022-04"
-                  },
-                  "id": "00000000-0000-4000-8000-000000000108",
-                  "role": "main",
-                  "to": {
-                    "at": "2042-03"
-                  }
-                }
-              ],
-              "currency": "JPY",
-              "deductionCategory": {
-                "regime": "new",
-                "type": "general"
-              },
-              "id": "00000000-0000-4000-8000-000000000107",
-              "insured": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
-              "policyholder": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
-              "premium": {
-                "amount": 3000,
-                "frequency": "monthly",
-                "payUntil": {
-                  "at": "2042-04"
-                }
-              },
-              "schedule": {
-                "rows": [
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 20000000,
-                    "policyYear": 1
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 19000000,
-                    "policyYear": 2
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 18000000,
-                    "policyYear": 3
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 17000000,
-                    "policyYear": 4
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 16000000,
-                    "policyYear": 5
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 15000000,
-                    "policyYear": 6
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 14000000,
-                    "policyYear": 7
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 13000000,
-                    "policyYear": 8
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 12000000,
-                    "policyYear": 9
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 11000000,
-                    "policyYear": 10
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 10000000,
-                    "policyYear": 11
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 9000000,
-                    "policyYear": 12
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 8000000,
-                    "policyYear": 13
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 7000000,
-                    "policyYear": 14
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 6000000,
-                    "policyYear": 15
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 5000000,
-                    "policyYear": 16
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 4000000,
-                    "policyYear": 17
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 3000000,
-                    "policyYear": 18
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 2000000,
-                    "policyYear": 19
-                  },
-                  {
-                    "coverage": "00000000-0000-4000-8000-000000000108",
-                    "deathBenefit": 1000000,
-                    "policyYear": 20
-                  }
-                ]
-              },
-              "subtype": "decreasingTerm",
-              "template": "insurance.term"
             }
           ],
           "livingExpenses": [
@@ -2094,6 +1852,7 @@
                 "state": "confirmed",
                 "value": 22000000
               },
+              "education": "highSchoolOffice",
               "employment": "37d360af-f60c-4346-a0ff-b98bf7069974",
               "id": "65e0236d-9f32-4039-bb58-67a16d6fe29b",
               "kind": "lumpSum",
@@ -2111,6 +1870,24 @@
               "id": "dc359d4f-2fac-40b9-8f2c-c7f85908baa6",
               "kind": "lumpSum",
               "member": "e6983e83-e3f0-41eb-ace3-db4c54919c0a"
+            },
+            {
+              "amount": {
+                "origin": {
+                  "kind": "manual"
+                },
+                "state": "confirmed",
+                "value": 6000000
+              },
+              "employment": "37d360af-f60c-4346-a0ff-b98bf7069974",
+              "id": "00000000-0000-4000-8000-00000000a501",
+              "kind": "db",
+              "label": "架空の企業年金基金",
+              "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+              "receipt": {
+                "method": "annuity",
+                "years": 10
+              }
             }
           ],
           "transfers": [

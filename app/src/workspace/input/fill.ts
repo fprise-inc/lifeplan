@@ -3,11 +3,11 @@
 //   FP が「推定で埋める」（1件ごと・カードごと・まとめて）を押したときだけ入れる。無いと決めたら「該当なし」
 // - 新しく入れるとき（子を足す・会社員として入れる・働き方を正社員や公務員にする）は、最初から推定で入れる（ensure*）
 // - 推定の目安は今ある関数（hearing/src/estimates.ts・教育の標準の進路の型）で作れる範囲だけ。作れない物は「推定で埋める」を出さない
-import type { EducationStage, EmploymentPeriod, Household, Member } from "../../engine/types.ts";
-import { retirementLumpSumEstimate, salaryEstimate } from "../../../../hearing/src/estimates.ts";
-import { addMonths, ageAt, ageReachedMonth } from "../levers.ts";
+import type { Box, CareExpense, EducationStage, EmploymentPeriod, Household, Member, RetirementBenefit, Timepoint } from "../../engine/types.ts";
+import { careEstimate, lifeExpectancy } from "../../../../hearing/src/estimates.ts";
+import { addMonths, ageAt } from "../levers.ts";
 import { resolveTimepoint, type StageId } from "./form.ts";
-import { estimatedBox, mutate, newId, type WorkingHousehold } from "./household.ts";
+import { mutate, newId, type WorkingHousehold } from "./household.ts";
 import { livingEstimate } from "./estimates.ts";
 import { startLiving } from "./livingStages.ts";
 import { memberLabel } from "./labels.ts";
@@ -15,8 +15,11 @@ import { putRow, rowAt, type StateRow } from "./rows.ts";
 import { defaultStages } from "./stages/education.ts";
 import { currentPeriodId } from "../store/readings.ts";
 import { missingUnemployment, putEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM, unemploymentEstimate } from "./claims.ts";
+import { AUTO_TYPES, autoKindOf, civilEstimate, COMPUTED, finalMonthlyAt, initialBenefit, isAutoBenefit, isUnenteredBox, KIND_SHORT, prevalenceText, reasonAt, rowOfBenefit, type BenefitKind } from "./retirementBenefits.ts";
 
 type Obj = Record<string, unknown>;
+/** 生年月を持つか（世帯の外の家族は生年月を省ける。0035 の4） */
+export const hasBirth = (m: Member): boolean => (m.birth as Member["birth"] | undefined)?.birthYearMonth !== undefined;
 const inputOf = (wh: WorkingHousehold): Obj => wh.request.input as unknown as Obj;
 
 /** 計算基準月にしている働き方の期間（無ければ次に始まる期間、それも無ければ最後の期間。stages/work.ts の currentPeriod と同じ決まり） */
@@ -67,8 +70,9 @@ export function fillEducation(wh: WorkingHousehold, childId: string): WorkingHou
   const stages = defaultStages(child, wh.request.input.baseMonth);
   if (stages.length === 0) return wh;
   const id = newId();
+  // 新しく入れる進路は、学校外の費用を「統計の平均で」で始める（行を足すときは「行で入れる」に切り替える。0062）
   return mutate(wh, (hh, req) => {
-    (hh.goals ??= []).push({ id, kind: "education", owner: childId, education: { stages } });
+    (hh.goals ??= []).push({ id, kind: "education", owner: childId, education: { stages: stages.map((s) => ({ id: newId(), ...s })), outOfSchoolMode: "statistics" } });
     putRow(req.input as unknown as Obj, educationStagesAddress(id), estimatedRow("standard", EDUCATION_BASIS));
   });
 }
@@ -95,39 +99,23 @@ export function refreshEducation(h: Household, baseMonth: string): void {
     if (child === undefined) continue;
     const next = defaultStages(child, baseMonth);
     const strip = (s: readonly EducationStage[]) => JSON.stringify(s.map(({ id: _id, ...rest }) => rest));
-    if (strip(next) !== strip(g.education.stages)) g.education.stages = next;
+    if (strip(next) !== strip(g.education.stages)) g.education.stages = next.map((s) => ({ id: newId(), ...s }));
   }
 }
 
-// ---- 退職金 ----
+// ---- 退職金（0057。種類ごとの形と目安は retirementBenefits.ts）----
 
-const RETIREMENT_TYPES = new Set(["regular", "civilServant"]);
 /** 働き方の期間の「退職給付」の当て先（該当なしの行を置く所） */
 const benefitAddress = (periodId: string) => ({ target: { object: periodId }, item: "employment.retirementBenefit", at: [] as string[] });
 
-/** 定年（期間の終わり。無ければ60歳の前月）・勤続年数・辞める年齢 */
-function serviceOf(h: Household, m: Member, p: EmploymentPeriod): { to: string; years: number; age: number } | null {
-  const from = resolveTimepoint(h, p.from);
-  const to = (p.to !== null ? resolveTimepoint(h, p.to) : null) ?? addMonths(ageReachedMonth(m, 60), -1);
-  if (from === null || to < from) return null;
-  const [fy, fm] = from.split("-").map(Number) as [number, number];
-  const [ty, tm] = to.split("-").map(Number) as [number, number];
-  return { to, years: Math.floor(((ty - fy) * 12 + (tm - fm) + 1) / 12), age: ageAt(m, addMonths(to, 1)) };
-}
-
-/** 退職金の目安（会社員は統計の退職一時金、公務員は退職手当の見込みの計算に使う最終の月給の目安）。作れなければ null */
-function retirementEstimate(h: Household, m: Member, p: EmploymentPeriod): { benefit: Obj; basis: string } | null {
-  const s = serviceOf(h, m, p);
-  if (s === null) return null;
-  if (p.type === "regular") {
-    const est = retirementLumpSumEstimate({ reason: "mandatory", yearsOfService: s.years, ageAtRetirement: s.age });
-    if (est === null) return null;
-    return { benefit: { kind: "lumpSum", amount: estimatedBox(est.value, est.basis) }, basis: est.basis };
-  }
-  const sal = salaryEstimate("civilServant", m.sex, { age: Math.max(18, s.age - 1) });
-  if (sal === null) return null;
-  const basis = `退職手当の見込みの計算（最終の月給は ${sal.annual.basis} を12で割った目安）`;
-  return { benefit: { kind: "civilServantAllowance", estimate: { finalMonthly: Math.round(sal.annual.value / 12), reason: "retirementAge" }, valueStates: { "retirementBenefit.estimate": estimatedRow("derived", basis) } }, basis };
+/** 今の働き方で自動で足す退職給付の目安（正社員は退職一時金、公務員は退職手当の見込みの計算）。作れなければ null */
+function retirementEstimate(h: Household, m: Member, p: EmploymentPeriod): { benefit: RetirementBenefit; basis: string } | null {
+  const kind = autoKindOf(p.type);
+  if (kind === null) return null;
+  const b = initialBenefit(h, m, kind, { id: "", employment: p.id });
+  if (kind === "lumpSum") return isUnenteredBox(b.amount) ? null : { benefit: b, basis: (b.amount as unknown as { estimate: { basis: string } }).estimate.basis };
+  if (b.estimate?.finalMonthly === undefined) return null;
+  return { benefit: b, basis: civilEstimate(h, b)?.basis ?? "" };
 }
 
 /** 退職金の目安を入れる（今の働き方が正社員・公務員で、その人の退職金がまだ無いとき）。該当なしの印は外す */
@@ -135,17 +123,18 @@ export function fillRetirement(wh: WorkingHousehold, memberId: string): WorkingH
   const h = wh.request.input.household;
   const m = h.members.find((x) => x.id === memberId);
   const p = m === undefined ? undefined : currentPeriod(h, m.id, wh.request.input.baseMonth);
-  if (m === undefined || p === undefined || !RETIREMENT_TYPES.has(p.type) || (h.retirementBenefits ?? []).some((b) => b.member === memberId)) return wh;
+  if (m === undefined || p === undefined || !AUTO_TYPES.has(p.type) || (h.retirementBenefits ?? []).some((b) => b.member === memberId)) return wh;
   const est = retirementEstimate(h, m, p);
   if (est === null) return wh;
   return mutate(wh, (hh, req) => {
-    (hh.retirementBenefits ??= []).push({ id: newId(), member: memberId, employment: p.id, ...est.benefit } as never);
+    // 初めの形は仮の ID で作った（値の状態の行の鍵は物の ID を含まないので、ID を付け直すだけでよい）
+    (hh.retirementBenefits ??= []).push(structuredClone({ ...est.benefit, id: newId() }));
     putRow(req.input as unknown as Obj, benefitAddress(p.id), undefined);
   });
 }
 
 /** 退職金を「該当なし」（勤め先に制度が無い）にする: 今の働き方の期間に該当なしの行 */
-function retirementNone(wh: WorkingHousehold, memberId: string): WorkingHousehold {
+export function retirementNone(wh: WorkingHousehold, memberId: string): WorkingHousehold {
   const p = currentPeriod(wh.request.input.household, memberId, wh.request.input.baseMonth);
   if (p === undefined) return wh;
   return mutate(wh, (_h, req) => void putRow(req.input as unknown as Obj, benefitAddress(p.id), notApplicableRow));
@@ -157,10 +146,102 @@ export function retirementNotApplicable(wh: WorkingHousehold, memberId: string):
   return p !== undefined && rowAt(inputOf(wh), benefitAddress(p.id))?.state === "notApplicable";
 }
 
-/** 新しく入れたとき: 今の働き方が正社員・公務員になったら、退職金の目安を最初から入れる（該当なしにしてあれば入れない） */
-export function ensureRetirement(wh: WorkingHousehold, memberId: string): WorkingHousehold {
-  return retirementNotApplicable(wh, memberId) ? wh : fillRetirement(wh, memberId);
+/** 今の働き方の「該当なし」の印を外す（退職給付を足したとき） */
+export function clearRetirementNone(wh: WorkingHousehold, memberId: string): WorkingHousehold {
+  if (!retirementNotApplicable(wh, memberId)) return wh;
+  const p = currentPeriod(wh.request.input.household, memberId, wh.request.input.baseMonth);
+  return p === undefined ? wh : mutate(wh, (_h, req) => void putRow(req.input as unknown as Obj, benefitAddress(p.id), undefined));
 }
+
+/**
+ * 働き方を入れた・種類を変えたとき（0057）: 目安のまま（自動で足したまま）の退職給付のうち、勤め先の働き方に合わなくなった物
+ * （正社員→パートなど）を外し、今の働き方が正社員・公務員になったら目安を最初から入れる（該当なしにしてあれば入れない）。
+ * FP が額を入れた退職給付は残す（前の勤め先の退職金として。欄に注意を出す）
+ */
+export function ensureRetirement(wh: WorkingHousehold, memberId: string): WorkingHousehold {
+  const h = wh.request.input.household;
+  const stale = (h.retirementBenefits ?? []).filter((b) => {
+    if (b.member !== memberId || !isAutoBenefit(b)) return false;
+    const p = (h.employmentPeriods ?? []).find((x) => x.id === b.employment);
+    return p === undefined || autoKindOf(p.type) !== b.kind;
+  });
+  const w = stale.length === 0 ? wh : mutate(wh, (hh) => void (hh.retirementBenefits = (hh.retirementBenefits ?? []).filter((b) => !stale.some((x) => x.id === b.id))));
+  return retirementNotApplicable(w, memberId) ? w : fillRetirement(w, memberId);
+}
+
+/** 確かめの一覧の「確かめの注意」（0057）: 目安で自動で足した退職金（制度の無い勤め先もある）と、公務員・役員の0円の額 */
+export interface RetirementNotice {
+  id: string;
+  label: string;
+  detail: string;
+  actions: { key: string; label: string; run: (wh: WorkingHousehold) => WorkingHousehold }[];
+}
+
+export function retirementNotices(wh: WorkingHousehold): RetirementNotice[] {
+  const h = wh.request.input.household;
+  const out: RetirementNotice[] = [];
+  const drop = (id: string, memberId: string) => (w: WorkingHousehold) => {
+    const next = mutate(w, (hh) => void (hh.retirementBenefits = (hh.retirementBenefits ?? []).filter((x) => x.id !== id)));
+    return (next.request.input.household.retirementBenefits ?? []).some((x) => x.member === memberId) ? next : retirementNone(next, memberId);
+  };
+  const edit = (id: string, fn: (b: RetirementBenefit, hh: Household) => void) => (w: WorkingHousehold) =>
+    mutate(w, (hh) => {
+      const b = (hh.retirementBenefits ?? []).find((x) => x.id === id);
+      if (b !== undefined) fn(b, hh);
+    });
+  for (const b of h.retirementBenefits ?? []) {
+    const who = memberLabel(wh, b.member);
+    if (isAutoBenefit(b)) {
+      out.push({
+        id: `retirement/auto/${b.id}`,
+        label: `${who}の退職金（目安で足した物）`,
+        detail: `勤め先に退職金の制度があるか確かめてください${prevalenceText()}。無ければ外すと「該当なし」になり、もう足しません`,
+        actions: [
+          {
+            key: "keep",
+            label: "制度がある（この額で確定）",
+            run: edit(b.id, (x) => {
+              if (x.kind === "lumpSum" && x.amount !== undefined) x.amount = { value: x.amount.value, state: "confirmed", origin: { kind: "manual" }, estimate: { method: "statistic", basis: basisOfBox(x.amount) } } as Box<number>;
+              else {
+                for (const a of [finalMonthlyAt(x.id), reasonAt(x.id)]) {
+                  const basis = (rowOfBenefit(x, a) ?? rowOfBenefit(x, { target: { object: x.id }, item: "retirementBenefit.estimate", at: [] }))?.estimate?.basis ?? "推定";
+                  putRow({ household: { retirementBenefits: [x] } }, a, { state: "confirmed", origin: { kind: "manual" }, estimate: { method: "derived", basis } });
+                }
+              }
+            }),
+          },
+          { key: "none", label: "制度が無い（外す）", run: drop(b.id, b.member) },
+        ],
+      });
+    }
+    if (COMPUTED.has(b.kind) && b.amount !== undefined && b.amount.state === "confirmed" && b.amount.value === 0) {
+      out.push({
+        id: `retirement/zero/${b.id}`,
+        label: `${who}の${KIND_SHORT[b.kind] ?? "退職金"}`,
+        detail: "見込み額が0円の確定になっています（前の版の「＋ 退職金を入れる」で入った0円かもしれません）。見込みの計算にするか、無いなら「該当なし」にしてください",
+        actions: [
+          {
+            key: "compute",
+            label: "見込みの計算にする",
+            run: edit(b.id, (x, hh) => {
+              const m = hh.members.find((y) => y.id === x.member);
+              if (m === undefined) return;
+              const fresh = initialBenefit(hh, m, x.kind as BenefitKind, { id: x.id, ...(x.employment !== undefined ? { employment: x.employment } : {}) });
+              delete x.amount;
+              if (fresh.amount !== undefined) x.amount = fresh.amount;
+              if (fresh.estimate !== undefined) x.estimate = { ...fresh.estimate, ...(x.estimate ?? {}) };
+              if (fresh.valueStates !== undefined) x.valueStates = { ...(fresh.valueStates as Obj), ...((x.valueStates as Obj | undefined) ?? {}) };
+            }),
+          },
+          { key: "none", label: "該当なし", run: edit(b.id, (x) => void (x.amount = { state: "notApplicable", origin: { kind: "manual" } } as unknown as Box<number>)) },
+        ],
+      });
+    }
+  }
+  return out;
+}
+
+const basisOfBox = (x: Box<number>): string => (x as { estimate?: { basis?: string } }).estimate?.basis ?? "推定";
 
 // ---- 住まい ----
 
@@ -172,6 +253,75 @@ function fillHousing(wh: WorkingHousehold): WorkingHousehold {
   const h = wh.request.input.household;
   if ((h.residences ?? []).length > 0) return wh;
   return mutate(wh, (hh, req) => void (hh.residences ??= []).push({ id: newId(), kind: "rent", from: { at: req.input.baseMonth }, to: null, rent: { monthly: { value: RENT_STANDARD, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: RENT_BASIS } } } } as never));
+}
+
+// ---- 介護（本人・配偶者は自動で入れない。未入力の警告と「目安で入れる」。介護・親のカード） ----
+
+/** 亡くなる見込みの推定: 今の年齢の平均余命を足した年齢（年齢の時点で持つので、生年月を直すと合わせて動く）。生年月が無ければ null */
+export function deathEstimate(m: Member, baseMonth: string): { point: Timepoint; age: number; basis: string } | null {
+  if (!hasBirth(m)) return null;
+  const age = Math.max(0, ageAt(m, baseMonth));
+  const le = lifeExpectancy(age, m.sex);
+  if (le === null) return null;
+  const years = Math.floor(age + le.value);
+  return { point: { memberAge: { member: m.id, years } }, age: years, basis: `推定（${le.basis}から ${String(years)}歳ごろ）` };
+}
+
+/** 亡くなる見込みの年月（入っていれば入れた時点、無ければ平均余命の推定） */
+function deathMonth(h: Household, m: Member, baseMonth: string): string | null {
+  const own = m.leaves !== null && m.leaves !== undefined ? resolveTimepoint(h, m.leaves) : null;
+  if (own !== null) return own;
+  const est = deathEstimate(m, baseMonth);
+  return est === null ? null : resolveTimepoint({ ...h, members: [m] }, est.point);
+}
+
+/** その月が、その人の年齢の何か月目か（0〜11） */
+function monthsInto(m: Member, ym: string): number {
+  const [by, bm] = m.birth.birthYearMonth.split("-").map(Number) as [number, number];
+  const [y, mo] = ym.split("-").map(Number) as [number, number];
+  const diff = (y - by) * 12 + (mo - bm) + (m.birth.bornOnFirst ? 1 : 0);
+  return ((diff % 12) + 12) % 12;
+}
+
+/** 介護の目安の物（統計の期間で、亡くなる見込みの前に置く。今より前なら今の翌月から。額は空欄＝統計の目安で計算） */
+export function careTemplate(h: Household, m: Member, baseMonth: string, id: string = newId()): CareExpense {
+  const months = careEstimate("home")?.months ?? 55;
+  const death = deathMonth(h, m, baseMonth);
+  const start = death === null ? addMonths(baseMonth, 12) : addMonths(death, -months);
+  const from: Timepoint = start <= baseMonth ? { at: addMonths(baseMonth, 1) } : hasBirth(m) ? { memberAge: { member: m.id, years: Math.max(0, ageAt(m, start)), months: monthsInto(m, start) } } : { at: start };
+  return { id, member: m.id, from, months, place: "home" };
+}
+
+/** この人の介護の目安を入れる（この人の介護がもう有れば同じ世帯） */
+export function fillCareFor(wh: WorkingHousehold, memberId: string): WorkingHousehold {
+  const h = wh.request.input.household;
+  const m = h.members.find((x) => x.id === memberId);
+  if (m === undefined || (h.careExpenses ?? []).some((c) => c.member === memberId)) return wh;
+  return mutate(wh, (hh, req) => void (hh.careExpenses ??= []).push(careTemplate(hh, m, req.input.baseMonth)));
+}
+
+/** 本人・配偶者のうち、介護の費用がまだ無い人 */
+export function adultsWithoutCare(h: Household): Member[] {
+  return h.members.filter((m) => (m.kind === "self" || m.kind === "spouse") && m.expected !== true && !(h.careExpenses ?? []).some((c) => c.member === m.id));
+}
+
+/** 本人・配偶者の介護の目安を入れる（まだ無い人だけ） */
+export function fillAdultsCare(wh: WorkingHousehold): WorkingHousehold {
+  return adultsWithoutCare(wh.request.input.household).reduce((w, m) => fillCareFor(w, m.id), wh);
+}
+
+/**
+ * 本人・配偶者の介護の費用の入れ方の既定（事務所の設定で変えられる形。保存の場所は事務所の設定を作る回に決める。items.ts の CardLayout と同じ）。
+ * warn: 自動で入れない（未入力の警告と「目安で入れる」の1押し）、fill: 新しい世帯では最初から目安で入れる
+ */
+export interface CareDefaults {
+  selfAndSpouse: "warn" | "fill";
+}
+export const DEFAULT_CARE_DEFAULTS: CareDefaults = { selfAndSpouse: "warn" };
+
+/** 新しい世帯に、事務所の設定の既定を当てる（warn なら何もしない。古い世帯には当てない） */
+export function applyCareDefaults(wh: WorkingHousehold, d: CareDefaults = DEFAULT_CARE_DEFAULTS): WorkingHousehold {
+  return d.selfAndSpouse === "fill" ? fillAdultsCare(wh) : wh;
 }
 
 // ---- 一覧 ----
@@ -197,7 +347,7 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
   }
   for (const m of h.members.filter((x) => x.kind === "self" || x.kind === "spouse")) {
     const p = currentPeriod(h, m.id, base);
-    if (p === undefined || !RETIREMENT_TYPES.has(p.type) || (h.retirementBenefits ?? []).some((b) => b.member === m.id) || retirementNotApplicable(wh, m.id)) continue;
+    if (p === undefined || !AUTO_TYPES.has(p.type) || (h.retirementBenefits ?? []).some((b) => b.member === m.id) || retirementNotApplicable(wh, m.id)) continue;
     const est = retirementEstimate(h, m, p);
     out.push({
       id: `work/retirement/${m.id}`,
@@ -242,6 +392,21 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
   }
   if ((h.residences ?? []).length === 0 && !(h.debts ?? []).some((d) => d.kind === "mortgage") && !confirmed.has("housing"))
     out.push({ id: "housing", card: "housing", label: "住居費", note: "住まいが入っていないので、住居費を0円で計算しています", fill: fillHousing, basis: RENT_BASIS, none: (w) => markCard(w, "housing"), noneLabel: "住居費なし" });
+  // 本人・配偶者の介護の費用（自動で入れない。外れると大きく誤るので、未入力の警告と「目安で入れる」。入れないと決めたらカードを保存）
+  if (!confirmed.has("care")) {
+    const est = careEstimate("home");
+    for (const m of adultsWithoutCare(h))
+      out.push({
+        id: `care/${m.id}`,
+        card: "care",
+        label: `${memberLabel(wh, m.id)}の介護の費用`,
+        note: "介護の費用が入っていないので、0円で計算しています（自動では入れません）",
+        fill: (w) => fillCareFor(w, m.id),
+        ...(est !== null ? { basis: `${est.basis}・亡くなる見込み（簡易生命表の平均余命）の前の期間` } : {}),
+        none: (w) => markCard(w, "care"),
+        noneLabel: "介護の費用を入れない",
+      });
+  }
   if ((h.insuranceContracts ?? []).length === 0 && !confirmed.has("insurance"))
     out.push({ id: "insurance", card: "insurance", label: "保険", note: "保険が入っていません（保険料・保障を0円で計算しています。保障の額は目安で入れません）", none: (w) => markCard(w, "insurance"), noneLabel: "保険に入っていない" });
   return out;

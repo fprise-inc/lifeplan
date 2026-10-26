@@ -9,7 +9,7 @@ import { healthRateEstimate } from "../../../../../hearing/src/estimates.ts";
 import { byId, field, plain, rateBox, removeAction, timepointField, timeView, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef, type Val } from "../form.ts";
 import { boxBasis, estimatedBox, mutate, newId, periodsOf, reemploymentOf, type PostRetirement, type WorkingHousehold } from "../household.ts";
 import { continuationApplies, CONTINUATION_BASIS, CONTINUATION_ITEM, defaultEndsWith, dropClaim, isEstimated, markNewPeriods, putEstimate, unemploymentApplies, unemploymentEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM } from "../claims.ts";
-import { ensureRetirement, fillRetirement, retirementNotApplicable } from "../fill.ts";
+import { ensureRetirement } from "../fill.ts";
 import { earners, EMPLOYMENT_TYPES, HEALTH_INSURANCE, KYOKAI_BRANCHES, LEAVE_KINDS, memberLabel, PENSION_CATEGORY, POST_RETIREMENT_TYPES } from "../labels.ts";
 import { formatYearMonth } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
@@ -908,43 +908,6 @@ function growthField(wh: WorkingHousehold, p: EmploymentPeriod, find: Finder, pr
   };
 }
 
-/** 退職金・企業年金のまとまり（人ごと。退職金・企業年金のカードに出す） */
-export function benefitGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
-  const h = wh.request.input.household;
-  const list = (h.retirementBenefits ?? []).filter((b) => b.member === m.id);
-  const who = memberLabel(wh, m.id);
-  return list.map((b) => {
-    const find = byId((hh) => hh.retirementBenefits, b.id);
-    return {
-      key: `work/benefit/${b.id}`,
-      title: `${who}の退職金・企業年金`,
-      level: "simple",
-      fields: [
-        plain({
-          key: `work/benefit/${b.id}/kind`,
-          item: "retirementBenefit.kind",
-          label: "種類",
-          level: "detail",
-          kind: "select",
-          options: [
-            { value: "lumpSum", label: "退職一時金" },
-            { value: "db", label: "確定給付企業年金" },
-            { value: "civilServantAllowance", label: "退職手当（公務員）" },
-            { value: "civilServantPension", label: "年金払い退職給付（公務員）" },
-            { value: "nationalPensionFund", label: "国民年金基金" },
-            { value: "officerAllowance", label: "役員退職慰労金" },
-          ],
-          find,
-          path: ["kind"],
-        }),
-        yenBox({ key: `work/benefit/${b.id}/amount`, item: "retirementBenefit.amount", label: "見込み額（一時金）", level: "simple", basis: "once", find, path: ["amount"], optional: true, help: "空欄のときは、見込みの計算（公務員の支給率など）を使います" }),
-        timepointField({ key: `work/benefit/${b.id}/paidAt`, item: "retirementBenefit.paidAt", label: "受け取る年月", level: "detail", find, path: ["paidAt"], ageOf: (hh) => hh.members.find((x) => x.id === m.id), mode: "ym", optional: true, absentWhenEmpty: true, nullText: "勤め先を辞めた翌月" }),
-      ],
-      actions: [removeAction(`work/benefit/${b.id}/remove`, "外す", "simple", (hh) => void (hh.retirementBenefits = (hh.retirementBenefits ?? []).filter((x) => x.id !== b.id)))],
-    };
-  });
-}
-
 function periodListGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const h = wh.request.input.household;
   const who = memberLabel(wh, m.id);
@@ -971,23 +934,6 @@ function addPeriodAction(wh: WorkingHousehold, m: Member): ActionDef {
         (hh.employmentPeriods ??= []).push(p);
         ensureResidentTax(hh, m.id, req.input.baseMonth, newId);
       });
-    },
-  };
-}
-
-/** 「＋ 退職金を入れる」（その人の退職金がまだ無く、今の働き方があるとき）。正社員・公務員は目安（推定）で入れ、目安を作れない働き方は額を入れてもらう（未入力の0円） */
-export function addBenefitAction(wh: WorkingHousehold, m: Member): ActionDef | null {
-  const h = wh.request.input.household;
-  const main = currentPeriod(h, m.id, wh.request.input.baseMonth);
-  if ((h.retirementBenefits ?? []).some((b) => b.member === m.id) || main === undefined) return null;
-  return {
-    key: `work/${m.id}/addBenefit`,
-    label: retirementNotApplicable(wh, m.id) ? "＋ 退職金を入れる（今は「該当なし」）" : "＋ 退職金を入れる",
-    level: "simple",
-    run: (w) => {
-      const filled = fillRetirement(w, m.id);
-      if (filled !== w) return filled;
-      return mutate(w, (hh) => void (hh.retirementBenefits ??= []).push({ id: newId(), member: m.id, kind: "lumpSum", employment: main.id, amount: estimatedBox(0, "未入力（0円で計算）") }));
     },
   };
 }

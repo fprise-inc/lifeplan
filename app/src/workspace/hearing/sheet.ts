@@ -9,6 +9,7 @@ import { approveAll, createHearingSheet, exportableSheets, importHearingSheet, r
 import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/src/types.ts";
 import type { EngineRequest, Household } from "../../engine/types.ts";
 import { standardEndYear, type WorkingHousehold } from "../input/household.ts";
+import { fillEducation } from "../input/fill.ts";
 import { roles } from "../roles.ts";
 
 /** 世帯ごとのヒアリングの記録（世帯ファイル 0011 の取り込みの記録・同意の記録に入れるまでの、画面の中の置き場） */
@@ -406,7 +407,11 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
       consents: [...log.consents, ...r.consents.map((c) => ({ ...c, at }))],
     },
   };
-  return { wh: next, added, replaced, skipped };
+  // 新しく入った子は、進路が取り込みに無ければ推定の進路（標準の型）で始める（子を足したときと同じ。0062）
+  const before = new Set(wh.request.input.household.members.map((m) => m.id));
+  let filled = next;
+  for (const m of h.members) if (m.kind === "child" && !before.has(m.id)) filled = fillEducation(filled, m.id);
+  return { wh: filled, added, replaced, skipped };
 }
 
 /** 承認の日時（時差つきの ISO 8601。秒まで。計算エンジンの approval.at の形） */
