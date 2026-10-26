@@ -368,7 +368,9 @@ export function progressOf(items: readonly InputItem[]): Progress {
 /** 保存: その項目を「保存した」印に足し、物を外した足した項目は一覧から外す（以前の版で足した車・FP顧問料の記録も外す。物は「車」「前提条件」のカードに残る） */
 export function saveItem(wh: WorkingHousehold, id: string): WorkingHousehold {
   const h = wh.request.input.household;
-  const addedItems = separateItems(wh).filter((a) => addedObject(h, a) !== null);
+  // プランで足した物のカード（現状には物が無い）は残す（0036 の8）
+  const inPlans = new Set(wh.proposals.flatMap((p) => p.diffs.map((d) => (d.op === "add" && typeof d.value === "object" && d.value !== null ? (d.value as { id?: unknown }).id : undefined))));
+  const addedItems = separateItems(wh).filter((a) => addedObject(h, a) !== null || inPlans.has(a.ref));
   const alive = new Set([...STAGE_ORDER.map((s) => s.id as string), ...addedItems.map((a) => a.id)]);
   const confirmed = [...new Set([...wh.confirmed, id])].filter((x) => alive.has(x));
   return { ...wh, addedItems, confirmed };

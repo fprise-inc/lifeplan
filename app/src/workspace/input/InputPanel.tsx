@@ -2,9 +2,12 @@
 // 中身は今までの入力の欄（簡易と詳細の切り替えを含む）。値は下書きに入れ、「保存」で世帯に入れる。× と Esc で閉じる（保存していない変更があれば先に知らせる）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { allFields, type Level } from "./form.ts";
-import { fieldDomId, FieldStateOps, FieldSuggestions, Section, SectionLinks, visible, type SectionLink } from "./FieldViews.tsx";
+import { fieldDomId, FieldStateOps, FieldSuggestions, PlanMarksContext, Section, SectionLinks, visible, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
 import { dropStaleRows } from "./rows.ts";
-import { applyStateOp, confirmAll, fieldStatus } from "./valueState.ts";
+import { applyStateOp, confirmAll, fieldStatus, planStateOp, type StateOp } from "./valueState.ts";
+import type { FieldDef } from "./form.ts";
+import type { Catalog } from "../plans/items.ts";
+import { diffRows, fieldMark, groupMark, planView, recordPlanEdit, referrersOf, removedObjects, removedRows, revertField, revertRow, settleFields, withoutObjects, type Referrer } from "../plans/planEdit.ts";
 import { fillAll, gapsOf } from "./fill.ts";
 import { useSurplusSuggestion } from "./surplusSuggest.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
@@ -34,34 +37,49 @@ export interface InputPanelProps {
   onStatement?: (saved?: WorkingHousehold) => void;
   /** 開いたときに移る欄のキー（確かめの一覧の「開く」。欄に移るだけで、値も状態も変えない） */
   focusKey?: string;
+  /**
+   * プランを直しているとき（0036 の8）: 欄にはそのプランの中身（作業中の世帯）を見せ、直したことをそのプランの差分にする。
+   * 下書きは世帯（現状とプランの一覧）のまま持ち、「保存」で plan.onSave に渡す（現状は変わらない）
+   */
+  plan?: PanelPlan;
+}
+
+export interface PanelPlan {
+  id: string;
+  /** 例: 「プランB」 */
+  label: string;
+  color: string;
+  cat: Catalog;
 }
 
 const NO_LINKS: Record<string, SectionLink> = {};
 
 const FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
-export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose, computeOne, onStatement, focusKey }: InputPanelProps) {
+export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose, computeOne, onStatement, focusKey, plan }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(initialDraft ?? wh);
   const [dirty, setDirty] = useState(initialDraft !== undefined);
   const [leaving, setLeaving] = useState(false);
   /** 知らせが「明細のパネルを開く前に保存する」か（false なら「閉じると変更が消える」） */
   const [toStatement, setToStatement] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
-  const item = useMemo(() => inputItems(draft).find((i) => i.id === itemId) ?? null, [draft, itemId]);
-  const stage = useMemo(() => itemStage(draft, itemId), [draft, itemId]);
+  /** 欄に見せる世帯: 現状を直すときは下書き、プランを直すときは下書きにそのプランを当てた作業中の世帯 */
+  const shown = useMemo(() => (plan === undefined ? draft : planView(draft, plan.cat, plan.id)), [draft, plan]);
+  const item = useMemo(() => inputItems(shown).find((i) => i.id === itemId) ?? null, [shown, itemId]);
+  const stage = useMemo(() => itemStage(shown, itemId), [shown, itemId]);
   const adding = initialDraft !== undefined;
-  const suggestions = useSurplusSuggestion(draft, itemId === "living", computeOne);
+  const suggestions = useSurplusSuggestion(shown, itemId === "living", computeOne);
+  /** 外したときの連鎖の確かめ（外す物を指す物を並べ、一緒に外す物を選ぶ。0036 の8） */
+  const [chain, setChain] = useState<{ target: WorkingHousehold; refs: Referrer[]; chosen: Set<string> } | null>(null);
 
   // 元に戻す・やり直す: 開いている間は、このパネルの下書きの履歴を使う（裏の世帯は戻さない）
   const history = useRef<UndoHistory<WorkingHousehold> | null>(null);
   if (history.current === null) history.current = new UndoHistory<WorkingHousehold>({ same: deepEqual });
   const latest = useRef(draft);
   latest.current = draft;
-  const edit = (next: WorkingHousehold) => {
+  const commit = (n: WorkingHousehold) => {
     const cur = latest.current;
-    if (next === cur) return;
-    // 値が変わった所の前からの値の状態の行（わからない・該当なし・承認など）を外してから、推定のままの値を入れ直す（0041）
-    const n = withProvisionalHousing(withRefreshedEstimates(dropStaleRows(cur, next)));
+    if (n === cur) return;
     if (history.current !== null) undoController.record(history.current, cur, n, (h) => h.control ?? item?.label ?? "入力");
     latest.current = n;
     setDraft(n);
@@ -69,6 +87,65 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
     setLeaving(false);
     setToStatement(false);
   };
+  /** プランの値の状態の操作で作った作業中の世帯 → その操作を差分にした世帯（欄の部品はそのまま onEdit に返す） */
+  const madeBy = useRef(new WeakMap<WorkingHousehold, WorkingHousehold>());
+  /** このカードの欄（欄の値が土台・現状と同じに戻ったら差分を消すため） */
+  const cardFields = (w: WorkingHousehold): FieldDef[] => {
+    const st = itemStage(w, itemId);
+    return st === null ? [] : allFields(st);
+  };
+  const recordPlan = (target: WorkingHousehold, causes?: ReadonlyMap<string, string>) => {
+    if (plan === undefined) return;
+    const cur = latest.current;
+    const before = planView(cur, plan.cat, plan.id);
+    const n = recordPlanEdit(cur, plan.cat, plan.id, before, target, causes !== undefined ? { causes } : {});
+    commit(settleFields(n, plan.cat, plan.id, cardFields(planView(n, plan.cat, plan.id))));
+  };
+  const edit = (next: WorkingHousehold) => {
+    const cur = latest.current;
+    if (plan === undefined) {
+      if (next === cur) return;
+      // 値が変わった所の前からの値の状態の行（わからない・該当なし・承認など）を外してから、推定のままの値を入れ直す（0041）
+      commit(withProvisionalHousing(withRefreshedEstimates(dropStaleRows(cur, next))));
+      return;
+    }
+    const made = madeBy.current.get(next);
+    if (made !== undefined) return commit(made);
+    const before = planView(cur, plan.cat, plan.id);
+    if (next === before) return;
+    // プランの中身でも同じ決まりで行を外し、推定を入れ直す（入れ直した推定は出どころ auto の値の箱の差分になる。0036 の8）
+    const target = withProvisionalHousing(withRefreshedEstimates(dropStaleRows(before, next)));
+    const removed = removedObjects(before, target);
+    const refs = removed.length > 0 ? referrersOf(target, removed) : [];
+    if (refs.length > 0) {
+      setChain({ target, refs, chosen: new Set(refs.map((r) => r.id)) });
+      return;
+    }
+    recordPlan(target);
+  };
+  const stateOps =
+    plan === undefined
+      ? applyStateOp
+      : (_v: WorkingHousehold, f: FieldDef, op: StateOp): WorkingHousehold => {
+          const real = planStateOp(latest.current, plan.cat, plan.id, f, op);
+          const nv = planView(real, plan.cat, plan.id);
+          madeBy.current.set(nv, real);
+          return nv;
+        };
+  const marks = useMemo<PlanMarks | null>(
+    () =>
+      plan === undefined
+        ? null
+        : {
+            field: (f, v) => fieldMark(latest.current, plan.cat, plan.id, f, v),
+            revert: (f, v) => commit(revertField(latest.current, plan.cat, plan.id, f, v)),
+            group: (g, v) => groupMark(latest.current, plan.id, g, v),
+          },
+    // 印は下書きが変わるたびに読み直す
+    [plan, draft],
+  );
+  const rows = useMemo(() => (plan === undefined ? [] : diffRows(draft, plan.cat, plan.id)), [draft, plan]);
+  const removedHere = plan === undefined ? [] : removedRows(rows, itemId);
   useUndoScope(
     historyScope(
       1,
@@ -90,7 +167,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
     }
     onClose();
   };
-  const save = () => onSave(saveItem(draft, itemId), itemId);
+  // プランを直しているときは、カードの「保存した」印（現状の記録）は付けない
+  const save = () => onSave(plan === undefined ? saveItem(draft, itemId) : draft, itemId);
   // 基本生活費の見出しの横の「明細から出す」（0034）。保存していない変更があれば、先に保存するかを聞く
   const links = useMemo<Record<string, SectionLink>>(() => {
     if (itemId !== "living" || onStatement === undefined) return NO_LINKS;
@@ -149,9 +227,15 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const sections = stage.sections.filter((s) => visible(level, s.level));
   // 見えている欄のうち推定のままの欄（「推定をまとめて確定」で確定にする欄）
   const shownFields = allFields({ ...stage, sections }).filter((f) => visible(level, f.level));
-  const estimatedShown = shownFields.filter((f) => fieldStatus(f, draft).status === "estimated").length;
+  const estimatedShown = shownFields.filter((f) => fieldStatus(f, shown).status === "estimated").length;
   // このカードの入っていない物（古い世帯では自動で推定を入れず、ここと確かめの一覧に出す。fill.ts）
-  const gaps = gapsOf(draft).filter((g) => g.card === itemId);
+  const gaps = gapsOf(shown).filter((g) => g.card === itemId);
+  const confirmShown = () => {
+    if (plan === undefined) return edit(confirmAll(draft, shownFields).wh);
+    let w = latest.current;
+    for (const f of shownFields) if (fieldStatus(f, planView(w, plan.cat, plan.id)).status === "estimated") w = planStateOp(w, plan.cat, plan.id, f, "confirm");
+    commit(w);
+  };
   const removed = item.added !== null && item.summary === null;
   const note = leaving
     ? null
@@ -159,20 +243,23 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
       ? "保存すると、このカードがなくなります。"
       : item.estimated > 0
         ? `推定・仮の値のままの欄が ${item.estimated}つ あります。保存しても、推定の欄が残る間はカードは「推定あり」のままです。`
-        : adding
-          ? "保存すると、カードが足されます（キャンセルすると足しません）。"
-          : "保存すると、このカードは「入力済み」になります。";
+        : plan !== undefined
+          ? `保存すると、${plan.label}の差分になります（現状は変わりません）。`
+          : adding
+            ? "保存すると、カードが足されます（キャンセルすると足しません）。"
+            : "保存すると、このカードは「入力済み」になります。";
 
   return (
     <>
       <div class="scrim" onClick={tryClose} aria-hidden="true" />
       <div
         ref={panel}
-        class={`ipanel${itemId === "savings" ? " wide" : ""}`}
+        class={`ipanel${itemId === "savings" ? " wide" : ""}${plan !== undefined ? " plan-mode" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="ip-title"
-        style={{ "--c": item.color }}
+        style={{ "--c": item.color, ...(plan !== undefined ? { "--plan-c": plan.color } : {}) }}
+        data-plan-edit={plan?.id}
         onKeyDown={(e) => {
           if (e.key !== "Tab" || panel.current === null) return;
           const els = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => x.offsetParent !== null);
@@ -189,6 +276,11 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
         }}
       >
         <div class="ip-band" aria-hidden="true" />
+        {plan !== undefined ? (
+          <p class="ip-plan" data-plan-band>
+            <b>{plan.label}</b>を編集中（現状は変わりません）
+          </p>
+        ) : null}
         <div class="ip-head">
           <div class="ip-thumb" aria-hidden="true">
             <img src={ILLUSTRATIONS[item.art]} alt="" />
@@ -212,6 +304,59 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             </button>
           </div>
           <p class="ip-lead">{item.lead}空欄は統計の目安などで補って計算します（「推定」の印）。推定の値のままでよければ「✓ この値で確定」を押します（欄に入っただけでは確定になりません）。</p>
+          {chain !== null ? (
+            <div class="ip-chain" role="alertdialog" aria-label="一緒に外す物" data-plan-chain>
+              <p>外す物を指している物があります。一緒に外す物を選んでください（選ばなかった物は残ります）。</p>
+              <ul>
+                {chain.refs.map((r) => (
+                  <li key={r.id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={chain.chosen.has(r.id)}
+                        onChange={(e) => {
+                          const next = new Set(chain.chosen);
+                          if ((e.currentTarget as HTMLInputElement).checked) next.add(r.id);
+                          else next.delete(r.id);
+                          setChain({ ...chain, chosen: next });
+                        }}
+                        data-chain-item={r.id}
+                      />
+                      {r.label}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                class="btn primary"
+                onClick={() => {
+                  const ids = [...chain.chosen];
+                  const causes = new Map(chain.refs.filter((r) => chain.chosen.has(r.id)).map((r) => [r.id, r.refersTo]));
+                  setChain(null);
+                  recordPlan(withoutObjects(chain.target, ids), causes);
+                }}
+                data-chain-ok
+              >
+                外す
+              </button>
+              <button type="button" class="btn" onClick={() => setChain(null)} data-chain-cancel>
+                やめる
+              </button>
+            </div>
+          ) : null}
+          {removedHere.length > 0 ? (
+            <ul class="ip-removed" aria-label="このプランで外した物" data-plan-removed>
+              {removedHere.map((r) => (
+                <li key={r.key}>
+                  <span class="nm">{r.kind === "replace" ? `${r.label}（${r.from} → ${r.to}）` : r.label.replace(/^外す: /, "")}</span>
+                  <button type="button" class="link-btn" onClick={() => plan !== undefined && commit(revertRow(latest.current, plan.cat, plan.id, r))} data-plan-unremove>
+                    {r.inherited ? `土台（${r.planName}）で外した ↺` : r.kind === "replace" ? "このプランで置き換えた ↺" : "このプランで外した ↺"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {gaps.length > 0 ? (
             <div class="ip-gaps" role="note" data-gaps>
               <p>未入力（0円で計算中）の所があります。</p>
@@ -222,12 +367,12 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                       {g.label}: {g.note}
                     </span>
                     {g.fill !== undefined ? (
-                      <button type="button" class="link-btn" onClick={() => edit(g.fill?.(draft) ?? draft)} {...(g.basis !== undefined ? { title: `推定: ${g.basis}` } : {})} data-gap-fill>
+                      <button type="button" class="link-btn" onClick={() => edit(g.fill?.(shown) ?? shown)} {...(g.basis !== undefined ? { title: `推定: ${g.basis}` } : {})} data-gap-fill>
                         推定で埋める
                       </button>
                     ) : null}
                     {g.none !== undefined ? (
-                      <button type="button" class="link-btn" onClick={() => edit(g.none?.(draft) ?? draft)} data-gap-none>
+                      <button type="button" class="link-btn" onClick={() => edit(g.none?.(shown) ?? shown)} data-gap-none>
                         該当なし{g.noneLabel !== undefined ? `（${g.noneLabel}）` : ""}
                       </button>
                     ) : null}
@@ -235,7 +380,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                 ))}
               </ul>
               {gaps.filter((g) => g.fill !== undefined).length > 1 ? (
-                <button type="button" class="link-btn" onClick={() => edit(fillAll(draft, itemId).wh)} data-gap-fill-card>
+                <button type="button" class="link-btn" onClick={() => edit(fillAll(shown, itemId).wh)} data-gap-fill-card>
                   このカードを推定で埋める
                 </button>
               ) : null}
@@ -243,7 +388,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
           ) : null}
           {estimatedShown > 0 ? (
             <div class="ip-bulk">
-              <button type="button" class="link-btn" onClick={() => edit(confirmAll(draft, shownFields).wh)} data-confirm-all>
+              <button type="button" class="link-btn" onClick={confirmShown} data-confirm-all>
                 推定をまとめて確定（{estimatedShown}つ）
               </button>
             </div>
@@ -251,18 +396,22 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
         </div>
         <div class="ip-body">
           {itemId === "savings" ? (
-            <SavingsPanel wh={draft} level={level} onEdit={edit} />
+            <PlanMarksContext.Provider value={marks}>
+              <SavingsPanel wh={shown} level={level} onEdit={edit} />
+            </PlanMarksContext.Provider>
           ) : (
-            <FieldStateOps.Provider value={applyStateOp}>
+            <PlanMarksContext.Provider value={marks}>
+            <FieldStateOps.Provider value={stateOps}>
             <FieldSuggestions.Provider value={suggestions}>
               <SectionLinks.Provider value={links}>
                 {sections.map((s) => (
-                  <Section key={s.key} section={s} wh={draft} level={level} onEdit={edit} />
+                  <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />
                 ))}
                 {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます。</p> : null}
               </SectionLinks.Provider>
             </FieldSuggestions.Provider>
             </FieldStateOps.Provider>
+            </PlanMarksContext.Provider>
           )}
         </div>
         <div class="ip-foot" role={leaving ? "alert" : undefined}>

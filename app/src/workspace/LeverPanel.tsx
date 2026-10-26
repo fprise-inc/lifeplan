@@ -81,6 +81,8 @@ export interface LeverCardProps {
   suggested: string;
   changes: ChangeRow[];
   onAck: ((key: string) => void) | null;
+  /** 「このプランを入力で開く」（入力の画面で、このプランの欄を直す。0036 の8）。現状のときは出さない */
+  onOpenInput?: (() => void) | null;
   onDrop: ((key: string) => void) | null;
   /** 開いた直後に保存の欄を開く（画面の確かめ用） */
   initialSave?: boolean;
@@ -121,6 +123,11 @@ export function LeverCard(p: LeverCardProps) {
         {review.length > 0 ? (
           <button type="button" class="pb-review" onClick={() => setOpen(true)} data-plan-review>
             ! 要確認 {review.length}
+          </button>
+        ) : null}
+        {p.onOpenInput != null ? (
+          <button type="button" class="link-btn" onClick={() => p.onOpenInput?.()} title="入力の画面で、このプランの欄を直します（物を足す・外す・選び直すもできます）" data-plan-open-input>
+            このプランを入力で開く
           </button>
         ) : null}
         <span class="lv-gap" />

@@ -126,7 +126,8 @@ describe("案: 差分の作成と適用", () => {
     expect(p.diffs).toHaveLength(1);
     const d = p.diffs[0]!;
     expect(diffKey(d, w1)).toBe(prepay);
-    expect(d).toMatchObject({ item: "debt.prepayments", op: "set", at: [], enabled: true, origin: { kind: "manual" }, note: null });
+    // 結果のタブで動かした差分の出どころは result（0036 の4）。差分の値の箱は手で入れた確定の値
+    expect(d).toMatchObject({ item: "debt.prepayments", op: "set", at: [], enabled: true, origin: { kind: "result" }, note: null });
     // 繰上返済で借入を減らす対策は、そのローンを物として持つ合成の対策（0036 の3）
     expect(d.target).toEqual({ lever: "loanPrepay", object: wh.request.input.household.debts![0]!.id });
     expect(d.value).toEqual({ value: 5_000_000, state: "confirmed", origin: { kind: "manual" } });
