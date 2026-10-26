@@ -110,6 +110,22 @@ describe("まとめる", () => {
     expect(noticeMeta(fee!)).toEqual(["プランBだけ"]);
   });
 
+  it("住宅ローン控除の対象外・みなし・13年の特例の知らせは、住まいのカードへの文で出る", () => {
+    const rows = noticeRows(wh, [
+      {
+        label: "プランA",
+        result: result([
+          { code: "N_NOT_ELIGIBLE", ids: ["tax.housingLoanCredit", "incomeTax.housingLoanCredit.rate"] },
+          { code: "N_NOT_ELIGIBLE", ids: ["tax.housingLoanCredit", "incomeTax.housingLoanCredit.limit.new.other"] },
+          { code: "N_ASSUMED", ids: ["tax.housingLoanCredit", "incomeTax.housingLoanCredit.specifiedAcquisition"] },
+          { code: "N_NOT_SUPPORTED", ids: ["tax.housingLoanCredit", "incomeTax.housingLoanCredit.period.specialSpecified"] },
+        ]),
+      },
+    ]);
+    expect(rows.map((r) => r.kind)).toEqual(["missing", "outside", "outside", "assumed"]);
+    expect(rows.every((r) => r.card === "housing" && r.text.includes("住宅ローン控除"))).toBe(true);
+  });
+
   it("文の表に無い知らせも、種類の決まりの文で出す（捨てない）", () => {
     const rows = noticeRows(wh, [{ label: "プランA", result: result([{ code: "N_NOT_SUPPORTED", ids: ["some.component", "some.newTopic"] }, { code: "N_SOMETHING_NEW", ids: ["x.y", "z"] }]) }]);
     expect(rows.map((r) => r.kind)).toEqual(["missing", "data"]);
