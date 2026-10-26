@@ -84,6 +84,34 @@ function sample017(): BodyState {
   return { ...s, wh, workspace: { ...s.workspace, shownItems: ["rates:shift", ...(account !== undefined ? [account.key] : [])] } };
 }
 
+/**
+ * 0.18 の見本の世帯（0040）: sample017() に、段階と例外の年（周期的な支出・修繕費・固定資産税・不動産の家賃と経費）、器の利回りの段階と
+ * 例外の年、資産配分の段階、働き方の期間ごとの伸び（給与の率）を足す。時点は年月・人の年齢・出来事からの形を混ぜる
+ */
+function sample018(): BodyState {
+  const s = sample017();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const id = (n: number) => `00000000-0000-4000-8000-00000000e${String(n).padStart(3, "0")}`;
+  const est = (value: number) => ({ value, state: "confirmed", origin: { kind: "manual" } });
+  const pe = hh.periodicExpenses?.[0];
+  if (pe !== undefined) Object.assign(pe, { stages: [{ id: id(1), at: { memberAge: { member: self.id, years: 65 } }, ratio: "0.5", rampYears: 5 }, { id: id(2), at: { memberAge: { member: self.id, years: 75 } }, amount: est(0) }], exceptions: [{ id: id(3), year: 2030, amount: est(0) }] });
+  const home = hh.residences?.[0];
+  if (home?.maintenance !== undefined) Object.assign(home.maintenance, { stages: [{ id: id(4), at: { at: "2036-04" }, amount: est(30000) }], exceptions: [{ id: id(5), year: 2041, amount: est(1500000) }] });
+  if (home?.propertyTax !== undefined) Object.assign(home.propertyTax, { stages: [{ id: id(6), at: { at: "2030-01" }, ratio: "1.5" }] });
+  const prop = hh.accounts?.find((a) => a.property?.rental !== undefined)?.property;
+  if (prop?.rental !== undefined) Object.assign(prop.rental, { stages: [{ id: id(7), at: { at: "2035-01" }, ratio: "0.9", rampYears: 10 }, { id: id(8), at: { at: "2045-01" }, ratio: "0.8" }], exceptions: [{ id: id(9), year: 2032, amount: est(0) }] });
+  if (prop?.expenses !== undefined) Object.assign(prop.expenses, { exceptions: [{ id: id(10), year: 2033, amount: est(2000000) }] });
+  const nisa = hh.accounts?.find((a) => a.kind === "nisa" && a.owner === self.id);
+  if (nisa !== undefined) Object.assign(nisa, { returnStages: [{ id: id(11), at: { memberAge: { member: self.id, years: 55 } }, assetMix: [{ assetClass: "equity.global", share: "0.6" }, { assetClass: "bond.global", share: "0.4" }], rampYears: 5 }, { id: id(12), at: { memberAge: { member: self.id, years: 60 } }, expectedReturn: "0.02" }], returnExceptions: [{ id: id(13), year: 2029, expectedReturn: "-0.2" }] });
+  const inv = (req.input.assumptions ??= {} as NonNullable<typeof req.input.assumptions>).investment ?? {};
+  req.input.assumptions!.investment = { ...inv, allocation: { mix: [{ assetClass: "equity.global", share: "0.8" }, { assetClass: "bond.global", share: "0.2" }], stages: [{ id: id(14), at: { memberAge: { member: self.id, years: 60 } }, mix: [{ assetClass: "equity.global", share: "0.4" }, { assetClass: "bond.global", share: "0.6" }] }] } };
+  const job = hh.employmentPeriods?.find((p) => p.member === self.id && p.salary !== undefined);
+  if (job?.salary !== undefined) job.salary.growth = { rate: "0.015" };
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -207,7 +235,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.17");
+    expect(BODY_FORMAT_VERSION).toBe("0.18");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -338,7 +366,22 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample017())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample018())), null, 2) + "\n");
+  });
+
+  it("0.18 の形（0040）: 段階・例外の年・器の利回りの段階・資産配分の段階・期間ごとの伸びを保存して読み戻す（要素の ID もそのまま）", () => {
+    const s = sample018();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const inStored = stored.household.request.input;
+    const h = inStored.household;
+    expect(h.periodicExpenses?.[0]?.stages?.map((x) => x.id)).toEqual(["00000000-0000-4000-8000-00000000e001", "00000000-0000-4000-8000-00000000e002"]);
+    expect(h.residences?.[0]?.maintenance?.exceptions?.[0]?.year).toBe(2041);
+    expect(h.accounts?.find((a) => a.returnStages !== undefined)?.returnExceptions?.[0]?.expectedReturn).toBe("-0.2");
+    expect(inStored.assumptions?.investment?.allocation?.stages?.[0]?.mix[1]?.share).toBe("0.6");
+    expect(h.employmentPeriods?.some((p) => (p.salary?.growth as { rate?: string } | undefined)?.rate === "0.015")).toBe(true);
+    const back = fromBody(JSON.stringify(stored));
+    expect(back.wh.request.input.household.periodicExpenses).toEqual(withIds(s.wh).request.input.household.periodicExpenses);
+    expect(bodyObject(back)).toEqual(bodyObject(s));
   });
 
   it("0.17 の形（0035・0036）: 差分は当て先で、仮の印は値の状態の欄で、贈与者は世帯の外の家族で書き、読み戻すと画面の中の形に戻る", () => {

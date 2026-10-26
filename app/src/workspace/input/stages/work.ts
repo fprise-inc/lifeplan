@@ -474,6 +474,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
   if (SALARIED.has(p.type)) {
     fields.push(
       yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額。空欄なら統計の目安で計算します" }),
+      growthField(wh, p, find, prefix, "salary", d),
       yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null }),
       plain({
         key: `${prefix}/hi`,
@@ -504,8 +505,45 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
     );
   }
   if (p.type === "selfEmployed")
-    fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "確定申告書の所得金額（青色申告特別控除の前）" }));
+    fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "確定申告書の所得金額（青色申告特別控除の前）" }), growthField(wh, p, find, prefix, "business", d));
   return fields;
+}
+
+/**
+ * この期間の伸び（年率。0040）: 空欄は前提の賃金上昇率。給与は昇給カーブ（値ID）と率のどちらか一方なので、率を入れると昇給カーブの代わりになる。
+ * 事業所得も同じ（昇給カーブは無い）
+ */
+function growthField(wh: WorkingHousehold, p: EmploymentPeriod, find: Finder, prefix: string, part: "salary" | "business", level: "simple" | "detail"): FieldDef {
+  const item = part === "salary" ? "employment.salary.growth" : "employment.business.growth";
+  const wage = (wh.request.input.assumptions as { wageGrowth?: { default?: string } } | undefined)?.wageGrowth?.default;
+  return {
+    ...field({
+      key: `${prefix}/${part}Growth`,
+      item,
+      label: "この期間の伸び（年率）",
+      level,
+      kind: "pct",
+      optional: true,
+      help: "毎年この率で伸ばします（マイナスも入れられます）。空欄は前提条件の賃金上昇率",
+      get: (w) => {
+        const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
+        const g = (x?.[part] as { growth?: { rate?: string; curve?: string } } | undefined)?.growth;
+        if (g?.rate !== undefined) return { value: g.rate };
+        if (g?.curve !== undefined) return { value: null, hint: "空欄: 昇給カーブ（年齢の係数）と前提条件の賃金上昇率" };
+        return { value: null, hint: `空欄: 前提条件の賃金上昇率${wage !== undefined ? `（年${(Number(wage) * 100).toFixed(1)}%）` : ""}` };
+      },
+      set: (w, v) =>
+        mutate(w, (h, req) => {
+          const x = find(h, { ...w, request: req }) as EmploymentPeriod | undefined;
+          const o = x?.[part] as { growth?: { rate?: string; curve?: string } } | undefined;
+          if (o === undefined) return;
+          if (v === null) {
+            if (o.growth?.rate !== undefined) delete o.growth;
+          } else o.growth = { rate: String(v) };
+        }),
+    }),
+    address: () => ({ target: { object: p.id }, item, at: ["rate"] }),
+  };
 }
 
 function benefitGroups(wh: WorkingHousehold, m: Member): GroupDef[] {

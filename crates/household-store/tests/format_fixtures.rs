@@ -359,6 +359,41 @@ fn every_format_version_has_a_fixture_and_opens() {
                     && d["legacy"].is_object()
                     && d.get("unresolved").is_none()));
         }
+        if migrate::parse(v).unwrap() >= (0, 18) {
+            // 0.18 から（0040）: 段階・例外の年・器の利回りの段階・資産配分の段階・期間ごとの伸び（要素は ID を持つ）
+            let pe = &hh["periodicExpenses"][0];
+            assert!(
+                pe["stages"][0]["id"].is_string() && pe["stages"][0]["rampYears"].is_u64(),
+                "{v}: 周期的な支出の段階"
+            );
+            assert!(pe["exceptions"][0]["year"].is_u64(), "{v}: 例外の年");
+            assert!(
+                hh["residences"][0]["maintenance"]["stages"].is_array(),
+                "{v}: 修繕費の段階"
+            );
+            assert!(
+                hh["accounts"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|a| a["returnStages"].is_array() && a["returnExceptions"].is_array()),
+                "{v}: 器の利回りの段階と例外の年"
+            );
+            assert!(
+                now["household"]["request"]["input"]["assumptions"]["investment"]["allocation"]
+                    ["stages"]
+                    .is_array(),
+                "{v}: 資産配分の段階"
+            );
+            assert!(
+                hh["employmentPeriods"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|p| p["salary"]["growth"]["rate"].is_string()),
+                "{v}: 給与の伸びの率"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;
