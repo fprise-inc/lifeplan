@@ -13,7 +13,7 @@ import { ITEM_LABELS } from "../../generated/labels.ts";
 import { ITEM_PLACES } from "../../generated/readings.ts";
 import { newId, type WorkingHousehold } from "../input/household.ts";
 import { applyAdvisoryFee, applyLevers, LEVER_KEYS, type LeverValues } from "../levers.ts";
-import { keyOf, readAt, resolveKey, unbox, type Reading } from "../store/readings.ts";
+import { keyOf, readAt, resolveKey, unbox, type Address, type Reading } from "../store/readings.ts";
 import type { MixPart } from "./allocation.ts";
 import { pctText } from "./decimal.ts";
 import { addAt, addressOf, boxAt, collectionOf, isLever, placeExists, removeAt, removedNow, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
@@ -420,6 +420,40 @@ export function deletePlan(wh: WorkingHousehold, id: string): WorkingHousehold {
       return { ...p, base: gone.base, diffs: [...copied, ...p.diffs] };
     });
   return { ...wh, proposals };
+}
+
+/**
+ * 入力画面でプランの1つの値を直す（0036 の8。値の状態の操作もこれで書く）: このプランで足した物の中の値なら、その足す差分の物を直す
+ * （set を重ねない）。そうでなければ、その当て先の自分の set を作る・直す。土台の中身（土台が無ければ現状）と同じ値の箱に戻したら、
+ * 自分の差分を消す。box はいつも値の箱（0036 の4）
+ */
+export function setPlanValue(
+  wh: WorkingHousehold,
+  cat: Catalog,
+  id: string,
+  a: Address,
+  box: DiffBox,
+  /** 値の箱の読み方（画面の中の仮の印を推定の箱として読むときに渡す。省くと boxAt） */
+  read: (w: WorkingHousehold) => DiffBox | null = (w) => boxAt(inputOf(w), a),
+): WorkingHousehold {
+  const p = findPlan(wh.proposals, id);
+  if (p === undefined) return wh;
+  const ownerId = "object" in a.target ? a.target.object : "member" in a.target ? a.target.member : null;
+  const added = ownerId === null ? undefined : p.diffs.find((d) => d.op === "add" && isObjLike(d.value) && d.value.id === ownerId);
+  if (added !== undefined) {
+    const obj = structuredClone(added.value) as Record<string, unknown>;
+    if (!writeAt({ household: { list: [obj] } }, a, box)) return wh;
+    return { ...wh, proposals: wh.proposals.map((x) => (x.id === id ? { ...x, diffs: x.diffs.map((d) => (d.id === added.id ? { ...d, value: obj } : d)) } : x)) };
+  }
+  const sameAddress = (d: PlanDiff) => d.op === "set" && d.unresolved !== true && !isLever(d.target) && !("collection" in d.target) && d.item === a.item && sameJson(d.target, a.target) && sameJson(d.at, a.at);
+  const baseBox = read(p.base === null ? wh : { ...wh, request: applyPlan(wh, p.base, cat).request });
+  const own = p.diffs.find(sameAddress);
+  const rest = p.diffs.filter((d) => !sameAddress(d));
+  const diffs: PlanDiff[] =
+    baseBox !== null && sameJson(baseBox, box)
+      ? rest
+      : [...rest, { id: own?.id ?? newId(), op: "set", target: a.target, item: a.item, at: [...a.at], value: structuredClone(box), before: own?.before ?? read(wh), enabled: true, origin: { kind: "manual" }, note: own?.note ?? null }];
+  return { ...wh, proposals: wh.proposals.map((x) => (x.id === id ? { ...x, diffs } : x)) };
 }
 
 export interface ChangeRow {

@@ -6,7 +6,7 @@ import type { AdvisoryFee, Car, CareExpense, Household, Member, PeriodicExpense 
 import { addMonths, ageAt, ageReachedMonth } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import type { StageDef, StageId } from "./form.ts";
-import { estimatedBox, mutate, newId, type AddedItem, type WorkingHousehold } from "./household.ts";
+import { mutate, newId, standardBox, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { memberLabel } from "./labels.ts";
 import { upkeepAnnual } from "./stages/cars.ts";
 import { careGroup, periodicGroup } from "./stages/events.ts";
@@ -376,7 +376,7 @@ export function saveItem(wh: WorkingHousehold, id: string): WorkingHousehold {
 
 // ---- ＋ 項目を追加 ----
 
-const PRESET_BASIS = "ひな形の仮の値（入れ直すと確定）";
+const PRESET_BASIS = "ひな形の仮の値（この世帯の額に直すか、このままなら「✓ この値で確定」）";
 
 export interface AddOption {
   key: string;
@@ -410,10 +410,10 @@ export function addItem(wh: WorkingHousehold, key: string, id: () => string = ne
     const at = addMonths(base, key === "abroad" ? 60 : 12);
     const p: PeriodicExpense =
       key === "pet"
-        ? { id: ref, label: "ペット", row: "cf.expense.other", from: { at }, to: { at: addMonths(at, 14 * 12) }, everyYears: 1, amount: estimatedBox(180000, PRESET_BASIS) }
+        ? { id: ref, label: "ペット", row: "cf.expense.other", from: { at }, to: { at: addMonths(at, 14 * 12) }, everyYears: 1, amount: standardBox(180000, PRESET_BASIS) }
         : key === "abroad"
-          ? { id: ref, label: "留学", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: estimatedBox(3500000, PRESET_BASIS) }
-          : { id: ref, label: "新しい支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: estimatedBox(300000, PRESET_BASIS) };
+          ? { id: ref, label: "留学", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: standardBox(3500000, PRESET_BASIS) }
+          : { id: ref, label: "新しい支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: standardBox(300000, PRESET_BASIS) };
     next = mutate(wh, (hh) => void (hh.periodicExpenses ??= []).push(p));
   } else {
     kind = "care";

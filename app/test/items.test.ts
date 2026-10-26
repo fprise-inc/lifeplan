@@ -165,12 +165,7 @@ describe("＋ 項目を追加", () => {
       expect(fields.length, item.label).toBeGreaterThan(2);
       for (const f of fields) {
         const st = f.get(wh);
-        // 推定・仮の値を同じ値で入れ直すと「確定」になる（往復の対象の外。input.test.ts と同じ）
-        if (st.estimated != null || st.assumed != null) {
-          const w = f.set(wh, st.value);
-          expect(f.get(w).estimated ?? f.get(w).assumed ?? null, f.key).toBeNull();
-          continue;
-        }
+        // 推定・仮の値を同じ値で入れ直しても、世帯も状態も変わらない（確定は「✓ この値で確定」だけ。0041）
         expect(JSON.stringify(f.set(wh, st.value)), f.key).toBe(JSON.stringify(wh));
       }
     }

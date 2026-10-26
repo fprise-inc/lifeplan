@@ -11,6 +11,8 @@ import { sameRate, type YenBasis, type YenUnit } from "./units.ts";
 import { readWhen, sameWhen, WHEN_MODES, type AgeMeans, type WhenCtx, type WhenMode } from "./when.ts";
 
 export { resolveTimepoint };
+import type { Address } from "../store/readings.ts";
+import { dropStaleRows } from "./rows.ts";
 
 export type Level = "simple" | "detail";
 /** 欄の値。時点の欄（kind "when"）は時点の型（0003 の6）そのものも受ける（年月の文字は {at} として読む） */
@@ -98,7 +100,14 @@ interface FieldBase {
    */
   time?: TimeView;
   get: (wh: WorkingHousehold) => FieldState;
+  /** 値を書く（打った・選んだ・ボタンで変えたとき）。同じ値なら世帯を変えない（状態も変えない。0035 の3・0041） */
   set: (wh: WorkingHousehold, v: Val) => WorkingHousehold;
+  /** 同じ値の確かめをしない書き方（field() が付ける。値の状態の操作「推定に戻す」などが使う。valueState.ts） */
+  write?: (wh: WorkingHousehold, v: Val) => WorkingHousehold;
+  /** 値の箱（0008 の2）の欄の、箱そのものの読み書き（yenBox・rateBox が付ける。値の状態の操作が使う） */
+  boxed?: { read: (wh: WorkingHousehold) => unknown; write: (wh: WorkingHousehold, box: Record<string, unknown> | undefined) => WorkingHousehold };
+  /** 欄の当て先（0036 の2）。省くと 0.16 の欄のキーから読み替え表で引く（valueState.ts の fieldAddress） */
+  address?: (wh: WorkingHousehold) => Address | null;
 }
 
 export type FieldDef = FieldBase &
@@ -163,23 +172,29 @@ export function sameVal(a: Val, b: Val, kind: FieldDef["kind"]): boolean {
   return a === b;
 }
 
-/** 欄を作る: 同じ値を入れ直しても世帯を変えない（推定の値を同じ値で入れ直したときは「確定」にする） */
+/**
+ * 欄を作る: 同じ値を入れ直しても世帯を変えない（推定の値と同じ値を書き戻しても確定にしない。確定は「✓ この値で確定」だけ。0035 の3・0041）。
+ * 値を変えたら、その欄の仮の印を外し、値が変わった所の値の状態の行（わからない・該当なし・承認など）を外す（rows.ts の dropStaleRows）
+ */
 export function field(def: FieldDef): FieldDef {
   const raw = def.set;
+  const write = (wh: WorkingHousehold, v: Val): WorkingHousehold => {
+    const next = raw(wh, v);
+    if (next === wh) return wh;
+    // 仮の印を欄の get で見せている欄（plain など）は、書いたら印を外す。印を自分で付け外しする欄（車・借入額）は、その書き方に任せる
+    const own = def.get(wh).assumed != null && next.assumed[def.key] === wh.assumed[def.key];
+    const cleared = own ? { ...next, assumed: Object.fromEntries(Object.entries(next.assumed).filter(([k]) => k !== def.key)) } : next;
+    return dropStaleRows(wh, cleared);
+  };
   return {
     ...def,
+    write,
     set: (wh, v) => {
       const cur = def.get(wh);
-      // 時点の欄は、時点の形で渡されたら入っている形と比べる（年月の文字なら年月で比べる）
+      // 時点の欄は、時点の形で渡されたら入っている形と比べる（年月の文字なら年月で比べる）。同じなら推定でも何も変えない（0041）
       const now = def.kind === "when" && typeof v === "object" ? (cur.when?.raw ?? null) : cur.value;
-      if (sameVal(now, v, def.kind) && cur.estimated == null && cur.assumed == null) return wh;
-      const next = raw(wh, v);
-      if (cur.assumed != null && wh.assumed[def.key] !== undefined) {
-        const { [def.key]: _drop, ...rest } = next.assumed;
-        void _drop;
-        return { ...next, assumed: rest };
-      }
-      return next;
+      if (sameVal(now, v, def.kind)) return wh;
+      return write(wh, v);
     },
   };
 }
@@ -219,6 +234,20 @@ export function setPath(o: Obj, path: readonly string[], value: unknown): void {
 /** 世帯の中の物（1件）を探す関数。書くときは複製した世帯で同じ関数を使う */
 export type Finder = (h: Household, wh: WorkingHousehold) => Obj | undefined;
 
+/** 値の箱の欄の、箱そのものの読み書き（値の状態の操作が使う）。箱を消すときは undefined */
+function boxAccess(find: Finder, path: readonly string[], ensure?: (h: Household, wh: WorkingHousehold) => Obj): NonNullable<FieldBase["boxed"]> {
+  return {
+    read: (wh) => getPath(find(wh.request.input.household, wh), path),
+    write: (wh, box) =>
+      mutate(wh, (h, req) => {
+        const w2 = { ...wh, request: req };
+        const target = find(h, w2) ?? (box !== undefined ? ensure?.(h, w2) : undefined);
+        if (target === undefined) return;
+        setPath(target, path, box === undefined ? undefined : structuredClone(box));
+      }),
+  };
+}
+
 /** 値の箱（0008 の2）の円の欄 */
 export function yenBox(o: {
   key: string;
@@ -254,6 +283,7 @@ export function yenBox(o: {
       const value = box?.value ?? (box?.state === "unknown" ? ((box as { substitute?: Box<number> }).substitute?.value ?? null) : null);
       return { value, estimated: boxBasis(box) ?? (box?.state === "unknown" ? "わからない（代わりの値）" : null), ...(o.hint !== undefined ? { hint: o.hint(wh) } : {}) };
     },
+    boxed: boxAccess(o.find, o.path, o.ensure),
     set: (wh, v) =>
       mutate(wh, (h, req) => {
         const w2 = { ...wh, request: req };
@@ -278,9 +308,11 @@ export function rateBox(o: { key: string; item: string; label: string; level: Le
     ...(o.help !== undefined ? { help: o.help } : {}),
     ...(o.optional === true ? { optional: true } : {}),
     get: (wh) => {
-      const box = getPath(o.find(wh.request.input.household, wh), o.path) as { value?: string; state?: string; estimate?: { basis?: string } } | undefined;
+      const box = getPath(o.find(wh.request.input.household, wh), o.path) as { value?: string; state?: string; estimate?: { basis?: string }; substitute?: { value?: string } } | undefined;
+      if (box?.state === "unknown") return { value: box.substitute?.value ?? null, estimated: "わからない（代わりの値）" };
       return { value: box?.value ?? null, estimated: box?.state === "estimated" ? (box.estimate?.basis ?? "推定") : null };
     },
+    boxed: boxAccess(o.find, o.path),
     set: (wh, v) =>
       mutate(wh, (h, req) => {
         const target = o.find(h, { ...wh, request: req });

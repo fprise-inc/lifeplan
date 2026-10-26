@@ -295,6 +295,38 @@ html.big .lever input[type="range"] { height: 36px; }
 .ro { font-size: 0.92rem; color: var(--ink-2); }
 .badge { font-size: 0.7rem; font-weight: 700; border-radius: 4px; padding: 0 5px; }
 .badge.est { border: 1.5px dashed var(--base-ink); color: var(--base-ink); background: #fff; }
+/* 値の状態の印（0041）: わからない・該当なし・未入力（0円で計算中）。色だけに頼らず文字で見せる */
+.badge.unk { border: 1.5px solid var(--est); color: var(--est-ink); background: var(--est-bg); }
+.badge.na { border: 1.5px solid var(--line); color: var(--ink-2); background: var(--base-bg); }
+.badge.missing { border: 1.5px solid var(--short); color: var(--short-ink); background: var(--short-bg); }
+.fld.is-missing .fld-c input[type="text"] { border-color: var(--short); }
+.fld.is-na .fld-c input[type="text"] { background: var(--base-bg); }
+.fld.jumped { outline: 2px solid var(--prop); outline-offset: 4px; border-radius: 6px; }
+.fld-ops { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; }
+.fld-ops .link-btn { font-size: 0.78rem; }
+.fld-ops .fld-confirm { color: var(--prop); font-weight: 700; }
+.ip-bulk { margin-top: 4px; }
+.ip-gaps { margin-top: 6px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--short); background: var(--short-bg); color: var(--short-ink); font-size: 0.86rem; }
+.ip-gaps p { margin: 0 0 2px; font-weight: 700; }
+.ip-gaps ul { margin: 0; padding-left: 1.1em; }
+.ip-gaps li { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
+.ih-check { margin: 6px 0 10px; }
+.ck { background: var(--card); border: 1px solid var(--card-line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+.ck-head h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.ck-lead { margin: 0 0 6px; font-size: 0.86rem; color: var(--ink-2); }
+.ck-tools { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 0.86rem; }
+.ck-tools select { margin-left: 4px; }
+.ck-kind h3 { font-size: 0.92rem; margin: 10px 0 4px; }
+.ck-kind ul { list-style: none; margin: 0; padding: 0; }
+.ck-kind li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; padding: 5px 8px; border-bottom: 1px solid var(--line-2); font-size: 0.88rem; }
+.ck-missing li { border-left: 4px solid var(--short); }
+.ck-unknown li, .ck-notice li { border-left: 4px solid var(--est); }
+.ck-estimated li { border-left: 4px dashed var(--base); }
+.ck-card { font-size: 0.78rem; color: var(--ink-2); min-width: 7em; }
+.ck-label { font-weight: 700; }
+.ck-detail { color: var(--ink-2); font-size: 0.8rem; flex-basis: 100%; padding-left: calc(7em + 10px); }
+.ck-acts { margin-left: auto; display: flex; gap: 8px; }
+@media (max-width: 640px) { .ck-detail { padding-left: 0; } .ck-acts { margin-left: 0; } }
 .in-actions { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 8px; align-items: center; }
 .add-btn { border: 1.5px solid var(--prop); color: var(--prop); background: #fff; border-radius: 7px; padding: 4px 10px; font-weight: 700; font-size: 0.86rem; cursor: pointer; }
 .add-btn:hover { background: var(--prop-bg); }

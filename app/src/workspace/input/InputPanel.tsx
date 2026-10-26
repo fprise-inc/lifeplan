@@ -1,8 +1,11 @@
 // 入力のパネル（作業の層の部品）: カードを押すと画面の中央に開き、背景を暗くする（別の窓は出さない）。
 // 中身は今までの入力の欄（簡易と詳細の切り替えを含む）。値は下書きに入れ、「保存」で世帯に入れる。× と Esc で閉じる（保存していない変更があれば先に知らせる）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import type { Level } from "./form.ts";
-import { FieldSuggestions, Section, SectionLinks, visible, type SectionLink } from "./FieldViews.tsx";
+import { allFields, type Level } from "./form.ts";
+import { fieldDomId, FieldStateOps, FieldSuggestions, Section, SectionLinks, visible, type SectionLink } from "./FieldViews.tsx";
+import { dropStaleRows } from "./rows.ts";
+import { applyStateOp, confirmAll, fieldStatus } from "./valueState.ts";
+import { fillAll, gapsOf } from "./fill.ts";
 import { useSurplusSuggestion } from "./surplusSuggest.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { withRefreshedEstimates } from "./estimates.ts";
@@ -29,13 +32,15 @@ export interface InputPanelProps {
   computeOne?: (req: EngineRequest) => Promise<PreviewResult | null>;
   /** 基本生活費のパネルの「明細から出す」（0034）。保存していない変更を保存してから開くときは、保存する世帯を渡す */
   onStatement?: (saved?: WorkingHousehold) => void;
+  /** 開いたときに移る欄のキー（確かめの一覧の「開く」。欄に移るだけで、値も状態も変えない） */
+  focusKey?: string;
 }
 
 const NO_LINKS: Record<string, SectionLink> = {};
 
 const FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
-export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose, computeOne, onStatement }: InputPanelProps) {
+export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose, computeOne, onStatement, focusKey }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(initialDraft ?? wh);
   const [dirty, setDirty] = useState(initialDraft !== undefined);
   const [leaving, setLeaving] = useState(false);
@@ -55,7 +60,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const edit = (next: WorkingHousehold) => {
     const cur = latest.current;
     if (next === cur) return;
-    const n = withProvisionalHousing(withRefreshedEstimates(next));
+    // 値が変わった所の前からの値の状態の行（わからない・該当なし・承認など）を外してから、推定のままの値を入れ直す（0041）
+    const n = withProvisionalHousing(withRefreshedEstimates(dropStaleRows(cur, next)));
     if (history.current !== null) undoController.record(history.current, cur, n, (h) => h.control ?? item?.label ?? "入力");
     latest.current = n;
     setDraft(n);
@@ -103,9 +109,18 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
     return { "living/main": link, "living/none": link };
   }, [itemId, onStatement, dirty]);
 
-  // 開いた直後: 最初の欄（無ければ閉じるボタン）に移る。背景はスクロールさせない
+  // 開いた直後: 最初の欄（無ければ閉じるボタン）に移る。確かめの一覧から来たときは、その欄に移る。背景はスクロールさせない
+  // （欄に移るだけでは値も状態も変えない。0041）
   useEffect(() => {
     const el = panel.current;
+    const target = focusKey !== undefined ? el?.querySelector<HTMLElement>(`#${fieldDomId(focusKey)}`) : null;
+    if (target != null) {
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: "center" });
+      target.closest(".fld")?.classList.add("jumped");
+      document.documentElement.classList.add("panel-open");
+      return () => document.documentElement.classList.remove("panel-open");
+    }
     const first = el?.querySelector<HTMLElement>(".ip-body [data-autofocus]") ?? el?.querySelector<HTMLElement>(".ip-body input, .ip-body select") ?? el?.querySelector<HTMLElement>(".ip-body button:not(.danger)") ?? el?.querySelector<HTMLElement>(".x-btn");
     first?.focus({ preventScroll: true });
     document.documentElement.classList.add("panel-open");
@@ -132,6 +147,11 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
 
   if (item === null || stage === null) return null;
   const sections = stage.sections.filter((s) => visible(level, s.level));
+  // 見えている欄のうち推定のままの欄（「推定をまとめて確定」で確定にする欄）
+  const shownFields = allFields({ ...stage, sections }).filter((f) => visible(level, f.level));
+  const estimatedShown = shownFields.filter((f) => fieldStatus(f, draft).status === "estimated").length;
+  // このカードの入っていない物（古い世帯では自動で推定を入れず、ここと確かめの一覧に出す。fill.ts）
+  const gaps = gapsOf(draft).filter((g) => g.card === itemId);
   const removed = item.added !== null && item.summary === null;
   const note = leaving
     ? null
@@ -191,12 +211,49 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
               ×
             </button>
           </div>
-          <p class="ip-lead">{item.lead}空欄は統計の目安などで補って計算します（「推定」の印）。</p>
+          <p class="ip-lead">{item.lead}空欄は統計の目安などで補って計算します（「推定」の印）。推定の値のままでよければ「✓ この値で確定」を押します（欄に入っただけでは確定になりません）。</p>
+          {gaps.length > 0 ? (
+            <div class="ip-gaps" role="note" data-gaps>
+              <p>未入力（0円で計算中）の所があります。</p>
+              <ul>
+                {gaps.map((g) => (
+                  <li key={g.id} data-gap={g.id}>
+                    <span>
+                      {g.label}: {g.note}
+                    </span>
+                    {g.fill !== undefined ? (
+                      <button type="button" class="link-btn" onClick={() => edit(g.fill?.(draft) ?? draft)} {...(g.basis !== undefined ? { title: `推定: ${g.basis}` } : {})} data-gap-fill>
+                        推定で埋める
+                      </button>
+                    ) : null}
+                    {g.none !== undefined ? (
+                      <button type="button" class="link-btn" onClick={() => edit(g.none?.(draft) ?? draft)} data-gap-none>
+                        該当なし{g.noneLabel !== undefined ? `（${g.noneLabel}）` : ""}
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              {gaps.filter((g) => g.fill !== undefined).length > 1 ? (
+                <button type="button" class="link-btn" onClick={() => edit(fillAll(draft, itemId).wh)} data-gap-fill-card>
+                  このカードを推定で埋める
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {estimatedShown > 0 ? (
+            <div class="ip-bulk">
+              <button type="button" class="link-btn" onClick={() => edit(confirmAll(draft, shownFields).wh)} data-confirm-all>
+                推定をまとめて確定（{estimatedShown}つ）
+              </button>
+            </div>
+          ) : null}
         </div>
         <div class="ip-body">
           {itemId === "savings" ? (
             <SavingsPanel wh={draft} level={level} onEdit={edit} />
           ) : (
+            <FieldStateOps.Provider value={applyStateOp}>
             <FieldSuggestions.Provider value={suggestions}>
               <SectionLinks.Provider value={links}>
                 {sections.map((s) => (
@@ -205,6 +262,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                 {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます。</p> : null}
               </SectionLinks.Provider>
             </FieldSuggestions.Provider>
+            </FieldStateOps.Provider>
           )}
         </div>
         <div class="ip-foot" role={leaving ? "alert" : undefined}>

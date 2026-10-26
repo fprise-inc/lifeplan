@@ -6,6 +6,7 @@ import { PopIcon } from "../../presentation/icons.tsx";
 import type { Timepoint } from "../../engine/types.ts";
 import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, TimeView, Val, WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
+import { availableOps, fieldStatus, OP_LABELS, STATUS_LABELS, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
@@ -22,6 +23,22 @@ export interface FieldSuggestion {
 
 /** 欄のキー → 提案（入力のパネルが計算して渡す） */
 export const FieldSuggestions = createContext<Readonly<Record<string, FieldSuggestion>>>({});
+
+/**
+ * 値の状態の操作（0041）: 欄の「✓ この値で確定」「推定に戻す」「わからない」「該当なし」を押したときに、世帯（かプランの差分）を直す関数。
+ * 入力のパネルが渡す（現状なら valueState.ts の applyStateOp、プランを選んでいるならそのプランの差分にする planStateOp）。
+ * 渡さない画面（結果のタブの項目・万一の前提）では、操作を出さない
+ */
+export const FieldStateOps = createContext<((wh: WorkingHousehold, f: FieldDef, op: StateOp) => WorkingHousehold) | null>(null);
+
+/** 開いたときに移る欄のキー（確かめの一覧から「開く」で来たとき） */
+export const FocusField = createContext<string | null>(null);
+
+/** 欄の DOM の ID（確かめの一覧から欄へ移るときにも使う） */
+export const fieldDomId = (key: string): string => `fld-${key.replace(/[^A-Za-z0-9_-]/g, "_")}`;
+
+/** 状態の印の CSS の名前 */
+const STATUS_CLASS: Record<ValueStatus, string> = { estimated: "est", unknown: "unk", notApplicable: "na", confirmed: "", missing: "missing" };
 
 /** 区画の見出しの横に出す小さな文字のリンク。別のパネルを開く（例: 基本生活費の「明細から出す」。0034） */
 export interface SectionLink {
@@ -151,34 +168,78 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
   }
 }
 
+/** 欄を離れるときに書くか: 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041） */
+export const shouldCommitOnBlur = (startText: string | null, text: string): boolean => startText === null || text !== startText;
+
 /** 欄1つ。打っている間は下書きの文字を持ち、読める値になったらすぐ世帯に入れる（計算は親が間引く） */
 export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void }) {
   const state = f.get(wh);
   const sug = useContext(FieldSuggestions)[f.key];
   const inSection = useContext(InSection);
+  const stateOps = useContext(FieldStateOps);
+  const status = stateOps !== null ? fieldStatus(f, wh) : null;
+  const ops = stateOps !== null && status !== null ? availableOps(f, wh, status) : [];
   const [draft, setDraft] = useState<string | null>(null);
+  /** 欄に入ったときの文字（離れるときに同じ文字なら何も書かない。0041） */
+  const [startText, setStartText] = useState<string | null>(null);
   /** 使えない文字のまま欄を離れたときの知らせ（前の値のままにしたこと）。次に打つまで出す */
   const [rejected, setRejected] = useState<string | null>(null);
+  const [opsOpen, setOpsOpen] = useState(false);
   const [unit, setUnit] = useState<YenUnit>(f.kind === "yen" ? (f.unit ?? "man") : "man");
   const [period, setPeriod] = useState<YenPeriod>(f.kind === "yen" && f.basis === "annual" ? "annual" : "monthly");
-  const id = `fld-${f.key.replace(/[^A-Za-z0-9_-]/g, "_")}`;
+  const id = fieldDomId(f.key);
   const commit = (v: Val) => onEdit(f.set(wh, v));
+  const runOp = (op: StateOp) => {
+    if (stateOps === null) return;
+    setOpsOpen(false);
+    onEdit(stateOps(wh, f, op));
+  };
+  const shownStatus: ValueStatus | null = status !== null ? status.status : state.estimated != null || state.assumed != null ? "estimated" : null;
+  const basisText = status?.basis ?? state.estimated ?? state.assumed ?? null;
   const badge =
-    state.estimated != null ? (
-      <span class="badge est" title={state.estimated}>
-        推定
-      </span>
-    ) : state.assumed != null ? (
-      <span class="badge est" title={state.assumed}>
-        仮
+    shownStatus !== null && shownStatus !== "confirmed" ? (
+      <span class={`badge ${STATUS_CLASS[shownStatus]}`} title={basisText ?? STATUS_LABELS[shownStatus]} data-state={shownStatus}>
+        {shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]}
       </span>
     ) : null;
+
+  // 状態の根拠の1行と4つの操作（時点の欄でも同じ。0041）
+  const stateLines = (
+    <>
+      {shownStatus === "estimated" && basisText !== null ? <div class="fld-help est-basis">推定: {basisText}</div> : shownStatus === "unknown" ? <div class="fld-help est-basis">わからない（代わりの値: {basisText ?? "推定"}）</div> : null}
+      {ops.length > 0 ? (
+        <div class="fld-ops" data-field-ops={f.key}>
+          {ops.includes("confirm") ? (
+            <button type="button" class="link-btn fld-confirm" onMouseDown={(e) => e.preventDefault()} onClick={() => runOp("confirm")} data-op="confirm">
+              {OP_LABELS.confirm}
+            </button>
+          ) : null}
+          {ops.some((o) => o !== "confirm") ? (
+            <>
+              <button type="button" class="link-btn fld-more" aria-expanded={opsOpen} onMouseDown={(e) => e.preventDefault()} onClick={() => setOpsOpen(!opsOpen)} data-op-menu>
+                {opsOpen ? "閉じる" : "わからない・該当なしなど"}
+              </button>
+              {opsOpen
+                ? ops
+                    .filter((o) => o !== "confirm")
+                    .map((o) => (
+                      <button type="button" key={o} class="link-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => runOp(o)} data-op={o}>
+                        {OP_LABELS[o]}
+                      </button>
+                    ))
+                : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
 
   let control;
   /** 入れた文字を使えない理由（打っている間）か、使えないまま離れた知らせ */
   let problem: string | null = null;
   if (f.time !== undefined && f.readOnly === undefined && (f.kind === "when" || inSection)) {
-    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} help={f.help} warn={state.warn ?? null} />;
+    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} help={f.help} warn={state.warn ?? null} status={shownStatus} extras={stateLines} />;
   }
   if (f.readOnly !== undefined) {
     control = <span class="ro">{f.kind === "select" ? (f.options.find((o) => o.value === state.value)?.label ?? "") : state.value === null ? "—" : String(state.value)}</span>;
@@ -234,10 +295,13 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
         inputMode={f.kind === "text" || f.kind === "ym" ? undefined : "decimal"}
         class={`${f.kind === "text" ? "txt" : f.kind === "ym" ? "ym" : "num"}${bad ? " bad" : ""}`}
         value={draft ?? shown}
-        placeholder={f.kind === "ym" ? "例: 2041-06" : f.kind === "text" ? (f.placeholder ?? "") : state.estimated != null ? "空欄＝推定" : ""}
+        placeholder={f.kind === "ym" ? "例: 2041-06" : f.kind === "text" ? (f.placeholder ?? "") : shownStatus === "notApplicable" ? "該当なし" : shownStatus === "missing" ? "未入力（0円で計算中）" : state.estimated != null ? "空欄＝推定" : ""}
         aria-invalid={bad ? true : undefined}
         aria-describedby={problem !== null ? `${id}-problem` : undefined}
-        onFocus={() => setDraft(shown)}
+        onFocus={() => {
+          setDraft(shown);
+          setStartText(shown);
+        }}
         onInput={(e) => {
           const t = (e.currentTarget as HTMLInputElement).value;
           setDraft(t);
@@ -248,10 +312,14 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
         }}
         onBlur={(e) => {
           const t = (e.currentTarget as HTMLInputElement).value;
-          const v = parse(t);
-          if (v !== undefined) commit(v);
-          else setRejected(`「${t}」は入れられないため、前の値のままです。${rejectReason(f, t, unit) ?? ""}`);
+          // 入ったときと同じ文字のまま離れたら、何も書かない（欄に入って離れる・Tab で通るだけで値も状態も変えない。0041）
+          if (shouldCommitOnBlur(startText, t)) {
+            const v = parse(t);
+            if (v !== undefined) commit(v);
+            else setRejected(`「${t}」は入れられないため、前の値のままです。${rejectReason(f, t, unit) ?? ""}`);
+          }
           setDraft(null);
+          setStartText(null);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
@@ -279,7 +347,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
     ) : null;
   const hint = state.hint ?? (f.kind === "ym" && typeof state.value === "string" ? formatYearMonth(state.value) : null);
   return (
-    <div class={`fld${state.estimated != null || state.assumed != null ? " is-est" : ""}`}>
+    <div class={`fld${shownStatus === "estimated" ? " is-est" : shownStatus !== null && shownStatus !== "confirmed" ? ` is-${STATUS_CLASS[shownStatus]}` : ""}`} data-field={f.key}>
       <label for={id} class="fld-l">
         {f.label}
         {badge}
@@ -320,7 +388,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
           {state.warn}
         </div>
       ) : null}
-      {state.estimated != null ? <div class="fld-help est-basis">推定: {state.estimated}</div> : null}
+      {stateLines}
       {f.readOnly !== undefined ? <div class="fld-help">{f.readOnly}</div> : f.help !== undefined ? <div class="fld-help">{f.help}</div> : null}
       {f.sideEffects !== undefined ? <div class="fld-help">{f.sideEffects}</div> : null}
     </div>
@@ -344,7 +412,7 @@ function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: stri
  * 横の「入れ方」で見せ方を選び直せる（同じ月のまま形を変える）。読み替えた形と、読めない理由を欄の下に1行で出す。
  * 打っている間は世帯を変えず、欄を離れたとき（Enter）に入れる
  */
-function WhenField({ f, time, state, label, badge, id, wh, onEdit, help, warn }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; help: string | undefined; warn: string | null }) {
+function WhenField({ f, time, state, label, badge, id, wh, onEdit, help, warn, status, extras }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; help: string | undefined; warn: string | null; status: ValueStatus | null; extras: ComponentChildren }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [rejected, setRejected] = useState<string | null>(null);
   const [picked, setPicked] = useState<WhenMode | null>(null);
@@ -385,7 +453,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, help, warn }:
     commit(r.tp, "auto");
   };
   return (
-    <div class={`fld when${badge !== null ? " is-est" : ""}`} data-when={f.key}>
+    <div class={`fld when${status === "estimated" ? " is-est" : status !== null && status !== "confirmed" ? ` is-${STATUS_CLASS[status]}` : ""}`} data-when={f.key} data-field={f.key}>
       <label for={id} class="fld-l">
         {label}
         {badge}
@@ -465,6 +533,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, help, warn }:
           {problem}
         </div>
       ) : null}
+      {extras}
       {help !== undefined ? <div class="fld-help">{help}</div> : null}
       {f.sideEffects !== undefined ? <div class="fld-help">{f.sideEffects}</div> : null}
     </div>
