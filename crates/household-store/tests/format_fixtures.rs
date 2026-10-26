@@ -542,6 +542,24 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.23 より前の版に学校外の費用の入れ方は無い"
             );
         }
+        // 0.24 から（0060・0061）: 計算の要求の入力の、相続税の目安の設定と遺したい額（どれも任意）
+        let input = &now["household"]["request"]["input"];
+        if migrate::parse(v).unwrap() >= (0, 24) {
+            assert!(
+                input["inheritanceTax"]["realEstateRatio"].is_string()
+                    && input["inheritanceTax"].get("points").is_none(),
+                "{v}: 相続税の目安の設定（時点は入れない）"
+            );
+            assert!(
+                input["legacy"]["amount"]["value"].is_number(),
+                "{v}: 遺したい額"
+            );
+        } else {
+            assert!(
+                input.get("legacy").is_none(),
+                "{v}: 0.24 より前の版に遺したい額は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

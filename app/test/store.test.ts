@@ -12,6 +12,7 @@ import { roles } from "../src/workspace/roles.ts";
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { Autosaver, type SaveState, type Timers } from "../src/workspace/store/autosave.ts";
 import { makeSnapshot, snapshotDigest, verifySnapshot } from "../src/workspace/snapshots/snapshots.ts";
+import { forEngine } from "../src/engine/moneyRows.ts";
 import { BODY_FORMAT_VERSION, bodyObject, bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "../src/workspace/store/body.ts";
 import { giveElementIds } from "../src/workspace/store/format017.ts";
 import { migrationId } from "../src/workspace/store/readings.ts";
@@ -184,6 +185,22 @@ function sample023(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.24 の見本の世帯（0060・0061）: sample023() に、相続税の目安の設定（不動産の評価の割合・葬式の費用・法定相続人の数を直す口・FP が入れた額）と
+ * 遺したい額、遺したい額を変えるプランの差分を足す
+ */
+function sample024(): BodyState {
+  const s = sample023();
+  const req = structuredClone(s.wh.request);
+  const self = req.input.household.members.find((m) => m.kind === "self")!;
+  req.input.inheritanceTax = { realEstateRatio: "0.7", funeral: 2000000, heirCounts: [{ decedent: self.id, count: 3 }], overrides: [{ point: "bothAfter", amount: 1200000 }] };
+  req.input.legacy = { amount: { value: 10000000, state: "confirmed", origin: { kind: "manual" } } };
+  const box = (value: number) => ({ value, state: "confirmed", origin: { kind: "manual" } });
+  const diff = { id: "00000000-0000-4000-8000-00000000a024", op: "set" as const, target: { plan: "input" as const }, item: "plan.legacy", at: ["amount"], value: box(20000000), before: box(10000000), enabled: true, origin: { kind: "manual" as const }, note: null };
+  const proposals = s.wh.proposals.map((p, i) => (i === 0 ? { ...p, diffs: [...p.diffs, diff] } : p));
+  return { ...s, wh: { ...s.wh, request: req, proposals } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -307,7 +324,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.23");
+    expect(BODY_FORMAT_VERSION).toBe("0.24");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -455,6 +472,20 @@ describe("世帯ファイルの本文（0011 の2）", () => {
       delete b.education;
     }
     expect(preview(back.wh.request).table).toEqual(preview(plain).table);
+  });
+
+  it("0.24 の形（0060・0061）: 相続税の目安の設定と遺したい額を要求の入力に保存して読み戻す。エンジンへ渡す要求からは外れ、結果は同じ", () => {
+    const s = sample024();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    expect(stored.household.request.input.inheritanceTax).toMatchObject({ realEstateRatio: "0.7", funeral: 2000000 });
+    expect(stored.household.request.input.legacy?.amount?.value).toBe(10000000);
+    const back = fromBody(JSON.stringify(stored));
+    expect(back.wh.request.input.inheritanceTax).toEqual(s.wh.request.input.inheritanceTax);
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(forEngine(back.wh.request).input.inheritanceTax).toBeUndefined();
+    expect(forEngine(back.wh.request).input.legacy).toBeUndefined();
+    expect(preview(back.wh.request).table).toEqual(preview(sample023().wh.request).table);
+    expect(back.wh.proposals[0]!.diffs.at(-1)).toMatchObject({ target: { plan: "input" }, item: "plan.legacy", at: ["amount"] });
   });
 
   it("0.23 の形（0062）: 学校外の費用の入れ方と塾・習い事の行の種類を保存して読み戻す。行で入れると統計の平均を足さない", () => {
