@@ -37,7 +37,7 @@ export interface MemberInput {
   readonly leaves: Timepoint | null;
   readonly expected: boolean;
   readonly support?: { readonly dependent: boolean; readonly cohabiting: boolean; readonly allowance?: Yen };
-  /** 0035 の4: 世帯の外の家族（家計を世帯と別にする家族）。世帯の外の家族の計算はまだ入れていない（今の構成員と同じに読む） */
+  /** 0035 の4: 世帯の外の家族（家計を世帯と別にする家族）。お金の動きは家計を1つにする期間のうち収入を世帯に入れる期間だけ世帯に入れ、世帯の判定の顔ぶれに入れない（sdk の isOutside・sameHousehold） */
   readonly outside?: OutsideFamilyInput;
 }
 

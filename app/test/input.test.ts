@@ -344,7 +344,8 @@ describe("支出に入らない欄・既定で足している費用の説明", (
     const field = allFields(buildStage("family", wh)).find((f) => f.key === `family/${parent.id}/allowance`);
     expect(field?.help).toContain("支出には入りません");
     expect(field?.help).toContain("扶養の判定");
-    expect(groupsOf(buildStage("family", wh)).find((g) => g.key === `family/${parent.id}`)?.note).toBeUndefined();
+    // 親は世帯の外の家族（0035 の4）なので、その説明だけ。仕送りを入れると仕送りの知らせも出る
+    expect(groupsOf(buildStage("family", wh)).find((g) => g.key === `family/${parent.id}`)?.note).not.toContain("支出には入っていません");
     const withAllowance = field!.set(wh, 50000);
     expect(groupsOf(buildStage("family", withAllowance)).find((g) => g.key === `family/${parent.id}`)?.note).toContain("支出には入っていません");
   });

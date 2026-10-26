@@ -13,12 +13,14 @@
 //   - 自動の額は制度の名目額なので、教育費の上昇率を当てない（0010 の5 と同じ考え方）。給付単価（公定価格）が上限より低い場合・自治体の独自の軽減の細部
 //     （第1子からの無償化など）は扱わない。FP は月額を入れる（0 なら保育料なし）か、割合を変えて合わせる
 // - 通い始め（from）の省略は、その子の育児休業（働き方の期間の leave・childcare）の終わりの翌月。育児休業の入力が無ければ1歳の学年の4月
+// 改訂3: 世帯の外の家族（0035 の4）は世帯の子の数に入れない
 import {
   addMonths,
   bracketFor,
   defineComponent,
   formatYm,
   grownByYear,
+  isOutside,
   monthIndex,
   monthOf,
   residentTaxYearOf,
@@ -78,10 +80,11 @@ export default defineComponent<{ member: string }, FlowsResult>({
   id: "education.nurseryFee",
   title: "保育料（0〜2歳。収入から自動で計算）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "residentTax.annual": ">=1 <2" },
   params: [...Object.values(P), LEVY_ROUNDING],
   reads: [
+    "member.outside",
     "goal.kind",
     "goal.owner",
     "goal.education",
@@ -115,6 +118,8 @@ export default defineComponent<{ member: string }, FlowsResult>({
     const relations = ctx.list<RelationInput>("relation");
     const flows: Flow[] = [];
     const inHousehold = (m: MemberInput, at: MonthIndex): boolean => {
+      // 世帯の外の家族は世帯にいない（0035 の4）
+      if (isOutside(m)) return false;
       if (ctx.time.resolve({ at: m.birth.birthYearMonth }) > at) return false;
       if (m.joins !== null && ctx.time.resolve(m.joins) > at) return false;
       return m.leaves === null || ctx.time.resolve(m.leaves) > at;

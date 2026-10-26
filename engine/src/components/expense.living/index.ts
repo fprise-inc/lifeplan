@@ -6,23 +6,25 @@
 //   onContingency を書いた生活費は、その扱い（続く・止まる・割合。割合は万一の後の全期間で1つ）。書いていない生活費は、死亡のときだけ
 //   遺族の生活費の割合（万一の想定の survivor.livingRatio。省略は末子の独立まで0.7、独立の後0.5。子のいない世帯は noChildren で省略は0.7）を総額に掛ける（費目別の生活費も同じ割合）。
 //   末子の独立は、子の leaves があればその月、無ければ独立とみなす年齢（survivor.independenceAge。省略は22）に達した後の最初の3月31日の翌月
+// 改訂3: 世帯の外の家族（0035 の4）の子は遺族の生活費の子に数えない
 import {
   addMonths,
   boxValue,
   contingencyRatio,
   defineComponent,
-  parseYm,
   formatYm,
   grownByYear,
+  isOutside,
   monthIndex,
+  parseYm,
   yearOf,
   yen,
+  type ContingencyEvent,
+  type ContingencyEventOutput,
   type Flow,
   type FlowsResult,
   type LivingCategory,
   type LivingExpenseInput,
-  type ContingencyEvent,
-  type ContingencyEventOutput,
   type MemberInput,
   type MonthIndex,
   type Rate,
@@ -45,10 +47,11 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "expense.living",
   title: "生活費",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: [
+    "member.outside",
     "member.kind",
     "member.birth",
     "member.leaves",
@@ -86,7 +89,8 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       let independence: MonthIndex = D;
       let hasChild = false;
       for (const c of members) {
-        if (c.kind !== "child" || parseYm(c.birth.birthYearMonth) > addMonths(D, 10)) continue;
+        // 世帯の外の子は遺族の生活費の子に数えない（0035 の4）
+        if (c.kind !== "child" || isOutside(c) || parseYm(c.birth.birthYearMonth) > addMonths(D, 10)) continue;
         hasChild = true;
         const own = c.leaves === null ? addMonths(ctx.time.ageSwitch(c.id, { years: age }, "firstMarch31AfterReach"), 1) : ctx.time.resolve(c.leaves);
         if (own > independence) independence = own;

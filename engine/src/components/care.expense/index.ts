@@ -17,6 +17,7 @@
 //   統計の月額は自己負担の総額なので、自己負担割合・上限は掛けない）
 // - 額は計算基準年の価格で、伸び方（省略は物価上昇率）で伸ばす。払う人（payer。省略は介護を受ける人）の行に載せる。
 //   払う人の万一のときの扱い（onContingency）を当てる。介護休業給付は、働き方の期間の休業（leaveKind: care）で benefit.employment が出す
+// 改訂4: 世帯の外の家族（0035 の4）も、同居していなければ別の世帯で判定する
 import {
   addMonths,
   ageMonth,
@@ -27,6 +28,7 @@ import {
   fiscalYearOf,
   formatYm,
   grownByYear,
+  isOutside,
   monthIndex,
   monthOf,
   parseYm,
@@ -76,7 +78,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "care.expense",
   title: "介護の費用（自己負担割合・高額介護サービス費）",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {
     "contingency.event": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -86,6 +88,7 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   },
   params: [...Object.values(S), ...Object.values(P)],
   reads: [
+    "member.outside",
     "care.member",
     "care.payer",
     "care.from",
@@ -118,7 +121,8 @@ export default defineComponent<Record<string, never>, FlowsResult>({
     const relations = ctx.list<RelationInput>("relation");
     const members = ctx.list<MemberInput>("member");
     // 同居していない親・祖父母（別の世帯）
-    const apart = (x: MemberInput) => (x.kind === "parent" || x.kind === "grandparent") && x.support?.cohabiting !== true;
+    // 世帯の外の家族（0035 の4）も、同居していなければ別の世帯
+    const apart = (x: MemberInput) => (isOutside(x) || x.kind === "parent" || x.kind === "grandparent") && x.support?.cohabiting !== true;
     // その月に世帯にいるか（亡くなった人は、亡くなった月の翌月から世帯を離れる）
     const present = (x: MemberInput, m: MonthIndex): boolean => {
       if (ctx.time.resolve({ at: x.birth.birthYearMonth }) > m) return false;

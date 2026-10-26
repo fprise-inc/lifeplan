@@ -314,9 +314,16 @@ describe("贈与税（gift.tax）: 按分の端数と贈与者（donors）", () 
     const a = runEngine(asDonors, realPacks(), {});
     const b = runEngine(asMember, realPacks(), {});
     expect(results(b)).toBe(results(a));
-    // 生年月のある世帯の外の家族は、今までの構成員と同じに読む（世帯の外の家族の計算はまだ入れていない）
+    // 生年月のある世帯の外の家族は構成員として読み、その人のお金の動きは世帯に入れない（家計を1つにする期間が無いとき）
+    const P = uid("fp");
     const parent = edit(gifts([]), (h) => ((h.members as Obj[])[1] as Obj).outside = { periods: [] });
-    expect(results(runEngine(parent, realPacks(), {}))).toBe(results(runEngine(gifts([]), realPacks(), {})));
+    const inside = runEngine(gifts([]), realPacks(), {});
+    const outside = runEngine(parent, realPacks(), {});
+    expect(inside.flows.some((f) => f.member === P)).toBe(true);
+    expect(outside.flows.some((f) => f.member === P)).toBe(false);
+    // 生年月のある世帯の外の家族も贈与者になれる（続柄は構成員の種類から）
+    const viaMember = edit(gifts([{ giver: "parent", donor: P, amount: 15000000, taxMethod: "settlement", housingExemption: "none" }]), (h) => ((h.members as Obj[])[1] as Obj).outside = { periods: [] });
+    expect(call<GiftReceivedOutput>(viaMember, "gift.received", { member: A }).gifts[0]?.giver).toBe("parent");
   });
   it("贈与者の ID は donors に無いと E_ARGUMENT", () => {
     const req = gifts([{ giver: "parent", donor: uid("fnone"), amount: 1000000 }]);

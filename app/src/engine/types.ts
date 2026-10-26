@@ -26,6 +26,14 @@ export interface Member {
   leaves?: Timepoint | null;
   expected?: boolean;
   support?: { dependent?: boolean; cohabiting?: boolean; allowance?: number };
+  /** 世帯の外の家族（0035 の4。家計を世帯と別にする家族）。期間は家計を1つにする期間（living は生活費の人数、income は収入を世帯に入れる） */
+  outside?: OutsideFamily;
+}
+
+export interface OutsideFamily {
+  of?: string;
+  periods: { id?: string; from: Timepoint | null; to: Timepoint | null; living?: boolean; income?: boolean }[];
+  employeeInsurance?: boolean;
 }
 
 export type Relation = { type: "spouse"; a: string; b: string; marriage: "legal" | "deFacto"; from: Timepoint | null; to: Timepoint | null } | { type: "parentOf"; parent: string; child: string };

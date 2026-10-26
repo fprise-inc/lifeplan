@@ -10,9 +10,11 @@
 //   令和3年以前の入居など値の無い年は計算せず N_PARAM_MISSING で知らせる
 // - 入居の年は確定申告で受ける（firstYear。還付は翌年3月。0003）。2年目からは年末調整で受ける（incomeTax.annual が判定）
 // - 約束の版 1.1: 住民税の控除の上限の基礎に足す額の差し引き（residentBasicOffset。居住年が平成28年〜令和7年のとき48万円。地方税法附則5条の4）を添える
+// 改訂3: 世帯の外の家族（0035 の4）の子は子育ての特例に数えない
 import {
   ageMonth,
   defineComponent,
+  isOutside,
   monthIndex,
   yearOf,
   yen,
@@ -54,10 +56,10 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
   id: "tax.housingLoanCredit",
   title: "住宅借入金等特別控除",
   contract: "1.1",
-  revision: 2,
+  revision: 3,
   requires: { "debt.schedule": ">=1 <2", "tax.incomeWithin": ">=1 <2" },
   params: [...Object.values(P), ...LIMITS, `${C}.limit.used.other`, ...PERIODS],
-  reads: ["debt.kind", "debt.debtors", "debt.housing", "residence.to", "member.kind", "member.birth", "relation.type", "relation.a", "relation.b"],
+  reads: ["member.outside", "debt.kind", "debt.debtors", "debt.housing", "residence.to", "member.kind", "member.birth", "relation.type", "relation.a", "relation.b"],
   input: "tax.memberYear.input",
   output: "tax.housingLoanCredit.output",
   compute(input, ctx) {
@@ -128,7 +130,8 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
           const spouses = ctx
             .list<RelationInput>("relation")
             .flatMap((r) => (r.type === "spouse" && (r.a === member || r.b === member) ? [r.a === member ? r.b : r.a] : []));
-          const kids = ctx.list<MemberInput>("member").filter((m) => m.kind === "child" && yearOf(ctx.time.resolve({ at: m.birth.birthYearMonth })) <= moveYear);
+          // 世帯の外の子は数えない（0035 の4）
+          const kids = ctx.list<MemberInput>("member").filter((m) => m.kind === "child" && !isOutside(m) && yearOf(ctx.time.resolve({ at: m.birth.birthYearMonth })) <= moveYear);
           // 19歳未満の扶養親族（合計所得金額が扶養親族の要件以下の子）
           const depAt = ctx.at(monthIndex(moveYear, 1));
           const depLimit = depAt.has(P.dependentLimit) ? depAt.paramYen(P.dependentLimit) : null;

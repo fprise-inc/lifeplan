@@ -342,8 +342,9 @@ function checkPackRequires(packs: readonly unknown[], assembly: Assembly): void 
 
 /**
  * 0035 の4: 世帯ファイルの形式 0.17 では、贈与者を世帯の外の家族の構成員（`outside`。生年月・性別なし）で持つ。
- * 世帯の外の家族の計算を入れる回までは、生年月の無い世帯の外の家族を贈与者（donors）として読み、構成員の計算には使わない
- * （0.16 の贈与者と同じ結果）。生年月のある世帯の外の家族は、今までの構成員と同じに読む
+ * 生年月の無い世帯の外の家族は贈与者（donors）として読み、構成員の計算には使わない（0.16 の贈与者と同じ結果）。
+ * 生年月のある世帯の外の家族は構成員として読み、世帯の外の家族の決まりで計算する（収入・税・社会保険料は家計を1つにする期間のうち
+ * 収入を世帯に入れる期間だけ世帯に入れる・世帯の判定の顔ぶれに入れない、など。部品が sdk の isOutside・sameHousehold で見る）
  */
 export function readOutsideFamily(input: EngineInput): EngineInput {
   const members = input.household.members;
@@ -425,8 +426,8 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     ...(h.donors ?? []).flatMap((d) => (d.of !== undefined ? [d.of] : [])),
   ];
   if (refs.some((id) => !memberIds.has(id))) throw new EngineError("E_ARGUMENT", ["household.member"]);
-  // 贈与者（donors）を指す欄は、贈与者の ID だけ
-  const donorIds = new Set((h.donors ?? []).map((d) => d.id));
+  // 贈与者を指す欄は、贈与者（donors）か世帯の外の家族の構成員の ID だけ（0035 の4）
+  const donorIds = new Set([...(h.donors ?? []).map((d) => d.id), ...h.members.filter((m) => m.outside !== undefined).map((m) => m.id)]);
   const donorRefs = [
     ...(h.residences ?? []).flatMap((r) => (r.purchase?.gifts ?? []).flatMap((g) => (g.donor !== undefined ? [g.donor] : []))),
     ...(h.goals ?? []).flatMap((g) => (g.education?.gifts ?? []).flatMap((x) => (x.donor !== undefined ? [x.donor] : []))),

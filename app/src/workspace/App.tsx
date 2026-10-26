@@ -364,6 +364,8 @@ export function App() {
   const [bsSettings, setBsSettings] = useState<BalanceSettings>(DEFAULT_BALANCE_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(initial.settings === true);
   const [panel, setPanel] = useState<null | "list" | "compare">(initial.compare === true ? "compare" : initial.list === true ? "list" : null);
+  /** 知らせから開く入力のカード（n を変えると入力の画面を開き直す） */
+  const [cardOpen, setCardOpen] = useState<{ id: string; n: number } | null>(null);
   /** 画面下の知らせ。undo のときは「元に戻す」を添える（帯のカードの × でプランを外したときなど） */
   const [notice, setNotice] = useState<{ text: string; undo: boolean } | null>(null);
   const [level, setLevel] = useState<Level>(initial.level ?? "simple");
@@ -1663,6 +1665,24 @@ export function App() {
     showing: { recovery: recovery !== null, office: officeOpen, storage: storageOpen !== null },
     presence: presence !== null ? presenceText(presence) : null,
     message: storeMessage,
+    household: opened?.wh.notices ?? [],
+  };
+  /** 開いたときの知らせを押した: その知らせを世帯から消し（1回だけ見せる。0035 の8）、扱う画面を開く */
+  const openHouseholdNotice = (id: string, target: NoticeTarget) => {
+    const o = openedRef.current;
+    if (o !== null && o.wh.notices !== undefined) {
+      const rest = o.wh.notices.filter((n) => `household:${n.id}` !== id);
+      const { notices: _old, ...wh } = o.wh;
+      void _old;
+      setPlans(rest.length > 0 ? { ...wh, notices: rest } : wh);
+    }
+    if (target === "family") {
+      setTab("input");
+      setCardOpen((c) => ({ id: "family", n: (c?.n ?? 0) + 1 }));
+    } else if (target === "plans") {
+      setTab("main");
+      setPanel("list");
+    } else noticeActions[target]();
   };
   const toggleHousehold = () => {
     setHhError(null);
@@ -1691,7 +1711,7 @@ export function App() {
     void host?.office.status().then(setOfficeStatus, () => undefined);
     setStorageOpen("default");
   };
-  const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence };
+  const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence, family: () => setTab("input"), plans: () => setTab("main") };
   const save = saveText(savingStored, saveState, storeMessage, presence !== null);
   const basis = model === null ? null : { members: model.members.map((m) => `${m.label} ${m.age}歳`).join("・"), asOf: model.asOf };
   return (
@@ -1711,7 +1731,7 @@ export function App() {
             : null
         }
         alerts={barAlerts(barIn).map((a) => ({ id: a.kind, text: a.text, short: a.short, title: a.title, tone: a.tone, onClick: alertActions[a.kind] }))}
-        notices={barNotices(barIn).map((n) => ({ id: n.id, text: n.text, action: n.action, onClick: noticeActions[n.target] }))}
+        notices={barNotices(barIn).map((n) => ({ id: n.id, text: n.text, action: n.action, onClick: n.id.startsWith("household:") ? () => openHouseholdNotice(n.id, n.target) : noticeActions[n.target] }))}
         tools={
           opened !== null ? (
             <>
@@ -1894,12 +1914,13 @@ export function App() {
             {error !== null ? <p class="fatal">今の入力では計算できませんでした（{error}）</p> : null}
             {opened.wh.proposals.length > 0 ? <p class="in-note plans-note">入力（現状）を直すと、保存したプラン（{opened.wh.proposals.length}件）にも反映されます。プランが指していた物を外すと、そのプランに「要確認」が出ます。</p> : null}
             <InputView
+              key={cardOpen?.n ?? 0}
               wh={opened.wh}
               onSave={edit}
               computeOne={computeOne}
               level={level}
               onLevel={setLevel}
-              {...(initial.open !== undefined ? { initialOpen: initial.open } : {})}
+              {...(cardOpen !== null ? { initialOpen: cardOpen.id } : initial.open !== undefined ? { initialOpen: initial.open } : {})}
               {...(host !== null
                 ? {
                     statement: {

@@ -1,8 +1,10 @@
 // 住民税の非課税の判定（年度。前年の所得による）。均等割は合計所得金額が「基本額×人数＋加算＋（扶養があれば）扶養の加算」以下なら非課税、
 // 所得割は総所得金額等が同じ形の額以下なら非課税（人数は本人・同一生計配偶者・扶養親族。16歳未満を含む）。
 // 均等割の額は生活保護の級地で市町村ごとに違うが、市町村ごとの値を持たない方針（0007 の6）なので1級地の値を既定にする（見出しの notices）
+// 改訂3: 世帯の外の家族（0035 の4）は、扶養していると入れたときだけ扶養親族に数える
 import {
   defineComponent,
+  isOutside,
   monthIndex,
   parseYm,
   yen,
@@ -25,10 +27,10 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
   id: "residentTax.exemption",
   title: "住民税の非課税の判定",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2", "tax.incomeWithin": ">=1 <2" },
   params: Object.values(P),
-  reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "relation.type", "relation.a", "relation.b", "relation.marriage"],
+  reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "relation.type", "relation.a", "relation.b", "relation.marriage"],
   input: "residentTax.annual.input",
   output: "residentTax.exemption.output",
   compute(input, ctx) {
@@ -70,7 +72,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
       if (spouses.has(m.id)) {
         persons++;
         dependents++;
-      } else if (claimant === member && (m.kind === "child" || ((m.kind === "parent" || m.kind === "grandparent") && m.support?.dependent === true))) {
+      } else if (claimant === member && (isOutside(m) ? m.support?.dependent === true : m.kind === "child" || ((m.kind === "parent" || m.kind === "grandparent") && m.support?.dependent === true))) {
+        // 世帯の外の家族は、扶養していると入れたときだけ扶養親族（0035 の4）
         persons++;
         dependents++;
       }

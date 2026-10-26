@@ -3,11 +3,13 @@
 // 第3子の数え方は、22歳に達した後の最初の3月31日までの子（世帯にいる子）を生まれの順に数える（親が経済的な負担をしているとみなす近似）。
 // 支払いは偶数月に前の2か月分（2月に12月・1月分）。受け取るのは子の最初の親（関係 parentOf。無ければ本人）。
 // 教育の目標の education.childAllowance が false の子は計算しない。所得の制限は無い
+// 改訂3: 世帯の外の家族（0035 の4）の子は数えない
 import {
   addMonths,
   ageMonth,
   defineComponent,
   formatYm,
+  isOutside,
   monthOf,
   parseYm,
   yearOf,
@@ -32,16 +34,17 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "benefit.childAllowance",
   title: "児童手当",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {},
   params: Object.values(P),
-  reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "goal.kind", "goal.owner", "goal.education"],
+  reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "relation.type", "relation.parent", "relation.child", "goal.kind", "goal.owner", "goal.education"],
   input: "empty.input",
   output: "flows.output",
   compute(_input, ctx) {
     const { base, end } = ctx.time;
     const members = ctx.list<MemberInput>("member");
-    const children = members.filter((m) => m.kind === "child").sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : a.birth.birthYearMonth > b.birth.birthYearMonth ? 1 : 0));
+    // 世帯の外の子（離れて住む子など）は数えない（0035 の4）
+    const children = members.filter((m) => m.kind === "child" && !isOutside(m)).sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : a.birth.birthYearMonth > b.birth.birthYearMonth ? 1 : 0));
     if (children.length === 0) return { flows: [] };
     const optOut = new Set(ctx.list<GoalInput>("goal").filter((g) => g.kind === "education" && g.education?.childAllowance === false).map((g) => g.owner));
     const relations = ctx.list<RelationInput>("relation");

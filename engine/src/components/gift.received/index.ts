@@ -7,9 +7,12 @@
 // 世帯の外の贈与者（donors。0008 の追記 2026-10-10 の決定1）を指す贈与は donor に ID を残し、gift.tax が同じ贈与者からの贈与を合わせて数える。
 // 贈与者の区分は、贈与者が「誰の親・祖父母か」（of）と受け取る人の関係から決める（受け取る人がその人か、その人の子なら直系尊属。
 // その人の配偶者など、それ以外は「その他」＝一般税率）。教育の目標の援助で贈与者を指すものは、世帯からは出さない（education.cost）
+// 改訂3: 世帯の外の家族（0035 の4）の構成員（生年月のある親など）も贈与者になれる
 import {
   defineComponent,
   formatYm,
+  isOutside,
+  type DonorInput,
   type GiftReceived,
   type GiftReceivedOutput,
   type GoalInput,
@@ -17,17 +20,17 @@ import {
   type MemberInput,
   type RelationInput,
   type ResidenceInput,
-  type DonorInput,
 } from "../../sdk/index.ts";
 
 export default defineComponent<{ member: string }, GiftReceivedOutput>({
   id: "gift.received",
   title: "受け取る贈与（集める）",
   contract: "1.1",
-  revision: 2,
+  revision: 3,
   requires: { "insurance.policy": ">=1 <2" },
   params: [],
   reads: [
+    "member.outside",
     "residence.purchase",
     "residence.from",
     "goal.kind",
@@ -48,8 +51,14 @@ export default defineComponent<{ member: string }, GiftReceivedOutput>({
     const gifts: GiftReceived[] = [];
     const donors = ctx.list<DonorInput>("donor");
     // 贈与者の区分（受け取る人から見て直系尊属なら parent・grandparent、そうでなければ other）
+    // 世帯の外の家族の構成員（生年月のある親など。0035 の4）も贈与者になれる。続柄は構成員の種類と、誰の家族か（outside.of）から
+    const outsideDonor = (id: string): DonorInput | undefined => {
+      const m = ctx.list<MemberInput>("member").find((x) => x.id === id && isOutside(x));
+      if (m === undefined) return undefined;
+      return { id: m.id, kind: m.kind === "parent" || m.kind === "grandparent" ? m.kind : "other", ...(m.outside?.of !== undefined ? { of: m.outside.of } : {}) };
+    };
     const donorGiver = (id: string): GiftReceived["giver"] => {
-      const d = donors.find((x) => x.id === id);
+      const d = donors.find((x) => x.id === id) ?? outsideDonor(id);
       if (d === undefined || d.kind === "other") return "other";
       if (d.of === undefined || d.of === member) return d.kind;
       const members = ctx.list<MemberInput>("member");

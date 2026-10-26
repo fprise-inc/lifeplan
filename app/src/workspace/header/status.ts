@@ -24,11 +24,13 @@ export interface BarInputs {
   presence: string | null;
   /** 保存の失敗の文（失敗の符号 → 文） */
   message: (code: string) => string;
+  /** 開いている世帯の開いたときの知らせ（0035 の8） */
+  household?: readonly { id: string; kind: string; count?: number }[];
 }
 
 export type AlertKind = "saveError" | "readOnly" | "paused" | "aiSharing";
 /** 通知を押したときに開く画面 */
-export type NoticeTarget = "recovery" | "restore" | "storage" | "office" | "households" | "presence";
+export type NoticeTarget = "recovery" | "restore" | "storage" | "office" | "households" | "presence" | "family" | "plans";
 
 export interface AlertSpec {
   kind: AlertKind;
@@ -58,7 +60,15 @@ export function barAlerts(i: BarInputs): AlertSpec[] {
   return out;
 }
 
-const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める" };
+const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める", family: "家族のカード", plans: "プランの一覧" };
+
+/** 開いたときの知らせの文（0035 の8） */
+export function householdNoticeText(n: { kind: string; count?: number }): { text: string; target: NoticeTarget } | null {
+  if (n.kind === "outsideFamily")
+    return { target: "family", text: "親・祖父母を世帯の外の家族（家計が別）にしました。年金などは世帯の収入に入らないので、結果が前と変わります。家計を1つにする期間は家族のカードで入れられます" };
+  if (n.kind === "unresolvedDiffs") return { target: "plans", text: `古い形式のプランの変更のうち ${n.count ?? 0}件を読み替えられませんでした。プランの一覧の「要確認」で確かめてください` };
+  return null;
+}
 
 /** 本体の通知を押したときに開く画面（1人で複数の PC の同期フォルダの通知は保存先、事務所での共有の通知は事務所の共有） */
 export function noticeTarget(n: StorageNotice): NoticeTarget {
@@ -80,6 +90,10 @@ export function barNotices(i: BarInputs): NoticeSpec[] {
     out.push({ id: `${n.kind}:${k}`, target, text: storageNoticeText(n), action: ACTION[target] });
   });
   if (i.opened && i.stored && i.presence !== null) out.push({ id: "presence", target: "presence", text: i.presence, action: ACTION.presence });
+  for (const n of i.opened ? (i.household ?? []) : []) {
+    const t = householdNoticeText(n);
+    if (t !== null) out.push({ id: `household:${n.id}`, target: t.target, text: t.text, action: ACTION[t.target] });
+  }
   return out;
 }
 

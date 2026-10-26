@@ -22,6 +22,14 @@ export interface PostRetirement {
   standardMonthlyRemuneration?: number;
 }
 
+/** 開いたときの知らせ（0035 の8） */
+export interface HouseholdNotice {
+  id: string;
+  kind: "outsideFamily" | "unresolvedDiffs" | string;
+  members?: string[];
+  count?: number;
+}
+
 export interface WorkingHousehold {
   /** 計算エンジンに渡す要求（現状。入力の値） */
   request: EngineRequest;
@@ -48,6 +56,11 @@ export interface WorkingHousehold {
   proposals: Proposal[];
   /** ヒアリングシートの依頼・取り込み・同意の下書きの記録（0018。保存の回で世帯ファイルの取り込みの記録・同意の記録に入れる） */
   hearing?: HearingLog;
+  /**
+   * 開いたときの知らせ（0035 の8。世帯ファイルの形式を上げた段が書く。例: 親・祖父母を世帯の外の家族にした）。画面は1回見せ、
+   * FP が押したら消す
+   */
+  notices?: HouseholdNotice[];
   /**
    * 控え（0009 の2。PDF を書き出した時点・FP が残した時点の写し）。作った後は変えない。世帯ファイルでは本文の区画 snapshots に置く
    * （App.tsx の bodyFor。household の区画には入れない）。元に戻す・やり直すの対象にしない
