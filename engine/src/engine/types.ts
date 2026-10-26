@@ -99,9 +99,11 @@ export interface EmploymentPeriodInput {
     readonly bonusMonths?: readonly number[];
     readonly commutingMonthly?: ValueBox<Yen>;
     readonly contractualMonthly?: ValueBox<Yen>;
-    readonly growth?: { readonly curve: string };
+    /** 昇給の仕方（どちらか1つ）: curve は昇給カーブの値ID（賃金上昇率に掛ける）、rate はこの期間の伸び（年率。賃金上昇率の代わり。0040） */
+    readonly growth?: { readonly curve: string; readonly rate?: undefined } | { readonly rate: string; readonly curve?: undefined };
   };
-  readonly business?: { readonly income: ValueBox<Yen> };
+  /** 事業所得。growth.rate はこの期間の伸び（年率。省略は賃金上昇率。0040） */
+  readonly business?: { readonly income: ValueBox<Yen>; readonly growth?: { readonly rate: string } };
   readonly childcareShortHours?: { readonly child: string; readonly wageBefore?: ValueBox<Yen> };
   readonly standardMonthlyRemuneration?: { readonly health: ValueBox<Yen>; readonly pension: ValueBox<Yen> };
   readonly endsOnMonthEnd?: boolean;
@@ -236,6 +238,10 @@ export interface AccountInput {
   readonly valueGrowth?: string;
   /** FP が入れた器の利回り（年率。入れたときは資産の配分の利回りの代わり。0026） */
   readonly expectedReturn?: string;
+  /** 利回りの段階（その時点の属する年から、器の利回りか資産の配分に置き換える。0040） */
+  readonly returnStages?: readonly ReturnStageInput[];
+  /** 利回りの例外の年（その年だけ別の利回り。運用の費用・利回りの書き換えは重ねる。0040） */
+  readonly returnExceptions?: readonly { readonly id: string; readonly year: number; readonly expectedReturn: string }[];
   /** 運用の費用（信託報酬など。年率。器の利回りから引く。0026） */
   readonly fee?: string;
   /** 運用しない分（金額。まとめた金融資産の器 pooled だけで使う。この額までは預金の利回りで、残りに器の利回りをかける。0031） */
@@ -266,9 +272,12 @@ export interface RealEstatePropertyInput {
     readonly from?: Timepoint;
     /** 貸し終わり（その月まで。省略は売却の前の月か表の最後） */
     readonly to?: Timepoint | null;
+    /** 家賃の段階・例外の年（0040） */
+    readonly stages?: readonly AmountStageInput[];
+    readonly exceptions?: readonly AmountExceptionInput[];
   };
   /** 経費（管理費・修繕積立金・固定資産税・管理委託料など）。年額（持っている間）と、受け取る家賃に対する割合の合計 */
-  readonly expenses?: { readonly annual?: ValueBox<Yen>; readonly rate?: string; readonly growth?: string };
+  readonly expenses?: { readonly annual?: ValueBox<Yen>; readonly rate?: string; readonly growth?: string; readonly stages?: readonly AmountStageInput[]; readonly exceptions?: readonly AmountExceptionInput[] };
   /** 売却の予定（その月に売り、手取りを現金にする） */
   readonly sale?: { readonly at: Timepoint; readonly price?: Yen; readonly costRate?: string };
 }
@@ -333,12 +342,46 @@ export interface DebtInput {
   };
 }
 
+/**
+ * 額の段階の1段（0040）。その時点（年ごとの額はその時点の属する年）から、元の額の代わりに amount（元の額の欄と同じ基準の額。
+ * 元の欄の伸び方をそのまま重ねる）か、元の額×ratio を使う。rampYears は、ここから何年かけて次の段の値へ毎年同じ幅で移すか
+ */
+export interface AmountStageInput {
+  readonly id: string;
+  readonly at: Timepoint;
+  readonly amount?: ValueBox<Yen>;
+  readonly ratio?: string;
+  readonly rampYears?: number;
+}
+
+/** 例外の年（0040）。その年だけ、段階の額の代わりに amount（元の額の欄と同じ基準の額。伸び方は重ねる）。0円はその年に動かない */
+export interface AmountExceptionInput {
+  readonly id: string;
+  readonly year: number;
+  readonly amount: ValueBox<Yen>;
+}
+
+/** 段階と例外の年を持てる額の欄（0040） */
+export interface StagedInput {
+  readonly stages?: readonly AmountStageInput[];
+  readonly exceptions?: readonly AmountExceptionInput[];
+}
+
+/** 器の利回りの段階の1段（0040）。その時点の属する年から、器の利回りか資産の配分のどちらかに置き換える */
+export interface ReturnStageInput {
+  readonly id: string;
+  readonly at: Timepoint;
+  readonly expectedReturn?: string;
+  readonly assetMix?: readonly { readonly assetClass: string; readonly share: string }[];
+  readonly rampYears?: number;
+}
+
 export interface ResidenceInput {
   readonly id: string;
   readonly kind: "rent" | "own";
   readonly from: Timepoint;
   readonly to: Timepoint | null;
-  readonly rent?: { readonly monthly: ValueBox<Yen>; readonly growth?: string; readonly renewalFee?: string; readonly renewalEveryMonths?: number };
+  readonly rent?: { readonly monthly: ValueBox<Yen>; readonly growth?: string; readonly renewalFee?: string; readonly renewalEveryMonths?: number } & StagedInput;
   readonly purchase?: {
     readonly at?: Timepoint;
     readonly price: Yen;
@@ -354,8 +397,8 @@ export interface ResidenceInput {
       readonly housingExemption?: "energySaving" | "other" | "none";
     }[];
   };
-  readonly propertyTax?: { readonly annual: ValueBox<Yen>; readonly growth?: string };
-  readonly maintenance?: { readonly monthly: ValueBox<Yen>; readonly growth?: string };
+  readonly propertyTax?: { readonly annual: ValueBox<Yen>; readonly growth?: string } & StagedInput;
+  readonly maintenance?: { readonly monthly: ValueBox<Yen>; readonly growth?: string } & StagedInput;
   readonly ownership?: readonly { readonly member: string; readonly share: string }[];
   /** 持ち家の評価（土地と建物に分け、土地は上昇率、建物は耐用年数で減らす。housing.valuation） */
   readonly valuation?: ResidenceValuationInput;
@@ -586,6 +629,9 @@ export interface PeriodicExpenseInput {
   readonly everyYears: number;
   readonly amount: ValueBox<Yen>;
   readonly growth?: GrowthInput;
+  /** 1回の額の段階・例外の年（0040） */
+  readonly stages?: readonly AmountStageInput[];
+  readonly exceptions?: readonly AmountExceptionInput[];
   readonly onContingency?: OnContingencyInput;
 }
 
@@ -799,6 +845,8 @@ export interface InvestmentSetting {
     readonly fee?: string;
     /** 年に1回、元の割合に戻す（省略は true） */
     readonly rebalance?: boolean;
+    /** 資産配分の段階（その時点の属する年から、共通の配分を変える。0040） */
+    readonly stages?: readonly { readonly id: string; readonly at: Timepoint; readonly mix: readonly { readonly assetClass: string; readonly share: string }[]; readonly rampYears?: number }[];
   };
   /** NISA の枠を超えた積立の扱い: deposit は預金に残す、taxable は課税口座で続ける。省略は deposit */
   readonly nisaOverflow?: "deposit" | "taxable";

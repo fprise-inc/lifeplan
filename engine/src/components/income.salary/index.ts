@@ -1,6 +1,7 @@
 // 給与・賞与の支払い（0008 の4 の働き方の期間から）。お金の動きは支払月（0003 の2）
 // 昇給は賃金上昇率（前提）で暦年ごとに伸ばす。期間に昇給カーブ（salary.growth.curve。マスタデータの年齢ごとの係数）を書いたときは、
-// その年の12月31日の年齢の係数と前の年の係数の比も掛ける（0008 の追記。標準報酬の定時決定は9月から等級を変える近似）
+// その年の12月31日の年齢の係数と前の年の係数の比も掛ける（0008 の追記。標準報酬の定時決定は9月から等級を変える近似）。
+// 期間に伸びの率（salary.growth.rate。改訂6。0040）を書いたときは、賃金上昇率の代わりにその率で暦年ごとに伸ばす（マイナスも書ける）
 // 役員（executive）: 役員報酬は定期同額（年額を12か月に等分）、賞与は事前確定届出給与（届け出た支給月と額）として同じ形で入れ、
 // 行は cf.income.salary.executive。会社の側の計算（役員報酬をいくらにするか・法人税・会社負担の社会保険料・退職金の財源）は入れない
 // ストレステストの収入の減少（前提 incomeShocks。改訂5）: その構成員の from〜to の月の給与・賞与を ratio の割合だけ減らす（標準報酬月額は変えない近似）
@@ -38,7 +39,7 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
   id: "income.salary",
   title: "給与・賞与",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: {},
   params: [CURVE],
   reads: [
@@ -89,13 +90,15 @@ export default defineComponent<{ member: string }, { flows: Flow[]; payments: Sa
       const bonusMonths = [...(sal.bonusMonths ?? DEFAULT_BONUS_MONTHS)].sort((a, b) => a - b);
       // 入力の額は「期間の最初の年（計算基準年より前なら計算基準年）」の額。その後の年は賃金上昇率で伸ばす
       const refYear = Math.max(yearOf(from), baseYear);
-      const curve = sal.growth === undefined ? null : (ctx.at(monthIndex(refYear, 1)).paramBrackets(sal.growth.curve === CURVE ? CURVE : sal.growth.curve) ?? null);
+      const curveId = sal.growth?.curve;
+      const curve = curveId === undefined ? null : (ctx.at(monthIndex(refYear, 1)).paramBrackets(curveId === CURVE ? CURVE : curveId) ?? null);
+      const own = sal.growth?.rate === undefined ? null : ctx.rate.add(RATE_ONE, ctx.rate.of(sal.growth.rate));
       let annual = annual0;
       let bonus = bonus0;
       const grown = new Map<number, [Yen, Yen]>();
       for (let y = yearOf(start); y <= yearOf(stop); y++) {
         if (y > refYear) {
-          let g = ctx.rate.add(RATE_ONE, ctx.assumption("wageGrowth", y, rate("0")));
+          let g = own ?? ctx.rate.add(RATE_ONE, ctx.assumption("wageGrowth", y, rate("0")));
           if (curve !== null) g = ctx.rate.mul(g, ctx.rate.div(coefficient(curve, y - birthYear), coefficient(curve, y - 1 - birthYear)));
           annual = ctx.money.mulRate(annual, g, "conv.salary.growth");
           bonus = ctx.money.mulRate(bonus, g, "conv.salary.growth");

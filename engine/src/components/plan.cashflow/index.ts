@@ -39,8 +39,12 @@
 //   まとめた金融資産の器の運用しない分（uninvested）は預金の利回りで、残りに器の利回りをかける
 // - 改訂12（0031 の追記）: 生活防衛資金（改訂11の前提 emergencyReserve・器 reserve・行 cf.balance.financial.reserveTarget／usable）をなくした。
 //   取り崩しの計画（investment.drawdown）がある年（始まりの年から）は、ゆとりの支出を差し引かない（計画が使うお金を決めているので二重に引かない）
+// - 改訂13（0040）: 器の利回りの段階（returnStages。年ごとに器の利回りか資産の配分を変え、少しずつ移す）と例外の年（returnExceptions）。
+//   資産配分の入れ方の段階（investment.allocation.stages）は、計算の前に運用する器の利回りの段階に写す（engine/investment.ts）。
+//   資産クラスを書いた時価の下落は、その年の段の配分で割合を出す
 import {
   accountReturnRate,
+  accountMixAt,
   shockShare,
   type CarValuationOutput,
   type HousingValuationOutput,
@@ -159,7 +163,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   id: "plan.cashflow",
   title: "キャッシュフロー表",
   contract: "1.3",
-  revision: 12,
+  revision: 13,
   requires: {
     "plan.flows": ">=1 <2",
     "insurance.policy": ">=1 <2",
@@ -191,6 +195,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "account.lots",
     "account.valueGrowth",
     "account.expectedReturn",
+    "account.returnStages",
+    "account.returnExceptions",
     "account.fee",
     "account.payout",
     "account.property",
@@ -589,7 +595,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
         // ストレステスト: その年の年末に時価を下げる（運用益に含める）。資産クラスを書いた下落は、配分のうちその資産クラスの割合だけ（0026）
         for (const sh of shocks) {
           if (sh.year !== y || (sh.kinds !== undefined ? !sh.kinds.includes(x.kind as AccountKind) : SHOCK_EXEMPT.has(x.kind)) || x.value <= 0) continue;
-          const share = shockShare(ctx, { kind: x.kind, ...(spec?.assetMix !== undefined ? { assetMix: spec.assetMix } : {}) }, sh.assetClasses);
+          const mix = spec === null ? undefined : accountMixAt(ctx, spec, y);
+          const share = shockShare(ctx, { kind: x.kind, ...(mix !== undefined ? { assetMix: mix } : {}) }, sh.assetClasses);
           if (share === null) continue;
           const exposed = x.uninvested !== undefined && x.uninvested > 0 ? yen(x.value - Math.min(x.uninvested, x.value)) : x.value;
           const drop = ctx.money.mulRate(exposed, ctx.rate.mul(ctx.rate.of(sh.drop), share), "conv.investment.return");

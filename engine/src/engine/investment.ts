@@ -10,7 +10,8 @@
 //   total: 金融資産の器を外し、まとめた金融資産の器（pooled）だけで計算する（不動産・その他の資産・保険の器は残す）。pooled が無ければ口座ごとのまま
 //   accounts・allocation: pooled は「まだ口座に分けていない分」。残高は pooled の残高−ほかの金融資産の器の残高の合計（0未満は0）、
 //   毎月の積立は月ごとに pooled の積立−ほかの器の本人の積立の合計（0未満は0）。どちらも0なら外す。運用しない分（uninvested）は外す（0031）
-//   allocation: 運用する器（課税口座・NISA・iDeCo・企業型DC・持株会）に、共通の資産配分と信託報酬を当てる（FP が入れた器の利回りは使わない）
+//   allocation: 運用する器（課税口座・NISA・iDeCo・企業型DC・持株会）に、共通の資産配分と信託報酬を当てる（FP が入れた器の利回りは使わない）。
+//   資産配分の段階（allocation.stages。0040）は、運用する器の利回りの段階（returnStages の資産の配分の段）に写す（器の利回りの段階・例外の年は使わない）
 import { addMonths, formatYm, type MonthIndex } from "../time/month.ts";
 import type { Timepoint, TimeResolver } from "../time/timepoint.ts";
 import { yen, type Yen } from "../money/yen.ts";
@@ -171,9 +172,12 @@ export function applyInvestment(
     const alloc = setting.allocation;
     accounts = accounts.map((a) => {
       if (!INVEST_KINDS.has(a.kind)) return a;
-      const { expectedReturn: _e, ...rest } = a;
+      const { expectedReturn: _e, returnStages: _s, returnExceptions: _x, ...rest } = a;
       void _e;
-      return { ...rest, assetMix: alloc.mix, ...(alloc.fee !== undefined ? { fee: alloc.fee } : {}) } as AccountInput;
+      void _s;
+      void _x;
+      const stages = alloc.stages === undefined || alloc.stages.length === 0 ? {} : { returnStages: alloc.stages.map((s) => ({ id: s.id, at: s.at, assetMix: s.mix, ...(s.rampYears !== undefined ? { rampYears: s.rampYears } : {}) })) };
+      return { ...rest, assetMix: alloc.mix, ...stages, ...(alloc.fee !== undefined ? { fee: alloc.fee } : {}) } as AccountInput;
     });
     changed = true;
   }
