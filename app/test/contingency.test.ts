@@ -7,9 +7,9 @@ import { ContingencyChartCard, LOADING_DELAY_MS, ScenarioBand, YearStrip } from 
 import type { ContingencyModel } from "../src/presentation/model.ts";
 import { contingencyInputSections, oldAgeChoiceField } from "../src/workspace/contingency/inputs.ts";
 import { planFromRequest } from "../src/workspace/contingency/planData.ts";
-import { chosenCombinations, protectionChart, scenarioCards, scenarioModel, yearOptions, yearStripModel } from "../src/workspace/contingency/present.ts";
+import { chosenCombinations, inheritanceText, protectionChart, scenarioCards, scenarioModel, yearOptions, yearStripModel } from "../src/workspace/contingency/present.ts";
 import { PremisePanel } from "../src/workspace/contingency/PremisePanel.tsx";
-import { baseRequest, protectionRequest, scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
+import { baseRequest, chartRequests, protectionRequest, scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
 import type { FieldDef, Val } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { sameRate } from "../src/workspace/input/units.ts";
@@ -263,3 +263,28 @@ describe("提示用の値がエンジンの結果と一致する", () => {
 });
 
 void ({} as EngineRequest);
+
+describe("死亡の想定の相続税の目安（0039。表示だけ）", () => {
+  const wh = open("salariedCoupleTwoKids");
+  const sc = scenarios(wh).find((s) => s.key === "death:self")!;
+
+  it("選んだ死亡の想定の要求にだけ目安を求め、年ごとの帯の要求と万一なしには入れない", () => {
+    const r = chartRequests(wh, "current", [], sc, 2030);
+    expect(r["current|sc"]?.input.inheritanceTax).toEqual({ points: ["contingency"] });
+    expect(r["current|none"]?.input.inheritanceTax).toBeUndefined();
+    expect(scenarioRequest(wh, sc, 2030).input.inheritanceTax).toBeUndefined();
+    const dis = scenarios(wh).find((s) => s.kind === "disability")!;
+    expect(chartRequests(wh, "current", [], dis, 2030)["current|sc"]?.input.inheritanceTax).toBeUndefined();
+  });
+
+  it("結果に目安の一文が出て、お金の流れ（表）は目安なしと同じ", () => {
+    const r = chartRequests(wh, "current", [], sc, 2030);
+    const withIt = preview(r["current|sc"]!);
+    const without = preview(scenarioRequest(wh, sc, 2030));
+    expect(withIt.table).toEqual(without.table);
+    const text = inheritanceText(withIt);
+    expect(text).toMatch(/^相続税の目安: /);
+    expect(text).toContain("お金の流れには入れていません");
+    expect(inheritanceText(without)).toBeNull();
+  });
+});

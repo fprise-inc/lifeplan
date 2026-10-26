@@ -1,0 +1,21 @@
+id: inheritanceTax.spouseReduction.floor
+title: 配偶者に対する相続税額の軽減の、法定相続分の額と比べる下限（1億6,000万円）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 160000000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000073_20260401_506AC0000000008?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "相続税法 第19条の2第1項第2号イ（令和8年4月1日の版）", "quote": "（当該金額が一億六千万円に満たない場合には、一億六千万円）", "note": "WebFetch で読んだ公式のページの本文の抜粋（原本の指紋は無い。原本での確認待ち）"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4158.htm", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "No.4158 配偶者の税額の軽減（令和8年4月1日現在法令等）", "quote": "1億6千万円", "note": "WebFetch で読んだ公式のページの本文の抜粋（原本の指紋は無い。原本での確認待ち）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号", "egovRevisionId": "325AC0000000073_20260401_506AC0000000008"}
+    recordedIn: "2026.12.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "相続税法19条の2第1項。e-Gov の条文と国税庁 No.4158 で同じ額（法定相続分相当額と比べて多い方まで税がかからない）。この行は平成27年1月1日以後の相続（平成25年度の改正の後）の範囲だけを書く。それより前の期間は確かめていない"}

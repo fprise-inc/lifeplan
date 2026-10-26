@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:inheritance.estimate.output",
+  "title": "相続税の目安の部品の出力（エンジン全体の出力の inheritanceTax と同じ形）",
+  "$ref": "urn:financia:schema:engine.output#/$defs/inheritanceTax"
+}

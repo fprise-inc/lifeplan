@@ -12,6 +12,8 @@
 //   2,500万円の特別控除を別々に数えない）。贈与者を指さない世帯の外からの贈与は、これまでどおり援助の物ごとに別の贈与者とみなす
 // - 世帯の外から受け取る贈与（住宅購入の資金援助・保険）の税は、翌年3月にキャッシュフロー表の cf.taxSi.giftTax に載せる。世帯から子に出す
 //   贈与（子への援助）の税は子が払うので載せず、要約（summary.gifts）にだけ出す。相続のときの持ち戻し・相続税は作らない（知らせ）
+// - 約束の版 1.1（0039）: その年の精算課税の贈与の贈与者ごとの額（非課税と基礎控除の後）と贈与税を settlementByGiver に出す。
+//   相続税の目安（inheritance.estimate）が、贈与者が亡くなったときに課税価格に足し、払った贈与税を引く
 import {
   ageMonth,
   bracketFor,
@@ -62,8 +64,8 @@ const DIRECT: ReadonlySet<string> = new Set(["parent", "grandparent", "household
 export default defineComponent<{ member: string; year: number }, GiftTaxOutput>({
   id: "gift.tax",
   title: "贈与税（暦年課税・相続時精算課税・住宅取得等資金の非課税）",
-  contract: "1.0",
-  revision: 2,
+  contract: "1.1",
+  revision: 3,
   requires: { "gift.received": ">=1 <2", "tax.totalIncome": ">=1 <2" },
   params: Object.values(P),
   reads: [],
@@ -149,6 +151,7 @@ export default defineComponent<{ member: string; year: number }, GiftTaxOutput>(
       const stTotal = st.reduce((s, g) => s + (after.get(g) ?? 0), 0);
       let stTaxable = 0;
       let stTax = 0;
+      const byGiverOut: NonNullable<GiftTaxOutput["settlementByGiver"]>[number][] = [];
       if (stTotal > 0) {
         const sBasic = at.paramYen(P.settleBasic) ?? yen(0);
         const special = at.paramYen(P.settleSpecial) ?? yen(0);
@@ -163,8 +166,12 @@ export default defineComponent<{ member: string; year: number }, GiftTaxOutput>(
           const use = Math.min(Math.max(0, special - used), amt);
           settleUsed.set(k, used + use);
           const taxable = at.money.round(yen(amt - use), P.taxableRound);
+          const t = at.money.mulRate(taxable, rate, P.taxRound);
           stTaxable += taxable;
-          stTax += at.money.mulRate(taxable, rate, P.taxRound);
+          stTax += t;
+          const mine = st.filter((g) => giverKey(g) === k);
+          const member = mine[0]?.giverMember ?? null;
+          byGiverOut.push({ giver: k, ...(member !== null ? { member } : {}), objects: [...new Set(mine.map((g) => g.object))].sort(), amount: yen(amt), tax: t });
         });
       }
       if (y !== year) continue;
@@ -188,6 +195,7 @@ export default defineComponent<{ member: string; year: number }, GiftTaxOutput>(
         tax,
         settlementRemaining: [...settleUsed.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([giver, used]) => ({ giver, remaining: yen(Math.max(0, (at.paramYen(P.settleSpecial) ?? 0) - used)) })),
         inCashflow: inflow > 0,
+        ...(byGiverOut.length > 0 ? { settlementByGiver: byGiverOut } : {}),
       };
     }
     return result;

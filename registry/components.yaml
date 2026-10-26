@@ -194,6 +194,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: inheritance.estimate
+    status: active
+    label: "相続税の目安（基礎控除・法定相続人・非課税・速算表・配偶者の軽減・精算課税の足し戻し）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: insurance.income
     status: active
     label: "保険の一時所得・雑所得"

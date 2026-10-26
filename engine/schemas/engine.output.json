@@ -51,6 +51,102 @@
         }
       }
     },
+    "inheritanceTax": {
+      "description": "相続税の目安（0039）。時点ごとに、亡くなる人・財産の内訳・法定相続人・基礎控除・税の総額・配偶者の軽減・納める額（世帯の人と世帯の外の相続人）。お金の流れには入れない（表示だけ）。amount は使う額（FP が入れた額があればその額）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["points", "notIncluded"],
+      "properties": {
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["point", "decedent", "month", "valuationYear", "status", "assets", "heirs", "heirCount", "heirCountOverridden", "basicDeduction", "taxableEstate", "totalTax", "spouseReduction", "settlementCredit", "byHeir", "payable", "payableHousehold", "payableOutside", "refund", "noTax", "margin", "amount", "state", "cautions"],
+            "properties": {
+              "point": { "enum": ["now", "bothAfter", "contingency"] },
+              "decedent": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "month": { "description": "亡くなる月（いま＝計算基準月、二人とも亡くなった後＝表の最後の年の12月）", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+              "valuationYear": { "description": "財産を見る年（その年の年末の残高。いまの金融資産は入力の時価）", "$ref": "urn:financia:schema:common#/$defs/year" },
+              "status": { "description": "ok は計算した、noHeirs は相続人がいない（税を出さない）、noData は制度の値が無い", "enum": ["ok", "noHeirs", "noData"] },
+              "assets": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["financial", "realEstateMarket", "realEstate", "other", "insurance", "insuranceExempt", "retirement", "retirementExempt", "settlementGifts", "debts", "funeral", "taxablePrice"],
+                "properties": {
+                  "financial": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "realEstateMarket": { "description": "不動産の時価", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "realEstate": { "description": "不動産の評価（時価×評価の割合）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "other": { "description": "車・その他の資産・保険の契約の権利（解約返戻金）など", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "insurance": { "description": "死亡保険金（亡くなる人が契約者で被保険者の契約）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "insuranceExempt": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "retirement": { "description": "死亡退職金（確定拠出年金・小規模企業共済の残高を含む）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "retirementExempt": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "settlementGifts": { "description": "相続時精算課税で贈与した財産（年ごとの基礎控除の後）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "debts": { "description": "債務（団信で消える分を除く）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "funeral": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "taxablePrice": { "description": "課税価格の合計（1,000円未満切り捨て）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                }
+              },
+              "heirs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["member", "relation", "outside", "counted"],
+                  "properties": {
+                    "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                    "relation": { "enum": ["spouse", "child", "grandchild", "parent", "grandparent", "sibling"] },
+                    "outside": { "description": "世帯の外の家族か", "type": "boolean" },
+                    "share": { "description": "法定相続分（分数の文字列。数に入れない養子は無い）", "type": "string", "pattern": "^[0-9]+/[0-9]+$" },
+                    "counted": { "description": "法定相続人の数に入れるか（養子の数の制限）", "type": "boolean" },
+                    "adopted": { "type": "boolean" },
+                    "representing": { "description": "代襲相続人のとき、代わる人（先に亡くなった子）", "$ref": "urn:financia:schema:common#/$defs/uuid" }
+                  }
+                }
+              },
+              "heirCount": { "type": "integer", "minimum": 0 },
+              "heirCountOverridden": { "type": "boolean" },
+              "basicDeduction": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "taxableEstate": { "description": "課税遺産総額", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "totalTax": { "description": "相続税の総額", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "spouseReduction": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "settlementCredit": { "description": "相続時精算課税で払った贈与税（引く額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "byHeir": {
+                "description": "人ごと（法定相続分どおりに分けたとする）。法定相続人の数を直したときは、配偶者のほかをまとめた1行（member なし・count）",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["outside", "acquisition", "tax", "spouseReduction", "credit", "payable", "refund"],
+                  "properties": {
+                    "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                    "count": { "type": "integer", "minimum": 1 },
+                    "outside": { "type": "boolean" },
+                    "acquisition": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "tax": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "spouseReduction": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "credit": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "payable": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "refund": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                  }
+                }
+              },
+              "payable": { "description": "納める額の合計（目安）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "payableHousehold": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "payableOutside": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "refund": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "noTax": { "description": "かからない見込み（課税価格の合計が基礎控除以下）", "type": "boolean" },
+              "margin": { "description": "基礎控除−課税価格の合計（正なら基礎控除までの余り）", "$ref": "urn:financia:schema:common#/$defs/yen" },
+              "amount": { "description": "使う額（FP が入れた額があればその額、無ければ目安の納める額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+              "state": { "description": "estimated は目安、confirmed は FP が入れた額", "enum": ["estimated", "confirmed"] },
+              "cautions": { "description": "当たりそうな、入れていない決まり（2割加算・小規模宅地等の特例・養子の数の制限など）", "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "notIncluded": { "description": "目安に含めていない決まり（いつも同じ一覧）", "type": "array", "items": { "type": "string" } }
+      }
+    },
     "protection": {
       "description": "6.3: 必要保障額の推移（構成員ごとに「この年に亡くなったら」を1年ずつずらす）。積み上げ方式は金融資産を含む額と含まない額、逆算方式は資産が尽きない最小の保険金。加入中の死亡保険金と並べる",
       "type": "object",
@@ -187,6 +283,7 @@
       "required": ["header", "flows", "annual", "table", "summary", "trace"],
       "properties": {
         "protection": { "$ref": "#/$defs/protection" },
+        "inheritanceTax": { "$ref": "#/$defs/inheritanceTax" },
         "header": { "$ref": "#/$defs/header" },
         "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
         "annual": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/annualRow" } },

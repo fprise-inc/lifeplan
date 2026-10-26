@@ -1,0 +1,19 @@
+id: inheritanceTax.tax.rounding
+title: 各人の納付すべき相続税額の端数（100円未満切り捨て）
+unit: rounding
+kind: rounding
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {"mode": "DOWN", "unit": 100}
+    sources:
+      - {"type": "law", "lawNumber": "昭和三十七年法律第六十六号"}
+    recordedIn: "2026.12.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "国税通則法119条1項（国税の確定金額の100円未満の切り捨て）。贈与税の giftTax.tax.rounding と同じ条文（原本での確認待ち）。この行は平成27年1月1日以後の相続（平成25年度の改正の後）の範囲だけを書く。それより前の期間は確かめていない"}

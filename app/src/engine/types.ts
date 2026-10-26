@@ -402,6 +402,46 @@ export interface ProtectionOutput {
   members: { member: string; survivor?: string; years: ProtectionYear[] }[];
 }
 
+/** 相続税の目安の要求（0039。指定したときだけ計算し、出力の inheritanceTax に出す。お金の流れには入れない） */
+export interface InheritanceTaxRequest {
+  points?: ("now" | "bothAfter" | "contingency")[];
+  members?: string[];
+  lastSurvivor?: string;
+  realEstateRatio?: string;
+  unassignedShare?: string;
+  funeral?: number;
+  adopted?: string[];
+  heirCounts?: { decedent: string; count: number }[];
+  retirementAllowances?: { decedent: string; amount: number }[];
+  overrides?: { point: "now" | "bothAfter" | "contingency"; decedent?: string; amount: number }[];
+}
+
+/** 相続税の目安の1時点（0039。engine/schemas/engine.output.json の inheritanceTax のうち画面が使う部分） */
+export interface InheritancePoint {
+  point: "now" | "bothAfter" | "contingency";
+  decedent: string;
+  month: string;
+  valuationYear: number;
+  status: "ok" | "noHeirs" | "noData";
+  assets: { taxablePrice: number; [key: string]: number };
+  heirCount: number;
+  basicDeduction: number;
+  totalTax: number;
+  payable: number;
+  payableHousehold: number;
+  payableOutside: number;
+  noTax: boolean;
+  margin: number;
+  amount: number;
+  state: "estimated" | "confirmed";
+  cautions: string[];
+}
+
+export interface InheritanceOutput {
+  points: InheritancePoint[];
+  notIncluded: string[];
+}
+
 export interface YearSeries {
   default: string;
   byYear?: Record<string, string>;
@@ -437,6 +477,7 @@ export interface EngineRequest {
     assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; investment?: InvestmentSetting; assetVolatility?: Record<string, string>; returnShifts?: ReturnShift[]; surplusSaving?: SurplusSavingSetting; withdrawal?: { order?: ({ kind: string } | { object: string })[]; minimumDeposit?: number }; marketShocks?: { year: number; drop: string; kinds?: string[]; assetClasses?: string[] }[]; [key: string]: unknown };
     contingencies?: Contingency[];
     protection?: ProtectionRequest;
+    inheritanceTax?: InheritanceTaxRequest;
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -467,6 +508,8 @@ export interface PreviewResult {
   summary: unknown;
   /** 必要保障額の推移（要求に protection を入れたときだけ） */
   protection?: ProtectionOutput;
+  /** 相続税の目安（要求に inheritanceTax を入れたときだけ。0039） */
+  inheritanceTax?: InheritanceOutput;
 }
 
 /** 要約のうち FP顧問料（0008 の追記。顧問料の行があるときだけ） */

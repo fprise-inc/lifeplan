@@ -34,6 +34,7 @@ export function baseRequest(req: EngineRequest): EngineRequest {
   const out = structuredClone(req);
   delete out.input.contingencies;
   delete out.input.protection;
+  delete out.input.inheritanceTax;
   out.trace = "none";
   return out;
 }
@@ -141,7 +142,12 @@ export const planSlot = (plan: string, name: string): string => `${plan}|${name}
 export function chartRequests(wh: WorkingHousehold, plan: string, protMembers: readonly string[], sc: Scenario | undefined, year: number): Record<string, EngineRequest> {
   const r: Record<string, EngineRequest> = { [planSlot(plan, "none")]: baseRequest(wh.request) };
   protMembers.forEach((m, i) => (r[planSlot(plan, `prot:${i}`)] = protectionRequest(wh, m)));
-  if (sc !== undefined) r[planSlot(plan, "sc")] = scenarioRequest(wh, sc, year);
+  if (sc !== undefined) {
+    const req = scenarioRequest(wh, sc, year);
+    // 死亡の想定の結果に、相続税の目安を1行だけ出す（表示だけで、お金の流れには入れない。0039）
+    if (sc.kind === "death") req.input.inheritanceTax = { points: ["contingency"] };
+    r[planSlot(plan, "sc")] = req;
+  }
   return r;
 }
 

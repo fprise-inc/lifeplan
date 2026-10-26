@@ -697,6 +697,14 @@ entries:
     replacedBy: member.kind
     collection: donor
     path: [kind]
+  - id: donor.leaves
+    status: active
+    label: "亡くなる見込み（世帯の外の家族から作った贈与者に、構成員の leaves を写す。相続人の数え方に使う。0039）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: donor
+    path: [leaves]
   - id: donor.of
     status: deprecated
     label: "誰の親・祖父母か（構成員）。省略は受け取る人の親・祖父母とみなす"
@@ -705,6 +713,14 @@ entries:
     replacedBy: member.outside
     collection: donor
     path: [of]
+  - id: donor.relative
+    status: active
+    label: "家族の種類（世帯の外の家族から作った贈与者に、構成員の kind を写す。相続人の数え方に使う。0039）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: donor
+    path: [relative]
   - id: employment.business.growth
     status: active
     label: "事業所得の伸び（省略は賃金上昇率。rate はこの期間の伸び（年率。賃金上昇率の代わり。マイナスも書ける）。0040）"

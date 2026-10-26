@@ -1,0 +1,29 @@
+id: inheritanceTax.rateTable
+title: 相続税の速算表（法定相続分に応ずる取得金額の段階、rate は税率、amount は控除額）
+unit: JPY
+kind: bracketTable
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {"upTo": 10000000, "rate": "0.1", "amount": 0}
+      - {"upTo": 30000000, "rate": "0.15", "amount": 500000}
+      - {"upTo": 50000000, "rate": "0.2", "amount": 2000000}
+      - {"upTo": 100000000, "rate": "0.3", "amount": 7000000}
+      - {"upTo": 200000000, "rate": "0.4", "amount": 17000000}
+      - {"upTo": 300000000, "rate": "0.45", "amount": 27000000}
+      - {"upTo": 600000000, "rate": "0.5", "amount": 42000000}
+      - {"upTo": null, "rate": "0.55", "amount": 72000000}
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4155.htm", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "No.4155 相続税の税率（令和8年4月1日現在法令等）の速算表", "quote": "6億円超 55％ 7,200万円", "note": "WebFetch で読んだ公式のページの本文の抜粋（原本の指紋は無い。原本での確認待ち）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000073_20260401_506AC0000000008?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "相続税法 第16条（令和8年4月1日の版）", "quote": "民法第九百条（法定相続分）及び第九百一条（代襲相続人の相続分）の規定による相続分に応じて取得したものとした場合における", "note": "WebFetch で読んだ公式のページの本文の抜粋（原本の指紋は無い。原本での確認待ち）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号", "egovRevisionId": "325AC0000000073_20260401_506AC0000000008"}
+    recordedIn: "2026.12.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "相続税法16条の税率の表と国税庁 No.4155 の速算表。控除額は段の境で隣の段と同じ税額になることを全行で計算し直して合う（例: 1億円のとき 30%−700万円と 40%−1,700万円がどちらも2,300万円）。この行は平成27年1月1日以後の相続（平成25年度の改正の後）の範囲だけを書く。それより前の期間は確かめていない"}

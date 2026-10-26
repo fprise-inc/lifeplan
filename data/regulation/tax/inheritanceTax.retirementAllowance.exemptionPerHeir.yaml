@@ -1,0 +1,20 @@
+id: inheritanceTax.retirementAllowance.exemptionPerHeir
+title: 相続税の死亡退職金の非課税限度額の法定相続人1人あたりの額（500万円）
+unit: JPY
+kind: constant
+basis: "month"
+entries:
+  - rev: 1
+    appliesFrom: "2015-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5000000
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/sozoku/4117.htm", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "No.4117 相続税の課税対象になる死亡退職金（令和8年4月1日現在法令等）", "quote": "500万円 × 法定相続人の数 ＝ 非課税限度額", "note": "WebFetch で読んだ公式のページの本文の抜粋（原本の指紋は無い。原本での確認待ち）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第七十三号"}
+    recordedIn: "2026.12.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "相続税法12条1項6号。国税庁 No.4117 で読んだ（条文の原本との照らし合わせはまだ）。この行は平成27年1月1日以後の相続（平成25年度の改正の後）の範囲だけを書く。それより前の期間は確かめていない"}

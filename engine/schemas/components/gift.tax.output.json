@@ -21,6 +21,22 @@
         "properties": { "giver": { "type": "string" }, "remaining": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
       }
     },
-    "inCashflow": { "type": "boolean" }
+    "inCashflow": { "type": "boolean" },
+    "settlementByGiver": {
+      "description": "約束の版 1.1（0039）: その年の相続時精算課税の贈与の、贈与者ごとの額（住宅取得等資金の非課税と基礎控除の後。贈与者が亡くなったときに相続税の課税価格に足す額）と贈与税。member は世帯の贈与者（払う人。省略は世帯の外か払う人の指定なし）、object は贈与の物",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["giver", "objects", "amount", "tax"],
+        "properties": {
+          "giver": { "type": "string" },
+          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "objects": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/uuid" } },
+          "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "tax": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
+    }
   }
 }
