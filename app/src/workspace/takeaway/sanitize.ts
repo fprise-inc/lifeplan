@@ -15,8 +15,11 @@ export const FREE_TEXT: Readonly<Record<string, "drop" | "generic" | "keep">> = 
   "common#/$defs/valueBoxMeta/properties/estimate/properties/basis": "generic",
   // 保険の商品の参照（数表の出どころごと外す。数表の数字は残す）
   "engine.input#/$defs/insuranceContract/properties/schedule/properties/source/properties/productRef": "drop",
-  // 周期的な支出の見出し（FP が書いた文。決まった言葉に置き換える）
+  // 周期的な支出（出るお金の行）・入るお金の行の見出し（FP が書いた文。決まった言葉に置き換える。0044）
   "engine.input#/$defs/periodicExpense/properties/label": "generic",
+  "engine.input#/$defs/incomeFlow/properties/label": "generic",
+  // 口座の間の移し替えの見出し（入れ物だけ。外す）
+  "engine.input#/$defs/transfer/properties/label": "drop",
   // 事務所の料金表から写したメニュー（事務所の設定。メニューごと外す）
   "engine.input#/$defs/advisoryFee/properties/menu/properties/label": "drop",
   "engine.input#/$defs/advisoryFee/properties/menu/properties/copiedFrom/properties/at": "drop",
@@ -32,7 +35,7 @@ export const FREE_TEXT: Readonly<Record<string, "drop" | "generic" | "keep">> = 
 /** 学校コード（13桁）は計算に使わない（学費の行は自己完結）ので、決まった値に置き換える */
 export const SCHOOL_PLACEHOLDER = "0000000000000";
 /** 決まった言葉 */
-export const GENERIC_TEXT = { periodicExpense: "周期的な支出", estimateBasis: "統計などで補った値" } as const;
+export const GENERIC_TEXT = { periodicExpense: "周期的な支出", incomeFlow: "入るお金", estimateBasis: "統計などで補った値" } as const;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
@@ -88,6 +91,11 @@ function walk(v: Json, ids: IdMap, path: readonly string[]): Json {
   if (grand === "periodicExpenses" || parent === "periodicExpenses") {
     if (typeof o.label === "string") o.label = GENERIC_TEXT.periodicExpense;
   }
+  // 入るお金の行の見出しと、口座の間の移し替えの見出し
+  if (grand === "incomeFlows" || parent === "incomeFlows") {
+    if (typeof o.label === "string") o.label = GENERIC_TEXT.incomeFlow;
+  }
+  if (parent === "transfers" || grand === "transfers") delete o.label;
   // FP顧問料の契約: 料金表から写したメニューを外す
   if (parent === "advisoryFees" || grand === "advisoryFees") delete o.menu;
   // 保険の数表の出どころ（商品の参照）

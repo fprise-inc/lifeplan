@@ -315,6 +315,10 @@ export interface DebtInput {
   readonly product?: "bank" | "flat35";
   readonly debtors: readonly { readonly member: string; readonly role: "primary" | "joint" | "guarantor"; readonly share?: string }[];
   readonly pairWith?: string;
+  /** 0044: 相続で受け継ぐ借金の元の借り手・見込み・基本の計算に入れるか（計算には使わない。アプリが要求から外す） */
+  readonly inheritedFrom?: string;
+  readonly likelihood?: "certain" | "likely" | "uncertain";
+  readonly includeInBase?: boolean;
   readonly principal: Yen;
   readonly start: Timepoint;
   readonly balance?: ValueBox<Yen>;
@@ -518,6 +522,10 @@ export interface HouseholdInput {
   readonly residences?: readonly ResidenceInput[];
   readonly livingExpenses?: readonly LivingExpenseInput[];
   readonly periodicExpenses?: readonly PeriodicExpenseInput[];
+  /** 入るお金の行（0044） */
+  readonly incomeFlows?: readonly IncomeFlowInput[];
+  /** 口座の間の移し替え（0044。入れ物だけ） */
+  readonly transfers?: readonly TransferInput[];
   readonly cars?: readonly CarInput[];
   readonly advisoryFees?: readonly AdvisoryFeeInput[];
   readonly savingsChecks?: readonly SavingsCheckInput[];
@@ -653,6 +661,101 @@ export interface PeriodicExpenseInput {
   readonly stages?: readonly AmountStageInput[];
   readonly exceptions?: readonly AmountExceptionInput[];
   readonly onContingency?: OnContingencyInput;
+  /** お金の行（0044）: 額は月額で、最初の月から終わりの月まで毎月（everyYears は 1 だけ） */
+  readonly monthly?: boolean;
+  /** お金の行（0044）: 出るお金の種類（表示と、表の行の既定。計算はあげる贈与 gift だけが変える） */
+  readonly kind?: MoneyOutKind;
+  /** お金の行（0044）: 相手（誰へ。構成員。多くは世帯の外の家族） */
+  readonly counterparty?: string;
+  /** お金の行（0044）: 払う人（世帯の中の構成員。万一のときの扱いは、この人の万一だけに当てる。省略は世帯） */
+  readonly payer?: string;
+  /** お金の行（0044）: 優先度（必要・希望・夢。計算には使わない。確実な分だけで見るときに、希望・夢を外す） */
+  readonly priority?: "need" | "want" | "wish";
+  /** お金の行（0044）: あげる贈与（相手は世帯の外の家族。贈与税は受け取る人が払うので世帯から出さず、要約に出す） */
+  readonly gift?: OutgoingGiftInput;
+}
+
+/** 出るお金の種類（0044） */
+export type MoneyOutKind = "general" | "allowance" | "childSupport" | "gift" | "education" | "repair" | "realEstateCost" | "livingAnnual" | "car" | "other";
+
+/** あげる贈与（0044） */
+export interface OutgoingGiftInput {
+  /** 課税の方法（暦年課税・相続時精算課税。省略は暦年課税） */
+  readonly method?: "calendar" | "settlement";
+  /** 使い道（general: 暦年・精算課税で見る／housing: 住宅取得等資金の非課税を使う／asNeeded: 生活費・教育費をその都度払う＝非課税。省略は general） */
+  readonly purpose?: "general" | "housing" | "asNeeded";
+}
+
+/** 入るお金の種類（0044） */
+export type IncomeFlowKind =
+  | "inheritance"
+  | "giftReceived"
+  | "support"
+  | "educationSupport"
+  | "childSupport"
+  | "propertyDivision"
+  | "householdContribution"
+  | "benefit"
+  | "unemployment"
+  | "survivorPension"
+  | "foreignPension"
+  | "scholarshipGrant"
+  | "childPays"
+  | "sideJob"
+  | "otherWork"
+  | "saleBusiness"
+  | "saleGoods"
+  | "temporary"
+  | "celebration"
+  | "subsidy"
+  | "powerSale"
+  | "insuranceBenefit"
+  | "other";
+
+/** 入るお金の課税の扱い（0044） */
+export type IncomeTaxTreatment = "nonTaxable" | "temporary" | "miscBusiness" | "miscOther" | "salary" | "business" | "capitalGains" | "inheritance" | "gift";
+
+/** 入るお金の行（0044。出るお金の行 periodicExpenses と同じ形の土台） */
+export interface IncomeFlowInput {
+  readonly id: string;
+  readonly label?: string;
+  readonly kind: IncomeFlowKind;
+  /** 課税の扱い（省略は種類の既定） */
+  readonly taxTreatment?: IncomeTaxTreatment;
+  /** 載せる行（省略は種類の既定） */
+  readonly row?: string;
+  readonly from: Timepoint;
+  readonly to?: Timepoint | null;
+  readonly everyYears: number;
+  readonly monthly?: boolean;
+  readonly amount: ValueBox<Yen>;
+  /** 必要経費・取得費（1回の額と同じ基準。一時所得・雑所得・事業・譲渡所得で引く） */
+  readonly cost?: ValueBox<Yen>;
+  readonly growth?: GrowthInput;
+  readonly stages?: readonly AmountStageInput[];
+  readonly exceptions?: readonly AmountExceptionInput[];
+  readonly onContingency?: OnContingencyInput;
+  /** 受け取る人（世帯の中の構成員。省略は世帯。課税の扱いのある行の税は、省略なら本人） */
+  readonly recipient?: string;
+  /** 相手（誰から。構成員。多くは世帯の外の家族） */
+  readonly counterparty?: string;
+  /** 見込み（計算には使わない。アプリが、不確かな受け取る相続・贈与を要求から外す。0035 の7・0036 の6） */
+  readonly likelihood?: "certain" | "likely" | "uncertain";
+  /** 基本の計算に入れる（true で、不確かでも入れる。省略は見込みで決める。計算には使わない） */
+  readonly includeInBase?: boolean;
+  /** 贈与税で見るときの課税の方法（省略は暦年課税） */
+  readonly giftMethod?: "calendar" | "settlement";
+}
+
+/** 口座の間の移し替え（0044。入れ物だけ。計算に入れるまで、あればエンジンは知らせを出して計算に入れない） */
+export interface TransferInput {
+  readonly id: string;
+  readonly label?: string;
+  readonly at: Timepoint;
+  readonly from: string;
+  readonly to: string;
+  readonly how: { readonly kind: "amount"; readonly amount: ValueBox<Yen> } | { readonly kind: "ratio"; readonly ratio: string } | { readonly kind: "all" } | { readonly kind: "over"; readonly threshold: ValueBox<Yen> };
+  readonly linked?: string;
 }
 
 export interface CarInput {

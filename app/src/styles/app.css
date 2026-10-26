@@ -1135,3 +1135,9 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .dl-act { display: inline-flex; gap: 10px; }
 .dl-note { flex: 1 1 100%; font-size: 0.88rem; }
 .dl-on .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* 確実な分だけで見る（0044） */
+.certain-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 12px 0 6px; padding: 8px 12px; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; font-size: 13px; }
+.certain-bar label { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; cursor: pointer; }
+.certain-bar .certain-note { color: var(--muted, #666); }
+.certain-bar.on { border-color: var(--prop); background: color-mix(in srgb, var(--prop) 6%, #fff); }

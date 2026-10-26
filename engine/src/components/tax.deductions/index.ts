@@ -5,6 +5,7 @@
 // 小さな部品に分けている（配偶者の所得が変わっても控除の額が同じなら、ここから先を計算し直さない。0006 の追記）
 // ひとり親控除・寡婦控除（改訂7。約束の版 1.1 の任意の欄）: 配偶者と死別した人を tax.survivorStatus で判定する（万一の想定で自動で切り替わる）。
 // 住民税の調整控除の人的控除額の差は、寡婦1万円・ひとり親（母）5万円・ひとり親（父）1万円（制度データ）
+// 改訂（0044）: 合計所得金額の判定に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
 import {
   bracketFor,
   defineComponent,
@@ -75,7 +76,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
   id: "tax.deductions",
   title: "所得控除",
   contract: "1.1",
-  revision: 7,
+  revision: 8,
   requires: {
     "tax.survivorStatus": ">=1 <2",
     "account.mutualAid": ">=1 <2",
@@ -99,7 +100,7 @@ export default defineComponent<{ member: string; year: number; regime: Regime },
     const at = ctx.at(resident ? monthIndex(year + 1, 6) : monthIndex(year, 1));
     // 合計所得金額（所得税は分離課税の退職所得の金額を含む）
     const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member, year });
-    const own = resident ? inc.total : yen(inc.total + (inc.retirement ?? 0));
+    const own = yen((resident ? inc.total : inc.total + (inc.retirement ?? 0)) + (inc.separate ?? 0));
     const diffs: Yen[] = [];
     const diff = (id: string) => {
       if (resident) diffs.push(at.paramYen(id) ?? yen(0));

@@ -3,6 +3,7 @@
 // （決定通知書の年額 premiumAssessments、または料率 premiumRates）で上書きする。どの既定を使ったかは見出しの notices に出す。
 // 年度の途中で75歳になる年は月数で按分する。年金が年18万円以上なら年金から差し引く（特別徴収）
 // 改訂4: 世帯の外の家族（0035 の4）の判定の世帯は、その人と世帯の外の配偶者
+// 改訂（0044）: 所得割と軽減の判定の所得に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
 import {
   addYen,
   ageMonth,
@@ -48,7 +49,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.lateElderly",
   title: "後期高齢者医療の保険料",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -87,7 +88,10 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     const at = ctx.at(fiscalYearStart(jy));
     const override = rateOverride(ctx.list<PremiumRateInput>("premiumRate"), "lateElderly", fy);
     if (override === undefined) ctx.notice("N_DEFAULT_USED", [`${PREFIX}.nationalAverage`]);
-    const totalOf = (id: string) => ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year: jy - 1 }).total;
+    const totalOf = (id: string) => {
+      const t = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year: jy - 1 });
+      return yen(t.total + (t.separate ?? 0));
+    };
     const own = totalOf(member);
     const deduction = at.paramYen(`${PREFIX}.incomeDeduction`) ?? yen(0);
     const base = own > deduction ? subYen(own, deduction) : yen(0);
@@ -109,7 +113,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year: jy - 1 });
       const elderly = ageMonth(ctx, fiscalYearStart(fy), ELDERLY_AGE, id) <= monthIndex(jy - 1, 12);
       const special = elderly ? yen(Math.min(elderlyDeduction, inc.publicPension ?? 0)) : yen(0);
-      judged = addYen(judged, yen(inc.total - special));
+      judged = addYen(judged, yen(inc.total + (inc.separate ?? 0) - special));
       const salary = ctx.callMonths<SalaryOutput["payments"][number]>("income.salary", { member: id }, "payments", monthIndex(jy - 1, 1), monthIndex(jy - 1, 12)).some((p) => p.salary > 0);
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
       if (salary || pension) earners++;

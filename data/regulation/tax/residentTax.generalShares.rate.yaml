@@ -1,0 +1,20 @@
+id: residentTax.generalShares.rate
+title: 一般株式等に係る譲渡所得等の住民税の税率（申告分離課税。道府県民税と市町村民税の合計）
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2016-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/1463.htm", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "株式等の譲渡所得等の申告分離課税（住民税5%）", "note": "検索の要約（原本は未取得）"}
+    recordedIn: "2026.13.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "地方税法 附則第35条の2。5%（道府県民税2%・市町村民税3%）。原本での確認待ち"}

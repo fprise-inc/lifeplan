@@ -110,6 +110,23 @@ describe("世帯の外の家族のお金", () => {
     expect(lump === null || lump > plain).toBe(true);
   });
 
+  it("1本のお金の行を両側で読む（0044）: 世帯からの仕送りは親のお金に入り（尽きるのが遅くなる）、親からの援助は親のお金から出る（早くなる）。世帯の側は行のまま", () => {
+    const wallet = { balance: box(3000000), living: box(200000) };
+    const plain = depleted(run(parentCare(wallet))) as string;
+    const withRow = (h: Obj) => {
+      const req = parentCare(wallet) as unknown as { input: { household: Obj } };
+      Object.assign(req.input.household, h);
+      return req as unknown as EngineRequest;
+    };
+    const allowance = run(withRow({ periodicExpenses: [{ id: uid("ow-pe"), kind: "allowance", counterparty: PARENT, row: "cf.expense.other", from: { at: "2026-12" }, to: null, everyYears: 1, monthly: true, amount: box(100000), growth: { kind: "none" } }] }));
+    const later = depleted(allowance);
+    expect(later === null || later > plain).toBe(true);
+    expect(allowance.flows.filter((f) => f.object === uid("ow-pe")).length).toBeGreaterThan(12);
+    const support = run(withRow({ incomeFlows: [{ id: uid("ow-if"), kind: "support", counterparty: PARENT, from: { at: "2026-12" }, to: { at: "2026-12" }, everyYears: 1, amount: box(1000000) }] }));
+    expect((depleted(support) as string) <= plain).toBe(true);
+    expect(support.flows.filter((f) => f.object === uid("ow-if")).reduce((s2, f) => s2 + f.amount, 0)).toBeGreaterThan(0);
+  });
+
   it("お金は世帯の外の家族で生年月のある人だけ（世帯の中の人に入れると入力の形の誤り）", () => {
     const req = structuredClone(modelHousehold("parentCare")) as unknown as { input: { household: { members: Obj[] } } };
     (req.input.household.members.find((m) => m.id === SELF) as Obj).wallet = { balance: box(1000000) };

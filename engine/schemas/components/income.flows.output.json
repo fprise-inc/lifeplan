@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:income.flows.output",
+  "title": "入るお金の行（お金の動きと、税を受ける人×年の所得）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "byMember"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "byMember": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["member", "year", "temporary", "miscBusiness", "miscOther", "salary", "business", "capitalGains"],
+        "properties": {
+          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+          "temporary": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "miscBusiness": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "miscOther": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "salary": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "business": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "capitalGains": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
+    }
+  }
+}

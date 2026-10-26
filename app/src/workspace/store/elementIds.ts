@@ -15,6 +15,8 @@ const ELEMENT_LISTS: readonly [string, readonly (readonly string[])[]][] = [
   ["debts", [["rateSchedule"], ["prepayments"]]],
   ["residences", [["purchase", "gifts"], ["rent", "stages"], ["rent", "exceptions"], ["maintenance", "stages"], ["maintenance", "exceptions"], ["propertyTax", "stages"], ["propertyTax", "exceptions"]]],
   ["periodicExpenses", [["stages"], ["exceptions"]]],
+  // 0.20 から（0044）: 入るお金の行の段階と例外の年（新しい並び。変換の段で振る古い要素は無い）
+  ["incomeFlows", [["stages"], ["exceptions"]]],
   ["insuranceContracts", [["renewals"]]],
   ["goals", [["education", "stages"], ["education", "lessons"], ["education", "scholarships"], ["education", "loans"], ["education", "gifts"]]],
   ["advisoryFees", [["terms", "oneTime"], ["terms", "recurring", "revision", "steps"]]],

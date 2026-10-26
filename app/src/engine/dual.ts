@@ -5,6 +5,7 @@
 // - 画面側の結果は保存・PDF・控えに渡さない（この部品は表示のための結果だけを持つ）
 // - 画面側と本体の結果が食い違ったら本体の結果を表示し、食い違いの数を数える（顧客の数字は残さない）
 import type { HostApi, WebSession } from "./host.ts";
+import { forEngine } from "./moneyRows.ts";
 import { isEngineError, type EngineError, type EngineRequest, type PreviewResult } from "./types.ts";
 
 export type ResultSource = "preview" | "canonical";
@@ -90,7 +91,8 @@ export class DualEngine {
   private put(requests: Record<string, EngineRequest>): string[] {
     const changed: string[] = [];
     for (const [id, req] of Object.entries(requests)) {
-      const text = JSON.stringify(req);
+      // 基本の計算に入れない物（不確かな受け取る相続・贈与など）は、エンジンへ渡す要求から外す（0044）
+      const text = JSON.stringify(forEngine(req));
       const s = this.slots.get(id);
       if (s === undefined) {
         this.slots.set(id, { request: text, rev: 1, result: null, resultRev: 0, source: null, error: null, previewTable: null });

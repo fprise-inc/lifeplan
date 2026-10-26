@@ -419,6 +419,55 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.19 より前の版に世帯の外の家族のお金は無い"
             );
         }
+        // 0.20 から（0044）: お金の行（入るお金の行・出るお金の行に足した欄・口座の間の移し替え・受け継ぐ借金の欄。どれも任意）
+        if migrate::parse(v).unwrap() >= (0, 20) {
+            let incomes = hh["incomeFlows"]
+                .as_array()
+                .expect("0.20 の見本には入るお金の行がある");
+            assert!(
+                incomes
+                    .iter()
+                    .any(|f| f["likelihood"] == "uncertain" && f["kind"] == "inheritance"),
+                "{v}: 不確かな相続"
+            );
+            assert!(
+                incomes
+                    .iter()
+                    .any(|f| f["stages"][0]["id"].is_string() && f["cost"].is_object()),
+                "{v}: 段階と必要経費"
+            );
+            assert!(
+                hh["periodicExpenses"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|p| p["gift"]["purpose"] == "general" && p["payer"].is_string()),
+                "{v}: あげる贈与"
+            );
+            assert!(
+                hh["transfers"][0]["how"]["kind"] == "amount",
+                "{v}: 口座の間の移し替え"
+            );
+            assert!(
+                hh["debts"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|d| d["inheritedFrom"].is_string()),
+                "{v}: 受け継ぐ借金"
+            );
+            assert!(now["proposals"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|p| p["diffs"].as_array().unwrap().iter())
+                .any(|d| d["item"] == "incomeFlow.includeInBase"));
+        } else {
+            assert!(
+                hh.get("incomeFlows").is_none() && hh.get("transfers").is_none(),
+                "{v}: 0.20 より前の版にお金の行は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

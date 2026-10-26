@@ -3,7 +3,7 @@ import type { Household, Member } from "../../../engine/types.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { roles } from "../../roles.ts";
 import { byId, field, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { estimatedBox, followStandards, mutate, newId, standardLeaves, type WorkingHousehold } from "../household.ts";
+import { estimatedBox, followStandards, mutate, newId, standardBox, standardLeaves, type WorkingHousehold } from "../household.ts";
 import { creditKey } from "../housingCredit.ts";
 import { fillEducation } from "../fill.ts";
 import { DONOR_KINDS, KIND_OPTIONS, memberLabel, memberOptions, SEX_OPTIONS } from "../labels.ts";
@@ -97,7 +97,15 @@ export function addChildWithEducation(wh: WorkingHousehold, id: () => string = n
 
 /** 家族の「仕送り（月額）」は健康保険の扶養の判定（別居の親・祖父母）にだけ使い、支出の行にはしない（同じ仕送りを支出でも入れた世帯が二重にならないように） */
 const ALLOWANCE_HELP = "支出には入りません（健康保険の扶養の判定に使います）。仕送りの支出は「基本生活費」の内訳の「仕送り」か、「ライフイベント」の支出で入れてください";
-const ALLOWANCE_NOTE = "仕送り（月額）は健康保険の扶養の判定にだけ使い、支出には入っていません。仕送りを支出に入れるなら、「基本生活費」の内訳の「仕送り」か、「ライフイベント」の支出で入れてください";
+const ALLOWANCE_NOTE = "仕送り（月額）は健康保険の扶養の判定にだけ使い、支出には入っていません。仕送りを支出に入れるなら、「＋ 仕送りを出るお金の行にする」を押すか、「基本生活費」の内訳の「仕送り」で入れてください";
+
+/** 仕送りの欄の額で、この人を相手にした仕送りの出るお金の行（毎月）を作る（額は欄から写した推定） */
+function allowanceRow(wh: WorkingHousehold, member: string, monthly: number): WorkingHousehold {
+  return mutate(wh, (h) => {
+    const at = wh.request.input.baseMonth;
+    (h.periodicExpenses ??= []).push({ id: newId(), label: "仕送り", kind: "allowance", counterparty: member, row: "cf.expense.other", from: { at }, to: null, everyYears: 1, monthly: true, amount: standardBox(monthly, "家族のカードの仕送り（月額）の欄から") });
+  });
+}
 
 function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const find = byId(members, m.id);
@@ -196,7 +204,10 @@ function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
     walletFields(wh, m, fields, actions);
   }
   const allowance = m.kind === "parent" || m.kind === "grandparent" ? (m.support?.allowance ?? 0) : 0;
-  const notes = [...(m.outside !== undefined ? [OUTSIDE_NOTE] : []), ...(m.outside !== undefined && m.wallet !== undefined ? [WALLET_NOTE] : []), ...(allowance > 0 ? [ALLOWANCE_NOTE] : [])];
+  // 仕送りの欄に値があって、この人を相手にした仕送りの出るお金の行が無ければ、押したときだけ行を作る（黙って支出にしない。0035 の11・0044）
+  const hasRow = (wh.request.input.household.periodicExpenses ?? []).some((p) => p.kind === "allowance" && p.counterparty === m.id);
+  if (allowance > 0 && !hasRow) actions.push({ key: `family/${m.id}/allowanceRow`, label: "＋ 仕送りを出るお金の行にする", level: "detail", run: (w) => allowanceRow(w, m.id, allowance) });
+  const notes = [...(m.outside !== undefined ? [OUTSIDE_NOTE] : []), ...(m.outside !== undefined && m.wallet !== undefined ? [WALLET_NOTE] : []), ...(allowance > 0 && !hasRow ? [ALLOWANCE_NOTE] : [])];
   return { key: `family/${m.id}`, title: memberLabel(wh, m.id), level: "simple", ...(notes.length > 0 ? { note: notes.join("。") } : {}), fields, actions };
 }
 

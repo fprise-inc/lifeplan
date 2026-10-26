@@ -9,6 +9,7 @@
 // 改訂10: 世帯の外の家族（0035 の4）の構成員ごとのお金の動きは、家計を1つにする期間のうち収入を世帯に入れる期間の月の分だけ集める。
 // 改訂11: 世帯の外の家族のお金（member.wallet。0042）を入れた人が介護を受ける費用は、その人のお金から払った分（outside.wallet の covered）を
 //   介護の費用（care.expense）から引き、残り（尽きた後）だけを世帯の支出にする。お金を入れていない人の介護の費用は今までどおり世帯が払う。
+// 改訂12（0044）: 入るお金の行（income.flows。受け取りと、譲渡所得の税）も集める。
 // 改訂5: 保険の受け取り（insurance.policy。契約ごと）・介護の費用（care.expense）・万一のときの一時のお金（contingency.lumpSum）も集める。
 // 運用益・金融資産の残高（plan.cashflow）と分けるのは、運用利回りのように案の前提だけが変わったとき、集め直さずに済むようにするため（0005 の追記）。
 // 構成員ごとに分けるのは、1人の入力を変えたとき、ほかの構成員の分を集め直さないため（0005・0006 の追記）。
@@ -39,7 +40,7 @@ export default defineComponent<Record<string, never>, Collected>({
   id: "plan.flows",
   title: "お金の動き（集める）",
   contract: "1.1",
-  revision: 11,
+  revision: 12,
   requires: {
     "insurance.policy": ">=1 <2",
     "care.expense": ">=1 <2",
@@ -48,6 +49,7 @@ export default defineComponent<Record<string, never>, Collected>({
     "plan.memberFlows": ">=1 <2",
     "expense.living": ">=1 <2",
     "expense.periodic": ">=1 <2",
+    "income.flows": ">=1 <2",
     "expense.advisoryFee": ">=1 <2",
     "education.cost": ">=1 <2",
     "education.support": ">=1 <2",
@@ -105,6 +107,7 @@ export default defineComponent<Record<string, never>, Collected>({
     household.push(ctx.call<FlowsResult>("asset.realEstate", {}).flows);
     household.push(ctx.call<FlowsResult>("expense.living", {}).flows);
     household.push(ctx.call<FlowsResult>("expense.periodic", {}).flows);
+    household.push(ctx.call<FlowsResult>("income.flows", {}).flows);
     household.push(ctx.call<FlowsResult>("expense.advisoryFee", {}).flows);
     // 教育の目標（子ごと）と、公的支援（学費とは別の部品。0010 の5）
     for (const g of ctx.list<{ kind: string; owner: string }>("goal")) {

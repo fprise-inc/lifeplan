@@ -8,11 +8,18 @@
 // 贈与者の区分は、贈与者が「誰の親・祖父母か」（of）と受け取る人の関係から決める（受け取る人がその人か、その人の子なら直系尊属。
 // その人の配偶者など、それ以外は「その他」＝一般税率）。教育の目標の援助で贈与者を指すものは、世帯からは出さない（education.cost）
 // 改訂3: 世帯の外の家族（0035 の4）の構成員（生年月のある親など）も贈与者になれる
+// 改訂4（0044）: 入るお金の行のうち課税の扱いが「贈与税で見る」の行（受け取る人。省略は本人。贈与者は相手）と、あげる贈与の出るお金の行
+// （受け取る人は相手の世帯の外の家族。贈与者は払う人か本人。世帯から出し、受け取る人の贈与税は要約にだけ出す。生活費・教育費をその都度
+// 払う贈与は非課税なので集めない）も集める。額は income.flows・expense.periodic のお金の動き（受け取り・支払いの月の額）
 import {
   defineComponent,
   formatYm,
   isOutside,
+  incomeTreatment,
   type DonorInput,
+  type Flow,
+  type IncomeFlowInput,
+  type PeriodicExpenseInput,
   type GiftReceived,
   type GiftReceivedOutput,
   type GoalInput,
@@ -25,9 +32,9 @@ import {
 export default defineComponent<{ member: string }, GiftReceivedOutput>({
   id: "gift.received",
   title: "受け取る贈与（集める）",
-  contract: "1.1",
-  revision: 3,
-  requires: { "insurance.policy": ">=1 <2" },
+  contract: "1.2",
+  revision: 4,
+  requires: { "insurance.policy": ">=1 <2", "income.flows": ">=1 <2", "expense.periodic": ">=1 <2" },
   params: [],
   reads: [
     "member.outside",
@@ -43,6 +50,14 @@ export default defineComponent<{ member: string }, GiftReceivedOutput>({
     "relation.child",
     "donor.kind",
     "donor.of",
+    "incomeFlow.kind",
+    "incomeFlow.taxTreatment",
+    "incomeFlow.recipient",
+    "incomeFlow.counterparty",
+    "incomeFlow.giftMethod",
+    "periodicExpense.gift",
+    "periodicExpense.counterparty",
+    "periodicExpense.payer",
   ],
   input: "member.input",
   output: "gift.received.output",
@@ -107,6 +122,56 @@ export default defineComponent<{ member: string }, GiftReceivedOutput>({
           housing: housing === "none" ? null : housing,
           inflow: false,
         });
+      }
+    }
+    // 入るお金の行のうち「贈与税で見る」行（受け取る人。省略は本人）
+    const flowsOf = (out: { flows: readonly Flow[] }, id: string) => out.flows.filter((f) => f.object === id);
+    const incomes = ctx.list<IncomeFlowInput>("incomeFlow").filter((f) => incomeTreatment(f) === "gift");
+    if (incomes.length > 0) {
+      const self = ctx.list<MemberInput>("member").find((m) => m.kind === "self")?.id;
+      const out = ctx.call<{ flows: readonly Flow[] }>("income.flows", {});
+      for (const f of incomes) {
+        if ((f.recipient ?? self) !== member) continue;
+        for (const x of flowsOf(out, f.id)) {
+          if (x.row.startsWith("cf.taxSi.")) continue;
+          gifts.push({
+            ym: x.ym,
+            source: "incomeFlow",
+            object: f.id,
+            amount: x.amount,
+            giver: f.counterparty !== undefined ? donorGiver(f.counterparty) : "other",
+            giverMember: null,
+            ...(f.counterparty !== undefined ? { donor: f.counterparty } : {}),
+            method: f.giftMethod ?? "calendar",
+            housing: null,
+            inflow: true,
+          });
+        }
+      }
+    }
+    // あげる贈与（受け取る人は相手。世帯から出す。生活費・教育費をその都度払う贈与は非課税）
+    const given = ctx.list<PeriodicExpenseInput>("periodicExpense").filter((e) => e.gift !== undefined && e.counterparty === member && e.gift.purpose !== "asNeeded");
+    if (given.length > 0) {
+      const members = ctx.list<MemberInput>("member");
+      const me = members.find((m) => m.id === member);
+      const self = members.find((m) => m.kind === "self")?.id ?? null;
+      // 世帯の外の子・孫（世帯の人の子・孫）なら直系尊属からの贈与
+      const direct = me !== undefined && isOutside(me) && (me.kind === "child" || me.kind === "grandchild");
+      const out = ctx.call<{ flows: readonly Flow[] }>("expense.periodic", {});
+      for (const e of given) {
+        for (const x of flowsOf(out, e.id)) {
+          gifts.push({
+            ym: x.ym,
+            source: "periodicExpense",
+            object: e.id,
+            amount: x.amount,
+            giver: direct ? "household" : "other",
+            giverMember: e.payer ?? self,
+            method: e.gift?.method ?? "calendar",
+            housing: e.gift?.purpose === "housing" ? "other" : null,
+            inflow: false,
+          });
+        }
       }
     }
     // 保険の受け取りのうち贈与税の区分のもの

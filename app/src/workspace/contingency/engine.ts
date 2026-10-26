@@ -9,6 +9,7 @@
 //   見るプランを切り替えると要求の中身が変わるので、プランごとに別に覚える（要約の決め方は、計算を始めたときの帯のものを使う）
 import { DualEngine } from "../../engine/dual.ts";
 import type { HostApi, WebEngine, WebSession } from "../../engine/host.ts";
+import { forEngine } from "../../engine/moneyRows.ts";
 import { isEngineError, type EngineError, type EngineRequest, type PreviewResult } from "../../engine/types.ts";
 
 /** 要求の文字列の指紋（覚えておく鍵。文字列そのものは持たない） */
@@ -74,7 +75,7 @@ export class YearSweep {
   /** 年ごとの要求に指紋を付ける（描くたびに作り直さないよう、呼ぶ側で覚えておく） */
   static prepare(entries: readonly SweepEntry[]): Prepared[] {
     return entries.map((e) => {
-      const text = JSON.stringify(e.request);
+      const text = JSON.stringify(forEngine(e.request));
       return { year: e.year, text, key: fingerprint(text) };
     });
   }

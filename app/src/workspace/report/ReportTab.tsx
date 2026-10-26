@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { CHAPTERS, hasMaterial, type CashflowLayout, type ChapterId, type Orientation, type ProposalInput } from "../../../../report/src/index.ts";
 import type { HostApi, RenderInfo, SaveOutcome } from "../../engine/host.ts";
+import { forEngine } from "../../engine/moneyRows.ts";
 import { isEngineError, type PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { CURRENT } from "../plans/band.ts";
@@ -158,7 +159,7 @@ function ProposalPdf(p: Props) {
       setStatus({ kind: "busy", step: "計算しています…" });
       const plan = planReport({ wh: p.wh, catalog: p.catalog, valuesOf: p.valuesOf, letterOf: p.letterOf }, choice);
       const names = Object.keys(plan.requests);
-      const res = await p.host.compute(names.map((id) => ({ id, rev: 1, request: JSON.stringify(plan.requests[id]) })));
+      const res = await p.host.compute(names.map((id) => ({ id, rev: 1, request: JSON.stringify(forEngine(plan.requests[id] as NonNullable<(typeof plan.requests)[string]>)) })));
       const results: Record<string, PreviewResult> = {};
       for (const id of names) {
         const r = res.slots[id]?.result;

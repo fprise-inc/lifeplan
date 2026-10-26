@@ -14,7 +14,7 @@
         "required": ["ym", "source", "object", "amount", "giver", "giverMember", "method", "housing", "inflow"],
         "properties": {
           "ym": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
-          "source": { "enum": ["housingPurchase", "education", "insurance"] },
+          "source": { "description": "約束の版 1.2（0044）: incomeFlow（入るお金の行の贈与税で見る行）・periodicExpense（あげる贈与）", "enum": ["housingPurchase", "education", "insurance", "incomeFlow", "periodicExpense"] },
           "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
           "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
           "giver": { "enum": ["parent", "grandparent", "household", "other"] },

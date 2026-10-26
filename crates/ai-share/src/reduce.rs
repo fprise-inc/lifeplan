@@ -18,7 +18,11 @@ use std::sync::OnceLock;
 const ALLOWLIST_JSON: &str = include_str!("../data/reduced-allowlist.json");
 
 /// 計算の入力の中の文章の項目（入力項目ID と、誰が書いたか）。既定で外す
-pub const TEXT_ITEMS: &[(&str, &str)] = &[("periodicExpense.label", "FP（見出し）")];
+pub const TEXT_ITEMS: &[(&str, &str)] = &[
+    ("periodicExpense.label", "FP（見出し）"),
+    ("incomeFlow.label", "FP（見出し）"),
+    ("transfer.label", "FP（見出し）"),
+];
 
 /// 画面の側の文章の項目。既定で外す
 pub const SOURCE_TEXT_ITEMS: &[&str] =

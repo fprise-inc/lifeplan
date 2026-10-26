@@ -136,7 +136,7 @@ entries:
     replacedBy: null
   - id: expense.periodic
     status: active
-    label: "周期的な支出"
+    label: "周期的な支出（出るお金の行）"
     since: draft
     aliases: []
     replacedBy: null
@@ -179,6 +179,12 @@ entries:
   - id: income.business
     status: active
     label: "事業所得"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: income.flows
+    status: active
+    label: "入るお金の行"
     since: draft
     aliases: []
     replacedBy: null
