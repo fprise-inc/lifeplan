@@ -2737,6 +2737,12 @@
     "support"
    ]
   },
+  "member.wallet": {
+   "collection": "member",
+   "path": [
+    "wallet"
+   ]
+  },
   "pensionRecord.amounts": {
    "collection": "pensionRecord",
    "path": [

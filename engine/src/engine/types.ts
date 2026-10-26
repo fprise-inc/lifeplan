@@ -39,6 +39,20 @@ export interface MemberInput {
   readonly support?: { readonly dependent: boolean; readonly cohabiting: boolean; readonly allowance?: Yen };
   /** 0035 の4: 世帯の外の家族（家計を世帯と別にする家族）。お金の動きは家計を1つにする期間のうち収入を世帯に入れる期間だけ世帯に入れ、世帯の判定の顔ぶれに入れない（sdk の isOutside・sameHousehold） */
   readonly outside?: OutsideFamilyInput;
+  /** 世帯の外の家族のお金（簡易の家計。outside.wallet の部品が月ごとに積む。生年月のある世帯の外の家族だけ） */
+  readonly wallet?: OutsideWalletInput;
+}
+
+/** 世帯の外の家族のお金（簡易の家計）。預金＋その人の年金（推計か入れた額）＋一時の入金−その人の生活費−その人の税・社会保険料−その人が介護を受ける費用 */
+export interface OutsideWalletInput {
+  /** 預金など（計算基準月の初めの残高）。省略すると、この人のお金は計算しない（hasWallet） */
+  readonly balance?: ValueBox<Yen>;
+  /** 生活費（月額。計算基準年の価格。物価上昇率で伸ばす。省略は0円） */
+  readonly living?: ValueBox<Yen>;
+  /** 公的年金（年額・額面）。入れるとエンジンの推計の公的年金の代わりにする。省略はエンジンの推計 */
+  readonly pension?: ValueBox<Yen>;
+  /** 一時の入金 */
+  readonly lumpSums?: readonly { readonly id: string; readonly at: Timepoint; readonly amount: ValueBox<Yen> }[];
 }
 
 /** 0035 の4: 世帯の外の家族の印 */

@@ -1543,7 +1543,7 @@ export function App() {
   const table = useMemo(() => {
     if (opened === null || model === null || tRes === null || tReq === null) return null;
     const years = displayYears(opened.wh.request);
-    let t = tKey === work.sel ? model.table : cashflowTable(tReq, tRes.table, years, "生涯キャッシュフロー表", eventsOf(tReq, tRes.table, years));
+    let t = tKey === work.sel ? model.table : cashflowTable(tReq, tRes.table, years, "生涯キャッシュフロー表", eventsOf(tReq, tRes.table, years, tRes.summary));
     if (showDiff && tKey !== work.base && baseRes !== null) t = withDiff(tReq, t, tRes.table, baseRes.table, `差（${letterOf(tKey)}−${letterOf(work.base)}）`);
     return t;
   }, [opened, model, tRes, tReq, tKey, work.sel, work.base, showDiff, baseRes, letters]);

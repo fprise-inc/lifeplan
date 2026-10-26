@@ -609,6 +609,14 @@ export function outsidePeriodAt(ctx: Ctx, m: MemberInput, month: MonthIndex): { 
   return null;
 }
 
+/**
+ * 世帯の外の家族のお金（member.wallet。0042）を計算するか: 世帯の外の家族で、預金（balance）を入れたときだけ（預金の欄が空なら、
+ * その人のお金は見ず、介護の費用は今までどおり世帯が払う）
+ */
+export function hasWallet(m: MemberInput): boolean {
+  return isOutside(m) && m.wallet?.balance !== undefined;
+}
+
 /** 世帯の外の家族が、どこかの期間で収入を世帯に入れるか */
 export function outsideIncomeEver(m: MemberInput): boolean {
   return (m.outside?.periods ?? []).some((p) => p.income === true);

@@ -1,5 +1,5 @@
 // 計算結果と世帯から、提示用の値（PresentationModel。0016 の2）を作る。許可した項目だけを選んで写す
-import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts";
+import type { EngineRequest, Member, PreviewResult, TableCell } from "../engine/types.ts";
 import { ROW_LABELS } from "../generated/labels.ts";
 import type { AgeAxisRow, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
@@ -145,8 +145,21 @@ export function schoolEntryYear(birthYearMonth: string, bornOnFirst: boolean, st
   return y + age + (early ? 0 : 1);
 }
 
-/** 年のライフイベント（案の要求と結果から。学校・独立・退職・年金・ローン完済・資産が尽きる年） */
-export function eventsOf(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[]): EventChip[] {
+/** 世帯の外の家族のお金が尽きる見込みの月（エンジンの要約 outsideWallets。0042） */
+export function walletDepletions(summary: unknown): { member: string; depleted: string }[] {
+  const ws = (summary as { outsideWallets?: { member: string; depleted: string | null }[] } | null | undefined)?.outsideWallets ?? [];
+  return ws.flatMap((w) => (w.depleted !== null ? [{ member: w.member, depleted: w.depleted }] : []));
+}
+
+/** 世帯の外の家族の呼び方（できごとの文。顧客の名前は出さない） */
+function outsideLabel(m: Member): string {
+  if (m.kind === "parent") return m.sex === "female" ? "お母さま" : "お父さま";
+  if (m.kind === "grandparent") return m.sex === "female" ? "おばあさま" : "おじいさま";
+  return "ご家族";
+}
+
+/** 年のライフイベント（案の要求と結果から。学校・独立・退職・年金・ローン完済・世帯の外の家族のお金が尽きる見込み・資産が尽きる年） */
+export function eventsOf(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[], summary?: unknown): EventChip[] {
   const rs = roles(req);
   const h = req.input.household;
   const first = years[0] ?? 0;
@@ -186,6 +199,13 @@ export function eventsOf(req: EngineRequest, proposed: readonly TableCell[], yea
   const paid = [...loan.entries()].filter(([, v]) => v > 0).map(([y]) => y).sort((a, b) => a - b).at(-1);
   const self = rs.find((r) => r.key === "self");
   if (paid !== undefined && paid < req.input.endYear) add(paid, "家", `住宅ローン完済${self !== undefined ? `（${self.label}${ageInYear(self.member, paid)}歳）` : ""}`);
+  for (const w of walletDepletions(summary)) {
+    const m = h.members.find((x) => x.id === w.member);
+    if (m === undefined) continue;
+    const { y, m: mo } = parseYm(w.depleted);
+    const who = outsideLabel(m);
+    add(y, "親", `${who}のお金が尽きる見込み（${y}年${mo}月・${who}${ageInYear(m, y)}歳。この後の介護の費用は世帯が払います）`);
+  }
   const dep = depletionYear(proposed, years);
   if (dep !== null) add(dep, "！", `資産が尽きる${self !== undefined ? `（${self.label}${ageInYear(self.member, dep)}歳）` : ""}`, true);
   return out.sort((a, b) => a.year - b.year || a.icon.localeCompare(b.icon));
@@ -372,7 +392,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
     financial: finP.get(selectedYear) ?? 0,
   };
 
-  const evs = eventsOf(proposal, proposed.table, years);
+  const evs = eventsOf(proposal, proposed.table, years, proposed.summary);
   const table = cashflowTable(proposal, proposed.table, years, custom ? "生涯キャッシュフロー表" : "生涯キャッシュフロー表（提案）", evs);
   const baseFlows = flowChart(input.baseProposal ?? base, current.table, years, custom ? `収支の推移（${names.base}）` : "収支の推移（現状）");
 
@@ -388,7 +408,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
     chart,
     flows: flowChart(proposal, proposed.table, years, "収支の推移（提案）"),
     baseLines: { net: baseFlows.net },
-    baseCharts: { flows: baseFlows, events: eventsOf(input.baseProposal ?? base, current.table, years) },
+    baseCharts: { flows: baseFlows, events: eventsOf(input.baseProposal ?? base, current.table, years, current.summary) },
     who: self?.label ?? "",
     selectedYear,
     yearDetail,

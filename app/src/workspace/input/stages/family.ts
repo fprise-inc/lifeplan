@@ -2,8 +2,8 @@
 import type { Household, Member } from "../../../engine/types.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { roles } from "../../roles.ts";
-import { byId, field, plain, removeAction, timepointField, type ActionDef, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { followStandards, mutate, newId, standardLeaves, type WorkingHousehold } from "../household.ts";
+import { byId, field, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { estimatedBox, followStandards, mutate, newId, standardLeaves, type WorkingHousehold } from "../household.ts";
 import { creditKey } from "../housingCredit.ts";
 import { fillEducation } from "../fill.ts";
 import { DONOR_KINDS, KIND_OPTIONS, memberLabel, memberOptions, SEX_OPTIONS } from "../labels.ts";
@@ -70,8 +70,12 @@ export function addMember(wh: WorkingHousehold, kind: "spouse" | "child" | "pare
   const sex = kind === "spouse" ? (self?.sex === "female" ? "male" : "female") : "male";
   const m: Member = { id: newMemberId, kind, birth: { birthYearMonth: `${birthYear}-04`, bornOnFirst: false }, sex, joins: null, leaves: null, expected: false };
   if (kind === "child") m.leaves = { at: standardLeaves(m) };
-  // 親・祖父母は世帯の外の家族（家計が別。0035 の4）。家計を1つにする期間は FP が入れる
-  if ((kind === "parent" || kind === "grandparent") && self !== undefined) m.outside = { of: self.id, periods: [] };
+  // 親・祖父母は世帯の外の家族（家計が別。0035 の4）。家計を1つにする期間は FP が入れる。お金（0042）の欄も出す（推定は入れず、未入力のまま。
+  // 預金を入れるまでは計算に入れない）
+  if ((kind === "parent" || kind === "grandparent") && self !== undefined) {
+    m.outside = { of: self.id, periods: [] };
+    m.wallet = {};
+  }
   let next = mutate(wh, (h) => {
     h.members.push(m);
     h.relations ??= [];
@@ -187,9 +191,12 @@ function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
       }),
     );
   const actions: ActionDef[] = m.kind === "self" ? [] : [{ key: `family/${m.id}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
-  if (m.outside !== undefined) outsideFields(m, fields, actions);
+  if (m.outside !== undefined) {
+    outsideFields(m, fields, actions);
+    walletFields(wh, m, fields, actions);
+  }
   const allowance = m.kind === "parent" || m.kind === "grandparent" ? (m.support?.allowance ?? 0) : 0;
-  const notes = [...(m.outside !== undefined ? [OUTSIDE_NOTE] : []), ...(allowance > 0 ? [ALLOWANCE_NOTE] : [])];
+  const notes = [...(m.outside !== undefined ? [OUTSIDE_NOTE] : []), ...(m.outside !== undefined && m.wallet !== undefined ? [WALLET_NOTE] : []), ...(allowance > 0 ? [ALLOWANCE_NOTE] : [])];
   return { key: `family/${m.id}`, title: memberLabel(wh, m.id), level: "simple", ...(notes.length > 0 ? { note: notes.join("。") } : {}), fields, actions };
 }
 
@@ -237,6 +244,76 @@ function outsideFields(m: Member, fields: FieldDef[], actions: ActionDef[]): voi
         if (x?.outside !== undefined) x.outside.periods.splice(0, 1);
       }),
   });
+}
+
+/** 世帯の外の家族のお金（0042）の説明 */
+const WALLET_NOTE = "この人のお金（預金・生活費・年金・一時の入金）を入れると、この人が介護を受ける費用は、まずこの人のお金から払い、尽きた月から世帯が払います（尽きる見込みは結果のできごとに出ます）。預金が空欄のあいだは、介護の費用を世帯が全部払います。所得税などは年金の推計から出した目安です";
+
+/** 一時の入金の「未入力」の印（0円で計算。0041） */
+const LUMP_UNENTERED = "未入力（0円で計算。入金の額を入れてください）";
+
+/**
+ * 世帯の外の家族のお金（0042。簡易の家計）: 預金（今の残高）・生活費（月額）・年金（年額。空欄はエンジンの推計）・一時の入金。
+ * 介護・親のカードを組み直す回に作り直す小さな形。お金の欄が無い人（前からの世帯）は「＋ この人のお金を入れる」で欄を出す
+ */
+function walletFields(wh: WorkingHousehold, m: Member, fields: FieldDef[], actions: ActionDef[]): void {
+  const find = byId(members, m.id);
+  const walletOf = (h: Household): NonNullable<Member["wallet"]> | undefined => {
+    const x = h.members.find((y) => y.id === m.id);
+    if (x === undefined) return undefined;
+    x.wallet ??= {};
+    return x.wallet;
+  };
+  if (m.wallet === undefined) {
+    actions.push({ key: `family/${m.id}/wallet/add`, label: "＋ この人のお金を入れる（預金・生活費・年金）", level: "detail", run: (w) => mutate(w, (h) => void walletOf(h)) });
+    return;
+  }
+  const at = (...path: string[]) => () => ({ target: { member: m.id }, item: "member.wallet", at: path });
+  fields.push(
+    {
+      ...yenBox({ key: `family/${m.id}/wallet/balance`, item: "member.wallet", label: "この人の預金など（今の残高）", level: "detail", basis: "once", find, path: ["wallet", "balance"], help: "空欄のあいだは、この人のお金を見ません（介護の費用は世帯が全部払います）" }),
+      address: at("balance"),
+    },
+    {
+      ...yenBox({ key: `family/${m.id}/wallet/living`, item: "member.wallet", label: "この人の生活費（月額）", level: "detail", basis: "monthly", find, path: ["wallet", "living"], help: "物価上昇率で伸ばします。家計を1つにする期間で「生活費の人数に入れる」月は引きません" }),
+      address: at("living"),
+    },
+    {
+      ...yenBox({ key: `family/${m.id}/wallet/pension`, item: "member.wallet", label: "この人の年金（年額）", level: "detail", basis: "annual", find, path: ["wallet", "pension"], optional: true, help: "空欄は年金の推計を使います。入れると、今から毎年この額（額面）を入れます。「収入を世帯に入れる」月は世帯の収入に入ります" }),
+      address: at("pension"),
+    },
+  );
+  for (const l of m.wallet.lumpSums ?? []) {
+    const lf: Finder = byId((h) => h.members.find((y) => y.id === m.id)?.wallet?.lumpSums, l.id);
+    fields.push(
+      { ...timepointField({ key: `family/${m.id}/wallet/lump/${l.id}/at`, item: "member.wallet", label: "一時の入金の時期", level: "detail", find: lf, path: ["at"], ageOf: (h) => h.members.find((y) => y.id === m.id), help: "家を売る・保険金など。その月にこの人のお金に入ります" }), address: at("lumpSums", l.id, "at") },
+      { ...yenBox({ key: `family/${m.id}/wallet/lump/${l.id}/amount`, item: "member.wallet", label: "一時の入金の額", level: "detail", basis: "once", find: lf, path: ["amount"] }), address: at("lumpSums", l.id, "amount") },
+    );
+    actions.push(
+      removeAction(`family/${m.id}/wallet/lump/${l.id}/remove`, "この一時の入金を外す", "detail", (h) => {
+        const x = h.members.find((y) => y.id === m.id);
+        if (x?.wallet?.lumpSums === undefined) return;
+        x.wallet.lumpSums = x.wallet.lumpSums.filter((y) => y.id !== l.id);
+        if (x.wallet.lumpSums.length === 0) delete x.wallet.lumpSums;
+      }),
+    );
+  }
+  actions.push(
+    {
+      key: `family/${m.id}/wallet/addLump`,
+      label: "＋ 一時の入金を足す",
+      level: "detail",
+      run: (w) =>
+        mutate(w, (h, req) => {
+          const x = walletOf(h);
+          if (x !== undefined) (x.lumpSums ??= []).push({ id: newId(), at: { at: addMonths(req.input.baseMonth, 12) }, amount: estimatedBox(0, LUMP_UNENTERED) });
+        }),
+    },
+    removeAction(`family/${m.id}/wallet/remove`, "この人のお金を外す（介護の費用は世帯が払う）", "detail", (h) => {
+      const x = h.members.find((y) => y.id === m.id);
+      if (x !== undefined) delete x.wallet;
+    }),
+  );
 }
 
 // ---- 出来事（0003 の6・0038）----

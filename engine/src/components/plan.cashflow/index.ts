@@ -42,6 +42,8 @@
 // - 改訂13（0040）: 器の利回りの段階（returnStages。年ごとに器の利回りか資産の配分を変え、少しずつ移す）と例外の年（returnExceptions）。
 //   資産配分の入れ方の段階（investment.allocation.stages）は、計算の前に運用する器の利回りの段階に写す（engine/investment.ts）。
 //   資産クラスを書いた時価の下落は、その年の段の配分で割合を出す
+// - 改訂14（約束の版 1.4。0042）: 世帯の外の家族のお金（member.wallet）を入れた人ごとの、尽きる見込みの月（outside.wallet）を details に出す
+//   （エンジンが summary の outsideWallets に写す）
 import {
   accountReturnRate,
   accountMixAt,
@@ -57,6 +59,7 @@ import {
   boxValue,
   defineComponent,
   formatYm,
+  hasWallet,
   monthIndex,
   monthOf,
   netByYear,
@@ -162,10 +165,11 @@ const under = (row: string, prefix: string) => row === prefix || row.startsWith(
 export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[]; parts: readonly (readonly Flow[])[]; details?: CashflowDetails }>({
   id: "plan.cashflow",
   title: "キャッシュフロー表",
-  contract: "1.3",
-  revision: 13,
+  contract: "1.4",
+  revision: 14,
   requires: {
     "plan.flows": ">=1 <2",
+    "outside.wallet": ">=1 <2",
     "insurance.policy": ">=1 <2",
     "gift.received": ">=1 <2",
     "gift.tax": ">=1 <2",
@@ -183,6 +187,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
   params: [...Object.values(N), ...Object.values(T)],
   reads: [
     "member.kind",
+    "member.outside",
+    "member.wallet",
     "account.kind",
     "account.owner",
     "account.marketValue",
@@ -796,7 +802,10 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
       }
     }
     if (gifts.length > 0) details.gifts = gifts;
-    const hasDetails = details.insurance !== undefined || details.gifts !== undefined;
+    // 世帯の外の家族のお金が尽きる見込みの月（0042）
+    const wallets = members.filter(hasWallet).map((m) => ({ member: m.id, depleted: ctx.call<{ depleted: string | null }>("outside.wallet", { member: m.id }).depleted }));
+    if (wallets.length > 0) details.outsideWallets = wallets;
+    const hasDetails = details.insurance !== undefined || details.gifts !== undefined || details.outsideWallets !== undefined;
     return { flows: own.length === 0 ? collected.flows : [...collected.flows, ...own], annual, parts, ...(hasDetails ? { details } : {}) };
   },
 });

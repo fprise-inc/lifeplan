@@ -23,6 +23,7 @@
         },
         "insurance": { "$ref": "#/$defs/insurance" },
         "gifts": { "$ref": "#/$defs/gifts" },
+        "outsideWallets": { "$ref": "#/$defs/outsideWallets" },
         "advisoryFee": {
           "type": "object",
           "additionalProperties": false,
@@ -238,6 +239,19 @@
               "surrenderValue": { "$ref": "urn:financia:schema:common#/$defs/yen" }
             }
           }
+        }
+      }
+    },
+    "outsideWallets": {
+      "description": "世帯の外の家族のお金（0042）: お金（member.wallet）を入れた人ごとの、お金が尽きる見込みの月（その月の生活費・税・社会保険料・介護の費用を払いきれなくなる最初の月。尽きなければ null）。尽きた後の介護の費用は世帯が払う",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["member", "depleted"],
+        "properties": {
+          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "depleted": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }] }
         }
       }
     },
