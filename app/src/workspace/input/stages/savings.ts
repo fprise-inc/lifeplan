@@ -463,6 +463,7 @@ function payoutFields(wh: WorkingHousehold, a: Account, k: string): FieldDef[] {
         const x = acc(w);
         return x?.payout === undefined ? { value: null, estimated: "空欄は退職の年に一時金で受け取る計算（推定）" } : { value: x.payout.method };
       },
+      blankEstimate: () => "lumpSum",
       set: (w, v) => (v === null && acc(w)?.payout === undefined ? w : mutate(w, (h) => editPayout(h, find(h, w) as Account, { method: v === null || v === "" ? null : (v as "lumpSum" | "annuity" | "mixed") }))),
     }),
     field({
@@ -486,6 +487,10 @@ function payoutFields(wh: WorkingHousehold, a: Account, k: string): FieldDef[] {
         return exact ? { value: age } : { value: age, derived: `受け取りの始まりは ${at?.slice(0, 4)}年${Number(at?.slice(5))}月です。年齢を入れ直すと、その年齢に達する月からになります` };
       },
       set: (w, v) => (v === null && payoutAgeOf(w.request.input.household, acc(w) as Account) === null ? w : mutate(w, (h) => editPayout(h, find(h, w) as Account, { age: typeof v === "number" ? v : null }))),
+      blankEstimate: (w) => {
+        const x = acc(w);
+        return x === undefined ? null : defaultPayoutAge(w.request, x);
+      },
     }),
     field({
       key: `${k}/payoutDest`,
@@ -704,6 +709,8 @@ function periodGroup(wh: WorkingHousehold): GroupDef {
           return { value: null, estimated: `空欄は${e.until}まで積み立てる計算`, hint: `${e.age}歳（推定）` };
         },
         set: (w, v) => (v === null && stopAgeOf(w.request.input.household) === null ? w : mutate(w, (h, req) => setStopAge(h, req.input.baseMonth, typeof v === "number" ? v : null))),
+        // 空欄の推定は「口座ごとに持ち主の退職の年まで」の決まりで、年齢を書くと全部の積立を本人の年齢にそろえる（結果が変わる）ので、
+        // 推定の値を書く確定はしない（blankEstimate を持たない。「✓ この値で確定」と「推定をまとめて確定」の数に入らない）
         sideEffects: "すべての積立（iDeCo・企業型DC を除く）の最後の期間の終わりを、この年齢にそろえます",
       }),
     ],

@@ -105,12 +105,23 @@ const NUMERIC = new Set(["yen", "int", "pct", "decimal"]);
 export function availableOps(f: FieldDef, wh: WorkingHousehold, s: FieldStatus = fieldStatus(f, wh)): StateOp[] {
   if (f.readOnly !== undefined) return [];
   const out: StateOp[] = [];
-  const stateful = f.boxed !== undefined || fieldAddress(f, wh) !== null;
-  if (s.status === "estimated" || (s.status === "unknown" && f.get(wh).value !== null)) out.push("confirm");
+  const a = fieldAddress(f, wh);
+  const stateful = f.boxed !== undefined || a !== null;
+  if ((s.status === "estimated" && confirmable(f, wh, a)) || (s.status === "unknown" && f.get(wh).value !== null)) out.push("confirm");
   if (f.blankIsEstimate === true && s.status !== "estimated") out.push("revert");
   if (stateful && NUMERIC.has(f.kind) && s.status !== "unknown" && (f.get(wh).value !== null || f.blankIsEstimate === true)) out.push("unknown");
   if (stateful && f.kind === "yen" && f.optional === true && s.status !== "notApplicable") out.push("notApplicable");
   return out;
+}
+
+/**
+ * 推定の欄を「✓ この値で確定」にできるか（applyStateOp の confirm が世帯を変えるか）: 値の箱の欄、仮の印の欄、当て先に値がある欄、
+ * 空欄のまま推定で計算する欄で推定の値を書ける欄（blankEstimate）。どれでもない欄（積立をやめる年齢の空欄など、推定が値でなく決まりのもの）は確定にできない
+ */
+function confirmable(f: FieldDef, wh: WorkingHousehold, a: Address | null): boolean {
+  if (f.blankEstimate !== undefined && f.get(wh).value === null) return f.blankEstimate(wh) !== null;
+  if (f.boxed !== undefined || wh.assumed[f.key] !== undefined) return true;
+  return a !== null && readAt(input(wh), a) !== undefined;
 }
 
 /** わからないにしたときの代わりの値の根拠（前に入っていた確定の値をそのまま使う） */
@@ -148,6 +159,15 @@ export function applyStateOp(wh: WorkingHousehold, f: FieldDef, op: StateOp): Wo
   const s = fieldStatus(f, wh);
   if (!availableOps(f, wh, s).includes(op)) return wh;
   const a = fieldAddress(f, wh);
+  // 空欄のままエンジンが推定で決める欄: 推定の値を書いて確定にする（当て先があれば根拠を行に残す。0041 の追記）
+  if (op === "confirm" && s.status === "estimated" && f.blankEstimate !== undefined && f.get(wh).value === null) {
+    const v = f.blankEstimate(wh);
+    if (v === null) return wh;
+    const next = (f.write ?? f.set)(withoutAssumed(wh, f.key), v);
+    if (next === wh || f.get(next).value === null) return wh;
+    const at = fieldAddress(f, next);
+    return at !== null && readAt(input(next), at) !== undefined ? withRow(next, at, { state: "confirmed", origin: { kind: "manual" }, estimate: { method: "standard", basis: s.basis ?? "推定" } }) : next;
+  }
   if (f.boxed !== undefined) {
     const raw = f.boxed.read(wh);
     const b = isBox(raw) ? raw : undefined;
@@ -202,6 +222,19 @@ export function applyStateOp(wh: WorkingHousehold, f: FieldDef, op: StateOp): Wo
     case "notApplicable":
       return mutate(withoutAssumed(wh, f.key), (_h, req) => void writeAt(req.input as unknown as Obj, a, { state: "notApplicable", origin: { kind: "manual" } }));
   }
+}
+
+/**
+ * 欄に打って入れる（打った・文字を変えて離れたとき。0041 の追記）: 未入力（0円で計算中）の欄に打った値は、今の値と同じ（0円）でも
+ * 確定にする（未入力は状態を持たず、そこへ打つのは明示の操作のため）。ほかの状態の欄は欄の書き方（同じ値なら変えない）のまま。
+ * 箱でない値で、未入力の印が行にあり値が同じなら、行を外して打った値（確定）にする
+ */
+export function typeValue(f: FieldDef, wh: WorkingHousehold, v: Val): WorkingHousehold {
+  if (v === null || f.write === undefined || fieldStatus(f, wh).status !== "missing") return f.set(wh, v);
+  const next = f.write(wh, v);
+  if (fieldStatus(f, next).status !== "missing") return next;
+  const a = f.boxed === undefined ? fieldAddress(f, next) : null;
+  return a !== null && rowAt(input(next), a) !== undefined ? withRow(withoutAssumed(next, f.key), a, undefined) : next;
 }
 
 /** まとまり・カード・全部の「推定をまとめて確定」: 推定の欄を、それぞれその値で確定にする。確定にした数も返す */

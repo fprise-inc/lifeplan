@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { allFields, type Level } from "./form.ts";
 import { fieldDomId, FieldStateOps, FieldSuggestions, PinControls, PlanMarksContext, Section, SectionLinks, visible, type PinControl, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
 import { dropStaleRows } from "./rows.ts";
-import { applyStateOp, confirmAll, fieldStatus, planStateOp, type StateOp } from "./valueState.ts";
+import { applyStateOp, availableOps, confirmAll, fieldStatus, planStateOp, type StateOp } from "./valueState.ts";
 import type { FieldDef } from "./form.ts";
 import type { Catalog } from "../plans/items.ts";
 import { diffRows, fieldMark, groupMark, planView, recordPlanEdit, referrersOf, removedObjects, removedRows, revertField, revertRow, settleFields, withoutObjects, type Referrer } from "../plans/planEdit.ts";
@@ -247,7 +247,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const sections = stage.sections.filter((s) => visible(level, s.level));
   // 見えている欄のうち推定のままの欄（「推定をまとめて確定」で確定にする欄）
   const shownFields = allFields({ ...stage, sections }).filter((f) => visible(level, f.level));
-  const estimatedShown = shownFields.filter((f) => fieldStatus(f, shown).status === "estimated").length;
+  const estimatedShown = shownFields.filter((f) => fieldStatus(f, shown).status === "estimated" && availableOps(f, shown).includes("confirm")).length;
   // このカードの入っていない物（古い世帯では自動で推定を入れず、ここと確かめの一覧に出す。fill.ts）
   const gaps = gapsOf(shown).filter((g) => g.card === itemId);
   const confirmShown = () => {
