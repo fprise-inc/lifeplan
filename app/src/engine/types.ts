@@ -49,7 +49,8 @@ export interface OutsideFamily {
   employeeInsurance?: boolean;
 }
 
-export type Relation = { type: "spouse"; a: string; b: string; marriage: "legal" | "deFacto"; from: Timepoint | null; to: Timepoint | null } | { type: "parentOf"; parent: string; child: string };
+/** 関係（0008 の3 の辺）。id は並びの要素の ID（0035 の5。同じ2人の配偶者の関係を期間で分けて複数持てる） */
+export type Relation = { id?: string; type: "spouse"; a: string; b: string; marriage: "legal" | "deFacto"; from: Timepoint | null; to: Timepoint | null } | { id?: string; type: "parentOf"; parent: string; child: string };
 
 export interface HouseholdEvent {
   id: string;

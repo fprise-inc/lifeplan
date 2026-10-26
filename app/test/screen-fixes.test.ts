@@ -62,25 +62,42 @@ describe("表の最後の年: 標準のままなら家族の生年月に合わ�
   });
 });
 
-describe("子の独立の年月: 標準のままなら生年月に合わせる", () => {
-  it("生年月を直すと22歳になる月に合わせる。人が入れた年月は残す", () => {
+describe("子の独立の年月: 新しく足す子は年齢の時点の標準、年月で持つ古い子は標準のままなら生年月に合わせる", () => {
+  it("新しく足す子は「22歳になった後の最初の3月末の翌月」を年齢の時点で持ち、生年月・1日生まれで動く。人が入れた年月は残す", () => {
     const w0 = set(blankHousehold(BASE, ids()), "family", "/birth", "1985-06");
     const w1 = addMember(w0, "child", ids());
     const child = member(w1, "child")[0]!;
+    expect(child.leaves).toEqual({ memberAge: { member: child.id, years: 22, ageSwitch: "schoolYear" } });
+    expect(w1.assumed[`family/${child.id}/leaves`]).toContain("22歳");
     const birth = (w: WorkingHousehold) => allFields(buildStage("family", w)).find((f) => f.key === `family/${child.id}/birth`)!;
     const leaves = (w: WorkingHousehold) => allFields(buildStage("family", w)).find((f) => f.key === `family/${child.id}/leaves`)!;
-    const w2 = birth(w1).set(w1, "2020-05");
-    expect(leaves(w2).get(w2)).toMatchObject({ value: "2042-05", hint: "22歳" });
-    // 1日生まれ: 22歳に達する月が1か月早くなる
+    const w2 = birth(w1).set(w1, "2020-04");
+    expect(leaves(w2).get(w2)).toMatchObject({ value: "2043-04", hint: "23歳" });
+    // 4月1日生まれ: 早生まれと同じ学年（22歳になる年度の終わりが1年早い）
     const first = allFields(buildStage("family", w2)).find((f) => f.key === `family/${child.id}/bornOnFirst`)!;
     expect(leaves(first.set(w2, true)).get(first.set(w2, true)).value).toBe("2042-04");
-    // 人が入れた独立の年月は、生年月を直しても変えない
+    // 人が入れた独立の年月は、生年月を直しても変えない。標準に戻すと年齢の時点に戻る
     const w3 = leaves(w2).set(w2, "2045-03");
     const w4 = birth(w3).set(w3, "2019-05");
     expect(leaves(w4).get(w4).value).toBe("2045-03");
+    const back = buildStage("family", w4).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((a) => a.key === `family/${child.id}/leavesStandard`)!;
+    const w5 = back.run(w4);
+    expect(leaves(w5).get(w5).value).toBe("2042-04");
   });
 
-  it("これから生まれる子は「-2歳」と出さず、独立は22歳の月", () => {
+  it("年月で持つ古い世帯の子は、22歳になる月のままなら生年月を直したときに合わせる（PR の仮の直しのまま）", () => {
+    const w0 = set(blankHousehold(BASE, ids()), "family", "/birth", "1985-06");
+    const w1 = addMember(w0, "child", ids());
+    const child = member(w1, "child")[0]!;
+    const old = { ...w1, request: structuredClone(w1.request) };
+    old.request.input.household.members.find((m) => m.id === child.id)!.leaves = { at: "2042-05" };
+    old.request.input.household.members.find((m) => m.id === child.id)!.birth.birthYearMonth = "2020-05";
+    const birth = allFields(buildStage("family", old)).find((f) => f.key === `family/${child.id}/birth`)!;
+    const w2 = birth.set(old, "2019-05");
+    expect(w2.request.input.household.members.find((m) => m.id === child.id)!.leaves).toEqual({ at: "2041-05" });
+  });
+
+  it("これから生まれる子は「-2歳」と出さず、独立は22歳の後の最初の4月", () => {
     const w0 = set(blankHousehold(BASE, ids()), "family", "/birth", "1990-06");
     const w1 = addMember(w0, "child", ids());
     const child = member(w1, "child")[0]!;
@@ -88,7 +105,7 @@ describe("子の独立の年月: 標準のままなら生年月に合わせる",
     const w2 = birth(w1).set(w1, "2028-04");
     expect(birth(w2).get(w2).hint).toBe("これから生まれる予定（令和10年4月）");
     const leaves = allFields(buildStage("family", w2)).find((f) => f.key === `family/${child.id}/leaves`)!;
-    expect(leaves.get(w2)).toMatchObject({ value: "2050-04", hint: "22歳" });
+    expect(leaves.get(w2)).toMatchObject({ value: "2051-04", hint: "23歳" });
     expect(() => preview(w2.request)).not.toThrow();
   });
 });

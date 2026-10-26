@@ -182,10 +182,11 @@ const periodic = (h: Household) => h.periodicExpenses;
 const address = (id: string, item: string, at: string[] = []): (() => Address) => () => ({ target: { object: id }, item, at });
 const withAddress = (f: FieldDef, a: () => Address): FieldDef => ({ ...f, address: a });
 
-/** 相手に選べる人（世帯の外の家族と、贈与者として入れた人） */
-function counterpartyOptions(wh: WorkingHousehold): Option[] {
+/** 相手に選べる人（世帯の外の家族と、贈与者として入れた人。家族のカードの行は、本人のほかの世帯の人〔前の配偶者・離れて暮らす子〕も） */
+function counterpartyOptions(wh: WorkingHousehold, card?: MoneyCard): Option[] {
   const h = wh.request.input.household;
   const out: Option[] = [{ value: "", label: "なし" }];
+  if (card === "family") for (const m of h.members.filter((x) => !isOutside(x) && x.kind !== "self" && x.expected !== true)) out.push({ value: m.id, label: memberLabel(wh, m.id) });
   for (const m of h.members.filter(isOutside)) out.push({ value: m.id, label: memberLabel(wh, m.id) });
   for (const d of h.donors ?? []) out.push({ value: d.id, label: d.kind === "grandparent" ? "祖父母（贈与者）" : d.kind === "parent" ? "親（贈与者）" : "その他の家族（贈与者）" });
   return out;
@@ -302,7 +303,9 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   fields.push(withAddress(timepointField({ key: `${k}/from`, item: "incomeFlow.from", label: c === "once" ? "受け取る時期" : "始まり", level: "simple", find, path: ["from"], ...selfAge(wh), ...(c === "once" ? { after: (_h: Household, t: Obj) => void (t.to = structuredClone(t.from)) } : {}) }), address(f.id, "incomeFlow.from")));
   if (c === "repeat") fields.push(withAddress(plain({ key: `${k}/every`, item: "incomeFlow.everyYears", label: "何年ごと", level: "simple", kind: "int", suffix: "年ごと", min: 1, max: 50, find, path: ["everyYears"] }), address(f.id, "incomeFlow.everyYears")));
   if (c !== "once") fields.push(withAddress(timepointField({ key: `${k}/to`, item: "incomeFlow.to", label: "終わり", level: "simple", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで", ...selfAge(wh) }), address(f.id, "incomeFlow.to")));
-  if (inherit) fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "simple", kind: "select", options: counterpartyOptions(wh), find, path: ["counterparty"], optional: true, fallback: "" }), address(f.id, "incomeFlow.counterparty")));
+  // 相手は相続・贈与と家族のカードでは簡易にも出す（0044・家族の行は前の配偶者・子が相手）
+  const headParty = inherit || card === "family";
+  if (headParty) fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "simple", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(f.id, "incomeFlow.counterparty")));
   fields.push(badgeField(`${k}/likelihood`, "incomeFlow.likelihood", "見込み", LIKELIHOODS, "likely", find, "likelihood", f.id, inherit ? "「不確か」の受け取る相続・贈与は、基本の計算に入れません（行は残ります）。結果の「確実な分だけで見る」でも外れます" : "結果の「確実な分だけで見る」で、「不確か」の行を外して見られます"));
   const badge = stagedBadge(f as unknown as Record<string, unknown>, ["stages"], ["exceptions"]);
   const detailNotes = [
@@ -347,7 +350,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   const whoFields: FieldDef[] = [
     withAddress(plain({ key: `${k}/recipient`, item: "incomeFlow.recipient", label: "受け取る人", level: "detail", kind: "select", options: insiderOptions(wh), find, path: ["recipient"], optional: true, fallback: "", help: "構成員を選ぶと、課税の扱いのある行の税はその人の所得に、万一のときの扱いはその人の万一に当てます（世帯のときの税は本人）" }), address(f.id, "incomeFlow.recipient")),
   ];
-  if (!inherit) whoFields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "detail", kind: "select", options: counterpartyOptions(wh), find, path: ["counterparty"], optional: true, fallback: "", help: "世帯の外の家族から選びます（家族のカードで足します）" }), address(f.id, "incomeFlow.counterparty")));
+  if (!headParty) whoFields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "detail", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "", help: "世帯の外の家族から選びます（介護・親のカードで足します）" }), address(f.id, "incomeFlow.counterparty")));
   whoFields.push(...growthFields(k, "incomeFlow.growth", find, f.id, f.growth));
   whoFields.push(...onContingencyFields({ key: `${k}/on`, item: "incomeFlow.onContingency", find, path: ["onContingency"], level: "detail", help: "万一（死亡など）が起きた月の翌月から当てます。受け取る人を選んだ行は、その人の万一だけに当てます" }).map((x) => withAddress(x, address(f.id, "incomeFlow.onContingency"))));
   whoFields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "incomeFlow.onContingency", find, path: ["onContingency"], on: f.onContingency, level: "detail" }).map((x) => withAddress(x, address(f.id, "incomeFlow.onContingency"))));
@@ -403,7 +406,7 @@ export function expenseHeadFields(wh: WorkingHousehold, p: PeriodicExpense, card
   const kinds = kindsOf(card).outs;
   const fields: FieldDef[] = [];
   if (kinds.length > 1 && p.kind !== undefined) fields.push(withAddress(plain({ key: `${k}/kind`, item: "periodicExpense.kind", label: "種類", level: "simple", kind: "select", options: kinds.map((x) => ({ value: x.kind, label: x.label })), find, path: ["kind"] }), address(p.id, "periodicExpense.kind")));
-  if (card === "inherit") fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "simple", kind: "select", options: counterpartyOptions(wh), find, path: ["counterparty"], optional: true, fallback: "" }), address(p.id, "periodicExpense.counterparty")));
+  if (card === "inherit" || card === "family") fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "simple", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(p.id, "periodicExpense.counterparty")));
   return fields;
 }
 
@@ -438,7 +441,7 @@ export function expenseDetailGroups(wh: WorkingHousehold, p: PeriodicExpense, ca
   const fields: FieldDef[] = [
     withAddress(plain({ key: `${k}/payer`, item: "periodicExpense.payer", label: "払う人", level: "detail", kind: "select", options: insiderOptions(wh), find, path: ["payer"], optional: true, fallback: "", help: "構成員を選ぶと、万一のときの扱いはその人の万一だけに当てます（夫婦で別の財布は持ちません）" }), address(p.id, "periodicExpense.payer")),
   ];
-  if (card !== "inherit") fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "detail", kind: "select", options: counterpartyOptions(wh), find, path: ["counterparty"], optional: true, fallback: "" }), address(p.id, "periodicExpense.counterparty")));
+  if (card !== "inherit" && card !== "family") fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "detail", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(p.id, "periodicExpense.counterparty")));
   fields.push(...growthFields(k, "periodicExpense.growth", find, p.id, p.growth));
   fields.push(...onContingencyFields({ key: `${k}/on`, item: "periodicExpense.onContingency", find, path: ["onContingency"], level: "detail" }).map((x) => withAddress(x, address(p.id, "periodicExpense.onContingency"))));
   fields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "periodicExpense.onContingency", find, path: ["onContingency"], on: p.onContingency, level: "detail" }).map((x) => withAddress(x, address(p.id, "periodicExpense.onContingency"))));

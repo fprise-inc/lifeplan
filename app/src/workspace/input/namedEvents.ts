@@ -130,6 +130,36 @@ function anchors(h: Household): Anchor[] {
       },
     });
   }
+  // 夫婦の関係の始まり（入籍）・最後の段の終わり（離婚）。家族のカードの「夫婦の関係」の時点
+  for (const r of h.relations ?? []) {
+    if (r.type !== "spouse" || r.id === undefined) continue;
+    const rid = r.id;
+    const other = h.members.find((x) => x.kind === "spouse" && (x.id === r.a || x.id === r.b));
+    const rel = (hh: Household) => (hh.relations ?? []).find((x) => x.id === rid) as Extract<NonNullable<Household["relations"]>[number], { type: "spouse" }> | undefined;
+    if (r.from !== null && !isEventForm(r.from))
+      out.push({
+        id: `new:marriage:${rid}`,
+        kind: "marriage",
+        ...(other !== undefined ? { member: other.id } : {}),
+        read: (hh) => rel(hh)?.from ?? null,
+        point: (hh, ev) => {
+          const x = rel(hh);
+          if (x !== undefined) x.from = { event: ev };
+        },
+      });
+    const last = !(h.relations ?? []).some((x) => x !== r && x.type === "spouse" && x.a === r.a && x.b === r.b && (resolveTimepoint(h, x.from) ?? "") > (resolveTimepoint(h, r.from) ?? ""));
+    if (last && r.to !== null && !isEventForm(r.to))
+      out.push({
+        id: `new:divorce:${rid}`,
+        kind: "divorce",
+        ...(other !== undefined ? { member: other.id } : {}),
+        read: (hh) => rel(hh)?.to ?? null,
+        point: (hh, ev) => {
+          const x = rel(hh);
+          if (x !== undefined) x.to = { event: ev };
+        },
+      });
+  }
   for (const c of h.careExpenses ?? []) {
     if (isEventForm(c.from)) continue;
     out.push({
