@@ -433,7 +433,10 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "kind", "joins", "leaves", "expected"],
-      "allOf": [{ "if": { "not": { "required": ["outside"] } }, "then": { "required": ["birth", "sex"] } }],
+      "allOf": [
+        { "if": { "not": { "required": ["outside"] } }, "then": { "required": ["birth", "sex"] } },
+        { "if": { "required": ["wallet"] }, "then": { "required": ["outside", "birth"] } }
+      ],
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
@@ -468,6 +471,31 @@
               }
             },
             "employeeInsurance": { "description": "勤め先の健康保険に入っている（世帯の人をその人の扶養に入れられる）", "type": "boolean" }
+          }
+        },
+        "wallet": {
+          "title": "世帯の外の家族のお金（簡易の家計。預金・生活費・年金・一時の入金。この人が介護を受ける費用は、まずこのお金から払い、尽きた月から世帯が払う。世帯の外の家族で生年月のある人だけ。預金を入れたときだけ計算する）",
+          "x-item": "member.wallet",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "balance": { "description": "預金など（計算基準月の初めの残高）。省略すると、この人のお金は計算しない（介護の費用は世帯が払う）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "living": { "description": "この人の生活費（月額。計算基準年の価格で、物価上昇率で伸ばす。省略は0円）。生活費の人数に入れる期間（outside.periods の living）の月は引かない", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "pension": { "description": "この人の公的年金（年額・額面）。入れると、エンジンの推計の公的年金の代わりに計算基準月から毎月12分の1を入れる（計算基準年の額のまま）。省略はエンジンの推計", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "lumpSums": {
+              "description": "一時の入金（家を売る・保険金など。その月にこの人のお金に入る）",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "at", "amount"],
+                "properties": {
+                  "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                  "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "amount": { "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+                }
+              }
+            }
           }
         },
         "support": {

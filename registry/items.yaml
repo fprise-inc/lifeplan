@@ -1297,6 +1297,14 @@ entries:
     replacedBy: null
     collection: member
     path: [support]
+  - id: member.wallet
+    status: active
+    label: "世帯の外の家族のお金（簡易の家計。預金・生活費・年金・一時の入金。この人が介護を受ける費用は、まずこのお金から払い、尽きた月から世帯が払う。世帯の外の家族で生年月のある人だけ。預金を入れたときだけ計算する）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: member
+    path: [wallet]
   - id: pensionRecord.amounts
     status: active
     label: "置き換え口: 記録の年金額（年額）"

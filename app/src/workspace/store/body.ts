@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.18。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
+// 本文の区画（形式の版 0.19。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
 // 0.17 から（0035・0036）: 差分は当て先で、仮の印は物の値の状態の欄で、贈与者は世帯の外の家族の構成員で書き、並びの要素は ID を持つ。
 // 0.18 から（0040）: 段階と例外の年（周期的な支出・家賃・修繕費・固定資産税・不動産の家賃と経費・器の利回り・資産配分）と、働き方の期間ごとの
 // 伸び（給与・事業所得の年率）。足すだけの形（本体の変換の段は版だけを書き換える）
@@ -9,6 +9,7 @@
 //   0.9 から: 教育の目標の保育所の段の保育の時間・自治体の水準の割合と、給食費の選び方（0029。保育所の段の空の月額は収入から自動で計算する読み方）
 //   0.11 から: 前提の黒字のうち貯まる割合（surplusSaving）と、まとめた金融資産の器の運用しない分（uninvested。0031）。
 //   0.12 から: 生活防衛資金（0.11 の前提 emergencyReserve）をなくした（本体の変換の段で捨てる。控えの中身は残り、計算するときに外す。0031 の追記）
+//   0.19 から: 世帯の外の家族のお金 members[].wallet（預金・生活費・年金・一時の入金。0042。任意）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
 // - hearing: ヒアリングの依頼・取り込み・同意の下書きの記録（0018。取り込みの記録・同意の記録への分け方は後の版）
 // - workspace: 案の帯の並び・基準の案・選んだ案・対策に足した項目・出発点にした見本
@@ -42,7 +43,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.18";
+export const BODY_FORMAT_VERSION = "0.19";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

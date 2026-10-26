@@ -28,6 +28,19 @@ export interface Member {
   support?: { dependent?: boolean; cohabiting?: boolean; allowance?: number };
   /** 世帯の外の家族（0035 の4。家計を世帯と別にする家族）。期間は家計を1つにする期間（living は生活費の人数、income は収入を世帯に入れる） */
   outside?: OutsideFamily;
+  /** 世帯の外の家族のお金（0042。簡易の家計）。預金を入れたときだけ計算する。その人が介護を受ける費用は、まずこのお金から払い、尽きた月から世帯が払う */
+  wallet?: OutsideWallet;
+}
+
+export interface OutsideWallet {
+  /** 預金など（今の残高） */
+  balance?: Box<number>;
+  /** 生活費（月額） */
+  living?: Box<number>;
+  /** 公的年金（年額）。空はエンジンの推計 */
+  pension?: Box<number>;
+  /** 一時の入金 */
+  lumpSums?: { id: string; at: Timepoint; amount: Box<number> }[];
 }
 
 export interface OutsideFamily {

@@ -727,6 +727,8 @@ export interface CashflowDetails {
     readonly tax: Yen;
     readonly inCashflow: boolean;
   }[];
+  /** 世帯の外の家族のお金（0042）: お金を入れた人ごとの、尽きる見込みの月（尽きなければ null） */
+  outsideWallets?: readonly { readonly member: string; readonly depleted: string | null }[];
 }
 
 /** benefit.unemployment: 雇用保険の基本手当・高年齢求職者給付金を受ける日のある月（日数は30日を1か月とみなす近似。日額は基本手当日額） */

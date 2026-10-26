@@ -7,6 +7,8 @@
 // 改訂8: 保育料（education.nurseryFee。子ごと。0029）も集める。
 // 改訂7: 住まい以外の不動産の家賃収入・経費・売却の手取り（asset.realEstate。0028）も集める。
 // 改訂10: 世帯の外の家族（0035 の4）の構成員ごとのお金の動きは、家計を1つにする期間のうち収入を世帯に入れる期間の月の分だけ集める。
+// 改訂11: 世帯の外の家族のお金（member.wallet。0042）を入れた人が介護を受ける費用は、その人のお金から払った分（outside.wallet の covered）を
+//   介護の費用（care.expense）から引き、残り（尽きた後）だけを世帯の支出にする。お金を入れていない人の介護の費用は今までどおり世帯が払う。
 // 改訂5: 保険の受け取り（insurance.policy。契約ごと）・介護の費用（care.expense）・万一のときの一時のお金（contingency.lumpSum）も集める。
 // 運用益・金融資産の残高（plan.cashflow）と分けるのは、運用利回りのように案の前提だけが変わったとき、集め直さずに済むようにするため（0005 の追記）。
 // 構成員ごとに分けるのは、1人の入力を変えたとき、ほかの構成員の分を集め直さないため（0005・0006 の追記）。
@@ -15,6 +17,7 @@ import {
   addYen,
   defineComponent,
   formatYm,
+  hasWallet,
   isOutside,
   monthOf,
   netByYear,
@@ -36,10 +39,11 @@ export default defineComponent<Record<string, never>, Collected>({
   id: "plan.flows",
   title: "お金の動き（集める）",
   contract: "1.1",
-  revision: 10,
+  revision: 11,
   requires: {
     "insurance.policy": ">=1 <2",
     "care.expense": ">=1 <2",
+    "outside.wallet": ">=1 <2",
     "contingency.lumpSum": ">=1 <2",
     "plan.memberFlows": ">=1 <2",
     "expense.living": ">=1 <2",
@@ -58,7 +62,7 @@ export default defineComponent<Record<string, never>, Collected>({
     "insurance.premiumPayment": ">=1 <2",
   },
   params: [],
-  reads: ["member.kind", "member.outside", "debt.kind", "goal.kind", "goal.owner", "insurance.policyholder"],
+  reads: ["member.kind", "member.outside", "member.wallet", "debt.kind", "goal.kind", "goal.owner", "insurance.policyholder"],
   slots: ["slot.expense.flow"],
   input: "empty.input",
   output: "plan.flows.output",
@@ -93,7 +97,7 @@ export default defineComponent<Record<string, never>, Collected>({
     }
     household.push(ctx.call<PaymentsOutput>("insurance.premiumPayment", {}).flows);
     for (const c of ctx.list<{ id: string }>("insurance")) household.push(ctx.call<FlowsResult>("insurance.policy", { object: c.id }).flows);
-    household.push(ctx.call<FlowsResult>("care.expense", {}).flows);
+    household.push(householdCare(ctx.call<FlowsResult>("care.expense", {}).flows, ctx.list<MemberInput>("member").filter(hasWallet).flatMap((m) => ctx.call<{ covered: readonly Flow[] }>("outside.wallet", { member: m.id }).covered)));
     household.push(ctx.call<FlowsResult>("contingency.lumpSum", {}).flows);
     for (const d of ctx.list<{ id: string }>("debt")) household.push(ctx.call<FlowsResult>("debt.schedule", { object: d.id }).flows);
     household.push(ctx.call<FlowsResult>("housing.residence", {}).flows);
@@ -123,3 +127,20 @@ export default defineComponent<Record<string, never>, Collected>({
     return { flows, net: [...net.entries()].sort((a, b) => a[0] - b[0]).map(([year, amount]) => ({ year, amount })), parts };
   },
 });
+
+/** 介護の費用のうち世帯が払う分: 世帯の外の家族のお金から払った分（covered。行・月・物・式・払う人が同じお金の動き）を引く */
+function householdCare(care: readonly Flow[], covered: readonly Flow[]): readonly Flow[] {
+  if (covered.length === 0) return care;
+  const key = (f: Flow) => `${f.row}|${f.ym}|${f.object ?? ""}|${f.formula}|${f.member ?? ""}`;
+  const paid = new Map<string, number>();
+  for (const f of covered) paid.set(key(f), (paid.get(key(f)) ?? 0) + f.amount);
+  const out: Flow[] = [];
+  for (const f of care) {
+    const k = key(f);
+    const p = Math.min(paid.get(k) ?? 0, f.amount);
+    if (p > 0) paid.set(k, (paid.get(k) ?? 0) - p);
+    const rest = f.amount - p;
+    if (rest > 0) out.push(p > 0 ? { ...f, amount: yen(rest) } : f);
+  }
+  return out;
+}

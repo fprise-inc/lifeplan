@@ -68,6 +68,7 @@ import retirementBenefit from "./retirement.benefit/index.ts";
 import retirementReceipts from "./retirement.receipts/index.ts";
 import taxRetirementIncome from "./tax.retirementIncome/index.ts";
 import careExpense from "./care.expense/index.ts";
+import outsideWallet from "./outside.wallet/index.ts";
 import contingencyEvent from "./contingency.event/index.ts";
 import contingencyLumpSum from "./contingency.lumpSum/index.ts";
 import debtCreditLife from "./debt.creditLifeEvents/index.ts";
@@ -158,6 +159,7 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   retirementReceipts,
   taxRetirementIncome,
   careExpense,
+  outsideWallet,
   contingencyEvent,
   contingencyLumpSum,
   debtCreditLife,

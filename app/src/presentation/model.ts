@@ -71,7 +71,7 @@ export interface YearDetail {
   financial: Yen;
 }
 
-export type EventIcon = "学" | "独" | "退" | "年" | "家" | "！";
+export type EventIcon = "学" | "独" | "退" | "年" | "家" | "親" | "！";
 
 export interface EventChip {
   year: number;

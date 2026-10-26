@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:outside.wallet.output",
+  "title": "世帯の外の家族のお金（簡易の家計）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["depleted", "covered"],
+  "properties": {
+    "depleted": {
+      "description": "この人のお金が尽きる見込みの月（その月の生活費・税・社会保険料・介護の費用を払いきれなくなる最初の月）。尽きなければ null",
+      "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }]
+    },
+    "covered": {
+      "description": "介護の費用（care.expense のお金の動き）のうち、この人のお金から払った分（行・月・物・式は元のお金の動きと同じ。世帯の支出から引く）",
+      "type": "array",
+      "items": { "$ref": "urn:financia:schema:common#/$defs/flow" }
+    }
+  }
+}

@@ -394,6 +394,31 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 給与の伸びの率"
             );
         }
+        // 0.19 から（0042）: 世帯の外の家族のお金（任意）。見本は親の預金・生活費・年金・一時の入金と、預金を変えるプランの差分を持つ
+        let wallets: Vec<&Value> = hh["members"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|m| m.get("wallet"))
+            .collect();
+        if migrate::parse(v).unwrap() >= (0, 19) {
+            let w = wallets
+                .first()
+                .expect("0.19 の見本には世帯の外の家族のお金がある");
+            assert!(w["balance"].is_object() && w["living"].is_object());
+            assert!(w["lumpSums"][0]["id"].is_string());
+            assert!(now["proposals"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|p| p["diffs"].as_array().unwrap().iter())
+                .any(|d| d["item"] == "member.wallet" && d["at"][0] == "balance"));
+        } else {
+            assert!(
+                wallets.is_empty(),
+                "{v}: 0.19 より前の版に世帯の外の家族のお金は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;
