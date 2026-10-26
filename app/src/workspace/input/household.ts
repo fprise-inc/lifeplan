@@ -234,8 +234,17 @@ export function standardEndYear(h: Household): number {
 /** 子の独立の標準の年齢（子を足したときの初めの値） */
 export const CHILD_LEAVES_AGE = 22;
 
-/** 子の独立の標準の時点: 22歳になる月 */
+/** 子の独立の前の標準の時点: 22歳になる月（年月で持っていた古い世帯の子が、まだ標準のままかを見分けるのに使う） */
 export const standardLeaves = (child: Member): string => ageReachedMonth(child, CHILD_LEAVES_AGE);
+
+/**
+ * 子の独立の標準（新しく足す子と「標準に戻す」を押した子）: 22歳になった後の最初の3月末の翌月（大学を出る年度末の翌月＝22歳の後の最初の4月）。
+ * 年齢の時点で持つので、生年月を直すと合わせて動く（追いかけが要らない）
+ */
+export const standardLeavesPoint = (childId: string): Timepoint => ({ memberAge: { member: childId, years: CHILD_LEAVES_AGE, ageSwitch: "schoolYear" } });
+
+/** 子の独立の標準の根拠の文（仮の印） */
+export const LEAVES_BASIS = "標準（22歳になった後の最初の3月末の翌月。大学を出る年度末）";
 
 /**
  * 標準の値を追いかける（0008 の追記 2026-10-25）: 家族の生年月・続柄を変えた・家族を足した・外した後に、
