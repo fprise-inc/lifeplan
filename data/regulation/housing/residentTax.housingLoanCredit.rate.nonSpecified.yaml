@@ -1,0 +1,34 @@
+id: residentTax.housingLoanCredit.rate.nonSpecified
+title: 住民税の住宅借入金等特別税額控除の上限の率（特定取得でない取得。平成26〜令和3年入居だけの区分）
+unit: rate
+kind: constant
+basis: {"type": "anchor", "anchor": "moveIn"}
+entries:
+  - rev: 1
+    appliesFrom: "2014-01-01"
+    appliesTo: "2021-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20210401_503AC0000000007?response_format=xml&elm=SupplProvision-Article_5_4_2", "retrievedAt": "2026-10-27", "retrievedVia": "searchExcerpt", "locator": "地方税法 附則第5条の4の2第1項（令和3年4月1日の版）", "quote": "百分の二", "note": "e-Gov法令APIで附則第5条の4の2だけを取り出した条文を読んだ（原本の写しと指紋は未取得）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20210401_503AC0000000007"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "5%（道府県民税2%・市町村民税3%。特定取得は7%）。平成26〜令和3年入居。地方税法附則5条の4の2（市町村民税は附則45条）の条文で読んだ。原本での確認待ち"}
+  - rev: 2
+    appliesFrom: "2022-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20210401_503AC0000000007?response_format=xml&elm=SupplProvision-Article_5_4_2", "retrievedAt": "2026-10-27", "retrievedVia": "searchExcerpt", "locator": "地方税法 附則第5条の4の2（令和3年4月1日の版）", "quote": "居住年が平成二十六年から令和三年までであつて", "note": "e-Gov法令APIで附則第5条の4の2だけを取り出した条文を読んだ（原本の写しと指紋は未取得）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20210401_503AC0000000007"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "令和4年以後の入居は特定取得の区分が無い（率と上限は residentTax.housingLoanCredit.rate・limit）。原本での確認待ち"}

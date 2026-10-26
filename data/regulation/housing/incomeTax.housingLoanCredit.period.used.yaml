@@ -97,3 +97,18 @@ entries:
     recordedIn: "2026.2.0"
     supersededIn: null
     approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-09", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "令和13年以後の入居は制度なし（期限の後。期限は令和8年度税制改正で令和12年12月31日の入居まで延長）。措置法の条文と国税庁の資料で一致"}
+  - rev: 7
+    appliesFrom: "2014-01-01"
+    appliesTo: "2021-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 10
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20210401_503AC0000000011?response_format=xml&elm=MainProvision-Article_41", "retrievedAt": "2026-10-27", "retrievedVia": "searchExcerpt", "locator": "租税特別措置法 第41条第1項（令和3年4月1日の版）", "quote": "居住年」という。）以後十年間", "note": "e-Gov法令APIで第41条だけを取り出した条文を読んだ（原本の写しと指紋は未取得）"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1214.htm", "retrievedAt": "2026-10-27", "retrievedVia": "searchExcerpt", "locator": "国税庁 No.1214 控除期間と控除限度額", "note": "公式のページの本文を読み取りの道具で読んだ（原本の写しと指紋は未取得）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20210401_503AC0000000011"}
+    recordedIn: "2026.7.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "10年（平成26〜令和3年入居。消費税10%の取得の13年の特例は period.specialSpecified）。原本での確認待ち"}

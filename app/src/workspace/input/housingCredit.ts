@@ -17,10 +17,10 @@ export const CREDIT_ASSUMED = "仮の条件（入居は借入の年月・新築�
 export const PRINCIPAL_ESTIMATE = "購入の予定の物件の価格から頭金を引いた額（価格・頭金を直すと入れ直します）";
 
 /**
- * 控除の制度データがある最初の入居の年（令和4年。計算エンジンの tax.housingLoanCredit は、値の無い入居の年を計算しない）。
+ * 控除の制度データがある最初の入居の年（平成26年。計算エンジンの tax.housingLoanCredit は、値の無い入居の年を計算しない）。
  * これより前に借りたローンには仮の条件を置かない（置いても控除は入らない）
  */
-export const CREDIT_DATA_FROM_YEAR = 2022;
+export const CREDIT_DATA_FROM_YEAR = 2014;
 
 /** 住まいの住宅ローン（住まい以外の不動産のローン debt.property は控除の対象にしない。0028） */
 export const isHomeLoan = (d: Debt): boolean => d.kind === "mortgage" && d.property === undefined;
@@ -101,7 +101,7 @@ export function principalMismatch(h: Household, d: Debt): string | null {
   return `購入の予定の物件の価格−頭金（${man(link.expected)}）と、借入額${link.loans.length > 1 ? "の合計" : ""}（${man(total)}）が${man(diff)}ずれています。${total < link.expected ? "足りない分は預金からも払わず、計算に入りません" : "多い分は購入に使わず、返済だけが計算に入ります"}`;
 }
 
-/** 仮の条件を置くローン（令和4年以後に借りたもの） */
+/** 仮の条件を置くローン（平成26年以後に借りたもの） */
 function needsCredit(h: Household, d: Debt): boolean {
   const ym = resolveTimepoint(h, d.start);
   return ym !== null && Number(ym.slice(0, 4)) >= CREDIT_DATA_FROM_YEAR;
@@ -112,7 +112,7 @@ export const fromBalance = (wh: WorkingHousehold, id: string): boolean => wh.loa
 
 /**
  * 仮の値を入れ直した世帯（変わらなければ同じものを返す）:
- * - 住宅ローン控除の条件が無い住まいの住宅ローン（令和4年以後に借りたもの）に仮の条件と入居のイベントを置き、印を付ける
+ * - 住宅ローン控除の条件が無い住まいの住宅ローン（平成26年以後に借りたもの）に仮の条件と入居のイベントを置き、印を付ける
  *   （「今の残高から」入れたローンは借りた年が仮なので置かず、置いてあった仮の条件は外す。0052）
  * - 印のある仮の条件は、借入の年月・住まい（購入の予定・建った年）に合わせて入れ直す（入居のイベントが無くなっていれば作り直す）
  * - 印のある借入額は、購入の予定の価格−頭金に合わせて入れ直す

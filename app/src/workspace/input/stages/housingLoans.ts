@@ -610,7 +610,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         label: "入居の年月（控除）",
         level: hs === undefined && balanceMode ? "simple" : "detail",
         kind: "ym",
-        help: "住み始めた年月。控除の期間と借入限度額は入居の年で決まります（2022年より前の入居は計算しません）",
+        help: `住み始めた年月。控除の期間と借入限度額は入居の年で決まります（${CREDIT_DATA_FROM_YEAR}年より前の入居は計算しません）`,
         get: (w) => {
           const h = w.request.input.household;
           const v = moveInOf(h, hsOf(w));

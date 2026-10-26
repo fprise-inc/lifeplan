@@ -137,11 +137,11 @@ describe("取り込み", () => {
       delete none.input.household.debts?.[0]?.housing;
       expect(tax(none) - tax(r.request)).toBeGreaterThan(100000);
     }
-    // 令和3年以前に借りたローンは、控除の制度データが無いので条件を置かない
-    const old = run(...base, ...loan("2020-04"));
+    // 平成25年以前に借りたローンは、控除の制度データが無いので条件を置かない
+    const old = run(...base, ...loan("2013-04"));
     expect(old.request.input.household.debts?.[0]?.housing).toBeUndefined();
     expect(old.request.input.household.events).toEqual([]);
-    expect(old.candidates.find((c) => c.collection === "debts")?.note).toContain("2021年以前に借りたローンの控除は計算しません");
+    expect(old.candidates.find((c) => c.collection === "debts")?.note).toContain("2013年以前に借りたローンの控除は計算しません");
   });
 
   it("住宅ローンの必須の欄が足りなければ、そのローンは取り込まない", () => {

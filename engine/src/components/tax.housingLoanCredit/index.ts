@@ -7,7 +7,12 @@
 //   100円未満を切り捨てる。借入限度額・控除率・控除期間は入居の年月で選ぶ（basis anchor moveIn）。子育て世帯・若者夫婦世帯の上乗せは
 //   入居の年の12月31日に40歳未満で配偶者がいる・40歳未満の配偶者がいる・19歳未満の扶養親族がいるか（子の構成員のうち、その年の合計所得金額が
 //   扶養親族の所得の要件（incomeTax.dependentIncomeLimit）以下の子。tax.incomeWithin。改訂2）。
-//   令和3年以前の入居など値の無い年は計算せず N_PARAM_MISSING で知らせる
+//   平成25年以前の入居など値の無い年は計算せず N_PARAM_MISSING で知らせる。控除率が「制度なし」（notApplicable。令和13年以後の入居）や、
+//   借入限度額が0円（令和6年以後の入居の新築のその他の住宅）の区分は、対象外として N_NOT_ELIGIBLE で知らせる（改訂4）
+// - 平成26〜令和3年の入居（特定取得でない取得の借入限度額 limit.nonSpecified に値のある入居の年）: 新築・買取再販は特定取得（消費税8%・10%のかかった
+//   取得）、既存住宅は特定取得でない取得（個人からの取得）とみなし（N_ASSUMED で知らせる）、既存住宅は limit.nonSpecified と住民税の
+//   rate.nonSpecified・limit.nonSpecified を使う。子育て世帯の上乗せの値が無い入居の年は、上乗せの無い値を使う。消費税10%の取得の13年の特例
+//   （period.specialSpecified）の11〜13年目は、建物の取得対価が入力に無いので計算せず N_NOT_SUPPORTED で知らせる（新築・買取再販だけ。改訂4）
 // - 入居の年は確定申告で受ける（firstYear。還付は翌年3月。0003）。2年目からは年末調整で受ける（incomeTax.annual が判定）
 // - 約束の版 1.1: 住民税の控除の上限の基礎に足す額の差し引き（residentBasicOffset。居住年が平成28年〜令和7年のとき48万円。地方税法附則5条の4）を添える
 // 改訂3: 世帯の外の家族（0035 の4）の子は子育ての特例に数えない
@@ -38,7 +43,13 @@ const P = {
   residentLimit: "residentTax.housingLoanCredit.limit",
   residentOffset: "residentTax.housingLoanCredit.basicDeductionOffset",
   dependentLimit: "incomeTax.dependentIncomeLimit",
+  nonSpecified: `${C}.limit.nonSpecified`,
+  special: `${C}.period.specialSpecified`,
+  residentRateNonSpecified: "residentTax.housingLoanCredit.rate.nonSpecified",
+  residentLimitNonSpecified: "residentTax.housingLoanCredit.limit.nonSpecified",
 };
+/** 平成26〜令和3年入居の特定取得のみなし（知らせの ID） */
+const SPECIFIED_ASSUMED = `${C}.specifiedAcquisition`;
 const LIMITS = [
   "new.certified",
   "new.zeh",
@@ -56,7 +67,7 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
   id: "tax.housingLoanCredit",
   title: "住宅借入金等特別控除",
   contract: "1.1",
-  revision: 3,
+  revision: 4,
   requires: { "debt.schedule": ">=1 <2", "tax.incomeWithin": ">=1 <2" },
   params: [...Object.values(P), ...LIMITS, `${C}.limit.used.other`, ...PERIODS],
   reads: ["member.outside", "debt.kind", "debt.debtors", "debt.housing", "residence.to", "member.kind", "member.birth", "relation.type", "relation.a", "relation.b"],
@@ -74,6 +85,7 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
     let rateOf: string | null = null;
     let anchor: string | null = null;
     let firstYear = false;
+    let nonSpecified = false;
     for (const d of loans) {
       const h = d.housing as NonNullable<DebtInput["housing"]>;
       const moveIn = ctx.time.resolve({ event: h.moveIn });
@@ -81,13 +93,23 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
       if (year < moveYear) continue;
       const at = ctx.at(dec);
       const opts = { anchorEvent: h.moveIn };
-      if (!at.has(P.rate, opts) || at.paramRate(P.rate, opts) === null) {
+      if (!at.has(P.rate, opts)) {
         ctx.notice("N_PARAM_MISSING", [P.rate]);
+        continue;
+      }
+      // 控除率が「制度なし」の入居の年は対象外（値が無いのとは分けて知らせる）
+      if (at.paramRate(P.rate, opts) === null) {
+        ctx.notice("N_NOT_ELIGIBLE", [P.rate]);
         continue;
       }
       const other = h.propertyType === "other";
       const period = at.paramCount(`${C}.period.${h.newBuild ? (other ? "newOther" : "new") : other ? "usedOther" : "used"}`, opts) ?? 0;
-      if (year > moveYear + period - 1) continue;
+      // 平成26〜令和3年の入居: 特定取得の区分がある入居の年
+      const oldRegime = at.has(P.nonSpecified, opts) && at.paramYen(P.nonSpecified, opts) !== null;
+      // 消費税10%の取得の13年の特例の11〜13年目（建物の取得対価が要るので計算せず、残高のある年に知らせる）
+      const special = year > moveYear + period - 1 && oldRegime && h.newBuild && at.has(P.special, opts) ? (at.paramCount(P.special, opts) ?? 0) : 0;
+      const inSpecial = year <= moveYear + special - 1;
+      if (year > moveYear + period - 1 && !inSpecial) continue;
       // 12月31日に住んでいるか
       if (h.residence !== undefined) {
         const r = ctx.list<ResidenceInput>("residence").find((x) => x.id === h.residence);
@@ -99,6 +121,10 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
       if (rep.payoff !== null && ctx.time.resolve({ at: rep.payoff }) - ctx.time.resolve({ at: rep.firstPayment }) + 1 < MIN_TERM_MONTHS && yearOf(ctx.time.resolve({ at: rep.payoff })) <= year) continue;
       const balance = rep.yearEnd.find((e) => e.year === year)?.balance ?? yen(0);
       if (balance <= 0) continue;
+      if (inSpecial) {
+        ctx.notice("N_NOT_SUPPORTED", [P.special]);
+        continue;
+      }
       // 負担割合（連帯債務）
       const me = d.debtors.find((x) => x.member === member && x.role !== "guarantor") as DebtInput["debtors"][number];
       const joints = d.debtors.filter((x) => x.role === "joint");
@@ -118,12 +144,15 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
         if (mine > cap) mine = cap;
       }
       eligible = yen(eligible + mine);
+      if (oldRegime) ctx.notice("N_ASSUMED", [SPECIFIED_ASSUMED]);
       if (anchor === null) {
         anchor = h.moveIn;
         firstYear = year === moveYear;
         rateOf = at.paramRate(P.rate, opts) === null ? null : (at.param(P.rate, opts).entry.value as string);
-        // 子育て世帯・若者夫婦世帯（入居の年の12月31日の現況）
-        let childRearing = h.childRearing;
+        const key = `${C}.limit.${h.newBuild ? "new" : "used"}.${h.propertyType === "zeh" && !h.newBuild ? "certified" : h.propertyType}`;
+        // 子育て世帯・若者夫婦世帯（入居の年の12月31日の現況）。上乗せの値が無い入居の年（令和3年以前）と既存のその他の住宅は、上乗せの無い値
+        const withChild = !key.endsWith(".used.other") && at.has(`${key}.childRearing`, opts);
+        let childRearing = withChild ? h.childRearing : false;
         if (childRearing === undefined) {
           const moveDec = monthIndex(moveYear, 12);
           const under = (id: string, ageId: string) => ageMonth(ctx, moveDec, ageId, id) > moveDec;
@@ -138,9 +167,11 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
           const dependent = (id: string) => depLimit === null || ctx.call<{ within: boolean }>("tax.incomeWithin", { member: id, year: moveYear, limit: depLimit }).within;
           childRearing = (spouses.length > 0 && (under(member, P.young) || spouses.some((s) => under(s, P.young)))) || kids.some((k) => under(k.id, P.child) && dependent(k.id));
         }
-        const key = `${C}.limit.${h.newBuild ? "new" : "used"}.${h.propertyType === "zeh" && !h.newBuild ? "certified" : h.propertyType}`;
-        const id = key.endsWith(".used.other") || !childRearing ? key : `${key}.childRearing`;
-        limit = at.paramYen(id, opts);
+        const id = childRearing ? `${key}.childRearing` : key;
+        nonSpecified = oldRegime && !h.newBuild;
+        limit = nonSpecified ? at.paramYen(P.nonSpecified, opts) : at.paramYen(id, opts);
+        // 借入限度額が0円の区分は対象外
+        if (limit === 0) ctx.notice("N_NOT_ELIGIBLE", [key]);
       }
     }
     if (anchor === null || limit === null || rateOf === null || eligible <= 0) return NONE;
@@ -148,12 +179,13 @@ export default defineComponent<{ member: string; year: number }, HousingLoanCred
     const opts = { anchorEvent: anchor };
     const base = eligible < limit ? eligible : limit;
     const credit = at.money.round(ctx.money.mulRate(base, ctx.rate.of(rateOf), "conv.exact"), P.rounding);
-    const rr = at.paramRate(P.residentRate, opts);
+    const rateId = nonSpecified ? P.residentRateNonSpecified : P.residentRate;
+    const rr = at.paramRate(rateId, opts);
     return {
       credit: credit > 0 ? credit : yen(0),
       firstYear,
-      residentRate: rr === null ? null : (at.param(P.residentRate, opts).entry.value as string),
-      residentLimit: at.paramYen(P.residentLimit, opts),
+      residentRate: rr === null ? null : (at.param(rateId, opts).entry.value as string),
+      residentLimit: at.paramYen(nonSpecified ? P.residentLimitNonSpecified : P.residentLimit, opts),
       ...(at.has(P.residentOffset, opts) && at.paramYen(P.residentOffset, opts) !== null ? { residentBasicOffset: at.paramYen(P.residentOffset, opts) as Yen } : {}),
     };
   },
