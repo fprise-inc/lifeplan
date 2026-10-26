@@ -322,3 +322,132 @@ export function resolveKey(key: string, input: Obj, entries: readonly ReadingEnt
 export function resolveAssumedKey(key: string, input: Obj, entries: readonly ReadingEntry[] = READING_ENTRIES): Reading | null {
   return resolveKey(`assumed:${key}`, input, entries) ?? resolveKey(`field:${key}`, input, entries);
 }
+
+// ---- 当て先から鍵へ戻す（0.17 の形の世帯ファイルを、入力画面を作り直すまでの画面の鍵で読むため） ----
+
+const sameJson = (a: unknown, b: unknown): boolean => JSON.stringify(sortKeys(a)) === JSON.stringify(sortKeys(b));
+function sortKeys(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(sortKeys);
+  if (isObj(v)) return Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])]));
+  return v;
+}
+
+/** 表の行の `from` に ID・番号を入れて鍵にする（入れる値が足りなければ null） */
+function fill(from: string, v: { object?: string; member?: string; ids: string[]; ns: number[] }): string | null {
+  let ok = true;
+  let i = 0;
+  let j = 0;
+  const out = from.replace(/\{(object|member|id|n)\}/g, (_m, name: string) => {
+    const x = name === "object" ? v.object : name === "member" ? v.member : name === "id" ? v.ids[i++] : v.ns[j++] === undefined ? undefined : String(v.ns[j - 1]);
+    if (x === undefined) ok = false;
+    return x ?? "";
+  });
+  return ok ? out : null;
+}
+
+/** 当て先の場所の要素の ID から、表の場所の段の値（番号・ID）を集める。合わなければ null */
+function matchSteps(input: Obj, target: Target, item: string, steps: readonly AtStep[], at: readonly string[]): { ids: string[]; ns: number[] } | null {
+  if (steps.length !== at.length) return null;
+  let c = startCursor(input, target, item);
+  if (c === null) return null;
+  const ids: string[] = [];
+  const ns: number[] = [];
+  for (let k = 0; k < steps.length; k++) {
+    const step = steps[k] as AtStep;
+    const want = at[k] as string;
+    if (typeof step === "string") {
+      if (step !== want) return null;
+      c = { node: isObj(c.node) ? c.node[step] : undefined, parent: c.parent, segs: [...c.segs, step] };
+      continue;
+    }
+    const arr = Array.isArray(c.node) ? c.node : [];
+    let index = -1;
+    let cur: Cursor | null = null;
+    for (let i = 0; i < arr.length; i++) {
+      const e = enterElement(c, i);
+      if (e.id === want) {
+        index = i;
+        cur = e.cur;
+        break;
+      }
+    }
+    if ("id" in step) {
+      ids[step.id - 1] = want;
+      c = cur ?? { node: undefined, parent: want, segs: [] };
+      continue;
+    }
+    if (index < 0 || cur === null) return null;
+    if ("n" in step) ns[step.n - 1] = index;
+    else if ("nth" in step && step.nth !== index) return null;
+    c = cur;
+  }
+  return { ids, ns };
+}
+
+/**
+ * 当て先・合成の対策を、0.16 の画面の鍵に戻す。`kind` が "assumed" なら仮の印の欄のキー（前置きなし）、"item" なら差分の key・対策に
+ * 足した項目の鍵。戻した鍵を表で読み直して同じになるものだけを返す（同じ当て先になる鍵が複数あれば、探す決まりの順で最初のもの:
+ * 合成の対策は欄でない鍵を先に、当て先は働き方の期間を探さない鍵を先に）
+ */
+export function keyOf(reading: Reading, input: Obj, kind: "item" | "assumed" = "item", entries: readonly ReadingEntry[] = READING_ENTRIES): string | null {
+  if (reading.kind === "unresolved") return null;
+  const rank = (e: ReadingEntry): number => {
+    if (kind === "assumed") return e.from.startsWith("assumed:") ? 0 : e.from.startsWith("field:") ? 1 : 9;
+    if (e.from.startsWith("assumed:")) return 9;
+    if ("lever" in e.to) return e.from.startsWith("field:") ? 1 : 0;
+    return "find" in e.to && e.to.find !== undefined ? 1 : 0;
+  };
+  const order = [...entries].filter((e) => rank(e) < 9).sort((a, b) => rank(a) - rank(b));
+  for (const e of order) {
+    const to = e.to;
+    let candidate: string | null;
+    if (reading.kind === "lever") {
+      if (!("lever" in to) || to.lever !== reading.lever) continue;
+      if (to.element !== undefined) {
+        if (reading.object === undefined) continue;
+        const target: Target = to.element.target === "assumptions" ? { plan: "assumptions" } : { object: reading.object };
+        const at = to.element.at.map((s) => (typeof s === "string" ? s : reading.object as string));
+        const got = matchSteps(input, target, to.element.item, to.element.at, at);
+        if (got === null) continue;
+        candidate = fill(e.from, { ...got });
+      } else candidate = fill(e.from, { ...(reading.object !== undefined ? { object: reading.object } : {}), ...(reading.member !== undefined ? { member: reading.member } : {}), ids: [], ns: [] });
+    } else {
+      if (!("item" in to) || to.item !== reading.address.item) continue;
+      const t = reading.address.target;
+      const v: { object?: string; member?: string } = {};
+      if (to.target === "assumptions" || to.target === "input") {
+        if (!("plan" in t) || t.plan !== to.target) continue;
+      } else if (to.find === "currentPeriod") {
+        if (!("object" in t)) continue;
+        const period = findObject(input, t.object);
+        const member = period !== undefined && typeof period.member === "string" ? period.member : undefined;
+        if (member === undefined || currentPeriodId(input, member) !== t.object) continue;
+        v.member = member;
+      } else if (to.target === "member") {
+        if (!("member" in t)) continue;
+        v.member = t.member;
+      } else {
+        if (!("object" in t)) continue;
+        v.object = t.object;
+      }
+      const got = matchSteps(input, t, to.item, to.at, reading.address.at);
+      if (got === null) continue;
+      candidate = fill(e.from, { ...v, ...got });
+    }
+    if (candidate === null) continue;
+    const back = resolveKey(candidate, input, entries);
+    // 合成の対策は、表の行が持たせる物（object・member・element）だけを比べる（ほかに書いてある物は、画面の差分の向き先の控え）
+    const strip = (r: Reading | null): unknown => {
+      if (r === null) return null;
+      if (r.kind === "address") return { kind: r.kind, address: r.address };
+      if (r.kind !== "lever" || !("lever" in to)) return r;
+      const keepObject = to.object === true || to.element !== undefined;
+      return { lever: r.lever, ...(keepObject ? { object: r.object } : {}), ...(to.member === true ? { member: r.member } : {}) };
+    };
+    if (back !== null && sameJson(strip(back), strip(reading))) {
+      if (kind === "assumed") return candidate.replace(/^(assumed|field):/, "");
+      return candidate;
+    }
+  }
+  return null;
+}

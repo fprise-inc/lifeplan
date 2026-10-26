@@ -13,6 +13,15 @@ import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/works
 import { Autosaver, type SaveState, type Timers } from "../src/workspace/store/autosave.ts";
 import { makeSnapshot, snapshotDigest, verifySnapshot } from "../src/workspace/snapshots/snapshots.ts";
 import { BODY_FORMAT_VERSION, bodyObject, bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "../src/workspace/store/body.ts";
+import { giveElementIds } from "../src/workspace/store/format017.ts";
+import { migrationId } from "../src/workspace/store/readings.ts";
+
+/** 保存すると並びの要素に ID が付く（0035 の5）。読み戻した世帯と比べるときは、元の世帯にも同じ ID を付ける */
+function withIds<T extends { request: { input: unknown } }>(wh: T): T {
+  const r = structuredClone(wh);
+  giveElementIds(r.request.input as Record<string, unknown>);
+  return r;
+}
 import { keyLines } from "../src/workspace/store/RecoveryPanel.tsx";
 import type { StatementLog } from "../../statement/src/index.ts";
 import { modelHousehold } from "./helpers.ts";
@@ -55,6 +64,26 @@ function sample(): BodyState {
 }
 
 /** 0.14 から: 明細の取り込みの記録（架空。元のファイルは持たず、指紋と番号を消した後の行・FP が決めたこと・世帯の決まりだけ。0034） */
+/**
+ * 0.17 の見本の世帯（0035 の12）: sample() に、贈与者（世帯ファイルでは世帯の外の家族の構成員）・仮の印（値の状態の欄）・欄の差分
+ * （当て先）・表の最後の年の差分（要求の入力）・世帯の外の家族の印のある親を足す。足す・外す・置き換えの組などは、書き出した後に足す
+ */
+function sample017(): BodyState {
+  const s = sample();
+  const self = roles(s.wh.request).find((r) => r.key === "self")!.member;
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  hh.donors = [{ id: "00000000-0000-4000-8000-0000000000d1", kind: "grandparent", of: self.id }];
+  hh.members.push({ id: "00000000-0000-4000-8000-0000000000d2", kind: "parent", birth: { birthYearMonth: "1955-03", bornOnFirst: false }, sex: "male", joins: null, leaves: null, expected: false, support: { dependent: false, cohabiting: false }, outside: { of: self.id, periods: [] } } as (typeof hh.members)[number]);
+  hh.relations = [...(hh.relations ?? []), { type: "parentOf", parent: "00000000-0000-4000-8000-0000000000d2", child: self.id } as NonNullable<typeof hh.relations>[number]];
+  let wh: WorkingHousehold = { ...s.wh, request: req, assumed: { ...s.wh.assumed, "family/00000000-0000-4000-8000-0000000000b9/birth": "仮の値（予定日から）" } };
+  const cat = buildCatalog(wh, self.id, null);
+  const account = cat.items.find((i) => /^field:sav\/[0-9a-f-]{36}\/value$/.test(i.key));
+  const values: Record<string, number> = { "field:assume/endYear": 2085, ...(account !== undefined ? { [account.key]: 5000000 } : {}) };
+  wh = savePlan(wh, cat, { name: "プランD 資産を足す・表を2085年まで", base: null, values, now: NOW }).wh;
+  return { ...s, wh, workspace: { ...s.workspace, shownItems: ["rates:shift", ...(account !== undefined ? [account.key] : [])] } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -128,6 +157,8 @@ async function withSnapshot(s: BodyState): Promise<BodyState> {
   return { ...s, wh: { ...s.wh, snapshots: [{ ...fixed, digest: await snapshotDigest(fixed) }, { ...fixedTk, digest: await snapshotDigest(fixedTk) }] } };
 }
 
+const isLever = (t: unknown): boolean => typeof t === "object" && t !== null && typeof (t as { lever?: unknown }).lever === "string";
+
 function keysOf(v: unknown, out: string[] = []): string[] {
   if (Array.isArray(v)) v.forEach((x) => keysOf(x, out));
   else if (typeof v === "object" && v !== null)
@@ -142,13 +173,13 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   it("保存→読み込みで同じ（現状・案・帯の並び・表示の設定・拡張領域）", () => {
     const s = sample();
     const back = fromBody(bodyOf(s));
-    expect(back.wh).toEqual(s.wh);
+    expect(back.wh).toEqual(withIds(s.wh));
     expect(back.workspace).toEqual(s.workspace);
     expect(back.display).toEqual(s.display);
     expect(back.carry).toEqual(s.carry);
     // 本体が足す meta があっても読める
     const withMeta = JSON.stringify({ ...JSON.parse(bodyOf(s)), meta: { format: "lifeplan.household", formatVersion: BODY_FORMAT_VERSION, customerNo: "A0001" } });
-    expect(fromBody(withMeta).wh).toEqual(s.wh);
+    expect(fromBody(withMeta).wh).toEqual(withIds(s.wh));
   });
 
   it("控え（0.3 から）: 区画 snapshots に置いて読み戻す。household の区画には入れない。控えが無ければ区画を作らない", async () => {
@@ -158,7 +189,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(b.snapshots).toHaveLength(2);
     expect(b.household.snapshots).toBeUndefined();
     const back = fromBody(text);
-    expect(back.wh).toEqual(s.wh);
+    expect(back.wh).toEqual(withIds(s.wh));
     expect(await verifySnapshot(back.wh.snapshots![0]!)).toBe(true);
     // 0.10 から: 持ち帰り用のレポートの書き出しの記録も読み戻す（パスワードの有無だけ。パスワード・宛名は持たない）
     const tk = back.wh.snapshots![1]!;
@@ -171,12 +202,12 @@ describe("世帯ファイルの本文（0011 の2）", () => {
 
   it("黒字のうち貯まる割合（0.11 から。0031）を保存して読み戻す。生活防衛資金は持たない（0.12 から）", () => {
     const back = fromBody(bodyOf(sample()));
-    expect(back.wh.request.input.assumptions?.surplusSaving).toEqual({ ratio: "0.6", changes: [{ from: { at: "2038-04" }, ratio: "0.8" }] });
+    expect(back.wh.request.input.assumptions?.surplusSaving).toEqual({ ratio: "0.6", changes: [{ id: migrationId("assumptions/surplusSaving/changes/0"), from: { at: "2038-04" }, ratio: "0.8" }] });
     expect((back.wh.request.input.assumptions as Record<string, unknown> | undefined)?.emergencyReserve).toBeUndefined();
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.16");
+    expect(BODY_FORMAT_VERSION).toBe("0.17");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -273,10 +304,47 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     }
   });
 
+  it("0.17 の見本を読んで書き戻しても、差分（足す・外す・置き換えの組・読み替えられなかった差分を含む）・値の状態の欄・世帯の外の家族・知らせを失わない", () => {
+    const body = JSON.parse(readFileSync(join(REPO_DIR, "crates", "household-store", "tests", "fixtures", "household-format", "0.17", "body.json"), "utf8")) as Record<string, Record<string, unknown>>;
+    const again = bodyObject(fromBody(JSON.stringify(body))) as unknown as Record<string, Record<string, unknown>>;
+    expect(again.proposals).toEqual(body.proposals);
+    expect(again.workspace!.shownItems).toEqual(body.workspace!.shownItems);
+    // 生年月の無い世帯の外の家族（画面の中では贈与者）は、構成員の並びの最後に書き戻す（中身は同じ）
+    const byId = (r: unknown) => {
+      const x = structuredClone(r) as { input: { household: { members: { id: string }[] } } };
+      x.input.household.members.sort((p, q) => (p.id < q.id ? -1 : 1));
+      return x;
+    };
+    expect(byId(again.household!.request)).toEqual(byId(body.household!.request));
+    expect(again.household!.notices).toEqual(body.household!.notices);
+    expect(again.household!.assumed).toEqual(body.household!.assumed);
+  });
+
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample017())), null, 2) + "\n");
+  });
+
+  it("0.17 の形（0035・0036）: 差分は当て先で、仮の印は値の状態の欄で、贈与者は世帯の外の家族で書き、読み戻すと画面の中の形に戻る", () => {
+    const s = sample017();
+    const stored = bodyObject(s) as unknown as { household: { assumed?: unknown; request: { input: { household: { members: Record<string, unknown>[]; donors?: unknown } } } }; proposals: { diffs: Record<string, unknown>[] }[]; workspace: { shownItems: unknown[] } };
+    const members = stored.household.request.input.household.members;
+    expect(stored.household.request.input.household.donors).toBeUndefined();
+    expect(members.find((m) => m.id === "00000000-0000-4000-8000-0000000000d1")).toEqual({ id: "00000000-0000-4000-8000-0000000000d1", kind: "grandparent", joins: null, leaves: null, expected: false, outside: { of: roles(s.wh.request).find((r) => r.key === "self")!.member.id, periods: [] } });
+    expect(members.find((m) => m.id === "00000000-0000-4000-8000-0000000000b9")?.valueStates).toEqual({ "member.birth": { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "仮の値（予定日から）" } } });
+    expect(stored.household.assumed).toBeUndefined();
+    const diffs = stored.proposals.flatMap((p) => p.diffs);
+    expect(diffs.every((d) => d.key === undefined && d.op === "set")).toBe(true);
+    expect(diffs.find((d) => d.item === "plan.endYear")).toMatchObject({ target: { plan: "input" }, at: [] });
+    expect(diffs.find((d) => d.item === "account.marketValue")).toMatchObject({ at: [] });
+    expect(diffs.filter((d) => isLever(d.target)).map((d) => (d.target as { lever: string }).lever).sort()).toEqual(["livingMonthly", "retireAge"]);
+    expect(stored.workspace.shownItems[0]).toEqual({ target: { lever: "loanRateShift" }, item: null, at: [] });
+    const back = fromBody(JSON.stringify(stored));
+    expect(back.wh).toEqual(withIds(s.wh));
+    expect(back.workspace.shownItems).toEqual(s.workspace.shownItems);
+    // 読み戻して書き直しても同じ（世帯ファイルの形は失わない）
+    expect(bodyObject(back)).toEqual(bodyObject(s));
   });
 });
 

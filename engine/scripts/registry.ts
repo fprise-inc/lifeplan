@@ -4,7 +4,7 @@
 // - 制度の値ID: 製品の制度データ（data/regulation。架空の見本は入れない）
 // 一度載せた ID は消さない。正本から消えた ID は deprecated か removed にしてから外す（0004 の3）
 // あわせて、種類をまたいで同じ文字列の ID が無いこと（0004 の2）と、読み替え表の形（0035 の9）を確かめる
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { OFFICIAL_DEFINITIONS } from "../src/components/index.ts";
 import { CONVENTIONS } from "../src/money/conventions.ts";
@@ -147,6 +147,24 @@ for (const e of readingsDoc.entries) {
       if (typeof st === "string") continue;
       if (st.n !== undefined && (st.n < 1 || st.n > count("n"))) problems.push(`${where}: {n: ${st.n}} に当たる番号が from にありません`);
       if (st.id !== undefined && (st.id < 1 || st.id > count("id"))) problems.push(`${where}: {id: ${st.id}} に当たる ID が from にありません`);
+    }
+  }
+}
+// 本体（crates/household-store）の 0.16 → 0.17 の変換の段が組み込む写し（JSON。YAML の正本から作る。手で書き換えない）
+{
+  const places = Object.fromEntries(
+    load("items.yaml", "item")
+      .filter((e) => e.path !== undefined)
+      .map((e) => [e.id, { collection: e.collection ?? null, path: e.path }]),
+  );
+  const text = `${JSON.stringify({ $comment: "0035 の9: registry/readings.yaml と registry/items.yaml の値の場所の写し（engine の npm run gen が作る。手で書き換えない）", entries: readingsDoc.entries, places }, null, 1)}\n`;
+  const path = join(REPO_DIR, "crates", "household-store", "data", "readings.json");
+  const current = existsSync(path) ? readFileSync(path, "utf8") : "";
+  if (current !== text) {
+    if (check) problems.push("crates/household-store/data/readings.json: 読み替え表と食い違っています（npm run gen で作り直す）");
+    else {
+      mkdirSync(join(REPO_DIR, "crates", "household-store", "data"), { recursive: true });
+      writeFileSync(path, text);
     }
   }
 }

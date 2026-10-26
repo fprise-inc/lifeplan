@@ -10,6 +10,8 @@ import { box, household, member, period, realPacks, uid } from "./helpers.ts";
 type Req = EngineRequest;
 type Flow = EngineResult["flows"][number];
 type Obj = Record<string, unknown>;
+/** 計算の結果（お金の動き・年ごとの行・表・要約・見出しの知らせ）。入力の指紋は比べない */
+const results = (r: EngineResult) => JSON.stringify([r.flows, r.annual, r.table, r.summary, (r.header as { notices?: unknown }).notices ?? null]);
 const H = uid("fh");
 const W = uid("fw");
 const at = (ym: string) => ({ at: ym });
@@ -296,6 +298,25 @@ describe("贈与税（gift.tax）: 按分の端数と贈与者（donors）", () 
     expect(giver(req(H), H)).toBe("parent");
     expect(giver(req(H), uid("fc"))).toBe("grandparent");
     expect(call<GiftTaxOutput>(req(W), "gift.tax", { member: H, year: 2026 }).tax).toBe(530000);
+  });
+  it("形式 0.17 の世帯の外の家族（生年月の無い outside の構成員）は、同じ ID の贈与者として読む（0035 の4。結果は donors と同じ）", () => {
+    const D = uid("fdonor");
+    const list = [
+      { home: 0, giver: "parent", donor: D, amount: 15000000, taxMethod: "settlement", housingExemption: "none" },
+      { home: 1, giver: "parent", donor: D, amount: 15000000, taxMethod: "settlement", housingExemption: "none" },
+    ];
+    const asDonors = gifts(list, [{ id: D, kind: "parent" }], 2);
+    const asMember = edit(gifts(list, [], 2), (h) => {
+      delete h.donors;
+      (h.members as Obj[]).push({ id: D, kind: "parent", joins: null, leaves: null, expected: false, outside: { periods: [] } });
+    });
+    expect(tax(asMember).tax).toBe(780000);
+    const a = runEngine(asDonors, realPacks(), {});
+    const b = runEngine(asMember, realPacks(), {});
+    expect(results(b)).toBe(results(a));
+    // 生年月のある世帯の外の家族は、今までの構成員と同じに読む（世帯の外の家族の計算はまだ入れていない）
+    const parent = edit(gifts([]), (h) => ((h.members as Obj[])[1] as Obj).outside = { periods: [] });
+    expect(results(runEngine(parent, realPacks(), {}))).toBe(results(runEngine(gifts([]), realPacks(), {})));
   });
   it("贈与者の ID は donors に無いと E_ARGUMENT", () => {
     const req = gifts([{ giver: "parent", donor: uid("fnone"), amount: 1000000 }]);

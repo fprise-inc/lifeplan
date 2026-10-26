@@ -1233,6 +1233,14 @@ entries:
     replacedBy: null
     collection: member
     path: [leaves]
+  - id: member.outside
+    status: active
+    label: "世帯の外の家族（0035 の4。家計を世帯と別にする家族。生年月・性別を省ける）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: member
+    path: [outside]
   - id: member.sex
     status: active
     label: "性別"

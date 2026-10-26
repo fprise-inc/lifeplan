@@ -96,7 +96,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
   const have = new Set(Object.keys(wh.request.input.assumptions?.assetReturns ?? {}));
   const endYear = field({
     key: "assume/endYear",
-    item: null,
+    item: "plan.endYear",
     label: "表の最後の年",
     level: "detail",
     kind: "int",

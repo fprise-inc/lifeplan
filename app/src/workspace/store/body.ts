@@ -1,5 +1,7 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.16。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）:
+// 本文の区画（形式の版 0.17。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
+// 0.17 から（0035・0036）: 差分は当て先で、仮の印は物の値の状態の欄で、贈与者は世帯の外の家族の構成員で書き、並びの要素は ID を持つ。
+// 画面の中は 0.16 と同じ形のまま使い、ここで読み書きするときに format017.ts で直す（入力画面を作り直すまで）
 // - meta: 形式名・形式の版・保存日時・アプリの版・表示用の顧客番号、誰が直したか（保存した人・改訂の履歴・出てくるメンバーの表示名。本体が入れる。0023 の6）
 // - household: 現状の世帯（計算の要求と、画面の側の値: 呼び名・定年後の予定・FP用のメモとその行ごとの書いた人・万一の想定の前提・足した項目など）。
 //   0.9 から: 教育の目標の保育所の段の保育の時間・自治体の水準の割合と、給食費の選び方（0029。保育所の段の空の月額は収入から自動で計算する読み方）
@@ -34,10 +36,11 @@ import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
 import { readBsColumns, readBsGuide, readBsPoints } from "../balanceTab.ts";
 import { readMoneyThree } from "../moneyThree.ts";
 import { readLog, type StatementLog } from "../../../../statement/src/index.ts";
+import { fromStoredBody, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.16";
+export const BODY_FORMAT_VERSION = "0.17";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -84,7 +87,7 @@ export const EMPTY_CARRY: BodyState["carry"] = { extDefinitions: {}, ext: {} };
 
 export function bodyObject(s: BodyState): HouseholdBody {
   const { proposals, hearing, snapshots, statements, ...household } = s.wh;
-  return {
+  return toStoredBody({
     household,
     proposals: proposals.map(({ name, ...p }) => ({ ...p, title: name })),
     hearing: hearing ?? null,
@@ -94,7 +97,7 @@ export function bodyObject(s: BodyState): HouseholdBody {
     display: s.display,
     extDefinitions: s.carry.extDefinitions,
     ext: s.carry.ext,
-  };
+  } as unknown as Record<string, unknown>) as unknown as HouseholdBody;
 }
 
 /** 明細の取り込みの記録に、残す中身があるか（空の記録は区画を作らない） */
@@ -112,8 +115,10 @@ const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is
 
 /** 本文の JSON から画面の側の状態へ（形の合わない本文は E_BODY_SHAPE） */
 export function fromBody(json: string): BodyState {
-  const b = JSON.parse(json) as unknown;
-  if (!isObj(b) || !isObj(b.household) || !isObj(b.household.request)) throw new Error("E_BODY_SHAPE");
+  const raw = JSON.parse(json) as unknown;
+  if (!isObj(raw) || !isObj(raw.household) || !isObj(raw.household.request)) throw new Error("E_BODY_SHAPE");
+  const b = fromStoredBody(raw);
+  if (!isObj(b.household) || !isObj(b.household.request)) throw new Error("E_BODY_SHAPE");
   const { snapshots: _inHousehold, statements: _st, ...h } = b.household as unknown as Partial<WorkingHousehold> & { request: EngineRequest };
   void _inHousehold;
   void _st;

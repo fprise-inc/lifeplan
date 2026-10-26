@@ -24,6 +24,7 @@ pub mod member;
 pub mod migrate;
 pub mod numbering;
 pub mod office;
+pub mod readings;
 pub mod recovery;
 pub mod secret;
 pub mod statement_dict;

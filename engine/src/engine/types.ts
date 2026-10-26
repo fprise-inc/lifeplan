@@ -29,13 +29,23 @@ export interface ValueBox<T> {
 
 export interface MemberInput {
   readonly id: string;
-  readonly kind: "self" | "spouse" | "child" | "parent" | "grandparent" | "other";
+  readonly kind: "self" | "spouse" | "child" | "parent" | "grandparent" | "sibling" | "grandchild" | "other";
+  /** 世帯の外の家族（outside）だけ省ける。省いた人は計算の構成員にしない（readOutsideFamily） */
   readonly birth: Birth;
   readonly sex: "female" | "male";
   readonly joins: Timepoint | null;
   readonly leaves: Timepoint | null;
   readonly expected: boolean;
   readonly support?: { readonly dependent: boolean; readonly cohabiting: boolean; readonly allowance?: Yen };
+  /** 0035 の4: 世帯の外の家族（家計を世帯と別にする家族）。世帯の外の家族の計算はまだ入れていない（今の構成員と同じに読む） */
+  readonly outside?: OutsideFamilyInput;
+}
+
+/** 0035 の4: 世帯の外の家族の印 */
+export interface OutsideFamilyInput {
+  readonly of?: string;
+  readonly periods: readonly { readonly id: string; readonly from: Timepoint | null; readonly to: Timepoint | null; readonly living?: boolean; readonly income?: boolean }[];
+  readonly employeeInsurance?: boolean;
 }
 
 export type RelationInput =
