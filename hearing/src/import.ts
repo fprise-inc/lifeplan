@@ -568,7 +568,7 @@ function importWork(c: Ctx, h: Household, adults: Adults, baseMonth: string): Ma
       p.healthInsurance = { kind };
       if (kind === "union" || kind === "mutualAid") {
         // 組合ごとの保険料率はシートで聞かない（顧客には分かりにくい）。目安で補い、推定の印を付ける
-        const e = healthRateEstimate(kind);
+        const e = healthRateEstimate(kind, { month: baseMonth });
         p.healthInsurance.employeeRate = { value: e.value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic", basis: e.basis } };
         c.field(id, "hs.work.healthInsurance", n, "employment.healthInsurance.employeeRate", "/healthInsurance/employeeRate", "estimated");
       }

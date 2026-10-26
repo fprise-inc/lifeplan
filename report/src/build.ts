@@ -281,6 +281,7 @@ const PACK_LABEL: Record<string, string> = {
   "master.care.statistics": "介護の統計",
   "master.wageStats": "賃金・事業所得の統計",
   "master.retirementBenefit": "退職給付の統計",
+  "master.living.statistics": "生活費の統計",
 };
 
 const INSURANCE_LABEL: Record<string, string> = {

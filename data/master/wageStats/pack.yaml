@@ -5,9 +5,13 @@
 #   年齢階級別の表（きまって支給する現金給与額・年間賞与その他特別給与額）は統計表の Excel にしかないので、まだ入れていない。入れるときの値IDの形は
 #   wageStats.byAge.<contractualMonthly|annualBonus>.<regular|nonRegular>.<male|female>.<all|large|medium|small>（段階表。upTo が年齢階級の上限の年齢、amount が額）。
 #   昇給カーブ wageStats.default（income.salary が読む）も同じ表から作る（まだ無い）
+# 2026.2.0: 原本（e-Stat の統計表の Excel・概況の PDF・人事院の CSV・個人企業経済調査の結果の概要の PDF）を取得して照らし合わせ、2026.1.0 の値に reviewed の行を足した
+#   （値は変わらない。照合: claude、2026-10-26）。きまって支給する現金給与額・年間賞与その他特別給与額の年齢計（wageStats.contractualMonthly.*・wageStats.annualBonus.*）と
+#   年齢階級別・企業規模別の表（wageStats.byAge.*）、昇給カーブ wageStats.default（正社員・正職員 男女計 企業規模計の年収の比。既定では使わない）、
+#   国家公務員の行政職俸給表（一）の平均給与月額（年齢計・年齢階層別。wageStats.civilServant.*）を足した
 packId: master.wageStats
 formatVersion: "0.1"
-version: "2026.1.0"
+version: "2026.2.0"
 features: []
 title: 賃金と事業所得の公的統計の目安
 requires: {}

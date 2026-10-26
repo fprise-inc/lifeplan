@@ -30,6 +30,8 @@ export interface MasterValue {
 /** 制度データの適用期間ごとの行（to が null は次の行の前日まで） */
 export interface DatedValue {
   readonly from: string;
+  /** 保険者ごとの値（協会けんぽの支部など）の保険者のコード */
+  readonly insurer?: string;
   readonly to: string | null;
   readonly rev: number;
   readonly value: number | string | readonly BracketStep[] | readonly GradeRow[];
@@ -46,11 +48,13 @@ export function masterAmount(id: string): number | null {
 }
 
 /**
- * 制度データのその日（YYYY-MM-DD）の値。適用開始の前なら最初の行、終わりの後は最後の行（延長の仮定。0007 の追記）。
+ * 制度データのその日（YYYY-MM-DD）の値。適用開始の前なら最初の行、終わりの後は最後の行（延長の仮定。0007 の追記）。日が null なら最後の行。
+ * 保険者ごとの値は insurer で選ぶ。
  * 推定の目安なので、行が無い日でも止めずに近い行を使う
  */
-export function regulationValue(id: string, date: string): DatedValue["value"] | null {
-  const rows = REGULATION_VALUES[id] ?? [];
+export function regulationValue(id: string, date: string | null, insurer?: string): DatedValue["value"] | null {
+  const rows = (REGULATION_VALUES[id] ?? []).filter((r) => insurer === undefined || r.insurer === insurer);
+  if (date === null) return rows.at(-1)?.value ?? null;
   let hit: DatedValue | undefined;
   for (const r of rows) if (r.from <= date) hit = r;
   return (hit ?? rows[0])?.value ?? null;

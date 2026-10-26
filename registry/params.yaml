@@ -1718,6 +1718,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: living.statistics.basicMonthly
+    status: active
+    label: "家計調査（総務省）2025年 二人以上の世帯の世帯人員別の1か月の消費支出から、住居・教育・自動車等関係費を除いた額（upTo は世帯人員。1人の段は値なし〔単身世帯はこの表に無い〕、最後の段は6人以上）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: nisa.annualLimit.growth
     status: active
     label: "NISA の成長投資枠の年間投資枠"
@@ -2672,9 +2678,51 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: retirementBenefit.company.highSchoolManual
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 会社都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.company.highSchoolOffice
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 会社都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.company.university
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 会社都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.earlyIncentive.highSchoolManual
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 早期優遇退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.earlyIncentive.highSchoolOffice
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 早期優遇退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.earlyIncentive.university
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 早期優遇退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: retirementBenefit.mandatory.highSchoolManual
     status: active
     label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.mandatory.highSchoolManual.byService
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額の勤続年数階級別（勤続20年以上かつ45歳以上・高校卒（現業職）・退職給付制度計。upTo は勤続年数の上限。20年未満の段は値なし）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2684,21 +2732,87 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: retirementBenefit.mandatory.highSchoolOffice.byService
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額の勤続年数階級別（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）・退職給付制度計。upTo は勤続年数の上限。20年未満の段は値なし）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: retirementBenefit.mandatory.university
     status: active
     label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
     replacedBy: null
+  - id: retirementBenefit.mandatory.university.byService
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額の勤続年数階級別（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）・退職給付制度計。upTo は勤続年数の上限。20年未満の段は値なし）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: retirementBenefit.prevalence
     status: active
-    label: "就労条件総合調査（厚生労働省）令和5年 退職給付（一時金・年金）制度がある企業の割合（企業規模計）"
+    label: "就労条件総合調査（厚生労働省）令和5年 退職給付（一時金・年金）制度がある企業の割合（企業規模計。常用労働者30人以上の民営企業）"
     since: draft
     aliases: []
     replacedBy: null
   - id: retirementBenefit.prevalence.bySize
     status: active
     label: "就労条件総合調査（厚生労働省）令和5年 退職給付（一時金・年金）制度がある企業の割合（企業規模別。upTo は常用労働者数の上限、rate が割合）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.smallFirm.company.highSchool
+    status: active
+    label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の会社都合退職の退職金支給額（高校卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.smallFirm.company.juniorCollege
+    status: active
+    label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の会社都合退職の退職金支給額（高専・短大卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.smallFirm.company.university
+    status: active
+    label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の会社都合退職の退職金支給額（大学卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.smallFirm.voluntary.highSchool
+    status: active
+    label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（高校卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.smallFirm.voluntary.juniorCollege
+    status: active
+    label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（高専・短大卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.smallFirm.voluntary.university
+    status: active
+    label: "中小企業の賃金・退職金事情（東京都産業労働局）令和6年版 第8表 モデル退職金の自己都合退職の退職金支給額（大学卒・調査産業計。従業員10〜299人の都内の中小企業。upTo は勤続年数の上限。各段は表の勤続年数〔1・3・5・10・15・20…年〕の額を次の勤続年数の前の年まで当てる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.voluntary.highSchoolManual
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 自己都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（現業職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.voluntary.highSchoolOffice
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 自己都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: retirementBenefit.voluntary.university
+    status: active
+    label: "就労条件総合調査（厚生労働省）令和5年 自己都合退職者1人平均退職給付額（勤続20年以上かつ45歳以上・大学・大学院卒（管理・事務・技術職）。一時金と年金の現価の計）"
     since: draft
     aliases: []
     replacedBy: null
@@ -3380,45 +3494,303 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: wageStats.annualBonus.nonRegular.female
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員以外・女・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.annualBonus.nonRegular.male
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員以外・男・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.annualBonus.regular.female
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員・女・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.annualBonus.regular.male
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年間賞与その他特別給与額（正社員・正職員・男・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: wageStats.business.operatingProfit
     status: active
     label: "個人企業経済調査（総務省）2025年調査 1企業当たりの年間営業利益（2024年の実績・産業計）"
     since: draft
     aliases: []
     replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.female.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.female.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.female.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.female.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.male.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.male.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.male.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.nonRegular.male.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員以外・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.regular.female.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.regular.female.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.regular.female.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.regular.female.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.regular.male.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.regular.male.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.regular.male.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.annualBonus.regular.male.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別の年間賞与その他特別給与額（正社員・正職員・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.nonRegular.female.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.nonRegular.female.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.nonRegular.female.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.nonRegular.female.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.nonRegular.male.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.nonRegular.male.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.nonRegular.male.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.nonRegular.male.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員以外・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.regular.female.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.regular.female.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.regular.female.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.regular.female.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・女・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.regular.male.all
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・企業規模計（10人以上）。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.regular.male.large
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・1,000人以上。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.regular.male.medium
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・100～999人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.byAge.contractualMonthly.regular.male.small
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の年齢階級別のきまって支給する現金給与額（月額）（正社員・正職員・男・10～99人。民営事業所。upTo は年齢階級の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.civilServant.monthly
+    status: active
+    label: "国家公務員給与等実態調査（人事院）令和7年 行政職俸給表（一）の平均給与月額（年齢計・学歴計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.civilServant.monthlyByAge
+    status: active
+    label: "国家公務員給与等実態調査（人事院）令和7年 行政職俸給表（一）の年齢階層別の平均給与月額（学歴計。upTo は年齢階層の上限の年齢）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.contractualMonthly.nonRegular.female
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員以外・女・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.contractualMonthly.nonRegular.male
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員以外・男・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.contractualMonthly.regular.female
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員・女・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.contractualMonthly.regular.male
+    status: active
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者のきまって支給する現金給与額（月額）（正社員・正職員・男・年齢計・企業規模計。民営事業所）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: wageStats.default
+    status: active
+    label: "昇給カーブの係数（賃金構造基本統計調査 令和7年。正社員・正職員・男女計・企業規模計の年齢階級ごとの年収〔きまって支給する現金給与額×12＋年間賞与その他特別給与額〕を、～19歳を1とした比。upTo が年齢、rate が係数）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: wageStats.partTimeHourly.female
     status: active
-    label: "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり賃金（女・年齢計・企業規模計）"
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり所定内給与額（女・年齢計・企業規模計。常用労働者計）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.partTimeHourly.male
     status: active
-    label: "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり賃金（男・年齢計・企業規模計）"
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 短時間労働者の1時間当たり所定内給与額（男・年齢計・企業規模計。常用労働者計）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.scheduledMonthly.nonRegular.female
     status: active
-    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額の月額（正社員・正職員以外・女・年齢計・企業規模計）"
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員以外・女・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.scheduledMonthly.nonRegular.male
     status: active
-    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額の月額（正社員・正職員以外・男・年齢計・企業規模計）"
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員以外・男・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.scheduledMonthly.regular.female
     status: active
-    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額の月額（正社員・正職員・女・年齢計・企業規模計）"
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員・女・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
     replacedBy: null
   - id: wageStats.scheduledMonthly.regular.male
     status: active
-    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額の月額（正社員・正職員・男・年齢計・企業規模計）"
+    label: "賃金構造基本統計調査（厚生労働省）令和7年 一般労働者の所定内給与額（月額）（正社員・正職員・男・年齢計・企業規模計。民営事業所）"
     since: draft
     aliases: []
     replacedBy: null

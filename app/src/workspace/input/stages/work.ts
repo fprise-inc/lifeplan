@@ -75,8 +75,8 @@ export function convertPeriod(p: EmploymentPeriod, type: string, member: Member 
 }
 
 /** 健保組合・共済の料率が分からないときの目安（被保険者の負担分。ヒアリングシートの取り込みと同じ hearing/src/estimates.ts の目安） */
-const unionRate = (kind: "union" | "mutualAid") => {
-  const e = healthRateEstimate(kind);
+const unionRate = (kind: "union" | "mutualAid", branch: string) => {
+  const e = healthRateEstimate(kind, { branch });
   return { value: e.value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic", basis: e.basis } };
 };
 
@@ -89,7 +89,7 @@ export function fixHealthInsurance(hi: { kind: string; [key: string]: unknown },
     delete hi.childSupportEmployeeRate;
   } else {
     delete hi.insurer;
-    if (hi.kind === "union" || hi.kind === "mutualAid") hi.employeeRate ??= unionRate(hi.kind);
+    if (hi.kind === "union" || hi.kind === "mutualAid") hi.employeeRate ??= unionRate(hi.kind, defaultBranch);
     else {
       delete hi.employeeRate;
       delete hi.careEmployeeRate;

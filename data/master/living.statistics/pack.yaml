@@ -1,0 +1,12 @@
+# 生活費の公的統計の目安（0007 の1: マスタデータ master.living.statistics。基本生活費の推定の目安に使う）
+# 2026.1.0: 最初の版。総務省「家計調査」家計収支編 二人以上の世帯 詳細結果表 2025年 第3-1表（世帯人員別）の消費支出から、住居・教育・自動車等関係費を除いた額。
+#   原本（e-Stat の統計表の Excel）と照らし合わせた（reviewed。照合: claude、2026-10-26）。単身世帯はこの表に無いので、1人の段は値を書いていない
+packId: master.living.statistics
+formatVersion: "0.1"
+version: "2026.1.0"
+features: []
+title: 生活費の公的統計の目安
+requires: {}
+license:
+  values: CC0-1.0
+  sources: 出典ごとの条件（各値の sources に記載。政府統計は出典を示して利用する。加工した旨を表示する）
