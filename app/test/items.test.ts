@@ -118,8 +118,8 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     const benefits = wh.request.input.household.retirementBenefits!;
     expect(benefits.length).toBeGreaterThan(0);
     for (const b of benefits) {
-      expect(groupKeys(wh, "retirement")).toContain(`work/benefit/${b.id}`);
-      expect(groupKeys(wh, "work")).not.toContain(`work/benefit/${b.id}`);
+      expect(groupKeys(wh, "retirement")).toContain(`retirement/${b.id}`);
+      expect(groupKeys(wh, "work").some((k) => k.includes(b.id))).toBe(false);
     }
     const workRo = allFields(itemStage(wh, "work") as StageDef).filter((f) => f.readOnly !== undefined && f.label === "退職金・企業年金");
     expect(workRo.length).toBeGreaterThan(0);
@@ -130,11 +130,11 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     expect(dc).toBeDefined();
     expect(dc!.groups[0]!.fields.every((f) => f.readOnly === "貯蓄・運用のカードで入れます")).toBe(true);
     expect(dc!.groups[0]!.fields[0]!.get(ideco).value).toMatch(/から$/);
-    // 「＋ 退職金を入れる」も退職金・企業年金のカード
+    // 「＋ 退職金・企業年金を足す」も退職金・企業年金のカード
     const civil = open("civilServant");
     const acts = (itemStage(civil, "retirement") as StageDef).sections.flatMap((s) => s.actions.map((a) => a.key));
-    expect(acts.some((k) => k.endsWith("/addBenefit"))).toBe(true);
-    expect((itemStage(civil, "work") as StageDef).sections.flatMap((s) => s.actions.map((a) => a.key)).some((k) => k.endsWith("/addBenefit"))).toBe(false);
+    expect(acts.some((k) => k.endsWith("/add") && k.startsWith("retirement/"))).toBe(true);
+    expect((itemStage(civil, "work") as StageDef).sections.flatMap((s) => s.actions.map((a) => a.key)).some((k) => k.startsWith("retirement/"))).toBe(false);
   });
 
   it("介護・親: 世帯の外の家族は家族のカードから、介護の費用はライフイベントから移す（もとのカードは読むだけの1行）", () => {
@@ -240,11 +240,11 @@ describe("カードの状態（4つ）", () => {
     expect(statusOf({ ...base, hasData: false })).toBe("missing");
   });
 
-  it("モデル世帯（会社員の夫婦と子2人）: 働き方と収入（定年で辞めた後の失業給付を入れていない）・車・介護・親・相続・贈与が未入力。ほかは入力済み", () => {
+  it("モデル世帯（会社員の夫婦と子2人）: 働き方と収入（定年で辞めた後の失業給付を入れていない）・保険（終身保険の死亡保険金が無い。0055）・車・介護・親・相続・贈与が未入力。ほかは入力済み", () => {
     const wh = open("salariedCoupleTwoKids");
     const items = inputItems(wh);
-    expect(items.filter((i) => i.status === "missing").map((i) => i.id)).toEqual(["work", "car", "care", "inheritance"]);
-    expect(progressOf(items)).toEqual({ total: 14, done: 10, est: 0, missing: 4, na: 0 });
+    expect(items.filter((i) => i.status === "missing").map((i) => i.id)).toEqual(["work", "insurance", "car", "care", "inheritance"]);
+    expect(progressOf(items)).toEqual({ total: 14, done: 9, est: 0, missing: 5, na: 0 });
     // 失業給付を「受け取らない」と決めると、働き方と収入は入力済み
     const decided = notApplicableCard(wh, "work");
     expect(byId(inputItems(decided), "work").status).toBe("done");
@@ -345,7 +345,7 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     const wh = notApplicableCard(open("salariedCoupleTwoKids", ["MEMO-MARK-home"]), "work");
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", onLevel: () => undefined }));
     expect(html).not.toContain("data-first-guide");
-    expect(html).toContain('data-progress-missing="3"');
+    expect(html).toContain('data-progress-missing="4"');
     expect(html).not.toContain("MEMO-MARK-home");
     expect(html).toContain("項目を追加");
   });

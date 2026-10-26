@@ -148,6 +148,58 @@
         "notIncluded": { "description": "目安に含めていない決まり（いつも同じ一覧）", "type": "array", "items": { "type": "string" } }
       }
     },
+    "protectionBreakdown": {
+      "description": "必要保障額の内訳（0054）。必要な資金は毎年の分（expenses の合計）と一時の分（lump の合計）、準備できる資金も毎年の分（resources）と一時の分（lumpResources）。合計は年の expenses・resources と同じ。creditLife は団信で消える住宅ローンの返済の額（住居費から除いた額。見せるだけ）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expenses", "lump", "resources", "lumpResources", "creditLife"],
+      "properties": {
+        "expenses": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["living", "housing", "education", "premiums", "care", "taxSi", "other"],
+          "properties": {
+            "living": { "description": "遺族の生活費", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "housing": { "description": "住居費（団信で消えるローンを除く）", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "education": { "description": "教育費（保育料を含む）", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "premiums": { "description": "保険料（亡くなった人が被保険者の契約を除く）", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "care": { "description": "介護の費用", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "taxSi": { "description": "遺族の税と社会保険料", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "other": { "description": "そのほか（周期的な支出・FP顧問料・遺族の支出・車）", "$ref": "urn:financia:schema:common#/$defs/yen" }
+          }
+        },
+        "lump": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["funeral", "reserve"],
+          "properties": {
+            "funeral": { "description": "整理資金", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "reserve": { "description": "予備の生活資金", "$ref": "urn:financia:schema:common#/$defs/yen" }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["survivorPension", "survivorIncome", "publicSupport"],
+          "properties": {
+            "survivorPension": { "description": "遺族年金", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "survivorIncome": { "description": "遺族の収入（給与・年金など）", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "publicSupport": { "description": "児童手当・教育の公的支援", "$ref": "urn:financia:schema:common#/$defs/yen" }
+          }
+        },
+        "lumpResources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["retirementAllowance", "dcLump", "condolence"],
+          "properties": {
+            "retirementAllowance": { "description": "死亡退職金", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "dcLump": { "description": "確定拠出年金の死亡一時金", "$ref": "urn:financia:schema:common#/$defs/yen" },
+            "condolence": { "description": "弔慰金", "$ref": "urn:financia:schema:common#/$defs/yen" }
+          }
+        },
+        "creditLife": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+      }
+    },
     "protection": {
       "description": "6.3: 必要保障額の推移（構成員ごとに「この年に亡くなったら」を1年ずつずらす）。積み上げ方式は金融資産を含む額と含まない額、逆算方式は資産が尽きない最小の保険金。加入中の死亡保険金と並べる",
       "type": "object",
@@ -180,7 +232,18 @@
                     "expenses": { "$ref": "urn:financia:schema:common#/$defs/yen" },
                     "resources": { "$ref": "urn:financia:schema:common#/$defs/yen" },
                     "lumpSum": { "$ref": "urn:financia:schema:common#/$defs/yen" },
-                    "assets": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+                    "assets": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+                    "breakdown": { "$ref": "#/$defs/protectionBreakdown" },
+                    "coverageBy": {
+                      "description": "加入中の死亡保険金の契約ごとの内訳（0の契約は入れない。0054）",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["object", "amount"],
+                        "properties": { "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "amount": { "$ref": "urn:financia:schema:common#/$defs/yen" } }
+                      }
+                    }
                   }
                 }
               }
@@ -218,7 +281,8 @@
                     "benefit": { "type": "string" },
                     "amount": { "$ref": "urn:financia:schema:common#/$defs/yen" },
                     "from": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
-                    "to": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }
+                    "to": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+                    "insured": { "description": "この保障の被保険者（契約の被保険者と違うときだけ。0054）", "$ref": "urn:financia:schema:common#/$defs/uuid" }
                   }
                 }
               }
@@ -236,7 +300,18 @@
               "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "premium": { "$ref": "urn:financia:schema:common#/$defs/yen" },
               "deathBenefit": { "$ref": "urn:financia:schema:common#/$defs/yen" },
-              "surrenderValue": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+              "surrenderValue": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+              "paid": { "description": "その年の年末までの払込保険料の累計（契約の月から。0054）", "$ref": "urn:financia:schema:common#/$defs/yen" },
+              "others": {
+                "description": "契約の被保険者でない人が被保険者の保障（家族型・家族特約）の、その人ごとの年末の死亡保障額（0054）",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["member", "deathBenefit"],
+                  "properties": { "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "deathBenefit": { "$ref": "urn:financia:schema:common#/$defs/yen" } }
+                }
+              }
             }
           }
         }

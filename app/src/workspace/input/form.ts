@@ -336,6 +336,8 @@ export function plain(o: {
   level: Level;
   kind: "int" | "pct" | "decimal" | "select" | "ym" | "bool" | "text" | "yen";
   basis?: YenBasis;
+  /** 円の欄の既定の単位（省略は万円。保険料・入院日額など小さい額は円） */
+  unit?: YenUnit;
   options?: Option[];
   suffix?: string;
   min?: number;
@@ -354,6 +356,7 @@ export function plain(o: {
 }): FieldDef {
   const kindPart: Record<string, unknown> = { kind: o.kind };
   if (o.kind === "yen") kindPart.basis = o.basis ?? "once";
+  if (o.kind === "yen" && o.unit !== undefined) kindPart.unit = o.unit;
   if (o.kind === "select") kindPart.options = o.options ?? [];
   if (o.suffix !== undefined) kindPart.suffix = o.suffix;
   if (o.min !== undefined) kindPart.min = o.min;

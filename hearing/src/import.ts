@@ -849,10 +849,10 @@ function importHousing(c: Ctx, h: Household, adults: Adults, asOf: string, baseM
 }
 
 /**
- * 住宅ローン控除の仮の条件を置く最初の入居の年（令和4年。計算エンジンの控除の制度データがこの年の入居から。入力の画面の
+ * 住宅ローン控除の仮の条件を置く最初の入居の年（平成26年。計算エンジンの控除の制度データがこの年の入居から。入力の画面の
  * app/src/workspace/input/housingCredit.ts と同じ決まり）
  */
-const CREDIT_DATA_FROM_YEAR = 2022;
+const CREDIT_DATA_FROM_YEAR = 2014;
 const CREDIT_ASSUMED = "仮の条件（入居は借入の年月・新築は省エネ基準適合住宅、中古は一般の住宅・持分は債務者が100%）で住宅ローン控除を計算しています";
 
 function importLoan(c: Ctx, h: Household, adults: Adults, n: number, asOf: string, baseMonth: string, ownId: string | null): void {

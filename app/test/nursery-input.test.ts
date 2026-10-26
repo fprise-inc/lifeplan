@@ -22,7 +22,8 @@ describe("保育園の入力（簡易）", () => {
     wh = toggle.set(wh, false);
     expect(nurseryStages(wh)).toEqual([]);
     wh = fieldOf(wh, "/nursery").set(wh, true);
-    expect(nurseryStages(wh)).toEqual([{ stage: "nursery" }]);
+    // 新しく足す段は要素の ID を持つ（0035 の5）
+    expect(nurseryStages(wh)).toEqual([{ id: expect.any(String), stage: "nursery" }]);
   });
 
   it("通い始めの既定は、その子の育児休業の終わりの翌月（無ければ1歳の学年の4月）", () => {

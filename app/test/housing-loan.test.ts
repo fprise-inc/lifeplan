@@ -104,7 +104,7 @@ describe("住宅ローン控除の仮の条件", () => {
     expect(() => preview(w.request)).not.toThrow();
   });
 
-  it("開いた世帯の、控除の条件の無いローンにも仮の条件を置く（令和3年以前に借りたローンには置かない）", () => {
+  it("開いた世帯の、控除の条件の無いローンにも仮の条件を置く（平成25年以前に借りたローンには置かない）", () => {
     const req = modelHousehold("housingPurchase");
     const d = req.input.household.debts![0]!;
     delete d.housing;
@@ -115,10 +115,16 @@ describe("住宅ローン控除の仮の条件", () => {
     // 条件の入っているローンは変えない
     const kept = fromRequest(modelHousehold("housingPurchase"));
     expect(withProvisionalHousing(kept)).toBe(kept);
-    // 2021年3月に借りたローン（制度データの前）は置かない
-    const old = fromRequest(modelHousehold("protectionNeed"));
+    // 2013年3月に借りたローン（制度データの前）は置かない
+    const early = modelHousehold("protectionNeed");
+    early.input.household.debts![0]!.start = { at: "2013-03" };
+    const old = fromRequest(early);
     expect(withProvisionalHousing(old)).toBe(old);
-    expect(String(fieldOf(old, "housing", "/creditSummary").get(old).value)).toContain("2021年以前");
+    expect(String(fieldOf(old, "housing", "/creditSummary").get(old).value)).toContain("2013年以前");
+    // 2021年3月に借りたローン（平成26〜令和3年の制度データ）には置く
+    const r3 = withProvisionalHousing(fromRequest(modelHousehold("protectionNeed")));
+    expect(loans(r3)[0]!.housing).toMatchObject({ propertyType: "energySaving", newBuild: true });
+    expect(() => preview(r3.request)).not.toThrow();
   });
 });
 
@@ -164,33 +170,32 @@ describe("住宅ローンの借入額と購入の予定", () => {
   });
 });
 
-describe("保険の種類を変えたときの保障", () => {
+describe("保険の種類を変えたときの保障（0055 のひな形）", () => {
   const added = () => action(salaried(), "ins/add");
   const contract = (wh: WorkingHousehold): InsuranceContract => wh.request.input.household.insuranceContracts![0]!;
 
-  it("医療保険に変えると、主契約の死亡保険金を外す（万一の計算に入らない）", () => {
+  it("医療保険に変えると、主契約の死亡保険金を外し、入院日額の主契約（未入力）と手術の特約を置く（万一の計算に入らない死亡保険金を残さない）", () => {
     const wh = added();
-    const w = fieldOf(wh, "insurance", "/template").set(wh, "insurance.medical");
-    expect(contract(w).coverages ?? []).toEqual([]);
-    expect(allFields(buildStage("insurance", w)).some((f) => f.key.endsWith("/death"))).toBe(false);
+    const w = fieldOf(wh, "insurance", "/template").set(wh, "medical");
+    expect(contract(w).coverages?.map((x) => `${x.role}:${x.benefit}:${x.amount}`)).toEqual(["main:hospitalDaily:0", "rider:surgery:0"]);
+    expect(contract(w)).toMatchObject({ template: "insurance.medical", subtype: "medical" });
+    expect(fieldOf(w, "insurance", "/main").label).toBe("入院日額（1日）");
     expect(() => preview(w.request)).not.toThrow();
   });
 
-  it("特約は残し、死亡保障の種類に戻すと死亡保険金0円の主契約を置く", () => {
+  it("医療の給付は特約に回して残し、死亡保障の種類に戻すと死亡保険金0円の主契約を置く", () => {
     let wh = added();
-    const c = contract(wh);
-    wh = { ...wh, request: structuredClone(wh.request) };
-    contract(wh).coverages!.push({ id: "00000000-0000-4000-8000-000000000099", role: "rider", benefit: "hospitalDaily", amount: 5000, from: { at: c.contractDate }, to: null });
-    wh = fieldOf(wh, "insurance", "/template").set(wh, "insurance.medical");
-    expect(contract(wh).coverages?.map((x) => x.benefit)).toEqual(["hospitalDaily"]);
-    wh = fieldOf(wh, "insurance", "/template").set(wh, "insurance.wholeLife");
-    expect(contract(wh).coverages?.map((x) => `${x.role}:${x.benefit}:${x.amount}`)).toEqual(["main:death:0", "rider:hospitalDaily:5000"]);
-    expect(fieldOf(wh, "insurance", "/death").get(wh).value).toBe(0);
+    wh = fieldOf(wh, "insurance", "/template").set(wh, "medical");
+    wh = fieldOf(wh, "insurance", "/main").set(wh, 5000);
+    wh = fieldOf(wh, "insurance", "/template").set(wh, "wholeLife");
+    expect(contract(wh).coverages?.map((x) => `${x.role}:${x.benefit}:${x.amount}`)).toEqual(["main:death:0", "rider:hospitalDaily:5000", "rider:surgery:50000"]);
+    expect(fieldOf(wh, "insurance", "/main").get(wh).value).toBe(0);
   });
 
   it("定期保険と終身保険のあいだは、死亡保険金をそのまま持つ", () => {
-    const wh = added();
-    const w = fieldOf(wh, "insurance", "/template").set(wh, "insurance.wholeLife");
+    let wh = added();
+    wh = fieldOf(wh, "insurance", "/main").set(wh, 10000000);
+    const w = fieldOf(wh, "insurance", "/template").set(wh, "wholeLife");
     expect(contract(w).coverages?.map((x) => `${x.benefit}:${x.amount}`)).toEqual(["death:10000000"]);
   });
 });

@@ -2,7 +2,8 @@
 // （memberScope）ので、ほかの構成員の万一の年を動かしても、この構成員の部品は計算し直さない。万一の無い構成員は { event: null }。
 // 働き方の期間を区切る・世帯から離れるなどの入力の重ねはエンジン（overlay.ts）が行い、この部品は遺族年金・障害年金・団信・保険・
 // 遺族の生活費などの部品が読む月と種類を返す。障害認定日は初診日（起きる月）から1年6か月（制度データの月数）。
-// 障害年金の65歳からの組み合わせを FP が選び直したとき（oldAgeChoice）は、それも返す（改訂2）
+// 障害年金の65歳からの組み合わせを FP が選び直したとき（oldAgeChoice）は、それも返す（改訂2）。
+// 病気の想定（illness。病気の種類・入院の日数・手術の回数。保険の医療・がんの給付に使う）も返す（改訂3。0054）
 import { addMonths, defineComponent, formatYm, type ContingencyEventOutput, type ContingencyInput } from "../../sdk/index.ts";
 
 
@@ -11,11 +12,11 @@ const RECOGNITION = "pension.disability.recognitionMonths";
 export default defineComponent<{ member: string }, ContingencyEventOutput>({
   id: "contingency.event",
   title: "構成員の万一（判定）",
-  contract: "1.0",
-  revision: 2,
+  contract: "1.1",
+  revision: 3,
   requires: {},
   params: [RECOGNITION],
-  reads: ["contingency.kind", "contingency.member", "contingency.occurs", "contingency.grade", "contingency.recovery", "contingency.oldAgeChoice", "contingency.survivor", "contingency.medical"],
+  reads: ["contingency.kind", "contingency.member", "contingency.occurs", "contingency.grade", "contingency.recovery", "contingency.oldAgeChoice", "contingency.survivor", "contingency.medical", "contingency.illness"],
   memberScope: ["contingency"],
   input: "member.input",
   output: "contingency.event.output",
@@ -40,6 +41,7 @@ export default defineComponent<{ member: string }, ContingencyEventOutput>({
         ...(c.oldAgeChoice !== undefined ? { oldAgeChoice: c.oldAgeChoice } : {}),
         ...(c.survivor !== undefined ? { survivor: c.survivor } : {}),
         ...(c.medical !== undefined ? { medical: c.medical } : {}),
+        ...(c.illness !== undefined && c.kind !== "death" ? { illness: c.illness } : {}),
       },
     };
   },

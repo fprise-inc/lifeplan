@@ -291,6 +291,8 @@
       }
     },
     "inheritanceTax": {
+      "title": "相続税の目安の要求と設定（不動産の評価の割合・名義の無い財産の分け方・葬式の費用・養子・法定相続人の数を直す口・FP が入れた額。0039・0060）",
+      "x-item": "plan.inheritanceTax",
       "description": "相続税の目安（0039）。指定したときだけ計算し、出力の inheritanceTax に出す。お金の流れ（キャッシュフロー表）には入れない（表示だけ）。万一の想定（死亡）のある要求ではその想定の時点、無い要求では「いま本人・配偶者が亡くなったら」と「二人とも亡くなった後（表の最後の年）」",
       "type": "object",
       "additionalProperties": false,
@@ -340,6 +342,15 @@
             }
           }
         }
+      }
+    },
+    "legacy": {
+      "title": "遺したい額（表示だけ。計算には使わない。表の最後の年の金融資産と比べて見せる。0060）",
+      "x-item": "plan.legacy",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "amount": { "description": "遺したい額（今の値段。値の箱）", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
       }
     },
     "protection": {
@@ -1176,6 +1187,12 @@
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
         "template": { "title": "保険の種類のひな形", "x-item": "insurance.template", "type": "string", "pattern": "^insurance\\.[a-z][a-zA-Z0-9]*$" },
+        "subtype": {
+          "title": "保険の種類の細目（画面のひな形。表示と推定の元だけ。計算には使わない。計算の型は template。0054）",
+          "x-item": "insurance.subtype",
+          "enum": ["term", "decreasingTerm", "incomeProtection", "wholeLife", "endowment", "medical", "cancer", "incapacity", "education", "privateAnnuity", "mutualAid", "groupTerm", "care", "foreignCurrency", "variable", "nonLife"]
+        },
+        "label": { "title": "名前（表示用。計算には使わない。0054）", "x-item": "insurance.label", "type": "string", "maxLength": 100 },
         "policyholder": { "title": "契約者", "x-item": "insurance.policyholder", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "insured": { "title": "被保険者", "x-item": "insurance.insured", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "contractDate": { "title": "契約の年月", "x-item": "insurance.contractDate", "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
@@ -1233,9 +1250,11 @@
               "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
               "role": { "enum": ["main", "rider"] },
               "benefit": {
-                "description": "death 死亡保険金（一時金）・incomeProtection 収入保障（死亡の後、月額を期間の終わりまで）・incapacity 就業不能（月額）・highDisability 高度障害（一時金）・maturity 満期金・annuity 年金（年額）・survival 祝金・hospitalDaily 入院日額・surgery 手術・cancerLump がん一時金・other",
-                "enum": ["death", "incomeProtection", "incapacity", "highDisability", "maturity", "annuity", "survival", "hospitalDaily", "surgery", "cancerLump", "other"]
+                "description": "death 死亡保険金（一時金）・incomeProtection 収入保障（死亡の後、月額を期間の終わりまで）・incapacity 就業不能（月額）・highDisability 高度障害（一時金）・maturity 満期金・annuity 年金（年額）・survival 祝金・hospitalDaily 入院日額・surgery 手術（1回の額）・cancerLump がん一時金・threeMajorLump 三大疾病一時金（がん・心疾患・脳卒中。0054）・other",
+                "enum": ["death", "incomeProtection", "incapacity", "highDisability", "maturity", "annuity", "survival", "hospitalDaily", "surgery", "cancerLump", "threeMajorLump", "other"]
               },
+              "insured": { "description": "この保障の被保険者（家族型の医療保険・家族特約。省略は契約の被保険者。0054）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+              "maxDays": { "description": "入院の1回の限度日数（入院日額。省略は60日。0054）", "type": "integer", "minimum": 1, "maximum": 1095 },
               "amount": { "description": "一時金・月額（収入保障・就業不能）・年額（年金）・日額（入院）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
               "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
               "to": { "description": "保障の終わり（その月まで。満期金はその翌月に払う）。null は終身", "$ref": "#/$defs/timepointOrNull" },
@@ -1286,7 +1305,8 @@
           "properties": {
             "returnRate": { "description": "払込の終わりの解約返戻率（払込保険料の累計に対する割合。終身・学資・個人年金）", "$ref": "urn:financia:schema:common#/$defs/rate" },
             "assetClass": { "description": "変額・外貨建: 積立の部分を伸ばす資産クラス（前提の利回り）", "$ref": "#/$defs/assetClass" },
-            "loadRate": { "description": "変額・外貨建: 保険料のうち積立に回らない割合", "$ref": "urn:financia:schema:common#/$defs/rate" }
+            "loadRate": { "description": "変額・外貨建: 保険料のうち積立に回らない割合", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "estimate": { "description": "変額・外貨建: 円の目安の形（true なら積立金を前提の利回りで伸ばさず、死亡保険金は保障の明細の額、解約返戻金は数表の行の額だけで計算する。0054）", "type": "boolean" }
           }
         },
         "surrender": { "title": "解約する月（解約返戻金を受け取り、保障と払込が終わる）", "x-item": "insurance.surrender", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
@@ -1350,6 +1370,18 @@
             "monthly": { "description": "1か月の医療費（10割）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
             "months": { "type": "integer", "minimum": 1, "maximum": 600 },
             "from": { "description": "始まり（省略は起きる月）", "$ref": "urn:financia:schema:common#/$defs/timepoint" }
+          }
+        },
+        "illness": {
+          "title": "病気の想定（就業不能・障害のとき。医療・がんの給付を受け取る見込みの計算に使う。0054）",
+          "x-item": "contingency.illness",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["disease"],
+          "properties": {
+            "disease": { "description": "病気の種類: cancer がん・heartStroke 心疾患・脳卒中・other そのほか", "enum": ["cancer", "heartStroke", "other"] },
+            "hospitalDays": { "description": "入院の日数（1回の入院。省略は0日）", "type": "integer", "minimum": 0, "maximum": 1095 },
+            "surgeries": { "description": "手術の回数（省略は0回）", "type": "integer", "minimum": 0, "maximum": 20 }
           }
         }
       }
@@ -2040,6 +2072,8 @@
           "x-item": "retirementBenefit.kind",
           "enum": ["lumpSum", "db", "civilServantAllowance", "civilServantPension", "nationalPensionFund", "officerAllowance"]
         },
+        "label": { "title": "名前（表示用。計算には使わない。0057）", "x-item": "retirementBenefit.label", "type": "string", "maxLength": 80 },
+        "education": { "title": "学歴（退職一時金の目安の元だけ。計算には使わない。0057）", "x-item": "retirementBenefit.education", "enum": ["university", "highSchoolOffice", "highSchoolManual"] },
         "employment": { "title": "勤め先の働き方の期間（勤続期間と支給の月の既定）", "x-item": "retirementBenefit.employment", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "service": {
           "title": "勤続期間（省略は働き方の期間）",
@@ -2207,8 +2241,12 @@
                 }
               }
             },
+            "outOfSchoolMode": {
+              "description": "学校外の費用の入れ方（0062）: statistics は段の学校外活動費（統計の平均）だけで、塾・習い事の行は数えない。rows は塾・習い事の行だけで、段の学校外活動費は数えない。省略は前の形（段の学校外活動費に行を足す）",
+              "enum": ["statistics", "rows"]
+            },
             "lessons": {
-              "description": "塾・習い事（統計の学校外活動費に足す）",
+              "description": "塾・習い事（学校外の費用の行。入れ方 outOfSchoolMode が省略なら統計の学校外活動費に足す、rows なら行だけ、statistics なら数えない）",
               "type": "array",
               "items": {
                 "type": "object",
@@ -2219,7 +2257,8 @@
                   "from": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "to": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                   "monthly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-                  "label": { "type": "string", "maxLength": 80 }
+                  "label": { "type": "string", "maxLength": 80 },
+                  "kind": { "enum": ["cram", "lesson", "other"], "description": "行の種類（塾・習い事・その他。表示と既定の名前だけで、計算には使わない。0062）" }
                 }
               }
             },

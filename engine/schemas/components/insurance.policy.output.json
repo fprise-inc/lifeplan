@@ -18,7 +18,7 @@
           "object": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
           "coverage": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/uuid" }] },
           "member": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/uuid" }] },
-          "kind": { "enum": ["death", "incomeProtection", "incapacity", "highDisability", "maturity", "surrender", "annuity", "survival"] },
+          "kind": { "description": "medical は医療・がんの給付（入院日額・手術・がん一時金・三大疾病一時金。病気の想定のとき。0054）", "enum": ["death", "incomeProtection", "incapacity", "highDisability", "maturity", "surrender", "annuity", "survival", "medical"] },
           "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
           "taxClass": { "enum": ["inheritance", "temporary", "miscellaneous", "gift", "none"] },
           "cost": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
@@ -31,15 +31,29 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["year", "premium", "deathBenefit", "surrenderValue"],
+        "required": ["year", "premium", "deathBenefit", "surrenderValue", "paid"],
         "properties": {
           "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
           "premium": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
           "deathBenefit": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-          "surrenderValue": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+          "surrenderValue": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "paid": { "description": "その年の年末までの払込保険料の累計（契約の月から。0054）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "others": { "$ref": "#/$defs/others" }
         }
       }
     },
     "endsAt": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }] }
+  },
+  "$defs": {
+    "others": {
+      "description": "契約の被保険者でない人が被保険者の保障（家族型・家族特約）の、その人ごとの年末の死亡保障額（0の人は入れない。deathBenefit は契約の被保険者の分だけ。0054）",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["member", "deathBenefit"],
+        "properties": { "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "deathBenefit": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" } }
+      }
+    }
   }
 }

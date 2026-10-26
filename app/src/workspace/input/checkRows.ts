@@ -3,7 +3,7 @@
 // - 同じ値を2つの欄が見せる（今の働き方の欄と、働き方の期間の欄など）ときは、当て先で1行にまとめる
 // - 一覧は世帯の物と欄の定義から毎回作る（保存しない）
 import { allFields, type FieldDef, type Level } from "./form.ts";
-import { fillAll, gapsOf, type Gap } from "./fill.ts";
+import { fillAll, gapsOf, retirementNotices, type Gap } from "./fill.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf } from "./rows.ts";
@@ -59,6 +59,8 @@ export const PRESET_VALUES: Readonly<Record<string, { values: readonly { value: 
   "periodicExpense.amount": { values: [{ value: 500000, label: "一時的支出" }, { value: 300000, label: "家電の買い替え" }], what: "一時的支出 50万円・家電の買い替え 30万円" },
   "debt.principal": { values: [{ value: 30000000 }], what: "住宅ローンの借入額 3,000万円" },
   "insurance.premium": { values: [{ value: 5000 }], what: "保険料 月5,000円" },
+  // 0055 の前の「＋ 保険契約」「＋ 保障」のボタンが入れた値（死亡保険金 1,000万円・特約の入院日額 5,000円）
+  "insurance.coverages": { values: [{ value: 10000000 }, { value: 5000 }], what: "死亡保険金 1,000万円・入院日額 5,000円" },
 };
 
 /** 目安のボタンと同じ確定の値か（FP が明示に確定した値・外から来た値・数でない欄は除く） */
@@ -113,6 +115,8 @@ export function checkList(wh: WorkingHousehold): CheckRow[] {
   const items = inputItems(wh);
   const labels = new Map(items.map((i) => [i.id, i.label]));
   for (const g of gapsOf(wh)) rows.push(gapRow(g, labels.get(g.card) ?? g.card));
+  // 目安で自動で足した退職金（制度の無い勤め先もある）・公務員と役員の0円の額は、確かめの注意に（推定より上に出す。0057）
+  for (const n of retirementNotices(wh)) rows.push({ id: `notice:${n.id}`, kind: "notice", card: "retirement", cardLabel: labels.get("retirement") ?? "退職金・企業年金", label: n.label, detail: n.detail, fieldKey: null, level: "simple", impact: 0, actions: n.actions });
   const seen = new Set<string>();
   items.forEach((item) => {
     const stage = itemStage(wh, item.id);
