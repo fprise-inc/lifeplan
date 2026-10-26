@@ -30,8 +30,9 @@ entries:
     sources:
       - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/349AC0000000116_20260513_507AC0000000032?response_format=xml", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "雇用保険法 第61条第5項（令和8年5月13日の版）", "quote": "百分の十", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
       - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000160564_00043.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省「令和7年4月1日から高年齢雇用継続給付の支給率を変更します」", "quote": "令和7年4月1日以降の方: 各月の賃金の10%を限度", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
+      - {"type": "web", "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000158464.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "厚生労働省「Q＆A～高年齢雇用継続給付～」Q9 の計算例（令和7年4月1日以降に受給資格を満たした場合）", "quote": "64％を超えていますので、支給額は14.540円", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
       - {"type": "web", "url": "https://jsite.mhlw.go.jp/yamaguchi-roudoukyoku/kigyou/koyouhoken01.html", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "山口労働局「高年齢雇用継続給付の見直しについて」", "quote": "各月に支払われた賃金の10％（変更後の支給率）を限度として支給", "note": "WebFetch でページの本文を読んだ（原本の指紋は取っていない）"}
       - {"type": "law", "lawNumber": "昭和四十九年法律第百十六号", "egovRevisionId": "349AC0000000116_20260513_507AC0000000032"}
     recordedIn: "2026.9.0"
     supersededIn: null
-    approval: {"method": "pendingReview", "paths": 2, "note": "60歳に達した日（5年を満たした日）が令和7年4月1日以後の人。64%から75%の間は、給付の額が75%の点で0円になるよう直線で減らす近似（減らし方の式は厚生労働省「令和7年4月1日の支給額の計算式」（PDF。https://www.mhlw.go.jp/content/001328826.pdf）で確かめる）。照合: claude（2026-10-26。原本との指紋の照合は未了）"}
+    approval: {"method": "pendingReview", "paths": 2, "note": "60歳に達した日（5年を満たした日）が令和7年4月1日以後の人。64%から75%の間の支給率は (−64×賃金＋48×賃金月額)÷(110×賃金) を0.01%未満で切り捨て（厚生労働省 Q&A の計算例「賃金月額30万円・賃金20万円で14,540円」と一致。式の原本は「令和7年4月1日の支給額の計算式」（PDF。https://www.mhlw.go.jp/content/001328826.pdf）で確かめる）。照合: claude（2026-10-26。原本との指紋の照合は未了）"}

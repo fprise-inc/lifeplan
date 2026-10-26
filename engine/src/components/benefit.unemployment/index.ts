@@ -1,11 +1,12 @@
 // 雇用保険の失業の給付と高年齢雇用継続給付（非課税。0037）
-// - 基本手当: 雇用保険に入る働き方の期間が終わり、次に働くまで働かない月があるとき。65歳未満で辞めて次に働くまで3か月以上あれば受け取るとみなす
-//   （employment.unemploymentClaim で上書き）。賃金日額＝離職の前6か月の給与（賞与を除く）÷180（上限・下限は離職の日の年齢）、
+// - 基本手当: 雇用保険に入る働き方の期間が終わり、次に働くまで働かない月があり、その期間に employment.unemploymentClaim: true を入れたとき
+//   （欄が無ければ受け取らない。今までと同じ結果。新しい世帯に入れる推定は SDK の estimateUnemploymentClaim）。賃金日額＝離職の前6か月の給与（賞与を除く）÷180（上限・下限は離職の日の年齢）、
 //   基本手当日額＝賃金日額×給付率（80%〜50%。60歳以上65歳未満は80%〜45%）。辞めた月の翌月の初めに求職を申し込み、待期7日・自己都合の給付制限
 //   （令和7年4月から原則1か月）の後から所定給付日数（辞め方・被保険者であった期間・年齢）まで。次に働く月・受給期間（1年）で打ち切る
 // - 高年齢求職者給付金: 65歳以上で辞めたとき、基本手当日額の30日分・50日分の一時金（受け取るのは unemploymentClaim を true にしたときだけ）
-// - 高年齢雇用継続基本給付金: 被保険者であった期間が5年以上の60〜64歳の月に、給与（賞与を除く）が60歳到達時の賃金月額の75%未満なら、
-//   給与×最大の率（60歳に達した日が令和7年4月から10%、それより前は15%。64%〈61%〉以上75%未満は75%で0円になるよう直線で減らす近似）。
+// - 高年齢雇用継続基本給付金: その月の働き方の期間に employment.elderlyContinuationClaim: true を入れたとき（欄が無ければ受け取らない）、
+//   被保険者であった期間が5年以上の60〜64歳の月に、給与（賞与を除く）が60歳到達時の賃金月額の75%未満なら、
+//   給与×最大の率（60歳に達した日が令和7年4月から10%、それより前は15%。64%〈61%〉以上75%未満は75%で0円になるよう減らす率を0.01%で切り捨て）。
 //   支給限度額・最低限度額。基本手当を受けた後の高年齢再就職給付金は入れない
 // - 年金とのつながり（pensionStops）: 基本手当を受ける間は65歳前の老齢厚生年金（特別支給・繰上げ）を全額止め（求職の申込みの月の翌月から。
 //   事後精算の後の月数＝基本手当を受けた日数÷30の切り上げ）、高年齢雇用継続給付を受ける月は標準報酬月額×（給付の率×最大の停止の割合÷最大の給付の率）を
@@ -89,8 +90,8 @@ const SPECIFIC = Object.fromEntries(AGE_BANDS.map((a) => [a, Object.fromEntries(
   Record<(typeof YEAR_BANDS)[number], string>
 >;
 const DAYS_PER_MONTH = 30;
-/** 推定で「受け取る」とする、辞めてから次に働くまでの月数（推定の決まり。制度の値ではない） */
-const ESTIMATE_MIN_IDLE_MONTHS = 3;
+/** 高年齢雇用継続給付の支給率の単位（0.01%。厚生労働省の Q&A の計算例から） */
+const RATE_UNIT = 10000n;
 /** 被保険者であった期間を通算する、資格の空白の上限（1年以内。雇用保険法22条3項）。月数 */
 const GAP_LIMIT_MONTHS = 12;
 /** 辞め方（employment.endsWith）のうち、計算が読む値 */
@@ -128,6 +129,7 @@ export default defineComponent<{ member: string }, UnemploymentOutput>({
     "employment.endsOnMonthEnd",
     "employment.endsWith",
     "employment.unemploymentClaim",
+    "employment.elderlyContinuationClaim",
   ],
   memberScope: ["employment"],
   input: "member.input",
@@ -234,7 +236,6 @@ export default defineComponent<{ member: string }, UnemploymentOutput>({
     let resetAfter: MonthIndex | null = null;
     // 基本手当を受けた離職の月（高年齢雇用継続基本給付金の被保険者であった期間を切る）
     const claimed: MonthIndex[] = [];
-    let estimated = false;
 
     for (const { p, to } of periods) {
       if (to === null || !EMPLOYEE_TYPES.has(p.type) || !insured.has(to)) continue;
@@ -250,12 +251,8 @@ export default defineComponent<{ member: string }, UnemploymentOutput>({
       const toEvent = p.to !== null && "event" in p.to ? events.find((e) => e.id === (p.to as { event: string }).event) : undefined;
       const reason: Reason =
         p.endsWith !== undefined && REASONS.has(p.endsWith) ? (p.endsWith as Reason) : p.endsWith === undefined && (ageAt(L, P.age60) || toEvent?.kind === "retirement") ? "retirement" : "voluntary";
-      let claim = p.unemploymentClaim;
-      if (claim === undefined) {
-        claim = !elderly && reason !== "sickLeave" && idle >= ESTIMATE_MIN_IDLE_MONTHS;
-        if (claim) estimated = true;
-      }
-      if (!claim) continue;
+      // 受け取ると入れた期間だけ（欄が無ければ受け取らない）
+      if (p.unemploymentClaim !== true) continue;
       const atL = ctx.at(L);
       const specific = reason === "involuntary";
       // 受給資格（離職の日以前2年間に12か月。会社都合と65歳以上は1年間に6か月）
@@ -329,13 +326,14 @@ export default defineComponent<{ member: string }, UnemploymentOutput>({
       resetAfter = L;
       claimed.push(L);
     }
-    if (estimated) ctx.notice("N_ESTIMATED", ["employment.unemploymentClaim", member]);
 
     // 高年齢雇用継続基本給付金（60歳に達した月〈5年に満たなければ満たした月〉から65歳に達する月まで）
     const reach60 = ageMonth(ctx, base, P.cFrom, member);
     const required = at0.paramCount(P.cRequired);
     const lastC = leaves === null ? (reach65 < end ? reach65 : end) : [reach65, end, addMonths(leaves, -1)].reduce((x, y) => (y < x ? y : x));
-    if (required !== null && reach60 <= lastC && addMonths(reach65, 1) > base) {
+    // 受け取ると入れた働き方の期間（欄が無ければ受け取らない）
+    const continuationPeriods = new Set(periods.filter((x) => x.p.elderlyContinuationClaim === true).map((x) => x.p.id));
+    if (continuationPeriods.size > 0 && required !== null && reach60 <= lastC && addMonths(reach65, 1) > base) {
       const resetBefore = (m: MonthIndex): MonthIndex | null => {
         let r: MonthIndex | null = null;
         for (const c of claimed) if (c < m && (r === null || c > r)) r = c;
@@ -373,22 +371,25 @@ export default defineComponent<{ member: string }, UnemploymentOutput>({
           const r = fractionOf(ctx, maxRate);
           const f = fractionOf(ctx, full);
           const t = fractionOf(ctx, threshold);
-          // 給付の額（w は支給対象月の賃金）: w < f×W なら w×r、f×W 以上 t×W 未満なら r×f×(t×W−w)/(t−f)
+          // 給付の額（w は支給対象月の賃金）: w < f×W なら w×r。f×W 以上 t×W 未満なら、支給率 r×f×(t×W−w)/((t−f)×w) を
+          // 0.01%未満で切り捨てて w に掛ける（令和7年4月以後は (−64×w＋48×W)÷110 の率。厚生労働省の Q&A の計算例
+          // 「賃金月額30万円・賃金20万円で14,540円」と合う）
           const below = (w: number, num: bigint, den: bigint): boolean => BigInt(w) * den < BigInt(W) * num;
           const amountFor = (at: MonthCtx, w: Yen, rate: { n: bigint; d: bigint }): Yen => {
             if (!below(w, t.n, t.d)) return yen(0);
             if (below(w, f.n, f.d)) return at.money.mulRatio(w, rate.n, rate.d, "conv.benefit.daily");
-            // r×f×(t×W−w)/(t−f) を分数で: (rn/rd)×(fn/fd)×(tn×W×fd... ) の共通の分母に直す
             const tw = t.n * f.d * BigInt(W) - BigInt(w) * t.d * f.d; // (t×W−w)×td×fd
             const tf = t.n * f.d - f.n * t.d; // (t−f)×td×fd
-            return at.money.mulRatio(yen(1), rate.n * f.n * tw, rate.d * f.d * tf, "conv.benefit.daily");
+            // 支給率（1万分の1単位で切り捨て）
+            const rate4 = (rate.n * f.n * tw * RATE_UNIT) / (rate.d * f.d * tf * BigInt(w));
+            return at.money.mulRatio(w, rate4, RATE_UNIT, "conv.benefit.daily");
           };
           const cov = ctx.call<CoverageOutput>("socialInsurance.coverage", { member, fromYear: yearOf(base) });
           const stdOf = new Map(cov.months.filter((c) => c.pensionStd !== null).map((c) => [parseYm(c.month) as number, c.pensionStd as Yen]));
           const status60 = new Map(status.map((s) => [parseYm(s.month) as number, s]));
           for (let m = q > base ? q : base; m <= lastC; m = addMonths(m, 1)) {
             const st = status60.get(m);
-            if (!insured.has(m) || st === undefined || !EMPLOYEE_TYPES.has(st.type) || insuredSpan(m, resetBefore(m)) < required) continue;
+            if (!insured.has(m) || st === undefined || st.period === null || !continuationPeriods.has(st.period) || !EMPLOYEE_TYPES.has(st.type) || insuredSpan(m, resetBefore(m)) < required) continue;
             const w = salary.get(m) ?? yen(0);
             if (w <= 0) continue;
             const at = ctx.at(m);

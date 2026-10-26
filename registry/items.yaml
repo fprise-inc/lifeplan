@@ -536,6 +536,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: employment.elderlyContinuationClaim
+    status: active
+    label: "この期間の60〜64歳の月に雇用保険の高年齢雇用継続給付を受け取るか（省略は受け取らない。要件と額はエンジンが判定する）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: employment.employeeInsurance
     status: active
     label: "上書き: 被用者保険（健康保険・厚生年金）に入るか（省略はエンジンが働き方から導く）"
@@ -712,7 +718,7 @@ entries:
     replacedBy: null
   - id: employment.unemploymentClaim
     status: active
-    label: "辞めた後に雇用保険の失業の給付（基本手当・高年齢求職者給付金）を受け取るか（省略は、65歳未満で辞めて次に働くまで3か月以上あれば受け取る）"
+    label: "辞めた後に雇用保険の失業の給付（基本手当・高年齢求職者給付金）を受け取るか（省略は受け取らない。新しい世帯に入れる推定は SDK の estimateUnemploymentClaim）"
     since: draft
     aliases: []
     replacedBy: null

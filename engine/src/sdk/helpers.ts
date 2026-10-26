@@ -526,3 +526,16 @@ export function landBuildingValuer(
   };
   return { land0, building0, at: (y) => ({ land: landAt(y), building: buildingAt(y) }) };
 }
+
+/** 失業の給付を受け取ると推定する、辞めてから次に働くまでの月数（推定の決まり。制度の値ではない。0037） */
+export const UNEMPLOYMENT_ESTIMATE_MIN_IDLE_MONTHS = 3;
+
+/**
+ * 辞めた後に雇用保険の失業の給付（基本手当）を受け取るかの推定（0037）。画面が新しい世帯を作るときに働き方の期間の
+ * `unemploymentClaim` に入れる値で、エンジン（benefit.unemployment）は欄が無ければ受け取らない（開いた世帯を黙って変えない）。
+ * 65歳未満（elderlyAge は制度の値 employmentInsurance.basicAllowance.elderlyAge。省略は65）で辞め、次に働くまで3か月以上あり、
+ * 辞め方が休業のまま辞める（sickLeave）でなければ受け取る。65歳以上の高年齢求職者給付金は推定では受け取らない
+ */
+export function estimateUnemploymentClaim(o: { readonly ageAtLeaving: number; readonly idleMonths: number; readonly endsWith?: string; readonly elderlyAge?: number }): boolean {
+  return o.ageAtLeaving < (o.elderlyAge ?? 65) && o.idleMonths >= UNEMPLOYMENT_ESTIMATE_MIN_IDLE_MONTHS && o.endsWith !== "sickLeave";
+}

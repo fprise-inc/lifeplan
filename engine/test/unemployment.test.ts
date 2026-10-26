@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { runEngine, type EngineResult } from "../src/engine/run.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 import type { CategoryOutput, HealthStatusOutput, PensionOutput, UnemploymentOutput } from "../src/sdk/contracts.ts";
+import { estimateUnemploymentClaim } from "../src/sdk/helpers.ts";
 import { clone, fictionalPacks, household, member, modelHousehold, period, realPacks, uid } from "./helpers.ts";
 
 type Req = ReturnType<typeof household>;
@@ -17,13 +18,13 @@ const setH = (req: Req, key: string, value: unknown) => {
   (req.input.household as unknown as Record<string, unknown>)[key] = value;
   return req;
 };
-const notices = (r: EngineResult) => (r.header as { notices: { code: string; ids: string[] }[] }).notices;
 const pays = (o: UnemploymentOutput, formula: string) => o.flows.filter((f) => f.formula === formula).map((f) => [f.ym, f.amount] as const);
 const total = (o: UnemploymentOutput, formula: string) => pays(o, formula).reduce((s, [, a]) => s + a, 0);
 
-/** 1人の世帯: from〜to の勤め（給与の年額 annual）の後、働かない（unemployed の期間） */
-function leaver(o: { birth: string; from: string; to: string; annual: number; extra?: Record<string, unknown>; idleTo?: string | null; next?: Record<string, unknown>; baseMonth?: string; endYear?: number; sex?: string }): Req {
-  const periods: Record<string, unknown>[] = [period("job", { member: "h", from: o.from, to: o.to, annual: o.annual, extra: o.extra ?? {} })];
+/** 1人の世帯: from〜to の勤め（給与の年額 annual）の後、働かない（unemployed の期間）。claim は勤めの期間の unemploymentClaim（省略は true、null は欄なし） */
+function leaver(o: { birth: string; from: string; to: string; annual: number; claim?: boolean | null; extra?: Record<string, unknown>; idleTo?: string | null; next?: Record<string, unknown>; baseMonth?: string; endYear?: number; sex?: string }): Req {
+  const claim = o.claim === undefined ? { unemploymentClaim: true } : o.claim === null ? {} : { unemploymentClaim: o.claim };
+  const periods: Record<string, unknown>[] = [period("job", { member: "h", from: o.from, to: o.to, annual: o.annual, extra: { ...claim, ...(o.extra ?? {}) } })];
   const after = { ...period("idle", { member: "h", from: next(o.to), to: o.idleTo ?? null, type: "unemployed", annual: 0, healthInsurance: { kind: "national" }, pensionCategory: "none" }) };
   periods.push(after);
   if (o.next !== undefined) periods.push(o.next);
@@ -99,30 +100,32 @@ describe("基本手当", () => {
     expect(high.receipts[0]?.daily).toBe(7830);
   });
 
-  it("推定: 次に働くまで3か月以上なら受け取り、2か月なら受け取らない。unemploymentClaim で上書きできる。次に働く月で打ち切る", () => {
+  it("欄が無ければ受け取らない（今までと同じ結果）。受け取ると入れたときだけ出し、次に働く月で打ち切る", () => {
+    expect(unemp(leaver({ birth: "1991-05", from: "2015-04", to: "2026-12", annual: 3600000, claim: null }))).toEqual({ flows: [], receipts: [], pensionStops: [] });
+    expect(unemp(leaver({ birth: "1991-05", from: "2015-04", to: "2026-12", annual: 3600000, claim: false })).flows).toEqual([]);
     const job2 = (from: string) => period("job2", { member: "h", from, annual: 3600000 });
-    const two = unemp(leaver({ birth: "1991-05", from: "2015-04", to: "2026-12", annual: 3600000, idleTo: "2027-02", next: job2("2027-03") }));
-    expect(two.flows).toEqual([]);
     const three = unemp(leaver({ birth: "1991-05", from: "2015-04", to: "2026-12", annual: 3600000, idleTo: "2027-03", next: job2("2027-04") }));
     // 37日目〜89日目（2027-02 の23日・2027-03 の30日）で打ち切り
     expect(three.receipts.map((x) => [x.month, x.days])).toEqual([
       ["2027-02", 23],
       ["2027-03", 30],
     ]);
-    const forced = unemp(leaver({ birth: "1991-05", from: "2015-04", to: "2026-12", annual: 3600000, extra: { unemploymentClaim: true }, idleTo: "2027-02", next: job2("2027-03") }));
-    expect(forced.receipts.map((x) => x.days)).toEqual([23]);
-    const off = unemp(leaver({ birth: "1991-05", from: "2015-04", to: "2026-12", annual: 3600000, extra: { unemploymentClaim: false } }));
-    expect(off.flows).toEqual([]);
-    const sample = modelHousehold("jobLeaver");
-    const self = sample.input.household.members[0]?.id as string;
-    expect(notices(run(sample))).toContainEqual({ code: "N_ESTIMATED", ids: ["benefit.unemployment", "employment.unemploymentClaim", self] });
+    const two = unemp(leaver({ birth: "1991-05", from: "2015-04", to: "2026-12", annual: 3600000, idleTo: "2027-02", next: job2("2027-03") }));
+    expect(two.receipts.map((x) => x.days)).toEqual([23]);
   });
 
-  it("受給資格: 離職の日以前2年間に12か月（会社都合は1年間に6か月）。休業のまま辞めた（sickLeave）は推定では受け取らない", () => {
+  it("新しい世帯に入れる推定（estimateUnemploymentClaim）: 65歳未満で辞めて次に働くまで3か月以上、休業のまま辞めたのでなければ受け取る", () => {
+    expect(estimateUnemploymentClaim({ ageAtLeaving: 40, idleMonths: 3 })).toBe(true);
+    expect(estimateUnemploymentClaim({ ageAtLeaving: 40, idleMonths: 2 })).toBe(false);
+    expect(estimateUnemploymentClaim({ ageAtLeaving: 64, idleMonths: 12, endsWith: "retirement" })).toBe(true);
+    expect(estimateUnemploymentClaim({ ageAtLeaving: 65, idleMonths: 12 })).toBe(false);
+    expect(estimateUnemploymentClaim({ ageAtLeaving: 40, idleMonths: 12, endsWith: "sickLeave" })).toBe(false);
+  });
+
+  it("受給資格: 離職の日以前2年間に12か月（会社都合は1年間に6か月）", () => {
     expect(unemp(leaver({ birth: "1991-05", from: "2026-02", to: "2026-12", annual: 3600000 })).flows).toEqual([]);
     expect(unemp(leaver({ birth: "1991-05", from: "2026-01", to: "2026-12", annual: 3600000 })).receipts.reduce((s, x) => s + x.days, 0)).toBe(90);
     expect(unemp(leaver({ birth: "1991-05", from: "2026-07", to: "2026-12", annual: 3600000, extra: { endsWith: "involuntary" } })).receipts.reduce((s, x) => s + x.days, 0)).toBe(90);
-    expect(unemp(leaver({ birth: "1991-05", from: "2015-04", to: "2026-12", annual: 3600000, extra: { endsWith: "sickLeave" } })).flows).toEqual([]);
   });
 
   it("架空の見本の制度データ（失業の給付の値が無い）では計算しない", () => {
@@ -133,10 +136,10 @@ describe("基本手当", () => {
 });
 
 describe("高年齢求職者給付金", () => {
-  it("65歳以上で辞めたとき、受け取ると入れたときだけ、基本手当日額（60歳未満の式・30歳未満の上限）の50日分を一時金で", () => {
+  it("65歳以上で辞めたとき、受け取ると入れたときだけ（推定でも受け取らない）、基本手当日額（60歳未満の式・30歳未満の上限）の50日分を一時金で", () => {
     const base = { birth: "1961-03", from: "2000-04", to: "2026-09", annual: 3600000 };
-    expect(unemp(leaver(base)).flows).toEqual([]);
-    const o = unemp(leaver({ ...base, extra: { unemploymentClaim: true } }));
+    expect(unemp(leaver({ ...base, claim: null })).flows).toEqual([]);
+    const o = unemp(leaver(base));
     // 定年（60歳以上の省略）なので給付制限なし。待期の後の失業の認定（2026-10）の翌月
     expect(pays(o, "benefit.unemployment.elderlyJobSeeker")).toEqual([["2026-11", 50 * 6307]]);
     expect(o.pensionStops).toEqual([]);
@@ -152,14 +155,14 @@ describe("高年齢求職者給付金", () => {
 });
 
 describe("高年齢雇用継続基本給付金", () => {
-  const reemployed = (contractAnnual: number, birth = "1966-05") =>
+  const reemployed = (contractAnnual: number, birth = "1966-05", claim = true) =>
     household({
       baseMonth: "2026-04",
       endYear: 2032,
       members: [member("h", "self", birth, { sex: "male" })],
       periods: [
         period("job", { member: "h", from: "2000-04", to: "2026-05", annual: 6000000 }),
-        period("re", { member: "h", from: "2026-06", to: "2031-05", type: "contract", annual: contractAnnual }),
+        period("re", { member: "h", from: "2026-06", to: "2031-05", type: "contract", annual: contractAnnual, extra: claim ? { elderlyContinuationClaim: true } : {} }),
       ],
     });
 
@@ -172,10 +175,37 @@ describe("高年齢雇用継続基本給付金", () => {
     expect(p.length).toBe(60);
   });
 
+  it("欄が無ければ受け取らない（年金の上乗せの停止も無い）", () => {
+    const o = unemp(reemployed(3000000, "1966-05", false));
+    expect(o.flows).toEqual([]);
+    expect(o.pensionStops).toEqual([]);
+  });
+
   it("64%以上75%未満は75%で0円になるよう減らし、75%以上は出ない", () => {
-    // 月35万円（70%）: 0.1×0.64×(374,985−350,000)/(0.75−0.64)＝14,536
-    expect(pays(unemp(reemployed(4200000)), "benefit.unemployment.elderlyContinuation")[0]).toEqual(["2026-07", 14536]);
+    // 月35万円（70%）: 支給率 0.1×0.64×(374,985−350,000)/(0.11×350,000)＝4.153…% → 4.15% → 14,525円
+    expect(pays(unemp(reemployed(4200000)), "benefit.unemployment.elderlyContinuation")[0]).toEqual(["2026-07", 14525]);
     expect(pays(unemp(reemployed(4500000)), "benefit.unemployment.elderlyContinuation")).toEqual([]);
+  });
+
+  it("厚生労働省の Q&A の計算例: 賃金月額30万円で、賃金20万円（66.67%）は14,540円、18万円（60%）は18,000円、26万円は出ない", () => {
+    const at = (contract: number) =>
+      pays(
+        unemp(
+          household({
+            baseMonth: "2026-04",
+            endYear: 2027,
+            members: [member("h", "self", "1966-05", { sex: "male" })],
+            periods: [
+              period("job", { member: "h", from: "2000-04", to: "2026-05", annual: 3600000 }),
+              period("re", { member: "h", from: "2026-06", to: "2031-05", type: "contract", annual: contract, extra: { elderlyContinuationClaim: true } }),
+            ],
+          }),
+        ),
+        "benefit.unemployment.elderlyContinuation",
+      )[0]?.[1];
+    expect(at(2400000)).toBe(14540);
+    expect(at(2160000)).toBe(18000);
+    expect(at(3120000)).toBeUndefined();
   });
 
   it("年金の停止: 標準報酬月額の4%（64%未満のとき）を在職老齢年金の停止に加えて止める月を出す", () => {
@@ -195,7 +225,7 @@ describe("年金・被扶養者とのつながり", () => {
         endYear: 2031,
         members: [member("h", "self", "1965-06")],
         periods: [
-          period("job", { member: "h", from: "1990-04", to: "2029-08", annual: 3600000 }),
+          period("job", { member: "h", from: "1990-04", to: "2029-08", annual: 3600000, extra: { unemploymentClaim: true } }),
           period("idle", { member: "h", from: "2029-09", type: "unemployed", annual: 0, healthInsurance: { kind: "national" }, pensionCategory: "none" }),
         ],
       }),
@@ -244,7 +274,7 @@ describe("年金・被扶養者とのつながり", () => {
       relations: [{ type: "spouse", a: H, b: W, marriage: "legal", from: null, to: null }],
       periods: [
         period("hjob", { member: "h", from: "2008-04", annual: 6000000 }),
-        period("wjob", { member: "w", from: "2012-04", to: "2026-12", annual: 3600000 }),
+        period("wjob", { member: "w", from: "2012-04", to: "2026-12", annual: 3600000, extra: { unemploymentClaim: true } }),
         idleWithoutHealth("widle", "w", "2027-01"),
       ],
     });
@@ -263,7 +293,8 @@ describe("年金・被扶養者とのつながり", () => {
   });
 
   it("給付は非課税（所得税・住民税の計算に入らない）で、表の行は雇用保険の失業の給付など（見本の世帯 jobLeaver）", () => {
-    const sample = modelHousehold("jobLeaver");
+    const sample = clone(modelHousehold("jobLeaver"));
+    (sample.input.household.employmentPeriods[0] as unknown as Record<string, unknown>).unemploymentClaim = true;
     const r = run(sample);
     const mine = r.flows.filter((f) => f.formula?.startsWith("benefit.unemployment"));
     expect(mine.length).toBeGreaterThan(0);

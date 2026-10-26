@@ -431,7 +431,7 @@
     {
      "kind": "value",
      "key": "benefit",
-     "label": "児童手当・修学支援",
+     "label": "給付・手当",
      "cells": [
       120000,
       120000,
@@ -740,7 +740,7 @@
     {
      "kind": "value",
      "key": "benefit",
-     "label": "児童手当・修学支援",
+     "label": "給付・手当",
      "cells": [
       120000,
       120000,
