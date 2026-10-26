@@ -1,0 +1,19 @@
+id: retirementBenefit.mandatory.highSchoolOffice
+title: 就労条件総合調査（厚生労働省）令和5年 定年退職者1人平均退職給付額（勤続20年以上かつ45歳以上・高校卒（管理・事務・技術職）。一時金と年金の現価の計）
+unit: JPY
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2023-11-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 16820000
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/itiran/roudou/jikan/syurou/23/dl/gaiyou04.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "令和5年就労条件総合調査の概況 4 退職給付（一時金・年金）の支給実態 (2) 退職給付額", "quote": "退職事由のうち「定年」退職者の退職給付額を学歴別にみると、「大学・大学院卒（管理・事務・技術職）」1,896 万円、「高校卒（管理・事務・技術職）」1,682 万円、「高校卒（現業職）」1,183 万円となっている。", "note": "公式のドメイン（mhlw.go.jp）に限った検索の抜粋（原本の PDF は未取得）。令和4年1年間の勤続20年以上かつ45歳以上の定年退職者"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "高校卒（管理・事務・技術職） 1,682万円（検索の抜粋）"}

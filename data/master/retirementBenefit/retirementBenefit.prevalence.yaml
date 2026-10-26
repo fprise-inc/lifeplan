@@ -1,0 +1,19 @@
+id: retirementBenefit.prevalence
+title: 就労条件総合調査（厚生労働省）令和5年 退職給付（一時金・年金）制度がある企業の割合（企業規模計）
+unit: rate
+kind: constant
+basis: {"type": "month"}
+entries:
+  - rev: 1
+    appliesFrom: "2023-11-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.749"
+    sources:
+      - {"type": "web", "url": "https://www.mhlw.go.jp/toukei/itiran/roudou/jikan/syurou/23/dl/gaiyou03.pdf", "retrievedAt": "2026-10-26", "retrievedVia": "searchExcerpt", "locator": "令和5年就労条件総合調査の概況 3 退職給付（一時金・年金）制度 (1) 退職給付制度の有無及び形態", "note": "公式のドメイン（mhlw.go.jp）に限った検索の抜粋（原本の PDF は未取得）。74.9%は検索の要約で読んだ。常用労働者30人以上の民営企業"}
+    recordedIn: "2026.1.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "退職給付制度がある企業の割合 74.9%（検索の要約）。公表日は未確認"}

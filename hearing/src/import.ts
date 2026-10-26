@@ -611,7 +611,7 @@ function importWork(c: Ctx, h: Household, adults: Adults, baseMonth: string): Ma
     }
 
     // 収入
-    if (SALARIED.has(type)) importSalary(c, p, m, n);
+    if (SALARIED.has(type)) importSalary(c, p, m, n, baseMonth);
     else if (c.get("hs.income.salary", n).status === "value") c.contradiction("hs.income.salary", n, "給与の記入がありますが、働き方が給与の働き方ではありません（取り込みませんでした）");
     if (type === "selfEmployed") {
       const b = c.moneyBox(id, "hs.income.business", n, "employment.business.income", "/business/income", () => businessEstimate());
@@ -653,7 +653,7 @@ function ensureResidentTax(c: Ctx, h: Household, p: EmploymentPeriod, m: Member,
   const val = (b: ValueBox<number> | undefined) => b?.value ?? b?.substitute?.value ?? 0;
   const salary = val(p.salary?.annual) + val(p.salary?.bonus);
   const business = val(p.business?.income);
-  const e = residentTaxEstimate(salary, business);
+  const e = residentTaxEstimate(salary, business, fy - 1);
   const st = c.get("hs.income.residentTax", n).status;
   const rid = c.newId();
   const amount = st === "unknown" ? c.unknown(e, "derived") : c.estimated(e, "derived");
@@ -663,11 +663,14 @@ function ensureResidentTax(c: Ctx, h: Household, p: EmploymentPeriod, m: Member,
   c.candidate("residentTaxAssessments", "residentTaxAssessment.amount", a);
 }
 
-function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number): void {
+function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMonth: string): void {
   const id = p.id;
   const total = c.get<number>("hs.income.salary", n);
   const bonus = c.get<number>("hs.income.bonus", n);
-  const est = salaryEstimate(p.type, m.sex);
+  // 推定の年齢: 期間の始まりと計算基準月の遅いほう（勤め先の規模は推定に使わない。規模は詳細の入力で入れたときだけ使う決まり）
+  const from = "at" in p.from && ymIndex(p.from.at) > ymIndex(baseMonth) ? p.from.at : baseMonth;
+  const opts = { age: ageAt(m, from) };
+  const est = salaryEstimate(p.type, m.sex, opts);
   let annual: ValueBox<number>;
   let bonusBox: ValueBox<number>;
   if (total.status === "value") {
@@ -688,7 +691,7 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number): void {
       annual = c.confirmed(total.value);
     } else {
       // 賞与が分からない: 年収に統計の賞与の割合を当てて分ける（年収の側も、その分だけ推定になる）
-      const share = bonusShareEstimate(p.type, m.sex, total.value) ?? { value: 0, basis: "賞与なしとみなした" };
+      const share = bonusShareEstimate(p.type, m.sex, total.value, opts) ?? { value: 0, basis: "賞与なしとみなした" };
       const rest: Estimate = { value: total.value - share.value, basis: `年収（記入）${total.value.toLocaleString("ja-JP")}円から賞与の目安を引いた額` };
       if (bonus.status === "unknown") {
         bonusBox = c.unknown(share, "derived");
@@ -728,7 +731,7 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number): void {
   // 標準報酬月額は聞かない（年収からの目安。入力の画面と同じ）。厚生年金に入る働き方のときだけ
   if (p.pensionCategory !== undefined && p.pensionCategory !== "none") {
     const a = annual.value ?? annual.substitute?.value ?? 0;
-    p.standardMonthlyRemuneration = smrEstimate(a);
+    p.standardMonthlyRemuneration = smrEstimate(a, from);
     c.field(id, "hs.income.salary", n, "employment.standardMonthlyRemuneration", "/standardMonthlyRemuneration", "estimated");
   }
 }
