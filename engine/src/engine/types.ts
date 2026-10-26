@@ -457,6 +457,8 @@ export type CoverageBenefit =
   | "hospitalDaily"
   | "surgery"
   | "cancerLump"
+  /** 三大疾病一時金（がん・心疾患・脳卒中。0054） */
+  | "threeMajorLump"
   | "other";
 
 export interface CoverageInput {
@@ -470,7 +472,30 @@ export interface CoverageInput {
   readonly waitingMonths?: number;
   readonly years?: number;
   readonly everyYears?: number;
+  /** この保障の被保険者（家族型の医療保険・家族特約。省略は契約の被保険者。0054） */
+  readonly insured?: string;
+  /** 入院の1回の限度日数（入院日額。省略は60日。0054） */
+  readonly maxDays?: number;
 }
+
+/** 保険の種類の細目（画面のひな形。表示と推定の元だけ。0054） */
+export type InsuranceSubtype =
+  | "term"
+  | "decreasingTerm"
+  | "incomeProtection"
+  | "wholeLife"
+  | "endowment"
+  | "medical"
+  | "cancer"
+  | "incapacity"
+  | "education"
+  | "privateAnnuity"
+  | "mutualAid"
+  | "groupTerm"
+  | "care"
+  | "foreignCurrency"
+  | "variable"
+  | "nonLife";
 
 export interface ScheduleRowInput {
   readonly coverage?: string;
@@ -485,6 +510,10 @@ export interface ScheduleRowInput {
 export interface InsuranceContractInput {
   readonly id: string;
   readonly template: string;
+  /** 0054: 種類の細目（表示と推定の元だけ。計算には使わない） */
+  readonly subtype?: InsuranceSubtype;
+  /** 0054: 名前（表示用。計算には使わない） */
+  readonly label?: string;
   readonly policyholder: string;
   readonly insured: string;
   readonly contractDate: string;
@@ -500,7 +529,8 @@ export interface InsuranceContractInput {
   readonly renewals?: readonly { readonly at: Timepoint; readonly premium: Yen }[];
   readonly coverages?: readonly CoverageInput[];
   readonly schedule?: { readonly source?: { readonly productRef: string; readonly digest: string }; readonly rows: readonly ScheduleRowInput[] };
-  readonly simple?: { readonly returnRate?: string; readonly assetClass?: string; readonly loadRate?: string };
+  /** estimate（0054）: 変額・外貨建の円の目安の形（積立金を伸ばさず、入れた円の目安の額だけで計算する） */
+  readonly simple?: { readonly returnRate?: string; readonly assetClass?: string; readonly loadRate?: string; readonly estimate?: boolean };
   readonly surrender?: Timepoint;
 }
 
@@ -591,6 +621,15 @@ export interface ContingencyInput {
     readonly spouseWork?: readonly EmploymentPeriodInput[];
   };
   readonly medical?: { readonly monthly: Yen; readonly months: number; readonly from?: Timepoint };
+  /** 病気の想定（医療・がんの給付の受け取りに使う。0054） */
+  readonly illness?: IllnessInput;
+}
+
+/** 病気の想定（0054）: 病気の種類・入院の日数・手術の回数 */
+export interface IllnessInput {
+  readonly disease: "cancer" | "heartStroke" | "other";
+  readonly hospitalDays?: number;
+  readonly surgeries?: number;
 }
 
 export type StressTemplate = "marketDropAtRetirement" | "inflationSpike" | "rateRise" | "incomeDrop" | "lowReturnPeriod" | "returnShortfall";

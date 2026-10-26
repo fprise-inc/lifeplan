@@ -469,7 +469,26 @@ export interface Coverage {
   amount: number;
   from: Timepoint;
   to: Timepoint | null;
+  /** この保障の被保険者（家族特約。省略は契約の被保険者。0054） */
+  insured?: string;
+  /** 入院の1回の限度日数（省略は60日。0054） */
+  maxDays?: number;
+  minimumMonths?: number;
+  waitingMonths?: number;
+  years?: number;
+  everyYears?: number;
   [key: string]: unknown;
+}
+
+/** 数表の1行（保険年度ごと。coverage のある行はその保障だけ。0054） */
+export interface ScheduleRow {
+  coverage?: string;
+  policyYear: number;
+  premium?: number;
+  deathBenefit?: number;
+  surrenderValue?: number;
+  annuity?: number;
+  survivalBenefit?: number;
 }
 
 export interface InsuranceContract {
@@ -480,9 +499,20 @@ export interface InsuranceContract {
   contractDate: string;
   currency: string;
   premium: { amount: number; frequency: string; payUntil: Timepoint | null };
-  beneficiaries?: unknown[];
+  beneficiaries?: { member?: string; external?: "child" | "parent" | "sibling" | "other"; share: string }[];
   coverages?: Coverage[];
-  deductionCategory: { type: string; regime: string };
+  deductionCategory: { type: string; regime?: string };
+  /** 0054: 種類の細目（画面のひな形。表示と推定の元だけ） */
+  subtype?: string;
+  /** 0054: 名前（表示用） */
+  label?: string;
+  annuitant?: string;
+  waiver?: boolean;
+  renewals?: { id?: string; at: Timepoint; premium: number }[];
+  schedule?: { rows: ScheduleRow[]; source?: { productRef: string; digest: string } };
+  /** estimate（0054）: 変額・外貨建の円の目安の形 */
+  simple?: { returnRate?: string; assetClass?: string; loadRate?: string; estimate?: boolean };
+  surrender?: Timepoint;
   [key: string]: unknown;
 }
 
@@ -593,6 +623,24 @@ export interface Contingency {
   oldAgeChoice?: OldAgeChoice;
   survivor?: SurvivorAssumptions & { spouseWork?: EmploymentPeriod[] };
   medical?: { monthly: number; months: number; from?: Timepoint };
+  /** 病気の想定（医療・がんの給付に使う。0054） */
+  illness?: Illness;
+}
+
+/** 病気の想定（0054） */
+export interface Illness {
+  disease: "cancer" | "heartStroke" | "other";
+  hospitalDays?: number;
+  surgeries?: number;
+}
+
+/** 必要保障額の内訳（0054） */
+export interface ProtectionBreakdown {
+  expenses: { living: number; housing: number; education: number; premiums: number; care: number; taxSi: number; other: number };
+  lump: { funeral: number; reserve: number };
+  resources: { survivorPension: number; survivorIncome: number; publicSupport: number };
+  lumpResources: { retirementAllowance: number; dcLump: number; condolence: number };
+  creditLife: number;
 }
 
 /** 必要保障額の推移の要求（6.3） */
@@ -616,6 +664,10 @@ export interface ProtectionYear {
   resources: number;
   lumpSum: number;
   assets: number;
+  /** 内訳（0054） */
+  breakdown?: ProtectionBreakdown;
+  /** 加入中の死亡保険金の契約ごとの内訳（0054） */
+  coverageBy?: { object: string; amount: number }[];
 }
 
 export interface ProtectionOutput {

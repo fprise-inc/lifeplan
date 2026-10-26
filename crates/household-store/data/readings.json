@@ -2132,6 +2132,12 @@
     "grade"
    ]
   },
+  "contingency.illness": {
+   "collection": "contingency",
+   "path": [
+    "illness"
+   ]
+  },
   "contingency.kind": {
    "collection": "contingency",
    "path": [
@@ -2737,6 +2743,12 @@
     "insured"
    ]
   },
+  "insurance.label": {
+   "collection": "insurance",
+   "path": [
+    "label"
+   ]
+  },
   "insurance.policyholder": {
    "collection": "insurance",
    "path": [
@@ -2765,6 +2777,12 @@
    "collection": "insurance",
    "path": [
     "simple"
+   ]
+  },
+  "insurance.subtype": {
+   "collection": "insurance",
+   "path": [
+    "subtype"
    ]
   },
   "insurance.surrender": {

@@ -13,7 +13,18 @@
 //   N_INHERITANCE_TAX）、契約者＝受取人 なら一時所得（収入保障の月額は雑所得）、それ以外は贈与税。満期金・祝金・解約返戻金は
 //   受取人＝契約者 なら一時所得、それ以外は贈与税。年金は 受取人＝契約者 なら雑所得（必要経費は払込保険料×年金額÷年金の総額）、それ以外は贈与税。
 //   高度障害・就業不能の給付は非課税。一時所得の必要経費は、その時までの払込保険料のうち前の受け取りに使っていない分
-// - 医療・がんの給付（入院日額・手術・がん一時金）は保障内容一覧に載せるだけで、受け取りは計算しない
+// - 医療・がんの給付（改訂2。0054）: 被保険者の病気の想定（就業不能・障害の想定の illness）があれば、起きる月の翌月に1回だけ受け取る
+//   （非課税）: 入院日額×min(入院の日数, 1回の限度日数〔maxDays。省略は60日〕)、手術×手術の回数、がん一時金（がんのとき）、
+//   三大疾病一時金（がん・心疾患・脳卒中のとき）。2回目以降・通算の限度・先進医療などの細かい条件は計算しない。病気の想定が無ければ
+//   受け取りは計算せず、知らせ N_NOT_SUPPORTED insurance.medicalBenefit
+// - 保障の行ごとの被保険者（改訂2。0054）: 保障に insured があれば、その保障の給付（死亡・収入保障・就業不能・高度障害・医療）は
+//   その人の万一の想定で受け取る。契約の被保険者でない人の死亡保険金は契約者（契約者が亡くなった人なら契約の被保険者）が受け取る。
+//   年末の死亡保障額 deathBenefit は契約の被保険者の分だけで、ほかの人の分は others に人ごと
+// - 数表の死亡保障の行（改訂2。0054）: 保障の ID（coverage）のある行はその保障の額だけを置き換える（逓減定期の減り方など）。ID の無い
+//   行は前のとおり、その保険年度の契約全体（契約の被保険者の分）の死亡保障額
+// - 変額・外貨建の円の目安の形（改訂2。simple.estimate。0054）: 積立金を前提の利回りで伸ばさず、死亡保険金は保障の明細の額、
+//   解約返戻金は数表の行の額だけ（行が無ければ0）
+// - 年ごとの値に、年末までの払込保険料の累計（paid。契約の月から）を添える（約束の版 1.1。0054）
 import {
   addMonths,
   addYen,
@@ -31,6 +42,7 @@ import {
   type Flow,
   type InsuranceContractInput,
   type InsurancePolicyOutput,
+  type InsurancePolicyYear,
   type InsuranceReceipt,
   type MemberInput,
   type MonthIndex,
@@ -53,7 +65,9 @@ const KNOWN: ReadonlySet<string> = new Set([
   "insurance.variable",
   "insurance.nonLife",
 ]);
-const MEDICAL: ReadonlySet<string> = new Set(["hospitalDaily", "surgery", "cancerLump"]);
+const MEDICAL: ReadonlySet<string> = new Set(["hospitalDaily", "surgery", "cancerLump", "threeMajorLump"]);
+/** 入院の1回の限度日数の既定（0054） */
+const DEFAULT_MAX_DAYS = 60;
 const ROW: Readonly<Record<InsuranceReceipt["kind"], string>> = {
   death: "cf.income.lumpSum.insurance",
   highDisability: "cf.income.lumpSum.insurance",
@@ -63,13 +77,14 @@ const ROW: Readonly<Record<InsuranceReceipt["kind"], string>> = {
   survival: "cf.income.lumpSum.maturity",
   surrender: "cf.income.lumpSum.surrender",
   annuity: "cf.income.corporatePension.privateAnnuity",
+  medical: "cf.income.lumpSum.insurance",
 };
 
 export default defineComponent<{ object: string }, InsurancePolicyOutput>({
   id: "insurance.policy",
   title: "保険契約（保険年度ごとの値と受け取り）",
-  contract: "1.0",
-  revision: 1,
+  contract: "1.1",
+  revision: 2,
   requires: { "insurance.term": ">=1 <2", "insurance.premiumPayment": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [],
   reads: [
@@ -143,20 +158,34 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
       const to = covTo(x);
       return m >= covFrom(x) && (to === null || m <= to);
     };
-    // 数表の保険年度ごとの値（行の合計。無ければ null）
+    // 数表の保険年度ごとの値（行の合計。無ければ null）。死亡保障は、保障の ID の無い行（契約全体）だけ（0054）
     const sched = (py: number, field: "deathBenefit" | "surrenderValue" | "annuity" | "survivalBenefit"): Yen | null => {
       let found = false;
       let s = 0;
       for (const r of c.schedule?.rows ?? []) {
         if (r.policyYear !== py || r[field] === undefined) continue;
+        if (field === "deathBenefit" && r.coverage !== undefined) continue;
         found = true;
         s += r[field] as number;
       }
       return found ? yen(s) : null;
     };
+    // 保障の ID のある数表の死亡保障の行（その保障の額を置き換える。0054）
+    const schedCov = (py: number, id: string): Yen | null => {
+      let found = false;
+      let s = 0;
+      for (const r of c.schedule?.rows ?? []) {
+        if (r.policyYear !== py || r.coverage !== id || r.deathBenefit === undefined) continue;
+        found = true;
+        s += r.deathBenefit;
+      }
+      return found ? yen(s) : null;
+    };
+    const covInsured = (x: CoverageInput): string => x.insured ?? c.insured;
     // 変額・外貨建の積立金（保険年度の終わり）
     const fund = new Map<number, Yen>();
-    if (FUND.has(c.template)) {
+    const grows = FUND.has(c.template) && c.simple?.estimate !== true;
+    if (grows) {
       const load = ctx.rate.of(c.simple?.loadRate ?? "0");
       let v = yen(0);
       for (let py = 1; addMonths(start, 12 * (py - 1)) <= end; py++) {
@@ -179,7 +208,7 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
       if (py <= 0) return yen(0);
       const s = sched(py, "surrenderValue");
       if (s !== null) return s;
-      if (FUND.has(c.template)) return fund.get(py) ?? yen(0);
+      if (FUND.has(c.template)) return grows ? (fund.get(py) ?? yen(0)) : yen(0);
       if (!SAVINGS.has(c.template)) return yen(0);
       if (c.simple?.returnRate === undefined) {
         // 6.8 の形（保障の明細・数表・解約）で入れた契約だけ、返戻率を求める（保険料控除のためだけの契約には知らせない）
@@ -193,17 +222,23 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
       return ctx.money.mulRatio(v, 12 * py, payMonths, "conv.investment.return");
     };
     const policyYear = (m: MonthIndex) => Math.floor((m - start) / 12) + 1;
-    const deathAt = (m: MonthIndex): Yen => {
-      if (!active(m)) return yen(0);
+    // 死亡保険金の一時金（who が被保険者の保障。契約の被保険者の分は、ID の無い数表の行があればそれ、変額は積立金と多い方）
+    const lumpAt = (m: MonthIndex, who: string): number => {
       const py = policyYear(m);
-      const s = sched(py, "deathBenefit");
+      const own = who === c.insured;
+      const s = own ? sched(py, "deathBenefit") : null;
       let total = 0;
       if (s !== null) total = s;
-      else for (const x of coverages) if (x.benefit === "death" && covActive(x, m)) total += x.amount;
-      if (FUND.has(c.template)) total = Math.max(total, fund.get(py) ?? 0);
+      else for (const x of coverages) if (x.benefit === "death" && covInsured(x) === who && covActive(x, m)) total += schedCov(py, x.id) ?? x.amount;
+      if (own && grows) total = Math.max(total, fund.get(py) ?? 0);
+      return total;
+    };
+    const deathAt = (m: MonthIndex, who: string = c.insured): Yen => {
+      if (!active(m)) return yen(0);
+      let total = lumpAt(m, who);
       // 収入保障の残り（月額×残りの月数。最低保証の月数まで）
       for (const x of coverages) {
-        if (x.benefit !== "incomeProtection" || !covActive(x, m)) continue;
+        if (x.benefit !== "incomeProtection" || covInsured(x) !== who || !covActive(x, m)) continue;
         const to = covTo(x);
         const left = Math.max(to === null ? 0 : to - m, x.minimumMonths ?? 0);
         total += ctx.money.mulRatio(x.amount, left, 1, "conv.exact");
@@ -215,8 +250,9 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
     const relations = ctx.list<RelationInput>("relation");
     const members = ctx.list<MemberInput>("member");
     const annuitant = c.annuitant ?? c.policyholder;
-    const deathClass = (to: string | null): InsuranceReceipt["taxClass"] =>
-      c.policyholder === c.insured ? "inheritance" : to === c.policyholder ? "temporary" : "gift";
+    // 死亡保険金の税の区分: 契約者が亡くなった人なら相続税の対象、受取人が契約者なら一時所得、ほかは贈与税
+    const deathClass = (dead: string, to: string | null): InsuranceReceipt["taxClass"] =>
+      c.policyholder === dead ? "inheritance" : to === c.policyholder ? "temporary" : "gift";
     const ownClass = (to: string): InsuranceReceipt["taxClass"] => (to === c.policyholder ? "temporary" : "gift");
     const receipts: InsuranceReceipt[] = [];
     let used = 0;
@@ -240,15 +276,24 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
         ...(taxClass === "gift" ? { giver: c.policyholder } : {}),
       });
     };
-    const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: c.insured }).event;
-    if (ev !== null && ev.kind === "death") {
+    // 保障の被保険者ごと（契約の被保険者と、保障の行の被保険者。0054）の万一の想定
+    const people = [...new Set([c.insured, ...coverages.map(covInsured)])];
+    const deathMonth = new Map<string, MonthIndex>();
+    for (const P of people) {
+      const ev = ctx.call<ContingencyEventOutput>("contingency.event", { member: P }).event;
+      if (ev === null) continue;
       const D = parseYm(ev.month);
-      if (active(D)) {
-        // 受取人（無ければ死亡の当時の配偶者、いなければ子）
+      if (ev.kind === "death") {
+        deathMonth.set(P, D);
+        if (!active(D)) continue;
+        // 受取人: 契約の被保険者の死亡は受取人の割合（無ければ死亡の当時の配偶者、いなければ子）。ほかの人（家族特約）の死亡は契約者
+        // （契約者が亡くなった人なら契約の被保険者）
         const heirs =
-          c.beneficiaries !== undefined && c.beneficiaries.length > 0
-            ? c.beneficiaries.map((b) => ({ member: b.member ?? null, share: b.share }))
-            : [{ member: spousesAt(ctx, relations, c.insured, D)[0] ?? childrenOf(members, relations, c.insured)[0]?.id ?? null, share: "1" }];
+          P !== c.insured
+            ? [{ member: c.policyholder !== P ? c.policyholder : c.insured, share: "1" }]
+            : c.beneficiaries !== undefined && c.beneficiaries.length > 0
+              ? c.beneficiaries.map((b) => ({ member: b.member ?? null, share: b.share }))
+              : [{ member: spousesAt(ctx, relations, c.insured, D)[0] ?? childrenOf(members, relations, c.insured)[0]?.id ?? null, share: "1" }];
         const weights = heirs.map((h) => ctx.rate.fraction(ctx.rate.of(h.share)));
         const split = (amount: Yen) =>
           ctx.money.allocate(
@@ -257,17 +302,12 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
             "conv.flow.allocate",
             "first",
           );
-        const py = policyYear(D);
-        const s = sched(py, "deathBenefit");
-        let lump = 0;
-        if (s !== null) lump = s;
-        else for (const x of coverages) if (x.benefit === "death" && covActive(x, D)) lump += x.amount;
-        if (FUND.has(c.template)) lump = Math.max(lump, fund.get(py) ?? 0);
+        const lump = lumpAt(D, P);
         const pay = addMonths(D, 1);
-        split(yen(lump)).forEach((a, i) => add(pay, "death", a, heirs[i]?.member ?? null, deathClass(heirs[i]?.member ?? null), null));
+        split(yen(lump)).forEach((a, i) => add(pay, "death", a, heirs[i]?.member ?? null, deathClass(P, heirs[i]?.member ?? null), null));
         // 収入保障: 月額を保障の終わり（最低保証の月数まで）まで毎月
         for (const x of coverages) {
-          if (x.benefit !== "incomeProtection" || !covActive(x, D)) continue;
+          if (x.benefit !== "incomeProtection" || covInsured(x) !== P || !covActive(x, D)) continue;
           const to = covTo(x);
           const last = Math.max(to === null ? D : to, D + (x.minimumMonths ?? 0));
           const n = last - D;
@@ -275,30 +315,45 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
           for (let m = pay; m <= last && m <= end; m = addMonths(m, 1)) {
             split(x.amount).forEach((a, i) => {
               const who = heirs[i]?.member ?? null;
-              const cls0 = deathClass(who);
+              const cls0 = deathClass(P, who);
               const cls = cls0 === "temporary" ? "miscellaneous" : cls0;
               add(m, "incomeProtection", a, who, cls, x.id, cls === "miscellaneous" && n > 0 ? ctx.money.mulRatio(totalPaid, 1, n * heirs.length, "conv.exact") : yen(0));
             });
           }
         }
-        if (lump > 0 && c.policyholder === c.insured) ctx.notice("N_INHERITANCE_TAX", ["insurance.deathBenefit", c.id]);
+        if (lump > 0 && c.policyholder === P) ctx.notice("N_INHERITANCE_TAX", ["insurance.deathBenefit", c.id]);
+        continue;
       }
-    } else if (ev !== null) {
-      const D = parseYm(ev.month);
       const recovery = ev.recovery === undefined ? null : parseYm(ev.recovery);
+      const illness = ev.illness;
+      let medicalNotice = false;
       for (const x of coverages) {
+        if (covInsured(x) !== P) continue;
         if (x.benefit === "incapacity" && covActive(x, D)) {
           const to = covTo(x);
           for (let m = addMonths(D, (x.waitingMonths ?? 0) + 1); m <= end && (to === null || m <= to) && (recovery === null || m < recovery); m = addMonths(m, 1)) {
-            add(m, "incapacity", x.amount, c.insured, "none", x.id);
+            add(m, "incapacity", x.amount, P, "none", x.id);
           }
         }
         if (x.benefit === "highDisability" && ev.kind === "disability" && ev.grade === 1 && ev.recognition !== undefined) {
           const rc = parseYm(ev.recognition);
-          if (covActive(x, rc) && active(rc) && (recovery === null || recovery > rc)) add(addMonths(rc, 1), "highDisability", x.amount, c.insured, "none", x.id);
+          if (covActive(x, rc) && active(rc) && (recovery === null || recovery > rc)) add(addMonths(rc, 1), "highDisability", x.amount, P, "none", x.id);
         }
-        if (MEDICAL.has(x.benefit)) ctx.notice("N_NOT_SUPPORTED", ["insurance.medicalBenefit", c.id]);
+        if (!MEDICAL.has(x.benefit)) continue;
+        if (illness === undefined) {
+          medicalNotice = true;
+          continue;
+        }
+        // 医療・がんの給付（0054）: 起きる月に保障があれば、その翌月に1回だけ（非課税）
+        if (!active(D) || !covActive(x, D)) continue;
+        let amount: Yen = yen(0);
+        if (x.benefit === "hospitalDaily") amount = ctx.money.mulRatio(x.amount, Math.min(illness.hospitalDays ?? 0, x.maxDays ?? DEFAULT_MAX_DAYS), 1, "conv.exact");
+        else if (x.benefit === "surgery") amount = ctx.money.mulRatio(x.amount, illness.surgeries ?? 0, 1, "conv.exact");
+        else if (x.benefit === "cancerLump") amount = illness.disease === "cancer" ? x.amount : yen(0);
+        else if (x.benefit === "threeMajorLump") amount = illness.disease === "cancer" || illness.disease === "heartStroke" ? x.amount : yen(0);
+        add(addMonths(D, 1), "medical", amount, P, "none", x.id);
       }
+      if (medicalNotice) ctx.notice("N_NOT_SUPPORTED", ["insurance.medicalBenefit", c.id]);
     }
     // 満期金・祝金・年金
     for (const x of coverages) {
@@ -342,13 +397,30 @@ export default defineComponent<{ object: string }, InsurancePolicyOutput>({
       if (r.member === null || m < base || m > end) continue;
       flows.push({ row: ROW[r.kind], ym: r.ym, amount: r.amount, accrualYear: yearOf(m), member: r.member, object: c.id, formula: `insurance.policy.${r.kind}` });
     }
-    const years: InsurancePolicyOutput["years"][number][] = [];
+    const years: InsurancePolicyYear[] = [];
     for (let y = yearOf(base); y <= yearOf(end); y++) {
       const dec = monthIndex(y, 12);
       let premium = 0;
       for (const p of pays) if (yearOf(p.m) === y) premium += p.amount;
       const live = active(dec);
-      years.push({ year: y, premium: yen(premium), deathBenefit: live ? deathAt(dec) : yen(0), surrenderValue: live ? surrenderAt(Math.floor((dec - start + 1) / 12)) : yen(0) });
+      const others: { member: string; deathBenefit: Yen }[] = [];
+      if (live) {
+        for (const P of people) {
+          if (P === c.insured) continue;
+          const dm = deathMonth.get(P);
+          if (dm !== undefined && dm <= dec) continue;
+          const v = deathAt(dec, P);
+          if (v > 0) others.push({ member: P, deathBenefit: v });
+        }
+      }
+      years.push({
+        year: y,
+        premium: yen(premium),
+        deathBenefit: live ? deathAt(dec) : yen(0),
+        surrenderValue: live ? surrenderAt(Math.floor((dec - start + 1) / 12)) : yen(0),
+        paid: paidUpTo(dec),
+        ...(others.length > 0 ? { others } : {}),
+      });
     }
     return { flows, receipts, years, endsAt: term.endsAt };
   },

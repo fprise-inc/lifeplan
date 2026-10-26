@@ -308,6 +308,7 @@ const BENEFIT_LABEL: Record<string, string> = {
   hospitalDaily: "入院給付（日額）",
   surgery: "手術給付",
   cancerLump: "がん診断一時金",
+  threeMajorLump: "三大疾病一時金",
   other: "その他の給付",
 };
 
