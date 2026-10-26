@@ -339,7 +339,7 @@ describe("住宅ローン控除の条件の欄", () => {
     expect(status(action(wh, `housing/debt/${id}/creditNa`), `${id}/credit/moveIn`)).toBe("missing");
     wh = set(wh, `${id}/credit/moveIn`, "2024-04");
     expect(debtsOf(wh)[0]!.housing).toBeDefined();
-    expect(debtsOf(wh)[0]!.valueStates?.["debt.housing"]).toBeUndefined();
+    expect((debtsOf(wh)[0]!.valueStates as Record<string, unknown> | undefined)?.["debt.housing"]).toBeUndefined();
     // 借入額から入れたローン・古い世帯には出さない
     const old = fromRequest(modelHousehold("protectionNeed"));
     for (const d of old.request.input.household.debts ?? []) if (d.kind === "mortgage") expect(status(old, `${d.id}/credit/moveIn`)).not.toBe("missing");
