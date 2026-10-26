@@ -70,6 +70,8 @@ export function addMember(wh: WorkingHousehold, kind: "spouse" | "child" | "pare
   const sex = kind === "spouse" ? (self?.sex === "female" ? "male" : "female") : "male";
   const m: Member = { id: newMemberId, kind, birth: { birthYearMonth: `${birthYear}-04`, bornOnFirst: false }, sex, joins: null, leaves: null, expected: false };
   if (kind === "child") m.leaves = { at: standardLeaves(m) };
+  // 親・祖父母は世帯の外の家族（家計が別。0035 の4）。家計を1つにする期間は FP が入れる
+  if ((kind === "parent" || kind === "grandparent") && self !== undefined) m.outside = { of: self.id, periods: [] };
   let next = mutate(wh, (h) => {
     h.members.push(m);
     h.relations ??= [];
@@ -185,8 +187,56 @@ function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
       }),
     );
   const actions: ActionDef[] = m.kind === "self" ? [] : [{ key: `family/${m.id}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
+  if (m.outside !== undefined) outsideFields(m, fields, actions);
   const allowance = m.kind === "parent" || m.kind === "grandparent" ? (m.support?.allowance ?? 0) : 0;
-  return { key: `family/${m.id}`, title: memberLabel(wh, m.id), level: "simple", ...(allowance > 0 ? { note: ALLOWANCE_NOTE } : {}), fields, actions };
+  const notes = [...(m.outside !== undefined ? [OUTSIDE_NOTE] : []), ...(allowance > 0 ? [ALLOWANCE_NOTE] : [])];
+  return { key: `family/${m.id}`, title: memberLabel(wh, m.id), level: "simple", ...(notes.length > 0 ? { note: notes.join("。") } : {}), fields, actions };
+}
+
+/** 世帯の外の家族（0035 の4）の説明 */
+const OUTSIDE_NOTE = "世帯の外の家族（家計が別）です。年金・給与などの収入と、その人の税・社会保険料は世帯に入りません。家計を1つにする期間を入れると、その間は印に従って生活費の人数・収入を世帯として扱います";
+
+/**
+ * 世帯の外の家族の欄（0035 の4）: 家計を1つにする期間（いまは1つ目の期間だけ。始まり・終わり・生活費の人数に入れる・収入を世帯に入れる）と、
+ * 勤め先の健康保険に入っている（世帯の人をこの人の扶養に入れられる）。介護・親のカードを組み直すときに作り直す小さな形
+ */
+function outsideFields(m: Member, fields: FieldDef[], actions: ActionDef[]): void {
+  const find = byId(members, m.id);
+  const periods = m.outside?.periods ?? [];
+  fields.push(
+    plain({ key: `family/${m.id}/outside/employeeInsurance`, item: "member.outside", label: "勤め先の健康保険に入っている", level: "detail", kind: "bool", find, path: ["outside", "employeeInsurance"], optional: true, fallback: false, help: "入れると、仕事を辞めた後などに世帯の人をこの人の健康保険の扶養に入れられます" }),
+  );
+  if (periods.length === 0) {
+    actions.push({
+      key: `family/${m.id}/outside/addPeriod`,
+      label: "＋ 家計を1つにする期間を足す",
+      level: "detail",
+      run: (w) =>
+        mutate(w, (h) => {
+          const x = h.members.find((y) => y.id === m.id);
+          if (x?.outside !== undefined) x.outside.periods.push({ id: newId(), from: { at: w.request.input.baseMonth }, to: null, living: true, income: false });
+        }),
+    });
+    return;
+  }
+  const at = ["outside", "periods", "0"];
+  fields.push(
+    timepointField({ key: `family/${m.id}/outside/from`, item: "member.outside", label: "家計を1つにする期間の始まり", level: "detail", find, path: [...at, "from"], optional: true, nullText: "最初から" }),
+    timepointField({ key: `family/${m.id}/outside/to`, item: "member.outside", label: "家計を1つにする期間の終わり", level: "detail", find, path: [...at, "to"], optional: true, nullText: "最後まで" }),
+    plain({ key: `family/${m.id}/outside/living`, item: "member.outside", label: "生活費の人数に入れる", level: "detail", kind: "bool", find, path: [...at, "living"], optional: true, fallback: true, help: "生活費の目安（世帯の人数ごと）の人数に入れます" }),
+    plain({ key: `family/${m.id}/outside/income`, item: "member.outside", label: "収入を世帯に入れる", level: "detail", kind: "bool", find, path: [...at, "income"], optional: true, fallback: false, help: "その期間、この人の年金・給与などと、その人の税・社会保険料を世帯のお金として扱います" }),
+  );
+  if (periods.length > 1) fields.push(field({ key: `family/${m.id}/outside/more`, item: null, label: "ほかの期間", level: "detail", kind: "text", readOnly: `ほかに ${periods.length - 1} つの期間があります（この画面では1つ目だけを直せます）`, get: () => ({ value: null }), set: (w) => w }));
+  actions.push({
+    key: `family/${m.id}/outside/removePeriod`,
+    label: "家計を1つにする期間を外す",
+    level: "detail",
+    run: (w) =>
+      mutate(w, (h) => {
+        const x = h.members.find((y) => y.id === m.id);
+        if (x?.outside !== undefined) x.outside.periods.splice(0, 1);
+      }),
+  });
 }
 
 // ---- 出来事（0003 の6・0038）----

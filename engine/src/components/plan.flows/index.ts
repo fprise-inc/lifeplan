@@ -6,6 +6,7 @@
 // 改訂6: 持ち家の売却の手取り（housing.valuation）も集める。
 // 改訂8: 保育料（education.nurseryFee。子ごと。0029）も集める。
 // 改訂7: 住まい以外の不動産の家賃収入・経費・売却の手取り（asset.realEstate。0028）も集める。
+// 改訂10: 世帯の外の家族（0035 の4）の構成員ごとのお金の動きは、家計を1つにする期間のうち収入を世帯に入れる期間の月の分だけ集める。
 // 改訂5: 保険の受け取り（insurance.policy。契約ごと）・介護の費用（care.expense）・万一のときの一時のお金（contingency.lumpSum）も集める。
 // 運用益・金融資産の残高（plan.cashflow）と分けるのは、運用利回りのように案の前提だけが変わったとき、集め直さずに済むようにするため（0005 の追記）。
 // 構成員ごとに分けるのは、1人の入力を変えたとき、ほかの構成員の分を集め直さないため（0005・0006 の追記）。
@@ -14,8 +15,12 @@ import {
   addYen,
   defineComponent,
   formatYm,
+  isOutside,
   monthOf,
   netByYear,
+  outsideIncomeEver,
+  outsidePeriodAt,
+  parseYm,
   yearOf,
   yen,
   type Flow,
@@ -31,7 +36,7 @@ export default defineComponent<Record<string, never>, Collected>({
   id: "plan.flows",
   title: "お金の動き（集める）",
   contract: "1.1",
-  revision: 9,
+  revision: 10,
   requires: {
     "insurance.policy": ">=1 <2",
     "care.expense": ">=1 <2",
@@ -53,7 +58,7 @@ export default defineComponent<Record<string, never>, Collected>({
     "insurance.premiumPayment": ">=1 <2",
   },
   params: [],
-  reads: ["member.kind", "debt.kind", "goal.kind", "goal.owner", "insurance.policyholder"],
+  reads: ["member.kind", "member.outside", "debt.kind", "goal.kind", "goal.owner", "insurance.policyholder"],
   slots: ["slot.expense.flow"],
   input: "empty.input",
   output: "plan.flows.output",
@@ -67,6 +72,16 @@ export default defineComponent<Record<string, never>, Collected>({
       for (const r of rows) net.set(r.year, addYen(net.get(r.year) ?? yen(0), r.amount));
     };
     for (const m of ctx.list<MemberInput>("member")) {
+      // 世帯の外の家族（0035 の4）: 年金・給与・給付と、その人の税・社会保険料は世帯に入れない。家計を1つにする期間のうち、収入を世帯に
+      // 入れる期間（income）の月の分だけ入れる
+      if (isOutside(m)) {
+        if (!outsideIncomeEver(m)) continue;
+        const mf = ctx.call<Collected>("plan.memberFlows", { member: m.id });
+        const kept = mf.parts.map((p) => p.filter((f) => outsidePeriodAt(ctx, m, parseYm(f.ym))?.income === true)).filter((p) => p.length > 0);
+        for (const p of kept) parts.push(p);
+        addNet([...netByYear(kept.flat(), ctx.conventions.aggregation, base, end).entries()].map(([year, amount]) => ({ year, amount })));
+        continue;
+      }
       const mf = ctx.call<Collected>("plan.memberFlows", { member: m.id });
       for (const p of mf.parts) parts.push(p);
       addNet(mf.net);

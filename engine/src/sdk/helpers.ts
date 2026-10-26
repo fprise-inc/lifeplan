@@ -1,7 +1,7 @@
 // 部品が共通に使う小さな関数（公式SDK）。年齢の値（unit: years）の切り替えの月・年度・働き方の種類
 import { EngineError } from "../errors.ts";
 import type { Ctx } from "../registry/ctx.ts";
-import type { BuildingStructure, Flow, RealEstateValuationSetting, ReturnStageInput } from "../engine/types.ts";
+import type { BuildingStructure, Flow, MemberInput, RealEstateValuationSetting, ReturnStageInput } from "../engine/types.ts";
 import { numTable } from "../engine/numTable.ts";
 import { RATE_ONE, RATE_ZERO, type Rate } from "../money/rate.ts";
 import { addYen, yen, type Yen } from "../money/yen.ts";
@@ -587,4 +587,54 @@ export const UNEMPLOYMENT_ESTIMATE_MIN_IDLE_MONTHS = 3;
  */
 export function estimateUnemploymentClaim(o: { readonly ageAtLeaving: number; readonly idleMonths: number; readonly endsWith?: string; readonly elderlyAge?: number }): boolean {
   return o.ageAtLeaving < (o.elderlyAge ?? 65) && o.idleMonths >= UNEMPLOYMENT_ESTIMATE_MIN_IDLE_MONTHS && o.endsWith !== "sickLeave";
+}
+
+// ---- 世帯の外の家族（0035 の4） ----
+
+/** 世帯の外の家族（家計を世帯と別にする家族。構成員の印 outside）か */
+export function isOutside(m: { readonly outside?: unknown }): boolean {
+  return m.outside !== undefined && m.outside !== null;
+}
+
+/**
+ * 世帯の外の家族の、月 month の家計を1つにする期間の印（期間に入っていなければ null）。living は生活費の人数に入れる（既定 true）、
+ * income は年金・給与などの収入を世帯に入れる（既定 false）。期間の終わりの月を含む
+ */
+export function outsidePeriodAt(ctx: Ctx, m: MemberInput, month: MonthIndex): { living: boolean; income: boolean } | null {
+  for (const p of m.outside?.periods ?? []) {
+    const from = p.from === null ? null : ctx.time.resolve(p.from);
+    const to = p.to === null ? null : ctx.time.resolve(p.to);
+    if ((from === null || from <= month) && (to === null || to >= month)) return { living: p.living ?? true, income: p.income ?? false };
+  }
+  return null;
+}
+
+/** 世帯の外の家族が、どこかの期間で収入を世帯に入れるか */
+export function outsideIncomeEver(m: MemberInput): boolean {
+  return (m.outside?.periods ?? []).some((p) => p.income === true);
+}
+
+/** 世帯の中の構成員（世帯の外の家族を除く。世帯の税・社会保険・給付・遺族の判定の顔ぶれ） */
+export function householdMembers<M extends { readonly outside?: unknown }>(members: readonly M[]): M[] {
+  return members.filter((m) => !isOutside(m));
+}
+
+/**
+ * member と同じ世帯（税・社会保険・給付の判定の世帯）の構成員（member を含む）。世帯の中の人なら世帯の中の人。世帯の外の家族なら、
+ * その人と、配偶者の関係でつながる世帯の外の家族（両親など。月 at の配偶者だけ。at を省くといつでも）。亡くなる見込み（leaves）の後の
+ * 判定は、呼ぶ部品がその月にいる人で絞る（片方が亡くなった後は残る人を単身として判定する）
+ */
+export function sameHousehold<M extends { readonly id: string; readonly outside?: unknown }>(
+  ctx: Ctx,
+  members: readonly M[],
+  relations: readonly { readonly type: string; readonly a?: string; readonly b?: string; readonly from?: unknown; readonly to?: unknown }[],
+  member: string,
+  at?: MonthIndex,
+): M[] {
+  const me = members.find((x) => x.id === member);
+  if (me === undefined || !isOutside(me)) return householdMembers(members);
+  const spouses = new Set(
+    at === undefined ? relations.flatMap((r) => (r.type === "spouse" && (r.a === member || r.b === member) ? [(r.a === member ? r.b : r.a) as string] : [])) : spousesAt(ctx, relations, member, at),
+  );
+  return members.filter((x) => x.id === member || (spouses.has(x.id) && isOutside(x)));
 }

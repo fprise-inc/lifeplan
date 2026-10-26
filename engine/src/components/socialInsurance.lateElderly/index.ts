@@ -2,22 +2,24 @@
 // 子ども・子育て支援金）ごとに賦課限度額まで。市町村ごとの値を持たない方針（0007 の6）なので、全国平均の料率を既定にし、世帯の入力
 // （決定通知書の年額 premiumAssessments、または料率 premiumRates）で上書きする。どの既定を使ったかは見出しの notices に出す。
 // 年度の途中で75歳になる年は月数で按分する。年金が年18万円以上なら年金から差し引く（特別徴収）
+// 改訂4: 世帯の外の家族（0035 の4）の判定の世帯は、その人と世帯の外の配偶者
 import {
-  ageMonth,
   addYen,
+  ageMonth,
+  assessedPremium,
   boxValue,
   defineComponent,
   fiscalYearOf,
   fiscalYearStart,
   installmentFlows,
-  pensionSpecial,
-  PENSION_SPECIAL_MINIMUM,
   monthIndex,
+  PENSION_SPECIAL_MINIMUM,
+  pensionSpecial,
   rate,
+  RATE_ONE,
   rateOverride,
   reductionRatio,
-  assessedPremium,
-  RATE_ONE,
+  sameHousehold,
   subYen,
   yen,
   type Flow,
@@ -27,6 +29,7 @@ import {
   type PremiumPart,
   type PremiumRateInput,
   type PublicPensionIncomeOutput,
+  type RelationInput,
   type SalaryOutput,
   type TotalIncomeOutput,
   type Yen,
@@ -45,7 +48,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.lateElderly",
   title: "後期高齢者医療の保険料",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -62,7 +65,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     ...REDUCTION,
     SPECIAL,
   ],
-  reads: ["member.kind", "premiumAssessment.member", "premiumAssessment.kind", "premiumAssessment.fiscalYear", "premiumAssessment.amount", "premiumRate.kind", "premiumRate.fromFiscalYear", "premiumRate.parts"],
+  reads: ["member.outside", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "member.kind", "premiumAssessment.member", "premiumAssessment.kind", "premiumAssessment.fiscalYear", "premiumAssessment.amount", "premiumRate.kind", "premiumRate.fromFiscalYear", "premiumRate.parts"],
   memberScope: ["premiumAssessment"],
   input: "residentTax.annual.input",
   output: "flows.output",
@@ -89,7 +92,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     const deduction = at.paramYen(`${PREFIX}.incomeDeduction`) ?? yen(0);
     const base = own > deduction ? subYen(own, deduction) : yen(0);
     // 軽減の判定: 世帯主（本人の構成員）と、その年度に後期高齢者医療に入る構成員の総所得金額等の合計
-    const members = ctx.list<MemberInput>("member");
+    // 判定の世帯: 世帯の中の人は世帯の中の人、世帯の外の家族はその人と世帯の外の配偶者（0035 の4）
+    const members = sameHousehold(ctx, ctx.list<MemberInput>("member"), ctx.list<RelationInput>("relation"), member);
     const head = members.find((m) => m.kind === "self")?.id ?? member;
     const insured = members.filter(
       (m) =>

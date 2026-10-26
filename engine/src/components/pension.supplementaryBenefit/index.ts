@@ -6,6 +6,7 @@
 // （（補足的所得基準額−所得）÷（補足的所得基準額−所得基準額））。補足的所得基準額が制度データに無いときは計算せず、
 // 対象かもしれない年（世帯全員が非課税で、所得が所得基準額を超える）を見出しの notices（N_PARAM_MISSING）で知らせる
 // 改訂6: 判定の年は、計算基準月に払っている住民税の年度（residentTaxYearOf）より前にしない（計算基準月が6〜9月の年の9月までの分は、その年度で判定する）
+// 改訂7: 世帯の外の家族（0035 の4）の判定の世帯は、その人と世帯の外の配偶者
 import {
   addMonths,
   ageMonth,
@@ -17,17 +18,19 @@ import {
   monthOf,
   parseYm,
   residentTaxYearOf,
+  sameHousehold,
   yearOf,
   yen,
   type Ctx,
   type ExemptionOutput,
-  type MonthCtx,
   type Flow,
   type MemberInput,
+  type MonthCtx,
   type MonthIndex,
   type PensionOutput,
   type PublicPensionIncomeOutput,
   type RecordOutput,
+  type RelationInput,
   type RevisionOutput,
   type TotalIncomeOutput,
   type Yen,
@@ -102,7 +105,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
   id: "pension.supplementaryBenefit",
   title: "年金生活者支援給付金",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: {
     "pension.oldAge": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -112,7 +115,7 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
     "tax.publicPensionIncome": ">=1 <2",
   },
   params: Object.values(P),
-  reads: ["member.birth", "member.joins", "member.leaves"],
+  reads: ["member.outside", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "member.birth", "member.joins", "member.leaves"],
   input: "member.input",
   output: "flows.output",
   compute(input, ctx) {
@@ -129,7 +132,8 @@ export default defineComponent<{ member: string }, { flows: Flow[] }>({
     const n65 = ageMonth(ctx, base, P.start, member);
     const paid = rec.basicMonths + rec.months.filter((x) => x.basic).length;
     const c1 = rec.category1 !== undefined && rec.category1.known ? rec.category1 : null;
-    const others = ctx.list<MemberInput>("member").filter((m) => m.leaves === null || ctx.time.resolve(m.leaves) > base);
+    // 世帯の全員が非課税かの判定は同じ世帯の人だけ（世帯の外の家族は、その人と世帯の外の配偶者。0035 の4）
+    const others = sameHousehold(ctx, ctx.list<MemberInput>("member"), ctx.list<RelationInput>("relation"), member).filter((m) => m.leaves === null || ctx.time.resolve(m.leaves) > base);
     // 判定の年ごと: null は支給なし、ratio は調整支給率（分子・分母。本来の給付金は 1/1）
     const cache = new Map<number, { num: number; den: number } | null>();
     const projected = new Map<string, number[]>();

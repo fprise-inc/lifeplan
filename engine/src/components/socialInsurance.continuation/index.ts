@@ -5,6 +5,7 @@
 // 協会けんぽの支部は、任意継続の期間の healthInsurance.insurer、無ければ前の勤め先の支部。合算した率で1回だけ円未満を切り捨て、
 // 介護・支援金を同じ規則で切り捨てた額を除いた残りを健康保険にする（協会けんぽの任意継続の保険料額表）。
 // 健保組合・共済の任意継続は、料率と上限が組合の規約で決まり世帯の入力が無いので計算せず、見出しの notices に N_INPUT_REQUIRED を出す
+// 改訂2: 世帯の外の家族（0035 の4）の任意継続は世帯の支出にしない
 import {
   addMonths,
   ageMonth,
@@ -15,6 +16,7 @@ import {
   fiscalYearStart,
   formatYm,
   gradeFor,
+  householdMembers,
   monthIndex,
   parseYm,
   RATE_ZERO,
@@ -46,10 +48,11 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.continuation",
   title: "健康保険の任意継続の保険料",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "socialInsurance.healthStatus": ">=1 <2", "socialInsurance.coverage": ">=1 <2" },
   params: Object.values(P),
   reads: [
+    "member.outside",
     "member.kind",
     "employment.member",
     "employment.from",
@@ -69,7 +72,8 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     const { base } = ctx.time;
     const flows: Flow[] = [];
     let unknown = false;
-    for (const mem of ctx.list<MemberInput>("member")) {
+    // 世帯の外の家族の任意継続は世帯の支出にしない（0035 の4）
+    for (const mem of householdMembers(ctx.list<MemberInput>("member"))) {
       const member = mem.id;
       const months = ctx.call<HealthStatusOutput>("socialInsurance.healthStatus", { member }).months.map((x) => ({ m: parseYm(x.month), kind: x.kind }));
       const inYear = months.filter((x) => x.kind === "continuation" && x.m >= start && x.m <= last).map((x) => x.m);

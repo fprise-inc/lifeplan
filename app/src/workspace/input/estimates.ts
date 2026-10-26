@@ -17,12 +17,18 @@ import {
 export type { Estimate };
 export { businessEstimate, careerStartMonth, CAR_ESTIMATE, residentTaxEstimate, residentTaxYear, salaryEstimate } from "../../../../hearing/src/estimates.ts";
 
-/** 今（計算基準月）世帯にいる人の数 */
+/** 今（計算基準月）世帯にいる人の数。世帯の外の家族は、家計を1つにする期間で生活費の人数に入れる（living）ときだけ数える（0035 の4） */
 export function householdSize(h: Household, baseMonth: string): number {
   return h.members.filter((m) => {
     if (m.expected === true) return false;
     const leaves = resolveTimepoint(h, m.leaves);
-    return leaves === null || leaves > baseMonth;
+    if (leaves !== null && leaves <= baseMonth) return false;
+    if (m.outside === undefined) return true;
+    return (m.outside.periods ?? []).some((p) => {
+      const from = resolveTimepoint(h, p.from);
+      const to = resolveTimepoint(h, p.to);
+      return (from === null || from <= baseMonth) && (to === null || to >= baseMonth) && p.living !== false;
+    });
   }).length;
 }
 

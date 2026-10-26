@@ -11,6 +11,7 @@
 //   次の期間の初めの月（令和9年8月）の区分と年間上限で計算し直し（年収約200万円以下の41万円）、負担の合計がそれを超えた分を、その月に
 //   払い戻す（cf.income.benefit.medical）
 // - 70歳以上の区分・外来の特例は作らない（70歳未満の区分で計算し、知らせ）
+// 改訂3: 世帯の外の家族（0035 の4）は世帯の合算に入れない
 import {
   addMonths,
   ageMonth,
@@ -22,6 +23,7 @@ import {
   monthOf,
   parseYm,
   RATE_ZERO,
+  sameHousehold,
   yearOf,
   yen,
   type Bracket,
@@ -33,6 +35,7 @@ import {
   type HealthStatusOutput,
   type MemberInput,
   type MonthIndex,
+  type RelationInput,
   type TotalIncomeOutput,
   type Yen,
 } from "../../sdk/index.ts";
@@ -59,7 +62,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
   id: "medical.highCost",
   title: "医療費の自己負担（高額療養費）",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: {
     "contingency.event": ">=1 <2",
     "socialInsurance.healthStatus": ">=1 <2",
@@ -68,7 +71,7 @@ export default defineComponent<{ member: string }, FlowsResult>({
     "residentTax.exemption": ">=1 <2",
   },
   params: Object.values(P),
-  reads: ["member.kind"],
+  reads: ["member.outside", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "member.kind"],
   input: "member.input",
   output: "flows.output",
   compute(input, ctx) {
@@ -89,7 +92,8 @@ export default defineComponent<{ member: string }, FlowsResult>({
     };
     const health = healthMap(member);
     const std = new Map(ctx.call<CoverageOutput>("socialInsurance.coverage", { member, fromYear: yearOf(base) }).months.map((x) => [x.month, x.healthStd]));
-    const others = ctx.list<MemberInput>("member").map((x) => x.id).filter((id) => id !== member);
+    // 世帯の合算は同じ世帯の人だけ（世帯の外の家族は、その人と世帯の外の配偶者。0035 の4）
+    const others = sameHousehold(ctx, ctx.list<MemberInput>("member"), ctx.list<RelationInput>("relation"), member).map((x) => x.id).filter((id) => id !== member);
     // 基準所得額（総所得金額等−住民税の基礎控除。基礎控除は合計所得金額で減る）
     const basisIncome = (id: string, y: number, at: ReturnType<typeof ctx.at>): number => {
       const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year: y }).total;

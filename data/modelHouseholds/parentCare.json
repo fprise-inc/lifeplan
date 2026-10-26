@@ -36,6 +36,10 @@
           "support": {
             "dependent": true,
             "cohabiting": true
+          },
+          "outside": {
+            "of": "79398e84-f736-4f5a-8324-194edbd7091e",
+            "periods": []
           }
         }
       ],

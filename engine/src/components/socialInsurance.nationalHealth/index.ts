@@ -4,6 +4,7 @@
 // N_DEFAULT_USED（nationalStandard）を出す。制度データに目安が無い区分があれば、世帯の入力が無いときは計算せず N_INPUT_REQUIRED を出す。
 // 世帯の入力（決定通知書の年額 premiumAssessments、または料率 premiumRates）で上書きする。
 // 子ども・子育て支援金の区分は18歳未満の均等割をかけない。未就学児の均等割の軽減・産前産後の免除はまだ入れていない（notices）
+// 改訂5: 世帯の外の家族（0035 の4）は世帯の国民健康保険に入れない
 import {
   addYen,
   ageMonth,
@@ -13,6 +14,7 @@ import {
   fiscalYearEnd,
   fiscalYearOf,
   fiscalYearStart,
+  householdMembers,
   installmentFlows,
   monthIndex,
   parseYm,
@@ -55,7 +57,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.nationalHealth",
   title: "国民健康保険料",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -65,6 +67,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   params: [
     ELDERLY_AGE,...PARTS.flatMap((p) => KEYS.map((k) => `${PREFIX}.${p.part}.${k}`)), `${PREFIX}.incomeDeduction`, ...REDUCTION, ...Object.values(AGE)],
   reads: [
+    "member.outside",
     "member.kind",
     "premiumAssessment.member",
     "premiumAssessment.kind",
@@ -84,7 +87,8 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     const start = fiscalYearStart(fy);
     const valuesAt = fiscalYearStart(jy);
     const ageAt = start < ctx.time.base ? ctx.time.base : start;
-    const members = ctx.list<MemberInput>("member");
+    // 世帯の外の家族は別の世帯（0035 の4）
+    const members = householdMembers(ctx.list<MemberInput>("member"));
     const head = members.find((m) => m.kind === "self")?.id ?? (members[0] as MemberInput).id;
     const insured = members
       .map((m) => ({

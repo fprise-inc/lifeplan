@@ -10,6 +10,7 @@
 //   （改訂4。0037。日額 3,612円以上（60歳以上は 5,000円以上）で扶養から外れる扱い）
 // 自営・無職・休業の期間に healthInsurance.kind を書いたときは、それを使う（FP の上書き。任意継続もこれで表す。任意継続は始まりの月から
 // 2年（socialInsurance.health.continuation.maxMonths）までで、その後は上の決まりで導く。健康保険法38条1号）
+// 改訂5: 世帯の外の家族（0035 の4）は、扶養していると入れたときだけ扶養の候補。勤め先の健康保険に入っている世帯の外の家族は扶養する人になれる
 import {
   addMonths,
   addYen,
@@ -17,6 +18,7 @@ import {
   defineComponent,
   EMPLOYER_HEALTH_KINDS,
   formatYm,
+  isOutside,
   monthOf,
   parseYm,
   yearOf,
@@ -53,7 +55,7 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
   id: "socialInsurance.healthStatus",
   title: "健康保険の種類（導く）",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: {
     "socialInsurance.employeeStatus": ">=1 <2",
     "income.salary": ">=1 <2",
@@ -64,7 +66,7 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
     "benefit.unemployment": ">=1 <2",
   },
   params: Object.values(P),
-  reads: ["member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "employment.healthInsurance.kind", "employment.type"],
+  reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "employment.healthInsurance.kind", "employment.type"],
   memberScope: ["employment"],
   input: "member.input",
   output: "socialInsurance.healthStatus.output",
@@ -88,9 +90,10 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
     const absent = (m: MonthIndex) => m < born || (joins !== null && m < joins) || (leaves !== null && m >= leaves);
     const isCouple = (k: MemberInput["kind"]) => k === "self" || k === "spouse";
     // 親・祖父母は、扶養していると入れたときだけ扶養の候補にする（生計維持の関係は入力でしか分からない）
-    const elder = me.kind === "parent" || me.kind === "grandparent";
+    // 世帯の外の家族（0035 の4）も、扶養していると入れたときだけ。同居は入れたときだけ（家計が別の家族は別居が既定）
+    const elder = me.kind === "parent" || me.kind === "grandparent" || isOutside(me);
     const canBeDependent = !elder || me.support?.dependent === true;
-    const cohabiting = !elder || me.support?.cohabiting !== false;
+    const cohabiting = isOutside(me) ? me.support?.cohabiting === true : !elder || me.support?.cohabiting !== false;
     const allowance = elder && !cohabiting && me.support?.allowance !== undefined ? ctx.money.mulRatio(me.support.allowance, 12, 1, "conv.exact") : null;
     const supporters = ctx
       .list<MemberInput>("member")
@@ -99,7 +102,12 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
       .map((m) => {
         const lateS = ageMonth(ctx, at0, P.lateElderly, m.id);
         const st = ctx.call<EmployeeStatusOutput>("socialInsurance.employeeStatus", { member: m.id }).months;
-        return { id: m.id, spouse: isCouple(m.kind) && isCouple(me.kind), insured: new Set(st.filter((x) => x.health && parseYm(x.month) < lateS).map((x) => x.month)) };
+        const insured = new Set(st.filter((x) => x.health && parseYm(x.month) < lateS).map((x) => x.month));
+        // 世帯の外の家族で、勤め先の健康保険に入っている（outside.employeeInsurance）人は、後期高齢者医療の前の月はいつも扶養する人になれる
+        // （0035 の4。世帯の人はその人と別居とみなし、収入の2分の1の決まりは見ない）
+        const outsideInsured = isOutside(m) && m.outside?.employeeInsurance === true;
+        if (outsideInsured) for (const s of own) if (parseYm(s.month) < lateS) insured.add(s.month);
+        return { id: m.id, spouse: isCouple(m.kind) && isCouple(me.kind), apart: isOutside(m) && !isOutside(me), insured };
       });
     // 収入の見込み（その月から12か月）: 給与（賞与・通勤手当を含む）・事業所得（年額の12分の1ずつ）・公的年金（遺族年金・障害年金を含む）の支払い
     const incomes = new Map<string, { prospective: (m: MonthIndex) => Yen; disabled: (m: MonthIndex) => boolean }>();
@@ -180,7 +188,8 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
             if (limit !== null && income >= limit) return false;
             const daily = allowanceDaily.get(s.month);
             if (daily !== undefined && limit !== null && ctx.money.mulRatio(daily, DAYS_PER_YEAR, 1, "conv.exact") >= limit) return false;
-            // 同居なら扶養する人の収入の2分の1の未満、別居なら仕送りの額の未満
+            // 同居なら扶養する人の収入の2分の1の未満、別居なら仕送りの額の未満（世帯の外の家族の扶養に入る世帯の人は別居）
+            if (x.apart) return true;
             if (cohabiting) return ctx.money.mulRatio(income, 2, 1, "conv.exact") < incomeOf(x.id).prospective(m);
             return allowance === null || income < allowance;
           })

@@ -1,8 +1,10 @@
 // 介護保険の第1号被保険者（65歳から）の保険料（年度）。基準額（月額）×12×所得の段階の割合。段階は、本人が住民税（均等割）課税なら
 // 合計所得金額の段階、本人が非課税なら世帯に課税の人がいるかと「公的年金等の収入＋その他の合計所得金額」で決める（国の標準段階）。
 // 市町村ごとの値を持たない方針（0007 の6）なので、基準額は全国平均を既定にし、世帯の入力（決定通知書の年額、または市町村の基準額）で上書きする
+// 改訂4: 世帯の外の家族（0035 の4）の判定の世帯は、その人と世帯の外の配偶者
 import {
   ageMonth,
+  assessedPremium,
   boxValue,
   bracketFor,
   defineComponent,
@@ -11,11 +13,11 @@ import {
   fiscalYearStart,
   installmentFlows,
   parseYm,
-  pensionSpecial,
   PENSION_SPECIAL_MINIMUM,
-  rateOverride,
-  assessedPremium,
+  pensionSpecial,
   RATE_ONE,
+  rateOverride,
+  sameHousehold,
   yen,
   type ExemptionOutput,
   type Flow,
@@ -23,6 +25,7 @@ import {
   type PremiumAssessmentInput,
   type PremiumRateInput,
   type PublicPensionIncomeOutput,
+  type RelationInput,
   type TotalIncomeOutput,
 } from "../../sdk/index.ts";
 
@@ -39,10 +42,11 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.careFirst",
   title: "介護保険料（第1号被保険者）",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "residentTax.exemption": ">=1 <2", "tax.totalIncome": ">=1 <2", "tax.publicPensionIncome": ">=1 <2", "pension.oldAge": ">=1 <2" },
   params: [...Object.values(P), PENSION_SPECIAL_MINIMUM],
   reads: [
+    "member.outside", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to",
     "member.birth",
     "member.joins",
     "member.leaves",
@@ -88,8 +92,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member, year: jy - 1 });
       const measure = yen(pension.revenue + (total - pension.income));
       const dec = parseYm(`${jy - 1}-12`);
-      const others = ctx
-        .list<MemberInput>("member")
+      // 判定の世帯: 世帯の外の家族はその人と世帯の外の配偶者（0035 の4。片方が亡くなった後は単身）
+      const others = sameHousehold(ctx, ctx.list<MemberInput>("member"), ctx.list<RelationInput>("relation"), member)
         .filter((m) => m.id !== member && parseYm(m.birth.birthYearMonth) <= dec && (m.leaves === null || ctx.time.resolve(m.leaves) > dec));
       const householdTaxed = others.some((o) => !exempt(o.id));
       ratio = bracketFor(at.paramBrackets(householdTaxed ? P.selfExempt : P.householdExempt) ?? [], measure).rate ?? RATE_ONE;
