@@ -402,7 +402,8 @@ export interface HousingValuationOutput {
     readonly owner: string | null;
     /** 持っている年の年末の評価額（売った年は含めない。年の昇順） */
     readonly years: readonly { readonly year: number; readonly land: Yen; readonly building: Yen; readonly value: Yen }[];
-    readonly sale: { readonly ym: string; readonly value: Yen; readonly price: Yen; readonly costs: Yen; readonly proceeds: Yen } | null;
+    /** tax: 入れた譲渡所得の税の額（入れていなければ0。0053） */
+    readonly sale: { readonly ym: string; readonly value: Yen; readonly price: Yen; readonly costs: Yen; readonly proceeds: Yen; readonly tax: Yen } | null;
   }[];
 }
 

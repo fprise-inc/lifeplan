@@ -140,6 +140,23 @@ function sample020(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.21 の見本の世帯（0052・0053）: sample020() に、持ち家の建て方・住み終わりの月に売る売却と譲渡所得の税の額、ほかのローンの名前と種類の細目、
+ * 住宅ローンの入れ方の区分（画面の側）を足す
+ */
+function sample021(): BodyState {
+  const s = sample020();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const est = (value: number) => ({ value, state: "confirmed" as const, origin: { kind: "manual" as const } });
+  const home = (hh.residences ?? []).find((r) => r.kind === "own");
+  if (home !== undefined) Object.assign(home, { style: "condo", to: { at: "2050-03" }, sale: { price: 30000000, tax: est(1500000) } });
+  const other = (hh.debts ?? []).find((d) => d.kind !== "mortgage");
+  if (other !== undefined) Object.assign(other, { label: "架空のカードローン", subtype: "cardLoan" });
+  const loan = (hh.debts ?? []).find((d) => d.kind === "mortgage");
+  return { ...s, wh: { ...s.wh, request: req, ...(loan !== undefined ? { loanEntry: { [loan.id]: "balance" as const } } : {}) } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -263,7 +280,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.20");
+    expect(BODY_FORMAT_VERSION).toBe("0.21");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -395,6 +412,23 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
     writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample018())), null, 2) + "\n");
+  });
+
+  it("0.21 の形（0052・0053）: 建て方・譲渡所得の税の額・ローンの名前と種類の細目・ローンの入れ方の区分を保存して読み戻す", () => {
+    const s = sample021();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request; loanEntry?: Record<string, string> } };
+    const h = stored.household.request.input.household;
+    const home = h.residences?.find((r) => r.kind === "own");
+    expect(home).toMatchObject({ style: "condo", sale: { price: 30000000, tax: { value: 1500000 } } });
+    expect(h.debts?.find((d) => d.kind !== "mortgage")).toMatchObject({ label: "架空のカードローン", subtype: "cardLoan" });
+    const loan = h.debts?.find((d) => d.kind === "mortgage");
+    expect(loan).toBeDefined();
+    expect(stored.household.loanEntry).toEqual({ [loan!.id]: "balance" });
+    const back = fromBody(JSON.stringify(stored));
+    expect(back.wh.loanEntry).toEqual({ [loan!.id]: "balance" });
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const r = preview(back.wh.request);
+    expect(r.table.filter((c) => c.row.endsWith(".realEstateSale") && c.row.startsWith("cf.taxSi.") && c.year === 2050).reduce((x, c) => x + c.amount, 0)).toBe(1500000);
   });
 
   it("0.20 の形（0044）: 入るお金の行・出るお金の行に足した欄・口座の間の移し替え・受け継ぐ借金の欄を保存して読み戻す（要素の ID もそのまま）", () => {

@@ -315,6 +315,9 @@ export interface DebtInput {
   readonly product?: "bank" | "flat35";
   readonly debtors: readonly { readonly member: string; readonly role: "primary" | "joint" | "guarantor"; readonly share?: string }[];
   readonly pairWith?: string;
+  /** 0052: 名前と種類の細目（表示と推定の元だけ。計算には使わない） */
+  readonly label?: string;
+  readonly subtype?: "cardLoan" | "scholarship" | "renovation" | "policyLoan" | "personal" | "other";
   /** 0044: 相続で受け継ぐ借金の元の借り手・見込み・基本の計算に入れるか（計算には使わない。アプリが要求から外す） */
   readonly inheritedFrom?: string;
   readonly likelihood?: "certain" | "likely" | "uncertain";
@@ -401,6 +404,8 @@ export interface ResidenceInput {
   readonly kind: "rent" | "own";
   readonly from: Timepoint;
   readonly to: Timepoint | null;
+  /** 0052: 建て方（表示と推定の元だけ。計算には使わない） */
+  readonly style?: "house" | "condo";
   readonly rent?: { readonly monthly: ValueBox<Yen>; readonly growth?: string; readonly renewalFee?: string; readonly renewalEveryMonths?: number } & StagedInput;
   readonly purchase?: {
     readonly at?: Timepoint;
@@ -423,7 +428,7 @@ export interface ResidenceInput {
   /** 持ち家の評価（土地と建物に分け、土地は上昇率、建物は耐用年数で減らす。housing.valuation） */
   readonly valuation?: ResidenceValuationInput;
   /** 売却（住み終わりの月に売り、手取りを現金にする） */
-  readonly sale?: { readonly price?: Yen; readonly costRate?: string };
+  readonly sale?: { readonly price?: Yen; readonly costRate?: string; /** 0053: 譲渡所得の税の額（入れた額を売った月に払う） */ readonly tax?: ValueBox<Yen> };
 }
 
 /** 建物の構造（耐用年数の目安を選ぶ） */

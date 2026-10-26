@@ -205,6 +205,7 @@ function housingSummary(h: Household): Summary | null {
   if (loans.length > 0) return { pre: "残高 ", main: manText(loans.reduce((s, d) => s + (d.balance?.value ?? d.principal), 0)), unit: "万円" };
   const r = (h.residences ?? [])[0];
   if (r === undefined) return null;
+  if (r.kind === "rent" && (r.rent === undefined || r.rent.monthly.state === "notApplicable")) return { main: "家賃なし" };
   if (r.kind === "rent") return { pre: "家賃 月", main: manText(r.rent?.monthly.value ?? 0), unit: "万円" };
   return { main: "持ち家" };
 }

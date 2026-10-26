@@ -468,6 +468,38 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.20 より前の版にお金の行は無い"
             );
         }
+        // 0.21 から（0052・0053）: 住まいの建て方・譲渡所得の税の額・負債の名前と種類の細目・ローンの入れ方の区分（どれも任意）
+        if migrate::parse(v).unwrap() >= (0, 21) {
+            let homes = hh["residences"]
+                .as_array()
+                .expect("0.21 の見本には住まいがある");
+            assert!(
+                homes
+                    .iter()
+                    .any(|r| r["style"] == "condo" && r["sale"]["tax"]["value"].is_number()),
+                "{v}: 建て方と譲渡所得の税の額"
+            );
+            assert!(
+                hh["debts"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|d| d["subtype"] == "cardLoan" && d["label"].is_string()),
+                "{v}: ローンの名前と種類の細目"
+            );
+            assert!(
+                now["household"]["loanEntry"].is_object(),
+                "{v}: ローンの入れ方の区分"
+            );
+        } else {
+            assert!(
+                hh["residences"]
+                    .as_array()
+                    .map(|rs| rs.iter().all(|r| r.get("style").is_none()))
+                    .unwrap_or(true),
+                "{v}: 0.21 より前の版に建て方は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

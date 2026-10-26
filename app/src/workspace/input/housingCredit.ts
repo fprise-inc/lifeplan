@@ -107,9 +107,13 @@ function needsCredit(h: Household, d: Debt): boolean {
   return ym !== null && Number(ym.slice(0, 4)) >= CREDIT_DATA_FROM_YEAR;
 }
 
+/** 「今の残高から」入れたローン（借りた年が仮なので、控除の仮の条件を置かない。0052） */
+export const fromBalance = (wh: WorkingHousehold, id: string): boolean => wh.loanEntry?.[id] === "balance";
+
 /**
  * 仮の値を入れ直した世帯（変わらなければ同じものを返す）:
  * - 住宅ローン控除の条件が無い住まいの住宅ローン（令和4年以後に借りたもの）に仮の条件と入居のイベントを置き、印を付ける
+ *   （「今の残高から」入れたローンは借りた年が仮なので置かず、置いてあった仮の条件は外す。0052）
  * - 印のある仮の条件は、借入の年月・住まい（購入の予定・建った年）に合わせて入れ直す（入居のイベントが無くなっていれば作り直す）
  * - 印のある借入額は、購入の予定の価格−頭金に合わせて入れ直す
  * - 外したローンの印を外す
@@ -117,7 +121,7 @@ function needsCredit(h: Household, d: Debt): boolean {
 export function withProvisionalHousing(wh: WorkingHousehold, id: () => string = newId): WorkingHousehold {
   const h0 = wh.request.input.household;
   const marked = Object.keys(wh.assumed).some((k) => /^housing\/debt\/[^/]+\/(credit|principal)$/.test(k));
-  if (!marked && !(h0.debts ?? []).some((d) => isHomeLoan(d) && d.housing === undefined && needsCredit(h0, d))) return wh;
+  if (!marked && !(h0.debts ?? []).some((d) => isHomeLoan(d) && d.housing === undefined && needsCredit(h0, d) && !fromBalance(wh, d.id))) return wh;
   const request = structuredClone(wh.request);
   const h = request.input.household;
   const assumed = { ...wh.assumed };
@@ -125,7 +129,14 @@ export function withProvisionalHousing(wh: WorkingHousehold, id: () => string = 
     if (!isHomeLoan(d)) continue;
     const ym = resolveTimepoint(h, d.start);
     const key = creditKey(d.id);
-    if (ym !== null && d.housing === undefined && needsCredit(h, d)) {
+    if (fromBalance(wh, d.id)) {
+      if (d.housing !== undefined && assumed[key] !== undefined) {
+        const ev = d.housing.moveIn;
+        delete d.housing;
+        delete assumed[key];
+        if (!JSON.stringify({ ...h, events: [] }).includes(ev)) h.events = (h.events ?? []).filter((e) => e.id !== ev);
+      }
+    } else if (ym !== null && d.housing === undefined && needsCredit(h, d)) {
       const ev = { id: id(), kind: "moveIn", at: { at: ym } };
       (h.events ??= []).push(ev);
       d.housing = provisionalHousing(h, ev.id, ym);
@@ -136,7 +147,7 @@ export function withProvisionalHousing(wh: WorkingHousehold, id: () => string = 
       else ev.at = { at: ym };
       d.housing = provisionalHousing(h, d.housing.moveIn, ym);
     }
-    if (assumed[principalKey(d.id)] !== undefined) {
+    if (assumed[principalKey(d.id)] === PRINCIPAL_ESTIMATE) {
       const p = estimatedPrincipal(h, d);
       if (p !== null) d.principal = p;
     }
@@ -156,4 +167,13 @@ export function dropProvisionalEvent(h: Household, d: Debt, wh: WorkingHousehold
   if (ev === undefined || wh.assumed[creditKey(d.id)] === undefined) return;
   const rest = JSON.stringify({ ...h, events: [] });
   if (!rest.includes(ev)) h.events = (h.events ?? []).filter((e) => e.id !== ev);
+}
+
+/** 控除の条件を FP が直した世帯: 仮の印を外す（印のある間だけ借入の年月・住まいに合わせて入れ直すので、直した後は入れ直さない） */
+export function withoutCreditMark(wh: WorkingHousehold, debtId: string): WorkingHousehold {
+  const key = creditKey(debtId);
+  if (wh.assumed[key] === undefined) return wh;
+  const assumed = { ...wh.assumed };
+  delete assumed[key];
+  return { ...wh, assumed };
 }

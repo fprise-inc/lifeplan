@@ -949,6 +949,8 @@
           }
         },
         "pairWith": { "title": "ペアローンの相手のローン", "x-item": "debt.pairWith", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "label": { "title": "名前（表示用。計算には使わない。0052）", "x-item": "debt.label", "type": "string", "maxLength": 80 },
+        "subtype": { "title": "ローンの種類の細目（表示と推定の元だけ。計算の種類は kind。0052）", "x-item": "debt.subtype", "enum": ["cardLoan", "scholarship", "renovation", "policyLoan", "personal", "other"] },
         "property": { "title": "この借入で取得した住まい以外の不動産（不動産の器の ID。利息を不動産所得の必要経費にする。0028）", "x-item": "debt.property", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "inheritedFrom": { "title": "相続で受け継ぐ借金の、元の借り手（構成員。多くは世帯の外の家族。計算には使わない。見込みが不確かなら、アプリが要求から外す。0044）", "x-item": "debt.inheritedFrom", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "likelihood": { "title": "見込み（相続で受け継ぐ借金だけ。計算には使わない。0035 の7）", "x-item": "debt.likelihood", "$ref": "#/$defs/likelihood" },
@@ -1073,6 +1075,7 @@
         "kind": { "title": "住まいの種類", "x-item": "residence.kind", "enum": ["rent", "own"] },
         "from": { "title": "住み始め", "x-item": "residence.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
         "to": { "title": "住み終わり（その月まで。null は最後まで）", "x-item": "residence.to", "$ref": "#/$defs/timepointOrNull" },
+        "style": { "title": "建て方（持ち家。表示と推定の元だけ。計算には使わない。0052）", "x-item": "residence.style", "enum": ["house", "condo"] },
         "rent": {
           "title": "家賃と更新料",
           "x-item": "residence.rent",
@@ -1158,7 +1161,8 @@
           "additionalProperties": false,
           "properties": {
             "price": { "description": "売却価格（省略はその年の評価額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-            "costRate": { "description": "売却の費用の割合（省略は前提の realEstateValuation.saleCostRate か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+            "costRate": { "description": "売却の費用の割合（省略は前提の realEstateValuation.saleCostRate か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "tax": { "description": "譲渡所得の税の額（所得税・住民税の合計。入れた額を売った月に払う。省略は税を計算しない〔知らせ N_NOT_SUPPORTED〕。0053）", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
           }
         }
       }

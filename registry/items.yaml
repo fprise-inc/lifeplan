@@ -633,6 +633,14 @@ entries:
     replacedBy: null
     collection: debt
     path: [kind]
+  - id: debt.label
+    status: active
+    label: "名前（表示用。計算には使わない。0052）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: debt
+    path: [label]
   - id: debt.likelihood
     status: active
     label: "見込み（相続で受け継ぐ借金だけ。計算には使わない。0035 の7）"
@@ -713,6 +721,14 @@ entries:
     replacedBy: null
     collection: debt
     path: [start]
+  - id: debt.subtype
+    status: active
+    label: "ローンの種類の細目（表示と推定の元だけ。計算の種類は kind。0052）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: debt
+    path: [subtype]
   - id: donor.kind
     status: deprecated
     label: "贈与者の区分（親・祖父母は直系尊属。特例税率・住宅取得等資金の非課税の判定に使う）"
@@ -1873,6 +1889,14 @@ entries:
     replacedBy: null
     collection: residence
     path: [sale]
+  - id: residence.style
+    status: active
+    label: "建て方（持ち家。表示と推定の元だけ。計算には使わない。0052）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: residence
+    path: [style]
   - id: residence.to
     status: active
     label: "住み終わり（その月まで。null は最後まで）"

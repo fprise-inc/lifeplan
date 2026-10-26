@@ -273,6 +273,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.taxSi.incomeTax.realEstateSale
+    status: active
+    label: "所得税（不動産の譲渡所得。入れた税の額を分けた分）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.taxSi.incomeTax.retirement
     status: active
     label: "所得税（退職所得）"
@@ -288,6 +294,12 @@ entries:
   - id: cf.taxSi.residentTax.capitalGains
     status: active
     label: "住民税（上場株式等の譲渡益・特別徴収）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: cf.taxSi.residentTax.realEstateSale
+    status: active
+    label: "住民税（不動産の譲渡所得。入れた税の額を分けた分）"
     since: draft
     aliases: []
     replacedBy: null
