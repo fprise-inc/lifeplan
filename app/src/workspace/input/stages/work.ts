@@ -8,6 +8,7 @@ import { businessEstimate, careerStartMonth, ensureResidentTax, residentTaxEstim
 import { healthRateEstimate } from "../../../../../hearing/src/estimates.ts";
 import { byId, field, plain, rateBox, removeAction, timepointField, timeView, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { estimatedBox, mutate, newId, periodsOf, reemploymentOf, type PostRetirement, type WorkingHousehold } from "../household.ts";
+import { ensureRetirement, fillRetirement, retirementNotApplicable } from "../fill.ts";
 import { earners, EMPLOYMENT_TYPES, HEALTH_INSURANCE, KYOKAI_BRANCHES, LEAVE_KINDS, memberLabel, PENSION_CATEGORY, POST_RETIREMENT_TYPES } from "../labels.ts";
 import { formatYearMonth } from "../units.ts";
 
@@ -373,7 +374,7 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
               (hh.employmentPeriods ??= []).push(p);
               ensureResidentTax(hh, m.id, base, newId);
             });
-            return { ...next, postRetirement: { ...next.postRetirement, [m.id]: { fromAge: 60, type: null, annualSalary: null } } };
+            return ensureRetirement({ ...next, postRetirement: { ...next.postRetirement, [m.id]: { fromAge: 60, type: null, annualSalary: null } } }, m.id);
           },
         },
         {
@@ -456,13 +457,17 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       options: EMPLOYMENT_TYPES,
       structural: true,
       get: (w) => ({ value: (find(w.request.input.household, w)?.type as string | undefined) ?? null }),
+      // 正社員・公務員にしたら、退職金の目安を最初から入れる（その人の退職金が無く、該当なしにもしていないとき。fill.ts）
       set: (w, v) =>
-        mutate(w, (h, req) => {
-          const list = h.employmentPeriods ?? [];
-          const i = list.findIndex((x) => x.id === p.id);
-          if (i >= 0 && v !== null) list[i] = convertPeriod(list[i] as EmploymentPeriod, String(v), m, req.input.baseMonth);
-          ensureResidentTax(h, m.id, req.input.baseMonth, newId);
-        }),
+        ensureRetirement(
+          mutate(w, (h, req) => {
+            const list = h.employmentPeriods ?? [];
+            const i = list.findIndex((x) => x.id === p.id);
+            if (i >= 0 && v !== null) list[i] = convertPeriod(list[i] as EmploymentPeriod, String(v), m, req.input.baseMonth);
+            ensureResidentTax(h, m.id, req.input.baseMonth, newId);
+          }),
+          m.id,
+        ),
     }),
   );
   if (p.type === "leave") fields.push(plain({ key: `${prefix}/leaveKind`, item: "employment.leaveKind", label: "休業の種類", level, kind: "select", options: LEAVE_KINDS, find, path: ["leaveKind"] }));
@@ -589,9 +594,14 @@ export function workStage(wh: WorkingHousehold): StageDef {
           ? [
               {
                 key: `work/${m.id}/addBenefit`,
-                label: "＋ 退職金を入れる",
+                label: retirementNotApplicable(wh, m.id) ? "＋ 退職金を入れる（今は「該当なし」）" : "＋ 退職金を入れる",
                 level: "simple",
-                run: (w) => mutate(w, (hh) => void (hh.retirementBenefits ??= []).push({ id: newId(), member: m.id, kind: "lumpSum", employment: main.id, amount: estimatedBox(0, "未入力（0円で計算）") })),
+                // 正社員・公務員は目安（推定）で入れる。目安を作れない働き方は、額を入れてもらう（未入力の0円）
+                run: (w) => {
+                  const filled = fillRetirement(w, m.id);
+                  if (filled !== w) return filled;
+                  return mutate(w, (hh) => void (hh.retirementBenefits ??= []).push({ id: newId(), member: m.id, kind: "lumpSum", employment: main.id, amount: estimatedBox(0, "未入力（0円で計算）") }));
+                },
               },
             ]
           : [],

@@ -10,6 +10,7 @@ import { ILLUSTRATIONS } from "./illustrations.ts";
 import { InputPanel } from "./InputPanel.tsx";
 import { ADD_OPTIONS, addItem, groupedItems, inputItems, progressOf, type InputItem } from "./items.ts";
 import { StatusBadge, statusText } from "./StatusBadge.tsx";
+import { CheckList, checkSummary } from "./CheckList.tsx";
 
 interface Props {
   wh: WorkingHousehold;
@@ -109,6 +110,10 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
   const [flashId, setFlashId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [statementOpen, setStatementOpen] = useState(statement?.initialOpen === true);
+  const [checkOpen, setCheckOpen] = useState(initialOpen === "check");
+  /** 確かめの一覧から開いたときに移る欄 */
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const check = useMemo(() => checkSummary(wh), [wh]);
   const backTo = useRef<string | null>(null);
 
   // パネルを閉じたら、押したカードに戻る
@@ -132,12 +137,21 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
 
   const open = (id: string) => {
     setAddDraft(null);
+    setFocusKey(null);
+    setOpenId(id);
+  };
+  // 確かめの一覧の「開く」: カードを開いて欄に移る（詳細の欄なら詳細にする）。移るだけで値も状態も変えない
+  const openField = (id: string, key: string | null, l: Level) => {
+    if (l === "detail" && level !== "detail") onLevel("detail");
+    setAddDraft(null);
+    setFocusKey(key);
     setOpenId(id);
   };
   const close = () => {
     backTo.current = openId;
     setOpenId(null);
     setAddDraft(null);
+    setFocusKey(null);
   };
   const pick = (key: string) => {
     const r = addItem(wh, key);
@@ -200,6 +214,21 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
         </div>
       </div>
       {tools !== undefined ? <div class="ih-tools">{tools}</div> : null}
+      <div class="ih-check">
+        <button type="button" class="add-btn" aria-expanded={checkOpen} onClick={() => setCheckOpen(!checkOpen)} data-check-open>
+          確かめの一覧（未入力 {check.counts.missing}・わからない {check.counts.unknown}・注意 {check.counts.notice}・推定 {check.counts.estimated}）
+        </button>
+      </div>
+      {checkOpen ? (
+        <CheckList
+          wh={wh}
+          onOpen={openField}
+          onEdit={(next, done) => {
+            onSave(next);
+            setToast(done);
+          }}
+        />
+      ) : null}
       {groups.map((g, gi) => (
         <section class="ih-group" key={g.group?.id ?? "all"} aria-label={g.group?.label ?? "入力の項目"}>
           {g.group !== null ? <h2 class="ih-gh">{g.group.label}</h2> : null}
@@ -221,6 +250,7 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
           onLevel={onLevel}
           onSave={save}
           onClose={close}
+          {...(focusKey !== null ? { focusKey } : {})}
           {...(computeOne !== undefined ? { computeOne } : {})}
           {...(openId === "living" && statement !== undefined ? { onStatement: openStatement } : {})}
         />

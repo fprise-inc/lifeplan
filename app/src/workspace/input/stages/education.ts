@@ -7,6 +7,8 @@ import { addMonths } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import { formatYen } from "../units.ts";
+import { educationStagesAddress } from "../fill.ts";
+import { rowAt } from "../rows.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_LUNCH, SCHOOL_STAGES, SECTORS, TAX_METHODS } from "../labels.ts";
 
 const goals = (h: Household) => h.goals;
@@ -191,6 +193,8 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
     kind: "select",
     options: [{ value: "", label: "自分で選ぶ（下の各段）" }, ...COURSE_PRESETS.map((p) => ({ value: p.value, label: p.label }))],
     structural: true,
+    // 進路の推定・該当なしの印（値の状態の行）は、進路の段の並び全体に付く（fill.ts）
+    address: () => educationStagesAddress(goal.id),
     get: (w) => ({ value: presetOf(((find(w.request.input.household, w) as Goal | undefined)?.education?.stages ?? []) as EducationStage[]) }),
     set: (w, v) =>
       mutate(w, (hh) => {
@@ -200,10 +204,16 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
         for (const s of g.education.stages) if (p.sectors[s.stage] !== undefined) s.sector = p.sectors[s.stage];
       }),
   });
+  const row = rowAt(wh.request.input as unknown as Record<string, unknown>, educationStagesAddress(goal.id));
   const groups: GroupDef[] = [
     {
       key: `edu/${goal.id}`,
       title: `${who}の進路`,
+      ...(row?.state === "notApplicable"
+        ? { note: "教育費は「該当なし」にしています（段を足すと計算します）" }
+        : row?.state === "estimated"
+          ? { note: "進路は標準の型（推定）で入れています。直すか、このままでよければ「✓ この値で確定」を押します" }
+          : {}),
       level: "simple",
       fields: [
         course,

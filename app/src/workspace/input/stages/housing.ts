@@ -2,7 +2,8 @@
 import type { Debt, Household, Residence, YearSeries } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { confirmedBox, mutate, newId, type WorkingHousehold } from "../household.ts";
+import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
+import { RENT_BASIS, RENT_STANDARD } from "../fill.ts";
 import { creditKey, CREDIT_DATA_FROM_YEAR, dropProvisionalEvent, estimatedPrincipal, isHomeLoan, PRINCIPAL_ESTIMATE, principalKey, principalMismatch, purchaseMonth, withProvisionalHousing } from "../housingCredit.ts";
 import { BUILDING_STRUCTURES, DEBT_KINDS, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, RESIDENCE_KINDS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
@@ -35,12 +36,12 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
           delete res.purchase;
           delete res.valuation;
           delete res.sale;
-          res.rent ??= { monthly: confirmedBox(80000) };
+          res.rent ??= { monthly: standardBox(RENT_STANDARD, RENT_BASIS) };
         } else {
           delete res.rent;
           const selfId = h.members.find((m) => m.kind === "self")?.id;
-          res.propertyTax ??= { annual: confirmedBox(120000) };
-          res.maintenance ??= { monthly: confirmedBox(15000) };
+          res.propertyTax ??= { annual: standardBox(120000, presetBasis("固定資産税・都市計画税 年12万円")) };
+          res.maintenance ??= { monthly: standardBox(15000, presetBasis("修繕費・管理費 月1.5万円")) };
           if (selfId !== undefined) res.ownership ??= [{ member: selfId, share: "1" }];
         }
       },
@@ -577,13 +578,13 @@ export function housingStage(wh: WorkingHousehold): StageDef {
     level: "simple",
     groups: (h.residences ?? []).flatMap((r, i) => residenceGroups(wh, r, i)),
     actions: [
-      { key: "housing/addRent", label: "＋ 賃貸", level: "simple", run: (w) => mutate(w, (hh) => void (hh.residences ??= []).push({ id: newId(), kind: "rent", from: { at: base }, to: null, rent: { monthly: confirmedBox(80000) } })) },
+      { key: "housing/addRent", label: "＋ 賃貸", level: "simple", run: (w) => mutate(w, (hh) => void (hh.residences ??= []).push({ id: newId(), kind: "rent", from: { at: base }, to: null, rent: { monthly: standardBox(RENT_STANDARD, RENT_BASIS) } })) },
       {
         key: "housing/addOwn",
         label: "＋ 持ち家（今住んでいる）",
         level: "simple",
         run: (w) =>
-          mutate(w, (hh) => void (hh.residences ??= []).push({ id: newId(), kind: "own", from: { at: base }, to: null, propertyTax: { annual: confirmedBox(120000) }, maintenance: { monthly: confirmedBox(15000) }, ...(selfId !== undefined ? { ownership: [{ member: selfId, share: "1" }] } : {}) })),
+          mutate(w, (hh) => void (hh.residences ??= []).push({ id: newId(), kind: "own", from: { at: base }, to: null, propertyTax: { annual: standardBox(120000, presetBasis("固定資産税・都市計画税 年12万円")) }, maintenance: { monthly: standardBox(15000, presetBasis("修繕費・管理費 月1.5万円")) }, ...(selfId !== undefined ? { ownership: [{ member: selfId, share: "1" }] } : {}) })),
       },
       {
         key: "housing/addPurchase",
@@ -600,8 +601,8 @@ export function housingStage(wh: WorkingHousehold): StageDef {
               from: { at },
               to: null,
               purchase: { at: { at }, price: 40000000, downPayment: 4000000, costs: 2000000 },
-              propertyTax: { annual: confirmedBox(120000) },
-              maintenance: { monthly: confirmedBox(15000) },
+              propertyTax: { annual: standardBox(120000, presetBasis("固定資産税・都市計画税 年12万円")) },
+              maintenance: { monthly: standardBox(15000, presetBasis("修繕費・管理費 月1.5万円")) },
               ...(selfId !== undefined ? { ownership: [{ member: selfId, share: "1" }] } : {}),
             });
           }),

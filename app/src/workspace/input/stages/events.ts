@@ -3,7 +3,7 @@
 import type { CareExpense, Household, PeriodicExpense } from "../../../engine/types.ts";
 import { addMonths, ageReachedMonth } from "../../levers.ts";
 import { byId, plain, removeAction, resolveTimepoint, timepointField, yenBox, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { confirmedBox, mutate, newId, type WorkingHousehold } from "../household.ts";
+import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { CARE_PLACE, memberLabel, memberOptions, PERIODIC_ROWS } from "../labels.ts";
 
 const periodic = (h: Household) => h.periodicExpenses;
@@ -74,14 +74,14 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
           level: "simple",
           run: (w) => {
             const at = addMonths(base, 12);
-            return mutate(w, (hh) => void (hh.periodicExpenses ??= []).push({ id: newId(), label: "一時的支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: confirmedBox(500000) }));
+            return mutate(w, (hh) => void (hh.periodicExpenses ??= []).push({ id: newId(), label: "一時的支出", row: "cf.expense.lumpSum.other", from: { at }, to: { at }, everyYears: 1, amount: standardBox(500000, presetBasis("一時的支出 50万円")) }));
           },
         },
         {
           key: "ev/addEvery",
           label: "＋ n年ごとの支出",
           level: "simple",
-          run: (w) => mutate(w, (hh) => void (hh.periodicExpenses ??= []).push({ id: newId(), label: "家電の買い替え", row: "cf.expense.lumpSum.other", from: { at: addMonths(base, 12) }, to: null, everyYears: 5, amount: confirmedBox(300000) })),
+          run: (w) => mutate(w, (hh) => void (hh.periodicExpenses ??= []).push({ id: newId(), label: "家電の買い替え", row: "cf.expense.lumpSum.other", from: { at: addMonths(base, 12) }, to: null, everyYears: 5, amount: standardBox(300000, presetBasis("家電の買い替え 5年ごとに30万円")) })),
         },
       ],
     },

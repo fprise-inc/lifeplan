@@ -5,6 +5,7 @@ import { roles } from "../../roles.ts";
 import { byId, field, plain, removeAction, timepointField, type ActionDef, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { followStandards, mutate, newId, standardLeaves, type WorkingHousehold } from "../household.ts";
 import { creditKey } from "../housingCredit.ts";
+import { fillEducation } from "../fill.ts";
 import { DONOR_KINDS, KIND_OPTIONS, memberLabel, memberOptions, SEX_OPTIONS } from "../labels.ts";
 import { EVENT_KIND_LABEL, eventName, FP_EVENT_KINDS, freezeTimepoints, refsTo, whenPeople } from "../namedEvents.ts";
 import { wareki } from "../units.ts";
@@ -78,6 +79,14 @@ export function addMember(wh: WorkingHousehold, kind: "spouse" | "child" | "pare
   // 表の最後の年は、標準のままなら配偶者を入れた標準に合わせる（人が入れた年は変えない）
   next = followStandards(wh, next);
   return { ...next, assumed: { ...next.assumed, [`family/${newMemberId}/birth`]: "仮の値", [`family/${newMemberId}/sex`]: "仮の値" } };
+}
+
+/** 子を足し、その子の進路を推定（標準の進路の型）で入れる */
+export function addChildWithEducation(wh: WorkingHousehold, id: () => string = newId): WorkingHousehold {
+  const before = new Set(wh.request.input.household.members.map((m) => m.id));
+  const next = addMember(wh, "child", id);
+  const child = next.request.input.household.members.find((m) => !before.has(m.id));
+  return child === undefined ? next : fillEducation(next, child.id);
 }
 
 /** 家族の「仕送り（月額）」は健康保険の扶養の判定（別居の親・祖父母）にだけ使い、支出の行にはしない（同じ仕送りを支出でも入れた世帯が二重にならないように） */
@@ -280,7 +289,8 @@ export function familyStage(wh: WorkingHousehold): StageDef {
       groups: order.map((m) => memberGroup(wh, m)),
       actions: [
         ...(hasSpouse ? [] : [{ key: "family/add/spouse", label: "＋ 配偶者を足す", level: "simple" as const, run: (w: WorkingHousehold) => addMember(w, "spouse") }]),
-        { key: "family/add/child", label: "＋ 子を足す", level: "simple", run: (w) => addMember(w, "child") },
+        // 新しく足す子は、進路を最初から推定（標準の進路の型）で入れる（古い世帯の子に黙って入れることはしない。fill.ts）
+        { key: "family/add/child", label: "＋ 子を足す", level: "simple", run: (w) => addChildWithEducation(w) },
         { key: "family/add/parent", label: "＋ 親（同居・扶養）を足す", level: "detail", run: (w) => addMember(w, "parent") },
       ],
     },

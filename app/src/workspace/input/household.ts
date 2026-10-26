@@ -85,6 +85,14 @@ export function estimatedBox(value: number, basis: string): Box<number> & { esti
   return { value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic", basis } };
 }
 
+/** 目安のボタン・標準の値で入れた値（0035 の3 の推定の出し方 standard。「印の無い決まった値」にしない。0041） */
+export function standardBox(value: number, basis: string): Box<number> & { estimate: { method: string; basis: string } } {
+  return { value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis } };
+}
+
+/** 目安のボタンの値の根拠の文 */
+export const presetBasis = (what: string): string => `目安のボタンの値（${what}。この世帯に合わせて直してください）`;
+
 export function boxBasis(b: Box<number> | undefined | null): string | null {
   if (b == null || b.state !== "estimated") return null;
   return (b as { estimate?: { basis?: string } }).estimate?.basis ?? "推定";

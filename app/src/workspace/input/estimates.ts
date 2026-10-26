@@ -4,6 +4,7 @@
 import type { Box, EmploymentPeriod, Household, Member } from "../../engine/types.ts";
 import { ageAt } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
+import { refreshEducation } from "./fill.ts";
 import {
   livingEstimate as livingBySize,
   residentTaxEstimate,
@@ -53,6 +54,13 @@ export function smrMonth(p: Pick<EmploymentPeriod, "from">, baseMonth: string): 
 
 const isAuto = (b: Box<number> | undefined) => b !== undefined && b.state === "estimated" && b.origin.kind === "auto";
 
+/** わからない（unknown）の代わりの値が、統計の推定のまま（入れ直す対象。0035 の3。FP の前の値を代わりにしたものは入れ直さない） */
+const statSubstitute = (b: Box<number> | undefined): Box<number> | undefined => {
+  if (b === undefined || b.state !== "unknown") return undefined;
+  const sub = (b as { substitute?: Box<number> & { estimate?: { method?: string } } }).substitute;
+  return sub !== undefined && sub.origin.kind === "auto" && sub.estimate?.method === "statistic" ? sub : undefined;
+};
+
 /**
  * 自動で入れた推定の値を、ほかの入力に合わせて入れ直す（FP が入れた値・確定の値は変えない）。
  * 「推定は入力の時点で世帯に入れ、元の入力が変わったら入れ直す」（0008 の未確定の決定）
@@ -62,6 +70,10 @@ export function refreshEstimates(h: Household, baseMonth: string): void {
     if (l.mode === "total" && isAuto(l.monthly)) {
       const e = livingEstimate(h, baseMonth);
       l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } as Box<number>;
+    } else if (l.mode === "total" && statSubstitute(l.monthly) !== undefined) {
+      // わからないの代わりの値も、推定のままなら入れ直す（わからないの印は残す）
+      const e = livingEstimate(h, baseMonth);
+      l.monthly = { ...(l.monthly as Box<number>), substitute: { ...(statSubstitute(l.monthly) as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } } as Box<number>;
     }
   }
   // 給与・賞与の統計の推定（年齢・性別・働き方の種類で決まる。統計の目安が新しくなったときも入れ直す）
@@ -85,6 +97,8 @@ export function refreshEstimates(h: Household, baseMonth: string): void {
     const e = residentTaxEstimate(inc.salary, inc.business, (a.fiscalYear ?? fy) - 1);
     if (a.amount.value !== e.value) a.amount = { ...a.amount, value: e.value };
   }
+  // 推定のままの子の進路（標準の進路の型。fill.ts）は、子の生年月・計算基準月に合わせて入れ直す
+  refreshEducation(h, baseMonth);
   for (const p of h.employmentPeriods ?? []) {
     const smr = (p as EmploymentPeriod).standardMonthlyRemuneration;
     const annual = p.salary?.annual.value;

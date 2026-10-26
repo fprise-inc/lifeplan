@@ -4,6 +4,7 @@
 //   数式を評価しない・大きさの上限・管理の値の照合）に任せ、ここでは候補を FP が承認するまで現状に入れない
 // - 承認した値には承認の記録（by: fp・日時・候補）を付ける（0008 の2・5。hearing の approveAll）
 // - 推定・仮の印は、入力の画面と同じ形（値の箱の estimated・WorkingHousehold.assumed）で入れる
+import { carryRows } from "../input/rows.ts";
 import { approveAll, createHearingSheet, exportableSheets, importHearingSheet, requestIdFrom, type Answer, type Candidate, type ChecklistItem, type ConsentDraft, type HearingRequest, type ImportRecord, type Issue, type OfficeInfo, type SheetDefinition } from "../../../../hearing/src/index.ts";
 import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/src/types.ts";
 import type { EngineRequest, Household } from "../../engine/types.ts";
@@ -358,6 +359,10 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
       if (old !== null && old !== ev) dropped.add(old);
     }
     if (at >= 0) {
+      // 前の物の値の状態の行のうち、取り込みで値が変わらない所の行（FP が決めた「該当なし」「わからない」・確定の記録）は残す。
+      // 値が変わった所は取り込んだ値と承認の記録が正（0041）
+      const prev = list[at] as Obj;
+      carryRows(prev, obj, c.collection === "members" ? { member: obj.id as string } : { object: obj.id as string });
       list[at] = obj;
       replaced++;
     } else {
