@@ -7,16 +7,19 @@ type Json = Record<string, unknown>;
 const isObj = (v: unknown): v is Json => typeof v === "object" && v !== null && !Array.isArray(v);
 
 
+// 0.18 から（0040）: 段階と例外の年の並び（周期的な支出・家賃・修繕費・固定資産税・不動産の家賃と経費・器の利回り・資産配分）。
+// 0.18 の形は足すだけで、0.17 以前のファイルにはこの並びが無い（本体の 0.16 → 0.17 の段は振らない）。画面で足すときは乱数の ID を付けて足す
 const ELEMENT_LISTS: readonly [string, readonly (readonly string[])[]][] = [
   ["livingExpenses", [["stages"], ["categories"]]],
-  ["accounts", [["contributions"]]],
+  ["accounts", [["contributions"], ["returnStages"], ["returnExceptions"], ["property", "rental", "stages"], ["property", "rental", "exceptions"], ["property", "expenses", "stages"], ["property", "expenses", "exceptions"]]],
   ["debts", [["rateSchedule"], ["prepayments"]]],
-  ["residences", [["purchase", "gifts"]]],
+  ["residences", [["purchase", "gifts"], ["rent", "stages"], ["rent", "exceptions"], ["maintenance", "stages"], ["maintenance", "exceptions"], ["propertyTax", "stages"], ["propertyTax", "exceptions"]]],
+  ["periodicExpenses", [["stages"], ["exceptions"]]],
   ["insuranceContracts", [["renewals"]]],
   ["goals", [["education", "stages"], ["education", "lessons"], ["education", "scholarships"], ["education", "loans"], ["education", "gifts"]]],
   ["advisoryFees", [["terms", "oneTime"], ["terms", "recurring", "revision", "steps"]]],
 ];
-const ASSUMPTION_LISTS: readonly (readonly string[])[] = [["marketShocks"], ["loanRateShifts"], ["incomeShocks"], ["returnShifts"], ["surplusSaving", "changes"]];
+const ASSUMPTION_LISTS: readonly (readonly string[])[] = [["marketShocks"], ["loanRateShifts"], ["incomeShocks"], ["returnShifts"], ["surplusSaving", "changes"], ["investment", "allocation", "stages"]];
 
 const getPath = (o: unknown, path: readonly string[]): unknown => path.reduce<unknown>((n, k) => (isObj(n) ? n[k] : undefined), o);
 

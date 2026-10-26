@@ -1,11 +1,12 @@
 // 8. 貯蓄・運用: 口座・資産の種類ごとの残高（時価）と名義、毎月の積立。取得価額・資産配分・時点は詳細で
 import type { Account, Household } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth } from "../../levers.ts";
-import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type FieldDef, type Finder, type GroupDef, type StageDef } from "../form.ts";
+import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, type WorkingHousehold } from "../household.ts";
 import { ACCOUNT_KINDS, ASSET_CLASSES, BUILDING_STRUCTURES, memberLabel, memberOptions, VALUATION_DEFAULTS } from "../labels.ts";
 import { loanFields } from "./housing.ts";
-import { defaultPayoutAge, editPayout, payoutAgeOf, rateOf, setStopAge, stopAgeOf, stopEstimateOf } from "../savings/model.ts";
+import { defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeOf, rateOf, setStopAge, stopAgeOf, stopEstimateOf } from "../savings/model.ts";
+import { allocationStageGroups, returnStageGroups, stagedGroups } from "../staged.ts";
 
 const accounts = (h: Household) => h.accounts;
 const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "childNisa"]);
@@ -171,6 +172,24 @@ function propertyGroups(wh: WorkingHousehold, a: Account, k: string): GroupDef[]
       timepointField({ key: `${kp}/rentTo`, item: "account.property", label: "貸し終わり", level: "detail", find: findP, path: ["rental", "to"], startPath: ["rental", "from"], optional: true, absentWhenEmpty: true, nullText: p.sale !== undefined ? "売るまで" : "最後まで", ...ageOf }),
     );
   groups.push({ key: `${kp}/rental`, title: "家賃収入", level: "simple", ...(p.rental !== undefined && p.acquisition === undefined ? { note: "取得価額と取得の年月を入れると、減価償却費を引いた不動産所得で税を計算します" } : {}), fields: rentFields, actions: [] });
+  // 家賃と経費の年額の段階・例外の年（0040。詳細）
+  const staged = (part: "rental" | "expenses", what: string, basis: "monthly" | "annual", value: (x: Account) => number | null, yearly = false): GroupDef[] =>
+    stagedGroups(wh, {
+      key: `${kp}/${part}`,
+      find,
+      target: { object: a.id },
+      stages: { path: ["property", part, "stages"], item: "account.property", at: [part, "stages"] },
+      exceptions: { path: ["property", part, "exceptions"], item: "account.property", at: [part, "exceptions"] },
+      basis,
+      what,
+      base: (h) => {
+        const x = (h.accounts ?? []).find((y) => y.id === a.id);
+        return x === undefined ? null : value(x);
+      },
+      ...ageOf,
+      ...(yearly ? { yearly: true } : {}),
+    });
+  if (p.rental !== undefined) groups.push(...staged("rental", "家賃", "monthly", (x) => x.property?.rental?.monthly.value ?? null));
   // 経費
   groups.push({
     key: `${kp}/expenses`,
@@ -183,6 +202,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account, k: string): GroupDef[]
     ],
     actions: [],
   });
+  if (p.expenses !== undefined) groups.push(...staged("expenses", "経費の年額", "annual", (x) => x.property?.expenses?.annual?.value ?? null, true));
   // 売却の予定
   const saleFields: FieldDef[] = [
     field({
@@ -471,6 +491,43 @@ function periodGroup(wh: WorkingHousehold): GroupDef {
   };
 }
 
+/**
+ * 利回りの段階・例外の年（0040。詳細）: 口座ごとの利回りの段階（利回りか資産の配分）と例外の年。資産配分の入れ方では、運用する口座は
+ * 共通の資産配分の段階（口座ごとの段階は計算に使わない）、運用しない口座（預金など）は口座ごと
+ */
+export function returnStagesSection(wh: WorkingHousehold): SectionDef {
+  const h = wh.request.input.household;
+  const method = methodOf(wh.request);
+  const self = h.members.find((m) => m.kind === "self");
+  const list = (h.accounts ?? []).filter((a) => !NON_FINANCIAL.has(a.kind) && a.kind !== "insurance" && (method === "total" ? a.kind === "pooled" : a.kind !== "pooled") && !(method === "allocation" && INVEST_KINDS.has(a.kind)));
+  const groups: GroupDef[] = [];
+  if (method === "allocation") groups.push(...allocationStageGroups(wh, self !== undefined ? { ageOf: (hh: Household) => hh.members.find((m) => m.id === self.id) } : {}));
+  for (const a of list) {
+    const owner = h.members.find((m) => m.id === a.owner);
+    groups.push(
+      ...returnStageGroups(wh, {
+        key: `sav/${a.id}`,
+        find: byId(accounts, a.id),
+        accountId: a.id,
+        name: `${a.kind === "pooled" ? "金融資産の合計" : (ACCOUNT_KINDS.find((o) => o.value === a.kind)?.label ?? "口座")}（${memberLabel(wh, a.owner)}）`,
+        ...(owner !== undefined ? { ageOf: (hh: Household) => hh.members.find((m) => m.id === owner.id) } : {}),
+        rate: (hh) => {
+          const x = (hh.accounts ?? []).find((y) => y.id === a.id);
+          return x === undefined ? null : rateOf({ ...wh.request, input: { ...wh.request.input, household: hh } }, x);
+        },
+      }),
+    );
+  }
+  return {
+    key: "sav/returns",
+    title: "利回りの段階・例外の年",
+    note: "利回り（資産の配分）を年齢・時期で変えるとき、特定の年だけ変えるときに使います。段の時点の属する年から変わり、運用の費用はこの後に引きます",
+    level: "detail",
+    groups,
+    actions: [],
+  };
+}
+
 export function savingsStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const self = h.members.find((m) => m.kind === "self");
@@ -513,6 +570,7 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
         groups: (h.accounts ?? []).filter((a) => NON_FINANCIAL.has(a.kind)).flatMap((a) => otherAssetGroups(wh, a)),
         actions: [add("realEstate", "不動産（住まい以外）"), add("otherAsset", "その他の資産")],
       },
+      returnStagesSection(wh),
     ],
   };
 }

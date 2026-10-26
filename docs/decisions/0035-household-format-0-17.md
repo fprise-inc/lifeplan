@@ -404,3 +404,9 @@ entries:
   6. **家族のカード**: 親・祖父母を足すと世帯の外の家族の印（誰の家族かは本人）を付ける。世帯の外の家族のまとまりに、家計を1つにする期間（1つ目の期間の始まり・終わり・生活費の人数に入れる・収入を世帯に入れる）と、勤め先の健康保険に入っている、の欄を出す。介護・親のカードを組み直す回に作り直す。
   7. **まだ入れていないもの**: 世帯の外の家族のお金の見通し（預金・年金で介護の費用を払い、尽きた後は世帯が払う）、仕送りの出るお金の行、世帯の外の夫婦の片方が亡くなった後の残る人の年金の2件目の記録、収入を世帯に入れる期間のその人の国民健康保険（世帯の国民健康保険とは別に計算する）。親の介護の費用は、親のお金の見通しを入れるまで世帯が払う（親の年金で払う分を見ない）。
   8. 見本の世帯のうち親を持つ2つ（`elderCare`・`parentCare`）は、親を世帯の外の家族（家計を1つにする期間なし）にした。
+- 2026-10-26（段階と例外の年・働き方の期間ごとの伸びを足した回。形式 0.18。0040）: 2 の表の「段階と例外の年」「働き方の期間ごとの伸び」を入れた。欄の名前は 0040 の1・4 のとおり（エンジンの入力と同じ名前）:
+  - 段 `{id, at, amount | ratio, rampYears?}`（`amount` は値の箱、`ratio` は元の額に対する割合、`rampYears` は「ここから n 年かけて次の段へ」）、例外の年 `{id, year, amount}`。置き場所は周期的な支出 `periodicExpenses[].stages`・`.exceptions`、住まい `residences[].rent|maintenance|propertyTax.stages`・`.exceptions`、住まい以外の不動産 `accounts[].property.rental|expenses.stages`・`.exceptions`。
+  - 器の利回りの段 `accounts[].returnStages[]`（`{id, at, expectedReturn | assetMix, rampYears?}`）と例外の年 `accounts[].returnExceptions[]`（`{id, year, expectedReturn}`）、資産配分の段 `assumptions.investment.allocation.stages[]`（`{id, at, mix, rampYears?}`）。7 の表の「住まい以外の不動産の家賃と経費」に加えて、器の利回りと資産配分にも持たせた。
+  - 給与の `employmentPeriods[].salary.growth` は `{curve}` か `{rate}` の一方、事業所得は `employmentPeriods[].business.growth`（`{rate}`）。
+  - 5 の並びの要素の ID の一覧に、上の段・例外の年・器の利回りの段と例外の年・資産配分の段を足した（新しい並びなので、変換の段で振る古い要素は無い。画面は足すときに乱数の ID を付ける）。段の中の資産の配分 `assetMix`・`mix` は ID を持たない並び（`assetMix` と同じ扱い）。
+  - 入力項目ID は `periodicExpense.stages`・`periodicExpense.exceptions`・`account.returnStages`・`account.returnExceptions`・`employment.business.growth` を足した。住まい・不動産・前提の投資の段は、その欄の入力項目ID の中の場所で当てる（0036 の2。例: `residence.rent`・`["stages", "<段>", "amount"]`）。

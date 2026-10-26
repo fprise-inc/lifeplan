@@ -9,7 +9,7 @@ import type { StageDef, StageId } from "./form.ts";
 import { mutate, newId, standardBox, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { memberLabel } from "./labels.ts";
 import { upkeepAnnual } from "./stages/cars.ts";
-import { careGroup, periodicGroup } from "./stages/events.ts";
+import { careGroup, periodicGroup, periodicStageGroups } from "./stages/events.ts";
 import { buildStage, stageStatus, STAGE_ORDER } from "./stages/index.ts";
 import { statementMonthsMissing } from "./stages/pension.ts";
 import { currentPeriod } from "./stages/work.ts";
@@ -286,7 +286,7 @@ function addedStage(wh: WorkingHousehold, a: AddedItem): StageDef {
   const h = wh.request.input.household;
   const o = addedObject(h, a);
   const label = o === null ? "外した項目" : addedLabel(wh, o);
-  const groups = o === null ? [] : o.kind === "periodic" ? [periodicGroup(wh, o.obj)] : [careGroup(wh, o.obj)];
+  const groups = o === null ? [] : o.kind === "periodic" ? [periodicGroup(wh, o.obj), ...periodicStageGroups(wh, o.obj)] : [careGroup(wh, o.obj)];
   return {
     id: "events",
     label,

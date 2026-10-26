@@ -209,6 +209,8 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
   const stage = savingsStage(wh);
   const addActions = stage.sections[0]?.actions ?? [];
   const others = stage.sections[1];
+  // 利回りの段階・例外の年（詳細。0040）
+  const returns = stage.sections[2];
 
   return (
     <div class="sv" data-savings>
@@ -274,6 +276,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
       </section>
 
       {others !== undefined && visible(level, others.level) ? <Section section={others} wh={wh} level={level} onEdit={onEdit} /> : null}
+      {returns !== undefined && visible(level, returns.level) && returns.groups.length > 0 ? <Section section={returns} wh={wh} level={level} onEdit={onEdit} /> : null}
     </div>
   );
 }
