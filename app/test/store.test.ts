@@ -320,6 +320,21 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(again.household!.assumed).toEqual(body.household!.assumed);
   });
 
+  it("値の状態の欄のうち、仮の印から作り直すと同じになる推定の行だけを仮の印に戻す（ほかの出し方・確かさを持つ行はそのまま）", () => {
+    const s = sample();
+    const body = bodyObject(s) as unknown as { household: { request: { input: { household: { members: Record<string, unknown>[] } } } } };
+    const [a, b] = body.household.request.input.household.members as Record<string, unknown>[];
+    a!.valueStates = { "member.birth": { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "仮の値" } } };
+    b!.valueStates = { "member.birth": { state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic", basis: "統計（架空）" }, certainty: "rough" } };
+    const back = fromBody(JSON.stringify(body));
+    expect(back.wh.assumed[`family/${a!.id as string}/birth`]).toBe("仮の値");
+    expect(back.wh.assumed[`family/${b!.id as string}/birth`]).toBeUndefined();
+    const again = bodyObject(back) as unknown as typeof body;
+    const [a2, b2] = again.household.request.input.household.members;
+    expect(a2!.valueStates).toEqual(a!.valueStates);
+    expect(b2!.valueStates).toEqual(b!.valueStates);
+  });
+
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {

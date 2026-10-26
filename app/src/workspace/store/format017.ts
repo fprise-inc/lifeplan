@@ -121,7 +121,12 @@ function statesToAssumed(input: Json, assumed: Record<string, string>): void {
       const address: Address = { target: target(item as string), item: item as string, at };
       const key = keyOf({ kind: "address", address }, input, "assumed");
       if (key === null) continue;
-      assumed[key] = typeof row.estimate.basis === "string" ? row.estimate.basis : "推定";
+      // 仮の印から作り直すと同じ行になるものだけを戻す（ほかの出し方・確かさなどを持つ行は、そのまま持つ）
+      const again = resolveKeyAssumed(key, input);
+      const method = again !== null && again.kind === "address" ? (again.method ?? "standard") : null;
+      const plain = Object.keys(row).every((x) => x === "state" || x === "origin" || x === "estimate") && Object.keys(row.origin).length === 1;
+      if (!plain || row.estimate.method !== method || typeof row.estimate.basis !== "string") continue;
+      assumed[key] = row.estimate.basis;
       delete states[k];
     }
     if (Object.keys(states).length === 0) delete holder.valueStates;
