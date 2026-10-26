@@ -389,8 +389,18 @@ function matchSteps(input: Obj, target: Target, item: string, steps: readonly At
  * 足した項目の鍵。戻した鍵を表で読み直して同じになるものだけを返す（同じ当て先になる鍵が複数あれば、探す決まりの順で最初のもの:
  * 合成の対策は欄でない鍵を先に、当て先は働き方の期間を探さない鍵を先に）
  */
-export function keyOf(reading: Reading, input: Obj, kind: "item" | "assumed" = "item", entries: readonly ReadingEntry[] = READING_ENTRIES): string | null {
-  if (reading.kind === "unresolved") return null;
+export function keyOf(reading: Reading, input: Obj, kind: "item" | "assumed" = "item", entries: readonly ReadingEntry[] = READING_ENTRIES, prefer?: (key: string) => boolean): string | null {
+  const all = keysOf(reading, input, kind, entries);
+  return (prefer !== undefined ? all.find(prefer) : undefined) ?? all[0] ?? null;
+}
+
+/**
+ * 当て先・合成の対策に戻る鍵のすべて（探す決まりの順）。同じ当て先を2つの鍵が指すことがある（住宅ローンの借入額の欄と、対策に足した
+ * 借入額の項目など）。結果のタブで使うときは、動かす項目の一覧にある鍵を選ぶ（keyOf の prefer）
+ */
+export function keysOf(reading: Reading, input: Obj, kind: "item" | "assumed" = "item", entries: readonly ReadingEntry[] = READING_ENTRIES): string[] {
+  const found: string[] = [];
+  if (reading.kind === "unresolved") return found;
   const rank = (e: ReadingEntry): number => {
     if (kind === "assumed") return e.from.startsWith("assumed:") ? 0 : e.from.startsWith("field:") ? 1 : 9;
     if (e.from.startsWith("assumed:")) return 9;
@@ -445,9 +455,9 @@ export function keyOf(reading: Reading, input: Obj, kind: "item" | "assumed" = "
       return { lever: r.lever, ...(keepObject ? { object: r.object } : {}), ...(to.member === true ? { member: r.member } : {}) };
     };
     if (back !== null && sameJson(strip(back), strip(reading))) {
-      if (kind === "assumed") return candidate.replace(/^(assumed|field):/, "");
-      return candidate;
+      const k = kind === "assumed" ? candidate.replace(/^(assumed|field):/, "") : candidate;
+      if (!found.includes(k)) found.push(k);
     }
   }
-  return null;
+  return found;
 }

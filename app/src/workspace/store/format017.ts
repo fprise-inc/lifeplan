@@ -9,7 +9,10 @@
 // - 贈与者 ⇄ 世帯の外の家族の構成員（生年月・性別なし。0035 の4）
 // - 対策に足した項目: 鍵 ⇄ 当て先
 // - 保存するときに、ID の無い並びの要素に ID を振る（0035 の5。場所から決まった ID で、保存のたびに同じになる）
-import { findObject, keyOf, migrationId, readAt, resolveKey, type Address, type Reading, type Target } from "./readings.ts";
+import { giveElementIds } from "./elementIds.ts";
+import { findObject, keyOf, keysOf, readAt, resolveKey, type Address, type Reading, type Target } from "./readings.ts";
+
+export { giveElementIds } from "./elementIds.ts";
 
 type Json = Record<string, unknown>;
 const isObj = (v: unknown): v is Json => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -32,60 +35,6 @@ export interface StoredDiff {
   /** 読み替えられなかった差分（当てない。0036 の5） */
   unresolved?: true;
   [k: string]: unknown;
-}
-
-// ---- 並びの要素の ID（0035 の5） ----
-
-const ELEMENT_LISTS: readonly [string, readonly (readonly string[])[]][] = [
-  ["livingExpenses", [["stages"], ["categories"]]],
-  ["accounts", [["contributions"]]],
-  ["debts", [["rateSchedule"], ["prepayments"]]],
-  ["residences", [["purchase", "gifts"]]],
-  ["insuranceContracts", [["renewals"]]],
-  ["goals", [["education", "stages"], ["education", "lessons"], ["education", "scholarships"], ["education", "loans"], ["education", "gifts"]]],
-  ["advisoryFees", [["terms", "oneTime"], ["terms", "recurring", "revision", "steps"]]],
-];
-const ASSUMPTION_LISTS: readonly (readonly string[])[] = [["marketShocks"], ["loanRateShifts"], ["incomeShocks"], ["returnShifts"], ["surplusSaving", "changes"]];
-
-const getPath = (o: unknown, path: readonly string[]): unknown => path.reduce<unknown>((n, k) => (isObj(n) ? n[k] : undefined), o);
-
-/** 場所から決まった ID（変換の段と同じ作り方）。同じ並びにもうある ID なら、場所に数を足して作り直す（保存のたびに同じ ID になる） */
-function freshId(place: string, used: Set<string>): string {
-  let id = migrationId(place);
-  for (let n = 1; used.has(id); n++) id = migrationId(`${place}/${n}`);
-  used.add(id);
-  return id;
-}
-
-/** ID の無い要素に ID を振る */
-function giveIds(list: unknown, place: string): void {
-  if (!Array.isArray(list)) return;
-  const used = new Set(list.flatMap((e) => (isObj(e) && typeof e.id === "string" ? [e.id] : [])));
-  list.forEach((e, i) => {
-    if (isObj(e) && typeof e.id !== "string") e.id = freshId(`${place}/${i}`, used);
-  });
-}
-
-/** 並びの要素に ID を振る（世帯の要求の input を書き換える。0035 の5） */
-export function giveElementIds(input: Json): void {
-  const h = input.household;
-  if (isObj(h)) {
-    for (const [coll, paths] of ELEMENT_LISTS) {
-      for (const obj of Array.isArray(h[coll]) ? (h[coll] as unknown[]) : []) {
-        if (!isObj(obj) || typeof obj.id !== "string") continue;
-        for (const p of paths) giveIds(getPath(obj, p), `${obj.id}/${p.join("/")}`);
-      }
-    }
-    const rels = Array.isArray(h.relations) ? h.relations : [];
-    const used = new Set(rels.flatMap((r) => (isObj(r) && typeof r.id === "string" ? [r.id] : [])));
-    rels.forEach((r, i) => {
-      if (!isObj(r) || typeof r.id === "string") return;
-      const a = typeof r.a === "string" ? r.a : typeof r.parent === "string" ? r.parent : "";
-      const b = typeof r.b === "string" ? r.b : typeof r.child === "string" ? r.child : "";
-      r.id = freshId(`relations/${i}/${a}/${b}`, used);
-    });
-  }
-  for (const p of ASSUMPTION_LISTS) giveIds(getPath(input.assumptions, p), `assumptions/${p.join("/")}`);
 }
 
 // ---- 値の状態の欄 ⇄ 仮の印 ----
@@ -268,9 +217,10 @@ export function fromStoredBody(body: Json): Json {
       if (typeof x === "string") return [x];
       if (!isObj(x) || !isObj(x.target)) return [];
       const r = readingOfStored({ target: x.target, item: typeof x.item === "string" ? x.item : null, at: Array.isArray(x.at) ? (x.at as string[]) : null });
-      const k = r === null ? null : keyOf(r, input);
-      return k === null ? [] : [k];
+      // 同じ当て先に戻る鍵が複数あれば、どれも残す（結果のタブは動かす項目の一覧にある鍵だけを出す。保存では同じ当て先にまとまる）
+      return r === null ? [] : keysOf(r, input);
     });
+    b.workspace.shownItems = [...new Set(b.workspace.shownItems as string[])];
   }
   outsideToDonors(input);
   return b;
@@ -290,11 +240,14 @@ export function toStoredBody(body: Json): Json {
     }
   }
   if (isObj(b.workspace) && Array.isArray(b.workspace.shownItems)) {
+    const seen = new Set<string>();
     b.workspace.shownItems = b.workspace.shownItems.flatMap((k) => {
       if (typeof k !== "string") return isObj(k) ? [k] : [];
       const r = resolveKey(k, input);
       const t = r === null ? null : storedTarget(r, null);
-      return t === null ? [] : [t];
+      if (t === null || seen.has(JSON.stringify(t))) return [];
+      seen.add(JSON.stringify(t));
+      return [t];
     });
   }
   if (isObj(h.assumed)) {

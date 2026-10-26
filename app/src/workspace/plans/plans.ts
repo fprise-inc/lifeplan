@@ -13,11 +13,11 @@ import { ITEM_LABELS } from "../../generated/labels.ts";
 import { ITEM_PLACES } from "../../generated/readings.ts";
 import { newId, type WorkingHousehold } from "../input/household.ts";
 import { applyAdvisoryFee, applyLevers, LEVER_KEYS, type LeverValues } from "../levers.ts";
-import { findObject, keyOf, readAt, resolveKey, unbox, type Reading } from "../store/readings.ts";
+import { keyOf, readAt, resolveKey, unbox, type Reading } from "../store/readings.ts";
 import type { MixPart } from "./allocation.ts";
 import { pctText } from "./decimal.ts";
-import { addAt, addressOf, collectionOf, isLever, removeAt, removedNow, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
-import { reemploymentFor, type Catalog, type ItemValue, type MovableItem, type RateShift } from "./items.ts";
+import { addAt, addressOf, boxAt, collectionOf, isLever, placeExists, removeAt, removedNow, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
+import { catalogKeysOf, reemploymentFor, type Catalog, type ItemValue, type MovableItem, type RateShift } from "./items.ts";
 
 export type { DiffOrigin, PlanDiff } from "./diffs.ts";
 
@@ -80,15 +80,17 @@ function readingOf(d: PlanDiff): Reading | null {
 /** 差分の動かす項目のキー（結果のタブで動かせる差分）。キーに戻せない差分は null */
 export function diffKey(d: PlanDiff, wh: WorkingHousehold): string | null {
   const input = inputOf(wh);
+  const listed = catalogKeysOf(input);
   const hit = keyCache.get(d);
-  if (hit !== undefined && hit.input === input) return hit.key;
+  if (hit !== undefined && hit.input === input && hit.listed === listed) return hit.key;
   const r = readingOf(d);
-  const key = r === null ? null : keyOf(r, input);
-  keyCache.set(d, { input, key });
+  // 同じ当て先に戻る鍵が複数あれば、動かす項目の一覧にある鍵を選ぶ（住宅ローンの借入額など。一覧に無い鍵を選ぶと結果のタブから見えない）
+  const key = r === null ? null : keyOf(r, input, "item", undefined, listed === undefined ? undefined : (k) => listed.has(k));
+  keyCache.set(d, { input, listed, key });
   return key;
 }
-/** 差分 → 動かす項目のキー（差分と現状の入力が同じ間は同じ） */
-const keyCache = new WeakMap<PlanDiff, { input: Input; key: string | null }>();
+/** 差分 → 動かす項目のキー（差分と現状の入力と動かす項目の一覧が同じ間は同じ） */
+const keyCache = new WeakMap<PlanDiff, { input: Input; listed: ReadonlySet<string> | undefined; key: string | null }>();
 
 /** 一覧の1行の印: 動かす項目のキーか、`diff:<差分の ID>`（置き換えの組は組の ID） */
 export function rowKeyOf(d: PlanDiff, wh: WorkingHousehold): string {
@@ -96,23 +98,25 @@ export function rowKeyOf(d: PlanDiff, wh: WorkingHousehold): string {
 }
 
 /** 動かす項目の値から差分を作る（当て先か合成の対策。表に無いキーは null） */
-function diffFromValue(it: MovableItem, v: ItemValue, wh: WorkingHousehold, prev: PlanDiff | undefined): PlanDiff | null {
-  const r = resolveKey(it.key, inputOf(wh));
+function diffFromValue(it: MovableItem | undefined, key: string, v: ItemValue, wh: WorkingHousehold, prev: PlanDiff | undefined): PlanDiff | null {
+  const r = resolveKey(key, inputOf(wh));
   if (r === null || r.kind === "unresolved") return null;
-  // 合成の対策が物を持たないときは、その対策が動かす物・構成員を向き先に書いておく（読み戻すときの控え。0036 の追記）
-  const memory = "plan" in it.target ? {} : it.target;
+  // 動かす項目の一覧に無い鍵は、当て先の欄だけ差分にする（合成の対策は一覧の項目でしか当てられない）
+  if (it === undefined && r.kind !== "address") return null;
+  // 合成の対策は、表の行が持たせる物（object・member）だけを向き先に書く（本体の変換の段と同じ形。0036 の追記）
   const place =
     r.kind === "address"
       ? { target: r.address.target, item: r.address.item, at: r.address.at }
-      : { target: { lever: r.lever, ...(r.object === undefined && r.member === undefined ? memory : {}), ...(r.object !== undefined ? { object: r.object } : {}), ...(r.member !== undefined ? { member: r.member } : {}) }, item: it.item, at: [] };
-  const now = it.read(wh);
-  const keep = prev !== undefined && it.same(unbox(prev.value) as ItemValue, v);
+      : { target: { lever: r.lever, ...(r.object !== undefined ? { object: r.object } : {}), ...(r.member !== undefined ? { member: r.member } : {}) }, item: it?.item ?? null, at: [] };
+  const same = (a: unknown, b: unknown) => (it !== undefined ? it.same(a as ItemValue, b as ItemValue) : sameJson(a, b));
+  const keep = prev !== undefined && same(unbox(prev.value), v);
+  const before = prev !== undefined ? prev.before : it !== undefined ? box(it.read(wh)) : r.kind === "address" ? boxAt(inputOf(wh), r.address) : null;
   return {
     id: prev?.id ?? newId(),
     op: "set",
     ...place,
     value: box(v),
-    before: prev !== undefined ? prev.before : box(now),
+    before,
     enabled: true,
     // 前と同じ値のままの差分は、出どころ（AIの候補を承認したものなど）を引き継ぐ。動かした差分は手で動かした値になる
     ...(keep ? { origin: prev.origin, ...(prev.approval !== undefined ? { approval: prev.approval } : {}) } : { origin: { kind: "manual" as const } }),
@@ -241,7 +245,7 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
     const e = it.phase === "field" ? keyed.get(it.key) : undefined;
     if (e === undefined) continue;
     // 当て先の項目は当て先へ書く。合成の対策は 0.16 の当て方で（入力画面の作り直しで当て先に寄せる。0036 の3）
-    const d = e.diff ?? diffFromValue(it, e.value, wh, undefined);
+    const d = e.diff ?? diffFromValue(it, it.key, e.value, wh, undefined);
     if (d !== null && !isLever(d.target)) {
       const req = structuredClone(w.request);
       setOne(d, req.input as unknown as Input);
@@ -249,8 +253,10 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
         w = { ...w, request: req };
         continue;
       }
-      // 並びの要素がまだ無いなど、当て先へ書けない値は 0.16 の当て方で当てる（向き先の物が無ければ何もしない）
-      if (e.diff !== null && "object" in d.target && findObject(inputOf(w), d.target.object) === undefined) continue;
+      // 現状にある物・要素を、作業中の世帯で外していたら当てない（0.16 の番号の当て方に回すと、別の要素に当たる。0036 の7）。
+      // 当て先へ書けないのは現状にもまだ無い場所のときだけで、そのときだけ 0.16 の当て方で当てる
+      const a = addressOf(d);
+      if (a === null || placeExists(now, a)) continue;
       reviews.delete(d.id);
     }
     w = it.apply(w, e.value);
@@ -290,13 +296,17 @@ export function valueOf(item: MovableItem, values: Values, wh: WorkingHousehold)
 }
 
 /**
- * 動かした値を整える: 一覧に無い項目を外し、現状と同じ値の項目を外す（土台が動かした項目は、現状に戻した値として残す）
+ * 動かした値を整える: 現状と同じ値の項目を外す（土台が動かした項目は、現状に戻した値として残す）。一覧に無い項目は外すが、
+ * `@plan`（キーに戻せない差分を持つプラン）と、当て先に読める鍵（一覧に無い欄の差分）は残す（外すと、その差分を当てずに計算する）
  */
 export function normalizeValues(values: Values, baseValues: Values, wh: WorkingHousehold, cat: Catalog): Values {
   const out: Values = {};
   for (const [k, v] of Object.entries(values)) {
     const it = cat.byKey.get(k);
-    if (it === undefined) continue;
+    if (it === undefined) {
+      if (k === PLAN_SLOT || resolveKey(k, inputOf(wh))?.kind === "address") out[k] = v;
+      continue;
+    }
     if (!Object.hasOwn(baseValues, k) && it.same(v, it.read(wh))) continue;
     out[k] = v;
   }
@@ -329,13 +339,22 @@ function ownDiffs(values: Values, baseValues: Values, wh: WorkingHousehold, cat:
   }
   const out: PlanDiff[] = [];
   for (const [k, v] of Object.entries(values)) {
+    if (k === PLAN_SLOT) continue;
     const it = cat.byKey.get(k);
-    if (it === undefined) continue;
-    if (Object.hasOwn(baseValues, k) ? it.same(v, baseValues[k] ?? null) : it.same(v, it.read(wh))) continue;
-    const d = diffFromValue(it, v, wh, prevByKey.get(k));
+    if (it !== undefined && (Object.hasOwn(baseValues, k) ? it.same(v, baseValues[k] ?? null) : it.same(v, it.read(wh)))) continue;
+    if (it === undefined) {
+      // 一覧に無い欄の値（入力画面で直した欄の差分）: 土台・現状と同じなら差分にしない
+      const r = resolveKey(k, inputOf(wh));
+      if (r === null || r.kind !== "address") continue;
+      if (Object.hasOwn(baseValues, k) ? sameJson(v, baseValues[k]) : sameJson(v, unbox(boxAt(inputOf(wh), r.address)))) continue;
+    }
+    const d = diffFromValue(it, k, v, wh, prevByKey.get(k));
     if (d !== null) out.push(d);
   }
-  return [...kept, ...out];
+  // オフにした差分（Values に出ない）は、同じキーを動かしていなければ残す（0036 の4 の enabled）
+  const now = new Set(out.map((d) => diffKey(d, wh)));
+  const off = [...prevByKey.entries()].filter(([k, d]) => !d.enabled && !now.has(k)).map(([, d]) => d);
+  return [...kept, ...off, ...out];
 }
 
 export interface SaveInput {
@@ -347,11 +366,28 @@ export interface SaveInput {
   now: string;
 }
 
+/** 差分を写す（新しい ID にし、置き換えの組・連鎖の ID も付け直す） */
+function copyWithNewIds(diffs: readonly PlanDiff[]): PlanDiff[] {
+  const ids = new Map<string, string>();
+  const re = (x: string): string => {
+    const got = ids.get(x);
+    if (got !== undefined) return got;
+    const n = newId();
+    ids.set(x, n);
+    return n;
+  };
+  return diffs.map((d) => ({ ...d, id: re(d.id), ...(d.pair != null ? { pair: re(d.pair) } : {}), ...(d.cause != null ? { cause: re(d.cause) } : {}) }));
+}
+
 /** 新しいプランとして保存する。戻り値は新しい世帯とプランの ID */
 export function savePlan(wh: WorkingHousehold, cat: Catalog, input: SaveInput): { wh: WorkingHousehold; id: string } {
   const id = newId();
   const baseValues = effectiveValues(wh, input.base);
-  const p: Proposal = { id, name: input.name.trim() || "名前のないプラン", createdAt: input.now, updatedAt: input.now, base: input.base, tags: input.tags ?? [], diffs: ownDiffs(input.values, baseValues, wh, cat, []) };
+  // 値の元のプラン（@plan）のキーに戻せない差分のうち、土台から来ないものを写す（写さないと、足す・外すの差分が落ちる）
+  const src = input.values[PLAN_SLOT];
+  const inBase = new Set(chainOf(wh.proposals, input.base).map((p) => p.id));
+  const carried = typeof src === "string" && !inBase.has(src) ? copyWithNewIds(chainOf(wh.proposals, src).filter((p) => !inBase.has(p.id)).flatMap((p) => p.diffs.filter((d) => d.enabled && diffKey(d, wh) === null))) : [];
+  const p: Proposal = { id, name: input.name.trim() || "名前のないプラン", createdAt: input.now, updatedAt: input.now, base: input.base, tags: input.tags ?? [], diffs: [...carried, ...ownDiffs(input.values, baseValues, wh, cat, [])] };
   return { wh: { ...wh, proposals: [...wh.proposals, p] }, id };
 }
 
@@ -377,9 +413,7 @@ export function deletePlan(wh: WorkingHousehold, id: string): WorkingHousehold {
       if (p.base !== id) return p;
       const own = new Set(p.diffs.map((d) => rowKeyOf(d, wh)));
       // 写す差分は新しい ID にする（置き換えの組・連鎖の ID も付け直す）
-      const ids = new Map<string, string>();
-      const re = (x: string | null | undefined) => (x == null ? x : (ids.get(x) ?? (ids.set(x, newId()), ids.get(x) as string)));
-      const copied = gone.diffs.filter((d) => !own.has(rowKeyOf(d, wh))).map((d) => ({ ...d, id: re(d.id) as string, ...(d.pair != null ? { pair: re(d.pair) } : {}), ...(d.cause != null ? { cause: re(d.cause) } : {}) }));
+      const copied = copyWithNewIds(gone.diffs.filter((d) => !own.has(rowKeyOf(d, wh))));
       return { ...p, base: gone.base, diffs: [...copied, ...p.diffs] };
     });
   return { ...wh, proposals };
@@ -464,7 +498,7 @@ export function acknowledge(wh: WorkingHousehold, cat: Catalog, id: string, key:
     if (it !== undefined) return box(it.read(wh));
     if (d.op === "remove") return structuredClone(removedNow(inputOf(wh), d) ?? d.before);
     const a = addressOf(d);
-    return a === null ? d.before : structuredClone(readAt(inputOf(wh), a) ?? null);
+    return a === null ? d.before : boxAt(inputOf(wh), a);
   };
   const ids = new Set(e.group.map((d) => d.id));
   return { ...wh, proposals: wh.proposals.map((p) => (p.id === e.owner ? { ...p, diffs: p.diffs.map((d) => (ids.has(d.id) && d.op !== "add" ? { ...d, before: nowOf(d) } : d)) } : p)) };
@@ -487,11 +521,12 @@ export function dropChange(wh: WorkingHousehold, cat: Catalog, id: string, key: 
   for (const d of e.group) {
     const base = { id: newId(), enabled: true, origin: { kind: "manual" as const }, note: null, ...(pair !== null ? { pair } : {}) };
     if (it !== undefined) {
-      const restored = diffFromValue(it, it.read(wh), wh, undefined);
+      const restored = diffFromValue(it, key, it.read(wh), wh, undefined);
       if (restored !== null) back.push({ ...restored, ...base });
     } else if (d.op === "set") {
       const a = addressOf(d);
-      if (a !== null) back.push({ ...d, ...base, value: structuredClone(readAt(inputOf(wh), a) ?? null), before: structuredClone(readAt(inputOf(wh), a) ?? null) });
+      const now = a === null ? null : boxAt(inputOf(wh), a);
+      if (a !== null && now !== null) back.push({ ...d, ...base, value: now, before: structuredClone(now) });
     } else if (d.op === "add" && isObjLike(d.value) && typeof d.value.id === "string") {
       const nested = "collection" in d.target ? null : d.at;
       back.push({ ...base, op: "remove", target: "collection" in d.target ? { object: d.value.id } : d.target, item: nested === null ? null : d.item, at: nested === null ? [] : [...nested, d.value.id], value: null, before: structuredClone(d.value) });
