@@ -73,6 +73,12 @@ export interface EmploymentPeriod {
   /** 事業所得。growth.rate はこの期間の伸び（年率。省略は前提の賃金上昇率。0040） */
   business?: { income: Box<number>; growth?: { rate: string } };
   standardMonthlyRemuneration?: { health: Box<number>; pension: Box<number> };
+  /** 期間の終わり方（0037）: retirement・voluntary・involuntary・contractEnd・sickLeave。省略はエンジンが決める */
+  endsWith?: string;
+  /** 辞めた後に失業の給付を受け取るか（0037。省略は受け取らない） */
+  unemploymentClaim?: boolean;
+  /** 60〜64歳の月に高年齢雇用継続給付を受け取るか（0037。省略は受け取らない） */
+  elderlyContinuationClaim?: boolean;
   [key: string]: unknown;
 }
 

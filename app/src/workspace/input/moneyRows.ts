@@ -33,7 +33,7 @@ export const INCOME_KINDS: readonly { kind: IncomeFlowKind; label: string; tax: 
   { kind: "propertyDivision", label: "財産分与", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "family", cadence: "once" },
   { kind: "householdContribution", label: "同居の家族が家計に入れるお金", tax: "nonTaxable", once: "cf.income.other", repeat: "cf.income.other", card: "family", cadence: "monthly" },
   { kind: "benefit", label: "手当・給付金（額で）", tax: "nonTaxable", once: "cf.income.benefit", repeat: "cf.income.benefit", card: "family", cadence: "monthly" },
-  { kind: "unemployment", label: "失業給付などの額", tax: "nonTaxable", once: "cf.income.benefit.unemployment", repeat: "cf.income.benefit.unemployment", card: "work", cadence: "monthly" },
+  { kind: "unemployment", label: "教育訓練給付などの額（失業給付は働き方の期間で計算します）", tax: "nonTaxable", once: "cf.income.benefit.unemployment", repeat: "cf.income.benefit.unemployment", card: "work", cadence: "monthly" },
   { kind: "survivorPension", label: "受給中の遺族年金・障害年金（額で）", tax: "nonTaxable", once: "cf.income.pension", repeat: "cf.income.pension", card: "pension", cadence: "repeat" },
   { kind: "foreignPension", label: "外国の年金（額で）", tax: "miscOther", once: "cf.income.pension", repeat: "cf.income.pension", card: "pension", cadence: "repeat" },
   { kind: "scholarshipGrant", label: "給付型の奨学金・学費の助成（額で）", tax: "nonTaxable", once: "cf.income.benefit.education", repeat: "cf.income.benefit.education", card: "education", cadence: "repeat" },

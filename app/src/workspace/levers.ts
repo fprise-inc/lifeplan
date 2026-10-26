@@ -162,10 +162,9 @@ function retireAt(req: EngineRequest, memberId: string, lastMonth: string, stage
     } else if (r !== undefined) {
       // 定年の後: 再雇用などの働き方で、その年齢まで
       const smr = r.standardMonthlyRemuneration;
-      const { standardMonthlyRemuneration: _smr, corporatePension: _cp, business: _b, ...rest } = tail;
-      void _smr;
-      void _cp;
-      void _b;
+      // 今の勤め先の期間の辞め方・失業の給付の欄と値の状態の行は写さない（定年後の期間は、画面がその期間の推定を入れ直す。0037）
+      const { standardMonthlyRemuneration: _smr, corporatePension: _cp, business: _b, endsWith: _e, unemploymentClaim: _u, elderlyContinuationClaim: _c, valueStates: _v, ...rest } = tail;
+      void [_smr, _cp, _b, _e, _u, _c, _v];
       kept.push({
         ...rest,
         id: derivedId(tail.id, "reemployment"),

@@ -3,6 +3,7 @@
 // ここには世帯（Household）を見て当てる部分と、元の入力が変わったときの入れ直しだけを置く
 import type { Box, EmploymentPeriod, Household, LivingExpense, Member } from "../../engine/types.ts";
 import { ageAt } from "../levers.ts";
+import { refreshClaims } from "./claims.ts";
 import { refreshEducation } from "./fill.ts";
 import { applyAutoStages, countAt } from "./livingStages.ts";
 import {
@@ -103,6 +104,8 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   // 生活費の推定の段階（人数の変化と年齢から。推定のままの段だけ。livingStages.ts）。進路の後に（自宅外の在学を読むため）
   const last = endYear ?? Number(baseMonth.slice(0, 4)) + 80;
   for (const l of h.livingExpenses ?? []) applyAutoStages(h, baseMonth, last, l);
+  // 推定（おまかせ）のままの失業給付・高年齢雇用継続給付を受け取るかは、期間の終わり・次の期間・年齢に合わせて入れ直す（claims.ts）
+  refreshClaims(h);
   for (const p of h.employmentPeriods ?? []) {
     const smr = (p as EmploymentPeriod).standardMonthlyRemuneration;
     const annual = p.salary?.annual.value;

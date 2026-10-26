@@ -14,6 +14,7 @@ import { memberLabel } from "./labels.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
 import { defaultStages } from "./stages/education.ts";
 import { currentPeriodId } from "../store/readings.ts";
+import { missingUnemployment, putEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM, unemploymentEstimate } from "./claims.ts";
 
 type Obj = Record<string, unknown>;
 const inputOf = (wh: WorkingHousehold): Obj => wh.request.input as unknown as Obj;
@@ -206,6 +207,26 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
       ...(est !== null ? { fill: (w: WorkingHousehold) => fillRetirement(w, m.id), basis: est.basis } : {}),
       none: (w) => retirementNone(w, m.id),
       noneLabel: "勤め先に制度が無い",
+    });
+  }
+  // 失業給付を入れていない勤め（古い世帯。推定なら受け取る期間）: 推定で埋める（おまかせ）か、受け取らない
+  for (const p of missingUnemployment(h)) {
+    const to = resolveTimepoint(h, p.to);
+    const when = to === null ? "" : `${Number(to.slice(0, 4))}年${Number(to.slice(5, 7))}月に辞めた後`;
+    const edit = (w: WorkingHousehold, fn: (x: EmploymentPeriod, hh: Household) => void) =>
+      mutate(w, (hh) => {
+        const x = (hh.employmentPeriods ?? []).find((y) => y.id === p.id);
+        if (x !== undefined) fn(x, hh);
+      });
+    out.push({
+      id: `work/unemployment/${p.id}`,
+      card: "work",
+      label: `${memberLabel(wh, p.member)}の失業給付（${when}）`,
+      note: "失業給付を入れていないので、受け取らないで計算しています",
+      fill: (w) => edit(w, (x, hh) => putEstimate(x, UNEMPLOYMENT_ITEM, unemploymentEstimate(hh, x), UNEMPLOYMENT_BASIS)),
+      basis: UNEMPLOYMENT_BASIS,
+      none: (w) => edit(w, (x) => void (x.unemploymentClaim = false)),
+      noneLabel: "受け取らない",
     });
   }
   if ((h.livingExpenses ?? []).length === 0) {
