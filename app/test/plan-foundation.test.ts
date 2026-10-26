@@ -6,7 +6,7 @@ import { candidateRows } from "../src/workspace/ai/model.ts";
 import { fromRequest, mutate, withElementIds, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { boxAt, writeAt, type PlanDiff } from "../src/workspace/plans/diffs.ts";
 import { buildCatalog, type Catalog } from "../src/workspace/plans/items.ts";
-import { applyPlan, changesOf, diffKey, dropChange, effectiveValues, normalizeValues, overwritePlan, PLAN_SLOT, sameValues, savePlan, type Proposal } from "../src/workspace/plans/plans.ts";
+import { applyPlan, changesOf, diffKey, dropChange, effectiveValues, normalizeValues, overwritePlan, PLAN_SLOT, reviewCount, sameValues, savePlan, type Proposal } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { bodyObject, EMPTY_CARRY, fromBody, type BodyState } from "../src/workspace/store/body.ts";
 import { toStoredBody } from "../src/workspace/store/format017.ts";
@@ -62,6 +62,31 @@ describe("並びの要素の ID（0035 の5）: 番号で当てない", () => {
     expect(out.map((s) => s.id)).toEqual([s0, s2]);
     expect(out.map((s) => s.ratio)).toEqual([living.stages![0]!.ratio, living.stages![2]!.ratio]);
     expect(a.reviews.get(set.id)?.state).toBe("missing");
+  });
+
+  it("その差分が動かす項目の一覧にある鍵でも、変えたことの一覧と要確認の数に「指していた物が無くなりました」で出る", () => {
+    const { wh, cat } = open();
+    const living = wh.request.input.household.livingExpenses![0]!;
+    const s1 = (living.stages![1] as unknown as Obj).id as string;
+    const set = mk({ op: "set", target: { object: living.id }, item: "livingExpense.stages", at: [s1, "ratio"], value: box("0.5"), before: box(living.stages![1]!.ratio) });
+    const remove = mk({ op: "remove", target: { object: living.id }, item: "livingExpense.stages", at: [s1], before: structuredClone(living.stages![1]) });
+    const w = withPlans(wh, [
+      { id: "B", diffs: [remove] },
+      { id: "C", base: "B", diffs: [set] },
+    ]);
+    // 結果のタブで動かせる項目の差分（動かす項目のキーに戻る）
+    const key = diffKey(set, w);
+    expect(key).not.toBeNull();
+    expect(cat.byKey.has(key!)).toBe(true);
+    const row = changesOf(w.proposals, "C", w, cat).find((r) => r.key === key);
+    expect(row?.state).toBe("missing");
+    expect(row?.reviewNote).toBe("この差分が指していた物が、入力（現状）から無くなりました");
+    expect(row?.label).toBe(cat.byKey.get(key!)!.label);
+    expect(reviewCount(w.proposals, "C", w, cat)).toBe(1);
+    // 土台で外していなければ ok のまま
+    const only = withPlans(wh, [{ id: "C", diffs: [set] }]);
+    expect(changesOf(only.proposals, "C", only, cat).find((r) => r.key === key)?.state).toBe("ok");
+    expect(reviewCount(only.proposals, "C", only, cat)).toBe(0);
   });
 
   it("並びの先頭に要素を足しても、保存した差分は同じ要素に当たり、動かす項目のキーは新しい番号で読める", () => {
