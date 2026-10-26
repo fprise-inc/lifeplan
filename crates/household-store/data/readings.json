@@ -1822,6 +1822,18 @@
     "property"
    ]
   },
+  "account.returnExceptions": {
+   "collection": "account",
+   "path": [
+    "returnExceptions"
+   ]
+  },
+  "account.returnStages": {
+   "collection": "account",
+   "path": [
+    "returnStages"
+   ]
+  },
   "account.settlement": {
    "collection": "account",
    "path": [
@@ -2262,6 +2274,13 @@
    "collection": "donor",
    "path": [
     "of"
+   ]
+  },
+  "employment.business.growth": {
+   "collection": "employment",
+   "path": [
+    "business",
+    "growth"
    ]
   },
   "employment.business.income": {
@@ -2760,6 +2779,12 @@
     "everyYears"
    ]
   },
+  "periodicExpense.exceptions": {
+   "collection": "periodicExpense",
+   "path": [
+    "exceptions"
+   ]
+  },
   "periodicExpense.from": {
    "collection": "periodicExpense",
    "path": [
@@ -2788,6 +2813,12 @@
    "collection": "periodicExpense",
    "path": [
     "row"
+   ]
+  },
+  "periodicExpense.stages": {
+   "collection": "periodicExpense",
+   "path": [
+    "stages"
    ]
   },
   "periodicExpense.to": {

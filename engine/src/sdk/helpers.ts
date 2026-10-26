@@ -1,12 +1,13 @@
 // 部品が共通に使う小さな関数（公式SDK）。年齢の値（unit: years）の切り替えの月・年度・働き方の種類
 import { EngineError } from "../errors.ts";
 import type { Ctx } from "../registry/ctx.ts";
-import type { BuildingStructure, Flow, RealEstateValuationSetting } from "../engine/types.ts";
+import type { BuildingStructure, Flow, RealEstateValuationSetting, ReturnStageInput } from "../engine/types.ts";
 import { numTable } from "../engine/numTable.ts";
 import { RATE_ONE, RATE_ZERO, type Rate } from "../money/rate.ts";
 import { addYen, yen, type Yen } from "../money/yen.ts";
 import type { AgeSwitch } from "../time/ageSwitch.ts";
 import { formatYm, monthIndex, monthOf, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
+import { stageAt, stageSteps, type StageStep } from "./stages.ts";
 
 /** 年齢の値（unit: years）と、その値の ageSwitch（0003 の4）で決まる月。値は at の月の値を使う */
 export function ageMonth(ctx: Ctx, at: MonthIndex, id: string, member: string): MonthIndex {
@@ -215,11 +216,58 @@ const CASH_KINDS: Readonly<Record<string, string>> = { deposit: "cash.deposit", 
 /** 運用する器（資産配分・利回りの書き換え（returnShifts）を当てる。まとめた金融資産の器を含む。0026） */
 export const INVEST_KINDS: ReadonlySet<string> = new Set(["taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "esop", "pooled"]);
 
-interface ReturnAccount {
-  readonly kind: string;
-  readonly assetMix?: readonly { readonly assetClass: string; readonly share: string }[];
+type Mix = readonly { readonly assetClass: string; readonly share: string }[];
+
+/** 器の利回りの決め方（器の利回りか資産の配分。段階の1段もこの形） */
+interface ReturnSpec {
+  readonly assetMix?: Mix;
   readonly expectedReturn?: string;
+}
+
+interface ReturnAccount extends ReturnSpec {
+  readonly kind: string;
   readonly fee?: string;
+  /** 利回りの段階（0040） */
+  readonly returnStages?: readonly ReturnStageInput[];
+  /** 利回りの例外の年（0040） */
+  readonly returnExceptions?: readonly { readonly year: number; readonly expectedReturn: string }[];
+}
+
+/** 利回りの段階を月に解いた並び（段の値は器の利回りか資産の配分のどちらか一方） */
+function returnSteps(ctx: Ctx, account: ReturnAccount): StageStep<ReturnSpec>[] {
+  return stageSteps(ctx, account.returnStages, (s): ReturnSpec => (s.assetMix !== undefined ? { assetMix: s.assetMix } : { expectedReturn: s.expectedReturn ?? "0" }));
+}
+
+/** 器の決め方 spec のその年の利回り（運用の費用・利回りの書き換えの前）。リバランスしない配分のずれは driftFrom の年から数える */
+function specRate(ctx: Ctx, kind: string, spec: ReturnSpec, year: number, driftFrom: number): Rate {
+  const classRate = (cls: string, y: number): Rate => {
+    const fallback = cls === "realEstate" ? RATE_ZERO : ctx.assumption("investmentReturn", y);
+    return ctx.assumptionIn("assetReturns", cls, y, fallback) ?? fallback;
+  };
+  const mix = spec.assetMix;
+  if (spec.expectedReturn !== undefined) return ctx.rate.of(spec.expectedReturn);
+  if (mix === undefined || mix.length === 0) {
+    const cls = CASH_KINDS[kind];
+    return cls === undefined ? ctx.assumption("investmentReturn", year) : classRate(cls, year);
+  }
+  if (mix.length === 1) return classRate((mix[0] as { assetClass: string }).assetClass, year);
+  const setting = INVEST_KINDS.has(kind) ? ctx.setting<{ method?: string; allocation?: { rebalance?: boolean } }>("investment") : undefined;
+  const drift = setting?.method === "allocation" && setting.allocation?.rebalance === false;
+  // リバランスしないとき: 重み＝割合×driftFrom の年からの増え方（Π(1＋その年の利回り)）
+  const weights = mix.map((m) => {
+    let w = ctx.rate.of(m.share);
+    if (drift) for (let y = driftFrom; y < year; y++) w = ctx.rate.mul(w, ctx.rate.add(RATE_ONE, classRate(m.assetClass, y)));
+    return w;
+  });
+  let total = RATE_ZERO;
+  for (const w of weights) total = ctx.rate.add(total, w);
+  let r = RATE_ZERO;
+  mix.forEach((m, i) => {
+    const w = weights[i] as Rate;
+    const share = drift && ctx.rate.compare(total, RATE_ZERO) > 0 ? ctx.rate.div(w, total) : w;
+    r = ctx.rate.add(r, ctx.rate.mul(classRate(m.assetClass, year), share));
+  });
+  return r;
 }
 
 /**
@@ -229,37 +277,31 @@ interface ReturnAccount {
  * 0026: FP が入れた器の利回り（expectedReturn）があればそれを使う。運用の費用（fee）を引く。資産配分の入れ方でリバランスしないときは、
  * 資産クラスごとの増え方で割合がずれる（計算基準年からの資産クラスの増え方で重みを付け直す）。運用する器には利回りの書き換え（returnShifts）を当てる。
  * reads に assumptions.investment と assumptions.returnShifts も要る
+ * 0040: 利回りの段階（returnStages）があれば、その年の12月の段（器の利回りか資産の配分。段より前の年は器の欄）を使い、リバランスしない
+ * 配分のずれは段の始まりの年から数え直す。少しずつ移す途中の年は、前後の段のその年の利回りを進んだ年数で按分する（今＋(次−今)×j÷n）。
+ * 利回りの例外の年（returnExceptions）は、その年だけ書いた利回りにする。どちらも運用の費用と利回りの書き換えはその後に当てる。
+ * 段階・例外を読むには reads に account.returnStages・account.returnExceptions が要る
  */
 export function accountReturnRate(ctx: Ctx, account: ReturnAccount, year: number): Rate {
-  const classRate = (cls: string, y: number): Rate => {
-    const fallback = cls === "realEstate" ? RATE_ZERO : ctx.assumption("investmentReturn", y);
-    return ctx.assumptionIn("assetReturns", cls, y, fallback) ?? fallback;
-  };
-  const mix = account.assetMix;
+  const baseYear = yearOf(ctx.time.base);
+  let exception: string | undefined;
+  for (const e of account.returnExceptions ?? []) if (e.year === year) exception = e.expectedReturn;
   let r: Rate;
-  if (account.expectedReturn !== undefined) r = ctx.rate.of(account.expectedReturn);
-  else if (mix === undefined || mix.length === 0) {
-    const cls = CASH_KINDS[account.kind];
-    r = cls === undefined ? ctx.assumption("investmentReturn", year) : classRate(cls, year);
-  } else if (mix.length === 1) r = classRate((mix[0] as { assetClass: string }).assetClass, year);
+  if (exception !== undefined) r = ctx.rate.of(exception);
+  else if (account.returnStages === undefined || account.returnStages.length === 0) r = specRate(ctx, account.kind, account, year, baseYear);
   else {
-    const setting = INVEST_KINDS.has(account.kind) ? ctx.setting<{ method?: string; allocation?: { rebalance?: boolean } }>("investment") : undefined;
-    const drift = setting?.method === "allocation" && setting.allocation?.rebalance === false;
-    const baseYear = yearOf(ctx.time.base);
-    // リバランスしないとき: 重み＝割合×計算基準年からの増え方（Π(1＋その年の利回り)）
-    const weights = mix.map((m) => {
-      let w = ctx.rate.of(m.share);
-      if (drift) for (let y = baseYear; y < year; y++) w = ctx.rate.mul(w, ctx.rate.add(RATE_ONE, classRate(m.assetClass, y)));
-      return w;
-    });
-    let total = RATE_ZERO;
-    for (const w of weights) total = ctx.rate.add(total, w);
-    r = RATE_ZERO;
-    mix.forEach((m, i) => {
-      const w = weights[i] as Rate;
-      const share = drift && ctx.rate.compare(total, RATE_ZERO) > 0 ? ctx.rate.div(w, total) : w;
-      r = ctx.rate.add(r, ctx.rate.mul(classRate(m.assetClass, year), share));
-    });
+    const steps = returnSteps(ctx, account);
+    const hit = stageAt(steps, monthIndex(year, 12));
+    if (hit.v === null) r = specRate(ctx, account.kind, account, year, baseYear);
+    else {
+      const from = Math.max(baseYear, yearOf((steps[hit.k] as StageStep<ReturnSpec>).m));
+      r = specRate(ctx, account.kind, hit.v, year, from);
+      if (hit.toward !== null) {
+        const { v, j, n } = hit.toward;
+        const next = specRate(ctx, account.kind, v, year, from);
+        r = ctx.rate.add(r, ctx.rate.div(ctx.rate.mul(ctx.rate.sub(next, r), ctx.rate.of(String(j))), ctx.rate.of(String(n))));
+      }
+    }
   }
   if (account.fee !== undefined) r = ctx.rate.sub(r, ctx.rate.of(account.fee));
   if (INVEST_KINDS.has(account.kind)) {
@@ -270,6 +312,13 @@ export function accountReturnRate(ctx: Ctx, account: ReturnAccount, year: number
     }
   }
   return r;
+}
+
+/** 器のその年の資産の配分（0040: 利回りの段階があれば、その年の12月の段の配分。器の利回りの段なら配分なし） */
+export function accountMixAt(ctx: Ctx, account: ReturnAccount, year: number): Mix | undefined {
+  if (account.returnStages === undefined || account.returnStages.length === 0) return account.assetMix;
+  const hit = stageAt(returnSteps(ctx, account), monthIndex(year, 12));
+  return hit.v === null ? account.assetMix : hit.v.assetMix;
 }
 
 /**

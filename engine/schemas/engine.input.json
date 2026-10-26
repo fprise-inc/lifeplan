@@ -170,7 +170,22 @@
                   }
                 },
                 "fee": { "description": "信託報酬など（年率。利回りから引く）", "$ref": "urn:financia:schema:common#/$defs/rate" },
-                "rebalance": { "description": "年に1回、元の割合に戻す（省略は true）", "type": "boolean" }
+                "rebalance": { "description": "年に1回、元の割合に戻す（省略は true）", "type": "boolean" },
+                "stages": {
+                  "description": "資産配分の段階（0040。その時点の属する年から、運用する器に共通の配分を変える。段の数に上限なし）",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["id", "at", "mix"],
+                    "properties": {
+                      "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                      "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                      "mix": { "$ref": "#/$defs/assetMix" },
+                      "rampYears": { "$ref": "#/$defs/rampYears" }
+                    }
+                  }
+                }
               }
             },
             "nisaOverflow": { "description": "NISA の枠を超えた積立の扱い: deposit は預金に残す、taxable は課税口座で続ける。省略は deposit", "enum": ["deposit", "taxable"] },
@@ -551,12 +566,12 @@
               "$ref": "urn:financia:schema:common#/$defs/boxYen"
             },
             "growth": {
-              "title": "昇給の仕方（省略は賃金上昇率だけ。curve は昇給カーブのマスタデータの値ID）",
+              "title": "昇給の仕方（省略は賃金上昇率だけ。curve は昇給カーブのマスタデータの値ID で賃金上昇率に掛ける、rate はこの期間の伸び（年率。賃金上昇率の代わり。マイナスも書ける。0040））",
               "x-item": "employment.salary.growth",
               "type": "object",
               "additionalProperties": false,
-              "required": ["curve"],
-              "properties": { "curve": { "$ref": "urn:financia:schema:common#/$defs/dottedId" } }
+              "properties": { "curve": { "$ref": "urn:financia:schema:common#/$defs/dottedId" }, "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" } },
+              "oneOf": [{ "required": ["curve"], "not": { "required": ["rate"] } }, { "required": ["rate"], "not": { "required": ["curve"] } }]
             }
           }
         },
@@ -566,7 +581,15 @@
           "additionalProperties": false,
           "required": ["income"],
           "properties": {
-            "income": { "title": "事業所得（年額）", "x-item": "employment.business.income", "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+            "income": { "title": "事業所得（年額）", "x-item": "employment.business.income", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "growth": {
+              "title": "事業所得の伸び（省略は賃金上昇率。rate はこの期間の伸び（年率。賃金上昇率の代わり。マイナスも書ける）。0040）",
+              "x-item": "employment.business.growth",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["rate"],
+              "properties": { "rate": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+            }
           }
         },
         "childcareShortHours": {
@@ -736,6 +759,23 @@
           "$ref": "urn:financia:schema:common#/$defs/rate"
         },
         "expectedReturn": { "title": "FP が入れた器の利回り（年率。入れたときは資産の配分の利回りの代わり。0026）", "x-item": "account.expectedReturn", "$ref": "urn:financia:schema:common#/$defs/rate" },
+        "returnStages": {
+          "title": "利回りの段階（0040。その時点の年から、器の利回りか資産の配分を変える。段の数に上限なし）",
+          "x-item": "account.returnStages",
+          "type": "array",
+          "items": { "$ref": "#/$defs/returnStage" }
+        },
+        "returnExceptions": {
+          "title": "利回りの例外の年（0040。その年だけ別の利回り）",
+          "x-item": "account.returnExceptions",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "year", "expectedReturn"],
+            "properties": { "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" }, "year": { "$ref": "urn:financia:schema:common#/$defs/year" }, "expectedReturn": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+          }
+        },
         "fee": { "title": "運用の費用（信託報酬など。年率。器の利回りから引く。0026）", "x-item": "account.fee", "$ref": "urn:financia:schema:common#/$defs/rate" },
         "uninvested": { "title": "運用しない分（金額。まとめた金融資産の器 pooled だけで使う。この額までは預金の利回り。0031）", "x-item": "account.uninvested", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
         "property": {
@@ -767,7 +807,9 @@
                 "vacancyRate": { "description": "空室を見込む割合（0〜1。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
                 "growth": { "description": "家賃の変化率（年率。マイナスも書ける。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
                 "from": { "description": "貸し始め（省略は取得の月。取得も無ければ前から貸している）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
-                "to": { "description": "貸し終わり（その月まで。省略は売却の前の月か表の最後）", "$ref": "#/$defs/timepointOrNull" }
+                "to": { "description": "貸し終わり（その月まで。省略は売却の前の月か表の最後）", "$ref": "#/$defs/timepointOrNull" },
+                "stages": { "description": "段階（0040。その時点から額を変える。段の数に上限なし）", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
+                "exceptions": { "description": "例外の年（0040。その年だけ別の額・0円）", "type": "array", "items": { "$ref": "#/$defs/amountException" } }
               }
             },
             "expenses": {
@@ -777,7 +819,9 @@
               "properties": {
                 "annual": { "description": "年額（持っている間。月に分けて払う）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
                 "rate": { "description": "受け取る家賃（空室を見込んだ後）に対する割合（管理委託料など）", "$ref": "urn:financia:schema:common#/$defs/rate" },
-                "growth": { "description": "年額の変化率（年率。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+                "growth": { "description": "年額の変化率（年率。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "stages": { "description": "年額の段階（0040。その時点の年から年額を変える。段の数に上限なし）", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
+                "exceptions": { "description": "年額の例外の年（0040。その年だけ別の年額・0円）", "type": "array", "items": { "$ref": "#/$defs/amountException" } }
               }
             },
             "sale": {
@@ -953,7 +997,9 @@
             "monthly": { "$ref": "urn:financia:schema:common#/$defs/boxYen" },
             "growth": { "description": "家賃の上昇率（年率。更新のたびに当てる。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
             "renewalFee": { "description": "更新料（家賃の何か月分か。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
-            "renewalEveryMonths": { "description": "更新の間隔（省略は24か月）", "type": "integer", "minimum": 1, "maximum": 120 }
+            "renewalEveryMonths": { "description": "更新の間隔（省略は24か月）", "type": "integer", "minimum": 1, "maximum": 120 },
+            "stages": { "description": "段階（0040。その時点から額を変える。段の数に上限なし）", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
+            "exceptions": { "description": "例外の年（0040。その年だけ別の額・0円）", "type": "array", "items": { "$ref": "#/$defs/amountException" } }
           }
         },
         "purchase": {
@@ -980,7 +1026,12 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["annual"],
-          "properties": { "annual": { "$ref": "urn:financia:schema:common#/$defs/boxYen" }, "growth": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+          "properties": {
+            "annual": { "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "growth": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "stages": { "description": "段階（0040。その時点の年から年額を変える。段の数に上限なし）", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
+            "exceptions": { "description": "例外の年（0040。その年だけ別の額・0円）", "type": "array", "items": { "$ref": "#/$defs/amountException" } }
+          }
         },
         "maintenance": {
           "title": "修繕費・管理費（月額と上昇率）",
@@ -988,7 +1039,12 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["monthly"],
-          "properties": { "monthly": { "$ref": "urn:financia:schema:common#/$defs/boxYen" }, "growth": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+          "properties": {
+            "monthly": { "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+            "growth": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "stages": { "description": "段階（0040。その時点から額を変える。段の数に上限なし）", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
+            "exceptions": { "description": "例外の年（0040。その年だけ別の額・0円）", "type": "array", "items": { "$ref": "#/$defs/amountException" } }
+          }
         },
         "ownership": {
           "title": "持ち家の名義と持分",
@@ -1403,6 +1459,62 @@
         "collection": { "title": "徴収の方法（省略は働き方から決める）", "x-item": "residentTaxAssessment.collection", "enum": ["special", "ordinary"] }
       }
     },
+    "assetMix": {
+      "description": "0040: 資産クラスの配分（率の合計は1）",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["assetClass", "share"],
+        "properties": { "assetClass": { "$ref": "#/$defs/assetClass" }, "share": { "$ref": "urn:financia:schema:common#/$defs/rate" } }
+      }
+    },
+    "rampYears": {
+      "description": "0040: ここから何年かけて次の段の値へ移すか（毎年同じ幅で。省略はその段のまま次の段の時点で変える。最後の段では使わない）",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50
+    },
+    "amountStage": {
+      "description": "0040: 額の段階の1段。その時点（年ごとの額は、その時点の属する年）から、元の額の代わりに amount（元の額の欄と同じ基準の額。元の欄の伸び方をそのまま重ねる）か、元の額に ratio を掛けた額を使う。同じ時点の段は後に書いた段が勝つ",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at"],
+      "properties": {
+        "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "amount": { "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+        "ratio": { "description": "元の額に対する割合", "$ref": "urn:financia:schema:common#/$defs/rate" },
+        "rampYears": { "$ref": "#/$defs/rampYears" }
+      },
+      "oneOf": [{ "required": ["amount"], "not": { "required": ["ratio"] } }, { "required": ["ratio"], "not": { "required": ["amount"] } }]
+    },
+    "amountException": {
+      "description": "0040: 例外の年。その年だけ、段階の額の代わりに amount（元の額の欄と同じ基準の額。伸び方は重ねる）を使う。0円はその年に払わない・受け取らない。同じ年は後に書いたものが勝つ",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "year", "amount"],
+      "properties": {
+        "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+        "amount": { "$ref": "urn:financia:schema:common#/$defs/boxYen" }
+      }
+    },
+    "returnStage": {
+      "description": "0040: 器の利回りの段階の1段。その時点の属する年から、器の利回り（expectedReturn）か資産の配分（assetMix）のどちらかに置き換える（もう片方は使わない）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at"],
+      "properties": {
+        "id": { "description": "0035 の5: 要素の ID（プランの差分・値の状態の欄が1件ずつ指す）", "$ref": "urn:financia:schema:common#/$defs/uuid" },
+        "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+        "expectedReturn": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+        "assetMix": { "$ref": "#/$defs/assetMix" },
+        "rampYears": { "$ref": "#/$defs/rampYears" }
+      },
+      "oneOf": [{ "required": ["expectedReturn"], "not": { "required": ["assetMix"] } }, { "required": ["assetMix"], "not": { "required": ["expectedReturn"] } }]
+    },
     "growth": {
       "description": "額の伸び方（計算基準年の価格で入れた額を、年ごとに伸ばす）",
       "type": "object",
@@ -1500,6 +1612,8 @@
         "everyYears": { "title": "何年ごとか（1は毎年）", "x-item": "periodicExpense.everyYears", "type": "integer", "minimum": 1, "maximum": 50 },
         "amount": { "title": "1回の額（計算基準年の価格）", "x-item": "periodicExpense.amount", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "growth": { "title": "伸び方（省略は前提の物価上昇率）", "x-item": "periodicExpense.growth", "$ref": "#/$defs/growth" },
+        "stages": { "title": "1回の額の段階（0040。その時点から額を変える。段の数に上限なし）", "x-item": "periodicExpense.stages", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
+        "exceptions": { "title": "例外の年（0040。その年の支払いだけ別の額・0円）", "x-item": "periodicExpense.exceptions", "type": "array", "items": { "$ref": "#/$defs/amountException" } },
         "onContingency": { "title": "万一のときの扱い", "x-item": "periodicExpense.onContingency", "$ref": "#/$defs/onContingency" }
       }
     },

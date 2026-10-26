@@ -68,6 +68,8 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.surplus.saving": DOWN1,
   // お金の3つの分け方（説明用。0032）: ふだんの支出の年額を月額に、月額×何か月分（年額×月数÷12）。円未満切り捨て
   "conv.moneyThree.monthly": DOWN1,
+  // 段階の額（元の額×段の割合と、段の間を少しずつ移す途中の額＝今の段＋前後の段の差×進んだ年数÷年数の、差に掛けた額。円未満切り捨て。0040）
+  "conv.stage.value": DOWN1,
   // 役員退職慰労金の見込み額（最終報酬月額×在任年数×功績倍率。円未満切り捨て）
   "conv.retirement.estimate": DOWN1,
 });

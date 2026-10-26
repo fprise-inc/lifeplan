@@ -15,6 +15,9 @@
 // - 売却（property.sale）: その月に、売却価格（省略はその年の評価額）から売却の費用（割合 sale.costRate → 前提 saleCostRate → 目安 0.04）を
 //   引いた手取りを、名義の人の一時金の収入（cf.income.lumpSum.realEstateSale）にする。売った年の年末には持っていない。貸すのは前の月まで。
 //   譲渡所得の税は計算しない（知らせ N_NOT_SUPPORTED realEstate.saleTax）。借入の残りは返済の予定のまま（売るときに返すなら繰上返済で入れる）
+// - 段階と例外の年（改訂2。0040）: 家賃（月ごと）と経費の年額（年ごと）に、元の額の代わりに段の額（割合の段は元の額×割合）を使い、
+//   同じ変化率をそのまま重ねる（家賃は貸し始めの年〔計算基準年より前なら計算基準年〕から、経費は計算基準年からの年数）。例外の年は、その年だけ
+//   例外の額（元の額と同じ基準。変化率は重ねる。0円はその年に受け取らない・払わない）。家賃に対する割合の経費は、受け取る家賃に掛ける
 // 計算基準年の2年前から計算する（前の年の所得で決まる住民税・国民健康保険料のため。お金の動きは計算基準月から）
 import {
   addMonths,
@@ -28,6 +31,7 @@ import {
   RATE_ONE,
   RATE_ZERO,
   SALE_COST_RATE,
+  stagedYen,
   yearOf,
   yen,
   type AccountInput,
@@ -77,7 +81,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
   id: "asset.realEstate",
   title: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "debt.schedule": ">=1 <2" },
   params: [],
   reads: ["account.kind", "account.owner", "account.marketValue", "account.asOf", "account.valueGrowth", "account.property", "debt.property", "debt.principal", "assumptions.inflation", "assumptions.realEstateValuation"],
@@ -166,11 +170,35 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         }
         return fixed;
       };
+      // 段階と例外の年（0040）: 元の基準の額ごとに、変化率を当てた額を覚えておく
+      const rentStaged = r === undefined ? null : stagedYen(ctx, boxValue(r.monthly) ?? yen(0), r, RENT);
+      const fixedStaged = stagedYen(ctx, fixed0, e, RENT);
+      const growMemo = (g: Rate) => {
+        const memo = new Map<number, Yen[]>();
+        return (amount: Yen, k: number): Yen => {
+          let xs = memo.get(amount);
+          if (xs === undefined) {
+            xs = [amount];
+            memo.set(amount, xs);
+          }
+          while (xs.length <= k) {
+            const v = xs[xs.length - 1] as Yen;
+            xs.push(ctx.rate.compare(g, RATE_ZERO) !== 0 ? addYen(v, ctx.money.mulRate(v, g, RENT)) : v);
+          }
+          return xs[Math.max(0, k)] as Yen;
+        };
+      };
+      const rentUp = growMemo(rentGrowth);
+      const fixedUp = growMemo(expGrowth);
       const rentByYear = new Map<number, Yen>();
       const expByYear = new Map<number, Yen>();
       for (let y = yearOf(calcStart); y <= endYear; y++) {
-        const fixedParts = fixed0 > 0 ? ctx.money.allocate(fixedFor(y), [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "conv.flow.allocate", "last") : null;
-        const monthlyRent = r !== undefined && rFrom !== null && rTo !== null ? ctx.money.mulRate(rentFor(Math.max(y, rentRef)), keep, RENT) : yen(0);
+        const fixedAnnual = fixedStaged.plain ? fixedFor(y) : fixedUp(fixedStaged.inYear(y), y - baseYear);
+        const fixedParts = fixed0 > 0 || fixedStaged.anyPositive ? ctx.money.allocate(fixedAnnual, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "conv.flow.allocate", "last") : null;
+        const rentPlain = rentStaged === null || rentStaged.plain;
+        const monthlyRent = r !== undefined && rFrom !== null && rTo !== null && rentPlain ? ctx.money.mulRate(rentFor(Math.max(y, rentRef)), keep, RENT) : yen(0);
+        // 段階のある家賃は月ごと（空室を見込んだ後の額）
+        const rentOf = (m: MonthIndex): Yen => (rentPlain ? monthlyRent : ctx.money.mulRate(rentUp((rentStaged as NonNullable<typeof rentStaged>).at(m), Math.max(y, rentRef) - rentRef), keep, RENT));
         let rentSum = yen(0);
         let expSum = yen(0);
         for (let mo = 1; mo <= 12; mo++) {
@@ -179,10 +207,11 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           if (m < calcStart) continue;
           const isRented = rFrom !== null && rTo !== null && m >= rFrom && m <= rTo;
           let exp = fixedParts === null ? yen(0) : (fixedParts[mo - 1] as Yen);
-          if (isRented && monthlyRent > 0) {
-            push(m, "cf.income.other.rental", monthlyRent, "asset.realEstate.rent");
-            rentSum = addYen(rentSum, monthlyRent);
-            if (expRate !== null) exp = addYen(exp, ctx.money.mulRate(monthlyRent, expRate, RENT));
+          const rentM = isRented ? rentOf(m) : yen(0);
+          if (isRented && rentM > 0) {
+            push(m, "cf.income.other.rental", rentM, "asset.realEstate.rent");
+            rentSum = addYen(rentSum, rentM);
+            if (expRate !== null) exp = addYen(exp, ctx.money.mulRate(rentM, expRate, RENT));
           }
           push(m, "cf.expense.other.realEstate", exp, "asset.realEstate.expenses");
           if (isRented) expSum = addYen(expSum, exp);

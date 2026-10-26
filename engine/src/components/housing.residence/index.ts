@@ -6,10 +6,14 @@
 //   持ち家の期間の年だけ。地域ごとの値は持たない（入力の額）
 // - 修繕費・管理費: 月額（上昇率は計算基準年からの年ごと）
 // 持ち家の価額（不動産の残高）は plan.cashflow が購入の額から出す（properties）
+// 段階と例外の年（改訂2。0040）: 家賃・修繕費は月ごと、固定資産税は年ごとに、元の額の代わりに段の額（割合の段は元の額×割合）を使い、
+// 同じ上昇率をそのまま重ねる（家賃は住み始めからの更新の回数、修繕費・固定資産税は計算基準年からの年数）。例外の年は、その年だけ例外の額
+// （元の額と同じ基準。上昇率は重ねる。0円はその年に払わない）。更新料は更新の前の月の家賃（例外の年は当てない）×月数
 import {
   addMonths,
   boxValue,
   defineComponent,
+  stagedYen,
   formatYm,
   monthIndex,
   yearOf,
@@ -31,11 +35,25 @@ function grown(ctx: Ctx, amount: Yen, r: Rate | null, k: number): Yen {
   return v;
 }
 
+/** 元の基準の額ごとに、上昇率を k 回当てた額を覚えておく（段階の額ごとに1から数え直さない） */
+function grower(ctx: Ctx, r: Rate | null): (amount: Yen, k: number) => Yen {
+  const memo = new Map<number, Yen[]>();
+  return (amount, k) => {
+    let xs = memo.get(amount);
+    if (xs === undefined) {
+      xs = [amount];
+      memo.set(amount, xs);
+    }
+    while (xs.length <= k) xs.push(grown(ctx, xs[xs.length - 1] as Yen, r, 1));
+    return xs[k] as Yen;
+  };
+}
+
 export default defineComponent<Record<string, never>, ResidenceOutput>({
   id: "housing.residence",
   title: "住まい（家賃・購入・固定資産税・修繕費）",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {},
   params: [],
   reads: [
@@ -69,13 +87,24 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
         const every = h.rent.renewalEveryMonths ?? 24;
         const g = growth(h.rent.growth);
         const fee = h.rent.renewalFee === undefined ? null : ctx.rate.of(h.rent.renewalFee);
-        let rent = monthly0;
-        for (let m = from, k = 0; m <= to && m <= end; m = addMonths(m, 1), k++) {
-          if (k > 0 && k % every === 0) {
-            if (fee !== null) push(m, "cf.expense.housing.rent.renewal", ctx.money.mulRate(rent, fee, "conv.housing.growth"), "housing.residence.renewalFee");
-            rent = grown(ctx, rent, g, 1);
+        const staged = stagedYen(ctx, monthly0, h.rent, "conv.housing.growth");
+        if (staged.plain) {
+          let rent = monthly0;
+          for (let m = from, k = 0; m <= to && m <= end; m = addMonths(m, 1), k++) {
+            if (k > 0 && k % every === 0) {
+              if (fee !== null) push(m, "cf.expense.housing.rent.renewal", ctx.money.mulRate(rent, fee, "conv.housing.growth"), "housing.residence.renewalFee");
+              rent = grown(ctx, rent, g, 1);
+            }
+            push(m, "cf.expense.housing.rent", rent, "housing.residence.rent");
           }
-          push(m, "cf.expense.housing.rent", rent, "housing.residence.rent");
+        } else {
+          // 段の額（例外の年はその額）に、住み始めからの更新の回数だけ上昇率を当てる
+          const up = grower(ctx, g);
+          for (let m = from, k = 0; m <= to && m <= end; m = addMonths(m, 1), k++) {
+            const renewals = Math.floor(k / every);
+            if (k > 0 && k % every === 0 && fee !== null) push(m, "cf.expense.housing.rent.renewal", ctx.money.mulRate(up(staged.stageAt(addMonths(m, -1)), renewals - 1), fee, "conv.housing.growth"), "housing.residence.renewalFee");
+            push(m, "cf.expense.housing.rent", up(staged.at(m), renewals), "housing.residence.rent");
+          }
         }
       }
       if (h.kind !== "own") continue;
@@ -92,10 +121,14 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
       if (h.propertyTax !== undefined) {
         const annual0 = boxValue(h.propertyTax.annual) ?? yen(0);
         const g = growth(h.propertyTax.growth);
+        const staged = stagedYen(ctx, annual0, h.propertyTax, "conv.housing.growth");
+        const up = grower(ctx, g);
         let amount = annual0;
         for (let y = baseYear; y <= yearOf(to); y++) {
           if (y > baseYear) amount = grown(ctx, amount, g, 1);
           if (y < yearOf(from)) continue;
+          // 段階: その年の段の額（例外の年はその額）に、計算基準年からの年数だけ上昇率を当てる
+          if (!staged.plain) amount = up(staged.inYear(y), y - baseYear);
           const months = [monthIndex(y, 4), monthIndex(y, 7), monthIndex(y, 12), monthIndex(y + 1, 2)];
           const parts = ctx.money.allocate(amount, [1, 1, 1, 1], "conv.premium.installment", "first");
           months.forEach((m, i) => push(m, "cf.expense.housing.propertyTax", parts[i] as Yen, "housing.residence.propertyTax", owner, y));
@@ -104,14 +137,18 @@ export default defineComponent<Record<string, never>, ResidenceOutput>({
       // 修繕費・管理費
       if (h.maintenance !== undefined) {
         const g = growth(h.maintenance.growth);
-        let monthly = boxValue(h.maintenance.monthly) ?? yen(0);
+        const monthly0 = boxValue(h.maintenance.monthly) ?? yen(0);
+        const staged = stagedYen(ctx, monthly0, h.maintenance, "conv.housing.growth");
+        const up = grower(ctx, g);
+        let monthly = monthly0;
         let year = baseYear;
         for (let m = from > base ? from : base; m <= to && m <= end; m = addMonths(m, 1)) {
           while (year < yearOf(m)) {
             monthly = grown(ctx, monthly, g, 1);
             year++;
           }
-          push(m, "cf.expense.housing.maintenance", monthly, "housing.residence.maintenance");
+          // 段階: その月の段の額（例外の年はその額）に、計算基準年からの年数だけ上昇率を当てる
+          push(m, "cf.expense.housing.maintenance", staged.plain ? monthly : up(staged.at(m), yearOf(m) - baseYear), "housing.residence.maintenance");
         }
       }
     }
