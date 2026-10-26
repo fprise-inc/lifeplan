@@ -171,6 +171,8 @@
     "periodicExpense.onContingency",
     "periodicExpense.row",
     "periodicExpense.to",
+    "plan.baseMonth",
+    "plan.endYear",
     "premiumAssessment.amount",
     "premiumAssessment.fiscalYear",
     "premiumAssessment.kind",

@@ -207,3 +207,7 @@
 - AI接続口の道具の入出力に `at`・`add`・`remove` を足す時期（0015 の試験版の予告と合わせる）。
 - 時期の幅で並べる比べ（保存しない自動の差分）の、幅の刻みと上限。
 - 違いの一覧を提案書・持ち帰り用のレポートに書き出す形。
+
+## 追記
+
+- 2026-10-26（合成の対策の名前。0035 の追記）: 0.16 の動かす項目のキーを読み替えた合成の対策の名前を、次のとおりにした（3 の「名前は使い回さない」）。`retireAge`（働く最後の年齢）・`pensionAge`（年金の受け取り開始）・`nisaMonthly`（NISA の積立）・`livingMonthly`（生活費）・`advisoryFee`（FP顧問料を入れるか）・`investMonthly`（毎月の積立額）・`investReturnShift`（利回りの上乗せ）・`investStopAge`（積立をやめる年齢）・`drawdownStart`・`drawdownAmount`・`drawdownRate`（取り崩しを始める年齢・毎月の額・毎年の率）・`loanRateShift`（変動金利の上昇）・`loanPrepay`・`loanRate`（そのローンの繰上返済・金利の段をそろえて動かす。物を持つ）・`surplusRatio`（黒字のうち貯まる割合）。住宅ローンの借入額と資産の配分は、当て先の `set` に読み替えた。0.16 の欄のうち1つの値をそのまま書かない欄（0035 の追記の4）は、その欄の書き方で当てる合成の対策にした: `carDownPayment`・`carFirstPurchase`・`carLoanYears`・`carUntilAge`（車の頭金の割合・次の買い替えまでの年数・ローンの年数・手放す年齢）・`loanTermYears`（返済の年数）・`insurancePayUntilAge`（保険の払い終わりの年齢）・`surplusChangeAge`（黒字の割合が変わる年齢。並びの要素を物として持つ）・`pensionClaimAge`・`pensionClaimAgeBasic`・`pensionClaimAgeEmployee`（年金の受け取り開始の年齢）・`firstContributionMonthly`（積立の最初の期間の月額）・`payoutAge`（受け取りの始まりの年齢）・`mainEndAge`・`workEndAge`（定年・働く最後の年齢。構成員を持つ）・`residentTaxThisYear`（計算基準月の年度の住民税の決定額。構成員を持つ）。物を持つ対策は、表の `object: true`・`member: true`・`element`（鍵の番号の要素の ID）で物を持つ。入力画面の作り直しで当て先・出来事の差分に寄せる。

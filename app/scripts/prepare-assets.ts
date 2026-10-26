@@ -1,6 +1,7 @@
 // 画面のビルドの前に流す（npm run prepare-assets。dev・build・typecheck・lint・test が先に呼ぶ）
 // 1. 計算エンジンのまとめた JS（engine/dist/engine.js）を public/engine/ に写す。本体（Rust）が埋め込むものと同じファイル（0005 の5: 二本立て）
 // 2. 登録簿（registry/rows.yaml・params.yaml・items.yaml）から、表の行・制度の値・入力項目の名前の表（src/generated/labels.ts）を作る
+//    入力項目の場所と読み替え表（registry/items.yaml・readings.yaml）から src/generated/readings.ts を作る（0035 の9）
 // 3. 持ち帰り用のレポートの画面の部品を1つの JS・CSS にまとめる（scripts/build-takeaway.ts）
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -36,6 +37,23 @@ const text = [
 ].join("\n");
 const target = join(APP_DIR, "src", "generated", "labels.ts");
 if (!existsSync(target) || readFileSync(target, "utf8") !== text) writeFileSync(target, text);
+
+// 2b. 入力項目ID の場所（registry/items.yaml の collection・path）と読み替え表（registry/readings.yaml）→ src/generated/readings.ts（0035 の9）
+type Place = { id: string; status: string; replacedBy?: string | null; collection?: string | null; path?: string[] };
+const itemDoc = parse(readFileSync(join(REPO_DIR, "registry", "items.yaml"), "utf8")) as { entries: Place[] };
+const places: Record<string, { collection: string | null; path: string[]; status: string; replacedBy: string | null }> = {};
+for (const e of itemDoc.entries) if (e.path !== undefined) places[e.id] = { collection: e.collection ?? null, path: e.path, status: e.status, replacedBy: e.replacedBy ?? null };
+const readingDoc = parse(readFileSync(join(REPO_DIR, "registry", "readings.yaml"), "utf8")) as { kind: string; entries: unknown[] };
+if (readingDoc.kind !== "reading") throw new Error("registry/readings.yaml: kind は reading");
+const readingsText = [
+  "// 自動生成（scripts/prepare-assets.ts）。手で書き換えない。登録簿（registry/items.yaml・readings.yaml。0035 の6・9）",
+  'import type { ReadingEntry } from "../workspace/store/readings.ts";',
+  `export const ITEM_PLACES: Readonly<Record<string, { collection: string | null; path: readonly string[]; status: string; replacedBy: string | null }>> = ${JSON.stringify(places, null, 1)};`,
+  `export const READING_ENTRIES: readonly ReadingEntry[] = ${JSON.stringify(readingDoc.entries, null, 1)} as unknown as readonly ReadingEntry[];`,
+  "",
+].join("\n");
+const readingsTarget = join(APP_DIR, "src", "generated", "readings.ts");
+if (!existsSync(readingsTarget) || readFileSync(readingsTarget, "utf8") !== readingsText) writeFileSync(readingsTarget, readingsText);
 
 // 3. 持ち帰り用のレポート（0030）の画面の部品（public/takeaway/viewer.js・viewer.css）。中身が変わっていなければ作り直さない
 await (await import("./build-takeaway.ts")).buildTakeaway();

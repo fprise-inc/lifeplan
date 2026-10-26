@@ -1,0 +1,4734 @@
+[
+ {
+  "household": "format-0.1",
+  "key": "field:work/109eb62e-eb92-46db-a07e-719f10c7b93a/now/annual",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "096d6254-db2f-42ba-9b7d-b4a234d1405e"
+    },
+    "item": "employment.salary.annual",
+    "at": []
+   }
+  },
+  "value": 6200000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/109eb62e-eb92-46db-a07e-719f10c7b93a/now/bonus",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "096d6254-db2f-42ba-9b7d-b4a234d1405e"
+    },
+    "item": "employment.salary.bonus",
+    "at": []
+   }
+  },
+  "value": 1800000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/109eb62e-eb92-46db-a07e-719f10c7b93a/residentTax",
+  "reading": {
+   "kind": "lever",
+   "lever": "residentTaxThisYear",
+   "member": "109eb62e-eb92-46db-a07e-719f10c7b93a"
+  },
+  "value": 380000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/109eb62e-eb92-46db-a07e-719f10c7b93a/mainEnd",
+  "reading": {
+   "kind": "lever",
+   "lever": "mainEndAge",
+   "member": "109eb62e-eb92-46db-a07e-719f10c7b93a"
+  },
+  "value": 60
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/109eb62e-eb92-46db-a07e-719f10c7b93a/retireAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "workEndAge",
+   "member": "109eb62e-eb92-46db-a07e-719f10c7b93a"
+  },
+  "value": 60
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/benefit/ce0ea434-2a39-49e8-bd16-8b219d86ef33/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "ce0ea434-2a39-49e8-bd16-8b219d86ef33"
+    },
+    "item": "retirementBenefit.amount",
+    "at": []
+   }
+  },
+  "value": 18000000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/1ec032cb-73ee-4aca-8c6e-1da62c7c9c08/now/annual",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4a688cd5-6857-428a-8032-712450aba248"
+    },
+    "item": "employment.salary.annual",
+    "at": []
+   }
+  },
+  "value": 1000000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/1ec032cb-73ee-4aca-8c6e-1da62c7c9c08/now/bonus",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4a688cd5-6857-428a-8032-712450aba248"
+    },
+    "item": "employment.salary.bonus",
+    "at": []
+   }
+  },
+  "value": 0
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/1ec032cb-73ee-4aca-8c6e-1da62c7c9c08/residentTax",
+  "reading": {
+   "kind": "lever",
+   "lever": "residentTaxThisYear",
+   "member": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08"
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/1ec032cb-73ee-4aca-8c6e-1da62c7c9c08/retireAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "workEndAge",
+   "member": "1ec032cb-73ee-4aca-8c6e-1da62c7c9c08"
+  },
+  "value": 60
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/096d6254-db2f-42ba-9b7d-b4a234d1405e/annual",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "096d6254-db2f-42ba-9b7d-b4a234d1405e"
+    },
+    "item": "employment.salary.annual",
+    "at": []
+   }
+  },
+  "value": 6200000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/096d6254-db2f-42ba-9b7d-b4a234d1405e/bonus",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "096d6254-db2f-42ba-9b7d-b4a234d1405e"
+    },
+    "item": "employment.salary.bonus",
+    "at": []
+   }
+  },
+  "value": 1800000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/096d6254-db2f-42ba-9b7d-b4a234d1405e/size",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "096d6254-db2f-42ba-9b7d-b4a234d1405e"
+    },
+    "item": "employment.employer.size",
+    "at": []
+   }
+  },
+  "value": 300
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/096d6254-db2f-42ba-9b7d-b4a234d1405e/hours",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "096d6254-db2f-42ba-9b7d-b4a234d1405e"
+    },
+    "item": "employment.employer.weeklyHours",
+    "at": []
+   }
+  },
+  "value": "40"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/096d6254-db2f-42ba-9b7d-b4a234d1405e/smrH",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "096d6254-db2f-42ba-9b7d-b4a234d1405e"
+    },
+    "item": "employment.standardMonthlyRemuneration",
+    "at": [
+     "health"
+    ]
+   }
+  },
+  "value": 500000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/096d6254-db2f-42ba-9b7d-b4a234d1405e/smrP",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "096d6254-db2f-42ba-9b7d-b4a234d1405e"
+    },
+    "item": "employment.standardMonthlyRemuneration",
+    "at": [
+     "pension"
+    ]
+   }
+  },
+  "value": 500000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/4a688cd5-6857-428a-8032-712450aba248/annual",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4a688cd5-6857-428a-8032-712450aba248"
+    },
+    "item": "employment.salary.annual",
+    "at": []
+   }
+  },
+  "value": 1000000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/4a688cd5-6857-428a-8032-712450aba248/bonus",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4a688cd5-6857-428a-8032-712450aba248"
+    },
+    "item": "employment.salary.bonus",
+    "at": []
+   }
+  },
+  "value": 0
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/4a688cd5-6857-428a-8032-712450aba248/size",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4a688cd5-6857-428a-8032-712450aba248"
+    },
+    "item": "employment.employer.size",
+    "at": []
+   }
+  },
+  "value": 20
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/4a688cd5-6857-428a-8032-712450aba248/hours",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4a688cd5-6857-428a-8032-712450aba248"
+    },
+    "item": "employment.employer.weeklyHours",
+    "at": []
+   }
+  },
+  "value": "25"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/4a688cd5-6857-428a-8032-712450aba248/smrH",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4a688cd5-6857-428a-8032-712450aba248"
+    },
+    "item": "employment.standardMonthlyRemuneration",
+    "at": [
+     "health"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:work/period/4a688cd5-6857-428a-8032-712450aba248/smrP",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4a688cd5-6857-428a-8032-712450aba248"
+    },
+    "item": "employment.standardMonthlyRemuneration",
+    "at": [
+     "pension"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/602679ca-ae7d-41be-a478-18fbd1f14a3d/months/basic",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "602679ca-ae7d-41be-a478-18fbd1f14a3d"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "basic"
+    ]
+   }
+  },
+  "value": 270
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/602679ca-ae7d-41be-a478-18fbd1f14a3d/months/employee",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "602679ca-ae7d-41be-a478-18fbd1f14a3d"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "employee"
+    ]
+   }
+  },
+  "value": 270
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/602679ca-ae7d-41be-a478-18fbd1f14a3d/months/qualifying",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "602679ca-ae7d-41be-a478-18fbd1f14a3d"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "qualifying"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/602679ca-ae7d-41be-a478-18fbd1f14a3d/amounts/basic",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "602679ca-ae7d-41be-a478-18fbd1f14a3d"
+    },
+    "item": "pensionRecord.amounts",
+    "at": [
+     "basic"
+    ]
+   }
+  },
+  "value": 468000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/602679ca-ae7d-41be-a478-18fbd1f14a3d/amounts/employee",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "602679ca-ae7d-41be-a478-18fbd1f14a3d"
+    },
+    "item": "pensionRecord.amounts",
+    "at": [
+     "employee"
+    ]
+   }
+  },
+  "value": 610000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/602679ca-ae7d-41be-a478-18fbd1f14a3d/amounts/transitional",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "602679ca-ae7d-41be-a478-18fbd1f14a3d"
+    },
+    "item": "pensionRecord.amounts",
+    "at": [
+     "transitional"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/602679ca-ae7d-41be-a478-18fbd1f14a3d/amounts/special",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "602679ca-ae7d-41be-a478-18fbd1f14a3d"
+    },
+    "item": "pensionRecord.amounts",
+    "at": [
+     "special"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/602679ca-ae7d-41be-a478-18fbd1f14a3d/claim",
+  "reading": {
+   "kind": "lever",
+   "lever": "pensionClaimAge",
+   "object": "602679ca-ae7d-41be-a478-18fbd1f14a3d"
+  },
+  "value": 65
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/602679ca-ae7d-41be-a478-18fbd1f14a3d/claim/basic",
+  "reading": {
+   "kind": "lever",
+   "lever": "pensionClaimAgeBasic",
+   "object": "602679ca-ae7d-41be-a478-18fbd1f14a3d"
+  },
+  "value": 65
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/602679ca-ae7d-41be-a478-18fbd1f14a3d/claim/employee",
+  "reading": {
+   "kind": "lever",
+   "lever": "pensionClaimAgeEmployee",
+   "object": "602679ca-ae7d-41be-a478-18fbd1f14a3d"
+  },
+  "value": 65
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/8bab6a3b-9436-474b-89f1-3dee3b29a191/months/basic",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8bab6a3b-9436-474b-89f1-3dee3b29a191"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "basic"
+    ]
+   }
+  },
+  "value": 276
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/8bab6a3b-9436-474b-89f1-3dee3b29a191/months/employee",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8bab6a3b-9436-474b-89f1-3dee3b29a191"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "employee"
+    ]
+   }
+  },
+  "value": 96
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/8bab6a3b-9436-474b-89f1-3dee3b29a191/months/qualifying",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8bab6a3b-9436-474b-89f1-3dee3b29a191"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "qualifying"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/8bab6a3b-9436-474b-89f1-3dee3b29a191/amounts/basic",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8bab6a3b-9436-474b-89f1-3dee3b29a191"
+    },
+    "item": "pensionRecord.amounts",
+    "at": [
+     "basic"
+    ]
+   }
+  },
+  "value": 478000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/8bab6a3b-9436-474b-89f1-3dee3b29a191/amounts/employee",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8bab6a3b-9436-474b-89f1-3dee3b29a191"
+    },
+    "item": "pensionRecord.amounts",
+    "at": [
+     "employee"
+    ]
+   }
+  },
+  "value": 170000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/8bab6a3b-9436-474b-89f1-3dee3b29a191/amounts/transitional",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8bab6a3b-9436-474b-89f1-3dee3b29a191"
+    },
+    "item": "pensionRecord.amounts",
+    "at": [
+     "transitional"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/8bab6a3b-9436-474b-89f1-3dee3b29a191/amounts/special",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8bab6a3b-9436-474b-89f1-3dee3b29a191"
+    },
+    "item": "pensionRecord.amounts",
+    "at": [
+     "special"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/8bab6a3b-9436-474b-89f1-3dee3b29a191/claim",
+  "reading": {
+   "kind": "lever",
+   "lever": "pensionClaimAge",
+   "object": "8bab6a3b-9436-474b-89f1-3dee3b29a191"
+  },
+  "value": 65
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/8bab6a3b-9436-474b-89f1-3dee3b29a191/claim/basic",
+  "reading": {
+   "kind": "lever",
+   "lever": "pensionClaimAgeBasic",
+   "object": "8bab6a3b-9436-474b-89f1-3dee3b29a191"
+  },
+  "value": 65
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:pension/8bab6a3b-9436-474b-89f1-3dee3b29a191/claim/employee",
+  "reading": {
+   "kind": "lever",
+   "lever": "pensionClaimAgeEmployee",
+   "object": "8bab6a3b-9436-474b-89f1-3dee3b29a191"
+  },
+  "value": 65
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:living/2accb36e-9a44-40b2-9c4f-e5529da038cb/monthly",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "2accb36e-9a44-40b2-9c4f-e5529da038cb"
+    },
+    "item": "livingExpense.monthly",
+    "at": []
+   }
+  },
+  "value": 300000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:living/2accb36e-9a44-40b2-9c4f-e5529da038cb/stage/0/ratio",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "2accb36e-9a44-40b2-9c4f-e5529da038cb"
+    },
+    "item": "livingExpense.stages",
+    "at": [
+     "511083ce-b655-4543-a692-49b58c47016a",
+     "ratio"
+    ]
+   }
+  },
+  "value": "0.85"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:living/2accb36e-9a44-40b2-9c4f-e5529da038cb/stage/1/ratio",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "2accb36e-9a44-40b2-9c4f-e5529da038cb"
+    },
+    "item": "livingExpense.stages",
+    "at": [
+     "a53c19c9-b807-480f-9b9d-c4f7e2d9101f",
+     "ratio"
+    ]
+   }
+  },
+  "value": "0.8"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:living/surplus/ratio",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.surplusSaving",
+    "at": [
+     "ratio"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:living/surplus/cap",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.surplusSaving",
+    "at": [
+     "cap"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:edu/f0fa145e-9b90-434d-9711-7d6622275ca5/stage/0/years",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "f0fa145e-9b90-434d-9711-7d6622275ca5"
+    },
+    "item": "goal.education",
+    "at": [
+     "stages",
+     "bff20ee8-0603-46a0-981d-1e80d84a8f75",
+     "years"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:edu/f0fa145e-9b90-434d-9711-7d6622275ca5/stage/1/years",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "f0fa145e-9b90-434d-9711-7d6622275ca5"
+    },
+    "item": "goal.education",
+    "at": [
+     "stages",
+     "8a723f83-20b2-4a7b-ac6e-47c25c2cfd6d",
+     "years"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:edu/f0fa145e-9b90-434d-9711-7d6622275ca5/stage/2/delay",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "f0fa145e-9b90-434d-9711-7d6622275ca5"
+    },
+    "item": "goal.education",
+    "at": [
+     "stages",
+     "861b0563-3161-4d64-a92d-aea21a21de6e",
+     "delayYears"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:edu/f0fa145e-9b90-434d-9711-7d6622275ca5/stage/2/exam",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "f0fa145e-9b90-434d-9711-7d6622275ca5"
+    },
+    "item": "goal.education",
+    "at": [
+     "stages",
+     "861b0563-3161-4d64-a92d-aea21a21de6e",
+     "exam",
+     "amount"
+    ]
+   }
+  },
+  "value": 300000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:edu/f0fa145e-9b90-434d-9711-7d6622275ca5/lesson/0/monthly",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "f0fa145e-9b90-434d-9711-7d6622275ca5"
+    },
+    "item": "goal.education",
+    "at": [
+     "lessons",
+     "1c6f99f5-52de-4314-88ca-e5fae3af823c",
+     "monthly"
+    ]
+   }
+  },
+  "value": 25000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:edu/dc339217-6cbc-41a2-8f25-c992456f227a/stage/3/delay",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "dc339217-6cbc-41a2-8f25-c992456f227a"
+    },
+    "item": "goal.education",
+    "at": [
+     "stages",
+     "0d550cdc-47e7-45b9-b7b4-7a6b48d7e95d",
+     "delayYears"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:edu/dc339217-6cbc-41a2-8f25-c992456f227a/stage/3/exam",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "dc339217-6cbc-41a2-8f25-c992456f227a"
+    },
+    "item": "goal.education",
+    "at": [
+     "stages",
+     "0d550cdc-47e7-45b9-b7b4-7a6b48d7e95d",
+     "exam",
+     "amount"
+    ]
+   }
+  },
+  "value": 300000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/res/84d2170a-8a4b-41b5-9bfe-3e99fd23dba2/tax",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "84d2170a-8a4b-41b5-9bfe-3e99fd23dba2"
+    },
+    "item": "residence.propertyTax",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": 150000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/res/84d2170a-8a4b-41b5-9bfe-3e99fd23dba2/maint",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "84d2170a-8a4b-41b5-9bfe-3e99fd23dba2"
+    },
+    "item": "residence.maintenance",
+    "at": [
+     "monthly"
+    ]
+   }
+  },
+  "value": 15000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/res/84d2170a-8a4b-41b5-9bfe-3e99fd23dba2/maintGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "84d2170a-8a4b-41b5-9bfe-3e99fd23dba2"
+    },
+    "item": "residence.maintenance",
+    "at": [
+     "growth"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/res/84d2170a-8a4b-41b5-9bfe-3e99fd23dba2/valuation/value",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "84d2170a-8a4b-41b5-9bfe-3e99fd23dba2"
+    },
+    "item": "residence.valuation",
+    "at": [
+     "value"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/res/84d2170a-8a4b-41b5-9bfe-3e99fd23dba2/valuation/builtYear",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "84d2170a-8a4b-41b5-9bfe-3e99fd23dba2"
+    },
+    "item": "residence.valuation",
+    "at": [
+     "builtYear"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/res/84d2170a-8a4b-41b5-9bfe-3e99fd23dba2/valuation/landShare",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "84d2170a-8a4b-41b5-9bfe-3e99fd23dba2"
+    },
+    "item": "residence.valuation",
+    "at": [
+     "landShare"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/debt/61cb56a4-9e49-4845-83b5-179106535631/principal",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "61cb56a4-9e49-4845-83b5-179106535631"
+    },
+    "item": "debt.principal",
+    "at": []
+   }
+  },
+  "value": 32000000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/debt/61cb56a4-9e49-4845-83b5-179106535631/rate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "61cb56a4-9e49-4845-83b5-179106535631"
+    },
+    "item": "debt.rateSchedule",
+    "at": [
+     "5b97776b-f6c1-4eec-bcee-58d03ee8fff9",
+     "rate"
+    ]
+   }
+  },
+  "value": "0.0065"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/debt/61cb56a4-9e49-4845-83b5-179106535631/term",
+  "reading": {
+   "kind": "lever",
+   "lever": "loanTermYears",
+   "object": "61cb56a4-9e49-4845-83b5-179106535631"
+  },
+  "value": 35
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/debt/61cb56a4-9e49-4845-83b5-179106535631/balance",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "61cb56a4-9e49-4845-83b5-179106535631"
+    },
+    "item": "debt.balance",
+    "at": []
+   }
+  },
+  "value": 22400000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/debt/61cb56a4-9e49-4845-83b5-179106535631/bonus",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "61cb56a4-9e49-4845-83b5-179106535631"
+    },
+    "item": "debt.repayment",
+    "at": [
+     "bonusShare"
+    ]
+   }
+  },
+  "value": "0"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/debt/61cb56a4-9e49-4845-83b5-179106535631/rate/1/rate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "61cb56a4-9e49-4845-83b5-179106535631"
+    },
+    "item": "debt.rateSchedule",
+    "at": [
+     "55dc6c50-3e0e-4b1f-a0e0-ddb92f5ac057",
+     "rate"
+    ]
+   }
+  },
+  "value": "0.011"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:housing/debt/61cb56a4-9e49-4845-83b5-179106535631/rate/2/rate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "61cb56a4-9e49-4845-83b5-179106535631"
+    },
+    "item": "debt.rateSchedule",
+    "at": [
+     "132c3725-9e77-493a-bcdf-09bdb9541740",
+     "rate"
+    ]
+   }
+  },
+  "value": "0.016"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:ins/64286f3e-7cba-4f7f-85c0-0ab25c94ec1b/premium",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "64286f3e-7cba-4f7f-85c0-0ab25c94ec1b"
+    },
+    "item": "insurance.premium",
+    "at": [
+     "amount"
+    ]
+   }
+  },
+  "value": 15000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:ins/64286f3e-7cba-4f7f-85c0-0ab25c94ec1b/payUntil",
+  "reading": {
+   "kind": "lever",
+   "lever": "insurancePayUntilAge",
+   "object": "64286f3e-7cba-4f7f-85c0-0ab25c94ec1b"
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:sav/a11e03cf-0568-45a9-8f8b-4698c6a25d5a/value",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "a11e03cf-0568-45a9-8f8b-4698c6a25d5a"
+    },
+    "item": "account.marketValue",
+    "at": []
+   }
+  },
+  "value": 8000000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:sav/a11e03cf-0568-45a9-8f8b-4698c6a25d5a/monthly",
+  "reading": {
+   "kind": "lever",
+   "lever": "firstContributionMonthly",
+   "object": "a11e03cf-0568-45a9-8f8b-4698c6a25d5a"
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:sav/67ddce00-82f5-4e75-8c85-3228f60d7030/value",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "67ddce00-82f5-4e75-8c85-3228f60d7030"
+    },
+    "item": "account.marketValue",
+    "at": []
+   }
+  },
+  "value": 2400000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:sav/67ddce00-82f5-4e75-8c85-3228f60d7030/cost",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "67ddce00-82f5-4e75-8c85-3228f60d7030"
+    },
+    "item": "account.costBasis",
+    "at": []
+   }
+  },
+  "value": 1800000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:sav/67ddce00-82f5-4e75-8c85-3228f60d7030/monthly",
+  "reading": {
+   "kind": "lever",
+   "lever": "firstContributionMonthly",
+   "object": "67ddce00-82f5-4e75-8c85-3228f60d7030"
+  },
+  "value": 10000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:sav/67ddce00-82f5-4e75-8c85-3228f60d7030/rate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "67ddce00-82f5-4e75-8c85-3228f60d7030"
+    },
+    "item": "account.expectedReturn",
+    "at": []
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:sav/67ddce00-82f5-4e75-8c85-3228f60d7030/mix/0/share",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "67ddce00-82f5-4e75-8c85-3228f60d7030"
+    },
+    "item": "account.assetMix",
+    "at": [
+     "fb5d1fb2-f2be-42ee-b4f8-7ed41b0d46fa",
+     "share"
+    ]
+   }
+  },
+  "value": "1"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:sav/stopAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "investStopAge"
+  },
+  "value": 60
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:ev/4569bc22-76a2-4b7a-b56f-609cc7e81a1a/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4569bc22-76a2-4b7a-b56f-609cc7e81a1a"
+    },
+    "item": "periodicExpense.amount",
+    "at": []
+   }
+  },
+  "value": 300000
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:ev/4569bc22-76a2-4b7a-b56f-609cc7e81a1a/every",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4569bc22-76a2-4b7a-b56f-609cc7e81a1a"
+    },
+    "item": "periodicExpense.everyYears",
+    "at": []
+   }
+  },
+  "value": 3
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/inflation",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.inflation",
+    "at": [
+     "default"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/wageGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.wageGrowth",
+    "at": [
+     "default"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/investmentReturn",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.investmentReturn",
+    "at": [
+     "default"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/educationInflation",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.educationInflation",
+    "at": [
+     "default"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/pensionMacroSlide",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.pensionMacroSlide",
+    "at": [
+     "default"
+    ]
+   }
+  },
+  "value": "0.004"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/endYear",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "input"
+    },
+    "item": "plan.endYear",
+    "at": []
+   }
+  },
+  "value": 2081
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/realEstate/landGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "landGrowth",
+     "default"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/realEstate/landShare",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "landShare"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/realEstate/life/wood",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "usefulLife",
+     "wood"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/realEstate/life/lightSteel",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "usefulLife",
+     "lightSteel"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/realEstate/life/steel",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "usefulLife",
+     "steel"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/realEstate/life/rc",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "usefulLife",
+     "rc"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/realEstate/floor",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "residualFloor"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/realEstate/saleCost",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "saleCostRate"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/assetReturns/cash.deposit/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "cash.deposit",
+     "default"
+    ]
+   }
+  },
+  "value": "0.001"
+ },
+ {
+  "household": "format-0.1",
+  "key": "field:assume/assetReturns/equity.global/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "equity.global",
+     "default"
+    ]
+   }
+  },
+  "value": "0.04"
+ },
+ {
+  "household": "format-0.1",
+  "key": "lever:retireAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "retireAge"
+  },
+  "value": 60
+ },
+ {
+  "household": "format-0.1",
+  "key": "lever:pensionAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "pensionAge"
+  },
+  "value": 65
+ },
+ {
+  "household": "format-0.1",
+  "key": "lever:nisaMonthly",
+  "reading": {
+   "kind": "lever",
+   "lever": "nisaMonthly"
+  },
+  "value": 10000
+ },
+ {
+  "household": "format-0.1",
+  "key": "lever:livingMonthly",
+  "reading": {
+   "kind": "lever",
+   "lever": "livingMonthly"
+  },
+  "value": 300000
+ },
+ {
+  "household": "format-0.1",
+  "key": "inv:monthly",
+  "reading": {
+   "kind": "lever",
+   "lever": "investMonthly"
+  },
+  "value": 10000
+ },
+ {
+  "household": "format-0.1",
+  "key": "inv:rate",
+  "reading": {
+   "kind": "lever",
+   "lever": "investReturnShift"
+  },
+  "value": "0.04"
+ },
+ {
+  "household": "format-0.1",
+  "key": "inv:stop",
+  "reading": {
+   "kind": "lever",
+   "lever": "investStopAge"
+  },
+  "value": 60
+ },
+ {
+  "household": "format-0.1",
+  "key": "inv:wStart",
+  "reading": {
+   "kind": "lever",
+   "lever": "drawdownStart"
+  },
+  "value": 65
+ },
+ {
+  "household": "format-0.1",
+  "key": "inv:wAmt",
+  "reading": {
+   "kind": "lever",
+   "lever": "drawdownAmount"
+  },
+  "value": 0
+ },
+ {
+  "household": "format-0.1",
+  "key": "inv:wRate",
+  "reading": {
+   "kind": "lever",
+   "lever": "drawdownRate"
+  },
+  "value": "0"
+ },
+ {
+  "household": "format-0.1",
+  "key": "surplus:ratio",
+  "reading": {
+   "kind": "lever",
+   "lever": "surplusRatio"
+  },
+  "value": "1"
+ },
+ {
+  "household": "format-0.1",
+  "key": "loan:61cb56a4-9e49-4845-83b5-179106535631:prepay",
+  "reading": {
+   "kind": "lever",
+   "lever": "loanPrepay",
+   "object": "61cb56a4-9e49-4845-83b5-179106535631"
+  },
+  "value": 0
+ },
+ {
+  "household": "format-0.1",
+  "key": "loan:61cb56a4-9e49-4845-83b5-179106535631:rate",
+  "reading": {
+   "kind": "lever",
+   "lever": "loanRate",
+   "object": "61cb56a4-9e49-4845-83b5-179106535631"
+  },
+  "value": "0.0065"
+ },
+ {
+  "household": "format-0.1",
+  "key": "rates:shift",
+  "reading": {
+   "kind": "lever",
+   "lever": "loanRateShift"
+  },
+  "value": {
+   "add": "0",
+   "from": "2029-01"
+  }
+ },
+ {
+  "household": "format-0.1",
+  "key": "mix:a11e03cf-0568-45a9-8f8b-4698c6a25d5a",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "a11e03cf-0568-45a9-8f8b-4698c6a25d5a"
+    },
+    "item": "account.assetMix",
+    "at": []
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.1",
+  "key": "mix:67ddce00-82f5-4e75-8c85-3228f60d7030",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "67ddce00-82f5-4e75-8c85-3228f60d7030"
+    },
+    "item": "account.assetMix",
+    "at": []
+   }
+  },
+  "value": [
+   {
+    "assetClass": "equity.global",
+    "share": "1"
+   }
+  ]
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:work/413cf152-c543-4cc1-b0b1-eeee2c08926e/mainEnd",
+  "reading": {
+   "kind": "lever",
+   "lever": "mainEndAge",
+   "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e"
+  },
+  "value": 60
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:work/benefit/65e0236d-9f32-4039-bb58-67a16d6fe29b/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "65e0236d-9f32-4039-bb58-67a16d6fe29b"
+    },
+    "item": "retirementBenefit.amount",
+    "at": []
+   }
+  },
+  "value": 22000000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:living/be4b5672-eb4d-47c6-a10e-d054bcbeed82/monthly",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "be4b5672-eb4d-47c6-a10e-d054bcbeed82"
+    },
+    "item": "livingExpense.monthly",
+    "at": []
+   }
+  },
+  "value": 480000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:living/surplus/ratio",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.surplusSaving",
+    "at": [
+     "ratio"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:living/surplus/cap",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.surplusSaving",
+    "at": [
+     "cap"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:edu/27429381-416e-4384-9c63-c17fdda74e90/lesson/0/monthly",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "27429381-416e-4384-9c63-c17fdda74e90"
+    },
+    "item": "goal.education",
+    "at": [
+     "lessons",
+     "5c57b94b-4692-4448-9205-1e5937555be9",
+     "monthly"
+    ]
+   }
+  },
+  "value": 35000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:edu/00000000-0000-4000-8000-0000000000ba/stage/0/monthly",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-0000000000ba"
+    },
+    "item": "goal.education",
+    "at": [
+     "stages",
+     "c5fa1139-115a-4ff0-a5c2-b1031ee78d98",
+     "monthly"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:edu/00000000-0000-4000-8000-0000000000ba/stage/0/feeRatio",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-0000000000ba"
+    },
+    "item": "goal.education",
+    "at": [
+     "stages",
+     "c5fa1139-115a-4ff0-a5c2-b1031ee78d98",
+     "feeRatio"
+    ]
+   }
+  },
+  "value": "0.6"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/res/1e2f377d-eb18-4756-a043-a31d445c9c00/tax",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1e2f377d-eb18-4756-a043-a31d445c9c00"
+    },
+    "item": "residence.propertyTax",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": 190000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/res/1e2f377d-eb18-4756-a043-a31d445c9c00/maint",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1e2f377d-eb18-4756-a043-a31d445c9c00"
+    },
+    "item": "residence.maintenance",
+    "at": [
+     "monthly"
+    ]
+   }
+  },
+  "value": 20000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/res/1e2f377d-eb18-4756-a043-a31d445c9c00/maintGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1e2f377d-eb18-4756-a043-a31d445c9c00"
+    },
+    "item": "residence.maintenance",
+    "at": [
+     "growth"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/res/1e2f377d-eb18-4756-a043-a31d445c9c00/valuation/value",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1e2f377d-eb18-4756-a043-a31d445c9c00"
+    },
+    "item": "residence.valuation",
+    "at": [
+     "value"
+    ]
+   }
+  },
+  "value": 52000000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/res/1e2f377d-eb18-4756-a043-a31d445c9c00/valuation/builtYear",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1e2f377d-eb18-4756-a043-a31d445c9c00"
+    },
+    "item": "residence.valuation",
+    "at": [
+     "builtYear"
+    ]
+   }
+  },
+  "value": 2012
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/res/1e2f377d-eb18-4756-a043-a31d445c9c00/valuation/landShare",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1e2f377d-eb18-4756-a043-a31d445c9c00"
+    },
+    "item": "residence.valuation",
+    "at": [
+     "landShare"
+    ]
+   }
+  },
+  "value": "0.5"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/debt/32ca6364-8bb4-4b27-a1af-55a261a6d310/principal",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "32ca6364-8bb4-4b27-a1af-55a261a6d310"
+    },
+    "item": "debt.principal",
+    "at": []
+   }
+  },
+  "value": 42000000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/debt/32ca6364-8bb4-4b27-a1af-55a261a6d310/rate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "32ca6364-8bb4-4b27-a1af-55a261a6d310"
+    },
+    "item": "debt.rateSchedule",
+    "at": [
+     "6281d3f0-710b-45c5-8287-305bf1734854",
+     "rate"
+    ]
+   }
+  },
+  "value": "0.006"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/debt/32ca6364-8bb4-4b27-a1af-55a261a6d310/term",
+  "reading": {
+   "kind": "lever",
+   "lever": "loanTermYears",
+   "object": "32ca6364-8bb4-4b27-a1af-55a261a6d310"
+  },
+  "value": 35
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/debt/32ca6364-8bb4-4b27-a1af-55a261a6d310/balance",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "32ca6364-8bb4-4b27-a1af-55a261a6d310"
+    },
+    "item": "debt.balance",
+    "at": []
+   }
+  },
+  "value": 23600000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/debt/32ca6364-8bb4-4b27-a1af-55a261a6d310/bonus",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "32ca6364-8bb4-4b27-a1af-55a261a6d310"
+    },
+    "item": "debt.repayment",
+    "at": [
+     "bonusShare"
+    ]
+   }
+  },
+  "value": "0"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:housing/debt/32ca6364-8bb4-4b27-a1af-55a261a6d310/clRatio",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "32ca6364-8bb4-4b27-a1af-55a261a6d310"
+    },
+    "item": "debt.creditLife",
+    "at": [
+     "ratio"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ins/dc5a94db-fc45-439b-80cb-419a3d1be338/premium",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "dc5a94db-fc45-439b-80cb-419a3d1be338"
+    },
+    "item": "insurance.premium",
+    "at": [
+     "amount"
+    ]
+   }
+  },
+  "value": 22000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ins/dc5a94db-fc45-439b-80cb-419a3d1be338/payUntil",
+  "reading": {
+   "kind": "lever",
+   "lever": "insurancePayUntilAge",
+   "object": "dc5a94db-fc45-439b-80cb-419a3d1be338"
+  },
+  "value": 65
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ins/dc5a94db-fc45-439b-80cb-419a3d1be338/death",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "dc5a94db-fc45-439b-80cb-419a3d1be338"
+    },
+    "item": "insurance.coverages",
+    "at": [
+     "569c02fd-5154-4fac-b86c-64327a0484ab",
+     "amount"
+    ]
+   }
+  },
+  "value": 10000000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ins/dc5a94db-fc45-439b-80cb-419a3d1be338/cov/569c02fd-5154-4fac-b86c-64327a0484ab/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "dc5a94db-fc45-439b-80cb-419a3d1be338"
+    },
+    "item": "insurance.coverages",
+    "at": [
+     "569c02fd-5154-4fac-b86c-64327a0484ab",
+     "amount"
+    ]
+   }
+  },
+  "value": 10000000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/03c2def7-bbb4-4402-a039-abdb08cc570d/cost",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "03c2def7-bbb4-4402-a039-abdb08cc570d"
+    },
+    "item": "account.costBasis",
+    "at": []
+   }
+  },
+  "value": 4100000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/03c2def7-bbb4-4402-a039-abdb08cc570d/rate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "03c2def7-bbb4-4402-a039-abdb08cc570d"
+    },
+    "item": "account.expectedReturn",
+    "at": []
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/03c2def7-bbb4-4402-a039-abdb08cc570d/mix/0/share",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "03c2def7-bbb4-4402-a039-abdb08cc570d"
+    },
+    "item": "account.assetMix",
+    "at": [
+     "2816d115-b78e-45ab-b844-8847707eee7c",
+     "share"
+    ]
+   }
+  },
+  "value": "0.7"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/e4491ce1-3307-48dd-a3f5-4a6acda508df/payoutAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "payoutAge",
+   "object": "e4491ce1-3307-48dd-a3f5-4a6acda508df"
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/87aa3bd4-0c70-48eb-96f0-1fe494baf74c/payoutAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "payoutAge",
+   "object": "87aa3bd4-0c70-48eb-96f0-1fe494baf74c"
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/stopAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "investStopAge"
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/growth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.valueGrowth",
+    "at": []
+   }
+  },
+  "value": "-0.005"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/builtYear",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "builtYear"
+    ]
+   }
+  },
+  "value": 2008
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/landShare",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "landShare"
+    ]
+   }
+  },
+  "value": "0.2"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/acqPrice",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "acquisition",
+     "price"
+    ]
+   }
+  },
+  "value": 21000000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/rent",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "rental",
+     "monthly"
+    ]
+   }
+  },
+  "value": 95000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/vacancy",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "rental",
+     "vacancyRate"
+    ]
+   }
+  },
+  "value": "0.05"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/rentGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "rental",
+     "growth"
+    ]
+   }
+  },
+  "value": "-0.005"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/expAnnual",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "expenses",
+     "annual"
+    ]
+   }
+  },
+  "value": 360000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/expRate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "expenses",
+     "rate"
+    ]
+   }
+  },
+  "value": "0.05"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/expGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "expenses",
+     "growth"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:sav/1725ba0d-ea26-4b09-81c1-9e1314d7cb9e/growth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1725ba0d-ea26-4b09-81c1-9e1314d7cb9e"
+    },
+    "item": "account.valueGrowth",
+    "at": []
+   }
+  },
+  "value": "0"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/45c2e224-86db-4960-9684-e1d3cd54f20a/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "45c2e224-86db-4960-9684-e1d3cd54f20a"
+    },
+    "item": "periodicExpense.amount",
+    "at": []
+   }
+  },
+  "value": 500000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/45c2e224-86db-4960-9684-e1d3cd54f20a/every",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "45c2e224-86db-4960-9684-e1d3cd54f20a"
+    },
+    "item": "periodicExpense.everyYears",
+    "at": []
+   }
+  },
+  "value": 2
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/firstIn",
+  "reading": {
+   "kind": "lever",
+   "lever": "carFirstPurchase",
+   "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+  },
+  "value": 6
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/every",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.purchase",
+    "at": [
+     "everyYears"
+    ]
+   }
+  },
+  "value": 8
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/price",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.purchase",
+    "at": [
+     "price"
+    ]
+   }
+  },
+  "value": 3600000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/tradeIn",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.purchase",
+    "at": [
+     "tradeIn"
+    ]
+   }
+  },
+  "value": 700000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/down",
+  "reading": {
+   "kind": "lever",
+   "lever": "carDownPayment",
+   "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+  },
+  "value": "0.5"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/term",
+  "reading": {
+   "kind": "lever",
+   "lever": "carLoanYears",
+   "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+  },
+  "value": 5
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/rate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.loan",
+    "at": [
+     "rate"
+    ]
+   }
+  },
+  "value": "0.029"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/tax",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.tax",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": 43500
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/insurance",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.insurance",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": 95000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/inspection",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.inspection",
+    "at": [
+     "amount"
+    ]
+   }
+  },
+  "value": 130000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/inspFirst",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.inspection",
+    "at": [
+     "firstAfterYears"
+    ]
+   }
+  },
+  "value": 3
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/inspEvery",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.inspection",
+    "at": [
+     "everyYears"
+    ]
+   }
+  },
+  "value": 2
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/parking",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.parking",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/fuel",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.fuel",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/untilAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "carUntilAge",
+   "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+  },
+  "value": 78
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/firstIn",
+  "reading": {
+   "kind": "lever",
+   "lever": "carFirstPurchase",
+   "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+  },
+  "value": 3
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/every",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+    },
+    "item": "car.purchase",
+    "at": [
+     "everyYears"
+    ]
+   }
+  },
+  "value": 9
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/price",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+    },
+    "item": "car.purchase",
+    "at": [
+     "price"
+    ]
+   }
+  },
+  "value": 1800000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/tradeIn",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+    },
+    "item": "car.purchase",
+    "at": [
+     "tradeIn"
+    ]
+   }
+  },
+  "value": 200000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/tax",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+    },
+    "item": "car.tax",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": 10800
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/insurance",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+    },
+    "item": "car.insurance",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": 55000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/inspection",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+    },
+    "item": "car.inspection",
+    "at": [
+     "amount"
+    ]
+   }
+  },
+  "value": 80000
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/inspFirst",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+    },
+    "item": "car.inspection",
+    "at": [
+     "firstAfterYears"
+    ]
+   }
+  },
+  "value": 3
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/inspEvery",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+    },
+    "item": "car.inspection",
+    "at": [
+     "everyYears"
+    ]
+   }
+  },
+  "value": 2
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/parking",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+    },
+    "item": "car.parking",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/fuel",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+    },
+    "item": "car.fuel",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:ev/car/4263fa4d-449a-4abf-aa05-bd7a6bc1066f/untilAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "carUntilAge",
+   "object": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f"
+  },
+  "value": 75
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/inflation",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.inflation",
+    "at": [
+     "default"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/wageGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.wageGrowth",
+    "at": [
+     "default"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/investmentReturn",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.investmentReturn",
+    "at": [
+     "default"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/educationInflation",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.educationInflation",
+    "at": [
+     "default"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/pensionMacroSlide",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.pensionMacroSlide",
+    "at": [
+     "default"
+    ]
+   }
+  },
+  "value": "0.004"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/endYear",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "input"
+    },
+    "item": "plan.endYear",
+    "at": []
+   }
+  },
+  "value": 2078
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/realEstate/landGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "landGrowth",
+     "default"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/realEstate/landShare",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "landShare"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/realEstate/life/wood",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "usefulLife",
+     "wood"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/realEstate/life/lightSteel",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "usefulLife",
+     "lightSteel"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/realEstate/life/steel",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "usefulLife",
+     "steel"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/realEstate/life/rc",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "usefulLife",
+     "rc"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/realEstate/floor",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "residualFloor"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/realEstate/saleCost",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.realEstateValuation",
+    "at": [
+     "saleCostRate"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/assetReturns/bond.domestic/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "bond.domestic",
+     "default"
+    ]
+   }
+  },
+  "value": "0.005"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/assetReturns/bond.global/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "bond.global",
+     "default"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/assetReturns/cash.deposit/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "cash.deposit",
+     "default"
+    ]
+   }
+  },
+  "value": "0.001"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/assetReturns/cash.foreign/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "cash.foreign",
+     "default"
+    ]
+   }
+  },
+  "value": "0.015"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/assetReturns/equity.domestic/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "equity.domestic",
+     "default"
+    ]
+   }
+  },
+  "value": "0.045"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/assetReturns/equity.global/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "equity.global",
+     "default"
+    ]
+   }
+  },
+  "value": "0.05"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/assetReturns/reit.domestic/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "reit.domestic",
+     "default"
+    ]
+   }
+  },
+  "value": "0.035"
+ },
+ {
+  "household": "format-0.10",
+  "key": "field:assume/assetReturns/reit.global/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "reit.global",
+     "default"
+    ]
+   }
+  },
+  "value": "0.04"
+ },
+ {
+  "household": "format-0.10",
+  "key": "lever:retireAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "retireAge"
+  },
+  "value": 60
+ },
+ {
+  "household": "format-0.10",
+  "key": "lever:pensionAge",
+  "reading": {
+   "kind": "lever",
+   "lever": "pensionAge"
+  },
+  "value": 65
+ },
+ {
+  "household": "format-0.10",
+  "key": "lever:nisaMonthly",
+  "reading": {
+   "kind": "lever",
+   "lever": "nisaMonthly"
+  },
+  "value": 50000
+ },
+ {
+  "household": "format-0.10",
+  "key": "lever:livingMonthly",
+  "reading": {
+   "kind": "lever",
+   "lever": "livingMonthly"
+  },
+  "value": 480000
+ },
+ {
+  "household": "format-0.10",
+  "key": "inv:monthly",
+  "reading": {
+   "kind": "lever",
+   "lever": "investMonthly"
+  },
+  "value": 193000
+ },
+ {
+  "household": "format-0.10",
+  "key": "inv:rate",
+  "reading": {
+   "kind": "lever",
+   "lever": "investReturnShift"
+  },
+  "value": "0.035"
+ },
+ {
+  "household": "format-0.10",
+  "key": "inv:stop",
+  "reading": {
+   "kind": "lever",
+   "lever": "investStopAge"
+  },
+  "value": 60
+ },
+ {
+  "household": "format-0.10",
+  "key": "inv:wStart",
+  "reading": {
+   "kind": "lever",
+   "lever": "drawdownStart"
+  },
+  "value": 65
+ },
+ {
+  "household": "format-0.10",
+  "key": "inv:wAmt",
+  "reading": {
+   "kind": "lever",
+   "lever": "drawdownAmount"
+  },
+  "value": 350000
+ },
+ {
+  "household": "format-0.10",
+  "key": "inv:wRate",
+  "reading": {
+   "kind": "lever",
+   "lever": "drawdownRate"
+  },
+  "value": "0"
+ },
+ {
+  "household": "format-0.10",
+  "key": "surplus:ratio",
+  "reading": {
+   "kind": "lever",
+   "lever": "surplusRatio"
+  },
+  "value": "1"
+ },
+ {
+  "household": "format-0.10",
+  "key": "loan:32ca6364-8bb4-4b27-a1af-55a261a6d310:prepay",
+  "reading": {
+   "kind": "lever",
+   "lever": "loanPrepay",
+   "object": "32ca6364-8bb4-4b27-a1af-55a261a6d310"
+  },
+  "value": 0
+ },
+ {
+  "household": "format-0.10",
+  "key": "loan:32ca6364-8bb4-4b27-a1af-55a261a6d310:rate",
+  "reading": {
+   "kind": "lever",
+   "lever": "loanRate",
+   "object": "32ca6364-8bb4-4b27-a1af-55a261a6d310"
+  },
+  "value": "0.006"
+ },
+ {
+  "household": "format-0.10",
+  "key": "rates:shift",
+  "reading": {
+   "kind": "lever",
+   "lever": "loanRateShift"
+  },
+  "value": {
+   "add": "0",
+   "from": "2029-01"
+  }
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:living/surplus/change/0/age",
+  "reading": {
+   "kind": "lever",
+   "lever": "surplusChangeAge",
+   "object": "cdd6b973-8d6b-4e9c-92a6-b930c0fea70d"
+  },
+  "value": 59
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:living/surplus/change/0/ratio",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.surplusSaving",
+    "at": [
+     "changes",
+     "cdd6b973-8d6b-4e9c-92a6-b930c0fea70d",
+     "ratio"
+    ]
+   }
+  },
+  "value": "0.8"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:living/surplus/change/0/cap",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.surplusSaving",
+    "at": [
+     "changes",
+     "cdd6b973-8d6b-4e9c-92a6-b930c0fea70d",
+     "cap"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:edu/00000000-0000-4000-8000-0000000000ba/stage/0/monthly",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-0000000000ba"
+    },
+    "item": "goal.education",
+    "at": [
+     "stages",
+     "c5fa1139-115a-4ff0-a5c2-b1031ee78d98",
+     "monthly"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:edu/00000000-0000-4000-8000-0000000000ba/stage/0/feeRatio",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-0000000000ba"
+    },
+    "item": "goal.education",
+    "at": [
+     "stages",
+     "c5fa1139-115a-4ff0-a5c2-b1031ee78d98",
+     "feeRatio"
+    ]
+   }
+  },
+  "value": "0.6"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:housing/debt/32ca6364-8bb4-4b27-a1af-55a261a6d310/clRatio",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "32ca6364-8bb4-4b27-a1af-55a261a6d310"
+    },
+    "item": "debt.creditLife",
+    "at": [
+     "ratio"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:ins/dc5a94db-fc45-439b-80cb-419a3d1be338/death",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "dc5a94db-fc45-439b-80cb-419a3d1be338"
+    },
+    "item": "insurance.coverages",
+    "at": [
+     "569c02fd-5154-4fac-b86c-64327a0484ab",
+     "amount"
+    ]
+   }
+  },
+  "value": 10000000
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:ins/dc5a94db-fc45-439b-80cb-419a3d1be338/cov/569c02fd-5154-4fac-b86c-64327a0484ab/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "dc5a94db-fc45-439b-80cb-419a3d1be338"
+    },
+    "item": "insurance.coverages",
+    "at": [
+     "569c02fd-5154-4fac-b86c-64327a0484ab",
+     "amount"
+    ]
+   }
+  },
+  "value": 10000000
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/builtYear",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "builtYear"
+    ]
+   }
+  },
+  "value": 2008
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/landShare",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "landShare"
+    ]
+   }
+  },
+  "value": "0.2"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/acqPrice",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "acquisition",
+     "price"
+    ]
+   }
+  },
+  "value": 21000000
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/rent",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "rental",
+     "monthly"
+    ]
+   }
+  },
+  "value": 95000
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/vacancy",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "rental",
+     "vacancyRate"
+    ]
+   }
+  },
+  "value": "0.05"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/rentGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "rental",
+     "growth"
+    ]
+   }
+  },
+  "value": "-0.005"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/expAnnual",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "expenses",
+     "annual"
+    ]
+   }
+  },
+  "value": 360000
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/expRate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "expenses",
+     "rate"
+    ]
+   }
+  },
+  "value": "0.05"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:sav/97fdbe51-70e9-42c2-bf8f-eaa164206781/property/expGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "97fdbe51-70e9-42c2-bf8f-eaa164206781"
+    },
+    "item": "account.property",
+    "at": [
+     "expenses",
+     "growth"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/down",
+  "reading": {
+   "kind": "lever",
+   "lever": "carDownPayment",
+   "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+  },
+  "value": "0.5"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/term",
+  "reading": {
+   "kind": "lever",
+   "lever": "carLoanYears",
+   "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+  },
+  "value": 5
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:ev/car/28f37bf5-8e71-45c3-8e86-a8e62d681e2e/rate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e"
+    },
+    "item": "car.loan",
+    "at": [
+     "rate"
+    ]
+   }
+  },
+  "value": "0.029"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:assume/assetReturns/bond.domestic/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "bond.domestic",
+     "default"
+    ]
+   }
+  },
+  "value": "0.005"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:assume/assetReturns/bond.global/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "bond.global",
+     "default"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:assume/assetReturns/cash.foreign/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "cash.foreign",
+     "default"
+    ]
+   }
+  },
+  "value": "0.015"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:assume/assetReturns/equity.domestic/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "equity.domestic",
+     "default"
+    ]
+   }
+  },
+  "value": "0.045"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:assume/assetReturns/reit.domestic/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "reit.domestic",
+     "default"
+    ]
+   }
+  },
+  "value": "0.035"
+ },
+ {
+  "household": "format-0.11",
+  "key": "field:assume/assetReturns/reit.global/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "reit.global",
+     "default"
+    ]
+   }
+  },
+  "value": "0.04"
+ },
+ {
+  "household": "format-0.12",
+  "key": "field:living/surplus/change/0/age",
+  "reading": {
+   "kind": "lever",
+   "lever": "surplusChangeAge",
+   "object": "cdd6b973-8d6b-4e9c-92a6-b930c0fea70d"
+  },
+  "value": 59
+ },
+ {
+  "household": "format-0.12",
+  "key": "field:living/surplus/change/0/ratio",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.surplusSaving",
+    "at": [
+     "changes",
+     "cdd6b973-8d6b-4e9c-92a6-b930c0fea70d",
+     "ratio"
+    ]
+   }
+  },
+  "value": "0.8"
+ },
+ {
+  "household": "format-0.12",
+  "key": "field:living/surplus/change/0/cap",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.surplusSaving",
+    "at": [
+     "changes",
+     "cdd6b973-8d6b-4e9c-92a6-b930c0fea70d",
+     "cap"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "model-civilServant",
+  "key": "field:work/02e379ef-212f-4c09-8935-5cde2b4935b2/now/hiRate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "bfae9445-269f-4f4f-8770-580011cef93d"
+    },
+    "item": "employment.healthInsurance.employeeRate",
+    "at": []
+   }
+  },
+  "value": "0.0485"
+ },
+ {
+  "household": "model-civilServant",
+  "key": "field:work/period/bfae9445-269f-4f4f-8770-580011cef93d/hiRate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "bfae9445-269f-4f4f-8770-580011cef93d"
+    },
+    "item": "employment.healthInsurance.employeeRate",
+    "at": []
+   }
+  },
+  "value": "0.0485"
+ },
+ {
+  "household": "model-unexplainedSpending",
+  "key": "field:living/e2e1eca6-9487-4eab-9127-9b626bc40c7e/cat/0",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "e2e1eca6-9487-4eab-9127-9b626bc40c7e"
+    },
+    "item": "livingExpense.categories",
+    "at": [
+     "7d934492-a67a-4bdb-bb6c-32dd301ea919",
+     "monthly"
+    ]
+   }
+  },
+  "value": 85000
+ },
+ {
+  "household": "model-unexplainedSpending",
+  "key": "field:living/e2e1eca6-9487-4eab-9127-9b626bc40c7e/cat/1",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "e2e1eca6-9487-4eab-9127-9b626bc40c7e"
+    },
+    "item": "livingExpense.categories",
+    "at": [
+     "9f2a0752-9645-46c4-9293-31366e995775",
+     "monthly"
+    ]
+   }
+  },
+  "value": 22000
+ },
+ {
+  "household": "added-assetReturns",
+  "key": "field:assume/assetReturns/balanced/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "balanced",
+     "default"
+    ]
+   }
+  },
+  "value": "0.09"
+ },
+ {
+  "household": "added-assetReturns",
+  "key": "field:assume/assetReturns/commodity/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "commodity",
+     "default"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "added-assetReturns",
+  "key": "field:assume/assetReturns/realEstate/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "realEstate",
+     "default"
+    ]
+   }
+  },
+  "value": "0.02"
+ },
+ {
+  "household": "added-assetReturns",
+  "key": "field:assume/assetReturns/other/default",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "plan": "assumptions"
+    },
+    "item": "assumptions.assetReturns",
+    "at": [
+     "other",
+     "default"
+    ]
+   }
+  },
+  "value": "0.03"
+ },
+ {
+  "household": "added-blank-07",
+  "key": "field:work/00000000-0000-4000-8000-000000000001/now/business",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000010"
+    },
+    "item": "employment.business.income",
+    "at": []
+   }
+  },
+  "value": 3000000
+ },
+ {
+  "household": "added-blank-07",
+  "key": "field:work/period/00000000-0000-4000-8000-000000000010/business",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000010"
+    },
+    "item": "employment.business.income",
+    "at": []
+   }
+  },
+  "value": 3000000
+ },
+ {
+  "household": "added-blank-07",
+  "key": "assumed:family/00000000-0000-4000-8000-000000000001/birth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "member": "00000000-0000-4000-8000-000000000001"
+    },
+    "item": "member.birth",
+    "at": []
+   },
+   "method": "standard"
+  },
+  "value": {
+   "birthYearMonth": "1986-04",
+   "bornOnFirst": false
+  }
+ },
+ {
+  "household": "added-blank-07",
+  "key": "assumed:family/00000000-0000-4000-8000-000000000001/sex",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "member": "00000000-0000-4000-8000-000000000001"
+    },
+    "item": "member.sex",
+    "at": []
+   },
+   "method": "standard"
+  },
+  "value": "male"
+ },
+ {
+  "household": "added-dualAssetsTwoKids-07",
+  "key": "field:pension/4855f200-d446-4618-8b14-ae4b2331bf0e/c1/paid",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4855f200-d446-4618-8b14-ae4b2331bf0e"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "category1",
+     "paid"
+    ]
+   }
+  },
+  "value": 0
+ },
+ {
+  "household": "added-dualAssetsTwoKids-07",
+  "key": "field:pension/4855f200-d446-4618-8b14-ae4b2331bf0e/c1/exemptFull",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4855f200-d446-4618-8b14-ae4b2331bf0e"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "category1",
+     "exemptFull"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "added-dualAssetsTwoKids-07",
+  "key": "field:pension/4855f200-d446-4618-8b14-ae4b2331bf0e/c1/exemptThreeQuarters",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4855f200-d446-4618-8b14-ae4b2331bf0e"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "category1",
+     "exemptThreeQuarters"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "added-dualAssetsTwoKids-07",
+  "key": "field:pension/4855f200-d446-4618-8b14-ae4b2331bf0e/c1/exemptHalf",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4855f200-d446-4618-8b14-ae4b2331bf0e"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "category1",
+     "exemptHalf"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "added-dualAssetsTwoKids-07",
+  "key": "field:pension/4855f200-d446-4618-8b14-ae4b2331bf0e/c1/exemptQuarter",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4855f200-d446-4618-8b14-ae4b2331bf0e"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "category1",
+     "exemptQuarter"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "added-dualAssetsTwoKids-07",
+  "key": "field:pension/4855f200-d446-4618-8b14-ae4b2331bf0e/c1/deferred",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "4855f200-d446-4618-8b14-ae4b2331bf0e"
+    },
+    "item": "pensionRecord.months",
+    "at": [
+     "category1",
+     "deferred"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "field:housing/res/8d56e202-ac50-468d-b8fe-e31b6be428ff/rent",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8d56e202-ac50-468d-b8fe-e31b6be428ff"
+    },
+    "item": "residence.rent",
+    "at": [
+     "monthly"
+    ]
+   }
+  },
+  "value": 130000
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "field:housing/res/8d56e202-ac50-468d-b8fe-e31b6be428ff/rentGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8d56e202-ac50-468d-b8fe-e31b6be428ff"
+    },
+    "item": "residence.rent",
+    "at": [
+     "growth"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "field:housing/res/8d56e202-ac50-468d-b8fe-e31b6be428ff/renewalFee",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8d56e202-ac50-468d-b8fe-e31b6be428ff"
+    },
+    "item": "residence.rent",
+    "at": [
+     "renewalFee"
+    ]
+   }
+  },
+  "value": "1"
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "field:housing/res/1f41a288-1307-498c-8f83-12a4e0afbd1c/purchase/price",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1f41a288-1307-498c-8f83-12a4e0afbd1c"
+    },
+    "item": "residence.purchase",
+    "at": [
+     "price"
+    ]
+   }
+  },
+  "value": 45000000
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "field:housing/res/1f41a288-1307-498c-8f83-12a4e0afbd1c/purchase/down",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1f41a288-1307-498c-8f83-12a4e0afbd1c"
+    },
+    "item": "residence.purchase",
+    "at": [
+     "downPayment"
+    ]
+   }
+  },
+  "value": 5000000
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "field:housing/res/1f41a288-1307-498c-8f83-12a4e0afbd1c/purchase/costs",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1f41a288-1307-498c-8f83-12a4e0afbd1c"
+    },
+    "item": "residence.purchase",
+    "at": [
+     "costs"
+    ]
+   }
+  },
+  "value": 3000000
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "field:housing/res/1f41a288-1307-498c-8f83-12a4e0afbd1c/purchase/gift/0/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1f41a288-1307-498c-8f83-12a4e0afbd1c"
+    },
+    "item": "residence.purchase",
+    "at": [
+     "gifts",
+     "152a3557-5c74-4a09-911b-96beb06423a5",
+     "amount"
+    ]
+   }
+  },
+  "value": 1000000
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "field:housing/debt/ad34908c-e724-4326-bb6c-27d2687cf306/prepay/0/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "ad34908c-e724-4326-bb6c-27d2687cf306"
+    },
+    "item": "debt.prepayments",
+    "at": [
+     "98578198-a363-4d11-ba27-5973b5e64eac",
+     "amount"
+    ]
+   }
+  },
+  "value": 3000000
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "loan:ad34908c-e724-4326-bb6c-27d2687cf306:principal",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "ad34908c-e724-4326-bb6c-27d2687cf306"
+    },
+    "item": "debt.principal",
+    "at": []
+   }
+  },
+  "value": 40000000
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "loan:00000000-0000-4000-8000-000000000080:principal",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000080"
+    },
+    "item": "debt.principal",
+    "at": []
+   }
+  },
+  "value": 40000000
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "assumed:housing/debt/00000000-0000-4000-8000-000000000080/principal",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000080"
+    },
+    "item": "debt.principal",
+    "at": []
+   },
+   "method": "derived"
+  },
+  "value": 40000000
+ },
+ {
+  "household": "added-housingPurchase-16",
+  "key": "assumed:housing/debt/00000000-0000-4000-8000-000000000080/credit",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000080"
+    },
+    "item": "debt.housing",
+    "at": []
+   },
+   "method": "standard"
+  },
+  "value": {
+   "residence": "1f41a288-1307-498c-8f83-12a4e0afbd1c",
+   "moveIn": "00000000-0000-4000-8000-000000000081",
+   "propertyType": "energySaving",
+   "newBuild": true,
+   "acquisitionCost": 45000000
+  }
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:housing/res/8d56e202-ac50-468d-b8fe-e31b6be428ff/rent",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8d56e202-ac50-468d-b8fe-e31b6be428ff"
+    },
+    "item": "residence.rent",
+    "at": [
+     "monthly"
+    ]
+   }
+  },
+  "value": 130000
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:housing/res/8d56e202-ac50-468d-b8fe-e31b6be428ff/rentGrowth",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8d56e202-ac50-468d-b8fe-e31b6be428ff"
+    },
+    "item": "residence.rent",
+    "at": [
+     "growth"
+    ]
+   }
+  },
+  "value": "0.01"
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:housing/res/8d56e202-ac50-468d-b8fe-e31b6be428ff/renewalFee",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "8d56e202-ac50-468d-b8fe-e31b6be428ff"
+    },
+    "item": "residence.rent",
+    "at": [
+     "renewalFee"
+    ]
+   }
+  },
+  "value": "1"
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:housing/res/1f41a288-1307-498c-8f83-12a4e0afbd1c/purchase/price",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1f41a288-1307-498c-8f83-12a4e0afbd1c"
+    },
+    "item": "residence.purchase",
+    "at": [
+     "price"
+    ]
+   }
+  },
+  "value": 45000000
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:housing/res/1f41a288-1307-498c-8f83-12a4e0afbd1c/purchase/down",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1f41a288-1307-498c-8f83-12a4e0afbd1c"
+    },
+    "item": "residence.purchase",
+    "at": [
+     "downPayment"
+    ]
+   }
+  },
+  "value": 5000000
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:housing/res/1f41a288-1307-498c-8f83-12a4e0afbd1c/purchase/costs",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1f41a288-1307-498c-8f83-12a4e0afbd1c"
+    },
+    "item": "residence.purchase",
+    "at": [
+     "costs"
+    ]
+   }
+  },
+  "value": 3000000
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:housing/res/1f41a288-1307-498c-8f83-12a4e0afbd1c/purchase/gift/0/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "1f41a288-1307-498c-8f83-12a4e0afbd1c"
+    },
+    "item": "residence.purchase",
+    "at": [
+     "gifts",
+     "152a3557-5c74-4a09-911b-96beb06423a5",
+     "amount"
+    ]
+   }
+  },
+  "value": 1000000
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:housing/debt/ad34908c-e724-4326-bb6c-27d2687cf306/prepay/0/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "ad34908c-e724-4326-bb6c-27d2687cf306"
+    },
+    "item": "debt.prepayments",
+    "at": [
+     "98578198-a363-4d11-ba27-5973b5e64eac",
+     "amount"
+    ]
+   }
+  },
+  "value": 3000000
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:ev/care/00000000-0000-4000-8000-000000000097/months",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000097"
+    },
+    "item": "care.months",
+    "at": []
+   }
+  },
+  "value": 61
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:ev/care/00000000-0000-4000-8000-000000000097/service",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000097"
+    },
+    "item": "care.serviceMonthly",
+    "at": []
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:ev/care/00000000-0000-4000-8000-000000000097/other",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000097"
+    },
+    "item": "care.otherMonthly",
+    "at": []
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "added-housingPurchase-34",
+  "key": "field:ev/care/00000000-0000-4000-8000-000000000097/initial",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000097"
+    },
+    "item": "care.initial",
+    "at": []
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "added-elderCare-13",
+  "key": "field:family/50d3372e-bf13-4d73-8a13-617045d991c5/allowance",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "member": "50d3372e-bf13-4d73-8a13-617045d991c5"
+    },
+    "item": "member.support",
+    "at": [
+     "allowance"
+    ]
+   }
+  },
+  "value": null
+ },
+ {
+  "household": "added-elderCare-13",
+  "key": "assumed:housing/debt/00000000-0000-4000-8000-000000000111/credit",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000111"
+    },
+    "item": "debt.housing",
+    "at": []
+   },
+   "method": "standard"
+  },
+  "value": {
+   "moveIn": "00000000-0000-4000-8000-000000000112",
+   "propertyType": "energySaving",
+   "newBuild": true
+  }
+ },
+ {
+  "household": "added-advisoryFeeProposal-19",
+  "key": "field:edu/172d7897-cb66-4645-99a1-533252e86d30/gift/0/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "172d7897-cb66-4645-99a1-533252e86d30"
+    },
+    "item": "goal.education",
+    "at": [
+     "gifts",
+     "21a6de90-b7bd-42ce-98a8-400e1c3f1910",
+     "amount"
+    ]
+   }
+  },
+  "value": 1000000
+ },
+ {
+  "household": "added-advisoryFeeProposal-19",
+  "key": "field:ev/fee/18db7835-e6b9-4aae-9819-89e7fdc6abc5/one/0/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "18db7835-e6b9-4aae-9819-89e7fdc6abc5"
+    },
+    "item": "advisoryFee.terms",
+    "at": [
+     "oneTime",
+     "85a3ba28-d988-4f18-9a1c-d2df04a25a4e",
+     "amount"
+    ]
+   }
+  },
+  "value": 300000
+ },
+ {
+  "household": "added-advisoryFeeProposal-19",
+  "key": "field:ev/fee/18db7835-e6b9-4aae-9819-89e7fdc6abc5/rec/annual",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "18db7835-e6b9-4aae-9819-89e7fdc6abc5"
+    },
+    "item": "advisoryFee.terms",
+    "at": [
+     "recurring",
+     "annual"
+    ]
+   }
+  },
+  "value": 120000
+ },
+ {
+  "household": "added-advisoryFeeProposal-19",
+  "key": "field:ev/fee/18db7835-e6b9-4aae-9819-89e7fdc6abc5/rec/rate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "18db7835-e6b9-4aae-9819-89e7fdc6abc5"
+    },
+    "item": "advisoryFee.terms",
+    "at": [
+     "recurring",
+     "revision",
+     "rate"
+    ]
+   }
+  },
+  "value": "0.02"
+ },
+ {
+  "household": "added-advisoryFeeProposal-19",
+  "key": "field:ev/fee/72e4c2ad-11fc-4eef-8d37-c6d222c1db49/one/0/amount",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "72e4c2ad-11fc-4eef-8d37-c6d222c1db49"
+    },
+    "item": "advisoryFee.terms",
+    "at": [
+     "oneTime",
+     "3af11be1-c7c6-4658-aaba-68850b51a206",
+     "amount"
+    ]
+   }
+  },
+  "value": 50000
+ },
+ {
+  "household": "added-advisoryFeeProposal-19",
+  "key": "lever:fee",
+  "reading": {
+   "kind": "lever",
+   "lever": "advisoryFee"
+  },
+  "value": true
+ },
+ {
+  "household": "added-advisoryFeeProposal-41",
+  "key": "field:ev/car/00000000-0000-4000-8000-000000000160/upkeep",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000160"
+    },
+    "item": "car.upkeep",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": 360000
+ },
+ {
+  "household": "added-advisoryFeeProposal-41",
+  "key": "field:ev/fee/18db7835-e6b9-4aae-9819-89e7fdc6abc5/rec/annual",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "18db7835-e6b9-4aae-9819-89e7fdc6abc5"
+    },
+    "item": "advisoryFee.terms",
+    "at": [
+     "recurring",
+     "annual"
+    ]
+   }
+  },
+  "value": 120000
+ },
+ {
+  "household": "added-advisoryFeeProposal-41",
+  "key": "field:ev/fee/18db7835-e6b9-4aae-9819-89e7fdc6abc5/rec/rate",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "18db7835-e6b9-4aae-9819-89e7fdc6abc5"
+    },
+    "item": "advisoryFee.terms",
+    "at": [
+     "recurring",
+     "revision",
+     "rate"
+    ]
+   }
+  },
+  "value": "0.02"
+ },
+ {
+  "household": "added-advisoryFeeProposal-41",
+  "key": "lever:fee",
+  "reading": {
+   "kind": "lever",
+   "lever": "advisoryFee"
+  },
+  "value": true
+ },
+ {
+  "household": "added-advisoryFeeProposal-41",
+  "key": "assumed:ev/car/00000000-0000-4000-8000-000000000160/price",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000160"
+    },
+    "item": "car.purchase",
+    "at": [
+     "price"
+    ]
+   }
+  },
+  "value": 2500000
+ },
+ {
+  "household": "added-advisoryFeeProposal-41",
+  "key": "assumed:ev/car/00000000-0000-4000-8000-000000000160/tradeIn",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000160"
+    },
+    "item": "car.purchase",
+    "at": [
+     "tradeIn"
+    ]
+   }
+  },
+  "value": 500000
+ },
+ {
+  "household": "added-advisoryFeeProposal-41",
+  "key": "assumed:ev/car/00000000-0000-4000-8000-000000000160/upkeep",
+  "reading": {
+   "kind": "address",
+   "address": {
+    "target": {
+     "object": "00000000-0000-4000-8000-000000000160"
+    },
+    "item": "car.upkeep",
+    "at": [
+     "annual"
+    ]
+   }
+  },
+  "value": 360000
+ }
+]

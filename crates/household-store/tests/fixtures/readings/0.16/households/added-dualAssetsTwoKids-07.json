@@ -1,0 +1,1243 @@
+{
+ "trace": "none",
+ "input": {
+  "baseMonth": "2026-10",
+  "endYear": 2078,
+  "calcConventions": {
+   "aggregation": "cash",
+   "investmentTiming": "midYear",
+   "compatibility": null
+  },
+  "household": {
+   "members": [
+    {
+     "id": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "kind": "self",
+     "birth": {
+      "birthYearMonth": "1978-05",
+      "bornOnFirst": false
+     },
+     "sex": "male",
+     "joins": null,
+     "leaves": null,
+     "expected": false
+    },
+    {
+     "id": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "kind": "spouse",
+     "birth": {
+      "birthYearMonth": "1980-08",
+      "bornOnFirst": false
+     },
+     "sex": "female",
+     "joins": null,
+     "leaves": null,
+     "expected": false
+    },
+    {
+     "id": "28536514-9823-41fe-acbc-8e2252f312cc",
+     "kind": "child",
+     "birth": {
+      "birthYearMonth": "2010-06",
+      "bornOnFirst": false
+     },
+     "sex": "female",
+     "joins": null,
+     "leaves": {
+      "at": "2033-04"
+     },
+     "expected": false
+    },
+    {
+     "id": "9433a3cf-6bc6-48b8-abe9-10d32087e8d5",
+     "kind": "child",
+     "birth": {
+      "birthYearMonth": "2014-05",
+      "bornOnFirst": false
+     },
+     "sex": "male",
+     "joins": null,
+     "leaves": {
+      "at": "2037-04"
+     },
+     "expected": false
+    }
+   ],
+   "relations": [
+    {
+     "type": "spouse",
+     "a": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "b": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "marriage": "legal",
+     "from": null,
+     "to": null
+    },
+    {
+     "type": "parentOf",
+     "parent": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "child": "28536514-9823-41fe-acbc-8e2252f312cc"
+    },
+    {
+     "type": "parentOf",
+     "parent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "child": "28536514-9823-41fe-acbc-8e2252f312cc"
+    },
+    {
+     "type": "parentOf",
+     "parent": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "child": "9433a3cf-6bc6-48b8-abe9-10d32087e8d5"
+    },
+    {
+     "type": "parentOf",
+     "parent": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "child": "9433a3cf-6bc6-48b8-abe9-10d32087e8d5"
+    }
+   ],
+   "events": [
+    {
+     "id": "7ff1bbd3-de5c-492b-b8cd-58b61aedeb37",
+     "kind": "moveIn",
+     "at": {
+      "at": "2012-04"
+     }
+    }
+   ],
+   "employmentPeriods": [
+    {
+     "id": "37d360af-f60c-4346-a0ff-b98bf7069974",
+     "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "from": {
+      "at": "2001-04"
+     },
+     "to": {
+      "at": "2038-04"
+     },
+     "type": "regular",
+     "healthInsurance": {
+      "kind": "kyokaikenpo",
+      "insurer": "kyokaikenpo.13"
+     },
+     "pensionCategory": "employee1",
+     "employer": {
+      "size": 1200,
+      "weeklyHours": "40"
+     },
+     "salary": {
+      "annual": {
+       "value": 9000000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "bonus": {
+       "value": 2400000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      }
+     },
+     "standardMonthlyRemuneration": {
+      "health": {
+       "value": 710000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "pension": {
+       "value": 650000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      }
+     },
+     "corporatePension": {
+      "db": false
+     }
+    },
+    {
+     "id": "791483e2-4ca9-4f8d-ac25-1f92f1774084",
+     "member": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "from": {
+      "at": "2003-04"
+     },
+     "to": {
+      "at": "2040-07"
+     },
+     "type": "regular",
+     "healthInsurance": {
+      "kind": "kyokaikenpo",
+      "insurer": "kyokaikenpo.13"
+     },
+     "pensionCategory": "employee1",
+     "employer": {
+      "size": 300,
+      "weeklyHours": "40"
+     },
+     "salary": {
+      "annual": {
+       "value": 5200000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "bonus": {
+       "value": 1200000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      }
+     },
+     "standardMonthlyRemuneration": {
+      "health": {
+       "value": 440000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "pension": {
+       "value": 440000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      }
+     },
+     "corporatePension": {
+      "db": false
+     }
+    }
+   ],
+   "accounts": [
+    {
+     "id": "b6088c23-3c27-45c8-99a5-ce3b42939948",
+     "kind": "deposit",
+     "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "marketValue": {
+      "value": 7200000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "settlement": true,
+     "contributions": []
+    },
+    {
+     "id": "8adae3ca-5be4-478a-9b9a-b41a7e84cae5",
+     "kind": "deposit",
+     "owner": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "marketValue": {
+      "value": 3100000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "contributions": []
+    },
+    {
+     "id": "03c2def7-bbb4-4402-a039-abdb08cc570d",
+     "kind": "nisa",
+     "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "marketValue": {
+      "value": 5400000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "costBasis": {
+      "value": 4100000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "assetMix": [
+      {
+       "assetClass": "equity.global",
+       "share": "0.7"
+      },
+      {
+       "assetClass": "equity.domestic",
+       "share": "0.2"
+      },
+      {
+       "assetClass": "reit.global",
+       "share": "0.1"
+      }
+     ],
+     "contributions": [
+      {
+       "from": {
+        "at": "2026-10"
+       },
+       "to": {
+        "at": "2031-04"
+       },
+       "monthly": 50000
+      },
+      {
+       "from": {
+        "at": "2031-05"
+       },
+       "to": null,
+       "monthly": 80000
+      },
+      {
+       "from": {
+        "at": "2026-10"
+       },
+       "to": {
+        "at": "2033-12"
+       },
+       "monthly": 30000,
+       "tranche": "growth"
+      }
+     ]
+    },
+    {
+     "id": "752e0859-a3aa-49f6-b023-992334633510",
+     "kind": "nisa",
+     "owner": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "marketValue": {
+      "value": 2600000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "costBasis": {
+      "value": 2050000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "assetMix": [
+      {
+       "assetClass": "equity.global",
+       "share": "0.6"
+      },
+      {
+       "assetClass": "bond.global",
+       "share": "0.3"
+      },
+      {
+       "assetClass": "reit.domestic",
+       "share": "0.1"
+      }
+     ],
+     "contributions": [
+      {
+       "from": {
+        "at": "2026-10"
+       },
+       "to": null,
+       "monthly": 40000
+      }
+     ]
+    },
+    {
+     "id": "e4491ce1-3307-48dd-a3f5-4a6acda508df",
+     "kind": "ideco",
+     "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "marketValue": {
+      "value": 2300000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "enrolledSince": "2017-01",
+     "assetMix": [
+      {
+       "assetClass": "equity.global",
+       "share": "0.4"
+      },
+      {
+       "assetClass": "bond.domestic",
+       "share": "0.4"
+      },
+      {
+       "assetClass": "cash.deposit",
+       "share": "0.2"
+      }
+     ],
+     "contributions": [
+      {
+       "from": {
+        "at": "2026-10"
+       },
+       "to": null,
+       "monthly": 20000
+      }
+     ],
+     "payout": {
+      "method": "mixed",
+      "lumpShare": "0.5",
+      "annuityYears": 10,
+      "destination": "invest"
+     }
+    },
+    {
+     "id": "87aa3bd4-0c70-48eb-96f0-1fe494baf74c",
+     "kind": "ideco",
+     "owner": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "marketValue": {
+      "value": 1400000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "enrolledSince": "2018-01",
+     "assetMix": [
+      {
+       "assetClass": "equity.global",
+       "share": "0.8"
+      },
+      {
+       "assetClass": "bond.global",
+       "share": "0.2"
+      }
+     ],
+     "contributions": [
+      {
+       "from": {
+        "at": "2026-10"
+       },
+       "to": null,
+       "monthly": 23000
+      }
+     ],
+     "payout": {
+      "method": "lumpSum",
+      "destination": "invest"
+     }
+    },
+    {
+     "id": "c7cb05a2-b26f-4c6a-aade-c7f62d13f41d",
+     "kind": "corporateDc",
+     "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "marketValue": {
+      "value": 4600000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "enrolledSince": "2008-04",
+     "assetMix": [
+      {
+       "assetClass": "equity.domestic",
+       "share": "0.3"
+      },
+      {
+       "assetClass": "equity.global",
+       "share": "0.4"
+      },
+      {
+       "assetClass": "bond.domestic",
+       "share": "0.3"
+      }
+     ],
+     "contributions": [
+      {
+       "from": {
+        "at": "2026-10"
+       },
+       "to": null,
+       "monthly": 30000,
+       "payer": "employer"
+      }
+     ],
+     "payout": {
+      "method": "lumpSum"
+     }
+    },
+    {
+     "id": "7fc64cf7-e50e-46f3-89f3-839d360b0667",
+     "kind": "taxable",
+     "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "marketValue": {
+      "value": 3800000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "costBasis": {
+      "value": 2700000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "assetMix": [
+      {
+       "assetClass": "equity.domestic",
+       "share": "0.7"
+      },
+      {
+       "assetClass": "bond.domestic",
+       "share": "0.3"
+      }
+     ],
+     "contributions": []
+    },
+    {
+     "id": "1defd43d-2f75-4ba9-924c-8ab160d19f67",
+     "kind": "fxDeposit",
+     "owner": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "marketValue": {
+      "value": 2000000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "contributions": []
+    },
+    {
+     "id": "f36b05c7-0ada-457c-aaac-91c9fb8d4db6",
+     "kind": "esop",
+     "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "marketValue": {
+      "value": 1900000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "costBasis": {
+      "value": 1350000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "contributions": [
+      {
+       "from": {
+        "at": "2026-10"
+       },
+       "to": null,
+       "monthly": 10000
+      }
+     ]
+    },
+    {
+     "id": "8dbb796f-ef87-47f5-a95d-79ac9bb7bfed",
+     "kind": "zaikei",
+     "owner": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "marketValue": {
+      "value": 1600000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "contributions": [
+      {
+       "from": {
+        "at": "2026-10"
+       },
+       "to": null,
+       "monthly": 20000
+      }
+     ]
+    },
+    {
+     "id": "97fdbe51-70e9-42c2-bf8f-eaa164206781",
+     "kind": "realEstate",
+     "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "marketValue": {
+      "value": 18000000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "valueGrowth": "-0.005",
+     "contributions": [],
+     "property": {
+      "structure": "rc",
+      "builtYear": 2008,
+      "landShare": "0.2",
+      "acquisition": {
+       "price": 21000000,
+       "at": "2016-03"
+      },
+      "rental": {
+       "monthly": {
+        "value": 95000,
+        "state": "confirmed",
+        "origin": {
+         "kind": "manual"
+        }
+       },
+       "vacancyRate": "0.05",
+       "growth": "-0.005"
+      },
+      "expenses": {
+       "annual": {
+        "value": 360000,
+        "state": "confirmed",
+        "origin": {
+         "kind": "manual"
+        }
+       },
+       "rate": "0.05",
+       "growth": "0.01"
+      }
+     }
+    },
+    {
+     "id": "1725ba0d-ea26-4b09-81c1-9e1314d7cb9e",
+     "kind": "otherAsset",
+     "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "marketValue": {
+      "value": 1200000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "asOf": "2026-09",
+     "valueGrowth": "0",
+     "contributions": []
+    }
+   ],
+   "insuranceContracts": [
+    {
+     "id": "dc5a94db-fc45-439b-80cb-419a3d1be338",
+     "template": "insurance.wholeLife",
+     "policyholder": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "insured": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "contractDate": "2010-04",
+     "currency": "JPY",
+     "premium": {
+      "amount": 22000,
+      "frequency": "monthly",
+      "payUntil": {
+       "memberAge": {
+        "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+        "years": 65,
+        "months": 0
+       }
+      }
+     },
+     "deductionCategory": {
+      "type": "general",
+      "regime": "old"
+     },
+     "beneficiaries": [
+      {
+       "member": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+       "share": "1"
+      }
+     ],
+     "coverages": [
+      {
+       "id": "569c02fd-5154-4fac-b86c-64327a0484ab",
+       "role": "main",
+       "benefit": "death",
+       "amount": 10000000
+      }
+     ],
+     "simple": {
+      "returnRate": "1.05"
+     }
+    }
+   ],
+   "residentTaxAssessments": [
+    {
+     "id": "c9f37fac-40b1-4c75-907d-bc82e15f71bc",
+     "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "fiscalYear": 2026,
+     "amount": {
+      "value": 560000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     }
+    },
+    {
+     "id": "a8541452-a4bc-4c7c-93b0-d3f51dafaccc",
+     "member": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "fiscalYear": 2026,
+     "amount": {
+      "value": 300000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     }
+    }
+   ],
+   "residences": [
+    {
+     "id": "1e2f377d-eb18-4756-a043-a31d445c9c00",
+     "kind": "own",
+     "from": {
+      "event": "7ff1bbd3-de5c-492b-b8cd-58b61aedeb37"
+     },
+     "to": null,
+     "propertyTax": {
+      "annual": {
+       "value": 190000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "growth": "0"
+     },
+     "maintenance": {
+      "monthly": {
+       "value": 20000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "growth": "0.01"
+     },
+     "ownership": [
+      {
+       "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+       "share": "1"
+      }
+     ],
+     "valuation": {
+      "value": {
+       "value": 52000000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "asOf": "2012-04",
+      "structure": "wood",
+      "builtYear": 2012,
+      "landShare": "0.5"
+     }
+    }
+   ],
+   "debts": [
+    {
+     "id": "32ca6364-8bb4-4b27-a1af-55a261a6d310",
+     "kind": "mortgage",
+     "debtors": [
+      {
+       "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+       "role": "primary"
+      }
+     ],
+     "principal": 42000000,
+     "start": {
+      "at": "2012-04"
+     },
+     "balance": {
+      "value": 23600000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "balanceAsOf": "2026-09",
+     "rateSchedule": [
+      {
+       "from": {
+        "at": "2012-04"
+       },
+       "type": "variable",
+       "rate": "0.006"
+      },
+      {
+       "from": {
+        "at": "2031-04"
+       },
+       "type": "variable",
+       "rate": "0.01"
+      },
+      {
+       "from": {
+        "at": "2036-04"
+       },
+       "type": "variable",
+       "rate": "0.015"
+      }
+     ],
+     "repayment": {
+      "method": "equalPayment",
+      "termMonths": 420,
+      "bonusShare": "0",
+      "variableRules": {
+       "fiveYear": true,
+       "cap125": true
+      }
+     },
+     "prepayments": [],
+     "creditLife": {
+      "covered": [
+       "413cf152-c543-4cc1-b0b1-eeee2c08926e"
+      ],
+      "events": [
+       "death",
+       "highDisability"
+      ]
+     },
+     "housing": {
+      "residence": "1e2f377d-eb18-4756-a043-a31d445c9c00",
+      "moveIn": "7ff1bbd3-de5c-492b-b8cd-58b61aedeb37",
+      "propertyType": "other",
+      "newBuild": true,
+      "acquisitionCost": 52000000,
+      "ownership": [
+       {
+        "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+        "share": "1"
+       }
+      ]
+     }
+    },
+    {
+     "id": "ac6422fc-59f9-43c8-ad29-816e55d83de0",
+     "kind": "car",
+     "debtors": [
+      {
+       "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+       "role": "primary"
+      }
+     ],
+     "principal": 2400000,
+     "start": {
+      "at": "2024-04"
+     },
+     "balance": {
+      "value": 1460000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "balanceAsOf": "2026-09",
+     "rateSchedule": [
+      {
+       "from": {
+        "at": "2024-04"
+       },
+       "type": "fixed",
+       "rate": "0.029"
+      }
+     ],
+     "repayment": {
+      "method": "equalPayment",
+      "termMonths": 60
+     }
+    },
+    {
+     "id": "5b0e8f3a-6c1d-4e2f-9a7b-3c4d5e6f7a8b",
+     "kind": "other",
+     "property": "97fdbe51-70e9-42c2-bf8f-eaa164206781",
+     "debtors": [
+      {
+       "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+       "role": "primary"
+      }
+     ],
+     "principal": 15000000,
+     "start": {
+      "at": "2016-03"
+     },
+     "balance": {
+      "value": 9500000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "balanceAsOf": "2026-09",
+     "rateSchedule": [
+      {
+       "from": {
+        "at": "2016-03"
+       },
+       "type": "fixed",
+       "rate": "0.018"
+      }
+     ],
+     "repayment": {
+      "method": "equalPayment",
+      "termMonths": 300
+     }
+    }
+   ],
+   "cars": [
+    {
+     "id": "28f37bf5-8e71-45c3-8e86-a8e62d681e2e",
+     "owner": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "purchase": {
+      "first": {
+       "at": "2032-04"
+      },
+      "everyYears": 8,
+      "price": 3600000,
+      "tradeIn": 700000,
+      "owned": true
+     },
+     "until": {
+      "memberAge": {
+       "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+       "years": 78,
+       "months": 0
+      }
+     },
+     "loan": {
+      "share": "0.5",
+      "rate": "0.029",
+      "termMonths": 60
+     },
+     "inspection": {
+      "amount": 130000,
+      "firstAfterYears": 3,
+      "everyYears": 2
+     },
+     "insurance": {
+      "annual": 95000
+     },
+     "tax": {
+      "annual": 43500
+     }
+    },
+    {
+     "id": "4263fa4d-449a-4abf-aa05-bd7a6bc1066f",
+     "owner": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "purchase": {
+      "first": {
+       "at": "2029-04"
+      },
+      "everyYears": 9,
+      "price": 1800000,
+      "tradeIn": 200000,
+      "owned": true
+     },
+     "until": {
+      "memberAge": {
+       "member": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+       "years": 75,
+       "months": 0
+      }
+     },
+     "inspection": {
+      "amount": 80000,
+      "firstAfterYears": 3,
+      "everyYears": 2
+     },
+     "insurance": {
+      "annual": 55000
+     },
+     "tax": {
+      "annual": 10800
+     }
+    }
+   ],
+   "livingExpenses": [
+    {
+     "id": "be4b5672-eb4d-47c6-a10e-d054bcbeed82",
+     "mode": "total",
+     "monthly": {
+      "value": 480000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     },
+     "stages": [
+      {
+       "at": {
+        "at": "2037-04"
+       },
+       "label": "childIndependence",
+       "ratio": "0.85"
+      },
+      {
+       "at": {
+        "at": "2038-05"
+       },
+       "label": "retirement",
+       "ratio": "0.8"
+      },
+      {
+       "at": {
+        "memberAge": {
+         "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+         "years": 80,
+         "months": 0
+        }
+       },
+       "label": "age80",
+       "ratio": "0.7"
+      }
+     ]
+    }
+   ],
+   "periodicExpenses": [
+    {
+     "id": "45c2e224-86db-4960-9684-e1d3cd54f20a",
+     "row": "cf.expense.lumpSum.other",
+     "from": {
+      "at": "2027-08"
+     },
+     "to": {
+      "at": "2060-08"
+     },
+     "everyYears": 2,
+     "amount": {
+      "value": 500000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     }
+    }
+   ],
+   "goals": [
+    {
+     "id": "27429381-416e-4384-9c63-c17fdda74e90",
+     "kind": "education",
+     "owner": "28536514-9823-41fe-acbc-8e2252f312cc",
+     "education": {
+      "stages": [
+       {
+        "stage": "highSchool",
+        "sector": "private"
+       },
+       {
+        "stage": "university",
+        "sector": "private",
+        "field": "science",
+        "living": "home",
+        "exam": {
+         "amount": 300000
+        }
+       }
+      ],
+      "lessons": [
+       {
+        "from": {
+         "at": "2026-10"
+        },
+        "to": {
+         "at": "2029-01"
+        },
+        "monthly": 35000,
+        "label": "塾"
+       }
+      ]
+     }
+    },
+    {
+     "id": "55b8e4d5-36c8-44ac-b932-f9bd259352b6",
+     "kind": "education",
+     "owner": "9433a3cf-6bc6-48b8-abe9-10d32087e8d5",
+     "education": {
+      "stages": [
+       {
+        "stage": "elementary",
+        "sector": "public"
+       },
+       {
+        "stage": "juniorHigh",
+        "sector": "private",
+        "exam": {
+         "amount": 200000
+        }
+       },
+       {
+        "stage": "highSchool",
+        "sector": "private"
+       },
+       {
+        "stage": "university",
+        "sector": "national",
+        "living": "away"
+       }
+      ],
+      "lessons": [
+       {
+        "from": {
+         "at": "2026-10"
+        },
+        "to": {
+         "at": "2027-01"
+        },
+        "monthly": 50000,
+        "label": "塾"
+       }
+      ]
+     }
+    }
+   ],
+   "retirementBenefits": [
+    {
+     "id": "65e0236d-9f32-4039-bb58-67a16d6fe29b",
+     "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "kind": "lumpSum",
+     "employment": "37d360af-f60c-4346-a0ff-b98bf7069974",
+     "amount": {
+      "value": 22000000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     }
+    },
+    {
+     "id": "dc359d4f-2fac-40b9-8f2c-c7f85908baa6",
+     "member": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "kind": "lumpSum",
+     "employment": "791483e2-4ca9-4f8d-ac25-1f92f1774084",
+     "amount": {
+      "value": 9000000,
+      "state": "confirmed",
+      "origin": {
+       "kind": "manual"
+      }
+     }
+    }
+   ],
+   "pensionRecords": [
+    {
+     "id": "4855f200-d446-4618-8b14-ae4b2331bf0e",
+     "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+     "kind": "statementUnder50",
+     "asOf": "2026-05",
+     "months": {
+      "basic": 302,
+      "employee": 302,
+      "category1": {
+       "paid": 0
+      }
+     },
+     "amounts": {
+      "basic": {
+       "value": 524000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "employee": {
+       "value": 980000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      }
+     }
+    },
+    {
+     "id": "b43a27e0-cc16-486d-b443-482b157dadc8",
+     "member": "e6983e83-e3f0-41eb-ace3-db4c54919c0a",
+     "kind": "statementUnder50",
+     "asOf": "2026-08",
+     "months": {
+      "basic": 280,
+      "employee": 280
+     },
+     "amounts": {
+      "basic": {
+       "value": 486000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      },
+      "employee": {
+       "value": 590000,
+       "state": "confirmed",
+       "origin": {
+        "kind": "manual"
+       }
+      }
+     }
+    }
+   ]
+  },
+  "assumptions": {
+   "investmentReturn": {
+    "default": "0.01"
+   },
+   "wageGrowth": {
+    "default": "0.01"
+   },
+   "inflation": {
+    "default": "0.01"
+   },
+   "pensionMacroSlide": {
+    "default": "0.004"
+   },
+   "assetReturns": {
+    "equity.domestic": {
+     "default": "0.045"
+    },
+    "equity.global": {
+     "default": "0.05"
+    },
+    "bond.domestic": {
+     "default": "0.005"
+    },
+    "bond.global": {
+     "default": "0.01"
+    },
+    "reit.domestic": {
+     "default": "0.035"
+    },
+    "reit.global": {
+     "default": "0.04"
+    },
+    "cash.deposit": {
+     "default": "0.001"
+    },
+    "cash.foreign": {
+     "default": "0.015"
+    }
+   },
+   "investment": {
+    "drawdown": {
+     "start": {
+      "memberAge": {
+       "member": "413cf152-c543-4cc1-b0b1-eeee2c08926e",
+       "years": 65
+      }
+     },
+     "method": "fixed",
+     "monthly": 350000
+    }
+   }
+  }
+ }
+}

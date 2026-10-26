@@ -3,7 +3,7 @@
 // - 計算部品ID: 公式部品のマニフェスト
 // - 制度の値ID: 製品の制度データ（data/regulation。架空の見本は入れない）
 // 一度載せた ID は消さない。正本から消えた ID は deprecated か removed にしてから外す（0004 の3）
-// あわせて、種類をまたいで同じ文字列の ID が無いことを確かめる（0004 の2）
+// あわせて、種類をまたいで同じ文字列の ID が無いこと（0004 の2）と、読み替え表の形（0035 の9）を確かめる
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { OFFICIAL_DEFINITIONS } from "../src/components/index.ts";
@@ -19,7 +19,13 @@ interface Entry {
   since: string;
   aliases: string[];
   replacedBy: string | null;
+  /** 入力項目ID だけ: 物の集まり（x-collection。null は要求の入力の直下・前提）と、その物の中の欄の道（0035 の6・9: 当て先から値を引く） */
+  collection?: string | null;
+  path?: string[];
 }
+
+/** 入力項目ID の場所（items.json の collection・path） */
+type Place = { collection: string | null; path: string[] };
 
 const check = process.argv.includes("--check");
 const problems: string[] = [];
@@ -37,17 +43,20 @@ function render(kind: string, header: string, entries: Entry[]): string {
   const lines = [header, `kind: ${kind}`, "entries:"];
   for (const e of entries) {
     lines.push(`  - id: ${e.id}`, `    status: ${e.status}`, `    label: ${q(e.label)}`, `    since: ${e.since}`, `    aliases: [${e.aliases.join(", ")}]`, `    replacedBy: ${e.replacedBy ?? "null"}`);
+    if (e.path !== undefined) lines.push(`    collection: ${e.collection ?? "null"}`, `    path: [${e.path.join(", ")}]`);
   }
   return `${lines.join("\n")}\n`;
 }
 
-function sync(file: string, kind: string, header: string, source: ReadonlyMap<string, string>): string[] {
+function sync(file: string, kind: string, header: string, source: ReadonlyMap<string, string>, places?: ReadonlyMap<string, Place>): string[] {
   const old = load(file, kind);
   const byId = new Map(old.map((e) => [e.id, e]));
   const out: Entry[] = [];
   for (const [id, label] of [...source].sort(([a], [b]) => (a < b ? -1 : 1))) {
     const prev = byId.get(id);
-    out.push(prev === undefined ? { id, status: "active", label, since: "draft", aliases: [], replacedBy: null } : { ...prev, label });
+    const place = places?.get(id);
+    const base = prev === undefined ? { id, status: "active", label, since: "draft", aliases: [], replacedBy: null } : { ...prev, label };
+    out.push(place === undefined ? base : { ...base, collection: place.collection, path: place.path });
   }
   for (const e of old) {
     if (source.has(e.id)) continue;
@@ -66,12 +75,13 @@ function sync(file: string, kind: string, header: string, source: ReadonlyMap<st
 }
 
 const SINCE = "# since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする";
-const items = JSON.parse(readFileSync(join(ENGINE_DIR, "src", "generated", "items.json"), "utf8")) as { items: Record<string, { title: string }> };
+const items = JSON.parse(readFileSync(join(ENGINE_DIR, "src", "generated", "items.json"), "utf8")) as { items: Record<string, Place & { title: string }> };
 const itemIds = sync(
   "items.yaml",
   "item",
-  `# 0004 の5: 入力項目IDの登録簿。正本は engine/schemas/engine.input.json の x-item（scripts/registry.ts が作る。手で書き換えない）\n${SINCE}`,
+  `# 0004 の5: 入力項目IDの登録簿。正本は engine/schemas/engine.input.json の x-item（scripts/registry.ts が作る。手で書き換えない）\n# collection・path は値の場所（物の集まりと、物の中の欄の道。collection が null なら要求の入力から）。当て先から値を引くのに使う（0035 の6・9）\n${SINCE}`,
   new Map(Object.entries(items.items).map(([id, v]) => [id, v.title])),
+  new Map(Object.entries(items.items).map(([id, v]) => [id, { collection: v.collection, path: v.path }])),
 );
 const componentIds = sync(
   "components.yaml",
@@ -106,9 +116,43 @@ for (const [kind, ids] of Object.entries(kinds)) {
     owner.set(id, kind);
   }
 }
+// 0035 の9: 読み替え表（registry/readings.yaml）の形と、当て先の入力項目ID が登録簿にあること
+type ReadingStep = string | { n?: number; nth?: number; id?: number; where?: Record<string, string> };
+const readingsDoc = parseStrictYaml(readFileSync(join(REPO_DIR, "registry", "readings.yaml"), "utf8"), "registry/readings.yaml") as unknown as {
+  kind: string;
+  entries: { from: string; until: string; to: { target?: string; find?: string; item?: string; at?: ReadingStep[]; method?: string; lever?: string; object?: boolean; member?: boolean; unresolved?: string } }[];
+};
+if (readingsDoc.kind !== "reading") problems.push("registry/readings.yaml: kind は reading");
+const fromSeen = new Set<string>();
+const itemSet = new Set(itemIds);
+for (const e of readingsDoc.entries) {
+  const where = `registry/readings.yaml: ${e.from}`;
+  if (typeof e.from !== "string" || fromSeen.has(e.from)) problems.push(`${where}: from が無いか重なっています`);
+  fromSeen.add(e.from);
+  if (e.until !== "0.16") problems.push(`${where}: until は読み替える鍵を書いた最後の形式の版（0.16）`);
+  const to = e.to;
+  const kinds = [to.item !== undefined, to.lever !== undefined, to.unresolved !== undefined].filter(Boolean).length;
+  if (kinds !== 1) {
+    problems.push(`${where}: to は当て先・合成の対策・読み替えられないの1つだけ`);
+    continue;
+  }
+  const count = (name: string) => e.from.split(`{${name}}`).length - 1;
+  if (to.item !== undefined) {
+    if (!itemSet.has(to.item)) problems.push(`${where}: 入力項目ID ${to.item} が登録簿にありません`);
+    if (!["object", "member", "assumptions", "input"].includes(to.target ?? "")) problems.push(`${where}: target は object・member・assumptions・input`);
+    if (to.target === "object" && to.find === undefined && count("object") !== 1) problems.push(`${where}: target が object なら from に {object} が1つ`);
+    if (to.target === "member" && count("member") !== 1) problems.push(`${where}: target が member なら from に {member} が1つ`);
+    if (to.find !== undefined && (to.find !== "currentPeriod" || count("member") !== 1)) problems.push(`${where}: find は currentPeriod（from に {member} が1つ）`);
+    for (const st of to.at ?? []) {
+      if (typeof st === "string") continue;
+      if (st.n !== undefined && (st.n < 1 || st.n > count("n"))) problems.push(`${where}: {n: ${st.n}} に当たる番号が from にありません`);
+      if (st.id !== undefined && (st.id < 1 || st.id > count("id"))) problems.push(`${where}: {id: ${st.id}} に当たる ID が from にありません`);
+    }
+  }
+}
 const missing = [...declared].filter((p) => !p.startsWith("conv.") && !params.has(p)).sort();
 if (problems.length > 0) {
   console.error(problems.join("\n"));
   process.exit(1);
 }
-console.log(`registry: ${itemIds.length} items, ${componentIds.length} components, ${paramIds.length} params（部品が読むが制度データにまだ無い値 ${missing.length}: ${missing.join(", ")}）`);
+console.log(`registry: ${readingsDoc.entries.length} readings, ${itemIds.length} items, ${componentIds.length} components, ${paramIds.length} params（部品が読むが制度データにまだ無い値 ${missing.length}: ${missing.join(", ")}）`);

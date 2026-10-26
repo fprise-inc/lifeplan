@@ -1,0 +1,105 @@
+{
+ "trace": "none",
+ "input": {
+  "baseMonth": "2026-10",
+  "endYear": 2086,
+  "calcConventions": {
+   "aggregation": "cash",
+   "investmentTiming": "midYear",
+   "compatibility": null
+  },
+  "household": {
+   "members": [
+    {
+     "id": "00000000-0000-4000-8000-000000000001",
+     "kind": "self",
+     "birth": {
+      "birthYearMonth": "1986-04",
+      "bornOnFirst": false
+     },
+     "sex": "male",
+     "joins": null,
+     "leaves": null,
+     "expected": false
+    }
+   ],
+   "relations": [],
+   "events": [],
+   "employmentPeriods": [
+    {
+     "id": "00000000-0000-4000-8000-000000000010",
+     "member": "00000000-0000-4000-8000-000000000001",
+     "from": {
+      "at": "2008-04"
+     },
+     "to": null,
+     "type": "selfEmployed",
+     "business": {
+      "income": {
+       "value": 3000000,
+       "state": "estimated",
+       "origin": {
+        "kind": "auto"
+       },
+       "estimate": {
+        "method": "statistic",
+        "basis": "個人企業経済調査（総務省）の営業利益の目安（仮の値。原本での確かめ前）"
+       }
+      }
+     }
+    }
+   ],
+   "accounts": [],
+   "insuranceContracts": [],
+   "livingExpenses": [
+    {
+     "id": "00000000-0000-4000-8000-000000000002",
+     "mode": "total",
+     "monthly": {
+      "value": 140000,
+      "state": "estimated",
+      "origin": {
+       "kind": "auto"
+      },
+      "estimate": {
+       "method": "statistic",
+       "basis": "家計調査（総務省）2024年の消費支出から住居・教育を除いた目安（仮の値。原本での確かめ前）・1人の世帯"
+      }
+     }
+    }
+   ],
+   "residentTaxAssessments": [
+    {
+     "id": "00000000-0000-4000-8000-000000000011",
+     "member": "00000000-0000-4000-8000-000000000001",
+     "fiscalYear": 2026,
+     "amount": {
+      "value": 217000,
+      "state": "estimated",
+      "origin": {
+       "kind": "auto"
+      },
+      "estimate": {
+       "method": "derived",
+       "basis": "前の年の給与・事業の所得からの概算（住民税の決定通知書の年税額を入れると置き換わります）"
+      }
+     }
+    }
+   ]
+  },
+  "assumptions": {
+   "investmentReturn": {
+    "default": "0.01"
+   },
+   "wageGrowth": {
+    "default": "0.01"
+   },
+   "inflation": {
+    "default": "0.01"
+   },
+   "pensionMacroSlide": {
+    "default": "0.004"
+   }
+  }
+ }
+}
