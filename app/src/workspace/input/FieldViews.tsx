@@ -31,6 +31,56 @@ export const FieldSuggestions = createContext<Readonly<Record<string, FieldSugge
  */
 export const FieldStateOps = createContext<((wh: WorkingHousehold, f: FieldDef, op: StateOp) => WorkingHousehold) | null>(null);
 
+/** 欄の「現状と違う」印（プランを直しているとき。0036 の8）。kind lever は結果のタブの対策で変わっている（ここでは戻さない） */
+export interface PlanFieldMark {
+  kind: "own" | "base" | "lever";
+  /** 現状の値の言葉 */
+  current: string;
+  /** 土台のプランの名前 */
+  planName: string | null;
+}
+
+/**
+ * プランを直しているときの欄・まとまりの印（入力のパネルが渡す。現状を直すときは null）。欄の部品は値の読み書きを変えず、
+ * 印と「↺ 現状に戻す」を添えるだけ
+ */
+export interface PlanMarks {
+  field: (f: FieldDef, wh: WorkingHousehold) => PlanFieldMark | null;
+  /** 欄を現状に戻した作業中の世帯（パネルは戻した世帯を受け取る） */
+  revert: (f: FieldDef, wh: WorkingHousehold) => void;
+  group: (g: GroupDef, wh: WorkingHousehold) => { kind: "own" | "base"; planName: string | null } | null;
+}
+export const PlanMarksContext = createContext<PlanMarks | null>(null);
+
+function PlanMarkLine({ f, wh }: { f: FieldDef; wh: WorkingHousehold }) {
+  const marks = useContext(PlanMarksContext);
+  const m = marks?.field(f, wh) ?? null;
+  if (marks === null || m === null) return null;
+  return (
+    <div class={`fld-plan ${m.kind}`} data-plan-mark={m.kind}>
+      <span>
+        {m.kind === "base" ? `土台（${m.planName ?? "プラン"}）で変更・` : m.kind === "lever" ? "結果のタブの対策で変わっています・" : ""}現状: {m.current}
+      </span>
+      {m.kind !== "lever" ? (
+        <button type="button" class="link-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => marks.revert(f, wh)} data-plan-revert>
+          ↺ 現状に戻す
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function PlanGroupTag({ group, wh }: { group: GroupDef; wh: WorkingHousehold }) {
+  const marks = useContext(PlanMarksContext);
+  const m = marks?.group(group, wh) ?? null;
+  if (m === null) return null;
+  return (
+    <span class={`plan-tag ${m.kind}`} data-plan-added={m.kind}>
+      {m.kind === "own" ? "このプランで足した" : `土台（${m.planName ?? "プラン"}）で足した`}
+    </span>
+  );
+}
+
 /** 開いたときに移る欄のキー（確かめの一覧から「開く」で来たとき） */
 export const FocusField = createContext<string | null>(null);
 
@@ -97,6 +147,7 @@ function Group({ group, wh, level, onEdit }: { group: GroupDef; wh: WorkingHouse
       {group.title !== undefined ? (
         <div class="in-group-h">
           <h4>{group.title}</h4>
+          <PlanGroupTag group={group} wh={wh} />
           {actions.filter((a) => a.danger === true).map((a) => (
             <button type="button" key={a.key} class="link-btn danger" onClick={() => onEdit(a.run(wh))}>
               {a.label}
@@ -104,6 +155,7 @@ function Group({ group, wh, level, onEdit }: { group: GroupDef; wh: WorkingHouse
           ))}
         </div>
       ) : null}
+      {group.title === undefined ? <PlanGroupTag group={group} wh={wh} /> : null}
       {group.note !== undefined ? <p class="in-note">{group.note}</p> : null}
       <div class="fields">
         {fields.map((f) => (
@@ -206,6 +258,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   // 状態の根拠の1行と4つの操作（時点の欄でも同じ。0041）
   const stateLines = (
     <>
+      <PlanMarkLine f={f} wh={wh} />
       {shownStatus === "estimated" && basisText !== null ? <div class="fld-help est-basis">推定: {basisText}</div> : shownStatus === "unknown" ? <div class="fld-help est-basis">わからない（代わりの値: {basisText ?? "推定"}）</div> : null}
       {ops.length > 0 ? (
         <div class="fld-ops" data-field-ops={f.key}>

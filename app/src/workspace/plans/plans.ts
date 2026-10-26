@@ -16,7 +16,7 @@ import { applyAdvisoryFee, applyLevers, LEVER_KEYS, type LeverValues } from "../
 import { keyOf, readAt, resolveKey, unbox, type Address, type Reading } from "../store/readings.ts";
 import type { MixPart } from "./allocation.ts";
 import { pctText } from "./decimal.ts";
-import { addAt, addressOf, boxAt, collectionOf, isLever, placeExists, removeAt, removedNow, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
+import { addAt, addressOf, boxAt, collectionOf, indexOfObject, isLever, placeExists, removeAt, removedNow, sameJson, writeAt, type DiffBox, type PlanDiff } from "./diffs.ts";
 import { catalogKeysOf, reemploymentFor, type Catalog, type ItemValue, type MovableItem, type RateShift } from "./items.ts";
 
 export type { DiffOrigin, PlanDiff } from "./diffs.ts";
@@ -115,11 +115,12 @@ function diffFromValue(it: MovableItem | undefined, key: string, v: ItemValue, w
     id: prev?.id ?? newId(),
     op: "set",
     ...place,
-    value: box(v),
+    // 前と同じ値のままの差分は、値の箱（入力画面で付けた状態を含む）と出どころ（AIの候補を承認したもの・入力で直したものなど）を
+    // 引き継ぐ。動かした差分は、結果のタブで動かした値になる（0036 の4 の出どころ result）
+    value: keep ? structuredClone(prev.value) : box(v),
     before,
     enabled: true,
-    // 前と同じ値のままの差分は、出どころ（AIの候補を承認したものなど）を引き継ぐ。動かした差分は手で動かした値になる
-    ...(keep ? { origin: prev.origin, ...(prev.approval !== undefined ? { approval: prev.approval } : {}) } : { origin: { kind: "manual" as const } }),
+    ...(keep ? { origin: prev.origin, ...(prev.approval !== undefined ? { approval: prev.approval } : {}) } : { origin: { kind: "result" as const } }),
     note: keep ? prev.note : null,
     ...(prev?.legacy !== undefined ? { legacy: prev.legacy } : {}),
   };
@@ -210,6 +211,8 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
     const live = p.diffs.filter((d) => d.enabled);
     for (const d of live) if (d.unresolved === true) reviews.set(d.id, review("unresolved"));
     const ok = live.filter((d) => d.unresolved !== true);
+    /** 置き換えの組の、外した物のあった所（足す物を同じ所に入れる。並びの順を変えない） */
+    const slots = new Map<string, number>();
     for (const d of ok.filter((x) => x.op === "remove")) {
       const cur = removedNow(input, d);
       if (cur === undefined) {
@@ -218,10 +221,13 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
       }
       const base = removedNow(now, d);
       reviews.set(d.id, base !== undefined && d.before !== null && !sameJson(base, d.before) ? review("changed", "外す物が変わっていました") : review("ok"));
+      const t = d.target as { object?: unknown; member?: unknown };
+      const own = d.item === null ? (typeof t.object === "string" ? t.object : typeof t.member === "string" ? t.member : null) : null;
+      if (d.pair != null && own !== null) slots.set(d.pair, indexOfObject(input, own));
       removeAt(input, d);
     }
     for (const d of ok.filter((x) => x.op === "add")) {
-      const r = addAt(input, d);
+      const r = addAt(input, d, d.pair != null ? slots.get(d.pair) : undefined);
       reviews.set(d.id, r === "ok" ? review("ok") : r === "exists" ? review("exists") : r === "noOwner" ? review("noOwner") : review("missing", "足す先がありません"));
     }
     for (const d of ok.filter((x) => x.op === "set")) {

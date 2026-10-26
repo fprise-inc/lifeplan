@@ -18,6 +18,8 @@ export interface PlanListProps {
   onBand: (id: string, on: boolean) => void;
   onEdit: (wh: WorkingHousehold) => void;
   onReflect: (id: string) => void;
+  /** 「入力で直す」（入力の画面でこのプランを編集の対象にする。0036 の8） */
+  onOpenInput?: (id: string) => void;
   onClose: () => void;
 }
 
@@ -145,6 +147,11 @@ export function PlanList(p: PlanListProps) {
                           <button type="button" class="link-btn" onClick={() => setEditing({ id: x.id, name: modernPlanName(x.name), tags: x.tags.join("、") })}>
                             名前・印
                           </button>
+                          {p.onOpenInput !== undefined ? (
+                            <button type="button" class="link-btn" onClick={() => p.onOpenInput?.(x.id)} data-plan-open-input={x.id}>
+                              入力で直す
+                            </button>
+                          ) : null}
                           <button type="button" class="link-btn" onClick={() => setConfirm({ id: x.id, kind: "reflect" })}>
                             現状に反映
                           </button>

@@ -11,6 +11,8 @@ import { InputPanel } from "./InputPanel.tsx";
 import { ADD_OPTIONS, addItem, groupedItems, inputItems, progressOf, type InputItem } from "./items.ts";
 import { StatusBadge, statusText } from "./StatusBadge.tsx";
 import { CheckList, checkSummary } from "./CheckList.tsx";
+import { DiffList, DiffListToggle, PlanTarget, type PlanEditProps } from "./PlanEdit.tsx";
+import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../plans/planEdit.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -29,9 +31,14 @@ interface Props {
    * render の back は、閉じたとき（承認したときは入れた件数つき）に呼ぶ。基本生活費のパネルに戻る
    */
   statement?: { render: (back: (approved?: number) => void) => ComponentChildren; initialOpen?: boolean };
+  /**
+   * プランを直す道具（0036 の8）。編集の対象にプランを選ぶと、カードとパネルはそのプランの中身を見せ、直したことはそのプランの差分になる。
+   * 取り込み・ヒアリング・明細の承認・確かめの一覧は、プランを選んでいても現状を直す
+   */
+  plans?: PlanEditProps;
 }
 
-function Card({ item, onOpen, flash }: { item: InputItem; onOpen: (id: string) => void; flash: boolean }) {
+function Card({ item, onOpen, flash, diffs }: { item: InputItem; onOpen: (id: string) => void; flash: boolean; diffs?: { label: string; n: number } | undefined }) {
   const s = item.summary;
   return (
     <button type="button" class={`ih-card s-${item.status}${flash ? " flash" : ""}`} style={{ "--c": item.color }} data-card={item.id} aria-label={`${item.label}（${statusText(item)}）を開く`} onClick={() => onOpen(item.id)}>
@@ -42,6 +49,11 @@ function Card({ item, onOpen, flash }: { item: InputItem; onOpen: (id: string) =
         <span class="ih-name">
           {item.label}
           {item.added !== null ? <span class="fp-tag">FPが追加</span> : null}
+          {diffs !== undefined && diffs.n > 0 ? (
+            <span class="plan-count" data-plan-count={diffs.n}>
+              {diffs.label}: {diffs.n}か所
+            </span>
+          ) : null}
         </span>
         <span class="ih-sum">
           {item.status === "none" ? (
@@ -100,8 +112,16 @@ function AddCard({ open, onOpen, onPick }: { open: boolean; onOpen: (v: boolean)
   );
 }
 
-export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, computeOne, statement }: Props) {
-  const items = useMemo(() => inputItems(wh), [wh]);
+export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, computeOne, statement, plans }: Props) {
+  /** 直しているプラン（直せないときは現状） */
+  const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
+  const pcat = plans?.cat;
+  /** カードに見せる世帯（プランを直しているときはそのプランの中身。カードの要約・状態もプランの中身から） */
+  const shown = useMemo(() => (editing === null || pcat === undefined ? wh : planView(wh, pcat, editing.id)), [wh, editing, pcat]);
+  const rows = useMemo(() => (editing === null || pcat === undefined ? [] : diffRows(wh, pcat, editing.id, planIndex([wh, shown]))), [wh, editing, pcat, shown]);
+  const counts = useMemo(() => countsByCard(rows), [rows]);
+  const [diffOpen, setDiffOpen] = useState(false);
+  const items = useMemo(() => inputItems(shown), [shown]);
   const groups = useMemo(() => groupedItems(items), [items]);
   const p = progressOf(items);
   const [openId, setOpenId] = useState<string | null>(initialOpen !== undefined && items.some((i) => i.id === initialOpen) ? initialOpen : null);
@@ -154,10 +174,11 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
     setFocusKey(null);
   };
   const pick = (key: string) => {
-    const r = addItem(wh, key);
+    const r = addItem(shown, key);
     if (r === null) return;
     setAddMenu(false);
-    setAddDraft(r.wh);
+    // プランを直しているときは、足した物をそのプランの足す差分にした世帯を下書きにする
+    setAddDraft(editing !== null && pcat !== undefined ? recordPlanEdit(wh, pcat, editing.id, shown, r.wh) : r.wh);
     setOpenId(r.itemId);
   };
   // 基本生活費のパネル → 明細のパネル → 基本生活費のパネル（承認した値が見えるように、保存した世帯から開き直す）
@@ -176,16 +197,17 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
   };
   const save = (next: WorkingHousehold, id: string) => {
     const label = inputItems(next).find((i) => i.id === id)?.label;
-    onSave(next);
+    if (editing !== null && plans !== undefined) plans.onSavePlan(next);
+    else onSave(next);
     backTo.current = id;
     setOpenId(null);
     setAddDraft(null);
     setFlashId(id);
-    setToast(label !== undefined ? `「${label}」を保存しました` : "保存しました");
+    setToast(editing !== null ? `「${label ?? ""}」を${editing.label}に保存しました` : label !== undefined ? `「${label}」を保存しました` : "保存しました");
   };
 
   return (
-    <div class="ih">
+    <div class={`ih${editing !== null ? " plan-mode" : ""}`} style={editing !== null ? { "--plan-c": editing.color } : {}}>
       <div class="ih-head">
         <div>
           <h1>入力</h1>
@@ -213,10 +235,22 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
           </div>
         </div>
       </div>
-      {tools !== undefined ? <div class="ih-tools">{tools}</div> : null}
+      {plans !== undefined && (plans.list.length > 0 || plans.sel !== null) ? <PlanTarget p={plans} /> : null}
+      {editing !== null && pcat !== undefined ? (
+        <div class="ih-check">
+          <DiffListToggle rows={rows} open={diffOpen} onOpen={setDiffOpen} />
+        </div>
+      ) : null}
+      {editing !== null && pcat !== undefined && diffOpen && plans !== undefined ? <DiffList rows={rows} wh={wh} planId={editing.id} cat={pcat} onEdit={plans.onSavePlan} onOpen={open} /> : null}
+      {tools !== undefined ? (
+        <div class="ih-tools">
+          {editing !== null ? <p class="in-note" data-current-only>取り込み・ヒアリング・明細の承認は、プランを選んでいても現状に入ります（プランの差分にはしません）。</p> : null}
+          {tools}
+        </div>
+      ) : null}
       <div class="ih-check">
         <button type="button" class="add-btn" aria-expanded={checkOpen} onClick={() => setCheckOpen(!checkOpen)} data-check-open>
-          確かめの一覧（未入力 {check.counts.missing}・わからない {check.counts.unknown}・注意 {check.counts.notice}・推定 {check.counts.estimated}）
+          {editing !== null ? "現状の" : ""}確かめの一覧（未入力 {check.counts.missing}・わからない {check.counts.unknown}・注意 {check.counts.notice}・推定 {check.counts.estimated}）
         </button>
       </div>
       {checkOpen ? (
@@ -234,7 +268,7 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
           {g.group !== null ? <h2 class="ih-gh">{g.group.label}</h2> : null}
           <div class="ih-cards">
             {g.items.map((i) => (
-              <Card key={i.id} item={i} onOpen={open} flash={flashId === i.id} />
+              <Card key={i.id} item={i} onOpen={open} flash={flashId === i.id} diffs={editing !== null ? { label: editing.label, n: counts.get(i.id) ?? 0 } : undefined} />
             ))}
             {gi === groups.length - 1 ? <AddCard open={addMenu} onOpen={setAddMenu} onPick={pick} /> : null}
           </div>
@@ -242,7 +276,7 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
       ))}
       {openId !== null ? (
         <InputPanel
-          key={openId}
+          key={`${openId}:${editing?.id ?? ""}`}
           wh={wh}
           itemId={openId}
           {...(addDraft !== null ? { initialDraft: addDraft } : {})}
@@ -252,7 +286,8 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
           onClose={close}
           {...(focusKey !== null ? { focusKey } : {})}
           {...(computeOne !== undefined ? { computeOne } : {})}
-          {...(openId === "living" && statement !== undefined ? { onStatement: openStatement } : {})}
+          {...(openId === "living" && statement !== undefined && editing === null ? { onStatement: openStatement } : {})}
+          {...(editing !== null && pcat !== undefined ? { plan: { id: editing.id, label: editing.label, color: editing.color, cat: pcat } } : {})}
         />
       ) : null}
       {statement !== undefined && statementOpen ? statement.render(backFromStatement) : null}

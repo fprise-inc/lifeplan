@@ -230,8 +230,16 @@ export function boxAt(input: Obj, a: Address): DiffBox | null {
   return { value: structuredClone(cur), state: "confirmed", origin: { kind: "manual" } };
 }
 
-/** 物を足す差分を当てる（0036 の4）。足せたら "ok"、同じ ID がもうあれば "exists"、足す先・相手が無ければ "noTarget"・"noOwner" */
-export function addAt(input: Obj, d: PlanDiff): "ok" | "exists" | "noTarget" | "noOwner" {
+/** 物の集まりの中の、物の番号（無ければ -1） */
+export function indexOfObject(input: Obj, id: string): number {
+  return locateObject(input, id)?.index ?? -1;
+}
+
+/**
+ * 物を足す差分を当てる（0036 の4）。足せたら "ok"、同じ ID がもうあれば "exists"、足す先・相手が無ければ "noTarget"・"noOwner"。
+ * index は物の集まりの中の入れる番号（置き換えの組で、外した物のあった所に入れる。省くと最後）
+ */
+export function addAt(input: Obj, d: PlanDiff, index?: number): "ok" | "exists" | "noTarget" | "noOwner" {
   const obj = d.value;
   if (!isObj(obj)) return "noTarget";
   const id = typeof obj.id === "string" ? obj.id : null;
@@ -248,7 +256,8 @@ export function addAt(input: Obj, d: PlanDiff): "ok" | "exists" | "noTarget" | "
       }
     }
     const list = Array.isArray(h[c.field]) ? (h[c.field] as unknown[]) : [];
-    list.push(structuredClone(obj));
+    if (index !== undefined && index >= 0 && index <= list.length) list.splice(index, 0, structuredClone(obj));
+    else list.push(structuredClone(obj));
     h[c.field] = list;
     return "ok";
   }

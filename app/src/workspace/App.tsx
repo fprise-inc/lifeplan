@@ -16,7 +16,7 @@ import type { BsPlanModel, BsPrevModel } from "../presentation/model.ts";
 import { balanceTabModel, bsPlan, bsPrev } from "./balanceTab.ts";
 import { MONEY_THREE_NAME_CHOICES, moneyThreeModel } from "./moneyThree.ts";
 import { snapshotDateText, TRIGGER_TEXT } from "./snapshots/snapshots.ts";
-import { PLAN_COLORS } from "../presentation/planLines.tsx";
+import { colorStyle, PLAN_COLORS } from "../presentation/planLines.tsx";
 import { AiCandidates } from "./ai/AiCandidates.tsx";
 import { AiConnectorPanel } from "./ai/AiConnectorPanel.tsx";
 import { AiShareBand } from "./ai/AiShareBand.tsx";
@@ -53,7 +53,7 @@ import { addRate } from "./plans/decimal.ts";
 import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
 import { amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
 import { PlanList } from "./plans/PlanList.tsx";
-import { acknowledge, applyValues, changesOf, changesOfValues, dropChange, effectiveValues, headLetter, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
+import { acknowledge, applyValues, changesOf, changesOfValues, dropChange, effectiveValues, findPlan, headLetter, modernPlanName, normalizeValues, overwritePlan, planLabel, reflectPlan, sameValues, savePlan, suggestName, valueOf, type Values } from "./plans/plans.ts";
 import { cashflowTable, displayYears, eventsOf, toPresentation, withDiff } from "./present.ts";
 import { withoutRemovedAssumptions } from "./surplus.ts";
 import { roles } from "./roles.ts";
@@ -366,6 +366,8 @@ export function App() {
   const [panel, setPanel] = useState<null | "list" | "compare">(initial.compare === true ? "compare" : initial.list === true ? "list" : null);
   /** 知らせから開く入力のカード（n を変えると入力の画面を開き直す） */
   const [cardOpen, setCardOpen] = useState<{ id: string; n: number } | null>(null);
+  /** 入力の画面でプランを直しているか（0036 の8）。直す対象は結果のタブで選んでいるプラン（work.sel）にそろえる。世帯を開いたときは現状 */
+  const [inputPlanOn, setInputPlanOn] = useState(false);
   /** 画面下の知らせ。undo のときは「元に戻す」を添える（帯のカードの × でプランを外したときなど） */
   const [notice, setNotice] = useState<{ text: string; undo: boolean } | null>(null);
   const [level, setLevel] = useState<Level>(initial.level ?? "simple");
@@ -640,6 +642,7 @@ export function App() {
     async (id: string, hashLevers?: number[]) => {
       if (host === null) return;
       await autosaver.current?.flush();
+      setInputPlanOn(false);
       // 保存した世帯から離れる: 事務所で共有しているときの、自分の開いている印を消す（0023 の7）
       if (storedRef.current !== null) void host.store.leave().catch(() => undefined);
       storedRef.current = null;
@@ -1287,6 +1290,41 @@ export function App() {
     const newLetter = planLetters(r.wh.proposals).get(r.id)?.letter ?? "";
     placeNew(w, r.wh, r.id, w.drafts, `${planLabel(srcLetter)}を写して ${planLabel(newLetter)} を作りました。下の対策で動かしてください`);
   }, [placeNew]);
+  /** 入力の画面の編集の対象を選ぶ（0036 の8）: プランを選ぶと、結果のタブでもそのプランを選ぶ（帯に無ければ足す）。現状を選ぶと現状 */
+  const selectInputPlan = useCallback(
+    (id: string | null) => {
+      const o = openedRef.current;
+      const w = workRef.current;
+      if (o === null) return;
+      if (id === null) {
+        setInputPlanOn(false);
+        if (w.sel !== CURRENT) putWork({ ...w, sel: CURRENT }, o, "set");
+        return;
+      }
+      const r = addToBand(w.band, id, [w.sel, w.base]);
+      setInputPlanOn(true);
+      putWork({ ...w, band: r.band, sel: id }, o, "set");
+      if (r.dropped !== null) say(`帯は${MAX_BAND}つまでのため、${planLabel(planLetters(o.wh.proposals).get(r.dropped)?.letter ?? "")}を帯から外しました（一覧に残っています）`);
+    },
+    [putWork, say],
+  );
+  /** 入力の画面の「＋ 現状から新しいプラン」「このプランを土台に」「このプランを複製」: 作って、そのまま入力で直す */
+  const newInputPlan = useCallback(
+    (base: string | null, copyOf?: string) => {
+      const o = openedRef.current;
+      const w = workRef.current;
+      if (o === null) return;
+      const ls = planLetters(o.wh.proposals);
+      const head = suggestName(o.wh.proposals, {}, o.wh, o.catalog);
+      const src = copyOf !== undefined ? findPlan(o.wh.proposals, copyOf) : undefined;
+      const name = src !== undefined ? `${head} ${planLabel(ls.get(src.id)?.letter ?? "")}の複製` : base !== null ? `${head} ${planLabel(ls.get(base)?.letter ?? "")}を土台に` : head;
+      const r = savePlan(o.wh, o.catalog, { name, base: src !== undefined ? src.base : base, values: src !== undefined ? savedValues(o.wh, src.id) : {}, now: nowIso() });
+      setInputPlanOn(true);
+      const letter = planLetters(r.wh.proposals).get(r.id)?.letter ?? "";
+      placeNew(w, r.wh, r.id, w.drafts, `${planLabel(letter)}を作りました。カードを開いて直すと、${planLabel(letter)}の差分になります`);
+    },
+    [placeNew],
+  );
   /** 案として保存: 選んでいる案の今の中身を新しい案にする（元の案は保存した内容のまま残す） */
   const saveNew = useCallback(
     (name: string) => {
@@ -1912,11 +1950,21 @@ export function App() {
         {tab === "input" && opened !== null ? (
           <>
             {error !== null ? <p class="fatal">今の入力では計算できませんでした（{error}）</p> : null}
-            {opened.wh.proposals.length > 0 ? <p class="in-note plans-note">入力（現状）を直すと、保存したプラン（{opened.wh.proposals.length}件）にも反映されます。プランが指していた物を外すと、そのプランに「要確認」が出ます。</p> : null}
+            {opened.wh.proposals.length > 0 && !(inputPlanOn && work.sel !== CURRENT) ? <p class="in-note plans-note">入力（現状）を直すと、保存したプラン（{opened.wh.proposals.length}件）にも反映されます。プランが指していた物を外すと、そのプランに「要確認」が出ます。</p> : null}
             <InputView
               key={cardOpen?.n ?? 0}
               wh={opened.wh}
               onSave={edit}
+              plans={{
+                list: opened.wh.proposals.map((p) => ({ id: p.id, label: planLabel(letters.get(p.id)?.letter ?? ""), name: modernPlanName(p.name), color: colorStyle(colors.get(p.id) ?? 1).color })),
+                sel: inputPlanOn && work.sel !== CURRENT && opened.wh.proposals.some((p) => p.id === work.sel) ? work.sel : null,
+                onSelect: selectInputPlan,
+                onNew: (base) => newInputPlan(base),
+                onCopy: (id) => newInputPlan(null, id),
+                cat: opened.catalog,
+                onSavePlan: (next) => setPlans(next),
+                lock: modified.has(work.sel) ? "結果のタブに、このプランの保存していない変更があります。結果のタブで「上書き保存」か「変更を取り消す」をしてから、入力で直してください（入力で直すのは保存したプランです）" : null,
+              }}
               computeOne={computeOne}
               level={level}
               onLevel={setLevel}
@@ -2069,7 +2117,14 @@ export function App() {
               }
             />
             {storedInfo !== null && ai.view !== null ? <AiCandidates candidates={ai.view.candidates} wh={opened.wh} catalog={opened.catalog} onAccept={acceptCandidate} onReject={rejectCandidate} /> : null}
-            {panel === "list" ? <PlanList wh={opened.wh} catalog={opened.catalog} letters={letters} band={work.band} onBand={toggleBand} onEdit={(w) => setPlans(w)} onReflect={reflect} onClose={() => setPanel(null)} /> : null}
+            {panel === "list" ? <PlanList wh={opened.wh} catalog={opened.catalog} letters={letters} band={work.band} onBand={toggleBand} onEdit={(w) => setPlans(w)} onReflect={reflect}
+                  onOpenInput={(id) => {
+                    selectInputPlan(id);
+                    setPanel(null);
+                    setTab("input");
+                  }}
+                  onClose={() => setPanel(null)}
+                /> : null}
             {panel === "compare" ? (
               <section class="card compare-card" aria-label="プランの比較" data-compare>
                 <div class="card-h">
@@ -2160,6 +2215,14 @@ export function App() {
               onReset={resetDraft}
               onOverwrite={work.sel !== CURRENT ? overwrite : null}
               onSaveNew={saveNew}
+              onOpenInput={
+                work.sel !== CURRENT
+                  ? () => {
+                      selectInputPlan(work.sel);
+                      setTab("input");
+                    }
+                  : null
+              }
               suggested={planInfo.suggested}
               changes={planInfo.changes}
               onAck={work.sel !== CURRENT && !modified.has(work.sel) ? (k) => setPlans(acknowledge(opened.wh, opened.catalog, work.sel, k)) : null}
