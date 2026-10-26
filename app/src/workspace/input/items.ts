@@ -20,6 +20,7 @@ import { childOfPeriodic, eventExpenses } from "./stages/events.ts";
 import { buildStage, STAGE_ORDER } from "./stages/index.ts";
 import { giftLines } from "./stages/inheritance.ts";
 import { statementMonthsMissing } from "./stages/pension.ts";
+import { totalViewOf } from "./savings/model.ts";
 import { currentPeriod } from "./stages/work.ts";
 import { fieldAddress, fieldStatus } from "./valueState.ts";
 
@@ -281,7 +282,9 @@ function baseSummary(id: StageId, wh: WorkingHousehold, inheritance: Summary | n
     }
     case "savings": {
       const list = h.accounts ?? [];
-      return list.length === 0 ? null : { main: manText(list.reduce((s, a) => s + (a.marketValue?.value ?? 0), 0)), unit: "万円" };
+      // 金融資産は入れ方のとおりに数える（合計の入れ方で残した口座の値・まだ分けていない分を二重に足さない）＋不動産・その他の資産
+      const others = list.filter((a) => a.kind === "realEstate" || a.kind === "otherAsset").reduce((s, a) => s + (a.marketValue?.value ?? 0), 0);
+      return list.length === 0 ? null : { main: manText(totalViewOf(wh.request).value + others), unit: "万円" };
     }
     case "events": {
       const n = moneyRows(h, "events");

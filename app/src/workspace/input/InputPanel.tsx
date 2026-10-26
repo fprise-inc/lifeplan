@@ -427,7 +427,9 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
           <PinControls.Provider value={pins}>
           {itemId === "savings" ? (
             <PlanMarksContext.Provider value={marks}>
+            <FieldStateOps.Provider value={stateOps}>
               <SavingsPanel wh={shown} level={level} onEdit={edit} />
+            </FieldStateOps.Provider>
             </PlanMarksContext.Provider>
           ) : (
             <PlanMarksContext.Provider value={marks}>

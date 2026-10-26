@@ -1,14 +1,21 @@
-// 8. 貯蓄・運用: 口座・資産の種類ごとの残高（時価）と名義、毎月の積立。取得価額・資産配分・時点は詳細で
+// 8. 貯蓄・運用: 口座・資産の種類ごとの残高（時価）と名義、毎月の積立。取得価額・資産配分・時点・運用の費用・引き出せない期間は詳細で。
+// お金の行き先（取り崩す順番・取り崩さない口座・決済口座・預金に残しておく額）は詳細の区画（取り崩す順番の並べ替えは画面の部品。SavingsPanel）
 import type { Account, Household } from "../../../engine/types.ts";
+import type { Address } from "../../store/readings.ts";
 import { addMonths, ageAt, ageReachedMonth } from "../../levers.ts";
-import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { confirmedBox, mutate, newId, type WorkingHousehold } from "../household.ts";
+import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { confirmedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
+import { putRow } from "../rows.ts";
 import { ACCOUNT_KINDS, ASSET_CLASSES, BUILDING_STRUCTURES, memberLabel, memberOptions, VALUATION_DEFAULTS } from "../labels.ts";
 import { loanFields } from "./housing.ts";
-import { defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeOf, rateOf, setStopAge, stopAgeOf, stopEstimateOf } from "../savings/model.ts";
+import { accountName, UNENTERED_BALANCE, defaultPayoutAge, editPayout, INVEST_KINDS, methodOf, payoutAgeOf, rateOf, reservePreset, setSettlement, settlementOf, setStopAge, stopAgeOf, stopEstimateOf } from "../savings/model.ts";
 import { allocationStageGroups, returnStageGroups, stagedGroups } from "../staged.ts";
 
 const accounts = (h: Household) => h.accounts;
+const UNENTERED_VALUE = "未入力（評価額を入れてください。0円で計算中）";
+/** 欄の当て先（口座の中の入力項目） */
+const onAccount = (id: string, item: string, at: string[] = []) => (): Address => ({ target: { object: id }, item, at });
+const withAddress = (f: FieldDef, a: () => Address): FieldDef => ({ ...f, address: a });
 const WITH_COST = new Set(["taxable", "nisa", "legacyNisa", "juniorNisa", "childNisa"]);
 /** 金融資産でない器（不動産・その他の資産）。評価額と増減率だけを入れる */
 const NON_FINANCIAL = new Set(["realEstate", "otherAsset"]);
@@ -49,7 +56,7 @@ function otherAssetGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         level: "simple",
         kind: "bool",
         structural: true,
-        help: "分けると、建物は構造の耐用年数で減り、土地は残る見込みになります。貸しているなら、家賃収入・経費・減価償却を不動産所得として税の計算に入れます",
+        help: "分けると、建物は構造の耐用年数で減り、土地は残る見込みになります。貸しているなら、家賃収入・経費・減価償却を不動産所得として税の計算に入れます。これから相続・贈与で受け取る不動産の「持ち始める時点」も、分けると入れられます（詳細）",
         get: (w) => ({ value: (find(w.request.input.household, w) as Account | undefined)?.property !== undefined }),
         set: (w, v) =>
           mutate(w, (h) => {
@@ -103,6 +110,23 @@ function propertyGroups(wh: WorkingHousehold, a: Account, k: string): GroupDef[]
       title: "土地と建物",
       level: "simple",
       fields: [
+        // 持ち始める時点（0039。相続・贈与で受け取る家。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い）
+        withAddress(
+          timepointField({
+            key: `${kp}/holdFrom`,
+            item: "account.property",
+            label: "持ち始める時点（これから相続・贈与で受け取る不動産）",
+            level: "detail",
+            find: findP,
+            path: ["holdFrom"],
+            optional: true,
+            absentWhenEmpty: true,
+            nullText: "今から持っている",
+            help: "その月から評価額（その年の年末から）・家賃収入・経費に入れます。受け取るときの支払いはありません（買うなら、購入の支払いを出るお金で入れます）。相続税の目安にも、その時点から入ります",
+            ...ageOf,
+          }),
+          onAccount(a.id, "account.property", ["holdFrom"]),
+        ),
         plain({ key: `${kp}/structure`, item: "account.property", label: "建物の構造", level: "simple", kind: "select", options: BUILDING_STRUCTURES, find: findP, path: ["structure"], optional: true, fallback: "wood", help: "評価額の建物の部分を耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で減らします。減価償却の耐用年数にも使います" }),
         plain({ key: `${kp}/builtYear`, item: "account.property", label: "建物が建った年", level: "simple", kind: "int", suffix: "年", min: 1900, max: 2200, find: findP, path: ["builtYear"], optional: true, fallback: acquisitionYear ?? Number(asOf.slice(0, 4)), help: "空欄なら取得の年（取得が空欄なら評価額の時点の年）に新築とみなします" }),
         plain({ key: `${kp}/landShare`, item: "account.property", label: "土地の割合", level: "simple", kind: "pct", find: findP, path: ["landShare"], optional: true, fallback: setting?.landShare ?? VALUATION_DEFAULTS.landShare, help: "評価額と取得価額を土地と建物に分けます。マンションは土地の割合が小さめです" }),
@@ -325,9 +349,46 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
           }),
       }),
     );
+  // 運用の費用（口座の入れ方の運用する口座。資産配分の入れ方は配分の信託報酬を使う）
+  if (methodOf(wh.request) === "accounts" && INVEST_KINDS.has(a.kind))
+    fields.push(
+      withAddress(
+        plain({ key: `${k}/fee`, item: "account.fee", label: "運用の費用（信託報酬など・年）", level: "detail", kind: "pct", find, path: ["fee"], optional: true, help: "上の利回りは費用を引く前の見込みです。ここに入れた費用を引いて計算します（税は計算で引きます）。空欄は0" }),
+        onAccount(a.id, "account.fee"),
+      ),
+    );
   if (DC_KIND.has(a.kind)) fields.push(...payoutFields(wh, a, k));
-  if ((a.contributions ?? []).length > 0)
-    fields.push(timepointField({ key: `${k}/until`, item: "account.contributions", label: "積立の終わり（最後の月）", level: "detail", find: firstContribution, path: ["to"], startPath: ["from"], ageMeans: "before", optional: true, nullText: "退職の年まで（推定）", ...(owner !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === owner.id) } : {}) }));
+  if (a.kind === "smallBusinessMutualAid") fields.push(...mutualAidFields(wh, a, k));
+  // 積立の終わり（口座ごと）: いちばん後の期間の終わり。NISA で成長投資枠の積立もあるときは枠ごとに終わりが違うので、積立の表の期間で直す
+  const own = (a.contributions ?? []).filter((c) => c.payer !== "employer" || a.kind === "corporateDc");
+  const oneTranche = new Set(own.map((c) => (c.tranche === "growth" ? "growth" : "tsumitate"))).size <= 1;
+  if (own.length > 0 && oneTranche) {
+    const lastContribution: Finder = (h, w) => {
+      const list = ((find(h, w) as Account | undefined)?.contributions ?? []).filter((c) => c.payer !== "employer" || a.kind === "corporateDc");
+      return list.reduce<(typeof list)[number] | undefined>((x, y) => (x === undefined || (resolveTimepoint(h, y.from) ?? "") >= (resolveTimepoint(h, x.from) ?? "") ? y : x), undefined) as Record<string, unknown> | undefined;
+    };
+    fields.push(timepointField({ key: `${k}/until`, item: "account.contributions", label: own.length > 1 ? "積立の終わり（最後の期間の最後の月）" : "積立の終わり（最後の月）", level: "detail", find: lastContribution, path: ["to"], startPath: ["from"], ageMeans: "before", optional: true, nullText: "退職の年まで（推定）", ...(owner !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === owner.id) } : {}) }));
+  }
+  // 引き出せない期間の終わり（その月まで取り崩さない）。iDeCo・企業型DC・小規模企業共済は受け取りの決まりで預金に入るので出さない
+  if (!DC_KIND.has(a.kind) && a.kind !== "smallBusinessMutualAid")
+    fields.push(
+      withAddress(
+        timepointField({
+          key: `${k}/lock`,
+          item: "account.withdrawalLockedUntil",
+          label: "引き出せない期間の終わり（その月まで取り崩さない）",
+          level: "detail",
+          find,
+          path: ["withdrawalLockedUntil"],
+          optional: true,
+          absentWhenEmpty: true,
+          nullText: "いつでも引き出せる",
+          help: "定期預金の満期・財形の払い出しの条件などで、その月まで取り崩しに使わない口座に入れます。ずっと取り崩さない口座は、お金の行き先の「取り崩さない」で決めます",
+          ...(owner !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === owner.id) } : {}),
+        }),
+        onAccount(a.id, "account.withdrawalLockedUntil"),
+      ),
+    );
   const groups: GroupDef[] = [
     {
       key: k,
@@ -337,6 +398,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.accounts = (h.accounts ?? []).filter((x) => x.id !== a.id)))],
     },
   ];
+  if (a.kind === "legacyNisa" || a.kind === "juniorNisa") groups.push(...lotGroups(a, k));
   (a.assetMix ?? []).forEach((_, j) => {
     const findMix: Finder = (h, w) => (getPath(find(h, w), ["assetMix", String(j)]) as Record<string, unknown> | undefined) ?? undefined;
     groups.push({
@@ -370,8 +432,13 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
 const DC_KIND = new Set(["ideco", "corporateDc"]);
 const PAYOUT_OPTIONS = [
   { value: "lumpSum", label: "一時金" },
-  { value: "annuity", label: "年金（10年）" },
-  { value: "mixed", label: "併用（半分ずつ）" },
+  { value: "annuity", label: "年金" },
+  { value: "mixed", label: "併用（一時金と年金）" },
+];
+const MUTUAL_AID_OPTIONS = [
+  { value: "lumpSum", label: "一括" },
+  { value: "annuity", label: "分割" },
+  { value: "mixed", label: "併用（一括と分割）" },
 ];
 const DEST_OPTIONS = [
   { value: "deposit", label: "預金に入れる" },
@@ -430,7 +497,159 @@ function payoutFields(wh: WorkingHousehold, a: Account, k: string): FieldDef[] {
       get: (w) => ({ value: acc(w)?.payout?.destination ?? "deposit", implicit: acc(w)?.payout?.destination === undefined }),
       set: (w, v) => mutate(w, (h) => editPayout(h, find(h, w) as Account, { destination: v === "invest" ? "invest" : "deposit" })),
     }),
+    ...payoutDetailFields(a, k, { years: "年金で受け取る年数", share: "一時金で受け取る割合（併用）", min: 5, max: 20 }),
+    enrolledField(a, k, "加入者期間の始まり（年月）", "受け取りを始められる年齢の判定に使います（加入者等期間が10年に満たないと、60歳からは受け取れません）。空欄は残高の時点から"),
   ];
+}
+
+/** 受け取りの詳細の欄（年金・分割で受け取る年数、併用の一時金の割合）。受け取り方を選んでいるときだけ */
+function payoutDetailFields(a: Account, k: string, o: { years: string; share: string; min: number; max: number; options?: { value: string; label: string }[] }): FieldDef[] {
+  const find = byId(accounts, a.id);
+  const method = a.payout?.method;
+  const out: FieldDef[] = [];
+  if (method === "annuity" || method === "mixed")
+    out.push(
+      withAddress(
+        o.options !== undefined
+          ? field({
+              key: `${k}/payoutYears`,
+              item: "account.payout",
+              label: o.years,
+              level: "detail",
+              kind: "select",
+              options: o.options,
+              get: (w) => {
+                const y = (find(w.request.input.household, w) as Account | undefined)?.payout?.annuityYears;
+                return { value: String(y ?? 10), ...(y === undefined ? { implicit: true } : {}) };
+              },
+              set: (w, v) =>
+                mutate(w, (h) => {
+                  const x = find(h, w) as Account | undefined;
+                  if (x?.payout === undefined) return;
+                  if (v === null || v === "") delete x.payout.annuityYears;
+                  else x.payout.annuityYears = Number(v);
+                }),
+            })
+          : plain({ key: `${k}/payoutYears`, item: "account.payout", label: o.years, level: "detail", kind: "int", suffix: "年", min: o.min, max: o.max, find, path: ["payout", "annuityYears"], fallback: 10 }),
+        onAccount(a.id, "account.payout", ["annuityYears"]),
+      ),
+    );
+  if (method === "mixed")
+    out.push(withAddress(plain({ key: `${k}/lumpShare`, item: "account.payout", label: o.share, level: "detail", kind: "pct", find, path: ["payout", "lumpShare"], fallback: "0.5", help: "残りを年金（分割）で受け取ります" }), onAccount(a.id, "account.payout", ["lumpShare"])));
+  return out;
+}
+
+/** 加入の始まり（年月。iDeCo・企業型DC は受け取りを始められる年齢、小規模企業共済は一括の退職所得の勤続期間に使う） */
+function enrolledField(a: Account, k: string, label: string, help: string): FieldDef {
+  return withAddress(plain({ key: `${k}/enrolled`, item: "account.enrolledSince", label, level: "detail", kind: "ym", find: byId(accounts, a.id), path: ["enrolledSince"], optional: true, help }), onAccount(a.id, "account.enrolledSince"));
+}
+
+/**
+ * 小規模企業共済の受け取り（0026。エンジンの account.mutualAid）: 受け取り方（一括・分割・併用）と受け取りの始まり。
+ * 始まりが空なら受け取らずに残高のまま持つ（廃業・退職の時期を入れてもらう）
+ */
+function mutualAidFields(wh: WorkingHousehold, a: Account, k: string): FieldDef[] {
+  const find = byId(accounts, a.id);
+  const acc = (w: WorkingHousehold) => find(w.request.input.household, w) as Account | undefined;
+  const owner = wh.request.input.household.members.find((m) => m.id === a.owner);
+  const fields: FieldDef[] = [
+    field({
+      key: `${k}/payout`,
+      item: "account.payout",
+      label: "受け取り方",
+      level: "simple",
+      kind: "select",
+      options: MUTUAL_AID_OPTIONS,
+      optional: true,
+      structural: true,
+      get: (w) => ({ value: acc(w)?.payout?.method ?? null }),
+      set: (w, v) =>
+        mutate(w, (h) => {
+          const x = find(h, w) as Account | undefined;
+          if (x === undefined) return;
+          if (v === null || v === "") {
+            delete x.payout;
+            return;
+          }
+          editPayout(h, x, { method: v as "lumpSum" | "annuity" | "mixed" });
+        }),
+    }),
+  ];
+  if (a.payout !== undefined)
+    fields.push(
+      withAddress(
+        timepointField({
+          key: `${k}/payoutAt`,
+          item: "account.payout",
+          label: "受け取りを始める時期（廃業・退職など）",
+          level: "simple",
+          find,
+          path: ["payout", "start"],
+          optional: true,
+          absentWhenEmpty: true,
+          nullText: "受け取らない（残高のまま持つ）",
+          ...(owner !== undefined ? { ageOf: (h: Household) => h.members.find((m) => m.id === owner.id) } : {}),
+        }),
+        onAccount(a.id, "account.payout", ["start"]),
+      ),
+      ...payoutDetailFields(a, k, { years: "分割で受け取る年数", share: "一括で受け取る割合（併用）", min: 10, max: 15, options: [{ value: "10", label: "10年" }, { value: "15", label: "15年" }] }),
+    );
+  fields.push(enrolledField(a, k, "加入した年月", "一括で受け取るときの退職所得の勤続期間（掛金を納めた期間の近似）に使います。空欄は残高の時点から"));
+  return fields;
+}
+
+/** 旧NISA・ジュニアNISA の買付の年ごとの内訳（非課税期間が終わった年の年末に課税口座へ移す。空なら全部を残高の時点の年に買ったとみなす） */
+function lotGroups(a: Account, k: string): GroupDef[] {
+  const find = byId(accounts, a.id);
+  const lots = (a.lots as { vintageYear: number; regime: string; costBasis: number; marketValue: number }[] | undefined) ?? [];
+  const regimes = a.kind === "juniorNisa" ? [{ value: "junior", label: "ジュニアNISA" }] : [{ value: "general", label: "一般NISA" }, { value: "tsumitate", label: "つみたてNISA" }];
+  const groups: GroupDef[] = lots.map((_, j) => {
+    const findLot: Finder = (h, w) => (getPath(find(h, w), ["lots", String(j)]) as Record<string, unknown> | undefined) ?? undefined;
+    return {
+      key: `${k}/lot/${j}`,
+      title: `買付の年 ${j + 1}`,
+      level: "detail",
+      fields: [
+        plain({ key: `${k}/lot/${j}/year`, item: "account.lots", label: "買った年", level: "detail", kind: "int", suffix: "年", min: 2014, max: 2023, find: findLot, path: ["vintageYear"] }),
+        plain({ key: `${k}/lot/${j}/regime`, item: "account.lots", label: "制度", level: "detail", kind: "select", options: regimes, find: findLot, path: ["regime"] }),
+        plain({ key: `${k}/lot/${j}/cost`, item: "account.lots", label: "取得価額", level: "detail", kind: "yen", basis: "once", find: findLot, path: ["costBasis"] }),
+        plain({ key: `${k}/lot/${j}/value`, item: "account.lots", label: "時価", level: "detail", kind: "yen", basis: "once", find: findLot, path: ["marketValue"] }),
+      ],
+      actions: [
+        removeAction(`${k}/lot/${j}/remove`, "外す", "detail", (h, w) => {
+          const x = find(h, w) as Account | undefined;
+          const list = (x?.lots as unknown[] | undefined) ?? [];
+          if (x === undefined) return;
+          const next = list.filter((__, n) => n !== j);
+          if (next.length === 0) delete x.lots;
+          else x.lots = next;
+        }),
+      ],
+    };
+  });
+  const year = Number(a.asOf?.slice(0, 4) ?? "2023");
+  groups.push({
+    key: `${k}/addLot`,
+    level: "detail",
+    note: lots.length === 0 ? "買付の年ごとの内訳が無いときは、全部を残高の時点の年に買ったとみなして、非課税期間の終わりを決めます" : "内訳の時価・取得価額の合計を、口座の残高・取得価額にそろえてください",
+    fields: [],
+    actions: [
+      {
+        key: `${k}/addLotRow`,
+        label: "＋ 買付の年の内訳",
+        level: "detail",
+        run: (w) =>
+          mutate(w, (h) => {
+            const x = find(h, w) as Account | undefined;
+            if (x === undefined) return;
+            const list = ((x.lots as unknown[] | undefined) ?? []).slice();
+            list.push({ vintageYear: Math.min(2023, year), regime: a.kind === "juniorNisa" ? "junior" : "general", costBasis: 0, marketValue: 0 });
+            x.lots = list;
+          }),
+      },
+    ],
+  });
+  return groups;
 }
 
 /** まとめた金融資産（合計の入れ方・まだ口座に分けていない分）: 合計の残高と平均の利回り */
@@ -445,6 +664,7 @@ function pooledGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       fields: [
         yenBox({ key: `${k}/value`, item: "account.marketValue", label: "金融資産の合計", level: "simple", basis: "once", find, path: ["marketValue"] }),
         plain({ key: `${k}/rate`, item: "account.expectedReturn", label: "平均の利回り（年）", level: "simple", kind: "pct", find, path: ["expectedReturn"], optional: true }),
+        withAddress(plain({ key: `${k}/uninvested`, item: "account.uninvested", label: "運用しない分", level: "detail", kind: "yen", basis: "once", find, path: ["uninvested"], optional: true }), onAccount(a.id, "account.uninvested")),
       ],
       actions: [],
     },
@@ -528,18 +748,96 @@ export function returnStagesSection(wh: WorkingHousehold): SectionDef {
   };
 }
 
+/** 「＋ 口座を足す」の主な4つ（簡易）。ほかは「そのほか」（SavingsPanel が簡易からも開ける） */
+export const MAIN_ADD_KINDS: ReadonlySet<string> = new Set(["deposit", "nisa", "ideco", "taxable"]);
+/** お子さまの名義で作る器 */
+const CHILD_KINDS: ReadonlySet<string> = new Set(["childNisa", "juniorNisa"]);
+
+/** 預金に残しておく額（エンジンの assumptions.withdrawal.minimumDeposit。決済口座の年末の残高がこれを下回ると、ほかの口座から取り崩す） */
+const MIN_ADDRESS = (): Address => ({ target: { plan: "assumptions" }, item: "assumptions.withdrawal", at: ["minimumDeposit"] });
+function writeMinimum(w: WorkingHousehold, v: number | null, basis: string | null): WorkingHousehold {
+  return mutate(w, (_h, req) => {
+    const a = (req.input.assumptions ??= { investmentReturn: { default: "0.01" } });
+    const wd = { ...(a.withdrawal ?? {}) };
+    if (v === null || v <= 0) delete wd.minimumDeposit;
+    else wd.minimumDeposit = Math.round(v);
+    if (Object.keys(wd).length === 0) delete a.withdrawal;
+    else a.withdrawal = wd;
+    // 目安のボタンで入れた額は、根拠つきの推定の行にする（打った額は行を外す。0041）
+    putRow(req.input as unknown as Record<string, unknown>, MIN_ADDRESS(), basis !== null && v !== null && v > 0 ? { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis } } : undefined);
+  });
+}
+
+/** 区画「お金の行き先」の欄（取り崩す順番の並べ替えと「取り崩さない」は画面の部品で描く。SavingsPanel の FlowSection） */
+export function flowSection(wh: WorkingHousehold): SectionDef {
+  const h = wh.request.input.household;
+  const deposits = (h.accounts ?? []).filter((a) => a.kind === "deposit");
+  const own = (id: string) => memberLabel(wh, (h.accounts ?? []).find((a) => a.id === id)?.owner ?? "");
+  const fields: FieldDef[] = [];
+  if (deposits.length > 1)
+    fields.push(
+      field({
+        key: "sav/settlement",
+        item: "account.settlement",
+        label: "収支が入る口座（決済口座）",
+        level: "detail",
+        kind: "select",
+        options: deposits.map((a, i) => ({ value: a.id, label: `${accountName(a, own(a.id))}${deposits.filter((x) => x.owner === a.owner).length > 1 ? ` ${i + 1}` : ""}` })),
+        help: "給与・年金が入り、生活費・ローンを払う預金。ここが足りなくなると、下の順番でほかの口座から取り崩します。空欄なら最初の預金",
+        get: (w) => {
+          const st = settlementOf(w.request.input.household);
+          return { value: st?.id ?? null, ...(st?.settlement !== true ? { implicit: true } : {}) };
+        },
+        set: (w, v) => (typeof v === "string" && v !== "" ? mutate(w, (hh) => setSettlement(hh, v)) : w),
+      }),
+    );
+  const min = wh.request.input.assumptions?.withdrawal?.minimumDeposit;
+  fields.push({
+    ...field({
+      key: "sav/withdraw/min",
+      item: "assumptions.withdrawal",
+      label: "預金に残しておく額",
+      level: "detail",
+      kind: "yen",
+      basis: "once",
+      help: "収支が入る口座の年末の残高がこの額を下回ると、上の順番でほかの口座から取り崩します。その年の年末の額です（今の値段ではありません）。0円なら、預金を使い切ってからほかの口座を取り崩します。手を付けたくないお金があれば入れます",
+      get: (w) => {
+        const v = w.request.input.assumptions?.withdrawal?.minimumDeposit;
+        return { value: v ?? 0, ...(v === undefined ? { implicit: true } : {}) };
+      },
+      set: (w, v) => writeMinimum(w, typeof v === "number" ? v : null, null),
+    }),
+    address: MIN_ADDRESS,
+  });
+  const preset = (months: 6 | 12): ActionDef | null => {
+    const p = reservePreset(h, months);
+    if (p === null) return null;
+    return { key: `sav/withdraw/min/preset${months}`, label: `目安: 生活費の${months === 6 ? "6か月分" : "1年分"}（${(p.value / 10000).toLocaleString("ja-JP")}万円）`, level: "detail", pressed: min === p.value, title: "押した時の基本生活費から額を出します（後で生活費を変えても、この額は変わりません）", run: (w) => writeMinimum(w, p.value, p.basis) };
+  };
+  return {
+    key: "sav/flow",
+    title: "お金の行き先",
+    level: "detail",
+    groups: [{ key: "sav/flow/main", level: "detail", fields, actions: [preset(6), preset(12)].filter((x): x is ActionDef => x !== null) }],
+    actions: [],
+  };
+}
+
 export function savingsStage(wh: WorkingHousehold): StageDef {
   const h = wh.request.input.household;
   const self = h.members.find((m) => m.kind === "self");
+  const child = h.members.find((m) => m.kind === "child" && m.outside === undefined);
   const add = (kind: string, label: string) => ({
     key: `sav/add/${kind}`,
     label: `＋ ${label}`,
-    level: (kind === "deposit" || kind === "nisa" || kind === "ideco" || kind === "taxable" ? "simple" : "detail") as "simple" | "detail",
+    level: (MAIN_ADD_KINDS.has(kind) ? "simple" : "detail") as "simple" | "detail",
     run: (w: WorkingHousehold) =>
       mutate(w, (hh) => {
         if (self === undefined) return;
-        const a: Account = { id: newId(), kind, owner: self.id, marketValue: confirmedBox(0), asOf: w.request.input.baseMonth, contributions: [] };
-        if (kind === "nisa" || kind === "taxable") {
+        const owner = CHILD_KINDS.has(kind) && child !== undefined ? child.id : self.id;
+        // 残高は「未入力（0円で計算中）」の印で始める（打つと確定。0041）
+        const a: Account = { id: newId(), kind, owner, marketValue: standardBox(0, NON_FINANCIAL.has(kind) ? UNENTERED_VALUE : UNENTERED_BALANCE), asOf: w.request.input.baseMonth, contributions: [] };
+        if (kind === "nisa" || kind === "taxable" || kind === "childNisa") {
           a.costBasis = confirmedBox(0);
           a.assetMix = [{ assetClass: "equity.global", share: "1" }];
         }
@@ -560,7 +858,20 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
           ...(h.accounts ?? []).filter((a) => a.kind === "pooled").flatMap((a) => pooledGroups(wh, a)),
           ...((h.accounts ?? []).some((a) => !NON_FINANCIAL.has(a.kind) && (a.contributions ?? []).length > 0) ? [periodGroup(wh)] : []),
         ],
-        actions: [add("deposit", "預貯金"), add("nisa", "NISA"), add("ideco", "iDeCo"), add("taxable", "課税口座"), add("zaikei", "財形貯蓄"), add("corporateDc", "企業型DC"), add("fxDeposit", "外貨預金")],
+        actions: [
+          add("deposit", "預貯金"),
+          add("nisa", "NISA"),
+          add("ideco", "iDeCo"),
+          add("taxable", "課税口座"),
+          add("zaikei", "財形貯蓄"),
+          add("corporateDc", "企業型DC（会社の確定拠出年金）"),
+          add("fxDeposit", "外貨預金"),
+          add("esop", "持株会"),
+          add("smallBusinessMutualAid", "小規模企業共済"),
+          add("legacyNisa", "旧NISA（2023年までの一般・つみたて）"),
+          add("juniorNisa", "ジュニアNISA"),
+          add("childNisa", "こどもNISA"),
+        ],
       },
       {
         key: "sav/others",
@@ -571,6 +882,7 @@ export function savingsStage(wh: WorkingHousehold): StageDef {
         actions: [add("realEstate", "不動産（住まい以外）"), add("otherAsset", "その他の資産")],
       },
       returnStagesSection(wh),
+      ...(methodOf(wh.request) === "total" ? [] : [flowSection(wh)]),
     ],
   };
 }
