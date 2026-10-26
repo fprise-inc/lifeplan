@@ -785,3 +785,13 @@ export function setDrawdown(req: EngineRequest, v: DrawdownView): void {
   }
   setInvestment(req, { drawdown: { start: { at: ageReachedMonth(self, v.startAge) }, method: v.method, ...(v.method === "fixed" ? { monthly: Math.max(0, Math.round(v.monthly)) } : { rate: v.rate }) } });
 }
+
+/**
+ * 利回りの選び方（合計の入れ方と、前提条件の運用利回り。事務所の標準の値。どれも仮の値で、商品のおすすめではない。押すと平均の利回りに入る。
+ * 前提条件のカードと同じ値の表を使う。0070）
+ */
+export const RATE_PRESETS: readonly { id: string; label: string; rate: string }[] = [
+  { id: "low", label: "控えめ", rate: "0.01" },
+  { id: "mid", label: "ふつう", rate: "0.02" },
+  { id: "high", label: "積極的", rate: "0.03" },
+];

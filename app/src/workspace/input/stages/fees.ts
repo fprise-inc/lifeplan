@@ -1,9 +1,10 @@
 // FP顧問料（入力の項目「前提条件」の中の欄のまとまり「FP顧問料（単発・継続）」）: 契約ごとに、払う人・単発（相談料・プラン作成料の額と年月）・継続（月額か年額・始まりと終わり・値上げの率）・
-// 万一のときの扱い。エンジンの advisoryFees（0008 の追記）をそのまま読み書きする。
+// 万一のときの扱い・料金の段階（その月からの額。0070）。エンジンの advisoryFees（0008 の追記）をそのまま読み書きする。
 // 既定では提案の側にだけ入れる（契約は enabled: false で現状に入れ、見通しの対策「FP顧問料」で提案の側を ON にする）。
 // 顧客に見せる画面にも出してよい項目だが、事務所の内部の情報（料金表の写しの印など）は画面に出さない
 import type { AdvisoryFee, Household } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
+import { resolveTimepoint } from "../../timepoint.ts";
 import { byId, field, getPath, plain, timepointField, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, type WorkingHousehold } from "../household.ts";
 import { memberLabel, memberOptions } from "../labels.ts";
@@ -140,14 +141,26 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
     ...onContingencyFields({ key: `${k}/rec/on`, item: "advisoryFee.terms", find: findRec, path: ["onContingency"], help: "払う人などの万一の月の翌月から当てます（単発の料金には当てません）" }),
     ...onContingencyDetailFields({ key: `${k}/rec/on`, item: "advisoryFee.terms", find: findRec, path: ["onContingency"], on: r.onContingency }),
   ];
-  const steps = r.revision?.steps?.length ?? 0;
   groups.push({
     key: `${k}/rec`,
     title: "継続の顧問料",
-    ...(steps > 0 ? { note: `料金の段階が ${steps} 件入っています（段階の入力の欄は次の版です。計算には入っています）` } : {}),
     level: "simple",
     fields: recFields,
     actions: [
+      {
+        key: `${k}/addStep`,
+        label: "＋ 料金の段階（その月からの額）",
+        level: "detail",
+        run: (w) =>
+          mutate(w, (h) => {
+            const x = fee(h, w)?.terms?.recurring;
+            if (x === undefined) return;
+            const steps = ((x.revision ??= {}).steps ??= []);
+            const lastAt = steps.at(-1)?.at ?? x.from;
+            const at = resolveTimepoint(h, lastAt) ?? w.request.input.baseMonth;
+            steps.push({ id: newId(), at: { at: addMonths(at, 12) }, ...(x.monthly !== undefined ? { monthly: x.monthly } : { annual: x.annual ?? 0 }) });
+          }),
+      },
       {
         key: `${k}/removeRec`,
         label: "継続の顧問料を外す",
@@ -160,6 +173,38 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
           }),
       },
     ],
+  });
+  // 料金の段階（その月からの年額・月額。0070。計算は今ある）
+  (r.revision?.steps ?? []).forEach((st, i) => {
+    const sid = typeof st.id === "string" ? st.id : String(i);
+    const findStep: Finder = (h, w) => (((getPath(find(h, w), ["terms", "recurring", "revision", "steps"]) as Record<string, unknown>[] | undefined) ?? []).find((x, j) => (typeof x.id === "string" ? x.id === sid : String(j) === sid)) ?? undefined);
+    groups.push({
+      key: `${k}/rec/step/${sid}`,
+      title: `料金の段階 ${i + 1}`,
+      note: "この月から、継続の顧問料をこの額にします（値上げの率は、この額から伸ばします）",
+      level: "detail",
+      fields: [
+        timepointField({ key: `${k}/rec/step/${sid}/at`, item: "advisoryFee.terms", label: "いつから", level: "detail", find: findStep, path: ["at"] }),
+        monthly
+          ? plain({ key: `${k}/rec/step/${sid}/monthly`, item: "advisoryFee.terms", label: "その月からの額（月額・税込）", level: "detail", kind: "yen", basis: "monthly", find: findStep, path: ["monthly"] })
+          : plain({ key: `${k}/rec/step/${sid}/annual`, item: "advisoryFee.terms", label: "その月からの額（年額・税込）", level: "detail", kind: "yen", basis: "annual", find: findStep, path: ["annual"] }),
+      ],
+      actions: [
+        {
+          key: `${k}/rec/step/${sid}/remove`,
+          label: "この段階を外す",
+          level: "detail",
+          danger: true,
+          run: (w) =>
+            mutate(w, (h) => {
+              const rev = fee(h, w)?.terms?.recurring?.revision;
+              if (rev?.steps === undefined) return;
+              rev.steps = rev.steps.filter((x, j) => (typeof x.id === "string" ? x.id !== sid : String(j) !== sid));
+              if (rev.steps.length === 0) delete rev.steps;
+            }),
+        },
+      ],
+    });
   });
   return groups;
 }

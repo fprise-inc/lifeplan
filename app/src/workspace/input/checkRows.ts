@@ -160,7 +160,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
               impact: 0,
               actions: [{ key: "confirm", label: "✓ この値で確定", title: "確かめた値として確定にします", run: (w) => explicitConfirm(w, f, what) }, ...(std !== null ? [std] : [])],
             });
-          } else if (st.warn != null) rows.push({ ...base, id: `field:${f.key}`, kind: "notice", detail: st.warn, impact: 0, actions: [] });
+          } else if (st.warn != null) rows.push({ ...base, id: `field:${f.key}`, kind: "notice", detail: st.warn, impact: 0, actions: st.warnFix != null ? [{ key: "fix", label: st.warnFix.label, run: st.warnFix.run }] : [] });
         }
   });
   const order = new Map(items.map((i, n) => [i.id, n]));

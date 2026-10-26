@@ -121,7 +121,9 @@ export function availableOps(f: FieldDef, wh: WorkingHousehold, s: FieldStatus =
 function confirmable(f: FieldDef, wh: WorkingHousehold, a: Address | null): boolean {
   if (f.blankEstimate !== undefined && f.get(wh).value === null) return f.blankEstimate(wh) !== null;
   if (f.boxed !== undefined || wh.assumed[f.key] !== undefined) return true;
-  return a !== null && readAt(input(wh), a) !== undefined;
+  if (a === null) return false;
+  // 見せている値が世帯に無い欄（省略のときの既定・ほかの値と同じ値を見せる欄。0070）は、見せている値を書いて確定にできる
+  return readAt(input(wh), a) !== undefined || (f.write !== undefined && f.get(wh).value !== null);
 }
 
 /** わからないにしたときの代わりの値の根拠（前に入っていた確定の値をそのまま使う） */
@@ -200,8 +202,12 @@ export function applyStateOp(wh: WorkingHousehold, f: FieldDef, op: StateOp): Wo
   const method = rowAt(input(wh), a)?.estimate?.method ?? assumedMethod(f, wh);
   const has = (w: WorkingHousehold) => readAt(input(w), a) !== undefined;
   switch (op) {
-    case "confirm":
-      return has(wh) ? withRow(withoutAssumed(wh, f.key), a, { state: "confirmed", origin: { kind: "manual" }, estimate: { method, basis: s.basis ?? "推定" } }) : wh;
+    case "confirm": {
+      // 見せている値が世帯に無い（省略のときの既定・ほかの値と同じ値を見せる欄。0070）なら、見せている値を書いてから確定にする
+      // （書いても省く欄＝既定と同じ値は、行だけを書く）
+      const w = !has(wh) && cur !== null && f.write !== undefined ? f.write(wh, cur) : wh;
+      return has(w) || cur !== null ? withRow(withoutAssumed(w, f.key), a, { state: "confirmed", origin: { kind: "manual" }, estimate: { method, basis: s.basis ?? "推定" } }) : wh;
+    }
     case "revert": {
       const cleared = withRow(withoutAssumed(wh, f.key), a, undefined);
       return f.write !== undefined ? f.write(cleared, null) : cleared;

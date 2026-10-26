@@ -9,7 +9,7 @@ import { ageAxis, depletionYear, displayYears, familyText, financialOf, sumByYea
 import { ageInYear, roles } from "../roles.ts";
 import { OLD_AGE_CHOICE_LABEL } from "./inputs.ts";
 import type { ContingencyPlan } from "./planData.ts";
-import { ILLNESS_DEFAULT, type Scenario } from "./requests.ts";
+import { INCOME_DROP_DEFAULT, ILLNESS_DEFAULT, MARKET_CLASSES_DEFAULT, type Scenario } from "./requests.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
 export const REFORM_NOTICE = "N_REFORM_NOT_REFLECTED";
@@ -118,6 +118,40 @@ export interface ScenarioInput {
   choice: OldAgeChoice | undefined;
   /** 相場が下がったときの下がる幅 */
   drop?: string;
+  /** 場面の前提（収入が減る・重ねる相場の下落の言い方に使う） */
+  plan?: Pick<ContingencyPlan, "incomeDrop" | "stackMarket" | "market">;
+}
+
+/** 収入が減る人の言い方（前提の「誰の収入」） */
+function incomeWho(req: EngineRequest, plan: ScenarioInput["plan"]): string {
+  const rs = roles(req);
+  const who = plan?.incomeDrop?.member ?? INCOME_DROP_DEFAULT.member;
+  const self = rs.find((r) => r.key === "self")?.label ?? "ご本人";
+  const spouse = rs.find((r) => r.key === "spouse")?.label;
+  if (who === "both" && spouse !== undefined) return `${self}と${spouse}`;
+  if (who === "spouse" && spouse !== undefined) return spouse;
+  return self;
+}
+
+/**
+ * 残された人の年金の月額の一言（死亡の場面。エンジンの結果の年金の行を読むだけ。0071）: 亡くなった翌年の月額（遺族年金を含む）と、
+ * 65歳を過ぎた年（66歳の年）から変わればその月額
+ */
+export function survivorPensionText(req: EngineRequest, result: PreviewResult, sc: Scenario, year: number): string | null {
+  if (sc.kind !== "death") return null;
+  const rs = roles(req);
+  const surv = rs.find((r) => (r.key === "self" || r.key === "spouse") && r.member.id !== sc.member);
+  if (surv === undefined) return null;
+  const pen = sumByYear(result.table, (c) => c.member === surv.member.id && under(c.row, "cf.income.pension"));
+  const years = displayYears(req);
+  const first = years.find((y) => y > year);
+  if (first === undefined) return null;
+  const m1 = Math.round((pen.get(first) ?? 0) / 12);
+  const y66 = years.find((y) => y > first && ageInYear(surv.member, y) >= 66);
+  const m2 = y66 === undefined ? null : Math.round((pen.get(y66) ?? 0) / 12);
+  if (m1 === 0 && (m2 === null || m2 === 0)) return `${surv.label}の年金: 亡くなった翌年は受け取りがありません`;
+  const later = m2 !== null && Math.abs(m2 - m1) >= 1000 ? `。${y66}年（${ageInYear(surv.member, y66 as number)}歳）からは月${man(m2)}万円` : "";
+  return `${surv.label}の年金: 月${man(m1)}万円（${first}年。遺族年金を含む${later}）`;
 }
 
 export function scenarioModel(input: ScenarioInput): ScenarioModel {
@@ -134,7 +168,7 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
   const depN = depletionYear(none.table, years);
   const lastYear = years.at(-1) ?? req.input.endYear;
   const targetYear = self !== undefined ? Math.min(lastYear, parseYm(self.member.birth.birthYearMonth).y + input.targetAge) : lastYear;
-  const event = scenarioEvent(sc, year, input.drop);
+  const event = scenarioEvent(sc, year, input.drop, input.plan !== undefined ? { who: incomeWho(req, input.plan), ratio: input.plan.incomeDrop?.ratio ?? INCOME_DROP_DEFAULT.ratio, years: input.plan.incomeDrop?.years ?? INCOME_DROP_DEFAULT.years, stack: input.plan.stackMarket === true } : undefined);
   // 主役の数字は、残る人（死亡の想定）か本人の年齢で見る
   const watcher = sc.kind === "death" ? (other ?? self) : self;
   const wAge = (y: number) => (watcher !== undefined ? ageInYear(watcher.member, y) : null);
@@ -181,6 +215,8 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
     }
   }
   const notices: string[] = [];
+  const pension = survivorPensionText(req, result, sc, year);
+  if (pension !== null) notices.push(pension);
   if (sc.kind === "death" && hasReformNotice(result)) notices.push(REFORM_TEXT);
   const inherit = sc.kind === "death" ? inheritanceText(result) : null;
   if (inherit !== null) notices.push(inherit);
@@ -196,14 +232,16 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
   };
 }
 
-/** 想定の年の選択肢（計算基準年から、対象の人が75歳になる年まで）。age は対象の人のその年の年齢 */
+/**
+ * 想定の年の選択肢（計算基準年から、表の最後の年まで。上限は60年。0071 で対象の人が75歳になる年までの切りをやめた）。
+ * age は対象の人のその年の年齢
+ */
 export function yearOptions(req: EngineRequest, memberId: string): { value: number; label: string; age: number | null }[] {
   const m = req.input.household.members.find((x) => x.id === memberId);
   const by = parseYm(req.input.baseMonth).y;
   const out: { value: number; label: string; age: number | null }[] = [];
   for (let y = by; y <= Math.min(req.input.endYear, by + 60); y++) {
     const a = m === undefined ? null : ageInYear(m, y);
-    if (a !== null && a > 75) break;
     out.push({ value: y, label: `${y}年${a !== null ? `（${a}歳）` : ""}`, age: a });
   }
   return out;
@@ -279,18 +317,23 @@ export const manText = (yen: number) => `${man(yen)}万円`;
 /** 場面の帯のカードの名前（例: 「ご主人が亡くなったら」「奥様が働けなくなったら」「相場が下がったとき」） */
 export function scenarioTitle(sc: Scenario): string {
   if (sc.kind === "illness") return `${sc.who}が大きな病気のとき`;
+  if (sc.kind === "income") return "収入が減ったとき";
   if (sc.kind === "market") return "相場が下がったとき";
   return sc.kind === "death" ? `${sc.who}が亡くなったら` : `${sc.who}が働けなくなったら`;
 }
+
+const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
 /** 下がる幅の言い方（"0.3" → 「3割」） */
 export const dropText = (drop: string | undefined) => `${Math.round(Number(drop ?? "0.3") * 10)}割`;
 
 /** 想定の出来事の言い方（例: 「ご主人が2031年に亡くなった場合」「2041年に株などが3割下がった場合」） */
-export function scenarioEvent(sc: Scenario, year: number, drop?: string): string {
+export function scenarioEvent(sc: Scenario, year: number, drop?: string, o?: { who: string; ratio: string; years: number; stack: boolean }): string {
   if (sc.kind === "market") return `${year}年に株などが${dropText(drop)}下がった場合`;
-  if (sc.kind === "illness") return `${sc.who}が${year}年に大きな病気になった場合`;
-  return sc.kind === "death" ? `${sc.who}が${year}年に亡くなった場合` : `${sc.who}が${year}年に働けなくなった場合`;
+  const also = o?.stack === true ? `（同じ年に株などが${dropText(drop)}下がる）` : "";
+  if (sc.kind === "income") return `${year}年から${o?.years ?? INCOME_DROP_DEFAULT.years}年、${o?.who ?? sc.who}の収入が${dropText(o?.ratio ?? INCOME_DROP_DEFAULT.ratio)}減った場合${also}`;
+  if (sc.kind === "illness") return `${sc.who}が${year}年に大きな病気になった場合${also}`;
+  return sc.kind === "death" ? `${sc.who}が${year}年に亡くなった場合${also}` : `${sc.who}が${year}年に働けなくなった場合${also}`;
 }
 
 const GRADE_TEXT: Record<number, string> = { 0: "障害年金なしの仮定", 1: "障害1級の仮定", 2: "障害2級の仮定", 3: "障害3級の仮定" };
@@ -306,7 +349,7 @@ export function scenarioCards(input: {
   protection: ContingencyModel["protection"];
   grade: 0 | 1 | 2 | 3 | undefined;
   /** 大きな病気・相場が下がったときの前提（カードの札に出す） */
-  plan?: Pick<ContingencyPlan, "market" | "illness">;
+  plan?: Pick<ContingencyPlan, "market" | "illness" | "incomeDrop">;
 }): ScenarioCardModel[] {
   const keyOf = new Map(roles(input.req).map((r) => [r.member.id, r.key]));
   return input.scenarios.map((sc) => {
@@ -319,7 +362,8 @@ export function scenarioCards(input: {
       else if (input.protection.status === "error" || chart === undefined) [status, tone] = ["必要保障額は出していません", "wait"];
       else if (chart.maxShort !== null) [status, tone] = [`保障の不足 最大${man(chart.maxShort.amount)}万円`, "ng"];
       else [status, tone] = ["保障は足りています", "ok"];
-    } else if (sc.kind === "market") [status, tone] = [`下がる幅 ${dropText(input.plan?.market?.drop)}（株・REIT）`, "wait"];
+    } else if (sc.kind === "market") [status, tone] = [`下がる幅 ${dropText(input.plan?.market?.drop)}（${input.plan?.market?.classes === undefined || sameSet(input.plan.market.classes, MARKET_CLASSES_DEFAULT) ? "株・REIT" : "選んだ資産"}）`, "wait"];
+    else if (sc.kind === "income") [status, tone] = [`${dropText(input.plan?.incomeDrop?.ratio ?? INCOME_DROP_DEFAULT.ratio)}減・${input.plan?.incomeDrop?.years ?? INCOME_DROP_DEFAULT.years}年`, "wait"];
     else if (sc.kind === "illness") [status, tone] = [`働けない期間 ${input.plan?.illness?.months ?? ILLNESS_DEFAULT.months}か月・医療費`, "wait"];
     else [status, tone] = [GRADE_TEXT[input.grade ?? 2] ?? "", "wait"];
     const loading = sc.kind === "death" && input.protection.status === "loading";

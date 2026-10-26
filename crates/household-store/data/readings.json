@@ -2192,6 +2192,66 @@
     "survivor"
    ]
   },
+  "contingencyPremise.grade": {
+   "collection": "contingencyPremise",
+   "path": [
+    "grade"
+   ]
+  },
+  "contingencyPremise.horizon": {
+   "collection": "contingencyPremise",
+   "path": [
+    "horizon"
+   ]
+  },
+  "contingencyPremise.illness": {
+   "collection": "contingencyPremise",
+   "path": [
+    "illness"
+   ]
+  },
+  "contingencyPremise.incomeDrop": {
+   "collection": "contingencyPremise",
+   "path": [
+    "incomeDrop"
+   ]
+  },
+  "contingencyPremise.market": {
+   "collection": "contingencyPremise",
+   "path": [
+    "market"
+   ]
+  },
+  "contingencyPremise.medical": {
+   "collection": "contingencyPremise",
+   "path": [
+    "medical"
+   ]
+  },
+  "contingencyPremise.oldAgeChoice": {
+   "collection": "contingencyPremise",
+   "path": [
+    "oldAgeChoice"
+   ]
+  },
+  "contingencyPremise.protection": {
+   "collection": "contingencyPremise",
+   "path": [
+    "protection"
+   ]
+  },
+  "contingencyPremise.survivor": {
+   "collection": "contingencyPremise",
+   "path": [
+    "survivor"
+   ]
+  },
+  "contingencyPremise.work": {
+   "collection": "contingencyPremise",
+   "path": [
+    "work"
+   ]
+  },
   "debt.balance": {
    "collection": "debt",
    "path": [

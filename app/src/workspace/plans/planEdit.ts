@@ -18,6 +18,7 @@ import { inputItems, itemStage } from "../input/items.ts";
 import { fieldAddress, fieldStatus } from "../input/valueState.ts";
 import { formatYearMonth } from "../input/units.ts";
 import { memberLabel } from "../input/labels.ts";
+import { premiseDiffText } from "../contingency/planPremise.ts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -847,6 +848,9 @@ const LEVER_CARDS: Readonly<Record<string, string>> = {
   carUntilAge: "car",
 };
 
+/** 万一の前提の差分の行の置き場所（入力のホームのカードではない。万一のタブ） */
+export const CONTINGENCY_CARD = "contingency";
+
 function cardOf(d: PlanDiff, index: PlanIndex, now: Obj, view: Obj): string | null {
   const t = d.target;
   if (isLever(t)) {
@@ -863,7 +867,7 @@ function cardOf(d: PlanDiff, index: PlanIndex, now: Obj, view: Obj): string | nu
   }
   const hit = index.targets.get(targetKey(t));
   if (hit !== undefined) return hit;
-  if ("plan" in t) return t.plan === "assumptions" || t.plan === "input" ? "assumptions" : null;
+  if ("plan" in t) return t.plan === "assumptions" || t.plan === "input" ? "assumptions" : t.plan === "contingency" ? CONTINGENCY_CARD : null;
   const id = objectIdOf(t);
   const col = id === null ? null : (collectionIn(now, id) ?? collectionIn(view, id));
   return col !== null ? (COLLECTION_CARDS[col] ?? null) : null;
@@ -938,7 +942,7 @@ export function diffRows(wh: WorkingHousehold, cat: Catalog, pid: string, index:
     const d = diffs[0] as PlanDiff;
     const card = cardOf(d, index, now, inputOf(view));
     const review = d.enabled ? (diffs.map((x) => applied.reviews.get(x.id)).find((r) => r !== undefined && r.state !== "ok") ?? null) : null;
-    const base = { key: d.pair ?? d.id, diffs, plan: plan.id, inherited: plan.id !== pid, planName: label(plan), card, cardLabel: card === null ? "そのほか" : (index.cards.get(card) ?? card), enabled: d.enabled, review, origin: ORIGIN_TEXT(d), cause: null as string | null, followers: 0 };
+    const base = { key: d.pair ?? d.id, diffs, plan: plan.id, inherited: plan.id !== pid, planName: label(plan), card, cardLabel: card === null ? "そのほか" : (index.cards.get(card) ?? (card === CONTINGENCY_CARD ? "万一の前提（万一のタブ）" : card)), enabled: d.enabled, review, origin: ORIGIN_TEXT(d), cause: null as string | null, followers: 0 };
     rows.push({ ...base, ...describe(d, diffs, wh, view, cat, index) });
   }
   // 連鎖: きっかけの差分の行を指す
@@ -996,6 +1000,8 @@ function describe(d: PlanDiff, group: readonly PlanDiff[], wh: WorkingHousehold,
     const el = d.at !== null ? whereOf(index, d.target, d.item, d.at) : null;
     return { kind: "remove", label: `外す: ${ITEM_LABELS[d.item] ?? d.item}${el !== null ? `「${el}」` : ""}（${ownerLabel(d.target, wh, view)}）`, from: "あり", to: "外す" };
   }
+  const premise = premiseDiffText(d, wh);
+  if (premise !== null) return { kind: "set", ...premise };
   const a = addressOf(d);
   if (a === null) return { kind: "set", label: ITEM_LABELS[d.item ?? ""] ?? d.item ?? "—", from: "—", to: fieldValueText(undefined, unbox(d.value), wh) };
   const entry = index.fields.get(addressKey(a));

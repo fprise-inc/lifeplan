@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.26";
+pub const CURRENT: &str = "0.27";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -91,10 +91,17 @@ pub const CURRENT: &str = "0.26";
 /// - 0.26: 車のカード（0069）。車の維持費の入れ方 `cars[].upkeepMode`（合計だけ／内訳だけを数える）と、内訳の名前つきの行
 ///   `cars[].upkeepOther[]`（ID・名前・年額）を足した（どれも任意。足すだけの MINOR。入れ方の無い車は前の形〔入っている物を全部数える〕で計算する）。
 ///   0.25 のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
+/// - 0.27: 前提条件と万一のタブの前提（0070・0071）。画面の側の万一の前提 `household.contingency` に、子の独立とみなす年齢
+///   `survivor.independenceAge`・業務上の死亡 `survivor.deathBenefits.workRelated`・必要保障額の出し方 `protection`・働き方を変える時点
+///   `work.<人>.from`・復帰の後の働き方 `illness.afterMonths`・`afterRatio`・収入が減る場面 `incomeDrop`・下げる資産と戻り方
+///   `market.classes`・`recoveryYears`・`recoveryCap`・相場の下落を重ねる印 `stackMarket` を、画面の側の値に前提と推定の一覧の
+///   確かめた記録 `household.agreed` を足した（どれも任意。足すだけの MINOR）。万一の前提のプランごとの上書きは、0.17 からある向き先
+///   `{plan: "contingency"}` の差分で書く（入力項目ID contingencyPremise.*）。0.26 のアプリは知らない欄を読み落として書き戻すので、
+///   版を上げて閲覧だけにする
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
-    "0.26",
+    "0.26", "0.27",
 ];
 
 /// 1段分の変換
@@ -230,6 +237,11 @@ pub const STEPS: &[Step] = &[
         from: "0.25",
         to: "0.26",
         apply: v0_25_to_0_26,
+    },
+    Step {
+        from: "0.26",
+        to: "0.27",
+        apply: v0_26_to_0_27,
     },
 ];
 
@@ -521,6 +533,15 @@ fn v0_25_to_0_26(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.26".into());
+    }
+    Ok(body)
+}
+
+/// 0.26 → 0.27: 足した欄（万一の前提の任意の欄・確かめた記録。0070・0071）は任意なので足さない。形式の版だけを書き換える
+fn v0_26_to_0_27(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.27".into());
     }
     Ok(body)
 }
@@ -1046,7 +1067,8 @@ mod tests {
         assert_eq!(access("0.24").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.25").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.26").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.27").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.27").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.28").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -1059,7 +1081,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.27", b.clone()).unwrap(),
+            upgrade("0.28", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );

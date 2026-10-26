@@ -55,6 +55,11 @@ export interface WorkingHousehold {
    */
   loanEntry?: Record<string, LoanEntry>;
   /**
+   * 前提と推定の一覧で「お客さまと確かめた」記録（0070。プランごと: 現状は "current"、プランはプランの ID → 一覧の行の印 → 確かめた日と
+   * メモ）。画面の側の値で、計算の要求には入れない
+   */
+  agreed?: Record<string, Record<string, { on: string; note?: string }>>;
+  /**
    * 案（0008 の5 のプランの層の「提案」）。現状からの差分だけを持ち、数に上限は付けない。保存の回で世帯ファイル（0011）の
    * 世帯データの proposals に入れる（いまは画面の中で持ち、アプリを閉じると消える）
    */
@@ -258,7 +263,9 @@ export function followStandards(before: WorkingHousehold, after: WorkingHousehol
   const endBefore = before.request.input.endYear;
   const stdBefore = standardEndYear(hb);
   const stdAfter = standardEndYear(ha);
-  const fixEnd = Number.isFinite(stdBefore) && Number.isFinite(stdAfter) && endBefore === stdBefore && after.request.input.endYear === endBefore && stdAfter !== endBefore;
+  // FP が確定した表の最後の年（値の状態の行が確定。0070）は追いかけない
+  const pinned = (before.request.input as { valueStates?: Record<string, { state?: string }> }).valueStates?.["plan.endYear"]?.state === "confirmed";
+  const fixEnd = !pinned && Number.isFinite(stdBefore) && Number.isFinite(stdAfter) && endBefore === stdBefore && after.request.input.endYear === endBefore && stdAfter !== endBefore;
   // 独立の時点が子の独立の出来事を指している（出来事が正本。0038）なら、出来事の年月を見る
   const leavesAt = (h: Household, m: Member): Timepoint | null | undefined => {
     const t = m.leaves;

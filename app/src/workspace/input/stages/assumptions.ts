@@ -1,189 +1,672 @@
-// 10. 前提条件: 物価上昇率・賃金上昇率・運用利回り・教育費の上昇率・年金のマクロ経済スライド（年ごとの列の既定の値。0008 の8）、
-// 資産の種類ごとの利回り、持ち家の評価の前提（土地の上昇率・土地の割合・耐用年数・建物の下限・売却の費用）、表の最後の年、
-// FP顧問料（単発・継続。stages/fees.ts。以前は別のカード）。
+// 10. 前提条件（0070）: 物価上昇率・賃金上昇率・運用利回り・教育費の上昇率・年金のマクロ経済スライド（基礎・厚生）の年ごとの列の既定の値と
+// 例外の年（0008 の8・0040）、資産の種類ごとの利回り（と例外の年）、持ち家の評価の前提（土地の上昇率の例外の年を含む）、表の最後の年
+// （年か人の年齢で）・計算の基準の月と計算の決まり（読むだけ）、FP顧問料（単発・継続・料金の段階。stages/fees.ts）。
+// - 経済の前提の値は「FPライズの標準（仮の値）」の推定として見せる（標準と同じ値で、値の状態の行が無いとき。古い世帯も書き換えずに読む）。
+//   空欄にすると標準（教育費・厚生年金の調整率は、物価・基礎年金の調整率と同じ）に戻る。確定は「✓ この値で確定」だけ（0041）
+// - 高すぎる値の注意の線（運用利回りが年5%を超える・物価が0%未満か4%を超える・賃金が物価を2ポイント超えて上回る・資産の種類ごとの
+//   利回りが年8%を超える）は、欄の知らせと確かめの一覧の注意に出す（値は変えない）
+// - 表の最後の年は、標準（本人・配偶者のうち若い方が100歳になる年）と同じなら推定。確定にしたら家族の生年月を直しても追いかけない。
+//   古い世帯で若い方が表の最後の年に105歳を超える（か85歳に届かない）ときは、確かめの注意に「標準にする」を出す（押したときだけ直す）
 // 黒字のうち貯まる割合（0031）は、顧客と一緒に見る基本生活費のカードへ移した（stages/surplusSaving.ts。0031 の追記）
 import type { Household, YearSeries } from "../../../engine/types.ts";
-import { field, getPath, plain, type FieldDef, type GroupDef, type StageDef } from "../form.ts";
-import { mutate, standardEndYear, type WorkingHousehold } from "../household.ts";
-import { ASSET_CLASSES, BUILDING_STRUCTURES, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
+import { ageInYear } from "../../roles.ts";
+import type { Address } from "../../store/readings.ts";
+import { field, getPath, plain, type ActionDef, type FieldDef, type FieldState, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { DEFAULT_ASSUMPTIONS, mutate, standardEndYear, type WorkingHousehold } from "../household.ts";
+import { ASSET_CLASSES, BUILDING_STRUCTURES, memberLabel, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
+import { RATE_PRESETS } from "../savings/model.ts";
 import { sameRate } from "../units.ts";
+import { pctText } from "../../plans/decimal.ts";
 import { feeSections } from "./fees.ts";
 
-/** 年ごとの列の既定の値（default）の欄。年ごとの値（byYear）があるときは、その旨を出す */
-function seriesField(name: string, label: string, help: string, level: "simple" | "detail", optional: boolean): FieldDef {
+type Obj = Record<string, unknown>;
+type Assumptions = NonNullable<WorkingHousehold["request"]["input"]["assumptions"]>;
+
+/** FPライズの標準（仮の値）の根拠の文（事務所の標準値ができるまで。0070） */
+export const STANDARD_BASIS = "FPライズの標準（仮の値。事務所で根拠を確かめて直す前提）";
+
+/** 経済の前提の標準の値（新しい世帯に入れる値と同じ。household.ts の DEFAULT_ASSUMPTIONS） */
+const STANDARD: Readonly<Record<string, string>> = {
+  inflation: DEFAULT_ASSUMPTIONS.inflation.default,
+  wageGrowth: DEFAULT_ASSUMPTIONS.wageGrowth.default,
+  investmentReturn: DEFAULT_ASSUMPTIONS.investmentReturn.default,
+  pensionMacroSlide: DEFAULT_ASSUMPTIONS.pensionMacroSlide.default,
+};
+
+/** 空欄のとき、ほかの前提と同じ値になる前提（教育費は物価、厚生年金の調整率は基礎年金の調整率） */
+const FOLLOWS: Readonly<Record<string, { name: string; basis: string }>> = {
+  educationInflation: { name: "inflation", basis: "物価上昇率と同じ" },
+  pensionMacroSlideEmployee: {
+    name: "pensionMacroSlide",
+    basis: "基礎年金の調整率と同じ",
+  },
+};
+
+const num = (v: string | undefined | null) => (v === undefined || v === null ? null : Number(v));
+
+/** 高すぎる値の注意の線（事務所で直す。今は初めの線の仮の値。0070） */
+export function rateWarning(name: string, a: Assumptions | undefined): string | null {
+  const v = num((getPath(a, [name, "default"]) as string | undefined) ?? null);
+  if (v === null) return null;
+  if (name === "investmentReturn" && v > 0.05) return "運用利回りが年5%を超えています（事務所の注意の線）。長い期間の平均として高すぎないか確かめてください";
+  if (name === "inflation" && (v < 0 || v > 0.04)) return "物価上昇率が0%未満か4%を超えています（事務所の注意の線）";
+  if (name === "wageGrowth") {
+    const inf = num(a?.inflation?.default ?? null) ?? 0;
+    if (v - inf > 0.02) return "賃金上昇率が物価上昇率を2ポイント超えて上回っています（事務所の注意の線）";
+  }
+  return null;
+}
+
+/** 前提の列の置き場所（前提の中の道と、当て先の入力項目ID） */
+interface SeriesPlace {
+  path: readonly string[];
+  item: string;
+}
+
+const assumptionsOf = (wh: WorkingHousehold): Assumptions | undefined => wh.request.input.assumptions;
+const seriesAt = (wh: WorkingHousehold, sp: SeriesPlace): YearSeries | undefined => getPath(assumptionsOf(wh), sp.path) as YearSeries | undefined;
+
+/** 列を書く（undefined は列を外す）。前提が無ければ作る */
+function writeSeries(wh: WorkingHousehold, sp: SeriesPlace, next: YearSeries | undefined): WorkingHousehold {
+  const request = structuredClone(wh.request);
+  const a = (request.input.assumptions ??= structuredClone(DEFAULT_ASSUMPTIONS) as Assumptions) as unknown as Obj;
+  const chain: Obj[] = [a];
+  for (const k of sp.path.slice(0, -1)) {
+    const holder = chain[chain.length - 1] as Obj;
+    if (typeof holder[k] !== "object" || holder[k] === null) {
+      if (next === undefined) return wh;
+      holder[k] = {};
+    }
+    chain.push(holder[k] as Obj);
+  }
+  const last = sp.path[sp.path.length - 1] as string;
+  const holder = chain[chain.length - 1] as Obj;
+  if (next !== undefined) holder[last] = next;
+  else {
+    delete holder[last];
+    // 空になった入れ物（持ち家の評価の前提など）も外す
+    for (let i = chain.length - 1; i > 0; i--) if (Object.keys(chain[i] as Obj).length === 0) delete (chain[i - 1] as Obj)[sp.path[i - 1] as string];
+  }
+  return { ...wh, request };
+}
+
+/** 年ごとの列の既定の値（default）の欄（経済の前提） */
+function seriesField(name: string, label: string, help: string, level: "simple" | "detail"): FieldDef {
+  const sp: SeriesPlace = { path: [name], item: `assumptions.${name}` };
+  const follows = FOLLOWS[name];
+  const standard = STANDARD[name];
+  const address = (): Address => ({
+    target: { plan: "assumptions" },
+    item: sp.item,
+    at: ["default"],
+  });
   return field({
     key: `assume/${name}`,
-    item: `assumptions.${name}`,
+    item: sp.item,
     label,
     level,
     kind: "pct",
-    optional,
+    optional: true,
+    blankIsEstimate: true,
     help,
-    get: (wh) => {
-      const s = getPath(wh.request.input.assumptions, [name]) as YearSeries | undefined;
-      return { value: s?.default ?? null, hint: s === undefined ? "入れない（計算エンジンの既定）" : null, derived: s?.byYear !== undefined ? `年ごとの値が ${Object.keys(s.byYear).length} 年分あります（詳しい入力は次の版）` : null };
+    address,
+    get: (wh): FieldState => {
+      const s = seriesAt(wh, sp);
+      const a = assumptionsOf(wh);
+      const ex = s?.byYear !== undefined ? Object.keys(s.byYear).length : 0;
+      const derived = ex > 0 ? `例外の年 ${ex}年（詳細の「例外の年」で直します）` : null;
+      const warn = rateWarning(name, a);
+      if (follows !== undefined && s === undefined) {
+        const v = (getPath(a, [follows.name, "default"]) as string | undefined) ?? null;
+        return { value: v, estimated: follows.basis, derived, warn };
+      }
+      if (s === undefined) return { value: null, hint: "入れない（0%で計算）", derived, warn };
+      const fv = follows !== undefined ? ((getPath(a, [follows.name, "default"]) as string | undefined) ?? null) : null;
+      const est = standard !== undefined && sameRate(s.default, standard) ? STANDARD_BASIS : follows !== undefined && fv !== null && sameRate(s.default, fv) ? follows.basis : null;
+      return {
+        value: s.default,
+        ...(est !== null ? { estimated: est } : {}),
+        derived,
+        warn,
+      };
     },
     set: (wh, v) => {
-      const request = structuredClone(wh.request);
-      const a = (request.input.assumptions ??= { investmentReturn: { default: "0.01" } }) as Record<string, unknown>;
-      const cur = a[name] as YearSeries | undefined;
-      if (v === null) delete a[name];
-      else if (!(cur !== undefined && sameRate(cur.default, String(v)))) a[name] = { ...cur, default: String(v) };
-      return { ...wh, request };
+      const cur = seriesAt(wh, sp);
+      if (v === null) {
+        // 空欄: 標準の値に戻す（ほかの前提と同じ値になる前提は、例外の年が無ければ列を外す）
+        if (follows !== undefined) {
+          if (cur?.byYear === undefined) return writeSeries(wh, sp, undefined);
+          const f = (getPath(assumptionsOf(wh), [follows.name, "default"]) as string | undefined) ?? "0";
+          return writeSeries(wh, sp, { ...cur, default: f });
+        }
+        if (standard === undefined) return writeSeries(wh, sp, undefined);
+        return writeSeries(wh, sp, { ...cur, default: standard });
+      }
+      if (cur !== undefined && sameRate(cur.default, String(v))) return wh;
+      return writeSeries(wh, sp, { ...cur, default: String(v) });
     },
   });
 }
 
-function assetReturnGroups(wh: WorkingHousehold): GroupDef[] {
-  const ar = wh.request.input.assumptions?.assetReturns ?? {};
-  return Object.keys(ar).map((cls) => ({
-    key: `assume/assetReturns/${cls}`,
-    title: ASSET_CLASSES.find((o) => o.value === cls)?.label ?? cls,
-    level: "detail" as const,
-    fields: [
-      plain({
-        key: `assume/assetReturns/${cls}/default`,
-        item: "assumptions.assetReturns",
-        label: "利回り（年）",
-        level: "detail",
-        kind: "pct",
-        find: (_h, w) => (getPath(w.request.input.assumptions, ["assetReturns", cls]) as Record<string, unknown> | undefined) ?? undefined,
-        path: ["default"],
-      }),
-    ],
-    actions: [
-      {
-        key: `assume/assetReturns/${cls}/remove`,
-        label: "外す",
-        level: "detail" as const,
-        danger: true,
-        run: (w: WorkingHousehold) => {
-          const request = structuredClone(w.request);
-          const a = request.input.assumptions;
-          if (a?.assetReturns !== undefined) {
-            delete a.assetReturns[cls];
-            if (Object.keys(a.assetReturns).length === 0) delete a.assetReturns;
-          }
-          return { ...w, request };
-        },
-      },
-    ],
-  }));
+// ---- 例外の年（0040・0070）: 年ごとの値（byYear）を、続いた年で同じ率のまとまり（範囲）で見せて直す ----
+
+/** 例外の年の範囲（始まりの年〜終わりの年・率） */
+export interface YearRange {
+  from: number;
+  to: number;
+  rate: string;
 }
 
-/** 持ち家の評価の前提（assumptions.realEstateValuation。空欄は計算エンジンの目安） */
-function valuationGroup(): GroupDef {
+/** 年ごとの値 → 範囲（続いた年で同じ率をまとめる） */
+export function yearRanges(byYear: Readonly<Record<string, string>> | undefined): YearRange[] {
+  const ys = Object.keys(byYear ?? {})
+    .map(Number)
+    .sort((a, b) => a - b);
+  const out: YearRange[] = [];
+  for (const y of ys) {
+    const r = (byYear as Record<string, string>)[String(y)] as string;
+    const last = out.at(-1);
+    if (last !== undefined && last.to === y - 1 && sameRate(last.rate, r)) last.to = y;
+    else out.push({ from: y, to: y, rate: r });
+  }
+  return out;
+}
+
+/** 範囲 → 年ごとの値 */
+function byYearOf(ranges: readonly YearRange[]): Record<string, string> | undefined {
+  const out: Record<string, string> = {};
+  for (const r of ranges) for (let y = r.from; y <= r.to; y++) out[String(y)] = r.rate;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** 列の例外の年を書き直す（i 番目の範囲を next に。null は外す。i が範囲の数以上なら足す） */
+function rewriteRange(wh: WorkingHousehold, sp: SeriesPlace, i: number, next: YearRange | null, fallback: string): WorkingHousehold {
+  const cur = seriesAt(wh, sp);
+  const ranges = yearRanges(cur?.byYear);
+  if (i < ranges.length) ranges.splice(i, 1);
+  if (next !== null) {
+    // 直した範囲がほかの範囲と重なれば、直した範囲を勝たせる
+    for (const r of ranges) if (r.to >= next.from && r.from <= next.to) [r.from, r.to] = r.from < next.from ? [r.from, next.from - 1] : [next.to + 1, r.to];
+    ranges.push({ ...next });
+  }
+  const byYear = byYearOf(ranges.filter((r) => r.from <= r.to));
+  const base: YearSeries = { default: cur?.default ?? fallback };
+  return writeSeries(wh, sp, byYear === undefined ? (cur === undefined ? undefined : base) : { ...base, byYear });
+}
+
+/** 例外の年のまとまり（範囲ごと）と「＋ 例外の年」 */
+function exceptionGroups(wh: WorkingHousehold, key: string, sp: SeriesPlace, what: string, fallback: string): { groups: GroupDef[]; add: ActionDef } {
+  const ranges = yearRanges(seriesAt(wh, sp)?.byYear);
+  const by = Number(wh.request.input.baseMonth.slice(0, 4));
+  const rangeAt = (w: WorkingHousehold, i: number) => yearRanges(seriesAt(w, sp)?.byYear)[i];
+  const groups = ranges.map((r, i): GroupDef => {
+    const k = `${key}/ex/${i}`;
+    const yearField = (end: "from" | "to") =>
+      field({
+        key: `${k}/${end}`,
+        item: sp.item,
+        label: end === "from" ? "始まりの年" : "終わりの年",
+        level: "detail",
+        kind: "int",
+        suffix: "年",
+        min: by,
+        max: wh.request.input.endYear,
+        get: (w) => ({ value: rangeAt(w, i)?.[end] ?? null }),
+        set: (w, v) => {
+          const x = rangeAt(w, i);
+          if (x === undefined || v === null) return w;
+          const n = Number(v);
+          // 始まりの年を直すと範囲ごと動かす（年数はそのまま）。終わりの年は、始まりより前にしたら始まりも合わせる
+          const next = end === "from" ? { ...x, from: n, to: n + (x.to - x.from) } : { ...x, to: n, from: Math.min(n, x.from) };
+          return rewriteRange(w, sp, i, next, fallback);
+        },
+      });
+    return {
+      key: k,
+      title: `例外の年（${what}）: ${r.from === r.to ? `${r.from}年` : `${r.from}〜${r.to}年`} ${pctText(r.rate)}`,
+      level: "detail",
+      fields: [
+        yearField("from"),
+        yearField("to"),
+        field({
+          key: `${k}/rate`,
+          item: sp.item,
+          label: "その間の率（年）",
+          level: "detail",
+          kind: "pct",
+          get: (w) => ({ value: rangeAt(w, i)?.rate ?? null }),
+          set: (w, v) => {
+            const x = rangeAt(w, i);
+            return x === undefined || v === null ? w : rewriteRange(w, sp, i, { ...x, rate: String(v) }, fallback);
+          },
+        }),
+      ],
+      actions: [
+        {
+          key: `${k}/remove`,
+          label: "この例外の年を外す",
+          level: "detail",
+          danger: true,
+          run: (w) => rewriteRange(w, sp, i, null, fallback),
+        },
+      ],
+    };
+  });
+  const last = ranges.at(-1);
+  const from = Math.max(by, (last?.to ?? by - 1) + 1);
+  const add: ActionDef = {
+    key: `${key}/ex/add`,
+    label: `＋ 例外の年（${what}）`,
+    level: "detail",
+    run: (w) => rewriteRange(w, sp, Number.MAX_SAFE_INTEGER, { from, to: from, rate: seriesAt(w, sp)?.default ?? fallback }, fallback),
+  };
+  return { groups, add };
+}
+
+function assetReturnGroups(wh: WorkingHousehold): GroupDef[] {
+  const ar = wh.request.input.assumptions?.assetReturns ?? {};
+  return Object.keys(ar).flatMap((cls) => {
+    const label = ASSET_CLASSES.find((o) => o.value === cls)?.label ?? cls;
+    const ex = exceptionGroups(wh, `assume/assetReturns/${cls}`, { path: ["assetReturns", cls], item: "assumptions.assetReturns" }, label, "0.03");
+    const main: GroupDef = {
+      key: `assume/assetReturns/${cls}`,
+      title: label,
+      level: "detail" as const,
+      fields: [
+        plain({
+          key: `assume/assetReturns/${cls}/default`,
+          item: "assumptions.assetReturns",
+          label: "利回り（年。費用・税を引く前）",
+          level: "detail",
+          kind: "pct",
+          find: (_h, w) => (getPath(w.request.input.assumptions, ["assetReturns", cls]) as Obj | undefined) ?? undefined,
+          path: ["default"],
+          hint: (v) => (v !== null && Number(v) > 0.08 ? "年8%を超えています（事務所の注意の線）" : null),
+        }),
+      ],
+      actions: [
+        ex.add,
+        {
+          key: `assume/assetReturns/${cls}/remove`,
+          label: "外す",
+          level: "detail" as const,
+          danger: true,
+          run: (w: WorkingHousehold) => {
+            const request = structuredClone(w.request);
+            const a = request.input.assumptions;
+            if (a?.assetReturns !== undefined) {
+              delete a.assetReturns[cls];
+              if (Object.keys(a.assetReturns).length === 0) delete a.assetReturns;
+            }
+            return { ...w, request };
+          },
+        },
+      ],
+    };
+    return [main, ...ex.groups];
+  });
+}
+
+/** 持ち家の評価の前提（assumptions.realEstateValuation。空欄は計算エンジンの目安を推定として見せる。0025） */
+function valuationGroups(wh: WorkingHousehold): GroupDef[] {
   const find = (_h: Household, w: WorkingHousehold) => w.request.input.assumptions as Record<string, unknown> | undefined;
   const item = "assumptions.realEstateValuation";
   const R = "realEstateValuation";
-  return {
-    key: "assume/realEstate/fields",
-    level: "detail",
-    fields: [
-      plain({ key: "assume/realEstate/landGrowth", item, label: "土地の上昇率（年）", level: "detail", kind: "pct", find, path: [R, "landGrowth", "default"], optional: true, help: "空欄なら物価上昇率と同じ" }),
-      plain({ key: "assume/realEstate/landShare", item, label: "土地の割合（物件に入れていないとき）", level: "detail", kind: "pct", find, path: [R, "landShare"], optional: true, fallback: VALUATION_DEFAULTS.landShare, help: "目安は3割（土地付きの注文住宅の土地の取得費の全国の割合）。地域で大きく違うので物件ごとに直します" }),
-      ...BUILDING_STRUCTURES.map((o) =>
-        plain({ key: `assume/realEstate/life/${o.value}`, item, label: `耐用年数: ${o.label}`, level: "detail", kind: "int", suffix: "年", min: 1, max: 100, find, path: [R, "usefulLife", o.value], optional: true, fallback: USEFUL_LIFE[o.value] ?? 22, help: "建物はこの年数で定額で減らします（目安は住宅用の建物の法定耐用年数）" }),
-      ),
-      plain({ key: "assume/realEstate/floor", item, label: "建物の残りの価値の下限", level: "detail", kind: "pct", find, path: [R, "residualFloor"], optional: true, fallback: VALUATION_DEFAULTS.residualFloor, help: "建てた時の価値に対する割合。目安は2割（固定資産の評価で古い家屋の価値を下げる下限と同じ）" }),
-      plain({ key: "assume/realEstate/saleCost", item, label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find, path: [R, "saleCostRate"], optional: true, fallback: VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料（上限は価格の3%＋6万円と消費税）・印紙税・登記などの目安" }),
-    ],
-    actions: [],
-  };
+  /** 空欄は目安（推定。根拠 0025 の目安）。持ち家・不動産が無い世帯では使わないので、推定の数に入れない */
+  const owns = (w: WorkingHousehold) => (w.request.input.household.residences ?? []).some((r) => r.kind === "own") || (w.request.input.household.accounts ?? []).some((x) => x.kind === "realEstate");
+  const est = (f: FieldDef, basis: string): FieldDef => ({
+    ...f,
+    get: (w) => {
+      const st = f.get(w);
+      return st.implicit === true && owns(w) ? { ...st, estimated: basis } : st;
+    },
+  });
+  const ex = exceptionGroups(wh, "assume/realEstate/landGrowth", { path: [R, "landGrowth"], item }, "土地の上昇率", wh.request.input.assumptions?.inflation?.default ?? "0");
+  return [
+    {
+      key: "assume/realEstate/fields",
+      level: "detail",
+      fields: [
+        field({
+          key: "assume/realEstate/landGrowth",
+          item,
+          label: "土地の上昇率（年）",
+          level: "detail",
+          kind: "pct",
+          optional: true,
+          blankIsEstimate: true,
+          help: "空欄なら物価上昇率と同じ",
+          address: () => ({ target: { plan: "assumptions" }, item, at: ["landGrowth", "default"] }),
+          // 空欄は物価上昇率と同じ（推定。見せる値は物価上昇率）
+          get: (w) => {
+            const raw = w.request.input.assumptions?.realEstateValuation?.landGrowth?.default;
+            const inf = w.request.input.assumptions?.inflation?.default ?? null;
+            if (raw === undefined) return { value: inf, estimated: "物価上昇率と同じ" };
+            return inf !== null && sameRate(raw, inf) ? { value: raw, estimated: "物価上昇率と同じ" } : { value: raw };
+          },
+          set: (w, v) => {
+            const sp: SeriesPlace = { path: [R, "landGrowth"], item };
+            const cur = seriesAt(w, sp);
+            if (v !== null) return writeSeries(w, sp, { ...cur, default: String(v) });
+            if (cur?.byYear === undefined) return writeSeries(w, sp, undefined);
+            return writeSeries(w, sp, { ...cur, default: w.request.input.assumptions?.inflation?.default ?? "0" });
+          },
+        }),
+        est(
+          plain({
+            key: "assume/realEstate/landShare",
+            item,
+            label: "土地の割合（物件に入れていないとき）",
+            level: "detail",
+            kind: "pct",
+            find,
+            path: [R, "landShare"],
+            optional: true,
+            fallback: VALUATION_DEFAULTS.landShare,
+            help: "目安は3割（土地付きの注文住宅の土地の取得費の全国の割合）。地域で大きく違うので物件ごとに直します",
+          }),
+          "目安（土地付きの注文住宅の土地の割合）",
+        ),
+        ...BUILDING_STRUCTURES.map((o) =>
+          est(
+            plain({
+              key: `assume/realEstate/life/${o.value}`,
+              item,
+              label: `耐用年数: ${o.label}`,
+              level: "detail",
+              kind: "int",
+              suffix: "年",
+              min: 1,
+              max: 100,
+              find,
+              path: [R, "usefulLife", o.value],
+              optional: true,
+              fallback: USEFUL_LIFE[o.value] ?? 22,
+              help: "建物はこの年数で定額で減らします（目安は住宅用の建物の法定耐用年数）",
+            }),
+            "目安（住宅用の建物の法定耐用年数）",
+          ),
+        ),
+        est(
+          plain({
+            key: "assume/realEstate/floor",
+            item,
+            label: "建物の残りの価値の下限",
+            level: "detail",
+            kind: "pct",
+            find,
+            path: [R, "residualFloor"],
+            optional: true,
+            fallback: VALUATION_DEFAULTS.residualFloor,
+            help: "建てた時の価値に対する割合。目安は2割（固定資産の評価で古い家屋の価値を下げる下限と同じ）",
+          }),
+          "目安（固定資産の評価の下限と同じ）",
+        ),
+        est(
+          plain({
+            key: "assume/realEstate/saleCost",
+            item,
+            label: "売却の費用（売却価格に対する割合）",
+            level: "detail",
+            kind: "pct",
+            find,
+            path: [R, "saleCostRate"],
+            optional: true,
+            fallback: VALUATION_DEFAULTS.saleCostRate,
+            help: "仲介手数料（上限は価格の3%＋6万円と消費税）・印紙税・登記などの目安",
+          }),
+          "目安（仲介手数料の上限・印紙税・登記）",
+        ),
+      ],
+      actions: [ex.add],
+    },
+    ...ex.groups,
+  ];
 }
 
-export function assumptionsStage(wh: WorkingHousehold): StageDef {
-  const have = new Set(Object.keys(wh.request.input.assumptions?.assetReturns ?? {}));
+// ---- 表の最後の年（0070） ----
+
+/** 本人・配偶者（表の最後の年を年齢で入れる人） */
+const adultsOf = (h: Household) => h.members.filter((m) => m.kind === "self" || m.kind === "spouse");
+
+/** 表の最後の年が、若い方の年齢で 85〜105歳の外か（古い世帯の確かめの注意。黙って直さない） */
+export function endYearNotice(wh: WorkingHousehold): string | null {
+  const h = wh.request.input.household;
+  const end = wh.request.input.endYear;
+  const std = standardEndYear(h);
+  const ad = adultsOf(h);
+  if (!Number.isFinite(std) || ad.length === 0 || end === std) return null;
+  const young = ad.reduce((a, b) => (a.birth.birthYearMonth > b.birth.birthYearMonth ? a : b));
+  const age = ageInYear(young, end);
+  if (age <= 105 && age >= 85) return null;
+  return `表の最後の年が${end}年（${memberLabel(wh, young.id)}${age}歳）です。標準（${std}年）にしますか`;
+}
+
+function endYearFields(wh: WorkingHousehold): FieldDef[] {
+  const address = (): Address => ({
+    target: { plan: "input" },
+    item: "plan.endYear",
+    at: [],
+  });
+  const toStandard = (w: WorkingHousehold) =>
+    mutate(w, (h, req) => {
+      const std = standardEndYear(h);
+      if (Number.isFinite(std)) req.input.endYear = std;
+    });
   const endYear = field({
     key: "assume/endYear",
     item: "plan.endYear",
     label: "表の最後の年",
-    level: "detail",
+    level: "simple",
     kind: "int",
     suffix: "年",
     min: 2000,
     max: 2200,
     optional: true,
-    help: "標準は、本人・配偶者のうち若い方が100歳になる年。標準のままなら、家族の生年月を直すと合わせて変わります。空にすると標準に戻します",
+    blankIsEstimate: true,
+    address,
+    help: "標準は、本人・配偶者のうち若い方が100歳になる年（推定のままなら、家族の生年月を直すと合わせて変わります。確定にすると変わりません）。空にすると標準に戻します",
     get: (w) => {
-      const std = standardEndYear(w.request.input.household);
+      const h = w.request.input.household;
+      const std = standardEndYear(h);
       const v = w.request.input.endYear;
-      return { value: v, hint: Number.isFinite(std) ? (v === std ? "標準の年" : `標準は ${std}年`) : null };
+      const ages = adultsOf(h)
+        .map((m) => `${memberLabel(w, m.id)} ${ageInYear(m, v)}歳`)
+        .join("・");
+      const notice = endYearNotice(w);
+      return {
+        value: v,
+        hint: Number.isFinite(std) ? `${v === std ? "標準の年" : `標準は ${std}年`}${ages !== "" ? `（${ages}の年）` : ""}` : ages !== "" ? `${ages}の年` : null,
+        ...(Number.isFinite(std) && v === std ? { estimated: "標準の値（本人・配偶者のうち若い方が100歳になる年）" } : {}),
+        ...(notice !== null
+          ? {
+              warn: notice,
+              warnFix: { label: `標準（${std}年）にする`, run: toStandard },
+            }
+          : {}),
+      };
     },
     set: (w, v) =>
-      mutate(w, (h: Household, req) => {
+      mutate(w, (h, req) => {
         const std = standardEndYear(h);
         if (v !== null) req.input.endYear = Number(v);
         else if (Number.isFinite(std)) req.input.endYear = std;
       }),
   });
+  // 人の年齢で入れる（「奥様が［100］歳になる年まで」）。書くと表の最後の年が変わる（値は年だけを持つ）
+  const byAge = adultsOf(wh.request.input.household).map((m) =>
+    field({
+      key: `assume/endYear/age/${m.id}`,
+      item: null,
+      label: `${memberLabel(wh, m.id)}が何歳になる年まで`,
+      level: "simple",
+      kind: "int",
+      suffix: "歳",
+      min: 60,
+      max: 120,
+      help: "年齢で入れると、その人がその年齢になる年を表の最後の年にします",
+      get: (w) => {
+        const x = w.request.input.household.members.find((y) => y.id === m.id);
+        return {
+          value: x === undefined ? null : ageInYear(x, w.request.input.endYear),
+        };
+      },
+      set: (w, v) =>
+        mutate(w, (h, req) => {
+          const x = h.members.find((y) => y.id === m.id);
+          if (x !== undefined && v !== null) req.input.endYear = Number(x.birth.birthYearMonth.slice(0, 4)) + Number(v);
+        }),
+    }),
+  );
+  return [endYear, ...byAge];
+}
+
+/** 計算の決まり（読むだけ。0003 の7） */
+function conventionFields(): FieldDef[] {
+  const AGG: Record<string, string> = {
+    cash: "お金が出入りした月で数える（現金の出入り）",
+    accrual: "発生した月で数える",
+  };
+  const TIMING: Record<string, string> = {
+    midYear: "1年の運用益は、その年の出入りが年の真ん中にあったとして計算する",
+    beginning: "年の初めにあったとして計算する",
+    end: "年の終わりにあったとして計算する",
+  };
+  const ro = (key: string, label: string, read: (w: WorkingHousehold) => string) =>
+    field({
+      key,
+      item: null,
+      label,
+      level: "detail",
+      kind: "text",
+      readOnly: "計算の決まりです（変えられません）",
+      get: (w) => ({ value: read(w) }),
+      set: (w) => w,
+    });
+  const conv = (w: WorkingHousehold) =>
+    (w.request.input.calcConventions ?? {}) as {
+      aggregation?: string;
+      investmentTiming?: string;
+    };
+  return [
+    ro("assume/conv/aggregation", "計算の決まり: お金の数え方", (w) => AGG[conv(w).aggregation ?? ""] ?? conv(w).aggregation ?? "—"),
+    ro("assume/conv/timing", "計算の決まり: 運用益の数え方", (w) => TIMING[conv(w).investmentTiming ?? ""] ?? conv(w).investmentTiming ?? "—"),
+  ];
+}
+
+/** 推定のままの経済の前提の数（カードの上の1行に使う） */
+export function standardCount(wh: WorkingHousehold): number {
+  const a = wh.request.input.assumptions;
+  const rows = (wh.request.input as { valueStates?: Record<string, unknown> }).valueStates ?? {};
+  return Object.entries(STANDARD).filter(([name, v]) => {
+    const s = a?.[name] as YearSeries | undefined;
+    return s !== undefined && sameRate(s.default, v) && rows[`assumptions.${name}/default`] === undefined;
+  }).length;
+}
+
+export function assumptionsStage(wh: WorkingHousehold): StageDef {
+  const have = new Set(Object.keys(wh.request.input.assumptions?.assetReturns ?? {}));
   const baseMonth = field({
     key: "assume/baseMonth",
-    item: null,
+    item: "plan.baseMonth",
     label: "計算の基準の月",
     level: "detail",
     kind: "ym",
-    help: "この月から計算します。保存と見直しの版ができるまでは、世帯を開いたときの値のままにします",
+    help: "この月から計算します。入れる額は、この月の年の値段で入れます（物価で伸ばす額は、この年から伸びます）",
     readOnly: "見直しの版（現状の版を積む）ができてから変えられます",
     get: (w) => ({ value: w.request.input.baseMonth }),
     set: (w) => w,
   });
+  const series: [string, string, string, "simple" | "detail"][] = [
+    ["inflation", "物価上昇率（年）", "基本生活費などの変動率に使います（今の値段で入れた額を、この率で伸ばします）", "simple"],
+    ["wageGrowth", "賃金上昇率（年）", "給与の伸び（年齢ごとの昇給カーブとは別。名目の率）", "simple"],
+    ["investmentReturn", "運用利回り（年）", "資産の配分を入れていない口座の利回り（費用・税を引く前。長い期間の平均の目安）", "simple"],
+    ["educationInflation", "教育費の上昇率（年）", "空欄なら物価上昇率と同じ", "detail"],
+    ["pensionMacroSlide", "年金の調整率（マクロ経済スライド・基礎年金。年）", "将来の年金額の伸びから差し引く率", "detail"],
+    ["pensionMacroSlideEmployee", "年金の調整率（厚生年金。年）", "空欄なら基礎年金の調整率と同じ", "detail"],
+  ];
+  const exGroups: GroupDef[] = [];
+  const exAdds: ActionDef[] = [];
+  for (const [name, label] of series) {
+    const fol = FOLLOWS[name];
+    const fb = fol !== undefined ? ((getPath(wh.request.input.assumptions, [fol.name, "default"]) as string | undefined) ?? "0") : (STANDARD[name] ?? "0");
+    const ex = exceptionGroups(wh, `assume/${name}`, { path: [name], item: `assumptions.${name}` }, label.replace(/（.*$/, ""), fb);
+    exGroups.push(...ex.groups);
+    exAdds.push(ex.add);
+  }
+  const ir = wh.request.input.assumptions?.investmentReturn?.default;
+  const irField = seriesField("investmentReturn", "運用利回り（年）", "", "simple");
+  const presets: ActionDef[] = RATE_PRESETS.map((p) => ({
+    key: `assume/investmentReturn/preset/${p.id}`,
+    label: `運用利回り: ${p.label}（${pctText(p.rate)}）`,
+    level: "simple" as const,
+    pressed: ir !== undefined && sameRate(ir, p.rate),
+    title: "運用利回りの目安（事務所の標準の値。いまは仮の値）。商品のおすすめではありません",
+    run: (w: WorkingHousehold) => irField.set(w, p.rate),
+  }));
+  const std = standardCount(wh);
+  const sections: SectionDef[] = [
+    {
+      key: "assume/main",
+      title: "経済の前提",
+      note: `${std > 0 ? `前提は FPライズの標準（仮の値）で計算中です（${std}つ）。` : ""}事務所の標準値（設定）はまだありません。入れる額は計算の基準の年の値段で、物価で伸びます`,
+      level: "simple",
+      groups: [
+        {
+          key: "assume/main/fields",
+          level: "simple",
+          fields: [...series.map(([n, l, h, lv]) => seriesField(n, l, h, lv)), ...endYearFields(wh), baseMonth, ...conventionFields()],
+          actions: presets,
+        },
+      ],
+      actions: [],
+    },
+    {
+      key: "assume/exceptions",
+      title: "例外の年（経済の前提）",
+      note: "決まった年だけ違う率にします（例: 2026〜2028年は物価3%）。続いた年で同じ率は1つの範囲にまとめて見せます。簡易の率を直しても、例外の年はそのままです",
+      level: "detail",
+      groups: exGroups,
+      actions: exAdds,
+    },
+    {
+      key: "assume/realEstate",
+      title: "持ち家の評価（資産と負債の推移）",
+      note: "土地は上昇率で動き、建物は構造の耐用年数で定額で減らします。空欄は目安（推定）を使います",
+      level: "detail",
+      groups: valuationGroups(wh),
+      actions: [],
+    },
+    {
+      key: "assume/assetReturns",
+      title: "資産の種類ごとの利回り",
+      note: "貯蓄・運用のカードの資産配分と同じ値です（どちらで直しても同じ）。利回りは費用・税を引く前の年率",
+      level: "detail",
+      groups: assetReturnGroups(wh),
+      actions: ASSET_CLASSES.filter((o) => !have.has(o.value))
+        .slice(0, 6)
+        .map((o) => ({
+          key: `assume/addReturn/${o.value}`,
+          label: `＋ ${o.label}`,
+          level: "detail" as const,
+          run: (w: WorkingHousehold) => {
+            const request = structuredClone(w.request);
+            const a = (request.input.assumptions ??= {
+              investmentReturn: { default: "0.01" },
+            });
+            (a.assetReturns ??= {})[o.value] = {
+              default: o.value.startsWith("cash") ? "0.001" : "0.03",
+            };
+            return { ...w, request };
+          },
+        })),
+    },
+    ...feeSections(wh),
+  ];
   return {
     id: "assumptions",
     label: "前提条件",
-    lead: "物価・賃金・運用利回りなどの前提と、FP顧問料。顧客ごとに変えられます。",
-    sections: [
-      {
-        key: "assume/main",
-        title: "経済の前提",
-        note: "事務所の標準値（設定）はまだありません。今は世帯ごとの値を使います",
-        level: "simple",
-        groups: [
-          {
-            key: "assume/main/fields",
-            level: "simple",
-            fields: [
-              seriesField("inflation", "物価上昇率（年）", "基本生活費などの変動率に使います", "simple", true),
-              seriesField("wageGrowth", "賃金上昇率（年）", "給与の伸び（年齢ごとの昇給カーブとは別）", "simple", true),
-              seriesField("investmentReturn", "運用利回り（年）", "資産の配分を入れていない口座の利回り", "simple", false),
-              seriesField("educationInflation", "教育費の上昇率（年）", "空欄なら物価上昇率と同じ", "detail", true),
-              seriesField("pensionMacroSlide", "年金のマクロ経済スライドの調整率（年）", "将来の年金額の伸びから差し引く率", "detail", true),
-              endYear,
-              baseMonth,
-            ],
-            actions: [],
-          },
-        ],
-        actions: [],
-      },
-      {
-        key: "assume/realEstate",
-        title: "持ち家の評価（資産と負債の推移）",
-        note: "土地は上昇率で動き、建物は構造の耐用年数で定額で減らします。空欄は目安を使います",
-        level: "detail",
-        groups: [valuationGroup()],
-        actions: [],
-      },
-      {
-        key: "assume/assetReturns",
-        title: "資産の種類ごとの利回り",
-        level: "detail",
-        groups: assetReturnGroups(wh),
-        actions: ASSET_CLASSES.filter((o) => !have.has(o.value))
-          .slice(0, 6)
-          .map((o) => ({
-            key: `assume/addReturn/${o.value}`,
-            label: `＋ ${o.label}`,
-            level: "detail" as const,
-            run: (w: WorkingHousehold) => {
-              const request = structuredClone(w.request);
-              const a = (request.input.assumptions ??= { investmentReturn: { default: "0.01" } });
-              (a.assetReturns ??= {})[o.value] = { default: o.value.startsWith("cash") ? "0.001" : "0.03" };
-              return { ...w, request };
-            },
-          })),
-      },
-      ...feeSections(wh),
-    ],
+    lead: "物価・賃金・運用利回りなどの前提と、表の最後の年、FP顧問料。顧客ごとに変えられます。入れる額は計算の基準の年の値段です。",
+    sections,
   };
 }

@@ -620,6 +620,36 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.26 より前の版に維持費の入れ方は無い"
             );
         }
+        // 0.27 から（0070・0071）: 万一の前提の任意の欄・確かめた記録・万一の前提を上書きするプランの差分（どれも任意）
+        let cg = &now["household"]["contingency"];
+        if migrate::parse(v).unwrap() >= (0, 27) {
+            assert!(
+                cg["protection"]["method"] == "reverse"
+                    && cg["incomeDrop"]["member"].is_string()
+                    && cg["market"]["classes"].is_array()
+                    && cg["stackMarket"] == true,
+                "{v}: 万一の前提の任意の欄"
+            );
+            assert!(
+                now["household"]["agreed"]["current"].is_object(),
+                "{v}: 前提と推定の一覧の確かめた記録"
+            );
+            assert!(
+                now["proposals"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .flat_map(|p| p["diffs"].as_array().cloned().unwrap_or_default())
+                    .any(|d| d["target"]["plan"] == "contingency"
+                        && d["item"] == "contingencyPremise.survivor"),
+                "{v}: 万一の前提を上書きする差分"
+            );
+        } else {
+            assert!(
+                cg.get("incomeDrop").is_none() && now["household"].get("agreed").is_none(),
+                "{v}: 0.27 より前の版に収入が減る場面の前提・確かめた記録は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

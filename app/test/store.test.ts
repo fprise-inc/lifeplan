@@ -7,7 +7,7 @@ import { demoHousehold } from "../src/workspace/catalog.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { CURRENT } from "../src/workspace/plans/band.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
-import { savePlan } from "../src/workspace/plans/plans.ts";
+import { applyPlan, savePlan } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { Autosaver, type SaveState, type Timers } from "../src/workspace/store/autosave.ts";
@@ -290,6 +290,36 @@ function sample026(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.27 の見本の世帯（0070・0071）: sample026() に、万一の前提の任意の欄（子の独立とみなす年齢・業務上の死亡・逆算方式・働き方を変える
+ * 時点・復帰の後の働き方・収入が減る・下げる資産と戻り方・重ねる印）、前提の例外の年と厚生年金の調整率、表の最後の年の確定の行、
+ * 前提と推定の一覧の確かめた記録、万一の前提を上書きするプランの差分を足す
+ */
+function sample027(): BodyState {
+  const s = sample026();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const spouse = hh.members.find((m) => m.kind === "spouse")!;
+  const child = hh.members.find((m) => m.kind === "child")!;
+  const a = req.input.assumptions!;
+  a.inflation = { default: "0.01", byYear: { "2027": "0.03", "2028": "0.03" } };
+  a.pensionMacroSlideEmployee = { default: "0.006" };
+  (req.input as { valueStates?: Record<string, unknown> }).valueStates = { "plan.endYear": { state: "confirmed", origin: { kind: "manual" }, estimate: { method: "standard", basis: "標準の値" } } };
+  const c = structuredClone(s.wh.contingency);
+  c.survivor = { ...c.survivor, independenceAge: 20, deathBenefits: { workRelated: true } };
+  c.protection = { method: "reverse", reverseUntilAge: 90 };
+  c.work = { ...c.work, [spouse.id]: { type: "partTime", from: { memberAge: { member: child.id, years: 7 } } } };
+  c.illness = { ...c.illness, afterMonths: 12, afterRatio: "0.7" };
+  c.incomeDrop = { member: "both", ratio: "0.3", years: 2 };
+  c.market = { drop: "0.4", classes: ["equity.global", "kind:fxDeposit"], recoveryYears: 3, recoveryCap: "0" };
+  c.stackMarket = true;
+  const box = (value: unknown) => ({ value, state: "confirmed", origin: { kind: "manual" } });
+  const diff = { id: "00000000-0000-4000-8000-00000000a027", op: "set" as const, target: { plan: "contingency" as const }, item: "contingencyPremise.survivor", at: ["livingRatio", "beforeIndependence"], value: box("0.6"), before: box(null), enabled: true, origin: { kind: "manual" as const }, note: null };
+  const proposals = s.wh.proposals.map((p, i) => (i === 0 ? { ...p, diffs: [...p.diffs, diff] } : p));
+  const agreed = { current: { "field:assume/inflation": { on: "2026-10-20", note: "面談で確かめた" } } };
+  return { ...s, wh: { ...s.wh, request: req, contingency: c, proposals, agreed } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -413,7 +443,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.26");
+    expect(BODY_FORMAT_VERSION).toBe("0.27");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -592,6 +622,22 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const back = fromBody(JSON.stringify(stored));
     expect(back.wh.contingency.illness).toEqual({ disease: "heartStroke", hospitalDays: 25, surgeries: 2 });
     expect(bodyObject(back)).toEqual(bodyObject(s));
+    preview(back.wh.request);
+  });
+
+  it("0.27 の形（0070・0071）: 万一の前提の任意の欄・前提の例外の年・確かめた記録・万一の前提を上書きする差分を保存して読み戻し、差分はそのプランの万一の前提に当たる", () => {
+    const s = sample027();
+    const stored = bodyObject(s) as unknown as { household: { contingency: Record<string, unknown>; agreed?: unknown } };
+    expect(stored.household.contingency).toMatchObject({ protection: { method: "reverse", reverseUntilAge: 90 }, incomeDrop: { member: "both" }, stackMarket: true });
+    expect(stored.household.agreed).toEqual({ current: { "field:assume/inflation": { on: "2026-10-20", note: "面談で確かめた" } } });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const self = roles(back.wh.request).find((r) => r.key === "self")!.member;
+    const cat = buildCatalog(back.wh, self.id, null);
+    const plan = back.wh.proposals[0]!;
+    const applied = applyPlan(back.wh, plan.id, cat);
+    expect(applied.contingency.survivor.livingRatio?.beforeIndependence).toBe("0.6");
+    expect(back.wh.contingency.survivor.livingRatio?.beforeIndependence).toBeUndefined();
     preview(back.wh.request);
   });
 
