@@ -1304,6 +1304,8 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .ih-imports-list { display: grid; gap: 8px; padding: 8px 10px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--card); }
 .ih-imports.off { color: var(--ink-2); }
 .ih-imports-list .hs-tools { justify-content: flex-start; flex-wrap: wrap; }
+.ih-imports-list { margin: 0 0 12px; }
+.ih-imports-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 /* 事務所の既定値（0073） */
 .os-panel { max-width: 720px; }
 .os-sec { margin: 14px 0 0; }

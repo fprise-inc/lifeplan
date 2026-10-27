@@ -5,6 +5,7 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { PopIcon } from "../../presentation/icons.tsx";
+import { officeShareText, storageText } from "../header/FpMenu.tsx";
 import type { StorageNotice, StoredHousehold, StoreStatus } from "../../engine/host.ts";
 import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGORY, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, parseSampleNo, sampleNoText, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
 import { OFFICE_MESSAGES, sinceText } from "./office.ts";
@@ -315,7 +316,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   const personal = p.usage === "personal";
   // 一覧に出す通知（鍵が無い・PC の中だけで復元キーを保管していないは、この下と帯の案内で出すので除く）
   const notices = (p.storageNotices ?? []).filter((n) => n.kind !== "needsRecovery" && !(n.kind === "recoveryNotKept" && n.scope === "local"));
-  const storageLabel = p.officeState === undefined || p.officeState === "off" ? "このPCの中" : personal ? (p.officeState === "member" ? "同期フォルダ（2台のPC）" : "同期フォルダ（使えません）") : "事務所の共有フォルダ";
+  const storageLabel = storageText(p.officeState, personal);
   const shown = filterCustomers(p.list, query, catFilter);
   const inUse = new Set(p.list.flatMap((h) => (h.category !== undefined ? [h.category] : [])));
   const shelf = filterShelf(p.shelf, { family: shelfFamily, age: shelfAge, traits: shelfTraits });
@@ -881,7 +882,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
               事務所の共有
               <PopIcon />
             </button>
-            <span class="pl-sub">{personal ? "オフ（同期フォルダで1人で使っています）" : p.officeState === "member" ? "オン" : p.officeState === "pending" ? "承認待ち" : p.officeState === "removed" ? "外されました" : p.officeState === "unavailable" ? "使えません" : "オフ（既定）"}</span>
+            <span class="pl-sub">{officeShareText(p.officeState, personal)}</span>
           </>
         ) : null}
         {p.onOfficeDefaults !== undefined ? (

@@ -343,6 +343,7 @@ describe("オフの差分・取り込みは現状へ・結果のタブと同じ�
         level: "simple",
         tools: h("span", { "data-tools": true }, "道具"),
         imports: h("span", { "data-hearing": true }, "ヒアリングシート"),
+        importsOpen: true,
         plans: { list: [{ id: "B", label: "プランB", name: "プランB", color: "#0072c6" }], sel: "B", onSelect: () => undefined, onNew: () => undefined, onCopy: () => undefined, cat, onSavePlan: () => undefined, lock: null, onResults: () => undefined },
       }),
     );
@@ -365,8 +366,10 @@ describe("オフの差分・取り込みは現状へ・結果のタブと同じ�
     expect(menu.indexOf("data-diff-open")).toBeGreaterThan(menu.indexOf("data-plan-band"));
     expect(menu.indexOf("data-diff-open")).toBeLessThan(menu.indexOf("data-plan-new"));
     expect(menu).toContain("data-plan-copy");
-    const cur = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", imports: h("span", { "data-hearing": true }, "ヒアリングシート") }));
-    expect(cur).toContain("data-imports-open");
+    // 現状のとき: FP のメニューから開いた取り込みの中身はそのまま出る（入力の入った世帯なので、ホームに「取り込む ▾」は出さない）
+    const cur = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", importsOpen: true, imports: h("span", { "data-hearing": true }, "ヒアリングシート") }));
+    expect(cur).not.toContain("data-imports-open");
+    expect(cur).toContain("data-hearing");
     expect(cur).not.toContain("data-current-only");
   });
 });
