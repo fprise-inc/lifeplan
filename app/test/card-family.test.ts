@@ -6,6 +6,7 @@ import { allFields, type FieldDef, type StageDef, type Val } from "../src/worksp
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { addMember, addRelationStage, markBorn, relationSummary, spouseRelations, swapSelfSpouse } from "../src/workspace/input/stages/family.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
+import { checkList } from "../src/workspace/input/checkRows.ts";
 import { fieldAddress } from "../src/workspace/input/valueState.ts";
 import { readAt } from "../src/workspace/store/readings.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
@@ -212,6 +213,8 @@ describe("性別: 標準は本人の1押し。配偶者は本人の逆を推定�
     const spSex = fieldOf(wh, `family/${sp.id}/sex`);
     expect(spSex.level).toBe("detail");
     expect(spSex.get(wh).assumed).toContain("本人と逆の性別");
+    // 詳細の欄でも、推定のままなら確かめの一覧に出る
+    expect(checkList(wh).find((r) => r.fieldKey === `family/${sp.id}/sex`)).toMatchObject({ kind: "estimated", level: "detail" });
     wh = set(wh, `family/${self.id}/sex`, "female");
     expect(spouseOf(wh).sex).toBe("male");
     expect(fieldOf(wh, `family/${sp.id}/sex`).get(wh).assumed).toContain("本人と逆の性別");
