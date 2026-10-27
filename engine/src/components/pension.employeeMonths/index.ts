@@ -12,6 +12,7 @@ import {
   monthIndex,
   monthOf,
   oldAgeClaimMonths,
+  claimInput,
   parseYm,
   specialOldAgeStart,
   SPECIAL_OLD_AGE_PARAMS,
@@ -35,7 +36,7 @@ export default defineComponent<{ member: string }, { months: number; longFrom: s
   revision: 2,
   requires: { "pension.record": ">=1 <2" },
   params: Object.values(P),
-  reads: ["pensionRecord.member", "pensionRecord.claim"],
+  reads: ["pensionRecord.member", "pensionRecord.claim", "member.pensionClaim"],
   memberScope: ["pensionRecord"],
   input: "member.input",
   output: "pension.employeeMonths.output",
@@ -61,7 +62,7 @@ export default defineComponent<{ member: string }, { months: number; longFrom: s
       b0 = rec.asOf === null ? E : addMonths(parseYm(rec.asOf), 1);
     } else {
       const SA = specialOldAgeStart(ctx, at0, rec, member, N);
-      const claim = oldAgeClaimMonths(ctx, rec, input0, N, SA);
+      const claim = oldAgeClaimMonths(ctx, rec, claimInput(ctx, member, input0), N, SA);
       E = N;
       if (claim.employee < E) E = claim.employee;
       if (SA !== null && SA < E) E = SA;

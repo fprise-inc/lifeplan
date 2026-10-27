@@ -300,7 +300,7 @@ describe("オフの差分・取り込みは現状へ・結果のタブと同じ�
     const { wh, cat } = setup("housingPurchase");
     const view = planView(wh, cat, "B");
     // 動かす項目の一覧にある欄（入力の欄から作った項目）
-    const item = cat.items.find((it) => it.key.startsWith("field:") && it.control.kind === "field" && it.control.field.kind === "yen")!;
+    const item = cat.items.find((it) => it.key.startsWith("field:") && it.key.endsWith("/annual") && it.control.kind === "field" && it.control.field.kind === "yen")!;
     const f = buildStages(view).flatMap((x) => allFields(x)).find((x) => `field:${x.key}` === item.key)!;
     const now = f.get(view).value as number;
     const w = recordPlanEdit(wh, cat, "B", view, f.set(view, now + 10000));

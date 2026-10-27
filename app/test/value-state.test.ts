@@ -449,7 +449,8 @@ describe("確かめの一覧", () => {
     const main = wh.request.input.household.employmentPeriods![0]!.id;
     const salary = checkList(wh).filter((r) => r.card === "work" && r.label.includes("年収") && !r.label.includes("定年後"));
     expect(salary).toHaveLength(1);
-    expect(salary[0]!.fieldKey).toBe(`work/${self.id}/now/annual`);
+    // 標準の今の働き方は年収（賞与込み）の1欄（年収の当て先。0078）
+    expect(salary[0]!.fieldKey).toBe(`work/${self.id}/now/total`);
     expect(checkList(wh).filter((r) => r.fieldKey === `work/period/${main}/annual`)).toHaveLength(0);
   });
 

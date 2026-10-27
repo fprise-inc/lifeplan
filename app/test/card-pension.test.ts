@@ -44,10 +44,11 @@ function withStatement(): { wh: WorkingHousehold; self: string } {
 }
 
 describe("入れ方の区分と書類の種類", () => {
-  it("推計のままなら欄は区分だけで、「書類の額で置き換える」で書類からになる。書類の種類の既定は年齢から（40歳は定期便の50歳未満）", () => {
+  it("推計のままなら欄は区分と受け取り開始だけで、「書類の額で置き換える」で書類からになる。書類の種類の既定は年齢から（40歳は定期便の50歳未満）", () => {
     const wh = blankHousehold(BASE, ids());
     const self = selfOf(wh).id;
-    expect(fields(wh).filter((f) => f.key.startsWith(`pension/${self}`)).map((f) => f.key)).toEqual([`pension/${self}/mode`]);
+    // 推計でも受け取り開始は標準（構成員の pensionClaim。0078）
+    expect(fields(wh).filter((f) => f.key.startsWith(`pension/${self}`)).map((f) => f.key)).toEqual([`pension/${self}/mode`, `pension/${self}/estimate/claim`, `pension/${self}/estimate/claim/basic`, `pension/${self}/estimate/claim/employee`]);
     expect(fieldOf(wh, `pension/${self}/mode`).get(wh).value).toBe("");
     const w = actionOf(wh, `pension/${self}/toDocument`).run(wh);
     expect(recordsOf(w)).toMatchObject([{ member: self, kind: "statementUnder50" }]);

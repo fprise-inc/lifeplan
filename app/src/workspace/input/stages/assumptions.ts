@@ -457,7 +457,8 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
     key: "assume/endYear",
     item: "plan.endYear",
     label: "表の最後の年",
-    level: "simple",
+    // 標準（若い方が100歳）でほぼ足りるので詳細（0078）
+    level: "detail",
     kind: "int",
     suffix: "年",
     min: 2000,

@@ -568,7 +568,8 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
       key: `work/${m.id}/residentTax`,
       item: "residentTaxAssessment.amount",
       label: `住民税（${fy}年度の年税額）`,
-      level: "simple",
+      // 効くのは今年度の1年分だけで、決定通知書を写す書類の値なので詳細（空欄は前の年の所得から概算。0078）
+      level: "detail",
       basis: "annual",
       find: findTax,
       path: ["amount"],
@@ -642,9 +643,20 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
   if (p.type === "partTime" || p.type === "contract") fields.push(employeeInsuranceField(p, find, prefix, level));
   if (SALARIED.has(p.type)) {
     fields.push(
-      yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額。空欄なら統計の目安で計算します" }),
-      growthField(wh, p, find, prefix, "salary", d),
-      yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null }),
+      // 標準（今の働き方）は年収（賞与込み）の1欄。賞与の内訳は詳細の「働き方の期間（詳しく）」の年収・賞与で直す（0078）。
+      // 役員だけは標準でも月の報酬（年額）と賞与を分けて聞く（社会保険料の上限が月の報酬と賞与で違い、まとめて統計の割合で分けると結果が大きくずれる）
+      ...(level === "simple" && p.type === "executive"
+        ? [
+            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "月の報酬（年額・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "毎月の役員報酬の12か月分（定期同額給与）。空欄なら目安で計算します" }),
+            yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計。事前確定届出給与など）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null, help: "役員の賞与（事前確定届出給与など）の年間の合計。無ければ0" }),
+          ]
+        : level === "simple"
+        ? [salaryTotalField(wh, m, p, find, prefix)]
+        : [
+            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額。空欄なら統計の目安で計算します" }),
+            growthField(wh, p, find, prefix, "salary", d),
+            yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null }),
+          ]),
       plain({
         key: `${prefix}/hi`,
         item: "employment.healthInsurance.kind",
@@ -683,6 +695,117 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
     fields.push(yenBox({ key: `${prefix}/business`, item: "employment.business.income", label: "事業所得（年額）", level, basis: "annual", find, path: ["business", "income"], estimate: () => businessEstimate(), help: "確定申告書の所得金額（青色申告特別控除の前）" }), growthField(wh, p, find, prefix, "business", d));
   if (level === "detail") fields.push(...claimFields(wh, m, p, find, prefix));
   return fields;
+}
+
+// ---- 年収（賞与込み）（0078）----
+
+type SalaryBox = Box<number> & { substitute?: Box<number>; estimate?: { method?: string; basis?: string }; approval?: unknown };
+const boxValue = (b: SalaryBox | undefined): number | null => (b === undefined ? null : (b.value ?? (b.state === "unknown" ? (b.substitute?.value ?? null) : null)));
+const roundThousand = (v: number): number => Math.round(v / 1000) * 1000;
+const manText = (v: number): string => `${(v / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円`;
+/** 合計から賞与を分けた推定の出し方（統計の推定〔statistic〕と分けて、統計を入れ直すときに書き換えない） */
+export const BONUS_SPLIT_METHOD = "derived";
+
+/**
+ * 年収（賞与込み）の欄（標準の今の働き方。0078）。世帯ファイルは年収（賞与を除く）と賞与の2つの値の箱のまま（形を変えない）。
+ * - 見せる値は2つの合計。状態は年収の箱の状態（推定・わからない・該当なし・確定）
+ * - 合計を入れると: 賞与が確定（人が入れた・書類の値）で合計以下なら、賞与はそのままで年収＝合計−賞与。そうでなければ、賃金の統計（年齢・性別・
+ *   働き方の平均）の年収と賞与の割合で賞与を分け（千円単位）、賞与は推定の印（出し方 derived）、年収は確定にする
+ * - 空にすると、年収・賞与とも統計の推定に戻す（2つの欄を空にしたのと同じ）。確定・わからないの操作は年収の箱に当てる（賞与はそのまま）
+ */
+function salaryTotalField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find: Finder, prefix: string): FieldDef {
+  const item = "employment.salary.annual";
+  const stat = () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) });
+  const boxes = (w: WorkingHousehold) => {
+    const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
+    return { a: x?.salary?.annual as SalaryBox | undefined, b: x?.salary?.bonus as SalaryBox | undefined };
+  };
+  const total = (w: WorkingHousehold): number | null => {
+    const { a, b } = boxes(w);
+    const av = boxValue(a);
+    return av === null ? null : av + (boxValue(b) ?? 0);
+  };
+  const edit = (w: WorkingHousehold, fn: (s: NonNullable<EmploymentPeriod["salary"]>) => void) =>
+    mutate(w, (h) => {
+      const x = find(h, w) as EmploymentPeriod | undefined;
+      if (x?.salary !== undefined) fn(x.salary);
+    });
+  const bonusOf = (w: WorkingHousehold): number => boxValue(boxes(w).b) ?? 0;
+  /** 状態を年収の箱に当てる（値は合計から賞与を引いた額） */
+  const writeBox = (w: WorkingHousehold, box: Record<string, unknown> | undefined): WorkingHousehold => {
+    if (box === undefined) return w;
+    const bonus = bonusOf(w);
+    const sub = box.substitute as SalaryBox | undefined;
+    const shown = typeof box.value === "number" ? box.value : typeof sub?.value === "number" ? sub.value : null;
+    // 合計が今の賞与より少ない額の箱（未入力の0円など）は、賞与を同じ状態の0円にして、年収に合計を置く（読み直すと同じ合計になる）
+    const keepBonus = shown === null || shown >= bonus;
+    const less = (v: number) => (keepBonus ? v - bonus : v);
+    const next: Record<string, unknown> = { ...structuredClone(box) };
+    if (typeof box.value === "number") next.value = less(box.value);
+    if (sub !== undefined && typeof sub.value === "number") next.substitute = { ...structuredClone(sub), value: less(sub.value) };
+    return edit(w, (s) => {
+      s.annual = next as unknown as Box<number>;
+      if (box.state === "notApplicable" && s.bonus !== undefined) s.bonus = { state: "notApplicable", origin: { kind: "manual" } } as unknown as Box<number>;
+      else if (!keepBonus) s.bonus = { ...structuredClone(box), value: 0, ...(sub !== undefined ? { substitute: { ...structuredClone(sub), value: 0 } } : {}) } as unknown as Box<number>;
+    });
+  };
+  return {
+    ...field({
+      key: `${prefix}/total`,
+      item,
+      label: "年収（税込み・賞与込み）",
+      level: "simple",
+      kind: "yen",
+      basis: "annual",
+      optional: true,
+      blankIsEstimate: true,
+      help: "源泉徴収票の支払金額（給与と賞与の合計）。賞与の内訳は詳細の「働き方の期間」で直せます（入れていなければ統計の割合で分けます）。空欄なら統計の目安で計算します",
+      get: (w) => {
+        const { a, b } = boxes(w);
+        const bv = boxValue(b);
+        const basisA = boxBasis(a);
+        const basisB = boxBasis(b);
+        const estimated = basisA !== null ? (basisB !== null && b?.estimate?.method === "statistic" ? `年収: ${basisA}／賞与: ${basisB}` : basisA) : a?.state === "unknown" ? "わからない（代わりの値）" : null;
+        return { value: total(w), estimated, hint: bv !== null && bv > 0 ? `うち賞与 ${manText(bv)}${basisB !== null ? "（推定）" : ""}` : null };
+      },
+      set: (w, v) => {
+        const e = stat();
+        if (v === null)
+          return edit(w, (s) => {
+            if (e !== null) {
+              s.annual = estimatedBox(e.annual.value, e.annual.basis);
+              s.bonus = estimatedBox(e.bonus.value, e.bonus.basis);
+            }
+          });
+        const sum = Math.max(0, Math.round(Number(v)));
+        const b = boxes(w).b;
+        // 人が入れた賞与（確定）は残す
+        if (b !== undefined && b.state === "confirmed" && typeof b.value === "number" && b.value <= sum)
+          return edit(w, (s) => void (s.annual = { value: sum - (b.value as number), state: "confirmed", origin: { kind: "manual" } }));
+        const ratio = e === null || e.annual.value + e.bonus.value <= 0 ? 0 : e.bonus.value / (e.annual.value + e.bonus.value);
+        const bonus = roundThousand(sum * ratio);
+        const basis = e === null ? "賞与の統計の割合が無いので0円（合計を年収に入れています）" : `年収（賞与込み）${manText(sum)}を、賃金の統計の年収と賞与の割合（賞与 ${Math.round(ratio * 1000) / 10}%）で分けた額`;
+        return edit(w, (s) => {
+          s.annual = { value: sum - bonus, state: "confirmed", origin: { kind: "manual" } };
+          s.bonus = { value: bonus, state: "estimated", origin: { kind: "auto" }, estimate: { method: BONUS_SPLIT_METHOD, basis } } as Box<number>;
+        });
+      },
+    }),
+    boxed: {
+      read: (w) => {
+        const { a } = boxes(w);
+        if (a === undefined) return undefined;
+        const bonus = bonusOf(w);
+        return {
+          ...structuredClone(a),
+          ...(typeof a.value === "number" ? { value: a.value + bonus } : {}),
+          ...(a.substitute !== undefined && typeof a.substitute.value === "number" ? { substitute: { ...structuredClone(a.substitute), value: a.substitute.value + bonus } } : {}),
+        };
+      },
+      write: writeBox,
+    },
+    address: () => ({ target: { object: p.id }, item, at: [] }),
+  };
 }
 
 // ---- 勤め先の社会保険・休業の終わり（0047）----

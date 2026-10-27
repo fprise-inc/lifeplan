@@ -676,6 +676,18 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.29 より前の版に次回確かめるの印は無い"
             );
         }
+        // 0.30 から（0078）: 年金の記録が無い人（推計の区分）の受け取り開始（任意）
+        let claimed = now["household"]["request"]["input"]["household"]["members"]
+            .as_array()
+            .is_some_and(|l| l.iter().any(|m| m["pensionClaim"]["basic"].is_object()));
+        if migrate::parse(v).unwrap() >= (0, 30) {
+            assert!(claimed, "{v}: 推計の区分の受け取り開始");
+        } else {
+            assert!(
+                !claimed,
+                "{v}: 0.30 より前の版に推計の区分の受け取り開始は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

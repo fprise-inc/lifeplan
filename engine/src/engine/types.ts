@@ -36,6 +36,8 @@ export interface MemberInput {
   readonly joins: Timepoint | null;
   readonly leaves: Timepoint | null;
   readonly expected: boolean;
+  /** 0078: 老齢年金の受給を始める月（年金の記録が無い人。推計のときの繰上げ・繰下げ。記録があれば記録の claim を使う。省略は65歳に達した月の翌月） */
+  readonly pensionClaim?: { readonly basic?: Timepoint; readonly employee?: Timepoint };
   readonly support?: { readonly dependent: boolean; readonly cohabiting: boolean; readonly allowance?: Yen };
   /** 0035 の4: 世帯の外の家族（家計を世帯と別にする家族）。お金の動きは家計を1つにする期間のうち収入を世帯に入れる期間だけ世帯に入れ、世帯の判定の顔ぶれに入れない（sdk の isOutside・sameHousehold） */
   readonly outside?: OutsideFamilyInput;

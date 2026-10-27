@@ -305,7 +305,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
       );
     else fields.push(withAddress(plain({ key: `${prefix}/multiplier`, item: "retirementBenefit.estimate", label: "功績倍率", level: "detail", kind: "decimal", suffix: "倍", find, path: ["estimate", "multiplier"], help: "役員の地位でおよそ1.0〜3.0" }), multiplierAt(b.id)));
   }
-  // 受け取る時期（簡易。空欄は勤め先を辞めた翌月）
+  // 受け取る時期（詳細。空欄は勤め先を辞めた翌月。辞める月と違う人は少なく、ずれても運用益と税の差だけ。0078）
   const endYm = resolveTimepoint(h, b.service?.to ?? periodOf(h, b)?.to ?? null);
   fields.push(
     withAddress(
@@ -313,7 +313,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
         key: `${prefix}/paidAt`,
         item: "retirementBenefit.paidAt",
         label: ANNUITY_ONLY.has(kind) ? "支給の月" : "受け取る時期",
-        level: ANNUITY_ONLY.has(kind) ? "detail" : "simple",
+        level: "detail",
         find,
         path: ["paidAt"],
         ageOf,

@@ -130,7 +130,8 @@ describe("表の最後の年", () => {
     const f = fieldOf(wh, "assume/endYear");
     expect(wh.request.input.endYear).toBe(std);
     expect(fieldStatus(f, wh).status).toBe("estimated");
-    expect(f.level).toBe("simple");
+    // 標準（若い方が100歳）でほぼ足りるので詳細（0078）
+    expect(f.level).toBe("detail");
     const spouse = h.members.find((m) => m.kind === "spouse")!;
     const w2 = fieldOf(wh, `assume/endYear/age/${spouse.id}`).set(wh, 95);
     expect(w2.request.input.endYear).toBe(Number(spouse.birth.birthYearMonth.slice(0, 4)) + 95);

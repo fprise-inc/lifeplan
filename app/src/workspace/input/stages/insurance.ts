@@ -1,5 +1,6 @@
 // 保険のカード（0055）: 契約ごとに簡易（目安で）と詳細（証券どおり）。
-// - 簡易は1契約5欄: 種類（ひな形）・被保険者・保険料（払い方つき）・主な保障の額（種類で給付が変わる1欄）・終わり。ほかは推定（ひな形の標準の値）
+// - 簡易は1契約5欄: 種類（ひな形）・被保険者・保険料（払い方つき）・主な保障の額（種類で給付が変わる1欄）・終わり。ほかは推定（ひな形の標準の値）。
+//   終わりは、定期の保険は保障の終わり、終身の保険は払込の終わり、満期・年金のある保険は両方（0078 の endLevels）
 // - 詳細: 名前・契約者・契約年月・受取人・受け取るお金の税（読むだけ）・満期金などの受取人・保険料控除の区分と新旧・払込の終わり・更新・
 //   払込免除・解約の月と解約返戻金・保障の明細（被保険者・給付の種類・額・期間・推移の形・最低保証の月数・免責の月数・年数・限度日数）
 // - 保険料と保障の額は目安を作らない（新しい契約でも未入力の警告。必要保障額に合わせるボタンは保障の見え方の区画）
@@ -236,6 +237,20 @@ function fitRegime(c: InsuranceContract, type: string): void {
 
 // ---- 欄 ----
 
+/** 定期の保険（保障の終わりまで払う形）: 標準の「終わり」は保障の終わり */
+const TERM_KINDS: ReadonlySet<string> = new Set(["term", "decreasingTerm", "incomeProtection", "incapacity", "mutualAid", "groupTerm"]);
+/** 満期金・年金を受け取る保険: 受け取りの時期と払込の終わりの両方が結果に効く */
+const MATURITY_KINDS: ReadonlySet<string> = new Set(["endowment", "education", "privateAnnuity"]);
+
+/**
+ * 保障の終わりと払込の終わりの欄の、標準・詳細（0078）。定期の保険は保障の終わり（払込は同じ月までが多い）、終身の保険（終身・医療・がん・
+ * 介護・外貨建て・変額）は払込の終わり（保障は終身、払込は60歳・65歳などで終わる形が多く、結果に効く）。一時払いは払込の終わりを聞かない
+ */
+export function endLevels(kind: string, single: boolean): { coverage: "simple" | "detail"; premium: "simple" | "detail" } {
+  if (TERM_KINDS.has(kind)) return { coverage: "simple", premium: "detail" };
+  return { coverage: MATURITY_KINDS.has(kind) ? "simple" : "detail", premium: single ? "detail" : "simple" };
+}
+
 /** 払込の終わり（時点の部品。空欄は終身払い） */
 function payUntilField(find: Finder, k: string, id: string, level: "simple" | "detail", label: string): FieldDef {
   return withAddress(
@@ -361,7 +376,9 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       },
     }),
   );
-  // 主な保障の額（種類で給付が変わる1欄）と終わり
+  // 主な保障の額（種類で給付が変わる1欄）と終わり。標準の「終わり」は、定期の保険では保障の終わり、終身の保険では払込の終わりとして聞く。
+  // 満期金・年金を受け取る保険（養老・学資・個人年金）は、受け取りの時期（保障の終わり・受け取りの始まり）と払込の終わりの両方を標準に出す（0078）
+  const ends = endLevels(kind.kind, c.premium.frequency === "single");
   if (kind.main !== null) {
     const mk = kind.main;
     const findMain: Finder = (h) => {
@@ -423,7 +440,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
             key: `${k}/end`,
             item: "insurance.coverages",
             label: ep === "from" ? "受け取りの始まり" : "終わり（保障の終わり）",
-            level: "simple",
+            level: ends.coverage,
             find: findMain,
             path: [ep],
             ageOf: insuredOf,
@@ -505,7 +522,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
         () => at(c.id, "insurance.deductionCategory", ["regime"]),
       ),
     );
-  if (kind.main !== null) fields.push(payUntilField(find, k, c.id, "detail", "払込の終わり"));
+  if (kind.main !== null) fields.push(payUntilField(find, k, c.id, ends.premium, "払込の終わり"));
   fields.push(
     plain({ key: `${k}/waiver`, item: "insurance.waiver", label: "払込免除（被保険者の障害・就業不能で払込が止まる）", level: "detail", kind: "bool", find, path: ["waiver"], optional: true, fallback: false }),
     timepointField({ key: `${k}/surrender`, item: "insurance.surrender", label: "解約の月", level: "detail", find, path: ["surrender"], optional: true, absentWhenEmpty: true, nullText: "解約しない", ageOf: insuredOf, help: "その月に解約返戻金を受け取り、保障と払込が終わります" }),

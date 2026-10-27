@@ -295,6 +295,8 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
   const self = h.members.find((m) => m.kind === "self");
   const titles = stageTitles(wh, l);
   const sorted = (l.stages ?? []).map((s, i) => ({ s, i, ym: resolveTimepoint(h, s.at) ?? "9999-12" })).sort((a, b) => a.ym.localeCompare(b.ym));
+  // 標準に出す退職後の段: 節目が「退職後」の最初の段
+  const retiredIndex = sorted.find((x) => x.s.label === "retirement")?.i;
   return sorted.map(({ s, i, ym }, n): GroupDef => {
     const sid = s.id;
     const findStage: Finder = (hh, w) => {
@@ -341,6 +343,9 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
     const auto = sid !== undefined && isAutoStage(l, sid);
     const base = baseMonthly(l);
     const byAmount = s.monthly !== undefined;
+    // 退職後の段（最初の1つ）の割合・月額だけは標準にも出す（推定の当たり外れが大きく、顧客が「今の何割」と答えられる。ほかの節目は詳細。0078）
+    const retiredStd = i === retiredIndex;
+    const valueLevel = retiredStd ? "simple" : "detail";
     const fields: FieldDef[] = [
       settle(put(plain({ key: `${key}/label`, item: "livingExpense.stages", label: "節目", level: "detail", kind: "select", options: LIVING_STAGE_LABELS, find: findStage, path: ["label"] }), ["label"])),
       settle(
@@ -391,8 +396,8 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
             yenBox({
               key: `${key}/monthly`,
               item: "livingExpense.stages",
-              label: "その後の月額",
-              level: "detail",
+              label: retiredStd ? "退職後の生活費（月額）" : "その後の月額",
+              level: valueLevel,
               basis: "monthly",
               find: findStage,
               path: ["monthly"],
@@ -405,8 +410,8 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
               plain({
                 key: `${key}/ratio`,
                 item: "livingExpense.stages",
-                label: "その後の割合（最初の額に対して）",
-                level: "detail",
+                label: retiredStd ? "退職後の生活費（今の額に対する割合）" : "その後の割合（最初の額に対して）",
+                level: valueLevel,
                 kind: "pct",
                 find: findStage,
                 path: ["ratio"],
@@ -422,7 +427,7 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
       key,
       title: `段階 ${n + 1}: ${name}${when}`,
       ...(auto ? { note: "推定の段階（人数の変化と年齢から）。家族・進路・働き方が変わると入れ直します。この段を直すと、この段だけ確定になります（外すと、入れ直しでも足しません）" } : {}),
-      level: "detail",
+      level: valueLevel,
       fields,
       actions: [
         removeAction(`${key}/remove`, "この段階を外す", "detail", (hh, w) => {
@@ -541,7 +546,8 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
         key: `${key}/growth`,
         item: "livingExpense.growth",
         label: "伸び方",
-        level: "simple",
+        // 中身は前提条件の物価上昇率そのもので、世帯ごとに変える理由が少ないので詳細（0078）
+        level: "detail",
         kind: "select",
         options: GROWTH_KINDS,
         find,
@@ -557,7 +563,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
   if (l.growth?.kind === "rate")
     main.push(
       withAddress(
-        plain({ key: `${key}/growthRate`, item: "livingExpense.growth", label: "決まった変動率（年）", level: "simple", kind: "pct", find, path: ["growth", "rate"], help: "マイナスも入れられます" }),
+        plain({ key: `${key}/growthRate`, item: "livingExpense.growth", label: "決まった変動率（年）", level: "detail", kind: "pct", find, path: ["growth", "rate"], help: "マイナスも入れられます" }),
         addr(l.id, "livingExpense.growth", ["rate"]),
       ),
     );
