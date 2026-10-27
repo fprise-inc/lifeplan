@@ -200,4 +200,18 @@ describe("状態の印は文字だけ（枠・地の色なし。0077 の追記�
     expect(CSS).toMatch(/\.help-btn\.help-mark:hover, \.help-btn\.help-mark\[aria-expanded="true"\] \{ text-decoration: underline; \}/);
     expect(CSS).toMatch(/\.help-btn:not\(\.help-mark\):hover/);
   });
+
+  it("入力の項目の状態の札（入力済み・推定で計算中・未入力〔0円の所あり〕・当てはまらない）も枠・地の色なし。丸の印と色の付いた文字だけ。押せる所の中では、カーソルを合わせると下線", () => {
+    expect(rule(".ih-st")).toMatch(/border: 0;/);
+    expect(rule(".ih-st")).toMatch(/background: none;/);
+    expect(rule(".ih-st")).toMatch(/padding: 0;/);
+    expect(rule(".ih-st.done")).toBe(" color: var(--prop); ");
+    expect(rule(".ih-st.est")).toBe(" color: var(--est-ink); ");
+    expect(rule(".ih-st.missing")).toBe(" color: var(--short-ink); ");
+    expect(rule(".ih-st.na")).toBe(" color: var(--base-ink); ");
+    expect(CSS).not.toMatch(/\.ih-st[^{]*\{[^}]*(dashed|border: 1)/);
+    // 色だけで区別しない: ✓／!／0／− の丸の印は残す
+    for (const [s, c] of [["done", "✓"], ["est", "!"], ["missing", "0"], ["na", "−"]]) expect(rule(`.ih-st.${s}::before`)).toContain(`content: "${c}"`);
+    expect(CSS).toMatch(/button:hover > \.ih-st, button:focus-visible > \.ih-st \{ text-decoration: underline; \}/);
+  });
 });

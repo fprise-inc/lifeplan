@@ -1,5 +1,5 @@
 // 12. 介護・親: 親の世代と介護を1枚に集める。
-// - 区画A 世帯の外の家族（親〔両家〕・祖父母・兄弟姉妹・離れて住む子・孫など。続柄・誰の家族か・生年月・同居・家計を1つにする期間・扶養と
+// - 区画A 世帯の外の家族（親〔両家〕・祖父母・兄弟姉妹・離れて暮らす子・孫など。続柄・誰の家族か・生年月・同居・家計を1つにする期間・扶養と
 //   扶養の境目の1行・亡くなる見込み・勤め先の健康保険・「介護の目安を入れる（この人）」）と、生年月を持たない贈与する人（相続・贈与のカードで選ぶ）
 // - 区画B 介護の費用（親・本人・配偶者。今まではライフイベントと「＋ 項目を追加」の2か所だった）。本人・配偶者の介護は自動で入れず、
 //   未入力の警告と「目安で入れる（本人・配偶者）」の1押し（事務所の設定で「最初から入れる」に変えられる形。CareDefaults）
@@ -36,7 +36,7 @@ export const OUTSIDE_KINDS: Option[] = [
   { value: "parent", label: "親" },
   { value: "grandparent", label: "祖父母" },
   { value: "sibling", label: "兄弟姉妹" },
-  { value: "child", label: "子（離れて住む子・前の結婚の子）" },
+  { value: "child", label: "子（離れて暮らす子・前の結婚の子）" },
   { value: "grandchild", label: "孫" },
   { value: "other", label: "その他の家族" },
 ];
@@ -335,7 +335,7 @@ const addOutsideActions = (wh: WorkingHousehold): ActionDef[] => {
     ...(hasParents ? [] : [{ key: "care/add/bothParents", label: "＋ 両家の親を足す（4人）", level: "simple" as const, run: addBothParents }]),
     { key: "family/add/grandparent", label: "＋ 祖父母を足す", level: "detail", run: (w) => addOutside(w, "grandparent") },
     { key: "care/add/sibling", label: "＋ 兄弟姉妹を足す", level: "detail", run: (w) => addOutside(w, "sibling") },
-    { key: "care/add/child", label: "＋ 離れて住む子・前の結婚の子を足す", level: "detail", run: (w) => addOutside(w, "child") },
+    { key: "care/add/child", label: "＋ 離れて暮らす子・前の結婚の子を足す", level: "detail", run: (w) => addOutside(w, "child") },
     { key: "care/add/grandchild", label: "＋ 孫を足す", level: "detail", run: (w) => addOutside(w, "grandchild") },
   ];
 };
@@ -489,7 +489,7 @@ export function careStage(wh: WorkingHousehold): StageDef {
     {
       key: "care/outside",
       title: "世帯の外の家族",
-      note: "親（両家）・祖父母・兄弟姉妹・離れて住む子など、家計が別の家族です。年金などの収入は世帯に入れません。家計を1つにする期間・扶養・亡くなる見込みは「詳細」で入れます。贈与する人（生年月なし。相続・贈与の項目で足す）もここに並びます",
+      note: "親（両家）・祖父母・兄弟姉妹・離れて暮らす子など、家計が別の家族です。年金などの収入は世帯に入れません。家計を1つにする期間・扶養・亡くなる見込みは「詳細」で入れます。贈与する人（生年月なし。相続・贈与の項目で足す）もここに並びます",
       level: "simple",
       groups: [...outside.map((m) => outsideGroup(wh, m)), ...donorGroups(wh).map((g) => ({ ...g, title: `${g.title ?? "贈与する人"}（${donorKindText(wh, g.key)}・生年月なし）` }))],
       actions: addOutsideActions(wh),

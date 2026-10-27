@@ -396,7 +396,7 @@ export function App() {
   // カードの入れ方の初め（#level=detail）。切り替えはカードごとに入力のホームの中で持つ（0077）
   const level: Level = initial.level ?? "simple";
   const [memoOpen, setMemoOpen] = useState(initial.memo === true);
-  /** FP のメニュー（上の帯）から開いた、入力のホームの中身（控え・FP の道具・取り込む）。1つずつ開く */
+  /** FP のメニュー（上の帯）から開いた、入力のホームの中身（控え・面談の準備・取り込む）。1つずつ開く */
   const [fpOpen, setFpOpen] = useState<FpOpen>(initial.snapshots === true ? "snapList" : null);
   // 世帯の保存（0011・0013）
   const [storeStatus, setStoreStatus] = useState<StoreStatus | null>(null);

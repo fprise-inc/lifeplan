@@ -1,4 +1,4 @@
-// FP の道具（0074）: 世帯の中身の一覧・次の1年に起きること・過ぎた予定・前回（控え）との入力の違い・気づき・見直しの時期
+// 面談の準備（0074）: 世帯の中身の一覧・次の1年に起きること・過ぎた予定・前回（控え）との入力の違い・気づき・見直しの時期
 import { describe, expect, it } from "vitest";
 import type { TableCell } from "../src/engine/types.ts";
 import { fromRequest, mutate } from "../src/workspace/input/household.ts";
