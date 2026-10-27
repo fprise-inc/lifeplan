@@ -34,6 +34,7 @@ import {
 } from "../src/workspace/input/items.ts";
 import { addExpense, addIncome, addInheritedDebt, expenseCard, incomeCard, kindsOf } from "../src/workspace/input/moneyRows.ts";
 import { STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
+import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { fromBody } from "../src/workspace/store/body.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
@@ -148,7 +149,9 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
       expect(groupKeys(wh, "care")).toContain(`ev/care/${c.id}`);
       expect(groupKeys(wh, "events")).not.toContain(`ev/care/${c.id}`);
     }
-    expect(allFields(itemStage(wh, "events") as StageDef).find((f) => f.key === "ro/ev/care")?.get(wh).value).toMatch(/^2件/);
+    // 介護の費用はライフイベントの出るお金には出さず、「この世帯の予定」に介護の始まりとして読むだけ（0068）
+    expect(allFields(itemStage(wh, "events") as StageDef).find((f) => f.key === "ro/ev/care")).toBeUndefined();
+    expect(allFields(itemStage(wh, "events") as StageDef).some((f) => f.key.startsWith("ro/events/schedule/") && String(f.get(wh).value).startsWith("介護の始まり"))).toBe(true);
     // 親を足す・介護の費用を足すも介護・親のカード
     const acts = (itemStage(wh, "care") as StageDef).sections.flatMap((s) => s.actions.map((a) => a.key));
     expect(acts).toEqual(expect.arrayContaining(["family/add/parent", "ev/addCare"]));
@@ -206,7 +209,7 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     expect(groupKeys(wh, "inheritance")).toContain(`inherit/debt/${debt.id}`);
     const acts = (itemStage(wh, "inheritance") as StageDef).sections.flatMap((s) => s.actions.map((x) => x.key));
     expect(acts).toEqual(expect.arrayContaining(["money/inherit/addDebt", "money/inherit/addGrandchild"]));
-    expect((itemStage(wh, "events") as StageDef).sections.map((s) => s.key)).toEqual(["ev/periodic", "money/events/in"]);
+    expect((itemStage(wh, "events") as StageDef).sections.map((s) => s.key)).toEqual(["ev/periodic", "money/events/in", "events/schedule"]);
     expect(byId(inputItems(wh), "inheritance").summary?.unit).toMatch(/受け取る予定/);
   });
 
@@ -515,32 +518,44 @@ describe("車を複数台・FP顧問料は前提条件の中", () => {
     const wh = open("unexplainedSpending");
     const stage = itemStage(wh, "car") as StageDef;
     const add = stage.sections[0]!.actions.find((a) => a.key === "ev/addCar")!;
-    expect(add.label).toBe("＋ もう1台（目安の値で入れる）");
+    expect(add.label).toBe("＋ もう1台（今の車・目安の値で入れる）");
     const two = add.run(wh);
     const cars = two.request.input.household.cars!;
     expect(cars).toHaveLength(2);
-    const groups = (itemStage(two, "car") as StageDef).sections[0]!.groups;
+    // 車ごとの見出しのまとまり（内訳で入れている車は、詳細に内訳の行のまとまりが続く）
+    const groups = (itemStage(two, "car") as StageDef).sections[0]!.groups.filter((g) => g.title?.startsWith("車 ") === true);
     expect(groups.map((g) => g.title)).toEqual([expect.stringMatching(/^車 1（/), expect.stringMatching(/^車 2（/)]);
     const labels = (g: (typeof groups)[number]) => g.fields.filter((f) => f.level === "simple").map((f) => f.label);
-    for (const l of ["買い替えの周期", "車両の価格", "下取り", "買い方", "手放す年齢（名義の人）", "次の買い替えまでの年数"]) expect(labels(groups[1]!), l).toContain(l);
-    expect(cars[1]!.purchase).toMatchObject({ price: 2500000, tradeIn: 500000, everyYears: 8, owned: true });
+    for (const l of ["買い替えの周期", "車両の価格", "買い方", "手放す時期（名義の人の年齢）", "次の買い替えの時期", "維持費（年額の合計）"]) expect(labels(groups[1]!), l).toContain(l);
+    // 下取りは詳細（0069）。目安は価格×周期の残価の目安（8年で15%）
+    expect(labels(groups[1]!)).not.toContain("下取り（次の買い替えで引く額）");
+    expect(cars[1]!.purchase).toMatchObject({ price: 2500000, tradeIn: 380000, everyYears: 8, owned: true });
     expect(cars[1]!.upkeep).toEqual({ annual: 360000 });
-    expect(byId(inputItems(two), "car")).toMatchObject({ status: "est", estimated: 3 });
+    expect(cars[1]!.upkeepMode).toBe("total");
+    // 推定: 次の買い替えの時期・周期・価格・下取り・維持費
+    expect(byId(inputItems(two), "car")).toMatchObject({ status: "est", estimated: 5 });
     expect(sumText(byId(inputItems(two), "car"))).toBe("2台・維持費 年54.6万円");
     const p = preview(two.request);
     for (const c of cars) expect(p.table.some((x) => x.object === c.id && x.row.startsWith("cf.expense")), c.id).toBe(true);
   });
 
-  it("車が無いときは「＋ 車」、次の買い替えまでの年数は計算の基準の月から数えて年月に直す", () => {
+  it("車が無いときは「＋ 今の車」「＋ これから買う車」。次の買い替えの時期は時点の部品（今から○年後は年月に直す）で、3年後の推定", () => {
     const wh = open("salariedCoupleTwoKids");
-    const add = (itemStage(wh, "car") as StageDef).sections[0]!.actions[0]!;
-    expect(add.label).toBe("＋ 車（目安の値で入れる）");
-    const one = add.run(wh);
-    const years = fieldOf(itemStage(one, "car"), "/firstIn");
-    expect(years.get(one).value).toBe(3);
-    const w = years.set(one, 5);
+    const acts = (itemStage(wh, "car") as StageDef).sections[0]!.actions;
+    expect(acts.map((a) => a.label)).toEqual(["＋ 今の車（目安の値で入れる）", "＋ これから買う車（目安の値で入れる）"]);
+    const one = acts[0]!.run(wh);
+    const first = fieldOf(itemStage(one, "car"), "/first");
     const base = one.request.input.baseMonth;
+    const in3 = `${Number(base.slice(0, 4)) + 3}${base.slice(4)}`;
+    expect(first.get(one).value).toBe(in3);
+    expect(fieldStatus(first, one).status).toBe("estimated");
+    const w = first.set(one, `${Number(base.slice(0, 4)) + 5}${base.slice(4)}`);
     expect(w.request.input.household.cars![0]!.purchase.first).toEqual({ at: `${Number(base.slice(0, 4)) + 5}${base.slice(4)}` });
+    expect(fieldStatus(first, w).status).toBe("confirmed");
+    expect(fieldOf(itemStage(one, "car"), "/firstIn")).toBeUndefined();
+    // これから買う車は owned なし（購入の時期）
+    const later = acts[1]!.run(wh);
+    expect(later.request.input.household.cars![0]!.purchase.owned).toBe(false);
   });
 
   it("FP顧問料は前提条件のカードの中（前提条件の要約は変えない）", () => {

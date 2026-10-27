@@ -36,6 +36,8 @@ export const FREE_TEXT: Readonly<Record<string, "drop" | "generic" | "keep">> = 
   "engine.input#/$defs/schoolTuition/properties/track": "drop",
   // 塾・習い事の見出し（FP が書いた文。外す）
   "engine.input#/$defs/goal/properties/education/properties/lessons/items/properties/label": "drop",
+  // 車の維持費の内訳の名前つきの行の名前（FP が書いた文。外す。0069）
+  "engine.input#/$defs/car/properties/upkeepOther/items/properties/label": "drop",
 };
 
 /** 学校コード（13桁）は計算に使わない（学費の行は自己完結）ので、決まった値に置き換える */
@@ -114,6 +116,8 @@ function walk(v: Json, ids: IdMap, path: readonly string[]): Json {
   if (parent === "insuranceContracts") delete o.label;
   // 塾・習い事の見出し
   if (parent === "lessons" || grand === "lessons") delete o.label;
+  // 車の維持費の内訳の名前つきの行の名前
+  if (parent === "upkeepOther") delete o.label;
   // 学校が決まっているときの学費の行: 学校コードとコースを外す
   if (parent === "school" && typeof o.school === "string" && typeof o.unit === "string" && Array.isArray(o.rows)) {
     o.school = SCHOOL_PLACEHOLDER;
