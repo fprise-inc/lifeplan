@@ -210,7 +210,7 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   if (m.kind !== "self" && !expectedChild)
     fields.push(
       plain({ key: `family/${m.id}/expected`, item: "member.expected", label: m.kind === "spouse" ? "これから加わる（結婚の予定）" : "これから加わる", level: "detail", kind: "bool", find, path: ["expected"] }),
-      timepointField({ key: `family/${m.id}/joins`, item: "member.joins", label: m.kind === "spouse" ? "結婚の予定（加わる時期）" : "加わる時期", level: "detail", find, path: ["joins"], mode: "ym", optional: true, nullText: "最初から" }),
+      timepointField({ key: `family/${m.id}/joins`, item: "member.joins", label: m.kind === "spouse" ? "結婚の予定（加わる時期）" : "加わる時期", level: "detail", find, path: ["joins"], mode: "ym", ageOf: (h) => h.members.find((x) => x.id === m.id), dateStyle: "birth", optional: true, nullText: "最初から" }),
     );
   const actions: ActionDef[] = m.kind === "self" ? [] : [{ key: `family/${m.id}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
   if (expectedChild) actions.unshift({ key: `family/${m.id}/born`, label: "生まれました（生年月を確かめて家族にする）", level: "simple", run: (w) => markBorn(w, m.id) });

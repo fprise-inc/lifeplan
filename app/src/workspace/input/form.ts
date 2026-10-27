@@ -74,6 +74,8 @@ export interface WhenSpec {
   anchor?: string;
   /** 年月にして持つ欄（読む所が年月の形を前提にしている）。その理由（欄の下に出す） */
   monthOnly?: string;
+  /** 年月の見せ方。birth は生年月の欄と同じ（「2048-04」と見せ、読みは「23歳（令和30年4月）」） */
+  dateStyle?: "birth";
   /** 入れられない時点の理由（欄ごとの範囲など）。入れられれば null */
   check?: (wh: WorkingHousehold, tp: Timepoint | null) => string | null;
 }
@@ -413,6 +415,7 @@ export function whenContext(wh: WorkingHousehold, spec: WhenSpec, o: { person?: 
     modes: spec.modes,
     defaultMode: spec.defaultMode,
     ageMeans: spec.ageMeans,
+    ...(spec.dateStyle !== undefined ? { dateStyle: spec.dateStyle } : {}),
     optional: o.optional === true,
     ...(o.start !== undefined ? { start: o.start } : {}),
     ...(o.current !== undefined ? { current: o.current } : {}),
@@ -441,6 +444,8 @@ export interface WhenOptions {
   ageMeans?: AgeMeans;
   anchor?: string;
   monthOnly?: string;
+  /** 年月の見せ方（生年月の欄と同じ形にする欄は birth） */
+  dateStyle?: "birth";
   check?: (wh: WorkingHousehold, tp: Timepoint | null) => string | null;
   /** 空のときに、読み替えた形の代わりに見せる省略のときの時点（例: 年金の受け取り開始は65歳になった翌月） */
   fallback?: (h: Household) => Timepoint | null;
@@ -453,6 +458,7 @@ const specOf = (o: WhenOptions): WhenSpec => ({
   ...(o.nullText !== undefined ? { nullText: o.nullText } : {}),
   ...(o.anchor !== undefined ? { anchor: o.anchor } : {}),
   ...(o.monthOnly !== undefined ? { monthOnly: o.monthOnly } : {}),
+  ...(o.dateStyle !== undefined ? { dateStyle: o.dateStyle } : {}),
   ...(o.check !== undefined ? { check: o.check } : {}),
 });
 
