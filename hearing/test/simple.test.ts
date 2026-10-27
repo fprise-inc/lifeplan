@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { approveAll, checkDefinition, createHearingSheet, exportableSheets, importAnswers, importHearingSheet, latestSheet, readSheetXlsx, OFFICIAL_SHEETS, type Answer, type FilledSheet, type SheetDefinition } from "../src/index.ts";
+import { approveAll, checkDefinition, createHearingSheet, exportableSheets, importAnswers, importHearingSheet, latestSheet, layoutDigest, readSheetXlsx, OFFICIAL_SHEETS, type Answer, type FilledSheet, type SheetDefinition } from "../src/index.ts";
 import { itemByKey } from "../src/definition.ts";
 import { birthFromAge } from "../src/import.ts";
 import { formatValue, parseValue, rangeEstimate } from "../src/values.ts";
@@ -217,7 +217,7 @@ describe("合計の欄・住宅ローン・ご両親・メモ", () => {
   });
 });
 
-describe("見本のシート basic-2（簡易版）", () => {
+describe("見本のシート basic-2（通常版）", () => {
   const NAME = "basic-2-sample";
   const json = JSON.parse(readFileSync(join(HEARING_DIR, "samples", `${NAME}.json`), "utf8")) as SampleFile;
   const xlsx = new Uint8Array(readFileSync(join(HEARING_DIR, "samples", `${NAME}.xlsx`)));
@@ -271,5 +271,32 @@ describe("古いシートの読み込み", () => {
     // 見本の依頼番号だけが違う（出どころの ref）
     expect(JSON.parse(JSON.stringify(b1.request).replaceAll("R-9W4K2D", "R-7K3P9Q"))).toEqual(a1.request);
     expect(b1.memo).toEqual(a1.memo);
+  });
+
+  it("題を変える前に配ったシート（題が「簡易版」のまま）も、今の見本と同じ世帯に取り込める。配置の指紋は題で変わらない", async () => {
+    // test/fixtures/basic-2-sample.old-title.xlsx は、題を変える前の samples/basic-2-sample.xlsx（題「…事前のご質問（簡易版）」）をそのまま写したもの
+    const pairs = [
+      ["basic-2-sample.old-title.xlsx", "basic-2-sample.xlsx"],
+      // openpyxl で保存し直した basic 版1 の見本も、題を変える前に作ったもの（題「…ヒアリングシート（簡易版）」）
+      ["basic-1-sample.resaved-openpyxl.xlsx", "basic-1-sample.xlsx"],
+    ] as const;
+    const oldTitle = new TextEncoder().encode("ライフプランのための事前のご質問（簡易版）");
+    const before = new Uint8Array(readFileSync(join(HEARING_DIR, "test", "fixtures", pairs[0][0])));
+    expect(Buffer.from(before).includes(Buffer.from(oldTitle))).toBe(true);
+    for (const [oldFile, nowFile] of pairs) {
+      const o = new Uint8Array(readFileSync(join(HEARING_DIR, "test", "fixtures", oldFile)));
+      const n = new Uint8Array(readFileSync(join(HEARING_DIR, "samples", nowFile)));
+      const ro = await importHearingSheet(o, { baseMonth: "2026-10", newId: idSeq("title") });
+      const rn = await importHearingSheet(n, { baseMonth: "2026-10", newId: idSeq("title") });
+      if (!ro.ok || !rn.ok) throw new Error(`${oldFile}: 読めない`);
+      expect(ro.definition).toBe(rn.definition);
+      expect(ro.request).toEqual(rn.request);
+      expect(ro.issues.map((i) => i.code)).toEqual(rn.issues.map((i) => i.code));
+      expect(ro.memo).toEqual(rn.memo);
+      // 配った時のシートに入っている配置の指紋は、題を変えた今の定義の指紋と同じ（依頼の記録の照合も通る）
+      const back = await readSheetXlsx(o, { definitions: OFFICIAL_SHEETS, requests: [] });
+      if (!back.ok) throw new Error(`${oldFile}: 読めない`);
+      expect(back.filled.management.layoutDigest).toBe(await layoutDigest(rn.definition));
+    }
   });
 });

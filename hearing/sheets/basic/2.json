@@ -4,9 +4,9 @@
   "sheetId": "basic",
   "version": 2,
   "status": "draft",
-  "title": "ライフプランのための事前のご質問（簡易版）",
+  "title": "ライフプランのための事前のご質問",
   "intro": {
-    "title": "ライフプランのための事前のご質問（簡易版）",
+    "title": "ライフプランのための事前のご質問",
     "notes": [
       "ご相談の前に、ご家族とお金のだいたいの様子をうかがう票です。10分ほどで書けます。くわしいことは面談でうかがいます。",
       "お名前は書かないでください。このシートは番号でお客さまを見分けます。",
@@ -578,7 +578,7 @@
     "answerSheet": "ご記入欄",
     "columns": {"no":"A","label":"B","value":"C","value2":"D","status":"E","guide":"F"},
     "rows": [
-      {"sheet":"はじめに","row":1,"kind":"title","text":"ライフプランのための事前のご質問（簡易版）"},
+      {"sheet":"はじめに","row":1,"kind":"title","text":"ライフプランのための事前のご質問"},
       {"sheet":"はじめに","row":7,"kind":"heading","text":"ご相談先"},
       {"sheet":"はじめに","row":8,"kind":"office","ref":"name"},
       {"sheet":"はじめに","row":9,"kind":"office","ref":"purpose"},
@@ -599,7 +599,7 @@
       {"sheet":"はじめに","row":27,"kind":"item","key":"hs.consent.purpose"},
       {"sheet":"はじめに","row":28,"kind":"item","key":"hs.consent.familyInfo"},
       {"sheet":"はじめに","row":29,"kind":"item","key":"hs.consent.externalAi"},
-      {"sheet":"ご記入欄","row":1,"kind":"title","text":"ライフプランのための事前のご質問（簡易版）"},
+      {"sheet":"ご記入欄","row":1,"kind":"title","text":"ライフプランのための事前のご質問"},
       {"sheet":"ご記入欄","row":4,"kind":"section","section":"consult"},
       {"sheet":"ご記入欄","row":5,"kind":"item","key":"hs.meta.filledOn"},
       {"sheet":"ご記入欄","row":7,"kind":"section","section":"family"},
