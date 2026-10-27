@@ -32,3 +32,16 @@ entries:
     recordedIn: "2026.2.0"
     supersededIn: null
     approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["PDF の本文（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和8年度。労働者負担6/1,000"}
+  - rev: 3
+    appliesFrom: "2023-04-01"
+    appliesTo: null
+    enforcedOn: "2023-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.007"
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/content/001401966.pdf", retrievedAt: "2026-10-08", sha256: "eda8a16a77c762247b7e7412c86f9f6accc33830620e2d8de047308cfca4022b", locator: "令和7年度のご案内の（令和６年度）の行（農林水産・清酒製造の事業。枠内の下段は令和５年４月～令和７年３月の雇用保険料率）", quote: "（令和６年度） 7/1,000 10.5/1,000 7/1,000 3.5/1,000 17.5/1,000"}
+    recordedIn: "2026.10.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "令和5年4月〜令和7年3月。労働者負担7/1,000。原本は令和7年度のご案内の下段の1つだけで、令和5年度・令和6年度のご案内（同じ厚生労働省のページの PDF）とはまだ照らし合わせていない。施行日は、ご案内の下段の期間の始まり。計算基準月の前の年の所得に対する住民税（社会保険料控除）の計算で、前の年の1〜3月の賃金に使う。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}
