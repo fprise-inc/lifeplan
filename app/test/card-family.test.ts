@@ -6,6 +6,7 @@ import { allFields, type FieldDef, type StageDef, type Val } from "../src/worksp
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { addMember, addRelationStage, markBorn, relationSummary, spouseRelations, swapSelfSpouse } from "../src/workspace/input/stages/family.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
+import { checkList } from "../src/workspace/input/checkRows.ts";
 import { fieldAddress } from "../src/workspace/input/valueState.ts";
 import { readAt } from "../src/workspace/store/readings.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
@@ -199,5 +200,40 @@ describe("家族のお金の行", () => {
     expect(w1.request.input.household.members.find((m) => m.id === p.counterparty)!.kind).toBe("child");
     expect(stage(w1).sections.find((s) => s.key === "money/family/out")!.groups.some((g) => g.key === `ev/${p.id}`)).toBe(true);
     expect(buildStage("care", w1).sections.flatMap((s) => s.groups).some((g) => g.key === `ev/${p.id}`)).toBe(false);
+  });
+});
+
+describe("性別: 標準は本人の1押し。配偶者は本人の逆を推定で入れ、詳細で直す", () => {
+  it("本人を直すと、推定のままの配偶者は逆になる。人が選んだ配偶者・同性のご夫婦は変えない", () => {
+    let wh = addMember(blankHousehold(BASE, ids()), "spouse", ids());
+    const self = wh.request.input.household.members.find((m) => m.kind === "self")!;
+    const sp = spouseOf(wh);
+    expect(sp.sex).toBe("female");
+    expect(fieldOf(wh, `family/${self.id}/sex`).level).toBe("simple");
+    const spSex = fieldOf(wh, `family/${sp.id}/sex`);
+    expect(spSex.level).toBe("detail");
+    expect(spSex.get(wh).assumed).toContain("本人と逆の性別");
+    // 詳細の欄でも、推定のままなら確かめの一覧に出る
+    expect(checkList(wh).find((r) => r.fieldKey === `family/${sp.id}/sex`)).toMatchObject({ kind: "estimated", level: "detail" });
+    wh = set(wh, `family/${self.id}/sex`, "female");
+    expect(spouseOf(wh).sex).toBe("male");
+    expect(fieldOf(wh, `family/${sp.id}/sex`).get(wh).assumed).toContain("本人と逆の性別");
+    // 同性のご夫婦: 配偶者を選び直すと確定になり、本人を直しても変わらない
+    wh = set(wh, `family/${sp.id}/sex`, "female");
+    expect(fieldOf(wh, `family/${sp.id}/sex`).get(wh).assumed).toBeNull();
+    wh = set(wh, `family/${self.id}/sex`, "male");
+    expect(spouseOf(wh).sex).toBe("female");
+    wh = set(wh, `family/${self.id}/sex`, "female");
+    expect(spouseOf(wh).sex).toBe("female");
+  });
+
+  it("見本の世帯の配偶者の性別（印なし）は本人を直しても変えない。子の性別は詳細", () => {
+    let wh = fromRequest(modelHousehold("salariedCoupleTwoKids"));
+    const self = wh.request.input.household.members.find((m) => m.kind === "self")!;
+    const before = spouseOf(wh).sex;
+    wh = set(wh, `family/${self.id}/sex`, self.sex === "male" ? "female" : "male");
+    expect(spouseOf(wh).sex).toBe(before);
+    const child = wh.request.input.household.members.find((m) => m.kind === "child")!;
+    expect(fieldOf(wh, `family/${child.id}/sex`).level).toBe("detail");
   });
 });

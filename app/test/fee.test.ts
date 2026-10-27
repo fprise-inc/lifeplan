@@ -6,7 +6,7 @@ import { advisoryFeeSummary } from "../src/engine/types.ts";
 import { FeeNote } from "../src/presentation/MainView.tsx";
 import { demoHousehold } from "../src/workspace/catalog.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
-import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { addCar, upkeepAnnual } from "../src/workspace/input/stages/cars.ts";
 import { addAdvisoryFee } from "../src/workspace/input/stages/fees.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
@@ -94,22 +94,67 @@ describe("車の入力", () => {
 });
 
 describe("FP顧問料の入力", () => {
-  it("新しい契約は提案の側だけ（enabled: false）。単発と継続、値上げの率、万一のときの扱い", () => {
+  const std = (wh: WorkingHousehold) => fields(wh).filter((f) => f.level === "simple").map((f) => f.key.replace(/^ev\/fee\/[^/]+\//, ""));
+  it("新しい契約は提案の側だけ（enabled: false）。料金表の標準（単発30万円・翌年の同じ月から月1万円・万一は止める）。払う人は本人", () => {
     let wh = addAdvisoryFee(open("salariedCoupleTwoKids"), ids());
     const c = wh.request.input.household.advisoryFees![0]!;
+    const self = wh.request.input.household.members.find((m) => m.kind === "self")!;
     expect(c.enabled).toBe(false);
+    expect(c.payer).toBe(self.id);
+    expect(c.terms).toEqual({ oneTime: [{ at: { at: "2026-11" }, amount: 300000 }], recurring: { from: { at: "2027-11" }, monthly: 10000, onContingency: { mode: "stop" } } });
     expect(hasAdvisoryFee(wh.request)).toBe(true);
     expect(advisoryFeeInCurrent(wh.request)).toBe(false);
     expect(fieldOf(wh, "/inCurrent").get(wh).value).toBe(false);
     // 現状には入らない（現状の計算に顧問料の行が無い）
     expect(advisoryFeeSummary(preview(wh.request))).toBeNull();
-    wh = fieldOf(wh, "/rec/rate").set(wh, "0.02");
-    wh = fieldOf(wh, "/rec/basis").set(wh, "monthly");
-    expect(wh.request.input.household.advisoryFees![0]!.terms!.recurring).toMatchObject({ monthly: 10000, revision: { rate: "0.02" }, onContingency: { mode: "stop" } });
+    // 標準の欄は単発の料金・継続の顧問料（月額）・終わり（と現状にも入れるか）。払う人・払い方・始まり・万一のときの扱いは詳細、値上げの率は無い
+    expect(std(wh)).toEqual(["inCurrent", "one/0/amount", "rec/monthly", "rec/to"]);
+    expect(fields(wh).some((f) => f.key.endsWith("/payer") || f.key.endsWith("/rec/rate"))).toBe(false);
+    expect(fieldOf(wh, "/rec/basis").level).toBe("detail");
+    expect(fieldOf(wh, "/rec/from").level).toBe("detail");
+    expect(fieldOf(wh, "/rec/on/mode").level).toBe("detail");
+    wh = fieldOf(wh, "/rec/basis").set(wh, "annual");
+    expect(wh.request.input.household.advisoryFees![0]!.terms!.recurring).toMatchObject({ annual: 120000, onContingency: { mode: "stop" } });
     wh = fieldOf(wh, "/inCurrent").set(wh, true);
     expect(wh.request.input.household.advisoryFees![0]!.enabled).toBeUndefined();
     expect(advisoryFeeSummary(preview(wh.request))?.total).toBeGreaterThan(300000);
-    expect(feeSummary(wh.request)).toBe("単発30万円＋月額1万円（2027年1月から）");
+    expect(feeSummary(wh.request)).toBe("単発30万円＋年額12万円（2027年11月から）");
+  });
+
+  it("事務所の料金表から写す: 払い方・○年目からの段階・万一のときの扱い。始まりを動かすと段階も動く", () => {
+    const table = { oneTime: 200000, per: "month" as const, amount: 15000, steps: [{ year: 3, amount: 20000 }], onContingency: "continue" as const };
+    let wh = addAdvisoryFee(open("salariedCoupleTwoKids"), ids(), table);
+    const rec = () => wh.request.input.household.advisoryFees![0]!.terms!.recurring!;
+    expect(wh.request.input.household.advisoryFees![0]!.terms!.oneTime).toEqual([{ at: { at: "2026-11" }, amount: 200000 }]);
+    expect(rec()).toMatchObject({ from: { at: "2027-11" }, monthly: 15000, onContingency: { mode: "continue" } });
+    expect(rec().revision!.steps!.map((x) => [x.at, x.monthly])).toEqual([[{ at: "2029-11" }, 20000]]);
+    wh = fieldOf(wh, "/rec/from").set(wh, "2028-01");
+    expect(rec().from).toEqual({ at: "2028-01" });
+    expect(rec().revision!.steps![0]!.at).toEqual({ at: "2030-01" });
+    // 単発の料金が0円の料金表は、単発を入れず翌月から
+    const none = addAdvisoryFee(open("salariedCoupleTwoKids"), ids(), { ...table, oneTime: 0, steps: [] }).request.input.household.advisoryFees![0]!.terms!;
+    expect(none.oneTime).toBeUndefined();
+    expect(none.recurring!.from).toEqual({ at: "2026-11" });
+  });
+
+  it("以前に入れた値上げの率・本人のほかの払う人は黙って変えない（計算はそのまま。詳細で見る・外す）", () => {
+    const wh = open("advisoryFeeProposal");
+    const before = JSON.stringify(wh.request.input.household.advisoryFees);
+    const c = wh.request.input.household.advisoryFees![0]!;
+    expect(c.terms!.recurring!.revision).toEqual({ rate: "0.02" });
+    const rate = fieldOf(wh, `ev/fee/${c.id}/rec/rate`);
+    expect(rate.level).toBe("detail");
+    expect(rate.get(wh).value).toBe("0.02");
+    expect(JSON.stringify(wh.request.input.household.advisoryFees)).toBe(before);
+    const stage = buildStage("fee", wh);
+    const removeRate = stage.sections.flatMap((x) => x.groups.flatMap((g) => g.actions)).find((a) => a.key === `ev/fee/${c.id}/removeRate`)!;
+    const cleared = removeRate.run(wh);
+    expect(cleared.request.input.household.advisoryFees![0]!.terms!.recurring!.revision).toBeUndefined();
+    const spouse = wh.request.input.household.members.find((m) => m.kind === "spouse")!;
+    const other = mutate(wh, (h) => void (h.advisoryFees![0]!.payer = spouse.id));
+    expect(fieldOf(other, `ev/fee/${c.id}/payer`).level).toBe("detail");
+    expect(buildStage("fee", other).sections[0]!.groups[0]!.title).toContain("が払う");
+    expect(buildStage("fee", wh).sections[0]!.groups[0]!.title).toBe("FP顧問料 1");
   });
 });
 

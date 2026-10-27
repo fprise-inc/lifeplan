@@ -4,6 +4,7 @@
 // 子ども・教育のカード、介護・親と相続・贈与のお金の行はそれぞれのカードに出す。FP が「＋ 項目を追加」で足した物もここに出る（ホームのピンは見せ方だけ。items.ts）
 import type { CareExpense, Household, IncomeFlow, PeriodicExpense } from "../../../engine/types.ts";
 import { addMonths } from "../../levers.ts";
+import { resolveTimepoint } from "../../timepoint.ts";
 import { livingEstimate } from "../estimates.ts";
 import { byId, plain, removeAction, timepointField, yenBox, type ActionDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
@@ -18,9 +19,20 @@ export { periodicGroup, periodicGroups, periodicStageGroups } from "../moneyRows
 
 const cares = (h: Household) => h.careExpenses;
 
+/** もう始まっている介護か（始まりが計算の基準の月より前） */
+export function careStarted(wh: WorkingHousehold, c: CareExpense): boolean {
+  const from = resolveTimepoint(wh.request.input.household, c.from);
+  return from !== null && from < wh.request.input.baseMonth;
+}
+
+/**
+ * 介護の費用の欄。始まり・期間・月々の費用は詳細（空欄の期間と額は統計の目安。見出しの1行に出る）。
+ * もう始まっている介護だけ、月々の費用を標準に出す（今かかっている額は顧客が答えられ、目安より確か）
+ */
 export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
   const find = byId(cares, c.id);
   const k = `ev/care/${c.id}`;
+  const started = careStarted(wh, c);
   return {
     key: k,
     title: `介護の費用（${memberLabel(wh, c.member)}）`,
@@ -28,10 +40,10 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
     level: "simple",
     fields: [
       plain({ key: `${k}/member`, item: "care.member", label: "介護を受ける人", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["member"] }),
-      timepointField({ key: `${k}/from`, item: "care.from", label: "始まり", level: "simple", find, path: ["from"], ageOf: (h) => h.members.find((m) => m.id === (h.careExpenses ?? []).find((x) => x.id === c.id)?.member), anchor: "careStart" }),
-      plain({ key: `${k}/months`, item: "care.months", label: "期間", level: "simple", kind: "int", suffix: "か月", min: 1, max: 600, find, path: ["months"], optional: true }),
+      timepointField({ key: `${k}/from`, item: "care.from", label: "始まり", level: "detail", find, path: ["from"], ageOf: (h) => h.members.find((m) => m.id === (h.careExpenses ?? []).find((x) => x.id === c.id)?.member), anchor: "careStart" }),
+      plain({ key: `${k}/months`, item: "care.months", label: "期間", level: "detail", kind: "int", suffix: "か月", min: 1, max: 600, find, path: ["months"], optional: true }),
       plain({ key: `${k}/place`, item: "care.place", label: "在宅か施設か", level: "simple", kind: "select", options: CARE_PLACE, find, path: ["place"], optional: true, fallback: "home" }),
-      yenBox({ key: `${k}/other`, item: "care.otherMonthly", label: "月々の費用（自己負担の合計）", level: "simple", basis: "monthly", find, path: ["otherMonthly"], optional: true, help: "空欄は統計の目安（在宅・施設の平均の月額）で計算します。施設の請求書の額などで入れてください。介護保険の1割負担の前の額が分かれば、詳細の「介護保険の対象の費用」に分けて入れます" }),
+      yenBox({ key: `${k}/other`, item: "care.otherMonthly", label: "月々の費用（自己負担の合計）", level: started ? "simple" : "detail", basis: "monthly", find, path: ["otherMonthly"], optional: true, help: "空欄は統計の目安（在宅・施設の平均の月額）で計算します。施設の請求書の額などで入れてください。介護保険の1割負担の前の額が分かれば、詳細の「介護保険の対象の費用」に分けて入れます" }),
       yenBox({ key: `${k}/service`, item: "care.serviceMonthly", label: "介護保険の対象の費用（月額・1割負担の前の10割）", level: "detail", basis: "monthly", find, path: ["serviceMonthly"], optional: true, help: "入れると、所得に応じた自己負担の割合（1〜3割）と高額介護サービス費の上限を当てます。空欄は上の月々の費用だけで計算します" }),
       yenBox({ key: `${k}/initial`, item: "care.initial", label: "一時費用（住宅の改修・入居金など）", level: "detail", basis: "once", find, path: ["initial"], optional: true, help: "空欄は統計の目安（一時費用の平均）で計算します" }),
       plain({ key: `${k}/payer`, item: "care.payer", label: "払う人", level: "detail", kind: "select", options: [{ value: "", label: "介護を受ける人" }, ...memberOptions(wh)], find, path: ["payer"], optional: true, fallback: "", help: "介護を受ける人が世帯の外の家族で、その人のお金を見ているときは、まずその人のお金から払い、尽きた月からここで選んだ人が払います" }),
