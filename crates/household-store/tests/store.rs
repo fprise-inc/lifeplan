@@ -179,8 +179,18 @@ fn the_file_never_contains_plain_values() {
     let o = create(&store, 1);
     let bytes = std::fs::read(store.household_path_for_test(&o.id)).unwrap();
     let text = String::from_utf8_lossy(&bytes);
-    for s in ["架空のメモ", "baseMonth", "B案", &o.customer_no, "2026-10"] {
-        assert!(!text.contains(s), "{s} が平文で入っている");
+    // 数字だけの値（顧客番号の 0001・年月の 2026-10）は、平文の見出しの16進の文字列（世帯ID・ノンスなど）にたまたま同じ並びが
+    // 出ることがあるので、平文で書いたときの JSON の値の形（引用符で囲む）で探す。欄の名前（customerNo）も探す
+    let quoted = |v: &str| format!("\"{v}\"");
+    for s in [
+        "架空のメモ".to_owned(),
+        "baseMonth".to_owned(),
+        "B案".to_owned(),
+        "customerNo".to_owned(),
+        quoted(&o.customer_no),
+        quoted("2026-10"),
+    ] {
+        assert!(!text.contains(&s), "{s} が平文で入っている");
     }
 }
 
