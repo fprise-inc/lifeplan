@@ -145,3 +145,36 @@ describe("国民健康保険・介護保険（第1号）・後期高齢者医療
     expect(amounts(2026).length).toBe(30);
   });
 });
+
+describe("雇用保険料: 計算基準月の前の年の1〜3月の賃金（前の年の所得に対する住民税の社会保険料控除）", () => {
+  /** 会社員の夫と、雇用保険だけに入るパートの妻（被扶養者）。今年度の住民税の決定額は夫だけ（計算基準月 2026年10月） */
+  const withSpouseSalary = (annual: number): Req => {
+    const req = modelHousehold("salariedCoupleTwoKids");
+    const p = (req.input.household as unknown as { employmentPeriods: { type: string; salary: { annual: { value: number } } }[] }).employmentPeriods.find((x) => x.type === "partTime")!;
+    p.salary.annual.value = annual;
+    return req;
+  };
+  const spouseOf = (req: Req) => (req.input.household as unknown as { members: { id: string; kind: string }[] }).members.find((m) => m.kind === "spouse")!.id;
+  /** 被保険者負担分の端数（50銭以下は切り捨て、50銭を超えると切り上げ）。率は千分の n */
+  const share = (wage: number, perMille: number) => {
+    const t = wage * perMille;
+    const q = Math.floor(t / 1000);
+    return t - q * 1000 > 500 ? q + 1 : q;
+  };
+
+  it("パートの年収を前の年の住民税が課税になるところ（110万円超）まで上げても止まらない（前は令和7年3月より前の雇用保険料率が無く E_PARAM_NO_VALUE）", () => {
+    for (const annual of [1100000, 1110000, 1200000, 1500000, 2000000]) expect(() => run(withSpouseSalary(annual)), String(annual)).not.toThrow();
+  });
+
+  it("前の年の1〜3月の賃金は令和6年度の率（一般の事業 6/1,000）、4月からは令和7年度の率（5.5/1,000）で計算する", () => {
+    const req = withSpouseSalary(1200000);
+    const member = spouseOf(req);
+    const wages = entry<{ wages: { month: string; kind: string; wage: number }[] }>(req, "socialInsurance.coverage", { member, fromYear: 2025 }).wages;
+    const flows = entry<{ flows: Flow[] }>(req, "socialInsurance.employment", { member, fromYear: 2025 }).flows;
+    const wageOf = (ym: string) => wages.find((w) => w.month === ym && w.kind === "salary")!.wage;
+    const paidOf = (ym: string) => flows.find((f) => f.ym === ym)!.amount;
+    for (const ym of ["2025-01", "2025-03"]) expect(paidOf(ym), ym).toBe(share(wageOf(ym), 6));
+    for (const ym of ["2025-04", "2025-12"]) expect(paidOf(ym), ym).toBe(share(wageOf(ym), 5.5));
+    expect(paidOf("2026-04")).toBe(share(wageOf("2026-04"), 5));
+  });
+});
