@@ -2,7 +2,8 @@
 //! 計算ごとに新しい実行環境）で、quickjs-ng の正の計算の時間を測る。
 //! 使い方: engine-bench --engine dist/engine.js --packs packs.json --requests requests.json [--protection protection.json] [--repeat N] [--threads T]
 //! requests.json は要求の JSON の配列（5案×4想定の20件。案ごとに4件）。protection.json は必要保障額の推移（夫婦2人。0005 の追記 2026-10-09）を
-//! 求める要求1件（あれば protection として1件の正の計算の時間を測る）。結果は JSON（ミリ秒の中央値と最小値）を標準出力に出す
+//! 求める要求1件（あれば protection として1件の正の計算の時間を測る）。結果は JSON（ミリ秒の中央値と最小値）を標準出力に出す。
+//! --repeat 0 は、バイトコードへの変換・パックの確かめ・温めの1件だけを流す（CI で命令の数を数えるとき。0005 の追記 2026-10-28）
 use std::time::Instant;
 
 use engine_host::{
@@ -15,6 +16,10 @@ fn median(xs: &mut [f64]) -> f64 {
 }
 
 fn stats(mut xs: Vec<f64>) -> serde_json::Value {
+    // --repeat 0（読み込みと温めの1件だけ。命令の数を数えるとき）は時間を出さない
+    if xs.is_empty() {
+        return serde_json::Value::Null;
+    }
     let min = xs.iter().cloned().fold(f64::INFINITY, f64::min);
     let med = median(&mut xs);
     serde_json::json!({ "median": (med * 10.0).round() / 10.0, "min": (min * 10.0).round() / 10.0 })
