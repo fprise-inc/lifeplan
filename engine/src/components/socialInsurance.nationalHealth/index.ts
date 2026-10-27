@@ -6,6 +6,8 @@
 // 子ども・子育て支援金の区分は18歳未満の均等割をかけない。未就学児の均等割の軽減・産前産後の免除はまだ入れていない（notices）
 // 改訂5: 世帯の外の家族（0035 の4）は世帯の国民健康保険に入れない
 // 改訂（0044）: 所得割と軽減の判定の所得に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
+// 改訂7: 未就学児の均等割の軽減・産前産後の免除の知らせは、その年度に小学校に入る前の子が国民健康保険に入っている月があるときだけ出す
+//   （生まれる子も未就学児なので、産前産後の免除が当てはまりうる年度も含む。保険料は変えない）
 import {
   addYen,
   ageMonth,
@@ -58,7 +60,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.nationalHealth",
   title: "国民健康保険料",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -185,7 +187,10 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     if (missing) ctx.notice("N_INPUT_REQUIRED", [`${PREFIX}.rates`]);
     else if (defaultUsed) ctx.notice("N_DEFAULT_USED", [`${PREFIX}.nationalStandard`]);
     if (!missing && childSupportMissing) ctx.notice("N_PARAM_MISSING", [`${PREFIX}.childSupport.nationalStandard`]);
-    ctx.notice("N_NOT_SUPPORTED", [`${PREFIX}.preschoolReduction`, `${PREFIX}.maternityExemption`]);
+    // 小学校に入る（6歳の後の4月。学年の区切り）より前の月に国民健康保険に入っている子がいるか
+    if (insured.some((x) => x.months.some((m) => m < ctx.time.ageSwitch(x.id, { years: 6 }, "schoolYear")))) {
+      ctx.notice("N_NOT_SUPPORTED", [`${PREFIX}.preschoolReduction`, `${PREFIX}.maternityExemption`]);
+    }
     return { flows: installmentFlows(ctx, fy, false, head, parts) };
   },
 });

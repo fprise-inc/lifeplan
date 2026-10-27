@@ -2,6 +2,8 @@
 // 所得割は総所得金額等が同じ形の額以下なら非課税（人数は本人・同一生計配偶者・扶養親族。16歳未満を含む）。
 // 均等割の額は生活保護の級地で市町村ごとに違うが、市町村ごとの値を持たない方針（0007 の6）なので1級地の値を既定にする（見出しの notices）
 // 改訂3: 世帯の外の家族（0035 の4）は、扶養していると入れたときだけ扶養親族に数える
+// 改訂4: 1級地の値を既定にした知らせは、級地で判定が変わりうるときだけ出す。1級地の基準は級地の中で最も高いので、1級地の基準を超えれば
+//   どの級地でも課税。級地で変わらない加算の額以下なら、どの級地でも非課税（判定の結果は変えない）
 import {
   defineComponent,
   isOutside,
@@ -27,7 +29,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
   id: "residentTax.exemption",
   title: "住民税の非課税の判定",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2", "tax.incomeWithin": ">=1 <2" },
   params: Object.values(P),
   reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "relation.type", "relation.a", "relation.b", "relation.marriage"],
@@ -80,9 +82,10 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
     }
     const threshold = (b: string, a: string, d: string) =>
       at.money.mulRatio(at.paramYen(b) ?? yen(0), persons, 1, "conv.exact") + (at.paramYen(a) ?? 0) + (dependents > 0 ? (at.paramYen(d) ?? 0) : 0);
-    ctx.notice("N_DEFAULT_USED", ["residentTax.exemption.perCapita.gradeOne"]);
+    const perCapitaExempt = own <= threshold(P.pcBase, P.pcAdd, P.pcDep);
+    if (perCapitaExempt && own > (at.paramYen(P.pcAdd) ?? 0)) ctx.notice("N_DEFAULT_USED", ["residentTax.exemption.perCapita.gradeOne"]);
     return {
-      perCapitaExempt: own <= threshold(P.pcBase, P.pcAdd, P.pcDep),
+      perCapitaExempt,
       incomeLevyExempt: own <= threshold(P.ilBase, P.ilAdd, P.ilDep),
       persons,
     };

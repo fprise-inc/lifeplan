@@ -249,10 +249,10 @@ function subjectOrder(wh: WorkingHousehold): (name: string) => number {
 }
 
 /**
- * 子の知らせのうち、FP が直す所でないもの: 子の年金の加入記録の推計と受給資格（子は働き方を入れないので、記録が推計で受給資格が無いのが当たり前。
- * 子の老齢年金は表の期間の計算にほとんど出ない）
+ * 子の知らせのうち、FP が直す所でないもの: 子の年金の加入記録の推計（子は加入記録を入れないので、推計なのが当たり前）。
+ * 受給資格期間に足りない知らせは、エンジンが働き方も加入の記録も入れていない子には出さない（働き方を入れた子には出す）
  */
-const CHILD_SILENT = new Set(["N_ESTIMATED|pensionRecord", "N_NOT_ENTITLED|pension.qualifyingMonths"]);
+const CHILD_SILENT = new Set(["N_ESTIMATED|pensionRecord"]);
 function dropSubject(code: string, topic: string, subject: string, req: EngineRequest): boolean {
   if (CHILD_SILENT.has(`${code}|${topic}`)) return req.input.household.members.find((m) => m.id === subject)?.kind === "child";
   return false;
