@@ -13,7 +13,7 @@ import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, TimeView, Val, W
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
-import { revealAdded } from "../../presentation/revealAdded.ts";
+import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
@@ -192,13 +192,86 @@ function PinButton({ group }: { group: GroupDef }) {
  */
 const InSection = createContext(false);
 
+/**
+ * まとまりごとの「▸ 詳しく」の開け閉め（0078 の追記）。入力の画面が渡し、同じ世帯を開いている間だけ覚える（保存しない）。
+ * 渡さない画面（万一の前提など）では、区画の中で覚える。開け閉めは見せ方だけで、値は何も変えない
+ */
+export interface GroupOpenState {
+  isOpen: (key: string) => boolean;
+  toggle: (key: string) => void;
+}
+export const GroupOpen = createContext<GroupOpenState | null>(null);
+
+/** 開いた物の集まりを1つ切り替える */
+export const toggledSet = (s: ReadonlySet<string>, key: string): ReadonlySet<string> => {
+  const n = new Set(s);
+  if (n.has(key)) n.delete(key);
+  else n.add(key);
+  return n;
+};
+
+/** 物1件・1組の欄の頭のまとまり（「▸ 詳しく」を付けられる）: 標準のまとまりで、名前があるか標準の欄がある */
+const isHead = (g: GroupDef): boolean => g.level === "simple" && (g.title !== undefined || g.fields.some((f) => f.level === "simple"));
+
+/**
+ * 区画のまとまりを、物1件ごとに分ける（標準のときの「▸ 詳しく」の単位）。まとまりのキー → 属する頭のまとまりのキー。
+ * 頭のまとまりは自分のキー。ほかのまとまり（金利の段階・繰上返済・資産の配分・保障の明細など）は、キーが「頭のキー/」で始まるいちばん近い頭に属する。
+ * どの頭にも属さないまとまりは載せない（今のまま、詳細でだけ出る）
+ */
+export function groupUnits(groups: readonly GroupDef[]): Map<string, string> {
+  const heads = groups.filter(isHead).map((g) => g.key);
+  const out = new Map<string, string>();
+  for (const g of groups) {
+    if (heads.includes(g.key)) {
+      out.set(g.key, g.key);
+      continue;
+    }
+    const h = heads.filter((k) => g.key.startsWith(`${k}/`)).sort((a, b) => b.length - a.length)[0];
+    if (h !== undefined) out.set(g.key, h);
+  }
+  return out;
+}
+
+/** 標準のときに隠れている中身（詳細の欄・ボタン・まとまり）があるか */
+function hiddenIn(g: GroupDef, member: boolean): boolean {
+  if (member && g.level === "detail") return g.fields.length > 0 || g.actions.length > 0;
+  return g.fields.some((f) => f.level === "detail") || g.actions.some((a) => a.level === "detail") || (g.openFields ?? []).length > 0;
+}
+
+/** 頭のまとまりのキー → 「▸ 詳しく」で開く中身があるか（標準のときだけ使う） */
+export function headsWithMore(groups: readonly GroupDef[]): Set<string> {
+  const units = groupUnits(groups);
+  const out = new Set<string>();
+  for (const g of groups) {
+    const h = units.get(g.key);
+    if (h !== undefined && hiddenIn(g, h !== g.key)) out.add(h);
+  }
+  return out;
+}
+
+/** まとまりの「▸ 詳しく」の開け閉め（区画の中で使う。入力の画面が渡していなければ、区画の中で覚える） */
+export function useGroupOpen(): GroupOpenState {
+  const ctx = useContext(GroupOpen);
+  const [local, setLocal] = useState<ReadonlySet<string>>(new Set());
+  return ctx ?? { isOpen: (k) => local.has(k), toggle: (k) => setLocal((s) => toggledSet(s, k)) };
+}
+
 export function Section({ section, wh, level, onEdit }: { section: SectionDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void }) {
   const actions = section.actions.filter((a) => visible(level, a.level));
+  const opened = useGroupOpen();
+  // 標準のとき: 物1件ごとの「▸ 詳しく」。開いた物は、その物の詳細の欄・まとまりだけを出す
+  const units = level === "simple" ? groupUnits(section.groups) : null;
+  const withMore = level === "simple" ? headsWithMore(section.groups) : null;
+  const headOpen = (g: GroupDef): string | null => {
+    const h = units?.get(g.key);
+    return h !== undefined && withMore?.has(h) === true && opened.isOpen(h) ? h : null;
+  };
+  const shownGroups = section.groups.filter((g) => visible(level, g.level) || headOpen(g) !== null);
   const link = useContext(SectionLinks)[section.key];
   const sn = splitNote(section.note);
   const sHelp = sn.help !== null ? <Help label={section.title}>{sn.help}</Help> : null;
   // 空の区画（お金の行などがまだ入らない置き場所）は出さない
-  if (section.note === undefined && actions.length === 0 && !section.groups.some((g) => visible(level, g.level))) return null;
+  if (section.note === undefined && actions.length === 0 && shownGroups.length === 0) return null;
   return (
     <InSection.Provider value={true}>
       <section class="in-section" aria-label={section.title}>
@@ -221,28 +294,63 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
           </h3>
         )}
         {sn.state !== null ? <p class="in-note in-empty">{sn.state}</p> : null}
-        {section.groups
-          .filter((g) => visible(level, g.level))
-          .map((g) => (
-            <Group key={g.key} group={g} wh={wh} level={level} onEdit={onEdit} />
-          ))}
+        {shownGroups.map((g) => {
+          const h = headOpen(g);
+          // 頭のまとまり: 標準の欄の下に「▸ 詳しく」。属するまとまり: 頭を開いているときだけ、詳細の中身まで出す
+          if (withMore?.has(g.key) === true) return <Group key={g.key} group={g} wh={wh} level={level} onEdit={onEdit} more={{ open: h !== null, toggle: () => opened.toggle(g.key) }} />;
+          return <Group key={g.key} group={g} wh={wh} level={h !== null ? "detail" : level} onEdit={onEdit} {...(h !== null ? { moreOf: h } : {})} />;
+        })}
         {actions.length > 0 ? <Actions actions={actions} wh={wh} onEdit={onEdit} /> : null}
       </section>
     </InSection.Provider>
   );
 }
 
-function Group({ group, wh, level, onEdit }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void }) {
+/** まとまりの「▸ 詳しく」（頭のまとまりに渡す） */
+interface GroupMore {
+  open: boolean;
+  toggle: () => void;
+}
+
+/**
+ * 「▸ 詳しく」の小さな文字のリンク。押した所は動かさず、開いた中身はこの下に出す（見えなければ見える所までスクロール）。
+ * 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため）
+ */
+export function MoreToggle({ groupKey, open, toggle, label }: { groupKey: string; open: boolean; toggle: () => void; label?: string }) {
+  return (
+    <div class="grp-more">
+      <button
+        type="button"
+        class="link-btn grp-more-btn"
+        aria-expanded={open}
+        {...(label !== undefined ? { "aria-label": `${label}を${open ? "閉じる" : "詳しく"}` } : {})}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => {
+          if (!open) revealOpened(e.currentTarget, groupKey);
+          toggle();
+        }}
+        data-group-more={groupKey}
+      >
+        {open ? "▾ 詳しく（閉じる）" : "▸ 詳しく"}
+      </button>
+    </div>
+  );
+}
+
+export function Group({ group, wh, level, onEdit, more, moreOf }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; more?: GroupMore; moreOf?: string }) {
   const fields = group.fields.filter((f) => visible(level, f.level));
   const actions = group.actions.filter((a) => visible(level, a.level));
-  if (fields.length === 0 && actions.length === 0 && group.note === undefined) return null;
+  // 標準で「▸ 詳しく」を開いたときだけ出す欄・ボタン（詳細の欄と、詳細では別の所に出す欄 openFields）
+  const extraFields = more?.open === true ? [...group.fields.filter((f) => !visible(level, f.level)), ...(group.openFields ?? [])] : [];
+  const extraActions = more?.open === true ? group.actions.filter((a) => !visible(level, a.level)) : [];
+  if (fields.length === 0 && actions.length === 0 && group.note === undefined && more === undefined) return null;
   if (fields.length === 0 && group.title === undefined) return <Actions actions={actions} wh={wh} onEdit={onEdit} note={group.note} />;
   // 名前の無いまとまりの説明は、欄の並びの前に「?」だけを置く
   const gn = splitNote(group.note);
   const noteHelp = gn.help !== null ? <Help label={group.title ?? "このまとまり"}>{gn.help}</Help> : null;
-  const compact = group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
+  const compact = more?.open !== true && group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
   return (
-    <div class={`in-group${compact ? " compact" : ""}`}>
+    <div class={`in-group${compact ? " compact" : ""}`} {...(moreOf !== undefined ? { "data-more-of": moreOf } : {})}>
       {group.title !== undefined ? (
         <div class="in-group-h">
           <h4>
@@ -270,6 +378,19 @@ function Group({ group, wh, level, onEdit }: { group: GroupDef; wh: WorkingHouse
         ))}
       </div>
       {actions.some((a) => a.danger !== true) ? <Actions actions={actions.filter((a) => a.danger !== true)} wh={wh} onEdit={onEdit} /> : null}
+      {more !== undefined ? <MoreToggle groupKey={group.key} open={more.open} toggle={more.toggle} label={group.title ?? "この欄"} /> : null}
+      {more?.open === true && (extraFields.length > 0 || extraActions.length > 0) ? (
+        <div class="grp-more-body" data-more-of={group.key}>
+          {extraFields.length > 0 ? (
+            <div class="fields">
+              {extraFields.map((f) => (
+                <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
+              ))}
+            </div>
+          ) : null}
+          {extraActions.length > 0 ? <Actions actions={extraActions} wh={wh} onEdit={onEdit} /> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

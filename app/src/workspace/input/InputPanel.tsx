@@ -2,7 +2,7 @@
 // 中身は今までの入力の欄（簡易と詳細の切り替えを含む）。値は下書きに入れ、「保存」で世帯に入れる。× と Esc で閉じる（保存していない変更があれば先に知らせる）
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { allFields, type Level } from "./form.ts";
-import { fieldDomId, FieldStateOps, FieldSuggestions, PinControls, PlanMarksContext, Section, SectionLinks, visible, type PinControl, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
+import { fieldDomId, FieldStateOps, FieldSuggestions, GroupOpen, PinControls, PlanMarksContext, Section, SectionLinks, visible, type GroupOpenState, type PinControl, type PlanMarks, type SectionLink } from "./FieldViews.tsx";
 import { dropStaleRows } from "./rows.ts";
 import { applyStateOp, availableOps, confirmAll, fieldStatus, planStateOp, type StateOp } from "./valueState.ts";
 import type { FieldDef } from "./form.ts";
@@ -50,6 +50,8 @@ export interface InputPanelProps {
    * 下書きは世帯（現状とプランの一覧）のまま持ち、「保存」で plan.onSave に渡す（現状は変わらない）
    */
   plan?: PanelPlan;
+  /** まとまりごとの「▸ 詳しく」の開け閉め（入力の画面が持つ。渡さなければパネルの中で覚える。0078 の追記） */
+  groupOpen?: GroupOpenState;
 }
 
 export interface PanelPlan {
@@ -64,7 +66,7 @@ const NO_LINKS: Record<string, SectionLink> = {};
 
 const FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
-export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose, computeOne, onStatement, focusKey, plan }: InputPanelProps) {
+export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose, computeOne, onStatement, focusKey, plan, groupOpen }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(initialDraft ?? wh);
   const [dirty, setDirty] = useState(initialDraft !== undefined);
   const [leaving, setLeaving] = useState(false);
@@ -473,6 +475,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
           ) : null}
         </div>
         <div class="ip-body" data-reveal-root>
+          <GroupOpen.Provider value={groupOpen ?? null}>
           <PinControls.Provider value={pins}>
           {itemId === "savings" ? (
             <PlanMarksContext.Provider value={marks}>
@@ -502,6 +505,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             </PlanMarksContext.Provider>
           )}
           </PinControls.Provider>
+          </GroupOpen.Provider>
         </div>
         <div class="ip-foot" role={leaving ? "alert" : undefined}>
           {leaving && toStatement && onStatement !== undefined ? (
