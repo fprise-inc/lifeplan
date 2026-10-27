@@ -2,6 +2,7 @@
 // NISA の枠の知らせ・資産配分・iDeCo と企業型DC の受け取り・運用の期間（積立をやめる年・取り崩し）。値を変えるたびに onEdit に新しい世帯を渡す
 import { useState } from "preact/hooks";
 import type { Account, EngineRequest } from "../../../engine/types.ts";
+import { Help } from "../../../presentation/Help.tsx";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
 import { ageAt } from "../../levers.ts";
 import { Field, fieldDomId, Section, shouldCommitOnBlur, visible } from "../FieldViews.tsx";
@@ -306,9 +307,20 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
             </button>
           ))}
         </span>
-        <span class="d">{METHODS.find((m) => m.id === method)?.lead}</span>
+        <Help label="入れ方">
+          {METHODS.map((m) => (
+            <p key={m.id}>
+              <b>{m.label}</b>: {m.lead}
+            </p>
+          ))}
+        </Help>
       </div>
-      {method !== "total" && (h.accounts ?? []).every((a) => !isFinancialShown(a)) ? <p class="sv-note" data-total-hint>合計しか分からないときは「合計」（金融資産の合計の1欄）で入れられます。</p> : null}
+      {method !== "total" && (h.accounts ?? []).every((a) => !isFinancialShown(a)) ? (
+        <p class="sv-note" data-total-hint>
+          合計だけでも入れられます
+          <Help label="合計の入れ方">合計しか分からないときは「合計」（金融資産の合計の1欄）で入れられます。</Help>
+        </p>
+      ) : null}
       {carry !== null ? <CarryNote req={req} carry={carry} /> : null}
       {note !== null ? (
         <div class="sv-carry" role="status">
@@ -320,8 +332,12 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
         <TotalSection wh={wh} level={level} fields={fields} onEdit={onEdit} />
       ) : (
         <section class="sv-sec" aria-label="口座ごとの残高・積立額・利回り">
-          <h3>口座ごとの残高・積立額{method === "accounts" ? "・利回り" : ""}</h3>
-          <p class="sv-note">残高は今の時価。{method === "accounts" ? "利回りは年の見込み（FPが入れる値。運用の費用を引く前。空欄は前提条件の利回り）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。</p>
+          <h3>
+            口座ごとの残高・積立額{method === "accounts" ? "・利回り" : ""}
+            <Help label="口座ごとの残高・積立額">
+              残高は今の時価。{method === "accounts" ? "利回りは年の見込み（FPが入れる値。運用の費用を引く前。空欄は前提条件の利回り）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。
+            </Help>
+          </h3>
           <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} editField={editField} find={find} fields={fields} onEdit={onEdit} />
           <div class="sv-add">
             {addActions.map((a) => (
@@ -344,8 +360,10 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
       {method !== "total" ? <PayoutSection wh={wh} level={level} fields={fields} onEdit={onEdit} /> : null}
 
       <section class="sv-sec" aria-label="運用の期間">
-        <h3>運用の期間</h3>
-        <p class="sv-note">結果の画面のグラフの上の帯と同じです（帯の切れ目をドラッグしても、プランごとに動かせます）。</p>
+        <h3>
+          運用の期間
+          <Help label="運用の期間">結果の画面のグラフの上の帯と同じです（帯の切れ目をドラッグしても、プランごとに動かせます）。</Help>
+        </h3>
         <PeriodSection wh={wh} onEdit={onEdit} now={now} stopAge={stopAge} stopShown={stopShown} estimate={estimate} fields={fields} />
       </section>
 
@@ -398,8 +416,10 @@ function FlowSection({ wh, level, flow, onEdit }: { wh: WorkingHousehold; level:
   };
   return (
     <section class="sv-sec" aria-label="お金の行き先" data-flow>
-      <h3>お金の行き先</h3>
-      <p class="sv-note">収支が足りない年に、どの口座から取り崩すか。iDeCo・企業型DC・小規模企業共済は、受け取り方に沿って預金に入ります（順番には入れません）。まだ口座に分けていない分は、収支が入る口座の次に取り崩します。</p>
+      <h3>
+        お金の行き先
+        <Help label="お金の行き先">収支が足りない年に、どの口座から取り崩すか。iDeCo・企業型DC・小規模企業共済は、受け取り方に沿って預金に入ります（順番には入れません）。まだ口座に分けていない分は、収支が入る口座の次に取り崩します。</Help>
+      </h3>
       <div class="sv-fld top">
         <span class="lbl">取り崩す順番</span>
         <ol class="sv-order acc" data-withdraw-order>
@@ -509,8 +529,10 @@ function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; lev
   const setRate = (rate: string) => (fRate !== undefined ? onEdit(fRate.set(wh, rate)) : onEdit(editTotal(wh, { rate })));
   return (
     <section class="sv-sec" aria-label="金融資産">
-      <h3>金融資産</h3>
-      <p class="sv-note">預金・NISA・iDeCo・企業型DC・課税口座などを、すべて足した額で入れます。</p>
+      <h3>
+        金融資産
+        <Help label="金融資産">預金・NISA・iDeCo・企業型DC・課税口座などを、すべて足した額で入れます。</Help>
+      </h3>
       <div class="sv-fld">
         <span class="lbl">
           金融資産の合計
@@ -843,8 +865,10 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
   return (
     <>
       <section class="sv-sec" aria-label="資産の種類ごとの割合">
-        <h3>資産の種類ごとの割合</h3>
-        <p class="sv-note">運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の割合です。預金は現金のまま。期待リターンと値動きの大きさは、FPが根拠を持って入れる値です（空欄は事務所の標準値。いまは仮の値）。商品は選ばず、資産の種類で入れます。</p>
+        <h3>
+          資産の種類ごとの割合
+          <Help label="資産の種類ごとの割合">運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の割合です。預金は現金のまま。期待リターンと値動きの大きさは、FPが根拠を持って入れる値です（空欄は事務所の標準値。いまは仮の値）。商品は選ばず、資産の種類で入れます。</Help>
+        </h3>
         <div class="sv-tw">
           <table class="sv-cls">
             <thead>
@@ -930,7 +954,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
               資産の種類ごと
             </button>
           </span>
-          <span class="sv-note">結果の画面では、プランAと選んだプランを同じ年で並べます。</span>
+          <Help label="資産の割合の見せ方">結果の画面では、プランAと選んだプランを同じ年で並べます。</Help>
         </div>
         <DonutPair panes={panes} />
       </section>
@@ -983,8 +1007,13 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
   const edit = (id: string, patch: Parameters<typeof editPayout>[2]) => onEdit(mutate(wh, (hh) => editPayout(hh, (hh.accounts ?? []).find((a) => a.id === id) as Account, patch)));
   return (
     <section class="sv-sec" aria-label="iDeCo・企業型DC・小規模企業共済の受け取り方">
-      <h3>{aids.length > 0 ? "iDeCo・企業型DC・小規模企業共済の受け取り方" : "iDeCo・企業型DC の受け取り方"}</h3>
-      {dcs.length > 0 ? <p class="sv-note">空欄は「退職の年（60〜65歳）に一時金」で計算します（推定）。受け取ったお金は、預金に入れるか、運用を続けるかを選べます。年金で受け取る年数（空欄は10年）・併用の一時金の割合（空欄は半分）は詳細で。</p> : null}
+      <h3>
+        {aids.length > 0 ? "iDeCo・企業型DC・小規模企業共済の受け取り方" : "iDeCo・企業型DC の受け取り方"}
+        <Help label="受け取り方">
+          {dcs.length > 0 ? <p>空欄は「退職の年（60〜65歳）に一時金」で計算します（推定）。受け取ったお金は、預金に入れるか、運用を続けるかを選べます。年金で受け取る年数（空欄は10年）・併用の一時金の割合（空欄は半分）は詳細で。</p> : null}
+          {aids.length > 0 ? <p>小規模企業共済は、受け取りを始める時期（廃業・退職など）を入れると、その月に受け取ります。空欄なら受け取らずに残高のまま持ちます。一括は退職所得、分割は公的年金等の雑所得として税を計算します。</p> : null}
+        </Help>
+      </h3>
       {dcs.map((a) => {
         const est = a.payout === undefined;
         const ageEst = payoutAgeOf(h, a) === null;
@@ -1052,7 +1081,6 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
       {aids.map((a) => (
         <div class="sv-dc" key={a.id} data-payout={a.kind}>
           <h4>{`${KIND_INFO[a.kind]?.name ?? ""}（${memberLabel(wh, a.owner)}）`}</h4>
-          <p class="sv-note">受け取りを始める時期（廃業・退職など）を入れると、その月に受け取ります。空欄なら受け取らずに残高のまま持ちます。一括は退職所得、分割は公的年金等の雑所得として税を計算します。</p>
           {generic(a, ["payout", "payoutAt", "payoutYears", "lumpShare", "enrolled"])}
         </div>
       ))}

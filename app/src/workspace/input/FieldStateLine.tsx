@@ -3,11 +3,9 @@
 // 値の入れ方（数の欄・ボタン）は専用の部品のまま。ここは印と操作だけを描く
 import { useContext, useState } from "preact/hooks";
 import type { FieldDef } from "./form.ts";
-import { FieldStateOps, PlanMarksContext } from "./FieldViews.tsx";
+import { FieldStateOps, PlanMarksContext, StateMark } from "./FieldViews.tsx";
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, OP_LABELS, STATUS_LABELS, type StateOp, type ValueStatus } from "./valueState.ts";
-
-const STATUS_CLASS: Record<ValueStatus, string> = { estimated: "est", unknown: "unk", notApplicable: "na", confirmed: "", missing: "missing" };
 
 /** 欄の状態（印を出す状態か）。操作が渡されていない画面では null */
 export function useFieldStatus(f: FieldDef | undefined, wh: WorkingHousehold): ValueStatus | null {
@@ -15,24 +13,20 @@ export function useFieldStatus(f: FieldDef | undefined, wh: WorkingHousehold): V
   return ops === null || f === undefined ? null : fieldStatus(f, wh).status;
 }
 
-/** 状態の印（推定・わからない・該当なし・未入力）。確定なら何も出さない */
+/** 状態の印（推定・わからない・該当なし・未入力）。確定なら何も出さない。根拠は印を押すと開く（0077） */
 export function FieldStateBadge({ f, wh }: { f: FieldDef | undefined; wh: WorkingHousehold }) {
   const ops = useContext(FieldStateOps);
   if (ops === null || f === undefined) return null;
   const s = fieldStatus(f, wh);
   if (s.status === "confirmed") return null;
-  return (
-    <span class={`badge ${STATUS_CLASS[s.status]}`} title={s.basis ?? STATUS_LABELS[s.status]} data-state={s.status} data-state-of={f.key}>
-      {s.status === "missing" ? "未入力" : STATUS_LABELS[s.status]}
-    </span>
-  );
+  return <StateMark status={s.status} basis={s.status === "notApplicable" ? null : s.basis} text={s.status === "missing" ? "未入力" : STATUS_LABELS[s.status]} label={f.label} fieldKey={f.key} />;
 }
 
 /**
- * 根拠の1行・4つの操作・プランの印（欄の下に置く）。noBasis は、根拠を専用の部品が別に出しているとき。
- * compact は表の中（確定のほかの操作を「…」の後ろにたたむ）
+ * 4つの操作・プランの印（欄の下に置く）。根拠は状態の印（FieldStateBadge）を押すと開く（0077。前は欄の下に1行で出していた）。
+ * noBasis は前の形の名残（根拠を専用の部品が別に出しているとき）。compact は表の中（確定のほかの操作を「…」の後ろにたたむ）
  */
-export function FieldStateLine({ f, wh, onEdit, noBasis, compact }: { f: FieldDef | undefined; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; noBasis?: boolean; compact?: boolean }) {
+export function FieldStateLine({ f, wh, onEdit, compact }: { f: FieldDef | undefined; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; noBasis?: boolean; compact?: boolean }) {
   const stateOps = useContext(FieldStateOps);
   const marks = useContext(PlanMarksContext);
   const [open, setOpen] = useState(false);
@@ -46,8 +40,7 @@ export function FieldStateLine({ f, wh, onEdit, noBasis, compact }: { f: FieldDe
     setOpen(false);
     onEdit(stateOps(wh, f, op));
   };
-  const basis = noBasis === true ? null : s?.status === "estimated" && s.basis !== null ? `推定: ${s.basis}` : s?.status === "unknown" ? `わからない（代わりの値: ${s.basis ?? "推定"}）` : s?.status === "missing" ? (s.basis ?? STATUS_LABELS.missing) : null;
-  if (basis === null && ops.length === 0 && mark === null) return null;
+  if (ops.length === 0 && mark === null) return null;
   return (
     <div class={`sv-state${compact === true ? " compact" : ""}`} data-state-line={f.key}>
       {marks !== null && mark !== null ? (
@@ -62,7 +55,6 @@ export function FieldStateLine({ f, wh, onEdit, noBasis, compact }: { f: FieldDe
           ) : null}
         </div>
       ) : null}
-      {basis !== null ? <div class="fld-help est-basis">{basis}</div> : null}
       {ops.length > 0 ? (
         <div class="fld-ops" data-field-ops={f.key}>
           {ops.includes("confirm") ? (

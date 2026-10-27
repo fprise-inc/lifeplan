@@ -54,6 +54,8 @@ interface HelpProps {
   markClass?: string;
   /** 確かめ用の印（data-help の値） */
   id?: string;
+  /** 引き金のボタンに足す data- の属性（例: 状態の印の data-state） */
+  data?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -75,7 +77,7 @@ function place(btn: HTMLElement, pop: HTMLElement): { top: number; left: number 
   return { top: top - oy, left: left - ox };
 }
 
-export function Help({ children, label, mark, markClass, id }: HelpProps) {
+export function Help({ children, label, mark, markClass, id, data }: HelpProps) {
   const [st, setSt] = useState<HelpState>(HELP_CLOSED);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const popId = `help-${useId()}`;
@@ -139,6 +141,7 @@ export function Help({ children, label, mark, markClass, id }: HelpProps) {
           ev("press");
         }}
         data-help-btn
+        {...(data ?? {})}
       >
         {mark !== undefined ? mark : <span aria-hidden="true">?</span>}
       </button>

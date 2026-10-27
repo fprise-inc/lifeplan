@@ -1,8 +1,12 @@
 // 入力の欄の部品（作業の層）: 区画・まとまり・欄。欄は段階の定義（form.ts・stages/）だけを見て描く。
-// 値を変えるたびに世帯を作り直して onEdit に渡す（入力のパネルでは下書きに、万一の画面では世帯にそのまま入れる）
+// 値を変えるたびに世帯を作り直して onEdit に渡す（入力のパネルでは下書きに、万一の画面では世帯にそのまま入れる）。
+// 0077: 欄の説明（help・読むだけの理由・ほかへの影響）と区画・まとまりの説明は、名前の横の「?」の中へ。推定の根拠は状態の印を押したときに開く。
+// 灰色の入力例は欄の幅に収まる物だけ（placeholder.ts）
 import { createContext, type ComponentChildren } from "preact";
 import { useContext, useState } from "preact/hooks";
+import { Help } from "../../presentation/Help.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
+import { fittingPlaceholder, textEm } from "./placeholder.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, TimeView, Val, WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
@@ -90,6 +94,65 @@ export const fieldDomId = (key: string): string => `fld-${key.replace(/[^A-Za-z0
 /** 状態の印の CSS の名前 */
 const STATUS_CLASS: Record<ValueStatus, string> = { estimated: "est", unknown: "unk", notApplicable: "na", confirmed: "", missing: "missing" };
 
+/**
+ * 状態の印（推定・仮・わからない・該当なし・未入力）。根拠（推定の出どころ・代わりの値・0円の理由）があれば、印を押すと根拠が開く（0077）。
+ * 確定の欄には何も出さない
+ */
+export function StateMark({ status, basis, text, label, fieldKey }: { status: ValueStatus; basis: string | null; text: string; label: string; fieldKey?: string }) {
+  const cls = `badge ${STATUS_CLASS[status]}`;
+  const data: Record<string, string> = { "data-state": status, ...(fieldKey !== undefined ? { "data-state-of": fieldKey } : {}) };
+  const body =
+    status === "estimated" && basis !== null
+      ? `推定: ${basis}`
+      : status === "unknown"
+        ? `わからない（代わりの値: ${basis ?? "推定"}）`
+        : status === "missing"
+          ? (basis ?? "空欄（0円で計算しています）")
+          : basis;
+  if (body === null)
+    return (
+      <span class={cls} {...data}>
+        {text}
+      </span>
+    );
+  return (
+    <Help label={`${label}の${status === "estimated" ? "推定の根拠" : "状態"}`} mark={text} markClass={cls} data={data}>
+      <p class="est-basis" data-basis>
+        {body}
+      </p>
+    </Help>
+  );
+}
+
+/**
+ * 区画・まとまりの説明を、状態の言葉（「まだありません」）と説明に分ける。状態は画面に出し、説明は「?」の中へ（0077）。
+ * 例: 「まだありません。旅行・家電…」→ 状態「まだありません」・説明「旅行・家電…」、「まだありません（受け取っていれば…）」→ 説明「受け取っていれば…」
+ */
+export function splitNote(note: string | undefined): { state: string | null; help: string | null } {
+  if (note === undefined || note === "") return { state: null, help: null };
+  const m = /^まだありません(。|（)?/.exec(note);
+  if (m === null) return { state: null, help: note };
+  let rest = note.slice(m[0].length);
+  if (m[1] === "（") rest = rest.replace(/）$/, "");
+  return { state: "まだありません", help: rest.trim() === "" ? null : rest };
+}
+
+/** 欄の横の読みのうち、推定の根拠を書いた物の頭 */
+const BASIS_HINT = /^推定(あり)?: /;
+
+/** 欄の説明（「?」の中に入れる文）。無ければ null */
+function fieldHelp(f: FieldDef, extra: readonly (string | null | undefined)[] = []): ComponentChildren | null {
+  const lines = [f.readOnly ?? f.help, f.sideEffects, ...extra].filter((x): x is string => x !== undefined && x !== null && x !== "");
+  if (lines.length === 0) return null;
+  return (
+    <Help label={f.label}>
+      {lines.map((l, i) => (
+        <p key={i}>{l}</p>
+      ))}
+    </Help>
+  );
+}
+
 /** 区画の見出しの横に出す小さな文字のリンク。別のパネルを開く（例: 基本生活費の「明細から出す」。0034） */
 export interface SectionLink {
   label: string;
@@ -130,6 +193,8 @@ const InSection = createContext(false);
 export function Section({ section, wh, level, onEdit }: { section: SectionDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void }) {
   const actions = section.actions.filter((a) => visible(level, a.level));
   const link = useContext(SectionLinks)[section.key];
+  const sn = splitNote(section.note);
+  const sHelp = sn.help !== null ? <Help label={section.title}>{sn.help}</Help> : null;
   // 空の区画（お金の行などがまだ入らない置き場所）は出さない
   if (section.note === undefined && actions.length === 0 && !section.groups.some((g) => visible(level, g.level))) return null;
   return (
@@ -137,7 +202,10 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
       <section class="in-section" aria-label={section.title}>
         {link !== undefined ? (
           <div class="in-section-h">
-            <h3>{section.title}</h3>
+            <h3>
+              {section.title}
+              {sHelp}
+            </h3>
             {/* 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため） */}
             <button type="button" class="link-btn in-section-link" onMouseDown={(e) => e.preventDefault()} onClick={link.onClick} {...(link.title !== undefined ? { title: link.title } : {})} data-section-link={section.key}>
               {link.label}
@@ -145,9 +213,12 @@ export function Section({ section, wh, level, onEdit }: { section: SectionDef; w
             </button>
           </div>
         ) : (
-          <h3>{section.title}</h3>
+          <h3>
+            {section.title}
+            {sHelp}
+          </h3>
         )}
-        {section.note !== undefined ? <p class="in-note">{section.note}</p> : null}
+        {sn.state !== null ? <p class="in-note in-empty">{sn.state}</p> : null}
         {section.groups
           .filter((g) => visible(level, g.level))
           .map((g) => (
@@ -164,12 +235,18 @@ function Group({ group, wh, level, onEdit }: { group: GroupDef; wh: WorkingHouse
   const actions = group.actions.filter((a) => visible(level, a.level));
   if (fields.length === 0 && actions.length === 0 && group.note === undefined) return null;
   if (fields.length === 0 && group.title === undefined) return <Actions actions={actions} wh={wh} onEdit={onEdit} note={group.note} />;
+  // 名前の無いまとまりの説明は、欄の並びの前に「?」だけを置く
+  const gn = splitNote(group.note);
+  const noteHelp = gn.help !== null ? <Help label={group.title ?? "このまとまり"}>{gn.help}</Help> : null;
   const compact = group.title !== undefined && fields.length > 0 && fields.length <= 3 && fields.every((f) => f.kind === "select" || f.kind === "bool");
   return (
     <div class={`in-group${compact ? " compact" : ""}`}>
       {group.title !== undefined ? (
         <div class="in-group-h">
-          <h4>{group.title}</h4>
+          <h4>
+            {group.title}
+            {noteHelp}
+          </h4>
           <PlanGroupTag group={group} wh={wh} />
           <PinButton group={group} />
           {actions.filter((a) => a.danger === true).map((a) => (
@@ -180,7 +257,8 @@ function Group({ group, wh, level, onEdit }: { group: GroupDef; wh: WorkingHouse
         </div>
       ) : null}
       {group.title === undefined ? <PlanGroupTag group={group} wh={wh} /> : null}
-      {group.note !== undefined ? <p class="in-note">{group.note}</p> : null}
+      {group.title === undefined && noteHelp !== null ? <div class="in-group-help">{noteHelp}</div> : null}
+      {gn.state !== null ? <p class="in-note in-empty">{gn.state}</p> : null}
       <div class="fields">
         {fields.map((f) => (
           <Field key={f.key} f={f} wh={wh} onEdit={onEdit} />
@@ -194,7 +272,8 @@ function Group({ group, wh, level, onEdit }: { group: GroupDef; wh: WorkingHouse
 function Actions({ actions, wh, onEdit, note }: { actions: ActionDef[]; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; note?: string | undefined }) {
   return (
     <div class="in-actions">
-      {note !== undefined ? <span class="in-note">{note}</span> : null}
+      {splitNote(note).state !== null ? <span class="in-note in-empty">{splitNote(note).state}</span> : null}
+      {splitNote(note).help !== null ? <Help label={actions[0]?.label ?? "この操作"}>{splitNote(note).help}</Help> : null}
       {actions.map((a) => (
         <button
           type="button"
@@ -274,18 +353,16 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   };
   const shownStatus: ValueStatus | null = status !== null ? status.status : state.estimated != null || state.assumed != null ? "estimated" : null;
   const basisText = status?.basis ?? state.estimated ?? state.assumed ?? null;
+  // 状態の印（根拠は印を押すと開く。0077）
   const badge =
     shownStatus !== null && shownStatus !== "confirmed" ? (
-      <span class={`badge ${STATUS_CLASS[shownStatus]}`} title={basisText ?? STATUS_LABELS[shownStatus]} data-state={shownStatus}>
-        {shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]}
-      </span>
+      <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} />
     ) : null;
 
-  // 状態の根拠の1行と4つの操作（時点の欄でも同じ。0041）
+  // 4つの操作とプランの印（時点の欄でも同じ。0041）
   const stateLines = (
     <>
       <PlanMarkLine f={f} wh={wh} />
-      {shownStatus === "estimated" && basisText !== null ? <div class="fld-help est-basis">推定: {basisText}</div> : shownStatus === "unknown" ? <div class="fld-help est-basis">わからない（代わりの値: {basisText ?? "推定"}）</div> : null}
       {ops.length > 0 ? (
         <div class="fld-ops" data-field-ops={f.key}>
           {ops.includes("confirm") ? (
@@ -318,7 +395,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   /** 入れた文字を使えない理由（打っている間）か、使えないまま離れた知らせ */
   let problem: string | null = null;
   if (f.time !== undefined && f.readOnly === undefined && (f.kind === "when" || inSection)) {
-    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} help={f.help} warn={state.warn ?? null} status={shownStatus} extras={stateLines} />;
+    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} status={shownStatus} extras={stateLines} />;
   }
   if (f.readOnly !== undefined) {
     control = <span class="ro">{f.kind === "select" ? (f.options.find((o) => o.value === state.value)?.label ?? "") : state.value === null ? "—" : String(state.value)}</span>;
@@ -376,7 +453,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
         inputMode={f.kind === "text" || f.kind === "ym" ? undefined : "decimal"}
         class={`${f.kind === "text" ? "txt" : f.kind === "ym" ? "ym" : "num"}${bad ? " bad" : ""}`}
         value={draft ?? shown}
-        placeholder={f.kind === "ym" ? "例: 2041-06" : f.kind === "text" ? (f.placeholder ?? "") : shownStatus === "notApplicable" ? "該当なし" : shownStatus === "missing" ? "未入力（0円で計算中）" : state.estimated != null ? "空欄＝推定" : ""}
+        placeholder={f.kind === "ym" ? "例: 2041-06" : f.kind === "text" ? fittingPlaceholder("txt", f.placeholder) : shownStatus === "notApplicable" ? "該当なし" : shownStatus === "missing" ? "未入力" : state.estimated != null ? "空欄＝推定" : ""}
         aria-invalid={bad ? true : undefined}
         aria-describedby={problem !== null ? `${id}-problem` : undefined}
         onFocus={() => {
@@ -429,14 +506,20 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   const hint = state.hint ?? (f.kind === "ym" && typeof state.value === "string" ? formatYearMonth(state.value) : null);
   return (
     <div class={`fld${shownStatus === "estimated" ? " is-est" : shownStatus !== null && shownStatus !== "confirmed" ? ` is-${STATUS_CLASS[shownStatus]}` : ""}`} data-field={f.key}>
-      <label for={id} class="fld-l">
-        {f.label}
+      <div class="fld-l">
+        <label for={id}>{f.label}</label>
         {badge}
-      </label>
+        {fieldHelp(f)}
+      </div>
       <div class="fld-c">
         {control}
         {unitControls}
-        {hint !== null ? <span class="fld-hint">{hint}</span> : null}
+        {hint !== null && BASIS_HINT.test(hint) && textEm(hint) > 12 ? (
+          // 長い推定の根拠（「推定あり: …」）は印だけ出し、押すと開く（0077）
+          <StateMark status="estimated" basis={hint.replace(BASIS_HINT, "")} text="推定" label={f.label} />
+        ) : hint !== null ? (
+          <span class="fld-hint">{hint}</span>
+        ) : null}
       </div>
       {sug !== undefined ? (
         <div class="fld-suggest" data-suggest={f.key}>
@@ -470,8 +553,6 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
         </div>
       ) : null}
       {stateLines}
-      {f.readOnly !== undefined ? <div class="fld-help">{f.readOnly}</div> : f.help !== undefined ? <div class="fld-help">{f.help}</div> : null}
-      {f.sideEffects !== undefined ? <div class="fld-help">{f.sideEffects}</div> : null}
     </div>
   );
 }
@@ -493,7 +574,7 @@ function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: stri
  * 横の「入れ方」で見せ方を選び直せる（同じ月のまま形を変える）。読み替えた形と、読めない理由を欄の下に1行で出す。
  * 打っている間は世帯を変えず、欄を離れたとき（Enter）に入れる
  */
-function WhenField({ f, time, state, label, badge, id, wh, onEdit, help, warn, status, extras }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; help: string | undefined; warn: string | null; status: ValueStatus | null; extras: ComponentChildren }) {
+function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status, extras }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; warn: string | null; status: ValueStatus | null; extras: ComponentChildren }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [rejected, setRejected] = useState<string | null>(null);
   const [picked, setPicked] = useState<WhenMode | null>(null);
@@ -535,17 +616,18 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, help, warn, s
   };
   return (
     <div class={`fld when${status === "estimated" ? " is-est" : status !== null && status !== "confirmed" ? ` is-${STATUS_CLASS[status]}` : ""}`} data-when={f.key} data-field={f.key}>
-      <label for={id} class="fld-l">
-        {label}
+      <div class="fld-l">
+        <label for={id}>{label}</label>
         {badge}
-      </label>
+        {fieldHelp(f, [state.raw !== null ? time.when.monthOnly : undefined, mode === "event" && state.ctx.events.length === 0 ? "出来事は、子の独立・持ち家の入居・年金の受け取り開始・介護の始まりや、家族のカードの「出来事」から選べます" : undefined])}
+      </div>
       <div class="fld-c">
         <input
           id={id}
           type="text"
           class={`when-in${problem !== null && live !== null ? " bad" : ""}`}
           value={draft ?? shown}
-          placeholder={state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : PLACEHOLDER[mode]}
+          placeholder={fittingPlaceholder("when-in", state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : null, PLACEHOLDER[mode])}
           aria-invalid={live !== null && "reason" in live ? true : undefined}
           aria-describedby={`${id}-read`}
           onFocus={() => setDraft(shown)}
@@ -597,13 +679,12 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, help, warn, s
       <div class="fld-help when-read" id={`${id}-read`} data-when-read={f.key}>
         {reading}
       </div>
-      {mode === "event" && state.ctx.events.length === 0 ? <div class="fld-help">選べる出来事がまだありません（子の独立・持ち家の入居・年金の受け取り開始・介護の始まりや、家族のカードの「出来事」から選べます）</div> : null}
+      {mode === "event" && state.ctx.events.length === 0 ? <div class="fld-help">選べる出来事がまだありません</div> : null}
       {state.linked !== null ? (
         <div class="fld-help warn" data-when-linked>
           「{state.linked.label}」の出来事の時点です。ここを直すと出来事が動き、{state.linked.refs > 1 ? `この出来事を指すほかの${state.linked.refs - 1}件も一緒に動きます` : "この出来事を指す物も一緒に動きます"}
         </div>
       ) : null}
-      {time.when.monthOnly !== undefined && state.raw !== null ? <div class="fld-help">{time.when.monthOnly}</div> : null}
       {warn !== null ? (
         <div class="fld-help warn" data-field-warn>
           {warn}
@@ -615,8 +696,6 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, help, warn, s
         </div>
       ) : null}
       {extras}
-      {help !== undefined ? <div class="fld-help">{help}</div> : null}
-      {f.sideEffects !== undefined ? <div class="fld-help">{f.sideEffects}</div> : null}
     </div>
   );
 }
