@@ -92,8 +92,8 @@ const catLabel = (c: string) => LIVING_CATEGORIES.find((o) => o.value === c)?.la
 const catOf = (l: LivingExpense | undefined, c: string): Category | undefined => (l?.categories ?? []).find((x) => x.category === c);
 const CAT_HELP: Record<string, string> = {
   health: `通院・薬・医療用品など。${MEDICAL_HELP}（医療費だけを分けて伸ばしたいときは「年払い・数年おきの暮らしの支出」に「医療・介護」の行を足します）`,
-  transport: "電車・バスの運賃・通信費。車の費用（ガソリン・駐車場・保険など）は車のカードで入れます",
-  allowance: "親への仕送りは介護・親のカードの「親への仕送り」、子の自宅外の在学の仕送りは子ども・教育のカードでも入れられます（相手ごとに分けて見られます）。両方に入れると二重になります",
+  transport: "電車・バスの運賃・通信費。車の費用（ガソリン・駐車場・保険など）は車の項目で入れます",
+  allowance: "親への仕送りは介護・親の項目の「親への仕送り」、子の自宅外の在学の仕送りは子ども・教育の項目でも入れられます（相手ごとに分けて見られます）。両方に入れると二重になります",
   otherConsumption: "こづかい・交際費・理美容など。内訳に分けていない分もここに入ります",
 };
 

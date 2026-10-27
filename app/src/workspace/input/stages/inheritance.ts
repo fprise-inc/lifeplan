@@ -298,7 +298,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/receive",
       title: moneyIn?.title ?? "受け取る予定の相続・贈与",
-      note: "見込み（確実・当てにしない）を行ごとに選びます。「当てにしない」の受け取る相続・贈与は、基本の計算に入れません（行は残り、「この行を計算に入れる」で入れられます）。相手は世帯の外の家族（介護・親のカード）から選び、相続の受け取る時期は相手の亡くなる見込みの10か月後を推定で入れます",
+      note: "見込み（確実・当てにしない）を行ごとに選びます。「当てにしない」の受け取る相続・贈与は、基本の計算に入れません（行は残り、「この行を計算に入れる」で入れられます）。相手は世帯の外の家族（介護・親の項目）から選び、相続の受け取る時期は相手の亡くなる見込みの10か月後を推定で入れます",
       level: "simple",
       groups: [...(moneyIn?.groups ?? []).map((g) => withIncludeAction(wh, g)), ...inheritedDebtGroups(wh), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
       actions: [...receiveActions(moneyIn?.actions ?? []), { key: "money/inherit/addDebt", label: "＋ 相続で受け継ぐ借金", level: "detail", run: (w: WorkingHousehold) => addInheritedDebt(w) }],
@@ -314,7 +314,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "family/donors",
       title: "贈与する人（親・祖父母）",
-      note: "世帯の外の親・祖父母を贈与する人として足すと、住宅資金・教育資金などの援助で選べます。同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます。足した人は、介護・親のカードの世帯の外の家族に並びます",
+      note: "世帯の外の親・祖父母を贈与する人として足すと、住宅資金・教育資金などの援助で選べます。同じ人からの贈与は、贈与税の基礎控除・相続時精算課税の特別控除を合わせて数えます。足した人は、介護・親の項目の世帯の外の家族に並びます",
       level: "simple",
       groups: groupsOf(readGroup("inherit/donors", undefined, donorLines(wh))),
       actions: addDonorActions(wh),

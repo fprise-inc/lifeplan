@@ -24,7 +24,7 @@ describe("制度データに値が無いとき（E_PARAM_NO_VALUE）の文", () 
     const text = engineErrorText(e.code, e.ids, req.input.baseMonth);
     expect(text).toContain(`${y}年${m}月の時点の値がありません`);
     expect(text).not.toContain(`「${e.ids[0]}」`); // 値 ID ではなく登録簿の名前
-    expect(text).toContain("「働き方と収入」のカードで、住民税（今年度の年税額）が空の人に入れると計算できます");
+    expect(text).toContain("「働き方と収入」の項目で、住民税（今年度の年税額）が空の人に入れると計算できます");
   });
 
   it("計算基準月より後の時期は、住民税の避け方を出さない", () => {

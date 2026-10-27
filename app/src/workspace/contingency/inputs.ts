@@ -376,7 +376,7 @@ export function contingencyInputSections(wh: WorkingHousehold): SectionDef[] {
         planField({ key: "cg/income/ratio", label: "減る割合", kind: "pct", path: ["incomeDrop", "ratio"], fallback: INCOME_DROP_DEFAULT.ratio }),
         planField({ key: "cg/income/years", label: "何年", kind: "int", suffix: "年", min: 1, max: 30, path: ["incomeDrop", "years"], fallback: INCOME_DROP_DEFAULT.years }),
       ],
-      { note: "起きる年から、給与・事業の所得を決めた割合だけ減らします（リストラの後の減収・子の入院で親が休む・上下する収入など、試しに見る悪い場合）。決まった休業は働き方と収入のカードの休業で入れます" },
+      { note: "起きる年から、給与・事業の所得を決めた割合だけ減らします（リストラの後の減収・子の入院で親が休む・上下する収入など、試しに見る悪い場合）。決まった休業は働き方と収入の項目の休業で入れます" },
     ),
   );
   if (hasInvested(h))

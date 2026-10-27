@@ -16,7 +16,7 @@ export const LIST_GROUP_LABELS: Readonly<Record<ListGroup, string>> = {
   economy: "経済の前提",
   range: "計算の範囲・決まり",
   realEstate: "持ち家の評価",
-  estimate: "推定の目安（各カード）",
+  estimate: "推定の目安（各入力項目）",
   contingency: "万一の前提",
 };
 

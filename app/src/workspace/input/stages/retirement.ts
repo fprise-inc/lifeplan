@@ -71,7 +71,7 @@ function people(h: Household): Member[] {
 
 /** iDeCo・企業型DCの受け取りの読むだけの文（例: 一時金・65歳から） */
 function receiptText(wh: WorkingHousehold, a: Account): string {
-  if (a.kind === "smallBusinessMutualAid") return "受け取りは貯蓄・運用のカードの口座で";
+  if (a.kind === "smallBusinessMutualAid") return "受け取りは貯蓄・運用の項目の口座で";
   const h = wh.request.input.household;
   const age = payoutAgeOf(h, a);
   const method = a.payout === undefined ? "一時金（推定）" : (METHOD_TEXT[a.payout.method] ?? a.payout.method);
@@ -380,7 +380,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
             kind === "nationalPensionFund"
               ? "加入員証・年金見込額のお知らせの年金額（1口目と2口目以降を合わせた年額）。入れるまでは0円で計算します"
               : kind === "civilServantPension"
-                ? "共済組合の年金払い退職給付の見込額（終身の分と有期の分を、それぞれの行に）。旧職域加算は年金のカードの定期便の額に含めます。入れるまでは0円で計算します"
+                ? "共済組合の年金払い退職給付の見込額（終身の分と有期の分を、それぞれの行に）。旧職域加算は年金の項目の定期便の額に含めます。入れるまでは0円で計算します"
                 : "年金見込額のお知らせの「年金で受けた場合の年額」。空欄のときは、一時金の額を年数と予定利率で年金に直した額です",
           hint: (v, w) => (v === null && !required ? annuityHint((w.request.input.household.retirementBenefits ?? []).find((x) => x.id === b.id) ?? b) : null),
         }),

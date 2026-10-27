@@ -84,7 +84,7 @@ function Contents({ wh, onOpen, onClose }: { wh: WorkingHousehold; onOpen: (card
   const sections = useMemo(() => householdContents(wh), [wh]);
   return (
     <section class="card fp-panel" aria-label="世帯の中身の一覧" data-fp-contents>
-      <Head title="世帯の中身の一覧" note="人・収入・退職給付・口座と不動産・保険・ローン・出るお金・介護・相続と贈与を1画面に（読むだけ）。押すとそのカードを開きます" onClose={onClose} />
+      <Head title="世帯の中身の一覧" note="人・収入・退職給付・口座と不動産・保険・ローン・出るお金・介護・相続と贈与を1画面に（読むだけ）。押すとその入力項目を開きます" onClose={onClose} />
       <div class="fp-contents">
         {sections.map((s) => (
           <div key={s.card} class="fp-sec" data-fp-section={s.card}>

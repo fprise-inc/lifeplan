@@ -12,6 +12,7 @@ import { mutate, type WorkingHousehold } from "../household.ts";
 import { memberLabel, memberOptions } from "../labels.ts";
 import { buildStage } from "../stages/index.ts";
 import { MAIN_ADD_KINDS } from "../stages/savings.ts";
+import { revealAdded } from "../../../presentation/revealAdded.ts";
 import { formatYen, normalizeNumberText, parseInteger, parseYen, pctFromRate, rateFromPct } from "../units.ts";
 import {
   accountMonthlyAt,
@@ -148,7 +149,7 @@ function StepsEditor(p: { steps: Step[]; now: number; stopAge: number | null; la
         const to = next !== undefined ? next.fromAge - 1 : stop !== null ? stop - 1 : null;
         const past = stop !== null && s.fromAge >= stop;
         return (
-          <div class={`sv-st${past ? " past" : ""}`} key={j}>
+          <div class={`sv-st${past ? " past" : ""}`} key={j} data-reveal-item>
             {j === 0 ? (
               <span class="sv-st-from">{s.fromAge}</span>
             ) : (
@@ -181,7 +182,8 @@ function StepsEditor(p: { steps: Step[]; now: number; stopAge: number | null; la
       <button
         type="button"
         class="sv-st-add"
-        onClick={() => {
+        onClick={(e) => {
+          revealAdded(e.currentTarget);
           const last = steps.at(-1) as Step;
           const limit = stop ?? 100;
           const from = Math.min(limit - 1, last.fromAge + 5);
@@ -341,7 +343,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
           <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} editField={editField} find={find} fields={fields} onEdit={onEdit} />
           <div class="sv-add">
             {addActions.map((a) => (
-              <button type="button" class="add-btn" key={a.key} onClick={() => onEdit(a.run(wh))} data-action={a.key}>
+              <button type="button" class="add-btn" key={a.key} onClick={(e) => { if (a.label.startsWith("＋")) revealAdded(e.currentTarget); onEdit(a.run(wh)); }} data-action={a.key}>
                 {a.label}
               </button>
             ))}
@@ -478,7 +480,7 @@ function FlowSection({ wh, level, flow, onEdit }: { wh: WorkingHousehold; level:
               {g.actions.length > 0 ? (
                 <div class="in-actions">
                   {g.actions.map((a) => (
-                    <button type="button" key={a.key} class="add-btn" onClick={() => onEdit(a.run(wh))} data-action={a.key} {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})} {...(a.title !== undefined ? { title: a.title } : {})}>
+                    <button type="button" key={a.key} class="add-btn" onClick={(e) => { if (a.label.startsWith("＋")) revealAdded(e.currentTarget); onEdit(a.run(wh)); }} data-action={a.key} {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})} {...(a.title !== undefined ? { title: a.title } : {})}>
                       {a.label}
                     </button>
                   ))}

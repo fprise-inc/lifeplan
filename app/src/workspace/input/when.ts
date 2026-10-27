@@ -340,7 +340,7 @@ export function parseWhen(text: string, ctx: WhenCtx): WhenParse {
   if (/^\d{1,3}歳/.test(ageText)) {
     if (!allowed(ctx, "age")) return notAllowed(ctx, "age");
     const member = who?.id ?? ctx.person;
-    if (member === null) return { ok: false, reason: ctx.people.length === 0 ? "年齢で入れるには、家族のカードで生年月を入れてください" : "誰の年齢か書いてください（例: 本人60歳・妻65歳）" };
+    if (member === null) return { ok: false, reason: ctx.people.length === 0 ? "年齢で入れるには、家族の項目で生年月を入れてください" : "誰の年齢か書いてください（例: 本人60歳・妻65歳）" };
     const r = parseAge(ctx, member, ageText);
     if (r !== null) return r;
   }

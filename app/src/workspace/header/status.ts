@@ -60,12 +60,12 @@ export function barAlerts(i: BarInputs): AlertSpec[] {
   return out;
 }
 
-const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める", family: "介護・親のカード", plans: "プランの一覧" };
+const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める", family: "介護・親の項目", plans: "プランの一覧" };
 
 /** 開いたときの知らせの文（0035 の8） */
 export function householdNoticeText(n: { kind: string; count?: number }): { text: string; target: NoticeTarget } | null {
   if (n.kind === "outsideFamily")
-    return { target: "family", text: "親・祖父母を世帯の外の家族（家計が別）にしました。年金などは世帯の収入に入らないので、結果が前と変わります。家計を1つにする期間は介護・親のカードで入れられます" };
+    return { target: "family", text: "親・祖父母を世帯の外の家族（家計が別）にしました。年金などは世帯の収入に入らないので、結果が前と変わります。家計を1つにする期間は介護・親の項目で入れられます" };
   if (n.kind === "unresolvedDiffs") return { target: "plans", text: `古い形式のプランの変更のうち ${n.count ?? 0}件を読み替えられませんでした。プランの一覧の「要確認」で確かめてください` };
   return null;
 }
