@@ -247,6 +247,19 @@ export function standardEndYear(h: Household): number {
   return Math.max(...adults.map((m) => parseYm(ageReachedMonth(m, 100)).y));
 }
 
+/**
+ * アプリの見本の世帯を開くときの要求: 表の最後の年を標準（standardEndYear）にそろえる。
+ * 見本の元のモデル世帯は、計算の確かめ・速さの計測にも使うので表の長さがまちまち（100年分の表など）で、そのまま開くと
+ * 表が本人129歳まで続き、前提条件の標準の年とも食い違っていた。保存した世帯（見本を開いて保存した写しも）はこれを通さない（黙って書き換えない）
+ */
+export function sampleRequest(req: EngineRequest): EngineRequest {
+  const std = standardEndYear(req.input.household);
+  if (!Number.isFinite(std) || req.input.endYear === std) return req;
+  const out = structuredClone(req);
+  out.input.endYear = std;
+  return out;
+}
+
 /** 子の独立の標準の年齢（子を足したときの初めの値） */
 export const CHILD_LEAVES_AGE = 22;
 

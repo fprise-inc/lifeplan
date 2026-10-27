@@ -42,7 +42,7 @@ interface Props {
 /** 入力のホームの見出しの下に出す、確かめの一覧の入口の数（未入力・わからない・推定） */
 export function checkSummary(wh: WorkingHousehold, notices: readonly NoticeRow[] = []): { total: number; counts: Record<CheckKind, number> } {
   const counts = checkCounts(checkList(wh, notices));
-  return { total: counts.missing + counts.unknown + counts.notice + counts.calc + counts.estimated, counts };
+  return { total: counts.missing + counts.notStarted + counts.unknown + counts.notice + counts.calc + counts.estimated, counts };
 }
 
 const NO_NOTICES: readonly NoticeRow[] = [];
@@ -98,7 +98,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
   const shown = all.filter((r) => passesFilter(r, filter, marked));
   const shownPlan = planRows.filter((r) => passesFilter(r, filter, () => false));
   const counts = checkCounts(all);
-  const fillable = shown.filter((r) => r.kind === "missing" && r.actions.some((a) => a.key === "fill")).length;
+  const fillable = shown.filter((r) => (r.kind === "missing" || r.kind === "notStarted") && r.actions.some((a) => a.key === "fill")).length;
   // まとめて確定にできる推定（推定が値でなく決まりの欄は「✓ 確定」を持たない）
   const estimated = all.filter((r) => r.kind === "estimated" && (card === "" || r.card === card) && r.actions.some((a) => a.key === "confirm")).length;
   const run = (r: CheckRow, key: string) => {
@@ -188,13 +188,14 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
         <h2>
           確かめの一覧
           <Help label="確かめの一覧" id="checklist">
-            <p>未入力・わからない・確かめの注意・計算の知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。</p>
+            <p>未入力・まだ入れていない項目・わからない・確かめの注意・計算の知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。</p>
             <p>「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。推定・わからない・確かさの行は「根拠」で根拠が開きます。</p>
             <p>確かさが申告・概算の値は、確かさか状態で絞り込んだときだけ出します。「次回確かめる」は、次の面談・見直しで確かめる所の印です（世帯に残ります。計算は変わりません）。</p>
           </Help>
         </h2>
         <p class="ck-lead">
-          未入力 {counts.missing}・わからない {counts.unknown}・確かめの注意 {counts.notice}
+          未入力 {counts.missing}
+          {counts.notStarted > 0 ? `・まだ入れていない ${counts.notStarted}` : ""}・わからない {counts.unknown}・確かめの注意 {counts.notice}
           {counts.calc > 0 ? `・計算の知らせ ${counts.calc}` : ""}・推定 {counts.estimated}
           {marks.length > 0 ? `・次回確かめる ${marks.length}` : ""}
         </p>
