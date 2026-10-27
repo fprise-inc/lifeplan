@@ -149,6 +149,19 @@ describe("働き方と収入: 年収（賞与込み）の1欄", () => {
     expect((total.boxed!.read(total.boxed!.write(conf, box as never)) as { value: number }).value).toBe(box.value);
   });
 
+  it("役員だけは標準でも月の報酬（年額）と賞与を分けて聞く（まとめた1欄は出さない）", () => {
+    const wh = open("executiveOwner");
+    const exec = members(wh).find((m) => (wh.request.input.household.employmentPeriods ?? []).some((p) => p.member === m.id && p.type === "executive"))!;
+    const simple = simpleFields(wh, "work").filter((f) => f.key.startsWith(`work/${exec.id}/now/`)).map((f) => f.key.split("/").at(-1));
+    expect(simple).toEqual(["type", "annual", "bonus"]);
+    const annual = fieldOf(wh, "work", `work/${exec.id}/now/annual`);
+    expect(annual.label).toContain("月の報酬");
+    const w = annual.set(wh, 15000000);
+    const p = (w.request.input.household.employmentPeriods ?? []).find((x) => x.member === exec.id && x.type === "executive")!;
+    expect(p.salary!.annual).toMatchObject({ value: 15000000, state: "confirmed" });
+    expect(p.salary!.bonus!.value).toBe(1200000);
+  });
+
   it("見本の世帯は開いただけでは変わらない（年収・賞与の持ち方はそのまま）", () => {
     const { wh } = setup();
     expect(wh.request.input.household.employmentPeriods).toEqual(modelHousehold("salariedCoupleTwoKids").input.household.employmentPeriods);

@@ -643,8 +643,14 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
   if (p.type === "partTime" || p.type === "contract") fields.push(employeeInsuranceField(p, find, prefix, level));
   if (SALARIED.has(p.type)) {
     fields.push(
-      // 標準（今の働き方）は年収（賞与込み）の1欄。賞与の内訳は詳細の「働き方の期間（詳しく）」の年収・賞与で直す（0078）
-      ...(level === "simple"
+      // 標準（今の働き方）は年収（賞与込み）の1欄。賞与の内訳は詳細の「働き方の期間（詳しく）」の年収・賞与で直す（0078）。
+      // 役員だけは標準でも月の報酬（年額）と賞与を分けて聞く（社会保険料の上限が月の報酬と賞与で違い、まとめて統計の割合で分けると結果が大きくずれる）
+      ...(level === "simple" && p.type === "executive"
+        ? [
+            yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "月の報酬（年額・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "毎月の役員報酬の12か月分（定期同額給与）。空欄なら目安で計算します" }),
+            yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計。事前確定届出給与など）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null, help: "役員の賞与（事前確定届出給与など）の年間の合計。無ければ0" }),
+          ]
+        : level === "simple"
         ? [salaryTotalField(wh, m, p, find, prefix)]
         : [
             yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "年収（税込み・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "源泉徴収票の支払金額から賞与を除いた額。空欄なら統計の目安で計算します" }),
