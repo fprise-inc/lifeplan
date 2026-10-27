@@ -205,7 +205,7 @@ export function PremisePanel({ wh, sections, used, extra, onDraft, onCommit, lev
           <span class="seg-g" role="group" aria-label="前提の欄の形式">
             {(["simple", "detail"] as const).map((l) => (
               <button key={l} type="button" aria-pressed={level === l} data-cg-level={l} onClick={() => onLevel(l)}>
-                {l === "simple" ? "簡易" : "詳細"}
+                {l === "simple" ? "標準" : "詳細"}
               </button>
             ))}
           </span>

@@ -329,7 +329,7 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
 
   it("描画: 進み具合は未入力（0円の所あり）の数を左に強く、続けて14項目中の入力済み・推定で計算中・当てはまらない。新しい世帯に最初の5枚の案内", () => {
     const wh = blankHousehold("2026-10", seq());
-    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", onLevel: () => undefined }));
+    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple" }));
     expect(html).toContain('data-progress-missing="9"');
     expect(html).toMatch(/ih-prog-miss on.*未入力（0円の所あり）.*<span class="n">9<\/span>/);
     // 状態ごとの数は押すとそのカードだけに絞るボタン（0072）
@@ -348,7 +348,7 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
   it("描画: 最初の5枚がどれも未入力でなければ案内を出さない。FP用のメモは画面に出さない", () => {
     // 失業給付を「受け取らない」と決めて、最初の5枚をどれも未入力でなくする
     const wh = notApplicableCard(open("salariedCoupleTwoKids", ["MEMO-MARK-home"]), "work");
-    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", onLevel: () => undefined }));
+    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple" }));
     expect(html).not.toContain("data-first-guide");
     expect(html).toContain('data-progress-missing="4"');
     expect(html).not.toContain("MEMO-MARK-home");
@@ -357,7 +357,7 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
 
   it("パネルを開いた状態（中央のパネル・背景を暗くする・保存のボタン）", () => {
     const wh = blankHousehold("2026-10", seq());
-    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", onLevel: () => undefined, initialOpen: "family" }));
+    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", initialOpen: "family" }));
     expect(html).toContain('class="scrim"');
     expect(html).toContain('role="dialog"');
     expect(html).toContain("推定・仮の値のままの欄が 2つ あります。保存しても、推定の欄が残る間はカードは「推定で計算中」のままです。");
@@ -475,12 +475,12 @@ describe("ピン", () => {
   it("描画: ピンの列（押すとその物だけ開く・外す）", () => {
     const wh = withAdded(open("salariedCoupleTwoKids"), ["pet"]);
     const pin = pinItems(wh)[0]!;
-    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", onLevel: () => undefined }));
+    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple" }));
     expect(html).toContain("data-pins");
     expect(html).toContain(`data-pin="${pin.id}"`);
     expect(html).toContain(`data-unpin="${pin.id}"`);
     expect((html.match(/data-card=/g) ?? []).length).toBe(14);
-    const panel = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", onLevel: () => undefined, initialOpen: pin.id }));
+    const panel = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", initialOpen: pin.id }));
     expect(panel).toContain("📌 ピン");
     expect(panel).toContain("📌 ホームから外す");
   });
