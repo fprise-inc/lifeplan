@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { TableCell } from "../src/engine/types.ts";
 import { fromRequest, mutate } from "../src/workspace/input/household.ts";
 import { addMonths } from "../src/workspace/levers.ts";
+import { addMember } from "../src/workspace/input/stages/family.ts";
 import { householdContents, inputChanges, insights, nextYearEvents, pastPlans } from "../src/workspace/tools/fpTools.ts";
 import { reviewTiming } from "../src/workspace/tools/FpTools.tsx";
 import { inheritancePayable } from "../src/workspace/tools/Insights.tsx";
@@ -125,5 +126,14 @@ describe("見直しの時期", () => {
     const s = (createdAt: string) => ({ createdAt }) as unknown as Snapshot;
     expect(reviewTiming([])).toBeNull();
     expect(reviewTiming([s("2026-03-10T10:00:00+09:00"), s("2026-09-01T10:00:00+09:00")])).toEqual({ last: "2026-09", next: "2027-09" });
+  });
+});
+
+describe("世帯の中身: これから生まれる子", () => {
+  it("生まれる予定の年月（和暦）を出す", () => {
+    const wh = addMember(fromRequest(modelHousehold("salariedCoupleTwoKids")), "child", undefined, { expected: true });
+    const kid = wh.request.input.household.members.find((m) => m.expected === true)!;
+    const rows = householdContents(wh).flatMap((s) => s.rows);
+    expect(rows.find((r) => r.id === kid.id)?.text).toMatch(/^これから生まれる予定（令和\d+年\d+月）$/);
   });
 });

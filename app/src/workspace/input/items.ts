@@ -682,6 +682,14 @@ export function progressOf(items: readonly InputItem[]): Progress {
   return { total: cards.length, done: n("done"), est: n("est"), missing: n("missing"), na: n("na") };
 }
 
+/**
+ * 項目がまだ何も入っていない新しい世帯か（入力のホームにも「取り込む」の入口を出すとき）。
+ * 保存した項目が無く、前提条件（事務所の標準で始まる）のほかに入力済みの項目が無く、足した物も無い。推定・既定の値だけのカードは「入っていない」と読む
+ */
+export function nothingEnteredYet(wh: WorkingHousehold, items: readonly InputItem[]): boolean {
+  return wh.confirmed.length === 0 && wh.addedItems.length === 0 && items.every((i) => i.id === "assumptions" || i.status !== "done");
+}
+
 /** カードを「当てはまらない」にする（1押し）: そのカードの入っていない物を「該当なし」にし、保存した項目の印を付ける（物の無いカードは当てはまらないと読む） */
 export function notApplicableCard(wh: WorkingHousehold, id: string): WorkingHousehold {
   let w = wh;

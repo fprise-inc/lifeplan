@@ -288,6 +288,33 @@ const byKey = (wh: WorkingHousehold, key: string) => buildStages(wh).flatMap((s)
 const tableOf = (req: EngineRequest) => JSON.stringify(preview(req).table);
 
 describe("時点の欄の読み書き", () => {
+  it("独立の時期・加わる時期は生年月の欄と同じ表記（2048-04）と読み（○歳（和暦））。入れ方の選択は残し、年齢・出来事の形は書き換えない", () => {
+    const wh = open("salariedCoupleTwoKids");
+    const h = wh.request.input.household;
+    const son = h.members.find((m) => m.kind === "child")!;
+    const sp = h.members.find((m) => m.kind === "spouse")!;
+    const f = byKey(wh, `family/${son.id}/leaves`);
+    expect(f.time!.when.modes.length).toBeGreaterThan(1);
+    const w1 = f.set(wh, "2048-04");
+    const st = f.get(w1).when!;
+    expect(st.raw).toEqual({ at: "2048-04" });
+    expect(showWhen(st.raw, { ...st.ctx, mode: "ym" })).toBe("2048-04");
+    expect(st.read).toBe(`${Math.floor((Number("2048") * 12 + 3 - (Number(son.birth.birthYearMonth.slice(0, 4)) * 12 + Number(son.birth.birthYearMonth.slice(5, 7)) - 1)) / 12)}歳（令和30年4月）`);
+    expect(parseWhen("2048-04", { ...st.ctx, mode: "ym" })).toMatchObject({ ok: true, tp: { at: "2048-04" } });
+    // 加わる時期（詳細）: 年月で入れると「○歳（和暦）」。年齢の形で持つ世帯は開いても変えない
+    const j = byKey(wh, `family/${sp.id}/joins`);
+    expect(j.time!.when.modes).toEqual(WHEN_MODES);
+    const w2 = j.set(wh, "2027-04");
+    const age = Math.floor((2027 * 12 + 3 - (Number(sp.birth.birthYearMonth.slice(0, 4)) * 12 + Number(sp.birth.birthYearMonth.slice(5, 7)) - 1)) / 12);
+    expect(j.get(w2).when!.read).toBe(`${age}歳（令和9年4月）`);
+    const old = structuredClone(wh.request);
+    old.input.household.members.find((m) => m.id === sp.id)!.joins = { memberAge: { member: sp.id, years: 60 } };
+    const wo = fromRequest(old);
+    const before = JSON.stringify(wo.request);
+    expect(byKey(wo, `family/${sp.id}/joins`).get(wo).when!.raw).toEqual({ memberAge: { member: sp.id, years: 60 } });
+    expect(JSON.stringify(wo.request)).toBe(before);
+  });
+
   it("年齢で入れた時点は年齢のまま持ち、欄の値は年月に解いて見せる（同じ時点の入れ直しは世帯を変えない）", () => {
     const wh = open("salariedCoupleTwoKids");
     const h = wh.request.input.household;
@@ -297,7 +324,7 @@ describe("時点の欄の読み書き", () => {
     const leaves = w1.request.input.household.members.find((m) => m.id === son.id)!.leaves;
     expect(leaves).toEqual({ memberAge: { member: son.id, years: 22, ageSwitch: "firstMarch31AfterReach" } });
     expect(f.get(w1).value).toBe("2035-03");
-    expect(f.get(w1).when?.read).toBe("第1子が22歳になった後の最初の3月（2035年3月）");
+    expect(f.get(w1).when?.read).toBe("第1子が22歳になった後の最初の3月（令和17年3月）");
     expect(f.time!.setWhen(w1, structuredClone(leaves) as Timepoint, "auto")).toBe(w1);
     expect(f.set(w1, "2035-03")).toBe(w1);
     expect(() => preview(w1.request)).not.toThrow();
