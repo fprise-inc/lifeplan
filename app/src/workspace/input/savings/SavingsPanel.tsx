@@ -6,7 +6,7 @@ import type { Account, EngineRequest } from "../../../engine/types.ts";
 import { Help } from "../../../presentation/Help.tsx";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
 import { ageAt } from "../../levers.ts";
-import { ActionHelp, Field, fieldDomId, Section, shouldCommitOnBlur, visible } from "../FieldViews.tsx";
+import { ActionHelp, Field, fieldDomId, Group, MoreToggle, Section, shouldCommitOnBlur, useGroupOpen, visible } from "../FieldViews.tsx";
 import { FieldStateBadge, FieldStateLine } from "../FieldStateLine.tsx";
 import { allFields, type FieldDef, type GroupDef, type Level, type SectionDef } from "../form.ts";
 import { mutate, type WorkingHousehold } from "../household.ts";
@@ -285,6 +285,14 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
           actions: [],
         };
 
+  // 標準のときの口座1つごとの「▸ 詳しく」: その口座の詳細（口座ごとの詳細のまとまりと資産の配分・利回りの段階）だけを表の下の行に開く（0078 の追記）
+  const moreOf =
+    level === "simple" && details !== null
+      ? (id: string): GroupDef[] => {
+          const mine = (g: GroupDef) => g.key === `sav/${id}` || g.key.startsWith(`sav/${id}/`);
+          return [...details.groups.filter(mine).map((g) => (g.key === `sav/${id}` ? { ...g, title: undefined } : g)), ...(returns?.groups ?? []).filter(mine)].filter((g) => g.fields.length > 0 || g.actions.length > 0);
+        }
+      : undefined;
   return (
     <div class="sv" data-savings>
       <div class="sv-howto">
@@ -341,7 +349,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
               残高は今の時価。{method === "accounts" ? "利回りは年の見込みで、運用の費用（信託報酬など）を引いた後の利回りを入れます（詳細で運用の費用を入れたときは、費用を引く前の利回り。空欄は前提条件の利回り）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。
             </Help>
           </h3>
-          <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} editField={editField} find={find} fields={fields} onEdit={onEdit} />
+          <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} editField={editField} find={find} fields={fields} onEdit={onEdit} {...(moreOf !== undefined ? { moreOf } : {})} />
           <div class="sv-add">
             {addActions.map((a) => (
               <Fragment key={a.key}>
@@ -625,8 +633,11 @@ function AccountsTable(p: {
   find: (h: EngineRequest["input"]["household"], id: string) => Account;
   fields: FieldMap;
   onEdit: (w: WorkingHousehold) => void;
+  /** 標準のとき: 口座の「▸ 詳しく」で開くまとまり（無ければ「▸ 詳しく」を出さない） */
+  moreOf?: (id: string) => GroupDef[];
 }) {
-  const { wh, level, method, stopAge, editAcc, editField, find, fields, onEdit } = p;
+  const { wh, level, method, stopAge, editAcc, editField, find, fields, onEdit, moreOf } = p;
+  const opened = useGroupOpen();
   const req = wh.request;
   const h = req.input.household;
   const base = req.input.baseMonth;
@@ -687,8 +698,12 @@ function AccountsTable(p: {
             const info = KIND_INFO[a.kind] ?? { name: "口座", memo: "", color: "#ccc" };
             const name = `${info.name}${a.kind === "nisa" ? "" : ""}`;
             const allocCalc = method === "allocation" && INVEST_KINDS.has(a.kind);
+            const moreKey = `sav/${a.id}`;
+            const more = moreOf?.(a.id) ?? [];
+            const open = more.length > 0 && opened.isOpen(moreKey);
             return (
-              <tr key={a.id} data-account={a.kind}>
+              <Fragment key={a.id}>
+              <tr data-account={a.kind}>
                 <td class="l">
                   <span class="nm">
                     <i class="sw" style={{ background: info.color }} />
@@ -712,12 +727,13 @@ function AccountsTable(p: {
                       外す
                     </button>
                   </span>
+                  {more.length > 0 ? <MoreToggle groupKey={moreKey} open={open} toggle={() => opened.toggle(moreKey)} label={name} /> : null}
                 </td>
                 <td>
                   <NumBox value={valueOf(a)} unit="man" label={`${name}の残高`} data={`bal-${a.kind}`} id={fieldDomId(`sav/${a.id}/value`)} onCommit={(v) => typeof v === "number" && editField(fields.get(`sav/${a.id}/value`), v)} /> 万円
                   <FieldStateBadge f={fields.get(`sav/${a.id}/value`)} wh={wh} />
                   <FieldStateLine f={fields.get(`sav/${a.id}/value`)} wh={wh} onEdit={onEdit} compact />
-                  {level === "detail" && WITH_COST.has(a.kind) ? (
+                  {(level === "detail" || open) && WITH_COST.has(a.kind) ? (
                     <div class="sv-sub">
                       取得価額 <NumBox value={a.costBasis?.value ?? null} unit="man" size="s" optional placeholder="時価" label={`${name}の取得価額`} id={fieldDomId(`sav/${a.id}/cost`)} onCommit={(v) => editField(fields.get(`sav/${a.id}/cost`), v)} /> 万円
                       <FieldStateBadge f={fields.get(`sav/${a.id}/cost`)} wh={wh} />
@@ -769,6 +785,16 @@ function AccountsTable(p: {
                   )}
                 </td>
               </tr>
+              {open ? (
+                <tr class="sv-more-row" data-more-of={moreKey}>
+                  <td colSpan={4} class="l">
+                    {more.map((g) => (
+                      <Group key={g.key} group={g} wh={wh} level="detail" onEdit={onEdit} />
+                    ))}
+                  </td>
+                </tr>
+              ) : null}
+              </Fragment>
             );
           })}
           {list.length === 0 && !showUn ? (

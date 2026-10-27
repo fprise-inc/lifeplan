@@ -127,3 +127,21 @@ export function revealAdded(trigger: Element, opts: { items?: string } = {}): vo
     }),
   );
 }
+
+/**
+ * まとまりの「▸ 詳しく」を開くときに、開く処理の前に呼ぶ（0078 の追記）。描き直しの後に、開いた中身（data-more-of がそのまとまりのキーの要素）が
+ * 見えなければ、押したリンクから中身の終わりまでが見える所へスクロールする（見えているときは動かさない。光らせない・フォーカスも動かさない）
+ */
+export function revealOpened(trigger: Element, key: string): void {
+  if (typeof document === "undefined" || typeof requestAnimationFrame !== "function") return;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      if (!trigger.isConnected) return;
+      const root: ParentNode = trigger.closest(ROOT) ?? document;
+      const els = [...root.querySelectorAll(`[data-more-of="${CSS.escape(key)}"]`)];
+      const last = els.at(-1);
+      if (last === undefined) return;
+      bringIntoView(trigger, last);
+    }),
+  );
+}
