@@ -50,6 +50,17 @@
 - カードの並びを前の形に戻す: 4列（1180px 以下で3列）・間 18px、文字を大きくしたときは3列（1180px 以下で2列）。カードの中の余白・名前・要約の数字の大きさも前の大きさに戻す（進み具合で絞る・状態の印の位置は今のまま）。
 - 退職金・企業年金・介護・親・相続・贈与に専用の絵を足した（ほかのカードと同じ作り方。CC0）。どのカードも別の絵であることをテストで確かめる。
 
+### 6. カードのパネルの説明・推定の根拠・入力例
+
+- **欄の説明**（`help`・読むだけの理由 `readOnly`・ほかへの影響 `sideEffects`・時点の欄の月の決まり `monthOnly`）は、欄の名前の横の「?」の中へ（`FieldViews.tsx`）。欄の下に常に出すのは、入れた文字の問題・注意（`warn`・`derived`）・時点の読み・出来事の状態だけ。
+- **区画・まとまりの説明**（`SectionDef.note`・`GroupDef.note`・操作だけのまとまりの説明）は、見出しの横の「?」の中へ。ただし頭の状態の言葉「まだありません」は画面に残す（`splitNote`）。
+- **パネルの見出しの下の説明**（カードの説明と「空欄は推定で補う・✓ この値で確定」の決まり）は、見出しの「?」の中へ。保存の横の1行は状態（推定のままの欄の数）だけにし、保存すると何が起きるかは「?」の中へ。
+- 専用の部品の説明（貯蓄・運用の区画の説明と入れ方の説明・保険の保障の見え方の線の説明と病気の前提・年金の見込み・受け取りの並び・前提と推定の一覧・相続税の目安）も、見出しの横の「?」の中へ。
+- **推定の根拠**: 欄の「推定」「仮」「わからない」「未入力」の印は、根拠があれば押せる印にし（`StateMark`。同じ「?」の部品の `mark`）、押すと根拠が開く。欄の下の「推定: …」の1行は出さない（専用の部品の欄の `FieldStateLine` も同じ）。欄の横の読みのうち長い推定の根拠（「推定あり: …」）も印にする。
+- **確かめの一覧**: 推定・わからない・確かさの行の根拠は、行の「根拠 ▾」で開く（閉じた形では出さない）。未入力・確かめの注意・計算の知らせの行の文は状態の知らせなので、今までどおり出す。一覧の説明は見出しの「?」の中へ。
+- **灰色の入力例**: 欄の種類ごとに入る幅（em）を決め（`input/placeholder.ts`。数の欄 8.3・時点の欄 9.3・年月 6.8・文字 15・貯蓄の表 5／3.4／2）、収まる例だけを使う。未入力の欄は「未入力」（前は「未入力（0円で計算中）」で途切れていた）、時点の欄の空欄の例は「空欄＝○○」が収まるときだけ、収まらなければ入れ方の例（「例: 60歳」など。空欄のときの読みは欄の下に出る）。年月の欄は 8em に広げた。どのカードのパネルの入力例も幅に収まることを、見本の世帯と空の世帯でテストする（`app/test/placeholder.test.ts`）。文字の幅の目安は全角 1em・半角 0.65em（見えない Chrome で測って合わせた）。
+- 結果のタブの対策・万一の前提で同じ欄の部品を使う所は、名前を隠したまま「?」だけを出す。
+
 ## 理由
 
 - 説明を「?」に入れると、画面は名前と値だけになり、見る所が減る。説明は消さずに、知りたいときに1か所で読める。部品を1つにすると、開き方・読み上げ・見た目がどこでもそろう。
@@ -64,9 +75,11 @@
 
 ## 影響
 
-- `app/src/presentation/Help.tsx`（新）、`app/src/workspace/input/InputView.tsx`・`PlanEdit.tsx`・`InputPanel.tsx`・`illustrations.ts`、`MiniResult.tsx`（消した）、`app/src/workspace/App.tsx`、`tools/FpTools.tsx`（道具の名前の並びと開いた中身を隣どうしに）、`contingency/PremisePanel.tsx`、`styles/app.css`・`wire.css`、`app/src/assets/illustrations/`（3枚）。
+- `app/src/presentation/Help.tsx`（新）、`app/src/workspace/input/placeholder.ts`（新）、`FieldViews.tsx`・`FieldStateLine.tsx`・`CheckList.tsx`・`InsuranceOverview.tsx`・`PensionEstimate.tsx`・`RetirementLineup.tsx`・`AssumptionList.tsx`・`savings/SavingsPanel.tsx`、`app/src/workspace/input/InputView.tsx`・`PlanEdit.tsx`・`InputPanel.tsx`・`illustrations.ts`、`MiniResult.tsx`（消した）、`app/src/workspace/App.tsx`、`tools/FpTools.tsx`（道具の名前の並びと開いた中身を隣どうしに）、`contingency/PremisePanel.tsx`、`styles/app.css`・`wire.css`、`app/src/assets/illustrations/`（3枚）。
 - 計算エンジン・世帯ファイル・見本の世帯の結果は変わらない。
 
 ## 未確定
 
 - 画面全体の言葉の表（同じ物を別の言葉で呼ばない）と、カードごとの文の精査（次の手直しで）。
+- 欄の横の読みのうち長い物（例: 持ち家の評価額の目安と土地・建物の内訳）を、読みの1行と「?」に分けるか。
+- 入力の画面の外（結果のタブの項目の検索・明細の名前など）の入力例の長さの確かめ。

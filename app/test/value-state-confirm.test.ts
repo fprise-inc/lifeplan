@@ -51,7 +51,8 @@ describe("未入力の欄に打った値は、0円でも確定にする", () => 
     const html = renderToString(h(FieldStateOps.Provider, { value: (w: WorkingHousehold, x: FieldDef, op) => applyStateOp(w, x, op) }, h(Field, { f, wh, onEdit: () => undefined })));
     expect(html).toMatch(/ value[ />]/);
     expect(html).not.toMatch(/value="0"/);
-    expect(html).toContain("未入力（0円で計算中）");
+    // 灰色の入力例は欄に収まる短い言葉（0円で計算中であることは「未入力」の印を押すと開く。0077）
+    expect(html).toContain('placeholder="未入力"');
     // 入ったときの文字は空。空のまま離れたら書かない。0 を打って離れたら書く
     expect(shouldCommitOnBlur("", "")).toBe(false);
     expect(shouldCommitOnBlur("", "0")).toBe(true);

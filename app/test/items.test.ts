@@ -360,7 +360,9 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", initialOpen: "family" }));
     expect(html).toContain('class="scrim"');
     expect(html).toContain('role="dialog"');
-    expect(html).toContain("推定・仮の値のままの欄が 2つ あります。保存しても、推定の欄が残る間はカードは「推定で計算中」のままです。");
+    // 保存の下は状態だけ。保存すると何が起きるかは「?」の中（0077）
+    expect(html).toContain("推定・仮の値のままの欄: 2つ");
+    expect(html).toContain("保存しても、推定の欄が残る間はカードは「推定で計算中」のままです。");
     expect(html).toContain("data-save");
   });
 });

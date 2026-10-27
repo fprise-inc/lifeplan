@@ -1,6 +1,7 @@
 // 保険のカードの「保障の見え方」の区画（0055。読むだけ。簡易にも出す）。入力は増えない。
 // 保障の階段（契約ごとに積み上げ）と必要保障額の線（今の貯蓄を差し引いた線が既定・差し引かない線も並べる）、過不足、内訳、保険料、
 // 保険料のうち貯まる分と元本割れ、病気の想定で受け取る見込み、気づき、必要保障額に合わせるボタン
+import { Help } from "../../presentation/Help.tsx";
 import type { WorkingHousehold } from "./household.ts";
 import { fitToNeed } from "./stages/insurance.ts";
 import type { InsuranceView, MemberView } from "./insuranceView.ts";
@@ -67,13 +68,13 @@ export function InsuranceOverview({ wh, view, onEdit }: { wh: WorkingHousehold; 
           <Steps m={m} colors={colors} />
           <p class="in-note" data-insurance-gap>
             {m.worst !== null
-              ? `必要保障額（今の貯蓄を差し引いた額。赤の線）に対して、いちばん大きい不足は ${m.worst.year}年の ${man(m.worst.shortfall)}`
+              ? `いちばん大きい不足は ${m.worst.year}年の ${man(m.worst.shortfall)}`
               : m.years.every((y) => y.needWithAssets === 0)
-                ? "今の貯蓄を差し引くと、どの年も必要保障額は0円です（赤の線）"
+                ? "今の貯蓄を差し引くと、どの年も必要保障額は0円です"
                 : m.least !== null
-                  ? `必要保障額（今の貯蓄を差し引いた額。赤の線）を、どの年も満たしています（いちばん少ない年でも ${man(m.least.surplus)}多い）`
+                  ? `どの年も必要保障額を満たしています（いちばん少ない年でも ${man(m.least.surplus)}多い）`
                   : ""}
-            。点線は貯蓄を差し引かない必要保障額。
+            <Help label="必要保障額の線">赤の線は必要保障額（今の貯蓄を差し引いた額）、点線は貯蓄を差し引かない必要保障額です。</Help>
           </p>
           {m.breakdown !== null ? (
             <details class="ins-break">
@@ -137,7 +138,10 @@ export function InsuranceOverview({ wh, view, onEdit }: { wh: WorkingHousehold; 
       ) : null}
       {view.medical !== null && view.medical.lines.length > 0 ? (
         <div class="ins-medical" data-insurance-medical>
-          <h4>{view.medical.heading}</h4>
+          <h4>
+            {view.medical.heading}
+            <Help label={view.medical.heading}>病気の種類・入院の日数・手術の回数は、万一のタブの「大きな病気のときの前提」で直せます。2回目以降のがん一時金・先進医療などの細かい条件は計算していません。</Help>
+          </h4>
           <ul>
             {view.medical.lines.map((l) => (
               <li key={l.object}>
@@ -146,7 +150,6 @@ export function InsuranceOverview({ wh, view, onEdit }: { wh: WorkingHousehold; 
               </li>
             ))}
           </ul>
-          <p class="in-note">病気の種類・入院の日数・手術の回数は、万一のタブの「大きな病気のときの前提」で直せます。2回目以降のがん一時金・先進医療などの細かい条件は計算していません。</p>
         </div>
       ) : null}
       {view.notices.length > 0 ? (

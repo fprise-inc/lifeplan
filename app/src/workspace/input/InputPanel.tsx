@@ -14,6 +14,7 @@ import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { withRefreshedEstimates } from "./estimates.ts";
 import { withProvisionalHousing } from "./housingCredit.ts";
 import type { WorkingHousehold } from "./household.ts";
+import { Help } from "../../presentation/Help.tsx";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
 import { inheritanceSummary, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
@@ -262,19 +263,17 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
     commit(w);
   };
   const removed = item.added !== null && item.summary === null;
-  const note = leaving
-    ? null
-    : removed
-      ? "保存すると、このピンがなくなります。"
-      : item.estimated > 0
-        ? `推定・仮の値のままの欄が ${item.estimated}つ あります。保存しても、推定の欄が残る間はカードは「推定で計算中」のままです。`
-        : plan !== undefined
-          ? `保存すると、${plan.label}の差分になります（現状は変わりません）。`
-          : adding
-            ? "保存すると、物が足され、ホームにピンが出ます（キャンセルすると足しません）。"
-            : item.added !== null
-              ? "保存すると、この物に入れた値が世帯に入ります。"
-              : "保存すると、このカードは「入力済み」になります（何も入れずに保存すると「当てはまらない」）。";
+  // 保存の下の1行は状態だけ（推定のままの欄の数）。保存すると何が起きるかは「?」の中（0077）
+  const note = leaving ? null : !removed && item.estimated > 0 ? `推定・仮の値のままの欄: ${item.estimated}つ` : null;
+  const saveHelp = removed
+    ? "保存すると、このピンがなくなります。"
+    : plan !== undefined
+      ? `保存すると、${plan.label}の差分になります（現状は変わりません）。`
+      : adding
+        ? "保存すると、物が足され、ホームにピンが出ます（キャンセルすると足しません）。"
+        : item.added !== null
+          ? "保存すると、この物に入れた値が世帯に入ります。"
+          : "保存すると、このカードは「入力済み」になります（何も入れずに保存すると「当てはまらない」）。";
 
   return (
     <>
@@ -316,6 +315,12 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             {item.label}
             {item.added !== null ? <span class="fp-tag">📌 ピン</span> : null}
             <StatusBadge item={item} />
+            {/* カードの説明と入れ方の決まりは「?」の中（0077） */}
+            <Help label={item.label} id="panel">
+              {item.lead !== "" ? <p>{item.lead}</p> : null}
+              <p>空欄は統計の目安などで補って計算します（「推定」の印。印を押すと根拠が開きます）。推定の値のままでよければ「✓ この値で確定」を押します（欄に入っただけでは確定になりません）。</p>
+              <p>入れ方の「標準／詳細」は、このカードだけを切り替えます。</p>
+            </Help>
           </h2>
           <div class="ip-tools">
             <div class="level-switch" role="group" aria-label="入力の細かさ">
@@ -330,7 +335,6 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
               ×
             </button>
           </div>
-          <p class="ip-lead">{item.lead}空欄は統計の目安などで補って計算します（「推定」の印）。推定の値のままでよければ「✓ この値で確定」を押します（欄に入っただけでは確定になりません）。</p>
           {chain !== null ? (
             <div class="ip-chain" role="alertdialog" aria-label="一緒に外す物" data-plan-chain>
               <p>外す物を指している物があります。一緒に外す物を選んでください（選ばなかった物は残ります）。</p>
@@ -394,7 +398,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
               {inheritanceView(shown, inheritance).points.length > 0 ? (
                 <>
                   <p>
-                    <b>相続税の目安</b>（表示だけ。お金の流れには入れていません）
+                    <b>相続税の目安</b>
+                    <Help label="相続税の目安">表示だけです。お金の流れには入れていません。</Help>
                   </p>
                   <ul>
                     {inheritanceView(shown, inheritance).points.map((p) => (
@@ -418,7 +423,12 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                       </li>
                     ))}
                   </ul>
-                  {inheritanceView(shown, inheritance).notIncluded.length > 0 ? <p class="ip-inherit-note">含めていないもの: {inheritanceView(shown, inheritance).notIncluded.join("・")}。額が分かれば、詳細の「相続税の目安の設定」の「税理士などの出した額」で直せます</p> : null}
+                  {inheritanceView(shown, inheritance).notIncluded.length > 0 ? (
+                    <p class="ip-inherit-note">
+                      含めていないもの: {inheritanceView(shown, inheritance).notIncluded.join("・")}
+                      <Help label="含めていないもの">額が分かれば、詳細の「相続税の目安の設定」の「税理士などの出した額」で直せます。</Help>
+                    </p>
+                  ) : null}
                 </>
               ) : null}
             </div>
@@ -477,7 +487,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                 {sections.map((s) => (
                   <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />
                 ))}
-                {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます。</p> : null}
+                {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます</p> : null}
                 {/* 退職金・企業年金: カードの下に受け取りの並び（読むだけ。0058） */}
                 {itemId === "retirement" ? <RetirementLineup wh={shown} {...(computeOne !== undefined ? { computeOne } : {})} /> : null}
                 {/* 前提条件: 前提と推定の一覧（確かめた記録はプランごと。値は変えないので、プランを直していても差分にしない。0070） */}
@@ -519,6 +529,10 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             <>
               <p class="ip-note" data-panel-note>
                 {note}
+                <Help label="保存" id="save">
+                  <p>{saveHelp}</p>
+                  {!removed && item.estimated > 0 ? <p>保存しても、推定の欄が残る間はカードは「推定で計算中」のままです。</p> : null}
+                </Help>
               </p>
               <button type="button" class="btn" onClick={onClose}>
                 キャンセル
