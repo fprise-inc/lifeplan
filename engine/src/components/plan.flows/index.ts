@@ -10,6 +10,8 @@
 // 改訂11: 世帯の外の家族のお金（member.wallet。0042）を入れた人が介護を受ける費用は、その人のお金から払った分（outside.wallet の covered）を
 //   介護の費用（care.expense）から引き、残り（尽きた後）だけを世帯の支出にする。お金を入れていない人の介護の費用は今までどおり世帯が払う。
 // 改訂12（0044）: 入るお金の行（income.flows。受け取りと、譲渡所得の税）も集める。
+// 改訂13（0035 の4 の追記）: 世帯の外の家族の家計を1つにする期間は、亡くなる見込み（leaves）の月で切る。期間の終わりが無くても、亡くなる
+//   見込みの月からはその人のお金の動き（年金・給与・給付と、その人の税・社会保険料）を世帯に入れない（今までは表の最後まで入っていた）。
 // 改訂5: 保険の受け取り（insurance.policy。契約ごと）・介護の費用（care.expense）・万一のときの一時のお金（contingency.lumpSum）も集める。
 // 運用益・金融資産の残高（plan.cashflow）と分けるのは、運用利回りのように案の前提だけが変わったとき、集め直さずに済むようにするため（0005 の追記）。
 // 構成員ごとに分けるのは、1人の入力を変えたとき、ほかの構成員の分を集め直さないため（0005・0006 の追記）。
@@ -40,7 +42,7 @@ export default defineComponent<Record<string, never>, Collected>({
   id: "plan.flows",
   title: "お金の動き（集める）",
   contract: "1.1",
-  revision: 12,
+  revision: 13,
   requires: {
     "insurance.policy": ">=1 <2",
     "care.expense": ">=1 <2",
@@ -64,7 +66,7 @@ export default defineComponent<Record<string, never>, Collected>({
     "insurance.premiumPayment": ">=1 <2",
   },
   params: [],
-  reads: ["member.kind", "member.outside", "member.wallet", "debt.kind", "goal.kind", "goal.owner", "insurance.policyholder"],
+  reads: ["member.kind", "member.outside", "member.leaves", "member.wallet", "debt.kind", "goal.kind", "goal.owner", "insurance.policyholder"],
   slots: ["slot.expense.flow"],
   input: "empty.input",
   output: "plan.flows.output",

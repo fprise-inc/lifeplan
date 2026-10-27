@@ -189,3 +189,17 @@ describe("確かめの一覧と結果のタブ", () => {
     expect(missing).toEqual([]);
   });
 });
+
+describe("相手が亡くなる見込みの月で止めたお金の行（0044 の追記）", () => {
+  it("仕送りの行が相手の亡くなる見込みより後まで続くと「前提の外」の知らせ（介護・親のカードで開く）", () => {
+    const req = modelHousehold("parentMoney");
+    const h = req.input.household;
+    const p = h.members.find((m) => m.kind === "parent")!;
+    p.leaves = { at: "2030-07" };
+    (h.periodicExpenses ??= []).push({ id: "00000000-0000-4000-8000-0000000000d1", label: "仕送り", kind: "allowance", counterparty: p.id, row: "cf.expense.other", from: { at: "2027-01" }, to: null, everyYears: 1, monthly: true, amount: { value: 30000, state: "confirmed", origin: { kind: "manual" } } } as never);
+    const rows = noticeRows(fromRequest(req), [{ label: "プランA", result: preview(req) }]);
+    const row = rows.find((r) => r.text.startsWith("仕送り・援助などのお金の行は、相手が亡くなる見込みの月で止めました"));
+    expect(row).toMatchObject({ kind: "outside", card: "care" });
+    expect(row!.subjects).toEqual(["母"]);
+  });
+});

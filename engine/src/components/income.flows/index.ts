@@ -11,7 +11,12 @@
 //   合計所得金額の判定（控除の所得の要件など）には separate として足す（tax.totalIncome）
 // - 相続税で見る行は所得税・住民税をかけない（相続税は計算しない。受け取る側の相続税の額は出るお金の行で入れる。知らせ）
 // - 口座の間の移し替え（transfers）は入れ物だけで、あれば知らせを出して計算に入れない（0035 の2・7）
+// - 改訂2（0044 の追記）: 相手（counterparty）が世帯の外の家族で亡くなる見込み（leaves）があれば、その月から受け取らない（亡くなった人から
+//   援助は来ない）。行の終わりがそれより後なら、知らせ N_LIMIT_APPLIED（moneyRow.counterpartyDeath・相手）を出す。亡くなった後に受け取る物
+//   （相続税で見る行・相続・遺族年金・保険の受け取り）は止めない。行の終わりの値は書き換えない
 import {
+  COUNTERPARTY_DEATH_TOPIC,
+  counterpartyStop,
   defineComponent,
   formatYm,
   incomeRow,
@@ -49,12 +54,14 @@ export default defineComponent<Record<string, never>, IncomeFlowsOutput>({
   id: "income.flows",
   title: "入るお金の行",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: { "contingency.event": ">=1 <2" },
   params: Object.values(P),
   reads: [
     "member.kind",
     "member.outside",
+    "member.leaves",
+    "incomeFlow.counterparty",
     "incomeFlow.kind",
     "incomeFlow.taxTreatment",
     "incomeFlow.row",
@@ -118,7 +125,12 @@ export default defineComponent<Record<string, never>, IncomeFlowsOutput>({
       const tax = incomeTreatment(f);
       const row = incomeRow(ctx, f);
       const ev = f.onContingency === undefined ? null : recipient !== undefined ? eventOf(recipient.id) : householdEvent();
-      const pays = moneyRowPayments(ctx, f, ev, "conv.expense.share");
+      const all = moneyRowPayments(ctx, f, ev, "conv.expense.share");
+      // 相手が亡くなる見込みの月から受け取らない（亡くなった後に受け取る物は止めない）
+      const afterDeath = tax === "inheritance" || f.kind === "inheritance" || f.kind === "survivorPension" || f.kind === "insuranceBenefit";
+      const stop = afterDeath ? null : counterpartyStop(ctx, members, f.counterparty);
+      const pays = stop === null ? all : all.filter((p) => p.month < stop);
+      if (pays.length < all.length && f.counterparty !== undefined) ctx.notice("N_LIMIT_APPLIED", [COUNTERPARTY_DEATH_TOPIC, f.counterparty]);
       if (pays.length === 0) continue;
       if (tax === "inheritance") inheritanceSeen = true;
       const subject = recipient?.id ?? self?.id;
