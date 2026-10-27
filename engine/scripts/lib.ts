@@ -1,11 +1,23 @@
 // ビルド用の道具の共通部分（Node で動かす。エンジン本体には入らない）
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const ENGINE_DIR = fileURLToPath(new URL("..", import.meta.url));
 export const REPO_DIR = join(ENGINE_DIR, "..");
+
+/**
+ * 作ったファイルを書く。中身が同じなら書かない。違うときは一時ファイルに書いてから置き換える。
+ * テストを流している間に別の所で作り直しても（npm test・typecheck・lint・build はどれも src/generated を作り直し、
+ * app・report・hearing のテストは dist を読む）、読む側が途中まで書かれたファイルや空のファイルを読まないため
+ */
+export function writeGenerated(path: string, text: string): void {
+  if (existsSync(path) && readFileSync(path, "utf8") === text) return;
+  const tmp = `${path}.${process.pid}.tmp`;
+  writeFileSync(tmp, text);
+  renameSync(tmp, path);
+}
 
 export function sha256(data: string | Uint8Array): string {
   return createHash("sha256").update(data).digest("hex");

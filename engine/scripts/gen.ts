@@ -3,12 +3,12 @@
 // 2. JSON Schema → 検査器のコード（Ajv の standalone。実行環境ではコードを作らない。0006 の5）
 // 2b. 入力項目ID（engine.input.json の x-item・x-collection・x-owner）→ items.json
 // 3. 版と、ソース・部品の指紋
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import standaloneCode from "ajv/dist/standalone/index.js";
 import { checkId } from "../src/ids/ids.ts";
-import { AJV_OPTIONS, ENGINE_DIR, listFiles, posixRelative, readJson, REPO_DIR, sha256 } from "./lib.ts";
+import { AJV_OPTIONS, ENGINE_DIR, listFiles, posixRelative, readJson, REPO_DIR, sha256, writeGenerated } from "./lib.ts";
 import { parseStrictYaml } from "./regulation.ts";
 
 const OUT = join(ENGINE_DIR, "src", "generated");
@@ -29,7 +29,7 @@ for (const e of rows.entries) {
   if (parent !== "cf" && !seen.has(parent)) throw new Error(`registry/rows.yaml: 親の行が先にありません ${e.id}`);
   for (const a of e.aliases) checkId("row", a);
 }
-writeFileSync(join(OUT, "rows.json"), `${JSON.stringify(rows, null, 2)}\n`);
+writeGenerated(join(OUT, "rows.json"), `${JSON.stringify(rows, null, 2)}\n`);
 
 // 2. 検査器
 const schemaFiles = listFiles(join(ENGINE_DIR, "schemas"), (p) => p.endsWith(".json"));
@@ -76,8 +76,8 @@ code =
   "const __memo = new Map();\n" +
   "function __memoTest(re, s) { if (typeof s !== \"string\") return re.test(s); let m = __memo.get(re); if (m === undefined) { m = new Map(); __memo.set(re, m); } let v = m.get(s); if (v === undefined) { v = re.test(s); if (m.size < 50000) m.set(s, v); } return v; }\n" +
   code;
-writeFileSync(join(OUT, "validators.js"), `// 自動生成（scripts/gen.ts）。編集しない\n${code}`);
-writeFileSync(
+writeGenerated(join(OUT, "validators.js"), `// 自動生成（scripts/gen.ts）。編集しない\n${code}`);
+writeGenerated(
   join(OUT, "validators.d.ts"),
   "// 自動生成（scripts/gen.ts）\nexport declare const byKey: Readonly<Record<string, (data: unknown) => boolean>>;\n",
 );
@@ -125,7 +125,7 @@ const walkSchema = (node: SchemaNode, collection: string | null, path: string[],
 walkSchema(inputSchema, null, [], []);
 for (const [id, it] of Object.entries(items)) if (it.title === "") throw new Error(`engine.input.json: ${id} に title がありません`);
 const sortedItems = Object.fromEntries(Object.entries(items).sort(([a], [b]) => (a < b ? -1 : 1)));
-writeFileSync(join(OUT, "items.json"), `${JSON.stringify({ collections, owners, items: sortedItems }, null, 2)}\n`);
+writeGenerated(join(OUT, "items.json"), `${JSON.stringify({ collections, owners, items: sortedItems }, null, 2)}\n`);
 
 
 // 3. 版と指紋（ソースの指紋は src と schemas と登録簿。部品の指紋は部品のフォルダの中身）
@@ -148,7 +148,7 @@ for (const f of listFiles(join(ENGINE_DIR, "src", "components"), (p) => p.endsWi
     dir,
   );
 }
-writeFileSync(
+writeGenerated(
   join(OUT, "build-info.json"),
   `${JSON.stringify({ version: pkg.version, sourceDigest: digestOf(sources, ENGINE_DIR), components }, null, 2)}\n`,
 );
