@@ -320,7 +320,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
           <div class="ip-tools">
             <div class="level-switch" role="group" aria-label="入力の細かさ">
               <button type="button" class={level === "simple" ? "on" : ""} aria-pressed={level === "simple"} onClick={() => onLevel("simple")}>
-                簡易
+                標準
               </button>
               <button type="button" class={level === "detail" ? "on" : ""} aria-pressed={level === "detail"} onClick={() => onLevel("detail")}>
                 詳細

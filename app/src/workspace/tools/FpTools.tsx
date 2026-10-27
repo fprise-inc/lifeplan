@@ -41,7 +41,9 @@ export function FpTools({ wh, result, computeOne, onOpen, onSnapshot, onBalance,
   const [tool, setTool] = useState<Tool | null>(null);
   const snaps = wh.snapshots ?? [];
   const timing = reviewTiming(snaps);
+  // 道具の名前の並びと、開いた中身は隣どうしに置く（入力のホームでは、中身を道具の行の下に幅いっぱいで出す。0077）
   return (
+    <>
     <div class="hs-tools fp-tools" role="group" aria-label="FPの道具" data-fp-tools>
       <span class="hs-tools-h">FPの道具</span>
       <button type="button" class="link-btn" aria-expanded={tool === "contents"} onClick={() => setTool(tool === "contents" ? null : "contents")} data-fp-tool="contents">
@@ -58,10 +60,11 @@ export function FpTools({ wh, result, computeOne, onOpen, onSnapshot, onBalance,
           最後の控え {formatYearMonth(timing.last)}・次の見直しの目安 {formatYearMonth(timing.next)}
         </span>
       ) : null}
+    </div>
       {tool === "contents" ? <Contents wh={wh} onOpen={onOpen} onClose={() => setTool(null)} /> : null}
       {tool === "year" ? <NextYear wh={wh} result={result} onOpen={onOpen} onClose={() => setTool(null)} /> : null}
       {tool === "review" ? <Review wh={wh} result={result} computeOne={computeOne} onOpen={onOpen} onSnapshot={onSnapshot} onBalance={onBalance} atAge={atAge} onClose={() => setTool(null)} /> : null}
-    </div>
+    </>
   );
 }
 

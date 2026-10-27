@@ -624,7 +624,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     {
       key: "assume/exceptions",
       title: "例外の年（経済の前提）",
-      note: "決まった年だけ違う率にします（例: 2026〜2028年は物価3%）。続いた年で同じ率は1つの範囲にまとめて見せます。簡易の率を直しても、例外の年はそのままです",
+      note: "決まった年だけ違う率にします（例: 2026〜2028年は物価3%）。続いた年で同じ率は1つの範囲にまとめて見せます。標準の入れ方の率を直しても、例外の年はそのままです",
       level: "detail",
       groups: exGroups,
       actions: exAdds,

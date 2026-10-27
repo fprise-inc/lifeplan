@@ -1,5 +1,7 @@
-// 入力画面でプランを直すときの部品（0036 の8・0043）: 編集の対象（現状・プラン）の選び方、プランの色の帯、違いの一覧。
+// 入力画面でプランを直すときの部品（0036 の8・0043・0077）: 編集の対象（現状・プラン）の選び方、違いの一覧。
 // 欄の部品の外側だけを持つ（欄の印と「↺ 現状に戻す」は FieldViews.tsx の PlanMarksContext）
+import { useEffect, useRef, useState } from "preact/hooks";
+import { Help } from "../../presentation/Help.tsx";
 import type { WorkingHousehold } from "./household.ts";
 import type { Catalog } from "../plans/items.ts";
 import { acknowledgeRow, revertRow, toggleRow, type DiffRow } from "../plans/planEdit.ts";
@@ -32,11 +34,39 @@ export interface PlanEditProps {
   onResults?: () => void;
 }
 
-/** 編集の対象の選び方とプランの色の帯（プランの編集中は、帯の中に違いの一覧の入口と「結果を見る」） */
-export function PlanTarget({ p, diffs }: { p: PlanEditProps; diffs?: { rows: readonly DiffRow[]; open: boolean; onOpen: (v: boolean) => void } }) {
+/**
+ * 編集の対象の選び方（0077）。プランの色は、この箱の枠と左の小さな点だけに使う（画面全体の色・左の帯は出さない）。
+ * 現状とプランで箱の中の並びと大きさを変えない（プランの操作は「プランの操作」の中にまとめ、選んでも配置が1ピクセルも動かない）
+ */
+export function PlanTarget({ p, diffs, initialMenu = false }: { p: PlanEditProps; diffs?: { rows: readonly DiffRow[]; open: boolean; onOpen: (v: boolean) => void }; initialMenu?: boolean }) {
   const cur = p.list.find((x) => x.id === p.sel) ?? null;
+  const [menu, setMenu] = useState(initialMenu);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const onDown = (e: PointerEvent) => {
+      if (box.current !== null && e.target instanceof Node && box.current.contains(e.target)) return;
+      setMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      setMenu(false);
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, [menu]);
+  const pick = (f: () => void) => () => {
+    setMenu(false);
+    f();
+  };
   return (
-    <div class={`ih-target${cur !== null ? " on" : ""}`} style={cur !== null ? { "--plan-c": cur.color } : {}} data-plan-target>
+    <div ref={box} class={`ih-target${cur !== null ? " on" : ""}`} style={cur !== null ? { "--plan-c": cur.color } : {}} data-plan-target>
+      <span class="ih-target-dot" aria-hidden="true" />
       <label>
         編集の対象
         <select
@@ -56,36 +86,47 @@ export function PlanTarget({ p, diffs }: { p: PlanEditProps; diffs?: { rows: rea
         </select>
       </label>
       {cur !== null ? (
-        <span class="ih-target-note" data-plan-band>
-          <b>{cur.label}</b>を編集中（現状は変わりません）
+        <span class="vh" role="status" data-plan-band>
+          {cur.label}を編集中（現状は変わりません）
         </span>
-      ) : (
-        <span class="ih-target-note">入力（現状）を直すと、保存したプランにも反映されます</span>
-      )}
-      {cur !== null && diffs !== undefined ? <DiffListToggle rows={diffs.rows} open={diffs.open} onOpen={diffs.onOpen} /> : null}
-      {cur !== null && p.onResults !== undefined ? (
-        <button type="button" class="link-btn" onClick={p.onResults} data-plan-results>
-          結果を見る
+      ) : null}
+      <Help label="編集の対象" id="plan-target">
+        <p>現状を直すと、保存したプランにも反映されます。プランが指していた物を外すと、そのプランに「要確認」が出ます。</p>
+        <p>プランを選ぶと、カードとパネルはそのプランの中身を見せ、直したことはそのプランの差分になります（現状は変わりません）。カードの「プランB: 1か所」は、現状と違う所の数です。</p>
+        <p>取り込み・確かめの一覧・カードの「当てはまらない」「目安で入れる」は、いつも現状を直します。</p>
+      </Help>
+      <div class="ih-target-menu">
+        <button type="button" class="add-btn" aria-expanded={menu} aria-haspopup="true" onClick={() => setMenu(!menu)} data-plan-menu>
+          プランの操作 {menu ? "▴" : "▾"}
         </button>
-      ) : null}
-      <span class="ih-target-gap" />
-      <button type="button" class="link-btn" onClick={() => p.onNew(null)} data-plan-new>
-        ＋ 現状から新しいプラン
-      </button>
-      {cur !== null ? (
-        <>
-          <button type="button" class="link-btn" onClick={() => p.onCopy(cur.id)} data-plan-copy>
-            このプランを複製
-          </button>
-          <button type="button" class="link-btn" onClick={() => p.onNew(cur.id)} data-plan-on-base>
-            このプランを土台に
-          </button>
-        </>
-      ) : null}
+        {menu ? (
+          <div class="ih-target-list" role="group" aria-label="プランの操作" data-plan-menu-list>
+            {cur !== null && diffs !== undefined ? <DiffListToggle rows={diffs.rows} open={diffs.open} onOpen={(v) => pick(() => diffs.onOpen(v))()} /> : null}
+            {cur !== null && p.onResults !== undefined ? (
+              <button type="button" class="link-btn" onClick={pick(p.onResults)} data-plan-results>
+                結果を見る
+              </button>
+            ) : null}
+            <button type="button" class="link-btn" onClick={pick(() => p.onNew(null))} data-plan-new>
+              ＋ 現状から新しいプラン
+            </button>
+            {cur !== null ? (
+              <>
+                <button type="button" class="link-btn" onClick={pick(() => p.onCopy(cur.id))} data-plan-copy>
+                  このプランを複製
+                </button>
+                <button type="button" class="link-btn" onClick={pick(() => p.onNew(cur.id))} data-plan-on-base>
+                  このプランを土台に
+                </button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
       {p.lock !== null && cur !== null ? (
-        <p class="ih-target-lock" role="note" data-plan-lock>
-          {p.lock}
-        </p>
+        <Help label="直せない理由" mark="入力では直せません" markClass="ih-target-lock" id="plan-lock">
+          <p data-plan-lock>{p.lock}</p>
+        </Help>
       ) : null}
     </div>
   );
