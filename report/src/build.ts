@@ -99,6 +99,8 @@ export interface RoleMember {
   kind: string;
   sex: string;
   birth: { birthYearMonth: string };
+  /** 世帯の外の家族の印（子なら「離れて暮らす子」と呼ぶ） */
+  outside?: unknown;
 }
 
 
@@ -111,9 +113,13 @@ export function roles<M extends RoleMember = Member>(req: { input: { household: 
   if (self !== undefined) out.push({ key: "self", label: spouse !== undefined ? coupleLabel(self) : "ご本人", member: self });
   if (spouse !== undefined) out.push({ key: "spouse", label: coupleLabel(spouse), member: spouse });
   const children = ms.filter((m) => m.kind === "child").sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1));
-  // 子は性別によらず生まれた順に「第1子」「第2子」…（予定の子も同じ。性別は計算に使わないので聞かない。0046 の追記 2026-10-27）
+  // 子は性別によらず生まれた順に呼ぶ（予定の子も同じ。性別は計算に使わないので聞かない。0046 の追記 2026-10-27）。
+  // 番号は世帯の中の子（一緒に暮らす子）だけで「第1子」「第2子」…。世帯の外の子は「離れて暮らす子」（2人以上なら生まれた順に「離れて暮らす子1」…）。
+  // 鍵（child1 …）は世帯の外の子も含めた生まれた順のまま（0046 の追記 2026-10-28）
+  const apart = children.filter((m) => m.outside !== undefined);
+  let inside = 0;
   children.forEach((m, i) => {
-    const label = `第${i + 1}子`;
+    const label = m.outside !== undefined ? (apart.length > 1 ? `離れて暮らす子${apart.indexOf(m) + 1}` : "離れて暮らす子") : `第${++inside}子`;
     out.push({ key: `child${i + 1}`, label, member: m });
   });
   ms.filter((m) => m.kind !== "self" && m.kind !== "spouse" && m.kind !== "child").forEach((m, i) => out.push({ key: `other${i + 1}`, label: "ご家族", member: m }));

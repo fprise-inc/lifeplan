@@ -6,7 +6,7 @@
 // カードをまたぐ取り込みの入口（「取り込む」。プランの編集中は押せない）・確かめの一覧にプランで足した物の行
 // 0077: 上部は2行（1行目: 見出しと進み具合、2行目: 編集の対象と道具）。説明の文は「?」の中へ。小さな結果と、全部のカードの入れ方の一括の切り替えは外した
 // （入れ方の標準／詳細はカードごと。パネルの見出しの切り替えで、そのカードだけを変える）。プランを選んでも上部とカードの配置は動かさない
-// 0077 の追記: 控え・FP の道具・取り込むの入口は上の帯の FP のメニューへ移した。ホームの上部は進み具合と編集の対象だけ。
+// 0077 の追記: 控え・面談の準備・取り込むの入口は上の帯の FP のメニューへ移した。ホームの上部は進み具合と編集の対象だけ。
 // メニューから開いた中身は、2行目の下に幅いっぱいで出す。項目がまだ何も入っていない新しい世帯のときだけ、ホームにも「取り込む」を出す
 import type { ComponentChildren } from "preact";
 import { Help } from "../../presentation/Help.tsx";
@@ -34,7 +34,7 @@ interface Props {
   level: Level;
   /** 開いたときにパネルを開く項目（URL の #open=work など。画面の確かめ用） */
   initialOpen?: string;
-  /** FP のメニュー（上の帯）から開いた中身（控え・FP の道具のパネル）。2行目の下に出す */
+  /** FP のメニュー（上の帯）から開いた中身（控え・面談の準備のパネル）。2行目の下に出す */
   tools?: ComponentChildren;
   /** 1件だけの計算（基本生活費のパネルの、控えから見た実際の貯まり方。0031） */
   computeOne?: (req: EngineRequest) => Promise<PreviewResult | null>;
@@ -455,7 +455,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           </div>
         </div>
       </div>
-      {/* 2行目: 編集の対象（と、新しい世帯のときだけ「取り込む」）。控え・FP の道具は上の帯の FP のメニューから開き、中身はこの行の下に幅いっぱいで出す */}
+      {/* 2行目: 編集の対象（と、新しい世帯のときだけ「取り込む」）。控え・面談の準備は上の帯の FP のメニューから開き、中身はこの行の下に幅いっぱいで出す */}
       {(plans !== undefined && (plans.list.length > 0 || plans.sel !== null)) || (imports !== undefined && fresh) ? (
         <div class="ih-bar" data-home-bar>
           {plans !== undefined && (plans.list.length > 0 || plans.sel !== null) ? <PlanTarget p={plans} {...(editing !== null ? { diffs: { rows, open: diffOpen, onOpen: setDiffOpen } } : {})} /> : null}
