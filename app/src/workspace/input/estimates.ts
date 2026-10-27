@@ -9,6 +9,7 @@ import { refreshRetirement } from "./retirementBenefits.ts";
 import { applyAutoStages, countAt } from "./livingStages.ts";
 import {
   livingEstimate as livingBySize,
+  isLegacyLivingEstimate,
   residentTaxEstimate,
   splitLiving,
   residentTaxYear,
@@ -70,10 +71,12 @@ const statSubstitute = (b: Box<number> | undefined): Box<number> | undefined => 
 export function refreshEstimates(h: Household, baseMonth: string, endYear?: number): void {
   for (const l of h.livingExpenses ?? []) {
     refreshSplit(h, baseMonth, l);
-    if (l.mode === "total" && isAuto(l.monthly)) {
+    // 前の版の推定（千円単位に丸める前の額）で人数も同じなら書き換えない（丸めただけで、保存した世帯の結果を変えない）
+    const size = householdSize(h, baseMonth);
+    if (l.mode === "total" && isAuto(l.monthly) && !isLegacyLivingEstimate(l.monthly?.value, size)) {
       const e = livingEstimate(h, baseMonth);
       l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } as Box<number>;
-    } else if (l.mode === "total" && statSubstitute(l.monthly) !== undefined) {
+    } else if (l.mode === "total" && statSubstitute(l.monthly) !== undefined && !isLegacyLivingEstimate(statSubstitute(l.monthly)?.value, size)) {
       // わからないの代わりの値も、推定のままなら入れ直す（わからないの印は残す）
       const e = livingEstimate(h, baseMonth);
       l.monthly = { ...(l.monthly as Box<number>), substitute: { ...(statSubstitute(l.monthly) as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } } as Box<number>;
@@ -148,6 +151,8 @@ export function isPureSplit(l: Pick<LivingExpense, "categories">): boolean {
 /** 費目で入れていて、費目が按分のまま・総額が統計の推定のままなら、総額と按分を入れ直す（人数が変わったとき） */
 function refreshSplit(h: Household, baseMonth: string, l: LivingExpense): void {
   if (l.mode !== "byCategory" || !isPureSplit(l) || !isAuto(l.monthly)) return;
+  // 総額が前の版の推定（丸める前の額）で人数も同じなら、総額も費目も書き換えない
+  if (isLegacyLivingEstimate(l.monthly?.value, householdSize(h, baseMonth))) return;
   const e = livingEstimate(h, baseMonth);
   l.monthly = { ...(l.monthly as Box<number>), value: e.value, estimate: { method: "statistic", basis: e.basis } } as Box<number>;
   const next = splitCategories(h, baseMonth, e.value, () => crypto.randomUUID(), l.categories);

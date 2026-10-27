@@ -6,7 +6,10 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { Field, FieldStateOps, fillInside } from "../src/workspace/input/FieldViews.tsx";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
-import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { householdSize, isPureSplit, LIVING_CATEGORY_ORDER, withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
+import { addMember } from "../src/workspace/input/stages/family.ts";
+import { livingStatistic } from "../../hearing/src/estimates.ts";
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { applyStateOp, availableOps, FILL_LABEL, fieldStatus, planStateOp } from "../src/workspace/input/valueState.ts";
@@ -132,5 +135,54 @@ describe("パネルの「推定をまとめて入れる」", () => {
     const html = panel(fromRequest(modelHousehold("salariedCoupleTwoKids"), {}), "family");
     expect(html).not.toContain("data-fill-estimate");
     expect(html).not.toContain("data-confirm-all");
+  });
+});
+
+describe("基本生活費の総額の推定は千円単位（前に保存した世帯は黙って書き換えない）", () => {
+  const two = (): WorkingHousehold => {
+    let wh = blankHousehold(BASE, ids());
+    wh = withRefreshedEstimates(addMember(wh, "spouse"));
+    return wh;
+  };
+  const living = (wh: WorkingHousehold) => wh.request.input.household.livingExpenses![0]!;
+  /** 前の版で保存した形: 総額の推定が表の額のまま（丸める前） */
+  const legacy = (wh: WorkingHousehold, byCategory: boolean): WorkingHousehold =>
+    mutate(wh, (h) => {
+      const l = h.livingExpenses![0]!;
+      const raw = livingStatistic(2).value;
+      l.monthly = { ...(l.monthly as object), value: raw } as typeof l.monthly;
+      if (byCategory) {
+        l.mode = "byCategory";
+        // 前の版の按分（1円単位。端は「その他の消費」）
+        l.categories = LIVING_CATEGORY_ORDER.map((category, i) => ({ id: `00000000-0000-4000-8000-0000000009${String(i).padStart(2, "0")}`, category, monthly: { value: category === "allowance" ? 0 : category === "otherConsumption" ? raw - 7 * 12345 : 12345, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: "総額を費目に分けた目安（前の版）" } } })) as typeof l.categories;
+      }
+    });
+
+  it("新しく入れる推定は千円単位", () => {
+    const wh = two();
+    expect(householdSize(wh.request.input.household, BASE)).toBe(2);
+    expect(living(wh).monthly!.value).toBe(235000);
+  });
+
+  it("前の版の推定（丸める前の額）は、ほかを直しても人数が同じなら書き換えない（総額で・費目で）", () => {
+    for (const byCategory of [false, true]) {
+      const old = legacy(two(), byCategory);
+      // 推定の入れ直し（パネルで何かを直すたびに通る）
+      expect(withRefreshedEstimates(old), String(byCategory)).toBe(old);
+      const edited = withRefreshedEstimates(mutate(old, (h) => void (h.members[0]!.birth.birthYearMonth = "1980-01")));
+      expect(living(edited).monthly!.value).toBe(livingStatistic(2).value);
+      expect(living(edited).categories).toEqual(living(old).categories);
+    }
+  });
+
+  it("人数が変わったら、新しい人数の推定（千円単位）に入れ直す。按分のままの費目も千円単位で、合計は総額", () => {
+    const pure = legacy(two(), true);
+    // 前の版の按分（根拠の文の頭が同じ）は、按分のままと読む
+    expect(isPureSplit(living(pure))).toBe(true);
+    const three = withRefreshedEstimates(addMember(pure, "child"));
+    const l = living(three);
+    expect(l.monthly!.value).toBe(264000);
+    expect(l.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(264000);
+    for (const c of l.categories!) expect(c.monthly.value! % 1000, c.category).toBe(0);
   });
 });

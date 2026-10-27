@@ -1,6 +1,6 @@
 // 推定の目安（src/estimates.ts）: 数は正本の YAML（data/master・data/regulation）の写しから読む。入力の画面とヒアリングが同じ関数を使う
 import { describe, expect, it } from "vitest";
-import { businessEstimate, healthRateEstimate, LIVING_SPLIT_CATEGORIES, livingEstimate, splitLiving, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, wageCurve, wageSizeClass } from "../src/estimates.ts";
+import { businessEstimate, healthRateEstimate, isLegacyLivingEstimate, LIVING_SPLIT_CATEGORIES, livingEstimate, livingStatistic, splitLiving, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, wageCurve, wageSizeClass } from "../src/estimates.ts";
 import { masterValue } from "../src/statistics.ts";
 
 describe("推定の目安", () => {
@@ -47,7 +47,16 @@ describe("推定の目安", () => {
   });
 
   it("基本生活費は家計調査（二人以上の世帯の世帯人員別）から住居・教育・自動車等関係費を除いた額。1人は仮の値", () => {
-    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingEstimate(n).value)).toEqual([140000, 235225, 264456, 279695, 285353, 303204, 303204]);
+    // 表の額のまま（人数ごとの比に使う）
+    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingStatistic(n).value)).toEqual([140000, 235225, 264456, 279695, 285353, 303204, 303204]);
+    // 欄に入れる推定は千円単位
+    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingEstimate(n).value)).toEqual([140000, 235000, 264000, 280000, 285000, 303000, 303000]);
+    expect(livingEstimate(3).basis).toBe(livingStatistic(3).basis);
+    // 前の版の推定（丸める前の額）を見分ける（人数が同じときだけ。千円ちょうどの額は見分けなくてよい）
+    expect(isLegacyLivingEstimate(264456, 3)).toBe(true);
+    expect(isLegacyLivingEstimate(264000, 3)).toBe(false);
+    expect(isLegacyLivingEstimate(264456, 2)).toBe(false);
+    expect(isLegacyLivingEstimate(140000, 1)).toBe(false);
     expect(livingEstimate(1).basis).toContain("仮の値");
     expect(livingEstimate(3).basis).toContain("家計調査（総務省）2025年");
   });

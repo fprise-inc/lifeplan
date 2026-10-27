@@ -9,7 +9,7 @@ import type { Box, Household, LivingExpense, Member, Timepoint } from "../../eng
 import { addMonths, ageAt, ageReachedMonth, derivedId, parseYm } from "../levers.ts";
 import { schoolEntryYear } from "../present.ts";
 import { resolveTimepoint } from "../timepoint.ts";
-import { livingEstimate as livingBySize } from "../../../../hearing/src/estimates.ts";
+import { livingEstimate as livingBySize, livingStatistic } from "../../../../hearing/src/estimates.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
 
 type Obj = Record<string, unknown>;
@@ -174,7 +174,8 @@ export function autoStages(h: Household, baseMonth: string, endYear: number, liv
   for (const p of points) byMonth.set(p.ym, [...(byMonth.get(p.ym) ?? []), p]);
   const months = [...byMonth.keys()].sort();
   const n0 = countAt(h, baseMonth, { now: true });
-  const est0 = livingBySize(n0).value;
+  // 人数ごとの比は統計の表の額のままで出す（推定の額の千円単位の丸めで比を変えない）
+  const est0 = livingStatistic(n0).value;
   const lvl0 = ageLevel(self, retire, baseMonth);
   const out: AutoStage[] = [];
   let prev = "1";
@@ -182,7 +183,7 @@ export function autoStages(h: Household, baseMonth: string, endYear: number, liv
     const ps = (byMonth.get(ym) ?? []).sort((a, b) => a.reason.localeCompare(b.reason));
     const n = countAt(h, ym);
     const lvl = ageLevel(self, retire, ym);
-    const ratio = n === 0 ? "0" : round2((livingBySize(n).value / est0) * (lvl / lvl0));
+    const ratio = n === 0 ? "0" : round2((livingStatistic(n).value / est0) * (lvl / lvl0));
     if (ratio === prev) continue;
     prev = ratio;
     const label = (["retirement", "age70", "age80", "childIndependence"] as const).find((l) => ps.some((p) => p.label === l)) ?? "other";
