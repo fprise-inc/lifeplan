@@ -256,6 +256,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const estimatedShown = shownFields.filter((f) => fieldStatus(f, shown).status === "estimated" && availableOps(f, shown).includes("confirm")).length;
   // このカードの入っていない物（古い世帯では自動で推定を入れず、ここと確かめの一覧に出す。fill.ts）
   const gaps = gapsOf(shown).filter((g) => g.card === itemId);
+  // まだ何も入れていない項目（赤い帯を出さない）
+  const quiet = item.status === "empty";
   const confirmShown = () => {
     if (plan === undefined) return edit(confirmAll(draft, shownFields).wh);
     let w = latest.current;
@@ -433,15 +435,14 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
               ) : null}
             </div>
           ) : null}
+          {/* 入っていない物: 入れ始めた項目は赤い帯で知らせ、まだ入れていない項目は帯を出さず、目安と「該当なし」の操作だけを控えめに（0045 の追記） */}
           {gaps.length > 0 ? (
-            <div class="ip-gaps" role="note" data-gaps>
-              <p>未入力（0円で計算中）の所があります。</p>
+            <div class={`ip-gaps${quiet ? " quiet" : ""}`} role="note" data-gaps={quiet ? "quiet" : "alert"}>
+              {quiet ? null : <p>未入力（0円で計算中）の所があります。</p>}
               <ul>
                 {gaps.map((g) => (
                   <li key={g.id} data-gap={g.id}>
-                    <span>
-                      {g.label}: {g.note}
-                    </span>
+                    <span>{quiet ? `${g.label}:` : `${g.label}: ${g.note}`}</span>
                     {g.fill !== undefined ? (
                       <button type="button" class="link-btn" onClick={() => edit(g.fill?.(shown) ?? shown)} {...(g.basis !== undefined ? { title: `推定: ${g.basis}` } : {})} data-gap-fill>
                         推定で埋める
