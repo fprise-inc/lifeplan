@@ -260,10 +260,10 @@ function sample025(): BodyState {
 }
 
 /**
- * 0.27 の見本の世帯（0069）: sample025() に、維持費を内訳で入れる車（合計の値も残し、内訳に名前つきの行）と、
+ * 0.26 の見本の世帯（0069）: sample025() に、維持費を内訳で入れる車（合計の値も残し、内訳に名前つきの行）と、
  * 合計で入れる車（内訳の値も残す）を足す
  */
-function sample027(): BodyState {
+function sample026(): BodyState {
   const s = sample025();
   const req = structuredClone(s.wh.request);
   const hh = req.input.household;
@@ -413,7 +413,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.27");
+    expect(BODY_FORMAT_VERSION).toBe("0.26");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -544,7 +544,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample027())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample026())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -563,8 +563,8 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(preview(back.wh.request).table).toEqual(preview(plain).table);
   });
 
-  it("0.27 の形（0069）: 車の維持費の入れ方と内訳の名前つきの行を保存して読み戻す。入れ方の側だけを計算に数える", () => {
-    const s = sample027();
+  it("0.26 の形（0069）: 車の維持費の入れ方と内訳の名前つきの行を保存して読み戻す。入れ方の側だけを計算に数える", () => {
+    const s = sample026();
     const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
     const cars = stored.household.request.input.household.cars ?? [];
     expect(cars.find((c) => c.upkeepMode === "detail")).toMatchObject({ upkeep: { annual: 400000 }, upkeepOther: [{ label: "スタッドレスタイヤ", annual: 30000 }, { annual: 12000 }] });

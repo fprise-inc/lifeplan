@@ -595,12 +595,12 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.25 より前の版に保険の種類の細目は無い"
             );
         }
-        // 0.27 から（0069）: 車の維持費の入れ方と内訳の名前つきの行（どれも任意）
+        // 0.26 から（0069）: 車の維持費の入れ方と内訳の名前つきの行（どれも任意）
         let cars = now["household"]["request"]["input"]["household"]["cars"]
             .as_array()
             .cloned()
             .unwrap_or_default();
-        if migrate::parse(v).unwrap() >= (0, 27) {
+        if migrate::parse(v).unwrap() >= (0, 26) {
             assert!(
                 cars.iter().any(|c| c["upkeepMode"] == "detail"
                     && c["upkeep"]["annual"].is_number()
@@ -617,7 +617,7 @@ fn every_format_version_has_a_fixture_and_opens() {
             assert!(
                 cars.iter()
                     .all(|c| c.get("upkeepMode").is_none() && c.get("upkeepOther").is_none()),
-                "{v}: 0.27 より前の版に維持費の入れ方は無い"
+                "{v}: 0.26 より前の版に維持費の入れ方は無い"
             );
         }
         // 鍵が違えば開かない
