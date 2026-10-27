@@ -51,23 +51,23 @@ function representative(): WorkingHousehold {
 }
 
 describe("最初の5枚の標準の欄の数", () => {
-  it("代表の世帯で、家族9・働き方と収入10・基本生活費4・住まい8〜9・貯蓄8（今の残高から入れたローンで合計39）", () => {
+  it("代表の世帯で、家族8・働き方と収入10・基本生活費4・住まい8〜9・貯蓄8（今の残高から入れたローンで合計38。配偶者の性別は詳細）", () => {
     let wh = representative();
     const count = (w: WorkingHousehold) => (["family", "work", "living", "housing", "savings"] as const).map((s) => simpleFields(w, s).length);
-    expect(count(wh)).toEqual([9, 10, 4, 9, 8]);
+    expect(count(wh)).toEqual([8, 10, 4, 9, 8]);
     for (const d of wh.request.input.household.debts ?? []) wh = switchEntry(wh, d.id, "balance");
-    expect(count(wh)).toEqual([9, 10, 4, 8, 8]);
-    expect(count(wh).reduce((a, b) => a + b, 0)).toBe(39);
+    expect(count(wh)).toEqual([8, 10, 4, 8, 8]);
+    expect(count(wh).reduce((a, b) => a + b, 0)).toBe(38);
   });
 });
 
 describe("家族: 呼び名・子の性別は詳細、子の独立は子ども・教育のカードの詳細に1つだけ", () => {
-  it("大人の性別は標準、子の性別・呼び名は詳細。家族のカードに独立の欄は無く、子ども・教育のカードの詳細にある", () => {
+  it("本人の性別は標準、配偶者・子の性別と呼び名は詳細。家族のカードに独立の欄は無く、子ども・教育のカードの詳細にある", () => {
     const wh = open("salariedCoupleTwoKids");
     const fam = fieldsOf(wh, "family");
     for (const m of members(wh)) {
       expect(fam.find((f) => f.key === `family/${m.id}/nickname`)?.level).toBe("detail");
-      expect(fam.find((f) => f.key === `family/${m.id}/sex`)?.level).toBe(m.kind === "child" ? "detail" : "simple");
+      expect(fam.find((f) => f.key === `family/${m.id}/sex`)?.level).toBe(m.kind === "self" ? "simple" : "detail");
       expect(fam.some((f) => f.key === `family/${m.id}/leaves`)).toBe(false);
     }
     const child = members(wh).find((m) => m.kind === "child")!;
