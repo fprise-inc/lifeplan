@@ -1491,7 +1491,7 @@ entries:
     path: [waiver]
   - id: livingExpense.categories
     status: active
-    label: "費目別の月額（計算基準年の価格）"
+    label: "内訳の月額（計算基準年の価格）"
     since: draft
     aliases: []
     replacedBy: null
@@ -1515,7 +1515,7 @@ entries:
     path: [growth]
   - id: livingExpense.mode
     status: active
-    label: "入れ方（総額／費目別）"
+    label: "入れ方（総額／内訳）"
     since: draft
     aliases: []
     replacedBy: null
