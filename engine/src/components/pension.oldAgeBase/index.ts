@@ -33,6 +33,7 @@ import {
   monthIndex,
   monthOf,
   oldAgeClaimMonths,
+  claimInput,
   parseYm,
   rate,
   RATE_ONE,
@@ -172,6 +173,7 @@ export default defineComponent<{ member: string }, Out>({
     "relation.child",
     "pensionRecord.member",
     "pensionRecord.claim",
+    "member.pensionClaim",
     "employment.member",
     "assumptions.wageGrowth",
   ],
@@ -229,7 +231,7 @@ export default defineComponent<{ member: string }, Out>({
     let CE: MonthIndex = S0;
     if (!receiving) {
       // 繰上げは同時に請求する（早い方の月にそろえる）
-      const claim = oldAgeClaimMonths(ctx, rec, input0, N, SA);
+      const claim = oldAgeClaimMonths(ctx, rec, claimInput(ctx, member, input0), N, SA);
       CB = claim.basic;
       CE = claim.employee;
       if (claim.aligned) ctx.notice("N_ASSUMED", ["pension.earlyClaim.simultaneous", member]);

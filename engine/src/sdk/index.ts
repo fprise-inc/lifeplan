@@ -90,6 +90,7 @@ export type { ExemptionCounts } from "./helpers.ts";
 export {
   legalExemptionWindow,
   oldAgeClaimMonths,
+  claimInput,
   recordEmployeeMonths,
   specialOldAgeStart,
   survivorBasis,

@@ -40,6 +40,16 @@ export function specialOldAgeStart(ctx: Ctx, at0: MonthCtx, rec: RecordOutput, m
 }
 
 /**
+ * 受給を始める月の入力（0078）: 年金の記録があれば記録の claim、記録が無い人（働き方の期間からの推計）は構成員の pensionClaim。
+ * 記録があるときは構成員の pensionClaim を読まない
+ */
+export function claimInput(ctx: Ctx, member: string, input0: PensionRecordInput | undefined): { readonly claim?: PensionRecordInput["claim"] } | undefined {
+  if (input0 !== undefined) return input0;
+  const m = ctx.list<MemberInput>("member").find((x) => x.id === member);
+  return m?.pensionClaim === undefined ? undefined : { claim: m.pensionClaim };
+}
+
+/**
  * 老齢基礎年金・老齢厚生年金の受給を始める月（入力の claim。省略は65歳に達した月の翌月 N）。
  * 繰上げは老齢基礎年金と老齢厚生年金を同時に請求する（国民年金法附則9条の2第2項・厚生年金保険法附則7条の3第2項）ので、
  * どちらかを N より前にしたときは、早い方の月に両方をそろえる（aligned）。特別支給の老齢厚生年金を受ける世代（SA がある）の一部繰上げは扱わず、そろえない。
@@ -48,7 +58,7 @@ export function specialOldAgeStart(ctx: Ctx, at0: MonthCtx, rec: RecordOutput, m
 export function oldAgeClaimMonths(
   ctx: Ctx,
   rec: RecordOutput,
-  input: PensionRecordInput | undefined,
+  input: { readonly claim?: PensionRecordInput["claim"] } | undefined,
   N: MonthIndex,
   SA: MonthIndex | null,
 ): { basic: MonthIndex; employee: MonthIndex; aligned: boolean } {

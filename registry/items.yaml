@@ -1601,6 +1601,14 @@ entries:
     replacedBy: null
     collection: member
     path: [outside]
+  - id: member.pensionClaim
+    status: active
+    label: "老齢年金の受給を始める月（年金の記録が無い人。働き方の期間からの推計のときの繰上げ・繰下げ。記録があれば記録の claim を使う。省略は65歳に達した月の翌月。0078）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: member
+    path: [pensionClaim]
   - id: member.sex
     status: active
     label: "性別"

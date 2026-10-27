@@ -2965,6 +2965,12 @@
     "outside"
    ]
   },
+  "member.pensionClaim": {
+   "collection": "member",
+   "path": [
+    "pensionClaim"
+   ]
+  },
   "member.sex": {
    "collection": "member",
    "path": [

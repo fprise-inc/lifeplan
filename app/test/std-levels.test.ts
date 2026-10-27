@@ -14,6 +14,7 @@ import { BONUS_SPLIT_METHOD } from "../src/workspace/input/stages/work.ts";
 import { switchEntry } from "../src/workspace/input/stages/housingLoans.ts";
 import { applyStateOp, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { salaryAge, salaryEstimate } from "../src/workspace/input/estimates.ts";
+import { applyLevers, readLevers } from "../src/workspace/levers.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const open = (id: string): WorkingHousehold => fromRequest(modelHousehold(id));
@@ -185,6 +186,42 @@ describe("年金・退職金・基本生活費", () => {
     expect(simple).toContain("退職後の生活費（今の額に対する割合）");
     const stageValues = fieldsOf(wh, "living").filter((f) => /\/stage\/\d+\/(ratio|monthly)$/.test(f.key));
     expect(stageValues.filter((f) => f.level === "simple")).toHaveLength(1);
+  });
+});
+
+describe("年金: 推計の区分でも受け取り開始を標準に（構成員の pensionClaim。0078）", () => {
+  const setup = () => {
+    const req = structuredClone(modelHousehold("salariedCoupleTwoKids")) as EngineRequest;
+    const self = req.input.household.members.find((m) => m.kind === "self")!;
+    req.input.household.pensionRecords = (req.input.household.pensionRecords ?? []).filter((r) => r.member !== self.id);
+    const wh = fromRequest(req);
+    return { wh, self, f: fieldOf(wh, "pension", `pension/${self.id}/estimate/claim`) };
+  };
+  const pensionSum = (req: EngineRequest, from: number, to: number) => preview(req).table.filter((c) => c.row.startsWith("cf.income.pension") && c.year >= from && c.year <= to).reduce((s, c) => s + c.amount, 0);
+
+  it("推計の人に受け取り開始の欄（標準）。空は65歳。70歳にすると構成員に持ち、計算は70歳から（65〜69歳の年金が0円になる）", () => {
+    const { wh, self, f } = setup();
+    expect(f.level).toBe("simple");
+    expect(f.get(wh).value).toBe(65);
+    const w = f.set(wh, 70);
+    const m = w.request.input.household.members.find((x) => x.id === self.id)!;
+    expect(m.pensionClaim).toEqual({ basic: { at: "2051-08" }, employee: { at: "2051-08" } });
+    expect(f.get(w).value).toBe(70);
+    const y65 = Number(self.birth.birthYearMonth.slice(0, 4)) + 66;
+    expect(pensionSum(wh.request, y65, y65 + 2)).toBeGreaterThan(pensionSum(w.request, y65, y65 + 2));
+    // 65歳に戻すと欄を消す（省略は65歳）
+    expect(f.set(w, 65).request.input.household.members.find((x) => x.id === self.id)!.pensionClaim).toBeUndefined();
+  });
+
+  it("推計から書類からに切り替えると、受け取り開始を記録に引き継ぐ。結果のタブの受け取り開始も推計の人に使える", () => {
+    const { wh, self, f } = setup();
+    const w = f.set(wh, 68);
+    const doc = fieldOf(w, "pension", `pension/${self.id}/mode`).set(w, "document");
+    const rec = doc.request.input.household.pensionRecords!.find((r) => r.member === self.id)!;
+    expect(rec.claim).toEqual(w.request.input.household.members.find((x) => x.id === self.id)!.pensionClaim);
+    expect(readLevers(w.request, self.id).pensionAge).toBe(68);
+    const moved = applyLevers(wh.request, self.id, { pensionAge: 67 });
+    expect(moved.input.household.members.find((x) => x.id === self.id)!.pensionClaim?.basic).toEqual({ at: "2048-08" });
   });
 });
 

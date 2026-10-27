@@ -745,6 +745,8 @@ function buildCatalogOf(wh: WorkingHousehold, selfId: string, demo: DemoHousehol
   // 年収（賞与込み）の欄は2つの値（年収・賞与）の合計を見せる欄なので、動かす項目にはしない（差分は年収・賞与の当て先に付き、
   // 働き方の期間の年収・賞与の欄が動かす項目になる。0078）
   for (const m of h.members) skip.add(`work/${m.id}/now/total`);
+  // 推計の区分の受け取り開始の欄（構成員の pensionClaim。0078）は、対策の「年金の受け取り開始」と同じものを動かすので重ねて出さない
+  for (const m of h.members) for (const t of ["", "/basic", "/employee"]) skip.add(`pension/${m.id}/estimate/claim${t}`);
   const items = [...leverItems(wh, selfId, demo), ...feeItem(wh), ...investItems(wh), ...surplusItems(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), skip)];
   return { selfId, items, byKey: new Map(items.map((i) => [i.key, i])) };
 }

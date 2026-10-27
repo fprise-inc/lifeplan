@@ -136,10 +136,14 @@ export function switchPension(wh: WorkingHousehold, memberId: string, target: st
       }
     }
   }
+  // 受け取り開始は入れ方をまたいで引き継ぐ（行き先に無いときだけ写す。推計の区分は構成員の pensionClaim、記録は claim。0078）
+  if (next !== null && cur === undefined && next.claim === undefined && m.pensionClaim !== undefined) next = { ...next, claim: structuredClone(m.pensionClaim) };
   const w = mutate(wh, (hh) => {
     const others = (hh.pensionRecords ?? []).filter((r) => r.member !== memberId);
     hh.pensionRecords = next === null ? others : [...others, next];
     if (hh.pensionRecords.length === 0) delete hh.pensionRecords;
+    const mm = hh.members.find((x) => x.id === memberId);
+    if (next === null && cur?.claim !== undefined && mm !== undefined && mm.pensionClaim === undefined) mm.pensionClaim = structuredClone(cur.claim);
   });
   return withKept(w, memberId, kept);
 }
@@ -224,7 +228,12 @@ export function pensionNotices(wh: WorkingHousehold): string[] {
 export const claimMonth = (m: Member, age: number): string => addMonths(ageReachedMonth(m, age), 1);
 const claimAge = (m: Member, at: string) => ageAt(m, addMonths(at, -1));
 
-function claimFields(m: Member, find: Finder, prefix: string): FieldDef[] {
+/**
+ * 受け取り開始の欄（基礎・厚生とも／基礎だけ／厚生だけ）。prop は受け取り開始を持つ欄の名前: 年金の記録の claim か、
+ * 記録の無い人（推計の区分）は構成員の pensionClaim（0078）
+ */
+function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "pensionClaim" = "claim", addr?: (part: "basic" | "employee" | null) => Address): FieldDef[] {
+  type Holder = { claim?: PensionRecord["claim"]; pensionClaim?: PensionRecord["claim"] };
   const tpAge = (h: Household, t: Timepoint | undefined) => {
     const ym = t === undefined ? null : resolveTimepoint(h, t);
     return ym !== null ? claimAge(m, ym) : null;
@@ -246,27 +255,30 @@ function claimFields(m: Member, find: Finder, prefix: string): FieldDef[] {
     return ym !== null && (ym < lo || ym > hi) ? `受け取り開始は、60歳になった翌月（${formatYearMonth(lo)}）から75歳になった翌月（${formatYearMonth(hi)}）までの間で入れてください` : null;
   };
   /** 標準（65歳になった翌月）と同じ月の、出来事でない時点は省く（省略は標準） */
-  const tidy = (h: Household, r: PensionRecord) => {
-    const claim = r.claim;
+  const tidy = (h: Household, r: Holder) => {
+    const claim = r[prop];
     if (claim === undefined) return;
     for (const part of ["basic", "employee"] as const) {
       const t = claim[part];
       if (t !== undefined && t.event === undefined && resolveTimepoint(h, t) === claimMonth(m, 65)) delete claim[part];
     }
-    if (claim.basic === undefined && claim.employee === undefined) delete r.claim;
+    if (claim.basic === undefined && claim.employee === undefined) delete r[prop];
   };
-  const rec0 = (w: WorkingHousehold) => find(w.request.input.household, w) as PensionRecord | undefined;
+  const rec0 = (w: WorkingHousehold): { claim?: PensionRecord["claim"] } | undefined => {
+    const x = find(w.request.input.household, w) as Holder | undefined;
+    return x === undefined ? undefined : { claim: x[prop] };
+  };
   const common = { ageOf: (h: Household) => h.members.find((x) => x.id === m.id), mode: "age" as const, ageMeans: "after" as const, optional: true, nullText: "65歳から（標準）", fallback: () => std(), check };
   const writeClaim = (parts: readonly ("basic" | "employee")[]) => (w: WorkingHousehold, tp: Timepoint | null) =>
     mutate(w, (h) => {
-      const r = find(h, w) as PensionRecord | undefined;
+      const r = find(h, w) as Holder | undefined;
       if (r === undefined) return;
-      const claim = { ...r.claim };
+      const claim = { ...r[prop] };
       for (const part of parts) {
         if (tp === null) delete claim[part];
         else claim[part] = structuredClone(tp);
       }
-      r.claim = claim;
+      r[prop] = claim;
       tidy(h, r);
     });
   const both = field({
@@ -290,10 +302,10 @@ function claimFields(m: Member, find: Finder, prefix: string): FieldDef[] {
     },
     set: (w, v) =>
       mutate(w, (h) => {
-        const r = find(h, w) as PensionRecord | undefined;
+        const r = find(h, w) as Holder | undefined;
         if (r === undefined || v === null) return;
-        if (Number(v) === 65) delete r.claim;
-        else r.claim = { basic: { at: claimMonth(m, Number(v)) }, employee: { at: claimMonth(m, Number(v)) } };
+        if (Number(v) === 65) delete r[prop];
+        else r[prop] = { basic: { at: claimMonth(m, Number(v)) }, employee: { at: claimMonth(m, Number(v)) } };
       }),
   });
   const one = (part: "basic" | "employee", label: string) =>
@@ -314,16 +326,19 @@ function claimFields(m: Member, find: Finder, prefix: string): FieldDef[] {
       },
       set: (w, v) =>
         mutate(w, (h) => {
-          const r = find(h, w) as PensionRecord | undefined;
+          const r = find(h, w) as Holder | undefined;
           if (r === undefined || v === null) return;
-          const claim = { ...r.claim };
+          const claim = { ...r[prop] };
           if (Number(v) === 65) delete claim[part];
           else claim[part] = { at: claimMonth(m, Number(v)) };
-          if (claim.basic === undefined && claim.employee === undefined) delete r.claim;
-          else r.claim = claim;
+          if (claim.basic === undefined && claim.employee === undefined) delete r[prop];
+          else r[prop] = claim;
         }),
     });
-  return [both, one("basic", "老齢基礎年金の受け取り開始"), one("employee", "老齢厚生年金の受け取り開始")];
+  const fields = [both, one("basic", "老齢基礎年金の受け取り開始"), one("employee", "老齢厚生年金の受け取り開始")];
+  if (addr === undefined) return fields;
+  const parts = [null, "basic", "employee"] as const;
+  return fields.map((f, i) => ({ ...f, address: () => addr(parts[i] ?? null) }));
 }
 
 // ---- 書類の欄 ----
@@ -423,7 +438,8 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
         title: `${who}の公的年金`,
         note: ["書類が無いので、働き方の期間（過去は22歳の4月から今の勤め先に勤めたとみなす）から加入歴を推計しています（推定）", ...(back.length > 0 ? [`前に入れた記録（${back.join("・")}）を残しています。入れ方を戻すと戻ります`] : [])].join("。"),
         level: "simple",
-        fields: [modeField],
+        // 推計でも受け取り開始は標準（繰上げ・繰下げで結果が大きく動く。記録の無い人は構成員の pensionClaim に持つ。0078）
+        fields: [modeField, ...claimFields(m, byId((hh: Household) => hh.members, m.id), `pension/${m.id}/estimate`, "pensionClaim", (part) => ({ target: { member: m.id }, item: "member.pensionClaim", at: part === null ? [] : [part] }))],
         actions: [{ key: `pension/${m.id}/toDocument`, label: "書類の額で置き換える", level: "simple", run: (w) => modeField.set(w, "document") }],
       },
     ];

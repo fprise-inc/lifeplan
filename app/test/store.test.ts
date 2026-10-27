@@ -9,6 +9,7 @@ import { CURRENT } from "../src/workspace/plans/band.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { applyPlan, savePlan } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
+import { addMonths } from "../src/workspace/levers.ts";
 import { DEFAULT_BALANCE_SETTINGS, DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { Autosaver, type SaveState, type Timers } from "../src/workspace/store/autosave.ts";
 import { makeSnapshot, snapshotDigest, verifySnapshot } from "../src/workspace/snapshots/snapshots.ts";
@@ -357,6 +358,17 @@ function sample029(): BodyState {
   return { ...s, wh: { ...s.wh, recheck } };
 }
 
+/** 0.30 の見本の世帯（0078）: sample029() の本人（年金の記録が無い＝推計の区分）に、受け取り開始（67歳になった翌月）を足す */
+function sample030(): BodyState {
+  const s = sample029();
+  const req = structuredClone(s.wh.request);
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const m = req.input.household.members.find((x) => x.id === self.id)!;
+  const at = addMonths(`${Number(m.birth.birthYearMonth.slice(0, 4)) + 67}${m.birth.birthYearMonth.slice(4)}`, 1);
+  m.pensionClaim = { basic: { at }, employee: { at } };
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -480,7 +492,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.29");
+    expect(BODY_FORMAT_VERSION).toBe("0.30");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -611,7 +623,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample029())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample030())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -706,6 +718,22 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(fromBody(JSON.stringify(broken)).wh.recheck).toBeUndefined();
     const none = bodyObject(sample028()) as unknown as { household: Record<string, unknown> };
     expect("recheck" in none.household).toBe(false);
+  });
+
+  it("0.30 の形（0078）: 推計の区分の受け取り開始（構成員の pensionClaim）を保存して読み戻し、計算に使う（年金の記録が無い人だけ）", () => {
+    const s = sample030();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const self = roles(s.wh.request).find((r) => r.key === "self")!.member;
+    expect((stored.household.request.input.household.pensionRecords ?? []).some((r) => r.member === self.id)).toBe(false);
+    expect(stored.household.request.input.household.members.find((m) => m.id === self.id)!.pensionClaim?.basic).toBeDefined();
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const plain = structuredClone(back.wh.request);
+    for (const m of plain.input.household.members) delete m.pensionClaim;
+    expect(preview(back.wh.request).table).not.toEqual(preview(plain).table);
+    // 前の版の見本（受け取り開始が無い）は、開いても結果が変わらない
+    const old = sample029();
+    expect(old.wh.request.input.household.members.some((m) => m.pensionClaim !== undefined)).toBe(false);
   });
 
   it("0.24 の形（0060・0061）: 相続税の目安の設定と遺したい額を要求の入力に保存して読み戻す。エンジンへ渡す要求からは外れ、結果は同じ", () => {
