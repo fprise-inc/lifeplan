@@ -100,7 +100,7 @@ export class DualEngine {
   private put(requests: Record<string, EngineRequest>): string[] {
     const changed: string[] = [];
     for (const [id, req] of Object.entries(requests)) {
-      // 基本の計算に入れない物（不確かな受け取る相続・贈与など）は、エンジンへ渡す要求から外す（0044）
+      // 基本の計算に入れない物（見込みが「当てにしない」の受け取る相続・贈与など）は、エンジンへ渡す要求から外す（0044）
       const text = JSON.stringify(forEngine(req));
       const s = this.slots.get(id);
       if (s === undefined) {

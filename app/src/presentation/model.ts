@@ -112,11 +112,11 @@ export interface CashflowTableModel {
 
 export interface GoalCard {
   category: string;
-  priority: "必要" | "希望" | "夢";
+  priority: "必ず" | "できれば";
   title: string;
   when: string;
   amount: Yen | null;
-  /** 準備できているか（null は未入力の「夢」） */
+  /** 準備できているか（null は未入力の「やりたいこと」のカード） */
   ready: boolean | null;
   /** 不足のときの文（例: 「2061年から資金が不足」） */
   shortNote: string | null;

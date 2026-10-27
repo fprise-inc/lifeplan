@@ -1,14 +1,15 @@
 // お金の行（0044）の、計算の要求を作るときの決まり（0035 の7・0036 の6）:
-// - 基本の計算に入れない: 見込みが「不確か」で includeInBase が true でない、受け取る相続・遺贈・贈与の入るお金の行（種類が inheritance・giftReceived）と、
+// - 基本の計算に入れない: 見込みが「当てにしない」（uncertain）で includeInBase が true でない、受け取る相続・遺贈・贈与の入るお金の行（種類が inheritance・giftReceived）と、
 //   相続で受け継ぐ借金（inheritedFrom のある負債）。世帯のデータからは消さず、エンジンへ渡す要求からだけ外す（エンジンは変えない）。
 //   ほかの種類の入るお金には広げない（当てにならない遺産で楽な結果を見る誤りは、相続に特有なため）
-// - 確実な分だけで見る（保存しない自動の差分。0036 の6）: 見込みが「不確か」の入るお金の行のすべてと、優先度が「希望」「夢」の出るお金の行を外す
-//   （外す差分 remove を当てたのと同じ要求）
+// - 結果の見方（保存しない自動の差分。0036 の6・0044 の追記）: 「すべて入れる」か「確実な分だけ」（見込みが「当てにしない」〔uncertain〕の入るお金の行の
+//   すべてと、優先度が「できれば」〔want・wish〕の出るお金の行を外す）と、物ごとの入れ外し。基本の計算に入れない物も、ここで「入れて見る」ができる
+//   （要求の写しで includeInBase を true にする。世帯もプランも変えない）
 // どちらも差分を当てた後の作業中の世帯から作る要求に当てるので、プランでの見込み・includeInBase・優先度の set が効く
 // - 世帯に保存した表示だけの設定（相続税の目安の設定・遺したい額。0060）も、エンジンへ渡すときに外す（withoutStoredSettings）
 import type { Debt, EngineRequest, Household, IncomeFlow, IncomeFlowKind, PeriodicExpense } from "./types.ts";
 
-/** 不確かなら基本の計算に入れない入るお金の種類（受け取る相続・遺贈・贈与） */
+/** 見込みが「当てにしない」なら基本の計算に入れない入るお金の種類（受け取る相続・遺贈・贈与） */
 export const BASE_EXCLUDED_KINDS: ReadonlySet<IncomeFlowKind> = new Set(["inheritance", "giftReceived"]);
 
 /** この入るお金の行を基本の計算から外すか */
@@ -61,27 +62,91 @@ export function withoutStoredSettings(req: EngineRequest): EngineRequest {
   return { ...req, input: { ...rest, ...(dropTax || inheritanceTax === undefined ? {} : { inheritanceTax }) } as EngineRequest["input"] };
 }
 
-/** 確実な分だけで見るときに外す行か（入るお金は見込みが不確か、出るお金は優先度が希望・夢） */
+/** 確実な分だけで外す行か（入るお金は見込みが「当てにしない」、出るお金は優先度が「できれば」。古い値の likely は確実、wish はできればと同じ扱い） */
 export const notCertainIncome = (f: Pick<IncomeFlow, "likelihood">): boolean => f.likelihood === "uncertain";
 export const notNeededExpense = (e: Pick<PeriodicExpense, "priority">): boolean => e.priority === "want" || e.priority === "wish";
 
-/** 確実な分だけで見るときに外す行の数（画面の見出しに出す） */
-export function certainOnlyCounts(req: EngineRequest): { incomes: number; expenses: number } {
-  const h = req.input.household;
-  return { incomes: (h.incomeFlows ?? []).filter(notCertainIncome).length, expenses: (h.periodicExpenses ?? []).filter(notNeededExpense).length };
+/** 結果の見方（保存しない）: 確実な分だけか（false は「すべて入れる」）と、物ごとの入れ外し（候補のキー → 入れるなら true。決まりのとおりの物は持たない） */
+export interface RowsView {
+  certainOnly: boolean;
+  pick: Readonly<Record<string, boolean>>;
 }
 
+/** すべて入れる（いつもの計算。基本の計算に入れない物は外れたまま） */
+export const ALL_ROWS: RowsView = { certainOnly: false, pick: {} };
+
+/** 見方で入れ外しできる物 */
+export interface ViewCandidate {
+  /** 入れ外しのキー（「in:」「out:」「debt:」＋ ID） */
+  key: string;
+  side: "in" | "out" | "debt";
+  id: string;
+  /** 外れる理由: base＝基本の計算に入れない決まり（当てにしない受け取る相続・贈与・受け継ぐ借金）、uncertain＝見込みが当てにしない、priority＝優先度ができれば */
+  reason: "base" | "uncertain" | "priority";
+}
+
+/** 世帯の中の、見方で入れ外しできる物（入るお金・出るお金・受け継ぐ借金の並びの順） */
+export function viewCandidates(h: Household): ViewCandidate[] {
+  const out: ViewCandidate[] = [];
+  for (const f of h.incomeFlows ?? []) {
+    if (excludedIncome(f)) out.push({ key: `in:${f.id}`, side: "in", id: f.id, reason: "base" });
+    else if (notCertainIncome(f)) out.push({ key: `in:${f.id}`, side: "in", id: f.id, reason: "uncertain" });
+  }
+  for (const e of h.periodicExpenses ?? []) if (notNeededExpense(e)) out.push({ key: `out:${e.id}`, side: "out", id: e.id, reason: "priority" });
+  for (const d of h.debts ?? []) if (excludedDebt(d)) out.push({ key: `debt:${d.id}`, side: "debt", id: d.id, reason: "base" });
+  return out;
+}
+
+/** 決まりのとおりなら外すか（基本の計算に入れない物はいつも外す。ほかは確実な分だけのときに外す） */
+export const ruleExcluded = (c: Pick<ViewCandidate, "reason">, certainOnly: boolean): boolean => c.reason === "base" || certainOnly;
+
+/** この見方で外すか（物ごとの入れ外しがあればそれ、無ければ決まりのとおり） */
+export function viewExcluded(c: Pick<ViewCandidate, "key" | "reason">, v: RowsView): boolean {
+  const p = v.pick[c.key];
+  return p !== undefined ? !p : ruleExcluded(c, v.certainOnly);
+}
+
+/** 物ごとの入れ外しを置く（決まりのとおりに戻すなら持たない） */
+export function pickRow(v: RowsView, c: Pick<ViewCandidate, "key" | "reason">, include: boolean): RowsView {
+  const { [c.key]: _old, ...rest } = v.pick;
+  void _old;
+  return { ...v, pick: include === !ruleExcluded(c, v.certainOnly) ? rest : { ...rest, [c.key]: include } };
+}
+
+/** 「すべて入れる｜確実な分だけ」を切り替える（物ごとの入れ外しは決まりのとおりに戻す） */
+export const viewMode = (certainOnly: boolean): RowsView => ({ certainOnly, pick: {} });
+
+/** いつもの計算と同じ見方か（すべて入れる・物ごとの入れ外しなし） */
+export const isAllRows = (v: RowsView): boolean => !v.certainOnly && Object.keys(v.pick).length === 0;
+
 /**
- * 確実な分だけで見る要求（保存しない自動の差分。0036 の6）: 見込みが不確かな入るお金の行と、優先度が希望・夢の出るお金の行を外す。
- * 基本の計算に入れない物（forEngine）は、エンジンへ渡すときにいつものとおり外れる
+ * 見方を当てた要求（保存しない自動の差分）: 外す入るお金・出るお金の行を要求から外し、入れる基本の計算に入れない物は includeInBase を true にする。
+ * 外す受け継ぐ借金は、エンジンへ渡すときにいつものとおり外れる（forEngine）。変える物が無ければ同じ物を返す（計算し直さない）
  */
-export function certainOnly(req: EngineRequest): EngineRequest {
+export function applyRowsView(req: EngineRequest, v: RowsView): EngineRequest {
+  if (isAllRows(v)) return req;
   const h = req.input.household;
-  const c = certainOnlyCounts(req);
-  if (c.incomes === 0 && c.expenses === 0) return req;
+  const cs = viewCandidates(h);
+  if (cs.length === 0) return req;
+  const drop = new Set<string>();
+  const include = new Set<string>();
+  for (const c of cs) {
+    const ex = viewExcluded(c, v);
+    if (ex && c.side !== "debt") drop.add(c.key);
+    else if (!ex && c.reason === "base") include.add(c.key);
+  }
+  if (drop.size === 0 && include.size === 0) return req;
+  const incomes = h.incomeFlows ?? [];
+  const expenses = h.periodicExpenses ?? [];
+  const debts = h.debts ?? [];
+  const touch = (side: string, ids: readonly { id: string }[]) => ids.some((x) => drop.has(`${side}:${x.id}`) || include.has(`${side}:${x.id}`));
   return withHousehold(req, {
     ...h,
-    ...(c.incomes > 0 ? { incomeFlows: (h.incomeFlows ?? []).filter((f) => !notCertainIncome(f)) } : {}),
-    ...(c.expenses > 0 ? { periodicExpenses: (h.periodicExpenses ?? []).filter((e) => !notNeededExpense(e)) } : {}),
+    ...(touch("in", incomes) ? { incomeFlows: incomes.filter((f) => !drop.has(`in:${f.id}`)).map((f) => (include.has(`in:${f.id}`) ? { ...f, includeInBase: true } : f)) } : {}),
+    ...(touch("out", expenses) ? { periodicExpenses: expenses.filter((e) => !drop.has(`out:${e.id}`)) } : {}),
+    ...(touch("debt", debts) ? { debts: debts.map((d) => (include.has(`debt:${d.id}`) ? { ...d, includeInBase: true } : d)) } : {}),
   });
 }
+
+/** 確実な分だけの要求（物ごとの入れ外しなし） */
+export const certainOnly = (req: EngineRequest): EngineRequest => applyRowsView(req, viewMode(true));

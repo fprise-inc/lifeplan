@@ -274,7 +274,7 @@ function goals(req: EngineRequest, proposed: readonly TableCell[], years: readon
     for (let y = y0; y <= y1; y++) amount += edu.get(y) ?? 0;
     cards.push({
       category: "教育",
-      priority: g.priority === "want" ? "希望" : g.priority === "wish" ? "夢" : "必要",
+      priority: g.priority === "want" || g.priority === "wish" ? "できれば" : "必ず",
       title,
       when: `${y0}〜${y1}年（${ageInYear(role.member, y0)}〜${ageInYear(role.member, y1)}歳）${detail}`,
       amount,
@@ -284,16 +284,16 @@ function goals(req: EngineRequest, proposed: readonly TableCell[], years: readon
   const loan = sumByYear(proposed, (c) => under(c.row, "cf.expense.housing.loan"));
   const paid = [...loan.entries()].filter(([, v]) => v > 0).map(([y]) => y).sort((a, b) => a - b).at(-1);
   if ((h.debts ?? []).some((d) => d.kind === "mortgage") && paid !== undefined)
-    cards.push({ category: "住宅", priority: "必要", title: "住宅ローンの完済", when: `${paid}年${self !== undefined ? `（${self.label}${ageInYear(self.member, paid)}歳）` : ""}`, amount: null, ...status(paid) });
+    cards.push({ category: "住宅", priority: "必ず", title: "住宅ローンの完済", when: `${paid}年${self !== undefined ? `（${self.label}${ageInYear(self.member, paid)}歳）` : ""}`, amount: null, ...status(paid) });
   const last = years.at(-1) ?? req.input.endYear;
-  cards.push({ category: "退職", priority: "必要", title: "老後の生活資金", when: self !== undefined ? `${self.label}${ageInYear(self.member, last)}歳まで` : `${last}年まで`, amount: null, ...status(last) });
+  cards.push({ category: "退職", priority: "必ず", title: "老後の生活資金", when: self !== undefined ? `${self.label}${ageInYear(self.member, last)}歳まで` : `${last}年まで`, amount: null, ...status(last) });
   for (const p of h.periodicExpenses ?? []) {
     const amount = p.amount.value ?? 0;
     const to = resolveTimepoint(h, p.to) ?? undefined;
-    cards.push({ category: "その他", priority: "希望", title: ROW_LABELS[p.row] === undefined || p.row === "cf.expense.lumpSum.other" ? "定期的な支出（旅行など）" : (ROW_LABELS[p.row] as string), when: `${p.everyYears}年ごとに ${man(amount)}万円`, amount: null, ...status(to !== undefined ? parseYm(to).y : last) });
+    cards.push({ category: "その他", priority: "できれば", title: ROW_LABELS[p.row] === undefined || p.row === "cf.expense.lumpSum.other" ? "定期的な支出（旅行など）" : (ROW_LABELS[p.row] as string), when: `${p.everyYears}年ごとに ${man(amount)}万円`, amount: null, ...status(to !== undefined ? parseYm(to).y : last) });
   }
-  cards.push({ category: "夢", priority: "夢", title: "まだ入れていません", when: "例: 夫婦で海外旅行、車の買い替え", amount: null, ready: null, shortNote: null });
-  const need = cards.filter((c) => c.priority === "必要");
+  cards.push({ category: "やりたいこと", priority: "できれば", title: "まだ入れていません", when: "例: 夫婦で海外旅行、車の買い替え", amount: null, ready: null, shortNote: null });
+  const need = cards.filter((c) => c.priority === "必ず");
   return { needTotal: need.length, needReady: need.filter((c) => c.ready === true).length, cards };
 }
 
