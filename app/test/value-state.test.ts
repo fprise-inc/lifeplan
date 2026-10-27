@@ -324,9 +324,12 @@ describe("古い世帯を開いたとき: 0円・未入力だった所に推定�
     expect(gaps.some((g) => g.startsWith("work/retirement/"))).toBe(true);
     expect(gaps).toContain("housing");
     const rows = checkList(wh);
-    expect(rows[0]!.kind).toBe("missing");
+    // 物の無い項目（子ども・教育・住まい・ローン・退職金）は入れ始める前なので「まだ入れていない項目」の行（0045 の追記）。いちばん上の種類のどちらか
+    expect(["missing", "notStarted"]).toContain(rows[0]!.kind);
+    expect(rows.filter((r) => r.id.startsWith("gap:education/") || r.id === "gap:housing").every((r) => r.kind === "notStarted")).toBe(true);
     const kinds = rows.map((r) => r.kind);
-    expect([...kinds].sort((a, b) => ["missing", "unknown", "notice", "estimated"].indexOf(a) - ["missing", "unknown", "notice", "estimated"].indexOf(b))).toEqual(kinds);
+    const order = ["missing", "notStarted", "unknown", "notice", "estimated"];
+    expect([...kinds].sort((a, b) => order.indexOf(a) - order.indexOf(b))).toEqual(kinds);
   });
 
   it("「推定で埋める」（カードごと・まとめて）を押したときだけ入る。入れた推定は推定の印つき", () => {

@@ -670,7 +670,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
           type="text"
           class={`when-in${problem !== null && live !== null ? " bad" : ""}`}
           value={draft ?? shown}
-          placeholder={fittingPlaceholder("when-in", state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : null, PLACEHOLDER[mode])}
+          placeholder={fittingPlaceholder("when-in", state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : null, mode === "ym" && time.when.dateStyle === "birth" ? "例: 2041-06" : PLACEHOLDER[mode])}
           aria-invalid={live !== null && "reason" in live ? true : undefined}
           aria-describedby={`${id}-read`}
           onFocus={() => setDraft(shown)}

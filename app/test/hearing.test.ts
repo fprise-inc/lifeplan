@@ -90,15 +90,17 @@ describe("見本の記入済みシートを空の世帯に取り込む", () => {
     const workGaps = gapsOf(out.wh).filter((g) => g.card === "work");
     expect(workGaps.every((g) => g.id.startsWith("work/unemployment/"))).toBe(true);
     const after = inputItems(withRefreshedEstimates(fillAll(out.wh, "work").wh));
-    const none = (xs: typeof before) => xs.filter((i) => i.status === "missing").map((i) => i.id);
+    // 空の世帯の項目は「まだ入れていない」（赤い知らせを出さない。0045 の追記）。取り込むと入れ始めた項目になる
+    const none = (xs: typeof before) => xs.filter((i) => i.status === "missing" || i.status === "empty").map((i) => i.id);
     expect(none(after).length).toBeLessThan(none(before).length);
-    expect(before.find((i) => i.id === "work")?.status).toBe("missing");
+    expect(before.find((i) => i.id === "work")?.status).toBe("empty");
     expect(after.find((i) => i.id === "work")?.status).not.toBe("missing");
+    expect(after.find((i) => i.id === "work")?.status).not.toBe("empty");
     // 保険: 契約は入るが、シートに無い主な保障の額（医療保険の入院日額・学資保険の満期金）は未入力の警告で残る（0055）
     const insMissing = allFields(buildStage("insurance", withRefreshedEstimates(out.wh))).filter((f) => fieldStatus(f, withRefreshedEstimates(out.wh)).status === "missing").map((f) => f.label);
     expect(insMissing).toEqual(["入院日額（1日）", "満期金"]);
     // 住まい: 住まいとローンが入る。シートに無い持ち家の評価額だけが未入力の警告で残る（0052）
-    expect(before.find((i) => i.id === "housing")?.status).toBe("missing");
+    expect(before.find((i) => i.id === "housing")?.status).toBe("empty");
     const housingMissing = allFields(buildStage("housing", withRefreshedEstimates(out.wh))).filter((f) => fieldStatus(f, withRefreshedEstimates(out.wh)).status === "missing").map((f) => f.key.split("/").slice(-2).join("/"));
     expect(housingMissing).toEqual(["valuation/value"]);
   });

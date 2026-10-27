@@ -333,6 +333,9 @@ html.big .lever input[type="range"] { height: 36px; }
 .ip-gaps p { margin: 0 0 2px; font-weight: 700; }
 .ip-gaps ul { margin: 0; padding-left: 1.1em; }
 .ip-gaps li { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
+/* まだ入れていない項目: 赤い帯にせず、目安と「該当なし」の操作だけを控えめに */
+.ip-gaps.quiet { border: 1px solid var(--line-2); background: transparent; color: var(--ink-2); font-size: 0.84rem; padding: 4px 10px; }
+.ip-gaps.quiet ul { padding-left: 0; list-style: none; }
 .ck { background: var(--card); border: 1px solid var(--card-line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
 .ck-head h2 { margin: 0 0 4px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
 .ck-basis { font-size: 0.78rem; }
@@ -343,6 +346,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .ck-kind ul { list-style: none; margin: 0; padding: 0; }
 .ck-kind li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; padding: 5px 8px; border-bottom: 1px solid var(--line-2); font-size: 0.88rem; }
 .ck-missing li { border-left: 4px solid var(--short); }
+.ck-notStarted li { border-left: 4px dashed var(--field); }
 .ck-unknown li, .ck-notice li { border-left: 4px solid var(--est); }
 .ck-estimated li { border-left: 4px dashed var(--base); }
 .ck-calc li { border-left: 4px solid #c99a30; }
@@ -379,6 +383,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .ih-prog-bar i.done { background: var(--prop); }
 .ih-prog-bar i.est { background: var(--est-band); border-color: var(--est); }
 .ih-prog-bar i.missing { border: 2px solid var(--short); background: var(--short-bg); }
+.ih-prog-bar i.empty { border: 2px dashed var(--field); background: #fff; }
 .ih-prog-bar i.na { border-color: var(--base); background: var(--base-bg); }
 .ih-group + .ih-group { margin-top: 22px; }
 .ih-gh { font-size: 1.02rem; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
@@ -432,6 +437,11 @@ html.big .ih-ill { aspect-ratio: 2 / 1; }
 .ih-card.s-missing .ih-ill { background: transparent; }
 .ih-card.s-missing .ih-ill img { filter: grayscale(1); opacity: 0.5; }
 .ih-card.s-missing .ih-band { display: none; }
+/* まだ入れていない: 点線の枠と灰色の絵は未入力と同じ、色は赤でなく灰色 */
+.ih-card.s-empty { border: 2px dashed var(--field); box-shadow: none; background: #fcfcfd; }
+.ih-card.s-empty .ih-ill { background: transparent; }
+.ih-card.s-empty .ih-ill img { filter: grayscale(1); opacity: 0.5; }
+.ih-card.s-empty .ih-band { display: none; }
 /* 当てはまらない: 灰の実線の枠と灰の帯。イラストは薄く */
 .ih-card.s-na { border: 1.5px solid var(--line); box-shadow: none; background: var(--base-bg); }
 .ih-card.s-na .ih-ill { background: transparent; }
@@ -1314,6 +1324,8 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .ih-imports-list { display: grid; gap: 8px; padding: 8px 10px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--card); }
 .ih-imports.off { color: var(--ink-2); }
 .ih-imports-list .hs-tools { justify-content: flex-start; flex-wrap: wrap; }
+.ih-imports-list { margin: 0 0 12px; }
+.ih-imports-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 /* 事務所の既定値（0073） */
 .os-panel { max-width: 720px; }
 .os-sec { margin: 14px 0 0; }
