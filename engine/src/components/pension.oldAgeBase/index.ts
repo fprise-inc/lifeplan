@@ -18,6 +18,7 @@
 // - 繰上げは老齢基礎年金と老齢厚生年金を同時に請求する（国民年金法附則9条の2第2項）: 片方だけ早めた入力は、早い方の月にそろえて知らせる（N_ASSUMED）
 // - 障害の想定の法定免除の月（第1号で障害基礎年金1・2級を受ける月。国民年金法89条）は、老齢基礎年金の額では全額免除の月（2009年4月以後は1/2）。
 //   額で入れた記録（見込額・定期便）は60歳まで納める前提の額なので、法定免除の月の（1−割合）の分を満額から按分して引く
+// 改訂5: 受給資格期間に足りない知らせは、働き方（勤め先の期間）も加入の記録も入れていない子には出さない（額は変えない）
 import {
   addMonths,
   ageMonth,
@@ -45,6 +46,7 @@ import {
   type Ctx,
   type MonthCtx,
   type SegmentOptions,
+  type EmploymentPeriodInput,
   type MemberInput,
   type MonthIndex,
   type PensionMonth,
@@ -145,7 +147,7 @@ export default defineComponent<{ member: string }, Out>({
   id: "pension.oldAgeBase",
   title: "老齢年金の月ごとの額（障害年金と選ぶ前）",
   contract: "1.1",
-  revision: 4,
+  revision: 5,
   requires: {
     "pension.record": ">=1 <2",
     "pension.revision": ">=1 <2",
@@ -170,9 +172,10 @@ export default defineComponent<{ member: string }, Out>({
     "relation.child",
     "pensionRecord.member",
     "pensionRecord.claim",
+    "employment.member",
     "assumptions.wageGrowth",
   ],
-  memberScope: ["pensionRecord"],
+  memberScope: ["pensionRecord", "employment"],
   input: "member.input",
   output: "pension.oldAgeBase.output",
   compute(input, ctx) {
@@ -212,7 +215,10 @@ export default defineComponent<{ member: string }, Out>({
     // 受給資格期間: 見込額だけ・受給中の記録で月数を入れていないときは、資格があるとみなす
     const monthsGiven = input0?.months !== undefined || (rec.kind !== "projection" && rec.kind !== "receiving");
     if (monthsGiven && rec.qualifyingMonths < (at0.paramCount(P.qual) ?? 0)) {
-      ctx.notice("N_NOT_ENTITLED", ["pension.qualifyingMonths", member]);
+      // 働き方も加入の記録も入れていない子は、表の中の加入の月（20歳から世帯を離れるまでの第1号など）が足りないだけなので知らせない（改訂5。額は同じ0円）
+      const kind = ctx.list<MemberInput>("member").find((m) => m.id === member)?.kind;
+      const noInput = input0 === undefined && ctx.list<EmploymentPeriodInput>("employment").length === 0;
+      if (!(kind === "child" && noInput)) ctx.notice("N_NOT_ENTITLED", ["pension.qualifyingMonths", member]);
       return empty;
     }
     const receiving = rec.kind === "receiving";
