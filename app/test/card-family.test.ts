@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { EngineRequest, IncomeFlow, PeriodicExpense } from "../src/engine/types.ts";
 import { allFields, type FieldDef, type StageDef, type Val } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { addMember, addRelationStage, markBorn, relationSummary, spouseRelations, swapSelfSpouse } from "../src/workspace/input/stages/family.ts";
+import { addMember, addRelationStage, markBorn, relationSummary, removeMember, spouseRelations, swapSelfSpouse } from "../src/workspace/input/stages/family.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { fieldAddress } from "../src/workspace/input/valueState.ts";
@@ -12,7 +12,7 @@ import { readAt } from "../src/workspace/store/readings.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
 import { roles } from "../src/workspace/roles.ts";
-import { modelHousehold, preview } from "./helpers.ts";
+import { full, modelHousehold, preview } from "./helpers.ts";
 
 const BASE = "2026-10";
 let n = 0;
@@ -214,18 +214,26 @@ describe("本人と配偶者の入れ替え", () => {
 });
 
 describe("家族のお金の行", () => {
-  it("区画は簡易に出て、養育費・手当の終わりは下の子の18歳の年度末、相手は簡易で選べる", () => {
+  it("区画は簡易に出て、手当の終わりは下の子の18歳の年度末。養育費を受け取る行の相手は世帯の中の下の子で、終わりはその子の20歳", () => {
     const wh = fromRequest(modelHousehold("singleEarnerTwoKids"));
     const st = stage(wh);
     const sec = st.sections.find((s) => s.key === "money/family/in")!;
     expect(sec.level).toBe("simple");
+    const youngest = wh.request.input.household.members.filter((m) => m.kind === "child").sort((a, b) => b.birth.birthYearMonth.localeCompare(a.birth.birthYearMonth))[0]!;
+    const wb = action(wh, "money/family/in/add/benefit").run(wh);
+    expect(((wb.request.input.household.incomeFlows ?? []).at(-1) as IncomeFlow).to).toEqual({ memberAge: { member: youngest.id, years: 18, ageSwitch: "firstMarch31AfterReach" } });
     const w1 = action(wh, "money/family/in/add/childSupport").run(wh);
     const f = (w1.request.input.household.incomeFlows ?? []).at(-1) as IncomeFlow;
-    const youngest = w1.request.input.household.members.filter((m) => m.kind === "child").sort((a, b) => b.birth.birthYearMonth.localeCompare(a.birth.birthYearMonth))[0]!;
-    expect(f.to).toEqual({ memberAge: { member: youngest.id, years: 18, ageSwitch: "firstMarch31AfterReach" } });
+    expect(f.counterparty).toBe(youngest.id);
+    expect(f.to).toEqual({ memberAge: { member: youngest.id, years: 20 } });
     const party = fieldOf(w1, `in/${f.id}/counterparty`);
     expect(party.level).toBe("simple");
-    expect(party.kind === "select" && party.options.some((o) => o.value === youngest.id)).toBe(true);
+    expect(party.label).toBe("養育費を受ける子");
+    // 選べるのは世帯の中の子だけ（配偶者は出さない）
+    const spouse = w1.request.input.household.members.find((m) => m.kind === "spouse")!;
+    const opts = party.kind === "select" ? party.options.map((o) => o.value) : [];
+    expect(opts).toContain(youngest.id);
+    expect(opts).not.toContain(spouse.id);
     expect(() => preview(w1.request)).not.toThrow();
   });
 
@@ -274,5 +282,131 @@ describe("性別: 標準は本人の1押し。配偶者は本人の逆を推定�
     expect(spouseOf(wh).sex).toBe(before);
     const child = wh.request.input.household.members.find((m) => m.kind === "child")!;
     expect(fieldOf(wh, `family/${child.id}/sex`).level).toBe("detail");
+  });
+});
+
+describe("養育費の行: 相手は養育を受ける子。払う行は離れて暮らす子で、行の中から足せる", () => {
+  const rowAction = (wh: WorkingHousehold, key: string) => {
+    const a = stage(wh).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((x) => x.key === key);
+    if (a === undefined) throw new Error(`ボタンが無い: ${key}`);
+    return a;
+  };
+  const lastOut = (wh: WorkingHousehold) => (wh.request.input.household.periodicExpenses ?? []).at(-1) as PeriodicExpense;
+  const supportPaid = (req: EngineRequest, id: string) => {
+    // 見本の世帯は表が短いので、終わりの後まで表を延ばして確かめる
+    const cells = full({ ...req, input: { ...req.input, endYear: 2040 } }).table.filter((c) => c.object === id);
+    return { years: [...new Set(cells.filter((c) => c.amount !== 0).map((c) => c.year))].sort((a, b) => a - b), total: cells.reduce((a, c) => a + c.amount, 0) };
+  };
+
+  it("世帯の外の子がいなければ相手は空で、知らせが出る。「＋ 離れて暮らす子を足す」で足すと相手と終わり（20歳になる月）が入る", () => {
+    const wh = fromRequest(modelHousehold("singleEarnerTwoKids"));
+    const w1 = action(wh, "money/family/out/add/childSupport").run(wh);
+    const p = lastOut(w1);
+    expect(p.counterparty).toBeUndefined();
+    expect(p.to ?? null).toBeNull();
+    const party = fieldOf(w1, `ev/${p.id}/counterparty`);
+    expect(party.label).toBe("相手の子（離れて暮らす子）");
+    // 世帯の中の配偶者・子は選べない
+    expect(party.kind === "select" ? party.options.map((o) => o.value) : []).toEqual([""]);
+    expect(fieldOf(w1, `ev/${p.id}/to`).get(w1).warn).toContain("最後まで");
+    const w2 = rowAction(w1, `ev/${p.id}/addChild`).run(w1);
+    const kid = w2.request.input.household.members.at(-1)!;
+    expect(kid).toMatchObject({ kind: "child", outside: { periods: [] } });
+    expect((w2.request.input.household.relations ?? []).some((r) => r.type === "parentOf" && r.child === kid.id)).toBe(true);
+    const p2 = lastOut(w2);
+    expect(p2.counterparty).toBe(kid.id);
+    expect(p2.to).toEqual({ memberAge: { member: kid.id, years: 20 } });
+    expect(fieldOf(w2, `ev/${p.id}/to`).get(w2).warn ?? null).toBeNull();
+    // 行の中で相手の子の生年月を入れる（仮の印つき）。終わりはその子が20歳になる月
+    const birth = fieldOf(w2, `family/${kid.id}/birth`);
+    expect(birth.level).toBe("simple");
+    expect(birth.get(w2).assumed).toBe("仮の値");
+    const w3 = birth.set(w2, "2016-05");
+    expect(fieldOf(w3, `family/${kid.id}/birth`).get(w3).assumed ?? null).toBeNull();
+    expect(fieldOf(w3, `ev/${p.id}/to`).get(w3).value).toBe("2036-05");
+    expect(hasAction(w3, `ev/${p.id}/addChild`)).toBe(false);
+    // 足した子は介護・親のカードの世帯の外の家族に出る。家族のカードの構成員には出ない
+    expect(buildStage("care", w3).sections.flatMap((s) => s.groups).some((g) => g.key === `family/${kid.id}`)).toBe(true);
+    expect(stage(w3).sections.find((s) => s.key === "family/members")!.groups.some((g) => g.key === `family/${kid.id}`)).toBe(false);
+    // 計算: 2036年5月まで払い、その後は払わない
+    const paid = supportPaid(w3.request, p.id);
+    expect(paid.years.at(-1)).toBe(2036);
+    expect(paid.total).not.toBe(0);
+  });
+
+  it("終わりは大学卒業（22歳の年度末）と20歳になる月をボタンで切り替えられる。相手を選び直すと、同じ決まりのまま付け替える", () => {
+    const wh = fromRequest(modelHousehold("singleEarnerTwoKids"));
+    const w1 = action(wh, "money/family/in/add/childSupport").run(wh);
+    const f = (w1.request.input.household.incomeFlows ?? []).at(-1) as IncomeFlow;
+    expect(hasAction(w1, `in/${f.id}/end20`)).toBe(false);
+    const w2 = rowAction(w1, `in/${f.id}/endUniversity`).run(w1);
+    const kid = f.counterparty!;
+    expect(((w2.request.input.household.incomeFlows ?? []).at(-1) as IncomeFlow).to).toEqual({ memberAge: { member: kid, years: 22, ageSwitch: "firstMarch31AfterReach" } });
+    expect(hasAction(w2, `in/${f.id}/endUniversity`)).toBe(false);
+    const other = w2.request.input.household.members.find((m) => m.kind === "child" && m.id !== kid)!;
+    const w3 = set(w2, `in/${f.id}/counterparty`, other.id);
+    expect(((w3.request.input.household.incomeFlows ?? []).at(-1) as IncomeFlow).to).toEqual({ memberAge: { member: other.id, years: 22, ageSwitch: "firstMarch31AfterReach" } });
+    const w4 = rowAction(w3, `in/${f.id}/end20`).run(w3);
+    expect(((w4.request.input.household.incomeFlows ?? []).at(-1) as IncomeFlow).to).toEqual({ memberAge: { member: other.id, years: 20 } });
+    // 年月で入れた終わりは、相手を選び直しても変えない
+    const w5 = set(w4, `in/${f.id}/to`, "2040-03");
+    const w6 = set(w5, `in/${f.id}/counterparty`, kid);
+    expect(((w6.request.input.household.incomeFlows ?? []).at(-1) as IncomeFlow).to).toEqual({ at: "2040-03" });
+    expect(() => preview(w6.request)).not.toThrow();
+  });
+
+  it("古い世帯の、前の配偶者を相手にした養育費の行は黙って書き換えず、相手の選択肢にも残す", () => {
+    const wh0 = fromRequest(modelHousehold("singleEarnerTwoKids"));
+    const sp = spouseOf(wh0);
+    const w1 = action(wh0, "money/family/out/add/childSupport").run(wh0);
+    const id = lastOut(w1).id;
+    const old = {
+      ...w1,
+      request: { ...w1.request, input: { ...w1.request.input, household: { ...w1.request.input.household, periodicExpenses: (w1.request.input.household.periodicExpenses ?? []).map((x) => (x.id === id ? { ...x, counterparty: sp.id } : x)) } } },
+    } as WorkingHousehold;
+    const party = fieldOf(old, `ev/${id}/counterparty`);
+    expect(party.get(old).value).toBe(sp.id);
+    expect(party.kind === "select" && party.options.some((o) => o.value === sp.id)).toBe(true);
+    // 開き直しても相手はそのまま（終わりも書き換えない）
+    const reopened = fromRequest(old.request);
+    expect(lastOut(reopened).counterparty).toBe(sp.id);
+    expect(lastOut(reopened).to ?? null).toBeNull();
+  });
+
+  it("離婚の後の養育費のボタン: 相手は子（払う: 世帯の外の子、受け取る: 世帯の中の子）、前の配偶者は名前に書く", () => {
+    let wh = fromRequest(modelHousehold("singleEarnerTwoKids"));
+    const sp = spouseOf(wh);
+    const rel = spouseRelations(wh.request.input.household, sp.id)[0]!;
+    wh = set(wh, `family/relation/${rel.id}/to`, "2030-03");
+    const inside = wh.request.input.household.members.filter((m) => m.kind === "child").sort((a, b) => b.birth.birthYearMonth.localeCompare(a.birth.birthYearMonth))[0]!;
+    const w1 = action(wh, `family/relation/${rel.id}/childSupportIn`).run(wh);
+    const f = (w1.request.input.household.incomeFlows ?? []).at(-1) as IncomeFlow;
+    expect(f).toMatchObject({ label: "養育費（前の配偶者から）", counterparty: inside.id, from: { at: "2030-04" }, to: { memberAge: { member: inside.id, years: 20 } } });
+    const w2 = action(wh, `family/relation/${rel.id}/childSupportOut`).run(wh);
+    expect(lastOut(w2)).toMatchObject({ label: "養育費（前の配偶者へ）", from: { at: "2030-04" } });
+    expect(lastOut(w2).counterparty).toBeUndefined();
+    const w3 = rowAction(w2, `ev/${lastOut(w2).id}/addChild`).run(w2);
+    const kid = w3.request.input.household.members.at(-1)!;
+    expect(lastOut(w3)).toMatchObject({ counterparty: kid.id, to: { memberAge: { member: kid.id, years: 20 } } });
+    // 世帯の外の子がいれば、ボタンで最初からその子を相手にする
+    const w4 = action(w3, `family/relation/${rel.id}/childSupportOut`).run(w3);
+    expect(lastOut(w4).counterparty).toBe(kid.id);
+    expect(() => preview(w4.request)).not.toThrow();
+    // 相手の子を外すと、行の相手は空になり、終わりはその時の年月のまま残る
+    const end = fieldOf(w4, `ev/${lastOut(w4).id}/to`).get(w4).value;
+    const w5 = removeMember(w4, kid.id);
+    expect(lastOut(w5).counterparty).toBeUndefined();
+    expect(lastOut(w5).to).toEqual({ at: end });
+    expect(() => preview(w5.request)).not.toThrow();
+  });
+
+  it("当て先が付き、プランで直せる（相手の子の生年月は構成員の生年月に当てる）", () => {
+    const wh = fromRequest(modelHousehold("singleEarnerTwoKids"));
+    const w1 = action(wh, "money/family/out/add/childSupport").run(wh);
+    const p = lastOut(w1);
+    const w2 = rowAction(w1, `ev/${p.id}/addChild`).run(w1);
+    const kid = w2.request.input.household.members.at(-1)!;
+    expect(fieldAddress(fieldOf(w2, `ev/${p.id}/counterparty`), w2)).toEqual({ target: { object: p.id }, item: "periodicExpense.counterparty", at: [] });
+    expect(fieldAddress(fieldOf(w2, `family/${kid.id}/birth`), w2)).toEqual({ target: { member: kid.id }, item: "member.birth", at: ["birthYearMonth"] });
   });
 });
