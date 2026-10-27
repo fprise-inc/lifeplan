@@ -1259,3 +1259,37 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .ih-imports-list { display: grid; gap: 8px; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--card); }
 .ih-imports.off { color: var(--ink-2); }
 .ih-imports-list .hs-tools { justify-content: flex-start; flex-wrap: wrap; }
+/* 事務所の既定値（0073） */
+.os-panel { max-width: 720px; }
+.os-sec { margin: 14px 0 0; }
+.os-sec h3 { font-size: 0.96rem; margin: 0 0 6px; }
+.os-cards { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 20px; }
+.os-cards li { display: flex; gap: 8px; align-items: center; padding: 3px 0; break-inside: avoid; font-size: 0.88rem; }
+.os-name { flex: 1; }
+.os-first { display: inline-flex; gap: 3px; align-items: center; font-size: 0.8rem; color: var(--ink-2); }
+.os-radio { display: flex; gap: 6px; align-items: baseline; font-size: 0.88rem; margin: 3px 0; }
+.os-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 16px; }
+.os-pct { display: grid; gap: 2px; font-size: 0.88rem; }
+.os-in input { width: 6em; margin-right: 4px; }
+.os-pct small { color: var(--ink-2); font-size: 0.76rem; }
+@media (max-width: 640px) { .os-cards { columns: 1; } }
+/* FP の道具（世帯の中身の一覧・次の1年・見直し）と結果のタブの気づき（0074） */
+.fp-tools { justify-content: flex-start; }
+.fp-panel { flex-basis: 100%; margin-top: 6px; }
+.fp-contents { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 18px; }
+.fp-sec h3 { font-size: 0.92rem; margin: 0 0 4px; }
+.fp-sec h3 small { color: var(--ink-2); font-weight: 400; }
+.fp-sec ul, .fp-list { list-style: none; margin: 0; padding: 0; font-size: 0.86rem; }
+.fp-sec li { padding: 2px 0; border-bottom: 1px solid var(--line-2); display: flex; gap: 8px; justify-content: space-between; }
+.fp-v { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.fp-list li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line-2); }
+.fp-when { min-width: 8em; color: var(--ink-2); font-size: 0.8rem; }
+.fp-steps { margin: 6px 0 0; padding-left: 1.4em; display: grid; gap: 10px; font-size: 0.88rem; }
+.fp-sel { display: inline-flex; gap: 6px; align-items: center; margin: 4px 0; }
+.fp-figs { font-size: 0.86rem; margin: 4px 0; border-collapse: collapse; }
+.fp-figs th { text-align: left; padding: 2px 10px 2px 0; color: var(--ink-2); font-weight: 400; }
+.fp-sub { margin: 8px 0 2px; font-weight: 700; }
+.fp-insights { margin-top: 10px; }
+.fp-insights h3 { font-size: 0.92rem; margin: 0 0 4px; }
+.fp-insights ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fp-insights li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 0.88rem; }

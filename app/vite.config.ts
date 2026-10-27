@@ -252,6 +252,9 @@ const devOffice = {
   otherPcOpen: false,
 };
 
+/** 事務所の既定値（開発用のサーバーのメモリの中だけ。0073） */
+const devOfficeDefaults: { value: Record<string, unknown> } = { value: {} };
+
 function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?: unknown } | { ok: false; code: string } {
   const o = devOffice;
   const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
@@ -400,6 +403,15 @@ function devOfficeOp(op: string, a: Record<string, unknown>): { ok: true; value?
       o.ack = null;
       o.key = devOfficeKey();
       return { ok: true, value: status() };
+    }
+    // 事務所の既定値（本体の office_defaults_get・office_defaults_put の代わり。0073）: メモリの中だけ
+    case "defaultsGet":
+      return { ok: true, value: devOfficeDefaults.value };
+    case "defaultsPut": {
+      const v = a.value;
+      if (typeof v !== "object" || v === null || Array.isArray(v) || JSON.stringify(v).length > 32 * 1024) return { ok: false, code: "E_STORE_OFFICE_DEFAULTS" };
+      devOfficeDefaults.value = v as Record<string, unknown>;
+      return { ok: true, value: null };
     }
     case "moveLocal":
       return { ok: true, value: o.state === "member" ? devStore.households.size : 0 };

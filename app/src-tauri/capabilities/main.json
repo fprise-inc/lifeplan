@@ -61,6 +61,8 @@
     "allow-office-recover",
     "allow-office-end",
     "allow-office-dismiss-notices",
+    "allow-office-defaults-get",
+    "allow-office-defaults-put",
     "allow-store-fork-info",
     "allow-store-fork-resolve",
     "allow-store-sync-copies-resolve",

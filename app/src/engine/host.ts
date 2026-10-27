@@ -295,6 +295,10 @@ export interface OfficeHost {
   end(confirm: string): Promise<OfficeStatus>;
   /** 知らせを見た（この PC では次から出さない） */
   dismissNotices(): Promise<OfficeStatus>;
+  /** 事務所の既定値（0073。事務所データの JSON のオブジェクト。形は office/settings.ts の readOfficeSettings で確かめる） */
+  defaults(): Promise<unknown>;
+  /** 事務所の既定値を置き換える */
+  putDefaults(value: Record<string, unknown>): Promise<void>;
   /** 保存先を同期フォルダにする（1人で複数の PC。0024）。本体がフォルダのダイアログを出す（選ばなかったら null）。name はこの PC の呼び名 */
   syncStart(name: string): Promise<OfficeStatus | null>;
   /** 2台目の PC: すでに使っている同期フォルダを、本体のダイアログで選び、復元キーで開く（選ばなかったら null） */
@@ -575,6 +579,8 @@ export function tauriHost(): HostApi {
       recover: (name, key) => invoke<OfficeStatus | null>("office_recover", { name, key }),
       end: (confirm) => invoke<OfficeStatus>("office_end", { confirm }),
       dismissNotices: () => invoke<OfficeStatus>("office_dismiss_notices"),
+      defaults: () => invoke<unknown>("office_defaults_get"),
+      putDefaults: (value) => invoke<void>("office_defaults_put", { value }),
       syncStart: (name) => invoke<OfficeStatus | null>("storage_sync_start", { name }),
       syncOpen: (name, key) => invoke<OfficeStatus | null>("storage_sync_open", { name, key }),
       syncEnd: (confirm) => invoke<OfficeStatus>("storage_sync_end", { confirm }),
@@ -756,6 +762,8 @@ export function devBrowserHost(engine: WebEngine): HostApi {
       recover: async (name, key) => devJson<OfficeStatus | null>(await devOffice("recover", { name, key })),
       end: async (confirm) => devJson<OfficeStatus>(await devOffice("end", { confirm })),
       dismissNotices: async () => devJson<OfficeStatus>(await devOffice("dismissNotices")),
+      defaults: async () => devJson<unknown>(await devOffice("defaultsGet")),
+      putDefaults: async (value) => void (await devJson<unknown>(await devOffice("defaultsPut", { value }))),
       syncStart: async (name) => devJson<OfficeStatus | null>(await devOffice("syncStart", { name })),
       syncOpen: async (name, key) => devJson<OfficeStatus | null>(await devOffice("syncOpen", { name, key })),
       syncEnd: async (confirm) => devJson<OfficeStatus>(await devOffice("syncEnd", { confirm })),

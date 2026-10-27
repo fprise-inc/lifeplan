@@ -872,6 +872,13 @@ function cardOf(d: PlanDiff, index: PlanIndex, now: Obj, view: Obj): string | nu
   const col = id === null ? null : (collectionIn(now, id) ?? collectionIn(view, id));
   return col !== null ? (COLLECTION_CARDS[col] ?? null) : null;
 }
+/** 世帯の物の全部と、その物を出すカード・呼び名（世帯の中身の一覧。0074）。並びは物の集まりの順 */
+export function objectCards(wh: WorkingHousehold): { id: string; collection: string; card: string | null; label: string; obj: Obj }[] {
+  const index = planIndex([wh]);
+  const out: { id: string; collection: string; card: string | null; label: string; obj: Obj }[] = [];
+  for (const [id, o] of objectsOf(inputOf(wh))) out.push({ id, collection: o.collection, card: index.targets.get(targetKey(targetFor(o.collection, id))) ?? COLLECTION_CARDS[o.collection] ?? null, label: objectLabel(wh, o.collection, o.obj), obj: o.obj });
+  return out;
+}
 const collectionIn = (input: Obj, id: string): string | null => objectsOf(input).get(id)?.collection ?? null;
 const targetForId = (now: Obj, view: Obj, id: string): Target => targetFor(collectionIn(now, id) ?? collectionIn(view, id) ?? "", id);
 

@@ -57,6 +57,8 @@ export interface HouseholdPanelProps {
   onRecovery: () => void;
   /** AI接続口の事務所全体の設定を開く */
   onAiConnector?: () => void;
+  /** 事務所の既定値を開く（0073） */
+  onOfficeDefaults?: () => void;
   aiEnabled?: boolean;
   /** 事務所の共有の設定を開く（0023） */
   onOffice?: () => void;
@@ -871,6 +873,15 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
               <PopIcon />
             </button>
             <span class="pl-sub">{personal ? "オフ（同期フォルダで1人で使っています）" : p.officeState === "member" ? "オン" : p.officeState === "pending" ? "承認待ち" : p.officeState === "removed" ? "外されました" : p.officeState === "unavailable" ? "使えません" : "オフ（既定）"}</span>
+          </>
+        ) : null}
+        {p.onOfficeDefaults !== undefined ? (
+          <>
+            <button type="button" class="link-btn" onClick={p.onOfficeDefaults} data-open-office-defaults>
+              事務所の既定値
+              <PopIcon />
+            </button>
+            <span class="pl-sub">新しい世帯に写す値・ホームの並び</span>
           </>
         ) : null}
         {p.onAiConnector !== undefined ? (

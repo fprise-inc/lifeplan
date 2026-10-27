@@ -1,0 +1,114 @@
+// 事務所の既定値（0073）: 事務所全体で使う既定を、事務所データ（暗号化。0011 の6）に持つ。世帯ファイルには入れない。
+// - 新しい世帯を作るときに写す（前提条件の標準値・本人と配偶者の介護を最初から入れるか・不動産の評価の割合）。写した値は推定の印で、
+//   根拠「事務所の標準（年月）」。後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の新しい値があります」）
+// - 画面の側で読むだけの既定（カードの並びと最初の5枚・受け取る予定の相続・贈与の見込みの既定）は、その操作のときに読む
+// - 読むときは形を確かめ、読めない値は既定（FPライズの標準）にする
+import type { StageId } from "../input/form.ts";
+import { DEFAULT_LAYOUT, type CardLayout } from "../input/items.ts";
+import { applyCareDefaults, DEFAULT_CARE_DEFAULTS, type CareDefaults } from "../input/fill.ts";
+import { DEFAULT_ASSUMPTIONS, type WorkingHousehold } from "../input/household.ts";
+import { STAGE_ORDER } from "../input/stages/index.ts";
+import { setOfficeNow } from "./current.ts";
+
+/** 前提条件の標準値にできる系列（新しい世帯に写す。値は小数の文字。例: "0.01"） */
+export const OFFICE_ASSUMPTIONS = ["inflation", "wageGrowth", "investmentReturn", "pensionMacroSlide"] as const;
+export type OfficeAssumption = (typeof OFFICE_ASSUMPTIONS)[number];
+
+export const ASSUMPTION_LABELS: Readonly<Record<OfficeAssumption, string>> = {
+  inflation: "物価上昇率（年）",
+  wageGrowth: "賃金上昇率（年）",
+  investmentReturn: "運用利回り（年）",
+  pensionMacroSlide: "年金の調整率（マクロ経済スライド）",
+};
+
+/** 受け取る予定（相続・贈与）と相続で受け継ぐ借金の見込みの既定 */
+export type InheritLikelihood = "likely" | "uncertain";
+
+export interface OfficeSettings {
+  /** 形の版（この画面の側の形。1 から） */
+  version: 1;
+  /** カードの並びと最初の5枚（null は標準） */
+  layout: CardLayout | null;
+  /** 本人・配偶者の介護を最初から目安で入れるか */
+  care: CareDefaults;
+  /** 受け取る予定の相続・贈与の見込みの既定（「不確か」なら、受け取る予定を基本の計算に入れないのが事務所の決まりになる） */
+  inheritLikelihood: InheritLikelihood;
+  /** 前提条件の標準値（無い系列は FPライズの標準） */
+  assumptions: Partial<Record<OfficeAssumption, string>>;
+  /** 相続税の目安の不動産の評価の割合（時価に掛ける。null は標準の80%） */
+  realEstateRatio: string | null;
+  /** 最後に変えた日（YYYY-MM-DD）。根拠の文の年月に使う */
+  changedOn: string | null;
+}
+
+export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 1, layout: null, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, changedOn: null };
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+/** 率の文字（-0.2〜0.3 の小数） */
+const RATE = /^-?\d(\.\d{1,6})?$/;
+const rateOk = (v: unknown, lo: number, hi: number): v is string => typeof v === "string" && RATE.test(v) && Number(v) >= lo && Number(v) <= hi;
+
+/** 読んだ値から設定（読めない所は既定） */
+export function readOfficeSettings(v: unknown): OfficeSettings {
+  if (!isObj(v)) return DEFAULT_OFFICE_SETTINGS;
+  const known = new Set<string>(STAGE_ORDER.map((s) => s.id));
+  let layout: CardLayout | null = null;
+  if (isObj(v.layout) && Array.isArray(v.layout.order) && Array.isArray(v.layout.first)) {
+    const order = [...new Set(v.layout.order.filter((x): x is StageId => typeof x === "string" && known.has(x)))];
+    const first = [...new Set(v.layout.first.filter((x): x is StageId => typeof x === "string" && known.has(x)))].slice(0, 7);
+    if (order.length > 0) layout = { order, first };
+  }
+  const care: CareDefaults = isObj(v.care) && (v.care.selfAndSpouse === "fill" || v.care.selfAndSpouse === "warn") ? { selfAndSpouse: v.care.selfAndSpouse } : DEFAULT_CARE_DEFAULTS;
+  const inheritLikelihood: InheritLikelihood = v.inheritLikelihood === "uncertain" ? "uncertain" : "likely";
+  const assumptions: Partial<Record<OfficeAssumption, string>> = {};
+  if (isObj(v.assumptions)) for (const k of OFFICE_ASSUMPTIONS) if (rateOk(v.assumptions[k], -0.05, 0.2)) assumptions[k] = v.assumptions[k] as string;
+  const realEstateRatio = rateOk(v.realEstateRatio, 0, 1) ? (v.realEstateRatio as string) : null;
+  const changedOn = typeof v.changedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.changedOn) ? v.changedOn : null;
+  return { version: 1, layout, care, inheritLikelihood, assumptions, realEstateRatio, changedOn };
+}
+
+/** 並びの設定（無ければ標準） */
+export const layoutOf = (s: OfficeSettings): CardLayout => s.layout ?? DEFAULT_LAYOUT;
+
+/** 推定の根拠の文（例: 「事務所の標準（2026-10）」） */
+export function officeBasis(s: OfficeSettings): string {
+  return `事務所の標準（${(s.changedOn ?? "").slice(0, 7) || "設定"}）`;
+}
+
+/** 標準（FPライズの標準）と同じか（設定を保存するときに、標準と同じ値は持たない） */
+export function isDefaultSettings(s: OfficeSettings): boolean {
+  return s.layout === null && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null;
+}
+
+// ---- 画面の側の操作が読む今の設定（office/current.ts。アプリが開いている間） ----
+
+/** 今の事務所の既定値を、操作のときに読む所（office/current.ts）へ入れる */
+export function publishOfficeSettings(s: OfficeSettings): void {
+  setOfficeNow({ inheritLikelihood: s.inheritLikelihood, assumptions: { ...s.assumptions }, basis: officeBasis(s) });
+}
+
+// ---- 新しい世帯に写す ----
+
+/**
+ * 新しい世帯に事務所の既定値を写す（空の世帯を作るときだけ。古い世帯・見本には当てない）。写した値は推定の印（根拠「事務所の標準（年月）」）。
+ * 本人・配偶者の介護は「最初から入れる」なら目安で入れる
+ */
+export function applyOfficeDefaults(wh: WorkingHousehold, s: OfficeSettings): WorkingHousehold {
+  let w = applyCareDefaults(wh, s.care);
+  const basis = officeBasis(s);
+  const entries = OFFICE_ASSUMPTIONS.filter((k) => s.assumptions[k] !== undefined);
+  if (entries.length === 0 && s.realEstateRatio === null) return w;
+  const request = structuredClone(w.request);
+  const assumed = { ...w.assumed };
+  const a = (request.input.assumptions ??= structuredClone(DEFAULT_ASSUMPTIONS)) as unknown as Record<string, { default: string } | undefined>;
+  for (const k of entries) {
+    a[k] = { ...(a[k] ?? {}), default: s.assumptions[k] as string };
+    assumed[`assume/${k}`] = basis;
+  }
+  if (s.realEstateRatio !== null) {
+    request.input.inheritanceTax = { ...(request.input.inheritanceTax ?? {}), realEstateRatio: s.realEstateRatio };
+    assumed["inherit/tax/realEstateRatio"] = basis;
+  }
+  w = { ...w, request, assumed };
+  return w;
+}

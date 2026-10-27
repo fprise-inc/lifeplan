@@ -158,7 +158,14 @@ struct OfficeData {
         skip_serializing_if = "crate::statement_dict::StatementOffice::is_empty"
     )]
     statement: crate::statement_dict::StatementOffice,
+    /// 事務所の既定値（0073。カードの並び・新しい世帯に写す前提条件の標準値など。形は画面の側が決めて確かめる JSON のオブジェクト）。
+    /// この欄の無い古い事務所データは無しとして読む。事務所で共有しているときも、この PC の設定（共有フォルダには置かない）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    defaults: Option<serde_json::Map<String, serde_json::Value>>,
 }
+
+/// 事務所の既定値の JSON の大きさの上限（バイト。0073）
+pub const OFFICE_DEFAULTS_MAX_BYTES: usize = 32 * 1024;
 
 /// 事務所での共有の設定（このPCの事務所データに暗号化して持つ。共有フォルダの場所は画面に渡さない。0023 の8）
 #[derive(Clone, Serialize, Deserialize)]
@@ -238,6 +245,7 @@ impl OfficeData {
             ai_connector: AiConnectorSetting::default(),
             sharing: None,
             statement: Default::default(),
+            defaults: None,
         }
     }
 }
@@ -2137,6 +2145,32 @@ impl Store {
         s.data.statement = crate::statement_dict::merge(&[&s.data.statement, &add]);
         self.write_office(s)?;
         Ok(Self::statement_merged(s))
+    }
+
+    /// 事務所の既定値（0073）。まだ決めていなければ空のオブジェクト
+    pub fn office_defaults(&self) -> Result<serde_json::Value, StoreError> {
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        Ok(serde_json::Value::Object(
+            s.data.defaults.clone().unwrap_or_default(),
+        ))
+    }
+
+    /// 事務所の既定値を置き換える（0073）。JSON のオブジェクトで、上限の大きさまで。空のオブジェクトは「決めていない」（欄を外す）
+    pub fn set_office_defaults(&self, v: serde_json::Value) -> Result<(), StoreError> {
+        let serde_json::Value::Object(map) = v else {
+            return Err(StoreError::OFFICE_DEFAULTS);
+        };
+        let len = serde_json::to_vec(&map)
+            .map_err(|_| StoreError::OFFICE_DEFAULTS)?
+            .len();
+        if len > OFFICE_DEFAULTS_MAX_BYTES {
+            return Err(StoreError::OFFICE_DEFAULTS);
+        }
+        let mut g = self.lock();
+        let s = Self::session(&mut g)?;
+        s.data.defaults = if map.is_empty() { None } else { Some(map) };
+        self.write_office(s)
     }
 
     /// AI接続口を使うかどうかを変える（FPがアプリの設定の画面で操作したときだけ呼ぶ）
