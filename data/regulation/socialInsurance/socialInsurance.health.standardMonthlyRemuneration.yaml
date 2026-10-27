@@ -73,3 +73,70 @@ entries:
     recordedIn: "2026.3.0"
     supersededIn: null
     approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "Excel（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "条文の表（50等級）と協会けんぽの保険料額表の標準報酬・報酬月額の欄が全等級一致（照合は機械で行った）。e-Gov の将来の版（令和11年10月1日の版）まで表は変わらない。施行日は上限を139万円（第50級）にした改正の施行（平成28年4月。日本年金機構の案内）。適用開始はデータの起点（2025年1月）"}
+  - rev: 2
+    appliesFrom: "2023-04-01"
+    appliesTo: "2024-12-31"
+    enforcedOn: "2016-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {grade: 1, amount: 58000, from: 0, below: 63000}
+      - {grade: 2, amount: 68000, from: 63000, below: 73000}
+      - {grade: 3, amount: 78000, from: 73000, below: 83000}
+      - {grade: 4, amount: 88000, from: 83000, below: 93000}
+      - {grade: 5, amount: 98000, from: 93000, below: 101000}
+      - {grade: 6, amount: 104000, from: 101000, below: 107000}
+      - {grade: 7, amount: 110000, from: 107000, below: 114000}
+      - {grade: 8, amount: 118000, from: 114000, below: 122000}
+      - {grade: 9, amount: 126000, from: 122000, below: 130000}
+      - {grade: 10, amount: 134000, from: 130000, below: 138000}
+      - {grade: 11, amount: 142000, from: 138000, below: 146000}
+      - {grade: 12, amount: 150000, from: 146000, below: 155000}
+      - {grade: 13, amount: 160000, from: 155000, below: 165000}
+      - {grade: 14, amount: 170000, from: 165000, below: 175000}
+      - {grade: 15, amount: 180000, from: 175000, below: 185000}
+      - {grade: 16, amount: 190000, from: 185000, below: 195000}
+      - {grade: 17, amount: 200000, from: 195000, below: 210000}
+      - {grade: 18, amount: 220000, from: 210000, below: 230000}
+      - {grade: 19, amount: 240000, from: 230000, below: 250000}
+      - {grade: 20, amount: 260000, from: 250000, below: 270000}
+      - {grade: 21, amount: 280000, from: 270000, below: 290000}
+      - {grade: 22, amount: 300000, from: 290000, below: 310000}
+      - {grade: 23, amount: 320000, from: 310000, below: 330000}
+      - {grade: 24, amount: 340000, from: 330000, below: 350000}
+      - {grade: 25, amount: 360000, from: 350000, below: 370000}
+      - {grade: 26, amount: 380000, from: 370000, below: 395000}
+      - {grade: 27, amount: 410000, from: 395000, below: 425000}
+      - {grade: 28, amount: 440000, from: 425000, below: 455000}
+      - {grade: 29, amount: 470000, from: 455000, below: 485000}
+      - {grade: 30, amount: 500000, from: 485000, below: 515000}
+      - {grade: 31, amount: 530000, from: 515000, below: 545000}
+      - {grade: 32, amount: 560000, from: 545000, below: 575000}
+      - {grade: 33, amount: 590000, from: 575000, below: 605000}
+      - {grade: 34, amount: 620000, from: 605000, below: 635000}
+      - {grade: 35, amount: 650000, from: 635000, below: 665000}
+      - {grade: 36, amount: 680000, from: 665000, below: 695000}
+      - {grade: 37, amount: 710000, from: 695000, below: 730000}
+      - {grade: 38, amount: 750000, from: 730000, below: 770000}
+      - {grade: 39, amount: 790000, from: 770000, below: 810000}
+      - {grade: 40, amount: 830000, from: 810000, below: 855000}
+      - {grade: 41, amount: 880000, from: 855000, below: 905000}
+      - {grade: 42, amount: 930000, from: 905000, below: 955000}
+      - {grade: 43, amount: 980000, from: 955000, below: 1005000}
+      - {grade: 44, amount: 1030000, from: 1005000, below: 1055000}
+      - {grade: 45, amount: 1090000, from: 1055000, below: 1115000}
+      - {grade: 46, amount: 1150000, from: 1115000, below: 1175000}
+      - {grade: 47, amount: 1210000, from: 1175000, below: 1235000}
+      - {grade: 48, amount: 1270000, from: 1235000, below: 1295000}
+      - {grade: 49, amount: 1330000, from: 1295000, below: 1355000}
+      - {grade: 50, amount: 1390000, from: 1355000, below: null}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/211AC0000000070_20261001_507AC0000000087?response_format=xml", retrievedAt: "2026-10-08", sha256: "e042daa1c85521006b2703b4807c5b50a5c32e4f81ed4e3bca7ef524d75425ca", locator: "健康保険法 第40条第1項の表（第1級〜第50級）", quote: "第五〇級"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", sha256: "1c5abc10951aeb941267ce128cf802253498a52042ff35629a65f3cc7012328a", locator: "協会けんぽ 令和8年3月分からの保険料額表（東京支部）の標準報酬・報酬月額の欄", quote: "1,390,000 1,355,000～"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/r8ippan3.xlsx", retrievedAt: "2026-10-08", sha256: "00d4549fbe9a4cfd9c5bf655fb64e2be77d7065ebd450c648e99275f67f6d46a", locator: "協会けんぽ 令和8年3月分からの保険料額表（全都道府県分）", quote: "（東京支部）"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/kyokaikenpo/0208.html", retrievedAt: "2026-10-08", sha256: "59820f467ca0e6d6d4db4b9457fef312e25b53c7d14b652242ccc2857d1d2a86", locator: "日本年金機構 健康保険・船員保険の標準報酬月額の上限改定及び累計標準賞与額の上限変更（施行の時期）", quote: "平成28年4月から健康保険及び船員保険の標準報酬月額の上限及び累計標準賞与額の上限が変更になります"}
+      - {type: "law", lawNumber: "大正十一年法律第七十号", egovRevisionId: "211AC0000000070_20261001_507AC0000000087"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "Excel（公表資料）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "2023年4月1日〜2024年12月31日の行（前の年の所得に対する住民税・社会保険料控除の計算に要る）。rev 1 と同じ値・出典で、施行日（2016年4月1日）より後なので、この期間も同じ規定の値。条文の表（50等級）と協会けんぽの保険料額表の標準報酬・報酬月額の欄が全等級一致（照合は機械で行った）。e-Gov の将来の版（令和11年10月1日の版）まで表は変わらない。施行日は上限を139万円（第50級）にした改正の施行（平成28年4月。日本年金機構の案内）。適用開始はデータの起点（2025年1月）"}

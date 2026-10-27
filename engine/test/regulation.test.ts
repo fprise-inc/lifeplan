@@ -193,9 +193,10 @@ describe("エンジン側の読み取り", () => {
     expect(old.select(id, d("2027-01-01")).entry.rev).toBe(1);
     expect(old.select(id, d("2040-01-01")).entry.rev).toBe(2);
     expect(asRoundingRule(latest.select("incomeTax.taxAmount.rounding", d("2030-01-01")))).toEqual({ mode: "DOWN", unit: 100 });
-    expect(() => latest.select(id, d("2024-12-31"))).toThrow("E_PARAM_NO_VALUE");
+    // 最初の行（2023年分から）より前は値が無い
+    expect(() => latest.select(id, d("2022-12-31"))).toThrow("E_PARAM_NO_VALUE");
     // ID は値 ID と引く日（画面がどの時期の値が無いかを出す）
-    expect(() => latest.select(id, d("2024-12-31"))).toThrow(expect.objectContaining({ code: "E_PARAM_NO_VALUE", ids: [id, "2024-12-31"] }));
+    expect(() => latest.select(id, d("2022-12-31"))).toThrow(expect.objectContaining({ code: "E_PARAM_NO_VALUE", ids: [id, "2022-12-31"] }));
     // 期限つきの特例（令和8年分・令和9年分）の後は本則の行（原本で確かめた令和10年分以後の表）を使う
     expect(latest.select("incomeTax.employmentIncomeDeduction", d("2027-12-31")).entry.rev).toBe(2);
     expect(latest.select("incomeTax.employmentIncomeDeduction", d("2028-01-01")).entry.rev).toBe(3);

@@ -23,3 +23,21 @@ entries:
     recordedIn: "2026.1.0"
     supersededIn: null
     approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "所得税・復興特別所得税（令和9年分から防衛特別所得税も）の合計額で100円未満を切り捨てる。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、その最初の版に値を定める文言があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）"}
+  - rev: 2
+    appliesFrom: "2023-01-01"
+    appliesTo: "2024-12-31"
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 100}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/337AC0000000066_20260624_508AC0000000046?response_format=xml", retrievedAt: "2026-10-08", sha256: "23e457028ffc8ce58d7543e3f0618618d630c2a5d2a22adb885065173953501a", locator: "国税通則法 第119条第1項", quote: "確定金額に百円未満の端数があるとき"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/423AC0000000117_20260401_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "30a77bc6bee59ca7ee48476512f5c47d9d1223e700702a1ab8c338dd9652f580", locator: "復興財源確保法 第24条第2項（所得税と復興特別所得税の合計額で端数計算）", quote: "当該合計額に百円未満の端数があるとき"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/505AC0000000069_20270101_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "a78a7f1c491a5e43a0e4c7b891f842fe02e1646876dce84652b21b3550a7958b", locator: "防衛財源確保法 第5条の22第2項（令和9年分から防衛特別所得税を含む合計額）", quote: "これらの確定金額の合計額によって行い、当該合計額に百円未満の端数があるとき"}
+      - {type: "law", lawNumber: "昭和三十七年法律第六十六号", egovRevisionId: "337AC0000000066_20260624_508AC0000000046"}
+      - {type: "law", lawNumber: "平成二十三年法律第百十七号", egovRevisionId: "423AC0000000117_20260401_508AC0000000012"}
+      - {type: "law", lawNumber: "令和五年法律第六十九号", egovRevisionId: "505AC0000000069_20270101_508AC0000000012"}
+    recordedIn: "2026.14.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["e-Gov法令API（条文の XML）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "2023年1月1日〜2024年12月31日の行（前の年の所得に対する住民税・社会保険料控除の計算に要る）。rev 1 と同じ値・出典で、施行日（遅くとも2017年4月1日）より後なので、この期間も同じ規定の値。所得税・復興特別所得税（令和9年分から防衛特別所得税も）の合計額で100円未満を切り捨てる。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、その最初の版に値を定める文言があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）"}

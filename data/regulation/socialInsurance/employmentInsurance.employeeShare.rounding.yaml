@@ -18,3 +18,17 @@ entries:
     recordedIn: "2026.1.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 2, note: "賃金から控除する場合。根拠は通貨の単位及び貨幣の発行等に関する法律3条（現金で払う場合は50銭未満切り捨て）。特約は扱わない。値は原本の2経路で一致。施行日を原本で特定できていないため確認待ちのまま"}
+  - rev: 2
+    appliesFrom: "2023-04-01"
+    appliesTo: "2024-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "HALF_DOWN", unit: 1}
+    sources:
+      - {type: "web", url: "https://www.mhlw.go.jp/new-info/kobetu/roudou/gyousei/hoken/2020/dl/keizoku-20.pdf", retrievedAt: "2026-10-08", sha256: "ae7fcda5ef9aed12b037d1f07556369aa1257153dc4af471cc7f96433d87588e", locator: "厚生労働省 雇用保険料の被保険者負担分の端数", quote: "被保険者負担分の端数が50銭以下の場合は切り捨て、50銭1厘以上の場合は切り上げとなります"}
+      - {type: "web", url: "https://www.mhlw.go.jp/www2/topics/seido/daijin/hoken/980916_3.htm", retrievedAt: "2026-10-08", sha256: "f996debee6b81ceed6207a25d3ce5cae1edfa337b0ac95858ba9d6b3eb1901dc", locator: "厚生労働省 被保険者負担額の端数処理", quote: "50銭以下の場合は切り捨て、50銭1厘以上の場合は切り上げることとなります"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 2, note: "2023年4月1日〜2024年12月31日の行（前の年の所得に対する住民税・社会保険料控除の計算に要る）。rev 1 と同じ値・出典で、施行日は確認待ち。同じ規定の値として。賃金から控除する場合。根拠は通貨の単位及び貨幣の発行等に関する法律3条（現金で払う場合は50銭未満切り捨て）。特約は扱わない。値は原本の2経路で一致。施行日を原本で特定できていないため確認待ちのまま"}

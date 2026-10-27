@@ -19,3 +19,18 @@ entries:
     recordedIn: "2026.1.0"
     supersededIn: null
     approval: {method: "pendingReview", paths: 1, note: "条文の1円未満の切り捨ては課税標準（基準所得税額）についての規定で、復興特別所得税の額そのものの端数の規定ではない。申告・年末調整では所得税との合計額で100円未満を切り捨てる（同法24条2項）ので、額を1円未満で切り捨てても合計の結果は変わらない。原本で読んだが確認の経路が足りない（施行日を原本で特定できていない）ため確認待ちのまま"}
+  - rev: 2
+    appliesFrom: "2023-01-01"
+    appliesTo: "2024-12-31"
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: {mode: "DOWN", unit: 1}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/423AC0000000117_20260401_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "30a77bc6bee59ca7ee48476512f5c47d9d1223e700702a1ab8c338dd9652f580", locator: "復興財源確保法 第24条第1項（課税標準＝基準所得税額の1円未満切り捨て）", quote: "その課税標準に一円未満の端数があるとき"}
+      - {type: "web", url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf", retrievedAt: "2026-10-08", sha256: "8db585cd5feef2eb29109a16a2e7b16054a0fa4d6423ac622d9ea12c54b39945", locator: "8ページ（源泉徴収の合計税率による額の1円未満切り捨て）", quote: "１円未満の端数があるときは、その端数を切り捨てます"}
+      - {type: "law", lawNumber: "平成二十三年法律第百十七号", egovRevisionId: "423AC0000000117_20260401_508AC0000000012"}
+    recordedIn: "2026.14.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "2023年1月1日〜2024年12月31日の行（前の年の所得に対する住民税・社会保険料控除の計算に要る）。rev 1 と同じ値・出典で、施行日は確認待ち。同じ規定の値として。条文の1円未満の切り捨ては課税標準（基準所得税額）についての規定で、復興特別所得税の額そのものの端数の規定ではない。申告・年末調整では所得税との合計額で100円未満を切り捨てる（同法24条2項）ので、額を1円未満で切り捨てても合計の結果は変わらない。原本で読んだが確認の経路が足りない（施行日を原本で特定できていない）ため確認待ちのまま"}
