@@ -18,7 +18,7 @@
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { availableParallelism, loadavg } from "node:os";
+import { availableParallelism, cpus, loadavg } from "node:os";
 import vm from "node:vm";
 import { measure } from "./bench-js.js";
 import { compareAll, type BenchResult, type Compared, type HistoryEntry, noisyLoad } from "./bench-compare.ts";
@@ -129,7 +129,7 @@ if (!args.includes("--no-instructions")) {
     if (existsSync(quickjsBin)) values["quickjs.startupSingle"] = Math.round(timeL(quickjsBin, quickjsOnce)! / M);
     result.instructions = { tool: "time -l", values };
   } else if (process.platform === "linux" && has("valgrind") && existsSync(quickjsBin)) {
-    result.instructions = { tool: "cachegrind", values: { "quickjs.startupSingle": Math.round(cachegrind(quickjsBin, quickjsOnce) / M) } };
+    result.instructions = { tool: `cachegrind ${cpus()[0]?.model ?? ""}`.trim(), values: { "quickjs.startupSingle": Math.round(cachegrind(quickjsBin, quickjsOnce) / M) } };
   } else console.log("実行した命令の数は数えられませんでした（macOS の /usr/bin/time -l か、Linux の valgrind と engine-bench が要ります）");
 }
 

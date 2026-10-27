@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { type BenchResult, compareAll, crossOsTime, type HistoryEntry, median, noisyLoad, usableNights } from "../scripts/bench-compare.ts";
 
-const night = (at: string, single: number, count = 100, ins?: number, tool = "cachegrind"): HistoryEntry => ({
+const night = (at: string, single: number, count = 100, ins?: number, tool = "cachegrind AMD EPYC 7763 64-Core Processor"): HistoryEntry => ({
   at,
   result: {
     node: { single: { median: single + 5, min: single } },
@@ -37,7 +37,7 @@ describe("前の値", () => {
 
 describe("線", () => {
   const nights = [night("2026-11-01", 100, 1000, 5000), night("2026-11-02", 100, 1000, 5000), night("2026-11-03", 100, 1000, 5000)];
-  const at = (count: number, ins: number, single = 100, tool = "cachegrind"): BenchResult => ({
+  const at = (count: number, ins: number, single = 100, tool = "cachegrind AMD EPYC 7763 64-Core Processor"): BenchResult => ({
     node: { single: { median: single, min: single } },
     counts: { single: count },
     instructions: { tool, values: { "quickjs.startupSingle": ins } },

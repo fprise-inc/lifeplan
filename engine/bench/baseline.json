@@ -1,5 +1,5 @@
 {
-  "note": "baseline は CI（GitHub Actions の ubuntu-latest と macos-latest）で測った値。--update-baseline で書き換える（同じ OS・CPU の欄だけ比べる）。targets は 0005 の追記（2026-10-09: 先出しの範囲）の目標で、機械（OS-CPU）ごとのミリ秒。2026-10-09: 計測の世帯を生活費・教育・退職給付・FP顧問料を含む lifetime100Plan に替え、スライダーの計測を「見ている案の万一なしの1枠」（session.slide）に、手を離した後を19枠（session.release）にしたので、前の値は previous に移した（baseline はこの変更の CI（PR #13 の最初の実行）の値）。2026-10-10: 正の計算の速さの見直し（0005 の追記・4回目）の後の CI（PR #21 の最初の実行）の値に置き換え、前の値は previous に移した。2026-10-27: 速さの見直し・5回目（0005 の追記）の後の CI（PR #162 の2回目の手動の実行）の値に置き換え、前の値は previous に移した。2026-10-28: 時間のほかに部品の呼び出しの回数（counts。OS によらない）と実行した命令の数（instructions。百万。「機械 道具」ごと: linux-x64 cachegrind は CI の ubuntu、darwin-arm64 time -l は作業の Mac）を足した。CI では、前の値は直近の毎晩の計測の中央値で、この表は晩が3つそろうまでの代わり（各欄の updatedAt より前の晩は使わない。0005 の追記 2026-10-28）",
+  "note": "baseline は CI（GitHub Actions の ubuntu-latest と macos-latest）で測った値。--update-baseline で書き換える（同じ OS・CPU の欄だけ比べる）。targets は 0005 の追記（2026-10-09: 先出しの範囲）の目標で、機械（OS-CPU）ごとのミリ秒。2026-10-09: 計測の世帯を生活費・教育・退職給付・FP顧問料を含む lifetime100Plan に替え、スライダーの計測を「見ている案の万一なしの1枠」（session.slide）に、手を離した後を19枠（session.release）にしたので、前の値は previous に移した（baseline はこの変更の CI（PR #13 の最初の実行）の値）。2026-10-10: 正の計算の速さの見直し（0005 の追記・4回目）の後の CI（PR #21 の最初の実行）の値に置き換え、前の値は previous に移した。2026-10-27: 速さの見直し・5回目（0005 の追記）の後の CI（PR #162 の2回目の手動の実行）の値に置き換え、前の値は previous に移した。2026-10-28: 時間のほかに部品の呼び出しの回数（counts。OS によらない）と実行した命令の数（instructions。百万。「機械 道具」ごと: linux-x64 cachegrind（CPU の型ごと）は CI の ubuntu（このブランチの2回目の手動の実行）、darwin-arm64 time -l は作業の Mac）を足した。CI では、前の値は直近の毎晩の計測の中央値で、この表は晩が3つそろうまでの代わり（各欄の updatedAt より前の晩は使わない。0005 の追記 2026-10-28）",
   "targets": {
     "node.sliderSalary": {
       "ms": {
@@ -400,6 +400,12 @@
         "node.sliderReturn": 280,
         "node.afterRelease19": 6297,
         "quickjs.startupSingle": 9387
+      }
+    },
+    "linux-x64 cachegrind AMD EPYC 7763 64-Core Processor": {
+      "updatedAt": "2026-10-27T23:48:31.159Z",
+      "values": {
+        "quickjs.startupSingle": 11183
       }
     }
   },

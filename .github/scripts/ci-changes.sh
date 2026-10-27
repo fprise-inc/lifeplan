@@ -48,6 +48,8 @@ esac
 classify() {
   case "$1" in
     docs/*|LICENSE|.github/workflows/secret-scan.yml|.github/workflows/app-bundle.yml|.gitignore) ;;
+    # 速さの前の値（速さの計測は手で起動したときと毎晩だけ）
+    engine/bench/*) ;;
     engine/*|sdk/*|registry/*|data/*) on[engine]=1; on[app]=1; on[report]=1; on[hearing]=1; on[host]=1 ;;
     app/src-tauri/Cargo.*|app/src-tauri/deny.toml) on[app]=1; on[licenses_rust]=1 ;;
     app/*) on[app]=1 ;;

@@ -26,9 +26,10 @@ export const COUNT_WARN = 1.05;
 export const COUNT_FAIL = 1.1;
 export const TIME_WARN = 1.5;
 export const TIME_FAIL = 3;
-/** 命令の数をほぼ決まった値で数える道具（CI の ubuntu で同じ物を2回数えて差 0.5%。失敗の線まで使う）。time -l の V8 は JIT の動きで
- *  書き方の小さな変更でも数%動くので警告だけ */
-export const EXACT_INSTRUCTION_TOOLS: ReadonlySet<string> = new Set(["cachegrind"]);
+/** 命令の数を決まった値で数える道具か（cachegrind。CI の ubuntu の3つの実行環境で2回ずつ数えて同じ値。失敗の線まで使う）。
+ *  time -l の V8 は JIT の動きで書き方の小さな変更でも数%動くので警告だけ。道具の名前には CPU の型を含める（glibc が CPU の型で
+ *  関数の作りを選ぶので、型が違うと値が変わる。違う型の晩とは比べない） */
+export const exactInstructions = (tool: string): boolean => tool.startsWith("cachegrind");
 
 export function median(xs: readonly number[]): number {
   const s = [...xs].sort((a, b) => a - b);
@@ -103,7 +104,7 @@ export function compareAll(
   if (ins !== undefined) {
     const sameTool = usableNights(nightsAll, base.instructions?.updatedAt).filter((h) => h.result.instructions?.tool === ins.tool);
     const fb = base.instructions?.tool === ins.tool ? base.instructions.values : {};
-    const fail = EXACT_INSTRUCTION_TOOLS.has(ins.tool) ? COUNT_FAIL : undefined;
+    const fail = exactInstructions(ins.tool) ? COUNT_FAIL : undefined;
     for (const [k, v] of Object.entries(ins.values)) push("instructions", k, v, previousValue(sameTool, (r) => r.instructions?.values[k], fb[k]), COUNT_WARN, fail);
   }
   return out;
