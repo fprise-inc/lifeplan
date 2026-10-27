@@ -78,3 +78,18 @@ entries:
     recordedIn: "2026.2.0"
     supersededIn: null
     approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和30年分以後は課されない"}
+  - rev: 6
+    appliesFrom: "2023-01-01"
+    appliesTo: "2024-12-31"
+    enforcedOn: {notAfter: "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.021"
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/423AC0000000117_20260401_508AC0000000012?response_format=xml", retrievedAt: "2026-10-08", sha256: "30a77bc6bee59ca7ee48476512f5c47d9d1223e700702a1ab8c338dd9652f580", locator: "東日本大震災からの復興のための施策を実施するために必要な財源の確保に関する特別措置法 第13条", quote: "基準所得税額に百分の二・一の税率を乗じて計算した金額とする"}
+      - {type: "web", url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm", retrievedAt: "2026-10-08", sha256: "df00bbd87d20914e8e082d9a1ea5e9ab8d0ad732ffd8d9f81ed1f50aed4d2408", locator: "計算方法・計算式の※2", quote: "復興特別所得税（原則としてその年分の基準所得税額の2.1パーセント）"}
+      - {type: "law", lawNumber: "平成二十三年法律第百十七号", egovRevisionId: "423AC0000000117_20260401_508AC0000000012"}
+    recordedIn: "2026.14.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "2023年1月1日〜2024年12月31日の行（前の年の所得に対する住民税・社会保険料控除の計算に要る）。rev 3 と同じ値・出典で、施行日（遅くとも2017年4月1日）より後なので、この期間も同じ規定の値。令和8年分まで2.1%。値は原本の2経路で一致。施行日は e-Gov の改正履歴（2017年4月1日の版から）より前で特定できないが、その最初の版に値を定める文言があるので、遅くとも2017年4月1日には施行済み（enforcedOn の notAfter）"}

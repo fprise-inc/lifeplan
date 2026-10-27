@@ -205,3 +205,52 @@ entries:
     recordedIn: "2026.3.0"
     supersededIn: null
     approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和11年9月から35等級（上限75万円）。改正後の条文と厚生労働省の説明が一致。最高等級の下限73万円は健康保険の第38級と同じ"}
+  - rev: 5
+    appliesFrom: "2023-04-01"
+    appliesTo: "2024-12-31"
+    enforcedOn: "2020-09-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value:
+      - {grade: 1, amount: 88000, from: 0, below: 93000}
+      - {grade: 2, amount: 98000, from: 93000, below: 101000}
+      - {grade: 3, amount: 104000, from: 101000, below: 107000}
+      - {grade: 4, amount: 110000, from: 107000, below: 114000}
+      - {grade: 5, amount: 118000, from: 114000, below: 122000}
+      - {grade: 6, amount: 126000, from: 122000, below: 130000}
+      - {grade: 7, amount: 134000, from: 130000, below: 138000}
+      - {grade: 8, amount: 142000, from: 138000, below: 146000}
+      - {grade: 9, amount: 150000, from: 146000, below: 155000}
+      - {grade: 10, amount: 160000, from: 155000, below: 165000}
+      - {grade: 11, amount: 170000, from: 165000, below: 175000}
+      - {grade: 12, amount: 180000, from: 175000, below: 185000}
+      - {grade: 13, amount: 190000, from: 185000, below: 195000}
+      - {grade: 14, amount: 200000, from: 195000, below: 210000}
+      - {grade: 15, amount: 220000, from: 210000, below: 230000}
+      - {grade: 16, amount: 240000, from: 230000, below: 250000}
+      - {grade: 17, amount: 260000, from: 250000, below: 270000}
+      - {grade: 18, amount: 280000, from: 270000, below: 290000}
+      - {grade: 19, amount: 300000, from: 290000, below: 310000}
+      - {grade: 20, amount: 320000, from: 310000, below: 330000}
+      - {grade: 21, amount: 340000, from: 330000, below: 350000}
+      - {grade: 22, amount: 360000, from: 350000, below: 370000}
+      - {grade: 23, amount: 380000, from: 370000, below: 395000}
+      - {grade: 24, amount: 410000, from: 395000, below: 425000}
+      - {grade: 25, amount: 440000, from: 425000, below: 455000}
+      - {grade: 26, amount: 470000, from: 455000, below: 485000}
+      - {grade: 27, amount: 500000, from: 485000, below: 515000}
+      - {grade: 28, amount: 530000, from: 515000, below: 545000}
+      - {grade: 29, amount: 560000, from: 545000, below: 575000}
+      - {grade: 30, amount: 590000, from: 575000, below: 605000}
+      - {grade: 31, amount: 620000, from: 605000, below: 635000}
+      - {grade: 32, amount: 650000, from: 635000, below: null}
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/329AC0000000115_20261001_507AC0000000074?response_format=xml", retrievedAt: "2026-10-08", sha256: "1d0942ff3d38d0612341e672986f6506d7e4e5895c0f3efa58cf35d619080b40", locator: "厚生年金保険法 第20条第1項の表（第1級〜第31級）", quote: "第三一級"}
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/502CO0000000246_20200901_000000000000000?response_format=xml", retrievedAt: "2026-10-08", sha256: "2c9f93b4abaa8467856db9c43075018ee0646e507611f17f41d3da58902031c3", locator: "厚生年金保険法の標準報酬月額の等級区分の改定等に関する政令 第1条（第32級の追加）", quote: "六五〇、〇〇〇円"}
+      - {type: "web", url: "https://www.nenkin.go.jp/service/kounen/hokenryo/ryogaku/ryogakuhyo/20200825.files/R08ryougaku.pdf", retrievedAt: "2026-10-08", sha256: "17cb4adcce3e25646fd48c73ae6fc79dc25a372276a47e31364ae08e7bfa1d5c", locator: "日本年金機構 厚生年金保険料額表（令和8年度版）の等級・標準報酬・報酬月額の欄", quote: "32 650,000 635,000 ～"}
+      - {type: "law", lawNumber: "昭和二十九年法律第百十五号", egovRevisionId: "329AC0000000115_20261001_507AC0000000074"}
+      - {type: "law", lawNumber: "令和二年政令第二百四十六号", egovRevisionId: "502CO0000000246_20200901_000000000000000"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["e-Gov法令API（条文の XML）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "2023年4月1日〜2024年12月31日の行（前の年の所得に対する住民税・社会保険料控除の計算に要る）。rev 1 と同じ値・出典で、施行日（2020年9月1日）より後なので、この期間も同じ規定の値。32等級（8.8万〜65万円）。条文の31等級に政令で第32級（65万円）を加えた表と、日本年金機構の保険料額表が全等級一致（照合は機械で行った）。施行日は第32級を加えた政令の適用開始（令和2年9月）。適用開始はデータの起点（2025年1月）"}
