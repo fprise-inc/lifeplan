@@ -91,6 +91,14 @@ function allowanceRow(wh: WorkingHousehold, member: string, monthly: number): Wo
   });
 }
 
+/** 扶養と同居の欄（support）の片方だけを書いた後、もう片方を既定（false）で埋める（エンジンの形は2つとも要る。片方だけだと計算できない） */
+const fillSupport = (_h: Household, target: Record<string, unknown>) => {
+  const s = target.support as { dependent?: boolean; cohabiting?: boolean } | undefined;
+  if (s === undefined) return;
+  s.dependent ??= false;
+  s.cohabiting ??= false;
+};
+
 /** 扶養と同居の欄（support）が無ければ作る（エンジンの形は2つとも要る） */
 const ensureSupport =
   (id: string) =>
@@ -173,15 +181,15 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
       }), ["birthYearMonth"]),
       onMember(m.id, plain({ key: `${k}/sex`, item: "member.sex", label: "性別", level: "detail", kind: "select", options: SEX_OPTIONS, find, path: ["sex"], help: "亡くなる見込み（平均余命）の推定と、父・母の呼び方に使います" })),
     );
-  fields.push(onMember(m.id, plain({ key: `${k}/cohabiting`, item: "member.support", label: "同居している", level: "simple", kind: "bool", find, path: ["support", "cohabiting"], ensure: ensureSupport(m.id), optional: true, fallback: false }), ["cohabiting"]));
+  fields.push(onMember(m.id, plain({ key: `${k}/cohabiting`, item: "member.support", label: "同居している", level: "simple", kind: "bool", find, path: ["support", "cohabiting"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, fallback: false }), ["cohabiting"]));
   const actions: ActionDef[] = [{ key: `${k}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
   if (m.outside !== undefined) periodFields(m, fields, actions);
   // 扶養（税・健康保険）と、扶養の境目の1行
   if (elder) {
-    fields.push(onMember(m.id, plain({ key: `${k}/dependent`, item: "member.support", label: "扶養している（税・健康保険）", level: "detail", kind: "bool", find, path: ["support", "dependent"], ensure: ensureSupport(m.id), optional: true, fallback: false }), ["dependent"]));
+    fields.push(onMember(m.id, plain({ key: `${k}/dependent`, item: "member.support", label: "扶養している（税・健康保険）", level: "detail", kind: "bool", find, path: ["support", "dependent"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, fallback: false }), ["dependent"]));
     const limit = dependentLimitText(wh, m);
     if (limit !== null) fields.push(infoLine(`care/outside/${m.id}/dependentLimit`, "扶養の境目（目安）", limit, "制度の値から出した目安です。年金のほかに収入がある人は、合計所得で確かめてください"));
-    fields.push(onMember(m.id, plain({ key: `${k}/allowance`, item: "member.support", label: "仕送りの額（月額。扶養の判定に使う）", level: "detail", kind: "yen", basis: "monthly", find, path: ["support", "allowance"], ensure: ensureSupport(m.id), optional: true, help: ALLOWANCE_HELP }), ["allowance"]));
+    fields.push(onMember(m.id, plain({ key: `${k}/allowance`, item: "member.support", label: "仕送りの額（月額。扶養の判定に使う）", level: "detail", kind: "yen", basis: "monthly", find, path: ["support", "allowance"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, help: ALLOWANCE_HELP }), ["allowance"]));
   }
   // 亡くなる見込み（世帯の外の家族では leaves がその意味。親のお金を見る期間・相続人の数え方・介護の目安の始まりに使う）
   if (m.outside !== undefined && hasBirth(m)) {

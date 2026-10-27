@@ -1,10 +1,11 @@
 // 計算結果と世帯から、提示用の値（PresentationModel。0016 の2）を作る。許可した項目だけを選んで写す
-import type { EngineRequest, Member, PreviewResult, TableCell } from "../engine/types.ts";
+import type { EngineRequest, PreviewResult, TableCell } from "../engine/types.ts";
 import { ROW_LABELS } from "../generated/labels.ts";
 import type { AgeAxisRow, CashflowTableModel, ChartModel, Depletion, EventChip, EventIcon, FeeLine, FlowChartModel, GoalCard, GoalsModel, Headline, PresentationModel, ResultVerdict, SeriesNames, StackSeries, TableRowModel, Verdict, VerdictPart, YearDetail } from "../presentation/model.ts";
 import { man } from "../presentation/format.ts";
 import { addMonths, ageReachedMonth, parseYm, readLevers } from "./levers.ts";
 import { ageInYear, leaveYear, roles, type Role } from "./roles.ts";
+import { DEFICIT_NOTE, deficitSources, OUTSIDE_INCOME_NOTE, outsideName } from "./resultRows.ts";
 import { resolveTimepoint } from "./timepoint.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
@@ -64,6 +65,8 @@ export interface RowDef {
   match: (c: TableCell) => boolean;
   /** 根拠を出せる行（お金の動きか年に1回決まる行から来る行） */
   evidence: boolean;
+  /** 行の見出しの説明（押さずに見る短い文。無ければ出さない） */
+  note?: string;
 }
 
 /** 車（何台でも）の支出のマス: 買い替え・維持費（車検・税・保険・駐車場・燃料）・ローンの返済。車の物の ID で見分ける */
@@ -86,8 +89,12 @@ export function rowDefs(req: EngineRequest): RowDef[] {
   const isReExp = (c: TableCell) => hasReExp && c.row === "cf.expense.other.realEstate";
   const car = carExpense(req);
   const notCar = (p: (c: TableCell) => boolean) => (c: TableCell) => p(c) && !car(c);
-  for (const r of rs) defs.push({ key: `salary:${r.key}`, label: `${r.label}の給与`, group: "income", kind: "value", match: byMember("cf.income.salary", r), evidence: true });
-  for (const r of rs) defs.push({ key: `pension:${r.key}`, label: `${r.label}の年金`, group: "income", kind: "value", match: byMember("cf.income.pension", r), evidence: true });
+  // 世帯の外の家族（家計を1つにする期間のうち収入を世帯に入れる月の分だけ入る）は、呼び方と期間を見出しに出して世帯の人の行と分ける（0075）
+  const who = (r: Role) => (r.member.outside !== undefined ? outsideName(req, r.member) : r.label);
+  const outsideNote = (r: Role) => (r.member.outside !== undefined ? { note: OUTSIDE_INCOME_NOTE } : {});
+  const span = (r: Role) => (r.member.outside !== undefined ? "（家計を1つにする間）" : "");
+  for (const r of rs) defs.push({ key: `salary:${r.key}`, label: `${who(r)}の給与${span(r)}`, group: "income", kind: "value", match: byMember("cf.income.salary", r), evidence: true, ...outsideNote(r) });
+  for (const r of rs) defs.push({ key: `pension:${r.key}`, label: `${who(r)}の年金${span(r)}`, group: "income", kind: "value", match: byMember("cf.income.pension", r), evidence: true, ...outsideNote(r) });
   const ids = new Set(rs.map((r) => r.member.id));
   const known = (c: TableCell, p: string) => under(c.row, p) && c.member !== undefined && ids.has(c.member);
   defs.push(
@@ -151,13 +158,6 @@ export function walletDepletions(summary: unknown): { member: string; depleted: 
   return ws.flatMap((w) => (w.depleted !== null ? [{ member: w.member, depleted: w.depleted }] : []));
 }
 
-/** 世帯の外の家族の呼び方（できごとの文。顧客の名前は出さない） */
-function outsideLabel(m: Member): string {
-  if (m.kind === "parent") return m.sex === "female" ? "お母さま" : "お父さま";
-  if (m.kind === "grandparent") return m.sex === "female" ? "おばあさま" : "おじいさま";
-  return "ご家族";
-}
-
 /** 年のライフイベント（案の要求と結果から。学校・独立・退職・年金・ローン完済・世帯の外の家族のお金が尽きる見込み・資産が尽きる年） */
 export function eventsOf(req: EngineRequest, proposed: readonly TableCell[], years: readonly number[], summary?: unknown): EventChip[] {
   const rs = roles(req);
@@ -203,7 +203,7 @@ export function eventsOf(req: EngineRequest, proposed: readonly TableCell[], yea
     const m = h.members.find((x) => x.id === w.member);
     if (m === undefined) continue;
     const { y, m: mo } = parseYm(w.depleted);
-    const who = outsideLabel(m);
+    const who = outsideName(req, m);
     add(y, "親", `${who}のお金が尽きる見込み（${y}年${mo}月・${who}${ageInYear(m, y)}歳。この後の介護の費用は世帯が払います）`);
   }
   const dep = depletionYear(proposed, years);
@@ -424,7 +424,7 @@ export function toPresentation(input: PresentInput): PresentationModel {
 
 /** 年齢の行（世帯にいる年だけ） */
 function ageRows(req: EngineRequest, years: readonly number[]): TableRowModel[] {
-  return roles(req).map((r) => ({ kind: "age", key: `age:${r.key}`, label: r.label, ages: years.map((y) => (inHousehold(r, y) ? ageInYear(r.member, y) : null)) }));
+  return roles(req).map((r) => ({ kind: "age", key: `age:${r.key}`, label: r.member.outside !== undefined ? outsideName(req, r.member) : r.label, ages: years.map((y) => (inHousehold(r, y) ? ageInYear(r.member, y) : null)) }));
 }
 
 /** 生涯キャッシュフロー表の提示用の値（1つの案）。evs を渡すとライフイベントの行も出す */
@@ -442,7 +442,9 @@ export function cashflowTable(req: EngineRequest, table: readonly TableCell[], y
     if (d.kind === "value" && cells.every((c) => (c.amount ?? 0) === 0)) continue;
     if (d.group !== lastGroup && groupLabel[d.group] !== "") rows.push({ kind: "group", key: `group:${d.group}`, label: groupLabel[d.group] });
     lastGroup = d.group;
-    rows.push({ kind: d.kind, key: d.key, label: d.label, cells, evidence: d.evidence });
+    // 年間収支の行は、開くと赤字の出どころ（口座から取り崩して払った分・家計の赤字）を出す（0075）
+    const children = d.key === "net" ? deficitSources(req, table, years) : null;
+    rows.push({ kind: d.kind, key: d.key, label: d.label, cells, evidence: d.evidence, ...(children !== null ? { children, note: DEFICIT_NOTE } : d.note !== undefined ? { note: d.note } : {}) });
   }
   return { title, years, rows };
 }
