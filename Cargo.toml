@@ -9,3 +9,10 @@ default-members = ["crates/engine-host", "crates/ai-ipc", "crates/ai-share", "cr
 edition = "2021"
 license = "MIT"
 publish = false
+
+[profile.dev.package."*"]
+# 依存の crate（Typst の組版・PDF・フォントなど）は debug のビルドでも最適化する。最適化なしでは提案書の PDF を1つ組むのに
+# 数秒から十数秒かかり、テスト（report/ の PDF のテスト・report-pdf のテスト）を並べて流すと時間の上限に近づいていた。
+# 自分の crate は最適化しない（作り直しの速さはそのまま）。依存の debug 情報も作らない（ビルドの時間と置き場を増やさない）
+opt-level = 1
+debug = false
