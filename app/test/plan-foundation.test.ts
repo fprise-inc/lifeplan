@@ -209,11 +209,16 @@ describe("世帯の外の家族（0035 の4）", () => {
 });
 
 describe("万一の前提の差分・オフにした差分・値の状態の行", () => {
-  it("万一の前提の差分は、まだ当てられない差分として見せる（物が無くなった、とは言わない）", () => {
+  it("万一の前提の差分は、そのプランの万一の前提に当てる。万一の前提の入力項目ID でない差分は、意味の変わった欄として当てない（0071）", () => {
     const { wh, cat } = open();
-    const d = mk({ op: "set", target: { plan: "contingency" }, item: "contingency.kind", at: [], value: box("death"), before: null });
-    const a = applyPlan(withPlans(wh, [{ id: "B", diffs: [d] }]), "B", cat);
-    expect(a.reviews.get(d.id)?.state).toBe("pending");
+    const d = mk({ op: "set", target: { plan: "contingency" }, item: "contingencyPremise.survivor", at: ["livingRatio", "beforeIndependence"], value: box("0.6"), before: null });
+    const bad = mk({ op: "set", target: { plan: "contingency" }, item: "contingency.kind", at: [], value: box("death"), before: null });
+    const a = applyPlan(withPlans(wh, [{ id: "B", diffs: [d, bad] }]), "B", cat);
+    expect(a.reviews.get(d.id)?.state).toBe("ok");
+    expect(a.contingency.survivor.livingRatio?.beforeIndependence).toBe("0.6");
+    expect(a.reviews.get(bad.id)?.state).toBe("retired");
+    // 要求（計算の入力）は変えない
+    expect(a.request.input).toEqual(applyPlan(withPlans(wh, [{ id: "B", diffs: [] }]), "B", cat).request.input);
   });
 
   it("オフにした差分は、上書きしても消えない", () => {

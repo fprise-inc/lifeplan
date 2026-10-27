@@ -578,6 +578,13 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-premises .lever.field .fld-l { display: none; }
 .cg-premises .lever.field .fld-c select { max-width: 100%; font-weight: 700; }
 .cg-premises .cg-auto { margin-left: 8px; font-size: 0.8rem; }
+/* 0071: 前提の欄の形式・直す先・プランで共通と違う値の印（縦線と「共通: ○○」「↺ 共通に戻す」） */
+.cg-premises .lv-head .seg-g { margin-left: auto; }
+.ip-assume-list td:nth-child(4), .ip-assume-list th:nth-child(4) { white-space: nowrap; }
+.ip-assume-list .sub.warn { display: block; color: var(--warn, #9a3412); }
+.cg-plan-to { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 8px; font-size: 0.9rem; }
+.cg-premises .lever.plan-diff { border-left: 4px solid var(--prop); padding-left: 8px; }
+.cg-plan-mark { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; margin-top: 4px; font-size: 0.82rem; color: var(--ink-2); }
 @media (max-width: 1100px) { .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) { .cg-premises .lv-grid { grid-template-columns: minmax(0, 1fr); } }
 html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

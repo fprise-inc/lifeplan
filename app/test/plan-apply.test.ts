@@ -73,8 +73,11 @@ describe("動かす項目の値を当て先の差分で当てても、0.16 の�
     const cat = buildCatalog(wh, self.member.id, null);
     const values: Values = {};
     for (const it of cat.items) {
+      // 空欄のとき、ほかの前提と同じ値を見せる前提（教育費・厚生年金の調整率・土地の上昇率。0070）は、元の前提と別の値に動かす
+      // （同じ値に動かすと、0.16 の当て方は「同じ値」とみなして書かない）
+      const follows = it.key === "field:assume/educationInflation" || it.key === "field:assume/pensionMacroSlideEmployee" || it.key === "field:assume/realEstate/landGrowth";
       const v = nudge(it.read(wh));
-      if (v !== undefined) values[it.key] = v;
+      if (v !== undefined) values[it.key] = follows && typeof v === "string" ? String(Number(v) + 0.001) : v;
     }
     expect(canon(applyValues(wh, values, cat))).toBe(canon(legacyApply(wh, values, cat)));
   });

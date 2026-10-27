@@ -52,6 +52,7 @@ import {
   stopAgeOrEstimate,
   stopEstimateOf,
   switchMethod,
+  RATE_PRESETS,
   totalViewOf,
   unallocatedOf,
   valueOf,
@@ -491,12 +492,8 @@ function CarryNote({ req, carry }: { req: EngineRequest; carry: { from: Method; 
   );
 }
 
-/** 利回りの選び方（合計の入れ方。事務所の標準の値。どれも仮の値で、商品のおすすめではない。押すと平均の利回りに入る） */
-export const RATE_PRESETS: readonly { id: string; label: string; rate: string }[] = [
-  { id: "low", label: "控えめ", rate: "0.01" },
-  { id: "mid", label: "ふつう", rate: "0.02" },
-  { id: "high", label: "積極的", rate: "0.03" },
-];
+/** 利回りの選び方（model.ts。前提条件の運用利回りと同じ値の表） */
+export { RATE_PRESETS };
 
 function TotalSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; level: Level; fields: FieldMap; onEdit: (w: WorkingHousehold) => void }) {
   const req = wh.request;

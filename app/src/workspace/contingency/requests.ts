@@ -2,13 +2,14 @@
 // どれも現状の世帯（入力の値）に「層」を重ねる形で、世帯（現状）は変えない（0008 の5・7）
 import type { Contingency, EmploymentPeriod, EngineRequest, Household, Illness, Member, OldAgeChoice, ProtectionRequest, SurvivorAssumptions } from "../../engine/types.ts";
 import { confirmedBox, type WorkingHousehold } from "../input/household.ts";
+import { resolveTimepoint } from "../timepoint.ts";
 import { smrEstimate } from "../input/estimates.ts";
 import { convertPeriod } from "../input/stages/work.ts";
 import { addMonths, ageReachedMonth, derivedId, parseYm } from "../levers.ts";
 import { roles } from "../roles.ts";
-import type { SurvivorWork } from "./planData.ts";
+import type { ContingencyPlan, SurvivorWork } from "./planData.ts";
 
-export type ScenarioKind = "death" | "disability" | "illness" | "market";
+export type ScenarioKind = "death" | "disability" | "illness" | "income" | "market";
 
 /** 大きな病気のときの目安（仮の値。事務所で根拠を確かめて直す前提）。医療費は保険診療の10割で、自己負担は高額療養費で計算する */
 export const ILLNESS_DEFAULT = { months: 12, medicalMonthly: 600_000, medicalMonths: 6, disease: "cancer", surgeries: 1 } as const;
@@ -27,6 +28,15 @@ type ContingencyPlanIllness = NonNullable<import("./planData.ts").ContingencyPla
 /** 相場が下がったときの下がる幅の既定（3割）と、下げる資産の種類（株・REIT） */
 export const MARKET_DROP_DEFAULT = "0.3";
 const RISKY = ["equity.domestic", "equity.global", "reit.domestic", "reit.global"];
+/** 下げる資産の印: 資産の種類（器の配分のうちその割合を下げる）と、器の種類（kind:<種類>。器の全体を下げる） */
+export const ESOP = "kind:esop";
+export const FX_DEPOSIT = "kind:fxDeposit";
+/** 下げる資産の既定（株・REIT と、配分を入れていない持株会。今までと同じ下げ方） */
+export const MARKET_CLASSES_DEFAULT: readonly string[] = [...RISKY, ESOP];
+/** 収入が減る場面の既定（本人・2割・3年。ストレステストの型 incomeDrop の既定と同じ） */
+export const INCOME_DROP_DEFAULT = { member: "self", ratio: "0.2", years: 3 } as const;
+/** 運用する器（持株会を除く。持株会は下げる資産で選ぶ） */
+const INVEST_BUT_ESOP = ["taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "pooled"];
 /** 運用する器（相場が下がったときの場面を出すか） */
 const INVESTED = new Set(["taxable", "nisa", "childNisa", "juniorNisa", "legacyNisa", "ideco", "corporateDc", "esop", "pooled"]);
 
@@ -85,14 +95,36 @@ export function scenarios(wh: WorkingHousehold): Scenario[] {
     const who = label.get(a.member.id) ?? "ご本人";
     out.push({ key: `disability:${a.member.kind}`, kind: "disability", member: a.member.id, label: `就業不能（${who}）`, who });
   }
-  // 0026: 大きな病気のとき（本人）・相場が下がったとき（運用する口座があるとき）
+  // 0026: 大きな病気のとき（本人・配偶者。0071）・収入が減るとき（0071）・相場が下がったとき（運用する口座があるとき）
+  for (const a of list) {
+    const who = label.get(a.member.id) ?? "ご本人";
+    out.push({ key: `illness:${a.member.kind}`, kind: "illness", member: a.member.id, label: `大きな病気（${who}）`, who });
+  }
   const self = list.find((a) => a.member.kind === "self") ?? list[0];
   if (self !== undefined) {
     const who = label.get(self.member.id) ?? "ご本人";
-    out.push({ key: "illness:self", kind: "illness", member: self.member.id, label: `大きな病気（${who}）`, who });
-    if ((h.accounts ?? []).some((x) => INVESTED.has(x.kind))) out.push({ key: "market", kind: "market", member: self.member.id, label: "相場の下落", who });
+    if (earnersOf(wh).length > 0) out.push({ key: "income", kind: "income", member: self.member.id, label: "収入が減る", who });
+    if (hasInvested(h)) out.push({ key: "market", kind: "market", member: self.member.id, label: "相場の下落", who });
   }
   return out;
+}
+
+/** 運用する器があるか（相場の下落の場面・重ねる印を出すか） */
+export const hasInvested = (h: Household): boolean => (h.accounts ?? []).some((x) => INVESTED.has(x.kind) || x.kind === "fxDeposit");
+
+/** 収入が減る場面の対象になる大人（本人・配偶者） */
+function earnersOf(wh: WorkingHousehold): Member[] {
+  return adults(wh.request.input.household).map((a) => a.member);
+}
+
+/** 収入が減る人（前提の「誰の収入」。配偶者がいなければ本人） */
+export function incomeMembers(wh: WorkingHousehold, plan: ContingencyPlan): Member[] {
+  const ls = adults(wh.request.input.household).map((a) => a.member);
+  const who = plan.incomeDrop?.member ?? INCOME_DROP_DEFAULT.member;
+  const self = ls.find((m) => m.kind === "self") ?? ls[0];
+  const spouse = ls.find((m) => m.kind === "spouse");
+  const out = who === "both" ? ls : who === "spouse" ? (spouse !== undefined ? [spouse] : []) : self !== undefined ? [self] : [];
+  return out.length > 0 ? out : self !== undefined ? [self] : [];
 }
 
 /** 想定の年の起きる月: 計算基準年は計算基準月、ほかはその年の1月（必要保障額の推移と同じ決め方） */
@@ -124,6 +156,11 @@ export function protectionRequest(wh: WorkingHousehold, memberId: string): Engin
   const s = survivorOf(wh.contingency.survivor);
   if (s !== undefined) p.survivor = s;
   if (wh.contingency.horizon !== undefined) p.horizon = { ...wh.contingency.horizon };
+  const pr = wh.contingency.protection;
+  if (pr?.method === "reverse") {
+    p.method = "reverse";
+    if (pr.reverseUntilAge !== undefined) p.reverseUntilAge = pr.reverseUntilAge;
+  }
   req.input.protection = p;
   return req;
 }
@@ -133,7 +170,9 @@ const SALARIED = new Set(["regular", "contract", "partTime"]);
 /** 残された人の働き方の変化を、働き方の期間にする（万一の想定の survivor.spouseWork） */
 export function survivorWorkPeriod(h: Household, survivor: Member, w: SurvivorWork | undefined, deathMonth: string): EmploymentPeriod | null {
   if (w === undefined || w.type === undefined || w.type === "keep") return null;
-  const from = addMonths(deathMonth, w.afterMonths ?? 6);
+  // 変える時期: 時点（人の年齢・出来事から）があればその月（亡くなった月より前なら亡くなった月）、無ければ亡くなった月の○か月後
+  const at = w.from !== undefined ? resolveTimepoint(h, w.from) : null;
+  const from = at !== null ? (at < deathMonth ? deathMonth : at) : addMonths(deathMonth, w.afterMonths ?? 6);
   const id = derivedId(survivor.id, "survivorWork");
   if (w.type === "none") return { id, member: survivor.id, from: { at: from }, to: null, type: "unemployed" };
   const last = addMonths(ageReachedMonth(survivor, w.untilAge ?? 65), -1);
@@ -151,7 +190,6 @@ export function survivorWorkPeriod(h: Household, survivor: Member, w: SurvivorWo
     }
     if (w.type === "partTime") delete p.standardMonthlyRemuneration;
   } else if (w.type === "selfEmployed" && w.annualSalary !== undefined) p.business = { income: confirmedBox(w.annualSalary) };
-  void h;
   return p;
 }
 
@@ -178,6 +216,35 @@ export function keptSlots(existing: readonly string[], requests: Readonly<Record
   return [...Object.keys(requests), ...existing.filter((id) => !Object.hasOwn(requests, id) && keep.has(id.slice(0, id.indexOf("|"))))];
 }
 
+/**
+ * 相場の下落を要求に重ねる（0026・0071）: その年の年末に、下げる資産（資産の種類は器の配分のうちその割合、配分を入れていない運用の器は
+ * 全体）をその幅だけ下げる。持株会・外貨預金は器ごと下げる。下がった後の戻り方があれば、翌年から○年は運用の利回りを○%までに抑える
+ */
+export function addMarketDrop(req: EngineRequest, plan: ContingencyPlan, year: number): void {
+  const a = (req.input.assumptions ??= { investmentReturn: { default: "0.01" } });
+  const m = plan.market ?? {};
+  const drop = m.drop ?? MARKET_DROP_DEFAULT;
+  const picked = m.classes ?? MARKET_CLASSES_DEFAULT;
+  const classes = picked.filter((c) => !c.startsWith("kind:"));
+  const shocks: NonNullable<typeof a.marketShocks> = [];
+  // 配分を入れた器は資産の種類の割合で、配分の無い運用の器は全体で（持株会は選んだときだけ）
+  if (classes.length > 0) shocks.push({ year, drop, assetClasses: classes, ...(picked.includes(ESOP) ? {} : { kinds: INVEST_BUT_ESOP }) });
+  else if (picked.includes(ESOP)) shocks.push({ year, drop, kinds: ["esop"] });
+  if (picked.includes(FX_DEPOSIT)) shocks.push({ year, drop, kinds: ["fxDeposit"] });
+  if (shocks.length > 0) a.marketShocks = [...(a.marketShocks ?? []), ...shocks];
+  if (m.recoveryYears !== undefined && m.recoveryYears > 0 && m.recoveryCap !== undefined) a.returnShifts = [...(a.returnShifts ?? []), { from: year + 1, to: year + m.recoveryYears, cap: m.recoveryCap }];
+}
+
+/** 収入の減少を要求に重ねる（構成員の給与・事業所得を from から months か月、ratio の割合だけ減らす） */
+function addIncomeShock(req: EngineRequest, member: string, from: string, months: number, ratio: string): void {
+  if (months <= 0) return;
+  const a = (req.input.assumptions ??= { investmentReturn: { default: "0.01" } });
+  a.incomeShocks = [...(a.incomeShocks ?? []), { member, from, to: addMonths(from, months - 1), ratio }];
+}
+
+/** 割合の引き算（"1" − "0.7" → "0.3"。千分の一で丸める） */
+const restOf = (r: string): string => String(Math.round((1 - Number(r)) * 1000) / 1000);
+
 /** 選んだ想定の要求（現状に万一の想定を重ねる） */
 export function scenarioRequest(wh: WorkingHousehold, sc: Scenario, year: number): EngineRequest {
   const req = baseRequest(wh.request);
@@ -185,25 +252,36 @@ export function scenarioRequest(wh: WorkingHousehold, sc: Scenario, year: number
   const plan = wh.contingency;
   const occurs = occursMonth(req, year);
   if (sc.kind === "market") {
-    // 相場が下がったとき: その年の年末に、株・REIT の部分をその幅だけ下げる（ストレステストの型。0026）
-    req.input.stressTest = { template: "marketDropAtRetirement", params: { year, drop: plan.market?.drop ?? MARKET_DROP_DEFAULT, assetClasses: [...RISKY] } };
+    // 相場が下がったとき: その年の年末に、下げる資産をその幅だけ下げる（0026・0071）
+    addMarketDrop(req, plan, year);
+    return req;
+  }
+  // 相場の下落も重ねる（死亡・就業不能・大きな病気・収入が減る。ストレスの層の後に万一の層。0071）
+  if (plan.stackMarket === true && hasInvested(h)) addMarketDrop(req, plan, year);
+  if (sc.kind === "income") {
+    // 収入が減るとき: 起きた月から○年、その人の給与・事業所得を○割減らす（決まった休業とは別の、試しに見る悪い場合。0071）
+    const d = { ...INCOME_DROP_DEFAULT, ...(plan.incomeDrop ?? {}) };
+    for (const m of incomeMembers(wh, plan)) addIncomeShock(req, m.id, occurs, d.years * 12, d.ratio);
     return req;
   }
   if (sc.kind === "illness") {
     // 大きな病気のとき: その月から働けない（会社員は休業して傷病手当金）、決めた月数の後に元の働き方に戻る。医療費は高額療養費で止める。
     // 病気の想定（病気の種類・入院の日数・手術の回数）で、保険の医療・がんの給付を受け取る（0054・0055）
+    // 復帰の後の働き方（○か月は収入を○割に）があれば、戻った月から収入を減らす（0071）
     const il = { ...ILLNESS_DEFAULT, ...(plan.illness ?? {}) };
+    const back = addMonths(occurs, il.months);
     req.input.contingencies = [
       {
         id: derivedId(sc.member, "contingency:illness"),
         kind: "incapacity",
         member: sc.member,
         occurs: { at: occurs },
-        recovery: { at: addMonths(occurs, il.months) },
+        recovery: { at: back },
         medical: { monthly: il.medicalMonthly, months: il.medicalMonths },
         illness: illnessOf(plan.illness),
       },
     ];
+    if (il.afterMonths !== undefined && il.afterRatio !== undefined && Number(il.afterRatio) < 1) addIncomeShock(req, sc.member, back, il.afterMonths, restOf(il.afterRatio));
     return req;
   }
   const c: Contingency = { id: derivedId(sc.member, `contingency:${sc.kind}`), kind: sc.kind, member: sc.member, occurs: { at: occurs } };

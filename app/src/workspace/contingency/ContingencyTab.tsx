@@ -3,7 +3,8 @@
 // → ④ FP が直す前提の欄（対策の欄と同じ部品）。グラフの見出しの「小窓」で、②③を小窓に出せる（ChartPip。前提の欄を動かしながら見る）。
 // このタブに表示の設定は無い（結果のタブの表示の設定にも頼らない）
 // 見るプラン: 既定は現状（プランA）。切り替えると、場面の帯・年ごとの結果の帯・グラフ・必要保障額をそのプラン（保存していない変更を含む今の中身）で計算する。
-// 想定の前提（遺族の生活費の割合など）は世帯に1つで、どのプランにも同じものを使う。グラフの枠の名前はプランごとに分け、プランを戻したときは前の結果をすぐ出す。
+// 想定の前提（遺族の生活費の割合など）は世帯に1つ（全プラン共通）で、プランを見ているときは、そのプランで上書きした値（万一の前提の差分。0071）を
+// 当てた前提を使う。前提のパネルの「直す先」で、共通を直すか、そのプランだけ直すかを選ぶ。グラフの枠の名前はプランごとに分け、プランを戻したときは前の結果をすぐ出す。
 // 計算はアプリの側が持つ ContingencyEngine で行う（タブを切り替えても結果を捨てない。同じ内容ならすぐ出す）。
 // 画面の側のエンジンで先に出し、本体の正の計算で置き換える（見通しと同じ二本立て）。FP用のメモは画面に出さず、上部の引き出しに置く
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -18,6 +19,8 @@ import { roles } from "../roles.ts";
 import { CURRENT } from "../plans/band.ts";
 import { YearSweep, type ContingencyEngine } from "./engine.ts";
 import { contingencyInputSections, oldAgeChoiceField } from "./inputs.ts";
+import type { Level } from "../input/form.ts";
+import { overrideCount, premiseFor, writePremise } from "./planPremise.ts";
 import { PremisePanel } from "./PremisePanel.tsx";
 import { protectionChart, scenarioCards, scenarioModel, yearOptions, yearStripModel } from "./present.ts";
 import { adults, chartRequests, defaultYear, keptSlots, planSlot, scenarioRequest, scenarios } from "./requests.ts";
@@ -35,6 +38,10 @@ export interface ContingencyUi {
   mode: ContingencyMode;
   /** 見るプラン（プランの内部 ID。省略は現状のプランA） */
   plan?: string;
+  /** 前提の欄の形式（簡易・詳細。省略は簡易。0071） */
+  level?: Level;
+  /** プランを見ているときに前提を直す先（省略は全プラン共通。0071） */
+  premiseTo?: "common" | "plan";
 }
 
 /** 見るプランの選択肢（現状と帯に並べたプラン） */
@@ -73,13 +80,21 @@ interface Play {
   year: number;
 }
 
-export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui, onUi, initialScenario, plans, requestOf, initialPlan }: ContingencyTabProps) {
+export function ContingencyTab({ wh: stored, host, engine, targetAge, onEdit, ui, onUi, initialScenario, plans, requestOf, initialPlan }: ContingencyTabProps) {
   // 前提のスライダーを動かしている間は、画面の側の世帯（draft）で描いて計算する。指を離したら世帯に書く
   const [draft, setDraft] = useState<WorkingHousehold | null>(null);
-  const edited = draft ?? saved;
-  // ---- 見るプラン（既定は現状）。前提は世帯のもの（edited.contingency）、計算の要求はそのプランのもの ----
+  // ---- 見るプラン（既定は現状）。前提はそのプランの前提（共通の前提に、そのプランの上書きを当てたもの）、計算の要求はそのプランのもの ----
   const wantPlan = ui.plan ?? (initialPlan !== undefined ? plans?.find((p) => p.letter === initialPlan)?.id : undefined);
   const planId = wantPlan !== undefined && wantPlan !== CURRENT && (plans ?? []).some((p) => p.id === wantPlan) && requestOf !== undefined ? wantPlan : CURRENT;
+  /** 見ているプランの前提を入れた世帯（前提の欄・計算はこれを見る。書くときは stored の共通の前提かプランの差分へ） */
+  const saved = useMemo<WorkingHousehold>(() => {
+    if (planId === CURRENT) return stored;
+    const c = premiseFor(stored, planId);
+    return c === stored.contingency ? stored : { ...stored, contingency: c };
+  }, [stored, planId]);
+  const premiseTo = planId === CURRENT ? "common" : (ui.premiseTo ?? "common");
+  const overrides = useMemo(() => overrideCount(stored, planId === CURRENT ? null : planId), [stored, planId]);
+  const edited = draft ?? saved;
   const planReq = useMemo(() => (planId === CURRENT || requestOf === undefined ? saved.request : requestOf(planId)), [planId, saved.request, requestOf]);
   /** 計算に使う世帯（プランの要求＋世帯の前提）。前提の欄はこれを直さず、edited を直す */
   const wh = useMemo<WorkingHousehold>(() => (planReq === edited.request ? edited : { ...edited, request: planReq }), [edited, planReq]);
@@ -88,9 +103,15 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
   const slot = (name: string) => planSlot(planId, name);
   const recentPlans = useRef<string[]>([]);
   const commit = (w?: WorkingHousehold) => {
-    const next = w === undefined ? draft : w.request === saved.request ? w : { ...w, request: saved.request };
+    const next = w ?? draft;
     setDraft(null);
-    if (next !== null && next !== saved) onEdit(next);
+    if (next === null || next === saved) return;
+    // プランの要求を入れた世帯（年を選んだときなど）は、世帯の要求に戻す。前提の欄（団信）で直した要求はそのまま
+    const request = next.request === planReq && planReq !== saved.request ? stored.request : next.request;
+    // 前提の違いを、直す先（共通・このプランだけ）に書く
+    const base = next.contingency === saved.contingency ? stored : writePremise(stored, planId === CURRENT ? null : planId, saved.contingency, next.contingency, premiseTo);
+    if (request === stored.request && base === stored) return;
+    onEdit({ ...stored, request, contingency: base.contingency, proposals: base.proposals });
   };
   const [tick, setTick] = useState(0);
   useEffect(() => engine?.subscribe(() => setTick((t) => t + 1)), [engine]);
@@ -175,7 +196,7 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
     else if (sc !== undefined && sr?.result != null && none?.result != null)
       scenario = {
         status: "ready",
-        model: scenarioModel({ req: wh.request, scenario: sc, year, result: sr.result, none: none.result, targetAge, choice: wh.contingency.oldAgeChoice[sc.member], ...(wh.contingency.market?.drop !== undefined ? { drop: wh.contingency.market.drop } : {}) }),
+        model: scenarioModel({ req: wh.request, scenario: sc, year, result: sr.result, none: none.result, targetAge, choice: wh.contingency.oldAgeChoice[sc.member], plan: wh.contingency, ...(wh.contingency.market?.drop !== undefined ? { drop: wh.contingency.market.drop } : {}) }),
         error: null,
         stale: sr.stale || none.stale,
       };
@@ -276,10 +297,12 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
   const sections = useMemo(() => contingencyInputSections(edited), [edited]);
   const used = useMemo(() => {
     if (sc === undefined) return new Set<string>();
+    const stack = edited.contingency.stackMarket === true ? ["cg/market"] : [];
     if (sc.kind === "market") return new Set(["cg/market"]);
-    if (sc.kind === "illness") return new Set(["cg/illness"]);
-    return new Set(sc.kind === "death" ? ["cg/living", "cg/lump", "cg/work", "cg/creditLife"] : ["cg/disability", "cg/creditLife"]);
-  }, [sc]);
+    if (sc.kind === "illness") return new Set(["cg/illness", ...stack]);
+    if (sc.kind === "income") return new Set(["cg/income", ...stack]);
+    return new Set(sc.kind === "death" ? ["cg/living", "cg/lump", "cg/horizon", "cg/work", "cg/creditLife", ...stack] : ["cg/disability", "cg/creditLife", ...stack]);
+  }, [sc, edited.contingency.stackMarket]);
   const extra =
     sc?.kind === "disability" && (wh.contingency.grade ?? 2) !== 0
       ? { section: "cg/disability", field: oldAgeChoiceField(sc.member), note: "自動で手取りが多い組み合わせを選びます。選び直すとその組み合わせで計算します" }
@@ -301,7 +324,33 @@ export function ContingencyTab({ wh: saved, host, engine, targetAge, onEdit, ui,
       {/* ③ グラフ */}
       <ContingencyChartCard {...chartProps} onMode={(m) => onUi({ ...ui, mode: m })} />
       {/* ④ 想定の前提 */}
-      <PremisePanel wh={edited} sections={sections} used={used} extra={extra} onDraft={setDraft} onCommit={commit} />
+      <PremisePanel
+        wh={edited}
+        sections={sections}
+        used={used}
+        extra={extra}
+        onDraft={setDraft}
+        onCommit={commit}
+        level={ui.level ?? "simple"}
+        onLevel={(l) => onUi({ ...ui, level: l })}
+        plan={
+          planId === CURRENT
+            ? null
+            : {
+                id: planId,
+                name: plans?.find((p) => p.id === planId) !== undefined ? `プラン${plans.find((p) => p.id === planId)?.letter ?? ""}` : "このプラン",
+                saved: stored.proposals.some((p) => p.id === planId),
+                to: premiseTo,
+                onTo: (t) => onUi({ ...ui, premiseTo: t }),
+                overrides,
+                stored,
+                onRevert: (w) => {
+                  setDraft(null);
+                  onEdit(w);
+                },
+              }
+        }
+      />
       {import.meta.env.DEV ? (
         <div class="foot footnote">
           <span class="perf" data-cg-perf>

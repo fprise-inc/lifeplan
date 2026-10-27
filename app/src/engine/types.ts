@@ -600,7 +600,7 @@ export interface AdvisoryFee {
       to?: Timepoint | null;
       annual?: number;
       monthly?: number;
-      revision?: { rate?: string; steps?: { at: Timepoint; annual?: number; monthly?: number }[] };
+      revision?: { rate?: string; steps?: { id?: string; at: Timepoint; annual?: number; monthly?: number }[] };
       onContingency?: OnContingency;
     };
   };
@@ -653,6 +653,7 @@ export interface ProtectionRequest {
   members?: string[];
   method?: "accumulation" | "reverse";
   horizon?: { kind: "lifeExpectancy" | "age" | "youngestIndependence"; age?: number };
+  reverseUntilAge?: number;
   fromYear?: number;
   toYear?: number;
   survivor?: SurvivorAssumptions;
@@ -756,7 +757,7 @@ export interface EngineRequest {
     baseMonth: string;
     endYear: number;
     household: Household;
-    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; investment?: InvestmentSetting; assetVolatility?: Record<string, string>; returnShifts?: ReturnShift[]; surplusSaving?: SurplusSavingSetting; withdrawal?: { order?: ({ kind: string } | { object: string })[]; minimumDeposit?: number }; marketShocks?: { year: number; drop: string; kinds?: string[]; assetClasses?: string[] }[]; [key: string]: unknown };
+    assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; investment?: InvestmentSetting; assetVolatility?: Record<string, string>; returnShifts?: ReturnShift[]; surplusSaving?: SurplusSavingSetting; withdrawal?: { order?: ({ kind: string } | { object: string })[]; minimumDeposit?: number }; marketShocks?: { year: number; drop: string; kinds?: string[]; assetClasses?: string[] }[]; pensionMacroSlideEmployee?: YearSeries; incomeShocks?: { id?: string; member: string; from: string; to: string; ratio: string }[]; [key: string]: unknown };
     contingencies?: Contingency[];
     protection?: ProtectionRequest;
     inheritanceTax?: InheritanceTaxRequest;

@@ -18,6 +18,7 @@ import { ILLUSTRATIONS } from "./illustrations.ts";
 import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
 import { inheritanceSummary, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { RetirementLineup } from "./RetirementLineup.tsx";
+import { AssumptionList } from "./AssumptionList.tsx";
 import { StatusBadge } from "./StatusBadge.tsx";
 import { SavingsPanel } from "./savings/SavingsPanel.tsx";
 import { InsuranceOverview } from "./InsuranceOverview.tsx";
@@ -475,6 +476,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                 {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます。</p> : null}
                 {/* 退職金・企業年金: カードの下に受け取りの並び（読むだけ。0058） */}
                 {itemId === "retirement" ? <RetirementLineup wh={shown} {...(computeOne !== undefined ? { computeOne } : {})} /> : null}
+                {/* 前提条件: 前提と推定の一覧（確かめた記録はプランごと。値は変えないので、プランを直していても差分にしない。0070） */}
+                {itemId === "assumptions" ? <AssumptionList wh={shown} planId={plan?.id ?? null} onAgree={(f) => commit({ ...latest.current, agreed: f(latest.current).agreed })} onLevel={onLevel} /> : null}
               </SectionLinks.Provider>
             </FieldSuggestions.Provider>
             </FieldStateOps.Provider>

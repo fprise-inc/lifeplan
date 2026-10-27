@@ -55,6 +55,14 @@ export interface SweepOptions {
   setTimer?: (fn: () => void, ms: number) => unknown;
 }
 
+/** 年ごとの帯を計算する順番（YearSweep.want の説明のとおり） */
+export function sweepOrder<T extends { year: number }>(list: readonly T[], focus: number | null): T[] {
+  if (focus === null) return [...list];
+  const first = list.reduce((m, x) => Math.min(m, x.year), Number.POSITIVE_INFINITY);
+  const rank = (y: number) => (Math.abs(y - focus) <= 2 ? 0 : (y - first) % 5 === 0 ? 1 : 2);
+  return [...list].sort((a, b) => rank(a.year) - rank(b.year) || Math.abs(a.year - focus) - Math.abs(b.year - focus) || a.year - b.year);
+}
+
 /** 年ごとの結果の帯の計算 */
 export class YearSweep {
   private readonly cache = new Map<string, YearOutcome>();
@@ -84,12 +92,13 @@ export class YearSweep {
     return this.cache.get(key) ?? { state: "pending" };
   }
 
-  /** 帯に出す年を置き直し、まだの年を裏で計算する。focus の年を先に計算する */
+  /**
+   * 帯に出す年を置き直し、まだの年を裏で計算する。順番は、focus の年の前後（2年まで）→ 最初の年から5年ごと → 残りの年（それぞれ focus に
+   * 近い順。0071: 起きる年を表の最後の年まで広げたので、先に要る年から埋めて帯の全体の形を早く見せる）
+   */
   want(list: readonly Prepared[], summarize: (r: PreviewResult) => number | null, focus: number | null = null): void {
     this.summarize = summarize;
-    const order = [...list];
-    if (focus !== null) order.sort((a, b) => Math.abs(a.year - focus) - Math.abs(b.year - focus) || a.year - b.year);
-    this.current = order;
+    this.current = sweepOrder(list, focus);
     this.kick();
   }
 

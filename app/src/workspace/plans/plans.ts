@@ -12,6 +12,8 @@ import { man } from "../../presentation/format.ts";
 import { ITEM_LABELS } from "../../generated/labels.ts";
 import { ITEM_PLACES } from "../../generated/readings.ts";
 import { newId, type WorkingHousehold } from "../input/household.ts";
+import type { ContingencyPlan } from "../contingency/planData.ts";
+import { applyPremiseDiffs, premisePath, readPath } from "../contingency/premiseItems.ts";
 import { applyAdvisoryFee, applyLevers, LEVER_KEYS, type LeverValues } from "../levers.ts";
 import { keyOf, readAt, resolveKey, unbox, type Address, type Reading } from "../store/readings.ts";
 import type { MixPart } from "./allocation.ts";
@@ -154,7 +156,7 @@ export function effectiveValues(wh: WorkingHousehold, id: string | null): Values
 
 // ---- 当てる（0036 の6・7） ----
 
-export type ReviewState = "ok" | "changed" | "missing" | "gone" | "exists" | "noOwner" | "retired" | "unresolved" | "pending";
+export type ReviewState = "ok" | "changed" | "missing" | "gone" | "exists" | "noOwner" | "retired" | "unresolved";
 
 export interface Review {
   state: ReviewState;
@@ -168,13 +170,14 @@ const REVIEW_NOTES: Record<Exclude<ReviewState, "ok" | "changed">, string> = {
   noOwner: "足す物の相手がありません",
   retired: "意味の変わった欄です",
   unresolved: "読み替えられなかった差分です",
-  pending: "万一の前提の差分は、まだ計算に当てられません（万一の前提をプランごとに変えられるようにする回で当てます）",
 };
 const review = (state: ReviewState, note: string | null = null): Review => ({ state, note: state === "ok" || state === "changed" ? note : (note ?? REVIEW_NOTES[state]) });
 
-/** 当てた結果: 作業中の世帯の要求と、差分ごとの要確認（差分の ID → 要確認） */
+/** 当てた結果: 作業中の世帯の要求と、そのプランの万一の前提、差分ごとの要確認（差分の ID → 要確認） */
 export interface Applied {
   request: EngineRequest;
+  /** 全プラン共通の万一の前提に、万一の前提の差分を当てたもの（0036 の6 の3・0071） */
+  contingency: ContingencyPlan;
   reviews: Map<string, Review>;
 }
 
@@ -199,8 +202,16 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
   const setOne = (d: PlanDiff, target: Input): void => {
     const a = addressOf(d);
     if (a === null) return void reviews.set(d.id, review("missing"));
-    // 万一の前提（全プラン共通の前提をこのプランだけ上書きする。0036 の6 の3）は、まだ当てる所が無い
-    if ("plan" in a.target && a.target.plan === "contingency") return void reviews.set(d.id, review("pending"));
+    // 万一の前提（全プラン共通の前提をこのプランだけ上書きする。0036 の6 の3）は、要求ではなく前提に当てる（下の applyPremiseDiffs）。
+    // ここでは要確認だけを決める: 共通の前提の値が、差分を作った時点の値から変わっていれば「入力が変わりました」
+    if ("plan" in a.target && a.target.plan === "contingency") {
+      const path = ITEM_PLACES[a.item]?.status === "active" ? premisePath(a) : null;
+      if (path === null) return void reviews.set(d.id, review("retired"));
+      const base = readPath(wh.contingency, path);
+      const was = d.before === null || d.before === undefined ? undefined : (unbox(d.before) ?? undefined);
+      const changed = d.before !== undefined && !sameJson(was ?? null, base ?? null);
+      return void reviews.set(d.id, changed ? review("changed", `共通の前提が ${shortText(was ?? null)}→${shortText(base ?? null)} に変わりました`) : review("ok"));
+    }
     if (ITEM_PLACES[a.item]?.status !== "active") return void reviews.set(d.id, review("retired"));
     if (!writeAt(target, a, d.value as DiffBox)) return void reviews.set(d.id, review("missing"));
     const base = readAt(now, a);
@@ -281,7 +292,7 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
   const fee = keyed.get("lever:fee")?.value;
   if (typeof fee === "boolean") req = applyAdvisoryFee(req, fee);
   for (const [k, e] of keyed) if (e.diff !== null && !reviews.has(e.diff.id) && cat.byKey.get(k)?.phase !== "field") reviews.set(e.diff.id, review("ok"));
-  return { request: req, reviews };
+  return { request: req, contingency: applyPremiseDiffs(wh.contingency, plans), reviews };
 }
 
 /** プランを当てる（土台から順に） */
@@ -596,8 +607,8 @@ const isObjLike = (v: unknown): v is Record<string, unknown> => typeof v === "ob
  * ほかのプランは差分のまま残り、当て先が無くなった・現状が変わった差分は「要確認」になる
  */
 export function reflectPlan(wh: WorkingHousehold, cat: Catalog, id: string, now: string): WorkingHousehold {
-  const { request } = applyPlan(wh, id, cat);
-  return { ...wh, request, proposals: wh.proposals.map((p) => (p.id === id ? { ...p, base: null, diffs: [], reflectedAt: now, updatedAt: now } : p)) };
+  const { request, contingency } = applyPlan(wh, id, cat);
+  return { ...wh, request, contingency, proposals: wh.proposals.map((p) => (p.id === id ? { ...p, base: null, diffs: [], reflectedAt: now, updatedAt: now } : p)) };
 }
 
 // ---- プランの名前 ----

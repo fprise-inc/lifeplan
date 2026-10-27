@@ -1,5 +1,5 @@
 // 0004 の5: 登録簿を、それぞれの正本から作る（npm run gen の後半。--check は書き換えずに食い違いを知らせる）
-// - 入力項目ID: データモデルの JSON Schema（engine.input.json の x-item。src/generated/items.json）
+// - 入力項目ID: データモデルの JSON Schema（engine.input.json の x-item。src/generated/items.json）と、画面の側の区画のスキーマ（app/schemas。0035 の6）
 // - 計算部品ID: 公式部品のマニフェスト
 // - 制度の値ID: 製品の制度データ（data/regulation。架空の見本は入れない）
 // 一度載せた ID は消さない。正本から消えた ID は deprecated か removed にしてから外す（0004 の3）
@@ -76,10 +76,22 @@ function sync(file: string, kind: string, header: string, source: ReadonlyMap<st
 
 const SINCE = "# since は公開の約束の版の初期値（0.x。0001 の追記）を β公開で 1.0 にするまで draft とする";
 const items = JSON.parse(readFileSync(join(ENGINE_DIR, "src", "generated", "items.json"), "utf8")) as { items: Record<string, Place & { title: string }> };
+// 0035 の6: 画面の側の値の入力項目ID（世帯ファイルの本文の画面の側の区画のスキーマの x-item）。物の集まりの名前の代わりに区画の名前を書き、
+// 場所はその区画の中の欄の名前（例: 万一の前提 contingencyPremise.* → app/schemas/household.contingency.json の直下の欄。0071）
+for (const [file, section] of [["household.contingency.json", "contingencyPremise"]] as const) {
+  const doc = JSON.parse(readFileSync(join(REPO_DIR, "app", "schemas", file), "utf8")) as { properties: Record<string, { title?: string; "x-item"?: string }> };
+  for (const [name, node] of Object.entries(doc.properties)) {
+    const id = node["x-item"];
+    if (id === undefined) continue;
+    if (!id.startsWith(`${section}.`)) problems.push(`app/schemas/${file}: ${id} は ${section}. で始めます`);
+    if (items.items[id] !== undefined) problems.push(`app/schemas/${file}: ${id} が engine.input.json にもあります`);
+    items.items[id] = { collection: section, path: [name], title: node.title ?? "" };
+  }
+}
 const itemIds = sync(
   "items.yaml",
   "item",
-  `# 0004 の5: 入力項目IDの登録簿。正本は engine/schemas/engine.input.json の x-item（scripts/registry.ts が作る。手で書き換えない）\n# collection・path は値の場所（物の集まりと、物の中の欄の道。collection が null なら要求の入力から）。当て先から値を引くのに使う（0035 の6・9）\n${SINCE}`,
+  `# 0004 の5: 入力項目IDの登録簿。正本は engine/schemas/engine.input.json の x-item と、画面の側の区画のスキーマ app/schemas/*.json の x-item（scripts/registry.ts が作る。手で書き換えない）\n# collection・path は値の場所（物の集まりと、物の中の欄の道。collection が null なら要求の入力から）。当て先から値を引くのに使う（0035 の6・9）\n${SINCE}`,
   new Map(Object.entries(items.items).map(([id, v]) => [id, v.title])),
   new Map(Object.entries(items.items).map(([id, v]) => [id, { collection: v.collection, path: v.path }])),
 );

@@ -14,6 +14,7 @@ import type { FieldDef, Val } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { sameRate } from "../src/workspace/input/units.ts";
 import { sumByYear } from "../src/workspace/present.ts";
+import { man } from "../src/presentation/format.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const open = (id: string, memo: string[] = []): WorkingHousehold => fromRequest(modelHousehold(id), { memo });
@@ -88,13 +89,13 @@ describe("万一の画面の要求", () => {
   const self = hh.members.find((m) => m.kind === "self")!;
   const spouse = hh.members.find((m) => m.kind === "spouse")!;
 
-  it("想定: 大人ごとの死亡と就業不能・本人の大きな病気・（運用する口座があれば）相場の下落。万一なしは世帯の万一の想定・必要保障額の要求を外す", () => {
-    expect(scenarios(wh).map((s) => s.label)).toEqual(["ご主人の死亡", "奥様の死亡", "就業不能（ご主人）", "就業不能（奥様）", "大きな病気（ご主人）", "相場の下落"]);
-    expect(scenarios(open("investmentCouple")).map((s) => s.key)).toEqual(["death:self", "death:spouse", "disability:self", "disability:spouse", "illness:self", "market"]);
+  it("想定: 大人ごとの死亡と就業不能・大人ごとの大きな病気・収入が減る・（運用する口座があれば）相場の下落。万一なしは世帯の万一の想定・必要保障額の要求を外す", () => {
+    expect(scenarios(wh).map((s) => s.label)).toEqual(["ご主人の死亡", "奥様の死亡", "就業不能（ご主人）", "就業不能（奥様）", "大きな病気（ご主人）", "大きな病気（奥様）", "収入が減る", "相場の下落"]);
+    expect(scenarios(open("investmentCouple")).map((s) => s.key)).toEqual(["death:self", "death:spouse", "disability:self", "disability:spouse", "illness:self", "illness:spouse", "income", "market"]);
     const b = baseRequest(modelHousehold("survivorEmployeeLoan"));
     expect(b.input.contingencies).toBeUndefined();
     expect(b.input.protection).toBeUndefined();
-    expect(scenarios(open("single45")).map((s) => s.key)).toEqual(["disability:self", "illness:self", "market"]);
+    expect(scenarios(open("single45")).map((s) => s.key)).toEqual(["disability:self", "illness:self", "income", "market"]);
   });
 
   it("前提（遺族の生活費の割合・整理資金・期間）は必要保障額と死亡の想定の両方に入る。残された配偶者の働き方は死亡の想定にだけ", () => {
@@ -170,7 +171,10 @@ describe("提示用の値がエンジンの結果と一致する", () => {
       const row = m.breakdown.rows.find((r) => r.label === "遺族年金")!;
       expect(row.firstYear).toBe(sp.get(year + 1));
       expect(row.total).toBe([...sp.entries()].filter(([y]) => y >= year && y >= 2027).reduce((s, [, v]) => s + v, 0));
-      expect(m.notices.length > 0).toBe(year >= 2029);
+      expect(m.notices.some((n) => n.includes("見直し前"))).toBe(year >= 2029);
+      // 残された人の年金の月額の一言（エンジンの結果の年金の行を読むだけ。0071）
+      const pen = sumByYear(result.table, (c) => c.member === spouse.id && c.row.startsWith("cf.income.pension"));
+      expect(m.notices[0]).toContain(`月${man(Math.round((pen.get(year + 1) ?? 0) / 12))}万円（${year + 1}年。遺族年金を含む`);
       expect(m.chart.proposal).toEqual(m.chart.years.map((y) => fin.get(y) ?? 0));
     }
   });

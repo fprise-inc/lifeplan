@@ -2,7 +2,7 @@
 // 万一の想定（0008 の5 の contingencies）と必要保障額（要求の protection）は「層」なので、世帯の事実（入力の10段階）には入れず、
 // 想定ごとの前提をここに持ち、万一の画面を開いたときに要求を作る（computeRequests.ts）。
 // 障害の等級は「該当した場合」の仮定で、構成員の実在の状態としては持たない（6.3）
-import type { EngineRequest, OldAgeChoice, SurvivorAssumptions } from "../../engine/types.ts";
+import type { EngineRequest, OldAgeChoice, SurvivorAssumptions, Timepoint } from "../../engine/types.ts";
 
 /** 残された人の働き方の変化（その人の配偶者が亡くなった想定で使う） */
 export interface SurvivorWork {
@@ -12,6 +12,8 @@ export interface SurvivorWork {
   annualSalary?: number;
   /** 亡くなった月の何か月後から（省略は6） */
   afterMonths?: number;
+  /** 変える時期を時点で（人の年齢・出来事から。0071）。あれば afterMonths より先に使い、亡くなった月より前なら亡くなった月に読み替える */
+  from?: Timepoint;
   /** 何歳まで（その年齢に達する月の前月まで。省略は65） */
   untilAge?: number;
 }
@@ -21,6 +23,8 @@ export interface ContingencyPlan {
   survivor: SurvivorAssumptions;
   /** 必要保障額を累計する期間の終わり（省略は配偶者の平均余命） */
   horizon?: { kind: "lifeExpectancy" | "age" | "youngestIndependence"; age?: number };
+  /** 必要保障額の出し方（省略は積み上げ方式）と、逆算方式で遺族が何歳になるまで資産が尽きないようにするか（省略は平均余命。0071） */
+  protection?: { method?: "accumulation" | "reverse"; reverseUntilAge?: number };
   /** 残された人ごとの働き方の変化（構成員の ID → 変化） */
   work: Record<string, SurvivorWork>;
   /** 障害・就業不能の想定の等級（該当した場合の仮定）。0 は障害年金に当たらない就業不能。省略は2級 */
@@ -31,13 +35,21 @@ export interface ContingencyPlan {
   oldAgeChoice: Record<string, OldAgeChoice>;
   /** 想定の年（万一の画面で選んだ年。省略は計算基準年の翌年） */
   year?: number;
-  /** 相場が下がったときの前提（下がる幅。省略は3割。0026） */
-  market?: { drop?: string };
+  /**
+   * 相場が下がったときの前提（下がる幅。省略は3割。0026）。下げる資産（資産の種類と器の種類の印。省略は株・REIT）と、下がった後の
+   * 戻り方（下がった翌年から○年は、運用の利回りを○%までに抑える。省略は翌年からふだんの利回り。0071）
+   */
+  market?: { drop?: string; classes?: string[]; recoveryYears?: number; recoveryCap?: string };
+  /** 相場の下落も重ねて見る（死亡・就業不能・大きな病気・収入が減るの場面に。場面の選び方なのでプランの差分にしない。0071） */
+  stackMarket?: boolean;
+  /** 収入が減る場面の前提（誰の収入・減る割合・年数。省略は本人・2割・3年。0071） */
+  incomeDrop?: { member?: "self" | "spouse" | "both"; ratio?: string; years?: number };
   /**
    * 大きな病気のときの前提（働けない月数・医療費（1か月・10割）と月数。省略は目安。0026）。病気の種類・入院の日数・手術の回数（0055。
-   * 保険の医療・がんの給付の見込みに使う。省略は推定: がん・病気の種類ごとの入院の日数の目安・1回）
+   * 保険の医療・がんの給付の見込みに使う。省略は推定: がん・病気の種類ごとの入院の日数の目安・1回）。復帰の後の働き方（afterMonths か月は、
+   * 収入を afterRatio の割合にする。省略は元の働き方に戻る。0071）
    */
-  illness?: { months?: number; medicalMonthly?: number; medicalMonths?: number; disease?: "cancer" | "heartStroke" | "other"; hospitalDays?: number; surgeries?: number };
+  illness?: { months?: number; medicalMonthly?: number; medicalMonths?: number; disease?: "cancer" | "heartStroke" | "other"; hospitalDays?: number; surgeries?: number; afterMonths?: number; afterRatio?: string };
 }
 
 export function emptyPlan(): ContingencyPlan {
@@ -53,6 +65,7 @@ export function planFromRequest(req: EngineRequest): ContingencyPlan {
   delete sv.spouseWork;
   p.survivor = structuredClone(sv);
   if (prot?.horizon !== undefined) p.horizon = structuredClone(prot.horizon);
+  if (prot?.method === "reverse") p.protection = { method: "reverse", ...(prot.reverseUntilAge !== undefined ? { reverseUntilAge: prot.reverseUntilAge } : {}) };
   if (c !== undefined && c.kind !== "death") {
     // 2級は省略の既定と同じなので持たない
     const g = c.grade ?? 0;

@@ -37,6 +37,8 @@ export interface FieldState {
   implicit?: boolean;
   /** ほかの入力と合わないときの知らせ（例: 住宅ローンの借入額と購入の予定の価格−頭金） */
   warn?: string | null;
+  /** 知らせから押せる直し方（確かめの一覧の行のボタン。押したときだけ直す。例: 表の最後の年を標準にする） */
+  warnFix?: { label: string; run: (wh: WorkingHousehold) => WorkingHousehold } | null;
   /** 時点の欄（kind "when"）の、入れた形のままの時点と読み方 */
   when?: WhenState;
 }
