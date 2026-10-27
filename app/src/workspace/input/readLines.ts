@@ -4,7 +4,7 @@ import { field, type FieldDef, type GroupDef } from "./form.ts";
 
 /** 読むだけの1行の欄（値の文字と、どのカードで入れるか） */
 export function readLine(key: string, label: string, value: string, where: string): FieldDef {
-  return field({ key: `ro/${key}`, item: null, label, level: "simple", kind: "text", readOnly: `${where}のカードで入れます`, get: () => ({ value }), set: (w) => w });
+  return field({ key: `ro/${key}`, item: null, label, level: "simple", kind: "text", readOnly: `${where}の項目で入れます`, get: () => ({ value }), set: (w) => w });
 }
 
 /** 読むだけの1行を並べたまとまり（行が無ければ null） */

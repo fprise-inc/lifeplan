@@ -91,7 +91,7 @@ function Card({ item, onOpen, flash, diffs, firstMark, acts }: { item: InputItem
             {item.label}
             {firstMark ? (
               <span class="first-tag" data-first>
-                最初の5枚
+                最初の5項目
               </span>
             ) : null}
           </span>
@@ -139,7 +139,7 @@ function PinCard({ pin, onOpen, onUnpin, planLabel }: { pin: PinItem; onOpen: (i
   const where = STAGE_ORDER.find((x) => x.id === pin.owner)?.label ?? "";
   return (
     <div class={`ih-pin s-${pin.status}`} style={{ "--c": pin.color }}>
-      <button type="button" class="ih-pin-open" data-pin={pin.id} aria-label={`ピン: ${pin.label}（${statusText(pin)}。物は${where}のカード）を開く`} onClick={() => onOpen(pin.id)}>
+      <button type="button" class="ih-pin-open" data-pin={pin.id} aria-label={`ピン: ${pin.label}（${statusText(pin)}。物は${where}の項目）を開く`} onClick={() => onOpen(pin.id)}>
         <span class="ih-pin-name">
           <span aria-hidden="true">📌</span> {pin.label}
           {pin.planOnly && planLabel !== null ? (
@@ -377,10 +377,10 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
         <h1>
           入力
           <Help label="入力のホーム" id="home">
-            <p>カードを押すと、入力のパネルが開きます。入れ方（標準／詳細）は、パネルの見出しでカードごとに切り替えます。</p>
+            <p>入力項目を押すと、入力のパネルが開きます。入れ方（標準／詳細）は、パネルの見出しで項目ごとに切り替えます。</p>
             <p>空欄は統計の目安などで補って計算します（「推定で計算中」の印）。</p>
             <p>保存した世帯は、世帯ごとに暗号化して自動で保存します（見本の世帯は保存しません。上の「世帯」から保存できます）。</p>
-            <p>進み具合の「未入力」「入力済み」などを押すと、そのカードだけに絞ります。</p>
+            <p>進み具合の「未入力」「入力済み」などを押すと、その入力項目だけに絞ります。</p>
           </Help>
         </h1>
           <div class="ih-check">
@@ -465,7 +465,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       {guide ? (
         <div class="ih-guide" role="note" data-first-guide>
           <p>
-            まず<b>最初の5枚</b>（{items.filter((i) => i.first).map((i) => i.label).join("・")}）を入れてください。ほかのカードは、推定か「当てはまらない」「目安で入れる」の1押しで進められます。
+            まず<b>最初の5項目</b>（{items.filter((i) => i.first).map((i) => i.label).join("・")}）を入れてください。ほかの項目は、推定か「当てはまらない」「目安で入れる」の1押しで進められます。
           </p>
           <button type="button" class="link-btn" onClick={() => setGuideClosed(true)} data-first-guide-close>
             閉じる
@@ -474,9 +474,9 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
       ) : null}
       {statusFilter !== null ? (
         <p class="ih-filter" role="status" data-card-filter={statusFilter}>
-          「{STATUS_NAMES[statusFilter]}」のカードだけを出しています（{shownGroups.reduce((n, g) => n + g.items.length, 0)}枚）。
+          「{STATUS_NAMES[statusFilter]}」の入力項目だけを出しています（{shownGroups.reduce((n, g) => n + g.items.length, 0)}項目）。
           <button type="button" class="link-btn" onClick={() => setStatusFilter(null)} data-card-filter-clear>
-            全部のカードを出す
+            全部の入力項目を出す
           </button>
         </p>
       ) : null}
@@ -497,7 +497,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
             ピン
             <Help label="ピン">
               <p>ホームに出した物です。押すと、その物だけを開きます。進み具合には数えません。</p>
-              <p>「＋ 項目を追加」で足した物は、属するカードに入り、ここにピンが出ます。「外す」はピンだけを外します（物は残ります）。</p>
+              <p>「＋ 項目を追加」で足した物は、属する入力項目に入り、ここにピンが出ます。「外す」はピンだけを外します（物は残ります）。</p>
             </Help>
           </h2>
           <div class="ih-pin-list">

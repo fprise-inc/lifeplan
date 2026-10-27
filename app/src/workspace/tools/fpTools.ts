@@ -305,6 +305,6 @@ export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: 
       out.push({ key: `nisa:${member}`, title: "NISA の枠を使い切る年", text: `${y}年に${who?.kind === "spouse" ? "配偶者の" : who?.kind === "self" ? "本人の" : ""}NISA の生涯の投資枠を使い切ります（その後の積立は課税口座で計算します）`, year: y });
     }
   }
-  if (opts.inheritanceTax != null && opts.inheritanceTax > 0) out.push({ key: "inheritanceTax", title: "相続税がかかる見込み", text: `いま亡くなったときの相続税の目安は${man(opts.inheritanceTax)}万円です（相続・贈与のカード）`, year: null });
+  if (opts.inheritanceTax != null && opts.inheritanceTax > 0) out.push({ key: "inheritanceTax", title: "相続税がかかる見込み", text: `いま亡くなったときの相続税の目安は${man(opts.inheritanceTax)}万円です（相続・贈与の項目）`, year: null });
   return out;
 }

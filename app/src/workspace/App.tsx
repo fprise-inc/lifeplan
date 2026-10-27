@@ -1388,7 +1388,7 @@ export function App() {
       const r = savePlan(o.wh, o.catalog, { name, base: src !== undefined ? src.base : base, values: src !== undefined ? savedValues(o.wh, src.id) : {}, now: nowIso() });
       setInputPlanOn(true);
       const letter = planLetters(r.wh.proposals).get(r.id)?.letter ?? "";
-      placeNew(w, r.wh, r.id, w.drafts, `${planLabel(letter)}を作りました。カードを開いて直すと、${planLabel(letter)}の差分になります`);
+      placeNew(w, r.wh, r.id, w.drafts, `${planLabel(letter)}を作りました。入力項目を開いて直すと、${planLabel(letter)}の差分になります`);
     },
     [placeNew],
   );

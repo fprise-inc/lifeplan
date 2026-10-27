@@ -3,6 +3,7 @@
 // 値は案（作業中の案）にだけ入り、入力（現状）は変えない
 import { useMemo, useState } from "preact/hooks";
 import { Field } from "../input/FieldViews.tsx";
+import { revealAdded } from "../../presentation/revealAdded.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { normalizeNumberText, shiftDecimal } from "../input/units.ts";
 import { BUCKETS, bucketShares, mixFromBuckets, type MixPart } from "./allocation.ts";
@@ -108,7 +109,17 @@ export function ItemMenu({ catalog, shown, onPick, onClose }: { catalog: Catalog
           <section key={g}>
             <h4>{g === "よく使う" ? "よく使う項目" : g === "資産運用" || g === "貯まり方" ? g : `入力: ${g}`}</h4>
             {items.map((it) => (
-              <button type="button" key={it.key} disabled={shown.has(it.key)} onClick={() => onPick(it.key)} data-pick={it.key}>
+              <button
+                type="button"
+                key={it.key}
+                disabled={shown.has(it.key)}
+                onClick={(e) => {
+                  // 足した項目を見える所へ動かして光らせ、最初の欄に移る
+                  revealAdded(e.currentTarget);
+                  onPick(it.key);
+                }}
+                data-pick={it.key}
+              >
                 {it.label}
                 {shown.has(it.key) ? <small>（出しています）</small> : null}
               </button>
@@ -382,7 +393,7 @@ export function ItemRow(props: ItemRowProps) {
   } else control = null;
   const note = item.note?.(value) ?? null;
   return (
-    <div class={`lever added${changed ? " changed" : ""}`} data-added={item.key}>
+    <div class={`lever added${changed ? " changed" : ""}`} data-added={item.key} data-reveal-item>
       <div class="lever-head">
         <span class="lever-label">{item.label}</span>
         <button type="button" class="link-btn" onClick={() => onRemove(item.key)} title="この項目を対策から外す（動かした値は現状に戻す）">

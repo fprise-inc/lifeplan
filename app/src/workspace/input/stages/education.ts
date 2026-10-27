@@ -713,7 +713,7 @@ function giftGroups(wh: WorkingHousehold, goal: Goal, child: Member, who: string
     const k = `edu/${goal.id}/gift/${i}`;
     return {
       key: k,
-      title: `${who}への援助 ${i + 1}（結婚・住宅資金など。相続・贈与のカードにも出ます）`,
+      title: `${who}への援助 ${i + 1}（結婚・住宅資金など。相続・贈与の項目にも出ます）`,
       note: gift.donor !== undefined ? "贈与する人から出すので、援助の額を世帯から出しません" : undefined,
       level: "simple",
       fields: [

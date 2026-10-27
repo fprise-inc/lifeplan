@@ -690,7 +690,7 @@ function importParents(c: Ctx, h: Household, adults: Adults, asOf: string): void
       c.field(id, `${P}.cohabiting`, n, "member.support", "/support/cohabiting", "confirmed");
     }
     h.members.push(m);
-    c.candidate("members", "member.kind", m, undefined, "亡くなる見込み・扶養・親のお金・介護の費用はシートでお聞きしていません。介護・親のカードで入れてください");
+    c.candidate("members", "member.kind", m, undefined, "亡くなる見込み・扶養・親のお金・介護の費用はシートでお聞きしていません。介護・親の項目で入れてください");
   }
 }
 
