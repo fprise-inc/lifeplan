@@ -107,7 +107,7 @@ const cachegrind = (cmd: string, cmdArgs: string[]): number => {
   return Number(m[1]!.replaceAll(",", ""));
 };
 // quickjs-ng: バイトコードへの変換・パックの確かめ・1件（engine-bench --repeat 0）
-const quickjsOnce = ["--engine", enginePath, "--packs", packsPath, "--requests", requestsPath, "--repeat", "0"];
+const quickjsOnce = ["--engine", enginePath, "--packs", packsPath, "--requests", requestsPath, "--repeat", "0", "--time-limit", "600"];
 if (!args.includes("--no-instructions")) {
   const has = (cmd: string) => spawnSync(cmd, ["--version"], { encoding: "utf8" }).status === 0;
   const canTimeL = process.platform === "darwin" && existsSync("/usr/bin/time") && timeL("/usr/bin/true", []) !== undefined;
@@ -135,7 +135,8 @@ if (!args.includes("--no-instructions")) {
 
 const cores = availableParallelism();
 const load1 = Math.round(loadavg()[0]! * 100) / 100;
-const noisy = process.platform !== "win32" && noisyLoad(load1, cores);
+// 揺れの印は手元で測るときだけ（CI の macOS の実行環境は、負荷の平均がいつも論理コア数を超えて出る）
+const noisy = process.env.GITHUB_ACTIONS !== "true" && process.platform !== "win32" && noisyLoad(load1, cores);
 result.machine = { platform: process.platform, arch: process.arch, node: process.version, cores, load1, measuredAt: new Date().toISOString() };
 
 // 表にして出す
