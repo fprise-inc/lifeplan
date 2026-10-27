@@ -9,6 +9,7 @@ import type { Proposal } from "../plans/plans.ts";
 import type { HearingLog } from "../hearing/sheet.ts";
 import type { StatementLog } from "../../../../statement/src/index.ts";
 import type { Snapshot } from "../snapshots/snapshots.ts";
+import type { RecheckMark } from "./recheck.ts";
 import { giveElementIds, lacksElementIds, randomId } from "../store/elementIds.ts";
 
 /** 定年の後に働くときの条件（D: 入力画面の「定年後の予定」。主画面の「働く最後の年齢」を延ばすときにも使う） */
@@ -64,6 +65,11 @@ export interface WorkingHousehold {
    * 書類の数字を消さず、その入れ方に戻すと戻る（隠すだけで消さない）。画面の側の値で、計算の要求には入れない
    */
   pensionKept?: Record<string, PensionRecord[]>;
+  /**
+   * 確かめの一覧の「次回確かめる」の印（0072。形式の版 0.29 から。recheck.ts）。行の ID・付けたときのカードと見出し・付けた日。
+   * 画面の側の値で、計算の要求には入れない
+   */
+  recheck?: RecheckMark[];
   /**
    * 案（0008 の5 のプランの層の「提案」）。現状からの差分だけを持ち、数に上限は付けない。保存の回で世帯ファイル（0011）の
    * 世帯データの proposals に入れる（いまは画面の中で持ち、アプリを閉じると消える）

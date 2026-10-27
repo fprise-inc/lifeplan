@@ -1230,3 +1230,32 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .certain-bar label { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; cursor: pointer; }
 .certain-bar .certain-note { color: var(--muted, #666); }
 .certain-bar.on { border-color: var(--prop); background: color-mix(in srgb, var(--prop) 6%, #fff); }
+/* 確かめの一覧の今の値・出どころ・確かさの札・次回確かめるの印（0072） */
+.ck-value { font-variant-numeric: tabular-nums; }
+.ck-tag { font-size: 0.74rem; border: 1px solid var(--line-2); border-radius: 999px; padding: 0 6px; color: var(--ink-2); }
+.ck-mark { display: inline-flex; gap: 3px; align-items: center; font-size: 0.8rem; color: var(--ink-2); }
+.ck-kind li.marked { background: color-mix(in srgb, var(--est) 8%, transparent); }
+.ck-plan li { border-left: 4px solid var(--plan-c, var(--base)); }
+.ck-gone li { border-left: 4px dotted var(--line-2); }
+.ck-copy { width: 100%; margin-top: 6px; font: inherit; font-size: 0.84rem; }
+/* 入力のホームの帯（全部のカードの入れ方・小さな結果）・進み具合の絞り込み・取り込むの入口（0072） */
+.ih-bar { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; margin: -6px 0 12px; }
+.ih-level { display: inline-flex; align-items: center; gap: 4px; font-size: 0.86rem; color: var(--ink-2); }
+.ih-level button { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 2px 10px; font: inherit; cursor: pointer; }
+.ih-level button.on { border-color: var(--prop); color: var(--prop); font-weight: 700; }
+.ih-mini { display: flex; gap: 10px; align-items: center; }
+.ih-mini svg { background: var(--card); border: 1px solid var(--card-line); border-radius: 6px; }
+.ih-mini-zero { stroke: var(--line); stroke-dasharray: 3 3; }
+.ih-mini-cur { fill: none; stroke: var(--prop); stroke-width: 2; }
+.ih-mini-cur.dim { stroke: var(--ink-2); stroke-dasharray: 4 3; stroke-width: 1.5; }
+.ih-mini-plan { fill: none; stroke-width: 2.2; }
+.ih-mini-text { display: grid; gap: 1px; font-size: 0.82rem; }
+.ih-mini-h { font-weight: 700; }
+.ih-mini-text .short { color: var(--short-ink); font-weight: 700; }
+button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
+.ih-prog-f { font: inherit; font-weight: 700; border: 0; background: transparent; cursor: pointer; padding: 0 2px; border-bottom: 1px dashed var(--line); }
+.ih-prog-f.sel, .ih-prog-miss.sel { outline: 2px solid var(--prop); outline-offset: 1px; border-radius: 6px; }
+.ih-filter { font-size: 0.88rem; margin: 0 0 8px; }
+.ih-imports-list { display: grid; gap: 8px; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--card); }
+.ih-imports.off { color: var(--ink-2); }
+.ih-imports-list .hs-tools { justify-content: flex-start; flex-wrap: wrap; }

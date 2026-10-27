@@ -28,10 +28,12 @@ export interface PlanEditProps {
   onSavePlan: (next: WorkingHousehold) => void;
   /** 選んだプランを入力で直せない理由（結果のタブに保存していない変更があるなど）。直せるなら null */
   lock: string | null;
+  /** 結果のタブへ（選んでいるプランのまま。0072） */
+  onResults?: () => void;
 }
 
-/** 編集の対象の選び方とプランの色の帯 */
-export function PlanTarget({ p }: { p: PlanEditProps }) {
+/** 編集の対象の選び方とプランの色の帯（プランの編集中は、帯の中に違いの一覧の入口と「結果を見る」） */
+export function PlanTarget({ p, diffs }: { p: PlanEditProps; diffs?: { rows: readonly DiffRow[]; open: boolean; onOpen: (v: boolean) => void } }) {
   const cur = p.list.find((x) => x.id === p.sel) ?? null;
   return (
     <div class={`ih-target${cur !== null ? " on" : ""}`} style={cur !== null ? { "--plan-c": cur.color } : {}} data-plan-target>
@@ -60,6 +62,12 @@ export function PlanTarget({ p }: { p: PlanEditProps }) {
       ) : (
         <span class="ih-target-note">入力（現状）を直すと、保存したプランにも反映されます</span>
       )}
+      {cur !== null && diffs !== undefined ? <DiffListToggle rows={diffs.rows} open={diffs.open} onOpen={diffs.onOpen} /> : null}
+      {cur !== null && p.onResults !== undefined ? (
+        <button type="button" class="link-btn" onClick={p.onResults} data-plan-results>
+          結果を見る
+        </button>
+      ) : null}
       <span class="ih-target-gap" />
       <button type="button" class="link-btn" onClick={() => p.onNew(null)} data-plan-new>
         ＋ 現状から新しいプラン

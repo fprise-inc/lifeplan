@@ -1,6 +1,7 @@
 // 確かめの一覧（推定の一覧。0041）: 推定・わからない・未入力の所と確かめの注意を、カードごとに並べる。行から欄へ移れる（「開く」）。
 // 並び（上から）: ① 未入力（0円で計算中）② わからない ③ 確かめの注意（目安のボタンと同じ確定の値・ほかの入力と合わない値）
-// ④ 計算の知らせ（現状の計算結果の知らせのうち、入力で直せるもの。0064）⑤ 推定（影響の大きい順）
+// ④ 計算の知らせ（現状の計算結果の知らせのうち、入力で直せるもの。0064）⑤ 推定（影響の大きい順）⑥ 確かさが申告・概算の確定の値（絞り込みで出す）
+// - 1行は「カード › まとまり: 欄」・今の値・状態の印・根拠・出どころ（手で・ヒアリング・取り込み・AI）・確かさ（書類・申告・概算）と操作
 // - 同じ値を2つの欄が見せる（今の働き方の欄と、働き方の期間の欄など）ときは、当て先で1行にまとめる
 // - 一覧は世帯の物と欄の定義から毎回作る（保存しない）
 import { allFields, type FieldDef, type Level } from "./form.ts";
@@ -9,10 +10,11 @@ import type { NoticeRow } from "../engineNotices.ts";
 import { noticeMeta } from "../engineNotices.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { inputItems, itemStage } from "./items.ts";
-import { holderOf } from "./rows.ts";
+import { holderOf, rowAt } from "./rows.ts";
 import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, type FieldStatus } from "./valueState.ts";
+import { fieldValueText } from "../plans/planEdit.ts";
 
-export type CheckKind = "missing" | "unknown" | "notice" | "calc" | "estimated";
+export type CheckKind = "missing" | "unknown" | "notice" | "calc" | "estimated" | "certainty";
 
 export const CHECK_KIND_LABELS: Readonly<Record<CheckKind, string>> = {
   missing: "未入力（0円で計算中）",
@@ -20,9 +22,30 @@ export const CHECK_KIND_LABELS: Readonly<Record<CheckKind, string>> = {
   notice: "確かめの注意",
   calc: "計算の知らせ（入力で直せる所）",
   estimated: "推定",
+  certainty: "確かさが申告・概算の値",
 };
 
-export const KIND_ORDER: readonly CheckKind[] = ["missing", "unknown", "notice", "calc", "estimated"];
+export const KIND_ORDER: readonly CheckKind[] = ["missing", "unknown", "notice", "calc", "estimated", "certainty"];
+
+/** 絞り込みをしないときに出す種類（確かさの行は、確かさか種類で絞り込んだときだけ出す） */
+export const DEFAULT_KINDS: readonly CheckKind[] = ["missing", "unknown", "notice", "calc", "estimated"];
+
+/** 値の出どころ（値の箱・値の状態の行の origin.kind） */
+export type OriginKind = "manual" | "hearing" | "import" | "ai" | "auto" | "override";
+
+export const ORIGIN_LABELS: Readonly<Record<OriginKind, string>> = {
+  manual: "手で入れた",
+  hearing: "ヒアリング",
+  import: "取り込み",
+  ai: "AI",
+  auto: "自動（推定）",
+  override: "上書き",
+};
+
+/** 値の確かさ（どこで確かめたか。計算には使わない） */
+export type Certainty = "document" | "declared" | "rough";
+
+export const CERTAINTY_LABELS: Readonly<Record<Certainty, string>> = { document: "書類で確認", declared: "本人の申告", rough: "概算" };
 
 /** 行で押せる操作（世帯を直す。推定で埋める・該当なし・確定・推定にする） */
 export interface CheckAction {
@@ -49,6 +72,14 @@ export interface CheckRow {
   /** 推定の並びに使う影響の大きさ（年額×年数のおおよその円） */
   impact: number;
   actions: CheckAction[];
+  /** 今の値（言葉で。物の行・知らせの行は null） */
+  value?: string | null;
+  /** 値の出どころ（わからなければ null） */
+  origin?: OriginKind | null;
+  /** 値の確かさ（印が無く、出どころから決まらなければ null） */
+  certainty?: Certainty | null;
+  /** 欄の当て先の物・構成員の ID（プランで足した物の行を見分ける） */
+  holder?: string | null;
 }
 
 /**
@@ -86,6 +117,32 @@ function impactOf(f: FieldDef, wh: WorkingHousehold): number {
   if (f.basis === "monthly") return v * 12 * years;
   if (f.basis === "annual") return v * years;
   return v;
+}
+
+const ORIGINS = new Set<string>(Object.keys(ORIGIN_LABELS));
+const CERTAINTIES = new Set<string>(Object.keys(CERTAINTY_LABELS));
+const isObjV = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * 欄の値の出どころと確かさ: 値の箱か値の状態の行から読む（仮の印は自動）。確かさの印が無ければ出どころから決める
+ * （取り込み → 書類で確認、ヒアリング → 本人の申告。手で入れた値は決めない）
+ */
+export function valueMeta(f: FieldDef, wh: WorkingHousehold): { origin: OriginKind | null; certainty: Certainty | null } {
+  let meta: Record<string, unknown> | undefined;
+  if (f.boxed !== undefined) {
+    const b = f.boxed.read(wh);
+    if (isObjV(b) && isObjV(b.origin)) meta = b;
+  }
+  if (meta === undefined && wh.assumed[f.key] !== undefined) return { origin: "auto", certainty: null };
+  if (meta === undefined) {
+    const a = fieldAddress(f, wh);
+    const row = a === null ? undefined : rowAt(wh.request.input as unknown as Record<string, unknown>, a);
+    if (row !== undefined) meta = row as unknown as Record<string, unknown>;
+  }
+  if (meta === undefined) return { origin: null, certainty: null };
+  const o = isObjV(meta.origin) && typeof meta.origin.kind === "string" && ORIGINS.has(meta.origin.kind) ? (meta.origin.kind as OriginKind) : null;
+  const c = typeof meta.certainty === "string" && CERTAINTIES.has(meta.certainty) ? (meta.certainty as Certainty) : o === "import" ? "document" : o === "hearing" ? "declared" : null;
+  return { origin: o, certainty: c };
 }
 
 /** 欄の見出し（まとまりの名前: 欄の名前） */
@@ -143,8 +200,12 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
           seen.add(id);
           const s = fieldStatus(f, wh);
           const level: Level = section.level === "detail" || group.level === "detail" || f.level === "detail" ? "detail" : "simple";
-          const base = { card: item.id, cardLabel: item.label, label: labelOf(group.title ?? section.title, f), fieldKey: f.key, level };
           const st = f.get(wh);
+          const meta = valueMeta(f, wh);
+          const t = a?.target;
+          const holder = t === undefined ? null : "object" in t ? t.object : "member" in t ? t.member : null;
+          const value = s.status === "missing" || s.status === "notApplicable" ? null : st.value === null || st.value === undefined ? null : fieldValueText(f, st.value, wh);
+          const base = { card: item.id, cardLabel: item.label, label: labelOf(group.title ?? section.title, f), fieldKey: f.key, level, value, origin: meta.origin, certainty: meta.certainty, holder };
           if (s.status === "missing") rows.push({ ...base, id: `field:${f.key}`, kind: "missing", detail: s.basis ?? "空欄（0円で計算しています）", impact: 0, actions: [] });
           else if (s.status === "unknown") rows.push({ ...base, id: `field:${f.key}`, kind: "unknown", detail: s.basis !== null ? `代わりの値: ${s.basis}` : "代わりの値で計算しています", impact: impactOf(f, wh), actions: [] });
           else if (s.status === "estimated")
@@ -161,6 +222,8 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
               actions: [{ key: "confirm", label: "✓ この値で確定", title: "確かめた値として確定にします", run: (w) => explicitConfirm(w, f, what) }, ...(std !== null ? [std] : [])],
             });
           } else if (st.warn != null) rows.push({ ...base, id: `field:${f.key}`, kind: "notice", detail: st.warn, impact: 0, actions: st.warnFix != null ? [{ key: "fix", label: st.warnFix.label, run: st.warnFix.run }] : [] });
+          else if (s.status === "confirmed" && (meta.certainty === "declared" || meta.certainty === "rough") && value !== null)
+            rows.push({ ...base, id: `field:${f.key}`, kind: "certainty", detail: `${CERTAINTY_LABELS[meta.certainty]}の値です${meta.origin !== null && meta.origin !== "manual" ? `（${ORIGIN_LABELS[meta.origin]}）` : ""}。書類で確かめるときの候補`, impact: impactOf(f, wh), actions: [] });
         }
   });
   const order = new Map(items.map((i, n) => [i.id, n]));
@@ -186,11 +249,12 @@ function explicitConfirm(wh: WorkingHousehold, f: FieldDef, what: string): Worki
   return next === marked ? wh : next;
 }
 
-/** 推定の欄の全部（「推定をまとめて確定」の全部）。同じ値を見せる欄は1つに */
-export function estimatedFields(wh: WorkingHousehold): FieldDef[] {
+/** 推定の欄の全部（「推定をまとめて確定」の全部。card を渡すとそのカードだけ）。同じ値を見せる欄は1つに */
+export function estimatedFields(wh: WorkingHousehold, card?: string): FieldDef[] {
   const out: FieldDef[] = [];
   const seen = new Set<string>();
   for (const item of inputItems(wh)) {
+    if (card !== undefined && item.id !== card) continue;
     const stage = itemStage(wh, item.id);
     if (stage === null) continue;
     for (const f of allFields(stage)) {
@@ -205,16 +269,16 @@ export function estimatedFields(wh: WorkingHousehold): FieldDef[] {
   return out;
 }
 
-/** 推定をまとめて確定（全部） */
-export function confirmAllEstimates(wh: WorkingHousehold): { wh: WorkingHousehold; count: number } {
-  return confirmAll(wh, estimatedFields(wh));
+/** 推定をまとめて確定（全部か、card のカードだけ） */
+export function confirmAllEstimates(wh: WorkingHousehold, card?: string): { wh: WorkingHousehold; count: number } {
+  return confirmAll(wh, estimatedFields(wh, card));
 }
 
 export { fillAll };
 
 /** 種類ごとの数 */
 export function checkCounts(rows: readonly CheckRow[]): Record<CheckKind, number> {
-  const out: Record<CheckKind, number> = { missing: 0, unknown: 0, notice: 0, calc: 0, estimated: 0 };
+  const out: Record<CheckKind, number> = { missing: 0, unknown: 0, notice: 0, calc: 0, estimated: 0, certainty: 0 };
   for (const r of rows) out[r.kind]++;
   return out;
 }

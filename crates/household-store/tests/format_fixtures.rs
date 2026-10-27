@@ -662,6 +662,20 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(!typed, "{v}: 0.28 より前の版に受給中の年金の種類は無い");
         }
+        // 0.29 から（0072）: 確かめの一覧の「次回確かめる」の印（任意）
+        let marks = now["household"]["recheck"].as_array();
+        if migrate::parse(v).unwrap() >= (0, 29) {
+            assert!(
+                marks.is_some_and(|l| !l.is_empty()
+                    && l.iter().all(|m| m["id"].is_string() && m["on"].is_string())),
+                "{v}: 次回確かめるの印"
+            );
+        } else {
+            assert!(
+                marks.is_none(),
+                "{v}: 0.29 より前の版に次回確かめるの印は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;
