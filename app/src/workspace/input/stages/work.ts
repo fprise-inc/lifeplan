@@ -587,8 +587,14 @@ function nowGroup(wh: WorkingHousehold, m: Member): GroupDef {
     }),
   );
   const past = cur.from.at !== undefined && cur.from.at > base;
-  return { key: `work/${m.id}/now`, title: `${who}の今の働き方`, ...(past ? { note: "今は働いていません。次に始まる働き方を出しています" } : {}), level: "simple", fields, actions: [] };
+  // 標準の「▸ 詳しく」: この期間の詳しい欄（詳細の「働き方の期間（詳しく）」と同じ欄。期間の始まり・終わりと、年収・賞与の分け方は詳細で直す。0078 の追記）
+  const shownItems = new Set(fields.map((f) => f.item));
+  const openFields = periodFields(wh, m, cur, find, "detail", `work/period/${cur.id}`).filter((f) => f.item !== null && !NOT_IN_NOW.has(f.item) && !shownItems.has(f.item));
+  return { key: `work/${m.id}/now`, title: `${who}の今の働き方`, ...(past ? { note: "今は働いていません。次に始まる働き方を出しています" } : {}), level: "simple", fields, actions: [], openFields };
 }
+
+/** 今の働き方の「▸ 詳しく」に出さない、期間の欄（期間の形・年収の分け方。標準の欄と2通りの入れ方にしない） */
+const NOT_IN_NOW: ReadonlySet<string> = new Set(["employment.from", "employment.to", "employment.type", "employment.salary.annual", "employment.salary.bonus", "employment.leaveKind"]);
 
 /** 働き方の期間1件の欄。簡易では種類・年収・賞与・健康保険、詳細では期間・従業員数・労働時間・標準報酬月額・厚生年金の種別も */
 function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find: Finder, level: "simple" | "detail", prefix: string): FieldDef[] {
@@ -1091,7 +1097,7 @@ export function workStage(wh: WorkingHousehold): StageDef {
     actions: people.map((m) => addPeriodAction(wh, m)),
   };
   // 欄・ボタンの後に、推定のままの定年後の予定を入れ直し、新しく作った期間に給付を受け取るかの推定を入れる
-  const wrap = (sec: SectionDef): SectionDef => ({ ...sec, groups: sec.groups.map((g) => ({ ...g, fields: g.fields.map(wrapField), actions: g.actions.map(wrapAction) })), actions: sec.actions.map(wrapAction) });
+  const wrap = (sec: SectionDef): SectionDef => ({ ...sec, groups: sec.groups.map((g) => ({ ...g, fields: g.fields.map(wrapField), actions: g.actions.map(wrapAction), ...(g.openFields !== undefined ? { openFields: g.openFields.map(wrapField) } : {}) })), actions: sec.actions.map(wrapAction) });
   return { id: "work", label: "働き方と収入", lead: "今の働き方・年収と、定年後の予定。", sections: [...simple, detail].map(wrap) };
 }
 

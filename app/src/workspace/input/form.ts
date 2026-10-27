@@ -159,6 +159,11 @@ export interface GroupDef {
   level: Level;
   fields: FieldDef[];
   actions: ActionDef[];
+  /**
+   * 標準で「▸ 詳しく」を開いたときだけ出す欄（詳細では別の所に出す欄。例: 今の働き方の、働き方の期間の詳しい欄）。
+   * 欄の一覧（allFields・確かめの一覧）には入れない（同じ欄は別のまとまりに載っている。0078 の追記）
+   */
+  openFields?: FieldDef[];
 }
 
 export interface SectionDef {

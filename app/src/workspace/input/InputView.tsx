@@ -11,6 +11,7 @@
 import type { ComponentChildren } from "preact";
 import { Help } from "../../presentation/Help.tsx";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { toggledSet, type GroupOpenState } from "./FieldViews.tsx";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
@@ -300,6 +301,9 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const [levels, setLevels] = useState<Readonly<Record<string, Level>>>({});
   const levelOf = (id: string): Level => levels[id] ?? level;
   const setLevelOf = (id: string, l: Level) => setLevels((m) => ({ ...m, [id]: l }));
+  /** まとまりごとの「▸ 詳しく」で開いた物（まとまりのキー）。同じ世帯を開いている間だけ覚え、保存しない（0078 の追記） */
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(new Set());
+  const groupOpen = useMemo<GroupOpenState>(() => ({ isOpen: (k) => openGroups.has(k), toggle: (k) => setOpenGroups((s) => toggledSet(s, k)) }), [openGroups]);
   const backTo = useRef<string | null>(null);
 
   // パネルを閉じたら、押したカードに戻る
@@ -551,6 +555,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           {...(addDraft !== null ? { initialDraft: addDraft } : {})}
           level={levelOf(openId)}
           onLevel={(l) => setLevelOf(openId, l)}
+          groupOpen={groupOpen}
           onSave={save}
           onClose={close}
           {...(focusKey !== null ? { focusKey } : {})}

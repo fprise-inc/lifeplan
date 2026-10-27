@@ -288,6 +288,14 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group.compact { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 8px 12px; }
 .in-group.compact .in-group-h { margin: 0; flex-direction: column; align-items: flex-start; gap: 0; }
 .in-group.compact .fields { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+/* まとまりの「▸ 詳しく」（標準のときだけ。控えめな文字のリンク。開いた中身はリンクの下に出す。0078 の追記） */
+.grp-more { margin-top: 6px; }
+.grp-more .grp-more-btn { font-size: 0.78rem; text-decoration: none; color: var(--ink-2); padding: 2px 0; }
+.grp-more .grp-more-btn:hover, .grp-more .grp-more-btn:focus-visible { text-decoration: underline; }
+.grp-more-body { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--card-line); }
+.in-group.compact .grp-more, .in-group.compact .grp-more-body { grid-column: 1 / -1; }
+.sv-more-row > td { background: #fcfcfb; padding: 2px 10px 10px; }
+.sv-more-row .in-group { margin: 4px 0; background: #fff; }
 .fld-c select { max-width: 100%; }
 .fld-c input.bad { border-color: var(--short); background: var(--short-bg); }
 .fld-c input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--prop); }
