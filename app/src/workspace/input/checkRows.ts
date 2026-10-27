@@ -87,7 +87,7 @@ export interface CheckRow {
 
 /**
  * 目安のボタンで入る値（今までのボタンは、印の無い確定の値で入れていた。0035 の11）。古い世帯でこの値のまま「記録の無い確定」の欄は、
- * 確かめの注意に「目安のボタンと同じ確定の値」として出す（値も状態も変えない。FP が確かめて「✓ この値で確定」か「推定にする」）
+ * 確かめの注意に「目安のボタンと同じ確定の値」として出す（値も状態も変えない。FP が確かめて「この値にする」か「推定にする」）
  */
 export const PRESET_VALUES: Readonly<Record<string, { values: readonly { value: number; label?: string }[]; what: string }>> = {
   "residence.rent": { values: [{ value: 80000 }], what: "家賃 月8万円" },
@@ -223,7 +223,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
               actions: [{ key: "office", label: "事務所の値にする", title: "推定の印のまま、事務所の今の値にします", run: (w) => withOfficeValue(w, f, v) }],
             });
           } else if (s.status === "estimated")
-            rows.push({ ...base, id: `field:${f.key}`, kind: "estimated", detail: s.basis, impact: impactOf(f, wh), actions: availableOps(f, wh, s).includes("confirm") ? [{ key: "confirm", label: "✓ 確定", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] : [] });
+            rows.push({ ...base, id: `field:${f.key}`, kind: "estimated", detail: s.basis, impact: impactOf(f, wh), actions: availableOps(f, wh, s).includes("confirm") ? [{ key: "confirm", label: "この値にする", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] : [] });
           else if (isPresetCandidate(f, wh, s)) {
             const what = PRESET_VALUES[f.item as string]?.what ?? "目安";
             const std = asStandard(f, what);
@@ -233,7 +233,7 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
               kind: "notice",
               detail: `目安のボタンと同じ確定の値です（${what}）。この世帯の値か確かめてください`,
               impact: 0,
-              actions: [{ key: "confirm", label: "✓ この値で確定", title: "確かめた値として確定にします", run: (w) => explicitConfirm(w, f, what) }, ...(std !== null ? [std] : [])],
+              actions: [{ key: "confirm", label: "この値にする", title: "確かめた値として確定にします", run: (w) => explicitConfirm(w, f, what) }, ...(std !== null ? [std] : [])],
             });
           } else if (st.warn != null) rows.push({ ...base, id: `field:${f.key}`, kind: "notice", detail: st.warn, impact: 0, actions: st.warnFix != null ? [{ key: "fix", label: st.warnFix.label, run: st.warnFix.run }] : [] });
           else if (s.status === "confirmed" && (meta.certainty === "declared" || meta.certainty === "rough") && value !== null)
@@ -279,7 +279,7 @@ function explicitConfirm(wh: WorkingHousehold, f: FieldDef, what: string): Worki
   return next === marked ? wh : next;
 }
 
-/** 推定の欄の全部（「推定をまとめて確定」の全部。card を渡すとそのカードだけ）。同じ値を見せる欄は1つに */
+/** 推定の欄の全部（「推定の値をまとめて使う」の全部。card を渡すとそのカードだけ）。同じ値を見せる欄は1つに */
 export function estimatedFields(wh: WorkingHousehold, card?: string): FieldDef[] {
   const out: FieldDef[] = [];
   const seen = new Set<string>();
@@ -299,7 +299,7 @@ export function estimatedFields(wh: WorkingHousehold, card?: string): FieldDef[]
   return out;
 }
 
-/** 推定をまとめて確定（全部か、card のカードだけ） */
+/** 推定の値をまとめて使う（全部か、card のカードだけ） */
 export function confirmAllEstimates(wh: WorkingHousehold, card?: string): { wh: WorkingHousehold; count: number } {
   return confirmAll(wh, estimatedFields(wh, card));
 }

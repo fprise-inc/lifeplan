@@ -142,7 +142,7 @@ function modeField(b: RetirementBenefit, prefix: string): FieldDef {
             x.valueStates = { ...((fresh.valueStates as Obj | undefined) ?? {}), ...((x.valueStates as Obj | undefined) ?? {}) };
           }
         } else if (v === "amount") {
-          // 額で: 目安の額を初めの値として欄に置く（推定のまま。確定は「✓ この値で確定」か、額を打ったとき）。見込みの計算の種類は、額を入れるまで未入力
+          // 額で: 目安の額を初めの値として欄に置く（推定のまま。確定は「この値にする」か、額を打ったとき）。見込みの計算の種類は、額を入れるまで未入力
           if (x.kind === "lumpSum" && x.amount !== undefined && isEstimateBox(x.amount)) x.amount = { ...x.amount, estimate: { method: "standard", basis: `目安の額を初めの値にした（${(x.amount as unknown as { estimate: { basis: string } }).estimate.basis}）` } } as RetirementBenefit["amount"];
           else if (x.amount === undefined) x.amount = estimatedBox(0, `${UNENTERED_AMOUNT}。会社の見込み額・規程の早見表の額を入れてください`);
         }

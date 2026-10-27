@@ -5,7 +5,8 @@
 // 引き金は既定で「?」。mark を渡すと、その印（例: 欄の「推定」の札）を押して開く形になる。
 // 「?」は字ではなく SVG の線で描く（字の上下の余白はフォントで違い、丸の中央からずれるため）。
 // 開いた説明の文は選んでコピーできる。カーソルを「?」から説明の箱へ動かす途中で閉じないよう、外れてから閉じるまで少し待ち、すき間も埋める
-import type { ComponentChildren } from "preact";
+// 開いた説明の箱は body の直下に出す（入力のパネル・一覧・タブの枠の overflow や transform に切られない。0077 の追記）
+import { render, type ComponentChildren } from "preact";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 /** 開いているかの元（どれか1つでも真なら開く） */
@@ -126,7 +127,7 @@ interface HelpProps {
  */
 export type HelpSide = "below" | "above";
 
-function place(btn: HTMLElement, pop: HTMLElement): { top: number; left: number; side: HelpSide } {
+function place(btn: HTMLElement, pop: HTMLElement): { top: number; left: number; side: HelpSide; tall: boolean } {
   const r = btn.getBoundingClientRect();
   const now = pop.getBoundingClientRect();
   const ox = now.left - (Number.parseFloat(pop.style.left) || 0);
@@ -135,16 +136,29 @@ function place(btn: HTMLElement, pop: HTMLElement): { top: number; left: number;
   const h = pop.offsetHeight;
   const vw = document.documentElement.clientWidth;
   const vh = document.documentElement.clientHeight;
-  const left = Math.max(8, Math.min(r.left, vw - w - 8));
-  const below = r.bottom + 6;
-  const up = below + h > vh - 8 && r.top - h - 6 > 8;
-  const top = up ? r.top - h - 6 : below;
-  return { top: top - oy, left: left - ox, side: up ? "above" : "below" };
+  // 画面の高さに収まらない箱は、画面の高さで止めて中を動かせるようにする（data-tall。app.css）
+  return { ...helpPlace({ left: r.left, top: r.top, bottom: r.bottom }, { w, h }, { w: vw, h: vh }, { x: ox, y: oy }), tall: h > vh - 16 };
+}
+
+/**
+ * 開いた説明の箱の置き場所（純粋な関数。画面の外でも確かめられるように）。
+ * 左右: 引き金の左端にそろえ、画面の右端からはみ出すなら左へずらす（画面の左右に 8px 残す）。
+ * 上下: 引き金の下に出し、下に収まらず上に収まるなら上へ。どちらにも収まらなければ、広い方に出して画面の端で止める（箱は CSS で画面の高さに収め、中を動かせる）
+ */
+export function helpPlace(btn: { left: number; top: number; bottom: number }, box: { w: number; h: number }, view: { w: number; h: number }, origin: { x: number; y: number } = { x: 0, y: 0 }): { top: number; left: number; side: HelpSide } {
+  const m = 8;
+  const gap = 6;
+  const left = Math.max(m, Math.min(btn.left, view.w - box.w - m));
+  const roomBelow = view.h - m - (btn.bottom + gap);
+  const roomAbove = btn.top - gap - m;
+  const up = box.h > roomBelow && (box.h <= roomAbove || roomAbove > roomBelow);
+  const top = up ? Math.max(m, btn.top - gap - box.h) : Math.max(m, Math.min(btn.bottom + gap, view.h - m - box.h));
+  return { top: top - origin.y, left: left - origin.x, side: up ? "above" : "below" };
 }
 
 export function Help({ children, label, mark, markClass, id, data }: HelpProps) {
   const [st, setSt] = useState<HelpState>(HELP_CLOSED);
-  const [pos, setPos] = useState<{ top: number; left: number; side: HelpSide } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; side: HelpSide; tall: boolean } | null>(null);
   const popId = `help-${useId()}`;
   const wrap = useRef<HTMLSpanElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
@@ -154,6 +168,12 @@ export function Help({ children, label, mark, markClass, id, data }: HelpProps) 
   const gate = useRef<ReturnType<typeof helpHoverGate> | null>(null);
   gate.current ??= helpHoverGate(ev);
   const hover = gate.current;
+  /** 「?」の包みか説明の箱の中か（箱は body の直下にあるので、包みの中とは限らない） */
+  const inside = (t: EventTarget | null): boolean => t instanceof Node && ((wrap.current?.contains(t) ?? false) || (pop.current?.contains(t) ?? false));
+  // 箱を body の直下に出すか（開いている間だけ。閉じている間は包みの中に隠して置き、読み上げの説明に使う。画面の外〔文字列に描く〕では包みの中）
+  const portal = open && typeof document !== "undefined";
+  /** body の直下の置き場（開いている間だけ body に付ける） */
+  const host = useRef<HTMLDivElement | null>(null);
   useEffect(() => hover.dispose, []);
   // 箱の中で押してドラッグし、外で離したとき（離した所が箱の外なら、そこから待って閉じる）
   useEffect(() => {
@@ -176,7 +196,7 @@ export function Help({ children, label, mark, markClass, id, data }: HelpProps) 
       ev("escape");
     };
     const onDown = (e: PointerEvent) => {
-      if (wrap.current !== null && e.target instanceof Node && wrap.current.contains(e.target)) return;
+      if (inside(e.target)) return;
       ev("outside");
     };
     const re = () => {
@@ -193,11 +213,63 @@ export function Help({ children, label, mark, markClass, id, data }: HelpProps) 
       window.removeEventListener("resize", re);
     };
   }, [open]);
+  // 開いている間は、箱を body の直下の置き場に描く（描くたびに描き直す。置き場所の計算より先）。閉じたら置き場を外す
+  useLayoutEffect(() => {
+    if (!portal) return;
+    host.current ??= document.createElement("div");
+    host.current.setAttribute("data-help-host", "");
+    if (!host.current.isConnected) document.body.appendChild(host.current);
+    render(box, host.current);
+  });
+  useLayoutEffect(() => {
+    if (open || host.current === null) return;
+    render(null, host.current);
+    host.current.remove();
+  }, [open]);
+  useEffect(
+    () => () => {
+      if (host.current === null) return;
+      render(null, host.current);
+      host.current.remove();
+    },
+    [],
+  );
   useLayoutEffect(() => {
     if (open && btn.current !== null && pop.current !== null) setPos(place(btn.current, pop.current));
     if (!open) setPos(null);
   }, [open]);
 
+  const box = (
+    <span
+      ref={pop}
+      id={popId}
+      role="tooltip"
+      class="help-pop"
+      hidden={!open}
+      // 押すとフォーカスが箱へ移る（「?」の外へ出たと見なさない。文はマウスで選べる）
+      tabIndex={-1}
+      style={open ? (pos !== null ? { top: `${pos.top}px`, left: `${pos.left}px` } : { visibility: "hidden" }) : undefined}
+      // 箱の中を押す・ドラッグするのは、下の欄・パネル・つかむ帯へ伝えない（外を押したと見なす処理は、箱の中なら閉じない）
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        hover.dragStart();
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      // 箱は包みの外（body の直下）にあるので、箱の出入りとフォーカスも包みと同じに扱う
+      onMouseEnter={() => hover.enter()}
+      onMouseLeave={() => hover.leave()}
+      onFocusOut={(e) => {
+        if (inside(e.relatedTarget)) return;
+        ev("blur");
+      }}
+      data-side={pos?.side}
+      {...(pos?.tall === true ? { "data-tall": "" } : {})}
+      data-help-pop
+    >
+      {children}
+    </span>
+  );
   return (
     <span
       class="help"
@@ -206,8 +278,7 @@ export function Help({ children, label, mark, markClass, id, data }: HelpProps) 
       onMouseLeave={() => hover.leave()}
       // フォーカスが「?」と説明の箱の外へ出たら閉じる（箱の中を押して文を選ぶ間は、フォーカスが箱へ移るだけで閉じない）
       onFocusOut={(e) => {
-        const to = e.relatedTarget;
-        if (wrap.current !== null && to instanceof Node && wrap.current.contains(to)) return;
+        if (inside(e.relatedTarget)) return;
         ev("blur");
       }}
       {...(id !== undefined ? { "data-help": id } : {})}
@@ -231,31 +302,7 @@ export function Help({ children, label, mark, markClass, id, data }: HelpProps) 
       >
         {mark !== undefined ? mark : <HelpGlyph />}
       </button>
-      <span
-        ref={pop}
-        id={popId}
-        role="tooltip"
-        class="help-pop"
-        hidden={!open}
-        // 押すとフォーカスが箱へ移る（「?」の外へ出たと見なさない。文はマウスで選べる）
-        tabIndex={-1}
-        style={open ? (pos !== null ? { top: `${pos.top}px`, left: `${pos.left}px` } : { visibility: "hidden" }) : undefined}
-        // 箱の中を押す・ドラッグするのは、下の欄・パネル・つかむ帯へ伝えない（外を押したと見なす処理は、包みの中なので閉じない）
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          hover.dragStart();
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          // 欄の名前（label）の中に置いたときに、押すと欄へフォーカスが移って閉じないように
-          if (wrap.current?.closest("label") != null) e.preventDefault();
-        }}
-        data-side={pos?.side}
-        data-help-pop
-      >
-        {children}
-      </span>
+      {portal ? null : box}
     </span>
   );
 }

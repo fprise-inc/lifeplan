@@ -31,7 +31,7 @@ export interface FieldSuggestion {
 export const FieldSuggestions = createContext<Readonly<Record<string, FieldSuggestion>>>({});
 
 /**
- * 値の状態の操作（0041）: 欄の「✓ この値で確定」「推定に戻す」「わからない」「該当なし」を押したときに、世帯（かプランの差分）を直す関数。
+ * 値の状態の操作（0041）: 欄の「この値にする」「推定に戻す」「わからない」「該当なし」を押したときに、世帯（かプランの差分）を直す関数。
  * 入力のパネルが渡す（現状なら valueState.ts の applyStateOp、プランを選んでいるならそのプランの差分にする planStateOp）。
  * 渡さない画面（結果のタブの項目・万一の前提）では、操作を出さない
  */
@@ -330,17 +330,17 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
 }
 
 /**
- * 数の欄の中に「✓ 入れる」を置いたとき、値の文字に使える幅（em）。欄の幅（.fld-c input.num の 9.5em）から、ボタンの分の
- * 左の余白（app.css の input.has-fill の 4.4em）と右の余白・枠を引いた値（見えない Chrome で測って 4.5em）。
- * 収まらない値（円で見た大きな額など）は、ボタンを欄の横に出す
+ * 数の欄の中に「この値にする」を置いたとき、値の文字に使える幅（em）。欄の幅（.fld-c input.num の 9.5em）から、ボタンの分の
+ * 左の余白（app.css の input.has-fill の 5.4em）と右の余白・枠を引いた値（見えない Chrome で測って 3.6em。ボタンの右端と値の左端の間は 6px 以上）。
+ * 収まらない値（円で見た大きな額など）は、ボタンを欄の横に出す（欄の値とボタンを重ねない）
  */
-export const FILL_VALUE_ROOM = 4.5;
+export const FILL_VALUE_ROOM = 3.6;
 
 /** 推定の値を入れるボタンを、数の欄の中に置くか（値が見えていて、ボタンと重ならない長さのときだけ。0041 の追記） */
 export const fillInside = (inputClass: string, shown: string): boolean => inputClass === "num" && shown !== "" && textEm(shown) <= FILL_VALUE_ROOM;
 
 /**
- * 推定の値をそのまま欄に入れるボタン（「✓ この値で確定」と同じ操作。0041 の追記）。押しても欄のフォーカスを動かさない
+ * 推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。押しても欄のフォーカスを動かさない
  * （動かすと、欄の値が入れ直されて「保存していない変更」になるため）
  */
 export function FillButton({ label, status, inside, onFill }: { label: string; status: ValueStatus; inside?: boolean; onFill: () => void }) {
@@ -385,9 +385,12 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   const badge =
     shownStatus !== null && shownStatus !== "confirmed" ? (
       <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} />
+    ) : state.partEstimated != null ? (
+      // 欄の値は確定でも、内訳の一部が推定（年収〔賞与込み〕の賞与など）なら「推定」の印（押すと根拠。0077 の追記）
+      <StateMark status="estimated" basis={state.partEstimated} text="推定" label={f.label} />
     ) : null;
 
-  // 推定の値をそのまま入れる（「✓ この値で確定」と同じ操作）は、欄の横か中のボタン（0041 の追記）
+  // 推定の値をそのまま入れる（値の状態の操作の確定と同じ）は、欄の横か中のボタン（0041 の追記）
   const canFill = ops.includes("confirm") && shownStatus !== null;
   const fill = (inside: boolean) => (canFill && shownStatus !== null ? <FillButton label={f.label} status={shownStatus} inside={inside} onFill={() => runOp("confirm")} /> : null);
   // ほかの操作（わからない・該当なしなど）とプランの印は欄の下（時点の欄でも同じ。0041）
@@ -514,7 +517,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
         }}
       />
     );
-    // 数の欄は、灰色の推定の値の左（欄の中）に「✓ 入れる」を置く。打ち始めると隠れる（app.css）
+    // 数の欄は、灰色の推定の値の左（欄の中）に「この値にする」を置く。打ち始めると隠れる（app.css）
     control = filledInside ? (
       <span class="fld-box">
         {input}

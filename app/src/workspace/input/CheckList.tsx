@@ -99,7 +99,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
   const shownPlan = planRows.filter((r) => passesFilter(r, filter, () => false));
   const counts = checkCounts(all);
   const fillable = shown.filter((r) => r.kind === "missing" && r.actions.some((a) => a.key === "fill")).length;
-  // まとめて確定にできる推定（推定が値でなく決まりの欄は「✓ 確定」を持たない）
+  // まとめて確定にできる推定（推定が値でなく決まりの欄は「この値にする」を持たない）
   const estimated = all.filter((r) => r.kind === "estimated" && (card === "" || r.card === card) && r.actions.some((a) => a.key === "confirm")).length;
   const run = (r: CheckRow, key: string) => {
     const a = r.actions.find((x) => x.key === key);
@@ -265,11 +265,11 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
               class="add-btn"
               onClick={() => {
                 const r = confirmAllEstimates(wh, card === "" ? undefined : card);
-                if (r.count > 0) onEdit(r.wh, `推定をまとめて確定しました（${r.count}つ）`);
+                if (r.count > 0) onEdit(r.wh, `推定の値をまとめて使いました（${r.count}つ）`);
               }}
               data-ck-confirm-all
             >
-              {card === "" ? `推定をまとめて確定（全部 ${estimated}つ）` : `この項目の推定をまとめて確定（${estimated}つ）`}
+              {card === "" ? `推定の値をまとめて使う（全部 ${estimated}つ）` : `この項目の推定の値をまとめて使う（${estimated}つ）`}
             </button>
           ) : null}
           {marks.length > 0 ? (

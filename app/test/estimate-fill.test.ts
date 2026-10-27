@@ -1,6 +1,6 @@
-// 推定の値を1回の操作で欄に入れる（0041 の追記 2026-10-27）: 推定の欄にだけ「✓ 入れる」を出す（数の欄は欄の中、ほかは欄の横）。
-// 押すと「✓ この値で確定」と同じ操作（値はそのまま・推定の根拠を残した確定）。プランを直しているときは差分になる。
-// 確定の欄・未入力の欄には出さない。パネルの上の「推定をまとめて入れる」は、見えている推定の欄の数と同じ
+// 推定の値を1回の操作で欄に入れる（0041 の追記 2026-10-27）: 推定の欄にだけ「この値にする」を出す（数の欄は欄の中、ほかは欄の横）。
+// 押すと「この値にする」と同じ操作（値はそのまま・推定の根拠を残した確定）。プランを直しているときは差分になる。
+// 確定の欄・未入力の欄には出さない。パネルの上の「推定の値をまとめて使う」は、見えている推定の欄の数と同じ
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
@@ -32,15 +32,15 @@ const fieldHtml = (wh: WorkingHousehold, f: FieldDef) => renderToString(h(FieldS
 const panel = (wh: WorkingHousehold, card: string, level: "simple" | "detail" = "simple") => renderToString(h(InputPanel, { wh, itemId: card, level, onLevel: noop, onSave: noop, onClose: noop }));
 const count = (html: string, s: string) => html.split(s).length - 1;
 
-describe("推定の欄の「✓ 入れる」", () => {
-  it("数の欄は、灰色の推定の値と同じ欄の中に置く（欄の下の「✓ この値で確定」の行は無い）", () => {
+describe("推定の欄の「この値にする」", () => {
+  it("数の欄は、灰色の推定の値と同じ欄の中に置く（欄の下の「この値にする」の行は無い）", () => {
     const wh = blankHousehold(BASE, ids());
     const f = fieldOf(wh, "living", "/monthly");
     expect(fieldStatus(f, wh).status).toBe("estimated");
     const html = fieldHtml(wh, f);
-    expect(html).toMatch(/<span class="fld-box"><input [^>]*class="num has-fill"[^>]*\/><button type="button" class="fld-fill inside"[^>]*data-op="confirm" data-fill-estimate="true">✓ 入れる<\/button><\/span>/);
+    expect(html).toMatch(/<span class="fld-box"><input [^>]*class="num has-fill"[^>]*\/><button type="button" class="fld-fill inside"[^>]*data-op="confirm" data-fill-estimate="true">この値にする<\/button><\/span>/);
     expect(html).toContain('aria-label="基本生活費（月額）: 推定の値をこの欄にそのまま入れます（確定になります）"');
-    expect(html).not.toContain("✓ この値で確定");
+    expect(count(html, "この値にする")).toBe(1);
     // ほかの操作（わからない・該当なしなど）は欄の下のまま
     expect(html).toContain("data-op-menu");
     expect(count(html, "data-fill-estimate")).toBe(1);
@@ -51,7 +51,7 @@ describe("推定の欄の「✓ 入れる」", () => {
     const f = fieldOf(wh, "family", "/sex");
     expect(fieldStatus(f, wh).status).toBe("estimated");
     const html = fieldHtml(wh, f);
-    expect(html).toMatch(/<\/select><button type="button" class="fld-fill"[^>]*data-fill-estimate="true">✓ 入れる<\/button>/);
+    expect(html).toMatch(/<\/select><button type="button" class="fld-fill"[^>]*data-fill-estimate="true">この値にする<\/button>/);
   });
 
   it("確定の欄には出さない（押して確定にした後も出ない）", () => {
@@ -71,10 +71,13 @@ describe("推定の欄の「✓ 入れる」", () => {
     expect(fillInside("num", "123.4")).toBe(true);
     expect(fillInside("num", "1,234")).toBe(true);
     expect(fillInside("num", "26.4456")).toBe(false);
+    // 「この値にする」の分（欄の左の 5.4em）を空けると、値に使えるのは 3.6em まで
+    expect(fillInside("num", "715.9")).toBe(true);
+    expect(fillInside("num", "12,345")).toBe(false);
     expect(fillInside("num", "12,345,678")).toBe(false);
     expect(fillInside("num", "")).toBe(false);
     expect(fillInside("ym", "1986-04")).toBe(false);
-    expect(FILL_LABEL).toBe("✓ 入れる");
+    expect(FILL_LABEL).toBe("この値にする");
   });
 
   it("1回の操作で、値はそのまま・状態は確定（推定の根拠を残す）。打ち直せば打った値", () => {
@@ -111,19 +114,19 @@ describe("推定の欄の「✓ 入れる」", () => {
   });
 });
 
-describe("パネルの「推定をまとめて入れる」", () => {
+describe("パネルの「推定の値をまとめて使う」", () => {
   it.each([
     ["blank", "assumptions"],
     ["blank", "living"],
     ["blank", "family"],
     ["salariedCoupleTwoKids", "assumptions"],
-  ])("%s の %s: パネルの上に出し、数は欄の「✓ 入れる」の数と同じ", (m, card) => {
+  ])("%s の %s: パネルの上に出し、数は欄の「この値にする」の数と同じ", (m, card) => {
     const wh = m === "blank" ? blankHousehold(BASE, ids()) : fromRequest(modelHousehold(m), {});
     for (const level of ["simple", "detail"] as const) {
       const html = panel(wh, card, level);
       const fills = count(html, "data-fill-estimate");
       expect(fills, level).toBeGreaterThan(0);
-      const bulk = /<div class="ip-bulk"><button type="button" class="fld-fill"[^>]*data-confirm-all="true">✓ 推定をまとめて入れる（(\d+)つ）<\/button>/.exec(html);
+      const bulk = /<div class="ip-bulk"><button type="button" class="fld-fill"[^>]*data-confirm-all="true">推定の値をまとめて使う（(\d+)つ）<\/button>/.exec(html);
       expect(bulk, level).not.toBeNull();
       expect(Number(bulk![1])).toBe(fills);
       // パネルの頭（本体より上）にある

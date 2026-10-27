@@ -307,7 +307,7 @@ function postBox(h: Household, m: Member, post: PostRetirement | undefined): { p
   return undefined;
 }
 
-/** 定年後の年収の欄: 値の箱は定年後の期間の年収（推定なら推定の印。確定は「✓ この値で確定」）。書くと定年後の予定の年収と期間の箱の両方を書く */
+/** 定年後の年収の欄: 値の箱は定年後の期間の年収（推定なら推定の印。確定は「この値にする」）。書くと定年後の予定の年収と期間の箱の両方を書く */
 function postSalaryField(m: Member, type: PostRetirement["type"]): FieldDef {
   const item = type === "selfEmployed" ? "employment.business.income" : "employment.salary.annual";
   const write = (w: WorkingHousehold, box: Record<string, unknown> | undefined): WorkingHousehold => {
@@ -711,7 +711,9 @@ export const BONUS_SPLIT_METHOD = "derived";
  * - 見せる値は2つの合計。状態は年収の箱の状態（推定・わからない・該当なし・確定）
  * - 合計を入れると: 賞与が確定（人が入れた・書類の値）で合計以下なら、賞与はそのままで年収＝合計−賞与。そうでなければ、賃金の統計（年齢・性別・
  *   働き方の平均）の年収と賞与の割合で賞与を分け（千円単位）、賞与は推定の印（出し方 derived）、年収は確定にする
- * - 空にすると、年収・賞与とも統計の推定に戻す（2つの欄を空にしたのと同じ）。確定・わからないの操作は年収の箱に当てる（賞与はそのまま）
+ * - 空にすると、年収・賞与とも統計の推定に戻す（2つの欄を空にしたのと同じ）。わからないの操作は年収の箱に当てる（賞与はそのまま）。
+ *   「この値にする」（確定）は年収の箱と、推定のままの賞与をその値のまま確定にする（見えている合計を確定にする。0077 の追記）
+ * - 年収が確定で賞与だけが推定なら、欄の名前の横に「推定」の印（partEstimated）
  */
 function salaryTotalField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find: Finder, prefix: string): FieldDef {
   const item = "employment.salary.annual";
@@ -746,7 +748,11 @@ function salaryTotalField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, 
     return edit(w, (s) => {
       s.annual = next as unknown as Box<number>;
       if (box.state === "notApplicable" && s.bonus !== undefined) s.bonus = { state: "notApplicable", origin: { kind: "manual" } } as unknown as Box<number>;
-      else if (!keepBonus) s.bonus = { ...structuredClone(box), value: 0, ...(sub !== undefined ? { substitute: { ...structuredClone(sub), value: 0 } } : {}) } as unknown as Box<number>;
+      // 「この値にする」（確定）は見えている合計を確定にする: 推定のままの賞与も、その値のまま確定にする（推定の根拠は残す。0077 の追記）
+      else if (keepBonus && box.state === "confirmed" && s.bonus?.state === "estimated" && typeof s.bonus.value === "number") {
+        const b = s.bonus as SalaryBox;
+        s.bonus = { value: b.value, state: "confirmed", origin: { kind: "manual" }, estimate: { method: b.estimate?.method ?? "standard", basis: b.estimate?.basis ?? "推定" } } as unknown as Box<number>;
+      } else if (!keepBonus) s.bonus = { ...structuredClone(box), value: 0, ...(sub !== undefined ? { substitute: { ...structuredClone(sub), value: 0 } } : {}) } as unknown as Box<number>;
     });
   };
   return {
@@ -766,7 +772,9 @@ function salaryTotalField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, 
         const basisA = boxBasis(a);
         const basisB = boxBasis(b);
         const estimated = basisA !== null ? (basisB !== null && b?.estimate?.method === "statistic" ? `年収: ${basisA}／賞与: ${basisB}` : basisA) : a?.state === "unknown" ? "わからない（代わりの値）" : null;
-        return { value: total(w), estimated, hint: bv !== null && bv > 0 ? `うち賞与 ${manText(bv)}${basisB !== null ? "（推定）" : ""}` : null };
+        // 年収は確定で賞与だけ推定（合計を入れて統計の割合で分けた・賞与が統計の推定のまま）なら、欄に「推定」の印を出す
+        const partEstimated = basisA === null && a?.state === "confirmed" && basisB !== null ? `賞与は${basisB}` : null;
+        return { value: total(w), estimated, partEstimated, hint: bv !== null && bv > 0 ? `うち賞与 ${manText(bv)}${basisB !== null ? "（推定）" : ""}` : null };
       },
       set: (w, v) => {
         const e = stat();

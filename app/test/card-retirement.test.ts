@@ -302,7 +302,7 @@ describe("古い世帯: 黙って書き換えない", () => {
     expect(lumpEstimate(h, { ...b, member: "nobody" })).toBeNull();
   });
 
-  it("確定は明示の操作だけ: 目安の額のまま「✓ この値で確定」で確定（根拠は残る）", () => {
+  it("確定は明示の操作だけ: 目安の額のまま「この値にする」で確定（根拠は残る）", () => {
     const { wh } = salaried();
     const b = benefitsOf(wh)[0]!;
     const f = fieldOf(wh, "retirement", `retirement/${b.id}/amount`);

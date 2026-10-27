@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import { Help, HELP_GLYPH, HELP_LEAVE_MS, helpHoverGate } from "../src/presentation/Help.tsx";
+import { Help, HELP_GLYPH, HELP_LEAVE_MS, helpHoverGate, helpPlace } from "../src/presentation/Help.tsx";
 import { APP_DIR } from "../scripts/lib.ts";
 
 const CSS = readFileSync(join(APP_DIR, "src", "styles", "app.css"), "utf8");
@@ -138,5 +138,66 @@ describe("開いた説明の文を選んでコピーできる", () => {
     expect(CSS).toMatch(/\.help-pop \{[^}]*user-select: text; -webkit-user-select: text;/);
     const html = renderToString(h(Help, { label: "保存" }, "説明"));
     expect(html).toMatch(/role="tooltip" class="help-pop"[^>]*tabindex="-1"/);
+  });
+});
+
+describe("開いた説明はどこでも見切れない（body の直下に出す・画面の端で向きを変える。0077 の追記）", () => {
+  const SRC = readFileSync(join(APP_DIR, "src", "presentation", "Help.tsx"), "utf8");
+  const view = { w: 1400, h: 1000 };
+
+  it("開いている間は箱を body の直下に描く（パネルの overflow・transform に切られない）。閉じている間は包みの中に隠して置く", () => {
+    expect(SRC).toMatch(/document\.body\.appendChild\(host\.current\)/);
+    expect(SRC).toMatch(/render\(box, host\.current\)/);
+    expect(SRC).toMatch(/\{portal \? null : box\}/);
+    // 閉じている形（文字列に描く）は前と同じく包みの中
+    const html = renderToString(h(Help, { label: "根拠" }, "統計の目安"));
+    expect(html).toMatch(/<span class="help">.*<span id="[^"]+" role="tooltip" class="help-pop" hidden/);
+  });
+
+  it("右の端: 画面の右から 8px 残して左へずらす。左の端: 8px から", () => {
+    expect(helpPlace({ left: 1300, top: 100, bottom: 120 }, { w: 360, h: 80 }, view)).toEqual({ left: 1400 - 360 - 8, top: 126, side: "below" });
+    expect(helpPlace({ left: -20, top: 100, bottom: 120 }, { w: 360, h: 80 }, view).left).toBe(8);
+    // 画面より広い箱は無い（CSS で画面の幅 − 16px まで）が、来ても左の 8px から
+    expect(helpPlace({ left: 500, top: 100, bottom: 120 }, { w: 1500, h: 80 }, view).left).toBe(8);
+  });
+
+  it("下に収まらなければ上へ。どちらにも収まらなければ広い方に出し、画面の中で止める", () => {
+    expect(helpPlace({ left: 100, top: 900, bottom: 920 }, { w: 300, h: 200 }, view)).toEqual({ left: 100, top: 900 - 6 - 200, side: "above" });
+    // 上も下も足りない（背の高い箱）: 広い方（下）に出して、画面の下の端で止める
+    const tall = helpPlace({ left: 100, top: 300, bottom: 320 }, { w: 300, h: 900 }, view);
+    expect(tall.side).toBe("below");
+    expect(tall.top).toBe(1000 - 8 - 900);
+    // 上の方が広いときは上に出し、画面の上の端で止める
+    const up = helpPlace({ left: 100, top: 700, bottom: 720 }, { w: 300, h: 900 }, view);
+    expect(up).toMatchObject({ side: "above", top: 8 });
+  });
+
+  it("transform のかかった枠の中の基準（origin）を引く", () => {
+    expect(helpPlace({ left: 100, top: 100, bottom: 120 }, { w: 300, h: 80 }, view, { x: 40, y: 50 })).toEqual({ left: 60, top: 76, side: "below" });
+  });
+
+  it("画面の高さに収まらない箱は画面の高さで止めて中を動かす", () => {
+    expect(CSS).toMatch(/\.help-pop\[data-tall\] \{ max-height: calc\(100vh - 16px\); overflow-y: auto; \}/);
+    expect(CSS).toMatch(/\.help-pop \{[^}]*max-width: min\(26em, calc\(100vw - 16px\)\)/);
+  });
+});
+
+describe("状態の印は文字だけ（枠・地の色なし。0077 の追記）", () => {
+  const rule = (sel: string) => new RegExp(`(^|\\n)${sel.replace(/[.[\]()]/g, "\\$&")} \\{([^}]*)\\}`).exec(CSS)?.[2] ?? "";
+
+  it("推定・わからない・該当なし・未入力の印に枠も地の色も無い。色は今の色", () => {
+    expect(rule(".badge")).toMatch(/border: 0;/);
+    expect(rule(".badge")).toMatch(/background: none;/);
+    expect(rule(".badge.est")).toBe(" color: var(--base-ink); ");
+    expect(rule(".badge.unk")).toBe(" color: var(--est-ink); ");
+    expect(rule(".badge.na")).toBe(" color: var(--ink-2); ");
+    expect(rule(".badge.missing")).toBe(" color: var(--short-ink); ");
+    expect(CSS).not.toMatch(/\.badge[^{]*\{[^}]*dashed/);
+  });
+
+  it("押せる印は、カーソルを合わせる・開いている間だけ下線（「?」の丸の色の変わり方は当てない）", () => {
+    expect(CSS).toMatch(/\.help-btn\.help-mark \{[^}]*border: 0;[^}]*background: none;[^}]*text-decoration: none;/);
+    expect(CSS).toMatch(/\.help-btn\.help-mark:hover, \.help-btn\.help-mark\[aria-expanded="true"\] \{ text-decoration: underline; \}/);
+    expect(CSS).toMatch(/\.help-btn:not\(\.help-mark\):hover/);
   });
 });

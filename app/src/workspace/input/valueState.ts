@@ -1,8 +1,8 @@
 // 欄の値の状態（0035 の3・0041）: どの欄も同じ決まりで「推定・わからない・該当なし・確定・未入力（0円で計算中）」を読み、
-// 4つの操作（✓ この値で確定・推定に戻す・わからない・該当なし）で変える。呼ぶ側は、状態が値の箱にあるか、値の状態の欄（valueStates）・
+// 4つの操作（この値にする・推定に戻す・わからない・該当なし）で変える。呼ぶ側は、状態が値の箱にあるか、値の状態の欄（valueStates）・
 // 仮の印（assumed）にあるかを分けない（ここだけが分ける）。
 // - 確定は明示の操作だけ: 欄に入って離れる・Tab で通る・同じ文字を書き戻す、では何も変えない（form.ts の field）。推定の値をそのまま
-//   使うときは「✓ この値で確定」。推定の根拠を残した確定（値の箱・行の estimate）にして、記録の無い確定（打った値・古い世帯の値）と見分ける
+//   使うときは「この値にする」。推定の根拠を残した確定（値の箱・行の estimate）にして、記録の無い確定（打った値・古い世帯の値）と見分ける
 // - 未入力は状態を持たない: 値が無い（か「未入力（0円で計算）」の印の0円）のを、画面が決まりで判定する
 // - プランを選んでいるときは、同じ操作をそのプランの差分にする（planStateOp。0036 の8）
 import type { Catalog } from "../plans/items.ts";
@@ -23,7 +23,7 @@ export interface FieldStatus {
   status: ValueStatus;
   /** 推定・わからない（代わりの値）・明示の確定の根拠 */
   basis: string | null;
-  /** FP が「✓ この値で確定」で確定した（推定の根拠を残した確定） */
+  /** FP が「この値にする」で確定した（推定の根拠を残した確定） */
   explicit: boolean;
   /** 外から来た値を承認した記録がある（ヒアリング・取り込み・AI） */
   approved: boolean;
@@ -32,17 +32,17 @@ export interface FieldStatus {
 export type StateOp = "confirm" | "revert" | "unknown" | "notApplicable";
 
 export const OP_LABELS: Readonly<Record<StateOp, string>> = {
-  confirm: "✓ この値で確定",
+  confirm: "この値にする",
   revert: "推定に戻す",
   unknown: "わからない",
   notApplicable: "該当なし",
 };
 
 /**
- * 欄の横（数の欄は欄の中）に出す、推定の値をそのまま欄に入れるボタン（「✓ この値で確定」と同じ操作。0041 の追記）。
+ * 欄の横（数の欄は欄の中）に出す、推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。
  * 推定の値は欄に灰色で見えているので、「入れる」の1押しで確定にする
  */
-export const FILL_LABEL = "✓ 入れる";
+export const FILL_LABEL = "この値にする";
 
 /** 入れるボタンの説明（ボタンの title と読み上げの名前に使う） */
 export const fillTitle = (s: ValueStatus): string => (s === "unknown" ? "代わりの値をこの欄にそのまま入れます（確定になります）" : "推定の値をこの欄にそのまま入れます（確定になります）");
@@ -124,7 +124,7 @@ export function availableOps(f: FieldDef, wh: WorkingHousehold, s: FieldStatus =
 }
 
 /**
- * 推定の欄を「✓ この値で確定」にできるか（applyStateOp の confirm が世帯を変えるか）: 値の箱の欄、仮の印の欄、当て先に値がある欄、
+ * 推定の欄を「この値にする」にできるか（applyStateOp の confirm が世帯を変えるか）: 値の箱の欄、仮の印の欄、当て先に値がある欄、
  * 空欄のまま推定で計算する欄で推定の値を書ける欄（blankEstimate）。どれでもない欄（積立をやめる年齢の空欄など、推定が値でなく決まりのもの）は確定にできない
  */
 function confirmable(f: FieldDef, wh: WorkingHousehold, a: Address | null): boolean {
@@ -252,7 +252,7 @@ export function typeValue(f: FieldDef, wh: WorkingHousehold, v: Val): WorkingHou
   return a !== null && rowAt(input(next), a) !== undefined ? withRow(withoutAssumed(next, f.key), a, undefined) : next;
 }
 
-/** まとまり・カード・全部の「推定をまとめて確定」: 推定の欄を、それぞれその値で確定にする。確定にした数も返す */
+/** まとまり・カード・全部の「推定の値をまとめて使う」: 推定の欄を、それぞれその値で確定にする。確定にした数も返す */
 export function confirmAll(wh: WorkingHousehold, fields: readonly FieldDef[]): { wh: WorkingHousehold; count: number } {
   let w = wh;
   let count = 0;

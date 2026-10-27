@@ -34,7 +34,7 @@ const action = (wh: WorkingHousehold, key: string) => {
 const total = (req: WorkingHousehold["request"], row: string) => preview(req).table.filter((c) => c.row === row).reduce((s, c) => s + c.amount, 0);
 
 describe("経済の前提: FPライズの標準（仮の値）の推定", () => {
-  it("標準と同じ値で行が無ければ推定。確定は「✓ この値で確定」だけで、値は変えない", () => {
+  it("標準と同じ値で行が無ければ推定。確定は「この値にする」だけで、値は変えない", () => {
     const wh = open();
     const f = fieldOf(wh, "assume/inflation");
     expect(fieldStatus(f, wh)).toMatchObject({ status: "estimated", basis: STANDARD_BASIS });
