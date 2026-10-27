@@ -19,7 +19,7 @@ import { roles } from "../../roles.ts";
 import { formatYearMonth, wareki } from "../units.ts";
 import { moneySections } from "../moneyRows.ts";
 import { careGroup, NONE_CLAIMED } from "./events.ts";
-import { addMember, donorGroups, outsidePerson, removeMember } from "./family.ts";
+import { addMember, donorGroups, expectedBirthHint, outsidePerson, removeMember } from "./family.ts";
 
 const members = (h: Household) => h.members;
 
@@ -177,7 +177,12 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
         find,
         path: ["birth", "birthYearMonth"],
         help: "分からなければ年齢の目安のままで計算できます（仮の印が付きます）",
-        hint: (v) => (typeof v === "string" ? `${String(ageAt({ ...m, birth: { ...m.birth, birthYearMonth: v } }, base))}歳（${wareki(v)}）` : null),
+        // 生年月が今より後（これから生まれる孫など）なら、マイナスの年齢ではなく家族のカードと同じ読み（今から○年後・本人の年齢）
+        hint: (v, w) => {
+          if (typeof v !== "string") return null;
+          const age = ageAt({ ...m, birth: { ...m.birth, birthYearMonth: v } }, base);
+          return age < 0 ? expectedBirthHint(w, v) : `${String(age)}歳（${wareki(v)}）`;
+        },
       }), ["birthYearMonth"]),
       onMember(m.id, plain({ key: `${k}/sex`, item: "member.sex", label: "性別", level: "detail", kind: "select", options: SEX_OPTIONS, find, path: ["sex"], help: "亡くなる見込み（平均余命）の推定と、父・母の呼び方に使います" })),
     );

@@ -1,6 +1,7 @@
 // 確かめの一覧（推定の一覧。0041）: 推定・わからない・未入力の所と確かめの注意を、カードごとに並べる。行から欄へ移れる（「開く」）。
-// 並び（上から）: ① 未入力（0円で計算中）② わからない ③ 確かめの注意（目安のボタンと同じ確定の値・ほかの入力と合わない値）
-// ④ 計算の知らせ（現状の計算結果の知らせのうち、入力で直せるもの。0064）⑤ 推定（影響の大きい順）⑥ 確かさが申告・概算の確定の値（絞り込みで出す）
+// 並び（上から）: ① 未入力（0円で計算中）② まだ入れていない項目（入れ始める前の項目。警告にせず、見落としに気づける所として1か所にまとめる。0045 の追記）
+// ③ わからない ④ 確かめの注意（目安のボタンと同じ確定の値・ほかの入力と合わない値）
+// ⑤ 計算の知らせ（現状の計算結果の知らせのうち、入力で直せるもの。0064）⑥ 推定（影響の大きい順）⑦ 確かさが申告・概算の確定の値（絞り込みで出す）
 // - 1行は「カード › まとまり: 欄」・今の値・状態の印・根拠・出どころ（手で・ヒアリング・取り込み・AI）・確かさ（書類・申告・概算）と操作
 // - 同じ値を2つの欄が見せる（今の働き方の欄と、働き方の期間の欄など）ときは、当て先で1行にまとめる
 // - 一覧は世帯の物と欄の定義から毎回作る（保存しない）
@@ -17,10 +18,11 @@ import { holderOf, rowAt } from "./rows.ts";
 import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, type FieldStatus } from "./valueState.ts";
 import { fieldValueText } from "../plans/planEdit.ts";
 
-export type CheckKind = "missing" | "unknown" | "notice" | "calc" | "estimated" | "certainty";
+export type CheckKind = "missing" | "notStarted" | "unknown" | "notice" | "calc" | "estimated" | "certainty";
 
 export const CHECK_KIND_LABELS: Readonly<Record<CheckKind, string>> = {
   missing: "未入力（0円で計算中）",
+  notStarted: "まだ入れていない項目",
   unknown: "わからない",
   notice: "確かめの注意",
   calc: "計算の知らせ（入力で直せる所）",
@@ -28,10 +30,10 @@ export const CHECK_KIND_LABELS: Readonly<Record<CheckKind, string>> = {
   certainty: "確かさが申告・概算の値",
 };
 
-export const KIND_ORDER: readonly CheckKind[] = ["missing", "unknown", "notice", "calc", "estimated", "certainty"];
+export const KIND_ORDER: readonly CheckKind[] = ["missing", "notStarted", "unknown", "notice", "calc", "estimated", "certainty"];
 
 /** 絞り込みをしないときに出す種類（確かさの行は、確かさか種類で絞り込んだときだけ出す） */
-export const DEFAULT_KINDS: readonly CheckKind[] = ["missing", "unknown", "notice", "calc", "estimated"];
+export const DEFAULT_KINDS: readonly CheckKind[] = ["missing", "notStarted", "unknown", "notice", "calc", "estimated"];
 
 /** 値の出どころ（値の箱・値の状態の行の origin.kind） */
 export type OriginKind = "manual" | "hearing" | "import" | "ai" | "auto" | "override";
@@ -166,12 +168,15 @@ function asStandard(f: FieldDef, what: string): CheckAction | null {
   };
 }
 
-function gapRow(g: Gap, cardLabel: string): CheckRow {
+function gapRow(g: Gap, cardLabel: string, notStarted: boolean): CheckRow {
   const actions: CheckAction[] = [];
   if (g.fill !== undefined) actions.push({ key: "fill", label: "推定で埋める", run: g.fill, ...(g.basis !== undefined ? { title: `推定: ${g.basis}` } : {}) });
   if (g.none !== undefined) actions.push({ key: "none", label: `該当なし${g.noneLabel !== undefined ? `（${g.noneLabel}）` : ""}`, run: g.none });
-  return { id: `gap:${g.id}`, kind: "missing", card: g.card, cardLabel, label: g.label, detail: g.note, fieldKey: null, level: "simple", impact: 0, actions };
+  return { id: `gap:${g.id}`, kind: notStarted ? "notStarted" : "missing", card: g.card, cardLabel, label: g.label, detail: g.note, fieldKey: null, level: "simple", impact: 0, actions };
 }
+
+/** 入っていない物の無い、まだ入れていない項目の1行（開くだけ） */
+const NOT_STARTED_DETAIL = "まだ何も入れていません（入れるまでは、この項目のお金を無しで計算しています）";
 
 /**
  * 確かめの一覧（並びは ①未入力 ②わからない ③確かめの注意 ④計算の知らせ ⑤推定。同じ種類の中はカードの順。推定は影響の大きい順）。
@@ -181,7 +186,13 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
   const rows: CheckRow[] = [];
   const items = inputItems(wh);
   const labels = new Map(items.map((i) => [i.id, i.label]));
-  for (const g of gapsOf(wh)) rows.push(gapRow(g, labels.get(g.card) ?? g.card));
+  // まだ入れていない項目（items.ts の startedOf）の入っていない物は、警告でなく「まだ入れていない項目」に。入っていない物の無い項目も1行で並べる
+  const notStarted = new Set(items.filter((i) => i.status === "empty").map((i) => i.id));
+  const gaps = gapsOf(wh);
+  for (const g of gaps) rows.push(gapRow(g, labels.get(g.card) ?? g.card, notStarted.has(g.card)));
+  for (const i of items)
+    if (notStarted.has(i.id) && !gaps.some((g) => g.card === i.id))
+      rows.push({ id: `notStarted:${i.id}`, kind: "notStarted", card: i.id, cardLabel: i.label, label: "まだ入れていません", detail: i.hint ?? NOT_STARTED_DETAIL, fieldKey: null, level: "simple", impact: 0, actions: [] });
   // 目安で自動で足した退職金（制度の無い勤め先もある）・公務員と役員の0円の額は、確かめの注意に（推定より上に出す。0057）
   for (const n of retirementNotices(wh)) rows.push({ id: `notice:${n.id}`, kind: "notice", card: "retirement", cardLabel: labels.get("retirement") ?? "退職金・企業年金", label: n.label, detail: n.detail, fieldKey: null, level: "simple", impact: 0, actions: n.actions });
   for (const n of notices) {
@@ -308,7 +319,7 @@ export { fillAll };
 
 /** 種類ごとの数 */
 export function checkCounts(rows: readonly CheckRow[]): Record<CheckKind, number> {
-  const out: Record<CheckKind, number> = { missing: 0, unknown: 0, notice: 0, calc: 0, estimated: 0, certainty: 0 };
+  const out: Record<CheckKind, number> = { missing: 0, notStarted: 0, unknown: 0, notice: 0, calc: 0, estimated: 0, certainty: 0 };
   for (const r of rows) out[r.kind]++;
   return out;
 }

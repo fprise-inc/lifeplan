@@ -4,9 +4,9 @@ import type { Household, IncomeFlowKind, Member, MoneyOutKind, Relation, Timepoi
 import { addMonths, ageAt } from "../../levers.ts";
 import { roles } from "../../roles.ts";
 import { resolveTimepoint } from "../../timepoint.ts";
-import { byId, field, plain, removeAction, timepointField, timeView, type ActionDef, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { byId, field, plain, removeAction, timepointField, type ActionDef, type Val, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { followStandards, LEAVES_BASIS, mutate, newId, standardLeavesPoint, type WorkingHousehold } from "../household.ts";
-import { addExpense, addIncome, moneySections } from "../moneyRows.ts";
+import { addExpense, addIncome, defaultSupportChild, moneySections, setSupportChild } from "../moneyRows.ts";
 import { NONE_CLAIMED } from "./events.ts";
 import { creditKey } from "../housingCredit.ts";
 import { fillEducation } from "../fill.ts";
@@ -46,6 +46,8 @@ function removeMemberRaw(wh: WorkingHousehold, id: string): WorkingHousehold {
       h.debts = h.debts.filter((d) => d.debtors.length > 0);
     }
     if (h.donors !== undefined) for (const d of h.donors) if (d.of === id) delete d.of;
+    // お金の行の相手がこの人なら、相手を空にする（外した人を指したままにしない）
+    for (const r of [...(h.incomeFlows ?? []), ...(h.periodicExpenses ?? [])]) if (r.counterparty === id) delete r.counterparty;
     for (const key of ["cars", "advisoryFees"] as const) {
       const list = h[key] as { owner?: string; payer?: string }[] | undefined;
       if (list !== undefined) (h as Record<string, unknown>)[key] = list.filter((x) => x.owner !== id && x.payer !== id);
@@ -134,10 +136,10 @@ function followSpouseSex(h: Household, wh: WorkingHousehold, selfSex: unknown): 
 /** 構成員1人のまとまり（家計を1つにする人。世帯の外の家族は介護・親のカードの形で出す。care.ts の outsideGroup） */
 export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const find = byId(members, m.id);
-  // まだ生まれていない（生年月が計算の基準の月より後）なら、マイナスの年齢ではなく「生まれる予定」と出す
+  // まだ生まれていない（生年月が計算の基準の月より後）なら、マイナスの年齢ではなく生まれる予定の欄と同じ読み（今から○年後・本人の年齢）を出す
   const ageNow = (ym: string) => {
     const age = ageAt({ ...m, birth: { ...m.birth, birthYearMonth: ym } }, wh.request.input.baseMonth);
-    return age < 0 ? `これから生まれる予定（${wareki(ym)}）` : `${age}歳（${wareki(ym)}）`;
+    return age < 0 ? expectedBirthHint(wh, ym) : `${age}歳（${wareki(ym)}）`;
   };
   const fields: FieldDef[] = [
     field({
@@ -210,7 +212,7 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   if (m.kind !== "self" && !expectedChild)
     fields.push(
       plain({ key: `family/${m.id}/expected`, item: "member.expected", label: m.kind === "spouse" ? "これから加わる（結婚の予定）" : "これから加わる", level: "detail", kind: "bool", find, path: ["expected"] }),
-      timepointField({ key: `family/${m.id}/joins`, item: "member.joins", label: m.kind === "spouse" ? "結婚の予定（加わる時期）" : "加わる時期", level: "detail", find, path: ["joins"], mode: "ym", optional: true, nullText: "最初から" }),
+      timepointField({ key: `family/${m.id}/joins`, item: "member.joins", label: m.kind === "spouse" ? "結婚の予定（加わる時期）" : "加わる時期", level: "detail", find, path: ["joins"], mode: "ym", ageOf: (h) => h.members.find((x) => x.id === m.id), dateStyle: "birth", optional: true, nullText: "最初から" }),
     );
   const actions: ActionDef[] = m.kind === "self" ? [] : [{ key: `family/${m.id}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
   if (expectedChild) actions.unshift({ key: `family/${m.id}/born`, label: "生まれました（生年月を確かめて家族にする）", level: "simple", run: (w) => markBorn(w, m.id) });
@@ -221,51 +223,43 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
 // ---- これから生まれる子・独立の標準・本人と配偶者の入れ替え ----
 
 /**
- * これから生まれる子の「生まれる予定」（生年月と加わる月を同じ月にする）。年月・今から○年後・本人が○歳のときで入れられる。
- * 入れた時点は年月にして持つ（生年月は年月の値のため）
+ * これから生まれる子の「生まれる予定」（生年月と加わる月を同じ月にする）。生年月の欄と同じ年月の欄で入れる（入れ方の選択は出さない）。
+ * 読みは「今から2年後・ご主人39歳（令和10年10月）」の形。前の版で加わる月を年齢・出来事の形で持っている世帯は、
+ * 開いただけでは書き換えない（FP が年月を入れ直したときに、生年月と加わる月をその年月にする）
  */
 function expectedBirthField(m: Member): FieldDef {
-  const key = `family/${m.id}/birth`;
-  const self = (h: Household) => h.members.find((x) => x.kind === "self");
-  const read = (wh: WorkingHousehold): Timepoint | null => {
-    const x = wh.request.input.household.members.find((y) => y.id === m.id);
-    return x === undefined ? null : { at: x.birth.birthYearMonth };
-  };
-  const time = timeView({
-    ageOf: self,
-    mode: "ym",
-    modes: ["ym", "now", "age"],
-    monthOnly: "生まれる予定は年月で持ちます（今から・本人の年齢で入れても、その年月にします）",
-    check: (w, tp) => (tp === null ? "空にはできません。生まれる予定の月を入れてください" : null),
-    read,
-    write: (w, tp) => {
-      const ym = tp === null ? null : resolveTimepoint(w.request.input.household, tp);
-      if (ym === null) return w;
-      return mutate(w, (h) => {
-        const x = h.members.find((y) => y.id === m.id);
-        if (x === undefined) return;
-        x.birth = { ...x.birth, birthYearMonth: ym };
-        x.joins = { at: ym };
-      });
-    },
-  });
-  return field({
-    key,
+  const f = plain({
+    key: `family/${m.id}/birth`,
     item: "member.birth",
     label: "生まれる予定",
     level: "simple",
-    kind: "when",
-    time,
+    kind: "ym",
+    find: byId(members, m.id),
+    path: ["birth", "birthYearMonth"],
     help: "生まれる予定の月（出産予定日の月）。その月から家族に加わります",
-    get: (wh) => {
-      const t = read(wh);
-      return { value: t?.at ?? null, hint: t?.at !== undefined ? `これから生まれる予定（${wareki(t.at)}）` : null, when: time.state(wh), assumed: wh.assumed[key] ?? null };
-    },
-    set: (wh, v) => {
-      const tp = typeof v === "object" && v !== null ? v : typeof v === "string" && /^\d{4}-\d{2}$/.test(v) ? { at: v } : null;
-      return tp === null ? wh : time.setWhen(wh, tp, "auto");
+    hint: (v, wh) => (typeof v === "string" ? expectedBirthHint(wh, v) : null),
+    // 年月を入れたら加わる月も同じ月にする
+    after: (_h, target, v) => {
+      target.joins = { at: v as string };
     },
   });
+  // 空にはしない（生年月は要る値。空を入れても今の値のまま）
+  const ok = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}$/.test(v);
+  return { ...f, set: (wh, v) => (ok(v) ? f.set(wh, v) : wh), ...(f.write !== undefined ? { write: (wh: WorkingHousehold, v: Val) => (ok(v) ? f.write!(wh, v) : wh) } : {}) };
+}
+
+/** 生まれる予定の読み: 「今から2年後・ご主人39歳（令和10年10月）」。予定の月が今月より前なら「予定の月を過ぎています」 */
+export function expectedBirthHint(wh: WorkingHousehold, ym: string): string {
+  const base = wh.request.input.baseMonth;
+  const idx = (s: string) => Number(s.slice(0, 4)) * 12 + Number(s.slice(5, 7)) - 1;
+  const d = idx(ym) - idx(base);
+  const y = Math.floor(Math.abs(d) / 12);
+  const mo = Math.abs(d) % 12;
+  const span = y > 0 && mo > 0 ? `${y}年${mo}か月` : y > 0 ? `${y}年` : `${mo}か月`;
+  const parts = [d > 0 ? `今から${span}後` : d === 0 ? "今月" : "予定の月を過ぎています"];
+  const self = wh.request.input.household.members.find((x) => x.kind === "self");
+  if (self !== undefined) parts.push(`${memberLabel(wh, self.id)}${ageAt(self, ym)}歳`);
+  return `${parts.join("・")}（${wareki(ym)}）`;
 }
 
 /** これから生まれる子が生まれた: 予定の印と加わる月を外す（生年月はそのまま。性別を確かめてもらう） */
@@ -487,7 +481,10 @@ function removeRelationStage(h: Household, memberId: string, relId: string): voi
   h.relations = (h.relations ?? []).filter((r) => r.id !== relId);
 }
 
-/** 離婚の後のお金の行（財産分与・養育費）を、関係が終わった翌月から足す。相手は前の配偶者 */
+/**
+ * 離婚の後のお金の行（財産分与・養育費）を、関係が終わった翌月から足す。財産分与の相手は前の配偶者。養育費の相手は養育を受ける子
+ * （受け取る: 世帯の中の下の子、払う: 世帯の外の下の子。終わりはその子の20歳）で、前の配偶者は名前に書く（計算に効かないため。0044 の追記）
+ */
 function afterDivorceRow(wh: WorkingHousehold, memberId: string, relId: string, kind: "propertyDivision" | "childSupport" | "childSupportOut"): WorkingHousehold {
   const h = wh.request.input.household;
   const r = spouseRelations(h, memberId).find((x) => x.id === relId);
@@ -497,18 +494,23 @@ function afterDivorceRow(wh: WorkingHousehold, memberId: string, relId: string, 
   return mutate(added, (hh) => {
     const row = (kind === "childSupportOut" ? hh.periodicExpenses : hh.incomeFlows)?.find((x) => x.id === id) as { from: Timepoint; to?: Timepoint | null; counterparty?: string } | undefined;
     if (row === undefined) return;
-    row.counterparty = memberId;
     if (start !== null) {
       row.from = start;
       if (kind === "propertyDivision") row.to = structuredClone(start);
     }
-    if (kind !== "propertyDivision") row.to = childEndPoint(hh) ?? row.to ?? null;
+    if (kind === "propertyDivision") {
+      row.counterparty = memberId;
+      return;
+    }
+    (row as { label?: string }).label = kind === "childSupportOut" ? "養育費（前の配偶者へ）" : "養育費（前の配偶者から）";
+    row.to = null;
+    setSupportChild(hh, row, defaultSupportChild(hh, kind === "childSupportOut" ? "out" : "in"));
   });
 }
 
 // ---- 家族のお金の行（養育費・手当・財産分与・同居の家族から・子への仕送り。0044）----
 
-/** 養育費・手当の終わりの既定: いちばん下の子の18歳の年度末（児童扶養手当の決まりの年齢）。子がいなければ null */
+/** 手当の終わりの既定: いちばん下の子の18歳の年度末（児童扶養手当の決まりの年齢）。子がいなければ null。養育費は相手の子の20歳（moneyRows.ts） */
 function childEndPoint(h: Household): Timepoint | null {
   const kids = h.members.filter((x) => x.kind === "child" && x.outside === undefined).sort((a, b) => b.birth.birthYearMonth.localeCompare(a.birth.birthYearMonth));
   const youngest = kids[0];
@@ -546,14 +548,18 @@ function familyMoney(wh: WorkingHousehold): SectionDef[] {
   }));
 }
 
-/** 家族の行を足す（種類のひな形に、家族の既定: 養育費・手当の終わりは下の子の18歳の年度末、仕送りの相手は離れて暮らす子） */
+/**
+ * 家族の行を足す（種類のひな形に、家族の既定: 手当の終わりは下の子の18歳の年度末、養育費の相手は養育を受ける下の子〔受け取る: 世帯の中、
+ * 払う: 世帯の外〕で終わりはその子の20歳、仕送りの相手は離れて暮らす子）
+ */
 function familyRow(wh: WorkingHousehold, dir: "in" | "out", kind: string): WorkingHousehold {
   const id = newId();
   const added = dir === "out" ? addExpense(wh, kind as MoneyOutKind, id) : addIncome(wh, kind as IncomeFlowKind, id);
   return mutate(added, (h) => {
     const row = (dir === "out" ? h.periodicExpenses : h.incomeFlows)?.find((x) => x.id === id) as { to?: Timepoint | null; counterparty?: string } | undefined;
     if (row === undefined) return;
-    if (kind === "childSupport" || kind === "benefit") row.to = childEndPoint(h) ?? row.to ?? null;
+    if (kind === "benefit") row.to = childEndPoint(h) ?? row.to ?? null;
+    if (kind === "childSupport") setSupportChild(h, row, defaultSupportChild(h, dir));
     if (kind === "allowance") {
       const kid = allowanceChild(h);
       if (kid !== undefined) row.counterparty = kid;

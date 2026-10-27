@@ -5,6 +5,7 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { PopIcon } from "../../presentation/icons.tsx";
+import { officeShareText, storageText } from "../header/FpMenu.tsx";
 import type { StorageNotice, StoredHousehold, StoreStatus } from "../../engine/host.ts";
 import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGORY, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, parseSampleNo, sampleNoText, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
 import { OFFICE_MESSAGES, sinceText } from "./office.ts";
@@ -315,7 +316,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
   const personal = p.usage === "personal";
   // 一覧に出す通知（鍵が無い・PC の中だけで復元キーを保管していないは、この下と帯の案内で出すので除く）
   const notices = (p.storageNotices ?? []).filter((n) => n.kind !== "needsRecovery" && !(n.kind === "recoveryNotKept" && n.scope === "local"));
-  const storageLabel = p.officeState === undefined || p.officeState === "off" ? "このPCの中" : personal ? (p.officeState === "member" ? "同期フォルダ（2台のPC）" : "同期フォルダ（使えません）") : "事務所の共有フォルダ";
+  const storageLabel = storageText(p.officeState, personal);
   const shown = filterCustomers(p.list, query, catFilter);
   const inUse = new Set(p.list.flatMap((h) => (h.category !== undefined ? [h.category] : [])));
   const shelf = filterShelf(p.shelf, { family: shelfFamily, age: shelfAge, traits: shelfTraits });
@@ -519,13 +520,23 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                   {shown.map((h) => (
                     <tr key={h.id} class={h.id === p.currentId ? "sel" : ""} data-household-row={h.customerNo}>
                       <td>
-                        <b>{h.customerNo}</b>
-                        {h.serial === undefined ? (
-                          <span class="pl-tag hh-free" title={useCats ? "区分の記号＋通し番号の形でない番号（区分を変えても付け替えません）" : "通し番号の形でない番号"}>
-                            自由な番号
-                          </span>
+                        {h.id === p.currentId ? (
+                          <b>{h.customerNo}</b>
+                        ) : (
+                          <button type="button" class="hh-no-btn" onClick={() => p.onOpen(h.id)} title="この世帯を開く" data-open-household-no={h.customerNo}>
+                            {h.customerNo}
+                          </button>
+                        )}
+                        {h.serial === undefined || h.id === p.currentId ? (
+                          <div class="hh-tags">
+                            {h.serial === undefined ? (
+                              <span class="pl-tag hh-free" title={useCats ? "区分の記号＋通し番号の形でない番号（区分を変えても付け替えません）" : "通し番号の形でない番号"}>
+                                自由な番号
+                              </span>
+                            ) : null}
+                            {h.id === p.currentId ? <span class="pl-tag">開いています</span> : null}
+                          </div>
                         ) : null}
-                        {h.id === p.currentId ? <span class="pl-tag">開いています</span> : null}
                         {h.forks > 0 ? (
                           <button type="button" class="link-btn danger hh-fork" onClick={() => p.onForks?.(h.id)} data-household-forks={h.forks}>
                             同期の衝突の写しがあります
@@ -750,9 +761,19 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                 return (
                   <tr key={`${s.kind}-${s.id}`} class={isCurrent ? "sel" : ""} data-sample-row={s.no}>
                     <td>
-                      <b>{s.no}</b>
-                      {s.kind === "app" ? <span class="pl-tag hh-app">アプリ</span> : null}
-                      {isCurrent ? <span class="pl-tag">開いています</span> : null}
+                      {isCurrent ? (
+                        <b>{s.no}</b>
+                      ) : (
+                        <button type="button" class="hh-no-btn" onClick={() => p.onOpenSample(s)} title="この見本を開く" data-open-sample-no={s.no}>
+                          {s.no}
+                        </button>
+                      )}
+                      {s.kind === "app" || isCurrent ? (
+                        <div class="hh-tags">
+                          {s.kind === "app" ? <span class="pl-tag hh-app">アプリ</span> : null}
+                          {isCurrent ? <span class="pl-tag">開いています</span> : null}
+                        </div>
+                      ) : null}
                     </td>
                     <td>
                       {sampleEdit?.id === s.id ? (
@@ -881,7 +902,7 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
               事務所の共有
               <PopIcon />
             </button>
-            <span class="pl-sub">{personal ? "オフ（同期フォルダで1人で使っています）" : p.officeState === "member" ? "オン" : p.officeState === "pending" ? "承認待ち" : p.officeState === "removed" ? "外されました" : p.officeState === "unavailable" ? "使えません" : "オフ（既定）"}</span>
+            <span class="pl-sub">{officeShareText(p.officeState, personal)}</span>
           </>
         ) : null}
         {p.onOfficeDefaults !== undefined ? (

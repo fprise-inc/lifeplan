@@ -117,6 +117,7 @@ describe("取り込みの入口", () => {
     expect(html).not.toContain("data-mini-result");
     expect(html).not.toContain("金融資産の見込み");
     expect(html).not.toContain("data-home-level");
-    expect(html).toContain("data-imports-open");
+    // 入力の入った世帯では、ホームに「取り込む ▾」を出さない（入口は上の帯の FP のメニュー）
+    expect(html).not.toContain("data-imports-open");
   });
 });
