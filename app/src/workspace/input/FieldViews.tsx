@@ -10,7 +10,7 @@ import { fittingPlaceholder, textEm } from "./placeholder.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, TimeView, Val, WhenState } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
-import { availableOps, fieldStatus, OP_LABELS, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
+import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
@@ -323,6 +323,28 @@ export function rejectReason(f: FieldDef, text: string, unit: YenUnit = "man"): 
   }
 }
 
+/**
+ * 数の欄の中に「✓ 入れる」を置いたとき、値の文字に使える幅（em）。欄の幅（.fld-c input.num の 9.5em）から、ボタンの分の
+ * 左の余白（app.css の input.has-fill の 4.4em）と右の余白・枠を引いた値（見えない Chrome で測って 4.5em）。
+ * 収まらない値（円で見た大きな額など）は、ボタンを欄の横に出す
+ */
+export const FILL_VALUE_ROOM = 4.5;
+
+/** 推定の値を入れるボタンを、数の欄の中に置くか（値が見えていて、ボタンと重ならない長さのときだけ。0041 の追記） */
+export const fillInside = (inputClass: string, shown: string): boolean => inputClass === "num" && shown !== "" && textEm(shown) <= FILL_VALUE_ROOM;
+
+/**
+ * 推定の値をそのまま欄に入れるボタン（「✓ この値で確定」と同じ操作。0041 の追記）。押しても欄のフォーカスを動かさない
+ * （動かすと、欄の値が入れ直されて「保存していない変更」になるため）
+ */
+export function FillButton({ label, status, inside, onFill }: { label: string; status: ValueStatus; inside?: boolean; onFill: () => void }) {
+  return (
+    <button type="button" class={`fld-fill${inside === true ? " inside" : ""}`} title={fillTitle(status)} aria-label={`${label}: ${fillTitle(status)}`} onMouseDown={(e) => e.preventDefault()} onClick={onFill} data-op="confirm" data-fill-estimate>
+      {FILL_LABEL}
+    </button>
+  );
+}
+
 /** 欄を離れるときに書くか: 入ったときと同じ文字のまま離れたら書かない（欄に入って離れる・Tab で通るだけで、値も状態も変えない。0041） */
 export const shouldCommitOnBlur = (startText: string | null, text: string): boolean => startText === null || text !== startText;
 
@@ -359,17 +381,15 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
       <StateMark status={shownStatus} basis={shownStatus === "notApplicable" ? null : basisText} text={shownStatus === "estimated" && status === null && state.estimated == null ? "仮" : shownStatus === "missing" ? "未入力" : STATUS_LABELS[shownStatus]} label={f.label} />
     ) : null;
 
-  // 4つの操作とプランの印（時点の欄でも同じ。0041）
+  // 推定の値をそのまま入れる（「✓ この値で確定」と同じ操作）は、欄の横か中のボタン（0041 の追記）
+  const canFill = ops.includes("confirm") && shownStatus !== null;
+  const fill = (inside: boolean) => (canFill && shownStatus !== null ? <FillButton label={f.label} status={shownStatus} inside={inside} onFill={() => runOp("confirm")} /> : null);
+  // ほかの操作（わからない・該当なしなど）とプランの印は欄の下（時点の欄でも同じ。0041）
   const stateLines = (
     <>
       <PlanMarkLine f={f} wh={wh} />
-      {ops.length > 0 ? (
+      {ops.some((o) => o !== "confirm") ? (
         <div class="fld-ops" data-field-ops={f.key}>
-          {ops.includes("confirm") ? (
-            <button type="button" class="link-btn fld-confirm" onMouseDown={(e) => e.preventDefault()} onClick={() => runOp("confirm")} data-op="confirm">
-              {OP_LABELS.confirm}
-            </button>
-          ) : null}
           {ops.some((o) => o !== "confirm") ? (
             <>
               <button type="button" class="link-btn fld-more" aria-expanded={opsOpen} onMouseDown={(e) => e.preventDefault()} onClick={() => setOpsOpen(!opsOpen)} data-op-menu>
@@ -392,10 +412,12 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   );
 
   let control;
+  /** 推定の値を入れるボタンを数の欄の中に置いたか（置かなければ、欄の横に出す） */
+  let filledInside = false;
   /** 入れた文字を使えない理由（打っている間）か、使えないまま離れた知らせ */
   let problem: string | null = null;
   if (f.time !== undefined && f.readOnly === undefined && (f.kind === "when" || inSection)) {
-    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} status={shownStatus} extras={stateLines} />;
+    return <WhenField f={f} time={f.time} state={state.when ?? f.time.state(wh)} label={f.label} badge={badge} id={id} wh={wh} onEdit={onEdit} warn={state.warn ?? null} status={shownStatus} fill={fill(false)} extras={stateLines} />;
   }
   if (f.readOnly !== undefined) {
     control = <span class="ro">{f.kind === "select" ? (f.options.find((o) => o.value === state.value)?.label ?? "") : state.value === null ? "—" : String(state.value)}</span>;
@@ -446,12 +468,14 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
     };
     const bad = draft !== null && parse(draft) === undefined;
     problem = bad ? (rejectReason(f, draft, unit) ?? "この値は入れられません") : rejected;
-    control = (
+    const inputClass = f.kind === "text" ? "txt" : f.kind === "ym" ? "ym" : "num";
+    filledInside = canFill && fillInside(inputClass, shown);
+    const input = (
       <input
         id={id}
         type="text"
         inputMode={f.kind === "text" || f.kind === "ym" ? undefined : "decimal"}
-        class={`${f.kind === "text" ? "txt" : f.kind === "ym" ? "ym" : "num"}${bad ? " bad" : ""}`}
+        class={`${inputClass}${bad ? " bad" : ""}${filledInside ? " has-fill" : ""}`}
         value={draft ?? shown}
         placeholder={f.kind === "ym" ? "例: 2041-06" : f.kind === "text" ? fittingPlaceholder("txt", f.placeholder) : shownStatus === "notApplicable" ? "該当なし" : shownStatus === "missing" ? "未入力" : state.estimated != null ? "空欄＝推定" : ""}
         aria-invalid={bad ? true : undefined}
@@ -484,6 +508,15 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
         }}
       />
     );
+    // 数の欄は、灰色の推定の値の左（欄の中）に「✓ 入れる」を置く。打ち始めると隠れる（app.css）
+    control = filledInside ? (
+      <span class="fld-box">
+        {input}
+        {fill(true)}
+      </span>
+    ) : (
+      input
+    );
   }
 
   const unitControls =
@@ -514,6 +547,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
       <div class="fld-c">
         {control}
         {unitControls}
+        {filledInside ? null : fill(false)}
         {hint !== null && BASIS_HINT.test(hint) && textEm(hint) > 12 ? (
           // 長い推定の根拠（「推定あり: …」）は印だけ出し、押すと開く（0077）
           <StateMark status="estimated" basis={hint.replace(BASIS_HINT, "")} text="推定" label={f.label} />
@@ -574,7 +608,7 @@ function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: stri
  * 横の「入れ方」で見せ方を選び直せる（同じ月のまま形を変える）。読み替えた形と、読めない理由を欄の下に1行で出す。
  * 打っている間は世帯を変えず、欄を離れたとき（Enter）に入れる
  */
-function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status, extras }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; warn: string | null; status: ValueStatus | null; extras: ComponentChildren }) {
+function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status, fill, extras }: { f: FieldDef; time: TimeView; state: WhenState; label: string; badge: ComponentChildren; id: string; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; warn: string | null; status: ValueStatus | null; fill: ComponentChildren; extras: ComponentChildren }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [rejected, setRejected] = useState<string | null>(null);
   const [picked, setPicked] = useState<WhenMode | null>(null);
@@ -675,6 +709,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
             ))}
           </select>
         ) : null}
+        {fill}
       </div>
       <div class="fld-help when-read" id={`${id}-read`} data-when-read={f.key}>
         {reading}

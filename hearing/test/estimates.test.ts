@@ -1,6 +1,6 @@
 // 推定の目安（src/estimates.ts）: 数は正本の YAML（data/master・data/regulation）の写しから読む。入力の画面とヒアリングが同じ関数を使う
 import { describe, expect, it } from "vitest";
-import { businessEstimate, healthRateEstimate, livingEstimate, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, wageCurve, wageSizeClass } from "../src/estimates.ts";
+import { businessEstimate, healthRateEstimate, LIVING_SPLIT_CATEGORIES, livingEstimate, splitLiving, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, wageCurve, wageSizeClass } from "../src/estimates.ts";
 import { masterValue } from "../src/statistics.ts";
 
 describe("推定の目安", () => {
@@ -88,5 +88,25 @@ describe("推定の目安", () => {
     expect(retirementPrevalence()?.value).toBe(749);
     expect(retirementPrevalence(50)?.value).toBe(701);
     expect(retirementPrevalence(5000)?.value).toBe(901);
+  });
+});
+
+describe("総額を費目に分ける（千円単位）", () => {
+  it.each([140000, 264456, 300000, 12345])("総額 %i 円: 端を置く「その他の消費」のほかは千円単位で、合計は総額のまま", (total) => {
+    for (const size of [1, 2, 3, 4]) {
+      const sp = splitLiving(total, size);
+      expect(sp).not.toBeNull();
+      const parts = sp!.parts;
+      expect(LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + parts[c], 0)).toBe(total);
+      for (const c of LIVING_SPLIT_CATEGORIES) {
+        expect(parts[c]).toBeGreaterThanOrEqual(0);
+        if (c !== "otherConsumption") expect(parts[c] % SPLIT_STEP, c).toBe(0);
+      }
+    }
+  });
+  it("丸めた額の合計が総額を超えるほど小さい総額は、1円単位で分ける", () => {
+    const sp = splitLiving(3000, 3)!;
+    expect(LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + sp.parts[c], 0)).toBe(3000);
+    for (const c of LIVING_SPLIT_CATEGORIES) expect(sp.parts[c]).toBeGreaterThanOrEqual(0);
   });
 });

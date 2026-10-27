@@ -316,7 +316,16 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld.jumped { outline: 2px solid var(--prop); outline-offset: 4px; border-radius: 6px; }
 .fld-ops { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; }
 .fld-ops .link-btn { font-size: 0.78rem; }
-.fld-ops .fld-confirm { color: var(--prop); font-weight: 700; }
+/* 推定の値をそのまま欄に入れるボタン（「✓ この値で確定」と同じ操作。0041 の追記）。推定の欄にだけ出す小さなボタン。
+   数の欄は欄の中の左（値は右寄せ）に置き、欄に入って打ち始めると隠す（Tab で移れるよう、隠すのは見た目だけ） */
+.fld-fill { border: 1.5px solid var(--prop); background: #fff; color: var(--prop); border-radius: 999px; padding: 0 8px; font-size: 0.74rem; font-weight: 700; line-height: 1.6; white-space: nowrap; cursor: pointer; }
+.fld-fill:hover, .fld-fill:focus-visible { background: var(--prop); color: #fff; }
+.fld-box { position: relative; display: inline-flex; min-width: 0; }
+.fld-box .fld-fill.inside { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; padding: 0 6px; }
+.fld-c input.num.has-fill { padding-left: 4.4em; padding-right: 6px; }
+.fld-c input.num.has-fill:focus { padding-left: 8px; }
+.fld-box input:focus + .fld-fill.inside { opacity: 0; pointer-events: none; }
+.ip-bulk .fld-fill { font-size: 0.8rem; }
 .ip-bulk { grid-column: 1 / -1; margin-top: 4px; }
 .ip-gaps { grid-column: 1 / -1; margin-top: 6px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--short); background: var(--short-bg); color: var(--short-ink); font-size: 0.86rem; }
 .ip-gaps p { margin: 0 0 2px; font-weight: 700; }

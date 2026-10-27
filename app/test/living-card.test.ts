@@ -207,8 +207,10 @@ describe("総額と費目（0048 の2）", () => {
     expect(l1.categories).toHaveLength(9);
     expect(l1.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(264456);
     expect(l1.categories!.find((c) => c.category === "allowance")!.monthly.value).toBe(0);
-    // 3人の世帯の食料 92,240 ÷ 264,455（8費目の合計）× 264,456
-    expect(l1.categories!.find((c) => c.category === "food")!.monthly.value).toBe(Math.floor((264456 * 92240) / 264455));
+    // 3人の世帯の食料 92,240 ÷ 264,455（8費目の合計）× 264,456 を千円単位に丸めた額（欄は万円の小数1桁で見える）
+    expect(l1.categories!.find((c) => c.category === "food")!.monthly.value).toBe(Math.round((264456 * 92240) / 264455 / 1000) * 1000);
+    // 端を置く「その他の消費」のほかは千円単位
+    for (const c of l1.categories!.filter((x) => x.category !== "otherConsumption")) expect(c.monthly.value! % 1000, c.category).toBe(0);
     expect(isPureSplit(l1)).toBe(true);
     expect(() => preview(w1.request)).not.toThrow();
   });

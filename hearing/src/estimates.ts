@@ -61,20 +61,31 @@ export function livingCategoryAverages(size: number): { amounts: Readonly<Record
   };
 }
 
-/** 総額（月額）を費目に分ける（家計調査の同じ人数の世帯の割合。円未満は切り捨て、端は「その他の消費」）。割合の表が無ければ null */
+/** 按分した費目の額の単位（円。千円単位） */
+export const SPLIT_STEP = 1000;
+
+/** 総額（月額）を費目に分ける（家計調査の同じ人数の世帯の割合。千円単位に丸め、端は「その他の消費」）。割合の表が無ければ null */
 export function splitLiving(total: number, size: number): { parts: Readonly<Record<LivingSplitCategory, number>>; basis: string } | null {
   const avg = livingCategoryAverages(size);
   if (avg === null) return null;
   const sum = LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + avg.amounts[c], 0);
-  const parts: Partial<Record<LivingSplitCategory, number>> = {};
-  let used = 0;
-  for (const c of LIVING_SPLIT_CATEGORIES) {
-    if (c === "otherConsumption") continue;
-    const v = sum > 0 ? Math.floor((total * avg.amounts[c]) / sum) : 0;
-    parts[c] = v;
-    used += v;
-  }
-  parts.otherConsumption = total - used;
+  // 費目の額は千円単位に丸める（欄は万円で見せるので小数1桁。1円単位の按分だと「11.0888」のように見え、入れた値と見た値が食い違う）。
+  // 端は「その他の消費」に置くので、費目の合計は総額のまま（計算の結果は変わらない）
+  const share = (c: LivingSplitCategory, step: number) => (sum > 0 ? Math.round((total * avg.amounts[c]) / sum / step) * step : 0);
+  const split = (step: number) => {
+    const parts: Partial<Record<LivingSplitCategory, number>> = {};
+    let used = 0;
+    for (const c of LIVING_SPLIT_CATEGORIES) {
+      if (c === "otherConsumption") continue;
+      parts[c] = share(c, step);
+      used += parts[c];
+    }
+    parts.otherConsumption = total - used;
+    return parts;
+  };
+  let parts = split(SPLIT_STEP);
+  // 総額がとても小さく、丸めた額の合計が総額を超えるときは1円単位で分ける
+  if ((parts.otherConsumption ?? 0) < 0) parts = split(1);
   return { parts: parts as Record<LivingSplitCategory, number>, basis: avg.basis };
 }
 
