@@ -650,6 +650,18 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.27 より前の版に収入が減る場面の前提・確かめた記録は無い"
             );
         }
+        // 0.28 から（0066・0067）: 受給中の遺族年金・障害年金の種類と、残した年金の記録（どれも任意）
+        let flows = now["household"]["request"]["input"]["household"]["incomeFlows"].as_array();
+        let typed = flows.is_some_and(|l| l.iter().any(|f| f["pensionType"].is_string()));
+        if migrate::parse(v).unwrap() >= (0, 28) {
+            assert!(typed, "{v}: 受給中の遺族年金・障害年金の種類");
+            assert!(
+                now["household"]["pensionKept"].is_object(),
+                "{v}: 残した年金の記録"
+            );
+        } else {
+            assert!(!typed, "{v}: 0.28 より前の版に受給中の年金の種類は無い");
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

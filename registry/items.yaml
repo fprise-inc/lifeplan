@@ -1305,6 +1305,14 @@ entries:
     replacedBy: null
     collection: incomeFlow
     path: [onContingency]
+  - id: incomeFlow.pensionType
+    status: active
+    label: "受給中の遺族年金・障害年金の種類（種類が survivorPension の行。表示と終わりの推定だけで、計算には使わない。0066）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: incomeFlow
+    path: [pensionType]
   - id: incomeFlow.recipient
     status: active
     label: "受け取る人（世帯の中の構成員。省略は世帯。課税の扱いのある行の税は、省略なら本人）"
