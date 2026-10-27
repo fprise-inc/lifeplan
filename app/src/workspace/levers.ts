@@ -75,10 +75,9 @@ export function readLevers(req: EngineRequest, memberId: string): Partial<LeverV
   const lastEnd = ends.at(-1);
   if (lastEnd !== undefined) out.retireAge = ageAt(member, addMonths(lastEnd, 1));
   const rec = (h.pensionRecords ?? []).find((r) => r.member === memberId);
-  if (rec !== undefined) {
-    const claim = atOf(h, rec.claim?.basic);
-    out.pensionAge = claim === null ? 65 : ageAt(member, addMonths(claim, -1));
-  }
+  // 記録が無い人（推計の区分）は構成員の受け取り開始（0078）
+  const claim = atOf(h, rec !== undefined ? rec.claim?.basic : member.pensionClaim?.basic);
+  out.pensionAge = claim === null ? 65 : ageAt(member, addMonths(claim, -1));
   const nisa = (h.accounts ?? []).find((a) => a.kind === "nisa" && a.owner === memberId);
   if (nisa !== undefined) out.nisaMonthly = (nisa.contributions ?? []).filter((c) => c.tranche !== "growth").sort((x, y) => ((atOf(h, x.from) ?? "") < (atOf(h, y.from) ?? "") ? -1 : 1))[0]?.monthly ?? 0;
   const living = (h.livingExpenses ?? []).find((l) => l.mode === "total");
@@ -123,7 +122,10 @@ export function applyLevers(base: EngineRequest, memberId: string, values: Parti
   if (values.pensionAge !== undefined && values.pensionAge !== current.pensionAge) {
     // 受け取りの開始は、その年齢に達した月の翌月（0003・年金の制度の決まり）
     const claim: Timepoint = { at: addMonths(ageReachedMonth(member, values.pensionAge), 1) };
-    for (const r of h.pensionRecords ?? []) if (r.member === memberId) r.claim = { basic: claim, employee: claim };
+    const recs = (h.pensionRecords ?? []).filter((r) => r.member === memberId);
+    for (const r of recs) r.claim = { basic: claim, employee: claim };
+    // 記録が無い人（推計の区分）は構成員の受け取り開始に書く（0078）
+    if (recs.length === 0) member.pensionClaim = { basic: claim, employee: structuredClone(claim) };
   }
   return applyRest(req, memberId, values, current);
 }

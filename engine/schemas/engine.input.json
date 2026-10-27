@@ -459,6 +459,16 @@
         "joins": { "title": "世帯に加わる時点（null は最初から）", "x-item": "member.joins", "$ref": "#/$defs/timepointOrNull" },
         "leaves": { "title": "世帯から離れる時点（null は最後まで）", "x-item": "member.leaves", "$ref": "#/$defs/timepointOrNull" },
         "expected": { "title": "まだいない家族か（出産予定・結婚予定）", "x-item": "member.expected", "type": "boolean" },
+        "pensionClaim": {
+          "title": "老齢年金の受給を始める月（年金の記録が無い人。働き方の期間からの推計のときの繰上げ・繰下げ。記録があれば記録の claim を使う。省略は65歳に達した月の翌月。0078）",
+          "x-item": "member.pensionClaim",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "basic": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+            "employee": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }
+          }
+        },
         "outside": {
           "title": "世帯の外の家族（0035 の4。家計を世帯と別にする家族。生年月・性別を省ける）",
           "x-item": "member.outside",

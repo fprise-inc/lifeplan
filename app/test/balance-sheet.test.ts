@@ -386,7 +386,8 @@ describe("入力の画面: 持ち家の評価・売却・その他の資産", ()
     let wh = fromRequest(req);
     const fs = fieldsOf(wh, "housing");
     const value = byKey(fs, "/valuation/value")!;
-    expect(value.level).toBe("simple");
+    // 評価はお金の流れに効かないので詳細（0078）
+    expect(value.level).toBe("detail");
     wh = value.set(wh, 30000000);
     wh = byKey(fieldsOf(wh, "housing"), "/valuation/structure")!.set(wh, "rc");
     wh = byKey(fieldsOf(wh, "housing"), "/valuation/builtYear")!.set(wh, 2015);

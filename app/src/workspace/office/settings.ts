@@ -1,14 +1,16 @@
 // 事務所の既定値（0073）: 事務所全体で使う既定を、事務所データ（暗号化。0011 の6）に持つ。世帯ファイルには入れない。
 // - 新しい世帯を作るときに写す（前提条件の標準値・本人と配偶者の介護を最初から入れるか・不動産の評価の割合）。写した値は推定の印で、
 //   根拠「事務所の標準（年月）」。後で事務所の値を変えても、作った世帯は黙って変わらない（確かめの一覧に「事務所の新しい値があります」）
-// - 画面の側で読むだけの既定（カードの並びと最初の5枚・受け取る予定の相続・贈与の見込みの既定）は、その操作のときに読む
+// - 画面の側で読むだけの既定（カードの並びと最初の5枚・受け取る予定の相続・贈与の見込みの既定・FP顧問料の料金表）は、その操作のときに読む
 // - 読むときは形を確かめ、読めない値は既定（FPライズの標準）にする
 import type { StageId } from "../input/form.ts";
 import { DEFAULT_LAYOUT, type CardLayout } from "../input/items.ts";
 import { applyCareDefaults, DEFAULT_CARE_DEFAULTS, type CareDefaults } from "../input/fill.ts";
 import { DEFAULT_ASSUMPTIONS, type WorkingHousehold } from "../input/household.ts";
 import { STAGE_ORDER } from "../input/stages/index.ts";
-import { setOfficeNow } from "./current.ts";
+import { setOfficeNow, STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
+
+export { STANDARD_FEE_TABLE, type FeeTable } from "./current.ts";
 
 /** 前提条件の標準値にできる系列（新しい世帯に写す。値は小数の文字。例: "0.01"） */
 export const OFFICE_ASSUMPTIONS = ["inflation", "wageGrowth", "investmentReturn", "pensionMacroSlide"] as const;
@@ -37,13 +39,37 @@ export interface OfficeSettings {
   assumptions: Partial<Record<OfficeAssumption, string>>;
   /** 相続税の目安の不動産の評価の割合（時価に掛ける。null は標準の80%） */
   realEstateRatio: string | null;
+  /** FP顧問料の料金表（契約を足すときに写す。足した契約は後で料金表を変えても変わらない） */
+  fee: FeeTable;
   /** 最後に変えた日（YYYY-MM-DD）。根拠の文の年月に使う */
   changedOn: string | null;
 }
 
-export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 1, layout: null, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, changedOn: null };
+export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { version: 1, layout: null, care: DEFAULT_CARE_DEFAULTS, inheritLikelihood: "likely", assumptions: {}, realEstateRatio: null, fee: STANDARD_FEE_TABLE, changedOn: null };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** 料金表の額の上限（1回の額。1,000万円） */
+export const FEE_MAX = 10_000_000;
+/** 料金の段階の年目の上限 */
+export const FEE_STEP_YEAR_MAX = 50;
+
+const yenOk = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= FEE_MAX;
+
+/** 料金表を読む（読めない所は標準。段階は年目の順に並べ、同じ年目は後の物を使う） */
+export function readFeeTable(v: unknown): FeeTable {
+  if (!isObj(v)) return STANDARD_FEE_TABLE;
+  const per = v.per === "year" ? "year" : v.per === "month" ? "month" : STANDARD_FEE_TABLE.per;
+  const amount = yenOk(v.amount) ? v.amount : per === STANDARD_FEE_TABLE.per ? STANDARD_FEE_TABLE.amount : STANDARD_FEE_TABLE.amount * 12;
+  const byYear = new Map<number, number>();
+  if (Array.isArray(v.steps))
+    for (const x of v.steps) if (isObj(x) && Number.isInteger(x.year) && (x.year as number) >= 2 && (x.year as number) <= FEE_STEP_YEAR_MAX && yenOk(x.amount)) byYear.set(x.year as number, x.amount);
+  const steps = [...byYear.entries()].sort((a, b) => a[0] - b[0]).map(([year, a]) => ({ year, amount: a }));
+  return { oneTime: yenOk(v.oneTime) ? v.oneTime : STANDARD_FEE_TABLE.oneTime, per, amount, steps, onContingency: v.onContingency === "continue" ? "continue" : "stop" };
+}
+
+const sameFee = (a: FeeTable, b: FeeTable) => JSON.stringify(a) === JSON.stringify(b);
+
 /** 率の文字（-0.2〜0.3 の小数） */
 const RATE = /^-?\d(\.\d{1,6})?$/;
 const rateOk = (v: unknown, lo: number, hi: number): v is string => typeof v === "string" && RATE.test(v) && Number(v) >= lo && Number(v) <= hi;
@@ -64,7 +90,8 @@ export function readOfficeSettings(v: unknown): OfficeSettings {
   if (isObj(v.assumptions)) for (const k of OFFICE_ASSUMPTIONS) if (rateOk(v.assumptions[k], -0.05, 0.2)) assumptions[k] = v.assumptions[k] as string;
   const realEstateRatio = rateOk(v.realEstateRatio, 0, 1) ? (v.realEstateRatio as string) : null;
   const changedOn = typeof v.changedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.changedOn) ? v.changedOn : null;
-  return { version: 1, layout, care, inheritLikelihood, assumptions, realEstateRatio, changedOn };
+  const fee = readFeeTable(v.fee);
+  return { version: 1, layout, care, inheritLikelihood, assumptions, realEstateRatio, fee, changedOn };
 }
 
 /** 並びの設定（無ければ標準） */
@@ -77,14 +104,14 @@ export function officeBasis(s: OfficeSettings): string {
 
 /** 標準（FPライズの標準）と同じか（設定を保存するときに、標準と同じ値は持たない） */
 export function isDefaultSettings(s: OfficeSettings): boolean {
-  return s.layout === null && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null;
+  return s.layout === null && s.care.selfAndSpouse === "warn" && s.inheritLikelihood === "likely" && Object.keys(s.assumptions).length === 0 && s.realEstateRatio === null && sameFee(s.fee, STANDARD_FEE_TABLE);
 }
 
 // ---- 画面の側の操作が読む今の設定（office/current.ts。アプリが開いている間） ----
 
 /** 今の事務所の既定値を、操作のときに読む所（office/current.ts）へ入れる */
 export function publishOfficeSettings(s: OfficeSettings): void {
-  setOfficeNow({ inheritLikelihood: s.inheritLikelihood, assumptions: { ...s.assumptions }, basis: officeBasis(s) });
+  setOfficeNow({ inheritLikelihood: s.inheritLikelihood, assumptions: { ...s.assumptions }, basis: officeBasis(s), fee: s.fee });
 }
 
 // ---- 新しい世帯に写す ----

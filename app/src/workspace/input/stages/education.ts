@@ -14,12 +14,12 @@ import type { EducationLesson, EducationLoan, EducationScholarship, EducationSta
 import { schoolEntryYear } from "../../present.ts";
 import { addMonths } from "../../levers.ts";
 import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointField, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
+import { mutate, newId, presetBasis, standardBox, standardLeavesPoint, type WorkingHousehold } from "../household.ts";
+import { leavesToStandard } from "./family.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
 import { EDUCATION_BASIS, educationStagesAddress, fillEducation } from "../fill.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { addIncome, expenseCard, incomeCard, incomeGroups, moneySections, periodicGroups } from "../moneyRows.ts";
-import { readGroup, readLine } from "../readLines.ts";
 import { boardingStatistic, isHigher, isK12, manText, stagePeriod, stageStatistic } from "../educationCost.ts";
 import { childOfPeriodic } from "./events.ts";
 import { donorOptions, FIELDS, GIFT_PURPOSES, HOUSING_EXEMPTION, LIVING_PLACE, memberLabel, memberOptions, NURSERY_HOURS, SCHOOL_LUNCH, SCHOOL_STAGES, SECTORS, TAX_METHODS } from "../labels.ts";
@@ -172,7 +172,8 @@ function outOfSchoolGroups(wh: WorkingHousehold, goal: Goal, child: Member): Gro
       key: `edu/${goal.id}/outMode`,
       item: "goal.education",
       label: "学校外の費用（塾・習い事など）の入れ方",
-      level: "simple",
+      // 統計の平均で十分なことが多いので詳細（塾の予定がはっきりしている人だけ行で入れる。0078）
+      level: "detail",
       kind: "select",
       options: [...OUT_OF_SCHOOL_MODES, ...(mode === "legacy" ? [LEGACY_MODE] : [])],
       structural: true,
@@ -201,7 +202,8 @@ function outOfSchoolGroups(wh: WorkingHousehold, goal: Goal, child: Member): Gro
     }),
     address: () => ({ target: { object: goal.id }, item: "goal.education", at: ["outOfSchoolMode"] }),
   };
-  const out: GroupDef[] = [{ key: `edu/${goal.id}/out`, title: "学校外の費用（塾・習い事など）", note, level: "simple", fields: [modeField], actions: [] }];
+  // 統計の平均のときは詳細だけに出す。行で入れている（前の形を含む）ときは、標準にも見出しと説明を出す（入れ方は詳細で切り替える）
+  const out: GroupDef[] = [{ key: `edu/${goal.id}/out`, title: "学校外の費用（塾・習い事など）", note, level: mode === "statistics" ? "detail" : "simple", fields: [modeField], actions: [] }];
   // 統計の平均で入れるときは、行を隠す（消さない）
   if (mode === "statistics") return out;
   const ageOf = (hh: Household) => hh.members.find((m) => m.id === child.id);
@@ -327,8 +329,11 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
     );
     return fields;
   }
-  fields.push(plain({ key: `${key}/sector`, item: "goal.education", label: "公立・私立", level: "simple", kind: "select", options: sectorOptions, find, path: ["sector"], optional: true, fallback: "public" }));
-  if (s.stage === "university") fields.push(plain({ key: `${key}/field`, item: "goal.education", label: "系統", level: "simple", kind: "select", options: FIELDS, find, path: ["field"], optional: true, fallback: "humanities" }));
+  // 小学校・高校の公立・私立は進路の型に任せて詳細（高校は就学支援金で公私の差が小さい。型と違う段だけ詳細で直す）。
+  // 中学（私立なら1人で数百万円）・大学・幼稚園などは標準。系統は詳細（文系・理系の差は小さい）。0078
+  const sectorLevel = s.stage === "elementary" || s.stage === "highSchool" ? "detail" : "simple";
+  fields.push(plain({ key: `${key}/sector`, item: "goal.education", label: "公立・私立", level: sectorLevel, kind: "select", options: sectorOptions, find, path: ["sector"], optional: true, fallback: "public" }));
+  if (s.stage === "university") fields.push(plain({ key: `${key}/field`, item: "goal.education", label: "系統", level: "detail", kind: "select", options: FIELDS, find, path: ["field"], optional: true, fallback: "humanities" }));
   if (higher) fields.push(plain({ key: `${key}/living`, item: "goal.education", label: "通い方", level: "simple", kind: "select", options: LIVING_PLACE, find, path: ["living"], optional: true, fallback: "home" }));
   // 学費の年額（上書き）。専門学校は統計の目安が無いので簡易で未入力の警告、公立の短大も簡易（私立の短大の平均で仮に計算）
   const stat = stageStatistic(s);
@@ -676,11 +681,29 @@ export function educationNotApplicable(wh: WorkingHousehold, childId: string): W
 
 // ---- 子ごとの区画 ----
 
-function leavesLine(wh: WorkingHousehold, child: Member): FieldDef[] {
-  const ym = child.leaves === null ? null : resolveTimepoint(wh.request.input.household, child.leaves);
-  if (ym === null) return [];
-  const by = Number(child.birth.birthYearMonth.slice(0, 4));
-  return [readLine(`edu/${child.id}/leaves`, "独立の時期", `${Number(ym.slice(0, 4)) - by}歳ごろ（${formatYearMonth(ym)}）`, "家族")];
+/**
+ * 子の独立（世帯を離れる時点。member.leaves）。子ども・教育のカードの詳細に1つだけ置く（家族のカードからここへまとめた。0078）。
+ * 空欄の標準は22歳になった後の最初の3月末の翌月（新しい子を足したとき、年齢の時点で推定として入る）
+ */
+function leavesField(child: Member): FieldDef {
+  return timepointField({
+    key: `family/${child.id}/leaves`,
+    item: "member.leaves",
+    label: "独立の時期（世帯を離れる）",
+    level: "detail",
+    find: byId((h: Household) => h.members, child.id),
+    path: ["leaves"],
+    ageOf: (h) => h.members.find((x) => x.id === child.id),
+    anchor: "independence",
+    optional: true,
+    nullText: "独立しない・未定",
+    help: "就職などで家計から離れる時点（例: 22歳・22歳の年度末・2048年4月）。標準は22歳になった後の最初の3月末の翌月（大学を出る年度末）。生活費の「末子独立後」の目安にも使います。年齢で入れると、生年月を直したとき合わせて動きます",
+  });
+}
+
+/** 子の独立を年月などで入れた子は、標準（22歳の年度末の翌月・年齢の時点）に戻せる */
+function leavesActions(child: Member): ActionDef[] {
+  return JSON.stringify(child.leaves ?? null) !== JSON.stringify(standardLeavesPoint(child.id)) ? [{ key: `family/${child.id}/leavesStandard`, label: "独立を標準に戻す（22歳の年度末の翌月）", level: "detail", run: (w) => leavesToStandard(w, child.id) }] : [];
 }
 
 function giftGroups(wh: WorkingHousehold, goal: Goal, child: Member, who: string): GroupDef[] {
@@ -725,13 +748,13 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
   if (goal === undefined) {
     const course = defaultCourseLabel(child, base);
     const has = defaultStages(child, base).length > 0;
-    const leaves = readGroup(`edu/${child.id}/read`, undefined, leavesLine(wh, child));
+    const leaves: GroupDef = { key: `edu/${child.id}/leaves`, level: "detail", fields: [leavesField(child)], actions: leavesActions(child) };
     return {
       key: `edu/${child.id}`,
       title: who,
       note: has ? `未入力（教育費0円で計算中）。進路が入っていません。「推定の進路で埋める」で標準の型「${course}」を推定で入れます` : "これからの学校の段が無い年齢です（教育費は計算していません）",
       level: "simple",
-      groups: [...(leaves !== null ? [leaves] : []), ...money.groups],
+      groups: [leaves, ...money.groups],
       actions: [
         // ボタンの名前は、入る進路の型の名前から作る（名前と入る型をずらさない）
         ...(has ? [{ key: `edu/${child.id}/add`, label: `推定の進路で埋める（${course}）`, level: "simple" as const, run: (w: WorkingHousehold) => fillEducation(w, child.id) }] : []),
@@ -814,7 +837,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
         course,
         ...(row?.state === "notApplicable" ? [] : [higher]),
         ...(nurseryAge ? [nurseryToggle] : []),
-        ...leavesLine(wh, child),
+        leavesField(child),
         plain({ key: `edu/${goal.id}/allowance`, item: "goal.education", label: "児童手当を計算する", level: "detail", kind: "bool", find, path: ["education", "childAllowance"], optional: true, fallback: true }),
         ...(hasHigh
           ? [
@@ -838,7 +861,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
           : []),
         plain({ key: `edu/${goal.id}/lunch`, item: "goal.education", label: "公立の小学校・中学校の給食費", level: "detail", kind: "select", options: SCHOOL_LUNCH, find, path: ["education", "schoolLunch"], optional: true, fallback: "", help: "制度どおりは、令和8年度から公立小学校の給食費を国の負担軽減の基準額（月5,200円×11か月）まで差し引きます（中学校は国の制度が決まっていないので差し引きません）。お住まいの自治体が給食費を無償にしていれば「なし」" }),
       ],
-      actions: [removeAction(`edu/${goal.id}/remove`, "進路を外す", "detail", (hh) => void (hh.goals = (hh.goals ?? []).filter((g) => g.id !== goal.id))), ...(row?.state === "notApplicable" ? [] : [noneAction])],
+      actions: [...leavesActions(child), removeAction(`edu/${goal.id}/remove`, "進路を外す", "detail", (hh) => void (hh.goals = (hh.goals ?? []).filter((g) => g.id !== goal.id))), ...(row?.state === "notApplicable" ? [] : [noneAction])],
     },
   ];
   const start = nurseryDefaultStart(h, child);

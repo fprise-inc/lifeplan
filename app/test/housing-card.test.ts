@@ -326,7 +326,8 @@ describe("住宅ローン控除の条件の欄", () => {
     const id = debtsOf(wh)[0]!.id;
     expect(status(wh, `${id}/credit/moveIn`)).toBe("missing");
     expect(fieldStatus(fieldOf(wh, `${id}/credit/moveIn`), wh).basis).toContain("入居の年月を入れると住宅ローン控除を計算します");
-    expect(fieldOf(wh, `${id}/credit/moveIn`).level).toBe("simple");
+    // 控除の条件は詳細。未入力の知らせは要約の1行と確かめの一覧に出る（0078）
+    expect(fieldOf(wh, `${id}/credit/moveIn`).level).toBe("detail");
     expect(checkList(wh).some((r) => r.fieldKey === `housing/debt/${id}/credit/moveIn` && r.kind === "missing")).toBe(true);
     expect(inputItems(wh).find((i) => i.id === "housing")?.status).toBe("missing");
     // 該当なし（入居から13年を過ぎたなど）

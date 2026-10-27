@@ -130,7 +130,8 @@ describe("表の最後の年", () => {
     const f = fieldOf(wh, "assume/endYear");
     expect(wh.request.input.endYear).toBe(std);
     expect(fieldStatus(f, wh).status).toBe("estimated");
-    expect(f.level).toBe("simple");
+    // 標準（若い方が100歳）でほぼ足りるので詳細（0078）
+    expect(f.level).toBe("detail");
     const spouse = h.members.find((m) => m.kind === "spouse")!;
     const w2 = fieldOf(wh, `assume/endYear/age/${spouse.id}`).set(wh, 95);
     expect(w2.request.input.endYear).toBe(Number(spouse.birth.birthYearMonth.slice(0, 4)) + 95);
@@ -191,7 +192,7 @@ describe("FP顧問料の料金の段階", () => {
     const steps = wh.request.input.household.advisoryFees![0]!.terms!.recurring!.revision!.steps!;
     expect(steps).toHaveLength(1);
     const sid = steps[0]!.id!;
-    wh = fieldOf(wh, `ev/fee/00000000-0000-4000-8000-00000000f070/rec/step/${sid}/annual`).set(wh, 240000);
+    wh = fieldOf(wh, `ev/fee/00000000-0000-4000-8000-00000000f070/rec/step/${sid}/monthly`).set(wh, 20000);
     expect(fee(wh)).toBeGreaterThan(base);
     wh = action(wh, `ev/fee/00000000-0000-4000-8000-00000000f070/rec/step/${sid}/remove`).run(wh);
     expect(wh.request.input.household.advisoryFees![0]!.terms!.recurring!.revision?.steps).toBeUndefined();

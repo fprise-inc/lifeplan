@@ -51,7 +51,7 @@ function setPensionAge(req: EngineRequest, member: Member, age: number): EngineR
   return out;
 }
 
-/** FP顧問料（初回＋継続の年額。0008 の FP顧問料）を足す */
+/** FP顧問料（初回＋継続の年額。4年目から料金の段階。0008 の FP顧問料・0073 の料金表）を足す */
 function addAdvisoryFee(req: EngineRequest, id: string, oneTime: { at: string; amount: number }, annual: number, from: string): EngineRequest {
   const out = clone(req);
   const fees: unknown[] = [...(out.input.household.advisoryFees ?? [])];
@@ -60,7 +60,7 @@ function addAdvisoryFee(req: EngineRequest, id: string, oneTime: { at: string; a
     payer: self(out).id,
     enabled: true,
     menu: { id: "office.standard", label: "初回のプラン作成＋年間の顧問" },
-    terms: { oneTime: [{ at: { at: oneTime.at }, amount: oneTime.amount }], recurring: { from: { at: from }, annual, revision: { rate: "0.02" }, onContingency: { mode: "stop" } } },
+    terms: { oneTime: [{ at: { at: oneTime.at }, amount: oneTime.amount }], recurring: { from: { at: from }, annual, revision: { steps: [{ id: `${id.slice(0, -4)}0001`, at: { at: `${Number(from.slice(0, 4)) + 3}${from.slice(4)}` }, annual: 150000 }] }, onContingency: { mode: "stop" } } },
   });
   (out.input.household as { advisoryFees?: unknown }).advisoryFees = fees;
   return out;
@@ -102,7 +102,7 @@ export function salariedCoupleBundle(): ProposalBundle {
     changes: [
       { label: "毎月の生活費", current: "30万円", proposal: "28万円" },
       { label: "NISAの毎月の積立", current: "1万円", proposal: "3万円（2041年6月まで）" },
-      { label: "FP顧問料", current: "なし", proposal: "初回30万円＋年12万円（毎年2%の改定）" },
+      { label: "FP顧問料", current: "なし", proposal: "初回30万円＋年12万円（2030年1月から年15万円）" },
     ],
     contingencies: [{ title: "ご主人が2031年4月に亡くなった場合", run: runOf(runs, 4) }],
     protection: runOf(runs, 5),
@@ -126,6 +126,11 @@ export function salariedCoupleBundle(): ProposalBundle {
  */
 export function advisoryFeeBundle(): ProposalBundle {
   const withFee = modelHousehold("advisoryFeeProposal");
+  // 料金の改定は額の段階で見せる（値上げの率は顧客に見せない。0073 の追記）。見本の世帯の率（年2%）を、4年目から年15万円の段階に置き換える
+  for (const f of withFee.input.household.advisoryFees ?? []) {
+    const rec = f.terms?.recurring;
+    if (rec?.revision?.rate !== undefined) (rec as { revision?: unknown }).revision = { steps: [{ id: `${f.id.slice(0, -4)}0001`, at: { at: "2030-01" }, annual: 150000 }] };
+  }
   const current = clone(withFee);
   delete (current.input.household as { advisoryFees?: unknown }).advisoryFees;
   const s2 = clone(withFee);
@@ -140,7 +145,7 @@ export function advisoryFeeBundle(): ProposalBundle {
       { label: "運用利回りの前提を見直す（年2%→年3%）", investment: true, run: runOf(runs, 2) },
     ],
     changes: [
-      { label: "FP顧問料", current: "なし", proposal: "初回30万円＋年12万円（毎年2%の改定）、3年ごとの見直し料5万円" },
+      { label: "FP顧問料", current: "なし", proposal: "初回30万円＋年12万円（2030年1月から年15万円）、3年ごとの見直し料5万円" },
       { label: "運用利回りの前提", current: "年2%", proposal: "年3%" },
     ],
   };

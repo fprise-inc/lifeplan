@@ -13,7 +13,7 @@ import { ROW_LABELS } from "../../generated/labels.ts";
 import { addMonths } from "../levers.ts";
 import type { Address } from "../store/readings.ts";
 import { resolveTimepoint } from "../timepoint.ts";
-import { byId, field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Option, type SectionDef } from "./form.ts";
+import { byId, field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type Level, type Option, type SectionDef } from "./form.ts";
 import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "./household.ts";
 import { GROWTH_KINDS, memberLabel } from "./labels.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./stages/onContingency.ts";
@@ -242,9 +242,15 @@ export function cadenceField(key: string, item: string, find: Finder, id: string
   );
 }
 
-/** 札（見込み・優先度）の欄 */
-function badgeField(key: string, item: string, label: string, options: Option[], fallback: string, find: Finder, path: string, id: string, help: string): FieldDef {
-  return withAddress(plain({ key, item, label, level: "simple", kind: "select", options, find, path: [path], optional: true, fallback, help }), address(id, item));
+/**
+ * 札（見込み・優先度）の欄。ライフイベントのカードの行では詳細（今の結果には効かず、「確実な分だけで見る」の見方でだけ効く。既定の必要・確実のままで
+ * 結果は同じ。0078）。ほかのカード（受け取る相続の見込みは基本の計算に入れるかが決まる）は標準
+ */
+const badgeLevel = (card: MoneyCard): Level => (card === "events" ? "detail" : "simple");
+/** 行の名前の欄。相続・贈与のカードの行は詳細（名前が空なら種類の名前を見出しに出し、相手は標準の欄で選ぶ。0078） */
+const nameLevel = (card: MoneyCard): Level => (card === "inherit" ? "detail" : "simple");
+function badgeField(key: string, item: string, label: string, options: Option[], fallback: string, find: Finder, path: string, id: string, help: string, level: Level): FieldDef {
+  return withAddress(plain({ key, item, label, level, kind: "select", options, find, path: [path], optional: true, fallback, help }), address(id, item));
 }
 
 /** 伸び方の欄（物価に合わせる＝既定／決まった率〔マイナスも〕／変えない） */
@@ -295,7 +301,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   const inherit = card === "inherit";
   const excluded = excludedIncome(f);
   const fields: FieldDef[] = [
-    withAddress(plain({ key: `${k}/label`, item: "incomeFlow.label", label: "名前", level: "simple", kind: "text", find, path: ["label"], optional: true }), address(f.id, "incomeFlow.label")),
+    withAddress(plain({ key: `${k}/label`, item: "incomeFlow.label", label: "名前", level: nameLevel(card), kind: "text", find, path: ["label"], optional: true }), address(f.id, "incomeFlow.label")),
   ];
   if (kinds.length > 1 || !kinds.some((x) => x.kind === f.kind))
     fields.push(withAddress(plain({ key: `${k}/kind`, item: "incomeFlow.kind", label: "種類", level: "simple", kind: "select", options: (kinds.some((x) => x.kind === f.kind) ? kinds : [...kinds, def]).map((x) => ({ value: x.kind, label: x.label })), find, path: ["kind"], structural: true, help: "種類で課税の扱いと表の行の既定が決まります（詳細で変えられます）" }), address(f.id, "incomeFlow.kind")));
@@ -307,7 +313,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   // 相手は相続・贈与と家族のカードでは簡易にも出す（0044・家族の行は前の配偶者・子が相手）
   const headParty = inherit || card === "family";
   if (headParty) fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "simple", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(f.id, "incomeFlow.counterparty")));
-  fields.push(badgeField(`${k}/likelihood`, "incomeFlow.likelihood", "見込み", LIKELIHOODS, "likely", find, "likelihood", f.id, inherit ? "「不確か」の受け取る相続・贈与は、基本の計算に入れません（行は残ります）。結果の「確実な分だけで見る」でも外れます" : "結果の「確実な分だけで見る」で、「不確か」の行を外して見られます"));
+  fields.push(badgeField(`${k}/likelihood`, "incomeFlow.likelihood", "見込み", LIKELIHOODS, "likely", find, "likelihood", f.id, inherit ? "「不確か」の受け取る相続・贈与は、基本の計算に入れません（行は残ります）。結果の「確実な分だけで見る」でも外れます" : "結果の「確実な分だけで見る」で、「不確か」の行を外して見られます", badgeLevel(card)));
   const badge = stagedBadge(f as unknown as Record<string, unknown>, ["stages"], ["exceptions"]);
   const detailNotes = [
     ...(f.taxTreatment !== undefined ? [`課税: ${TAX_TREATMENTS.find((t) => t.value === f.taxTreatment)?.label ?? ""}`] : []),
@@ -414,8 +420,8 @@ export function expenseHeadFields(wh: WorkingHousehold, p: PeriodicExpense, card
 }
 
 /** 出るお金の行の札（優先度） */
-export function expensePriorityField(p: PeriodicExpense): FieldDef {
-  return badgeField(`ev/${p.id}/priority`, "periodicExpense.priority", "優先度", PRIORITIES, "need", byId(periodic, p.id), "priority", p.id, "結果の「確実な分だけで見る」で、「希望」「夢」の行を外して見られます");
+export function expensePriorityField(p: PeriodicExpense, card: MoneyCard): FieldDef {
+  return badgeField(`ev/${p.id}/priority`, "periodicExpense.priority", "優先度", PRIORITIES, "need", byId(periodic, p.id), "priority", p.id, "結果の「確実な分だけで見る」で、「希望」「夢」の行を外して見られます", badgeLevel(card));
 }
 
 /** 出るお金の行の詳細のまとまり（あげる贈与／払う人・相手・伸び方・万一のときの扱い） */
@@ -492,7 +498,7 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   const c = cadenceOf(h0, p);
   const once = c === "once";
   const fields: FieldDef[] = [
-    plain({ key: `${k}/label`, item: "periodicExpense.label", label: "名前", level: "simple", kind: "text", find, path: ["label"], optional: true }),
+    plain({ key: `${k}/label`, item: "periodicExpense.label", label: "名前", level: nameLevel(card), kind: "text", find, path: ["label"], optional: true }),
     ...expenseHeadFields(wh, p, card),
     cadenceField(`${k}/cadence`, "periodicExpense.monthly", find, p.id),
     yenBox({ key: `${k}/amount`, item: "periodicExpense.amount", label: c === "monthly" ? "月額" : once ? "額" : "1回の額", level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"] }),
@@ -500,7 +506,7 @@ export function periodicGroup(wh: WorkingHousehold, p: PeriodicExpense, card: Mo
   ];
   if (c === "repeat") fields.push(plain({ key: `${k}/every`, item: "periodicExpense.everyYears", label: "何年ごと", level: "simple", kind: "int", suffix: "年ごと", min: 1, max: 50, find, path: ["everyYears"], help: "1は毎年です" }));
   if (!once) fields.push(timepointField({ key: `${k}/to`, item: "periodicExpense.to", label: "終わり", level: "simple", find, path: ["to"], startPath: ["from"], optional: true, nullText: "最後まで", ...ageOf }));
-  fields.push(expensePriorityField(p));
+  fields.push(expensePriorityField(p, card));
   const rows = card === "living" ? (LIVING_OUT_ROWS.some((o) => o.value === p.row) ? LIVING_OUT_ROWS : [...LIVING_OUT_ROWS, ...OUT_ROWS.filter((o) => o.value === p.row)]) : OUT_ROWS;
   fields.push(plain({ key: `${k}/row`, item: "periodicExpense.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: rows, find, path: ["row"], ...(card === "living" ? { help: `「医療・介護」の行にすると、結果の表で医療費として分けて見られます。${MEDICAL_HELP}` } : {}) }));
   const badge = stagedBadge(p as unknown as Record<string, unknown>, ["stages"], ["exceptions"]);

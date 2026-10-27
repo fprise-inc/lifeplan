@@ -7,8 +7,12 @@ import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { allFields } from "../src/workspace/input/form.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { setOfficeNow, STANDARD_OFFICE_NOW } from "../src/workspace/office/current.ts";
-import { pctToRate, rateToPct } from "../src/workspace/office/OfficeSettingsPanel.tsx";
-import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, isDefaultSettings, layoutOf, officeBasis, publishOfficeSettings, readOfficeSettings, type OfficeSettings } from "../src/workspace/office/settings.ts";
+import { h } from "preact";
+import { renderToString } from "preact-render-to-string";
+import { feeFromTexts, OfficeSettingsPanel, pctToRate, rateToPct, yenFromText } from "../src/workspace/office/OfficeSettingsPanel.tsx";
+import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, isDefaultSettings, layoutOf, officeBasis, publishOfficeSettings, readFeeTable, readOfficeSettings, STANDARD_FEE_TABLE, type OfficeSettings } from "../src/workspace/office/settings.ts";
+import { addAdvisoryFee } from "../src/workspace/input/stages/fees.ts";
+import { officeNow } from "../src/workspace/office/current.ts";
 import { DEFAULT_LAYOUT, inputItems } from "../src/workspace/input/items.ts";
 import { bodyObject, EMPTY_CARRY, fromBody, type BodyState } from "../src/workspace/store/body.ts";
 import { preview } from "./helpers.ts";
@@ -106,5 +110,47 @@ describe("％の入力", () => {
     expect(pctToRate("70", 0, 100)).toBe("0.7");
     expect(rateToPct("0.015")).toBe("1.5");
     expect(rateToPct(null)).toBe("");
+  });
+});
+
+describe("FP顧問料の料金表", () => {
+  it("読むときの形の確かめ（読めない所は標準。段階は2年目から・年目の順・重なりは後の物）", () => {
+    expect(readFeeTable(undefined)).toEqual(STANDARD_FEE_TABLE);
+    expect(readOfficeSettings({}).fee).toEqual(STANDARD_FEE_TABLE);
+    const t = readFeeTable({ oneTime: 200000, per: "year", amount: 150000, steps: [{ year: 5, amount: 200000 }, { year: 1, amount: 1 }, { year: 3, amount: 180000 }, { year: 5, amount: 210000 }, { year: 3.5, amount: 1 }], onContingency: "continue" });
+    expect(t).toEqual({ oneTime: 200000, per: "year", amount: 150000, steps: [{ year: 3, amount: 180000 }, { year: 5, amount: 210000 }], onContingency: "continue" });
+    expect(readFeeTable({ oneTime: -1, amount: "x", onContingency: "ratio" })).toEqual(STANDARD_FEE_TABLE);
+    expect(isDefaultSettings({ ...DEFAULT_OFFICE_SETTINGS, fee: t })).toBe(false);
+    expect(readOfficeSettings(JSON.parse(JSON.stringify({ ...SETTINGS, fee: t }))).fee).toEqual(t);
+  });
+
+  it("画面の欄の文字から料金表（円・○年目）。読めない・重なる段階は保存しない", () => {
+    expect(yenFromText("12,000円")).toBe(12000);
+    expect(yenFromText("１２０００")).toBe(12000);
+    expect(yenFromText("")).toBeUndefined();
+    expect(yenFromText("1.5")).toBeUndefined();
+    const ok = feeFromTexts(STANDARD_FEE_TABLE, { oneTime: "300,000", amount: "10000", steps: [{ year: "4", amount: "15000" }, { year: "2", amount: "12000" }] });
+    expect(ok?.steps).toEqual([{ year: 2, amount: 12000 }, { year: 4, amount: 15000 }]);
+    expect(feeFromTexts(STANDARD_FEE_TABLE, { oneTime: "0", amount: "10000", steps: [{ year: "1", amount: "1" }] })).toBeNull();
+    expect(feeFromTexts(STANDARD_FEE_TABLE, { oneTime: "0", amount: "10000", steps: [{ year: "2", amount: "1" }, { year: "2", amount: "2" }] })).toBeNull();
+  });
+
+  it("画面に料金表の区画（払い方・段階・万一のときの扱い）を出す。率の欄は無い", () => {
+    const html = renderToString(h(OfficeSettingsPanel, { value: { ...DEFAULT_OFFICE_SETTINGS, fee: { ...STANDARD_FEE_TABLE, steps: [{ year: 3, amount: 12000 }] } }, onSave: async () => undefined, shared: false, onClose: () => undefined }));
+    expect(html).toContain("FP顧問料の料金表");
+    expect(html).toContain("年目から月");
+    expect(html).toContain('data-office-fee-on="stop"');
+    expect(html).not.toContain("値上げの率（");
+  });
+
+  it("契約を足す操作は、今の事務所の料金表を写す（後で変えても足した契約は変わらない）", () => {
+    const fee = { oneTime: 100000, per: "month" as const, amount: 20000, steps: [{ year: 2, amount: 25000 }], onContingency: "stop" as const };
+    publishOfficeSettings({ ...DEFAULT_OFFICE_SETTINGS, fee });
+    expect(officeNow().fee).toEqual(fee);
+    const wh = addAdvisoryFee(blankHousehold("2026-10", ids()), ids());
+    const before = JSON.stringify(wh.request.input.household.advisoryFees);
+    expect(wh.request.input.household.advisoryFees![0]!.terms).toMatchObject({ oneTime: [{ amount: 100000 }], recurring: { monthly: 20000, revision: { steps: [{ at: { at: "2028-11" }, monthly: 25000 }] } } });
+    publishOfficeSettings(DEFAULT_OFFICE_SETTINGS);
+    expect(JSON.stringify(wh.request.input.household.advisoryFees)).toBe(before);
   });
 });

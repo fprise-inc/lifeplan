@@ -387,7 +387,8 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
           key: `${k}/down`,
           item: "car.loan",
           label: "頭金（下取りを引いた額に対する割合）",
-          level: "simple",
+          // ローンの条件（頭金・年数・金利）は目安で十分なので詳細。標準はローンかどうかの選び方だけ（0078）
+          level: "detail",
           kind: "pct",
           optional: true,
           help: "残りをローンで借ります。買い替えのたびに同じ割合で借ります",
@@ -411,7 +412,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
           key: `${k}/term`,
           item: "car.loan",
           label: "ローンの年数",
-          level: "simple",
+          level: "detail",
           kind: "int",
           suffix: "年",
           min: 1,
@@ -429,7 +430,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
         }),
         addr(c.id, "car.loan", ["termMonths"]),
       ),
-      withAddress(plain({ key: `${k}/rate`, item: "car.loan", label: "ローンの金利（年・固定）", level: "simple", kind: "pct", find, path: ["loan", "rate"] }), addr(c.id, "car.loan", ["rate"])),
+      withAddress(plain({ key: `${k}/rate`, item: "car.loan", label: "ローンの金利（年・固定）", level: "detail", kind: "pct", find, path: ["loan", "rate"] }), addr(c.id, "car.loan", ["rate"])),
     );
   }
   // 維持費（入れ方: 合計／内訳。どちらの値も残し、計算は入れ方の側だけを数える。0069）

@@ -232,10 +232,19 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     expect(stage(next).sections.find((s) => s.key === "care/costs")!.groups[0]!.title).toMatch(/の介護（在宅）: \d{4}年\d{1,2}月〜55か月・月5\.2万円（目安）/);
   });
 
-  it("月々の費用は簡易、伸び方・万一のときの扱いは詳細の欄（当て先つき）", () => {
+  it("始まり・期間・月々の費用は詳細（もう始まっている介護だけ月々の費用は標準）、伸び方・万一のときの扱いは詳細の欄（当て先つき）", () => {
     const wh = fromRequest(modelHousehold("parentCare"));
     const c = wh.request.input.household.careExpenses![0]!;
-    expect(fieldOf(wh, `ev/care/${c.id}/other`).level).toBe("simple");
+    // これからの介護（2027年4月から。計算の基準の月は2026年10月）
+    expect(fieldOf(wh, `ev/care/${c.id}/from`).level).toBe("detail");
+    expect(fieldOf(wh, `ev/care/${c.id}/months`).level).toBe("detail");
+    expect(fieldOf(wh, `ev/care/${c.id}/other`).level).toBe("detail");
+    expect(fieldOf(wh, `ev/care/${c.id}/place`).level).toBe("simple");
+    // もう始まっている介護（始まりが計算の基準の月より前）は月々の費用を標準に出す。基準の月に始まる物はこれから
+    const at = (ym: string) => mutate(wh, (h) => void (h.careExpenses![0]!.from = { at: ym }));
+    expect(fieldOf(at("2025-04"), `ev/care/${c.id}/other`).level).toBe("simple");
+    expect(fieldOf(at("2025-04"), `ev/care/${c.id}/from`).level).toBe("detail");
+    expect(fieldOf(at(wh.request.input.baseMonth), `ev/care/${c.id}/other`).level).toBe("detail");
     const g = fieldOf(wh, `ev/care/${c.id}/growth`);
     expect(g.level).toBe("detail");
     expect(fieldAddress(g, wh)).toEqual({ target: { object: c.id }, item: "care.growth", at: ["kind"] });
