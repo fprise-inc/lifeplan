@@ -231,7 +231,7 @@ describe("簡易版の記入済みシートを空の世帯に取り込む", () =
     expect(ranged).toContain("住宅ローン:残高のだいたいの範囲:2,500〜3,000万円");
     const living = v.candidates.find((c) => c.group === "生活費")?.fields.find((f) => f.mark === "range");
     expect(living?.note).toBe("ヒアリングシートの範囲 25〜30万円の真ん中");
-    expect(v.candidates.filter((c) => c.group === "家族").map((c) => c.title)).toEqual(["ご主人", "奥様", "長女", "次女", "父", "母", "義母"]);
+    expect(v.candidates.filter((c) => c.group === "家族").map((c) => c.title)).toEqual(["ご主人", "奥様", "第1子", "第2子", "父", "母", "義母"]);
     const spouse = v.candidates.find((c) => c.title === "奥様");
     expect(spouse?.fields.find((f) => f.label.startsWith("年齢"))).toMatchObject({ answer: "39歳", mark: "assumed" });
     // シートで聞いていない欄を仮の値で補ったものは「聞いていない」と出す

@@ -42,7 +42,7 @@ export function protectionChart(req: EngineRequest, out: ProtectionOutput, resul
   const years = m.years.map((y) => y.year);
   const horizon = m.years[0]?.horizon;
   const kind = req.input.protection?.horizon?.kind ?? "lifeExpectancy";
-  const until = kind === "youngestIndependence" ? "末子の独立" : kind === "age" ? `${surv?.label ?? "ご家族"}が${req.input.protection?.horizon?.age ?? ""}歳` : `${surv?.label ?? "ご家族"}の平均余命`;
+  const until = kind === "youngestIndependence" || (kind === "lifeExpectancy" && surv?.member.kind === "child") ? "末子の独立" : kind === "age" ? `${surv?.label ?? "ご家族"}が${req.input.protection?.horizon?.age ?? ""}歳` : `${surv?.label ?? "ご家族"}の平均余命`;
   let maxShort: ProtectionChartModel["maxShort"] = null;
   for (const y of m.years) {
     const s = y.needWithAssets - y.coverage;

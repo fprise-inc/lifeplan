@@ -101,8 +101,6 @@ export interface RoleMember {
   birth: { birthYearMonth: string };
 }
 
-const ORDINAL_SON = ["長男", "次男", "三男", "四男", "五男"];
-const ORDINAL_DAUGHTER = ["長女", "次女", "三女", "四女", "五女"];
 
 export function roles<M extends RoleMember = Member>(req: { input: { household: { members: readonly M[] } } }): Role<M>[] {
   const ms = req.input.household.members;
@@ -113,10 +111,9 @@ export function roles<M extends RoleMember = Member>(req: { input: { household: 
   if (self !== undefined) out.push({ key: "self", label: spouse !== undefined ? coupleLabel(self) : "ご本人", member: self });
   if (spouse !== undefined) out.push({ key: "spouse", label: coupleLabel(spouse), member: spouse });
   const children = ms.filter((m) => m.kind === "child").sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1));
-  let sons = 0;
-  let daughters = 0;
+  // 子は性別によらず生まれた順に「第1子」「第2子」…（予定の子も同じ。性別は計算に使わないので聞かない。0046 の追記 2026-10-27）
   children.forEach((m, i) => {
-    const label = m.sex === "female" ? (ORDINAL_DAUGHTER[daughters++] ?? "お子さま") : (ORDINAL_SON[sons++] ?? "お子さま");
+    const label = `第${i + 1}子`;
     out.push({ key: `child${i + 1}`, label, member: m });
   });
   ms.filter((m) => m.kind !== "self" && m.kind !== "spouse" && m.kind !== "child").forEach((m, i) => out.push({ key: `other${i + 1}`, label: "ご家族", member: m }));
@@ -797,7 +794,7 @@ function contingency(ctx: Ctx): ProposalInput["contingency"] {
       const who = ctx.rs.find((r) => r.member.id === m.member);
       if (who === undefined || m.years.length === 0) continue;
       const surv = ctx.rs.find((r) => r.member.id === m.survivor);
-      const until = kind === "youngestIndependence" ? "末子の独立" : kind === "age" ? `${surv?.label ?? "ご家族"}が${pr.request.input.protection?.horizon?.age ?? ""}歳` : `${surv?.label ?? "ご家族"}の平均余命`;
+      const until = kind === "youngestIndependence" || (kind === "lifeExpectancy" && surv?.member.kind === "child") ? "末子の独立" : kind === "age" ? `${surv?.label ?? "ご家族"}が${pr.request.input.protection?.horizon?.age ?? ""}歳` : `${surv?.label ?? "ご家族"}の平均余命`;
       let maxShort: ProtectionView["maxShort"] = null;
       for (const y of m.years) {
         const short = y.needWithAssets - y.coverage;

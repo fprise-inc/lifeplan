@@ -12,6 +12,7 @@ import { readAt } from "../src/workspace/store/readings.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
 import { roles } from "../src/workspace/roles.ts";
+import { memberLabel } from "../src/workspace/input/labels.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const BASE = "2026-10";
@@ -227,13 +228,40 @@ describe("性別: 標準は本人の1押し。配偶者は本人の逆を推定�
     expect(spouseOf(wh).sex).toBe("female");
   });
 
-  it("見本の世帯の配偶者の性別（印なし）は本人を直しても変えない。子の性別は詳細", () => {
+  it("見本の世帯の配偶者の性別（印なし）は本人を直しても変えない。子の性別の欄は出さない（値は持ったまま）", () => {
     let wh = fromRequest(modelHousehold("salariedCoupleTwoKids"));
     const self = wh.request.input.household.members.find((m) => m.kind === "self")!;
     const before = spouseOf(wh).sex;
     wh = set(wh, `family/${self.id}/sex`, self.sex === "male" ? "female" : "male");
     expect(spouseOf(wh).sex).toBe(before);
     const child = wh.request.input.household.members.find((m) => m.kind === "child")!;
-    expect(fieldOf(wh, `family/${child.id}/sex`).level).toBe("detail");
+    expect(() => fieldOf(wh, `family/${child.id}/sex`)).toThrow();
+    expect(child.sex).toBe(modelHousehold("salariedCoupleTwoKids").input.household.members.find((m) => m.id === child.id)!.sex);
+  });
+});
+
+describe("子の呼び方と性別（子の性別は計算に使わないので聞かない）", () => {
+  it("子の呼び方は性別によらず生まれた順に第1子・第2子…（これから生まれる子も同じ）。性別の欄は出さない。呼び名を入れればそれを添える", () => {
+    let wh = couple();
+    wh = action(wh, "family/add/child").run(wh);
+    wh = action(wh, "family/add/child").run(wh);
+    wh = action(wh, "family/add/expectedChild").run(wh);
+    const kids = wh.request.input.household.members.filter((m) => m.kind === "child");
+    // 生まれた順をはっきりさせる（2人目を先に生まれたことにする。性別は女の子にしても呼び方は変わらない）
+    wh = fieldOf(wh, `family/${kids[0]!.id}/birth`).set(wh, "2020-04");
+    wh = fieldOf(wh, `family/${kids[1]!.id}/birth`).set(wh, "2018-04");
+    wh = { ...wh, request: { ...wh.request, input: { ...wh.request.input, household: { ...wh.request.input.household, members: wh.request.input.household.members.map((m) => (m.id === kids[1]!.id ? { ...m, sex: "female" as const } : m)) } } } };
+    expect(memberLabel(wh, kids[1]!.id)).toBe("第1子");
+    expect(memberLabel(wh, kids[0]!.id)).toBe("第2子");
+    expect(memberLabel(wh, kids[2]!.id)).toBe("第3子");
+    expect(roles(wh.request).filter((r) => r.member.kind === "child").map((r) => r.label)).toEqual(["第1子", "第2子", "第3子"]);
+    for (const k of kids) expect(() => fieldOf(wh, `family/${k.id}/sex`)).toThrow();
+    // 確かめの一覧にも子の性別は出ない
+    expect(checkList(wh).some((r) => kids.some((k) => r.fieldKey === `family/${k.id}/sex`))).toBe(false);
+    // 本人・配偶者の性別の欄は今のまま
+    const self = wh.request.input.household.members.find((m) => m.kind === "self")!;
+    expect(fieldOf(wh, `family/${self.id}/sex`).level).toBe("simple");
+    const w2 = fieldOf(wh, `family/${kids[1]!.id}/nickname`).set(wh, "上の子");
+    expect(memberLabel(w2, kids[1]!.id)).toBe("第1子（上の子）");
   });
 });

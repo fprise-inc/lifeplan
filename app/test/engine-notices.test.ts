@@ -56,7 +56,7 @@ describe("見本の世帯の知らせ", () => {
     const rows = noticeRows(fromRequest(req), [{ label: "プランA", result: preview(req) }]);
     expect(rows.some((r) => r.text.includes("受給資格期間"))).toBe(false);
     const rec = rows.find((r) => r.text.includes("年金の加入記録"));
-    expect(rec?.subjects.some((s) => s.startsWith("長"))).not.toBe(true);
+    expect(rec?.subjects.some((s) => s.startsWith("第1子"))).not.toBe(true);
   });
 
   it("働き方を入れた子で受給資格期間に足りなければ、その子の知らせとして出す", () => {
@@ -67,7 +67,7 @@ describe("見本の世帯の知らせ", () => {
     Object.assign(job, { id: "0b8c7d6e-5f4a-4b3c-9d2e-1f0a9b8c7d6f", member: child.id, from: { at: "2035-04" }, to: { at: "2037-03" } });
     h.employmentPeriods!.push(job);
     const rows = noticeRows(fromRequest(req), [{ label: "プランA", result: preview(req) }]);
-    expect(rows.find((r) => r.text.includes("受給資格期間"))?.subjects.some((s) => s.startsWith("長"))).toBe(true);
+    expect(rows.find((r) => r.text.includes("受給資格期間"))?.subjects.some((s) => s.startsWith("第1子"))).toBe(true);
   });
 
   it("専門学校の学費が入っていない子は、入力が足りない知らせとして教育のカードへ", () => {
@@ -75,7 +75,7 @@ describe("見本の世帯の知らせ", () => {
     const rows = noticeRows(fromRequest(req), [{ label: "プランA", result: preview(req) }]);
     const r = rows.find((x) => x.kind === "input");
     expect(r?.card).toBe("education");
-    expect(r?.subjects).toEqual(["長男の教育"]);
+    expect(r?.subjects).toEqual(["第2子の教育"]);
     expect(rows[0]?.kind).toBe("input");
   });
 });

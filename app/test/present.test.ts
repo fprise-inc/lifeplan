@@ -54,12 +54,12 @@ describe("提示用の値を作る", () => {
     expect(model.chart.depletions.map((d) => d.series)).toEqual(["current"]);
   });
 
-  it("構成員は呼び方だけ（ご主人・奥様・長男・長女）", () => {
+  it("構成員は呼び方だけ（ご主人・奥様・第1子・第2子。子は性別によらず生まれた順）", () => {
     expect(model.members).toEqual([
       { label: "ご主人", age: 45 },
       { label: "奥様", age: 43 },
-      { label: "長男", age: 14 },
-      { label: "長女", age: 11 },
+      { label: "第1子", age: 14 },
+      { label: "第2子", age: 11 },
     ]);
   });
 
@@ -75,16 +75,16 @@ describe("提示用の値を作る", () => {
 
   it("イベントと目標", () => {
     const texts = model.events.map((e) => `${e.year} ${e.icon} ${e.text}`);
-    expect(texts).toContain("2031 学 長男 大学入学（私立文系・自宅外）（長男19歳）");
+    expect(texts).toContain("2031 学 第1子 大学入学（私立文系・自宅外）（第1子19歳）");
     expect(texts.some((t) => t.startsWith("2046 退 ご主人 退職（ご主人65歳）"))).toBe(true);
     expect(texts.some((t) => t.startsWith("2046 年 ご主人 年金の受け取り開始（65歳）"))).toBe(true);
-    expect(model.goals.cards.map((c) => c.title)).toEqual(["長男の大学", "長女の大学", "住宅ローンの完済", "老後の生活資金", "定期的な支出（旅行など）", "まだ入れていません"]);
+    expect(model.goals.cards.map((c) => c.title)).toEqual(["第1子の大学", "第2子の大学", "住宅ローンの完済", "老後の生活資金", "定期的な支出（旅行など）", "まだ入れていません"]);
     expect(model.goals.needReady).toBe(model.goals.needTotal);
   });
 
   it("年の内訳", () => {
     expect(model.yearDetail!.year).toBe(2031);
-    expect(model.yearDetail!.members).toBe("ご主人50歳・奥様48歳・長男19歳・長女16歳");
+    expect(model.yearDetail!.members).toBe("ご主人50歳・奥様48歳・第1子19歳・第2子16歳");
   });
 });
 

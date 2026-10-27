@@ -144,7 +144,7 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
       key: `family/${m.id}/nickname`,
       item: null,
       label: "呼び名（任意）",
-      // 表示だけの値（続柄から「ご主人」「長男」などと出す）。標準には出さない
+      // 表示だけの値（続柄から「ご主人」「第1子」などと出す）。標準には出さない
       level: "detail",
       kind: "text",
       placeholder: "例: 上のお子さん",
@@ -188,19 +188,24 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           hint: (v) => (typeof v === "string" ? ageNow(v) : null),
         })),
     following(plain({ key: `family/${m.id}/bornOnFirst`, item: "member.birth", label: "1日生まれ", level: "detail", kind: "bool", find, path: ["birth", "bornOnFirst"], help: "年齢に達する月が1か月早くなります（年金・定年などの時期）。結果の差は1か月です" })),
-    // 性別: 標準は本人だけ（1押し）。配偶者は本人の逆を推定で入れ（仮の印）、詳細で直す（同性のご夫婦も入れられる。推定のままなら確かめの一覧に出る）。子は詳細
-    plain({
-      key: `family/${m.id}/sex`,
-      item: "member.sex",
-      label: "性別",
-      level: m.kind === "self" ? "simple" : "detail",
-      kind: "select",
-      options: SEX_OPTIONS,
-      find,
-      path: ["sex"],
-      help: expectedChild ? "わからないときは男性で計算します（生まれたら直してください）" : m.kind === "spouse" ? SPOUSE_SEX_HELP : "遺族年金・寡婦控除・年収の目安・平均余命の計算に使います",
-      ...(m.kind === "self" ? { after: (h: Household, _t: Record<string, unknown>, v: unknown) => followSpouseSex(h, wh, v) } : {}),
-    }),
+    // 性別: 標準は本人だけ（1押し）。配偶者は本人の逆を推定で入れ（仮の印）、詳細で直す（同性のご夫婦も入れられる。推定のままなら確かめの一覧に出る）。
+    // 子の性別は計算に使わないので出さない（世帯ファイルの値は今のまま持つ。黙って書き換えない。0046 の追記 2026-10-27）
+    ...(m.kind === "child"
+      ? []
+      : [
+        plain({
+          key: `family/${m.id}/sex`,
+          item: "member.sex",
+          label: "性別",
+          level: m.kind === "self" ? "simple" : "detail",
+          kind: "select",
+          options: SEX_OPTIONS,
+          find,
+          path: ["sex"],
+          help: m.kind === "spouse" ? SPOUSE_SEX_HELP : "遺族年金・寡婦控除・年収の目安・平均余命の計算に使います",
+          ...(m.kind === "self" ? { after: (h: Household, _t: Record<string, unknown>, v: unknown) => followSpouseSex(h, wh, v) } : {}),
+        }),
+      ]),
   );
   // 子の独立は、子ども・教育のカードの詳細の「独立の時期」で入れる（education.ts の leavesField。同じ値を2か所に出さない）
   if (m.kind === "spouse") {
@@ -268,7 +273,7 @@ function expectedBirthField(m: Member): FieldDef {
   });
 }
 
-/** これから生まれる子が生まれた: 予定の印と加わる月を外す（生年月はそのまま。性別を確かめてもらう） */
+/** これから生まれる子が生まれた: 予定の印と加わる月を外す（生年月はそのまま。子の性別は聞かない） */
 export function markBorn(wh: WorkingHousehold, id: string): WorkingHousehold {
   const next = mutate(wh, (h) => {
     const x = h.members.find((y) => y.id === id);
@@ -278,7 +283,6 @@ export function markBorn(wh: WorkingHousehold, id: string): WorkingHousehold {
   });
   const { [`family/${id}/birth`]: _b, ...assumed } = next.assumed;
   void _b;
-  if (assumed[`family/${id}/sex`] !== undefined) assumed[`family/${id}/sex`] = "仮の値（生まれたら確かめてください）";
   return { ...next, assumed };
 }
 
