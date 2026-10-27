@@ -81,7 +81,7 @@ export function addMember(wh: WorkingHousehold, kind: "spouse" | "child" | "pare
   const selfYear = self !== undefined ? Number(self.birth.birthYearMonth.slice(0, 4)) : by - 40;
   const newMemberId = id();
   const birthYear = kind === "spouse" ? selfYear + 2 : kind === "child" ? Math.min(by, selfYear + 32) : kind === "parent" ? selfYear - 30 : selfYear - 55;
-  const sex = kind === "spouse" ? (self?.sex === "female" ? "male" : "female") : "male";
+  const sex = kind === "spouse" ? oppositeSex(self?.sex) : "male";
   const expected = kind === "child" && o.expected === true;
   // これから生まれる子: 生まれる予定の月（今から2年後の推定）を生年月にし、その月に加わる
   const born = expected ? addMonths(base, EXPECTED_CHILD_MONTHS) : `${birthYear}-04`;
@@ -104,7 +104,7 @@ export function addMember(wh: WorkingHousehold, kind: "spouse" | "child" | "pare
   next = followStandards(wh, next);
   const marks: Record<string, string> = {
     [`family/${newMemberId}/birth`]: expected ? "推定（今から2年後。生まれる予定の月を入れてください）" : "仮の値",
-    [`family/${newMemberId}/sex`]: expected ? "わからない（男性を代わりの値にして計算）" : "仮の値",
+    [`family/${newMemberId}/sex`]: expected ? "わからない（男性を代わりの値にして計算）" : kind === "spouse" ? SPOUSE_SEX_BASIS : "仮の値",
     ...(kind === "child" ? { [`family/${newMemberId}/leaves`]: LEAVES_BASIS } : {}),
   };
   return { ...next, assumed: { ...next.assumed, ...marks } };
@@ -116,6 +116,19 @@ export function addChildWithEducation(wh: WorkingHousehold, id: () => string = n
   const next = addMember(wh, "child", id, { expected });
   const child = next.request.input.household.members.find((m) => !before.has(m.id));
   return child === undefined ? next : fillEducation(next, child.id);
+}
+
+/** 配偶者の性別の推定の印（本人の逆。同性のご夫婦は直す） */
+export const SPOUSE_SEX_BASIS = "推定（本人と逆の性別。同性のご夫婦は直してください）";
+const SPOUSE_SEX_HELP = "本人の性別の逆を推定で入れています（本人の性別を直すと合わせて変わります）。同性のご夫婦は選び直してください。遺族年金・寡婦控除・年収の目安・平均余命の計算に使います";
+
+const oppositeSex = (sex: unknown): "male" | "female" => (sex === "female" ? "male" : "female");
+
+/** 本人の性別を直したら、推定のまま（仮の印がある）の配偶者の性別を本人の逆にする。人が選んだ配偶者の性別は変えない */
+function followSpouseSex(h: Household, wh: WorkingHousehold, selfSex: unknown): void {
+  const spouse = h.members.find((x) => x.kind === "spouse");
+  if (spouse === undefined || wh.assumed[`family/${spouse.id}/sex`] === undefined) return;
+  spouse.sex = oppositeSex(selfSex);
 }
 
 /** 構成員1人のまとまり（家計を1つにする人。世帯の外の家族は介護・親のカードの形で出す。care.ts の outsideGroup） */
@@ -175,8 +188,19 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           hint: (v) => (typeof v === "string" ? ageNow(v) : null),
         })),
     following(plain({ key: `family/${m.id}/bornOnFirst`, item: "member.birth", label: "1日生まれ", level: "detail", kind: "bool", find, path: ["birth", "bornOnFirst"], help: "年齢に達する月が1か月早くなります（年金・定年などの時期）。結果の差は1か月です" })),
-    // 性別: 大人（本人・配偶者）は標準（年収の目安・遺族年金に効く）。子は計算に効かないので詳細
-    plain({ key: `family/${m.id}/sex`, item: "member.sex", label: "性別", level: m.kind === "child" ? "detail" : "simple", kind: "select", options: SEX_OPTIONS, find, path: ["sex"], help: expectedChild ? "わからないときは男性で計算します（生まれたら直してください）" : "遺族年金・年収の目安の計算に使います" }),
+    // 性別: 標準は本人だけ（1押し）。配偶者は本人の逆を推定で入れ（仮の印）、詳細で直す（同性のご夫婦も入れられる。推定のままなら確かめの一覧に出る）。子は詳細
+    plain({
+      key: `family/${m.id}/sex`,
+      item: "member.sex",
+      label: "性別",
+      level: m.kind === "self" ? "simple" : "detail",
+      kind: "select",
+      options: SEX_OPTIONS,
+      find,
+      path: ["sex"],
+      help: expectedChild ? "わからないときは男性で計算します（生まれたら直してください）" : m.kind === "spouse" ? SPOUSE_SEX_HELP : "遺族年金・寡婦控除・年収の目安・平均余命の計算に使います",
+      ...(m.kind === "self" ? { after: (h: Household, _t: Record<string, unknown>, v: unknown) => followSpouseSex(h, wh, v) } : {}),
+    }),
   );
   // 子の独立は、子ども・教育のカードの詳細の「独立の時期」で入れる（education.ts の leavesField。同じ値を2か所に出さない）
   if (m.kind === "spouse") {

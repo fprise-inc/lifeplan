@@ -862,6 +862,16 @@ function insurance(ctx: Ctx): ProposalInput["insurance"] {
   return { contracts, table, total: { current: total(totalC, ctx.years), proposal: total(totalP, ctx.years) } };
 }
 
+/** FP顧問料の料金の段階の文（例: 「2030年1月から月15,000円、2033年1月から月20,000円」）。段階が無ければ null */
+function stepsText(steps: readonly { at: Parameters<typeof atOf>[0]; annual?: number; monthly?: number }[], per: "年" | "月"): string | null {
+  const parts = steps.flatMap((st) => {
+    const at = atOf(st.at);
+    const amount = st.annual ?? st.monthly;
+    return at === null || amount === undefined ? [] : [`${monthLabel(at)}から${per}${yenText(amount)}`];
+  });
+  return parts.length > 0 ? parts.join("、") : null;
+}
+
 function advisoryFeeAssumption(ctx: Ctx): ProposalInput["assumptions"]["advisoryFee"] {
   const fee = ctx.bundle.proposal.result.summary.advisoryFee;
   if (fee === undefined || fee.total === 0) return null;
@@ -885,7 +895,8 @@ function advisoryFeeAssumption(ctx: Ctx): ProposalInput["assumptions"]["advisory
                 per: (rec.annual !== undefined ? "year" : "month") as "year" | "month",
                 from: from !== null ? monthLabel(from) : "契約の時点",
                 to: to !== null ? monthLabel(to) : null,
-                revision: rec.revision?.rate !== undefined ? `毎年${percent(rec.revision.rate)}の改定` : rec.revision?.steps !== undefined ? "段階的に改定" : null,
+                // 改定は料金の段階の額だけを書く（「2030年1月から月15,000円」）。値上げの率は顧客に見せない（計算には入っている）
+                revision: stepsText(rec.revision?.steps ?? [], rec.annual !== undefined ? "年" : "月"),
               },
       };
     });

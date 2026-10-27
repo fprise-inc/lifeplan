@@ -192,7 +192,7 @@ describe("FP顧問料の料金の段階", () => {
     const steps = wh.request.input.household.advisoryFees![0]!.terms!.recurring!.revision!.steps!;
     expect(steps).toHaveLength(1);
     const sid = steps[0]!.id!;
-    wh = fieldOf(wh, `ev/fee/00000000-0000-4000-8000-00000000f070/rec/step/${sid}/annual`).set(wh, 240000);
+    wh = fieldOf(wh, `ev/fee/00000000-0000-4000-8000-00000000f070/rec/step/${sid}/monthly`).set(wh, 20000);
     expect(fee(wh)).toBeGreaterThan(base);
     wh = action(wh, `ev/fee/00000000-0000-4000-8000-00000000f070/rec/step/${sid}/remove`).run(wh);
     expect(wh.request.input.household.advisoryFees![0]!.terms!.recurring!.revision?.steps).toBeUndefined();
