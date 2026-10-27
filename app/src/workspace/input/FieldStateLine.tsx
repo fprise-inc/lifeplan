@@ -3,7 +3,7 @@
 // 値の入れ方（数の欄・ボタン）は専用の部品のまま。ここは印と操作だけを描く
 import { useContext, useState } from "preact/hooks";
 import type { FieldDef } from "./form.ts";
-import { FieldStateOps, PlanMarksContext, StateMark } from "./FieldViews.tsx";
+import { FieldStateOps, FillButton, PlanMarksContext, StateMark } from "./FieldViews.tsx";
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, OP_LABELS, STATUS_LABELS, type StateOp, type ValueStatus } from "./valueState.ts";
 
@@ -57,11 +57,8 @@ export function FieldStateLine({ f, wh, onEdit, compact }: { f: FieldDef | undef
       ) : null}
       {ops.length > 0 ? (
         <div class="fld-ops" data-field-ops={f.key}>
-          {ops.includes("confirm") ? (
-            <button type="button" class="link-btn fld-confirm" onMouseDown={(e) => e.preventDefault()} onClick={() => run("confirm")} data-op="confirm">
-              {OP_LABELS.confirm}
-            </button>
-          ) : null}
+          {/* 推定の値をそのまま入れる（「✓ この値で確定」と同じ操作。欄の部品と同じボタン。0041 の追記） */}
+          {ops.includes("confirm") && s !== null ? <FillButton label={f.label} status={s.status} onFill={() => run("confirm")} /> : null}
           {ops.some((o) => o !== "confirm") ? (
             <>
               <button

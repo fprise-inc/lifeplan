@@ -24,16 +24,38 @@ const LIVING_ID = "living.statistics.basicMonthly";
 const LIVING_SINGLE = 140000;
 
 /**
- * 基本生活費の目安（月額・円）。住居費・教育費・保険料・車両費を除く。世帯の人数ごと。
- * 2人以上は家計調査（二人以上の世帯の世帯人員別）の消費支出から住居・教育・自動車等関係費を除いた額。1人は仮の値
+ * 基本生活費の統計の額（月額・円。表の額のまま）。人数ごとの比（推定の段階）と、前の版の推定（丸める前の値）を見分けるのに使う。
+ * 欄に入れる推定は livingEstimate（千円単位）
  */
-export function livingEstimate(size: number): Estimate {
+export function livingStatistic(size: number): Estimate {
   const n = Math.max(1, size);
   const table = masterValue(LIVING_ID)?.value;
   const amount = Array.isArray(table) ? bracketStep(table as readonly BracketStep[], n)?.amount : undefined;
   if (amount === undefined) return { value: LIVING_SINGLE, basis: `${n}人の世帯の基本生活費の目安（仮の値。家計調査の単身世帯の表で確かめる前）` };
   return { value: amount, basis: `${titleOf(LIVING_ID)}・${n >= 6 ? "6人以上" : `${n}人`}の世帯${pendingOf(LIVING_ID)}` };
 }
+
+/** 基本生活費の推定の額の単位（円。千円単位。万円の欄で小数1桁に見える） */
+export const LIVING_STEP = 1000;
+
+/**
+ * 基本生活費の目安（月額・円）。住居費・教育費・保険料・車両費を除く。世帯の人数ごと。
+ * 2人以上は家計調査（二人以上の世帯の世帯人員別）の消費支出から住居・教育・自動車等関係費を除いた額。1人は仮の値。
+ * 欄に入れる推定なので千円単位に丸める（表の額のままだと「26.4456」万円のように見え、入れた値と見た値が食い違う）
+ */
+export function livingEstimate(size: number): Estimate {
+  const e = livingStatistic(size);
+  return { value: Math.round(e.value / LIVING_STEP) * LIVING_STEP, basis: e.basis };
+}
+
+/**
+ * 基本生活費の額が、前の版の推定（千円単位に丸める前の表の額）のままか。前に保存した世帯の推定を、丸めただけの理由で黙って書き換えない
+ * ために使う（人数が変わるなど、元の入力が変わったときは入れ直す）
+ */
+export const isLegacyLivingEstimate = (value: number | null | undefined, size: number): boolean => {
+  const raw = livingStatistic(size).value;
+  return value === raw && raw !== livingEstimate(size).value;
+};
 
 /** 総額を費目に分けるときの費目（家計調査の区分。仕送りは教育・介護・親のカードで入れるので0円にし、端は「その他の消費」） */
 export const LIVING_SPLIT_CATEGORIES = ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption"] as const;
@@ -61,20 +83,31 @@ export function livingCategoryAverages(size: number): { amounts: Readonly<Record
   };
 }
 
-/** 総額（月額）を費目に分ける（家計調査の同じ人数の世帯の割合。円未満は切り捨て、端は「その他の消費」）。割合の表が無ければ null */
+/** 按分した費目の額の単位（円。千円単位） */
+export const SPLIT_STEP = 1000;
+
+/** 総額（月額）を費目に分ける（家計調査の同じ人数の世帯の割合。千円単位に丸め、端は「その他の消費」）。割合の表が無ければ null */
 export function splitLiving(total: number, size: number): { parts: Readonly<Record<LivingSplitCategory, number>>; basis: string } | null {
   const avg = livingCategoryAverages(size);
   if (avg === null) return null;
   const sum = LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + avg.amounts[c], 0);
-  const parts: Partial<Record<LivingSplitCategory, number>> = {};
-  let used = 0;
-  for (const c of LIVING_SPLIT_CATEGORIES) {
-    if (c === "otherConsumption") continue;
-    const v = sum > 0 ? Math.floor((total * avg.amounts[c]) / sum) : 0;
-    parts[c] = v;
-    used += v;
-  }
-  parts.otherConsumption = total - used;
+  // 費目の額は千円単位に丸める（欄は万円で見せるので小数1桁。1円単位の按分だと「11.0888」のように見え、入れた値と見た値が食い違う）。
+  // 端は「その他の消費」に置くので、費目の合計は総額のまま（計算の結果は変わらない）
+  const share = (c: LivingSplitCategory, step: number) => (sum > 0 ? Math.round((total * avg.amounts[c]) / sum / step) * step : 0);
+  const split = (step: number) => {
+    const parts: Partial<Record<LivingSplitCategory, number>> = {};
+    let used = 0;
+    for (const c of LIVING_SPLIT_CATEGORIES) {
+      if (c === "otherConsumption") continue;
+      parts[c] = share(c, step);
+      used += parts[c];
+    }
+    parts.otherConsumption = total - used;
+    return parts;
+  };
+  let parts = split(SPLIT_STEP);
+  // 総額がとても小さく、丸めた額の合計が総額を超えるときは1円単位で分ける
+  if ((parts.otherConsumption ?? 0) < 0) parts = split(1);
   return { parts: parts as Record<LivingSplitCategory, number>, basis: avg.basis };
 }
 

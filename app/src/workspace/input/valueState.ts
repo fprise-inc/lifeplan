@@ -38,6 +38,15 @@ export const OP_LABELS: Readonly<Record<StateOp, string>> = {
   notApplicable: "該当なし",
 };
 
+/**
+ * 欄の横（数の欄は欄の中）に出す、推定の値をそのまま欄に入れるボタン（「✓ この値で確定」と同じ操作。0041 の追記）。
+ * 推定の値は欄に灰色で見えているので、「入れる」の1押しで確定にする
+ */
+export const FILL_LABEL = "✓ 入れる";
+
+/** 入れるボタンの説明（ボタンの title と読み上げの名前に使う） */
+export const fillTitle = (s: ValueStatus): string => (s === "unknown" ? "代わりの値をこの欄にそのまま入れます（確定になります）" : "推定の値をこの欄にそのまま入れます（確定になります）");
+
 export const STATUS_LABELS: Readonly<Record<ValueStatus, string>> = {
   estimated: "推定",
   unknown: "わからない",

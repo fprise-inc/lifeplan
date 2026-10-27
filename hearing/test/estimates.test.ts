@@ -1,6 +1,6 @@
 // 推定の目安（src/estimates.ts）: 数は正本の YAML（data/master・data/regulation）の写しから読む。入力の画面とヒアリングが同じ関数を使う
 import { describe, expect, it } from "vitest";
-import { businessEstimate, healthRateEstimate, livingEstimate, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, wageCurve, wageSizeClass } from "../src/estimates.ts";
+import { businessEstimate, healthRateEstimate, isLegacyLivingEstimate, LIVING_SPLIT_CATEGORIES, livingEstimate, livingStatistic, splitLiving, SPLIT_STEP, residentTaxEstimate, retirementLumpSumEstimate, retirementPrevalence, salaryEstimate, smrEstimate, wageCurve, wageSizeClass } from "../src/estimates.ts";
 import { masterValue } from "../src/statistics.ts";
 
 describe("推定の目安", () => {
@@ -47,7 +47,16 @@ describe("推定の目安", () => {
   });
 
   it("基本生活費は家計調査（二人以上の世帯の世帯人員別）から住居・教育・自動車等関係費を除いた額。1人は仮の値", () => {
-    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingEstimate(n).value)).toEqual([140000, 235225, 264456, 279695, 285353, 303204, 303204]);
+    // 表の額のまま（人数ごとの比に使う）
+    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingStatistic(n).value)).toEqual([140000, 235225, 264456, 279695, 285353, 303204, 303204]);
+    // 欄に入れる推定は千円単位
+    expect([1, 2, 3, 4, 5, 6, 8].map((n) => livingEstimate(n).value)).toEqual([140000, 235000, 264000, 280000, 285000, 303000, 303000]);
+    expect(livingEstimate(3).basis).toBe(livingStatistic(3).basis);
+    // 前の版の推定（丸める前の額）を見分ける（人数が同じときだけ。千円ちょうどの額は見分けなくてよい）
+    expect(isLegacyLivingEstimate(264456, 3)).toBe(true);
+    expect(isLegacyLivingEstimate(264000, 3)).toBe(false);
+    expect(isLegacyLivingEstimate(264456, 2)).toBe(false);
+    expect(isLegacyLivingEstimate(140000, 1)).toBe(false);
     expect(livingEstimate(1).basis).toContain("仮の値");
     expect(livingEstimate(3).basis).toContain("家計調査（総務省）2025年");
   });
@@ -88,5 +97,25 @@ describe("推定の目安", () => {
     expect(retirementPrevalence()?.value).toBe(749);
     expect(retirementPrevalence(50)?.value).toBe(701);
     expect(retirementPrevalence(5000)?.value).toBe(901);
+  });
+});
+
+describe("総額を費目に分ける（千円単位）", () => {
+  it.each([140000, 264456, 300000, 12345])("総額 %i 円: 端を置く「その他の消費」のほかは千円単位で、合計は総額のまま", (total) => {
+    for (const size of [1, 2, 3, 4]) {
+      const sp = splitLiving(total, size);
+      expect(sp).not.toBeNull();
+      const parts = sp!.parts;
+      expect(LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + parts[c], 0)).toBe(total);
+      for (const c of LIVING_SPLIT_CATEGORIES) {
+        expect(parts[c]).toBeGreaterThanOrEqual(0);
+        if (c !== "otherConsumption") expect(parts[c] % SPLIT_STEP, c).toBe(0);
+      }
+    }
+  });
+  it("丸めた額の合計が総額を超えるほど小さい総額は、1円単位で分ける", () => {
+    const sp = splitLiving(3000, 3)!;
+    expect(LIVING_SPLIT_CATEGORIES.reduce((s, c) => s + sp.parts[c], 0)).toBe(3000);
+    for (const c of LIVING_SPLIT_CATEGORIES) expect(sp.parts[c]).toBeGreaterThanOrEqual(0);
   });
 });

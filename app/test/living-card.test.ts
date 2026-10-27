@@ -106,7 +106,7 @@ describe("推定の段階（0049 の2・3）", () => {
 
   it("家族を足すと、子の独立の段が入り、割合は世帯人員別の目安の比×退職・年齢の目安", () => {
     const wh = family();
-    // 3人（264,456円）→ 子の独立で2人（235,225円）: 0.89、退職で ×0.8、70歳 ×0.75、80歳 ×0.7
+    // 3人（表の額 264,456円）→ 子の独立で2人（235,225円）: 0.89、退職で ×0.8、70歳 ×0.75、80歳 ×0.7（比は表の額のままで出す）
     expect(ratios(wh)).toEqual([
       ["childIndependence", "0.89"],
       ["retirement", "0.71"],
@@ -114,7 +114,8 @@ describe("推定の段階（0049 の2・3）", () => {
       ["age80", "0.62"],
     ]);
     expect(householdSize(wh.request.input.household, BASE)).toBe(3);
-    expect(living(wh).monthly!.value).toBe(264456);
+    // 欄に入れる総額の推定は千円単位
+    expect(living(wh).monthly!.value).toBe(264000);
   });
 
   it("推定のままの段は入れ直し、FP が直した段は確定のまま残る。外した段は足し直さない", () => {
@@ -206,12 +207,14 @@ describe("総額と費目（0048 の2）", () => {
     const w1 = mode.set(wh, "byCategory");
     const l1 = living(w1);
     expect(l1.mode).toBe("byCategory");
-    expect(l1.monthly!.value).toBe(264456);
+    expect(l1.monthly!.value).toBe(264000);
     expect(l1.categories).toHaveLength(9);
-    expect(l1.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(264456);
+    expect(l1.categories!.reduce((s, c) => s + c.monthly.value!, 0)).toBe(264000);
     expect(l1.categories!.find((c) => c.category === "allowance")!.monthly.value).toBe(0);
-    // 3人の世帯の食料 92,240 ÷ 264,455（8費目の合計）× 264,456
-    expect(l1.categories!.find((c) => c.category === "food")!.monthly.value).toBe(Math.floor((264456 * 92240) / 264455));
+    // 3人の世帯の食料 92,240 ÷ 264,455（8費目の合計）× 264,000 を千円単位に丸めた額（欄は万円の小数1桁で見える）
+    expect(l1.categories!.find((c) => c.category === "food")!.monthly.value).toBe(Math.round((264000 * 92240) / 264455 / 1000) * 1000);
+    // 総額が千円単位なので、端を置く「その他の消費」も含めて千円単位
+    for (const c of l1.categories!) expect(c.monthly.value! % 1000, c.category).toBe(0);
     expect(isPureSplit(l1)).toBe(true);
     expect(() => preview(w1.request)).not.toThrow();
   });

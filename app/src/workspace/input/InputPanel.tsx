@@ -318,7 +318,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             {/* カードの説明と入れ方の決まりは「?」の中（0077） */}
             <Help label={item.label} id="panel">
               {item.lead !== "" ? <p>{item.lead}</p> : null}
-              <p>空欄は統計の目安などで補って計算します（「推定」の印。印を押すと根拠が開きます）。推定の値のままでよければ「✓ この値で確定」を押します（欄に入っただけでは確定になりません）。</p>
+              <p>空欄は統計の目安などで補って計算します（「推定」の印。印を押すと根拠が開きます）。推定の値は欄に灰色で見えています。そのままでよければ、欄の「✓ 入れる」を押すと、その値が欄に入って確定になります（欄に入っただけでは確定になりません）。</p>
               <p>入れ方の「標準／詳細」は、このカードだけを切り替えます。</p>
             </Help>
           </h2>
@@ -464,8 +464,9 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
           ) : null}
           {estimatedShown > 0 ? (
             <div class="ip-bulk">
-              <button type="button" class="link-btn" onClick={confirmShown} data-confirm-all>
-                推定をまとめて確定（{estimatedShown}つ）
+              {/* 見えている推定の欄の全部に「✓ 入れる」を押すのと同じ（0041 の追記） */}
+              <button type="button" class="fld-fill" onClick={confirmShown} title="見えている推定の欄に、推定の値をまとめて入れます（確定になります）" data-confirm-all>
+                ✓ 推定をまとめて入れる（{estimatedShown}つ）
               </button>
             </div>
           ) : null}
