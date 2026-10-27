@@ -1672,12 +1672,12 @@
       "properties": {
         "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "valueStates": { "$ref": "urn:financia:schema:common#/$defs/valueStates" },
-        "mode": { "title": "入れ方（総額／費目別）", "x-item": "livingExpense.mode", "enum": ["total", "byCategory"] },
+        "mode": { "title": "入れ方（総額／内訳）", "x-item": "livingExpense.mode", "enum": ["total", "byCategory"] },
         "from": { "title": "始まり（省略は計算基準月）", "x-item": "livingExpense.from", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
         "to": { "title": "終わり（その月まで。null・省略は最後まで）", "x-item": "livingExpense.to", "$ref": "#/$defs/timepointOrNull" },
         "monthly": { "title": "月額（総額。計算基準年の価格）", "x-item": "livingExpense.monthly", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
         "categories": {
-          "title": "費目別の月額（計算基準年の価格）",
+          "title": "内訳の月額（計算基準年の価格）",
           "x-item": "livingExpense.categories",
           "type": "array",
           "items": {

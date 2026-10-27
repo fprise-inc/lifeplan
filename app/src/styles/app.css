@@ -271,6 +271,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld { min-width: 0; }
 .fld-l { display: flex; align-items: center; flex-wrap: nowrap; gap: 4px 6px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); margin-bottom: 3px; }
 .fld-l > label { min-width: 0; }
+/* 欄の名前の左の小さなアイコン（基本生活費の内訳など）。文字に合わせて大きさが変わる（16px で約19px） */
+.fld-icon { width: 1.4em; height: 1.4em; flex: none; vertical-align: -0.32em; margin-right: 0.3em; color: var(--ink); }
 /* 区画・まとまりの見出しの横の「?」 */
 .in-section h3 .help, .in-group-h h4 .help { margin-left: 6px; }
 .in-group-help { margin: 0 0 4px; }

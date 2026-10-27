@@ -79,7 +79,7 @@ export function livingCategoryAverages(size: number): { amounts: Readonly<Record
   const pending = LIVING_SPLIT_CATEGORIES.some((c) => pendingOf(livingCategoryId(c)) !== "") ? PENDING : "";
   return {
     amounts: out as Record<LivingSplitCategory, number>,
-    basis: `家計調査（総務省）2025年・${label}の世帯の費目の割合${size < 2 ? "（1人の世帯は表に無いので2人の世帯）" : ""}${pending}`,
+    basis: `家計調査（総務省）2025年・${label}の世帯の内訳の割合${size < 2 ? "（1人の世帯は表に無いので2人の世帯）" : ""}${pending}`,
   };
 }
 

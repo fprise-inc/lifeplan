@@ -84,6 +84,8 @@ interface FieldBase {
   /** 入力項目ID（0004）。画面の側だけの値（呼び名など）は null */
   item: string | null;
   label: string;
+  /** 名前の左の小さなアイコン（fieldIcons.tsx の名前。飾りなので読み上げない） */
+  icon?: string;
   level: Level;
   help?: string;
   /** 空にできる（空は「入れない」。推定の値があれば推定に戻る） */

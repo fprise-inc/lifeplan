@@ -56,13 +56,13 @@ export interface ExportOutput {
 export const CUSTOMER_NO_PATTERN = /^[A-Za-z0-9-]{1,16}$/;
 
 /**
- * 書き出すシートの種類: 簡易（初回の前の軽い票。basic）・詳細（full）・見直し（詳細のシートに前回の値を記入する。0018 の9）。
- * 既定は簡易
+ * 書き出すシートの種類: 通常（初回の前の軽い票。basic）・詳細（full）・見直し（詳細のシートに前回の値を記入する。0018 の9）。
+ * 既定は通常
  */
 export type SheetKind = "simple" | "detail" | "review";
 
 export const SHEET_KINDS: readonly { value: SheetKind; label: string; note: string }[] = [
-  { value: "simple", label: "簡易（初回の前）", note: "ご家族・収入・住まい・貯蓄・生活費などを大まかに。金額は範囲でも答えられます（1〜2ページ）" },
+  { value: "simple", label: "通常（初回の前）", note: "ご家族・収入・住まい・貯蓄・生活費などを大まかに。金額は範囲でも答えられます（1〜2ページ）" },
   { value: "detail", label: "詳細", note: "源泉徴収票・ねんきん定期便・返済予定表・保険証券を見ながら書く票" },
   { value: "review", label: "見直し（前回の値つき）", note: "詳細の票に、今の入力の値を記入して書き出します（見直しの面談用）" },
 ];

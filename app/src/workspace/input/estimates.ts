@@ -125,7 +125,9 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
 // ---- 費目の按分（総額を家計調査の同じ人数の世帯の割合で分けた推定。0048）----
 
 /** 按分の推定の根拠の文の頭（この頭の箱を「按分のまま」と読む） */
-export const SPLIT_BASIS = "総額を費目に分けた目安";
+export const SPLIT_BASIS = "総額を内訳に分けた目安";
+/** 前の言い方の按分の根拠（前に保存した世帯の推定も按分のままと読む。書き換えない） */
+const SPLIT_BASIS_OLD = "総額を費目に分けた目安";
 /** 9費目の並び（家計調査の区分。仕送りは0円の推定） */
 export const LIVING_CATEGORY_ORDER = ["food", "utilities", "furniture", "clothing", "health", "transport", "recreation", "otherConsumption", "allowance"] as const;
 const splitBox = (value: number, basis: string): Box<number> => ({ value, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis } }) as Box<number>;
@@ -145,7 +147,8 @@ export function splitCategories(h: Household, baseMonth: string, total: number, 
 /** 費目がどれも按分の推定のまま（FP が直していない）か */
 export function isPureSplit(l: Pick<LivingExpense, "categories">): boolean {
   const cs = l.categories ?? [];
-  return cs.length > 0 && cs.every((c) => c.monthly.state === "estimated" && c.monthly.origin.kind === "auto" && ((c.monthly as { estimate?: { basis?: string } }).estimate?.basis ?? "").startsWith(SPLIT_BASIS));
+  const basisOf = (c: NonNullable<LivingExpense["categories"]>[number]) => (c.monthly as { estimate?: { basis?: string } }).estimate?.basis ?? "";
+  return cs.length > 0 && cs.every((c) => c.monthly.state === "estimated" && c.monthly.origin.kind === "auto" && (basisOf(c).startsWith(SPLIT_BASIS) || basisOf(c).startsWith(SPLIT_BASIS_OLD)));
 }
 
 /** 費目で入れていて、費目が按分のまま・総額が統計の推定のままなら、総額と按分を入れ直す（人数が変わったとき） */
