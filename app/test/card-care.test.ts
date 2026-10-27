@@ -7,6 +7,7 @@ import { careEstimate, dependentLimits, lifeExpectancy } from "../../hearing/src
 import { adultsWithoutCare, applyCareDefaults, careTemplate, deathEstimate, gapsOf } from "../src/workspace/input/fill.ts";
 import { allFields, resolveTimepoint, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { checkList } from "../src/workspace/input/checkRows.ts";
 import { inputItems } from "../src/workspace/input/items.ts";
 import { memberLabel } from "../src/workspace/input/labels.ts";
 import { addMember } from "../src/workspace/input/stages/family.ts";
@@ -185,7 +186,9 @@ describe("介護・親のカード: 介護の費用（区画B）", () => {
     const gaps = gapsOf(wh).filter((g) => g.card === "care");
     expect(gaps.map((g) => g.id)).toHaveLength(2);
     expect(gaps[0]!.fill).toBeDefined();
-    expect(inputItems(wh).find((i) => i.id === "care")!.status).toBe("missing");
+    // 介護・親にまだ何も入れていない間は「まだ入れていない」（赤い札は出さない。確かめの一覧では「まだ入れていない項目」。0045 の追記）
+    expect(inputItems(wh).find((i) => i.id === "care")!.status).toBe("empty");
+    expect(checkList(wh).filter((r) => r.card === "care").map((r) => r.kind)).toEqual(["notStarted", "notStarted"]);
     expect(stage(wh).sections.find((s) => s.key === "care/costs")!.note).toContain("0円で計算しています");
     const filled = actionOf(wh, "care/fillAdults").run(wh);
     const cares = filled.request.input.household.careExpenses!;

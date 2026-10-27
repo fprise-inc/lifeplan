@@ -695,9 +695,10 @@ function leavesField(child: Member): FieldDef {
     path: ["leaves"],
     ageOf: (h) => h.members.find((x) => x.id === child.id),
     anchor: "independence",
+    dateStyle: "birth",
     optional: true,
     nullText: "独立しない・未定",
-    help: "就職などで家計から離れる時点（例: 22歳・22歳の年度末・2048年4月）。標準は22歳になった後の最初の3月末の翌月（大学を出る年度末）。生活費の「末子独立後」の目安にも使います。年齢で入れると、生年月を直したとき合わせて動きます",
+    help: "就職などで家計から離れる時点（例: 22歳・22歳の年度末・2048-04）。標準は22歳になった後の最初の3月末の翌月（大学を出る年度末）。生活費の「末子独立後」の目安にも使います。年齢で入れると、生年月を直したとき合わせて動きます",
   });
 }
 

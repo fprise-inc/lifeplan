@@ -27,6 +27,7 @@ import {
   pinOfGroup,
   progressOf,
   saveItem,
+  startedOf,
   statusOf,
   togglePin,
   type CardLayout,
@@ -243,11 +244,12 @@ describe("カードの状態（4つ）", () => {
     expect(statusOf({ ...base, hasData: false })).toBe("missing");
   });
 
-  it("モデル世帯（会社員の夫婦と子2人）: 働き方と収入（定年で辞めた後の失業給付を入れていない）・保険（終身保険の死亡保険金が無い。0055）・車・介護・親・相続・贈与が未入力。ほかは入力済み", () => {
+  it("モデル世帯（会社員の夫婦と子2人）: 働き方と収入（定年で辞めた後の失業給付を入れていない）・保険（終身保険の死亡保険金が無い。0055）が未入力、車・介護・親・相続・贈与はまだ入れていない。ほかは入力済み", () => {
     const wh = open("salariedCoupleTwoKids");
     const items = inputItems(wh);
-    expect(items.filter((i) => i.status === "missing").map((i) => i.id)).toEqual(["work", "insurance", "car", "care", "inheritance"]);
-    expect(progressOf(items)).toEqual({ total: 14, done: 9, est: 0, missing: 5, na: 0 });
+    expect(items.filter((i) => i.status === "missing").map((i) => i.id)).toEqual(["work", "insurance"]);
+    expect(items.filter((i) => i.status === "empty").map((i) => i.id)).toEqual(["car", "care", "inheritance"]);
+    expect(progressOf(items)).toEqual({ total: 14, done: 9, est: 0, missing: 2, na: 0, empty: 3 });
     // 失業給付を「受け取らない」と決めると、働き方と収入は入力済み
     const decided = notApplicableCard(wh, "work");
     expect(byId(inputItems(decided), "work").status).toBe("done");
@@ -261,8 +263,9 @@ describe("カードの状態（4つ）", () => {
     expect(byId(items, "pension")).toMatchObject({ status: "est", estimated: 1 });
     expect(byId(items, "education").status).toBe("na");
     expect(byId(items, "assumptions").status).toBe("done");
-    expect(byId(items, "insurance")).toMatchObject({ status: "missing", missing: 1 });
-    expect(progressOf(items)).toEqual({ total: 14, done: 1, est: 3, missing: 9, na: 1 });
+    // 入れ始める前の項目は、入っていない物があっても「まだ入れていない」（赤い数に入れない。0045 の追記）
+    expect(byId(items, "insurance")).toMatchObject({ status: "empty", missing: 1 });
+    expect(progressOf(items)).toEqual({ total: 14, done: 1, est: 3, missing: 0, na: 1, empty: 9 });
   });
 
   it("0円で計算している欄（未入力の印の0円）があれば、物があっても未入力（0円の所あり）", () => {
@@ -285,30 +288,129 @@ describe("カードの状態（4つ）", () => {
 
   it("物が無いカードは、保存するか「当てはまらない」を押すと当てはまらない（今の「入力済み（なし）」を名前で分けた）", () => {
     const wh = blankHousehold("2026-10", seq());
-    expect(byId(inputItems(wh), "car")).toMatchObject({ status: "missing", summary: null });
+    expect(byId(inputItems(wh), "car")).toMatchObject({ status: "empty", summary: null });
     expect(byId(inputItems(saveItem(wh, "car")), "car").status).toBe("na");
     const na = notApplicableCard(wh, "insurance");
     expect(byId(inputItems(na), "insurance")).toMatchObject({ status: "na", missing: 0 });
-    expect(progressOf(inputItems(na))).toMatchObject({ missing: 8, na: 2 });
+    expect(progressOf(inputItems(na))).toMatchObject({ missing: 0, empty: 8, na: 2 });
   });
 
   it("無いと決めた物（どの子も教育費なし・勤め先に制度が無い）も当てはまらない", () => {
     const civil = open("civilServant");
-    expect(byId(inputItems(civil), "retirement").status).toBe("missing");
+    expect(byId(inputItems(civil), "retirement").status).toBe("empty");
     const na = notApplicableCard(civil, "retirement");
     expect(byId(inputItems(na), "retirement").status).toBe("na");
-    expect(checkList(na).some((r) => r.card === "retirement" && r.kind === "missing")).toBe(false);
+    expect(checkList(na).some((r) => r.card === "retirement" && (r.kind === "missing" || r.kind === "notStarted"))).toBe(false);
     const kids = open("highIncome");
-    expect(byId(inputItems(kids), "education").status).toBe("missing");
+    expect(byId(inputItems(kids), "education").status).toBe("empty");
     expect(byId(inputItems(notApplicableCard(kids, "education")), "education").status).toBe("na");
   });
 
   it("状態の数は、どのモデル世帯でも合計が14枚になる", () => {
     for (const id of MODELS) {
       const p = progressOf(inputItems(open(id)));
-      expect(p.done + p.est + p.missing + p.na, id).toBe(14);
+      expect(p.done + p.est + p.missing + p.na + p.empty, id).toBe(14);
       expect(p.total, id).toBe(14);
     }
+  });
+});
+
+describe("入れ始めた項目だけに抜けを知らせる（0045 の追記）", () => {
+  const housingAction = (wh: WorkingHousehold, key: string): WorkingHousehold => {
+    const st = itemStage(wh, "housing") as StageDef;
+    const a = st.sections.flatMap((x) => [...x.actions, ...x.groups.flatMap((g) => g.actions)]).find((x) => x.key.endsWith(key));
+    if (a === undefined) throw new Error(key);
+    return a.run(wh);
+  };
+
+  it("入れ始めたかは世帯の今の情報で決める: 物がある・保存した／当てはまらない・無いと決めてある・FP が入れた印の欄・0円の欄のどれか", () => {
+    const none = { hasData: false, confirmed: false, none: false, touched: 0, fieldMissing: 0 };
+    expect(startedOf(none)).toBe(false);
+    for (const k of ["hasData", "confirmed", "none"] as const) expect(startedOf({ ...none, [k]: true }), k).toBe(true);
+    expect(startedOf({ ...none, touched: 1 })).toBe(true);
+    expect(startedOf({ ...none, fieldMissing: 1 })).toBe(true);
+    // まだ入れていないのは、未入力に当たるときだけ（推定・当てはまらない・入力済みはそのまま）
+    const base = { estimated: 0, missing: 0, hasData: false, confirmed: false, none: false, started: false };
+    expect(statusOf({ ...base, missing: 1 })).toBe("empty");
+    expect(statusOf(base)).toBe("empty");
+    expect(statusOf({ ...base, estimated: 1 })).toBe("est");
+    expect(statusOf({ ...base, missing: 1, started: true })).toBe("missing");
+    expect(statusOf({ ...base, missing: 1, started: undefined } as Parameters<typeof statusOf>[0])).toBe("missing");
+  });
+
+  it("新しい世帯: どの項目にも赤い札を出さず、入っていない物のある住まい・ローン・保険・介護・親も「まだ入れていない」。世帯は変えない", () => {
+    const wh = blankHousehold("2026-10", seq());
+    const before = JSON.stringify(wh);
+    const items = inputItems(wh);
+    expect(items.filter((i) => i.status === "missing")).toEqual([]);
+    expect(items.filter((i) => i.status === "empty").map((i) => i.id)).toEqual(["work", "retirement", "housing", "insurance", "savings", "events", "car", "care", "inheritance"]);
+    for (const id of ["housing", "insurance", "care"]) expect(byId(items, id).missing, id).toBe(1);
+    expect(JSON.stringify(wh)).toBe(before);
+  });
+
+  it("住まい・ローン: 入れ始める（ローンを足す）と、0円で計算している欄で未入力（0円の所あり）。1欄入れても抜けが残る間は未入力", () => {
+    const wh = blankHousehold("2026-10", seq());
+    expect(byId(inputItems(wh), "housing").status).toBe("empty");
+    const loan = housingAction(wh, "add/cardLoan");
+    expect(byId(inputItems(loan), "housing")).toMatchObject({ status: "missing" });
+    const balance = allFields(itemStage(loan, "housing") as StageDef).find((f) => f.key.endsWith("/balance")) as FieldDef;
+    const one = balance.set(loan, 500000);
+    const item = byId(inputItems(one), "housing");
+    expect(item.status).toBe("missing");
+    expect(item.missing).toBeGreaterThan(0);
+    // 確かめの一覧: 入れ始めた項目の入っていない物（住居費）と0円の欄は「未入力」に戻る
+    const rows = checkList(one).filter((r) => r.card === "housing");
+    expect(rows.find((r) => r.id === "gap:housing")?.kind).toBe("missing");
+    expect(rows.some((r) => r.kind === "missing" && r.fieldKey?.endsWith("/payment") === true)).toBe(true);
+  });
+
+  it("目安で入れる・当てはまらない・保存を押すと、まだ入れていないから抜ける", () => {
+    const wh = blankHousehold("2026-10", seq());
+    expect(["est", "done"]).toContain(byId(inputItems(fillCard(wh, "care")), "care").status);
+    expect(byId(inputItems(notApplicableCard(wh, "car")), "car").status).toBe("na");
+    expect(byId(inputItems(saveItem(wh, "events")), "events").status).toBe("na");
+  });
+
+  it("確かめの一覧: まだ入れていない項目の行は警告（未入力）でなく「まだ入れていない項目」にまとめ、入っていない物の無い項目も1行ずつ出す", () => {
+    const wh = blankHousehold("2026-10", seq());
+    const rows = checkList(wh);
+    expect(rows.filter((r) => r.kind === "missing")).toEqual([]);
+    const ns = rows.filter((r) => r.kind === "notStarted");
+    expect(ns.map((r) => r.id)).toEqual([
+      "notStarted:work",
+      "notStarted:retirement",
+      "gap:housing",
+      "gap:insurance",
+      "notStarted:savings",
+      "notStarted:events",
+      "notStarted:car",
+      `gap:care/${wh.request.input.household.members[0]!.id}`,
+      "notStarted:inheritance",
+    ]);
+    // 操作（推定で埋める・該当なし）は残す
+    expect(ns.find((r) => r.id === "gap:housing")!.actions.map((a) => a.key)).toEqual(["fill", "none"]);
+    expect(ns.find((r) => r.id === "notStarted:car")!.detail).toBe("入れなくても計算できます（車は無しで計算中）");
+    // 未入力のすぐ下（推定より上）
+    expect(rows.findIndex((r) => r.kind === "notStarted")).toBeLessThan(rows.findIndex((r) => r.kind === "estimated"));
+  });
+
+  it("描画: まだ入れていない項目のパネルは見出しに札を出さず、赤い帯の代わりに目安と「該当なし」の操作だけ。入れ始めると札と帯で知らせる", () => {
+    const wh = blankHousehold("2026-10", seq());
+    const panel = (w: WorkingHousehold) => {
+      const html = renderToString(h(InputView, { wh: w, onSave: () => undefined, level: "simple", initialOpen: "housing" }));
+      return html.slice(html.indexOf('class="ipanel'));
+    };
+    const quiet = panel(wh);
+    expect(quiet).toContain('data-gaps="quiet"');
+    expect(quiet).not.toContain("未入力（0円で計算中）の所があります");
+    expect(quiet).not.toContain("住まいが入っていないので");
+    expect(quiet).not.toContain("ih-st missing");
+    expect(quiet).toContain("推定で埋める");
+    expect(quiet).toContain("該当なし（住居費なし）");
+    const started = panel(housingAction(wh, "add/cardLoan"));
+    expect(started).toContain('data-gaps="alert"');
+    expect(started).toContain("未入力（0円で計算中）の所があります");
+    expect(started).toContain('<span class="ih-st missing">未入力（0円の所あり）</span>');
   });
 });
 
@@ -327,13 +429,14 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     expect(() => preview(filled.request)).not.toThrow();
   });
 
-  it("描画: 進み具合は未入力（0円の所あり）の数を左に強く、続けて14項目中の入力済み・推定で計算中・当てはまらない。新しい世帯に最初の5枚の案内", () => {
+  it("描画: 進み具合は未入力（0円の所あり）の数を左に強く、続けて14項目中の入力済み・推定で計算中・当てはまらない・まだ入れていない。新しい世帯に最初の5枚の案内", () => {
     const wh = blankHousehold("2026-10", seq());
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple" }));
-    expect(html).toContain('data-progress-missing="9"');
-    expect(html).toMatch(/ih-prog-miss on.*未入力（0円の所あり）.*<span class="n">9<\/span>/);
+    // 新しい世帯は、まだ何も入れていない項目を赤い数に入れない（0045 の追記）
+    expect(html).toContain('data-progress-missing="0"');
+    expect(html).not.toContain("ih-prog-miss on");
     // 状態ごとの数は押すとそのカードだけに絞るボタン（0072）
-    expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('14項目中 入力済み <span class="n">1</span>・推定で計算中 <span class="n">3</span>・当てはまらない <span class="n">1</span>');
+    expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('14項目中 入力済み <span class="n">1</span>・推定で計算中 <span class="n">3</span>・当てはまらない <span class="n">1</span>・まだ入れていない <span class="n">9</span>');
     expect(html).toContain('data-progress-filter="est"');
     expect(html.indexOf("data-progress-missing")).toBeLessThan(html.indexOf("14項目中"));
     expect(html).toContain("data-first-guide");
@@ -342,7 +445,11 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     expect(html).toContain('data-card-na="insurance"');
     expect(html).toContain("入れなくても計算できます（保障は無しで計算中）");
     // 状態は色だけでなく文字でも
-    for (const t of ["入力済み", "推定で計算中（2項目）", "未入力（0円の所あり）", "当てはまらない"]) expect(html).toContain(t);
+    for (const t of ["入力済み", "推定で計算中（2項目）", "当てはまらない", "まだ入っていません"]) expect(html).toContain(t);
+    // まだ入れていない項目のカードには赤い札を出さない（点線の枠は灰色。s-empty）
+    expect(html).not.toContain("ih-st missing mini\">未入力（0円の所あり）</span></span></button>");
+    expect((html.match(/ih-card s-empty/g) ?? []).length).toBe(9);
+    expect(html).not.toContain("ih-card s-missing");
   });
 
   it("描画: 最初の5枚がどれも未入力でなければ案内を出さない。FP用のメモは画面に出さない", () => {
@@ -350,7 +457,7 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     const wh = notApplicableCard(open("salariedCoupleTwoKids", ["MEMO-MARK-home"]), "work");
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple" }));
     expect(html).not.toContain("data-first-guide");
-    expect(html).toContain('data-progress-missing="4"');
+    expect(html).toContain('data-progress-missing="1"');
     expect(html).not.toContain("MEMO-MARK-home");
     expect(html).toContain("項目を追加");
   });
