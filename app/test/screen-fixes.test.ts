@@ -104,7 +104,7 @@ describe("子の独立の年月: 新しく足す子は年齢の時点の標準�
     const child = member(w1, "child")[0]!;
     const birth = (w: WorkingHousehold) => allFields(buildStage("family", w)).find((f) => f.key === `family/${child.id}/birth`)!;
     const w2 = birth(w1).set(w1, "2028-04");
-    expect(birth(w2).get(w2).hint).toBe("これから生まれる予定（令和10年4月）");
+    expect(birth(w2).get(w2).hint).toBe("今から1年6か月後・ご本人37歳（令和10年4月）");
     const leaves = allFields(buildStage("education", w2)).find((f) => f.key === `family/${child.id}/leaves`)!;
     expect(leaves.get(w2)).toMatchObject({ value: "2051-04", hint: "23歳" });
     expect(() => preview(w2.request)).not.toThrow();

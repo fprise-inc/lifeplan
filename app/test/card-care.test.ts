@@ -41,6 +41,20 @@ const careTotal = (wh: WorkingHousehold) =>
     .reduce((s, c) => s + c.amount, 0);
 
 describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
+  it("生年月が今より後の世帯の外の家族は、マイナスの年齢ではなく家族のカードと同じ読み（今から○年後・本人の年齢（和暦））", () => {
+    const id = seq();
+    const w0 = mutate(blankHousehold(BASE, id), (h) => {
+      h.members[0]!.birth.birthYearMonth = "1960-06";
+    });
+    const wh = addOutside(w0, "grandchild", { id });
+    const g = wh.request.input.household.members.find((m) => m.kind === "grandchild")!;
+    const f = fieldOf(wh, `family/${g.id}/birth`);
+    const w2 = f.set(wh, "2028-10");
+    expect(fieldOf(w2, `family/${g.id}/birth`).get(w2).hint).toBe("今から2年後・ご本人68歳（令和10年10月）");
+    const w3 = fieldOf(w2, `family/${g.id}/birth`).set(w2, "2020-04");
+    expect(fieldOf(w3, `family/${g.id}/birth`).get(w3).hint).toBe("6歳（令和2年4月）");
+  });
+
   it("「＋ 親を足す」: 世帯の外の家族で、親のお金の欄は作らず、亡くなる見込みは平均余命の推定（年齢の時点・仮の印）", () => {
     const wh = actionOf(blankHousehold(BASE, seq()), "family/add/parent").run(blankHousehold(BASE, seq()));
     const [p] = parents(wh);

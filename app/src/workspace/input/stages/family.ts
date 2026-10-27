@@ -4,7 +4,7 @@ import type { Household, IncomeFlowKind, Member, MoneyOutKind, Relation, Timepoi
 import { addMonths, ageAt } from "../../levers.ts";
 import { roles } from "../../roles.ts";
 import { resolveTimepoint } from "../../timepoint.ts";
-import { byId, field, plain, removeAction, timepointField, timeView, type ActionDef, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
+import { byId, field, plain, removeAction, timepointField, type ActionDef, type Val, type FieldDef, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
 import { followStandards, LEAVES_BASIS, mutate, newId, standardLeavesPoint, type WorkingHousehold } from "../household.ts";
 import { addExpense, addIncome, moneySections } from "../moneyRows.ts";
 import { NONE_CLAIMED } from "./events.ts";
@@ -134,10 +134,10 @@ function followSpouseSex(h: Household, wh: WorkingHousehold, selfSex: unknown): 
 /** 構成員1人のまとまり（家計を1つにする人。世帯の外の家族は介護・親のカードの形で出す。care.ts の outsideGroup） */
 export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const find = byId(members, m.id);
-  // まだ生まれていない（生年月が計算の基準の月より後）なら、マイナスの年齢ではなく「生まれる予定」と出す
+  // まだ生まれていない（生年月が計算の基準の月より後）なら、マイナスの年齢ではなく生まれる予定の欄と同じ読み（今から○年後・本人の年齢）を出す
   const ageNow = (ym: string) => {
     const age = ageAt({ ...m, birth: { ...m.birth, birthYearMonth: ym } }, wh.request.input.baseMonth);
-    return age < 0 ? `これから生まれる予定（${wareki(ym)}）` : `${age}歳（${wareki(ym)}）`;
+    return age < 0 ? expectedBirthHint(wh, ym) : `${age}歳（${wareki(ym)}）`;
   };
   const fields: FieldDef[] = [
     field({
@@ -226,51 +226,43 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
 // ---- これから生まれる子・独立の標準・本人と配偶者の入れ替え ----
 
 /**
- * これから生まれる子の「生まれる予定」（生年月と加わる月を同じ月にする）。年月・今から○年後・本人が○歳のときで入れられる。
- * 入れた時点は年月にして持つ（生年月は年月の値のため）
+ * これから生まれる子の「生まれる予定」（生年月と加わる月を同じ月にする）。生年月の欄と同じ年月の欄で入れる（入れ方の選択は出さない）。
+ * 読みは「今から2年後・ご主人39歳（令和10年10月）」の形。前の版で加わる月を年齢・出来事の形で持っている世帯は、
+ * 開いただけでは書き換えない（FP が年月を入れ直したときに、生年月と加わる月をその年月にする）
  */
 function expectedBirthField(m: Member): FieldDef {
-  const key = `family/${m.id}/birth`;
-  const self = (h: Household) => h.members.find((x) => x.kind === "self");
-  const read = (wh: WorkingHousehold): Timepoint | null => {
-    const x = wh.request.input.household.members.find((y) => y.id === m.id);
-    return x === undefined ? null : { at: x.birth.birthYearMonth };
-  };
-  const time = timeView({
-    ageOf: self,
-    mode: "ym",
-    modes: ["ym", "now", "age"],
-    monthOnly: "生まれる予定は年月で持ちます（今から・本人の年齢で入れても、その年月にします）",
-    check: (w, tp) => (tp === null ? "空にはできません。生まれる予定の月を入れてください" : null),
-    read,
-    write: (w, tp) => {
-      const ym = tp === null ? null : resolveTimepoint(w.request.input.household, tp);
-      if (ym === null) return w;
-      return mutate(w, (h) => {
-        const x = h.members.find((y) => y.id === m.id);
-        if (x === undefined) return;
-        x.birth = { ...x.birth, birthYearMonth: ym };
-        x.joins = { at: ym };
-      });
-    },
-  });
-  return field({
-    key,
+  const f = plain({
+    key: `family/${m.id}/birth`,
     item: "member.birth",
     label: "生まれる予定",
     level: "simple",
-    kind: "when",
-    time,
+    kind: "ym",
+    find: byId(members, m.id),
+    path: ["birth", "birthYearMonth"],
     help: "生まれる予定の月（出産予定日の月）。その月から家族に加わります",
-    get: (wh) => {
-      const t = read(wh);
-      return { value: t?.at ?? null, hint: t?.at !== undefined ? `これから生まれる予定（${wareki(t.at)}）` : null, when: time.state(wh), assumed: wh.assumed[key] ?? null };
-    },
-    set: (wh, v) => {
-      const tp = typeof v === "object" && v !== null ? v : typeof v === "string" && /^\d{4}-\d{2}$/.test(v) ? { at: v } : null;
-      return tp === null ? wh : time.setWhen(wh, tp, "auto");
+    hint: (v, wh) => (typeof v === "string" ? expectedBirthHint(wh, v) : null),
+    // 年月を入れたら加わる月も同じ月にする
+    after: (_h, target, v) => {
+      target.joins = { at: v as string };
     },
   });
+  // 空にはしない（生年月は要る値。空を入れても今の値のまま）
+  const ok = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}$/.test(v);
+  return { ...f, set: (wh, v) => (ok(v) ? f.set(wh, v) : wh), ...(f.write !== undefined ? { write: (wh: WorkingHousehold, v: Val) => (ok(v) ? f.write!(wh, v) : wh) } : {}) };
+}
+
+/** 生まれる予定の読み: 「今から2年後・ご主人39歳（令和10年10月）」。予定の月が今月より前なら「予定の月を過ぎています」 */
+export function expectedBirthHint(wh: WorkingHousehold, ym: string): string {
+  const base = wh.request.input.baseMonth;
+  const idx = (s: string) => Number(s.slice(0, 4)) * 12 + Number(s.slice(5, 7)) - 1;
+  const d = idx(ym) - idx(base);
+  const y = Math.floor(Math.abs(d) / 12);
+  const mo = Math.abs(d) % 12;
+  const span = y > 0 && mo > 0 ? `${y}年${mo}か月` : y > 0 ? `${y}年` : `${mo}か月`;
+  const parts = [d > 0 ? `今から${span}後` : d === 0 ? "今月" : "予定の月を過ぎています"];
+  const self = wh.request.input.household.members.find((x) => x.kind === "self");
+  if (self !== undefined) parts.push(`${memberLabel(wh, self.id)}${ageAt(self, ym)}歳`);
+  return `${parts.join("・")}（${wareki(ym)}）`;
 }
 
 /** これから生まれる子が生まれた: 予定の印と加わる月を外す（生年月はそのまま。子の性別は聞かない） */

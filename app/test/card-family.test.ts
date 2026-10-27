@@ -81,13 +81,52 @@ describe("足すボタン: 配偶者（法律婚）・パートナー（事実�
     const k2 = w2.request.input.household.members.find((m) => m.id === kid.id)!;
     expect(k2).toMatchObject({ birth: { birthYearMonth: "2027-08" }, joins: { at: "2027-08" } });
     expect(w2.assumed[`family/${kid.id}/birth`]).toBeUndefined();
-    // 今からの入れ方（1年後）も年月にする
-    const w3 = fieldOf(w2, `family/${kid.id}/birth`).time!.setWhen(w2, { at: "2027-12" }, "auto");
+    const w3 = fieldOf(w2, `family/${kid.id}/birth`).set(w2, "2027-12");
     expect(w3.request.input.household.members.find((m) => m.id === kid.id)!.birth.birthYearMonth).toBe("2027-12");
     expect(() => preview(w3.request)).not.toThrow();
     const born = markBorn(w3, kid.id);
     expect(born.request.input.household.members.find((m) => m.id === kid.id)).toMatchObject({ expected: false, joins: null });
     expect(fieldOf(born, `family/${kid.id}/birth`).label).toBe("生年月");
+  });
+});
+
+describe("生まれる予定の欄は子の生年月の欄と同じ見た目・入れ方", () => {
+  it("年月の欄（入れ方の選択なし）で、読みは「今から○年後・本人の年齢（和暦）」", () => {
+    const wh = couple();
+    const w1 = action(wh, "family/add/expectedChild").run(wh);
+    const kid = w1.request.input.household.members.find((m) => m.kind === "child")!;
+    const f = fieldOf(w1, `family/${kid.id}/birth`);
+    const self = w1.request.input.household.members.find((m) => m.kind === "self")!;
+    const selfBirth = fieldOf(w1, `family/${self.id}/birth`);
+    expect(f.kind).toBe(selfBirth.kind);
+    expect(f.kind).toBe("ym");
+    expect(f.time).toBeUndefined();
+    expect(f.get(w1)).toMatchObject({ value: "2028-10", hint: "今から2年後・ご主人43歳（令和10年10月）" });
+    const w2 = f.set(w1, "2027-08");
+    expect(fieldOf(w2, `family/${kid.id}/birth`).get(w2).hint).toBe("今から10か月後・ご主人42歳（令和9年8月）");
+    // 空は入れられない（今の値のまま）
+    expect(fieldOf(w2, `family/${kid.id}/birth`).set(w2, null)).toBe(w2);
+    expect(fieldOf(w2, `family/${kid.id}/birth`).set(w2, "")).toBe(w2);
+  });
+
+  it("加わる月を年齢の形で持つ古い世帯は、開いただけでは書き換えず、年月を入れ直したら年月で書く", () => {
+    const wh = couple();
+    const w1 = action(wh, "family/add/expectedChild").run(wh);
+    const kid = w1.request.input.household.members.find((m) => m.kind === "child")!;
+    const self = w1.request.input.household.members.find((m) => m.kind === "self")!;
+    const old = { ...w1, request: structuredClone(w1.request) };
+    const k0 = old.request.input.household.members.find((m) => m.id === kid.id)!;
+    k0.birth.birthYearMonth = "2028-06";
+    k0.joins = { memberAge: { member: self.id, years: 43 } };
+    const before = structuredClone(old.request);
+    const f = fieldOf(old, `family/${kid.id}/birth`);
+    expect(f.get(old)).toMatchObject({ value: "2028-06", hint: "今から1年8か月後・ご主人43歳（令和10年6月）" });
+    expect(old.request).toEqual(before);
+    // 同じ年月を入れ直しても変えない
+    expect(f.set(old, "2028-06")).toBe(old);
+    const w2 = f.set(old, "2028-09");
+    expect(w2.request.input.household.members.find((m) => m.id === kid.id)).toMatchObject({ birth: { birthYearMonth: "2028-09" }, joins: { at: "2028-09" } });
+    expect(() => preview(w2.request)).not.toThrow();
   });
 });
 
