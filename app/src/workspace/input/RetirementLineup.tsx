@@ -1,4 +1,5 @@
 // 退職金・企業年金のカードの下の「受け取りの並び」（読むだけ。0057）。中身は retirementLineup.ts
+import { Help } from "../../presentation/Help.tsx";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { memberLabel } from "./labels.ts";
@@ -12,11 +13,23 @@ export function RetirementLineup({ wh, computeOne }: { wh: WorkingHousehold; com
   return (
     <div class="ip-lineup" role="note" data-retirement-lineup>
       <p>
-        <b>受け取りの並び</b>（読むだけ。時期・受け取り方はプランで変えて比べられます）
+        <b>受け取りの並び</b>
+        <Help label="受け取りの並び">読むだけです。時期・受け取り方はプランで変えて比べられます。</Help>
       </p>
       {list.map((l) => (
         <div key={l.member} class="ip-lineup-person" data-lineup-member={l.member}>
-          <p class="who">{memberLabel(wh, l.member)}</p>
+          <p class="who">
+            {memberLabel(wh, l.member)}
+            {l.notes.length > 0 ? (
+              <Help label={`${memberLabel(wh, l.member)}の受け取り`}>
+                <ul>
+                  {l.notes.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </Help>
+            ) : null}
+          </p>
           <table>
             <thead>
               <tr>
@@ -40,13 +53,6 @@ export function RetirementLineup({ wh, computeOne }: { wh: WorkingHousehold; com
               ))}
             </tbody>
           </table>
-          {l.notes.length > 0 ? (
-            <ul class="notes">
-              {l.notes.map((n) => (
-                <li key={n}>{n}</li>
-              ))}
-            </ul>
-          ) : null}
         </div>
       ))}
     </div>

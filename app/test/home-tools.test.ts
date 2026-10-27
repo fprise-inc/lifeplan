@@ -3,13 +3,11 @@
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import type { EngineRequest } from "../src/engine/types.ts";
 import { checkList, confirmAllEstimates, DEFAULT_KINDS, valueMeta } from "../src/workspace/input/checkRows.ts";
 import { passesFilter, planOnlyRows } from "../src/workspace/input/CheckList.tsx";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { InputView } from "../src/workspace/input/InputView.tsx";
-import { miniLine } from "../src/workspace/input/MiniResult.tsx";
 import { readRecheck, recheckText, setRecheck } from "../src/workspace/input/recheck.ts";
 import { addCar } from "../src/workspace/input/stages/cars.ts";
 import { buildStages } from "../src/workspace/input/stages/index.ts";
@@ -18,7 +16,7 @@ import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
 import type { Proposal } from "../src/workspace/plans/plans.ts";
 import { roles } from "../src/workspace/roles.ts";
-import { modelHousehold, preview } from "./helpers.ts";
+import { modelHousehold } from "./helpers.ts";
 
 const open = (id: string) => fromRequest(modelHousehold(id));
 const NO_FILTER = { card: "", kind: "", origin: "", certainty: "" } as const;
@@ -112,25 +110,13 @@ describe("プランの編集中: そのプランで足した物の行", () => {
   });
 });
 
-describe("小さな結果と取り込みの入口", () => {
-  it("金融資産の線は表示する年ごと。足りなくなる年は金融資産がはじめてマイナスになる年", () => {
-    const req = modelHousehold("salariedCoupleTwoKids") as EngineRequest;
-    const r = preview(req);
-    const l = miniLine(req, r)!;
-    expect(l.years.length).toBe(l.values.length);
-    expect(l.years.length).toBeGreaterThan(10);
-    const firstNeg = l.years.find((_, i) => (l.values[i] ?? 0) < 0) ?? null;
-    expect(l.short).toBe(firstNeg);
-    expect(miniLine(req, null)).toBeNull();
-  });
-
-  it("描画: 小さな結果・全部のカードの入れ方・取り込む（現状のとき）", () => {
+describe("取り込みの入口", () => {
+  it("描画: 取り込む（現状のとき）。小さな結果と全部のカードの入れ方の一括の切り替えは出さない（0077）", () => {
     const wh = open("salariedCoupleTwoKids");
-    const r = preview(wh.request);
-    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", onLevel: () => undefined, results: { current: r, planOf: () => null, onOpen: () => undefined }, imports: h("span", { "data-x": true }, "x") }));
-    expect(html).toContain("data-mini-result");
-    expect(html).toContain("金融資産の見込み");
-    expect(html).toContain('data-home-level="detail"');
+    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", imports: h("span", { "data-x": true }, "x") }));
+    expect(html).not.toContain("data-mini-result");
+    expect(html).not.toContain("金融資産の見込み");
+    expect(html).not.toContain("data-home-level");
     expect(html).toContain("data-imports-open");
   });
 });

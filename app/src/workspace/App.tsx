@@ -383,7 +383,8 @@ export function App() {
   const [inputPlanOn, setInputPlanOn] = useState(false);
   /** 画面下の知らせ。undo のときは「元に戻す」を添える（帯のカードの × でプランを外したときなど） */
   const [notice, setNotice] = useState<{ text: string; undo: boolean } | null>(null);
-  const [level, setLevel] = useState<Level>(initial.level ?? "simple");
+  // カードの入れ方の初め（#level=detail）。切り替えはカードごとに入力のホームの中で持つ（0077）
+  const level: Level = initial.level ?? "simple";
   const [memoOpen, setMemoOpen] = useState(initial.memo === true);
   // 世帯の保存（0011・0013）
   const [storeStatus, setStoreStatus] = useState<StoreStatus | null>(null);
@@ -2007,7 +2008,6 @@ export function App() {
         {tab === "input" && opened !== null ? (
           <>
             {error !== null ? <p class="fatal">今の入力では計算できませんでした（{error}）</p> : null}
-            {opened.wh.proposals.length > 0 && !(inputPlanOn && work.sel !== CURRENT) ? <p class="in-note plans-note">入力（現状）を直すと、保存したプラン（{opened.wh.proposals.length}件）にも反映されます。プランが指していた物を外すと、そのプランに「要確認」が出ます。</p> : null}
             <InputView
               key={cardOpen?.n ?? 0}
               wh={opened.wh}
@@ -2025,10 +2025,8 @@ export function App() {
                 lock: modified.has(work.sel) ? "結果のタブに、このプランの保存していない変更があります。結果のタブで「上書き保存」か「変更を取り消す」をしてから、入力で直してください（入力で直すのは保存したプランです）" : null,
                 onResults: () => setTab("main"),
               }}
-              results={{ current: resultOf(CURRENT), planOf: (id) => resultOf(id), onOpen: () => setTab("main") }}
               computeOne={computeOne}
               level={level}
-              onLevel={setLevel}
               {...(cardOpen !== null ? { initialOpen: cardOpen.id } : initial.open !== undefined ? { initialOpen: initial.open } : {})}
               {...(host !== null
                 ? {

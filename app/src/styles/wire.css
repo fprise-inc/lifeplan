@@ -50,7 +50,6 @@
 }
 
 /* ---- ヒアリングシート（入力のホームの上部） ---- */
-.ih-tools { display: grid; gap: 10px; margin: -6px 0 16px; }
 .hs-tools { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .hs-tools-h { font-weight: 700; color: var(--ink-2); font-size: 0.9rem; }
 .hs-tools .btn { padding: 5px 14px; }

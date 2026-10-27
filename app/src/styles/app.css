@@ -269,12 +269,17 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group-h h4 { margin: 0; font-size: 0.98rem; }
 .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 18px; }
 .fld { min-width: 0; }
-.fld-l { display: flex; align-items: center; gap: 6px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); margin-bottom: 3px; }
+.fld-l { display: flex; align-items: center; flex-wrap: nowrap; gap: 4px 6px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); margin-bottom: 3px; }
+.fld-l > label { min-width: 0; }
+/* 区画・まとまりの見出しの横の「?」 */
+.in-section h3 .help, .in-group-h h4 .help { margin-left: 6px; }
+.in-group-help { margin: 0 0 4px; }
+.ip-head h2 .help-btn { font-size: 0.78rem; }
 .fld-c { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .fld-c input[type="text"], .fld-c select { border: 1.5px solid var(--line); border-radius: 6px; padding: 5px 8px; background: #fff; min-width: 0; }
 .fld-c input.num { width: 9.5em; text-align: right; font-variant-numeric: tabular-nums; }
 .fld-c input.txt { width: 100%; max-width: 18em; }
-.fld-c input.ym { width: 7.5em; font-variant-numeric: tabular-nums; }
+.fld-c input.ym { width: 8em; font-variant-numeric: tabular-nums; }
 .fld-c input.when-in { width: 10.5em; max-width: 100%; font-variant-numeric: tabular-nums; }
 .fld-c select.when-mode, .fld-c select.when-who, .fld-c select.when-event { font-size: 0.85rem; padding: 4px 6px; }
 .fld-help.when-read { color: var(--ink); }
@@ -317,9 +322,9 @@ html.big .lever input[type="range"] { height: 36px; }
 .ip-gaps p { margin: 0 0 2px; font-weight: 700; }
 .ip-gaps ul { margin: 0; padding-left: 1.1em; }
 .ip-gaps li { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
-.ih-check { margin: 6px 0 10px; }
 .ck { background: var(--card); border: 1px solid var(--card-line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
-.ck-head h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.ck-head h2 { margin: 0 0 4px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+.ck-basis { font-size: 0.78rem; }
 .ck-lead { margin: 0 0 6px; font-size: 0.86rem; color: var(--ink-2); }
 .ck-tools { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 0.86rem; }
 .ck-tools select { margin-left: 4px; }
@@ -344,11 +349,12 @@ html.big .lever input[type="range"] { height: 36px; }
 .link-btn { background: none; border: 0; padding: 2px 4px; font-size: 0.82rem; cursor: pointer; text-decoration: underline; color: var(--ink-2); }
 .link-btn.danger { color: var(--short-ink); }
 
-/* 入力のホーム: 14枚のカードを同じ大きさのグリッドで（広い画面で7列＝7×2。狭いとき・文字を大きくしたときは列を減らす） */
+/* 入力のホーム: 14枚のカードを同じ大きさのグリッドで（広い画面で4列。狭いとき・文字を大きくしたときは列を減らす。0077 で前の大きさに戻した） */
 .ih { max-width: 1520px; margin: 0 auto; }
-.ih-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap; margin: 0 0 16px; }
-.ih-head h1 { font-size: 1.45rem; margin: 0 0 4px; letter-spacing: 0.02em; }
-.ih-lead { margin: 0; color: var(--ink-2); font-size: 0.92rem; max-width: 62em; }
+.ih-head { display: flex; align-items: center; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap; margin: 0 0 12px; }
+.ih-head h1 { font-size: 1.45rem; margin: 0; letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 8px; }
+.ih-head h1 .help-btn { font-size: 0.9rem; }
+.ih-head-l { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; }
 .ih-prog { display: grid; gap: 6px; min-width: min(300px, 100%); }
 .ih-prog-line { font-size: 1rem; font-weight: 700; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
 .ih-prog-line .n { font-size: 1.3em; color: var(--prop); font-variant-numeric: tabular-nums; }
@@ -366,22 +372,19 @@ html.big .lever input[type="range"] { height: 36px; }
 .ih-group + .ih-group { margin-top: 22px; }
 .ih-gh { font-size: 1.02rem; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
 .ih-gh::after { content: ""; flex: 1; border-top: 1px solid var(--card-line); }
-.ih-cards { display: grid; gap: 12px; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-@media (max-width: 1340px) { .ih-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-@media (max-width: 1060px) { .ih-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-@media (max-width: 900px) { .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.ih-cards { display: grid; gap: 18px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1180px) { .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 820px) { .ih-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .ih-cards { grid-template-columns: minmax(0, 1fr); } }
-html.big .ih-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-@media (max-width: 1340px) { html.big .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 1000px) { html.big .ih-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+html.big .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1180px) { html.big .ih-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) { html.big .ih-cards { grid-template-columns: minmax(0, 1fr); } }
 
 /* カード: イラスト＋名前＋要約の数字1つ＋状態（押す所はカードの中のボタン。下に1行の案内と1押し） */
 .ih-card { --c: #888; --tint: color-mix(in srgb, var(--c) 11%, #fff); position: relative; display: flex; flex-direction: column; text-align: left; padding: 0; margin: 0; background: #fff; border: 1px solid var(--card-line); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(20, 30, 50, 0.05); transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s; min-height: 100%; }
 .ih-open { all: unset; box-sizing: border-box; position: relative; display: flex; flex-direction: column; flex: 1; cursor: pointer; text-align: left; min-width: 0; }
 .ih-open:focus-visible { outline: 3px solid #f0b400; outline-offset: -3px; border-radius: 12px; }
-.ih-hint { padding: 0 12px 14px; font-size: 0.82rem; color: var(--ink-2); display: grid; gap: 6px; }
+.ih-hint { padding: 0 16px 16px; font-size: 0.82rem; color: var(--ink-2); display: grid; gap: 6px; }
 .ih-hint p { margin: 0; }
 .ih-hint-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .btn.small { padding: 2px 10px; font-size: 0.8rem; border-width: 1.5px; }
@@ -393,13 +396,13 @@ html.big .ih-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .ih-ill { position: relative; display: block; background: #fff; aspect-ratio: 16 / 9; overflow: hidden; flex: none; transition: background 0.3s; }
 html.big .ih-ill { aspect-ratio: 2 / 1; }
 .ih-ill img { display: block; width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; transition: filter 0.3s, opacity 0.3s; }
-.ih-body { padding: 10px 12px 18px; display: grid; gap: 2px; align-content: start; min-width: 0; flex: 1; }
-.ih-name { font-weight: 700; font-size: 0.98rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ih-body { padding: 12px 16px 20px; display: grid; gap: 2px; align-content: start; min-width: 0; flex: 1; }
+.ih-name { font-weight: 700; font-size: 1.02rem; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .ih-name::before { content: ""; width: 0.7em; height: 0.7em; border-radius: 3px; background: var(--c); flex: none; }
-.ih-sum { font-weight: 700; font-size: 1.3rem; line-height: 1.3; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ih-sum { font-weight: 700; font-size: 1.42rem; line-height: 1.3; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .ih-sum small { font-size: 0.62em; font-weight: 700; margin: 0 0.1em; }
 .ih-sum .yet { font-size: 0.74em; color: var(--ink-2); letter-spacing: 0; }
-/* 状態の印は名前と要約の下（7列でも絵に重ならない） */
+/* 状態の印は名前と要約の下（絵に重ならない） */
 .ih-body > .ih-st { justify-self: start; margin-top: 4px; white-space: normal; }
 .ih-band { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; }
 .fp-tag { display: inline-block; font-size: 0.72rem; font-weight: 700; border: 1.5px solid var(--ink-2); border-radius: 4px; padding: 0 5px; color: var(--ink-2); white-space: nowrap; }
@@ -438,7 +441,7 @@ html.big .ih-ill { aspect-ratio: 2 / 1; }
 h2 .ih-st { font-size: 0.8rem; }
 
 /* ＋ 項目を追加 */
-.ih-card.ih-add { border: 2px dashed var(--field); background: #fff; box-shadow: none; cursor: default; min-height: 200px; }
+.ih-card.ih-add { border: 2px dashed var(--field); background: #fff; box-shadow: none; cursor: default; min-height: 240px; }
 .ih-card.ih-add:hover { transform: none; box-shadow: none; }
 .ih-add-main { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; padding: 18px; text-align: center; font-weight: 700; font-size: 1.02rem; color: var(--prop); }
 .ih-add-main:focus-visible { outline: 3px solid #f0b400; outline-offset: -4px; }
@@ -582,7 +585,7 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-gh .in-note { margin: 0; font-weight: 400; }
 .cg-premises .lever-val.auto { font-size: 0.95rem; color: var(--ink-2); white-space: normal; text-align: right; }
 .cg-premises .lever.field .fld { margin-top: 6px; }
-.cg-premises .lever.field .fld-l { display: none; }
+.cg-premises .lever.field .fld-l > :not(.help), .cg-premises .lever.field .fld-l > .help:has(.help-mark) { display: none; }
 .cg-premises .lever.field .fld-c select { max-width: 100%; font-weight: 700; }
 .cg-premises .cg-auto { margin-left: 8px; font-size: 0.8rem; }
 /* 0071: 前提の欄の形式・直す先・プランで共通と違う値の印（縦線と「共通: ○○」「↺ 共通に戻す」） */
@@ -632,7 +635,6 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 /* 区画の見出しの横の控えめなリンク（基本生活費の「明細から出す」。0034） */
 .in-section-link { font-size: 0.82rem; font-weight: 400; color: var(--ink-2); white-space: nowrap; }
 .in-section-link:hover { color: var(--prop); }
-.plans-note { margin: 0 0 8px; }
 
 /* 動かす項目（対策の列） */
 .lever.added .lever-label { font-weight: 700; font-size: 0.95rem; }
@@ -643,7 +645,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .range-scale { display: flex; justify-content: space-between; gap: 6px; font-size: 0.8rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .base-mark { border: 1px solid var(--line); background: var(--base-bg); border-radius: 4px; padding: 0 5px; color: var(--base-ink); font-weight: 700; }
 .lever.added .fld { margin-top: 4px; }
-.lever.added .fld-l { display: none; }
+.lever.added .fld-l > :not(.help), .lever.added .fld-l > .help:has(.help-mark) { display: none; }
 .mix { display: grid; gap: 2px; margin-top: 4px; }
 .mix-row { display: grid; grid-template-columns: 3em minmax(0, 1fr) 3.2em; align-items: center; gap: 6px; font-size: 0.9rem; }
 .mix-row.ro { grid-template-columns: 3em auto; color: var(--ink-2); }
@@ -1195,16 +1197,29 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .pip-chart .multi-tip { font-size: 0.76rem; line-height: 1.35; }
 
 /* ---- 入力画面でプランを直す（0036 の8・0043）: 編集の対象・プランの色の帯・欄とまとまりの印・外した物・違いの一覧 ---- */
-.ih-target { --plan-c: var(--field); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 4px 0 10px; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--card); }
-.ih-target label { display: flex; align-items: center; gap: 8px; font-weight: 700; }
-.ih-target select { font: inherit; padding: 3px 6px; }
-.ih-target.on { border: 2px solid var(--plan-c); background: color-mix(in srgb, var(--plan-c) 7%, #fff); }
-.ih-target-note { font-size: 0.9rem; color: var(--ink-2); }
-.ih-target.on .ih-target-note { color: var(--ink); }
-.ih-target-gap { flex: 1 1 auto; }
-.ih-target-lock { flex: 1 1 100%; margin: 0; color: var(--est-ink); background: var(--est-bg); padding: 4px 8px; border-radius: 4px; font-size: 0.9rem; }
-.ih.plan-mode { box-shadow: inset 6px 0 0 var(--plan-c); padding-left: 12px; }
+/* 入力のホームの2行目（0077）: 編集の対象と道具を1つの行に。開いた中身（控え・FP の道具・取り込むの中身）は行の下に幅いっぱいで出す */
+.ih-bar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin: 0 0 12px; }
+.ih-bar > .ih-tools { display: contents; }
+/* 画面には出さず、読み上げだけに渡す文 */
+.vh { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.ih-bar > .ih-tools > .hs-tools, .ih-bar > .ih-tools > .ih-imports { order: 1; }
+.ih-bar > .ih-tools > :not(.hs-tools):not(.ih-imports) { order: 2; flex: 1 1 100%; min-width: 0; }
+.ih-bar > .ih-tools > .hs-tools { justify-content: flex-start; flex-wrap: nowrap; white-space: nowrap; }
+.ih-imports { display: inline-flex; align-items: center; gap: 6px; }
+/* 編集の対象: プランの色は、この箱の枠と左の点だけ。現状とプランで枠の太さ・中の並びを変えない（選んでも配置が動かない） */
+.ih-target { --plan-c: var(--field); order: 0; position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 10px; border: 2px solid var(--card-line); border-radius: var(--radius); background: var(--card); }
+.ih-target label { display: flex; align-items: center; gap: 8px; font-weight: 700; white-space: nowrap; }
+.ih-target select { font: inherit; padding: 3px 6px; width: 17em; max-width: 40vw; text-overflow: ellipsis; }
+.ih-target.on { border-color: var(--plan-c); }
+.ih-target-dot { width: 0.8em; height: 0.8em; border-radius: 50%; border: 2px solid var(--line); background: #fff; flex: none; box-sizing: border-box; }
+.ih-target.on .ih-target-dot { border-color: var(--plan-c); background: var(--plan-c); }
+.ih-target-menu { position: relative; }
+.ih-target-list .add-btn { border: 0; padding: 0; background: none; text-decoration: underline; text-underline-offset: 2px; font-size: 0.82rem; }
+.ih-target-list { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; display: grid; gap: 6px; justify-items: start; min-width: 14em; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 6px 20px rgba(20, 30, 50, 0.16); white-space: nowrap; }
+.help-btn.ih-target-lock { color: var(--est-ink); background: var(--est-bg); border-color: var(--est); font-size: 0.78rem; }
 .plan-count { display: inline-block; margin-left: 6px; font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--plan-c, var(--prop)); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+/* カードの「プランB: 1か所」: 絵の右上に重ねる（カードの高さを変えない）。色はプランの色にせず、白地の札 */
+.plan-count.on-card { position: absolute; top: 8px; right: 8px; z-index: 2; margin: 0; color: var(--ink); background: #fff; border: 1.5px solid var(--ink-2); }
 .ipanel.plan-mode .ip-band { background: var(--plan-c); height: 8px; }
 .ip-plan { margin: 0; padding: 4px 16px; background: color-mix(in srgb, var(--plan-c) 12%, #fff); font-size: 0.9rem; }
 .fld:has(> .fld-plan) { border-left: 3px solid var(--plan-c, var(--prop)); padding-left: 8px; }
@@ -1246,24 +1261,11 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .ck-gone li { border-left: 4px dotted var(--line-2); }
 .ck-copy { width: 100%; margin-top: 6px; font: inherit; font-size: 0.84rem; }
 /* 入力のホームの帯（全部のカードの入れ方・小さな結果）・進み具合の絞り込み・取り込むの入口（0072） */
-.ih-bar { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; margin: -6px 0 12px; }
-.ih-level { display: inline-flex; align-items: center; gap: 4px; font-size: 0.86rem; color: var(--ink-2); }
-.ih-level button { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 2px 10px; font: inherit; cursor: pointer; }
-.ih-level button.on { border-color: var(--prop); color: var(--prop); font-weight: 700; }
-.ih-mini { display: flex; gap: 10px; align-items: center; }
-.ih-mini svg { background: var(--card); border: 1px solid var(--card-line); border-radius: 6px; }
-.ih-mini-zero { stroke: var(--line); stroke-dasharray: 3 3; }
-.ih-mini-cur { fill: none; stroke: var(--prop); stroke-width: 2; }
-.ih-mini-cur.dim { stroke: var(--ink-2); stroke-dasharray: 4 3; stroke-width: 1.5; }
-.ih-mini-plan { fill: none; stroke-width: 2.2; }
-.ih-mini-text { display: grid; gap: 1px; font-size: 0.82rem; }
-.ih-mini-h { font-weight: 700; }
-.ih-mini-text .short { color: var(--short-ink); font-weight: 700; }
 button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .ih-prog-f { font: inherit; font-weight: 700; border: 0; background: transparent; cursor: pointer; padding: 0 2px; border-bottom: 1px dashed var(--line); }
 .ih-prog-f.sel, .ih-prog-miss.sel { outline: 2px solid var(--prop); outline-offset: 1px; border-radius: 6px; }
 .ih-filter { font-size: 0.88rem; margin: 0 0 8px; }
-.ih-imports-list { display: grid; gap: 8px; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--card); }
+.ih-imports-list { display: grid; gap: 8px; padding: 8px 10px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--card); }
 .ih-imports.off { color: var(--ink-2); }
 .ih-imports-list .hs-tools { justify-content: flex-start; flex-wrap: wrap; }
 /* 事務所の既定値（0073） */
@@ -1300,3 +1302,18 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .fp-insights h3 { font-size: 0.92rem; margin: 0 0 4px; }
 .fp-insights ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .fp-insights li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 0.88rem; }
+/* 説明の「?」（丸に ?。presentation/Help.tsx。0077）: カーソル・フォーカス・押すで開く。開いた説明は画面に固定して重ねる（周りの配置を動かさない） */
+.help { display: inline-flex; align-items: center; vertical-align: middle; flex: none; }
+.help-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.25em; height: 1.25em; padding: 0; border: 1.5px solid var(--field); border-radius: 50%; background: #fff; color: var(--ink-2); font: inherit; font-size: 0.8rem; font-weight: 700; line-height: 1; cursor: help; }
+.help-btn:hover, .help-btn[aria-expanded="true"] { border-color: var(--prop); color: var(--prop); background: var(--prop-bg); }
+.help-btn:focus-visible { outline: 2px solid var(--prop); outline-offset: 2px; }
+/* 印を押して開く形（欄の「推定」の札など）: 札の見た目のまま、押せることを点線の下線で見せる */
+.help-btn.help-mark { width: auto; height: auto; border-radius: 4px; padding: 0 5px; font-size: 0.7rem; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.help-pop { position: fixed; z-index: 200; top: 0; left: 0; width: max-content; max-width: min(26em, calc(100vw - 16px)); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); box-shadow: 0 6px 20px rgba(20, 30, 50, 0.18); font-size: 0.84rem; font-weight: 400; line-height: 1.6; text-align: left; letter-spacing: 0; white-space: normal; cursor: auto; }
+.help-pop[hidden] { display: none; }
+.help-pop p { margin: 0; }
+.help-pop p + p, .help-pop p + ul, .help-pop ul + p { margin-top: 6px; }
+.help-pop ul { margin: 0; padding-left: 1.2em; }
+html.big .help-pop { font-size: 0.92rem; }
+.in-note.in-empty { margin: 0 0 4px; }
+.ip-lineup .help, .ip-note .help, .ip-inherit .help, .sv-note .help, .in-actions .help { margin: 0 6px; }
