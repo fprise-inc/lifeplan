@@ -79,6 +79,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_LIMIT_APPLIED|ideco.contributionLimit": { kind: "outside", text: "iDeCo の掛金は、上限を超えた分を除いて計算しています", card: "savings" },
   "N_LIMIT_APPLIED|nisa.annualLimit": { kind: "outside", text: "NISA の投資枠を超える積立は、枠を超えた分を NISA の外（課税口座か預金）に置いて計算しています", card: "savings" },
   "N_LIMIT_APPLIED|pension.deferral.survivorRight": { kind: "outside", text: "繰下げの途中で遺族年金の受給権ができる想定なので、そこで繰下げを止めた額で計算しています", card: "pension" },
+  "N_LIMIT_APPLIED|moneyRow.counterpartyDeath": { kind: "outside", text: "仕送り・援助などのお金の行は、相手が亡くなる見込みの月で止めました（行の終わりの値はそのままです）", card: "care" },
   "N_LIMIT_APPLIED|smallBusinessMutualAid.contribution.monthlyMax": { kind: "outside", text: "小規模企業共済の掛金は、上限の月額までにしています", card: "savings" },
   "N_NOT_ENTITLED|pension.qualifyingMonths": { kind: "outside", text: "受給資格期間（10年）に足りないので、老齢年金を0円で計算しています", card: "pension" },
   "N_NOT_ENTITLED|employmentInsurance.basicAllowance.requiredMonths": { kind: "outside", text: "雇用保険に入っていた期間が足りないので、辞めた後の失業の給付は出ない計算です", card: "work" },

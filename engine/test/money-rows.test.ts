@@ -236,3 +236,40 @@ describe("口座の間の移し替え（入れ物だけ）", () => {
     expect(r.table).toEqual(run(req).table);
   });
 });
+
+describe("相手が亡くなる見込みの月で止める（0044 の追記）", () => {
+  const dies = (req: EngineRequest, ym: string): EngineRequest => edit(req, (h) => void ((h.members as Obj[]).find((m) => m.id === P)!.leaves = at(ym)));
+  const pe = (name: string, o: Obj): Obj => ({ id: uid(`pd:${name}`), row: "cf.expense.other", from: at("2027-01"), to: null, everyYears: 1, monthly: true, growth: { kind: "none" }, amount: box(30000), ...o });
+  const stopped = (r: EngineResult) => notices(r).some((n) => n.code === "N_LIMIT_APPLIED" && n.ids.includes("moneyRow.counterpartyDeath") && n.ids.includes(P));
+
+  it("相手が世帯の外の家族なら、仕送りはその人の亡くなる見込みの月から払わず、知らせを出す。行の終わりは書き換えない", () => {
+    const req = dies(edit(base(), (h) => (h.periodicExpenses = [pe("allow", { kind: "allowance", counterparty: P })])), "2030-07");
+    const r = run(req);
+    const fs = call<{ flows: Flow[] }>(req, "expense.periodic", {}).flows;
+    expect(fs.length).toBeGreaterThan(0);
+    expect(fs.every((f) => f.ym < "2030-07")).toBe(true);
+    expect(fs.at(-1)!.ym).toBe("2030-06");
+    expect(stopped(r)).toBe(true);
+    expect((req.input.household.periodicExpenses as unknown as Obj[])[0]!.to).toBeNull();
+    // 亡くなる見込みが無ければ、行の終わりまで（知らせなし）
+    const alive = edit(base(), (h) => (h.periodicExpenses = [pe("allow2", { kind: "allowance", counterparty: P })]));
+    expect(call<{ flows: Flow[] }>(alive, "expense.periodic", {}).flows.at(-1)!.ym).toBe("2035-12");
+    expect(stopped(run(alive))).toBe(false);
+    // 行の終わりが亡くなる見込みより前なら、知らせなし
+    const short = dies(edit(base(), (h) => (h.periodicExpenses = [pe("allow3", { kind: "allowance", counterparty: P, to: at("2028-12") })])), "2030-07");
+    expect(stopped(run(short))).toBe(false);
+  });
+
+  it("相手からの援助は亡くなる見込みの月から受け取らない。相続など亡くなった後に受け取る物は止めない", () => {
+    const req = dies(
+      withIncome(flow("sup", { kind: "support", counterparty: P, from: at("2027-01"), to: null, monthly: true, amount: box(20000) }), flow("inh2", { kind: "inheritance", counterparty: P, from: at("2030-09"), to: at("2030-09"), amount: box(5000000) })),
+      "2030-07",
+    );
+    const fs = call<{ flows: Flow[] }>(req, "income.flows", {}).flows.filter((f) => !f.row.startsWith("cf.taxSi"));
+    const sup = fs.filter((f) => f.object === uid("if:sup"));
+    expect(sup.length).toBeGreaterThan(0);
+    expect(sup.every((f) => f.ym < "2030-07")).toBe(true);
+    expect(fs.filter((f) => f.object === uid("if:inh2")).map((f) => f.ym)).toEqual(["2030-09"]);
+    expect(stopped(run(req))).toBe(true);
+  });
+});
