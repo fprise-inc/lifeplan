@@ -19,3 +19,18 @@ entries:
     recordedIn: "2026.1.0"
     supersededIn: null
     approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "133万円以下"}
+  - rev: 2
+    appliesFrom: "2023-06-01"
+    appliesTo: "2026-05-31"
+    enforcedOn: "2021-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 1330000
+    sources:
+      - {type: "web", url: "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261001_508AC0000000002?response_format=xml", retrievedAt: "2026-10-08", sha256: "75423280db9e51c649df89312e99726fdc617c9229fbb67535ddddc6523a3eb9", locator: "地方税法 第314条の2第1項第10号の2", quote: "前年の合計所得金額が百三十三万円以下であるものに限る"}
+      - {type: "web", url: "https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/shotokukoujoR8.html", retrievedAt: "2026-10-08", sha256: "1c747b3916abba6d8ae22bb4f22ef05b42b6a19f2b3b0ef5373aa0a6740f72b8", locator: "配偶者特別控除の要件", quote: "前年の合計所得金額が58万円超133万円以下である人"}
+      - {type: "law", lawNumber: "昭和二十五年法律第二百二十六号", egovRevisionId: "325AC0000000226_20261001_508AC0000000002"}
+    recordedIn: "2026.14.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "2023年6月1日〜2026年5月31日の行（前の年の所得に対する住民税・社会保険料控除の計算に要る）。rev 1 と同じ値・出典で、施行日（2021年1月1日）より後なので、この期間も同じ規定の値。133万円以下"}

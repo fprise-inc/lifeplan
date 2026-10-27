@@ -32,3 +32,16 @@ entries:
     recordedIn: "2026.2.0"
     supersededIn: null
     approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "全国一律の介護保険料率1.62%（令和8年3月分から）"}
+  - rev: 3
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.016"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/002/index.html", retrievedAt: "2026-10-08", sha256: "34559227319570758d1af42110940d8d61e84d0527dee5ba22e936a9b8867900", locator: "協会けんぽの介護保険料率について（一般被保険者の率の変遷）", quote: "令和6年3月分（4月30日納付期限分）から1.60％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "pendingReview", paths: 1, note: "全国一律の介護保険料率1.60%（令和6年3月分から）。原本は協会けんぽの介護保険料率のページの変遷の表の1つだけで、令和6年度の保険料額表とはまだ照らし合わせていない。照合: Claude Opus 5.5（原本の本文・sha256 を機械で照合）"}

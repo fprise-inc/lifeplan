@@ -178,3 +178,31 @@ describe("雇用保険料: 計算基準月の前の年の1〜3月の賃金（前
     expect(paidOf("2026-04")).toBe(share(wageOf("2026-04"), 5));
   });
 });
+
+describe("被用者保険・所得税の前の年の値（今年度の住民税の決定額が無い会社員）", () => {
+  const withoutAssessments = (name: string): Req => {
+    const req = modelHousehold(name);
+    (req.input.household as unknown as { residentTaxAssessments?: unknown[] }).residentTaxAssessments = [];
+    return req;
+  };
+
+  it("今年度の住民税の決定額を消しても止まらない（前は2024年12月分の保険料の端数・料率・上限などの値が無く E_PARAM_NO_VALUE）", () => {
+    for (const name of ["salariedCoupleTwoKids", "dualAssetsTwoKids", "civilServant", "sampleExecutive", "sampleSeniorCouple", "executiveOwner", "highIncome", "parentalLeave"]) {
+      expect(() => run(withoutAssessments(name)), name).not.toThrow();
+    }
+  });
+
+  it("2025年1〜3月の給与から引く保険料は令和6年度の協会けんぽの率（埼玉 9.78%・介護 1.60%）、4月からは令和7年度の率（9.76%・1.59%）", () => {
+    const req = withoutAssessments("salariedCoupleTwoKids");
+    const self = (req.input.household as unknown as { members: { id: string; kind: string }[] }).members.find((m) => m.kind === "self")!.id;
+    const flows = entry<{ flows: Flow[] }>(req, "socialInsurance.health", { member: self, fromYear: 2025 }).flows;
+    const paid = (ym: string, formula: string) => flows.find((f) => f.ym === ym && f.formula === formula)!.amount;
+    // 標準報酬月額 50万円の被保険者負担分（折半）
+    for (const ym of ["2025-01", "2025-03"]) {
+      expect(paid(ym, "socialInsurance.health.monthly"), ym).toBe(24450);
+      expect(paid(ym, "socialInsurance.care.monthly"), ym).toBe(4000);
+    }
+    expect(paid("2025-04", "socialInsurance.health.monthly")).toBe(24400);
+    expect(paid("2025-04", "socialInsurance.care.monthly")).toBe(3975);
+  });
+});

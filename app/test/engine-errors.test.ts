@@ -9,15 +9,16 @@ import { modelHousehold, realEngine } from "./helpers.ts";
 type Err = { error: { code: string; ids: string[] } };
 
 describe("制度データに値が無いとき（E_PARAM_NO_VALUE）の文", () => {
-  it("本物のエンジン: 今年度の住民税の決定額を消した会社員は、前の年の保険料の値が無く止まる。どの値のどの時期かと避け方を出す", () => {
+  it("本物のエンジン: 計算基準月が2026年4月で今年度の住民税の決定額が無いと、2024年分の所得税の値が無く止まる。どの値のどの時期かと避け方を出す", () => {
     const req = modelHousehold("salariedCoupleTwoKids");
+    (req.input as { baseMonth: string }).baseMonth = "2026-04";
     (req.input.household as { residentTaxAssessments?: unknown[] }).residentTaxAssessments = [];
     const { engine, packs } = realEngine();
     const out = JSON.parse(engine.runBatch(JSON.stringify([req]), packs, '{"preview":true}')) as Err[];
     const e = out[0]!.error;
     expect(e.code).toBe("E_PARAM_NO_VALUE");
     expect(e.ids).toHaveLength(2);
-    // 引く日は計算基準月の前の年より前（制度データは2025年から）
+    // 引く日は計算基準月より前（2024年分の値は制度データにまだ無い）
     expect(e.ids[1]! < "2025-01-01").toBe(true);
     const [y, m] = e.ids[1]!.split("-").map(Number);
     const text = engineErrorText(e.code, e.ids, req.input.baseMonth);
