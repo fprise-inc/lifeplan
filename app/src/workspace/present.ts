@@ -48,7 +48,7 @@ export function ageAxis(rs: readonly Role[], years: readonly number[], gone?: { 
   return rs.filter((r) => r.key === "self" || r.key === "spouse").map((r) => ({ label: r.label, ages: years.map((y) => (inHousehold(r, y, gone) ? ageInYear(r.member, y) : null)) }));
 }
 
-/** その年の家族全員の年齢の文字（例: 「ご主人64歳・奥様62歳・長女35歳」。世帯にいる人だけ） */
+/** その年の家族全員の年齢の文字（例: 「ご主人64歳・奥様62歳・第1子35歳」。世帯にいる人だけ） */
 export function familyText(rs: readonly Role[], y: number, gone?: { key: string; year: number }): string {
   return rs
     .filter((r) => inHousehold(r, y, gone))

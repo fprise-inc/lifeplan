@@ -111,7 +111,7 @@ describe("年齢の段（主画面のグラフ）", () => {
     const html = draw(couple, { pinnedYear: y });
     const text = familyText(rs, y);
     expect(text.split("・")).toHaveLength(4);
-    expect(text).toMatch(/^ご主人\d+歳・奥様\d+歳・(長男|長女)\d+歳・(長男|長女)\d+歳$/);
+    expect(text).toMatch(/^ご主人\d+歳・奥様\d+歳・第1子\d+歳・第2子\d+歳$/);
     expect(html).toContain(`<div class="yt-h">${y}年\u3000${text}`);
     expect(couple.chart.family[couple.chart.years.indexOf(y)]).toBe(text);
     // 子が独立したあとの年は夫婦だけ

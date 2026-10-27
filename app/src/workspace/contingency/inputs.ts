@@ -197,7 +197,7 @@ function workFromField(id: string, k: string): FieldDef {
 }
 
 export const HORIZON_KINDS: Option[] = [
-  { value: "lifeExpectancy", label: "配偶者の平均余命まで" },
+  { value: "lifeExpectancy", label: "配偶者の平均余命まで（配偶者がいなければ末子の独立まで）" },
   { value: "youngestIndependence", label: "末子の独立まで" },
   { value: "age", label: "配偶者が決めた年齢になるまで" },
 ];
@@ -320,7 +320,7 @@ export function contingencyInputSections(wh: WorkingHousehold): SectionDef[] {
         ...(plan.horizon?.kind === "age" ? [planField({ key: "cg/horizon/age", label: "配偶者の年齢", level: "detail", kind: "int", suffix: "歳", min: 50, max: 110, path: ["horizon", "age"], fallback: 90 })] : []),
         planField({ key: "cg/horizon/method", label: "出し方", level: "detail", kind: "select", options: PROTECTION_METHODS, path: ["protection", "method"], fallback: "accumulation" }),
         ...(plan.protection?.method === "reverse"
-          ? [planField({ key: "cg/horizon/reverseAge", label: "遺族が何歳になるまで資産が尽きないようにするか", level: "detail", kind: "int", suffix: "歳", min: 50, max: 110, path: ["protection", "reverseUntilAge"], help: "空欄なら遺族の平均余命まで", auto: "平均余命まで" })]
+          ? [planField({ key: "cg/horizon/reverseAge", label: "遺族が何歳になるまで資産が尽きないようにするか", level: "detail", kind: "int", suffix: "歳", min: 50, max: 110, path: ["protection", "reverseUntilAge"], help: "空欄なら遺族の平均余命まで（遺族が子なら末子の独立まで）", auto: "平均余命まで" })]
           : []),
       ],
       { level: "detail", note: "積み上げ方式は、遺族の支出から収入と一時の資金を引いた不足の累計。逆算方式は、遺族の資産が決めた年齢まで尽きないのに要る額" },

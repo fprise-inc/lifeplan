@@ -324,7 +324,7 @@ describe("時点の欄の読み書き", () => {
     const leaves = w1.request.input.household.members.find((m) => m.id === son.id)!.leaves;
     expect(leaves).toEqual({ memberAge: { member: son.id, years: 22, ageSwitch: "firstMarch31AfterReach" } });
     expect(f.get(w1).value).toBe("2035-03");
-    expect(f.get(w1).when?.read).toBe("長男が22歳になった後の最初の3月（令和17年3月）");
+    expect(f.get(w1).when?.read).toBe("第1子が22歳になった後の最初の3月（令和17年3月）");
     expect(f.time!.setWhen(w1, structuredClone(leaves) as Timepoint, "auto")).toBe(w1);
     expect(f.set(w1, "2035-03")).toBe(w1);
     expect(() => preview(w1.request)).not.toThrow();

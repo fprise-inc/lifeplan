@@ -62,13 +62,13 @@ describe("最初の5枚の標準の欄の数", () => {
   });
 });
 
-describe("家族: 呼び名・子の性別は詳細、子の独立は子ども・教育のカードの詳細に1つだけ", () => {
-  it("本人の性別は標準、配偶者・子の性別と呼び名は詳細。家族のカードに独立の欄は無く、子ども・教育のカードの詳細にある", () => {
+describe("家族: 呼び名は詳細・子の性別は出さない、子の独立は子ども・教育のカードの詳細に1つだけ", () => {
+  it("本人の性別は標準、配偶者の性別と呼び名は詳細、子の性別は出さない。家族のカードに独立の欄は無く、子ども・教育のカードの詳細にある", () => {
     const wh = open("salariedCoupleTwoKids");
     const fam = fieldsOf(wh, "family");
     for (const m of members(wh)) {
       expect(fam.find((f) => f.key === `family/${m.id}/nickname`)?.level).toBe("detail");
-      expect(fam.find((f) => f.key === `family/${m.id}/sex`)?.level).toBe(m.kind === "self" ? "simple" : "detail");
+      expect(fam.find((f) => f.key === `family/${m.id}/sex`)?.level).toBe(m.kind === "self" ? "simple" : m.kind === "child" ? undefined : "detail");
       expect(fam.some((f) => f.key === `family/${m.id}/leaves`)).toBe(false);
     }
     const child = members(wh).find((m) => m.kind === "child")!;
@@ -354,10 +354,13 @@ describe("ライフイベント・車・相続・前提条件", () => {
     expect(names.every((f) => f.level === "detail")).toBe(true);
   });
 
-  it("車のローンの頭金・年数・金利は詳細。表の最後の年は詳細", () => {
+  it("車のローンの頭金・年数・金利は詳細。表の最後の年は、年で入れる欄も年齢で入れる欄も詳細", () => {
     const wh = open("dualAssetsTwoKids");
     const loanFields = fieldsOf(wh, "car").filter((f) => /\/(downRate|loanYears|rate)$/.test(f.key) && f.item === "car.loan");
     expect(loanFields.every((f) => f.level === "detail")).toBe(true);
     expect(fieldOf(wh, "assumptions", "assume/endYear").level).toBe("detail");
+    const byAge = fieldsOf(wh, "assumptions").filter((f) => f.key.startsWith("assume/endYear/age/"));
+    expect(byAge.length).toBe(2);
+    expect(byAge.every((f) => f.level === "detail")).toBe(true);
   });
 });

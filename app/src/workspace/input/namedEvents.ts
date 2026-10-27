@@ -225,7 +225,7 @@ export function refsTo(h: Household, id: string): number {
   return n;
 }
 
-/** 出来事の見せる名前（「長男の独立」「入居」） */
+/** 出来事の見せる名前（「第1子の独立」「入居」） */
 export function eventName(wh: WorkingHousehold, e: Pick<HouseholdEvent, "kind" | "member">, people: readonly WhenPerson[] = whenPeople(wh)): string {
   const who = e.member === undefined ? undefined : people.find((p) => p.id === e.member);
   return who === undefined ? kindLabel(e.kind) : `${who.names[0] ?? who.label}の${kindLabel(e.kind)}`;

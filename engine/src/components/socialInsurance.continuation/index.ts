@@ -6,6 +6,7 @@
 // 介護・支援金を同じ規則で切り捨てた額を除いた残りを健康保険にする（協会けんぽの任意継続の保険料額表）。
 // 健保組合・共済の任意継続は、料率と上限が組合の規約で決まり世帯の入力が無いので計算せず、見出しの notices に N_INPUT_REQUIRED を出す
 // 改訂2: 世帯の外の家族（0035 の4）の任意継続は世帯の支出にしない
+// 改訂3（速さだけ。結果は同じ。0005 の追記）: まずその年度の月だけを読み（ctx.callMonths）、任意継続の月が無い年度は全期間の月を読まない
 import {
   addMonths,
   ageMonth,
@@ -48,7 +49,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.continuation",
   title: "健康保険の任意継続の保険料",
   contract: "1.0",
-  revision: 2,
+  revision: 3,
   requires: { "socialInsurance.healthStatus": ">=1 <2", "socialInsurance.coverage": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -75,6 +76,9 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     // 世帯の外の家族の任意継続は世帯の支出にしない（0035 の4）
     for (const mem of householdMembers(ctx.list<MemberInput>("member"))) {
       const member = mem.id;
+      // その年度の月だけを読む（依存もその年度の分だけ。任意継続の月が無い年度は、全期間の月を読まずに次へ）
+      const fyMonths = ctx.callMonths<HealthStatusOutput["months"][number]>("socialInsurance.healthStatus", { member }, "months", start, last);
+      if (!fyMonths.some((x) => x.kind === "continuation")) continue;
       const months = ctx.call<HealthStatusOutput>("socialInsurance.healthStatus", { member }).months.map((x) => ({ m: parseYm(x.month), kind: x.kind }));
       const inYear = months.filter((x) => x.kind === "continuation" && x.m >= start && x.m <= last).map((x) => x.m);
       if (inYear.length === 0) continue;

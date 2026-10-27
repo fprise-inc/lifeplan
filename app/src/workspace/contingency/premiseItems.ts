@@ -104,7 +104,7 @@ export function applyPremiseDiffs(common: ContingencyPlan, plans: readonly { dif
 const PCT = (v: unknown) => `${Math.round(Number(v) * 1000) / 10}%`;
 const YEN = (v: unknown) => `${(Number(v) / 10000).toLocaleString("en-US")}万円`;
 const WORK: Readonly<Record<string, string>> = { keep: "今の働き方を続ける", regular: "正社員", contract: "契約社員", partTime: "パート", selfEmployed: "自営業", none: "働かない" };
-const HORIZON: Readonly<Record<string, string>> = { lifeExpectancy: "配偶者の平均余命まで", youngestIndependence: "末子の独立まで", age: "配偶者が決めた年齢まで" };
+const HORIZON: Readonly<Record<string, string>> = { lifeExpectancy: "配偶者の平均余命まで（配偶者がいなければ末子の独立まで）", youngestIndependence: "末子の独立まで", age: "配偶者が決めた年齢まで" };
 const METHOD: Readonly<Record<string, string>> = { accumulation: "積み上げ方式", reverse: "逆算方式" };
 const WHO: Readonly<Record<string, string>> = { self: "本人", spouse: "配偶者", both: "本人と配偶者" };
 

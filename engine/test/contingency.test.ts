@@ -556,6 +556,36 @@ describe("必要保障額の推移（protection.need）", () => {
   });
 });
 
+describe("必要保障額の期間の終わり: 遺族が子（配偶者がいない）なら、標準は末子の独立まで（子の性別を使わない）", () => {
+  type P = { members: { member: string; survivor?: string; years: { year: number; horizon: number; need: number }[] }[] };
+  const single = (sex: "male" | "female", horizon?: Obj) =>
+    edit(family({ endYear: 2130 }), (h, input) => {
+      h.members = (h.members as Obj[]).filter((m) => m.kind !== "spouse").map((m) => (m.kind === "child" ? { ...m, sex } : m));
+      h.relations = [{ type: "parentOf", parent: H, child: C1 }, { type: "parentOf", parent: H, child: C2 }];
+      h.livingExpenses = [{ id: uid("lv"), mode: "total", monthly: box(250000) }];
+      input.protection = { members: [H], toYear: 2035, ...(horizon !== undefined ? { horizon } : {}) };
+    });
+  const prot = (req: Req) => run(req).protection as P;
+  it("遺族はいちばん上の子。期間の終わりは末子の独立の年で、子の性別を変えても結果は同じ", () => {
+    const m = prot(single("male"));
+    const f = prot(single("female"));
+    expect(m.members[0]?.survivor).toBe(C1);
+    // 末子（2025年9月生まれ）が22歳になった後の最初の3月末の翌月 = 2048年4月
+    expect(new Set(m.members[0]?.years.map((y) => y.horizon))).toEqual(new Set([2048]));
+    expect(f).toEqual(m);
+    expect(prot(single("male", { kind: "youngestIndependence" }))).toEqual(m);
+  });
+  it("配偶者のいる世帯は今までどおり配偶者の平均余命まで（末子の独立より後）", () => {
+    const req = edit(family({ endYear: 2130 }), (h, input) => {
+      h.livingExpenses = [{ id: uid("lv"), mode: "total", monthly: box(250000) }];
+      input.protection = { members: [H], toYear: 2030 };
+    });
+    const ys = prot(req).members[0]?.years ?? [];
+    expect(prot(req).members[0]?.survivor).toBe(W);
+    expect(ys.every((y) => y.horizon > 2048)).toBe(true);
+  });
+});
+
 describe("必要保障額の推移と車の万一のときの扱い（protection.need 改訂2）", () => {
   const withCar = (owner: string, on?: Obj) =>
     edit(family({ endYear: 2080 }), (h, input) => {
