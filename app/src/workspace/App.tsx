@@ -5,8 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 import { DualEngine } from "../engine/dual.ts";
 import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCandidate, type ForkInfo, type HostApi, type OfficeStatus, type PresenceView, type StorageNotice, type StoredHousehold, type StoredOpened, type StoreStatus, type WebEngine, type WebSession } from "../engine/host.ts";
 import { isEngineError } from "../engine/types.ts";
-import { certainOnly, forEngine } from "../engine/moneyRows.ts";
-import { CertainOnlyBar } from "./CertainOnlyBar.tsx";
+import { ALL_ROWS, applyRowsView, forEngine, pickRow, viewMode, type RowsView } from "../engine/moneyRows.ts";
+import { RowsViewBar } from "./RowsViewBar.tsx";
+import { viewRows } from "./rowsView.ts";
 import { CalcNotices } from "./CalcNotices.tsx";
 import { noticeRows } from "./engineNotices.ts";
 import { engineErrorText } from "./engineErrors.ts";
@@ -568,19 +569,35 @@ export function App() {
 
   // ---- 計算の要求（枠: 現状・帯の案。表示の設定で FP顧問料の一文を出すときは、選んだ案の顧問料を入れ替えた枠 alt も）----
   const reqCache = useRef(new Map<string, EngineRequest>());
-  /** 確実な分だけで見る（保存しない自動の差分。見込みが不確かな入るお金と、優先度が希望・夢の出るお金を外した要求で、全部の枠を計算する。0044） */
-  const certainRef = useRef(false);
-  const [certainOn, setCertainOn] = useState(false);
-  const reqOf = useCallback((o: Opened, values: Values): EngineRequest => {
-    const key = `${certainRef.current ? "certain:" : ""}${JSON.stringify(values)}`;
-    const hit = reqCache.current.get(key);
+  /**
+   * 結果の見方（保存しない自動の差分。0044 の追記）: 「すべて入れる｜確実な分だけ」と物ごとの入れ外しを当てた要求で、全部の枠を計算する。
+   * 確実な分だけは、見込みが「当てにしない」の入るお金と優先度が「できれば」の出るお金を外す。基本の計算に入れない物も、ここで入れて見られる
+   */
+  const viewRef = useRef<RowsView>(ALL_ROWS);
+  const [rowsView, setRowsView] = useState<RowsView>(ALL_ROWS);
+  /** 見方を当てる前の要求（プランの値を当てた世帯。見方の一覧に使う） */
+  const rawCache = useRef(new Map<string, EngineRequest>());
+  const rawReqOf = useCallback((o: Opened, values: Values): EngineRequest => {
+    const key = JSON.stringify(values);
+    const hit = rawCache.current.get(key);
     if (hit !== undefined) return hit;
     const applied = applyValues(o.wh, values, o.catalog);
-    const r = certainRef.current ? certainOnly(applied) : applied;
-    if (reqCache.current.size > 64) reqCache.current.clear();
-    reqCache.current.set(key, r);
-    return r;
+    if (rawCache.current.size > 64) rawCache.current.clear();
+    rawCache.current.set(key, applied);
+    return applied;
   }, []);
+  const reqOf = useCallback(
+    (o: Opened, values: Values): EngineRequest => {
+      const key = `${JSON.stringify(viewRef.current)}:${JSON.stringify(values)}`;
+      const hit = reqCache.current.get(key);
+      if (hit !== undefined) return hit;
+      const r = applyRowsView(rawReqOf(o, values), viewRef.current);
+      if (reqCache.current.size > 64) reqCache.current.clear();
+      reqCache.current.set(key, r);
+      return r;
+    },
+    [rawReqOf],
+  );
   const feeOf = (o: Opened, values: Values) => (typeof values["lever:fee"] === "boolean" ? (values["lever:fee"] as boolean) : advisoryFeeInCurrent(o.wh.request));
   const altFor = useCallback(
     (o: Opened, w: Work, s: DisplaySettings): EngineRequest | null => {
@@ -592,7 +609,7 @@ export function App() {
   );
   const requestsFor = useCallback(
     (o: Opened, w: Work, s: DisplaySettings): Record<string, EngineRequest> => {
-      const out: Record<string, EngineRequest> = { [CURRENT]: certainRef.current ? certainOnly(o.wh.request) : o.wh.request };
+      const out: Record<string, EngineRequest> = { [CURRENT]: applyRowsView(o.wh.request, viewRef.current) };
       for (const id of w.band) out[id] = reqOf(o, valuesOf(o.wh, w, id));
       const alt = altFor(o, w, s);
       if (alt !== null) out.alt = alt;
@@ -693,6 +710,10 @@ export function App() {
       }
       if (o === null) return;
       reqCache.current.clear();
+      rawCache.current.clear();
+      // 別の世帯を開いたら、結果の見方はすべて入れるに戻す
+      viewRef.current = ALL_ROWS;
+      setRowsView(ALL_ROWS);
       // 画面の確かめ用（#add=…）: 項目を足して保存した状態にする。開発用のサーバーのときだけ
       if (import.meta.env.DEV && initial.add !== undefined && !addOnce.current) {
         addOnce.current = true;
@@ -754,6 +775,10 @@ export function App() {
       const o = openedFrom(demo, st.wh);
       if (o === null) throw new Error("E_BODY_SHAPE");
       reqCache.current.clear();
+      rawCache.current.clear();
+      // 別の世帯を開いたら、結果の見方はすべて入れるに戻す
+      viewRef.current = ALL_ROWS;
+      setRowsView(ALL_ROWS);
       const live = new Set(o.wh.proposals.map((x) => x.id));
       const band = st.workspace.band.filter((x) => live.has(x)).slice(0, MAX_BAND);
       const inBand = (x: string) => x === CURRENT || band.includes(x);
@@ -1046,6 +1071,7 @@ export function App() {
         const n = openedFrom(o.demo, withRefreshedEstimates(keepStatements(keepSnapshots(next, o.wh), o.wh)));
         if (n === null) return;
         reqCache.current.clear();
+        rawCache.current.clear();
         const w = fitWork(n, nextWork ?? workRef.current);
         openedRef.current = n;
         workRef.current = w;
@@ -1066,6 +1092,7 @@ export function App() {
     const n = sw === o.wh ? o : sw.request === o.wh.request ? { ...o, wh: sw } : openedFrom(o.demo, sw);
     if (n === null) return;
     reqCache.current.clear();
+    rawCache.current.clear();
     openedRef.current = n;
     settingsRef.current = s.settings;
     bsSettingsRef.current = s.bs;
@@ -1119,6 +1146,7 @@ export function App() {
         if (o === null) return;
         const n = { ...o, wh: keepStatements(keepSnapshots(next, o.wh), o.wh) };
         reqCache.current.clear();
+        rawCache.current.clear();
         openedRef.current = n;
         setOpened(n);
         putWork(fitWork(n, nextWork ?? workRef.current), n, "set");
@@ -1168,11 +1196,11 @@ export function App() {
     },
     [setValue],
   );
-  /** 確実な分だけで見る・やめる（全部の枠の要求を入れ替えて計算し直す） */
-  const toggleCertain = useCallback(
-    (on: boolean) => {
-      certainRef.current = on;
-      setCertainOn(on);
+  /** 結果の見方を変える（全部の枠の要求を入れ替えて計算し直す。保存しない） */
+  const putRowsView = useCallback(
+    (v: RowsView) => {
+      viewRef.current = v;
+      setRowsView(v);
       putWorkRaw(workRef.current, openedRef.current, "set");
     },
     [putWorkRaw],
@@ -1457,8 +1485,13 @@ export function App() {
   const selView = views.get(work.sel) ?? null;
   const altRes = dual.current?.view("alt").result ?? null;
   const selValues = opened === null ? {} : valuesOf(opened.wh, work, work.sel);
-  const selReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.sel))), [opened, work, reqOf, certainOn]);
-  const baseReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.base))), [opened, work, reqOf, certainOn]);
+  /** 結果の見方の一覧（選んでいるプランと現状の世帯から） */
+  const viewList = useMemo(
+    () => (opened === null ? [] : viewRows([rawReqOf(opened, valuesOf(opened.wh, work, work.sel)).input.household, opened.wh.request.input.household], rowsView)),
+    [opened, work, rawReqOf, rowsView],
+  );
+  const selReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.sel))), [opened, work, reqOf, rowsView]);
+  const baseReq = useMemo(() => (opened === null ? null : reqOf(opened, valuesOf(opened.wh, work, work.base))), [opened, work, reqOf, rowsView]);
   const feeOn = opened !== null && hasAdvisoryFee(opened.wh.request) ? feeOf(opened, selValues) : false;
   const names = { selected: planLabel(letterOf(work.sel)), base: planLabel(letterOf(work.base)), same: work.sel === work.base };
   const feeShown = opened !== null && shows(settings, "feeLine") && hasAdvisoryFee(opened.wh.request) && work.sel !== CURRENT;
@@ -2226,6 +2259,8 @@ export function App() {
                 {compareModel !== null ? <CompareTable model={compareModel} /> : null}
               </section>
             ) : null}
+            {/* 結果の見方（0044 の追記。入れ外しできる物がある世帯だけ。保存しない） */}
+            <RowsViewBar rows={viewList} view={rowsView} onMode={(c) => putRowsView(viewMode(c))} onPick={(r, inc) => putRowsView(pickRow(viewRef.current, r, inc))} />
             {/* ② グラフ */}
             <ResultCard
               model={chartModel ?? model}
@@ -2359,8 +2394,6 @@ export function App() {
             >
               {addedRows}
             </LeverCard>
-            {/* 確実な分だけで見る（0044。見込みが不確かな入るお金・優先度が希望／夢の出るお金がある世帯だけ） */}
-            <CertainOnlyBar req={opened.wh.request} on={certainOn} onToggle={toggleCertain} />
             {/* ④ 生涯キャッシュフロー表 */}
             {table !== null ? (
               <CashflowTable

@@ -77,10 +77,10 @@ export function GoalCards({ model }: { model: GoalsModel }) {
     <section class="card">
       <div class="card-h">
         <h2>目標</h2>
-        <span class="aside">優先度: 必要／希望／夢</span>
+        <span class="aside">優先度: 必ず／できれば</span>
       </div>
       <div class="goal-sum">
-        必要な目標 {model.needTotal}件中 <span class="big">{model.needReady}件</span> 準備OK
+        「必ず」の目標 {model.needTotal}件中 <span class="big">{model.needReady}件</span> 準備OK
       </div>
       <div class="goals">
         {model.cards.map((g, i) =>
@@ -88,7 +88,7 @@ export function GoalCards({ model }: { model: GoalsModel }) {
             <div class="goal dream" key={i}>
               <div class="goal-top">
                 <span class="goal-cat">{g.category}</span>
-                <span class="prio p3">{g.priority}</span>
+                <span class="prio p2">{g.priority}</span>
               </div>
               <h3>{g.title}</h3>
               <div class="when">{g.when}</div>
@@ -97,7 +97,7 @@ export function GoalCards({ model }: { model: GoalsModel }) {
             <div class={`goal${g.ready ? "" : " ng"}`} key={i}>
               <div class="goal-top">
                 <span class="goal-cat">{g.category}</span>
-                <span class={`prio${g.priority === "希望" ? " p2" : ""}`}>{g.priority}</span>
+                <span class={`prio${g.priority === "できれば" ? " p2" : ""}`}>{g.priority}</span>
               </div>
               <h3>{g.title}</h3>
               <div class="when">{g.when}</div>

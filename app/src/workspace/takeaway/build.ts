@@ -107,7 +107,7 @@ export function probeRequests(payload: TakeawayPayload): EngineRequest[] {
 /** 持ち帰り用のレポートの中身を作る。ids は書き出し1回分の ID の付け替え（テストで決まった値を渡せる） */
 export function buildPayload(ctx: TakeawayContext, choice: TakeawayChoice, notices: readonly string[] = STANDARD_NOTICES, ids: IdMap = new IdMap()): TakeawayPayload {
   const order = planIds(choice);
-  // 基本の計算に入れない物（不確かな受け取る相続・贈与など）は、レポートの中で計算する要求から外す（0044）
+  // 基本の計算に入れない物（見込みが「当てにしない」の受け取る相続・贈与など）は、レポートの中で計算する要求から外す（0044）
   const raw = order.map((id) => forEngine(applyValues(ctx.wh, ctx.valuesOf(id), ctx.catalog)));
   const plans = order.map((id, i) => {
     const l = ctx.letterOf(id);

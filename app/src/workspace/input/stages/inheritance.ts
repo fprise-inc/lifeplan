@@ -1,6 +1,6 @@
 // 13. 相続・贈与: 世代をまたぐお金を1枚に集める。
-// - 区画A 受け取る予定の相続・贈与（入るお金の行と、相続で受け継ぐ借金）: moneyRows.ts の区画「inherit」。見込み（確実・たぶん・不確か）は簡易。
-//   「不確か」の行は基本の計算に入れない（0044 の5）。行に「この行を計算に入れる」の1押し。相続の受け取る時期は、相手の亡くなる見込みの10か月後を推定で
+// - 区画A 受け取る予定の相続・贈与（入るお金の行と、相続で受け継ぐ借金）: moneyRows.ts の区画「inherit」。見込み（確実・当てにしない）は簡易。
+//   「当てにしない」の行は基本の計算に入れない（0044 の5）。行に「この行を計算に入れる」の1押し。相続の受け取る時期は、相手の亡くなる見込みの10か月後を推定で
 // - 区画B あげる贈与（出るお金の行）。今ある援助の物（子への援助 goals.education.gifts・住宅資金の援助 residences.purchase.gifts）は物の形を変えず、
 //   子ども・教育／住まい・ローンのカードで入れ、ここには読むだけで並べる
 // - 贈与する人（親・祖父母。生年月を持たない世帯の外の家族）: 物と欄は介護・親のカードの世帯の外の家族の区画。ここは読むだけの1行と「＋ 足す」
@@ -107,14 +107,14 @@ function receiveActions(actions: readonly ActionDef[]): ActionDef[] {
   }));
 }
 
-/** 不確かで基本の計算に入れていない行に「この行を計算に入れる」（プランを直しているときは、そのプランの差分になる） */
+/** 見込みが「当てにしない」で基本の計算に入れていない行に「この行を計算に入れる」（プランを直しているときは、そのプランの差分になる） */
 function withIncludeAction(wh: WorkingHousehold, g: GroupDef): GroupDef {
   const id = g.key.startsWith("in/") && !g.key.slice(3).includes("/") ? g.key.slice(3) : null;
   const f: IncomeFlow | undefined = id === null ? undefined : (wh.request.input.household.incomeFlows ?? []).find((x) => x.id === id);
   if (f === undefined || !excludedIncome(f)) return g;
   const include: ActionDef = {
     key: `in/${f.id}/includeInBase`,
-    label: "この行を計算に入れる（見込みは不確かのまま）",
+    label: "この行を計算に入れる（見込みは「当てにしない」のまま）",
     level: "simple",
     run: (w) =>
       mutate(w, (h) => {
@@ -298,7 +298,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/receive",
       title: moneyIn?.title ?? "受け取る予定の相続・贈与",
-      note: "見込み（確実・たぶん・不確か）を行ごとに選びます。「不確か」の受け取る相続・贈与は、基本の計算に入れません（行は残り、「この行を計算に入れる」で入れられます）。相手は世帯の外の家族（介護・親のカード）から選び、相続の受け取る時期は相手の亡くなる見込みの10か月後を推定で入れます",
+      note: "見込み（確実・当てにしない）を行ごとに選びます。「当てにしない」の受け取る相続・贈与は、基本の計算に入れません（行は残り、「この行を計算に入れる」で入れられます）。相手は世帯の外の家族（介護・親のカード）から選び、相続の受け取る時期は相手の亡くなる見込みの10か月後を推定で入れます",
       level: "simple",
       groups: [...(moneyIn?.groups ?? []).map((g) => withIncludeAction(wh, g)), ...inheritedDebtGroups(wh), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
       actions: [...receiveActions(moneyIn?.actions ?? []), { key: "money/inherit/addDebt", label: "＋ 相続で受け継ぐ借金", level: "detail", run: (w: WorkingHousehold) => addInheritedDebt(w) }],

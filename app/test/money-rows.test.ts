@@ -2,7 +2,7 @@
 // 種類の既定（エンジンと同じ表）・カードごとの区画・欄の往復・古い周期的な支出がそのまま読めること・プランでの足す外すと「基本の計算に入れる」
 import { describe, expect, it } from "vitest";
 import { INCOME_KIND_DEFAULTS } from "../../engine/src/sdk/incomeKinds.ts";
-import { certainOnly, certainOnlyCounts, forEngine } from "../src/engine/moneyRows.ts";
+import { certainOnly, forEngine, viewCandidates } from "../src/engine/moneyRows.ts";
 import type { EngineRequest, IncomeFlow, PeriodicExpense } from "../src/engine/types.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -71,10 +71,15 @@ describe("基本の計算に入れない物（0035 の7・0036 の6）", () => {
     expect(ids).toContain(id(21));
   });
 
-  it("確実な分だけで見る: 見込みが不確かな入るお金のすべてと、優先度が希望・夢の出るお金を外す（保存しない）", () => {
+  it("確実な分だけ: 見込みが「当てにしない」の入るお金のすべてと、優先度が「できれば」（want・wish）の出るお金を外す（保存しない）", () => {
     const pe = (n: number, priority?: PeriodicExpense["priority"]): PeriodicExpense => ({ id: id(n), row: "cf.expense.lumpSum.other", from: { at: "2030-04" }, to: { at: "2030-04" }, everyYears: 1, amount: box(100000), ...(priority !== undefined ? { priority } : {}) });
     const req = withRows(base(), { incomes: [income(1, { likelihood: "uncertain" }), income(2, { kind: "sideJob", likelihood: "uncertain" }), income(3, { kind: "sideJob" })], expenses: [pe(10, "need"), pe(11, "want"), pe(12, "wish"), pe(13)] });
-    expect(certainOnlyCounts(req)).toEqual({ incomes: 2, expenses: 2 });
+    expect(viewCandidates(req.input.household).map((c) => [c.id, c.reason])).toEqual([
+      [id(1), "base"],
+      [id(2), "uncertain"],
+      [id(11), "priority"],
+      [id(12), "priority"],
+    ]);
     const c = certainOnly(req);
     expect((c.input.household.incomeFlows ?? []).map((f) => f.id)).toEqual([id(3)]);
     const kept = (c.input.household.periodicExpenses ?? []).map((p) => p.id);

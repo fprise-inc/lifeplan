@@ -234,7 +234,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
   const outSection: SectionDef = {
     key: "ev/periodic",
     title: "出るお金（一時的支出・n年ごと）",
-    note: `${empty ? "まだありません。" : ""}旅行・家電の買い替え・結婚・大きな買い物・予備費など。毎月の基本生活費とは別に入れます。行の右の札（必要・希望・夢）で、結果の「確実な分だけで見る」から外す物を決められます`,
+    note: `${empty ? "まだありません。" : ""}旅行・家電の買い替え・結婚・大きな買い物・予備費など。毎月の基本生活費とは別に入れます。行の右の札（必ず・できれば）で、結果の「確実な分だけ」で外す物を決められます`,
     level: "simple",
     groups: rows.flatMap((p) => eventRowGroups(wh, p)),
     actions: [
