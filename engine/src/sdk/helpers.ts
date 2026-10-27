@@ -598,9 +598,11 @@ export function isOutside(m: { readonly outside?: unknown }): boolean {
 
 /**
  * 世帯の外の家族の、月 month の家計を1つにする期間の印（期間に入っていなければ null）。living は生活費の人数に入れる（既定 true）、
- * income は年金・給与などの収入を世帯に入れる（既定 false）。期間の終わりの月を含む
+ * income は年金・給与などの収入を世帯に入れる（既定 false）。期間の終わりの月を含む。
+ * 世帯の外の家族の leaves は亡くなる見込みなので、その月からは期間に入れない（期間の終わりが無くても、亡くなる見込みの月で切る。0035 の4 の追記）
  */
 export function outsidePeriodAt(ctx: Ctx, m: MemberInput, month: MonthIndex): { living: boolean; income: boolean } | null {
+  if (m.leaves !== null && month >= ctx.time.resolve(m.leaves)) return null;
   for (const p of m.outside?.periods ?? []) {
     const from = p.from === null ? null : ctx.time.resolve(p.from);
     const to = p.to === null ? null : ctx.time.resolve(p.to);

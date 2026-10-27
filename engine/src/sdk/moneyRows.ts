@@ -7,7 +7,7 @@ export { INCOME_KIND_DEFAULTS };
 import type { Ctx } from "../registry/ctx.ts";
 import type { ContingencyEvent } from "./contracts.ts";
 import { boxValue } from "./box.ts";
-import { contingencyRatio, grownByYear } from "./helpers.ts";
+import { contingencyRatio, grownByYear, isOutside } from "./helpers.ts";
 import { stagedYen } from "./stages.ts";
 import { addMonths, yearOf, type MonthIndex } from "../time/month.ts";
 import type { Timepoint } from "../time/timepoint.ts";
@@ -15,6 +15,21 @@ import { yen, type Yen } from "../money/yen.ts";
 import type { Rate } from "../money/rate.ts";
 
 /** 1回だけの行か（月額でなく、終わりが始まりと同じ月） */
+/**
+ * お金の行の相手（counterparty）が、亡くなる見込み（leaves）のある世帯の外の家族なら、その月（その月からは払わない・受け取らない。
+ * 亡くなった人へ仕送りは送らず、亡くなった人から援助は来ない。0035 の4・0044 の追記）。当たらなければ null。
+ * 行の終わりの値は書き換えない（プランで亡くなる見込みを動かせば、止まる月も動く）
+ */
+export function counterpartyStop(ctx: Ctx, members: readonly { readonly id: string; readonly outside?: unknown; readonly leaves: Timepoint | null }[], counterparty: string | undefined): MonthIndex | null {
+  if (counterparty === undefined) return null;
+  const m = members.find((x) => x.id === counterparty);
+  if (m === undefined || !isOutside(m) || m.leaves === null) return null;
+  return ctx.time.resolve(m.leaves);
+}
+
+/** 相手が亡くなる見込みの月で止めたときの知らせの話題 */
+export const COUNTERPARTY_DEATH_TOPIC = "moneyRow.counterpartyDeath";
+
 export function isOnceRow(ctx: Ctx, r: { readonly from: Timepoint; readonly to?: Timepoint | null; readonly monthly?: boolean }): boolean {
   if (r.monthly === true || r.to === undefined || r.to === null) return false;
   return ctx.time.resolve(r.to) === ctx.time.resolve(r.from);
