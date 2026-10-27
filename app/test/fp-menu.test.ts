@@ -14,9 +14,11 @@ const sample = () => fromRequest(modelHousehold("salariedCoupleTwoKids"));
 const noop = () => undefined;
 
 describe("FP のメニューの中身", () => {
-  it("控え・FP の道具・取り込む・事務所の設定の順。本体につながっていないときは取り込むと事務所の設定を出さない", () => {
+  it("控え・面談の準備・取り込む・事務所の設定の順。本体につながっていないときは取り込むと事務所の設定を出さない", () => {
     const full = fpMenuGroups({ snapshots: 2, review: { last: "2026年10月", next: "2027年10月" }, imports: { ai: true }, office: { storage: "このPCの中", share: "オフ（既定）" } });
     expect(full.map((g) => g.id)).toEqual(["snapshots", "tools", "imports", "office"]);
+    // 見出しは「面談の準備」（前の名前は「FPの道具」。識別子の tools はそのまま）
+    expect(full.map((g) => g.label)).toEqual(["控え", "面談の準備", "取り込む", "事務所の設定"]);
     expect(full[0]!.items.map((i) => i.label)).toEqual(["この時点を残す", "控えの一覧（2件）"]);
     expect(full[1]!.items.map((i) => i.action)).toEqual(["contents", "year", "review"]);
     expect(full[1]!.items[2]!.note).toContain("2027年10月");
@@ -56,7 +58,7 @@ describe("FP のメニューの中身", () => {
 });
 
 describe("入力のホームの上部", () => {
-  it("控え・FP の道具・取り込むの行を出さない（入力の入った世帯）", () => {
+  it("控え・面談の準備・取り込むの行を出さない（入力の入った世帯）", () => {
     const html = renderToString(h(InputView, { wh: sample(), onSave: noop, level: "simple", imports: h("span", { "data-hearing": true }, "x") }));
     expect(html).not.toContain("data-imports-open");
     expect(html).not.toContain("data-imports-list");
@@ -81,7 +83,7 @@ describe("入力のホームの上部", () => {
     expect(html).toContain("data-hearing");
   });
 
-  it("控え・FP の道具は、ボタンの並びを描かずに、親が開いた中身だけを出せる", () => {
+  it("控え・面談の準備は、ボタンの並びを描かずに、親が開いた中身だけを出せる", () => {
     const snap = renderToString(h(SnapshotTools, { list: [], stored: false, onTake: async () => undefined, onRemove: noop, bar: false, mode: "list", onMode: noop }));
     expect(snap).not.toContain("data-snapshot-take");
     expect(snap).toContain("data-snapshot-panel");

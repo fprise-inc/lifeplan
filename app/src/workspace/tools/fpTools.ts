@@ -1,4 +1,4 @@
-// FP の道具（0074）の中身: 世帯の中身の一覧・次の1年に起きること・過ぎた予定・前回（控え）との入力の違い・気づきの知らせ。
+// 面談の準備（0074）の中身: 世帯の中身の一覧・次の1年に起きること・過ぎた予定・前回（控え）との入力の違い・気づきの知らせ。
 // どれも世帯の物と計算の結果から読むだけで、世帯も計算も変えない（入力は増えない）
 import type { EngineRequest, Member, PreviewResult, TableCell, Timepoint } from "../../engine/types.ts";
 import { addMonths, ageReachedMonth, parseYm } from "../levers.ts";

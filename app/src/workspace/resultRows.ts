@@ -24,6 +24,8 @@ function outsideBase(m: Member): string {
 
 /** 世帯の外の家族の呼び方（例: お母さま）。同じ呼び方の世帯の外の家族が2人以上いれば、誰の家族かを前に付ける（例: 奥様のお母さま） */
 export function outsideName(req: EngineRequest, m: Member): string {
+  // 世帯の外の子は呼び方（離れて暮らす子・離れて暮らす子1 …。roles.ts）のまま
+  if (m.kind === "child") return roles(req).find((r) => r.member.id === m.id)?.label ?? "離れて暮らす子";
   const base = outsideBase(m);
   const same = req.input.household.members.filter((x) => x.outside !== undefined && outsideBase(x) === base);
   if (same.length < 2) return base;
