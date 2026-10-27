@@ -1,6 +1,6 @@
 // 入力のホーム（作業の層の部品）: 14枚のカードを同じ大きさのグリッドで並べ、押すと中央に入力のパネルが開く。
 // カードに出すのは「イラスト＋名前＋要約の数字1つ＋状態（4つ）」まで。最初の5枚のほかのカードは、未入力・推定のときに何で計算しているかの1行と、
-// 「当てはまらない」「目安で入れる」の1押しを出す。上部に進み具合（未入力〔0円の所あり〕の数を左に強く、続けて入力済み・推定で計算中・当てはまらない）。
+// 「当てはまらない」「目安で入れる」の1押しを出す。上部に進み具合（未入力〔0円の所あり〕の数を左に強く、続けて入力済み・推定で計算中・当てはまらない・まだ入れていない）。
 // カードの下にピン（ホームに出した物。押すとその物だけを開く。進み具合に数えない）。「＋ 項目を追加」で足した物は属するカードに入り、ピンが出る
 // 0072: 進み具合の状態を押すとそのカードだけに絞る・小さな結果（金融資産の線と足りなくなる年）・全部のカードの入れ方（簡易／詳細）・
 // カードをまたぐ取り込みの入口（「取り込む」。プランの編集中は押せない）・確かめの一覧にプランで足した物の行
@@ -58,7 +58,7 @@ interface Props {
 }
 
 /** 進み具合の状態の名前（絞り込みの文） */
-const STATUS_NAMES: Record<ItemStatus, string> = { missing: "未入力（0円の所あり）", done: "入力済み", est: "推定で計算中", na: "当てはまらない" };
+const STATUS_NAMES: Record<ItemStatus, string> = { missing: "未入力（0円の所あり）", done: "入力済み", est: "推定で計算中", na: "当てはまらない", empty: "まだ入れていない" };
 
 interface CardActions {
   /** 「当てはまらない」の1押し（プランの編集中は押せない。ボタンは出したまま、配置を動かさない） */
@@ -262,7 +262,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const shownGroups = statusFilter === null ? groups : groups.map((g) => ({ ...g, items: g.items.filter((i) => i.status === statusFilter) })).filter((g) => g.items.length > 0);
   /** ざっくり派の案内（最初の5枚に未入力が残る間。閉じられる） */
   const [guideClosed, setGuideClosed] = useState(false);
-  const guide = !guideClosed && items.some((i) => i.first && i.status === "missing");
+  const guide = !guideClosed && items.some((i) => i.first && (i.status === "missing" || i.status === "empty"));
   const [openId, setOpenId] = useState<string | null>(initialOpen !== undefined && (items.some((i) => i.id === initialOpen) || wh.addedItems.some((a) => a.id === initialOpen)) ? initialOpen : null);
   const [addDraft, setAddDraft] = useState<WorkingHousehold | null>(null);
   const [addMenu, setAddMenu] = useState(false);
@@ -407,6 +407,10 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
               ・
               <button type="button" class={`ih-prog-f${statusFilter === "na" ? " sel" : ""}`} aria-pressed={statusFilter === "na"} onClick={() => filterBy("na")} data-progress-filter="na">
                 当てはまらない <span class="n">{p.na}</span>
+              </button>
+              ・
+              <button type="button" class={`ih-prog-f${statusFilter === "empty" ? " sel" : ""}`} aria-pressed={statusFilter === "empty"} onClick={() => filterBy("empty")} data-progress-filter="empty">
+                まだ入れていない <span class="n">{p.empty}</span>
               </button>
             </span>
           </div>

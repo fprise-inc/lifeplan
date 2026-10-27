@@ -1,6 +1,7 @@
 // 入力のホームの項目（作業の層）: 14の項目のカードと、FP がホームに出した物のピン。
-// - カードに出すのは「イラスト＋名前＋要約の数字1つ＋状態」まで。状態は4つ（入力済み・推定で計算中・未入力〔0円の所あり〕・当てはまらない）で、
-//   欄の値の状態（valueState.ts。0041）と入っていない物（fill.ts の gapsOf。確かめの一覧のいちばん上と同じ）から決め、色だけに頼らずに見せる（InputView.tsx）
+// - カードに出すのは「イラスト＋名前＋要約の数字1つ＋状態」まで。状態は4つ（入力済み・推定で計算中・未入力〔0円の所あり〕・当てはまらない）と、
+//   まだ何も入れていない項目の「まだ入れていない」で、欄の値の状態（valueState.ts。0041）と入っていない物（fill.ts の gapsOf。確かめの一覧のいちばん上と同じ）から決め、
+//   色だけに頼らずに見せる（InputView.tsx）。抜けの赤い知らせは、入れ始めた項目にだけ出す（0045 の追記）
 // - 1つの物は1つのカードにだけ出す（ほかのカードは読むだけの1行。readLines.ts）。どのカードに出すかは段階の定義（stages/）が決める
 // - ピン: 「＋ 項目を追加」で足した物と、まとまりの「📌 ホームに出す」で出した物（addedItems。世帯ファイルの形は今のまま、意味だけを変えた。0045）。
 //   物は種類が属するカードにも出る。ピンを押すと、その物のまとまりだけを開く。進み具合には数えない。プランで足した物のピンは、そのプランの編集中だけ出る
@@ -8,11 +9,11 @@
 import type { AdvisoryFee, Car, CareExpense, Household, Member, PeriodicExpense } from "../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
-import { allFields, type SectionDef, type StageDef, type StageId } from "./form.ts";
+import { allFields, type FieldDef, type SectionDef, type StageDef, type StageId } from "./form.ts";
 import { educationStagesAddress, fillAll, gapsOf, retirementNotApplicable, type Gap } from "./fill.ts";
 import { mutate, newId, standardBox, type AddedItem, type WorkingHousehold } from "./household.ts";
 import { earners, memberLabel } from "./labels.ts";
-import { rowAt } from "./rows.ts";
+import { isRow, rowAt } from "./rows.ts";
 import { carDebts, upkeepAnnual } from "./stages/cars.ts";
 import { outsideMembers } from "./stages/care.ts";
 import { expenseCard, incomeCard, type MoneyCard } from "./moneyRows.ts";
@@ -24,8 +25,8 @@ import { totalViewOf } from "./savings/model.ts";
 import { currentPeriod } from "./stages/work.ts";
 import { fieldAddress, fieldStatus } from "./valueState.ts";
 
-/** カードの状態: 入力済み・推定で計算中・未入力（0円の所あり）・当てはまらない */
-export type ItemStatus = "done" | "est" | "missing" | "na";
+/** カードの状態: 入力済み・推定で計算中・未入力（0円の所あり）・当てはまらない・まだ入れていない（入れ始める前。赤い知らせを出さない） */
+export type ItemStatus = "done" | "est" | "missing" | "na" | "empty";
 
 /** まとまり（項目が増えたときの見出し） */
 export type ItemGroup = "familyIncome" | "flows" | "assets" | "premise";
@@ -397,10 +398,18 @@ function declaredNone(id: StageId, wh: WorkingHousehold): boolean {
   return false;
 }
 
-/** カードの欄の数（推定・わからない／未入力）。同じ値を見せる欄（同じ当て先）は1つに数え、見せるだけの欄は数えない */
-function fieldCounts(stage: StageDef, wh: WorkingHousehold): { estimated: number; missing: number } {
+/** 欄に FP が入れた印があるか: 出どころが自動（推定）でない値の箱か、値の状態の行（確定・わからない・該当なし・承認など） */
+function touchedField(f: FieldDef, wh: WorkingHousehold, a: ReturnType<typeof fieldAddress>): boolean {
+  const own = (v: unknown) => isRow(v) && v.origin.kind !== "auto";
+  if (f.boxed !== undefined) return own(f.boxed.read(wh));
+  return a !== null && own(rowAt(wh.request.input as unknown as Record<string, unknown>, a));
+}
+
+/** カードの欄の数（推定・わからない／未入力と、FP が入れた印のある欄）。同じ値を見せる欄（同じ当て先）は1つに数え、見せるだけの欄は数えない */
+function fieldCounts(stage: StageDef, wh: WorkingHousehold): { estimated: number; missing: number; touched: number } {
   let estimated = 0;
   let missing = 0;
+  let touched = 0;
   const seen = new Set<string>();
   for (const f of allFields(stage)) {
     if (f.readOnly !== undefined) continue;
@@ -411,23 +420,35 @@ function fieldCounts(stage: StageDef, wh: WorkingHousehold): { estimated: number
     const s = fieldStatus(f, wh).status;
     if (s === "missing") missing++;
     else if (s === "estimated" || s === "unknown") estimated++;
+    if (touchedField(f, wh, a)) touched++;
   }
-  return { estimated, missing };
+  return { estimated, missing, touched };
 }
 
 /**
- * カードの状態（4つ）:
+ * 入れ始めた項目か（世帯ファイルの今の情報だけで決める。形は変えない）: 項目に属する物がある・FP が保存したか「当てはまらない」を押した
+ * （保存した項目の印 confirmed）・無いと決めてある・欄に FP が入れた印（確定・わからない・該当なしの行など）がある・0円で計算している欄がある（欄は物の上にある）。
+ * どれでもない項目は「まだ入れていない」で、入っていない物があっても赤い知らせを出さない（確かめの一覧では「まだ入れていない項目」にまとめる）
+ */
+export function startedOf(c: { hasData: boolean; confirmed: boolean; none: boolean; touched: number; fieldMissing: number }): boolean {
+  return c.hasData || c.confirmed || c.none || c.touched > 0 || c.fieldMissing > 0;
+}
+
+/**
+ * カードの状態（4つと、まだ入れていない）:
+ * 0. まだ入れていない: 入れ始める前（startedOf が偽。started を渡したときだけ）で、下の 1 に当たるとき
  * 1. 未入力（0円の所あり）: 0円で計算している欄か、入っていない物がある。物が無く「当てはまらない」も決めていないときも
  * 2. 推定で計算中: 推定・わからない（代わりの値）の欄がある（前提条件の標準の値は数えない）
  * 3. 当てはまらない: 無いと決めてある（子がいない・退職金の制度が無いなど）か、物が無くて FP が保存した・「当てはまらない」を押した
  * 4. 入力済み: 物があり、上のどれでもない
  */
-export function statusOf(c: { estimated: number; missing: number; hasData: boolean; confirmed: boolean; none: boolean; countEstimates?: boolean }): ItemStatus {
-  if (c.missing > 0) return "missing";
+export function statusOf(c: { estimated: number; missing: number; hasData: boolean; confirmed: boolean; none: boolean; countEstimates?: boolean; started?: boolean }): ItemStatus {
+  const gap: ItemStatus = c.started === false ? "empty" : "missing";
+  if (c.missing > 0) return gap;
   if (c.estimated > 0 && c.countEstimates !== false) return "est";
   if (c.none) return "na";
   if (c.hasData) return "done";
-  return c.confirmed ? "na" : "missing";
+  return c.confirmed ? "na" : gap;
 }
 
 // ---- ピン ----
@@ -627,10 +648,14 @@ export function inputItems(wh: WorkingHousehold, opts: ItemOptions = {}): InputI
     const estimated = c.estimated + implicitEstimates(id, wh);
     const missing = c.missing + own.length;
     const hasData = baseHasData(id, wh);
-    const status = statusOf({ estimated, missing, hasData, confirmed: confirmed.has(id), none: declaredNone(id, wh), countEstimates: id !== "assumptions" });
+    const none = declaredNone(id, wh);
+    const started = startedOf({ hasData, confirmed: confirmed.has(id), none, touched: c.touched, fieldMissing: c.missing });
+    const status = statusOf({ estimated, missing, hasData, confirmed: confirmed.has(id), none, countEstimates: id !== "assumptions", started });
     const isFirst = first.has(id);
-    const hint = isFirst || (status !== "missing" && status !== "est") ? null : status === "est" ? (HINTS[id]?.est ?? HINT_EST) : hasData && c.missing > 0 ? HINT_ZERO : (HINTS[id]?.missing ?? HINT_ZERO);
-    const canNa = !isFirst && status === "missing" && id !== "family" && id !== "assumptions" && (!hasData || (c.missing === 0 && own.every((g) => g.none !== undefined)));
+    // 未入力とまだ入れていない項目は、同じ1行の案内と1押し（まだ入れていない項目は、赤くしない控えめな見せ方で）
+    const open = status === "missing" || status === "empty";
+    const hint = isFirst || (!open && status !== "est") ? null : status === "est" ? (HINTS[id]?.est ?? HINT_EST) : hasData && c.missing > 0 ? HINT_ZERO : (HINTS[id]?.missing ?? HINT_ZERO);
+    const canNa = !isFirst && open && id !== "family" && id !== "assumptions" && (!hasData || (c.missing === 0 && own.every((g) => g.none !== undefined)));
     const def = BASE[id];
     return {
       id,
@@ -647,7 +672,7 @@ export function inputItems(wh: WorkingHousehold, opts: ItemOptions = {}): InputI
       first: isFirst,
       hint,
       canNa,
-      canFill: !isFirst && status === "missing" && own.some((g) => g.fill !== undefined),
+      canFill: !isFirst && open && own.some((g) => g.fill !== undefined),
     };
   });
 }
@@ -673,13 +698,15 @@ export interface Progress {
   est: number;
   missing: number;
   na: number;
+  /** まだ入れていない（赤い数には入れない） */
+  empty: number;
 }
 
-/** 進み具合: 「14項目中 入力済み○・推定で計算中○・当てはまらない○」と、未入力（0円の所あり）の数（ピンは数えない） */
+/** 進み具合: 「14項目中 入力済み○・推定で計算中○・当てはまらない○・まだ入れていない○」と、未入力（0円の所あり）の数（ピンは数えない） */
 export function progressOf(items: readonly InputItem[]): Progress {
   const cards = items.filter((i) => i.added === null);
   const n = (s: ItemStatus) => cards.filter((i) => i.status === s).length;
-  return { total: cards.length, done: n("done"), est: n("est"), missing: n("missing"), na: n("na") };
+  return { total: cards.length, done: n("done"), est: n("est"), missing: n("missing"), na: n("na"), empty: n("empty") };
 }
 
 /** カードを「当てはまらない」にする（1押し）: そのカードの入っていない物を「該当なし」にし、保存した項目の印を付ける（物の無いカードは当てはまらないと読む） */
