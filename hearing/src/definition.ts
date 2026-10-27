@@ -5,7 +5,17 @@
 export const DEFINITION_FORMAT = "fprise-lifeplan-hearing-sheet-definition";
 
 /** 入力の型 */
-export type ItemType = "yearMonth" | "integer" | "decimal" | "money" | "percent" | "choice" | "text";
+export type ItemType = "yearMonth" | "integer" | "decimal" | "money" | "moneyRange" | "percent" | "choice" | "text";
+
+/**
+ * 金額のだいたいの範囲の1段（moneyRange の項目。from・to は項目の単位〔円・万円〕）。from が 0 の段は「〜未満」、to が null の段は「〜以上」。
+ * 取り込みでは、範囲の真ん中（上が開いた段は下の端）を推定の値にする（確定にしない）
+ */
+export interface MoneyRangeStep {
+  readonly from: number;
+  readonly to: number | null;
+  readonly label: string;
+}
 
 /** 回答の状態のうち、選択肢で選ぶもの（値も状態も空なら「未回答」。0018 の4） */
 export type ChoosableState = "unknown" | "notApplicable";
@@ -35,6 +45,10 @@ export interface SheetItem {
   readonly choices?: readonly Choice[];
   /** 選択肢の言葉の一覧の名前（年の一覧など、シートで共通の長い一覧） */
   readonly choiceList?: "years";
+  /** 金額の範囲の段（moneyRange のとき） */
+  readonly ranges?: readonly MoneyRangeStep[];
+  /** この範囲の答えが、どの金額の項目の代わりか（moneyRange のとき。その項目が空のときに範囲で補う） */
+  readonly rangeOf?: string;
   readonly min?: number;
   readonly max?: number;
   readonly maxLength?: number;
@@ -170,7 +184,9 @@ export function checkDefinition(def: SheetDefinition): string[] {
   for (const i of def.items) {
     if (!/^(hs|ext)(\.[a-z][a-zA-Z0-9]*)+$/.test(i.key)) errs.push(`項目キーの形が違う: ${i.key}`);
     if (i.type === "choice" && (i.choices === undefined || i.choices.length === 0) && i.choiceList === undefined) errs.push(`選択肢が無い: ${i.key}`);
-    if (i.type === "money" && i.unit === undefined) errs.push(`金額の単位が無い: ${i.key}`);
+    if ((i.type === "money" || i.type === "moneyRange") && i.unit === undefined) errs.push(`金額の単位が無い: ${i.key}`);
+    if (i.type === "moneyRange") errs.push(...checkRanges(def, i));
+    else if (i.ranges !== undefined || i.rangeOf !== undefined) errs.push(`範囲の段は moneyRange の項目だけ: ${i.key}`);
     if (i.type === "choice" && i.choices !== undefined) {
       const labels = new Set(i.choices.map((c) => c.label));
       if (labels.size !== i.choices.length) errs.push(`選択肢の言葉が重なっている: ${i.key}`);
@@ -219,6 +235,34 @@ export function checkDefinition(def: SheetDefinition): string[] {
   }
   for (const k of def.intro.consentItems) if (!cells.has(k)) errs.push(`回答のセルが無い: ${k}`);
   return errs;
+}
+
+/** 金額の範囲の項目の決まり: 段が下から順に隙間なく並び、上が開くのは最後の段だけ。代わりの金額の項目と単位・行き先・軸が同じ */
+function checkRanges(def: SheetDefinition, i: SheetItem): string[] {
+  const errs: string[] = [];
+  const steps = i.ranges ?? [];
+  if (steps.length < 2) errs.push(`範囲の段が無い: ${i.key}`);
+  steps.forEach((s, n) => {
+    if (n === 0 && s.from !== 0) errs.push(`範囲の最初の段は 0 から: ${i.key}`);
+    if (n > 0 && s.from !== steps[n - 1]?.to) errs.push(`範囲の段に隙間か重なりがある: ${i.key} の ${s.label}`);
+    if (s.to === null ? n !== steps.length - 1 : s.to <= s.from) errs.push(`範囲の段の上の端が違う: ${i.key} の ${s.label}`);
+    if (s.label === STATE_LABELS.unknown || s.label === STATE_LABELS.notApplicable) errs.push(`範囲の段に状態の言葉を使っている: ${i.key}`);
+  });
+  if (new Set(steps.map((s) => s.label)).size !== steps.length) errs.push(`範囲の段の言葉が重なっている: ${i.key}`);
+  const base = i.rangeOf === undefined ? undefined : def.items.find((x) => x.key === i.rangeOf);
+  if (base === undefined || base.type !== "money") errs.push(`範囲の代わりの金額の項目が無い: ${i.key}`);
+  else {
+    if (base.unit?.scale !== i.unit?.scale || base.unit?.basis !== i.unit?.basis) errs.push(`範囲の単位が金額の項目と違う: ${i.key}`);
+    if (base.destination !== i.destination) errs.push(`範囲の行き先が金額の項目と違う: ${i.key}`);
+    if (axisOf(def, base.key)?.id !== axisOf(def, i.key)?.id) errs.push(`範囲の繰り返しの軸が金額の項目と違う: ${i.key}`);
+  }
+  return errs;
+}
+
+/** 範囲の段の取り込みの値（円の整数の「下-上」。上が開いた段は「下-」） */
+export function rangeValue(item: SheetItem, s: MoneyRangeStep): string {
+  const k = item.unit?.scale === "manYen" ? 10000 : 1;
+  return `${Math.round(s.from * k)}-${s.to === null ? "" : Math.round(s.to * k)}`;
 }
 
 /** 項目がどの軸で繰り返すか（繰り返さないなら null） */

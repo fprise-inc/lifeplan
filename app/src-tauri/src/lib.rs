@@ -346,6 +346,8 @@ pub fn run() {
             office::office_recover,
             office::office_end,
             office::office_dismiss_notices,
+            office::office_defaults_get,
+            office::office_defaults_put,
             office::store_fork_info,
             office::store_fork_resolve,
             office::store_sync_copies_resolve,

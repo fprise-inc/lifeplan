@@ -2,7 +2,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyImport, approvalTime, defaultSelection, defaultSheet, exportSheet, importSheet, logOf, withRequest } from "../src/workspace/hearing/sheet.ts";
+import { applyImport, approvalTime, defaultSelection, defaultSheet, exportSheet, importSheet, logOf, sheetFor, SHEET_KINDS, withRequest } from "../src/workspace/hearing/sheet.ts";
+import { entryOf } from "../src/workspace/input/stages/housingLoans.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { fillAll, gapsOf } from "../src/workspace/input/fill.ts";
 import { inputItems } from "../src/workspace/input/items.ts";
@@ -14,14 +15,17 @@ import { REPO_DIR } from "../scripts/lib.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const OFFICE = { name: "【架空】みらいFP事務所", purpose: "ライフプランの作成のため", privacyContact: "【架空】個人情報の窓口" };
+/** 配った basic 版1（廃止。書き出さないが取り込める）の見本 */
 const SAMPLE = new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "basic-1-sample.xlsx")));
+/** 簡易版（basic 版2。初回の前の軽い票）の見本 */
+const SIMPLE = new Uint8Array(readFileSync(join(REPO_DIR, "hearing", "samples", "basic-2-sample.xlsx")));
 const AT = approvalTime(new Date(2026, 9, 18, 10, 0, 0));
 
 let n = 0;
 const seq = () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
 const blank = (): WorkingHousehold => withRefreshedEstimates(blankHousehold("2026-10", seq));
 const exportOf = (wh: WorkingHousehold, prefill: boolean) =>
-  exportSheet(wh, { definition: defaultSheet(), prefill, customerNo: "A0001", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-10-18", random: new Uint8Array([1, 2, 3, 4, 5, 6]) });
+  exportSheet(wh, { definition: sheetFor(prefill ? "review" : "simple"), prefill, customerNo: "A0001", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-10-18", random: new Uint8Array([1, 2, 3, 4, 5, 6]) });
 
 /** 承認の記録の無い「ヒアリング」の値の箱を数える（承認すると0になる） */
 function unapproved(v: unknown): number {
@@ -198,6 +202,70 @@ describe("書き出しから取り込みまでの往復（画面の中の流れ�
     const r = await importSheet(new TextEncoder().encode("hello"), wh);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.issues.some((i) => i.code === "H_FILE_NOT_XLSX")).toBe(true);
+  });
+});
+
+describe("シートの種類（簡易・詳細・見直し）", () => {
+  it("既定は簡易（basic の最新の版）。詳細と見直しは詳細のシート（full）で、見直しだけ前回の値を記入する", async () => {
+    expect(SHEET_KINDS.map((k) => k.value)).toEqual(["simple", "detail", "review"]);
+    expect(`${defaultSheet().sheetId}-${defaultSheet().version}`).toBe("basic-2");
+    expect(`${sheetFor("detail").sheetId}-${sheetFor("detail").version}`).toBe("full-1");
+    expect(sheetFor("review")).toBe(sheetFor("detail"));
+    const src = fromRequest(modelHousehold("salariedCoupleTwoKids"));
+    const review = await exportSheet(src, { definition: sheetFor("review"), prefill: true, customerNo: "A0001", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-10-27", random: new Uint8Array([1, 2, 3, 4, 5, 6]) });
+    expect(review.request).toMatchObject({ sheetId: "full", sheetVersion: 1, prefilled: true });
+    expect(review.issues.some((i) => i.code === "H_EXPORT_PREFILL")).toBe(true);
+    // 簡易のシートには前回の値を記入しない（範囲・合計の欄の形が違う）
+    await expect(exportSheet(src, { definition: sheetFor("simple"), prefill: true, customerNo: "A0001", office: OFFICE, appVersion: "0.1.0", exportedOn: "2026-10-27", random: new Uint8Array(6) })).rejects.toThrow("詳細版");
+  });
+});
+
+describe("簡易版の記入済みシートを空の世帯に取り込む", () => {
+  it("範囲の答えは「推定（範囲の真ん中）」の印と根拠、年齢は仮の生年月、ご両親は父・母・義母の候補になる", async () => {
+    const r = await importSheet(SIMPLE, blank(), seq);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const v = r.view;
+    expect(v.definition.version).toBe(2);
+    const ranged = v.candidates.flatMap((c) => c.fields.filter((f) => f.mark === "range").map((f) => `${c.group}:${f.label}:${f.answer}`));
+    expect(ranged).toContain("生活費:生活費のだいたいの範囲:25〜30万円");
+    expect(ranged).toContain("住宅ローン:残高のだいたいの範囲:2,500〜3,000万円");
+    const living = v.candidates.find((c) => c.group === "生活費")?.fields.find((f) => f.mark === "range");
+    expect(living?.note).toBe("ヒアリングシートの範囲 25〜30万円の真ん中");
+    expect(v.candidates.filter((c) => c.group === "家族").map((c) => c.title)).toEqual(["ご主人", "奥様", "長女", "次女", "父", "母", "義母"]);
+    const spouse = v.candidates.find((c) => c.title === "奥様");
+    expect(spouse?.fields.find((f) => f.label.startsWith("年齢"))).toMatchObject({ answer: "39歳", mark: "assumed" });
+    // シートで聞いていない欄を仮の値で補ったものは「聞いていない」と出す
+    const work = v.candidates.find((c) => c.group === "仕事と収入");
+    expect(work?.fields.find((f) => f.label === "いまの仕事を始めた年月")).toMatchObject({ answer: "（このシートでは聞いていない）", mark: "assumed" });
+    expect(v.memo[0]).toContain("保険料の合計");
+  });
+
+  it("承認すると、住宅ローンは「今の残高から」、新しい親は亡くなる見込み（平均余命の仮）つきで入り、計算できる。取り込み直すと親は新規にならない", async () => {
+    const wh = blank();
+    const r = await importSheet(SIMPLE, wh, seq);
+    if (!r.ok) throw new Error("取り込めない");
+    const out = applyImport(wh, r.view, new Set(r.view.candidates.map((c) => c.id)), AT);
+    const h = out.wh.request.input.household;
+    const d = (h.debts ?? []).find((x) => x.kind === "mortgage");
+    expect(d).toBeDefined();
+    expect(entryOf(out.wh, d?.id ?? "")).toBe("balance");
+    const parents = h.members.filter((m) => m.kind === "parent");
+    expect(parents).toHaveLength(3);
+    for (const p of parents) {
+      expect(p.leaves).not.toBeNull();
+      expect(out.wh.assumed[`family/${p.id}/leaves`]).toBeDefined();
+    }
+    expect(unapproved(out.wh.request)).toBe(0);
+    expect(preview(withRefreshedEstimates(out.wh).request).table.length).toBeGreaterThan(0);
+    const again = await importSheet(SIMPLE, out.wh, seq);
+    if (!again.ok) throw new Error("取り込めない");
+    const fam = again.view.candidates.filter((c) => c.group === "家族" && ["父", "母", "義母"].includes(c.title));
+    expect(fam.map((c) => c.kind)).toEqual(["same", "same", "same"]);
+    // 承認し直しても、聞いていない欄（亡くなる見込み）は今の値を残す
+    const out2 = applyImport(out.wh, again.view, new Set(again.view.candidates.map((c) => c.id)), AT);
+    const before = parents.map((p) => JSON.stringify(p.leaves));
+    expect(out2.wh.request.input.household.members.filter((m) => m.kind === "parent").map((p) => JSON.stringify(p.leaves))).toEqual(before);
+    expect(out2.wh.request.input.household.members.filter((m) => m.kind === "parent")).toHaveLength(3);
   });
 });
 

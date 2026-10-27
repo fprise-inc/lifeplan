@@ -6,6 +6,7 @@
 // - 行の属するカードは種類で決まる（INCOME_KINDS・OUT_KINDS の card）。種類の無い出るお金（古い世帯の周期的な支出）はライフイベントの行
 //   （黙って書き換えない）。介護・親と相続・贈与のカードはまだ無いので、ライフイベントのカードの区画に置く（カードを組み直す回に移す）
 // - 欄はどれも当て先（0036 の2。向き先は行そのもの）を持ち、プランの編集（0043）・値の状態の操作（0041）にそのまま乗る
+import { officeNow } from "../office/current.ts";
 import type { Debt, Household, IncomeFlow, IncomeFlowKind, IncomeTaxTreatment, Member, MoneyOutKind, PeriodicExpense, Timepoint } from "../../engine/types.ts";
 import { excludedDebt, excludedIncome } from "../../engine/moneyRows.ts";
 import { ROW_LABELS } from "../../generated/labels.ts";
@@ -392,6 +393,8 @@ export function addIncome(wh: WorkingHousehold, kind: IncomeFlowKind, id: string
       ...(def.cadence === "monthly" ? { monthly: true } : {}),
       amount: standardBox(0, "未入力（額を入れてください。0円で計算中）"),
       ...(counterparty !== undefined ? { counterparty } : {}),
+      // 受け取る予定の相続・贈与の見込みは、事務所の既定値（「不確か」なら基本の計算に入れない。0073）
+      ...(def.card === "inherit" && officeNow().inheritLikelihood === "uncertain" ? { likelihood: "uncertain" as const } : {}),
     };
     (h.incomeFlows ??= []).push(f);
   });
@@ -620,7 +623,7 @@ export function addInheritedDebt(wh: WorkingHousehold, id: string = newId()): Wo
       rateSchedule: [{ from: { at }, type: "fixed", rate: "0.02" }],
       repayment: { method: "equalPayment", termMonths: 60 },
       inheritedFrom: from,
-      likelihood: "likely",
+      likelihood: officeNow().inheritLikelihood,
     };
     (h.debts ??= []).push(d);
   });

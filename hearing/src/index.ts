@@ -3,6 +3,8 @@
 //   取り込み: importHearingSheet … 返ってきた .xlsx を読み、世帯データの候補・不足と矛盾・推定の印・同意の下書きにする
 // ファイルの保存・読み込みのダイアログ、乱数（依頼番号）、依頼の記録の保存（世帯ファイルの取り込みの記録）はアプリ本体が受け持つ
 import basic1 from "../sheets/basic/1.json" with { type: "json" };
+import basic2 from "../sheets/basic/2.json" with { type: "json" };
+import full1 from "../sheets/full/1.json" with { type: "json" };
 import { type FilledSheet } from "./answers.ts";
 import { checkDefinition, type SheetDefinition } from "./definition.ts";
 import { blankAnswers, exportAnswers, management } from "./export.ts";
@@ -15,9 +17,9 @@ import { writeSheetXlsx, type OfficeInfo } from "./xlsx/write.ts";
 import type { ZipLimits } from "../../xlsx/src/zip.ts";
 
 export { HEARING_FORMAT, HEARING_FORMAT_VERSION, requestIdFrom, REQUEST_ID_PATTERN, type Answer, type FilledSheet, type Management, type RawValue } from "./answers.ts";
-export { checkDefinition, type SheetDefinition, type SheetItem } from "./definition.ts";
+export { checkDefinition, type MoneyRangeStep, type SheetDefinition, type SheetItem } from "./definition.ts";
 export { blankAnswers, exportAnswers, type ExportOptions, type ExportResult } from "./export.ts";
-export { approveAll, DEFAULT_ASSUMPTIONS, importAnswers, type Candidate, type ChecklistItem, type ConsentDraft, type FieldRecord, type ImportOptions, type ImportRecord, type ImportResult } from "./import.ts";
+export { approveAll, DEFAULT_ASSUMPTIONS, importAnswers, keyLabel, type Candidate, type ChecklistItem, type ConsentDraft, type FieldRecord, type ImportOptions, type ImportRecord, type ImportResult } from "./import.ts";
 export type { Issue, IssueCode, IssueLevel } from "./issues.ts";
 export { layoutDigest } from "./layout.ts";
 export { readSheetXlsx, type HearingRequest, type ReadOptions, type ReadResult } from "./xlsx/read.ts";
@@ -25,16 +27,23 @@ export { writeSheetXlsx, type OfficeInfo, type WriteOptions } from "./xlsx/write
 export { DEFAULT_LIMITS, type ZipLimits } from "../../xlsx/src/zip.ts";
 
 /** アプリに同梱する公式のシート定義（公開したすべての版を残し続ける。0018 の7） */
-export const OFFICIAL_SHEETS: readonly SheetDefinition[] = [basic1 as unknown as SheetDefinition];
+export const OFFICIAL_SHEETS: readonly SheetDefinition[] = [basic1, basic2, full1] as unknown as SheetDefinition[];
 
 /** 書き出せるシート（retired は書き出さない） */
 export function exportableSheets(): SheetDefinition[] {
   return OFFICIAL_SHEETS.filter((d) => d.status !== "retired");
 }
 
+/** シートID の書き出せる最新の版（basic＝初回の前の簡易版・full＝詳細版。見直しは詳細版に前回の値を記入する） */
+export function latestSheet(sheetId: string): SheetDefinition | undefined {
+  return exportableSheets()
+    .filter((d) => d.sheetId === sheetId)
+    .sort((a, b) => b.version - a.version)[0];
+}
+
 export interface CreateSheetOptions {
   readonly definition: SheetDefinition;
-  /** 前回の値を記入するときの世帯（0018 の9。FP が選んだときだけ） */
+  /** 前回の値を記入するときの世帯（0018 の9。FP が選んだときだけ。詳細版 full のシートだけ） */
   readonly household?: { readonly request: EngineRequest; readonly assumed?: Readonly<Record<string, string>> } | null;
   /** 依頼番号（requestIdFrom にアプリ本体の乱数を渡して作る） */
   readonly requestId: string;
@@ -59,6 +68,8 @@ export async function createHearingSheet(o: CreateSheetOptions): Promise<CreateS
   const problems = checkDefinition(o.definition);
   if (problems.length > 0) throw new Error(`シート定義に問題があります: ${problems.join("・")}`);
   if (o.definition.status === "retired") throw new Error("廃止したシートは書き出しません");
+  // 前回の値を記入する（見直し）のは詳細版だけ。簡易版は初回の前の軽い票で、前回の値の欄の形（範囲・合計）が違う
+  if (o.household != null && o.definition.sheetId !== "full") throw new Error("前回の値を記入して書き出せるのは詳細版のシートだけです");
   const digest = await layoutDigest(o.definition);
   const m = management(o.definition, { requestId: o.requestId, customerNo: o.customerNo, layoutDigest: digest, appVersion: o.appVersion, exportedOn: o.exportedOn });
   const issues: Issue[] = [];

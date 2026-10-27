@@ -267,6 +267,18 @@ pub async fn office_dismiss_notices(app: AppHandle) -> Result<OfficeStatus, Stri
     blocking(app, |s, _| s.office_dismiss_notices().map_err(code)).await
 }
 
+/// 事務所の既定値（0073。カードの並び・新しい世帯に写す値など）。まだ決めていなければ空のオブジェクト
+#[tauri::command]
+pub async fn office_defaults_get(app: AppHandle) -> Result<serde_json::Value, String> {
+    blocking(app, |s, _| s.office_defaults().map_err(code)).await
+}
+
+/// 事務所の既定値を置き換える（JSON のオブジェクトだけ。形は画面の側が確かめる。0073）
+#[tauri::command]
+pub async fn office_defaults_put(app: AppHandle, value: serde_json::Value) -> Result<(), String> {
+    blocking(app, move |s, _| s.set_office_defaults(value).map_err(code)).await
+}
+
 /// 参加の申請を取り下げる・外された設定を片付ける
 #[tauri::command]
 pub async fn office_cancel(app: AppHandle) -> Result<OfficeStatus, String> {

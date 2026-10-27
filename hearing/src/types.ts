@@ -8,6 +8,8 @@ export interface ValueBox<T> {
   origin: { kind: string; ref?: string; connector?: string };
   approval?: { by: "fp"; at: string; candidate?: string };
   estimate?: { method: string; basis: string };
+  /** 値の確かさ（document 書類で確認・declared 本人の申告・rough 概算）。計算には使わない */
+  certainty?: "document" | "declared" | "rough";
   substitute?: ValueBox<T>;
 }
 
@@ -15,12 +17,16 @@ export type Timepoint = { at: string } | { memberAge: { member: string; years: n
 
 export interface Member {
   id: string;
-  kind: "self" | "spouse" | "child" | "parent" | "grandparent" | "other";
+  kind: "self" | "spouse" | "child" | "parent" | "grandparent" | "sibling" | "grandchild" | "other";
   birth: { birthYearMonth: string; bornOnFirst: boolean };
   sex: "female" | "male";
   joins: Timepoint | null;
   leaves: Timepoint | null;
   expected: boolean;
+  /** 世帯の外の家族（親・祖父母など。家計を世帯と別にする家族） */
+  outside?: { of?: string; periods: { id: string; from: Timepoint | null; to: Timepoint | null; living?: boolean; income?: boolean }[] };
+  /** 親・祖父母の扶養と同居 */
+  support?: { dependent: boolean; cohabiting: boolean; allowance?: number };
 }
 
 export type Relation =

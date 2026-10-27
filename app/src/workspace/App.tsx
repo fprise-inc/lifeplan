@@ -42,7 +42,10 @@ import { blankHousehold, fromRequest, withElementIds, type WorkingHousehold } fr
 import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
-import { applyCareDefaults } from "./input/fill.ts";
+import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, layoutOf, publishOfficeSettings, readOfficeSettings, type OfficeSettings } from "./office/settings.ts";
+import { OfficeSettingsPanel } from "./office/OfficeSettingsPanel.tsx";
+import { FpTools } from "./tools/FpTools.tsx";
+import { Insights, useInheritanceFor } from "./tools/Insights.tsx";
 import { pensionNotices } from "./input/stages/pension.ts";
 import { withProvisionalHousing } from "./input/housingCredit.ts";
 import { LeverCard, type FeeToggle, type LeverRow } from "./LeverPanel.tsx";
@@ -409,6 +412,15 @@ export function App() {
   // 事務所での共有（0023）
   const [officeStatus, setOfficeStatus] = useState<OfficeStatus | null>(null);
   const [officeOpen, setOfficeOpen] = useState(false);
+  /** 事務所の既定値（0073。事務所データから読む。新しい世帯に写す・ホームの並び） */
+  const [officeSettings, setOfficeSettings] = useState<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
+  const officeSettingsRef = useRef<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
+  const [officeSettingsOpen, setOfficeSettingsOpen] = useState(false);
+  const putOfficeSettings = (v: OfficeSettings) => {
+    officeSettingsRef.current = v;
+    setOfficeSettings(v);
+    publishOfficeSettings(v);
+  };
   /** 明細のパネル（0034）を最初に開く手順（URL の #statement=review など。最初の1回だけ使う） */
   const statementStep = useRef(initial.statement);
   // 保存先（1人で2台の PC の同期フォルダ。0024）: パネル（"open" は2台目の PC として開く節を先に出す）と、保存先と同期の知らせ
@@ -665,8 +677,8 @@ export function App() {
       setSampleMode(null);
       autosaver.current?.reset(null);
       let o: Opened | null;
-      // 新しい世帯には事務所の設定の既定を当てる（本人・配偶者の介護は、既定では自動で入れない。事務所の設定を作る回に設定を渡す）
-      if (id === BLANK) o = openedFrom(null, applyCareDefaults(withRefreshedEstimates(blankHousehold(thisMonth()))));
+      // 新しい世帯には事務所の既定値を写す（本人・配偶者の介護・前提条件の標準値・不動産の評価の割合。0073）
+      if (id === BLANK) o = openedFrom(null, applyOfficeDefaults(withRefreshedEstimates(blankHousehold(thisMonth())), officeSettingsRef.current));
       else {
         const demo = demoHousehold(id);
         if (demo === undefined) return;
@@ -919,6 +931,7 @@ export function App() {
       setStoreStatus(st);
       setStoredList(st.state === "ready" ? await host.store.list() : []);
       if (st.state === "ready") {
+        void host.office.defaults().then((v) => putOfficeSettings(readOfficeSettings(v)), () => undefined);
         setStoredSamples(await host.store.listSamples());
         applyCategories(await host.store.categories());
       }
@@ -1474,6 +1487,8 @@ export function App() {
     () => (opened === null ? [] : noticeRows(opened.wh, slots.map((id, i) => ({ label: planLabel(letterOf(id)), result: slotResults[i] ?? null, ...(id === work.sel && selReq !== null ? { request: selReq } : {}) })))),
     [opened, selReq, work.sel, ...slots, ...slotResults],
   );
+  // 気づき（0074）の相続税の目安: 結果のタブを見ている間だけ、選んでいるプランの要求で計算する
+  const insightInheritance = useInheritanceFor(selReq, tab === "main", computeOne);
   const currentNotices = useMemo(() => (opened === null ? [] : noticeRows(opened.wh, [{ label: planLabel(letterOf(CURRENT)), result: resultOf(CURRENT) }])), [opened, resultOf(CURRENT)]);
   const openCard = (card: string) => {
     setTab("input");
@@ -1969,6 +1984,7 @@ export function App() {
                 void ai.refresh();
                 setAiPanel("connector");
               }}
+              onOfficeDefaults={() => setOfficeSettingsOpen(true)}
               aiEnabled={ai.status?.enabled === true}
               onOffice={() => {
                 void host.office.status().then(setOfficeStatus, () => undefined);
@@ -1997,6 +2013,7 @@ export function App() {
               wh={opened.wh}
               onSave={edit}
               calcNotices={currentNotices}
+              layout={layoutOf(officeSettings)}
               plans={{
                 list: opened.wh.proposals.map((p) => ({ id: p.id, label: planLabel(letters.get(p.id)?.letter ?? ""), name: modernPlanName(p.name), color: colorStyle(colors.get(p.id) ?? 1).color })),
                 sel: inputPlanOn && work.sel !== CURRENT && opened.wh.proposals.some((p) => p.id === work.sel) ? work.sel : null,
@@ -2050,6 +2067,15 @@ export function App() {
                     onTake={(memo) => takeSnapshot({ trigger: "manual", memo, plan: { id: work.sel, letter: letterOf(work.sel), name: work.sel === CURRENT ? "現状" : (letters.get(work.sel)?.name ?? "") } })}
                     onRemove={(id) => putSnapshots((l) => l.filter((x) => x.id !== id))}
                     {...(initial.snapshots === true ? { initialOpen: true } : {})}
+                  />
+                  <FpTools
+                    wh={opened.wh}
+                    result={resultOf(CURRENT)}
+                    computeOne={computeOne}
+                    onOpen={openCard}
+                    onSnapshot={(memo) => takeSnapshot({ trigger: "manual", memo, plan: { id: CURRENT, letter: letterOf(CURRENT), name: "現状" } })}
+                    onBalance={() => setTab("balance")}
+                    atAge={settings.atAge}
                   />
                 </>
               }
@@ -2261,6 +2287,7 @@ export function App() {
                     </div>
                   ))}
                   <CalcNotices rows={calcNotices} onOpenCard={openCard} {...(initial.notices === true ? { initialOpen: true } : {})} />
+                  {selReq !== null ? <Insights req={selReq} result={selRes} months={bsSettings.moneyThree.months} inheritance={insightInheritance} onYear={pinYear} onLevers={() => document.querySelector("[data-levers]")?.scrollIntoView({ block: "start", behavior: "smooth" })} /> : null}
                 </>
               }
             />
@@ -2400,6 +2427,17 @@ export function App() {
           }}
           onOpenConnector={() => setAiPanel("connector")}
           onClose={() => setAiPanel(null)}
+        />
+      ) : null}
+      {officeSettingsOpen && host !== null ? (
+        <OfficeSettingsPanel
+          value={officeSettings}
+          shared={officeStatus?.state === "member"}
+          onSave={async (v) => {
+            await host.office.putDefaults(v as unknown as Record<string, unknown>);
+            putOfficeSettings(v);
+          }}
+          onClose={() => setOfficeSettingsOpen(false)}
         />
       ) : null}
       {officeOpen && host !== null ? (

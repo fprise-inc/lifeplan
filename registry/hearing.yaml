@@ -14,6 +14,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: hs.assets.depositTotal
+    status: active
+    label: "預貯金（ご家族の普通・定期の合計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.assets.depositTotalRange
+    status: active
+    label: "預貯金のだいたいの範囲"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: hs.assets.ideco
     status: active
     label: "iDeCo（残高）"
@@ -23,6 +35,18 @@ entries:
   - id: hs.assets.idecoMonthly
     status: active
     label: "iDeCo の毎月の掛金"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.assets.investTotal
+    status: active
+    label: "NISA・iDeCo・株・投資信託の合計（いまの時価）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.assets.investTotalRange
+    status: active
+    label: "投資のだいたいの範囲"
     since: draft
     aliases: []
     replacedBy: null
@@ -110,9 +134,21 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: hs.expense.livingRange
+    status: active
+    label: "生活費のだいたいの範囲"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: hs.expense.savings
     status: active
     label: "1年間に実際に貯められている額"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.family.adult.age
+    status: active
+    label: "年齢（生年月を書かないとき）"
     since: draft
     aliases: []
     replacedBy: null
@@ -140,6 +176,24 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: hs.family.parent.age
+    status: active
+    label: "年齢"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.family.parent.alive
+    status: active
+    label: "ご健在か"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.family.parent.cohabiting
+    status: active
+    label: "いっしょに暮らしているか"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: hs.family.spouse.marriage
     status: active
     label: "ご結婚の形"
@@ -164,6 +218,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: hs.housing.rentRange
+    status: active
+    label: "家賃のだいたいの範囲"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: hs.housing.since
     status: active
     label: "いまのお住まいに住み始めた年月"
@@ -173,6 +233,18 @@ entries:
   - id: hs.housing.type
     status: active
     label: "いまのお住まい"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.income.annual
+    status: active
+    label: "年収（賞与を含む。自営業の方は事業の所得）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.income.annualRange
+    status: active
+    label: "年収のだいたいの範囲"
     since: draft
     aliases: []
     replacedBy: null
@@ -248,6 +320,18 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: hs.insurance.premiumTotal
+    status: active
+    label: "生命保険・医療保険などの保険料の合計（月）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.insurance.premiumTotalRange
+    status: active
+    label: "保険料のだいたいの範囲"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: hs.insurance.type
     status: active
     label: "保険の種類"
@@ -257,6 +341,18 @@ entries:
   - id: hs.loan.balance
     status: active
     label: "いまの残高"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.balanceTotal
+    status: active
+    label: "住宅ローンのいまの残高（2本以上なら合計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.balanceTotalRange
+    status: active
+    label: "残高のだいたいの範囲"
     since: draft
     aliases: []
     replacedBy: null
@@ -275,6 +371,18 @@ entries:
   - id: hs.loan.method
     status: active
     label: "返済の方法"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.monthlyTotal
+    status: active
+    label: "住宅ローンの毎月の返済額（ボーナス返済を除く。2本以上なら合計）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: hs.loan.monthlyTotalRange
+    status: active
+    label: "毎月の返済額のだいたいの範囲"
     since: draft
     aliases: []
     replacedBy: null

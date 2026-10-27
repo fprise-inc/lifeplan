@@ -4,10 +4,12 @@
 // - 不足（計算に要る欄が空）・矛盾・読めない値を知らせ、面談のチェックリストに載せる（「わからない」も載せる。0018 の6）
 // - 空欄・「わからない」を目安で補った欄には、入力の画面の「推定あり」（0008 の 2026-10-11 の追記の2）と同じ印を付ける:
 //   値の箱を持つ欄は state: estimated（わからないは unknown＋substitute）、値の箱を持たない欄は assumed（欄のキー → 理由）
+import full1 from "../sheets/full/1.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
 import { bonusShareEstimate, businessEstimate, careerStartMonth, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, salaryEstimate, smrEstimate, type Estimate } from "./estimates.ts";
 import { issue, type Issue } from "./issues.ts";
+import { monthsFromPayment, principalFromPayment, standardTermMonths } from "./loan.ts";
 import { addMonths, ageAt, reachedMonth, ymIndex } from "./months.ts";
 import type {
   Account,
@@ -28,7 +30,7 @@ import type {
   SavingsCheck,
   ValueBox,
 } from "./types.ts";
-import { parseValue } from "./values.ts";
+import { formatValue, parseValue, rangeEstimate } from "./values.ts";
 
 export interface ImportOptions {
   /** 計算基準月（"YYYY-MM"） */
@@ -48,6 +50,8 @@ export interface FieldRecord {
   /** confirmed（記入どおり）・unknown（わからない＋代わりの値）・notApplicable・estimated（目安で補った）・assumed（値の箱の無い欄を仮の値で補った） */
   readonly state: "confirmed" | "unknown" | "notApplicable" | "estimated" | "assumed";
   readonly review?: readonly string[];
+  /** 金額の範囲の答えから作った推定の値のとき、その範囲の段の言葉（state は estimated。値は範囲の真ん中） */
+  readonly range?: string;
 }
 
 /** 0008 の5 の候補（ヒアリングから来た物の追加） */
@@ -118,6 +122,11 @@ export interface ImportResult {
   /** 取り込み保留（知らない項目キー・拡張の項目 ext.*） */
   readonly pending: readonly Answer[];
   readonly record: ImportRecord;
+  /**
+   * ローンの入れ方の区分（入力の画面の住まい・ローンのカード。負債の ID → 「今の残高から」）。簡易版の残高と毎月の返済額から作った住宅ローン。
+   * 画面の見せ方と逆算の決まりだけで、計算の要求には入れない
+   */
+  readonly loanEntry: Readonly<Record<string, "balance">>;
 }
 
 /** 計算の要求のうち、世帯ごとに変わらない部分の既定（app/src/workspace/input/household.ts の DEFAULT_ASSUMPTIONS と同じ） */
@@ -128,12 +137,33 @@ export const DEFAULT_ASSUMPTIONS = {
   pensionMacroSlide: { default: "0.004" },
 };
 
+/** 範囲の答えから作った値の印（範囲の段の言葉。上が開いた段は下の端を使った） */
+interface FromRange {
+  readonly label: string;
+  readonly openTop: boolean;
+}
+
 type Got<T> =
-  | { readonly status: "value"; readonly value: T; readonly review?: readonly string[] }
+  | { readonly status: "value"; readonly value: T; readonly review?: readonly string[]; readonly range?: FromRange }
   | { readonly status: "blank" | "unknown" | "notApplicable" | "invalid" };
 
 const SALARIED = new Set(["regular", "contract", "partTime", "civilServant", "executive"]);
 const MAIN_JOB = new Set(["regular", "contract", "civilServant", "executive"]);
+
+/** シートの外の項目キーの表示名（簡易版のシートで聞かない欄を補ったときの知らせ・面談のチェックリストに使う。詳細版の言葉） */
+const FALLBACK = full1 as unknown as SheetDefinition;
+const FALLBACK_ITEMS = itemByKey(FALLBACK);
+
+/** 項目キーの表示名（シート定義に無い項目は詳細版の言葉。どちらにも無ければキーのまま） */
+export function keyLabel(def: SheetDefinition, key: string): string {
+  return def.items.find((i) => i.key === key)?.label ?? FALLBACK_ITEMS.get(key)?.label ?? key;
+}
+
+/** シートで聞いていない項目の不足の知らせに添える文 */
+const NOT_ASKED = "（このシートではお聞きしていません。面談で確かめてください）";
+
+/** 範囲の答えの根拠の文 */
+export const rangeBasis = (r: FromRange): string => `ヒアリングシートの範囲 ${r.label}${r.openTop ? "（上が開いた範囲なので下の端）" : "の真ん中"}`;
 
 class Ctx {
   readonly issues: Issue[] = [];
@@ -143,9 +173,12 @@ class Ctx {
   readonly memo: string[] = [];
   readonly consents: ConsentDraft[] = [];
   readonly candidates: Candidate[] = [];
+  readonly loanEntry: Record<string, "balance"> = {};
   private readonly got = new Map<string, Got<number | string>>();
   private readonly items: Map<string, SheetItem>;
   private readonly fields = new Map<string, FieldRecord[]>();
+  /** 読み替え（取り込みの手順が読む項目キー → 値を出したシートの項目キー）。簡易版の合計・範囲の答えなど */
+  private readonly source = new Map<string, { key: string; index?: number }>();
   readonly ref: string;
   readonly def: SheetDefinition;
   readonly filled: FilledSheet;
@@ -158,6 +191,11 @@ class Ctx {
     this.items = itemByKey(def);
     this.ref = filled.management.requestId;
     for (const a of filled.answers) this.read(a);
+    this.fromRanges();
+  }
+
+  has(key: string): boolean {
+    return this.items.has(key);
   }
 
   item(key: string): SheetItem {
@@ -166,12 +204,41 @@ class Ctx {
     return it;
   }
 
+  /** 読み替えをたどって、値を出したシートの項目 */
+  src(key: string, index?: number): { key: string; index?: number } {
+    let at: { key: string; index?: number } = { key, ...(index !== undefined ? { index } : {}) };
+    for (let n = 0; n < 5; n++) {
+      const s = this.source.get(answerKey(at.key, at.index));
+      if (s === undefined) break;
+      at = s;
+    }
+    return at;
+  }
+
+  /**
+   * 取り込みの手順が読む項目（to）を、シートの別の項目（from）で読む: 値・状態を写し、知らせ・欄の記録は from の項目で出す。
+   * from がシートに無ければ何もしない
+   */
+  alias(to: string, toIndex: number | undefined, from: string, fromIndex: number | undefined): void {
+    if (!this.items.has(from)) return;
+    const g = this.got.get(answerKey(from, fromIndex)) ?? { status: "blank" };
+    this.got.set(answerKey(to, toIndex), g);
+    this.source.set(answerKey(to, toIndex), { key: from, ...(fromIndex !== undefined ? { index: fromIndex } : {}) });
+  }
+
   /** 見出しつきの項目名 */
   label(key: string, index?: number): string {
-    const it = this.items.get(key);
-    const axis = axisOf(this.def, key);
-    const head = axis !== null && index !== undefined ? `${axis.labels[index - 1] ?? `${index}番目`} ` : "";
-    return `${head}${it?.label ?? key}`;
+    const s = this.src(key, index);
+    const def = this.items.has(s.key) ? this.def : FALLBACK;
+    const it = this.items.get(s.key) ?? FALLBACK_ITEMS.get(s.key);
+    const axis = axisOf(def, s.key);
+    const head = axis !== null && s.index !== undefined ? `${axis.labels[s.index - 1] ?? `${s.index}番目`} ` : "";
+    return `${head}${it?.label ?? s.key}`;
+  }
+
+  /** 知らせ・チェックリストの場所（読み替えた先のシートの項目） */
+  at(key: string, index?: number): { key: string; index?: number } {
+    return this.src(key, index);
   }
 
   private read(a: Answer): void {
@@ -209,8 +276,40 @@ class Ctx {
     if (a.status === "unknown") this.check(a.key, a.index, "unknown", "わからない");
   }
 
+  /**
+   * 範囲の答え（moneyRange）: 金額の項目が空欄か「わからない」なら、範囲の真ん中（上が開いた段は下の端）を金額の項目の値として読む。
+   * 値の箱には推定（確かさ「概算」）として入れ、確定にしない（box）。金額と範囲の両方があれば金額を使う
+   */
+  private fromRanges(): void {
+    for (const r of this.def.items) {
+      if (r.type !== "moneyRange" || r.rangeOf === undefined) continue;
+      const base = r.rangeOf;
+      const count = axisOf(this.def, r.key)?.count;
+      for (let n = 1; n <= (count ?? 1); n++) {
+        const index = count === undefined ? undefined : n;
+        const g = this.get<string>(r.key, index);
+        if (g.status !== "value") continue;
+        const e = rangeEstimate(r, g.value);
+        if (e === null) continue;
+        const cur = this.get(base, index);
+        if (cur.status === "value") {
+          this.issues.push(issue("info", "H_IGNORED", `${this.label(r.key, index)}: 金額の記入があるので、範囲（${e.label}）は使いませんでした`, { key: r.key, ...(index !== undefined ? { index } : {}) }));
+          continue;
+        }
+        if (cur.status === "notApplicable" || cur.status === "invalid") {
+          this.contradiction(r.key, index, `${cur.status === "notApplicable" ? "「該当なし」" : "読めない金額"}と範囲（${e.label}）の両方があります（範囲は使いませんでした）`);
+          continue;
+        }
+        this.got.set(answerKey(base, index), { status: "value", value: e.value, ...(g.review !== undefined ? { review: g.review } : {}), range: { label: e.label, openTop: e.openTop } });
+        this.source.set(answerKey(base, index), { key: r.key, ...(index !== undefined ? { index } : {}) });
+      }
+    }
+  }
+
   check(key: string, index: number | undefined, reason: ChecklistItem["reason"], message: string): void {
-    this.checklist.push({ key, ...(index !== undefined ? { index } : {}), label: this.label(key, index), reason, message });
+    const s = this.src(key, index);
+    const text = reason === "missing" && !this.items.has(s.key) ? `${message}${NOT_ASKED}` : message;
+    this.checklist.push({ key: s.key, ...(s.index !== undefined ? { index: s.index } : {}), label: this.label(key, index), reason, message: text });
   }
 
   get<T extends number | string>(key: string, index?: number): Got<T> {
@@ -222,28 +321,41 @@ class Ctx {
     return g.status === "value" ? g.value : null;
   }
 
+  /** 範囲の答えから読んだ値か（範囲の段） */
+  rangeOf(key: string, index?: number): FromRange | null {
+    const g = this.get(key, index);
+    return g.status === "value" ? (g.range ?? null) : null;
+  }
+
   /** その項目に何か記入があるか（値・わからない・該当なしのどれか） */
   touched(key: string, index?: number): boolean {
     const g = this.get(key, index);
     return g.status === "value" || g.status === "unknown" || g.status === "invalid";
   }
 
+  /** 不足の知らせ。シートで聞いていない項目（簡易版で詳細版の欄を補ったなど）は知らせだけにして、面談のチェックリストに載せる */
   missing(key: string, index: number | undefined, message: string, level: "error" | "warning" = "warning"): void {
-    this.issues.push(issue(level, "H_MISSING", `${this.label(key, index)}: ${message}`, { key, ...(index !== undefined ? { index } : {}) }));
+    const s = this.src(key, index);
+    const asked = this.items.has(s.key);
+    this.issues.push(issue(asked ? level : "info", "H_MISSING", `${this.label(key, index)}: ${message}${asked ? "" : NOT_ASKED}`, s));
     this.check(key, index, "missing", message);
   }
 
   contradiction(key: string, index: number | undefined, message: string, level: "error" | "warning" = "warning"): void {
-    this.issues.push(issue(level, "H_CONTRADICTION", `${this.label(key, index)}: ${message}`, { key, ...(index !== undefined ? { index } : {}) }));
+    this.issues.push(issue(level, "H_CONTRADICTION", `${this.label(key, index)}: ${message}`, this.src(key, index)));
     this.check(key, index, "contradiction", message);
   }
 
-  /** 欄の記録を物ごとにためる */
+  /** 欄の記録を物ごとにためる（読み替えた項目は、値を出したシートの項目で記録する） */
   field(objectId: string, key: string, index: number | undefined, item: string, path: string, state: FieldRecord["state"]): void {
     const g = this.get(key, index);
     const review = g.status === "value" ? g.review : undefined;
+    const range = g.status === "value" ? g.range : undefined;
+    const s = this.src(key, index);
     const list = this.fields.get(objectId) ?? [];
-    list.push({ key, ...(index !== undefined ? { index } : {}), item, path, state, ...(review !== undefined ? { review } : {}) });
+    // 範囲の答えから読んだ値は、記入どおり（confirmed）でも推定（範囲の真ん中）として記録する
+    const fromRange = range !== undefined && (state === "confirmed" || state === "estimated");
+    list.push({ key: s.key, ...(s.index !== undefined ? { index: s.index } : {}), item, path, state: fromRange ? "estimated" : state, ...(review !== undefined ? { review } : {}), ...(fromRange ? { range: range.label } : {}) });
     this.fields.set(objectId, list);
   }
 
@@ -251,7 +363,7 @@ class Ctx {
   assume(uiKey: string, reason: string, at: { objectId: string; key: string; index?: number; item: string; path: string }): void {
     this.assumed[uiKey] = reason;
     this.field(at.objectId, at.key, at.index, at.item, at.path, "assumed");
-    this.issues.push(issue("info", "H_ASSUMED", `${this.label(at.key, at.index)}: ${reason}`, { key: at.key, ...(at.index !== undefined ? { index: at.index } : {}) }));
+    this.issues.push(issue("info", "H_ASSUMED", `${this.label(at.key, at.index)}: ${reason}`, this.src(at.key, at.index)));
   }
 
   candidate(collection: keyof Household, item: string, value: { id: string }, related?: Relation[], note: string | null = null): void {
@@ -281,6 +393,13 @@ class Ctx {
     return { value, state: "confirmed", origin: { kind: "hearing", ref: this.ref } };
   }
 
+  /** 記入の値の箱: 金額をそのまま書いた値は確定、範囲の答えから読んだ値は推定（確かさ「概算」。根拠は範囲の段） */
+  box(key: string, index: number | undefined, value: number): ValueBox<number> {
+    const r = this.rangeOf(key, index);
+    if (r === null) return this.confirmed(value);
+    return { value, state: "estimated", origin: { kind: "hearing", ref: this.ref }, estimate: { method: "derived", basis: rangeBasis(r) }, certainty: "rough" };
+  }
+
   notApplicable<T>(): ValueBox<T> {
     return { state: "notApplicable", origin: { kind: "hearing", ref: this.ref } };
   }
@@ -294,13 +413,14 @@ class Ctx {
   }
 
   /**
-   * 金額の欄を値の箱にする。空欄は目安で補い（estimated）、わからないは代わりの値つき（unknown）。目安が無ければ null（欄を作らない）
+   * 金額の欄を値の箱にする。空欄は目安で補い（estimated）、わからないは代わりの値つき（unknown）。目安が無ければ null（欄を作らない）。
+   * 範囲の答えから読んだ値は推定（box）
    */
   moneyBox(objectId: string, key: string, index: number | undefined, item: string, path: string, estimate: (() => Estimate | null) | null, method: "statistic" | "derived" = "statistic"): ValueBox<number> | null {
     const g = this.get<number>(key, index);
     if (g.status === "value") {
       this.field(objectId, key, index, item, path, "confirmed");
-      return this.confirmed(g.value);
+      return this.box(key, index, g.value);
     }
     if (g.status === "notApplicable") {
       this.field(objectId, key, index, item, path, "notApplicable");
@@ -314,7 +434,7 @@ class Ctx {
     }
     if (e === null) return null;
     this.field(objectId, key, index, item, path, "estimated");
-    this.issues.push(issue("info", "H_ESTIMATED", `${this.label(key, index)}: 空欄のため目安（${e.value.toLocaleString("ja-JP")}円）で補いました（${e.basis}）`, { key, ...(index !== undefined ? { index } : {}) }));
+    this.issues.push(issue("info", "H_ESTIMATED", `${this.label(key, index)}: 空欄のため目安（${e.value.toLocaleString("ja-JP")}円）で補いました（${e.basis}）`, this.src(key, index)));
     return this.estimated(e, method);
   }
 }
@@ -331,7 +451,9 @@ export function importAnswers(def: SheetDefinition, filled: FilledSheet, options
     asOf = options.baseMonth;
   }
 
-  const adults = importFamily(c, h, options.baseMonth);
+  simpleAliases(c);
+  const adults = importFamily(c, h, options.baseMonth, asOf);
+  importParents(c, h, adults, asOf);
   const periods = importWork(c, h, adults, options.baseMonth);
   importPension(c, h, adults, asOf);
   importHousing(c, h, adults, asOf, options.baseMonth);
@@ -364,8 +486,34 @@ export function importAnswers(def: SheetDefinition, filled: FilledSheet, options
     memo: c.memo,
     pending: c.pending,
     record: { kind: "hearing", requestId: m.requestId, sheetId: m.sheetId, sheetVersion: m.sheetVersion, layoutDigest: m.layoutDigest, exportedOn: m.exportedOn, answers: filled.answers },
+    loanEntry: c.loanEntry,
   };
 }
+
+/**
+ * 簡易版（初回の前の軽い票）の項目を、詳細版と同じ取り込みの手順で読むための読み替え（項目がシートに無ければ何もしない）。
+ * - 年収（賞与を含む。自営業の方は事業の所得）: 働き方が自営業なら事業の所得、ほかは給与の年収として読む
+ * - 預貯金・投資の合計（ご家族の合計）: ご本人の名義の預金・課税口座として読む（名義・口座の種類は仮。importAssets）
+ * 範囲の答えは、その前に金額の項目へ読んである（Ctx の fromRanges）
+ */
+function simpleAliases(c: Ctx): void {
+  const adults = c.def.axes.find((a) => a.id === "adult")?.count ?? 0;
+  for (let n = 1; n <= adults; n++) {
+    const type = c.value<string>("hs.work.type", n);
+    c.alias(type === "selfEmployed" ? "hs.income.business" : "hs.income.salary", n, "hs.income.annual", n);
+  }
+  c.alias("hs.assets.deposit", 1, "hs.assets.depositTotal", undefined);
+  c.alias("hs.assets.taxable", 1, "hs.assets.investTotal", undefined);
+}
+
+const ymText = (ym: string): string => `${ym.slice(0, 4)}年${Number(ym.slice(5, 7))}月`;
+
+/** 年齢から仮の生年月（記入の年月にその満年齢の人の真ん中: 年齢×12＋6か月前） */
+export function birthFromAge(asOf: string, age: number): string {
+  return addMonths(asOf, -(age * 12 + 6));
+}
+
+const ageReason = (asOf: string, age: number, birth: string): string => `仮の値（ご記入の年月（${ymText(asOf)}）に${age}歳として、${ymText(birth)}生まれで計算。生年月は面談で確かめてください）`;
 
 // ---- 家族 ----
 
@@ -383,20 +531,35 @@ const SPOUSE_KEYS = [
   "hs.assets.ideco",
 ];
 
-function importFamily(c: Ctx, h: Household, baseMonth: string): Adults {
+function importFamily(c: Ctx, h: Household, baseMonth: string, asOf: string): Adults {
   const B = "hs.family.adult.birthYearMonth";
+  const A = "hs.family.adult.age";
   const S = "hs.family.adult.sex";
   const baseYear = Number(baseMonth.slice(0, 4));
+  /** 生年月の記入（年齢と食い違えば知らせる）、無ければ年齢からの仮の生年月。どちらも無ければ null */
+  const birthOf = (id: string, n: number): string | null => {
+    const b = c.get<string>(B, n);
+    const age = c.get<number>(A, n);
+    if (b.status === "value") {
+      c.field(id, B, n, "member.birth", "/birth/birthYearMonth", "confirmed");
+      if (age.status === "value" && Math.abs(ageAt({ birth: { birthYearMonth: b.value, bornOnFirst: false } }, asOf) - age.value) > 1) c.contradiction(A, n, "生年月と年齢が合いません（生年月を使いました）");
+      return b.value;
+    }
+    if (age.status !== "value") return null;
+    const birth = birthFromAge(asOf, age.value);
+    c.assume(`family/${id}/birth`, ageReason(asOf, age.value, birth), { objectId: id, key: A, index: n, item: "member.birth", path: "/birth/birthYearMonth" });
+    return birth;
+  };
 
   const selfId = c.newId();
   const selfBirth = c.get<string>(B, 1);
+  const fromSheet = birthOf(selfId, 1);
   let birth: string;
-  if (selfBirth.status === "value") {
-    birth = selfBirth.value;
-    c.field(selfId, B, 1, "member.birth", "/birth/birthYearMonth", "confirmed");
+  if (fromSheet !== null) {
+    birth = fromSheet;
   } else {
     birth = `${baseYear - 40}-04`;
-    if (selfBirth.status === "notApplicable") c.contradiction(B, 1, "ご本人の生年月に「該当なし」は選べません", "error");
+    if (selfBirth.status === "notApplicable" || c.get(A, 1).status === "notApplicable") c.contradiction(selfBirth.status === "notApplicable" ? B : A, 1, `ご本人の${selfBirth.status === "notApplicable" ? "生年月" : "年齢"}に「該当なし」は選べません`, "error");
     else c.missing(B, 1, "ご本人の生年月がありません（計算に必要です）", "error");
     c.assume(`family/${selfId}/birth`, "仮の値（40歳として計算）", { objectId: selfId, key: B, index: 1, item: "member.birth", path: "/birth/birthYearMonth" });
   }
@@ -407,15 +570,16 @@ function importFamily(c: Ctx, h: Household, baseMonth: string): Adults {
   // 配偶者
   let spouse: Member | undefined;
   const sb = c.get<string>(B, 2);
+  const sa = c.get<number>(A, 2);
   const spouseTouched = SPOUSE_KEYS.some((k) => c.get(k, 2).status === "value");
-  if (sb.status === "notApplicable") {
-    if (spouseTouched) c.contradiction(B, 2, "配偶者の方は「該当なし」ですが、配偶者の方の欄に記入があります（配偶者の方の欄は取り込みませんでした）");
-  } else if (sb.status === "value" || spouseTouched) {
+  if (sb.status === "notApplicable" || (sb.status !== "value" && sa.status === "notApplicable")) {
+    if (spouseTouched) c.contradiction(sb.status === "notApplicable" ? B : A, 2, "配偶者の方は「該当なし」ですが、配偶者の方の欄に記入があります（配偶者の方の欄は取り込みませんでした）");
+  } else if (sb.status === "value" || sa.status === "value" || spouseTouched) {
     const id = c.newId();
     let sBirth: string;
-    if (sb.status === "value") {
-      sBirth = sb.value;
-      c.field(id, B, 2, "member.birth", "/birth/birthYearMonth", "confirmed");
+    const given = birthOf(id, 2);
+    if (given !== null) {
+      sBirth = given;
     } else {
       sBirth = birth;
       c.missing(B, 2, "配偶者の方の欄に記入がありますが、生年月がありません");
@@ -480,6 +644,54 @@ function sexOf(c: Ctx, id: string, key: string, index: number, fallback: "male" 
   c.missing(key, index, "性別がありません（年金の計算に使います）");
   c.assume(`family/${id}/sex`, "仮の値", { objectId: id, key, index, item: "member.sex", path: "/sex" });
   return fallback;
+}
+
+// ---- ご両親（世帯の外の家族。入力の画面の介護・親のカードの区画A） ----
+
+const P = "hs.family.parent";
+
+/**
+ * ご両親（ご本人のお父さま・お母さま、配偶者の方のお父さま・お母さま）を、世帯の外の家族（家計を世帯と別にする親）として取り込む。
+ * 性別と誰の親かは欄で決まる。年齢があれば仮の生年月、無ければお子さま（本人・配偶者）の生年の30年前（介護・親のカードの「＋ 両家の親を足す」と同じ）。
+ * 同居かは扶養と同居の欄（同居している）に入れる。亡くなる見込み・扶養・親のお金・介護の費用はシートで聞かない
+ */
+function importParents(c: Ctx, h: Household, adults: Adults, asOf: string): void {
+  const axis = c.def.axes.find((a) => a.id === "parent");
+  if (axis === undefined || !c.has(`${P}.alive`)) return;
+  for (let n = 1; n <= axis.count; n++) {
+    const alive = c.get<string>(`${P}.alive`, n);
+    const age = c.get<number>(`${P}.age`, n);
+    const co = c.get<string>(`${P}.cohabiting`, n);
+    if (alive.status !== "value" && age.status !== "value" && co.status !== "value") continue;
+    if (alive.status === "value" && alive.value === "deceased") {
+      if (age.status === "value" || co.status === "value") c.contradiction(`${P}.alive`, n, "「亡くなっている」ですが、年齢などの記入があります（取り込みませんでした）");
+      continue;
+    }
+    const side = n <= 2 ? adults[0] : adults[1];
+    if (side === undefined) {
+      c.contradiction(`${P}.alive`, n, "配偶者の方の記入がありませんが、配偶者の方のご両親の記入があります（取り込みませんでした）");
+      continue;
+    }
+    const id = c.newId();
+    let birth: string;
+    if (age.status === "value") {
+      birth = birthFromAge(asOf, age.value);
+      c.assume(`family/${id}/birth`, ageReason(asOf, age.value, birth), { objectId: id, key: `${P}.age`, index: n, item: "member.birth", path: "/birth/birthYearMonth" });
+      if (ymIndex(birth) > ymIndex(side.birth.birthYearMonth) - 15 * 12) c.contradiction(`${P}.age`, n, "ご両親とお子さまの年の差が15歳より小さくなっています");
+    } else {
+      birth = `${Number(side.birth.birthYearMonth.slice(0, 4)) - 30}-04`;
+      c.assume(`family/${id}/birth`, `仮の値（${n <= 2 ? "ご本人" : "配偶者の方"}の生年の30年前）`, { objectId: id, key: `${P}.age`, index: n, item: "member.birth", path: "/birth/birthYearMonth" });
+    }
+    if (alive.status === "value") c.field(id, `${P}.alive`, n, "member.kind", "/kind", "confirmed");
+    c.field(id, `${P}.alive`, n, "member.sex", "/sex", "confirmed");
+    const m: Member = { id, kind: "parent", birth: { birthYearMonth: birth, bornOnFirst: false }, sex: n % 2 === 1 ? "male" : "female", joins: null, leaves: null, expected: false, outside: { of: side.id, periods: [] } };
+    if (co.status === "value") {
+      m.support = { dependent: false, cohabiting: co.value === "together" };
+      c.field(id, `${P}.cohabiting`, n, "member.support", "/support/cohabiting", "confirmed");
+    }
+    h.members.push(m);
+    c.candidate("members", "member.kind", m, undefined, "亡くなる見込み・扶養・親のお金・介護の費用はシートでお聞きしていません。介護・親のカードで入れてください");
+  }
 }
 
 // ---- 働き方と収入 ----
@@ -679,27 +891,29 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
       if (bonus.value > total.value) {
         c.contradiction("hs.income.bonus", n, "賞与が年収より多くなっています（賞与を0円として取り込みました）", "error");
         bonusBox = c.confirmed(0);
-        annual = c.confirmed(total.value);
+        annual = c.box("hs.income.salary", n, total.value);
       } else {
         c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "confirmed");
         bonusBox = c.confirmed(bonus.value);
-        annual = c.confirmed(total.value - bonus.value);
+        annual = c.box("hs.income.salary", n, total.value - bonus.value);
       }
     } else if (bonus.status === "notApplicable") {
       c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "confirmed");
       bonusBox = c.confirmed(0);
-      annual = c.confirmed(total.value);
+      annual = c.box("hs.income.salary", n, total.value);
     } else {
       // 賞与が分からない: 年収に統計の賞与の割合を当てて分ける（年収の側も、その分だけ推定になる）
       const share = bonusShareEstimate(p.type, m.sex, total.value, opts) ?? { value: 0, basis: "賞与なしとみなした" };
-      const rest: Estimate = { value: total.value - share.value, basis: `年収（記入）${total.value.toLocaleString("ja-JP")}円から賞与の目安を引いた額` };
+      const tr = c.rangeOf("hs.income.salary", n);
+      const rest: Estimate = { value: total.value - share.value, basis: tr !== null ? `${rangeBasis(tr)}（${total.value.toLocaleString("ja-JP")}円）から賞与の目安を引いた額` : `年収（記入）${total.value.toLocaleString("ja-JP")}円から賞与の目安を引いた額` };
       if (bonus.status === "unknown") {
         bonusBox = c.unknown(share, "derived");
         annual = { ...c.unknown(rest, "derived") };
         c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "unknown");
       } else {
         bonusBox = c.estimated(share, "derived");
-        annual = c.estimated(rest, "derived");
+        // 範囲の答えから分けた年収は、出どころ「ヒアリング」の概算の推定（承認の記録が付く）
+        annual = tr !== null ? { value: rest.value, state: "estimated", origin: { kind: "hearing", ref: c.ref }, estimate: { method: "derived", basis: rest.basis }, certainty: "rough" } : c.estimated(rest, "derived");
         c.field(id, "hs.income.bonus", n, "employment.salary.bonus", "/salary/bonus", "estimated");
         c.issues.push(issue("info", "H_ESTIMATED", `${c.label("hs.income.bonus", n)}: 空欄のため、年収のうち ${share.value.toLocaleString("ja-JP")}円を賞与の目安としました`, { key: "hs.income.bonus", index: n }));
       }
@@ -802,7 +1016,11 @@ function importHousing(c: Ctx, h: Household, adults: Adults, asOf: string, baseM
   const type = c.get<string>("hs.housing.type");
   const rent = c.get<number>("hs.housing.rent");
   const loanAxis = c.def.axes.find((a) => a.id === "loan");
-  const hasLoan = Array.from({ length: loanAxis?.count ?? 0 }, (_, i) => c.get("hs.loan.debtor", i + 1).status === "value").some(Boolean);
+  const simpleLoan = ["hs.loan.monthlyTotal", "hs.loan.balanceTotal"].some((k) => {
+    const g = c.get<number>(k);
+    return g.status === "value" && g.value > 0;
+  });
+  const hasLoan = simpleLoan || Array.from({ length: loanAxis?.count ?? 0 }, (_, i) => c.get("hs.loan.debtor", i + 1).status === "value").some(Boolean);
   let ownId: string | null = null;
   if (type.status !== "value") {
     c.missing("hs.housing.type", undefined, "お住まいの種類がありません（住居費なしとして計算します）");
@@ -846,6 +1064,81 @@ function importHousing(c: Ctx, h: Household, adults: Adults, asOf: string, baseM
   }
 
   for (let n = 1; n <= (loanAxis?.count ?? 0); n++) importLoan(c, h, adults, n, asOf, baseMonth, ownId);
+  importSimpleLoan(c, h, adults, asOf);
+}
+
+/** 簡易版の住宅ローンに仮に置く金利（変動金利 年0.8%。入力の画面の新しい住宅ローンの標準の値と同じ） */
+const SIMPLE_LOAN_RATE = "0.008";
+const SIMPLE_LOAN_NOTE =
+  "簡易版のシートの残高と毎月の返済額から置いた住宅ローンです（入れ方は「今の残高から」）。借りた年月・借入額・金利・返済期間は仮の値なので、面談で返済予定表を見て直してください。住宅ローン控除の条件はお聞きしていないため、控除は計算しません";
+
+/**
+ * 簡易版の住宅ローン（残高と毎月の返済額の合計）: 入力の画面の住まい・ローンのカードの「今の残高から」の形で1本にまとめて置く。
+ * - 借りたのは記入の年月・借入額は残高（仮）、金利は変動 年0.8%（仮）、借りている方はご本人（仮）
+ * - 残高と返済額があれば、仮の金利で返済期間を逆算する。返済額だけなら、標準の返済期間（35年・80歳まで）と仮の金利で残高を逆算する（推定）
+ * - 残高だけなら、返済期間は標準の値（仮）
+ */
+function importSimpleLoan(c: Ctx, h: Household, adults: Adults, asOf: string): void {
+  const PAY = "hs.loan.monthlyTotal";
+  const BAL = "hs.loan.balanceTotal";
+  if (!c.has(PAY) && !c.has(BAL)) return;
+  const pay = c.get<number>(PAY);
+  const bal = c.get<number>(BAL);
+  const payV = pay.status === "value" && pay.value > 0 ? pay.value : null;
+  const balV = bal.status === "value" && bal.value > 0 ? bal.value : null;
+  if (payV === null && balV === null) {
+    if (pay.status === "unknown" || bal.status === "unknown") c.check(BAL, undefined, "unknown", "住宅ローンの残高・返済額がわからない（面談で返済予定表を見て入れてください）");
+    return;
+  }
+  const self = adults[0];
+  const id = c.newId();
+  const rate = Number(SIMPLE_LOAN_RATE);
+  const key = balV !== null ? BAL : PAY;
+  const at = (k: string, item: string, path: string) => ({ objectId: id, key: k, item, path });
+  const std = standardTermMonths(self, asOf);
+  let termMonths = std;
+  let balance: ValueBox<number>;
+  let amount: number;
+  if (balV !== null) {
+    amount = balV;
+    balance = c.box(BAL, undefined, balV);
+    c.field(id, BAL, undefined, "debt.balance", "/balance", "confirmed");
+    const m = payV === null ? null : monthsFromPayment(balV, payV, rate);
+    if (payV !== null && m !== null && m <= 600) {
+      termMonths = m;
+      c.assume(`housing/debt/${id}/term`, `逆算（残高 ${balV.toLocaleString("ja-JP")}円・毎月の返済額 ${payV.toLocaleString("ja-JP")}円・仮の金利 年0.8%から ${m}か月）`, at(PAY, "debt.repayment", "/repayment/termMonths"));
+    } else {
+      if (payV !== null) c.contradiction(PAY, undefined, "毎月の返済額では、残高を返しきれない計算になります（返済期間は標準の値で計算しました。面談で確かめてください）");
+      else c.check(PAY, undefined, pay.status === "unknown" ? "unknown" : "missing", "毎月の返済額が無いため、返済期間を標準の値で計算します");
+      c.assume(`housing/debt/${id}/term`, `仮の値（返済期間${String(std / 12)}年。完済が80歳を超えないように）`, at(BAL, "debt.repayment", "/repayment/termMonths"));
+    }
+  } else {
+    const p = payV as number;
+    amount = principalFromPayment(p, rate, std) ?? 0;
+    const basis = `毎月の返済額 ${p.toLocaleString("ja-JP")}円・仮の金利 年0.8%・返済期間${String(std / 12)}年から逆算`;
+    const e = c.estimated({ value: amount, basis }, "derived");
+    balance = bal.status === "unknown" ? { state: "unknown", origin: { kind: "hearing", ref: c.ref }, substitute: e } : c.rangeOf(PAY) !== null ? { ...e, certainty: "rough" } : e;
+    c.field(id, PAY, undefined, "debt.balance", "/balance", bal.status === "unknown" ? "unknown" : "estimated");
+    c.assume(`housing/debt/${id}/term`, `仮の値（返済期間${String(std / 12)}年。完済が80歳を超えないように）`, at(PAY, "debt.repayment", "/repayment/termMonths"));
+  }
+  c.assume(`housing/debt/${id}/fromBalance`, "仮の値（残高の時点〔記入の年月〕から借りたとみなす。借りた年月・借入額は面談で確かめてください）", at(key, "debt.principal", "/principal"));
+  c.field(id, key, undefined, "debt.start", "/start/at", "assumed");
+  c.assume(`housing/debt/${id}/rate`, "仮の値（変動金利 年0.8%として計算）", at(key, "debt.rateSchedule", "/rateSchedule/0/rate"));
+  c.assume(`housing/debt/${id}/debtor`, "仮の値（ご本人が借りているとして計算）", at(key, "debt.debtors", "/debtors/0/member"));
+  const d: Debt = {
+    id,
+    kind: "mortgage",
+    debtors: [{ member: self.id, role: "primary" }],
+    principal: amount,
+    start: { at: asOf },
+    balance,
+    balanceAsOf: asOf,
+    rateSchedule: [{ from: { at: asOf }, type: "variable", rate: SIMPLE_LOAN_RATE }],
+    repayment: { method: "equalPayment", termMonths },
+  };
+  (h.debts ??= []).push(d);
+  c.loanEntry[id] = "balance";
+  c.candidate("debts", "debt.kind", d, undefined, SIMPLE_LOAN_NOTE);
 }
 
 /**
@@ -1021,7 +1314,7 @@ function importAssets(c: Ctx, h: Household, adults: Adults, periods: Map<string,
       const id = c.newId();
       let mv: ValueBox<number>;
       if (g.status === "value") {
-        mv = c.confirmed(g.value);
+        mv = c.box(key, n, g.value);
         c.field(id, key, n, "account.marketValue", "/marketValue", "confirmed");
       } else if (g.status === "unknown") {
         mv = c.unknown({ value: 0, basis: "残高がわからないため0円として計算" }, "derived");
@@ -1031,6 +1324,12 @@ function importAssets(c: Ctx, h: Household, adults: Adults, periods: Map<string,
         c.field(id, key, n, "account.marketValue", "/marketValue", "estimated");
       }
       const a: Account = { id, kind, owner: m.id, marketValue: mv, asOf, contributions: [] };
+      // 簡易版のご家族の合計: 名義はご本人、投資は口座の種類も仮（内訳を聞いていない）
+      const from = c.src(key, n).key;
+      if (from === "hs.assets.depositTotal" || from === "hs.assets.investTotal" || from === "hs.assets.depositTotalRange" || from === "hs.assets.investTotalRange") {
+        c.assume(`sav/${id}/owner`, "仮の値（ご家族の合計を、ご本人の名義として計算）", { objectId: id, key, index: n, item: "account.owner", path: "/owner" });
+        if (kind === "taxable") c.assume(`sav/${id}/kind`, "仮の値（NISA・iDeCo・株・投資信託の合計を、課税口座の株式・投資信託として計算。内訳は面談で確かめて口座ごとに分けてください）", { objectId: id, key, index: n, item: "account.kind", path: "/kind" });
+      }
       if (hasMonthly && monthlyKey !== null && monthly?.status === "value") {
         const until = periods.get(m.id)?.to ?? null;
         a.contributions.push({ from: { at: addMonths(asOf, 1) }, to: until, monthly: monthly.value });
@@ -1163,7 +1462,7 @@ function importInsurance(c: Ctx, h: Household, adults: Adults, baseMonth: string
 // ---- 生活費と貯蓄 ----
 
 function importLiving(c: Ctx, h: Household, asOf: string, baseMonth: string): void {
-  const size = h.members.filter((m) => !m.expected).length;
+  const size = h.members.filter((m) => !m.expected && m.outside === undefined).length;
   const id = c.newId();
   const box = c.moneyBox(id, "hs.expense.living", undefined, "livingExpense.monthly", "/monthly", () => livingEstimate(size));
   const l: LivingExpense = { id, mode: "total", monthly: box as ValueBox<number> };
@@ -1189,10 +1488,26 @@ const CONSENT_KIND: Readonly<Record<string, ConsentDraft["kind"]>> = {
   "hs.consent.externalAi": "externalAi",
 };
 
+/** メモに入れる金額の文（月18,000円・範囲の答えなら「1〜2万円（だいたいの範囲）」） */
+function memoMoney(c: Ctx, it: SheetItem): string | null {
+  const g = c.get<number>(it.key);
+  if (g.status === "unknown") return "わからない";
+  if (g.status === "notApplicable") return "該当なし";
+  if (g.status !== "value") return null;
+  const r = c.rangeOf(it.key);
+  if (r !== null) return `${r.label}（だいたいの範囲）`;
+  const raw = formatValue(it, g.value).raw;
+  const shown = raw.kind === "bool" ? "" : Number(raw.text).toLocaleString("ja-JP");
+  const basis = it.unit?.basis === "monthly" ? "月" : it.unit?.basis === "annual" ? "年" : "";
+  return `${basis}${shown}${it.unit?.scale === "manYen" ? "万円" : "円"}`;
+}
+
 function importMemoAndConsent(c: Ctx): void {
   for (const it of c.def.items) {
     if (it.destination === "memo" && axisOf(c.def, it.key) === null) {
-      const v = c.value<string>(it.key);
+      // 計算に入れる先が無い金額（保険料の合計など）も、FP 用のメモに入れる（範囲の答えは金額の項目の側で書く）
+      if (it.type === "moneyRange") continue;
+      const v = it.type === "money" ? memoMoney(c, it) : c.value<string>(it.key);
       if (v !== null && v !== "") c.memo.push(`【${it.label}】${v}`);
     }
     if (it.destination === "consent") {
