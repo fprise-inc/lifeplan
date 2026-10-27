@@ -93,9 +93,16 @@ export type TableRowModel =
   /** ライフイベント（年ごとのできごと。丸の漢字と説明。グラフの下の丸と同じ） */
   | { kind: "events"; key: string; label: string; events: EventChip[][] }
   | { kind: "group"; key: string; label: string }
-  | { kind: "value" | "total"; key: string; label: string; cells: TableCellModel[]; evidence: boolean }
-  /** 基準との差の行（選んだ案−基準。年間収支と金融資産残高の下） */
-  | { kind: "diff"; key: string; label: string; cells: (Yen | null)[] };
+  | { kind: "value" | "total"; key: string; label: string; cells: TableCellModel[]; evidence: boolean; children?: TableChildRow[]; note?: string }
+  /** 基準との差の行（選んだ案−基準。年間収支と金融資産残高の下）。参考の行（世帯のお金の流れに入らない差）にも使う */
+  | { kind: "diff"; key: string; label: string; cells: (Yen | null)[]; note?: string };
+
+/** 表の行を開くと出る子の行（行の左の「▸」。行の中身を物ごと・出どころごとに分けた額。根拠は出さない） */
+export interface TableChildRow {
+  key: string;
+  label: string;
+  cells: TableCellModel[];
+}
 
 export interface CashflowTableModel {
   title: string;

@@ -41,8 +41,8 @@ export interface PensionLine {
 
 const year = (ym: string) => Number(ym.slice(0, 4));
 
-/** 結果から、人ごとの老齢年金の年額（受け取り開始の年の次の年） */
-export function pensionLines(wh: WorkingHousehold, r: PreviewResult | null, keepClaims: boolean): PensionLine[] {
+/** 結果から、人ごとの老齢年金の年額（受け取り開始の年の次の年）。wh は要求だけを読む（プランの比較の表はプランの要求を渡す） */
+export function pensionLines(wh: Pick<WorkingHousehold, "request">, r: PreviewResult | null, keepClaims: boolean): PensionLine[] {
   const req = wh.request.input;
   const h = req.household;
   const base = req.baseMonth;
@@ -136,4 +136,62 @@ export function estimateView(wh: WorkingHousehold, est: { std: PreviewResult | n
   const sum = std.filter((l) => l.annual !== null);
   const total = sum.length > 1 ? `夫婦で月${manText(Math.round(sum.reduce((s, l) => s + (l.annual ?? 0), 0) / 12))}万円（${sum.every((l) => l.receiving) ? "今" : "65歳から"}・推定）` : null;
   return { people, total };
+}
+
+/** プランの比較の表の年金の行の1列（そのプランの要求の写しから。月額は世帯の合計・今の水準） */
+export interface PlanPension {
+  /** 65歳からの月額（受け取り開始を外した写し）。結果に無ければ null */
+  std: number | null;
+  /** 受け取り開始からの月額（受け取り開始を変えたままの写し。変えた人がいないプランは std と同じ）。結果に無ければ null */
+  claimed: number | null;
+  /** 全員もう受け取っている */
+  receiving: boolean;
+  /** 受け取り開始を変えた人がいる */
+  anyClaim: boolean;
+}
+
+/** 写しの結果から、世帯の合計の月額（年額の合計÷12。年額が出ない人は数えない。誰も出なければ null） */
+function monthlyOf(lines: readonly PensionLine[]): number | null {
+  const got = lines.filter((l) => l.annual !== null);
+  return got.length === 0 ? null : Math.round(got.reduce((s, l) => s + (l.annual ?? 0), 0) / 12);
+}
+
+/**
+ * プランの比較の表の年金の見込み（0075）: 帯のプランごとに、年金のカードの「年金の見込み」と同じ写しの要求（今の水準・65歳から、と、
+ * 受け取り開始を変えたまま）で求める。比較の表を開いている間だけ。計算の道が無ければ null のまま
+ */
+export function usePlanPensions(reqs: readonly EngineRequest[] | null, computeOne: ((req: EngineRequest) => Promise<PreviewResult | null>) | undefined): (PlanPension | null)[] | null {
+  const jobs = useMemo(
+    () =>
+      reqs === null || computeOne === undefined
+        ? null
+        : reqs.map((req) => {
+            const anyClaim = (req.input.household.pensionRecords ?? []).some((r) => r.claim !== undefined);
+            return { req, anyClaim, std: pensionEstimateRequest(req, false), claimed: anyClaim ? pensionEstimateRequest(req, true) : null };
+          }),
+    [reqs, computeOne],
+  );
+  const [res, setRes] = useState<PlanPension[] | null>(null);
+  useEffect(() => {
+    if (jobs === null || computeOne === undefined) return;
+    let alive = true;
+    void Promise.all(
+      jobs.map(async (j): Promise<PlanPension> => {
+        const std = await computeOne(j.std);
+        if (std === null) return { std: null, claimed: null, receiving: false, anyClaim: j.anyClaim };
+        const claimed = j.claimed === null ? null : await computeOne(j.claimed);
+        const sl = pensionLines({ request: j.req }, std, false);
+        const cl = j.claimed === null ? sl : claimed === null ? null : pensionLines({ request: j.req }, claimed, true);
+        return { std: monthlyOf(sl), claimed: cl === null ? null : monthlyOf(cl), receiving: sl.length > 0 && sl.every((l) => l.receiving), anyClaim: j.anyClaim };
+      }),
+    ).then(
+      (out) => alive && setRes(out),
+      () => alive && setRes(null),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [jobs, computeOne]);
+  // 求めている間（列の数が変わった直後を含む）は、その列を null にする
+  return jobs === null ? null : res !== null && res.length === jobs.length ? res : jobs.map(() => null);
 }

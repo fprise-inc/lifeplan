@@ -123,6 +123,23 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     expect(dependentLimitText(old, parents(old)[0]!)).toContain("後期高齢者医療");
   });
 
+  it("扶養している・同居している・仕送りの額のどれか1つだけを入れても、もう片方を既定で埋めて計算できる", () => {
+    const wh0 = fromRequest(modelHousehold("salariedCoupleTwoKids"));
+    const wh = addOutside(wh0, "parent");
+    const p = parents(wh)[0]!;
+    expect(p.support).toBeUndefined();
+    for (const [key, v] of [["dependent", true], ["cohabiting", true], ["allowance", 30000]] as const) {
+      const on = fieldOf(wh, `family/${p.id}/${key}`).set(wh, v);
+      expect(parents(on)[0]!.support).toMatchObject({ dependent: key === "dependent", cohabiting: key === "cohabiting" });
+      expect(() => preview(on.request)).not.toThrow();
+    }
+    // 外したとき（既定の false）も、もう片方は残る
+    const both = fieldOf(wh, `family/${p.id}/cohabiting`).set(fieldOf(wh, `family/${p.id}/dependent`).set(wh, true), true);
+    const off = fieldOf(both, `family/${p.id}/dependent`).set(both, false);
+    expect(parents(off)[0]!.support).toMatchObject({ dependent: false, cohabiting: true });
+    expect(() => preview(off.request)).not.toThrow();
+  });
+
   it("欄はどれも当て先（構成員・入力項目ID・場所）を持つ（読むだけの行を除く）", () => {
     let wh = addOutside(addMember(blankHousehold(BASE, seq()), "spouse"), "parent");
     const p = parents(wh)[0]!;

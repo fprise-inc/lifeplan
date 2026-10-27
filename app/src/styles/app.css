@@ -204,6 +204,13 @@ html.big .lever input[type="range"] { height: 36px; }
 .cf .sel { background-color: var(--sel-bg); box-shadow: inset 2px 0 0 var(--sel), inset -2px 0 0 var(--sel); }
 .cf thead th.sel { box-shadow: inset 2px 0 0 var(--sel), inset -2px 0 0 var(--sel), inset 0 3px 0 var(--sel); }
 .cf .cellbtn { all: unset; cursor: pointer; border-bottom: 1px dotted var(--ink-2); }
+/* 行を開く「▸」と、開いた行の子の行（0075） */
+.cf .row-open { all: unset; cursor: pointer; display: inline-block; width: 1.1em; margin-left: -0.2em; color: var(--prop-ink); }
+.cf .row-open:hover, .cf .row-open:focus-visible { color: var(--prop); outline: 1px solid var(--prop); border-radius: 3px; }
+.cf .r-child th, .cf .r-child td { font-size: 0.85em; color: var(--ink-2); background: #fafbfc; }
+.cf .r-child th.stub { padding-left: 1.9em; font-weight: 400; background: #fafbfc; }
+.cf .r-child td.neg { color: var(--short-ink); }
+.cf .r-child .sel { background-color: var(--sel-bg); }
 .cf .cellbtn:hover, .cf .cellbtn:focus-visible { color: var(--prop); border-bottom: 2px solid var(--prop); }
 
 /* 画面の端の引き出し（根拠のパネル・メモ）。別の窓にしない。広い画面では本文を左に寄せ、グラフや表を覆わない */

@@ -1,7 +1,8 @@
 // 案の比較の数字（エンジンの出力の表から作る）と、比較の表の提示用の値（CompareTableModel）
 import type { EngineRequest, TableCell } from "../../engine/types.ts";
 import { group, man, manDiff } from "../../presentation/format.ts";
-import type { CompareTableModel } from "../../presentation/model.ts";
+import type { CompareCell, CompareTableModel } from "../../presentation/model.ts";
+import type { PlanPension } from "../input/pensionEstimate.ts";
 import { parseYm } from "../levers.ts";
 import { depletionYear, displayYears, financialOf } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
@@ -65,11 +66,42 @@ export interface ComparedPlan {
   table: readonly TableCell[];
 }
 
+/** 月額の万円（小数1桁。例: 「24.1」。年金のカードの見込みと同じ丸め） */
+const monthlyMan = (v: number) => {
+  const m = Math.round(v / 1000) / 10;
+  return Number.isInteger(m) ? String(m) : m.toFixed(1);
+};
+
+/**
+ * 年金の見込みの行（0075）: 年金のカードの「年金の見込み」と同じ求め方（今の水準・65歳から）の世帯の合計の月額。受け取り開始を変えた
+ * プランがあれば、受け取り開始からの月額の行も足す。差は「そのプラン−基準」の月額。年金が少ないことは「注意」にしない（働き方の違いの結果）
+ */
+function pensionRows(req: EngineRequest, ps: readonly (PlanPension | null)[], b: number): CompareTableModel["rows"] {
+  const couple = roles(req).some((r) => r.key === "spouse");
+  const who = couple ? "夫婦の" : "";
+  const cells = (pick: (p: PlanPension) => number | null): CompareCell[] => {
+    const bv = ps[b] === null || ps[b] === undefined ? null : pick(ps[b] as PlanPension);
+    return ps.map((p, i) => {
+      const v = p === null ? null : pick(p);
+      if (v === null) return { text: p === null ? "計算しています…" : "—", diff: null, bad: false };
+      const text = `月${monthlyMan(v)}万円`;
+      if (i === b || bv === null) return { text, diff: null, bad: false };
+      const d = Math.round((v - bv) / 1000) / 10;
+      return { text, diff: d === 0 ? "±0万円" : `${d > 0 ? "+" : "▲"}${monthlyMan(Math.abs(v - bv))}万円`, bad: false };
+    });
+  };
+  const allReceiving = ps.some((p) => p !== null) && ps.every((p) => p === null || p.receiving);
+  const rows: CompareTableModel["rows"] = [{ key: "pension65", label: allReceiving ? `年金（${who}月額・今の水準。受け取り中）` : `65歳からの年金（${who}月額・今の水準）`, cells: cells((p) => p.std) }];
+  if (ps.some((p) => p?.anyClaim === true)) rows.push({ key: "pensionClaimed", label: `受け取り開始からの年金（${who}月額・今の水準。繰下げ・繰上げを含む）`, cells: cells((p) => p.claimed) });
+  return rows;
+}
+
 /**
  * 比較の数字の表（主画面の「比較の表を見る」）: 行＝主な数字、列＝現状と帯の案（最大6列）。
- * 案の列には基準の案（base 番目の列）との差を添える（差はいつも「その案−基準」）
+ * 案の列には基準の案（base 番目の列）との差を添える（差はいつも「その案−基準」）。
+ * pensions を渡すと、年金の見込みの行（65歳からの月額）を足す（列と同じ並び。求めている間の列は null）
  */
-export function compareTable(req: EngineRequest, columns: ComparedPlan[], targetAge: number, base = 0): CompareTableModel {
+export function compareTable(req: EngineRequest, columns: ComparedPlan[], targetAge: number, base = 0, pensions?: readonly (PlanPension | null)[] | null): CompareTableModel {
   const self = roles(req).find((r) => r.key === "self");
   const who = self?.label ?? "";
   const age = (y: number) => (self !== undefined ? `${who}${ageInYear(self.member, y)}歳` : `${y}年`);
@@ -105,6 +137,7 @@ export function compareTable(req: EngineRequest, columns: ComparedPlan[], target
       ...(ms.some((m) => m.loan > 0)
         ? [{ key: "loan", label: "住宅ローンの返済の合計（繰上返済を含む）", cells: ms.map((m, i) => ({ text: yen(m.loan), ...(i === b ? { diff: null, bad: false } : diffYen(m.loan, bm.loan, false)) })) }]
         : []),
+      ...(pensions != null && pensions.length >= cols.length ? pensionRows(req, pensions.slice(0, cols.length), b) : []),
     ],
   };
 }

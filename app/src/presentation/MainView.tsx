@@ -293,6 +293,8 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence, c
     el.scrollTo({ left: Math.max(0, th.offsetLeft - stub.offsetWidth - 120), behavior: reduce ? "auto" : "smooth" });
   }, [scrollNonce]);
   const diffOn = controls?.diff.on === true && !controls.diff.disabled;
+  // 開いている行（行の左の「▸」。子の行を持つ行だけ）
+  const [openRows, setOpenRows] = useState<string[]>([]);
   // 年の見出しの行（付いてくる写し）: 表は縦に全部の行を出し、縦は画面全体だけでスクロールする（表の中は横だけ）。
   // 表の中が横にスクロールする箱だと、その中の sticky は画面に付いてこないので、見出しの行の写しを箱の外に置き、画面の上に付いてこさせる。
   // 列の幅は本物の表から測ってそろえ、横の位置は本物の表の横のスクロールに合わせる（写しは読み上げない。本物の見出しが表の見出し）
@@ -459,7 +461,7 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence, c
                 if (r.kind === "diff")
                   return (
                     <tr class="r-diff" key={r.key} data-diff-row={r.key}>
-                      <th class="stub" scope="row">
+                      <th class="stub" scope="row" {...(r.note !== undefined ? { title: r.note } : {})}>
                         {r.label}
                       </th>
                       {r.cells.map((v, i) => (
@@ -469,9 +471,16 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence, c
                       ))}
                     </tr>
                   );
-                return (
+                const kids = r.children !== undefined && r.children.length > 0 ? r.children : null;
+                const isOpen = kids !== null && openRows.includes(r.key);
+                const main = (
                   <tr class={r.kind === "total" ? "r-total" : ""} key={r.key}>
-                    <th class="stub" scope="row">
+                    <th class="stub" scope="row" {...(r.note !== undefined ? { title: r.note } : {})}>
+                      {kids !== null ? (
+                        <button type="button" class="row-open" aria-expanded={isOpen} aria-label={`${r.label}の内訳を${isOpen ? "閉じる" : "開く"}`} onClick={() => setOpenRows((o) => (o.includes(r.key) ? o.filter((k) => k !== r.key) : [...o, r.key]))} data-row-open={r.key}>
+                          {isOpen ? "▾" : "▸"}
+                        </button>
+                      ) : null}
                       {r.label}
                     </th>
                     {r.cells.map((c, i) => {
@@ -493,6 +502,23 @@ export function CashflowTable({ model, selectedYear, onSelectYear, onEvidence, c
                     })}
                   </tr>
                 );
+                if (!isOpen) return main;
+                // 開いた行の子の行（物ごと・出どころごとの額。根拠は出さない）
+                return [
+                  main,
+                  ...kids.map((k) => (
+                    <tr class="r-child" key={`${r.key}/${k.key}`} data-child-row={k.key}>
+                      <th class="stub" scope="row">
+                        {k.label}
+                      </th>
+                      {k.cells.map((c, i) => (
+                        <td key={i} class={`${c.amount !== null && c.amount < 0 ? "neg" : ""}${sel(model.years[i] as number)}`}>
+                          {c.amount === null || c.amount === 0 ? "" : man(c.amount)}
+                        </td>
+                      ))}
+                    </tr>
+                  )),
+                ];
               })}
             </tbody>
           </table>

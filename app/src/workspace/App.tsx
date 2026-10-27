@@ -54,6 +54,8 @@ import { MemoDrawer } from "./MemoDrawer.tsx";
 import { mixFromBuckets } from "./plans/allocation.ts";
 import { addToBand, assignColors, bandModel, cleanBand, CURRENT, MAX_BAND, planLetters, planLinesModel, removeFromBand } from "./plans/band.ts";
 import { compareTable, metricsOf } from "./plans/compare.ts";
+import { usePlanPensions } from "./input/pensionEstimate.ts";
+import { dependentRefRequest, dependentRefRows, useRefResult } from "./resultRows.ts";
 import { addRate } from "./plans/decimal.ts";
 import { ItemMenu, ItemRow } from "./plans/ItemControls.tsx";
 import { amountRange, buildCatalog, leverSteps, type Catalog, type ItemValue, type MovableItem } from "./plans/items.ts";
@@ -1572,13 +1574,17 @@ export function App() {
   const tKey = tableKey !== null && slots.includes(tableKey) ? tableKey : work.sel;
   const tRes = resultOf(tKey);
   const tReq = opened === null ? null : tKey === work.sel ? selReq : reqOf(opened, valuesOf(opened.wh, work, tKey));
+  // 扶養の境目の参考の行（扶養していると入れた世帯の外の親・祖父母がいるときだけ、その人の年金を写しの要求で求める。0075）
+  const depReq = useMemo(() => (tab === "main" && tReq !== null ? dependentRefRequest(tReq) : null), [tab, tReq]);
+  const depRes = useRefResult(depReq, computeOne);
   const table = useMemo(() => {
     if (opened === null || model === null || tRes === null || tReq === null) return null;
     const years = displayYears(opened.wh.request);
     let t = tKey === work.sel ? model.table : cashflowTable(tReq, tRes.table, years, "生涯キャッシュフロー表", eventsOf(tReq, tRes.table, years, tRes.summary));
     if (showDiff && tKey !== work.base && baseRes !== null) t = withDiff(tReq, t, tRes.table, baseRes.table, `差（${letterOf(tKey)}−${letterOf(work.base)}）`);
+    if (depReq !== null && depRes !== null) t = { ...t, rows: [...t.rows, ...dependentRefRows(tReq, depRes.table, t.years)] };
     return t;
-  }, [opened, model, tRes, tReq, tKey, work.sel, work.base, showDiff, baseRes, letters]);
+  }, [opened, model, tRes, tReq, tKey, work.sel, work.base, showDiff, baseRes, letters, depReq, depRes]);
 
   const showEvidence = useCallback(
     async (rowKey: string, year: number) => {
@@ -1695,8 +1701,10 @@ export function App() {
             />
           ));
 
-  // 比較の表（現状と帯の案。基準の案との差）
+  // 比較の表（現状と帯の案。基準の案との差）と、プランごとの年金の見込み（比較の表を開いている間だけ求める。0075）
   const compareResults = slots.map((id) => resultOf(id));
+  const compareReqs = useMemo(() => (panel === "compare" && opened !== null ? slots.map((id) => cgRequestOf(id)) : null), [panel, opened, slots, cgRequestOf]);
+  const planPensions = usePlanPensions(compareReqs, computeOne);
   const compareModel = useMemo(() => {
     if (panel !== "compare" || opened === null || compareResults.some((r) => r === null)) return null;
     return compareTable(
@@ -1704,8 +1712,9 @@ export function App() {
       slots.map((id, i) => ({ name: `${planLabel(letterOf(id))} ${letters.get(id)?.name ?? ""}`, table: (compareResults[i] as PreviewResult).table })),
       settings.atAge,
       Math.max(0, slots.indexOf(work.base)),
+      planPensions,
     );
-  }, [panel, opened, slots, work.base, settings.atAge, letters, ...compareResults]);
+  }, [panel, opened, slots, work.base, settings.atAge, letters, planPensions, ...compareResults]);
 
   // 小窓はタブごと: 別のタブに移ったら閉じる（各タブのグラフの見出しから出し直す。位置と大きさは覚えている）
   const pipFirst = useRef(initial.pip === true);
