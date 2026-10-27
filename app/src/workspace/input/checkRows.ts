@@ -1,24 +1,28 @@
 // 確かめの一覧（推定の一覧。0041）: 推定・わからない・未入力の所と確かめの注意を、カードごとに並べる。行から欄へ移れる（「開く」）。
-// 並び（上から）: ① 未入力（0円で計算中）② わからない ③ 確かめの注意（目安のボタンと同じ確定の値・ほかの入力と合わない値）④ 推定（影響の大きい順）
+// 並び（上から）: ① 未入力（0円で計算中）② わからない ③ 確かめの注意（目安のボタンと同じ確定の値・ほかの入力と合わない値）
+// ④ 計算の知らせ（現状の計算結果の知らせのうち、入力で直せるもの。0064）⑤ 推定（影響の大きい順）
 // - 同じ値を2つの欄が見せる（今の働き方の欄と、働き方の期間の欄など）ときは、当て先で1行にまとめる
 // - 一覧は世帯の物と欄の定義から毎回作る（保存しない）
 import { allFields, type FieldDef, type Level } from "./form.ts";
 import { fillAll, gapsOf, retirementNotices, type Gap } from "./fill.ts";
+import type { NoticeRow } from "../engineNotices.ts";
+import { noticeMeta } from "../engineNotices.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf } from "./rows.ts";
 import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, type FieldStatus } from "./valueState.ts";
 
-export type CheckKind = "missing" | "unknown" | "notice" | "estimated";
+export type CheckKind = "missing" | "unknown" | "notice" | "calc" | "estimated";
 
 export const CHECK_KIND_LABELS: Readonly<Record<CheckKind, string>> = {
   missing: "未入力（0円で計算中）",
   unknown: "わからない",
   notice: "確かめの注意",
+  calc: "計算の知らせ（入力で直せる所）",
   estimated: "推定",
 };
 
-const KIND_ORDER: readonly CheckKind[] = ["missing", "unknown", "notice", "estimated"];
+export const KIND_ORDER: readonly CheckKind[] = ["missing", "unknown", "notice", "calc", "estimated"];
 
 /** 行で押せる操作（世帯を直す。推定で埋める・該当なし・確定・推定にする） */
 export interface CheckAction {
@@ -109,14 +113,22 @@ function gapRow(g: Gap, cardLabel: string): CheckRow {
   return { id: `gap:${g.id}`, kind: "missing", card: g.card, cardLabel, label: g.label, detail: g.note, fieldKey: null, level: "simple", impact: 0, actions };
 }
 
-/** 確かめの一覧（並びは ①未入力 ②わからない ③確かめの注意 ④推定。同じ種類の中はカードの順。推定は影響の大きい順） */
-export function checkList(wh: WorkingHousehold): CheckRow[] {
+/**
+ * 確かめの一覧（並びは ①未入力 ②わからない ③確かめの注意 ④計算の知らせ ⑤推定。同じ種類の中はカードの順。推定は影響の大きい順）。
+ * notices は現状の計算結果の知らせ（engineNotices.ts の行）。入るカードを持つものだけを出す（開くだけ。行の操作は無い）
+ */
+export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = []): CheckRow[] {
   const rows: CheckRow[] = [];
   const items = inputItems(wh);
   const labels = new Map(items.map((i) => [i.id, i.label]));
   for (const g of gapsOf(wh)) rows.push(gapRow(g, labels.get(g.card) ?? g.card));
   // 目安で自動で足した退職金（制度の無い勤め先もある）・公務員と役員の0円の額は、確かめの注意に（推定より上に出す。0057）
   for (const n of retirementNotices(wh)) rows.push({ id: `notice:${n.id}`, kind: "notice", card: "retirement", cardLabel: labels.get("retirement") ?? "退職金・企業年金", label: n.label, detail: n.detail, fieldKey: null, level: "simple", impact: 0, actions: n.actions });
+  for (const n of notices) {
+    if (n.card === null || !labels.has(n.card)) continue;
+    const meta = noticeMeta(n);
+    rows.push({ id: `calc:${n.key}`, kind: "calc", card: n.card, cardLabel: labels.get(n.card) ?? n.card, label: n.text, detail: meta.length > 0 ? meta.join("／") : null, fieldKey: null, level: "simple", impact: 0, actions: [] });
+  }
   const seen = new Set<string>();
   items.forEach((item) => {
     const stage = itemStage(wh, item.id);
@@ -202,7 +214,7 @@ export { fillAll };
 
 /** 種類ごとの数 */
 export function checkCounts(rows: readonly CheckRow[]): Record<CheckKind, number> {
-  const out: Record<CheckKind, number> = { missing: 0, unknown: 0, notice: 0, estimated: 0 };
+  const out: Record<CheckKind, number> = { missing: 0, unknown: 0, notice: 0, calc: 0, estimated: 0 };
   for (const r of rows) out[r.kind]++;
   return out;
 }

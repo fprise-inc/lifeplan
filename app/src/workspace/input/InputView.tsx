@@ -14,6 +14,7 @@ import { inheritanceSummary, useInheritanceEstimate } from "./inheritanceLine.ts
 import { STAGE_ORDER } from "./stages/index.ts";
 import { StatusBadge, statusText } from "./StatusBadge.tsx";
 import { CheckList, checkSummary } from "./CheckList.tsx";
+import type { NoticeRow } from "../engineNotices.ts";
 import { DiffList, DiffListToggle, PlanTarget, type PlanEditProps } from "./PlanEdit.tsx";
 import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../plans/planEdit.ts";
 
@@ -41,6 +42,8 @@ interface Props {
   plans?: PlanEditProps;
   /** カードの並びと最初の5枚（事務所の設定。省くと標準） */
   layout?: CardLayout;
+  /** 現状の計算結果の知らせ（確かめの一覧の「計算の知らせ」。0064） */
+  calcNotices?: readonly NoticeRow[];
 }
 
 interface CardActions {
@@ -179,7 +182,9 @@ function AddCard({ open, onOpen, onPick, options }: { open: boolean; onOpen: (v:
   );
 }
 
-export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT }: Props) {
+const NO_NOTICES: readonly NoticeRow[] = [];
+
+export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -206,7 +211,7 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
   const [checkOpen, setCheckOpen] = useState(initialOpen === "check");
   /** 確かめの一覧から開いたときに移る欄 */
   const [focusKey, setFocusKey] = useState<string | null>(null);
-  const check = useMemo(() => checkSummary(wh), [wh]);
+  const check = useMemo(() => checkSummary(wh, calcNotices), [wh, calcNotices]);
   const backTo = useRef<string | null>(null);
 
   // パネルを閉じたら、押したカードに戻る
@@ -337,12 +342,14 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
       ) : null}
       <div class="ih-check">
         <button type="button" class="add-btn" aria-expanded={checkOpen} onClick={() => setCheckOpen(!checkOpen)} data-check-open>
-          {editing !== null ? "現状の" : ""}確かめの一覧（未入力 {check.counts.missing}・わからない {check.counts.unknown}・注意 {check.counts.notice}・推定 {check.counts.estimated}）
+          {editing !== null ? "現状の" : ""}確かめの一覧（未入力 {check.counts.missing}・わからない {check.counts.unknown}・注意 {check.counts.notice}
+          {check.counts.calc > 0 ? `・計算の知らせ ${check.counts.calc}` : ""}・推定 {check.counts.estimated}）
         </button>
       </div>
       {checkOpen ? (
         <CheckList
           wh={wh}
+          notices={calcNotices}
           onOpen={openField}
           onEdit={(next, done) => {
             onSave(next);

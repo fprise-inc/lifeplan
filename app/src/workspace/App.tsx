@@ -7,6 +7,8 @@ import { devBrowserHost, isTauri, singleCompute, tauriHost, webEngine, type AiCa
 import { isEngineError } from "../engine/types.ts";
 import { certainOnly, forEngine } from "../engine/moneyRows.ts";
 import { CertainOnlyBar } from "./CertainOnlyBar.tsx";
+import { CalcNotices } from "./CalcNotices.tsx";
+import { noticeRows } from "./engineNotices.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { multiOn, type ChartLayout, type ChartMode } from "../presentation/MainChart.tsx";
@@ -94,7 +96,7 @@ export const TABS: { id: Tab; label: string }[] = [
   { id: "report", label: "提案書" },
 ];
 
-/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#add=pet,periodic（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
+/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#notices（結果のタブの計算の知らせを開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#add=pet,periodic（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
  * #items=loan,rate,shift,mix,surplus（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
  * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）） */
 export function parseHash(hash: string): {
@@ -115,6 +117,8 @@ export function parseHash(hash: string): {
   memo?: boolean;
   /** #snapshots: 入力のホームで控えの一覧を開いて開く */
   snapshots?: boolean;
+  /** 結果のタブの計算の知らせを開いた状態で開く（#notices） */
+  notices?: boolean;
   /** #statement=review: 入力で明細のパネルをその手順で開く（閉じると基本生活費のパネルに戻る。0034。画面の確かめ用） */
   statement?: "accounts" | "import" | "review" | "result";
   /** #report=takeaway: 提案書のタブを「持ち帰り用のレポート」で開く（0030） */
@@ -182,6 +186,7 @@ export function parseHash(hash: string): {
     if (k === "big") out.big = true;
     else if (k === "memo") out.memo = true;
     else if (k === "snapshots") out.snapshots = true;
+    else if (k === "notices") out.notices = true;
     else if (k === "statement" && (v === "accounts" || v === "import" || v === "review" || v === "result")) out.statement = v;
     else if (k === "report" && (v === "takeaway" || v === "pdf")) out.reportMode = v;
     else if (k === "selfcheck") {
@@ -1462,6 +1467,16 @@ export function App() {
   const band = opened === null ? null : bandModel({ req: opened.wh.request, slots, letters, results: new Map(slots.map((id) => [id, resultOf(id)])), modified, base: work.base, selected: work.sel, settings, colors });
   // 全部のプランを色分けで重ねる表示: 帯の全部のプランの線（プランの名前と色の番号と数字だけ）をグラフの値に足す
   const slotResults = slots.map((id) => resultOf(id));
+  // 計算の知らせ（0064）: 帯の全部のプランの結果の知らせを、FP 向けの行にまとめる（結果のタブ）。現状の分は確かめの一覧にも出す
+  const calcNotices = useMemo(
+    () => (opened === null ? [] : noticeRows(opened.wh, slots.map((id, i) => ({ label: planLabel(letterOf(id)), result: slotResults[i] ?? null, ...(id === work.sel && selReq !== null ? { request: selReq } : {}) })))),
+    [opened, selReq, work.sel, ...slots, ...slotResults],
+  );
+  const currentNotices = useMemo(() => (opened === null ? [] : noticeRows(opened.wh, [{ label: planLabel(letterOf(CURRENT)), result: resultOf(CURRENT) }])), [opened, resultOf(CURRENT)]);
+  const openCard = (card: string) => {
+    setTab("input");
+    setCardOpen((c) => ({ id: card, n: (c?.n ?? 0) + 1 }));
+  };
   // 資産と負債のタブ（家計のバランスシート。0027）: 帯の全部のプランの、今の年から表の最後の年までのバランスシート
   const bsPlans = useMemo(() => {
     if (tab !== "balance" || opened === null) return null;
@@ -1972,6 +1987,7 @@ export function App() {
               key={cardOpen?.n ?? 0}
               wh={opened.wh}
               onSave={edit}
+              calcNotices={currentNotices}
               plans={{
                 list: opened.wh.proposals.map((p) => ({ id: p.id, label: planLabel(letters.get(p.id)?.letter ?? ""), name: modernPlanName(p.name), color: colorStyle(colors.get(p.id) ?? 1).color })),
                 sel: inputPlanOn && work.sel !== CURRENT && opened.wh.proposals.some((p) => p.id === work.sel) ? work.sel : null,
@@ -2216,6 +2232,7 @@ export function App() {
                       <span>{t}</span>
                     </div>
                   ))}
+                  <CalcNotices rows={calcNotices} onOpenCard={openCard} {...(initial.notices === true ? { initialOpen: true } : {})} />
                 </>
               }
             />

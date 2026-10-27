@@ -3,6 +3,7 @@
 import type { EngineRequest, OldAgeChoice, PreviewResult, ProtectionOutput, TableCell } from "../../engine/types.ts";
 import type { BreakdownRowModel, ChartModel, ContingencyModel, Depletion, ProtectionChartModel, ScenarioCardModel, ScenarioModel, Verdict, YearCellModel, YearStripModel } from "../../presentation/model.ts";
 import { man } from "../../presentation/format.ts";
+import { REFORM_TEXT } from "../engineNotices.ts";
 import { parseYm } from "../levers.ts";
 import { ageAxis, depletionYear, displayYears, familyText, financialOf, sumByYear } from "../present.ts";
 import { ageInYear, roles } from "../roles.ts";
@@ -12,7 +13,6 @@ import { ILLNESS_DEFAULT, type Scenario } from "./requests.ts";
 
 const under = (row: string, prefix: string) => row === prefix || row.startsWith(prefix + ".");
 export const REFORM_NOTICE = "N_REFORM_NOT_REFLECTED";
-const REFORM_TEXT = "遺族年金は2028年4月の見直し前の制度で計算しています（2028年4月以後に亡くなる想定）";
 
 /**
  * 相続税の目安の一文（死亡の想定の時点。0039）。お金の流れには入れていない（表示だけ）ことと、含めていない特例を添える。

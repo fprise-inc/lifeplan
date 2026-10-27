@@ -3,7 +3,8 @@
 import { useMemo, useState } from "preact/hooks";
 import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
-import { CHECK_KIND_LABELS, checkCounts, checkList, confirmAllEstimates, fillAll, type CheckKind, type CheckRow } from "./checkRows.ts";
+import type { NoticeRow } from "../engineNotices.ts";
+import { CHECK_KIND_LABELS, checkCounts, checkList, confirmAllEstimates, fillAll, KIND_ORDER, type CheckKind, type CheckRow } from "./checkRows.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -11,18 +12,22 @@ interface Props {
   onEdit: (next: WorkingHousehold, done: string) => void;
   /** カードを開いて欄に移る */
   onOpen: (card: string, fieldKey: string | null, level: Level) => void;
+  /** 現状の計算結果の知らせ（入力で直せるものを「計算の知らせ」に出す。0064） */
+  notices?: readonly NoticeRow[];
 }
 
-const KINDS: readonly CheckKind[] = ["missing", "unknown", "notice", "estimated"];
+const KINDS = KIND_ORDER;
 
 /** 入力のホームの見出しの下に出す、確かめの一覧の入口の数（未入力・わからない・推定） */
-export function checkSummary(wh: WorkingHousehold): { total: number; counts: Record<CheckKind, number> } {
-  const counts = checkCounts(checkList(wh));
-  return { total: counts.missing + counts.unknown + counts.notice + counts.estimated, counts };
+export function checkSummary(wh: WorkingHousehold, notices: readonly NoticeRow[] = []): { total: number; counts: Record<CheckKind, number> } {
+  const counts = checkCounts(checkList(wh, notices));
+  return { total: counts.missing + counts.unknown + counts.notice + counts.calc + counts.estimated, counts };
 }
 
-export function CheckList({ wh, onEdit, onOpen }: Props) {
-  const rows = useMemo(() => checkList(wh), [wh]);
+const NO_NOTICES: readonly NoticeRow[] = [];
+
+export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES }: Props) {
+  const rows = useMemo(() => checkList(wh, notices), [wh, notices]);
   const [card, setCard] = useState<string>("");
   const cards = useMemo(() => [...new Map(rows.map((r) => [r.card, r.cardLabel])).entries()], [rows]);
   const shown = card === "" ? rows : rows.filter((r) => r.card === card);
@@ -41,7 +46,8 @@ export function CheckList({ wh, onEdit, onOpen }: Props) {
       <div class="ck-head">
         <h2>確かめの一覧</h2>
         <p class="ck-lead">
-          未入力 {counts.missing}・わからない {counts.unknown}・確かめの注意 {counts.notice}・推定 {counts.estimated}。「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。
+          未入力 {counts.missing}・わからない {counts.unknown}・確かめの注意 {counts.notice}
+          {counts.calc > 0 ? `・計算の知らせ ${counts.calc}` : ""}・推定 {counts.estimated}。「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。
         </p>
         <div class="ck-tools">
           <label>

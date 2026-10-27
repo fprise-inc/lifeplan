@@ -322,6 +322,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .ck-missing li { border-left: 4px solid var(--short); }
 .ck-unknown li, .ck-notice li { border-left: 4px solid var(--est); }
 .ck-estimated li { border-left: 4px dashed var(--base); }
+.ck-calc li { border-left: 4px solid #c99a30; }
 .ck-card { font-size: 0.78rem; color: var(--ink-2); min-width: 7em; }
 .ck-label { font-weight: 700; }
 .ck-detail { color: var(--ink-2); font-size: 0.8rem; flex-basis: 100%; padding-left: calc(7em + 10px); }
@@ -935,6 +936,20 @@ html.big .chart .hv-dot { stroke-width: 3; }
 /* 結果のタブの入力の確認（例: 定期便の加入月数が0か月のまま） */
 .fee-note.input-notice { border-color: #c99a30; background: #fffaf0; }
 .fee-note.input-notice .fee-tag { border-color: #7a5800; color: #7a5800; }
+/* 計算の知らせ（0064）: 閉じているときは1行。入力が足りない・計算に入れていない知らせがあるときは枠を強く */
+.calc-notices { margin-top: 8px; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: #fff; font-size: 0.95rem; line-height: 1.5; }
+.calc-notices.urgent { border-color: #c99a30; background: #fffaf0; }
+.calc-notices.urgent .cn-bar .fee-tag { border-color: #7a5800; color: #7a5800; }
+.cn-bar { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.cn-counts { color: var(--ink-2); }
+.cn-kind h3 { font-size: 0.9rem; margin: 10px 0 4px; }
+.cn-kind ul { list-style: none; margin: 0; padding: 0; }
+.cn-kind li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; padding: 5px 8px; border-bottom: 1px solid var(--line-2); font-size: 0.88rem; }
+.cn-input li, .cn-missing li { border-left: 4px solid var(--short); }
+.cn-outside li, .cn-assumed li { border-left: 4px solid var(--est); }
+.cn-data li { border-left: 4px dashed var(--base); }
+.cn-text { flex: 1 1 24em; }
+.cn-meta { flex-basis: 100%; color: var(--ink-2); font-size: 0.8rem; }
 
 /* ③ 対策 */
 .levers { padding: 12px 18px 14px; }
