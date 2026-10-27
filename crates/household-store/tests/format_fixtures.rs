@@ -683,7 +683,10 @@ fn every_format_version_has_a_fixture_and_opens() {
         if migrate::parse(v).unwrap() >= (0, 30) {
             assert!(claimed, "{v}: 推計の区分の受け取り開始");
         } else {
-            assert!(!claimed, "{v}: 0.30 より前の版に推計の区分の受け取り開始は無い");
+            assert!(
+                !claimed,
+                "{v}: 0.30 より前の版に推計の区分の受け取り開始は無い"
+            );
         }
         // 鍵が違えば開かない
         let mut wrong = key;
