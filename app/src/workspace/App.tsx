@@ -40,7 +40,7 @@ import { DisplaySettingsPanel } from "./DisplaySettingsPanel.tsx";
 import { buildEvidence } from "./evidence.ts";
 import { explainModel } from "./explain.ts";
 import type { Level } from "./input/form.ts";
-import { blankHousehold, fromRequest, withElementIds, type WorkingHousehold } from "./input/household.ts";
+import { blankHousehold, fromRequest, sampleRequest, withElementIds, type WorkingHousehold } from "./input/household.ts";
 import { InputView } from "./input/InputView.tsx";
 import { addItem, saveItem } from "./input/items.ts";
 import { withRefreshedEstimates } from "./input/estimates.ts";
@@ -711,7 +711,8 @@ export function App() {
       else {
         const demo = demoHousehold(id);
         if (demo === undefined) return;
-        const base = await host.openHousehold(id);
+        // 表の最後の年は標準（本人・配偶者のうち若い方が100歳になる年）にそろえて開く
+        const base = sampleRequest(await host.openHousehold(id));
         const self = roles(base).find((r) => r.key === "self");
         if (self === undefined) return;
         const re = demo.reemployment;

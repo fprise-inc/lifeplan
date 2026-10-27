@@ -345,10 +345,13 @@ describe("ライフイベント・車・相続・前提条件", () => {
     expect(names.every((f) => f.level === "detail")).toBe(true);
   });
 
-  it("車のローンの頭金・年数・金利は詳細。表の最後の年は詳細", () => {
+  it("車のローンの頭金・年数・金利は詳細。表の最後の年は、年で入れる欄も年齢で入れる欄も詳細", () => {
     const wh = open("dualAssetsTwoKids");
     const loanFields = fieldsOf(wh, "car").filter((f) => /\/(downRate|loanYears|rate)$/.test(f.key) && f.item === "car.loan");
     expect(loanFields.every((f) => f.level === "detail")).toBe(true);
     expect(fieldOf(wh, "assumptions", "assume/endYear").level).toBe("detail");
+    const byAge = fieldsOf(wh, "assumptions").filter((f) => f.key.startsWith("assume/endYear/age/"));
+    expect(byAge.length).toBe(2);
+    expect(byAge.every((f) => f.level === "detail")).toBe(true);
   });
 });

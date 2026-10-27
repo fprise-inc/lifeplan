@@ -500,7 +500,8 @@ function endYearFields(wh: WorkingHousehold): FieldDef[] {
       key: `assume/endYear/age/${m.id}`,
       item: null,
       label: `${memberLabel(wh, m.id)}が何歳になる年まで`,
-      level: "simple",
+      // 年で入れる欄と同じく詳細（標準でほぼ足りる。0078）
+      level: "detail",
       kind: "int",
       suffix: "歳",
       min: 60,
