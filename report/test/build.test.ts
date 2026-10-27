@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { buildProposalInput, percent } from "../src/build.ts";
-import type { ProposalBundle } from "../src/bundle.ts";
+import type { EngineRequest, ProposalBundle, Run } from "../src/bundle.ts";
 import type { ProposalInput } from "../src/input.ts";
 import { REPO_DIR, REPORT_DIR, run } from "../scripts/engine.ts";
 import { SAMPLES } from "../scripts/sampleBundles.ts";
@@ -230,6 +230,104 @@ describe("住まい以外の不動産（家賃収入・経費・土地と建物�
     expect(land.kind).toBe("sub");
     expect(building.amounts.at(-1)!).toBeLessThan(building.amounts[0]!);
     expect(land.amounts.at(-1)!).toBeGreaterThan(0);
+  });
+});
+
+describe("住まい以外の不動産の物件ごとの数字（独自帳票の材料）", () => {
+  const b = built.find((x) => x.id === "dualAssetsTwoKids")!;
+  const { bundle, input } = b;
+  const re = input.realEstate!;
+  const sides = [["current", bundle.current], ["proposal", bundle.proposal]] as const;
+  const objectsOf = (run: Run) => (run.request.input.household.accounts ?? []).filter((a) => a.kind === "realEstate" && a.property !== undefined).map((a) => a.id);
+
+  it("物件ごとの家賃収入・経費の合計が、キャッシュフロー表の「家賃収入」「不動産の経費」の行と一致する。手残り＝家賃収入−経費−返済額", () => {
+    for (const [side] of sides) {
+      const props = re[side];
+      expect(props.length).toBe(1);
+      const rows = input.cashflow[side].rows;
+      for (const [key, k] of [["rent", "rent"], ["realEstateExpense", "expenses"]] as const) {
+        const want = rows.find((r) => r.key === key)!.cells.map((v) => v ?? 0);
+        expect(input.basis.years.map((_, i) => props.reduce((s, p) => s + (p.years[i]?.[k] ?? 0), 0))).toEqual(want);
+      }
+      for (const p of props) {
+        expect(p.years.map((y) => y.year)).toEqual(input.basis.years);
+        for (const y of p.years) expect(y.cashAfterLoan).toBe(y.rent - y.expenses - y.loanRepayment);
+        expect(p.totals.rent).toBe(p.years.reduce((s, y) => s + y.rent, 0));
+        expect(p.totals.cashAfterLoan).toBe(p.years.reduce((s, y) => s + y.cashAfterLoan, 0));
+      }
+    }
+  });
+
+  it("評価額は表の土地と建物の行の物件の分、借入の残高と返済額はその物件を指す負債の行の分と一致する", () => {
+    for (const [side, run] of sides) {
+      const [id] = objectsOf(run);
+      const loans = (run.request.input.household.debts ?? []).filter((d) => d.property === id).map((d) => d.id);
+      expect(loans.length).toBe(1);
+      const land = byYear(run.result, (c) => c.object === id && c.row === "cf.balance.account.realEstate.land");
+      const building = byYear(run.result, (c) => c.object === id && c.row === "cf.balance.account.realEstate.building");
+      const balance = byYear(run.result, (c) => loans.includes(c.object ?? "") && c.row.startsWith("cf.balance.debt"));
+      const pay = byYear(run.result, (c) => loans.includes(c.object ?? "") && c.row.startsWith("cf.expense"));
+      const p = re[side][0]!;
+      p.years.forEach((y) => {
+        expect(y.value === null ? null : [y.value.land, y.value.building, y.value.total]).toEqual(land.has(y.year) ? [land.get(y.year), building.get(y.year), (land.get(y.year) ?? 0) + (building.get(y.year) ?? 0)] : null);
+        expect(y.held).toBe(y.value !== null);
+        expect(y.loanBalance).toBe(balance.get(y.year) ?? 0);
+        expect(y.loanRepayment).toBe(pay.get(y.year) ?? 0);
+      });
+      expect(p.owner).toEqual({ key: "self", label: "ご主人" });
+      expect(p).toMatchObject({ key: "property1", label: "不動産1", use: "rental", structure: { key: "rc", label: "鉄筋コンクリート造" }, builtYear: 2008, acquisition: { price: 21000000, month: "2016-03" } });
+    }
+  });
+
+  it("不動産所得の内訳はエンジンの出力のまま（不動産所得＝家賃収入−経費−減価償却費−利息）。貸していない年は null", () => {
+    for (const [side, run] of sides) {
+      const d = run.result.summary.realEstate![0]!;
+      for (const y of re[side][0]!.years) {
+        const e = d.income.find((x) => x.year === y.year);
+        if (e === undefined) {
+          expect([y.depreciation, y.interest, y.landInterest, y.income]).toEqual([null, null, null, null]);
+          continue;
+        }
+        expect([y.depreciation, y.interest, y.landInterest, y.income]).toEqual([e.depreciation, e.interest, e.landInterest, e.income]);
+        expect(e.income).toBe(e.rent - e.expenses - e.depreciation - e.interest);
+        expect(e.rent).toBe(y.rent);
+      }
+    }
+    expect(re.current[0]!.years.every((y) => y.income !== null)).toBe(true);
+  });
+
+  it("売却（提案は60歳の年に売る）: 手取りは表の一時金の収入の行と一致し、売った年の年末から持っていない。税の額の口は無い（null）", () => {
+    expect(re.current[0]!.sale).toBeNull();
+    const s = re.proposal[0]!.sale!;
+    const year = Number(s.month.slice(0, 4));
+    expect(s.proceeds).toBe(s.price - s.costs);
+    expect(s.tax).toBeNull();
+    expect(byYear(bundle.proposal.result, (c) => c.row === "cf.income.lumpSum.realEstateSale").get(year)).toBe(s.proceeds);
+    const y = re.proposal[0]!.years;
+    expect(y.find((x) => x.year === year - 1)?.held).toBe(true);
+    expect(y.filter((x) => x.year >= year).every((x) => !x.held && x.loanBalance === 0)).toBe(true);
+    expect(y.filter((x) => x.year > year).every((x) => x.rent === 0 && x.income === null)).toBe(true);
+  });
+
+  it("持っていない世帯・中身を入れていない不動産では空の配列。案の比較の各案にも物件ごとの数字が入る", () => {
+    for (const x of built.filter((v) => v.id !== "dualAssetsTwoKids")) {
+      const r = x.input.realEstate!;
+      expect([r.current, r.proposal, ...r.plans.map((p) => p.properties)].every((ps) => ps.length === 0)).toBe(true);
+      expect(r.plans.length).toBe(x.input.comparison?.columns.length ?? 0);
+    }
+    const strip = (r: Run): EngineRequest => {
+      const q = structuredClone(r.request);
+      for (const a of q.input.household.accounts ?? []) if (a.kind === "realEstate") delete (a as { property?: unknown }).property;
+      return q;
+    };
+    const none = buildProposalInput({ ...bundle, current: run(strip(bundle.current)), proposal: run(strip(bundle.proposal)) });
+    expect(none.realEstate).toEqual({ current: [], proposal: [], plans: [] });
+    expect(validate(none)).toBe(true);
+    const compared = buildProposalInput({ ...bundle, comparison: { base: 0, plans: [{ letter: "現", name: "現状", run: bundle.current }, { letter: "A", name: "売る", run: bundle.proposal }] } });
+    expect(compared.realEstate!.plans.map((p) => [p.letter, p.properties.length])).toEqual([["現", 1], ["A", 1]]);
+    expect(compared.realEstate!.plans[1]!.properties).toEqual(re.proposal);
+    expect(validate(compared)).toBe(true);
+    expect(JSON.stringify(compared.realEstate)).not.toMatch(UUID);
   });
 });
 

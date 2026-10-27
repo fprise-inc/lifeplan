@@ -3,7 +3,7 @@
 //   2つの計算の差（提案−現状など）もここで取る。帳票（Typst）の側では計算しない。
 // - 世帯の内部 ID（構成員・物の ID）、氏名・宛名、FP のメモ、カスタム計算の印は写さない（0009 の9・0016 の2）。
 // - 構成員の呼び方と表の行の決め方は、アプリの提示の値（app/src/workspace/roles.ts・present.ts）と同じにしている。
-import type { EngineOutput, EngineRequest, ProposalBundle, Run, TableCell } from "./bundle.ts";
+import type { EngineOutput, EngineRequest, ProposalBundle, RealEstateDetail, Run, TableCell } from "./bundle.ts";
 import { selectChapters } from "./chapters.ts";
 import { bsSeries, BS_GROUP_LABEL, groupTotal, type BsGroup } from "./bsGroups.ts";
 import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
@@ -23,6 +23,8 @@ import {
   type Outcome,
   type ProposalInput,
   type ProtectionView,
+  type RealEstateByPlan,
+  type RealEstateProperty,
   type ScenarioView,
   type YearPoint,
   type YearTable,
@@ -1138,6 +1140,92 @@ function moneyThreeOf(ctx: Ctx): MoneyThreeModel | null {
   }
 }
 
+// ---- 住まい以外の不動産の物件ごとの数字（独自帳票の材料。0009 の追記）----
+
+const STRUCTURE_LABEL: Record<string, string> = { wood: "木造", lightSteel: "軽量鉄骨造", steel: "重量鉄骨造", rc: "鉄筋コンクリート造" };
+
+/**
+ * 1つの案の物件ごとの数字。評価額・不動産所得の内訳・売却はエンジンの要約（asset.realEstate の出力）、家賃収入・経費・借入の残高と返済は
+ * 表のマス（物の ID ごと）から写す。足し算は年ごと・行ごとだけで、計算し直さない
+ */
+export function realEstateOf(run: Run): RealEstateProperty[] {
+  const req = run.request;
+  const years = displayYears(req);
+  const details: readonly RealEstateDetail[] = run.result.summary.realEstate ?? [];
+  const accounts = req.input.household.accounts ?? [];
+  const debts = req.input.household.debts ?? [];
+  const rs = roles(req);
+  // 表のマスを物の ID・年ごとに集める
+  const cells = new Map<string, TableCell[]>();
+  for (const c of run.result.table) {
+    if (c.object === undefined) continue;
+    const xs = cells.get(c.object);
+    if (xs === undefined) cells.set(c.object, [c]);
+    else xs.push(c);
+  }
+  const sumOf = (ids: readonly string[], pred: (c: TableCell) => boolean) => {
+    const out = new Map<number, number>();
+    for (const id of ids) for (const c of cells.get(id) ?? []) if (pred(c)) out.set(c.year, (out.get(c.year) ?? 0) + c.amount);
+    return out;
+  };
+  return details.map((d, i) => {
+    const a = accounts.find((x) => x.id === d.object);
+    const p = a?.property;
+    const owner = rs.find((r) => r.member.id === d.owner);
+    const loans = debts.filter((x) => x.property === d.object).map((x) => x.id);
+    const rent = sumOf([d.object], (c) => c.row === "cf.income.other.rental");
+    const expenses = sumOf([d.object], (c) => c.row === "cf.expense.other.realEstate");
+    const loanBalance = sumOf(loans, (c) => under(c.row, "cf.balance.debt"));
+    const loanRepayment = sumOf(loans, (c) => under(c.row, "cf.expense"));
+    const valueOf = new Map(d.years.map((e) => [e.year, e]));
+    const incomeOf = new Map(d.income.map((e) => [e.year, e]));
+    const rows = years.map((y) => {
+      const v = valueOf.get(y);
+      const t = incomeOf.get(y);
+      const r = rent.get(y) ?? 0;
+      const e = expenses.get(y) ?? 0;
+      const pay = loanRepayment.get(y) ?? 0;
+      return {
+        year: y,
+        held: v !== undefined,
+        value: v === undefined ? null : { land: v.land, building: v.building, total: v.value },
+        rent: r,
+        expenses: e,
+        depreciation: t?.depreciation ?? null,
+        interest: t?.interest ?? null,
+        landInterest: t?.landInterest ?? null,
+        income: t?.income ?? null,
+        loanBalance: loanBalance.get(y) ?? 0,
+        loanRepayment: pay,
+        cashAfterLoan: r - e - pay,
+      };
+    });
+    const sum = (k: "rent" | "expenses" | "loanRepayment" | "cashAfterLoan") => rows.reduce((s, x) => s + x[k], 0);
+    const structure = p?.structure ?? "wood";
+    return {
+      key: `property${i + 1}`,
+      label: `不動産${i + 1}`,
+      owner: owner === undefined ? null : { key: owner.key, label: owner.label },
+      use: p?.rental !== undefined ? "rental" : "held",
+      structure: { key: structure, label: STRUCTURE_LABEL[structure] ?? structure },
+      builtYear: p?.builtYear ?? null,
+      acquisition: p?.acquisition === undefined ? null : { price: p.acquisition.price, month: p.acquisition.at },
+      years: rows,
+      totals: { rent: sum("rent"), expenses: sum("expenses"), loanRepayment: sum("loanRepayment"), cashAfterLoan: sum("cashAfterLoan") },
+      sale: d.sale === null ? null : { month: d.sale.ym, value: d.sale.value, price: d.sale.price, costs: d.sale.costs, proceeds: d.sale.proceeds, tax: null },
+    };
+  });
+}
+
+function realEstate(ctx: Ctx): RealEstateByPlan {
+  const c = ctx.bundle.comparison;
+  return {
+    current: realEstateOf(ctx.bundle.current),
+    proposal: realEstateOf(ctx.bundle.proposal),
+    plans: c === undefined || c.plans.length < 2 ? [] : c.plans.slice(0, 6).map((p) => ({ letter: p.letter, name: p.name, properties: realEstateOf(p.run) })),
+  };
+}
+
 export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
   const req = bundle.proposal.request;
   const years = displayYears(req);
@@ -1179,6 +1267,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     investment: investment(ctx),
     marketDrop: marketDrop(ctx),
     moneyThree: moneyThreeOf(ctx),
+    realEstate: realEstate(ctx),
     layout: { ...DEFAULT_LAYOUT, ...bundle.layout },
   };
   return bundle.chapters !== undefined ? selectChapters(input, bundle.chapters) : input;

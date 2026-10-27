@@ -53,12 +53,18 @@ export interface RenderResult {
   svgs?: string[];
 }
 
-/** 帳票の入力と外枠から PDF を作り、各ページの文字を抜き出す（svg: true なら各ページの見本の SVG も作る。縮小一覧の PNG も小さく書かれる） */
-export function renderAndExtract(bin: string, input: ProposalInput, frame: FrameJson, opts: { svg?: boolean } = {}): RenderResult {
+/** 独自帳票の見本（sdk/examples/reports/）の main.typ の場所 */
+export const exampleReport = (name: string): string => join(REPO_DIR, "sdk", "examples", "reports", name, "main.typ");
+
+/**
+ * 帳票の入力と外枠から PDF を作り、各ページの文字を抜き出す（svg: true なら各ページの見本の SVG も作る。縮小一覧の PNG も小さく書かれる）。
+ * main を渡すと、公式の帳票の代わりにその独自帳票（1つのファイル）で組む
+ */
+export function renderAndExtract(bin: string, input: ProposalInput, frame: FrameJson, opts: { svg?: boolean; main?: string } = {}): RenderResult {
   const dir = mkdtempSync(join(tmpdir(), "report-pdf-"));
   writeFileSync(join(dir, "input.json"), JSON.stringify(input));
   writeFileSync(join(dir, "frame.json"), JSON.stringify(frame));
-  const extra = opts.svg === true ? ["--pages-dir", dir, "--scale", "0.2"] : [];
+  const extra = [...(opts.svg === true ? ["--pages-dir", dir, "--scale", "0.2"] : []), ...(opts.main !== undefined ? ["--main", opts.main] : [])];
   execFileSync(bin, ["render", "--input", join(dir, "input.json"), "--frame", join(dir, "frame.json"), "--out", join(dir, "out.pdf"), "--meta", join(dir, "meta.json"), ...extra, "--debug"]);
   const pages = JSON.parse(execFileSync(bin, ["text", join(dir, "out.pdf")], { maxBuffer: 64 * 1024 * 1024 }).toString("utf8")) as string[];
   const svgs = opts.svg === true ? pages.map((_, i) => readFileSync(join(dir, `page-${i + 1}.svg`), "utf8")) : undefined;

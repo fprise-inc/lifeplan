@@ -273,3 +273,4 @@ export default defineComponent({
   - 約束の版を上げた部品（欄を足しただけ）: `contingency.event` 1.0→**1.1**（判定の結果に病気の想定 `illness`）、`insurance.policy` 1.0→**1.1**（受け取りの種類 `medical`、年の値に払込保険料の累計 `paid` と家族特約の人ごとの死亡保障額 `others`。`deathBenefit` は契約の被保険者の分だけ）、`plan.cashflow` 1.4→**1.5**（details の保険の一覧に `paid`・`others`・保障の行の `insured`）、`protection.need` 1.0→**1.1**（年の値に内訳 `breakdown` と契約ごとの死亡保険金 `coverageBy`）。
   - 改訂を上げた部品: `contingency.event`（3）、`insurance.policy`（2。医療・がんの給付・保障の行の被保険者・円の目安の形・保障の ID のある数表の死亡保障の行）、`plan.cashflow`（15）、`protection.need`（5。家族特約の死亡保障を数える）。
 - 2026-10-27（車のカード。0069）: 改訂を上げた部品: `expense.car`（3。維持費の入れ方 `upkeepMode` で合計か内訳の片方だけを数え、内訳の名前つきの行 `upkeepOther` を毎月の維持費に出す。入れ方の無い車は前の形）。約束の版は変えていない（入力の欄を足しただけ）。
+- 2026-10-27（帳票の入力の物件ごとの数字。0009 の追記）: `plan.cashflow` の約束の版 1.5→**1.6**（改訂16。details に住まい以外の不動産の物件ごとの数字 `realEstate`〔`asset.realEstate` の出力の properties のまま〕を足しただけ。エンジンが出力の `summary.realEstate` に写す。中身を入れた不動産が無ければ欄は無い）。計算・表の行は変えていない。

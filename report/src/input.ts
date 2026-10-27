@@ -290,6 +290,84 @@ export interface ProposalInput {
   marketDrop?: MarketDropView | null;
   /** お金の3つの分け方（説明用の図。提案のプランの今の時点。アプリの区画と同じ値・同じ言葉。0032。省略・null は載せない） */
   moneyThree?: MoneyThreeModel | null;
+  /**
+   * 住まい以外の不動産の物件ごとの数字（0009 の追記）。公式の帳票は使わない。FP の独自帳票（収益不動産のまとめなど）の材料。
+   * 案ごと（現状・提案・案の比較の各案）。持っていない案は空の配列（ページを出さない判断に使う）。省略は、この欄の前の版の入力
+   */
+  realEstate?: RealEstateByPlan;
+}
+
+/** 建物の構造（エンジンの BuildingStructure と同じ値） */
+export type BuildingStructureKey = "wood" | "lightSteel" | "steel" | "rc";
+
+/** 住まい以外の不動産の、案ごとの物件の一覧 */
+export interface RealEstateByPlan {
+  current: RealEstateProperty[];
+  proposal: RealEstateProperty[];
+  /** 案の比較のページの各案（comparison の列と同じ並び。案の比較が無ければ空） */
+  plans: { letter: string; name: string; properties: RealEstateProperty[] }[];
+}
+
+/** 住まい以外の不動産の1件（中身〔土地と建物・家賃収入・経費〕を入れた不動産の器。中身を入れていない器は入らない） */
+export interface RealEstateProperty {
+  /** 提示用の鍵（property1・property2 …。その案の世帯の不動産の並び順。物の ID ではない） */
+  key: string;
+  /** 呼び方（例: 「不動産1」。世帯ファイルに物件の名前の欄は無い） */
+  label: string;
+  /** 名義の人（構成員の提示用の鍵と呼び方。members と同じ） */
+  owner: { key: string; label: string } | null;
+  /** 種類: rental は貸している（家賃収入の入力がある）、held は貸していない */
+  use: "rental" | "held";
+  /** 建物の構造（省略の入力は木造で計算する） */
+  structure: { key: BuildingStructureKey; label: string };
+  /** 建物が建った年（入れた年。省略は null で、計算は取得の年、取得も無ければ評価額の時点の年） */
+  builtYear: number | null;
+  /** 取得価額（土地と建物の合計）と取得の年月。入れていなければ null（減価償却費は出ない） */
+  acquisition: { price: Yen; month: string } | null;
+  /** 年ごと（basis.years と同じ並び） */
+  years: RealEstateYear[];
+  /** 表の期間（basis.years）の合計 */
+  totals: { rent: Yen; expenses: Yen; loanRepayment: Yen; cashAfterLoan: Yen };
+  /** 売却（計算基準月より後に売る予定があるときだけ） */
+  sale: RealEstateSale | null;
+}
+
+export interface RealEstateYear {
+  year: number;
+  /** その年の年末に持っている */
+  held: boolean;
+  /** 年末の評価額（持っていない年は null） */
+  value: { land: Yen; building: Yen; total: Yen } | null;
+  /** 家賃収入（キャッシュフロー表の家賃収入の、この物件の分） */
+  rent: Yen;
+  /** 経費（キャッシュフロー表の不動産の経費の、この物件の分。貸していない月の分を含む） */
+  expenses: Yen;
+  /** 減価償却費・借入の利息・そのうち土地の取得のための分・不動産所得（貸している年だけ。ほかは null。不動産所得の経費は貸している月の分） */
+  depreciation: Yen | null;
+  interest: Yen | null;
+  landInterest: Yen | null;
+  /** 不動産所得（家賃収入−経費−減価償却費−借入の利息。マイナスは損失） */
+  income: Yen | null;
+  /** この物件のための借入（負債の property がこの物件）の年末の残高の合計（未払いの利息を含む） */
+  loanBalance: Yen;
+  /** その借入のその年の返済額（繰上返済・手数料を含む） */
+  loanRepayment: Yen;
+  /** 物件の手残り（家賃収入−経費−返済額） */
+  cashAfterLoan: Yen;
+}
+
+export interface RealEstateSale {
+  /** 売る年月 */
+  month: string;
+  /** 売る年の評価額 */
+  value: Yen;
+  /** 売却価格（入れていなければ評価額） */
+  price: Yen;
+  costs: Yen;
+  /** 手取り（売却価格−費用。キャッシュフロー表の一時金の収入） */
+  proceeds: Yen;
+  /** 入れた譲渡所得の税の額。住まい以外の不動産には税の額の口がまだ無いので null */
+  tax: Yen | null;
 }
 
 /** 内訳の1つ（色つき） */

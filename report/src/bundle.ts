@@ -30,6 +30,15 @@ export interface ProtectionOutput {
   members: { member: string; survivor: string | null; years: ProtectionYear[] }[];
 }
 
+/** エンジンの要約の realEstate の1件（asset.realEstate の出力の properties の1件） */
+export interface RealEstateDetail {
+  object: string;
+  owner: string;
+  years: { year: number; land: number; building: number; value: number }[];
+  income: { year: number; rent: number; expenses: number; depreciation: number; interest: number; landInterest: number; income: number }[];
+  sale: { ym: string; value: number; price: number; costs: number; proceeds: number } | null;
+}
+
 export interface AdvisoryFeeSummary {
   total: number;
   byYear: { year: number; amount: number; cumulative: number }[];
@@ -48,6 +57,8 @@ export interface EngineOutput {
   summary: {
     totals: { income: number; taxSi: number; expense: number; net: number };
     advisoryFee?: AdvisoryFeeSummary;
+    /** 住まい以外の不動産の物件ごとの数字（エンジンの asset.realEstate の出力。持っていなければ無い） */
+    realEstate?: RealEstateDetail[];
   };
   protection?: ProtectionOutput;
 }
