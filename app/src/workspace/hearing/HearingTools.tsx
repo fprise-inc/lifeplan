@@ -1,5 +1,6 @@
 // 入力のホームの「ヒアリングシートを書き出す」「記入済みのシートを取り込む」（作業の層。0018）。
-// - 書き出し: 今の世帯から .xlsx を作り、本体の平文の書き出しの出口（OS の保存のダイアログ）で保存する。前回の値を記入するときは毎回警告する（0018 の9）
+// - 書き出し: シートの種類（簡易〔初回の前。既定〕・詳細・見直し〔詳細に前回の値つき〕）を選び、.xlsx を作って本体の平文の書き出しの出口
+//   （OS の保存のダイアログ）で保存する。見直し（前回の値を記入する）を選ぶたびに警告する（0018 の9）
 // - 取り込み: 本体の開くダイアログで選んだ .xlsx を hearing/ の部品で読み（返ってきたファイルは信用しない。0018 の6）、
 //   候補（新規・変更・同じ・要確認・矛盾）をこのパネルで確かめ、承認したものだけを現状に入れる（0008 の5）
 import { useState } from "preact/hooks";
@@ -7,7 +8,7 @@ import { version as APP_VERSION } from "../../../package.json";
 import type { SaveOutcome, SheetHost } from "../../engine/host.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import { today } from "../report/assemble.ts";
-import { applyImport, approvalTime, CUSTOMER_NO_PATTERN, defaultSelection, defaultSheet, exportSheet, importSheet, randomBytes, withRequest, type CandidateView, type FieldView, type ImportView, type Issue } from "./sheet.ts";
+import { applyImport, approvalTime, CUSTOMER_NO_PATTERN, defaultSelection, exportSheet, importSheet, randomBytes, sheetFor, SHEET_KINDS, withRequest, type CandidateView, type FieldView, type ImportView, type Issue, type SheetKind } from "./sheet.ts";
 
 interface Props {
   wh: WorkingHousehold;
@@ -21,7 +22,16 @@ const KIND_TEXT: Record<CandidateView["kind"], string> = { new: "新規", change
 const office = { name: "", purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "", customerNo: "A0001" };
 
 function Mark({ f }: { f: FieldView }) {
-  // 入力の画面と同じ印: 推定（目安で補った・わからないの代わり）・仮（値の箱の無い欄の仮の値）
+  // 入力の画面と同じ印: 推定（目安で補った・わからないの代わり）・推定（範囲の真ん中）・仮（値の箱の無い欄の仮の値）
+  if (f.mark === "range")
+    return (
+      <>
+        <span class="badge est" title={f.note ?? "金額の範囲の真ん中"} data-hearing-mark="range">
+          推定（範囲の真ん中）
+        </span>
+        {f.note !== null ? <small class="hs-basis">{f.note}</small> : null}
+      </>
+    );
   if (f.mark === "estimated" || f.mark === "unknown")
     return (
       <span class="badge est" title={f.note ?? "推定"}>
@@ -52,7 +62,8 @@ function IssueList({ issues }: { issues: readonly Issue[] }) {
 }
 
 function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => void }) {
-  const [prefill, setPrefill] = useState(false);
+  const [kind, setKind] = useState<SheetKind>("simple");
+  const prefill = kind === "review";
   const [form, setForm] = useState({ ...office });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<SaveOutcome | null>(null);
@@ -65,7 +76,7 @@ function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => v
     Object.assign(office, form);
     try {
       const on = today();
-      const r = await exportSheet(wh, { definition: defaultSheet(), prefill, customerNo: form.customerNo, office: { name: form.name, purpose: form.purpose, privacyContact: form.privacyContact }, appVersion: APP_VERSION, exportedOn: on, random: randomBytes() });
+      const r = await exportSheet(wh, { definition: sheetFor(kind), prefill, customerNo: form.customerNo, office: { name: form.name, purpose: form.purpose, privacyContact: form.privacyContact }, appVersion: APP_VERSION, exportedOn: on, random: randomBytes() });
       const out = await sheets.save(r.bytes, { customerNo: form.customerNo, exportedOn: on, prefilled: prefill });
       setDone(out);
       // 依頼の記録は保存したときだけ残す（取り込むときに、これを正にして読む）
@@ -99,10 +110,18 @@ function ExportPanel({ wh, sheets, onSave, onClose }: Props & { onClose: () => v
           <span>個人情報の窓口</span>
           <input type="text" value={form.privacyContact} maxLength={120} onInput={set("privacyContact")} placeholder="連絡先（任意）" />
         </label>
-        <label class="hs-check">
-          <input type="checkbox" checked={prefill} onChange={(e) => setPrefill((e.currentTarget as HTMLInputElement).checked)} data-hearing-prefill />
-          今の入力の値を記入して書き出す（見直しの面談用）
-        </label>
+        <fieldset class="hs-kinds" data-hearing-kinds>
+          <legend>シートの種類</legend>
+          {SHEET_KINDS.map((k) => (
+            <label class="hs-check" key={k.value}>
+              <input type="radio" name="hearing-kind" value={k.value} checked={kind === k.value} onChange={() => setKind(k.value)} data-hearing-kind={k.value} {...(k.value === "review" ? { "data-hearing-prefill": true } : {})} />
+              <span>
+                {k.label}
+                <small> — {k.note}</small>
+              </span>
+            </label>
+          ))}
+        </fieldset>
         {prefill ? (
           <p class="hs-warn" role="alert">
             暗号化されない表計算のファイルに、家族の生年月や金額などの今の値が載ります。送り方と保管に気をつけてください（書き出したことを記録します）。

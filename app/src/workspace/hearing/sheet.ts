@@ -5,11 +5,14 @@
 // - 承認した値には承認の記録（by: fp・日時・候補）を付ける（0008 の2・5。hearing の approveAll）
 // - 推定・仮の印は、入力の画面と同じ形（値の箱の estimated・WorkingHousehold.assumed）で入れる
 import { carryRows } from "../input/rows.ts";
-import { approveAll, createHearingSheet, exportableSheets, importHearingSheet, requestIdFrom, type Answer, type Candidate, type ChecklistItem, type ConsentDraft, type HearingRequest, type ImportRecord, type Issue, type OfficeInfo, type SheetDefinition } from "../../../../hearing/src/index.ts";
+import { approveAll, createHearingSheet, exportableSheets, importHearingSheet, keyLabel, latestSheet, requestIdFrom, type Answer, type Candidate, type ChecklistItem, type ConsentDraft, type FieldRecord, type HearingRequest, type ImportRecord, type Issue, type OfficeInfo, type SheetDefinition } from "../../../../hearing/src/index.ts";
 import type { EngineRequest as HearingEngineRequest } from "../../../../hearing/src/types.ts";
-import type { EngineRequest, Household } from "../../engine/types.ts";
+import type { EngineRequest, Household, Member } from "../../engine/types.ts";
 import { standardEndYear, type WorkingHousehold } from "../input/household.ts";
 import { fillEducation } from "../input/fill.ts";
+import { memberLabels } from "../input/labels.ts";
+import { withDeathEstimate } from "../input/stages/care.ts";
+import { withEntry } from "../input/stages/housingLoans.ts";
 import { roles } from "../roles.ts";
 
 /** 世帯ごとのヒアリングの記録（世帯ファイル 0011 の取り込みの記録・同意の記録に入れるまでの、画面の中の置き場） */
@@ -52,9 +55,27 @@ export interface ExportOutput {
 
 export const CUSTOMER_NO_PATTERN = /^[A-Za-z0-9-]{1,16}$/;
 
+/**
+ * 書き出すシートの種類: 簡易（初回の前の軽い票。basic）・詳細（full）・見直し（詳細のシートに前回の値を記入する。0018 の9）。
+ * 既定は簡易
+ */
+export type SheetKind = "simple" | "detail" | "review";
+
+export const SHEET_KINDS: readonly { value: SheetKind; label: string; note: string }[] = [
+  { value: "simple", label: "簡易（初回の前）", note: "ご家族・収入・住まい・貯蓄・生活費などを大まかに。金額は範囲でも答えられます（1〜2ページ）" },
+  { value: "detail", label: "詳細", note: "源泉徴収票・ねんきん定期便・返済予定表・保険証券を見ながら書く票" },
+  { value: "review", label: "見直し（前回の値つき）", note: "詳細の票に、今の入力の値を記入して書き出します（見直しの面談用）" },
+];
+
+/** 種類のシート定義（書き出せる最新の版） */
+export function sheetFor(kind: SheetKind): SheetDefinition {
+  const d = latestSheet(kind === "simple" ? "basic" : "full") ?? exportableSheets()[0];
+  if (d === undefined) throw new Error("E_HEARING_NO_SHEET");
+  return d;
+}
+
 export function defaultSheet(): SheetDefinition {
-  const list = exportableSheets();
-  return list.find((d) => d.sheetId === "basic") ?? (list[0] as SheetDefinition);
+  return sheetFor("simple");
 }
 
 /** 今の世帯からヒアリングシートの .xlsx を作る（前回の値を記入するのは prefill のときだけ） */
@@ -86,8 +107,8 @@ export interface FieldView {
   label: string;
   /** シートに書かれた値（わからない・該当なし・未回答も言葉で） */
   answer: string;
-  /** 入力の画面と同じ印: 推定（目安で補った）・仮（値の箱の無い欄の仮の値）・わからない・該当なし */
-  mark: "estimated" | "assumed" | "unknown" | "notApplicable" | null;
+  /** 入力の画面と同じ印: 推定（目安で補った）・推定（範囲の真ん中。金額の範囲の答え）・仮（値の箱の無い欄の仮の値）・わからない・該当なし */
+  mark: "estimated" | "range" | "assumed" | "unknown" | "notApplicable" | null;
   /** 印の理由（推定の根拠など） */
   note: string | null;
 }
@@ -175,7 +196,25 @@ function memberMatch(cur: Household, imp: Household): Map<string, string> {
     const c = ci[i];
     if (c !== undefined) out.set(m.id, c.id);
   });
+  // 親（世帯の外の家族）: 誰の親か（今の世帯の本人・配偶者に読み替え）と性別で
+  const used = new Set<string>();
+  for (const a of imp.members.filter((m) => m.kind === "parent")) {
+    const of = a.outside?.of === undefined ? undefined : (out.get(a.outside.of) ?? a.outside.of);
+    const b = cur.members.find((x) => x.kind === "parent" && !used.has(x.id) && x.sex === a.sex && x.outside?.of === of);
+    if (b === undefined) continue;
+    out.set(a.id, b.id);
+    used.add(b.id);
+  }
   return out;
+}
+
+/** 親の欄のうち、シートで聞かない欄（亡くなる見込み・家計を1つにする期間・親のお金・扶養）は今の値を残す */
+function keepParent(prev: Obj, next: Obj): Obj {
+  const p = prev as unknown as Member;
+  const n = next as unknown as Member;
+  const out: Member = { ...p, birth: n.birth, sex: n.sex, ...(n.outside !== undefined ? { outside: { ...(p.outside ?? n.outside), ...(n.outside.of !== undefined ? { of: n.outside.of } : {}) } } : {}) };
+  if (n.support?.cohabiting !== undefined) out.support = { ...(p.support ?? { dependent: false }), cohabiting: n.support.cohabiting };
+  return out as unknown as Obj;
 }
 
 /** 物の対応の鍵: 一覧・種類・指している構成員（今の世帯の ID に読み替えたもの） */
@@ -196,7 +235,9 @@ function remap<T>(v: T, ids: Map<string, string>): T {
   return out as T;
 }
 
-function answerText(def: SheetDefinition, a: Answer | undefined): string {
+function answerText(def: SheetDefinition, a: Answer | undefined, key?: string): string {
+  // シートで聞いていない欄（簡易のシートで、詳細の欄を仮の値で補ったなど）
+  if (a === undefined && key !== undefined && !def.items.some((i) => i.key === key)) return "（このシートでは聞いていない）";
   if (a === undefined || a.status === "blank") return "（空欄）";
   if (a.status === "unknown") return "わからない";
   if (a.status === "notApplicable") return "該当なし";
@@ -216,17 +257,21 @@ function answerText(def: SheetDefinition, a: Answer | undefined): string {
     const body = Number.isFinite(n) ? n.toLocaleString("ja-JP") : text;
     return `${item.unit.basis === "monthly" ? "月" : item.unit.basis === "annual" ? "年" : ""}${body}${item.unit.scale === "manYen" ? "万円" : "円"}`;
   }
+  if (item.type === "moneyRange") return item.ranges?.find((r) => r.label === text)?.label ?? text;
   if (item.type === "percent") return `${text}%`;
   return item.unitLabel !== undefined ? `${text}${item.unitLabel}` : text;
 }
 
 /** 候補の欄の印と理由（値の箱の推定の根拠・assumed の理由） */
-function markOf(obj: Obj | undefined, path: string, state: string, assumedNote: string | null): Pick<FieldView, "mark" | "note"> {
+function markOf(obj: Obj | undefined, f: Pick<FieldRecord, "path" | "state" | "range">, assumedNote: string | null): Pick<FieldView, "mark" | "note"> {
+  const { path, state } = f;
   if (state === "estimated" || state === "unknown") {
     let v: unknown = obj;
     for (const seg of path.split("/").slice(1)) v = v !== null && typeof v === "object" ? (v as Record<string, unknown>)[seg] : undefined;
     const box = v as { estimate?: { basis?: string }; substitute?: { estimate?: { basis?: string } } } | undefined;
     const basis = box?.estimate?.basis ?? box?.substitute?.estimate?.basis ?? null;
+    // 金額の範囲の答えから作った値: 推定（範囲の真ん中）。根拠は範囲の段
+    if (f.range !== undefined && state === "estimated") return { mark: "range", note: basis ?? `ヒアリングシートの範囲 ${f.range}` };
     return { mark: state === "unknown" ? "unknown" : "estimated", note: basis };
   }
   if (state === "assumed") return { mark: "assumed", note: assumedNote };
@@ -239,6 +284,8 @@ function titleOf(c: Candidate, imp: EngineRequest): string {
   const group = GROUP[c.collection] ?? c.collection;
   const label = new Map(roles(imp).map((r) => [r.member.id, r.label]));
   const v = c.value as Obj;
+  // 親・祖父母（世帯の外の家族）は父・母・義父・義母と呼ぶ（介護・親のカードと同じ）
+  if (c.collection === "members" && (v.kind === "parent" || v.kind === "grandparent")) return memberLabels({ request: imp, assumed: {}, labelsByMember: {} } as unknown as WorkingHousehold).get(v.id) ?? "ご家族";
   if (c.collection === "members") return label.get(v.id) ?? "ご家族";
   for (const k of MEMBER_REFS) if (typeof v[k] === "string" && label.has(v[k] as string)) return `${label.get(v[k] as string) as string}の${group}`;
   return group;
@@ -281,22 +328,24 @@ export async function importSheet(bytes: Uint8Array, wh: WorkingHousehold, newId
         if (JSON.stringify(plain(at(mapped))) !== JSON.stringify(plain(at(found)))) changedFields++;
       }
     }
-    const kind: CandidateKind = found === undefined ? "new" : changedFields > 0 || JSON.stringify(plain(mapped)) !== JSON.stringify(plain({ ...found, id: v.id })) ? "changed" : "same";
+    // 親はシートで聞いた欄（生年月・性別・同居か）だけで比べる（亡くなる見込みなど、聞かない欄は承認しても今の値を残す）
+    const parent = c.collection === "members" && v.kind === "parent";
+    const kind: CandidateKind = found === undefined ? "new" : changedFields > 0 || (!parent && JSON.stringify(plain(mapped)) !== JSON.stringify(plain({ ...found, id: v.id }))) ? "changed" : "same";
     const seen = new Set<string>();
     const fields: FieldView[] = [];
     const assumedKey = Object.keys(r.assumed).find((key) => key.includes(v.id));
     for (const f of c.fields) {
       const k = `${f.key}#${f.index ?? 0}`;
-      const item = r.definition.items.find((i) => i.key === f.key);
-      const mark = markOf(v, f.path, f.state, assumedKey !== undefined ? assumedOf(assumedKey) : null);
+      const label = keyLabel(r.definition, f.key);
+      const mark = markOf(v, f, assumedKey !== undefined ? assumedOf(assumedKey) : null);
       if (seen.has(k)) {
         // 同じ答えから補った別の欄（年収から標準報酬の目安など）は、印のあるものだけを1行足す
-        if (mark.mark !== null && !fields.some((x) => x.label.startsWith(item?.label ?? f.key) && x.mark === mark.mark)) fields.push({ label: `${item?.label ?? f.key}から補った値`, answer: "目安", ...mark });
+        if (mark.mark !== null && !fields.some((x) => x.label.startsWith(label) && x.mark === mark.mark)) fields.push({ label: `${label}から補った値`, answer: "目安", ...mark });
         continue;
       }
       seen.add(k);
       const a = r.record.answers.find((x) => x.key === f.key && (x.index ?? 0) === (f.index ?? 0));
-      fields.push({ label: item?.label ?? f.key, answer: answerText(r.definition, a), ...mark });
+      fields.push({ label, answer: answerText(r.definition, a, f.key), ...mark });
     }
     const cons = [...new Set(c.fields.flatMap((f) => contradictions.get(f.key) ?? []))];
     return { id: c.id, group: GROUP[c.collection] ?? c.collection, title: titleOf(c, imp), kind, review: c.status === "needsReview", contradictions: cons, fields, changedFields, note: c.note };
@@ -363,8 +412,9 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
       // 前の物の値の状態の行のうち、取り込みで値が変わらない所の行（FP が決めた「該当なし」「わからない」・確定の記録）は残す。
       // 値が変わった所は取り込んだ値と承認の記録が正（0041）
       const prev = list[at] as Obj;
-      carryRows(prev, obj, c.collection === "members" ? { member: obj.id as string } : { object: obj.id as string });
-      list[at] = obj;
+      const merged = c.collection === "members" && obj.kind === "parent" ? keepParent(prev, obj) : obj;
+      carryRows(prev, merged, c.collection === "members" ? { member: merged.id } : { object: merged.id });
+      list[at] = merged;
       replaced++;
     } else {
       list.push(obj);
@@ -407,10 +457,21 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
       consents: [...log.consents, ...r.consents.map((c) => ({ ...c, at }))],
     },
   };
-  // 新しく入った子は、進路が取り込みに無ければ推定の進路（標準の型）で始める（子を足したときと同じ。0062）
+  // 新しく入った子は、進路が取り込みに無ければ推定の進路（標準の型）で始める（子を足したときと同じ。0062）。
+  // 新しく入った親は、亡くなる見込みを平均余命で入れる（仮の印。介護・親のカードで親を足したときと同じ。0059）
   const before = new Set(wh.request.input.household.members.map((m) => m.id));
   let filled = next;
-  for (const m of h.members) if (m.kind === "child" && !before.has(m.id)) filled = fillEducation(filled, m.id);
+  for (const m of h.members) {
+    if (before.has(m.id)) continue;
+    if (m.kind === "child") filled = fillEducation(filled, m.id);
+    if (m.kind === "parent" && (m.leaves === null || m.leaves === undefined)) filled = withDeathEstimate(filled, m.id);
+  }
+  // 簡易のシートの残高と返済額から置いた住宅ローンは、ローンの入れ方を「今の残高から」にする（0052）
+  for (const c of chosen) {
+    if (c.collection !== "debts" || r.loanEntry[c.target.object] === undefined) continue;
+    const id = ids.get(c.target.object) ?? c.target.object;
+    if ((filled.request.input.household.debts ?? []).some((d) => d.id === id)) filled = withEntry(filled, id, r.loanEntry[c.target.object]);
+  }
   return { wh: filled, added, replaced, skipped };
 }
 

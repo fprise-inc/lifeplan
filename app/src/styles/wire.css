@@ -61,6 +61,10 @@
 .hs-form input[type="text"] { border: 1.5px solid var(--field); border-radius: 6px; padding: 4px 8px; font: inherit; color: var(--ink); font-weight: 400; }
 .hs-form input[aria-invalid="true"] { border-color: var(--short); }
 .hs-form .hs-check { display: flex; align-items: center; gap: 6px; color: var(--ink); grid-column: 1 / -1; }
+.hs-form .hs-kinds { grid-column: 1 / -1; border: 0; padding: 0; margin: 0; display: grid; gap: 4px; }
+.hs-form .hs-kinds legend { font-size: 0.88rem; font-weight: 700; color: var(--ink-2); margin-bottom: 2px; padding: 0; }
+.hs-form .hs-kinds small { font-weight: 400; color: var(--ink-2); }
+.hs-basis { display: block; font-size: 0.8rem; color: var(--ink-2); }
 .hs-warn { grid-column: 1 / -1; margin: 0; border: 2px solid var(--est); background: var(--est-bg); color: var(--est-ink); border-radius: 8px; padding: 6px 10px; font-weight: 700; }
 .hs-issues { margin: 0; padding-left: 1.2em; font-size: 0.9rem; }
 .hs-issues .error { color: var(--short-ink); font-weight: 700; }
