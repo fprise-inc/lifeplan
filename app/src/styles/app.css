@@ -926,6 +926,13 @@ html.big .chart .hv-dot { stroke-width: 3; }
 .explain-bar .ex-gap { flex: 1; }
 .explain-bar .ex-note { font-size: 0.8rem; color: var(--ink-2); }
 .explain-bar .ex-pos { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+/* 説明モードで段を進めても位置が動かないように: 文の箱は全部の段を重ねた高さ、凡例はまだの段の場所も取る、「次へ」「終わる」は同じ幅 */
+.ex-verdict .ex-says { display: grid; }
+.ex-verdict .ex-say { grid-area: 1 / 1; }
+.ex-verdict .ex-hide, .main-legend .ex-later { visibility: hidden; }
+.explain-bar .ex-go { display: inline-grid; }
+.explain-bar .ex-go > * { grid-area: 1 / 1; justify-self: stretch; text-align: center; }
+.explain-bar .ex-sizer { visibility: hidden; }
 /* 表示の設定（グラフの枠の中に開く） */
 .disp-settings { margin: 8px 0 2px; padding: 10px 14px; border: 2px solid var(--ink-2); border-radius: 10px; background: #fafbfc; }
 .ds-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }

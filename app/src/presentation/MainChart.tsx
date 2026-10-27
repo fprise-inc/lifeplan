@@ -662,18 +662,24 @@ function ChartPlot({ model, t, mode, explain, ageMark, pinned, shown, size, scal
     const education = pick(t, "x.education", n);
     const housing = pick(t, "x.housing", n);
     const fin = pick(t, "x.financial", n);
-    const up: StackSeries[] = [];
-    if (on("income")) up.push({ key: "work", label: "給与・退職金などの収入", values: work });
-    if (on("pension")) up.push({ key: "pension", label: "年金", values: pension });
-    const down: StackSeries[] = [];
-    if (on("expense")) down.push({ key: "living", label: "生活費・税など", values: living });
-    if (on("education")) down.push({ key: "education", label: "教育費", values: education });
-    if (on("housing")) down.push({ key: "housing", label: "住居費", values: housing });
+    const stepOf: Record<string, string> = { work: "income", pension: "pension", living: "expense", education: "education", housing: "housing" };
+    const allUp: StackSeries[] = [
+      { key: "work", label: "給与・退職金などの収入", values: work },
+      { key: "pension", label: "年金", values: pension },
+    ];
+    const allDown: StackSeries[] = [
+      { key: "living", label: "生活費・税など", values: living },
+      { key: "education", label: "教育費", values: education },
+      { key: "housing", label: "住居費", values: housing },
+    ];
+    const up = allUp.filter((x) => on(stepOf[x.key] ?? ""));
+    const down = allDown.filter((x) => on(stepOf[x.key] ?? ""));
     const showAssets = on("assets");
-    s = scale([totals(up, n, 1), totals(down, n, -1), showAssets ? fin : []], n, f);
+    // 目盛りは収入と支出を全部足した形で決めて、収入〜住宅の段を進めても0の線・目盛りが動かないようにする。
+    // 資産の推移の段だけは金融資産の線も入る目盛りにする（棒の段から資産の大きさに合わせると棒が小さくなりすぎるため）
+    s = scale([totals(allUp, n, 1), totals(allDown, n, -1), showAssets ? fin : []], n, f);
     keys.push(...up.map((x) => x.key), ...down.map((x) => x.key));
-    const stepKey: Record<string, string> = { work: "income", pension: "pension", living: "expense", education: "education", housing: "housing" };
-    body = bars(up, down, s, n, undefined, (k) => (now(stepKey[k] ?? "") ? { cls: "ex-new", op: 1 } : { cls: "", op: 0.55 }));
+    body = bars(up, down, s, n, undefined, (k) => (now(stepOf[k] ?? "") ? { cls: "ex-new", op: 1 } : { cls: "", op: 0.55 }));
     if (showAssets)
       body.push(
         <g key="fin" class={now("assets") ? "ex-new" : ""}>
@@ -1022,18 +1028,20 @@ export function MainLegend({ model, mode, explain, side = false }: { model: Main
   if (explain !== null) {
     const step = explain.step;
     const on = (k: string) => explain.model.steps.findIndex((x) => x.key === k) <= step;
+    // まだの段の印も場所を取っておく（見えなくするだけ）。段を進めても凡例の行の数・グラフの位置が動かない
+    const exItem = (step: string, k: string, label: string, swatch: boolean) => (
+      <span key={k} class={`lg${on(step) ? "" : " ex-later"}`} {...(on(step) ? {} : { "aria-hidden": true, "data-ex-later": "" })}>
+        {swatch ? <Swatch k={k} /> : <i />}
+        {label}
+      </span>
+    );
     items = [
-      on("income") ? sw("work", "給与・退職金など") : null,
-      on("pension") ? sw("pension", "年金") : null,
-      on("expense") ? sw("living", "生活費・税など") : null,
-      on("education") ? sw("education", "教育") : null,
-      on("housing") ? sw("housing", "住宅") : null,
-      on("assets") ? (
-        <span class="lg" key="fin">
-          <i />
-          金融資産
-        </span>
-      ) : null,
+      exItem("income", "work", "給与・退職金など", true),
+      exItem("pension", "pension", "年金", true),
+      exItem("expense", "living", "生活費・税など", true),
+      exItem("education", "education", "教育", true),
+      exItem("housing", "housing", "住宅", true),
+      exItem("assets", "fin", "金融資産", false),
     ];
   } else if (mode === "flows") {
     items = [
@@ -1106,8 +1114,16 @@ export function ExplainBar({ model, step, onStep, onClose }: { model: ExplainMod
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [cur, last, onStep, onClose]);
+  // 段を変えたとき、グラフが画面の外にあるときだけ、見える所まで最小の量でスクロールする（画面の中なら動かさない）
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const chart = bar.current?.closest("[data-result-card]")?.querySelector<HTMLElement>("[data-main-chart]");
+    if (chart === null || chart === undefined) return;
+    const r = chart.getBoundingClientRect();
+    if (r.bottom <= 0 || r.top >= window.innerHeight) chart.scrollIntoView?.({ block: "nearest" });
+  }, [cur]);
   return (
-    <div class="explain-bar" data-explain>
+    <div class="explain-bar" ref={bar} data-explain>
       <ol class="ex-steps" aria-label="説明の段">
         {model.steps.map((x, i) => (
           <li key={x.key} class={i === cur ? "now" : i < cur ? "done" : ""} aria-current={i === cur ? "step" : undefined}>
@@ -1125,15 +1141,21 @@ export function ExplainBar({ model, step, onStep, onClose }: { model: ExplainMod
       <button type="button" class="btn" disabled={cur === 0} onClick={() => onStep(cur - 1)} data-explain-prev>
         ← 戻る
       </button>
-      {cur < last ? (
-        <button type="button" class="btn primary" onClick={() => onStep(cur + 1)} data-explain-next>
-          次へ →
-        </button>
-      ) : (
-        <button type="button" class="btn primary" onClick={onClose} data-explain-close>
-          終わる
-        </button>
-      )}
+      {/* 「次へ」と「終わる」は同じ幅（見えない方の文字で幅を取る）。最後の段でも「戻る」の位置が動かない */}
+      <span class="ex-go">
+        {cur < last ? (
+          <button type="button" class="btn primary" onClick={() => onStep(cur + 1)} data-explain-next>
+            次へ →
+          </button>
+        ) : (
+          <button type="button" class="btn primary" onClick={onClose} data-explain-close>
+            終わる
+          </button>
+        )}
+        <span class="btn primary ex-sizer" aria-hidden="true">
+          {cur < last ? "終わる" : "次へ →"}
+        </span>
+      </span>
     </div>
   );
 }

@@ -210,11 +210,18 @@ export function ResultCard(p: ResultCardProps) {
     <section class="card chart-card" aria-label="グラフ" data-result-card>
       <div class="cc-head">
         {ex !== null && s !== undefined ? (
-          <p class="verdict-line" aria-live="polite" data-verdict>
-            <span class="ord">
-              説明 {step + 1}/{ex.model.steps.length} {s.title}
+          <p class="verdict-line ex-verdict" aria-live="polite">
+            {/* 全部の段の文を同じ場所に重ね、今の段だけ見せる。箱の高さはいちばん長い段に合わせて決まり、段を進めても下のグラフ・ボタンが動かない */}
+            <span class="ex-says">
+              {ex.model.steps.map((x, i) => (
+                <span key={x.key} class={`ex-say${i === step ? "" : " ex-hide"}`} {...(i === step ? { "data-verdict": "" } : { "aria-hidden": true })} data-ex-say={i}>
+                  <span class="ord">
+                    説明 {i + 1}/{ex.model.steps.length} {x.title}
+                  </span>
+                  <Parts parts={x.sentence} />
+                </span>
+              ))}
             </span>
-            <Parts parts={s.sentence} />
             <span class="v-sub">{p.model.names.selected}の内容で説明しています</span>
           </p>
         ) : (
