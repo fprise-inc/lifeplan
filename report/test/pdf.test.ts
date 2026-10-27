@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { buildProposalInput } from "../src/build.ts";
 import type { ProposalInput, ReportLayout, ScenarioView } from "../src/input.ts";
-import { type RenderResult, renderAndExtract, reportPdfBin, sampleFrame } from "../scripts/reportPdf.ts";
+import { exampleReport, type RenderResult, renderAndExtract, reportPdfBin, sampleFrame } from "../scripts/reportPdf.ts";
 import { SAMPLES } from "../scripts/sampleBundles.ts";
 import { byYear, man, normalize, ROWS, UUID, yenText } from "./helpers.ts";
 
@@ -432,5 +432,35 @@ describe.skipIf(bin === null)("資産が足りなくなる所の「!」（年を
   it("どちらも足りなくならないときは、丸も説明の一行も出さない", () => {
     const none = { ...input, summary: { ...input.summary, current: { ...input.summary.current, depletion: null }, proposal: { ...input.summary.proposal, depletion: null } } };
     expectShorts(summaryPage(none), []);
+  });
+});
+
+describe.skipIf(bin === null)("独自帳票の見本: 収益不動産のまとめ（sdk/examples/reports/rental-property-summary）", () => {
+  const main = exampleReport("rental-property-summary");
+  const sample = (id: string) => {
+    const s = SAMPLES.find((x) => x.id === id) as (typeof SAMPLES)[number];
+    const bundle = s.bundle();
+    const input = buildProposalInput(bundle);
+    return { input, r: renderAndExtract(bin as string, input, sampleFrame(bundle, input), { main }) };
+  };
+
+  it("賃貸に出しているマンションのある世帯: 物件の見出しと、年ごとの表の数字（万円）が帳票の入力の値で載る。刻印・必須の記載はアプリが確かめる", () => {
+    const { input, r } = sample("dualAssetsTwoKids");
+    const all = normalize(r.pages.join("\n"));
+    expect(all).toContain(normalize("収益不動産のまとめ"));
+    expect(all).toContain(normalize("不動産1（ご主人名義・鉄筋コンクリート造・2008年築・貸している）"));
+    expect(r.meta.noticesPageAdded).toBe(false);
+    const p = input.realEstate!.proposal[0]!;
+    const y = p.years.find((x) => x.held)!;
+    const row = [String(y.year), man(y.rent), man(y.expenses), man(y.depreciation!), man(y.interest!), man(y.income!), man(y.loanBalance), man(y.cashAfterLoan), man(y.value!.total)].join(" ");
+    expect(r.pages.some((t) => t.replace(/\s+/g, " ").includes(row))).toBe(true);
+    expect(all).toContain(normalize(`手取り ${man(p.sale!.proceeds)}万円`));
+    expect(r.pages.join("\n")).not.toMatch(UUID);
+  });
+
+  it("住まい以外の不動産の無い世帯: 「ありません」の1ページ", () => {
+    const { r } = sample("salariedCoupleTwoKids");
+    expect(r.meta.pages).toBe(1);
+    expect(normalize(r.pages[0] as string)).toContain(normalize("住まい以外の不動産はありません。"));
   });
 });

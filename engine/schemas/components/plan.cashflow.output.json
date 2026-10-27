@@ -32,7 +32,7 @@
       }
     },
     "details": {
-      "description": "約束の版 1.2: 保障内容一覧・払込保険料の推移の材料（insurance）と贈与の税（gifts）。約束の版 1.4: 世帯の外の家族のお金が尽きる見込みの月（outsideWallets。0042）。エンジンが出力の summary に写す（任意の欄）",
+      "description": "約束の版 1.2: 保障内容一覧・払込保険料の推移の材料（insurance）と贈与の税（gifts）。約束の版 1.4: 世帯の外の家族のお金が尽きる見込みの月（outsideWallets。0042）。約束の版 1.6: 住まい以外の不動産の物件ごとの数字（realEstate）。エンジンが出力の summary に写す（任意の欄）",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -44,6 +44,10 @@
         },
         "outsideWallets": {
           "$ref": "urn:financia:schema:engine.output#/$defs/outsideWallets"
+        },
+        "realEstate": {
+          "description": "約束の版 1.6: 住まい以外の不動産の物件ごとの数字（asset.realEstate の出力の properties のまま。0009 の追記）",
+          "$ref": "urn:financia:schema:component:asset.realEstate.output#/properties/properties"
         }
       }
     }

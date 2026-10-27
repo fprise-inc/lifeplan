@@ -630,7 +630,7 @@ export function runEngine(request: unknown, packs: readonly unknown[], options: 
     ].sort((a, b) => cmp(`${a.code}|${a.ids.join(",")}`, `${b.code}|${b.ids.join(",")}`)) as unknown as Json[],
   };
   // undefined の欄を除くのは見出しと根拠の記録だけ（お金の動き・年ごとの行・表は部品と上の集計が欄を省いて作り、JSON にしたときも同じ）
-  const details = (output as { details?: { insurance?: Json; gifts?: Json; outsideWallets?: Json } } | null)?.details;
+  const details = (output as { details?: { insurance?: Json; gifts?: Json; outsideWallets?: Json; realEstate?: Json } } | null)?.details;
   const summary = summaryOf(table, details);
   const result = {
     header: stripUndefined(header),
@@ -932,7 +932,7 @@ function packsCheckedOf(opts: { packsChecked?: unknown }): { packsChecked?: read
  * FP顧問料（cf.expense.advisoryFee）の年ごとの額・累計・契約ごとの合計。顧問料の行は契約の物の ID（object）で分かるので、
  * 顧問料を除いた場合との差は、契約を enabled: false にした要求と比べて出す（提案の効果の内訳の材料）
  */
-function summaryOf(table: readonly { row: string; year: number; amount: number; member?: string; object?: string }[], details?: { insurance?: Json; gifts?: Json; outsideWallets?: Json }): Json {
+function summaryOf(table: readonly { row: string; year: number; amount: number; member?: string; object?: string }[], details?: { insurance?: Json; gifts?: Json; outsideWallets?: Json; realEstate?: Json }): Json {
   let income = 0;
   let taxSi = 0;
   let expense = 0;
@@ -969,6 +969,8 @@ function summaryOf(table: readonly { row: string; year: number; amount: number; 
   if (details?.gifts !== undefined) out.gifts = details.gifts;
   // 世帯の外の家族のお金が尽きる見込みの月（0042）
   if (details?.outsideWallets !== undefined) out.outsideWallets = details.outsideWallets;
+  // 住まい以外の不動産の物件ごとの数字（asset.realEstate の出力。帳票の入力の材料。0009 の追記）
+  if (details?.realEstate !== undefined) out.realEstate = details.realEstate;
   return out as unknown as Json;
 }
 

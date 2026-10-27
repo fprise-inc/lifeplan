@@ -500,6 +500,26 @@
         "lines": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["label", "lasts", "values"], "properties": { "label": { "type": "string" }, "lasts": { "type": "string" }, "values": { "$ref": "#/$defs/yens" } } } }
       }
     },
+    "realEstate": {
+      "description": "住まい以外の不動産の物件ごとの数字（0009 の追記。試験版 0.1.0 の中の追加）。公式の帳票は使わない。FP の独自帳票（収益不動産のまとめなど）の材料。案ごと（現状・提案・案の比較の各案）で、持っていない案は空の配列。評価額・不動産所得の内訳・売却はエンジンの asset.realEstate の出力、家賃収入・経費・借入の残高と返済はキャッシュフロー表の行の、その物件の分。省略は、この欄の前の版の入力",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "proposal", "plans"],
+      "properties": {
+        "current": { "$ref": "#/$defs/realEstateProperties" },
+        "proposal": { "$ref": "#/$defs/realEstateProperties" },
+        "plans": {
+          "description": "案の比較のページの各案（comparison の列と同じ並び。案の比較が無ければ空）",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["letter", "name", "properties"],
+            "properties": { "letter": { "type": "string" }, "name": { "type": "string" }, "properties": { "$ref": "#/$defs/realEstateProperties" } }
+          }
+        }
+      }
+    },
     "moneyThree": {
       "description": "お金の3つの分け方（説明用の図。0032）: 提案のプランの今の時点の金融資産を、使うお金（ふだんの支出の○か月分）・貯めるお金（今後○年のできごとの支出のうち、その年の収入で賄えない分）・増やすお金（残り）に分け、今の置き場所と並べる。アプリの区画と同じ値・同じ言葉（report/src/moneyThree.ts）。キャッシュフロー表・結果の計算には混ぜない。省略・null は載せない",
       "type": ["object", "null"],
@@ -563,6 +583,87 @@
     "year": { "type": "integer", "minimum": 1900, "maximum": 2200 },
     "years": { "type": "array", "items": { "$ref": "#/$defs/year" } },
     "month": { "type": "string", "pattern": "^\\d{4}-(0[1-9]|1[0-2])$" },
+    "realEstateProperties": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "label", "owner", "use", "structure", "builtYear", "acquisition", "years", "totals", "sale"],
+        "properties": {
+          "key": { "description": "提示用の鍵（その案の世帯の不動産の並び順。物の ID ではない）", "type": "string", "pattern": "^property[0-9]+$" },
+          "label": { "description": "呼び方（不動産1 …。世帯ファイルに物件の名前の欄は無い）", "type": "string" },
+          "owner": {
+            "description": "名義の人（members の key と label）",
+            "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["key", "label"], "properties": { "key": { "$ref": "#/$defs/presentKey" }, "label": { "type": "string" } } }]
+          },
+          "use": { "description": "rental: 貸している（家賃収入の入力がある）、held: 貸していない", "enum": ["rental", "held"] },
+          "structure": {
+            "description": "建物の構造（省略の入力は木造で計算する）",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "label"],
+            "properties": { "key": { "enum": ["wood", "lightSteel", "steel", "rc"] }, "label": { "type": "string" } }
+          },
+          "builtYear": { "description": "建物が建った年（入れた年。省略は null）", "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/year" }] },
+          "acquisition": {
+            "description": "取得価額（土地と建物の合計）と取得の年月。入れていなければ null",
+            "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["price", "month"], "properties": { "price": { "$ref": "#/$defs/yen" }, "month": { "$ref": "#/$defs/month" } } }]
+          },
+          "years": {
+            "description": "年ごと（basis.years と同じ並び）",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["year", "held", "value", "rent", "expenses", "depreciation", "interest", "landInterest", "income", "loanBalance", "loanRepayment", "cashAfterLoan"],
+              "properties": {
+                "year": { "$ref": "#/$defs/year" },
+                "held": { "description": "その年の年末に持っている", "type": "boolean" },
+                "value": {
+                  "description": "年末の評価額（持っていない年は null）",
+                  "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["land", "building", "total"], "properties": { "land": { "$ref": "#/$defs/yen" }, "building": { "$ref": "#/$defs/yen" }, "total": { "$ref": "#/$defs/yen" } } }]
+                },
+                "rent": { "description": "家賃収入（キャッシュフロー表の家賃収入の、この物件の分）", "$ref": "#/$defs/yen" },
+                "expenses": { "description": "経費（キャッシュフロー表の不動産の経費の、この物件の分。貸していない月の分を含む）", "$ref": "#/$defs/yen" },
+                "depreciation": { "description": "減価償却費（貸している年だけ。ほかは null）", "$ref": "#/$defs/yenOrNull" },
+                "interest": { "description": "借入の利息（貸している月の分。貸している年だけ）", "$ref": "#/$defs/yenOrNull" },
+                "landInterest": { "description": "借入の利息のうち土地の取得のための分（貸している年だけ）", "$ref": "#/$defs/yenOrNull" },
+                "income": { "description": "不動産所得（家賃収入−経費〔貸している月の分〕−減価償却費−借入の利息。マイナスは損失。貸している年だけ）", "$ref": "#/$defs/yenOrNull" },
+                "loanBalance": { "description": "この物件のための借入の年末の残高の合計（未払いの利息を含む）", "$ref": "#/$defs/yen" },
+                "loanRepayment": { "description": "その借入のその年の返済額（繰上返済・手数料を含む）", "$ref": "#/$defs/yen" },
+                "cashAfterLoan": { "description": "物件の手残り（家賃収入−経費−返済額）", "$ref": "#/$defs/yen" }
+              }
+            }
+          },
+          "totals": {
+            "description": "表の期間（basis.years）の合計",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["rent", "expenses", "loanRepayment", "cashAfterLoan"],
+            "properties": { "rent": { "$ref": "#/$defs/yen" }, "expenses": { "$ref": "#/$defs/yen" }, "loanRepayment": { "$ref": "#/$defs/yen" }, "cashAfterLoan": { "$ref": "#/$defs/yen" } }
+          },
+          "sale": {
+            "description": "売却（計算基準月より後に売る予定があるときだけ）。tax は入れた譲渡所得の税の額（住まい以外の不動産には口がまだ無いので null）",
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["month", "value", "price", "costs", "proceeds", "tax"],
+                "properties": {
+                  "month": { "$ref": "#/$defs/month" },
+                  "value": { "$ref": "#/$defs/yen" },
+                  "price": { "$ref": "#/$defs/yen" },
+                  "costs": { "$ref": "#/$defs/yen" },
+                  "proceeds": { "$ref": "#/$defs/yen" },
+                  "tax": { "$ref": "#/$defs/yenOrNull" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
     "presentKey": { "description": "提示用の鍵（物の ID ではない）", "type": "string", "pattern": "^(self|spouse|child[0-9]+|other[0-9]+)$" },
     "labelValue": { "type": "object", "additionalProperties": false, "required": ["label", "value"], "properties": { "label": { "type": "string" }, "value": { "type": "string" } } },
     "namedAmounts": {

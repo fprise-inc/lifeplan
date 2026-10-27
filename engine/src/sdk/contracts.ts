@@ -749,7 +749,7 @@ export interface GiftTaxOutput {
   readonly settlementByGiver?: readonly { readonly giver: string; readonly member?: string; readonly objects: readonly string[]; readonly amount: Yen; readonly tax: Yen }[];
 }
 
-/** plan.cashflow の details（約束の版 1.2 の任意の欄。エンジンが出力の summary に写す） */
+/** plan.cashflow の details（約束の版 1.2 の任意の欄。エンジンが出力の summary に写す。1.6 で realEstate を足した） */
 export interface CashflowDetails {
   insurance?: {
     readonly contracts: readonly {
@@ -773,6 +773,8 @@ export interface CashflowDetails {
   }[];
   /** 世帯の外の家族のお金（0042）: お金を入れた人ごとの、尽きる見込みの月（尽きなければ null） */
   outsideWallets?: readonly { readonly member: string; readonly depleted: string | null }[];
+  /** 住まい以外の不動産の物件ごとの年末の評価額・不動産所得の内訳・売却（asset.realEstate の出力の properties のまま。約束の版 1.6。0009 の追記） */
+  realEstate?: RealEstateOutput["properties"];
 }
 
 /** benefit.unemployment: 雇用保険の基本手当・高年齢求職者給付金を受ける日のある月（日数は30日を1か月とみなす近似。日額は基本手当日額） */
