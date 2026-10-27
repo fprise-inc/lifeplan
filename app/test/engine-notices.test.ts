@@ -59,6 +59,17 @@ describe("見本の世帯の知らせ", () => {
     expect(rec?.subjects.some((s) => s.startsWith("長"))).not.toBe(true);
   });
 
+  it("働き方を入れた子で受給資格期間に足りなければ、その子の知らせとして出す", () => {
+    const req = structuredClone(modelHousehold("salariedCoupleTwoKids"));
+    const h = req.input.household;
+    const child = h.members.find((m) => m.kind === "child")!;
+    const job = structuredClone(h.employmentPeriods![0]!);
+    Object.assign(job, { id: "0b8c7d6e-5f4a-4b3c-9d2e-1f0a9b8c7d6f", member: child.id, from: { at: "2035-04" }, to: { at: "2037-03" } });
+    h.employmentPeriods!.push(job);
+    const rows = noticeRows(fromRequest(req), [{ label: "プランA", result: preview(req) }]);
+    expect(rows.find((r) => r.text.includes("受給資格期間"))?.subjects.some((s) => s.startsWith("長"))).toBe(true);
+  });
+
   it("専門学校の学費が入っていない子は、入力が足りない知らせとして教育のカードへ", () => {
     const req = modelHousehold("sampleSingleParent");
     const rows = noticeRows(fromRequest(req), [{ label: "プランA", result: preview(req) }]);
