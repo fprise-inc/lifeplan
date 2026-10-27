@@ -519,13 +519,23 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                   {shown.map((h) => (
                     <tr key={h.id} class={h.id === p.currentId ? "sel" : ""} data-household-row={h.customerNo}>
                       <td>
-                        <b>{h.customerNo}</b>
-                        {h.serial === undefined ? (
-                          <span class="pl-tag hh-free" title={useCats ? "区分の記号＋通し番号の形でない番号（区分を変えても付け替えません）" : "通し番号の形でない番号"}>
-                            自由な番号
-                          </span>
+                        {h.id === p.currentId ? (
+                          <b>{h.customerNo}</b>
+                        ) : (
+                          <button type="button" class="hh-no-btn" onClick={() => p.onOpen(h.id)} title="この世帯を開く" data-open-household-no={h.customerNo}>
+                            {h.customerNo}
+                          </button>
+                        )}
+                        {h.serial === undefined || h.id === p.currentId ? (
+                          <div class="hh-tags">
+                            {h.serial === undefined ? (
+                              <span class="pl-tag hh-free" title={useCats ? "区分の記号＋通し番号の形でない番号（区分を変えても付け替えません）" : "通し番号の形でない番号"}>
+                                自由な番号
+                              </span>
+                            ) : null}
+                            {h.id === p.currentId ? <span class="pl-tag">開いています</span> : null}
+                          </div>
                         ) : null}
-                        {h.id === p.currentId ? <span class="pl-tag">開いています</span> : null}
                         {h.forks > 0 ? (
                           <button type="button" class="link-btn danger hh-fork" onClick={() => p.onForks?.(h.id)} data-household-forks={h.forks}>
                             同期の衝突の写しがあります
@@ -750,9 +760,19 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                 return (
                   <tr key={`${s.kind}-${s.id}`} class={isCurrent ? "sel" : ""} data-sample-row={s.no}>
                     <td>
-                      <b>{s.no}</b>
-                      {s.kind === "app" ? <span class="pl-tag hh-app">アプリ</span> : null}
-                      {isCurrent ? <span class="pl-tag">開いています</span> : null}
+                      {isCurrent ? (
+                        <b>{s.no}</b>
+                      ) : (
+                        <button type="button" class="hh-no-btn" onClick={() => p.onOpenSample(s)} title="この見本を開く" data-open-sample-no={s.no}>
+                          {s.no}
+                        </button>
+                      )}
+                      {s.kind === "app" || isCurrent ? (
+                        <div class="hh-tags">
+                          {s.kind === "app" ? <span class="pl-tag hh-app">アプリ</span> : null}
+                          {isCurrent ? <span class="pl-tag">開いています</span> : null}
+                        </div>
+                      ) : null}
                     </td>
                     <td>
                       {sampleEdit?.id === s.id ? (
