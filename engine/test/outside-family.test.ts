@@ -56,6 +56,25 @@ describe("世帯の外の家族のお金の動き", () => {
   });
 });
 
+describe("亡くなる見込みの後（0035 の4 の追記）", () => {
+  it("家計を1つにする期間に終わりが無くても、亡くなる見込み（leaves）の月からは、その人のお金の動きを世帯に入れない", () => {
+    const req = base({ of: S, periods: [{ id: uid("of-p3"), from: null, to: null, living: true, income: true }] });
+    const dies = edit(req, (h) => void ((h.members as Obj[])[1]!.leaves = { at: "2029-07" }));
+    const before = run(req);
+    const after = run(dies);
+    const mine = after.flows.filter((f) => f.member === P);
+    expect(mine.length).toBeGreaterThan(0);
+    expect(mine.every((f) => f.ym < "2029-07")).toBe(true);
+    // 亡くなる見込みの月より前の年金は、今までと同じ（税・社会保険料は亡くなる年の所得と加入の月で変わる）
+    const pension = (r: EngineResult) => sum(r, (f) => f.member === P && f.row.startsWith("cf.income.pension") && f.ym < "2029-07");
+    expect(pension(after)).toBe(pension(before));
+    expect(pension(after)).toBeGreaterThan(0);
+    expect(sum(before, (f) => f.member === P && f.row.startsWith("cf.income.pension") && f.ym >= "2029-07")).toBeGreaterThan(0);
+    // 本人の分は変わらない（扶養していないので）
+    expect(sum(after, (f) => f.member === S)).toBe(sum(before, (f) => f.member === S));
+  });
+});
+
 describe("世帯の判定の顔ぶれ", () => {
   it("世帯の外の家族は、扶養していると入れたときだけ扶養親族（扶養控除）", () => {
     const dep = (support: Obj | undefined) =>
