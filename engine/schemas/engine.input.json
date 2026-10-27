@@ -1840,7 +1840,8 @@
         "counterparty": { "title": "相手（誰から。構成員。多くは世帯の外の家族）", "x-item": "incomeFlow.counterparty", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "likelihood": { "title": "見込み（計算には使わない。不確かな受け取る相続・贈与は、アプリが要求から外す。0035 の7・0036 の6）", "x-item": "incomeFlow.likelihood", "$ref": "#/$defs/likelihood" },
         "includeInBase": { "title": "基本の計算に入れる（true で、見込みが不確かでも入れる。省略は見込みで決める。計算には使わない）", "x-item": "incomeFlow.includeInBase", "type": "boolean" },
-        "giftMethod": { "title": "贈与税で見るときの課税の方法（省略は暦年課税）", "x-item": "incomeFlow.giftMethod", "enum": ["calendar", "settlement"] }
+        "giftMethod": { "title": "贈与税で見るときの課税の方法（省略は暦年課税）", "x-item": "incomeFlow.giftMethod", "enum": ["calendar", "settlement"] },
+        "pensionType": { "title": "受給中の遺族年金・障害年金の種類（種類が survivorPension の行。表示と終わりの推定だけで、計算には使わない。0066）", "x-item": "incomeFlow.pensionType", "enum": ["survivorBasic", "survivorEmployee", "widow", "disabilityBasic", "disabilityEmployee"] }
       },
       "allOf": [{ "if": { "required": ["monthly"], "properties": { "monthly": { "const": true } } }, "then": { "properties": { "everyYears": { "const": 1 } } } }]
     },

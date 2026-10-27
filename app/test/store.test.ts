@@ -320,6 +320,33 @@ function sample027(): BodyState {
   return { ...s, wh: { ...s.wh, request: req, contingency: c, proposals, agreed } };
 }
 
+/**
+ * 0.28 の見本の世帯（0066・0067）: sample027() に、受給中の障害年金の行（種類）と、年金の入れ方を推計に戻したときに
+ * 残した本人の定期便の記録（画面の側の pensionKept）を足す
+ */
+function sample028(): BodyState {
+  const s = sample027();
+  const req = structuredClone(s.wh.request);
+  const hh = req.input.household;
+  const self = roles(req).find((r) => r.key === "self")!.member;
+  const own = (hh.pensionRecords ?? []).find((r) => r.member === self.id);
+  const kept = own ?? { id: "00000000-0000-4000-8000-00000000a261", member: self.id, kind: "statementUnder50", asOf: "2026-06", months: { basic: 180, employee: 170 }, amounts: { basic: { value: 380000, state: "confirmed", origin: { kind: "manual" } }, employee: { value: 420000, state: "confirmed", origin: { kind: "manual" } } } };
+  hh.pensionRecords = (hh.pensionRecords ?? []).filter((r) => r.member !== self.id);
+  if (hh.pensionRecords.length === 0) delete hh.pensionRecords;
+  (hh.incomeFlows ??= []).push({
+    id: "00000000-0000-4000-8000-00000000a262",
+    label: "障害基礎年金",
+    kind: "survivorPension",
+    pensionType: "disabilityBasic",
+    recipient: self.id,
+    from: { at: req.input.baseMonth },
+    to: null,
+    everyYears: 1,
+    amount: { value: 816000, state: "confirmed", origin: { kind: "manual" } },
+  });
+  return { ...s, wh: { ...s.wh, request: req, pensionKept: { [self.id]: [structuredClone(kept)] } } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -443,7 +470,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.27");
+    expect(BODY_FORMAT_VERSION).toBe("0.28");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -639,6 +666,21 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(applied.contingency.survivor.livingRatio?.beforeIndependence).toBe("0.6");
     expect(back.wh.contingency.survivor.livingRatio?.beforeIndependence).toBeUndefined();
     preview(back.wh.request);
+  });
+
+  it("0.28 の形（0066・0067）: 受給中の年金の種類と、残した年金の記録を保存して読み戻す。種類は計算に使わず、残した記録はエンジンへ渡さない", () => {
+    const s = sample028();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request; pensionKept?: Record<string, unknown[]> } };
+    expect(stored.household.request.input.household.incomeFlows?.find((f) => f.pensionType === "disabilityBasic")).toMatchObject({ kind: "survivorPension", recipient: expect.any(String) });
+    expect(Object.values(stored.household.pensionKept ?? {})[0]).toHaveLength(1);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(back.wh.pensionKept).toEqual(s.wh.pensionKept);
+    // 種類を外しても結果は同じ（表示と終わりの推定だけ）
+    const plain = structuredClone(back.wh.request);
+    for (const f of plain.input.household.incomeFlows ?? []) delete f.pensionType;
+    expect(preview(back.wh.request).table).toEqual(preview(plain).table);
+    expect(JSON.stringify(forEngine(back.wh.request))).not.toContain("00000000-0000-4000-8000-00000000a261");
   });
 
   it("0.24 の形（0060・0061）: 相続税の目安の設定と遺したい額を要求の入力に保存して読み戻す。エンジンへ渡す要求からは外れ、結果は同じ", () => {

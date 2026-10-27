@@ -256,7 +256,7 @@ function moneyRows(h: Household, card: MoneyCard): number {
 }
 const inheritedDebts = (h: Household) => (h.debts ?? []).filter((d) => d.inheritedFrom !== undefined).length;
 
-function baseSummary(id: StageId, wh: WorkingHousehold, inheritance: Summary | null | undefined): Summary | null {
+function baseSummary(id: StageId, wh: WorkingHousehold, inheritance: Summary | null | undefined, pension?: Summary | null): Summary | null {
   const h = wh.request.input.household;
   switch (id) {
     case "family":
@@ -270,7 +270,7 @@ function baseSummary(id: StageId, wh: WorkingHousehold, inheritance: Summary | n
       return total > 0 ? { pre: "見込み ", main: manText(total), unit: "万円" } : { main: String(list.length), unit: "件" };
     }
     case "pension":
-      return pensionSummary(h);
+      return pension ?? pensionSummary(h);
     case "living":
       return livingSummary(h);
     case "education":
@@ -606,6 +606,8 @@ export interface ItemOptions {
   layout?: CardLayout;
   /** 相続・贈与のカードの要約（相続税の目安。計算の結果から。inheritanceLine.ts） */
   inheritance?: Summary | null;
+  /** 年金のカードの要約（夫婦の合計の月額。65歳から・推定。計算の結果から。pensionEstimate.ts） */
+  pension?: Summary | null;
 }
 
 /** カードの入っていない物（確かめの一覧のいちばん上と同じ） */
@@ -641,7 +643,7 @@ export function inputItems(wh: WorkingHousehold, opts: ItemOptions = {}): InputI
       status,
       estimated,
       missing,
-      summary: baseSummary(id, wh, opts.inheritance),
+      summary: baseSummary(id, wh, opts.inheritance, opts.pension),
       first: isFirst,
       hint,
       canNa,
