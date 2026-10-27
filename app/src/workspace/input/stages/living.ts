@@ -1,5 +1,5 @@
 // 5. 基本生活費のカード（0048）: 毎月の生活費（住居費・教育費・保険料・車の費用・税と社会保険料を除く）と、その時期ごとの変化。
-// - 入れ方: 総額で／費目で（簡易は6つの束、詳細は家計調査の9費目）。両方の値を持ち、選んだほうで計算する（切り替えても片方を消さない）
+// - 入れ方: 総額で／内訳で（簡易は6つの束、詳細は家計調査の9費目）。両方の値を持ち、選んだほうで計算する（切り替えても片方を消さない）
 // - 段階: 推定の段階（子の誕生と独立・自宅外の在学・同居・施設の介護・退職・70歳・80歳。livingStages.ts。0049）と FP が足す段。表は詳細、簡易は札
 // - 区画: 毎月の生活費／年払い・数年おきの暮らしの支出（お金の行。0044）／毎年の黒字のうち貯金に回る割合（0031。surplusSaving.ts）／
 //   実際に貯められている額（答え合わせ。savingsChecks）
@@ -94,7 +94,7 @@ const CAT_HELP: Record<string, string> = {
   health: `通院・薬・医療用品など。${MEDICAL_HELP}（医療費だけを分けて伸ばしたいときは「年払い・数年おきの暮らしの支出」に「医療・介護」の行を足します）`,
   transport: "電車・バスの運賃・通信費。車の費用（ガソリン・駐車場・保険など）は車のカードで入れます",
   allowance: "親への仕送りは介護・親のカードの「親への仕送り」、子の自宅外の在学の仕送りは子ども・教育のカードでも入れられます（相手ごとに分けて見られます）。両方に入れると二重になります",
-  otherConsumption: "こづかい・交際費・理美容など。費目に分けていない分もここに入ります",
+  otherConsumption: "こづかい・交際費・理美容など。内訳に分けていない分もここに入ります",
 };
 
 /** 同じ人数の世帯の平均（欄の横の目安） */
@@ -126,6 +126,8 @@ function categoryField(l: LivingExpense, find: Finder, c: string, level: "simple
     ...(CAT_HELP[c] !== undefined ? { help: CAT_HELP[c] } : {}),
     hint: (w) => averageHint(w, [c]),
   });
+  // 名前の左のアイコン（簡易の束は束の絵、詳細の「うち」は費目ごとの絵）
+  f.icon = c;
   // 空にしたら、その費目を外す（入れていない費目は物を持たない）
   const g: FieldDef = {
     ...f,
@@ -155,7 +157,7 @@ function bundleField(l: LivingExpense, find: Finder, b: Bundle): FieldDef {
     kind: "yen",
     basis: "monthly",
     optional: true,
-    help: `${b.cats.map(catLabel).join("・")}の合計。直すと、差を「${catLabel(b.rep)}」に置きます（ほかの費目は今の値のまま）${b.key === "misc" ? `。${MEDICAL_HELP}` : ""}`,
+    help: `${b.cats.map(catLabel).join("・")}の合計。直すと、差を「${catLabel(b.rep)}」に置きます（ほかの内訳は今の値のまま）${b.key === "misc" ? `。${MEDICAL_HELP}` : ""}`,
     get: (wh) => {
       const t = find(wh.request.input.household, wh) as unknown as LivingExpense | undefined;
       const cs = b.cats.map((c) => catOf(t, c)).filter((x): x is Category => x !== undefined);
@@ -219,7 +221,7 @@ function bundleField(l: LivingExpense, find: Finder, b: Bundle): FieldDef {
             else cur.monthly = next as unknown as Box<number>;
           }),
   };
-  const g: FieldDef = { ...f, boxed };
+  const g: FieldDef = { ...f, boxed, icon: b.key };
   return rep?.id !== undefined ? withAddress(g, addr(l.id, "livingExpense.categories", [rep.id, "monthly"])) : g;
 }
 
@@ -238,8 +240,8 @@ function categoryGroup(l: LivingExpense, find: Finder): GroupDef {
   const moved = (other?.monthly as { estimate?: { basis?: string } } | undefined)?.estimate?.basis;
   const notes = [`合計 月${man(total)}`];
   if (moved !== undefined && moved.startsWith("総額で")) notes.push(moved);
-  if (isPureSplit(l)) notes.push("総額を家計調査の同じ人数の世帯の割合で分けた目安です（直した費目だけ確定になります）");
-  return { key: `living/${l.id}/categories`, title: "費目（月額）", note: notes.join("。"), level: "simple", fields, actions: [] };
+  if (isPureSplit(l)) notes.push("総額を家計調査の同じ人数の世帯の割合で分けた目安です（直した内訳だけ確定になります）");
+  return { key: `living/${l.id}/categories`, title: "内訳（月額）", note: notes.join("。"), level: "simple", fields, actions: [] };
 }
 
 /** 入れ方を切り替えたときの始末（総額と費目は両方持ち、片方を消さない。0048 の2） */
@@ -268,7 +270,7 @@ function switchMode(h: Household, wh: WorkingHousehold, t: LivingExpense, v: unk
     const sum = (t.categories ?? []).reduce((s, c) => s + (c.monthly.value ?? 0), 0);
     if (t.monthly?.value === sum) return;
     const anyEstimated = (t.categories ?? []).some((c) => c.monthly.state === "estimated");
-    t.monthly = anyEstimated ? ({ value: sum, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: "費目の合計から" } } as Box<number>) : confirmedBox(sum);
+    t.monthly = anyEstimated ? ({ value: sum, state: "estimated", origin: { kind: "auto" }, estimate: { method: "derived", basis: "内訳の合計から" } } as Box<number>) : confirmedBox(sum);
   }
 }
 
@@ -505,7 +507,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
         kind: "select",
         options: [
           { value: "total", label: "総額で" },
-          { value: "byCategory", label: "費目で" },
+          { value: "byCategory", label: "内訳で" },
         ],
         structural: true,
         help: "切り替えても、もう片方の値は消しません（選んだほうで計算します）",
