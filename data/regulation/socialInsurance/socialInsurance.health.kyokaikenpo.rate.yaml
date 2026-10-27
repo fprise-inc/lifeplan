@@ -1368,3 +1368,661 @@ entries:
     recordedIn: "2026.2.0"
     supersededIn: null
     approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "沖縄支部。令和8年度の料率のページと令和8年度の保険料額表（Excel）が一致"}
+  - rev: 95
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.01"}
+    conditions: []
+    value: "0.1021"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（北海道）", quote: "北海道10.31%↑10.21%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。北海道）", quote: "北海道10.21％3.42％6.79％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "北海道支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 96
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.02"}
+    conditions: []
+    value: "0.0949"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（青森）", quote: "青森県9.85%↑9.49%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。青森）", quote: "青森県9.49％3.42％6.07％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "青森支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 97
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.03"}
+    conditions: []
+    value: "0.0963"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（岩手）", quote: "岩手県9.62%↓9.63%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。岩手）", quote: "岩手県9.63％3.42％6.21％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "岩手支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 98
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.04"}
+    conditions: []
+    value: "0.1001"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（宮城）", quote: "宮城県10.11%↑10.01%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。宮城）", quote: "宮城県10.01％3.42％6.59％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "宮城支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 99
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.05"}
+    conditions: []
+    value: "0.0985"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（秋田）", quote: "秋田県10.01%↑9.85%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。秋田）", quote: "秋田県9.85％3.42％6.43％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "秋田支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 100
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.06"}
+    conditions: []
+    value: "0.0984"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（山形）", quote: "山形県9.75%↓9.84%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。山形）", quote: "山形県9.84％3.42％6.42％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "山形支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 101
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.07"}
+    conditions: []
+    value: "0.0959"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（福島）", quote: "福島県9.62%↑9.59%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。福島）", quote: "福島県9.59％3.42％6.17％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "福島支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 102
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.08"}
+    conditions: []
+    value: "0.0966"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（茨城）", quote: "茨城県9.67%↑9.66%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。茨城）", quote: "茨城県9.66％3.42％6.24％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "茨城支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 103
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.09"}
+    conditions: []
+    value: "0.0979"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（栃木）", quote: "栃木県9.82%↑9.79%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。栃木）", quote: "栃木県9.79％3.42％6.37％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "栃木支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 104
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.10"}
+    conditions: []
+    value: "0.0981"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（群馬）", quote: "群馬県9.77%↓9.81%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。群馬）", quote: "群馬県9.81％3.42％6.39％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "群馬支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 105
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.11"}
+    conditions: []
+    value: "0.0978"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（埼玉）", quote: "埼玉県9.76%↓9.78%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。埼玉）", quote: "埼玉県9.78％3.42％6.36％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "埼玉支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 106
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.12"}
+    conditions: []
+    value: "0.0977"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（千葉）", quote: "千葉県9.79%↑9.77%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。千葉）", quote: "千葉県9.77％3.42％6.35％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "千葉支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 107
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.13"}
+    conditions: []
+    value: "0.0998"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（東京）", quote: "東京都9.91%↓9.98%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。東京）", quote: "東京都9.98％3.42％6.56％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "東京支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 108
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.14"}
+    conditions: []
+    value: "0.1002"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（神奈川）", quote: "神奈川県9.92%↓10.02%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。神奈川）", quote: "神奈川県10.02％3.42％6.60％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "神奈川支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 109
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.15"}
+    conditions: []
+    value: "0.0935"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（新潟）", quote: "新潟県9.55%↑9.35%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。新潟）", quote: "新潟県9.35％3.42％5.93％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "新潟支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 110
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.16"}
+    conditions: []
+    value: "0.0962"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（富山）", quote: "富山県9.65%↑9.62%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。富山）", quote: "富山県9.62％3.42％6.20％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "富山支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 111
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.17"}
+    conditions: []
+    value: "0.0994"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（石川）", quote: "石川県9.88%↓9.94%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。石川）", quote: "石川県9.94％3.42％6.52％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "石川支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 112
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.18"}
+    conditions: []
+    value: "0.1007"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（福井）", quote: "福井県9.94%↓10.07%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。福井）", quote: "福井県10.07％3.42％6.65％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "福井支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 113
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.19"}
+    conditions: []
+    value: "0.0994"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（山梨）", quote: "山梨県9.89%↓9.94%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。山梨）", quote: "山梨県9.94％3.42％6.52％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "山梨支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 114
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.20"}
+    conditions: []
+    value: "0.0955"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（長野）", quote: "長野県9.69%↑9.55%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。長野）", quote: "長野県9.55％3.42％6.13％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "長野支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 115
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.21"}
+    conditions: []
+    value: "0.0991"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（岐阜）", quote: "岐阜県9.93%↑9.91%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。岐阜）", quote: "岐阜県9.91％3.42％6.49％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "岐阜支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 116
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.22"}
+    conditions: []
+    value: "0.0985"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（静岡）", quote: "静岡県9.80%↓9.85%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。静岡）", quote: "静岡県9.85％3.42％6.43％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "静岡支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 117
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.23"}
+    conditions: []
+    value: "0.1002"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（愛知）", quote: "愛知県10.03%↑10.02%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。愛知）", quote: "愛知県10.02％3.42％6.60％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "愛知支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 118
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.24"}
+    conditions: []
+    value: "0.0994"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（三重）", quote: "三重県9.99%↑9.94%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。三重）", quote: "三重県9.94％3.42％6.52％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "三重支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 119
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.25"}
+    conditions: []
+    value: "0.0989"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（滋賀）", quote: "滋賀県9.97%↑9.89%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。滋賀）", quote: "滋賀県9.89％3.42％6.47％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "滋賀支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 120
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.26"}
+    conditions: []
+    value: "0.1013"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（京都）", quote: "京都府10.03%↓10.13%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。京都）", quote: "京都府10.13％3.42％6.71％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "京都支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 121
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.27"}
+    conditions: []
+    value: "0.1034"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（大阪）", quote: "大阪府10.24%↓10.34%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。大阪）", quote: "大阪府10.34％3.42％6.92％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "大阪支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 122
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.28"}
+    conditions: []
+    value: "0.1018"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（兵庫）", quote: "兵庫県10.16%↓10.18%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。兵庫）", quote: "兵庫県10.18％3.42％6.76％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "兵庫支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 123
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.29"}
+    conditions: []
+    value: "0.1022"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（奈良）", quote: "奈良県10.02%↓10.22%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。奈良）", quote: "奈良県10.22％3.42％6.80％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "奈良支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 124
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.30"}
+    conditions: []
+    value: "0.1000"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（和歌山）", quote: "和歌山県10.19%↑10.00%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。和歌山）", quote: "和歌山県10.00％3.42％6.58％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "和歌山支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 125
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.31"}
+    conditions: []
+    value: "0.0968"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（鳥取）", quote: "鳥取県9.93%↑9.68%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。鳥取）", quote: "鳥取県9.68％3.42％6.26％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "鳥取支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 126
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.32"}
+    conditions: []
+    value: "0.0992"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（島根）", quote: "島根県9.94%↑9.92%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。島根）", quote: "島根県9.92％3.42％6.50％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "島根支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 127
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.33"}
+    conditions: []
+    value: "0.1002"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（岡山）", quote: "岡山県10.17%↑10.02%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。岡山）", quote: "岡山県10.02％3.42％6.60％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "岡山支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 128
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.34"}
+    conditions: []
+    value: "0.0995"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（広島）", quote: "広島県9.97%↑9.95%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。広島）", quote: "広島県9.95％3.42％6.53％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "広島支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 129
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.35"}
+    conditions: []
+    value: "0.1020"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（山口）", quote: "山口県10.36%↑10.20%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。山口）", quote: "山口県10.20％3.42％6.78％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "山口支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 130
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.36"}
+    conditions: []
+    value: "0.1019"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（徳島）", quote: "徳島県10.47%↑10.19%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。徳島）", quote: "徳島県10.19％3.42％6.77％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "徳島支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 131
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.37"}
+    conditions: []
+    value: "0.1033"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（香川）", quote: "香川県10.21%↓10.33%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。香川）", quote: "香川県10.33％3.42％6.91％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "香川支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 132
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.38"}
+    conditions: []
+    value: "0.1003"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（愛媛）", quote: "愛媛県10.18%↑10.03%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。愛媛）", quote: "愛媛県10.03％3.42％6.61％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "愛媛支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 133
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.39"}
+    conditions: []
+    value: "0.0989"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（高知）", quote: "高知県10.13%↑9.89%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。高知）", quote: "高知県9.89％3.42％6.47％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "高知支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 134
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.40"}
+    conditions: []
+    value: "0.1035"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（福岡）", quote: "福岡県10.31%↓10.35%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。福岡）", quote: "福岡県10.35％3.42％6.93％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "福岡支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 135
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.41"}
+    conditions: []
+    value: "0.1042"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（佐賀）", quote: "佐賀県10.78%↑10.42%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。佐賀）", quote: "佐賀県10.42％3.42％7.00％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "佐賀支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 136
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.42"}
+    conditions: []
+    value: "0.1017"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（長崎）", quote: "長崎県10.41%↑10.17%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。長崎）", quote: "長崎県10.17％3.42％6.75％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "長崎支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 137
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.43"}
+    conditions: []
+    value: "0.1030"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（熊本）", quote: "熊本県10.12%↓10.30%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。熊本）", quote: "熊本県10.30％3.42％6.88％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "熊本支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 138
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.44"}
+    conditions: []
+    value: "0.1025"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（大分）", quote: "大分県10.25%→10.25%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。大分）", quote: "大分県10.25％3.42％6.83％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "大分支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 139
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.45"}
+    conditions: []
+    value: "0.0985"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（宮崎）", quote: "宮崎県10.09%↑9.85%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。宮崎）", quote: "宮崎県9.85％3.42％6.43％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "宮崎支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 140
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.46"}
+    conditions: []
+    value: "0.1013"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（鹿児島）", quote: "鹿児島県10.31%↑10.13%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。鹿児島）", quote: "鹿児島県10.13％3.42％6.71％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "鹿児島支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}
+  - rev: 141
+    appliesFrom: "2024-03-01"
+    appliesTo: null
+    enforcedOn: "2024-03-01"
+    status: enacted
+    jurisdiction: {level: "insurer", code: "kyokaikenpo.47"}
+    conditions: []
+    value: "0.0952"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r07/index.html", retrievedAt: "2026-10-08", sha256: "c6ad3bdb6480fd33b82ca6440fc82ea753ed4d967a7e90234d581d7e81ba93e4", locator: "令和7年度の表の令和6年度の列（沖縄）", quote: "沖縄県9.44%↓9.52%"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/001/index.html", retrievedAt: "2026-10-08", sha256: "7b1ab0307251bd6c16ceb8f27448e0c36d06472523b91eab6fc926f69ad51b7c", locator: "特定保険料率及び基本保険料率の表16（令和6年3月分から令和7年2月分まで。沖縄）", quote: "沖縄県9.52％3.42％6.10％"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "沖縄支部。令和6年3月分から。令和7年度の料率のページの前年度の列と、内訳の表16（一般保険料率＝特定保険料率＋基本保険料率も合う）が一致"}

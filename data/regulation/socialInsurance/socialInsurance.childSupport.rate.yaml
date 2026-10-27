@@ -33,3 +33,17 @@ entries:
     recordedIn: "2026.2.0"
     supersededIn: null
     approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-08", tools: ["HTML の本文（公表資料）", "Excel（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "令和8年度の率0.23%（協会けんぽ）。令和9年度以後の率は未公表"}
+  - rev: 3
+    appliesFrom: "2023-04-01"
+    appliesTo: "2025-02-28"
+    enforcedOn: "2026-04-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "notApplicable"
+    sources:
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/about/business/insurance_rate/rate_prefectures/r08/index.html", retrievedAt: "2026-10-08", sha256: "392864f7974ca3ffebb97544ac57d36a7898cdeb8132f0156f233753604f6b55", locator: "令和8年度の料率のページ", quote: "令和8年4月分（5月納付分）からは、これに全国一律の子ども・子育て支援金（0.23％）が加わります"}
+      - {type: "web", url: "https://www.kyoukaikenpo.or.jp/assets/R8_13tokyo.pdf", retrievedAt: "2026-10-08", sha256: "1c5abc10951aeb941267ce128cf802253498a52042ff35629a65f3cc7012328a", locator: "令和8年3月分からの保険料額表（東京支部）", quote: "子ども・子育て支援金率：令和8年4月分（5月納付分）～適用"}
+    recordedIn: "2026.11.0"
+    supersededIn: null
+    approval: {method: "reviewed", paths: 2, comparedBy: "claude", comparedOn: "2026-10-27", tools: ["HTML の本文（公表資料）", "PDF の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], note: "2023年4月1日〜2025年2月28日の行（前の年の所得に対する住民税・社会保険料控除の計算に要る）。rev 1 と同じ値・出典で、値は「適用されない」（制度が始まる前）。令和8年3月分までは徴収なし（制度なしの行）。施行日は支援金の徴収が始まる日"}
