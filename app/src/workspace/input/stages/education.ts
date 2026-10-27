@@ -831,7 +831,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       ...(row?.state === "notApplicable"
         ? { note: "教育費は「該当なし」にしています（段を足すと計算します）" }
         : row?.state === "estimated"
-          ? { note: `進路は${row.estimate?.basis === EDUCATION_BASIS ? `標準の型「${defaultCourseLabel(child, base)}」` : "標準の型"}（推定）で入れています。直すか、このままでよければ「✓ 入れる」を押します` }
+          ? { note: `進路は${row.estimate?.basis === EDUCATION_BASIS ? `標準の型「${defaultCourseLabel(child, base)}」` : "標準の型"}（推定）で入れています。直すか、このままでよければ「この値にする」を押します` }
           : {}),
       level: "simple",
       fields: [

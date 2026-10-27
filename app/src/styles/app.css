@@ -307,24 +307,24 @@ html.big .lever input[type="range"] { height: 36px; }
 .fld-help.bad { color: var(--short-ink); font-weight: 700; }
 .fld-help.est-basis { color: var(--base-ink); }
 .ro { font-size: 0.92rem; color: var(--ink-2); }
-.badge { font-size: 0.7rem; font-weight: 700; border-radius: 4px; padding: 0 5px; }
-.badge.est { border: 1.5px dashed var(--base-ink); color: var(--base-ink); background: #fff; }
-/* 値の状態の印（0041）: わからない・該当なし・未入力（0円で計算中）。色だけに頼らず文字で見せる */
-.badge.unk { border: 1.5px solid var(--est); color: var(--est-ink); background: var(--est-bg); }
-.badge.na { border: 1.5px solid var(--line); color: var(--ink-2); background: var(--base-bg); }
-.badge.missing { border: 1.5px solid var(--short); color: var(--short-ink); background: var(--short-bg); }
+/* 値の状態の印（0041）: 推定・仮・わからない・該当なし・未入力。枠も地の色も付けず、色の付いた文字だけで見せる（色だけに頼らず文字で見せる。0077 の追記） */
+.badge { font-size: 0.7rem; font-weight: 700; border: 0; border-radius: 3px; padding: 0 2px; background: none; }
+.badge.est { color: var(--base-ink); }
+.badge.unk { color: var(--est-ink); }
+.badge.na { color: var(--ink-2); }
+.badge.missing { color: var(--short-ink); }
 .fld.is-missing .fld-c input[type="text"] { border-color: var(--short); }
 .fld.is-na .fld-c input[type="text"] { background: var(--base-bg); }
 .fld.jumped { outline: 2px solid var(--prop); outline-offset: 4px; border-radius: 6px; }
 .fld-ops { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; }
 .fld-ops .link-btn { font-size: 0.78rem; }
-/* 推定の値をそのまま欄に入れるボタン（「✓ この値で確定」と同じ操作。0041 の追記）。推定の欄にだけ出す小さなボタン。
+/* 推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。推定の欄にだけ出す小さなボタン。
    数の欄は欄の中の左（値は右寄せ）に置き、欄に入って打ち始めると隠す（Tab で移れるよう、隠すのは見た目だけ） */
 .fld-fill { border: 1.5px solid var(--prop); background: #fff; color: var(--prop); border-radius: 999px; padding: 0 8px; font-size: 0.74rem; font-weight: 700; line-height: 1.6; white-space: nowrap; cursor: pointer; }
 .fld-fill:hover, .fld-fill:focus-visible { background: var(--prop); color: #fff; }
 .fld-box { position: relative; display: inline-flex; min-width: 0; }
-.fld-box .fld-fill.inside { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; padding: 0 6px; }
-.fld-c input.num.has-fill { padding-left: 4.4em; padding-right: 6px; }
+.fld-box .fld-fill.inside { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 0.68rem; padding: 0 5px; }
+.fld-c input.num.has-fill { padding-left: 5.4em; padding-right: 6px; }
 .fld-c input.num.has-fill:focus { padding-left: 8px; }
 .fld-box input:focus + .fld-fill.inside { opacity: 0; pointer-events: none; }
 .ip-bulk .fld-fill { font-size: 0.8rem; }
@@ -1104,7 +1104,6 @@ html.big .lv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .range-scale .amt-step { color: var(--ink-2); }
 /* 対策に足した欄の中でも、点線の枠は使わない（推定の欄は灰の背景と「推定」の札で示す） */
 .lever.added .fld.is-est .fld-c input[type="text"] { border-style: solid; }
-.lever.added .badge.est { border-style: solid; }
 
 /* ---- グラフを小窓で表示（ChartPip.tsx）: グラフの見出しの右上の「小窓」ボタンと、アプリの窓の中に固定した小窓（別の窓にはしない） ---- */
 .pip-btn { flex: none; box-sizing: border-box; width: 1.9rem; height: 1.9rem; padding: 0; border: 2px solid var(--ink-2); color: var(--ink); background: #fff; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
@@ -1262,7 +1261,7 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .ih-target-menu { position: relative; }
 .ih-target-list .add-btn { border: 0; padding: 0; background: none; text-decoration: underline; text-underline-offset: 2px; font-size: 0.82rem; }
 .ih-target-list { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; display: grid; gap: 6px; justify-items: start; min-width: 14em; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 6px 20px rgba(20, 30, 50, 0.16); white-space: nowrap; }
-.help-btn.ih-target-lock { color: var(--est-ink); background: var(--est-bg); border-color: var(--est); font-size: 0.78rem; }
+.help-btn.ih-target-lock { color: var(--est-ink); font-size: 0.78rem; }
 .plan-count { display: inline-block; margin-left: 6px; font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--plan-c, var(--prop)); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
 /* カードの「プランB: 1か所」: 絵の右上に重ねる（カードの高さを変えない）。色はプランの色にせず、白地の札 */
 .plan-count.on-card { position: absolute; top: 8px; right: 8px; z-index: 2; margin: 0; color: var(--ink); background: #fff; border: 1.5px solid var(--ink-2); }
@@ -1363,12 +1362,14 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 /* 説明の「?」（丸に ?。presentation/Help.tsx。0077）: カーソル・フォーカス・押すで開く。開いた説明は画面に固定して重ねる（周りの配置を動かさない） */
 .help { display: inline-flex; align-items: center; vertical-align: middle; flex: none; }
 .help-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 1.25em; height: 1.25em; padding: 0; border: 1.5px solid var(--field); border-radius: 50%; background: #fff; color: var(--ink-2); font: inherit; font-size: 0.8rem; font-weight: 700; line-height: 1; cursor: help; }
-.help-btn:hover, .help-btn[aria-expanded="true"] { border-color: var(--prop); color: var(--prop); background: var(--prop-bg); }
+.help-btn:not(.help-mark):hover, .help-btn:not(.help-mark)[aria-expanded="true"] { border-color: var(--prop); color: var(--prop); background: var(--prop-bg); }
 .help-btn:focus-visible { outline: 2px solid var(--prop); outline-offset: 2px; }
 /* 「?」は SVG の線（字の上下の余白に頼らない）。丸の内側いっぱいに広げ、字は丸の中央に来る（Help.tsx の HELP_GLYPH） */
 .help-btn > .help-q { display: block; flex: none; width: 100%; height: 100%; }
 /* 印を押して開く形（欄の「推定」の札など）: 札の見た目のまま、押せることを点線の下線で見せる */
-.help-btn.help-mark { width: auto; height: auto; border-radius: 4px; padding: 0 5px; font-size: 0.7rem; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+/* 押すと根拠が開く印: 文字だけ（枠・地の色なし）。カーソルを合わせる・開いている間は下線で押せることを見せる */
+.help-btn.help-mark { width: auto; height: auto; border: 0; border-radius: 3px; padding: 0 2px; background: none; font-size: 0.7rem; cursor: pointer; text-decoration: none; text-underline-offset: 2px; }
+.help-btn.help-mark:hover, .help-btn.help-mark[aria-expanded="true"] { text-decoration: underline; }
 .help-pop { position: fixed; z-index: 200; top: 0; left: 0; width: max-content; max-width: min(26em, calc(100vw - 16px)); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); box-shadow: 0 6px 20px rgba(20, 30, 50, 0.18); font-size: 0.84rem; font-weight: 400; line-height: 1.6; text-align: left; letter-spacing: 0; white-space: normal; cursor: auto; user-select: text; -webkit-user-select: text; }
 /* 開いた説明の文は選んでコピーできる。押すとフォーカスが箱へ移るが、枠は出さない */
 .help-pop:focus { outline: none; }
@@ -1377,6 +1378,8 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .help-pop[data-side="below"]::before { top: -10px; }
 .help-pop[data-side="above"]::before { bottom: -10px; }
 .help-pop[hidden] { display: none; }
+/* 画面の高さに収まらない説明は、画面の高さで止めて中を動かす（箱は body の直下。0077 の追記） */
+.help-pop[data-tall] { max-height: calc(100vh - 16px); overflow-y: auto; }
 .help-pop p { margin: 0; }
 .help-pop p + p, .help-pop p + ul, .help-pop ul + p { margin-top: 6px; }
 .help-pop ul { margin: 0; padding-left: 1.2em; }

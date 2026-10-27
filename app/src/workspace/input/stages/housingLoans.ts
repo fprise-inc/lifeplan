@@ -680,7 +680,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
     ),
     withAddress(
       field({
-        // 仮の条件の印（欄のキー＝印の置き場）はこの欄が持つ。「✓ この値で確定」で条件の全部を確定にする
+        // 仮の条件の印（欄のキー＝印の置き場）はこの欄が持つ。「この値にする」で条件の全部を確定にする
         key,
         item: "debt.housing",
         label: "住宅の種類（控除）",

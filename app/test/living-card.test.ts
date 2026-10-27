@@ -260,7 +260,7 @@ describe("総額と費目（0048 の2）", () => {
     expect(misc.get(wh).estimated).toBeNull();
   });
 
-  it("束の「✓ この値で確定」は、束の中の推定の費目を今の値のまま確定にする（行は書かない）", () => {
+  it("束の「この値にする」は、束の中の推定の費目を今の値のまま確定にする（行は書かない）", () => {
     let wh = family();
     const id = living(wh).id;
     wh = fieldOf(wh, `living/${id}/mode`).set(wh, "byCategory");

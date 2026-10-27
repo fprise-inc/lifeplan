@@ -1,5 +1,5 @@
-// 値の状態の直し（0041 の追記 2026-10-27）: 未入力の欄に打った値は0円でも確定・空欄のまま推定で計算する欄の「✓ この値で確定」と
-// 「推定をまとめて確定」は推定の値を書いて確定・確定にできない推定（決まりの推定）は数えない
+// 値の状態の直し（0041 の追記 2026-10-27）: 未入力の欄に打った値は0円でも確定・空欄のまま推定で計算する欄の「この値にする」と
+// 「推定の値をまとめて使う」は推定の値を書いて確定・確定にできない推定（決まりの推定）は数えない
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
@@ -34,7 +34,7 @@ describe("未入力の欄に打った値は、0円でも確定にする", () => 
     const typed = typeValue(f, wh, 0);
     expect(fieldStatus(f, typed).status).toBe("confirmed");
     expect(f.boxed!.read(typed)).toMatchObject({ value: 0, state: "confirmed", origin: { kind: "manual" } });
-    // 打った確定（根拠なし）なので、「✓ この値で確定」の確定と見分けられる
+    // 打った確定（根拠なし）なので、「この値にする」の確定と見分けられる
     expect(fieldStatus(f, typed).explicit).toBe(false);
   });
 
@@ -63,7 +63,7 @@ describe("空欄のまま推定で計算する欄の確定", () => {
   const wh = open("investmentCouple");
   const blank = fields(wh).filter((f) => f.blankEstimate !== undefined && fieldStatus(f, wh).status === "estimated" && f.get(wh).value === null);
 
-  it("iDeCo の受け取り方・受け取りを始める年齢は「✓ この値で確定」で推定の値を書いて確定になり、計算の結果は変わらない", () => {
+  it("iDeCo の受け取り方・受け取りを始める年齢は「この値にする」で推定の値を書いて確定になり、計算の結果は変わらない", () => {
     const payout = blank.filter((f) => /\/payout(Age)?$/.test(f.key));
     expect(payout.length).toBeGreaterThan(1);
     let w = wh;
@@ -78,7 +78,7 @@ describe("空欄のまま推定で計算する欄の確定", () => {
     expect(preview(forEngine(w.request)).table).toEqual(preview(forEngine(wh.request)).table);
   });
 
-  it("「推定をまとめて確定」は、空欄が推定の欄も確定にする", () => {
+  it("「推定の値をまとめて使う」は、空欄が推定の欄も確定にする", () => {
     const r = confirmAllEstimates(wh);
     for (const f of blank) {
       const stays = f.blankEstimate!(wh) === null;

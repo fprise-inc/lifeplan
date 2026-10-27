@@ -62,7 +62,7 @@ describe("確かめの一覧の1行（今の値・出どころ・確かさ）と
     expect(checkList(wh0).some((r) => r.id === `field:${f.key}`)).toBe(false);
   });
 
-  it("「このカードの推定をまとめて確定」はそのカードの推定だけを確定にする", () => {
+  it("「この項目の推定の値をまとめて使う」はそのカードの推定だけを確定にする", () => {
     const wh = open("salariedCoupleTwoKids");
     const before = checkList(wh).filter((r) => r.kind === "estimated");
     const card = before.find((r) => r.actions.some((a) => a.key === "confirm"))!.card;

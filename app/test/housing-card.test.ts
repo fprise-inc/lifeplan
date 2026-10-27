@@ -311,7 +311,7 @@ describe("住宅ローン控除の条件の欄", () => {
     expect(String(fieldOf(wh, `${id}/creditSummary`).get(wh).value)).toBe("控除を受けない");
   });
 
-  it("「✓ この値で確定」で仮の条件をまとめて確定にできる", () => {
+  it("「この値にする」で仮の条件をまとめて確定にできる", () => {
     const wh = action(action(salaried(), "housing/addPurchase"), "housing/addMortgage");
     const id = debtsOf(wh)[0]!.id;
     const { wh: w } = confirmAll(wh, allFields(stage(wh)));

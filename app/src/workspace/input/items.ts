@@ -744,7 +744,7 @@ export function saveItem(wh: WorkingHousehold, id: string): WorkingHousehold {
 
 // ---- ＋ 項目を追加 ----
 
-const PRESET_BASIS = "ひな形の仮の値（この世帯の額に直すか、このままなら「✓ 入れる」）";
+const PRESET_BASIS = "ひな形の仮の値（この世帯の額に直すか、このままなら「この値にする」）";
 
 export interface AddOption {
   key: string;
