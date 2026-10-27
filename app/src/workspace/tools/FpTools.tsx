@@ -23,9 +23,15 @@ export interface FpToolsProps {
   onBalance?: (() => void) | undefined;
   /** 「○歳時点」の年齢（結果のタブの表示の設定） */
   atAge?: number;
+  /** 開いている道具（親が持つとき。FP のメニューから開く） */
+  tool?: FpTool | null;
+  onTool?: (t: FpTool | null) => void;
+  /** 道具の名前の並びを描く。既定は描く（入力のホームでは描かず、上の帯の FP のメニューから開く） */
+  bar?: boolean;
 }
 
-type Tool = "contents" | "year" | "review";
+export type FpTool = "contents" | "year" | "review";
+type Tool = FpTool;
 
 const newest = (list: readonly Snapshot[]) => [...list].sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
 
@@ -37,13 +43,16 @@ export function reviewTiming(list: readonly Snapshot[]): { last: string; next: s
   return { last: ym, next: addMonths(ym, 12) };
 }
 
-export function FpTools({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge = 90 }: FpToolsProps) {
-  const [tool, setTool] = useState<Tool | null>(null);
+export function FpTools({ wh, result, computeOne, onOpen, onSnapshot, onBalance, atAge = 90, tool: outer, onTool, bar = true }: FpToolsProps) {
+  const [inner, setInner] = useState<Tool | null>(null);
+  const tool = outer !== undefined ? outer : inner;
+  const setTool = (t: Tool | null) => (onTool !== undefined ? onTool(t) : setInner(t));
   const snaps = wh.snapshots ?? [];
   const timing = reviewTiming(snaps);
   // 道具の名前の並びと、開いた中身は隣どうしに置く（入力のホームでは、中身を道具の行の下に幅いっぱいで出す。0077）
   return (
     <>
+    {bar ? (
     <div class="hs-tools fp-tools" role="group" aria-label="FPの道具" data-fp-tools>
       <span class="hs-tools-h">FPの道具</span>
       <button type="button" class="link-btn" aria-expanded={tool === "contents"} onClick={() => setTool(tool === "contents" ? null : "contents")} data-fp-tool="contents">
@@ -61,6 +70,7 @@ export function FpTools({ wh, result, computeOne, onOpen, onSnapshot, onBalance,
         </span>
       ) : null}
     </div>
+    ) : null}
       {tool === "contents" ? <Contents wh={wh} onOpen={onOpen} onClose={() => setTool(null)} /> : null}
       {tool === "year" ? <NextYear wh={wh} result={result} onOpen={onOpen} onClose={() => setTool(null)} /> : null}
       {tool === "review" ? <Review wh={wh} result={result} computeOne={computeOne} onOpen={onOpen} onSnapshot={onSnapshot} onBalance={onBalance} atAge={atAge} onClose={() => setTool(null)} /> : null}

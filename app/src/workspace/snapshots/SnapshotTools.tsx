@@ -1,4 +1,5 @@
-// 控えの道具（入力のホームの上部。控えめに置く）: 「この時点を残す」（面談の区切りに FP が押す）と、控えの一覧（日時・きっかけ・メモ）。
+// 控えの道具: 「この時点を残す」（面談の区切りに FP が押す）と、控えの一覧（日時・きっかけ・メモ）。
+// 入口は上の帯の FP のメニュー（0077 の追記）。開いた中身は入力のホームの上部に出す（bar を省くとボタンの並びを描かない）
 // 提案書の PDF を保存したときの控えは、提案書のタブが自動で作る（ReportTab.tsx）。控えは作った後に変えない（消すことはできる）
 import { useEffect, useState } from "preact/hooks";
 import { SNAPSHOT_MEMO_MAX, snapshotDateText, TRIGGER_TEXT, verifySnapshot, type Snapshot } from "./snapshots.ts";
@@ -12,10 +13,19 @@ export interface SnapshotToolsProps {
   onRemove: (id: string) => void;
   /** 開いた状態で出す（画面の確かめ用） */
   initialOpen?: boolean;
+  /** 開いている中身（親が持つとき。FP のメニューから開く） */
+  mode?: SnapshotMode;
+  onMode?: (m: SnapshotMode) => void;
+  /** ボタンの並び（控え: この時点を残す・控えの一覧）を描く。既定は描く */
+  bar?: boolean;
 }
 
-export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen }: SnapshotToolsProps) {
-  const [mode, setMode] = useState<null | "take" | "list">(initialOpen === true ? "list" : null);
+export type SnapshotMode = null | "take" | "list";
+
+export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen, mode: outer, onMode, bar = true }: SnapshotToolsProps) {
+  const [inner, setInner] = useState<SnapshotMode>(initialOpen === true ? "list" : null);
+  const mode = outer !== undefined ? outer : inner;
+  const setMode = (m: SnapshotMode) => (onMode !== undefined ? onMode(m) : setInner(m));
   const [memo, setMemo] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -55,6 +65,7 @@ export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen }: S
 
   return (
     <>
+      {bar ? (
       <div class="hs-tools snap-tools" role="group" aria-label="控え">
         <span class="hs-tools-h">控え</span>
         <button type="button" class="link-btn" onClick={() => setMode(mode === "take" ? null : "take")} aria-expanded={mode === "take"} data-snapshot-take>
@@ -64,6 +75,7 @@ export function SnapshotTools({ list, stored, onTake, onRemove, initialOpen }: S
           控えの一覧（{list.length}件）
         </button>
       </div>
+      ) : null}
       {msg !== null ? (
         <p class="hs-msg" role="status" data-snapshot-msg>
           {msg}

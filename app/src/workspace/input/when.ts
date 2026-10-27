@@ -49,6 +49,8 @@ export interface WhenCtx {
   /** 既定の入れ方（欄ごとに決める。既定は人の年齢） */
   defaultMode: WhenMode;
   ageMeans: AgeMeans;
+  /** 年月の見せ方。birth は生年月の欄と同じ（欄には「2048-04」、読みは「23歳（令和30年4月）」） */
+  dateStyle?: "birth";
   /** 空にできる（空は「最後まで」など、欄ごとの意味） */
   optional: boolean;
   /** 終わりの欄の始まり（「10年間」を読む・「始まりから10年間」と見せる） */
@@ -157,7 +159,7 @@ const allowed = (ctx: WhenCtx, mode: WhenMode) => ctx.modes.includes(mode);
 
 const examples = (ctx: WhenCtx): string => {
   const ex: string[] = [];
-  if (allowed(ctx, "ym")) ex.push("2041年6月", "2041/6", "令和23年6月");
+  if (allowed(ctx, "ym")) ex.push(ctx.dateStyle === "birth" ? "2041-06" : "2041年6月", "2041/6", "令和23年6月");
   if (allowed(ctx, "age") && ctx.people.length > 0) {
     // 既定の人が子なら子の年齢の例（今20歳未満の人は22歳）
     const young = ctx.person !== null && (reachMonths(ctx.h, ctx.person, ctx.baseMonth) ?? 0) < 20 * 12;
@@ -433,14 +435,14 @@ export function showWhen(tp: Timepoint | null | undefined, ctx: WhenCtx): string
     const t = ctx.ageMeans === "before" ? total + 1 : ctx.ageMeans === "after" ? total - 1 : total;
     return ageText(t);
   }
-  return formatYearMonth(at);
+  return ctx.dateStyle === "birth" ? at : formatYearMonth(at);
 }
 
 /** 欄の下に出す読み替えた形（例: 「ご主人が60歳になる月（2046年4月）」「入居から10年後（2038年4月）」） */
 export function readWhen(tp: Timepoint | null | undefined, ctx: WhenCtx, nullText?: string): string {
   if (tp == null) return nullText ?? "空欄";
   const ym = resolveTimepoint(ctx.h, tp);
-  const when = ym === null ? "（解けない時点）" : formatYearMonth(ym);
+  const when = ym === null ? "（解けない時点）" : ctx.dateStyle === "birth" ? wareki(ym) : formatYearMonth(ym);
   let out: string;
   if (tp.memberAge !== undefined) {
     const a = tp.memberAge;
@@ -469,6 +471,10 @@ export function readWhen(tp: Timepoint | null | undefined, ctx: WhenCtx, nullTex
     const d = offsetMonths(tp);
     const base = e?.ym != null ? formatYearMonth(e.ym) : "（解けない時点）";
     out = d === 0 ? `${eventLabel(ctx, tp.event)}の月（${when}）` : `${eventWords(eventLabel(ctx, tp.event), d)}（${eventLabel(ctx, tp.event)}は${base}・${when}）`;
+  } else if (ctx.dateStyle === "birth") {
+    // 生年月の欄と同じ読み: 欄の人の年齢（和暦）。年齢が出せなければ和暦だけ
+    const total = ctx.person !== null ? reachMonths(ctx.h, ctx.person, tp.at as string) : null;
+    out = total !== null && total >= 0 ? `${Math.floor(total / 12)}歳（${when}）` : when;
   } else {
     const at = tp.at as string;
     const parts = [wareki(at).replace(/\d+月$/, "")];
