@@ -239,10 +239,10 @@ export class RegulationStore {
     return out;
   }
 
-  /** 引く日（basis から決めたもの）の行を1つだけ選ぶ */
+  /** 引く日（basis から決めたもの）の行を1つだけ選ぶ。値が無ければ E_PARAM_NO_VALUE（ID は値 ID と引く日。画面がどの時期の値が無いかを出すため） */
   select(id: string, date: CivilDate, mc: MatchContext = {}): Selected {
     const s = this.trySelect(id, date, mc);
-    if (s === null) throw new EngineError("E_PARAM_NO_VALUE", [id]);
+    if (s === null) throw new EngineError("E_PARAM_NO_VALUE", [id, formatDate(date)]);
     return s;
   }
 

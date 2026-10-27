@@ -8,6 +8,12 @@ import type { HostApi, WebSession } from "./host.ts";
 import { forEngine } from "./moneyRows.ts";
 import { isEngineError, type EngineError, type EngineRequest, type PreviewResult } from "./types.ts";
 
+/** 枠のエラーを置く（エンジンのエラーは符号と ID、ホストのエラーは符号だけ。null で消す） */
+function setError(s: Slot, e: EngineError | string | null): void {
+  s.error = e === null ? null : typeof e === "string" ? e : e.error.code;
+  s.errorIds = e === null || typeof e === "string" ? [] : (e.error.ids ?? []);
+}
+
 export type ResultSource = "preview" | "canonical";
 
 export interface SlotView {
@@ -15,6 +21,8 @@ export interface SlotView {
   result: PreviewResult | null;
   /** エラーの符号（エンジン・ホストのエラー。値は含まない） */
   error: string | null;
+  /** エラーの ID（値 ID・引く日など。顧客の数字は含まない。画面の文に使う） */
+  errorIds: readonly string[];
   /** 結果の出どころ: 先出し（確定前）か正の計算か */
   source: ResultSource | null;
   /** 要求が変わって、正の計算がまだ終わっていない */
@@ -36,6 +44,7 @@ interface Slot {
   resultRev: number;
   source: ResultSource | null;
   error: string | null;
+  errorIds: readonly string[];
   /** 先出しの表（正の計算と比べるため。rev ごと） */
   previewTable: { rev: number; table: string } | null;
 }
@@ -73,8 +82,8 @@ export class DualEngine {
 
   view(id: string): SlotView {
     const s = this.slots.get(id);
-    if (s === undefined) return { result: null, error: null, source: null, stale: false };
-    return { result: s.result, error: s.error, source: s.source, stale: s.resultRev !== s.rev || s.source !== "canonical" };
+    if (s === undefined) return { result: null, error: null, errorIds: [], source: null, stale: false };
+    return { result: s.result, error: s.error, errorIds: s.errorIds, source: s.source, stale: s.resultRev !== s.rev || s.source !== "canonical" };
   }
 
   /** すべての枠が正の計算の結果になっているか */
@@ -95,7 +104,7 @@ export class DualEngine {
       const text = JSON.stringify(forEngine(req));
       const s = this.slots.get(id);
       if (s === undefined) {
-        this.slots.set(id, { request: text, rev: 1, result: null, resultRev: 0, source: null, error: null, previewTable: null });
+        this.slots.set(id, { request: text, rev: 1, result: null, resultRev: 0, source: null, error: null, errorIds: [], previewTable: null });
         changed.push(id);
       } else if (s.request !== text) {
         s.request = text;
@@ -110,14 +119,14 @@ export class DualEngine {
     const s = this.slots.get(id);
     if (s === undefined) return;
     if (isEngineError(out)) {
-      s.error = out.error.code;
+      setError(s, out);
       return;
     }
     const r = out as PreviewResult;
     s.result = r;
     s.resultRev = s.rev;
     s.source = "preview";
-    s.error = null;
+    setError(s, null);
     s.previewTable = { rev: s.rev, table: JSON.stringify(r.table) };
   }
 
@@ -146,7 +155,7 @@ export class DualEngine {
       session.set(slotsJson);
       const out = JSON.parse(session.compute(JSON.stringify(changed), '{"preview":true}')) as Record<string, { result: unknown }> | EngineError;
       this.record({ kind: "release", ms: this.opts.now() - t });
-      if (isEngineError(out)) for (const id of changed) (this.slots.get(id) as Slot).error = out.error.code;
+      if (isEngineError(out)) for (const id of changed) setError(this.slots.get(id) as Slot, out);
       else for (const id of changed) this.applyPreview(id, out[id]?.result);
       this.opts.onChange();
     }
@@ -163,7 +172,7 @@ export class DualEngine {
       const slotsJson = `{${changed.map((id) => `${JSON.stringify(id)}:${(this.slots.get(id) as Slot).request}`).join(",")}}`;
       const out = JSON.parse(session.slide(slotsJson, focusId)) as { focus: Record<string, { result: unknown }> } | EngineError;
       this.record({ kind: "preview", ms: this.opts.now() - t });
-      if (isEngineError(out)) (this.slots.get(focusId) as Slot).error = out.error.code;
+      if (isEngineError(out)) setError(this.slots.get(focusId) as Slot, out);
       else this.applyPreview(focusId, out.focus[focusId]?.result);
     }
     this.opts.onChange();
@@ -205,7 +214,7 @@ export class DualEngine {
           // 計算している間に要求が変わった枠は捨てる（次の正の計算を待つ）
           if (s === undefined || r === undefined || s.rev !== rev || r.rev !== rev) continue;
           if (isEngineError(r.result)) {
-            s.error = r.result.error.code;
+            setError(s, r.result);
             continue;
           }
           if (s.previewTable !== null && s.previewTable.rev === rev && s.previewTable.table !== JSON.stringify(r.result.table)) {
@@ -215,12 +224,12 @@ export class DualEngine {
           s.result = r.result;
           s.resultRev = rev;
           s.source = "canonical";
-          s.error = null;
+          setError(s, null);
         }
       } catch (e) {
         for (const { id } of sent) {
           const s = this.slots.get(id);
-          if (s !== undefined) s.error = typeof e === "string" ? e : "E_HOST";
+          if (s !== undefined) setError(s, typeof e === "string" ? e : "E_HOST");
         }
       } finally {
         this.inflight = null;
