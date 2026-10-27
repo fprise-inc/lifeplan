@@ -21,7 +21,7 @@ export interface SurvivorWork {
 export interface ContingencyPlan {
   /** 遺族の側の前提（生活費の割合・整理資金・予備の生活資金・死亡退職金・弔慰金）。必要保障額の推移と死亡の想定の両方に使う */
   survivor: SurvivorAssumptions;
-  /** 必要保障額を累計する期間の終わり（省略は配偶者の平均余命） */
+  /** 必要保障額を累計する期間の終わり（省略は配偶者の平均余命。配偶者がいなければ末子の独立） */
   horizon?: { kind: "lifeExpectancy" | "age" | "youngestIndependence"; age?: number };
   /** 必要保障額の出し方（省略は積み上げ方式）と、逆算方式で遺族が何歳になるまで資産が尽きないようにするか（省略は平均余命。0071） */
   protection?: { method?: "accumulation" | "reverse"; reverseUntilAge?: number };

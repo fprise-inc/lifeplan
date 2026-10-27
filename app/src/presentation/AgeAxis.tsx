@@ -12,7 +12,7 @@ export const AGE_ROW = 14;
 /** 年齢の段が増えた分の高さ（16px のとき。1段なら 0）。グラフの下の余白をこの分だけ広げる */
 export const ageExtra = (rows: number): number => Math.max(0, rows - 1) * AGE_ROW;
 
-/** 札の見出し（例: 「2045年 ご主人64歳・奥様62歳・長女35歳」。年のあとは全角の空白。家族の文字が無ければ年だけ） */
+/** 札の見出し（例: 「2045年 ご主人64歳・奥様62歳・第1子35歳」。年のあとは全角の空白。家族の文字が無ければ年だけ） */
 export const yearHead = (year: number, family: string | undefined): string => (family !== undefined && family !== "" ? `${year}年\u3000${family}` : `${year}年`);
 
 /**
