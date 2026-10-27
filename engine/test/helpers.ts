@@ -4,17 +4,21 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { inject } from "vitest";
 import type { PackJson } from "../scripts/regulation.ts";
+import { buildFictionalPacks, buildRealPacks } from "./packs.ts";
 import { REPO_DIR } from "../scripts/lib.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 
 let real: PackJson[] | undefined;
 let fictional: PackJson[] | undefined;
 
-/** 製品の制度データ（data/regulation。原本での確認待ちの値を含む）。組み立ては流す前に1回だけ（test/global-setup.ts） */
-export const realPacks = (): PackJson[] => (real ??= inject("realPacks"));
+// vitest の中では流す前に1回だけ組み立てたもの（test/global-setup.ts）を使い、vitest の外の道具（scripts/l2-report.ts など）ではその場で組み立てる
+const inVitest = process.env.VITEST !== undefined;
 
-/** 【架空の見本】テスト用の制度データ（値ID の test. を外して製品のパックの代わりに引く。test/global-setup.ts） */
-export const fictionalPacks = (): PackJson[] => (fictional ??= inject("fictionalPacks"));
+/** 製品の制度データ（data/regulation。原本での確認待ちの値を含む） */
+export const realPacks = (): PackJson[] => (real ??= inVitest ? inject("realPacks") : buildRealPacks());
+
+/** 【架空の見本】テスト用の制度データ（値ID の test. を外して製品のパックの代わりに引く） */
+export const fictionalPacks = (): PackJson[] => (fictional ??= inVitest ? inject("fictionalPacks") : buildFictionalPacks());
 
 /** 架空のモデル世帯（data/modelHouseholds。CC0） */
 export function modelHousehold(name: string): EngineRequest {
