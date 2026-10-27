@@ -233,10 +233,9 @@ describe("段階の操作（足す・外す・選ぶ）", () => {
     act("work", `work/${self}/start`);
     act("work", `work/${spouse}/start`);
     set("work", `work/${spouse}/now/type`, "partTime");
-    set("work", `work/${self}/now/annual`, 5800000);
-    set("work", `work/${self}/now/bonus`, 1200000);
-    set("work", `work/${spouse}/now/annual`, 1000000);
-    set("work", `work/${spouse}/now/bonus`, 0);
+    // 標準の今の働き方は年収（賞与込み）の1欄（賞与は統計の割合で分ける。0078）
+    set("work", `work/${self}/now/total`, 7000000);
+    set("work", `work/${spouse}/now/total`, 1000000);
     act("education", `edu/${child}/add`);
     expect(wh.request.input.household.goals?.[0]?.education?.stages.map((s) => s.stage)).toEqual(["university"]);
     const r = preview(wh.request);

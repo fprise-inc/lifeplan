@@ -70,7 +70,8 @@ describe("子の独立の年月: 新しく足す子は年齢の時点の標準�
     expect(child.leaves).toEqual({ memberAge: { member: child.id, years: 22, ageSwitch: "schoolYear" } });
     expect(w1.assumed[`family/${child.id}/leaves`]).toContain("22歳");
     const birth = (w: WorkingHousehold) => allFields(buildStage("family", w)).find((f) => f.key === `family/${child.id}/birth`)!;
-    const leaves = (w: WorkingHousehold) => allFields(buildStage("family", w)).find((f) => f.key === `family/${child.id}/leaves`)!;
+    // 子の独立は子ども・教育のカードの詳細の「独立の時期」（0078）
+    const leaves = (w: WorkingHousehold) => allFields(buildStage("education", w)).find((f) => f.key === `family/${child.id}/leaves`)!;
     const w2 = birth(w1).set(w1, "2020-04");
     expect(leaves(w2).get(w2)).toMatchObject({ value: "2043-04", hint: "23歳" });
     // 4月1日生まれ: 早生まれと同じ学年（22歳になる年度の終わりが1年早い）
@@ -80,7 +81,7 @@ describe("子の独立の年月: 新しく足す子は年齢の時点の標準�
     const w3 = leaves(w2).set(w2, "2045-03");
     const w4 = birth(w3).set(w3, "2019-05");
     expect(leaves(w4).get(w4).value).toBe("2045-03");
-    const back = buildStage("family", w4).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((a) => a.key === `family/${child.id}/leavesStandard`)!;
+    const back = buildStage("education", w4).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((a) => a.key === `family/${child.id}/leavesStandard`)!;
     const w5 = back.run(w4);
     expect(leaves(w5).get(w5).value).toBe("2042-04");
   });
@@ -104,7 +105,7 @@ describe("子の独立の年月: 新しく足す子は年齢の時点の標準�
     const birth = (w: WorkingHousehold) => allFields(buildStage("family", w)).find((f) => f.key === `family/${child.id}/birth`)!;
     const w2 = birth(w1).set(w1, "2028-04");
     expect(birth(w2).get(w2).hint).toBe("これから生まれる予定（令和10年4月）");
-    const leaves = allFields(buildStage("family", w2)).find((f) => f.key === `family/${child.id}/leaves`)!;
+    const leaves = allFields(buildStage("education", w2)).find((f) => f.key === `family/${child.id}/leaves`)!;
     expect(leaves.get(w2)).toMatchObject({ value: "2051-04", hint: "23歳" });
     expect(() => preview(w2.request)).not.toThrow();
   });
@@ -138,7 +139,8 @@ describe("働き方: 給与の種類どうしで変えたら推定を入れ替�
 
   it("人が入れた年収・健康保険は残す", () => {
     const { wh, spouse, f } = start();
-    let w = f("/annual").set(wh, 2400000);
+    // 年収（賞与を除く）は働き方の期間（詳しく）の欄（標準は年収〔賞与込み〕の1欄。0078）
+    let w = allFields(buildStage("work", wh)).find((x) => x.key === `work/period/${periodOf(wh, spouse.id).id}/annual`)!.set(wh, 2400000);
     // 健康保険の種類は詳細（働き方の期間）の欄
     w = allFields(buildStage("work", w)).find((x) => x.key === `work/period/${periodOf(w, spouse.id).id}/hi`)!.set(w, "union");
     const w2 = allFields(buildStage("work", w)).find((x) => x.key.startsWith(`work/${spouse.id}/now`) && x.key.endsWith("/type"))!.set(w, "partTime");

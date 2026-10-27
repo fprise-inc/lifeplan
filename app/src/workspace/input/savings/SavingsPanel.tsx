@@ -335,7 +335,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
           <h3>
             口座ごとの残高・積立額{method === "accounts" ? "・利回り" : ""}
             <Help label="口座ごとの残高・積立額">
-              残高は今の時価。{method === "accounts" ? "利回りは年の見込み（FPが入れる値。運用の費用を引く前。空欄は前提条件の利回り）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。
+              残高は今の時価。{method === "accounts" ? "利回りは年の見込みで、運用の費用（信託報酬など）を引いた後の利回りを入れます（詳細で運用の費用を入れたときは、費用を引く前の利回り。空欄は前提条件の利回り）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。
             </Help>
           </h3>
           <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} editField={editField} find={find} fields={fields} onEdit={onEdit} />
@@ -364,7 +364,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
           運用の期間
           <Help label="運用の期間">結果の画面のグラフの上の帯と同じです（帯の切れ目をドラッグしても、プランごとに動かせます）。</Help>
         </h3>
-        <PeriodSection wh={wh} onEdit={onEdit} now={now} stopAge={stopAge} stopShown={stopShown} estimate={estimate} fields={fields} />
+        <PeriodSection wh={wh} level={level} onEdit={onEdit} now={now} stopAge={stopAge} stopShown={stopShown} estimate={estimate} fields={fields} />
       </section>
 
       {method !== "total" ? <FlowSection wh={wh} level={level} flow={flow} onEdit={onEdit} /> : (
@@ -687,7 +687,8 @@ function AccountsTable(p: {
                   </span>
                   <span class="memo">{info.memo}</span>
                   <span class="own">
-                    {multiOwner ? (
+                    {/* 預貯金の名義は詳細で選ぶ（標準は読むだけ。0078） */}
+                    {multiOwner && (level === "detail" || a.kind !== "deposit") ? (
                       <select aria-label={`${name}の名義`} value={a.owner} onChange={(e) => editAcc((hh) => void (find(hh, a.id).owner = (e.currentTarget as HTMLSelectElement).value))}>
                         {owners.map((o) => (
                           <option key={o.value} value={o.value}>
@@ -1088,8 +1089,8 @@ function PayoutSection({ wh, level, fields, onEdit }: { wh: WorkingHousehold; le
   );
 }
 
-function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; now: number; stopAge: number | null; stopShown: number; estimate: StopEstimate; fields: FieldMap }) {
-  const { wh, onEdit, now, stopAge, stopShown, estimate, fields } = p;
+function PeriodSection(p: { wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; now: number; stopAge: number | null; stopShown: number; estimate: StopEstimate; fields: FieldMap }) {
+  const { wh, level, onEdit, now, stopAge, stopShown, estimate, fields } = p;
   const req = wh.request;
   const dd = drawdownOf(req);
   const wOn = dd.method !== "none";
@@ -1103,26 +1104,31 @@ function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) 
           <div class="pt">↑ 積み立てる</div>
           <div class="pv">
             今（{now}歳）〜{" "}
-            <NumBox
-              value={stopAge}
-              unit="age"
-              size="s"
-              optional
-              est={est}
-              placeholder={String(estimate.age)}
-              label="積立をやめる年齢"
-              data="stop-age"
-              id={fieldDomId("sav/stopAge")}
-              onCommit={(v) =>
-                onEdit(
-                  mutate(wh, (hh, r) => {
-                    const age = typeof v === "number" ? Math.max(now + 1, Math.min(90, v)) : null;
-                    setStopAge(hh, r.input.baseMonth, age);
-                    dropDoneUnallocated(hh, r);
-                  }),
-                )
-              }
-            />{" "}
+            {/* 積立をやめる年齢は詳細で直す（標準は読むだけ。空欄は退職の年まで・推定。0078） */}
+            {level === "detail" ? (
+              <NumBox
+                value={stopAge}
+                unit="age"
+                size="s"
+                optional
+                est={est}
+                placeholder={String(estimate.age)}
+                label="積立をやめる年齢"
+                data="stop-age"
+                id={fieldDomId("sav/stopAge")}
+                onCommit={(v) =>
+                  onEdit(
+                    mutate(wh, (hh, r) => {
+                      const age = typeof v === "number" ? Math.max(now + 1, Math.min(90, v)) : null;
+                      setStopAge(hh, r.input.baseMonth, age);
+                      dropDoneUnallocated(hh, r);
+                    }),
+                  )
+                }
+              />
+            ) : (
+              <b data-stop-age-read>{stopAge ?? estimate.age}</b>
+            )}{" "}
             歳でやめる
           </div>
           {est ? (
@@ -1130,7 +1136,7 @@ function PeriodSection(p: { wh: WorkingHousehold; onEdit: (w: WorkingHousehold) 
               <EstTag text={estimate.retired ? `推定あり: 退職はもう過ぎているので、${estimate.until}まで` : `推定あり: ${estimate.until}まで`} />
             </div>
           ) : null}
-          <FieldStateLine f={fields.get("sav/stopAge")} wh={wh} onEdit={onEdit} noBasis />
+          {level === "detail" ? <FieldStateLine f={fields.get("sav/stopAge")} wh={wh} onEdit={onEdit} noBasis /> : null}
         </div>
         <div class={`per-c ${wOn ? "hold" : "off"}`}>
           <div class="pt">→ 据え置く</div>

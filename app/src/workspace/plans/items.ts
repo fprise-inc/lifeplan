@@ -742,6 +742,9 @@ function buildCatalogOf(wh: WorkingHousehold, selfId: string, demo: DemoHousehol
   // 本人の「働く最後の年齢（現状の予定）」の欄は、対策の「働く最後の年齢」と同じものを動かす。欄を足すと同じ値の部品が2つ並び、
   // 欄で入れた値は対策のつまみの値（欄の後に当てる）で上書きされて効かないため、一覧に出さない
   if (base.retireAge !== undefined) skip.add(`work/${selfId}/retireAge`);
+  // 年収（賞与込み）の欄は2つの値（年収・賞与）の合計を見せる欄なので、動かす項目にはしない（差分は年収・賞与の当て先に付き、
+  // 働き方の期間の年収・賞与の欄が動かす項目になる。0078）
+  for (const m of h.members) skip.add(`work/${m.id}/now/total`);
   const items = [...leverItems(wh, selfId, demo), ...feeItem(wh), ...investItems(wh), ...surplusItems(wh), ...loanItems(wh), ...mixItems(wh), ...fieldItems(wh, buildStages(wh), skip)];
   return { selfId, items, byKey: new Map(items.map((i) => [i.key, i])) };
 }

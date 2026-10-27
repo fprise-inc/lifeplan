@@ -334,7 +334,8 @@ function debtorFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         key: `${k}/debtors`,
         item: "debt.debtors",
         label: "借りる人",
-        level: d.kind === "mortgage" ? "simple" : "detail",
+        // 既定は本人。ペアローンは「＋ ペアローン」のボタンで足すので、借りる人は詳細（0078）
+        level: "detail",
         kind: "select",
         structural: true,
         options,
@@ -398,7 +399,7 @@ const DISEASE_RIDERS = [
  * 住宅ローンの団信の欄（対象・事由（特約）・保障割合・夫婦連生・就業不能の特約の月数）。住まい・ローンのカードと、万一の画面の「団信」で同じ欄を使う
  * （欄のキーが同じなので、どちらで直しても同じ世帯データが変わる）
  */
-export function creditLifeFields(wh: WorkingHousehold, d: Debt): FieldDef[] {
+export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" | "detail" = "simple"): FieldDef[] {
   const find = byId(debts, d.id);
   const k = `housing/debt/${d.id}`;
   const cl = (h: Household, w: WorkingHousehold) => (find(h, w) as Debt | undefined)?.creditLife;
@@ -417,7 +418,7 @@ export function creditLifeFields(wh: WorkingHousehold, d: Debt): FieldDef[] {
       key: `${k}/creditLife`,
       item: "debt.creditLife",
       label: "団体信用生命保険（団信）の対象",
-      level: "simple",
+      level,
       kind: "select",
       options: [{ value: "", label: "入っていない・未確認" }, ...memberOptions(wh, (m) => d.debtors.some((x) => x.member === m.id))],
       help: "亡くなったとき・高度障害のとき、この人の負担分の残高が消えます。民間の住宅ローンの多くは加入が条件です（フラット35 は任意なので確かめてください）",
@@ -557,7 +558,17 @@ function creditWarn(h: Household, hs: DebtHousing | undefined): string | null {
   return "2028年以後に入居する新築は、省エネ基準適合住宅・一般の住宅だと控除の対象になりません。ZEH水準・認定住宅なら住宅の種類を選んでください";
 }
 
-/** 住宅ローン控除の条件（要約の1行と住宅の種類は簡易、ほかは詳細。0052） */
+/** 住宅ローン控除が効く期間の目安（入居から13年。新築の控除の期間の長い方） */
+const CREDIT_YEARS = 13;
+
+/** 入居から13年以内か、これから入居する（購入の予定）ローンか。住宅の種類を標準に出すかの決め（0078） */
+export function creditActive(h: Household, hs: DebtHousing | undefined, baseMonth: string): boolean {
+  if (hs === undefined || hs.creditDisabled === true) return false;
+  const ym = moveInOf(h, hs);
+  return ym !== null && monthsBetween(ym, baseMonth) < CREDIT_YEARS * 12;
+}
+
+/** 住宅ローン控除の条件（要約の1行は標準、住宅の種類は控除が効く間だけ標準、ほかは詳細。0052・0078） */
 function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
   const key = creditKey(d.id);
   const balanceMode = fromBalance(wh, d.id);
@@ -608,7 +619,8 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         item: "debt.housing",
         ...(hs === undefined ? { sideEffects: "入れると住宅ローン控除の条件（控えめの既定）を置きます" } : {}),
         label: "入居の年月（控除）",
-        level: hs === undefined && balanceMode ? "simple" : "detail",
+        // 控除の条件は詳細（入居から13年を過ぎたローンは効かない。今の残高から入れたローンの未入力の知らせは、要約の1行と確かめの一覧に出る。0078）
+        level: "detail",
         kind: "ym",
         help: `住み始めた年月。控除の期間と借入限度額は入居の年で決まります（${CREDIT_DATA_FROM_YEAR}年より前の入居は計算しません）`,
         get: (w) => {
@@ -672,7 +684,8 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         key,
         item: "debt.housing",
         label: "住宅の種類（控除）",
-        level: "simple",
+        // 入居から13年以内のローン・購入の予定のローンだけ標準（控除の額に効く間だけ。0078）
+        level: creditActive(wh.request.input.household, hs, wh.request.input.baseMonth) ? "simple" : "detail",
         kind: "select",
         options: PROPERTY_TYPES,
         help: "わからなければ控えめな既定（新築は省エネ基準適合住宅、中古はその他の住宅）のままにします",
@@ -880,6 +893,84 @@ export function switchEntry(wh: WorkingHousehold, id: string, e: LoanEntry): Wor
   return w;
 }
 
+// ---- 変動金利の見込み（標準の1欄。0078） ----
+
+/** 金利の見込みの型: 今の金利からの上乗せ（5年後・10年後）。「今の金利のまま」は今より後の段を持たない */
+const RATE_OUTLOOKS: readonly { value: string; label: string; adds: readonly number[] }[] = [
+  { value: "flat", label: "今の金利のまま", adds: [] },
+  { value: "up1", label: "10年で1%上がる（5年後に＋0.5%・10年後に＋1%）", adds: [0.005, 0.01] },
+  { value: "up2", label: "10年で2%上がる（5年後に＋1%・10年後に＋2%）", adds: [0.01, 0.02] },
+];
+const OUTLOOK_CUSTOM = { value: "custom", label: "金利の段階で入れている（詳細で直す）" };
+/** 見込みの段の間隔（月） */
+const OUTLOOK_STEP_MONTHS = 60;
+
+/** 見込みの起点（今か、これから借りるなら借入の月）と、その時点の金利の段の番号 */
+function outlookBase(h: Household, d: Debt, baseMonth: string): { ref: string; index: number } {
+  const start = resolveTimepoint(h, d.start);
+  const ref = start !== null && start > baseMonth ? start : baseMonth;
+  let index = 0;
+  d.rateSchedule.forEach((s, i) => {
+    const ym = resolveTimepoint(h, s.from);
+    if (ym !== null && ym <= ref) index = i;
+  });
+  return { ref, index };
+}
+
+/** 変動金利のローンか（今か借入の月の金利の段が変動金利） */
+export function isVariableNow(h: Household, d: Debt, baseMonth: string): boolean {
+  return d.rateSchedule[outlookBase(h, d, baseMonth).index]?.type === "variable";
+}
+
+/** 今の金利の段より後の段から、見込みの型を読む（間隔5年・上乗せが型どおりなら、その型。段が無ければ「今の金利のまま」） */
+export function rateOutlookOf(h: Household, d: Debt, baseMonth: string): string {
+  const { ref, index } = outlookBase(h, d, baseMonth);
+  const cur = Number(d.rateSchedule[index]?.rate ?? "0");
+  const later = d.rateSchedule.slice(index + 1).map((s) => ({ ym: resolveTimepoint(h, s.from), rate: Number(s.rate), type: s.type }));
+  if (later.length === 0) return "flat";
+  const hit = RATE_OUTLOOKS.find(
+    (o) =>
+      o.adds.length === later.length &&
+      later.every((x, j) => x.ym !== null && x.ym > ref && x.type === "variable" && Math.abs(x.rate - (cur + (o.adds[j] as number))) < 1e-9 && (j === 0 || monthsBetween(later[j - 1]?.ym as string, x.ym) === OUTLOOK_STEP_MONTHS)),
+  );
+  return hit?.value ?? OUTLOOK_CUSTOM.value;
+}
+
+/** 変動金利の見込みの欄: 今の金利の段より後の段を、選んだ型の段（今から5年ごと）に置き換える。「金利の段階で入れている」は詳細の段のまま */
+function rateOutlookField(d: Debt, k: string): FieldDef {
+  return withAddress(
+    field({
+      key: `${k}/rateOutlook`,
+      item: "debt.rateSchedule",
+      label: "金利の見込み（変動金利）",
+      level: "simple",
+      kind: "select",
+      structural: true,
+      options: [...RATE_OUTLOOKS.map((o) => ({ value: o.value, label: o.label })), OUTLOOK_CUSTOM],
+      help: "変動金利は、今の金利のままだと楽観の見込みになります。上がる見込みを選ぶと、今（これから借りるなら借入の月）から5年ごとに金利の段を置きます。細かい段は詳細の「金利の段階」で直せます",
+      get: (w) => {
+        const x = (w.request.input.household.debts ?? []).find((y) => y.id === d.id);
+        return { value: x === undefined ? null : rateOutlookOf(w.request.input.household, x, w.request.input.baseMonth) };
+      },
+      set: (w, v) => {
+        const o = RATE_OUTLOOKS.find((x) => x.value === v);
+        if (o === undefined) return w;
+        return mutate(w, (h, req) => {
+          const x = (h.debts ?? []).find((y) => y.id === d.id);
+          if (x === undefined) return;
+          const { ref, index } = outlookBase(h, x, req.input.baseMonth);
+          const cur = Number(x.rateSchedule[index]?.rate ?? "0");
+          x.rateSchedule = [
+            ...x.rateSchedule.slice(0, index + 1),
+            ...o.adds.map((add, j) => ({ id: newId(), from: { at: addMonths(ref, OUTLOOK_STEP_MONTHS * (j + 1)) }, type: "variable", rate: rateText(cur + add) })),
+          ];
+        });
+      },
+    }),
+    () => at(d.id, "debt.rateSchedule"),
+  );
+}
+
 /** ローン1本の欄（入れ方の区分ごとに簡易に出す欄を変える） */
 export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
   const mode = entryOf(wh, d.id);
@@ -893,6 +984,8 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
   if (mode === "principal") fields.push(principalField(wh, d, k, S), startField(wh, d, k, S), rateField(wh, d, k, S), termField(wh, d, k, S), paymentField(wh, d, k, S), balanceField(wh, d, k, D));
   else if (mode === "payment") fields.push(paymentField(wh, d, k, S), rateField(wh, d, k, S), startField(wh, d, k, S), termField(wh, d, k, S), principalField(wh, d, k, D), balanceField(wh, d, k, D));
   else fields.push(balanceField(wh, d, k, S), paymentField(wh, d, k, S), payoffField(wh, d, k, mortgage ? S : D), rateField(wh, d, k, D), startField(wh, d, k, D), principalField(wh, d, k, D));
+  // 変動金利の住宅ローンは、金利の見込みを標準に1欄（今の金利のままは楽観。0078）
+  if (mortgage && isVariableNow(wh.request.input.household, d, wh.request.input.baseMonth)) fields.push(rateOutlookField(d, k));
   fields.push(
     plain({ key: `${k}/balanceAsOf`, item: "debt.balanceAsOf", label: "残高の時点", level: D, kind: "ym", find, path: ["balanceAsOf"], optional: true, help: "年末残高証明書なら前の年の12月" }),
     plain({ key: `${k}/rateType`, item: "debt.rateSchedule", label: "金利の種類", level: D, kind: "select", options: RATE_TYPES, find: firstRate, path: ["type"] }),
@@ -904,7 +997,8 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
       withAddress(plain({ key: `${k}/product`, item: "debt.product", label: "商品", level: D, kind: "select", options: [{ value: "bank", label: "銀行などの住宅ローン" }, { value: "flat35", label: "フラット35（全期間固定）" }], find, path: ["product"], optional: true, fallback: "bank" }), () => at(d.id, "debt.product")),
       plain({ key: `${k}/fiveYear`, item: "debt.repayment", label: "5年ルール（返済額を5年ごとに見直す）", level: D, kind: "bool", find, path: ["repayment", "variableRules", "fiveYear"], optional: true, fallback: false }),
       plain({ key: `${k}/cap125`, item: "debt.repayment", label: "125%ルール（見直しの上限）", level: D, kind: "bool", find, path: ["repayment", "variableRules", "cap125"], optional: true, fallback: false }),
-      ...creditLifeFields(wh, d),
+      // 団信は住まい・ローンのカードでは詳細（既定の「あり」で多くは当たり、今の結果には効かない。万一の画面では標準のまま。0078）
+      ...creditLifeFields(wh, d, D),
     );
     if (isHomeLoan(d)) fields.push(...creditFields(wh, d, k));
   }

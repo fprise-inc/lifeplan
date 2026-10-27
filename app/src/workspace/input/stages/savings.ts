@@ -294,7 +294,8 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   const owner = wh.request.input.household.members.find((m) => m.id === a.owner);
   const fields: FieldDef[] = [
     plain({ key: `${k}/kind`, item: "account.kind", label: "種類", level: "simple", kind: "select", options: ACCOUNT_KINDS, find, path: ["kind"], structural: true }),
-    plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"] }),
+    // 預貯金の名義は詳細（NISA・iDeCo などは枠と税で名義が効くので標準。0078）
+    plain({ key: `${k}/owner`, item: "account.owner", label: "名義", level: a.kind === "deposit" ? "detail" : "simple", kind: "select", options: memberOptions(wh), find, path: ["owner"] }),
     yenBox({ key: `${k}/value`, item: "account.marketValue", label: "今の残高（時価）", level: "simple", basis: "once", find, path: ["marketValue"] }),
     plain({ key: `${k}/asOf`, item: "account.asOf", label: "残高の時点", level: "detail", kind: "ym", find, path: ["asOf"] }),
   ];
@@ -335,7 +336,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         level: "simple",
         kind: "pct",
         optional: true,
-        help: "空欄なら資産の配分と前提条件の利回り",
+        help: "運用の費用（信託報酬など）を引いた後の利回りで入れます（詳細の「運用の費用」に費用を入れたときは、費用を引く前の利回りにします）。空欄なら資産の配分と前提条件の利回り",
         get: (w) => {
           const x = find(w.request.input.household, w) as Account | undefined;
           return { value: x?.expectedReturn ?? null, ...(x !== undefined && x.expectedReturn === undefined ? { hint: `空欄: 年${(Number(rateOf(w.request, x)) * 100).toFixed(1)}%` } : {}) };
@@ -353,7 +354,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   if (methodOf(wh.request) === "accounts" && INVEST_KINDS.has(a.kind))
     fields.push(
       withAddress(
-        plain({ key: `${k}/fee`, item: "account.fee", label: "運用の費用（信託報酬など・年）", level: "detail", kind: "pct", find, path: ["fee"], optional: true, help: "上の利回りは費用を引く前の見込みです。ここに入れた費用を引いて計算します（税は計算で引きます）。空欄は0" }),
+        plain({ key: `${k}/fee`, item: "account.fee", label: "運用の費用（信託報酬など・年）", level: "detail", kind: "pct", find, path: ["fee"], optional: true, help: "ここに費用を入れると、上の利回りから費用を引いて計算します（そのときは上の利回りを費用を引く前の見込みにします）。空欄は0で、上の利回りを費用を引いた後の見込みとして使います（税は計算で引きます）" }),
         onAccount(a.id, "account.fee"),
       ),
     );
@@ -694,7 +695,8 @@ function periodGroup(wh: WorkingHousehold): GroupDef {
         key: "sav/stopAge",
         item: "account.contributions",
         label: "積立をやめる年齢（本人）",
-        level: "simple",
+        // 空欄は退職の月まで（推定）でほぼ当たるので詳細（0078）
+        level: "detail",
         kind: "int",
         suffix: "歳",
         min: 20,

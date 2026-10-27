@@ -88,7 +88,8 @@ function styleField(r: Residence, k: string): FieldDef {
       key: `${k}/style`,
       item: "residence.style",
       label: "建て方",
-      level: "simple",
+      // 修繕費の目安と評価の構造にだけ使う（お金の流れには効かない）ので詳細。0078
+      level: "detail",
       kind: "select",
       options: STYLES,
       sideEffects: "建物の構造が空か推定なら、建て方に合わせます",
@@ -216,7 +217,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
   } else if (r.kind === "own") {
     fields.push(
       styleField(r, k),
-      yenBox({ key: `${k}/tax`, item: "residence.propertyTax", label: "固定資産税・都市計画税", level: "simple", basis: "annual", find, path: ["propertyTax", "annual"] }),
+      yenBox({ key: `${k}/tax`, item: "residence.propertyTax", label: "固定資産税・都市計画税", level: "detail", basis: "annual", find, path: ["propertyTax", "annual"] }),
       { ...plain({ key: `${k}/taxGrowth`, item: "residence.propertyTax", label: "固定資産税の変動率（年）", level: "detail", kind: "pct", find, path: ["propertyTax", "growth"], optional: true, fallback: "0", help: "空欄なら変えません。建物の評価が下がる分は、段階や例外の年で入れられます" }), address: () => at(r.id, "residence.propertyTax", ["growth"]) },
       yenBox({ key: `${k}/maint`, item: "residence.maintenance", label: "修繕費・管理費（毎月）", level: "simple", basis: "monthly", find, path: ["maintenance", "monthly"] }),
       plain({ key: `${k}/maintGrowth`, item: "residence.maintenance", label: "修繕費の変動率（年）", level: "detail", kind: "pct", find, path: ["maintenance", "growth"], optional: true, help: "空欄なら変えません。外壁・屋根などの大きな修繕は、下の「出るお金」の修繕・リフォームの行で入れます" }),
@@ -440,14 +441,15 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
     {
       key: kv,
       title: "持ち家の評価（資産と負債の推移に使う）",
-      level: bought ? "detail" : "simple",
+      // 純資産と相続税の目安にだけ効き、お金の流れには効かないので詳細（0078）
+      level: "detail",
       ...(!bought && r.valuation?.value === undefined ? { note: "評価額を入れると、資産と負債の推移・提案書のバランスシート・相続税の目安に不動産として入ります（今は0円で数えています）" } : {}),
       fields: [
         yenBox({
           key: `${kv}/value`,
           item: "residence.valuation",
           label: bought ? "評価の基にする額" : "評価額（わからなければ購入の価格）",
-          level: bought ? "detail" : "simple",
+          level: "detail",
           basis: "once",
           find,
           path: ["valuation", "value"],
@@ -466,7 +468,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
           key: `${kv}/builtYear`,
           item: "residence.valuation",
           label: "建物が建った年",
-          level: bought ? "detail" : "simple",
+          level: "detail",
           kind: "int",
           suffix: "年",
           min: 1900,

@@ -98,12 +98,14 @@ describe("新しい世帯: 定年と定年後の再雇用の推定", () => {
 
   it("定年前の年収を直すと、推定のままの定年後の年収も直る。定年後の年収を入れたら、その後は直さない", () => {
     const { wh, self } = newWorker();
-    const w1 = edit(wh, `work/${self}/now/annual`, 6000000);
+    // 定年前の年収（賞与を除く）は、働き方の期間（詳しく）の欄で直す（標準の今の働き方は年収〔賞与込み〕の1欄。0078）
+    const mainKey = `work/period/${periods(wh, self)[0]!.id}/annual`;
+    const w1 = edit(wh, mainKey, 6000000);
     const post = () => periods(w1, self)[1]!;
     const want = reemploymentSalary("regular", w1.request.input.household.members[0]!, 6000000)!;
     expect(post().salary!.annual.value).toBe(want.value);
     const w2 = edit(w1, `work/${self}/postSalary`, 3000000);
-    const w3 = edit(w2, `work/${self}/now/annual`, 7000000);
+    const w3 = edit(w2, mainKey, 7000000);
     expect(periods(w3, self)[1]!.salary!.annual).toMatchObject({ value: 3000000, state: "confirmed" });
   });
 

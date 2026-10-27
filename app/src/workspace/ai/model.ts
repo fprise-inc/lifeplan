@@ -7,7 +7,7 @@ import { ITEM_LABELS } from "../../generated/labels.ts";
 import type { WorkingHousehold } from "../input/household.ts";
 import type { Catalog, DiffTarget, ItemValue, MovableItem } from "../plans/items.ts";
 import { savePlan, suggestName, type Values } from "../plans/plans.ts";
-import { resolveKey } from "../store/readings.ts";
+import { currentPeriodId, resolveKey } from "../store/readings.ts";
 
 /** 本体の失敗の符号 → FP に見せる文 */
 export const AI_MESSAGES: Record<string, string> = {
@@ -180,10 +180,16 @@ export function candidateRows(c: AiCandidate, wh: WorkingHousehold, cat: Catalog
     // 一覧の向き先）で送る AI のアプリも当てはまるよう、どちらで合っても当てはめる。候補はまだ場所（at）を持たないので、当てはまる欄が
     // 1つに決まらなければ取り込まない
     const input = wh.request.input as unknown as Record<string, unknown>;
+    // 働き方の値を構成員に向けて送る候補は、その人の今の働き方の期間の欄にも当てはめる（今の働き方の年収は標準では年収〔賞与込み〕の1欄で、
+    // 年収・賞与の動かす項目は働き方の期間の欄にある。0078）
+    const tid = "object" in d.target ? d.target.object : null;
+    const memberId = tid !== null && wh.request.input.household.members.some((m) => m.id === tid) ? tid : null;
+    const period = memberId !== null && d.item?.startsWith("employment.") === true ? currentPeriodId(input, memberId) : null;
+    const hits = (t: DiffTarget) => sameTarget(t, d.target) || (period !== null && sameTarget(t, { object: period }));
     const found = cat.items.filter((it) => {
       if (it.phase !== "field" || it.item !== d.item) return false;
       const r = resolveKey(it.key, input);
-      return (r !== null && r.kind === "address" && sameTarget(r.address.target as DiffTarget, d.target)) || sameTarget(it.target, d.target);
+      return (r !== null && r.kind === "address" && hits(r.address.target as DiffTarget)) || hits(it.target);
     });
     // 同じ値を指す欄（今の働き方の期間の欄と、その期間の欄など）は1つに数える
     const placeOf = (it: MovableItem) => {
