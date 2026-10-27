@@ -269,12 +269,17 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group-h h4 { margin: 0; font-size: 0.98rem; }
 .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 18px; }
 .fld { min-width: 0; }
-.fld-l { display: flex; align-items: center; gap: 6px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); margin-bottom: 3px; }
+.fld-l { display: flex; align-items: center; flex-wrap: nowrap; gap: 4px 6px; font-size: 0.86rem; font-weight: 700; color: var(--ink-2); margin-bottom: 3px; }
+.fld-l > label { min-width: 0; }
+/* 区画・まとまりの見出しの横の「?」 */
+.in-section h3 .help, .in-group-h h4 .help { margin-left: 6px; }
+.in-group-help { margin: 0 0 4px; }
+.ip-head h2 .help-btn { font-size: 0.78rem; }
 .fld-c { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .fld-c input[type="text"], .fld-c select { border: 1.5px solid var(--line); border-radius: 6px; padding: 5px 8px; background: #fff; min-width: 0; }
 .fld-c input.num { width: 9.5em; text-align: right; font-variant-numeric: tabular-nums; }
 .fld-c input.txt { width: 100%; max-width: 18em; }
-.fld-c input.ym { width: 7.5em; font-variant-numeric: tabular-nums; }
+.fld-c input.ym { width: 8em; font-variant-numeric: tabular-nums; }
 .fld-c input.when-in { width: 10.5em; max-width: 100%; font-variant-numeric: tabular-nums; }
 .fld-c select.when-mode, .fld-c select.when-who, .fld-c select.when-event { font-size: 0.85rem; padding: 4px 6px; }
 .fld-help.when-read { color: var(--ink); }
@@ -318,7 +323,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .ip-gaps ul { margin: 0; padding-left: 1.1em; }
 .ip-gaps li { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
 .ck { background: var(--card); border: 1px solid var(--card-line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
-.ck-head h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.ck-head h2 { margin: 0 0 4px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+.ck-basis { font-size: 0.78rem; }
 .ck-lead { margin: 0 0 6px; font-size: 0.86rem; color: var(--ink-2); }
 .ck-tools { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 0.86rem; }
 .ck-tools select { margin-left: 4px; }
@@ -579,7 +585,7 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-gh .in-note { margin: 0; font-weight: 400; }
 .cg-premises .lever-val.auto { font-size: 0.95rem; color: var(--ink-2); white-space: normal; text-align: right; }
 .cg-premises .lever.field .fld { margin-top: 6px; }
-.cg-premises .lever.field .fld-l { display: none; }
+.cg-premises .lever.field .fld-l > :not(.help), .cg-premises .lever.field .fld-l > .help:has(.help-mark) { display: none; }
 .cg-premises .lever.field .fld-c select { max-width: 100%; font-weight: 700; }
 .cg-premises .cg-auto { margin-left: 8px; font-size: 0.8rem; }
 /* 0071: 前提の欄の形式・直す先・プランで共通と違う値の印（縦線と「共通: ○○」「↺ 共通に戻す」） */
@@ -639,7 +645,7 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .range-scale { display: flex; justify-content: space-between; gap: 6px; font-size: 0.8rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .base-mark { border: 1px solid var(--line); background: var(--base-bg); border-radius: 4px; padding: 0 5px; color: var(--base-ink); font-weight: 700; }
 .lever.added .fld { margin-top: 4px; }
-.lever.added .fld-l { display: none; }
+.lever.added .fld-l > :not(.help), .lever.added .fld-l > .help:has(.help-mark) { display: none; }
 .mix { display: grid; gap: 2px; margin-top: 4px; }
 .mix-row { display: grid; grid-template-columns: 3em minmax(0, 1fr) 3.2em; align-items: center; gap: 6px; font-size: 0.9rem; }
 .mix-row.ro { grid-template-columns: 3em auto; color: var(--ink-2); }
@@ -1302,3 +1308,5 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .help-pop p + p, .help-pop p + ul, .help-pop ul + p { margin-top: 6px; }
 .help-pop ul { margin: 0; padding-left: 1.2em; }
 html.big .help-pop { font-size: 0.92rem; }
+.in-note.in-empty { margin: 0 0 4px; }
+.ip-lineup .help, .ip-note .help, .ip-inherit .help, .sv-note .help, .in-actions .help { margin: 0 6px; }

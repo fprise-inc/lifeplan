@@ -12,6 +12,10 @@ import { findObject } from "../store/readings.ts";
 import { today } from "../report/assemble.ts";
 import { CERTAINTY_LABELS, CHECK_KIND_LABELS, checkCounts, checkList, confirmAllEstimates, DEFAULT_KINDS, fillAll, KIND_ORDER, ORIGIN_LABELS, type Certainty, type CheckKind, type CheckRow, type OriginKind } from "./checkRows.ts";
 import { isRechecked, recheckMarks, recheckText, setRecheck } from "./recheck.ts";
+import { Help } from "../../presentation/Help.tsx";
+
+/** 根拠を、行を開いたときだけ出す種類（推定・わからない・確かさ。0077）。ほかの種類の文は状態の知らせなので常に出す */
+export const BASIS_ON_OPEN: ReadonlySet<CheckKind> = new Set<CheckKind>(["estimated", "unknown", "certainty"]);
 
 /** プランの編集中に、そのプランで足した物の行を出すための道具 */
 export interface CheckPlan {
@@ -78,6 +82,14 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
   const [filter, setFilter] = useState<CheckFilter>({ card: "", kind: "", origin: "", certainty: "" });
   const [copied, setCopied] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  /** 根拠を開いた行 */
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
+  const toggleOpen = (id: string) => setOpened((o) => {
+    const n = new Set(o);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    return n;
+  });
   const { card, kind } = filter;
   const put = (k: keyof CheckFilter) => (e: Event) => setFilter({ ...filter, [k]: (e.currentTarget as HTMLSelectElement).value });
   const marks = recheckMarks(wh);
@@ -144,7 +156,12 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
             {CERTAINTY_LABELS[r.certainty]}
           </span>
         ) : null}
-        {r.detail !== null ? <span class="ck-detail">{r.detail}</span> : null}
+        {r.detail !== null && BASIS_ON_OPEN.has(r.kind) ? (
+          <button type="button" class="link-btn ck-basis" aria-expanded={opened.has(r.id)} onClick={() => toggleOpen(r.id)} data-ck-basis={r.id}>
+            根拠 {opened.has(r.id) ? "▴" : "▾"}
+          </button>
+        ) : null}
+        {r.detail !== null && (!BASIS_ON_OPEN.has(r.kind) || opened.has(r.id)) ? <span class="ck-detail">{r.detail}</span> : null}
         <span class="ck-acts">
           {r.actions.map((a) => (
             <button type="button" key={a.key} class="link-btn" onClick={() => (planRow ? runPlan(r, a.key) : run(r, a.key))} {...(a.title !== undefined ? { title: a.title } : {})} data-ck-action={a.key}>
@@ -168,11 +185,18 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
   return (
     <section class="ck" aria-label="確かめの一覧" data-checklist>
       <div class="ck-head">
-        <h2>確かめの一覧</h2>
+        <h2>
+          確かめの一覧
+          <Help label="確かめの一覧" id="checklist">
+            <p>未入力・わからない・確かめの注意・計算の知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。</p>
+            <p>「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。推定・わからない・確かさの行は「根拠」で根拠が開きます。</p>
+            <p>確かさが申告・概算の値は、確かさか状態で絞り込んだときだけ出します。「次回確かめる」は、次の面談・見直しで確かめる所の印です（世帯に残ります。計算は変わりません）。</p>
+          </Help>
+        </h2>
         <p class="ck-lead">
           未入力 {counts.missing}・わからない {counts.unknown}・確かめの注意 {counts.notice}
           {counts.calc > 0 ? `・計算の知らせ ${counts.calc}` : ""}・推定 {counts.estimated}
-          {marks.length > 0 ? `・次回確かめる ${marks.length}` : ""}。「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。
+          {marks.length > 0 ? `・次回確かめる ${marks.length}` : ""}
         </p>
         <div class="ck-tools">
           <label>
