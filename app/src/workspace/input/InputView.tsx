@@ -6,6 +6,8 @@
 // カードをまたぐ取り込みの入口（「取り込む」。プランの編集中は押せない）・確かめの一覧にプランで足した物の行
 // 0077: 上部は2行（1行目: 見出しと進み具合、2行目: 編集の対象と道具）。説明の文は「?」の中へ。小さな結果と、全部のカードの入れ方の一括の切り替えは外した
 // （入れ方の標準／詳細はカードごと。パネルの見出しの切り替えで、そのカードだけを変える）。プランを選んでも上部とカードの配置は動かさない
+// 0077 の追記: 控え・FP の道具・取り込むの入口は上の帯の FP のメニューへ移した。ホームの上部は進み具合と編集の対象だけ。
+// メニューから開いた中身は、2行目の下に幅いっぱいで出す。項目がまだ何も入っていない新しい世帯のときだけ、ホームにも「取り込む」を出す
 import type { ComponentChildren } from "preact";
 import { Help } from "../../presentation/Help.tsx";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -14,7 +16,7 @@ import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { InputPanel } from "./InputPanel.tsx";
-import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, groupedItems, inputItems, itemOf, notApplicableCard, pinItems, progressOf, togglePin, type AddOption, type CardLayout, type InputItem, type ItemStatus, type PinItem } from "./items.ts";
+import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, nothingEnteredYet, groupedItems, inputItems, itemOf, notApplicableCard, pinItems, progressOf, togglePin, type AddOption, type CardLayout, type InputItem, type ItemStatus, type PinItem } from "./items.ts";
 import { inheritanceSummary, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { STAGE_ORDER } from "./stages/index.ts";
@@ -32,7 +34,7 @@ interface Props {
   level: Level;
   /** 開いたときにパネルを開く項目（URL の #open=work など。画面の確かめ用） */
   initialOpen?: string;
-  /** 進み具合の下に置く道具（ヒアリングシートの書き出しと取り込み）。カードの並びの上に出す */
+  /** FP のメニュー（上の帯）から開いた中身（控え・FP の道具のパネル）。2行目の下に出す */
   tools?: ComponentChildren;
   /** 1件だけの計算（基本生活費のパネルの、控えから見た実際の貯まり方。0031） */
   computeOne?: (req: EngineRequest) => Promise<PreviewResult | null>;
@@ -52,9 +54,13 @@ interface Props {
   calcNotices?: readonly NoticeRow[];
   /**
    * カードをまたぐ取り込みの入口（ヒアリングシート・AI に資料を渡す。0072）。ホームの「取り込む」にまとめる。
-   * 取り込みは現状に入るので、プランの編集中は押せない（「現状に切り替える」を出す）
+   * 取り込みは現状に入るので、プランの編集中は押せない（「現状に切り替える」を出す）。
+   * 入口は上の帯の FP のメニュー。項目がまだ何も入っていない新しい世帯のときだけ、ホームにも「取り込む」を出す
    */
   imports?: ComponentChildren;
+  /** 取り込みの中身を開いているか（親が持つ。FP のメニューから開く）。省くとホームの中で持つ */
+  importsOpen?: boolean;
+  onImportsOpen?: (open: boolean) => void;
 }
 
 /** 進み具合の状態の名前（絞り込みの文） */
@@ -204,24 +210,37 @@ const NO_NOTICES: readonly NoticeRow[] = [];
 
 /**
  * カードをまたぐ取り込みの入口（ヒアリングシート・AI に資料を渡す）。明細は基本生活費のカードの見出しから（ここには置かない）。
- * 取り込みは現状に入るので、プランの編集中（off）は中身の代わりに「現状に切り替える」を出す。ボタンの大きさは変えない（配置を動かさない）
+ * 取り込みは現状に入るので、プランの編集中（off）は中身の代わりに「現状に切り替える」を出す。ボタンの大きさは変えない（配置を動かさない）。
+ * button を false にすると「取り込む ▾」を描かず、開いた中身だけを出す（FP のメニューから開いたとき。中身に「閉じる」を出す）
  */
-export function ImportMenu({ children, off, initialOpen = false }: { children?: ComponentChildren; off?: { label: string; toCurrent?: () => void }; initialOpen?: boolean }) {
-  const [open, setOpen] = useState(initialOpen);
+export function ImportMenu({ children, off, initialOpen = false, open: outer, onOpen, button = true }: { children?: ComponentChildren; off?: { label: string; toCurrent?: () => void }; initialOpen?: boolean; open?: boolean; onOpen?: (open: boolean) => void; button?: boolean }) {
+  const [inner, setInner] = useState(initialOpen);
+  const open = outer ?? inner;
+  const setOpen = (v: boolean) => (onOpen !== undefined ? onOpen(v) : setInner(v));
   return (
     <>
-      <div class={`ih-imports${off !== undefined ? " off" : ""}`} data-imports {...(off !== undefined ? { "data-current-only": true } : {})}>
-        <button type="button" class="add-btn" aria-expanded={open} onClick={() => setOpen(!open)} data-imports-open>
-          取り込む {open ? "▴" : "▾"}
-        </button>
-        <Help label="取り込む">
-          <p>ヒアリングシート・AI に渡した資料から、まとめて取り込みます。どれも候補として受け、確かめてから現状に入ります。</p>
-          <p>明細（口座・カード）は、基本生活費のカードの見出しの「明細から出す」から取り込みます。</p>
-          <p>取り込みは現状に入るため、プランの編集中は使えません。</p>
-        </Help>
-      </div>
+      {button ? (
+        <div class={`ih-imports${off !== undefined ? " off" : ""}`} data-imports {...(off !== undefined ? { "data-current-only": true } : {})}>
+          <button type="button" class="add-btn" aria-expanded={open} onClick={() => setOpen(!open)} data-imports-open>
+            取り込む {open ? "▴" : "▾"}
+          </button>
+          <Help label="取り込む">
+            <p>ヒアリングシート・AI に渡した資料から、まとめて取り込みます。どれも候補として受け、確かめてから現状に入ります。</p>
+            <p>明細（口座・カード）は、基本生活費のカードの見出しの「明細から出す」から取り込みます。</p>
+            <p>取り込みは現状に入るため、プランの編集中は使えません。はじめのほかは、上の帯の FP のメニューから開きます。</p>
+          </Help>
+        </div>
+      ) : null}
       {open ? (
-        <div class="ih-imports-list" data-imports-list>
+        <div class="ih-imports-list" data-imports-list {...(!button && off !== undefined ? { "data-current-only": true } : {})}>
+          {!button ? (
+            <div class="ih-imports-h">
+              <b>取り込む</b>
+              <button type="button" class="btn small" onClick={() => setOpen(false)} data-imports-close>
+                閉じる
+              </button>
+            </div>
+          ) : null}
           {off !== undefined ? (
             <p class="in-note">
               {off.label}の編集中は取り込めません（取り込みは現状に入ります）。
@@ -240,7 +259,7 @@ export function ImportMenu({ children, off, initialOpen = false }: { children?: 
   );
 }
 
-export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports }: Props) {
+export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, importsOpen, onImportsOpen }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -249,6 +268,8 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const rows = useMemo(() => (editing === null || pcat === undefined ? [] : diffRows(wh, pcat, editing.id, planIndex([wh, shown]))), [wh, editing, pcat, shown]);
   const counts = useMemo(() => countsByCard(rows), [rows]);
   const [diffOpen, setDiffOpen] = useState(false);
+  /** 取り込みの中身を開いているか（親が持たないとき） */
+  const [homeImports, setHomeImports] = useState(false);
   /** 相続・贈与のカードの要約（相続税の目安。計算の結果から読むだけ） */
   const inheritance = useInheritanceEstimate(shown, true, computeOne);
   const pensionEst = usePensionEstimate(shown, true, computeOne);
@@ -256,6 +277,8 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const pins = useMemo(() => pinItems(shown, editing !== null ? wh : undefined), [shown, editing, wh]);
   const groups = useMemo(() => groupedItems(items), [items]);
   const p = progressOf(items);
+  /** 項目がまだ何も入っていない新しい世帯（このときだけホームにも「取り込む」を出す） */
+  const fresh = useMemo(() => nothingEnteredYet(wh, editing === null ? items : inputItems(wh, { layout })), [wh, editing, items, layout]);
   /** 進み具合の状態で絞る（null は全部） */
   const [statusFilter, setStatusFilter] = useState<ItemStatus | null>(null);
   const filterBy = (st: ItemStatus) => setStatusFilter(statusFilter === st ? null : st);
@@ -369,6 +392,17 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
     setToast(editing !== null ? `「${label ?? ""}」を${editing.label}に保存しました` : label !== undefined ? `「${label}」を保存しました` : "保存しました");
   };
 
+  const importOff =
+    editing !== null
+      ? {
+          off: {
+            label: editing.label,
+            ...(plans !== undefined ? { toCurrent: () => plans.onSelect(null) } : {}),
+          },
+        }
+      : {};
+  const importCtl = importsOpen !== undefined ? { open: importsOpen, ...(onImportsOpen !== undefined ? { onOpen: onImportsOpen } : {}) } : { open: homeImports, onOpen: setHomeImports };
+
   return (
     <div class="ih">
       {/* 1行目: 見出し・確かめの一覧・進み具合 */}
@@ -421,27 +455,25 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
           </div>
         </div>
       </div>
-      {/* 2行目: 編集の対象と道具（控え・FP の道具・取り込む）。開いた中身は、この行の下に幅いっぱいで出す */}
-      <div class="ih-bar" data-home-bar>
-        {plans !== undefined && (plans.list.length > 0 || plans.sel !== null) ? <PlanTarget p={plans} {...(editing !== null ? { diffs: { rows, open: diffOpen, onOpen: setDiffOpen } } : {})} /> : null}
-        <div class="ih-tools">
-          {tools}
-          {imports !== undefined ? (
-            <ImportMenu
-              {...(editing !== null
-                ? {
-                    off: {
-                      label: editing.label,
-                      ...(plans !== undefined ? { toCurrent: () => plans.onSelect(null) } : {}),
-                    },
-                  }
-                : {})}
-            >
-              {imports}
-            </ImportMenu>
+      {/* 2行目: 編集の対象（と、新しい世帯のときだけ「取り込む」）。控え・FP の道具は上の帯の FP のメニューから開き、中身はこの行の下に幅いっぱいで出す */}
+      {(plans !== undefined && (plans.list.length > 0 || plans.sel !== null)) || (imports !== undefined && fresh) ? (
+        <div class="ih-bar" data-home-bar>
+          {plans !== undefined && (plans.list.length > 0 || plans.sel !== null) ? <PlanTarget p={plans} {...(editing !== null ? { diffs: { rows, open: diffOpen, onOpen: setDiffOpen } } : {})} /> : null}
+          {imports !== undefined && fresh ? (
+            <div class="ih-tools">
+              <ImportMenu {...importOff} {...importCtl}>
+                {imports}
+              </ImportMenu>
+            </div>
           ) : null}
         </div>
-      </div>
+      ) : null}
+      {tools}
+      {imports !== undefined && !fresh ? (
+        <ImportMenu button={false} {...importOff} {...importCtl}>
+          {imports}
+        </ImportMenu>
+      ) : null}
       {editing !== null && pcat !== undefined && diffOpen && plans !== undefined ? <DiffList rows={rows} wh={wh} planId={editing.id} cat={pcat} onEdit={plans.onSavePlan} onOpen={open} /> : null}
       {checkOpen ? (
         <CheckList

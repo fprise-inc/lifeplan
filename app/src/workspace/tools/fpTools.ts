@@ -8,7 +8,7 @@ import { fromRequest, type WorkingHousehold } from "../input/household.ts";
 import { inputItems } from "../input/items.ts";
 import { memberLabel } from "../input/labels.ts";
 import { INCOME_KINDS } from "../input/moneyRows.ts";
-import { formatYearMonth } from "../input/units.ts";
+import { formatYearMonth, wareki } from "../input/units.ts";
 import { fieldValueText, objectCards, planIndex } from "../plans/planEdit.ts";
 import { man } from "../../presentation/format.ts";
 
@@ -63,7 +63,8 @@ export function householdContents(wh: WorkingHousehold): ContentsSection[] {
       const { y, m: mo } = parseYm(m.birth.birthYearMonth);
       const b = parseYm(base);
       const age = b.y - y - (b.m < mo ? 1 : 0);
-      text = m.expected === true ? "これから生まれる予定" : `${age}歳${isObj(m.outside) ? "・世帯の外" : ""}`;
+      // 予定の子は生まれる予定の年月も出す（家族の項目の生まれる予定の欄と同じ和暦）
+      text = m.expected === true ? `これから生まれる予定（${wareki(m.birth.birthYearMonth)}）` : `${age}歳${isObj(m.outside) ? "・世帯の外" : ""}`;
     }
     sec.rows.push({ id: o.id, label: o.label, text });
   }
