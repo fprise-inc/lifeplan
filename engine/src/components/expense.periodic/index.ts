@@ -4,7 +4,11 @@
 // 例外の年は、その年の支払いだけ例外の額（計算基準年の価格）にする（0円は払わない。支払いの無い年に支払いを足さない）
 // 改訂4（0044）: 月額の行（monthly。最初の月から終わりの月まで毎月）。払う人（payer）を入れた行は、万一のときの扱いをその人の万一だけに当てる。
 // 払う人が世帯の外の家族の行は世帯から出さない。あげる贈与（gift）は世帯から出し、受け取る人の贈与税は gift.received・gift.tax が要約に出す
+// 改訂5（0044 の追記）: 相手（counterparty）が世帯の外の家族で亡くなる見込み（leaves）があれば、その月から払わない（亡くなった人へ仕送りは
+//   送らない）。行の終わりがそれより後なら、知らせ N_LIMIT_APPLIED（moneyRow.counterpartyDeath・相手）を出す。行の終わりの値は書き換えない
 import {
+  COUNTERPARTY_DEATH_TOPIC,
+  counterpartyStop,
   defineComponent,
   formatYm,
   isOutside,
@@ -22,12 +26,14 @@ export default defineComponent<Record<string, never>, FlowsResult>({
   id: "expense.periodic",
   title: "周期的な支出（出るお金の行）",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "contingency.event": ">=1 <2" },
   params: [],
   reads: [
     "member.kind",
     "member.outside",
+    "member.leaves",
+    "periodicExpense.counterparty",
     "periodicExpense.onContingency",
     "periodicExpense.row",
     "periodicExpense.from",
@@ -72,7 +78,11 @@ export default defineComponent<Record<string, never>, FlowsResult>({
       // 世帯の外の家族が払う行は、世帯から出さない
       if (payer !== undefined && isOutside(payer)) continue;
       const ev = e.onContingency === undefined ? null : payer !== undefined ? eventOf(payer.id) : householdEvent();
-      for (const p of moneyRowPayments(ctx, e, ev, "conv.expense.share")) {
+      const stop = counterpartyStop(ctx, members, e.counterparty);
+      const all = moneyRowPayments(ctx, e, ev, "conv.expense.share");
+      const pays = stop === null ? all : all.filter((p) => p.month < stop);
+      if (pays.length < all.length && e.counterparty !== undefined) ctx.notice("N_LIMIT_APPLIED", [COUNTERPARTY_DEATH_TOPIC, e.counterparty]);
+      for (const p of pays) {
         flows.push({ row: e.row, ym: formatYm(p.month), amount: p.amount, accrualYear: yearOf(p.month), ...(payer !== undefined ? { member: payer.id } : {}), object: e.id, formula: p.contingency ? "expense.periodic.contingency" : "expense.periodic.payment" });
       }
     }
