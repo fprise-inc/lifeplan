@@ -629,7 +629,7 @@ describe("車を複数台・FP顧問料は前提条件の中", () => {
     const wh = open("unexplainedSpending");
     const stage = itemStage(wh, "car") as StageDef;
     const add = stage.sections[0]!.actions.find((a) => a.key === "ev/addCar")!;
-    expect(add.label).toBe("＋ もう1台（今の車・目安の値で入れる）");
+    expect(add.label).toBe("＋ もう1台（今の車）");
     const two = add.run(wh);
     const cars = two.request.input.household.cars!;
     expect(cars).toHaveLength(2);
@@ -637,9 +637,9 @@ describe("車を複数台・FP顧問料は前提条件の中", () => {
     const groups = (itemStage(two, "car") as StageDef).sections[0]!.groups.filter((g) => g.title?.startsWith("車 ") === true);
     expect(groups.map((g) => g.title)).toEqual([expect.stringMatching(/^車 1（/), expect.stringMatching(/^車 2（/)]);
     const labels = (g: (typeof groups)[number]) => g.fields.filter((f) => f.level === "simple").map((f) => f.label);
-    for (const l of ["買い替えの周期", "車両の価格", "買い方", "手放す時期（名義の人の年齢）", "次の買い替えの時期", "維持費（年額の合計）"]) expect(labels(groups[1]!), l).toContain(l);
+    for (const l of ["買い替えの周期", "車両の価格", "買い方", "手放す時期", "次の買い替えの時期", "維持費（年額の合計）"]) expect(labels(groups[1]!), l).toContain(l);
     // 下取りは詳細（0069）。目安は価格×周期の残価の目安（8年で15%）
-    expect(labels(groups[1]!)).not.toContain("下取り（次の買い替えで引く額）");
+    expect(labels(groups[1]!)).not.toContain("下取り");
     expect(cars[1]!.purchase).toMatchObject({ price: 2500000, tradeIn: 380000, everyYears: 8, owned: true });
     expect(cars[1]!.upkeep).toEqual({ annual: 360000 });
     expect(cars[1]!.upkeepMode).toBe("total");
@@ -653,7 +653,7 @@ describe("車を複数台・FP顧問料は前提条件の中", () => {
   it("車が無いときは「＋ 今の車」「＋ これから買う車」。次の買い替えの時期は時点の部品（今から○年後は年月に直す）で、3年後の推定", () => {
     const wh = open("salariedCoupleTwoKids");
     const acts = (itemStage(wh, "car") as StageDef).sections[0]!.actions;
-    expect(acts.map((a) => a.label)).toEqual(["＋ 今の車（目安の値で入れる）", "＋ これから買う車（目安の値で入れる）"]);
+    expect(acts.map((a) => a.label)).toEqual(["＋ 今の車", "＋ これから買う車"]);
     const one = acts[0]!.run(wh);
     const first = fieldOf(itemStage(one, "car"), "/first");
     const base = one.request.input.baseMonth;
@@ -672,7 +672,7 @@ describe("車を複数台・FP顧問料は前提条件の中", () => {
   it("FP顧問料は前提条件のカードの中（前提条件の要約は変えない）", () => {
     const fee = open("lifetime100Plan");
     expect(sumText(byId(inputItems(fee), "assumptions"))).toMatch(/^物価 /);
-    expect((itemStage(fee, "assumptions") as StageDef).sections.map((x) => x.title)).toContain("FP顧問料（単発・継続）");
+    expect((itemStage(fee, "assumptions") as StageDef).sections.map((x) => x.title)).toContain("FP顧問料");
     expect(ADD_OPTIONS.map((o) => o.key)).not.toContain("car");
     expect(ADD_OPTIONS.map((o) => o.key)).not.toContain("fee");
   });

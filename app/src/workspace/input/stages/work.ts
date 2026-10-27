@@ -370,13 +370,13 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
       field({
         key: `work/${m.id}/mainEnd`,
         item: "employment.to",
-        label: "定年（今の勤め先を辞める年齢）",
+        label: "定年",
         level: "simple",
         kind: "int",
         suffix: "歳",
         min: 40,
         max: 80,
-        help: "この年齢になる月の前月まで今の勤め先で働きます",
+        help: "今の勤め先を辞める年齢です。この年齢になる月の前月まで今の勤め先で働きます",
         get: (w) => ({ value: w.postRetirement[m.id]?.fromAge ?? null, assumed: w.assumed[`work/${m.id}/mainEnd`] ?? null }),
         set: (w, v) => (v === null ? w : setMainEnd(w, m, Number(v))),
         // 時点の部品（0038）: 「60歳」＝60歳になる前の月まで。年月でも入れられる（○歳になる前の月に当たる年月だけ）
@@ -449,7 +449,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
     field({
       key: `work/${m.id}/retireAge`,
       item: "employment.to",
-      label: "働く最後の年齢（現状の予定）",
+      label: "働く最後の年齢",
       level: "simple",
       kind: "int",
       suffix: "歳まで",
@@ -648,7 +648,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       ...(level === "simple" && p.type === "executive"
         ? [
             yenBox({ key: `${prefix}/annual`, item: "employment.salary.annual", label: "月の報酬（年額・賞与を除く）", level, basis: "annual", find, path: ["salary", "annual"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.annual ?? null, help: "毎月の役員報酬の12か月分（定期同額給与）。空欄なら目安で計算します" }),
-            yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計。事前確定届出給与など）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null, help: "役員の賞与（事前確定届出給与など）の年間の合計。無ければ0" }),
+            yenBox({ key: `${prefix}/bonus`, item: "employment.salary.bonus", label: "賞与（年間の合計）", level, basis: "annual", find, path: ["salary", "bonus"], estimate: () => salaryEstimate(p.type, m.sex, { age: salaryAge(m, p, wh.request.input.baseMonth) })?.bonus ?? null, help: "役員の賞与（事前確定届出給与など）の年間の合計。無ければ0" }),
           ]
         : level === "simple"
         ? [salaryTotalField(wh, m, p, find, prefix)]
@@ -686,7 +686,7 @@ function periodFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find
       yenBox({ key: `${prefix}/smrP`, item: "employment.standardMonthlyRemuneration", label: "標準報酬月額（厚生年金）", level: d, basis: "monthly", unit: "yen", find, path: ["standardMonthlyRemuneration", "pension"], optional: true }),
       { ...yenBox({ key: `${prefix}/commuting`, item: "employment.salary.commutingMonthly", label: "通勤手当（非課税・月額）", level: d, basis: "monthly", unit: "yen", find, path: ["salary", "commutingMonthly"], optional: true, help: "所得税・住民税はかかりませんが、社会保険料の報酬には入ります。空欄は該当なし" }), address: () => ({ target: { object: p.id }, item: "employment.salary.commutingMonthly", at: [] }) },
       { ...plain({ key: `${prefix}/student`, item: "employment.student", label: "学生", level: d, kind: "bool", find, path: ["student"], optional: true, fallback: false, help: "学生は短時間の勤めの社会保険・雇用保険の対象から外れます" }), address: () => ({ target: { object: p.id }, item: "employment.student", at: [] }) },
-      { ...plain({ key: `${prefix}/corpDb`, item: "employment.corporatePension", label: "勤め先に確定給付企業年金・共済などがある（iDeCo の上限）", level: d, kind: "bool", find, path: ["corporatePension", "db"], optional: true, fallback: false, help: "iDeCo の掛金の上限の判定に使います" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["db"] }) },
+      { ...plain({ key: `${prefix}/corpDb`, item: "employment.corporatePension", label: "勤め先に確定給付企業年金・共済などがある", level: d, kind: "bool", find, path: ["corporatePension", "db"], optional: true, fallback: false, help: "iDeCo の掛金の上限の判定に使います" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["db"] }) },
     );
     if (p.corporatePension !== undefined && (p.corporatePension as { db?: boolean }).db === true)
       fields.push({ ...plain({ key: `${prefix}/corpDbMonthly`, item: "employment.corporatePension", label: "他制度掛金相当額（月額）", level: d, kind: "yen", basis: "monthly", find, path: ["corporatePension", "dbEquivalentMonthly"], optional: true, help: "勤め先から知らされる額。空欄は iDeCo の上限を他制度ありの決まりで見ます" }), address: () => ({ target: { object: p.id }, item: "employment.corporatePension", at: ["dbEquivalentMonthly"] }) });
@@ -827,16 +827,16 @@ function employeeInsuranceField(p: EmploymentPeriod, find: Finder, prefix: strin
     ...field({
       key: `${prefix}/si`,
       item: "employment.employeeInsurance",
-      label: "勤め先の社会保険（健康保険・厚生年金）",
+      label: "勤め先の社会保険",
       level,
       kind: "select",
       optional: true,
       options: [
-        { value: "", label: "わからない（週の時間と勤め先の規模から判定）" },
+        { value: "", label: "わからない（勤め先から判定）" },
         { value: "yes", label: "入っている" },
-        { value: "no", label: "入っていない（家族の扶養・国民健康保険）" },
+        { value: "no", label: "入っていない" },
       ],
-      help: "給与明細で健康保険料・厚生年金保険料が引かれていれば「入っている」です",
+      help: "健康保険と厚生年金です。給与明細で健康保険料・厚生年金保険料が引かれていれば「入っている」です",
       sideEffects: "「入っている」にすると、健康保険と厚生年金も勤め先の種類（協会けんぽ・厚生年金）にします",
       get: (w) => {
         const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
@@ -902,7 +902,7 @@ const ENDS_WITH: readonly { value: string; label: string }[] = [
   { value: "voluntary", label: "自己都合" },
   { value: "involuntary", label: "会社都合（解雇・倒産など）" },
   { value: "contractEnd", label: "契約満了" },
-  { value: "sickLeave", label: "休業のまま辞める（病気などで働けない。失業給付は受けない）" },
+  { value: "sickLeave", label: "休業のまま辞める" },
 ];
 const endsWithLabel = (v: string) => ENDS_WITH.find((x) => x.value === v)?.label ?? v;
 
@@ -954,12 +954,12 @@ function claimFields(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, find:
         ...field({
           key: `${prefix}/endsWith`,
           item: "employment.endsWith",
-          label: "辞め方（この期間の終わり方）",
+          label: "辞め方",
           level: "detail",
           kind: "select",
           optional: true,
           options: [{ value: "", label: `自動（${endsWithLabel(auto)}）` }, ...ENDS_WITH],
-          help: "失業給付の日数・給付制限に使います。自動は、60歳以上か定年の出来事なら定年、ほかは自己都合です",
+          help: "この期間の終わり方です。「休業のまま辞める」は、病気などで働けないまま辞める形で、失業給付は受けません。失業給付の日数・給付制限に使います。自動は、60歳以上か定年の出来事なら定年、ほかは自己都合です",
           get: (w) => {
             const x = find(w.request.input.household, w) as EmploymentPeriod | undefined;
             return x?.endsWith !== undefined ? { value: x.endsWith } : { value: "", implicit: true };

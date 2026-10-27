@@ -171,10 +171,10 @@ function taxSettingFields(wh: WorkingHousehold): FieldDef[] {
   const fields: FieldDef[] = [
     taxField({
       key: "inherit/tax/realEstateRatio",
-      label: "不動産の評価の割合（時価に掛ける）",
+      label: "不動産の評価の割合",
       kind: "pct",
       at: ["realEstateRatio"],
-      help: "空欄は時価の80%（土地の路線価は公示価格等の8割程度を目安に定められるため。建物の固定資産税評価額も時価より低いのが普通）。路線価で分かれば直してください",
+      help: "時価に掛ける割合です。空欄は時価の80%（土地の路線価は公示価格等の8割程度を目安に定められるため。建物の固定資産税評価額も時価より低いのが普通）。路線価で分かれば直してください",
       get: (t) => t.realEstateRatio ?? null,
       set: (t, v) => (v === null ? delete t.realEstateRatio : (t.realEstateRatio = String(v))),
     }),
@@ -194,10 +194,10 @@ function taxSettingFields(wh: WorkingHousehold): FieldDef[] {
   fields.push(
     taxField({
       key: "inherit/tax/funeral",
-      label: "葬式の費用（財産から引く）",
+      label: "葬式の費用",
       kind: "yen",
       at: ["funeral"],
-      help: "空欄は引きません",
+      help: "財産から引きます。空欄は引きません",
       get: (t) => t.funeral ?? null,
       set: (t, v) => (v === null ? delete t.funeral : (t.funeral = Number(v))),
     }),
@@ -288,8 +288,8 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
   const money = moneySections(wh, "inherit", {
     claimed: NONE_CLAIMED,
     level: "simple",
-    inTitle: "受け取る予定の相続・贈与（入るお金）",
-    outTitle: "あげる贈与（出るお金）",
+    inTitle: "受け取る予定の相続・贈与",
+    outTitle: "あげる贈与",
     note: "孫などへの贈与。贈与税は受け取る人が払うので、世帯からは出さず、結果の要約に出します",
   });
   const moneyIn = money.find((x) => x.key.endsWith("/in"));
@@ -309,7 +309,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
       ...(moneyOut?.note !== undefined ? { note: moneyOut.note } : {}),
       level: "simple",
       groups: [...(moneyOut?.groups ?? []), ...groupsOf(readGroup("inherit/give", undefined, lines.give))],
-      actions: [...(moneyOut?.actions ?? []), { key: "money/inherit/addGrandchild", label: "＋ 孫（世帯の外の家族）を足す", level: "detail", run: (w: WorkingHousehold) => addOutsideGrandchild(w) }],
+      actions: [...(moneyOut?.actions ?? []), { key: "money/inherit/addGrandchild", label: "＋ 孫を足す", help: "世帯の外の家族として足します", level: "detail", run: (w: WorkingHousehold) => addOutsideGrandchild(w) }],
     },
     {
       key: "family/donors",

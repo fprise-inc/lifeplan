@@ -312,7 +312,7 @@ describe("保険: 標準の「終わり」", () => {
     const wh = open("salariedCoupleTwoKids");
     const simple = simpleFields(wh, "insurance").map((f) => f.label);
     expect(simple).toContain("払込の終わり");
-    expect(simple).not.toContain("終わり（保障の終わり）");
+    expect(simple).not.toContain("保障の終わり");
   });
 });
 

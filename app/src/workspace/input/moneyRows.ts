@@ -25,25 +25,25 @@ type Obj = Record<string, unknown>;
 export type MoneyCard = "family" | "work" | "pension" | "living" | "education" | "housing" | "insurance" | "savings" | "events" | "car" | "care" | "inherit";
 
 /** 入るお金の種類: 名前・課税の扱いの既定・1回の行とくり返す行の表の行の既定（エンジンの engine/src/sdk/incomeKinds.ts と同じ。テストで突き合わせる）・置くカード・既定の時期 */
-export const INCOME_KINDS: readonly { kind: IncomeFlowKind; label: string; tax: IncomeTaxTreatment; once: string; repeat: string; card: MoneyCard; cadence: Cadence }[] = [
+export const INCOME_KINDS: readonly { kind: IncomeFlowKind; label: string; help?: string; tax: IncomeTaxTreatment; once: string; repeat: string; card: MoneyCard; cadence: Cadence }[] = [
   { kind: "inheritance", label: "相続・遺贈", tax: "inheritance", once: "cf.income.lumpSum.inheritance", repeat: "cf.income.lumpSum.inheritance", card: "inherit", cadence: "once" },
   { kind: "giftReceived", label: "贈与を受ける", tax: "gift", once: "cf.income.lumpSum.gift", repeat: "cf.income.lumpSum.gift", card: "inherit", cadence: "once" },
-  { kind: "support", label: "援助・仕送りを受ける（親など）", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "care", cadence: "monthly" },
-  { kind: "educationSupport", label: "教育資金の援助を受ける（祖父母など）", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "education", cadence: "repeat" },
+  { kind: "support", label: "援助・仕送りを受ける", help: "親などから受け取る援助・仕送りです", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "care", cadence: "monthly" },
+  { kind: "educationSupport", label: "教育資金の援助を受ける", help: "祖父母などから受け取る教育資金です", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "education", cadence: "repeat" },
   { kind: "childSupport", label: "養育費を受け取る", tax: "nonTaxable", once: "cf.income.other", repeat: "cf.income.other", card: "family", cadence: "monthly" },
   { kind: "propertyDivision", label: "財産分与", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "family", cadence: "once" },
   { kind: "householdContribution", label: "同居の家族が家計に入れるお金", tax: "nonTaxable", once: "cf.income.other", repeat: "cf.income.other", card: "family", cadence: "monthly" },
-  { kind: "benefit", label: "手当・給付金（額で）", tax: "nonTaxable", once: "cf.income.benefit", repeat: "cf.income.benefit", card: "family", cadence: "monthly" },
-  { kind: "unemployment", label: "教育訓練給付などの額（失業給付は働き方の期間で計算します）", tax: "nonTaxable", once: "cf.income.benefit.unemployment", repeat: "cf.income.benefit.unemployment", card: "work", cadence: "monthly" },
-  { kind: "survivorPension", label: "受給中の遺族年金・障害年金（額で）", tax: "nonTaxable", once: "cf.income.pension", repeat: "cf.income.pension", card: "pension", cadence: "repeat" },
-  { kind: "foreignPension", label: "外国の年金（額で）", tax: "miscOther", once: "cf.income.pension", repeat: "cf.income.pension", card: "pension", cadence: "repeat" },
-  { kind: "scholarshipGrant", label: "給付型の奨学金・学費の助成（額で）", tax: "nonTaxable", once: "cf.income.benefit.education", repeat: "cf.income.benefit.education", card: "education", cadence: "repeat" },
-  { kind: "childPays", label: "子が払う分（アルバイト・子の貯金から学費に）", tax: "nonTaxable", once: "cf.income.other", repeat: "cf.income.other", card: "education", cadence: "repeat" },
+  { kind: "benefit", label: "手当・給付金", help: "額を入れて足す手当・給付金です（児童手当は家族から計算します）", tax: "nonTaxable", once: "cf.income.benefit", repeat: "cf.income.benefit", card: "family", cadence: "monthly" },
+  { kind: "unemployment", label: "教育訓練給付など", help: "教育訓練給付などの額を入れます。失業給付（基本手当）は、働き方の期間の辞め方から計算します", tax: "nonTaxable", once: "cf.income.benefit.unemployment", repeat: "cf.income.benefit.unemployment", card: "work", cadence: "monthly" },
+  { kind: "survivorPension", label: "受給中の遺族年金・障害年金", help: "受け取っている額を入れます", tax: "nonTaxable", once: "cf.income.pension", repeat: "cf.income.pension", card: "pension", cadence: "repeat" },
+  { kind: "foreignPension", label: "外国の年金", help: "円の額で入れます", tax: "miscOther", once: "cf.income.pension", repeat: "cf.income.pension", card: "pension", cadence: "repeat" },
+  { kind: "scholarshipGrant", label: "給付型の奨学金・学費の助成", help: "額を入れます", tax: "nonTaxable", once: "cf.income.benefit.education", repeat: "cf.income.benefit.education", card: "education", cadence: "repeat" },
+  { kind: "childPays", label: "子が払う分", help: "子のアルバイト・子の貯金から学費に充てる分です", tax: "nonTaxable", once: "cf.income.other", repeat: "cf.income.other", card: "education", cadence: "repeat" },
   { kind: "sideJob", label: "副業・雑所得", tax: "miscBusiness", once: "cf.income.other.sideJob", repeat: "cf.income.other.sideJob", card: "work", cadence: "repeat" },
-  { kind: "otherWork", label: "その他の働く収入（給与。社会保険なし）", tax: "salary", once: "cf.income.salary", repeat: "cf.income.salary", card: "work", cadence: "repeat" },
+  { kind: "otherWork", label: "その他の働く収入", help: "給与として本業と合わせて税を計算し、社会保険料はかけません", tax: "salary", once: "cf.income.salary", repeat: "cf.income.salary", card: "work", cadence: "repeat" },
   { kind: "saleBusiness", label: "売却代金（事業・出資持分）", tax: "capitalGains", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other", card: "work", cadence: "once" },
   { kind: "saleGoods", label: "動産の売却（車以外）", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other", card: "events", cadence: "once" },
-  { kind: "temporary", label: "一時所得（懸賞・保険以外の満期の一時金など）", tax: "temporary", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "events", cadence: "once" },
+  { kind: "temporary", label: "一時所得", help: "懸賞・保険以外の満期の一時金などです", tax: "temporary", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "events", cadence: "once" },
   { kind: "celebration", label: "祝い金・お見舞い・一時の給付金", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other", card: "events", cadence: "once" },
   { kind: "subsidy", label: "住まいの補助金・移住の支援金", tax: "temporary", once: "cf.income.lumpSum.other", repeat: "cf.income.other", card: "housing", cadence: "once" },
   { kind: "powerSale", label: "売電の収入", tax: "miscOther", once: "cf.income.other", repeat: "cf.income.other", card: "housing", cadence: "repeat" },
@@ -52,14 +52,14 @@ export const INCOME_KINDS: readonly { kind: IncomeFlowKind; label: string; tax: 
 ];
 
 /** 出るお金の種類: 名前・表の行の既定・置くカード・足すときのひな形（額・時期。推定） */
-export const OUT_KINDS: readonly { kind: MoneyOutKind; label: string; row: string; card: MoneyCard; cadence: Cadence; amount: number; everyYears?: number; preset: string }[] = [
+export const OUT_KINDS: readonly { kind: MoneyOutKind; label: string; help?: string; row: string; card: MoneyCard; cadence: Cadence; amount: number; everyYears?: number; preset: string }[] = [
   { kind: "general", label: "一時的支出・n年ごとの支出", row: "cf.expense.lumpSum.other", card: "events", cadence: "once", amount: 500000, preset: "一時的支出 50万円" },
   { kind: "childSupport", label: "養育費を払う", row: "cf.expense.other", card: "family", cadence: "monthly", amount: 40000, preset: "養育費 月4万円" },
   { kind: "allowance", label: "仕送り", row: "cf.expense.other", card: "care", cadence: "monthly", amount: 30000, preset: "仕送り 月3万円" },
-  { kind: "gift", label: "あげる贈与（孫などへ）", row: "cf.expense.lumpSum.gift", card: "inherit", cadence: "once", amount: 1100000, preset: "贈与 110万円" },
+  { kind: "gift", label: "あげる贈与", help: "孫などへの贈与です", row: "cf.expense.lumpSum.gift", card: "inherit", cadence: "once", amount: 1100000, preset: "贈与 110万円" },
   { kind: "education", label: "留学・寮費・部活などの教育費", row: "cf.expense.education", card: "education", cadence: "repeat", amount: 100000, everyYears: 1, preset: "その他の教育費 年10万円" },
   { kind: "repair", label: "修繕・リフォーム", row: "cf.expense.housing.maintenance", card: "housing", cadence: "repeat", amount: 1000000, everyYears: 10, preset: "修繕 10年ごとに100万円" },
-  { kind: "realEstateCost", label: "不動産の一時の経費（大規模修繕・原状回復など）", row: "cf.expense.other", card: "savings", cadence: "once", amount: 1000000, preset: "不動産の一時の経費 100万円" },
+  { kind: "realEstateCost", label: "不動産の一時の経費", help: "大規模修繕・原状回復などの一時の経費です", row: "cf.expense.other", card: "savings", cadence: "once", amount: 1000000, preset: "不動産の一時の経費 100万円" },
   { kind: "livingAnnual", label: "年払い・数年おきの暮らしの支出", row: "cf.expense.living", card: "living", cadence: "repeat", amount: 100000, everyYears: 1, preset: "年払いの支出 年10万円" },
   { kind: "car", label: "車の修理・用品など", row: "cf.expense.living.car", card: "car", cadence: "repeat", amount: 50000, everyYears: 1, preset: "車の用品など 年5万円" },
   { kind: "other", label: "その他の支出", row: "cf.expense.other", card: "events", cadence: "once", amount: 100000, preset: "その他の支出 10万円" },
@@ -67,7 +67,7 @@ export const OUT_KINDS: readonly { kind: MoneyOutKind; label: string; row: strin
 
 /** 出るお金の行が選べる表の行（今の8種＋教育費・車の維持費。0044） */
 export const OUT_ROWS: Option[] = [
-  { value: "cf.expense.lumpSum.other", label: "一時的支出（旅行・家電など）" },
+  { value: "cf.expense.lumpSum.other", label: "一時的支出" },
   { value: "cf.expense.lumpSum.wedding", label: "結婚の費用" },
   { value: "cf.expense.lumpSum.gift", label: "贈り物・援助" },
   { value: "cf.expense.lumpSum.car", label: "車両費（一時）" },
@@ -107,7 +107,7 @@ export const TAX_TREATMENTS: readonly { value: IncomeTaxTreatment; label: string
   { value: "temporary", label: "一時所得", effect: "必要経費を引き、ほかの一時所得と合わせて特別控除（50万円まで）を引いた2分の1を、受け取る人の所得に足します" },
   { value: "miscBusiness", label: "雑所得（業務）", effect: "収入から必要経費を引いた額を、受け取る人の所得に足します" },
   { value: "miscOther", label: "雑所得（その他）", effect: "収入から必要経費を引いた額を、受け取る人の所得に足します" },
-  { value: "salary", label: "給与（社会保険なし。本業と合わせる）", effect: "本業の給与と合わせて給与所得にします。社会保険料はかけません" },
+  { value: "salary", label: "給与（社会保険なし）", effect: "本業の給与と合わせて給与所得にします。社会保険料はかけません" },
   { value: "business", label: "事業所得", effect: "収入から必要経費を引いた額を、受け取る人の事業所得に足します" },
   { value: "capitalGains", label: "譲渡所得（分離）", effect: "収入から取得費を引いた額に、所得税（翌年3月）と住民税（翌年6月）をかけます（一般株式等の税率）" },
   { value: "inheritance", label: "相続税で見る", effect: "所得税・住民税はかかりません。相続税は計算しません（受け取る側の相続税の額は、出るお金の行で入れます）" },
@@ -437,8 +437,8 @@ function aliasBadge(f: FieldDef): FieldDef {
 
 /** 伸び方の欄（物価に合わせる＝既定／決まった率〔マイナスも〕／変えない） */
 export function growthFields(key: string, item: string, find: Finder, id: string, cur: { kind: string; rate?: string } | undefined): FieldDef[] {
-  const out = [withAddress(plain({ key: `${key}/growth`, item, label: "伸び方（変動率）", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, structural: true, after: (_h, t, v) => fixGrowth(t, v), help: "額は今の値段（計算の基準の年の価格）で入れます。既定は前提条件の物価上昇率で伸ばします" }), address(id, item, ["kind"]))];
-  if (cur?.kind === "rate") out.push(withAddress(plain({ key: `${key}/growthRate`, item, label: "決まった変動率（年。マイナスも入れられます）", level: "detail", kind: "pct", find, path: ["growth", "rate"] }), address(id, item, ["rate"])));
+  const out = [withAddress(plain({ key: `${key}/growth`, item, label: "伸び方", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, structural: true, after: (_h, t, v) => fixGrowth(t, v), help: "額は今の値段（計算の基準の年の価格）で入れます。既定は前提条件の物価上昇率で伸ばします" }), address(id, item, ["kind"]))];
+  if (cur?.kind === "rate") out.push(withAddress(plain({ key: `${key}/growthRate`, item, label: "決まった変動率（年）", help: "マイナスも入れられます", level: "detail", kind: "pct", find, path: ["growth", "rate"] }), address(id, item, ["rate"])));
   return out;
 }
 
@@ -510,7 +510,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
     withAddress(plain({ key: `${k}/label`, item: "incomeFlow.label", label: "名前", level: nameLevel(card), kind: "text", find, path: ["label"], optional: true }), address(f.id, "incomeFlow.label")),
   ];
   if (kinds.length > 1 || !kinds.some((x) => x.kind === f.kind))
-    fields.push(withAddress(plain({ key: `${k}/kind`, item: "incomeFlow.kind", label: "種類", level: "simple", kind: "select", options: (kinds.some((x) => x.kind === f.kind) ? kinds : [...kinds, def]).map((x) => ({ value: x.kind, label: x.label })), find, path: ["kind"], structural: true, help: "種類で課税の扱いと表の行の既定が決まります（詳細で変えられます）" }), address(f.id, "incomeFlow.kind")));
+    fields.push(withAddress(plain({ key: `${k}/kind`, item: "incomeFlow.kind", label: "種類", level: "simple", kind: "select", options: (kinds.some((x) => x.kind === f.kind) ? kinds : [...kinds, def]).map((x) => ({ value: x.kind, label: x.label })), find, path: ["kind"], structural: true, help: `${def.help !== undefined ? `${def.label}: ${def.help}。` : ""}種類で課税の扱いと表の行の既定が決まります（詳細で変えられます）` }), address(f.id, "incomeFlow.kind")));
   fields.push(cadenceField(`${k}/cadence`, "incomeFlow.monthly", find, f.id));
   fields.push(withAddress(yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: c === "monthly" ? "月額" : c === "once" ? "額" : "1回の額（毎年なら年額）", level: "simple", basis: c === "monthly" ? "monthly" : "once", find, path: ["amount"], help: "今の値段（計算の基準の年の価格）で入れます" }), address(f.id, "incomeFlow.amount")));
   fields.push(withAddress(timepointField({ key: `${k}/from`, item: "incomeFlow.from", label: c === "once" ? "受け取る時期" : "始まり", level: "simple", find, path: ["from"], ...selfAge(wh), ...(c === "once" ? { after: (_h: Household, t: Obj) => void (t.to = structuredClone(t.from)) } : {}) }), address(f.id, "incomeFlow.from")));
@@ -581,7 +581,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   whoFields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "incomeFlow.onContingency", find, path: ["onContingency"], on: f.onContingency, level: "detail" }).map((x) => withAddress(x, address(f.id, "incomeFlow.onContingency"))));
   whoFields.push(withAddress(plain({ key: `${k}/row`, item: "incomeFlow.row", label: "キャッシュフロー表の行", level: "detail", kind: "select", options: IN_ROWS, find, path: ["row"], optional: true, fallback: incomeRowOf(h, { ...f, row: undefined } as IncomeFlow) }), address(f.id, "incomeFlow.row")));
   if (f.kind === "inheritance" || f.kind === "giftReceived")
-    whoFields.push(withAddress(plain({ key: `${k}/includeInBase`, item: "incomeFlow.includeInBase", label: "基本の計算に入れる（見込みが「当てにしない」でも）", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false, help: "見込みはそのままで、この行を計算に入れます。プランを直しているときは、このプランでだけ入れます" }), address(f.id, "incomeFlow.includeInBase")));
+    whoFields.push(withAddress(plain({ key: `${k}/includeInBase`, item: "incomeFlow.includeInBase", label: "基本の計算に入れる", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false, help: "見込みが「当てにしない」でも、見込みはそのままで、この行を計算に入れます。プランを直しているときは、このプランでだけ入れます" }), address(f.id, "incomeFlow.includeInBase")));
   return [
     main,
     { key: `${k}/tax`, title: "課税の扱い", level: "detail", fields: taxFields, actions: [] },
@@ -663,7 +663,7 @@ export function expenseDetailGroups(wh: WorkingHousehold, p: PeriodicExpense, ca
       note: "贈与税は受け取る人が払うので、世帯からは出さず、結果の要約（贈与の一覧）に出します。受け取る人（相手）の生年月が要ります",
       level: "detail",
       fields: [
-        withAddress(plain({ key: `${k}/gift/purpose`, item: "periodicExpense.gift", label: "使い道", level: "detail", kind: "select", options: [{ value: "general", label: "ふつうの贈与（暦年・精算課税で見る）" }, { value: "housing", label: "住宅資金（住宅取得等資金の非課税を使う）" }, { value: "asNeeded", label: "生活費・教育費をその都度払う（非課税）" }], find: gfind, ensure, path: ["purpose"], optional: true, fallback: "general" }), address(p.id, "periodicExpense.gift", ["purpose"])),
+        withAddress(plain({ key: `${k}/gift/purpose`, item: "periodicExpense.gift", label: "使い道", level: "detail", kind: "select", options: [{ value: "general", label: "ふつうの贈与" }, { value: "housing", label: "住宅資金（住宅取得等資金の非課税を使う）" }, { value: "asNeeded", label: "生活費・教育費をその都度払う（非課税）" }], find: gfind, ensure, path: ["purpose"], optional: true, fallback: "general" }), address(p.id, "periodicExpense.gift", ["purpose"])),
         withAddress(plain({ key: `${k}/gift/method`, item: "periodicExpense.gift", label: "課税の方法", level: "detail", kind: "select", options: [{ value: "calendar", label: "暦年課税" }, { value: "settlement", label: "相続時精算課税" }], find: gfind, ensure, path: ["method"], optional: true, fallback: "calendar" }), address(p.id, "periodicExpense.gift", ["method"])),
       ],
       actions: [],
@@ -797,7 +797,7 @@ export function moneySections(
       ...(rows.length === 0 ? { note: "まだありません" } : {}),
       level,
       groups: rows.flatMap((f) => incomeGroups(wh, f, card)),
-      actions: inKinds.map((x): ActionDef => ({ key: `money/${card}/in/add/${x.kind}`, label: `＋ ${x.label}`, level, run: (w) => addIncome(w, x.kind) })),
+      actions: inKinds.map((x): ActionDef => ({ key: `money/${card}/in/add/${x.kind}`, label: `＋ ${x.label}`, ...(x.help !== undefined ? { help: x.help } : {}), level, run: (w) => addIncome(w, x.kind) })),
     });
   }
   if (outKinds.length > 0) {
@@ -808,7 +808,7 @@ export function moneySections(
       ...(o.note !== undefined ? { note: o.note } : rows.length === 0 ? { note: "まだありません" } : {}),
       level,
       groups: rows.flatMap((p) => periodicGroups(wh, p)),
-      actions: outKinds.map((x): ActionDef => ({ key: `money/${card}/out/add/${x.kind}`, label: `＋ ${x.label}`, level, run: (w) => addExpense(w, x.kind) })),
+      actions: outKinds.map((x): ActionDef => ({ key: `money/${card}/out/add/${x.kind}`, label: `＋ ${x.label}`, ...(x.help !== undefined ? { help: x.help } : {}), level, run: (w) => addExpense(w, x.kind) })),
     });
   }
   return out;
@@ -832,7 +832,7 @@ export function inheritedDebtGroups(wh: WorkingHousehold): GroupDef[] {
       fields: [
         withAddress(plain({ key: `${k}/from`, item: "debt.inheritedFrom", label: "元の借り手", level: "simple", kind: "select", options: counterpartyOptions(wh).slice(1), find, path: ["inheritedFrom"] }), address(d.id, "debt.inheritedFrom")),
         withAddress(aliasBadge(plain({ key: `${k}/likelihood`, item: "debt.likelihood", label: "見込み", level: "simple", kind: "select", options: LIKELIHOODS, find, path: ["likelihood"], optional: true, fallback: "likely", help: "「当てにしない」なら、基本の計算に入れません（行は残ります）。結果の「外している物」から入れて見られます" })), address(d.id, "debt.likelihood")),
-        withAddress(plain({ key: `${k}/includeInBase`, item: "debt.includeInBase", label: "基本の計算に入れる（見込みが「当てにしない」でも）", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false }), address(d.id, "debt.includeInBase")),
+        withAddress(plain({ key: `${k}/includeInBase`, item: "debt.includeInBase", label: "基本の計算に入れる", help: "見込みが「当てにしない」でも、この行を計算に入れます", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false }), address(d.id, "debt.includeInBase")),
       ],
       actions: [removeAction(`${k}/remove`, "外す", "simple", (hh) => void (hh.debts = (hh.debts ?? []).filter((x) => x.id !== d.id)))],
     };

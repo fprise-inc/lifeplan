@@ -465,7 +465,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   fields.push(plain({ key: `${prefix}/asOf`, item: "pensionRecord.asOf", label: rec.kind === "history" ? "加入歴の終わりの月" : "書類の作成年月", level: "simple", kind: "ym", find, path: ["asOf"], help: "この月より後の加入は、働き方の期間から足します" }));
   if (STATEMENTS.has(rec.kind)) {
     fields.push(
-      monthsField(m, rec, "basic", "国民年金の加入月数（年金額に反映する月）", 600, "定期便の「加入期間」の欄の国民年金（計）。免除・猶予の月は含めません。分からなければ「わからない」（代わりの値で計算）"),
+      monthsField(m, rec, "basic", "国民年金の加入月数", 600, "定期便の「加入期間」の欄の国民年金（計）。免除・猶予の月は含めません。分からなければ「わからない」（代わりの値で計算）"),
       monthsField(m, rec, "employee", "厚生年金の加入月数", 900),
       plain({ key: `${prefix}/months/qualifying`, item: "pensionRecord.months", label: "受給資格期間の月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 900, find, path: ["months", "qualifying"], optional: true, help: "空欄なら、加入月数と免除・猶予の月数の合計" }),
     );
@@ -703,7 +703,7 @@ function receivingGroups(wh: WorkingHousehold, f: IncomeFlow): GroupDef[] {
       at("incomeFlow.pensionType"),
     ),
     withA(
-      yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: "年額（通知書の額）", level: "simple", basis: "annual", find, path: ["amount"], help: "年金決定通知書・年金額改定通知書の年額。遺族年金・障害年金は非課税なので、公的年金等の源泉徴収票には載りません。今の値段（計算の基準の年の価格）で入れます" }),
+      yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: "年額", level: "simple", basis: "annual", find, path: ["amount"], help: "年金決定通知書・年金額改定通知書の年額。遺族年金・障害年金は非課税なので、公的年金等の源泉徴収票には載りません。今の値段（計算の基準の年の価格）で入れます" }),
       at("incomeFlow.amount"),
     ),
     withA(timepointField({ key: `${k}/from`, item: "incomeFlow.from", label: "計算に入れる始まり", level: "simple", find, path: ["from"], ageOf, help: "今受け取っていれば計算の基準の月のまま" }), at("incomeFlow.from")),

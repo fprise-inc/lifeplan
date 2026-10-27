@@ -1386,3 +1386,5 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 html.big .help-pop { font-size: 0.92rem; }
 .in-note.in-empty { margin: 0 0 4px; }
 .ip-lineup .help, .ip-note .help, .ip-inherit .help, .sv-note .help, .in-actions .help { margin: 0 6px; }
+/* 「＋」のボタンの横の「?」（ボタンの名前に書かない説明）はボタンに寄せる */
+.in-actions .add-btn + .help, .sv-add .add-btn + .help { margin: 0 6px 0 -4px; }

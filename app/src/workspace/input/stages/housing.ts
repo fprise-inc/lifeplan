@@ -48,7 +48,7 @@ const isFree = (r: Residence): boolean => r.kind === "rent" && (r.rent === undef
 const RESIDENCE_CHOICES = [
   { value: "rent", label: "賃貸（社宅・寮を含む）" },
   { value: "own", label: "持ち家" },
-  { value: "free", label: "家賃なし（実家・親の家など）" },
+  { value: "free", label: "家賃なし" },
 ];
 
 /**
@@ -247,7 +247,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     return b === null ? null : `${what as string}: ${b}`;
   }).filter((x) => x !== null);
   const actions: ActionDef[] = [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.residences = (h.residences ?? []).filter((x) => x.id !== r.id)))];
-  if (free && r.to === null) actions.unshift({ key: `${k}/inherit`, label: "この家を相続する（持ち家に切り替える）", level: "detail", run: (w) => inheritHome(w, r.id) });
+  if (free && r.to === null) actions.unshift({ key: `${k}/inherit`, label: "この家を相続する", help: "住まいを持ち家に切り替えます", level: "detail", run: (w) => inheritHome(w, r.id) });
   const groups: GroupDef[] = [
     {
       key: k,
@@ -440,7 +440,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
   const groups: GroupDef[] = [
     {
       key: kv,
-      title: "持ち家の評価（資産と負債の推移に使う）",
+      title: "持ち家の評価",
       // 純資産と相続税の目安にだけ効き、お金の流れには効かないので詳細（0078）
       level: "detail",
       ...(!bought && r.valuation?.value === undefined ? { note: "評価額を入れると、資産と負債の推移・提案書のバランスシート・相続税の目安に不動産として入ります（今は0円で数えています）" } : {}),
@@ -448,14 +448,14 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
         yenBox({
           key: `${kv}/value`,
           item: "residence.valuation",
-          label: bought ? "評価の基にする額" : "評価額（わからなければ購入の価格）",
+          label: bought ? "評価の基にする額" : "評価額",
           level: "detail",
           basis: "once",
           find,
           path: ["valuation", "value"],
           // 今の持ち家で評価額が無ければ未入力の警告（購入の予定は物件の価格を使うので空欄でよい）
           optional: bought,
-          help: bought ? "空欄なら物件の価格を購入の月の評価額にします" : "土地と建物の合計。購入の価格を入れたときは、時点に購入の年月を入れます。相続する家は相続の見込みの額",
+          help: bought ? "空欄なら物件の価格を購入の月の評価額にします" : "土地と建物の合計。わからなければ購入の価格を入れます。購入の価格を入れたときは、時点に購入の年月を入れます。相続する家は相続の見込みの額",
           hint: (w) => valuationHint(w, r),
         }),
         plain({ key: `${kv}/asOf`, item: "residence.valuation", label: bought ? "その額の時点" : "その額の時点（購入の年月）", level: "detail", kind: "ym", find, path: ["valuation", "asOf"], optional: true, fallback: asOf }),
@@ -630,7 +630,7 @@ function educationDebtLines(wh: WorkingHousehold): GroupDef[] {
   // 今返している自動車ローンは車のカードで入れる（0069）
   const carLoans = (wh.request.input.household.debts ?? []).filter((d) => d.kind === "car" && d.property === undefined && d.inheritedFrom === undefined).length;
   const lines = [
-    ...(carLoans > 0 ? [readLine("housing/carLoans", "自動車ローン（今返している）", `${carLoans}件`, "車")] : []),
+    ...(carLoans > 0 ? [readLine("housing/carLoans", "自動車ローン", `${carLoans}件`, "車")] : []),
     ...(loans > 0 ? [readLine("housing/eduLoans", "教育ローン", `${loans}件`, "子ども・教育")] : []),
     ...(scholarships > 0 ? [readLine("housing/eduScholarships", "子の貸与の奨学金（親が返す）", `${scholarships}件`, "子ども・教育")] : []),
   ];
@@ -658,7 +658,7 @@ export function housingStage(wh: WorkingHousehold): StageDef {
       },
       {
         key: "housing/addFree",
-        label: "＋ 家賃なし（実家・親の家など）",
+        label: "＋ 家賃なし", help: "実家・親の家など、家賃のかからない住まいです",
         level: "simple",
         run: (w) => mutate(w, (hh) => void (hh.residences ??= []).push({ id: newId(), kind: "rent", from: { at: base }, to: null, rent: { monthly: { state: "notApplicable", origin: { kind: "manual" } } as never } })),
       },

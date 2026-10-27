@@ -23,7 +23,7 @@ type Recurring = NonNullable<NonNullable<AdvisoryFee["terms"]>["recurring"]>;
 function oneTimeFields(k: string, find: Finder, i: number): FieldDef[] {
   const findOne: Finder = (h, w) => (getPath(find(h, w), ["terms", "oneTime", String(i)]) as Record<string, unknown> | undefined) ?? undefined;
   return [
-    plain({ key: `${k}/one/${i}/amount`, item: "advisoryFee.terms", label: `単発の料金 ${i + 1}（相談料・プラン作成料。税込）`, level: "simple", kind: "yen", basis: "once", find: findOne, path: ["amount"] }),
+    plain({ key: `${k}/one/${i}/amount`, item: "advisoryFee.terms", label: `単発の料金 ${i + 1}（税込み）`, help: "相談料・プラン作成料など、1回の料金", level: "simple", kind: "yen", basis: "once", find: findOne, path: ["amount"] }),
     timepointField({ key: `${k}/one/${i}/at`, item: "advisoryFee.terms", label: "払う年月", level: "detail", find: findOne, path: ["at"] }),
   ];
 }
@@ -41,14 +41,14 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
     plain({
       key: `${k}/inCurrent`,
       item: "advisoryFee.enabled",
-      label: "現状にも入れる（すでに契約している）",
+      label: "現状にも入れる",
       level: "simple",
       kind: "bool",
       find,
       path: ["enabled"],
       optional: true,
       fallback: true,
-      help: "入れないときは、結果の対策「FP顧問料」で提案の側にだけ入れます（既定）",
+      help: "すでに契約しているときに入れます。入れないときは、結果の対策「FP顧問料」で提案の側にだけ入れます（既定）",
     }),
     ...(c.terms?.oneTime ?? []).flatMap((_, i) => oneTimeFields(k, find, i)),
   ];
@@ -108,7 +108,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       actions: [
         {
           key: `${k}/addRec`,
-          label: "＋ 継続の顧問料（年額・月額）",
+          label: "＋ 継続の顧問料",
           level: "simple",
           run: (w) =>
             mutate(w, (h) => {
@@ -132,8 +132,8 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       kind: "select",
       structural: true,
       options: [
-        { value: "annual", label: "年額（毎年、始まりの月に）" },
-        { value: "monthly", label: "月額（毎月）" },
+        { value: "annual", label: "年額" },
+        { value: "monthly", label: "月額" },
       ],
       help: "新しい契約は事務所の料金表の払い方で入ります",
       get: (w) => ({ value: (getPath(fee(w.request.input.household, w), ["terms", "recurring", "monthly"]) as number | undefined) !== undefined ? "monthly" : "annual" }),
@@ -169,13 +169,13 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
           plain({
             key: `${k}/rec/rate`,
             item: "advisoryFee.terms",
-            label: "値上げの率（年。以前に入れた値）",
+            label: "値上げの率（年）",
             level: "detail",
             kind: "pct",
             find: findRec,
             path: ["revision", "rate"],
             optional: true,
-            help: "この率で毎年上げて計算しています（顧客の画面には率を出しません）。料金を変える予定は「料金の段階」で額として入れます。空にすると上げません",
+            help: "以前に入れた値です。この率で毎年上げて計算しています（顧客の画面には率を出しません）。料金を変える予定は「料金の段階」で額として入れます。空にすると上げません",
           }),
         ]
       : []),
@@ -190,7 +190,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
     actions: [
       {
         key: `${k}/addStep`,
-        label: "＋ 料金の段階（その月からの額）",
+        label: "＋ 料金の段階", help: "その月から変わる料金の額を入れます",
         level: "detail",
         run: (w) =>
           mutate(w, (h) => {
@@ -206,7 +206,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
         ? [
             {
               key: `${k}/removeRate`,
-              label: "値上げの率を外す（上げない）",
+              label: "値上げの率を外す", help: "外すと、料金を上げずに計算します",
               level: "detail" as const,
               run: (w: WorkingHousehold) =>
                 mutate(w, (h) => {
@@ -317,7 +317,7 @@ export function feeSections(wh: WorkingHousehold): SectionDef[] {
   return [
     {
       key: "ev/fees",
-      title: "FP顧問料（単発・継続）",
+      title: "FP顧問料",
       note: "FP への相談料・顧問料。生活費とは別の行で計算します。既定では提案の側にだけ入れ、結果の対策「FP顧問料」で入れる・入れないを切り替えます",
       level: "simple",
       groups: list.flatMap((c, i) => feeGroups(wh, c, i)),

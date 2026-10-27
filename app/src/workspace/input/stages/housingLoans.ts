@@ -52,9 +52,9 @@ const tentativePrincipal = (v: number): StateRow => estRow("standard", `仮（�
 // ---- 入れ方の区分 ----
 
 export const ENTRY_OPTIONS = [
-  { value: "principal", label: "借入額から（契約書）" },
-  { value: "payment", label: "毎月の返済額から（通帳の引き落とし）" },
-  { value: "balance", label: "今の残高から（残高証明書・返済予定表）" },
+  { value: "principal", label: "借入額から" },
+  { value: "payment", label: "毎月の返済額から" },
+  { value: "balance", label: "今の残高から" },
 ] as const;
 
 export const entryOf = (wh: WorkingHousehold, id: string): LoanEntry => wh.loanEntry?.[id] ?? "principal";
@@ -477,7 +477,7 @@ export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" 
     fields.push(plain({ key: `${k}/clMonths`, item: "debt.creditLife", label: "就業不能の特約: 残高が消えるまでの月数", level: "detail", kind: "int", suffix: "か月", min: 0, max: 120, find, path: ["creditLife", "incapacityMonths"], optional: true, fallback: 12 }));
   fields.push(
     plain({ key: `${k}/clRatio`, item: "debt.creditLife", label: "保障割合", level: "detail", kind: "pct", find, path: ["creditLife", "ratio"], optional: true, fallback: "1", help: "連帯債務などで、残高のうち保障される割合" }),
-    plain({ key: `${k}/clJoint`, item: "debt.creditLife", label: "夫婦連生（どちらかの万一で全額）", level: "detail", kind: "bool", find, path: ["creditLife", "spouseJoint"], optional: true, fallback: false }),
+    plain({ key: `${k}/clJoint`, item: "debt.creditLife", label: "夫婦連生", help: "どちらかの万一で、残りの全額がなくなります", level: "detail", kind: "bool", find, path: ["creditLife", "spouseJoint"], optional: true, fallback: false }),
   );
   return fields;
 }
@@ -714,12 +714,12 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
       field({
         key: `${k}/credit/cost`,
         item: "debt.housing",
-        label: "取得対価（家を買った値段。控除）",
+        label: "取得対価（控除）",
         level: "detail",
         kind: "yen",
         basis: "once",
         optional: true,
-        help: "空欄なら借入額の上限を置きません。年末残高が取得対価より多いときは、取得対価までで控除します",
+        help: "家を買った値段です。空欄なら借入額の上限を置きません。年末残高が取得対価より多いときは、取得対価までで控除します",
         get: (w) => ({ value: hsOf(w)?.acquisitionCost ?? null }),
         set: (w, v) =>
           edit(w, (x) => {
@@ -737,7 +737,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         level: "detail",
         kind: "select",
         options: [
-          { value: "auto", label: "自動（入居の年の12月31日の家族から判定）" },
+          { value: "auto", label: "自動（家族から判定）" },
           { value: "yes", label: "対象" },
           { value: "no", label: "対象外" },
         ],
@@ -995,8 +995,8 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
   if (mortgage) {
     fields.push(
       withAddress(plain({ key: `${k}/product`, item: "debt.product", label: "商品", level: D, kind: "select", options: [{ value: "bank", label: "銀行などの住宅ローン" }, { value: "flat35", label: "フラット35（全期間固定）" }], find, path: ["product"], optional: true, fallback: "bank" }), () => at(d.id, "debt.product")),
-      plain({ key: `${k}/fiveYear`, item: "debt.repayment", label: "5年ルール（返済額を5年ごとに見直す）", level: D, kind: "bool", find, path: ["repayment", "variableRules", "fiveYear"], optional: true, fallback: false }),
-      plain({ key: `${k}/cap125`, item: "debt.repayment", label: "125%ルール（見直しの上限）", level: D, kind: "bool", find, path: ["repayment", "variableRules", "cap125"], optional: true, fallback: false }),
+      plain({ key: `${k}/fiveYear`, item: "debt.repayment", label: "5年ルール", help: "返済額を5年ごとに見直します（その間に金利が変わっても返済額は同じ）", level: D, kind: "bool", find, path: ["repayment", "variableRules", "fiveYear"], optional: true, fallback: false }),
+      plain({ key: `${k}/cap125`, item: "debt.repayment", label: "125%ルール", help: "5年ごとの見直しで、新しい返済額を前の1.25倍までにします", level: D, kind: "bool", find, path: ["repayment", "variableRules", "cap125"], optional: true, fallback: false }),
       // 団信は住まい・ローンのカードでは詳細（既定の「あり」で多くは当たり、今の結果には効かない。万一の画面では標準のまま。0078）
       ...creditLifeFields(wh, d, D),
     );
@@ -1011,7 +1011,7 @@ export function loanFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[]
 
 export const LOAN_SUBTYPES = [
   { value: "cardLoan", label: "カードローン・リボ", kind: "other", rate: "0.15", rateBasis: "カードローン・リボの金利の目安 年15%" },
-  { value: "scholarship", label: "奨学金（本人・配偶者が返している）", kind: "scholarship", rate: "0.005", rateBasis: "貸与型の奨学金の金利の目安 年0.5%" },
+  { value: "scholarship", label: "奨学金の返済", kind: "scholarship", rate: "0.005", rateBasis: "貸与型の奨学金の金利の目安 年0.5%" },
   { value: "renovation", label: "リフォームローン", kind: "other", rate: "0.025", rateBasis: "リフォームローンの金利の目安 年2.5%" },
   { value: "policyLoan", label: "契約者貸付（保険）", kind: "other", rate: "0.03", rateBasis: "契約者貸付の金利の目安 年3%" },
   { value: "personal", label: "親・知人からの借入", kind: "other", rate: "0", rateBasis: "親・知人からの借入は利息なし" },
@@ -1209,7 +1209,7 @@ export function loanMoreActions(wh: WorkingHousehold, d: Debt, k: string): Actio
     out.unshift(
       creditNotApplicable(wh, d.id)
         ? { key: `${k}/creditNa`, label: "住宅ローン控除の「該当なし」を外す", level: "simple", run: (w) => setCreditNotApplicable(w, d.id, false) }
-        : { key: `${k}/creditNa`, label: "住宅ローン控除は当てはまらない（該当なし）", level: "simple", title: "入居から13年を過ぎた・要件を満たさないなどで控除を受けないとき", run: (w) => setCreditNotApplicable(w, d.id, true) },
+        : { key: `${k}/creditNa`, label: "住宅ローン控除は当てはまらない", level: "simple", title: "入居から13年を過ぎた・要件を満たさないなどで控除を受けないとき", run: (w) => setCreditNotApplicable(w, d.id, true) },
     );
   return out;
 }

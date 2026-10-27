@@ -99,8 +99,8 @@ function hasEstimate(h: Household, b: RetirementBenefit): boolean {
 }
 
 const MODE_OPTIONS = [
-  { value: "estimate", label: "目安で（勤続・働き方から見積もる）" },
-  { value: "amount", label: "額で（会社の見込み額・規程の早見表）" },
+  { value: "estimate", label: "目安で" },
+  { value: "amount", label: "額で" },
 ];
 
 function modeOf(b: RetirementBenefit): "estimate" | "amount" {
@@ -156,7 +156,7 @@ const ESTIMATE_FOR_WARN = new Set(["regular", "contract", "civilServant", "execu
 
 function amountField(wh: WorkingHousehold, b: RetirementBenefit, prefix: string, find: Finder): FieldDef {
   const h = wh.request.input.household;
-  const label = b.kind === "db" ? "見込み額（一時金で受けた場合の額）" : "見込み額（一時金）";
+  const label = "見込み額（一時金）";
   const lumpEst = b.kind === "lumpSum" && lumpEstimate(h, b) !== null;
   const p = periodOf(h, b);
   const f = yenBox({
@@ -425,7 +425,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
         benefitAt(b.id, "retirementBenefit.receipt", ["perYear"]),
       ),
     );
-    if (kind === "db") fields.push(withAddress(plain({ key: `${prefix}/rate`, item: "retirementBenefit.receipt", label: "予定利率（一時金から年金に直す率）", level: "detail", kind: "pct", find, path: ["receipt", "conversionRate"], optional: true }), benefitAt(b.id, "retirementBenefit.receipt", ["conversionRate"])));
+    if (kind === "db") fields.push(withAddress(plain({ key: `${prefix}/rate`, item: "retirementBenefit.receipt", label: "予定利率", help: "一時金から年金に直すときの率です", level: "detail", kind: "pct", find, path: ["receipt", "conversionRate"], optional: true }), benefitAt(b.id, "retirementBenefit.receipt", ["conversionRate"])));
   }
   // 国民年金基金の本人の掛金（社会保険料控除）
   if (kind === "nationalPensionFund") {
@@ -471,7 +471,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
   if (kind === "lumpSum")
     fields.push(
       withAddress(
-        plain({ key: `${prefix}/education`, item: "retirementBenefit.education", label: "学歴（目安の元）", level: "detail", kind: "select", options: [{ value: "", label: "わからない（大学・大学院卒の値）" }, ...EDUCATION_OPTIONS.map((o) => ({ value: o.value, label: o.label }))], find, path: ["education"], optional: true, help: "目安の退職一時金は、学歴・職種で平均が違います" }),
+        plain({ key: `${prefix}/education`, item: "retirementBenefit.education", label: "学歴", level: "detail", kind: "select", options: [{ value: "", label: "わからない（大学・大学院卒の値）" }, ...EDUCATION_OPTIONS.map((o) => ({ value: o.value, label: o.label }))], find, path: ["education"], optional: true, help: "目安の退職一時金は、学歴・職種で平均が違います" }),
         benefitAt(b.id, "retirementBenefit.education"),
       ),
     );
@@ -482,7 +482,7 @@ function benefitFields(wh: WorkingHousehold, m: Member, b: RetirementBenefit, pr
         plain({
           key: `${prefix}/employment`,
           item: "retirementBenefit.employment",
-          label: "勤め先（どの働き方の期間か）",
+          label: "勤め先", help: "どの働き方の期間の退職金かを選びます",
           level: "detail",
           kind: "select",
           options: ps.map((p) => {

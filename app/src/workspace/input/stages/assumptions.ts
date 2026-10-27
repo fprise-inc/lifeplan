@@ -276,7 +276,7 @@ function assetReturnGroups(wh: WorkingHousehold): GroupDef[] {
         plain({
           key: `assume/assetReturns/${cls}/default`,
           item: "assumptions.assetReturns",
-          label: "利回り（年。費用・税を引く前）",
+          label: "利回り（年・費用と税を引く前）",
           level: "detail",
           kind: "pct",
           find: (_h, w) => (getPath(w.request.input.assumptions, ["assetReturns", cls]) as Obj | undefined) ?? undefined,
@@ -356,14 +356,14 @@ function valuationGroups(wh: WorkingHousehold): GroupDef[] {
           plain({
             key: "assume/realEstate/landShare",
             item,
-            label: "土地の割合（物件に入れていないとき）",
+            label: "土地の割合",
             level: "detail",
             kind: "pct",
             find,
             path: [R, "landShare"],
             optional: true,
             fallback: VALUATION_DEFAULTS.landShare,
-            help: "目安は3割（土地付きの注文住宅の土地の取得費の全国の割合）。地域で大きく違うので物件ごとに直します",
+            help: "物件に入れていないときに使います。目安は3割（土地付きの注文住宅の土地の取得費の全国の割合）。地域で大きく違うので物件ごとに直します",
           }),
           "目安（土地付きの注文住宅の土地の割合）",
         ),
@@ -584,8 +584,8 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     ["wageGrowth", "賃金上昇率（年）", "給与の伸び（年齢ごとの昇給カーブとは別。名目の率）", "simple"],
     ["investmentReturn", "運用利回り（年）", "資産の配分を入れていない口座の利回り（費用・税を引く前。長い期間の平均の目安）", "simple"],
     ["educationInflation", "教育費の上昇率（年）", "空欄なら物価上昇率と同じ", "detail"],
-    ["pensionMacroSlide", "年金の調整率（マクロ経済スライド・基礎年金。年）", "将来の年金額の伸びから差し引く率", "detail"],
-    ["pensionMacroSlideEmployee", "年金の調整率（厚生年金。年）", "空欄なら基礎年金の調整率と同じ", "detail"],
+    ["pensionMacroSlide", "年金の調整率（基礎年金・年）", "マクロ経済スライドの率。将来の年金額の伸びから差し引く率", "detail"],
+    ["pensionMacroSlideEmployee", "年金の調整率（厚生年金・年）", "空欄なら基礎年金の調整率と同じ", "detail"],
   ];
   const exGroups: GroupDef[] = [];
   const exAdds: ActionDef[] = [];
@@ -633,7 +633,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     },
     {
       key: "assume/realEstate",
-      title: "持ち家の評価（資産と負債の推移）",
+      title: "持ち家の評価",
       note: "土地は上昇率で動き、建物は構造の耐用年数で定額で減らします。空欄は目安（推定）を使います",
       level: "detail",
       groups: valuationGroups(wh),

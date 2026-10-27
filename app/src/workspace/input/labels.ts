@@ -114,9 +114,9 @@ export const POST_RETIREMENT_TYPES: Option[] = [
 /** 年金の入れ方（ねんきん定期便の数字を入れる形を主にする） */
 /** 年金の入れ方の区分（0066）: 推計（書類なし）／書類から／加入歴から。区分は画面の側（記録の型 kind から決まる） */
 export const PENSION_MODES: Option[] = [
-  { value: "", label: "推計（書類が無い。働き方の期間から計算）" },
-  { value: "document", label: "書類から（ねんきん定期便・年金額改定通知書など）" },
-  { value: "history", label: "加入歴から（加入の期間と平均標準報酬額の表）" },
+  { value: "", label: "推計（書類なし）" },
+  { value: "document", label: "書類から" },
+  { value: "history", label: "加入歴から" },
 ];
 
 /** 書類の種類（0066。書類からのとき。記録の型 kind そのもの） */
@@ -182,7 +182,7 @@ export const NURSERY_HOURS: Option[] = [
 ];
 
 export const SCHOOL_LUNCH: Option[] = [
-  { value: "", label: "制度どおり（公立小学校は国の負担軽減）" },
+  { value: "", label: "制度どおり" },
   { value: "free", label: "なし（自治体が無償化）" },
   { value: "paid", label: "あり（全額を払う）" },
 ];
@@ -215,7 +215,7 @@ export const BUILDING_STRUCTURES: Option[] = [
   { value: "wood", label: "木造" },
   { value: "lightSteel", label: "軽量鉄骨造" },
   { value: "steel", label: "重量鉄骨造" },
-  { value: "rc", label: "鉄筋コンクリート造（マンションなど）" },
+  { value: "rc", label: "鉄筋コンクリート造" },
 ];
 
 /** 構造ごとの耐用年数の目安（計算エンジンの housing.valuation と同じ） */
@@ -250,7 +250,7 @@ export const INSURANCE_TEMPLATES: Option[] = [
   { value: "insurance.privateAnnuity", label: "個人年金保険" },
   { value: "insurance.foreignCurrency", label: "外貨建て保険" },
   { value: "insurance.variable", label: "変額保険" },
-  { value: "insurance.nonLife", label: "損害保険（火災・自動車など）" },
+  { value: "insurance.nonLife", label: "損害保険" },
 ];
 
 export const PREMIUM_FREQUENCY: Option[] = [
@@ -284,7 +284,7 @@ export const BENEFITS: Option[] = [
 
 export const ACCOUNT_KINDS: Option[] = [
   { value: "deposit", label: "預貯金" },
-  { value: "taxable", label: "課税口座（特定・一般口座）" },
+  { value: "taxable", label: "課税口座" },
   { value: "nisa", label: "NISA" },
   { value: "childNisa", label: "こどもNISA" },
   { value: "legacyNisa", label: "旧NISA" },
@@ -316,7 +316,7 @@ export const ASSET_CLASSES: Option[] = [
 ];
 
 export const PERIODIC_ROWS: Option[] = [
-  { value: "cf.expense.lumpSum.other", label: "一時的支出（旅行・家電など）" },
+  { value: "cf.expense.lumpSum.other", label: "一時的支出" },
   { value: "cf.expense.lumpSum.wedding", label: "結婚の費用" },
   { value: "cf.expense.lumpSum.gift", label: "贈り物・援助" },
   { value: "cf.expense.lumpSum.car", label: "車両費（一時）" },
@@ -362,7 +362,7 @@ export function donorLabel(wh: WorkingHousehold, d: { kind: string; of?: string 
 }
 
 export function donorOptions(wh: WorkingHousehold): Option[] {
-  return [{ value: "", label: "贈与する人を選ばない（援助ごとに別の人）" }, ...(wh.request.input.household.donors ?? []).map((d) => ({ value: d.id, label: donorLabel(wh, d) }))];
+  return [{ value: "", label: "贈与する人を選ばない" }, ...(wh.request.input.household.donors ?? []).map((d) => ({ value: d.id, label: donorLabel(wh, d) }))];
 }
 
 const PREFS = "北海道,青森,岩手,宮城,秋田,山形,福島,茨城,栃木,群馬,埼玉,千葉,東京,神奈川,新潟,富山,石川,福井,山梨,長野,岐阜,静岡,愛知,三重,滋賀,京都,大阪,兵庫,奈良,和歌山,鳥取,島根,岡山,広島,山口,徳島,香川,愛媛,高知,福岡,佐賀,長崎,熊本,大分,宮崎,鹿児島,沖縄".split(",");
