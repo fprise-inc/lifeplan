@@ -329,7 +329,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
     carYen({
       key: `${k}/tradeIn`,
       item: "car.purchase",
-      label: "下取り（次の買い替えで引く額）",
+      label: "下取り",
       level: "detail",
       basis: "once",
       find,
@@ -338,7 +338,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
         const x = car(w.request.input.household, w);
         return tradeInEstimate(x?.purchase.price ?? CAR_ESTIMATE.price.value, x?.purchase.everyYears ?? CAR_ESTIMATE.everyYears.value);
       },
-      help: "空欄なら、車両の価格と周期から残価の目安で入れます。下取りを引いた額を車両の価格に入れたときは0円に",
+      help: "次の買い替えで車両の価格から引く額です。空欄なら、車両の価格と周期から残価の目安で入れます。下取りを引いた額を車両の価格に入れたときは0円に",
     }),
     plain({
       key: `${k}/owned`,
@@ -445,7 +445,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
         structural: true,
         options: [
           { value: "total", label: "合計（年額）で入れる" },
-          { value: "detail", label: "内訳（自動車税・保険・車検・駐車場・燃料・名前つきの行）で入れる" },
+          { value: "detail", label: "内訳で入れる" },
         ],
         help: "切り替えても、もう片方の値は消さずに残します（計算は選んだ入れ方の側だけ）",
         get: (w) => {
@@ -476,7 +476,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
         },
         set: (w) => w,
       }),
-      carYen({ key: `${k}/tax`, item: "car.tax", label: "自動車税（年額・毎年5月）", level: "detail", basis: "annual", find, path: ["tax", "annual"], estimate: CAR_ESTIMATE.tax }),
+      carYen({ key: `${k}/tax`, item: "car.tax", label: "自動車税（年額）", level: "detail", basis: "annual", find, path: ["tax", "annual"], estimate: CAR_ESTIMATE.tax }),
       carYen({ key: `${k}/insurance`, item: "car.insurance", label: "自動車保険（年額）", level: "detail", basis: "annual", find, path: ["insurance", "annual"], estimate: CAR_ESTIMATE.insurance }),
       carYen({ key: `${k}/inspection`, item: "car.inspection", label: "車検（1回の額）", level: "detail", basis: "once", find, path: ["inspection", "amount"], estimate: CAR_ESTIMATE.inspection }),
       plain({ key: `${k}/inspFirst`, item: "car.inspection", label: "最初の車検（購入から）", level: "detail", kind: "int", suffix: "年後", min: 1, max: 10, find, path: ["inspection", "firstAfterYears"], optional: true, fallback: 3 }),
@@ -543,7 +543,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
       actions: [
         {
           key: `${k}/other/add`,
-          label: "＋ 内訳の行（タイヤ・防錆など）",
+          label: "＋ 内訳の行", help: "タイヤ・防錆など、名前をつけて足す維持費の行です",
           level: "detail",
           run: (w) =>
             mutate(w, (h, req) => {
@@ -559,14 +559,14 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
     field({
       key: `${k}/untilAge`,
       item: "car.until",
-      label: "手放す時期（名義の人の年齢）",
+      label: "手放す時期",
       level: "simple",
       kind: "int",
       suffix: "歳",
       min: 18,
       max: 100,
       optional: true,
-      help: "その年齢に達する月で手放します（空欄は最後まで乗る）。手放すときの売却額は、まだ計算に入っていません",
+      help: "名義の人の年齢で入れます。その年齢に達する月で手放します（空欄は最後まで乗る）。手放すときの売却額は、まだ計算に入っていません",
       get: (w) => {
         const h = w.request.input.household;
         const x = car(h, w);
@@ -625,7 +625,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
   const untilYm = c.until == null ? null : resolveTimepoint(h0, c.until);
   const lastCar = all.filter((x) => x.owner === c.owner).at(-1)?.id === c.id;
   if (c.until != null && lastCar) {
-    actions.push({ key: `${k}/next`, label: "＋ この車の続きを足す（手放した翌月に次の車）", level: "detail", run: (w) => addNextCar(w, c.id) });
+    actions.push({ key: `${k}/next`, label: "＋ この車の続きを足す", help: "手放した翌月から次の車を持つ形で足します", level: "detail", run: (w) => addNextCar(w, c.id) });
     if (!afterCarAdded(h0, c.id)) actions.push({ key: `${k}/afterCar`, label: `＋ 手放した後の移動の費用を足す（目安 年${manYen(AFTER_CAR_PRESET.monthly * 12)}）`, level: "simple", run: (w) => addAfterCar(w, c.id) });
   }
   const neverReplaced = untilYm !== null && firstYm !== null && (c.purchase.owned === true ? untilYm < firstYm : untilYm < addMonths(firstYm, 12 * c.purchase.everyYears));
@@ -724,7 +724,7 @@ export function addCar(wh: WorkingHousehold, id: () => string = newId, owned = t
 
 /** 車のカードの出るお金の行の区画（車を持たない移動の費用・車の修理・用品など。空ならカーシェアのひな形のボタン） */
 function moveSection(wh: WorkingHousehold, list: readonly Car[]): SectionDef | null {
-  const out = moneySections(wh, "car", { claimed: new Set(), level: "simple", outTitle: "出るお金（車の修理・用品・車を持たない移動の費用）" }).find((s) => s.key.endsWith("/out"));
+  const out = moneySections(wh, "car", { claimed: new Set(), level: "simple", outTitle: "出るお金" }).find((s) => s.key.endsWith("/out"));
   if (out === undefined) return null;
   const empty = out.groups.length === 0;
   const share: ActionDef = {
@@ -752,7 +752,7 @@ function carLoanSection(wh: WorkingHousehold): SectionDef {
     ...(debts.length === 0 ? { note: "今の車のローンを返しているときに入れます（これから買う車のローンは、車の「買い方」で入れます）" } : {}),
     level: debts.length === 0 ? "detail" : "simple",
     groups: debts.flatMap((d, i) => carLoanGroups(wh, d, i)),
-    actions: [{ key: "car/addCarLoan", label: "＋ 自動車ローン（今返している）", level: "detail", run: (w) => newCarLoan(w) }],
+    actions: [{ key: "car/addCarLoan", label: "＋ 自動車ローン", level: "detail", run: (w) => newCarLoan(w) }],
   };
 }
 
@@ -774,12 +774,12 @@ export function carStage(wh: WorkingHousehold): StageDef {
         actions:
           list.length === 0
             ? [
-                { key: "ev/addCar", label: "＋ 今の車（目安の値で入れる）", level: "simple", run: (w) => addCar(w) },
-                { key: "ev/addCarNew", label: "＋ これから買う車（目安の値で入れる）", level: "simple", run: (w) => addCar(w, newId, false) },
+                { key: "ev/addCar", label: "＋ 今の車", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple", run: (w) => addCar(w) },
+                { key: "ev/addCarNew", label: "＋ これから買う車", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple", run: (w) => addCar(w, newId, false) },
               ]
             : [
-                { key: "ev/addCar", label: "＋ もう1台（今の車・目安の値で入れる）", level: "simple", run: (w) => addCar(w) },
-                { key: "ev/addCarNew", label: "＋ もう1台（これから買う車）", level: "simple", run: (w) => addCar(w, newId, false) },
+                { key: "ev/addCar", label: "＋ もう1台（今の車）", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple", run: (w) => addCar(w) },
+                { key: "ev/addCarNew", label: "＋ もう1台（これから買う車）", help: "価格・維持費などは目安の値で入れます（あとで直せます）", level: "simple", run: (w) => addCar(w, newId, false) },
               ],
       },
       ...(move !== null ? [move] : []),

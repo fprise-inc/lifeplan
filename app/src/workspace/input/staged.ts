@@ -293,7 +293,7 @@ export function returnStageGroups(wh: WorkingHousehold, o: { key: string; find: 
         address: () => ad([]),
       },
     ];
-    if (!byMix) fields.push({ ...plain({ key: `${k}/rate`, item: stagesPlace.item, label: "利回り（年。この段から）", level: LEVEL, kind: "pct", find, path: ["expectedReturn"] }), address: () => ad(["expectedReturn"]) });
+    if (!byMix) fields.push({ ...plain({ key: `${k}/rate`, item: stagesPlace.item, label: "利回り（年・この段から）", level: LEVEL, kind: "pct", find, path: ["expectedReturn"] }), address: () => ad(["expectedReturn"]) });
     if (n < stages.length - 1) fields.push(rampField(`${k}/ramp`, stagesPlace.item, find, ad(["rampYears"])));
     groups.push({
       key: k,

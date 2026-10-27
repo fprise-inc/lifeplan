@@ -439,7 +439,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
           timepointField({
             key: `${k}/end`,
             item: "insurance.coverages",
-            label: ep === "from" ? "受け取りの始まり" : "終わり（保障の終わり）",
+            label: ep === "from" ? "受け取りの始まり" : "保障の終わり",
             level: ends.coverage,
             find: findMain,
             path: [ep],
@@ -471,8 +471,8 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
 
   // ---- 詳細 ----
   fields.push(
-    withAddress(plain({ key: `${k}/label`, item: "insurance.label", label: "契約の表示名（保険会社・商品名など）", level: "detail", kind: "text", find, path: ["label"], optional: true, help: "表示だけに使います（持ち帰り用のレポート・AI に渡す範囲には入れません）" }), () => at(c.id, "insurance.label")),
-    withAddress(plain({ key: `${k}/holder`, item: "insurance.policyholder", label: "契約者（保険料を払う人）", level: "detail", kind: "select", options: memberOptions(wh), find, path: ["policyholder"] }), () => at(c.id, "insurance.policyholder")),
+    withAddress(plain({ key: `${k}/label`, item: "insurance.label", label: "契約の表示名", level: "detail", kind: "text", find, path: ["label"], optional: true, help: "保険会社・商品名など。表示だけに使います（持ち帰り用のレポート・AI に渡す範囲には入れません）" }), () => at(c.id, "insurance.label")),
+    withAddress(plain({ key: `${k}/holder`, item: "insurance.policyholder", label: "契約者", help: "保険料を払う人です", level: "detail", kind: "select", options: memberOptions(wh), find, path: ["policyholder"] }), () => at(c.id, "insurance.policyholder")),
     withAddress(
       plain({
         key: `${k}/date`,
@@ -524,7 +524,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
     );
   if (kind.main !== null) fields.push(payUntilField(find, k, c.id, ends.premium, "払込の終わり"));
   fields.push(
-    plain({ key: `${k}/waiver`, item: "insurance.waiver", label: "払込免除（被保険者の障害・就業不能で払込が止まる）", level: "detail", kind: "bool", find, path: ["waiver"], optional: true, fallback: false }),
+    plain({ key: `${k}/waiver`, item: "insurance.waiver", label: "払込免除", help: "被保険者の障害・就業不能で払込が止まる契約に入れます", level: "detail", kind: "bool", find, path: ["waiver"], optional: true, fallback: false }),
     timepointField({ key: `${k}/surrender`, item: "insurance.surrender", label: "解約の月", level: "detail", find, path: ["surrender"], optional: true, absentWhenEmpty: true, nullText: "解約しない", ageOf: insuredOf, help: "その月に解約返戻金を受け取り、保障と払込が終わります" }),
   );
   // 解約返戻金（貯蓄型は返戻率、解約の月がある契約・円の目安の形は解約の月の額）
@@ -589,7 +589,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
     actions: [
       {
         key: `${k}/addCoverage`,
-        label: "＋ 保障（主契約・特約）",
+        label: "＋ 保障", help: "主契約か特約の保障を足します（最初の1つが主契約）",
         level: "detail",
         run: (w) =>
           mutateC(w, (_h, x) => {
@@ -601,7 +601,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       },
       {
         key: `${k}/addRenewal`,
-        label: "＋ 更新（更新後の保険料）",
+        label: "＋ 更新", help: "更新後の保険料を入れます",
         level: "detail",
         run: (w) =>
           mutateC(w, (h, x) => {
@@ -763,7 +763,7 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
       field({
         key: `${kc}/insured`,
         item: "insurance.coverages",
-        label: "被保険者（この保障の）",
+        label: "被保険者",
         level: "detail",
         kind: "select",
         options: memberOptions(wh, inHousehold),
@@ -831,7 +831,7 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
         kind: "select",
         options: [
           { value: "constant", label: "一定" },
-          { value: "decreasing", label: "毎年同じ額ずつ減る（逓減。終わりに0円）" },
+          { value: "decreasing", label: "毎年同じ額ずつ減る（終わりに0円）" },
         ],
         sideEffects: "減る形にすると、保険年度ごとの死亡保障の数表を作ります（一定に戻すと外します）",
         get: (w) => {
@@ -854,7 +854,7 @@ function coverageGroup(wh: WorkingHousehold, c: InsuranceContract, cov: Coverage
       () => at(c.id, "insurance.coverages", [cov.id, name]),
     );
   if (cov.benefit === "incomeProtection") fields.push(intField("minimumMonths", "最低保証の月数", "か月", 600, 0, "亡くなった月から保障の終わりまでがこの月数より短くても、この月数は受け取ります"));
-  if (cov.benefit === "incapacity") fields.push(intField("waitingMonths", "免責の月数（給付が始まるまで）", "か月", 120, 0, "働けなくなった月の翌月から、この月数の後に給付が始まります"));
+  if (cov.benefit === "incapacity") fields.push(intField("waitingMonths", "免責の月数", "か月", 120, 0, "働けなくなった月の翌月から、この月数の後に給付が始まります"));
   if (cov.benefit === "annuity") fields.push(intField("years", "年金の年数", "年", 100, undefined, "空欄は保障の終わりまで"));
   if (cov.benefit === "survival") fields.push(intField("everyYears", "祝金の間隔", "年", 50, undefined, "保障の始まりから、この年ごとに受け取ります"));
   if (cov.benefit === "hospitalDaily") fields.push(intField("maxDays", "入院の1回の限度日数", "日", 1095, DEFAULT_MAX_DAYS, "病気の想定の入院の日数がこれを超えた分は受け取りません"));
@@ -897,11 +897,11 @@ function amountLabel(benefit: string): string {
 }
 
 /** 新しい契約のボタン */
-const ADD_BUTTONS: readonly { key: string; label: string; kind: string; level: "simple" | "detail" }[] = [
+const ADD_BUTTONS: readonly { key: string; label: string; help?: string; kind: string; level: "simple" | "detail" }[] = [
   { key: "ins/add", label: "＋ 保険契約（定期保険）", kind: "term", level: "simple" },
   { key: "ins/addMedical", label: "＋ 医療保険", kind: "medical", level: "simple" },
   { key: "ins/addEducation", label: "＋ 学資保険", kind: "education", level: "simple" },
-  { key: "ins/addNonLife", label: "＋ 損害保険（火災・自動車など）", kind: "nonLife", level: "detail" },
+  { key: "ins/addNonLife", label: "＋ 損害保険", help: "火災・地震・自動車などの保険です", kind: "nonLife", level: "detail" },
 ];
 
 export function insuranceStage(wh: WorkingHousehold): StageDef {
@@ -910,6 +910,7 @@ export function insuranceStage(wh: WorkingHousehold): StageDef {
   const actions: ActionDef[] = ADD_BUTTONS.filter((b) => b.kind !== "education" || h.members.some((m) => m.kind === "child")).map((b) => ({
     key: b.key,
     label: b.label,
+    ...(b.help !== undefined ? { help: b.help } : {}),
     level: b.level,
     run: (w: WorkingHousehold) =>
       mutate(w, (hh, req) => {

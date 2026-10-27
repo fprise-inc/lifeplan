@@ -59,7 +59,7 @@ export const KINDS: readonly KindDef[] = [
   { kind: "term", label: "定期保険", template: "insurance.term", main: { benefit: "death", label: "死亡保険金", basis: "once" }, end: { age: 65 }, payUntil: "end", deduction: "general" },
   {
     kind: "decreasingTerm",
-    label: "逓減定期保険（住宅ローンの分など）",
+    label: "逓減定期保険",
     template: "insurance.term",
     main: { benefit: "death", label: "死亡保険金（はじめの額）", basis: "once", help: "保障の終わりまで毎年同じ額ずつ減り、終わりに0円になる形で計算します" },
     end: "mortgagePayoff",
@@ -88,7 +88,7 @@ export const KINDS: readonly KindDef[] = [
   },
   { kind: "foreignCurrency", label: "外貨建て保険（目安）", template: "insurance.foreignCurrency", main: { benefit: "death", label: "死亡保険金（円の目安）", basis: "once" }, end: "lifetime", payUntil: 65, deduction: "general", estimate: true, note: "目安（為替で変わります）。円の目安の額だけで計算し、積立金を前提の利回りで伸ばしません" },
   { kind: "variable", label: "変額保険（目安）", template: "insurance.variable", main: { benefit: "death", label: "死亡保険金（円の目安）", basis: "once" }, end: "lifetime", payUntil: 65, deduction: "general", estimate: true, note: "目安（運用で変わります）。円の目安の額だけで計算し、積立金を前提の利回りで伸ばしません" },
-  { kind: "nonLife", label: "損害保険（火災・地震・自動車など）", template: "insurance.nonLife", main: null, end: "lifetime", payUntil: "lifetime", deduction: "none", note: "保険料だけを計算します。保険金は計算しません（受け取る見込みは入るお金の行で）" },
+  { kind: "nonLife", label: "損害保険", template: "insurance.nonLife", main: null, end: "lifetime", payUntil: "lifetime", deduction: "none", note: "保険料だけを計算します。保険金は計算しません（受け取る見込みは入るお金の行で）" },
 ];
 
 export const KIND_OPTIONS = KINDS.map((k) => ({ value: k.kind, label: k.label }));

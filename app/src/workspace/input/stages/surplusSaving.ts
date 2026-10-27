@@ -235,7 +235,7 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
         return withReq(w, setSurplus(w.request, { ...cur, changes: [...(cur.changes ?? []), next] }));
       },
     });
-  if (s !== undefined) actions.push({ key: "living/surplus/clear", label: "外す（黒字が全部貯金に回る計算に戻す）", level: "simple", danger: true, run: (w) => withReq(w, setSurplus(w.request, undefined)) });
+  if (s !== undefined) actions.push({ key: "living/surplus/clear", label: "外す", help: "黒字が全部貯金に回る計算に戻します", level: "simple", danger: true, run: (w) => withReq(w, setSurplus(w.request, undefined)) });
   return {
     key: "living/surplus",
     title: "毎年の黒字のうち、貯金に回る割合",

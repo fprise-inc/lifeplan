@@ -1,11 +1,12 @@
 // 入力の「貯蓄・運用」のパネルの中身（作業の層。0026）: 入れ方（合計／口座／資産配分）・口座ごとの残高と期間を分けた積立と利回り・
 // NISA の枠の知らせ・資産配分・iDeCo と企業型DC の受け取り・運用の期間（積立をやめる年・取り崩し）。値を変えるたびに onEdit に新しい世帯を渡す
+import { Fragment } from "preact";
 import { useState } from "preact/hooks";
 import type { Account, EngineRequest } from "../../../engine/types.ts";
 import { Help } from "../../../presentation/Help.tsx";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
 import { ageAt } from "../../levers.ts";
-import { Field, fieldDomId, Section, shouldCommitOnBlur, visible } from "../FieldViews.tsx";
+import { ActionHelp, Field, fieldDomId, Section, shouldCommitOnBlur, visible } from "../FieldViews.tsx";
 import { FieldStateBadge, FieldStateLine } from "../FieldStateLine.tsx";
 import { allFields, type FieldDef, type GroupDef, type Level, type SectionDef } from "../form.ts";
 import { mutate, type WorkingHousehold } from "../household.ts";
@@ -343,9 +344,12 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
           <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} editField={editField} find={find} fields={fields} onEdit={onEdit} />
           <div class="sv-add">
             {addActions.map((a) => (
-              <button type="button" class="add-btn" key={a.key} onClick={(e) => { if (a.label.startsWith("＋")) revealAdded(e.currentTarget); onEdit(a.run(wh)); }} data-action={a.key}>
-                {a.label}
-              </button>
+              <Fragment key={a.key}>
+                <button type="button" class="add-btn" onClick={(e) => { if (a.label.startsWith("＋")) revealAdded(e.currentTarget); onEdit(a.run(wh)); }} data-action={a.key}>
+                  {a.label}
+                </button>
+                <ActionHelp action={a} />
+              </Fragment>
             ))}
             {level === "simple" ? (
               <button type="button" class="link-btn" aria-expanded={moreKinds} onClick={() => setMoreKinds(!moreKinds)} data-more-kinds>
@@ -480,9 +484,12 @@ function FlowSection({ wh, level, flow, onEdit }: { wh: WorkingHousehold; level:
               {g.actions.length > 0 ? (
                 <div class="in-actions">
                   {g.actions.map((a) => (
-                    <button type="button" key={a.key} class="add-btn" onClick={(e) => { if (a.label.startsWith("＋")) revealAdded(e.currentTarget); onEdit(a.run(wh)); }} data-action={a.key} {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})} {...(a.title !== undefined ? { title: a.title } : {})}>
-                      {a.label}
-                    </button>
+                    <Fragment key={a.key}>
+                      <button type="button" class="add-btn" onClick={(e) => { if (a.label.startsWith("＋")) revealAdded(e.currentTarget); onEdit(a.run(wh)); }} data-action={a.key} {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})} {...(a.title !== undefined ? { title: a.title } : {})}>
+                        {a.label}
+                      </button>
+                      <ActionHelp action={a} />
+                    </Fragment>
                   ))}
                 </div>
               ) : null}

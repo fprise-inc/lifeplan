@@ -421,7 +421,7 @@ function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
         ...timepointField({
           key: `${k}/to`,
           item: "relation.to",
-          label: last ? "関係の終わり（離婚・別居。最後の月）" : "この段の終わり（最後の月）",
+          label: last ? "関係の終わり（最後の月）" : "この段の終わり（最後の月）",
           level: "detail",
           find,
           path: ["to"],
@@ -432,13 +432,13 @@ function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
           nullText: last ? "今も続いている（最後まで）" : "次の段の前の月まで",
           startPath: ["from"],
           after: (hh, _t, _v, w0) => fixRelations(hh, w0.request.input.household, m.id, rid, "to"),
-          help: last ? `入れると、${who}はその翌月に世帯を離れます（収入・年金・生活費の人数に入りません）` : "次の段の始まりは、この次の月に合わせます",
+          help: last ? `離婚・別居などで関係が終わった最後の月。入れると、${who}はその翌月に世帯を離れます（収入・年金・生活費の人数に入りません）` : "次の段の始まりは、この次の月に合わせます",
         }),
         address: at("relation.to"),
       },
     ];
     const actions: ActionDef[] = [];
-    if (last) actions.push({ key: `${k}/addStage`, label: "＋ 関係の段階を足す（事実婚 → 入籍など）", level: "detail", run: (w) => addRelationStage(w, m.id) });
+    if (last) actions.push({ key: `${k}/addStage`, label: "＋ 関係の段階を足す", help: "事実婚から入籍するなど、関係が変わるときに足します", level: "detail", run: (w) => addRelationStage(w, m.id) });
     if (i > 0) actions.push(removeAction(`${k}/remove`, "この段階を外す", "detail", (hh) => removeRelationStage(hh, m.id, rid)));
     if (ended) {
       actions.push(
@@ -523,8 +523,8 @@ function familyMoney(wh: WorkingHousehold): SectionDef[] {
   return moneySections(wh, "family", {
     claimed: NONE_CLAIMED,
     level: "simple",
-    inTitle: "入るお金（養育費・手当・財産分与・同居の家族から）",
-    outTitle: "出るお金（養育費・離れて暮らす子への仕送り）",
+    inTitle: "入るお金",
+    outTitle: "出るお金",
     note: "離れて暮らす子への仕送りを基本生活費の内訳の「仕送り」に入れているときは、ここには入れないでください（両方に入れると二重になります）。親への仕送りは介護・親の項目で入れます",
   }).map((sec) => ({
     ...sec,
@@ -701,7 +701,7 @@ export function familyStage(wh: WorkingHousehold): StageDef {
       ? [
           {
             key: "family/relations",
-            title: "夫婦の関係（法律婚・事実婚と始まり・終わり）",
+            title: "夫婦の関係",
             note: "事実婚から入籍・離婚のように、関係を期間で分けて入れられます。期間は重ならないように、前後の段の時点を合わせます",
             level: "detail" as const,
             groups: relations,

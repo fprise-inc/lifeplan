@@ -470,7 +470,8 @@ function stageActions(l: LivingExpense, find: Finder): { simple: ActionDef[]; de
     const none = (l.stages ?? []).length === 0;
     const fill: ActionDef = {
       key: `living/${l.id}/autoStages`,
-      label: none ? "子の誕生・独立・退職などで、生活費の段階を推定で入れる" : `推定の段階に入れ替える（今の段階 ${(l.stages ?? []).length}段を外します）`,
+      label: none ? "子の誕生・独立・退職などで、生活費の段階を推定で入れる" : "推定の段階に入れ替える",
+      ...(none ? {} : { help: `今の段階（${(l.stages ?? []).length}段）を外して、推定の段階に入れ替えます` }),
       level: none ? "simple" : "detail",
       ...(none ? {} : { danger: true }),
       title: "家計調査の世帯人員別の目安の比と、退職後80%・70歳から75%・80歳から70%の目安で段を作ります。家族・進路・働き方が変わると入れ直します",
@@ -709,7 +710,7 @@ function checkSection(wh: WorkingHousehold): SectionDef {
   const h = wh.request.input.household;
   const c = (checksOf(h) ?? [])[0];
   const year0 = Number(wh.request.input.baseMonth.slice(0, 4));
-  const title = "実際に貯められている額（答え合わせ）";
+  const title = "実際に貯められている額";
   const note = "1年で実際に貯められている額が分かれば、計算上の貯蓄額との差（使途不明金）を、その年から見込みます。差は結果の表の「使途不明金」（または基本生活費）の行に出ます";
   if (c === undefined) {
     return {

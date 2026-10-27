@@ -142,6 +142,8 @@ export interface ActionDef {
   pressed?: boolean;
   /** ボタンに添える補足（ツールチップ） */
   title?: string;
+  /** ボタンの横の「?」の中の説明（何が足されるか・どう計算するか。ボタンの名前には書かない。0077 の追記） */
+  help?: string;
 }
 
 /** まとまり（物1件、または区画の中の1組の欄） */

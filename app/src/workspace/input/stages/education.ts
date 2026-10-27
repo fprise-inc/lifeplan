@@ -99,8 +99,8 @@ export function defaultCourseLabel(child: Member, baseMonth: string): string {
 // ---- 学校外の費用（0062） ----
 
 export const OUT_OF_SCHOOL_MODES = [
-  { value: "statistics", label: "統計の平均で（塾・習い事・体験を含む平均）" },
-  { value: "rows", label: "行で入れる（塾・習い事・その他）" },
+  { value: "statistics", label: "統計の平均で" },
+  { value: "rows", label: "行で入れる" },
 ];
 const LEGACY_MODE = { value: "legacy", label: "統計の平均に行を足す（前の形）" };
 export const LESSON_KINDS = [
@@ -341,7 +341,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   const annual = plain({
     key: `${key}/annual`,
     item: "goal.education",
-    label: isK12(s.stage) ? "学校の費用の年額（上書き）" : "学費の年額（授業料＋施設設備費。上書き）",
+    label: isK12(s.stage) ? "学校の費用の年額（上書き）" : "学費の年額（上書き）",
     level: simpleAnnual ? "simple" : "detail",
     kind: "yen",
     basis: "annual",
@@ -419,7 +419,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   }
   if (s.stage === "university")
     fields.push({
-      ...plain({ key: `${key}/sciAgri`, item: "goal.education", label: "理工農系（修学支援の対象の学部）", level: "detail", kind: "bool", find, path: ["scienceAgriculture"], optional: true, fallback: false, help: "国の修学支援で、多子世帯でない第IV区分の授業料の減免は理工農系の学部だけが対象です。理系の多くは対象です" }),
+      ...plain({ key: `${key}/sciAgri`, item: "goal.education", label: "理工農系", level: "detail", kind: "bool", find, path: ["scienceAgriculture"], optional: true, fallback: false, help: "国の修学支援で、多子世帯でない第IV区分の授業料の減免は理工農系の学部だけが対象です。理系の多くは対象です" }),
       ...stageAddress(goalId, sid, "scienceAgriculture"),
     });
   return fields;
@@ -641,7 +641,7 @@ export function addChildExpense(wh: WorkingHousehold, childId: string, what: "ab
         ? { id, label: "留学", kind: "education", row: "cf.expense.education", from: at20, to: structuredClone(at20), everyYears: 1, amount: standardBox(3500000, presetBasis("留学 350万円")) }
         : {
             id,
-            label: "その他の教育費（寮費・部活など）",
+            label: "その他の教育費",
             kind: "education",
             row: "cf.expense.education",
             from: { memberAge: { member: childId, years: Math.max(12, ageNow + 1) } },
@@ -658,11 +658,11 @@ function childMoneyGroups(wh: WorkingHousehold, child: Member): { groups: GroupD
   const groups: GroupDef[] = [...childIncomes(h, child.id).flatMap((f) => incomeGroups(wh, f, "education")), ...childExpenses(h, child.id).flatMap((p) => periodicGroups(wh, p))];
   const k = `edu/${child.id}/money`;
   const actions: ActionDef[] = [
-    { key: `${k}/in/educationSupport`, label: "＋ 教育資金の援助を受ける（祖父母など）", level: "simple", run: (w) => addChildIncome(w, child.id, "educationSupport") },
-    { key: `${k}/in/scholarshipGrant`, label: "＋ 給付型の奨学金・学費の助成（額で）", level: "detail", run: (w) => addChildIncome(w, child.id, "scholarshipGrant") },
-    { key: `${k}/in/childPays`, label: "＋ 子が払う分（アルバイト・子の貯金から学費に）", level: "detail", run: (w) => addChildIncome(w, child.id, "childPays") },
+    { key: `${k}/in/educationSupport`, label: "＋ 教育資金の援助を受ける", help: "祖父母などから受け取る教育資金です", level: "simple", run: (w) => addChildIncome(w, child.id, "educationSupport") },
+    { key: `${k}/in/scholarshipGrant`, label: "＋ 給付型の奨学金・学費の助成", help: "額を入れます", level: "detail", run: (w) => addChildIncome(w, child.id, "scholarshipGrant") },
+    { key: `${k}/in/childPays`, label: "＋ 子が払う分", help: "子のアルバイト・子の貯金から学費に充てる分です", level: "detail", run: (w) => addChildIncome(w, child.id, "childPays") },
     { key: `${k}/out/abroad`, label: "＋ 留学", level: "simple", run: (w) => addChildExpense(w, child.id, "abroad") },
-    { key: `${k}/out/other`, label: "＋ その他の教育費（寮費・部活など）", level: "detail", run: (w) => addChildExpense(w, child.id, "other") },
+    { key: `${k}/out/other`, label: "＋ その他の教育費", help: "寮費・部活などの教育費です", level: "detail", run: (w) => addChildExpense(w, child.id, "other") },
   ];
   return { groups, actions };
 }
@@ -689,7 +689,7 @@ function leavesField(child: Member): FieldDef {
   return timepointField({
     key: `family/${child.id}/leaves`,
     item: "member.leaves",
-    label: "独立の時期（世帯を離れる）",
+    label: "独立の時期",
     level: "detail",
     find: byId((h: Household) => h.members, child.id),
     path: ["leaves"],
@@ -713,8 +713,8 @@ function giftGroups(wh: WorkingHousehold, goal: Goal, child: Member, who: string
     const k = `edu/${goal.id}/gift/${i}`;
     return {
       key: k,
-      title: `${who}への援助 ${i + 1}（結婚・住宅資金など。相続・贈与の項目にも出ます）`,
-      note: gift.donor !== undefined ? "贈与する人から出すので、援助の額を世帯から出しません" : undefined,
+      title: `${who}への援助 ${i + 1}`,
+      note: `結婚・住宅資金などの援助です。相続・贈与の項目にも出ます${gift.donor !== undefined ? "。贈与する人から出すので、援助の額を世帯から出しません" : ""}`,
       level: "simple",
       fields: [
         plain({ key: `${k}/purpose`, item: "goal.education", label: "使い道", level: "simple", kind: "select", options: GIFT_PURPOSES, find: findG, path: ["purpose"] }),
@@ -744,7 +744,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
   const goal = (h.goals ?? []).find((g) => g.kind === "education" && g.owner === child.id);
   const who = memberLabel(wh, child.id);
   const money = childMoneyGroups(wh, child);
-  const noneAction: ActionDef = { key: `edu/${child.id}/none`, label: "この子の教育費を入れない（該当なし）", level: "detail", run: (w) => educationNotApplicable(w, child.id) };
+  const noneAction: ActionDef = { key: `edu/${child.id}/none`, label: "この子の教育費を入れない", help: "この子の教育費を「該当なし」にします", level: "detail", run: (w) => educationNotApplicable(w, child.id) };
   if (goal === undefined) {
     const course = defaultCourseLabel(child, base);
     const has = defaultStages(child, base).length > 0;
@@ -792,7 +792,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
     label: "進路の型",
     level: "simple",
     kind: "select",
-    options: [{ value: "", label: "自分で選ぶ（下の各段）" }, ...COURSE_PRESETS.map((p) => ({ value: p.value, label: p.label }))],
+    options: [{ value: "", label: "自分で選ぶ" }, ...COURSE_PRESETS.map((p) => ({ value: p.value, label: p.label }))],
     structural: true,
     // 進路の推定・該当なしの印（値の状態の行）は、進路の段の並び全体に付く（fill.ts）
     address: () => educationStagesAddress(goal.id),
@@ -849,7 +849,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
                 kind: "select",
                 options: [
                   { value: "", label: "対象（制度どおり）" },
-                  { value: "ineligible", label: "対象外（国籍・在留資格の要件など）" },
+                  { value: "ineligible", label: "対象外" },
                 ],
                 find,
                 path: ["education", "highSchoolSupport"],
@@ -931,7 +931,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       ...money.actions,
       {
         key: `edu/${goal.id}/addGift`,
-        label: "＋ 子への援助（結婚・住宅資金など）",
+        label: "＋ 子への援助", help: "結婚・住宅資金などの援助です。相続・贈与の項目にも出ます",
         level: "detail",
         run: (w) =>
           mutate(w, (hh) => {

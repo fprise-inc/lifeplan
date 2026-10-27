@@ -194,7 +194,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
     fields.push(onMember(m.id, plain({ key: `${k}/dependent`, item: "member.support", label: "扶養している（税・健康保険）", level: "detail", kind: "bool", find, path: ["support", "dependent"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, fallback: false }), ["dependent"]));
     const limit = dependentLimitText(wh, m);
     if (limit !== null) fields.push(infoLine(`care/outside/${m.id}/dependentLimit`, "扶養の境目（目安）", limit, "制度の値から出した目安です。年金のほかに収入がある人は、合計所得で確かめてください"));
-    fields.push(onMember(m.id, plain({ key: `${k}/allowance`, item: "member.support", label: "仕送りの額（月額。扶養の判定に使う）", level: "detail", kind: "yen", basis: "monthly", find, path: ["support", "allowance"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, help: ALLOWANCE_HELP }), ["allowance"]));
+    fields.push(onMember(m.id, plain({ key: `${k}/allowance`, item: "member.support", label: "仕送りの額（月額）", level: "detail", kind: "yen", basis: "monthly", find, path: ["support", "allowance"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, help: ALLOWANCE_HELP }), ["allowance"]));
   }
   // 亡くなる見込み（世帯の外の家族では leaves がその意味。親のお金を見る期間・相続人の数え方・介護の目安の始まりに使う）
   if (m.outside !== undefined && hasBirth(m)) {
@@ -382,7 +382,7 @@ export function addNextCareStage(wh: WorkingHousehold, id: string, newStage: str
 function careCostGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
   const g = careGroup(wh, c);
   const est = careEstimate(placeOf(c));
-  const next: ActionDef = { key: `ev/care/${c.id}/nextStage`, label: "＋ 次の段階を足す（施設など）", level: "simple", run: (w) => addNextCareStage(w, c.id) };
+  const next: ActionDef = { key: `ev/care/${c.id}/nextStage`, label: "＋ 次の段階を足す", help: "在宅から施設へなど、次の段階の介護を足します", level: "simple", run: (w) => addNextCareStage(w, c.id) };
   return { ...g, title: careTitle(wh, c), note: `空欄の額・期間は統計の目安で計算します（${est?.basis ?? "生命保険文化センターの調査"}）`, actions: [next, ...g.actions] };
 }
 
@@ -449,7 +449,7 @@ function walletGroup(wh: WorkingHousehold, m: Member): GroupDef {
           if (x !== undefined) (x.lumpSums ??= []).push({ id: newId(), at: { at: addMonths(req.input.baseMonth, 12) }, amount: estimatedBox(0, LUMP_UNENTERED) });
         }),
     },
-    removeAction(`family/${m.id}/wallet/remove`, "この人のお金を見るのをやめる（介護の費用は世帯が払う）", "detail", (h) => {
+    removeAction(`family/${m.id}/wallet/remove`, "この人のお金を見るのをやめる", "detail", (h) => {
       const x = h.members.find((y) => y.id === m.id);
       if (x !== undefined) delete x.wallet;
     }),
@@ -517,7 +517,7 @@ export function careStage(wh: WorkingHousehold): StageDef {
       ],
     },
     // 親とのお金（援助・家に入れるお金＝入る、仕送り・立て替え＝出る。お金の行。0044）
-    ...moneySections(wh, "care", { claimed: NONE_CLAIMED, inTitle: "親からの援助・家に入れるお金（入るお金）", outTitle: "親への仕送り・立て替え（出るお金）" }),
+    ...moneySections(wh, "care", { claimed: NONE_CLAIMED, inTitle: "親からの援助・家に入れるお金", outTitle: "親への仕送り・立て替え" }),
     {
       key: "care/wallet",
       title: "親のお金が持つか",
@@ -526,7 +526,7 @@ export function careStage(wh: WorkingHousehold): StageDef {
       groups: walletable.filter((m) => m.wallet !== undefined).map((m) => walletGroup(wh, m)),
       actions: walletable
         .filter((m) => m.wallet === undefined)
-        .map((m) => ({ key: `family/${m.id}/wallet/add`, label: `＋ ${memberLabel(wh, m.id)}のお金が持つかを見る（預金・生活費・年金）`, level: "detail" as const, run: (w: WorkingHousehold) => mutate(w, (hh) => void ((hh.members.find((y) => y.id === m.id) as Member).wallet ??= {})) })),
+        .map((m) => ({ key: `family/${m.id}/wallet/add`, label: `＋ ${memberLabel(wh, m.id)}のお金が持つかを見る`, help: "この人の預金・生活費・年金を入れて、介護の費用をまずこの人のお金から払う計算にします", level: "detail" as const, run: (w: WorkingHousehold) => mutate(w, (hh) => void ((hh.members.find((y) => y.id === m.id) as Member).wallet ??= {})) })),
     },
     ...(leaves !== null ? [{ key: "care/leaves", title: "介護で働き方が変わる", note: "介護休業・時短は、働き方と収入の項目の働き方の期間で入れます（休業の種類「介護」）", level: "simple" as const, groups: [leaves], actions: [] }] : []),
   ];

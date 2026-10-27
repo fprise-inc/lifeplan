@@ -2,7 +2,7 @@
 // 値を変えるたびに世帯を作り直して onEdit に渡す（入力のパネルでは下書きに、万一の画面では世帯にそのまま入れる）。
 // 0077: 欄の説明（help・読むだけの理由・ほかへの影響）と区画・まとまりの説明は、名前の横の「?」の中へ。推定の根拠は状態の印を押したときに開く。
 // 灰色の入力例は欄の幅に収まる物だけ（placeholder.ts）
-import { createContext, type ComponentChildren } from "preact";
+import { createContext, Fragment, type ComponentChildren } from "preact";
 import { useContext, useState } from "preact/hooks";
 import { Help } from "../../presentation/Help.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
@@ -252,9 +252,12 @@ function Group({ group, wh, level, onEdit }: { group: GroupDef; wh: WorkingHouse
           <PlanGroupTag group={group} wh={wh} />
           <PinButton group={group} />
           {actions.filter((a) => a.danger === true).map((a) => (
-            <button type="button" key={a.key} class="link-btn danger" onClick={() => onEdit(a.run(wh))}>
-              {a.label}
-            </button>
+            <Fragment key={a.key}>
+              <button type="button" class="link-btn danger" onClick={() => onEdit(a.run(wh))}>
+                {a.label}
+              </button>
+              <ActionHelp action={a} />
+            </Fragment>
           ))}
         </div>
       ) : null}
@@ -277,24 +280,32 @@ function Actions({ actions, wh, onEdit, note }: { actions: ActionDef[]; wh: Work
       {splitNote(note).state !== null ? <span class="in-note in-empty">{splitNote(note).state}</span> : null}
       {splitNote(note).help !== null ? <Help label={actions[0]?.label ?? "この操作"}>{splitNote(note).help}</Help> : null}
       {actions.map((a) => (
-        <button
-          type="button"
-          key={a.key}
-          class={a.danger === true ? "link-btn danger" : "add-btn"}
-          onClick={(e) => {
-            // 「＋」で足した物は、見える所へ動かして光らせ、最初の欄に移る（revealAdded）
-            if (a.danger !== true && a.label.startsWith("＋")) revealAdded(e.currentTarget);
-            onEdit(a.run(wh));
-          }}
-          data-action={a.key}
-          {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})}
-          {...(a.title !== undefined ? { title: a.title } : {})}
-        >
-          {a.label}
-        </button>
+        <Fragment key={a.key}>
+          <button
+            type="button"
+            class={a.danger === true ? "link-btn danger" : "add-btn"}
+            onClick={(e) => {
+              // 「＋」で足した物は、見える所へ動かして光らせ、最初の欄に移る（revealAdded）
+              if (a.danger !== true && a.label.startsWith("＋")) revealAdded(e.currentTarget);
+              onEdit(a.run(wh));
+            }}
+            data-action={a.key}
+            {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})}
+            {...(a.title !== undefined ? { title: a.title } : {})}
+          >
+            {a.label}
+          </button>
+          <ActionHelp action={a} />
+        </Fragment>
       ))}
     </div>
   );
+}
+
+/** ボタンの横の「?」（ボタンの名前に書かない説明。0077 の追記）。説明が無ければ何も出さない */
+export function ActionHelp({ action }: { action: ActionDef }) {
+  if (action.help === undefined || action.help === "") return null;
+  return <Help label={action.label.replace(/^＋\s*/, "")}>{action.help}</Help>;
 }
 
 /**

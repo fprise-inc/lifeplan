@@ -45,7 +45,7 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
       plain({ key: `${k}/place`, item: "care.place", label: "在宅か施設か", level: "simple", kind: "select", options: CARE_PLACE, find, path: ["place"], optional: true, fallback: "home" }),
       yenBox({ key: `${k}/other`, item: "care.otherMonthly", label: "月々の費用（自己負担の合計）", level: started ? "simple" : "detail", basis: "monthly", find, path: ["otherMonthly"], optional: true, help: "空欄は統計の目安（在宅・施設の平均の月額）で計算します。施設の請求書の額などで入れてください。介護保険の1割負担の前の額が分かれば、詳細の「介護保険の対象の費用」に分けて入れます" }),
       yenBox({ key: `${k}/service`, item: "care.serviceMonthly", label: "介護保険の対象の費用（月額・1割負担の前の10割）", level: "detail", basis: "monthly", find, path: ["serviceMonthly"], optional: true, help: "入れると、所得に応じた自己負担の割合（1〜3割）と高額介護サービス費の上限を当てます。空欄は上の月々の費用だけで計算します" }),
-      yenBox({ key: `${k}/initial`, item: "care.initial", label: "一時費用（住宅の改修・入居金など）", level: "detail", basis: "once", find, path: ["initial"], optional: true, help: "空欄は統計の目安（一時費用の平均）で計算します" }),
+      yenBox({ key: `${k}/initial`, item: "care.initial", label: "一時費用", level: "detail", basis: "once", find, path: ["initial"], optional: true, help: "住宅の改修・入居金など。空欄は統計の目安（一時費用の平均）で計算します" }),
       plain({ key: `${k}/payer`, item: "care.payer", label: "払う人", level: "detail", kind: "select", options: [{ value: "", label: "介護を受ける人" }, ...memberOptions(wh)], find, path: ["payer"], optional: true, fallback: "", help: "介護を受ける人が世帯の外の家族で、その人のお金を見ているときは、まずその人のお金から払い、尽きた月からここで選んだ人が払います" }),
       ...growthFields(k, "care.growth", find, c.id, c.growth),
       ...onContingencyFields({ key: `${k}/on`, item: "care.onContingency", find, path: ["onContingency"], level: "detail", help: "払う人の万一（死亡など）が起きた月の翌月から当てます" }).map((x) => ({ ...x, address: () => ({ target: { object: c.id }, item: "care.onContingency", at: [] }) })),
@@ -89,7 +89,7 @@ export const OUT_TEMPLATES: readonly EventTemplate[] = [
   { key: "purchase", label: "リフォーム以外の大きな買い物", amount: 500000, everyYears: null, row: "cf.expense.lumpSum.other" },
 ];
 
-const templateText = (t: EventTemplate) => (t.amount === null ? `${t.label}（額は入れてください）` : `${t.label}（${t.everyYears === null ? "1回" : t.everyYears === 1 ? "毎年" : `${t.everyYears}年ごとに`}${manYen(t.amount)}）`);
+const templateText = (t: EventTemplate) => (t.amount === null ? t.label : `${t.label}（${t.everyYears === null ? "1回" : t.everyYears === 1 ? "毎年" : `${t.everyYears}年ごとに`}${manYen(t.amount)}）`);
 const UNENTERED = "未入力（額を入れてください。0円で計算中）";
 
 /** ひな形の出るお金の行を足す（時期は1年後。額は目安のボタンの値＝推定。額の無いひな形は未入力の警告） */
@@ -203,7 +203,7 @@ function eventRowGroups(wh: WorkingHousehold, p: PeriodicExpense): GroupDef[] {
   const [head, ...rest] = periodicGroups(wh, p);
   if (head === undefined) return rest;
   const more: ActionDef[] = [{ key: `ev/${p.id}/toIncome`, label: "入るお金にする", level: "detail", run: (w) => expenseToIncome(w, p.id) }];
-  if (cadenceOf(h, p) !== "once") more.push({ key: `ev/${p.id}/toLiving`, label: "基本生活費の項目へ移す（年払いの暮らしの支出）", level: "detail", run: (w) => moveToLiving(w, p.id) });
+  if (cadenceOf(h, p) !== "once") more.push({ key: `ev/${p.id}/toLiving`, label: "基本生活費の項目へ移す", help: "年払いの暮らしの支出として、基本生活費の項目へ移します", level: "detail", run: (w) => moveToLiving(w, p.id) });
   return [{ ...head, actions: [...more, ...head.actions] }, ...rest];
 }
 
@@ -217,7 +217,7 @@ function scheduleSection(wh: WorkingHousehold): SectionDef {
     ...(overlap.length > 0 ? [`1回の出るお金が重なる年: ${overlap.map((o) => `${o.year}年（${o.names.join("・")}）`).join("、")}`] : []),
   ].join("。");
   const g = readGroup("events/schedule", undefined, lines, note);
-  return { key: "events/schedule", title: "この世帯の予定（ほかの項目を含む）", ...(g === null ? { note: "まだ予定がありません" } : {}), level: "detail", groups: g === null ? [] : [g], actions: [] };
+  return { key: "events/schedule", title: "この世帯の予定", ...(g === null ? { note: "まだ予定がありません" } : {}), level: "detail", groups: g === null ? [] : [g], actions: [] };
 }
 
 export function eventsStage(wh: WorkingHousehold): StageDef {
@@ -233,7 +233,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
   ];
   const outSection: SectionDef = {
     key: "ev/periodic",
-    title: "出るお金（一時的支出・n年ごと）",
+    title: "出るお金",
     note: `${empty ? "まだありません。" : ""}旅行・家電の買い替え・結婚・大きな買い物・予備費など。毎月の基本生活費とは別に入れます。行の右の札（必ず・できれば）で、結果の「確実な分だけ」で外す物を決められます`,
     level: "simple",
     groups: rows.flatMap((p) => eventRowGroups(wh, p)),
@@ -265,7 +265,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
     ],
   };
   // 入るお金（祝い金・一時所得・動産の売却・その他の入金。0044）。行に「出るお金にする」
-  const inSec = moneySections(wh, "events", { claimed: NONE_CLAIMED, level: "simple", inTitle: "入るお金（その他の一時的収入）" }).find((x) => x.key.endsWith("/in"));
+  const inSec = moneySections(wh, "events", { claimed: NONE_CLAIMED, level: "simple", inTitle: "入るお金" }).find((x) => x.key.endsWith("/in"));
   const inRows = (h.incomeFlows ?? []).filter((f) => incomeCard(f) === "events");
   const inSection: SectionDef | null =
     inSec === undefined
@@ -278,7 +278,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
             const id = m?.[1];
             return id === undefined ? g : { ...g, actions: [{ key: `in/${id}/toExpense`, label: "出るお金にする", level: "detail" as const, run: (w: WorkingHousehold) => incomeToExpense(w, id) }, ...g.actions] };
           }),
-          actions: [...(inRows.length === 0 ? IN_TEMPLATES.map((t): ActionDef => ({ key: `in/template/${t.key}`, label: `＋ ${t.label}（額は入れてください）`, level: "simple", run: (w) => addIncomeTemplate(w, t.label) })) : []), ...inSec.actions],
+          actions: [...(inRows.length === 0 ? IN_TEMPLATES.map((t): ActionDef => ({ key: `in/template/${t.key}`, label: `＋ ${t.label}`, level: "simple", run: (w) => addIncomeTemplate(w, t.label) })) : []), ...inSec.actions],
         };
   const sections: SectionDef[] = [outSection, ...(inSection !== null ? [inSection] : []), scheduleSection(wh)];
   return { id: "events", label: "ライフイベント", lead: "一時的な収支（旅行・買い替え・結婚・祝い金など）と、世帯の予定の一覧。", sections };
