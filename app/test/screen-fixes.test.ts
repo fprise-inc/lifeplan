@@ -138,7 +138,7 @@ describe("働き方: 給与の種類どうしで変えたら推定を入れ替�
   });
 
   it("人が入れた年収・健康保険は残す", () => {
-    const { wh, spouse, f } = start();
+    const { wh, spouse } = start();
     // 年収（賞与を除く）は働き方の期間（詳しく）の欄（標準は年収〔賞与込み〕の1欄。0078）
     let w = allFields(buildStage("work", wh)).find((x) => x.key === `work/period/${periodOf(wh, spouse.id).id}/annual`)!.set(wh, 2400000);
     // 健康保険の種類は詳細（働き方の期間）の欄
