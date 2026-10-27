@@ -6,6 +6,7 @@ import { createContext, type ComponentChildren } from "preact";
 import { useContext, useState } from "preact/hooks";
 import { Help } from "../../presentation/Help.tsx";
 import { PopIcon } from "../../presentation/icons.tsx";
+import { FieldIcon } from "./fieldIcons.tsx";
 import { fittingPlaceholder, textEm } from "./placeholder.ts";
 import type { Timepoint } from "../../engine/types.ts";
 import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, TimeView, Val, WhenState } from "./form.ts";
@@ -507,7 +508,10 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
   return (
     <div class={`fld${shownStatus === "estimated" ? " is-est" : shownStatus !== null && shownStatus !== "confirmed" ? ` is-${STATUS_CLASS[shownStatus]}` : ""}`} data-field={f.key}>
       <div class="fld-l">
-        <label for={id}>{f.label}</label>
+        <label for={id}>
+          {f.icon !== undefined ? <FieldIcon name={f.icon} /> : null}
+          {f.label}
+        </label>
         {badge}
         {fieldHelp(f)}
       </div>

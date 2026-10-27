@@ -16,6 +16,9 @@ import { bodyOf, EMPTY_CARRY, fromBody, type BodyState } from "../src/workspace/
 import { CURRENT } from "../src/workspace/plans/band.ts";
 import { readAt } from "../src/workspace/store/readings.ts";
 import { buildCandidates } from "../../statement/src/candidates.ts";
+import { renderToString } from "preact-render-to-string";
+import { h } from "preact";
+import { FieldIcon, hasFieldIcon } from "../src/workspace/input/fieldIcons.tsx";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const BASE = "2026-10";
@@ -379,5 +382,62 @@ describe("区画（0048 の3〜5）", () => {
       const v = readAt(input, { target: { object: l0.id }, item: item!, at });
       if (row.state !== "notApplicable") expect(v, k).toBeDefined();
     }
+  });
+});
+
+describe("入れ方の言葉と内訳の行のアイコン", () => {
+  it("入れ方は「総額で／内訳で」。値は total・byCategory のまま。まとまりの名前は「内訳（月額）」", () => {
+    const wh = family();
+    const l = living(wh);
+    const mode = fieldOf(wh, `living/${l.id}/mode`);
+    expect(mode.kind === "select" ? mode.options : []).toEqual([
+      { value: "total", label: "総額で" },
+      { value: "byCategory", label: "内訳で" },
+    ]);
+    const w1 = mode.set(wh, "byCategory");
+    expect(living(w1).mode).toBe("byCategory");
+    const titles = stage(w1).sections.flatMap((x) => x.groups.map((g) => g.title ?? ""));
+    expect(titles).toContain("内訳（月額）");
+    expect(titles.some((t) => t.includes("費目"))).toBe(false);
+    // 新しく作る按分の根拠も「内訳」の言い方
+    expect(living(w1).categories!.every((c) => ((c.monthly as { estimate?: { basis?: string } }).estimate?.basis ?? "").startsWith("総額を内訳に分けた目安"))).toBe(true);
+  });
+
+  it("標準の6行・詳細の内訳の行（9つの内訳すべて）に名前の左のアイコンがある。名前は文字だけ", () => {
+    const wh = family();
+    const w1 = fieldOf(wh, `living/${living(wh).id}/mode`).set(wh, "byCategory");
+    const rows = allFields(stage(w1)).filter((f) => f.item === "livingExpense.categories");
+    const simple = rows.filter((f) => f.level === "simple");
+    const detail = rows.filter((f) => f.level === "detail");
+    expect(simple.map((f) => f.label)).toEqual(["食費", "水道・光熱費", "日用品・衣服", "交通・通信費（車を除く）", "趣味・旅行（教養娯楽）", "医療・こづかい・その他"]);
+    expect(simple.map((f) => f.icon)).toEqual(["food", "utilities", "daily", "transport", "recreation", "misc"]);
+    expect(detail.map((f) => f.icon)).toEqual(["furniture", "clothing", "health", "otherConsumption", "allowance"]);
+    // 詳細で見える内訳の行（束の合計の行を除く）は9つの内訳すべてで、どれもアイコンを持つ
+    const leaves = rows.filter((f) => !f.key.includes("/group/"));
+    expect(leaves).toHaveLength(9);
+    for (const f of rows) expect(hasFieldIcon(f.icon ?? "")).toBe(true);
+    for (const f of rows) expect(f.label).not.toMatch(/[<>]/);
+  });
+
+  it("アイコンは読み上げない（aria-hidden）。大きさは文字に合わせる（em）。知らない名前は何も出さない", () => {
+    const html = renderToString(h(FieldIcon, { name: "food" }));
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain('focusable="false"');
+    expect(html).toContain('class="fld-icon"');
+    expect(html).not.toMatch(/ (width|height)="/);
+    expect(renderToString(h(FieldIcon, { name: "nope" }))).toBe("");
+  });
+
+  it("前の言い方の按分の推定（総額を費目に分けた目安）も、按分のままと読む（書き換えない）", () => {
+    const wh = family();
+    const w1 = fieldOf(wh, `living/${living(wh).id}/mode`).set(wh, "byCategory");
+    const old = mutate(w1, (hh) => {
+      for (const c of hh.livingExpenses![0]!.categories!) {
+        const e = (c.monthly as { estimate?: { basis?: string } }).estimate!;
+        e.basis = e.basis!.replace("総額を内訳に分けた目安", "総額を費目に分けた目安");
+      }
+    });
+    expect(isPureSplit(living(old))).toBe(true);
+    expect(((living(old).categories![0]!.monthly as { estimate?: { basis?: string } }).estimate?.basis ?? "")).toMatch(/^総額を費目に分けた目安/);
   });
 });
