@@ -112,13 +112,19 @@ export const POST_RETIREMENT_TYPES: Option[] = [
 ];
 
 /** 年金の入れ方（ねんきん定期便の数字を入れる形を主にする） */
-export const PENSION_KINDS: Option[] = [
+/** 年金の入れ方の区分（0066）: 推計（書類なし）／書類から／加入歴から。区分は画面の側（記録の型 kind から決まる） */
+export const PENSION_MODES: Option[] = [
+  { value: "", label: "推計（書類が無い。働き方の期間から計算）" },
+  { value: "document", label: "書類から（ねんきん定期便・年金額改定通知書など）" },
+  { value: "history", label: "加入歴から（加入の期間と平均標準報酬額の表）" },
+];
+
+/** 書類の種類（0066。書類からのとき。記録の型 kind そのもの） */
+export const DOCUMENT_KINDS: Option[] = [
   { value: "statementUnder50", label: "ねんきん定期便（50歳未満）" },
   { value: "statementOver50", label: "ねんきん定期便（50歳以上）" },
   { value: "receiving", label: "年金額改定通知書（受給中）" },
-  { value: "projection", label: "見込額だけを入れる" },
-  { value: "history", label: "加入歴から計算する（詳しく入れる）" },
-  { value: "", label: "入れない（働き方から推計）" },
+  { value: "projection", label: "ねんきんネットの見込額・見込額だけ" },
 ];
 
 export const HISTORY_CATEGORIES: Option[] = [

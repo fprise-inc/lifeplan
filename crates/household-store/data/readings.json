@@ -2743,6 +2743,12 @@
     "onContingency"
    ]
   },
+  "incomeFlow.pensionType": {
+   "collection": "incomeFlow",
+   "path": [
+    "pensionType"
+   ]
+  },
   "incomeFlow.recipient": {
    "collection": "incomeFlow",
    "path": [

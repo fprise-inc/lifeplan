@@ -13,6 +13,7 @@ import { startLiving } from "./livingStages.ts";
 import { memberLabel } from "./labels.ts";
 import { putRow, rowAt, type StateRow } from "./rows.ts";
 import { defaultStages } from "./stages/education.ts";
+import { amountsUnentered, fillMonths, pensionMembers, statementMonthsMissing, substituteMonths, switchPension } from "./stages/pension.ts";
 import { currentPeriodId } from "../store/readings.ts";
 import { missingUnemployment, putEstimate, UNEMPLOYMENT_BASIS, UNEMPLOYMENT_ITEM, unemploymentEstimate } from "./claims.ts";
 import { AUTO_TYPES, autoKindOf, civilEstimate, COMPUTED, finalMonthlyAt, initialBenefit, isAutoBenefit, isUnenteredBox, KIND_SHORT, prevalenceText, reasonAt, rowOfBenefit, type BenefitKind } from "./retirementBenefits.ts";
@@ -358,6 +359,30 @@ export function gapsOf(wh: WorkingHousehold): Gap[] {
       none: (w) => retirementNone(w, m.id),
       noneLabel: "勤め先に制度が無い",
     });
+  }
+  // 年金（0066）: 書類から入れる形で額が2つとも入っていない人は、推計に戻す（書類の記録は消さずに残す）。定期便の加入月数が0か月のままの人は、
+  // 代わりの値（20歳の月から作成年月まで・働き方の期間の厚生年金の月）を推定で入れる
+  for (const m of pensionMembers(h)) {
+    const rec = (h.pensionRecords ?? []).find((r) => r.member === m.id);
+    if (rec === undefined) continue;
+    if (amountsUnentered(rec))
+      out.push({
+        id: `pension/amounts/${m.id}`,
+        card: "pension",
+        label: `${memberLabel(wh, m.id)}の年金の額`,
+        note: "書類から入れる形で、老齢基礎年金・老齢厚生年金の額がまだ入っていないので、年金を0円で計算しています",
+        fill: (w) => switchPension(w, m.id, ""),
+        basis: "働き方の期間から推計（書類の記録は残し、「書類から」に戻すと戻ります）",
+      });
+    else if (statementMonthsMissing(rec))
+      out.push({
+        id: `pension/months/${m.id}`,
+        card: "pension",
+        label: `${memberLabel(wh, m.id)}のねんきん定期便の加入月数`,
+        note: rec.kind === "statementOver50" ? "加入月数が0か月のままなので、年金を0円で計算しています" : "加入月数が0か月のままなので、年金を少なく計算しています",
+        fill: (w) => fillMonths(w, m.id, "estimated"),
+        basis: substituteMonths(h, m, rec.asOf, base).basis,
+      });
   }
   // 失業給付を入れていない勤め（古い世帯。推定なら受け取る期間）: 推定で埋める（おまかせ）か、受け取らない
   for (const p of missingUnemployment(h)) {

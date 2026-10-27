@@ -57,8 +57,8 @@ const BUILDERS: Record<StageId, (wh: WorkingHousehold) => StageDef> = {
   assumptions: assumptionsStage,
 };
 
-/** お金の行（入るお金・出るお金。0044）の区画を後ろに置くカード（ライフイベント・基本生活費・家族・子ども・教育・車は自分の区画の中に置く。子ども・教育は子ごと） */
-const MONEY_CARDS: ReadonlySet<StageId> = new Set(["work", "pension", "housing", "insurance", "savings"]);
+/** お金の行（入るお金・出るお金。0044）の区画を後ろに置くカード（ライフイベント・基本生活費・家族・子ども・教育・車・年金は自分の区画の中に置く。子ども・教育は子ごと） */
+const MONEY_CARDS: ReadonlySet<StageId> = new Set(["work", "housing", "insurance", "savings"]);
 
 export function buildStage(id: StageId, wh: WorkingHousehold): StageDef {
   const stage = BUILDERS[id](wh);

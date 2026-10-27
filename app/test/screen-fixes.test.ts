@@ -156,7 +156,9 @@ describe("年金: 定期便の加入月数が0か月のままを黙って0円に
     wh = run(wh, "work", `work/${self.id}/start`).wh;
     // 定年後は働かない（再雇用の推定の5年で受給資格期間に届かないように）
     wh = set(wh, "work", "/postType", "");
-    wh = fieldOf(wh, "pension", `pension/${self.id}/kind`).set(wh, "statementOver50");
+    // 入れ方の区分「書類から」を選ぶと、年齢（53歳）から書類の種類は定期便（50歳以上）になる（0066）
+    wh = fieldOf(wh, "pension", `pension/${self.id}/mode`).set(wh, "document");
+    expect(wh.request.input.household.pensionRecords?.[0]?.kind).toBe("statementOver50");
     wh = set(wh, "pension", "/amounts/basic", 780000);
     wh = set(wh, "pension", "/amounts/employee", 1250000);
     return { wh, self };
@@ -169,7 +171,7 @@ describe("年金: 定期便の加入月数が0か月のままを黙って0円に
     expect(pensionTotal(wh)).toBe(0);
     const stage = buildStage("pension", wh);
     expect(stage.sections[0]!.groups[0]!.note).toContain("加入月数が0か月のままです");
-    expect(fieldOf(wh, "pension", "/months/basic").get(wh).warn).toContain("0か月のままです");
+    expect(fieldOf(wh, "pension", "/months/basic").get(wh)).toMatchObject({ value: null, warn: expect.stringContaining("0か月のままです") });
     const card = inputItems(wh).find((i) => i.id === "pension")!;
     expect(card.summary).toEqual({ main: "加入月数", unit: "が未入力" });
     expect(pensionNotices(wh)).toEqual(["ご本人の年金: ねんきん定期便の加入月数が0か月のままです。年金を0円で計算しています。入力の「年金」で加入月数を入れてください"]);
@@ -196,7 +198,17 @@ describe("年金: 定期便の加入月数が0か月のままを黙って0円に
     // 入れた額はそのまま
     expect(fieldOf(w, "pension", "/amounts/employee").get(w)).toMatchObject({ value: 1250000, estimated: null });
     // 新しく選んだときも
-    const fresh = fieldOf(wh, "pension", `pension/${self.id}/kind`).set(fieldOf(wh, "pension", `pension/${self.id}/kind`).set(wh, ""), "receiving");
+    // 推計に戻すと書類の記録は残し（画面の側）、書類からに戻すと戻る。残した記録の無い人が新しく選んだときも、改定通知書の文になる
+    const est = fieldOf(wh, "pension", `pension/${self.id}/mode`).set(wh, "");
+    expect(est.request.input.household.pensionRecords).toBeUndefined();
+    expect(est.pensionKept?.[self.id]).toHaveLength(1);
+    const back = fieldOf(est, "pension", `pension/${self.id}/mode`).set(est, "document");
+    expect(back.request.input.household.pensionRecords).toEqual(wh.request.input.household.pensionRecords);
+    expect(back.pensionKept).toBeUndefined();
+    const { pensionKept: _k, ...clean } = est;
+    void _k;
+    const doc = fieldOf(clean, "pension", `pension/${self.id}/mode`).set(clean, "document");
+    const fresh = fieldOf(doc, "pension", `pension/${self.id}/kind`).set(doc, "receiving");
     expect((fresh.request.input.household.pensionRecords as PensionRecord[])[0]!.amounts?.basic).toMatchObject({ estimate: { basis: "未入力（0円で計算。年金額改定通知書の年金額（年額）を入れてください）" } });
   });
 });

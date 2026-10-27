@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.27。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
+// 本文の区画（形式の版 0.28。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
 // 0.17 から（0035・0036）: 差分は当て先で、仮の印は物の値の状態の欄で、贈与者は世帯の外の家族の構成員で書き、並びの要素は ID を持つ。
 // 0.18 から（0040）: 段階と例外の年（周期的な支出・家賃・修繕費・固定資産税・不動産の家賃と経費・器の利回り・資産配分）と、働き方の期間ごとの
 // 伸び（給与・事業所得の年率）。足すだけの形（本体の変換の段は版だけを書き換える）
@@ -23,6 +23,8 @@
 //   0.27 から: 前提条件と万一のタブの前提（0070・0071。万一の前提 contingency の子の独立とみなす年齢・業務上の死亡・必要保障額の出し方 protection・
 //   働き方を変える時点 work.<人>.from・復帰の後の働き方・収入が減る incomeDrop・下げる資産と戻り方・重ねる印 stackMarket、前提と推定の一覧の
 //   確かめた記録 agreed。どれも任意。万一の前提のプランごとの上書きは、向き先 {plan: "contingency"} の差分）
+//   0.28 から: 年金のカード（0066・0067。入るお金の行の受給中の遺族年金・障害年金の種類 incomeFlows[].pensionType と、画面の側の
+//   年金の入れ方を切り替えたときに残した前の記録 pensionKept。どれも任意）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
 // - hearing: ヒアリングの依頼・取り込み・同意の下書きの記録（0018。取り込みの記録・同意の記録への分け方は後の版）
 // - workspace: 案の帯の並び・基準の案・選んだ案・対策に足した項目・出発点にした見本
@@ -56,7 +58,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.27";
+export const BODY_FORMAT_VERSION = "0.28";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
