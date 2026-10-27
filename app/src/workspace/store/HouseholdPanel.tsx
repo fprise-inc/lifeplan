@@ -751,8 +751,12 @@ export function HouseholdPanel(p: HouseholdPanelProps) {
                   <tr key={`${s.kind}-${s.id}`} class={isCurrent ? "sel" : ""} data-sample-row={s.no}>
                     <td>
                       <b>{s.no}</b>
-                      {s.kind === "app" ? <span class="pl-tag hh-app">アプリ</span> : null}
-                      {isCurrent ? <span class="pl-tag">開いています</span> : null}
+                      {s.kind === "app" || isCurrent ? (
+                        <div class="hh-tags">
+                          {s.kind === "app" ? <span class="pl-tag hh-app">アプリ</span> : null}
+                          {isCurrent ? <span class="pl-tag">開いています</span> : null}
+                        </div>
+                      ) : null}
                     </td>
                     <td>
                       {sampleEdit?.id === s.id ? (

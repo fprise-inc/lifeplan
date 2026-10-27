@@ -653,6 +653,9 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 .pb-tag, .pl-tag { font-size: 0.75rem; border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; color: var(--ink-2); }
 .pb-tag { background: var(--base-bg); }
 .pl-tag { border-color: var(--ink-2); margin-left: 6px; }
+/* 見本の棚の見本番号の下の札（狭い列で札の文字が折れないよう、番号の下の行に並べる） */
+.hh-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.hh-tags .pl-tag { margin-left: 0; white-space: nowrap; }
 .pb-note { flex-basis: 100%; font-size: 0.86rem; color: var(--est-ink); display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .link-btn { background: none; border: 0; padding: 0; color: var(--prop); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 /* 小窓・パネルが開く印（icons.tsx の PopIcon）: 文字の右に、文字の大きさに合わせて */
