@@ -347,6 +347,16 @@ function sample028(): BodyState {
   return { ...s, wh: { ...s.wh, request: req, pensionKept: { [self.id]: [structuredClone(kept)] } } };
 }
 
+/** 0.29 の見本の世帯（0072）: sample028() に、確かめの一覧の「次回確かめる」の印を2つ足す */
+function sample029(): BodyState {
+  const s = sample028();
+  const recheck = [
+    { id: "field:living/monthly", card: "living", cardLabel: "基本生活費", label: "毎月の生活費", on: "2026-10-27" },
+    { id: "gap:insurance", card: "insurance", cardLabel: "保険", label: "保険の契約", on: "2026-10-27" },
+  ];
+  return { ...s, wh: { ...s.wh, recheck } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -470,7 +480,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.28");
+    expect(BODY_FORMAT_VERSION).toBe("0.29");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -601,7 +611,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample026())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample029())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -681,6 +691,21 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     for (const f of plain.input.household.incomeFlows ?? []) delete f.pensionType;
     expect(preview(back.wh.request).table).toEqual(preview(plain).table);
     expect(JSON.stringify(forEngine(back.wh.request))).not.toContain("00000000-0000-4000-8000-00000000a261");
+  });
+
+  it("0.29 の形（0072）: 次回確かめるの印を保存して読み戻す。形の合わない行は捨て、印が無ければ欄を作らない。計算の要求には入らない", () => {
+    const s = sample029();
+    const stored = bodyObject(s) as unknown as { household: { recheck?: unknown[]; request: typeof s.wh.request } };
+    expect(stored.household.recheck).toHaveLength(2);
+    const back = fromBody(JSON.stringify(stored));
+    expect(back.wh.recheck).toEqual(s.wh.recheck);
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(JSON.stringify(forEngine(back.wh.request))).not.toContain("field:living/monthly");
+    const broken = structuredClone(stored);
+    broken.household.recheck = [{ id: "" }, 3, { ...(stored.household.recheck![0] as object), on: "2026/10/27" }];
+    expect(fromBody(JSON.stringify(broken)).wh.recheck).toBeUndefined();
+    const none = bodyObject(sample028()) as unknown as { household: Record<string, unknown> };
+    expect("recheck" in none.household).toBe(false);
   });
 
   it("0.24 の形（0060・0061）: 相続税の目安の設定と遺したい額を要求の入力に保存して読み戻す。エンジンへ渡す要求からは外れ、結果は同じ", () => {

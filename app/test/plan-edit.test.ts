@@ -343,12 +343,23 @@ describe("オフの差分・取り込みは現状へ・結果のタブと同じ�
         level: "simple",
         onLevel: () => undefined,
         tools: h("span", { "data-tools": true }, "道具"),
-        plans: { list: [{ id: "B", label: "プランB", name: "プランB", color: "#0072c6" }], sel: "B", onSelect: () => undefined, onNew: () => undefined, onCopy: () => undefined, cat, onSavePlan: () => undefined, lock: null },
+        imports: h("span", { "data-hearing": true }, "ヒアリングシート"),
+        plans: { list: [{ id: "B", label: "プランB", name: "プランB", color: "#0072c6" }], sel: "B", onSelect: () => undefined, onNew: () => undefined, onCopy: () => undefined, cat, onSavePlan: () => undefined, lock: null, onResults: () => undefined },
       }),
     );
     expect(html).toContain("data-plan-band");
     expect(html).toContain("data-current-only");
     expect(html).toContain("現状の確かめの一覧");
+    // 取り込みはプランの編集中は押せず、「現状に切り替える」を出す。控えなどの道具は出す。帯に違いの一覧と「結果を見る」（0072）
+    expect(html).not.toContain("data-hearing");
+    expect(html).toContain("data-to-current");
+    expect(html).toContain("data-tools");
+    expect(html).toContain("data-plan-results");
+    expect(html.indexOf("data-diff-open")).toBeGreaterThan(html.indexOf("data-plan-band"));
+    expect(html.indexOf("data-diff-open")).toBeLessThan(html.indexOf("data-plan-new"));
+    const cur = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", onLevel: () => undefined, imports: h("span", { "data-hearing": true }, "ヒアリングシート") }));
+    expect(cur).toContain("data-imports-open");
+    expect(cur).not.toContain("data-current-only");
   });
 });
 

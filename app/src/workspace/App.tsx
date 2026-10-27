@@ -2006,7 +2006,9 @@ export function App() {
                 cat: opened.catalog,
                 onSavePlan: (next) => setPlans(next),
                 lock: modified.has(work.sel) ? "結果のタブに、このプランの保存していない変更があります。結果のタブで「上書き保存」か「変更を取り消す」をしてから、入力で直してください（入力で直すのは保存したプランです）" : null,
+                onResults: () => setTab("main"),
               }}
+              results={{ current: resultOf(CURRENT), planOf: (id) => resultOf(id), onOpen: () => setTab("main") }}
               computeOne={computeOne}
               level={level}
               onLevel={setLevel}
@@ -2049,9 +2051,26 @@ export function App() {
                     onRemove={(id) => putSnapshots((l) => l.filter((x) => x.id !== id))}
                     {...(initial.snapshots === true ? { initialOpen: true } : {})}
                   />
-                  {host !== null ? <HearingTools wh={opened.wh} sheets={host.sheets} onSave={edit} /> : null}
                 </>
               }
+              {...(host !== null
+                ? {
+                    imports: (
+                      <>
+                        <HearingTools wh={opened.wh} sheets={host.sheets} onSave={edit} />
+                        {storedInfo !== null ? (
+                          <div class="hs-tools" role="group" aria-label="AI に資料を渡す" data-imports-ai>
+                            <span class="hs-tools-h">AI に資料を渡す</span>
+                            <button type="button" class="btn" onClick={openAiShare} data-imports-ai-open>
+                              {ai.status?.enabled === true ? "同意と共有を開く" : "AI接続口を開く"}
+                            </button>
+                            <span class="in-note">面談のメモ・文字起こし・前の帳票・財産の一覧などは、FP が使う AI に渡します。AI が読んだ値は候補として届き、承認したものだけが現状に入ります（外部AIへの同意がある世帯だけ）。</span>
+                          </div>
+                        ) : null}
+                      </>
+                    ),
+                  }
+                : {})}
             />
           </>
         ) : tab === "contingency" && opened !== null ? (

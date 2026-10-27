@@ -2,6 +2,8 @@
 // カードに出すのは「イラスト＋名前＋要約の数字1つ＋状態（4つ）」まで。最初の5枚のほかのカードは、未入力・推定のときに何で計算しているかの1行と、
 // 「当てはまらない」「目安で入れる」の1押しを出す。上部に進み具合（未入力〔0円の所あり〕の数を左に強く、続けて入力済み・推定で計算中・当てはまらない）。
 // カードの下にピン（ホームに出した物。押すとその物だけを開く。進み具合に数えない）。「＋ 項目を追加」で足した物は属するカードに入り、ピンが出る
+// 0072: 進み具合の状態を押すとそのカードだけに絞る・小さな結果（金融資産の線と足りなくなる年）・全部のカードの入れ方（簡易／詳細）・
+// カードをまたぐ取り込みの入口（「取り込む」。プランの編集中は押せない）・確かめの一覧にプランで足した物の行
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
@@ -9,14 +11,15 @@ import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { InputPanel } from "./InputPanel.tsx";
-import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, groupedItems, inputItems, itemOf, notApplicableCard, pinItems, progressOf, togglePin, type AddOption, type CardLayout, type InputItem, type PinItem } from "./items.ts";
+import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, groupedItems, inputItems, itemOf, notApplicableCard, pinItems, progressOf, togglePin, type AddOption, type CardLayout, type InputItem, type ItemStatus, type PinItem } from "./items.ts";
+import { MiniResult } from "./MiniResult.tsx";
 import { inheritanceSummary, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { STAGE_ORDER } from "./stages/index.ts";
 import { StatusBadge, statusText } from "./StatusBadge.tsx";
 import { CheckList, checkSummary } from "./CheckList.tsx";
 import type { NoticeRow } from "../engineNotices.ts";
-import { DiffList, DiffListToggle, PlanTarget, type PlanEditProps } from "./PlanEdit.tsx";
+import { DiffList, PlanTarget, type PlanEditProps } from "./PlanEdit.tsx";
 import { countsByCard, diffRows, planIndex, planView, recordPlanEdit } from "../plans/planEdit.ts";
 
 interface Props {
@@ -45,7 +48,17 @@ interface Props {
   layout?: CardLayout;
   /** 現状の計算結果の知らせ（確かめの一覧の「計算の知らせ」。0064） */
   calcNotices?: readonly NoticeRow[];
+  /**
+   * カードをまたぐ取り込みの入口（ヒアリングシート・AI に資料を渡す。0072）。ホームの「取り込む」にまとめる。
+   * 取り込みは現状に入るので、プランの編集中は押せない（「現状に切り替える」を出す）
+   */
+  imports?: ComponentChildren;
+  /** 小さな結果（現状の結果と、プランの結果。0072）。onOpen は結果のタブへ */
+  results?: { current: PreviewResult | null; planOf: (id: string) => PreviewResult | null; onOpen: () => void };
 }
+
+/** 進み具合の状態の名前（絞り込みの文） */
+const STATUS_NAMES: Record<ItemStatus, string> = { missing: "未入力（0円の所あり）", done: "入力済み", est: "推定で計算中", na: "当てはまらない" };
 
 interface CardActions {
   /** 「当てはまらない」の1押し（プランの編集中は出さない） */
@@ -185,7 +198,25 @@ function AddCard({ open, onOpen, onPick, options }: { open: boolean; onOpen: (v:
 
 const NO_NOTICES: readonly NoticeRow[] = [];
 
-export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES }: Props) {
+/** カードをまたぐ取り込みの入口（ヒアリングシート・AI に資料を渡す）。明細は基本生活費のカードの見出しから（ここには置かない） */
+function ImportMenu({ children }: { children: ComponentChildren }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div class="ih-imports" data-imports>
+      <button type="button" class="add-btn" aria-expanded={open} onClick={() => setOpen(!open)} data-imports-open>
+        取り込む {open ? "▴" : "▾"}
+      </button>
+      {open ? (
+        <div class="ih-imports-list">
+          {children}
+          <p class="in-note">どれも候補として受け、確かめてから現状に入ります。明細（口座・カード）は基本生活費のカードの見出しの「明細から出す」から取り込みます。</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, computeOne, statement, plans, layout = DEFAULT_LAYOUT, calcNotices = NO_NOTICES, imports, results }: Props) {
   /** 直しているプラン（直せないときは現状） */
   const editing = plans !== undefined && plans.sel !== null && plans.lock === null ? (plans.list.find((x) => x.id === plans.sel) ?? null) : null;
   const pcat = plans?.cat;
@@ -201,6 +232,10 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
   const pins = useMemo(() => pinItems(shown, editing !== null ? wh : undefined), [shown, editing, wh]);
   const groups = useMemo(() => groupedItems(items), [items]);
   const p = progressOf(items);
+  /** 進み具合の状態で絞る（null は全部） */
+  const [statusFilter, setStatusFilter] = useState<ItemStatus | null>(null);
+  const filterBy = (st: ItemStatus) => setStatusFilter(statusFilter === st ? null : st);
+  const shownGroups = statusFilter === null ? groups : groups.map((g) => ({ ...g, items: g.items.filter((i) => i.status === statusFilter) })).filter((g) => g.items.length > 0);
   /** ざっくり派の案内（最初の5枚に未入力が残る間。閉じられる） */
   const [guideClosed, setGuideClosed] = useState(false);
   const guide = !guideClosed && items.some((i) => i.first && i.status === "missing");
@@ -315,11 +350,22 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
         </div>
         <div class="ih-prog" aria-live="polite">
           <div class="ih-prog-line" data-progress>
-            <span class={`ih-prog-miss${p.missing > 0 ? " on" : ""}`} data-progress-missing={p.missing}>
+            <button type="button" class={`ih-prog-miss${p.missing > 0 ? " on" : ""}${statusFilter === "missing" ? " sel" : ""}`} data-progress-missing={p.missing} aria-pressed={statusFilter === "missing"} onClick={() => filterBy("missing")} title="押すと、このカードだけに絞ります">
               <span class="ih-st missing mini">未入力（0円の所あり）</span> <span class="n">{p.missing}</span>
-            </span>
+            </button>
             <span class="ih-prog-rest">
-              {p.total}項目中 入力済み <span class="n">{p.done}</span>・推定で計算中 <span class="n">{p.est}</span>・当てはまらない <span class="n">{p.na}</span>
+              {p.total}項目中{" "}
+              <button type="button" class={`ih-prog-f${statusFilter === "done" ? " sel" : ""}`} aria-pressed={statusFilter === "done"} onClick={() => filterBy("done")} data-progress-filter="done">
+                入力済み <span class="n">{p.done}</span>
+              </button>
+              ・
+              <button type="button" class={`ih-prog-f${statusFilter === "est" ? " sel" : ""}`} aria-pressed={statusFilter === "est"} onClick={() => filterBy("est")} data-progress-filter="est">
+                推定で計算中 <span class="n">{p.est}</span>
+              </button>
+              ・
+              <button type="button" class={`ih-prog-f${statusFilter === "na" ? " sel" : ""}`} aria-pressed={statusFilter === "na"} onClick={() => filterBy("na")} data-progress-filter="na">
+                当てはまらない <span class="n">{p.na}</span>
+              </button>
             </span>
           </div>
           <div class="ih-prog-bar" aria-hidden="true">
@@ -329,17 +375,45 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
           </div>
         </div>
       </div>
-      {plans !== undefined && (plans.list.length > 0 || plans.sel !== null) ? <PlanTarget p={plans} /> : null}
-      {editing !== null && pcat !== undefined ? (
-        <div class="ih-check">
-          <DiffListToggle rows={rows} open={diffOpen} onOpen={setDiffOpen} />
+      <div class="ih-bar">
+        <div class="ih-level" role="group" aria-label="全部のカードの入れ方">
+          <span>入れ方（全部のカード）</span>
+          <button type="button" class={level === "simple" ? "on" : ""} aria-pressed={level === "simple"} onClick={() => onLevel("simple")} data-home-level="simple">
+            簡易
+          </button>
+          <button type="button" class={level === "detail" ? "on" : ""} aria-pressed={level === "detail"} onClick={() => onLevel("detail")} data-home-level="detail">
+            詳細
+          </button>
         </div>
-      ) : null}
+        {results !== undefined ? (
+          <MiniResult
+            req={shown.request}
+            current={results.current}
+            plan={editing !== null ? { label: editing.label, color: editing.color, result: results.planOf(editing.id) } : undefined}
+            onResults={results.onOpen}
+          />
+        ) : null}
+      </div>
+      {plans !== undefined && (plans.list.length > 0 || plans.sel !== null) ? <PlanTarget p={plans} {...(editing !== null ? { diffs: { rows, open: diffOpen, onOpen: setDiffOpen } } : {})} /> : null}
       {editing !== null && pcat !== undefined && diffOpen && plans !== undefined ? <DiffList rows={rows} wh={wh} planId={editing.id} cat={pcat} onEdit={plans.onSavePlan} onOpen={open} /> : null}
-      {tools !== undefined ? (
+      {tools !== undefined || imports !== undefined ? (
         <div class="ih-tools">
-          {editing !== null ? <p class="in-note" data-current-only>取り込み・ヒアリング・明細の承認は、プランを選んでいても現状に入ります（プランの差分にはしません）。</p> : null}
           {tools}
+          {imports !== undefined ? (
+            editing !== null ? (
+              <div class="hs-tools ih-imports off" role="group" aria-label="取り込む" data-current-only>
+                <span class="hs-tools-h">取り込む</span>
+                <span class="in-note">取り込み（ヒアリングシート・AI・明細）は現状に入ります。{editing.label}の編集中は使えません。</span>
+                {plans !== undefined ? (
+                  <button type="button" class="link-btn" onClick={() => plans.onSelect(null)} data-to-current>
+                    現状に切り替える
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <ImportMenu>{imports}</ImportMenu>
+            )
+          ) : null}
         </div>
       ) : null}
       <div class="ih-check">
@@ -357,6 +431,18 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
             onSave(next);
             setToast(done);
           }}
+          {...(editing !== null && pcat !== undefined && plans !== undefined
+            ? {
+                plan: {
+                  label: editing.label,
+                  view: shown,
+                  onEdit: (next: WorkingHousehold, done: string) => {
+                    plans.onSavePlan(recordPlanEdit(wh, pcat, editing.id, shown, next));
+                    setToast(done);
+                  },
+                },
+              }
+            : {})}
         />
       ) : null}
       {guide ? (
@@ -369,14 +455,22 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
           </button>
         </div>
       ) : null}
-      {groups.map((g, gi) => (
+      {statusFilter !== null ? (
+        <p class="ih-filter" role="status" data-card-filter={statusFilter}>
+          「{STATUS_NAMES[statusFilter]}」のカードだけを出しています（{shownGroups.reduce((n, g) => n + g.items.length, 0)}枚）。
+          <button type="button" class="link-btn" onClick={() => setStatusFilter(null)} data-card-filter-clear>
+            全部のカードを出す
+          </button>
+        </p>
+      ) : null}
+      {shownGroups.map((g, gi) => (
         <section class="ih-group" key={g.group?.id ?? "all"} aria-label={g.group?.label ?? "入力の項目"}>
           {g.group !== null ? <h2 class="ih-gh">{g.group.label}</h2> : null}
           <div class="ih-cards">
             {g.items.map((i) => (
               <Card key={i.id} item={i} onOpen={open} flash={flashId === i.id} diffs={editing !== null ? { label: editing.label, n: counts.get(i.id) ?? 0 } : undefined} firstMark={guide && i.first} acts={cardActs} />
             ))}
-            {gi === groups.length - 1 ? <AddCard open={addMenu} onOpen={setAddMenu} onPick={pick} options={addOptions(shown)} /> : null}
+            {gi === shownGroups.length - 1 && statusFilter === null ? <AddCard open={addMenu} onOpen={setAddMenu} onPick={pick} options={addOptions(shown)} /> : null}
           </div>
         </section>
       ))}

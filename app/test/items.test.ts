@@ -332,7 +332,9 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", onLevel: () => undefined }));
     expect(html).toContain('data-progress-missing="9"');
     expect(html).toMatch(/ih-prog-miss on.*未入力（0円の所あり）.*<span class="n">9<\/span>/);
-    expect(html).toContain('14項目中 入力済み <span class="n">1</span>・推定で計算中 <span class="n">3</span>・当てはまらない <span class="n">1</span>');
+    // 状態ごとの数は押すとそのカードだけに絞るボタン（0072）
+    expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('14項目中 入力済み <span class="n">1</span>・推定で計算中 <span class="n">3</span>・当てはまらない <span class="n">1</span>');
+    expect(html).toContain('data-progress-filter="est"');
     expect(html.indexOf("data-progress-missing")).toBeLessThan(html.indexOf("14項目中"));
     expect(html).toContain("data-first-guide");
     expect((html.match(/data-first=/g) ?? []).length).toBe(5);
