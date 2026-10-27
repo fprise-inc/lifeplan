@@ -8,13 +8,15 @@
 // 改訂（0044）: 所得割と軽減の判定の所得に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
 // 改訂7: 未就学児の均等割の軽減・産前産後の免除の知らせは、その年度に小学校に入る前の子が国民健康保険に入っている月があるときだけ出す
 //   （生まれる子も未就学児なので、産前産後の免除が当てはまりうる年度も含む。保険料は変えない）
+// 改訂8: 表の最後の年の年度の加入の月数に、表の外の翌年1〜3月も数える（表の長さで、その年の保険料を変えない。0003 の追記）
 import {
   addYen,
   ageMonth,
   assessedPremium,
   boxValue,
   defineComponent,
-  fiscalYearEnd,
+  healthStatusInFiscalYear,
+  LATE_ELDERLY_AGE,
   fiscalYearOf,
   fiscalYearStart,
   householdMembers,
@@ -28,7 +30,6 @@ import {
   subYen,
   yen,
   type Flow,
-  type HealthStatusOutput,
   type MemberInput,
   type PremiumAssessmentInput,
   type PremiumPart,
@@ -60,7 +61,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.nationalHealth",
   title: "国民健康保険料",
   contract: "1.0",
-  revision: 7,
+  revision: 8,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -68,10 +69,11 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     "income.salary": ">=1 <2",
   },
   params: [
-    ELDERLY_AGE,...PARTS.flatMap((p) => KEYS.map((k) => `${PREFIX}.${p.part}.${k}`)), `${PREFIX}.incomeDeduction`, ...REDUCTION, ...Object.values(AGE)],
+    ELDERLY_AGE,...PARTS.flatMap((p) => KEYS.map((k) => `${PREFIX}.${p.part}.${k}`)), `${PREFIX}.incomeDeduction`, ...REDUCTION, ...Object.values(AGE), LATE_ELDERLY_AGE],
   reads: [
     "member.outside",
     "member.kind",
+    "member.leaves",
     "premiumAssessment.member",
     "premiumAssessment.kind",
     "premiumAssessment.fiscalYear",
@@ -96,7 +98,8 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     const insured = members
       .map((m) => ({
         id: m.id,
-        months: ctx.callMonths<HealthStatusOutput["months"][number]>("socialInsurance.healthStatus", { member: m.id }, "months", start, fiscalYearEnd(fy))
+        // 表の最後の年の年度は、表の外の翌年1〜3月も数える（改訂8）
+        months: healthStatusInFiscalYear(ctx, m.id, fy)
           .filter((x) => x.kind === "national")
           .map((x) => parseYm(x.month)),
       }))

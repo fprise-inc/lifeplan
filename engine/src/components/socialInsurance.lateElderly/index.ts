@@ -3,6 +3,7 @@
 // （決定通知書の年額 premiumAssessments、または料率 premiumRates）で上書きする。どの既定を使ったかは見出しの notices に出す。
 // 年度の途中で75歳になる年は月数で按分する。年金が年18万円以上なら年金から差し引く（特別徴収）
 // 改訂4: 世帯の外の家族（0035 の4）の判定の世帯は、その人と世帯の外の配偶者
+// 改訂6: 表の最後の年の年度の月数に、表の外の翌年1〜3月も数える（表の長さで、その年の保険料を変えない。0003 の追記）
 // 改訂（0044）: 所得割と軽減の判定の所得に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
 import {
   addYen,
@@ -12,7 +13,9 @@ import {
   defineComponent,
   fiscalYearOf,
   fiscalYearStart,
+  healthStatusInFiscalYear,
   installmentFlows,
+  LATE_ELDERLY_AGE,
   monthIndex,
   PENSION_SPECIAL_MINIMUM,
   pensionSpecial,
@@ -24,7 +27,6 @@ import {
   subYen,
   yen,
   type Flow,
-  type HealthStatusOutput,
   type MemberInput,
   type PremiumAssessmentInput,
   type PremiumPart,
@@ -49,7 +51,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.lateElderly",
   title: "後期高齢者医療の保険料",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
@@ -65,8 +67,9 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     `${PREFIX}.rounding`,
     ...REDUCTION,
     SPECIAL,
+    LATE_ELDERLY_AGE,
   ],
-  reads: ["member.outside", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "member.kind", "premiumAssessment.member", "premiumAssessment.kind", "premiumAssessment.fiscalYear", "premiumAssessment.amount", "premiumRate.kind", "premiumRate.fromFiscalYear", "premiumRate.parts"],
+  reads: ["member.outside", "member.leaves", "relation.type", "relation.a", "relation.b", "relation.from", "relation.to", "member.kind", "premiumAssessment.member", "premiumAssessment.kind", "premiumAssessment.fiscalYear", "premiumAssessment.amount", "premiumRate.kind", "premiumRate.fromFiscalYear", "premiumRate.parts"],
   memberScope: ["premiumAssessment"],
   input: "residentTax.annual.input",
   output: "flows.output",
@@ -75,8 +78,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
     // 判定に使う所得と制度の値の年度。計算基準月の年度より前の年度（前の年の社会保険料控除のためだけに計算する）は、計算基準月の年度の所得と
     // 制度の値で計算する（PR の提案。制度の値は改訂3から: その年度の値は制度データに無いことがある）
     const jy = Math.max(fy, fiscalYearOf(ctx.time.base));
-    // その年度の月だけを読む（ほかの月の状態が変わっても計算し直さない）
-    const statusIn = (id: string) => ctx.callMonths<HealthStatusOutput["months"][number]>("socialInsurance.healthStatus", { member: id }, "months", fiscalYearStart(fy), monthIndex(fy + 1, 3));
+    // その年度の月だけを読む（ほかの月の状態が変わっても計算し直さない）。表の最後の年の年度は、表の外の翌年1〜3月も数える（改訂6）
+    const statusIn = (id: string) => healthStatusInFiscalYear(ctx, id, fy);
     const months = statusIn(member).filter((x) => x.kind === "lateElderly").length;
     if (months === 0) return { flows: [] };
     const special = pensionSpecial(ctx, member, fy, jy);

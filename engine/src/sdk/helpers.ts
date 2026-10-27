@@ -8,6 +8,7 @@ import { addYen, yen, type Yen } from "../money/yen.ts";
 import type { AgeSwitch } from "../time/ageSwitch.ts";
 import { formatYm, monthIndex, monthOf, parseYm, yearOf, type MonthIndex } from "../time/month.ts";
 import { stageAt, stageSteps, type StageStep } from "./stages.ts";
+import type { HealthStatusMonth } from "./contracts.ts";
 
 /** 年齢の値（unit: years）と、その値の ageSwitch（0003 の4）で決まる月。値は at の月の値を使う */
 export function ageMonth(ctx: Ctx, at: MonthIndex, id: string, member: string): MonthIndex {
@@ -116,6 +117,52 @@ export function rateOverride<T extends { readonly kind: string; readonly fromFis
   return best;
 }
 
+/**
+ * 収入の見込み（被扶養者・第3号の認定。その月からの1年）を数える12か月（"YYYY-MM"）。表の外の月（表の最後の月 end より後）は、
+ * その1年前の月に置き換える（表の外の収入は計算しないので、0 にすると表の終わりに近い月だけ収入が少なく見え、表の長さで判定が変わる。
+ * 0003 の追記）。事業所得の年額も、表の外の年は表の最後の年の額を使う（prospectiveYear）
+ */
+export function prospectiveMonths(m: MonthIndex, end: MonthIndex): string[] {
+  return Array.from({ length: 12 }, (_, k) => {
+    const x = (m + k) as MonthIndex;
+    return formatYm(x > end ? ((x - 12) as MonthIndex) : x);
+  });
+}
+
+/** 収入の見込みに使う年（表の外の年は表の最後の年。prospectiveMonths と同じ考え） */
+export function prospectiveYear(y: number, end: MonthIndex): number {
+  return y > yearOf(end) ? yearOf(end) : y;
+}
+
+/** 後期高齢者医療に入る年齢の値ID（socialInsurance.healthStatus と同じ）。healthStatusInFiscalYear を使う部品は params に書く */
+export const LATE_ELDERLY_AGE = "socialInsurance.health.lateElderlyAge";
+
+/**
+ * その年度（4月〜翌年3月）の月ごとの健康保険の種類（socialInsurance.healthStatus）。年度の保険料（国民健康保険・後期高齢者医療）は
+ * 年度の加入の月数で決まるので、表の最後の年の年度の、表の外の月（翌年1〜3月）も数える（0003 の追記: 表の長さで、ある年の額を変えない）。
+ * 表の外の月は、表の最後の月の種類が続くとみなす。ただし世帯を離れる月からは none、75歳（後期高齢者医療に入る年齢）の月からは
+ * lateElderly（どちらも入力と年齢だけで決まる）。使う部品は reads に member.leaves、params に LATE_ELDERLY_AGE を書く
+ */
+export function healthStatusInFiscalYear(ctx: Ctx, member: string, fy: number): readonly HealthStatusMonth[] {
+  const last = fiscalYearEnd(fy);
+  const got = ctx.callMonths<HealthStatusMonth>("socialInsurance.healthStatus", { member }, "months", fiscalYearStart(fy), last);
+  const end = ctx.time.end;
+  if (last <= end) return got;
+  const tail = got.find((x) => parseYm(x.month) === end);
+  if (tail === undefined) return got;
+  const me = ctx.get<MemberInput>("member", member);
+  const leaves = me.leaves === null ? null : ctx.time.resolve(me.leaves);
+  const late = ageMonth(ctx, ctx.time.base, LATE_ELDERLY_AGE, member);
+  const out = [...got];
+  for (let m = (end + 1) as MonthIndex; m <= last; m = (m + 1) as MonthIndex) {
+    const month = formatYm(m);
+    if (leaves !== null && m >= leaves) out.push({ month, kind: "none" });
+    else if (tail.kind !== "none" && m >= late) out.push({ month, kind: "lateElderly" });
+    else out.push({ ...tail, month });
+  }
+  return out;
+}
+
 /** 年金から保険料・住民税を差し引く（特別徴収）年金の年額の下限の値ID。読む部品は params と requires（pension.oldAge）に書く */
 export const PENSION_SPECIAL_MINIMUM = "socialInsurance.specialCollection.minimumPension";
 
@@ -128,7 +175,15 @@ export function pensionSpecial(ctx: Ctx, member: string, fy: number, valuesFy: n
   if (min === null) return false;
   let s = 0;
   // その年度の支払いだけを読む（ほかの年度の年金が変わっても、呼んだ部品を計算し直さない）
-  for (const p of ctx.callMonths<{ ym: string; amount: Yen }>("pension.oldAge", { member }, "payments", fiscalYearStart(fy), fiscalYearEnd(fy))) s += p.amount;
+  const payments = ctx.callMonths<{ ym: string; amount: Yen }>("pension.oldAge", { member }, "payments", fiscalYearStart(fy), fiscalYearEnd(fy));
+  for (const p of payments) s += p.amount;
+  // 表の最後の年の年度は、翌年2月の支払いが表の外にある。表の最後の月（12月）の支払いと同じ額とみなして足す（0003 の追記: 表の長さで、
+  // ある年の判定を変えない）
+  const end = ctx.time.end;
+  if (fiscalYearEnd(fy) > end) {
+    const lastYm = formatYm(end);
+    for (const p of payments) if (p.ym === lastYm) s += p.amount;
+  }
   return s >= min;
 }
 

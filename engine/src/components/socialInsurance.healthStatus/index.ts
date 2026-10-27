@@ -11,15 +11,17 @@
 // 自営・無職・休業の期間に healthInsurance.kind を書いたときは、それを使う（FP の上書き。任意継続もこれで表す。任意継続は始まりの月から
 // 2年（socialInsurance.health.continuation.maxMonths）までで、その後は上の決まりで導く。健康保険法38条1号）
 // 改訂5: 世帯の外の家族（0035 の4）は、扶養していると入れたときだけ扶養の候補。勤め先の健康保険に入っている世帯の外の家族は扶養する人になれる
+// 改訂6: 収入の見込みの1年のうち表の外の月は、1年前の月とみなす（表の長さで扶養の判定を変えない。0003 の追記）
 import {
   addMonths,
   addYen,
   ageMonth,
   defineComponent,
   EMPLOYER_HEALTH_KINDS,
-  formatYm,
   isOutside,
   monthOf,
+  prospectiveMonths,
+  prospectiveYear,
   parseYm,
   yearOf,
   yen,
@@ -55,7 +57,7 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
   id: "socialInsurance.healthStatus",
   title: "健康保険の種類（導く）",
   contract: "1.0",
-  revision: 5,
+  revision: 6,
   requires: {
     "socialInsurance.employeeStatus": ">=1 <2",
     "income.salary": ">=1 <2",
@@ -72,7 +74,7 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
   output: "socialInsurance.healthStatus.output",
   compute(input, ctx) {
     const member = input.member;
-    const { base } = ctx.time;
+    const { base, end } = ctx.time;
     const own = ctx.call<EmployeeStatusOutput>("socialInsurance.employeeStatus", { member }).months;
     if (own.length === 0) return { months: [] };
     const first = parseYm((own[0] as { month: string }).month);
@@ -125,14 +127,15 @@ export default defineComponent<{ member: string }, { months: HealthStatusMonth[]
         if (f.amount > 0) disability.add(f.ym);
       }
       const business = new Map(ctx.call<BusinessOutput>("income.business", { member: id }).byYear.map((b) => [b.year, b.income]));
-      const window = (m: MonthIndex) => Array.from({ length: 12 }, (_, k) => formatYm(addMonths(m, k)));
+      // その月からの12か月。表の外の月は1年前の月とみなす（改訂6）
+      const window = (m: MonthIndex) => prospectiveMonths(m, end);
       const out = {
         prospective: (m: MonthIndex): Yen => {
           let s = yen(0);
           for (const ym of window(m)) s = addYen(s, cash.get(ym) ?? yen(0));
           const k0 = 13 - monthOf(m);
           s = addYen(s, ctx.money.mulRatio(business.get(yearOf(m)) ?? yen(0), k0, 12, "conv.salary.monthly"));
-          return addYen(s, ctx.money.mulRatio(business.get(yearOf(m) + 1) ?? yen(0), 12 - k0, 12, "conv.salary.monthly"));
+          return addYen(s, ctx.money.mulRatio(business.get(prospectiveYear(yearOf(m) + 1, end)) ?? yen(0), 12 - k0, 12, "conv.salary.monthly"));
         },
         // 障害年金を受ける（障害厚生年金を受けられる程度の障害がある）とみなす月: その月からの1年に障害年金の支払いがある
         disabled: (m: MonthIndex): boolean => window(m).some((ym) => disability.has(ym)),
