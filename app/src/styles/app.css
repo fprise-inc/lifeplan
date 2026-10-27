@@ -656,6 +656,13 @@ html.big .cg-premises .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)
 /* 見本の棚の見本番号の下の札（狭い列で札の文字が折れないよう、番号の下の行に並べる） */
 .hh-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
 .hh-tags .pl-tag { margin-left: 0; white-space: nowrap; }
+/* 顧客番号・見本番号を押しても開く（太字のまま、押せることはカーソルを合わせたときの下線で） */
+.hh-no-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; }
+.hh-no-btn:hover, .hh-no-btn:focus-visible { text-decoration: underline; }
+/* 顧客の一覧・見本の棚: 番号・区分・家族・日付などの短い欄は折り返さない（2行になって読みにくいため）。操作の欄だけ折り返してよく、
+   収まらないときは表の枠（plan-list-wrap）が横に動く */
+.hh-list td, .hh-list th { white-space: nowrap; }
+.hh-list td:last-child { white-space: normal; }
 .pb-note { flex-basis: 100%; font-size: 0.86rem; color: var(--est-ink); display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .link-btn { background: none; border: 0; padding: 0; color: var(--prop); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 /* 小窓・パネルが開く印（icons.tsx の PopIcon）: 文字の右に、文字の大きさに合わせて */
