@@ -19,6 +19,8 @@ import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./
 import { inheritanceSummary, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { RetirementLineup } from "./RetirementLineup.tsx";
 import { AssumptionList } from "./AssumptionList.tsx";
+import { PensionEstimate } from "./PensionEstimate.tsx";
+import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { StatusBadge } from "./StatusBadge.tsx";
 import { SavingsPanel } from "./savings/SavingsPanel.tsx";
 import { InsuranceOverview } from "./InsuranceOverview.tsx";
@@ -74,7 +76,9 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const inheritance = useInheritanceEstimate(shown, itemId === "inheritance", computeOne);
   /** 保険のカードの保障の見え方（必要保障額の推移・大きな病気の想定を計算して読むだけ。0055） */
   const insurance = useInsuranceView(shown, itemId === "insurance", computeOne);
-  const item = useMemo(() => itemOf(shown, itemId, { inheritance: inheritanceSummary(inheritance) }), [shown, itemId, inheritance]);
+  /** 年金のカードの年金の見込み（計算の結果から読むだけ。プランを直しているときは、そのプランの額） */
+  const pensionEst = usePensionEstimate(shown, itemId === "pension", computeOne);
+  const item = useMemo(() => itemOf(shown, itemId, { inheritance: inheritanceSummary(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, itemId, inheritance, pensionEst]);
   const stage = useMemo(() => itemStage(shown, itemId), [shown, itemId]);
   const adding = initialDraft !== undefined;
   const suggestions = useSurplusSuggestion(shown, itemId === "living", computeOne);
@@ -478,6 +482,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                 {itemId === "retirement" ? <RetirementLineup wh={shown} {...(computeOne !== undefined ? { computeOne } : {})} /> : null}
                 {/* 前提条件: 前提と推定の一覧（確かめた記録はプランごと。値は変えないので、プランを直していても差分にしない。0070） */}
                 {itemId === "assumptions" ? <AssumptionList wh={shown} planId={plan?.id ?? null} onAgree={(f) => commit({ ...latest.current, agreed: f(latest.current).agreed })} onLevel={onLevel} /> : null}
+                {/* 年金: カードの下に年金の見込み（読むだけ。0067） */}
+                {itemId === "pension" ? <PensionEstimate wh={shown} est={pensionEst} /> : null}
               </SectionLinks.Provider>
             </FieldSuggestions.Provider>
             </FieldStateOps.Provider>

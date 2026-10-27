@@ -789,6 +789,8 @@ export interface IncomeFlowInput {
   readonly includeInBase?: boolean;
   /** 贈与税で見るときの課税の方法（省略は暦年課税） */
   readonly giftMethod?: "calendar" | "settlement";
+  /** 0066: 受給中の遺族年金・障害年金の種類（表示と終わりの推定だけ。計算には使わない） */
+  readonly pensionType?: "survivorBasic" | "survivorEmployee" | "widow" | "disabilityBasic" | "disabilityEmployee";
 }
 
 /** 口座の間の移し替え（0044。入れ物だけ。計算に入れるまで、あればエンジンは知らせを出して計算に入れない） */

@@ -373,8 +373,13 @@ export interface IncomeFlow {
   likelihood?: Likelihood;
   includeInBase?: boolean;
   giftMethod?: "calendar" | "settlement";
+  /** 0066: 受給中の遺族年金・障害年金の種類（表示と終わりの推定だけ。計算には使わない） */
+  pensionType?: ReceivingPensionType;
   [key: string]: unknown;
 }
+
+/** 受給中の遺族年金・障害年金の種類（0066） */
+export type ReceivingPensionType = "survivorBasic" | "survivorEmployee" | "widow" | "disabilityBasic" | "disabilityEmployee";
 
 /** 口座の間の移し替え（0044。入れ物だけ。画面には出さない） */
 export interface Transfer {

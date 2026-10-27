@@ -1,7 +1,7 @@
 // 画面の中で編集する世帯（作業の層）。計算エンジンに渡す要求（0008 の形の世帯と前提条件）と、
 // エンジンに渡さない画面の側の値（FP が付ける呼び名・定年後の予定の条件・FP用のメモ・万一の想定の前提・FPが足した項目・保存した項目）を1つにまとめる。
 // 保存・暗号化はまだ無い（次の回。世帯ファイルの封筒 0011 に入れる）。アプリを閉じると消える
-import type { Box, EmploymentPeriod, EngineRequest, Household, Member, Timepoint } from "../../engine/types.ts";
+import type { Box, EmploymentPeriod, EngineRequest, Household, Member, PensionRecord, Timepoint } from "../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, parseYm, type Reemployment } from "../levers.ts";
 import { emptyPlan, planFromRequest, type ContingencyPlan } from "../contingency/planData.ts";
 import { startLiving } from "./livingStages.ts";
@@ -59,6 +59,11 @@ export interface WorkingHousehold {
    * メモ）。画面の側の値で、計算の要求には入れない
    */
   agreed?: Record<string, Record<string, { on: string; note?: string }>>;
+  /**
+   * 年金の入れ方を切り替えたときに残した前の記録（0066。構成員の ID → 入れ方〔書類から・加入歴から〕ごとに1件）。「推計」に戻しても
+   * 書類の数字を消さず、その入れ方に戻すと戻る（隠すだけで消さない）。画面の側の値で、計算の要求には入れない
+   */
+  pensionKept?: Record<string, PensionRecord[]>;
   /**
    * 案（0008 の5 のプランの層の「提案」）。現状からの差分だけを持ち、数に上限は付けない。保存の回で世帯ファイル（0011）の
    * 世帯データの proposals に入れる（いまは画面の中で持ち、アプリを閉じると消える）

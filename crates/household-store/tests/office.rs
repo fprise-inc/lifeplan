@@ -141,6 +141,13 @@ fn start_and_join(o: &Office, a: &Store, b: &Store) -> String {
     req[0].request_id.clone()
 }
 
+/// 顧客番号が平文で書かれているか。番号（例 `0001`）は数字だけのことが多く、平文の見出しの16進の文字列
+/// （ノンス・ID）の中にたまたま同じ並びが出るため、番号だけでは探さない。平文で書けば JSON の値として
+/// 引用符で囲まれ（`"0001"`）、欄の名前（`customerNo`）も並ぶので、その形で探す
+fn shows_customer_no(text: &str, customer_no: &str) -> bool {
+    text.contains("customerNo") || text.contains(&format!("\"{customer_no}\""))
+}
+
 fn files_under(dir: &Path) -> Vec<PathBuf> {
     let mut out = vec![];
     if let Ok(rd) = std::fs::read_dir(dir) {
@@ -727,7 +734,7 @@ fn screen_values_have_no_paths_or_keys() {
         let text = String::from_utf8_lossy(&std::fs::read(&p).unwrap()).into_owned();
         assert!(!text.contains(master.as_str()), "{p:?}");
         assert!(
-            !text.contains("担当A") && !text.contains(&h.customer_no),
+            !text.contains("担当A") && !shows_customer_no(&text, &h.customer_no),
             "{p:?}"
         );
     }

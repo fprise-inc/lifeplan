@@ -11,6 +11,7 @@ import { ILLUSTRATIONS } from "./illustrations.ts";
 import { InputPanel } from "./InputPanel.tsx";
 import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, groupedItems, inputItems, itemOf, notApplicableCard, pinItems, progressOf, togglePin, type AddOption, type CardLayout, type InputItem, type PinItem } from "./items.ts";
 import { inheritanceSummary, useInheritanceEstimate } from "./inheritanceLine.ts";
+import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { STAGE_ORDER } from "./stages/index.ts";
 import { StatusBadge, statusText } from "./StatusBadge.tsx";
 import { CheckList, checkSummary } from "./CheckList.tsx";
@@ -195,7 +196,8 @@ export function InputView({ wh, onSave, level, onLevel, initialOpen, tools, comp
   const [diffOpen, setDiffOpen] = useState(false);
   /** 相続・贈与のカードの要約（相続税の目安。計算の結果から読むだけ） */
   const inheritance = useInheritanceEstimate(shown, true, computeOne);
-  const items = useMemo(() => inputItems(shown, { layout, inheritance: inheritanceSummary(inheritance) }), [shown, layout, inheritance]);
+  const pensionEst = usePensionEstimate(shown, true, computeOne);
+  const items = useMemo(() => inputItems(shown, { layout, inheritance: inheritanceSummary(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, layout, inheritance, pensionEst]);
   const pins = useMemo(() => pinItems(shown, editing !== null ? wh : undefined), [shown, editing, wh]);
   const groups = useMemo(() => groupedItems(items), [items]);
   const p = progressOf(items);
