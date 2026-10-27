@@ -57,7 +57,7 @@ export function FieldStateLine({ f, wh, onEdit, compact }: { f: FieldDef | undef
       ) : null}
       {ops.length > 0 ? (
         <div class="fld-ops" data-field-ops={f.key}>
-          {/* 推定の値をそのまま入れる（「✓ この値で確定」と同じ操作。欄の部品と同じボタン。0041 の追記） */}
+          {/* 推定の値をそのまま入れる（値の状態の操作の確定と同じ。欄の部品と同じボタン。0041 の追記） */}
           {ops.includes("confirm") && s !== null ? <FillButton label={f.label} status={s.status} onFill={() => run("confirm")} /> : null}
           {ops.some((o) => o !== "confirm") ? (
             <>

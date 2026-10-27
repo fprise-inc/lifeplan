@@ -251,7 +251,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
 
   if (item === null || stage === null) return null;
   const sections = stage.sections.filter((s) => visible(level, s.level));
-  // 見えている欄のうち推定のままの欄（「推定をまとめて確定」で確定にする欄）
+  // 見えている欄のうち推定のままの欄（「推定の値をまとめて使う」で確定にする欄）
   const shownFields = allFields({ ...stage, sections }).filter((f) => visible(level, f.level));
   const estimatedShown = shownFields.filter((f) => fieldStatus(f, shown).status === "estimated" && availableOps(f, shown).includes("confirm")).length;
   // このカードの入っていない物（古い世帯では自動で推定を入れず、ここと確かめの一覧に出す。fill.ts）
@@ -320,7 +320,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             {/* カードの説明と入れ方の決まりは「?」の中（0077） */}
             <Help label={item.label} id="panel">
               {item.lead !== "" ? <p>{item.lead}</p> : null}
-              <p>空欄は統計の目安などで補って計算します（「推定」の印。印を押すと根拠が開きます）。推定の値は欄に灰色で見えています。そのままでよければ、欄の「✓ 入れる」を押すと、その値が欄に入って確定になります（欄に入っただけでは確定になりません）。</p>
+              <p>空欄は統計の目安などで補って計算します（「推定」の印。印を押すと根拠が開きます）。推定の値は欄に灰色で見えています。そのままでよければ、欄の「この値にする」を押すと、その値が欄に入って確定になります（欄に入っただけでは確定になりません）。</p>
               <p>入れ方の「標準／詳細」は、この項目だけを切り替えます。</p>
             </Help>
           </h2>
@@ -465,9 +465,9 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
           ) : null}
           {estimatedShown > 0 ? (
             <div class="ip-bulk">
-              {/* 見えている推定の欄の全部に「✓ 入れる」を押すのと同じ（0041 の追記） */}
+              {/* 見えている推定の欄の全部に「この値にする」を押すのと同じ（0041 の追記） */}
               <button type="button" class="fld-fill" onClick={confirmShown} title="見えている推定の欄に、推定の値をまとめて入れます（確定になります）" data-confirm-all>
-                ✓ 推定をまとめて入れる（{estimatedShown}つ）
+                推定の値をまとめて使う（{estimatedShown}つ）
               </button>
             </div>
           ) : null}

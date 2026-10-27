@@ -712,7 +712,7 @@ function periodGroup(wh: WorkingHousehold): GroupDef {
         },
         set: (w, v) => (v === null && stopAgeOf(w.request.input.household) === null ? w : mutate(w, (h, req) => setStopAge(h, req.input.baseMonth, typeof v === "number" ? v : null))),
         // 空欄の推定は「口座ごとに持ち主の退職の年まで」の決まりで、年齢を書くと全部の積立を本人の年齢にそろえる（結果が変わる）ので、
-        // 推定の値を書く確定はしない（blankEstimate を持たない。「✓ この値で確定」と「推定をまとめて確定」の数に入らない）
+        // 推定の値を書く確定はしない（blankEstimate を持たない。「この値にする」と「推定の値をまとめて使う」の数に入らない）
         sideEffects: "すべての積立（iDeCo・企業型DC を除く）の最後の期間の終わりを、この年齢にそろえます",
       }),
     ],

@@ -41,7 +41,7 @@ describe("欄の説明は「?」の中", () => {
   it("パネルの見出しの「?」に、カードの説明と推定・確定の決まり", () => {
     const html = panel(open("salariedCoupleTwoKids"), "work", "simple");
     expect(html).toContain('data-help="panel"');
-    expect(html).toMatch(/data-help="panel"[\s\S]*「✓ 入れる」/);
+    expect(html).toMatch(/data-help="panel"[\s\S]*「この値にする」/);
   });
 });
 

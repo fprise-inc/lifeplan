@@ -80,7 +80,7 @@ describe("確定は明示の操作だけ（欄に入って離れる・同じ文�
     expect(shouldCommitOnBlur(null, "25")).toBe(true);
   });
 
-  it("推定の欄に同じ値を入れても確定にならない。確定は「✓ この値で確定」", () => {
+  it("推定の欄に同じ値を入れても確定にならない。確定は「この値にする」", () => {
     const wh = blankHousehold(BASE, ids());
     const f = fieldOf(wh, "living", "/monthly");
     expect(fieldStatus(f, wh).status).toBe("estimated");
@@ -165,7 +165,7 @@ describe("4つの操作（どの欄も同じ部品）", () => {
     expect((kept.request.input.household.livingExpenses![0]!.monthly as unknown as { substitute: { value: number } }).substitute.value).toBe(123000);
   });
 
-  it("推定をまとめて確定（カード・全部）は、推定の欄だけを確定にする", () => {
+  it("推定の値をまとめて使う（カード・全部）は、推定の欄だけを確定にする", () => {
     const wh = addCar(blankHousehold(BASE, ids()), ids());
     const card = allFields(buildStage("car", wh));
     const before = card.filter((f) => fieldStatus(f, wh).status === "estimated").length;
@@ -394,7 +394,7 @@ describe("新しく作る世帯は最初から推定", () => {
     // FP が進路の型を選ぶ → 推定の印が外れる（FP が決めた進路は入れ直さない）
     const chosen = preset.set(wh, "allPublic");
     expect(rowAt(input(chosen), educationStagesAddress(goal.id))).toBeUndefined();
-    // 「✓ この値で確定」
+    // 「この値にする」
     const c = applyStateOp(wh, preset, "confirm");
     expect(rowAt(input(c), educationStagesAddress(goal.id))).toMatchObject({ state: "confirmed", estimate: { basis: EDUCATION_BASIS } });
     computes(c);

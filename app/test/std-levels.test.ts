@@ -7,6 +7,7 @@ import type { Debt, EmploymentPeriod, EngineRequest } from "../src/engine/types.
 import { allFields, type FieldDef, type StageId } from "../src/workspace/input/form.ts";
 import { fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { SavingsPanel } from "../src/workspace/input/savings/SavingsPanel.tsx";
+import { Field } from "../src/workspace/input/FieldViews.tsx";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { creditActive, rateOutlookOf } from "../src/workspace/input/stages/housingLoans.ts";
 import { endLevels } from "../src/workspace/input/stages/insurance.ts";
@@ -130,10 +131,17 @@ describe("働き方と収入: 年収（賞与込み）の1欄", () => {
     expect(total.get(w).value).toBe(8000000);
     expect(total.get(w).hint).toContain("推定");
     expect(fieldStatus(total, w).status).toBe("confirmed");
+    // 年収は確定でも賞与が推定なので、欄の名前の横に「推定」の印（押すと賞与の根拠）
+    expect(total.get(w).partEstimated).toMatch(/^賞与は年収（賞与込み）800万円を、賃金の統計/);
+    const html = renderToString(h(Field, { f: total, wh: w, onEdit: () => {} }));
+    expect(html).toMatch(/class="help-btn help-mark badge est"[^>]*data-state="estimated">推定</);
+    expect(html).toContain("推定: 賞与は年収（賞与込み）800万円を");
+    // 賞与も確定なら印は出さない
+    expect(total.get(wh0).partEstimated ?? null).toBeNull();
     expect(() => preview(w.request)).not.toThrow();
   });
 
-  it("空にすると年収・賞与とも統計の推定。「✓ この値で確定」は合計をそのまま確定にする（年収の箱だけ確定、賞与はそのまま）", () => {
+  it("空にすると年収・賞与とも統計の推定。「この値にする」は合計をそのまま確定にする（推定のままの賞与もその値のまま確定）", () => {
     const { wh, self, total } = setup();
     const blank = total.set(wh, null);
     const s = periodOf(blank, self.id).salary!;
@@ -144,7 +152,8 @@ describe("働き方と収入: 年収（賞与込み）の1欄", () => {
     const conf = applyStateOp(blank, total, "confirm");
     expect(fieldStatus(total, conf).status).toBe("confirmed");
     expect(total.get(conf).value).toBe(shown);
-    expect(periodOf(conf, self.id).salary!.bonus).toEqual(s.bonus);
+    expect(periodOf(conf, self.id).salary!.bonus).toMatchObject({ value: s.bonus!.value, state: "confirmed", estimate: { basis: (s.bonus as { estimate?: { basis?: string } }).estimate?.basis } });
+    expect(total.get(conf).partEstimated ?? null).toBeNull();
     // 箱の読み書きは往復で同じ合計
     const box = total.boxed!.read(conf) as { value: number };
     expect((total.boxed!.read(total.boxed!.write(conf, box as never)) as { value: number }).value).toBe(box.value);

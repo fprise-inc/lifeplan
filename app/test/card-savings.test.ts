@@ -128,7 +128,7 @@ describe("預金に残しておく額（1欄・詳細）と目安のボタン", 
       l.monthly = { value: 500000, state: "confirmed", origin: { kind: "manual" } };
     });
     expect(w2.request.input.assumptions?.withdrawal?.minimumDeposit).toBe(living * 6);
-    // ✓ この値で確定: 値のまま、根拠を残した確定
+    // この値にする: 値のまま、根拠を残した確定
     const w3 = applyStateOp(w1, f, "confirm");
     expect(w3.request.input.assumptions?.withdrawal?.minimumDeposit).toBe(living * 6);
     expect(fieldStatus(f, w3)).toMatchObject({ status: "confirmed", explicit: true });
