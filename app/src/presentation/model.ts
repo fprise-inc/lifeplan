@@ -55,7 +55,7 @@ export interface ChartModel {
   ages: (number | null)[];
   /** x 軸の下に添える年齢の段（本人・配偶者） */
   axis: AgeAxisRow[];
-  /** 年ごとの家族全員の年齢（例: 「ご主人64歳・奥様62歳・長女35歳」）。年を指したとき・固定したときの札に出す */
+  /** 年ごとの家族全員の年齢（例: 「ご主人64歳・奥様62歳・第1子35歳」）。年を指したとき・固定したときの札に出す */
   family: string[];
   proposal: Yen[];
   current: Yen[];

@@ -17,7 +17,7 @@ function elderLabel(wh: WorkingHousehold, m: Member): string | undefined {
   return `${inLaw ? "義" : ""}${m.sex === "male" ? "父" : "母"}`;
 }
 
-/** 構成員の呼び方: 続柄（ご主人・奥様・長男…）と、FP が付けた呼び名（任意） */
+/** 構成員の呼び方: 続柄（ご主人・奥様・第1子…）と、FP が付けた呼び名（任意） */
 export function memberLabels(wh: WorkingHousehold): Map<string, string> {
   const out = new Map<string, string>();
   const h = wh.request.input.household;

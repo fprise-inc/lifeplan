@@ -1,4 +1,4 @@
-// 構成員の呼び方（顧客の名前は持たない・出さない。0012）: ご主人・奥様・長男・長女 など
+// 構成員の呼び方（顧客の名前は持たない・出さない。0012）: ご主人・奥様・第1子・第2子 など
 import type { EngineRequest, Member } from "../engine/types.ts";
 import { parseYm } from "./levers.ts";
 import { resolveTimepoint } from "./timepoint.ts";
@@ -11,9 +11,6 @@ export interface Role {
   /** 世帯から抜ける月（独立など。年齢・出来事で決めた時点も解いた年月）。抜けない人は null */
   leaves: string | null;
 }
-
-const ORDINAL_SON = ["長男", "次男", "三男", "四男", "五男"];
-const ORDINAL_DAUGHTER = ["長女", "次女", "三女", "四女", "五女"];
 
 export function roles(req: EngineRequest): Role[] {
   const h = req.input.household;
@@ -29,10 +26,9 @@ function rolesOf(req: EngineRequest): Omit<Role, "leaves">[] {
   if (self !== undefined) out.push({ key: "self", label: spouse !== undefined ? coupleLabel(self) : "ご本人", member: self });
   if (spouse !== undefined) out.push({ key: "spouse", label: coupleLabel(spouse), member: spouse });
   const children = ms.filter((m) => m.kind === "child").sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1));
-  let sons = 0;
-  let daughters = 0;
+  // 子は性別によらず生まれた順に「第1子」「第2子」…（予定の子も同じ。性別は計算に使わないので聞かない。0046 の追記 2026-10-27）
   children.forEach((m, i) => {
-    const label = m.sex === "female" ? (ORDINAL_DAUGHTER[daughters++] ?? "お子さま") : (ORDINAL_SON[sons++] ?? "お子さま");
+    const label = `第${i + 1}子`;
     out.push({ key: `child${i + 1}`, label, member: m });
   });
   ms.filter((m) => m.kind !== "self" && m.kind !== "spouse" && m.kind !== "child").forEach((m, i) => out.push({ key: `other${i + 1}`, label: "ご家族", member: m }));

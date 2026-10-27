@@ -61,13 +61,13 @@ describe("最初の5枚の標準の欄の数", () => {
   });
 });
 
-describe("家族: 呼び名・子の性別は詳細、子の独立は子ども・教育のカードの詳細に1つだけ", () => {
-  it("本人の性別は標準、配偶者・子の性別と呼び名は詳細。家族のカードに独立の欄は無く、子ども・教育のカードの詳細にある", () => {
+describe("家族: 呼び名は詳細・子の性別は出さない、子の独立は子ども・教育のカードの詳細に1つだけ", () => {
+  it("本人の性別は標準、配偶者の性別と呼び名は詳細、子の性別は出さない。家族のカードに独立の欄は無く、子ども・教育のカードの詳細にある", () => {
     const wh = open("salariedCoupleTwoKids");
     const fam = fieldsOf(wh, "family");
     for (const m of members(wh)) {
       expect(fam.find((f) => f.key === `family/${m.id}/nickname`)?.level).toBe("detail");
-      expect(fam.find((f) => f.key === `family/${m.id}/sex`)?.level).toBe(m.kind === "self" ? "simple" : "detail");
+      expect(fam.find((f) => f.key === `family/${m.id}/sex`)?.level).toBe(m.kind === "self" ? "simple" : m.kind === "child" ? undefined : "detail");
       expect(fam.some((f) => f.key === `family/${m.id}/leaves`)).toBe(false);
     }
     const child = members(wh).find((m) => m.kind === "child")!;

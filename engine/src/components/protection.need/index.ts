@@ -2,7 +2,7 @@
 // 万一の想定を重ねて全体のキャッシュフロー表を年ごとに計算し直すのではなく、万一なしの計算の部品の結果（月ごとのお金の動き）から遺族の
 // 収支を組み立て、亡くなる年ごとに変わる部品（遺族年金。入力の death で「この月に亡くなったら」を試す）だけを呼ぶ（速さ: 0005 の追記 2026-10-09）。
 // 亡くなる月はその年の1月（計算基準年は計算基準月）。遺族は死亡の当時の配偶者（いなければ子）。
-// - 積み上げ方式（標準）: 死亡の月の翌月から期間の終わり（標準は配偶者の平均余命。簡易生命表の主な年齢の値を年齢で補間）までの
+// - 積み上げ方式（標準）: 死亡の月の翌月から期間の終わり（標準は配偶者の平均余命。簡易生命表の主な年齢の値を年齢で補間。配偶者がいなければ末子の独立）までの
 //   必要な資金（遺族の生活費＝生活費×遺族の割合（末子の独立まで0.7・後0.5、子のいない世帯は0.7。生活費の段階の後に掛ける）・住居費（団信で消える住宅ローンは除く）・
 //   教育費・周期的な支出・介護・保険料（亡くなった人が被保険者の契約を除く）・遺族の税と社会保険料・遺族の車など）から、準備できる資金
 //   （遺族の収入（給与・年金）・遺族年金・児童手当・教育の公的支援・死亡退職金・確定拠出年金の死亡一時金・弔慰金）を引き、
@@ -291,8 +291,10 @@ export default defineComponent<{ request: ProtectionRequest }, { method: "accumu
         // 期間の終わり
         let H: MonthIndex;
         const hz = req.horizon ?? { kind: "lifeExpectancy" };
+        // 遺族が子（配偶者がいない）のときの「平均余命まで」は、子の平均余命ではなく末子の独立までにする（子の性別を計算に使わない。0054 の追記 2026-10-27）
+        const byIndependence = hz.kind === "youngestIndependence" || spouse === undefined;
         if (hz.kind === "age" && hz.age !== undefined) H = ageMonthOf(Z, hz.age);
-        else if (hz.kind === "youngestIndependence") {
+        else if (byIndependence) {
           H = D;
           for (const c of kids) {
             const own = c.leaves === null ? addMonths(ctx.time.ageSwitch(c.id, { years: req.survivor?.independenceAge ?? 22 }, "firstMarch31AfterReach"), 1) : ctx.time.resolve(c.leaves);
