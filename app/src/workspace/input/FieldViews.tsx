@@ -13,6 +13,7 @@ import type { ActionDef, FieldDef, GroupDef, Level, SectionDef, TimeView, Val, W
 import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
+import { revealAdded } from "../../presentation/revealAdded.ts";
 import { convertWhen, modeOf, parseWhen, readWhen, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
@@ -280,7 +281,11 @@ function Actions({ actions, wh, onEdit, note }: { actions: ActionDef[]; wh: Work
           type="button"
           key={a.key}
           class={a.danger === true ? "link-btn danger" : "add-btn"}
-          onClick={() => onEdit(a.run(wh))}
+          onClick={(e) => {
+            // 「＋」で足した物は、見える所へ動かして光らせ、最初の欄に移る（revealAdded）
+            if (a.danger !== true && a.label.startsWith("＋")) revealAdded(e.currentTarget);
+            onEdit(a.run(wh));
+          }}
           data-action={a.key}
           {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})}
           {...(a.title !== undefined ? { title: a.title } : {})}
@@ -657,7 +662,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
       <div class="fld-l">
         <label for={id}>{label}</label>
         {badge}
-        {fieldHelp(f, [state.raw !== null ? time.when.monthOnly : undefined, mode === "event" && state.ctx.events.length === 0 ? "出来事は、子の独立・持ち家の入居・年金の受け取り開始・介護の始まりや、家族のカードの「出来事」から選べます" : undefined])}
+        {fieldHelp(f, [state.raw !== null ? time.when.monthOnly : undefined, mode === "event" && state.ctx.events.length === 0 ? "出来事は、子の独立・持ち家の入居・年金の受け取り開始・介護の始まりや、家族の項目の「出来事」から選べます" : undefined])}
       </div>
       <div class="fld-c">
         <input

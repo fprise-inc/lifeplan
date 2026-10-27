@@ -9,6 +9,7 @@ import type { StorageNotice, StoredHousehold, StoreStatus } from "../../engine/h
 import { AGE_BANDS, CATEGORY_CODE, DEFAULT_CATEGORIES, FAMILY_SHAPES, NO_CATEGORY, SAMPLE_TRAITS, ageBandName, categoryText, filterCustomers, filterShelf, parseSampleNo, sampleNoText, type Category, type CategoryEdit, type SampleRequest, type ShelfItem } from "./numbering.ts";
 import { OFFICE_MESSAGES, sinceText } from "./office.ts";
 import { storageNoticeText } from "./storage.ts";
+import { revealAdded } from "../../presentation/revealAdded.ts";
 
 export type HouseholdTab = "customers" | "samples";
 
@@ -243,7 +244,15 @@ function CategoryEditor(p: { categories: readonly Category[]; inUse: ReadonlySet
         </tbody>
       </table>
       <div class="hh-new">
-        <button type="button" class="link-btn" onClick={() => setRows([...rows, { code: "", name: "" }])} data-category-add>
+        <button
+          type="button"
+          class="link-btn"
+          onClick={(e) => {
+            revealAdded(e.currentTarget);
+            setRows([...rows, { code: "", name: "" }]);
+          }}
+          data-category-add
+        >
           ＋ 区分を足す
         </button>
         {rows.length === 0 ? (

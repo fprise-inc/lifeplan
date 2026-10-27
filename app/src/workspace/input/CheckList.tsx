@@ -200,7 +200,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
         </p>
         <div class="ck-tools">
           <label>
-            カード
+            入力項目
             <select value={card} onChange={put("card")} data-ck-card>
               <option value="">すべて</option>
               {cards.map(([id, label]) => (
@@ -256,7 +256,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
               }}
               data-ck-fill-all
             >
-              推定で埋める（{card === "" ? "まとめて" : "このカード"} {fillable}件）
+              推定で埋める（{card === "" ? "まとめて" : "この項目"} {fillable}件）
             </button>
           ) : null}
           {estimated > 0 ? (
@@ -269,7 +269,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
               }}
               data-ck-confirm-all
             >
-              {card === "" ? `推定をまとめて確定（全部 ${estimated}つ）` : `このカードの推定をまとめて確定（${estimated}つ）`}
+              {card === "" ? `推定をまとめて確定（全部 ${estimated}つ）` : `この項目の推定をまとめて確定（${estimated}つ）`}
             </button>
           ) : null}
           {marks.length > 0 ? (

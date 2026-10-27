@@ -7,6 +7,7 @@ import { DEFAULT_LAYOUT } from "../input/items.ts";
 import type { StageId } from "../input/form.ts";
 import { today } from "../report/assemble.ts";
 import { ASSUMPTION_LABELS, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
+import { revealAdded } from "../../presentation/revealAdded.ts";
 
 export interface OfficeSettingsPanelProps {
   value: OfficeSettings;
@@ -135,14 +136,14 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           {shared ? "事務所で共有していても、今はこの PC の設定です。" : "この PC の設定です。"}
         </p>
         <section class="os-sec" aria-labelledby="os-cards">
-          <h3 id="os-cards">入力のホームのカードの並びと最初の5枚</h3>
+          <h3 id="os-cards">入力のホームの入力項目の並びと最初の5項目</h3>
           <ol class="os-cards">
             {order.map((id, i) => (
               <li key={id} data-office-card={id}>
                 <span class="os-name">{label(id)}</span>
                 <label class="os-first">
                   <input type="checkbox" checked={layout.first.includes(id)} onChange={(e) => toggleFirst(id, (e.currentTarget as HTMLInputElement).checked)} data-office-first={id} />
-                  最初の5枚
+                  最初の5項目
                 </label>
                 <button type="button" class="link-btn" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`${label(id)}を上へ`} data-office-up={id}>
                   ↑
@@ -154,7 +155,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             ))}
           </ol>
           <p class="pl-sub">
-            最初の5枚: {layout.first.length}枚（ざっくり入れる人に最初に案内するカード）。
+            最初の5項目: {layout.first.length}項目（ざっくり入れる人に最初に案内する入力項目）。
             <button type="button" class="link-btn" onClick={() => setS({ ...s, layout: null })} data-office-layout-reset>
               標準の並びに戻す
             </button>
@@ -235,7 +236,10 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             <button
               type="button"
               class="link-btn"
-              onClick={() => setFee({ ...fee, steps: [...fee.steps, { year: String(Math.max(1, ...fee.steps.map((y) => Number(y.year) || 1)) + 1), amount: fee.steps.at(-1)?.amount ?? fee.amount }] })}
+              onClick={(e) => {
+                revealAdded(e.currentTarget);
+                setFee({ ...fee, steps: [...fee.steps, { year: String(Math.max(1, ...fee.steps.map((y) => Number(y.year) || 1)) + 1), amount: fee.steps.at(-1)?.amount ?? fee.amount }] });
+              }}
               data-office-fee-add-step
             >
               ＋ 料金の段階（○年目から○円）

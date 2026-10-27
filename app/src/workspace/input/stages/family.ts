@@ -456,7 +456,7 @@ function relationGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
       );
     }
     const notes = [
-      ...(ended ? [`関係が終わった翌月から、${who}は世帯を離れます。${who}の名義の口座・保険・住まい・車は、各カードで外すか名義を直すまで世帯の物として計算します。分ける額は財産分与の行で入れてください`] : []),
+      ...(ended ? [`関係が終わった翌月から、${who}は世帯を離れます。${who}の名義の口座・保険・住まい・車は、各項目で外すか名義を直すまで世帯の物として計算します。分ける額は財産分与の行で入れてください`] : []),
     ];
     return [{ key: k, title: rs.length > 1 ? `夫婦の関係 ${i + 1}（${MARRIAGE_LABEL[r.marriage] ?? r.marriage}）` : "夫婦の関係", ...(notes.length > 0 ? { note: notes.join("。") } : {}), level: "detail", fields, actions }];
   });
@@ -533,7 +533,7 @@ function familyMoney(wh: WorkingHousehold): SectionDef[] {
     level: "simple",
     inTitle: "入るお金（養育費・手当・財産分与・同居の家族から）",
     outTitle: "出るお金（養育費・離れて暮らす子への仕送り）",
-    note: "離れて暮らす子への仕送りを基本生活費の内訳の「仕送り」に入れているときは、ここには入れないでください（両方に入れると二重になります）。親への仕送りは介護・親のカードで入れます",
+    note: "離れて暮らす子への仕送りを基本生活費の内訳の「仕送り」に入れているときは、ここには入れないでください（両方に入れると二重になります）。親への仕送りは介護・親の項目で入れます",
   }).map((sec) => ({
     ...sec,
     actions: sec.actions.flatMap((a): ActionDef[] => {

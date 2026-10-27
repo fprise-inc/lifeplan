@@ -102,7 +102,7 @@ export function LeverCard(p: LeverCardProps) {
   const review = p.changes.filter((c) => c.state !== "ok");
   const baseTag = (t: string) => `基準（${p.baseLetter}）: ${t}`;
   return (
-    <section class="card levers" aria-labelledby="h-lev" data-levers>
+    <section class="card levers" aria-labelledby="h-lev" data-levers data-reveal-root>
       <div class="lv-head">
         <h2 id="h-lev">対策</h2>
         <span class="lv-who">

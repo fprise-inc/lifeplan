@@ -14,6 +14,7 @@ import { group, man, manDiff } from "./format.ts";
 import { PopIcon } from "./icons.tsx";
 import type { BalanceTabModel, BsColumn, BsCustomViewModel, BsGroupKey, BsGuide, BsPlanModel, BsPointKey, BsYearModel, MoneyThreeModel, MoneyThreeWording, MoneyThreeSettings, VerdictPart, Yen } from "./model.ts";
 import { MoneyThreeSection } from "./MoneyThree.tsx";
+import { revealAdded } from "./revealAdded.ts";
 
 export type BsView = "one" | "three" | "plans" | "prev";
 
@@ -623,7 +624,7 @@ function ThreeView({ model, plan, cols, onGo, onColumns, onEditDefaults, height 
   };
   const defaultsText = model.pointDefaults.map((k) => model.pointChoices.find((c) => c.key === k)?.label ?? k).join("・");
   return (
-    <div class="bs-three-wrap">
+    <div class="bs-three-wrap" data-reveal-root>
       <div class="bs-pick bs-cols-bar" data-bs-cols-bar>
         <span class="k">並べる時点</span>
         <span class="note">
@@ -632,7 +633,15 @@ function ThreeView({ model, plan, cols, onGo, onColumns, onEditDefaults, height 
         </span>
         <span class="bs-cols-act">
           {cols.length < MAX_COLS ? (
-            <button type="button" class="btn" onClick={add} data-bs-col-add>
+            <button
+              type="button"
+              class="btn"
+              onClick={(e) => {
+                revealAdded(e.currentTarget);
+                add();
+              }}
+              data-bs-col-add
+            >
               ＋ 時点を足す
             </button>
           ) : null}
@@ -651,7 +660,7 @@ function ThreeView({ model, plan, cols, onGo, onColumns, onEditDefaults, height 
           const y = ys[k] as BsYearModel;
           const prev = k > 0 ? (ys[k - 1] as BsYearModel) : null;
           return (
-            <div class="bs-tcard-wrap" key={p.pos}>
+            <div class="bs-tcard-wrap" key={p.pos} data-reveal-item>
               {k > 0 ? (
                 <div class="arrow" aria-hidden="true">
                   →

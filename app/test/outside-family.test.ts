@@ -175,7 +175,7 @@ describe("開いたときの知らせ（0035 の8）", () => {
     const i: BarInputs = { opened: true, stored: true, save: { kind: "idle" } as never, paused: false, aiSharing: false, storage: [], showing: { recovery: false, office: false, storage: false }, presence: null, message: (c) => c, household: [{ id: "n1", kind: "outsideFamily" }] };
     const ns = barNotices(i);
     expect(ns).toHaveLength(1);
-    expect(ns[0]).toMatchObject({ id: "household:n1", target: "family", action: "介護・親のカード" });
+    expect(ns[0]).toMatchObject({ id: "household:n1", target: "family", action: "介護・親の項目" });
     expect(ns[0]!.text).toContain("世帯の外の家族");
   });
 });

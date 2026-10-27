@@ -403,7 +403,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   const whoFields: FieldDef[] = [
     withAddress(plain({ key: `${k}/recipient`, item: "incomeFlow.recipient", label: "受け取る人", level: "detail", kind: "select", options: insiderOptions(wh), find, path: ["recipient"], optional: true, fallback: "", help: "構成員を選ぶと、課税の扱いのある行の税はその人の所得に、万一のときの扱いはその人の万一に当てます（世帯のときの税は本人）" }), address(f.id, "incomeFlow.recipient")),
   ];
-  if (!headParty) whoFields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "detail", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "", help: "世帯の外の家族から選びます（介護・親のカードで足します）" }), address(f.id, "incomeFlow.counterparty")));
+  if (!headParty) whoFields.push(withAddress(plain({ key: `${k}/counterparty`, item: "incomeFlow.counterparty", label: "相手（誰から）", level: "detail", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "", help: "世帯の外の家族から選びます（介護・親の項目で足します）" }), address(f.id, "incomeFlow.counterparty")));
   whoFields.push(...growthFields(k, "incomeFlow.growth", find, f.id, f.growth));
   whoFields.push(...onContingencyFields({ key: `${k}/on`, item: "incomeFlow.onContingency", find, path: ["onContingency"], level: "detail", help: "万一（死亡など）が起きた月の翌月から当てます。受け取る人を選んだ行は、その人の万一だけに当てます" }).map((x) => withAddress(x, address(f.id, "incomeFlow.onContingency"))));
   whoFields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "incomeFlow.onContingency", find, path: ["onContingency"], on: f.onContingency, level: "detail" }).map((x) => withAddress(x, address(f.id, "incomeFlow.onContingency"))));
@@ -634,7 +634,7 @@ export function moneySections(
   return out;
 }
 
-/** 相続で受け継ぐ借金（相続・贈与の区画）。返済の欄は住まい・ローンのカードの「住宅ローン以外のローン」で入れる */
+/** 相続で受け継ぐ借金（相続・贈与の区画）。返済の欄は住まい・ローンの項目の「住宅ローン以外のローン」で入れる */
 export function inheritedDebtGroups(wh: WorkingHousehold): GroupDef[] {
   const h = wh.request.input.household;
   const debts = (h.debts ?? []).filter((d) => d.inheritedFrom !== undefined);
@@ -646,7 +646,7 @@ export function inheritedDebtGroups(wh: WorkingHousehold): GroupDef[] {
       title: `出｜相続で受け継ぐ借金（${memberLabel(wh, d.debtors[0]?.member)}）`,
       note: [
         ...(excludedDebt(d) ? ["計算に入れていません（見込みが「当てにしない」）。「基本の計算に入れる」で入れられます"] : []),
-        "借入額・金利・返済は住まい・ローンのカードの「住宅ローン以外のローン」で入れます",
+        "借入額・金利・返済は住まい・ローンの項目の「住宅ローン以外のローン」で入れます",
       ].join("。"),
       level: "simple",
       fields: [

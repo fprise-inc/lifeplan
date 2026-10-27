@@ -140,7 +140,7 @@ export function splitCategories(h: Household, baseMonth: string, total: number, 
   return LIVING_CATEGORY_ORDER.map((category) => {
     const v = category === "allowance" ? 0 : sp === null ? (category === "otherConsumption" ? total : 0) : sp.parts[category];
     const old = keep?.find((c) => c.category === category)?.id;
-    return { id: old ?? id(), category, monthly: splitBox(v, category === "allowance" ? `${SPLIT_BASIS}（仕送りは子ども・教育、介護・親のカードで入れるので0円）` : basis) };
+    return { id: old ?? id(), category, monthly: splitBox(v, category === "allowance" ? `${SPLIT_BASIS}（仕送りは子ども・教育、介護・親の項目で入れるので0円）` : basis) };
   });
 }
 

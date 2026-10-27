@@ -92,8 +92,8 @@ export function PlanTarget({ p, diffs, initialMenu = false }: { p: PlanEditProps
       ) : null}
       <Help label="編集の対象" id="plan-target">
         <p>現状を直すと、保存したプランにも反映されます。プランが指していた物を外すと、そのプランに「要確認」が出ます。</p>
-        <p>プランを選ぶと、カードとパネルはそのプランの中身を見せ、直したことはそのプランの差分になります（現状は変わりません）。カードの「プランB: 1か所」は、現状と違う所の数です。</p>
-        <p>取り込み・確かめの一覧・カードの「当てはまらない」「目安で入れる」は、いつも現状を直します。</p>
+        <p>プランを選ぶと、入力項目とパネルはそのプランの中身を見せ、直したことはそのプランの差分になります（現状は変わりません）。入力項目の「プランB: 1か所」は、現状と違う所の数です。</p>
+        <p>取り込み・確かめの一覧・入力項目の「当てはまらない」「目安で入れる」は、いつも現状を直します。</p>
       </Help>
       <div class="ih-target-menu">
         <button type="button" class="add-btn" aria-expanded={menu} aria-haspopup="true" onClick={() => setMenu(!menu)} data-plan-menu>
@@ -190,7 +190,7 @@ export function DiffList({ rows, wh, planId, cat, onEdit, onOpen }: { rows: read
   );
   return (
     <section class="diff-list" aria-label="違いの一覧" data-diff-list>
-      {rows.length === 0 ? <p class="in-note">現状と違う所はまだありません。カードを開いて欄を直すと、ここに並びます。</p> : null}
+      {rows.length === 0 ? <p class="in-note">現状と違う所はまだありません。入力項目を開いて欄を直すと、ここに並びます。</p> : null}
       {review.length > 0 ? (
         <>
           <h3>要確認</h3>

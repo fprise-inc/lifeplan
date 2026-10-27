@@ -545,7 +545,7 @@ function pinStage(wh: WorkingHousehold, a: AddedItem): StageDef {
           .map(({ note: _note, ...s }): SectionDef => ({ ...s, groups: s.groups.filter((g) => g.key === prefix || g.key.startsWith(`${prefix}/`)), actions: [] }))
           .filter((s) => s.groups.length > 0);
   const where = STAGE_ORDER.find((s) => s.id === owner.id)?.label ?? owner.label;
-  return { id: owner.id, label, lead: `ホームに出した物です（物は「${where}」のカードにあります）。`, sections };
+  return { id: owner.id, label, lead: `ホームに出した物です（物は「${where}」の項目にあります）。`, sections };
 }
 
 /** ピン1つ（物を外した後も、パネルを閉じるまでは「外した項目」として返す） */
@@ -732,7 +732,7 @@ export function addOptions(wh: WorkingHousehold): AddOption[] {
   const kids = wh.request.input.household.members.filter((m) => m.kind === "child" && m.expected !== true);
   return ADD_OPTIONS.flatMap((o) =>
     o.key === "abroad" && kids.length > 0
-      ? [...kids.map((c) => ({ ...o, key: `abroad:${c.id}`, label: `留学（${memberLabel(wh, c.id)}）`, note: "1回の費用。子ども・教育のカードに入ります" })), { ...o, label: "留学（子を選ばない）" }]
+      ? [...kids.map((c) => ({ ...o, key: `abroad:${c.id}`, label: `留学（${memberLabel(wh, c.id)}）`, note: "1回の費用。子ども・教育の項目に入ります" })), { ...o, label: "留学（子を選ばない）" }]
       : [o],
   );
 }

@@ -160,9 +160,12 @@ describe("入力のホームの上部", () => {
     expect(btn(pl)).toContain("disabled");
   });
 
-  it("カードは4列（1180px 以下で3列）、文字を大きくしたときは3列（1180px 以下で2列）", () => {
-    expect(CSS).toContain(".ih-cards { display: grid; gap: 18px; grid-template-columns: repeat(4, minmax(0, 1fr)); }");
-    expect(CSS).toContain("@media (max-width: 1180px) { .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }");
+  it("入力項目は5列（14項目と「＋ 項目を追加」で5列×3段。1339px 以下で3列）、文字を大きくしたときは3列（1180px 以下で2列）", () => {
+    expect(CSS).toContain(".ih-cards { display: grid; gap: 18px; grid-template-columns: repeat(5, minmax(0, 1fr)); }");
+    expect(CSS).toContain("@media (max-width: 1339px) { .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }");
+    // 5列のときも絵の高さは4列のときと同じくらい（少し縦長にし、200px まで）。文字の大きさは変えない
+    expect(CSS).toContain("html:not(.big) .ih-ill { max-height: 200px; }");
+    expect(CSS).toMatch(/@media \(min-width: 1340px\) \{ html:not\(\.big\) \.ih-ill \{ aspect-ratio: 10 \/ 7; \}/);
     expect(CSS).toContain("html.big .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }");
     expect(CSS).toContain("@media (max-width: 1180px) { html.big .ih-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }");
   });

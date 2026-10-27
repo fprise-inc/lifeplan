@@ -387,7 +387,7 @@ function adultsNote(wh: WorkingHousehold): string | null {
   if (missing.length === 0 || wh.confirmed.includes("care")) return null;
   const est = careEstimate("home");
   const total = est === null ? "" : `（目安は1人 約${manYen(est.monthly * est.months + est.initial)}。在宅の平均の月額×期間＋一時費用）`;
-  return `${missing.map((m) => memberLabel(wh, m.id)).join("・")}の介護の費用が入っていないので、0円で計算しています${total}。「目安で入れる」で統計の目安を入れるか、入れないと決めたらカードを保存してください`;
+  return `${missing.map((m) => memberLabel(wh, m.id)).join("・")}の介護の費用が入っていないので、0円で計算しています${total}。「目安で入れる」で統計の目安を入れるか、入れないと決めたら項目を保存してください`;
 }
 
 // ---- 区画D 親のお金（0042） ----
@@ -484,7 +484,7 @@ export function careStage(wh: WorkingHousehold): StageDef {
     {
       key: "care/outside",
       title: "世帯の外の家族",
-      note: "親（両家）・祖父母・兄弟姉妹・離れて住む子など、家計が別の家族です。年金などの収入は世帯に入れません。家計を1つにする期間・扶養・亡くなる見込みは「詳細」で入れます。贈与する人（生年月なし。相続・贈与のカードで足す）もここに並びます",
+      note: "親（両家）・祖父母・兄弟姉妹・離れて住む子など、家計が別の家族です。年金などの収入は世帯に入れません。家計を1つにする期間・扶養・亡くなる見込みは「詳細」で入れます。贈与する人（生年月なし。相続・贈与の項目で足す）もここに並びます",
       level: "simple",
       groups: [...outside.map((m) => outsideGroup(wh, m)), ...donorGroups(wh).map((g) => ({ ...g, title: `${g.title ?? "贈与する人"}（${donorKindText(wh, g.key)}・生年月なし）` }))],
       actions: addOutsideActions(wh),
@@ -523,7 +523,7 @@ export function careStage(wh: WorkingHousehold): StageDef {
         .filter((m) => m.wallet === undefined)
         .map((m) => ({ key: `family/${m.id}/wallet/add`, label: `＋ ${memberLabel(wh, m.id)}のお金が持つかを見る（預金・生活費・年金）`, level: "detail" as const, run: (w: WorkingHousehold) => mutate(w, (hh) => void ((hh.members.find((y) => y.id === m.id) as Member).wallet ??= {})) })),
     },
-    ...(leaves !== null ? [{ key: "care/leaves", title: "介護で働き方が変わる", note: "介護休業・時短は、働き方と収入のカードの働き方の期間で入れます（休業の種類「介護」）", level: "simple" as const, groups: [leaves], actions: [] }] : []),
+    ...(leaves !== null ? [{ key: "care/leaves", title: "介護で働き方が変わる", note: "介護休業・時短は、働き方と収入の項目の働き方の期間で入れます（休業の種類「介護」）", level: "simple" as const, groups: [leaves], actions: [] }] : []),
   ];
   return { id: "care", label: "介護・親", lead: "親の世代（世帯の外の家族）と、介護の費用・親とのお金。", sections };
 }

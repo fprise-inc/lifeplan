@@ -641,7 +641,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     {
       key: "assume/assetReturns",
       title: "資産の種類ごとの利回り",
-      note: "貯蓄・運用のカードの資産配分と同じ値です（どちらで直しても同じ）。利回りは費用・税を引く前の年率",
+      note: "貯蓄・運用の項目の資産配分と同じ値です（どちらで直しても同じ）。利回りは費用・税を引く前の年率",
       level: "detail",
       groups: assetReturnGroups(wh),
       actions: ASSET_CLASSES.filter((o) => !have.has(o.value))

@@ -273,7 +273,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
         ? "保存すると、物が足され、ホームにピンが出ます（キャンセルすると足しません）。"
         : item.added !== null
           ? "保存すると、この物に入れた値が世帯に入ります。"
-          : "保存すると、このカードは「入力済み」になります（何も入れずに保存すると「当てはまらない」）。";
+          : "保存すると、この項目は「入力済み」になります（何も入れずに保存すると「当てはまらない」）。";
 
   return (
     <>
@@ -319,7 +319,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             <Help label={item.label} id="panel">
               {item.lead !== "" ? <p>{item.lead}</p> : null}
               <p>空欄は統計の目安などで補って計算します（「推定」の印。印を押すと根拠が開きます）。推定の値は欄に灰色で見えています。そのままでよければ、欄の「✓ 入れる」を押すと、その値が欄に入って確定になります（欄に入っただけでは確定になりません）。</p>
-              <p>入れ方の「標準／詳細」は、このカードだけを切り替えます。</p>
+              <p>入れ方の「標準／詳細」は、この項目だけを切り替えます。</p>
             </Help>
           </h2>
           <div class="ip-tools">
@@ -457,7 +457,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
               </ul>
               {gaps.filter((g) => g.fill !== undefined).length > 1 ? (
                 <button type="button" class="link-btn" onClick={() => edit(fillAll(shown, itemId).wh)} data-gap-fill-card>
-                  このカードを推定で埋める
+                  この項目を推定で埋める
                 </button>
               ) : null}
             </div>
@@ -471,7 +471,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             </div>
           ) : null}
         </div>
-        <div class="ip-body">
+        <div class="ip-body" data-reveal-root>
           <PinControls.Provider value={pins}>
           {itemId === "savings" ? (
             <PlanMarksContext.Provider value={marks}>
@@ -532,7 +532,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                 {note}
                 <Help label="保存" id="save">
                   <p>{saveHelp}</p>
-                  {!removed && item.estimated > 0 ? <p>保存しても、推定の欄が残る間はカードは「推定で計算中」のままです。</p> : null}
+                  {!removed && item.estimated > 0 ? <p>保存しても、推定の欄が残る間は項目は「推定で計算中」のままです。</p> : null}
                 </Help>
               </p>
               <button type="button" class="btn" onClick={onClose}>

@@ -41,7 +41,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_NOT_SUPPORTED|transfers": { kind: "missing", text: "口座の間の移し替えは、計算に入れていません（入れた移し替えは、お金の流れと残高に反映されていません）", card: "savings" },
   "N_NOT_SUPPORTED|incomeFlow.inheritanceTax": { kind: "missing", text: "受け取る相続の相続税は、計算に入れていません（受け取る額をそのまま入れています）", card: "inheritance" },
   "N_NOT_SUPPORTED|realEstate.saleTax": { kind: "missing", text: "不動産（自宅以外）を売ったときの譲渡所得の税は、計算に入れていません" },
-  "N_NOT_SUPPORTED|residence.saleTax": { kind: "missing", text: "自宅を売ったときの譲渡所得の税は、計算に入れていません（住まいのカードで税の額を入れると計算に入ります）", card: "housing" },
+  "N_NOT_SUPPORTED|residence.saleTax": { kind: "missing", text: "自宅を売ったときの譲渡所得の税は、計算に入れていません（住まいの項目で税の額を入れると計算に入ります）", card: "housing" },
   "N_NOT_SUPPORTED|residence.sale": { kind: "input", text: "持ち家の住まいが途中で終わりますが、売るかどうかが入っていないので、売ったお金は計算に入れていません", card: "housing" },
   "N_NOT_SUPPORTED|housing.residence|giftTax": { kind: "missing", text: "住まいの購入で受け取る贈与の贈与税（非課税の特例を含む）は、計算に入れていません", card: "housing" },
   "N_NOT_SUPPORTED|education.cost|giftTax": { kind: "missing", text: "教育の資金の贈与（祖父母からなど）の贈与税は、計算に入れていません", card: "education" },

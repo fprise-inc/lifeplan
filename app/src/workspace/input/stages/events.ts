@@ -203,7 +203,7 @@ function eventRowGroups(wh: WorkingHousehold, p: PeriodicExpense): GroupDef[] {
   const [head, ...rest] = periodicGroups(wh, p);
   if (head === undefined) return rest;
   const more: ActionDef[] = [{ key: `ev/${p.id}/toIncome`, label: "入るお金にする", level: "detail", run: (w) => expenseToIncome(w, p.id) }];
-  if (cadenceOf(h, p) !== "once") more.push({ key: `ev/${p.id}/toLiving`, label: "基本生活費のカードへ移す（年払いの暮らしの支出）", level: "detail", run: (w) => moveToLiving(w, p.id) });
+  if (cadenceOf(h, p) !== "once") more.push({ key: `ev/${p.id}/toLiving`, label: "基本生活費の項目へ移す（年払いの暮らしの支出）", level: "detail", run: (w) => moveToLiving(w, p.id) });
   return [{ ...head, actions: [...more, ...head.actions] }, ...rest];
 }
 
@@ -213,11 +213,11 @@ function scheduleSection(wh: WorkingHousehold): SectionDef {
   const lines = items.map((x, i) => readLine(`events/schedule/${i}`, yearLabel(wh, x.year), `${x.dir === "—" ? "" : `${x.dir}｜`}${x.name}${x.amount !== "" ? `（${x.amount}）` : ""}`, x.card));
   const overlap = overlapYears(items);
   const note = [
-    "ほかのカードに入れた予定も含めて、年の順に並べます（額は今の値段。くり返しは最初の年）。直すときは、それぞれのカードで",
+    "ほかの項目に入れた予定も含めて、年の順に並べます（額は今の値段。くり返しは最初の年）。直すときは、それぞれの項目で",
     ...(overlap.length > 0 ? [`1回の出るお金が重なる年: ${overlap.map((o) => `${o.year}年（${o.names.join("・")}）`).join("、")}`] : []),
   ].join("。");
   const g = readGroup("events/schedule", undefined, lines, note);
-  return { key: "events/schedule", title: "この世帯の予定（ほかのカードを含む）", ...(g === null ? { note: "まだ予定がありません" } : {}), level: "detail", groups: g === null ? [] : [g], actions: [] };
+  return { key: "events/schedule", title: "この世帯の予定（ほかの項目を含む）", ...(g === null ? { note: "まだ予定がありません" } : {}), level: "detail", groups: g === null ? [] : [g], actions: [] };
 }
 
 export function eventsStage(wh: WorkingHousehold): StageDef {
@@ -272,7 +272,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
       ? null
       : {
           ...inSec,
-          note: `${inRows.length === 0 ? "まだありません。" : ""}祝い金・お見舞い・一時の給付金・動産の売却（車以外）・一時所得・その他の入金。額は入れるまで「未入力（0円で計算中）」です。相続・贈与は相続・贈与、援助・仕送りは介護・親、養育費・手当は家族、副業・売却代金（事業）は働き方と収入のカードで入れます`,
+          note: `${inRows.length === 0 ? "まだありません。" : ""}祝い金・お見舞い・一時の給付金・動産の売却（車以外）・一時所得・その他の入金。額は入れるまで「未入力（0円で計算中）」です。相続・贈与は相続・贈与、援助・仕送りは介護・親、養育費・手当は家族、副業・売却代金（事業）は働き方と収入の項目で入れます`,
           groups: inSec.groups.map((g) => {
             const m = /^in\/([^/]+)$/.exec(g.key);
             const id = m?.[1];
