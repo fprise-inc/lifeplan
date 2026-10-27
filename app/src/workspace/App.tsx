@@ -9,6 +9,7 @@ import { certainOnly, forEngine } from "../engine/moneyRows.ts";
 import { CertainOnlyBar } from "./CertainOnlyBar.tsx";
 import { CalcNotices } from "./CalcNotices.tsx";
 import { noticeRows } from "./engineNotices.ts";
+import { engineErrorText } from "./engineErrors.ts";
 import { CompareTable } from "../presentation/Compare.tsx";
 import { EvidencePanel, type EvidenceState } from "../presentation/EvidencePanel.tsx";
 import { multiOn, type ChartLayout, type ChartMode } from "../presentation/MainChart.tsx";
@@ -1672,7 +1673,8 @@ export function App() {
 
   const last = dual.current?.timings.filter((t) => t.kind === "preview").at(-1);
   const lastCanon = dual.current?.timings.filter((t) => t.kind === "canonical").at(-1);
-  const error = selView?.error ?? views.get(work.base)?.error ?? null;
+  const errView = selView?.error != null ? selView : (views.get(work.base) ?? null);
+  const error = errView?.error != null ? engineErrorText(errView.error, errView.errorIds, opened?.wh.request.input.baseMonth ?? null) : null;
 
   // 対策の「変えたこと」と保存の名前の例
   const planInfo = useMemo(() => {
@@ -2004,10 +2006,10 @@ export function App() {
           </HouseholdDrop>
         ) : null}
         {fatal !== null ? <p class="fatal">起動できませんでした（{fatal}）</p> : null}
-        {error !== null && tab !== "input" ? <p class="fatal">計算できませんでした（{error}）</p> : null}
+        {error !== null && tab !== "input" ? <p class="fatal">計算できませんでした{error}</p> : null}
         {tab === "input" && opened !== null ? (
           <>
-            {error !== null ? <p class="fatal">今の入力では計算できませんでした（{error}）</p> : null}
+            {error !== null ? <p class="fatal">今の入力では計算できませんでした{error}</p> : null}
             <InputView
               key={cardOpen?.n ?? 0}
               wh={opened.wh}
