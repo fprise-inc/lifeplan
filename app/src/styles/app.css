@@ -1315,12 +1315,20 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .fp-insights li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 0.88rem; }
 /* 説明の「?」（丸に ?。presentation/Help.tsx。0077）: カーソル・フォーカス・押すで開く。開いた説明は画面に固定して重ねる（周りの配置を動かさない） */
 .help { display: inline-flex; align-items: center; vertical-align: middle; flex: none; }
-.help-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.25em; height: 1.25em; padding: 0; border: 1.5px solid var(--field); border-radius: 50%; background: #fff; color: var(--ink-2); font: inherit; font-size: 0.8rem; font-weight: 700; line-height: 1; cursor: help; }
+.help-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 1.25em; height: 1.25em; padding: 0; border: 1.5px solid var(--field); border-radius: 50%; background: #fff; color: var(--ink-2); font: inherit; font-size: 0.8rem; font-weight: 700; line-height: 1; cursor: help; }
 .help-btn:hover, .help-btn[aria-expanded="true"] { border-color: var(--prop); color: var(--prop); background: var(--prop-bg); }
 .help-btn:focus-visible { outline: 2px solid var(--prop); outline-offset: 2px; }
+/* 「?」は SVG の線（字の上下の余白に頼らない）。丸の内側いっぱいに広げ、字は丸の中央に来る（Help.tsx の HELP_GLYPH） */
+.help-btn > .help-q { display: block; flex: none; width: 100%; height: 100%; }
 /* 印を押して開く形（欄の「推定」の札など）: 札の見た目のまま、押せることを点線の下線で見せる */
 .help-btn.help-mark { width: auto; height: auto; border-radius: 4px; padding: 0 5px; font-size: 0.7rem; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
-.help-pop { position: fixed; z-index: 200; top: 0; left: 0; width: max-content; max-width: min(26em, calc(100vw - 16px)); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); box-shadow: 0 6px 20px rgba(20, 30, 50, 0.18); font-size: 0.84rem; font-weight: 400; line-height: 1.6; text-align: left; letter-spacing: 0; white-space: normal; cursor: auto; }
+.help-pop { position: fixed; z-index: 200; top: 0; left: 0; width: max-content; max-width: min(26em, calc(100vw - 16px)); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); box-shadow: 0 6px 20px rgba(20, 30, 50, 0.18); font-size: 0.84rem; font-weight: 400; line-height: 1.6; text-align: left; letter-spacing: 0; white-space: normal; cursor: auto; user-select: text; -webkit-user-select: text; }
+/* 開いた説明の文は選んでコピーできる。押すとフォーカスが箱へ移るが、枠は出さない */
+.help-pop:focus { outline: none; }
+/* 「?」と箱のすき間（6px）を埋める見えない帯。カーソルを箱へ動かす途中で外れたと見なさない */
+.help-pop::before { content: ""; position: absolute; left: 0; right: 0; height: 10px; }
+.help-pop[data-side="below"]::before { top: -10px; }
+.help-pop[data-side="above"]::before { bottom: -10px; }
 .help-pop[hidden] { display: none; }
 .help-pop p { margin: 0; }
 .help-pop p + p, .help-pop p + ul, .help-pop ul + p { margin-top: 6px; }
