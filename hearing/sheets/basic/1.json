@@ -4,9 +4,9 @@
   "sheetId": "basic",
   "version": 1,
   "status": "retired",
-  "title": "ライフプランのためのヒアリングシート（簡易版）",
+  "title": "ライフプランのためのヒアリングシート（通常版）",
   "intro": {
-    "title": "ライフプランのためのヒアリングシート（簡易版）",
+    "title": "ライフプランのためのヒアリングシート（通常版）",
     "notes": [
       "お名前は書かないでください。このシートは番号でお客さまを見分けます。",
       "わからない項目は「状態」の欄で「わからない」を選んでください。当てはまらない項目は「該当なし」を選んでください。空欄のままでもかまいません。",
@@ -1093,7 +1093,7 @@
     "answerSheet": "ご記入欄",
     "columns": {"no":"A","label":"B","value":"C","value2":"D","status":"E","guide":"F"},
     "rows": [
-      {"sheet":"はじめに","row":1,"kind":"title","text":"ライフプランのためのヒアリングシート（簡易版）"},
+      {"sheet":"はじめに","row":1,"kind":"title","text":"ライフプランのためのヒアリングシート（通常版）"},
       {"sheet":"はじめに","row":7,"kind":"heading","text":"ご相談先"},
       {"sheet":"はじめに","row":8,"kind":"office","ref":"name"},
       {"sheet":"はじめに","row":9,"kind":"office","ref":"purpose"},
@@ -1116,7 +1116,7 @@
       {"sheet":"はじめに","row":29,"kind":"item","key":"hs.consent.purpose"},
       {"sheet":"はじめに","row":30,"kind":"item","key":"hs.consent.familyInfo"},
       {"sheet":"はじめに","row":31,"kind":"item","key":"hs.consent.externalAi"},
-      {"sheet":"ご記入欄","row":1,"kind":"title","text":"ライフプランのためのヒアリングシート（簡易版）"},
+      {"sheet":"ご記入欄","row":1,"kind":"title","text":"ライフプランのためのヒアリングシート（通常版）"},
       {"sheet":"ご記入欄","row":4,"kind":"section","section":"consult"},
       {"sheet":"ご記入欄","row":5,"kind":"item","key":"hs.meta.filledOn"},
       {"sheet":"ご記入欄","row":6,"kind":"item","key":"hs.consult.topics"},
