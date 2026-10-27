@@ -1,6 +1,6 @@
 // 回答のセルの生の値を、項目の型ごとの値に直す（金額は円の整数。0002）。数は 10進の文字のまま扱い、浮動小数点の誤差を入れない
 import type { RawValue } from "./answers.ts";
-import { MONTH_LABELS, yearLabel, type SheetDefinition, type SheetItem } from "./definition.ts";
+import { MONTH_LABELS, rangeValue, yearLabel, type SheetDefinition, type SheetItem } from "./definition.ts";
 
 export type Parsed =
   | { readonly ok: true; readonly value: number | string }
@@ -101,6 +101,7 @@ export function parseMonth(raw: RawValue): number | null {
  * - percent: 率の 10進の文字（string。0.625% → "0.00625"）
  * - yearMonth: "YYYY-MM"
  * - choice: 選択肢の value
+ * - moneyRange: 範囲の段の「下-上」（円の整数。上が開いた段は「下-」）
  * - text: 前後の空白を除いた文字
  */
 export function parseValue(def: SheetDefinition, item: SheetItem, raw: RawValue, raw2?: RawValue): Parsed {
@@ -149,6 +150,12 @@ export function parseValue(def: SheetDefinition, item: SheetItem, raw: RawValue,
       const hit = choices.find((c) => c.label.normalize("NFKC") === t) ?? choices.find((c) => c.value === t);
       return hit === undefined ? { ok: false, reason: "選択肢から選んでください" } : { ok: true, value: hit.value };
     }
+    case "moneyRange": {
+      const t = rawText(raw).normalize("NFKC").trim();
+      const steps = item.ranges ?? [];
+      const hit = steps.find((r) => r.label.normalize("NFKC") === t) ?? steps.find((r) => rangeValue(item, r) === t);
+      return hit === undefined ? { ok: false, reason: "選択肢から選んでください" } : { ok: true, value: rangeValue(item, hit) };
+    }
     case "text": {
       const t = rawText(raw).trim();
       if (item.maxLength !== undefined && t.length > item.maxLength) return { ok: true, value: t.slice(0, item.maxLength) };
@@ -185,9 +192,23 @@ export function formatValue(item: SheetItem, value: number | string): { raw: Raw
       const c = (item.choices ?? []).find((x) => x.value === value);
       return { raw: { kind: "text", text: c?.label ?? String(value) } };
     }
+    case "moneyRange": {
+      const r = (item.ranges ?? []).find((x) => rangeValue(item, x) === value);
+      return { raw: { kind: "text", text: r?.label ?? String(value) } };
+    }
     case "text":
       return { raw: { kind: "text", text: String(value) } };
   }
+}
+
+/** 範囲の答え（取り込みの値「下-上」）から推定の値を作る: 真ん中（円未満は四捨五入）。上が開いた段（「〜以上」）は下の端 */
+export function rangeEstimate(item: SheetItem, value: string): { readonly value: number; readonly label: string; readonly openTop: boolean } | null {
+  const r = (item.ranges ?? []).find((x) => rangeValue(item, x) === value);
+  const m = /^(\d+)-(\d*)$/.exec(value);
+  if (r === undefined || m === null) return null;
+  const lo = Number(m[1]);
+  const hi = m[2] === "" ? null : Number(m[2]);
+  return { value: hi === null ? lo : Math.round((lo + hi) / 2), label: r.label, openTop: hi === null };
 }
 
 /** 10のshift乗を掛ける（率→%） */

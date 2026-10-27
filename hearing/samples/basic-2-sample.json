@@ -1,0 +1,49 @@
+{
+  "$comment": "【架空の記入例】ヒアリングシート basic 版2（簡易版・初回の前の軽い票）の見本（実在の人物・世帯ではありません）。値は取り込んだ後の形（金額は円、年月は YYYY-MM、選択肢は value、範囲の答えは「下-上」の円）。scripts/sample.ts が basic-2-sample.xlsx を作る（0018 の7: 各版の見本をリポジトリに永久に残す）",
+  "management": {
+    "requestId": "R-4TQ8XN",
+    "customerNo": "A0043",
+    "appVersion": "0.1.0",
+    "exportedOn": "2026-10-27"
+  },
+  "values": {
+    "hs.consent.purpose": "given",
+    "hs.consent.familyInfo": "given",
+    "hs.consent.externalAi": "refused",
+    "hs.meta.filledOn": "2026-10",
+    "hs.family.adult.birthYearMonth#1": "1984-07",
+    "hs.family.adult.sex#1": "male",
+    "hs.family.adult.age#2": 39,
+    "hs.family.adult.sex#2": "female",
+    "hs.family.child.birthYearMonth#1": "2015-06",
+    "hs.family.child.birthYearMonth#2": "2027-03",
+    "hs.work.type#1": "regular",
+    "hs.income.annualRange#1": "6000000-7000000",
+    "hs.work.type#2": "partTime",
+    "hs.income.annual#2": 1200000,
+    "hs.housing.type": "own",
+    "hs.housing.rent": {
+      "state": "notApplicable"
+    },
+    "hs.loan.monthlyTotal": 98000,
+    "hs.loan.balanceTotalRange": "25000000-30000000",
+    "hs.assets.depositTotalRange": "5000000-7000000",
+    "hs.assets.investTotal": 1800000,
+    "hs.expense.livingRange": "250000-300000",
+    "hs.insurance.premiumTotalRange": "20000-30000",
+    "hs.family.parent.alive#1": "alive",
+    "hs.family.parent.age#1": 68,
+    "hs.family.parent.cohabiting#1": "apart",
+    "hs.family.parent.alive#2": "alive",
+    "hs.family.parent.age#2": 66,
+    "hs.family.parent.cohabiting#2": "apart",
+    "hs.family.parent.alive#3": "deceased",
+    "hs.family.parent.alive#4": "alive",
+    "hs.family.parent.age#4": {
+      "state": "unknown"
+    },
+    "hs.family.parent.cohabiting#4": "together",
+    "hs.plan.events": "2年後に車を買い替えたい。来年3月に2人目が生まれる予定",
+    "hs.consult.topics": "教育費と住宅ローンを払いながら、老後のお金が足りるか知りたい"
+  }
+}

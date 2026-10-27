@@ -36,6 +36,7 @@ function unitText(item: SheetItem): string {
     const basis = { monthly: "月額", annual: "年額", once: "" }[item.unit.basis];
     return `${item.unit.scale === "manYen" ? "万円" : "円"}${basis === "" ? "" : `（${basis}）`}`;
   }
+  if (item.type === "moneyRange" && item.unit !== undefined) return { monthly: "月額", annual: "年額", once: "" }[item.unit.basis];
   if (item.type === "percent") return "%";
   return item.unitLabel ?? "";
 }
@@ -57,6 +58,9 @@ function itemValidations(def: SheetDefinition, item: SheetItem, row: number, lis
       break;
     case "choice":
       out.push(validation(v, 'type="list"', "選択肢から選んでください") + `<formula1>${escapeXml(lists.ref((item.choices ?? []).map((x) => x.label)))}</formula1></dataValidation>`);
+      break;
+    case "moneyRange":
+      out.push(validation(v, 'type="list"', "選択肢から選んでください") + `<formula1>${escapeXml(lists.ref((item.ranges ?? []).map((x) => x.label)))}</formula1></dataValidation>`);
       break;
     case "yearMonth": {
       const years: string[] = [];

@@ -125,7 +125,7 @@
       "properties": {
         "key": { "$ref": "#/$defs/key" },
         "label": { "type": "string", "minLength": 1 },
-        "type": { "enum": ["yearMonth", "integer", "decimal", "money", "percent", "choice", "text"] },
+        "type": { "enum": ["yearMonth", "integer", "decimal", "money", "moneyRange", "percent", "choice", "text"], "description": "moneyRange は金額のだいたいの範囲（ranges から選ぶ。rangeOf の金額の項目が空のとき、範囲の真ん中を推定の値にする）" },
         "unit": {
           "type": "object",
           "additionalProperties": false,
@@ -143,6 +143,18 @@
           }
         },
         "choiceList": { "enum": ["years"] },
+        "ranges": {
+          "type": "array",
+          "minItems": 2,
+          "description": "金額の範囲の段（moneyRange のとき。from・to は unit の単位。from が 0 の段は「〜未満」、to が null の段は「〜以上」）",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "to", "label"],
+            "properties": { "from": { "type": "number", "minimum": 0 }, "to": { "type": ["number", "null"] }, "label": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "rangeOf": { "$ref": "#/$defs/key", "description": "この範囲の答えが、どの金額の項目の代わりか（moneyRange のとき）" },
         "min": { "type": "number" },
         "max": { "type": "number" },
         "maxLength": { "type": "integer", "minimum": 1, "maximum": 2000 },

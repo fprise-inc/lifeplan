@@ -75,11 +75,11 @@ export function canonicalJson(v: unknown): string {
 }
 
 /**
- * 配置の指紋（0018 の2・5）: シートIDと版・項目（キー・型・選択肢）・配置を鍵の順にそろえた JSON の SHA-256。
+ * 配置の指紋（0018 の2・5）: シートIDと版・項目（キー・型・選択肢・範囲の段）・配置を鍵の順にそろえた JSON の SHA-256。
  * 説明文の言い回しだけを直しても変わらないように、表示名・記入例・手引きは含めない
  */
 export async function layoutDigest(def: SheetDefinition): Promise<string> {
-  const items = def.items.map((i) => ({ key: i.key, type: i.type, unit: i.unit, choices: i.choices?.map((c) => c.value), choiceList: i.choiceList }));
+  const items = def.items.map((i) => ({ key: i.key, type: i.type, unit: i.unit, choices: i.choices?.map((c) => c.value), choiceList: i.choiceList, ranges: i.ranges?.map((r) => [r.from, r.to]), rangeOf: i.rangeOf }));
   const rows = def.layout.rows.map((r) => ({ ...r, text: undefined }));
   const text = canonicalJson({ sheetId: def.sheetId, version: def.version, years: def.years, items, layout: { ...def.layout, rows } });
   const bytes = new TextEncoder().encode(text);

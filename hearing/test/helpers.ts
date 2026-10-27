@@ -10,7 +10,13 @@ export const HEARING_DIR = join(import.meta.dirname, "..");
 export const REPO_DIR = join(HEARING_DIR, "..");
 export const ENGINE_DIST = join(REPO_DIR, "engine", "dist");
 
-export const basic = (): SheetDefinition => OFFICIAL_SHEETS.find((d) => d.sheetId === "basic" && d.version === 1) as SheetDefinition;
+const sheet = (id: string, version: number): SheetDefinition => OFFICIAL_SHEETS.find((d) => d.sheetId === id && d.version === version) as SheetDefinition;
+/** basic 版1（廃止。書き出さないが、配ったシートを取り込める） */
+export const basic = (): SheetDefinition => sheet("basic", 1);
+/** basic 版2（簡易版。初回の前の軽い票） */
+export const simple = (): SheetDefinition => sheet("basic", 2);
+/** full 版1（詳細版。basic 版1 と同じ項目） */
+export const full = (): SheetDefinition => sheet("full", 1);
 
 export const OFFICE = { name: "【架空】みらいFP事務所", purpose: "ライフプランの作成と、家計・保険・資産運用のご相談のため", privacyContact: "【架空】みらいFP事務所 個人情報の窓口（privacy@example.invalid）" };
 
