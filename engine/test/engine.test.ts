@@ -22,41 +22,49 @@ const cell = (r: EngineResult, row: string, year: number) => cells(r).filter((c)
 const annual = (r: EngineResult, row: string, year: number) => r.annual.find((a) => a.row === row && a.year === year)?.amount as number;
 
 describe("モデル世帯（架空）", () => {
-  it("10件以上あり、どれも計算でき、出力は JSON Schema に合い整数だけ", () => {
+  // モデル世帯は増えていくので、1つのテストで全部を回さず世帯ごとのテストにし、計算は世帯ごとに1回だけにする
+  const results = new Map<string, EngineResult>();
+  const resultOf = (m: string): EngineResult => {
+    let r = results.get(m);
+    if (r === undefined) {
+      r = run(modelHousehold(m));
+      results.set(m, r);
+    }
+    return r;
+  };
+
+  it("10件以上ある", () => {
     expect(MODELS.length).toBeGreaterThanOrEqual(10);
-    for (const m of MODELS) {
-      const req = modelHousehold(m);
-      const r = run(req);
-      expect(() => check("engine.output", r, "E_OUTPUT_SCHEMA")).not.toThrow();
-      expect(nonIntegerPaths(r)).toEqual([]);
-      expect(r.flows.every((f) => f.ym >= req.input.baseMonth && f.ym <= `${req.input.endYear}-12`)).toBe(true);
+  });
+
+  it.each(MODELS)("どれも計算でき、出力は JSON Schema に合い整数だけ: %s", (m) => {
+    const req = modelHousehold(m);
+    const r = resultOf(m);
+    expect(() => check("engine.output", r, "E_OUTPUT_SCHEMA")).not.toThrow();
+    expect(nonIntegerPaths(r)).toEqual([]);
+    expect(r.flows.every((f) => f.ym >= req.input.baseMonth && f.ym <= `${req.input.endYear}-12`)).toBe(true);
+  });
+
+  it.each(MODELS)("期首残高＋収支＋運用益＝期末残高が毎年成り立つ（0003 の性質のテスト）: %s", (m) => {
+    const req = modelHousehold(m);
+    const r = resultOf(m);
+    // 不動産・保険・その他の資産は金融資産の合計に入れない（plan.cashflow）
+    // 合計の入れ方（0026 の1）は、まとめた金融資産の器だけで計算する
+    const total = req.input.assumptions.investment?.method === "total" && req.input.household.accounts.some((a) => a.kind === "pooled");
+    let prev = req.input.household.accounts.filter((a) => a.kind !== "realEstate" && a.kind !== "insurance" && a.kind !== "otherAsset" && (!total || a.kind === "pooled")).reduce((s, a) => s + (a.marketValue.value ?? 0), 0);
+    for (const y of [2026, 2027]) {
+      const end = annual(r, "cf.balance.financial", y);
+      // 企業型DC の事業主掛金は世帯の収支の外から器に入る（cf.transfer.ideco.employer）
+      const employer = cells(r).filter((c) => c.year === y && c.row === "cf.transfer.ideco.employer").reduce((s, c) => s + c.amount, 0);
+      expect(prev + annual(r, "cf.net", y) + annual(r, "cf.balance.return", y) + employer).toBe(end);
+      prev = end;
     }
   });
 
-  it("期首残高＋収支＋運用益＝期末残高が毎年成り立つ（0003 の性質のテスト）", () => {
-    for (const m of MODELS) {
-      const req = modelHousehold(m);
-      const r = run(req);
-      // 不動産・保険・その他の資産は金融資産の合計に入れない（plan.cashflow）
-      // 合計の入れ方（0026 の1）は、まとめた金融資産の器だけで計算する
-      const total = req.input.assumptions.investment?.method === "total" && req.input.household.accounts.some((a) => a.kind === "pooled");
-      let prev = req.input.household.accounts.filter((a) => a.kind !== "realEstate" && a.kind !== "insurance" && a.kind !== "otherAsset" && (!total || a.kind === "pooled")).reduce((s, a) => s + (a.marketValue.value ?? 0), 0);
-      for (const y of [2026, 2027]) {
-        const end = annual(r, "cf.balance.financial", y);
-        // 企業型DC の事業主掛金は世帯の収支の外から器に入る（cf.transfer.ideco.employer）
-        const employer = cells(r).filter((c) => c.year === y && c.row === "cf.transfer.ideco.employer").reduce((s, c) => s + c.amount, 0);
-        expect(prev + annual(r, "cf.net", y) + annual(r, "cf.balance.return", y) + employer).toBe(end);
-        prev = end;
-      }
-    }
-  });
-
-  it("年間収支＝収入−税・社会保険料−支出（器の間の移動は入れない）", () => {
-    for (const m of MODELS) {
-      const r = run(modelHousehold(m));
-      const sum = (p: string) => cells(r).filter((c) => c.year === 2027 && c.row.startsWith(p)).reduce((s, c) => s + c.amount, 0);
-      expect(annual(r, "cf.net", 2027)).toBe(sum("cf.income.") - sum("cf.taxSi.") - sum("cf.expense."));
-    }
+  it.each(MODELS)("年間収支＝収入−税・社会保険料−支出（器の間の移動は入れない）: %s", (m) => {
+    const r = resultOf(m);
+    const sum = (p: string) => cells(r).filter((c) => c.year === 2027 && c.row.startsWith(p)).reduce((s, c) => s + c.amount, 0);
+    expect(annual(r, "cf.net", 2027)).toBe(sum("cf.income.") - sum("cf.taxSi.") - sum("cf.expense."));
   });
 
   it("同じ入力なら同じ出力（文字列として一致）", () => {
@@ -286,13 +294,19 @@ describe("まとめて計算とセッション（0005 の7・追記: 案×想定
     return [base, a, b, c, clone(base)];
   };
 
-  it("runBatch の結果は、1件ずつ run したときと文字列として同じ（根拠の記録の3つの細かさ・エラーの要求を含む）", () => {
-    for (const trace of ["none", "summary", "full"] as const) {
-      const reqs = MODELS.map((m) => ({ ...modelHousehold(m), trace }));
-      const first = reqs[0] as EngineRequest;
-      reqs.push({ ...first, input: { ...first.input, endYear: 1900 } } as EngineRequest);
-      const batch = JSON.parse(runBatchJson(JSON.stringify(reqs), packsJson)) as unknown[];
-      reqs.forEach((r, i) => expect(JSON.stringify(batch[i])).toBe(one(r)));
+  // 根拠の記録の細かさごとのテストにする（モデル世帯が増えると、1つのテストでは時間の上限に近づくため）
+  it.each(["none", "summary", "full"] as const)("runBatch の結果は、1件ずつ run したときと文字列として同じ（すべてのモデル世帯とエラーの要求。根拠の記録: %s）", (trace) => {
+    const reqs = MODELS.map((m) => ({ ...modelHousehold(m), trace }));
+    const first = reqs[0] as EngineRequest;
+    reqs.push({ ...first, input: { ...first.input, endYear: 1900 } } as EngineRequest);
+    const batch = runBatchJson(JSON.stringify(reqs), packsJson);
+    const ones = reqs.map(one);
+    // まとめた結果は、1件ずつの結果を並べた配列と文字列として同じ（大きな出力を読み直さずに比べる）。違うときだけ、どの要求かを出す
+    if (batch !== `[${ones.join(",")}]`) {
+      const parsed = JSON.parse(batch) as unknown[];
+      expect(parsed.length).toBe(reqs.length);
+      reqs.forEach((_, i) => expect(JSON.stringify(parsed[i]), MODELS[i] ?? "エラーの要求").toBe(ones[i]));
+      expect(batch).toBe(`[${ones.join(",")}]`);
     }
   });
 

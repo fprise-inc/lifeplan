@@ -259,17 +259,16 @@ describe("段階の操作（足す・外す・選ぶ）", () => {
     }
   });
 
-  it("構造の選択（働き方の種類・年金の入れ方・住まい・口座の種類）を変えても計算できる", () => {
+  // 段階ごとのテストにする（選択の欄が増えると、1つのテストでは時間の上限に近づくため）
+  it.each(STAGE_ORDER.map((s) => s.id))("構造の選択（働き方の種類・年金の入れ方・住まい・口座の種類）を変えても計算できる: %s", (id) => {
     const wh = open("salariedCoupleTwoKids");
-    for (const { id } of STAGE_ORDER) {
-      for (const f of allFields(buildStage(id, wh))) {
-        if (f.kind !== "select" || f.structural !== true) continue;
-        for (const o of f.options) {
-          const w = f.set(wh, o.value);
-          // 過去から自営業の期間がある世帯（前の年の社会保険料控除のために、2024年度の国民健康保険料を計算する）も止まらない。
-          // 計算基準月の年度より前の年度は、計算基準月の年度の所得と制度の値で計算する（前は2024年度の基礎控除の値が無く止まり、既知の制限にしていた）
-          expect(() => preview(w.request), `${f.key}=${o.value}`).not.toThrow();
-        }
+    for (const f of allFields(buildStage(id, wh))) {
+      if (f.kind !== "select" || f.structural !== true) continue;
+      for (const o of f.options) {
+        const w = f.set(wh, o.value);
+        // 過去から自営業の期間がある世帯（前の年の社会保険料控除のために、2024年度の国民健康保険料を計算する）も止まらない。
+        // 計算基準月の年度より前の年度は、計算基準月の年度の所得と制度の値で計算する（前は2024年度の基礎控除の値が無く止まり、既知の制限にしていた）
+        expect(() => preview(w.request), `${f.key}=${o.value}`).not.toThrow();
       }
     }
   });

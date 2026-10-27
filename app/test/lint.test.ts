@@ -4,8 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { APP_DIR } from "../scripts/lib.ts";
 
+// ここで確かめる決まりは型の情報を使わないので、型の情報を作る準備（projectService。画面のコード全体を読み込む）を外して流す。
+// 外さないと最初の1回に数秒、並べて流したときには時間の上限を超えるほどかかっていた
+const eslint = new ESLint({ cwd: APP_DIR, overrideConfig: { languageOptions: { parserOptions: { projectService: false } } } });
 const lint = async (file: string, code: string) => {
-  const eslint = new ESLint({ cwd: APP_DIR });
   const [r] = await eslint.lintText(code, { filePath: join(APP_DIR, file) });
   return (r?.messages ?? []).map((m) => m.ruleId);
 };

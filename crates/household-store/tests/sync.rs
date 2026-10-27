@@ -118,6 +118,13 @@ fn create(store: &Store, n: i64) -> household_store::Opened {
         .unwrap()
 }
 
+/// 顧客番号が平文で書かれているか。番号（例 `0001`）は数字だけのことが多く、平文の見出しの16進の文字列
+/// （ノンス・ID）の中にたまたま同じ並びが出るため、番号だけでは探さない。平文で書けば JSON の値として
+/// 引用符で囲まれ（`"0001"`）、欄の名前（`customerNo`）も並ぶので、その形で探す
+fn shows_customer_no(text: &str, customer_no: &str) -> bool {
+    text.contains("customerNo") || text.contains(&format!("\"{customer_no}\""))
+}
+
 fn files_under(dir: &Path) -> Vec<PathBuf> {
     let mut out = vec![];
     if let Ok(rd) = std::fs::read_dir(dir) {
@@ -200,7 +207,7 @@ fn moving_to_the_sync_folder_and_back_keeps_the_households_encrypted() {
     for p in files_under(&w.office_root()) {
         let text = String::from_utf8_lossy(&std::fs::read(&p).unwrap()).into_owned();
         assert!(!text.contains("架空のメモ"), "{p:?}");
-        assert!(!text.contains(&h1.customer_no), "{p:?}");
+        assert!(!shows_customer_no(&text, &h1.customer_no), "{p:?}");
         assert!(!text.contains("事務所のPC") || p.extension().is_some_and(|e| e == "json"));
     }
     let list = a.list().unwrap();

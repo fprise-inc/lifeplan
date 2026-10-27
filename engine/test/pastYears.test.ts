@@ -88,12 +88,11 @@ describe("修学支援（education.support）: 計算基準月より前の年度
     }
   });
 
-  it("計算基準月が2026年6月以後なら、どの年齢の子に初めの形の進路を入れても止まらない", () => {
-    for (const base of ["2026-06", "2026-07", "2026-10", "2027-01", "2027-04", "2027-07", "2027-10"]) {
-      for (let age = 0; age <= 23; age++) {
-        const child = `${Number(base.slice(0, 4)) - age}-05`;
-        expect(() => run(family({ base, child, stages: stagesFor(child, base) })), `${base} ${child}`).not.toThrow();
-      }
+  // 計算基準月ごとのテストにする（1つにまとめると168回の計算になり、並べて流したときに時間の上限に近づくため）
+  it.each(["2026-06", "2026-07", "2026-10", "2027-01", "2027-04", "2027-07", "2027-10"])("計算基準月が2026年6月以後なら、どの年齢の子に初めの形の進路を入れても止まらない: %s", (base) => {
+    for (let age = 0; age <= 23; age++) {
+      const child = `${Number(base.slice(0, 4)) - age}-05`;
+      expect(() => run(family({ base, child, stages: stagesFor(child, base) })), `${base} ${child}`).not.toThrow();
     }
   });
 });
