@@ -15,7 +15,7 @@ export function RentalOverview({ wh }: { wh: WorkingHousehold }) {
         物件の一覧
         <Help label="物件の一覧">
           <p>読むだけです。入れた値から出しています。</p>
-          <p>ローン残高は、今の残高を入れていればその値、入れていなければ借入額と最初の金利・返済の期間から出した今の月の目安です（金利の段階・繰上返済・ボーナス返済は入れていません）。月の家賃は、空室を見込む割合を引いた後の額です。</p>
+          <p>ローン残高は、今の残高を入れていればその値、入れていなければ借入額と最初の金利・返済の期間から出した今の月の目安です（金利の段階・繰上返済・ボーナス返済は入れていません）。月の収入は、家賃と共益費・駐車場などの月の収入から空室を見込む割合を引いた後の額です（礼金・更新料は入れていません）。民泊・宿は月の売上です。</p>
         </Help>
       </h3>
       <table>
@@ -25,7 +25,7 @@ export function RentalOverview({ wh }: { wh: WorkingHousehold }) {
             <th scope="col">種類</th>
             <th scope="col" class="num">評価額</th>
             <th scope="col" class="num">ローン残高</th>
-            <th scope="col" class="num">月の家賃（空室を見込んだ後）</th>
+            <th scope="col" class="num">月の収入（空室を見込んだ後）</th>
           </tr>
         </thead>
         <tbody>
@@ -35,7 +35,7 @@ export function RentalOverview({ wh }: { wh: WorkingHousehold }) {
               <td>{r.kind ?? "—"}</td>
               <td class="num">{man(r.value)}</td>
               <td class="num">{r.loan > 0 ? man(r.loan) : "—"}</td>
-              <td class="num">{yen(r.rent)}</td>
+              <td class="num">{yen(r.income)}</td>
             </tr>
           ))}
         </tbody>
@@ -45,7 +45,7 @@ export function RentalOverview({ wh }: { wh: WorkingHousehold }) {
             <td />
             <td class="num">{man(ov.total.value)}</td>
             <td class="num">{ov.total.loan > 0 ? man(ov.total.loan) : "—"}</td>
-            <td class="num">{yen(ov.total.rent)}</td>
+            <td class="num">{yen(ov.total.income)}</td>
           </tr>
         </tfoot>
       </table>

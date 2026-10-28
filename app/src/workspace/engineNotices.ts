@@ -41,6 +41,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_NOT_SUPPORTED|transfers": { kind: "missing", text: "口座の間の移し替えは、計算に入れていません（入れた移し替えは、お金の流れと残高に反映されていません）", card: "savings" },
   "N_NOT_SUPPORTED|incomeFlow.inheritanceTax": { kind: "missing", text: "受け取る相続の相続税は、計算に入れていません（受け取る額をそのまま入れています）", card: "inheritance" },
   "N_NOT_SUPPORTED|realEstate.saleTax": { kind: "missing", text: "不動産（自宅以外）を売ったときの譲渡所得の税は、計算に入れていません" },
+  "N_NOT_SUPPORTED|realEstate.consumptionTax": { kind: "missing", text: "民泊・宿の売上が年1,000万円を超える年がありますが、消費税は計算に入れていません", card: "rental" },
   "N_NOT_SUPPORTED|residence.saleTax": { kind: "missing", text: "自宅を売ったときの譲渡所得の税は、計算に入れていません（住まいの項目で税の額を入れると計算に入ります）", card: "housing" },
   "N_NOT_SUPPORTED|residence.sale": { kind: "input", text: "持ち家の住まいが途中で終わりますが、売るかどうかが入っていないので、売ったお金は計算に入れていません", card: "housing" },
   "N_NOT_SUPPORTED|housing.residence|giftTax": { kind: "missing", text: "住まいの購入で受け取る贈与の贈与税（非課税の特例を含む）は、計算に入れていません", card: "housing" },
@@ -66,6 +67,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   // ---- 入力が足りない ----
   "N_INPUT_REQUIRED|residence.valuation": { kind: "input", text: "持ち家の時価の元（購入の価格か今の時価）が入っていないので、資産と負債に住まいの価値を入れていません", card: "housing" },
   "N_INPUT_REQUIRED|account.property.acquisition": { kind: "input", text: "貸している不動産の取得の時期・価格が入っていないので、減価償却を入れずに家賃の所得を計算しています", card: "rental" },
+  "N_INPUT_REQUIRED|account.property.lodging": { kind: "input", text: "民泊・宿の1泊の単価か稼働率が入っていないので、その分の売上を0円で計算しています", card: "rental" },
   "N_INPUT_REQUIRED|retirementBenefit.amount": { kind: "input", text: "退職金の額が入っていない（目安も出せない）ので、退職金を0円で計算しています", card: "retirement" },
   "N_INPUT_REQUIRED|retirementBenefit.receipt.annualAmount": { kind: "input", text: "企業年金の年金の額（か受け取る年数）が入っていないので、年金を0円で計算しています", card: "retirement" },
   "N_INPUT_REQUIRED|goal.education.stages.annualOverride": { kind: "input", text: "専門学校・公立の短大の学費は統計の値が無いので、年額を入れてください（入れるまで0円で計算しています）", card: "education" },
@@ -77,6 +79,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   // ---- 前提の外・制度の決まりで変えた所 ----
   "N_NOT_DEDUCTIBLE|advisoryFee": { kind: "outside", text: "FP顧問料は、所得税・住民税の控除にしていません（家計の支出として数えています）" },
   "N_LIMIT_APPLIED|ideco.contributionLimit": { kind: "outside", text: "iDeCo の掛金は、上限を超えた分を除いて計算しています", card: "savings" },
+  "N_LIMIT_APPLIED|realEstate.lodging.days": { kind: "outside", text: "住宅宿泊事業（民泊）の営業日数は年180日までなので、180日で計算しています", card: "rental" },
   "N_LIMIT_APPLIED|nisa.annualLimit": { kind: "outside", text: "NISA の投資枠を超える積立は、枠を超えた分を NISA の外（課税口座か預金）に置いて計算しています", card: "savings" },
   "N_LIMIT_APPLIED|pension.deferral.survivorRight": { kind: "outside", text: "繰下げの途中で遺族年金の受給権ができる想定なので、そこで繰下げを止めた額で計算しています", card: "pension" },
   "N_LIMIT_APPLIED|moneyRow.counterpartyDeath": { kind: "outside", text: "仕送り・援助などのお金の行は、相手が亡くなる見込みの月で止めました（行の終わりの値はそのままです）", card: "care" },
@@ -103,6 +106,8 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_DEFAULT_USED|care.months": { kind: "assumed", text: "介護の費用のうち入っていない所は、統計の平均で計算しています", card: "care", group: "care.default", part: "介護の期間" },
   "N_DEFAULT_USED|residence.valuation.landShare": { kind: "assumed", text: "土地と建物の割合が入っていないので、既定の割合で時価の変わり方を計算しています", card: "housing", group: "landShare" },
   "N_DEFAULT_USED|account.property.landShare": { kind: "assumed", text: "土地と建物の割合が入っていないので、既定の割合で時価の変わり方を計算しています", card: "rental", group: "landShare" },
+  "N_ASSUMED|realEstate.lodgingIncome": { kind: "assumed", text: "民泊・宿の売上は、不動産所得として計算しています（雑所得・事業所得の区分は今後の版で対応します）", card: "rental" },
+  "N_ASSUMED|realEstate.repairExpensed": { kind: "assumed", text: "収益不動産の大きな修繕は、全額をその年の経費として計算しています", card: "rental" },
   "N_DEFAULT_USED|residentTax.exemption.perCapita.gradeOne": { kind: "assumed", text: "住民税の非課税の基準は、1級地（大都市）の額で計算しています" },
   "N_DEFAULT_USED|socialInsurance.care.firstInsured.nationalAverage": { kind: "assumed", text: "65歳以上の介護保険料は、全国平均の基準額で計算しています（お住まいの市区町村の額は入れていません）" },
   "N_DEFAULT_USED|socialInsurance.lateElderly.nationalAverage": { kind: "assumed", text: "後期高齢者医療の保険料は、全国平均の料率で計算しています" },

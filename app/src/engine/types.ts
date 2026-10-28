@@ -164,11 +164,21 @@ export interface RealEstateProperty {
   structure?: string;
   builtYear?: number;
   landShare?: string;
-  acquisition?: { price: number; at: string };
-  rental?: { monthly: Box<number>; vacancyRate?: string; growth?: string; from?: Timepoint; to?: Timepoint | null } & Staged;
-  expenses?: { annual?: Box<number>; rate?: string; growth?: string } & Staged;
+  /** 取得。内訳（土地・建物・建物附属設備）・建物附属設備の耐用年数・取得時の諸費用・自己資金は 0080 */
+  acquisition?: { price: number; at: string; parts?: { land?: number; building?: number; equipment?: number }; equipmentLife?: number; costs?: number; equity?: number };
+  /** 家賃以外の月の収入（共益費・駐車場・その他）と礼金・更新料の年あたりの見込みは 0080 */
+  rental?: { monthly: Box<number>; vacancyRate?: string; growth?: string; from?: Timepoint; to?: Timepoint | null; commonFee?: number; parking?: number; otherMonthly?: number; keyMoney?: number } & Staged;
+  /** 経費の費目（年額。1つでも入れたら年額はその合計）は 0080 */
+  expenses?: { annual?: Box<number>; rate?: string; growth?: string; items?: Partial<Record<RealEstateExpenseItem, number>> } & Staged;
+  /** 大きな修繕の予定（0080） */
+  repairs?: { id: string; at: Timepoint; amount: number; label?: string }[];
+  /** 民泊・宿の営業の形と売上の入れ方（0080） */
+  lodging?: { business?: "privateLodging" | "inn" | "specialZone"; salesBy?: "night" | "month"; nightly?: number; occupancy?: string; days?: number; platformRate?: string };
   sale?: { at: Timepoint; price?: number; costRate?: string };
 }
+
+/** 不動産の経費の費目（0080） */
+export type RealEstateExpenseItem = "management" | "propertyTax" | "insurance" | "groundRent" | "facility" | "leasing" | "cleaning" | "supplies" | "utilities" | "other";
 
 /** 資産運用の入れ方と、運用・取り崩しの前提（0026。エンジンの assumptions.investment） */
 export interface InvestmentSetting {
@@ -418,6 +428,8 @@ export interface Debt {
   rateSchedule: { id?: string; from: Timepoint; type: string; rate: string }[];
   repayment: { method: string; termMonths: number; bonusShare?: string; variableRules?: { fiveYear?: boolean; cap125?: boolean }; [key: string]: unknown };
   prepayments?: { at: Timepoint; amount: number; mode: string; fee?: number }[];
+  /** 借り換え（その月に残高を新しいローンで返す） */
+  refinance?: { at: Timepoint; rateSchedule: { id?: string; from: Timepoint; type: string; rate: string }[]; termMonths: number; method?: string; costs?: number; costsFinanced?: boolean }[];
   creditLife?: { covered: string[]; ratio?: string; events?: string[]; [key: string]: unknown };
   pairWith?: string;
   /** 0052: 名前と種類の細目（表示と推定の元だけ。計算には使わない） */

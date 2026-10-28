@@ -914,7 +914,20 @@
               "required": ["price", "at"],
               "properties": {
                 "price": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-                "at": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" }
+                "at": { "$ref": "urn:financia:schema:common#/$defs/yearMonth" },
+                "parts": {
+                  "description": "取得価額の内訳（土地 land・建物 building・建物附属設備 equipment。入れたら土地の割合より優先して取得価額を分ける。評価額の土地の割合の省略にも使う。0080）",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "land": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "building": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "equipment": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                  }
+                },
+                "equipmentLife": { "description": "建物附属設備の耐用年数（定額法。省略は法定15年で、中古は簡便法。0080）", "type": "integer", "minimum": 2, "maximum": 50 },
+                "costs": { "description": "取得時の諸費用の合計（仲介手数料・登記・不動産取得税など。建物と建物附属設備の分を償却の基に足す。0080）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "equity": { "description": "自己資金（計算には使わない。分析の数字のため。0080）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
               }
             },
             "rental": {
@@ -929,7 +942,11 @@
                 "from": { "description": "貸し始め（省略は取得の月。取得も無ければ前から貸している）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                 "to": { "description": "貸し終わり（その月まで。省略は売却の前の月か表の最後）", "$ref": "#/$defs/timepointOrNull" },
                 "stages": { "description": "段階（0040。その時点から額を変える。段の数に上限なし）", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
-                "exceptions": { "description": "例外の年（0040。その年だけ別の額・0円）", "type": "array", "items": { "$ref": "#/$defs/amountException" } }
+                "exceptions": { "description": "例外の年（0040。その年だけ別の額・0円）", "type": "array", "items": { "$ref": "#/$defs/amountException" } },
+                "commonFee": { "description": "共益費（月額。空室の割合と変化率は家賃と同じ。段階・例外の年は当てない。0080）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "parking": { "description": "駐車場の収入（月額。家賃と同じ扱い。0080）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "otherMonthly": { "description": "その他の月の収入（自販機・看板など。月額。家賃と同じ扱い。0080）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "keyMoney": { "description": "礼金・更新料の年あたりの見込み（12か月に分けて貸している月に受け取る。空室の割合・割合の経費は掛けない。0080）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
               }
             },
             "expenses": {
@@ -941,7 +958,52 @@
                 "rate": { "description": "受け取る家賃（空室を見込んだ後）に対する割合（管理委託料など）", "$ref": "urn:financia:schema:common#/$defs/rate" },
                 "growth": { "description": "年額の変化率（年率。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
                 "stages": { "description": "年額の段階（0040。その時点の年から年額を変える。段の数に上限なし）", "type": "array", "items": { "$ref": "#/$defs/amountStage" } },
-                "exceptions": { "description": "年額の例外の年（0040。その年だけ別の年額・0円）", "type": "array", "items": { "$ref": "#/$defs/amountException" } }
+                "exceptions": { "description": "年額の例外の年（0040。その年だけ別の年額・0円）", "type": "array", "items": { "$ref": "#/$defs/amountException" } },
+                "items": {
+                  "description": "経費の費目（年額。1つでも入れたら annual の代わりにその合計を年額にする。建物管理費・修繕積立金 management・固定資産税・都市計画税 propertyTax・損害保険 insurance・地代 groundRent・共用部の光熱費・清掃・設備点検 facility・入居者募集の費用・原状回復 leasing・清掃・リネン cleaning・消耗品 supplies・光熱費・通信 utilities・税理士の報酬・その他 other。0080）",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "management": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "propertyTax": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "insurance": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "groundRent": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "facility": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "leasing": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "cleaning": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "supplies": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "utilities": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                    "other": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                  }
+                }
+              }
+            },
+            "repairs": {
+              "description": "大きな修繕の予定（外壁・屋根・設備の更新など。その月の一時の支出。貸している月なら全額をその年の経費にする。0080）",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "at", "amount"],
+                "properties": {
+                  "id": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+                  "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
+                  "amount": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "label": { "description": "中身（外壁など。表示用。計算には使わない）", "type": "string", "maxLength": 40 }
+                }
+              }
+            },
+            "lodging": {
+              "description": "民泊・宿の営業の形と売上の入れ方（入れたら空室の割合・家賃以外の月の収入・礼金は使わない。所得は不動産所得として計算する。0080）",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "business": { "description": "営業の形（住宅宿泊事業 privateLodging・旅館業〔簡易宿所など〕 inn・特区民泊 specialZone）。住宅宿泊事業は営業日数を年180日までにする", "enum": ["privateLodging", "inn", "specialZone"] },
+                "salesBy": { "description": "売上の入れ方（night は1泊の単価×稼働率×営業日数、month は月の売上の見込み〔rental.monthly〕。省略は month）", "enum": ["night", "month"] },
+                "nightly": { "description": "1泊の単価", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "occupancy": { "description": "稼働率（営業日数のうち泊まりのある割合。0〜1）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "days": { "description": "年の営業日数（省略は住宅宿泊事業なら180日、ほかは365日）", "type": "integer", "minimum": 1, "maximum": 366 },
+                "platformRate": { "description": "仲介サイトの手数料（売上に対する割合）。家賃に対する割合の経費（運営代行など）に足す", "$ref": "urn:financia:schema:common#/$defs/rate" }
               }
             },
             "sale": {

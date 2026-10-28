@@ -20,6 +20,22 @@
 //   例外の額（元の額と同じ基準。変化率は重ねる。0円はその年に受け取らない・払わない）。家賃に対する割合の経費は、受け取る家賃に掛ける
 // - 改訂3（0039）: 持ち始める時点（property.holdFrom。相続・贈与で受け取る不動産）。その月から評価額（その年の年末から）・家賃収入・経費・
 //   減価償却に入れる。受け取るときの支払いは無い（買うなら住まいの購入か出るお金の行で入れる）。時価は asOf の時点の額で、上昇率で動かす
+// - 改訂4（0080。お金の欄）: どれも任意の欄で、入れなければ今までと同じ結果
+//   - 取得価額の内訳（acquisition.parts: 土地・建物・建物附属設備）: 入れたら土地の割合より優先して取得価額を分ける（減価償却・土地の利息の分）。
+//     評価額の土地の割合は、入れた土地の割合 → 内訳の土地の割合 → 前提 → 目安の順。建物附属設備は別の耐用年数（acquisition.equipmentLife。
+//     省略は法定15年で、中古は建物と同じ経過年数の簡便法）の定額法で、建物と同じく貸し始めから月割り・1円まで
+//   - 取得時の諸費用（acquisition.costs）: 建物と建物附属設備の分（取得価額の比で分け、円未満切り捨て）を償却の基に足す（税の上は取得価額に
+//     含める扱い）。土地の分は償却しない。自己資金（acquisition.equity）は計算に使わない（分析の数字のために持つ）
+//   - 家賃以外の月の収入（rental.commonFee 共益費・parking 駐車場・otherMonthly その他）: 家賃と同じ空室の割合・変化率で、段階・例外の年は
+//     当てない。家賃に対する割合の経費は、家賃とこれらの合計に掛ける。礼金・更新料の年あたりの見込み（rental.keyMoney）は12か月に分けて
+//     貸している月に受け取る（空室の割合は掛けない。変化率は家賃と同じ。割合の経費は掛けない）
+//   - 経費の費目（expenses.items）: 1つでも入れたら、年額（expenses.annual）の代わりにその合計を年額にする（段階・例外の年・変化率はその合計に当てる）
+//   - 大きな修繕（repairs）: その月に一時の支出（cf.expense.other.realEstate、計算式ID asset.realEstate.repair）。貸している月なら、全額を
+//     その年の経費にする（資本的支出として償却する扱いはしない。知らせ N_ASSUMED realEstate.repairExpensed）
+//   - 民泊・宿（lodging）: 売上は「1泊の単価×稼働率×営業日数」（salesBy night）か「月の売上の見込み」（rental.monthly）。住宅宿泊事業は
+//     営業日数を年180日までにする（超えたら知らせ N_LIMIT_APPLIED）。空室の割合・家賃以外の月の収入・礼金は使わない。仲介サイトの手数料
+//     （lodging.platformRate）は家賃に対する割合の経費（運営代行など）に足す。所得は不動産所得として計算する（知らせ N_ASSUMED
+//     realEstate.lodgingIncome）。売上が年1,000万円を超えても消費税は計算しない（知らせ N_NOT_SUPPORTED realEstate.consumptionTax）
 // 計算基準年の2年前から計算する（前の年の所得で決まる住民税・国民健康保険料のため。お金の動きは計算基準月から）
 import {
   addMonths,
@@ -50,6 +66,12 @@ import {
 
 /** 減価償却の法定耐用年数（住宅用の建物。減価償却資産の耐用年数等に関する省令の別表第一） */
 export const TAX_USEFUL_LIFE: Readonly<Record<BuildingStructure, number>> = { wood: 22, lightSteel: 19, steel: 34, rc: 47 };
+
+/** 建物附属設備の法定耐用年数の既定（給排水・電気・ガスの設備など。減価償却資産の耐用年数等に関する省令の別表第一） */
+export const EQUIPMENT_LIFE = 15;
+
+/** 住宅宿泊事業の営業日数の上限（住宅宿泊事業法2条3項） */
+export const PRIVATE_LODGING_DAYS = 180;
 
 /** 中古の建物の耐用年数（簡便法。経過年数は年で数える） */
 export function usedLife(life: number, elapsed: number): number {
@@ -83,7 +105,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
   id: "asset.realEstate",
   title: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "debt.schedule": ">=1 <2" },
   params: [],
   reads: ["account.kind", "account.owner", "account.marketValue", "account.asOf", "account.valueGrowth", "account.property", "debt.property", "debt.principal", "assumptions.inflation", "assumptions.realEstateValuation"],
@@ -110,7 +132,14 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const basis = boxValue(a.marketValue) ?? yen(0);
       const y0 = yearOf(ctx.time.resolve({ at: a.asOf }));
       const acqAt: MonthIndex | null = p.acquisition === undefined ? null : ctx.time.resolve({ at: p.acquisition.at });
-      const shareText = p.landShare ?? setting?.landShare;
+      // 取得価額の内訳（入れたら土地の割合より優先して取得価額を分ける。評価額の土地の割合の省略にも使う）
+      const parts = p.acquisition?.parts;
+      const partLand = yen(parts?.land ?? 0);
+      const partBuilding = yen(parts?.building ?? 0);
+      const partEquipment = yen(parts?.equipment ?? 0);
+      const partsTotal = partLand + partBuilding + partEquipment;
+      const partsShare = parts !== undefined && partsTotal > 0 ? ctx.rate.toString(ctx.rate.div(ctx.rate.of(String(partLand)), ctx.rate.of(String(partsTotal)))) : undefined;
+      const shareText = p.landShare ?? partsShare ?? setting?.landShare;
       if (shareText === undefined) ctx.notice("N_DEFAULT_USED", [a.id, "account.property.landShare"]);
       const share = shareText ?? LAND_SHARE;
       const structure = p.structure ?? "wood";
@@ -147,14 +176,29 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
 
       // 貸している月（rFrom〜rTo。計算は計算基準年の2年前から）
       const r = p.rental;
+      const lodging = p.lodging;
       const rFrom0: MonthIndex | null = r === undefined ? null : r.from !== undefined ? ctx.time.resolve(r.from) : (acqAt ?? calcStart);
       const rFrom: MonthIndex | null = rFrom0 !== null && holdStart !== null ? maxM(rFrom0, holdStart) : rFrom0;
       const rTo: MonthIndex | null = r === undefined ? null : r.to === undefined || r.to === null ? holdEnd : minM(ctx.time.resolve(r.to), holdEnd);
       const rented = (y: number) => (rFrom === null || rTo === null ? 0 : monthsIn(y, maxM(rFrom, calcStart), rTo));
-      const keep = ctx.rate.sub(RATE_ONE, ctx.rate.of(r?.vacancyRate ?? "0"));
+      // 民泊・宿は空室の割合を使わない（稼働率で入れる）
+      const keep = lodging !== undefined ? RATE_ONE : ctx.rate.sub(RATE_ONE, ctx.rate.of(r?.vacancyRate ?? "0"));
       const rentGrowth = ctx.rate.of(r?.growth ?? "0");
       const rentRef = rFrom === null ? baseYear : Math.max(yearOf(rFrom), baseYear);
-      let rentMonthly = r === undefined ? yen(0) : (boxValue(r.monthly) ?? yen(0));
+      // 月の売上・家賃の元の額（民泊・宿の「1泊の単価×稼働率×営業日数」は、年の売上を12で割る。円未満切り捨て）
+      let rent0 = r === undefined ? yen(0) : (boxValue(r.monthly) ?? yen(0));
+      if (r !== undefined && lodging !== undefined) {
+        ctx.notice("N_ASSUMED", [a.id, "realEstate.lodgingIncome"]);
+        if (lodging.salesBy === "night") {
+          const cap = lodging.business === "privateLodging" ? PRIVATE_LODGING_DAYS : 366;
+          const days0 = lodging.days ?? (lodging.business === "privateLodging" ? PRIVATE_LODGING_DAYS : 365);
+          if (days0 > cap) ctx.notice("N_LIMIT_APPLIED", [a.id, "realEstate.lodging.days"]);
+          if (lodging.nightly === undefined || lodging.occupancy === undefined) ctx.notice("N_INPUT_REQUIRED", [a.id, "account.property.lodging"]);
+          const perDay = ctx.money.mulRate(yen(lodging.nightly ?? 0), ctx.rate.of(lodging.occupancy ?? "0"), RENT);
+          rent0 = ctx.money.mulRatio(perDay, Math.min(days0, cap), 12, RENT);
+        }
+      }
+      let rentMonthly = rent0;
       let rentYear = rentRef;
       const rentFor = (y: number): Yen => {
         while (rentYear < y) {
@@ -164,8 +208,23 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         return rentMonthly;
       };
       const e = p.expenses;
-      const fixed0 = e?.annual === undefined ? yen(0) : (boxValue(e.annual) ?? yen(0));
-      const expRate = e?.rate === undefined ? null : ctx.rate.of(e.rate);
+      // 費目を1つでも入れたら、年額はその合計（年額の欄は使わない）
+      const items = e?.items === undefined ? [] : Object.values(e.items).filter((v): v is Yen => typeof v === "number");
+      const fixed0 = items.length > 0 ? items.reduce((s0, v) => addYen(s0, v), yen(0)) : e?.annual === undefined ? yen(0) : (boxValue(e.annual) ?? yen(0));
+      // 家賃に対する割合の経費（管理委託料・運営代行）と、民泊・宿の仲介サイトの手数料
+      const rateParts = [e?.rate, lodging?.platformRate].filter((x): x is string => x !== undefined);
+      const expRate = rateParts.length === 0 ? null : rateParts.slice(1).reduce((acc, x) => ctx.rate.add(acc, ctx.rate.of(x)), ctx.rate.of(rateParts[0] as string));
+      // 家賃以外の月の収入（共益費・駐車場・その他）と礼金・更新料の年あたりの見込み（民泊・宿は使わない）
+      const extra0 = r === undefined || lodging !== undefined ? yen(0) : yen((r.commonFee ?? 0) + (r.parking ?? 0) + (r.otherMonthly ?? 0));
+      const keyMoney0 = r === undefined || lodging !== undefined ? yen(0) : yen(r.keyMoney ?? 0);
+      // 大きな修繕（月ごとの額）
+      const repairs = new Map<MonthIndex, Yen>();
+      for (const x of p.repairs ?? []) {
+        if (x.amount <= 0) continue;
+        const m = ctx.time.resolve(x.at);
+        repairs.set(m, addYen(repairs.get(m) ?? yen(0), x.amount));
+      }
+      let repairExpensed = false;
       const expGrowth = ctx.rate.of(e?.growth ?? "0");
       let fixed = fixed0;
       let fixedYear = baseYear;
@@ -177,7 +236,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         return fixed;
       };
       // 段階と例外の年（0040）: 元の基準の額ごとに、変化率を当てた額を覚えておく
-      const rentStaged = r === undefined ? null : stagedYen(ctx, boxValue(r.monthly) ?? yen(0), r, RENT);
+      const rentStaged = r === undefined ? null : stagedYen(ctx, rent0, r, RENT);
       const fixedStaged = stagedYen(ctx, fixed0, e, RENT);
       const growMemo = (g: Rate) => {
         const memo = new Map<number, Yen[]>();
@@ -205,6 +264,10 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         const monthlyRent = r !== undefined && rFrom !== null && rTo !== null && rentPlain ? ctx.money.mulRate(rentFor(Math.max(y, rentRef)), keep, RENT) : yen(0);
         // 段階のある家賃は月ごと（空室を見込んだ後の額）
         const rentOf = (m: MonthIndex): Yen => (rentPlain ? monthlyRent : ctx.money.mulRate(rentUp((rentStaged as NonNullable<typeof rentStaged>).at(m), Math.max(y, rentRef) - rentRef), keep, RENT));
+        // 家賃以外の月の収入（空室を見込んだ後）と、礼金・更新料（12か月に分ける）。変化率は家賃と同じ年から
+        const k = Math.max(y, rentRef) - rentRef;
+        const extraM = extra0 > 0 ? ctx.money.mulRate(rentUp(extra0, k), keep, RENT) : yen(0);
+        const keyParts = keyMoney0 > 0 ? ctx.money.allocate(rentUp(keyMoney0, k), [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "conv.flow.allocate", "last") : null;
         let rentSum = yen(0);
         let expSum = yen(0);
         for (let mo = 1; mo <= 12; mo++) {
@@ -213,37 +276,63 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           if (m < calcStart || (holdStart !== null && m < holdStart)) continue;
           const isRented = rFrom !== null && rTo !== null && m >= rFrom && m <= rTo;
           let exp = fixedParts === null ? yen(0) : (fixedParts[mo - 1] as Yen);
-          const rentM = isRented ? rentOf(m) : yen(0);
-          if (isRented && rentM > 0) {
-            push(m, "cf.income.other.rental", rentM, "asset.realEstate.rent");
-            rentSum = addYen(rentSum, rentM);
-            if (expRate !== null) exp = addYen(exp, ctx.money.mulRate(rentM, expRate, RENT));
+          // 割合の経費を掛ける収入（家賃と家賃以外の月の収入）と、掛けない収入（礼金・更新料）
+          const rentM = isRented ? addYen(rentOf(m), extraM) : yen(0);
+          const keyM = isRented && keyParts !== null ? (keyParts[mo - 1] as Yen) : yen(0);
+          if (isRented && rentM + keyM > 0) {
+            push(m, "cf.income.other.rental", addYen(rentM, keyM), "asset.realEstate.rent");
+            rentSum = addYen(rentSum, addYen(rentM, keyM));
+            if (expRate !== null && rentM > 0) exp = addYen(exp, ctx.money.mulRate(rentM, expRate, RENT));
           }
           push(m, "cf.expense.other.realEstate", exp, "asset.realEstate.expenses");
           if (isRented) expSum = addYen(expSum, exp);
+          // 大きな修繕（一時の支出。貸している月なら全額をその年の経費にする）
+          const rep = repairs.get(m);
+          if (rep !== undefined) {
+            push(m, "cf.expense.other.realEstate", rep, "asset.realEstate.repair");
+            if (isRented) {
+              expSum = addYen(expSum, rep);
+              repairExpensed = true;
+            }
+          }
         }
         rentByYear.set(y, rentSum);
         expByYear.set(y, expSum);
+        if (lodging !== undefined && y >= baseYear && rentSum > 10_000_000) ctx.notice("N_NOT_SUPPORTED", [a.id, "realEstate.consumptionTax"]);
       }
+      if (repairExpensed) ctx.notice("N_ASSUMED", [a.id, "realEstate.repairExpensed"]);
 
       // 減価償却費（貸している月数で月割り。帳簿の残りが1円になるまで）
+      // 建物と建物附属設備を別の耐用年数で。取得時の諸費用の建物・建物附属設備の分は償却の基に足す
       const depByYear = new Map<number, Yen>();
       let buildingCost: Yen | null = null;
       if (r !== undefined && p.acquisition !== undefined && acqAt !== null && rFrom !== null && rTo !== null) {
-        const price = p.acquisition.price;
-        buildingCost = yen(price - ctx.money.mulRate(price, ctx.rate.of(share), VAL));
-        const life = usedLife(TAX_USEFUL_LIFE[structure], yearOf(acqAt) - built);
-        const annual = ctx.money.mulRate(buildingCost, ctx.rate.of(straightLineRate(life)), DEP);
+        const acq = p.acquisition;
+        const price = acq.price;
+        const building = parts !== undefined ? partBuilding : yen(price - ctx.money.mulRate(price, ctx.rate.of(share), VAL));
+        const equipment = parts !== undefined ? partEquipment : yen(0);
+        const total = parts !== undefined ? yen(partsTotal) : price;
+        const costs = yen(acq.costs ?? 0);
+        const costOf = (x: Yen): Yen => (costs > 0 && total > 0 && x > 0 ? ctx.money.mulRatio(costs, x, total, VAL) : yen(0));
+        const buildingBase = addYen(building, costOf(building));
+        const equipmentBase = addYen(equipment, costOf(equipment));
+        buildingCost = addYen(buildingBase, equipmentBase);
+        const elapsed = yearOf(acqAt) - built;
         const start = maxM(acqAt, rFrom);
-        let book = buildingCost;
-        for (let y = yearOf(start); y <= endYear && book > 1; y++) {
-          const months = monthsIn(y, start, rTo);
-          if (months === 0) continue;
-          const d0 = months === 12 ? annual : ctx.money.mulRatio(annual, months, 12, DEP);
-          const d = yen(Math.min(d0, book - 1));
-          book = yen(book - d);
-          if (y >= yearOf(calcStart)) depByYear.set(y, d);
-        }
+        const depreciate = (base0: Yen, life: number) => {
+          const annual = ctx.money.mulRate(base0, ctx.rate.of(straightLineRate(life)), DEP);
+          let book = base0;
+          for (let y = yearOf(start); y <= endYear && book > 1; y++) {
+            const months = monthsIn(y, start, rTo);
+            if (months === 0) continue;
+            const d0 = months === 12 ? annual : ctx.money.mulRatio(annual, months, 12, DEP);
+            const d = yen(Math.min(d0, book - 1));
+            book = yen(book - d);
+            if (y >= yearOf(calcStart)) depByYear.set(y, addYen(depByYear.get(y) ?? yen(0), d));
+          }
+        };
+        if (buildingBase > 0) depreciate(buildingBase, usedLife(TAX_USEFUL_LIFE[structure], elapsed));
+        if (equipmentBase > 0) depreciate(equipmentBase, acq.equipmentLife ?? usedLife(EQUIPMENT_LIFE, elapsed));
       } else if (r !== undefined) ctx.notice("N_INPUT_REQUIRED", [a.id, "account.property.acquisition"]);
 
       // 借入の利息（この不動産を指す負債。貸している月数の分）と、そのうち土地の取得のための分

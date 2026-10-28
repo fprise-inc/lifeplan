@@ -194,7 +194,7 @@ function rowDefs(req: EngineRequest): RowDef[] {
   // 住まい以外の不動産の家賃収入・経費があるときだけ、その行を出す（ほかの行から外す。アプリと同じ）
   const props = (req.input.household.accounts ?? []).filter((a) => a.kind === "realEstate" && a.property !== undefined);
   const hasRent = props.some((a) => a.property?.rental !== undefined);
-  const hasReExp = props.some((a) => a.property?.rental !== undefined || a.property?.expenses !== undefined);
+  const hasReExp = props.some((a) => a.property?.rental !== undefined || a.property?.expenses !== undefined || (a.property?.repairs ?? []).length > 0);
   const isRent = (c: TableCell) => hasRent && c.row === "cf.income.other.rental";
   const isReExp = (c: TableCell) => hasReExp && c.row === "cf.expense.other.realEstate";
   for (const r of rs) defs.push({ key: `salary:${r.key}`, label: `${r.label}の給与`, group: "income", kind: "value", match: byMember("cf.income.salary", r) });

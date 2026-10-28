@@ -7,7 +7,7 @@ import { byId, field, getPath, plain, removeAction, resolveTimepoint, timepointF
 import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { RENT_BASIS, RENT_STANDARD } from "../fill.ts";
 import { dropProvisionalEvent, withProvisionalHousing } from "../housingCredit.ts";
-import { BUILDING_STRUCTURES, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
+import { BUILDING_STRUCTURES, donorOptions, HOUSING_EXEMPTION, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS, TAX_METHODS, USEFUL_LIFE, VALUATION_DEFAULTS } from "../labels.ts";
 import type { StateRow } from "../rows.ts";
 import { formatYen } from "../units.ts";
 import { readGroup, readLine } from "../readLines.ts";
@@ -531,26 +531,9 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
 
 // ---- ローン ----
 
-function loanGroups(wh: WorkingHousehold, d: Debt, i: number): GroupDef[] {
-  const k = `housing/debt/${d.id}`;
-  const debtor = d.debtors.find((x) => x.role === "primary") ?? d.debtors[0];
-  const title = d.kind === "mortgage" ? `住宅ローン ${i + 1}（${memberLabel(wh, debtor?.member)}）` : `${loanTitle(d)}（${memberLabel(wh, debtor?.member)}）`;
-  const groups: GroupDef[] = [
-    {
-      key: k,
-      title,
-      level: "simple",
-      fields: [...otherLoanHeadFields(wh, d, k), ...loanFields(wh, d, k)],
-      actions: [
-        removeAction(`${k}/remove`, "外す", "simple", (h, w) => {
-          h.debts = (h.debts ?? []).filter((x) => x.id !== d.id);
-          for (const x of h.debts) if (x.pairWith === d.id) delete x.pairWith;
-          dropProvisionalEvent(h, d, w);
-          return withProvisionalHousing(withEntry({ ...w, request: { ...w.request, input: { ...w.request.input, household: h } } }, d.id, undefined));
-        }),
-      ],
-    },
-  ];
+/** ローンの金利の段階・繰上返済（・借り換え）のまとまり（詳細）。住まい・ローンのカードと、収益不動産の物件のローンで同じ欄 */
+export function loanStepGroups(d: Debt, k: string, o: { refinance?: boolean } = {}): GroupDef[] {
+  const groups: GroupDef[] = [];
   d.rateSchedule.slice(1).forEach((_, j) => {
     const idx = j + 1;
     const findR: Finder = (h) => (getPath((h.debts ?? []).find((x) => x.id === d.id), ["rateSchedule", String(idx)]) as Record<string, unknown> | undefined) ?? undefined;
@@ -592,6 +575,68 @@ function loanGroups(wh: WorkingHousehold, d: Debt, i: number): GroupDef[] {
       actions: [removeAction(`${k}/prepay/${j}/remove`, "外す", "detail", (h) => void ((h.debts ?? []).find((x) => x.id === d.id) as Debt).prepayments?.splice(j, 1))],
     });
   });
+  if (o.refinance === true) groups.push(...refinanceGroups(d, k));
+  return groups;
+}
+
+/** 借り換え（その月に残高を新しいローンで返す。新しいローンの金利は1つの段で入れる。0080） */
+function refinanceGroups(d: Debt, k: string): GroupDef[] {
+  const addr = () => at(d.id, "debt.refinance");
+  return (d.refinance ?? []).map((_, j) => {
+    const findR: Finder = (h) => (getPath((h.debts ?? []).find((x) => x.id === d.id), ["refinance", String(j)]) as Record<string, unknown> | undefined) ?? undefined;
+    const findRate: Finder = (h) => (getPath((h.debts ?? []).find((x) => x.id === d.id), ["refinance", String(j), "rateSchedule", "0"]) as Record<string, unknown> | undefined) ?? undefined;
+    const kr = `${k}/refinance/${j}`;
+    const withA = (f: FieldDef): FieldDef => ({ ...f, address: addr });
+    return {
+      key: kr,
+      title: `借り換え ${j + 1}`,
+      level: "detail",
+      fields: [
+        withA(
+          field({
+            ...timepointField({ key: `${kr}/at`, item: "debt.refinance", label: "借り換えの年月", level: "detail", find: findR, path: ["at"], mode: "ym" }),
+            // 新しいローンの金利の始まりも同じ月にそろえる
+            set: (w, v) =>
+              mutate(timepointField({ key: `${kr}/at`, item: "debt.refinance", label: "借り換えの年月", level: "detail", find: findR, path: ["at"], mode: "ym" }).set(w, v), (h, req) => {
+                const r = findR(h, { ...w, request: req }) as { at?: unknown; rateSchedule?: { from: unknown }[] } | undefined;
+                const first = r?.rateSchedule?.[0];
+                if (r?.at !== undefined && first !== undefined) first.from = structuredClone(r.at);
+              }),
+          }),
+        ),
+        withA(plain({ key: `${kr}/rate`, item: "debt.refinance", label: "新しい金利（年）", level: "detail", kind: "pct", find: findRate, path: ["rate"] })),
+        withA(plain({ key: `${kr}/rateType`, item: "debt.refinance", label: "新しい金利の種類", level: "detail", kind: "select", options: RATE_TYPES, find: findRate, path: ["type"] })),
+        withA(plain({ key: `${kr}/term`, item: "debt.refinance", label: "新しい返済期間", level: "detail", kind: "int", suffix: "か月", min: 1, max: 600, find: findR, path: ["termMonths"] })),
+        withA(plain({ key: `${kr}/method`, item: "debt.refinance", label: "新しい返済の方法", level: "detail", kind: "select", options: REPAYMENT_METHODS, find: findR, path: ["method"], optional: true, fallback: d.repayment.method })),
+        withA(plain({ key: `${kr}/costs`, item: "debt.refinance", label: "借り換えの費用", level: "detail", kind: "yen", basis: "once", find: findR, path: ["costs"], optional: true, help: "保証料・事務手数料・登記の費用などの合計です" })),
+        withA(plain({ key: `${kr}/financed`, item: "debt.refinance", label: "費用を新しいローンに含める", level: "detail", kind: "bool", find: findR, path: ["costsFinanced"], optional: true, fallback: false, help: "含めないときは、借り換えの月に費用を払います" })),
+      ],
+      actions: [removeAction(`${kr}/remove`, "外す", "detail", (h) => void ((h.debts ?? []).find((x) => x.id === d.id) as Debt).refinance?.splice(j, 1))],
+    };
+  });
+}
+
+function loanGroups(wh: WorkingHousehold, d: Debt, i: number): GroupDef[] {
+  const k = `housing/debt/${d.id}`;
+  const debtor = d.debtors.find((x) => x.role === "primary") ?? d.debtors[0];
+  const title = d.kind === "mortgage" ? `住宅ローン ${i + 1}（${memberLabel(wh, debtor?.member)}）` : `${loanTitle(d)}（${memberLabel(wh, debtor?.member)}）`;
+  const groups: GroupDef[] = [
+    {
+      key: k,
+      title,
+      level: "simple",
+      fields: [...otherLoanHeadFields(wh, d, k), ...loanFields(wh, d, k)],
+      actions: [
+        removeAction(`${k}/remove`, "外す", "simple", (h, w) => {
+          h.debts = (h.debts ?? []).filter((x) => x.id !== d.id);
+          for (const x of h.debts) if (x.pairWith === d.id) delete x.pairWith;
+          dropProvisionalEvent(h, d, w);
+          return withProvisionalHousing(withEntry({ ...w, request: { ...w.request, input: { ...w.request.input, household: h } } }, d.id, undefined));
+        }),
+      ],
+    },
+  ];
+  groups.push(...loanStepGroups(d, k));
   const more = loanMoreActions(wh, d, k);
   const simpleMore = more.filter((a) => a.level === "simple");
   if (simpleMore.length > 0) groups.push({ key: `${k}/simpleActions`, level: "simple", fields: [], actions: simpleMore });
