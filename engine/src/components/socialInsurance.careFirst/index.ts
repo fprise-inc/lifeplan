@@ -2,6 +2,7 @@
 // 合計所得金額の段階、本人が非課税なら世帯に課税の人がいるかと「公的年金等の収入＋その他の合計所得金額」で決める（国の標準段階）。
 // 市町村ごとの値を持たない方針（0007 の6）なので、基準額は全国平均を既定にし、世帯の入力（決定通知書の年額、または市町村の基準額）で上書きする
 // 改訂4: 世帯の外の家族（0035 の4）の判定の世帯は、その人と世帯の外の配偶者
+// 改訂5: 年金から差し引く（特別徴収）かの判定で、表の最後の年の年度の、表の外の翌年2月の年金の支払いを、表の最後の月の支払いと同じ額とみなす（0003 の追記）
 import {
   ageMonth,
   assessedPremium,
@@ -42,7 +43,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { flows: 
   id: "socialInsurance.careFirst",
   title: "介護保険料（第1号被保険者）",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "residentTax.exemption": ">=1 <2", "tax.totalIncome": ">=1 <2", "tax.publicPensionIncome": ">=1 <2", "pension.oldAge": ">=1 <2" },
   params: [...Object.values(P), PENSION_SPECIAL_MINIMUM],
   reads: [

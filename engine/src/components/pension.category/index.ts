@@ -5,12 +5,15 @@
 // 第1号: それ以外の20〜59歳。保険料は納めたとみなす（免除・未納は加入の記録で入れる）。第1号の母は、出産の月の前の月から
 // 4か月の保険料が免除され、納めた月として数える（産前産後期間の免除）。
 // 世帯から離れた月（leaves。万一の重ねで亡くなった月の翌月から）は、どの種別でもない（改訂2）
+// 改訂4: 収入の見込みの1年のうち表の外の月は1年前の月とみなす（表の長さで第3号の判定を変えない。0003 の追記）
 import {
   addMonths,
   addYen,
   ageMonth,
   defineComponent,
   formatYm,
+  prospectiveMonths,
+  prospectiveYear,
   monthOf,
   parseYm,
   yearOf,
@@ -42,7 +45,7 @@ export default defineComponent<{ member: string }, { months: CategoryMonth[] }>(
   id: "pension.category",
   title: "国民年金の被保険者の種別",
   contract: "1.0",
-  revision: 3,
+  revision: 4,
   requires: { "socialInsurance.employeeStatus": ">=1 <2", "income.salary": ">=1 <2", "income.business": ">=1 <2", "benefit.unemployment": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -62,7 +65,7 @@ export default defineComponent<{ member: string }, { months: CategoryMonth[] }>(
   output: "pension.category.output",
   compute(input, ctx) {
     const member = input.member;
-    const { base } = ctx.time;
+    const { base, end } = ctx.time;
     const own = ctx.call<EmployeeStatusOutput>("socialInsurance.employeeStatus", { member }).months;
     if (own.length === 0) return { months: [] };
     const first = parseYm((own[0] as { month: string }).month);
@@ -98,15 +101,13 @@ export default defineComponent<{ member: string }, { months: CategoryMonth[] }>(
     const business = new Map(ctx.call<BusinessOutput>("income.business", { member }).byYear.map((b) => [b.year, b.income]));
     const prospective = (m: MonthIndex): Yen => {
       let s = yen(0);
-      for (let k = 0; k < 12; k++) {
-        const mk = addMonths(m, k);
-        s = addYen(s, salaryByMonth.get(formatYm(mk)) ?? yen(0));
-      }
+      // 表の外の月は1年前の月、表の外の年の事業所得は表の最後の年の額とみなす（改訂4。0003 の追記）
+      for (const ym of prospectiveMonths(m, end)) s = addYen(s, salaryByMonth.get(ym) ?? yen(0));
       // 事業所得は年額の12分の1ずつ（その月からの12か月の分）
       const y0 = yearOf(m);
       const k0 = 13 - monthOf(m);
       const b0 = business.get(y0) ?? yen(0);
-      const b1 = business.get(y0 + 1) ?? yen(0);
+      const b1 = business.get(prospectiveYear(y0 + 1, end)) ?? yen(0);
       return addYen(addYen(s, ctx.money.mulRatio(b0, k0, 12, "conv.salary.monthly")), ctx.money.mulRatio(b1, 12 - k0, 12, "conv.salary.monthly"));
     };
     // 基本手当を受ける月の日額

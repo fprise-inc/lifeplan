@@ -27,6 +27,7 @@
 //   年額の多い方を選ぶとみなし（知らせ N_ASSUMED）、自分の老齢年金が多ければその月の遺族年金を0に、遺族年金が多ければ自分の老齢年金の額を
 //   遺族年金から引く（世帯の受け取りは遺族年金の額。自分の老齢年金は止めずに表に残すので、税・保険料は自分の老齢年金を受ける前提の近似。
 //   65歳からの自分の老齢厚生年金との調整と同じ形。改訂4）
+// - 寡婦年金と死亡一時金の選択で比べる寡婦年金の総額は、表の外の月（65歳まで）も数える（表の長さで選択を変えない。0003 の追記。改訂5）
 // - 2028年4月からの遺族年金の見直し（有期化・子の加算の見直しなど）は作らない。2028年4月以後の死亡の想定には知らせ（N_REFORM_NOT_REFLECTED）を必ず出す
 //   （制度データの行の扱いは 0007 の追記 2026-10-10: 見直し後の値は別の値IDで持ち、この部品が読む値IDの行は見直し前の値のまま続ける）
 import {
@@ -121,7 +122,7 @@ export default defineComponent<Input, SurvivorPensionOutput>({
   id: "pension.survivor",
   title: "遺族年金（遺族基礎年金・遺族厚生年金・中高齢寡婦加算・寡婦年金・死亡一時金）",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: {
     "contingency.event": ">=1 <2",
     "pension.record": ">=1 <2",
@@ -280,7 +281,10 @@ export default defineComponent<Input, SurvivorPensionOutput>({
     // 寡婦年金を受けられる月（額は選ぶ前。寡婦年金と遺族厚生年金・中高齢寡婦加算は同じ月に受けず、どちらかを選ぶ（一人一年金。国民年金法20条））
     const wpRows: { row: Row; wp: Yen }[] = [];
     const startM = addMonths(death, 1) > base ? addMonths(death, 1) : base;
-    for (let m = addMonths(death, 1); m <= end; m = addMonths(m, 1)) {
+    // 寡婦年金と死亡一時金の選択は、寡婦年金を受けられる期間（65歳まで）の総額で比べるので、表の外の月も数える（改訂5。表の行には入れない）
+    const wpLast = wpOk ? addMonths(wpEnd !== null && wpEnd < wpUntil ? wpEnd : wpUntil, -1) : end;
+    const loopEnd = wpLast > end ? wpLast : end;
+    for (let m = addMonths(death, 1); m <= loopEnd; m = addMonths(m, 1)) {
       const fy = fiscalYearOf(m);
       const v = yearOfFy(fy);
       const kids = kidsAt(m);
@@ -320,7 +324,7 @@ export default defineComponent<Input, SurvivorPensionOutput>({
       }
       const row: Row = { month: formatYm(m), basic, employee, widowAddition, widowPension: yen(0) };
       if (wp > 0) wpRows.push({ row, wp });
-      if (basic > 0 || employee > 0 || widowAddition > 0 || wp > 0) months.push(row);
+      if (m <= end && (basic > 0 || employee > 0 || widowAddition > 0 || wp > 0)) months.push(row);
     }
     // 寡婦年金を選んだときに増える額（寡婦年金が遺族厚生年金＋中高齢寡婦加算より多い月の差。年額の合計）
     let gain = 0;
