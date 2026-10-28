@@ -56,8 +56,8 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     expect(fieldOf(w3, `family/${g.id}/birth`).get(w3).hint).toBe("6歳（令和2年4月）");
   });
 
-  it("「＋ 親を足す」: 世帯の外の家族で、親のお金の欄は作らず、亡くなる見込みは平均余命の推定（年齢の時点・仮の印）", () => {
-    const wh = actionOf(blankHousehold(BASE, seq()), "family/add/parent").run(blankHousehold(BASE, seq()));
+  it("「＋ 父を足す」: 世帯の外の家族で、親のお金の欄は作らず、亡くなる見込みは平均余命の推定（年齢の時点・仮の印）", () => {
+    const wh = actionOf(blankHousehold(BASE, seq()), "family/add/father").run(blankHousehold(BASE, seq()));
     const [p] = parents(wh);
     expect(p!.outside).toBeDefined();
     expect(p!.wallet).toBeUndefined();
@@ -102,6 +102,17 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
       delete (x as Partial<Member>).sex;
     });
     expect(memberLabel(noSex, p.id)).toBe("親");
+  });
+
+  it("「＋ 父を足す」「＋ 母を足す」: 性別が決まり、呼び方は父・母（標準の入れ方でも母を足せる）", () => {
+    const base = blankHousehold(BASE, seq());
+    const w1 = actionOf(base, "family/add/father").run(base);
+    const w2 = actionOf(w1, "family/add/mother").run(w1);
+    const [f, m] = parents(w2);
+    expect(f!.sex).toBe("male");
+    expect(m!.sex).toBe("female");
+    expect(memberLabel(w2, f!.id)).toBe("父");
+    expect(memberLabel(w2, m!.id)).toBe("母");
   });
 
   it("「＋ 両家の親を足す」: 本人・配偶者の父・母の4人（誰の家族か・性別が決まり、呼び方は父・母・義父・義母）", () => {
