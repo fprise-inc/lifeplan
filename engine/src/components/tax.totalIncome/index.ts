@@ -11,6 +11,16 @@
 // 約束の版 1.5（0044）: 入るお金の行（income.flows）の所得を足す。事業所得は other に、雑所得（業務・その他）は miscellaneous に、
 // 一時所得は保険の一時所得と合わせて特別控除（50万円まで）を引いた2分の1を temporary に（どれも total に入る）。給与の収入は
 // tax.employmentIncome が給与所得にする。分離課税の譲渡所得は separate で添え、total には入れない（合計所得金額の判定で足す）
+// 約束の版 1.6（改訂7。0081。税と出口）: どれも、青色申告・民泊・宿・売却の予定の無い人の結果は同じ
+// - 土地建物等の譲渡所得（tax.realEstateSale の短期・長期。特別控除の前）を separate に足し、landBuilding で添える（合計所得金額に入る。
+//   租税特別措置法31条3項1号。所得税法2条1項30号の合計所得金額に長期譲渡所得の金額を含める読み替え）。ほかの所得の損失はこれから引かない
+// - 民泊・宿の所得（asset.realEstate の incomeKind）: 雑所得は雑所得（公的年金等の雑所得と差し引き、雑所得の中の損失はほかの所得と通算しない）、
+//   事業所得は事業所得（損失は通算する）に入れる。土地の取得のための借入の利息の制限（措置法41条の4）は不動産所得だけ
+// - 青色申告特別控除（members[].taxReturn が青色）: 55万円・65万円（doubleEntry・electronic）は、不動産所得が事業的規模（その年に貸している
+//   不動産所得の物件の室数＋棟数×2 が10以上。5棟10室の目安）か事業所得があるときだけ。当たらなければ10万円で計算する（知らせ
+//   N_LIMIT_APPLIED taxReturn.blueDeduction）。控除の上限は不動産所得と事業所得の黒字の合計（損益通算の前）で、不動産所得・事業所得の順に引く
+//   （措置法25条の2）。事業的規模の年は、個人事業税を計算しない知らせ（N_NOT_SUPPORTED realEstate.businessTax）
+// - 損益通算をしても引ききれない損失を netLoss で添える（total は0。青色なら tax.lossCarryforward が翌年以後3年繰り越す）
 import {
   defineComponent,
   monthIndex,
@@ -19,8 +29,10 @@ import {
   type EmploymentIncomeOutput,
   type IncomeFlowsOutput,
   type InsuranceIncomeOutput,
+  type MemberInput,
   type PublicPensionIncomeOutput,
   type RealEstateOutput,
+  type RealEstateSaleTaxOutput,
   type RetirementIncomeOutput,
   type TotalIncomeOutput,
   type Yen,
@@ -28,12 +40,16 @@ import {
 
 const ADJUST = "incomeTax.incomeAdjustment.salaryAndPension.limit";
 const TEMP = { special: "incomeTax.temporaryIncome.specialDeduction", ratio: "incomeTax.temporaryIncome.taxableRatio" };
+const BLUE = { electronic: "incomeTax.blueReturnDeduction.electronic", doubleEntry: "incomeTax.blueReturnDeduction.doubleEntry", simple: "incomeTax.blueReturnDeduction.simple" } as const;
+/** 事業的規模の目安（所得税基本通達26-9。国税庁 No.1373: 独立した室数がおおむね10室以上、独立家屋はおおむね5棟以上。1棟を2室とみなして合わせる） */
+export const BUSINESS_SCALE_ROOMS = 10;
+export const ROOMS_PER_HOUSE = 2;
 
 export default defineComponent<{ member: string; year: number }, TotalIncomeOutput>({
   id: "tax.totalIncome",
   title: "合計所得金額",
-  contract: "1.5",
-  revision: 6,
+  contract: "1.6",
+  revision: 7,
   requires: {
     "tax.employmentIncome": ">=1 <2",
     "tax.publicPensionIncome": ">=1 <2",
@@ -42,16 +58,18 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     "insurance.income": ">=1 <2",
     "asset.realEstate": ">=1 <2",
     "income.flows": ">=1 <2",
+    "tax.realEstateSale": ">=1 <2",
   },
-  params: [ADJUST, ...Object.values(TEMP)],
-  reads: [],
+  params: [ADJUST, ...Object.values(TEMP), ...Object.values(BLUE)],
+  reads: ["member.taxReturn"],
   input: "tax.memberYear.input",
   output: "tax.totalIncome.output",
   compute(input, ctx) {
     const e = ctx.call<EmploymentIncomeOutput>("tax.employmentIncome", input);
     const p = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", input);
     const flowRow = ctx.call<IncomeFlowsOutput>("income.flows", {}).byMember.find((r) => r.member === input.member && r.year === input.year);
-    const other = yen((ctx.call<BusinessOutput>("income.business", { member: input.member }).byYear.find((b) => b.year === input.year)?.income ?? 0) + (flowRow?.business ?? 0));
+    const bizRow = ctx.call<BusinessOutput>("income.business", { member: input.member }).byYear.find((b) => b.year === input.year);
+    let other = yen((bizRow?.income ?? 0) + (flowRow?.business ?? 0));
     let employment = e.income;
     let adjustment = yen(0);
     if (employment > 0 && p.income > 0) {
@@ -74,20 +92,78 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
       const t = yen(gross > special ? gross - special : 0);
       temporary = at.money.mulRate(t, at.paramRate(TEMP.ratio) ?? ctx.rate.of("1"), "conv.tax.exact");
     }
-    const miscellaneous = yen(ins.miscellaneous + (flowRow?.miscBusiness ?? 0) + (flowRow?.miscOther ?? 0));
-    const separate = flowRow?.capitalGains ?? yen(0);
-    // 不動産所得（名義の人の物件の合計）。損失は土地の取得のための借入の利息の分を除いて引く
+    let miscellaneous = yen(ins.miscellaneous + (flowRow?.miscBusiness ?? 0) + (flowRow?.miscOther ?? 0));
+    // 土地建物等の譲渡所得（分離課税。特別控除の前）
+    const sale = ctx.call<RealEstateSaleTaxOutput>("tax.realEstateSale", {}).byMember.find((r) => r.member === input.member && r.year === input.year);
+    const landBuilding = sale !== undefined && sale.short + sale.long > 0 ? { short: sale.short, long: sale.long } : null;
+    const separate = yen((flowRow?.capitalGains ?? 0) + (landBuilding === null ? 0 : landBuilding.short + landBuilding.long));
+    // 不動産所得（名義の人の物件の合計）と、民泊・宿の雑所得・事業所得。事業的規模の目安の室数・棟数
     let realEstate: Yen | null = null;
     let landInterest = 0;
+    let lodgingMisc: number | null = null;
+    let lodgingBusiness: number | null = null;
+    let rooms = 0;
+    let houses = 0;
     for (const prop of ctx.call<RealEstateOutput>("asset.realEstate", {}).properties) {
       if (prop.owner !== input.member) continue;
       const e = prop.income.find((x) => x.year === input.year);
       if (e === undefined) continue;
-      realEstate = yen((realEstate ?? 0) + e.income);
-      landInterest += e.landInterest;
+      if (prop.incomeKind === "miscellaneous") lodgingMisc = (lodgingMisc ?? 0) + e.income;
+      else if (prop.incomeKind === "business") lodgingBusiness = (lodgingBusiness ?? 0) + e.income;
+      else {
+        realEstate = yen((realEstate ?? 0) + e.income);
+        landInterest += e.landInterest;
+        rooms += prop.units?.rooms ?? 0;
+        houses += prop.units?.houses ?? 0;
+      }
     }
+    // 事業所得（自営・入るお金の行の事業所得と、民泊・宿の事業所得）。損失はほかの所得と通算する
+    const business = (other as number) + (lodgingBusiness ?? 0);
+    const scale = realEstate !== null && rooms + houses * ROOMS_PER_HOUSE >= BUSINESS_SCALE_ROOMS;
+    if (scale) ctx.notice("N_NOT_SUPPORTED", ["realEstate.businessTax"]);
+    // 青色申告特別控除（不動産所得・事業所得の黒字から、不動産所得・事業所得の順に引く）
+    let blueDeduction = 0;
+    const filing = ctx.list<MemberInput>("member").find((m) => m.id === input.member)?.taxReturn;
+    let re = realEstate as number | null;
+    let biz = business;
+    if (filing?.method === "blue" && ((re ?? 0) > 0 || biz > 0)) {
+      const hasBusiness = bizRow !== undefined || (flowRow?.business ?? 0) > 0 || lodgingBusiness !== null;
+      let kind = filing.blueDeduction ?? "simple";
+      if (kind !== "simple" && !scale && !hasBusiness) {
+        ctx.notice("N_LIMIT_APPLIED", [input.member, "taxReturn.blueDeduction"]);
+        kind = "simple";
+      }
+      const amount = ctx.at(monthIndex(input.year, 1)).paramYen(BLUE[kind]);
+      if (amount === null) ctx.notice("N_PARAM_MISSING", [BLUE[kind]]);
+      let left = amount ?? 0;
+      if (re !== null && re > 0) {
+        const d = Math.min(left, re);
+        re -= d;
+        left -= d;
+        blueDeduction += d;
+      }
+      if (biz > 0 && left > 0) {
+        const d = Math.min(left, biz);
+        biz -= d;
+        blueDeduction += d;
+      }
+    }
+    realEstate = re === null ? null : yen(re);
     if (realEstate !== null && realEstate < 0) realEstate = yen(Math.min(0, realEstate + landInterest));
-    const total: Yen = yen(Math.max(0, employment + p.income + other + (realEstate ?? 0) + temporary + miscellaneous));
+    other = yen(Math.max(0, biz));
+    // 雑所得（公的年金等の雑所得と、そのほかの雑所得の合計。民泊・宿の雑所得の損失は雑所得の中だけで引き、ほかの所得とは通算しない）
+    let pensionPart = p.income as number;
+    if (lodgingMisc !== null) {
+      const m0 = (miscellaneous as number) + lodgingMisc;
+      if (m0 >= 0) miscellaneous = yen(m0);
+      else {
+        miscellaneous = yen(0);
+        pensionPart = Math.max(0, pensionPart + m0);
+      }
+    }
+    const before = employment + pensionPart + biz + (realEstate ?? 0) + temporary + miscellaneous;
+    const total: Yen = yen(Math.max(0, before));
+    const netLoss = before < 0 ? yen(-before) : null;
     const retirement = ctx.call<RetirementIncomeOutput>("tax.retirementIncome", { member: input.member, year: input.year }).income;
     return {
       total,
@@ -100,6 +176,10 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
       ...(miscellaneous > 0 ? { miscellaneous } : {}),
       ...(realEstate !== null ? { realEstate } : {}),
       ...(separate > 0 ? { separate } : {}),
+      ...(landBuilding !== null ? { landBuilding } : {}),
+      ...(blueDeduction > 0 ? { blueDeduction: yen(blueDeduction) } : {}),
+      ...(netLoss !== null ? { netLoss } : {}),
+      ...(lodgingMisc !== null || lodgingBusiness !== null ? { lodging: { miscellaneous: yen(lodgingMisc ?? 0), business: yen(lodgingBusiness ?? 0) } } : {}),
     };
   },
 });

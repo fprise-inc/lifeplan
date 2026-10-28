@@ -41,8 +41,36 @@
       "$ref": "urn:financia:schema:common#/$defs/yen"
     },
     "separate": {
-      "description": "分離課税の譲渡所得（1.5。入るお金の行の譲渡所得。total には入らない。合計所得金額の判定で足す。0044）",
+      "description": "分離課税の譲渡所得（1.5。入るお金の行の譲渡所得。1.6 から土地建物等の譲渡所得も。total には入らない。合計所得金額の判定で足す。0044・0081）",
       "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "landBuilding": {
+      "description": "土地建物等の譲渡所得（1.6。短期と長期を差し引いた後・特別控除の前。separate に入っている。0081）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["short", "long"],
+      "properties": {
+        "short": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+        "long": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+      }
+    },
+    "blueDeduction": {
+      "description": "青色申告特別控除の額（1.6。不動産所得・事業所得から引いた額。0081）",
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "netLoss": {
+      "description": "純損失の金額（1.6。損益通算をしても引ききれない損失。青色なら tax.lossCarryforward が繰り越す。0081）",
+      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+    },
+    "lodging": {
+      "description": "民泊・宿の雑所得・事業所得（1.6。マイナスは損失。miscellaneous・other・total に入っている。0081）",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["miscellaneous", "business"],
+      "properties": {
+        "miscellaneous": { "$ref": "urn:financia:schema:common#/$defs/yen" },
+        "business": { "$ref": "urn:financia:schema:common#/$defs/yen" }
+      }
     }
   }
 }

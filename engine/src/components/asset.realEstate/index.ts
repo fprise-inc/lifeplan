@@ -14,7 +14,7 @@
 //     うち建物の取得価額を超える分の割合。借入は建物から先に充てたとみなす）を landInterest として添える（損失のときに引けない分。tax.totalIncome）
 // - 売却（property.sale）: その月に、売却価格（省略はその年の評価額）から売却の費用（割合 sale.costRate → 前提 saleCostRate → 目安 0.04）を
 //   引いた手取りを、名義の人の一時金の収入（cf.income.lumpSum.realEstateSale）にする。売った年の年末には持っていない。貸すのは前の月まで。
-//   譲渡所得の税は計算しない（知らせ N_NOT_SUPPORTED realEstate.saleTax）。借入の残りは返済の予定のまま（売るときに返すなら繰上返済で入れる）
+//   譲渡所得の税は tax.realEstateSale（改訂5）。借入の残りは、売ったときにローンを返す（sale.repayLoan。省略は返す）なら debt.schedule が売る月に返す
 // - 段階と例外の年（改訂2。0040）: 家賃（月ごと）と経費の年額（年ごと）に、元の額の代わりに段の額（割合の段は元の額×割合）を使い、
 //   同じ変化率をそのまま重ねる（家賃は貸し始めの年〔計算基準年より前なら計算基準年〕から、経費は計算基準年からの年数）。例外の年は、その年だけ
 //   例外の額（元の額と同じ基準。変化率は重ねる。0円はその年に受け取らない・払わない）。家賃に対する割合の経費は、受け取る家賃に掛ける
@@ -34,8 +34,21 @@
 //     その年の経費にする（資本的支出として償却する扱いはしない。知らせ N_ASSUMED realEstate.repairExpensed）
 //   - 民泊・宿（lodging）: 売上は「1泊の単価×稼働率×営業日数」（salesBy night）か「月の売上の見込み」（rental.monthly）。住宅宿泊事業は
 //     営業日数を年180日までにする（超えたら知らせ N_LIMIT_APPLIED）。空室の割合・家賃以外の月の収入・礼金は使わない。仲介サイトの手数料
-//     （lodging.platformRate）は家賃に対する割合の経費（運営代行など）に足す。所得は不動産所得として計算する（知らせ N_ASSUMED
-//     realEstate.lodgingIncome）。売上が年1,000万円を超えても消費税は計算しない（知らせ N_NOT_SUPPORTED realEstate.consumptionTax）
+//     （lodging.platformRate）は家賃に対する割合の経費（運営代行など）に足す。売上が年1,000万円を超えても消費税は計算しない
+//     （知らせ N_NOT_SUPPORTED realEstate.consumptionTax）
+// - 改訂5・約束の版 1.1（0081。税と出口）: どれも任意の欄・任意の出力で、売却の予定と民泊・宿の無い物件の結果は同じ
+//   - 民泊・宿の所得の区分（lodging.incomeKind。省略は営業の形から: 旅館業は事業所得、住宅宿泊事業・特区民泊・営業の形なしは雑所得）を
+//     出力の incomeKind に出す（不動産所得なら出さない）。内訳の計算（減価償却・利息）は同じ。事業所得なら個人事業税は計算しない
+//     （知らせ N_NOT_SUPPORTED realEstate.businessTax）。今までの「不動産所得として計算」の知らせ（realEstate.lodgingIncome）はやめた
+//   - 事業的規模の目安に数える室数・棟数（units）: 不動産所得の物件で、区分マンションは1室、一棟アパート・一棟マンション・店舗/事務所・
+//     民泊・宿は戸数（省略は1）室、戸建ては1棟。駐車場・貸している土地・種類なしは数えない（数えるものが無ければ出さない。
+//     tax.totalIncome が名義の人ごとに足す）
+//   - 売却の譲渡所得の内訳: 取得費＝取得価額（内訳があれば内訳の合計）＋取得時の諸費用−建物と建物附属設備の減価償却の累計（売る前の月まで）。
+//     概算取得費（売却価格×incomeTax.landBuilding.estimatedCostRate）のほうが大きければそれ。取得の入力が無ければ概算取得費（知らせ
+//     N_ASSUMED realEstate.saleEstimatedCost）で、所有期間は長期とみなす（知らせ N_ASSUMED realEstate.saleHoldingLong）。
+//     所有期間は、取得の年が売った年の（holdingYears＋1）年前以前なら長期（売った年の1月1日に5年を超える。月の端数は年で数えると同じ）。
+//     貸していない期間（取得から貸し始めまで・貸し終わりから売るまでが12か月以上、または貸していない物件）の建物の減価（非業務用の償却）は
+//     引かない（知らせ N_NOT_SUPPORTED realEstate.saleNonBusinessPeriod。0028 の未対応のまま）
 // 計算基準年の2年前から計算する（前の年の所得で決まる住民税・国民健康保険料のため。お金の動きは計算基準月から）
 import {
   addMonths,
@@ -49,6 +62,7 @@ import {
   RATE_ONE,
   RATE_ZERO,
   SALE_COST_RATE,
+  subYen,
   stagedYen,
   yearOf,
   yen,
@@ -72,6 +86,22 @@ export const EQUIPMENT_LIFE = 15;
 
 /** 住宅宿泊事業の営業日数の上限（住宅宿泊事業法2条3項） */
 export const PRIVATE_LODGING_DAYS = 180;
+
+const HOLDING = "incomeTax.landBuilding.longTerm.holdingYears";
+const ESTIMATED = "incomeTax.landBuilding.estimatedCostRate";
+
+/** 民泊・宿の所得の区分（省略は営業の形から: 旅館業は事業所得、ほかは雑所得。0081） */
+export function lodgingIncomeKind(l: { readonly business?: string; readonly incomeKind?: "miscellaneous" | "business" | "realEstate" }): "miscellaneous" | "business" | "realEstate" {
+  return l.incomeKind ?? (l.business === "inn" ? "business" : "miscellaneous");
+}
+
+/** 事業的規模の目安に数える室数・棟数（種類と戸数から。駐車場・土地・種類なしは数えない。0081） */
+export function scaleUnits(kind: string | undefined, units: number | undefined): { rooms: number; houses: number } {
+  if (kind === "condo") return { rooms: 1, houses: 0 };
+  if (kind === "house") return { rooms: 0, houses: 1 };
+  if (kind === "apartment" || kind === "mansion" || kind === "commercial" || kind === "lodging") return { rooms: units ?? 1, houses: 0 };
+  return { rooms: 0, houses: 0 };
+}
 
 /** 中古の建物の耐用年数（簡便法。経過年数は年で数える） */
 export function usedLife(life: number, elapsed: number): number {
@@ -104,10 +134,10 @@ function monthsIn(y: number, lo: MonthIndex, hi: MonthIndex): number {
 export default defineComponent<Record<string, never>, RealEstateOutput>({
   id: "asset.realEstate",
   title: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）",
-  contract: "1.0",
-  revision: 4,
+  contract: "1.1",
+  revision: 5,
   requires: { "debt.schedule": ">=1 <2" },
-  params: [],
+  params: [HOLDING, ESTIMATED],
   reads: ["account.kind", "account.owner", "account.marketValue", "account.asOf", "account.valueGrowth", "account.property", "debt.property", "debt.principal", "assumptions.inflation", "assumptions.realEstateValuation"],
   input: "empty.input",
   output: "asset.realEstate.output",
@@ -171,7 +201,6 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         const proceeds = yen(Math.max(0, price - costs));
         sale = { ym: formatYm(saleAt), value, price, costs, proceeds };
         if (proceeds > 0) flows.push({ row: "cf.income.lumpSum.realEstateSale", ym: formatYm(saleAt), amount: proceeds, accrualYear: y, member: owner, object: a.id, formula: "asset.realEstate.sale" });
-        ctx.notice("N_NOT_SUPPORTED", ["realEstate.saleTax"]);
       }
 
       // 貸している月（rFrom〜rTo。計算は計算基準年の2年前から）
@@ -187,8 +216,9 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const rentRef = rFrom === null ? baseYear : Math.max(yearOf(rFrom), baseYear);
       // 月の売上・家賃の元の額（民泊・宿の「1泊の単価×稼働率×営業日数」は、年の売上を12で割る。円未満切り捨て）
       let rent0 = r === undefined ? yen(0) : (boxValue(r.monthly) ?? yen(0));
+      const incomeKind = lodging === undefined ? "realEstate" : lodgingIncomeKind(lodging);
+      if (r !== undefined && incomeKind === "business") ctx.notice("N_NOT_SUPPORTED", [a.id, "realEstate.businessTax"]);
       if (r !== undefined && lodging !== undefined) {
-        ctx.notice("N_ASSUMED", [a.id, "realEstate.lodgingIncome"]);
         if (lodging.salesBy === "night") {
           const cap = lodging.business === "privateLodging" ? PRIVATE_LODGING_DAYS : 366;
           const days0 = lodging.days ?? (lodging.business === "privateLodging" ? PRIVATE_LODGING_DAYS : 365);
@@ -306,6 +336,8 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       // 建物と建物附属設備を別の耐用年数で。取得時の諸費用の建物・建物附属設備の分は償却の基に足す
       const depByYear = new Map<number, Yen>();
       let buildingCost: Yen | null = null;
+      // 売る前の月までの償却の累計（譲渡所得の取得費から引く）
+      let accumulated = yen(0);
       if (r !== undefined && p.acquisition !== undefined && acqAt !== null && rFrom !== null && rTo !== null) {
         const acq = p.acquisition;
         const price = acq.price;
@@ -330,6 +362,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
             book = yen(book - d);
             if (y >= yearOf(calcStart)) depByYear.set(y, addYen(depByYear.get(y) ?? yen(0), d));
           }
+          accumulated = addYen(accumulated, subYen(base0, book));
         };
         if (buildingBase > 0) depreciate(buildingBase, usedLife(TAX_USEFUL_LIFE[structure], elapsed));
         if (equipmentBase > 0) depreciate(equipmentBase, acq.equipmentLife ?? usedLife(EQUIPMENT_LIFE, elapsed));
@@ -364,7 +397,40 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           income.push({ year: y, rent, expenses, depreciation, interest, landInterest, income: yen(rent - expenses - depreciation - interest) });
         }
       }
-      properties.push({ object: a.id, owner, years, income, sale });
+      // 売却の譲渡所得の内訳（0081）
+      if (sale !== null && saleAt !== null) {
+        const y = yearOf(saleAt);
+        const at0 = ctx.at(monthIndex(y, 1));
+        const estRate = at0.paramRate(ESTIMATED);
+        const estimatedCost = estRate === null ? yen(0) : ctx.money.mulRate(sale.price, estRate, VAL);
+        const acq = p.acquisition;
+        let acquisitionCost = estimatedCost;
+        let estimated = true;
+        let term: "long" | "short" = "long";
+        if (acq !== undefined && acqAt !== null) {
+          const total = parts !== undefined ? yen(partsTotal) : acq.price;
+          const actual = yen(Math.max(0, total + (acq.costs ?? 0) - accumulated));
+          if (actual >= estimatedCost) {
+            acquisitionCost = actual;
+            estimated = false;
+          }
+          const years0 = at0.paramCount(HOLDING);
+          if (years0 === null) ctx.notice("N_PARAM_MISSING", [HOLDING]);
+          term = yearOf(acqAt) <= y - (years0 ?? 5) - 1 ? "long" : "short";
+          // 貸していない期間が長い（非業務用の期間の償却は引いていない。0028 の未対応）
+          const idle = r === undefined || rFrom === null || rTo === null || rFrom - acqAt >= 12 || holdEnd - rTo >= 12;
+          if (idle) ctx.notice("N_NOT_SUPPORTED", [a.id, "realEstate.saleNonBusinessPeriod"]);
+        } else {
+          ctx.notice("N_ASSUMED", [a.id, "realEstate.saleEstimatedCost"]);
+          ctx.notice("N_ASSUMED", [a.id, "realEstate.saleHoldingLong"]);
+        }
+        if (estRate === null) ctx.notice("N_PARAM_MISSING", [ESTIMATED]);
+        const gain = yen(sale.price - acquisitionCost - sale.costs);
+        sale = { ...sale, acquisitionCost, estimated, gain, term };
+      }
+      const u = r !== undefined && incomeKind === "realEstate" ? scaleUnits(p.kind, p.units) : null;
+      const units = u !== null && u.rooms + u.houses > 0 ? u : null;
+      properties.push({ object: a.id, owner, years, income, sale, ...(incomeKind !== "realEstate" ? { incomeKind } : {}), ...(units !== null ? { units } : {}) });
     }
     return { flows, properties };
   },

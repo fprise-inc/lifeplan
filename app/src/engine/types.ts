@@ -27,6 +27,8 @@ export interface Member {
   expected?: boolean;
   /** 0078: 老齢年金の受給を始める月（年金の記録が無い人＝推計の区分。記録があれば記録の claim を使う。省略は65歳に達した月の翌月） */
   pensionClaim?: { basic?: Timepoint; employee?: Timepoint };
+  /** 0081: 所得税の申告の仕方（青色・白色）と青色申告特別控除の区分（65万円 electronic・55万円 doubleEntry・10万円 simple。省略は simple）。省略は白色 */
+  taxReturn?: { method: "blue" | "white"; blueDeduction?: "electronic" | "doubleEntry" | "simple" };
   support?: { dependent?: boolean; cohabiting?: boolean; allowance?: number };
   /** 世帯の外の家族（0035 の4。家計を世帯と別にする家族）。期間は家計を1つにする期間（living は生活費の人数、income は収入を世帯に入れる） */
   outside?: OutsideFamily;
@@ -173,8 +175,10 @@ export interface RealEstateProperty {
   /** 大きな修繕の予定（0080） */
   repairs?: { id: string; at: Timepoint; amount: number; label?: string }[];
   /** 民泊・宿の営業の形と売上の入れ方（0080） */
-  lodging?: { business?: "privateLodging" | "inn" | "specialZone"; salesBy?: "night" | "month"; nightly?: number; occupancy?: string; days?: number; platformRate?: string };
-  sale?: { at: Timepoint; price?: number; costRate?: string };
+  /** incomeKind: 所得の区分（省略は営業の形から: 旅館業は事業所得、ほかは雑所得。0081） */
+  lodging?: { business?: "privateLodging" | "inn" | "specialZone"; salesBy?: "night" | "month"; nightly?: number; occupancy?: string; days?: number; platformRate?: string; incomeKind?: "miscellaneous" | "business" | "realEstate" };
+  /** repayLoan: 売ったときにこの物件のローンを返す（省略は返す。0081） */
+  sale?: { at: Timepoint; price?: number; costRate?: string; repayLoan?: boolean };
 }
 
 /** 不動産の経費の費目（0080） */

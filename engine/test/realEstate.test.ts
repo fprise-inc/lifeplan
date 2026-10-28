@@ -251,7 +251,11 @@ describe("売却と貸し終わり", () => {
     const building = floorYen(new Decimal(18000000).mul(div12(remain(2035 - 2015, 47, "0.2"), f0)));
     const value = 12000000 + building;
     const costs = floorYen(new Decimal(value).mul("0.04"));
-    expect(p?.sale).toEqual({ ym: "2035-06", value, price: value, costs, proceeds: value - costs });
+    // 譲渡所得の内訳（0081）: 取得費＝取得価額−建物の償却の累計（2020年4月〜2035年5月。中古の簡便法 47−5＋1＝43年・償却率 0.024）
+    const dep = 15000000 * 0.024;
+    const accumulated = (dep * 9) / 12 + dep * 14 + (dep * 5) / 12;
+    const acquisitionCost = 25000000 - accumulated;
+    expect(p?.sale).toEqual({ ym: "2035-06", value, price: value, costs, proceeds: value - costs, acquisitionCost, estimated: false, gain: value - acquisitionCost - costs, term: "long" });
     expect(p?.years.at(-1)?.year).toBe(2034);
     expect(o.flows.filter((f) => f.row === "cf.income.lumpSum.realEstateSale")).toEqual([{ row: "cf.income.lumpSum.realEstateSale", ym: "2035-06", amount: value - costs, accrualYear: 2035, member: A, object: P, formula: "asset.realEstate.sale" }]);
     expect(o.flows.filter((f) => f.row === "cf.income.other.rental").at(-1)?.ym).toBe("2035-05");
@@ -260,7 +264,8 @@ describe("売却と貸し終わり", () => {
     const r = full(req);
     expect(cells(r, "cf.balance.account.realEstate", 2034)).toBeGreaterThan(0);
     expect(cells(r, "cf.balance.account.realEstate", 2035)).toBe(0);
-    expect(notices(r).some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("realEstate.saleTax"))).toBe(true);
+    expect(notices(r).some((n) => n.ids.includes("realEstate.saleTax"))).toBe(false);
+    expect(notices(r).some((n) => n.code === "N_ASSUMED" && n.ids.includes("realEstate.saleTaxSimplified"))).toBe(true);
   });
 
   it("貸し終わりの後は家賃も減価償却費も無く、年額の経費は持っている間かかる", () => {
@@ -278,7 +283,7 @@ describe("要約の物件ごとの数字（plan.cashflow の details から。�
     const r = full(req);
     const o = out(req);
     const s = (r.summary as { realEstate?: RealEstateOutput["properties"] }).realEstate;
-    expect(s).toEqual(o.properties.map((p) => ({ object: p.object, owner: p.owner, years: p.years, income: p.income, sale: p.sale })));
+    expect(s).toEqual(o.properties);
     const table = r.table as unknown as Cell[];
     for (const y of [2026, 2030, 2034]) {
       const v = s?.[0]?.years.find((e) => e.year === y);
@@ -386,7 +391,7 @@ describe("お金の欄（取得の内訳・諸費用・家賃以外の収入・�
     expect(flowsAt(req, "cf.expense.other.realEstate", "2026-04")).toBe(20000 + 210000 * 0.35);
     const ns = notices(full(req));
     expect(ns.some((n) => n.code === "N_LIMIT_APPLIED" && n.ids.includes("realEstate.lodging.days"))).toBe(true);
-    expect(ns.some((n) => n.code === "N_ASSUMED" && n.ids.includes("realEstate.lodgingIncome"))).toBe(true);
+    expect(ns.some((n) => n.ids.includes("realEstate.lodgingIncome"))).toBe(false);
     expect(ns.some((n) => n.ids.includes("realEstate.consumptionTax"))).toBe(false);
     // 月の売上の見込み（家賃の欄）で入れたら、その額を空室の割合なしで
     const month = base({ accounts: [account(property({ lodging: { business: "inn" }, rental: { monthly: box(300000), vacancyRate: "0.1" } }))] });

@@ -469,6 +469,17 @@
             "employee": { "$ref": "urn:financia:schema:common#/$defs/timepoint" }
           }
         },
+        "taxReturn": {
+          "title": "所得税の申告の仕方（青色・白色）と青色申告特別控除（不動産所得・事業所得のある人。省略は白色。0081）",
+          "x-item": "member.taxReturn",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method"],
+          "properties": {
+            "method": { "description": "申告の仕方（青色 blue・白色 white）", "enum": ["blue", "white"] },
+            "blueDeduction": { "description": "青色申告特別控除の区分（65万円 electronic・55万円 doubleEntry・10万円 simple。省略は simple）。55万円・65万円は不動産所得の事業的規模か事業所得があるときだけ（無ければ10万円で計算する）", "enum": ["electronic", "doubleEntry", "simple"] }
+          }
+        },
         "outside": {
           "title": "世帯の外の家族（0035 の4。家計を世帯と別にする家族。生年月・性別を省ける）",
           "x-item": "member.outside",
@@ -679,7 +690,7 @@
           }
         },
         "business": {
-          "title": "自営の事業所得（年額。青色申告特別控除の後。期間の最初の年の額）",
+          "title": "自営の事業所得（年額。青色申告特別控除の前。申告の仕方〔members[].taxReturn〕を青色にしたら控除は合計所得金額の部品が引く。期間の最初の年の額。0081）",
           "type": "object",
           "additionalProperties": false,
           "required": ["income"],
@@ -888,11 +899,11 @@
           "additionalProperties": false,
           "properties": {
             "name": { "title": "物件名（表示用。計算には使わない。0079）", "x-item": "account.property.name", "type": "string", "maxLength": 80 },
-            "kind": { "description": "物件の種類（表示用。計算には使わない。区分マンション condo・一棟アパート apartment・一棟マンション mansion・戸建て house・店舗/事務所 commercial・駐車場 parking・貸している土地 land・民泊・宿 lodging。0079）", "enum": ["condo", "apartment", "mansion", "house", "commercial", "parking", "land", "lodging"] },
+            "kind": { "description": "物件の種類（表示用。計算は事業的規模の目安〔5棟10室〕を数えるときだけ読む〔0081〕。区分マンション condo・一棟アパート apartment・一棟マンション mansion・戸建て house・店舗/事務所 commercial・駐車場 parking・貸している土地 land・民泊・宿 lodging。0079）", "enum": ["condo", "apartment", "mansion", "house", "commercial", "parking", "land", "lodging"] },
             "location": { "title": "所在地（都道府県・市区町村まで。番地は持たない。表示用。計算には使わない。0079）", "x-item": "account.property.location", "type": "string", "maxLength": 40 },
             "share": { "description": "持分（共有のとき。0〜1。計算にはまだ使わない＝全部を名義の人の分として扱う。0079）", "$ref": "urn:financia:schema:common#/$defs/rate" },
             "tenure": { "description": "権利（所有権 ownership・借地権 leasehold。表示用。計算には使わない。0079）", "enum": ["ownership", "leasehold"] },
-            "units": { "description": "戸数（一棟のとき。表示用。計算には使わない。空室は rental.vacancyRate で入れる。0079）", "type": "integer", "minimum": 1, "maximum": 9999 },
+            "units": { "description": "戸数（一棟のとき。表示用。計算は事業的規模の目安を数えるときだけ読む〔0081〕。空室は rental.vacancyRate で入れる。0079）", "type": "integer", "minimum": 1, "maximum": 9999 },
             "area": {
               "description": "面積（㎡。10進の文字列。land 土地・floor 建物の延べ床。表示用。計算には使わない。0079）",
               "type": "object",
@@ -994,7 +1005,7 @@
               }
             },
             "lodging": {
-              "description": "民泊・宿の営業の形と売上の入れ方（入れたら空室の割合・家賃以外の月の収入・礼金は使わない。所得は不動産所得として計算する。0080）",
+              "description": "民泊・宿の営業の形と売上の入れ方（入れたら空室の割合・家賃以外の月の収入・礼金は使わない。所得の区分は incomeKind。0080・0081）",
               "type": "object",
               "additionalProperties": false,
               "properties": {
@@ -1003,18 +1014,20 @@
                 "nightly": { "description": "1泊の単価", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                 "occupancy": { "description": "稼働率（営業日数のうち泊まりのある割合。0〜1）", "$ref": "urn:financia:schema:common#/$defs/rate" },
                 "days": { "description": "年の営業日数（省略は住宅宿泊事業なら180日、ほかは365日）", "type": "integer", "minimum": 1, "maximum": 366 },
-                "platformRate": { "description": "仲介サイトの手数料（売上に対する割合）。家賃に対する割合の経費（運営代行など）に足す", "$ref": "urn:financia:schema:common#/$defs/rate" }
+                "platformRate": { "description": "仲介サイトの手数料（売上に対する割合）。家賃に対する割合の経費（運営代行など）に足す", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "incomeKind": { "description": "所得の区分（雑所得 miscellaneous・事業所得 business・不動産所得 realEstate）。省略は営業の形から（旅館業は事業所得、ほかは雑所得）。0081", "enum": ["miscellaneous", "business", "realEstate"] }
               }
             },
             "sale": {
-              "description": "売却の予定（その月に売り、売却価格から売却の費用を引いた手取りを現金にする）",
+              "description": "売却の予定（その月に売り、売却価格から売却の費用を引いた手取りを現金にする。譲渡所得の税は tax.realEstateSale。0081）",
               "type": "object",
               "additionalProperties": false,
               "required": ["at"],
               "properties": {
                 "at": { "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                 "price": { "description": "売却価格（省略はその年の評価額）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-                "costRate": { "description": "売却の費用の割合（省略は前提の realEstateValuation.saleCostRate か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" }
+                "costRate": { "description": "売却の費用の割合（省略は前提の realEstateValuation.saleCostRate か目安）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "repayLoan": { "description": "売ったときに、この物件のローン（debts[].property がこの器）を売る月に一括で返す（省略は返す。0081）", "type": "boolean" }
               }
             }
           }

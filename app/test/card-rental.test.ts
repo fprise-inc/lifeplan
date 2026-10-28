@@ -65,7 +65,7 @@ describe("収益不動産の入力項目", () => {
     const a = rentalProperties(wh.request.input.household)[0]!;
     const k = `sav/${a.id}`;
     const titles = stageOf(wh).sections[0]!.groups.map((g) => g.title).filter((t) => t !== undefined);
-    expect(titles).toEqual(["物件1（評価額 0万円）", "土地と建物", "家賃収入", "経費", "売却"]);
+    expect(titles).toEqual(["物件1（評価額 0万円）", "土地と建物", "家賃収入", "経費", "売却", "申告（ご本人）"]);
     expect(stageOf(wh).sections[0]!.groups.flatMap((g) => g.actions).map((x) => x.key)).toContain(`${k}/property/addLoan`);
     expect(fieldStatus(fieldOf(wh, `${k}/value`), wh).status).toBe("missing");
     expect(fieldStatus(fieldOf(wh, `${k}/property/rent`), wh).status).toBe("missing");
@@ -107,7 +107,7 @@ describe("収益不動産の入力項目", () => {
     expect(fieldOf(wh, `${k}/units`).address!(wh)).toEqual({ target: { object: a.id }, item: "account.property", at: ["units"] });
   });
 
-  it("持分を入れると「計算はまだ全部を名義の人の分として扱います」の知らせ。民泊・宿を選ぶと、不動産所得として計算すること・消費税を扱わないことの知らせ", () => {
+  it("持分を入れると「計算はまだ全部を名義の人の分として扱います」の知らせ。民泊・宿を選んでも種類の欄に知らせは出さない（消費税・個人事業税を扱わないことは「?」の中。0081）", () => {
     let wh = addRentalProperty(blankHousehold("2026-10", seq()));
     const a = rentalProperties(wh.request.input.household)[0]!;
     const k = `sav/${a.id}/property`;
@@ -115,9 +115,10 @@ describe("収益不動産の入力項目", () => {
     wh = fieldOf(wh, `${k}/share`).set(wh, "0.5");
     expect(fieldOf(wh, `${k}/share`).get(wh).warn).toContain("計算はまだ全部を名義の人の分として扱います");
     wh = fieldOf(wh, `${k}/kind`).set(wh, "lodging");
-    expect(fieldOf(wh, `${k}/kind`).get(wh).warn).toBe(LODGING_NOTE);
-    expect(LODGING_NOTE).toContain("不動産所得として計算しています");
-    expect(LODGING_NOTE).toContain("消費税は計算しません");
+    expect(fieldOf(wh, `${k}/kind`).get(wh).warn ?? null).toBeNull();
+    expect(fieldOf(wh, `${k}/kind`).help).toContain(LODGING_NOTE);
+    expect(LODGING_NOTE).not.toContain("不動産所得として計算しています");
+    expect(LODGING_NOTE).toContain("消費税と、個人事業税は計算しません");
   });
 
   it("物件を見分ける欄は計算に使わない（入れても結果は同じ）。要求はスキーマを通る", () => {
@@ -332,5 +333,89 @@ describe("お金の欄（0080）", () => {
     wh = fieldOf(wh, `${k}/kind`).set(wh, "condo");
     expect(prop(wh, a.id).lodging).toBeUndefined();
     expect(keys()).toContain(`${k}/vacancy`);
+  });
+});
+
+describe("税と出口（0081）", () => {
+  const groupOf = (wh: WorkingHousehold, key: string) => stageOf(wh).sections[0]!.groups.find((g) => g.key === key);
+  const flowsOf = (wh: WorkingHousehold) => full(wh.request).flows;
+
+  it("売却: 「売ったときに、この物件のローンを返す」（詳細・既定はオン）。オンなら売る月に残りを返し、譲渡所得の税を翌年3月・翌年度に出す", () => {
+    let wh = open();
+    const a = rentalProperties(wh.request.input.household)[0]!;
+    const k = `sav/${a.id}/property`;
+    expect(allFields(stageOf(wh)).some((f) => f.key === `${k}/saleRepay`)).toBe(false);
+    wh = fieldOf(wh, `${k}/sell`).set(wh, true);
+    expect(fieldOf(wh, `${k}/sell`).help).toContain("譲渡所得の税");
+    const repay = fieldOf(wh, `${k}/saleRepay`);
+    expect(repay).toMatchObject({ level: "detail", label: "売ったときに、この物件のローンを返す" });
+    expect(repay.get(wh)).toMatchObject({ value: true, implicit: true });
+    wh = fieldOf(wh, `${k}/salePrice`).set(wh, 30_000_000);
+    const at = (prop(wh, a.id).sale!.at as { at: string }).at;
+    const f1 = flowsOf(wh);
+    expect(f1.some((f) => f.formula === "debt.schedule.salePayoff" && f.ym === at)).toBe(true);
+    const saleYear = Number(at.slice(0, 4));
+    expect(f1.find((f) => f.row === "cf.taxSi.incomeTax.realEstateSale")?.ym).toBe(`${saleYear + 1}-03`);
+    expect(f1.filter((f) => f.row === "cf.taxSi.residentTax.realEstateSale").map((f) => f.ym)).toEqual([`${saleYear + 1}-06`, `${saleYear + 1}-08`, `${saleYear + 1}-10`, `${saleYear + 2}-01`]);
+    // オフ: 欄に false を書き、返済は予定のまま。オンに戻すと省略に戻る
+    wh = fieldOf(wh, `${k}/saleRepay`).set(wh, false);
+    expect(prop(wh, a.id).sale!.repayLoan).toBe(false);
+    expect(flowsOf(wh).some((f) => f.formula === "debt.schedule.salePayoff")).toBe(false);
+    wh = fieldOf(wh, `${k}/saleRepay`).set(wh, true);
+    expect(prop(wh, a.id).sale!.repayLoan).toBeUndefined();
+  });
+
+  it("民泊・宿の所得の区分（詳細）: 空欄は営業の形から（住宅宿泊事業は雑所得、旅館業は事業所得）。入れた区分で計算する", () => {
+    let wh = addRentalProperty(blankHousehold("2026-10", seq()));
+    const a = rentalProperties(wh.request.input.household)[0]!;
+    const k = `sav/${a.id}/property`;
+    wh = fieldOf(wh, `${k}/kind`).set(wh, "lodging");
+    wh = fieldOf(wh, `${k}/lodgingBusiness`).set(wh, "privateLodging");
+    const kind = () => fieldOf(wh, `${k}/incomeKind`);
+    expect(kind()).toMatchObject({ level: "detail", label: "所得の区分" });
+    expect(kind().get(wh)).toMatchObject({ value: "miscellaneous", implicit: true });
+    expect(kind().help).toContain("雑所得の赤字は給与などほかの所得から引けません");
+    wh = fieldOf(wh, `${k}/lodgingBusiness`).set(wh, "inn");
+    expect(kind().get(wh)).toMatchObject({ value: "business", implicit: true });
+    wh = kind().set(wh, "realEstate");
+    expect(prop(wh, a.id).lodging!.incomeKind).toBe("realEstate");
+    expect(() => preview(wh.request)).not.toThrow();
+  });
+
+  it("申告（物件の持ち主ごと・詳細）: 申告の仕方は既定で白色。青色にすると青色申告特別控除（既定10万円）を選べ、事業的規模の目安に当たらないのに55万円・65万円なら知らせる", () => {
+    let wh = open();
+    const a = rentalProperties(wh.request.input.household)[0]!;
+    const g = `rental/taxReturn/${a.owner}`;
+    const member = () => wh.request.input.household.members.find((m) => m.id === a.owner)!;
+    expect(groupOf(wh, g)).toMatchObject({ level: "detail" });
+    expect(groupOf(wh, g)!.title).toMatch(/^申告（/);
+    expect(fieldOf(wh, `${g}/method`).get(wh)).toMatchObject({ value: "white", implicit: true });
+    expect(allFields(stageOf(wh)).some((f) => f.key === `${g}/blueDeduction`)).toBe(false);
+    // 事業的規模の目安（見せるだけ。最終の判断は税理士に、は「?」の中）
+    const scale = () => fieldOf(wh, `${g}/scale`);
+    expect(scale().readOnly).toBeDefined();
+    expect(scale().get(wh).value).toBe("当たりません");
+    expect(scale().help).toContain("最終の判断は税理士");
+    wh = fieldOf(wh, `${g}/method`).set(wh, "blue");
+    expect(member().taxReturn).toEqual({ method: "blue" });
+    expect(fieldOf(wh, `${g}/blueDeduction`).get(wh)).toMatchObject({ value: "simple", implicit: true });
+    wh = fieldOf(wh, `${g}/blueDeduction`).set(wh, "doubleEntry");
+    expect(member().taxReturn).toEqual({ method: "blue", blueDeduction: "doubleEntry" });
+    expect(fieldOf(wh, `${g}/blueDeduction`).get(wh).warn).toContain("10万円で計算しています");
+    // 一棟アパート10戸にすると目安に当たり、知らせは消える
+    const k = `sav/${a.id}/property`;
+    wh = fieldOf(wh, `${k}/kind`).set(wh, "apartment");
+    wh = fieldOf(wh, `${k}/units`).set(wh, 10);
+    expect(scale().get(wh).value).toBe("当たります（10室）");
+    expect(fieldOf(wh, `${g}/blueDeduction`).get(wh).warn ?? null).toBeNull();
+    expect(() => preview(wh.request)).not.toThrow();
+    // 白色に戻すと申告の欄ごと外れる
+    wh = fieldOf(wh, `${g}/method`).set(wh, "white");
+    expect(member().taxReturn).toBeUndefined();
+  });
+
+  it("物件の無い世帯には申告のまとまりを出さない", () => {
+    const wh = blankHousehold("2026-10", seq());
+    expect(stageOf(wh).sections[0]!.groups.some((g) => g.key.startsWith("rental/taxReturn/"))).toBe(false);
   });
 });

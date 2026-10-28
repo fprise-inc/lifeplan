@@ -7,6 +7,8 @@
 // 税額控除の差し込み口: 住宅借入金等特別控除（tax.housingLoanCredit）を算出税額（基準所得税額）から引き、付加税はその後の額に掛ける。
 //   入居の年は確定申告で受ける（源泉徴収とみなす額は控除の前の額にし、翌年3月の精算で還付）。2年目からは年末調整を受ける年は年末調整で、
 //   受けない年は確定申告で受ける。引ききれなかった額（creditRemainder）は翌年度の住民税から引く（residentTax.annual）
+// 改訂5（0081）: 青色申告の純損失の繰越控除（tax.lossCarryforward の deducted）を、合計所得金額（総所得金額）から引いてから課税所得にする。
+//   青色でない人は0で、結果は同じ
 import {
   bracketFor,
   defineComponent,
@@ -20,6 +22,7 @@ import {
   type Flow,
   type HousingLoanCreditOutput,
   type IncomeTaxOutput,
+  type LossCarryforwardOutput,
   type MonthCtx,
   type Ctx,
   type PensionOutput,
@@ -77,9 +80,10 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
   id: "incomeTax.annual",
   title: "所得税",
   contract: "1.1",
-  revision: 4,
+  revision: 5,
   requires: {
     "tax.totalIncome": ">=1 <2",
+    "tax.lossCarryforward": ">=1 <2",
     "tax.housingLoanCreditYears": ">=1 <2",
     "tax.housingLoanCredit": ">=1 <2",
     "tax.deductions": ">=1 <2",
@@ -106,7 +110,9 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
   compute(input, ctx) {
     const { member, year } = input;
     const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", input);
-    const total = inc.total;
+    // 純損失の繰越控除（青色申告。引いた後の総所得金額で税を計算する）
+    const carry = ctx.call<LossCarryforwardOutput>("tax.lossCarryforward", { member }).byYear.find((x) => x.year === year)?.deducted ?? 0;
+    const total = yen(inc.total - carry);
     if (total <= 0) return ZERO;
     const ded = ctx.call<DeductionsOutput>("tax.deductions", { member, year, regime: "incomeTax" });
     const at = ctx.at(monthIndex(year, 1));

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.realEstateSale.output",
+  "title": "住まい以外の不動産を売ったときの譲渡所得（分離課税）と税（名義の人×売った年。0081）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flows", "byMember"],
+  "properties": {
+    "flows": { "type": "array", "items": { "$ref": "urn:financia:schema:common#/$defs/flow" } },
+    "byMember": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["member", "year", "short", "long", "incomeTax", "residentTax"],
+        "properties": {
+          "member": { "$ref": "urn:financia:schema:common#/$defs/uuid" },
+          "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+          "short": { "description": "短期譲渡所得（長期の損失を引いた後。特別控除の前）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "long": { "description": "長期譲渡所得（短期の損失を引いた後。特別控除の前）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "incomeTax": { "description": "所得税（復興特別所得税・防衛特別所得税を含む）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "residentTax": { "description": "住民税（翌年度）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
+    }
+  }
+}

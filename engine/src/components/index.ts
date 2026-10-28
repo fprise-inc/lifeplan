@@ -34,6 +34,8 @@ import taxSocialInsurancePaid from "./tax.socialInsurancePaid/index.ts";
 import taxSpouseDeduction from "./tax.spouseDeduction/index.ts";
 import taxEmploymentIncome from "./tax.employmentIncome/index.ts";
 import taxTotalIncome from "./tax.totalIncome/index.ts";
+import taxRealEstateSale from "./tax.realEstateSale/index.ts";
+import taxLossCarryforward from "./tax.lossCarryforward/index.ts";
 import benefitEmployment from "./benefit.employment/index.ts";
 import benefitUnemployment from "./benefit.unemployment/index.ts";
 import benefitHealth from "./benefit.health/index.ts";
@@ -126,6 +128,8 @@ export const OFFICIAL_DEFINITIONS: readonly ComponentDefinition<never, unknown>[
   taxSpouseDeduction,
   taxEmploymentIncome,
   taxTotalIncome,
+  taxRealEstateSale,
+  taxLossCarryforward,
   benefitEmployment,
   benefitUnemployment,
   benefitHealth,

@@ -458,9 +458,21 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: tax.lossCarryforward
+    status: active
+    label: "純損失の繰越控除（青色申告）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: tax.publicPensionIncome
     status: active
     label: "公的年金等に係る雑所得"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: tax.realEstateSale
+    status: active
+    label: "住まい以外の不動産の譲渡所得の税（分離課税）"
     since: draft
     aliases: []
     replacedBy: null

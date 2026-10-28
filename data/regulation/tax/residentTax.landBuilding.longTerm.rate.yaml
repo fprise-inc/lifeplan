@@ -1,0 +1,21 @@
+id: residentTax.landBuilding.longTerm.rate
+title: 土地建物等の長期譲渡所得の住民税の税率（道府県民税と市町村民税の合計。指定都市の配分は扱わない）
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226?response_format=xml", "retrievedAt": "2026-10-28", "sha256": "09c642c443b166292a0e3249fe9e107dd751ff065f74d81194a7755a0bb2af78", "locator": "地方税法 附則第34条第1項・第4項", "quote": "課税長期譲渡所得金額」という。）の百分の二（当該納税義務者が指定都市の区域内に住所を有する場合には、百分の一）"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3208.htm", "retrievedAt": "2026-10-28", "sha256": "09ce79ad80a43f5a3244fdce9d04b9da01b852ab5c5ab9e092c3e30fc7569487", "locator": "No.3208 税額の計算", "quote": "税額＝課税長期譲渡所得金額×15％（住民税5％）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20261016_508AC0000000002"}
+    recordedIn: "2026.15.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "地方税法附則34条。道府県民税2%＋市町村民税3%（指定都市は1%＋4%で合計は同じ）。e-Gov法令API の条文（XML）と国税庁のタックスアンサー（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-10-28）。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}

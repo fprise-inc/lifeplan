@@ -3004,6 +3004,12 @@
     "support"
    ]
   },
+  "member.taxReturn": {
+   "collection": "member",
+   "path": [
+    "taxReturn"
+   ]
+  },
   "member.wallet": {
    "collection": "member",
    "path": [
