@@ -13,6 +13,7 @@ import { DEBT_KINDS, memberLabel, memberOptions, RATE_TYPES, REPAYMENT_METHODS }
 import { fittedRateText, monthlyPayment, monthsBetween, monthsFromPayment, principalFromPayment, rateText } from "../loanMath.ts";
 import { putRow, rowAt, type StateRow } from "../rows.ts";
 import { formatYearMonth, formatYen } from "../units.ts";
+import { readYearMonth } from "../when.ts";
 
 type Obj = Record<string, unknown>;
 const debts = (h: Household) => h.debts;
@@ -283,7 +284,7 @@ function payoffField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" |
         const s = x === undefined ? null : resolveTimepoint(w.request.input.household, x.start);
         if (x === undefined || s === null) return { value: null };
         const ym = addMonths(s, x.repayment.termMonths);
-        return { value: ym, hint: formatYearMonth(ym) };
+        return { value: ym, hint: readYearMonth(ym, w.request.input.baseMonth) };
       },
       set: (w, v) => {
         if (typeof v !== "string") return w;
@@ -628,7 +629,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
           const v = moveInOf(h, hsOf(w));
           // 今の残高から入れた住まいの住宅ローンで控除の条件が無ければ、未入力の警告（黙って控除を0円にしない）。当てはまらないなら「該当なし」
           const unentered = v === null && hsOf(w) === undefined && fromBalance(w, d.id) && !creditNotApplicable(w, d.id);
-          return { value: v, ...(v !== null ? { hint: formatYearMonth(v) } : {}), ...(unentered ? { estimated: CREDIT_UNENTERED } : {}) };
+          return { value: v, ...(v !== null ? { hint: readYearMonth(v, w.request.input.baseMonth) } : {}), ...(unentered ? { estimated: CREDIT_UNENTERED } : {}) };
         },
         set: (w, v) => {
           if (typeof v !== "string") return w;

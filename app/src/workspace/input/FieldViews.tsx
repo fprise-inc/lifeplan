@@ -14,7 +14,7 @@ import type { WorkingHousehold } from "./household.ts";
 import { availableOps, fieldStatus, FILL_LABEL, fillTitle, OP_LABELS, STATUS_LABELS, typeValue, type StateOp, type ValueStatus } from "./valueState.ts";
 import { formatYearMonth, formatYen, fromPeriod, normalizeNumberText, parseInteger, parseYearMonth, parseYen, pctFromRate, rateFromPct, toPeriod, type YenPeriod, type YenUnit } from "./units.ts";
 import { revealAdded, revealOpened } from "../../presentation/revealAdded.ts";
-import { convertWhen, modeOf, parseWhen, readWhen, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
+import { convertWhen, modeOf, parseWhen, readWhen, readYearMonth, showWhen, WHEN_MODE_LABEL, withPerson, type WhenCtx, type WhenMode } from "./when.ts";
 
 export const visible = (level: Level, l: Level) => level === "detail" || l === "simple";
 
@@ -677,7 +677,8 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
     ) : (f.kind === "int" || f.kind === "decimal") && f.suffix !== undefined ? (
       <span class="suffix">{f.suffix}</span>
     ) : null;
-  const hint = state.hint ?? (f.kind === "ym" && typeof state.value === "string" ? formatYearMonth(state.value) : null);
+  // 年月の欄は、どれも欄に「2041-06」、横に和暦（今より後なら「今から○年後」も）。欄ごとの読み（生年月の年齢など）があればそちら
+  const hint = state.hint ?? (f.kind === "ym" && typeof state.value === "string" ? readYearMonth(state.value, wh.request.input.baseMonth) : null);
   return (
     <div class={`fld${shownStatus === "estimated" ? " is-est" : shownStatus !== null && shownStatus !== "confirmed" ? ` is-${STATUS_CLASS[shownStatus]}` : ""}`} data-field={f.key}>
       <div class="fld-l">
@@ -737,7 +738,7 @@ export function Field({ f, wh, onEdit }: { f: FieldDef; wh: WorkingHousehold; on
 
 /** 入れ方の選び方の並び（欄で使える入れ方だけ） */
 const MODE_ORDER: readonly WhenMode[] = ["age", "ym", "event", "now"];
-const PLACEHOLDER: Record<WhenMode, string> = { age: "例: 60歳", ym: "例: 2041年6月", event: "例: 10年後・翌月", now: "例: 5年後" };
+const PLACEHOLDER: Record<WhenMode, string> = { age: "例: 60歳", ym: "例: 2041-06", event: "例: 10年後・翌月", now: "例: 5年後" };
 
 /** 時点の欄の読み取り（欄の決まりの範囲の確かめを含む） */
 function readText(time: TimeView, wh: WorkingHousehold, ctx: WhenCtx, text: string): { tp: Timepoint | null } | { reason: string } {
@@ -805,7 +806,7 @@ function WhenField({ f, time, state, label, badge, id, wh, onEdit, warn, status,
           type="text"
           class={`when-in${problem !== null && live !== null ? " bad" : ""}`}
           value={draft ?? shown}
-          placeholder={fittingPlaceholder("when-in", state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : null, mode === "ym" && time.when.dateStyle === "birth" ? "例: 2041-06" : PLACEHOLDER[mode])}
+          placeholder={fittingPlaceholder("when-in", state.raw === null && time.when.nullText !== undefined ? `空欄＝${time.when.nullText}` : null, PLACEHOLDER[mode])}
           aria-invalid={live !== null && "reason" in live ? true : undefined}
           aria-describedby={`${id}-read`}
           onFocus={() => setDraft(shown)}

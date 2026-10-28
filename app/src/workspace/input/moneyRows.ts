@@ -18,6 +18,8 @@ import { mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "
 import { GROWTH_KINDS, memberLabel } from "./labels.ts";
 import { onContingencyDetailFields, onContingencyFields } from "./stages/onContingency.ts";
 import { stagedBadge, stagedGroups } from "./staged.ts";
+import { wareki } from "./units.ts";
+import { readYearMonth } from "./when.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -363,7 +365,11 @@ function supportChildBirth(wh: WorkingHousehold, p: PeriodicExpense): FieldDef |
     find: byId((hh) => hh.members, kid.id),
     path: ["birth", "birthYearMonth"],
     help: "終わり（20歳になる月など）はこの生年月で決まります。介護・親のカードの「世帯の外の家族」と同じ欄です",
-    hint: (v) => (typeof v === "string" ? `${String(ageAt({ ...kid, birth: { ...kid.birth, birthYearMonth: v } }, base))}歳` : null),
+    hint: (v) => {
+      if (typeof v !== "string") return null;
+      const age = ageAt({ ...kid, birth: { ...kid.birth, birthYearMonth: v } }, base);
+      return age < 0 ? readYearMonth(v, base) : `${String(age)}歳（${wareki(v)}）`;
+    },
   });
   return withAddress(f, () => ({ target: { member: kid.id }, item: "member.birth", at: ["birthYearMonth"] }));
 }
