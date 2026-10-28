@@ -1752,7 +1752,7 @@
         "exceptions": { "title": "例外の年（0040。その年の支払いだけ別の額・0円）", "x-item": "periodicExpense.exceptions", "type": "array", "items": { "$ref": "#/$defs/amountException" } },
         "onContingency": { "title": "万一のときの扱い（払う人を入れたときは、その人の万一だけに当てる）", "x-item": "periodicExpense.onContingency", "$ref": "#/$defs/onContingency" },
         "monthly": { "title": "額は月額（最初の月から終わりの月まで毎月。何年ごとは1だけ。0044）", "x-item": "periodicExpense.monthly", "type": "boolean" },
-        "kind": { "title": "出るお金の種類（表示と表の行の既定。計算はあげる贈与 gift だけが変える。0044）", "x-item": "periodicExpense.kind", "$ref": "#/$defs/moneyOutKind" },
+        "kind": { "title": "出るお金の種類（表示と表の行の既定。計算はあげる贈与 gift と、世帯の外の子への養育費・仕送りの行がある間の扶養の判定が変える。0044）", "x-item": "periodicExpense.kind", "$ref": "#/$defs/moneyOutKind" },
         "counterparty": { "title": "相手（誰へ。構成員。多くは世帯の外の家族。0044）", "x-item": "periodicExpense.counterparty", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "payer": { "title": "払う人（世帯の中の構成員。万一のときの扱いは、この人の万一だけに当てる。省略は世帯。0044）", "x-item": "periodicExpense.payer", "$ref": "urn:financia:schema:common#/$defs/uuid" },
         "priority": { "title": "優先度（必要・希望・夢。計算には使わない。0044）", "x-item": "periodicExpense.priority", "$ref": "#/$defs/priority" },

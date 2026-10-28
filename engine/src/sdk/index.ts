@@ -82,7 +82,7 @@ export { isUnder } from "../ids/cfTree.ts";
 export { netByYear, tableYear } from "../engine/aggregate.ts";
 export { boxValue } from "./box.ts";
 export { stagedYen, stageSteps, stageAt, type StagedYen, type StageStep } from "./stages.ts";
-export { INCOME_KIND_DEFAULTS, incomeTreatment, incomeRow, isOnceRow, moneyRowPayments, counterpartyStop, COUNTERPARTY_DEATH_TOPIC, type MoneyRowPayment, type MoneyRowInput } from "./moneyRows.ts";
+export { INCOME_KIND_DEFAULTS, incomeTreatment, incomeRow, isOnceRow, moneyRowPayments, counterpartyStop, COUNTERPARTY_DEATH_TOPIC, outsideChildSupported, OUTSIDE_CHILD_SUPPORT_READS, type MoneyRowPayment, type MoneyRowInput } from "./moneyRows.ts";
 export type * from "./contracts.ts";
 export { fail } from "./fail.ts";
 export { ageMonth, estimateUnemploymentClaim, UNEMPLOYMENT_ESTIMATE_MIN_IDLE_MONTHS, annualReturn, accountReturnRate, accountMixAt, shockShare, INVEST_KINDS, monthsIn, paymentsIn, paymentsInYear, paidByYear, amountInYear, fiscalYearOf, residentTaxYearOf, fiscalYearStart, fiscalYearEnd, installmentMonths, installmentFlows, reductionRatio, assessedPremium, rateOverride, pensionSpecial, PENSION_SPECIAL_MINIMUM, EMPLOYEE_TYPES, EMPLOYER_HEALTH_KINDS, EMPLOYEE_PENSION_KINDS, grownByYear, monthlyParts, evenMonthPayments, spousesAt, childrenOf, deathMonthIn, isOutside, hasWallet, outsidePeriodAt, outsideIncomeEver, householdMembers, sameHousehold, contingencyRatio, exemptionMonths, EXEMPTION_WEIGHT_IDS, EXEMPTION_WEIGHT_DENOMINATOR, landBuildingValuer, USEFUL_LIFE, LAND_SHARE, RESIDUAL_FLOOR, SALE_COST_RATE } from "./helpers.ts";
