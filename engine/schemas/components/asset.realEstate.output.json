@@ -78,6 +78,67 @@
               "rooms": { "type": "integer", "minimum": 0 },
               "houses": { "type": "integer", "minimum": 0 }
             }
+          },
+          "cash": {
+            "description": "分析の数字の材料（1.2。0082）: 計算基準年から、持っている月が表にある年ごと。表に載る月（計算基準月から）の分の貸している月数・満室のときの収入（空室を見込む前。礼金・更新料は入れない。民泊・宿は稼働率100%の売上、月の売上で入れたときは null）・受け取った収入・経費（大きな修繕を除く）・大きな修繕",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["year", "months", "gross", "rent", "expenses", "repairs"],
+              "properties": {
+                "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+                "months": { "type": "integer", "minimum": 0, "maximum": 12 },
+                "gross": { "oneOf": [{ "type": "null" }, { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }] },
+                "rent": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "expenses": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                "repairs": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+              }
+            }
+          },
+          "facts": {
+            "description": "物件の事実（1.2。0082）: 取得価額の合計・取得時の諸費用・自己資金、建った年、法定耐用年数、減価償却が終わる年（建物・建物附属設備。無ければ null）、民泊・宿の1泊の単価・稼働率・営業日数",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["acquisition", "builtYear", "legalLife", "depreciationEnd"],
+            "properties": {
+              "acquisition": {
+                "oneOf": [
+                  { "type": "null" },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["total", "costs"],
+                    "properties": {
+                      "total": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                      "costs": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                      "equity": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                    }
+                  }
+                ]
+              },
+              "builtYear": { "$ref": "urn:financia:schema:common#/$defs/year" },
+              "legalLife": { "type": "integer", "minimum": 1 },
+              "depreciationEnd": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["building", "equipment"],
+                "properties": {
+                  "building": { "oneOf": [{ "type": "null" }, { "type": "integer" }] },
+                  "equipment": { "oneOf": [{ "type": "null" }, { "type": "integer" }] }
+                }
+              },
+              "lodging": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["nightly", "occupancy", "days"],
+                "properties": {
+                  "nightly": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "occupancy": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+                  "days": { "type": "integer", "minimum": 0, "maximum": 366 }
+                }
+              }
+            }
           }
         }
       }

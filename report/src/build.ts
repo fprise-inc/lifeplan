@@ -3,7 +3,9 @@
 //   2つの計算の差（提案−現状など）もここで取る。帳票（Typst）の側では計算しない。
 // - 世帯の内部 ID（構成員・物の ID）、氏名・宛名、FP のメモ、カスタム計算の印は写さない（0009 の9・0016 の2）。
 // - 構成員の呼び方と表の行の決め方は、アプリの提示の値（app/src/workspace/roles.ts・present.ts）と同じにしている。
-import type { EngineOutput, EngineRequest, ProposalBundle, RealEstateDetail, Run, TableCell } from "./bundle.ts";
+import type { EngineOutput, EngineRequest, ProposalBundle, RealEstateAnalysisAmounts, RealEstateAnalysisYear, RealEstateDetail, Run, TableCell } from "./bundle.ts";
+import { saleCompareOf, type SaleResult } from "./rentalSale.ts";
+import { pctText, timesText } from "./rentalText.ts";
 import { selectChapters } from "./chapters.ts";
 import { bsSeries, BS_GROUP_LABEL, groupTotal, type BsGroup } from "./bsGroups.ts";
 import { DEFAULT_MONEY_THREE, moneyThreeModel, type MoneyThreeModel } from "./moneyThree.ts";
@@ -25,6 +27,10 @@ import {
   type ProtectionView,
   type RealEstateByPlan,
   type RealEstateProperty,
+  type RentalMetrics,
+  type RentalPropertyView,
+  type RentalView,
+  type RentalYearRow,
   type ScenarioView,
   type YearPoint,
   type YearTable,
@@ -1216,9 +1222,12 @@ export function realEstateOf(run: Run): RealEstateProperty[] {
     });
     const sum = (k: "rent" | "expenses" | "loanRepayment" | "cashAfterLoan") => rows.reduce((s, x) => s + x[k], 0);
     const structure = p?.structure ?? "wood";
+    const named = rentalNameOf(req, d.object);
     return {
       key: `property${i + 1}`,
       label: `不動産${i + 1}`,
+      name: named.name,
+      kind: named.kind,
       owner: owner === undefined ? null : { key: owner.key, label: owner.label },
       use: p?.rental !== undefined ? "rental" : "held",
       structure: { key: structure, label: STRUCTURE_LABEL[structure] ?? structure },
@@ -1238,6 +1247,129 @@ function realEstate(ctx: Ctx): RealEstateByPlan {
     proposal: realEstateOf(ctx.bundle.proposal),
     plans: c === undefined || c.plans.length < 2 ? [] : c.plans.slice(0, 6).map((p) => ({ letter: p.letter, name: p.name, properties: realEstateOf(p.run) })),
   };
+}
+
+// ---- 収益不動産のまとめ（公式の帳票の章。提案のプランの貸している物件。0082）----
+
+const RENTAL_KIND_LABEL: Record<string, string> = {
+  condo: "区分マンション",
+  apartment: "一棟アパート",
+  mansion: "一棟マンション",
+  house: "戸建て",
+  commercial: "店舗/事務所",
+  parking: "駐車場",
+  land: "貸している土地",
+  lodging: "民泊・宿",
+};
+
+/** 物件名（入れていなければ「物件1」。収益不動産の物件の並びの番号）と種類。提案書の PDF には物件名を載せる（所在地・メモは載せない。0082） */
+function rentalNameOf(req: EngineRequest, object: string): { name: string | null; label: string; kind: { key: string; label: string } | null } {
+  const props = (req.input.household.accounts ?? []).filter((a) => a.kind === "realEstate" && a.property !== undefined);
+  const i = props.findIndex((a) => a.id === object);
+  const p = props[i]?.property as { name?: string; kind?: string } | undefined;
+  const name = p?.name !== undefined && p.name.trim() !== "" ? p.name.trim() : null;
+  const kind = p?.kind === undefined ? null : { key: p.kind, label: RENTAL_KIND_LABEL[p.kind] ?? p.kind };
+  return { name, label: name ?? `物件${i + 1}`, kind };
+}
+
+/** 月の手残り（年の手残り÷貸している月数。0の側へ切り捨て。画面と同じ） */
+const monthlyOf = (v: number, months: number): number => (months > 0 ? Math.trunc(v / months) : 0);
+
+function rentalMetrics(y: RealEstateAnalysisYear | undefined, lodging: boolean): RentalMetrics | null {
+  if (y === undefined) return null;
+  return {
+    year: y.year,
+    grossYield: lodging ? "—" : pctText(y.grossYield),
+    netYield: pctText(y.netYield),
+    breakEven: pctText(y.breakEven),
+    repaymentRatio: pctText(y.repaymentRatio),
+    dscr: timesText(y.dscr),
+    ltv: pctText(y.ltv),
+    ccr: pctText(y.ccr),
+    monthlyBeforeTax: monthlyOf(y.cashBeforeTax, y.months),
+    monthlyAfterTax: monthlyOf(y.cashAfterTax, y.months),
+    equity: y.equity,
+    age: y.age,
+    remainingLife: y.remainingLife,
+    lodging: y.lodging === undefined ? null : { occupancy: pctText(y.lodging.occupancy), nightly: y.lodging.nightly, days: y.lodging.days, sales: y.lodging.sales },
+  };
+}
+
+const rentalRow = (y: RealEstateAnalysisAmounts, deadCross: number | null): RentalYearRow => ({
+  year: y.year,
+  rent: y.rent,
+  expenses: y.expenses,
+  repairs: y.repairs,
+  depreciation: y.depreciation,
+  interest: y.interest,
+  income: y.income,
+  repayment: y.repayment,
+  cashBeforeTax: y.cashBeforeTax,
+  tax: y.tax,
+  cashAfterTax: y.cashAfterTax,
+  loanBalance: y.loanBalance,
+  value: y.value,
+  deadCross: deadCross === y.year,
+});
+
+function rental(ctx: Ctx): RentalView | null {
+  const run = ctx.bundle.proposal;
+  const a = run.result.summary.realEstateAnalysis;
+  if (a === undefined || a.properties.length === 0) return null;
+  const req = run.request;
+  const shown = new Set(ctx.years);
+  const pointYear = ctx.years[0] ?? ctx.baseYear;
+  const details = run.result.summary.realEstate ?? [];
+  const accounts = req.input.household.accounts ?? [];
+  const endYear = ctx.years.at(-1) ?? req.input.endYear;
+  const properties: RentalPropertyView[] = a.properties.map((p) => {
+    const i = details.findIndex((d) => d.object === p.object);
+    const acc = accounts.find((x) => x.id === p.object);
+    const prop = acc?.property;
+    const owner = ctx.rs.find((r) => r.member.id === p.owner);
+    const structure = prop?.structure ?? "wood";
+    const n = rentalNameOf(req, p.object);
+    const years = p.years.filter((y) => shown.has(y.year));
+    const at = years.find((y) => y.year === pointYear && y.months > 0) ?? years.find((y) => y.months > 0);
+    const sc = ctx.bundle.rentalSale?.find((x) => x.object === p.object);
+    const cmp = sc === undefined ? null : saleCompareOf(p.object, endYear, sc.variants.map((v) => v.variant), sc.variants.map((v) => v.run.result as unknown as SaleResult));
+    return {
+      key: `property${(i < 0 ? 0 : i) + 1}`,
+      label: n.label,
+      kind: n.kind,
+      owner: owner === undefined ? null : { key: owner.key, label: owner.label },
+      structure: { key: structure, label: STRUCTURE_LABEL[structure] ?? structure },
+      builtYear: p.builtYear,
+      acquisition: p.acquisition === null || prop?.acquisition === undefined ? null : { month: prop.acquisition.at, total: p.acquisition.total, costs: p.acquisition.costs, equity: p.acquisition.equity ?? null },
+      legalLife: p.legalLife,
+      depreciationEnd: { ...p.depreciationEnd },
+      deadCross: p.deadCross !== null && p.deadCross <= endYear ? p.deadCross : null,
+      lodging: p.lodging,
+      point: rentalMetrics(at, p.lodging),
+      years: years.map((y) => rentalRow(y, p.deadCross)),
+      exit: p.exit === null ? null : { month: p.exit.ym, price: p.exit.price, costs: p.exit.costs, proceeds: p.exit.proceeds, loanPayoff: p.exit.loanPayoff, tax: p.exit.tax, net: p.exit.net },
+      saleCompare: cmp === null || cmp.rows.length < 2 ? null : { endYear: cmp.endYear, rows: cmp.rows.map((r) => ({ label: r.label, current: r.current, net: r.net, financialEnd: r.financialEnd, diff: r.diff, equityEnd: r.equityEnd })) },
+    };
+  });
+  let total: RentalView["total"] = null;
+  if (a.properties.length >= 2) {
+    const ty = a.total.filter((y) => shown.has(y.year));
+    const t = ty.find((y) => y.year === pointYear) ?? ty[0];
+    // 合計の月の手残りは物件ごとの（手残り÷月数）の合計（画面と同じ）
+    const monthly = (k: "cashBeforeTax" | "cashAfterTax") =>
+      Math.trunc(a.properties.reduce((s, p) => {
+        const y = p.years.find((x) => x.year === t?.year);
+        return y === undefined || y.months === 0 ? s : s + y[k] / y.months;
+      }, 0));
+    total = {
+      point:
+        t === undefined
+          ? null
+          : { year: t.year, grossYield: pctText(t.grossYield), netYield: pctText(t.netYield), breakEven: pctText(t.breakEven), repaymentRatio: pctText(t.repaymentRatio), dscr: timesText(t.dscr), ltv: pctText(t.ltv), ccr: pctText(t.ccr), monthlyBeforeTax: monthly("cashBeforeTax"), monthlyAfterTax: monthly("cashAfterTax"), equity: t.equity, age: null, remainingLife: null, lodging: null },
+      years: ty.map((y) => rentalRow(y, null)),
+    };
+  }
+  return { pointYear, properties, total };
 }
 
 export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
@@ -1282,6 +1414,7 @@ export function buildProposalInput(bundle: ProposalBundle): ProposalInput {
     marketDrop: marketDrop(ctx),
     moneyThree: moneyThreeOf(ctx),
     realEstate: realEstate(ctx),
+    rental: rental(ctx),
     layout: { ...DEFAULT_LAYOUT, ...bundle.layout },
   };
   return bundle.chapters !== undefined ? selectChapters(input, bundle.chapters) : input;

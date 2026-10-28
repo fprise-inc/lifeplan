@@ -1,0 +1,33 @@
+/* 収益不動産のタブ（物件ごと・年ごとの分析の数字。0082） */
+.rt-tab { display: flex; flex-direction: column; gap: 14px; }
+.rt-tab .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rt-tab .num.neg { color: var(--short-ink); }
+.rt-card { padding: 16px 20px 14px; }
+.rt-facts { margin: 6px 0 4px; color: var(--ink-2); font-size: 0.9rem; }
+.rt-unit { font-size: 0.82rem; color: var(--ink-2); }
+.rt-empty { margin: 0; color: var(--ink-2); }
+.rt-h3 { font-size: 0.95rem; margin: 14px 0 8px; display: flex; align-items: center; gap: 6px; }
+
+/* 指標（並べた札） */
+.rt-metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin: 0; }
+.rt-metric { border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 12px; background: var(--card); display: flex; flex-direction: column; gap: 2px; }
+.rt-metric dt { font-size: 0.8rem; color: var(--ink-2); font-weight: 700; display: flex; align-items: center; gap: 4px; }
+.rt-metric dd { margin: 0; font-size: 1.15rem; font-weight: 700; text-align: left; }
+
+/* 表 */
+.rt-scroll { overflow-x: auto; }
+.rt-years { max-height: min(60vh, 640px); overflow-y: auto; }
+.rt-table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+.rt-table th, .rt-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+.rt-table thead th { font-weight: 700; position: sticky; top: 0; background: var(--card); z-index: 1; border-bottom: 1.5px solid var(--line); white-space: nowrap; }
+.rt-table tbody th { font-weight: 400; white-space: nowrap; }
+.rt-table tfoot th, .rt-table tfoot td { font-weight: 700; border-top: 1.5px solid var(--line); border-bottom: none; }
+.rt-table tr.cur th, .rt-table tr.cur td { font-weight: 700; background: var(--prop-bg); }
+.rt-years tbody tr { cursor: pointer; }
+.rt-years tbody tr:hover { background: var(--sel-bg); }
+.rt-years tbody tr.sel { background: var(--prop-bg); }
+.rt-year { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.rt-year[aria-pressed="true"] { font-weight: 700; color: var(--prop-ink); }
+.rt-mark { display: inline-block; margin-left: 6px; font-size: 0.72rem; font-weight: 700; color: var(--est-ink); border: 1px solid var(--est); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+.rt-legend { margin: 8px 0 0; font-size: 0.82rem; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+.rt-legend .rt-mark { margin-left: 0; }

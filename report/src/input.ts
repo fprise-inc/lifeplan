@@ -295,6 +295,88 @@ export interface ProposalInput {
    * 案ごと（現状・提案・案の比較の各案）。持っていない案は空の配列（ページを出さない判断に使う）。省略は、この欄の前の版の入力
    */
   realEstate?: RealEstateByPlan;
+  /** 収益不動産のまとめ（公式の帳票。提案のプランの貸している物件。0082）。物件が無い・章を外したときは null。省略は、この欄の前の版の入力 */
+  rental?: RentalView | null;
+}
+
+/** 収益不動産のまとめ（公式の帳票の章。提案のプラン。0082） */
+export interface RentalView {
+  /** 指標を見る年（表に出す最初の年。basis.years の最初の年） */
+  pointYear: number;
+  /** 物件ごと（世帯の並び順） */
+  properties: RentalPropertyView[];
+  /** 全物件の合計（物件が2件以上のときだけ。1件なら null） */
+  total: { point: RentalMetrics | null; years: RentalYearRow[] } | null;
+}
+
+/** 物件の1枚 */
+export interface RentalPropertyView {
+  /** 提示用の鍵（realEstate の key と同じ。property1 …） */
+  key: string;
+  /** 物件名（入れていなければ「物件1」など。提案書の PDF には載せる。所在地・メモは載せない） */
+  label: string;
+  /** 種類（区分マンション・一棟アパートなど。入れていなければ null） */
+  kind: { key: string; label: string } | null;
+  owner: { key: string; label: string } | null;
+  structure: { key: BuildingStructureKey; label: string };
+  builtYear: number | null;
+  /** 取得の年月・取得価額の合計・取得時の諸費用・自己資金（入れていなければ null） */
+  acquisition: { month: string; total: Yen; costs: Yen; equity: Yen | null } | null;
+  legalLife: number | null;
+  /** 減価償却が終わる年（建物・建物附属設備。null は償却が無いか、売るまで終わらない） */
+  depreciationEnd: { building: number | null; equipment: number | null };
+  /** 元金の返済が減価償却費を上回る最初の年（表の期間に無ければ null） */
+  deadCross: number | null;
+  /** 民泊・宿（表面利回りの代わりに稼働率・1泊の単価・営業日数・年の売上） */
+  lodging: boolean;
+  /** pointYear（持っていなければ最初に持っている年）の指標 */
+  point: RentalMetrics | null;
+  /** 年ごと（basis.years のうち、持っている月が表にある年） */
+  years: RentalYearRow[];
+  /** 今の予定の売却（税引後の手取り）。売らなければ null */
+  exit: { month: string; price: Yen; costs: Yen; proceeds: Yen; loanPayoff: Yen; tax: Yen; net: Yen } | null;
+  /** 売る年を変えた比べ（材料が無ければ null） */
+  saleCompare: { endYear: number; rows: { label: string; current: boolean; net: Yen | null; financialEnd: Yen; diff: Yen; equityEnd: Yen | null }[] } | null;
+}
+
+/** 年ごとの数字（物件と合計で同じ。金額は表に載る月の分） */
+export interface RentalYearRow {
+  year: number;
+  rent: Yen;
+  expenses: Yen;
+  repairs: Yen;
+  depreciation: Yen | null;
+  interest: Yen | null;
+  income: Yen | null;
+  repayment: Yen;
+  cashBeforeTax: Yen;
+  tax: Yen;
+  cashAfterTax: Yen;
+  loanBalance: Yen;
+  value: Yen | null;
+  /** 元金の返済が減価償却費を上回る最初の年 */
+  deadCross: boolean;
+}
+
+/** 指標（率は書式を当てた文字列。分母が0・無いときは「—」） */
+export interface RentalMetrics {
+  year: number;
+  grossYield: string;
+  netYield: string;
+  breakEven: string;
+  repaymentRatio: string;
+  dscr: string;
+  ltv: string;
+  ccr: string;
+  /** 月の手残り（税引前・税引後。年換算÷12） */
+  monthlyBeforeTax: Yen;
+  monthlyAfterTax: Yen;
+  /** 含み益（評価額−ローン残高） */
+  equity: Yen | null;
+  age: number | null;
+  remainingLife: number | null;
+  /** 民泊・宿の稼働率・1泊の単価・営業日数・年の売上 */
+  lodging: { occupancy: string; nightly: Yen; days: number; sales: Yen } | null;
 }
 
 /** 建物の構造（エンジンの BuildingStructure と同じ値） */
@@ -312,8 +394,12 @@ export interface RealEstateByPlan {
 export interface RealEstateProperty {
   /** 提示用の鍵（property1・property2 …。その案の世帯の不動産の並び順。物の ID ではない） */
   key: string;
-  /** 呼び方（例: 「不動産1」。世帯ファイルに物件の名前の欄は無い） */
+  /** 呼び方（例: 「不動産1」。世帯の並び順） */
   label: string;
+  /** 物件名（入れていれば。所在地・メモは入らない。0082） */
+  name?: string | null;
+  /** 種類（入れていれば。0082） */
+  kind?: { key: string; label: string } | null;
   /** 名義の人（構成員の提示用の鍵と呼び方。members と同じ） */
   owner: { key: string; label: string } | null;
   /** 種類: rental は貸している（家賃収入の入力がある）、held は貸していない */

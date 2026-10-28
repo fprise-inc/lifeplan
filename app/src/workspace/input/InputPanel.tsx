@@ -26,6 +26,7 @@ import { StatusBadge } from "./StatusBadge.tsx";
 import { SavingsPanel } from "./savings/SavingsPanel.tsx";
 import { InsuranceOverview } from "./InsuranceOverview.tsx";
 import { RentalOverview } from "./RentalOverview.tsx";
+import { useRentalFigures } from "../rentalTab.ts";
 import { useInsuranceView } from "./insuranceView.ts";
 import { historyScope, undoController, useUndoScope } from "../undo/controller.ts";
 import { deepEqual, UndoHistory } from "../undo/history.ts";
@@ -78,6 +79,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const shown = useMemo(() => (plan === undefined ? draft : planView(draft, plan.cat, plan.id)), [draft, plan]);
   /** 相続・贈与のカードの相続税の目安（計算の結果から読むだけ） */
   const inheritance = useInheritanceEstimate(shown, itemId === "inheritance", computeOne);
+  const rentalFig = useRentalFigures(shown.request, itemId === "rental", computeOne);
   /** 保険のカードの保障の見え方（必要保障額の推移・大きな病気の想定を計算して読むだけ。0055） */
   const insurance = useInsuranceView(shown, itemId === "insurance", computeOne);
   /** 年金のカードの年金の見込み（計算の結果から読むだけ。プランを直しているときは、そのプランの額） */
@@ -491,7 +493,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
               <SectionLinks.Provider value={links}>
                 {itemId === "insurance" ? <InsuranceOverview wh={shown} view={insurance} onEdit={edit} /> : null}
                 {/* 収益不動産: 上に物件の一覧（読むだけ。入力から出せる数字だけ。0079） */}
-                {itemId === "rental" ? <RentalOverview wh={shown} /> : null}
+                {itemId === "rental" ? <RentalOverview wh={shown} figures={rentalFig} /> : null}
                 {sections.map((s) => (
                   <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />
                 ))}

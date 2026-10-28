@@ -30,12 +30,13 @@
 | `assets`・`balanceSheet` | 金融資産の推移、資産と負債 |
 | `comparison` | 案の比較（列は現状と各案） |
 | `realEstate` | 住まい以外の不動産の物件ごとの数字（下） |
+| `rental` | 収益不動産のまとめ（公式の帳票の章の材料。下。物件が無い・章を外したときは null） |
 
 欄を足すときは、同じ版の中で任意の欄として足します。古い入力では無いことがあるので、`data.at("realEstate", default: …)` のように読みます。
 
 ## 住まい以外の不動産の物件ごとの数字（`realEstate`）
 
-公式の帳票は使わない、独自帳票のための値です。収益不動産を扱う帳票（物件ごとの収支・ローン・評価額）を作るときに読みます。
+独自帳票のための値です（公式の帳票の収益不動産のまとめは、下の `rental` を読みます）。収益不動産を扱う帳票（物件ごとの収支・ローン・評価額）を作るときに読みます。
 
 - `realEstate.current`・`realEstate.proposal` … 現状と提案の物件の配列。`realEstate.plans` … 案の比較の各案（`letter`・`name`・`properties`。案の比較が無ければ空）
 - 持っていない案は**空の配列**です。ページを出すかどうかはこれで決めます。
@@ -45,7 +46,8 @@
 
 | 欄 | 中身 |
 |---|---|
-| `key`・`label` | 提示用の鍵（`property1` …）と呼び方（不動産1 …）。世帯の並び順。物件の名前の欄はまだありません |
+| `key`・`label` | 提示用の鍵（`property1` …）と呼び方（不動産1 …）。世帯の並び順 |
+| `name`・`kind` | 物件名（入れていれば。無ければ null）と種類（`key` は `condo`・`apartment` など、`label` は区分マンションなど）。所在地・メモは入りません |
 | `owner` | 名義の人（`members` と同じ `key`・`label`） |
 | `use` | `rental`（貸している）・`held`（貸していない） |
 | `structure` | 建物の構造（`key` は `wood`・`lightSteel`・`steel`・`rc`、`label` は木造など） |
@@ -66,9 +68,21 @@
 
 すべての物件の `rent` の合計は、キャッシュフロー表の「家賃収入」の行と同じです（経費も同じ）。
 
+## 収益不動産のまとめ（`rental`）
+
+公式の帳票の章「収益不動産のまとめ」の材料です。提案のプランの貸している物件の分析の数字（エンジンの `asset.realEstateAnalysis` の出力）に、書式を当てたものです。独自帳票からも読めます。
+
+- `rental.pointYear` … 指標を見る年（表の最初の年）
+- `rental.properties[]` … 物件ごと。`label`（物件名。無ければ物件1 …）・`kind`・`owner`・`structure`・`builtYear`・`acquisition`（取得の年月・取得価額の合計・諸費用・自己資金）・`legalLife`（法定耐用年数）・`depreciationEnd`（減価償却が終わる年）・`deadCross`（元金の返済が減価償却費を上回る最初の年）・`lodging`（民泊・宿）
+  - `point` … その年の指標。率は書式を当てた文字列（`5.2%`・`1.16倍`。分母が0・無いときは `—`）: `grossYield` 表面利回り（民泊・宿は `—`）・`netYield` 実質利回り・`breakEven` 損益分岐の入居率・`repaymentRatio` 返済比率・`dscr` 返済余裕率・`ltv` 借入の割合・`ccr` 自己資金に対する手残りの割合。`monthlyBeforeTax`・`monthlyAfterTax` 月の手残り（円）、`equity` 含み益、`age`・`remainingLife` 築年数・残りの耐用年数、`lodging` 民泊・宿の稼働率・1泊の単価・営業日数・年の売上
+  - `years[]` … 年ごと（表の年のうち持っている年）: `rent`・`expenses`・`repairs`・`depreciation`・`interest`・`income`・`repayment`・`cashBeforeTax`・`tax`（その物件で増える税と社会保険料の近似）・`cashAfterTax`・`loanBalance`・`value`・`deadCross`（その年が元金の返済が減価償却費を上回る最初の年か）
+  - `exit` … 今の予定の売却（手取り・ローンの一括返済・譲渡所得の税・税引後の手取り `net`）。売らなければ null
+  - `saleCompare` … 売る年を変えた比べ（`rows[]` の `label`・`current`・`net` 税引後の手取り・`financialEnd` 表の最後の年の金融資産・`diff` 今の予定との差・`equityEnd` 表の最後の年の評価額−ローン残高）。材料が無ければ null
+- `rental.total` … 全物件の合計（物件が2件以上のとき。`point` と `years`）。1件なら null
+
 ## 見本
 
-- `examples/reports/rental-property-summary/main.typ` … 収益不動産のまとめ。提案と現状の物件ごとに、見出し（名義・構造・建った年）、取得と売却、表の期間の合計、年ごとの表（年・家賃収入・経費・減価償却・利息・不動産所得・ローン残高・手残り・評価額）。物件が無ければ「ありません」の1ページ。
+- `examples/reports/rental-property-summary/main.typ` … 収益不動産のまとめ（独自帳票の作り方の見本。公式の帳票にも同じ名前の章があります）。提案と現状の物件ごとに、見出し（名義・構造・建った年）、取得と売却、表の期間の合計、年ごとの表（年・家賃収入・経費・減価償却・利息・不動産所得・ローン残高・手残り・評価額）。物件が無ければ「ありません」の1ページ。
 
 ## 今の制限（試験版）
 

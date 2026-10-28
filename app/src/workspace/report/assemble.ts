@@ -6,7 +6,9 @@
 //   （候補の鍵はそのプランの年。退職の年が違うプランなら、そのプランの退職の年）。画面の図と提案書の図を同じ時点にする（0027）
 // - 宛名は材料に入れない（本体が出力の PDF に重ねるだけ。0009 の3・0012）
 // - 推定の値: 提案書には「一部は統計の平均で補っています」とだけ書く。どの欄が推定かは FP 向けの画面（提案書のタブ・入力のカード）だけで示す
-import { buildProposalInput, CHAPTERS, DEFAULT_LAYOUT, type ChapterId, type ProposalBundle, type ProposalInput, type ReportLayout, type Run } from "../../../../report/src/index.ts";
+// - 収益不動産のまとめ（0082）: 章を載せるときだけ、提案の世帯の物件ごとに、売る年だけを変えた写しの要求（report/src/rentalSale.ts の
+//   saleVariants のうち今の予定でないもの。鍵は rentalSale:<物の ID>:<売り方の鍵>）を足す。今の予定の売り方は提案の計算を使う
+import { buildProposalInput, CHAPTERS, DEFAULT_LAYOUT, saleVariantRequest, saleVariants, type ChapterId, type ProposalBundle, type ProposalInput, type ReportLayout, type Run, type SaleVariant } from "../../../../report/src/index.ts";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
 import { adults, baseRequest, defaultYear, occursMonth, scenarioRequest, scenarios, survivorOf } from "../contingency/requests.ts";
 import type { WorkingHousehold } from "../input/household.ts";
@@ -16,6 +18,7 @@ import { CURRENT } from "../plans/band.ts";
 import type { Catalog } from "../plans/items.ts";
 import { applyValues, changesOfValues, type Values } from "../plans/plans.ts";
 import { METHODS, methodOf } from "../input/savings/model.ts";
+import { rentalProperties } from "../input/stages/rental.ts";
 import { resolveColumns } from "../../presentation/bsColumns.ts";
 import type { BsColumn, BsPointKey, MoneyThreeSettings } from "../../presentation/model.ts";
 import { BS_POINT_CHOICES, bsPlan, DEFAULT_BS_POINTS } from "../balanceTab.ts";
@@ -157,6 +160,26 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
   const compare = on.has("comparison") ? choice.compare.filter((id, i, a) => a.indexOf(id) === i).slice(0, 6) : [];
   if (compare.length >= 2) for (const id of compare) if (id !== CURRENT && id !== choice.proposal) requests[`plan:${id}`] = applyValues(wh, ctx.valuesOf(id), cat);
 
+  // 収益不動産のまとめ: 物件ごとの売る年を変えた比べ（今の予定は提案の計算）
+  type ReportRequest = Parameters<typeof saleVariants>[0];
+  const rentalSale: { object: string; variants: { variant: SaleVariant; key: string | null }[] }[] = [];
+  if (on.has("rental")) {
+    const r = proposal as unknown as ReportRequest;
+    for (const a of rentalProperties(proposal.input.household)) {
+      const variants = saleVariants(r, a.id);
+      if (variants.length === 0) continue;
+      rentalSale.push({
+        object: a.id,
+        variants: variants.map((v) => {
+          if (v.current) return { variant: v, key: null };
+          const key = `rentalSale:${a.id}:${v.key}`;
+          requests[key] = saleVariantRequest(r, a.id, v) as unknown as EngineRequest;
+          return { variant: v, key };
+        }),
+      });
+    }
+  }
+
   const bundle = (results: Readonly<Record<string, PreviewResult>>): ProposalBundle => {
     const run = (key: string): Run => {
       const r = results[key];
@@ -210,6 +233,7 @@ export function planReport(ctx: ReportContext, choice: ReportChoice): Plan {
         ...(on.has("marketDrop") ? { stress: STRESS_KEYS.map((k) => ({ label: stressLabel(proposal, k), run: run(`stress:${k}`) })) } : {}),
       };
     }
+    if (rentalSale.length > 0) b.rentalSale = rentalSale.map((x) => ({ object: x.object, variants: x.variants.map((v) => ({ variant: v.variant, run: v.key === null ? proposalRun : run(v.key) })) }));
     if (compare.length >= 2) {
       b.comparison = {
         base: Math.max(0, compare.indexOf(choice.base)),

@@ -1,24 +1,37 @@
-// 収益不動産の項目の上の「物件の一覧」（読むだけ。0079）。中身は stages/rental.ts の rentalOverview（入力から出せる数字だけ）
+// 収益不動産の項目の上の「物件の一覧」（読むだけ。0079）。中身は stages/rental.ts の rentalOverview（入力から出せる数字だけ）と、
+// 計算の結果の分析の数字の表の最初の年の表面利回り・実質利回り・月の手残り（税引前）（rentalTab.ts の rentalFigures。0082）。
+// 分析の数字は入力のパネルが世帯の今の要求を1回求めて渡す（求めている間・計算の道が無いときは「—」）
 import { Help } from "../../presentation/Help.tsx";
+import type { rentalFigures } from "../rentalTab.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { rentalOverview } from "./stages/rental.ts";
 
-const man = (yen: number) => `${Math.round(yen / 10000).toLocaleString("ja-JP")}万円`;
-const yen = (v: number) => `${v.toLocaleString("ja-JP")}円`;
+/** 分析の数字（null は計算の道が無いか数字が無い、"loading" は求めている間） */
+export type RentalOverviewFigures = ReturnType<typeof rentalFigures> | "loading";
 
-export function RentalOverview({ wh }: { wh: WorkingHousehold }) {
+const man = (yen: number) => `${Math.round(yen / 10000).toLocaleString("ja-JP")}万円`;
+const yen = (v: number) => `${v < 0 ? "▲" : ""}${Math.abs(v).toLocaleString("ja-JP")}円`;
+
+export function RentalOverview({ wh, figures = null }: { wh: WorkingHousehold; figures?: RentalOverviewFigures }) {
   const ov = rentalOverview(wh);
   if (ov === null) return null;
+  const f = figures === "loading" ? null : figures;
+  const fig = (id: string) => f?.byObject.get(id) ?? null;
+  const monthly = (v: number | null | undefined) => (v === null || v === undefined ? "—" : yen(v));
   return (
     <section class="in-section ip-rental" aria-label="物件の一覧" data-rental-overview>
       <h3>
         物件の一覧
         <Help label="物件の一覧">
           <p>読むだけです。入れた値から出しています。</p>
+          <p>
+            表面利回り・実質利回り・月の手残り（税引前）は、計算の結果の{f !== null ? `${f.year}年` : "表の最初の年"}の数字です（結果の「収益不動産」のタブと同じ）。合計の利回りは、物件の年の額を足してから出しています。
+          </p>
           <p>ローン残高は、今の残高を入れていればその値、入れていなければ借入額と最初の金利・返済の期間から出した今の月の目安です（金利の段階・繰上返済・ボーナス返済は入れていません）。月の収入は、家賃と共益費・駐車場などの月の収入から空室を見込む割合を引いた後の額です（礼金・更新料は入れていません）。民泊・宿は月の売上です。</p>
         </Help>
       </h3>
-      <table>
+      {figures === "loading" ? <p class="ip-rental-status">計算しています…</p> : null}
+      <table aria-busy={figures === "loading"}>
         <thead>
           <tr>
             <th scope="col">物件名</th>
@@ -26,6 +39,9 @@ export function RentalOverview({ wh }: { wh: WorkingHousehold }) {
             <th scope="col" class="num">評価額</th>
             <th scope="col" class="num">ローン残高</th>
             <th scope="col" class="num">月の収入（空室を見込んだ後）</th>
+            <th scope="col" class="num">表面利回り</th>
+            <th scope="col" class="num">実質利回り</th>
+            <th scope="col" class="num">月の手残り（税引前）</th>
           </tr>
         </thead>
         <tbody>
@@ -36,6 +52,9 @@ export function RentalOverview({ wh }: { wh: WorkingHousehold }) {
               <td class="num">{man(r.value)}</td>
               <td class="num">{r.loan > 0 ? man(r.loan) : "—"}</td>
               <td class="num">{yen(r.income)}</td>
+              <td class="num" data-rental-gross>{fig(r.id)?.grossYield ?? "—"}</td>
+              <td class="num">{fig(r.id)?.netYield ?? "—"}</td>
+              <td class="num">{monthly(fig(r.id)?.monthly)}</td>
             </tr>
           ))}
         </tbody>
@@ -46,6 +65,9 @@ export function RentalOverview({ wh }: { wh: WorkingHousehold }) {
             <td class="num">{man(ov.total.value)}</td>
             <td class="num">{ov.total.loan > 0 ? man(ov.total.loan) : "—"}</td>
             <td class="num">{yen(ov.total.income)}</td>
+            <td class="num">{f?.total.grossYield ?? "—"}</td>
+            <td class="num">{f?.total.netYield ?? "—"}</td>
+            <td class="num">{monthly(f?.total.monthly)}</td>
           </tr>
         </tfoot>
       </table>

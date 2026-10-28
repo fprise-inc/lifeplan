@@ -20,6 +20,8 @@ import { PlanBand } from "../presentation/PlanBand.tsx";
 import { BalanceTab, type BsView } from "../presentation/BalanceTab.tsx";
 import type { BsPlanModel, BsPrevModel } from "../presentation/model.ts";
 import { balanceTabModel, bsPlan, bsPrev } from "./balanceTab.ts";
+import { RentalTab } from "../presentation/RentalTab.tsx";
+import { analysisOf, hasRentalProperty, rentalTabModel, resolveRentalView, useRentalSale, type RentalUi } from "./rentalTab.ts";
 import { MONEY_THREE_NAME_CHOICES, moneyThreeModel } from "./moneyThree.ts";
 import { snapshotDateText, TRIGGER_TEXT } from "./snapshots/snapshots.ts";
 import { colorStyle, PLAN_COLORS } from "../presentation/planLines.tsx";
@@ -97,20 +99,29 @@ import { BasisLine, HouseholdNow } from "./header/HouseholdNow.tsx";
 import { barAlerts, barNotices, saveText, type AlertKind, type BarInputs, type NoticeTarget } from "./header/status.ts";
 import { TopBar } from "./header/TopBar.tsx";
 
-type Tab = "input" | "main" | "balance" | "contingency" | "report";
+type Tab = "input" | "main" | "balance" | "rental" | "contingency" | "report";
 /** FP のメニューから開く、入力のホームの中身 */
 type FpOpen = null | "snapTake" | "snapList" | "contents" | "year" | "review" | "imports";
 export const TABS: { id: Tab; label: string }[] = [
   { id: "input", label: "入力" },
   { id: "main", label: "結果" },
   { id: "balance", label: "資産と負債" },
+  // 収益不動産のある世帯（中身を持つ不動産の器がある）だけ出す（tabsFor）。0082
+  { id: "rental", label: "収益不動産" },
   { id: "contingency", label: "万一のとき" },
   { id: "report", label: "提案書" },
 ];
 
+/** 上のタブのうち、この世帯で出すもの（収益不動産のタブは物件のある世帯だけ） */
+export function tabsFor(req: EngineRequest | null): { id: Tab; label: string }[] {
+  const rental = req !== null && hasRentalProperty(req);
+  return TABS.filter((t) => t.id !== "rental" || rental);
+}
+
 /** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#fpmenu（上の帯の FP のメニューを開く）・#notices（結果のタブの計算の知らせを開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#add=pet,periodic（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
  * #items=loan,rate,shift,mix,surplus（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
- * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）） */
+ * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）・
+ * #tab=rental（収益不動産のタブ。物件の無い世帯では結果のタブ）・#rental=total|2（見るもの: 全体か物件の番号）・#rentalyear=2034（指標の年）） */
 export function parseHash(hash: string): {
   /** 文字を大きくした状態で開く */
   big: boolean;
@@ -193,6 +204,9 @@ export function parseHash(hash: string): {
   scroll?: "table";
   /** グラフの比べ方 */
   layout?: ChartLayout;
+  /** 収益不動産のタブの見るもの（"total" か物件の番号）と指標の年 */
+  rental?: string;
+  rentalYear?: number;
 } {
   const out: ReturnType<typeof parseHash> = { big: false, selfcheck: false };
   for (const part of hash.replace(/^#/, "").split("&")) {
@@ -251,6 +265,8 @@ export function parseHash(hash: string): {
     else if (k === "inv" && v !== undefined) out.inv = v.split(",").filter((x) => /^[a-z]+$/.test(x));
     else if (k === "mix" && v === "class") out.mix = "class";
     else if (k === "calc") out.calc = true;
+    else if (k === "rental" && v !== undefined && /^(total|\d{1,3})$/.test(v)) out.rental = v;
+    else if (k === "rentalyear" && v !== undefined && /^\d{4}$/.test(v)) out.rentalYear = Number(v);
   }
   return out;
 }
@@ -1629,6 +1645,20 @@ export function App() {
     const panes = donutPanes({ base: { name: names.base, req: baseReq, table: baseRes.table }, sel: { name: names.selected, req: selReq, table: selRes.table }, same: names.same, year, age, who: model.who, by: donutBy });
     return <DonutCard panes={panes} by={donutBy} onBy={setDonutBy} note={fixed !== null ? "グラフで固定した年の内訳です（もう一度押すと外れます）" : "グラフで年を押して固定すると、その年の内訳になります（いまは取り崩しを始める年）"} />;
   }, [donutOn, model, selReq, selRes, baseReq, baseRes, chartMode, selectedYear, names.base, names.selected, names.same, donutBy]);
+  // 収益不動産のタブ（0082）: 物件のある世帯だけ。見ているプランの結果の分析の数字と、見ている物件の売る年を変えた比べ（写しの要求）
+  const hasRental = opened !== null && hasRentalProperty(opened.wh.request);
+  const shownTabs = useMemo(() => tabsFor(opened === null ? null : opened.wh.request), [opened]);
+  useEffect(() => {
+    if (tab === "rental" && opened !== null && !hasRental) setTab("main");
+  }, [tab, opened, hasRental]);
+  const [rentalUi, setRentalUi] = useState<RentalUi>({ view: initial.rental ?? null, year: initial.rentalYear ?? null });
+  const rentalAnalysis = tab === "rental" ? analysisOf(selRes) : null;
+  const rentalObject = rentalAnalysis === null ? null : ((v) => (v === "total" ? null : v))(resolveRentalView(rentalAnalysis, rentalUi.view));
+  const rentalSale = useRentalSale(selReq, selRes, rentalObject, tab === "rental", computeOne);
+  const rentalModel = useMemo(
+    () => (tab !== "rental" || selReq === null || selRes === null ? null : rentalTabModel({ req: selReq, result: selRes, ui: rentalUi, sale: rentalSale, provisional })),
+    [tab, selReq, selRes, rentalUi, rentalSale, provisional],
+  );
   const multiHidden = { hidden: hiddenLines, onToggle: (k: string) => setHiddenLines((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k])) };
 
   // 表: 見る案（既定は選んだ案）と、基準との差
@@ -1872,7 +1902,7 @@ export function App() {
   return (
     <div class={`app${drawer ? " has-drawer" : ""}`}>
       <TopBar
-        tabs={TABS}
+        tabs={shownTabs}
         tab={tab}
         onTab={setTab}
         household={
@@ -2235,6 +2265,20 @@ export function App() {
                 onPointDefaults={(k) => putBsSettings({ points: k })}
                 moneyThree={{ model: m3Model, onSettings: (x) => putBsSettings({ moneyThree: { ...bsSettingsRef.current.moneyThree, ...x } }), flash: m3Flash, nameChoices: MONEY_THREE_NAME_CHOICES }}
                 initial={{ ...(initial.bsView !== undefined ? { view: initial.bsView } : {}), ...(initial.bsYear !== undefined ? { year: initial.bsYear } : {}), ...(initial.bsOpen !== undefined ? { open: initial.bsOpen } : {}), ...(initial.bsTable === true ? { table: true } : {}), ...(initial.bsSettings === true ? { settings: true } : {}) }}
+              />
+            </>
+          )
+        ) : tab === "rental" && opened !== null && hasRental ? (
+          rentalModel === null || band === null ? (
+            fatal === null ? <p class="loading">計算しています…</p> : null
+          ) : (
+            <>
+              {basis !== null ? <BasisLine {...basis} /> : null}
+              <RentalTab
+                model={rentalModel}
+                band={<PlanBand model={band} onSelect={select} onBase={setBase} onAdd={duplicate} onRemove={removePlan} />}
+                onView={(view) => setRentalUi({ view, year: null })}
+                onYear={(year) => setRentalUi((u) => ({ ...u, view: rentalModel.selected, year }))}
               />
             </>
           )
