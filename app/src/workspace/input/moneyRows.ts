@@ -264,7 +264,7 @@ export function defaultSupportChild(h: Household, dir: "in" | "out"): string | u
   return [...supportKids(h, dir)].sort((a, b) => b.birth.birthYearMonth.localeCompare(a.birth.birthYearMonth))[0]?.id;
 }
 
-/** 世帯の外の子（離れて暮らす子・前の結婚の子）を足す。生年月・性別は仮の値（払う養育費の行の「相手の子の生年月」で直す） */
+/** 世帯の外の子（離れて暮らす子・前の結婚の子）を足す。生年月は仮の値（払う養育費の行の「相手の子の生年月」で直す）。性別は推定の印を付けない */
 export function addOutsideChild(wh: WorkingHousehold, id: string = newId()): WorkingHousehold {
   const base = wh.request.input.baseMonth;
   const next = mutate(wh, (h) => {
@@ -275,7 +275,7 @@ export function addOutsideChild(wh: WorkingHousehold, id: string = newId()): Wor
     (h.relations ??= []).push({ type: "parentOf", parent: self.id, child: id });
   });
   if (!next.request.input.household.members.some((m) => m.id === id)) return next;
-  return { ...next, assumed: { ...next.assumed, [`family/${id}/birth`]: "仮の値", [`family/${id}/sex`]: "仮の値" } };
+  return { ...next, assumed: { ...next.assumed, [`family/${id}/birth`]: "仮の値" } };
 }
 
 /** 養育費の行の相手の欄（簡易）。選ぶと終わりを相手の子の年齢に合わせる */

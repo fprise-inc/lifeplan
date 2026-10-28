@@ -78,6 +78,32 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     expect(fieldStatus(fieldOf(moved, `family/${p!.id}/leaves`), moved).status).toBe("confirmed");
   });
 
+  it("世帯の外の家族を1人ずつ足しても、性別は推定にしない（初めの値が普通の値。呼び方は値どおり）。生年月の仮の値はそのまま", () => {
+    let wh = addMember(blankHousehold(BASE, seq()), "spouse");
+    for (const kind of ["parent", "grandparent", "sibling", "child", "grandchild"] as const) wh = addOutside(wh, kind);
+    const outside = wh.request.input.household.members.filter((m) => m.outside !== undefined);
+    expect(outside).toHaveLength(5);
+    for (const m of outside) {
+      expect(wh.assumed[`family/${m.id}/sex`]).toBeUndefined();
+      expect(wh.assumed[`family/${m.id}/birth`]).toBe("仮の値");
+      const sex = allFields(buildStage("care", wh)).find((f) => f.key === `family/${m.id}/sex`);
+      if (sex === undefined) continue;
+      expect(fieldStatus(sex, wh).status).toBe("confirmed");
+      expect(checkList(wh).some((r) => r.fieldKey === sex.key)).toBe(false);
+    }
+    const p = outside.find((m) => m.kind === "parent")!;
+    expect(p.sex).toBe("male");
+    expect(memberLabel(wh, p.id)).toBe("父");
+    const mother = fieldOf(wh, `family/${p.id}/sex`).set(wh, "female");
+    expect(memberLabel(mother, p.id)).toBe("母");
+    // 性別の値を持たない世帯の外の家族（贈与者から作った人など）は「親」のまま
+    const noSex = mutate(wh, (h) => {
+      const x = h.members.find((m) => m.id === p.id)!;
+      delete (x as Partial<Member>).sex;
+    });
+    expect(memberLabel(noSex, p.id)).toBe("親");
+  });
+
   it("「＋ 両家の親を足す」: 本人・配偶者の父・母の4人（誰の家族か・性別が決まり、呼び方は父・母・義父・義母）", () => {
     const w0 = addMember(blankHousehold(BASE, seq()), "spouse");
     const wh = addBothParents(w0);

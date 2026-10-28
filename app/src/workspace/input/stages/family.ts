@@ -106,7 +106,6 @@ export function addMember(wh: WorkingHousehold, kind: "spouse" | "child" | "pare
   next = followStandards(wh, next);
   const marks: Record<string, string> = {
     [`family/${newMemberId}/birth`]: expected ? "推定（今から2年後。生まれる予定の月を入れてください）" : "仮の値",
-    [`family/${newMemberId}/sex`]: expected ? "わからない（男性を代わりの値にして計算）" : kind === "spouse" ? SPOUSE_SEX_BASIS : "仮の値",
     ...(kind === "child" ? { [`family/${newMemberId}/leaves`]: LEAVES_BASIS } : {}),
   };
   return { ...next, assumed: { ...next.assumed, ...marks } };
@@ -120,18 +119,9 @@ export function addChildWithEducation(wh: WorkingHousehold, id: () => string = n
   return child === undefined ? next : fillEducation(next, child.id);
 }
 
-/** 配偶者の性別の推定の印（本人の逆。同性のご夫婦は直す） */
-export const SPOUSE_SEX_BASIS = "推定（本人と逆の性別。同性のご夫婦は直してください）";
-const SPOUSE_SEX_HELP = "本人の性別の逆を推定で入れています（本人の性別を直すと合わせて変わります）。同性のご夫婦は選び直してください。遺族年金・寡婦控除・年収の目安・平均余命の計算に使います";
+const SPOUSE_SEX_HELP = "足したときに本人と逆の性別を入れています。同性のご夫婦は選び直してください。遺族年金・寡婦控除・年収の目安・平均余命の計算に使います";
 
 const oppositeSex = (sex: unknown): "male" | "female" => (sex === "female" ? "male" : "female");
-
-/** 本人の性別を直したら、推定のまま（仮の印がある）の配偶者の性別を本人の逆にする。人が選んだ配偶者の性別は変えない */
-function followSpouseSex(h: Household, wh: WorkingHousehold, selfSex: unknown): void {
-  const spouse = h.members.find((x) => x.kind === "spouse");
-  if (spouse === undefined || wh.assumed[`family/${spouse.id}/sex`] === undefined) return;
-  spouse.sex = oppositeSex(selfSex);
-}
 
 /** 構成員1人のまとまり（家計を1つにする人。世帯の外の家族は介護・親のカードの形で出す。care.ts の outsideGroup） */
 export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
@@ -190,7 +180,8 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           hint: (v) => (typeof v === "string" ? ageNow(v) : null),
         })),
     following(plain({ key: `family/${m.id}/bornOnFirst`, item: "member.birth", label: "1日生まれ", level: "detail", kind: "bool", find, path: ["birth", "bornOnFirst"], help: "年齢に達する月が1か月早くなります（年金・定年などの時期）。結果の差は1か月です" })),
-    // 性別: 標準は本人だけ（1押し）。配偶者は本人の逆を推定で入れ（仮の印）、詳細で直す（同性のご夫婦も入れられる。推定のままなら確かめの一覧に出る）。
+    // 性別: 標準は本人だけ（1押し）。配偶者は足したときに本人の逆を入れ、詳細で直す（同性のご夫婦も入れられる）。性別は推定するものではないので、
+    // 推定の印は付けない（初めの値を普通の値として入れる）。
     // 子の性別は計算に使わないので出さない（世帯ファイルの値は今のまま持つ。黙って書き換えない。0046 の追記 2026-10-27）
     ...(m.kind === "child"
       ? []
@@ -205,7 +196,6 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           find,
           path: ["sex"],
           help: m.kind === "spouse" ? SPOUSE_SEX_HELP : "遺族年金・寡婦控除・年収の目安・平均余命の計算に使います",
-          ...(m.kind === "self" ? { after: (h: Household, _t: Record<string, unknown>, v: unknown) => followSpouseSex(h, wh, v) } : {}),
         }),
       ]),
   );
@@ -707,7 +697,7 @@ export function familyStage(wh: WorkingHousehold): StageDef {
         ...(hasSpouse
           ? []
           : [
-              { key: "family/add/spouse", label: "＋ 配偶者（法律婚）", level: "simple" as const, run: (w: WorkingHousehold) => addMember(w, "spouse") },
+              { key: "family/add/spouse", label: "＋ 配偶者", level: "simple" as const, run: (w: WorkingHousehold) => addMember(w, "spouse") },
               { key: "family/add/partner", label: "＋ パートナー（事実婚）", level: "simple" as const, run: (w: WorkingHousehold) => addMember(w, "spouse", newId, { marriage: "deFacto" }) },
             ]),
         // 新しく足す子は、進路を最初から推定（標準の進路の型）で入れる（古い世帯の子に黙って入れることはしない。fill.ts）

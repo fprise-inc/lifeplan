@@ -7,7 +7,7 @@ import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/works
 import { addMember, addRelationStage, markBorn, relationSummary, removeMember, spouseRelations, swapSelfSpouse } from "../src/workspace/input/stages/family.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
-import { fieldAddress } from "../src/workspace/input/valueState.ts";
+import { availableOps, fieldAddress, fieldStatus } from "../src/workspace/input/valueState.ts";
 import { readAt } from "../src/workspace/store/readings.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
 import { planView, recordPlanEdit } from "../src/workspace/plans/planEdit.ts";
@@ -43,10 +43,14 @@ function couple(marriage: "legal" | "deFacto" = "legal"): WorkingHousehold {
 }
 const spouseOf = (wh: WorkingHousehold) => wh.request.input.household.members.find((m) => m.kind === "spouse")!;
 
-describe("足すボタン: 配偶者（法律婚）・パートナー（事実婚）・子・これから生まれる子", () => {
+describe("足すボタン: 配偶者・パートナー（事実婚）・子・これから生まれる子", () => {
   it("配偶者がいなければ法律婚・事実婚の2つのボタン。事実婚で足すと関係の形が事実婚", () => {
     const wh = blankHousehold(BASE, ids());
     expect(hasAction(wh, "family/add/spouse")).toBe(true);
+    expect(action(wh, "family/add/spouse").label).toBe("＋ 配偶者");
+    expect(action(wh, "family/add/partner").label).toBe("＋ パートナー（事実婚）");
+    const legal = action(wh, "family/add/spouse").run(wh);
+    expect(spouseRelations(legal.request.input.household, spouseOf(legal).id)[0]).toMatchObject({ marriage: "legal" });
     const w1 = action(wh, "family/add/partner").run(wh);
     const sp = spouseOf(w1);
     const rs = spouseRelations(w1.request.input.household, sp.id);
@@ -73,7 +77,8 @@ describe("足すボタン: 配偶者（法律婚）・パートナー（事実�
     const kid = w1.request.input.household.members.find((m) => m.kind === "child")!;
     expect(kid).toMatchObject({ expected: true, birth: { birthYearMonth: "2028-10" }, joins: { at: "2028-10" } });
     expect(w1.assumed[`family/${kid.id}/birth`]).toContain("2年後");
-    expect(w1.assumed[`family/${kid.id}/sex`]).toContain("わからない");
+    // 性別は推定するものではないので、推定・仮の印は付けない
+    expect(w1.assumed[`family/${kid.id}/sex`]).toBeUndefined();
     const f = fieldOf(w1, `family/${kid.id}/birth`);
     expect(f.label).toBe("生まれる予定");
     expect(f.get(w1).assumed).toContain("2年後");
@@ -251,8 +256,8 @@ describe("家族のお金の行", () => {
   });
 });
 
-describe("性別: 標準は本人の1押し。配偶者は本人の逆を推定で入れ、詳細で直す", () => {
-  it("本人を直すと、推定のままの配偶者は逆になる。人が選んだ配偶者・同性のご夫婦は変えない", () => {
+describe("性別: 標準は本人の1押し。配偶者は足したときに本人の逆を入れ、詳細で直す（性別は推定にしない）", () => {
+  it("配偶者は本人の逆の普通の値で入り、推定の印・「この値にする」・「推定に戻す」が出ない。本人を直しても配偶者は変えない", () => {
     let wh = addMember(blankHousehold(BASE, ids()), "spouse", ids());
     const self = wh.request.input.household.members.find((m) => m.kind === "self")!;
     const sp = spouseOf(wh);
@@ -260,19 +265,25 @@ describe("性別: 標準は本人の1押し。配偶者は本人の逆を推定�
     expect(fieldOf(wh, `family/${self.id}/sex`).level).toBe("simple");
     const spSex = fieldOf(wh, `family/${sp.id}/sex`);
     expect(spSex.level).toBe("detail");
-    expect(spSex.get(wh).assumed).toContain("本人と逆の性別");
-    // 詳細の欄でも、推定のままなら確かめの一覧に出る
-    expect(checkList(wh).find((r) => r.fieldKey === `family/${sp.id}/sex`)).toMatchObject({ kind: "estimated", level: "detail" });
+    for (const id of [self.id, sp.id]) {
+      const f = fieldOf(wh, `family/${id}/sex`);
+      expect(f.get(wh).assumed ?? null).toBeNull();
+      expect(fieldStatus(f, wh).status).toBe("confirmed");
+      expect(availableOps(f, wh)).toEqual([]);
+    }
+    expect(Object.keys(wh.assumed).some((k) => k.endsWith("/sex"))).toBe(false);
+    // 確かめの一覧に性別の推定の行は出ない
+    expect(checkList(wh).some((r) => r.fieldKey === `family/${sp.id}/sex` || r.fieldKey === `family/${self.id}/sex`)).toBe(false);
+    // 本人を直しても、配偶者の値（人が選んだかどうかを見分けない）は変えない。同性のご夫婦もそのまま入れられる
     wh = set(wh, `family/${self.id}/sex`, "female");
+    expect(spouseOf(wh).sex).toBe("female");
+    wh = set(wh, `family/${sp.id}/sex`, "male");
     expect(spouseOf(wh).sex).toBe("male");
-    expect(fieldOf(wh, `family/${sp.id}/sex`).get(wh).assumed).toContain("本人と逆の性別");
-    // 同性のご夫婦: 配偶者を選び直すと確定になり、本人を直しても変わらない
-    wh = set(wh, `family/${sp.id}/sex`, "female");
-    expect(fieldOf(wh, `family/${sp.id}/sex`).get(wh).assumed).toBeNull();
-    wh = set(wh, `family/${self.id}/sex`, "male");
-    expect(spouseOf(wh).sex).toBe("female");
-    wh = set(wh, `family/${self.id}/sex`, "female");
-    expect(spouseOf(wh).sex).toBe("female");
+    expect(fieldStatus(fieldOf(wh, `family/${sp.id}/sex`), wh).status).toBe("confirmed");
+    // 本人が女性なら、足した配偶者は男性
+    const b = blankHousehold(BASE, ids());
+    const w2 = addMember(set(b, `family/${b.request.input.household.members[0]!.id}/sex`, "female"), "spouse", ids());
+    expect(spouseOf(w2).sex).toBe("male");
   });
 
   it("見本の世帯の配偶者の性別（印なし）は本人を直しても変えない。子の性別の欄は出さない（値は持ったまま）", () => {
