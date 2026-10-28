@@ -1747,7 +1747,7 @@ entries:
     path: [growth]
   - id: periodicExpense.kind
     status: active
-    label: "出るお金の種類（表示と表の行の既定。計算はあげる贈与 gift だけが変える。0044）"
+    label: "出るお金の種類（表示と表の行の既定。計算はあげる贈与 gift と、世帯の外の子への養育費・仕送りの行がある間の扶養の判定が変える。0044）"
     since: draft
     aliases: []
     replacedBy: null

@@ -709,7 +709,7 @@ export interface PeriodicExpenseInput {
   readonly onContingency?: OnContingencyInput;
   /** お金の行（0044）: 額は月額で、最初の月から終わりの月まで毎月（everyYears は 1 だけ） */
   readonly monthly?: boolean;
-  /** お金の行（0044）: 出るお金の種類（表示と、表の行の既定。計算はあげる贈与 gift だけが変える） */
+  /** お金の行（0044）: 出るお金の種類（表示と、表の行の既定。計算はあげる贈与 gift と、世帯の外の子への養育費・仕送りの行がある間の扶養の判定が変える） */
   readonly kind?: MoneyOutKind;
   /** お金の行（0044）: 相手（誰へ。構成員。多くは世帯の外の家族） */
   readonly counterparty?: string;

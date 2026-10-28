@@ -1,13 +1,13 @@
 // お金の行（0044）: 出るお金の行（periodicExpenses）と入るお金の行（incomeFlows）に共通の、支払い・受け取りの月と額の解き方と、
 // 入るお金の種類ごとの既定（課税の扱い・表の行）。画面の側の既定（app/src/workspace/input/moneyRows.ts）は同じ表を持つ（テストで突き合わせる）
-import type { AmountExceptionInput, AmountStageInput, GrowthInput, IncomeFlowInput, IncomeTaxTreatment, OnContingencyInput, ValueBox } from "../engine/types.ts";
+import type { AmountExceptionInput, AmountStageInput, GrowthInput, IncomeFlowInput, IncomeTaxTreatment, MemberInput, OnContingencyInput, PeriodicExpenseInput, ValueBox } from "../engine/types.ts";
 import { INCOME_KIND_DEFAULTS } from "./incomeKinds.ts";
 
 export { INCOME_KIND_DEFAULTS };
 import type { Ctx } from "../registry/ctx.ts";
 import type { ContingencyEvent } from "./contracts.ts";
 import { boxValue } from "./box.ts";
-import { contingencyRatio, grownByYear, isOutside } from "./helpers.ts";
+import { contingencyRatio, grownByYear, isOutside, outsidePeriodAt } from "./helpers.ts";
 import { stagedYen } from "./stages.ts";
 import { addMonths, yearOf, type MonthIndex } from "../time/month.ts";
 import type { Timepoint } from "../time/timepoint.ts";
@@ -105,3 +105,34 @@ export function moneyRowPayments(ctx: Ctx, r: MoneyRowInput, ev: ContingencyEven
   }
   return out;
 }
+
+/**
+ * 世帯の外の子（離れて暮らす子）を、月 month（扶養の判定の時。その年の12月31日か、その年に亡くなった月）に「生計を一にする」扶養親族の候補に
+ * できるか（扶養していること support.dependent は呼ぶ側で見る。0044 の追記）。世帯の外の子は日常の起居を共にしないので、生計を一にするのは
+ * 常に生活費・学資金の送金があるときだけ（所得税基本通達2-47）。離婚に伴う養育費は、一定の年齢までに限って払う間は生計を一にするとして
+ * よい（国税庁の質疑応答）ので、その子を相手にした養育費・仕送りの出るお金の行（1回だけの行を除く。額か段階のある行）が月 month を含むときと、
+ * 家計を1つにする期間（生活費の人数に入れる）の月だけ。行が終わった後の年は扶養親族にしない（行を延ばすか仕送りの行を足せば続く）。
+ * 世帯の外の子でなければ（親・祖父母など）いつも true（今までどおり）。
+ * 呼ぶ部品の reads に periodicExpense.kind・counterparty・from・to・monthly・amount・stages を書く
+ */
+export function outsideChildSupported(ctx: Ctx, m: MemberInput, month: MonthIndex): boolean {
+  if (!isOutside(m) || m.kind !== "child") return true;
+  if (outsidePeriodAt(ctx, m, month)?.living === true) return true;
+  return ctx.list<PeriodicExpenseInput>("periodicExpense").some((r) => {
+    if (r.counterparty !== m.id || (r.kind !== "childSupport" && r.kind !== "allowance") || isOnceRow(ctx, r)) return false;
+    if ((boxValue(r.amount) ?? 0) <= 0 && (r.stages ?? []).length === 0) return false;
+    const to = r.to === undefined || r.to === null ? null : ctx.time.resolve(r.to);
+    return ctx.time.resolve(r.from) <= month && (to === null || month <= to);
+  });
+}
+
+/** outsideChildSupported が読む入力項目（呼ぶ部品の reads に足す） */
+export const OUTSIDE_CHILD_SUPPORT_READS = [
+  "periodicExpense.kind",
+  "periodicExpense.counterparty",
+  "periodicExpense.from",
+  "periodicExpense.to",
+  "periodicExpense.monthly",
+  "periodicExpense.amount",
+  "periodicExpense.stages",
+] as const;

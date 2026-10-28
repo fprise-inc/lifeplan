@@ -3,13 +3,14 @@
 //   月ごとに定額で下がるとみなす。年末（12月）の評価額＝価格−（価格−下取り）×買ってからの月数÷買い替えの周期の月数（周期を過ぎたら下取りの額）
 // - 今の車（owned）: 最初の買い替えの月の買い替えの周期の前に、計算基準年の価格で買ったとみなし、最初の買い替えの月に下取りの額になるように下げる
 // - 手放す月（until）の後の年末には持っていない。万一のときの扱い（onContingency）は評価額には当てない
+// 改訂2: 次の買い替えの月が表の外でも、その月の下取りの額（表の外の年まで伸ばした額）まで下げる（表の長さで評価額を変えない。0003 の追記）
 import { addMonths, defineComponent, grownByYear, monthIndex, yearOf, yen, type CarInput, type CarValuationOutput, type MonthIndex, type Yen } from "../../sdk/index.ts";
 
 export default defineComponent<Record<string, never>, CarValuationOutput>({
   id: "asset.car",
   title: "車の評価額",
   contract: "1.0",
-  revision: 1,
+  revision: 2,
   requires: {},
   params: [],
   reads: ["car.owner", "car.purchase", "car.until", "car.growth", "assumptions.inflation"],
@@ -25,9 +26,11 @@ export default defineComponent<Record<string, never>, CarValuationOutput>({
       const until: MonthIndex = c.until === undefined || c.until === null ? end : ctx.time.resolve(c.until);
       const span = 12 * c.purchase.everyYears;
       if (span <= 0) continue;
-      const price = grownByYear(ctx, c.purchase.price, c.growth, baseYear, endYear);
-      const tradeIn = grownByYear(ctx, yen(c.purchase.tradeIn ?? 0), c.growth, baseYear, endYear);
-      const at = (map: Map<number, Yen>, m: MonthIndex): Yen => map.get(Math.min(endYear, Math.max(baseYear, yearOf(m)))) ?? yen(0);
+      // 下取りの額は次の買い替えの月（表の外のこともある）の額。表の外の年まで伸ばして読む（表の長さで評価額を変えない。改訂2、0003 の追記）
+      const lastYear = endYear + c.purchase.everyYears;
+      const price = grownByYear(ctx, c.purchase.price, c.growth, baseYear, lastYear);
+      const tradeIn = grownByYear(ctx, yen(c.purchase.tradeIn ?? 0), c.growth, baseYear, lastYear);
+      const at = (map: Map<number, Yen>, m: MonthIndex): Yen => map.get(Math.min(lastYear, Math.max(baseYear, yearOf(m)))) ?? yen(0);
       // 買った月（今の車は最初の買い替えの周期の前）
       const bought: MonthIndex[] = [];
       if (c.purchase.owned === true) bought.push(addMonths(first, -span));

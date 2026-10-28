@@ -5,6 +5,7 @@
 // - 6月〜12月に辞めた: 残りは普通徴収に切り替わり、特別徴収が止まった月以後に来る普通徴収の納期（6月・8月・10月・翌年1月）に分けて払う
 //   （321条の7。年の合計は変わらず、払う時期が変わる）。本人が申し出て一括で引いてもらう形（321条の5第2項ただし書）は扱わない
 // それ以外は普通徴収（6月・8月・10月・翌年1月の4回）。
+// 改訂9: 年金から差し引く（特別徴収）かの判定で、表の最後の年の年度の、表の外の翌年2月の年金の支払いを、表の最後の月の支払いと同じ額とみなす（0003 の追記）
 // 非課税限度額（residentTax.exemption）以下なら均等割・所得割をかけない。指定都市の税率の配分・超過課税は扱わない（notices）。
 // 住宅借入金等特別税額控除: 前年分の所得税から引ききれなかった住宅借入金等特別控除（incomeTax.annual の creditRemainder）を、
 // 所得税の課税総所得金額等×率（5%など）と上限額（97,500円など。入居の年月で選ぶ。tax.housingLoanCredit）まで、調整控除の後の所得割から
@@ -124,7 +125,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
   id: "residentTax.annual",
   title: "住民税・森林環境税",
   contract: "1.1",
-  revision: 8,
+  revision: 9,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "tax.housingLoanCreditYears": ">=1 <2",

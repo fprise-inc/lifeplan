@@ -369,6 +369,70 @@ function supportChildBirth(wh: WorkingHousehold, p: PeriodicExpense): FieldDef |
 }
 
 
+/**
+ * 払う養育費の行の相手の子（世帯の外の子）を、扶養親族に入れるかの欄（0044 の追記）。生年月の欄と同じく、同じ子を相手にした最初の行にだけ出す。
+ * 当て先は構成員の扶養（member.support.dependent。介護・親の項目の親・祖父母と同じ値）。既定は入れない（同じ子を両方の親が扶養控除に
+ * 入れることはできないので、FP が確かめたときだけ入れる）。計算は、その子への養育費・仕送りの行がその年の12月31日を含む年だけ扶養親族にする
+ */
+function supportDependentField(wh: WorkingHousehold, p: PeriodicExpense): FieldDef | null {
+  const h = wh.request.input.household;
+  const kid = supportChild(h, p);
+  if (kid === undefined || !isOutside(kid)) return null;
+  const first = (h.periodicExpenses ?? []).find((x) => x.kind === "childSupport" && x.counterparty === kid.id);
+  if (first?.id !== p.id) return null;
+  const f = plain({
+    key: `family/${kid.id}/dependent`,
+    item: "member.support",
+    label: "扶養している（税）",
+    level: "detail",
+    kind: "bool",
+    find: byId((hh) => hh.members, kid.id),
+    path: ["support", "dependent"],
+    ensure: (hh) => {
+      const x = hh.members.find((y) => y.id === kid.id) as Member;
+      x.support ??= { dependent: false, cohabiting: false };
+      return x as unknown as Obj;
+    },
+    after: (_h, t) => {
+      const s = t.support as { dependent?: boolean; cohabiting?: boolean } | undefined;
+      if (s === undefined) return;
+      s.dependent ??= false;
+      s.cohabiting ??= false;
+    },
+    optional: true,
+    fallback: false,
+    help: supportDependentHelp(h, kid, p, wh.request.input.baseMonth),
+  });
+  return withAddress(f, () => ({ target: { member: kid.id }, item: "member.support", at: ["dependent"] }));
+}
+
+/** 扶養控除の始まりの年齢（16歳）と特定扶養親族の年齢（19〜22歳）。エンジンの制度の値と同じ（その年の12月31日の年齢） */
+const DEPENDENT_FROM_AGE = 16;
+
+/**
+ * 扶養している（税）の欄の説明と、効く年の目安。効くのは、その年の12月31日に16歳以上で、養育費の行がその年の12月を含む年（行の始まりの年から、
+ * 終わりが12月でなければ終わりの前の年まで）
+ */
+export function supportDependentHelp(h: Household, kid: Member, p: PeriodicExpense, baseMonth: string): string {
+  const head =
+    "離れて暮らす子に養育費を払っている間は、払う側の扶養親族にできることがあります（生計を一にする）。同じ子を両方の親が扶養控除に入れることはできないので、既定は入れません。もう一方の親が入れていないことを確かめたときだけ入れてください。扶養控除は16歳から（19〜22歳は特定扶養親族）で、養育費を払っている年（その年の12月31日に払っている年）だけ効きます。養育費が終わった後も仕送りを続けるなら、仕送りの行を足すと続けて効きます。子の所得が扶養の上限を超える年と、夫婦のうち所得の少ない方の控除には入りません";
+  const years = supportDependentYears(h, kid, p, baseMonth);
+  return years === null ? head : `${head}。${years}`;
+}
+
+/** 効く年の目安の文（「効く年の目安: 2032年（16歳）から2036年（20歳）まで」。計算の基準の年より前は数えない）。生年月や行の時期が分からなければ null */
+export function supportDependentYears(h: Household, kid: Member, p: PeriodicExpense, baseMonth: string): string | null {
+  const birth = Number(kid.birth.birthYearMonth.slice(0, 4));
+  const from = resolveTimepoint(h, p.from);
+  if (!Number.isFinite(birth) || from === null) return null;
+  const start = Math.max(birth + DEPENDENT_FROM_AGE, Number(from.slice(0, 4)), Number(baseMonth.slice(0, 4)));
+  const to = p.to == null ? null : resolveTimepoint(h, p.to);
+  const end = to === null ? null : Number(to.slice(5, 7)) === 12 ? Number(to.slice(0, 4)) : Number(to.slice(0, 4)) - 1;
+  if (end !== null && end < start) return "この行の間は、その年の12月31日に16歳以上の年が無いので、扶養控除は効きません";
+  const startText = `${String(start)}年（${String(start - birth)}歳）から`;
+  return `効く年の目安: ${startText}${end === null ? "行の終わりまで" : `${String(end)}年（${String(end - birth)}歳）まで`}`;
+}
+
 /** 時期の入れ方の欄（1回／毎月／毎年・n年ごと）。1回は終わりを始まりと同じ月に、毎月は monthly を立てる（何年ごとは1） */
 export function cadenceField(key: string, item: string, find: Finder, id: string): FieldDef {
   return withAddress(
@@ -637,6 +701,8 @@ export function expenseHeadFields(wh: WorkingHousehold, p: PeriodicExpense, card
     fields.push(supportPartyField(wh, "out", `${k}/counterparty`, "periodicExpense.counterparty", find, p.id, p.counterparty));
     const birth = supportChildBirth(wh, p);
     if (birth !== null) fields.push(birth);
+    const dependent = supportDependentField(wh, p);
+    if (dependent !== null) fields.push(dependent);
   } else if (card === "inherit" || card === "family") fields.push(withAddress(plain({ key: `${k}/counterparty`, item: "periodicExpense.counterparty", label: "相手（誰へ）", level: "simple", kind: "select", options: counterpartyOptions(wh, card), find, path: ["counterparty"], optional: true, fallback: "" }), address(p.id, "periodicExpense.counterparty")));
   return fields;
 }
