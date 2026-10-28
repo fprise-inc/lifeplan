@@ -12,37 +12,51 @@ on:
     - cron: "0 18 * * *"
 permissions:
   contents: read
-# 同じブランチで新しい送信があれば、古い実行を止める
+# 同じブランチ（PR）で新しい送信があれば、古い実行を止める。毎晩の実行は main への取り込みで止めない（グループを分ける。
+# 止まると、速さの前の値に使う毎晩の計測が残らない）
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'schedule' && 'nightly' || 'change' }}
   cancel-in-progress: true
 
 jobs:
-  # 重い検査（macOS・Windows・速さの測定）を流すか。非公開の間は実行の分数に限りがあるため、
-  # pull_request と main への取り込みでは Linux だけにし、重い検査は手で起動したときと毎晩（その日に main が変わったときだけ）に流す
+  # どのジョブを流すか（.github/scripts/ci-changes.sh）。重い検査（macOS・Windows・速さの測定）は手で起動したときと毎晩
+  # （その日に main が変わったときだけ）だけ。それ以外は Linux だけで、前に確かめた木から変わったファイルに関わるジョブだけを流す
   changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
     outputs:
-      heavy: ${{ steps.diff.outputs.heavy }}
       run: ${{ steps.diff.outputs.run }}
+      heavy: ${{ steps.diff.outputs.heavy }}
+      engine: ${{ steps.diff.outputs.engine }}
+      engine_build: ${{ steps.diff.outputs.engine_build }}
+      app: ${{ steps.diff.outputs.app }}
+      report: ${{ steps.diff.outputs.report }}
+      hearing: ${{ steps.diff.outputs.hearing }}
+      statement: ${{ steps.diff.outputs.statement }}
+      xlsx: ${{ steps.diff.outputs.xlsx }}
+      host: ${{ steps.diff.outputs.host }}
+      licenses_rust: ${{ steps.diff.outputs.licenses_rust }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - id: diff
-        run: |
-          run=true; heavy=false
-          case "${{ github.event_name }}" in
-            workflow_dispatch) heavy=true ;;
-            schedule) if [ -n "$(git log --since='24 hours ago' --oneline)" ]; then heavy=true; else run=false; fi ;;
-          esac
-          echo "run=$run" >> "$GITHUB_OUTPUT"
-          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: .github/scripts/ci-changes.sh
 
   # 型の検査・lint・単体テスト・まとめた JS と制度データの JSON の作成・npm の依存のライセンスの検査
   engine:
     needs: changes
-    if: needs.changes.outputs.run == 'true'
+    if: needs.changes.outputs.engine_build == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -55,21 +69,29 @@ jobs:
           cache: npm
           cache-dependency-path: engine/package-lock.json
       - run: npm ci
+      # 検査とテストは engine の変更のときだけ（ほかのジョブのためにまとめた JS を作るだけのときは飛ばす）
       - name: 登録簿が正本（スキーマ・部品・制度データ）と食い違っていないこと（0004 の5）
+        if: needs.changes.outputs.engine == 'true'
         run: npm run registry:check
       - name: 型の検査
+        if: needs.changes.outputs.engine == 'true'
         run: npm run typecheck
       - name: lint
+        if: needs.changes.outputs.engine == 'true'
         run: npm run lint
       - name: 単体テスト・答え合わせ（検証 L2）
+        if: needs.changes.outputs.engine == 'true'
         run: npm test
       - name: 答え合わせ（検証 L2）の合格率
+        if: needs.changes.outputs.engine == 'true'
         run: npm run l2
       - name: モデル世帯で制度改正の差分を見る
+        if: needs.changes.outputs.engine == 'true'
         run: npm run models
       - name: まとめた JS と制度データの JSON を作る
         run: npm run build
       - name: ライセンスの検査（npm）
+        if: needs.changes.outputs.engine == 'true'
         run: npm run check:licenses
       - uses: actions/upload-artifact@v4
         with:
@@ -80,7 +102,8 @@ jobs:
   # アプリの画面（型の検査・lint・単体テスト・ビルド・npm の依存のライセンス・配布元の設定）と、
   # アプリのクレート（app/src-tauri）の書式・clippy（cargo check を兼ねる）・テスト。Linux だけで流す（WebKitGTK を入れる）
   app:
-    needs: engine
+    needs: [engine, changes]
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     # Tauri の依存のビルドで実行機の空き容量が尽きることがあるため、デバッグ情報と差分のビルドの置き場を作らない
     env:
@@ -147,7 +170,8 @@ jobs:
   # 提案書の PDF（0009）: 帳票の入力を組み立てる部品（report/）と、Typst を組み込んだ report-pdf のテスト。
   # 見本の PDF（架空のモデル世帯）を作って成果物に残す。Linux だけで流す（Typst は大きいのでホストの3つの OS には入れない）
   report:
-    needs: engine
+    needs: [engine, changes]
+    if: needs.changes.outputs.report == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -199,7 +223,8 @@ jobs:
 
   # ヒアリングシート（0018）: シート定義の検査・配置・見本・登録簿・単体テスト（取り込んだ世帯を本物のエンジンで計算する）・npm の依存のライセンス
   hearing:
-    needs: engine
+    needs: [engine, changes]
+    if: needs.changes.outputs.hearing == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -236,7 +261,7 @@ jobs:
   # 明細の取り込みと仕分け（0034）: 型の検査・lint・単体テスト（架空の明細）・npm の依存のライセンス。計算エンジンには頼らない
   statement:
     needs: changes
-    if: needs.changes.outputs.run == 'true'
+    if: needs.changes.outputs.statement == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -261,7 +286,7 @@ jobs:
   # 表計算のファイル（.xlsx）の土台（ヒアリングシート 0018 と明細の確認シート 0034 で使う）: 型の検査・lint・単体テスト（読み戻し・返ってきたファイルを信用しない読み込み）・npm の依存のライセンス
   xlsx:
     needs: changes
-    if: needs.changes.outputs.run == 'true'
+    if: needs.changes.outputs.xlsx == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -286,6 +311,7 @@ jobs:
   # Rust のホスト（quickjs-ng）のテストと、Node との一致テスト。Windows・macOS・Linux それぞれでビルドする（0005 の6）
   host:
     needs: [engine, changes]
+    if: needs.changes.outputs.host == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -325,12 +351,16 @@ jobs:
           path: engine/dist/parity-hashes.json
           if-no-files-found: error
 
-  # 速さの計測（0005 の「速さの回帰」）: 100年分の5案×4想定を Node（V8）・JavaScriptCore（Bun）・quickjs-ng で測り、
-  # 目標と前の値（engine/bench/baseline.json）を表にする。前の値の1.5倍を超えたら警告、3倍を超えたら失敗。
-  # 結果（result.json）は成果物として残す。macOS の実行環境は Apple シリコン
+  # 速さの計測（0005 の「速さの回帰」と追記 2026-10-28）: 100年分の5案×4想定を Node（V8）・JavaScriptCore（Bun）・quickjs-ng で測り、
+  # 時間のほかに部品の呼び出しの回数と、ubuntu では quickjs-ng の命令の数（valgrind の cachegrind）を記録する。
+  # 前の値は直近の毎晩の計測（このジョブの成果物。最大5晩）の中央値（晩が3つに満たなければ engine/bench/baseline.json）。
+  # 呼び出しの回数・命令の数は +5% で警告・+10% で失敗。時間は bench-time で両方の OS をそろえて決める。macOS の実行環境は Apple シリコン
   bench:
     needs: [engine, changes]
     if: needs.changes.outputs.heavy == 'true'
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -351,8 +381,24 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: ビルド（engine-bench）
         run: cargo build --locked --release
+      - name: 命令の数を数える道具（valgrind。ubuntu だけ。CI の実行環境はハードウェアの数え口が無い）
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y -qq valgrind > /dev/null
+      - name: 前の値（直近の毎晩の計測の成果物）を取る
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p bench-history
+          got=0
+          for row in $(gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml --event schedule --branch main --limit 15 --json databaseId,createdAt --jq '.[] | "\(.databaseId),\(.createdAt)"'); do
+            id=${row%%,*}; at=${row#*,}
+            [ "$id" = "$GITHUB_RUN_ID" ] && continue
+            if gh run download "$id" -R "$GITHUB_REPOSITORY" -n "bench-${{ matrix.os }}" -D "bench-history/$at" > /dev/null 2>&1; then got=$((got + 1)); fi
+            [ "$got" -ge 5 ] && break
+          done
+          echo "毎晩の計測 $got 回分"
       - name: 速さを測る
-        run: node --disable-warning=ExperimentalWarning engine/scripts/bench.ts --repeat 3 --check
+        run: node --disable-warning=ExperimentalWarning engine/scripts/bench.ts --repeat 5 --history bench-history --check
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -360,9 +406,30 @@ jobs:
           path: engine/dist/bench/result.json
           if-no-files-found: warn
 
+  # 時間の警告: 同じ計測が ubuntu と macOS の両方で前の値（最小値）の 1.5倍を超えたら警告、3倍を超えたら失敗
+  # （片方だけの遅れは実行環境の揺れが多い。0005 の追記 2026-10-28）
+  bench-time:
+    needs: [bench, changes]
+    if: always() && needs.changes.outputs.heavy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: engine/scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bench-*
+          path: bench
+      - name: 両方の OS の時間の比をそろえる
+        run: node --disable-warning=ExperimentalWarning engine/scripts/bench-check-os.ts bench/bench-ubuntu-latest/result.json bench/bench-macos-latest/result.json
+
   # OS をまたいでも同じハッシュになること
   parity-across-os:
-    needs: host
+    needs: [host, changes]
+    if: needs.changes.outputs.heavy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -381,7 +448,7 @@ jobs:
   # Rust の依存のライセンスの検査（GPL・LGPL・AGPL を止める。0021）
   licenses-rust:
     needs: changes
-    if: needs.changes.outputs.run == 'true'
+    if: needs.changes.outputs.licenses_rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

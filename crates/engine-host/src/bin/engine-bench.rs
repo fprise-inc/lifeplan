@@ -2,8 +2,10 @@
 //! 計算ごとに新しい実行環境）で、quickjs-ng の正の計算の時間を測る。
 //! 使い方: engine-bench --engine dist/engine.js --packs packs.json --requests requests.json [--protection protection.json] [--repeat N] [--threads T]
 //! requests.json は要求の JSON の配列（5案×4想定の20件。案ごとに4件）。protection.json は必要保障額の推移（夫婦2人。0005 の追記 2026-10-09）を
-//! 求める要求1件（あれば protection として1件の正の計算の時間を測る）。結果は JSON（ミリ秒の中央値と最小値）を標準出力に出す
-use std::time::Instant;
+//! 求める要求1件（あれば protection として1件の正の計算の時間を測る）。結果は JSON（ミリ秒の中央値と最小値）を標準出力に出す。
+//! --repeat 0 は、バイトコードへの変換・パックの確かめ・温めの1件だけを流す（CI で命令の数を数えるとき。0005 の追記 2026-10-28）。
+//! --time-limit 秒 は1件の計算の時間の上限を置き換える（valgrind の下では10倍以上遅く、製品の上限 10秒に届くため）
+use std::time::{Duration, Instant};
 
 use engine_host::{
     check_packs, compile_engine, run_engine_bytecode, trace_mode, EngineBytecode, Limits, Sandbox,
@@ -15,6 +17,10 @@ fn median(xs: &mut [f64]) -> f64 {
 }
 
 fn stats(mut xs: Vec<f64>) -> serde_json::Value {
+    // --repeat 0（読み込みと温めの1件だけ。命令の数を数えるとき）は時間を出さない
+    if xs.is_empty() {
+        return serde_json::Value::Null;
+    }
     let min = xs.iter().cloned().fold(f64::INFINITY, f64::min);
     let med = median(&mut xs);
     serde_json::json!({ "median": (med * 10.0).round() / 10.0, "min": (min * 10.0).round() / 10.0 })
@@ -28,12 +34,17 @@ struct Bench {
     engine: EngineBytecode,
     packs: String,
     options: String,
+    /// 計算の時間の上限の置き換え（--time-limit。valgrind の下で数えるとき。製品の上限は変えない）
+    time_limit: Option<Duration>,
 }
 
 impl Bench {
     /// 1件: 新しい実行環境 → 固める → エンジンをバイトコードから読み込む → 計算 → 捨てる
     fn one(&self, request: &str) {
-        let limits = Limits::for_trace(&trace_mode(request));
+        let mut limits = Limits::for_trace(&trace_mode(request));
+        if let Some(t) = self.time_limit {
+            limits.time = t;
+        }
         let out = run_engine_bytecode(&self.engine, request, &self.packs, &self.options, &limits)
             .expect("run");
         assert!(
@@ -90,6 +101,7 @@ fn main() {
     let mut requests_path = None;
     let mut protection_path = None;
     let mut repeat = 5usize;
+    let mut time_limit: Option<Duration> = None;
     let mut threads = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(2)
@@ -104,7 +116,13 @@ fn main() {
             "--protection" => protection_path = args.next(),
             "--repeat" => repeat = args.next().and_then(|v| v.parse().ok()).unwrap_or(5),
             "--threads" => threads = args.next().and_then(|v| v.parse().ok()).unwrap_or(threads),
-            _ => panic!("usage: engine-bench --engine <engine.js> --packs <packs.json> --requests <requests.json> [--protection <request.json>] [--repeat N] [--threads T]"),
+            "--time-limit" => {
+                time_limit = args
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .map(Duration::from_secs)
+            }
+            _ => panic!("usage: engine-bench --engine <engine.js> --packs <packs.json> --requests <requests.json> [--protection <request.json>] [--repeat N] [--threads T] [--time-limit S]"),
         }
     }
     let engine_js = std::fs::read_to_string(engine_path.expect("--engine")).expect("engine");
@@ -127,6 +145,7 @@ fn main() {
     let digests = check_packs(&engine, &packs).expect("check packs");
     let options = format!("{{\"packsChecked\":{digests}}}");
     let bench = Bench {
+        time_limit,
         engine,
         packs,
         options,
