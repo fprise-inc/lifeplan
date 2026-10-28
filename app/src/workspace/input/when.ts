@@ -4,7 +4,7 @@
 // ここは世帯を変えない純粋な関数だけを持つ（欄の読み書きは form.ts の timepointField、出来事の一覧と作り方は namedEvents.ts）
 import type { Household, Timepoint } from "../../engine/types.ts";
 import { ageSwitchMonth, monthIndex, monthText, resolveTimepoint, type AgeSwitch } from "../timepoint.ts";
-import { formatYearMonth, parseWareki, wareki } from "./units.ts";
+import { parseWareki, wareki } from "./units.ts";
 
 /** 入れ方 */
 export type WhenMode = "ym" | "age" | "event" | "now";
@@ -49,7 +49,10 @@ export interface WhenCtx {
   /** 既定の入れ方（欄ごとに決める。既定は人の年齢） */
   defaultMode: WhenMode;
   ageMeans: AgeMeans;
-  /** 年月の見せ方。birth は生年月の欄と同じ（欄には「2048-04」、読みは「23歳（令和30年4月）」） */
+  /**
+   * 年月の形の読みの言い方。年月の形は、どの欄も欄に「2048-04」、読みに和暦と今の読み（「今から5年後・ご主人60歳（令和13年4月）」）を出す。
+   * birth は欄の人そのものの日付（加わる時期・独立の時期）で、読みを生年月の欄と同じ「23歳（令和30年4月）」にする
+   */
   dateStyle?: "birth";
   /** 空にできる（空は「最後まで」など、欄ごとの意味） */
   optional: boolean;
@@ -159,7 +162,7 @@ const allowed = (ctx: WhenCtx, mode: WhenMode) => ctx.modes.includes(mode);
 
 const examples = (ctx: WhenCtx): string => {
   const ex: string[] = [];
-  if (allowed(ctx, "ym")) ex.push(ctx.dateStyle === "birth" ? "2041-06" : "2041年6月", "2041/6", "令和23年6月");
+  if (allowed(ctx, "ym")) ex.push("2041-06", "2041年6月", "令和23年6月");
   if (allowed(ctx, "age") && ctx.people.length > 0) {
     // 既定の人が子なら子の年齢の例（今20歳未満の人は22歳）
     const young = ctx.person !== null && (reachMonths(ctx.h, ctx.person, ctx.baseMonth) ?? 0) < 20 * 12;
@@ -435,14 +438,20 @@ export function showWhen(tp: Timepoint | null | undefined, ctx: WhenCtx): string
     const t = ctx.ageMeans === "before" ? total + 1 : ctx.ageMeans === "after" ? total - 1 : total;
     return ageText(t);
   }
-  return ctx.dateStyle === "birth" ? at : formatYearMonth(at);
+  return at;
+}
+
+/** 年月だけの欄（時点の部品でない「2041-06」の欄）の読み: 「今から5年後（令和13年4月）」。今月より前・今月は和暦だけ */
+export function readYearMonth(ym: string, baseMonth: string): string {
+  const d = monthIndex(ym) - monthIndex(baseMonth);
+  return d > 0 ? `今から${span(d)}後（${wareki(ym)}）` : wareki(ym);
 }
 
 /** 欄の下に出す読み替えた形（例: 「ご主人が60歳になる月（2046年4月）」「入居から10年後（2038年4月）」） */
 export function readWhen(tp: Timepoint | null | undefined, ctx: WhenCtx, nullText?: string): string {
   if (tp == null) return nullText ?? "空欄";
   const ym = resolveTimepoint(ctx.h, tp);
-  const when = ym === null ? "（解けない時点）" : ctx.dateStyle === "birth" ? wareki(ym) : formatYearMonth(ym);
+  const when = ym === null ? "（解けない時点）" : wareki(ym);
   let out: string;
   if (tp.memberAge !== undefined) {
     const a = tp.memberAge;
@@ -469,15 +478,16 @@ export function readWhen(tp: Timepoint | null | undefined, ctx: WhenCtx, nullTex
   } else if (tp.event !== undefined) {
     const e = ctx.events.find((x) => x.id === tp.event);
     const d = offsetMonths(tp);
-    const base = e?.ym != null ? formatYearMonth(e.ym) : "（解けない時点）";
+    const base = e?.ym != null ? wareki(e.ym) : "（解けない時点）";
     out = d === 0 ? `${eventLabel(ctx, tp.event)}の月（${when}）` : `${eventWords(eventLabel(ctx, tp.event), d)}（${eventLabel(ctx, tp.event)}は${base}・${when}）`;
   } else if (ctx.dateStyle === "birth") {
     // 生年月の欄と同じ読み: 欄の人の年齢（和暦）。年齢が出せなければ和暦だけ
     const total = ctx.person !== null ? reachMonths(ctx.h, ctx.person, tp.at as string) : null;
     out = total !== null && total >= 0 ? `${Math.floor(total / 12)}歳（${when}）` : when;
   } else {
+    // 生まれる予定の欄と同じ形: 「今から5年後・ご主人60歳（令和13年4月）」。言えることが無ければ和暦だけ
     const at = tp.at as string;
-    const parts = [wareki(at).replace(/\d+月$/, "")];
+    const parts: string[] = [];
     const d = monthIndex(at) - monthIndex(ctx.baseMonth);
     if (d > 0) parts.push(`今から${span(d)}後`);
     if (ctx.person !== null) {
@@ -487,7 +497,7 @@ export function readWhen(tp: Timepoint | null | undefined, ctx: WhenCtx, nullTex
       if (total !== null && total >= 0 && ctx.ageMeans !== "reach" && wholeAge(total, ctx.ageMeans)) parts.push(ctx.ageMeans === "before" ? `${who}が${(total + 1) / 12}歳になる前の月` : `${who}が${(total - 1) / 12}歳になった翌月`);
       else if (total !== null && total >= 0) parts.push(`${who}${Math.floor(total / 12)}歳`);
     }
-    out = `${when}（${parts.join("・")}）`;
+    out = parts.length > 0 ? `${parts.join("・")}（${when}）` : when;
   }
   if (ctx.start !== undefined && ym !== null) {
     const s = resolveTimepoint(ctx.h, ctx.start);

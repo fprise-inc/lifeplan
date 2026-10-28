@@ -453,7 +453,7 @@ export interface WhenOptions {
   ageMeans?: AgeMeans;
   anchor?: string;
   monthOnly?: string;
-  /** 年月の見せ方（生年月の欄と同じ形にする欄は birth） */
+  /** 年月の形の読みの言い方（欄の人そのものの日付で、生年月の欄と同じ「23歳（令和30年4月）」にする欄は birth。欄の表記はどの欄も「2041-06」） */
   dateStyle?: "birth";
   check?: (wh: WorkingHousehold, tp: Timepoint | null) => string | null;
   /** 空のときに、読み替えた形の代わりに見せる省略のときの時点（例: 年金の受け取り開始は65歳になった翌月） */
