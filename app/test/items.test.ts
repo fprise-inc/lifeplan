@@ -257,7 +257,8 @@ describe("カードの状態（4つ）", () => {
 
   it("空の世帯: 家族・年金（働き方から推計）・基本生活費は推定で計算中、子がいないので子ども・教育は当てはまらない、前提条件は入力済み", () => {
     const items = inputItems(blankHousehold("2026-10", seq()));
-    expect(byId(items, "family")).toMatchObject({ status: "est", estimated: 2 });
+    // 家族は生年月の仮の値だけ（性別は推定にしない）
+    expect(byId(items, "family")).toMatchObject({ status: "est", estimated: 1 });
     // 基本生活費は月額の推定と、推定の段階（退職・70歳・80歳）の3段
     expect(byId(items, "living")).toMatchObject({ status: "est", estimated: 4 });
     expect(byId(items, "pension")).toMatchObject({ status: "est", estimated: 1 });
@@ -279,9 +280,10 @@ describe("カードの状態（4つ）", () => {
     const wh = blankHousehold("2026-10", seq());
     const saved = saveItem(wh, "family");
     expect(saved.confirmed).toEqual(["family"]);
-    expect(byId(inputItems(saved), "family")).toMatchObject({ status: "est", estimated: 2 });
+    expect(byId(inputItems(saved), "family")).toMatchObject({ status: "est", estimated: 1 });
     const w1 = fieldOf(itemStage(saved, "family"), "/birth").set(saved, "1985-06");
-    expect(byId(inputItems(w1), "family")).toMatchObject({ status: "est", estimated: 1 });
+    expect(byId(inputItems(w1), "family")).toMatchObject({ status: "done", estimated: 0 });
+    // 性別を直しても、推定の数・状態は変わらない（性別は推定にしない）
     const w2 = fieldOf(itemStage(w1, "family"), "/sex").set(w1, "female");
     expect(byId(inputItems(w2), "family")).toMatchObject({ status: "done", estimated: 0 });
   });
@@ -445,7 +447,7 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     expect(html).toContain('data-card-na="insurance"');
     expect(html).toContain("入れなくても計算できます（保障は無しで計算中）");
     // 状態は色だけでなく文字でも
-    for (const t of ["入力済み", "推定で計算中（2項目）", "当てはまらない", "まだ入っていません"]) expect(html).toContain(t);
+    for (const t of ["入力済み", "推定で計算中（1項目）", "当てはまらない", "まだ入っていません"]) expect(html).toContain(t);
     // まだ入れていない項目のカードには赤い札を出さない（点線の枠は灰色。s-empty）
     expect(html).not.toContain("ih-st missing mini\">未入力（0円の所あり）</span></span></button>");
     expect((html.match(/ih-card s-empty/g) ?? []).length).toBe(9);
@@ -468,7 +470,7 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     expect(html).toContain('class="scrim"');
     expect(html).toContain('role="dialog"');
     // 保存の下は状態だけ。保存すると何が起きるかは「?」の中（0077）
-    expect(html).toContain("推定・仮の値のままの欄: 2つ");
+    expect(html).toContain("推定・仮の値のままの欄: 1つ");
     expect(html).toContain("保存しても、推定の欄が残る間は項目は「推定で計算中」のままです。");
     expect(html).toContain("data-save");
   });

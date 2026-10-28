@@ -211,7 +211,40 @@ export const DEFAULT_ASSUMPTIONS = {
   pensionMacroSlide: { default: "0.004" },
 };
 
-/** 空の世帯（本人だけ）。生年月・性別は仮の値で、FP が入れ直すまで「仮」の印を出す */
+/**
+ * 推定と呼ばない欄の仮の印のキーか: 性別（家族・世帯の外の家族）。性別は推定するものではないので、足すときに初めの値を普通の値として入れ、
+ * 推定・仮の印（「この値にする」「推定に戻す」）を付けない。前の版の画面で付けた印が世帯ファイルに残っていれば、読むときに外す（withoutPlainMarks）
+ */
+export const isPlainValueKey = (key: string): boolean => /^family\/[^/]+\/sex$/.test(key);
+
+/** 推定と呼ばない欄の値の状態の欄の行（構成員の性別の推定の行）か */
+const isPlainValueState = (k: string, row: unknown): boolean =>
+  k === "member.sex" && typeof row === "object" && row !== null && (row as { state?: unknown }).state === "estimated";
+
+/**
+ * 推定と呼ばない欄（性別）の仮の印と推定の行を外した世帯（読むときに使う。値はそのまま。世帯ファイルの形は変えない）。
+ * 外す物が無ければ同じ世帯を返す
+ */
+export function withoutPlainMarks(wh: WorkingHousehold): WorkingHousehold {
+  type WithStates = { valueStates?: Record<string, unknown> };
+  const marked = Object.keys(wh.assumed).some(isPlainValueKey);
+  const rows = wh.request.input.household.members.some((m) => Object.entries((m as WithStates).valueStates ?? {}).some(([k, v]) => isPlainValueState(k, v)));
+  if (!marked && !rows) return wh;
+  const assumed = marked ? Object.fromEntries(Object.entries(wh.assumed).filter(([k]) => !isPlainValueKey(k))) : wh.assumed;
+  const next = rows
+    ? mutate(wh, (h) => {
+        for (const m of h.members as WithStates[]) {
+          const states = m.valueStates;
+          if (states === undefined) continue;
+          for (const [k, v] of Object.entries(states)) if (isPlainValueState(k, v)) delete states[k];
+          if (Object.keys(states).length === 0) delete m.valueStates;
+        }
+      })
+    : wh;
+  return { ...next, assumed };
+}
+
+/** 空の世帯（本人だけ）。生年月は仮の値で、FP が入れ直すまで「仮」の印を出す。性別は推定するものではないので、初めの値を普通の値として入れる（印を付けない） */
 export function blankHousehold(baseMonth: string, id: () => string = newId): WorkingHousehold {
   const selfId = id();
   const { y } = parseYm(baseMonth);
@@ -233,7 +266,7 @@ export function blankHousehold(baseMonth: string, id: () => string = newId): Wor
     labelsByMember: {},
     postRetirement: {},
     memo: [],
-    assumed: { [`family/${selfId}/birth`]: "仮の値（40歳として計算）", [`family/${selfId}/sex`]: "仮の値" },
+    assumed: { [`family/${selfId}/birth`]: "仮の値（40歳として計算）" },
     contingency: emptyPlan(),
     addedItems: [],
     confirmed: [],

@@ -30,6 +30,8 @@ import { modelHousehold, preview } from "./helpers.ts";
 
 const NOW = "2026-10-18T10:00:00.000Z";
 
+type EngineRequestLike = { input: { household: { members: (Record<string, unknown> & { id: string; sex: unknown })[] } } };
+
 function sample(): BodyState {
   // 0.6 から: 住まい以外の不動産の中身（土地と建物・家賃収入・経費・取得。accounts[].property）と、その不動産のローン（debts[].property）を持つ
   // 見本の世帯（資産運用の積立の終わりが空・取り崩しの計画も持つ。0026・0028）
@@ -618,6 +620,29 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const [a2, b2] = again.household.request.input.household.members;
     expect(a2!.valueStates).toEqual(a!.valueStates);
     expect(b2!.valueStates).toEqual(b!.valueStates);
+  });
+
+  it("前の版の画面で性別に付けた推定・仮の印は、読むときに外す（値・ほかの印はそのまま。形式の版は上げない）", () => {
+    const s = sample();
+    const body = bodyObject(s) as unknown as { household: { assumed?: Record<string, string>; request: EngineRequestLike } };
+    const [a, b, c] = body.household.request.input.household.members;
+    // 0.17 の形: 値の状態の欄の推定の行（仮の印から作った行と、ほかの出し方の行）
+    a!.valueStates = { "member.sex": { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "仮の値" } }, "member.birth": { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "仮の値" } } };
+    b!.valueStates = { "member.sex": { state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "推定（本人と逆の性別。同性のご夫婦は直してください）" }, certainty: "rough" } };
+    // 0.16 の形: 画面の側の仮の印のまま残っているもの
+    body.household.assumed = { ...(body.household.assumed ?? {}), [`family/${c!.id}/sex`]: "わからない（男性を代わりの値にして計算）" };
+    const back = fromBody(JSON.stringify(body));
+    expect(Object.keys(back.wh.assumed).some((k) => k.endsWith("/sex"))).toBe(false);
+    expect(back.wh.assumed[`family/${a!.id}/birth`]).toBe("仮の値");
+    const members = back.wh.request.input.household.members as unknown as { id: string; sex: string; valueStates?: Record<string, unknown> }[];
+    expect(members.every((m) => m.valueStates?.["member.sex"] === undefined)).toBe(true);
+    // 値はそのまま
+    for (const m of [a!, b!, c!]) expect(members.find((x) => x.id === m.id)!.sex).toBe(m.sex);
+    // 計算の結果も変わらない（印は計算の要求に入らない）
+    expect(preview(back.wh.request)).toEqual(preview(s.wh.request));
+    // 書き戻しても性別の行は作らない
+    const again = bodyObject(back) as unknown as typeof body;
+    expect(again.household.request.input.household.members.every((m) => (m.valueStates as Record<string, unknown> | undefined)?.["member.sex"] === undefined)).toBe(true);
   });
 
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。

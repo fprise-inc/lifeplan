@@ -6,10 +6,10 @@ import type { WorkingHousehold } from "./household.ts";
 
 const KIND_LABEL: Record<string, string> = { parent: "親", grandparent: "祖父母", sibling: "兄弟姉妹", grandchild: "孫", other: "ご家族" };
 
-/** 親・祖父母の呼び方（性別と、配偶者の親か）: 父・母・義父・義母・祖父・祖母。性別が仮の値のあいだは「親」「祖父母」 */
+/** 親・祖父母の呼び方（性別と、配偶者の親か）: 父・母・義父・義母・祖父・祖母。性別の値が無ければ「親」「祖父母」 */
 function elderLabel(wh: WorkingHousehold, m: Member): string | undefined {
   const h = wh.request.input.household;
-  if ((m.kind !== "parent" && m.kind !== "grandparent") || wh.assumed[`family/${m.id}/sex`] !== undefined) return undefined;
+  if (m.kind !== "parent" && m.kind !== "grandparent") return undefined;
   const spouse = h.members.find((x) => x.kind === "spouse");
   const inLaw = spouse !== undefined && m.outside?.of === spouse.id;
   if (m.sex !== "male" && m.sex !== "female") return undefined;

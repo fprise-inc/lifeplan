@@ -75,9 +75,10 @@ describe("見本の記入済みシートを空の世帯に取り込む", () => {
     // 承認の記録（0008 の2・5）
     expect(unapproved(out.wh.request)).toBe(0);
     expect(JSON.stringify(out.wh.request)).toContain(`"approval":{"by":"fp","at":"${AT}"`);
-    // 本人の仮の生年月・性別の印は外れ、取り込んだ物の印が入る
+    // 本人の仮の生年月の印は外れ、取り込んだ物の印が入る。性別は推定にしないので、記入の無い子の性別にも印を付けない
     expect(Object.keys(out.wh.assumed).some((k) => k.endsWith("/birth"))).toBe(false);
-    expect(Object.values(out.wh.assumed)).toContain("仮の値（出産予定）");
+    expect(Object.keys(out.wh.assumed).some((k) => k.endsWith("/sex"))).toBe(false);
+    expect(Object.keys(out.wh.assumed).length).toBeGreaterThan(0);
     // 取り込みの記録と同意の下書き
     expect(logOf(out.wh).imports).toHaveLength(1);
     expect(logOf(out.wh).consents.map((c) => `${c.kind}:${c.decision}`)).toEqual(["purpose:given", "familyInfo:given", "externalAi:refused"]);

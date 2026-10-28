@@ -298,7 +298,7 @@ export function addOutside(wh: WorkingHousehold, kind: "parent" | "grandparent" 
       h.members.push(m);
       if (kind === "child" && self !== undefined) (h.relations ??= []).push({ type: "parentOf", parent: self.id, child: id });
     });
-    next = { ...next, assumed: { ...next.assumed, [`family/${id}/birth`]: "仮の値", [`family/${id}/sex`]: "仮の値" } };
+    next = { ...next, assumed: { ...next.assumed, [`family/${id}/birth`]: "仮の値" } };
   }
   const added = next.request.input.household.members.find((m) => !before.has(m.id));
   if (added === undefined) return next;
@@ -310,12 +310,6 @@ export function addOutside(wh: WorkingHousehold, kind: "parent" | "grandparent" 
     if (o.of !== undefined && x.outside !== undefined) x.outside.of = o.of;
     if (o.birthYear !== undefined) x.birth.birthYearMonth = `${String(o.birthYear)}-04`;
   });
-  // 性別を決めて足したときは、性別の仮の印を外す
-  if (o.sex !== undefined) {
-    const { [`family/${added.id}/sex`]: _sex, ...rest } = next.assumed;
-    void _sex;
-    next = { ...next, assumed: rest };
-  }
   return kind === "parent" || kind === "grandparent" ? withDeathEstimate(next, added.id) : next;
 }
 

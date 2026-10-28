@@ -619,11 +619,10 @@ function importFamily(c: Ctx, h: Household, baseMonth: string, asOf: string): Ad
     if (ymIndex(b) - ymIndex(baseMonth) > 18) c.contradiction("hs.family.child.birthYearMonth", n, "出産予定が1年半より先になっています");
     const sexGot = c.get<string>("hs.family.child.sex", n);
     let sex: "male" | "female" = "female";
+    // 性別は推定するものではないので、記入が無くても推定・仮の印は付けない（初めの値をそのまま入れる）
     if (sexGot.status === "value") {
       sex = sexGot.value as "male" | "female";
       c.field(id, "hs.family.child.sex", n, "member.sex", "/sex", "confirmed");
-    } else {
-      c.assume(`family/${id}/sex`, expected ? "仮の値（出産予定）" : "仮の値", { objectId: id, key: "hs.family.child.sex", index: n, item: "member.sex", path: "/sex" });
     }
     const child: Member = { id, kind: "child", birth: { birthYearMonth: b, bornOnFirst: false }, sex, joins: expected ? { at: b } : null, leaves: null, expected };
     h.members.push(child);
@@ -641,8 +640,8 @@ function sexOf(c: Ctx, id: string, key: string, index: number, fallback: "male" 
     c.field(id, key, index, "member.sex", "/sex", "confirmed");
     return g.value as "male" | "female";
   }
+  // 記入が無いことは知らせる。性別は推定するものではないので、推定・仮の印は付けない（初めの値をそのまま入れる）
   c.missing(key, index, "性別がありません（年金の計算に使います）");
-  c.assume(`family/${id}/sex`, "仮の値", { objectId: id, key, index, item: "member.sex", path: "/sex" });
   return fallback;
 }
 

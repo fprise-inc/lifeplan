@@ -174,11 +174,12 @@ describe("取り込み", () => {
     expect(codes(r)).toContain("H_UNKNOWN_KEY:ext.exampleOffice.carCount");
   });
 
-  it("出産予定の子は expected・joins にし、性別は仮の値", () => {
+  it("出産予定の子は expected・joins にし、性別は推定・仮の印を付けない", () => {
     const r = run(...minimal, a("hs.family.child.birthYearMonth", "2027-03", 1));
     const child = r.request.input.household.members.find((m) => m.kind === "child");
     expect(child).toMatchObject({ expected: true, joins: { at: "2027-03" } });
-    expect(r.assumed[`family/${child?.id}/sex`]).toBe("仮の値（出産予定）");
+    expect(r.assumed[`family/${child?.id}/sex`]).toBeUndefined();
+    expect(Object.keys(r.assumed).some((k) => k.endsWith("/sex"))).toBe(false);
   });
 
   it("取り込みの記録の下書きに、依頼番号・シートの版・元の回答を残す（0011 の imports）", () => {

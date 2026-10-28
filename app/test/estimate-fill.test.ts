@@ -8,7 +8,7 @@ import { Field, FieldStateOps, fillInside } from "../src/workspace/input/FieldVi
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { householdSize, isPureSplit, LIVING_CATEGORY_ORDER, withRefreshedEstimates } from "../src/workspace/input/estimates.ts";
-import { addMember } from "../src/workspace/input/stages/family.ts";
+import { addChildWithEducation, addMember } from "../src/workspace/input/stages/family.ts";
 import { livingStatistic } from "../../hearing/src/estimates.ts";
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
@@ -46,12 +46,29 @@ describe("推定の欄の「この値にする」", () => {
     expect(count(html, "data-fill-estimate")).toBe(1);
   });
 
-  it("選択の欄（仮の値）は欄の横に置く", () => {
-    const wh = blankHousehold(BASE, ids());
-    const f = fieldOf(wh, "family", "/sex");
+  it("選択の欄（推定）は欄の横に置く", () => {
+    const wh = addChildWithEducation(blankHousehold(BASE, ids()), ids());
+    const f = fieldOf(wh, "education", "/preset");
     expect(fieldStatus(f, wh).status).toBe("estimated");
     const html = fieldHtml(wh, f);
     expect(html).toMatch(/<\/select><button type="button" class="fld-fill"[^>]*data-fill-estimate="true">この値にする<\/button>/);
+  });
+
+  it("性別の欄は推定にしない（推定の印・「この値にする」・「推定に戻す」を出さない）", () => {
+    let wh = addMember(blankHousehold(BASE, ids()), "spouse", ids());
+    wh = addMember(wh, "parent", ids());
+    wh = addChildWithEducation(wh, ids(), true);
+    for (const stage of ["family", "care"] as const) {
+      for (const f of allFields(buildStage(stage, wh)).filter((x) => x.key.endsWith("/sex"))) {
+        expect(fieldStatus(f, wh).status).toBe("confirmed");
+        expect(availableOps(f, wh)).toEqual([]);
+        const html = fieldHtml(wh, f);
+        expect(html).not.toContain("data-fill-estimate");
+        expect(html).not.toContain(FILL_LABEL);
+        expect(html).not.toContain("推定に戻す");
+        expect(html).not.toContain(">推定<");
+      }
+    }
   });
 
   it("確定の欄には出さない（押して確定にした後も出ない）", () => {
