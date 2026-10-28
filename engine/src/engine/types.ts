@@ -39,6 +39,8 @@ export interface MemberInput {
   /** 0078: 老齢年金の受給を始める月（年金の記録が無い人。推計のときの繰上げ・繰下げ。記録があれば記録の claim を使う。省略は65歳に達した月の翌月） */
   readonly pensionClaim?: { readonly basic?: Timepoint; readonly employee?: Timepoint };
   readonly support?: { readonly dependent: boolean; readonly cohabiting: boolean; readonly allowance?: Yen };
+  /** 0081: 所得税の申告の仕方（青色・白色）と青色申告特別控除の区分（65万円 electronic・55万円 doubleEntry・10万円 simple。省略は simple）。省略は白色 */
+  readonly taxReturn?: { readonly method: "blue" | "white"; readonly blueDeduction?: "electronic" | "doubleEntry" | "simple" };
   /** 0035 の4: 世帯の外の家族（家計を世帯と別にする家族）。お金の動きは家計を1つにする期間のうち収入を世帯に入れる期間だけ世帯に入れ、世帯の判定の顔ぶれに入れない（sdk の isOutside・sameHousehold） */
   readonly outside?: OutsideFamilyInput;
   /** 世帯の外の家族のお金（簡易の家計。outside.wallet の部品が月ごとに積む。生年月のある世帯の外の家族だけ） */
@@ -272,6 +274,9 @@ export type RealEstateExpenseItem = "management" | "propertyTax" | "insurance" |
 
 /** 住まい以外の不動産の中身（0028）。入れた器は、評価額を土地と建物に分け、家賃収入・経費・売却を計算する */
 export interface RealEstatePropertyInput {
+  /** 物件の種類と戸数（0079。見分けるための欄。計算は事業的規模の目安〔5棟10室〕を数えるときだけ読む。0081） */
+  readonly kind?: "condo" | "apartment" | "mansion" | "house" | "commercial" | "parking" | "land" | "lodging";
+  readonly units?: number;
   /** 建物の構造（省略は木造） */
   readonly structure?: BuildingStructure;
   /** 建物が建った年（省略は取得の年。取得も無ければ時価の時点の年＝新築とみなす） */
@@ -337,9 +342,11 @@ export interface RealEstatePropertyInput {
     readonly days?: number;
     /** 仲介サイトの手数料（売上に対する割合） */
     readonly platformRate?: string;
+    /** 所得の区分（省略は営業の形から: 旅館業は事業所得、ほかは雑所得。0081） */
+    readonly incomeKind?: "miscellaneous" | "business" | "realEstate";
   };
-  /** 売却の予定（その月に売り、手取りを現金にする） */
-  readonly sale?: { readonly at: Timepoint; readonly price?: Yen; readonly costRate?: string };
+  /** 売却の予定（その月に売り、手取りを現金にする）。repayLoan: 売ったときにこの物件のローンを返す（省略は返す。0081） */
+  readonly sale?: { readonly at: Timepoint; readonly price?: Yen; readonly costRate?: string; readonly repayLoan?: boolean };
 }
 
 export interface RateStep {

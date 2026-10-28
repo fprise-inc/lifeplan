@@ -6,12 +6,14 @@
 // - 上の一覧表（rentalOverview）は入力から出せる数字だけ（評価額・ローン残高・空室を見込んだ後の月の収入）
 // - お金の欄（0080）: 取得価額の内訳・取得時の諸費用・自己資金、家賃以外の月の収入・礼金と更新料、経費の費目、大きな修繕の予定、物件のローンの
 //   借入先・金利の段階・繰上返済・借り換え・団信、民泊・宿の営業の形と売上（1泊の単価×稼働率×営業日数か月の売上の見込み）と経費の入れ方
-import type { Account, Debt, Household, RealEstateExpenseItem, RealEstateProperty } from "../../../engine/types.ts";
+// - 税と出口（0081）: 売ったときにこの物件のローンを返すか（売却の詳細）、民泊・宿の所得の区分（雑所得・事業所得・不動産所得。詳細）、
+//   物件の持ち主ごとの申告の仕方（青色・白色）と青色申告特別控除の額、事業的規模の目安（5棟10室。種類と戸数から）
+import type { Account, Debt, Household, Member, RealEstateExpenseItem, RealEstateProperty } from "../../../engine/types.ts";
 import type { Address } from "../../store/readings.ts";
 import { addMonths } from "../../levers.ts";
 import { byId, field, plain, removeAction, resolveTimepoint, timepointField, yenBox, type FieldDef, type Finder, type GroupDef, type Option, type StageDef } from "../form.ts";
 import { confirmedBox, mutate, newId, standardBox, type WorkingHousehold } from "../household.ts";
-import { BUILDING_STRUCTURES, memberOptions, VALUATION_DEFAULTS } from "../labels.ts";
+import { BUILDING_STRUCTURES, memberLabels, memberOptions, VALUATION_DEFAULTS } from "../labels.ts";
 import { monthsBetween } from "../loanMath.ts";
 import { stagedGroups } from "../staged.ts";
 import { creditLifeFields, loanFields, loanStepGroups } from "./housing.ts";
@@ -40,8 +42,50 @@ export const RENTAL_KINDS: Option[] = [
   { value: "land", label: "貸している土地" },
   { value: "lodging", label: "民泊・宿" },
 ];
-/** 民泊・宿の知らせ（所得の区分は後の版。今は不動産所得として計算する。消費税は扱わない。0080） */
-export const LODGING_NOTE = "所得は不動産所得として計算しています（雑所得・事業所得の区分は今後の版で対応します）。売上が年1,000万円を超えるときの消費税は計算しません";
+/** 民泊・宿の計算に入れていないもの（消費税・個人事業税は扱わない。0080・0081。種類の欄の「?」の中） */
+export const LODGING_NOTE = "売上が年1,000万円を超えるときの消費税と、個人事業税は計算しません";
+/** 民泊・宿の所得の区分（0081）。省略は営業の形から（エンジンと同じ: 旅館業は事業所得、ほかは雑所得） */
+export const LODGING_INCOME_KINDS: Option[] = [
+  { value: "miscellaneous", label: "雑所得" },
+  { value: "business", label: "事業所得" },
+  { value: "realEstate", label: "不動産所得" },
+];
+export const lodgingIncomeKind = (l: NonNullable<RealEstateProperty["lodging"]>): "miscellaneous" | "business" | "realEstate" => l.incomeKind ?? (l.business === "inn" ? "business" : "miscellaneous");
+/** 申告の仕方と青色申告特別控除の区分（0081） */
+export const TAX_RETURN_METHODS: Option[] = [
+  { value: "white", label: "白色" },
+  { value: "blue", label: "青色" },
+];
+export const BLUE_DEDUCTIONS: Option[] = [
+  { value: "electronic", label: "65万円" },
+  { value: "doubleEntry", label: "55万円" },
+  { value: "simple", label: "10万円" },
+];
+/** 事業的規模の目安（5棟10室。1棟を2室として合わせる。エンジンの tax.totalIncome と同じ数え方） */
+export const BUSINESS_SCALE_ROOMS = 10;
+export const BUSINESS_SCALE_HELP =
+  "貸している部屋がおおむね10室以上、または独立した家屋（戸建て）がおおむね5棟以上なら、不動産の貸付けは事業的規模とされます（国税庁 No.1373）。区分マンションは1件1室、一棟アパート・一棟マンション・店舗/事務所・民泊・宿は戸数を室、戸建ては1棟を2室として数えた目安で、駐車場・貸している土地は数えていません。事業的規模なら青色申告特別控除の55万円・65万円が使えます。最終の判断は税理士にご確認ください";
+
+/** その人の物件から数えた事業的規模の目安（不動産所得の物件だけ。民泊・宿は所得の区分が不動産所得のときだけ） */
+export function businessScale(h: Household, member: string): { rooms: number; houses: number; met: boolean } {
+  let rooms = 0;
+  let houses = 0;
+  for (const a of rentalProperties(h)) {
+    const p = a.property;
+    if (a.owner !== member || p === undefined || p.rental === undefined) continue;
+    if (p.lodging !== undefined && lodgingIncomeKind(p.lodging) !== "realEstate") continue;
+    if (p.kind === "condo") rooms += 1;
+    else if (p.kind === "house") houses += 1;
+    else if (p.kind === "apartment" || p.kind === "mansion" || p.kind === "commercial" || p.kind === "lodging") rooms += p.units ?? 1;
+  }
+  return { rooms, houses, met: rooms + houses * 2 >= BUSINESS_SCALE_ROOMS };
+}
+
+/** その人に事業所得があるか（自営の働き方・事業所得の民泊・宿。青色申告特別控除の55万円・65万円の要件） */
+function hasBusinessIncome(h: Household, member: string): boolean {
+  if ((h.employmentPeriods ?? []).some((x) => x.member === member && x.type === "selfEmployed")) return true;
+  return rentalProperties(h).some((a) => a.owner === member && a.property?.lodging !== undefined && lodgingIncomeKind(a.property.lodging) === "business");
+}
 /** 住宅宿泊事業の営業日数の上限（エンジンと同じ） */
 export const PRIVATE_LODGING_DAYS = 180;
 /** 民泊・宿の営業の形 */
@@ -222,7 +266,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
       path: ["kind"],
       optional: true,
       structural: true,
-      help: `種類そのものは計算に使いません。民泊・宿を選ぶと、家賃の代わりに宿泊の売上（1泊の単価・稼働率・営業日数か、月の売上の見込み）と、売上に対する手数料・清掃などの経費で入れます。${LODGING_NOTE}`,
+      help: `種類と戸数は、事業的規模の目安（5棟10室）を数えるときだけ計算に使います。民泊・宿を選ぶと、家賃の代わりに宿泊の売上（1泊の単価・稼働率・営業日数か、月の売上の見込み）と、売上に対する手数料・清掃などの経費で入れます。${LODGING_NOTE}`,
       // 民泊・宿の入れ方（lodging）は種類が民泊・宿のときだけ持つ
       after: (_h, t, v) => {
         if (v === "lodging") t.lodging ??= {};
@@ -231,7 +275,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
     }),
     onAccount(a.id, "account.property", ["kind"]),
   );
-  const kindField: FieldDef = { ...kindBase, get: (w) => { const s = kindBase.get(w); return s.value === "lodging" ? { ...s, warn: LODGING_NOTE } : s; } };
+  const kindField: FieldDef = kindBase;
   const fields: FieldDef[] = [
     withAddress(
       plain({ key: `${kp}/name`, item: "account.property.name", label: "物件名", level: "simple", kind: "text", find: findP, path: ["name"], optional: true, help: "空欄なら「物件1」「物件2」と呼びます。お客さまの呼び方（「○○のアパート」など）で入れると見分けやすくなります" }),
@@ -534,7 +578,7 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       level: "simple",
       kind: "bool",
       structural: true,
-      help: "売ると、売却価格から売却の費用を引いた手取りが預金に入り、その年から不動産は無くなります。譲渡所得の税は計算しません",
+      help: "売ると、売却価格から売却の費用を引いた手取りが預金に入り、その年から不動産は無くなります。譲渡所得の税（売った年の1月1日に所有期間が5年を超えれば長期で所得税15%・住民税5%、5年以下は短期で30%・9%。復興特別所得税などを含む）を、翌年3月の所得税と翌年度の住民税として計算します。取得費は取得価額と取得時の諸費用から建物の減価償却の累計を引いた額（入っていなければ売却価格の5%）です",
       get: (w) => ({ value: (find(w.request.input.household, w) as Account | undefined)?.property?.sale !== undefined }),
       set: (w, v) =>
         mutate(w, (h) => {
@@ -549,7 +593,14 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
     saleFields.push(
       timepointField({ key: `${kp}/saleAt`, item: "account.property", label: "売る時期", level: "simple", find: findP, path: ["sale", "at"], ...ageOf }),
       plain({ key: `${kp}/salePrice`, item: "account.property", label: "売却価格", level: "simple", kind: "yen", basis: "once", find: findP, path: ["sale", "price"], optional: true, help: "空欄ならその年の評価額で売るとみなします" }),
-      plain({ key: `${kp}/saleCost`, item: "account.property", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find: findP, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など。ローンが残るときは、売る月の繰上返済で返します" }),
+      plain({ key: `${kp}/saleCost`, item: "account.property", label: "売却の費用（売却価格に対する割合）", level: "detail", kind: "pct", find: findP, path: ["sale", "costRate"], optional: true, fallback: setting?.saleCostRate ?? VALUATION_DEFAULTS.saleCostRate, help: "仲介手数料・印紙税など。譲渡所得の計算では譲渡費用として引きます" }),
+    );
+  if (p.sale !== undefined && propertyLoans(wh.request.input.household, a.id).length > 0)
+    saleFields.push(
+      withAddress(
+        plain({ key: `${kp}/saleRepay`, item: "account.property", label: "売ったときに、この物件のローンを返す", level: "detail", kind: "bool", find: findP, path: ["sale", "repayLoan"], fallback: true, help: "オンなら、売る月の返済の後に、この物件のローンの残りを一括で返します（キャッシュフロー表ではローンの返済の行に出ます）。オフなら、売った後も返済の予定のまま払います" }),
+        onAccount(a.id, "account.property", ["sale", "repayLoan"]),
+      ),
     );
   groups.push({ key: `${kp}/sale`, title: "売却", level: "detail", fields: saleFields, actions: [] });
   // この物件のローン（負債の型。「住まい・ローン」の住宅ローン以外のローンと同じ欄）
@@ -598,6 +649,15 @@ function lodgingSalesFields(wh: WorkingHousehold, a: Account): FieldDef[] {
   const fields: FieldDef[] = [
     lp("lodgingBusiness", ["business"], { label: "営業の形", level: "simple", kind: "select", options: LODGING_BUSINESSES, optional: true, help: "住宅宿泊事業（民泊新法）は、営業日数が年180日までです。旅館業（簡易宿所など）・特区民泊は日数の上限なしで計算します" }),
     lp("salesBy", ["salesBy"], { label: "売上の入れ方", level: "simple", kind: "select", options: SALES_BY, optional: true, fallback: "month", structural: true, help: "月の売上の見込みか、1泊の単価×稼働率×営業日数（年）÷12 で毎月の売上にします。空室を見込む割合は使いません" }),
+    lp("incomeKind", ["incomeKind"], {
+      label: "所得の区分",
+      level: "detail",
+      kind: "select",
+      options: LODGING_INCOME_KINDS,
+      optional: true,
+      fallback: l.business === "inn" ? "business" : "miscellaneous",
+      help: `空欄なら営業の形から、住宅宿泊事業・特区民泊は雑所得、旅館業は事業所得とします（国税庁の住宅宿泊事業の所得の扱い）。雑所得の赤字は給与などほかの所得から引けません。事業所得の赤字は引け、青色申告特別控除も使えます。賃貸の合間に一時的に貸すときは不動産所得にできます。${LODGING_NOTE}`,
+    }),
   ];
   if (l.salesBy === "night") {
     const cap = l.business === "privateLodging";
@@ -715,6 +775,83 @@ function propertyLoanGroups(wh: WorkingHousehold, d: Debt): GroupDef[] {
   ];
 }
 
+/** 物件の持ち主ごとの申告の仕方（青色・白色）と青色申告特別控除の額・事業的規模の目安（詳細。members[].taxReturn。0081） */
+export function taxReturnGroups(wh: WorkingHousehold): GroupDef[] {
+  const h = wh.request.input.household;
+  const owners = [...new Set(rentalProperties(h).map((a) => a.owner))];
+  const labels = memberLabels(wh);
+  return owners.map((id): GroupDef => {
+    const findM: Finder = (hh) => hh.members.find((m) => m.id === id) as Record<string, unknown> | undefined;
+    const m = h.members.find((x) => x.id === id) as Member | undefined;
+    const k = `rental/taxReturn/${id}`;
+    const addr = (at: string) => (): Address => ({ target: { object: id }, item: "member.taxReturn", at: [at] });
+    const fields: FieldDef[] = [
+      withAddress(
+        plain({
+          key: `${k}/method`,
+          item: "member.taxReturn",
+          label: "申告の仕方",
+          level: "detail",
+          kind: "select",
+          options: TAX_RETURN_METHODS,
+          find: findM,
+          path: ["taxReturn", "method"],
+          optional: true,
+          fallback: "white",
+          structural: true,
+          help: "青色申告なら、青色申告特別控除を不動産所得（と事業所得）から引き、損益通算で引ききれない赤字を翌年から3年繰り越します。白色は、引ききれない赤字を捨てます",
+          // 白色（空欄）に戻したら申告の欄ごと外す
+          after: (_h, t, v) => void (v === null || v === "white" ? delete t.taxReturn : undefined),
+        }),
+        addr("method"),
+      ),
+    ];
+    if (m?.taxReturn?.method === "blue") {
+      const scale = businessScale(h, id);
+      const business = hasBusinessIncome(h, id);
+      const dedBase = withAddress(
+        plain({
+          key: `${k}/blueDeduction`,
+          item: "member.taxReturn",
+          label: "青色申告特別控除",
+          level: "detail",
+          kind: "select",
+          options: BLUE_DEDUCTIONS,
+          find: findM,
+          path: ["taxReturn", "blueDeduction"],
+          optional: true,
+          fallback: "simple",
+          help: "65万円は複式簿記の帳簿と e-Tax での申告（か電子帳簿の保存）、55万円は複式簿記の帳簿と貸借対照表・損益計算書を期限内に出すとき、それ以外は10万円です。55万円・65万円は、不動産所得が事業的規模か事業所得があるときだけ使えます。不動産所得・事業所得の黒字の合計が上限で、不動産所得から先に引きます",
+        }),
+        addr("blueDeduction"),
+      );
+      fields.push({
+        ...dedBase,
+        get: (w) => {
+          const st = dedBase.get(w);
+          return (st.value === "electronic" || st.value === "doubleEntry") && !scale.met && !business ? { ...st, warn: "事業的規模の目安に当たらず事業所得も無いので、10万円で計算しています" } : st;
+        },
+      });
+    }
+    const scale = businessScale(h, id);
+    const count = [scale.rooms > 0 ? `${scale.rooms}室` : "", scale.houses > 0 ? `${scale.houses}棟` : ""].filter((x) => x !== "").join("・");
+    fields.push(
+      field({
+        key: `${k}/scale`,
+        item: null,
+        label: "事業的規模の目安",
+        level: "detail",
+        kind: "text",
+        readOnly: "物件の種類と戸数から数えています",
+        help: BUSINESS_SCALE_HELP,
+        get: () => ({ value: `${scale.met ? "当たります" : "当たりません"}${count !== "" ? `（${count}）` : ""}` }),
+        set: (w) => w,
+      }),
+    );
+    return { key: k, title: `申告（${labels.get(id) ?? "ご家族"}）`, level: "detail", fields, actions: [] };
+  });
+}
+
 /** 物件1件のまとまり（見出しの欄と中身） */
 export function rentalGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   return [headGroup(wh, a), ...propertyGroups(wh, a)];
@@ -736,7 +873,7 @@ export function rentalStage(wh: WorkingHousehold): StageDef {
         title: "物件",
         note: list.length === 0 ? `まだありません。${RENTAL_HELP}` : `${RENTAL_HELP}。物件の評価額は資産と負債の推移・提案書のバランスシートに入り、家賃収入から経費・減価償却費・ローンの利息を引いた不動産所得は税・社会保険料の計算に入ります`,
         level: "simple",
-        groups: list.flatMap((a) => rentalGroups(wh, a)),
+        groups: [...list.flatMap((a) => rentalGroups(wh, a)), ...taxReturnGroups(wh)],
         actions: [{ key: "rental/add", label: "＋ 物件を足す", help: "評価額と家賃は未入力（0円で計算中）で始めます", level: "simple", run: (w) => addRentalProperty(w) }],
       },
     ],

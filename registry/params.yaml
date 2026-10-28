@@ -1130,6 +1130,24 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.blueReturnDeduction.doubleEntry
+    status: active
+    label: "青色申告特別控除の額（正規の簿記〔複式簿記〕で記帳し、貸借対照表・損益計算書を期限内に提出。不動産所得の事業的規模か事業所得があるとき）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.blueReturnDeduction.electronic
+    status: active
+    label: "青色申告特別控除の額（55万円の要件に加え、電子帳簿保存か e-Tax での申告。不動産所得の事業的規模か事業所得があるとき）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.blueReturnDeduction.simple
+    status: active
+    label: "青色申告特別控除の額（55万円・65万円の要件に当たらない青色申告者）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.defenseSurtax.rate
     status: active
     label: "防衛特別所得税の税率（基準所得税額に掛ける）"
@@ -1394,6 +1412,30 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: incomeTax.landBuilding.estimatedCostRate
+    status: active
+    label: "土地建物等の譲渡所得の概算取得費の割合（売った金額に掛ける。取得費が分からないとき、または実際の取得費がこれを下回るとき）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.landBuilding.longTerm.holdingYears
+    status: active
+    label: "土地建物等の長期譲渡所得になる所有期間（譲渡した年の1月1日の所有期間がこの年数を超えれば長期、以下は短期）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.landBuilding.longTerm.rate
+    status: active
+    label: "土地建物等の長期譲渡所得（分離課税。譲渡した年の1月1日の所有期間が5年を超える）の所得税の税率（復興特別所得税・防衛特別所得税は基準所得税額に掛けて別に足す）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.landBuilding.shortTerm.rate
+    status: active
+    label: "土地建物等の短期譲渡所得（分離課税。譲渡した年の1月1日の所有期間が5年以下）の所得税の税率（復興特別所得税・防衛特別所得税は基準所得税額に掛けて別に足す）"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: incomeTax.lifeInsuranceDeduction.mixedLimit
     status: active
     label: "生命保険料控除（新旧の両方で受ける区分の上限）"
@@ -1445,6 +1487,12 @@ entries:
   - id: incomeTax.listedSecurities.withholding.rounding
     status: active
     label: "特定口座の源泉徴収の所得税・復興特別所得税（防衛特別所得税）の端数（1円未満切り捨て）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: incomeTax.netLoss.carryforwardYears
+    status: active
+    label: "青色申告の年に生じた純損失を繰り越して控除できる年数（翌年以後この年数。住民税も同じ年数）"
     since: draft
     aliases: []
     replacedBy: null
@@ -2705,6 +2753,18 @@ entries:
   - id: residentTax.installment.special.rounding
     status: active
     label: "特別徴収の分割金額の100円未満の端数（最初の納期の分に合わせる）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.landBuilding.longTerm.rate
+    status: active
+    label: "土地建物等の長期譲渡所得の住民税の税率（道府県民税と市町村民税の合計。指定都市の配分は扱わない）"
+    since: draft
+    aliases: []
+    replacedBy: null
+  - id: residentTax.landBuilding.shortTerm.rate
+    status: active
+    label: "土地建物等の短期譲渡所得の住民税の税率（道府県民税と市町村民税の合計。指定都市の配分は扱わない）"
     since: draft
     aliases: []
     replacedBy: null

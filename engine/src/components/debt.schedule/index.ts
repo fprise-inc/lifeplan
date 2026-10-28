@@ -15,6 +15,9 @@
 // - 団信（改訂3。0008 の追記 2026-10-09）: 団信の部品（debt.creditLifeEvents）が返す月の返済の後に、残高（ボーナス返済の分・未払利息を含む）を
 //   その割合だけ減らし、残りの回数で返済額を計算し直す（割合が1なら返し終わる）
 // - 変動金利の上乗せ（改訂3。ストレステスト）: 前提の loanRateShifts の月から、変動金利（variable）の段の金利に上乗せを足す
+// - 売ったときに返す（改訂5。0081）: 住まい以外の不動産を指す負債（property）で、その不動産に売却の予定があり「売ったときにローンを返す」
+//   （sale.repayLoan。省略は返す）なら、売る月の返済の後に残り（ボーナス返済の分・未払利息を含む）を一括で返す（繰上返済の行。計算式ID
+//   debt.schedule.salePayoff）。売却の手取りは asset.realEstate が同じ月に入れる
 import {
   addMonths,
   boxValue,
@@ -24,6 +27,7 @@ import {
   parseYm,
   yearOf,
   yen,
+  type AccountInput,
   type CreditLifeOutput,
   type Ctx,
   type DebtInput,
@@ -76,7 +80,7 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
   id: "debt.schedule",
   title: "負債の返済",
   contract: "1.2",
-  revision: 4,
+  revision: 5,
   requires: { "debt.creditLifeEvents": ">=1 <2" },
   params: [],
   reads: [
@@ -91,6 +95,8 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
     "debt.repayment",
     "debt.prepayments",
     "debt.refinance",
+    "debt.property",
+    "account.property",
   ],
   input: "debt.schedule.input",
   output: "debt.schedule.output",
@@ -194,6 +200,9 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
     };
     const prepayments = (d.prepayments ?? []).map((p) => ({ ...p, m: ctx.time.resolve(p.at) }));
     const refinances = (d.refinance ?? []).map((p) => ({ ...p, m: ctx.time.resolve(p.at) }));
+    // 売ったときに返す月（住まい以外の不動産のローン。0081）
+    const propSale = d.property === undefined ? undefined : ctx.list<AccountInput>("account").find((a) => a.id === d.property)?.property?.sale;
+    const payoffAt: MonthIndex | null = propSale !== undefined && propSale.repayLoan !== false ? ctx.time.resolve(propSale.at) : null;
     for (let m = addMonths(cur, 1); m <= end && n > 0; m = addMonths(m, 1)) {
       // 借り換え: その月から新しいローン
       const rf = refinances.find((x) => x.m === m);
@@ -305,6 +314,13 @@ export default defineComponent<{ object: string } | { loan: DebtInput }, DebtSch
         bonus = ctx.money.mulRate(bonus, c.keep, "conv.loan.payment");
         unpaid = ctx.money.mulRate(unpaid, c.keep, "conv.loan.payment");
         if (main > 0 || bonus > 0) reprice(addMonths(m, 1));
+      }
+      // 売ったときに返す: 売る月の返済の後に、残りを一括で返す
+      if (payoffAt !== null && m === payoffAt && main + bonus + unpaid > 0) {
+        emit(m, prepayRow, yen(main + bonus + unpaid), "debt.schedule.salePayoff");
+        main = yen(0);
+        bonus = yen(0);
+        unpaid = yen(0);
       }
       const done = main <= 0 && bonus <= 0 && unpaid <= 0;
       if (monthOf(m) === 12 || done) {

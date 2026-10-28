@@ -88,8 +88,30 @@ export interface TotalIncomeOutput {
   readonly miscellaneous?: Yen;
   /** 不動産所得（住まい以外の不動産。損失は土地の取得のための借入の利息の分を除いて、ほかの所得から引く。約束の版 1.4 の任意の欄。total に入る。0028） */
   readonly realEstate?: Yen;
-  /** 分離課税の譲渡所得（入るお金の行の譲渡所得。約束の版 1.5 の任意の欄。total には入らない。合計所得金額の判定で足す。0044） */
+  /** 分離課税の譲渡所得（入るお金の行の譲渡所得。約束の版 1.5 の任意の欄。total には入らない。合計所得金額の判定で足す。0044）。1.6 から土地建物等の譲渡所得も足す */
   readonly separate?: Yen;
+  /** 土地建物等の譲渡所得（住まい以外の不動産を売った年。短期と長期を差し引いた後・特別控除の前。separate に入っている。約束の版 1.6 の任意の欄。0081） */
+  readonly landBuilding?: { readonly short: Yen; readonly long: Yen };
+  /** 青色申告特別控除の額（不動産所得・事業所得から引いた額。約束の版 1.6 の任意の欄。0081） */
+  readonly blueDeduction?: Yen;
+  /** 純損失の金額（損益通算をしても引ききれない損失。total は0。青色なら tax.lossCarryforward が3年繰り越す。約束の版 1.6 の任意の欄。0081） */
+  readonly netLoss?: Yen;
+  /** 民泊・宿の雑所得・事業所得（total・miscellaneous・other に入っている。マイナスは損失。約束の版 1.6 の任意の欄。0081） */
+  readonly lodging?: { readonly miscellaneous: Yen; readonly business: Yen };
+}
+
+/** tax.lossCarryforward: 青色申告の人の純損失の繰越控除（総所得金額から引く額。合計所得金額〔tax.totalIncome の total〕は控除の前。0081） */
+export interface LossCarryforwardOutput {
+  /** 年の昇順。繰り越す損失か引く額のある年だけ。deducted はその年の総所得金額から引く額、remaining は年末に繰り越す残り（翌年以後に引ける分） */
+  readonly byYear: readonly { readonly year: number; readonly netLoss: Yen; readonly deducted: Yen; readonly remaining: Yen }[];
+}
+
+/** tax.realEstateSale: 住まい以外の不動産を売ったときの譲渡所得（分離課税）と税（名義の人×売った年。0081） */
+export interface RealEstateSaleTaxOutput {
+  /** 所得税（翌年3月。cf.taxSi.incomeTax.realEstateSale）と住民税（翌年度の普通徴収。cf.taxSi.residentTax.realEstateSale） */
+  readonly flows: readonly Flow[];
+  /** short・long は短期と長期を差し引いた後の譲渡所得（0より下げない）。incomeTax は復興特別所得税・防衛特別所得税を含む */
+  readonly byMember: readonly { readonly member: string; readonly year: number; readonly short: Yen; readonly long: Yen; readonly incomeTax: Yen; readonly residentTax: Yen }[];
 }
 
 /** tax.deductions: 所得控除（所得税か住民税か） */
@@ -428,7 +450,27 @@ export interface RealEstateOutput {
       readonly landInterest: Yen;
       readonly income: Yen;
     }[];
-    readonly sale: { readonly ym: string; readonly value: Yen; readonly price: Yen; readonly costs: Yen; readonly proceeds: Yen } | null;
+    /**
+     * 約束の版 1.1（0081）: 譲渡所得の内訳（任意の欄）。acquisitionCost は取得費（取得価額＋取得時の諸費用−建物と建物附属設備の償却の累計。
+     * 概算取得費〔売却価格の5%〕のほうが大きければそれ）、estimated は概算取得費を使ったか、gain は売却価格−（取得費＋売却の費用）、term は長期・短期
+     */
+    readonly sale:
+      | {
+          readonly ym: string;
+          readonly value: Yen;
+          readonly price: Yen;
+          readonly costs: Yen;
+          readonly proceeds: Yen;
+          readonly acquisitionCost?: Yen;
+          readonly estimated?: boolean;
+          readonly gain?: Yen;
+          readonly term?: "long" | "short";
+        }
+      | null;
+    /** 約束の版 1.1（0081）: 所得の区分（民泊・宿の雑所得・事業所得。無ければ不動産所得） */
+    readonly incomeKind?: "miscellaneous" | "business";
+    /** 約束の版 1.1（0081）: 事業的規模の目安に数える室数・棟数（不動産所得の物件。種類と戸数から） */
+    readonly units?: { readonly rooms: number; readonly houses: number };
   }[];
 }
 

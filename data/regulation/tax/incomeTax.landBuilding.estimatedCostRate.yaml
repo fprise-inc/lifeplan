@@ -1,0 +1,19 @@
+id: incomeTax.landBuilding.estimatedCostRate
+title: 土地建物等の譲渡所得の概算取得費の割合（売った金額に掛ける。取得費が分からないとき、または実際の取得費がこれを下回るとき）
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3258.htm", "retrievedAt": "2026-10-28", "sha256": "16556f48ea243c169627ce6981d19259a406ee8438cce5ea7a496b5cf1313370", "locator": "No.3258 内容", "quote": "取得費が分からない場合には、売った金額の5パーセント相当額を取得費とすることができます"}
+    recordedIn: "2026.15.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 1, "note": "国税庁 No.3258（所得税基本通達38-16・措置法31条の4）。読んだのは公表資料の1つだけなので確認待ち。e-Gov法令API の条文（XML）と国税庁のタックスアンサー（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-10-28）。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}

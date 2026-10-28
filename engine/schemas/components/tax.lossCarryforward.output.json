@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:tax.lossCarryforward.output",
+  "title": "青色申告の純損失の繰越控除（0081）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["byYear"],
+  "properties": {
+    "byYear": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["year", "netLoss", "deducted", "remaining"],
+        "properties": {
+          "year": { "$ref": "urn:financia:schema:common#/$defs/year" },
+          "netLoss": { "description": "その年に生じた純損失", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "deducted": { "description": "その年の総所得金額から引く前の年以前の純損失", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "remaining": { "description": "年末に繰り越す残り（その年の純損失を含む）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+        }
+      }
+    }
+  }
+}

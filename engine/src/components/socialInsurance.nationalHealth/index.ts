@@ -9,6 +9,8 @@
 // 改訂7: 未就学児の均等割の軽減・産前産後の免除の知らせは、その年度に小学校に入る前の子が国民健康保険に入っている月があるときだけ出す
 //   （生まれる子も未就学児なので、産前産後の免除が当てはまりうる年度も含む。保険料は変えない）
 // 改訂8: 表の最後の年の年度の加入の月数に、表の外の翌年1〜3月も数える（表の長さで、その年の保険料を変えない。0003 の追記）
+// 改訂9（0081）: 所得割と軽減の判定の総所得金額等から、青色申告の純損失の繰越控除（tax.lossCarryforward）を引く（国民健康保険法施行令29条の7第2項4号・5号:
+//   地方税法314条の2第1項の総所得金額等。雑損失の繰越控除だけ除く）。土地建物等の譲渡所得は separate として入る（特別控除の後の額。特別控除は扱わない）
 import {
   addYen,
   ageMonth,
@@ -37,6 +39,7 @@ import {
   type PublicPensionIncomeOutput,
   type Rate,
   type SalaryOutput,
+  type LossCarryforwardOutput,
   type TotalIncomeOutput,
   type Yen,
 } from "../../sdk/index.ts";
@@ -61,10 +64,11 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
   id: "socialInsurance.nationalHealth",
   title: "国民健康保険料",
   contract: "1.0",
-  revision: 8,
+  revision: 9,
   requires: {
     "socialInsurance.healthStatus": ">=1 <2",
     "tax.totalIncome": ">=1 <2",
+    "tax.lossCarryforward": ">=1 <2",
     "tax.publicPensionIncome": ">=1 <2",
     "income.salary": ">=1 <2",
   },
@@ -112,9 +116,11 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
     }
     const at = ctx.at(valuesAt);
     const override = rateOverride(ctx.list<PremiumRateInput>("premiumRate"), "nationalHealth", fy);
+    // 純損失の繰越控除（青色申告。前の年の総所得金額から引く額）
+    const carryOf = (id: string): number => ctx.call<LossCarryforwardOutput>("tax.lossCarryforward", { member: id }).byYear.find((x) => x.year === jy - 1)?.deducted ?? 0;
     const totalOf = (id: string) => {
       const t = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year: jy - 1 });
-      return yen(t.total + (t.separate ?? 0));
+      return yen(t.total + (t.separate ?? 0) - carryOf(id));
     };
     const deduction = at.paramYen(`${PREFIX}.incomeDeduction`) ?? yen(0);
     const judgedIds = new Set([head, ...insured.map((x) => x.id)]);
@@ -126,7 +132,7 @@ export default defineComponent<{ fiscalYear: number }, { flows: Flow[] }>({
       const inc = ctx.call<TotalIncomeOutput>("tax.totalIncome", { member: id, year: jy - 1 });
       const elderly = ageMonth(ctx, start, ELDERLY_AGE, id) <= monthIndex(jy - 1, 12);
       const special = elderly ? yen(Math.min(elderlyDeduction, inc.publicPension ?? 0)) : yen(0);
-      judged = addYen(judged, yen(inc.total + (inc.separate ?? 0) - special));
+      judged = addYen(judged, yen(inc.total + (inc.separate ?? 0) - carryOf(id) - special));
       const salary = ctx.callMonths<SalaryOutput["payments"][number]>("income.salary", { member: id }, "payments", monthIndex(jy - 1, 1), monthIndex(jy - 1, 12)).some((p) => p.salary > 0);
       const pension = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", { member: id, year: jy - 1 }).revenue > 0;
       if (salary || pension) earners++;

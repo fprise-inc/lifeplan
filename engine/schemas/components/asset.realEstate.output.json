@@ -59,10 +59,25 @@
                   "value": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "price": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
                   "costs": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-                  "proceeds": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+                  "proceeds": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "acquisitionCost": { "description": "取得費（1.1。取得価額＋取得時の諸費用−建物と建物附属設備の償却の累計、または概算取得費。0081）", "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+                  "estimated": { "description": "概算取得費（売却価格の5%）を使ったか（1.1）", "type": "boolean" },
+                  "gain": { "description": "譲渡所得（売却価格−取得費−売却の費用。マイナスは損失。1.1）", "$ref": "urn:financia:schema:common#/$defs/yen" },
+                  "term": { "description": "長期（売った年の1月1日の所有期間が5年を超える）・短期（1.1）", "enum": ["long", "short"] }
                 }
               }
             ]
+          },
+          "incomeKind": { "description": "所得の区分（1.1。民泊・宿の雑所得 miscellaneous・事業所得 business。無ければ不動産所得。0081）", "enum": ["miscellaneous", "business"] },
+          "units": {
+            "description": "事業的規模の目安に数える室数・棟数（1.1。不動産所得の物件。0081）",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["rooms", "houses"],
+            "properties": {
+              "rooms": { "type": "integer", "minimum": 0 },
+              "houses": { "type": "integer", "minimum": 0 }
+            }
           }
         }
       }

@@ -715,6 +715,23 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(!money, "{v}: 0.32 より前の版に収益不動産のお金の欄は無い");
         }
+        // 0.33 から（0081）: 税と出口の欄（売ったときにローンを返すか・民泊・宿の所得の区分・申告の仕方。任意）
+        let exit = now["household"]["request"]["input"]["household"]["accounts"]
+            .as_array()
+            .is_some_and(|l| {
+                l.iter()
+                    .any(|a| a["property"]["sale"]["repayLoan"].is_boolean())
+                    && l.iter()
+                        .any(|a| a["property"]["lodging"]["incomeKind"].is_string())
+            })
+            && now["household"]["request"]["input"]["household"]["members"]
+                .as_array()
+                .is_some_and(|l| l.iter().any(|m| m["taxReturn"]["method"].is_string()));
+        if migrate::parse(v).unwrap() >= (0, 33) {
+            assert!(exit, "{v}: 収益不動産の税と出口の欄");
+        } else {
+            assert!(!exit, "{v}: 0.33 より前の版に税と出口の欄は無い");
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

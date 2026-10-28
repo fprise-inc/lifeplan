@@ -1,0 +1,21 @@
+id: incomeTax.blueReturnDeduction.doubleEntry
+title: 青色申告特別控除の額（正規の簿記〔複式簿記〕で記帳し、貸借対照表・損益計算書を期限内に提出。不動産所得の事業的規模か事業所得があるとき）
+unit: JPY
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 550000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026?response_format=xml", "retrievedAt": "2026-10-28", "sha256": "544b1cbe918d8597afbba11a6477b8b5bc7d19ef82f03750dd0d0cc857360712", "locator": "租税特別措置法 第25条の2第3項", "quote": "次に掲げる金額のうちいずれか低い金額を控除した金額とする。一五十五万円"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2072.htm", "retrievedAt": "2026-10-28", "sha256": "de4d48788c2cdaf2c4225d16799780e9f75a17d6162ac09f61cc87eb07fb17ea", "locator": "No.2072 概要", "quote": "所得金額から55万円（一定の要件を満たす場合は65万円）または10万円を控除する"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261016_508AC0000000035"}
+    recordedIn: "2026.15.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "措置法25条の2第3項。不動産所得の金額・事業所得の金額の合計（黒字の所得の合計）が上限で、不動産所得・事業所得から順次控除する（同条5項）。e-Gov法令API の条文（XML）と国税庁のタックスアンサー（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-10-28）。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}

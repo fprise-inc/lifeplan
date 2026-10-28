@@ -36,7 +36,12 @@ export interface RealEstateDetail {
   owner: string;
   years: { year: number; land: number; building: number; value: number }[];
   income: { year: number; rent: number; expenses: number; depreciation: number; interest: number; landInterest: number; income: number }[];
-  sale: { ym: string; value: number; price: number; costs: number; proceeds: number } | null;
+  /** acquisitionCost・estimated・gain・term は譲渡所得の内訳（0081。エンジンの asset.realEstate の約束の版 1.1。無い版もある） */
+  sale: { ym: string; value: number; price: number; costs: number; proceeds: number; acquisitionCost?: number; estimated?: boolean; gain?: number; term?: "long" | "short" } | null;
+  /** 所得の区分（民泊・宿の雑所得・事業所得。無ければ不動産所得。0081） */
+  incomeKind?: "miscellaneous" | "business";
+  /** 事業的規模の目安に数える室数・棟数（0081） */
+  units?: { rooms: number; houses: number };
 }
 
 export interface AdvisoryFeeSummary {

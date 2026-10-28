@@ -1,0 +1,22 @@
+id: incomeTax.netLoss.carryforwardYears
+title: 青色申告の年に生じた純損失を繰り越して控除できる年数（翌年以後この年数。住民税も同じ年数）
+unit: years
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 3
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033?response_format=xml", "retrievedAt": "2026-10-28", "sha256": "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", "locator": "所得税法 第70条第1項", "quote": "その年の前年以前三年内の各年（その年分の所得税につき青色申告書を提出している年に限る。）において生じた純損失の金額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226?response_format=xml", "retrievedAt": "2026-10-28", "sha256": "09c642c443b166292a0e3249fe9e107dd751ff065f74d81194a7755a0bb2af78", "locator": "地方税法 第313条第8項", "quote": "当該納税義務者の前年前三年間における総所得金額、退職所得金額又は山林所得金額の計算上生じた所得税法第二条第一項第二十五号の純損失の金額"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2070.htm", "retrievedAt": "2026-10-28", "sha256": "2f280b15db8d1691682b857c06cbe825b26f04bb462f5a601b6cfa1ae6dbc7d9", "locator": "No.2070 純損失の繰越し", "quote": "その損失額を翌年以後3年間にわたって繰り越して、各年分の所得金額から控除します"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号", "egovRevisionId": "340AC0000000033_20261001_507AC0000000070"}
+    recordedIn: "2026.15.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "所得税法70条1項・地方税法313条8項（市町村民税。道府県民税は32条8項で同じ）。特定非常災害の損失の5年は扱わない。e-Gov法令API の条文（XML）と国税庁のタックスアンサー（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-10-28）。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}

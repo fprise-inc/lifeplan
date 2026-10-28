@@ -1,0 +1,21 @@
+id: incomeTax.landBuilding.longTerm.rate
+title: 土地建物等の長期譲渡所得（分離課税。譲渡した年の1月1日の所有期間が5年を超える）の所得税の税率（復興特別所得税・防衛特別所得税は基準所得税額に掛けて別に足す）
+unit: rate
+kind: constant
+basis: "incomeYear"
+entries:
+  - rev: 1
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: null
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.15"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026?response_format=xml", "retrievedAt": "2026-10-28", "sha256": "544b1cbe918d8597afbba11a6477b8b5bc7d19ef82f03750dd0d0cc857360712", "locator": "租税特別措置法 第31条第1項", "quote": "課税長期譲渡所得金額」という。）の百分の十五に相当する金額に相当する所得税を課する"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3208.htm", "retrievedAt": "2026-10-28", "sha256": "09ce79ad80a43f5a3244fdce9d04b9da01b852ab5c5ab9e092c3e30fc7569487", "locator": "No.3208 税額の計算", "quote": "税額＝課税長期譲渡所得金額×15％（住民税5％）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261016_508AC0000000035"}
+    recordedIn: "2026.15.0"
+    supersededIn: null
+    approval: {"method": "pendingReview", "paths": 2, "note": "措置法31条1項。15%。2020年分より前の行は持たない（前の年の所得に要る範囲から）。e-Gov法令API の条文（XML）と国税庁のタックスアンサー（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-10-28）。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}

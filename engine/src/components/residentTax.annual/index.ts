@@ -14,6 +14,8 @@
 // 年金からの特別徴収: 年度の初日に65歳以上で、年金が年18万円以上なら、公的年金等に係る所得割（所得割×公的年金等に係る雑所得÷合計所得金額）と
 // （給与からの特別徴収が無ければ）均等割・森林環境税を年金から差し引く。前の年度に年金から差し引いていなければ、6月・8月に4分の1ずつ普通徴収し、
 // 10月・12月・2月に6分の1ずつ。前の年度から続くときは、4月・6月・8月に前の年度の年金の分の6分の1ずつ（仮徴収）、10月・12月・2月に残りを3分の1ずつ
+// 改訂10（0081）: 青色申告の純損失の繰越控除（tax.lossCarryforward の deducted。前の年の分）を総所得金額から引いてから所得割を計算する
+//   （地方税法32条8項・313条8項）。非課税の判定・調整控除の所得の上限は合計所得金額（引く前）のまま。青色でない人は0で、結果は同じ
 // 年度の初めの年の1月1日に世帯にいない（leaves がその月以前。万一の重ねで亡くなった人）構成員には、その年度の住民税をかけない（改訂7）
 import {
   ageMonth,
@@ -31,6 +33,7 @@ import {
   type ExemptionOutput,
   type HousingLoanCreditOutput,
   type IncomeTaxOutput,
+  type LossCarryforwardOutput,
   type Flow,
   type LevyPair,
   type MonthIndex,
@@ -52,10 +55,12 @@ const SPECIAL = "residentTax.installment.special.rounding";
 type Levy = Omit<ResidentTaxOutput, "flows" | "assessed">;
 const PAIR0: LevyPair = { municipal: yen(0), prefectural: yen(0) };
 
-function levy(ctx: Ctx, fiscalYear: number, member: string, incomeYear: number, total: Yen): Levy {
+function levy(ctx: Ctx, fiscalYear: number, member: string, incomeYear: number, total: Yen, carry: Yen = yen(0)): Levy {
   const ded = ctx.call<DeductionsOutput>("tax.deductions", { member, year: incomeYear, regime: "residentTax" });
   const at = ctx.at(monthIndex(fiscalYear, 6));
-  const taxable = at.money.round(total > ded.total ? subYen(total, ded.total) : yen(0), "residentTax.taxableIncome.rounding");
+  // 純損失の繰越控除の後の総所得金額（調整控除の所得の上限は合計所得金額で見る）
+  const base = yen(total - carry);
+  const taxable = at.money.round(base > ded.total ? subYen(base, ded.total) : yen(0), "residentTax.taxableIncome.rounding");
   // 調整控除: 合計課税所得金額が200万円以下なら min(人的控除額の差の合計, 合計課税所得金額)、超えるなら
   // 差の合計−(合計課税所得金額−200万円)（5万円を下回るときは5万円）に、市町村民税3%・道府県民税2%を掛ける
   let creditBase = yen(0);
@@ -125,9 +130,10 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
   id: "residentTax.annual",
   title: "住民税・森林環境税",
   contract: "1.1",
-  revision: 9,
+  revision: 10,
   requires: {
     "tax.totalIncome": ">=1 <2",
+    "tax.lossCarryforward": ">=1 <2",
     "tax.housingLoanCreditYears": ">=1 <2",
     "tax.housingLoanCredit": ">=1 <2",
     "incomeTax.annual": ">=1 <2",
@@ -185,7 +191,8 @@ export default defineComponent<{ member: string; fiscalYear: number }, ResidentT
         ctx.notice("N_NOT_SUPPORTED", ["residentTax.designatedCityAllocation", "residentTax.excessTaxation"]);
         const ex = ctx.call<ExemptionOutput>("residentTax.exemption", { member, fiscalYear: fy });
         if (ex.perCapitaExempt) return { detail: NONE, assessed: false, pension: yen(0) };
-        detail = levy(ctx, fy, member, fy - 1, inc.total);
+        const carry = ctx.call<LossCarryforwardOutput>("tax.lossCarryforward", { member }).byYear.find((x) => x.year === fy - 1)?.deducted ?? yen(0);
+        detail = levy(ctx, fy, member, fy - 1, inc.total, carry);
         if (ex.incomeLevyExempt) {
           const pc = detail.perCapita;
           detail = { ...NONE, perCapita: pc, forestEnvironmentTax: detail.forestEnvironmentTax, total: yen(pc.municipal + pc.prefectural + detail.forestEnvironmentTax) };

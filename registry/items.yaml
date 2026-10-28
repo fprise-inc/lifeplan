@@ -1649,6 +1649,14 @@ entries:
     replacedBy: null
     collection: member
     path: [support]
+  - id: member.taxReturn
+    status: active
+    label: "所得税の申告の仕方（青色・白色）と青色申告特別控除（不動産所得・事業所得のある人。省略は白色。0081）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: member
+    path: [taxReturn]
   - id: member.wallet
     status: active
     label: "世帯の外の家族のお金（簡易の家計。預金・生活費・年金・一時の入金。この人が介護を受ける費用は、まずこのお金から払い、尽きた月から世帯が払う。世帯の外の家族で生年月のある人だけ。預金を入れたときだけ計算する）"
