@@ -148,12 +148,12 @@ function visible(html: string): string {
 
 describe("画面では「カード」と言わず「入力項目」（中の1つずつは「欄」）", () => {
   const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"), {});
-  it("入力のホーム・確かめの一覧に「カード」が無い。最初の5項目・14項目中", () => {
+  it("入力のホーム・確かめの一覧に「カード」が無い。最初の5項目・15項目中", () => {
     const home = renderToString(h(InputView, { wh, onSave: noop, level: "simple" }));
     const check = renderToString(h(InputView, { wh, onSave: noop, level: "simple", initialOpen: "check" }));
     for (const html of [home, check]) expect(visible(html).replace(CARD_WORDS, "")).not.toContain("カード");
     expect(home).toContain("最初の5項目");
-    expect(home).toContain("14項目中");
+    expect(home).toContain("15項目中");
     expect(home).not.toContain("最初の5枚");
     expect(check).toMatch(/<label>\s*入力項目\s*<select/);
   });

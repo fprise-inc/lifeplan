@@ -371,6 +371,15 @@ function sample030(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/** 0.31 の見本の世帯（0079）: sample030() の住まい以外の不動産（中身のある不動産の器）に、収益不動産の物件を見分ける欄を全部入れる */
+function sample031(): BodyState {
+  const s = sample030();
+  const req = structuredClone(s.wh.request);
+  const a = (req.input.household.accounts ?? []).find((x) => x.kind === "realEstate" && x.property !== undefined)!;
+  Object.assign(a.property!, { name: "架空の駅前マンション", kind: "condo", location: "架空県架空市", share: "0.5", tenure: "ownership", units: 1, area: { land: "20.5", floor: "55.12" }, memo: "架空のメモ（管理会社と年1回打ち合わせ）" });
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -494,7 +503,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.30");
+    expect(BODY_FORMAT_VERSION).toBe("0.31");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -648,7 +657,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample030())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample031())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -759,6 +768,16 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     // 前の版の見本（受け取り開始が無い）は、開いても結果が変わらない
     const old = sample029();
     expect(old.wh.request.input.household.members.some((m) => m.pensionClaim !== undefined)).toBe(false);
+  });
+
+  it("0.31 の形（0079）: 収益不動産の物件を見分ける欄を保存して読み戻す。計算には使わない（外しても結果は同じ）", () => {
+    const s = sample031();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const p = (stored.household.request.input.household.accounts ?? []).find((x) => x.property?.name !== undefined)!.property!;
+    expect(p).toMatchObject({ name: "架空の駅前マンション", kind: "condo", location: "架空県架空市", share: "0.5", tenure: "ownership", units: 1, area: { land: "20.5", floor: "55.12" } });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(preview(back.wh.request).table).toEqual(preview(sample030().wh.request).table);
   });
 
   it("0.24 の形（0060・0061）: 相続税の目安の設定と遺したい額を要求の入力に保存して読み戻す。エンジンへ渡す要求からは外れ、結果は同じ", () => {

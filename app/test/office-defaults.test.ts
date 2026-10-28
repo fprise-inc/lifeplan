@@ -40,7 +40,7 @@ describe("読むときの形の確かめ", () => {
     const wh = blankHousehold("2026-10", ids());
     const items = inputItems(wh, { layout: layoutOf(SETTINGS) });
     expect(items.slice(0, 3).map((i) => i.id)).toEqual(["family", "living", "work"]);
-    expect(items).toHaveLength(14);
+    expect(items).toHaveLength(15);
     expect(items.filter((i) => i.first).map((i) => i.id)).toEqual(["family", "living"]);
     expect(layoutOf(DEFAULT_OFFICE_SETTINGS)).toBe(DEFAULT_LAYOUT);
   });

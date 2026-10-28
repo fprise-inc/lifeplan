@@ -99,7 +99,7 @@ describe("種類の既定とカードの区画", () => {
   });
 
   it("どの種類も1つのカード（か、ライフイベントの介護・親／相続・贈与の区画）に置く", () => {
-    const cards = ["family", "work", "pension", "living", "education", "housing", "insurance", "savings", "events", "car", "care", "inherit"] as const;
+    const cards = ["family", "work", "pension", "living", "education", "housing", "insurance", "rental", "events", "car", "care", "inherit"] as const;
     for (const k of INCOME_KINDS) expect(cards).toContain(k.card);
     for (const k of OUT_KINDS) expect(cards).toContain(k.card);
     expect(kindsOf("family").incomes.map((k) => k.kind)).toEqual(["childSupport", "propertyDivision", "householdContribution", "benefit"]);
@@ -132,7 +132,7 @@ describe("種類の既定とカードの区画", () => {
     let wh: WorkingHousehold = fromRequest(withRows(base(), { expenses: [{ id: id(30), row: "cf.expense.lumpSum.other", from: { at: "2031-04" }, to: null, everyYears: 3, amount: box(300000) }] }), {});
     for (const k of INCOME_KINDS) wh = addIncome(wh, k.kind);
     for (const k of OUT_KINDS) wh = addExpense(wh, k.kind);
-    const stages = ["family", "work", "pension", "living", "education", "housing", "insurance", "savings", "events", "car"] as const;
+    const stages = ["family", "work", "pension", "living", "education", "housing", "insurance", "rental", "events", "car"] as const;
     let moved = 0;
     for (const s of stages)
       for (const f of allFields(buildStage(s, wh))) {

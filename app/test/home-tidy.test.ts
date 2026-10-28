@@ -160,7 +160,7 @@ describe("入力のホームの上部", () => {
     expect(btn(pl)).toContain("disabled");
   });
 
-  it("入力項目は5列（14項目と「＋ 項目を追加」で5列×3段。1339px 以下で3列）、文字を大きくしたときは3列（1180px 以下で2列）", () => {
+  it("入力項目は5列（15項目と「＋ 項目を追加」で5列×4段目に1個。1339px 以下で3列）、文字を大きくしたときは3列（1180px 以下で2列）", () => {
     expect(CSS).toContain(".ih-cards { display: grid; gap: 18px; grid-template-columns: repeat(5, minmax(0, 1fr)); }");
     expect(CSS).toContain("@media (max-width: 1339px) { .ih-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }");
     // 5列のときも絵の高さは4列のときと同じくらい（少し縦長にし、200px まで）。文字の大きさは変えない

@@ -372,7 +372,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .link-btn { background: none; border: 0; padding: 2px 4px; font-size: 0.82rem; cursor: pointer; text-decoration: underline; color: var(--ink-2); }
 .link-btn.danger { color: var(--short-ink); }
 
-/* 入力のホーム: 14枚のカードを同じ大きさのグリッドで（広い画面で4列。狭いとき・文字を大きくしたときは列を減らす。0077 で前の大きさに戻した） */
+/* 入力のホーム: 15枚のカードを同じ大きさのグリッドで（広い画面で4列。狭いとき・文字を大きくしたときは列を減らす。0077 で前の大きさに戻した） */
 .ih { max-width: 1520px; margin: 0 auto; }
 .ih-head { display: flex; align-items: center; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap; margin: 0 0 12px; }
 .ih-head h1 { font-size: 1.45rem; margin: 0; letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 8px; }
@@ -396,7 +396,7 @@ html.big .lever input[type="range"] { height: 36px; }
 .ih-group + .ih-group { margin-top: 22px; }
 .ih-gh { font-size: 1.02rem; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
 .ih-gh::after { content: ""; flex: 1; border-top: 1px solid var(--card-line); }
-/* 14項目と「＋ 項目を追加」の15個が 5列×3段に収まる（狭い画面は 3列×5段。項目を足して16個以上になっても次の段に続く） */
+/* 15項目と「＋ 項目を追加」の16個は 5列で4段目に1個（狭い画面は 3列×6段。項目を足しても次の段に続く。収益不動産を足して16個。0079） */
 .ih-cards { display: grid; gap: 18px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
 /* 5列のときは絵を少し縦長にし、4列のときと同じくらいの高さを保つ（文字の大きさは変えない）。幅の広い3列でも絵の高さは 200px まで */
 html:not(.big) .ih-ill { max-height: 200px; }
@@ -535,6 +535,12 @@ h2 .ih-st { font-size: 0.8rem; }
 .ip-lineup th, .ip-lineup td { text-align: left; padding: 2px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .ip-lineup .sub { color: var(--muted, inherit); font-size: 0.8rem; }
 .ip-lineup .notes { margin: 4px 0 0; padding-left: 1.1em; }
+.ip-rental table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+.ip-rental th, .ip-rental td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ip-rental thead th { font-weight: 600; }
+.ip-rental tbody th { font-weight: 400; }
+.ip-rental .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ip-rental tfoot th, .ip-rental tfoot td { font-weight: 600; border-bottom: none; border-top: 1.5px solid var(--line); }
 
 /* 入力のパネル: 画面の中央に開き、背景を暗くする（別の窓は出さない）。保存のボタンは下に固定 */
 .scrim { position: fixed; inset: 0; background: rgba(20, 26, 38, 0.48); z-index: 40; }

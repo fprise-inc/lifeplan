@@ -65,7 +65,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_GIFT_TAX_BY_RECIPIENT|gift.tax": { kind: "missing", text: "贈与税のうち、世帯のお金の流れに入らない贈与の分は、お金の流れに入れていません", card: "inheritance" },
   // ---- 入力が足りない ----
   "N_INPUT_REQUIRED|residence.valuation": { kind: "input", text: "持ち家の時価の元（購入の価格か今の時価）が入っていないので、資産と負債に住まいの価値を入れていません", card: "housing" },
-  "N_INPUT_REQUIRED|account.property.acquisition": { kind: "input", text: "貸している不動産の取得の時期・価格が入っていないので、減価償却を入れずに家賃の所得を計算しています", card: "savings" },
+  "N_INPUT_REQUIRED|account.property.acquisition": { kind: "input", text: "貸している不動産の取得の時期・価格が入っていないので、減価償却を入れずに家賃の所得を計算しています", card: "rental" },
   "N_INPUT_REQUIRED|retirementBenefit.amount": { kind: "input", text: "退職金の額が入っていない（目安も出せない）ので、退職金を0円で計算しています", card: "retirement" },
   "N_INPUT_REQUIRED|retirementBenefit.receipt.annualAmount": { kind: "input", text: "企業年金の年金の額（か受け取る年数）が入っていないので、年金を0円で計算しています", card: "retirement" },
   "N_INPUT_REQUIRED|goal.education.stages.annualOverride": { kind: "input", text: "専門学校・公立の短大の学費は統計の値が無いので、年額を入れてください（入れるまで0円で計算しています）", card: "education" },
@@ -102,7 +102,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_DEFAULT_USED|care.initial": { kind: "assumed", text: "介護の費用のうち入っていない所は、統計の平均で計算しています", card: "care", group: "care.default", part: "始めにかかる費用" },
   "N_DEFAULT_USED|care.months": { kind: "assumed", text: "介護の費用のうち入っていない所は、統計の平均で計算しています", card: "care", group: "care.default", part: "介護の期間" },
   "N_DEFAULT_USED|residence.valuation.landShare": { kind: "assumed", text: "土地と建物の割合が入っていないので、既定の割合で時価の変わり方を計算しています", card: "housing", group: "landShare" },
-  "N_DEFAULT_USED|account.property.landShare": { kind: "assumed", text: "土地と建物の割合が入っていないので、既定の割合で時価の変わり方を計算しています", card: "savings", group: "landShare" },
+  "N_DEFAULT_USED|account.property.landShare": { kind: "assumed", text: "土地と建物の割合が入っていないので、既定の割合で時価の変わり方を計算しています", card: "rental", group: "landShare" },
   "N_DEFAULT_USED|residentTax.exemption.perCapita.gradeOne": { kind: "assumed", text: "住民税の非課税の基準は、1級地（大都市）の額で計算しています" },
   "N_DEFAULT_USED|socialInsurance.care.firstInsured.nationalAverage": { kind: "assumed", text: "65歳以上の介護保険料は、全国平均の基準額で計算しています（お住まいの市区町村の額は入れていません）" },
   "N_DEFAULT_USED|socialInsurance.lateElderly.nationalAverage": { kind: "assumed", text: "後期高齢者医療の保険料は、全国平均の料率で計算しています" },

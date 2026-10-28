@@ -1,6 +1,6 @@
 // 貯蓄・運用のカードの中身（0050）: お金の行き先（取り崩す順番を口座ごとに・取り崩さない・決済口座・預金に残しておく額と目安のボタン）、
 // 足した口座の未入力の印、口座ごとの詳細の欄（運用の費用・引き出せない期間・受け取りの年数と割合・加入の始まり・旧NISA の内訳）、
-// 小規模企業共済の受け取り、不動産を持ち始める時点、利回りの選び方、専用の部品の欄の値の状態の操作、プランでの編集
+// 小規模企業共済の受け取り、貸していない不動産（貸している物件は収益不動産へ。0079）、利回りの選び方、専用の部品の欄の値の状態の操作、プランでの編集
 import { describe, expect, it } from "vitest";
 import type { Account, EngineRequest, PreviewResult } from "../src/engine/types.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
@@ -256,26 +256,29 @@ describe("口座ごとの詳細の欄", () => {
   });
 });
 
-describe("不動産（住まい以外）", () => {
-  it("土地と建物に分けた不動産に、持ち始める時点（相続・贈与で受け取る）を入れられる。その年より前は資産に入らない", () => {
+describe("貸していない不動産（評価額だけ。貸している物件は収益不動産へ。0079）", () => {
+  it("「＋ 貸していない不動産」は中身の無い不動産の器を作り、貯蓄・運用のその他の資産に出る。「収益不動産へ移す」で中身を持たせると、収益不動産の項目に移る", () => {
     let wh = action(open(), "sav/add/realEstate").run(open());
     const re = acc(wh, "realEstate");
+    expect(re.property).toBeUndefined();
+    expect(fieldsOf(wh).has(`sav/${re.id}/split`)).toBe(false);
+    expect(fieldsOf(wh).has(`sav/${re.id}/property/structure`)).toBe(false);
+    const sec = buildStage("savings", wh).sections.find((s) => s.key === "sav/others")!;
+    expect(sec.title).toBe("その他の資産");
+    expect(sec.groups.find((g) => g.key === `sav/${re.id}`)?.note).toContain("収益不動産");
     wh = fieldOf(wh, `sav/${re.id}/value`).set(wh, 20_000_000);
-    wh = fieldOf(wh, `sav/${re.id}/split`).set(wh, true);
-    const f = fieldOf(wh, `sav/${re.id}/property/holdFrom`);
-    expect(f.level).toBe("detail");
-    wh = f.set(wh, "2035-06");
-    expect(acc(wh, "realEstate").property?.holdFrom).toEqual({ at: "2035-06" });
-    const r = preview(wh.request);
-    const land = (y: number) => r.table.filter((c) => c.row === "cf.balance.account.realEstate.land" && c.year === y && (c as { object?: string }).object === re.id).reduce((s, c) => s + c.amount, 0);
-    expect(land(2034)).toBe(0);
-    expect(land(2035)).toBeGreaterThan(0);
+    wh = action(wh, `sav/${re.id}/toRental`).run(wh);
+    expect(acc(wh, "realEstate").property?.rental?.monthly).toMatchObject({ value: 0, state: "estimated" });
+    expect(acc(wh, "realEstate").marketValue?.value).toBe(20_000_000);
+    expect(fieldsOf(wh).has(`sav/${re.id}/value`)).toBe(false);
+    expect(allFields(buildStage("rental", wh)).some((f) => f.key === `sav/${re.id}/value`)).toBe(true);
   });
 
-  it("不動産の一時の経費（出るお金の行）は貯蓄・運用のカードの区画", () => {
-    const st = buildStage("savings", open());
-    const sec = st.sections.find((s) => s.key === "money/savings/out");
-    expect(sec?.actions.map((a) => a.key)).toEqual(["money/savings/out/add/realEstateCost"]);
+  it("不動産の一時の経費（出るお金の行）は収益不動産の項目の区画（貯蓄・運用には出さない）", () => {
+    expect(buildStage("savings", open()).sections.some((s) => s.key.startsWith("money/"))).toBe(false);
+    const sec = buildStage("rental", open()).sections.find((s) => s.key === "money/rental/out");
+    expect(sec?.actions.map((a) => a.key)).toEqual(["money/rental/out/add/realEstateCost"]);
+    expect(sec?.title).toBe("不動産の一時の経費（出るお金）");
   });
 });
 

@@ -25,6 +25,9 @@ pub const TEXT_ITEMS: &[(&str, &str)] = &[
     ("debt.label", "FP（ローンの名前）"),
     ("retirementBenefit.label", "FP（退職給付の名前）"),
     ("insurance.label", "FP（保険の名前）"),
+    ("account.property.name", "FP（物件の名前）"),
+    ("account.property.memo", "FP（物件のメモ）"),
+    ("account.property.location", "FP（物件の所在地）"),
 ];
 
 /// 画面の側の文章の項目。既定で外す

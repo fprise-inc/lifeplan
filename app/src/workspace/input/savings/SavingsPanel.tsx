@@ -259,9 +259,6 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
   // 利回りの段階・例外の年（詳細。0040）
   const returns = sectionOf("sav/returns");
   const flow = sectionOf("sav/flow");
-  // お金の行（不動産の一時の経費。0044）
-  const money = stage.sections.filter((x) => x.key.startsWith("money/"));
-  const hasRealEstate = (h.accounts ?? []).some((a) => a.kind === "realEstate");
   // 口座ごとの詳細（表で入れる欄を除いた、残高の時点・運用の費用・積立の終わり・引き出せない期間・旧NISA の内訳・資産の配分）
   const details: SectionDef | null =
     method === "total" || accountsSec === undefined
@@ -387,11 +384,6 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
         </p>
       )}
       {others !== undefined && visible(level, others.level) ? <Section section={others} wh={wh} level={level} onEdit={onEdit} /> : null}
-      {money
-        .filter((m) => visible(level, m.level) && (hasRealEstate || m.groups.length > 0))
-        .map((m) => (
-          <Section key={m.key} section={{ ...m, title: "不動産の一時の経費（出るお金）", note: `${m.groups.length === 0 ? "まだありません。" : ""}大規模修繕・原状回復など、不動産にかかる一時の支出です。家計の支出として出ます（不動産所得の経費には、まだ入れていません。毎年かかる経費は不動産の「経費」の年額で入れます）` }} wh={wh} level={level} onEdit={onEdit} />
-        ))}
       {returns !== undefined && visible(level, returns.level) && returns.groups.length > 0 ? <Section section={returns} wh={wh} level={level} onEdit={onEdit} /> : null}
     </div>
   );

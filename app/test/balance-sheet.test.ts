@@ -446,7 +446,7 @@ describe("入力の画面: 持ち家の評価・売却・その他の資産", ()
 });
 
 describe("住まい以外の不動産（家賃収入・経費・土地と建物）", () => {
-  const fieldsOf = (wh: WorkingHousehold) => allFields(buildStage("savings", wh));
+  const fieldsOf = (wh: WorkingHousehold) => allFields(buildStage("rental", wh));
   const key = (fs: FieldDef[], k: string) => fs.find((f) => f.key === k);
 
   it("資産と負債のタブ: 換金しにくい資産の中を土地と建物に分け、建物は年とともに減り土地は残る。箱の説明にも土地と建物", () => {
@@ -483,15 +483,14 @@ describe("住まい以外の不動産（家賃収入・経費・土地と建物�
     expect(rowDefsOf(modelHousehold("salariedCoupleTwoKids")).some((d) => d.key === "rent" || d.key === "realEstateExpense")).toBe(false);
   });
 
-  it("入力: 不動産を土地と建物に分け、家賃・空室・経費・取得・ローンを入れると、家賃収入と不動産所得の税が計算に入る", () => {
+  it("入力: 収益不動産に物件を足し、家賃・空室・経費・取得・ローンを入れると、家賃収入と不動産所得の税が計算に入る（0079。足せば最初から土地と建物の欄）", () => {
     let wh = fromRequest(modelHousehold("single45"));
-    const sec = buildStage("savings", wh).sections.find((s) => s.key === "sav/others")!;
-    wh = sec.actions.find((a) => a.key === "sav/add/realEstate")!.run(wh);
+    const sec = buildStage("rental", wh).sections.find((s) => s.key === "rental/properties")!;
+    wh = sec.actions.find((a) => a.key === "rental/add")!.run(wh);
     const acc = (wh.request.input.household.accounts ?? []).find((a) => a.kind === "realEstate")!;
     const k = `sav/${acc.id}`;
     wh = key(fieldsOf(wh), `${k}/value`)!.set(wh, 20000000);
-    expect(key(fieldsOf(wh), `${k}/property/structure`)).toBeUndefined();
-    wh = key(fieldsOf(wh), `${k}/split`)!.set(wh, true);
+    expect(key(fieldsOf(wh), `${k}/split`)).toBeUndefined();
     wh = key(fieldsOf(wh), `${k}/property/structure`)!.set(wh, "rc");
     wh = key(fieldsOf(wh), `${k}/property/landShare`)!.set(wh, "0.25");
     wh = key(fieldsOf(wh), `${k}/property/acqPrice`)!.set(wh, 22000000);
@@ -499,12 +498,13 @@ describe("住まい以外の不動産（家賃収入・経費・土地と建物�
     expect(acc.asOf).toBeDefined();
     expect((wh.request.input.household.accounts ?? []).find((a) => a.id === acc.id)!.property!.acquisition).toEqual({ price: 22000000, at: acc.asOf });
     wh = key(fieldsOf(wh), `${k}/property/acqAt`)!.set(wh, "2018-04");
-    wh = key(fieldsOf(wh), `${k}/property/rented`)!.set(wh, true);
+    // 足した物件は「貸している」で始まる
+    expect(key(fieldsOf(wh), `${k}/property/rented`)!.get(wh).value).toBe(true);
     wh = key(fieldsOf(wh), `${k}/property/rent`)!.set(wh, 90000);
     wh = key(fieldsOf(wh), `${k}/property/vacancy`)!.set(wh, "0.05");
     wh = key(fieldsOf(wh), `${k}/property/expAnnual`)!.set(wh, 300000);
     wh = key(fieldsOf(wh), `${k}/property/expRate`)!.set(wh, "0.05");
-    const stage = buildStage("savings", wh);
+    const stage = buildStage("rental", wh);
     const addLoan = stage.sections.flatMap((s) => s.groups).flatMap((g) => g.actions).find((a) => a.key === `${k}/property/addLoan`)!;
     wh = addLoan.run(wh);
     const loan = (wh.request.input.household.debts ?? []).find((d) => d.property === acc.id)!;
@@ -518,9 +518,9 @@ describe("住まい以外の不動産（家賃収入・経費・土地と建物�
     expect(sumRows(r, ["cf.expense.other.realEstate"], y)).toBe((25000 + Math.floor(Math.floor(90000 * 0.95) * 0.05)) * 12);
     expect(sumRows(r, ["cf.balance.account.realEstate.land"], y)).toBeGreaterThan(0);
     expect(sumRows(r, ["cf.balance.account.realEstate.building"], y)).toBeGreaterThan(0);
-    // 分けるのをやめると中身が消え、ローンの不動産の指定も外れる
-    wh = key(fieldsOf(wh), `${k}/split`)!.set(wh, false);
-    expect((wh.request.input.household.accounts ?? []).find((a) => a.id === acc.id)!.property).toBeUndefined();
+    // 物件を外すと、ローンの不動産の指定も外れる（ローンは住宅ローン以外のローンとして残る）
+    wh = stage.sections.flatMap((s) => s.groups).flatMap((g) => g.actions).find((a) => a.key === `${k}/remove`)!.run(wh);
+    expect((wh.request.input.household.accounts ?? []).some((a) => a.id === acc.id)).toBe(false);
     expect((wh.request.input.household.debts ?? []).find((d) => d.id === loan.id)!.property).toBeUndefined();
   });
 });
