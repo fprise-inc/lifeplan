@@ -296,3 +296,120 @@ describe("要約の物件ごとの数字（plan.cashflow の details から。�
     expect((plain.summary as Obj).realEstate).toBeUndefined();
   });
 });
+
+describe("お金の欄（取得の内訳・諸費用・家賃以外の収入・経費の費目・大きな修繕・民泊・宿。0080）", () => {
+  const dep = (req: Req, y: number) => out(req).properties[0]?.income.find((x) => x.year === y)?.depreciation;
+  const flowsAt = (req: Req, row: string, ym: string, formula?: string) =>
+    out(req)
+      .flows.filter((f) => f.ym === ym && f.row === row && (formula === undefined || f.formula === formula))
+      .reduce((s, f) => s + f.amount, 0);
+
+  it("新しい欄を入れていない世帯の結果は変わらず、自己資金だけを入れても結果は同じ", () => {
+    const r0 = full(base());
+    const r1 = full(base({ accounts: [account(property({ acquisition: { price: 25000000, at: "2020-04", equity: 5000000 } }))] }));
+    expect(r1.table).toEqual(r0.table);
+    expect(r1.flows).toEqual(r0.flows);
+  });
+
+  it("取得価額の内訳: 土地の割合より優先して分け、建物附属設備は別の耐用年数（法定15年。中古は簡便法）で償却する", () => {
+    const parts = { land: 10000000, building: 12000000, equipment: 3000000 };
+    const req = base({ accounts: [account(property({ acquisition: { price: 25000000, at: "2020-04", parts } }))] });
+    // 建物: 鉄筋コンクリート47年の中古（経過5年）→ 43年 0.024。建物附属設備: 15年の中古（経過5年）→ 15−5＋1＝11年 0.091
+    expect(usedLife(15, 5)).toBe(11);
+    expect(straightLineRate(11)).toBe("0.091");
+    expect(dep(req, 2026)).toBe(12000000 * 0.024 + 3000000 * 0.091);
+    // 建物附属設備は11年で帳簿の残りが1円になり、その後は建物の分だけ
+    expect(dep(req, 2033)).toBe(288000);
+    const sum = out(req).properties[0]?.income.reduce((s, x) => s + x.depreciation, 0) ?? 0;
+    expect(sum).toBeGreaterThan(0);
+    // 耐用年数を入れたら、その年数で（簡便法を重ねない）
+    const ten = base({ accounts: [account(property({ acquisition: { price: 25000000, at: "2020-04", parts, equipmentLife: 10 } }))] });
+    expect(dep(ten, 2026)).toBe(288000 + 300000);
+  });
+
+  it("取得価額の内訳の土地の割合は、評価額の土地の割合の省略にも使う（目安の知らせを出さない）。入れた土地の割合があればそちら", () => {
+    const parts = { land: 7500000, building: 17500000 };
+    const noShare = base({ accounts: [account(property({ landShare: undefined, acquisition: { price: 25000000, at: "2020-04", parts } }))] });
+    expect(out(noShare).properties[0]?.years.find((x) => x.year === 2026)?.land).toBe(9000000); // 3,000万円×0.3
+    expect(notices(full(noShare)).some((n) => n.code === "N_DEFAULT_USED" && n.ids.includes("account.property.landShare"))).toBe(false);
+    const withShare = base({ accounts: [account(property({ acquisition: { price: 25000000, at: "2020-04", parts } }))] });
+    expect(out(withShare).properties[0]?.years.find((x) => x.year === 2026)?.land).toBe(12000000); // 入れた土地の割合 0.4
+    // 減価償却は内訳の建物の額から（1,750万円×0.024）
+    expect(dep(withShare, 2026)).toBe(420000);
+  });
+
+  it("取得時の諸費用: 建物（と建物附属設備）の分を取得価額の比で償却の基に足す。土地の利息の分も、足した後の建物の額で分ける", () => {
+    const req = edit(base({ accounts: [account(property({ acquisition: { price: 25000000, at: "2020-04", costs: 1000000 } }))] }), (h) => (h.debts = [loan()]));
+    // 建物 1,500万円＋諸費用 100万円×1,500/2,500＝60万円 → 1,560万円×0.024
+    expect(dep(req, 2026)).toBe(374400);
+    const e = out(req).properties[0]?.income.find((x) => x.year === 2026);
+    expect(e?.landInterest).toBe(floorYen(new Decimal(e?.interest ?? 0).mul(4400000).div(20000000)));
+  });
+
+  it("家賃以外の月の収入は家賃と同じ空室の割合・変化率で、割合の経費も掛かる。礼金・更新料は12か月に分け、空室・割合の経費は掛けない", () => {
+    const rental = { monthly: box(100000), vacancyRate: "0.05", growth: "-0.01", commonFee: 5000, parking: 10000, keyMoney: 120000 };
+    const req = base({ accounts: [account(property({ rental }))] });
+    expect(flowsAt(req, "cf.income.other.rental", "2026-01")).toBe(95000 + 14250 + 10000);
+    // 2027年: 家賃 99,000×0.95、家賃以外 14,850×0.95（円未満切り捨て）、礼金・更新料 118,800÷12
+    expect(flowsAt(req, "cf.income.other.rental", "2027-05")).toBe(94050 + 14107 + 9900);
+    // 経費: 年額の12分の1＋（家賃＋家賃以外）×5%
+    expect(flowsAt(req, "cf.expense.other.realEstate", "2026-03")).toBe(20000 + floorYen(new Decimal(109250).mul("0.05")));
+  });
+
+  it("経費の費目を1つでも入れたら、年額はその合計（年額の欄は使わない）", () => {
+    const req = base({ accounts: [account(property({ expenses: { annual: box(240000), items: { management: 120000, propertyTax: 60000 } } }))] });
+    expect(flowsAt(req, "cf.expense.other.realEstate", "2026-03")).toBe(15000);
+    expect(out(req).properties[0]?.income.find((x) => x.year === 2026)?.expenses).toBe(180000);
+  });
+
+  it("大きな修繕: その月の一時の支出にし、貸している月なら全額をその年の経費にする（知らせ）。貸し終わりの後は経費にしない", () => {
+    const repairs = [
+      { id: uid("rp1"), at: at("2030-06"), amount: 3000000, label: "外壁" },
+      { id: uid("rp2"), at: at("2045-03"), amount: 2000000 },
+    ];
+    const req = base({ accounts: [account(property({ repairs, rental: { monthly: box(100000), to: at("2040-12") } }))] });
+    expect(flowsAt(req, "cf.expense.other.realEstate", "2030-06", "asset.realEstate.repair")).toBe(3000000);
+    expect(flowsAt(req, "cf.expense.other.realEstate", "2045-03", "asset.realEstate.repair")).toBe(2000000);
+    const plainReq = base({ accounts: [account(property({ rental: { monthly: box(100000), to: at("2040-12") } }))] });
+    const inc = (r: Req, y: number) => out(r).properties[0]?.income.find((x) => x.year === y);
+    expect((inc(req, 2030)?.expenses ?? 0) - (inc(plainReq, 2030)?.expenses ?? 0)).toBe(3000000);
+    expect(inc(req, 2045)).toBeUndefined();
+    expect(notices(full(req)).some((n) => n.code === "N_ASSUMED" && n.ids.includes("realEstate.repairExpensed"))).toBe(true);
+    expect(notices(full(plainReq)).some((n) => n.ids.includes("realEstate.repairExpensed"))).toBe(false);
+  });
+
+  it("民泊・宿: 1泊の単価×稼働率×営業日数（住宅宿泊事業は180日まで）を12で割った額を毎月。空室の割合は使わず、仲介サイトの手数料は割合の経費に足す", () => {
+    const lodging = { business: "privateLodging", salesBy: "night", nightly: 20000, occupancy: "0.7", days: 200, platformRate: "0.15" };
+    const req = base({ accounts: [account(property({ lodging, rental: { monthly: box(0), vacancyRate: "0.1", commonFee: 5000 }, expenses: { annual: box(240000), rate: "0.2" } }))] });
+    // 20,000×0.7＝14,000円 ×180日 ÷12＝210,000円（家賃以外の月の収入も使わない）
+    expect(flowsAt(req, "cf.income.other.rental", "2026-04")).toBe(210000);
+    expect(flowsAt(req, "cf.expense.other.realEstate", "2026-04")).toBe(20000 + 210000 * 0.35);
+    const ns = notices(full(req));
+    expect(ns.some((n) => n.code === "N_LIMIT_APPLIED" && n.ids.includes("realEstate.lodging.days"))).toBe(true);
+    expect(ns.some((n) => n.code === "N_ASSUMED" && n.ids.includes("realEstate.lodgingIncome"))).toBe(true);
+    expect(ns.some((n) => n.ids.includes("realEstate.consumptionTax"))).toBe(false);
+    // 月の売上の見込み（家賃の欄）で入れたら、その額を空室の割合なしで
+    const month = base({ accounts: [account(property({ lodging: { business: "inn" }, rental: { monthly: box(300000), vacancyRate: "0.1" } }))] });
+    expect(flowsAt(month, "cf.income.other.rental", "2026-04")).toBe(300000);
+    expect(notices(full(month)).some((n) => n.code === "N_LIMIT_APPLIED")).toBe(false);
+  });
+
+  it("民泊・宿の売上が年1,000万円を超えると、消費税は計算に入れていないと知らせる", () => {
+    const req = base({ accounts: [account(property({ lodging: { business: "inn", salesBy: "night", nightly: 40000, occupancy: "0.8", days: 365 }, rental: { monthly: box(0) } }))] });
+    expect(out(req).properties[0]?.income.find((x) => x.year === 2026)?.rent).toBeGreaterThan(10000000);
+    expect(notices(full(req)).some((n) => n.code === "N_NOT_SUPPORTED" && n.ids.includes("realEstate.consumptionTax"))).toBe(true);
+  });
+
+  it("物件のローンに団信があれば、名義の人が亡くなった月の返済の後に残高が消え、その後の利息は不動産所得に入らない", () => {
+    const req = edit(base({ baseMonth: "2026-10" }), (h, input) => {
+      h.debts = [loan({ creditLife: { covered: [A], events: ["death"] } })];
+      input.contingencies = [{ id: uid("cg"), kind: "death", member: A, occurs: at("2030-06") }];
+    });
+    const sched = call<DebtScheduleOutput>(req, "debt.schedule", { object: L }, realPacks());
+    expect(sched.yearEnd.find((x) => x.year === 2029)?.balance).toBeGreaterThan(0);
+    expect(sched.yearEnd.find((x) => x.year === 2030)?.balance).toBe(0);
+    expect(sched.interest?.find((x) => x.year === 2031)?.amount ?? 0).toBe(0);
+    const r = full(req, realPacks());
+    expect((r.flows as unknown as { object?: string; ym: string; amount: number }[]).filter((f) => f.object === L && f.ym > "2030-06").reduce((s, f) => s + f.amount, 0)).toBe(0);
+  });
+});

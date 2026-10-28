@@ -380,6 +380,38 @@ function sample031(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/** 0.32 の見本の世帯（0080）: sample031() の収益不動産の物件に、お金の欄（取得の内訳・諸費用・自己資金・家賃以外の月の収入・礼金と更新料・
+ * 経費の費目・大きな修繕）を全部入れる。民泊・宿の欄は、2件目の物件（民泊・宿）に入れる */
+function sample032(): BodyState {
+  const s = sample031();
+  const req = structuredClone(s.wh.request);
+  const accounts = req.input.household.accounts ?? [];
+  const a = accounts.find((x) => x.kind === "realEstate" && x.property !== undefined)!;
+  const p = a.property!;
+  p.acquisition = { price: p.acquisition?.price ?? 20000000, at: p.acquisition?.at ?? "2019-04", parts: { land: 6000000, building: 12000000, equipment: 2000000 }, equipmentLife: 15, costs: 1200000, equity: 5000000 };
+  p.acquisition.price = 20000000;
+  Object.assign(p.rental!, { commonFee: 5000, parking: 8000, otherMonthly: 2000, keyMoney: 120000 });
+  p.expenses = { ...(p.expenses ?? {}), items: { management: 180000, propertyTax: 90000, insurance: 30000, groundRent: 0, facility: 12000, leasing: 60000, other: 50000 } };
+  p.repairs = [{ id: "00000000-0000-4000-8000-0000000a0001", at: { at: "2031-06" }, amount: 3000000, label: "架空の外壁の塗り替え" }];
+  accounts.push({
+    id: "00000000-0000-4000-8000-0000000a0002",
+    kind: "realEstate",
+    owner: a.owner,
+    marketValue: { value: 15000000, state: "confirmed", origin: { kind: "manual" } },
+    asOf: a.asOf,
+    contributions: [],
+    property: {
+      name: "架空の民泊",
+      kind: "lodging",
+      structure: "wood",
+      rental: { monthly: { value: 0, state: "confirmed", origin: { kind: "manual" } } },
+      expenses: { rate: "0.2", items: { cleaning: 240000, supplies: 60000, utilities: 120000 } },
+      lodging: { business: "privateLodging", salesBy: "night", nightly: 18000, occupancy: "0.65", days: 180, platformRate: "0.15" },
+    },
+  });
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -503,7 +535,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.31");
+    expect(BODY_FORMAT_VERSION).toBe("0.32");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -657,7 +689,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample031())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample032())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -778,6 +810,21 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const back = fromBody(JSON.stringify(stored));
     expect(bodyObject(back)).toEqual(bodyObject(s));
     expect(preview(back.wh.request).table).toEqual(preview(sample030().wh.request).table);
+  });
+
+  it("0.32 の形（0080）: 収益不動産のお金の欄（取得の内訳・諸費用・自己資金・家賃以外の収入・経費の費目・大きな修繕・民泊・宿）を保存して読み戻し、計算できる", () => {
+    const s = sample032();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const accounts = stored.household.request.input.household.accounts ?? [];
+    const p = accounts.find((x) => x.property?.repairs !== undefined)!.property!;
+    expect(p.acquisition).toMatchObject({ parts: { land: 6000000, building: 12000000, equipment: 2000000 }, costs: 1200000, equity: 5000000 });
+    expect(p.rental).toMatchObject({ commonFee: 5000, parking: 8000, otherMonthly: 2000, keyMoney: 120000 });
+    expect(p.expenses?.items?.management).toBe(180000);
+    expect(accounts.find((x) => x.property?.lodging !== undefined)!.property!.lodging).toMatchObject({ business: "privateLodging", salesBy: "night" });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(() => preview(back.wh.request)).not.toThrow();
+    expect(preview(back.wh.request).table).not.toEqual(preview(sample031().wh.request).table);
   });
 
   it("0.24 の形（0060・0061）: 相続税の目安の設定と遺したい額を要求の入力に保存して読み戻す。エンジンへ渡す要求からは外れ、結果は同じ", () => {

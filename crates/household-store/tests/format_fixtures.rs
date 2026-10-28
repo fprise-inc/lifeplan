@@ -700,6 +700,21 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(!named, "{v}: 0.31 より前の版に物件名と種類は無い");
         }
+        // 0.32 から（0080）: 収益不動産のお金の欄（取得の内訳・経費の費目・大きな修繕・民泊・宿。任意）
+        let money = now["household"]["request"]["input"]["household"]["accounts"]
+            .as_array()
+            .is_some_and(|l| {
+                l.iter().any(|a| {
+                    a["property"]["acquisition"]["parts"].is_object()
+                        && a["property"]["expenses"]["items"].is_object()
+                        && a["property"]["repairs"].is_array()
+                }) && l.iter().any(|a| a["property"]["lodging"].is_object())
+            });
+        if migrate::parse(v).unwrap() >= (0, 32) {
+            assert!(money, "{v}: 収益不動産のお金の欄");
+        } else {
+            assert!(!money, "{v}: 0.32 より前の版に収益不動産のお金の欄は無い");
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

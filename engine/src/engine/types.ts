@@ -266,6 +266,10 @@ export interface AccountInput {
   readonly property?: RealEstatePropertyInput;
 }
 
+/** 不動産の経費の費目（0080）: 建物管理費・修繕積立金／固定資産税・都市計画税／損害保険／地代／共用部の光熱費・清掃・設備点検／入居者募集の費用・
+ * 原状回復／清掃・リネン（民泊・宿）／消耗品（民泊・宿）／光熱費・通信（民泊・宿）／税理士の報酬・その他 */
+export type RealEstateExpenseItem = "management" | "propertyTax" | "insurance" | "groundRent" | "facility" | "leasing" | "cleaning" | "supplies" | "utilities" | "other";
+
 /** 住まい以外の不動産の中身（0028）。入れた器は、評価額を土地と建物に分け、家賃収入・経費・売却を計算する */
 export interface RealEstatePropertyInput {
   /** 建物の構造（省略は木造） */
@@ -277,7 +281,18 @@ export interface RealEstatePropertyInput {
   /** 持ち始める時点（相続・贈与で受け取る不動産。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い。省略は前から持っている。0039） */
   readonly holdFrom?: Timepoint;
   /** 取得（減価償却の基。price は土地と建物の合計の取得価額、at は取得の年月） */
-  readonly acquisition?: { readonly price: Yen; readonly at: string };
+  readonly acquisition?: {
+    readonly price: Yen;
+    readonly at: string;
+    /** 取得価額の内訳（土地・建物・建物附属設備。入れたら土地の割合より優先して取得価額を分ける。0080） */
+    readonly parts?: { readonly land?: Yen; readonly building?: Yen; readonly equipment?: Yen };
+    /** 建物附属設備の耐用年数（省略は法定15年。中古は簡便法。0080） */
+    readonly equipmentLife?: number;
+    /** 取得時の諸費用の合計（仲介手数料・登記・不動産取得税など。建物と建物附属設備の分を償却の基に足す。0080） */
+    readonly costs?: Yen;
+    /** 自己資金（計算には使わない。分析の数字のため。0080） */
+    readonly equity?: Yen;
+  };
   /** 貸している（家賃収入） */
   readonly rental?: {
     /** 月額の家賃（空室を見込む前） */
@@ -293,9 +308,36 @@ export interface RealEstatePropertyInput {
     /** 家賃の段階・例外の年（0040） */
     readonly stages?: readonly AmountStageInput[];
     readonly exceptions?: readonly AmountExceptionInput[];
+    /** 家賃以外の月の収入（共益費・駐車場・その他。空室の割合と変化率は家賃と同じ。0080） */
+    readonly commonFee?: Yen;
+    readonly parking?: Yen;
+    readonly otherMonthly?: Yen;
+    /** 礼金・更新料の年あたりの見込み（12か月に分けて貸している月に受け取る。0080） */
+    readonly keyMoney?: Yen;
   };
   /** 経費（管理費・修繕積立金・固定資産税・管理委託料など）。年額（持っている間）と、受け取る家賃に対する割合の合計 */
-  readonly expenses?: { readonly annual?: ValueBox<Yen>; readonly rate?: string; readonly growth?: string; readonly stages?: readonly AmountStageInput[]; readonly exceptions?: readonly AmountExceptionInput[] };
+  readonly expenses?: {
+    readonly annual?: ValueBox<Yen>;
+    readonly rate?: string;
+    readonly growth?: string;
+    readonly stages?: readonly AmountStageInput[];
+    readonly exceptions?: readonly AmountExceptionInput[];
+    /** 経費の費目（年額。1つでも入れたら annual の代わりにその合計。0080） */
+    readonly items?: Readonly<Partial<Record<RealEstateExpenseItem, Yen>>>;
+  };
+  /** 大きな修繕の予定（その月の一時の支出。貸している月なら全額をその年の経費にする。0080） */
+  readonly repairs?: readonly { readonly id: string; readonly at: Timepoint; readonly amount: Yen; readonly label?: string }[];
+  /** 民泊・宿の営業の形と売上の入れ方（入れたら空室の割合・家賃以外の月の収入・礼金は使わない。0080） */
+  readonly lodging?: {
+    readonly business?: "privateLodging" | "inn" | "specialZone";
+    /** 売上の入れ方（night: 1泊の単価×稼働率×営業日数、省略は月の売上の見込み〔rental.monthly〕） */
+    readonly salesBy?: "night" | "month";
+    readonly nightly?: Yen;
+    readonly occupancy?: string;
+    readonly days?: number;
+    /** 仲介サイトの手数料（売上に対する割合） */
+    readonly platformRate?: string;
+  };
   /** 売却の予定（その月に売り、手取りを現金にする） */
   readonly sale?: { readonly at: Timepoint; readonly price?: Yen; readonly costRate?: string };
 }

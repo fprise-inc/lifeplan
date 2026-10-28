@@ -42,6 +42,8 @@ export const FREE_TEXT: Readonly<Record<string, "drop" | "generic" | "keep">> = 
   "engine.input#/$defs/account/properties/property/properties/name": "drop",
   "engine.input#/$defs/account/properties/property/properties/location": "drop",
   "engine.input#/$defs/account/properties/property/properties/memo": "drop",
+  // 収益不動産の大きな修繕の中身（FP が書いた文。外す。0080）
+  "engine.input#/$defs/account/properties/property/properties/repairs/items/properties/label": "drop",
 };
 
 /** 学校コード（13桁）は計算に使わない（学費の行は自己完結）ので、決まった値に置き換える */
@@ -122,6 +124,8 @@ function walk(v: Json, ids: IdMap, path: readonly string[]): Json {
   if (parent === "lessons" || grand === "lessons") delete o.label;
   // 車の維持費の内訳の名前つきの行の名前
   if (parent === "upkeepOther") delete o.label;
+  // 収益不動産の大きな修繕の中身（0080）
+  if (parent === "repairs") delete o.label;
   // 収益不動産の物件名・所在地・メモ（口座の中身 accounts[].property。0079）
   if (parent === "property" && grand === "accounts") {
     delete o.name;
