@@ -1,4 +1,4 @@
-// 入力のホームの FP の道具（0074）: 世帯の中身の一覧・次の1年に起きること・見直し（控え → 過ぎた予定の確かめ → ヒアリングシートの見直し →
+// 入力のホームの 面談の準備（0074）: 世帯の中身の一覧・次の1年に起きること・見直し（控え → 過ぎた予定の確かめ → ヒアリングシートの見直し →
 // 前回との違い）。どれも読むだけで、押すとそのカードを開く。見直しの「控えを取る」だけが控えを作る
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
@@ -53,8 +53,8 @@ export function FpTools({ wh, result, computeOne, onOpen, onSnapshot, onBalance,
   return (
     <>
     {bar ? (
-    <div class="hs-tools fp-tools" role="group" aria-label="FPの道具" data-fp-tools>
-      <span class="hs-tools-h">FPの道具</span>
+    <div class="hs-tools fp-tools" role="group" aria-label="面談の準備" data-fp-tools>
+      <span class="hs-tools-h">面談の準備</span>
       <button type="button" class="link-btn" aria-expanded={tool === "contents"} onClick={() => setTool(tool === "contents" ? null : "contents")} data-fp-tool="contents">
         世帯の中身の一覧
       </button>

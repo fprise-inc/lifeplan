@@ -58,7 +58,7 @@ export function whenPeople(wh: WorkingHousehold): WhenPerson[] {
     else if (m.kind === "spouse") names = [...couple(m), "配偶者", r.label];
     else if (m.kind === "child") {
       const i = kids.findIndex((k) => k.member.id === m.id);
-      names = [r.label, `第${i + 1}子`];
+      names = [r.label];
       if (kids.length === 1) names.push("子", "子ども");
       if (kids.length > 1 && i === 0) names.push("上の子", "一番上の子");
       if (kids.length > 1 && i === kids.length - 1) names.push("下の子", "末子", "末っ子", "一番下の子");

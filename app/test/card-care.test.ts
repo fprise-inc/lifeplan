@@ -99,7 +99,7 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     expect(() => actionOf(wh, "care/add/bothParents")).toThrow();
   });
 
-  it("兄弟姉妹・離れて住む子・孫も世帯の外の家族として足せる（亡くなる見込みは入れない）", () => {
+  it("兄弟姉妹・離れて暮らす子・孫も世帯の外の家族として足せる（亡くなる見込みは入れない）", () => {
     let wh = blankHousehold(BASE, seq());
     wh = addOutside(wh, "sibling");
     wh = addOutside(wh, "child");
@@ -107,7 +107,7 @@ describe("介護・親のカード: 世帯の外の家族（区画A）", () => {
     const out = wh.request.input.household.members.filter((m) => m.outside !== undefined);
     expect(out.map((m) => m.kind)).toEqual(["sibling", "child", "grandchild"]);
     expect(out.every((m) => m.leaves === null && m.wallet === undefined)).toBe(true);
-    // 離れて住む子は親子の関係を持つ（相続人に数える）
+    // 離れて暮らす子は親子の関係を持つ（相続人に数える）
     const child = out.find((m) => m.kind === "child")!;
     expect(wh.request.input.household.relations).toContainEqual({ type: "parentOf", parent: wh.request.input.household.members[0]!.id, child: child.id });
     expect(memberLabel(wh, out[0]!.id)).toBe("兄弟姉妹");

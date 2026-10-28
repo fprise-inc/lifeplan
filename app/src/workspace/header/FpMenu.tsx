@@ -1,5 +1,5 @@
 // 上の帯の FP のメニュー（線のアイコン1つ）。顧客と一緒に見る画面に常に出す必要のない FP の操作を、ここにまとめる（0077 の追記）:
-// 控え（この時点を残す・控えの一覧）／FP の道具（世帯の中身の一覧・次の1年に起きること・見直し）／取り込む（今の選択肢）／事務所の設定（今の保存先と事務所の共有の状態・既定値）。
+// 控え（この時点を残す・控えの一覧）／面談の準備（世帯の中身の一覧・次の1年に起きること・見直し）／取り込む（今の選択肢）／事務所の設定（今の保存先と事務所の共有の状態・既定値）。
 // 開いた一覧は帯の下に重ねて出す（画面は動かさない）。Esc・外を押すと閉じる。1つを押すと閉じて、その中身を開く
 // （入力のホームの中身なら、親が入力のタブに切り替えて開く。どのタブでも帯は同じ）
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -47,7 +47,7 @@ export function fpMenuGroups(p: FpMenuInput): FpMenuGroup[] {
     },
     {
       id: "tools",
-      label: "FPの道具",
+      label: "面談の準備",
       items: [
         { action: "contents", label: "世帯の中身の一覧" },
         { action: "year", label: "次の1年に起きること" },
@@ -108,7 +108,7 @@ export function FpMenu({ groups, onPick, initialOpen = false }: { groups: readon
   }, [open]);
   return (
     <div class="fpm" ref={box}>
-      <button type="button" class="fpm-btn" ref={btn} aria-expanded={open} aria-haspopup="true" aria-label="FP のメニュー" title="FP のメニュー（控え・FP の道具・取り込む・事務所の設定）" onClick={() => setOpen(!open)} data-fp-menu>
+      <button type="button" class="fpm-btn" ref={btn} aria-expanded={open} aria-haspopup="true" aria-label="FP のメニュー" title="FP のメニュー（控え・面談の準備・取り込む・事務所の設定）" onClick={() => setOpen(!open)} data-fp-menu>
         <svg class="fpm-ico" viewBox="0 0 20 20" aria-hidden="true">
           <rect x="2.5" y="6" width="15" height="10.5" rx="2" />
           <path d="M7 6V4.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 13 4.5V6" />

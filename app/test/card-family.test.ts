@@ -438,3 +438,65 @@ describe("養育費の行: 相手は養育を受ける子。払う行は離れ�
     expect(fieldAddress(fieldOf(w2, `family/${kid.id}/birth`), w2)).toEqual({ target: { member: kid.id }, item: "member.birth", at: ["birthYearMonth"] });
   });
 });
+
+describe("離れて暮らす子を扶養親族に入れる欄（払う養育費の行の中。0044 の追記）", () => {
+  const rowAction = (wh: WorkingHousehold, key: string) => {
+    const a = stage(wh).sections.flatMap((s) => s.groups.flatMap((g) => g.actions)).find((x) => x.key === key);
+    if (a === undefined) throw new Error(`ボタンが無い: ${key}`);
+    return a;
+  };
+  const lastOut = (wh: WorkingHousehold) => (wh.request.input.household.periodicExpenses ?? []).at(-1) as PeriodicExpense;
+  const has = (wh: WorkingHousehold, key: string) => allFields(stage(wh)).some((x) => x.key === key);
+  const longer = (req: EngineRequest): EngineRequest => ({ ...req, input: { ...req.input, endYear: 2040 } });
+  const taxIn = (req: EngineRequest, year: number) => full(longer(req)).table.filter((c) => (c.row === "cf.taxSi.incomeTax" || c.row === "cf.taxSi.residentTax") && c.year === year).reduce((a, c) => a + c.amount, 0);
+  /** 見本の世帯に、離れて暮らす子（2012年5月生まれ）への養育費の行を足す */
+  const withSupport = () => {
+    const wh = fromRequest(modelHousehold("singleEarnerTwoKids"));
+    const w1 = action(wh, "money/family/out/add/childSupport").run(wh);
+    const p = lastOut(w1);
+    // 相手がいない行には出さない
+    const w2 = rowAction(w1, `ev/${p.id}/addChild`).run(w1);
+    const kid = w2.request.input.household.members.at(-1)!;
+    return { before: w1, p, kid, wh: set(w2, `family/${kid.id}/birth`, "2012-05") };
+  };
+
+  it("相手に離れて暮らす子が選ばれている行にだけ出る。既定は入れない（世帯ファイルに書かない）", () => {
+    const { before, p, kid, wh } = withSupport();
+    expect(has(before, `family/${kid.id}/dependent`)).toBe(false);
+    const f = fieldOf(wh, `family/${kid.id}/dependent`);
+    expect(f.label).toBe("扶養している（税）");
+    expect(f.level).toBe("detail");
+    expect(f.get(wh)).toMatchObject({ value: false, implicit: true });
+    expect(kid.support).toBeUndefined();
+    // 終わり（20歳になる月＝2032年5月）の前の年まで。大学卒業に変えると22歳の年まで
+    expect(f.help).toContain("効く年の目安: 2028年（16歳）から2031年（19歳）まで");
+    expect(f.help).toContain("両方の親");
+    const w2 = rowAction(wh, `ev/${p.id}/endUniversity`).run(wh);
+    expect(fieldOf(w2, `family/${kid.id}/dependent`).help).toContain("2028年（16歳）から2034年（22歳）まで");
+    // 相手を外すと欄は消える（入れた値は残すが、計算は養育費・仕送りの行がある年だけ）
+    const w3 = set(wh, `ev/${p.id}/counterparty`, "");
+    expect(has(w3, `family/${kid.id}/dependent`)).toBe(false);
+    // 介護・親のカードの世帯の外の家族のまとまりには、子の扶養の欄を出さない（同じ値を2か所に置かない）
+    expect(allFields(buildStage("care", wh)).some((x) => x.key === `family/${kid.id}/dependent`)).toBe(false);
+  });
+
+  it("当て先は構成員の扶養（親・祖父母の欄と同じ値）", () => {
+    const { kid, wh } = withSupport();
+    expect(fieldAddress(fieldOf(wh, `family/${kid.id}/dependent`), wh)).toEqual({ target: { member: kid.id }, item: "member.support", at: ["dependent"] });
+  });
+
+  it("入れると、16歳から養育費の行の終わりの前の年まで所得税・住民税が下がる。入れない間は結果が変わらない", () => {
+    const { kid, wh } = withSupport();
+    const on = set(wh, `family/${kid.id}/dependent`, true);
+    expect(on.request.input.household.members.find((m) => m.id === kid.id)?.support).toEqual({ dependent: true, cohabiting: false });
+    // 2027年は15歳（効かない）
+    expect(taxIn(on.request, 2027)).toBe(taxIn(wh.request, 2027));
+    // 2029年は所得税（2029年分）と住民税（2028年分の所得）の両方が下がる
+    expect(taxIn(on.request, 2029)).toBeLessThan(taxIn(wh.request, 2029));
+    // 2033年分の所得税・2034年度の住民税（2033年分の所得）は、行が終わった後なので同じ
+    expect(taxIn(on.request, 2035)).toBe(taxIn(wh.request, 2035));
+    // 入れて戻すと、入れない世帯と同じ結果
+    const off = set(on, `family/${kid.id}/dependent`, false);
+    expect(taxIn(off.request, 2029)).toBe(taxIn(wh.request, 2029));
+  });
+});

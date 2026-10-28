@@ -2,12 +2,16 @@
 // 所得割は総所得金額等が同じ形の額以下なら非課税（人数は本人・同一生計配偶者・扶養親族。16歳未満を含む）。
 // 均等割の額は生活保護の級地で市町村ごとに違うが、市町村ごとの値を持たない方針（0007 の6）なので1級地の値を既定にする（見出しの notices）
 // 改訂3: 世帯の外の家族（0035 の4）は、扶養していると入れたときだけ扶養親族に数える
+// 改訂5（0044 の追記）: 世帯の外の子（離れて暮らす子）は、その子への養育費・仕送りの行がその年の12月を含むときだけ扶養親族に数える
+//   （tax.dependentDeduction と同じ。outsideChildSupported）
 // 改訂4: 1級地の値を既定にした知らせは、級地で判定が変わりうるときだけ出す。1級地の基準は級地の中で最も高いので、1級地の基準を超えれば
 //   どの級地でも課税。級地で変わらない加算の額以下なら、どの級地でも非課税（判定の結果は変えない）
 import {
   defineComponent,
   isOutside,
   monthIndex,
+  outsideChildSupported,
+  OUTSIDE_CHILD_SUPPORT_READS,
   parseYm,
   yen,
   type MemberInput,
@@ -29,10 +33,10 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
   id: "residentTax.exemption",
   title: "住民税の非課税の判定",
   contract: "1.0",
-  revision: 4,
+  revision: 5,
   requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2", "tax.incomeWithin": ">=1 <2" },
   params: Object.values(P),
-  reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "relation.type", "relation.a", "relation.b", "relation.marriage"],
+  reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "relation.type", "relation.a", "relation.b", "relation.marriage", ...OUTSIDE_CHILD_SUPPORT_READS],
   input: "residentTax.annual.input",
   output: "residentTax.exemption.output",
   compute(input, ctx) {
@@ -74,7 +78,7 @@ export default defineComponent<{ member: string; fiscalYear: number }, { perCapi
       if (spouses.has(m.id)) {
         persons++;
         dependents++;
-      } else if (claimant === member && (isOutside(m) ? m.support?.dependent === true : m.kind === "child" || ((m.kind === "parent" || m.kind === "grandparent") && m.support?.dependent === true))) {
+      } else if (claimant === member && (isOutside(m) ? m.support?.dependent === true && outsideChildSupported(ctx, m, dec) : m.kind === "child" || ((m.kind === "parent" || m.kind === "grandparent") && m.support?.dependent === true))) {
         // 世帯の外の家族は、扶養していると入れたときだけ扶養親族（0035 の4）
         persons++;
         dependents++;

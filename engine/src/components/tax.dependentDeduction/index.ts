@@ -7,6 +7,8 @@
 // それを使う税の部品を計算し直さない（0006 の追記）
 // 改訂5: 世帯の外の家族（0035 の4）は、扶養していると入れたときだけ扶養親族に数える
 // 改訂（0044）: 合計所得金額の判定に、分離課税の譲渡所得（tax.totalIncome の separate。入るお金の行）も足す
+// 改訂7（0044 の追記）: 世帯の外の子（離れて暮らす子）は、扶養していると入れたうえで、その子への養育費・仕送りの行が判定の時を含む年だけ
+//   扶養親族にする（生計を一にするのは送金がある間。outsideChildSupported）
 import {
   bracketFor,
   deathMonthIn,
@@ -14,6 +16,8 @@ import {
   fail,
   isOutside,
   monthIndex,
+  outsideChildSupported,
+  OUTSIDE_CHILD_SUPPORT_READS,
   parseYm,
   yen,
   type Bracket,
@@ -60,14 +64,14 @@ export default defineComponent<
   id: "tax.dependentDeduction",
   title: "扶養控除・特定親族特別控除",
   contract: "1.0",
-  revision: 6,
+  revision: 7,
   requires: { "tax.totalIncome": ">=1 <2", "tax.incomeOrder": ">=1 <2", "contingency.event": ">=1 <2" },
   params: [
     ...(["incomeTax", "residentTax"] as const).flatMap((p) => Object.values(ids(p))),
     ...Object.values(AGE),
     ...Object.values(DIFF),
   ],
-  reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "relation.type", "relation.a", "relation.b", "relation.marriage", "relation.from", "relation.to"],
+  reads: ["member.outside", "member.kind", "member.birth", "member.joins", "member.leaves", "member.support", "relation.type", "relation.a", "relation.b", "relation.marriage", "relation.from", "relation.to", ...OUTSIDE_CHILD_SUPPORT_READS],
   input: "tax.deductions.input",
   output: "tax.dependentDeduction.output",
   compute(input, ctx) {
@@ -142,7 +146,8 @@ export default defineComponent<
         const j = judgedAt(d.id);
         if (!present(d, j)) continue;
         // 世帯の外の家族は、扶養していると入れたときだけ扶養親族（0035 の4）
-        if (isOutside(d) && d.support?.dependent !== true) continue;
+        // 世帯の外の子は、その子への養育費・仕送りの行が判定の時を含むときだけ（生計を一にするのは送金がある間。0044 の追記）
+        if (isOutside(d) && (d.support?.dependent !== true || !outsideChildSupported(ctx, d, j))) continue;
         const isChild = d.kind === "child";
         const isElder = (d.kind === "parent" || d.kind === "grandparent" || (isOutside(d) && d.kind !== "child")) && d.support?.dependent === true;
         if (!isChild && !isElder) continue;
