@@ -155,8 +155,8 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     expect(allFields(itemStage(wh, "events") as StageDef).some((f) => f.key.startsWith("ro/events/schedule/") && String(f.get(wh).value).startsWith("介護の始まり"))).toBe(true);
     // 親を足す・介護の費用を足すも介護・親のカード
     const acts = (itemStage(wh, "care") as StageDef).sections.flatMap((s) => s.actions.map((a) => a.key));
-    expect(acts).toEqual(expect.arrayContaining(["family/add/parent", "ev/addCare"]));
-    expect((itemStage(wh, "family") as StageDef).sections.flatMap((s) => s.actions.map((a) => a.key))).not.toContain("family/add/parent");
+    expect(acts).toEqual(expect.arrayContaining(["family/add/father", "ev/addCare"]));
+    expect((itemStage(wh, "family") as StageDef).sections.flatMap((s) => s.actions.map((a) => a.key))).not.toContain("family/add/father");
     // 介護休業（働き方の期間の物）は読むだけの1行
     const leave = open("parentalLeave");
     const lp = leave.request.input.household.employmentPeriods!.find((p) => p.type === "leave")!;

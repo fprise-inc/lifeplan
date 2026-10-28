@@ -325,7 +325,8 @@ export function addBothParents(wh: WorkingHousehold): WorkingHousehold {
 const addOutsideActions = (wh: WorkingHousehold): ActionDef[] => {
   const hasParents = wh.request.input.household.members.some((m) => m.kind === "parent");
   return [
-    { key: "family/add/parent", label: "＋ 親を足す", level: "simple", run: (w) => addOutside(w, "parent") },
+    { key: "family/add/father", label: "＋ 父を足す", level: "simple", run: (w) => addOutside(w, "parent", { sex: "male" }) },
+    { key: "family/add/mother", label: "＋ 母を足す", level: "simple", run: (w) => addOutside(w, "parent", { sex: "female" }) },
     ...(hasParents ? [] : [{ key: "care/add/bothParents", label: "＋ 両家の親を足す（4人）", level: "simple" as const, run: addBothParents }]),
     { key: "family/add/grandparent", label: "＋ 祖父母を足す", level: "detail", run: (w) => addOutside(w, "grandparent") },
     { key: "care/add/sibling", label: "＋ 兄弟姉妹を足す", level: "detail", run: (w) => addOutside(w, "sibling") },
