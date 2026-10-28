@@ -176,7 +176,7 @@ export interface SectionDef {
 }
 
 /** 段階（カード）の ID。fee は前提条件の中の欄のまとまり（カードにしない） */
-export type StageId = "family" | "work" | "retirement" | "pension" | "living" | "education" | "housing" | "insurance" | "savings" | "events" | "car" | "care" | "inheritance" | "fee" | "assumptions";
+export type StageId = "family" | "work" | "retirement" | "pension" | "living" | "education" | "housing" | "insurance" | "savings" | "rental" | "events" | "car" | "care" | "inheritance" | "fee" | "assumptions";
 
 export interface StageDef {
   id: StageId;

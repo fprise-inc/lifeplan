@@ -115,6 +115,30 @@ entries:
     replacedBy: null
     collection: account
     path: [property]
+  - id: account.property.location
+    status: active
+    label: "所在地（都道府県・市区町村まで。番地は持たない。表示用。計算には使わない。0079）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: account
+    path: [property, location]
+  - id: account.property.memo
+    status: active
+    label: "メモ（表示用。計算には使わない。0079）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: account
+    path: [property, memo]
+  - id: account.property.name
+    status: active
+    label: "物件名（表示用。計算には使わない。0079）"
+    since: draft
+    aliases: []
+    replacedBy: null
+    collection: account
+    path: [property, name]
   - id: account.returnExceptions
     status: active
     label: "利回りの例外の年（0040。その年だけ別の利回り）"

@@ -1,4 +1,4 @@
-// 入力のホームの項目（作業の層）: 14の項目のカードと、FP がホームに出した物のピン。
+// 入力のホームの項目（作業の層）: 15の項目のカードと、FP がホームに出した物のピン。
 // - カードに出すのは「イラスト＋名前＋要約の数字1つ＋状態」まで。状態は4つ（入力済み・推定で計算中・未入力〔0円の所あり〕・当てはまらない）と、
 //   まだ何も入れていない項目の「まだ入れていない」で、欄の値の状態（valueState.ts。0041）と入っていない物（fill.ts の gapsOf。確かめの一覧のいちばん上と同じ）から決め、
 //   色だけに頼らずに見せる（InputView.tsx）。抜けの赤い知らせは、入れ始めた項目にだけ出す（0045 の追記）
@@ -16,6 +16,7 @@ import { earners, memberLabel } from "./labels.ts";
 import { isRow, rowAt } from "./rows.ts";
 import { carDebts, upkeepAnnual } from "./stages/cars.ts";
 import { outsideMembers } from "./stages/care.ts";
+import { isRentalProperty, rentalProperties } from "./stages/rental.ts";
 import { expenseCard, incomeCard, type MoneyCard } from "./moneyRows.ts";
 import { childOfPeriodic, eventExpenses } from "./stages/events.ts";
 import { buildStage, STAGE_ORDER } from "./stages/index.ts";
@@ -48,7 +49,7 @@ export interface Summary {
 }
 
 export interface InputItem {
-  /** カードの ID: 14の項目は段階の ID（family など）、ピンは `added:` で始まる */
+  /** カードの ID: 15の項目は段階の ID（family など）、ピンは `added:` で始まる */
   id: string;
   label: string;
   /** 段階の説明（パネルの見出しの下） */
@@ -118,6 +119,7 @@ const BASE: Record<StageId, BaseDef> = {
   housing: { group: "flows", color: "#5A9550" },
   insurance: { group: "assets", color: "#3B86AE" },
   savings: { group: "assets", color: "#D0843A" },
+  rental: { group: "assets", color: "#2F7F86" },
   events: { group: "flows", color: "#BE5A86" },
   car: { group: "flows", color: "#5C7895" },
   care: { group: "flows", color: "#A86A50" },
@@ -137,6 +139,7 @@ const HINTS: Partial<Record<StageId, { missing?: string; est?: string }>> = {
   pension: { est: "働き方の期間から推計して計算中です" },
   education: { missing: "入れなくても計算できます（教育費は無しで計算中）", est: "標準の進路の型で計算中です" },
   insurance: { missing: "入れなくても計算できます（保障は無しで計算中）" },
+  rental: { missing: "入れなくても計算できます（貸している不動産は無しで計算中）" },
   events: { missing: "入れなくても計算できます（一時的な収支は無しで計算中）" },
   car: { missing: "入れなくても計算できます（車は無しで計算中）", est: "目安の値で計算中です" },
   care: { missing: "入れなくても計算できます（介護の費用は無しで計算中）" },
@@ -285,8 +288,15 @@ function baseSummary(id: StageId, wh: WorkingHousehold, inheritance: Summary | n
     case "savings": {
       const list = h.accounts ?? [];
       // 金融資産は入れ方のとおりに数える（合計の入れ方で残した口座の値・まだ分けていない分を二重に足さない）＋不動産・その他の資産
-      const others = list.filter((a) => a.kind === "realEstate" || a.kind === "otherAsset").reduce((s, a) => s + (a.marketValue?.value ?? 0), 0);
-      return list.length === 0 ? null : { main: manText(totalViewOf(wh.request).value + others), unit: "万円" };
+      // （貸している不動産は収益不動産のカードで数える。0079）
+      const own = list.filter((a) => !isRentalProperty(a));
+      const others = own.filter((a) => a.kind === "realEstate" || a.kind === "otherAsset").reduce((s, a) => s + (a.marketValue?.value ?? 0), 0);
+      return own.length === 0 ? null : { main: manText(totalViewOf(wh.request).value + others), unit: "万円" };
+    }
+    case "rental": {
+      const list = rentalProperties(h);
+      if (list.length === 0) return moneyRows(h, "rental") > 0 ? { main: String(moneyRows(h, "rental")), unit: "件（一時の経費）" } : null;
+      return { main: String(list.length), unit: `件・評価額 ${manText(list.reduce((s, a) => s + (a.marketValue?.value ?? 0), 0))}万円` };
     }
     case "events": {
       const n = moneyRows(h, "events");
@@ -350,7 +360,9 @@ function baseHasData(id: StageId, wh: WorkingHousehold): boolean {
     case "insurance":
       return (h.insuranceContracts ?? []).length > 0;
     case "savings":
-      return (h.accounts ?? []).length > 0;
+      return (h.accounts ?? []).some((a) => !isRentalProperty(a));
+    case "rental":
+      return rentalProperties(h).length > 0 || moneyRows(h, "rental") > 0;
     case "events":
       return moneyRows(h, "events") > 0;
     case "car":
@@ -478,7 +490,7 @@ function addedObject(h: Household, a: Pick<AddedItem, "kind" | "ref">): AddedObj
 }
 
 /** お金の行の区画のカード → 段階の ID */
-const MONEY_STAGE: Readonly<Record<MoneyCard, StageId>> = { family: "family", work: "work", pension: "pension", living: "living", education: "education", housing: "housing", insurance: "insurance", savings: "savings", events: "events", car: "car", care: "care", inherit: "inheritance" };
+const MONEY_STAGE: Readonly<Record<MoneyCard, StageId>> = { family: "family", work: "work", pension: "pension", living: "living", education: "education", housing: "housing", insurance: "insurance", rental: "rental", events: "events", car: "car", care: "care", inherit: "inheritance" };
 
 /** 物が属するカード（ふつうはライフイベント。種類のあるお金の行はその種類のカード、介護は介護・親、子の年齢で始まる支出は子ども・教育、車は車、FP顧問料は前提条件） */
 function ownerOf(h: Household, a: Pick<AddedItem, "kind" | "ref">): StageId {
@@ -634,7 +646,7 @@ export interface ItemOptions {
 /** カードの入っていない物（確かめの一覧のいちばん上と同じ） */
 const gapsFor = (gaps: readonly Gap[], id: string) => gaps.filter((g) => g.card === id);
 
-/** 入力のホームの14枚のカード（ピンは pinItems） */
+/** 入力のホームの15枚のカード（ピンは pinItems） */
 export function inputItems(wh: WorkingHousehold, opts: ItemOptions = {}): InputItem[] {
   const layout = opts.layout ?? DEFAULT_LAYOUT;
   const first = new Set(layout.first);
@@ -677,7 +689,7 @@ export function inputItems(wh: WorkingHousehold, opts: ItemOptions = {}): InputI
   });
 }
 
-/** カード（14枚）かピンの1つ（パネルの見出し・状態に使う） */
+/** カード（15枚）かピンの1つ（パネルの見出し・状態に使う） */
 export function itemOf(wh: WorkingHousehold, id: string, opts: ItemOptions = {}): InputItem | null {
   if (id.startsWith("added:")) {
     const a = wh.addedItems.find((x) => x.id === id);
@@ -702,7 +714,7 @@ export interface Progress {
   empty: number;
 }
 
-/** 進み具合: 「14項目中 入力済み○・推定で計算中○・当てはまらない○・まだ入れていない○」と、未入力（0円の所あり）の数（ピンは数えない） */
+/** 進み具合: 「15項目中 入力済み○・推定で計算中○・当てはまらない○・まだ入れていない○」と、未入力（0円の所あり）の数（ピンは数えない） */
 export function progressOf(items: readonly InputItem[]): Progress {
   const cards = items.filter((i) => i.added === null);
   const n = (s: ItemStatus) => cards.filter((i) => i.status === s).length;

@@ -887,6 +887,22 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "name": { "title": "物件名（表示用。計算には使わない。0079）", "x-item": "account.property.name", "type": "string", "maxLength": 80 },
+            "kind": { "description": "物件の種類（表示用。計算には使わない。区分マンション condo・一棟アパート apartment・一棟マンション mansion・戸建て house・店舗/事務所 commercial・駐車場 parking・貸している土地 land・民泊・宿 lodging。0079）", "enum": ["condo", "apartment", "mansion", "house", "commercial", "parking", "land", "lodging"] },
+            "location": { "title": "所在地（都道府県・市区町村まで。番地は持たない。表示用。計算には使わない。0079）", "x-item": "account.property.location", "type": "string", "maxLength": 40 },
+            "share": { "description": "持分（共有のとき。0〜1。計算にはまだ使わない＝全部を名義の人の分として扱う。0079）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+            "tenure": { "description": "権利（所有権 ownership・借地権 leasehold。表示用。計算には使わない。0079）", "enum": ["ownership", "leasehold"] },
+            "units": { "description": "戸数（一棟のとき。表示用。計算には使わない。空室は rental.vacancyRate で入れる。0079）", "type": "integer", "minimum": 1, "maximum": 9999 },
+            "area": {
+              "description": "面積（㎡。10進の文字列。land 土地・floor 建物の延べ床。表示用。計算には使わない。0079）",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "land": { "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "floor": { "$ref": "urn:financia:schema:common#/$defs/rate" }
+              }
+            },
+            "memo": { "title": "メモ（表示用。計算には使わない。0079）", "x-item": "account.property.memo", "type": "string", "maxLength": 400 },
             "holdFrom": { "description": "持ち始める時点（相続・贈与で受け取る不動産。その月から評価額・家賃収入・経費に入れ、受け取るときの支払いは無い。省略は前から持っている。0039）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
             "structure": { "description": "建物の構造（省略は木造）", "enum": ["wood", "lightSteel", "steel", "rc"] },
             "builtYear": { "description": "建物が建った年（省略は取得の年。取得も無ければ時価の時点の年＝新築とみなす）", "$ref": "urn:financia:schema:common#/$defs/year" },

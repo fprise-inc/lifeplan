@@ -25,6 +25,7 @@ import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts
 import { StatusBadge } from "./StatusBadge.tsx";
 import { SavingsPanel } from "./savings/SavingsPanel.tsx";
 import { InsuranceOverview } from "./InsuranceOverview.tsx";
+import { RentalOverview } from "./RentalOverview.tsx";
 import { useInsuranceView } from "./insuranceView.ts";
 import { historyScope, undoController, useUndoScope } from "../undo/controller.ts";
 import { deepEqual, UndoHistory } from "../undo/history.ts";
@@ -489,6 +490,8 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             <FieldSuggestions.Provider value={suggestions}>
               <SectionLinks.Provider value={links}>
                 {itemId === "insurance" ? <InsuranceOverview wh={shown} view={insurance} onEdit={edit} /> : null}
+                {/* 収益不動産: 上に物件の一覧（読むだけ。入力から出せる数字だけ。0079） */}
+                {itemId === "rental" ? <RentalOverview wh={shown} /> : null}
                 {sections.map((s) => (
                   <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />
                 ))}

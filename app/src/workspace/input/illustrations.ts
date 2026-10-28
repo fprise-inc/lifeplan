@@ -14,9 +14,10 @@ import insurance from "../../assets/illustrations/insurance.webp";
 import living from "../../assets/illustrations/living.webp";
 import pension from "../../assets/illustrations/pension.webp";
 import pet from "../../assets/illustrations/pet.webp";
+import rental from "../../assets/illustrations/rental.webp";
 import retirement from "../../assets/illustrations/retirement.webp";
 import savings from "../../assets/illustrations/savings.webp";
 import work from "../../assets/illustrations/work.webp";
 import type { Art } from "./items.ts";
 
-export const ILLUSTRATIONS: Record<Art, string> = { family, work, retirement, pension, living, education, housing, insurance, savings, events, car, care, inheritance, fee, assumptions, pet, abroad };
+export const ILLUSTRATIONS: Record<Art, string> = { family, work, retirement, pension, living, education, housing, insurance, savings, rental, events, car, care, inheritance, fee, assumptions, pet, abroad };

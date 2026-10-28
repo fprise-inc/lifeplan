@@ -1822,6 +1822,27 @@
     "property"
    ]
   },
+  "account.property.location": {
+   "collection": "account",
+   "path": [
+    "property",
+    "location"
+   ]
+  },
+  "account.property.memo": {
+   "collection": "account",
+   "path": [
+    "property",
+    "memo"
+   ]
+  },
+  "account.property.name": {
+   "collection": "account",
+   "path": [
+    "property",
+    "name"
+   ]
+  },
   "account.returnExceptions": {
    "collection": "account",
    "path": [

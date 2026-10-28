@@ -1,4 +1,4 @@
-// 入力のホーム（0045）: 14枚のカードの並び・物の置き場所（1つの物は1つのカードに）・カードの状態4つ・進み具合・最初の5枚と1押し・
+// 入力のホーム（0045）: 15枚のカードの並び（収益不動産を足した。0079）・物の置き場所（1つの物は1つのカードに）・カードの状態4つ・進み具合・最初の5枚と1押し・
 // ピン（＋ 項目を追加・📌 ホームに出す・プランの編集中だけのピン）・古い世帯を開いても書き換えない
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -58,7 +58,7 @@ const sumText = (i: InputItem) => (i.summary === null ? null : `${i.summary.pre 
 const fieldOf = (stage: StageDef | null, suffix: string): FieldDef => allFields(stage as StageDef).find((f) => f.key.endsWith(suffix)) as FieldDef;
 const groupKeys = (wh: WorkingHousehold, card: string) => (itemStage(wh, card) as StageDef).sections.flatMap((s) => s.groups.map((g) => g.key));
 const editableKeys = (wh: WorkingHousehold, card: string) => allFields(itemStage(wh, card) as StageDef).filter((f) => f.readOnly === undefined).map((f) => f.key);
-const LABELS = ["家族", "働き方と収入", "退職金・企業年金", "年金", "基本生活費", "子ども・教育", "住まい・ローン", "保険", "貯蓄・運用", "ライフイベント", "車", "介護・親", "相続・贈与", "前提条件"];
+const LABELS = ["家族", "働き方と収入", "退職金・企業年金", "年金", "基本生活費", "子ども・教育", "住まい・ローン", "保険", "貯蓄・運用", "収益不動産", "ライフイベント", "車", "介護・親", "相続・贈与", "前提条件"];
 
 /** 足した項目をまとめて足す（保存まで） */
 function withAdded(wh: WorkingHousehold, keys: string[], id = seq()): WorkingHousehold {
@@ -71,8 +71,8 @@ function withAdded(wh: WorkingHousehold, keys: string[], id = seq()): WorkingHou
   return w;
 }
 
-describe("14枚のカードと並び", () => {
-  it("入力のホームの順に14枚（もとの10項目の相対の順番は変えず、車と新しい3枚を間に入れた）。FP顧問料はカードにしない", () => {
+describe("15枚のカードと並び", () => {
+  it("入力のホームの順に15枚（もとの10項目の相対の順番は変えず、車と新しい3枚・収益不動産を間に入れた）。FP顧問料はカードにしない", () => {
     const items = inputItems(open("salariedCoupleTwoKids"));
     expect(items.map((i) => i.label)).toEqual(LABELS);
     expect(STAGE_ORDER.map((s) => s.label)).toEqual(LABELS);
@@ -87,17 +87,17 @@ describe("14枚のカードと並び", () => {
     const layout: CardLayout = { order: ["assumptions", "family", "family", "nope" as StageId], first: ["family"] };
     const order = cardOrder(layout);
     expect(order.slice(0, 2)).toEqual(["assumptions", "family"]);
-    expect(order).toHaveLength(14);
-    expect(new Set(order).size).toBe(14);
+    expect(order).toHaveLength(15);
+    expect(new Set(order).size).toBe(15);
     const items = inputItems(blankHousehold("2026-10", seq()), { layout });
     expect(items[0]!.id).toBe("assumptions");
     expect(items.filter((i) => i.first).map((i) => i.id)).toEqual(["family"]);
   });
 
-  it("14枚のときは見出しを出さない。ピンは何枚足してもカードの数に入れない", () => {
+  it("15枚のときは見出しを出さない。ピンは何枚足してもカードの数に入れない", () => {
     const wh = withAdded(open("salariedCoupleTwoKids"), ["pet", "abroad", "periodic", "care", "pet"]);
     const items = inputItems(wh);
-    expect(items).toHaveLength(14);
+    expect(items).toHaveLength(15);
     expect(items.length).toBeLessThan(GROUP_HEADINGS_FROM);
     expect(groupedItems(items).map((g) => g.group)).toEqual([null]);
     expect(pinItems(wh)).toHaveLength(5);
@@ -105,7 +105,7 @@ describe("14枚のカードと並び", () => {
 });
 
 describe("物の置き場所（1つの物は1つのカードにだけ。ほかは読むだけの1行）", () => {
-  it("どのモデル世帯でも、入れられる欄のキーとまとまりのキーは14枚の中で重ならない", () => {
+  it("どのモデル世帯でも、入れられる欄のキーとまとまりのキーは15枚の中で重ならない", () => {
     for (const id of MODELS) {
       const wh = open(id);
       const fields = STAGE_ORDER.flatMap((s) => editableKeys(wh, s.id));
@@ -248,8 +248,8 @@ describe("カードの状態（4つ）", () => {
     const wh = open("salariedCoupleTwoKids");
     const items = inputItems(wh);
     expect(items.filter((i) => i.status === "missing").map((i) => i.id)).toEqual(["work", "insurance"]);
-    expect(items.filter((i) => i.status === "empty").map((i) => i.id)).toEqual(["car", "care", "inheritance"]);
-    expect(progressOf(items)).toEqual({ total: 14, done: 9, est: 0, missing: 2, na: 0, empty: 3 });
+    expect(items.filter((i) => i.status === "empty").map((i) => i.id)).toEqual(["rental", "car", "care", "inheritance"]);
+    expect(progressOf(items)).toEqual({ total: 15, done: 9, est: 0, missing: 2, na: 0, empty: 4 });
     // 失業給付を「受け取らない」と決めると、働き方と収入は入力済み
     const decided = notApplicableCard(wh, "work");
     expect(byId(inputItems(decided), "work").status).toBe("done");
@@ -266,7 +266,7 @@ describe("カードの状態（4つ）", () => {
     expect(byId(items, "assumptions").status).toBe("done");
     // 入れ始める前の項目は、入っていない物があっても「まだ入れていない」（赤い数に入れない。0045 の追記）
     expect(byId(items, "insurance")).toMatchObject({ status: "empty", missing: 1 });
-    expect(progressOf(items)).toEqual({ total: 14, done: 1, est: 3, missing: 0, na: 1, empty: 9 });
+    expect(progressOf(items)).toEqual({ total: 15, done: 1, est: 3, missing: 0, na: 1, empty: 10 });
   });
 
   it("0円で計算している欄（未入力の印の0円）があれば、物があっても未入力（0円の所あり）", () => {
@@ -294,7 +294,7 @@ describe("カードの状態（4つ）", () => {
     expect(byId(inputItems(saveItem(wh, "car")), "car").status).toBe("na");
     const na = notApplicableCard(wh, "insurance");
     expect(byId(inputItems(na), "insurance")).toMatchObject({ status: "na", missing: 0 });
-    expect(progressOf(inputItems(na))).toMatchObject({ missing: 0, empty: 8, na: 2 });
+    expect(progressOf(inputItems(na))).toMatchObject({ missing: 0, empty: 9, na: 2 });
   });
 
   it("無いと決めた物（どの子も教育費なし・勤め先に制度が無い）も当てはまらない", () => {
@@ -308,11 +308,11 @@ describe("カードの状態（4つ）", () => {
     expect(byId(inputItems(notApplicableCard(kids, "education")), "education").status).toBe("na");
   });
 
-  it("状態の数は、どのモデル世帯でも合計が14枚になる", () => {
+  it("状態の数は、どのモデル世帯でも合計が15枚になる", () => {
     for (const id of MODELS) {
       const p = progressOf(inputItems(open(id)));
-      expect(p.done + p.est + p.missing + p.na + p.empty, id).toBe(14);
-      expect(p.total, id).toBe(14);
+      expect(p.done + p.est + p.missing + p.na + p.empty, id).toBe(15);
+      expect(p.total, id).toBe(15);
     }
   });
 });
@@ -345,7 +345,7 @@ describe("入れ始めた項目だけに抜けを知らせる（0045 の追記�
     const before = JSON.stringify(wh);
     const items = inputItems(wh);
     expect(items.filter((i) => i.status === "missing")).toEqual([]);
-    expect(items.filter((i) => i.status === "empty").map((i) => i.id)).toEqual(["work", "retirement", "housing", "insurance", "savings", "events", "car", "care", "inheritance"]);
+    expect(items.filter((i) => i.status === "empty").map((i) => i.id)).toEqual(["work", "retirement", "housing", "insurance", "savings", "rental", "events", "car", "care", "inheritance"]);
     for (const id of ["housing", "insurance", "care"]) expect(byId(items, id).missing, id).toBe(1);
     expect(JSON.stringify(wh)).toBe(before);
   });
@@ -384,6 +384,7 @@ describe("入れ始めた項目だけに抜けを知らせる（0045 の追記�
       "gap:housing",
       "gap:insurance",
       "notStarted:savings",
+      "notStarted:rental",
       "notStarted:events",
       "notStarted:car",
       `gap:care/${wh.request.input.household.members[0]!.id}`,
@@ -431,26 +432,26 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     expect(() => preview(filled.request)).not.toThrow();
   });
 
-  it("描画: 進み具合は未入力（0円の所あり）の数を左に強く、続けて14項目中の入力済み・推定で計算中・当てはまらない・まだ入れていない。新しい世帯に最初の5枚の案内", () => {
+  it("描画: 進み具合は未入力（0円の所あり）の数を左に強く、続けて15項目中の入力済み・推定で計算中・当てはまらない・まだ入れていない。新しい世帯に最初の5枚の案内", () => {
     const wh = blankHousehold("2026-10", seq());
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple" }));
     // 新しい世帯は、まだ何も入れていない項目を赤い数に入れない（0045 の追記）
     expect(html).toContain('data-progress-missing="0"');
     expect(html).not.toContain("ih-prog-miss on");
     // 状態ごとの数は押すとそのカードだけに絞るボタン（0072）
-    expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('14項目中 入力済み <span class="n">1</span>・推定で計算中 <span class="n">3</span>・当てはまらない <span class="n">1</span>・まだ入れていない <span class="n">9</span>');
+    expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('15項目中 入力済み <span class="n">1</span>・推定で計算中 <span class="n">3</span>・当てはまらない <span class="n">1</span>・まだ入れていない <span class="n">10</span>');
     expect(html).toContain('data-progress-filter="est"');
-    expect(html.indexOf("data-progress-missing")).toBeLessThan(html.indexOf("14項目中"));
+    expect(html.indexOf("data-progress-missing")).toBeLessThan(html.indexOf("15項目中"));
     expect(html).toContain("data-first-guide");
     expect((html.match(/data-first=/g) ?? []).length).toBe(5);
-    expect((html.match(/data-card=/g) ?? []).length).toBe(14);
+    expect((html.match(/data-card=/g) ?? []).length).toBe(15);
     expect(html).toContain('data-card-na="insurance"');
     expect(html).toContain("入れなくても計算できます（保障は無しで計算中）");
     // 状態は色だけでなく文字でも
     for (const t of ["入力済み", "推定で計算中（1項目）", "当てはまらない", "まだ入っていません"]) expect(html).toContain(t);
     // まだ入れていない項目のカードには赤い札を出さない（点線の枠は灰色。s-empty）
     expect(html).not.toContain("ih-st missing mini\">未入力（0円の所あり）</span></span></button>");
-    expect((html.match(/ih-card s-empty/g) ?? []).length).toBe(9);
+    expect((html.match(/ih-card s-empty/g) ?? []).length).toBe(10);
     expect(html).not.toContain("ih-card s-missing");
   });
 
@@ -481,7 +482,7 @@ describe("ピン", () => {
     const wh = open("salariedCoupleTwoKids");
     const r = addItem(wh, "pet", seq())!;
     expect(wh.addedItems).toEqual([]);
-    expect(inputItems(r.wh)).toHaveLength(14);
+    expect(inputItems(r.wh)).toHaveLength(15);
     const pet = r.wh.request.input.household.periodicExpenses!.at(-1)!;
     // 物はライフイベントのカードにも出る
     expect(groupKeys(r.wh, "events")).toContain(`ev/${pet.id}`);
@@ -494,7 +495,7 @@ describe("ピン", () => {
     expect(keys[0]).toBe(`ev/${pet.id}`);
     expect(keys.every((k) => k === `ev/${pet.id}` || k.startsWith(`ev/${pet.id}/`))).toBe(true);
     // ピンは進み具合に数えない（物が属するカードで数える）
-    expect(progressOf(inputItems(r.wh)).total).toBe(14);
+    expect(progressOf(inputItems(r.wh)).total).toBe(15);
     expect(byId(inputItems(r.wh), "events").status).toBe("est");
     expect(() => preview(r.wh.request)).not.toThrow();
     // 額を入れると確定（入力済み）。ピンの保存はカードの保存の印を付けない
@@ -590,7 +591,7 @@ describe("ピン", () => {
     expect(html).toContain("data-pins");
     expect(html).toContain(`data-pin="${pin.id}"`);
     expect(html).toContain(`data-unpin="${pin.id}"`);
-    expect((html.match(/data-card=/g) ?? []).length).toBe(14);
+    expect((html.match(/data-card=/g) ?? []).length).toBe(15);
     const panel = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple", initialOpen: pin.id }));
     expect(panel).toContain("📌 ピン");
     expect(panel).toContain("📌 ホームから外す");
@@ -615,7 +616,7 @@ describe("古い世帯を開いても書き換えない", () => {
     for (const i of [...items, ...pins]) itemStage(wh, i.id);
     checkList(wh);
     expect(JSON.stringify(wh)).toBe(before);
-    expect(items).toHaveLength(14);
+    expect(items).toHaveLength(15);
     expect(pins.map((p) => p.id)).toEqual(["added:old-periodic", "added:old-car"]);
     // 物は属するカードにも出る（前は足したカードにだけ出していた）
     expect(groupKeys(wh, "events")).toContain(`ev/${periodic.id}`);

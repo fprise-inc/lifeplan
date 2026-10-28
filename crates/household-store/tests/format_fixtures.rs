@@ -688,6 +688,18 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.30 より前の版に推計の区分の受け取り開始は無い"
             );
         }
+        // 0.31 から（0079）: 収益不動産の物件を見分ける欄（任意。表示用）
+        let named = now["household"]["request"]["input"]["household"]["accounts"]
+            .as_array()
+            .is_some_and(|l| {
+                l.iter()
+                    .any(|a| a["property"]["name"].is_string() && a["property"]["kind"].is_string())
+            });
+        if migrate::parse(v).unwrap() >= (0, 31) {
+            assert!(named, "{v}: 収益不動産の物件名と種類");
+        } else {
+            assert!(!named, "{v}: 0.31 より前の版に物件名と種類は無い");
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

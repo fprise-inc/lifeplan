@@ -145,8 +145,20 @@ export interface Account {
   [key: string]: unknown;
 }
 
+/** 収益不動産の物件の種類（区分マンション・一棟アパート・一棟マンション・戸建て・店舗/事務所・駐車場・貸している土地・民泊・宿。0079） */
+export type RentalPropertyKind = "condo" | "apartment" | "mansion" | "house" | "commercial" | "parking" | "land" | "lodging";
+
 /** 住まい以外の不動産の中身（エンジンの accounts[].property。0028） */
 export interface RealEstateProperty {
+  /** 物件を見分ける欄（表示用。計算には使わない。0079）: 物件名・種類・所在地（都道府県・市区町村まで）・持分・権利・戸数・面積（㎡）・メモ */
+  name?: string;
+  kind?: RentalPropertyKind;
+  location?: string;
+  share?: string;
+  tenure?: "ownership" | "leasehold";
+  units?: number;
+  area?: { land?: string; floor?: string };
+  memo?: string;
   /** 持ち始める時点（相続・贈与で受け取る不動産。0039） */
   holdFrom?: Timepoint;
   structure?: string;

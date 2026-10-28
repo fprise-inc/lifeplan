@@ -38,6 +38,10 @@ export const FREE_TEXT: Readonly<Record<string, "drop" | "generic" | "keep">> = 
   "engine.input#/$defs/goal/properties/education/properties/lessons/items/properties/label": "drop",
   // 車の維持費の内訳の名前つきの行の名前（FP が書いた文。外す。0069）
   "engine.input#/$defs/car/properties/upkeepOther/items/properties/label": "drop",
+  // 収益不動産の物件名・所在地・メモ（FP が書いた文。外す。物件の種類と番号から見せる。0079）
+  "engine.input#/$defs/account/properties/property/properties/name": "drop",
+  "engine.input#/$defs/account/properties/property/properties/location": "drop",
+  "engine.input#/$defs/account/properties/property/properties/memo": "drop",
 };
 
 /** 学校コード（13桁）は計算に使わない（学費の行は自己完結）ので、決まった値に置き換える */
@@ -118,6 +122,12 @@ function walk(v: Json, ids: IdMap, path: readonly string[]): Json {
   if (parent === "lessons" || grand === "lessons") delete o.label;
   // 車の維持費の内訳の名前つきの行の名前
   if (parent === "upkeepOther") delete o.label;
+  // 収益不動産の物件名・所在地・メモ（口座の中身 accounts[].property。0079）
+  if (parent === "property" && grand === "accounts") {
+    delete o.name;
+    delete o.location;
+    delete o.memo;
+  }
   // 学校が決まっているときの学費の行: 学校コードとコースを外す
   if (parent === "school" && typeof o.school === "string" && typeof o.unit === "string" && Array.isArray(o.rows)) {
     o.school = SCHOOL_PLACEHOLDER;

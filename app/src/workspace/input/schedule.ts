@@ -35,7 +35,7 @@ const CARD_LABEL: Record<MoneyCard, string> = {
   education: "子ども・教育",
   housing: "住まい・ローン",
   insurance: "保険",
-  savings: "貯蓄・運用",
+  rental: "収益不動産",
   events: "ライフイベント",
   car: "車",
   care: "介護・親",

@@ -111,16 +111,16 @@ describe("周期的な支出・不動産の段階と例外の年", () => {
     expect(() => full(wh.request)).not.toThrow();
   });
 
-  it("住まい以外の不動産の家賃の段（割合）と経費の年額の例外の年", () => {
+  it("収益不動産の家賃の段（割合）と経費の年額の例外の年", () => {
     const wh0 = open("dualAssetsTwoKids");
     const a = wh0.request.input.household.accounts!.find((x) => x.property?.rental !== undefined)!;
-    let wh = act(wh0, "savings", `${a.id}/property/rental/addStage`);
+    let wh = act(wh0, "rental", `${a.id}/property/rental/addStage`);
     const sid = wh.request.input.household.accounts!.find((x) => x.id === a.id)!.property!.rental!.stages![0]!.id;
-    wh = fieldOf(wh, "savings", (f) => f.key.endsWith(`/property/rental/stage/${sid}/mode`)).set(wh, "ratio");
-    wh = fieldOf(wh, "savings", (f) => f.key.endsWith(`/property/rental/stage/${sid}/ratio`)).set(wh, "0.5");
-    const f = fieldOf(wh, "savings", (x) => x.key.endsWith(`/property/rental/stage/${sid}/ratio`));
+    wh = fieldOf(wh, "rental", (f) => f.key.endsWith(`/property/rental/stage/${sid}/mode`)).set(wh, "ratio");
+    wh = fieldOf(wh, "rental", (f) => f.key.endsWith(`/property/rental/stage/${sid}/ratio`)).set(wh, "0.5");
+    const f = fieldOf(wh, "rental", (x) => x.key.endsWith(`/property/rental/stage/${sid}/ratio`));
     expect(fieldAddress(f, wh)).toEqual({ target: { object: a.id }, item: "account.property", at: ["rental", "stages", sid, "ratio"] });
-    wh = act(wh, "savings", `${a.id}/property/expenses/addException`);
+    wh = act(wh, "rental", `${a.id}/property/expenses/addException`);
     const year = Number(wh.request.input.baseMonth.slice(0, 4)) + 3;
     const s0 = (wh.request.input.household.accounts!.find((x) => x.id === a.id)!.property!.rental!.stages![0]!.at as { at: string }).at;
     expect(flowSum(wh.request, "cf.income.other.rental", Number(s0.slice(0, 4)) + 1)).toBeLessThan(flowSum(wh0.request, "cf.income.other.rental", Number(s0.slice(0, 4)) + 1));
