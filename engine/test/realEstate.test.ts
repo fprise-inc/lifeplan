@@ -277,13 +277,20 @@ describe("売却と貸し終わり", () => {
 });
 
 describe("要約の物件ごとの数字（plan.cashflow の details から。帳票の入力の材料）", () => {
-  it("summary の realEstate は asset.realEstate の出力の properties と同じ。表の土地と建物の行・家賃収入の行の物の分と一致する", () => {
+  it("summary の realEstate は asset.realEstate の出力の properties と同じ（分析の材料の cash・facts を除く）。表の土地と建物の行・家賃収入の行の物の分と一致する", () => {
     const req = base({ accounts: [account(property({ sale: { at: at("2035-06") } }))] });
     (req.input.household as unknown as Obj).debts = [loan()];
     const r = full(req);
     const o = out(req);
     const s = (r.summary as { realEstate?: RealEstateOutput["properties"] }).realEstate;
-    expect(s).toEqual(o.properties);
+    expect(s).toEqual(
+      o.properties.map((x) => {
+        const rest: Record<string, unknown> = { ...x };
+        delete rest.cash;
+        delete rest.facts;
+        return rest;
+      }),
+    );
     const table = r.table as unknown as Cell[];
     for (const y of [2026, 2030, 2034]) {
       const v = s?.[0]?.years.find((e) => e.year === y);

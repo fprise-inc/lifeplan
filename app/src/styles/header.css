@@ -93,6 +93,8 @@
 .top[data-fit="3"] { grid-template-columns: minmax(0, 1fr) max-content; grid-template-areas: "l r" "t t"; }
 .top[data-fit="3"] .top-l { flex-wrap: wrap; }
 .top[data-fit="3"] .top-r { flex-wrap: wrap; }
+/* タブが6つ（収益不動産のある世帯）で2行目にも入らない幅では、タブの並びも折り返す */
+.top[data-fit="3"] .tabs { flex-wrap: wrap; }
 
 /* 世帯の選択のメニューの頭: 開いている世帯の状態（header/HouseholdNow.tsx） */
 .hh-now { margin: 0 0 10px; padding: 10px 18px; }

@@ -114,6 +114,10 @@ const PACKAGE_FILES: &[(&str, &str)] = &[
         "pages/money3.typ",
         include_str!("../../../report/typst/report-core/pages/money3.typ"),
     ),
+    (
+        "pages/rental.typ",
+        include_str!("../../../report/typst/report-core/pages/rental.typ"),
+    ),
 ];
 
 /// 同梱フォント（BIZ UDゴシック。SIL OFL 1.1。ライセンス文は report/fonts/OFL.txt）

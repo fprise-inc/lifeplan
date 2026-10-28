@@ -1,0 +1,636 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:financia:schema:component:asset.realEstateAnalysis.output",
+  "title": "収益不動産の分析の数字（物件ごと・年ごとと全物件の合計。0082）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "properties",
+    "total"
+  ],
+  "properties": {
+    "properties": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "object",
+          "owner",
+          "acquisition",
+          "builtYear",
+          "legalLife",
+          "depreciationEnd",
+          "deadCross",
+          "lodging",
+          "years",
+          "exit"
+        ],
+        "properties": {
+          "object": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          },
+          "owner": {
+            "$ref": "urn:financia:schema:common#/$defs/uuid"
+          },
+          "acquisition": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "total",
+                  "costs"
+                ],
+                "properties": {
+                  "total": {
+                    "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                  },
+                  "costs": {
+                    "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                  },
+                  "equity": {
+                    "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                  }
+                }
+              }
+            ]
+          },
+          "builtYear": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/year"
+              }
+            ]
+          },
+          "legalLife": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer",
+                "minimum": 1
+              }
+            ]
+          },
+          "depreciationEnd": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "building",
+              "equipment"
+            ],
+            "properties": {
+              "building": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "equipment": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              }
+            }
+          },
+          "deadCross": {
+            "description": "元金の返済が減価償却費を上回る最初の年（表の期間に無ければ null）",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/year"
+              }
+            ]
+          },
+          "lodging": {
+            "description": "民泊・宿（表面利回りを出さない）",
+            "type": "boolean"
+          },
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "year",
+                "gross",
+                "rent",
+                "expenses",
+                "repairs",
+                "depreciation",
+                "interest",
+                "income",
+                "repayment",
+                "debtService",
+                "principal",
+                "cashBeforeTax",
+                "tax",
+                "cashAfterTax",
+                "loanBalance",
+                "value",
+                "equity",
+                "grossYield",
+                "netYield",
+                "breakEven",
+                "repaymentRatio",
+                "dscr",
+                "ltv",
+                "ccr",
+                "held",
+                "months",
+                "age",
+                "remainingLife"
+              ],
+              "properties": {
+                "year": {
+                  "$ref": "urn:financia:schema:common#/$defs/year"
+                },
+                "gross": {
+                  "description": "満室のときの収入（空室を見込む前の家賃と家賃以外の月の収入。礼金・更新料は入れない。民泊・宿は稼働率100%の売上。無ければ null）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                    }
+                  ]
+                },
+                "rent": {
+                  "description": "実際に入る収入（家賃収入の行のこの物件の分。礼金・更新料を含む）",
+                  "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                },
+                "expenses": {
+                  "description": "経費（大きな修繕を除く）",
+                  "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                },
+                "repairs": {
+                  "description": "大きな修繕",
+                  "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                },
+                "depreciation": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                    }
+                  ]
+                },
+                "interest": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                    }
+                  ]
+                },
+                "income": {
+                  "description": "不動産所得（民泊・宿は雑所得・事業所得。貸していない年は null）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/yen"
+                    }
+                  ]
+                },
+                "repayment": {
+                  "description": "年の返済（毎月・ボーナス・繰上返済・手数料。売ったときの一括の返済は除く）",
+                  "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                },
+                "debtService": {
+                  "description": "約定の返済（毎月とボーナスの返済）",
+                  "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                },
+                "principal": {
+                  "description": "元金の返済（約定の返済−利息）",
+                  "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                },
+                "cashBeforeTax": {
+                  "description": "税引前の手残り（実際に入る収入−経費−大きな修繕−年の返済）",
+                  "$ref": "urn:financia:schema:common#/$defs/yen"
+                },
+                "tax": {
+                  "description": "その物件で増える税と社会保険料（近似。マイナスは減る）",
+                  "$ref": "urn:financia:schema:common#/$defs/yen"
+                },
+                "cashAfterTax": {
+                  "description": "税引後の手残り",
+                  "$ref": "urn:financia:schema:common#/$defs/yen"
+                },
+                "loanBalance": {
+                  "description": "年末のローン残高",
+                  "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                },
+                "value": {
+                  "description": "年末の評価額（持っていない年は null）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                    }
+                  ]
+                },
+                "equity": {
+                  "description": "含み益（評価額−ローン残高）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/yen"
+                    }
+                  ]
+                },
+                "grossYield": {
+                  "description": "表面利回り（年換算）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/rate"
+                    }
+                  ]
+                },
+                "netYield": {
+                  "description": "実質利回り（NOI 利回り。年換算）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/rate"
+                    }
+                  ]
+                },
+                "breakEven": {
+                  "description": "損益分岐の入居率（民泊・宿は稼働率）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/rate"
+                    }
+                  ]
+                },
+                "repaymentRatio": {
+                  "description": "返済比率",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/rate"
+                    }
+                  ]
+                },
+                "dscr": {
+                  "description": "返済余裕率（DSCR）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/rate"
+                    }
+                  ]
+                },
+                "ltv": {
+                  "description": "借入の割合（LTV）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/rate"
+                    }
+                  ]
+                },
+                "ccr": {
+                  "description": "自己資金に対する手残りの割合（CCR。年換算）",
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "urn:financia:schema:common#/$defs/rate"
+                    }
+                  ]
+                },
+                "held": {
+                  "description": "年末に持っている",
+                  "type": "boolean"
+                },
+                "months": {
+                  "description": "表に載る月のうち貸している月数",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 12
+                },
+                "age": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ]
+                },
+                "remainingLife": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ]
+                },
+                "lodging": {
+                  "description": "民泊・宿の1泊の単価・稼働率・営業日数と年の売上（年換算）",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "occupancy",
+                    "nightly",
+                    "days",
+                    "sales"
+                  ],
+                  "properties": {
+                    "occupancy": {
+                      "$ref": "urn:financia:schema:common#/$defs/rate"
+                    },
+                    "nightly": {
+                      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                    },
+                    "days": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 366
+                    },
+                    "sales": {
+                      "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "exit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "今の予定の売却（税引後の手取り net＝手取り−売ったときの一括の返済−譲渡所得の税）",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ym",
+                  "price",
+                  "costs",
+                  "proceeds",
+                  "loanPayoff",
+                  "tax",
+                  "net"
+                ],
+                "properties": {
+                  "ym": {
+                    "$ref": "urn:financia:schema:common#/$defs/yearMonth"
+                  },
+                  "price": {
+                    "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                  },
+                  "costs": {
+                    "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                  },
+                  "proceeds": {
+                    "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                  },
+                  "loanPayoff": {
+                    "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                  },
+                  "tax": {
+                    "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+                  },
+                  "net": {
+                    "$ref": "urn:financia:schema:common#/$defs/yen"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "total": {
+      "description": "全物件の合計（年ごと）",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "year",
+          "gross",
+          "rent",
+          "expenses",
+          "repairs",
+          "depreciation",
+          "interest",
+          "income",
+          "repayment",
+          "debtService",
+          "principal",
+          "cashBeforeTax",
+          "tax",
+          "cashAfterTax",
+          "loanBalance",
+          "value",
+          "equity",
+          "grossYield",
+          "netYield",
+          "breakEven",
+          "repaymentRatio",
+          "dscr",
+          "ltv",
+          "ccr"
+        ],
+        "properties": {
+          "year": {
+            "$ref": "urn:financia:schema:common#/$defs/year"
+          },
+          "gross": {
+            "description": "満室のときの収入（空室を見込む前の家賃と家賃以外の月の収入。礼金・更新料は入れない。民泊・宿は稼働率100%の売上。無ければ null）",
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "rent": {
+            "description": "実際に入る収入（家賃収入の行のこの物件の分。礼金・更新料を含む）",
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "expenses": {
+            "description": "経費（大きな修繕を除く）",
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "repairs": {
+            "description": "大きな修繕",
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "depreciation": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "interest": {
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "income": {
+            "description": "不動産所得（民泊・宿は雑所得・事業所得。貸していない年は null）",
+            "$ref": "urn:financia:schema:common#/$defs/yen"
+          },
+          "repayment": {
+            "description": "年の返済（毎月・ボーナス・繰上返済・手数料。売ったときの一括の返済は除く）",
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "debtService": {
+            "description": "約定の返済（毎月とボーナスの返済）",
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "principal": {
+            "description": "元金の返済（約定の返済−利息）",
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "cashBeforeTax": {
+            "description": "税引前の手残り（実際に入る収入−経費−大きな修繕−年の返済）",
+            "$ref": "urn:financia:schema:common#/$defs/yen"
+          },
+          "tax": {
+            "description": "その物件で増える税と社会保険料（近似。マイナスは減る）",
+            "$ref": "urn:financia:schema:common#/$defs/yen"
+          },
+          "cashAfterTax": {
+            "description": "税引後の手残り",
+            "$ref": "urn:financia:schema:common#/$defs/yen"
+          },
+          "loanBalance": {
+            "description": "年末のローン残高",
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "value": {
+            "description": "年末の評価額（持っていない年は null）",
+            "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen"
+          },
+          "equity": {
+            "description": "含み益（評価額−ローン残高）",
+            "$ref": "urn:financia:schema:common#/$defs/yen"
+          },
+          "grossYield": {
+            "description": "表面利回り（年換算）",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/rate"
+              }
+            ]
+          },
+          "netYield": {
+            "description": "実質利回り（NOI 利回り。年換算）",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/rate"
+              }
+            ]
+          },
+          "breakEven": {
+            "description": "損益分岐の入居率（民泊・宿は稼働率）",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/rate"
+              }
+            ]
+          },
+          "repaymentRatio": {
+            "description": "返済比率",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/rate"
+              }
+            ]
+          },
+          "dscr": {
+            "description": "返済余裕率（DSCR）",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/rate"
+              }
+            ]
+          },
+          "ltv": {
+            "description": "借入の割合（LTV）",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/rate"
+              }
+            ]
+          },
+          "ccr": {
+            "description": "自己資金に対する手残りの割合（CCR。年換算）",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "urn:financia:schema:common#/$defs/rate"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

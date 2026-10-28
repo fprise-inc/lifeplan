@@ -623,3 +623,71 @@ export interface BalanceTabModel {
 // ---- お金の3つの分け方（説明用の図。0032）----
 // 形は提案書と共用の部品（report/src/moneyThree.ts）が決める（アプリの区画・持ち帰り用のレポート・提案書で同じ並び・同じ言葉にするため）
 export type { MoneyThreeBox, MoneyThreeItem, MoneyThreeKey, MoneyThreeModel, MoneyThreePlace, MoneyThreeRow, MoneyThreeSettings, MoneyThreeWording } from "../../../report/src/moneyThree.ts";
+
+// ---- 収益不動産のタブ（物件ごと・年ごとの分析の数字。0082）----
+// 値はすべて作業の層（workspace/rentalTab.ts）が書式まで当てた文字にして渡す。提示層は並べるだけ
+
+/** 指標の1つ（例: 表面利回り 5.4%）。help は「?」の中の説明 */
+export interface RentalMetricModel {
+  key: string;
+  label: string;
+  value: string;
+  help: string;
+}
+
+/** 年ごとの表（列と行。金額は万円の文字） */
+export interface RentalTableModel {
+  columns: { key: string; label: string }[];
+  rows: { year: number; cells: string[]; deadCross: boolean; negative: boolean[] }[];
+}
+
+/** 売る年を変えた比べの1行 */
+export interface RentalSaleRowModel {
+  label: string;
+  current: boolean;
+  net: string;
+  financialEnd: string;
+  diff: string;
+  equityEnd: string;
+}
+
+/** 売る年を変えた比べ（null は比べる売り方が無い） */
+export type RentalSaleModel = { status: "loading" } | { status: "ready"; endYear: number; rows: RentalSaleRowModel[] } | { status: "error" };
+
+/** 物件1件の見るもの */
+export interface RentalPropertyViewModel {
+  kind: "property";
+  key: string;
+  /** 見出し（物件名（種類）） */
+  title: string;
+  /** 見出しの1行の事実（名義・構造・築年・取得） */
+  facts: string[];
+  /** 指標を見る年 */
+  year: number;
+  metrics: RentalMetricModel[];
+  table: RentalTableModel;
+  /** 元金の返済が減価償却費を上回る最初の年（表に印を付ける） */
+  deadCross: number | null;
+  sale: RentalSaleModel | null;
+}
+
+/** 全体（物件が2件以上のとき） */
+export interface RentalTotalViewModel {
+  kind: "total";
+  key: "total";
+  year: number;
+  /** 物件ごとの1行と合計の行（列は columns） */
+  columns: { key: string; label: string }[];
+  rows: { key: string; cells: string[] }[];
+  totalRow: string[];
+  table: RentalTableModel;
+}
+
+export interface RentalTabModel {
+  /** 見るもの（全体と物件ごと。物件が1件なら全体は無い） */
+  views: { key: string; label: string }[];
+  selected: string;
+  /** 選んだ見るもの（数字が無ければ null） */
+  view: RentalPropertyViewModel | RentalTotalViewModel | null;
+  provisional: boolean;
+}

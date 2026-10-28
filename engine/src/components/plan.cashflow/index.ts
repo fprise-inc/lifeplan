@@ -47,6 +47,8 @@
 // - 改訂15（約束の版 1.5。0054）: details の保険の一覧に、年末までの払込保険料の累計（paid）・家族特約の人ごとの死亡保障額（others）・保障の行の被保険者（insured）を添える
 // - 改訂16（約束の版 1.6。0009 の追記）: 住まい以外の不動産（asset.realEstate）の物件ごとの年末の評価額・不動産所得の内訳・売却を details の realEstate に写す
 //   （エンジンが summary の realEstate に写す。帳票の入力の物件ごとの数字の材料。計算は変えない）
+// - 改訂18（約束の版 1.7。0082）: 収益不動産の分析の数字（asset.realEstateAnalysis の出力のまま）を details の realEstateAnalysis に写す
+//   （エンジンが summary の realEstateAnalysis に写す。計算は変えない）
 // - 改訂17（0081）: details の realEstate に、asset.realEstate の約束の版 1.1 の任意の欄（所得の区分 incomeKind・事業的規模の目安の units。
 //   売却の譲渡所得の内訳は sale の中）も写す。計算は変えない
 import {
@@ -55,6 +57,7 @@ import {
   shockShare,
   type CarValuationOutput,
   type HousingValuationOutput,
+  type RealEstateAnalysisOutput,
   type RealEstateOutput,
   addMonths,
   addYen,
@@ -170,8 +173,8 @@ const under = (row: string, prefix: string) => row === prefix || row.startsWith(
 export default defineComponent<Record<string, never>, { flows: readonly Flow[]; annual: AnnualRow[]; parts: readonly (readonly Flow[])[]; details?: CashflowDetails }>({
   id: "plan.cashflow",
   title: "キャッシュフロー表",
-  contract: "1.6",
-  revision: 17,
+  contract: "1.7",
+  revision: 18,
   requires: {
     "plan.flows": ">=1 <2",
     "outside.wallet": ">=1 <2",
@@ -187,6 +190,7 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     "debt.schedule": ">=1 <2",
     "housing.valuation": ">=1 <2",
     "asset.realEstate": ">=1 <2",
+    "asset.realEstateAnalysis": ">=1 <2",
     "asset.car": ">=1 <2",
   },
   params: [...Object.values(N), ...Object.values(T)],
@@ -816,6 +820,8 @@ export default defineComponent<Record<string, never>, { flows: readonly Flow[]; 
     if (wallets.length > 0) details.outsideWallets = wallets;
     // 住まい以外の不動産の物件ごとの数字（asset.realEstate の出力のまま。帳票の入力の材料）
     if (rentals.length > 0) details.realEstate = rentals.map((p) => ({ object: p.object, owner: p.owner, years: p.years, income: p.income, sale: p.sale, ...(p.incomeKind !== undefined ? { incomeKind: p.incomeKind } : {}), ...(p.units !== undefined ? { units: p.units } : {}) }));
+    // 収益不動産の分析の数字（約束の版 1.7。0082。計算は変えない）
+    if (rentals.length > 0) details.realEstateAnalysis = ctx.call<RealEstateAnalysisOutput>("asset.realEstateAnalysis", {});
     const hasDetails = details.insurance !== undefined || details.gifts !== undefined || details.outsideWallets !== undefined || details.realEstate !== undefined;
     return { flows: own.length === 0 ? collected.flows : [...collected.flows, ...own], annual, parts, ...(hasDetails ? { details } : {}) };
   },

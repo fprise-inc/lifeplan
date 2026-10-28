@@ -28,6 +28,10 @@
           "description": "住まい以外の不動産（中身を入れた不動産の器）の物件ごとの年末の評価額（土地・建物）・不動産所得の内訳（計算基準年の2年前から）・売却。asset.realEstate の出力の properties のまま（plan.cashflow の details から。0009 の追記）。持っていなければ欄が無い",
           "$ref": "urn:financia:schema:component:asset.realEstate.output#/properties/properties"
         },
+        "realEstateAnalysis": {
+          "description": "収益不動産の分析の数字（物件ごと・年ごとの利回り・返済比率・手残りなどと全物件の合計。asset.realEstateAnalysis の出力のまま。plan.cashflow の details から。0082）。持っていなければ欄が無い",
+          "$ref": "urn:financia:schema:component:asset.realEstateAnalysis.output"
+        },
         "advisoryFee": {
           "type": "object",
           "additionalProperties": false,

@@ -49,6 +49,11 @@
 //     所有期間は、取得の年が売った年の（holdingYears＋1）年前以前なら長期（売った年の1月1日に5年を超える。月の端数は年で数えると同じ）。
 //     貸していない期間（取得から貸し始めまで・貸し終わりから売るまでが12か月以上、または貸していない物件）の建物の減価（非業務用の償却）は
 //     引かない（知らせ N_NOT_SUPPORTED realEstate.saleNonBusinessPeriod。0028 の未対応のまま）
+// - 改訂6・約束の版 1.2（分析の数字の材料。計算は変えない）: 任意の出力 cash（計算基準年から、持っている年ごとの、表に載る月〔計算基準月から〕の
+//   貸している月数・満室のときの収入〔家賃と家賃以外の月の収入の空室を見込む前の額。礼金・更新料は入れない。民泊・宿は「1泊の単価×営業日数」
+//   で売上を入れたときだけ、稼働率100%の売上〕・受け取った収入〔家賃収入の行と同じ〕・経費〔大きな修繕を除く〕・大きな修繕）と facts（取得価額の
+//   合計・取得時の諸費用・自己資金、建った年、法定耐用年数、建物と建物附属設備の減価償却が終わる年〔表の期間の後でも数える〕、民泊・宿の
+//   1泊の単価・稼働率・営業日数）。asset.realEstateAnalysis が読む
 // 計算基準年の2年前から計算する（前の年の所得で決まる住民税・国民健康保険料のため。お金の動きは計算基準月から）
 import {
   addMonths,
@@ -134,8 +139,8 @@ function monthsIn(y: number, lo: MonthIndex, hi: MonthIndex): number {
 export default defineComponent<Record<string, never>, RealEstateOutput>({
   id: "asset.realEstate",
   title: "住まい以外の不動産（評価額・家賃収入・経費・不動産所得・売却）",
-  contract: "1.1",
-  revision: 5,
+  contract: "1.2",
+  revision: 6,
   requires: { "debt.schedule": ">=1 <2" },
   params: [HOLDING, ESTIMATED],
   reads: ["account.kind", "account.owner", "account.marketValue", "account.asOf", "account.valueGrowth", "account.property", "debt.property", "debt.principal", "assumptions.inflation", "assumptions.realEstateValuation"],
@@ -216,6 +221,9 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const rentRef = rFrom === null ? baseYear : Math.max(yearOf(rFrom), baseYear);
       // 月の売上・家賃の元の額（民泊・宿の「1泊の単価×稼働率×営業日数」は、年の売上を12で割る。円未満切り捨て）
       let rent0 = r === undefined ? yen(0) : (boxValue(r.monthly) ?? yen(0));
+      // 満室のときの月の収入の元の額（民泊・宿は「1泊の単価×営業日数」のときだけ。月の売上の見込みで入れたときは無い）
+      let potential0: Yen | null = lodging === undefined ? null : yen(0);
+      let lodgingFacts: { nightly: Yen; occupancy: string; days: number } | null = null;
       const incomeKind = lodging === undefined ? "realEstate" : lodgingIncomeKind(lodging);
       if (r !== undefined && incomeKind === "business") ctx.notice("N_NOT_SUPPORTED", [a.id, "realEstate.businessTax"]);
       if (r !== undefined && lodging !== undefined) {
@@ -226,6 +234,9 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           if (lodging.nightly === undefined || lodging.occupancy === undefined) ctx.notice("N_INPUT_REQUIRED", [a.id, "account.property.lodging"]);
           const perDay = ctx.money.mulRate(yen(lodging.nightly ?? 0), ctx.rate.of(lodging.occupancy ?? "0"), RENT);
           rent0 = ctx.money.mulRatio(perDay, Math.min(days0, cap), 12, RENT);
+          // 稼働率100%の月の売上（分析の数字の「満室のときの収入」。損益分岐の稼働率の分母）
+          potential0 = ctx.money.mulRatio(yen(lodging.nightly ?? 0), Math.min(days0, cap), 12, RENT);
+          lodgingFacts = { nightly: yen(lodging.nightly ?? 0), occupancy: lodging.occupancy ?? "0", days: Math.min(days0, cap) };
         }
       }
       let rentMonthly = rent0;
@@ -287,6 +298,9 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       const fixedUp = growMemo(expGrowth);
       const rentByYear = new Map<number, Yen>();
       const expByYear = new Map<number, Yen>();
+      // 分析の数字の材料（表に載る月〔計算基準月から〕の分。改訂6）
+      const cash: NonNullable<RealEstateOutput["properties"][number]["cash"]>[number][] = [];
+      const lodgingNight = lodging !== undefined && potential0 !== null && lodgingFacts !== null;
       for (let y = yearOf(calcStart); y <= endYear; y++) {
         const fixedAnnual = fixedStaged.plain ? fixedFor(y) : fixedUp(fixedStaged.inYear(y), y - baseYear);
         const fixedParts = fixed0 > 0 || fixedStaged.anyPositive ? ctx.money.allocate(fixedAnnual, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "conv.flow.allocate", "last") : null;
@@ -300,11 +314,26 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         const keyParts = keyMoney0 > 0 ? ctx.money.allocate(rentUp(keyMoney0, k), [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "conv.flow.allocate", "last") : null;
         let rentSum = yen(0);
         let expSum = yen(0);
+        const c = { months: 0, held: 0, gross: yen(0), rent: yen(0), expenses: yen(0), repairs: yen(0) };
+        // 満室のときの月の収入（空室を見込む前。家賃以外の月の収入を含み、礼金・更新料は入れない）
+        const grossOf = (m: MonthIndex): Yen => {
+          if (lodging !== undefined) return lodgingNight ? rentUp(potential0 as Yen, k) : yen(0);
+          const base0 = rentPlain ? rentFor(Math.max(y, rentRef)) : rentUp((rentStaged as NonNullable<typeof rentStaged>).at(m), Math.max(y, rentRef) - rentRef);
+          return addYen(base0, extra0 > 0 ? rentUp(extra0, k) : yen(0));
+        };
         for (let mo = 1; mo <= 12; mo++) {
           const m = monthIndex(y, mo);
           if (m > holdEnd) break;
           if (m < calcStart || (holdStart !== null && m < holdStart)) continue;
           const isRented = rFrom !== null && rTo !== null && m >= rFrom && m <= rTo;
+          const inTable = m >= base && m <= end;
+          if (inTable) {
+            c.held++;
+            if (isRented) {
+              c.months++;
+              c.gross = addYen(c.gross, grossOf(m));
+            }
+          }
           let exp = fixedParts === null ? yen(0) : (fixedParts[mo - 1] as Yen);
           // 割合の経費を掛ける収入（家賃と家賃以外の月の収入）と、掛けない収入（礼金・更新料）
           const rentM = isRented ? addYen(rentOf(m), extraM) : yen(0);
@@ -312,14 +341,17 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
           if (isRented && rentM + keyM > 0) {
             push(m, "cf.income.other.rental", addYen(rentM, keyM), "asset.realEstate.rent");
             rentSum = addYen(rentSum, addYen(rentM, keyM));
+            if (inTable) c.rent = addYen(c.rent, addYen(rentM, keyM));
             if (expRate !== null && rentM > 0) exp = addYen(exp, ctx.money.mulRate(rentM, expRate, RENT));
           }
           push(m, "cf.expense.other.realEstate", exp, "asset.realEstate.expenses");
+          if (inTable && exp > 0) c.expenses = addYen(c.expenses, exp);
           if (isRented) expSum = addYen(expSum, exp);
           // 大きな修繕（一時の支出。貸している月なら全額をその年の経費にする）
           const rep = repairs.get(m);
           if (rep !== undefined) {
             push(m, "cf.expense.other.realEstate", rep, "asset.realEstate.repair");
+            if (inTable) c.repairs = addYen(c.repairs, rep);
             if (isRented) {
               expSum = addYen(expSum, rep);
               repairExpensed = true;
@@ -328,6 +360,7 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         }
         rentByYear.set(y, rentSum);
         expByYear.set(y, expSum);
+        if (c.held > 0) cash.push({ year: y, months: c.months, gross: lodging !== undefined && !lodgingNight ? null : c.gross, rent: c.rent, expenses: c.expenses, repairs: c.repairs });
         if (lodging !== undefined && y >= baseYear && rentSum > 10_000_000) ctx.notice("N_NOT_SUPPORTED", [a.id, "realEstate.consumptionTax"]);
       }
       if (repairExpensed) ctx.notice("N_ASSUMED", [a.id, "realEstate.repairExpensed"]);
@@ -336,6 +369,8 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       // 建物と建物附属設備を別の耐用年数で。取得時の諸費用の建物・建物附属設備の分は償却の基に足す
       const depByYear = new Map<number, Yen>();
       let buildingCost: Yen | null = null;
+      // 減価償却が終わる年（帳簿の残りが1円になる年。表の期間の後でも、同じ年額で数える。改訂6）
+      const depEnd: { building: number | null; equipment: number | null } = { building: null, equipment: null };
       // 売る前の月までの償却の累計（譲渡所得の取得費から引く）
       let accumulated = yen(0);
       if (r !== undefined && p.acquisition !== undefined && acqAt !== null && rFrom !== null && rTo !== null) {
@@ -351,21 +386,34 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
         buildingCost = addYen(buildingBase, equipmentBase);
         const elapsed = yearOf(acqAt) - built;
         const start = maxM(acqAt, rFrom);
-        const depreciate = (base0: Yen, life: number) => {
+        const depreciate = (base0: Yen, life: number, part: "building" | "equipment") => {
           const annual = ctx.money.mulRate(base0, ctx.rate.of(straightLineRate(life)), DEP);
           let book = base0;
+          let last: number | null = null;
           for (let y = yearOf(start); y <= endYear && book > 1; y++) {
             const months = monthsIn(y, start, rTo);
             if (months === 0) continue;
             const d0 = months === 12 ? annual : ctx.money.mulRatio(annual, months, 12, DEP);
             const d = yen(Math.min(d0, book - 1));
             book = yen(book - d);
+            if (d > 0) last = y;
             if (y >= yearOf(calcStart)) depByYear.set(y, addYen(depByYear.get(y) ?? yen(0), d));
           }
           accumulated = addYen(accumulated, subYen(base0, book));
+          // 表の最後の月まで貸していて、まだ残っていれば、その後も同じ年額で数える（売る・貸し終わるなら、そこで終わり）
+          if (book > 1 && rTo >= end && annual > 0) {
+            let b = book;
+            let y = endYear;
+            while (b > 1) {
+              y++;
+              b = yen(b - Math.min(annual, b - 1));
+            }
+            last = y;
+          } else if (book > 1) last = null;
+          depEnd[part] = last;
         };
-        if (buildingBase > 0) depreciate(buildingBase, usedLife(TAX_USEFUL_LIFE[structure], elapsed));
-        if (equipmentBase > 0) depreciate(equipmentBase, acq.equipmentLife ?? usedLife(EQUIPMENT_LIFE, elapsed));
+        if (buildingBase > 0) depreciate(buildingBase, usedLife(TAX_USEFUL_LIFE[structure], elapsed), "building");
+        if (equipmentBase > 0) depreciate(equipmentBase, acq.equipmentLife ?? usedLife(EQUIPMENT_LIFE, elapsed), "equipment");
       } else if (r !== undefined) ctx.notice("N_INPUT_REQUIRED", [a.id, "account.property.acquisition"]);
 
       // 借入の利息（この不動産を指す負債。貸している月数の分）と、そのうち土地の取得のための分
@@ -430,7 +478,15 @@ export default defineComponent<Record<string, never>, RealEstateOutput>({
       }
       const u = r !== undefined && incomeKind === "realEstate" ? scaleUnits(p.kind, p.units) : null;
       const units = u !== null && u.rooms + u.houses > 0 ? u : null;
-      properties.push({ object: a.id, owner, years, income, sale, ...(incomeKind !== "realEstate" ? { incomeKind } : {}), ...(units !== null ? { units } : {}) });
+      const acqTotal = p.acquisition === undefined ? null : parts !== undefined ? yen(partsTotal) : p.acquisition.price;
+      const facts: NonNullable<RealEstateOutput["properties"][number]["facts"]> = {
+        acquisition: p.acquisition === undefined || acqTotal === null ? null : { total: acqTotal, costs: yen(p.acquisition.costs ?? 0), ...(p.acquisition.equity !== undefined ? { equity: yen(p.acquisition.equity) } : {}) },
+        builtYear: built,
+        legalLife: TAX_USEFUL_LIFE[structure],
+        depreciationEnd: depEnd,
+        ...(lodgingFacts !== null ? { lodging: lodgingFacts } : {}),
+      };
+      properties.push({ object: a.id, owner, years, income, sale, ...(incomeKind !== "realEstate" ? { incomeKind } : {}), ...(units !== null ? { units } : {}), cash, facts });
     }
     return { flows, properties };
   },

@@ -2,6 +2,7 @@
 // 打ち手の当て方はアプリの打ち手（app/src/workspace/levers.ts）と同じ形で、要求の JSON を直接書き換える
 // （0008 の5 のプランの層ができたら、そちらで作った「提案」をそのまま渡す）。
 import type { EngineRequest, ProposalBundle, Run } from "../src/bundle.ts";
+import { saleVariantRequest, saleVariants } from "../src/rentalSale.ts";
 import { modelHousehold, runAll } from "./engine.ts";
 
 type Household = EngineRequest["input"]["household"];
@@ -215,17 +216,31 @@ export function rentalPropertyBundle(): ProposalBundle {
   const current = modelHousehold("dualAssetsTwoKids");
   const me = self(current);
   const proposal = clone(current);
+  // 物件を見分ける欄（計算には使わない）と自己資金（自己資金に対する手残りの割合のため。計算には使わない）は、現状と提案の両方に入れる
+  for (const h of [current, proposal]) {
+    const c = h.input.household.accounts.find((a) => a.kind === "realEstate" && a.property !== undefined);
+    if (c?.property !== undefined) {
+      const p = c.property as unknown as Record<string, unknown> & { acquisition?: Record<string, unknown> };
+      (c as unknown as { property: Record<string, unknown> }).property = { ...p, name: "見本マンション 301", kind: "condo", ...(p.acquisition !== undefined ? { acquisition: { ...p.acquisition, equity: 6000000 } } : {}) };
+    }
+  }
   const condo = proposal.input.household.accounts.find((a) => a.kind === "realEstate" && a.property !== undefined);
   const saleAt = `${Number(ageReachedMonth(me, 60).slice(0, 4))}-06`;
+  // 売ったときにローンを返す（sale.repayLoan の省略は返す。0081）
   if (condo?.property !== undefined) (condo as unknown as { property: Record<string, unknown> }).property = { ...condo.property, sale: { at: { at: saleAt } } };
-  for (const d of proposal.input.household.debts ?? []) if (condo !== undefined && d.property === condo.id) (d as { prepayments?: unknown }).prepayments = [{ at: { at: saleAt }, amount: 50000000, mode: "shortenTerm" }];
   const retireYear = Number(addMonths(ageReachedMonth(me, 60), -1).slice(0, 4));
   const wdYear = Number(ageReachedMonth(me, 65).slice(0, 4));
-  const runs = runAll([current, proposal]);
+  // 売る年を変えた比べ（今の予定・5年前・5年後・持ち続ける。今の予定は提案の計算）
+  const variants = condo === undefined ? [] : saleVariants(proposal, condo.id);
+  const extra = variants.filter((v) => !v.current).map((v) => saleVariantRequest(proposal, (condo as { id: string }).id, v));
+  const runs = runAll([current, proposal, ...extra]);
+  let k = 2;
+  const rentalSale = condo === undefined ? [] : [{ object: condo.id, variants: variants.map((v) => ({ variant: v, run: v.current ? runOf(runs, 1) : runOf(runs, k++) })) }];
   return {
     document: { issuedOn: "2026-10-20", preparedBy: "見本FP事務所（架空）" },
     current: runOf(runs, 0),
     proposal: runOf(runs, 1),
+    rentalSale,
     targetAge: 95,
     changes: [{ label: "賃貸に出しているマンション", current: "持ち続ける（家賃収入）", proposal: "60歳の年に売り、ローンを返す" }],
     investment: {

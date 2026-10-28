@@ -4,6 +4,7 @@ import type { EngineRequest } from "../../engine/src/engine/types.ts";
 import type { ChapterId } from "./chapters.ts";
 import type { ReportLayout } from "./input.ts";
 import type { MoneyThreeSettings } from "./moneyThree.ts";
+import type { SaleVariant } from "./rentalSale.ts";
 
 export type { EngineRequest };
 
@@ -44,6 +45,69 @@ export interface RealEstateDetail {
   units?: { rooms: number; houses: number };
 }
 
+/** エンジンの要約の realEstateAnalysis（asset.realEstateAnalysis の出力。形の正はエンジンの出力のスキーマ。0082） */
+export interface RealEstateAnalysis {
+  properties: RealEstateAnalysisProperty[];
+  total: RealEstateAnalysisTotal[];
+}
+
+export interface RealEstateAnalysisAmounts {
+  year: number;
+  gross: number | null;
+  rent: number;
+  expenses: number;
+  repairs: number;
+  depreciation: number | null;
+  interest: number | null;
+  income: number | null;
+  repayment: number;
+  debtService: number;
+  principal: number;
+  cashBeforeTax: number;
+  tax: number;
+  cashAfterTax: number;
+  loanBalance: number;
+  value: number | null;
+  equity: number | null;
+  grossYield: string | null;
+  netYield: string | null;
+  breakEven: string | null;
+  repaymentRatio: string | null;
+  dscr: string | null;
+  ltv: string | null;
+  ccr: string | null;
+}
+
+export interface RealEstateAnalysisYear extends RealEstateAnalysisAmounts {
+  held: boolean;
+  months: number;
+  age: number | null;
+  remainingLife: number | null;
+  lodging?: { occupancy: string; nightly: number; days: number; sales: number };
+}
+
+export interface RealEstateAnalysisTotal extends RealEstateAnalysisAmounts {
+  gross: number;
+  depreciation: number;
+  interest: number;
+  income: number;
+  value: number;
+  equity: number;
+}
+
+export interface RealEstateAnalysisProperty {
+  object: string;
+  owner: string;
+  acquisition: { total: number; costs: number; equity?: number } | null;
+  builtYear: number | null;
+  legalLife: number | null;
+  depreciationEnd: { building: number | null; equipment: number | null };
+  deadCross: number | null;
+  lodging: boolean;
+  years: RealEstateAnalysisYear[];
+  exit: { ym: string; price: number; costs: number; proceeds: number; loanPayoff: number; tax: number; net: number } | null;
+}
+
 export interface AdvisoryFeeSummary {
   total: number;
   byYear: { year: number; amount: number; cumulative: number }[];
@@ -64,6 +128,8 @@ export interface EngineOutput {
     advisoryFee?: AdvisoryFeeSummary;
     /** 住まい以外の不動産の物件ごとの数字（エンジンの asset.realEstate の出力。持っていなければ無い） */
     realEstate?: RealEstateDetail[];
+    /** 収益不動産の分析の数字（エンジンの asset.realEstateAnalysis の出力。持っていなければ無い。0082） */
+    realEstateAnalysis?: RealEstateAnalysis;
   };
   protection?: ProtectionOutput;
 }
@@ -116,6 +182,11 @@ export interface ProposalBundle {
   balancePoints?: { year: number; name: string | null }[];
   /** 資産運用の計画（0026）: 画面が入力から作る文（入れ方・取り崩しの条件・運用の期間）と、相場が下がった場合の計算（提案に型を重ねたもの） */
   investment?: InvestmentMaterial;
+  /**
+   * 収益不動産の売る年を変えた比べ（0082）: 提案の物件ごとに、rentalSale.ts の saleVariants の案と、その案の計算（今の予定の案は提案の計算）。
+   * 収益不動産のまとめの章を載せるときだけ。無ければ比べを載せない
+   */
+  rentalSale?: { object: string; variants: { variant: SaleVariant; run: Run }[] }[];
 }
 
 /** 資産運用の計画の材料（画面の作業の層が作る。金額は計算の結果から帳票の側で読む） */

@@ -16,6 +16,7 @@
 #import "pages/changes.typ": changes
 #import "pages/compare.typ": comparison
 #import "pages/money3.typ": money-three
+#import "pages/rental.typ": rental
 
 #let supported = "0.1.0"
 
@@ -55,6 +56,7 @@
   if on("moneyThree") and data.at("moneyThree", default: none) != none { money-three(data) }
   if on("education") and data.education != none { education(data) }
   if on("housing") and data.housingLoan != none { housing(data) }
+  if on("rental") and data.at("rental", default: none) != none { rental(data) }
   if on("retirement") and data.retirement != none { retirement(data) }
   if on("investment") and data.at("investment", default: none) != none { investment(data) }
   if on("marketDrop") and data.at("marketDrop", default: none) != none { market-drop(data) }

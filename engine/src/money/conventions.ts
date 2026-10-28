@@ -64,6 +64,8 @@ export const CONVENTIONS: Readonly<Record<string, RoundingRule>> = Object.freeze
   "conv.realEstate.rent": DOWN1,
   // 不動産の減価償却費（建物の取得価額×償却率、月割り。円未満切り捨て。法令の端数の扱いは原本で確かめる前の仮の規約。0028）
   "conv.realEstate.depreciation": DOWN1,
+  // 収益不動産の分析の数字（その物件で増える税と社会保険料の近似・年換算・分け方。円未満切り捨て。0082）
+  "conv.realEstate.analysis": DOWN1,
   // 黒字のうち貯まる額（黒字×貯まる割合。円未満切り捨て。残りは「ゆとりの支出」。0031）
   "conv.surplus.saving": DOWN1,
   // お金の3つの分け方（説明用。0032）: ふだんの支出の年額を月額に、月額×何か月分（年額×月数÷12）。円未満切り捨て

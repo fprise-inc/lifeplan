@@ -471,7 +471,104 @@ export interface RealEstateOutput {
     readonly incomeKind?: "miscellaneous" | "business";
     /** 約束の版 1.1（0081）: 事業的規模の目安に数える室数・棟数（不動産所得の物件。種類と戸数から） */
     readonly units?: { readonly rooms: number; readonly houses: number };
+    /**
+     * 約束の版 1.2（分析の数字の材料）: 計算基準年から、持っている月が表にある年ごと（年の昇順）。どれも表に載る月（計算基準月から）の分。
+     * months は貸している月数、gross は満室のときの収入（家賃と家賃以外の月の収入の空室を見込む前の額。礼金・更新料は入れない。民泊・宿は
+     * 「1泊の単価×営業日数」で売上を入れたときの稼働率100%の売上で、月の売上の見込みで入れたときは null）、rent は受け取った収入（家賃収入の行の
+     * この物件の分）、expenses は経費（大きな修繕を除く。貸していない月の分も含む）、repairs は大きな修繕
+     */
+    readonly cash?: readonly { readonly year: number; readonly months: number; readonly gross: Yen | null; readonly rent: Yen; readonly expenses: Yen; readonly repairs: Yen }[];
+    /**
+     * 約束の版 1.2: 物件の事実。acquisition は取得価額の合計（内訳があれば内訳の合計）・取得時の諸費用・自己資金（入れたときだけ）、builtYear は
+     * 建った年（省略は取得の年など。0028）、legalLife は建物の構造の法定耐用年数、depreciationEnd は建物・建物附属設備の減価償却が終わる年（帳簿の残りが
+     * 1円になる年。表の最後まで貸していれば表の期間の後の年も数える。償却が無い・途中で売る・貸し終わるときは null）、lodging は民泊・宿の
+     * 「1泊の単価×営業日数」の入れ方の値（営業日数は上限を当てた後）
+     */
+    readonly facts?: {
+      readonly acquisition: { readonly total: Yen; readonly costs: Yen; readonly equity?: Yen } | null;
+      readonly builtYear: number;
+      readonly legalLife: number;
+      readonly depreciationEnd: { readonly building: number | null; readonly equipment: number | null };
+      readonly lodging?: { readonly nightly: Yen; readonly occupancy: string; readonly days: number };
+    };
   }[];
+}
+
+/**
+ * asset.realEstateAnalysis: 収益不動産の分析の数字（物件ごと・年ごとと全物件の合計。0082）。金額は表に載る月（計算基準月から）の分。
+ * 率は10進の文字列（分母が0・無いときは null）。年は計算基準年から、持っている月が表にある年（売った年まで）
+ */
+export interface RealEstateAnalysisOutput {
+  readonly properties: readonly {
+    readonly object: string;
+    readonly owner: string;
+    /** 取得価額の合計・取得時の諸費用・自己資金（入れたときだけ） */
+    readonly acquisition: { readonly total: Yen; readonly costs: Yen; readonly equity?: Yen } | null;
+    readonly builtYear: number | null;
+    /** 建物の構造の法定耐用年数 */
+    readonly legalLife: number | null;
+    /** 建物・建物附属設備の減価償却が終わる年（無い・途中で売るなら null。表の期間の後の年もある） */
+    readonly depreciationEnd: { readonly building: number | null; readonly equipment: number | null };
+    /** 元金の返済が減価償却費を上回る最初の年（表の期間に無ければ null） */
+    readonly deadCross: number | null;
+    /** 民泊・宿（表面利回りを出さない） */
+    readonly lodging: boolean;
+    readonly years: readonly RealEstateAnalysisYear[];
+    /** 今の予定の売却（売らなければ null）。net＝proceeds−loanPayoff−tax */
+    readonly exit: { readonly ym: string; readonly price: Yen; readonly costs: Yen; readonly proceeds: Yen; readonly loanPayoff: Yen; readonly tax: Yen; readonly net: Yen } | null;
+  }[];
+  /** 全物件の合計（年の昇順） */
+  readonly total: readonly RealEstateAnalysisTotal[];
+}
+
+/** 分析の数字の金額の欄（物件と合計で同じ） */
+export interface RealEstateAnalysisAmounts {
+  readonly year: number;
+  /** 満室のときの収入（民泊・宿は稼働率100%の売上。無ければ null） */
+  readonly gross: Yen | null;
+  readonly rent: Yen;
+  readonly expenses: Yen;
+  readonly repairs: Yen;
+  readonly depreciation: Yen | null;
+  readonly interest: Yen | null;
+  /** 不動産所得（民泊・宿は雑所得・事業所得。貸していない年は null） */
+  readonly income: Yen | null;
+  readonly repayment: Yen;
+  readonly debtService: Yen;
+  readonly principal: Yen;
+  readonly cashBeforeTax: Yen;
+  readonly tax: Yen;
+  readonly cashAfterTax: Yen;
+  readonly loanBalance: Yen;
+  readonly value: Yen | null;
+  readonly equity: Yen | null;
+  readonly grossYield: string | null;
+  readonly netYield: string | null;
+  readonly breakEven: string | null;
+  readonly repaymentRatio: string | null;
+  readonly dscr: string | null;
+  readonly ltv: string | null;
+  readonly ccr: string | null;
+}
+
+export interface RealEstateAnalysisYear extends RealEstateAnalysisAmounts {
+  /** 年末に持っている */
+  readonly held: boolean;
+  /** 表に載る月のうち貸している月数 */
+  readonly months: number;
+  readonly age: number | null;
+  readonly remainingLife: number | null;
+  /** 民泊・宿の「1泊の単価×営業日数」の入れ方の値と、年の売上（年換算） */
+  readonly lodging?: { readonly occupancy: string; readonly nightly: Yen; readonly days: number; readonly sales: Yen };
+}
+
+export interface RealEstateAnalysisTotal extends RealEstateAnalysisAmounts {
+  readonly gross: Yen;
+  readonly depreciation: Yen;
+  readonly interest: Yen;
+  readonly income: Yen;
+  readonly value: Yen;
+  readonly equity: Yen;
 }
 
 export interface CarValuationOutput {
@@ -817,6 +914,8 @@ export interface CashflowDetails {
   outsideWallets?: readonly { readonly member: string; readonly depleted: string | null }[];
   /** 住まい以外の不動産の物件ごとの年末の評価額・不動産所得の内訳・売却（asset.realEstate の出力の properties のまま。約束の版 1.6。0009 の追記） */
   realEstate?: RealEstateOutput["properties"];
+  /** 収益不動産の分析の数字（asset.realEstateAnalysis の出力のまま。約束の版 1.7。0082） */
+  realEstateAnalysis?: RealEstateAnalysisOutput;
 }
 
 /** benefit.unemployment: 雇用保険の基本手当・高年齢求職者給付金を受ける日のある月（日数は30日を1か月とみなす近似。日額は基本手当日額） */
