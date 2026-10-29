@@ -10,7 +10,7 @@
 // メニューから開いた中身は、2行目の下に幅いっぱいで出す。項目がまだ何も入っていない新しい世帯のときだけ、ホームにも「取り込む」を出す
 // 入力項目の選び方（itemChoice.ts）: 1行目の右の「入力項目を選ぶ」で、この世帯で出す入力項目と開いたときの入れ方を選ぶ。非表示の項目は進み具合に数えない。
 // 「最初の5枚」の案内と印はなくした（どの項目から入れてもよい。並びは事務所の既定値で変えられる）
-import type { ComponentChildren } from "preact";
+import { Fragment, type ComponentChildren } from "preact";
 import { Help } from "../../presentation/Help.tsx";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { toggledSet, type GroupOpenState } from "./FieldViews.tsx";
@@ -19,7 +19,7 @@ import type { Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { InputPanel } from "./InputPanel.tsx";
-import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, nothingEnteredYet, groupedItems, inputItems, itemOf, notApplicableCard, pinItems, progressOf, shownItems, togglePin, type AddOption, type CardLayout, type InputItem, type ItemStatus, type PinItem } from "./items.ts";
+import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, nothingEnteredYet, groupedItems, inputItems, itemOf, notApplicableCard, pinItems, progressOf, shownItems, summarySegments, togglePin, type AddOption, type CardLayout, type InputItem, type ItemStatus, type PinItem, type Summary } from "./items.ts";
 import { inheritanceTaxNote, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { STAGE_ORDER } from "./stages/index.ts";
@@ -83,6 +83,20 @@ interface CardActions {
 /** プランの編集中に、カードの1押しを押せない理由 */
 const CARD_ACT_OFF = "現状を直す操作のため、プランの編集中は使えません";
 
+/** 要約の文字: 「・」の区切りごとのまとまりにして、まとまりの途中では折り返さない（items.ts の summarySegments。0045 の 2026-10-29 の追記） */
+function SummaryText({ s, plain }: { s: Summary; plain?: boolean }) {
+  return (
+    <>
+      {summarySegments(s).map((seg, i) => (
+        <Fragment key={i}>
+          {i > 0 ? <wbr /> : null}
+          <span class="sum-seg">{seg.map((p, j) => (p.small && plain !== true ? <small key={j}>{p.text}</small> : p.text))}</span>
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
 function Card({ item, onOpen, flash, diffs, acts }: { item: InputItem; onOpen: (id: string) => void; flash: boolean; diffs?: { label: string; n: number } | undefined; acts: CardActions }) {
   const s = item.summary;
   const showNa = item.canNa;
@@ -107,11 +121,7 @@ function Card({ item, onOpen, flash, diffs, acts }: { item: InputItem; onOpen: (
             {s === null ? (
               <span class="yet">{item.status === "na" ? "なし" : "まだ入っていません"}</span>
             ) : (
-              <>
-                {s.pre !== undefined ? <small>{s.pre}</small> : null}
-                {s.main}
-                {s.unit !== undefined ? <small>{s.unit}</small> : null}
-              </>
+              <SummaryText s={s} />
             )}
           </span>
           {s?.note !== undefined ? (
@@ -162,7 +172,7 @@ function PinCard({ pin, onOpen, onUnpin, planLabel }: { pin: PinItem; onOpen: (i
           ) : null}
         </span>
         <span class="ih-pin-sum">
-          {s === null ? "" : `${s.pre ?? ""}${s.main}${s.unit ?? ""}`}
+          {s === null ? "" : <SummaryText s={s} plain />}
           <small>（{where}）</small>
         </span>
         <StatusBadge item={pin} mini />

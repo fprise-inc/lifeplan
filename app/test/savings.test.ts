@@ -6,7 +6,7 @@ import { fromRequest } from "../src/workspace/input/household.ts";
 import { accountsOf, dropDoneUnallocated, editTotal, hasUnallocated, methodOf, nisaHitOf, pooledOf, setStopAge, stepsOf, stopAgeOf, stopEstimateOf, switchMethod, totalViewOf, unallocatedOf, writeSteps } from "../src/workspace/input/savings/model.ts";
 import { allFields } from "../src/workspace/input/form.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { maxDrawdown, withDrawdown } from "../src/workspace/invest/DrawdownCalc.tsx";
+import { lastsMatches, lastsText, maxDrawdown, maxMatches, USE_TARGETS, usedText, useOfLasts, useOfMax, useTargetKeys, useTargetText, withDrawdown, type CalcInputs, type LastsAnswer } from "../src/workspace/invest/DrawdownCalc.tsx";
 import { DEFAULT_DISPLAY_SETTINGS } from "../src/workspace/settings.ts";
 import { bandOf, breakdownOf, donutShown, investVerdict, lastsAge, stressRequests } from "../src/workspace/invest/present.ts";
 import { buildCatalog } from "../src/workspace/plans/items.ts";
@@ -186,6 +186,36 @@ describe("取り崩しの計算（○歳まで持たせるなら毎月いくら�
   });
 });
 
+describe("取り崩しの計算の答えと「対策に入れる」（何歳まで持つかの行にも出す。0026 の 2026-10-29 の追記）", () => {
+  const inputs: CalcInputs = { method: "fixed", startAge: 65, amount: 15, permille: 40, target: 95 };
+  const fixed: LastsAnswer = { method: "fixed", startAge: 65, amount: 15, permille: 40, age: 92 };
+  it("何歳まで持つかの行の「対策に入れる」は、その行に入れた額（定額は毎月の円、定率は毎年の率）と始める年齢を入れる", () => {
+    expect(useOfLasts(fixed)).toEqual({ method: "fixed", value: 150000, startAge: 65 });
+    expect(useOfLasts({ method: "rate", startAge: 70, amount: 15, permille: 35, age: 100 })).toEqual({ method: "rate", value: "0.035", startAge: 70 });
+    expect(useOfMax({ method: "fixed", startAge: 65, target: 95, v: 18 })).toEqual({ method: "fixed", value: 180000, startAge: 65 });
+    expect(useOfMax({ method: "rate", startAge: 65, target: 95, v: 40 })).toEqual({ method: "rate", value: "0.04", startAge: 65 });
+    expect(useOfMax({ method: "fixed", startAge: 65, target: 95, v: null })).toBeNull();
+    expect(lastsText(fixed)).toBe("65歳から毎月15万円取り崩すと、金融資産は 92歳 まで持ちます");
+  });
+  it("入力を変えると古い答えは出さない（定率の答えを、定額を選んだ画面に出さない）", () => {
+    expect(lastsMatches(fixed, inputs)).toBe(true);
+    // 持たせる年齢は何歳まで持つかの答えに関係しない
+    expect(lastsMatches(fixed, { ...inputs, target: 100 })).toBe(true);
+    // 定額なら率を変えても答えは変わらない
+    expect(lastsMatches(fixed, { ...inputs, permille: 50 })).toBe(true);
+    for (const changed of [{ method: "rate" as const }, { startAge: 70 }, { amount: 20 }]) expect(lastsMatches(fixed, { ...inputs, ...changed }), JSON.stringify(changed)).toBe(false);
+    const rate: LastsAnswer = { method: "rate", startAge: 65, amount: 15, permille: 40, age: 100 };
+    expect(lastsMatches(rate, inputs)).toBe(false);
+    expect(lastsMatches(rate, { ...inputs, method: "rate" })).toBe(true);
+    expect(lastsMatches(rate, { ...inputs, method: "rate", permille: 45 })).toBe(false);
+    const max = { method: "fixed" as const, startAge: 65, target: 95, v: 18 };
+    expect(maxMatches(max, inputs)).toBe(true);
+    // 額・率は持たせる年齢の行の答えに関係しない
+    expect(maxMatches(max, { ...inputs, amount: 30 })).toBe(true);
+    for (const changed of [{ method: "rate" as const }, { startAge: 70 }, { target: 100 }]) expect(maxMatches(max, { ...inputs, ...changed }), JSON.stringify(changed)).toBe(false);
+  });
+});
+
 describe("もう退職した人の積立をやめる年（エンジンの読み方と同じ）", () => {
   /** 本人が2020年12月に退職した世帯（計算基準月は2026年10月） */
   const retired = (drawdown = true) => {
@@ -220,5 +250,23 @@ describe("もう退職した人の積立をやめる年（エンジンの読み�
     const req = retired();
     setStopAge(req.input.household, req.input.baseMonth, 40);
     expect(stopField(req).note).toContain("積立は計算に入っていません");
+  });
+});
+
+describe("「対策に入れる」で入れる先を押す前に知らせる（0026 の 2026-10-29 の追記）", () => {
+  it("対策に無い項目は「足します」、もうある項目は「変えます」。定率は毎年の取り崩し率", () => {
+    expect(useTargetText("fixed", () => false)).toBe("押すと、対策の「取り崩しを始める年齢」と「毎月の取り崩し額」を足します");
+    expect(useTargetText("fixed", () => true)).toBe("押すと、対策の「取り崩しを始める年齢」と「毎月の取り崩し額」を変えます");
+    expect(useTargetText("rate", (k) => k === "inv:wStart")).toBe("押すと、対策の「取り崩しを始める年齢」を変え、「毎年の取り崩し率」を足します");
+    expect(useTargetKeys("rate")).toEqual(["inv:wStart", "inv:wRate"]);
+  });
+  it("押した後は入れた値を知らせる", () => {
+    expect(usedText({ method: "fixed", value: 150000, startAge: 65 })).toBe("対策に入れました: 取り崩しを始める年齢 65歳・毎月の取り崩し額 15万円");
+    expect(usedText({ method: "rate", value: "0.035", startAge: 70 })).toBe("対策に入れました: 取り崩しを始める年齢 70歳・毎年の取り崩し率 3.5%");
+  });
+  it("入れる先のキーは対策の項目のキーと名前にそろっている", () => {
+    const wh = open();
+    const cat = buildCatalog(wh, selfId(wh.request), null);
+    for (const t of Object.values(USE_TARGETS)) expect(cat.byKey.get(t.key)?.label, t.key).toBe(t.label);
   });
 });
