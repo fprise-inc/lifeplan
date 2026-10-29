@@ -74,8 +74,8 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
     await stage("big", report);
     document.querySelector<HTMLButtonElement>('[data-text-size="mid"]')?.click();
     await sleep(300);
-    // 根拠のパネル（ご主人の年金の、受け取り開始の翌々年のマス）
-    const cell = [...document.querySelectorAll<HTMLButtonElement>(".cellbtn")].find((b) => (b.getAttribute("aria-label") ?? "").includes("ご主人の年金"));
+    // 根拠のパネル（ご本人の年金の、受け取り開始の翌々年のマス）
+    const cell = [...document.querySelectorAll<HTMLButtonElement>(".cellbtn")].find((b) => (b.getAttribute("aria-label") ?? "").includes("ご本人の年金"));
     if (cell !== undefined) {
       cell.click();
       const t0 = performance.now();

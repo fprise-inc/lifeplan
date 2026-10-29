@@ -39,7 +39,7 @@ describe("提示用の値を作る", () => {
 
   it("主役の数字・結論・グラフが計算結果と合う", () => {
     const fin = (r: typeof current, y: number) => r.table.filter((c) => c.row === "cf.balance.financial" && c.year === y).reduce((s, c) => s + c.amount, 0);
-    expect(model.headline.label).toBe("ご主人95歳時点の金融資産（提案）");
+    expect(model.headline.label).toBe("ご本人95歳時点の金融資産（提案）");
     expect(model.headline.amount).toBe(fin(proposed, 2076));
     expect(model.headline.diff).toBe(fin(proposed, 2076) - fin(current, 2076));
     expect(model.chart.years).toHaveLength(55);
@@ -47,17 +47,17 @@ describe("提示用の値を作る", () => {
     const dep = depletionYear(current.table, model.chart.years);
     expect(dep).not.toBeNull();
     expect(model.verdict.tone).toBe("up");
-    expect(model.verdict.parts.map((p) => p.text).join("")).toContain(`ご主人 ${dep! - 1981}歳で不足`);
+    expect(model.verdict.parts.map((p) => p.text).join("")).toContain(`ご本人 ${dep! - 1981}歳で不足`);
     // 主画面の結論の1文（○歳時点の資産は既定では出さない）
     expect(model.result.parts.map((p) => p.text).join("")).toBe("提案は100歳まで足ります");
     expect(model.result.sub.map((p) => p.text).join("")).toBe(`現状（基準）は${dep! - 1981}歳で資産が尽きます`);
     expect(model.chart.depletions.map((d) => d.series)).toEqual(["current"]);
   });
 
-  it("構成員は呼び方だけ（ご主人・奥様・第1子・第2子。子は性別によらず生まれた順）", () => {
+  it("構成員は呼び方だけ（ご本人・配偶者・第1子・第2子。子は性別によらず生まれた順）", () => {
     expect(model.members).toEqual([
-      { label: "ご主人", age: 45 },
-      { label: "奥様", age: 43 },
+      { label: "ご本人", age: 45 },
+      { label: "配偶者", age: 43 },
       { label: "第1子", age: 14 },
       { label: "第2子", age: 11 },
     ]);
@@ -76,15 +76,15 @@ describe("提示用の値を作る", () => {
   it("イベントと目標", () => {
     const texts = model.events.map((e) => `${e.year} ${e.icon} ${e.text}`);
     expect(texts).toContain("2031 学 第1子 大学入学（私立文系・自宅外）（第1子19歳）");
-    expect(texts.some((t) => t.startsWith("2046 退 ご主人 退職（ご主人65歳）"))).toBe(true);
-    expect(texts.some((t) => t.startsWith("2046 年 ご主人 年金の受け取り開始（65歳）"))).toBe(true);
+    expect(texts.some((t) => t.startsWith("2046 退 ご本人 退職（ご本人65歳）"))).toBe(true);
+    expect(texts.some((t) => t.startsWith("2046 年 ご本人 年金の受け取り開始（65歳）"))).toBe(true);
     expect(model.goals.cards.map((c) => c.title)).toEqual(["第1子の大学", "第2子の大学", "住宅ローンの完済", "老後の生活資金", "定期的な支出（旅行など）", "まだ入れていません"]);
     expect(model.goals.needReady).toBe(model.goals.needTotal);
   });
 
   it("年の内訳", () => {
     expect(model.yearDetail!.year).toBe(2031);
-    expect(model.yearDetail!.members).toBe("ご主人50歳・奥様48歳・第1子19歳・第2子16歳");
+    expect(model.yearDetail!.members).toBe("ご本人50歳・配偶者48歳・第1子19歳・第2子16歳");
   });
 });
 

@@ -107,8 +107,8 @@ describe("家計を1つにする親の年金の行（0075）", () => {
     const mother = (id: string, of: string): Member => ({ id, kind: "parent", birth: { birthYearMonth: "1950-04", bornOnFirst: false }, sex: "female", joins: null, leaves: null, expected: false, outside: { of, periods: [] } });
     h0.members.push(mother("00000000-0000-4000-8000-0000000000b1", self.id), mother("00000000-0000-4000-8000-0000000000b2", spouse.id));
     const [m1, m2] = h0.members.slice(-2) as [Member, Member];
-    expect(outsideName(req, m1)).toBe(`${self.sex === "female" ? "奥様" : "ご主人"}のお母さま`);
-    expect(outsideName(req, m2)).toBe(`${spouse.sex === "female" ? "奥様" : "ご主人"}のお母さま`);
+    expect(outsideName(req, m1)).toBe("ご本人のお母さま");
+    expect(outsideName(req, m2)).toBe("配偶者のお母さま");
     expect(outsideName(modelHousehold("parentMoney"), parentOf(modelHousehold("parentMoney")))).toBe("お母さま");
   });
 

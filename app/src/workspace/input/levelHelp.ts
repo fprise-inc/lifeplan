@@ -20,7 +20,7 @@ export interface LevelHelpDef {
 /** 入力項目ごとの、標準と詳細の主なもの */
 export const LEVEL_HELP: Readonly<Record<StageId, LevelHelpDef>> = {
   family: {
-    simple: [["続柄"], ["生年月"], ["本人の性別", "性別"]],
+    simple: [["続柄"], ["生年月"], ["ご本人の性別", "性別"]],
     detail: [["呼び名"], ["配偶者の性別", "性別"], ["夫婦の関係の始まりと終わり", "関係の始まり"]],
     fallback: "estimate",
   },

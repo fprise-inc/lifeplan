@@ -213,7 +213,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           </p>
         </section>
         <section class="os-sec" aria-labelledby="os-care">
-          <h3 id="os-care">本人・配偶者の介護の費用</h3>
+          <h3 id="os-care">ご本人・配偶者の介護の費用</h3>
           <label class="os-radio">
             <input type="radio" name="os-care" checked={s.care.selfAndSpouse === "warn"} onChange={() => setS({ ...s, care: { selfAndSpouse: "warn" } })} data-office-care="warn" />
             自動では入れない（「未入力」にして「目安で入れる」の1押しを出す。標準）

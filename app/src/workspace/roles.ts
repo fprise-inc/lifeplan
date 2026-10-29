@@ -1,4 +1,4 @@
-// 構成員の呼び方（顧客の名前は持たない・出さない。0012）: ご主人・奥様・第1子・第2子・離れて暮らす子 など
+// 構成員の呼び方（顧客の名前は持たない・出さない。0012）: ご本人・配偶者・第1子・第2子・離れて暮らす子 など
 import type { EngineRequest, Member } from "../engine/types.ts";
 import { parseYm } from "./levers.ts";
 import { resolveTimepoint } from "./timepoint.ts";
@@ -22,9 +22,8 @@ function rolesOf(req: EngineRequest): Omit<Role, "leaves">[] {
   const self = ms.find((m) => m.kind === "self");
   const spouse = ms.find((m) => m.kind === "spouse");
   const out: Omit<Role, "leaves">[] = [];
-  const coupleLabel = (m: Member) => (m.sex === "female" ? "奥様" : "ご主人");
-  if (self !== undefined) out.push({ key: "self", label: spouse !== undefined ? coupleLabel(self) : "ご本人", member: self });
-  if (spouse !== undefined) out.push({ key: "spouse", label: coupleLabel(spouse), member: spouse });
+  if (self !== undefined) out.push({ key: "self", label: "ご本人", member: self });
+  if (spouse !== undefined) out.push({ key: "spouse", label: "配偶者", member: spouse });
   const children = ms.filter((m) => m.kind === "child").sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1));
   // 子は性別によらず生まれた順に呼ぶ（予定の子も同じ。性別は計算に使わないので聞かない。0046 の追記 2026-10-27）。
   // 番号は世帯の中の子（一緒に暮らす子）だけで「第1子」「第2子」…。世帯の外の子は「離れて暮らす子」（2人以上なら生まれた順に「離れて暮らす子1」…）。

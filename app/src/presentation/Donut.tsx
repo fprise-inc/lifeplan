@@ -12,7 +12,7 @@ export interface DonutItem {
 export interface DonutPane {
   /** 例: 「現状（プランA）」 */
   title: string;
-  /** 例: 「2046年（ご主人65歳）」 */
+  /** 例: 「2046年（ご本人65歳）」 */
   sub: string;
   items: DonutItem[];
 }
