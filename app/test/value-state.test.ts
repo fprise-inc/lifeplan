@@ -100,7 +100,7 @@ describe("確定は明示の操作だけ（欄に入って離れる・同じ文�
 });
 
 describe("4つの操作（どの欄も同じ部品）", () => {
-  it("値の箱の欄: 確定・推定に戻す・わからない・該当なし。どの状態でも計算できる", () => {
+  it("値の箱の欄: 確定・推定に戻す・わからない（基本生活費に該当なしは無い）。どの状態でも計算できる", () => {
     const wh = open("salariedCoupleTwoKids");
     const f = fieldOf(wh, "living", "/monthly");
     const typed = f.set(wh, 270000);
@@ -118,13 +118,23 @@ describe("4つの操作（どの欄も同じ部品）", () => {
     const conf = applyStateOp(unk, f, "confirm");
     expect(fieldStatus(f, conf).status).toBe("confirmed");
     expect(f.get(conf).value).toBe(270000);
-    // 該当なし
-    const na = applyStateOp(typed, f, "notApplicable");
+    // 基本生活費は、世帯があれば必ずある額なので「該当なし」を出さない（0041 の 2026-10-29 の追記）。使えない操作は世帯を変えない
+    expect(availableOps(f, typed)).not.toContain("notApplicable");
+    expect(applyStateOp(typed, f, "notApplicable")).toBe(typed);
+  });
+
+  it("値の箱の欄の該当なし（住民税）: 推定の額を使わず無いものとして計算し、推定に戻す・わからないで戻せる", () => {
+    const wh = open("salariedCoupleTwoKids");
+    const f = allFields(buildStage("work", wh)).find((x) => x.item === "residentTaxAssessment.amount")!;
+    expect(f).toBeDefined();
+    expect(availableOps(f, wh)).toContain("notApplicable");
+    const na = applyStateOp(wh, f, "notApplicable");
     expect(fieldStatus(f, na).status).toBe("notApplicable");
     expect(f.get(na).value).toBeNull();
     computes(na);
-    // 使えない操作は世帯を変えない
+    expect(availableOps(f, na)).toEqual(["revert", "unknown"]);
     expect(applyStateOp(na, f, "notApplicable")).toBe(na);
+    expect(fieldStatus(f, applyStateOp(na, f, "revert")).status).toBe("estimated");
   });
 
   it("箱でない値（仮の印の推定）: 確定は行に根拠を残し、仮の印を外す。わからない・該当なしは向き先の物の行に書く", () => {

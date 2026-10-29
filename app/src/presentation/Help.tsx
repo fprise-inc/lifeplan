@@ -1,11 +1,13 @@
 // 説明の「?」（丸に ?）の共通の部品（0077）。画面に常に出すのは欄の名前・値・状態の印・操作の名前までにし、
 // 使い方の説明・注意・制度の説明・推定の根拠はこの部品の中に入れる。
 // 開き方: カーソルを合わせる・キーボードでフォーカスする・押す（タッチ）のどれでも開く。
-// フォーカスで開くのはキーボードで移ったとき（:focus-visible）だけ。パネルを開いた直後のフォーカスや、押したときのフォーカスでは開かない（0077 の追記）。押すと開いたままになり、もう一度押す・Esc・外を押すと閉じる。
+// フォーカスで開くのはキーボードで移ったとき（:focus-visible）だけ。パネルを開いた直後のフォーカスや、押したときのフォーカスでは開かない（0077 の追記）。
+// タッチ・キーボードで押すと開いたままになり、もう一度押す・Esc・外を押すと閉じる。マウスで押したときは開いたままにしない（カーソルを外せばすぐ閉じる。0077 の 2026-10-29 の追記）。
 // 説明の文は閉じている間も DOM に置き（hidden）、ボタンの aria-describedby で読み上げに渡す。
 // 引き金は既定で「?」。mark を渡すと、その印（例: 欄の「推定」の札）を押して開く形になる。
 // 「?」は字ではなく SVG の線で描く（字の上下の余白はフォントで違い、丸の中央からずれるため）。
-// 開いた説明の文は選んでコピーできる。カーソルを「?」から説明の箱へ動かす途中で閉じないよう、外れてから閉じるまで少し待ち、すき間も埋める
+// 開いた説明の文は選んでコピーできる。カーソルを「?」から説明の箱へ動かす途中で閉じないよう、外れてから閉じるまでごく短く待ち（HELP_LEAVE_MS）、すき間も埋める
+// 何の説明かは、「?」を説明する物（欄の名前・ボタン・見出し）のすぐ右に置いて示す。ボタンの「?」は HelpOf でボタンと1つのまとまりにし、開いている間はボタンを薄く強調する（0077 の 2026-10-29 の追記）
 // 開いた説明の箱は body の直下に出す（入力のパネル・一覧・タブの枠の overflow や transform に切られない。0077 の追記）
 import { render, type ComponentChildren } from "preact";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
@@ -52,8 +54,19 @@ export const HELP_GLYPH = {
   ink: { top: 4.4, bottom: 15.6, left: 6.8, right: 13.2 },
 } as const;
 
-/** カーソルが外れてから閉じるまでの間（ms）。「?」から説明の箱へ動かす途中で閉じないように */
-export const HELP_LEAVE_MS = 300;
+/**
+ * カーソルが外れてから閉じるまでの間（ms）。外したらすぐ閉じる（0077 の 2026-10-29 の追記。前は 300ms で、消えるまでが長かった）。
+ * 「?」と箱のすき間は箱の見えない帯で埋めてあるので、「?」から箱へ動かす間に閉じないための猶予だけを残す
+ */
+export const HELP_LEAVE_MS = 150;
+
+/**
+ * 押したときに開いたままにするか: タッチ・ペン・キーボード（Enter・Space。click の detail が 0）なら開いたまま。
+ * マウスで押したときは、カーソルを合わせて開いているので、開いたままにしない（外したらすぐ閉じる。0077 の 2026-10-29 の追記）
+ */
+export function pressPins(pointerType: string | null, detail: number): boolean {
+  return detail === 0 || pointerType !== "mouse";
+}
 
 /**
  * カーソルの出入りで開閉する決まり（タイマーを渡して画面の外でも確かめられるようにする）。
@@ -132,6 +145,8 @@ interface HelpProps {
   id?: string;
   /** 引き金のボタンに足す data- の属性（例: 状態の印の data-state） */
   data?: Readonly<Record<string, string>>;
+  /** 説明の1行目に出す、何の説明か（ボタンの名前など。ボタンの間に「?」が並ぶ所で、どれの説明かを箱の中でも分かるように） */
+  target?: string;
 }
 
 /**
@@ -169,7 +184,7 @@ export function helpPlace(btn: { left: number; top: number; bottom: number }, bo
   return { top: top - origin.y, left: left - origin.x, side: up ? "above" : "below" };
 }
 
-export function Help({ children, label, mark, markClass, id, data }: HelpProps) {
+export function Help({ children, label, mark, markClass, id, data, target }: HelpProps) {
   const [st, setSt] = useState<HelpState>(HELP_CLOSED);
   const [pos, setPos] = useState<{ top: number; left: number; side: HelpSide; tall: boolean } | null>(null);
   const popId = `help-${useId()}`;
@@ -179,6 +194,8 @@ export function Help({ children, label, mark, markClass, id, data }: HelpProps) 
   const open = helpOpen(st);
   const ev = (e: HelpEvent) => setSt((s) => helpNext(s, e));
   const gate = useRef<ReturnType<typeof helpHoverGate> | null>(null);
+  /** 最後に「?」を押した指し物の種類（マウスで押したときは開いたままにしない） */
+  const pointer = useRef<string | null>(null);
   gate.current ??= helpHoverGate(ev);
   const hover = gate.current;
   /** 「?」の包みか説明の箱の中か（箱は body の直下にあるので、包みの中とは限らない） */
@@ -280,6 +297,11 @@ export function Help({ children, label, mark, markClass, id, data }: HelpProps) 
       {...(pos?.tall === true ? { "data-tall": "" } : {})}
       data-help-pop
     >
+      {target !== undefined ? (
+        <span class="help-for" data-help-for>
+          {target}
+        </span>
+      ) : null}
       {children}
     </span>
   );
@@ -307,9 +329,19 @@ export function Help({ children, label, mark, markClass, id, data }: HelpProps) 
         onFocus={(e) => {
           if (focusOpensHelp(e.currentTarget)) ev("focus");
         }}
+        onPointerDown={(e) => {
+          pointer.current = e.pointerType;
+        }}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          const how = pointer.current;
+          pointer.current = null;
+          // マウスで押したときは、カーソルを合わせて開いているまま（外したらすぐ閉じる）。開いたままにしない（タッチ・キーボードで開いたままにした物は、押すと閉じる）
+          if (!pressPins(how, e.detail) && !st.pinned) {
+            hover.enter();
+            return;
+          }
           ev("press");
         }}
         data-help-btn
@@ -318,6 +350,20 @@ export function Help({ children, label, mark, markClass, id, data }: HelpProps) 
         {mark !== undefined ? mark : <HelpGlyph />}
       </button>
       {portal ? null : box}
+    </span>
+  );
+}
+
+/**
+ * 「?」と、それが説明する物（ボタン・欄の名前など）のまとまり（0077 の 2026-10-29 の追記）。間で折り返さず、「?」は物のすぐ右。
+ * 「?」を開いている間は、説明する物を薄く強調する（app.css の .help-of）。help が無ければ物だけを返す
+ */
+export function HelpOf({ children, help, all }: { children: ComponentChildren; help: ComponentChildren | null; all?: boolean }) {
+  if (help === null || help === undefined || help === false) return <>{children}</>;
+  return (
+    <span class={`help-of${all === true ? " all" : ""}`} data-help-of>
+      {children}
+      {help}
     </span>
   );
 }
