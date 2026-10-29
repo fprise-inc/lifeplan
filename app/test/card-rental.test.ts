@@ -69,6 +69,12 @@ describe("収益不動産の入力項目", () => {
     expect(stageOf(wh).sections[0]!.groups.flatMap((g) => g.actions).map((x) => x.key)).toContain(`${k}/property/addLoan`);
     expect(fieldStatus(fieldOf(wh, `${k}/value`), wh).status).toBe("missing");
     expect(fieldStatus(fieldOf(wh, `${k}/property/rent`), wh).status).toBe("missing");
+    // 家賃は物件全体の満室時の合計、空室はその割合（顧客が読める説明）
+    expect(fieldOf(wh, `${k}/property/rent`)).toMatchObject({ label: "満室時の家賃（合計）", level: "simple" });
+    expect(fieldOf(wh, `${k}/property/rent`).help).toContain("すべての部屋（区画）が埋まっているとき");
+    expect(fieldOf(wh, `${k}/property/vacancy`)).toMatchObject({ label: "空室率", level: "simple" });
+    expect(fieldOf(wh, `${k}/property/vacancy`).help).toContain("満室時の家賃からこの割合を引いて計算します");
+    expect(allFields(stageOf(wh)).some((f) => /空室を見込む|空室の割合/u.test(`${f.label}${f.help ?? ""}`))).toBe(false);
     expect(itemOf(wh, "rental").status).toBe("missing");
     expect(() => preview(wh.request)).not.toThrow();
   });
@@ -133,7 +139,7 @@ describe("収益不動産の入力項目", () => {
 });
 
 describe("物件の一覧表（入力から出せる数字だけ）", () => {
-  it("物件名・種類・評価額・ローン残高・月の収入（空室を見込んだ後）と合計の行", () => {
+  it("物件名・種類・評価額・ローン残高・月の収入（空室率を引いた後）と合計の行", () => {
     let wh = open();
     const a = rentalProperties(wh.request.input.household)[0]!;
     wh = addRentalProperty(wh);
@@ -151,7 +157,7 @@ describe("物件の一覧表（入力から出せる数字だけ）", () => {
     expect(ov.total).toEqual({ value: 23_000_000, loan: 9_500_000, income: Math.floor(95_000 * 0.95) + 54_000 });
     const html = renderToString(h(RentalOverview, { wh }));
     expect(html).toContain("data-rental-overview");
-    expect(html).toContain("月の収入（空室を見込んだ後）");
+    expect(html).toContain("月の収入（空室率を引いた後）");
     expect(html).toContain("2,300万円");
     expect(renderToString(h(RentalOverview, { wh: blankHousehold("2026-10", seq()) }))).toBe("");
   });

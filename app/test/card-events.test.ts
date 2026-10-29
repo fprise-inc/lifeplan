@@ -1,4 +1,4 @@
-// ライフイベントのカードの中身（0068）: ひな形（家族旅行・家電・結婚・大きな買い物・予備費、祝い金・一時の給付金）・入る⇄出るの付け替え・
+// ライフイベントのカードの中身（0068）: ひな形（家族旅行・結婚・大きな買い物・予備費、祝い金・一時の給付金）・入る⇄出るの付け替え・
 // 基本生活費へ移す・介護はここに出さない・この世帯の予定（ほかのカードを含む。重なる年）
 import { describe, expect, it } from "vitest";
 import { allFields, type StageDef } from "../src/workspace/input/form.ts";
@@ -29,25 +29,35 @@ describe("ライフイベントのひな形", () => {
     const s = events(wh);
     expect(s.sections.map((x) => x.key)).toEqual(["ev/periodic", "money/events/in", "events/schedule"]);
     const out = s.sections[0]!.actions.filter((a) => a.level === "simple").map((a) => a.key);
-    expect(out).toEqual(expect.arrayContaining(["ev/template/travel", "ev/template/appliances", "ev/template/reserve", "ev/template/wedding", "ev/template/purchase", "ev/addOnce", "ev/addEvery"]));
+    expect(out).toEqual(expect.arrayContaining(["ev/template/travel", "ev/template/reserve", "ev/template/wedding", "ev/template/purchase", "ev/addOnce", "ev/addEvery"]));
+    // ボタンは名前だけ（額を出さない）。家電の買い替えは基本生活費の年払いと重なるので置かない
+    const labels = s.sections[0]!.actions.filter((a) => a.key.startsWith("ev/template/")).map((a) => a.label);
+    expect(labels).toEqual(["＋ 家族旅行", "＋ 結婚の費用", "＋ リフォーム以外の大きな買い物", "＋ 予備費"]);
+    expect(OUT_TEMPLATES.some((t) => t.key === "appliances")).toBe(false);
     const inn = s.sections[1]!.actions.filter((a) => a.level === "simple").map((a) => a.key);
     expect(inn).toEqual(expect.arrayContaining(["in/template/weddingGift", "in/template/birthGift", "in/template/benefit"]));
   });
 
-  it("家族旅行は毎年30万円・家電は8年ごとに25万円（推定）。結婚の費用は額が未入力の警告", () => {
+  it("家族旅行は毎年30万円・大きな買い物は1回50万円（額と、くり返す行の何年ごとは推定。根拠はよくある目安）。結婚の費用は額が未入力の警告", () => {
     let wh = addEventTemplate(bare(), tpl("travel"), "00000000-0000-4000-8000-0000000000e1");
-    wh = addEventTemplate(wh, tpl("appliances"), "00000000-0000-4000-8000-0000000000e2");
+    wh = addEventTemplate(wh, tpl("purchase"), "00000000-0000-4000-8000-0000000000e2");
     wh = addEventTemplate(wh, tpl("wedding"), "00000000-0000-4000-8000-0000000000e3");
     const rows = wh.request.input.household.periodicExpenses!;
     expect(rows.find((p) => p.id.endsWith("e1"))).toMatchObject({ label: "家族旅行", kind: "general", everyYears: 1, to: null, amount: { value: 300000, state: "estimated" } });
-    expect(rows.find((p) => p.id.endsWith("e2"))).toMatchObject({ label: "家電の買い替え", everyYears: 8, amount: { value: 250000 } });
+    expect(rows.find((p) => p.id.endsWith("e2"))).toMatchObject({ label: "リフォーム以外の大きな買い物", amount: { value: 500000, state: "estimated" } });
     expect(rows.find((p) => p.id.endsWith("e3"))).toMatchObject({ label: "結婚の費用", row: "cf.expense.lumpSum.wedding" });
-    expect(statusOf(wh, "e1/amount")).toBe("estimated");
+    const f = (suffix: string) => allFields(events(wh)).find((x) => x.key.endsWith(suffix))!;
+    expect(fieldStatus(f("e1/amount"), wh)).toMatchObject({ status: "estimated", basis: "よくある額の目安（家族旅行 年30万円。この世帯に合わせて直してください）" });
+    expect(fieldStatus(f("e1/every"), wh)).toMatchObject({ status: "estimated", basis: "よくある間隔の目安（家族旅行 毎年。この世帯に合わせて直してください）" });
+    expect(fieldStatus(f("e2/amount"), wh)).toMatchObject({ status: "estimated", basis: "よくある額の目安（リフォーム以外の大きな買い物 1回50万円。この世帯に合わせて直してください）" });
+    // 1回の行には何年ごとの欄も仮の印も無い
+    expect(allFields(events(wh)).some((x) => x.key.endsWith("e2/every"))).toBe(false);
+    expect(Object.keys(wh.assumed).some((k) => k.endsWith("e2/every"))).toBe(false);
     expect(statusOf(wh, "e3/amount")).toBe("missing");
     // 足したひな形はボタンから消え、ほかのひな形は詳細に回る
     const acts = events(wh).sections[0]!.actions;
     expect(acts.some((a) => a.key === "ev/template/travel")).toBe(false);
-    expect(acts.find((a) => a.key === "ev/template/purchase")?.level).toBe("detail");
+    expect(acts.find((a) => a.key === "ev/template/reserve")?.level).toBe("detail");
     expect(() => preview(wh.request)).not.toThrow();
   });
 
@@ -58,7 +68,12 @@ describe("ライフイベントのひな形", () => {
     const wh = addReserve(wh0, "00000000-0000-4000-8000-0000000000e4");
     const p = wh.request.input.household.periodicExpenses!.find((x) => x.id.endsWith("e4"))!;
     expect(p).toMatchObject({ label: "予備費", everyYears: 1, to: null, amount: { value: monthly, state: "estimated" } });
-    expect((p.amount as { estimate?: { basis: string } }).estimate?.basis).toContain("生活費の1か月分");
+    expect((p.amount as { estimate?: { basis: string } }).estimate?.basis).toBe(`よくある額の目安（予備費 毎年、生活費の1か月分〔月${String(monthly / 10000)}万円〕。この世帯に合わせて直してください）`);
+    expect(statusOf(wh, "e4/every")).toBe("estimated");
+    // ボタンは名前だけで、何が入るかは「?」に書く
+    const btn = events(wh0).sections[0]!.actions.find((a) => a.key === "ev/template/reserve")!;
+    expect(btn.label).toBe("＋ 予備費");
+    expect(btn.help).toContain("生活費の1か月分");
   });
 
   it("祝い金・一時の給付金のひな形は、名前だけ入れて額は未入力の警告", () => {

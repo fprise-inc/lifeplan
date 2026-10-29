@@ -947,8 +947,8 @@
               "additionalProperties": false,
               "required": ["monthly"],
               "properties": {
-                "monthly": { "description": "月額の家賃（空室を見込む前）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
-                "vacancyRate": { "description": "空室を見込む割合（0〜1。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
+                "monthly": { "description": "満室時の家賃の合計（月額。物件全体の分。空室率を引く前）", "$ref": "urn:financia:schema:common#/$defs/boxYen" },
+                "vacancyRate": { "description": "空室率（1年を通して部屋が空いている割合の見込み。0〜1。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
                 "growth": { "description": "家賃の変化率（年率。マイナスも書ける。省略は0）", "$ref": "urn:financia:schema:common#/$defs/rate" },
                 "from": { "description": "貸し始め（省略は取得の月。取得も無ければ前から貸している）", "$ref": "urn:financia:schema:common#/$defs/timepoint" },
                 "to": { "description": "貸し終わり（その月まで。省略は売却の前の月か表の最後）", "$ref": "#/$defs/timepointOrNull" },

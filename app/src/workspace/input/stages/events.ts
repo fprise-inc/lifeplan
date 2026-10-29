@@ -1,4 +1,4 @@
-// ライフイベントのカード（0068）: 一時的支出・n年ごとの支出（旅行・家電・結婚・大きな買い物・予備費）と、その他の一時的収入（祝い金・お見舞い・
+// ライフイベントのカード（0068）: 一時的支出・n年ごとの支出（旅行・結婚・大きな買い物・予備費）と、その他の一時的収入（祝い金・お見舞い・
 // 一時の給付金・動産の売却・一時所得・その他の入金）。ほかのカードに置いた予定も含めた「この世帯の予定」を読むだけで並べる。
 // 車（cars.ts）・FP顧問料（fees.ts）は別の項目。介護の費用は介護・親のカード（care.ts。careGroup はここに置いたまま使う）、子の年齢で始まる支出は
 // 子ども・教育のカード、介護・親と相続・贈与のお金の行はそれぞれのカードに出す。FP が「＋ 項目を追加」で足した物もここに出る（ホームのピンは見せ方だけ。items.ts）
@@ -82,28 +82,45 @@ export interface EventTemplate {
   row: string;
 }
 
+/**
+ * 出るお金のひな形。ボタンの名前に額を出さず、足した行の額（と、くり返す行の何年ごと）を推定にする（根拠はよくある目安。0044 の追記 2026-10-29）。
+ * 家電の買い替えは、基本生活費の年払いの「家電・家具の買い替え」と重なるので置かない（前に入れた行はふつうの行のまま）
+ */
 export const OUT_TEMPLATES: readonly EventTemplate[] = [
   { key: "travel", label: "家族旅行", amount: 300000, everyYears: 1, row: "cf.expense.lumpSum.other" },
-  { key: "appliances", label: "家電の買い替え", amount: 250000, everyYears: 8, row: "cf.expense.lumpSum.other" },
   { key: "wedding", label: "結婚の費用", amount: null, everyYears: null, row: "cf.expense.lumpSum.wedding" },
   { key: "purchase", label: "リフォーム以外の大きな買い物", amount: 500000, everyYears: null, row: "cf.expense.lumpSum.other" },
 ];
 
-const templateText = (t: EventTemplate) => (t.amount === null ? t.label : `${t.label}（${t.everyYears === null ? "1回" : t.everyYears === 1 ? "毎年" : `${t.everyYears}年ごとに`}${manYen(t.amount)}）`);
 const UNENTERED = "未入力（額を入れてください。0円で計算中）";
+const everyText = (n: number) => (n === 1 ? "毎年" : `${String(n)}年ごと`);
 
-/** ひな形の出るお金の行を足す（時期は1年後。額は目安のボタンの値＝推定。額の無いひな形は未入力の警告） */
+/**
+ * ひな形の推定の根拠の文（ボタンには額を出さない）。原本で確かめた統計ではないので「よくある額の目安」「よくある間隔の目安」と書く。
+ * 何年ごとはくり返すひな形だけ（1回の行には何年ごとの欄が無い）
+ */
+export const eventBasis = (t: EventTemplate & { amount: number }) => ({
+  amount: `よくある額の目安（${t.label} ${t.everyYears === null ? "1回" : t.everyYears === 1 ? "年" : `${String(t.everyYears)}年ごとに`}${manYen(t.amount)}。この世帯に合わせて直してください）`,
+  everyYears: t.everyYears === null ? null : `よくある間隔の目安（${t.label} ${everyText(t.everyYears)}。この世帯に合わせて直してください）`,
+});
+
+/**
+ * ひな形の出るお金の行を足す（時期は1年後。額は目安＝推定。額の無いひな形は未入力の警告）。くり返すひな形の何年ごとも推定（物の値の状態の欄を
+ * 持たない数なので、仮の印で持つ。年払いのひな形と同じ）
+ */
 export function addEventTemplate(wh: WorkingHousehold, t: EventTemplate, id: string = newId()): WorkingHousehold {
   const w = addExpense(wh, "general", id);
-  return mutate(w, (h) => {
+  const basis = t.amount === null ? null : eventBasis({ ...t, amount: t.amount });
+  const next = mutate(w, (h) => {
     const p = (h.periodicExpenses ?? []).find((x) => x.id === id);
     if (p === undefined) return;
     p.label = t.label;
     p.row = t.row;
     p.everyYears = t.everyYears ?? 1;
     if (t.everyYears !== null) p.to = null;
-    p.amount = (t.amount === null ? standardBox(0, UNENTERED) : standardBox(t.amount, `ひな形の目安（${templateText(t)}。この世帯に合わせて直してください）`)) as PeriodicExpense["amount"];
+    p.amount = (t.amount === null || basis === null ? standardBox(0, UNENTERED) : standardBox(t.amount, basis.amount)) as PeriodicExpense["amount"];
   });
+  return basis?.everyYears == null ? next : { ...next, assumed: { ...next.assumed, [`ev/${id}/every`]: basis.everyYears } };
 }
 
 /** 予備費の月額の元: 今の基本生活費の月額（総額か費目の合計）。生活費が無ければ人数の目安 */
@@ -114,18 +131,25 @@ export function livingMonthlyNow(wh: WorkingHousehold): number {
   return v !== null && v > 0 ? v : livingEstimate(h, wh.request.input.baseMonth).value;
 }
 
-/** 予備費を足す: 毎年、足したときの生活費の1か月分（写す。生活費の割合として持ち続けない） */
+/** 予備費の根拠の文（額は足したときの生活費の1か月分。何年ごとは毎年） */
+export const RESERVE_BASIS = {
+  amount: (monthly: number) => `よくある額の目安（予備費 毎年、生活費の1か月分〔月${manYen(monthly)}〕。この世帯に合わせて直してください）`,
+  everyYears: "よくある間隔の目安（予備費 毎年。この世帯に合わせて直してください）",
+};
+
+/** 予備費を足す: 毎年、足したときの生活費の1か月分（写す。生活費の割合として持ち続けない。額と何年ごとは推定） */
 export function addReserve(wh: WorkingHousehold, id: string = newId()): WorkingHousehold {
   const monthly = Math.round(livingMonthlyNow(wh) / 10000) * 10000;
   const w = addExpense(wh, "general", id);
-  return mutate(w, (h) => {
+  const next = mutate(w, (h) => {
     const p = (h.periodicExpenses ?? []).find((x) => x.id === id);
     if (p === undefined) return;
     p.label = "予備費";
     p.everyYears = 1;
     p.to = null;
-    p.amount = standardBox(monthly, `ひな形の目安（生活費の1か月分〔月${manYen(monthly)}〕を毎年。この世帯に合わせて直してください）`) as PeriodicExpense["amount"];
+    p.amount = standardBox(monthly, RESERVE_BASIS.amount(monthly)) as PeriodicExpense["amount"];
   });
+  return { ...next, assumed: { ...next.assumed, [`ev/${id}/every`]: RESERVE_BASIS.everyYears } };
 }
 
 /** 入るお金のひな形（祝い金・一時の給付金。額は未入力の警告） */
@@ -228,13 +252,13 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
   const tmplLevel = empty ? ("simple" as const) : ("detail" as const);
   const has = (label: string) => rows.some((p) => p.label === label);
   const templates: ActionDef[] = [
-    ...OUT_TEMPLATES.filter((t) => !has(t.label)).map((t): ActionDef => ({ key: `ev/template/${t.key}`, label: `＋ ${templateText(t)}`, level: tmplLevel, run: (w) => addEventTemplate(w, t) })),
-    ...(has("予備費") ? [] : [{ key: "ev/template/reserve", label: `＋ 予備費（毎年、生活費の1か月分 ${manYen(Math.round(livingMonthlyNow(wh) / 10000) * 10000)}）`, level: tmplLevel, run: (w: WorkingHousehold) => addReserve(w) }]),
+    ...OUT_TEMPLATES.filter((t) => !has(t.label)).map((t): ActionDef => ({ key: `ev/template/${t.key}`, label: `＋ ${t.label}`, level: tmplLevel, run: (w) => addEventTemplate(w, t) })),
+    ...(has("予備費") ? [] : [{ key: "ev/template/reserve", label: "＋ 予備費", help: "毎年、今の生活費の1か月分を入れます（足した後に直せます）", level: tmplLevel, run: (w: WorkingHousehold) => addReserve(w) }]),
   ];
   const outSection: SectionDef = {
     key: "ev/periodic",
     title: "出るお金",
-    note: `${empty ? "まだありません。" : ""}旅行・家電の買い替え・結婚・大きな買い物・予備費など。毎月の基本生活費とは別に入れます。行の右の札（必ず・できれば）で、結果の「確実な分だけ」で外す物を決められます`,
+    note: `${empty ? "まだありません。" : ""}旅行・結婚・大きな買い物・予備費など。毎月の基本生活費とは別に入れます（家電・家具の買い替えは基本生活費の年払いの支出で入れます）。行の右の札（必ず・できれば）で、結果の「確実な分だけ」で外す物を決められます`,
     level: "simple",
     groups: rows.flatMap((p) => eventRowGroups(wh, p)),
     actions: [

@@ -115,6 +115,7 @@ describe("車のひな形のボタン（出来事に結ぶ）", () => {
     const c = car0(wh);
     const act = buildStage("car", wh).sections[0]!.groups.flatMap((g) => g.actions).find((a) => a.key.endsWith("/afterCar"));
     expect(act?.level).toBe("simple");
+    expect(act?.label).toBe("＋ 手放した後の移動の費用を足す");
     wh = addAfterCar(wh, c.id);
     const h = wh.request.input.household;
     const ev = h.events!.find((e) => e.kind === "carRelease")!;
@@ -122,6 +123,7 @@ describe("車のひな形のボタン（出来事に結ぶ）", () => {
     const row = h.periodicExpenses!.find((p) => p.label?.startsWith("手放した後の移動の費用"))!;
     expect(row).toMatchObject({ kind: "car", row: "cf.expense.living.car", monthly: true, from: { event: ev.id, offset: { years: 0, months: 1 } }, to: null });
     expect(row.amount.state).toBe("estimated");
+    expect(fieldStatus(fieldOf(wh, `ev/${row.id}/amount`), wh).basis).toBe("よくある額の目安（手放した後の移動の費用 月1万円。この世帯に合わせて直してください）");
     // 車のカードに出る。ボタンは消える
     expect(buildStage("car", wh).sections.find((s) => s.key === "money/car/out")!.groups.some((g) => g.key === `ev/${row.id}`)).toBe(true);
     expect(buildStage("car", wh).sections[0]!.groups.flatMap((g) => g.actions).some((a) => a.key.endsWith("/afterCar"))).toBe(false);
@@ -137,7 +139,7 @@ describe("車のひな形のボタン（出来事に結ぶ）", () => {
     const id = car0(wh).id;
     expect(buildStage("car", wh).sections[0]!.groups.flatMap((g) => g.actions).some((a) => a.key.endsWith("/repair"))).toBe(false);
     wh = fieldOf(wh, "/every").set(wh, 12);
-    expect(buildStage("car", wh).sections[0]!.groups.flatMap((g) => g.actions).some((a) => a.key.endsWith("/repair"))).toBe(true);
+    expect(buildStage("car", wh).sections[0]!.groups.flatMap((g) => g.actions).find((a) => a.key.endsWith("/repair"))?.label).toBe("＋ 古くなってからの修理費を足す");
     wh = addRepair(wh, id);
     const h = wh.request.input.household;
     const row = h.periodicExpenses!.find((p) => p.label === "古くなってからの修理費")!;
@@ -146,6 +148,8 @@ describe("車のひな形のボタン（出来事に結ぶ）", () => {
     expect(row.from).toEqual({ event: purchase.id, offset: { years: -2, months: 0 } });
     expect(row.to?.event).toBe(h.events!.find((e) => e.kind === "carRelease")!.id);
     expect(row.everyYears).toBe(1);
+    expect(fieldStatus(fieldOf(wh, `ev/${row.id}/amount`), wh)).toMatchObject({ status: "estimated", basis: "よくある額の目安（古くなってからの修理費 年10万円。この世帯に合わせて直してください）" });
+    expect(fieldStatus(fieldOf(wh, `ev/${row.id}/every`), wh)).toMatchObject({ status: "estimated", basis: "よくある間隔の目安（古くなってからの修理費 毎年。この世帯に合わせて直してください）" });
     expect(() => preview(wh.request)).not.toThrow();
   });
 
@@ -192,7 +196,11 @@ describe("今返している自動車ローン・一生の費用・カードの�
     const sec = buildStage("car", wh0).sections.find((s) => s.key === "money/car/out")!;
     const wh = sec.actions.find((a) => a.key === "money/car/out/template/carshare")!.run(wh0);
     const p = wh.request.input.household.periodicExpenses!.at(-1)!;
+    expect(sec.actions.find((a) => a.key === "money/car/out/template/carshare")!.label).toBe("＋ カーシェア・レンタカー");
     expect(p).toMatchObject({ label: "カーシェア・レンタカー", kind: "car", row: "cf.expense.living.car", monthly: true, amount: { value: 10000, state: "estimated" } });
+    expect(fieldStatus(fieldOf(wh, `ev/${p.id}/amount`), wh).basis).toBe("よくある額の目安（カーシェア・レンタカー 月1万円。この世帯に合わせて直してください）");
+    // 毎月の行には何年ごとの仮の印を付けない
+    expect(wh.assumed[`ev/${p.id}/every`]).toBeUndefined();
     expect(mutate(wh, () => undefined).request.input.household.cars).toBeUndefined();
   });
 });

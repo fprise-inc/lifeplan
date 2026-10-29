@@ -172,17 +172,30 @@ function carEventAt(h: Household, c: Car, kind: "carPurchase" | "carRelease", of
   return months === 0 ? rest : { ...rest, offset: { years: Math.trunc(months / 12), months: mm === 0 ? 0 : mm } };
 }
 
-/** 手放した後の移動の費用（タクシー・バスなど。ひな形の目安 月1万円。始まりは出来事「車を手放す」の翌月） */
-export const AFTER_CAR_PRESET = { monthly: 10000, basis: "ひな形の目安（手放した後の移動の費用 月1万円。この世帯に合わせて直してください）" };
-/** 車を持たない移動の費用（カーシェア・レンタカー。ひな形の目安 月1万円） */
-export const CARSHARE_PRESET = { monthly: 10000, basis: "ひな形の目安（カーシェア・レンタカー 月1万円。この世帯に合わせて直してください）" };
-/** 古くなってからの修理費（ひな形の目安 年10万円。始まりは出来事「車の購入」から10年後） */
-export const REPAIR_PRESET = { annual: 100000, afterYears: 10, basis: "ひな形の目安（古くなってからの修理費 年10万円。この世帯に合わせて直してください）" };
+// 次の3つのひな形のボタンは名前だけ（額を出さない）。足した行の額は推定で、根拠はよくある目安（原本で確かめた統計ではない。0044 の追記 2026-10-29）
+/** 手放した後の移動の費用（タクシー・バスなど。よくある額の目安 月1万円。始まりは出来事「車を手放す」の翌月） */
+export const AFTER_CAR_PRESET = { monthly: 10000, basis: "よくある額の目安（手放した後の移動の費用 月1万円。この世帯に合わせて直してください）" };
+/** 車を持たない移動の費用（カーシェア・レンタカー。よくある額の目安 月1万円） */
+export const CARSHARE_PRESET = { monthly: 10000, basis: "よくある額の目安（カーシェア・レンタカー 月1万円。この世帯に合わせて直してください）" };
+/** 古くなってからの修理費（よくある額の目安 年10万円・毎年。始まりは出来事「車の購入」から10年後） */
+export const REPAIR_PRESET = {
+  annual: 100000,
+  afterYears: 10,
+  basis: "よくある額の目安（古くなってからの修理費 年10万円。この世帯に合わせて直してください）",
+  everyYears: "よくある間隔の目安（古くなってからの修理費 毎年。この世帯に合わせて直してください）",
+};
 
-/** 車のカードの出るお金の行を足す（種類「車の修理・用品など」・表の行「車の維持費」）。額の印は推定（ひな形の目安） */
-function addCarRow(wh: WorkingHousehold, o: { label: string; amount: number; monthly: boolean; basis: string; from?: (h: Household) => Timepoint | null; to?: (h: Household) => Timepoint | null }, id: string = newId()): WorkingHousehold {
+/**
+ * 車のカードの出るお金の行を足す（種類「車の修理・用品など」・表の行「車の維持費」）。額の印は推定（よくある目安）。毎月でない行（年ごと）は
+ * 何年ごと（毎年）も推定（物の値の状態の欄を持たない数なので、仮の印で持つ。年払いのひな形と同じ）
+ */
+function addCarRow(
+  wh: WorkingHousehold,
+  o: { label: string; amount: number; monthly: boolean; basis: string; everyBasis?: string; from?: (h: Household) => Timepoint | null; to?: (h: Household) => Timepoint | null },
+  id: string = newId(),
+): WorkingHousehold {
   const w = addExpense(wh, "car", id);
-  return mutate(w, (h) => {
+  const next = mutate(w, (h) => {
     const p = (h.periodicExpenses ?? []).find((x) => x.id === id) as PeriodicExpense | undefined;
     if (p === undefined) return;
     p.label = o.label;
@@ -195,6 +208,7 @@ function addCarRow(wh: WorkingHousehold, o: { label: string; amount: number; mon
     if (from != null) p.from = from;
     p.to = o.to?.(h) ?? null;
   });
+  return o.monthly || o.everyBasis === undefined ? next : { ...next, assumed: { ...next.assumed, [`ev/${id}/every`]: o.everyBasis } };
 }
 
 /** 手放した後の移動の費用を足す（始まりは、その車を手放す出来事の翌月。車の手放す時期が動けば一緒に動く） */
@@ -224,6 +238,7 @@ export function addRepair(wh: WorkingHousehold, carId: string, id: string = newI
       amount: REPAIR_PRESET.annual,
       monthly: false,
       basis: REPAIR_PRESET.basis,
+      everyBasis: REPAIR_PRESET.everyYears,
       from: (h) => {
         const c = (h.cars ?? []).find((x) => x.id === carId);
         if (c === undefined) return null;
@@ -626,10 +641,10 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
   const lastCar = all.filter((x) => x.owner === c.owner).at(-1)?.id === c.id;
   if (c.until != null && lastCar) {
     actions.push({ key: `${k}/next`, label: "＋ この車の続きを足す", help: "手放した翌月から次の車を持つ形で足します", level: "detail", run: (w) => addNextCar(w, c.id) });
-    if (!afterCarAdded(h0, c.id)) actions.push({ key: `${k}/afterCar`, label: `＋ 手放した後の移動の費用を足す（目安 年${manYen(AFTER_CAR_PRESET.monthly * 12)}）`, level: "simple", run: (w) => addAfterCar(w, c.id) });
+    if (!afterCarAdded(h0, c.id)) actions.push({ key: `${k}/afterCar`, label: "＋ 手放した後の移動の費用を足す", help: "タクシー・バスなど、車を手放した翌月からの移動の費用を、よくある額の目安で足します（足した後に直せます）", level: "simple", run: (w) => addAfterCar(w, c.id) });
   }
   const neverReplaced = untilYm !== null && firstYm !== null && (c.purchase.owned === true ? untilYm < firstYm : untilYm < addMonths(firstYm, 12 * c.purchase.everyYears));
-  if (c.purchase.everyYears >= 10 || neverReplaced) actions.push({ key: `${k}/repair`, label: `＋ 古くなってからの修理費を足す（目安 年${manYen(REPAIR_PRESET.annual)}）`, level: "detail", run: (w) => addRepair(w, c.id) });
+  if (c.purchase.everyYears >= 10 || neverReplaced) actions.push({ key: `${k}/repair`, label: "＋ 古くなってからの修理費を足す", help: "買ってから10年たった頃からの修理費を、よくある額の目安で毎年足します（足した後に直せます）", level: "detail", run: (w) => addRepair(w, c.id) });
   actions.push({
     key: `${k}/remove`,
     label: "外す",
@@ -729,7 +744,7 @@ function moveSection(wh: WorkingHousehold, list: readonly Car[]): SectionDef | n
   const empty = out.groups.length === 0;
   const share: ActionDef = {
     key: "money/car/out/template/carshare",
-    label: `＋ カーシェア・レンタカー（目安 月${manYen(CARSHARE_PRESET.monthly)}）`,
+    label: "＋ カーシェア・レンタカー",
     level: "simple",
     run: (w) => addCarRow(w, { label: "カーシェア・レンタカー", amount: CARSHARE_PRESET.monthly, monthly: true, basis: CARSHARE_PRESET.basis }),
   };
