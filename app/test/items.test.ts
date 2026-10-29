@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { REPO_DIR } from "../scripts/lib.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { allFields, type FieldDef, type StageDef, type StageId } from "../src/workspace/input/form.ts";
-import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
+import { blankHousehold, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { InputView } from "../src/workspace/input/InputView.tsx";
 import {
   ADD_OPTIONS,
@@ -211,7 +211,8 @@ describe("物の置き場所（1つの物は1つのカードにだけ。ほか�
     const acts = (itemStage(wh, "inheritance") as StageDef).sections.flatMap((s) => s.actions.map((x) => x.key));
     expect(acts).toEqual(expect.arrayContaining(["money/inherit/addDebt", "money/inherit/addGrandchild"]));
     expect((itemStage(wh, "events") as StageDef).sections.map((s) => s.key)).toEqual(["ev/periodic", "money/events/in", "events/schedule"]);
-    expect(byId(inputItems(wh), "inheritance").summary?.unit).toMatch(/受け取る予定/);
+    // 主な表示は入れた中身（受け取る予定の行は額が0円のままなので、あげる贈与の額だけ。0060 の 2026-10-29 の追記）
+    expect(sumText(byId(inputItems(wh), "inheritance"))).toBe("贈与 110万円");
   });
 
   it("読むだけの1行は、確かめの一覧・プランの動かす項目に出ない", () => {
@@ -682,6 +683,31 @@ describe("車を複数台・FP顧問料は前提条件の中", () => {
 });
 
 describe("要約の数字1つ", () => {
+  it("相続・贈与: 受け取る予定と贈与の額を短く1〜2つ。相続税の目安は下の小さな1行。何も入れていなければ「まだ入っていません」で、小さな1行も出さない", () => {
+    const setAmount = (w: WorkingHousehold, id: string, yen: number, yearly = false) =>
+      mutate(w, (hh) => {
+        const x = [...(hh.incomeFlows ?? []), ...(hh.periodicExpenses ?? [])].find((f) => f.id === id)!;
+        x.amount = { ...x.amount, value: yen };
+        if (yearly) x.to = null;
+      });
+    const base = blankHousehold("2026-10", seq());
+    let wh = addIncome(base, "inheritance", "inh1");
+    wh = setAmount(wh, "inh1", 30_000_000);
+    const opts = { inheritanceTax: "相続税: 約120万円" };
+    const one = byId(inputItems(wh, opts), "inheritance");
+    expect(sumText(one)).toBe("受け取る予定 3,000万円");
+    expect(one.summary?.note).toBe("相続税: 約120万円");
+    wh = setAmount(addExpense(wh, "gift", "g1"), "g1", 1_100_000, true);
+    expect(sumText(byId(inputItems(wh, opts), "inheritance"))).toBe("受け取る予定 3,000万円・贈与 年110万円");
+    // あげる贈与だけ
+    expect(sumText(byId(inputItems(setAmount(addExpense(base, "gift", "g2"), "g2", 1_100_000, true)), "inheritance"))).toBe("贈与 年110万円");
+    // 何も入れていない: 要約は無し（カードは「まだ入っていません」）。相続税の小さな1行も出さない
+    const empty = byId(inputItems(base, opts), "inheritance");
+    expect(empty.summary).toBeNull();
+    const html = renderToString(h(InputView, { wh: base, onSave: () => undefined, level: "simple" }));
+    expect(html).not.toContain('data-note="inheritance"');
+  });
+
   it("会社員の夫婦と子2人", () => {
     const items = inputItems(open("salariedCoupleTwoKids"));
     expect(sumText(byId(items, "family"))).toBe("4人");
@@ -698,8 +724,12 @@ describe("要約の数字1つ", () => {
     expect(sumText(byId(care, "family"))).toBe("1人（＋親1）");
     expect(sumText(byId(care, "care"))).toBe("2件の介護・世帯の外 1人");
     expect(sumText(byId(inputItems(open("housingGiftFromParents")), "inheritance"))).toBe("2件の援助");
-    // 相続税の目安を渡すと、それを要約にする（計算の結果から読むだけ）
-    expect(sumText(byId(inputItems(open("salariedCoupleTwoKids"), { inheritance: { pre: "相続税 ", main: "かからない見込み" } }), "inheritance"))).toBe("相続税 かからない見込み");
+    // 相続税の目安は要約にしない。入れた中身があるときだけ、下の小さな1行にする（0060 の 2026-10-29 の追記）
+    const gift = byId(inputItems(open("housingGiftFromParents"), { inheritanceTax: "相続税: かからない見込み" }), "inheritance");
+    expect(sumText(gift)).toBe("2件の援助");
+    expect(gift.summary?.note).toBe("相続税: かからない見込み");
+    const blank = byId(inputItems(open("salariedCoupleTwoKids"), { inheritanceTax: "相続税: かからない見込み" }), "inheritance");
+    expect(blank.summary).toBeNull();
     expect(sumText(byId(inputItems(open("marketDropAtRetirement")), "housing"))).toBe("家賃 月24万円");
     expect(sumText(byId(inputItems(open("deferral")), "pension"))).toMatch(/^月[\d.]+万円（70歳から）$/);
   });

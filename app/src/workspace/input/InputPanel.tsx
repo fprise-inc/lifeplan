@@ -18,7 +18,7 @@ import { Help } from "../../presentation/Help.tsx";
 import { LEVEL_HELP_COMMON, levelDiffLine } from "./levelHelp.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
-import { inheritanceSummary, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
+import { inheritanceTaxNote, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { RetirementLineup } from "./RetirementLineup.tsx";
 import { AssumptionList } from "./AssumptionList.tsx";
 import { PensionEstimate } from "./PensionEstimate.tsx";
@@ -91,7 +91,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   const insurance = useInsuranceView(shown, itemId === "insurance", computeOne);
   /** 年金のカードの年金の見込み（計算の結果から読むだけ。プランを直しているときは、そのプランの額） */
   const pensionEst = usePensionEstimate(shown, itemId === "pension", computeOne);
-  const item = useMemo(() => itemOf(shown, itemId, { inheritance: inheritanceSummary(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, itemId, inheritance, pensionEst]);
+  const item = useMemo(() => itemOf(shown, itemId, { inheritanceTax: inheritanceTaxNote(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, itemId, inheritance, pensionEst]);
   const stage = useMemo(() => itemStage(shown, itemId), [shown, itemId]);
   const adding = initialDraft !== undefined;
   const suggestions = useSurplusSuggestion(shown, itemId === "living", computeOne);
