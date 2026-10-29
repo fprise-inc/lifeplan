@@ -483,7 +483,7 @@ function periodGroup(wh: WorkingHousehold): GroupDef {
       field({
         key: "sav/stopAge",
         item: "account.contributions",
-        label: "積立をやめる年齢（本人）",
+        label: "積立をやめる年齢（ご本人）",
         // 空欄は退職の月まで（推定）でほぼ当たるので詳細（0078）
         level: "detail",
         kind: "int",

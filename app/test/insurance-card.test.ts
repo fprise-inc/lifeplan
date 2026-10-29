@@ -308,7 +308,7 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
     const result = preview(scenarioRequest(wh, sc, year));
     const none = preview(baseRequest(wh.request));
     const details = illnessBenefits(wh, sc, year, result, none);
-    expect(details).toEqual([{ label: "医療保険 1（ご主人）", parts: ["入院 20日 20万円", "手術 1回 10万円", "がん一時金 100万円"], firstYear: expect.any(Number), total: 1300000 }]);
+    expect(details).toEqual([{ label: "医療保険 1（ご本人）", parts: ["入院 20日 20万円", "手術 1回 10万円", "がん一時金 100万円"], firstYear: expect.any(Number), total: 1300000 }]);
     const m = scenarioModel({ req: wh.request, scenario: sc, year, result, none, targetAge: 95, choice: undefined, benefits: { details, note: illnessBenefitNote(wh) } });
     const row = m.breakdown.rows.find((r) => r.label === "保険金・給付金")!;
     expect(row.total).toBe(1300000);
@@ -336,7 +336,7 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
     const y = list[0]!.year;
     const py = r.protection!.members.find((m) => m.member === me)!.years.find((x) => x.year === y)!;
     const short = py.needWithAssets - py.coverage;
-    expect(list[0]!.text).toBe(short > 0 ? `${y}年に定期保険 1（ご主人）が切れ、その年の不足は${Math.round(short / 10000).toLocaleString("ja-JP")}万円` : `${y}年に定期保険 1（ご主人）が切れます（その年も必要保障額は満たしています）`);
+    expect(list[0]!.text).toBe(short > 0 ? `${y}年に定期保険 1（ご本人）が切れ、その年の不足は${Math.round(short / 10000).toLocaleString("ja-JP")}万円` : `${y}年に定期保険 1（ご本人）が切れます（その年も必要保障額は満たしています）`);
     expect(protectionChart(protectionRequest(wh, me), r.protection!, r, me, list)!.insights).toEqual(list);
   });
 
@@ -346,8 +346,8 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
     expect(overlap(wh)).toEqual([]);
     wh = action(wh, "ins/addMedical");
     const rows = overlap(wh);
-    expect(rows.map((r) => [r.card, r.label])).toEqual([["insurance", "ご主人の医療保険が2本"]]);
-    expect(rows[0]!.detail).toBe("ご主人の医療保険が2本あります（医療保険 1（ご主人）・医療保険 2（ご主人））。入院・手術の保障が重なっていないか、保険証券で確かめてください");
+    expect(rows.map((r) => [r.card, r.label])).toEqual([["insurance", "ご本人の医療保険が2本"]]);
+    expect(rows[0]!.detail).toBe("ご本人の医療保険が2本あります（医療保険 1（ご本人）・医療保険 2（ご本人））。入院・手術の保障が重なっていないか、保険証券で確かめてください");
   });
 
   describe("確かめの注意の「確認した」（0055・0041 の追記）", () => {
@@ -372,10 +372,10 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
       expect(acked.request).toEqual(wh.request);
       // 確認した注意の絞り込みに並び、「また出す」で戻る（欄ごと外れる）
       const listed = ackedRows(acked);
-      expect(listed.map((r) => [r.id, r.label, r.actions.map((a) => a.label)])).toEqual([[row!.id, "ご主人の医療保険が2本", ["また出す"]]]);
-      expect(listed[0]!.detail).toMatch(/^\d{4}-\d{2}-\d{2} に確認しました（ご主人の医療保険が2本あります/);
+      expect(listed.map((r) => [r.id, r.label, r.actions.map((a) => a.label)])).toEqual([[row!.id, "ご本人の医療保険が2本", ["また出す"]]]);
+      expect(listed[0]!.detail).toMatch(/^\d{4}-\d{2}-\d{2} に確認しました（ご本人の医療保険が2本あります/);
       const back = press(acked, row!.id, "unack");
-      expect(overlap(back).map((r) => r.label)).toEqual(["ご主人の医療保険が2本"]);
+      expect(overlap(back).map((r) => r.label)).toEqual(["ご本人の医療保険が2本"]);
       expect("noticeAcks" in back).toBe(false);
       expect(ackedRows(back)).toEqual([]);
     });
@@ -385,7 +385,7 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
       const acked = press(wh, overlap(wh)[0]!.id, "ack");
       // 3本目を足すと出る（確認した注意の一覧からは消える）
       const three = action(acked, "ins/addMedical");
-      expect(overlap(three).map((r) => r.label)).toEqual(["ご主人の医療保険が3本"]);
+      expect(overlap(three).map((r) => r.label)).toEqual(["ご本人の医療保険が3本"]);
       expect(ackedRows(three)).toEqual([]);
       // 3本目を外して前の2本に戻ると、確認したままに読む
       const list = three.request.input.household.insuranceContracts!;
@@ -395,14 +395,14 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
       const ack3 = press(three, overlap(three)[0]!.id, "ack");
       expect(ack3.noticeAcks).toHaveLength(1);
       const minus: WorkingHousehold = { ...ack3, request: { ...ack3.request, input: { ...ack3.request.input, household: { ...ack3.request.input.household, insuranceContracts: list.slice(1) } } } };
-      expect(overlap(minus).map((r) => r.label)).toEqual(["ご主人の医療保険が2本"]);
-      // 配偶者の医療保険の重なりは、ご主人の「確認した」に当たらない
+      expect(overlap(minus).map((r) => r.label)).toEqual(["ご本人の医療保険が2本"]);
+      // 配偶者の医療保険の重なりは、ご本人の「確認した」に当たらない
       const both = action(action(acked, "ins/addMedical"), "ins/addMedical");
       const cs = both.request.input.household.insuranceContracts!;
       cs[cs.length - 1]!.insured = spouse(both).id;
       cs[cs.length - 2]!.insured = spouse(both).id;
       const rows = overlap(both);
-      expect(rows.map((r) => r.label)).toEqual(["奥様の医療保険が2本"]);
+      expect(rows.map((r) => r.label)).toEqual(["配偶者の医療保険が2本"]);
     });
 
     it("印の読み方: 中身の並びは整えて持ち、形の合わない印・同じ注意の2つ目は捨てる。最後の印を外すと欄ごと外す（保存して読み戻すのは store.test.ts の 0.35 の形）", () => {

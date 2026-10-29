@@ -21,7 +21,7 @@ export const MAX_ROWS_PER_HOUSEHOLD = 50000;
 export interface StatementAccount {
   readonly id: string;
   readonly kind: SourceKind;
-  /** 例: ご主人のカード（Aカード）・奥様の給与口座 */
+  /** 例: ご本人のカード（Aカード）・配偶者の給与口座 */
   readonly label: string;
   /** 持ち主の構成員。共用・分からないときは null（世帯の家計として扱う） */
   readonly owner: string | null;

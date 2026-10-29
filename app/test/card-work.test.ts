@@ -196,7 +196,7 @@ describe("辞め方・失業給付・高年齢雇用継続給付の欄", () => {
     expect(fieldStatus(f, wh).status).toBe("estimated");
     const g = fieldOf(wh, `work/period/${post.id}/endsWith`);
     expect(g.get(wh)).toMatchObject({ value: "", implicit: true });
-    expect(g.kind === "select" && g.options[0]!.label).toBe("自動（定年）");
+    expect(g.kind === "select" && g.options[0]!.label).toBe("自動: 定年（60歳以後に辞めるので）");
     const w1 = edit(wh, `work/period/${main.id}/endsWith`, "involuntary");
     expect(periods(w1, self)[0]!.endsWith).toBe("involuntary");
     expect(() => preview(w1.request)).not.toThrow();

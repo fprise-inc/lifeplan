@@ -37,7 +37,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
   const self = wh.request.input.household.members.find((m) => m.kind === "self");
   const byOther = self === undefined || c.payer !== self.id;
   const main: FieldDef[] = [
-    ...(byOther ? [plain({ key: `${k}/payer`, item: "advisoryFee.payer", label: "払う人", level: "detail", kind: "select", options: memberOptions(wh), find, path: ["payer"], help: "顧問料は本人の支出として計算するのが標準です" })] : []),
+    ...(byOther ? [plain({ key: `${k}/payer`, item: "advisoryFee.payer", label: "払う人", level: "detail", kind: "select", options: memberOptions(wh), find, path: ["payer"], help: "顧問料はご本人の支出として計算するのが標準です" })] : []),
     plain({
       key: `${k}/inCurrent`,
       item: "advisoryFee.enabled",

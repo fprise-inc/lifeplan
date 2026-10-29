@@ -13,8 +13,8 @@ import type { Values } from "./plans.ts";
 
 /** 対策に最初から出せる項目の種類（一覧の並び＝対策の並び） */
 export const LEVER_KINDS = [
-  { kind: "lever:retireAge", group: "対策", label: "働く最後の年齢（本人）" },
-  { kind: "lever:pensionAge", group: "対策", label: "年金を受け取り始める年齢（本人）" },
+  { kind: "lever:retireAge", group: "対策", label: "働く最後の年齢（ご本人）" },
+  { kind: "lever:pensionAge", group: "対策", label: "年金を受け取り始める年齢（ご本人）" },
   { kind: "lever:nisaMonthly", group: "対策", label: "NISAの積立額（月）" },
   { kind: "lever:livingMonthly", group: "対策", label: "毎月の生活費" },
   { kind: "spouse:work", group: "対策", label: "配偶者の働き方と年収", note: "配偶者がいる世帯だけ" },
