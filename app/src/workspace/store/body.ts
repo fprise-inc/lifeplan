@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.37。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
+// 本文の区画（形式の版 0.38。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
 // 0.17 から（0035・0036）: 差分は当て先で、仮の印は物の値の状態の欄で、贈与者は世帯の外の家族の構成員で書き、並びの要素は ID を持つ。
 // 0.18 から（0040）: 段階と例外の年（周期的な支出・家賃・修繕費・固定資産税・不動産の家賃と経費・器の利回り・資産配分）と、働き方の期間ごとの
 // 伸び（給与・事業所得の年率）。足すだけの形（本体の変換の段は版だけを書き換える）
@@ -40,6 +40,8 @@
 //   0.36 から: 万一の前提の、就業不能・収入が減るの場面の配偶者の働き方 contingency.partnerWork（0085。場面の種類 → 構成員の ID → 働き方。
 //   任意。計算に使う。プランごとの上書きは入力項目ID contingencyPremise.partnerWork の差分）
 //   0.37 から: 入るお金の行の表の行に「雑所得」incomeFlows[].row = cf.income.other.miscellaneous（0086。選べる値を足すだけ。計算に使う）
+//   0.38 から: 給与からの推定のままの標準報酬月額の置き換え口は書かない（空欄なら給与から毎年9月に決め直す。0047 の追記 2026-10-29 の2）。
+//   本体の 0.37 → 0.38 の変換の段が前の推定を外し、開いたときの知らせ smrBlank を足す
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
 // - hearing: ヒアリングの依頼・取り込み・同意の下書きの記録（0018。取り込みの記録・同意の記録への分け方は後の版）
 // - workspace: 案の帯の並び・基準の案・選んだ案・対策に足した項目・出発点にした見本
@@ -76,7 +78,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.37";
+export const BODY_FORMAT_VERSION = "0.38";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 

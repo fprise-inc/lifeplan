@@ -7,7 +7,7 @@
 import full1 from "../sheets/full/1.json" with { type: "json" };
 import { answerKey, type Answer, type FilledSheet } from "./answers.ts";
 import { axisOf, itemByKey, type SheetDefinition, type SheetItem } from "./definition.ts";
-import { bonusShareEstimate, businessEstimate, careerStartMonth, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, salaryEstimate, smrEstimate, type Estimate } from "./estimates.ts";
+import { bonusShareEstimate, businessEstimate, careerStartMonth, healthRateEstimate, livingEstimate, residentTaxEstimate, residentTaxYear, salaryEstimate, type Estimate } from "./estimates.ts";
 import { issue, type Issue } from "./issues.ts";
 import { monthsFromPayment, principalFromPayment, standardTermMonths } from "./loan.ts";
 import { addMonths, ageAt, reachedMonth, ymIndex } from "./months.ts";
@@ -941,12 +941,8 @@ function importSalary(c: Ctx, p: EmploymentPeriod, m: Member, n: number, baseMon
     }
   }
   p.salary = { annual, bonus: bonusBox };
-  // 標準報酬月額は聞かない（年収からの目安。入力の画面と同じ）。厚生年金に入る働き方のときだけ
-  if (p.pensionCategory !== undefined && p.pensionCategory !== "none") {
-    const a = annual.value ?? annual.substitute?.value ?? 0;
-    p.standardMonthlyRemuneration = smrEstimate(a, from);
-    c.field(id, "hs.income.salary", n, "employment.standardMonthlyRemuneration", "/standardMonthlyRemuneration", "estimated");
-  }
+  // 標準報酬月額は聞かず、書かない（空欄なら、計算エンジンが給与から毎年9月に決め直す。推定の額を書くと期間の間ずっと同じ額になり、
+  // 昇給が保険料と厚生年金に入らない。入力の画面と同じ）
 }
 
 // ---- 公的年金 ----

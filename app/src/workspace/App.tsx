@@ -1864,9 +1864,9 @@ export function App() {
       void _old;
       setPlans(rest.length > 0 ? { ...wh, notices: rest } : wh);
     }
-    if (target === "family") {
+    if (target === "family" || target === "work") {
       setTab("input");
-      setCardOpen((c) => ({ id: "family", n: (c?.n ?? 0) + 1 }));
+      setCardOpen((c) => ({ id: target, n: (c?.n ?? 0) + 1 }));
     } else if (target === "plans") {
       setTab("main");
       setPanel("list");
@@ -1899,7 +1899,7 @@ export function App() {
     void host?.office.status().then(setOfficeStatus, () => undefined);
     setStorageOpen("default");
   };
-  const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence, family: () => setTab("input"), plans: () => setTab("main") };
+  const noticeActions: Record<NoticeTarget, () => void> = { recovery: () => setRecovery("manage"), restore: () => setRecovery("restore"), storage: openStorage, office: openOffice, households: showHousehold, presence: toPresence, family: () => setTab("input"), work: () => setTab("input"), plans: () => setTab("main") };
   /** 入力で直しているプラン（取り込みは現状に入るので、このときは取り込みの中身に「現状に切り替える」を出す） */
   const inputPlanSel = opened !== null && inputPlanOn && work.sel !== CURRENT && opened.wh.proposals.some((p) => p.id === work.sel) ? work.sel : null;
   // FP のメニューで押した物: 入力のホームの中身は、入力のタブに切り替えてホームの上部に開く（パネルの入力は閉じる）。事務所の設定・AI は中央のパネル

@@ -5,7 +5,7 @@
 //   1つの値をそのまま書く欄の行を作る（laterReadingsGenerate.ts）。作れない欄は、合成の対策の行（store/readings.ts の LATER_ENTRIES）を
 //   手で足すか、下の NOT_MOVABLE に理由を書く（どちらでもない欄があれば、この手順は失敗する）
 // - いつも流す確かめ: どの欄も表で読めるか動かす項目に出さない欄であること（欄を足して表を作り直していなければ失敗する）・出す欄は
-//   どれも保存して開き直すと値が残り、当てた中身が欄に書いたのと同じこと・表の型が重ならないこと
+//   どれも保存して開き直すと値が残り、当てた中身の全体が欄に書いたのと同じこと（0.16 の表の欄も。欄が一緒に変える値まで）・表の型が重ならないこと
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -120,7 +120,39 @@ describe("入力の欄を動かす項目は、どれもプランに保存でき�
     expect(tried.size).toBeGreaterThan(250);
     expect([...failures].map(([p, why]) => `${p}: ${why}`).sort()).toEqual([]);
   });
+
+  it("欄が一緒に変える値がある 0.16 の表の欄は、どの見本の世帯でも、当てた中身の全体が欄に書いたのと同じ（0036 の追記 2026-10-29 の2）", () => {
+    const failures: string[] = [];
+    let n = 0;
+    for (const [name, wh] of hs) {
+      const cat = buildCatalog(wh, selfOf(wh), null);
+      for (const it of cat.items) {
+        if (it.control.kind !== "field" || !LINKED.has(patternOf(it.key))) continue;
+        const why = roundTrip(wh, cat, it);
+        if (why === "same") continue;
+        n++;
+        if (why !== null) failures.push(`${patternOf(it.key)}: ${why}（${name}）`);
+      }
+    }
+    expect(n).toBeGreaterThan(LINKED.size);
+    expect(failures).toEqual([]);
+  }, 600_000);
 });
+
+/**
+ * 0.16 の表の欄のうち、欄が一緒に変える値がある欄の型（車の買い替えの間隔→下取り額・仕送り→扶養と同居の既定・ローンの残高→借入額・保障の額→
+ * 保障の表の各行・収益不動産の取得価額→取得の時期・働き方の期間の年収→別の期間の年収・標準報酬月額→もう片方）
+ */
+const LINKED = new Set([
+  "field:ev/car/{id}/every",
+  "field:family/{id}/allowance",
+  "field:housing/debt/{id}/balance",
+  "field:ins/{id}/cov/{id}/amount",
+  "field:sav/{id}/property/acqPrice",
+  "field:work/period/{id}/annual",
+  "field:work/period/{id}/smrH",
+  "field:work/period/{id}/smrP",
+]);
 
 /** 決まった並びの ID で作る（欄が物・要素を作るとき、欄に書いた世帯と当てた世帯で同じ ID にする） */
 function withIds<T>(f: () => T): T {
@@ -158,12 +190,8 @@ function roundTrip(wh: WorkingHousehold, cat: Catalog, it: MovableItem): string 
   const it2 = cat2.byKey.get(it.key) ?? cat2.byKey.get(got[0]);
   if (it2 === undefined) return "開き直すと動かす項目がありません";
   const applied = withIds(() => applyPlan(back, saved.id, cat2).request);
-  // 0.16 の読み替え表（凍結）の当て先の行の欄は、当てた中身のその欄の値が同じことだけを確かめる（欄によっては、空の相手の欄を推定で埋める・
-  // 下取り額を出し直すなど、ほかの値も一緒に変える状態がある。凍結した行は変えないので、ここでは比べない）。0.16 より後に足した欄の行と
-  // 合成の対策は、当てた中身の全体が欄に書いたのと同じこと
-  const frozen = matchKey(it.key, READING_ENTRIES);
-  if (frozen !== null && !("lever" in frozen.entry.to)) {
-    if (!it2.same(it2.read({ ...back, request: applied }), v1)) return "当てた中身の欄の値が違います";
-  } else if (!sameExceptStates(applied.input, withIds(() => it2.apply(back, v1).request.input))) return "当てた中身が、欄に書いたのと違います";
+  // 当てた中身の全体が、欄に書いたのと同じ（0.16 の読み替え表〔凍結〕の行の欄も。差分は欄と同じ書き方で当てるので、欄が一緒に変える値〔下取り額・
+  // もう片方の標準報酬月額など〕も同じに変わる。0036 の追記 2026-10-29 の2）
+  if (!sameExceptStates(applied.input, withIds(() => it2.apply(back, v1).request.input))) return "当てた中身が、欄に書いたのと違います";
   return null;
 }

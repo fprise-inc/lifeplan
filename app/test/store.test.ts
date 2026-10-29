@@ -31,6 +31,8 @@ import { keyLines } from "../src/workspace/store/RecoveryPanel.tsx";
 import type { StatementLog } from "../../statement/src/index.ts";
 import { scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
 import { premiseFor } from "../src/workspace/contingency/planPremise.ts";
+import { smrEstimate, smrMonth } from "../src/workspace/input/estimates.ts";
+import { barNotices, type BarInputs } from "../src/workspace/header/status.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const NOW = "2026-10-18T10:00:00.000Z";
@@ -483,6 +485,18 @@ function sample037(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/**
+ * 0.38 の見本の世帯（0047 の追記 2026-10-29 の2）: sample037() の配偶者の働き方の期間の標準報酬月額を空欄にする（画面が新しく作る期間と同じ。
+ * 給与から毎年9月に決め直して計算する）
+ */
+function sample038(): BodyState {
+  const s = sample037();
+  const req = structuredClone(s.wh.request);
+  const spouse = req.input.household.members.find((m) => m.kind === "spouse")!;
+  for (const p of req.input.household.employmentPeriods ?? []) if (p.member === spouse.id) delete p.standardMonthlyRemuneration;
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -606,7 +620,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.37");
+    expect(BODY_FORMAT_VERSION).toBe("0.38");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -760,7 +774,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample037())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample038())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -960,6 +974,30 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(premiseFor(back.wh, planId).partnerWork?.income?.[spouse.id]).toEqual({ type: "partTime", annualSalary: 1500000 });
     // 0.35 の見本には欄が無い
     expect("partnerWork" in (bodyObject(sample035()).household as unknown as { contingency: Record<string, unknown> }).contingency).toBe(false);
+  });
+
+  it("0.38 の形（0047 の追記 2026-10-29 の2）: 標準報酬月額が空欄の期間を空欄のまま保存して読み戻し、給与から毎年決め直して計算する（昇給が厚生年金の額に入る）", () => {
+    const s = sample038();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const spouse = s.wh.request.input.household.members.find((m) => m.kind === "spouse")!;
+    const mine = (r: typeof s.wh.request) => (r.input.household.employmentPeriods ?? []).filter((p) => p.member === spouse.id);
+    expect(mine(stored.household.request).length).toBeGreaterThan(0);
+    expect(mine(stored.household.request).every((p) => p.standardMonthlyRemuneration === undefined)).toBe(true);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    // 空欄なら給与から決め直すので、今の年収の推定の額で固めた世帯より、厚生年金の保険料（昇給の分）が多い
+    type Cell = { row: string; year: number; amount: number };
+    const pensionPremium = (r: typeof s.wh.request) => (preview(r).table as unknown as Cell[]).filter((c) => c.row === "cf.taxSi.pension").reduce((a, c) => a + c.amount, 0);
+    const fixed = structuredClone(back.wh.request);
+    // 前の画面が書いていた推定の額（今の年収を等級表に当てた額）
+    for (const p of mine(fixed)) p.standardMonthlyRemuneration = smrEstimate(p.salary?.annual.value ?? 0, smrMonth(p, fixed.input.baseMonth));
+    expect(Math.abs(pensionPremium(back.wh.request))).toBeGreaterThan(Math.abs(pensionPremium(fixed)));
+    // 0.37 → 0.38 の変換の段が推定を外した世帯には、開いたときの知らせを1回だけ見せる（押すと働き方と収入を開く）
+    const i: BarInputs = { opened: true, stored: true, save: { kind: "idle" } as never, paused: false, aiSharing: false, storage: [], showing: { recovery: false, office: false, storage: false }, presence: null, message: (c) => c, household: [{ id: "n1", kind: "smrBlank", count: 2, plans: 1 }] };
+    const [n] = barNotices(i);
+    expect(n).toMatchObject({ id: "household:n1", target: "work", action: "働き方と収入" });
+    expect(n?.text).toContain("働き方の期間 2件とプランの変更 1件");
+    expect(barNotices({ ...i, household: [{ id: "n2", kind: "smrBlank", count: 1, plans: 0 }] })[0]?.text).toContain("（働き方の期間 1件）");
   });
 
   it("0.37 の形（0086）: 入るお金の行の表の行「雑所得」と、事業所得として扱う副業の行を保存して読み戻す。表の行は見せ方だけで、税・社会保険料は表の行に依らない", () => {

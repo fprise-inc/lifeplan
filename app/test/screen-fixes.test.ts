@@ -133,7 +133,8 @@ describe("働き方: 給与の種類どうしで変えたら推定を入れ替�
     expect(p.healthInsurance?.kind).toBe("dependent");
     expect(p.pensionCategory).toBe("none");
     expect(p.employer).toEqual({ size: 50, weeklyHours: "20" });
-    expect(p.standardMonthlyRemuneration?.health.value).toBe(88000);
+    // 標準報酬月額は書かない（勤め先の保険に入らないパート。入る働き方でも空欄なら給与から毎年決め直す。0047 の追記 2026-10-29 の2）
+    expect(p.standardMonthlyRemuneration).toBeUndefined();
     expect(() => preview(w2.request)).not.toThrow();
   });
 

@@ -3,6 +3,7 @@
 // ここには世帯（Household）を見て当てる部分と、元の入力が変わったときの入れ直しだけを置く
 import type { Box, EmploymentPeriod, Household, LivingExpense, Member } from "../../engine/types.ts";
 import { ageAt } from "../levers.ts";
+import { isAutoSmr } from "./smr.ts";
 import { refreshClaims } from "./claims.ts";
 import { refreshEducation } from "./fill.ts";
 import { refreshRetirement } from "./retirementBenefits.ts";
@@ -112,14 +113,8 @@ export function refreshEstimates(h: Household, baseMonth: string, endYear?: numb
   for (const l of h.livingExpenses ?? []) applyAutoStages(h, baseMonth, last, l);
   // 推定（おまかせ）のままの失業給付・高年齢雇用継続給付を受け取るかは、期間の終わり・次の期間・年齢に合わせて入れ直す（claims.ts）
   refreshClaims(h);
-  for (const p of h.employmentPeriods ?? []) {
-    const smr = (p as EmploymentPeriod).standardMonthlyRemuneration;
-    const annual = p.salary?.annual.value;
-    if (smr !== undefined && annual != null && isAuto(smr.health) && isAuto(smr.pension)) {
-      const e = smrEstimate(annual, smrMonth(p, baseMonth));
-      if (smr.health.value !== e.health.value || smr.pension.value !== e.pension.value) p.standardMonthlyRemuneration = e;
-    }
-  }
+  // 推定のままの標準報酬月額の置き換え口は外す（空欄にして給与から計算する。前の画面が書いた推定が残っていたとき。0047 の追記 2026-10-29 の2）
+  for (const p of h.employmentPeriods ?? []) if (isAutoSmr((p as EmploymentPeriod).standardMonthlyRemuneration)) delete (p as EmploymentPeriod).standardMonthlyRemuneration;
 }
 
 // ---- 費目の按分（総額を家計調査の同じ人数の世帯の割合で分けた推定。0048）----

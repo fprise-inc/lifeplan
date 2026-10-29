@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.37";
+pub const CURRENT: &str = "0.38";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -120,10 +120,15 @@ pub const CURRENT: &str = "0.37";
 ///   構成員の ID → 働き方。任意。計算に使う。足すだけの MINOR）。前の版のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
 /// - 0.37: 入るお金の行の表の行に「雑所得」`incomeFlows[].row = "cf.income.other.miscellaneous"` を足した（0086。選べる値を足すだけの MINOR。
 ///   前の版のエンジンはこの値を知らずに計算できないので、版を上げて閲覧だけにする）。既存の行の値は書き換えない（課税の扱いの既定は同じ）
+/// - 0.38: 給与からの推定のままの標準報酬月額の置き換え口 `employmentPeriods[].standardMonthlyRemuneration` を外した（0047 の追記 2026-10-29 の2。
+///   前の画面が新しい働き方の期間に書いていた推定の額。外すと計算エンジンが給与から毎年9月に決め直し、昇給が保険料と厚生年金に入る）。
+///   FP が入れた値は変えない。結果が変わるので、外した世帯には開いたときの知らせ `smrBlank` を1回だけ見せる。前の版のアプリは推定を書き戻すので、
+///   版を上げて閲覧だけにする
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
     "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37",
+    "0.38",
 ];
 
 /// 1段分の変換
@@ -314,6 +319,11 @@ pub const STEPS: &[Step] = &[
         from: "0.36",
         to: "0.37",
         apply: v0_36_to_0_37,
+    },
+    Step {
+        from: "0.37",
+        to: "0.38",
+        apply: v0_37_to_0_38,
     },
 ];
 
@@ -704,6 +714,161 @@ fn v0_36_to_0_37(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.37".into());
+    }
+    Ok(body)
+}
+
+/// 標準報酬月額の入力項目ID と、働き方の期間の欄の名前
+const SMR_ITEM: &str = "employment.standardMonthlyRemuneration";
+const SMR_ITEM_FIELD: &str = "standardMonthlyRemuneration";
+
+/// 標準報酬月額の片方の箱が FP の入れた値でない: 推定のまま（出どころ auto）か、わからないの代わりの値が給与からの推定（出し方 derived）のまま
+fn smr_not_entered(b: Option<&Value>) -> bool {
+    let Some(b) = b.filter(|b| !b.is_null()) else {
+        return true;
+    };
+    match b.get("state").and_then(Value::as_str) {
+        Some("estimated") => b["origin"]["kind"] == "auto",
+        Some("unknown") => {
+            b["substitute"]["origin"]["kind"] == "auto"
+                && b["substitute"]["estimate"]["method"] == "derived"
+        }
+        _ => false,
+    }
+}
+
+/// 置き換え口が給与からの推定のまま（健康保険・厚生年金の両方が FP の入れた値でない）か
+fn smr_auto(smr: &Value) -> bool {
+    smr.is_object() && smr_not_entered(smr.get("health")) && smr_not_entered(smr.get("pension"))
+}
+
+/// 箱の数（わからないは代わりの値）
+fn box_number(b: &Value) -> Option<f64> {
+    b.get("value")
+        .and_then(Value::as_f64)
+        .or_else(|| b["substitute"]["value"].as_f64())
+}
+
+/// 働き方の期間から、推定のままの標準報酬月額の置き換え口を外す。外したら、その期間の厚生年金の額（定年後の予定と比べる）を返す
+fn drop_auto_smr(period: &mut Value) -> Option<Option<f64>> {
+    let p = period.as_object_mut()?;
+    if !p.get(SMR_ITEM_FIELD).is_some_and(smr_auto) {
+        return None;
+    }
+    let smr = p.remove(SMR_ITEM_FIELD)?;
+    Some(box_number(&smr["pension"]))
+}
+
+/// 0.37 → 0.38: 給与からの推定のままの標準報酬月額の置き換え口を外す（0047 の追記 2026-10-29 の2）。
+/// - 現状の働き方の期間 `household.request.input.household.employmentPeriods[]`: 健康保険・厚生年金の両方が FP の入れた値でない置き換え口を外す
+///   （片方を FP が入れ、もう片方をその額から推定した置き換え口は FP の値なので残す）
+/// - 定年後の予定 `household.postRetirement[構成員].standardMonthlyRemuneration`: 外した期間の厚生年金の額を写したもの（前の画面が推定を写していた）なら外す
+/// - プランの差分: 足す物（働き方の期間）の中の置き換え口は同じ決まりで外す。標準報酬月額を書く差分のうち、値が FP の入れた値でないもの
+///   （置き換え口の全体なら推定のまま）で、向き先が外した期間か現状に無い期間のものは捨てる（その期間は給与から計算する）
+/// - 控え（`snapshots`）・ヒアリングの記録の中身は変えない
+/// - 外した物があれば、開いたときの知らせ `{"kind": "smrBlank", "count": 現状の期間の数, "plans": プランの差分を変えた数}` を足す
+fn v0_37_to_0_38(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    let mut cleared: Vec<String> = Vec::new();
+    let mut present: Vec<String> = Vec::new();
+    let mut pension: Vec<(String, f64)> = Vec::new();
+    if let Some(list) = obj
+        .get_mut("household")
+        .and_then(|h| h.get_mut("request"))
+        .and_then(|r| r.get_mut("input"))
+        .and_then(|i| i.get_mut("household"))
+        .and_then(|h| h.get_mut("employmentPeriods"))
+        .and_then(Value::as_array_mut)
+    {
+        for p in list {
+            let id = p
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let member = p
+                .get("member")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            present.push(id.clone());
+            if let Some(v) = drop_auto_smr(p) {
+                cleared.push(id);
+                if let Some(v) = v {
+                    pension.push((member, v));
+                }
+            }
+        }
+    }
+    if let Some(post) = obj
+        .get_mut("household")
+        .and_then(|h| h.get_mut("postRetirement"))
+        .and_then(Value::as_object_mut)
+    {
+        for (member, p) in post.iter_mut() {
+            let Some(p) = p.as_object_mut() else { continue };
+            let v = p.get(SMR_ITEM_FIELD).and_then(Value::as_f64);
+            if v.is_some_and(|v| pension.iter().any(|(m, x)| m == member && *x == v)) {
+                p.remove(SMR_ITEM_FIELD);
+            }
+        }
+    }
+    let mut changed = 0usize;
+    if let Some(list) = obj.get_mut("proposals").and_then(Value::as_array_mut) {
+        for plan in list {
+            let Some(diffs) = plan.get_mut("diffs").and_then(Value::as_array_mut) else {
+                continue;
+            };
+            for d in diffs.iter_mut() {
+                if d.get("op").and_then(Value::as_str) == Some("add")
+                    && d["target"]["collection"] == "employment"
+                    && d.get_mut("value").and_then(drop_auto_smr).is_some()
+                {
+                    changed += 1;
+                }
+            }
+            let before = diffs.len();
+            diffs.retain(|d| {
+                if d.get("op").and_then(Value::as_str) != Some("set")
+                    || d.get("item").and_then(Value::as_str) != Some(SMR_ITEM)
+                {
+                    return true;
+                }
+                let at: Vec<&str> = d
+                    .get("at")
+                    .and_then(Value::as_array)
+                    .map(|a| a.iter().filter_map(Value::as_str).collect())
+                    .unwrap_or_default();
+                let auto = match at.as_slice() {
+                    [] => smr_auto(&d["value"]),
+                    ["health"] | ["pension"] => smr_not_entered(d.get("value")),
+                    _ => false,
+                };
+                let target = d["target"]["object"].as_str().unwrap_or("");
+                !(auto
+                    && (cleared.iter().any(|x| x == target)
+                        || !present.iter().any(|x| x == target)))
+            });
+            changed += before - diffs.len();
+        }
+    }
+    if !cleared.is_empty() || changed > 0 {
+        if let Some(screen) = obj.get_mut("household").and_then(Value::as_object_mut) {
+            let list = screen
+                .entry("notices")
+                .or_insert_with(|| Value::Array(Vec::new()));
+            if let Some(list) = list.as_array_mut() {
+                list.push(serde_json::json!({
+                    "id": readings::migration_id(&format!("notices/smrBlank/{}/{changed}", cleared.join("/"))),
+                    "kind": "smrBlank",
+                    "count": cleared.len(),
+                    "plans": changed,
+                }));
+            }
+        }
+    }
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.38".into());
     }
     Ok(body)
 }
@@ -1240,7 +1405,8 @@ mod tests {
         assert_eq!(access("0.35").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.36").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.37").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.38").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.38").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.39").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -1253,10 +1419,100 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.38", b.clone()).unwrap(),
+            upgrade("0.39", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
+    }
+
+    #[test]
+    fn v0_37_leaves_estimated_smr_blank() {
+        // 給与からの推定のままの標準報酬月額は外し（エンジンが給与から毎年決め直す）、FP の入れた値は残す（0047 の追記 2026-10-29 の2）
+        let est = |v: i64| serde_json::json!({"value": v, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "derived", "basis": "年収（賞与を除く）÷12 を標準報酬月額の等級表に当てた目安"}});
+        let fp = |v: i64| serde_json::json!({"value": v, "state": "confirmed", "origin": {"kind": "manual"}});
+        let unknown = |v: i64| serde_json::json!({"state": "unknown", "origin": {"kind": "manual"}, "substitute": {"value": v, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "derived", "basis": "目安"}}});
+        let previous = |v: i64| serde_json::json!({"state": "unknown", "origin": {"kind": "manual"}, "substitute": {"value": v, "state": "estimated", "origin": {"kind": "auto"}, "estimate": {"method": "standard", "basis": "前に入れた値"}}});
+        let b = serde_json::json!({
+            "meta": {"formatVersion": "0.37"},
+            "household": {
+                "request": {"input": {"household": {"employmentPeriods": [
+                    {"id": "p1", "member": "m1", "standardMonthlyRemuneration": {"health": est(300000), "pension": est(300000)}},
+                    {"id": "p2", "member": "m1", "standardMonthlyRemuneration": {"health": fp(320000), "pension": est(320000)}},
+                    {"id": "p3", "member": "m2", "standardMonthlyRemuneration": {"health": unknown(240000), "pension": est(240000)}},
+                    {"id": "p4", "member": "m2", "standardMonthlyRemuneration": {"health": previous(260000), "pension": est(260000)}},
+                    {"id": "p5", "member": "m2"}
+                ]}}},
+                "postRetirement": {"m1": {"fromAge": 60, "type": "contract", "annualSalary": 3600000, "standardMonthlyRemuneration": 300000}, "m2": {"fromAge": 60, "type": "contract", "annualSalary": 3000000, "standardMonthlyRemuneration": 200000}},
+                "notices": [{"id": "n0", "kind": "unresolvedDiffs", "count": 1}]
+            },
+            "proposals": [{"id": "x", "diffs": [
+                {"id": "d1", "op": "set", "target": {"object": "p1"}, "item": "employment.standardMonthlyRemuneration", "at": ["health"], "value": est(320000)},
+                {"id": "d2", "op": "set", "target": {"object": "p1"}, "item": "employment.salary.annual", "at": [], "value": fp(4000000)},
+                {"id": "d3", "op": "set", "target": {"object": "p2"}, "item": "employment.standardMonthlyRemuneration", "at": ["pension"], "value": est(340000)},
+                {"id": "d4", "op": "set", "target": {"object": "p1"}, "item": "employment.standardMonthlyRemuneration", "at": ["pension"], "value": fp(340000)},
+                {"id": "d5", "op": "add", "target": {"collection": "employment"}, "item": null, "at": [], "value": {"id": "p9", "member": "m1", "standardMonthlyRemuneration": {"health": est(200000), "pension": est(200000)}}},
+                {"id": "d6", "op": "set", "target": {"object": "p9"}, "item": "employment.standardMonthlyRemuneration", "at": [], "value": {"health": est(220000), "pension": est(220000)}}
+            ]}],
+            "snapshots": [{"inputs": {"request": {"input": {"household": {"employmentPeriods": [{"id": "p1", "standardMonthlyRemuneration": {"health": est(300000), "pension": est(300000)}}]}}}}}]
+        });
+        let u = upgrade("0.37", b.clone()).unwrap();
+        assert_eq!(u["meta"]["formatVersion"], CURRENT);
+        let ps = &u["household"]["request"]["input"]["household"]["employmentPeriods"];
+        assert!(
+            ps[0].get("standardMonthlyRemuneration").is_none(),
+            "推定のままは外す"
+        );
+        assert_eq!(
+            ps[1], b["household"]["request"]["input"]["household"]["employmentPeriods"][1],
+            "片方を FP が入れた置き換え口は残す"
+        );
+        assert!(
+            ps[2].get("standardMonthlyRemuneration").is_none(),
+            "わからない（代わりの値が給与からの推定）も外す"
+        );
+        assert_eq!(
+            ps[3], b["household"]["request"]["input"]["household"]["employmentPeriods"][3],
+            "わからないの代わりの値が FP の前の値なら残す"
+        );
+        assert_eq!(
+            ps[4],
+            b["household"]["request"]["input"]["household"]["employmentPeriods"][4]
+        );
+        let post = &u["household"]["postRetirement"];
+        assert!(
+            post["m1"].get("standardMonthlyRemuneration").is_none(),
+            "外した期間の額を写した定年後の予定の額は外す"
+        );
+        assert_eq!(post["m2"]["standardMonthlyRemuneration"], 200000);
+        let ids: Vec<&str> = u["proposals"][0]["diffs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            ids,
+            ["d2", "d3", "d4", "d5"],
+            "外した期間・現状に無い期間の推定の差分は捨て、FP の値と FP の入れた期間の差分は残す"
+        );
+        assert!(
+            u["proposals"][0]["diffs"][3]["value"]
+                .get("standardMonthlyRemuneration")
+                .is_none(),
+            "足す期間の中の推定も外す"
+        );
+        assert_eq!(u["snapshots"], b["snapshots"], "控えの中身は変えない");
+        let notices = u["household"]["notices"].as_array().unwrap();
+        assert_eq!(notices.len(), 2);
+        assert_eq!(notices[0]["kind"], "unresolvedDiffs");
+        assert_eq!(notices[1]["kind"], "smrBlank");
+        assert_eq!(notices[1]["count"], 2);
+        assert_eq!(notices[1]["plans"], 3);
+        // 推定が無ければ知らせは足さない
+        let plain = serde_json::json!({"meta": {"formatVersion": "0.37"}, "household": {"request": {"input": {"household": {"employmentPeriods": [{"id": "p2", "standardMonthlyRemuneration": {"health": fp(1), "pension": est(1)}}]}}}}});
+        let u = upgrade("0.37", plain.clone()).unwrap();
+        assert!(u["household"].get("notices").is_none());
+        assert_eq!(u["household"]["request"], plain["household"]["request"]);
     }
 
     #[test]
