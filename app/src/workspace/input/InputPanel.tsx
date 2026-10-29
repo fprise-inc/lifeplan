@@ -87,7 +87,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
   /** 相続・贈与のカードの相続税の目安（計算の結果から読むだけ） */
   const inheritance = useInheritanceEstimate(shown, itemId === "inheritance", computeOne);
   const rentalFig = useRentalFigures(shown.request, itemId === "rental", computeOne);
-  /** 保険のカードの保障の見え方（必要保障額の推移・大きな病気の想定を計算して読むだけ。0055） */
+  /** 保険の入力項目の保険料と解約返戻金（今のままの計算を読むだけ。0055 の追記） */
   const insurance = useInsuranceView(shown, itemId === "insurance", computeOne);
   /** 年金のカードの年金の見込み（計算の結果から読むだけ。プランを直しているときは、そのプランの額） */
   const pensionEst = usePensionEstimate(shown, itemId === "pension", computeOne);
@@ -459,13 +459,14 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             <FieldStateOps.Provider value={stateOps}>
             <FieldSuggestions.Provider value={suggestions}>
               <SectionLinks.Provider value={links}>
-                {itemId === "insurance" ? <InsuranceOverview wh={shown} view={insurance} onEdit={edit} /> : null}
                 {/* 収益不動産: 上に物件の一覧（読むだけ。入力から出せる数字だけ。0079） */}
                 {itemId === "rental" ? <RentalOverview wh={shown} figures={rentalFig} /> : null}
                 {sections.map((s) => (
                   <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />
                 ))}
                 {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます</p> : null}
+                {/* 保険: 入れる区画の下に保険料と解約返戻金（読むだけ。過不足は万一のタブで見る。0055 の追記） */}
+                {itemId === "insurance" ? <InsuranceOverview view={insurance} /> : null}
                 {/* 相続・贈与: 入れる区画の下に相続税の目安（読むだけ。ほかのカードと同じく、入れる欄を先に出す。0060 の追記） */}
                 {itemId === "inheritance" && (inheritanceView(shown, inheritance).points.length > 0 || legacyLine(shown, inheritance) !== null) ? (
                   <div class="ip-inherit" role="note" data-inheritance-line>

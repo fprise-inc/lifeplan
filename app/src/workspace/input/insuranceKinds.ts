@@ -1,7 +1,7 @@
 // 保険の種類（ひな形。0055）: 画面で選ぶ種類の細目（insurance.subtype）ごとの、計算の型（template）・簡易の「主な保障の額」の給付・
 // 保障の終わりと払込の終わりの既定・控除の区分の既定。ひな形は選択肢を増やすだけで、計算の型は今の10のまま（項目を増やさない）。
 // 既定の値はどれも推定（根拠「ひな形の標準の値」）で、物の値の状態の欄に行で持つ。保険料と保障の額は目安を作らない（未入力の警告）
-import type { Coverage, Debt, Household, Illness, InsuranceContract, Member, Timepoint } from "../../engine/types.ts";
+import type { Coverage, Debt, Household, InsuranceContract, Member, Timepoint } from "../../engine/types.ts";
 import { addMonths } from "../levers.ts";
 import { resolveTimepoint } from "../timepoint.ts";
 import type { Address } from "../store/readings.ts";
@@ -214,41 +214,6 @@ export const surgeryBasis = (daily: number) => `${STANDARD}（入院日額 ${for
 
 /** 入院の1回の限度日数の既定 */
 export const DEFAULT_MAX_DAYS = 60;
-
-// ---- 医療・がんの給付の見込み（読むだけ。計算エンジンの insurance.policy と同じ決まり） ----
-
-export interface MedicalPart {
-  coverage: string;
-  benefit: string;
-  label: string;
-  amount: number;
-}
-
-/** 病気の想定で受け取る見込み（給付ごと。0円の給付は入れない）。起きる月に保障が続いている契約だけ（呼ぶ側が確かめる） */
-export function medicalParts(c: InsuranceContract, member: string, ill: Illness): MedicalPart[] {
-  const out: MedicalPart[] = [];
-  for (const x of c.coverages ?? []) {
-    if ((x.insured ?? c.insured) !== member) continue;
-    let amount: number;
-    let label: string;
-    if (x.benefit === "hospitalDaily") {
-      const days = Math.min(ill.hospitalDays ?? 0, x.maxDays ?? DEFAULT_MAX_DAYS);
-      amount = x.amount * days;
-      label = `入院 ${days}日`;
-    } else if (x.benefit === "surgery") {
-      amount = x.amount * (ill.surgeries ?? 0);
-      label = `手術 ${ill.surgeries ?? 0}回`;
-    } else if (x.benefit === "cancerLump") {
-      amount = ill.disease === "cancer" ? x.amount : 0;
-      label = "がん一時金";
-    } else if (x.benefit === "threeMajorLump") {
-      amount = ill.disease === "cancer" || ill.disease === "heartStroke" ? x.amount : 0;
-      label = "三大疾病一時金";
-    } else continue;
-    if (amount > 0) out.push({ coverage: x.id, benefit: x.benefit, label, amount });
-  }
-  return out;
-}
 
 // ---- 受け取るお金の税（読むだけ） ----
 

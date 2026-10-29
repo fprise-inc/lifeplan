@@ -1,16 +1,14 @@
 // 保険のカード（0055）: 簡易の5欄とひな形の推定・保険料と保障の額の未入力・種類を変えたときの入れ直し・学資保険・医療保険の手術・
-// 逓減定期・家族特約・円の目安の形・解約返戻金・受取人・必要保障額に合わせる・保障の見え方・病気の想定・古い世帯
+// 逓減定期・家族特約・円の目安の形・解約返戻金・受取人・保険料と解約返戻金の行・病気の想定・古い世帯
 import { describe, expect, it } from "vitest";
 import type { InsuranceContract } from "../src/engine/types.ts";
-import { scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
+import { defaultYear, scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
 import { contingencyInputSections } from "../src/workspace/contingency/inputs.ts";
 import { checkList } from "../src/workspace/input/checkRows.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
-import { medicalParts } from "../src/workspace/input/insuranceKinds.ts";
-import { insuranceRequests, insuranceView } from "../src/workspace/input/insuranceView.ts";
+import { insuranceRequest, insuranceView } from "../src/workspace/input/insuranceView.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
-import { fitToNeed } from "../src/workspace/input/stages/insurance.ts";
 import { fieldStatus } from "../src/workspace/input/valueState.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
@@ -210,62 +208,51 @@ describe("逓減定期・家族特約・円の目安の形・解約返戻金", (
   });
 });
 
-describe("保障の見え方と必要保障額に合わせる", () => {
-  const computed = (wh: WorkingHousehold) => {
-    const q = insuranceRequests(wh);
-    return insuranceView(
-      wh,
-      q.protection.map((p) => ({ member: p.member, result: preview(p.req) })),
-      q.illness === null ? null : { member: q.illness.member, year: q.illness.year, result: preview(q.illness.req) },
-    );
-  };
+describe("保険料と解約返戻金の行・病気の想定", () => {
+  const computed = (wh: WorkingHousehold) => insuranceView(wh, preview(insuranceRequest(wh)));
 
-  it("被保険者ごとの保障の階段・過不足・内訳と、保険料の合計。死亡保険金が未入力の契約に「必要保障額に合わせる」", () => {
+  it("保険料の月・年の合計とこれから払う総額。必要保障額は計算しない。貯蓄型でない契約には解約返戻金の行を出さない", () => {
     let wh = action(family(), "ins/add");
     wh = set(wh, "/premium", 3000);
+    expect(insuranceRequest(wh).input.protection).toBeUndefined();
+    expect(insuranceRequest(wh).input.contingencies).toBeUndefined();
     const v = computed(wh);
     expect(v.premium.monthly).toBe(3000);
+    expect(v.premium.annual).toBe(36000);
     expect(v.premium.remaining > 0).toBe(true);
-    const me = v.members.find((m) => m.member === self(wh).id)!;
-    expect(me.years.length > 5).toBe(true);
-    expect(me.breakdown?.b.expenses.living ?? 0).toBeGreaterThan(0);
-    expect(me.worst).not.toBeNull();
-    const fit = v.fits.find((f) => f.object === contract(wh).id)!;
-    expect(fit.amount).toBe(me.years[0]!.needWithAssets);
-    const after = fitToNeed(wh, fit.object, fit.amount, fit.year);
-    const amount = contract(after).coverages![0]!.amount;
-    expect(amount % 10000).toBe(0);
-    expect(amount).toBeGreaterThanOrEqual(fit.amount);
-    expect(status(after, "/main")).toMatchObject({ status: "estimated" });
-    expect(status(after, "/main").basis).toContain("必要保障額に合わせた");
-    const v2 = computed(after);
-    expect(v2.fits).toEqual([]);
-    expect(v2.members.find((m) => m.member === self(wh).id)!.years[0]!.coverage).toBe(amount);
-    // 保障が切れる年の気づき
-    expect(v2.notices.some((t) => t.includes("が切れ"))).toBe(true);
+    expect(v.savings).toEqual([]);
   });
 
-  it("病気の想定（がん・入院・手術）で受け取る見込み: 画面の給付ごとの額と計算エンジンの額が同じ", () => {
+  it("貯蓄型の契約だけ、解約返戻金の元本割れを1行（返戻率が空なら未入力の知らせ）", () => {
+    let wh = action(family(), "ins/add");
+    wh = set(wh, "/template", "wholeLife");
+    wh = set(wh, "/premium", 10000);
+    expect(computed(wh).savings.map((s) => s.text)).toEqual(["解約返戻金が未入力です（0円で数えています）"]);
+    wh = set(wh, "/sv/rate", "0.95");
+    const line = computed(wh).savings[0]!;
+    expect(line.object).toBe(contract(wh).id);
+    expect(line.text).toMatch(/^(\d{4}年まで元本割れ|計算の終わりまで元本割れ)$/);
+    wh = set(wh, "/sv/rate", "1.2");
+    expect(computed(wh).savings[0]!.text).toMatch(/^(\d{4}年まで元本割れ|元本を上回っています)$/);
+  });
+
+  it("病気の想定（がん・入院・手術）で受け取る保険金・給付金を計算エンジンが数える（万一のタブの大きな病気の場面）", () => {
     let wh = action(family(), "ins/addMedical");
     wh = set(wh, "/main", 10000);
     wh = action(wh, "/addCoverage");
     const cid = contract(wh).coverages!.at(-1)!.id;
     wh = set(wh, `/cov/${cid}/benefit`, "cancerLump");
     wh = set(wh, `/cov/${cid}/amount`, 1000000);
-    const v = computed(wh);
-    const line = v.medical!.lines[0]!;
-    expect(line.parts.map((p) => [p.label, p.amount])).toEqual([
-      ["入院 20日", 200000],
-      ["手術 1回", 100000],
-      ["がん一時金", 1000000],
-    ]);
-    expect(line.total).toBe(1300000);
-    expect(v.medical!.heading).toContain("がん・入院20日・手術1回");
-    // 病気の種類を変える（万一のタブの前提）
+    const received = (w: WorkingHousehold) => {
+      const sc = scenarios(w).find((s) => s.kind === "illness")!;
+      const r = preview(scenarioRequest(w, sc, w.contingency.year ?? defaultYear(w.request)));
+      return r.table.filter((t) => t.row === "cf.income.lumpSum.insurance" && t.object === contract(w).id).reduce((s, t) => s + t.amount, 0);
+    };
+    // 入院 20日 20万円＋手術 1回 10万円＋がん一時金 100万円
+    expect(received(wh)).toBe(1300000);
+    // 病気の種類を変える（万一のタブの前提）: 入院 60日（限度日数）
     const wh2: WorkingHousehold = { ...wh, contingency: { ...wh.contingency, illness: { disease: "other", hospitalDays: 90, surgeries: 0 } } };
-    const v2 = computed(wh2);
-    expect(v2.medical!.lines[0]!.total).toBe(600000);
-    expect(medicalParts(contract(wh2), self(wh2).id, { disease: "other", hospitalDays: 90, surgeries: 0 }).map((p) => p.amount)).toEqual([600000]);
+    expect(received(wh2)).toBe(600000);
   });
 
   it("万一のタブの大きな病気の想定に病気の種類・入院の日数・手術の回数の欄があり、要求に病気の想定を入れる", () => {

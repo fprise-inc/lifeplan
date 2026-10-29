@@ -525,15 +525,9 @@ h2 .ih-st { font-size: 0.8rem; }
 /* 相続・贈与のパネルでは入れる区画の下に置く（0060 の追記） */
 .ip-body .ip-inherit { margin-top: 14px; }
 .ip-inherit ul { margin: 0; padding-left: 1.1em; }
-/* 保険のカードの保障の見え方（0055） */
-.ins-ov h4 { margin: 8px 0 2px; font-size: 0.9rem; }
-.ins-ov ul { margin: 2px 0; padding-left: 1.1em; font-size: 0.86rem; }
-.ins-steps { width: 100%; max-width: 560px; height: auto; display: block; }
-.ins-steps .ins-ax { font-size: 9px; fill: var(--muted, #777); }
-.ins-legend { list-style: none; padding-left: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; }
-.ins-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-.ins-break summary { cursor: pointer; font-size: 0.86rem; }
-.ins-notices li { color: var(--warn, #9a5b00); }
+/* 保険の入力項目の保険料と解約返戻金（欄の下。0055 の追記） */
+.ip-body .ins-ov { margin-top: 14px; }
+.ins-ov .in-note { margin: 2px 0; }
 .ip-inherit details { margin: 2px 0 4px; }
 .ip-inherit details summary { cursor: pointer; color: var(--ink-2); }
 .ip-inherit-note { margin: 4px 0 0; font-size: 0.8rem; }
