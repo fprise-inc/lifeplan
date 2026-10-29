@@ -262,8 +262,27 @@ export function convertBenefit(h: Household, b: RetirementBenefit, kind: Benefit
 
 // ---- 推定の入れ直し（元の値が変わったら、推定のままの値だけ。文書の5-1）----
 
+/**
+ * 前の版の入れ方の選択（目安で／額で。0057 の 2026-10-29 の追記で外した）の跡を、選択の無い形に読み替える。h をそのまま書き換える
+ * - 退職一時金を「額で」にして額を打っていない物（目安の額を初めの値にした推定）: 推定のままなので、目安に戻す（目安と同じく入れ直す）
+ * - 公務員の退職手当・役員退職慰労金を「額で」にして額を打っていない物（未入力の0円）で、見込みの計算の月給があるもの: 見込みの計算に戻す
+ */
+function dropModeTraces(h: Household): void {
+  for (const b of h.retirementBenefits ?? []) {
+    if (b.kind === "lumpSum" && isEstimateBox(b.amount) && (b.amount as { estimate?: { method?: string } }).estimate?.method === "standard" && basisOf(b.amount).startsWith(LEGACY_AMOUNT_MODE)) {
+      const e = lumpEstimate(h, b);
+      if (e !== null) b.amount = estimatedBox(e.value, e.basis);
+    }
+    if (COMPUTED.has(b.kind) && isUnenteredBox(b.amount) && b.estimate?.finalMonthly !== undefined) delete b.amount;
+  }
+}
+
+/** 前の版の「額で」の跡の根拠の文の頭（目安の額を初めの値にした推定） */
+const LEGACY_AMOUNT_MODE = "目安の額を初めの値にした";
+
 /** 推定のままの退職給付の値を、勤続・辞め方・学歴・年収に合わせて入れ直す。h をそのまま書き換える */
 export function refreshRetirement(h: Household): void {
+  dropModeTraces(h);
   for (const b of h.retirementBenefits ?? []) {
     if (b.kind === "lumpSum" && isEstimateBox(b.amount) && (b.amount as { estimate?: { method?: string } }).estimate?.method === "statistic") {
       const e = lumpEstimate(h, b);

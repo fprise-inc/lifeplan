@@ -1,4 +1,4 @@
-// 退職金・企業年金のカード（0057）: 人ごとに何件でも・種類ごとに要る欄・入れ方（目安で／額で）・新しい世帯の目安の自動・推定の入れ直し・
+// 退職金・企業年金のカード（0057）: 人ごとに何件でも・種類ごとに要る欄・見込み額の欄だけで目安と額を分ける・新しい世帯の目安の自動・推定の入れ直し・
 // 働き方を変えたときの扱い・確かめの注意・国民年金基金と年金払い退職給付の年額・公務員と役員の見込みの計算・受け取りの並びと決まりの知らせ・
 // 死亡退職金の1行・古い世帯
 import { describe, expect, it } from "vitest";
@@ -14,6 +14,7 @@ import { lineups, overlapNotes, type LineupRow } from "../src/workspace/input/re
 import { rowAt } from "../src/workspace/input/rows.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
 import { applyStateOp, fieldStatus } from "../src/workspace/input/valueState.ts";
+import { splitNote } from "../src/workspace/input/FieldViews.tsx";
 import { modelHousehold, preview } from "./helpers.ts";
 
 type Obj = Record<string, unknown>;
@@ -128,12 +129,12 @@ describe("新しい世帯: 会社員・公務員の退職金を目安で自動�
     expect(fm.level).toBe("simple");
     expect(fieldStatus(fm, civil).status).toBe("estimated");
     expect(rowTotal(civil.request, "cf.income.lumpSum.retirement", b[0]!.id)).toBeGreaterThan(10000000);
-    // 入れ方を「額で」にすると、額を入れるまで未入力（0円で計算中）
-    const mode = fieldOf(civil, "retirement", `retirement/${b[0]!.id}/mode`);
-    const byAmount = mode.set(civil, "amount");
-    expect(fieldStatus(fieldOf(byAmount, "retirement", `retirement/${b[0]!.id}/amount`), byAmount).status).toBe("missing");
-    // 目安に戻すと見込みの計算に戻る（最終の月給の推定は残っている）
-    const back = fieldOf(byAmount, "retirement", `retirement/${b[0]!.id}/mode`).set(byAmount, "estimate");
+    // 見込み額を打つと額で計算し、俸給月額は詳細へ。空欄に戻すと見込みの計算に戻る（最終の月給の推定は残っている）
+    const amount = fieldOf(civil, "retirement", `retirement/${b[0]!.id}/amount`);
+    const byAmount = amount.set(civil, 20000000);
+    expect(rowTotal(byAmount.request, "cf.income.lumpSum.retirement", b[0]!.id)).toBe(20000000);
+    expect(fieldOf(byAmount, "retirement", `retirement/${b[0]!.id}/finalMonthly`).level).toBe("detail");
+    const back = fieldOf(byAmount, "retirement", `retirement/${b[0]!.id}/amount`).set(byAmount, null);
     expect(benefitsOf(back)[0]!.amount).toBeUndefined();
     expect(benefitsOf(back)[0]!.estimate?.finalMonthly).toBe(b[0]!.estimate!.finalMonthly);
   });
@@ -218,10 +219,81 @@ describe("人ごとに何件でも・種類ごとに要る欄", () => {
     expect(retirementNotApplicable(w, self)).toBe(true);
   });
 
-  it("死亡退職金の1行（相続税の非課税の枠は制度データから）", () => {
+  it("死亡退職金の1行: 説明の文（額は勤め先の規程・按分はこのアプリの目安。非課税限度額は制度データから）", () => {
     const { wh, self } = salaried();
     const line = fields(wh, "retirement").find((f) => f.key === `ro/retirement/${self}/death`);
-    expect(line?.get(wh).value).toMatch(/500万円×法定相続人の数まで非課税/);
+    expect(line?.label).toBe("万一亡くなったときの扱い");
+    const text = String(line?.get(wh).value);
+    expect(text).toMatch(/^万一亡くなったときは、/);
+    expect(text).toMatch(/勤め先の退職金の規程で決まります。このアプリでは、勤続の月数で按分した額を目安にします/);
+    expect(text).toMatch(/死亡退職金の非課税限度額（500万円×法定相続人の数）/);
+  });
+});
+
+describe("入れ方の選択の欄は置かない（見込み額の欄だけで目安と額を分ける。0057 の 2026-10-29 の追記）", () => {
+  it("退職一時金: 入れ方の欄は無い。空欄は目安（入れ直す）、額を打てば額、空欄に戻すと目安に戻る", () => {
+    const { wh } = salaried();
+    const b = benefitsOf(wh)[0]!;
+    expect(fields(wh, "retirement").some((f) => f.key.endsWith("/mode"))).toBe(false);
+    const amount = fieldOf(wh, "retirement", `retirement/${b.id}/amount`);
+    expect(amount.help).toMatch(/空欄のときは目安（勤続年数・辞め方・学歴からの平均）で計算/);
+    const typed = amount.set(wh, 15000000);
+    expect(benefitsOf(typed)[0]!.amount).toMatchObject({ value: 15000000, state: "confirmed" });
+    const back = fieldOf(typed, "retirement", `retirement/${b.id}/amount`).set(typed, null);
+    expect(benefitsOf(back)[0]!.amount).toMatchObject({ value: b.amount!.value, state: "estimated", estimate: { method: "statistic" } });
+  });
+
+  it("前の版の「額で」の跡: 額を打っていない退職一時金は目安に戻し、見込みの計算の種類の未入力の0円は見込みの計算に戻す", () => {
+    const { wh } = salaried();
+    const b = benefitsOf(wh)[0]!;
+    const v0 = b.amount!.value!;
+    const legacy = mutate(wh, (h) => {
+      const x = h.retirementBenefits![0]!;
+      x.amount = { value: 1, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "目安の額を初めの値にした（前の目安）" } } as RetirementBenefit["amount"];
+    });
+    const after = withRefreshedEstimates(legacy);
+    expect(benefitsOf(after)[0]!.amount).toMatchObject({ value: v0, state: "estimated", estimate: { method: "statistic" } });
+    // 公務員の退職手当
+    const wh0 = blankHousehold(BASE, ids());
+    const self = wh0.request.input.household.members[0]!.id;
+    const w = runAction(wh0, "work", `work/${self}/start`);
+    const civil = withRefreshedEstimates(fieldOf(w, "work", `work/${self}/now/type`).set(w, "civilServant"));
+    const c = benefitsOf(civil)[0]!;
+    const zero = mutate(civil, (h) => void (h.retirementBenefits![0]!.amount = { value: 0, state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic", basis: "未入力（0円で計算）" } } as RetirementBenefit["amount"]));
+    const fixed = withRefreshedEstimates(zero);
+    expect(benefitsOf(fixed)[0]!.amount).toBeUndefined();
+    expect(rowTotal(fixed.request, "cf.income.lumpSum.retirement", c.id)).toBeGreaterThan(10000000);
+  });
+
+  it("FP が入れた額（確定）は読み替えない", () => {
+    const { wh } = salaried();
+    const b = benefitsOf(wh)[0]!;
+    const typed = fieldOf(wh, "retirement", `retirement/${b.id}/amount`).set(wh, 15000000);
+    expect(benefitsOf(withRefreshedEstimates(typed))[0]!.amount).toMatchObject({ value: 15000000, state: "confirmed" });
+  });
+});
+
+describe("該当なしは区画の見出しの下に出す（ボタンの名前に書かない。0057 の 2026-10-29 の追記）", () => {
+  it("外して該当なしにした人の区画は「該当なし」の説明を持ち、足すボタンはふつうの名前", () => {
+    const { wh, self } = salaried();
+    const b = benefitsOf(wh)[0]!;
+    const w = runAction(wh, "retirement", `retirement/${b.id}/remove`);
+    const sec = buildStage("retirement", w).sections.find((s) => s.key === `retirement/${self}`)!;
+    expect(splitNote(sec.note)).toMatchObject({ state: "該当なし" });
+    expect(splitNote(sec.note).help).toMatch(/足すと、該当なしを外します/);
+    expect(sec.actions.map((a) => a.label)).toEqual(["＋ 退職金・企業年金を足す"]);
+    // 足すと該当なしの説明は消える
+    const added = runAction(w, "retirement", `retirement/${self}/add`);
+    expect(buildStage("retirement", added).sections.find((s) => s.key === `retirement/${self}`)!.note).toBeUndefined();
+  });
+
+  it("該当なしにしていない人（退職給付が無いだけ）は説明を持たない", () => {
+    const wh0 = blankHousehold(BASE, ids());
+    const self = wh0.request.input.household.members[0]!.id;
+    const w = withRefreshedEstimates(runAction(wh0, "work", `work/${self}/start`));
+    const part = fieldOf(w, "work", `work/${self}/now/type`).set(w, "partTime");
+    expect(benefitsOf(part)).toEqual([]);
+    expect(buildStage("retirement", part).sections.find((s) => s.key === `retirement/${self}`)?.note).toBeUndefined();
   });
 });
 
