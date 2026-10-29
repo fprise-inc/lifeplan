@@ -25,6 +25,11 @@
       "x-item": "contingencyPremise.work",
       "type": "object"
     },
+    "partnerWork": {
+      "title": "就業不能・収入が減るの場面の配偶者の働き方（場面の種類〔disability・income〕 → 働き方を変える構成員の ID → 働き方・年収・変える時期・何歳まで。0085）",
+      "x-item": "contingencyPremise.partnerWork",
+      "type": "object"
+    },
     "grade": {
       "title": "就業不能・障害の想定の仮定の等級（0 は障害年金に当たらない。省略は2級）",
       "x-item": "contingencyPremise.grade",

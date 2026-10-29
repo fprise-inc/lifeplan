@@ -44,6 +44,10 @@ export interface StagedSpec {
   ageOf?: (h: Household) => Member | undefined;
   /** 年ごとの物（固定資産税・経費の年額・利回り）: 段の時点の属する年から変わる */
   yearly?: boolean;
+  /** 入るお金か出るお金か（0円の例外の年の説明「受け取りません」「払いません」に使う） */
+  flow: "in" | "out";
+  /** 変化のまとまりを描く所（行の額の近く。GroupDef の placeIn） */
+  place?: GroupDef["placeIn"];
 }
 
 const listAt = (o: Obj | undefined, path: readonly string[]): Obj[] => (getPath(o, path) as Obj[] | undefined) ?? [];
@@ -116,15 +120,63 @@ function atField(spec: { key: string; ageOf?: (h: Household) => Member | undefin
   };
 }
 
-/** 額の段階と例外の年のまとまり（段ごと・例外ごとに1つと、足すボタンのまとまり） */
+// ---- 変化（0040 の 2026-10-29 の追記）: 段と例外の年を、画面では1つの「＋ ○○の変化」から足す ----
+// 世帯ファイルの形は変えない（段 stages と例外の年 exceptions の2つの並びのまま。少しずつ移す段と割合の段を表すため。0044 の 2026-10-29 の追記）。
+// ボタンを押すと「この年だけ」（例外の年）か「この月から先」（段。年ごとの物は「この年から先」）を選び、選んだ後は今までの段・例外の年の欄が出る。
+// 足した変化は時期の順に並べ（例外の年はその年の1月、段は「いつから」の年月。同じ月なら段を先に。時期の解けない段は後ろ）、行の額の近くに置く（placeIn）
+
+/** 「この年だけ」の選択肢の名前 */
+export const ONLY_YEAR = "この年だけ";
+/** 「この月から先」の選択肢の名前（年ごとの物は「この年から先」） */
+export const fromNowOn = (yearly: boolean): string => (yearly ? "この年から先" : "この月から先");
+
+/** 「＋ ○○の変化」のボタンの「?」（この年だけとこの月から先の違い） */
+export function changeHelp(o: { yearly: boolean; only: string; from: string }): string {
+  return `「${ONLY_YEAR}」は${o.only}。「${fromNowOn(o.yearly)}」は${o.from}。何回でも足せます`;
+}
+
+type Change = { kind: "stage"; el: Obj; n: number } | { kind: "except"; el: Obj };
+
+/** 段と例外の年を、時期の順に1つに並べる（段の番号 n は段の中の順。次の段まで何年かけて移すかの欄に使う） */
+function changeOrder(h: Household, stages: readonly Obj[], exceptions: readonly Obj[]): Change[] {
+  const keyed: { at: string; rank: number; c: Change }[] = [
+    ...stages.map((el, n) => ({ at: resolveTimepoint(h, el.at as Timepoint) ?? "9999-99", rank: 0, c: { kind: "stage", el, n } as Change })),
+    ...exceptions.map((el) => ({ at: `${String(el.year)}-01`, rank: 1, c: { kind: "except", el } as Change })),
+  ];
+  // 同じ並びの中の順（段は時点の順・例外は年の順）は崩さない（安定な並べ替え）
+  return keyed.sort((a, b) => a.at.localeCompare(b.at) || a.rank - b.rank).map((x) => x.c);
+}
+
+/** 0円の例外の年の言い方 */
+const zeroWord = (flow: "in" | "out"): string => (flow === "in" ? "受け取りません" : "払いません");
+
+/** 段の見出しの時期（「2027年10月」、年ごとの物は「2027年」。解けなければ null） */
+function stageWhen(h: Household, at: unknown, yearly: boolean): string | null {
+  const ym = resolveTimepoint(h, at as Timepoint);
+  if (ym === null) return null;
+  const [y, m] = ym.split("-").map(Number) as [number, number];
+  return yearly ? `${y}年` : `${y}年${m}月`;
+}
+
+/** 段の見出し（「月額の変化（2027年10月から先）」） */
+const stageTitle = (h: Household, what: string, at: unknown, yearly: boolean): string => {
+  const w = stageWhen(h, at, yearly);
+  return `${what}の変化（${w === null ? fromNowOn(yearly) : `${w}から先`}）`;
+};
+/** 例外の年の見出し（「月額の変化（2028年だけ）」） */
+const exceptTitle = (what: string, year: unknown): string => `${what}の変化（${String(year)}年だけ）`;
+
+/** 額の変化のまとまり（変化ごとに1つと、足すボタンのまとまり。どれも place のまとまりの中に描く） */
 export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[] {
   const h = wh.request.input.household;
   const obj = spec.find(h, wh);
   if (obj === undefined) return [];
+  const yearly = spec.yearly === true;
   const stages = stageOrder(h, listAt(obj, spec.stages.path));
   const exceptions = [...listAt(obj, spec.exceptions.path)].sort((a, b) => Number(a.year) - Number(b.year));
+  const placeIn = spec.place !== undefined ? { placeIn: spec.place } : {};
   const groups: GroupDef[] = [];
-  stages.forEach((s, n) => {
+  const stageGroup = (s: Obj, n: number): GroupDef => {
     const id = String(s.id);
     const k = `${spec.key}/stage/${id}`;
     const find = elementFinder(spec.find, spec.stages.path, id);
@@ -168,47 +220,48 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
         : { ...yenBox({ key: `${k}/amount`, item: spec.stages.item, label: `${spec.what}（この段から）`, level: LEVEL, basis: spec.basis, find, path: ["amount"], help: "今の価格で入れます（変動率はこの額にもそのまま当てます）" }), address: () => ad(["amount"]) },
     ];
     if (n < stages.length - 1) fields.push(rampField(`${k}/ramp`, spec.stages.item, find, ad(["rampYears"])));
-    groups.push({
+    return {
       key: k,
-      title: `${spec.what}の段階 ${n + 1}`,
+      title: stageTitle(h, spec.what, s.at, yearly),
       level: LEVEL,
+      ...placeIn,
       fields,
-      actions: [removeAction(`${k}/remove`, "この段を外す", LEVEL, (hh, w) => dropFrom(spec.find(hh, w), spec.stages.path, id))],
-    });
-  });
-  exceptions.forEach((e) => {
+      actions: [removeAction(`${k}/remove`, "この変化を外す", LEVEL, (hh, w) => dropFrom(spec.find(hh, w), spec.stages.path, id))],
+    };
+  };
+  const exceptGroup = (e: Obj): GroupDef => {
     const id = String(e.id);
     const k = `${spec.key}/except/${id}`;
     const find = elementFinder(spec.find, spec.exceptions.path, id);
     const ad = (tail: string[]) => addressOf(spec.target, spec.exceptions, id, tail);
-    groups.push({
+    return {
       key: k,
-      title: `${spec.what}の例外の年（${String(e.year)}年）`,
+      title: exceptTitle(spec.what, e.year),
       level: LEVEL,
+      ...placeIn,
       fields: [
         { ...plain({ key: `${k}/year`, item: spec.exceptions.item, label: "年", level: LEVEL, kind: "int", suffix: "年", min: 1900, max: 2200, find, path: ["year"] }), address: () => ad(["year"]) },
-        { ...yenBox({ key: `${k}/amount`, item: spec.exceptions.item, label: `その年の${spec.what}`, level: LEVEL, basis: spec.basis, find, path: ["amount"], help: "今の価格で入れます。0円はその年に払いません（受け取りません）" }), address: () => ad(["amount"]) },
+        { ...yenBox({ key: `${k}/amount`, item: spec.exceptions.item, label: `その年の${spec.what}`, level: LEVEL, basis: spec.basis, find, path: ["amount"], help: `今の価格で入れます。0円はその年に${zeroWord(spec.flow)}` }), address: () => ad(["amount"]) },
       ],
-      actions: [removeAction(`${k}/remove`, "この例外の年を外す", LEVEL, (hh, w) => dropFrom(spec.find(hh, w), spec.exceptions.path, id))],
-    });
-  });
+      actions: [removeAction(`${k}/remove`, "この変化を外す", LEVEL, (hh, w) => dropFrom(spec.find(hh, w), spec.exceptions.path, id))],
+    };
+  };
+  for (const c of changeOrder(h, stages, exceptions)) groups.push(c.kind === "stage" ? stageGroup(c.el, c.n) : exceptGroup(c.el));
+  const choice = {
+    key: `${spec.key}/addChange`,
+    label: `＋ ${spec.what}の変化`,
+    help: changeHelp({
+      yearly,
+      only: `、その年（1〜12月）だけ別の額にします（0円ならその年は${zeroWord(spec.flow)}）`,
+      from: `、${yearly ? "その年" : "その月"}から後ずっと別の額にします（額か、今の額に対する割合で。次の変化まで何年かけて移すかも入れられます）`,
+    }),
+  };
   const actions: ActionDef[] = [
     {
-      key: `${spec.key}/addStage`,
-      label: `＋ ${spec.what}の段階`,
-      level: LEVEL,
-      run: (w) =>
-        mutate(w, (hh, req) => {
-          const w2 = { ...w, request: req };
-          const t = spec.find(hh, w2);
-          if (t === undefined) return;
-          pushTo(t, spec.stages.path, { id: newId(), at: nextStageAt(w2, listAt(t, spec.stages.path)), amount: standardBox(spec.base(hh) ?? 0, "元の額と同じ（この段の額を入れてください）") });
-        }),
-    },
-    {
       key: `${spec.key}/addException`,
-      label: `＋ ${spec.what}の例外の年`,
+      label: ONLY_YEAR,
       level: LEVEL,
+      choice,
       run: (w) =>
         mutate(w, (hh, req) => {
           const w2 = { ...w, request: req };
@@ -217,25 +270,28 @@ export function stagedGroups(wh: WorkingHousehold, spec: StagedSpec): GroupDef[]
           pushTo(t, spec.exceptions.path, { id: newId(), year: nextYear(w2, listAt(t, spec.exceptions.path)), amount: standardBox(0, presetBasis("その年だけ0円")) });
         }),
     },
+    {
+      key: `${spec.key}/addStage`,
+      label: fromNowOn(yearly),
+      level: LEVEL,
+      choice,
+      run: (w) =>
+        mutate(w, (hh, req) => {
+          const w2 = { ...w, request: req };
+          const t = spec.find(hh, w2);
+          if (t === undefined) return;
+          pushTo(t, spec.stages.path, { id: newId(), at: nextStageAt(w2, listAt(t, spec.stages.path)), amount: standardBox(spec.base(hh) ?? 0, "元の額と同じ（この段の額を入れてください）") });
+        }),
+    },
   ];
-  groups.push({
-    key: `${spec.key}/staged`,
-    level: LEVEL,
-    ...(stages.length + exceptions.length === 0
-      ? { note: `${spec.what}を時期で変えるときは段階（その時点から別の額・割合）を、特定の年だけ変えるときは例外の年を足します` }
-      : { note: `${spec.what}: 段階 ${stages.length}段・例外の年 ${exceptions.length}件` }),
-    fields: [],
-    actions,
-  });
+  groups.push({ key: `${spec.key}/staged`, level: LEVEL, ...placeIn, fields: [], actions });
   return groups;
 }
 
-/** 段階・例外の年の数の札（簡易で見せる。0 なら null） */
-export function stagedBadge(obj: Obj | undefined, stages: readonly string[], exceptions: readonly string[]): string | null {
-  const s = listAt(obj, stages).length;
-  const e = listAt(obj, exceptions).length;
-  if (s + e === 0) return null;
-  return [s > 0 ? `この後 ${s}段` : null, e > 0 ? `例外の年 ${e}件` : null].filter((x) => x !== null).join("・");
+/** 変化の数の札（簡易で見せる。「月額の変化 2件」。0 なら null） */
+export function stagedBadge(obj: Obj | undefined, stages: readonly string[], exceptions: readonly string[], what: string): string | null {
+  const n = listAt(obj, stages).length + listAt(obj, exceptions).length;
+  return n === 0 ? null : `${what}の変化 ${n}件`;
 }
 
 // ---- 器の利回りと資産配分の段階 ----
@@ -253,7 +309,8 @@ export function returnStageGroups(wh: WorkingHousehold, o: { key: string; find: 
   const stages = stageOrder(h, listAt(acc, stagesPlace.path));
   const exceptions = [...listAt(acc, excPlace.path)].sort((a, b) => Number(a.year) - Number(b.year));
   const groups: GroupDef[] = [];
-  stages.forEach((s, n) => {
+  const what = `${o.name}の利回り`;
+  const stageGroups = (s: Obj, n: number): void => {
     const id = String(s.id);
     const k = `${o.key}/rstage/${id}`;
     const find = elementFinder(o.find, stagesPlace.path, id);
@@ -297,59 +354,68 @@ export function returnStageGroups(wh: WorkingHousehold, o: { key: string; find: 
     if (n < stages.length - 1) fields.push(rampField(`${k}/ramp`, stagesPlace.item, find, ad(["rampYears"])));
     groups.push({
       key: k,
-      title: `${o.name}の利回りの段階 ${n + 1}`,
+      title: stageTitle(h, what, s.at, true),
       level: LEVEL,
       ...(byMix ? { note: "資産の配分の段では、前提条件の資産の種類ごとの利回りで計算します（運用の費用はこの後に引きます）" } : {}),
       fields,
-      actions: [removeAction(`${k}/remove`, "この段を外す", LEVEL, (hh, w) => dropFrom(o.find(hh, w), stagesPlace.path, id))],
+      actions: [removeAction(`${k}/remove`, "この変化を外す", LEVEL, (hh, w) => dropFrom(o.find(hh, w), stagesPlace.path, id))],
     });
-    if (byMix) groups.push(mixRowsGroup(`${k}/mix`, `${o.name}の利回りの段階 ${n + 1} の資産の配分`, stagesPlace.item, find, ["assetMix"], ad(["assetMix"]), (s.assetMix as Mix).length));
-  });
-  exceptions.forEach((e) => {
+    if (byMix) groups.push(mixRowsGroup(`${k}/mix`, `${stageTitle(h, what, s.at, true)}の資産の配分`, stagesPlace.item, find, ["assetMix"], ad(["assetMix"]), (s.assetMix as Mix).length));
+  };
+  const exceptGroup = (e: Obj): void => {
     const id = String(e.id);
     const k = `${o.key}/rexcept/${id}`;
     const find = elementFinder(o.find, excPlace.path, id);
     const ad = (tail: string[]) => addressOf(target, excPlace, id, tail);
     groups.push({
       key: k,
-      title: `${o.name}の利回りの例外の年（${String(e.year)}年）`,
+      title: exceptTitle(what, e.year),
       level: LEVEL,
       fields: [
         { ...plain({ key: `${k}/year`, item: excPlace.item, label: "年", level: LEVEL, kind: "int", suffix: "年", min: 1900, max: 2200, find, path: ["year"] }), address: () => ad(["year"]) },
         { ...plain({ key: `${k}/rate`, item: excPlace.item, label: "その年の利回り（年）", level: LEVEL, kind: "pct", find, path: ["expectedReturn"], help: "マイナスも入れられます（運用の費用はこの後に引きます）" }), address: () => ad(["expectedReturn"]) },
       ],
-      actions: [removeAction(`${k}/remove`, "この例外の年を外す", LEVEL, (hh, w) => dropFrom(o.find(hh, w), excPlace.path, id))],
+      actions: [removeAction(`${k}/remove`, "この変化を外す", LEVEL, (hh, w) => dropFrom(o.find(hh, w), excPlace.path, id))],
     });
-  });
+  };
+  for (const c of changeOrder(h, stages, exceptions)) {
+    if (c.kind === "stage") stageGroups(c.el, c.n);
+    else exceptGroup(c.el);
+  }
+  const choice = {
+    key: `${o.key}/addReturnChange`,
+    label: `＋ ${what}の変化`,
+    help: changeHelp({ yearly: true, only: "、その年（1〜12月）だけ別の利回りにします（マイナスも入れられます）", from: "、その年から後ずっと別の利回りか資産の配分にします（次の変化まで何年かけて移すかも入れられます）" }),
+  };
   groups.push({
     key: `${o.key}/rstaged`,
     level: LEVEL,
-    // 段も例外も無い口座は、区画の説明だけ（口座ごとに同じ文を並べない）
-    ...(stages.length + exceptions.length > 0 ? { note: `${o.name}: 利回りの段階 ${stages.length}段・例外の年 ${exceptions.length}件` } : {}),
     fields: [],
     actions: [
       {
-        key: `${o.key}/addReturnStage`,
-        label: `＋ ${o.name}の利回りの段階`,
-        level: LEVEL,
-        run: (w) =>
-          mutate(w, (hh, req) => {
-            const w2 = { ...w, request: req };
-            const t = o.find(hh, w2);
-            if (t === undefined) return;
-            pushTo(t, stagesPlace.path, { id: newId(), at: nextStageAt(w2, listAt(t, stagesPlace.path)), expectedReturn: o.rate(hh) ?? "0.03" });
-          }),
-      },
-      {
         key: `${o.key}/addReturnException`,
-        label: `＋ ${o.name}の利回りの例外の年`,
+        label: ONLY_YEAR,
         level: LEVEL,
+        choice,
         run: (w) =>
           mutate(w, (hh, req) => {
             const w2 = { ...w, request: req };
             const t = o.find(hh, w2);
             if (t === undefined) return;
             pushTo(t, excPlace.path, { id: newId(), year: nextYear(w2, listAt(t, excPlace.path)), expectedReturn: "0" });
+          }),
+      },
+      {
+        key: `${o.key}/addReturnStage`,
+        label: fromNowOn(true),
+        level: LEVEL,
+        choice,
+        run: (w) =>
+          mutate(w, (hh, req) => {
+            const w2 = { ...w, request: req };
+            const t = o.find(hh, w2);
+            if (t === undefined) return;
+            pushTo(t, stagesPlace.path, { id: newId(), at: nextStageAt(w2, listAt(t, stagesPlace.path)), expectedReturn: o.rate(hh) ?? "0.03" });
           }),
       },
     ],

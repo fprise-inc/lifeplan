@@ -294,8 +294,17 @@ html.big .lever input[type="range"] { height: 36px; }
 .grp-more .grp-more-btn:hover, .grp-more .grp-more-btn:focus-visible { text-decoration: underline; }
 .grp-more-body { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--card-line); }
 .in-group.compact .grp-more, .in-group.compact .grp-more-body { grid-column: 1 / -1; }
+/* 「▸ 詳しく」で欄を入れ替えた所の知らせ（例: 受け取り開始を基礎と厚生に分けた。0078 の 2026-10-29 の追記） */
+.grp-more-swap { margin: 4px 0 0; font-size: 0.8rem; color: var(--ink-2); }
 .sv-more-row > td { background: #fcfcfb; padding: 2px 10px 10px; }
 .sv-more-row .in-group { margin: 4px 0; background: #fff; }
+/* まとまりの中に描くまとまり（placeIn。行の額の近くに並べる額の変化。0040 の 2026-10-29 の追記）: 左の線で、どの行の物か分かるように */
+.in-group .in-group { background: #fff; margin: 8px 0 8px 2px; border-left: 3px solid var(--prop-bg); }
+.in-group .in-group + .in-actions, .in-group > .in-actions:not(:last-child) { margin-bottom: 6px; }
+/* 選択肢をまとめた「＋」のボタン（「＋ 月額の変化」→「この年だけ」「この月から先」） */
+.add-choice { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.add-choice-opts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding-left: 8px; border-left: 2px solid var(--prop-bg); }
+.add-btn.add-choice-opt { font-weight: 600; }
 .fld-c select { max-width: 100%; }
 .fld-c input.bad { border-color: var(--short); background: var(--short-bg); }
 .fld-c input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--prop); }
@@ -648,11 +657,14 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
   .cg-break th, .cg-break td { padding: 5px 4px; }
   .cg-break th[scope="row"], .cg-break thead th { white-space: normal; }
 }
-/* ③ 想定の前提（対策の欄と同じ部品。広い画面で3列、狭いと2列・1列） */
-.cg-sec { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-2); }
-.cg-sec:first-of-type { border-top: 0; padding-top: 0; }
-.cg-sec-h { margin: 0; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.cg-sec .in-note { margin: 2px 0 0; }
+/* ③ 想定の前提（対策の欄と同じ部品・同じ操作。選んでいる場面の項目だけ。0085） */
+.cg-scene-note { margin: 2px 0 4px; }
+.cg-premises .lever.inactive .lever-label { color: var(--ink-2); }
+.cg-checks { display: grid; gap: 2px; margin-top: 6px; font-size: 0.88rem; }
+.cg-check { display: flex; gap: 6px; align-items: center; }
+.cg-check input { width: 16px; height: 16px; accent-color: var(--prop); }
+.cg-prot-diff { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--line-2); }
+.cg-prot-diff .link-btn { margin-left: 6px; }
 /* 想定の前提の並びは対策と同じ 4 → 2 → 1 列（大きな文字は 2 → 1。0084） */
 .cg-premises .lv-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .cg-gh { grid-column: 1 / -1; font-weight: 700; font-size: 0.9rem; margin: 8px 0 -4px; display: flex; gap: 4px 10px; flex-wrap: wrap; align-items: baseline; }
@@ -662,8 +674,7 @@ html.big .chart .line-prop2 { stroke-width: 3.5; }
 .cg-premises .lever.field .fld-l > :not(.help), .cg-premises .lever.field .fld-l > .help:has(.help-mark) { display: none; }
 .cg-premises .lever.field .fld-c select { max-width: 100%; font-weight: 700; }
 .cg-premises .cg-auto { margin-left: 8px; font-size: 0.8rem; }
-/* 0071: 前提の欄の形式・直す先・プランで共通と違う値の印（縦線と「共通: ○○」「↺ 共通に戻す」） */
-.cg-premises .lv-head .seg-g { margin-left: auto; }
+/* 0071: 前提を直す先・プランで共通と違う値の印（縦線と「共通: ○○」「↺ 共通に戻す」） */
 .ip-assume-list td:nth-child(4), .ip-assume-list th:nth-child(4) { white-space: nowrap; }
 .ip-assume-list .sub.warn { display: block; color: var(--warn, #9a3412); }
 .cg-plan-to { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 8px; font-size: 0.9rem; }
@@ -1376,6 +1387,9 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .os-pct { display: grid; gap: 2px; font-size: 0.88rem; }
 .os-in input { width: 6em; margin-right: 4px; }
 .os-pct small { color: var(--ink-2); font-size: 0.76rem; }
+/* 万一のときのタブの既定（0085）: 長い選択肢は欄の幅で切る */
+.os-pct select { max-width: 100%; min-width: 0; }
+[data-office-contingency] .os-lever-group > .os-pct { margin-top: 6px; }
 @media (max-width: 640px) { .os-cards { columns: 1; } }
 /* 面談の準備（世帯の中身の一覧・次の1年・見直し）と結果のタブの気づき（0074） */
 .fp-tools { justify-content: flex-start; }

@@ -794,6 +794,8 @@ export interface EngineRequest {
     household: Household;
     assumptions?: { investmentReturn: YearSeries; wageGrowth?: YearSeries; inflation?: YearSeries; educationInflation?: YearSeries; pensionMacroSlide?: YearSeries; assetReturns?: Record<string, YearSeries>; realEstateValuation?: RealEstateValuationSetting; investment?: InvestmentSetting; assetVolatility?: Record<string, string>; returnShifts?: ReturnShift[]; surplusSaving?: SurplusSavingSetting; withdrawal?: { order?: ({ kind: string } | { object: string })[]; minimumDeposit?: number }; marketShocks?: { year: number; drop: string; kinds?: string[]; assetClasses?: string[] }[]; pensionMacroSlideEmployee?: YearSeries; incomeShocks?: { id?: string; member: string; from: string; to: string; ratio: string }[]; [key: string]: unknown };
     contingencies?: Contingency[];
+    /** 働き方の置き換え（0085。万一の重ねの後に、期間の始まりからその人の働き方の期間を置き換える） */
+    workChanges?: EmploymentPeriod[];
     protection?: ProtectionRequest;
     inheritanceTax?: InheritanceTaxRequest;
     /** 遺したい額（0060。表示だけ。計算には使わない） */

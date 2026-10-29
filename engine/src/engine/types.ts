@@ -1046,6 +1046,8 @@ export interface EngineInput {
     readonly surplusSaving?: SurplusSavingSetting;
   };
   readonly contingencies?: readonly ContingencyInput[];
+  /** 働き方の置き換え（0085。万一の想定の有無によらず、期間の始まりからその人の働き方の期間を置き換える。万一の重ねの後） */
+  readonly workChanges?: readonly EmploymentPeriodInput[];
   readonly stressTest?: StressTestInput;
   readonly protection?: ProtectionRequest;
   /** 相続税の目安（0039。指定したときだけ計算し、出力の inheritanceTax に出す。お金の流れには入れない） */

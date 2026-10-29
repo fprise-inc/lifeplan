@@ -29,6 +29,8 @@ function withIds<T extends { request: { input: unknown } }>(wh: T): T {
 }
 import { keyLines } from "../src/workspace/store/RecoveryPanel.tsx";
 import type { StatementLog } from "../../statement/src/index.ts";
+import { scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
+import { premiseFor } from "../src/workspace/contingency/planPremise.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const NOW = "2026-10-18T10:00:00.000Z";
@@ -450,6 +452,22 @@ function sample035(): BodyState {
   return { ...s, wh: setNoticeAck(wh, n.id, n.of, "2026-10-29") };
 }
 
+/**
+ * 0.36 の見本の世帯（0085）: sample035() の万一の前提に、就業不能・収入が減るの場面の配偶者の働き方（partnerWork）を足し、
+ * 最初のプランで収入が減るの場面の配偶者の年収を上書きする差分を足す
+ */
+function sample036(): BodyState {
+  const s = sample035();
+  const hh = s.wh.request.input.household;
+  const spouse = hh.members.find((m) => m.kind === "spouse")!;
+  const c = structuredClone(s.wh.contingency);
+  c.partnerWork = { disability: { [spouse.id]: { type: "regular", annualSalary: 3000000, afterMonths: 3, untilAge: 60 } }, income: { [spouse.id]: { type: "partTime" } } };
+  const box = (value: unknown) => ({ value, state: "confirmed", origin: { kind: "manual" } });
+  const diff = { id: "00000000-0000-4000-8000-00000000a036", op: "set" as const, target: { plan: "contingency" as const }, item: "contingencyPremise.partnerWork", at: ["income", spouse.id, "annualSalary"], value: box(1500000), before: box(null), enabled: true, origin: { kind: "manual" as const }, note: null };
+  const proposals = s.wh.proposals.map((p, i) => (i === 0 ? { ...p, diffs: [...p.diffs, diff] } : p));
+  return { ...s, wh: { ...s.wh, contingency: c, proposals } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -573,7 +591,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.35");
+    expect(BODY_FORMAT_VERSION).toBe("0.36");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -727,7 +745,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample035())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample036())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -909,6 +927,24 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const odd = fromBody(JSON.stringify({ ...stored, household: { ...stored.household, noticeAcks: [{ id: "x", of: [], on: "2026-10-29" }, { id: n.id, of: n.of, on: "昨日" }, 3] } }));
     expect("noticeAcks" in odd.wh).toBe(false);
     expect("noticeAcks" in bodyObject(sample034()).household).toBe(false);
+  });
+
+  it("0.36 の形（0085）: 就業不能・収入が減るの場面の配偶者の働き方を保存して読み戻し、場面の要求の働き方の置き換えに入れる。プランの上書きも当てる", () => {
+    const s = sample036();
+    const stored = bodyObject(s) as unknown as { household: { contingency: Record<string, unknown> } };
+    const spouse = s.wh.request.input.household.members.find((m) => m.kind === "spouse")!;
+    expect(stored.household.contingency.partnerWork).toEqual({ disability: { [spouse.id]: { type: "regular", annualSalary: 3000000, afterMonths: 3, untilAge: 60 } }, income: { [spouse.id]: { type: "partTime" } } });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    const sc = scenarios(back.wh).find((x) => x.key === "disability:self")!;
+    const ch = scenarioRequest(back.wh, sc, 2030).input.workChanges![0]!;
+    expect(ch).toMatchObject({ member: spouse.id, from: { at: "2030-04" }, type: "regular" });
+    expect(ch.salary?.annual.value).toBe(3000000);
+    expect(() => preview(scenarioRequest(back.wh, sc, 2030))).not.toThrow();
+    const planId = back.wh.proposals[0]!.id;
+    expect(premiseFor(back.wh, planId).partnerWork?.income?.[spouse.id]).toEqual({ type: "partTime", annualSalary: 1500000 });
+    // 0.35 の見本には欄が無い
+    expect("partnerWork" in (bodyObject(sample035()).household as unknown as { contingency: Record<string, unknown> }).contingency).toBe(false);
   });
 
   it("0.24 の形（0060・0061）: 相続税の目安の設定と遺したい額を要求の入力に保存して読み戻す。エンジンへ渡す要求からは外れ、結果は同じ", () => {
