@@ -310,6 +310,69 @@ describe("区画（0048 の3〜5）", () => {
     expect(() => preview(wh.request)).not.toThrow();
   });
 
+  it("年払いのひな形のボタンは名前だけ（額を出さない）。足した行の額と何年ごとは推定で、根拠はよくある目安。この値にするで確定", () => {
+    let wh = family();
+    const sec = stage(wh).sections.find((s) => s.key === "money/living/out")!;
+    expect(sec.actions.filter((a) => a.key.startsWith("money/living/out/template/")).map((a) => a.label)).toEqual(["＋ 帰省", "＋ 家電・家具の買い替え", "＋ 年会費・サブスクの年払い", "＋ スマホの買い替え", "＋ パソコンの買い替え"]);
+    expect(sec.actions.every((a) => !/[（(]/u.test(a.label))).toBe(true);
+    wh = sec.actions.find((a) => a.key === "money/living/out/template/appliances")!.run(wh);
+    const p = wh.request.input.household.periodicExpenses!.at(-1)!;
+    expect(p).toMatchObject({ label: "家電・家具の買い替え", everyYears: 8, amount: { value: 400000, state: "estimated", estimate: { method: "standard" } } });
+    const amount = fieldOf(wh, `ev/${p.id}/amount`);
+    const every = fieldOf(wh, `ev/${p.id}/every`);
+    expect(fieldStatus(amount, wh)).toMatchObject({ status: "estimated", basis: "よくある額の目安（家電・家具の買い替え 8年ごとに40万円。この世帯に合わせて直してください）" });
+    expect(fieldStatus(every, wh)).toMatchObject({ status: "estimated", basis: "よくある間隔の目安（家電・家具の買い替え 8年ごと。この世帯に合わせて直してください）" });
+    // 確かめの一覧のボタンも名前だけ。冠婚葬祭・お年玉は一覧に置かない（毎月の「その他の消費」と重なりやすい）
+    const check = stage(wh).sections.find((s) => s.key === "money/living/out")!.groups.find((g) => g.key === "living/annual/check")!;
+    expect(check.actions.map((a) => a.label)).toEqual(["＋ 帰省", "＋ 年会費・サブスクの年払い", "＋ スマホの買い替え", "＋ パソコンの買い替え", "＋ 通院・歯の治療", "＋ ペットの医療", "＋ 旅行"]);
+    expect(check.fields.some((f) => /ceremonies|gifts/u.test(f.key))).toBe(false);
+    // 保存して開き直しても何年ごとの推定の印が残る（物の値の状態の欄の推定の行）
+    const state: BodyState = { wh, workspace: { template: null, band: [], base: CURRENT, selected: CURRENT, shownItems: [] }, display: { result: DEFAULT_DISPLAY_SETTINGS, balance: DEFAULT_BALANCE_SETTINGS }, carry: EMPTY_CARRY };
+    const back = fromBody(bodyOf(state)).wh;
+    expect(back.assumed[`ev/${p.id}/every`]).toBe(wh.assumed[`ev/${p.id}/every`]);
+    expect(fieldStatus(fieldOf(back, `ev/${p.id}/amount`), back).status).toBe("estimated");
+    // 「この値にする」で確定（値はそのまま）
+    const w1 = applyStateOp(wh, every, "confirm");
+    expect(fieldStatus(fieldOf(w1, `ev/${p.id}/every`), w1).status).toBe("confirmed");
+    expect(w1.request.input.household.periodicExpenses!.at(-1)!.everyYears).toBe(8);
+    const w2 = applyStateOp(w1, fieldOf(w1, `ev/${p.id}/amount`), "confirm");
+    expect(w2.request.input.household.periodicExpenses!.at(-1)!.amount).toMatchObject({ value: 400000, state: "confirmed" });
+    // 何年ごとを直すと推定の印が外れる
+    const w3 = every.set(wh, 6);
+    expect(w3.assumed[`ev/${p.id}/every`]).toBeUndefined();
+    expect(fieldStatus(fieldOf(w3, `ev/${p.id}/every`), w3).status).toBe("confirmed");
+    // 時期を毎月・1回にすると何年ごとの欄は消えるので、印も外す
+    const w4 = fieldOf(wh, `ev/${p.id}/cadence`).set(wh, "monthly");
+    expect(w4.assumed[`ev/${p.id}/every`]).toBeUndefined();
+    expect(() => preview(wh.request)).not.toThrow();
+  });
+
+  it("スマホは1台分（4年ごとに12万円）、パソコンは5年ごとに15万円。家具だけの古い行も家電・家具の買い替えとして「入れた」", () => {
+    let wh = family();
+    const sec = stage(wh).sections.find((s) => s.key === "money/living/out")!;
+    const phone = sec.actions.find((a) => a.key === "money/living/out/template/smartphone")!;
+    expect(phone.help).toContain("1台分");
+    wh = phone.run(wh);
+    const p = wh.request.input.household.periodicExpenses!.at(-1)!;
+    expect(p).toMatchObject({ label: "スマホの買い替え", everyYears: 4, amount: { value: 120000 } });
+    expect(fieldStatus(fieldOf(wh, `ev/${p.id}/amount`), wh).basis).toBe("よくある額の目安（スマホの買い替え 1台 4年ごとに12万円。この世帯に合わせて直してください）");
+    wh = sec.actions.find((a) => a.key === "money/living/out/template/pc")!.run(wh);
+    expect(wh.request.input.household.periodicExpenses!.at(-1)!).toMatchObject({ label: "パソコンの買い替え", everyYears: 5, amount: { value: 150000 } });
+    // 前に足した「家具の買い替え」の行だけでも、家電・家具の買い替えは入れた
+    let w2 = family();
+    w2 = sec.actions.find((a) => a.key === "money/living/out/template/homecoming")!.run(w2);
+    const id = w2.request.input.household.periodicExpenses!.at(-1)!.id;
+    w2 = fieldOf(w2, `ev/${id}/label`).set(w2, "家具の買い替え");
+    const check = stage(w2).sections.find((s) => s.key === "money/living/out")!.groups.find((g) => g.key === "living/annual/check")!;
+    expect(check.fields.find((f) => f.key === "ro/living/annual/check/appliances")!.get(w2).value).toContain("入れた（家具の買い替え）");
+    // 前に入れた「冠婚葬祭」の行は、ふつうの行のまま（確かめの一覧には出さない）
+    w2 = fieldOf(w2, `ev/${id}/label`).set(w2, "冠婚葬祭のつきあい");
+    const sec2 = stage(w2).sections.find((s) => s.key === "money/living/out")!;
+    expect(sec2.groups.some((g) => g.key === `ev/${id}`)).toBe(true);
+    expect(sec2.groups.find((g) => g.key === "living/annual/check")!.fields.some((f) => f.get(w2).value === "入れた（冠婚葬祭のつきあい）")).toBe(false);
+    expect(() => preview(wh.request)).not.toThrow();
+  });
+
   it("明細の年1回の支払いは、年払いの暮らしの支出の行の候補（車・住まいの修繕は今までどおり）", () => {
     const summary = {
       days: 400,

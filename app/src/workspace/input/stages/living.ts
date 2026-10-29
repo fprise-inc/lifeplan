@@ -10,7 +10,7 @@ import { resolveTimepoint } from "../../timepoint.ts";
 import { livingCategoryAverages } from "../../../../../hearing/src/estimates.ts";
 import { householdSize, isPureSplit, livingEstimate, splitCategories } from "../estimates.ts";
 import { byId, field, getPath, plain, removeAction, timepointField, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef } from "../form.ts";
-import { confirmedBox, mutate, newId, presetBasis, type WorkingHousehold } from "../household.ts";
+import { confirmedBox, mutate, newId, presetBasis, standardBox, type WorkingHousehold } from "../household.ts";
 import { GROWTH_KINDS, LIVING_CATEGORIES, LIVING_STAGE_LABELS, memberLabel } from "../labels.ts";
 import { applyAutoStages, autoActive, autoBasis, autoStages, autoStageTitle, isAutoStage, rememberDropped, settleStage, startLiving } from "../livingStages.ts";
 import { addExpense, expenseCard, MEDICAL_HELP, moneySections } from "../moneyRows.ts";
@@ -623,34 +623,53 @@ export interface AnnualTemplate {
   everyYears: number;
   row?: string;
   match: RegExp;
+  /** 額の数え方（「1台」。根拠の文に書く） */
+  per?: string;
+  /** ボタンの「?」 */
+  help?: string;
 }
 
-/** 聞き漏れの確かめの一覧（ひな形の目安。統計ではない） */
+/**
+ * 聞き漏れの確かめの一覧（ひな形の目安。統計ではない）。並びの初めの5つ（帰省・家電と家具・年会費・スマホ・パソコン）は、行が無いときの簡易のボタンにもする。
+ * 家電と家具は1つにまとめた（前の家電 8年ごとに25万円と家具 10年ごとに20万円の年あたりとほぼ同じ 8年ごとに40万円）。名前の当て方は家電・家具の両方。
+ * 冠婚葬祭のつきあい・お年玉と贈り物は、毎月の生活費の「その他の消費（こづかい・交際費など）」と重なりやすいので一覧に置かない（前に入れた行はふつうの行のまま）
+ */
 export const ANNUAL_TEMPLATES: readonly AnnualTemplate[] = [
   { key: "homecoming", label: "帰省", amount: 100000, everyYears: 1, match: /帰省/u },
-  { key: "appliances", label: "家電の買い替え", amount: 250000, everyYears: 8, match: /家電/u },
-  { key: "furniture", label: "家具の買い替え", amount: 200000, everyYears: 10, match: /家具/u },
+  { key: "appliances", label: "家電・家具の買い替え", amount: 400000, everyYears: 8, match: /家電|家具/u },
   { key: "fees", label: "年会費・サブスクの年払い", amount: 30000, everyYears: 1, match: /年会費|サブスク|会費/u },
-  { key: "ceremonies", label: "冠婚葬祭のつきあい", amount: 50000, everyYears: 1, match: /冠婚|葬祭|祝儀|香典|つきあい/u },
-  { key: "gifts", label: "お年玉・贈り物", amount: 30000, everyYears: 1, match: /お年玉|贈り物|歳暮|中元|ギフト/u },
+  { key: "smartphone", label: "スマホの買い替え", amount: 120000, everyYears: 4, per: "1台", help: "1台分の額です。家族の分も入れるときは、1人1行ずつ足してください（2行目からは「＋ 年払い・数年おきの支出」で足せます）", match: /スマホ|スマートフォン|携帯電話/u },
+  { key: "pc", label: "パソコンの買い替え", amount: 150000, everyYears: 5, match: /パソコン/u },
   { key: "medical", label: "通院・歯の治療", amount: 50000, everyYears: 1, row: "cf.expense.care.medical", match: /通院|歯|治療|医療|病院/u },
   { key: "pet", label: "ペットの医療", amount: 50000, everyYears: 1, match: /ペット|動物病院/u },
   { key: "travel", label: "旅行", amount: 200000, everyYears: 1, match: /旅行/u },
 ];
 
-const templateText = (t: AnnualTemplate) => `${t.label}（${t.everyYears === 1 ? "年" : `${t.everyYears}年ごとに`}${man(t.amount)}）`;
+/** ひな形の額と間隔の文字（「年10万円」「8年ごとに40万円」）。ボタンには出さず、推定の根拠の文に使う */
+const templateAmountText = (t: AnnualTemplate) => `${t.everyYears === 1 ? "年" : `${t.everyYears}年ごとに`}${man(t.amount)}`;
 
-/** ひな形の行を足す（額は目安のボタンの値＝推定） */
+/**
+ * ひな形の推定の根拠の文。ボタンの名前に額を出さないので、足した行の額と何年ごとを推定（出し方 standard）にして、根拠に目安の値を書く。
+ * 原本で確かめた統計ではないので「よくある額の目安」「よくある間隔の目安」と書く
+ */
+export const annualBasis = (t: AnnualTemplate) => ({
+  amount: `よくある額の目安（${t.label} ${t.per !== undefined ? `${t.per} ` : ""}${templateAmountText(t)}。この世帯に合わせて直してください）`,
+  everyYears: `よくある間隔の目安（${t.label} ${t.everyYears === 1 ? "毎年" : `${t.everyYears}年ごと`}。この世帯に合わせて直してください）`,
+});
+
+/** ひな形の行を足す（額と何年ごとは目安＝推定。何年ごとは物の値の状態の欄を持たない数なので、仮の印で持つ） */
 export function addAnnual(wh: WorkingHousehold, t: AnnualTemplate, id: string = newId()): WorkingHousehold {
   const w = addExpense(wh, "livingAnnual", id);
-  return mutate(w, (h) => {
+  const basis = annualBasis(t);
+  const next = mutate(w, (h) => {
     const p = (h.periodicExpenses ?? []).find((x) => x.id === id);
     if (p === undefined) return;
     p.label = t.label;
     p.everyYears = t.everyYears;
     if (t.row !== undefined) p.row = t.row;
-    p.amount = { value: t.amount, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: presetBasis(`ひな形の目安 ${templateText(t)}`) } } as PeriodicExpense["amount"];
+    p.amount = standardBox(t.amount, basis.amount) as PeriodicExpense["amount"];
   });
+  return { ...next, assumed: { ...next.assumed, [`ev/${id}/every`]: basis.everyYears } };
 }
 
 const CARD_NAMES: Record<string, string> = { events: "ライフイベント", housing: "住まい・ローン", car: "車", education: "子ども・教育", care: "介護・親", living: "基本生活費" };
@@ -666,30 +685,31 @@ function annualChecklist(wh: WorkingHousehold, skip: ReadonlySet<string>): Group
     if (hit !== undefined) {
       const card = expenseCard(h, hit);
       fields.push({ ...readLine(`living/annual/check/${t.key}`, t.label, `入れた（${hit.label ?? t.label}）`, CARD_NAMES[card] ?? "ライフイベント"), level: "detail" });
-    } else if (!skip.has(t.key)) actions.push({ key: `living/annual/add/${t.key}`, label: `＋ ${templateText(t)}`, level: "detail", run: (w) => addAnnual(w, t) });
+    } else if (!skip.has(t.key)) actions.push({ key: `living/annual/add/${t.key}`, label: `＋ ${t.label}`, ...(t.help !== undefined ? { help: t.help } : {}), level: "detail", run: (w) => addAnnual(w, t) });
   }
   // ほかのカードで入れる物（入れたかを、そのカードの物から見る）
   const owned = (h.residences ?? []).some((r) => r.kind === "own");
   fields.push({ ...readLine("living/annual/check/propertyTax", "固定資産税・修繕", owned ? "持ち家の固定資産税・修繕費は、住まいの物で入れます" : "持ち家なし", "住まい・ローン"), level: "detail" });
   fields.push({ ...readLine("living/annual/check/car", "自動車税・車検", (h.cars ?? []).length > 0 ? `車 ${(h.cars ?? []).length}台（税・車検は車の維持費で入れます）` : "車なし", "車"), level: "detail" });
   fields.push({ ...readLine("living/annual/check/insurance", "保険の年払い", (h.insuranceContracts ?? []).length > 0 ? `保険 ${(h.insuranceContracts ?? []).length}件（保険料は保険の契約で入れます）` : "まだありません", "保険"), level: "detail" });
-  return { key: "living/annual/check", title: "年1回・数年に1回の支出の確かめ", note: "よくある年払い・数年おきの支出です。まだ入れていない物は、ひな形の目安の額で足せます（足した後に直してください）", level: "detail", fields, actions };
+  return { key: "living/annual/check", title: "年1回・数年に1回の支出の確かめ", note: "よくある年払い・数年おきの支出です。まだ入れていない物は、よくある額と間隔の目安（推定）で足せます（足した後に直してください）", level: "detail", fields, actions };
 }
 
 function annualSection(wh: WorkingHousehold): SectionDef | null {
   const out = moneySections(wh, "living", { claimed: NONE, level: "simple", outTitle: "年払い・数年おきの暮らしの支出" }).find((s) => s.key.endsWith("/out"));
   if (out === undefined) return null;
   const empty = out.groups.length === 0;
-  const QUICK = new Set(["homecoming", "appliances", "fees"]);
+  const QUICK = new Set(["homecoming", "appliances", "fees", "smartphone", "pc"]);
   const quick = ANNUAL_TEMPLATES.filter((t) => QUICK.has(t.key)).map((t): ActionDef => ({
     key: `money/living/out/template/${t.key}`,
-    label: `＋ ${templateText(t)}`,
+    label: `＋ ${t.label}`,
+    ...(t.help !== undefined ? { help: t.help } : {}),
     level: "simple",
     run: (w) => addAnnual(w, t),
   }));
   return {
     ...out,
-    note: `${empty ? "まだありません。" : ""}帰省・家電の買い替え・年会費など、年1回・数年に1回の暮らしの支出です。表の行の既定は「基本生活費に含める」（医療費は「医療・介護」の行にもできます）`,
+    note: `${empty ? "まだありません。" : ""}帰省・家電や家具・スマホ・パソコンの買い替え・年会費など、年1回・数年に1回の暮らしの支出です。表の行の既定は「基本生活費に含める」（医療費は「医療・介護」の行にもできます）`,
     groups: [...out.groups, annualChecklist(wh, empty ? QUICK : new Set<string>())],
     actions: [...(empty ? quick : []), ...out.actions.map((a) => ({ ...a, label: "＋ 年払い・数年おきの支出" }))],
   };
