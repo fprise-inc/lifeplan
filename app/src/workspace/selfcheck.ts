@@ -96,6 +96,8 @@ export async function runSelfCheck(dual: DualEngine, host: string): Promise<void
     // 打ち手を順に動かす（働く最後の年齢・年金の受け取り開始・NISA・生活費）
     // 年齢は1歳ずつのスライダー（値＝歳）
     for (const [key, to] of [["retireAge", 70], ["retireAge", 60], ["pensionAge", 70], ["nisaMonthly", "max"], ["livingMonthly", "min"], ["retireAge", 65]] as const) {
+      // 対策に出していない項目（NISA は既定では最初から出さない。0084）は飛ばす
+      if (document.querySelector(`input[data-lever="${key}"]`) === null) continue;
       const before = dual.timings.length;
       await moveLever(key, to);
       const previewHeadline = text(".sel-lbl");

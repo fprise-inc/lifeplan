@@ -1,5 +1,5 @@
 // 事務所の既定値の画面（0073。世帯の一覧の「事務所の既定値」から開く中央のパネル）:
-// 入力項目の並び・新しい世帯で出す入力項目と開いたときの入れ方・本人と配偶者の介護を最初から入れるか・受け取る予定の相続・贈与の見込みの既定・前提条件の標準値・
+// 入力項目の並び・新しい世帯で出す入力項目と開いたときの入れ方・対策に最初から出す項目（0084）・本人と配偶者の介護を最初から入れるか・受け取る予定の相続・贈与の見込みの既定・前提条件の標準値・
 // 相続税の目安の不動産の評価の割合・FP顧問料の料金表。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { STAGE_ORDER } from "../input/stages/index.ts";
@@ -7,6 +7,7 @@ import { DEFAULT_LAYOUT } from "../input/items.ts";
 import type { Level, StageId } from "../input/form.ts";
 import { ALWAYS_SHOWN, isHiddenIn, levelIn, withLevel, withShown } from "../input/itemChoice.ts";
 import { today } from "../report/assemble.ts";
+import { LEVER_KINDS, startsWith, withStart, type LeverKind } from "../plans/leverChoice.ts";
 import { ASSUMPTION_LABELS, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
 
@@ -92,6 +93,8 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
   };
   const setShown = (id: StageId, on: boolean) => setS((x) => ({ ...x, items: withShown(x.items, id, on) }));
   const setLevel = (id: StageId, l: Level) => setS((x) => ({ ...x, items: withLevel(x.items, id, l) }));
+  const setStart = (k: LeverKind, on: boolean) => setS((x) => ({ ...x, levers: withStart(x.levers, k, on) }));
+  const leverGroups = [...new Set(LEVER_KINDS.map((k) => k.group))];
   const feeTable = feeFromTexts(s.fee, fee);
   const bad = [...OFFICE_ASSUMPTIONS.filter((k) => pctToRate(texts[k] ?? "") === undefined), ...(pctToRate(texts.realEstateRatio ?? "", 0, 100) === undefined ? ["realEstateRatio"] : []), ...(feeTable === null ? ["fee"] : [])];
   const per = s.fee.per === "month" ? "月" : "年";
@@ -109,7 +112,7 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
     try {
       await onSave(next);
       setS(next);
-      setMsg({ ok: true, text: "保存しました。これから作る世帯に写します（作った世帯は変わりません）" });
+      setMsg({ ok: true, text: "保存しました。これから作る世帯に写します（作った世帯は変わりません。対策に最初から出す項目は、どの世帯にもすぐ効きます）" });
     } catch (e) {
       setMsg({ ok: false, text: `保存できませんでした（${typeof e === "string" ? e : e instanceof Error ? e.message : "E_OFFICE_SETTINGS"}）` });
     } finally {
@@ -180,6 +183,34 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
               );
             })}
           </ol>
+        </section>
+        <section class="os-sec" aria-labelledby="os-levers" data-office-levers>
+          <h3 id="os-levers">対策に最初から出す項目</h3>
+          <p class="pl-sub">
+            結果の画面の対策に、どの世帯でも最初から出す項目です。ほかの項目は、対策の「＋ 動かす項目を追加」でその場で足せます。外した項目も、プランで値を変えていれば出ます。
+            ローン・口座ごとの項目は、その世帯のローン・口座すべてに出ます（当てはまる物が無い世帯には出ません）。FP顧問料を外しても、計算は変わりません。
+          </p>
+          {leverGroups.map((g) => (
+            <div class="os-lever-group" key={g}>
+              <h4>{g === "よく使う" ? "よく使う項目" : g}</h4>
+              <ul class="os-cards os-items">
+                {LEVER_KINDS.filter((k) => k.group === g).map((k) => (
+                  <li key={k.kind} data-office-lever={k.kind}>
+                    <label class="os-show">
+                      <input type="checkbox" checked={startsWith(s.levers, k.kind)} onChange={(e) => setStart(k.kind, (e.currentTarget as HTMLInputElement).checked)} data-office-lever-show={k.kind} />
+                      <span class="os-name">{k.label}</span>
+                    </label>
+                    {"note" in k ? <small class="os-note">{k.note}</small> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <p class="pl-sub">
+            <button type="button" class="link-btn" onClick={() => setS({ ...s, levers: {} })} data-office-levers-reset>
+              標準に戻す
+            </button>
+          </p>
         </section>
         <section class="os-sec" aria-labelledby="os-care">
           <h3 id="os-care">本人・配偶者の介護の費用</h3>

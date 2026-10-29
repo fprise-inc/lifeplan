@@ -39,6 +39,16 @@ export interface ReadingEntry {
     | { unresolved: string };
 }
 
+/**
+ * 形式 0.17 より後に足した合成の対策の、画面の鍵（0036 の3 の追記・0084）。0.16 の読み替え表（凍結）には入れない。
+ * 世帯ファイルには鍵を書かず、合成の対策（向き先 `lever`）で書くので、0.16 の変換の段（本体）は読まない。画面の鍵と合成の対策を行き来するためだけに、
+ * 読み替え表の後ろに足して引く（`until` は足したときの形式の版）
+ */
+export const LATER_ENTRIES: readonly ReadingEntry[] = [{ from: "spouse:{member}:work", until: "0.35", to: { lever: "spouseWork", member: true } }];
+
+/** 画面が引く表（0.16 の読み替え表と、その後に足した合成の対策） */
+const ENTRIES: readonly ReadingEntry[] = [...READING_ENTRIES, ...LATER_ENTRIES];
+
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -237,7 +247,7 @@ function table(entries: readonly ReadingEntry[]): Compiled[] {
 }
 
 /** 鍵に合う表の行と、入っている ID・番号 */
-export function matchKey(key: string, entries: readonly ReadingEntry[] = READING_ENTRIES): { entry: ReadingEntry; object?: string; member?: string; ids: string[]; ns: number[] } | null {
+export function matchKey(key: string, entries: readonly ReadingEntry[] = ENTRIES): { entry: ReadingEntry; object?: string; member?: string; ids: string[]; ns: number[] } | null {
   for (const c of table(entries)) {
     const m = c.re.exec(key);
     if (m === null) continue;
@@ -255,7 +265,7 @@ export function matchKey(key: string, entries: readonly ReadingEntry[] = READING
 }
 
 /** 古い鍵を読み替える（表に無い鍵は null）。input は 0.16 の世帯の要求の `input` */
-export function resolveKey(key: string, input: Obj, entries: readonly ReadingEntry[] = READING_ENTRIES): Reading | null {
+export function resolveKey(key: string, input: Obj, entries: readonly ReadingEntry[] = ENTRIES): Reading | null {
   const m = matchKey(key, entries);
   if (m === null) return null;
   const to = m.entry.to;
@@ -319,7 +329,7 @@ export function resolveKey(key: string, input: Obj, entries: readonly ReadingEnt
 }
 
 /** 仮の印の欄のキーを読み替える（`assumed:` の型を先に〔推定の出し方を持つ〕、無ければ `field:` の型） */
-export function resolveAssumedKey(key: string, input: Obj, entries: readonly ReadingEntry[] = READING_ENTRIES): Reading | null {
+export function resolveAssumedKey(key: string, input: Obj, entries: readonly ReadingEntry[] = ENTRIES): Reading | null {
   return resolveKey(`assumed:${key}`, input, entries) ?? resolveKey(`field:${key}`, input, entries);
 }
 
@@ -389,7 +399,7 @@ function matchSteps(input: Obj, target: Target, item: string, steps: readonly At
  * 足した項目の鍵。戻した鍵を表で読み直して同じになるものだけを返す（同じ当て先になる鍵が複数あれば、探す決まりの順で最初のもの:
  * 合成の対策は欄でない鍵を先に、当て先は働き方の期間を探さない鍵を先に）
  */
-export function keyOf(reading: Reading, input: Obj, kind: "item" | "assumed" = "item", entries: readonly ReadingEntry[] = READING_ENTRIES, prefer?: (key: string) => boolean): string | null {
+export function keyOf(reading: Reading, input: Obj, kind: "item" | "assumed" = "item", entries: readonly ReadingEntry[] = ENTRIES, prefer?: (key: string) => boolean): string | null {
   const all = keysOf(reading, input, kind, entries);
   return (prefer !== undefined ? all.find(prefer) : undefined) ?? all[0] ?? null;
 }
@@ -398,7 +408,7 @@ export function keyOf(reading: Reading, input: Obj, kind: "item" | "assumed" = "
  * 当て先・合成の対策に戻る鍵のすべて（探す決まりの順）。同じ当て先を2つの鍵が指すことがある（住宅ローンの借入額の欄と、対策に足した
  * 借入額の項目など）。結果のタブで使うときは、動かす項目の一覧にある鍵を選ぶ（keyOf の prefer）
  */
-export function keysOf(reading: Reading, input: Obj, kind: "item" | "assumed" = "item", entries: readonly ReadingEntry[] = READING_ENTRIES): string[] {
+export function keysOf(reading: Reading, input: Obj, kind: "item" | "assumed" = "item", entries: readonly ReadingEntry[] = ENTRIES): string[] {
   const found: string[] = [];
   if (reading.kind === "unresolved") return found;
   const rank = (e: ReadingEntry): number => {
