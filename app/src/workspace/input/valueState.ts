@@ -38,6 +38,14 @@ export const OP_LABELS: Readonly<Record<StateOp, string>> = {
   notApplicable: "該当なし",
 };
 
+/** 操作のリンクの説明（title。押すと何が変わるか） */
+export const OP_TITLES: Readonly<Record<StateOp, string>> = {
+  confirm: "推定の値をこの欄にそのまま入れます（確定になります）",
+  revert: "入れた値を消して、推定の値で計算します",
+  unknown: "わからないことを残して、推定の値を代わりに使って計算します",
+  notApplicable: "この額は無いものとして計算します",
+};
+
 /**
  * 欄の横（数の欄は欄の中）に出す、推定の値をそのまま欄に入れるボタン（値の状態の操作の確定と同じ。0041 の追記）。
  * 推定の値は欄に灰色で見えているので、「入れる」の1押しで確定にする
@@ -110,16 +118,41 @@ export function fieldStatus(f: FieldDef, wh: WorkingHousehold): FieldStatus {
 /** 状態を変えられる数の欄か（選択・オンオフ・名前・年月の欄は「わからない」「該当なし」を持たない） */
 const NUMERIC = new Set(["yen", "int", "pct", "decimal"]);
 
-/** 欄で使える操作（その状態で意味のあるものだけ） */
+/**
+ * 「わからない」を出さない入力項目（前提条件・表の期間など、FP が決める値。世帯に聞く値ではないので、わからないは意味を持たない。
+ * 決まらなければ空欄のまま既定の値で計算する）
+ */
+const PREMISE_ITEM = /^(assumptions|plan)\./;
+
+/**
+ * 「該当なし」を出す入力項目（0041 の 2026-10-29 の追記）: 空欄なら推定の額で計算し、しかもその物そのものが無い人がいる額。
+ * 賞与の無い勤め先・住民税のかからない年・退職金の制度の無い勤め先。ここで「該当なし」を押すと、推定の額を使わず無いものとして計算する。
+ * ほかの欄は、空欄が「無い」（推定を持たない欄）か、その物があれば必ずある額（基本生活費・年収・車両の価格など）か、0円で同じことが言えるので出さない
+ */
+const MAY_BE_NONE = new Set(["employment.salary.bonus", "residentTaxAssessment.amount", "retirementBenefit.amount"]);
+
+/** 欄が推定の値を持つか（空欄にすると推定で計算する・今の値が推定）。「わからない」の代わりの値になる */
+const hasEstimate = (f: FieldDef, s: FieldStatus): boolean => f.blankIsEstimate === true || f.blankEstimate !== undefined || s.status === "estimated";
+
+/**
+ * 欄で使える操作（その欄・その状態で意味のあるものだけ。0041 の 2026-10-29 の追記）
+ * - この値にする: 推定（わからないなら代わりの値）を、その値のまま確定にできる
+ * - 推定に戻す: 空欄にすると推定で計算する欄で、今は推定でない
+ * - わからない: 世帯に聞く数の値で、代わりに使う推定がある欄（推定の無い欄は、わからないにしても代わりの値が無いので出さない）
+ * - 該当なし: 推定の額のある欄のうち、物そのものが無いことがある額（MAY_BE_NONE）
+ * 前に入れた「わからない」「該当なし」が今は出さない欄にあっても、戻す操作（この値にする・推定に戻す・打ち直す）は今までどおり
+ */
 export function availableOps(f: FieldDef, wh: WorkingHousehold, s: FieldStatus = fieldStatus(f, wh)): StateOp[] {
   if (f.readOnly !== undefined) return [];
   const out: StateOp[] = [];
   const a = fieldAddress(f, wh);
   const stateful = f.boxed !== undefined || a !== null;
-  if ((s.status === "estimated" && confirmable(f, wh, a)) || (s.status === "unknown" && f.get(wh).value !== null)) out.push("confirm");
+  const value = f.get(wh).value;
+  if ((s.status === "estimated" && confirmable(f, wh, a)) || (s.status === "unknown" && value !== null)) out.push("confirm");
   if (f.blankIsEstimate === true && s.status !== "estimated") out.push("revert");
-  if (stateful && NUMERIC.has(f.kind) && s.status !== "unknown" && (f.get(wh).value !== null || f.blankIsEstimate === true)) out.push("unknown");
-  if (stateful && f.kind === "yen" && f.optional === true && s.status !== "notApplicable") out.push("notApplicable");
+  const asked = stateful && (f.item === null || !PREMISE_ITEM.test(f.item));
+  if (asked && NUMERIC.has(f.kind) && s.status !== "unknown" && hasEstimate(f, s) && (value !== null || f.blankIsEstimate === true) && s.status !== "missing") out.push("unknown");
+  if (asked && f.kind === "yen" && f.optional === true && s.status !== "notApplicable" && f.blankIsEstimate === true && f.item !== null && MAY_BE_NONE.has(f.item)) out.push("notApplicable");
   return out;
 }
 
