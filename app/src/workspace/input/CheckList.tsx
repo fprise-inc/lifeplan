@@ -3,6 +3,7 @@
 // - 絞り込み: カード・状態（種類と「次回確かめる」）・出どころ（手で・ヒアリング・取り込み・AI・自動）・確かさ（書類・申告・概算）。
 //   確かさが申告・概算の確定の値は、確かさか種類で絞り込んだときだけ出す
 // - 行ごとの「次回確かめる」の印（recheck.ts。世帯ファイルに残す）と、印の行の書き出し（面談で確かめることの文）
+// - 確かめの注意の「確認した」（noticeAck.ts。世帯ファイルに残す）。確認した注意は状態の絞り込み「確認した注意」に並べ、「また出す」で戻す
 // - プランの編集中は、そのプランで足した物の推定・未入力も出す（札「プランBで足した」。行の操作はそのプランの差分になる）
 import { useMemo, useState } from "preact/hooks";
 import type { Level } from "./form.ts";
@@ -10,7 +11,7 @@ import type { WorkingHousehold } from "./household.ts";
 import type { NoticeRow } from "../engineNotices.ts";
 import { findObject } from "../store/readings.ts";
 import { today } from "../report/assemble.ts";
-import { CERTAINTY_LABELS, CHECK_KIND_LABELS, checkCounts, checkList, confirmAllEstimates, DEFAULT_KINDS, fillAll, KIND_ORDER, ORIGIN_LABELS, type Certainty, type CheckKind, type CheckRow, type OriginKind } from "./checkRows.ts";
+import { ackedRows, CERTAINTY_LABELS, CHECK_KIND_LABELS, checkCounts, checkList, confirmAllEstimates, DEFAULT_KINDS, fillAll, KIND_ORDER, ORIGIN_LABELS, type Certainty, type CheckKind, type CheckRow, type OriginKind } from "./checkRows.ts";
 import { isRechecked, recheckMarks, recheckText, setRecheck } from "./recheck.ts";
 import { Help } from "../../presentation/Help.tsx";
 
@@ -54,7 +55,7 @@ export function planOnlyRows(wh: WorkingHousehold, view: WorkingHousehold): Chec
   return checkList(view).filter((r) => r.holder != null && r.kind !== "calc" && findObject(inp, r.holder) === undefined && findObject(vinp, r.holder) !== undefined);
 }
 
-type KindFilter = "" | CheckKind | "recheck";
+type KindFilter = "" | CheckKind | "recheck" | "acked";
 
 /** 確かめの一覧の絞り込み（カード・状態・出どころ・確かさ）。種類を選ばず確かさも選ばないときは、確かさの行を出さない */
 export interface CheckFilter {
@@ -66,6 +67,8 @@ export interface CheckFilter {
 
 export function passesFilter(r: CheckRow, f: CheckFilter, marked: (id: string) => boolean): boolean {
   if (f.card !== "" && r.card !== f.card) return false;
+  // 確認した注意（絞り込み）: いつもの行は出さず、確認した注意だけを並べる（ackedRows）
+  if (f.kind === "acked") return false;
   if (f.kind === "recheck") {
     if (!marked(r.id)) return false;
   } else if (f.kind !== "") {
@@ -79,6 +82,7 @@ export function passesFilter(r: CheckRow, f: CheckFilter, marked: (id: string) =
 export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Props) {
   const all = useMemo(() => checkList(wh, notices), [wh, notices]);
   const planRows = useMemo(() => (plan === undefined ? [] : planOnlyRows(wh, plan.view)), [wh, plan?.view]);
+  const acked = useMemo(() => ackedRows(wh), [wh]);
   const [filter, setFilter] = useState<CheckFilter>({ card: "", kind: "", origin: "", certainty: "" });
   const [copied, setCopied] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -96,6 +100,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
   const cards = useMemo(() => [...new Map([...all, ...planRows].map((r) => [r.card, r.cardLabel])).entries()], [all, planRows]);
   const marked = (id: string) => isRechecked(wh, id);
   const shown = all.filter((r) => passesFilter(r, filter, marked));
+  const shownAcked = kind === "acked" ? acked.filter((r) => card === "" || r.card === card) : [];
   const shownPlan = planRows.filter((r) => passesFilter(r, filter, () => false));
   const counts = checkCounts(all);
   const fillable = shown.filter((r) => (r.kind === "missing" || r.kind === "notStarted") && r.actions.some((a) => a.key === "fill")).length;
@@ -181,7 +186,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
       </li>
     );
   };
-  const kinds = kind === "" || kind === "recheck" ? KIND_ORDER : [kind];
+  const kinds = kind === "acked" ? [] : kind === "" || kind === "recheck" ? KIND_ORDER : [kind];
   return (
     <section class="ck" aria-label="確かめの一覧" data-checklist>
       <div class="ck-head">
@@ -191,6 +196,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
             <p>未入力・まだ入れていない項目・わからない・確かめの注意・計算の知らせ・推定の欄を並べます。いつも現状の世帯を見ます（プランの編集中は、そのプランで足した物の行も出します）。</p>
             <p>「開く」でその欄に移ります（移るだけでは値も状態も変わりません）。推定・わからない・確かさの行は「根拠」で根拠が開きます。</p>
             <p>確かさが申告・概算の値は、確かさか状態で絞り込んだときだけ出します。「次回確かめる」は、次の面談・見直しで確かめる所の印です（世帯に残ります。計算は変わりません）。</p>
+            <p>確かめの注意のうち、お客さまと確かめてそのままでよいもの（医療保険を2本とも続けるなど）は「確認した」で出さないようにできます（世帯に残ります）。保険を足す・外すなどで中身が変わると、また出ます。確認した注意は、状態の「確認した注意」で見られ、「また出す」で戻せます。</p>
           </Help>
         </h2>
         <p class="ck-lead">
@@ -198,6 +204,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
           {counts.notStarted > 0 ? `・まだ入れていない ${counts.notStarted}` : ""}・わからない {counts.unknown}・確かめの注意 {counts.notice}
           {counts.calc > 0 ? `・計算の知らせ ${counts.calc}` : ""}・推定 {counts.estimated}
           {marks.length > 0 ? `・次回確かめる ${marks.length}` : ""}
+          {acked.length > 0 ? `・確認した注意 ${acked.length}` : ""}
         </p>
         <div class="ck-tools">
           <label>
@@ -221,6 +228,7 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
                 </option>
               ))}
               <option value="recheck">次回確かめる（印の行）</option>
+              {acked.length > 0 || kind === "acked" ? <option value="acked">確認した注意（また出せます）</option> : null}
             </select>
           </label>
           <label>
@@ -286,7 +294,8 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
         ) : null}
         {copied !== null ? <textarea class="ck-copy" readOnly value={copied} rows={Math.min(12, copied.split("\n").length + 1)} aria-label="次回確かめること" data-ck-recheck-text /> : null}
       </div>
-      {shown.length === 0 && shownPlan.length === 0 ? <p class="in-note">確かめる所はありません。</p> : null}
+      {kind === "acked" && shownAcked.length === 0 ? <p class="in-note">「確認した」にした注意はありません。</p> : null}
+      {kind !== "acked" && shown.length === 0 && shownPlan.length === 0 ? <p class="in-note">確かめる所はありません。</p> : null}
       {shownPlan.length > 0 && plan !== undefined ? (
         <div class="ck-kind ck-plan" data-ck-kind="plan">
           <h3>
@@ -308,6 +317,30 @@ export function CheckList({ wh, onEdit, onOpen, notices = NO_NOTICES, plan }: Pr
         );
       })}
       {kind === "recheck" ? <RecheckGone wh={wh} rows={all} /> : null}
+      {shownAcked.length > 0 ? (
+        <div class="ck-kind ck-acked" data-ck-kind="acked">
+          <h3>確認した注意（{shownAcked.length}）</h3>
+          <ul>
+            {shownAcked.map((r) => (
+              <li key={r.id} data-ck-acked={r.id}>
+                <span class="ck-card">{r.cardLabel}</span>
+                <span class="ck-label">{r.label}</span>
+                {r.detail !== null ? <span class="ck-detail">{r.detail}</span> : null}
+                <span class="ck-acts">
+                  {r.actions.map((a) => (
+                    <button type="button" key={a.key} class="link-btn" onClick={() => run(r, a.key)} {...(a.title !== undefined ? { title: a.title } : {})} data-ck-action={a.key}>
+                      {a.label}
+                    </button>
+                  ))}
+                  <button type="button" class="link-btn" onClick={() => onOpen(r.card, r.fieldKey, r.level)} data-ck-open>
+                    開く
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }

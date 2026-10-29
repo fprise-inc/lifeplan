@@ -1,5 +1,5 @@
 // 世帯ファイルの本文（0011 の2）を、画面の側の状態から組み立てる・読み取る。暗号化とファイルの読み書きは本体（0013・0016 の1）。
-// 本文の区画（形式の版 0.34。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
+// 本文の区画（形式の版 0.35。β公開まではこの 0.x の形で、版を上げるときは本体の一方向の変換の段を足す。0011 の5）。
 // 0.17 から（0035・0036）: 差分は当て先で、仮の印は物の値の状態の欄で、贈与者は世帯の外の家族の構成員で書き、並びの要素は ID を持つ。
 // 0.18 から（0040）: 段階と例外の年（周期的な支出・家賃・修繕費・固定資産税・不動産の家賃と経費・器の利回り・資産配分）と、働き方の期間ごとの
 // 伸び（給与・事業所得の年率）。足すだけの形（本体の変換の段は版だけを書き換える）
@@ -35,6 +35,8 @@
 //   members[].taxReturn（申告の仕方と青色申告特別控除の区分）（0081。どれも任意）
 //   0.34 から: 画面の側の入力項目の選び方 itemChoice（0083。入力のホームに出さない入力項目 hidden と、開いたときの入れ方 levels〔詳細の項目だけ〕。
 //   任意。決めていなければ欄を作らない。計算には使わない）
+//   0.35 から: 確かめの注意の「確認した」の印 noticeAcks（0041・0055。注意の ID・確認したときの中身〔注意を作った物の ID〕・確認した日。
+//   任意。印が無ければ欄を作らない。計算には使わない）
 // - proposals: 案（数に上限なし。0008 の5）。案の名前は `title` に入れる（0012 の禁止語の検査に当たらない名前）
 // - hearing: ヒアリングの依頼・取り込み・同意の下書きの記録（0018。取り込みの記録・同意の記録への分け方は後の版）
 // - workspace: 案の帯の並び・基準の案・選んだ案・対策に足した項目・出発点にした見本
@@ -62,6 +64,7 @@ import { CURRENT } from "../plans/band.ts";
 import type { Proposal } from "../plans/plans.ts";
 import { readSnapshots, type Snapshot } from "../snapshots/snapshots.ts";
 import { readRecheck } from "../input/recheck.ts";
+import { readNoticeAcks } from "../input/noticeAck.ts";
 import { isEmptyChoice, readItemChoice } from "../input/itemChoice.ts";
 import { readBsColumns, readBsGuide, readBsPoints } from "../balanceTab.ts";
 import { readMoneyThree } from "../moneyThree.ts";
@@ -70,7 +73,7 @@ import { fromStoredBody, OUTSIDE_KEPT, toStoredBody } from "./format017.ts";
 import { DEFAULT_DISPLAY_SETTINGS, LAYOUT_CHOICES, METRIC_CHOICES, type BalanceSettings, type DisplaySettings, type MetricKey } from "../settings.ts";
 
 /** 本文の形式の版（本体の household-store の migrate::CURRENT と同じ） */
-export const BODY_FORMAT_VERSION = "0.34";
+export const BODY_FORMAT_VERSION = "0.35";
 
 type StoredProposal = Omit<Proposal, "name"> & { title: string };
 
@@ -173,6 +176,10 @@ export function fromBody(json: string): BodyState {
   const recheck = readRecheck(wh.recheck);
   if (recheck.length > 0) wh.recheck = recheck;
   else delete wh.recheck;
+  // 確かめの注意の「確認した」の印（0.35 から）: 形の合わない行は捨て、空なら欄を持たない
+  const acks = readNoticeAcks(wh.noticeAcks);
+  if (acks.length > 0) wh.noticeAcks = acks;
+  else delete wh.noticeAcks;
   // 入力項目の選び方（0.34 から）: 形の合わない所は捨て、何も決めていなければ欄を持たない
   const choice = readItemChoice(wh.itemChoice);
   if (!isEmptyChoice(choice)) wh.itemChoice = choice;

@@ -14,6 +14,7 @@ import type { NoticeRow } from "../engineNotices.ts";
 import { noticeMeta } from "../engineNotices.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { insuranceOverlapNotices } from "./insuranceView.ts";
+import { ackOf, ackToday, setNoticeAck } from "./noticeAck.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf, rowAt } from "./rows.ts";
 import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, type FieldStatus } from "./valueState.ts";
@@ -198,8 +199,22 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
       rows.push({ id: `notStarted:${i.id}`, kind: "notStarted", card: i.id, cardLabel: i.label, label: "まだ入れていません", detail: i.hint ?? NOT_STARTED_DETAIL, fieldKey: null, level: "simple", impact: 0, actions: [] });
   // 目安で自動で足した退職金（制度の無い勤め先もある）・公務員と役員の0円の額は、確かめの注意に（推定より上に出す。0057）
   for (const n of retirementNotices(wh)) rows.push({ id: `notice:${n.id}`, kind: "notice", card: "retirement", cardLabel: labels.get("retirement") ?? "退職金・企業年金", label: n.label, detail: n.detail, fieldKey: null, level: "simple", impact: 0, actions: n.actions });
-  // 同じ方の医療保険・がん保険が2本以上（保障が重なっていないか。0055 の追記）
-  for (const n of insuranceOverlapNotices(wh)) rows.push({ id: `notice:${n.id}`, kind: "notice", card: "insurance", cardLabel: labels.get("insurance") ?? "保険", label: n.label, detail: n.detail, fieldKey: null, level: "simple", impact: 0, actions: [] });
+  // 同じ方の医療保険・がん保険が2本以上（保障が重なっていないか。0055 の追記）。「確認した」の重なり（同じ契約の組み合わせ）は出さない（noticeAck.ts）
+  for (const n of insuranceOverlapNotices(wh)) {
+    if (ackOf(wh, n.id, n.of) !== null) continue;
+    rows.push({
+      id: `notice:${n.id}`,
+      kind: "notice",
+      card: "insurance",
+      cardLabel: labels.get("insurance") ?? "保険",
+      label: n.label,
+      detail: n.detail,
+      fieldKey: null,
+      level: "simple",
+      impact: 0,
+      actions: [{ key: "ack", label: "確認した", title: ACK_TITLE, run: (w) => setNoticeAck(w, n.id, n.of, ackToday()) }],
+    });
+  }
   for (const n of notices) {
     if (n.card === null || !labels.has(n.card)) continue;
     const meta = noticeMeta(n);
@@ -263,6 +278,34 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
     if (x.kind === "estimated" && x.impact !== y.impact) return y.impact - x.impact;
     return (order.get(x.card) ?? 99) - (order.get(y.card) ?? 99);
   });
+}
+
+const ACK_TITLE = "確かめ済みとして、この注意を出さないようにします（世帯に残ります。保険を足す・外すなどで重なりが変わると、また出ます）";
+
+/**
+ * 「確認した」で出さないようにしている確かめの注意（今も同じ中身の物だけ。中身が変わった印は当たらないので出ない）。
+ * 確かめの一覧の絞り込み「確認した注意」に並べ、「また出す」で印を外す（世帯を直す。元に戻すで戻せる）
+ */
+export function ackedRows(wh: WorkingHousehold): CheckRow[] {
+  const label = inputItems(wh).find((i) => i.id === "insurance")?.label ?? "保険";
+  const out: CheckRow[] = [];
+  for (const n of insuranceOverlapNotices(wh)) {
+    const a = ackOf(wh, n.id, n.of);
+    if (a === null) continue;
+    out.push({
+      id: `notice:${n.id}`,
+      kind: "notice",
+      card: "insurance",
+      cardLabel: label,
+      label: n.label,
+      detail: `${a.on} に確認しました（${n.detail}）`,
+      fieldKey: null,
+      level: "simple",
+      impact: 0,
+      actions: [{ key: "unack", label: "また出す", title: "確かめの注意にまた出します", run: (w) => setNoticeAck(w, n.id, n.of, null) }],
+    });
+  }
+  return out;
 }
 
 /** 前提条件の欄で、事務所の既定値がこの世帯の値と違うときの事務所の値（同じ・事務所の値が無い・前提条件の欄でないときは null） */

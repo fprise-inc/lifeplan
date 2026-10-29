@@ -17,6 +17,9 @@ import { forEngine } from "../src/engine/moneyRows.ts";
 import { BODY_FORMAT_VERSION, bodyObject, bodyOf, EMPTY_CARRY, fromBody, summaryOf, type BodyState } from "../src/workspace/store/body.ts";
 import { giveElementIds } from "../src/workspace/store/format017.ts";
 import { migrationId } from "../src/workspace/store/readings.ts";
+import { checkList } from "../src/workspace/input/checkRows.ts";
+import { insuranceOverlapNotices } from "../src/workspace/input/insuranceView.ts";
+import { setNoticeAck } from "../src/workspace/input/noticeAck.ts";
 
 /** 保存すると並びの要素に ID が付く（0035 の5）。読み戻した世帯と比べるときは、元の世帯にも同じ ID を付ける */
 function withIds<T extends { request: { input: unknown } }>(wh: T): T {
@@ -431,6 +434,22 @@ function sample034(): BodyState {
   return { ...s, wh: { ...s.wh, itemChoice: { hidden: ["car", "care"], levels: { insurance: "detail", rental: "detail" } } } };
 }
 
+/**
+ * 0.35 の見本の世帯（0041・0055 の追記）: sample034() のご主人に医療保険をもう1本足し、医療保険の重なりの注意を「確認した」にする
+ */
+function sample035(): BodyState {
+  const s = sample034();
+  const req = structuredClone(s.wh.request);
+  const list = req.input.household.insuranceContracts ?? [];
+  const first = list.find((c) => c.template === "insurance.medical")!;
+  const id = (n: number) => `00000000-0000-4000-8000-0000000035${String(n).padStart(2, "0")}`;
+  list.push({ ...structuredClone(first), id: id(1), label: "架空の医療保険（2本目）", contractDate: "2024-10", coverages: [{ id: id(2), role: "main", benefit: "hospitalDaily", amount: 5000, maxDays: 60, from: { at: "2024-10" }, to: null }] } as (typeof list)[number]);
+  req.input.household.insuranceContracts = list;
+  const wh: WorkingHousehold = { ...s.wh, request: req };
+  const n = insuranceOverlapNotices(wh)[0]!;
+  return { ...s, wh: setNoticeAck(wh, n.id, n.of, "2026-10-29") };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -554,7 +573,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.34");
+    expect(BODY_FORMAT_VERSION).toBe("0.35");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -708,7 +727,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample034())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample035())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -873,6 +892,23 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const none = fromBody(JSON.stringify({ ...stored, household: { ...stored.household, itemChoice: { hidden: [], levels: {} } } }));
     expect("itemChoice" in none.wh).toBe(false);
     expect("itemChoice" in bodyObject(sample033()).household).toBe(false);
+  });
+
+  it("0.35 の形（0041・0055 の追記）: 確かめの注意の「確認した」の印を保存して読み戻し、開き直しても注意は出ない。形の合わない印は捨て、印が無ければ欄を作らない。計算の要求は変えない", () => {
+    const s = sample035();
+    const stored = bodyObject(s) as unknown as { household: Record<string, unknown> };
+    const n = insuranceOverlapNotices(s.wh)[0]!;
+    expect(stored.household.noticeAcks).toEqual([{ id: n.id, of: [...n.of].sort(), on: "2026-10-29" }]);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(checkList(back.wh).some((r) => r.id === `notice:${n.id}`)).toBe(false);
+    const { noticeAcks: _a, ...without } = s.wh;
+    void _a;
+    expect(checkList(without).some((r) => r.id === `notice:${n.id}`)).toBe(true);
+    expect(preview(back.wh.request).table).toEqual(preview(without.request).table);
+    const odd = fromBody(JSON.stringify({ ...stored, household: { ...stored.household, noticeAcks: [{ id: "x", of: [], on: "2026-10-29" }, { id: n.id, of: n.of, on: "昨日" }, 3] } }));
+    expect("noticeAcks" in odd.wh).toBe(false);
+    expect("noticeAcks" in bodyObject(sample034()).household).toBe(false);
   });
 
   it("0.24 の形（0060・0061）: 相続税の目安の設定と遺したい額を要求の入力に保存して読み戻す。エンジンへ渡す要求からは外れ、結果は同じ", () => {

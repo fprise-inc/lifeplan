@@ -1345,7 +1345,7 @@ html.big .chart .hv-mk { stroke-width: 2.5; }
 .ck-mark { display: inline-flex; gap: 3px; align-items: center; font-size: 0.8rem; color: var(--ink-2); }
 .ck-kind li.marked { background: color-mix(in srgb, var(--est) 8%, transparent); }
 .ck-plan li { border-left: 4px solid var(--plan-c, var(--base)); }
-.ck-gone li { border-left: 4px dotted var(--line-2); }
+.ck-gone li, .ck-acked li { border-left: 4px dotted var(--line-2); }
 .ck-copy { width: 100%; margin-top: 6px; font: inherit; font-size: 0.84rem; }
 /* 入力のホームの帯（全部のカードの入れ方・小さな結果）・進み具合の絞り込み・取り込むの入口（0072） */
 button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }

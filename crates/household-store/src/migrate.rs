@@ -12,7 +12,7 @@ use crate::readings;
 use crate::StoreError;
 
 /// 今の形式の版（保存は常にこの版）
-pub const CURRENT: &str = "0.34";
+pub const CURRENT: &str = "0.35";
 
 /// これまでのすべての形式の版（古い順）。消さない
 /// - 0.1: 最初の版（2026-10-18）
@@ -114,10 +114,12 @@ pub const CURRENT: &str = "0.34";
 ///   `members[].taxReturn`（0081。どれも任意で計算に使う。足すだけの MINOR）。前の版のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
 /// - 0.34: 画面の側の入力項目の選び方 `household.itemChoice`（0083。入力のホームに出さない入力項目 `hidden` と、開いたときの入れ方 `levels`。
 ///   任意。計算には使わない。足すだけの MINOR）。前の版のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
+/// - 0.35: 画面の側の確かめの注意の「確認した」の印 `household.noticeAcks`（0041・0055。注意の ID `id`・確認したときの中身 `of`・確認した日 `on`。
+///   任意。計算には使わない。足すだけの MINOR）。前の版のアプリは知らない欄を読み落として書き戻すので、版を上げて閲覧だけにする
 pub const KNOWN: &[&str] = &[
     "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13",
     "0.14", "0.15", "0.16", "0.17", "0.18", "0.19", "0.20", "0.21", "0.22", "0.23", "0.24", "0.25",
-    "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34",
+    "0.26", "0.27", "0.28", "0.29", "0.30", "0.31", "0.32", "0.33", "0.34", "0.35",
 ];
 
 /// 1段分の変換
@@ -293,6 +295,11 @@ pub const STEPS: &[Step] = &[
         from: "0.33",
         to: "0.34",
         apply: v0_33_to_0_34,
+    },
+    Step {
+        from: "0.34",
+        to: "0.35",
+        apply: v0_34_to_0_35,
     },
 ];
 
@@ -656,6 +663,15 @@ fn v0_33_to_0_34(mut body: Value) -> Result<Value, StoreError> {
     let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
     if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
         meta.insert("formatVersion".into(), "0.34".into());
+    }
+    Ok(body)
+}
+
+/// 0.34 → 0.35: 足した欄（確かめの注意の「確認した」の印。0041・0055）は任意なので足さない。形式の版だけを書き換える
+fn v0_34_to_0_35(mut body: Value) -> Result<Value, StoreError> {
+    let obj = body.as_object_mut().ok_or(StoreError::BODY)?;
+    if let Some(meta) = obj.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.insert("formatVersion".into(), "0.35".into());
     }
     Ok(body)
 }
@@ -1189,7 +1205,8 @@ mod tests {
         assert_eq!(access("0.32").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.33").unwrap(), Access::ReadWrite);
         assert_eq!(access("0.34").unwrap(), Access::ReadWrite);
-        assert_eq!(access("0.35").unwrap(), Access::ReadOnly);
+        assert_eq!(access("0.35").unwrap(), Access::ReadWrite);
+        assert_eq!(access("0.36").unwrap(), Access::ReadOnly);
         assert_eq!(access("0.99").unwrap(), Access::ReadOnly);
         assert_eq!(access("1.0").unwrap_err(), StoreError::FORMAT_TOO_NEW);
         assert_eq!(
@@ -1202,7 +1219,7 @@ mod tests {
         let b = serde_json::json!({"a": 1});
         assert_eq!(upgrade(CURRENT, b.clone()).unwrap(), b);
         assert_eq!(
-            upgrade("0.35", b.clone()).unwrap(),
+            upgrade("0.36", b.clone()).unwrap(),
             b,
             "新しい MINOR は閲覧だけ（変換しない）"
         );
