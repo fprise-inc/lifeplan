@@ -745,6 +745,25 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.34 より前の版に入力項目の選び方は無い"
             );
         }
+        // 0.35 から（0041・0055）: 確かめの注意の「確認した」の印（任意）
+        let acks = now["household"]["noticeAcks"].as_array().is_some_and(|l| {
+            !l.is_empty()
+                && l.iter().all(|a| {
+                    a["id"].is_string()
+                        && a["on"].is_string()
+                        && a["of"]
+                            .as_array()
+                            .is_some_and(|o| !o.is_empty() && o.iter().all(Value::is_string))
+                })
+        });
+        if migrate::parse(v).unwrap() >= (0, 35) {
+            assert!(acks, "{v}: 確かめの注意の「確認した」の印");
+        } else {
+            assert!(
+                now["household"]["noticeAcks"].is_null(),
+                "{v}: 0.35 より前の版に「確認した」の印は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

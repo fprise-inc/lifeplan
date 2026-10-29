@@ -34,21 +34,25 @@ export interface InsuranceNotice {
   id: string;
   label: string;
   detail: string;
+  /** 重なりの中身（重なっている契約の ID。「確認した」の印と比べる。noticeAck.ts） */
+  of: string[];
 }
 
 /**
  * 同じ方が保険の対象の医療保険・がん保険が2本以上（保障が重なっていないかの確かめ。0055 の追記で、保険の入力項目の区画から確かめの一覧へ移した）。
- * 値は変えない（2本とも続けるなら、そのままでよい）
+ * 値は変えない（2本とも続けるなら、そのままでよい）。2本とも続けると決めたときは、確かめの一覧の「確認した」で出さないようにできる
+ * （同じ方・同じ種類の重なっている契約の組み合わせが同じあいだ。契約を足す・外す・種類や被保険者を変えると、組み合わせが変わってまた出る）
  */
 export function insuranceOverlapNotices(wh: WorkingHousehold): InsuranceNotice[] {
   const list = wh.request.input.household.insuranceContracts ?? [];
-  const groups = new Map<string, { member: string; kind: "medical" | "cancer"; names: string[] }>();
+  const groups = new Map<string, { member: string; kind: "medical" | "cancer"; names: string[]; ids: string[] }>();
   list.forEach((c, i) => {
     const k = kindOf(c).kind;
     if (k !== "medical" && k !== "cancer") return;
     const key = `${c.insured}|${k}`;
-    const g = groups.get(key) ?? { member: c.insured, kind: k, names: [] };
+    const g = groups.get(key) ?? { member: c.insured, kind: k, names: [], ids: [] };
     g.names.push(contractLabel(wh, c, i));
+    g.ids.push(c.id);
     groups.set(key, g);
   });
   const out: InsuranceNotice[] = [];
@@ -61,6 +65,7 @@ export function insuranceOverlapNotices(wh: WorkingHousehold): InsuranceNotice[]
       id: `insurance/overlap/${key}`,
       label: `${who}の${what}が${g.names.length}本`,
       detail: `${who}の${what}が${g.names.length}本あります（${g.names.join("・")}）。${cover}が重なっていないか、保険証券で確かめてください`,
+      of: g.ids,
     });
   }
   return out;

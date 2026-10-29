@@ -10,6 +10,7 @@ import type { HearingLog } from "../hearing/sheet.ts";
 import type { StatementLog } from "../../../../statement/src/index.ts";
 import type { Snapshot } from "../snapshots/snapshots.ts";
 import type { RecheckMark } from "./recheck.ts";
+import type { NoticeAck } from "./noticeAck.ts";
 import type { ItemChoice } from "./itemChoice.ts";
 import { giveElementIds, lacksElementIds, randomId } from "../store/elementIds.ts";
 
@@ -71,6 +72,11 @@ export interface WorkingHousehold {
    * 画面の側の値で、計算の要求には入れない
    */
   recheck?: RecheckMark[];
+  /**
+   * 確かめの注意の「確認した」の印（形式の版 0.35 から。noticeAck.ts）: 注意の ID・確認したときの中身（注意を作った物の ID）・確認した日。
+   * 同じ中身のあいだは、その注意を確かめの一覧に出さない。画面の側の値で、計算の要求には入れない。印が無ければ欄を持たない
+   */
+  noticeAcks?: NoticeAck[];
   /**
    * 入力項目の選び方（形式の版 0.34 から。itemChoice.ts）: 入力のホームに出さない入力項目と、開いたときの入れ方（標準／詳細）。
    * 見せ方だけの画面の側の値で、計算の要求には入れない。決めていなければ欄を持たない

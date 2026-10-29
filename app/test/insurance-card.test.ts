@@ -7,7 +7,11 @@ import { contractLabels, illnessBenefitNote, illnessBenefits, lapseInsights } fr
 import { protectionChart, scenarioModel } from "../src/workspace/contingency/present.ts";
 import { baseRequest, defaultYear, protectionRequest, scenarioRequest, scenarios } from "../src/workspace/contingency/requests.ts";
 import { contingencyInputSections } from "../src/workspace/contingency/inputs.ts";
-import { checkList } from "../src/workspace/input/checkRows.ts";
+import { h } from "preact";
+import { renderToString } from "preact-render-to-string";
+import { ackedRows, checkList, checkCounts } from "../src/workspace/input/checkRows.ts";
+import { CheckList, passesFilter } from "../src/workspace/input/CheckList.tsx";
+import { readNoticeAcks, setNoticeAck } from "../src/workspace/input/noticeAck.ts";
 import { allFields, type FieldDef } from "../src/workspace/input/form.ts";
 import { fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
 import { insuranceRequest, insuranceView } from "../src/workspace/input/insuranceView.ts";
@@ -344,5 +348,85 @@ describe("保険の入力項目の区画から移したもの（0055 の追記�
     const rows = overlap(wh);
     expect(rows.map((r) => [r.card, r.label])).toEqual([["insurance", "ご主人の医療保険が2本"]]);
     expect(rows[0]!.detail).toBe("ご主人の医療保険が2本あります（医療保険 1（ご主人）・医療保険 2（ご主人））。入院・手術の保障が重なっていないか、保険証券で確かめてください");
+  });
+
+  describe("確かめの注意の「確認した」（0055・0041 の追記）", () => {
+    const overlap = (w: WorkingHousehold) => checkList(w).filter((r) => r.id.startsWith("notice:insurance/overlap/"));
+    const press = (w: WorkingHousehold, rowId: string, key: string) => {
+      const r = [...checkList(w), ...ackedRows(w)].find((x) => x.id === rowId);
+      const a = r?.actions.find((x) => x.key === key);
+      if (a === undefined) throw new Error(`no action ${key} on ${rowId}`);
+      return a.run(w);
+    };
+    const two = () => action(action(family(), "ins/addMedical"), "ins/addMedical");
+    const ids = (w: WorkingHousehold) => (w.request.input.household.insuranceContracts ?? []).map((c) => c.id);
+
+    it("「確認した」を押すと、その重なりは確かめの注意に出なくなり、世帯に残る（値と計算は変えない）", () => {
+      const wh = two();
+      const [row] = overlap(wh);
+      expect(row!.actions.map((a) => a.label)).toEqual(["確認した"]);
+      const acked = press(wh, row!.id, "ack");
+      expect(overlap(acked)).toEqual([]);
+      expect(checkCounts(checkList(acked)).notice).toBe(checkCounts(checkList(wh)).notice - 1);
+      expect(acked.noticeAcks).toEqual([{ id: row!.id.slice("notice:".length), of: [...ids(wh)].sort(), on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) as unknown as string }]);
+      expect(acked.request).toEqual(wh.request);
+      // 確認した注意の絞り込みに並び、「また出す」で戻る（欄ごと外れる）
+      const listed = ackedRows(acked);
+      expect(listed.map((r) => [r.id, r.label, r.actions.map((a) => a.label)])).toEqual([[row!.id, "ご主人の医療保険が2本", ["また出す"]]]);
+      expect(listed[0]!.detail).toMatch(/^\d{4}-\d{2}-\d{2} に確認しました（ご主人の医療保険が2本あります/);
+      const back = press(acked, row!.id, "unack");
+      expect(overlap(back).map((r) => r.label)).toEqual(["ご主人の医療保険が2本"]);
+      expect("noticeAcks" in back).toBe(false);
+      expect(ackedRows(back)).toEqual([]);
+    });
+
+    it("重なりの中身（契約の組み合わせ）が変わるとまた出る。同じ組み合わせに戻れば出ない。ほかの方の重なりには当たらない", () => {
+      const wh = two();
+      const acked = press(wh, overlap(wh)[0]!.id, "ack");
+      // 3本目を足すと出る（確認した注意の一覧からは消える）
+      const three = action(acked, "ins/addMedical");
+      expect(overlap(three).map((r) => r.label)).toEqual(["ご主人の医療保険が3本"]);
+      expect(ackedRows(three)).toEqual([]);
+      // 3本目を外して前の2本に戻ると、確認したままに読む
+      const list = three.request.input.household.insuranceContracts!;
+      const removed: WorkingHousehold = { ...three, request: { ...three.request, input: { ...three.request.input, household: { ...three.request.input.household, insuranceContracts: list.slice(0, 2) } } } };
+      expect(overlap(removed)).toEqual([]);
+      // 3本で確認した後に1本を外す（残る2本は確認した組み合わせと違う）と出る
+      const ack3 = press(three, overlap(three)[0]!.id, "ack");
+      expect(ack3.noticeAcks).toHaveLength(1);
+      const minus: WorkingHousehold = { ...ack3, request: { ...ack3.request, input: { ...ack3.request.input, household: { ...ack3.request.input.household, insuranceContracts: list.slice(1) } } } };
+      expect(overlap(minus).map((r) => r.label)).toEqual(["ご主人の医療保険が2本"]);
+      // 配偶者の医療保険の重なりは、ご主人の「確認した」に当たらない
+      const both = action(action(acked, "ins/addMedical"), "ins/addMedical");
+      const cs = both.request.input.household.insuranceContracts!;
+      cs[cs.length - 1]!.insured = spouse(both).id;
+      cs[cs.length - 2]!.insured = spouse(both).id;
+      const rows = overlap(both);
+      expect(rows.map((r) => r.label)).toEqual(["奥様の医療保険が2本"]);
+    });
+
+    it("印の読み方: 中身の並びは整えて持ち、形の合わない印・同じ注意の2つ目は捨てる。最後の印を外すと欄ごと外す（保存して読み戻すのは store.test.ts の 0.35 の形）", () => {
+      const wh = two();
+      const acked = press(wh, overlap(wh)[0]!.id, "ack");
+      const a = acked.noticeAcks![0]!;
+      expect(readNoticeAcks([{ ...a, of: [...a.of].reverse() }, a, { id: "x", of: [], on: a.on }, { id: "y", of: ["c"], on: "昨日" }, null])).toEqual([a]);
+      expect("noticeAcks" in setNoticeAck(acked, a.id, a.of, null)).toBe(false);
+      // 付け直すと置き換える（同じ注意の印は1つ）
+      expect(setNoticeAck(acked, a.id, [...a.of, "z"], "2026-10-30").noticeAcks).toEqual([{ id: a.id, of: [...a.of, "z"].sort(), on: "2026-10-30" }]);
+    });
+
+    it("確かめの一覧の画面: 注意に「確認した」、確認した注意は状態の絞り込み「確認した注意」に並び「また出す」がある", () => {
+      const wh = two();
+      const html = renderToString(h(CheckList, { wh, onEdit: () => undefined, onOpen: () => undefined }));
+      expect(html).toContain('data-ck-action="ack"');
+      expect(html).not.toContain('value="acked"');
+      const acked = press(wh, overlap(wh)[0]!.id, "ack");
+      const html2 = renderToString(h(CheckList, { wh: acked, onEdit: () => undefined, onOpen: () => undefined }));
+      expect(html2).not.toContain('data-ck-action="ack"');
+      expect(html2).toContain('value="acked"');
+      expect(html2).toContain("確認した注意 1");
+      // 絞り込み「確認した注意」ではいつもの行を出さない
+      expect(checkList(acked).every((r) => !passesFilter(r, { card: "", kind: "acked", origin: "", certainty: "" }, () => false))).toBe(true);
+    });
   });
 });
