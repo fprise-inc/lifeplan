@@ -30,7 +30,7 @@ describe("帳票の入力（rental）", () => {
     expect(r?.total).toBeNull();
     expect(p?.label).toBe("見本マンション 301");
     expect(p?.kind).toEqual({ key: "condo", label: "区分マンション" });
-    expect(p?.owner?.label).toBe("ご主人");
+    expect(p?.owner?.label).toBe("ご本人");
     expect(validate(input), JSON.stringify(validate.errors)).toBe(true);
     expect(JSON.stringify(r)).not.toMatch(UUID);
     // 独自帳票の材料（realEstate）にも物件名・種類

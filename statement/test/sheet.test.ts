@@ -36,16 +36,16 @@ const classified = (log: StatementLog) => classify({ log, household: HOUSEHOLD, 
 
 async function setup(): Promise<{ log: StatementLog; sheet: MarkSheetResult }> {
   const base = await buildLog([
-    { name: "card-year-utf8bom.csv", kind: "card", account: "cardA", owner: SELF, label: "ご主人のカード" },
-    { name: "app-utf8bom.csv", kind: "app", account: "app", owner: SPOUSE, label: "奥様の家計簿アプリ" },
+    { name: "card-year-utf8bom.csv", kind: "card", account: "cardA", owner: SELF, label: "ご本人のカード" },
+    { name: "app-utf8bom.csv", kind: "app", account: "app", owner: SPOUSE, label: "配偶者の家計簿アプリ" },
   ]);
   const items = reviewList(classified(base));
   const sheet = await createMarkSheet({
     items,
     accounts: new Map(base.accounts.map((a) => [a.id, a.label])),
     owners: new Map([
-      [SELF, "ご主人"],
-      [SPOUSE, "奥様"],
+      [SELF, "ご本人"],
+      [SPOUSE, "配偶者"],
     ]),
     requestId: RID,
     customerNo: "A0042",
@@ -309,7 +309,7 @@ function shopLog(): StatementLog {
     {
       id: "cardA",
       kind: "card",
-      label: "ご主人のカード",
+      label: "ご本人のカード",
       owner: SELF,
       rows: [
         ...months("架空モバイル通信", () => 3300),
@@ -318,7 +318,7 @@ function shopLog(): StatementLog {
         { date: "2026-04-01", merchant: "架空の一度きりの店", amount: 4800 },
       ],
     },
-    { id: "cardB", kind: "card", label: "奥様のカード", owner: SPOUSE, rows: [...months("架空モバイル通信", () => 2200, 2), ...months("架空の携帯電話料", () => 6000, 3, 25)] },
+    { id: "cardB", kind: "card", label: "配偶者のカード", owner: SPOUSE, rows: [...months("架空モバイル通信", () => 2200, 2), ...months("架空の携帯電話料", () => 6000, 3, 25)] },
   ]);
 }
 
@@ -329,8 +329,8 @@ async function shopSheet() {
     items,
     accounts: new Map(base.accounts.map((a) => [a.id, a.label])),
     owners: new Map([
-      [SELF, "ご主人"],
-      [SPOUSE, "奥様"],
+      [SELF, "ご本人"],
+      [SPOUSE, "配偶者"],
     ]),
     requestId: RID,
     exportedAt: AT,
@@ -418,7 +418,7 @@ describe("店ごとにまとめる", () => {
     expect(r.unmarked).toBe(6);
     const next = applyDecisions(log, r.candidates.flatMap((c) => c.decisions), "2026-10-22T10:00:00+09:00");
     expect(reviewList(classified(next))).toHaveLength(items.length - 15);
-    // 別のカードの同じ店（奥様のカードの架空モバイル通信）には当てない
+    // 別のカードの同じ店（配偶者のカードの架空モバイル通信）には当てない
     expect(reviewList(classified(next)).filter((x) => x.merchant === "架空モバイル通信").map((x) => x.account)).toEqual(["cardB", "cardB"]);
   });
 

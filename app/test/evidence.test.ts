@@ -15,7 +15,7 @@ describe("根拠の表示（0006 の7）", () => {
   it("年金のマス: 合計は表のマスと同じ、内訳は計算式ごと、使った制度の値と出典が出る", () => {
     const v = buildEvidence(out, proposal, "pension:self", 2047)!;
     const cell = preview(proposal).table.filter((c) => c.row.startsWith("cf.income.pension") && c.member === self.id && c.year === 2047).reduce((s, c) => s + c.amount, 0);
-    expect(v.title).toBe("2047年 ご主人の年金");
+    expect(v.title).toBe("2047年 ご本人の年金");
     expect(v.total).toBe(cell);
     expect(v.breakdown.map((b) => b.label)).toEqual(["老齢基礎年金", "老齢厚生年金"]);
     expect(v.breakdown.reduce((s, b) => s + b.amount, 0)).toBe(v.total);

@@ -318,7 +318,7 @@ function debtorFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
   const self = h.members.find((m) => m.kind === "self");
   const spouse = h.members.find((m) => m.kind === "spouse" && m.outside === undefined);
   const options = [
-    { value: "self", label: "本人" },
+    { value: "self", label: "ご本人" },
     ...(spouse !== undefined ? [{ value: "spouse", label: "配偶者" }] : []),
     ...(spouse !== undefined && d.pairWith === undefined && d.kind === "mortgage"
       ? [
@@ -546,7 +546,7 @@ const PROPERTY_SHORT: Record<string, string> = { certified: "認定住宅", zeh:
 
 const memberLabelOf = (h: Household, id: string): string => {
   const m = h.members.find((x) => x.id === id);
-  return m?.kind === "self" ? "本人" : m?.kind === "spouse" ? "配偶者" : "家族";
+  return m?.kind === "self" ? "ご本人" : m?.kind === "spouse" ? "配偶者" : "家族";
 };
 
 const moveInOf = (h: Household, hs: DebtHousing | undefined): string | null => resolveTimepoint(h, (h.events ?? []).find((e) => e.id === hs?.moveIn)?.at);

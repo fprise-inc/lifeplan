@@ -162,8 +162,8 @@ describe("提案書の材料: バランスシートの図の時点（資産と�
     const f = figureOf({});
     expect(f.years).toEqual([f.yearOf("now"), f.yearOf("retire"), f.yearOf("age75")]);
     expect(f.labels[0]).toBe("今");
-    expect(f.labels[1]).toMatch(/^退職の年（ご主人\d+歳）$/);
-    expect(f.labels[2]).toBe("ご主人75歳");
+    expect(f.labels[1]).toMatch(/^退職の年（ご本人\d+歳）$/);
+    expect(f.labels[2]).toBe("ご本人75歳");
     // 表示の設定を省略しても同じ
     const g = figureOf({ bsPoints: DEFAULT_BS_POINTS, bsColumns: null });
     expect(g.years).toEqual(f.years);
@@ -172,10 +172,10 @@ describe("提案書の材料: バランスシートの図の時点（資産と�
   it("既定の時点を変えた・この世帯で時点を選んだ世帯は、その時点（4つ・年を直に選んだ時点を含む）", () => {
     const d = figureOf({ bsPoints: ["now", "childIndep", "age85"] });
     expect(d.years).toEqual([d.yearOf("now"), d.yearOf("childIndep"), d.yearOf("age85")]);
-    expect(d.labels[1]).toMatch(/^子の独立（ご主人\d+歳）$/);
+    expect(d.labels[1]).toMatch(/^子の独立（ご本人\d+歳）$/);
     const c = figureOf({ bsColumns: [{ point: "age80" }, { point: "now" }, { year: 2040 }, { point: "loanEnd" }] });
     expect(c.years).toEqual([c.yearOf("now"), 2040, c.yearOf("loanEnd"), c.yearOf("age80")].sort((a, b) => a - b));
-    expect(c.labels).toContain("ご主人80歳");
+    expect(c.labels).toContain("ご本人80歳");
     expect(c.labels.some((l) => l.startsWith("ローン完済（"))).toBe(true);
     // 抜粋の表にも図の時点が入る
     const table = c.input.balanceSheet!.proposal.points.map((x) => x.year);

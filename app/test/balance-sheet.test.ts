@@ -146,7 +146,7 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
 
   it("見せ方の切り替え: プランが2つ以上なら「プランを比較」（「プランを並べる」とは書かない）", () => {
     const q = bsPlan({ key: "B", letter: "B", name: "プランB", title: "65歳まで働く", base: false, req, table: r.table });
-    const model = balanceTabModel({ plans: [p, q], selected: "B", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご主人" });
+    const model = balanceTabModel({ plans: [p, q], selected: "B", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご本人" });
     const html = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop }));
     const i = html.indexOf('data-bs-view="plans"');
     expect(i).toBeGreaterThan(-1);
@@ -155,7 +155,7 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
   });
 
   it("タブの部品: 図・体力の目安・つまみ・推移のグラフ。控えが無ければ「前回と比べる」は出さない", () => {
-    const model = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご主人" });
+    const model = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご本人" });
     const html = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop }));
     expect(html).toContain('data-bs-figure="2026"');
     expect(html).toContain("事実（今・入力した値）");
@@ -185,7 +185,7 @@ describe("資産と負債のタブ（本物のエンジンの値）", () => {
   });
 
   it("カスタマイズで見るもの（例: 合算BS）を足したときだけ、タブの上に「見るもの」の切り替えを出す。押すとその図を共通の縮尺で並べる", () => {
-    const base = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご主人" });
+    const base = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご本人" });
     const at = p.years[0]!;
     const model = { ...base, customViews: [{ key: "combined", label: "合算BS", columns: [{ name: "会社", at }, { name: "家計", at }, { name: "合算", at }], note: "注記" }] };
     const html = renderToString(h(BalanceTab, { model, band: null, onPrev: noop, onGuide: noop, onColumns: noop, onPointDefaults: noop }));

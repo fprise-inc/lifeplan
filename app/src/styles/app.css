@@ -102,7 +102,7 @@ b { font-weight: 700; }
 .chart .axis-label.sub { font-size: 11px; }
 html.big .chart .axis-label { font-size: 14px; }
 html.big .chart .axis-label.sub { font-size: 13px; }
-/* 年齢の段の頭の呼び方（「ご主人」「奥様」。AgeAxis.tsx） */
+/* 年齢の段の頭の呼び方（「ご本人」「配偶者」。AgeAxis.tsx） */
 .chart .axis-who { fill: var(--ink-2); font-size: 10px; }
 html.big .chart .axis-who { font-size: 12px; }
 .chart .unit { fill: var(--ink-2); font-weight: 700; font-size: 12px; }
@@ -363,7 +363,8 @@ html.big .lever input[type="range"] { height: 36px; }
 .ck-detail { color: var(--ink-2); font-size: 0.8rem; flex-basis: 100%; padding-left: calc(7em + 10px); }
 .ck-acts { margin-left: auto; display: flex; gap: 8px; }
 @media (max-width: 640px) { .ck-detail { padding-left: 0; } .ck-acts { margin-left: 0; } }
-.in-actions { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 8px; align-items: center; }
+/* ボタンの間は、ボタンのすぐ右の「?」（.help-of の 4px）より広く空ける（どのボタンの「?」か分かるように。0077 の 2026-10-29 の追記） */
+.in-actions { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; align-items: center; }
 .add-btn { border: 1.5px solid var(--prop); color: var(--prop); background: #fff; border-radius: 7px; padding: 4px 10px; font-weight: 700; font-size: 0.86rem; cursor: pointer; }
 .add-btn:hover { background: var(--prop-bg); }
 /* 選んでいる状態を見せるボタン（黒字のうち貯金に回る割合の目安など） */
@@ -561,8 +562,8 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .ip-thumb img { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; display: block; }
 .ip-head h2 { margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
 .ip-tools { display: flex; align-items: center; gap: 10px; align-self: start; }
-/* 標準／詳細の切り替えのすぐ左の「?」（見出しの「?」と同じ大きさ。0077 の追記） */
-.ip-tools > .help { margin-right: -4px; }
+/* 標準／詳細の切り替えのすぐ右の「?」（見出しの「?」と同じ大きさ。0077 の追記。「?」は説明する物の右＝2026-10-29 の追記） */
+.ip-tools > .help { margin-left: -4px; }
 .ip-tools .help-btn { font-size: 0.78rem; }
 .ip-lead { margin: 0; color: var(--ink-2); font-size: 0.88rem; grid-column: 2 / 4; }
 .ip-body { flex: 1; overflow-y: auto; padding: 4px 18px 20px; overscroll-behavior: contain; }
@@ -1422,6 +1423,19 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .help-pop ul { margin: 0; padding-left: 1.2em; }
 html.big .help-pop { font-size: 0.92rem; }
 .in-note.in-empty { margin: 0 0 4px; }
-.ip-lineup .help, .ip-note .help, .ip-inherit .help, .sv-note .help, .in-actions .help { margin: 0 6px; }
-/* 「＋」のボタンの横の「?」（ボタンの名前に書かない説明）はボタンに寄せる */
-.in-actions .add-btn + .help, .sv-add .add-btn + .help { margin: 0 6px 0 -4px; }
+.ip-lineup .help, .ip-note .help, .ip-inherit .help, .sv-note .help, .in-actions > .help { margin: 0 6px; }
+/*
+ * 「?」と、それが説明する物（ボタン・状態の言葉）のまとまり（Help.tsx の HelpOf。0077 の 2026-10-29 の追記）: 「?」は物のすぐ右に寄せ、間で折り返さない。
+ * 次のボタンとの間は、まとまりの外の間（.in-actions・.sv-add の gap）で空ける。並び全体の説明（.all）は、並びの中で折り返してよい
+ */
+.help-of { display: inline-flex; align-items: center; gap: 4px; flex: none; max-width: 100%; }
+.help-of.all { display: flex; flex-wrap: wrap; flex: 0 1 auto; gap: 6px 12px; }
+/* 「?」を開いている間（カーソル・フォーカス・押して開いたまま）は、説明する物を薄く強調する */
+.help-of:has(> .help > .help-btn[aria-expanded="true"]) > :not(.help),
+.help-of.all:has(> .help > .help-btn[aria-expanded="true"]) > .help-of > :not(.help) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--prop) 22%, transparent); border-radius: 6px; }
+.help-of:has(> .help > .help-btn[aria-expanded="true"]) > :not(.help, .primary),
+.help-of.all:has(> .help > .help-btn[aria-expanded="true"]) > .help-of > :not(.help, .primary) { background: var(--prop-bg); }
+.ip-foot > .help-of { gap: 6px; }
+.fld-l:has(> .help > .help-btn:not(.help-mark)[aria-expanded="true"]) > label { background: var(--prop-bg); box-shadow: 0 0 0 2px var(--prop-bg); border-radius: 3px; }
+/* 説明の1行目の、何の説明か（ボタンの名前など） */
+.help-pop .help-for { display: block; margin-bottom: 4px; font-weight: 700; color: var(--ink-2); font-size: 0.92em; }

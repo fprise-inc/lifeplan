@@ -127,7 +127,7 @@ function AccountForm({ wh, initial, onDone, onCancel, edit }: { wh: WorkingHouse
       <div class="hs-form">
         <label>
           <span>呼び名</span>
-          <input type="text" value={d.label} maxLength={60} placeholder={d.kind === "card" ? "例: ご主人のカード（Aカード）" : d.kind === "bank" ? "例: 奥様の給与口座" : "例: 家計簿アプリ"} onInput={(e) => setD({ ...d, label: (e.currentTarget as HTMLInputElement).value })} onBlur={() => setTouched(true)} aria-invalid={touched && problem !== null} data-statement-label />
+          <input type="text" value={d.label} maxLength={60} placeholder={d.kind === "card" ? "例: ご本人のカード（Aカード）" : d.kind === "bank" ? "例: 配偶者の給与口座" : "例: 家計簿アプリ"} onInput={(e) => setD({ ...d, label: (e.currentTarget as HTMLInputElement).value })} onBlur={() => setTouched(true)} aria-invalid={touched && problem !== null} data-statement-label />
         </label>
         <label>
           <span>持ち主</span>

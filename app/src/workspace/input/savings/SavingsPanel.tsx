@@ -3,10 +3,10 @@
 import { Fragment } from "preact";
 import { useState } from "preact/hooks";
 import type { Account, EngineRequest } from "../../../engine/types.ts";
-import { Help } from "../../../presentation/Help.tsx";
+import { Help, HelpOf } from "../../../presentation/Help.tsx";
 import { DonutPair, type DonutItem, type DonutPane } from "../../../presentation/Donut.tsx";
 import { ageAt } from "../../levers.ts";
-import { ActionHelp, Field, fieldDomId, Group, MoreToggle, Section, shouldCommitOnBlur, useGroupOpen, visible } from "../FieldViews.tsx";
+import { actionHelp, Field, fieldDomId, Group, MoreToggle, Section, shouldCommitOnBlur, useGroupOpen, visible } from "../FieldViews.tsx";
 import { FieldStateBadge, FieldStateLine } from "../FieldStateLine.tsx";
 import { allFields, type FieldDef, type GroupDef, type Level, type SectionDef } from "../form.ts";
 import { mutate, type WorkingHousehold } from "../household.ts";
@@ -349,12 +349,11 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
           <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} editField={editField} find={find} fields={fields} onEdit={onEdit} {...(moreOf !== undefined ? { moreOf } : {})} />
           <div class="sv-add">
             {addActions.map((a) => (
-              <Fragment key={a.key}>
+              <HelpOf key={a.key} help={actionHelp(a)}>
                 <button type="button" class="add-btn" onClick={(e) => { if (a.label.startsWith("＋")) revealAdded(e.currentTarget); onEdit(a.run(wh)); }} data-action={a.key}>
                   {a.label}
                 </button>
-                <ActionHelp action={a} />
-              </Fragment>
+              </HelpOf>
             ))}
             {level === "simple" ? (
               <button type="button" class="link-btn" aria-expanded={moreKinds} onClick={() => setMoreKinds(!moreKinds)} data-more-kinds>
@@ -484,12 +483,11 @@ function FlowSection({ wh, level, flow, onEdit }: { wh: WorkingHousehold; level:
               {g.actions.length > 0 ? (
                 <div class="in-actions">
                   {g.actions.map((a) => (
-                    <Fragment key={a.key}>
+                    <HelpOf key={a.key} help={actionHelp(a)}>
                       <button type="button" class="add-btn" onClick={(e) => { if (a.label.startsWith("＋")) revealAdded(e.currentTarget); onEdit(a.run(wh)); }} data-action={a.key} {...(a.pressed !== undefined ? { "aria-pressed": a.pressed } : {})} {...(a.title !== undefined ? { title: a.title } : {})}>
                         {a.label}
                       </button>
-                      <ActionHelp action={a} />
-                    </Fragment>
+                    </HelpOf>
                   ))}
                 </div>
               ) : null}

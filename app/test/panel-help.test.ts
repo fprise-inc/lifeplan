@@ -1,5 +1,5 @@
 // 入力のパネルの説明の「?」（0077 の追記）: 開いただけでは説明が出ない（フォーカスで開くのはキーボードで移ったときだけ・開いた直後に「?」へ移らない）。
-// 標準／詳細の切り替えの左の「?」は、入力項目ごとの2文（標準で入れるもの・詳細で増えるもの）で、並べるものはその入力項目の標準・詳細に出る欄に当たる。
+// 標準／詳細の切り替えの右の「?」（2026-10-29 に左から右へ）は、入力項目ごとの2文（標準で入れるもの・詳細で増えるもの）で、並べるものはその入力項目の標準・詳細に出る欄に当たる。
 // 相続・贈与のパネルの相続税の目安は、入れる区画の下（0060 の追記）
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -54,12 +54,12 @@ describe("開いただけでは説明が出ない", () => {
   });
 });
 
-describe("標準／詳細の切り替えの左の「?」", () => {
-  it("どの入力項目にもあり、切り替えのすぐ左（入力項目ごとの2文）", () => {
+describe("標準／詳細の切り替えの右の「?」", () => {
+  it("どの入力項目にもあり、切り替えのすぐ右・閉じるの手前（入力項目ごとの2文。「?」は説明する物の右＝2026-10-29 の追記）", () => {
     const wh = open(MODELS[0]!);
     for (const s of STAGE_ORDER) {
       const html = panel(wh, s.id);
-      const tools = /<div class="ip-tools">([\s\S]*?)<div class="level-switch"/.exec(html);
+      const tools = /<div class="level-switch"[\s\S]*?<\/div>([\s\S]*?)<button type="button" class="x-btn"/.exec(html);
       expect(tools, s.label).not.toBeNull();
       expect(tools![1]).toContain('data-help="level"');
       expect(tools![1]).toContain('aria-label="標準と詳細の違いの説明"');

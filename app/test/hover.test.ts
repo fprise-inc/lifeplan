@@ -110,7 +110,7 @@ describe("グラフの年: カーソルで○と表示、クリックで固定",
     expect(html).toContain('class="hv-dot sel"');
     expect(html).toContain('class="hv-dot base"');
     expect(html).toContain("data-year-tip");
-    expect(html).toContain("2053年　ご主人72歳・奥様70歳");
+    expect(html).toContain("2053年　ご本人72歳・配偶者70歳");
     expect(html).toContain("固定中");
     const i = m.chart.years.indexOf(2053);
     const man = (n: number) => `${n < 0 ? "▲" : ""}${Math.round(Math.abs(n) / 10000).toLocaleString("en-US")}万円`;
@@ -251,7 +251,7 @@ describe("金額のスライダーは1万円の刻み", () => {
 
   it("対策の欄: 金額はスライダー（step=10000）と横の数値の欄、年齢は1歳ずつのスライダーと値の位置の目盛り", () => {
     const rows: LeverRow[] = [
-      { key: "retireAge", label: "ご主人が働く最後の年齢", slider: { kind: "age", min: 60, max: 70, value: 63, base: 60, ticks: [60, 65, 70], stepText: String }, valueText: "63歳まで", baseText: "60歳まで", note: null },
+      { key: "retireAge", label: "ご本人が働く最後の年齢", slider: { kind: "age", min: 60, max: 70, value: 63, base: 60, ticks: [60, 65, 70], stepText: String }, valueText: "63歳まで", baseText: "60歳まで", note: null },
       { key: "nisaMonthly", label: "NISAの積立額（月）", slider: { kind: "amount", min: 0, max: 50_000, step: 10_000, value: 30_000, base: 10_000, per: "月", tick: (v) => `${v / 10000}万` }, valueText: "月3万円", baseText: "月1万円", note: null },
     ];
     const html = renderToString(h(LeverCard, { selected: "プランB", baseLetter: "A", locked: null, modified: false, levers: rows, fee: null, onSlide: noop, onRelease: noop, onReset: noop, onOverwrite: null, onSaveNew: noop, suggested: "", changes: [], onAck: null, onDrop: null }));

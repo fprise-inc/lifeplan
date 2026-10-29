@@ -66,7 +66,7 @@ describe("アプリの見本の世帯を開いたとき", () => {
     }
   });
 
-  it("100年分の見本（本人30歳の夫婦と0歳の子）は 2125年（本人129歳）でなく 2097年（奥様100歳）まで", () => {
+  it("100年分の見本（本人30歳の夫婦と0歳の子）は 2125年（本人129歳）でなく 2097年（配偶者100歳）まで", () => {
     const raw = modelHousehold("lifetime100Plan");
     expect(raw.input.endYear).toBe(2125);
     const req = sampleRequest(raw);
@@ -76,9 +76,9 @@ describe("アプリの見本の世帯を開いたとき", () => {
     // 資産と負債のタブの年のつまみ: 今（2026年・本人30歳）から表の最後の年（2097年・本人101歳）まで
     expect(p.years[0]).toMatchObject({ year: 2026, age: 30 });
     expect(p.years.at(-1)).toMatchObject({ year: 2097, age: 101 });
-    expect(p.years.at(-1)!.members).toBe("ご主人101歳・奥様100歳");
+    expect(p.years.at(-1)!.members).toBe("ご本人101歳・配偶者100歳");
     expect(p.years.some((y) => y.year > 2097)).toBe(false);
-    const model = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご主人" });
+    const model = balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults: DEFAULT_BS_POINTS, columns: null, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご本人" });
     const html = renderToString(h(BalanceTab, { model, band: null, onPrev: () => undefined, onGuide: () => undefined, onColumns: () => undefined, onPointDefaults: () => undefined }));
     const i = html.indexOf("data-bs-range");
     const input = html.slice(html.lastIndexOf("<input", i), html.indexOf(">", i));
