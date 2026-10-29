@@ -313,6 +313,12 @@ interface GroupMore {
   toggle: () => void;
 }
 
+/** 「▸ 詳しく」を開いて入れ替えた欄の知らせ（標準だけの欄 simpleOnly の swapNote。開いていなければ無し） */
+export function swapNotesOf(group: GroupDef, open: boolean): string[] {
+  if (!open) return [];
+  return [...new Set(group.fields.filter((f) => f.simpleOnly === true && f.swapNote !== undefined).map((f) => f.swapNote as string))];
+}
+
 /**
  * 「▸ 詳しく」の小さな文字のリンク。押した所は動かさず、開いた中身はこの下に出す（見えなければ見える所までスクロール）。
  * 押したときに欄からフォーカスを外さない（外すと、欄の値が入れ直されて「保存していない変更」になるため）
@@ -342,12 +348,6 @@ export function MoreToggle({ groupKey, open, toggle, label, swapNotes = [] }: { 
       ) : null}
     </div>
   );
-}
-
-/** 「▸ 詳しく」を開いて入れ替えた欄の知らせ（標準だけの欄 simpleOnly の swapNote。開いていなければ無し） */
-export function swapNotesOf(group: GroupDef, open: boolean): string[] {
-  if (!open) return [];
-  return [...new Set(group.fields.filter((f) => f.simpleOnly === true && f.swapNote !== undefined).map((f) => f.swapNote as string))];
 }
 
 export function Group({ group, wh, level, onEdit, more, moreOf }: { group: GroupDef; wh: WorkingHousehold; level: Level; onEdit: (w: WorkingHousehold) => void; more?: GroupMore; moreOf?: string }) {
