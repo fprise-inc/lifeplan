@@ -218,7 +218,7 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
     fields.push(
       styleField(r, k),
       yenBox({ key: `${k}/tax`, item: "residence.propertyTax", label: "固定資産税・都市計画税", level: "detail", basis: "annual", find, path: ["propertyTax", "annual"] }),
-      { ...plain({ key: `${k}/taxGrowth`, item: "residence.propertyTax", label: "固定資産税の変動率（年）", level: "detail", kind: "pct", find, path: ["propertyTax", "growth"], optional: true, fallback: "0", help: "空欄なら変えません。建物の評価が下がる分は、段階や例外の年で入れられます" }), address: () => at(r.id, "residence.propertyTax", ["growth"]) },
+      { ...plain({ key: `${k}/taxGrowth`, item: "residence.propertyTax", label: "固定資産税の変動率（年）", level: "detail", kind: "pct", find, path: ["propertyTax", "growth"], optional: true, fallback: "0", help: "空欄なら変えません。建物の評価が下がる分は、「＋ 固定資産税の変化」で入れられます" }), address: () => at(r.id, "residence.propertyTax", ["growth"]) },
       yenBox({ key: `${k}/maint`, item: "residence.maintenance", label: "修繕費・管理費（毎月）", level: "simple", basis: "monthly", find, path: ["maintenance", "monthly"] }),
       plain({ key: `${k}/maintGrowth`, item: "residence.maintenance", label: "修繕費の変動率（年）", level: "detail", kind: "pct", find, path: ["maintenance", "growth"], optional: true, help: "空欄なら変えません。外壁・屋根などの大きな修繕は、下の「出るお金」の修繕・リフォームの行で入れます" }),
       ...ownershipFields(wh, r, k),
@@ -240,11 +240,13 @@ function residenceGroups(wh: WorkingHousehold, r: Residence, i: number): GroupDe
       },
       ...ageOf,
       ...(yearly ? { yearly: true } : {}),
+      flow: "out",
+      // 額の変化は、その額の欄（と変動率の欄）のすぐ後に並べる
+      place: { group: k, after: `${k}/${part === "rent" ? "rentGrowth" : part === "maintenance" ? "maintGrowth" : "taxGrowth"}` },
     });
   const stagedParts = r.kind === "rent" ? (r.rent !== undefined && !free ? [["rent", "家賃"]] : []) : [...(r.maintenance !== undefined ? [["maintenance", "修繕費"]] : []), ...(r.propertyTax !== undefined ? [["propertyTax", "固定資産税"]] : [])];
   const badges = stagedParts.map(([part, what]) => {
-    const b = stagedBadge(r as unknown as Record<string, unknown>, [part as string, "stages"], [part as string, "exceptions"]);
-    return b === null ? null : `${what as string}: ${b}`;
+    return stagedBadge(r as unknown as Record<string, unknown>, [part as string, "stages"], [part as string, "exceptions"], what as string);
   }).filter((x) => x !== null);
   const actions: ActionDef[] = [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.residences = (h.residences ?? []).filter((x) => x.id !== r.id)))];
   if (free && r.to === null) actions.unshift({ key: `${k}/inherit`, label: "この家を相続する", help: "住まいを持ち家に切り替えます", level: "detail", run: (w) => inheritHome(w, r.id) });

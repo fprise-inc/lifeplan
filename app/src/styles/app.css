@@ -296,6 +296,13 @@ html.big .lever input[type="range"] { height: 36px; }
 .in-group.compact .grp-more, .in-group.compact .grp-more-body { grid-column: 1 / -1; }
 .sv-more-row > td { background: #fcfcfb; padding: 2px 10px 10px; }
 .sv-more-row .in-group { margin: 4px 0; background: #fff; }
+/* まとまりの中に描くまとまり（placeIn。行の額の近くに並べる額の変化。0040 の 2026-10-29 の追記）: 左の線で、どの行の物か分かるように */
+.in-group .in-group { background: #fff; margin: 8px 0 8px 2px; border-left: 3px solid var(--prop-bg); }
+.in-group .in-group + .in-actions, .in-group > .in-actions:not(:last-child) { margin-bottom: 6px; }
+/* 選択肢をまとめた「＋」のボタン（「＋ 月額の変化」→「この年だけ」「この月から先」） */
+.add-choice { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.add-choice-opts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding-left: 8px; border-left: 2px solid var(--prop-bg); }
+.add-btn.add-choice-opt { font-weight: 600; }
 .fld-c select { max-width: 100%; }
 .fld-c input.bad { border-color: var(--short); background: var(--short-bg); }
 .fld-c input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--prop); }

@@ -534,6 +534,9 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
       },
       ...ageOf,
       ...(yearly ? { yearly: true } : {}),
+      flow: part === "rental" ? "in" : "out",
+      // 額の変化は、その額のまとまり（家賃収入・経費）の変化率の欄のすぐ後に並べる
+      place: { group: `${kp}/${part}`, after: `${kp}/${part === "rental" ? "rentGrowth" : "expGrowth"}` },
     });
   if (p.rental !== undefined) groups.push(...staged("rental", lodging !== undefined ? "売上" : "家賃", "monthly", (x) => (x.property === undefined ? null : (lodgingMonthlySales(x.property) ?? x.property.rental?.monthly.value ?? null))));
   // 経費（費目を1つでも入れたら、年額はその合計。0080）
