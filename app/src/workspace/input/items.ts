@@ -25,6 +25,7 @@ import { statementMonthsMissing } from "./stages/pension.ts";
 import { totalViewOf } from "./savings/model.ts";
 import { currentPeriod } from "./stages/work.ts";
 import { fieldAddress, fieldStatus } from "./valueState.ts";
+import { ALWAYS_SHOWN, isHiddenIn } from "./itemChoice.ts";
 
 /** カードの状態: 入力済み・推定で計算中・未入力（0円の所あり）・当てはまらない・まだ入れていない（入れ始める前。赤い知らせを出さない） */
 export type ItemStatus = "done" | "est" | "missing" | "na" | "empty";
@@ -66,14 +67,16 @@ export interface InputItem {
   /** 未入力（0円で計算中）の欄と、入っていない物の数 */
   missing: number;
   summary: Summary | null;
-  /** ざっくり派の最初の5枚の1枚 */
-  first: boolean;
-  /** 最初の5枚のほかのカードの1行の案内（例: 「入れなくても計算できます（保障は無しで計算中）」）。案内の要らない状態なら null */
+  /** カードの1行の案内（例: 「入れなくても計算できます（保障は無しで計算中）」）。案内の要らない状態なら null */
   hint: string | null;
   /** カードの上の「当てはまらない」の1押しで抜けられる */
   canNa: boolean;
   /** カードの上の「目安で入れる」の1押しで抜けられる（入っていない物を推定で埋められる） */
   canFill: boolean;
+  /** 値が入っている（項目に属する物があるか、FP が欄に入れた印がある）。非表示にしてあってもホームに出す */
+  entered: boolean;
+  /** 入力のホームに出さない（世帯の選び方で非表示にしてあり、値が入っていない。itemChoice.ts） */
+  hidden: boolean;
 }
 
 /** ピン（ホームに出した物） */
@@ -88,13 +91,15 @@ export interface PinItem extends InputItem {
 /** 見出しで区切るのは、カード（項目）がこの数以上のとき（ピンは数えない） */
 export const GROUP_HEADINGS_FROM = 16;
 
-/** カードの並びと最初の5枚（事務所の設定で変えられる形。保存の場所は事務所の設定を作る回に決める） */
+/** カードの並び（事務所の既定値で変えられる形。0073）。前にあった「最初の5枚」（first）はなくした（古い事務所データの first は読まない） */
 export interface CardLayout {
   order: readonly StageId[];
-  first: readonly StageId[];
 }
 
-export const DEFAULT_LAYOUT: CardLayout = { order: STAGE_ORDER.map((s) => s.id), first: ["family", "work", "living", "savings", "housing"] };
+export const DEFAULT_LAYOUT: CardLayout = { order: STAGE_ORDER.map((s) => s.id) };
+
+/** 「当てはまらない」の1押しを出さない項目（どの世帯にもある物。家族・基本生活費・前提条件） */
+const NO_NA: ReadonlySet<StageId> = new Set<StageId>(["family", "living", "assumptions"]);
 
 /** 並び: 設定の順に、設定に無いカードを標準の順で後ろに足す（どのカードも1回ずつ） */
 export function cardOrder(layout: CardLayout = DEFAULT_LAYOUT): StageId[] {
@@ -131,7 +136,7 @@ const BASE: Record<StageId, BaseDef> = {
 const ART_COLOR: Record<AddedItem["art"], string> = { pet: "#B0704E", abroad: "#4F8FA6", events: BASE.events.color, car: BASE.car.color, fee: BASE.fee.color };
 
 /**
- * 最初の5枚のほかのカードの1行の案内（未入力のとき: 何で計算しているか。推定で計算中のとき: 何の推定か）。
+ * カードの1行の案内（未入力のとき: 何で計算しているか。推定で計算中のとき: 何の推定か）。
  * カードの上に出す。物があって0円の欄があるときは、共通の文
  */
 const HINTS: Partial<Record<StageId, { missing?: string; est?: string }>> = {
@@ -601,10 +606,11 @@ function pinItem(wh: WorkingHousehold, a: AddedItem, base: WorkingHousehold | un
     estimated: c.estimated,
     missing: c.missing,
     summary: o === null ? null : addedSummary(h, o),
-    first: false,
     hint: null,
     canNa: false,
     canFill: false,
+    entered: o !== null,
+    hidden: false,
   };
 }
 
@@ -649,7 +655,6 @@ const gapsFor = (gaps: readonly Gap[], id: string) => gaps.filter((g) => g.card 
 /** 入力のホームの15枚のカード（ピンは pinItems） */
 export function inputItems(wh: WorkingHousehold, opts: ItemOptions = {}): InputItem[] {
   const layout = opts.layout ?? DEFAULT_LAYOUT;
-  const first = new Set(layout.first);
   const confirmed = new Set(wh.confirmed);
   const gaps = gapsOf(wh);
   const labels = new Map(STAGE_ORDER.map((s) => [s.id, s.label]));
@@ -663,11 +668,10 @@ export function inputItems(wh: WorkingHousehold, opts: ItemOptions = {}): InputI
     const none = declaredNone(id, wh);
     const started = startedOf({ hasData, confirmed: confirmed.has(id), none, touched: c.touched, fieldMissing: c.missing });
     const status = statusOf({ estimated, missing, hasData, confirmed: confirmed.has(id), none, countEstimates: id !== "assumptions", started });
-    const isFirst = first.has(id);
-    // 未入力とまだ入れていない項目は、同じ1行の案内と1押し（まだ入れていない項目は、赤くしない控えめな見せ方で）
+    // 未入力とまだ入れていない項目は、同じ1行の案内と1押し（まだ入れていない項目は、赤くしない控えめな見せ方で）。どの項目も同じ決まり
     const open = status === "missing" || status === "empty";
-    const hint = isFirst || (!open && status !== "est") ? null : status === "est" ? (HINTS[id]?.est ?? HINT_EST) : hasData && c.missing > 0 ? HINT_ZERO : (HINTS[id]?.missing ?? HINT_ZERO);
-    const canNa = !isFirst && open && id !== "family" && id !== "assumptions" && (!hasData || (c.missing === 0 && own.every((g) => g.none !== undefined)));
+    const hint = !open && status !== "est" ? null : status === "est" ? (HINTS[id]?.est ?? HINT_EST) : hasData && c.missing > 0 ? HINT_ZERO : (HINTS[id]?.missing ?? HINT_ZERO);
+    const canNa = open && !NO_NA.has(id) && (!hasData || (c.missing === 0 && own.every((g) => g.none !== undefined)));
     const def = BASE[id];
     return {
       id,
@@ -681,13 +685,17 @@ export function inputItems(wh: WorkingHousehold, opts: ItemOptions = {}): InputI
       estimated,
       missing,
       summary: baseSummary(id, wh, opts.inheritance, opts.pension),
-      first: isFirst,
       hint,
       canNa,
-      canFill: !isFirst && open && own.some((g) => g.fill !== undefined),
+      canFill: open && own.some((g) => g.fill !== undefined),
+      entered: hasData || c.touched > 0,
+      hidden: isHiddenIn(wh.itemChoice, id) && !ALWAYS_SHOWN.includes(id) && !(hasData || c.touched > 0),
     };
   });
 }
+
+/** 入力のホームに出す入力項目（非表示の項目を除く。値が入っている項目は非表示にしてあっても出す） */
+export const shownItems = (items: readonly InputItem[]): InputItem[] => items.filter((i) => !i.hidden);
 
 /** カード（15枚）かピンの1つ（パネルの見出し・状態に使う） */
 export function itemOf(wh: WorkingHousehold, id: string, opts: ItemOptions = {}): InputItem | null {

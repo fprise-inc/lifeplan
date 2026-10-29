@@ -118,7 +118,7 @@ export function tabsFor(req: EngineRequest | null): { id: Tab; label: string }[]
   return TABS.filter((t) => t.id !== "rental" || rental);
 }
 
-/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#fpmenu（上の帯の FP のメニューを開く）・#notices（結果のタブの計算の知らせを開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#add=pet,periodic（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
+/** URL の # の後ろ（画面の確かめ用: #big・#household=…（blank は空の世帯）・#levers=65,65,30000,280000・#year=2047・#evidence=pension:self:2047・#selfcheck・#tab=input・#open=work（#stage=work も同じ）・#level=detail・#fee=off・#scenario=death:self・#memo・#snapshots（入力のホームで控えの一覧を開く）・#fpmenu（上の帯の FP のメニューを開く）・#choose（入力のホームの「入力項目を選ぶ」を開く）・#officedefaults（事務所の既定値のパネルを開く）・#notices（結果のタブの計算の知らせを開く）・#report=takeaway（提案書のタブを持ち帰り用のレポートで開く）・#cgplan=B（万一のときの画面で見るプランの帯の文字）・#add=pet,periodic（開発用のサーバーだけ: 項目を足して保存した状態で開く）・#chart=flows・#explain=2・
  * #items=loan,rate,shift,mix,surplus（開発用のサーバーだけ: 動かす項目を足す）・#seed=plans（開発用のサーバーだけ: 見本の案を5つ）・#seedopen・#addmenu・#save・#selfcheck=plans・
  * #sel=C・#base=B（帯の案の文字）・#diff（表に差を表示）・#settings（表示の設定を開く）・#metrics=assetsAtAge,takeHome・#age=90・#compare（比較の表を開く）・#list（案の一覧を開く）・#scroll=table・#layout=side（グラフを左右に並べる）・
  * #tab=rental（収益不動産のタブ。物件の無い世帯では結果のタブ）・#rental=total|2（見るもの: 全体か物件の番号）・#rentalyear=2034（指標の年）） */
@@ -142,6 +142,10 @@ export function parseHash(hash: string): {
   snapshots?: boolean;
   /** #fpmenu: 上の帯の FP のメニューを開いて開く（画面の確かめ用） */
   fpMenu?: boolean;
+  /** #choose: 入力のホームの「入力項目を選ぶ」を開いて開く（画面の確かめ用） */
+  choose?: boolean;
+  /** #officedefaults: 事務所の既定値のパネルを開いて開く（画面の確かめ用。本体か開発用のサーバーがあるとき） */
+  officeDefaults?: boolean;
   /** 結果のタブの計算の知らせを開いた状態で開く（#notices） */
   notices?: boolean;
   /** #statement=review: 入力で明細のパネルをその手順で開く（閉じると基本生活費のパネルに戻る。0034。画面の確かめ用） */
@@ -215,6 +219,8 @@ export function parseHash(hash: string): {
     else if (k === "memo") out.memo = true;
     else if (k === "snapshots") out.snapshots = true;
     else if (k === "fpmenu") out.fpMenu = true;
+    else if (k === "choose") out.choose = true;
+    else if (k === "officedefaults") out.officeDefaults = true;
     else if (k === "notices") out.notices = true;
     else if (k === "statement" && (v === "accounts" || v === "import" || v === "review" || v === "result")) out.statement = v;
     else if (k === "report" && (v === "takeaway" || v === "pdf")) out.reportMode = v;
@@ -444,7 +450,7 @@ export function App() {
   /** 事務所の既定値（0073。事務所データから読む。新しい世帯に写す・ホームの並び） */
   const [officeSettings, setOfficeSettings] = useState<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
   const officeSettingsRef = useRef<OfficeSettings>(DEFAULT_OFFICE_SETTINGS);
-  const [officeSettingsOpen, setOfficeSettingsOpen] = useState(false);
+  const [officeSettingsOpen, setOfficeSettingsOpen] = useState(initial.officeDefaults === true);
   const putOfficeSettings = (v: OfficeSettings) => {
     officeSettingsRef.current = v;
     setOfficeSettings(v);
@@ -2127,6 +2133,7 @@ export function App() {
               }}
               computeOne={computeOne}
               level={level}
+              chooseOpen={initial.choose === true}
               {...(cardOpen !== null ? { initialOpen: cardOpen.id } : initial.open !== undefined ? { initialOpen: initial.open } : {})}
               {...(host !== null
                 ? {

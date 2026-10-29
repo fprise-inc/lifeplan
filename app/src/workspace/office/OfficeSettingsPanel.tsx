@@ -1,10 +1,11 @@
 // 事務所の既定値の画面（0073。世帯の一覧の「事務所の既定値」から開く中央のパネル）:
-// カードの並びと最初の5枚・本人と配偶者の介護を最初から入れるか・受け取る予定の相続・贈与の見込みの既定・前提条件の標準値・
+// 入力項目の並び・新しい世帯で出す入力項目と開いたときの入れ方・本人と配偶者の介護を最初から入れるか・受け取る予定の相続・贈与の見込みの既定・前提条件の標準値・
 // 相続税の目安の不動産の評価の割合・FP顧問料の料金表。新しく作る世帯（料金表は新しく足す契約）に写す（作った世帯は変わらない。違うときは確かめの一覧に知らせが出る）
 import { useEffect, useRef, useState } from "preact/hooks";
 import { STAGE_ORDER } from "../input/stages/index.ts";
 import { DEFAULT_LAYOUT } from "../input/items.ts";
-import type { StageId } from "../input/form.ts";
+import type { Level, StageId } from "../input/form.ts";
+import { ALWAYS_SHOWN, isHiddenIn, levelIn, withLevel, withShown } from "../input/itemChoice.ts";
 import { today } from "../report/assemble.ts";
 import { ASSUMPTION_LABELS, DEFAULT_OFFICE_SETTINGS, FEE_MAX, FEE_STEP_YEAR_MAX, layoutOf, OFFICE_ASSUMPTIONS, type FeeTable, type OfficeAssumption, type OfficeSettings } from "./settings.ts";
 import { revealAdded } from "../../presentation/revealAdded.ts";
@@ -87,12 +88,10 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
     const j = i + d;
     if (j < 0 || j >= next.length) return;
     [next[i], next[j]] = [next[j] as StageId, next[i] as StageId];
-    setS({ ...s, layout: { order: next, first: layout.first } });
+    setS({ ...s, layout: { order: next } });
   };
-  const toggleFirst = (id: StageId, on: boolean) => {
-    const first = on ? [...layout.first, id] : layout.first.filter((x) => x !== id);
-    setS({ ...s, layout: { order, first: order.filter((x) => first.includes(x)) } });
-  };
+  const setShown = (id: StageId, on: boolean) => setS((x) => ({ ...x, items: withShown(x.items, id, on) }));
+  const setLevel = (id: StageId, l: Level) => setS((x) => ({ ...x, items: withLevel(x.items, id, l) }));
   const feeTable = feeFromTexts(s.fee, fee);
   const bad = [...OFFICE_ASSUMPTIONS.filter((k) => pctToRate(texts[k] ?? "") === undefined), ...(pctToRate(texts.realEstateRatio ?? "", 0, 100) === undefined ? ["realEstateRatio"] : []), ...(feeTable === null ? ["fee"] : [])];
   const per = s.fee.per === "month" ? "月" : "年";
@@ -136,15 +135,11 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
           {shared ? "事務所で共有していても、今はこの PC の設定です。" : "この PC の設定です。"}
         </p>
         <section class="os-sec" aria-labelledby="os-cards">
-          <h3 id="os-cards">入力のホームの入力項目の並びと最初の5項目</h3>
+          <h3 id="os-cards">入力のホームの入力項目の並び</h3>
           <ol class="os-cards">
             {order.map((id, i) => (
               <li key={id} data-office-card={id}>
                 <span class="os-name">{label(id)}</span>
-                <label class="os-first">
-                  <input type="checkbox" checked={layout.first.includes(id)} onChange={(e) => toggleFirst(id, (e.currentTarget as HTMLInputElement).checked)} data-office-first={id} />
-                  最初の5項目
-                </label>
                 <button type="button" class="link-btn" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`${label(id)}を上へ`} data-office-up={id}>
                   ↑
                 </button>
@@ -155,11 +150,36 @@ export function OfficeSettingsPanel({ value, onSave, shared, onClose }: OfficeSe
             ))}
           </ol>
           <p class="pl-sub">
-            最初の5項目: {layout.first.length}項目（ざっくり入れる人に最初に案内する入力項目）。
             <button type="button" class="link-btn" onClick={() => setS({ ...s, layout: null })} data-office-layout-reset>
               標準の並びに戻す
             </button>
           </p>
+        </section>
+        <section class="os-sec" aria-labelledby="os-items" data-office-items>
+          <h3 id="os-items">新しい世帯で出す入力項目と、開いたときの入れ方</h3>
+          <p class="pl-sub">新しく作る世帯に写します（作った世帯は、入力のホームの「入力項目を選ぶ」で世帯ごとに直せます）。出さない入力項目も、値が入ればホームに出ます。</p>
+          <ol class="os-cards os-items">
+            {order.map((id) => {
+              const always = ALWAYS_SHOWN.includes(id);
+              const lv = levelIn(s.items, id) ?? "simple";
+              return (
+                <li key={id} data-office-item={id}>
+                  <label class="os-show">
+                    <input type="checkbox" checked={always || !isHiddenIn(s.items, id)} disabled={always} onChange={(e) => setShown(id, (e.currentTarget as HTMLInputElement).checked)} data-office-show={id} {...(always ? { title: "いつも出します" } : {})} />
+                    <span class="os-name">{label(id)}</span>
+                  </label>
+                  <span class="level-switch mini" role="group" aria-label={`${label(id)}を開いたときの入れ方`}>
+                    <button type="button" class={lv === "simple" ? "on" : ""} aria-pressed={lv === "simple"} onClick={() => setLevel(id, "simple")} data-office-level={`${id}:simple`}>
+                      標準
+                    </button>
+                    <button type="button" class={lv === "detail" ? "on" : ""} aria-pressed={lv === "detail"} onClick={() => setLevel(id, "detail")} data-office-level={`${id}:detail`}>
+                      詳細
+                    </button>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
         </section>
         <section class="os-sec" aria-labelledby="os-care">
           <h3 id="os-care">本人・配偶者の介護の費用</h3>
