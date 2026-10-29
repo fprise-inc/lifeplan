@@ -303,7 +303,7 @@ export function insights(req: EngineRequest, r: PreviewResult, opts: { months?: 
     const y = years.find((yy, i) => i > 0 && (m.get(yy) ?? 1) <= 0 && (m.get(years[i - 1] as number) ?? 0) > 0);
     if (y !== undefined) {
       const who = req.input.household.members.find((x) => x.id === member);
-      out.push({ key: `nisa:${member}`, title: "NISA の枠を使い切る年", text: `${y}年に${who?.kind === "spouse" ? "配偶者の" : who?.kind === "self" ? "本人の" : ""}NISA の生涯の投資枠を使い切ります（その後の積立は課税口座で計算します）`, year: y });
+      out.push({ key: `nisa:${member}`, title: "NISA の枠を使い切る年", text: `${y}年に${who?.kind === "spouse" ? "配偶者の" : who?.kind === "self" ? "ご本人の" : ""}NISA の生涯の投資枠を使い切ります（その後の積立は課税口座で計算します）`, year: y });
     }
   }
   if (opts.inheritanceTax != null && opts.inheritanceTax > 0) out.push({ key: "inheritanceTax", title: "相続税がかかる見込み", text: `いま亡くなったときの相続税の目安は${man(opts.inheritanceTax)}万円です（相続・贈与の項目）`, year: null });

@@ -22,7 +22,7 @@ function planOf(id: string): BsPlanModel {
 }
 
 function modelOf(p: BsPlanModel, columns: BsColumn[] | null = null, pointDefaults = DEFAULT_BS_POINTS) {
-  return balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults, columns, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご主人" });
+  return balanceTabModel({ plans: [p], selected: "A", base: "A", guide: DEFAULT_BS_GUIDE, pointDefaults, columns, prevChoices: [], prev: { status: "idle", model: null }, provisional: false, who: "ご本人" });
 }
 
 describe("時点の候補（世帯で意味のある年）", () => {

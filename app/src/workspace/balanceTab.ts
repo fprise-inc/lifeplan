@@ -36,8 +36,8 @@ export const BS_POINT_CHOICES: readonly { key: BsPointKey; label: string; note: 
   { key: "y20", label: "20年後", note: "" },
   { key: "childIndep", label: "子の独立", note: "一番下の子が独立する年（子のいる世帯）" },
   { key: "loanEnd", label: "ローン完済", note: "住宅ローンを返し終わる年（ローンのある世帯）" },
-  { key: "retire", label: "退職の年", note: "本人が退職する年" },
-  { key: "pension", label: "年金の始まり", note: "本人の年金の受け取りが始まる年" },
+  { key: "retire", label: "退職の年", note: "ご本人が退職する年" },
+  { key: "pension", label: "年金の始まり", note: "ご本人の年金の受け取りが始まる年" },
   { key: "age65", label: "65歳", note: "" },
   { key: "age70", label: "70歳", note: "" },
   { key: "age75", label: "75歳", note: "" },
@@ -110,7 +110,7 @@ export interface BsPlanInput {
   table: readonly TableCell[];
 }
 
-/** その年の世帯の年齢の文（ご主人・奥様だけ。例: 「ご主人45歳・奥様43歳」） */
+/** その年の世帯の年齢の文（ご本人・配偶者だけ。例: 「ご本人45歳・配偶者43歳」） */
 function membersText(rs: readonly Role[], year: number): string {
   return rs
     .filter((r) => r.key === "self" || r.key === "spouse")

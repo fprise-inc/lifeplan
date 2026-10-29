@@ -177,9 +177,9 @@ describe("世帯の選択のメニューの頭と、結果の画面の頭", () =
   });
 
   it("開いている世帯の状態: 年齢・計算の基準・保存・（AIを使う設定のときだけ）AIとの共有と同意の入口", () => {
-    const props = { title: "顧客番号 D0001", members: "ご主人 45歳・奥様 43歳", asOf: "2026年10月時点", save: { text: "自動で保存しています", cls: "", state: "saved" } };
+    const props = { title: "顧客番号 D0001", members: "ご本人 45歳・配偶者 43歳", asOf: "2026年10月時点", save: { text: "自動で保存しています", cls: "", state: "saved" } };
     const off = renderToString(h(HouseholdNow, { ...props, ai: null }));
-    expect(off).toContain("ご主人 45歳");
+    expect(off).toContain("ご本人 45歳");
     expect(off).toContain("2026年10月時点の計算");
     expect(off).toContain('data-save-state="saved"');
     expect(off).not.toContain("AIとの共有");
@@ -189,7 +189,7 @@ describe("世帯の選択のメニューの頭と、結果の画面の頭", () =
   });
 
   it("結果の画面の頭に、年齢と基準の月を小さく出す", () => {
-    const html = renderToString(h(BasisLine, { members: "ご主人 45歳", asOf: "2026年10月時点" }));
+    const html = renderToString(h(BasisLine, { members: "ご本人 45歳", asOf: "2026年10月時点" }));
     expect(html).toContain("data-basis");
     expect(html).toContain("2026年10月時点");
   });

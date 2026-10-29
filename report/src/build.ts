@@ -115,9 +115,8 @@ export function roles<M extends RoleMember = Member>(req: { input: { household: 
   const self = ms.find((m) => m.kind === "self");
   const spouse = ms.find((m) => m.kind === "spouse");
   const out: Role<M>[] = [];
-  const coupleLabel = (m: M) => (m.sex === "female" ? "奥様" : "ご主人");
-  if (self !== undefined) out.push({ key: "self", label: spouse !== undefined ? coupleLabel(self) : "ご本人", member: self });
-  if (spouse !== undefined) out.push({ key: "spouse", label: coupleLabel(spouse), member: spouse });
+  if (self !== undefined) out.push({ key: "self", label: "ご本人", member: self });
+  if (spouse !== undefined) out.push({ key: "spouse", label: "配偶者", member: spouse });
   const children = ms.filter((m) => m.kind === "child").sort((a, b) => (a.birth.birthYearMonth < b.birth.birthYearMonth ? -1 : 1));
   // 子は性別によらず生まれた順に呼ぶ（予定の子も同じ。性別は計算に使わないので聞かない。0046 の追記 2026-10-27）。
   // 番号は世帯の中の子（一緒に暮らす子）だけで「第1子」「第2子」…。世帯の外の子は「離れて暮らす子」（2人以上なら生まれた順に「離れて暮らす子1」…）。
@@ -590,7 +589,7 @@ function standardPoints(ctx: Ctx): { now: YearPoint; ten: YearPoint; retire: Yea
 function figurePoints(ctx: Ctx): YearPoint[] {
   const who = whoOf(ctx);
   const given = ctx.bundle.balancePoints ?? [];
-  // 時点の名前は見出しの呼び方にする: 今／年齢の時点と年を直に選んだ時点は「ご主人75歳」／それ以外は「退職の年（ご主人65歳）」
+  // 時点の名前は見出しの呼び方にする: 今／年齢の時点と年を直に選んだ時点は「ご本人75歳」／それ以外は「退職の年（ご本人65歳）」
   const label = (year: number, name: string | null): string => (year === ctx.baseYear ? "今" : name === null || /^\d+歳$/.test(name) ? who(year) : `${name}（${who(year)}）`);
   const chosen = keepPoints(ctx, given.map((p) => ({ year: p.year, label: label(p.year, p.name) })), FIGURE_POINTS_MAX);
   if (chosen.length > 0) return chosen;

@@ -2,7 +2,7 @@
 // - 夫婦の世帯は年の下に「本人の年齢」「配偶者の年齢」の2段、単身の世帯は1段。各段の頭（グラフの面の左の余白）に呼び方を小さく書く
 // - 亡くなったあと（万一のときのグラフ）やまだいない年は、その人の段を空ける
 // - 段が増えた分だけグラフの下の余白を広げる（できごとの丸の段・「!」の段・年の目盛りが重ならない）
-// - 年を指したとき・固定したときの札には、家族全員の年齢（例: 「2045年 ご主人64歳・奥様62歳・長女35歳・長男32歳」。年のあとは全角の空白）
+// - 年を指したとき・固定したときの札には、家族全員の年齢（例: 「2045年 ご本人64歳・配偶者62歳・長女35歳・長男32歳」。年のあとは全角の空白）
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
@@ -42,10 +42,10 @@ const skYs = (html: string) => [...html.matchAll(/<g class="sk[^"]*" transform="
 describe("年齢の段（主画面のグラフ）", () => {
   it("夫婦の世帯: 年の下に本人・配偶者の年齢の2段。各段の頭に呼び方（グラフの面の左の余白）", () => {
     const html = draw(couple);
-    expect(couple.chart.axis.map((r) => r.label)).toEqual(["ご主人", "奥様"]);
+    expect(couple.chart.axis.map((r) => r.label)).toEqual(["ご本人", "配偶者"]);
     expect(html).toContain('data-age-rows="2"');
     const hs = heads(html);
-    expect(hs.map((x) => x.label)).toEqual(["ご主人", "奥様"]);
+    expect(hs.map((x) => x.label)).toEqual(["ご本人", "配偶者"]);
     // 頭は面の左の端（64px）より左。年齢の段と同じ高さ
     for (const x of hs) expect(x.x).toBeLessThan(64);
     const r0 = ageTexts(html, 0);
@@ -111,11 +111,11 @@ describe("年齢の段（主画面のグラフ）", () => {
     const html = draw(couple, { pinnedYear: y });
     const text = familyText(rs, y);
     expect(text.split("・")).toHaveLength(4);
-    expect(text).toMatch(/^ご主人\d+歳・奥様\d+歳・第1子\d+歳・第2子\d+歳$/);
+    expect(text).toMatch(/^ご本人\d+歳・配偶者\d+歳・第1子\d+歳・第2子\d+歳$/);
     expect(html).toContain(`<div class="yt-h">${y}年\u3000${text}`);
     expect(couple.chart.family[couple.chart.years.indexOf(y)]).toBe(text);
     // 子が独立したあとの年は夫婦だけ
-    expect(couple.chart.family.at(-1)).toMatch(/^ご主人\d+歳・奥様\d+歳$/);
+    expect(couple.chart.family.at(-1)).toMatch(/^ご本人\d+歳・配偶者\d+歳$/);
     expect(yearHead(2045, "")).toBe("2045年");
   });
 });
@@ -131,20 +131,20 @@ describe("年齢の段（万一のときのグラフ）", () => {
     const year = 2030;
     const m = scenarioModel({ req, scenario: sc, year, result: preview(scenarioRequest(wh, sc, year)), none: preview(baseRequest(req)), targetAge: 95, choice: undefined });
     const [selfRow, spouseRow] = m.chart.axis;
-    expect(selfRow!.label).toBe("ご主人");
+    expect(selfRow!.label).toBe("ご本人");
     expect(selfRow!.ages[years.indexOf(year)]).not.toBeNull();
     expect(selfRow!.ages.slice(years.indexOf(year) + 1).every((a) => a === null)).toBe(true);
     expect(spouseRow!.ages.every((a) => a !== null)).toBe(true);
-    expect(m.chart.family[years.indexOf(year + 1)]).not.toContain("ご主人");
-    expect(m.chart.family[years.indexOf(year)]).toContain("ご主人");
-    // グラフ: ご主人の段は亡くなった年の翌年からの目盛りに年齢を出さない。奥様の段は最後まで
+    expect(m.chart.family[years.indexOf(year + 1)]).not.toContain("ご本人");
+    expect(m.chart.family[years.indexOf(year)]).toContain("ご本人");
+    // グラフ: ご本人の段は亡くなった年の翌年からの目盛りに年齢を出さない。配偶者の段は最後まで
     const html = renderToString(h(ContingencyChart, { spec: { kind: "assets", model: m.chart, who: m.who, eventYear: year, pinnedYear: year + 5, onSelectYear: noop } }));
     expect(html).toContain('data-age-rows="2"');
     const ys = yearTexts(html);
     const after = ys.filter((y) => y.year > year).length;
     expect(ageTexts(html, 0)).toHaveLength(ys.length - after);
     expect(ageTexts(html, 1)).toHaveLength(ys.length);
-    expect(heads(html).map((x) => x.label)).toEqual(["ご主人", "奥様"]);
+    expect(heads(html).map((x) => x.label)).toEqual(["ご本人", "配偶者"]);
     expect(html).toContain(`<div class="yt-h">${year + 5}年\u3000${familyText(rs, year + 5, { key: "self", year })}`);
     // 年の目盛りは下の端から 28 + 14px
     expect(ys[0]!.y).toBe(520 - 28 - ageExtra(2));
@@ -152,7 +152,7 @@ describe("年齢の段（万一のときのグラフ）", () => {
 
   it("ageAxis: 夫婦は本人・配偶者（子は入れない）、亡くなった人は翌年から null", () => {
     const ax = ageAxis(rs, years, { key: "spouse", year: 2040 });
-    expect(ax.map((r) => r.label)).toEqual(["ご主人", "奥様"]);
+    expect(ax.map((r) => r.label)).toEqual(["ご本人", "配偶者"]);
     expect(ax[1]!.ages[years.indexOf(2040)]).not.toBeNull();
     expect(ax[1]!.ages[years.indexOf(2041)]).toBeNull();
     expect(ax[0]!.ages.every((a) => a !== null)).toBe(true);
@@ -167,9 +167,9 @@ describe("年齢の段（資産と負債のタブの推移）", () => {
       return { plan, html: renderToString(h(BsTrend, { plan, base: null, range: trendRange([plan]), marks: [0], onPick: noop, height: 330 })) };
     };
     const c = at("salariedCoupleTwoKids");
-    expect(c.plan.axis.map((r) => r.label)).toEqual(["ご主人", "奥様"]);
-    expect(c.html).toMatch(/data-age-who="0">ご主人</);
-    expect(c.html).toMatch(/data-age-who="1">奥様</);
+    expect(c.plan.axis.map((r) => r.label)).toEqual(["ご本人", "配偶者"]);
+    expect(c.html).toMatch(/data-age-who="0">ご本人</);
+    expect(c.html).toMatch(/data-age-who="1">配偶者</);
     const r0 = [...c.html.matchAll(/y="([\d.]+)"[^>]*data-age-row="0">(\d+)歳/g)];
     const r1 = [...c.html.matchAll(/y="([\d.]+)"[^>]*data-age-row="1">(\d+)歳/g)];
     expect(r0.length).toBeGreaterThan(3);

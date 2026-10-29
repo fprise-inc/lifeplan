@@ -136,7 +136,7 @@ export interface AccountDraft {
 /** 呼び名の問題（空・長すぎる・番号らしき数字）。問題が無ければ null */
 export function accountLabelProblem(label: string): string | null {
   const t = label.trim();
-  if (t === "") return "呼び名を入れてください（例: ご主人のカード）";
+  if (t === "") return "呼び名を入れてください（例: ご本人のカード）";
   if (t.length > 60) return "呼び名は60文字までにしてください";
   if (maskText(t).masked || /\d{4,}/u.test(t)) return "カード番号・口座番号は書かないでください（呼び名だけにします）";
   return null;

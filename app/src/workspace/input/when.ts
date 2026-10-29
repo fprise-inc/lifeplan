@@ -21,7 +21,7 @@ export type AgeMeans = "reach" | "before" | "after";
 /** 年齢で入れられる人 */
 export interface WhenPerson {
   id: string;
-  /** 見せる呼び方（ご主人・奥様・第1子 など） */
+  /** 見せる呼び方（ご本人・配偶者・第1子 など） */
   label: string;
   /** 打った文字で人を見分ける呼び方（本人・妻・夫・配偶者・第1子・下の子・呼び名 など。長い順に照らす） */
   names: string[];
@@ -50,7 +50,7 @@ export interface WhenCtx {
   defaultMode: WhenMode;
   ageMeans: AgeMeans;
   /**
-   * 年月の形の読みの言い方。年月の形は、どの欄も欄に「2048-04」、読みに和暦と今の読み（「今から5年後・ご主人60歳（令和13年4月）」）を出す。
+   * 年月の形の読みの言い方。年月の形は、どの欄も欄に「2048-04」、読みに和暦と今の読み（「今から5年後・ご本人60歳（令和13年4月）」）を出す。
    * birth は欄の人そのものの日付（加わる時期・独立の時期）で、読みを生年月の欄と同じ「23歳（令和30年4月）」にする
    */
   dateStyle?: "birth";
@@ -345,7 +345,7 @@ export function parseWhen(text: string, ctx: WhenCtx): WhenParse {
   if (/^\d{1,3}歳/.test(ageText)) {
     if (!allowed(ctx, "age")) return notAllowed(ctx, "age");
     const member = who?.id ?? ctx.person;
-    if (member === null) return { ok: false, reason: ctx.people.length === 0 ? "年齢で入れるには、家族の項目で生年月を入れてください" : "誰の年齢か書いてください（例: 本人60歳・妻65歳）" };
+    if (member === null) return { ok: false, reason: ctx.people.length === 0 ? "年齢で入れるには、家族の項目で生年月を入れてください" : "誰の年齢か書いてください（例: ご本人60歳・配偶者65歳）" };
     const r = parseAge(ctx, member, ageText);
     if (r !== null) return r;
   }
@@ -447,7 +447,7 @@ export function readYearMonth(ym: string, baseMonth: string): string {
   return d > 0 ? `今から${span(d)}後（${wareki(ym)}）` : wareki(ym);
 }
 
-/** 欄の下に出す読み替えた形（例: 「ご主人が60歳になる月（2046年4月）」「入居から10年後（2038年4月）」） */
+/** 欄の下に出す読み替えた形（例: 「ご本人が60歳になる月（2046年4月）」「入居から10年後（2038年4月）」） */
 export function readWhen(tp: Timepoint | null | undefined, ctx: WhenCtx, nullText?: string): string {
   if (tp == null) return nullText ?? "空欄";
   const ym = resolveTimepoint(ctx.h, tp);
@@ -485,7 +485,7 @@ export function readWhen(tp: Timepoint | null | undefined, ctx: WhenCtx, nullTex
     const total = ctx.person !== null ? reachMonths(ctx.h, ctx.person, tp.at as string) : null;
     out = total !== null && total >= 0 ? `${Math.floor(total / 12)}歳（${when}）` : when;
   } else {
-    // 生まれる予定の欄と同じ形: 「今から5年後・ご主人60歳（令和13年4月）」。言えることが無ければ和暦だけ
+    // 生まれる予定の欄と同じ形: 「今から5年後・ご本人60歳（令和13年4月）」。言えることが無ければ和暦だけ
     const at = tp.at as string;
     const parts: string[] = [];
     const d = monthIndex(at) - monthIndex(ctx.baseMonth);
