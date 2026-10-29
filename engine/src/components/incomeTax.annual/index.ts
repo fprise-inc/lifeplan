@@ -9,6 +9,9 @@
 //   受けない年は確定申告で受ける。引ききれなかった額（creditRemainder）は翌年度の住民税から引く（residentTax.annual）
 // 改訂5（0081）: 青色申告の純損失の繰越控除（tax.lossCarryforward の deducted）を、合計所得金額（総所得金額）から引いてから課税所得にする。
 //   青色でない人は0で、結果は同じ
+// 改訂6（0085）: 確定申告不要制度の「その他の所得」（公的年金等に係る雑所得以外の所得金額）に、給与所得・事業所得のほか、公的年金等以外の
+//   雑所得を足す（前は給与所得と事業所得だけで、副業・売電・個人年金などの雑所得がある年金の人も申告しない扱いになっていた）。
+//   一時所得・不動産所得はまだ足していない（0085 の残り）
 import {
   bracketFor,
   defineComponent,
@@ -80,7 +83,7 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
   id: "incomeTax.annual",
   title: "所得税",
   contract: "1.1",
-  revision: 5,
+  revision: 6,
   requires: {
     "tax.totalIncome": ">=1 <2",
     "tax.lossCarryforward": ">=1 <2",
@@ -179,7 +182,9 @@ export default defineComponent<{ member: string; year: number }, IncomeTaxOutput
     const pensionRevenue = pensionPays.reduce((s, p) => s + p.weight, 0);
     const revenueLimit = at.paramYen(FILING.revenue);
     const otherLimit = at.paramYen(FILING.other);
-    const exempt = pensionPays.length > 0 && revenueLimit !== null && otherLimit !== null && pensionRevenue <= revenueLimit && inc.employment + other <= otherLimit;
+    // 公的年金等に係る雑所得以外の所得金額（給与・事業・公的年金等以外の雑所得）
+    const nonPension = inc.employment + other + (inc.miscellaneous ?? 0);
+    const exempt = pensionPays.length > 0 && revenueLimit !== null && otherLimit !== null && pensionRevenue <= revenueLimit && nonPension <= otherLimit;
     if (exempt && settlement > 0) settlement = yen(0);
     if (settlement !== 0) {
       flows.push({ row: "cf.taxSi.incomeTax", ym: formatYm(monthIndex(year + 1, 3)), amount: settlement, accrualYear: year, member, formula: "incomeTax.annual.settlement" });

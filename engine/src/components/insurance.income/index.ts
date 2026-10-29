@@ -2,6 +2,8 @@
 // （収入−必要経費）の合計から特別控除（50万円まで）を引いた額で、総所得金額にはその2分の1を入れる。雑所得（個人年金・収入保障の月額）は
 // 収入−必要経費（公的年金等以外の雑所得）。受け取りと税の区分・必要経費は insurance.policy が出す
 // 約束の版 1.1（0044）: 一時所得の総収入−支出（特別控除の前）を temporaryGross で添える（入るお金の行の一時所得と合わせて特別控除を引くため）
+// 約束の版 1.2（0085）: 雑所得が赤字の年（必要経費が年金額を超える。元本割れの個人年金など）は、その赤字を miscellaneousNet で添える
+// （miscellaneous は0円より下げない。tax.totalIncome がほかの公的年金等以外の雑所得と差し引く）
 import { defineComponent, monthIndex, yen, type InsuranceIncomeOutput, type InsuranceReceipt, type Yen } from "../../sdk/index.ts";
 
 const P = { special: "incomeTax.temporaryIncome.specialDeduction", ratio: "incomeTax.temporaryIncome.taxableRatio" };
@@ -9,8 +11,8 @@ const P = { special: "incomeTax.temporaryIncome.specialDeduction", ratio: "incom
 export default defineComponent<{ member: string; year: number }, InsuranceIncomeOutput>({
   id: "insurance.income",
   title: "保険の一時所得・雑所得",
-  contract: "1.1",
-  revision: 2,
+  contract: "1.2",
+  revision: 3,
   requires: { "insurance.policy": ">=1 <2" },
   params: Object.values(P),
   reads: ["insurance.policyholder"],
@@ -31,7 +33,8 @@ export default defineComponent<{ member: string; year: number }, InsuranceIncome
         else if (r.taxClass === "miscellaneous") misc += r.amount - r.cost;
       }
     }
-    if (temp <= 0 && misc <= 0) return temp === 0 ? zero : { ...zero, temporaryGross: yen(temp) };
+    const miscNet = misc < 0 ? { miscellaneousNet: yen(misc) } : {};
+    if (temp <= 0 && misc <= 0) return { ...zero, ...(temp !== 0 ? { temporaryGross: yen(temp) } : {}), ...miscNet };
     const at = ctx.at(monthIndex(input.year, 1));
     let temporary: Yen = yen(0);
     let included: Yen = yen(0);
@@ -40,6 +43,6 @@ export default defineComponent<{ member: string; year: number }, InsuranceIncome
       temporary = yen(temp > special ? temp - special : 0);
       included = at.money.mulRate(temporary, at.paramRate(P.ratio) ?? ctx.rate.of("1"), "conv.tax.exact");
     }
-    return { temporary, temporaryIncluded: included, miscellaneous: yen(misc > 0 ? misc : 0), ...(temp !== 0 ? { temporaryGross: yen(temp) } : {}) };
+    return { temporary, temporaryIncluded: included, miscellaneous: yen(misc > 0 ? misc : 0), ...(temp !== 0 ? { temporaryGross: yen(temp) } : {}), ...miscNet };
   },
 });

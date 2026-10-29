@@ -1,9 +1,9 @@
 // お金の行（0044）: 出るお金の行（periodicExpenses）と入るお金の行（incomeFlows）に共通の、支払い・受け取りの月と額の解き方と、
 // 入るお金の種類ごとの既定（課税の扱い・表の行）。画面の側の既定（app/src/workspace/input/moneyRows.ts）は同じ表を持つ（テストで突き合わせる）
 import type { AmountExceptionInput, AmountStageInput, GrowthInput, IncomeFlowInput, IncomeTaxTreatment, MemberInput, OnContingencyInput, PeriodicExpenseInput, ValueBox } from "../engine/types.ts";
-import { INCOME_KIND_DEFAULTS } from "./incomeKinds.ts";
+import { INCOME_CATEGORY_OF, INCOME_KIND_DEFAULTS, type IncomeCategory } from "./incomeKinds.ts";
 
-export { INCOME_KIND_DEFAULTS };
+export { INCOME_CATEGORY_OF, INCOME_KIND_DEFAULTS, type IncomeCategory };
 import type { Ctx } from "../registry/ctx.ts";
 import type { ContingencyEvent } from "./contracts.ts";
 import { boxValue } from "./box.ts";
@@ -38,6 +38,11 @@ export function isOnceRow(ctx: Ctx, r: { readonly from: Timepoint; readonly to?:
 /** 入るお金の行の課税の扱い（省略は種類の既定） */
 export function incomeTreatment(f: Pick<IncomeFlowInput, "kind" | "taxTreatment">): IncomeTaxTreatment {
   return f.taxTreatment ?? INCOME_KIND_DEFAULTS[f.kind].tax;
+}
+
+/** 入るお金の行の所得の区分（税の計算。0085）。null は所得に入れない */
+export function incomeCategory(f: Pick<IncomeFlowInput, "kind" | "taxTreatment">): IncomeCategory | null {
+  return INCOME_CATEGORY_OF[incomeTreatment(f)];
 }
 
 /** 入るお金の行の表の行（省略は種類の既定。1回の行とくり返す行で違う種類がある） */

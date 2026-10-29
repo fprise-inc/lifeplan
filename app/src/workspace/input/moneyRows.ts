@@ -41,7 +41,7 @@ export const INCOME_KINDS: readonly { kind: IncomeFlowKind; label: string; help?
   { kind: "foreignPension", label: "外国の年金", help: "円の額で入れます", tax: "miscOther", once: "cf.income.pension", repeat: "cf.income.pension", card: "pension", cadence: "repeat" },
   { kind: "scholarshipGrant", label: "給付型の奨学金・学費の助成", help: "額を入れます", tax: "nonTaxable", once: "cf.income.benefit.education", repeat: "cf.income.benefit.education", card: "education", cadence: "repeat" },
   { kind: "childPays", label: "子が払う分", help: "子のアルバイト・子の貯金から学費に充てる分です", tax: "nonTaxable", once: "cf.income.other", repeat: "cf.income.other", card: "education", cadence: "repeat" },
-  { kind: "sideJob", label: "副業・雑所得", tax: "miscBusiness", once: "cf.income.other.sideJob", repeat: "cf.income.other.sideJob", card: "work", cadence: "repeat" },
+  { kind: "sideJob", label: "副業・雑所得", help: "副業の収入です。所得の区分（雑所得・事業所得）を選べます", tax: "miscBusiness", once: "cf.income.other.sideJob", repeat: "cf.income.other.sideJob", card: "work", cadence: "repeat" },
   { kind: "otherWork", label: "その他の働く収入", help: "給与として本業と合わせて税を計算し、社会保険料はかけません", tax: "salary", once: "cf.income.salary", repeat: "cf.income.salary", card: "work", cadence: "repeat" },
   { kind: "saleBusiness", label: "売却代金（事業・出資持分）", tax: "capitalGains", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other", card: "work", cadence: "once" },
   { kind: "saleGoods", label: "動産の売却（車以外）", tax: "nonTaxable", once: "cf.income.lumpSum.other", repeat: "cf.income.lumpSum.other", card: "events", cadence: "once" },
@@ -92,6 +92,7 @@ export const IN_ROWS: Option[] = [
   "cf.income.lumpSum.inheritance",
   "cf.income.other",
   "cf.income.other.sideJob",
+  "cf.income.other.miscellaneous",
   "cf.income.other.insuranceBenefit",
   "cf.income.salary",
   "cf.income.business",
@@ -116,17 +117,17 @@ export const IN_ROWS_BY_KIND: Readonly<Partial<Record<IncomeFlowKind, readonly s
   benefit: ["cf.income.benefit", "cf.income.lumpSum.other", "cf.income.other"],
   unemployment: ["cf.income.benefit.unemployment", "cf.income.benefit"],
   survivorPension: ["cf.income.pension", "cf.income.other"],
-  foreignPension: ["cf.income.pension", "cf.income.other"],
+  foreignPension: ["cf.income.pension", "cf.income.other.miscellaneous", "cf.income.other"],
   scholarshipGrant: ["cf.income.benefit.education", "cf.income.benefit", "cf.income.other"],
   childPays: ["cf.income.other", "cf.income.lumpSum.other"],
-  sideJob: ["cf.income.other.sideJob", "cf.income.other"],
+  sideJob: ["cf.income.other.sideJob", "cf.income.other.miscellaneous", "cf.income.business", "cf.income.other"],
   otherWork: ["cf.income.salary", "cf.income.other.sideJob", "cf.income.other"],
   saleBusiness: ["cf.income.lumpSum.other", "cf.income.other"],
   saleGoods: ["cf.income.lumpSum.other", "cf.income.other"],
   temporary: ["cf.income.lumpSum.other", "cf.income.other"],
   celebration: ["cf.income.lumpSum.other", "cf.income.other", "cf.income.lumpSum.gift"],
   subsidy: ["cf.income.lumpSum.other", "cf.income.other", "cf.income.benefit"],
-  powerSale: ["cf.income.other", "cf.income.lumpSum.other"],
+  powerSale: ["cf.income.other", "cf.income.other.miscellaneous", "cf.income.lumpSum.other"],
   insuranceBenefit: ["cf.income.other.insuranceBenefit", "cf.income.lumpSum.other", "cf.income.other"],
 };
 
@@ -198,14 +199,24 @@ function costHelp(tax: IncomeTaxTreatment, c: Cadence): string {
 const LEGACY_ROW_HELP = "「前に選んだ行」は、今はこの種類で選べない行です。そのまま計算しています（選び直すと一覧から消えます）";
 const rowHelp = (legacy: boolean): { help?: string } => (legacy ? { help: LEGACY_ROW_HELP } : {});
 
+/** 雑所得（業務・その他）の効き方（0085: 公的年金等以外の雑所得は1つの区分として差し引く） */
+const MISC_EFFECT = "収入から必要経費を引いた額を、受け取る人の雑所得に足します。赤字はほかの雑所得と公的年金からだけ引き、給与などほかの所得からは引きません";
+
+/**
+ * 副業の所得の区分の選択肢（0085）: 雑所得（業務）か事業所得か。既定は雑所得（業務）。副業の多くは雑所得として申告され、
+ * 帳簿を付けて事業として続けているときに事業所得になる（所得税基本通達35-2）
+ */
+const SIDE_JOB_TAX: readonly IncomeTaxTreatment[] = ["miscBusiness", "business"];
+const SIDE_JOB_TAX_HELP = "副業の多くは雑所得（業務）です。帳簿を付けて事業として続けている（開業の届けを出して青色申告をしているなど）なら事業所得を選びます。事業所得は、赤字を給与などほかの所得から引け、青色申告の特別控除も受けられます";
+
 /** 課税の扱い（9通り）と、結果への効き方の一文 */
 export const TAX_TREATMENTS: readonly { value: IncomeTaxTreatment; label: string; effect: string }[] = [
   { value: "nonTaxable", label: "非課税", effect: "所得税・住民税はかかりません" },
   { value: "temporary", label: "一時所得", effect: "必要経費を引き、ほかの一時所得と合わせて特別控除（50万円まで）を引いた2分の1を、受け取る人の所得に足します" },
-  { value: "miscBusiness", label: "雑所得（業務）", effect: "収入から必要経費を引いた額を、受け取る人の所得に足します" },
-  { value: "miscOther", label: "雑所得（その他）", effect: "収入から必要経費を引いた額を、受け取る人の所得に足します" },
+  { value: "miscBusiness", label: "雑所得（業務）", effect: MISC_EFFECT },
+  { value: "miscOther", label: "雑所得（その他）", effect: MISC_EFFECT },
   { value: "salary", label: "給与（社会保険なし）", effect: "本業の給与と合わせて給与所得にします。社会保険料はかけません" },
-  { value: "business", label: "事業所得", effect: "収入から必要経費を引いた額を、受け取る人の事業所得に足します" },
+  { value: "business", label: "事業所得", effect: "収入から必要経費を引いた額を、受け取る人の事業所得に足します。赤字は給与などほかの所得から引きます。青色申告なら特別控除も引きます" },
   { value: "capitalGains", label: "譲渡所得（分離）", effect: "収入から取得費を引いた額に、所得税（翌年3月）と住民税（翌年6月）をかけます（一般株式等の税率）" },
   { value: "inheritance", label: "相続税で見る", effect: "所得税・住民税はかかりません。相続税は計算しません（受け取る側の相続税の額は、出るお金の行で入れます）" },
   { value: "gift", label: "贈与税で見る", effect: "相手からの贈与として、受け取る人の贈与税を翌年3月に払います（直系尊属から18歳以上は特例税率）" },
@@ -710,7 +721,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
   fields.push(badgeField(`${k}/likelihood`, "incomeFlow.likelihood", "見込み", LIKELIHOODS, "likely", find, "likelihood", f.id, inherit ? "「当てにしない」にすると、この相続・贈与を除いて計算します。結果の画面で、入れた場合と比べられます" : "結果の「確実な分だけ」で、「当てにしない」の行を外して見られます", badgeLevel(card)));
   const badge = stagedBadge(f as unknown as Record<string, unknown>, ["stages"], ["exceptions"]);
   const detailNotes = [
-    ...(f.taxTreatment !== undefined ? [`課税: ${TAX_TREATMENTS.find((t) => t.value === f.taxTreatment)?.label ?? ""}`] : []),
+    ...(f.taxTreatment !== undefined && f.kind !== "sideJob" ? [`課税: ${TAX_TREATMENTS.find((t) => t.value === f.taxTreatment)?.label ?? ""}`] : []),
     ...(f.growth !== undefined ? ["伸び方"] : []),
     ...(badge !== null ? [badge] : []),
   ];
@@ -727,25 +738,53 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
       removeAction(`${k}/remove`, "外す", "simple", (hh) => void (hh.incomeFlows = (hh.incomeFlows ?? []).filter((x) => x.id !== f.id))),
     ],
   };
-  // 詳細1: 課税の扱い
-  const taxFields: FieldDef[] = [
-    withAddress(
-      plain({
-        key: `${k}/tax`,
-        item: "incomeFlow.taxTreatment",
-        label: "課税の扱い",
-        level: "detail",
-        kind: "select",
-        options: TAX_TREATMENTS.map((t) => ({ value: t.value, label: t.label })),
-        find,
-        path: ["taxTreatment"],
-        optional: true,
-        fallback: def.tax,
-        help: TAX_TREATMENTS.find((t) => t.value === tax)?.effect ?? "",
-      }),
-      address(f.id, "incomeFlow.taxTreatment"),
-    ),
-  ];
+  // 副業は所得の区分（雑所得〔業務〕か事業所得か）を簡易で選ぶ（0085）。ほかの区分を入れた行は、その区分も選択肢に残す
+  const sideJob = f.kind === "sideJob";
+  if (sideJob) {
+    const values = SIDE_JOB_TAX.includes(tax) ? SIDE_JOB_TAX : [...SIDE_JOB_TAX, tax];
+    const effect = TAX_TREATMENTS.find((t) => t.value === tax)?.effect ?? "";
+    fields.splice(
+      fields.length - 1,
+      0,
+      withAddress(
+        plain({
+          key: `${k}/tax`,
+          item: "incomeFlow.taxTreatment",
+          label: "所得の区分",
+          level: "simple",
+          kind: "select",
+          options: values.map((v) => ({ value: v, label: TAX_TREATMENTS.find((t) => t.value === v)?.label ?? v })),
+          find,
+          path: ["taxTreatment"],
+          optional: true,
+          fallback: def.tax,
+          help: `${SIDE_JOB_TAX_HELP}。${effect}`,
+        }),
+        address(f.id, "incomeFlow.taxTreatment"),
+      ),
+    );
+  }
+  // 詳細1: 課税の扱い（副業の所得の区分は上の簡易の欄）
+  const taxFields: FieldDef[] = sideJob
+    ? []
+    : [
+        withAddress(
+          plain({
+            key: `${k}/tax`,
+            item: "incomeFlow.taxTreatment",
+            label: "課税の扱い",
+            level: "detail",
+            kind: "select",
+            options: TAX_TREATMENTS.map((t) => ({ value: t.value, label: t.label })),
+            find,
+            path: ["taxTreatment"],
+            optional: true,
+            fallback: def.tax,
+            help: TAX_TREATMENTS.find((t) => t.value === tax)?.effect ?? "",
+          }),
+          address(f.id, "incomeFlow.taxTreatment"),
+        ),
+      ];
   if (tax === "temporary" || tax === "miscBusiness" || tax === "miscOther" || tax === "business" || tax === "capitalGains")
     taxFields.push(withAddress(yenBox({ key: `${k}/cost`, item: "incomeFlow.cost", label: costLabel(tax, c), level: "detail", basis: c === "monthly" ? "monthly" : "once", find, path: ["cost"], optional: true, help: costHelp(tax, c) }), address(f.id, "incomeFlow.cost")));
   if (tax === "gift")
@@ -764,7 +803,7 @@ export function incomeGroups(wh: WorkingHousehold, f: IncomeFlow, card: MoneyCar
     whoFields.push(withAddress(plain({ key: `${k}/includeInBase`, item: "incomeFlow.includeInBase", label: "基本の計算に入れる", level: "detail", kind: "bool", find, path: ["includeInBase"], optional: true, fallback: false, help: "見込みが「当てにしない」でも、見込みはそのままで、この行を計算に入れます。プランを直しているときは、このプランでだけ入れます" }), address(f.id, "incomeFlow.includeInBase")));
   return [
     main,
-    { key: `${k}/tax`, title: "課税の扱い", level: "detail", fields: taxFields, actions: [] },
+    ...(taxFields.length > 0 ? [{ key: `${k}/tax`, title: sideJob ? "必要経費" : "課税の扱い", level: "detail" as const, fields: taxFields, actions: [] }] : []),
     { key: `${k}/who`, title: party ? "受け取る人・相手・伸び方・万一のときの扱い・表の行" : "受け取る人・伸び方・万一のときの扱い・表の行", level: "detail", fields: whoFields, actions: [] },
     ...stagedGroups(wh, {
       key: k,

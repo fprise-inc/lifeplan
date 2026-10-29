@@ -21,7 +21,9 @@
           "miscOther": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
           "salary": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
           "business": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-          "capitalGains": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" }
+          "capitalGains": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
+          "miscellaneousNet": { "description": "約束の版 1.1（0085）: 公的年金等以外の雑所得（業務・その他を合わせた収入−必要経費。赤字はマイナス）。雑所得の行がある年だけ", "$ref": "urn:financia:schema:common#/$defs/yen" },
+          "businessNet": { "description": "約束の版 1.1（0085）: 事業所得の収入−必要経費（赤字はマイナス）。事業所得の行がある年だけ", "$ref": "urn:financia:schema:common#/$defs/yen" }
         }
       }
     }

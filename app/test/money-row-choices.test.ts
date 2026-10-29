@@ -49,8 +49,8 @@ describe("表の行の選択肢は種類ごと", () => {
     }
   });
 
-  it("副業・雑所得は「副業」と「その他の収入」だけ。その他の入金は全部", () => {
-    expect(incomeRowChoices({ kind: "sideJob" }).map((o) => o.label)).toEqual(["その他の収入", "副業"]);
+  it("副業・雑所得は「その他の収入」「副業」「雑所得」「事業」（0085 で雑所得と事業を足した）。その他の入金は全部", () => {
+    expect(incomeRowChoices({ kind: "sideJob" }).map((o) => o.label)).toEqual(["その他の収入", "副業", "雑所得", "事業"]);
     expect(incomeRowChoices({ kind: "other" }).length).toBe(IN_ROWS.length);
     expect(expenseRowChoices({ kind: "general" }).length).toBe(OUT_ROWS.length);
     expect(expenseRowChoices({}).length).toBe(OUT_ROWS.length);

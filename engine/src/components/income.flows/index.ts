@@ -14,11 +14,15 @@
 // - 改訂2（0044 の追記）: 相手（counterparty）が世帯の外の家族で亡くなる見込み（leaves）があれば、その月から受け取らない（亡くなった人から
 //   援助は来ない）。行の終わりがそれより後なら、知らせ N_LIMIT_APPLIED（moneyRow.counterpartyDeath・相手）を出す。亡くなった後に受け取る物
 //   （相続税で見る行・相続・遺族年金・保険の受け取り）は止めない。行の終わりの値は書き換えない
+// - 約束の版 1.1（改訂3。0085）: 所得は課税の扱いの所得の区分（INCOME_CATEGORY_OF。表の行とは別）で集める。公的年金等以外の雑所得
+//   （業務・その他を1つの区分として差し引いた額）を miscellaneousNet、事業所得を businessNet で、赤字（マイナス）のまま添える（その区分の行が
+//   ある年だけ）。雑所得の赤字の差し引き・事業所得の損益通算は tax.totalIncome がする。前の欄（区分ごとに0円で止めた額）はそのまま出す
 import {
   COUNTERPARTY_DEATH_TOPIC,
   counterpartyStop,
   defineComponent,
   formatYm,
+  incomeCategory,
   incomeRow,
   incomeTreatment,
   isOutside,
@@ -48,13 +52,13 @@ const P = {
   rtTaxable: "residentTax.taxableIncome.rounding",
 };
 
-type Sums = { temporary: number; miscBusiness: number; miscOther: number; salary: number; business: number; capitalGains: number };
+type Sums = { temporary: number; miscBusiness: number; miscOther: number; salary: number; business: number; capitalGains: number; misc: boolean; biz: boolean };
 
 export default defineComponent<Record<string, never>, IncomeFlowsOutput>({
   id: "income.flows",
   title: "入るお金の行",
-  contract: "1.0",
-  revision: 2,
+  contract: "1.1",
+  revision: 3,
   requires: { "contingency.event": ">=1 <2" },
   params: Object.values(P),
   reads: [
@@ -112,7 +116,7 @@ export default defineComponent<Record<string, never>, IncomeFlowsOutput>({
       const k = `${member}|${year}`;
       let s = sums.get(k);
       if (s === undefined) {
-        s = { temporary: 0, miscBusiness: 0, miscOther: 0, salary: 0, business: 0, capitalGains: 0 };
+        s = { temporary: 0, miscBusiness: 0, miscOther: 0, salary: 0, business: 0, capitalGains: 0, misc: false, biz: false };
         sums.set(k, s);
       }
       return s;
@@ -123,6 +127,7 @@ export default defineComponent<Record<string, never>, IncomeFlowsOutput>({
       // 世帯の外の家族が受け取る行は、世帯のお金に入れない
       if (recipient !== undefined && isOutside(recipient)) continue;
       const tax = incomeTreatment(f);
+      const category = incomeCategory(f);
       const row = incomeRow(ctx, f);
       const ev = f.onContingency === undefined ? null : recipient !== undefined ? eventOf(recipient.id) : householdEvent();
       const all = moneyRowPayments(ctx, f, ev, "conv.expense.share");
@@ -137,17 +142,21 @@ export default defineComponent<Record<string, never>, IncomeFlowsOutput>({
       const cost = boxValue(f.cost) ?? yen(0);
       for (const p of pays) {
         flows.push({ row, ym: formatYm(p.month), amount: p.amount, accrualYear: yearOf(p.month), ...(recipient !== undefined ? { member: recipient.id } : {}), object: f.id, formula: p.contingency ? "income.flows.contingency" : "income.flows.receipt" });
-        if (subject === undefined || tax === "nonTaxable" || tax === "inheritance" || tax === "gift") continue;
+        if (subject === undefined || category === null) continue;
         // 必要経費・取得費は、受け取る額と同じ割合で伸ばす（段階・例外の年・万一の割合も同じ）
         const c = cost > 0 && p.base > 0 ? ctx.money.mulRatio(cost, p.amount, p.base, "conv.expense.share") : 0;
         const s = sumOf(subject, yearOf(p.month));
         const net = p.amount - c;
-        if (tax === "temporary") s.temporary += net;
-        else if (tax === "miscBusiness") s.miscBusiness += net;
-        else if (tax === "miscOther") s.miscOther += net;
-        else if (tax === "salary") s.salary += p.amount;
-        else if (tax === "business") s.business += net;
-        else if (tax === "capitalGains") s.capitalGains += net;
+        if (category === "temporary") s.temporary += net;
+        else if (category === "miscellaneous") {
+          s.misc = true;
+          if (tax === "miscBusiness") s.miscBusiness += net;
+          else s.miscOther += net;
+        } else if (category === "salary") s.salary += p.amount;
+        else if (category === "business") {
+          s.biz = true;
+          s.business += net;
+        } else s.capitalGains += net;
       }
     }
     if (inheritanceSeen) ctx.notice("N_NOT_SUPPORTED", ["incomeFlow.inheritanceTax"]);
@@ -158,7 +167,18 @@ export default defineComponent<Record<string, never>, IncomeFlowsOutput>({
       const year = Number(y);
       const clamp = (v: number): Yen => yen(v > 0 ? v : 0);
       const capitalGains = clamp(s.capitalGains);
-      byMember.push({ member, year, temporary: clamp(s.temporary), miscBusiness: clamp(s.miscBusiness), miscOther: clamp(s.miscOther), salary: clamp(s.salary), business: clamp(s.business), capitalGains });
+      byMember.push({
+        member,
+        year,
+        temporary: clamp(s.temporary),
+        miscBusiness: clamp(s.miscBusiness),
+        miscOther: clamp(s.miscOther),
+        salary: clamp(s.salary),
+        business: clamp(s.business),
+        capitalGains,
+        ...(s.misc ? { miscellaneousNet: yen(s.miscBusiness + s.miscOther) } : {}),
+        ...(s.biz ? { businessNet: yen(s.business) } : {}),
+      });
       if (capitalGains <= 0) continue;
       const at = ctx.at(monthIndex(year, 1));
       const itRate = at.paramRate(P.it);

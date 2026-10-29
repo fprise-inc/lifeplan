@@ -21,6 +21,12 @@
 //   N_LIMIT_APPLIED taxReturn.blueDeduction）。控除の上限は不動産所得と事業所得の黒字の合計（損益通算の前）で、不動産所得・事業所得の順に引く
 //   （措置法25条の2）。事業的規模の年は、個人事業税を計算しない知らせ（N_NOT_SUPPORTED realEstate.businessTax）
 // - 損益通算をしても引ききれない損失を netLoss で添える（total は0。青色なら tax.lossCarryforward が翌年以後3年繰り越す）
+// 約束の版 1.7（改訂8。0085。雑所得の区分）: 入るお金の行・保険・民泊・宿の雑所得に赤字の行が無い人の結果は同じ
+// - 公的年金等以外の雑所得は1つの区分: 入るお金の行の雑所得（業務・その他。income.flows の miscellaneousNet）・保険の雑所得（個人年金・
+//   収入保障の月額。insurance.income の miscellaneousNet）・民泊・宿の雑所得を、赤字も含めて差し引く（所得税法35条2項2号）。
+//   合わせて赤字なら公的年金等の雑所得から引き（同項。雑所得の金額は1号と2号の合計）、引ききれない分はほかの所得と通算しない（69条1項は
+//   不動産・事業・山林・譲渡の損失だけ）。捨てた額を miscellaneousLoss で添え、知らせ N_LIMIT_APPLIED（income.miscellaneousLoss）を出す
+// - 入るお金の行の事業所得は赤字のまま事業所得に足す（income.flows の businessNet）。赤字はほかの所得と通算し、青色なら純損失を繰り越す
 import {
   defineComponent,
   monthIndex,
@@ -48,8 +54,8 @@ export const ROOMS_PER_HOUSE = 2;
 export default defineComponent<{ member: string; year: number }, TotalIncomeOutput>({
   id: "tax.totalIncome",
   title: "合計所得金額",
-  contract: "1.6",
-  revision: 7,
+  contract: "1.7",
+  revision: 8,
   requires: {
     "tax.employmentIncome": ">=1 <2",
     "tax.publicPensionIncome": ">=1 <2",
@@ -69,7 +75,8 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     const p = ctx.call<PublicPensionIncomeOutput>("tax.publicPensionIncome", input);
     const flowRow = ctx.call<IncomeFlowsOutput>("income.flows", {}).byMember.find((r) => r.member === input.member && r.year === input.year);
     const bizRow = ctx.call<BusinessOutput>("income.business", { member: input.member }).byYear.find((b) => b.year === input.year);
-    let other = yen((bizRow?.income ?? 0) + (flowRow?.business ?? 0));
+    // 入るお金の行の事業所得は赤字のまま（ほかの所得と通算する）
+    let other = yen((bizRow?.income ?? 0) + (flowRow?.businessNet ?? flowRow?.business ?? 0));
     let employment = e.income;
     let adjustment = yen(0);
     if (employment > 0 && p.income > 0) {
@@ -92,7 +99,9 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
       const t = yen(gross > special ? gross - special : 0);
       temporary = at.money.mulRate(t, at.paramRate(TEMP.ratio) ?? ctx.rate.of("1"), "conv.tax.exact");
     }
-    let miscellaneous = yen(ins.miscellaneous + (flowRow?.miscBusiness ?? 0) + (flowRow?.miscOther ?? 0));
+    // 公的年金等以外の雑所得（入るお金の行と保険。赤字も含めて差し引く。民泊・宿の雑所得は下で足す）
+    const flowMisc = flowRow === undefined ? 0 : (flowRow.miscellaneousNet ?? flowRow.miscBusiness + flowRow.miscOther);
+    let miscNet = (ins.miscellaneousNet ?? ins.miscellaneous) + flowMisc;
     // 土地建物等の譲渡所得（分離課税。特別控除の前）
     const sale = ctx.call<RealEstateSaleTaxOutput>("tax.realEstateSale", {}).byMember.find((r) => r.member === input.member && r.year === input.year);
     const landBuilding = sale !== undefined && sale.short + sale.long > 0 ? { short: sale.short, long: sale.long } : null;
@@ -127,7 +136,7 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     let re = realEstate as number | null;
     let biz = business;
     if (filing?.method === "blue" && ((re ?? 0) > 0 || biz > 0)) {
-      const hasBusiness = bizRow !== undefined || (flowRow?.business ?? 0) > 0 || lodgingBusiness !== null;
+      const hasBusiness = bizRow !== undefined || flowRow?.businessNet !== undefined || lodgingBusiness !== null;
       let kind = filing.blueDeduction ?? "simple";
       if (kind !== "simple" && !scale && !hasBusiness) {
         ctx.notice("N_LIMIT_APPLIED", [input.member, "taxReturn.blueDeduction"]);
@@ -151,15 +160,18 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
     realEstate = re === null ? null : yen(re);
     if (realEstate !== null && realEstate < 0) realEstate = yen(Math.min(0, realEstate + landInterest));
     other = yen(Math.max(0, biz));
-    // 雑所得（公的年金等の雑所得と、そのほかの雑所得の合計。民泊・宿の雑所得の損失は雑所得の中だけで引き、ほかの所得とは通算しない）
+    // 雑所得（公的年金等の雑所得と、そのほかの雑所得の合計）。公的年金等以外の雑所得の赤字は公的年金等の雑所得から引き、
+    // 引ききれない分はほかの所得とは通算しない（0円として捨てる）
+    miscNet += lodgingMisc ?? 0;
     let pensionPart = p.income as number;
-    if (lodgingMisc !== null) {
-      const m0 = (miscellaneous as number) + lodgingMisc;
-      if (m0 >= 0) miscellaneous = yen(m0);
-      else {
-        miscellaneous = yen(0);
-        pensionPart = Math.max(0, pensionPart + m0);
-      }
+    let miscellaneous = yen(0);
+    let miscellaneousLoss = 0;
+    if (miscNet >= 0) miscellaneous = yen(miscNet);
+    else {
+      const used = Math.min(pensionPart, -miscNet);
+      pensionPart -= used;
+      miscellaneousLoss = -miscNet - used;
+      if (miscellaneousLoss > 0) ctx.notice("N_LIMIT_APPLIED", [input.member, "income.miscellaneousLoss"]);
     }
     const before = employment + pensionPart + biz + (realEstate ?? 0) + temporary + miscellaneous;
     const total: Yen = yen(Math.max(0, before));
@@ -180,6 +192,7 @@ export default defineComponent<{ member: string; year: number }, TotalIncomeOutp
       ...(blueDeduction > 0 ? { blueDeduction: yen(blueDeduction) } : {}),
       ...(netLoss !== null ? { netLoss } : {}),
       ...(lodgingMisc !== null || lodgingBusiness !== null ? { lodging: { miscellaneous: yen(lodgingMisc ?? 0), business: yen(lodgingBusiness ?? 0) } } : {}),
+      ...(miscellaneousLoss > 0 ? { miscellaneousLoss: yen(miscellaneousLoss) } : {}),
     };
   },
 });

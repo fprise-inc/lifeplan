@@ -450,6 +450,21 @@ function sample035(): BodyState {
   return { ...s, wh: setNoticeAck(wh, n.id, n.of, "2026-10-29") };
 }
 
+/**
+ * 0.36 の見本の世帯（0085）: sample035() の副業の行を表の行「雑所得」に載せ、事業所得として扱う副業の行（表の行は事業）を1つ足す
+ */
+function sample036(): BodyState {
+  const s = sample035();
+  const req = structuredClone(s.wh.request);
+  const list = req.input.household.incomeFlows ?? [];
+  const side = list.find((f) => f.kind === "sideJob")!;
+  side.row = "cf.income.other.miscellaneous";
+  const est = (value: number) => ({ value, state: "confirmed" as const, origin: { kind: "manual" as const } });
+  list.push({ id: "00000000-0000-4000-8000-000000003601", label: "事業として続ける副業", kind: "sideJob", taxTreatment: "business", row: "cf.income.business", from: { at: "2028-01" }, to: { at: "2032-12" }, everyYears: 1, monthly: true, amount: est(150000), cost: est(60000), growth: { kind: "none" } });
+  req.input.household.incomeFlows = list;
+  return { ...s, wh: { ...s.wh, request: req } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -573,7 +588,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.35");
+    expect(BODY_FORMAT_VERSION).toBe("0.36");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -727,7 +742,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample035())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample036())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -909,6 +924,29 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     const odd = fromBody(JSON.stringify({ ...stored, household: { ...stored.household, noticeAcks: [{ id: "x", of: [], on: "2026-10-29" }, { id: n.id, of: n.of, on: "昨日" }, 3] } }));
     expect("noticeAcks" in odd.wh).toBe(false);
     expect("noticeAcks" in bodyObject(sample034()).household).toBe(false);
+  });
+
+  it("0.36 の形（0085）: 入るお金の行の表の行「雑所得」と、事業所得として扱う副業の行を保存して読み戻す。表の行は見せ方だけで、税・社会保険料は表の行に依らない", () => {
+    const s = sample036();
+    const stored = bodyObject(s) as unknown as { household: { request: typeof s.wh.request } };
+    const flows = stored.household.request.input.household.incomeFlows ?? [];
+    expect(flows.filter((f) => f.kind === "sideJob").map((f) => [f.row, f.taxTreatment ?? null])).toEqual([
+      ["cf.income.other.miscellaneous", null],
+      ["cf.income.business", "business"],
+    ]);
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    type Cell = { row: string; year: number; amount: number };
+    const table = (r: typeof s.wh.request) => preview(r).table as unknown as Cell[];
+    const sumOf = (cells: Cell[], pick: (c: Cell) => boolean) => cells.filter(pick).reduce((a, c) => a + c.amount, 0);
+    const now = table(back.wh.request);
+    expect(sumOf(now, (c) => c.row === "cf.income.other.miscellaneous")).toBeGreaterThan(0);
+    // 表の行を種類の既定（副業）に戻しても、税・社会保険料は同じ
+    const plainRows = structuredClone(back.wh.request);
+    for (const f of plainRows.input.household.incomeFlows ?? []) delete f.row;
+    const was = table(plainRows);
+    expect(sumOf(was, (c) => c.row === "cf.income.other.miscellaneous")).toBe(0);
+    expect(sumOf(now, (c) => c.row.startsWith("cf.taxSi."))).toBe(sumOf(was, (c) => c.row.startsWith("cf.taxSi.")));
   });
 
   it("0.24 の形（0060・0061）: 相続税の目安の設定と遺したい額を要求の入力に保存して読み戻す。エンジンへ渡す要求からは外れ、結果は同じ", () => {

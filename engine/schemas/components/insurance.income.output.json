@@ -9,6 +9,7 @@
     "temporary": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
     "temporaryIncluded": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
     "miscellaneous": { "$ref": "urn:financia:schema:common#/$defs/nonNegativeYen" },
-    "temporaryGross": { "description": "約束の版 1.1（0044）: 一時所得の総収入−支出（特別控除の前）", "$ref": "urn:financia:schema:common#/$defs/yen" }
+    "temporaryGross": { "description": "約束の版 1.1（0044）: 一時所得の総収入−支出（特別控除の前）", "$ref": "urn:financia:schema:common#/$defs/yen" },
+    "miscellaneousNet": { "description": "約束の版 1.2（0085）: 雑所得が赤字の年の収入−必要経費（マイナス）。ほかの公的年金等以外の雑所得と差し引くため", "$ref": "urn:financia:schema:common#/$defs/yen" }
   }
 }
