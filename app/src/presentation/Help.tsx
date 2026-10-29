@@ -1,6 +1,7 @@
 // 説明の「?」（丸に ?）の共通の部品（0077）。画面に常に出すのは欄の名前・値・状態の印・操作の名前までにし、
 // 使い方の説明・注意・制度の説明・推定の根拠はこの部品の中に入れる。
-// 開き方: カーソルを合わせる・キーボードでフォーカスする・押す（タッチ）のどれでも開く。押すと開いたままになり、もう一度押す・Esc・外を押すと閉じる。
+// 開き方: カーソルを合わせる・キーボードでフォーカスする・押す（タッチ）のどれでも開く。
+// フォーカスで開くのはキーボードで移ったとき（:focus-visible）だけ。パネルを開いた直後のフォーカスや、押したときのフォーカスでは開かない（0077 の追記）。押すと開いたままになり、もう一度押す・Esc・外を押すと閉じる。
 // 説明の文は閉じている間も DOM に置き（hidden）、ボタンの aria-describedby で読み上げに渡す。
 // 引き金は既定で「?」。mark を渡すと、その印（例: 欄の「推定」の札）を押して開く形になる。
 // 「?」は字ではなく SVG の線で描く（字の上下の余白はフォントで違い、丸の中央からずれるため）。
@@ -24,6 +25,18 @@ export type HelpEvent = "enter" | "leave" | "focus" | "blur" | "press" | "escape
 export const HELP_CLOSED: HelpState = { hover: false, focus: false, pinned: false };
 
 export const helpOpen = (s: HelpState): boolean => s.hover || s.focus || s.pinned;
+
+/**
+ * フォーカスで開くか: キーボードで移ったとき（:focus-visible）だけ。
+ * 入力のパネルを開いた直後にフォーカスが「?」へ移っても、カーソルを合わせる前に説明が出ないように。:focus-visible を読めない画面では開く（キーボードで使えなくならないように）
+ */
+export function focusOpensHelp(el: { matches: (selector: string) => boolean }): boolean {
+  try {
+    return el.matches(":focus-visible");
+  } catch {
+    return true;
+  }
+}
 
 /** 「?」の形（SVG）。丸の中の字の大きさと中央は、この寸法だけで決まる（フォントに頼らない） */
 export const HELP_GLYPH = {
@@ -291,7 +304,9 @@ export function Help({ children, label, mark, markClass, id, data }: HelpProps) 
         aria-expanded={open}
         aria-controls={popId}
         aria-describedby={popId}
-        onFocus={() => ev("focus")}
+        onFocus={(e) => {
+          if (focusOpensHelp(e.currentTarget)) ev("focus");
+        }}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();

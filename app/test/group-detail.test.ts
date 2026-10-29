@@ -50,8 +50,8 @@ describe("標準のときだけ「▸ 詳しく」", () => {
     for (const f of detailOfLoan) expect(html).toContain(idOf(f.key));
     expect(html).toContain("金利の段階 2");
     expect(html).toContain('data-action="' + `${loanKey}/addPrepay` + '"');
-    // 住まいの詳細（持ち家の評価）は開いていない
-    expect(html).not.toContain("持ち家の評価");
+    // 住まいの詳細（持ち家の評価）は開いていない（標準／詳細の「?」の中の「詳細で増える主な欄」の名前は除いて見る）
+    expect(html.replace(/<span class="help" data-help="level">[\s\S]*?<\/span><\/span>/, "")).not.toContain("持ち家の評価");
   });
   it("詳細: 「▸ 詳しく」は出さず、今のまま全部出す", () => {
     const html = panel(wh, "housing", "detail");
