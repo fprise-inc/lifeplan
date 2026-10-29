@@ -493,7 +493,7 @@ function retirementGroup(wh: WorkingHousehold, m: Member): GroupDef | null {
   return {
     key: `work/${m.id}/retirement`,
     title: `${who}の定年後の予定`,
-    note: "結果の対策「働く最後の年齢」でも動かせます。結果で動かした値は提案として持ち、ここ（現状）は変わりません",
+    note: "結果の画面の「働く最後の年齢」でも試せます。そこで動かしても、ここに入れた今の予定は変わりません",
     level: "simple",
     fields,
     actions:
@@ -884,7 +884,7 @@ function leaveEndField(wh: WorkingHousehold, m: Member, p: EmploymentPeriod, fin
     monthOnly: PERIOD_MONTH_ONLY,
     optional: true,
     nullText: "戻る時期を決めていない",
-    help: "入れると、翌月から休業の前と同じ働き方に戻ります（戻った後の働き方は、詳しく入れるの働き方の期間で直せます）",
+    help: "入れると、翌月から休業の前と同じ働き方に戻ります（戻った後の働き方は、詳細の「働き方の期間」で直せます）",
     after: (h, t) => {
       const x = t as unknown as EmploymentPeriod;
       const end = x.to?.at;
@@ -932,7 +932,7 @@ function claimField(o: { key: string; item: typeof UNEMPLOYMENT_ITEM | typeof CO
       get: (w) => {
         const x = cur(w);
         if (x === undefined) return { value: null };
-        if (isEstimated(x, o.item)) return { value: "auto", hint: `推定: ${x[prop] === true ? "受け取る" : "受け取らない"}` };
+        if (isEstimated(x, o.item)) return { value: "auto", hint: `目安: ${x[prop] === true ? "受け取る" : "受け取らない"}` };
         if (x[prop] === undefined) return { value: "no", hint: "入れていません（受け取らないで計算しています）", implicit: true };
         return { value: x[prop] === true ? "yes" : "no" };
       },

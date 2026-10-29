@@ -48,7 +48,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
       path: ["enabled"],
       optional: true,
       fallback: true,
-      help: "すでに契約しているときに入れます。入れないときは、結果の対策「FP顧問料」で提案の側にだけ入れます（既定）",
+      help: "すでに契約しているときに入れます。まだのときは入れなくて構いません（結果の画面で、入れた場合と比べられます）",
     }),
     ...(c.terms?.oneTime ?? []).flatMap((_, i) => oneTimeFields(k, find, i)),
   ];
@@ -179,7 +179,7 @@ export function feeGroups(wh: WorkingHousehold, c: AdvisoryFee, n: number): Grou
           }),
         ]
       : []),
-    ...onContingencyFields({ key: `${k}/rec/on`, item: "advisoryFee.terms", find: findRec, path: ["onContingency"], level: "detail", help: "払う人などの万一の月の翌月から当てます（単発の料金には当てません）。新しい契約は事務所の料金表の扱い（標準は止める）で入ります" }),
+    ...onContingencyFields({ key: `${k}/rec/on`, item: "advisoryFee.terms", find: findRec, path: ["onContingency"], level: "detail", help: "払う人などの万一の月の翌月から、この扱いにします（単発の料金は変わりません）。新しい契約は事務所の料金表の扱い（標準は止める）で入ります" }),
     ...onContingencyDetailFields({ key: `${k}/rec/on`, item: "advisoryFee.terms", find: findRec, path: ["onContingency"], on: r.onContingency, level: "detail" }),
   ];
   groups.push({
@@ -318,7 +318,7 @@ export function feeSections(wh: WorkingHousehold): SectionDef[] {
     {
       key: "ev/fees",
       title: "FP顧問料",
-      note: "FP への相談料・顧問料。生活費とは別の行で計算します。既定では提案の側にだけ入れ、結果の対策「FP顧問料」で入れる・入れないを切り替えます",
+      note: "FP への相談料・顧問料です。生活費とは別に計算します。まだ契約していなければ、結果の画面で、顧問料を入れた場合と比べられます",
       level: "simple",
       groups: list.flatMap((c, i) => feeGroups(wh, c, i)),
       actions: [{ key: "ev/addFee", label: "＋ FP顧問料の契約", level: "simple", run: (w) => addAdvisoryFee(w) }],

@@ -27,7 +27,7 @@ export function onContingencyFields(o: { key: string; item: string; find: Finder
       level,
       kind: "select",
       options: ON_CONTINGENCY_MODES,
-      help: o.help ?? "万一（死亡など）が起きた月の翌月から当てます",
+      help: o.help ?? "万一（死亡など）が起きた月の翌月から、この扱いにします",
       get: (wh) => ({ value: read(wh.request.input.household, wh)?.mode ?? "" }),
       set: (wh, v) =>
         mutate(wh, (h, req) => {

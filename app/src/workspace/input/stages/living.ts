@@ -426,7 +426,7 @@ function stageGroups(wh: WorkingHousehold, l: LivingExpense, find: Finder): Grou
     return {
       key,
       title: `段階 ${n + 1}: ${name}${when}`,
-      ...(auto ? { note: "推定の段階（人数の変化と年齢から）。家族・進路・働き方が変わると入れ直します。この段を直すと、この段だけ確定になります（外すと、入れ直しでも足しません）" } : {}),
+      ...(auto ? { note: "家族の人数と年齢から、目安で作った段階です。家族・進路・働き方を変えると作り直します。直した段は、作り直しても変わりません" } : {}),
       level: valueLevel,
       fields,
       actions: [
@@ -471,10 +471,10 @@ function stageActions(l: LivingExpense, find: Finder): { simple: ActionDef[]; de
     const fill: ActionDef = {
       key: `living/${l.id}/autoStages`,
       label: none ? "子の誕生・独立・退職などで、生活費の段階を推定で入れる" : "推定の段階に入れ替える",
-      ...(none ? {} : { help: `今の段階（${(l.stages ?? []).length}段）を外して、推定の段階に入れ替えます` }),
+      ...(none ? {} : { help: `今の段階（${(l.stages ?? []).length}段）を外して、目安の段階に作り直します` }),
       level: none ? "simple" : "detail",
       ...(none ? {} : { danger: true }),
-      title: "家計調査の世帯人員別の目安の比と、退職後80%・70歳から75%・80歳から70%の目安で段を作ります。家族・進路・働き方が変わると入れ直します",
+      title: "国の家計の調査をもとに、家族の人数が変わる時期と、退職後（80%）・70歳から（75%）・80歳から（70%）の目安で生活費の段階を作ります",
       run: (w) =>
         mutate(w, (h, req) => {
           const t = find(h, { ...w, request: req }) as unknown as LivingExpense | undefined;
@@ -588,7 +588,7 @@ function livingGroups(wh: WorkingHousehold, l: LivingExpense, index: number): Gr
       find,
       path: ["onContingency"],
       level: "detail",
-      help: "指定しないときは、死亡のときだけ万一のタブの遺族の生活費の割合を当てます（障害・就業不能では変えません）。指定すると、その扱いが遺族の生活費の割合の代わりになります",
+      help: "選ばないときは、亡くなったときだけ、遺族の生活費の割合（万一のタブで決めます）で減らします。障害・働けないときは変えません。選ぶと、遺族の生活費の割合の代わりに、その扱いにします",
     }).map((f) => withAddress(survivorDefault(f), addr(l.id, onItem))),
     ...onContingencyDetailFields({ key: `${key}/on`, item: onItem, find, path: ["onContingency"], on: l.onContingency, level: "detail" }).map((f) => withAddress(f, addr(l.id, onItem))),
     { ...readLine(`living/${l.id}/survivor`, "万一（死亡）のときの遺族の生活費", survivorText(wh), "万一のタブ"), level: "detail" },
@@ -692,7 +692,7 @@ function annualChecklist(wh: WorkingHousehold, skip: ReadonlySet<string>): Group
   fields.push({ ...readLine("living/annual/check/propertyTax", "固定資産税・修繕", owned ? "持ち家の固定資産税・修繕費は、住まいの物で入れます" : "持ち家なし", "住まい・ローン"), level: "detail" });
   fields.push({ ...readLine("living/annual/check/car", "自動車税・車検", (h.cars ?? []).length > 0 ? `車 ${(h.cars ?? []).length}台（税・車検は車の維持費で入れます）` : "車なし", "車"), level: "detail" });
   fields.push({ ...readLine("living/annual/check/insurance", "保険の年払い", (h.insuranceContracts ?? []).length > 0 ? `保険 ${(h.insuranceContracts ?? []).length}件（保険料は保険の契約で入れます）` : "まだありません", "保険"), level: "detail" });
-  return { key: "living/annual/check", title: "年1回・数年に1回の支出の確かめ", note: "よくある年払い・数年おきの支出です。まだ入れていない物は、よくある額と間隔の目安（推定）で足せます（足した後に直してください）", level: "detail", fields, actions };
+  return { key: "living/annual/check", title: "年1回・数年に1回の支出（入れ忘れがないか）", note: "よくある年払い・数年おきの支出です。まだ入れていない物は、よくある額と間隔の目安で足せます（足した後で実際の額に直してください）", level: "detail", fields, actions };
 }
 
 function annualSection(wh: WorkingHousehold): SectionDef | null {
@@ -709,7 +709,7 @@ function annualSection(wh: WorkingHousehold): SectionDef | null {
   }));
   return {
     ...out,
-    note: `${empty ? "まだありません。" : ""}帰省・家電や家具・スマホ・パソコンの買い替え・年会費など、年1回・数年に1回の暮らしの支出です。表の行の既定は「基本生活費に含める」（医療費は「医療・介護」の行にもできます）`,
+    note: `${empty ? "まだありません。" : ""}帰省・家電や家具・スマホ・パソコンの買い替え・年会費など、年1回・数年に1回の暮らしの支出です`,
     groups: [...out.groups, annualChecklist(wh, empty ? QUICK : new Set<string>())],
     actions: [...(empty ? quick : []), ...out.actions.map((a) => ({ ...a, label: "＋ 年払い・数年おきの支出" }))],
   };
@@ -793,7 +793,7 @@ function checkSection(wh: WorkingHousehold): SectionDef {
               max: year0 + 5,
               find,
               path: ["year"],
-              help: "計算基準年か、その後の年。計算基準年の途中からなら、12か月そろう翌年と比べます",
+              help: "今年か、その後の年。今年の途中から計算するときは、12か月そろう翌年と比べます",
             }),
             a("savingsCheck.year"),
           ),

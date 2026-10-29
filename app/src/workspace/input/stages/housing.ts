@@ -93,7 +93,7 @@ function styleField(r: Residence, k: string): FieldDef {
       kind: "select",
       options: STYLES,
       sideEffects: "建物の構造が空か推定なら、建て方に合わせます",
-      help: "修繕費の目安と建物の構造（評価の耐用年数）の推定に使います",
+      help: "修繕費の目安と建物の構造（評価の耐用年数）の目安に使います",
       get: (w) => {
         const x = find(w.request.input.household, w) as Residence | undefined;
         const v = x?.style ?? (x?.valuation?.structure === "rc" ? "condo" : "house");
@@ -303,7 +303,7 @@ function purchaseGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDef
     basis: "once",
     find,
     path: ["purchase", "price"],
-    help: "頭金・諸費用が推定のままなら、価格に合わせて入れ直します",
+    help: "頭金・諸費用を入れていなければ、価格に合わせて目安を出し直します",
     // 頭金・諸費用が推定（出どころ auto）なら、価格に合わせて入れ直す
     after: (_h, target, v) => {
       const res = target as unknown as Residence & Obj;
@@ -460,7 +460,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
         }),
         plain({ key: `${kv}/asOf`, item: "residence.valuation", label: bought ? "その額の時点" : "その額の時点（購入の年月）", level: "detail", kind: "ym", find, path: ["valuation", "asOf"], optional: true, fallback: asOf }),
         {
-          ...plain({ key: `${kv}/structure`, item: "residence.valuation", label: "建物の構造", level: "detail", kind: "select", options: BUILDING_STRUCTURES, find, path: ["valuation", "structure"], optional: true, fallback: "wood", help: "建物を耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で減らします。建て方から推定します" }),
+          ...plain({ key: `${kv}/structure`, item: "residence.valuation", label: "建物の構造", level: "detail", kind: "select", options: BUILDING_STRUCTURES, find, path: ["valuation", "structure"], optional: true, fallback: "wood", help: "建物を耐用年数（木造22年・軽量鉄骨19年・重量鉄骨34年・鉄筋コンクリート47年）で減らします。建て方から目安を出します" }),
           address: () => at(r.id, "residence.valuation", ["structure"]),
         },
         // 購入の予定の持ち家は、空欄を購入の年（その額の時点の年）の新築として見せる。今住んでいる持ち家は空欄のまま見せる（今年を建った年と見せない）
@@ -495,7 +495,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
         kind: "select",
         options: AFTER_CHOICES,
         structural: true,
-        help: "売ると、売却価格から売却の費用を引いた手取りが預金に入り、その年から不動産は無くなります。人に貸す形はまだありません",
+        help: "売ると、売却価格から売却の費用を引いた手取りが預金に入り、その年から不動産は無くなります。人に貸すときは、収益不動産の入力項目で入れます",
         get: (w) => ({ value: (find(w.request.input.household, w) as Residence | undefined)?.sale !== undefined ? "sell" : "keep" }),
         set: (w, v) =>
           mutate(w, (h) => {
@@ -519,7 +519,7 @@ function valuationGroups(wh: WorkingHousehold, r: Residence, k: string): GroupDe
             basis: "once",
             find,
             path: ["sale", "tax"],
-            help: "売って得た利益にかかる所得税・住民税の合計。入れた額を売った月に払います（自動の計算〔長期・短期・3,000万円の特別控除・取得費〕はまだ無いので、税理士の試算などの額を入れます）。自宅を売って3,000万円の特別控除で税が出ないなら0円",
+            help: "売って得た利益にかかる所得税・住民税の合計です。入れた額を売った月に払います。税理士の試算などの額を入れてください。自宅を売って3,000万円の特別控除で税が出ないなら0円",
           }),
           address: () => at(r.id, "residence.sale", ["tax"]),
         },
