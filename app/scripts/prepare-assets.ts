@@ -82,6 +82,8 @@ function findItems(node: SchemaNode | undefined, depth: number, seen: Set<Schema
   for (const v of [...(node.oneOf ?? []), ...(node.anyOf ?? []), ...(node.allOf ?? []), ...(node.then !== undefined ? [node.then] : [])]) findItems(v, depth + 1, seen);
 }
 const seenNodes = new Set<SchemaNode>();
+// 要求の入力のいちばん上の項目（前提条件・遺したい額・相続税の設定など）も歩く
+findItems(engineInput as unknown as SchemaNode, 0, seenNodes);
 for (const d of Object.values(schemaDefs)) findItems(d, 0, seenNodes);
 const sortedPlaces = (m: Record<string, Set<string>>) => Object.fromEntries(Object.entries(m).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => [k, [...v].sort()]));
 const boxedOut = sortedPlaces(boxed);
