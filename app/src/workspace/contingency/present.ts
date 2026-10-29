@@ -321,7 +321,7 @@ export function yearStripModel(input: {
 /** 万円の短い書き方（提示層の外で一文を作るとき） */
 export const manText = (yen: number) => `${man(yen)}万円`;
 
-/** 場面の帯のカードの名前（例: 「ご主人が亡くなったら」「奥様が働けなくなったら」「相場が下がったとき」） */
+/** 場面の帯のカードの名前（例: 「ご本人が亡くなったら」「配偶者が働けなくなったら」「相場が下がったとき」） */
 export function scenarioTitle(sc: Scenario): string {
   if (sc.kind === "illness") return `${sc.who}が大きな病気のとき`;
   if (sc.kind === "income") return "収入が減ったとき";
@@ -334,7 +334,7 @@ const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.l
 /** 下がる幅の言い方（"0.3" → 「3割」） */
 export const dropText = (drop: string | undefined) => `${Math.round(Number(drop ?? "0.3") * 10)}割`;
 
-/** 想定の出来事の言い方（例: 「ご主人が2031年に亡くなった場合」「2041年に株などが3割下がった場合」） */
+/** 想定の出来事の言い方（例: 「ご本人が2031年に亡くなった場合」「2041年に株などが3割下がった場合」） */
 export function scenarioEvent(sc: Scenario, year: number, drop?: string, o?: { who: string; ratio: string; years: number; stack: boolean }): string {
   if (sc.kind === "market") return `${year}年に株などが${dropText(drop)}下がった場合`;
   const also = o?.stack === true ? `（同じ年に株などが${dropText(drop)}下がる）` : "";

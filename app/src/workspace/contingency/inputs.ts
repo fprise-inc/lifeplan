@@ -209,9 +209,9 @@ export const PROTECTION_METHODS: Option[] = [
 ];
 
 const INCOME_WHO: Option[] = [
-  { value: "self", label: "本人" },
+  { value: "self", label: "ご本人" },
   { value: "spouse", label: "配偶者" },
-  { value: "both", label: "本人と配偶者" },
+  { value: "both", label: "ご本人と配偶者" },
 ];
 
 export const SURVIVOR_WORK_TYPES: Option[] = [

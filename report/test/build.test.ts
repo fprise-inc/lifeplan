@@ -274,7 +274,7 @@ describe("住まい以外の不動産の物件ごとの数字（独自帳票の�
         expect(y.loanBalance).toBe(balance.get(y.year) ?? 0);
         expect(y.loanRepayment).toBe(pay.get(y.year) ?? 0);
       });
-      expect(p.owner).toEqual({ key: "self", label: "ご主人" });
+      expect(p.owner).toEqual({ key: "self", label: "ご本人" });
       expect(p).toMatchObject({ key: "property1", label: "不動産1", use: "rental", structure: { key: "rc", label: "鉄筋コンクリート造" }, builtYear: 2008, acquisition: { price: 21000000, month: "2016-03" } });
     }
   });
@@ -345,8 +345,8 @@ describe("バランスシートの図の時点（画面の「資産と負債」�
     const bs = input.balanceSheet!;
     const labels = bs.figure.columns.map((c) => c.point.label);
     expect(labels[0]).toBe("今");
-    expect(labels[1]).toMatch(/^退職の年（ご主人\d+歳）$/);
-    expect(labels[2]).toBe("ご主人75歳");
+    expect(labels[1]).toMatch(/^退職の年（ご本人\d+歳）$/);
+    expect(labels[2]).toBe("ご本人75歳");
     expect(years(bs)[0]).toBe(base);
     expect(years(bs)[2]).toBe(birthY + 75);
     expect(bs.proposal.points.map((p) => p.year)).toEqual([base, base + 10, years(bs)[1], birthY + 75, input.summary.target.year]);
@@ -362,7 +362,7 @@ describe("バランスシートの図の時点（画面の「資産と負債」�
     const input = buildProposalInput({ ...bundle, balancePoints: chosen });
     const bs = input.balanceSheet!;
     expect(years(bs)).toEqual([base, base + 8, birthY + 68, birthY + 85]);
-    expect(bs.figure.columns.map((c) => c.point.label)).toEqual(["今", `ローン完済（ご主人${base + 8 - birthY}歳）`, "ご主人68歳", "ご主人85歳"]);
+    expect(bs.figure.columns.map((c) => c.point.label)).toEqual(["今", `ローン完済（ご本人${base + 8 - birthY}歳）`, "ご本人68歳", "ご本人85歳"]);
     expect(bs.figure.columns.map((c) => c.fact)).toEqual([true, false, false, false]);
     const table = bs.proposal.points.map((p) => p.year);
     for (const y of [...years(bs), input.summary.target.year]) expect(table).toContain(y);

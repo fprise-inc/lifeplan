@@ -15,11 +15,11 @@ import { Help } from "../../presentation/Help.tsx";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { toggledSet, type GroupOpenState } from "./FieldViews.tsx";
 import type { EngineRequest, PreviewResult } from "../../engine/types.ts";
-import type { Level } from "./form.ts";
+import { inSimpleOnlyGroup, type Level } from "./form.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { InputPanel } from "./InputPanel.tsx";
-import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, nothingEnteredYet, groupedItems, inputItems, itemOf, notApplicableCard, pinItems, progressOf, shownItems, summarySegments, togglePin, type AddOption, type CardLayout, type InputItem, type ItemStatus, type PinItem, type Summary } from "./items.ts";
+import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, nothingEnteredYet, groupedItems, inputItems, itemOf, itemStage, notApplicableCard, pinItems, progressOf, shownItems, summarySegments, togglePin, type AddOption, type CardLayout, type InputItem, type ItemStatus, type PinItem, type Summary } from "./items.ts";
 import { inheritanceTaxNote, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { STAGE_ORDER } from "./stages/index.ts";
@@ -358,6 +358,11 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   // 確かめの一覧の「開く」: カードを開いて欄に移る（詳細の欄なら詳細にする）。移るだけで値も状態も変えない
   const openField = (id: string, key: string | null, l: Level) => {
     if (l === "detail" && levelOf(id) !== "detail") setLevelOf(id, "detail");
+    // 標準だけのまとまりの欄（今の働き方など）は、詳細では出ないので標準にして移る
+    else if (key !== null && levelOf(id) === "detail") {
+      const st = itemStage(shown, id);
+      if (st !== null && inSimpleOnlyGroup(st, key)) setLevelOf(id, "simple");
+    }
     setAddDraft(null);
     setFocusKey(key);
     setOpenId(id);

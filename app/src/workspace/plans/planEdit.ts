@@ -695,7 +695,7 @@ const KIND_TEXT: Readonly<Record<string, string>> = {
   company: "社宅",
   parents: "実家",
   mortgage: "住宅ローン",
-  self: "本人",
+  self: "ご本人",
   spouse: "配偶者",
   child: "子",
   parent: "親",

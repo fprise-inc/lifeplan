@@ -117,7 +117,7 @@ export interface CandidateView {
   id: string;
   /** 物の分野（家族・仕事と収入 …） */
   group: string;
-  /** 例: ご主人の仕事と収入 */
+  /** 例: ご本人の仕事と収入 */
   title: string;
   kind: CandidateKind;
   /** 要確認（名前の定義と位置の食い違い・数式など）。黙って当てはめない */
@@ -279,7 +279,7 @@ function markOf(obj: Obj | undefined, f: Pick<FieldRecord, "path" | "state" | "r
   return { mark: null, note: null };
 }
 
-/** 候補の見出し（例: ご主人の仕事と収入・お子さま（2人目）） */
+/** 候補の見出し（例: ご本人の仕事と収入・お子さま（2人目）） */
 function titleOf(c: Candidate, imp: EngineRequest): string {
   const group = GROUP[c.collection] ?? c.collection;
   const label = new Map(roles(imp).map((r) => [r.member.id, r.label]));

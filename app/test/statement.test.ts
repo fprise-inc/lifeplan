@@ -71,8 +71,8 @@ async function imported(): Promise<{ wh: WorkingHousehold; self: string; spouse:
   const members = wh.request.input.household.members;
   const self = members.find((m) => m.kind === "self")!.id;
   const spouse = members.find((m) => m.kind === "spouse")!.id;
-  let log = addAccount(logOf(wh), { kind: "card", label: "ご主人のカード（Aカード）", owner: self, issuer: "smbc" }, "acc-card");
-  log = addAccount(log, { kind: "bank", label: "ご主人の給与口座", owner: self }, "acc-bank");
+  let log = addAccount(logOf(wh), { kind: "card", label: "ご本人のカード（Aカード）", owner: self, issuer: "smbc" }, "acc-card");
+  log = addAccount(log, { kind: "bank", label: "ご本人の給与口座", owner: self }, "acc-bank");
   for (const [name, kind, account] of [
     ["card-year-utf8bom.csv", "card", "acc-card"],
     ["bank-utf8.csv", "bank", "acc-bank"],
@@ -87,7 +87,7 @@ async function imported(): Promise<{ wh: WorkingHousehold; self: string; spouse:
 
 describe("口座・カードの登録", () => {
   it("呼び名にカード番号・口座番号らしき数字は書けない（空・長すぎるも止める）", () => {
-    expect(accountLabelProblem("ご主人のカード（Aカード）")).toBeNull();
+    expect(accountLabelProblem("ご本人のカード（Aカード）")).toBeNull();
     expect(accountLabelProblem("")).not.toBeNull();
     expect(accountLabelProblem("カード 0000-1111-2222-3333")).toMatch(/番号/);
     expect(accountLabelProblem("給与口座 1234567")).toMatch(/番号/);
@@ -288,7 +288,7 @@ describe("確認シート（前もってお客さまに印を付けてもらう�
     expect(requestSize(sheet.request)).toEqual({ lines: sheet.rows, rows: an.review.length });
     const all = [...(await unzip(sheet.bytes)).values()].map(utf8).join("\n");
     for (const needle of [self, "acc-card", "acc-bank", wh.request.input.household.members[0]!.id]) expect(all).not.toContain(needle);
-    expect(all).toContain("ご主人のカード（Aカード）");
+    expect(all).toContain("ご本人のカード（Aカード）");
     const body = JSON.parse(bodyOf({ wh, workspace: { template: null, selected: "current", band: [] } as never, display: {} as never, carry: EMPTY_CARRY })) as { statements: { requests: unknown[] } };
     expect(body.statements.requests).toHaveLength(1);
     expect(fromBody(JSON.stringify(body)).wh.statements?.requests?.[0]?.id).toBe(sheet.request.id);

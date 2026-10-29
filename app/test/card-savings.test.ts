@@ -94,7 +94,7 @@ describe("取り崩す順番（口座ごと・取り崩さない）", () => {
 
   it("口座の呼び名は種類と名義（括弧の説明は外す）", () => {
     const wh = open();
-    expect(accountName(acc(wh, "taxable"), "ご主人")).toBe("課税口座（ご主人）");
+    expect(accountName(acc(wh, "taxable"), "ご本人")).toBe("課税口座（ご本人）");
   });
 });
 
