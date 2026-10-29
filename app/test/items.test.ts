@@ -82,16 +82,16 @@ describe("15枚のカードと並び", () => {
     expect(LABELS.filter((l) => old.includes(l))).toEqual(old);
   });
 
-  it("事務所の設定で並べ替え・最初の5枚を変えられる（設定に無いカードは標準の順で後ろに。どのカードも1回）", () => {
-    expect(DEFAULT_LAYOUT.first).toEqual(["family", "work", "living", "savings", "housing"]);
-    const layout: CardLayout = { order: ["assumptions", "family", "family", "nope" as StageId], first: ["family"] };
+  it("事務所の設定で並べ替えられる（設定に無いカードは標準の順で後ろに。どのカードも1回）。最初の5枚の考えは無い", () => {
+    expect(DEFAULT_LAYOUT).toEqual({ order: cardOrder() });
+    const layout: CardLayout = { order: ["assumptions", "family", "family", "nope" as StageId] };
     const order = cardOrder(layout);
     expect(order.slice(0, 2)).toEqual(["assumptions", "family"]);
     expect(order).toHaveLength(15);
     expect(new Set(order).size).toBe(15);
     const items = inputItems(blankHousehold("2026-10", seq()), { layout });
     expect(items[0]!.id).toBe("assumptions");
-    expect(items.filter((i) => i.first).map((i) => i.id)).toEqual(["family"]);
+    expect(items.every((i) => !("first" in i))).toBe(true);
   });
 
   it("15枚のときは見出しを出さない。ピンは何枚足してもカードの数に入れない", () => {
@@ -417,10 +417,10 @@ describe("入れ始めた項目だけに抜けを知らせる（0045 の追記�
   });
 });
 
-describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
-  it("最初の5枚には案内を出さず、残りのカードは何で計算しているかの1行と「当てはまらない」「目安で入れる」", () => {
+describe("カードの1行の案内・1押し（どの項目も同じ決まり。最初の5枚の区別はなくした）", () => {
+  it("未入力・推定のカードは何で計算しているかの1行と「当てはまらない」「目安で入れる」。家族・基本生活費・前提条件に「当てはまらない」は出さない", () => {
     const items = inputItems(blankHousehold("2026-10", seq()));
-    for (const i of items.filter((x) => x.first)) expect(i.hint, i.id).toBeNull();
+    for (const id of ["family", "living", "assumptions"]) expect(byId(items, id).canNa, id).toBe(false);
     expect(byId(items, "insurance")).toMatchObject({ hint: "入れなくても計算できます（保障は無しで計算中）", canNa: true, canFill: false });
     expect(byId(items, "pension")).toMatchObject({ hint: "働き方の期間から推計して計算中です", canNa: false });
     expect(byId(items, "assumptions").hint).toBeNull();
@@ -432,7 +432,7 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     expect(() => preview(filled.request)).not.toThrow();
   });
 
-  it("描画: 進み具合は未入力（0円の所あり）の数を左に強く、続けて15項目中の入力済み・推定で計算中・当てはまらない・まだ入れていない。新しい世帯に最初の5枚の案内", () => {
+  it("描画: 進み具合は未入力（0円の所あり）の数を左に強く、続けて15項目中の入力済み・推定で計算中・当てはまらない・まだ入れていない。最初の5枚の案内と印は出さない", () => {
     const wh = blankHousehold("2026-10", seq());
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple" }));
     // 新しい世帯は、まだ何も入れていない項目を赤い数に入れない（0045 の追記）
@@ -442,8 +442,9 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     expect(html.replace(/<button[^>]*>|<\/button>/g, "")).toContain('15項目中 入力済み <span class="n">1</span>・推定で計算中 <span class="n">3</span>・当てはまらない <span class="n">1</span>・まだ入れていない <span class="n">10</span>');
     expect(html).toContain('data-progress-filter="est"');
     expect(html.indexOf("data-progress-missing")).toBeLessThan(html.indexOf("15項目中"));
-    expect(html).toContain("data-first-guide");
-    expect((html.match(/data-first=/g) ?? []).length).toBe(5);
+    expect(html).not.toContain("data-first-guide");
+    expect(html).not.toContain("data-first=");
+    expect(html).not.toContain("最初の5");
     expect((html.match(/data-card=/g) ?? []).length).toBe(15);
     expect(html).toContain('data-card-na="insurance"');
     expect(html).toContain("入れなくても計算できます（保障は無しで計算中）");
@@ -455,11 +456,10 @@ describe("最初の5枚と、残りの9枚の1行の案内・1押し", () => {
     expect(html).not.toContain("ih-card s-missing");
   });
 
-  it("描画: 最初の5枚がどれも未入力でなければ案内を出さない。FP用のメモは画面に出さない", () => {
-    // 失業給付を「受け取らない」と決めて、最初の5枚をどれも未入力でなくする
+  it("描画: FP用のメモは画面に出さない", () => {
+    // 失業給付を「受け取らない」と決めて、働き方と収入を未入力でなくする
     const wh = notApplicableCard(open("salariedCoupleTwoKids", ["MEMO-MARK-home"]), "work");
     const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple" }));
-    expect(html).not.toContain("data-first-guide");
     expect(html).toContain('data-progress-missing="1"');
     expect(html).not.toContain("MEMO-MARK-home");
     expect(html).toContain("項目を追加");

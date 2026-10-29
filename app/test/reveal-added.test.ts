@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { pickAdded, REVEAL_ITEMS, REVEAL_MS, scrollDelta } from "../src/presentation/revealAdded.ts";
-import { fromRequest } from "../src/workspace/input/household.ts";
+import { blankHousehold, fromRequest } from "../src/workspace/input/household.ts";
 import { InputPanel } from "../src/workspace/input/InputPanel.tsx";
 import { InputView } from "../src/workspace/input/InputView.tsx";
 import { STAGE_ORDER } from "../src/workspace/input/stages/index.ts";
@@ -148,11 +148,12 @@ function visible(html: string): string {
 
 describe("画面では「カード」と言わず「入力項目」（中の1つずつは「欄」）", () => {
   const wh = fromRequest(modelHousehold("salariedCoupleTwoKids"), {});
-  it("入力のホーム・確かめの一覧に「カード」が無い。最初の5項目・15項目中", () => {
+  it("入力のホーム・確かめの一覧・新しい世帯のホーム（取り込むの説明）に「カード」が無い。15項目中", () => {
     const home = renderToString(h(InputView, { wh, onSave: noop, level: "simple" }));
     const check = renderToString(h(InputView, { wh, onSave: noop, level: "simple", initialOpen: "check" }));
-    for (const html of [home, check]) expect(visible(html).replace(CARD_WORDS, "")).not.toContain("カード");
-    expect(home).toContain("最初の5項目");
+    const fresh = renderToString(h(InputView, { wh: blankHousehold("2026-10"), onSave: noop, level: "simple", imports: h("p", null, "取り込み") }));
+    expect(fresh).toContain("data-imports-open");
+    for (const html of [home, check, fresh]) expect(visible(html).replace(CARD_WORDS, "")).not.toContain("カード");
     expect(home).toContain("15項目中");
     expect(home).not.toContain("最初の5枚");
     expect(check).toMatch(/<label>\s*入力項目\s*<select/);

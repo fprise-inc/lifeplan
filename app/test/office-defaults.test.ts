@@ -19,7 +19,7 @@ import { preview } from "./helpers.ts";
 
 let n = 0;
 const ids = () => () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
-const SETTINGS: OfficeSettings = { ...DEFAULT_OFFICE_SETTINGS, care: { selfAndSpouse: "fill" }, inheritLikelihood: "uncertain", assumptions: { inflation: "0.015", investmentReturn: "0.02" }, realEstateRatio: "0.7", changedOn: "2026-10-27", layout: { order: ["family", "living", "work"], first: ["family", "living"] } };
+const SETTINGS: OfficeSettings = { ...DEFAULT_OFFICE_SETTINGS, care: { selfAndSpouse: "fill" }, inheritLikelihood: "uncertain", assumptions: { inflation: "0.015", investmentReturn: "0.02" }, realEstateRatio: "0.7", changedOn: "2026-10-27", layout: { order: ["family", "living", "work"] } };
 const state = (wh: BodyState["wh"]): BodyState => ({ wh, workspace: { template: null, band: [], base: "current", selected: "current", shownItems: [] }, display: { result: {}, balance: {} } as unknown as BodyState["display"], carry: EMPTY_CARRY });
 
 afterEach(() => setOfficeNow(STANDARD_OFFICE_NOW));
@@ -28,20 +28,20 @@ describe("読むときの形の確かめ", () => {
   it("読めない値は既定。知らないカード・重なりは捨てる", () => {
     expect(readOfficeSettings(null)).toEqual(DEFAULT_OFFICE_SETTINGS);
     expect(readOfficeSettings({ care: { selfAndSpouse: "x" }, assumptions: { inflation: "abc", wageGrowth: "0.5" }, realEstateRatio: "2", inheritLikelihood: "maybe" })).toEqual(DEFAULT_OFFICE_SETTINGS);
+    // 前の版の「最初の5枚」（first）は読まない（あっても誤りにしない）
     const r = readOfficeSettings({ ...SETTINGS, layout: { order: ["family", "x", "family", "living"], first: ["living", "nope"] } });
-    expect(r.layout).toEqual({ order: ["family", "living"], first: ["living"] });
+    expect(r.layout).toEqual({ order: ["family", "living"] });
     expect(readOfficeSettings(JSON.parse(JSON.stringify(SETTINGS)))).toEqual(SETTINGS);
     expect(isDefaultSettings(DEFAULT_OFFICE_SETTINGS)).toBe(true);
     expect(isDefaultSettings(SETTINGS)).toBe(false);
     expect(officeBasis(SETTINGS)).toBe("事務所の標準（2026-10）");
   });
 
-  it("並び: 設定の順に、設定に無いカードを標準の順で後ろに足す。最初の5枚は設定のとおり", () => {
+  it("並び: 設定の順に、設定に無いカードを標準の順で後ろに足す", () => {
     const wh = blankHousehold("2026-10", ids());
     const items = inputItems(wh, { layout: layoutOf(SETTINGS) });
     expect(items.slice(0, 3).map((i) => i.id)).toEqual(["family", "living", "work"]);
     expect(items).toHaveLength(15);
-    expect(items.filter((i) => i.first).map((i) => i.id)).toEqual(["family", "living"]);
     expect(layoutOf(DEFAULT_OFFICE_SETTINGS)).toBe(DEFAULT_LAYOUT);
   });
 });

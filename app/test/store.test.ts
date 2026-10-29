@@ -425,6 +425,12 @@ function sample033(): BodyState {
   return { ...s, wh: { ...s.wh, request: req } };
 }
 
+/** 0.34 の見本の世帯（0083）: sample033() に入力項目の選び方（車・介護・親を出さない、収益不動産と保険を詳細で開く）を入れる */
+function sample034(): BodyState {
+  const s = sample033();
+  return { ...s, wh: { ...s.wh, itemChoice: { hidden: ["car", "care"], levels: { insurance: "detail", rental: "detail" } } } };
+}
+
 function sampleStatements(owner: string): StatementLog {
   return {
     version: 1,
@@ -548,7 +554,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   });
 
   it("明細の取り込みの記録（0.14 から。0034）と確認シートの依頼の記録（0.15 から。店ごとにまとめた行は 0.16 から）を区画 statements に保存して読み戻す。空なら区画を作らず、形の合わない行は捨てる", () => {
-    expect(BODY_FORMAT_VERSION).toBe("0.33");
+    expect(BODY_FORMAT_VERSION).toBe("0.34");
     const s = sample();
     const text = bodyOf(s);
     const obj = JSON.parse(text) as { statements?: StatementLog; household: Record<string, unknown> };
@@ -702,7 +708,7 @@ describe("世帯ファイルの本文（0011 の2）", () => {
   // 見本の本文を作り直す（手で流す: WRITE_HOUSEHOLD_FIXTURE_SOURCE=<出力先> npx vitest run test/store.test.ts）。
   // 暗号化した見本は crates/household-store の regenerate_fixture（--ignored）で作る
   it.runIf(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE !== undefined)("見本の本文を書き出す", async () => {
-    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample033())), null, 2) + "\n");
+    writeFileSync(process.env.WRITE_HOUSEHOLD_FIXTURE_SOURCE as string, JSON.stringify(bodyObject(await withSnapshot(sample034())), null, 2) + "\n");
   });
 
   it("0.22 の形（0057）: 退職給付の名前と学歴を保存して読み戻し、名前・学歴は計算に使わない", () => {
@@ -852,6 +858,21 @@ describe("世帯ファイルの本文（0011 の2）", () => {
     expect(bodyObject(back)).toEqual(bodyObject(s));
     expect(() => preview(back.wh.request)).not.toThrow();
     expect(preview(back.wh.request).table).not.toEqual(preview(sample032().wh.request).table);
+  });
+
+  it("0.34 の形（0083）: 入力項目の選び方を保存して読み戻す。形の合わない所は捨て、決めていなければ欄を作らない。計算の要求は変えない", () => {
+    const s = sample034();
+    const stored = bodyObject(s) as unknown as { household: Record<string, unknown> };
+    expect(stored.household.itemChoice).toEqual({ hidden: ["car", "care"], levels: { insurance: "detail", rental: "detail" } });
+    const back = fromBody(JSON.stringify(stored));
+    expect(bodyObject(back)).toEqual(bodyObject(s));
+    expect(preview(back.wh.request).table).toEqual(preview(sample033().wh.request).table);
+    // 知らない項目・いつも出す項目（家族・前提条件）・標準の入れ方は持たない
+    const odd = fromBody(JSON.stringify({ ...stored, household: { ...stored.household, itemChoice: { hidden: ["nope", "family", "assumptions", "car", "car"], levels: { work: "simple", nope: "detail", savings: "detail" } } } }));
+    expect(odd.wh.itemChoice).toEqual({ hidden: ["car"], levels: { savings: "detail" } });
+    const none = fromBody(JSON.stringify({ ...stored, household: { ...stored.household, itemChoice: { hidden: [], levels: {} } } }));
+    expect("itemChoice" in none.wh).toBe(false);
+    expect("itemChoice" in bodyObject(sample033()).household).toBe(false);
   });
 
   it("0.24 の形（0060・0061）: 相続税の目安の設定と遺したい額を要求の入力に保存して読み戻す。エンジンへ渡す要求からは外れ、結果は同じ", () => {

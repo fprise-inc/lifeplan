@@ -732,6 +732,19 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(!exit, "{v}: 0.33 より前の版に税と出口の欄は無い");
         }
+        // 0.34 から（0083）: 入力項目の選び方（任意）
+        let choice = now["household"]["itemChoice"]["hidden"]
+            .as_array()
+            .is_some_and(|l| !l.is_empty() && l.iter().all(Value::is_string))
+            && now["household"]["itemChoice"]["levels"].is_object();
+        if migrate::parse(v).unwrap() >= (0, 34) {
+            assert!(choice, "{v}: 入力項目の選び方");
+        } else {
+            assert!(
+                now["household"]["itemChoice"].is_null(),
+                "{v}: 0.34 より前の版に入力項目の選び方は無い"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

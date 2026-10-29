@@ -188,10 +188,12 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
   const labels = new Map(items.map((i) => [i.id, i.label]));
   // まだ入れていない項目（items.ts の startedOf）の入っていない物は、警告でなく「まだ入れていない項目」に。入っていない物の無い項目も1行で並べる
   const notStarted = new Set(items.filter((i) => i.status === "empty").map((i) => i.id));
-  const gaps = gapsOf(wh);
+  // 入力のホームに出していない入力項目（世帯の選び方で非表示・値が入っていない。itemChoice.ts）の「まだ入れていない」の行は出さない（今までどおり推定か「無し」で計算する）
+  const hidden = new Set(items.filter((i) => i.hidden).map((i) => i.id));
+  const gaps = gapsOf(wh).filter((g) => !(hidden.has(g.card) && notStarted.has(g.card)));
   for (const g of gaps) rows.push(gapRow(g, labels.get(g.card) ?? g.card, notStarted.has(g.card)));
   for (const i of items)
-    if (notStarted.has(i.id) && !gaps.some((g) => g.card === i.id))
+    if (notStarted.has(i.id) && !hidden.has(i.id) && !gaps.some((g) => g.card === i.id))
       rows.push({ id: `notStarted:${i.id}`, kind: "notStarted", card: i.id, cardLabel: i.label, label: "まだ入れていません", detail: i.hint ?? NOT_STARTED_DETAIL, fieldKey: null, level: "simple", impact: 0, actions: [] });
   // 目安で自動で足した退職金（制度の無い勤め先もある）・公務員と役員の0円の額は、確かめの注意に（推定より上に出す。0057）
   for (const n of retirementNotices(wh)) rows.push({ id: `notice:${n.id}`, kind: "notice", card: "retirement", cardLabel: labels.get("retirement") ?? "退職金・企業年金", label: n.label, detail: n.detail, fieldKey: null, level: "simple", impact: 0, actions: n.actions });
