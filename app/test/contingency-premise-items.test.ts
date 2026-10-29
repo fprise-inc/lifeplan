@@ -30,6 +30,7 @@ import { applyOfficeDefaults, DEFAULT_OFFICE_SETTINGS, isDefaultSettings, readOf
 import { OfficeSettingsPanel } from "../src/workspace/office/OfficeSettingsPanel.tsx";
 import { sumByYear } from "../src/workspace/present.ts";
 import type { Proposal } from "../src/workspace/plans/plans.ts";
+import { roles } from "../src/workspace/roles.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const open = (id: string): WorkingHousehold => fromRequest(modelHousehold(id));
@@ -201,11 +202,14 @@ describe("場面の札に条件を書く", () => {
   const protection = { status: "loading" as const, charts: [], error: null, ms: null };
   const cards = (w: WorkingHousehold) => scenarioCards({ req: w.request, scenarios: scenarios(w), selected: "death:self", protection, grade: w.contingency.grade, plan: w.contingency });
   const titleOf = (w: WorkingHousehold, key: string) => cards(w).find((c) => c.key === key)!;
+  // 呼び方は roles から（性別によらない呼び方に変わっても同じ）
+  const spouseLabel = roles(wh.request).find((r) => r.key === "spouse")!.label;
+  const selfLabel = roles(wh.request).find((r) => r.key === "self")!.label;
   it("収入が減る・相場の下落は条件を見出しに。条件を動かすと文字も変わる", () => {
     expect(titleOf(wh, "income").title).toBe("収入が2割減る（3年）");
     expect(titleOf(wh, "market").title).toBe("相場が3割下がる");
     const w = { ...wh, contingency: { ...wh.contingency, incomeDrop: { ratio: "0.3", years: 5, member: "spouse" as const }, market: { drop: "0.5" } } };
-    expect(titleOf(w, "income").title).toBe("奥様の収入が3割減る（5年）");
+    expect(titleOf(w, "income").title).toBe(`${spouseLabel}の収入が3割減る（5年）`);
     expect(titleOf(w, "market").title).toBe("相場が5割下がる");
     expect(titleOf({ ...w, contingency: { ...w.contingency, incomeDrop: { member: "both" as const } } }, "income").title).toBe("2人の収入が2割減る（3年）");
   });
@@ -214,8 +218,8 @@ describe("場面の札に条件を書く", () => {
     const spouse = wh.request.input.household.members.find((m) => m.kind === "spouse")!;
     const w = { ...wh, contingency: { ...wh.contingency, stackMarket: true, illness: { disease: "heartStroke" as const, months: 6 }, partnerWork: { disability: { [spouse.id]: { type: "partTime" as const } } } } };
     expect(titleOf(w, "illness:self").status).toBe("心疾患・脳卒中・6か月働けない・相場も下落");
-    expect(titleOf(w, "disability:self").status).toBe("障害2級の仮定・奥様はパート・相場も下落");
-    expect(titleOf(w, "disability:self").title).toBe("ご主人が働けなくなったら");
+    expect(titleOf(w, "disability:self").status).toBe(`障害2級の仮定・${spouseLabel}はパート・相場も下落`);
+    expect(titleOf(w, "disability:self").title).toBe(`${selfLabel}が働けなくなったら`);
   });
 });
 

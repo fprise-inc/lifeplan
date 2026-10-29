@@ -352,7 +352,7 @@ const DISEASE_SHORT: Readonly<Record<string, string>> = { cancer: "がん", hear
 type CardPlan = Pick<ContingencyPlan, "market" | "illness" | "incomeDrop" | "stackMarket" | "partnerWork">;
 
 /**
- * 場面の札の見出し（条件を書く。0085）: 収入が減るは「収入が3割減る（5年）」（本人のほかの収入なら「奥様の収入が…」）、相場の下落は「相場が3割下がる」。
+ * 場面の札の見出し（条件を書く。0085）: 収入が減るは「収入が3割減る（5年）」（ご本人のほかの収入なら「配偶者の収入が…」。呼び方は roles から）、相場の下落は「相場が3割下がる」。
  * 死亡・就業不能・大きな病気は人の言い方のまま（条件は札の下の行）。条件を動かすと文字も変わる
  */
 export function scenarioCardTitle(req: EngineRequest, sc: Scenario, plan: CardPlan | undefined): string {
@@ -367,7 +367,7 @@ export function scenarioCardTitle(req: EngineRequest, sc: Scenario, plan: CardPl
 
 /**
  * 場面の帯のカード（提示用の値）: 死亡の場面は必要保障額の推移から「保障の不足 最大○万円」か「保障は足りています」、障害の場面は仮定の等級、
- * 大きな病気は病気の種類と働けない期間、収入が減るは誰の収入か、相場の下落は下げる資産と戻り方。配偶者の働き方を置き換えていれば「奥様はパート」、
+ * 大きな病気は病気の種類と働けない期間、収入が減るは誰の収入か、相場の下落は下げる資産と戻り方。配偶者の働き方を置き換えていれば「配偶者はパート」（呼び方は roles から）、
  * 相場の下落を重ねていれば「相場も下落」を足す（0085）。
  * 資産が最後まで足りるかは、カードには出さない（カードによって出る・出ないがばらつくため。年ごとの結果の帯とグラフの見出しで分かる）
  */

@@ -336,7 +336,7 @@ export interface PremisePlan {
 
 export interface PremisePanelProps {
   wh: WorkingHousehold;
-  /** 選んでいる場面の名前（例: 「ご主人が亡くなったら」。無ければ null） */
+  /** 選んでいる場面の名前（例: 「ご本人が亡くなったら」。無ければ null） */
   scene: string | null;
   /** 場面の前提の説明 */
   sceneNote?: string | null;

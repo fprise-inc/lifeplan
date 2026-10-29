@@ -1378,6 +1378,9 @@ button.ih-prog-miss { font: inherit; cursor: pointer; background: transparent; }
 .os-pct { display: grid; gap: 2px; font-size: 0.88rem; }
 .os-in input { width: 6em; margin-right: 4px; }
 .os-pct small { color: var(--ink-2); font-size: 0.76rem; }
+/* 万一のときのタブの既定（0085）: 長い選択肢は欄の幅で切る */
+.os-pct select { max-width: 100%; min-width: 0; }
+[data-office-contingency] .os-lever-group > .os-pct { margin-top: 6px; }
 @media (max-width: 640px) { .os-cards { columns: 1; } }
 /* 面談の準備（世帯の中身の一覧・次の1年・見直し）と結果のタブの気づき（0074） */
 .fp-tools { justify-content: flex-start; }

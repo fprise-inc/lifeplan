@@ -197,7 +197,7 @@ export function survivorWorkPeriod(h: Household, survivor: Member, w: SurvivorWo
   return p;
 }
 
-/** 配偶者の働き方を置き換えられる場面の配偶者（就業不能は想定の人の配偶者、収入が減るは本人の配偶者。いなければ undefined。0085） */
+/** 配偶者の働き方を置き換えられる場面の配偶者（就業不能は想定の人の配偶者、収入が減るはご本人の配偶者。いなければ undefined。0085） */
 export function partnerOf(h: Household, sc: Pick<Scenario, "member">): Member | undefined {
   return adults(h).find((a) => a.member.id === sc.member)?.spouse;
 }

@@ -17,7 +17,7 @@ export const SCENE_KINDS = [
 
 /** 想定の前提の項目の種類（一覧の並び＝前提の並び）。scene はその項目を出す場面（stack はどの場面にも出す） */
 export const PREMISE_KINDS = [
-  { kind: "death:living", scene: "death", label: "遺族の生活費の割合", note: "子がいる世帯は子がいる間、いない世帯は子がいない世帯の割合" },
+  { kind: "death:living", scene: "death", label: "遺族の生活費の割合" },
   { kind: "death:work", scene: "death", label: "残された配偶者の働き方", note: "配偶者がいる世帯だけ" },
   { kind: "death:salary", scene: "death", label: "残された配偶者の年収", note: "配偶者がいる世帯だけ" },
   { kind: "death:funeral", scene: "death", label: "整理資金（葬儀・お墓など）" },
@@ -52,7 +52,7 @@ export const PREMISE_KINDS = [
   { kind: "market:classes", scene: "market", label: "下げる資産" },
   { kind: "market:recoveryYears", scene: "market", label: "利回りを抑える年数" },
   { kind: "market:recoveryCap", scene: "market", label: "その間の利回り" },
-  { kind: "market:stack", scene: "market", label: "同じ年に相場の下落を重ねる", note: "死亡・就業不能・病気・収入が減るの場面に出ます" },
+  { kind: "market:stack", scene: "market", label: "同じ年に相場の下落を重ねる", note: "ほかの場面にも出ます" },
 ] as const satisfies readonly { kind: string; scene: ScenarioKind; label: string; note?: string }[];
 
 export type PremiseKind = (typeof PREMISE_KINDS)[number]["kind"];
@@ -145,11 +145,11 @@ export function premiseView(kinds: readonly PremiseKind[], start: ReadonlySet<Pr
 
 /** 開いたときに選んでおける場面（場面の帯の鍵。requests.ts の scenarios の key） */
 export const OPEN_SCENES = [
-  { key: "death:self", label: "本人の死亡" },
+  { key: "death:self", label: "ご本人の死亡" },
   { key: "death:spouse", label: "配偶者の死亡" },
-  { key: "disability:self", label: "本人の就業不能・障害" },
+  { key: "disability:self", label: "ご本人の就業不能・障害" },
   { key: "disability:spouse", label: "配偶者の就業不能・障害" },
-  { key: "illness:self", label: "本人の大きな病気" },
+  { key: "illness:self", label: "ご本人の大きな病気" },
   { key: "illness:spouse", label: "配偶者の大きな病気" },
   { key: "income", label: "収入が減る" },
   { key: "market", label: "相場の下落" },
@@ -157,11 +157,11 @@ export const OPEN_SCENES = [
 
 export type OpenScene = (typeof OPEN_SCENES)[number]["key"];
 
-/** 場面の帯の並べ方（事務所の既定値）。既定は全部の種類を並べ、開いたときは本人の死亡 */
+/** 場面の帯の並べ方（事務所の既定値）。既定は全部の種類を並べ、開いたときはご本人の死亡 */
 export interface SceneChoice {
   /** 並べない種類 */
   hidden?: ScenarioKind[];
-  /** 開いたときに選んでおく場面（省略は本人の死亡） */
+  /** 開いたときに選んでおく場面（省略はご本人の死亡） */
   open?: OpenScene;
 }
 

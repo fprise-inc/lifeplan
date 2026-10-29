@@ -32,7 +32,7 @@ export interface ContingencyPlan {
   work: Record<string, SurvivorWork>;
   /**
    * 就業不能・収入が減るの場面で、配偶者の働き方を置き換える（場面の種類 → 働き方を変える構成員の ID → 働き方。0085）。
-   * 就業不能は想定の人の配偶者、収入が減るは本人の配偶者。いつから・いつまでは死亡のときの work と同じ決まり（起きた月の○か月後か時点から、○歳まで）
+   * 就業不能は想定の人の配偶者、収入が減るはご本人の配偶者。いつから・いつまでは死亡のときの work と同じ決まり（起きた月の○か月後か時点から、○歳まで）
    */
   partnerWork?: Partial<Record<PartnerScene, Record<string, SurvivorWork>>>;
   /** 障害・就業不能の想定の等級（該当した場合の仮定）。0 は障害年金に当たらない就業不能。省略は2級 */

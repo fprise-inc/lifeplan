@@ -296,7 +296,7 @@ function workFields(wh: WorkingHousehold, base: readonly string[], k: string, af
     planField({ key: `${k}/after`, label: `変える時期（${after}）`, kind: "int", suffix: "か月後", min: 0, max: 120, path: [...base, "afterMonths"], fallback: 6 }),
     workFromField([...base, "from"], k, {
       label: "変える時期を時点で（下の子の年齢・出来事から）",
-      nullText: `${after.replace(/から$/, "")}月から○か月後（上の欄）`,
+      nullText: `${after.replace(/てから$/, "た")}月から○か月後（上の欄）`,
       help: `${after.replace(/てから$/, "た")}月より前の時点は、その月にします。空欄なら、上の欄の月数の後`,
     }),
   ];
