@@ -167,6 +167,21 @@ describe("種類の既定とカードの区画", () => {
     expect([f2.monthly, f2.everyYears, f2.to]).toEqual([true, 1, null]);
     preview(monthly.request);
   });
+
+  it("時期の選択肢は「1回／毎月／年ごと」。年ごとにすると何年ごとは1（毎年）から始まり、2以上も入れられる", () => {
+    const wh = addIncome(fromRequest(base(), {}), "sideJob", id(40));
+    const cad = allFields(buildStage("work", wh)).find((f) => f.key === `in/${id(40)}/cadence`) as FieldDef & { options: { label: string }[] };
+    expect(cad.options.map((o) => o.label)).toEqual(["1回", "毎月", "年ごと"]);
+    const yearly = cad.set(cad.set(wh, "monthly"), "repeat");
+    const fields = allFields(buildStage("work", yearly));
+    const every = fields.find((f) => f.key === `in/${id(40)}/every`) as FieldDef;
+    expect(every.get(yearly).value).toBe(1);
+    expect(every.help).toContain("1なら毎年");
+    expect(fields.find((f) => f.key === `in/${id(40)}/amount`)?.label).toBe("1回の額");
+    const w3 = every.set(yearly, 3);
+    expect((w3.request.input.household.incomeFlows ?? [])[0]?.everyYears).toBe(3);
+    preview(w3.request);
+  });
 });
 
 describe("プランで足す・外す・基本の計算に入れる（0036）", () => {
