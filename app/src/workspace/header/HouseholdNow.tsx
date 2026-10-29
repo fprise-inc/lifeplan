@@ -3,7 +3,7 @@
 export interface HouseholdNowProps {
   /** 顧客番号、または見本の名前 */
   title: string;
-  /** 例: 「ご主人 45歳・奥さま 43歳」 */
+  /** 例: 「ご本人 45歳・配偶者 43歳」 */
   members: string | null;
   /** 例: 「2026年10月時点」 */
   asOf: string | null;

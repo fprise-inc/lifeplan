@@ -374,7 +374,7 @@ describe("比較の数字がエンジンの出力と一致する", () => {
     expect(table.columns[0]!.base).toBe(true);
     expect(table.diffLabel).toBe("基準より");
     const target = table.rows.find((r) => r.key === "target")!;
-    expect(target.label).toBe("ご主人95歳時点の金融資産");
+    expect(target.label).toBe("ご本人95歳時点の金融資産");
     expect(target.cells[1]!.text).toBe(`${Math.round(Math.abs(fin(results[0]!, 2076)) / 10000).toLocaleString("en-US")}万円`.replace(/^/, fin(results[0]!, 2076) < 0 ? "▲" : ""));
     expect(target.cells[0]!.diff).toBeNull();
     // 基準を案2にすると、差は案2から
@@ -462,7 +462,7 @@ describe("説明モード", () => {
     expect(m.steps.map((s) => s.key)).toEqual(["income", "pension", "expense", "education", "housing", "assets"]);
     const text = (i: number) => m.steps[i]!.sentence.map((p) => p.text).join("");
     const pension2047 = sumByYear(r.table, (c) => under(c.row, "cf.income.pension")).get(2047)!;
-    expect(text(1)).toBe(`ご主人が65歳からは、年金が 年${Math.round(pension2047 / 10000).toLocaleString("en-US")}万円入ります（2047年の世帯の合計）`);
+    expect(text(1)).toBe(`ご本人が65歳からは、年金が 年${Math.round(pension2047 / 10000).toLocaleString("en-US")}万円入ります（2047年の世帯の合計）`);
     // ○歳時点の資産は出さない（足りるかどうかだけ）
     expect(text(5)).toBe("その結果、100歳まで資産が足ります");
     expect(text(3)).toMatch(/^教育費がかかるのは\d{4}〜\d{4}年/);

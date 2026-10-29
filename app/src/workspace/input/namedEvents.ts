@@ -231,7 +231,7 @@ export function eventName(wh: WorkingHousehold, e: Pick<HouseholdEvent, "kind" |
   return who === undefined ? kindLabel(e.kind) : `${who.names[0] ?? who.label}の${kindLabel(e.kind)}`;
 }
 
-/** 名前の別の呼び方（下の子の独立・本人の定年・奥様の年金の受け取り開始 など） */
+/** 名前の別の呼び方（下の子の独立・ご本人の定年・配偶者の年金の受け取り開始 など） */
 function aliases(e: Pick<HouseholdEvent, "kind" | "member">, people: readonly WhenPerson[]): string[] {
   const k = kindLabel(e.kind);
   const who = e.member === undefined ? undefined : people.find((p) => p.id === e.member);

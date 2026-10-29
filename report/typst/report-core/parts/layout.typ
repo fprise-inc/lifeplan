@@ -301,7 +301,7 @@
   )
 }
 
-/// 時点の呼び方を、名前（「退職の年」「ご主人75歳」）と、かっこの中（「ご主人65歳」。無ければ none）に分ける
+/// 時点の呼び方を、名前（「退職の年」「ご本人75歳」）と、かっこの中（「ご本人65歳」。無ければ none）に分ける
 #let bs-point-parts(label) = {
   let i = label.position("（")
   if i == none { (label, none) } else { (label.slice(0, i), label.slice(i + "（".len()).trim("）", at: end)) }

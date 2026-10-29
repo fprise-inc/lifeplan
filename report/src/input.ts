@@ -2,7 +2,7 @@
 // 正は schema/proposal-input.schema.json（版つき。いまは試験版 0.1.0）。ここは TypeScript から使うための写し。
 //
 // 入れないもの（0009 の9・0016 の2）: 宛名・氏名、FP のメモ、他の顧客、カスタム計算の印、世帯の内部 ID（構成員・物の ID）。
-// 構成員は提示用の鍵（self・spouse・child1 …）と呼び方（ご主人・奥様・第1子 …）だけで表す。
+// 構成員は提示用の鍵（self・spouse・child1 …）と呼び方（ご本人・配偶者・第1子 …）だけで表す。
 // 金額はすべて円の整数で、計算エンジンの出力（表のマス・要約・必要保障額）をそのまま写すか、年ごと・行ごとに足したもの。
 // 帳票（Typst）の側は表示の書式（3桁区切り・万円への丸め・▲）だけを行い、計算し直さない。
 
@@ -23,7 +23,7 @@ export interface NamedAmount {
 /** 年の時点（年と、本人の年齢つきの呼び方） */
 export interface YearPoint {
   year: number;
-  /** 例: 「ご主人76歳（2059年）」 */
+  /** 例: 「ご本人76歳（2059年）」 */
   label: string;
 }
 
@@ -56,7 +56,7 @@ export interface YearTable {
 }
 
 export interface ProtectionView {
-  /** 例: 「ご主人が亡くなった場合」 */
+  /** 例: 「ご本人が亡くなった場合」 */
   title: string;
   sub: string;
   years: number[];
@@ -68,7 +68,7 @@ export interface ProtectionView {
 }
 
 export interface ScenarioView {
-  /** 例: 「ご主人が2031年4月に亡くなった場合」 */
+  /** 例: 「ご本人が2031年4月に亡くなった場合」 */
   title: string;
   /** 金融資産の推移（basis.years と同じ並び） */
   withEvent: Yen[];
