@@ -21,6 +21,7 @@ import {
   type MoneyCard,
 } from "../src/workspace/input/moneyRows.ts";
 import { buildStage } from "../src/workspace/input/stages/index.ts";
+import { premiumLabel } from "../src/workspace/input/stages/insurance.ts";
 import { modelHousehold, preview } from "./helpers.ts";
 
 const stageOf = (c: MoneyCard): StageId => (c === "inherit" ? "inheritance" : c);
@@ -150,16 +151,35 @@ describe("相手（誰から・誰へ）は、人から来る（人へ行く）�
 });
 
 describe("必要経費の欄の名前は、額と同じ単位で", () => {
-  it("毎月の行は「必要経費（1か月あたり）」、年ごとの行は「（1回あたり）」、1回の行は「必要経費」", () => {
+  it("額の欄と同じ呼び方: 毎月の行は「必要経費（月額）」、毎年の行は「（年額）」、数年ごとの行は「（3年ごとの額）」、1回の行は「必要経費」", () => {
     const w = addIncome(wh0(), "sideJob");
     const f = lastIncome(w);
     const label = (x: WorkingHousehold) => fieldOf(x, "work", `in/${f.id}/cost`)?.label;
-    expect(label(w)).toBe("必要経費（1回あたり）");
+    expect(label(w)).toBe("必要経費（年額）");
     const cadence = fieldOf(w, "work", `in/${f.id}/cadence`)!;
-    expect(label(cadence.set(w, "monthly"))).toBe("必要経費（1か月あたり）");
+    expect(label(cadence.set(w, "monthly"))).toBe("必要経費（月額）");
     expect(label(cadence.set(w, "once"))).toBe("必要経費");
-    expect(fieldOf(w, "work", `in/${f.id}/cost`)?.help).toContain("1回あたり");
+    expect(fieldOf(w, "work", `in/${f.id}/cost`)?.help).toContain("受け取る額と同じく年額");
+    const w3 = fieldOf(w, "work", `in/${f.id}/every`)!.set(w, 3);
+    expect(label(w3)).toBe("必要経費（3年ごとの額）");
+    expect(fieldOf(w3, "work", `in/${f.id}/amount`)?.label).toBe("3年ごとの額");
     const s = addIncome(wh0(), "saleBusiness");
     expect(fieldOf(s, "work", `in/${lastIncome(s).id}/cost`)?.label).toBe("取得費・譲渡の費用");
+  });
+});
+
+describe("保険料の欄の名前は、払い方に合わせる（お金の行の額と同じ考え）", () => {
+  it("月払いは「保険料（月額）」、年払いは「保険料（年額）」、一時払いは「保険料」。更新後の保険料も同じ", () => {
+    expect(premiumLabel("保険料", "monthly")).toBe("保険料（月額）");
+    expect(premiumLabel("保険料", "annual")).toBe("保険料（年額）");
+    expect(premiumLabel("保険料", "single")).toBe("保険料");
+    expect(premiumLabel("更新後の保険料", "monthly")).toBe("更新後の保険料（月額）");
+    const w = fromRequest(modelHousehold("salariedCoupleTwoKids"), {});
+    const c = w.request.input.household.insuranceContracts?.[0];
+    expect(c).toBeDefined();
+    if (c === undefined) return;
+    const f = allFields(buildStage("insurance", w)).find((x) => x.key.endsWith("/premium") && x.label.startsWith("保険料"));
+    expect(f?.label).toBe(premiumLabel("保険料", c.premium.frequency));
+    expect(f?.label).not.toContain("1回の額");
   });
 });
