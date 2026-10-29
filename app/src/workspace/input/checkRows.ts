@@ -13,6 +13,7 @@ import { fillAll, gapsOf, retirementNotices, type Gap } from "./fill.ts";
 import type { NoticeRow } from "../engineNotices.ts";
 import { noticeMeta } from "../engineNotices.ts";
 import type { WorkingHousehold } from "./household.ts";
+import { insuranceOverlapNotices } from "./insuranceView.ts";
 import { inputItems, itemStage } from "./items.ts";
 import { holderOf, rowAt } from "./rows.ts";
 import { applyStateOp, availableOps, confirmAll, fieldAddress, fieldStatus, type FieldStatus } from "./valueState.ts";
@@ -197,6 +198,8 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
       rows.push({ id: `notStarted:${i.id}`, kind: "notStarted", card: i.id, cardLabel: i.label, label: "まだ入れていません", detail: i.hint ?? NOT_STARTED_DETAIL, fieldKey: null, level: "simple", impact: 0, actions: [] });
   // 目安で自動で足した退職金（制度の無い勤め先もある）・公務員と役員の0円の額は、確かめの注意に（推定より上に出す。0057）
   for (const n of retirementNotices(wh)) rows.push({ id: `notice:${n.id}`, kind: "notice", card: "retirement", cardLabel: labels.get("retirement") ?? "退職金・企業年金", label: n.label, detail: n.detail, fieldKey: null, level: "simple", impact: 0, actions: n.actions });
+  // 同じ方の医療保険・がん保険が2本以上（保障が重なっていないか。0055 の追記）
+  for (const n of insuranceOverlapNotices(wh)) rows.push({ id: `notice:${n.id}`, kind: "notice", card: "insurance", cardLabel: labels.get("insurance") ?? "保険", label: n.label, detail: n.detail, fieldKey: null, level: "simple", impact: 0, actions: [] });
   for (const n of notices) {
     if (n.card === null || !labels.has(n.card)) continue;
     const meta = noticeMeta(n);

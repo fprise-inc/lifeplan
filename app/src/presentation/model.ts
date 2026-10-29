@@ -229,6 +229,24 @@ export interface ProtectionChartModel {
   maxShort: { year: number; amount: Yen } | null;
   /** 2028年4月以後に亡くなる年の遺族年金は見直し前の制度で計算している（その最初の年） */
   reformFrom: number | null;
+  /** 気づき（保険が切れる年と、その年の不足。0055・0071 の追記） */
+  insights: ProtectionInsightModel[];
+}
+
+/** 必要保障額の推移の気づき（例: 「2045年に定期保険 1（ご主人）が切れ、その年の不足は1,200万円」） */
+export interface ProtectionInsightModel {
+  year: number;
+  text: string;
+}
+
+/** 内訳の行の中の契約ごとの額（大きな病気の場面の保険金・給付金。0055・0071 の追記） */
+export interface BenefitDetailModel {
+  /** 例: 「医療保険 1（ご主人）」 */
+  label: string;
+  /** 給付ごとの額（例: 「入院 20日 20万円」「手術 1回 10万円」。画面では「＋」でつなぐ） */
+  parts: string[];
+  firstYear: Yen;
+  total: Yen;
 }
 
 export interface BreakdownRowModel {
@@ -238,6 +256,8 @@ export interface BreakdownRowModel {
   /** 累計（万一なしとの差） */
   total: Yen;
   group: "income" | "expense" | "net";
+  /** 契約ごとの内訳（大きな病気の場面の保険金・給付金だけ） */
+  details?: BenefitDetailModel[];
 }
 
 export interface ScenarioModel {
@@ -249,7 +269,8 @@ export interface ScenarioModel {
   verdict: Verdict;
   /** proposal＝万一の場合、current＝万一なし */
   chart: ChartModel;
-  breakdown: { firstYearLabel: string; totalLabel: string; rows: BreakdownRowModel[] };
+  /** note は表の下の一文（大きな病気の場面の保険金・給付金の数え方。無ければ null） */
+  breakdown: { firstYearLabel: string; totalLabel: string; rows: BreakdownRowModel[]; note?: string | null };
   /** 障害年金の65歳からの組み合わせの一文（障害の想定だけ） */
   choice: string | null;
   notices: string[];

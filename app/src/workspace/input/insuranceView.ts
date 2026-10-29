@@ -29,6 +29,43 @@ export function contractLabel(wh: WorkingHousehold, c: InsuranceContract, i: num
   return `${name} ${i + 1}（${memberLabel(wh, c.insured)}）`;
 }
 
+/** 確かめの注意の1行（確かめの一覧に出す。0055 の追記） */
+export interface InsuranceNotice {
+  id: string;
+  label: string;
+  detail: string;
+}
+
+/**
+ * 同じ方が保険の対象の医療保険・がん保険が2本以上（保障が重なっていないかの確かめ。0055 の追記で、保険の入力項目の区画から確かめの一覧へ移した）。
+ * 値は変えない（2本とも続けるなら、そのままでよい）
+ */
+export function insuranceOverlapNotices(wh: WorkingHousehold): InsuranceNotice[] {
+  const list = wh.request.input.household.insuranceContracts ?? [];
+  const groups = new Map<string, { member: string; kind: "medical" | "cancer"; names: string[] }>();
+  list.forEach((c, i) => {
+    const k = kindOf(c).kind;
+    if (k !== "medical" && k !== "cancer") return;
+    const key = `${c.insured}|${k}`;
+    const g = groups.get(key) ?? { member: c.insured, kind: k, names: [] };
+    g.names.push(contractLabel(wh, c, i));
+    groups.set(key, g);
+  });
+  const out: InsuranceNotice[] = [];
+  for (const [key, g] of groups) {
+    if (g.names.length < 2) continue;
+    const who = memberLabel(wh, g.member);
+    const what = g.kind === "medical" ? "医療保険" : "がん保険";
+    const cover = g.kind === "medical" ? "入院・手術の保障" : "がんの保障";
+    out.push({
+      id: `insurance/overlap/${key}`,
+      label: `${who}の${what}が${g.names.length}本`,
+      detail: `${who}の${what}が${g.names.length}本あります（${g.names.join("・")}）。${cover}が重なっていないか、保険証券で確かめてください`,
+    });
+  }
+  return out;
+}
+
 /** 計算する要求（万一の場面・必要保障額・相続税の目安を外した、今のままの計算） */
 export function insuranceRequest(wh: WorkingHousehold): EngineRequest {
   return baseRequest(wh.request);

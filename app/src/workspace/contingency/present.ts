@@ -1,7 +1,7 @@
 // 万一の画面の提示用の値（作業の層）。計算結果（必要保障額の推移・万一の想定の表）から、許可した項目だけを写す（0016 の2）。
 // 物の ID・FP用のメモ・前提の入力の細部は写さない
 import type { EngineRequest, OldAgeChoice, PreviewResult, ProtectionOutput, TableCell } from "../../engine/types.ts";
-import type { BreakdownRowModel, ChartModel, ContingencyModel, Depletion, ProtectionChartModel, ScenarioCardModel, ScenarioModel, Verdict, YearCellModel, YearStripModel } from "../../presentation/model.ts";
+import type { BenefitDetailModel, BreakdownRowModel, ChartModel, ContingencyModel, Depletion, ProtectionChartModel, ProtectionInsightModel, ScenarioCardModel, ScenarioModel, Verdict, YearCellModel, YearStripModel } from "../../presentation/model.ts";
 import { man } from "../../presentation/format.ts";
 import { REFORM_TEXT } from "../engineNotices.ts";
 import { parseYm } from "../levers.ts";
@@ -32,8 +32,8 @@ export function hasReformNotice(r: PreviewResult): boolean {
   return (r.header.notices ?? []).some((n) => n.code === REFORM_NOTICE);
 }
 
-/** 必要保障額の推移（構成員1人）の提示用の値 */
-export function protectionChart(req: EngineRequest, out: ProtectionOutput, result: PreviewResult, memberId: string): ProtectionChartModel | null {
+/** 必要保障額の推移（構成員1人）の提示用の値。insights は気づき（保険が切れる年。insuranceLines.ts の lapseInsights） */
+export function protectionChart(req: EngineRequest, out: ProtectionOutput, result: PreviewResult, memberId: string, insights: readonly ProtectionInsightModel[] = []): ProtectionChartModel | null {
   const m = out.members.find((x) => x.member === memberId);
   const rs = roles(req);
   const who = rs.find((r) => r.member.id === memberId);
@@ -61,6 +61,7 @@ export function protectionChart(req: EngineRequest, out: ProtectionOutput, resul
     coverage: m.years.map((y) => y.coverage),
     maxShort,
     reformFrom: reform,
+    insights: [...insights],
   };
 }
 
@@ -82,6 +83,9 @@ export function chosenCombinations(req: EngineRequest, table: readonly TableCell
   return out;
 }
 
+/** 内訳の「保険金・給付金」の行（大きな病気の場面では、契約ごとの内訳を添える） */
+const BENEFITS_LABEL = "保険金・給付金";
+
 interface BreakdownDef {
   label: string;
   group: BreakdownRowModel["group"];
@@ -93,7 +97,7 @@ const BREAKDOWN: BreakdownDef[] = [
   { label: "障害年金", group: "income", match: (c) => under(c.row, "cf.income.pension.disability") },
   { label: "老齢年金", group: "income", match: (c) => c.row === "cf.income.pension" },
   { label: "傷病手当金など", group: "income", match: (c) => under(c.row, "cf.income.benefit") && !under(c.row, "cf.income.benefit.childAllowance") && !under(c.row, "cf.income.benefit.education") },
-  { label: "保険金・給付金", group: "income", match: (c) => under(c.row, "cf.income.lumpSum.insurance") || under(c.row, "cf.income.other.insuranceBenefit") },
+  { label: BENEFITS_LABEL, group: "income", match: (c) => under(c.row, "cf.income.lumpSum.insurance") || under(c.row, "cf.income.other.insuranceBenefit") },
   { label: "退職金・一時金", group: "income", match: (c) => under(c.row, "cf.income.lumpSum") && !under(c.row, "cf.income.lumpSum.insurance") },
   { label: "給与・事業の収入", group: "income", match: (c) => under(c.row, "cf.income.salary") || under(c.row, "cf.income.business") },
   { label: "生活費", group: "expense", match: (c) => under(c.row, "cf.expense.living") },
@@ -120,6 +124,8 @@ export interface ScenarioInput {
   drop?: string;
   /** 場面の前提（収入が減る・重ねる相場の下落の言い方に使う） */
   plan?: Pick<ContingencyPlan, "incomeDrop" | "stackMarket" | "market">;
+  /** 大きな病気の場面の保険金・給付金の契約ごとの内訳と、表の下の一文（insuranceLines.ts の illnessBenefits） */
+  benefits?: { details: readonly BenefitDetailModel[]; note: string };
 }
 
 /** 収入が減る人の言い方（前提の「誰の収入」） */
@@ -203,7 +209,8 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
     for (const y of years) if (y >= year) total += (s.get(y) ?? 0) - (n.get(y) ?? 0);
     const firstYear = (s.get(first) ?? 0) - (n.get(first) ?? 0);
     if (total === 0 && firstYear === 0 && d.group !== "net") continue;
-    rows.push({ label: d.label, firstYear, total, group: d.group });
+    const details = d.label === BENEFITS_LABEL && sc.kind === "illness" && input.benefits !== undefined && input.benefits.details.length > 0 ? [...input.benefits.details] : undefined;
+    rows.push({ label: d.label, firstYear, total, group: d.group, ...(details !== undefined ? { details } : {}) });
   }
 
   let choice: string | null = null;
@@ -226,7 +233,7 @@ export function scenarioModel(input: ScenarioInput): ScenarioModel {
     headline,
     verdict,
     chart,
-    breakdown: { firstYearLabel: `${first}年（年額）`, totalLabel: `${year}〜${lastYear}年の累計`, rows },
+    breakdown: { firstYearLabel: `${first}年（年額）`, totalLabel: `${year}〜${lastYear}年の累計`, rows, note: rows.some((r) => r.details !== undefined) ? (input.benefits?.note ?? null) : null },
     choice,
     notices,
   };
