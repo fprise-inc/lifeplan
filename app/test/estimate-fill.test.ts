@@ -41,8 +41,10 @@ describe("推定の欄の「この値にする」", () => {
     expect(html).toMatch(/<span class="fld-box"><input [^>]*class="num has-fill"[^>]*\/><button type="button" class="fld-fill inside"[^>]*data-op="confirm" data-fill-estimate="true">この値にする<\/button><\/span>/);
     expect(html).toContain('aria-label="基本生活費（月額）: 推定の値をこの欄にそのまま入れます（確定になります）"');
     expect(count(html, "この値にする")).toBe(1);
-    // ほかの操作（わからない・該当なしなど）は欄の下のまま
-    expect(html).toContain("data-op-menu");
+    // ほかの操作は欄の下に、意味のある物だけを直接押せるリンクで（基本生活費は「わからない」だけ。開く形の「わからない・該当なしなど」は無い）
+    expect(html).not.toContain("data-op-menu");
+    expect(html).not.toContain("など");
+    expect(html).toMatch(/<div class="fld-ops"[^>]*><button type="button" class="link-btn"[^>]*data-op="unknown">わからない<\/button><\/div>/);
     expect(count(html, "data-fill-estimate")).toBe(1);
   });
 

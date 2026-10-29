@@ -1,11 +1,11 @@
 // 専用の部品で描く欄（貯蓄・運用の口座の表など）に添える、値の状態の印と4つの操作（0041）と、プランを直しているときの「現状と違う」印（0043）。
 // 欄の部品（FieldViews.tsx の Field）と同じ決まりで、状態は valueState.ts の fieldStatus で読み、操作は入力のパネルが渡す FieldStateOps で行う。
 // 値の入れ方（数の欄・ボタン）は専用の部品のまま。ここは印と操作だけを描く
-import { useContext, useState } from "preact/hooks";
+import { useContext } from "preact/hooks";
 import type { FieldDef } from "./form.ts";
-import { FieldStateOps, FillButton, PlanMarksContext, StateMark } from "./FieldViews.tsx";
+import { FieldStateOps, FillButton, PlanMarksContext, StateMark, StateOpLinks } from "./FieldViews.tsx";
 import type { WorkingHousehold } from "./household.ts";
-import { availableOps, fieldStatus, OP_LABELS, STATUS_LABELS, type StateOp, type ValueStatus } from "./valueState.ts";
+import { availableOps, fieldStatus, STATUS_LABELS, type StateOp, type ValueStatus } from "./valueState.ts";
 
 /** 欄の状態（印を出す状態か）。操作が渡されていない画面では null */
 export function useFieldStatus(f: FieldDef | undefined, wh: WorkingHousehold): ValueStatus | null {
@@ -24,12 +24,12 @@ export function FieldStateBadge({ f, wh }: { f: FieldDef | undefined; wh: Workin
 
 /**
  * 4つの操作・プランの印（欄の下に置く）。根拠は状態の印（FieldStateBadge）を押すと開く（0077。前は欄の下に1行で出していた）。
- * noBasis は前の形の名残（根拠を専用の部品が別に出しているとき）。compact は表の中（確定のほかの操作を「…」の後ろにたたむ）
+ * noBasis は前の形の名残（根拠を専用の部品が別に出しているとき）。compact は表の中（並びを詰める）。
+ * ほかの操作は、その欄で意味のある物だけを直接押せるリンクで並べる（欄の部品と同じ StateOpLinks。0041 の 2026-10-29 の追記。前は表の中では「…」の後ろにたたんでいた）
  */
 export function FieldStateLine({ f, wh, onEdit, compact }: { f: FieldDef | undefined; wh: WorkingHousehold; onEdit: (w: WorkingHousehold) => void; noBasis?: boolean; compact?: boolean }) {
   const stateOps = useContext(FieldStateOps);
   const marks = useContext(PlanMarksContext);
-  const [open, setOpen] = useState(false);
   if (f === undefined) return null;
   const s = stateOps !== null ? fieldStatus(f, wh) : null;
   // 押しても何も変わらない操作は出さない（推定の値を書く所が無い欄の「確定」など）
@@ -37,7 +37,6 @@ export function FieldStateLine({ f, wh, onEdit, compact }: { f: FieldDef | undef
   const mark = marks?.field(f, wh) ?? null;
   const run = (op: StateOp) => {
     if (stateOps === null) return;
-    setOpen(false);
     onEdit(stateOps(wh, f, op));
   };
   if (ops.length === 0 && mark === null) return null;
@@ -55,37 +54,8 @@ export function FieldStateLine({ f, wh, onEdit, compact }: { f: FieldDef | undef
           ) : null}
         </div>
       ) : null}
-      {ops.length > 0 ? (
-        <div class="fld-ops" data-field-ops={f.key}>
-          {/* 推定の値をそのまま入れる（値の状態の操作の確定と同じ。欄の部品と同じボタン。0041 の追記） */}
-          {ops.includes("confirm") && s !== null ? <FillButton label={f.label} status={s.status} onFill={() => run("confirm")} /> : null}
-          {ops.some((o) => o !== "confirm") ? (
-            <>
-              <button
-                type="button"
-                class={`link-btn fld-more${compact === true ? " sv-more" : ""}`}
-                aria-expanded={open}
-                aria-label={`${f.label}: わからない・該当なしなど`}
-                title="わからない・該当なしなど"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setOpen(!open)}
-                data-op-menu
-              >
-                {open ? "閉じる" : compact === true ? "…" : "わからない・該当なしなど"}
-              </button>
-              {open
-                ? ops
-                    .filter((o) => o !== "confirm")
-                    .map((o) => (
-                      <button type="button" key={o} class="link-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => run(o)} data-op={o}>
-                        {OP_LABELS[o]}
-                      </button>
-                    ))
-                : null}
-            </>
-          ) : null}
-        </div>
-      ) : null}
+      {/* 推定の値をそのまま入れる（値の状態の操作の確定と同じ。欄の部品と同じボタン。0041 の追記）は、ほかの操作のリンクの前 */}
+      <StateOpLinks f={f} ops={ops} run={run} lead={ops.includes("confirm") && s !== null ? <FillButton label={f.label} status={s.status} onFill={() => run("confirm")} /> : null} />
     </div>
   );
 }
