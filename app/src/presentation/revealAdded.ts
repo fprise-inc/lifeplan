@@ -129,6 +129,22 @@ export function revealAdded(trigger: Element, opts: { items?: string } = {}): vo
 }
 
 /**
+ * ボタンで、今ある物の値を変えた（または足した）ときに、押す前に呼ぶ。描き直しの後に、selector に当たる物（押したボタンの近い data-reveal-root の中）を光らせる。
+ * 画面は動かさず、フォーカスも移さない（押した所で続けて読めるように）。取り崩しの計算の「対策に入れる」で、足した・変えた対策の項目を見せる（0026 の 2026-10-29 の追記）
+ */
+export function revealChanged(trigger: Element, selector: string): void {
+  if (typeof document === "undefined" || typeof requestAnimationFrame !== "function") return;
+  const root: ParentNode = trigger.closest(ROOT) ?? document;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const scope: ParentNode = (root as Node).isConnected ? root : document;
+      const got = [...scope.querySelectorAll(selector)];
+      if (got.length > 0) glow(got);
+    }),
+  );
+}
+
+/**
  * まとまりの「▸ 詳しく」を開くときに、開く処理の前に呼ぶ（0078 の追記）。描き直しの後に、開いた中身（data-more-of がそのまとまりのキーの要素）が
  * 見えなければ、押したリンクから中身の終わりまでが見える所へスクロールする（見えているときは動かさない。光らせない・フォーカスも動かさない）
  */

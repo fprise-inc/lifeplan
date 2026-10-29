@@ -437,6 +437,8 @@ html.big .ih-ill { aspect-ratio: 2 / 1; }
 .ih-name::before { content: ""; width: 0.7em; height: 0.7em; border-radius: 3px; background: var(--c); flex: none; }
 .ih-sum { font-weight: 700; font-size: 1.42rem; line-height: 1.3; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .ih-sum small { font-size: 0.62em; font-weight: 700; margin: 0 0.1em; }
+/* 要約の「・」の区切りごとのまとまり: まとまりの途中では折り返さず、区切りでだけ改行する。1つのまとまりが幅を超えるときだけ中で折り返す（はみ出さない） */
+.sum-seg { display: inline-block; max-width: 100%; }
 .ih-sum .yet { font-size: 0.74em; color: var(--ink-2); letter-spacing: 0; }
 /* 要約の下の小さな1行（相続・贈与の相続税の目安） */
 .ih-note { font-size: 0.82rem; color: var(--ink-2); line-height: 1.4; }

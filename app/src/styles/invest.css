@@ -195,6 +195,9 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .dd-out { font-weight: 700; display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .btn.sm { padding: 4px 12px; }
 .btn.primary.sm { padding: 4px 14px; }
+/* 「対策に入れる」と、入れる先（押す前）・入れた値（押した後）の小さな1行 */
+.dd-use { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dd-use-to { font-size: 0.78rem; font-weight: 400; color: var(--ink-2); }
 .dd-note { margin: 4px 0 0; font-size: 0.78rem; color: var(--ink-2); }
 .pb-sub { font-size: 0.76rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-seg.tiny .pb-sub { visibility: hidden; }

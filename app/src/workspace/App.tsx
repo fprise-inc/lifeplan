@@ -2464,6 +2464,7 @@ export function App() {
                         years={model.chart.years}
                         compute={computeOne}
                         locked={locked !== null}
+                        inPlan={(k) => shownSet.has(k)}
                         {...(initial.calc === true ? { initialOpen: true } : {})}
                         onUse={(d) => {
                           const key = d.method === "fixed" ? "inv:wAmt" : "inv:wRate";
