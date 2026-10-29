@@ -269,6 +269,22 @@ function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "p
     return x === undefined ? undefined : { claim: x[prop] };
   };
   const common = { ageOf: (h: Household) => h.members.find((x) => x.id === m.id), mode: "age" as const, ageMeans: "after" as const, optional: true, nullText: "65歳から（標準）", fallback: () => std(), check };
+  /**
+   * 繰上げ（65歳になった翌月より前）は老齢基礎年金と老齢厚生年金を同時にする決まり（国民年金法附則9条の2第2項）。片方だけを直したとき、
+   * 直した方かもう片方が繰上げなら、もう片方も同じ時点にそろえる。繰下げは別々のまま（0066 の 2026-10-29 の追記）
+   */
+  const alignEarly = (h: Household, claim: NonNullable<PensionRecord["claim"]>, part: "basic" | "employee") => {
+    const other = part === "basic" ? "employee" : "basic";
+    const std65 = claimMonth(m, 65);
+    const early = (t: Timepoint | undefined) => {
+      const ym = t === undefined ? null : resolveTimepoint(h, t);
+      return ym !== null && ym < std65;
+    };
+    if (!early(claim[part]) && !early(claim[other])) return;
+    const t = claim[part];
+    if (t === undefined) delete claim[other];
+    else claim[other] = structuredClone(t);
+  };
   const writeClaim = (parts: readonly ("basic" | "employee")[]) => (w: WorkingHousehold, tp: Timepoint | null) =>
     mutate(w, (h) => {
       const r = find(h, w) as Holder | undefined;
@@ -278,26 +294,29 @@ function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "p
         if (tp === null) delete claim[part];
         else claim[part] = structuredClone(tp);
       }
+      if (parts.length === 1) alignEarly(h, claim, parts[0] as "basic" | "employee");
       r[prop] = claim;
       tidy(h, r);
     });
+  // 標準は「基礎・厚生とも」の1つだけ。詳細（と標準の「▸ 詳しく」）では、代わりに老齢基礎年金・老齢厚生年金の別々の欄を出す（0066 の 2026-10-29 の追記）
   const both = field({
     key: `${prefix}/claim`,
     item: "pensionRecord.claim",
     label: "受け取り開始（基礎・厚生とも）",
     level: "simple",
+    simpleOnly: true,
     kind: "int",
     suffix: "歳から",
     min: 60,
     max: 75,
-    help: "65歳より早く受け取ると年金が減り、遅くすると増えます。「66歳3か月」のように月まで入れられます",
+    help: "65歳より早く受け取ると年金が減り、遅くすると増えます。「66歳3か月」のように月まで入れられます。老齢基礎年金と老齢厚生年金を別々の時期にするときは「詳細」で入れます",
     time: timeView({ ...common, anchor: "pensionStart", read: (w) => rec0(w)?.claim?.basic ?? null, write: writeClaim(["basic", "employee"]) }),
     get: (w) => {
       const h = w.request.input.household;
       const r = rec0(w);
       const age = tpAge(h, r?.claim?.basic) ?? 65;
       const split = r?.claim !== undefined && !sameWhen(r.claim.basic ?? std(), r.claim.employee ?? std());
-      const splitText = "基礎と厚生で別の時点です（詳細で見られます）。ここを直すと両方そろえます";
+      const splitText = "基礎と厚生で違う時期にしています（別々の欄は「詳細」で見られます）。ここを直すと両方そろえます";
       return { value: age, derived: derived(h, r?.claim?.basic) ?? (split ? splitText : null), ...(split ? { warn: splitText } : {}), ...(r?.claim === undefined ? { implicit: true } : {}) };
     },
     set: (w, v) =>
@@ -318,6 +337,7 @@ function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "p
       suffix: "歳から",
       min: 60,
       max: 75,
+      help: "繰下げ（66歳から）は老齢基礎年金と老齢厚生年金で別々の時期にできます（例: 加給年金を受けるために厚生は65歳から、基礎だけ遅らせる）。繰上げ（65歳より前）は両方同時の決まりなので、どちらかを65歳より前にすると両方そろえます",
       time: timeView({ ...common, read: (w) => rec0(w)?.claim?.[part] ?? null, write: writeClaim([part]) }),
       get: (w) => {
         const h = w.request.input.household;
@@ -331,6 +351,7 @@ function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "p
           const claim = { ...r[prop] };
           if (Number(v) === 65) delete claim[part];
           else claim[part] = { at: claimMonth(m, Number(v)) };
+          alignEarly(h, claim, part);
           if (claim.basic === undefined && claim.employee === undefined) delete r[prop];
           else r[prop] = claim;
         }),
@@ -408,6 +429,13 @@ function monthsField(m: Member, rec: PensionRecord, part: "basic" | "employee", 
   });
 }
 
+/**
+ * 推計（書類なし）のしかたの文。計算エンジンの年金の加入の記録の推計（pension.record）に合わせる: 20歳から60歳までの国民年金の種別と
+ * 厚生年金の加入の月を働き方の期間から数え、厚生年金の報酬は勤め先の期間の年収から（過去の月も今の年収の水準とみなす）
+ */
+export const ESTIMATE_HOW =
+  "推計のしかた: 生年月と、働き方と収入の項目の働き方の期間（働き方・始まりと終わり・年収）から、国民年金・厚生年金に入る月数と平均の報酬を出して、老齢基礎年金と老齢厚生年金を計算します。過去の報酬は今の年収の水準とみなします";
+
 function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
   const h = wh.request.input.household;
   const base = wh.request.input.baseMonth;
@@ -423,7 +451,11 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     options: PENSION_MODES,
     structural: true,
     help: "手元の書類で選びます。書類が無ければ、働き方から計算した目安のままで構いません",
-    get: (w) => ({ value: modeOf(recordOf(w.request.input.household, m.id)) }),
+    // 推計のときは、どう推計しているかを欄の横に出す（0066 の 2026-10-29 の追記）
+    get: (w) => {
+      const value = modeOf(recordOf(w.request.input.household, m.id));
+      return { value, ...(value === "" ? { hint: ESTIMATE_HOW } : {}) };
+    },
     set: (w, v) => {
       const mode = String(v ?? "");
       const target = mode === "document" ? (keptOf(w, m.id).find((r) => modeOf(r) === "document")?.kind ?? defaultDocument(m, w.request.input.baseMonth)) : mode;
@@ -436,7 +468,8 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
       {
         key: `pension/${m.id}`,
         title: `${who}の公的年金`,
-        note: ["書類が無いので、働き方の期間（過去は22歳の4月から今の勤め先に勤めたとみなす）から加入歴を推計しています（推定）", ...(back.length > 0 ? [`前に入れた記録（${back.join("・")}）を残しています。入れ方を戻すと戻ります`] : [])].join("。"),
+        // 推計のしかたは入れ方の欄の横に出す（ESTIMATE_HOW）。ここは前に入れた記録を残しているときの説明だけ
+        ...(back.length > 0 ? { note: `前に入れた記録（${back.join("・")}）を残しています。入れ方を戻すと戻ります` } : {}),
         level: "simple",
         // 推計でも受け取り開始は標準（繰上げ・繰下げで結果が大きく動く。記録の無い人は構成員の pensionClaim に持つ。0078）
         fields: [modeField, ...claimFields(m, byId((hh: Household) => hh.members, m.id), `pension/${m.id}/estimate`, "pensionClaim", (part) => ({ target: { member: m.id }, item: "member.pensionClaim", at: part === null ? [] : [part] }))],
