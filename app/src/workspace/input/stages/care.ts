@@ -23,7 +23,7 @@ import { addMember, donorGroups, expectedBirthHint, outsidePerson, removeMember 
 
 const members = (h: Household) => h.members;
 
-/** 介護・親のカードに出す人（世帯の外の家族。並びは家族の役の順） */
+/** 介護・親の項目に出す人（世帯の外の家族。並びは家族の役の順） */
 export function outsideMembers(wh: WorkingHousehold) {
   const h = wh.request.input.household;
   const order = roles(wh.request).map((r) => r.member);

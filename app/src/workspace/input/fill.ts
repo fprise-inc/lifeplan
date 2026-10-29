@@ -256,7 +256,7 @@ function fillHousing(wh: WorkingHousehold): WorkingHousehold {
   return mutate(wh, (hh, req) => void (hh.residences ??= []).push({ id: newId(), kind: "rent", from: { at: req.input.baseMonth }, to: null, rent: { monthly: { value: RENT_STANDARD, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: RENT_BASIS } } } } as never));
 }
 
-// ---- 介護（本人・配偶者は自動で入れない。未入力の警告と「目安で入れる」。介護・親のカード） ----
+// ---- 介護（本人・配偶者は自動で入れない。未入力の警告と「目安で入れる」。介護・親の項目） ----
 
 /** 亡くなる見込みの推定: 今の年齢の平均余命を足した年齢（年齢の時点で持つので、生年月を直すと合わせて動く）。生年月が無ければ null */
 export function deathEstimate(m: Member, baseMonth: string): { point: Timepoint; age: number; basis: string } | null {

@@ -4,7 +4,7 @@
 // - 定期便の加入月数は「わからない」でよい（代わりの値: 国民年金＝20歳の月から作成年月まで〔60歳まで〕、厚生年金＝働き方の期間の厚生年金の月）
 // - 受け取り開始（繰上げ・繰下げ）は基礎と厚生を別々に、時点の部品で月まで（0038）
 // - 受け取っている遺族年金・障害年金（受け取る人・種類・年額・終わりの推定）と外国の年金は、お金の行（0044）で額を入れる
-// - 世帯の外の家族（親など）の年金は介護・親のカード。このカードは本人・配偶者だけ
+// - 世帯の外の家族（親など）の年金は介護・親の項目。このカードは本人・配偶者だけ
 import type { Household, IncomeFlow, Member, PensionRecord, ReceivingPensionType, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth } from "../../levers.ts";
 import { ageSwitchMonth } from "../../timepoint.ts";
@@ -778,7 +778,7 @@ function receivingSection(wh: WorkingHousehold): SectionDef {
 
 // ---- カード ----
 
-/** 年金のカードに出す人（本人・配偶者。世帯の外の家族の年金は介護・親のカード） */
+/** 年金のカードに出す人（本人・配偶者。世帯の外の家族の年金は介護・親の項目） */
 export const pensionMembers = (h: Household): Member[] => earners(h).filter((m) => (m.kind === "self" || m.kind === "spouse") && m.expected !== true && m.outside === undefined);
 
 export function pensionStage(wh: WorkingHousehold): StageDef {

@@ -3,7 +3,7 @@
 //   「その他の資産」に残る。「＋ 物件を足す」は中身を持つ器を作るので、足せば最初から中身の欄（土地と建物・家賃収入・経費・売却・ローン）が出る
 // - 物件を見分ける欄（物件名・種類・所在地・持分・権利・戸数・面積・メモ）は表示用で、計算には使わない（計算部品は読まない）
 // - 欄のキーは貯蓄・運用の中にあったときのまま（`sav/<器の ID>/…`）。次回確かめるの印・読み替え表の当て先がそのまま当たる
-// - 上の一覧表（rentalOverview）は入力から出せる数字だけ（評価額・ローン残高・空室を見込んだ後の月の収入）
+// - 上の一覧表（rentalOverview）は入力から出せる数字だけ（評価額・ローン残高・空室率を引いた後の月の収入）
 // - お金の欄（0080）: 取得価額の内訳・取得時の諸費用・自己資金、家賃以外の月の収入・礼金と更新料、経費の費目、大きな修繕の予定、物件のローンの
 //   借入先・金利の段階・繰上返済・借り換え・団信、民泊・宿の営業の形と売上（1泊の単価×稼働率×営業日数か月の売上の見込み）と経費の入れ方
 // - 税と出口（0081）: 売ったときにこの物件のローンを返すか（売却の詳細）、民泊・宿の所得の区分（雑所得・事業所得・不動産所得。詳細）、
@@ -183,8 +183,8 @@ export function lodgingMonthlySales(p: RealEstateProperty): number | null {
 }
 
 /**
- * 月の収入（空室を見込んだ後。貸していなければ 0）: 家賃と家賃以外の月の収入（共益費・駐車場・その他）に、それぞれ空室の割合を掛けた額。
- * 民泊・宿は月の売上（空室の割合は使わない）。礼金・更新料は入れない。エンジンと同じく円未満を切り捨てる
+ * 月の収入（空室率を引いた後。貸していなければ 0）: 満室時の家賃と家賃以外の月の収入（共益費・駐車場・その他）から、それぞれ空室率を引いた額。
+ * 民泊・宿は月の売上（空室率は使わない）。礼金・更新料は入れない。エンジンと同じく円未満を切り捨てる
  */
 export function monthlyIncome(a: Account): number {
   const p = a.property;
@@ -202,7 +202,7 @@ export interface RentalRow {
   kind: string | null;
   value: number;
   loan: number;
-  /** 月の収入（空室を見込んだ後。家賃以外の月の収入・民泊の売上を含む） */
+  /** 月の収入（空室率を引いた後。家賃以外の月の収入・民泊の売上を含む） */
   income: number;
 }
 
@@ -306,7 +306,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
       },
     },
     withAddress(plain({ key: `${kp}/tenure`, item: "account.property", label: "権利", level: "detail", kind: "select", options: TENURES, find: findP, path: ["tenure"], optional: true }), onAccount(a.id, "account.property", ["tenure"])),
-    withAddress(plain({ key: `${kp}/units`, item: "account.property", label: "戸数", level: whole ? "simple" : "detail", kind: "int", suffix: "戸", min: 1, max: 9999, find: findP, path: ["units"], optional: true, help: "一棟のときの部屋の数です。空室は、家賃収入の「空室を見込む割合」で入れます" }), onAccount(a.id, "account.property", ["units"])),
+    withAddress(plain({ key: `${kp}/units`, item: "account.property", label: "戸数", level: whole ? "simple" : "detail", kind: "int", suffix: "戸", min: 1, max: 9999, find: findP, path: ["units"], optional: true, help: "一棟のときの部屋の数です。空室は、家賃収入の「空室率」で入れます" }), onAccount(a.id, "account.property", ["units"])),
     withAddress(plain({ key: `${kp}/landArea`, item: "account.property", label: "土地の面積", level: "detail", kind: "decimal", suffix: "㎡", find: findP, path: ["area", "land"], optional: true }), onAccount(a.id, "account.property", ["area", "land"])),
     withAddress(plain({ key: `${kp}/floorArea`, item: "account.property", label: "建物の延べ床面積", level: "detail", kind: "decimal", suffix: "㎡", find: findP, path: ["area", "floor"], optional: true }), onAccount(a.id, "account.property", ["area", "floor"])),
     withAddress(plain({ key: `${kp}/memo`, item: "account.property.memo", label: "メモ", level: "detail", kind: "text", find: findP, path: ["memo"], optional: true, help: "物件について FP が覚えておくこと（管理会社・修繕の予定など）。計算には使いません" }), onAccount(a.id, "account.property.memo")),
@@ -504,12 +504,12 @@ function propertyGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
   if (p.rental !== undefined && lodging !== undefined) rentFields.push(...lodgingSalesFields(wh, a));
   else if (p.rental !== undefined)
     rentFields.push(
-      yenBox({ key: `${kp}/rent`, item: "account.property", label: "家賃（月額・空室を見込む前）", level: "simple", basis: "monthly", find: findP, path: ["rental", "monthly"] }),
-      plain({ key: `${kp}/vacancy`, item: "account.property", label: "空室を見込む割合", level: "simple", kind: "pct", find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: "例: 1年のうち平均して半月空くなら 4%。受け取る家賃＝家賃×(1−この割合)。共益費・駐車場などの月の収入にも同じ割合を掛けます" }),
-      rentYen("commonFee", ["rental", "commonFee"], "共益費（月額）", "monthly", "家賃とは別に受け取る共益費・管理費です。空室の割合と家賃の変化率は家賃と同じに掛けます"),
-      rentYen("parking", ["rental", "parking"], "駐車場の収入（月額）", "monthly", "物件の駐車場の収入です。空室の割合と変化率は家賃と同じに掛けます"),
-      rentYen("otherMonthly", ["rental", "otherMonthly"], "その他の月の収入", "monthly", "自販機・看板・アンテナの設置料など、毎月の収入です。空室の割合と変化率は家賃と同じに掛けます"),
-      rentYen("keyMoney", ["rental", "keyMoney"], "礼金・更新料（年あたりの見込み）", "annual", "入居の入れ替わり・更新の周期からならした、1年あたりの礼金・更新料です。12か月に分けて受け取るとみなします（空室の割合は掛けません）"),
+      yenBox({ key: `${kp}/rent`, item: "account.property", label: "満室時の家賃（合計）", level: "simple", basis: "monthly", help: "すべての部屋（区画）が埋まっているときの、物件全体の家賃の合計です。共益費・駐車場の収入などは、詳細で別の欄に入れます", find: findP, path: ["rental", "monthly"] }),
+      plain({ key: `${kp}/vacancy`, item: "account.property", label: "空室率", level: "simple", kind: "pct", find: findP, path: ["rental", "vacancyRate"], optional: true, fallback: "0", help: "1年を通して、部屋が空いている割合の見込みです。満室時の家賃からこの割合を引いて計算します（例: 1年のうち平均して半月空くなら 4%）。共益費・駐車場などの収入からも同じ割合を引きます" }),
+      rentYen("commonFee", ["rental", "commonFee"], "共益費（月額）", "monthly", "家賃とは別に受け取る共益費・管理費です。空室率と変化率は家賃と同じに掛けます"),
+      rentYen("parking", ["rental", "parking"], "駐車場の収入（月額）", "monthly", "物件の駐車場の収入です。空室率と変化率は家賃と同じに掛けます"),
+      rentYen("otherMonthly", ["rental", "otherMonthly"], "その他の月の収入", "monthly", "自販機・看板・アンテナの設置料など、毎月の収入です。空室率と変化率は家賃と同じに掛けます"),
+      rentYen("keyMoney", ["rental", "keyMoney"], "礼金・更新料（年あたりの見込み）", "annual", "入居の入れ替わり・更新の周期からならした、1年あたりの礼金・更新料です。12か月に分けて受け取るとみなします（空室率は掛けません）"),
     );
   if (p.rental !== undefined)
     rentFields.push(
@@ -648,7 +648,7 @@ function lodgingSalesFields(wh: WorkingHousehold, a: Account): FieldDef[] {
     withAddress(plain({ key: `${kp}/${key}`, item: "account.property", find: findP, path: ["lodging", ...path], after: keep, ...o }), onAccount(a.id, "account.property", ["lodging", ...path]));
   const fields: FieldDef[] = [
     lp("lodgingBusiness", ["business"], { label: "営業の形", level: "simple", kind: "select", options: LODGING_BUSINESSES, optional: true, help: "住宅宿泊事業（民泊新法）は、営業日数が年180日までです。旅館業（簡易宿所など）・特区民泊は日数の上限なしで計算します" }),
-    lp("salesBy", ["salesBy"], { label: "売上の入れ方", level: "simple", kind: "select", options: SALES_BY, optional: true, fallback: "month", structural: true, help: "月の売上の見込みか、1泊の単価×稼働率×営業日数（年）÷12 で毎月の売上にします。空室を見込む割合は使いません" }),
+    lp("salesBy", ["salesBy"], { label: "売上の入れ方", level: "simple", kind: "select", options: SALES_BY, optional: true, fallback: "month", structural: true, help: "月の売上の見込みか、1泊の単価×稼働率×営業日数（年）÷12 で毎月の売上にします。空室率は使いません" }),
     lp("incomeKind", ["incomeKind"], {
       label: "所得の区分",
       level: "detail",

@@ -300,9 +300,9 @@ export interface RealEstatePropertyInput {
   };
   /** 貸している（家賃収入） */
   readonly rental?: {
-    /** 月額の家賃（空室を見込む前） */
+    /** 満室時の家賃の合計（月額。物件全体の分。空室率を引く前） */
     readonly monthly: ValueBox<Yen>;
-    /** 空室を見込む割合（省略は0） */
+    /** 空室率（1年を通して部屋が空いている割合の見込み。省略は0） */
     readonly vacancyRate?: string;
     /** 家賃の変化率（年率。マイナスも書ける。省略は0） */
     readonly growth?: string;

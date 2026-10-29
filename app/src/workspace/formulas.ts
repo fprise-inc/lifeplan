@@ -35,7 +35,7 @@ export const FORMULA_LABELS: Readonly<Record<string, { label: string; text: stri
   "housing.residence.maintenance": { label: "修繕費", text: "修繕費 ＝ 月額 × 上昇率での延ばし" },
   "housing.valuation.sale": { label: "持ち家の売却の手取り", text: "売却の手取り ＝ 売却価格（入れていなければその年の評価額）− 売却価格 × 売却の費用の割合（譲渡所得の税は別の行）" },
   "housing.valuation.saleTax": { label: "持ち家の譲渡所得の税", text: "譲渡所得の税 ＝ 入れた額（所得税・住民税の合計。売った月に払う。税の自動の計算はまだ無い）" },
-  "asset.realEstate.rent": { label: "家賃収入", text: "家賃収入 ＝ 月額の家賃 × (1 − 空室を見込む割合)（家賃は変化率で毎年動かす）" },
+  "asset.realEstate.rent": { label: "家賃収入", text: "家賃収入 ＝ 満室時の家賃（月額） × (1 − 空室率)（家賃は変化率で毎年動かす）" },
   "asset.realEstate.expenses": { label: "不動産の経費", text: "経費 ＝ 年額 ÷ 12 ＋ 受け取る家賃 × 家賃に対する割合（管理費・修繕積立金・固定資産税・管理委託料など）" },
   "asset.realEstate.sale": { label: "不動産の売却の手取り", text: "売却の手取り ＝ 売却価格（入れていなければその年の評価額）− 売却価格 × 売却の費用の割合（譲渡所得の税は別の行。ローンを返すときは返済の行）" },
   "tax.realEstateSale.incomeTax": {

@@ -27,7 +27,7 @@ export function RentalOverview({ wh, figures = null }: { wh: WorkingHousehold; f
           <p>
             表面利回り・実質利回り・月の手残り（税引前）は、計算の結果の{f !== null ? `${f.year}年` : "表の最初の年"}の数字です（結果の「収益不動産」のタブと同じ）。合計の利回りは、物件の年の額を足してから出しています。
           </p>
-          <p>ローン残高は、今の残高を入れていればその値、入れていなければ借入額と最初の金利・返済の期間から出した今の月の目安です（金利の段階・繰上返済・ボーナス返済は入れていません）。月の収入は、家賃と共益費・駐車場などの月の収入から空室を見込む割合を引いた後の額です（礼金・更新料は入れていません）。民泊・宿は月の売上です。</p>
+          <p>ローン残高は、今の残高を入れていればその値、入れていなければ借入額と最初の金利・返済の期間から出した今の月の目安です（金利の段階・繰上返済・ボーナス返済は入れていません）。月の収入は、満室時の家賃と共益費・駐車場などの月の収入から空室率を引いた後の額です（礼金・更新料は入れていません）。民泊・宿は月の売上です。</p>
         </Help>
       </h3>
       {figures === "loading" ? <p class="ip-rental-status">計算しています…</p> : null}
@@ -38,7 +38,7 @@ export function RentalOverview({ wh, figures = null }: { wh: WorkingHousehold; f
             <th scope="col">種類</th>
             <th scope="col" class="num">評価額</th>
             <th scope="col" class="num">ローン残高</th>
-            <th scope="col" class="num">月の収入（空室を見込んだ後）</th>
+            <th scope="col" class="num">月の収入（空室率を引いた後）</th>
             <th scope="col" class="num">表面利回り</th>
             <th scope="col" class="num">実質利回り</th>
             <th scope="col" class="num">月の手残り（税引前）</th>

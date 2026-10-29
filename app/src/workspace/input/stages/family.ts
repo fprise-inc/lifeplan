@@ -1,5 +1,5 @@
 // 1. 家族: 続柄・呼び名（任意）・生年月（生年月＋1日生まれか。0012）・性別。子の独立の時期は子ども・教育のカード（0078）。家計を1つにする人だけを出す。
-// 世帯の外の家族（親・祖父母など）は介護・親のカード（care.ts）、贈与する人は相続・贈与のカード（inheritance.ts）に出し、ここは読むだけの1行
+// 世帯の外の家族（親・祖父母など）は介護・親の項目（care.ts）、贈与する人は相続・贈与のカード（inheritance.ts）に出し、ここは読むだけの1行
 import type { Household, IncomeFlowKind, Member, MoneyOutKind, Relation, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { roles } from "../../roles.ts";
@@ -123,7 +123,7 @@ const SPOUSE_SEX_HELP = "足したときに本人と逆の性別を入れてい�
 
 const oppositeSex = (sex: unknown): "male" | "female" => (sex === "female" ? "male" : "female");
 
-/** 構成員1人のまとまり（家計を1つにする人。世帯の外の家族は介護・親のカードの形で出す。care.ts の outsideGroup） */
+/** 構成員1人のまとまり（家計を1つにする人。世帯の外の家族は介護・親の項目の形で出す。care.ts の outsideGroup） */
 export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const find = byId(members, m.id);
   // まだ生まれていない（生年月が計算の基準の月より後）なら、マイナスの年齢ではなく生まれる予定の欄と同じ読み（今から○年後・本人の年齢）を出す
@@ -535,7 +535,7 @@ function familyMoney(wh: WorkingHousehold): SectionDef[] {
     actions: sec.actions.flatMap((a): ActionDef[] => {
       const kind = a.key.split("/").at(-1) as string;
       const dir = sec.key.endsWith("/out") ? "out" : "in";
-      // 仕送りは相手の子がいるときだけ（相手のいない仕送りは介護・親のカードの行になるため）
+      // 仕送りは相手の子がいるときだけ（相手のいない仕送りは介護・親の項目の行になるため）
       if (dir === "out" && kind === "allowance") return kid === undefined ? [] : [{ ...a, label: "＋ 離れて暮らす子への仕送り", run: (w) => familyRow(w, "out", "allowance") }];
       return [{ ...a, run: (w) => familyRow(w, dir, kind) }];
     }),
@@ -603,7 +603,7 @@ function eventGroups(wh: WorkingHousehold): GroupDef[] {
   });
 }
 
-/** 贈与する人（親・祖父母。生年月を持たない世帯の外の家族）のまとまり（介護・親のカードの世帯の外の家族に並べる。care.ts） */
+/** 贈与する人（親・祖父母。生年月を持たない世帯の外の家族）のまとまり（介護・親の項目の世帯の外の家族に並べる。care.ts） */
 export function donorGroups(wh: WorkingHousehold): GroupDef[] {
   return (wh.request.input.household.donors ?? []).map((d, i) => {
     const find = byId((h) => h.donors, d.id);
@@ -649,8 +649,8 @@ function usesOfDonor(h: Household, id: string): number {
 }
 
 /**
- * 世帯の外の家族（親・祖父母と、世帯の外の印のある人）。家族のカードは「家計を1つにする人」だけにし、この人たちは介護・親のカードに出す
- * （家計を1つにする期間を入れた人も、物は介護・親のカードに属する）
+ * 世帯の外の家族（親・祖父母と、世帯の外の印のある人）。家族のカードは「家計を1つにする人」だけにし、この人たちは介護・親の項目に出す
+ * （家計を1つにする期間を入れた人も、物は介護・親の項目に属する）
  */
 export const outsidePerson = (m: Member): boolean => m.outside !== undefined || m.kind === "parent" || m.kind === "grandparent";
 
