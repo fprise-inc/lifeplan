@@ -1,10 +1,10 @@
 // 相続・贈与のカードの「相続税の目安」の1行（作業の層。0039 の結果を読むだけ）。
-// 今の世帯の要求に相続税の目安（いま亡くなったら・二人とも亡くなった後）を求めて1回だけ計算し、カードの要約とパネルの1行に出す。
+// 今の世帯の要求に相続税の目安（いま亡くなったら・二人とも亡くなった後）を求めて1回だけ計算し、入力項目の要約の下の小さな1行とパネルの1行に出す。
 // 表示だけで、お金の流れ・世帯の物は変えない（求めるのは画面の側の写しの要求）。計算の道が無い所（画面の確かめなど）では出さない
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { EngineRequest, InheritancePoint, PreviewResult } from "../../engine/types.ts";
 import type { WorkingHousehold } from "./household.ts";
-import { manText, type Summary } from "./items.ts";
+import { manText } from "./items.ts";
 import { memberLabel } from "./labels.ts";
 
 /** 相続税の目安を求める要求（今の世帯の写し。万一の想定・必要保障額の推移は外す） */
@@ -24,13 +24,16 @@ const pointText = (p: InheritancePoint): string | null => {
   return p.noTax ? "かからない見込み" : `約${manText(p.payable)}万円`;
 };
 
-/** カードの要約（二人とも亡くなった後の目安。無ければ、いまの目安の大きい方） */
-export function inheritanceSummary(r: PreviewResult | null): Summary | null {
+/**
+ * 入力項目の要約の下の小さな1行（「相続税: かからない見込み」「相続税: 約120万円」）。
+ * 二人とも亡くなった後の目安。無ければ、いまの目安の大きい方。主な表示は入れた中身（items.ts。0060 の 2026-10-29 の追記）
+ */
+export function inheritanceTaxNote(r: PreviewResult | null): string | null {
   const points = (r?.inheritanceTax?.points ?? []).filter((p) => p.status === "ok");
   const p = points.find((x) => x.point === "bothAfter") ?? [...points].sort((a, b) => b.payable - a.payable)[0];
   if (p === undefined) return null;
-  if (p.state === "confirmed") return { pre: "相続税 ", main: manText(p.amount), unit: "万円" };
-  return p.noTax ? { pre: "相続税 ", main: "かからない見込み" } : { pre: "相続税 約", main: manText(p.payable), unit: "万円" };
+  if (p.state === "confirmed") return `相続税: ${manText(p.amount)}万円`;
+  return p.noTax ? "相続税: かからない見込み" : `相続税: 約${manText(p.payable)}万円`;
 }
 
 /** 相続税の目安の計算（今の世帯が変わったら計算し直す）。計算の道が無ければ null のまま */

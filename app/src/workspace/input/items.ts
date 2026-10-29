@@ -47,6 +47,8 @@ export interface Summary {
   pre?: string;
   main: string;
   unit?: string;
+  /** 要約の下の小さな1行（相続・贈与の「相続税: かからない見込み」。計算の結果から。0060 の 2026-10-29 の追記） */
+  note?: string;
 }
 
 export interface InputItem {
@@ -265,7 +267,47 @@ function moneyRows(h: Household, card: MoneyCard): number {
 }
 const inheritedDebts = (h: Household) => (h.debts ?? []).filter((d) => d.inheritedFrom !== undefined).length;
 
-function baseSummary(id: StageId, wh: WorkingHousehold, inheritance: Summary | null | undefined, pension?: Summary | null): Summary | null {
+/** お金の行の額を、1回の分と毎年の分に分けて足す（くり返す行は1回の額。毎月の行は年額にする） */
+function lumpAndYearly(h: Household, list: readonly { amount: { value?: number | null }; from: PeriodicExpense["from"]; to?: PeriodicExpense["to"]; everyYears: number; monthly?: boolean }[]): { once: number; yearly: number } {
+  let once = 0;
+  let yearly = 0;
+  for (const p of list) {
+    const amount = p.amount.value ?? 0;
+    const single = p.to != null && resolveTimepoint(h, p.to) !== null && resolveTimepoint(h, p.to) === resolveTimepoint(h, p.from);
+    if (!single && p.everyYears === 1) yearly += p.monthly === true ? amount * 12 : amount;
+    else once += amount;
+  }
+  return { once, yearly };
+}
+
+/** 「受け取る予定 3,000万円」「贈与 年110万円」の文の部品（額が0なら null） */
+function amountPart(label: string, t: { once: number; yearly: number }): Summary | null {
+  if (t.once > 0) return { pre: `${label} `, main: manText(t.once), unit: t.yearly > 0 ? `万円＋年${manText(t.yearly)}万円` : "万円" };
+  if (t.yearly > 0) return { pre: `${label} 年`, main: manText(t.yearly), unit: "万円" };
+  return null;
+}
+const partText = (s: Summary): string => `${s.pre ?? ""}${s.main}${s.unit ?? ""}`;
+
+/**
+ * 相続・贈与の要約: 入れた中身の額を短く1〜2つ（受け取る予定＝相続・遺贈と受ける贈与の行、贈与＝あげる贈与の行）。
+ * 額が無ければ件数（受け継ぐ借入・ほかの項目の援助・贈与する人）。相続税の目安は要約の下の小さな1行（note）にする（0060 の 2026-10-29 の追記）
+ */
+function inheritanceSummary(wh: WorkingHousehold): Summary | null {
+  const h = wh.request.input.household;
+  const receive = amountPart("受け取る予定", lumpAndYearly(h, (h.incomeFlows ?? []).filter((f) => incomeCard(f) === "inherit")));
+  const give = amountPart("贈与", lumpAndYearly(h, (h.periodicExpenses ?? []).filter((p) => expenseCard(h, p) === "inherit")));
+  const first = receive ?? give;
+  if (first !== null) return receive !== null && give !== null ? { ...first, unit: `${first.unit ?? ""}・${partText(give)}` } : first;
+  const rows = moneyRows(h, "inherit") + inheritedDebts(h);
+  if (rows > 0) return { main: String(rows), unit: "件（受け取る予定・あげる贈与）" };
+  const g = giftLines(wh);
+  const n = g.receive.length + g.give.length;
+  if (n > 0) return { main: String(n), unit: "件の援助" };
+  const d = (h.donors ?? []).length;
+  return d > 0 ? { main: String(d), unit: "人（贈与する人）" } : null;
+}
+
+function baseSummary(id: StageId, wh: WorkingHousehold, inheritanceTax: string | null | undefined, pension?: Summary | null): Summary | null {
   const h = wh.request.input.household;
   switch (id) {
     case "family":
@@ -322,15 +364,9 @@ function baseSummary(id: StageId, wh: WorkingHousehold, inheritance: Summary | n
       return k > 0 ? { main: String(k), unit: "人（世帯の外の家族）" } : null;
     }
     case "inheritance": {
-      // 相続税の目安（計算の結果から読むだけ。InputView が渡す）を先に出す
-      if (inheritance != null) return inheritance;
-      const rows = moneyRows(h, "inherit") + inheritedDebts(h);
-      if (rows > 0) return { main: String(rows), unit: "件（受け取る予定・あげる贈与）" };
-      const g = giftLines(wh);
-      const n = g.receive.length + g.give.length;
-      if (n > 0) return { main: String(n), unit: "件の援助" };
-      const d = (h.donors ?? []).length;
-      return d > 0 ? { main: String(d), unit: "人（贈与する人）" } : null;
+      // 主な表示は入れた中身。相続税の目安（計算の結果から読むだけ。InputView が渡す）は、入れた中身があるときだけ下の小さな1行に出す
+      const s = inheritanceSummary(wh);
+      return s !== null && inheritanceTax != null ? { ...s, note: inheritanceTax } : s;
     }
     case "fee":
       return feeSummary(h.advisoryFees ?? []);
@@ -643,8 +679,8 @@ export function itemStage(wh: WorkingHousehold, id: string): StageDef | null {
 
 export interface ItemOptions {
   layout?: CardLayout;
-  /** 相続・贈与のカードの要約（相続税の目安。計算の結果から。inheritanceLine.ts） */
-  inheritance?: Summary | null;
+  /** 相続・贈与の入力項目の要約の下の小さな1行（相続税の目安。計算の結果から。inheritanceLine.ts） */
+  inheritanceTax?: string | null;
   /** 年金のカードの要約（夫婦の合計の月額。65歳から・推定。計算の結果から。pensionEstimate.ts） */
   pension?: Summary | null;
 }
@@ -684,7 +720,7 @@ export function inputItems(wh: WorkingHousehold, opts: ItemOptions = {}): InputI
       status,
       estimated,
       missing,
-      summary: baseSummary(id, wh, opts.inheritance, opts.pension),
+      summary: baseSummary(id, wh, opts.inheritanceTax, opts.pension),
       hint,
       canNa,
       canFill: open && own.some((g) => g.fill !== undefined),

@@ -20,7 +20,7 @@ import type { WorkingHousehold } from "./household.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { InputPanel } from "./InputPanel.tsx";
 import { addItem, addOptions, DEFAULT_LAYOUT, fillCard, nothingEnteredYet, groupedItems, inputItems, itemOf, notApplicableCard, pinItems, progressOf, shownItems, togglePin, type AddOption, type CardLayout, type InputItem, type ItemStatus, type PinItem } from "./items.ts";
-import { inheritanceSummary, useInheritanceEstimate } from "./inheritanceLine.ts";
+import { inheritanceTaxNote, useInheritanceEstimate } from "./inheritanceLine.ts";
 import { pensionEstimateSummary, usePensionEstimate } from "./pensionEstimate.ts";
 import { STAGE_ORDER } from "./stages/index.ts";
 import { StatusBadge, statusText } from "./StatusBadge.tsx";
@@ -114,6 +114,11 @@ function Card({ item, onOpen, flash, diffs, acts }: { item: InputItem; onOpen: (
               </>
             )}
           </span>
+          {s?.note !== undefined ? (
+            <span class="ih-note" data-note={item.id}>
+              {s.note}
+            </span>
+          ) : null}
           <StatusBadge item={item} mini />
         </span>
       </button>
@@ -276,7 +281,7 @@ export function InputView({ wh, onSave, level, initialOpen, tools, computeOne, s
   const inheritance = useInheritanceEstimate(shown, true, computeOne);
   const pensionEst = usePensionEstimate(shown, true, computeOne);
   /** 全部の入力項目（非表示の物も。「入力項目を選ぶ」の一覧） */
-  const allItems = useMemo(() => inputItems(shown, { layout, inheritance: inheritanceSummary(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, layout, inheritance, pensionEst]);
+  const allItems = useMemo(() => inputItems(shown, { layout, inheritanceTax: inheritanceTaxNote(inheritance), pension: pensionEstimateSummary(shown, pensionEst.std) }), [shown, layout, inheritance, pensionEst]);
   /** ホームに出す入力項目（非表示にしてあり値の入っていない物を除く。プランで直した所のある項目は出す） */
   const items = useMemo(() => shownItems(allItems.map((i) => (i.hidden && (counts.get(i.id) ?? 0) > 0 ? { ...i, hidden: false } : i))), [allItems, counts]);
   const pins = useMemo(() => pinItems(shown, editing !== null ? wh : undefined), [shown, editing, wh]);
