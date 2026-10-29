@@ -29,8 +29,8 @@ describe("取り込み", () => {
     expect(h.members.map((m) => m.kind)).toEqual(["self"]);
     expect(h.livingExpenses?.[0]?.monthly).toMatchObject({ state: "estimated", origin: { kind: "auto" }, estimate: { method: "statistic" } });
     expect(h.employmentPeriods[0]?.salary).toMatchObject({ annual: { value: 3600000, state: "confirmed", origin: { kind: "hearing", ref: "R-ABCDEF" } }, bonus: { value: 900000 } });
-    // 標準報酬月額は聞かないので、年収からの目安（入力の画面と同じ）
-    expect(h.employmentPeriods[0]?.standardMonthlyRemuneration?.health).toMatchObject({ value: 300000, state: "estimated" });
+    // 標準報酬月額は聞かず、書かない（空欄なら計算エンジンが給与から毎年決め直す。入力の画面と同じ）
+    expect(h.employmentPeriods[0]?.standardMonthlyRemuneration).toBeUndefined();
     // 値の箱を持たない欄の仮の値は assumed（入力の画面の欄のキー）
     const pid = h.employmentPeriods[0]?.id as string;
     expect(Object.keys(r.assumed).sort()).toEqual([`work/period/${pid}/branch`, `work/period/${pid}/from`, `work/period/${pid}/hi`, `work/period/${pid}/hours`, `work/period/${pid}/size`].sort());

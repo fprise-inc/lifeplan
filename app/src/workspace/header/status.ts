@@ -25,12 +25,12 @@ export interface BarInputs {
   /** 保存の失敗の文（失敗の符号 → 文） */
   message: (code: string) => string;
   /** 開いている世帯の開いたときの知らせ（0035 の8） */
-  household?: readonly { id: string; kind: string; count?: number }[];
+  household?: readonly { id: string; kind: string; count?: number; plans?: number }[];
 }
 
 export type AlertKind = "saveError" | "readOnly" | "paused" | "aiSharing";
 /** 通知を押したときに開く画面 */
-export type NoticeTarget = "recovery" | "restore" | "storage" | "office" | "households" | "presence" | "family" | "plans";
+export type NoticeTarget = "recovery" | "restore" | "storage" | "office" | "households" | "presence" | "family" | "work" | "plans";
 
 export interface AlertSpec {
   kind: AlertKind;
@@ -60,12 +60,17 @@ export function barAlerts(i: BarInputs): AlertSpec[] {
   return out;
 }
 
-const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める", family: "介護・親の項目", plans: "プランの一覧" };
+const ACTION: Record<NoticeTarget, string> = { recovery: "復元キー", restore: "復元キー", storage: "保存先", office: "事務所の共有", households: "世帯の一覧", presence: "編集を始める", family: "介護・親の項目", work: "働き方と収入", plans: "プランの一覧" };
 
 /** 開いたときの知らせの文（0035 の8） */
-export function householdNoticeText(n: { kind: string; count?: number }): { text: string; target: NoticeTarget } | null {
+export function householdNoticeText(n: { kind: string; count?: number; plans?: number }): { text: string; target: NoticeTarget } | null {
   if (n.kind === "outsideFamily")
     return { target: "family", text: "親・祖父母を世帯の外の家族（家計が別）にしました。年金などは世帯の収入に入らないので、結果が前と変わります。家計を1つにする期間は介護・親の項目で入れられます" };
+  // 給与からの推定のままの標準報酬月額を空欄にした（0.38 の変換の段。0047 の追記 2026-10-29 の2）
+  if (n.kind === "smrBlank") {
+    const where = [(n.count ?? 0) > 0 ? `働き方の期間 ${n.count}件` : "", (n.plans ?? 0) > 0 ? `プランの変更 ${n.plans}件` : ""].filter((x) => x !== "").join("と");
+    return { target: "work", text: `給与から推定して書いていた標準報酬月額（${where}）を空欄にしました。空欄のときは、給与から毎年9月に決め直して計算するので、昇給が保険料と厚生年金の額に入ります（結果が前と変わることがあります）。入れた額はそのままです` };
+  }
   if (n.kind === "unresolvedDiffs") return { target: "plans", text: `古い形式のプランの変更のうち ${n.count ?? 0}件を読み替えられませんでした。プランの一覧の「要確認」で確かめてください` };
   return null;
 }

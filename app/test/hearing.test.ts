@@ -51,7 +51,8 @@ describe("見本の記入済みシートを空の世帯に取り込む", () => {
     // 推定・仮の印（入力の画面と同じ）
     const marks = v.candidates.flatMap((c) => c.fields.map((f) => f.mark));
     expect(marks).toContain("assumed");
-    expect(marks).toContain("estimated");
+    // 見本のシートの推定の印は、前は年収から推定して書いた標準報酬月額だった。今は書かない（空欄なら給与から毎年決め直す。0047 の追記 2026-10-29 の2）
+    expect(marks).not.toContain("estimated");
     expect(v.checklist.some((c) => c.reason === "unknown")).toBe(true);
     // 返ってきたシートの依頼が手元の記録に無いことを知らせる（公式のシートなので同梱の定義で読む）
     expect(v.issues.some((i) => i.code === "H_REQUEST_UNKNOWN")).toBe(true);

@@ -3,7 +3,6 @@
 import type { Contingency, EmploymentPeriod, EngineRequest, Household, Illness, Member, OldAgeChoice, ProtectionRequest, SurvivorAssumptions } from "../../engine/types.ts";
 import { confirmedBox, type WorkingHousehold } from "../input/household.ts";
 import { resolveTimepoint } from "../timepoint.ts";
-import { smrEstimate } from "../input/estimates.ts";
 import { convertPeriod } from "../input/stages/work.ts";
 import { addMonths, ageReachedMonth, derivedId, parseYm } from "../levers.ts";
 import { roles } from "../roles.ts";
@@ -189,8 +188,8 @@ export function survivorWorkPeriod(h: Household, survivor: Member, w: SurvivorWo
       p.pensionCategory = "none";
     }
     if (w.annualSalary !== undefined && p.salary !== undefined) {
+      // 標準報酬月額は書かない（空欄なら、この年収からエンジンが毎年9月に決め直す。0047 の追記 2026-10-29 の2）
       p.salary = { ...p.salary, annual: confirmedBox(w.annualSalary), bonus: confirmedBox(0) };
-      if (w.type !== "partTime") p.standardMonthlyRemuneration = smrEstimate(w.annualSalary, from);
     }
     if (w.type === "partTime") delete p.standardMonthlyRemuneration;
   } else if (w.type === "selfEmployed" && w.annualSalary !== undefined) p.business = { income: confirmedBox(w.annualSalary) };

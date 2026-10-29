@@ -13,6 +13,7 @@ import type { RecheckMark } from "./recheck.ts";
 import type { NoticeAck } from "./noticeAck.ts";
 import type { ItemChoice } from "./itemChoice.ts";
 import { giveElementIds, lacksElementIds, randomId } from "../store/elementIds.ts";
+import { isAutoSmr } from "./smr.ts";
 
 /** 定年の後に働くときの条件（D: 入力画面の「定年後の予定」。主画面の「働く最後の年齢」を延ばすときにも使う） */
 export interface PostRetirement {
@@ -28,9 +29,11 @@ export interface PostRetirement {
 /** 開いたときの知らせ（0035 の8） */
 export interface HouseholdNotice {
   id: string;
-  kind: "outsideFamily" | "unresolvedDiffs" | string;
+  kind: "outsideFamily" | "unresolvedDiffs" | "smrBlank" | string;
   members?: string[];
   count?: number;
+  /** smrBlank: プランの差分を変えた数 */
+  plans?: number;
 }
 
 export interface WorkingHousehold {
@@ -192,7 +195,8 @@ export function inferPostRetirement(h: Household, member: Member): PostRetiremen
   if (next === undefined || next.from.at !== addMonths(main.to.at, 1)) return { fromAge: age, type: null, annualSalary: null };
   const type = next.type as PostRetirement["type"];
   const salary = type === "selfEmployed" ? next.business?.income.value : next.salary?.annual.value;
-  const smr = next.standardMonthlyRemuneration?.pension.value;
+  // 標準報酬月額は FP が入れた値だけを写す（推定のままの額を写すと、定年後の期間を作り直すときに確定の額として書いてしまう。0047 の追記 2026-10-29 の2）
+  const smr = isAutoSmr(next.standardMonthlyRemuneration) ? undefined : next.standardMonthlyRemuneration?.pension.value;
   return { fromAge: age, type, annualSalary: salary ?? null, ...(smr != null ? { standardMonthlyRemuneration: smr } : {}) };
 }
 

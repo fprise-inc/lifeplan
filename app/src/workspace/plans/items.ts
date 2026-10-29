@@ -9,7 +9,8 @@ import type { DemoHousehold } from "../catalog.ts";
 import { allFields, resolveTimepoint, type FieldDef, type StageDef } from "../input/form.ts";
 import { mutate, reemploymentOf, type WorkingHousehold } from "../input/household.ts";
 import { ACCOUNT_KINDS, EMPLOYMENT_TYPES, memberLabel } from "../input/labels.ts";
-import { businessEstimate, ensureResidentTax, salaryAge, salaryEstimate, smrEstimate, smrMonth } from "../input/estimates.ts";
+import { businessEstimate, ensureResidentTax, salaryAge, salaryEstimate } from "../input/estimates.ts";
+import { isAutoSmr } from "../input/smr.ts";
 import { convertPeriod } from "../input/stages/work.ts";
 import { ageReachedMonth } from "../levers.ts";
 import type { Option } from "../input/form.ts";
@@ -280,16 +281,15 @@ export function spouseWorkNow(wh: WorkingHousehold, spouseId: string): WorkValue
 
 const manual = (v: number) => ({ value: v, state: "confirmed", origin: { kind: "manual" } }) as Box<number>;
 
-/** 年収を入れる: 給与は今の賞与の割合で年収と賞与に分ける（割合が無ければ賞与0）。自営業は事業所得。推定のままの標準報酬月額は新しい年収に合わせる */
-function setIncome(p: EmploymentPeriod, total: number, baseMonth: string): void {
+/** 年収を入れる: 給与は今の賞与の割合で年収と賞与に分ける（割合が無ければ賞与0）。自営業は事業所得。推定のままの標準報酬月額は外す（給与から計算する） */
+function setIncome(p: EmploymentPeriod, total: number): void {
   if (WORKING_TYPES.has(p.type)) {
     const a = p.salary?.annual.value ?? 0;
     const b = p.salary?.bonus?.value ?? 0;
     const bonus = a + b > 0 ? Math.round((total * b) / (a + b) / 1000) * 1000 : 0;
     p.salary = { ...(p.salary ?? {}), annual: manual(total - bonus), bonus: manual(bonus) };
-    const smr = p.standardMonthlyRemuneration;
-    const auto = (x: { state?: string; origin?: { kind?: string } } | undefined) => x === undefined || (x.state === "estimated" && x.origin?.kind === "auto");
-    if (smr === undefined || (auto(smr.health) && auto(smr.pension))) p.standardMonthlyRemuneration = smrEstimate(total - bonus, smrMonth(p, baseMonth));
+    // 推定のままの標準報酬月額は書かない（空欄なら給与から毎年決め直す。0047 の追記 2026-10-29 の2）。FP が入れた値は残す
+    if (isAutoSmr(p.standardMonthlyRemuneration)) delete p.standardMonthlyRemuneration;
   } else if (p.type === "selfEmployed") p.business = { ...(p.business ?? {}), income: manual(total) };
 }
 
@@ -316,7 +316,7 @@ function applySpouseWork(w: WorkingHousehold, m: Member, v: WorkValue): WorkingH
       p = convertPeriod(p, v.type, m, base);
       list[i] = p;
     }
-    setIncome(p, Math.max(0, Math.round(v.annual)), base);
+    setIncome(p, Math.max(0, Math.round(v.annual)));
     if (v.type !== "unemployed") ensureResidentTax(h, m.id, base, () => derivedPeriodId(m.id, `${base}:tax`));
   });
 }

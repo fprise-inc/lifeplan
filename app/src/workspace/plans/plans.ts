@@ -199,6 +199,8 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
   const reviews = new Map<string, Review>();
   /** 動かす項目のキー → 値と、その値の差分（結果のタブの値は差分を持たない） */
   const keyed = new Map<string, { value: ItemValue; diff: PlanDiff | null }>();
+  /** 当て先へ書いた値（差分と、結果のタブで動かした一覧に無い欄の値）。入力の欄の項目を欄の書き方で当てたあと、書き直す（差分に書いた値が勝つ） */
+  const written: { address: Address; value: DiffBox }[] = [];
   const setOne = (d: PlanDiff, target: Input): void => {
     const a = addressOf(d);
     if (a === null) return void reviews.set(d.id, review("missing"));
@@ -214,6 +216,7 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
     }
     if (ITEM_PLACES[a.item]?.status !== "active") return void reviews.set(d.id, review("retired"));
     if (!writeAt(target, a, d.value as DiffBox)) return void reviews.set(d.id, review("missing"));
+    written.push({ address: a, value: d.value as DiffBox });
     const base = readAt(now, a);
     const changed = d.before !== null && d.before !== undefined && !sameJson(unbox(base), unbox(d.before));
     reviews.set(d.id, changed ? review("changed", `入力（現状）が ${shortText(d.before)}→${shortText(base)} に変わりました`) : review("ok"));
@@ -258,9 +261,23 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
     }
     // 動かす項目の一覧に無い欄の値（入力画面で直した欄など）は、当て先へそのまま書く
     const r = k === PLAN_SLOT ? null : resolveKey(k, now);
-    if (r !== null && r.kind === "address") writeAt(input, r.address, box(v));
+    if (r !== null && r.kind === "address" && writeAt(input, r.address, box(v))) written.push({ address: r.address, value: box(v) });
   }
   let w: WorkingHousehold = { ...wh, request: { ...wh.request, input: input as unknown as EngineRequest["input"] } };
+  /**
+   * 入力の欄の項目を、欄の書き方で当てる。欄の書き方が書き換えた所のうち、それまでに当て先へ書いた値（差分）の所は差分の値に戻し、
+   * この差分の値は値の箱のまま書く（差分に書いた値が勝つ。欄の書き方が書き換えなかった所は、前に当てた対策の当て方のまま）
+   */
+  const asField = (cur: WorkingHousehold, it: MovableItem, v: ItemValue): WorkingHousehold => {
+    const next = it.apply(cur, v);
+    const was = cur.request.input as unknown as Input;
+    const req = structuredClone(next.request);
+    const target = req.input as unknown as Input;
+    const own = written.at(-1);
+    for (const x of written)
+      if (x === own || (placeExists(target, x.address) && !sameJson(readAt(was, x.address), readAt(target, x.address)))) writeAt(target, x.address, x.value);
+    return { ...next, request: req };
+  };
   for (const it of cat.items) {
     const e = it.phase === "field" ? keyed.get(it.key) : undefined;
     if (e === undefined) continue;
@@ -268,9 +285,12 @@ export function applyDiffs(wh: WorkingHousehold, plans: readonly { id: string; d
     const d = e.diff ?? diffFromValue(it, it.key, e.value, wh, undefined);
     if (d !== null && !isLever(d.target)) {
       const req = structuredClone(w.request);
+      const mark = written.length;
       setOne(d, req.input as unknown as Input);
       if (reviews.get(d.id)?.state !== "missing") {
-        w = { ...w, request: req };
+        // 入力の欄の項目は、入力の画面でその欄を直したのと同じ書き方で当てる（欄が一緒に変える値〔下取り額・もう片方の標準報酬月額など〕も
+        // 変える。0036 の追記 2026-10-29 の2）。そのあと、それまでに当てた当て先の値とこの差分の値を書き直す（差分に書いた値が勝つ）
+        w = it.control.kind === "field" && written.length > mark ? asField(w, it, e.value) : { ...w, request: req };
         continue;
       }
       // 現状にある物・要素を、作業中の世帯で外していたら当てない（0.16 の番号の当て方に回すと、別の要素に当たる。0036 の7）。

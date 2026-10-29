@@ -5,6 +5,7 @@ import type { Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth, applyLevers, applyRetireMonth, readLevers } from "../../levers.ts";
 import { resolveTimepoint } from "../../timepoint.ts";
 import { businessEstimate, careerStartMonth, ensureResidentTax, residentTaxEstimate, residentTaxYear, salaryAge, salaryEstimate, smrEstimate, smrMonth } from "../estimates.ts";
+import { isAutoSmr } from "../smr.ts";
 import { healthRateEstimate } from "../../../../../hearing/src/estimates.ts";
 import { byId, field, plain, rateBox, removeAction, timepointField, timeView, yenBox, type ActionDef, type FieldDef, type Finder, type GroupDef, type SectionDef, type StageDef, type Val } from "../form.ts";
 import { boxBasis, estimatedBox, mutate, newId, periodsOf, reemploymentOf, type PostRetirement, type WorkingHousehold } from "../household.ts";
@@ -51,7 +52,7 @@ const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringif
 
 /**
  * 働き方の種類を変える: その種類に要る欄を足し、要らない欄を外す（0008 の4・スキーマの条件）。
- * 給与の種類どうし（正社員→パートなど）で変えたときは、推定のままの年収・賞与・標準報酬月額を新しい種類の推定に入れ替え、
+ * 給与の種類どうし（正社員→パートなど）で変えたときは、推定のままの年収・賞与を新しい種類の推定に入れ替え（推定のままの標準報酬月額は外す）、
  * 前の種類の初めの値のままの健康保険・厚生年金・勤め先も新しい種類の初めの値に入れ替える。FP が入れた値は残す（0008 の追記 2026-10-11 の2・2026-10-25）
  */
 export function convertPeriod(p: EmploymentPeriod, type: string, member: Member | undefined, baseMonth: string): EmploymentPeriod {
@@ -73,8 +74,10 @@ export function convertPeriod(p: EmploymentPeriod, type: string, member: Member 
       salary === undefined
         ? { annual, bonus }
         : { ...salary, annual: isAutoBox(salary.annual) ? annual : salary.annual, ...(isAutoBox(salary.bonus) ? { bonus } : {}) };
+    // 標準報酬月額は FP が入れた値だけを残す。推定は書かない（空欄なら給与からエンジンが毎年9月に決め直す。推定の額を書くと期間の間ずっと
+    // 同じ額になり、昇給が保険料と厚生年金に入らない。0047 の追記 2026-10-29 の2）
     const smr = standardMonthlyRemuneration;
-    out.standardMonthlyRemuneration = smr !== undefined && !(isAutoBox(smr.health) && isAutoBox(smr.pension)) ? smr : smrEstimate(out.salary.annual.value ?? 0, smrMonth(p, baseMonth));
+    if (smr !== undefined && !isAutoSmr(smr)) out.standardMonthlyRemuneration = smr;
     if (corporatePension !== undefined) out.corporatePension = corporatePension;
     if (employmentInsuranceCovered !== undefined) out.employmentInsuranceCovered = employmentInsuranceCovered;
     if (employeeInsurance !== undefined) out.employeeInsurance = employeeInsurance;

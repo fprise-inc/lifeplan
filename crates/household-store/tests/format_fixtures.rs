@@ -812,6 +812,36 @@ fn every_format_version_has_a_fixture_and_opens() {
         } else {
             assert!(!misc_row, "{v}: 0.37 より前の版に表の行「雑所得」は無い");
         }
+        // 0.38 から（0047 の追記 2026-10-29 の2）: 給与からの推定のままの標準報酬月額は書かない（どの版も変換の後には無い）。
+        // 0.38 の見本は、配偶者の働き方の期間を空欄（給与から毎年決め直す）にしている
+        let periods = now["household"]["request"]["input"]["household"]["employmentPeriods"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        let not_entered = |b: &serde_json::Value| {
+            b.is_null()
+                || (b["state"] == "estimated" && b["origin"]["kind"] == "auto")
+                || (b["state"] == "unknown"
+                    && b["substitute"]["origin"]["kind"] == "auto"
+                    && b["substitute"]["estimate"]["method"] == "derived")
+        };
+        for p in &periods {
+            let smr = &p["standardMonthlyRemuneration"];
+            assert!(
+                smr.is_null() || !(not_entered(&smr["health"]) && not_entered(&smr["pension"])),
+                "{v}: 推定のままの標準報酬月額が残っている（{}）",
+                p["id"]
+            );
+        }
+        if migrate::parse(v).unwrap() >= (0, 38) {
+            assert!(
+                periods
+                    .iter()
+                    .any(|p| p.get("salary").is_some()
+                        && p.get("standardMonthlyRemuneration").is_none()),
+                "{v}: 標準報酬月額が空欄の給与の期間"
+            );
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

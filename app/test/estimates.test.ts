@@ -13,13 +13,32 @@ describe("推定の目安（入力の画面）", () => {
     expect(salaryEstimate("regular", "female", { age: 40 })).toEqual(hearingSalary("regular", "female", { age: 40 }));
   });
 
-  it("給与の種類の推定は年齢を渡し、標準報酬月額は等級表に当てる（厚生年金の下限 88,000円）", () => {
+  it("給与の種類の推定は年齢を渡す。標準報酬月額は書かない（空欄なら給与から毎年決め直す。目安は等級表に当てる。厚生年金の下限 88,000円）", () => {
     const wh = blankHousehold(BASE, () => "self-1");
     const self = wh.request.input.household.members[0]!;
     const p = convertPeriod({ id: "p1", member: self.id, from: { at: "2008-04" }, to: null, type: "regular" } as EmploymentPeriod, "partTime", self, BASE);
     expect(p.salary?.annual).toMatchObject({ value: 1769 * 15 * 52, state: "estimated", origin: { kind: "auto" } });
-    expect(p.standardMonthlyRemuneration?.health.value).toBe(118000);
+    expect(p.standardMonthlyRemuneration).toBeUndefined();
+    expect(smrEstimate(1769 * 15 * 52, BASE).health.value).toBe(118000);
     expect(smrEstimate(600000, BASE).pension.value).toBe(88000);
+  });
+
+  it("推定のままの標準報酬月額は、働き方を変えても入れ直しても外す。FP が入れた値（片方だけでも）は残す（0047 の追記 2026-10-29 の2）", () => {
+    const wh = blankHousehold(BASE, () => "self-1");
+    const self = wh.request.input.household.members[0]!;
+    const est = smrEstimate(4000000, BASE);
+    const fp = { value: 320000, state: "confirmed", origin: { kind: "manual" } } as const;
+    const base = { member: self.id, from: { at: "2008-04" }, to: null, type: "regular", salary: { annual: estimatedBox(4000000, "目安") } } as unknown as EmploymentPeriod;
+    expect(convertPeriod({ ...base, id: "p1", standardMonthlyRemuneration: est }, "contract", self, BASE).standardMonthlyRemuneration).toBeUndefined();
+    expect(convertPeriod({ ...base, id: "p2", standardMonthlyRemuneration: { health: fp, pension: est.pension } }, "contract", self, BASE).standardMonthlyRemuneration).toEqual({ health: fp, pension: est.pension });
+    const h = structuredClone(wh.request.input.household);
+    h.employmentPeriods = [
+      { ...base, id: "p1", standardMonthlyRemuneration: est },
+      { ...base, id: "p2", standardMonthlyRemuneration: { health: fp, pension: est.pension } },
+      { ...base, id: "p3", standardMonthlyRemuneration: { health: { state: "unknown", origin: { kind: "manual" }, substitute: est.health } as never, pension: est.pension } },
+    ];
+    refreshEstimates(h, BASE);
+    expect(h.employmentPeriods.map((p) => p.standardMonthlyRemuneration === undefined)).toEqual([true, false, true]);
   });
 
   it("推定のままの給与は、統計の目安が変わったら入れ直す（人が入れた値は変えない）", () => {
