@@ -3,7 +3,7 @@
 //   「当てにしない」の行は基本の計算に入れない（0044 の5）。行に「この行を計算に入れる」の1押し。相続の受け取る時期は、相手の亡くなる見込みの10か月後を推定で
 // - 区画B あげる贈与（出るお金の行）。今ある援助の物（子への援助 goals.education.gifts・住宅資金の援助 residences.purchase.gifts）は物の形を変えず、
 //   子ども・教育／住まい・ローンのカードで入れ、ここには読むだけで並べる
-// - 贈与する人（親・祖父母。生年月を持たない世帯の外の家族）: 物と欄は介護・親のカードの世帯の外の家族の区画。ここは読むだけの1行と「＋ 足す」
+// - 贈与する人（親・祖父母。生年月を持たない世帯の外の家族）: 物と欄は介護・親の項目の世帯の外の家族の区画。ここは読むだけの1行と「＋ 足す」
 // - 区画C 遺したい額（表示だけ。表の最後の年の金融資産と比べる。input.legacy）
 // - 区画D 相続税の目安: 結果は計算の結果から読む（inheritanceLine.ts。表示だけで、お金の流れには入れない）。ここは目安の設定の欄
 //   （不動産の評価の割合・名義の無い財産の分け方・葬式の費用・養子・法定相続人の数を直す口・FP が入れた額。input.inheritanceTax。0039・0060）
@@ -46,7 +46,7 @@ export function giftLines(wh: WorkingHousehold): { receive: FieldDef[]; give: Fi
   return { receive, give };
 }
 
-/** 贈与する人（物と欄は介護・親のカードの世帯の外の家族。ここは読むだけの1行） */
+/** 贈与する人（物と欄は介護・親の項目の世帯の外の家族。ここは読むだけの1行） */
 export function donorLines(wh: WorkingHousehold): FieldDef[] {
   const h = wh.request.input.household;
   return (h.donors ?? []).map((d) => {
@@ -298,7 +298,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/receive",
       title: moneyIn?.title ?? "受け取る予定の相続・贈与",
-      note: "見込み（確実・当てにしない）を行ごとに選びます。「当てにしない」の受け取る相続・贈与は、基本の計算に入れません（行は残り、「この行を計算に入れる」で入れられます）。相手は世帯の外の家族（介護・親の項目）から選び、相続の受け取る時期は相手の亡くなる見込みの10か月後を推定で入れます",
+      note: "受け取れるかどうかの見込み（確実・当てにしない）を行ごとに選びます。「当てにしない」にした分は、除いて計算します。相続で受け取る時期は、亡くなる見込みの10か月後を目安に入れます",
       level: "simple",
       groups: [...(moneyIn?.groups ?? []).map((g) => withIncludeAction(wh, g)), ...inheritedDebtGroups(wh), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
       actions: [...receiveActions(moneyIn?.actions ?? []), { key: "money/inherit/addDebt", label: "＋ 相続で受け継ぐ借金", level: "detail", run: (w: WorkingHousehold) => addInheritedDebt(w) }],

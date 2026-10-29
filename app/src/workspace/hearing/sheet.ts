@@ -284,7 +284,7 @@ function titleOf(c: Candidate, imp: EngineRequest): string {
   const group = GROUP[c.collection] ?? c.collection;
   const label = new Map(roles(imp).map((r) => [r.member.id, r.label]));
   const v = c.value as Obj;
-  // 親・祖父母（世帯の外の家族）は父・母・義父・義母と呼ぶ（介護・親のカードと同じ）
+  // 親・祖父母（世帯の外の家族）は父・母・義父・義母と呼ぶ（介護・親の項目と同じ）
   if (c.collection === "members" && (v.kind === "parent" || v.kind === "grandparent")) return memberLabels({ request: imp, assumed: {}, labelsByMember: {} } as unknown as WorkingHousehold).get(v.id) ?? "ご家族";
   if (c.collection === "members") return label.get(v.id) ?? "ご家族";
   for (const k of MEMBER_REFS) if (typeof v[k] === "string" && label.has(v[k] as string)) return `${label.get(v[k] as string) as string}の${group}`;
@@ -458,7 +458,7 @@ export function applyImport(wh: WorkingHousehold, view: ImportView, selected: Re
     },
   };
   // 新しく入った子は、進路が取り込みに無ければ推定の進路（標準の型）で始める（子を足したときと同じ。0062）。
-  // 新しく入った親は、亡くなる見込みを平均余命で入れる（仮の印。介護・親のカードで親を足したときと同じ。0059）
+  // 新しく入った親は、亡くなる見込みを平均余命で入れる（仮の印。介護・親の項目で親を足したときと同じ。0059）
   const before = new Set(wh.request.input.household.members.map((m) => m.id));
   let filled = next;
   for (const m of h.members) {

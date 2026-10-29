@@ -1,5 +1,5 @@
 // 1. 家族: 続柄・呼び名（任意）・生年月（生年月＋1日生まれか。0012）・性別。子の独立の時期は子ども・教育のカード（0078）。家計を1つにする人だけを出す。
-// 世帯の外の家族（親・祖父母など）は介護・親のカード（care.ts）、贈与する人は相続・贈与のカード（inheritance.ts）に出し、ここは読むだけの1行
+// 世帯の外の家族（親・祖父母など）は介護・親の項目（care.ts）、贈与する人は相続・贈与のカード（inheritance.ts）に出し、ここは読むだけの1行
 import type { Household, IncomeFlowKind, Member, MoneyOutKind, Relation, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt } from "../../levers.ts";
 import { roles } from "../../roles.ts";
@@ -123,7 +123,7 @@ const SPOUSE_SEX_HELP = "足したときに本人と逆の性別を入れてい�
 
 const oppositeSex = (sex: unknown): "male" | "female" => (sex === "female" ? "male" : "female");
 
-/** 構成員1人のまとまり（家計を1つにする人。世帯の外の家族は介護・親のカードの形で出す。care.ts の outsideGroup） */
+/** 構成員1人のまとまり（家計を1つにする人。世帯の外の家族は介護・親の項目の形で出す。care.ts の outsideGroup） */
 export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
   const find = byId(members, m.id);
   // まだ生まれていない（生年月が計算の基準の月より後）なら、マイナスの年齢ではなく生まれる予定の欄と同じ読み（今から○年後・本人の年齢）を出す
@@ -176,7 +176,7 @@ export function memberGroup(wh: WorkingHousehold, m: Member): GroupDef {
           kind: "ym",
           find,
           path: ["birth", "birthYearMonth"],
-          help: "日は聞きません（1日生まれは詳細で選びます）",
+          help: "生まれた日は入れません（1日生まれのときだけ、詳細で選びます）",
           hint: (v) => (typeof v === "string" ? ageNow(v) : null),
         })),
     following(plain({ key: `family/${m.id}/bornOnFirst`, item: "member.birth", label: "1日生まれ", level: "detail", kind: "bool", find, path: ["birth", "bornOnFirst"], help: "年齢に達する月が1か月早くなります（年金・定年などの時期）。結果の差は1か月です" })),
@@ -535,7 +535,7 @@ function familyMoney(wh: WorkingHousehold): SectionDef[] {
     actions: sec.actions.flatMap((a): ActionDef[] => {
       const kind = a.key.split("/").at(-1) as string;
       const dir = sec.key.endsWith("/out") ? "out" : "in";
-      // 仕送りは相手の子がいるときだけ（相手のいない仕送りは介護・親のカードの行になるため）
+      // 仕送りは相手の子がいるときだけ（相手のいない仕送りは介護・親の項目の行になるため）
       if (dir === "out" && kind === "allowance") return kid === undefined ? [] : [{ ...a, label: "＋ 離れて暮らす子への仕送り", run: (w) => familyRow(w, "out", "allowance") }];
       return [{ ...a, run: (w) => familyRow(w, dir, kind) }];
     }),
@@ -589,7 +589,7 @@ function eventGroups(wh: WorkingHousehold): GroupDef[] {
       ageOf: (hh) => hh.members.find((x) => x.id === (hh.events ?? []).find((y) => y.id === e.id)?.member) ?? hh.members.find((x) => x.kind === "self"),
       mode: e.member !== undefined ? "age" : "ym",
       modes: ["age", "ym", "now"],
-      help: "出来事の時点は年月か人の年齢で入れます（出来事から出来事は作りません）",
+      help: "出来事の時点は、年月か人の年齢で入れます",
     });
     fields.push(provisional(wh, e.id) ? { ...atField, time: undefined, readOnly: "住宅ローン控除の仮の条件の入居です。借入の年月に合わせます" } : atField);
     return {
@@ -603,7 +603,7 @@ function eventGroups(wh: WorkingHousehold): GroupDef[] {
   });
 }
 
-/** 贈与する人（親・祖父母。生年月を持たない世帯の外の家族）のまとまり（介護・親のカードの世帯の外の家族に並べる。care.ts） */
+/** 贈与する人（親・祖父母。生年月を持たない世帯の外の家族）のまとまり（介護・親の項目の世帯の外の家族に並べる。care.ts） */
 export function donorGroups(wh: WorkingHousehold): GroupDef[] {
   return (wh.request.input.household.donors ?? []).map((d, i) => {
     const find = byId((h) => h.donors, d.id);
@@ -649,8 +649,8 @@ function usesOfDonor(h: Household, id: string): number {
 }
 
 /**
- * 世帯の外の家族（親・祖父母と、世帯の外の印のある人）。家族のカードは「家計を1つにする人」だけにし、この人たちは介護・親のカードに出す
- * （家計を1つにする期間を入れた人も、物は介護・親のカードに属する）
+ * 世帯の外の家族（親・祖父母と、世帯の外の印のある人）。家族のカードは「家計を1つにする人」だけにし、この人たちは介護・親の項目に出す
+ * （家計を1つにする期間を入れた人も、物は介護・親の項目に属する）
  */
 export const outsidePerson = (m: Member): boolean => m.outside !== undefined || m.kind === "parent" || m.kind === "grandparent";
 
@@ -720,7 +720,7 @@ export function familyStage(wh: WorkingHousehold): StageDef {
     {
       key: "family/events",
       title: "出来事",
-      note: "子の独立・入居・年金の受け取り開始・介護の始まりは、時点の欄の「出来事から」で選ぶと、ここに出来事として並びます。出来事の時点を直すと、指している物が全部いっしょに動きます。結婚・転職などは ＋ で足せます",
+      note: "子の独立・入居・年金の受け取り開始・介護の始まりは、時点の欄の「出来事から」で選ぶと、ここに出来事として並びます。出来事の時点を直すと、その出来事に合わせた支出や予定も一緒に動きます。結婚・転職などは ＋ で足せます",
       level: "detail",
       groups: eventGroups(wh),
       actions: [

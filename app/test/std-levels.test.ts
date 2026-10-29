@@ -325,7 +325,7 @@ describe("貯蓄・運用", () => {
     expect(fs.find((f) => f.key === `sav/${dep.id}/owner`)?.level).toBe("detail");
     expect(fs.find((f) => f.key === `sav/${nisa.id}/owner`)?.level).toBe("simple");
     expect(fs.find((f) => f.key === "sav/stopAge")?.level).toBe("detail");
-    expect(fs.find((f) => f.key === `sav/${nisa.id}/rate`)?.help).toContain("費用（信託報酬など）を引いた後");
+    expect(fs.find((f) => f.key === `sav/${nisa.id}/rate`)?.help).toContain("信託報酬などの費用を引いた後");
   });
 
   it("画面: 標準では積立をやめる年齢を読むだけ・預貯金の名義を選ばない。詳細では入れられる", () => {

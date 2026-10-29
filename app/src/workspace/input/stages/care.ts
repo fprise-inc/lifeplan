@@ -23,7 +23,7 @@ import { addMember, donorGroups, expectedBirthHint, outsidePerson, removeMember 
 
 const members = (h: Household) => h.members;
 
-/** 介護・親のカードに出す人（世帯の外の家族。並びは家族の役の順） */
+/** 介護・親の項目に出す人（世帯の外の家族。並びは家族の役の順） */
 export function outsideMembers(wh: WorkingHousehold) {
   const h = wh.request.input.household;
   const order = roles(wh.request).map((r) => r.member);
@@ -176,7 +176,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
         kind: "ym",
         find,
         path: ["birth", "birthYearMonth"],
-        help: "分からなければ年齢の目安のままで計算できます（仮の印が付きます）",
+        help: "分からなければ、年齢の目安のままで計算できます",
         // 生年月が今より後（これから生まれる孫など）なら、マイナスの年齢ではなく家族のカードと同じ読み（今から○年後・本人の年齢）
         hint: (v, w) => {
           if (typeof v !== "string") return null;
@@ -184,7 +184,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
           return age < 0 ? expectedBirthHint(w, v) : `${String(age)}歳（${wareki(v)}）`;
         },
       }), ["birthYearMonth"]),
-      onMember(m.id, plain({ key: `${k}/sex`, item: "member.sex", label: "性別", level: "detail", kind: "select", options: SEX_OPTIONS, find, path: ["sex"], help: "亡くなる見込み（平均余命）の推定と、父・母の呼び方に使います" })),
+      onMember(m.id, plain({ key: `${k}/sex`, item: "member.sex", label: "性別", level: "detail", kind: "select", options: SEX_OPTIONS, find, path: ["sex"], help: "亡くなる見込み（平均余命）の目安と、父・母の呼び方に使います" })),
     );
   fields.push(onMember(m.id, plain({ key: `${k}/cohabiting`, item: "member.support", label: "同居している", level: "simple", kind: "bool", find, path: ["support", "cohabiting"], ensure: ensureSupport(m.id), after: fillSupport, optional: true, fallback: false }), ["cohabiting"]));
   const actions: ActionDef[] = [{ key: `${k}/remove`, label: "この家族を外す", level: "simple", danger: true, run: (w) => removeMember(w, m.id) }];
@@ -210,7 +210,7 @@ export function outsideGroup(wh: WorkingHousehold, m: Member): GroupDef {
           ageOf: (hh) => hh.members.find((x) => x.id === m.id),
           optional: true,
           nullText: "入れない（表の最後まで）",
-          help: "この人の家計（親のお金）を見る期間と、相続人の数え方は、この時点までです。空欄なら「平均余命で入れる」で推定を入れられます",
+          help: "この人の家計（親のお金）を見る期間と、相続人の数え方は、この時点までです。空欄なら「平均余命で入れる」で目安を入れられます",
         }),
       )),
     );
@@ -413,7 +413,7 @@ function walletGroup(wh: WorkingHousehold, m: Member): GroupDef {
     { ...yenBox({ key: `family/${m.id}/wallet/balance`, item: "member.wallet", label: "預金など（今の残高）", level: "detail", basis: "once", find, path: ["wallet", "balance"], help: "空欄のあいだは、この人のお金を見ません（介護の費用は世帯が全部払います）" }), address: at("balance") },
     { ...yenBox({ key: `family/${m.id}/wallet/living`, item: "member.wallet", label: "この人の生活費（月額）", level: "detail", basis: "monthly", find, path: ["wallet", "living"], help: "物価上昇率で伸ばします。家計を1つにする期間で「生活費の人数に入れる」月は引きません" }), address: at("living") },
     {
-      ...yenBox({ key: `family/${m.id}/wallet/pension`, item: "member.wallet", label: "この人の年金（年額）", level: "detail", basis: "annual", find, path: ["wallet", "pension"], optional: true, help: "空欄は年金の推計を使います。入れると、今から毎年この額（額面）を入れます。「収入を世帯に入れる」月は世帯の収入に入ります。扶養の境目の1行もこの額と比べます" }),
+      ...yenBox({ key: `family/${m.id}/wallet/pension`, item: "member.wallet", label: "この人の年金（年額）", level: "detail", basis: "annual", find, path: ["wallet", "pension"], optional: true, help: "空欄は年金の推計を使います。入れると、今から毎年この額（額面）を入れます。「収入を世帯に入れる」月は世帯の収入に入ります。扶養の境目（目安）と比べるときも、この額を使います" }),
       address: at("pension"),
     },
   ];
@@ -484,7 +484,7 @@ export function careStage(wh: WorkingHousehold): StageDef {
     {
       key: "care/outside",
       title: "世帯の外の家族",
-      note: "親（両家）・祖父母・兄弟姉妹・離れて暮らす子など、家計が別の家族です。年金などの収入は世帯に入れません。家計を1つにする期間・扶養・亡くなる見込みは「詳細」で入れます。贈与する人（生年月なし。相続・贈与の項目で足す）もここに並びます",
+      note: "親（両家）・祖父母・兄弟姉妹・離れて暮らす子など、家計が別の家族です。年金などの収入は世帯に入れません。家計を1つにする期間・扶養・亡くなる見込みは「詳細」で入れます。相続・贈与の入力項目で足した、贈与する人もここに並びます",
       level: "simple",
       groups: [...outside.map((m) => outsideGroup(wh, m)), ...donorGroups(wh).map((g) => ({ ...g, title: `${g.title ?? "贈与する人"}（${donorKindText(wh, g.key)}・生年月なし）` }))],
       actions: addOutsideActions(wh),

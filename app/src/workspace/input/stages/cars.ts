@@ -629,7 +629,7 @@ export function carGroups(wh: WorkingHousehold, c: Car, i: number, all: readonly
     plain({ key: `${k}/growth`, item: "car.growth", label: "価格・維持費の伸び方", level: "detail", kind: "select", options: GROWTH_KINDS, find, path: ["growth", "kind"], fallback: "inflation", optional: true, after: (_h, t, v) => fixGrowth(t, v) }),
   );
   if (c.growth?.kind === "rate") fields.push(plain({ key: `${k}/growthRate`, item: "car.growth", label: "決まった伸び率（年）", level: "detail", kind: "pct", find, path: ["growth", "rate"] }));
-  fields.push(...onContingencyFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], level: "detail", help: "名義の人などの万一の月の翌月から、買い替えと維持費に当てます。組んだローンの返済は続きます" }));
+  fields.push(...onContingencyFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], level: "detail", help: "名義の人などの万一の月の翌月から、買い替えと維持費をこの扱いにします。組んだローンの返済は続きます" }));
   fields.push(...onContingencyDetailFields({ key: `${k}/on`, item: "car.onContingency", find, path: ["onContingency"], on: c.onContingency, level: "detail" }));
   // 見出しの一生の費用（今の値段で）
   const life = lifetimeCost(h0, c, wh.request.input.baseMonth, wh.request.input.endYear);
@@ -738,7 +738,7 @@ export function addCar(wh: WorkingHousehold, id: () => string = newId, owned = t
 }
 
 /** 車のカードの出るお金の行の区画（車を持たない移動の費用・車の修理・用品など。空ならカーシェアのひな形のボタン） */
-function moveSection(wh: WorkingHousehold, list: readonly Car[]): SectionDef | null {
+function moveSection(wh: WorkingHousehold, _list: readonly Car[]): SectionDef | null {
   const out = moneySections(wh, "car", { claimed: new Set(), level: "simple", outTitle: "出るお金" }).find((s) => s.key.endsWith("/out"));
   if (out === undefined) return null;
   const empty = out.groups.length === 0;
@@ -750,7 +750,7 @@ function moveSection(wh: WorkingHousehold, list: readonly Car[]): SectionDef | n
   };
   return {
     ...out,
-    note: `${empty ? "まだありません。" : ""}車の修理・用品、車を持たない移動の費用（カーシェア・レンタカー・タクシー）、手放した後の移動の費用。表の行の既定は「車の維持費」${list.length === 0 ? "" : "。手放した後の移動の費用は、手放す時期を入れた車のボタンで足すと、手放す時期と一緒に動きます"}`,
+    note: `${empty ? "まだありません。" : ""}車の修理・用品、車を持たない移動の費用（カーシェア・レンタカー・タクシー）、手放した後の移動の費用を入れます`,
     actions: [...(empty ? [share] : []), ...out.actions],
   };
 }

@@ -81,7 +81,7 @@ export const KINDS: readonly KindDef[] = [
     kind: "care",
     label: "民間の介護保険",
     template: "insurance.medical",
-    main: { benefit: "other", label: "介護の一時金", basis: "once", help: "計算の型に無い給付なので、この額は計算に入りません。受け取る見込みは下の「入るお金」の行（計算の型に無い保険の給付の見込み）で入れてください" },
+    main: { benefit: "other", label: "介護の一時金", basis: "once", help: "この給付はソフトでは計算しないので、この額は計算に入りません。受け取る見込みは下の「入るお金」の行で入れてください" },
     end: "lifetime",
     payUntil: 65,
     deduction: "careMedical",

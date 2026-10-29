@@ -110,7 +110,7 @@ function atField(spec: { key: string; ageOf?: (h: Household) => Member | undefin
       find,
       path: ["at"],
       ...(spec.ageOf !== undefined ? { ageOf: spec.ageOf } : {}),
-      ...(spec.yearly === true ? { help: "年ごとの額なので、この時点の属する年から変わります" } : {}),
+      ...(spec.yearly === true ? { help: "年ごとの額なので、この時点の年から変わります" } : {}),
     }),
     address: () => address,
   };

@@ -278,7 +278,7 @@ function headGroup(wh: WorkingHousehold, a: Account): GroupDef {
   const kindField: FieldDef = kindBase;
   const fields: FieldDef[] = [
     withAddress(
-      plain({ key: `${kp}/name`, item: "account.property.name", label: "物件名", level: "simple", kind: "text", find: findP, path: ["name"], optional: true, help: "空欄なら「物件1」「物件2」と呼びます。お客さまの呼び方（「○○のアパート」など）で入れると見分けやすくなります" }),
+      plain({ key: `${kp}/name`, item: "account.property.name", label: "物件名", level: "simple", kind: "text", find: findP, path: ["name"], optional: true, help: "空欄なら「物件1」「物件2」と呼びます。ふだんの呼び方（「○○のアパート」など）で入れると見分けやすくなります" }),
       onAccount(a.id, "account.property.name"),
     ),
     kindField,
@@ -373,7 +373,7 @@ function acquisitionFields(wh: WorkingHousehold, a: Account): FieldDef[] {
         onAccount(a.id, "account.property", ["acquisition", "costs"]),
       ),
       withAddress(
-        plain({ key: `${kp}/equity`, item: "account.property", label: "自己資金", level: "detail", kind: "yen", basis: "once", find: findP, path: ["acquisition", "equity"], optional: true, help: "買うときに手元のお金から出した額（頭金と諸費用）です。今は計算に使いません（自己資金に対する手残りの割合を出すために持ちます）" }),
+        plain({ key: `${kp}/equity`, item: "account.property", label: "自己資金", level: "detail", kind: "yen", basis: "once", find: findP, path: ["acquisition", "equity"], optional: true, help: "買うときに手元のお金から出した額（頭金と諸費用）です。計算には使いません" }),
         onAccount(a.id, "account.property", ["acquisition", "equity"]),
       ),
     );

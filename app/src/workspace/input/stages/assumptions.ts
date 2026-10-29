@@ -603,7 +603,7 @@ export function assumptionsStage(wh: WorkingHousehold): StageDef {
     label: `運用利回り: ${p.label}（${pctText(p.rate)}）`,
     level: "simple" as const,
     pressed: ir !== undefined && sameRate(ir, p.rate),
-    title: "運用利回りの目安（事務所の標準の値。いまは仮の値）。商品のおすすめではありません",
+    title: "運用利回りの目安（事務所の標準の値）。商品のおすすめではありません",
     run: (w: WorkingHousehold) => irField.set(w, p.rate),
   }));
   const std = standardCount(wh);

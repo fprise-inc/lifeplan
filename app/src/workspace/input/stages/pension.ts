@@ -4,7 +4,7 @@
 // - 定期便の加入月数は「わからない」でよい（代わりの値: 国民年金＝20歳の月から作成年月まで〔60歳まで〕、厚生年金＝働き方の期間の厚生年金の月）
 // - 受け取り開始（繰上げ・繰下げ）は基礎と厚生を別々に、時点の部品で月まで（0038）
 // - 受け取っている遺族年金・障害年金（受け取る人・種類・年額・終わりの推定）と外国の年金は、お金の行（0044）で額を入れる
-// - 世帯の外の家族（親など）の年金は介護・親のカード。このカードは本人・配偶者だけ
+// - 世帯の外の家族（親など）の年金は介護・親の項目。このカードは本人・配偶者だけ
 import type { Household, IncomeFlow, Member, PensionRecord, ReceivingPensionType, Timepoint } from "../../../engine/types.ts";
 import { addMonths, ageAt, ageReachedMonth } from "../../levers.ts";
 import { ageSwitchMonth } from "../../timepoint.ts";
@@ -290,7 +290,7 @@ function claimFields(m: Member, find: Finder, prefix: string, prop: "claim" | "p
     suffix: "歳から",
     min: 60,
     max: 75,
-    help: "65歳より前は繰上げ（減額）、後は繰下げ（増額）が付きます。「66歳3か月」のように月まで入れられます。基礎と厚生を別々にするのは詳細で。結果の対策でも動かせます（制度の変更で受け取り開始が遅くなる場合を試す欄ではありません）",
+    help: "65歳より早く受け取ると年金が減り、遅くすると増えます。「66歳3か月」のように月まで入れられます",
     time: timeView({ ...common, anchor: "pensionStart", read: (w) => rec0(w)?.claim?.basic ?? null, write: writeClaim(["basic", "employee"]) }),
     get: (w) => {
       const h = w.request.input.household;
@@ -422,7 +422,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
     kind: "select",
     options: PENSION_MODES,
     structural: true,
-    help: "手元の書類で選びます。書類が無ければ推計のまま（働き方の期間から計算します）。切り替えても、前の入れ方の数字は消さずに残します",
+    help: "手元の書類で選びます。書類が無ければ、働き方から計算した目安のままで構いません",
     get: (w) => ({ value: modeOf(recordOf(w.request.input.household, m.id)) }),
     set: (w, v) => {
       const mode = String(v ?? "");
@@ -457,7 +457,7 @@ function recordGroups(wh: WorkingHousehold, m: Member): GroupDef[] {
         kind: "select",
         options: DOCUMENT_KINDS,
         structural: true,
-        help: "ねんきん定期便は50歳未満（これまでの加入実績の額）と50歳以上（65歳からの見込額）で中身が違います。種類を変えても作成年月・加入月数は引き継ぎ、額の欄の名前と説明を入れ替えます",
+        help: "ねんきん定期便は、50歳未満（これまでの加入の額）と50歳以上（65歳からの見込みの額）で中身が違います。手元の定期便に合わせて選びます",
         get: (w) => ({ value: recordOf(w.request.input.household, m.id)?.kind ?? "" }),
         set: (w, v) => switchPension(w, m.id, String(v ?? "")),
       }),
@@ -692,7 +692,7 @@ function receivingGroups(wh: WorkingHousehold, f: IncomeFlow): GroupDef[] {
         find,
         path: ["pensionType"],
         optional: true,
-        help: "種類で終わりの推定が決まります（推定のままの終わりは、種類を変えると入れ直します）",
+        help: "種類によって、受け取りが終わる時期の目安が変わります",
         after: (hh, t) => {
           const x = t as unknown as IncomeFlow;
           // 名前が種類の名前のままなら、新しい種類の名前にする
@@ -703,10 +703,10 @@ function receivingGroups(wh: WorkingHousehold, f: IncomeFlow): GroupDef[] {
       at("incomeFlow.pensionType"),
     ),
     withA(
-      yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: "年額", level: "simple", basis: "annual", find, path: ["amount"], help: "年金決定通知書・年金額改定通知書の年額。遺族年金・障害年金は非課税なので、公的年金等の源泉徴収票には載りません。今の値段（計算の基準の年の価格）で入れます" }),
+      yenBox({ key: `${k}/amount`, item: "incomeFlow.amount", label: "年額", level: "simple", basis: "annual", find, path: ["amount"], help: "年金決定通知書・年金額改定通知書の年額を入れます。遺族年金・障害年金は税がかからないので、源泉徴収票には載りません" }),
       at("incomeFlow.amount"),
     ),
-    withA(timepointField({ key: `${k}/from`, item: "incomeFlow.from", label: "計算に入れる始まり", level: "simple", find, path: ["from"], ageOf, help: "今受け取っていれば計算の基準の月のまま" }), at("incomeFlow.from")),
+    withA(timepointField({ key: `${k}/from`, item: "incomeFlow.from", label: "計算に入れる始まり", level: "simple", find, path: ["from"], ageOf, help: "もう受け取っているなら、そのままで構いません" }), at("incomeFlow.from")),
     withA(
       timepointField({
         key: `${k}/to`,
@@ -778,7 +778,7 @@ function receivingSection(wh: WorkingHousehold): SectionDef {
 
 // ---- カード ----
 
-/** 年金のカードに出す人（本人・配偶者。世帯の外の家族の年金は介護・親のカード） */
+/** 年金のカードに出す人（本人・配偶者。世帯の外の家族の年金は介護・親の項目） */
 export const pensionMembers = (h: Household): Member[] => earners(h).filter((m) => (m.kind === "self" || m.kind === "spouse") && m.expected !== true && m.outside === undefined);
 
 export function pensionStage(wh: WorkingHousehold): StageDef {
