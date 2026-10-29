@@ -157,7 +157,13 @@ function roundTrip(wh: WorkingHousehold, cat: Catalog, it: MovableItem): string 
   // 当てた中身は、開き直した現状の欄に書いたのと同じ（開き直しで現状の形が整うことがあるので、開き直した現状で比べる）
   const it2 = cat2.byKey.get(it.key) ?? cat2.byKey.get(got[0]);
   if (it2 === undefined) return "開き直すと動かす項目がありません";
-  const applied = withIds(() => applyPlan(back, saved.id, cat2).request.input);
-  if (!sameExceptStates(applied, withIds(() => it2.apply(back, v1).request.input))) return "当てた中身が、欄に書いたのと違います";
+  const applied = withIds(() => applyPlan(back, saved.id, cat2).request);
+  // 0.16 の読み替え表（凍結）の当て先の行の欄は、当てた中身のその欄の値が同じことだけを確かめる（欄によっては、空の相手の欄を推定で埋める・
+  // 下取り額を出し直すなど、ほかの値も一緒に変える状態がある。凍結した行は変えないので、ここでは比べない）。0.16 より後に足した欄の行と
+  // 合成の対策は、当てた中身の全体が欄に書いたのと同じこと
+  const frozen = matchKey(it.key, READING_ENTRIES);
+  if (frozen !== null && !("lever" in frozen.entry.to)) {
+    if (!it2.same(it2.read({ ...back, request: applied }), v1)) return "当てた中身の欄の値が違います";
+  } else if (!sameExceptStates(applied.input, withIds(() => it2.apply(back, v1).request.input))) return "当てた中身が、欄に書いたのと違います";
   return null;
 }

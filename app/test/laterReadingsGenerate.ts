@@ -5,6 +5,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_DIR } from "../scripts/lib.ts";
+import { COLLECTIONS, ITEM_PLACES } from "../src/generated/readings.ts";
 import type { EngineRequest } from "../src/engine/types.ts";
 import { allFields, type ActionDef, type FieldDef, type StageDef } from "../src/workspace/input/form.ts";
 import { blankHousehold, fromRequest, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -77,11 +78,8 @@ export function bump(f: FieldDef, v: unknown): number | string {
   return String(Math.round((s + 0.0125) * 10000) / 10000);
 }
 
-const itemsJson = JSON.parse(readFileSync(join(REPO_DIR, "engine", "src", "generated", "items.json"), "utf8")) as {
-  collections: Record<string, string[]>;
-  items: Record<string, { collection: string | null; path: string[] }>;
-};
-const collectionOfArray = new Map(Object.entries(itemsJson.collections).map(([c, p]) => [p.join("/"), c]));
+// 入力項目ID の場所と物の集まり（prepare-assets が登録簿とエンジンの入力のスキーマから作る src/generated/readings.ts）
+const collectionOfArray = new Map(Object.entries(COLLECTIONS).map(([c, v]) => [`household/${v.field}`, c]));
 
 function leaves(o: unknown, p: string[], out: Map<string, unknown>): void {
   if (Array.isArray(o)) {
@@ -146,9 +144,9 @@ function autoEntry(key: string, path: string[], input: Json): { from: string; to
   }
   const keyIds: string[] = key.match(UUID) ?? [];
   if (objectId !== null && !keyIds.includes(objectId)) return "物の ID が鍵にありません";
-  const cands = Object.entries(itemsJson.items).filter(([, p]) => p.collection === collection && p.path.every((s, i) => rest[i] === s));
+  const cands = Object.entries(ITEM_PLACES).filter(([, p]) => p.status === "active" && p.collection === collection && p.path.every((s, i) => rest[i] === s));
   if (cands.length === 0) return `入力項目ID がありません: ${rest.join("/")}`;
-  const [item, place] = cands.sort((x, y) => y[1].path.length - x[1].path.length)[0] as [string, { path: string[] }];
+  const [item, place] = cands.sort((x, y) => y[1].path.length - x[1].path.length)[0] as [string, { path: readonly string[] }];
   for (const s of place.path) node = isObj(node) ? node[s] : undefined;
   const otherIds = keyIds.filter((u) => u !== objectId);
   const keyNums = [...key.matchAll(/(?<=\/|^|:)(\d+)(?=\/|$|:)/g)].map((m) => Number(m[1]));
