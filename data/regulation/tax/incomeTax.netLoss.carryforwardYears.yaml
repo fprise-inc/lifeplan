@@ -18,5 +18,23 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2070.htm", "retrievedAt": "2026-10-28", "sha256": "2f280b15db8d1691682b857c06cbe825b26f04bb462f5a601b6cfa1ae6dbc7d9", "locator": "No.2070 純損失の繰越し", "quote": "その損失額を翌年以後3年間にわたって繰り越して、各年分の所得金額から控除します"}
       - {"type": "law", "lawNumber": "昭和四十年法律第三十三号", "egovRevisionId": "340AC0000000033_20261001_507AC0000000070"}
     recordedIn: "2026.15.0"
-    supersededIn: null
+    supersededIn: "2026.15.1"
     approval: {"method": "pendingReview", "paths": 2, "note": "所得税法70条1項・地方税法313条8項（市町村民税。道府県民税は32条8項で同じ）。特定非常災害の損失の5年は扱わない。e-Gov法令API の条文（XML）と国税庁のタックスアンサー（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-10-28）。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}
+  - rev: 2
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 3
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20261001_507AC0000000070?response_format=xml", "retrievedAt": "2026-10-08", "sha256": "bf6869bc9ca55e4b20db4d3a2133aca06d5877eab9e2980612688033fc888121", "locator": "所得税法 第70条第1項（令和8年10月1日の版）", "quote": "その年の前年以前三年内の各年（その年分の所得税につき青色申告書を提出している年に限る。）において生じた純損失の金額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/340AC0000000033_20170401_428AC0000000039?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "a0a457fc3cd248f9f2abaa2866f1218bdc8171c30fb7a05c37a4cf2d2cffa074", "locator": "所得税法 第70条第1項（平成29年4月1日の版）", "quote": "その年の前年以前三年内の各年（その年分の所得税につき青色申告書を提出している年に限る。）において生じた純損失の金額"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261016_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-29", "sha256": "09c642c443b166292a0e3249fe9e107dd751ff065f74d81194a7755a0bb2af78", "locator": "地方税法 第313条第8項（令和8年10月16日の版）", "quote": "当該納税義務者の前年前三年間における総所得金額、退職所得金額又は山林所得金額の計算上生じた"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20170401_429AC0000000002?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "07a0546f1e48a2f292fc0e03d9a12d7dbc7c8e8f760d4438320e46c802e5fcc0", "locator": "地方税法 第313条第8項（平成29年4月1日の版）", "quote": "当該納税義務者の前年前三年間における総所得金額、退職所得金額又は山林所得金額の計算上生じた"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2070.htm", "retrievedAt": "2026-10-29", "sha256": "2f280b15db8d1691682b857c06cbe825b26f04bb462f5a601b6cfa1ae6dbc7d9", "locator": "No.2070 純損失の繰越し", "quote": "その損失額を翌年以後3年間にわたって繰り越して、各年分の所得金額から控除します"}
+      - {"type": "law", "lawNumber": "昭和四十年法律第三十三号", "egovRevisionId": "340AC0000000033_20261001_507AC0000000070"}
+    recordedIn: "2026.15.1"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-29", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "所得税法70条1項の前年以前三年内・地方税法313条8項（市町村民税。道府県民税は32条8項で同じ）の前年前三年間と国税庁 No.2070 の3年間で一致。特定非常災害の損失の5年は扱わない。施行日は e-Gov の最初の版（平成29年4月1日）に同じ文言があるので notAfter"}

@@ -17,5 +17,21 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3211.htm", "retrievedAt": "2026-10-28", "sha256": "670fc67490fb1d7a0056509651f40a84d0e903f0cc1a28921448e534e782e267", "locator": "No.3211 税額の計算", "quote": "税額＝課税短期譲渡所得金額×30％（住民税9％）"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261016_508AC0000000035"}
     recordedIn: "2026.15.0"
-    supersededIn: null
+    supersededIn: "2026.15.1"
     approval: {"method": "pendingReview", "paths": 2, "note": "措置法32条1項の百分の三十。国や地方公共団体への譲渡などの軽減税率（15%）は扱わない。e-Gov法令API の条文（XML）と国税庁のタックスアンサー（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-10-28）。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}
+  - rev: 2
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.3"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261016_508AC0000000035?response_format=xml", "retrievedAt": "2026-10-29", "sha256": "544b1cbe918d8597afbba11a6477b8b5bc7d19ef82f03750dd0d0cc857360712", "locator": "租税特別措置法 第32条第1項（令和8年10月16日の版）", "quote": "の百分の三十に相当する金額に相当する所得税を課する"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20170401_427AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "409c072709354a7ad1d822c2f6314b1cc94d0cd5e18a5ab8917201bf81451008", "locator": "租税特別措置法 第32条第1項（平成29年4月1日の版）", "quote": "の百分の三十に相当する金額に相当する所得税を課する"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3211.htm", "retrievedAt": "2026-10-29", "sha256": "670fc67490fb1d7a0056509651f40a84d0e903f0cc1a28921448e534e782e267", "locator": "No.3211 税額の計算", "quote": "税額＝課税短期譲渡所得金額×30％（住民税9％）"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261016_508AC0000000035"}
+    recordedIn: "2026.15.1"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-29", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "措置法32条1項の百分の三十と国税庁 No.3211 の30%で一致。国や地方公共団体への譲渡などの軽減税率（15%）は扱わない。施行日は e-Gov の最初の版（平成29年4月1日）に同じ文言があるので notAfter"}

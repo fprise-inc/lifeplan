@@ -17,5 +17,21 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3208.htm", "retrievedAt": "2026-10-28", "sha256": "09ce79ad80a43f5a3244fdce9d04b9da01b852ab5c5ab9e092c3e30fc7569487", "locator": "No.3208 概要", "quote": "譲渡した年の1月1日現在の所有期間が5年を超える土地や建物"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261016_508AC0000000035"}
     recordedIn: "2026.15.0"
-    supersededIn: null
+    supersededIn: "2026.15.1"
     approval: {"method": "pendingReview", "paths": 2, "note": "措置法31条1項・32条1項。所有期間は取得の日の翌日から（31条2項）。e-Gov法令API の条文（XML）と国税庁のタックスアンサー（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-10-28）。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}
+  - rev: 2
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 5
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261016_508AC0000000035?response_format=xml", "retrievedAt": "2026-10-29", "sha256": "544b1cbe918d8597afbba11a6477b8b5bc7d19ef82f03750dd0d0cc857360712", "locator": "租税特別措置法 第31条第1項（令和8年10月16日の版）", "quote": "その年一月一日において所有期間が五年を超えるもの"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20170401_427AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "409c072709354a7ad1d822c2f6314b1cc94d0cd5e18a5ab8917201bf81451008", "locator": "租税特別措置法 第31条第1項（平成29年4月1日の版）", "quote": "その年一月一日において所有期間が五年を超えるもの"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3208.htm", "retrievedAt": "2026-10-29", "sha256": "09ce79ad80a43f5a3244fdce9d04b9da01b852ab5c5ab9e092c3e30fc7569487", "locator": "No.3208 概要", "quote": "譲渡した年の1月1日現在の所有期間が5年を超える土地や建物"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261016_508AC0000000035"}
+    recordedIn: "2026.15.1"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-29", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "措置法31条1項（32条1項は「五年以下であるもの」）と国税庁 No.3208 で一致。所有期間は取得の日の翌日から（31条2項）。施行日は e-Gov の最初の版（平成29年4月1日）に同じ文言があるので notAfter"}

@@ -90,9 +90,13 @@
 .top:is([data-fit="2"], [data-fit="3"]) .bar-alert { padding: 2px 9px; }
 .top:is([data-fit="2"], [data-fit="3"]) .top-r { gap: 6px; }
 /* 3: それでも入らない幅では、タブを2行目に折り返す（見切れさせない） */
-.top[data-fit="3"] { grid-template-columns: minmax(0, 1fr) max-content; grid-template-areas: "l r" "t t"; }
+/*    左（ロゴと世帯のボタン）は縮めた世帯のボタンの幅（min-width）を必ず取り、右の操作は残りの幅に入らなければ折り返す
+      （右を1行のまま取ると、窓が狭いときに世帯のボタンが左の列からはみ出して ↶↷ に重なる）。
+      世帯のボタンは中身の長さを列の幅の計算に入れず（contain）、列に余りがあれば広がる */
+.top[data-fit="3"] { grid-template-columns: minmax(min-content, 1fr) minmax(0, max-content); grid-template-areas: "l r" "t t"; }
 .top[data-fit="3"] .top-l { flex-wrap: wrap; }
-.top[data-fit="3"] .top-r { flex-wrap: wrap; }
+.top[data-fit="3"] .hh-btn { contain: inline-size; flex: 1 1 auto; }
+.top[data-fit="3"] .top-r { flex-wrap: wrap; min-width: 0; }
 /* タブが6つ（収益不動産のある世帯）で2行目にも入らない幅では、タブの並びも折り返す */
 .top[data-fit="3"] .tabs { flex-wrap: wrap; }
 

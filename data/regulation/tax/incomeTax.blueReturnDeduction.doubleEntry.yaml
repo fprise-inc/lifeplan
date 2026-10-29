@@ -17,5 +17,21 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2072.htm", "retrievedAt": "2026-10-28", "sha256": "de4d48788c2cdaf2c4225d16799780e9f75a17d6162ac09f61cc87eb07fb17ea", "locator": "No.2072 概要", "quote": "所得金額から55万円（一定の要件を満たす場合は65万円）または10万円を控除する"}
       - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261016_508AC0000000035"}
     recordedIn: "2026.15.0"
-    supersededIn: null
+    supersededIn: "2026.15.1"
     approval: {"method": "pendingReview", "paths": 2, "note": "措置法25条の2第3項。不動産所得の金額・事業所得の金額の合計（黒字の所得の合計）が上限で、不動産所得・事業所得から順次控除する（同条5項）。e-Gov法令API の条文（XML）と国税庁のタックスアンサー（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-10-28）。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}
+  - rev: 2
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: "2020-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: 550000
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261016_508AC0000000035?response_format=xml", "retrievedAt": "2026-10-29", "sha256": "544b1cbe918d8597afbba11a6477b8b5bc7d19ef82f03750dd0d0cc857360712", "locator": "租税特別措置法 第25条の2第3項（令和8年10月16日の版）", "quote": "次に掲げる金額のうちいずれか低い金額を控除した金額とする。一五十五万円"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20200101_501AC0000000016?response_format=xml", "retrievedAt": "2026-10-29", "sha256": "0b8bb7f8fd4db6d62dca17ee6bae60a7f2ef1b52bb9a300b84a14b473c3bd4bb", "locator": "租税特別措置法 第25条の2第3項（令和2年1月1日の版）", "quote": "次に掲げる金額のうちいずれか低い金額を控除した金額とする。一五十五万円"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2072.htm", "retrievedAt": "2026-10-29", "sha256": "de4d48788c2cdaf2c4225d16799780e9f75a17d6162ac09f61cc87eb07fb17ea", "locator": "No.2072 概要", "quote": "所得金額から55万円（一定の要件を満たす場合は65万円）または10万円を控除する"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261016_508AC0000000035"}
+    recordedIn: "2026.15.1"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-29", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "措置法25条の2第3項の五十五万円と国税庁 No.2072 の55万円で一致。不動産所得・事業所得の金額の合計が上限で、その順に控除する（同条5項）。施行日は、現行の文言が e-Gov の改正履歴で最初に現れた版（令和2年1月1日。直前の令和元年12月16日の版には無い）の施行日"}

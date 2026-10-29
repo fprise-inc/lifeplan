@@ -15,5 +15,23 @@ entries:
     sources:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3258.htm", "retrievedAt": "2026-10-28", "sha256": "16556f48ea243c169627ce6981d19259a406ee8438cce5ea7a496b5cf1313370", "locator": "No.3258 内容", "quote": "取得費が分からない場合には、売った金額の5パーセント相当額を取得費とすることができます"}
     recordedIn: "2026.15.0"
-    supersededIn: null
+    supersededIn: "2026.15.1"
     approval: {"method": "pendingReview", "paths": 1, "note": "国税庁 No.3258（所得税基本通達38-16・措置法31条の4）。読んだのは公表資料の1つだけなので確認待ち。e-Gov法令API の条文（XML）と国税庁のタックスアンサー（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-10-28）。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}
+  - rev: 2
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: {"notAfter": "2017-04-01"}
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20261016_508AC0000000035?response_format=xml", "retrievedAt": "2026-10-29", "sha256": "544b1cbe918d8597afbba11a6477b8b5bc7d19ef82f03750dd0d0cc857360712", "locator": "租税特別措置法 第31条の4第1項（令和8年10月16日の版）", "quote": "当該収入金額の百分の五に相当する金額とする"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/332AC0000000026_20170401_427AC0000000047?response_format=xml", "retrievedAt": "2026-10-09", "sha256": "409c072709354a7ad1d822c2f6314b1cc94d0cd5e18a5ab8917201bf81451008", "locator": "租税特別措置法 第31条の4第1項（平成29年4月1日の版）", "quote": "当該収入金額の百分の五に相当する金額とする"}
+      - {"type": "web", "url": "https://www.nta.go.jp/law/tsutatsu/kobetsu/shotoku/sochiho/710826/sanrin/sanjyou/soti31/08.htm", "retrievedAt": "2026-10-29", "sha256": "ade0c95745adf291bf3427be5b1f37d2969d0d324887b77fe9afa10803f75c63", "locator": "租税特別措置法関係通達 31の4－1（昭和28年以後に取得した資産についての適用）", "quote": "昭和28年1月1日以後に取得した土地建物等の取得費についても、同項の規定に準じて計算して差し支えない"}
+      - {"type": "web", "url": "https://www.nta.go.jp/law/shitsugi/joto/05/07.htm", "retrievedAt": "2026-10-29", "sha256": "d254560bddb82177ef91fd72ff09cfa37b0342d72be6c931e318176c893eec81", "locator": "質疑応答事例（譲渡所得）短期譲渡所得の計算上控除する取得費と概算取得費控除 回答要旨", "quote": "短期譲渡所得の金額の計算についても適用して差し支えありません"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3258.htm", "retrievedAt": "2026-10-29", "sha256": "16556f48ea243c169627ce6981d19259a406ee8438cce5ea7a496b5cf1313370", "locator": "No.3258 内容", "quote": "取得費が分からない場合には、売った金額の5パーセント相当額を取得費とすることができます"}
+      - {"type": "law", "lawNumber": "昭和三十二年法律第二十六号", "egovRevisionId": "332AC0000000026_20261016_508AC0000000035"}
+    recordedIn: "2026.15.1"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-29", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "措置法31条の4第1項の百分の五（昭和27年12月31日以前から所有の土地建物等）を、措置法関係通達31の4－1が昭和28年以後の取得にも、国税庁の質疑応答事例が短期譲渡所得にも準じて認める。この読み方と国税庁 No.3258 の5パーセントで一致。施行日は e-Gov の最初の版（平成29年4月1日）に31条の4第1項の同じ文言があるので notAfter"}

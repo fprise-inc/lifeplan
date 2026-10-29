@@ -4,6 +4,7 @@
 // 全体: 物件ごとの1行と合計の行（選んだ年）→ 合計の年ごとの表。
 // 欄の説明・式は「?」の中に入れ、画面には欄の名前・値・印・操作の名前だけを出す
 import type { ComponentChildren } from "preact";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import { Help } from "./Help.tsx";
 import type { RentalPropertyViewModel, RentalSaleModel, RentalTabModel, RentalTableModel, RentalTotalViewModel } from "./model.ts";
 
@@ -214,9 +215,33 @@ function TotalView({ view, onView, onYear, provisional }: { view: RentalTotalVie
   );
 }
 
+/**
+ * 年ごとの表の枠（縦に送る）を、選んだ年の行が見える位置にするときの送り量（見えていれば null。動かさない）。
+ * 行が見出しの行（上に貼り付く）の下か枠の下に隠れているときは、行を枠の見える部分の真ん中に置く。
+ * rowTop は枠の中身の頭からの行の上端（送り量に依らない）、head は貼り付く見出しの行の高さ
+ */
+export function yearRowScroll(rowTop: number, rowHeight: number, head: number, scrollTop: number, viewHeight: number): number | null {
+  const visibleTop = scrollTop + head;
+  const visibleBottom = scrollTop + viewHeight;
+  if (rowTop >= visibleTop - 0.5 && rowTop + rowHeight <= visibleBottom + 0.5) return null;
+  const middle = rowTop - head - (viewHeight - head - rowHeight) / 2;
+  return Math.max(0, Math.round(middle));
+}
+
 function YearTable({ table, selected, onYear }: { table: RentalTableModel; selected: number; onYear: (y: number) => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  // 選んだ年（#rentalyear・指標の年を変えたとき）の行が枠の外なら、枠の中だけを送って見せる（画面全体は動かさない）
+  useLayoutEffect(() => {
+    const el = box.current;
+    const row = el?.querySelector<HTMLElement>(`tr[data-year="${String(selected)}"]`);
+    if (el === null || el === undefined || row === null || row === undefined) return;
+    const top = row.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+    const head = el.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+    const next = yearRowScroll(top, row.getBoundingClientRect().height, head, el.scrollTop, el.clientHeight);
+    if (next !== null) el.scrollTop = next;
+  }, [selected, table.rows.length]);
   return (
-    <div class="rt-scroll rt-years">
+    <div class="rt-scroll rt-years" ref={box}>
       <table class="rt-table">
         <thead>
           <tr>
