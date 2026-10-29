@@ -118,7 +118,7 @@ function modeField(b: RetirementBenefit, prefix: string): FieldDef {
     options: MODE_OPTIONS,
     // 物の形が変わる選択（額⇄目安。往復は別のテストで確かめる）
     structural: true,
-    help: "切り替えても値は消えません（額から目安に戻すと、入れていた額を根拠の文に残します）",
+    help: "切り替えても、入れた値は消えません",
     get: (w) => {
       const x = (w.request.input.household.retirementBenefits ?? []).find((y) => y.id === b.id);
       return { value: x === undefined ? null : modeOf(x) };

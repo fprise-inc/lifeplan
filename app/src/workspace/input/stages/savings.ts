@@ -125,7 +125,7 @@ function accountGroups(wh: WorkingHousehold, a: Account): GroupDef[] {
         level: "simple",
         kind: "pct",
         optional: true,
-        help: "運用の費用（信託報酬など）を引いた後の利回りで入れます（詳細の「運用の費用」に費用を入れたときは、費用を引く前の利回りにします）。空欄なら資産の配分と前提条件の利回り",
+        help: "1年あたりの見込みの利回りを、信託報酬などの費用を引いた後で入れます。空欄なら、資産の配分や前提条件の目安の利回りで計算します（費用を別に入れる形は詳細で）",
         get: (w) => {
           const x = find(w.request.input.household, w) as Account | undefined;
           return { value: x?.expectedReturn ?? null, ...(x !== undefined && x.expectedReturn === undefined ? { hint: `空欄: 年${(Number(rateOf(w.request, x)) * 100).toFixed(1)}%` } : {}) };

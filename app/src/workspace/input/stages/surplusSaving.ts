@@ -35,7 +35,7 @@ const PERIOD_NAMES: Readonly<Record<"children" | "retirement", { before: string;
 const AFTER_NOTES: Readonly<Record<"children" | "retirement", string>> = {
   children: "子の独立の後は教育費が無くなり、黒字が増えやすい時期です。そのうち貯金に回る割合を入れます。",
   retirement:
-    "退職の後は年金だけでは赤字になる年が多く、赤字の年は差し引かないので、この割合が効くのは黒字の年（働く収入や年金が多い年）だけです。取り崩しの計画がある年も差し引きません（計画の額だけを使います）。",
+    "退職の後は、年金だけでは赤字になる年が多くなります。この割合が効くのは、働く収入や年金が多くて黒字になる年だけです（貯金を取り崩す予定の年は除きます）。",
 };
 
 function changeGroups(wh: WorkingHousehold, preset: SurplusPreset | "custom" | null): GroupDef[] {
@@ -191,7 +191,7 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
         level: "simple",
         kind: "pct",
         optional: true,
-        help: "空欄は100%（今まで通り、黒字が全部貯金に回る計算）。例えば60%なら、残りの4割は実際には使ってしまうお金（ゆとりの支出）として支出に入れます。赤字の年・退職金などの一時金・取り崩しの計画がある年は対象にしません",
+        help: "空欄なら100%（黒字をすべて貯金に回す）で計算します。例えば60%なら、残りの4割は使ってしまうお金（ゆとりの支出）として支出に入れます。赤字の年、退職金などまとまったお金が入る年、貯金を取り崩す予定の年には当てはめません",
         get: (w) => ({ value: surplusOf(w.request)?.ratio ?? null, hint: surplusOf(w.request)?.ratio === undefined ? "空欄＝100%" : null }),
         set: (w, v) => {
           const cur = surplusOf(w.request) ?? {};
@@ -245,7 +245,7 @@ export function surplusSection(wh: WorkingHousehold): SectionDef {
       {
         key: "living/surplus/presets",
         level: "simple",
-        note: "時期で分けるときは目安から選べます（期間はこの世帯の末子の独立・退職の時期で入ります）。割合の初期値は統計ではなく目安なので、顧客に聞いて直してください",
+        note: "時期によって割合を変えるときは、下の目安から選べます（区切りは、お子さまの独立や退職の時期に合わせて入ります）。目安の割合は統計ではないので、ご家庭の実感に合わせて直してください",
         fields: [],
         actions: presets,
       },

@@ -298,7 +298,7 @@ export function inheritanceStage(wh: WorkingHousehold): StageDef {
     {
       key: "inherit/receive",
       title: moneyIn?.title ?? "受け取る予定の相続・贈与",
-      note: "見込み（確実・当てにしない）を行ごとに選びます。「当てにしない」の受け取る相続・贈与は、基本の計算に入れません（行は残り、「この行を計算に入れる」で入れられます）。相手は世帯の外の家族（介護・親の項目）から選び、相続の受け取る時期は相手の亡くなる見込みの10か月後を推定で入れます",
+      note: "受け取れるかどうかの見込み（確実・当てにしない）を行ごとに選びます。「当てにしない」にした分は、除いて計算します。相続で受け取る時期は、亡くなる見込みの10か月後を目安に入れます",
       level: "simple",
       groups: [...(moneyIn?.groups ?? []).map((g) => withIncludeAction(wh, g)), ...inheritedDebtGroups(wh), ...groupsOf(readGroup("inherit/receive", undefined, lines.receive))],
       actions: [...receiveActions(moneyIn?.actions ?? []), { key: "money/inherit/addDebt", label: "＋ 相続で受け継ぐ借金", level: "detail", run: (w: WorkingHousehold) => addInheritedDebt(w) }],

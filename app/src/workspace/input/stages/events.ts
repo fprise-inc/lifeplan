@@ -48,7 +48,7 @@ export function careGroup(wh: WorkingHousehold, c: CareExpense): GroupDef {
       yenBox({ key: `${k}/initial`, item: "care.initial", label: "一時費用", level: "detail", basis: "once", find, path: ["initial"], optional: true, help: "住宅の改修・入居金など。空欄は統計の目安（一時費用の平均）で計算します" }),
       plain({ key: `${k}/payer`, item: "care.payer", label: "払う人", level: "detail", kind: "select", options: [{ value: "", label: "介護を受ける人" }, ...memberOptions(wh)], find, path: ["payer"], optional: true, fallback: "", help: "介護を受ける人が世帯の外の家族で、その人のお金を見ているときは、まずその人のお金から払い、尽きた月からここで選んだ人が払います" }),
       ...growthFields(k, "care.growth", find, c.id, c.growth),
-      ...onContingencyFields({ key: `${k}/on`, item: "care.onContingency", find, path: ["onContingency"], level: "detail", help: "払う人の万一（死亡など）が起きた月の翌月から当てます" }).map((x) => ({ ...x, address: () => ({ target: { object: c.id }, item: "care.onContingency", at: [] }) })),
+      ...onContingencyFields({ key: `${k}/on`, item: "care.onContingency", find, path: ["onContingency"], level: "detail", help: "払う人の万一（死亡など）が起きた月の翌月から、この扱いにします" }).map((x) => ({ ...x, address: () => ({ target: { object: c.id }, item: "care.onContingency", at: [] }) })),
       ...onContingencyDetailFields({ key: `${k}/on`, item: "care.onContingency", find, path: ["onContingency"], on: c.onContingency, level: "detail" }).map((x) => ({ ...x, address: () => ({ target: { object: c.id }, item: "care.onContingency", at: [] }) })),
     ],
     actions: [removeAction(`${k}/remove`, "外す", "simple", (h) => void (h.careExpenses = (h.careExpenses ?? []).filter((x) => x.id !== c.id)))],
@@ -234,7 +234,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
   const outSection: SectionDef = {
     key: "ev/periodic",
     title: "出るお金",
-    note: `${empty ? "まだありません。" : ""}旅行・家電の買い替え・結婚・大きな買い物・予備費など。毎月の基本生活費とは別に入れます。行の右の札（必ず・できれば）で、結果の「確実な分だけ」で外す物を決められます`,
+    note: `${empty ? "まだありません。" : ""}旅行・家電の買い替え・結婚・大きな買い物・予備費など。毎月の基本生活費とは別に入れます。行の右で「必ず」「できれば」を選んでおくと、結果の画面で「できれば」の支出を外した場合と比べられます`,
     level: "simple",
     groups: rows.flatMap((p) => eventRowGroups(wh, p)),
     actions: [
@@ -272,7 +272,7 @@ export function eventsStage(wh: WorkingHousehold): StageDef {
       ? null
       : {
           ...inSec,
-          note: `${inRows.length === 0 ? "まだありません。" : ""}祝い金・お見舞い・一時の給付金・動産の売却（車以外）・一時所得・その他の入金。額は入れるまで「未入力（0円で計算中）」です。相続・贈与は相続・贈与、援助・仕送りは介護・親、養育費・手当は家族、副業・売却代金（事業）は働き方と収入の項目で入れます`,
+          note: `${inRows.length === 0 ? "まだありません。" : ""}祝い金・お見舞い・一時の給付金・物の売却などの入金です。相続・贈与、親からの援助、副業の収入などは、それぞれの入力項目で入れます`,
           groups: inSec.groups.map((g) => {
             const m = /^in\/([^/]+)$/.exec(g.key);
             const id = m?.[1];

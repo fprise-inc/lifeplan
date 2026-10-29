@@ -422,7 +422,7 @@ export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" 
       level,
       kind: "select",
       options: [{ value: "", label: "入っていない・未確認" }, ...memberOptions(wh, (m) => d.debtors.some((x) => x.member === m.id))],
-      help: "亡くなったとき・高度障害のとき、この人の負担分の残高が消えます。民間の住宅ローンの多くは加入が条件です（フラット35 は任意なので確かめてください）",
+      help: "亡くなったとき・高度障害のとき、この人の負担分の残高が消えます。民間の住宅ローンの多くは加入が条件です（フラット35 は加入が任意です）",
       get: (w) => ({ value: (find(w.request.input.household, w) as Debt | undefined)?.creditLife?.covered[0] ?? "", ...(((find(w.request.input.household, w) as Debt | undefined)?.creditLife?.covered.length ?? 0) > 1 ? { derived: "夫婦連生（2人とも対象）" } : {}) }),
       set: (w, v) =>
         mutate(w, (h) => {
@@ -462,7 +462,7 @@ export function creditLifeFields(wh: WorkingHousehold, d: Debt, level: "simple" 
       level: "detail",
       kind: "select",
       options: DISEASE_RIDERS,
-      help: "記録として持ちます（万一のときの想定は死亡・障害・就業不能なので、疾病の特約はまだ計算に使いません）",
+      help: "記録として残します（病気の特約は、計算には使いません）",
       get: (w) => ({ value: events(w.request.input.household, w).find((e) => e === "cancer" || e === "threeMajor" || e === "eightMajor") ?? "", ...(implicitEvents(w) ? { implicit: true } : {}) }),
       set: (w, v) =>
         mutate(w, (h) => {
@@ -669,7 +669,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         label: "住宅ローン控除を受ける",
         level: "detail",
         kind: "bool",
-        help: "要件を満たさないときは外します（細かい要件〔床面積・所得〕は持たないので、外れるときはここで）",
+        help: "床面積・所得などの要件を満たさないときは外します",
         get: (w) => ({ value: hsOf(w)?.creditDisabled !== true }),
         set: (w, v) =>
           edit(w, (x) => {
@@ -689,7 +689,7 @@ function creditFields(wh: WorkingHousehold, d: Debt, k: string): FieldDef[] {
         level: creditActive(wh.request.input.household, hs, wh.request.input.baseMonth) ? "simple" : "detail",
         kind: "select",
         options: PROPERTY_TYPES,
-        help: "わからなければ控えめな既定（新築は省エネ基準適合住宅、中古はその他の住宅）のままにします",
+        help: "分からなければ、そのままで構いません（控除が少なめに出る種類〔新築は省エネ基準適合住宅、中古はその他の住宅〕で計算します）",
         get: (w) => ({ value: hsOf(w)?.propertyType ?? null, assumed: mark(w), warn: creditWarn(w.request.input.household, hsOf(w)) }),
         set: (w, v) => edit(w, (x) => void (x.propertyType = v as DebtHousing["propertyType"])),
       }),
@@ -833,7 +833,7 @@ function balanceField(wh: WorkingHousehold, d: Debt, k: string, level: "simple" 
     find,
     path: ["balance"],
     optional: mode !== "balance",
-    help: mode === "balance" ? "年末残高証明書・返済予定表の残高。時点は「残高の時点」（空欄なら計算の基準の月）" : "返済予定表の残高。空欄なら借入額と金利から計算します",
+    help: mode === "balance" ? "年末残高証明書・返済予定表の残高。時点は「残高の時点」（空欄なら今月）" : "返済予定表の残高。空欄なら借入額と金利から計算します",
   });
   if (mode !== "balance") return inner;
   return field({

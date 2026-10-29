@@ -159,7 +159,7 @@ describe("辞め方・失業給付・高年齢雇用継続給付の欄", () => {
     // 再雇用の期間: 64歳で辞めて働かないので受け取る。60〜64歳で働くので継続給付も受け取る（推定）
     expect(post).toMatchObject({ unemploymentClaim: true, elderlyContinuationClaim: true });
     expect(continuationApplies(wh.request.input.household, post)).toBe(true);
-    expect(fieldOf(wh, `work/period/${post.id}/unemploymentClaim`).get(wh)).toMatchObject({ value: "auto", hint: "推定: 受け取る" });
+    expect(fieldOf(wh, `work/period/${post.id}/unemploymentClaim`).get(wh)).toMatchObject({ value: "auto", hint: "目安: 受け取る" });
     expect(fieldStatus(fieldOf(wh, `work/period/${post.id}/unemploymentClaim`), wh).status).toBe("estimated");
     expect(rowTotal(wh.request, "cf.income.benefit.unemployment")).toBeGreaterThan(0);
     // 定年後は働かない: 定年の期間の後に働かないので、推定は受け取るに入れ直る

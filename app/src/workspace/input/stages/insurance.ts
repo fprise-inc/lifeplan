@@ -539,7 +539,7 @@ function contractGroups(wh: WorkingHousehold, c: InsuranceContract, i: number): 
       key: `${k}/toEstimate`,
       label: "円の目安の形に直す",
       level: "simple",
-      title: "積立金を前提の利回りで伸ばさず、入れた円の目安の額だけで計算します（資産クラス・積立に回らない割合の値は残します）",
+      title: "積立金を運用で増やさず、入れた円の目安の額だけで計算します",
       run: (w) => mutateC(w, (_h, x) => void (x.simple = { ...(x.simple ?? {}), estimate: true })),
     });
   const groups: GroupDef[] = [
@@ -633,7 +633,7 @@ function beneficiaryField(wh: WorkingHousehold, c: InsuranceContract, find: Find
     options: [{ value: "", label: "省略（配偶者、いなければ子）" }, ...memberOptions(wh, inHousehold), ...EXTERNAL],
     optional: true,
     ...(multi ? { readOnly: "受取人が複数（割合つき）の契約です。証券どおりの割合のまま計算します" } : {}),
-    help: "相続税の死亡保険金の非課税枠と税の区分に効きます",
+    help: "保険金にかかる税（相続税・所得税・贈与税のどれになるか）と、相続税の非課税枠の計算に使います",
     get: (w) => {
       const x = find(w.request.input.household, w) as InsuranceContract | undefined;
       const b = x?.beneficiaries?.[0];

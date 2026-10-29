@@ -325,7 +325,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
         help: "自治体の保育料表の額が分かれば入れてください。0 なら保育料なし。3歳からの無償化は自動で計算します",
       }),
       plain({ key: `${key}/hours`, item: "goal.education", label: "保育の時間", level: "detail", kind: "select", options: NURSERY_HOURS, find, path: ["hours"], optional: true, fallback: "standard", help: "共働きなどのフルタイムは保育標準時間（11時間まで）、短時間勤務などは保育短時間（8時間まで）" }),
-      plain({ key: `${key}/feeRatio`, item: "goal.education", label: "国の基準に対する自治体の水準", level: "detail", kind: "pct", find, path: ["feeRatio"], optional: true, fallback: "0.8", help: "自動の計算で国の基準の上限に掛ける割合（目安 80%）。多くの自治体は国の基準より低い保育料にしています。自治体の保育料表に合わせて変えられます" }),
+      plain({ key: `${key}/feeRatio`, item: "goal.education", label: "国の基準に対する自治体の水準", level: "detail", kind: "pct", find, path: ["feeRatio"], optional: true, fallback: "0.8", help: "国の基準の保育料に対する、お住まいの自治体の保育料の割合です（目安 80%）。多くの自治体は国の基準より低い保育料にしています。自治体の保育料表に合わせて変えられます" }),
     );
     return fields;
   }
@@ -391,8 +391,8 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
       level: "detail",
       kind: "select",
       options: [{ value: "", label: "学校未定（平均で計算）" }],
-      help: "学校名からの学費の検索は、学校のデータを同梱してから使えます。今は進路の型と統計の平均で計算します",
-      readOnly: "学校のデータを同梱してから選べます",
+      help: "学費は、進路の型と統計の平均で計算します（学校名からの検索はまだありません）",
+      readOnly: "学校名からの検索はまだありません",
       get: (w) => ({ value: "", hint: getPath(find(w.request.input.household, w), ["school"]) !== undefined ? "学費データの行が入っています" : null }),
       set: (w) => w,
     }),
@@ -419,7 +419,7 @@ function stageFields(goalId: string, i: number, s: EducationStage, nurseryStart:
   }
   if (s.stage === "university")
     fields.push({
-      ...plain({ key: `${key}/sciAgri`, item: "goal.education", label: "理工農系", level: "detail", kind: "bool", find, path: ["scienceAgriculture"], optional: true, fallback: false, help: "国の修学支援で、多子世帯でない第IV区分の授業料の減免は理工農系の学部だけが対象です。理系の多くは対象です" }),
+      ...plain({ key: `${key}/sciAgri`, item: "goal.education", label: "理工農系", level: "detail", kind: "bool", find, path: ["scienceAgriculture"], optional: true, fallback: false, help: "国の修学支援（授業料の減免）は、所得が中くらいの世帯（子が3人以上の世帯を除く）では理工農系の学部だけが対象です。理系の多くは対象です" }),
       ...stageAddress(goalId, sid, "scienceAgriculture"),
     });
   return fields;
@@ -814,7 +814,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
     kind: "select",
     options: HIGHER_OPTIONS,
     structural: true,
-    help: "大学・短大・専門学校を選び直すと、通い方・浪人・仕送り・年額の上書きを引き継ぎます。専門学校は統計の目安が無いので、年額を入れてください",
+    help: "選び直しても、通い方・浪人・仕送り・入れた年額はそのまま残ります。専門学校は統計の目安が無いので、年額を入れてください",
     get: (w) => ({ value: (((find(w.request.input.household, w) as Goal | undefined)?.education?.stages ?? []) as EducationStage[]).find((s) => isHigher(s.stage))?.stage ?? "none" }),
     set: (w, v) =>
       mutate(w, (hh) => {
@@ -831,7 +831,7 @@ function childSection(wh: WorkingHousehold, child: Member): SectionDef {
       ...(row?.state === "notApplicable"
         ? { note: "教育費は「該当なし」にしています（段を足すと計算します）" }
         : row?.state === "estimated"
-          ? { note: `進路は${row.estimate?.basis === EDUCATION_BASIS ? `標準の型「${defaultCourseLabel(child, base)}」` : "標準の型"}（推定）で入れています。直すか、このままでよければ「この値にする」を押します` }
+          ? { note: `進路は、ふつうの進み方${row.estimate?.basis === EDUCATION_BASIS ? `（「${defaultCourseLabel(child, base)}」）` : ""}の目安で計算しています。実際の予定に合わせて直せます` }
           : {}),
       level: "simple",
       fields: [

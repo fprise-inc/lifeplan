@@ -266,7 +266,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
       : {
           key: "sav/details",
           title: "口座ごとの詳細",
-          note: "残高の時点・積立の終わり・引き出せない期間・資産の配分など。空欄は推定（残高の時点は計算の基準の月、積立の終わりは退職の年まで）で計算します",
+          note: "残高の時点・積立の終わり・引き出せない期間・資産の配分など。空欄なら、残高は今月の時点、積立は退職の年まで続く形で計算します",
           level: "detail",
           groups: accountsSec.groups
             .filter((g) => !g.key.startsWith("sav/period") && !g.key.endsWith("/addMix") && !/\/mix\/\d+$/.test(g.key) && !(h.accounts ?? []).some((a) => a.kind === "pooled" && g.key === `sav/${a.id}`))
@@ -343,7 +343,7 @@ export function SavingsPanel({ wh, level, onEdit }: SavingsPanelProps) {
           <h3>
             口座ごとの残高・積立額{method === "accounts" ? "・利回り" : ""}
             <Help label="口座ごとの残高・積立額">
-              残高は今の時価。{method === "accounts" ? "利回りは年の見込みで、運用の費用（信託報酬など）を引いた後の利回りを入れます（詳細で運用の費用を入れたときは、費用を引く前の利回り。空欄は前提条件の利回り）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。
+              残高は今の時価。{method === "accounts" ? "利回りは1年あたりの見込みを、信託報酬などの費用を引いた後で入れます。空欄なら、前提条件の目安の利回りで計算します（費用を別に入れる形は詳細で）。" : "運用する口座の利回りは、下の資産の割合から計算します。"}年齢で積立額を変えるときは「＋期間を追加」。
             </Help>
           </h3>
           <AccountsTable wh={wh} level={level} method={method} stopAge={stopAge} editAcc={editAcc} editField={editField} find={find} fields={fields} onEdit={onEdit} {...(moreOf !== undefined ? { moreOf } : {})} />
@@ -895,7 +895,7 @@ function AllocationSection({ wh, onEdit }: { wh: WorkingHousehold; onEdit: (w: W
       <section class="sv-sec" aria-label="資産の種類ごとの割合">
         <h3>
           資産の種類ごとの割合
-          <Help label="資産の種類ごとの割合">運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の割合です。預金は現金のまま。期待リターンと値動きの大きさは、FPが根拠を持って入れる値です（空欄は事務所の標準値。いまは仮の値）。商品は選ばず、資産の種類で入れます。</Help>
+          <Help label="資産の種類ごとの割合">運用する口座（NISA・iDeCo・企業型DC・課税口座）に共通の、資産の種類ごとの割合です。預金は現金のまま。商品は選ばず、資産の種類で入れます。期待リターンと値動きの大きさの空欄は、事務所の標準の値で計算します。</Help>
         </h3>
         <div class="sv-tw">
           <table class="sv-cls">
