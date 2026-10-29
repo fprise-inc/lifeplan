@@ -514,6 +514,8 @@ h2 .ih-st { font-size: 0.8rem; }
 .pin-btn { font-size: 0.78rem; font-weight: 400; margin-left: auto; }
 .ip-inherit { grid-column: 1 / -1; margin-top: 6px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--base-bg); font-size: 0.86rem; }
 .ip-inherit p { margin: 0 0 2px; }
+/* 相続・贈与のパネルでは入れる区画の下に置く（0060 の追記） */
+.ip-body .ip-inherit { margin-top: 14px; }
 .ip-inherit ul { margin: 0; padding-left: 1.1em; }
 /* 保険のカードの保障の見え方（0055） */
 .ins-ov h4 { margin: 8px 0 2px; font-size: 0.9rem; }
@@ -553,6 +555,9 @@ html.big .ipanel { width: min(1000px, calc(100vw - 32px)); }
 .ip-thumb img { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; display: block; }
 .ip-head h2 { margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
 .ip-tools { display: flex; align-items: center; gap: 10px; align-self: start; }
+/* 標準／詳細の切り替えのすぐ左の「?」（見出しの「?」と同じ大きさ。0077 の追記） */
+.ip-tools > .help { margin-right: -4px; }
+.ip-tools .help-btn { font-size: 0.78rem; }
 .ip-lead { margin: 0; color: var(--ink-2); font-size: 0.88rem; grid-column: 2 / 4; }
 .ip-body { flex: 1; overflow-y: auto; padding: 4px 18px 20px; overscroll-behavior: contain; }
 .ip-foot { flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--line); background: #fff; box-shadow: 0 -6px 16px rgba(20, 30, 50, 0.06); }

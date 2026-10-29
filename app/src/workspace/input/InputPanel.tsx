@@ -15,6 +15,7 @@ import { withRefreshedEstimates } from "./estimates.ts";
 import { withProvisionalHousing } from "./housingCredit.ts";
 import type { WorkingHousehold } from "./household.ts";
 import { Help } from "../../presentation/Help.tsx";
+import { LEVEL_HELP_COMMON, levelDiffLine } from "./levelHelp.ts";
 import { ILLUSTRATIONS } from "./illustrations.ts";
 import { isPinned, itemOf, itemStage, pinOfGroup, saveItem, togglePin } from "./items.ts";
 import { inheritanceSummary, inheritanceView, legacyLine, useInheritanceEstimate } from "./inheritanceLine.ts";
@@ -67,6 +68,12 @@ export interface PanelPlan {
 const NO_LINKS: Record<string, SectionLink> = {};
 
 const FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+
+/**
+ * 開いた直後に移る先（上から順に、最初に見つかった物）。説明の「?」（data-help-btn）は選ばない:
+ * 区画の見出しの「?」が最初のボタンのカードで、開いただけで説明が出ていた（0077 の追記）
+ */
+export const PANEL_FIRST_FOCUS: readonly string[] = [".ip-body [data-autofocus]", ".ip-body input, .ip-body select", ".ip-body button:not(.danger):not([data-help-btn])", ".x-btn"];
 
 export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, onClose, computeOne, onStatement, focusKey, plan, groupOpen }: InputPanelProps) {
   const [draft, setDraft] = useState<WorkingHousehold>(initialDraft ?? wh);
@@ -218,7 +225,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
     return { "living/main": link, "living/none": link, "money/living/out": link };
   }, [itemId, onStatement, dirty]);
 
-  // 開いた直後: 最初の欄（無ければ閉じるボタン）に移る。確かめの一覧から来たときは、その欄に移る。背景はスクロールさせない
+  // 開いた直後: 最初の欄（無ければ最初のボタン、それも無ければ閉じるボタン）に移る。説明の「?」には移らない（PANEL_FIRST_FOCUS）。確かめの一覧から来たときは、その欄に移る。背景はスクロールさせない
   // （欄に移るだけでは値も状態も変えない。0041）
   useEffect(() => {
     const el = panel.current;
@@ -230,7 +237,7 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
       document.documentElement.classList.add("panel-open");
       return () => document.documentElement.classList.remove("panel-open");
     }
-    const first = el?.querySelector<HTMLElement>(".ip-body [data-autofocus]") ?? el?.querySelector<HTMLElement>(".ip-body input, .ip-body select") ?? el?.querySelector<HTMLElement>(".ip-body button:not(.danger)") ?? el?.querySelector<HTMLElement>(".x-btn");
+    const first = PANEL_FIRST_FOCUS.map((q) => el?.querySelector<HTMLElement>(q)).find((x) => x != null);
     first?.focus({ preventScroll: true });
     document.documentElement.classList.add("panel-open");
     return () => document.documentElement.classList.remove("panel-open");
@@ -326,10 +333,16 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
             <Help label={item.label} id="panel">
               {item.lead !== "" ? <p>{item.lead}</p> : null}
               <p>空欄は統計の目安などで補って計算します（「推定」の印。印を押すと根拠が開きます）。推定の値は欄に灰色で見えています。そのままでよければ、欄の「この値にする」を押すと、その値が欄に入って確定になります（欄に入っただけでは確定になりません）。</p>
-              <p>入れ方の「標準／詳細」は、この項目だけを切り替えます。</p>
             </Help>
           </h2>
           <div class="ip-tools">
+            {/* 標準と詳細の違いは切り替えの左の「?」の中（どのカードも同じ言い回し。levelHelp.ts。0077 の追記） */}
+            <Help label="標準と詳細の違い" id="level">
+              {LEVEL_HELP_COMMON.map((t) => (
+                <p key={t}>{t}</p>
+              ))}
+              <p data-level-diff>{levelDiffLine(stage.id)}</p>
+            </Help>
             <div class="level-switch" role="group" aria-label="入力の細かさ">
               <button type="button" class={level === "simple" ? "on" : ""} aria-pressed={level === "simple"} onClick={() => onLevel("simple")}>
                 標準
@@ -395,51 +408,6 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
               ))}
             </ul>
           ) : null}
-          {itemId === "inheritance" && (inheritanceView(shown, inheritance).points.length > 0 || legacyLine(shown, inheritance) !== null) ? (
-            <div class="ip-inherit" role="note" data-inheritance-line>
-              {legacyLine(shown, inheritance) !== null ? (
-                <p data-legacy-line>
-                  <b>遺したい額</b>: {legacyLine(shown, inheritance)}
-                </p>
-              ) : null}
-              {inheritanceView(shown, inheritance).points.length > 0 ? (
-                <>
-                  <p>
-                    <b>相続税の目安</b>
-                    <Help label="相続税の目安">表示だけです。お金の流れには入れていません。</Help>
-                  </p>
-                  <ul>
-                    {inheritanceView(shown, inheritance).points.map((p) => (
-                      <li key={p.title} data-inheritance-point>
-                        {p.title}: {p.answer}
-                        {p.details.length > 0 || p.cautions.length > 0 ? (
-                          <details>
-                            <summary>内訳</summary>
-                            <ul>
-                              {p.details.map((d) => (
-                                <li key={d}>{d}</li>
-                              ))}
-                              {p.cautions.map((c) => (
-                                <li key={c} class="ip-inherit-caution">
-                                  注意: {c}
-                                </li>
-                              ))}
-                            </ul>
-                          </details>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                  {inheritanceView(shown, inheritance).notIncluded.length > 0 ? (
-                    <p class="ip-inherit-note">
-                      含めていないもの: {inheritanceView(shown, inheritance).notIncluded.join("・")}
-                      <Help label="含めていないもの">額が分かれば、詳細の「相続税の目安の設定」の「税理士などの出した額」で直せます。</Help>
-                    </p>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-          ) : null}
           {/* 入っていない物: 入れ始めた項目は赤い帯で知らせ、まだ入れていない項目は帯を出さず、目安と「該当なし」の操作だけを控えめに（0045 の追記） */}
           {gaps.length > 0 ? (
             <div class={`ip-gaps${quiet ? " quiet" : ""}`} role="note" data-gaps={quiet ? "quiet" : "alert"}>
@@ -498,6 +466,52 @@ export function InputPanel({ wh, itemId, initialDraft, level, onLevel, onSave, o
                   <Section key={s.key} section={s} wh={shown} level={level} onEdit={edit} />
                 ))}
                 {sections.length === 0 ? <p class="in-note">この項目の欄は「詳細」で出ます</p> : null}
+                {/* 相続・贈与: 入れる区画の下に相続税の目安（読むだけ。ほかのカードと同じく、入れる欄を先に出す。0060 の追記） */}
+                {itemId === "inheritance" && (inheritanceView(shown, inheritance).points.length > 0 || legacyLine(shown, inheritance) !== null) ? (
+                  <div class="ip-inherit" role="note" data-inheritance-line>
+                    {legacyLine(shown, inheritance) !== null ? (
+                      <p data-legacy-line>
+                        <b>遺したい額</b>: {legacyLine(shown, inheritance)}
+                      </p>
+                    ) : null}
+                    {inheritanceView(shown, inheritance).points.length > 0 ? (
+                      <>
+                        <p>
+                          <b>相続税の目安</b>
+                          <Help label="相続税の目安">表示だけです。お金の流れには入れていません。</Help>
+                        </p>
+                        <ul>
+                          {inheritanceView(shown, inheritance).points.map((p) => (
+                            <li key={p.title} data-inheritance-point>
+                              {p.title}: {p.answer}
+                              {p.details.length > 0 || p.cautions.length > 0 ? (
+                                <details>
+                                  <summary>内訳</summary>
+                                  <ul>
+                                    {p.details.map((d) => (
+                                      <li key={d}>{d}</li>
+                                    ))}
+                                    {p.cautions.map((c) => (
+                                      <li key={c} class="ip-inherit-caution">
+                                        注意: {c}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </details>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                        {inheritanceView(shown, inheritance).notIncluded.length > 0 ? (
+                          <p class="ip-inherit-note">
+                            含めていないもの: {inheritanceView(shown, inheritance).notIncluded.join("・")}
+                            <Help label="含めていないもの">額が分かれば、詳細の「相続税の目安の設定」の「税理士などの出した額」で直せます。</Help>
+                          </p>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
                 {/* 退職金・企業年金: カードの下に受け取りの並び（読むだけ。0058） */}
                 {itemId === "retirement" ? <RetirementLineup wh={shown} {...(computeOne !== undefined ? { computeOne } : {})} /> : null}
                 {/* 前提条件: 前提と推定の一覧（確かめた記録はプランごと。値は変えないので、プランを直していても差分にしない。0070） */}
