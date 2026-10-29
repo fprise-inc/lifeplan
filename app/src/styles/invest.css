@@ -58,7 +58,7 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-st-to { min-width: 4.6em; font-weight: 700; }
 .sv-st-del { border: 0; background: none; font-size: 1rem; cursor: pointer; color: var(--ink-2); padding: 2px 6px; }
 .sv-st-add { border: 0; background: none; color: var(--prop); font-weight: 700; font-size: 0.82rem; cursor: pointer; padding: 2px 0; text-decoration: underline; text-underline-offset: 2px; }
-.sv-add { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.sv-add { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; align-items: center; }
 .sv-est { display: inline-block; font-size: 0.75rem; font-weight: 700; color: var(--est-ink); background: var(--est-bg); border: 1.5px solid var(--est-band); border-radius: 99px; padding: 0 8px; margin-left: 6px; white-space: nowrap; }
 .sv-est::before { content: "! "; }
 .sv-fld { display: grid; grid-template-columns: 12em minmax(0, 1fr); gap: 4px 12px; align-items: center; margin: 10px 0; }
@@ -212,7 +212,6 @@ html.big .ipanel.wide { width: min(1180px, calc(100vw - 32px)); }
 .sv-state.compact { font-size: 0.78rem; }
 .sv-state.compact .fld-ops { justify-content: flex-end; }
 .sv-acc td.l .sv-state.compact .fld-ops { justify-content: flex-start; }
-.sv-more { min-width: 1.6em; text-align: center; }
 .sv-acc .badge { margin-left: 4px; vertical-align: middle; }
 /* お金の行き先: 取り崩す順番（口座ごとの縦の並び） */
 .sv-order.acc { flex-direction: column; flex-wrap: nowrap; align-items: stretch; max-width: 560px; }

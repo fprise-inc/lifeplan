@@ -293,15 +293,17 @@ describe("合計の入れ方の利回りの選び方", () => {
 });
 
 describe("専用の部品の欄の値の状態（0041）", () => {
-  it("口座の残高は4つの操作のうち、わからない・該当なし（残高は省けないので無し）を使える。わからないにしても計算できる", () => {
+  it("口座の残高は推定を持たないので「わからない」「該当なし」を出さない（0041 の 2026-10-29 の追記）。前に入れた「わからない」は読めて、計算でき、「この値にする」で戻せる", () => {
     const wh = open();
     const nisa = acc(wh, "nisa");
     const f = fieldOf(wh, `sav/${nisa.id}/value`);
-    expect(availableOps(f, wh)).toEqual(["unknown"]);
-    const w1 = applyStateOp(wh, f, "unknown");
+    expect(availableOps(f, wh)).toEqual([]);
+    expect(applyStateOp(wh, f, "unknown")).toBe(wh);
+    const w1 = f.boxed!.write(wh, { state: "unknown", origin: { kind: "manual" }, substitute: { value: 2_000_000, state: "estimated", origin: { kind: "auto" }, estimate: { method: "standard", basis: "前に入っていた値を代わりに使う" } } });
     expect(fieldStatus(f, w1).status).toBe("unknown");
-    expect(acc(w1, "nisa").marketValue).toMatchObject({ state: "unknown", substitute: { value: 2_000_000 } });
+    expect(availableOps(f, w1)).toEqual(["confirm"]);
     preview(w1.request);
+    expect(fieldStatus(f, applyStateOp(w1, f, "confirm")).status).toBe("confirmed");
   });
 
   it("欄の書き方は同じ値なら世帯を変えない（入って離れるだけで確定にしない）", () => {
