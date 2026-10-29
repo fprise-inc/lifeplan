@@ -249,6 +249,15 @@ describe("帯を詰める段（見切れさせない）", () => {
     const app = readFileSync(join(APP_DIR, "src/styles/app.css"), "utf-8");
     expect(app).not.toMatch(/\.top\s*\{[^}]*position:\s*(sticky|fixed)/);
   });
+
+  it("CSS: 最後の段では、左の列は世帯のボタンの最小の幅を取り、右の操作は残りの幅で折り返す（幅375pxで世帯のボタンが ↶↷ に重ならない）", () => {
+    const css = readFileSync(join(APP_DIR, "src/styles/header.css"), "utf-8");
+    // 右を max-content のまま取ると、左の列が世帯のボタンの min-width より狭くなり、ボタンが列からはみ出す
+    expect(css).toMatch(/\.top\[data-fit="3"\] \{[^}]*grid-template-columns: minmax\(min-content, 1fr\) minmax\(0, max-content\)/);
+    // 世帯のボタンの中身の長さ（見本の名前など）で左の列を広げない
+    expect(css).toMatch(/\.top\[data-fit="3"\] \.hh-btn \{[^}]*contain: inline-size/);
+    expect(css).toMatch(/\.top\[data-fit="3"\] \.top-r \{[^}]*flex-wrap: wrap/);
+  });
 });
 
 describe("世帯の選択の出方（箱のすぐ下から一覧が下へ伸びる）", () => {

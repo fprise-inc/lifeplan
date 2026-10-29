@@ -17,5 +17,22 @@ entries:
       - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3208.htm", "retrievedAt": "2026-10-28", "sha256": "09ce79ad80a43f5a3244fdce9d04b9da01b852ab5c5ab9e092c3e30fc7569487", "locator": "No.3208 税額の計算", "quote": "税額＝課税長期譲渡所得金額×15％（住民税5％）"}
       - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20261016_508AC0000000002"}
     recordedIn: "2026.15.0"
-    supersededIn: null
+    supersededIn: "2026.15.1"
     approval: {"method": "pendingReview", "paths": 2, "note": "地方税法附則34条。道府県民税2%＋市町村民税3%（指定都市は1%＋4%で合計は同じ）。e-Gov法令API の条文（XML）と国税庁のタックスアンサー（HTML の本文）を読み、値は2つで一致した（照合: claude、2026-10-28）。原本の写しを非公開のリポジトリにまだ置いていないので確認待ち"}
+  - rev: 2
+    appliesFrom: "2020-01-01"
+    appliesTo: null
+    enforcedOn: "2018-01-01"
+    status: enacted
+    jurisdiction: "national"
+    conditions: []
+    value: "0.05"
+    sources:
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261016_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-29", "sha256": "09c642c443b166292a0e3249fe9e107dd751ff065f74d81194a7755a0bb2af78", "locator": "地方税法 附則第34条第1項（令和8年10月16日の版。道府県民税）", "quote": "の百分の二（当該納税義務者が指定都市の区域内に住所を有する場合には、百分の一）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20261016_508AC0000000002?response_format=xml", "retrievedAt": "2026-10-29", "sha256": "09c642c443b166292a0e3249fe9e107dd751ff065f74d81194a7755a0bb2af78", "locator": "地方税法 附則第34条第4項（令和8年10月16日の版。市町村民税）", "quote": "の百分の三（当該納税義務者が指定都市の区域内に住所を有する場合には、百分の四）"}
+      - {"type": "web", "url": "https://laws.e-gov.go.jp/api/2/law_data/325AC0000000226_20180101_429AC0000000002?response_format=xml", "retrievedAt": "2026-10-29", "sha256": "5faf9130bfe21055488e60eb5bc0d36f94f0334fc1d4d7b7e8ac67f921d0bec0", "locator": "地方税法 附則第34条第1項・第4項（平成30年1月1日の版）", "quote": "の百分の二（当該納税義務者が指定都市の区域内に住所を有する場合には、百分の一）"}
+      - {"type": "web", "url": "https://www.nta.go.jp/taxes/shiraberu/taxanswer/joto/3208.htm", "retrievedAt": "2026-10-29", "sha256": "09ce79ad80a43f5a3244fdce9d04b9da01b852ab5c5ab9e092c3e30fc7569487", "locator": "No.3208 税額の計算", "quote": "税額＝課税長期譲渡所得金額×15％（住民税5％）"}
+      - {"type": "law", "lawNumber": "昭和二十五年法律第二百二十六号", "egovRevisionId": "325AC0000000226_20261016_508AC0000000002"}
+    recordedIn: "2026.15.1"
+    supersededIn: null
+    approval: {"method": "reviewed", "paths": 2, "comparedBy": "claude", "comparedOn": "2026-10-29", "tools": ["e-Gov法令API（条文の XML）", "HTML の本文（公表資料）", "引用と原本の指紋（sha256）の機械照合（非公開の原本の写し）"], "note": "地方税法附則34条1項・4項の道府県民税2%＋市町村民税3%（指定都市は1%＋4%で合計は同じ）と国税庁 No.3208 の住民税5%で一致。施行日は、指定都市の配分を含む現行の文言が e-Gov の改正履歴で最初に現れた版（平成30年1月1日。直前の平成29年12月15日の版には無い）の施行日（それより前から合計は5%）"}

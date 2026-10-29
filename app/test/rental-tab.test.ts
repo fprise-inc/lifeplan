@@ -5,7 +5,7 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { pctText, timesText, type RealEstateAnalysis } from "../../report/src/index.ts";
 import type { Account, EngineRequest, PreviewResult } from "../src/engine/types.ts";
-import { RentalTab } from "../src/presentation/RentalTab.tsx";
+import { RentalTab, yearRowScroll } from "../src/presentation/RentalTab.tsx";
 import type { RentalPropertyViewModel, RentalTotalViewModel } from "../src/presentation/model.ts";
 import { parseHash, TABS, tabsFor } from "../src/workspace/App.tsx";
 import { confirmedBox, fromRequest, mutate, type WorkingHousehold } from "../src/workspace/input/household.ts";
@@ -132,6 +132,23 @@ describe("収益不動産のタブ: 物件", () => {
     expect(html).toContain(`data-year="${p3.deadCross}" data-dead-cross>`);
     // 物件が1件なら見るものの切り替えを出さない
     expect(html).not.toContain("data-rental-view");
+  });
+
+  it("選んだ年（#rentalyear・指標の年）の行が表の枠の外なら、その行が枠の真ん中に来るまで枠の中を送る。見えていれば動かさない", () => {
+    // 行の高さ 30・貼り付く見出しの行 30・枠の高さ 480
+    expect(yearRowScroll(30, 30, 30, 0, 480)).toBeNull(); // 最初の行
+    expect(yearRowScroll(450, 30, 30, 0, 480)).toBeNull(); // 枠の下の端にちょうど入る
+    // 後ろの年（枠の下に隠れている）: 行の上端−見出し−（見える高さ−行の高さ）÷2
+    expect(yearRowScroll(1230, 30, 30, 0, 480)).toBe(1230 - 30 - (480 - 30 - 30) / 2);
+    // 送った後に前の年を選んで、見出しの下に隠れている
+    expect(yearRowScroll(600, 30, 30, 600, 480)).toBe(600 - 30 - 210);
+    // 頭の近くの行は 0 より前に送らない
+    expect(yearRowScroll(60, 30, 30, 500, 480)).toBe(0);
+    // 表の描き方: 年ごとの表は送り量を測る枠（.rt-years）の中で、行に年の印がある
+    const req = modelHousehold("dualAssetsTwoKids");
+    const html = renderToString(h(RentalTab, { model: modelOf(req, preview(req), ui(null, 2040)), band: null, onView: () => {}, onYear: () => {} }));
+    expect(html).toMatch(/class="rt-scroll rt-years"/);
+    expect(html).toMatch(/<tr class="sel"[^>]*data-year="2040"/);
   });
 
   it("大きな修繕を入れた物件は列を出す", () => {
