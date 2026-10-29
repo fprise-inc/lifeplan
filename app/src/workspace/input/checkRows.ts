@@ -224,52 +224,53 @@ export function checkList(wh: WorkingHousehold, notices: readonly NoticeRow[] = 
   items.forEach((item) => {
     const stage = itemStage(wh, item.id);
     if (stage === null) return;
-    for (const section of stage.sections)
-      for (const group of section.groups)
-        for (const f of group.fields) {
-          if (f.readOnly !== undefined) continue;
-          const a = fieldAddress(f, wh);
-          const id = a !== null ? JSON.stringify(a) : `key:${f.key}`;
-          if (seen.has(id)) continue;
-          seen.add(id);
-          const s = fieldStatus(f, wh);
-          const level: Level = section.level === "detail" || group.level === "detail" || f.level === "detail" ? "detail" : "simple";
-          const st = f.get(wh);
-          const meta = valueMeta(f, wh);
-          const t = a?.target;
-          const holder = t === undefined ? null : "object" in t ? t.object : "member" in t ? t.member : null;
-          const value = s.status === "missing" || s.status === "notApplicable" ? null : st.value === null || st.value === undefined ? null : fieldValueText(f, st.value, wh);
-          const base = { card: item.id, cardLabel: item.label, label: labelOf(group.title ?? section.title, f), fieldKey: f.key, level, value, origin: meta.origin, certainty: meta.certainty, holder };
-          if (s.status === "missing") rows.push({ ...base, id: `field:${f.key}`, kind: "missing", detail: s.basis ?? "空欄（0円で計算しています）", impact: 0, actions: [] });
-          else if (s.status === "unknown") rows.push({ ...base, id: `field:${f.key}`, kind: "unknown", detail: s.basis !== null ? `代わりの値: ${s.basis}` : "代わりの値で計算しています", impact: impactOf(f, wh), actions: [] });
-          else if (s.status === "estimated" && officeNewer(f, wh) !== null) {
-            // 事務所の既定値が、この世帯の推定の値と違う（作った後に事務所の値を変えた・事務所の値を決める前の世帯。0073）。値は変えない
-            const v = officeNewer(f, wh) as string;
-            rows.push({
-              ...base,
-              id: `field:${f.key}`,
-              kind: "notice",
-              detail: `事務所の新しい値があります（${pctText(v)}）。この世帯は今の推定の値（${s.basis ?? "推定"}）で計算しています`,
-              impact: 0,
-              actions: [{ key: "office", label: "事務所の値にする", title: "推定の印のまま、事務所の今の値にします", run: (w) => withOfficeValue(w, f, v) }],
-            });
-          } else if (s.status === "estimated")
-            rows.push({ ...base, id: `field:${f.key}`, kind: "estimated", detail: s.basis, impact: impactOf(f, wh), actions: availableOps(f, wh, s).includes("confirm") ? [{ key: "confirm", label: "この値にする", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] : [] });
-          else if (isPresetCandidate(f, wh, s)) {
-            const what = PRESET_VALUES[f.item as string]?.what ?? "目安";
-            const std = asStandard(f, what);
-            rows.push({
-              ...base,
-              id: `field:${f.key}`,
-              kind: "notice",
-              detail: `目安のボタンと同じ確定の値です（${what}）。この世帯の値か確かめてください`,
-              impact: 0,
-              actions: [{ key: "confirm", label: "この値にする", title: "確かめた値として確定にします", run: (w) => explicitConfirm(w, f, what) }, ...(std !== null ? [std] : [])],
-            });
-          } else if (st.warn != null) rows.push({ ...base, id: `field:${f.key}`, kind: "notice", detail: st.warn, impact: 0, actions: st.warnFix != null ? [{ key: "fix", label: st.warnFix.label, run: st.warnFix.run }] : [] });
-          else if (s.status === "confirmed" && (meta.certainty === "declared" || meta.certainty === "rough") && value !== null)
-            rows.push({ ...base, id: `field:${f.key}`, kind: "certainty", detail: `${CERTAINTY_LABELS[meta.certainty]}の値です${meta.origin !== null && meta.origin !== "manual" ? `（${ORIGIN_LABELS[meta.origin]}）` : ""}。書類で確かめるときの候補`, impact: impactOf(f, wh), actions: [] });
-        }
+    // 同じ当て先の欄が標準と詳細の両方にあるときは、標準の欄を行にする（どちらの入れ方でも出る欄に移れる。今の働き方と働き方 1・2…など）
+    const entries = stage.sections.flatMap((section) => section.groups.flatMap((group) => group.fields.map((f) => ({ section, group, f }))));
+    const isDetail = (e: (typeof entries)[number]) => e.section.level === "detail" || e.group.level === "detail" || e.f.level === "detail";
+    for (const { section, group, f } of [...entries.filter((e) => !isDetail(e)), ...entries.filter(isDetail)]) {
+      if (f.readOnly !== undefined) continue;
+      const a = fieldAddress(f, wh);
+      const id = a !== null ? JSON.stringify(a) : `key:${f.key}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const s = fieldStatus(f, wh);
+      const level: Level = section.level === "detail" || group.level === "detail" || f.level === "detail" ? "detail" : "simple";
+      const st = f.get(wh);
+      const meta = valueMeta(f, wh);
+      const t = a?.target;
+      const holder = t === undefined ? null : "object" in t ? t.object : "member" in t ? t.member : null;
+      const value = s.status === "missing" || s.status === "notApplicable" ? null : st.value === null || st.value === undefined ? null : fieldValueText(f, st.value, wh);
+      const base = { card: item.id, cardLabel: item.label, label: labelOf(group.title ?? section.title, f), fieldKey: f.key, level, value, origin: meta.origin, certainty: meta.certainty, holder };
+      if (s.status === "missing") rows.push({ ...base, id: `field:${f.key}`, kind: "missing", detail: s.basis ?? "空欄（0円で計算しています）", impact: 0, actions: [] });
+      else if (s.status === "unknown") rows.push({ ...base, id: `field:${f.key}`, kind: "unknown", detail: s.basis !== null ? `代わりの値: ${s.basis}` : "代わりの値で計算しています", impact: impactOf(f, wh), actions: [] });
+      else if (s.status === "estimated" && officeNewer(f, wh) !== null) {
+        // 事務所の既定値が、この世帯の推定の値と違う（作った後に事務所の値を変えた・事務所の値を決める前の世帯。0073）。値は変えない
+        const v = officeNewer(f, wh) as string;
+        rows.push({
+          ...base,
+          id: `field:${f.key}`,
+          kind: "notice",
+          detail: `事務所の新しい値があります（${pctText(v)}）。この世帯は今の推定の値（${s.basis ?? "推定"}）で計算しています`,
+          impact: 0,
+          actions: [{ key: "office", label: "事務所の値にする", title: "推定の印のまま、事務所の今の値にします", run: (w) => withOfficeValue(w, f, v) }],
+        });
+      } else if (s.status === "estimated")
+        rows.push({ ...base, id: `field:${f.key}`, kind: "estimated", detail: s.basis, impact: impactOf(f, wh), actions: availableOps(f, wh, s).includes("confirm") ? [{ key: "confirm", label: "この値にする", title: "この値のまま確定にします", run: (w) => applyStateOp(w, f, "confirm") }] : [] });
+      else if (isPresetCandidate(f, wh, s)) {
+        const what = PRESET_VALUES[f.item as string]?.what ?? "目安";
+        const std = asStandard(f, what);
+        rows.push({
+          ...base,
+          id: `field:${f.key}`,
+          kind: "notice",
+          detail: `目安のボタンと同じ確定の値です（${what}）。この世帯の値か確かめてください`,
+          impact: 0,
+          actions: [{ key: "confirm", label: "この値にする", title: "確かめた値として確定にします", run: (w) => explicitConfirm(w, f, what) }, ...(std !== null ? [std] : [])],
+        });
+      } else if (st.warn != null) rows.push({ ...base, id: `field:${f.key}`, kind: "notice", detail: st.warn, impact: 0, actions: st.warnFix != null ? [{ key: "fix", label: st.warnFix.label, run: st.warnFix.run }] : [] });
+      else if (s.status === "confirmed" && (meta.certainty === "declared" || meta.certainty === "rough") && value !== null)
+        rows.push({ ...base, id: `field:${f.key}`, kind: "certainty", detail: `${CERTAINTY_LABELS[meta.certainty]}の値です${meta.origin !== null && meta.origin !== "manual" ? `（${ORIGIN_LABELS[meta.origin]}）` : ""}。書類で確かめるときの候補`, impact: impactOf(f, wh), actions: [] });
+    }
   });
   const order = new Map(items.map((i, n) => [i.id, n]));
   return rows.sort((x, y) => {
