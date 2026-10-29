@@ -51,6 +51,49 @@ export interface Summary {
   note?: string;
 }
 
+/** 要約の文字の一片（small は小さく見せる pre・unit の部分） */
+export interface SummaryPiece {
+  text: string;
+  small: boolean;
+}
+
+/**
+ * 要約を「・」の区切りでまとまりに分ける（ホームで、まとまりの途中では折り返さず、区切りでだけ改行するため。0045 の 2026-10-29 の追記）。
+ * 「・」は前のまとまりの終わりに付ける。かっこ（「（」〜「）」）はひとまとまりにして、その前で分ける（かっこの中の「・」では分けない）。各まとまりは見た目の違う一片の並び
+ */
+export function summarySegments(s: Summary): SummaryPiece[][] {
+  const pieces: SummaryPiece[] = [
+    ...(s.pre !== undefined ? [{ text: s.pre, small: true }] : []),
+    { text: s.main, small: false },
+    ...(s.unit !== undefined ? [{ text: s.unit, small: true }] : []),
+  ];
+  const segs: SummaryPiece[][] = [[]];
+  let depth = 0;
+  for (const p of pieces) {
+    let buf = "";
+    const flush = () => {
+      if (buf !== "") (segs[segs.length - 1] as SummaryPiece[]).push({ text: buf, small: p.small });
+      buf = "";
+    };
+    for (const ch of p.text) {
+      // かっこの始まりの前でも改行できる（「月39.1万円」「（65歳から・推定）」）
+      if ((ch === "（" || ch === "(") && depth === 0) {
+        flush();
+        if ((segs[segs.length - 1] as SummaryPiece[]).length > 0) segs.push([]);
+      }
+      buf += ch;
+      if (ch === "（" || ch === "(") depth++;
+      else if ((ch === "）" || ch === ")") && depth > 0) depth--;
+      else if (ch === "・" && depth === 0) {
+        flush();
+        segs.push([]);
+      }
+    }
+    flush();
+  }
+  return segs.filter((g) => g.length > 0);
+}
+
 export interface InputItem {
   /** カードの ID: 15の項目は段階の ID（family など）、ピンは `added:` で始まる */
   id: string;

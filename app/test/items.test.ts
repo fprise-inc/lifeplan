@@ -29,6 +29,7 @@ import {
   saveItem,
   startedOf,
   statusOf,
+  summarySegments,
   togglePin,
   type CardLayout,
   type InputItem,
@@ -732,5 +733,31 @@ describe("要約の数字1つ", () => {
     expect(blank.summary).toBeNull();
     expect(sumText(byId(inputItems(open("marketDropAtRetirement")), "housing"))).toBe("家賃 月24万円");
     expect(sumText(byId(inputItems(open("deferral")), "pension"))).toMatch(/^月[\d.]+万円（70歳から）$/);
+  });
+});
+
+describe("ホームの要約は「・」の区切りでだけ改行する（0045 の 2026-10-29 の追記）", () => {
+  const texts = (s: Parameters<typeof summarySegments>[0]) => summarySegments(s).map((g) => g.map((p) => p.text).join(""));
+  it("「・」で区切ったまとまりに分け、「・」は前のまとまりに付ける。見た目の違う一片（数字と単位）は保つ", () => {
+    expect(texts({ pre: "受け取る予定 ", main: "3,000", unit: "万円・贈与 年110万円" })).toEqual(["受け取る予定 3,000万円・", "贈与 年110万円"]);
+    expect(texts({ main: "1", unit: "台・維持費 年36万円" })).toEqual(["1台・", "維持費 年36万円"]);
+    expect(summarySegments({ main: "1", unit: "台・維持費 年36万円" })).toEqual([
+      [
+        { text: "1", small: false },
+        { text: "台・", small: true },
+      ],
+      [{ text: "維持費 年36万円", small: true }],
+    ]);
+    // 区切りの無い要約は1つのまとまり。かっこはひとまとまりにしてその前で分け、かっこの中の「・」では分けない
+    expect(texts({ pre: "年収 ", main: "720", unit: "万円" })).toEqual(["年収 720万円"]);
+    expect(texts({ main: "2", unit: "件（受け取る予定・あげる贈与）" })).toEqual(["2件", "（受け取る予定・あげる贈与）"]);
+    expect(texts({ pre: "夫婦で月", main: "39.1", unit: "万円（65歳から・推定）" })).toEqual(["夫婦で月39.1万円", "（65歳から・推定）"]);
+    expect(texts({ main: "3", unit: "件の介護・世帯の外 1人" })).toEqual(["3件の介護・", "世帯の外 1人"]);
+  });
+  it("ホームの入力項目の要約は、まとまりごとの要素の間に改行できる位置を置く", () => {
+    const wh = open("unexplainedSpending");
+    expect(sumText(byId(inputItems(wh), "car"))).toBe("1台・維持費 年18.6万円");
+    const html = renderToString(h(InputView, { wh, onSave: () => undefined, level: "simple" }));
+    expect(html).toMatch(/<span class="sum-seg">1<small>台・<\/small><\/span><wbr\/?><span class="sum-seg"><small>維持費 年18.6万円<\/small><\/span>/);
   });
 });
