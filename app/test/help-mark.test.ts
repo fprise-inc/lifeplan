@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import { Help, HELP_GLYPH, HELP_LEAVE_MS, helpHoverGate, helpPlace } from "../src/presentation/Help.tsx";
+import { Help, HELP_GLYPH, HELP_LEAVE_MS, helpHoverGate, helpPlace, pressPins } from "../src/presentation/Help.tsx";
 import { APP_DIR } from "../scripts/lib.ts";
 
 const CSS = readFileSync(join(APP_DIR, "src", "styles", "app.css"), "utf8");
@@ -103,12 +103,22 @@ describe("「?」から説明の箱へ動かす間は閉じない", () => {
     t.tick(HELP_LEAVE_MS);
     expect(seen).toEqual(["enter", "leave"]);
   });
-  it("待つ間は、「?」と箱のすき間を越えるのに足りる長さ。すき間は見えない帯でも埋める", () => {
-    expect(HELP_LEAVE_MS).toBeGreaterThanOrEqual(200);
-    expect(HELP_LEAVE_MS).toBeLessThanOrEqual(500);
+  it("外したらすぐ閉じる（待つのは「?」と箱の間を移る短い猶予だけ。0.1〜0.2 秒）。すき間は見えない帯で埋める", () => {
+    expect(HELP_LEAVE_MS).toBeGreaterThanOrEqual(100);
+    expect(HELP_LEAVE_MS).toBeLessThanOrEqual(200);
     expect(CSS).toMatch(/\.help-pop::before \{ content: ""; position: absolute; left: 0; right: 0; height: 10px; \}/);
     expect(CSS).toMatch(/\.help-pop\[data-side="below"\]::before \{ top: -10px; \}/);
     expect(CSS).toMatch(/\.help-pop\[data-side="above"\]::before \{ bottom: -10px; \}/);
+  });
+});
+
+describe("押して開いたままにするのはタッチ・キーボードだけ（0077 の 2026-10-29 の追記）", () => {
+  it("マウスで押したときは開いたままにしない（カーソルを外せばすぐ閉じる）。タッチ・ペン・キーボード（detail が 0）は開いたまま", () => {
+    expect(pressPins("mouse", 1)).toBe(false);
+    expect(pressPins("touch", 1)).toBe(true);
+    expect(pressPins("pen", 1)).toBe(true);
+    expect(pressPins(null, 0)).toBe(true);
+    expect(pressPins("mouse", 0)).toBe(true);
   });
 });
 
