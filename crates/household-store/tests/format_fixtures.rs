@@ -783,6 +783,35 @@ fn every_format_version_has_a_fixture_and_opens() {
                 "{v}: 0.36 より前の版に就業不能・収入が減るの配偶者の働き方は無い"
             );
         }
+        // 0.37 から（0086）: 入るお金の行の表の行「雑所得」と、事業所得として扱う副業の行
+        let rows: Vec<(String, String)> = now["household"]["request"]["input"]["household"]
+            ["incomeFlows"]
+            .as_array()
+            .map(|l| {
+                l.iter()
+                    .filter(|f| f["kind"] == "sideJob")
+                    .map(|f| {
+                        (
+                            f["row"].as_str().unwrap_or("").to_string(),
+                            f["taxTreatment"].as_str().unwrap_or("").to_string(),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let misc_row = rows
+            .iter()
+            .any(|(r, _)| r == "cf.income.other.miscellaneous");
+        if migrate::parse(v).unwrap() >= (0, 37) {
+            assert!(misc_row, "{v}: 表の行「雑所得」の副業の行");
+            assert!(
+                rows.iter()
+                    .any(|(r, t)| r == "cf.income.business" && t == "business"),
+                "{v}: 事業所得として扱う副業の行"
+            );
+        } else {
+            assert!(!misc_row, "{v}: 0.37 より前の版に表の行「雑所得」は無い");
+        }
         // 鍵が違えば開かない
         let mut wrong = key;
         wrong[0] ^= 1;

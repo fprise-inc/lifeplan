@@ -243,6 +243,12 @@ entries:
     since: draft
     aliases: []
     replacedBy: null
+  - id: cf.income.other.miscellaneous
+    status: active
+    label: "雑所得"
+    since: draft
+    aliases: []
+    replacedBy: null
   - id: cf.income.other.scholarship
     status: active
     label: "奨学金の貸与・教育ローンの借入"

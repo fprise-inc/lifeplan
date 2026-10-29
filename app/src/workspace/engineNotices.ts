@@ -81,6 +81,7 @@ const MESSAGES: Readonly<Record<string, Msg>> = {
   "N_NOT_DEDUCTIBLE|advisoryFee": { kind: "outside", text: "FP顧問料は、所得税・住民税の控除にしていません（家計の支出として数えています）" },
   "N_LIMIT_APPLIED|ideco.contributionLimit": { kind: "outside", text: "iDeCo の掛金は、上限を超えた分を除いて計算しています", card: "savings" },
   "N_LIMIT_APPLIED|realEstate.lodging.days": { kind: "outside", text: "住宅宿泊事業（民泊）の営業日数は年180日までなので、180日で計算しています", card: "rental" },
+  "N_LIMIT_APPLIED|income.miscellaneousLoss": { kind: "outside", text: "雑所得（副業・売電・個人年金など。公的年金を除く）の赤字は、ほかの雑所得と公的年金からだけ引き、給与などほかの所得からは引けないので、引ききれない分は0円として計算しています（副業を事業として営んでいるなら、所得の区分を事業所得にすると赤字を引けます）", card: "work" },
   "N_LIMIT_APPLIED|taxReturn.blueDeduction": { kind: "outside", text: "不動産所得が事業的規模の目安に当たらず事業所得も無い年は、青色申告特別控除の55万円・65万円を使えないので、10万円で計算しています", card: "rental" },
   "N_LIMIT_APPLIED|nisa.annualLimit": { kind: "outside", text: "NISA の投資枠を超える積立は、枠を超えた分を NISA の外（課税口座か預金）に置いて計算しています", card: "savings" },
   "N_LIMIT_APPLIED|pension.deferral.survivorRight": { kind: "outside", text: "繰下げの途中で遺族年金の受給権ができる想定なので、そこで繰下げを止めた額で計算しています", card: "pension" },

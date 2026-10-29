@@ -1923,6 +1923,7 @@
             "cf.income.lumpSum.inheritance",
             "cf.income.other",
             "cf.income.other.sideJob",
+            "cf.income.other.miscellaneous",
             "cf.income.other.insuranceBenefit",
             "cf.income.salary",
             "cf.income.business",

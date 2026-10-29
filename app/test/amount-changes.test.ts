@@ -130,12 +130,15 @@ describe("足した変化の並びと置き場所", () => {
     const button = html.indexOf(`data-choice="in/${id}/addChange"`);
     const likely = html.indexOf(`id="${fieldDomId(`in/${id}/likelihood`)}"`);
     const tax = html.indexOf(`id="${fieldDomId(`in/${id}/tax`)}"`);
+    const cost = html.indexOf(`id="${fieldDomId(`in/${id}/cost`)}"`);
     expect(amount).toBeGreaterThan(0);
     expect(amount).toBeLessThan(change);
     expect(change).toBeLessThan(button);
     expect(button).toBeLessThan(likely);
-    // 課税の扱いなどの詳細のまとまりは、その後のまま
-    expect(likely).toBeLessThan(tax);
+    // 副業の所得の区分は行のまとまりの中（0086）。必要経費などの詳細のまとまりは、その後のまま
+    expect(tax).toBeGreaterThan(0);
+    expect(tax).toBeLessThan(likely);
+    expect(likely).toBeLessThan(cost);
   });
 
   it("標準: 閉じている間は出さず、「▸ 詳しく」を開くと行のまとまりの中に出る（開いた物の印 data-more-of つき）", () => {
